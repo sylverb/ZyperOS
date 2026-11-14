@@ -4,13 +4,14 @@ summary: Each system's BIOS file names, where they go, and which systems run wit
 crumb: BIOS files
 topic: guide
 published: 2026-11-07
-updated: 2026-11-12
+updated: 2026-11-14
 image: gallery
 image_alt: The ZyperOS Gallery home, with animated pixel-art consoles
 related: add-games-gkd-pixel-2, nintendo-ds-gkd-pixel-2, gkd-pixel-2-music-video
 weight: 70
 ---
 <p>Most retro systems run on the GKD Pixel 2 with nothing but the game. A few, mostly the CD consoles, also need the console's own startup code, its BIOS, as a file on the card. With ZyperOS the BIOS files go loose in one folder, <code>Bios/</code>, under the exact names below. This guide lists every system that needs one, and the ones where it is optional.</p>
+<p class="note">These steps cover <strong>ZyperOS 1.0.5</strong>. Check your version in <strong>MENU &gt; About</strong>.</p>
 
 <h2>Where BIOS files go</h2>
 <p>Put them loose in <code>Bios/</code> at the top of the card, not in a folder per system. ZyperOS hands that folder to each emulator, and the emulator asks for a file name inside it. Three exceptions use a folder of their own: the Neo Geo CD, the Dreamcast family and MSX2, as the table says.</p>
@@ -55,9 +56,8 @@ weight: 70
 <h2>Getting them onto the card</h2>
 <p>Copy them with the card in a computer, or open the <strong>BIOS</strong> folder on ZyperOS's File Transfer page in a browser and drop them there. <a href="/blog/add-games-gkd-pixel-2/">The adding games guide</a> shows both ways.</p>
 
+
 <h2>Sources</h2>
 <ol class="sources">
-  <li><a href="https://github.com/tarikbc/ZyperOS#supported-systems">ZyperOS README, Supported systems</a>: the BIOS files paragraph, the Nintendo DS, Saturn, J2ME and arcade notes.</li>
   <li><a href="https://github.com/tarikbc/ZyperOS/blob/main/config/systems.cfg">config/systems.cfg</a>: each disc system's BIOS names.</li>
-  <li><a href="https://github.com/tarikbc/ZyperOS/blob/main/docs/guide.md#installing">The ZyperOS user guide, Installing</a>: BIOS files loose in <code>Bios/</code>, and the TurboGrafx-CD's.</li>
 </ol>

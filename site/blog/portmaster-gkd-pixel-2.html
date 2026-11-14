@@ -4,13 +4,14 @@ summary: Install the official PortMaster from the Ports shelf with one press, ad
 crumb: PortMaster
 topic: guide
 published: 2026-11-07
-updated: 2026-11-13
+updated: 2026-11-14
 image: ports
 image_alt: The ZyperOS Ports shelf with PortMaster's entry, not installed yet, and A to install it
 related: add-games-gkd-pixel-2, nintendo-ds-gkd-pixel-2, best-custom-firmware-gkd-pixel-2
 weight: 50
 ---
 <p>PortMaster brings PC and indie games to Linux handhelds as ports: Stardew Valley, Celeste and many more, each packed with what it needs to run. On the GKD Pixel 2, ZyperOS installs the official PortMaster from its Ports shelf with one press, and runs the ports there. This guide covers installing it, the game files you supply yourself, and what ZyperOS does when a port runs.</p>
+<p class="note">These steps cover <strong>ZyperOS 1.0.5</strong>. Check your version in <strong>MENU &gt; About</strong>.</p>
 
 <h2>What PortMaster is</h2>
 <p>PortMaster is a free app, under the MIT license, that downloads and installs game ports on Linux handhelds. Each port carries its own libraries, so it does not change the system it runs on. Most ports of commercial games are not "ready to run": the port is free, but you supply the game's own files from a copy you bought.</p>
@@ -57,9 +58,10 @@ weight: 50
 <p>If PortMaster closes with an error, ZyperOS says so when it comes back, with the line of PortMaster's log that tells what went wrong, and offers <strong>Reinstall</strong>. <strong>Reinstall PortMaster</strong> is also on PortMaster's details: press <kbd>X</kbd> on its entry on the Ports shelf. It puts a fresh copy of PortMaster's latest stable release on the card. Your ports, their saves, the runtimes and the themes you downloaded stay; only PortMaster's own settings start over.</p>
 <p>A common cause is the handheld turning off while PortMaster was writing one of its own files, which left it cut off. Before each start, ZyperOS now removes a PortMaster list or settings file that a cut-off write left half-written, so PortMaster makes it again instead of closing as it starts.</p>
 
+
 <h2>Sources</h2>
 <ol class="sources">
-  <li><a href="https://github.com/tarikbc/ZyperOS#portmaster">ZyperOS README, PortMaster</a>: the Ports shelf and <code>Roms/Ports</code>; <a href="https://github.com/tarikbc/ZyperOS/blob/main/sd/pixel2/launch.sh">sd/pixel2/launch.sh</a>: how a port runs; <a href="https://github.com/tarikbc/ZyperOS/blob/main/res/portmaster/control.txt">res/portmaster/</a>: ZyperOS's PortMaster files; <a href="https://github.com/tarikbc/ZyperOS/blob/main/tools/from-rogue.sh">tools/from-rogue.sh</a>.</li>
+  <li><a href="https://github.com/tarikbc/ZyperOS/blob/main/sd/pixel2/launch.sh">sd/pixel2/launch.sh</a>: how a port runs; <a href="https://github.com/tarikbc/ZyperOS/blob/main/res/portmaster/control.txt">res/portmaster/</a>: ZyperOS's PortMaster files; <a href="https://github.com/tarikbc/ZyperOS/blob/main/tools/from-rogue.sh">tools/from-rogue.sh</a>.</li>
   <li>ZyperOS: <a href="https://github.com/tarikbc/ZyperOS/blob/main/res/portmaster/pm-install.py">res/portmaster/pm-install.py</a>, the installer, and <a href="https://github.com/tarikbc/ZyperOS/blob/main/plastron/buildroot/board/zyperos/zyperos.config">plastron's ZyperOS configuration</a>: Python 3 and SDL2_mixer for PortMaster.</li>
   <li>PortMaster: <a href="https://github.com/PortsMaster/PortMaster-Website/blob/6c50eb5a47010208d224c84c8f1b4c2df1152c20/content/markdown/faq.markdown">its FAQ</a>, <a href="https://portmaster.games/installation.html">installation page</a>, <a href="https://github.com/PortsMaster/PortMaster-GUI/blob/9ed29285ecbb0610b7c86a0b77d0d9d1c74efd49/LICENSE">license</a>, <a href="https://github.com/PortsMaster/PortMaster-GUI/blob/9ed29285ecbb0610b7c86a0b77d0d9d1c74efd49/PortMaster/pugwash">its app, pugwash</a> (Python 3), <a href="https://github.com/PortsMaster/PortMaster-GUI/releases/tag/2026.06.23-0015">its stable release 2026.06.23-0015</a> and the <code>version.json</code> its releases carry, and <a href="https://github.com/PortsMaster/PortMaster-Info/blob/5687c12f78522b24cf7a002dd63fd633eb06bd61/device_info.json">its device list</a>, read 7 November 2026.</li>
   <li>The ports, in <a href="https://github.com/PortsMaster/PortMaster-New/tree/8f0e6004eaf997ab0a5c4f2ab7b9cce0f5d313e9/ports">PortMaster-New at 8f0e600</a>: <a href="https://github.com/PortsMaster/PortMaster-New/blob/8f0e6004eaf997ab0a5c4f2ab7b9cce0f5d313e9/ports/stardewvalley/README.md">stardewvalley</a>, <a href="https://github.com/PortsMaster/PortMaster-New/blob/8f0e6004eaf997ab0a5c4f2ab7b9cce0f5d313e9/ports/stardewvalleymainline/README.md">stardewvalleymainline</a>, <a href="https://github.com/PortsMaster/PortMaster-New/blob/8f0e6004eaf997ab0a5c4f2ab7b9cce0f5d313e9/ports/celeste/README.md">celeste</a>; and <a href="https://www.stardewvalley.net/compatibility/">Stardew Valley's compatibility page</a>.</li>

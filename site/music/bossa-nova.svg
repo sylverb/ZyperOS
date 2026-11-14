@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#d96843"/>
+  <path d="M68 512V256a188 188 0 01376 0v256" fill="#edc889"/>
+  <path d="M119 512V256a137 137 0 01274 0v256" fill="#d96843"/>
+  <path d="M170 512V256a86 86 0 01172 0v256" fill="#edc889"/>
+  <path d="M221 512V256a35 35 0 0170 0v256" fill="#d96843"/>
+  <circle cx="256" cy="268" r="56" fill="#293c38"/>
+  <circle cx="256" cy="268" r="17" fill="#edc889"/>
+  <circle cx="256" cy="268" r="4" fill="#293c38"/>
+  <text x="32" y="49" fill="#293c38" font-family="sans-serif" font-size="14" letter-spacing="2">JOTH</text>
+  <text x="30" y="112" fill="#293c38" font-family="sans-serif" font-size="55" font-weight="700" letter-spacing="-2">Bossa Nova</text>
+  <rect x="24" y="445" width="217" height="44" fill="#293c38"/>
+  <text x="39" y="472" fill="#edc889" font-family="sans-serif" font-size="12">A few bits. A lot of rhythm.</text>
+</svg>

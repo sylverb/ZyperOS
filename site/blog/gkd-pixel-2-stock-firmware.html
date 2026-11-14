@@ -4,13 +4,14 @@ summary: What the firmware it ships with does and does not do, what a new card c
 crumb: Stock firmware
 topic: compare
 published: 2026-11-07
-updated: 2026-11-13
+updated: 2026-11-14
 image: systems
 image_alt: The ZyperOS Spotlight home, with animated pixel-art consoles
 related: install-custom-firmware-gkd-pixel-2, best-custom-firmware-gkd-pixel-2, zyperos-vs-rogue-os
 weight: 15
 ---
 <p>The GKD Pixel 2 ships with its own firmware on the microSD card in the box. GameKiddy publishes no documentation for it, so the best account is Retro Game Corps' guide from February 2025. This is what that guide found, what changes when you put another system on a card, and how to do it without losing the stock one.</p>
+<p class="note">The ZyperOS features on this page cover version 1.0.5. The <a href="/download/">current download page</a> shows the latest published release.</p>
 
 <h2>What the stock firmware is</h2>
 <p>According to Retro Game Corps, the stock firmware is a fork of ROCKNIX, based on ROCKNIX's build for the Anbernic RG351MP, with extra settings. It starts in GKD's own menu, IUX, which the guide says looks like a reskinned GMenu2x, and it also has EmulationStation as a second launcher, chosen in IUX's settings. The card has two partitions, EMUELEC and ROMS, and ROMS holds a folder for each of more than a hundred systems.</p>
@@ -52,11 +53,11 @@ weight: 15
   </tbody>
 </table>
 </div>
-<p class="meta">A tick means it has it, a cross that it does not, and a dash that no source we read says either way. The stock column is from Retro Game Corps' guide of February 2025.</p>
+<p class="meta">A tick means it has it, a cross that it does not, and a dash that no source I read says either way. The stock column is from Retro Game Corps' guide of February 2025.</p>
 
 <h2>Should you replace it?</h2>
 <p>You do not have to replace anything. On the Pixel 2 the system lives on the card, so a custom firmware goes on a second card, and the stock card stays as it is. Swap the cards and the handheld starts the other system.</p>
-<p>A new card is worth it if the gaps above bother you: box art without a computer, a game that picks up where you stopped, or sending games without taking the card out. Each system fills different gaps; <a href="/blog/best-custom-firmware-gkd-pixel-2/">the comparison of every system for the Pixel 2</a> shows which fills which. ZyperOS covers fewer systems than the stock firmware's hundred-plus folders, so check that yours are among <a href="https://github.com/tarikbc/ZyperOS#supported-systems">its forty-four</a>.</p>
+<p>A new card is worth it if the gaps above bother you: box art without a computer, a game that picks up where you stopped, or sending games without taking the card out. Each system fills different gaps; <a href="/blog/best-custom-firmware-gkd-pixel-2/">the comparison of every system for the Pixel 2</a> shows which fills which. ZyperOS covers fewer systems than the stock firmware's hundred-plus folders, so check that yours are among <a href="/blog/zyperos-guide/">its forty-four</a>.</p>
 
 <h2>Keep the stock card safe</h2>
 <ol>
@@ -68,5 +69,4 @@ weight: 15
 <h2>Sources</h2>
 <ol class="sources">
   <li><a href="https://retrogamecorps.com/2025/02/01/how-to-make-the-gkd-pixel-ii-software-suck-less/">Retro Game Corps, "How to Make the GKD Pixel II Software Suck Less"</a>, published 1 February 2025, read 7 November 2026.</li>
-  <li>ZyperOS: <a href="https://github.com/tarikbc/ZyperOS#readme">the README</a> and its comparison table.</li>
 </ol>

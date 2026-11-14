@@ -1,5 +1,8 @@
 # Launcher screenshots
 
+`eric-reinsmidt.png` is a supplied portrait for the site credits, not a launcher
+capture. It retains the supplied image without edits.
+
 The screenshots in this folder show the current launcher in Beard, the light
 theme: the README and the website show every screen in light. `dark/` holds
 the screens their light-and-dark sections show in Salt & Pepper, the
@@ -53,13 +56,24 @@ clock and battery are fixed preview values.
 
 ## Refresh
 
+Check each image's `source_commit` in `captures.json` before capture. The feature captures
+come from main at `71c6122259150af55603b3a45d326ca486cc693c`, using that
+revision's `tools/readme-shots.py` and native binary. Scraper uses
+`--scraper-page 1`; `--scraper 2` is the old panel. An older checkout can
+produce outdated captures even after a fresh native build.
+
+Run the commands below in a checkout that includes the recorded source
+revision. For a partial refresh, merge only the refreshed image entries
+into `captures.json`, including each image's source commit. Keep the other
+entries and their provenance.
+
 ```sh
 make native
 python3 tools/readme-shots.py --art
 ```
 
 Review `build/readme-shots/light/` and `dark/`. Copy the approved PNGs to this
-folder and `dark/`, and copy `manifest.json` to `captures.json`. Names after
+folder and `dark/`, and merge their `manifest.json` entries into `captures.json`. Names after
 the command take only those shots (`python3 tools/readme-shots.py menu`).
 `--art` fetches what the cache lacks from raw.githubusercontent.com the first
 time (ffmpeg makes the video snaps) and nothing after; `--art-cache` moves

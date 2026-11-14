@@ -4,18 +4,19 @@ summary: What muOS's own device page and releases say about the Pixel 2, beside 
 crumb: ZyperOS vs muOS
 topic: compare
 published: 2026-11-07
-updated: 2026-11-13
+updated: 2026-11-14
 image: tour-sounds
 image_alt: ZyperOS's first start asks for the button sounds: Wood, Glass, Bubble or Off
 related: best-custom-firmware-gkd-pixel-2, zyperos-vs-knulli, zyperos-vs-plumos
 weight: 70
 ---
 <p>muOS, by MustardOS, runs on many handhelds, and its October 2026 release, 2606.0 "Andromeda", has an image for the GKD Pixel 2. It has a guided tour, a web dashboard for files, and video previews. This is muOS beside ZyperOS, from each project's own code, docs and releases as of 7 November 2026, with a dash wherever no source says either way.</p>
+<p class="note">The ZyperOS features on this page cover version 1.0.5. The <a href="/download/">current download page</a> shows the latest published release.</p>
 
 <h2>The short answer</h2>
 <ul>
   <li><strong>Pick muOS</strong> if you want a large catalogue of systems, DraStic and PortMaster included, a web dashboard to manage files over Wi-Fi, a guided tour of each screen, and a media player with live TV and radio.</li>
-  <li><strong>Pick ZyperOS</strong> if you want box art fetched on the handheld, games sent over the USB cable as well as Wi-Fi, a charging screen while off, and a charge limit. ZyperOS 1.0.5 is out, with a card image and ZyperOS Installer.</li>
+  <li><strong>Pick ZyperOS</strong> if you want box art fetched on the handheld, games sent over the USB cable as well as Wi-Fi, a charging screen while off, and a charge limit. The ZyperOS features here cover version 1.0.5. See the <a href="/download/">current download page</a> for the published release.</li>
 </ul>
 
 <h2>Side by side</h2>
@@ -24,7 +25,7 @@ weight: 70
   <thead><tr><td></td><th scope="col" class="us">ZyperOS</th><th scope="col">muOS</th></tr></thead>
   <tbody>
     <tr><th scope="row">License</th><td class="us">GPL-3.0, free</td><td>GPL-3.0 for its frontend and system code</td></tr>
-    <tr><th scope="row">Latest for the Pixel 2</th><td class="us">v1.0.5 (November 2026)</td><td>2606.0 "Andromeda" (October 2026)</td></tr>
+    <tr><th scope="row">Latest for the Pixel 2</th><td class="us"><a href="/download/">current download page</a>; features shown for v1.0.5</td><td>2606.0 "Andromeda" (October 2026)</td></tr>
     <tr><th scope="row">Systems</th><td class="us">44, and Ports</td><td>112 in its catalogue for the Pixel 2, 66 shown by default</td></tr>
     <tr><th scope="row">Kernel</th><td class="us">Linux 7.1.2, with ROCKNIX's patches</td><td>A prebuilt Linux 5.10.209, from the Rockchip kit</td></tr>
     <tr><th scope="row">Games over the network</th><td class="us">[yes: A web page over Wi-Fi or the handheld's own network] Web page</td><td>[yes: The Web Dashboard's file manager, SFTP and Syncthing] Web Dashboard, SFTP, Syncthing</td></tr>
@@ -44,7 +45,7 @@ weight: 70
   </tbody>
 </table>
 </div>
-<p class="meta">A tick means it has it, a cross that it does not, and a dash that no source we read says either way. muOS's system count is from its core catalogue, filtered for the Pixel 2; no source says each was tested on it.</p>
+<p class="meta">A tick means it has it, a cross that it does not, and a dash that no source I read says either way. muOS's system count is from its core catalogue, filtered for the Pixel 2; no source says each was tested on it.</p>
 
 <h2>Installing</h2>
 <p>muOS's Pixel 2 device page links the 2606.0 image from file hosts and a torrent, with a SHA-256 hash; it is not on GitHub. Its install page asks for a quality card of 16 GB or more, recommends Raspberry Pi Imager, and says balenaEtcher is not recommended. ZyperOS's release has a card image you write with any image writer, and ZyperOS Installer, which downloads and writes it for you. <a href="/blog/install-custom-firmware-gkd-pixel-2/">The install guide</a> covers the steps.</p>
@@ -54,7 +55,7 @@ weight: 70
 <p>ZyperOS is tested with the TP-Link TL-WN725N, an RTL8188EUS adapter. Over Wi-Fi, over its own network, or over the USB cable with no Wi-Fi, it opens one web page in any browser. See <a href="/blog/gkd-pixel-2-wifi-adapter/">the Wi-Fi guide</a> and <a href="/blog/add-games-gkd-pixel-2/">adding games</a>.</p>
 
 <h2>Box art, previews and the first start</h2>
-<p>On muOS, box art, previews and descriptions come from catalogue folders on the card, which its Web Dashboard can edit; we found no scraper on the handheld in its sources. Since 2606.0 its catalogue plays video previews. ZyperOS fetches covers on the handheld from libretro, ScreenScraper and SteamGridDB, and turns a cover into its video snap.</p>
+<p>On muOS, box art, previews and descriptions come from catalogue folders on the card, which its Web Dashboard can edit; I found no scraper on the handheld in its sources. Since 2606.0 its catalogue plays video previews. ZyperOS fetches covers on the handheld from libretro, ScreenScraper and SteamGridDB, and turns a cover into its video snap.</p>
 <p>Both help on the first start: muOS with a setup screen and a guided tour that explains each screen the first time you open it, ZyperOS with a tutorial that teaches each button and asks for the theme, the home screen, the sounds and the music.</p>
 
 <h2>DS, PortMaster and media</h2>
@@ -71,6 +72,5 @@ weight: 70
   <li>muos.dev at <a href="https://github.com/MustardOS/mustardos.github.io/tree/104b40106ca8ccd7b2b659f74cdb543668199a5f">104b401</a>: <a href="https://github.com/MustardOS/mustardos.github.io/blob/104b40106ca8ccd7b2b659f74cdb543668199a5f/_data/devices/rk-pixel-2.yml">the Pixel 2 device file</a>, <a href="https://muos.dev/devices/notes">device notes</a>, <a href="https://muos.dev/installation/install">Install</a>, <a href="https://muos.dev/installation/first-steps">First steps</a>, <a href="https://muos.dev/tour/modules/muxwebserv">Web services</a>, <a href="https://github.com/MustardOS/mustardos.github.io/blob/104b40106ca8ccd7b2b659f74cdb543668199a5f/_data/releases/2606_0.yml">2606.0 release notes</a>, <a href="https://github.com/MustardOS/mustardos.github.io/blob/104b40106ca8ccd7b2b659f74cdb543668199a5f/_data/modules/muxmedia.yml">the media player</a>.</li>
   <li>MustardOS internal at <a href="https://github.com/MustardOS/internal/tree/db2a3bd08b718320e9f237ba3d8262373473f042">db2a3bd</a> (2606.0): <a href="https://github.com/MustardOS/internal/blob/db2a3bd08b718320e9f237ba3d8262373473f042/LICENSE">LICENSE</a>, <a href="https://github.com/MustardOS/internal/tree/db2a3bd08b718320e9f237ba3d8262373473f042/device/rk-pixel-2">the Pixel 2 device folder</a> (PortMaster, rumble, network driver, LEDs), <a href="https://github.com/MustardOS/internal/blob/db2a3bd08b718320e9f237ba3d8262373473f042/script/device/rk-pixel-2/led.sh">its LED script</a>, <a href="https://github.com/MustardOS/internal/blob/db2a3bd08b718320e9f237ba3d8262373473f042/device/rk-pixel-2/module/README.md">its kernel notes</a>.</li>
   <li>MustardOS extra at <a href="https://github.com/MustardOS/extra/tree/a9a7984d5cc5d14fd78f45c952e473f7ac5112c8/manifest/core">a9a7984, the core catalogue</a>, and <a href="https://github.com/MustardOS/extra/blob/a9a7984d5cc5d14fd78f45c952e473f7ac5112c8/manifest/core/Nintendo/Nintendo%20DS.json">its Nintendo DS entry</a>.</li>
-  <li>ZyperOS: <a href="https://github.com/tarikbc/ZyperOS#readme">the README</a> and <a href="https://github.com/tarikbc/ZyperOS/blob/main/docs/guide.md">the user guide</a>.</li>
 </ol>
 <p class="meta">Read on 7 November 2026.</p>

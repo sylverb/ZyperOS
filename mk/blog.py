@@ -8,7 +8,7 @@ the page's address, https://zyperos.com/blog/<slug>/. The keys:
     title        the page's title and its heading, 60 characters at most
     description  for search results and shared links, 155 characters at most
     summary      the line under the title on the blog's index and in llms.txt
-    topic        compare or guide
+    topic        compare, guide, or story
     published    the first day it was on the site, YYYY-MM-DD
     updated      the day its facts last changed, YYYY-MM-DD (the sitemap's lastmod)
     image        a screenshot in res/readme/, by name without .png: the index's card
@@ -22,7 +22,8 @@ after it. Every <h2> is a line in On this page. An <img src="/img/NAME.png">
 is a screenshot from res/readme/, light theme only, copied beside the page,
 with its size filled in. In a table cell, [yes: what it has], [no: what it
 lacks] and [unk] become the landing page's tick, cross and dash, the words
-as the mark's tooltip. Every post ends with a Sources section.
+as the mark's tooltip. Comparison posts end with a Sources section.
+First-party guides can explain the product without a research section.
 
 mk/site.sh runs this with --out after it lays out the landing page, so
 Cloudflare Pages builds the blog with it: python3's standard library only, as
@@ -55,7 +56,7 @@ SRC = ROOT / "site" / "blog"
 SHOTS = ROOT / "res" / "readme"
 SITE = "https://zyperos.com"
 AUTHOR = {"@type": "Person", "@id": SITE + "/#tarik", "name": "Tarik Caramanico", "url": "https://github.com/tarikbc"}
-TOPICS = {"compare": ("Comparison", "Comparisons"), "guide": ("Guide", "Guides")}
+TOPICS = {"compare": ("Comparison", "Comparisons"), "guide": ("Guide", "Guides"), "story": ("Story", "Stories")}
 REQUIRED = ("title", "description", "summary", "topic", "published", "updated", "image", "image_alt")
 TITLE_MAX, DESC_MAX = 60, 155
 INDEX_TITLE = "GKD Pixel 2 Guides and Comparisons | ZyperOS Blog"
@@ -64,7 +65,7 @@ INDEX_DESC = ("Guides and firmware comparisons for the GKD Pixel 2: installing, 
 
 TICK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>'
 CROSS = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7L7 17"/></svg>'
-UNKNOWN = "No source we read says either way."
+UNKNOWN = "No source I read says either way."
 
 
 class Fail(Exception):
@@ -81,7 +82,7 @@ def long_day(day):
 
 
 def version(path):
-    """?v= of a file's content: /blog.css and /blog.js keep their names."""
+    """?v= of a file's content; styles, scripts and screenshots keep their names."""
     return hashlib.sha1(path.read_bytes()).hexdigest()[:8]
 
 
@@ -116,7 +117,7 @@ def parse(path):
     if meta["updated"] < meta["published"]:
         raise Fail("%s: updated is before published" % path.name)
     if meta["topic"] not in TOPICS:
-        raise Fail("%s: topic is %s, not compare or guide" % (path.name, meta["topic"]))
+        raise Fail("%s: unknown topic %s" % (path.name, meta["topic"]))
     if len(meta["title"]) > TITLE_MAX:
         raise Fail("%s: the title has %d characters, %d at most" % (path.name, len(meta["title"]), TITLE_MAX))
     if len(meta["description"]) > DESC_MAX:
@@ -210,6 +211,7 @@ def images(body, used):
             extra += ' loading="lazy"'
         if "decoding=" not in tag:
             extra += ' decoding="async"'
+        tag = tag.replace(src.group(0), 'src="/img/%s.png?v=%s"' % (name, version(path)), 1)
         return tag[:-1].rstrip("/").rstrip() + extra + ">"
     return re.sub(r"<img\b[^>]*>", one, body)
 
@@ -278,13 +280,9 @@ def head(title, desc, url, og_type, graph, assets, extra=""):
            cv=assets["css"], jv=assets["js"])
 
 
-def nav():
-    links = [("/#features", "Features"), ("/#compare", "Compare"), ("/#install", "Install"),
-             ("/blog/", "Blog"), ("https://github.com/tarikbc/ZyperOS", "GitHub")]
-    items = "".join('<li><a href="%s"%s>%s</a></li>' % (h, ' aria-current="page"' if t == "Blog" else "", t)
-                    for h, t in links)
-    return ('<nav class="nav in" aria-label="Site">\n  %s\n  <ul>%s</ul>\n</nav>\n'
-            % (lockup("home", "/", eager=True), items))
+def nav(active="Blog", current="page"):
+    # mk/site_header.py renders this same component for every site page.
+    return '<!-- site-header active="%s" current="%s" -->\n' % (active, current)
 
 
 def footer():
@@ -295,10 +293,10 @@ def footer():
     <span class="links">
       <a href="/">Home</a>
       <a href="/blog/">Blog</a>
-      <a href="https://github.com/tarikbc/ZyperOS">GitHub</a>
-      <a href="https://github.com/tarikbc/ZyperOS/blob/main/docs/guide.md">Guide</a>
-      <a href="https://github.com/tarikbc/ZyperOS/blob/main/LICENSE">License</a>
-      <a href="https://github.com/tarikbc/ZyperOS/blob/main/TRADEMARK.md">Trademark</a>
+      <a href="/blog/about-zyperos/">About</a>
+      <a href="/blog/zyperos-guide/">Guide</a>
+      <a href="/blog/zyperos-guide/#license-and-name">License</a>
+      <a href="/blog/zyperos-guide/#license-and-name">Trademark</a>
     </span>
   </div>
 </footer>
@@ -314,19 +312,19 @@ def crumb_graph(trail):
 
 # --- The pages --------------------------------------------------------------
 
-ZBOX = """<aside class="zbox" aria-label="About ZyperOS">
+ZBOX = """<aside class="zbox" aria-label="ZyperOS guides">
   <img src="/img/zyper.svg" width="76" height="80" alt="">
   <div>
-    <p><b>ZyperOS</b> is a fast, light firmware for the GKD Pixel 2: forty-four systems, PortMaster ports, box art, RetroAchievements, music and video. It is free, and version 1.0.5 is out: a card image and ZyperOS Installer, on GitHub.</p>
-    <span class="row"><a class="btn go" href="https://github.com/tarikbc/ZyperOS"><span class="glyph" aria-hidden="true">A</span>See it on GitHub</a><a class="btn alt" href="/#compare">How it compares</a></span>
+    <p><b>Your Pixel 2, made yours.</b> Find the next step in the ZyperOS guide.</p>
+    <span class="row"><a class="btn go" href="/blog/zyperos-guide/">Open the guide</a><a class="btn alt" href="/">Explore ZyperOS</a></span>
   </div>
 </aside>"""
 
 ZMINI = """<div class="zmini">
   <img src="/img/zyper.svg" width="56" height="59" alt="">
   <b>ZyperOS</b>
-  <p>Fast, light firmware for the GKD Pixel 2. Free, and ready to install.</p>
-  <a class="btn go" href="https://github.com/tarikbc/ZyperOS">See it on GitHub</a>
+  <p>Ready to start? Install ZyperOS on your Pixel 2.</p>
+  <a class="btn go" href="/blog/install-custom-firmware-gkd-pixel-2/#installing-zyperos">Installation guide</a>
 </div>"""
 
 
@@ -345,7 +343,7 @@ def render_post(post, posts, assets, used):
     body = expand_marks(post["body"])
     body = images(body, used)
     body, toc = headings(body)
-    if "sources" not in [hid for hid, _ in toc]:
+    if post["topic"] == "compare" and "sources" not in [hid for hid, _ in toc]:
         raise Fail("%s: no <h2>Sources</h2>" % post["slug"])
     lead = re.match(r"\s*<p>(.*?)</p>", body, re.S)
     if not lead:
@@ -374,8 +372,12 @@ def render_post(post, posts, assets, used):
     extra = ('<meta property="article:published_time" content="%s">\n'
              '<meta property="article:modified_time" content="%s">\n'
              '<meta property="article:section" content="%s">\n' % (post["published"], post["updated"], label))
+    if 'data-downloads' in body:
+        extra += '<script src="/downloads.js?v=%s" defer></script>\n' % version(ROOT / 'site/downloads.js')
     page = head(post["title"], post["description"], post["url"], "article", graph, assets, extra)
-    page += nav()
+    active = "Install" if post["slug"] == "install-custom-firmware-gkd-pixel-2" else "Guide" if post["topic"] == "guide" else "Blog"
+    exact_page = post["slug"] in ("install-custom-firmware-gkd-pixel-2", "zyperos-guide")
+    page += nav(active, "page" if exact_page else "true")
     page += """<main class="in post">
 <article>
   <nav class="crumbs" aria-label="Breadcrumb"><ol><li><a href="/">ZyperOS</a></li><li><a href="/blog/">Blog</a></li><li aria-current="page">{crumb}</li></ol></nav>
@@ -398,7 +400,8 @@ def render_post(post, posts, assets, used):
 </aside>
 </main>
 """.format(crumb=esc(crumb), label=label, title=esc(post["title"]), when=when, mins=minutes,
-           lead=lead.group(1).strip(), zbox=ZBOX, toc=toc_items, rest=rest, rel=rel, zmini=ZMINI)
+           lead=lead.group(1).strip(), zbox=ZBOX if post["topic"] == "compare" else "",
+           toc=toc_items, rest=rest, rel=rel, zmini="" if post["topic"] == "story" else ZMINI)
     return page + footer()
 
 
@@ -408,10 +411,11 @@ def render_index(posts, assets):
     for i, p in enumerate(posts):
         w, h = png_size(SHOTS / (p["image"] + ".png"))
         lazy = "" if i < 3 else ' loading="lazy"'
-        cards.append('<li data-topic="%s"><a class="card" href="/blog/%s/"><img src="/img/%s.png" width="%d" height="%d" alt=""%s decoding="async">'
+        fit = ' class="image-contain"' if p.get("image_fit") == "contain" else ""
+        cards.append('<li data-topic="%s"><a class="card" href="/blog/%s/"><img src="/img/%s.png?v=%s" width="%d" height="%d" alt=""%s%s decoding="async">'
                      '<span class="topic">%s</span><b>%s</b><span class="soft">%s</span>'
                      '<span class="meta"><time datetime="%s">%s</time></span></a></li>'
-                     % (p["topic"], p["slug"], p["image"], w, h, lazy, TOPICS[p["topic"]][0], esc(p["title"]),
+                     % (p["topic"], p["slug"], p["image"], version(SHOTS / (p["image"] + ".png")), w, h, fit, lazy, TOPICS[p["topic"]][0], esc(p["title"]),
                         esc(p["summary"]), p["published"], long_day(p["published"])))
     chips = '<button type="button" data-topic="all" aria-pressed="true">All</button>' + "".join(
         '<button type="button" data-topic="%s" aria-pressed="false">%s</button>' % (t, TOPICS[t][1]) for t in TOPICS)
@@ -470,7 +474,8 @@ def render_feed(posts):
 
 
 def render_sitemap(posts, home_day):
-    urls = [(SITE + "/", home_day), (SITE + "/blog/", max(p["updated"] for p in posts))]
+    urls = [(SITE + "/", home_day), (SITE + "/tip/", home_day), (SITE + "/download/", home_day),
+            (SITE + "/blog/", max(p["updated"] for p in posts))]
     urls += [(p["url"], p["updated"]) for p in posts]
     lines = "\n".join("  <url><loc>%s</loc><lastmod>%s</lastmod></url>" % u for u in urls)
     return ('<?xml version="1.0" encoding="UTF-8"?>\n'
@@ -617,7 +622,7 @@ def check(out, posts):
     for p in posts:
         if p["url"] not in llms:
             problems.append("llms.txt has no line for %s" % p["slug"])
-    pages = sorted((out / "blog").rglob("index.html")) + [out / "index.html"]
+    pages = sorted(out.rglob("*.html"))
     ids = {}
     for page in pages:
         text = page.read_text(encoding="utf-8")
@@ -625,6 +630,8 @@ def check(out, posts):
     for page in pages:
         text = page.read_text(encoding="utf-8")
         rel = page.relative_to(out)
+        if re.search(r'href="https://github\.com/tarikbc/ZyperOS/(?:blob|raw)/[^\"]+\.md(?:[#?][^\"]*)?"', text):
+            problems.append("%s: a GitHub Markdown help link; use an on-site guide" % rel)
         for ld in re.findall(r'<script type="application/ld\+json">(.*?)</script>', text, re.S):
             try:
                 json.loads(ld)

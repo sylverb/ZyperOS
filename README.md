@@ -87,8 +87,8 @@ Questions, ideas, or want to help build it? Come say hi on [the ZyperOS Discord]
 
 <!-- tour-video: the tour on zyperos.com (video/README.md) -->
 <p align="center">
-  <a href="https://zyperos.com/#tour"><img src="res/readme/tour-poster.jpg" width="720" alt="Watch the ZyperOS tour: a green GKD Pixel 2 showing a shelf of PlayStation covers, beside the ZyperOS name"></a><br>
-  <sub>The tour, 105 seconds on zyperos.com</sub>
+  <a href="https://zyperos.com/zyperos-tour.mp4"><img src="res/readme/tour-poster.jpg" width="720" alt="Watch the ZyperOS tour: a green GKD Pixel 2 showing a shelf of PlayStation covers, beside the ZyperOS name"></a><br>
+  <sub>The 1.0.5 video tour. See the <a href="https://zyperos.com/#tour">current screens</a> on zyperos.com.</sub>
 </p>
 <!-- /tour-video -->
 

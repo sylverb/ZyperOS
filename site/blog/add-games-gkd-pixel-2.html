@@ -4,13 +4,14 @@ summary: Folder names and file types, then the ways in: the card in a computer, 
 crumb: Adding games
 topic: guide
 published: 2026-11-07
-updated: 2026-11-13
+updated: 2026-11-14
 image: portal
 image_alt: The File Transfer page on a computer, with an NES folder open and an upload going
-related: gkd-pixel-2-wifi-adapter, box-art-gkd-pixel-2, gkd-pixel-2-bios-files
+related: zyperos-systems-and-folders, box-art-gkd-pixel-2, gkd-pixel-2-bios-files
 weight: 20
 ---
 <p>On ZyperOS, a game is a file in its console's folder on the microSD card. You can put it there with the card in a computer, over Wi-Fi from any browser, or over the USB cable with no Wi-Fi at all: from a computer's browser, with the card as a plain flash drive, or from an Android phone's own browser. This guide covers the folders first, then each way in.</p>
+<p class="note">These steps cover <strong>ZyperOS 1.0.5</strong>. Check your version in <strong>MENU &gt; About</strong>.</p>
 
 <h2>The folders</h2>
 <p>At the first boot, ZyperOS turns the rest of the card into a partition named <strong>ZYPEROS</strong>, which a computer can read. Games go in <code>Roms/</code>, in a folder named after the console the way people say it:</p>
@@ -30,7 +31,7 @@ weight: 20
   </tbody>
 </table>
 </div>
-<p>That is nine of the forty-four. <a href="https://github.com/tarikbc/ZyperOS#supported-systems">The README's table</a> lists every folder, its file types and the emulator that runs it. Spell the folder exactly: a game in a folder ZyperOS does not know, or a file type it does not take for that console, does not show up.</p>
+<p>That is nine of the forty-four. <a href="/blog/zyperos-systems-and-folders/#full-system-table">The full system table</a> lists every folder, its file types and the emulator that runs it. Spell the folder exactly: a game in a folder ZyperOS does not know, or a file type it does not take for that console, does not show up.</p>
 <p>Coming from Knulli, ROCKNIX, ArkOS or ROGUE OS? Their short folder names work as they are: <code>nds</code> is read as Nintendo DS, <code>psx</code> as PlayStation, <code>megadrive</code> as Genesis, and so on for every system. Copy their <code>roms</code> folders into <code>Roms/</code> unchanged, and the covers, video snaps and names their scrapers left show on the shelf too.</p>
 <p>Some systems need a BIOS file in <code>Bios/</code> as well, such as the PlayStation and the Dreamcast. <a href="/blog/gkd-pixel-2-bios-files/">The BIOS guide</a> lists each one.</p>
 <p>A console with nothing in its folder stays hidden on the home screen, so the home only shows what you can play.</p>
@@ -55,8 +56,8 @@ weight: 20
 <h2>Way 2: Wi-Fi File Transfer</h2>
 <p>The Pixel 2 has no Wi-Fi of its own, so this needs a USB Wi-Fi adapter in its USB-C port. <a href="/blog/gkd-pixel-2-wifi-adapter/">The Wi-Fi guide</a> says which ones work.</p>
 <ol>
-  <li>Join a network in <strong>MENU &gt; Wi-Fi</strong>.</li>
-  <li>Open <strong>MENU &gt; Wi-Fi File Transfer</strong>. It shows an address in large type, its name <code>zyperos.local</code> under it, and a four-digit PIN.</li>
+  <li>Join a network in <strong>MENU &gt; Connections &gt; Wi-Fi</strong>.</li>
+  <li>Open <strong>MENU &gt; Connections &gt; Wi-Fi File Transfer</strong>. It shows an address in large type, its name <code>zyperos.local</code> under it, and a four-digit PIN.</li>
   <li>Open that address (or <code>http://zyperos.local</code>) in a browser on your phone or computer, and type the PIN.</li>
   <li>Drag games into their console's folder. They are on the shelf when you leave the screen.</li>
 </ol>
@@ -108,13 +109,7 @@ weight: 20
 
 <h2>My games do not show up</h2>
 <ul>
-  <li>Check the folder name against <a href="https://github.com/tarikbc/ZyperOS#supported-systems">the table</a>, spelled exactly, or an EmulationStation name such as <code>gba</code>, and the file type.</li>
+  <li>Check the folder name against <a href="/blog/zyperos-systems-and-folders/#full-system-table">the full system table</a>, spelled exactly, or an EmulationStation name such as <code>gba</code>, and the file type.</li>
   <li>Games sent with File Transfer show up when you leave its screen. Games copied any other way while the handheld is on show up after <strong>Rescan Folder</strong> in that console's menu, or after a restart.</li>
   <li>Arcade and Neo Geo games are ROM sets: keep each <code>.zip</code> whole and named the way FinalBurn Neo names it, and put <code>neogeo.zip</code> in <code>Bios/</code> for Neo Geo games.</li>
 </ul>
-
-<h2>Sources</h2>
-<ol class="sources">
-  <li><a href="https://github.com/tarikbc/ZyperOS#supported-systems">ZyperOS README, Supported systems</a>, <a href="https://github.com/tarikbc/ZyperOS#coming-from-emulationstation">Coming from EmulationStation</a> and <a href="https://github.com/tarikbc/ZyperOS#install">Install</a>: folders, file types, Wi-Fi and USB File Transfer, Flash Drive, a phone on the cable, the File Transfer page, the FAQ.</li>
-  <li><a href="https://github.com/tarikbc/ZyperOS/blob/main/docs/guide.md#file-transfer">The ZyperOS user guide, File transfer</a>: the PIN, SSH over the cable, plugging into a computer.</li>
-</ol>

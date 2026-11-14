@@ -54,13 +54,15 @@ white = material('Laser etched markings', 'e7eadb', .25, .45)
 glass = material('Black glass bezel', '090c0c', .05, .14)
 led = material('Battery indicator lenses', '49b76b', .1, .3)
 
-# Rectangular cross-sections in x/z. All contours wind counterclockwise.
+# Rectangular cross-sections in x/z. Radii can be one value or (upper, lower).
+# All contours wind counterclockwise.
 def outline(w,h,r,n=8):
     pts=[]
-    for cx,cz,start in [(w/2-r,h/2-r,0),(-w/2+r,h/2-r,90),(-w/2+r,-h/2+r,180),(w/2-r,-h/2+r,270)]:
+    top,bottom=r if isinstance(r,tuple) else (r,r)
+    for cx,cz,start,radius in [(w/2-top,h/2-top,0,top),(-w/2+top,h/2-top,90,top),(-w/2+bottom,-h/2+bottom,180,bottom),(w/2-bottom,-h/2+bottom,270,bottom)]:
         for j in range(n+1):
             a=math.radians(start+j*90/n)
-            pts.append((cx+r*math.cos(a),cz+r*math.sin(a)))
+            pts.append((cx+radius*math.cos(a),cz+radius*math.sin(a)))
     return pts
 
 def mesh(name, verts, faces, mat):
@@ -100,8 +102,9 @@ def profile(name,rings,mat,cx=0,cz=0):
 def rounded(name,w,h,depth,r,loc,mat,bevel=0):
     x,y,z=loc
     if bevel:
-        b=min(bevel,depth/3,r/2)
-        rings=[(-depth/2,w-2*b,h-2*b,max(.05,r-b)),(-depth/2+b,w,h,r),(depth/2-b,w,h,r),(depth/2,w-2*b,h-2*b,max(.05,r-b))]
+        b=min(bevel,depth/3,(min(r) if isinstance(r,tuple) else r)/2)
+        inset=tuple(max(.05,radius-b) for radius in r) if isinstance(r,tuple) else max(.05,r-b)
+        rings=[(-depth/2,w-2*b,h-2*b,inset),(-depth/2+b,w,h,r),(depth/2-b,w,h,r),(depth/2,w-2*b,h-2*b,inset)]
     else: rings=[(-depth/2,w,h,r),(depth/2,w,h,r)]
     ob=profile(name,[(yy+y,ww,hh,rr) for yy,ww,hh,rr in rings],mat,x,z)
     return ob
@@ -199,29 +202,99 @@ def right_y(u): return -8.5+(u-585)*17/83
 def left_y(u): return 8.5-(u-68)*17/84
 
 # Shoulder caps have thin rear lips. Only L1/R1 wrap down the outside
-# corners. A full-height box makes the rear view wrong; a solid shell under
-# the cap hides its side face. Cut the corresponding stepped pockets first.
+# corners, with a rounded outside corner and an open lower cutout. The
+# TortOS manual's Pixel 2 model and rear photo show this L-shaped profile:
+# https://tortos.games/manual#pixel-2
+# Build the arcs directly; a small edge bevel alone leaves square corners.
+def shoulder_outline(clearance=0, band=2.6, arm=2.4, inner_radius=.7):
+    inner,outer,top,bottom=16.35-clearance,31.45+clearance,40.6+clearance,33.25-clearance
+    arm,band=arm+2*clearance,band+2*clearance
+    radius=3.1+clearance
+    points=[(inner,top),(outer-radius,top)]
+    for i in range(1,17):
+        a=math.pi/2*(1-i/16)
+        points.append((outer-radius+radius*math.cos(a),top-radius+radius*math.sin(a)))
+    points.extend([(outer,bottom),(outer-arm,bottom)])
+    # A small concave fillet follows the open inside corner. The long
+    # horizontal lip and the descending outer arm stay one continuous part.
+    r=max(.1,inner_radius-clearance)
+    x,z=outer-arm-r,top-band-r
+    points.append((x+r,z))
+    for i in range(1,9):
+        a=math.pi/2*i/8
+        points.append((x+r*math.cos(a),z+r*math.sin(a)))
+    points.append((inner,top-band))
+    return points
+
+def shoulder_mesh(name,side,front,rear,mat,clearance=0,bevel=0):
+    points=shoulder_outline(clearance)
+    verts=[(side*x,y,z) for y in [front,rear] for x,z in points]
+    n=len(points); faces=[tuple(reversed(range(n))),tuple(range(n,2*n))]
+    for j in range(n): faces.append((j,(j+1)%n,(j+1)%n+n,j+n))
+    ob=mesh(name,verts,faces,mat)
+    bpy.context.view_layer.objects.active=ob; ob.select_set(True)
+    bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='SELECT')
+    bpy.ops.mesh.normals_make_consistent(inside=False); bpy.ops.object.mode_set(mode='OBJECT')
+    if bevel:
+        mod=ob.modifiers.new('Shoulder edge radius','BEVEL'); mod.width=bevel; mod.segments=4
+        mod.limit_method='ANGLE'; mod.angle_limit=math.radians(30)
+        bpy.ops.object.modifier_apply(modifier=mod.name)
+    ob.select_set(False)
+    return ob
+
+# The button body stays thick until this depth, then drops to a thin rear lip.
+# Two contours at the same depth create an actual ledge, not a tapered bevel.
+SHOULDER_FRONT=-.95
+SHOULDER_REAR=8.65
+SHOULDER_STEP=6.85
+SHOULDER_LIP=1.25
+
+def stepped_shoulder(name,front_points,rear_points,mat):
+    verts=[];faces=[];lookup={};rings=[]
+    for y,points in [(SHOULDER_FRONT,front_points),(SHOULDER_STEP,front_points),
+                     (SHOULDER_STEP,rear_points),(SHOULDER_REAR,rear_points)]:
+        ring=[]
+        for x,z in points:
+            key=(round(x,8),round(y,8),round(z,8))
+            if key not in lookup:
+                lookup[key]=len(verts);verts.append((x,y,z))
+            ring.append(lookup[key])
+        rings.append(ring)
+    faces.extend([tuple(reversed(rings[0])),tuple(rings[-1])])
+    n=len(front_points)
+    for a,b in zip(rings,rings[1:]):
+        for j in range(n):
+            # The outer contour does not move at the step. Weld those vertices
+            # and omit collapsed faces, while keeping the inner ledge closed.
+            face=list(dict.fromkeys([a[j],a[(j+1)%n],b[(j+1)%n],b[j]]))
+            if len(face)>=3:faces.append(tuple(face))
+    ob=mesh(name,verts,faces,mat)
+    bpy.context.view_layer.objects.active=ob;ob.select_set(True)
+    bpy.ops.object.mode_set(mode='EDIT');bpy.ops.mesh.select_all(action='SELECT')
+    bpy.ops.mesh.normals_make_consistent(inside=False);bpy.ops.object.mode_set(mode='OBJECT')
+    edge_break=ob.modifiers.new('Small molded edge radius','BEVEL')
+    edge_break.width=.12;edge_break.segments=3
+    edge_break.limit_method='ANGLE';edge_break.angle_limit=math.radians(30)
+    bpy.ops.object.modifier_apply(modifier=edge_break.name);ob.select_set(False)
+    return ob
+
 for side,prefix in [(-1,'L'),(1,'R')]:
     for index,w,x in [(1,15.1,23.9),(2,7.4,12.6)]:
         for housing in [body,back,seam]:
-            cutter=rounded('Shoulder top notch',w+.35,4.2,12,.25,(side*x,4.5,40),None)
-            cut(housing,cutter)
             if index==1:
-                cut(housing,rounded('Shoulder side notch',2.65,9.0,12,.25,(side*30.6,4.5,37.5),None))
+                cut(housing,shoulder_mesh('Rounded shoulder pocket',side,-1.3,10.5,None,clearance=.2))
+            else:
+                cutter=rounded('Shoulder top notch',w+.35,4.2,12,.25,(side*x,4.5,40),None)
+                cut(housing,cutter)
         if index==1:
-            # One continuous L section avoids a false seam across the side.
-            points=[(16.35,38),(29.6,38),(29.6,33.25),(31.45,33.25),(31.45,40.6),(16.35,40.6)]
-            verts=[(side*xx,yy,zz) for yy in [-.95,8.65] for xx,zz in points]
-            n=len(points); faces=[tuple(reversed(range(n))),tuple(range(n,2*n))]
-            for j in range(n): faces.append((j,(j+1)%n,(j+1)%n+n,j+n))
-            cap=mesh(prefix+str(index),verts,faces,plastic)
-            bpy.context.view_layer.objects.active=cap; cap.select_set(True)
-            bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='SELECT')
-            bpy.ops.mesh.normals_make_consistent(inside=False); bpy.ops.object.mode_set(mode='OBJECT')
-            mod=cap.modifiers.new('Cap edge','BEVEL'); mod.width=.22; mod.segments=3
-            bpy.ops.object.modifier_apply(modifier=mod.name); cap.select_set(False)
+            front_points=[(side*xx,zz) for xx,zz in shoulder_outline()]
+            rear_points=[(side*xx,zz) for xx,zz in shoulder_outline(band=SHOULDER_LIP,arm=SHOULDER_LIP,inner_radius=3.1-SHOULDER_LIP)]
+            stepped_shoulder(prefix+str(index),front_points,rear_points,plastic)
         else:
-            rounded(prefix+str(index),w,2.6,9.6,.45,(side*x,3.85,39.3),plastic,.22)
+            # The reference's upper corners are twice the lower radius.
+            front_points=[(side*x+xx,39.3+zz) for xx,zz in outline(w,2.6,(.81,.405))]
+            rear_points=[(side*x+xx,40.6-SHOULDER_LIP/2+zz) for xx,zz in outline(w,SHOULDER_LIP,(.81,.405))]
+            stepped_shoulder(prefix+str(index),front_points,rear_points,plastic)
         text(prefix+str(index)+' label',prefix+str(index),2.1,(side*x,3.85,40.62),engraved,rot=(0,0,0))
 
 # A side part's local x/z plane maps onto depth/height. The angle is measured
@@ -416,6 +489,19 @@ for name,x,y,z in [('Bottom',bottom_x(438),bottom_y(859),-40.6),('Top',0,1.2,40.
         bottompiece(name+' screw cross',w,h,.02,.05,x,y,engraved,z=z+(.09 if z>0 else -.09))
 
 
+# Regress the actual underside step on every cap. The old uniform extrusion
+# hit the same height on both sides of this boundary and fails this check.
+for side,prefix in [(-1,'L'),(1,'R')]:
+    for index,x in [(1,23.9),(2,12.6)]:
+        cap=bpy.data.objects[prefix+str(index)]
+        heights=[]
+        for y in (SHOULDER_STEP-.2,SHOULDER_STEP+.2):
+            hit,point,normal,face=cap.ray_cast(Vector((side*x,y,30)),Vector((0,0,1)))
+            assert hit, f'Missing shoulder underside: {cap.name}'
+            heights.append(point.z)
+        assert heights[1]-heights[0]>1.1, f'No sharp underside step: {cap.name}, {heights}'
+        print(f'{cap.name}: underside step {heights[1]-heights[0]:.2f} mm')
+
 for ob in objects:
     if ob.type=='MESH': normals(ob)
 
@@ -490,11 +576,17 @@ if '--render' in sys.argv:
     # Only the review/poster render uses a screenshot; the GLB is independent
     # of screenshot revisions and the website supplies its live texture.
     nodes=display.node_tree.nodes; nodes.clear()
-    image=nodes.new('ShaderNodeTexImage'); image.image=bpy.data.images.load(str(ROOT/'res/readme/shelf-n64.png'))
+    image=nodes.new('ShaderNodeTexImage'); image.image=bpy.data.images.load(str(ROOT/'res/readme/systems.png'))
     emission=nodes.new('ShaderNodeEmission'); output=nodes.new('ShaderNodeOutputMaterial')
     display.node_tree.links.new(image.outputs['Color'],emission.inputs['Color'])
     display.node_tree.links.new(emission.outputs[0],output.inputs['Surface'])
     scene.render.filepath=str(OUT/'hero.png')
     bpy.ops.render.render(write_still=True)
     bpy.data.images['Render Result'].save_render(str(ROOT/'site/models/pixel2-poster.png'))
+    # Static product illustrations reuse the same geometry and real launcher
+    # frames. Their screens are not AI-generated or edited mock interfaces.
+    image.image=bpy.data.images.load(str(ROOT/'site/music/now-playing.png'))
+    scene.render.filepath=str(OUT/'music.png')
+    bpy.ops.render.render(write_still=True)
+    bpy.data.images['Render Result'].save_render(str(ROOT/'site/models/pixel2-music.png'))
 print('Pixel 2 asset:',ROOT/'site/models/pixel2.glb')

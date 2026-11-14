@@ -1,0 +1,38 @@
+[
+  {
+    "id": "starfall-island",
+    "title": "Starfall Island",
+    "author": "John Oestmann",
+    "license": "CC0-1.0",
+    "page": "https://opengameart.org/content/minimalworldsii-game-boy-style-album",
+    "source": "res/bgm/Starfall Island.mp3",
+    "source_sha256": "7552f8fdeae5d7d1449521d7df3678d81f88456c6c2f049fd48ead552d818c69",
+    "excerpt_seconds": 30,
+    "fade_out_seconds": 2,
+    "sha256": "6899fed6b0e3c5d163a148c636b5b09081404bce20b4d41a3a592da946c8703a"
+  },
+  {
+    "id": "napping-on-a-cloud",
+    "title": "Napping on a Cloud",
+    "author": "congusbongus",
+    "license": "CC0-1.0",
+    "page": "https://opengameart.org/content/napping-on-a-cloud",
+    "source": "res/bgm/Napping on a Cloud.mp3",
+    "source_sha256": "872ce9557429e88407f2cd52d0b01ec182b53abef9f31a3e7a95b9d9668c0c8a",
+    "excerpt_seconds": 30,
+    "fade_out_seconds": 2,
+    "sha256": "6311d9b8963c6aa2c00460efcdeb61183d77662cbfecc5318f319d5b9ee688af"
+  },
+  {
+    "id": "bossa-nova",
+    "title": "Bossa Nova",
+    "author": "Joth",
+    "license": "CC0-1.0",
+    "page": "https://opengameart.org/content/bossa-nova",
+    "source": "res/bgm/Bossa Nova.mp3",
+    "source_sha256": "6892f53af1a5e9ccb6dfb58ffc581f9b2751937eba2604f649b48323049424e7",
+    "excerpt_seconds": 30,
+    "fade_out_seconds": 2,
+    "sha256": "9e0dee094f4937d7c828642f5fbcd1f803b42f6c75f1e7989fd26d56a27d9156"
+  }
+]

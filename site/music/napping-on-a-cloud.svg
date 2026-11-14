@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#9facd0"/>
+  <circle cx="355" cy="169" r="75" fill="#f2d998"/>
+  <g fill="#ece9df"><path d="M-25 281c-4-46 31-64 60-56 6-49 66-67 100-29 25-20 67-6 69 27 39-4 59 26 52 58Z"/><path d="M216 342c-3-35 25-54 56-46 2-60 66-82 109-41 29-23 73-8 77 24 44-6 75 24 73 63Z"/></g>
+  <g fill="#c8cce1"><path d="M-25 281h281c-6 22-22 36-57 36H24c-29 0-45-13-49-36Z"/><path d="M216 342h315c-1 23-19 37-52 37H261c-25 0-44-15-45-37Z"/></g>
+  <path d="M63 385h110m-90 14h67m223-285h32m-16-16v32" stroke="#ece9df" stroke-width="3" stroke-linecap="round"/>
+  <text x="32" y="52" fill="#26334e" font-family="sans-serif" font-size="14" letter-spacing="2">CONGUSBONGUS</text>
+  <text x="30" y="108" fill="#26334e" font-family="sans-serif" font-size="39" font-weight="700" letter-spacing="-1.6">Napping</text>
+  <text x="30" y="151" fill="#26334e" font-family="sans-serif" font-size="39" font-weight="700" letter-spacing="-1.6">on a Cloud</text>
+  <text x="32" y="479" fill="#26334e" font-family="sans-serif" font-size="12">Take the slow way home.</text>
+</svg>
