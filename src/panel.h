@@ -358,6 +358,20 @@ extern const menu_style *g_muse_over;
 extern void             *g_muse_over_ctx;
 extern bool              g_muse_gone;
 
+/* ---- main.c's, for src/usbdrive_screen.c; each is described where it is defined ---- */
+extern bool g_usb_kept;
+extern bool g_usb_offer_due;
+extern bool g_tiles_hints;
+void usb_offer_count(void);
+void tiles_show(app *a, int kind, const char *heading, const menu_row *rows, int n,
+                const int *marks, int nmarks, int sel);
+bool confirm_rows_as(app *a, const char *heading, menu_row *rows, int nq,
+                     const char *yes_label, const char *no_label, int fixed_w, int lv,
+                     usbpower_guard *guard);
+const char *list_hints(const char *b_word);
+void ask_settle(app *a, usbpower_guard *g);
+void ask_guard_start(app *a, usbpower_guard *g);
+
 /* ---- main.c's, for src/about_screen.c; each is described where it is defined ---- */
 #ifndef ZYPEROS_VERSION
 #define ZYPEROS_VERSION "0.0"       /* set by the makefiles from Makefile's VERSION */
