@@ -20,6 +20,7 @@
 #include "platform.h"
 #include "rahash.h"
 #include "sys_menu.h"
+#include "texload.h"
 #include "wifi.h"
 
 #include <stdbool.h>
@@ -341,6 +342,9 @@ unsigned mq_phase(int who, int key_a, int key_b);
 unsigned mq_row_phase(bool selected, const char *heading, int n, int sel);
 /* The last menu panel and its body (main.c) */
 extern SDL_Rect g_menu_panel, g_menu_body;
+/* Where the corner and the games title's capitals were drawn this frame,
+ * for a shot to hold the corner clear of them (main.c) */
+extern SDL_Rect g_corner_box, g_title_caps;
 /* A marquee's clock started again (a screen that has just opened); and the
  * screens over the one on top closed by MENU, which stops there (main.c) */
 void mq_reset(int who);
@@ -353,6 +357,35 @@ extern bool g_message_stopped;
 extern const menu_style *g_muse_over;
 extern void             *g_muse_over_ctx;
 extern bool              g_muse_gone;
+
+/* ---- main.c's, for src/shelf_draw.c; each is described where it is defined ---- */
+/* The battery's low and critical warnings, 10% and 5%, are src/status.h's
+ * (STATUS_BATT_LOW, STATUS_BATT_CRITICAL), which the shelf's battery mark and
+ * Diatom's disc over a game both go by. Critical blinks: the last minutes
+ * before BATT_EMPTY_PCT ends the game and powers off, which a steady mark gave
+ * no warning of. */
+/* BATT_EMPTY_PCT, where the device powers off, is src/status.h's too:
+ * portkeys powers off there over a port. */
+#define TEX_KEEP_NEAR   8   /* card textures kept around the cursor, in view  */
+extern unsigned t_boot0;
+extern home_song g_home_song;
+extern SDL_Texture *g_folder_icon;
+extern bool g_theme_late;
+void home_items(const app *a, home_item *items);
+void shelf_put(void *ctx, texload_got *g);
+void texload_drain(app *a);
+void prime_toward(app *a, int s, int center);
+void heat_said(const char *where);
+void usb_kept_save(void);
+bool muse_shelf_shown(const app *a);
+void draw_status(app *a);
+void tick_update_daily(bool in_game);
+bool usb_drive_offered(void);
+bool replug_shown(void);
+void dev_ssh_tick(void);
+void xs_tick_behind(app *a);
+void xs_end(void);
+void xfer_screen_way(app *a, int way);
 
 /* ---- main.c's, for src/muse_screen.c; each is described where it is defined ---- */
 #define TEX_KEEP_FAR    4   /* ...and around the cursor of a system you left  */
