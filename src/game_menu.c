@@ -52,6 +52,12 @@ int gi_rows(menu_row *out, const game_info *gi, bool net)
 	 * fresh, so marking one moved to this page, Y on it or A on the row */
 	if (gi->can_favorite)
 		out[n++] = (menu_row){ T(S_CONTROLS_FAVORITE), gi->favorite ? MENU_KEY_Y_ON : MENU_KEY_Y_OFF, true };
+	/* A game with a key of its own on the card (rms_game) shows its buttons
+	 * here, after Favorite: A opens the Controls list for it alone, so a
+	 * game kept apart from its system can be found and put right from the
+	 * shelf, with no game running. Absent for every other game. */
+	if (gi->own_buttons)
+		out[n++] = (menu_row){ T(S_GAMEMENU_BUTTONS), T(S_GAMEMENU_THIS_GAME), true };
 	/* WHAT THIS SCREEN NO LONGER SAYS, and why, because each was removed on a
 	 * reason rather than to make the list shorter:
 	 *
@@ -191,28 +197,49 @@ void gm_pak_key(const char *tag, const char *file, char *out, size_t n)
 	snprintf(out, n, "pak.%s.%s", tag ? tag : "", file ? file : "");
 }
 
-int gm_row_ids(const gm_ui *u, gm_row *ids)
+const char *gm_tab_name(int t)
 {
-	int n = 0, i;
+	switch (t) {
+	case GT_DISPLAY:  return T(S_GAMEMENU_TAB_DISPLAY);
+	case GT_CONTROLS: return T(S_GAMEMENU_TAB_CONTROLS);
+	/* The row's own word, the glossary's Achievements, in every language */
+	case GT_ACHIEVEMENTS: return T(S_SYSMENU_CHEEVOS);
+	default:          return T(S_GAMEMENU_TAB_GAME);
+	}
+}
 
-	/* Over a port: what a stopped program can still be asked */
+int gm_tab_rows(const gm_ui *u, gm_tab t, gm_row *ids)
+{
+	int n = 0;
+
+	/* Over a port: what a stopped program can still be asked, on no tabs */
 	if (u->port) {
 		ids[n++] = GM_CONTINUE;
 		ids[n++] = GM_CONTROLS;
 		ids[n++] = GM_QUIT;
 		return n;
 	}
-	for (i = 0; i < GM_ROWS; i++) {
-		if (i == GM_QUICK && !u->quick) continue;
-		ids[n++] = (gm_row)i;
-		/* A DS game's three come after Shader, which is every game's */
-		if (i == GM_SHADER && u->screens) {
+	if (t == GT_GAME) {
+		ids[n++] = GM_CONTINUE;
+		ids[n++] = GM_SAVE;
+		ids[n++] = GM_LOAD;
+		if (u->quick) ids[n++] = GM_QUICK;
+		if (u->discs > 1) ids[n++] = GM_DISC;
+		if (u->player2) ids[n++] = GM_PLAYER2;
+		ids[n++] = GM_CHEEVOS;
+		ids[n++] = GM_RESET;
+		ids[n++] = GM_QUIT;
+	} else if (t == GT_DISPLAY) {
+		ids[n++] = GM_DISPLAY;
+		ids[n++] = GM_SHADER;
+		/* Under its shader, and only while that is an old screen */
+		if (u->strength) ids[n++] = GM_STRENGTH;
+		/* A DS game's three belong with the picture */
+		if (u->screens) {
 			ids[n++] = GM_SCREENS;
 			ids[n++] = GM_SWAP;
 			ids[n++] = GM_STYLUS;
 		}
-		if (i == GM_SHADER && u->pak) ids[n++] = GM_PAK;
-		if (i == GM_SHADER && u->player2) ids[n++] = GM_PLAYER2;
 	}
 	return n;
 }
@@ -224,29 +251,44 @@ const char *gm_player2_value(p2_state st)
 	return T(S_MENU_OFF);
 }
 
+const char *gm_disc_value(const gm_ui *u, char *out, size_t n, bool (*fits)(const char *))
+{
+	if (u->disc_label && *u->disc_label && (!fits || fits(u->disc_label)))
+		snprintf(out, n, "%s", u->disc_label);
+	else
+		snprintf(out, n, T(S_GAMEMENU_DISC_VALUE), u->disc + 1, u->discs);
+	return out;
+}
+
+int gm_disc_step(int disc, int discs, int d)
+{
+	if (discs < 1) return 0;
+	return ((disc + d) % discs + discs) % discs;
+}
+
 gm_row gm_x_row(void)
 {
 	return GM_QUIT;
 }
 
-int gm_row_at(const gm_ui *u, gm_row id)
+int gm_row_at(const gm_ui *u, gm_tab t, gm_row id)
 {
 	gm_row ids[GM_MAX_ROWS];
-	int n = gm_row_ids(u, ids), i;
+	int n = gm_tab_rows(u, t, ids), i;
 
 	for (i = 0; i < n; i++)
 		if (ids[i] == id) return i;
 	return -1;
 }
 
-int gm_rows(const gm_ui *u, menu_row *out, gm_bufs *b)
+int gm_rows(const gm_ui *u, gm_tab t, menu_row *out, gm_bufs *b)
 {
 	static const str_id label[GM_MAX_ROWS] = {
 		S_GAMEMENU_CONTINUE, S_GAMEMENU_SAVE, S_GAMEMENU_LOAD, S_GAMEMENU_QUICK,
 		S_GAMEMENU_DISPLAY, S_GAMEMENU_SHADER, S_SYSMENU_CONTROLS, S_SYSMENU_CHEEVOS,
 		S_GAMEMENU_RESET,
 		S_GAMEMENU_QUIT, S_GAMEMENU_SCREENS, S_GAMEMENU_SWAP, S_GAMEMENU_STYLUS,
-		S_GAMEMENU_PAK, S_PLAYER2_ROW
+		S_GAMEMENU_PAK, S_PLAYER2_ROW, S_GAMEMENU_DISC, S_GAMEMENU_STRENGTH
 	};
 	menu_row full[GM_MAX_ROWS];
 	gm_row ids[GM_MAX_ROWS];
@@ -255,23 +297,30 @@ int gm_rows(const gm_ui *u, menu_row *out, gm_bufs *b)
 	for (i = 0; i < GM_MAX_ROWS; i++) full[i] = (menu_row){ T(label[i]), NULL, true };
 	full[GM_DISPLAY].value = u->dmode;
 	full[GM_SHADER].value  = u->shader ? u->shader : T(S_MENU_OFF_TITLE);
+	full[GM_STRENGTH].value = u->strength;
 	/* The slot's number alone: the row says what it is */
 	snprintf(b->quick, sizeof b->quick, "%d", u->quick);
 	full[GM_QUICK].value = b->quick;
 
 	/* Most of a library has no set, and a row that says so plainly is better
 	 * than one that is missing: "none" answers the question the player opened
-	 * the menu to ask. Drawn quiet, and does nothing when chosen - so the
-	 * cursor steps over it rather than resting on a row that ignores A. */
+	 * the menu to ask. Live whatever it says: A on it turns to the
+	 * Achievements tab (1.0.5), which says in a sentence why there is no
+	 * list, where it used to be quiet and do nothing. */
 	if (u->total > 0)
 		snprintf(b->cheevos, sizeof b->cheevos, "%d / %d", u->earned, u->total);
 	/* Never played with a network, so nobody has asked whether it has any:
 	 * said, and A on it says how it gets them (cheevos_unchecked_message) */
 	else if (u->unchecked)
 		snprintf(b->cheevos, sizeof b->cheevos, "%s", T(S_CHEEVOS_UNCHECKED));
-	else {
+	/* A file or a system the launcher has no hash for: said, quiet like
+	 * "none", since no network will change it (ra_hash_support) */
+	else if (u->no_hash != RA_HASH_OK) {
+		snprintf(b->cheevos, sizeof b->cheevos, "%s",
+		         T(u->no_hash == RA_HASH_NO_SYSTEM ? S_CHEEVOS_NOT_SYSTEM
+		                                           : S_CHEEVOS_NOT_FILE));
+	} else {
 		snprintf(b->cheevos, sizeof b->cheevos, "%s", T(S_GAMEMENU_CHEEVOS_NONE));
-		full[GM_CHEEVOS].live = false;
 	}
 	full[GM_CHEEVOS].value = b->cheevos;
 	full[GM_SCREENS].value = gm_layout_label(u->layout);
@@ -279,19 +328,24 @@ int gm_rows(const gm_ui *u, menu_row *out, gm_bufs *b)
 	full[GM_STYLUS].value  = u->stylus ? T(S_MENU_ON_TITLE) : T(S_MENU_OFF_TITLE);
 	full[GM_PAK].value     = u->pak;
 	full[GM_PLAYER2].value = u->player2_value;
+	if (u->discs > 1)
+		full[GM_DISC].value = gm_disc_value(u, b->disc, sizeof b->disc, u->disc_fits);
 	/* X quits from anywhere on the page (gm_x_row), and Quit says so */
 	full[GM_QUIT].value    = MENU_KEY_X;
 
-	n = gm_row_ids(u, ids);
+	n = gm_tab_rows(u, t, ids);
 	for (i = 0; i < n; i++) {
 		out[i] = full[ids[i]];
 		/* Display steps round on left and right and on A; so do Shader,
-		 * the quick slot and the three for two screens. Every other row is
-		 * plain. */
+		 * the quick slot and the three for two screens. Strength steps
+		 * on left and right alone. Every other row is plain. */
 		b->sound[i] = ids[i] == GM_DISPLAY || ids[i] == GM_SHADER || ids[i] == GM_QUICK ||
-		              ids[i] == GM_SCREENS ||
+		              ids[i] == GM_SCREENS || ids[i] == GM_DISC ||
 		              ids[i] == GM_SWAP || ids[i] == GM_STYLUS || ids[i] == GM_PAK
-		              ? MENU_SND_RING : 0;
+		              ? MENU_SND_RING
+		              /* Strength stops at 10% and 100%, heard by whether it
+		               * moved, and A does nothing on it */
+		              : ids[i] == GM_STRENGTH ? MENU_SND_NO_A : 0;
 	}
 	return n;
 }

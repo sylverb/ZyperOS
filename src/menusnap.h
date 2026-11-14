@@ -45,8 +45,21 @@ typedef struct {
 	 * that was on, or -1; and a screen's row marks and header picture, as
 	 * menu_style's, by pointer (set by the caller, as `level` is) */
 	int         tab;
+	/* ...and the tab set that row was of: how many tabs and the name of each,
+	 * so a panel leaving draws its own tab names and not MENU's (the in-game
+	 * menu has its own three). 0 and NULL with no tab row. */
+	int         tab_count;
+	const char *(*tab_name)(int i);
 	void       *row_mark, *header;
 	int         header_h;
+	/* ...and its picture at the rows' left (menu_style's `side`) and how
+	 * far the rows are set in for it */
+	void       *side;
+	int         side_w;
+	/* A panel of tiles' marks, a tile each in the rows' order: ui_glyph values
+	 * (src/ds/glyph.h; UI_GLYPH_COUNT for none), set by the caller as `kind`
+	 * is. Plain ints, so this file needs no SDL. */
+	int         marks[MENUSNAP_ROWS];
 	size_t      used;         /* of `text` */
 	char        text[MENUSNAP_TEXT];
 } menu_snap;

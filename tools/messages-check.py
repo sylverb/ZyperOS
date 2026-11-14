@@ -9,9 +9,13 @@ import sys
 import tempfile
 
 # src/main.c and the files split from it
-LAUNCHER = ("src/main.c", "src/aout_route.c", "src/bt_screen.c", "src/place.c",
+LAUNCHER = ("src/main.c", "src/aout_route.c", "src/bgm_screen.c", "src/bt_screen.c",
+            "src/clock_screen.c", "src/ctl_channel.c", "src/ctltab_screen.c",
+            "src/gamedel_screen.c", "src/gamern_screen.c", "src/media_screen.c",
+            "src/menu_panel.c", "src/nowplaying_screen.c", "src/place.c",
             "src/portload.c", "src/powerscreens.c", "src/raqueue.c",
-            "src/shelfbuild.c", "src/stats_screen.c", "src/zyperdraw.c")
+            "src/search_screen.c", "src/shelfbuild.c", "src/stats_screen.c",
+            "src/storage_screen.c", "src/update_screen.c", "src/zyperdraw.c")
 source = "\n".join(Path(p).read_text() for p in LAUNCHER)
 source = re.sub(r'/\*.*?\*/|//[^\n]*', '', source, flags=re.S)
 stale = list(re.finditer(r'\bSDL_Delay\s*\(\s*(900|1400|1600|1800|2200)\s*\)', source))
@@ -47,7 +51,8 @@ sites = {
     # not start (xs_open), the hotspot stopped (xs_stop), and closed for a game
     # (xs_before_game)
     "xs_open": (2, 0), "xs_stop": (1, 0), "xs_before_game": (1, 0),
-    "art_run": (2, 0), "album_art_screen": (1, 0),
+    # MENU > Scraper's page: A with no network, and A with too little room
+    "scp_page": (0, 2), "album_art_screen": (1, 0),
     "launch_port": (0, 1), "launch": (0, 1),
 }
 for name, counts in sites.items():
@@ -66,7 +71,7 @@ with tempfile.TemporaryDirectory(prefix="zyperos-messages-check-") as scratch:
     # follows that include there.
     inputs = platform[platform.index('#include "inbutton.h"'):platform.index("bool plat_video_init")]
     (out / "message-input.inc").write_text("typedef unsigned Uint32;\n" + inputs)
-    names = ("snap_record", "snap_draw", "snap_shown", "snap_promote", "panel_show",
+    names = ("panel_is_tiles", "snap_record", "snap_draw", "snap_shown", "snap_promote", "panel_show",
              "menu_draw_ex", "menu_leaving", "panel_settle", "panel_open", "panel_frame",
              "panel_close_at", "panel_close", "timed_message")
     (out / "message-loop.inc").write_text("\n\n".join(function(n) for n in names))

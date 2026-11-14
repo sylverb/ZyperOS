@@ -104,6 +104,7 @@ typedef enum {
 	PM_SEARCH, PM_STATS, PM_RANDOM, PM_ACHIEVEMENTS, PM_SCRAPER,
 	/* Display */
 	PM_APPEARANCE, PM_AUTOHOURS, PM_THEME, PM_HOME, PM_ORDER, PM_BATTERY, PM_SAVER, PM_SHADER,
+	PM_STRENGTH,
 	/* Sound */
 	PM_AUDIO, PM_CHANNELS, PM_SOUNDS, PM_MUSIC,
 	/* Connections: USB Device first, while a plug waits for its answer */
@@ -134,7 +135,7 @@ typedef enum { PT_GAMES, PT_DISPLAY, PT_SOUND, PT_CONNECTIONS, PT_SYSTEM,
  * row, or its games as a list, this shelf's own choice as Sort By is. */
 typedef enum {
 	SM_GAMES, SM_RANDOM, SM_CORE, SM_DSLANG, SM_SORT, SM_VIEW,
-	SM_DISPLAY, SM_SHADER, /* SM_BUTTONS, */ SM_BOXART, SM_RESCAN, SM_ROWS
+	SM_DISPLAY, SM_SHADER, SM_STRENGTH, /* SM_BUTTONS, */ SM_BOXART, SM_RESCAN, SM_ROWS
 } sm_row;
 
 /* What the Favorites shelf's menu is, which is two of those rows.
@@ -327,6 +328,13 @@ typedef struct {
 	 * "per system" when systems differ. NULL reads Off. A label, for the
 	 * reason appearance is one. */
 	const char *shader_all;
+	/* Strength, under it (src/strength.h): "50%", or "per system" when
+	 * systems differ. NULL reads 100%. */
+	const char *strength_all;
+	/* No Strength row, in MENU nor in the system menu: no system's shader
+	 * is an old screen (MENU), or this system's is not. False means present,
+	 * as no_lights does, so a check that says nothing gets every row. */
+	bool        no_strength;
 	const char *home;       /* Spotlight (default) or Gallery */
 	/* System Order, under Home Screen: "A to Z" (default, NULL reads it) or
 	 * "Release Date", systems.cfg's order (2026-11-06) */
@@ -380,6 +388,9 @@ typedef struct {
 	const char *dmode;
 	/* This system's shader's label, after Display Mode; NULL reads Off */
 	const char *shader;
+	/* Its strength, "50%", when it is an old screen (no_strength says
+	 * when); NULL reads 100% */
+	const char *strength;
 	/* The label of the shelf's sort order. A label rather than an index for
 	 * the same reason dmode is one: this file must not know the table, or a
 	 * check that links it would have to link the table too. */
@@ -416,33 +427,6 @@ void sys_menu_saver_label(int seconds, char *out, size_t n);
 const char *sys_menu_order_name(bool release);
 const char *sys_menu_battery_name(int mode);
 
-/* ---- MENU > Scraper (DESIGN.md 11.19) -----------------------------------
- *
- * One list: the run and Video Snaps, a rule, then the sources in the order a
- * run asks them, each saying who it is linked as. While a run goes, the
- * first row is its progress and each source counts the covers it found;
- * after one, the counts stay until the screen closes. Six rows and a rule,
- * which is what the panel holds at 640x480: nothing else goes on it. Each builder fills `ids`
- * with every row's part (SC_NONE and the like for rules and notes), so the
- * key handler and the check agree on what row 3 is. */
-typedef enum { SC_NONE, SC_FETCH, SC_SNAPS, SC_SS, SC_LIBRETRO, SC_SGDB } sc_row;
-#define SC_ROWS 10
-typedef struct {
-	bool        net;          /* a network to fetch over */
-	int         missing;      /* covers missing, or -1 before a count */
-	const char *snaps;        /* the Video Snaps value: "on · 1.4 GB", "off" */
-	bool        ss_have;      /* this build carries ScreenScraper's key */
-	bool        ss_in;
-	const char *ss_name;      /* only read when ss_in */
-	const char *sgdb;         /* "••••1a2b", "key refused", or NULL: none */
-	bool        running, ran; /* a run going; a run finished on this screen */
-	int         done, total;  /* games looked at, of those missing */
-	int         ss_found, lr_found, sg_found, not_found;
-} scraper_ui;
-typedef struct { char fetch[48], ss[64], lr[32], sg[32]; } scraper_bufs;
-int sys_menu_scraper_rows(const scraper_ui *u, scraper_bufs *b, menu_row *out,
-                          sc_row *ids);
-
 /* ScreenScraper's page: the account, whether it works, Unlink, and what it
  * brings. `user` NULL is not linked; `status` the Status value. */
 typedef enum { SSP_NONE, SSP_ACCOUNT, SSP_STATUS, SSP_UNLINK } ssp_row;
@@ -459,17 +443,17 @@ typedef enum { SG_NONE, SG_KEY, SG_STATUS, SG_REMOVE } sg_row;
 int sys_menu_sgdb_rows(const char *masked, const char *state, menu_row *out,
                        sg_row *ids);
 
-/* The Video Snaps page: fetching them, playing them, their sound, then every
- * console with the room its snaps take and its own on or off, and Delete
- * All. Fetching needs ScreenScraper, the only source with snaps. */
-typedef enum { SN_NONE, SN_FETCH, SN_PLAY, SN_SOUND, SN_CONSOLE, SN_DELETE } sn_row;
+/* The Video Snaps page: playing them, their sound, then every console with
+ * the room its snaps take and whether the shelf plays them, and Delete All.
+ * Which systems GET videos is MENU > Scraper's Systems grid (2026-11-13). */
+typedef enum { SN_NONE, SN_PLAY, SN_SOUND, SN_CONSOLE, SN_DELETE } sn_row;
 enum { SNAP_MUTED, SNAP_QUIET, SNAP_FULL };
 /* The words the settings database keeps for them; the row says them in the
  * language that is on */
 extern const char *const SNAP_SOUND_NAME[3];
 typedef struct { const char *name; bool on; unsigned long long bytes; } snaps_console;
 typedef struct {
-	bool fetch, play, ss_in;
+	bool play, ss_in;
 	bool ss_have;                     /* this build has ScreenScraper's key */
 	int  sound;                       /* SNAP_MUTED ... */
 	const snaps_console *c;

@@ -8,11 +8,16 @@ BUILD := build-native
 # The Brick's device file, whose hardware is behind __linux__ with a host stub
 # beside it: that is what this build has always run.
 DEVICE ?= brick
-SRC := $(wildcard src/*.c) src/device/$(DEVICE).c
+# src/ds/: the design system's components and marks (DESIGN.md, "Where each part lives")
+SRC := $(wildcard src/*.c) $(wildcard src/ds/*.c) src/device/$(DEVICE).c
 # src/main.c and the files split from it, which call into one another: the
 # checks that link the rest of src/ leave them all out.
-MAIN_SRC := src/main.c src/aout_route.c src/bt_screen.c src/place.c src/portload.c \
-            src/powerscreens.c src/raqueue.c src/shelfbuild.c src/stats_screen.c src/zyperdraw.c
+MAIN_SRC := src/main.c src/aout_route.c src/bgm_screen.c src/bt_screen.c \
+            src/clock_screen.c src/ctl_channel.c src/ctltab_screen.c src/gamedel_screen.c \
+            src/gamern_screen.c src/media_screen.c src/menu_panel.c \
+            src/nowplaying_screen.c src/place.c src/portload.c src/powerscreens.c \
+            src/raqueue.c src/search_screen.c src/shelfbuild.c src/stats_screen.c \
+            src/storage_screen.c src/update_screen.c src/zyperdraw.c
 
 PKGS := sdl2 SDL2_image SDL2_ttf
 VERSION ?= 0.0
@@ -23,7 +28,10 @@ $(shell mkdir -p $(BUILD) && rm -rf $(BUILD)/zyperos $(BUILD)/obj && echo '$(VER
 endif
 CFLAGS := -DZYPEROS_VERSION='"$(VERSION)"' -O1 -g -Wall -Wextra -Wno-unused-parameter -std=gnu11 -D_GNU_SOURCE \
           $(shell pkg-config --cflags $(PKGS))
-LDLIBS := $(shell pkg-config --libs $(PKGS)) -lsqlite3 -lz -lpthread -lm
+# liblzma for a CHD's LZMA hunks (src/chd.c); Homebrew's xz on a Mac
+CFLAGS += $(shell pkg-config --cflags liblzma 2>/dev/null)
+LDLIBS := $(shell pkg-config --libs $(PKGS)) -lsqlite3 -lz \
+          $(shell pkg-config --libs liblzma 2>/dev/null || echo -llzma) -lpthread -lm
 # ALSA only on Linux: src/btvol.c is a no-op without it, on the Mac
 ifeq ($(shell uname -s),Linux)
   LDLIBS += -lasound
@@ -65,7 +73,7 @@ FORCE:
 # header is a prerequisite of every object: the coarse rule, and the safe one.
 OBJ := $(BUILD)/obj
 OBJS := $(patsubst src/%.c,$(OBJ)/%.o,$(SRC))
-HDRS := $(wildcard src/*.h) $(wildcard src/device/*.h) $(wildcard src/third_party/*.h)
+HDRS := $(wildcard src/*.h) $(wildcard src/ds/*.h) $(wildcard src/device/*.h) $(wildcard src/third_party/*.h)
 
 $(OBJ)/%.o: src/%.c $(HDRS) $(CREDS)
 	@mkdir -p $(dir $@)

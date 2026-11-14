@@ -229,7 +229,7 @@ typedef enum {
 	DIATOM_MSG_LEVELS,     /* report volume and brightness */
 	DIATOM_MSG_SETLEVEL,   /* set `lkind` to `index` of `count` positions */
 	DIATOM_MSG_DISPLAY,    /* report the display mode and filter */
-	DIATOM_MSG_SETDISPLAY, /* set them: `dmode`, `dfilter` */
+	DIATOM_MSG_SETDISPLAY, /* set them: `dmode`, `dfilter`, `dstrength` */
 	DIATOM_MSG_OVERLAY,    /* composite `path` over the game for `count` ms */
 	DIATOM_MSG_CHEEVOS,    /* report the achievement set and what has fired */
 	DIATOM_MSG_SETCHEEVOS, /* load a set from `path`; empty unloads */
@@ -253,6 +253,8 @@ typedef enum {
 	DIATOM_MSG_SETSCREENS, /* set it: `layout`, `swap` = 1 | 0 */
 	DIATOM_MSG_STYLUS,     /* report whether stylus mode is on */
 	DIATOM_MSG_SETSTYLUS,  /* turn it on or off: `on` = 1 | 0 */
+	DIATOM_MSG_SETSTICK,   /* the d-pad as the stick: `dmode` (sent as `mode=`)
+	 * = dpad | plain | toggle | toggle-stick | off; answered STICK on=1|0 */
 	/* Guest players, NES player 2 first (player2.h): the frames out and
 	 * the guests' buttons in, through a file p2d maps too. Only while a
 	 * game is loaded. */
@@ -328,6 +330,8 @@ typedef struct {
 	                        * SETCHANNELS: one from diatom_channels_names[].
 	                        * Both arrive as `mode=`, so one slot. */
 	char dfilter[16];      /* SETDISPLAY: a name from diatom_filters[] */
+	char dstrength[8];     /* SETDISPLAY: an old screen's strength, 0 to 100
+	                        * percent (diatom_port_strength); empty leaves it */
 	int  index, count;     /* SETLEVEL: `count` is POSITIONS, not a max index.
 	                        * OVERLAY: `count` is the duration in ms, sent as
 	                        * `ms=`. One slot, two verbs, no second name.
@@ -343,6 +347,9 @@ void diatom_input_set_stick(bool dpad);
 /* RUN stick=toggle: the d-pad is the d-pad, or the stick when `as_stick`,
  * until diatom_input_stick_flip turns it; SELECT's rule is not used */
 void diatom_input_set_stick_toggle(bool as_stick);
+/* RUN stick=plain: the d-pad is the left stick and the joypad's d-pad both,
+ * always: no SELECT rule, and nothing turns it (main.c gives R2 no turn) */
+void diatom_input_set_stick_plain(void);
 /* R2 under stick=toggle: the d-pad goes to the other side. True when it is
  * the stick now. Nothing turns outside stick=toggle. */
 bool diatom_input_stick_flip(void);

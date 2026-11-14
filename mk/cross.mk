@@ -4,7 +4,7 @@
 BUILD := build
 # Every device shares src/*.c; DEVICE picks the one device file built with it.
 DEVICE ?= brick
-SRC := $(wildcard src/*.c) src/device/$(DEVICE).c
+SRC := $(wildcard src/*.c) $(wildcard src/ds/*.c) src/device/$(DEVICE).c
 CC ?= aarch64-linux-gnu-gcc
 
 VERSION ?= 0.0
@@ -14,7 +14,9 @@ CFLAGS := -DZYPEROS_VERSION='"$(VERSION)"' -O2 -mcpu=cortex-a53 -Wall -Wextra -W
 # SYSROOT has SDL and everything SDL needs, so the link checks that ZyperOS uses
 # no function the system's libraries lack, and that those libraries resolve.
 LDFLAGS := -L$(SYSROOT)/usr/lib -Wl,-rpath-link,$(SYSROOT)/usr/lib
-LDLIBS := -lSDL2 -lSDL2_image -lSDL2_ttf -lsqlite3 -lz -lasound -lpthread -lm
+# liblzma for a CHD's LZMA hunks (src/chd.c): the system's, which FFmpeg
+# already needs, so it costs the image nothing
+LDLIBS := -lSDL2 -lSDL2_image -lSDL2_ttf -lsqlite3 -lz -llzma -lasound -lpthread -lm
 
 # The ScreenScraper developer pair, from the environment into a GENERATED
 # HEADER rather than onto the compile line.
@@ -50,7 +52,7 @@ creds:
 
 # The device file's own headers too: src/device/pixel2_levels.h is the volume
 # and backlight ladders, which portkeys shares.
-$(BUILD)/zyperos.elf: $(SRC) $(CREDS) $(wildcard src/*.h) $(wildcard src/device/*.h)
+$(BUILD)/zyperos.elf: $(SRC) $(CREDS) $(wildcard src/*.h) $(wildcard src/ds/*.h) $(wildcard src/device/*.h)
 	mkdir -p $(BUILD)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(SRC) $(LDLIBS)
 

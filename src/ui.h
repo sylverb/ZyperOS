@@ -476,35 +476,8 @@ SDL_Surface *ui_card_paint(const ui_card_order *o, bool away);
  * the theme it was drawn in (ui_card_theme). On the frame thread. */
 SDL_Texture *ui_card_upload(SDL_Renderer *r, SDL_Surface *s, int theme_ix);
 
-/* The play modes' marks, in the shapes everybody already reads: two arrows
- * chasing round a loop for repeat, the same with a 1 in it for repeat one, and
- * two crossing arrows for shuffle. Drawn here from a few lines of geometry
- * rather than taken from a font or an icon set. Centered on (cx, cy), `size`
- * pixels square, in `col`; each shape and size is rendered once and kept. */
-/* And the three answers when a computer is plugged in (DESIGN.md 11.18): a
- * bolt for Charge Only, a folder with an arrow up out of it for File
- * Transfer, a terminal's prompt for Developer (SSH). And the empty home's two
- * ways (11.19): the USB trident, and three arcs and a dot for Wi-Fi. And the
- * answers while File Transfer's files move (11.14): an arrow up and one down
- * for keep going, a page with a tick for stop after this file, a ring crossed
- * for cancel now, a play triangle for play after this file. And a tick for
- * the choice that is on in a list of choices (MENU > Language, 11.30). And
- * the two answers when something on the Pixel 2's port wants power (11.36):
- * headphones for a USB accessory, a laptop for a computer. And Flash
- * Drive's two ways (11.18): an arrow down into a tray, to the card, and up
- * out of it, from the card. */
-typedef enum {
-	UI_GLYPH_REPEAT, UI_GLYPH_REPEAT_ONE, UI_GLYPH_SHUFFLE,
-	UI_GLYPH_CHARGE, UI_GLYPH_TRANSFER, UI_GLYPH_TERMINAL,
-	UI_GLYPH_USB, UI_GLYPH_WIFI,
-	UI_GLYPH_ARROWS, UI_GLYPH_FINISH, UI_GLYPH_CANCEL, UI_GLYPH_PLAY,
-	UI_GLYPH_CHECK,
-	UI_GLYPH_HEADPHONES, UI_GLYPH_LAPTOP, UI_GLYPH_PHONE,
-	UI_GLYPH_TO_CARD, UI_GLYPH_FROM_CARD,
-	UI_GLYPH_COUNT
-} ui_glyph;
-void ui_glyph_draw(SDL_Renderer *r, ui_glyph g, int cx, int cy, int size,
-                   SDL_Color col);
+/* The marks drawn from strokes (ui_glyph, ui_glyph_draw): src/ds/glyph.h */
+#include "ds/glyph.h"
 
 /* A button drawn rather than named, DESIGN.md 11.9: a circle for the face
  * buttons A, B, X and Y, and a pill for every other (START, MENU, L1/R1),

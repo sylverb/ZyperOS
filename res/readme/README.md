@@ -56,12 +56,11 @@ clock and battery are fixed preview values.
 
 ## Refresh
 
-Check each image's `source_commit` in `captures.json` before capture. This
-site branch predates the full-page Scraper and the in-game tabs. Its native
-binary still draws the previous interface. The current feature captures
+Check each image's `source_commit` in `captures.json` before capture. The feature captures
 come from main at `71c6122259150af55603b3a45d326ca486cc693c`, using that
 revision's `tools/readme-shots.py` and native binary. Scraper uses
-`--scraper-page 1`; `--scraper 2` is the old panel.
+`--scraper-page 1`; `--scraper 2` is the old panel. An older checkout can
+produce outdated captures even after a fresh native build.
 
 Run the commands below in a checkout that includes the recorded source
 revision. For a partial refresh, merge only the refreshed image entries

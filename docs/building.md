@@ -70,10 +70,12 @@ something once broke in a way nothing noticed:
 | `check-taskhold` | long tasks and Auto Off (src/taskhold.h): what a loop says holds the clock for 2 s and lets go by itself, across the counter's wrap, and the real clock does not fire during a task and starts a whole countdown after it |
 | `check-saver` | the screensaver's policy (src/saver.h): the delay's ladder, when it starts and what holds it back (a button, music, a long task, a low battery, time away), when it ends on its own (the cable-less cap, a low battery), a clip's fades and timing, which game is next (none of the last twelve), and that Auto Off fires at its own time with it up, down or off |
 | `check-cheevos` | the achievement half: parsing and filtering |
-| `check-rahash` | the C and Python ROM hashers agree, over the whole library |
+| `check-rahash` | the C and Python ROM hashers agree, over the whole library; PlayStation and PSP discs in `.chd`, `.cso` and `.pbp` give upstream rcheevos's hashes (`tools/fixtures/rahash`, made by `tools/rahash-fixtures.py`), and broken ones are refused |
+| `check-flacdec` | the FLAC decoder under a CHD's FLAC hunks matches libFLAC's encoder at every setting (needs Homebrew's `flac`) |
+| `check-achtab` | the in-game menu's Achievements tab: each state its sentence, the counts line, an achievement's row |
 | `check-raset` | the C and Python set converters agree (needs `RA_USER`/`RA_PASS`) |
 | `check-artscrape` | two name normalizers agree on every candidate |
-| `check-artrun` | whole Box Art runs against a fake network: Replace keeps a cover it cannot better, and a checksum names the ROM in a zip, not the readme beside it |
+| `check-artrun` | whole Scraper runs against a fake network: Replace keeps a cover it cannot better, a checksum names the ROM in a zip, not the readme beside it, libretro comes right after a ScreenScraper miss, ten in a row leave a system to libretro, misses are kept 30 days, and a system with covers off gets none |
 | `check-hare` | nothing on the file server is reachable without the PIN; the page is named after its link (`/link.js`: the cable's or Wi-Fi's, never kept by a browser), and a web folder from before that still serves its page; an upload or an update's file of an exact multiple of 128 KiB sent with the page's trailer is stored to the byte, one sent plainly as sent, and one with a trailer it cannot make sense of refused, the file of its name kept and no part-file left |
 | `check-httpd` | request parsing, including the malformed ones |
 | `check-xfer` | upload paths cannot escape the directory they were aimed at |
@@ -95,13 +97,15 @@ something once broke in a way nothing noticed:
 | `check-strings` | every string in `res/strings/` in all five languages with English's printf conversions, every ID used and defined, every character in the font that draws it, and `src/i18n_ids.h`, `src/i18n_tables.c` and `res/web/i18n/` what `tools/i18n.py` writes |
 | `check-i18n-shots` | the main screens in all five languages and the pseudo-locale, from the host build: no string from `res/strings` cut, broken past its lines or off the screen in any language, and a list of what the pseudo-locale's longer words do not fit |
 | `check-linebreak` | a name too wide for its box breaks balanced, as the port loading screen breaks one: one line when it fits, else the fewest lines and, of those, the narrowest widest line, held to a search of every break; and a marquee's window rests with its ends between letters, never through one or through the bytes of one (no SDL) |
-| `check-portkeys` | the bar over a port takes the Appearance word from the device database, the zone from the card's library (one on Date & Time's list, else New York) and the theme file only when the database cannot be read, against scratch databases that are missing, empty, not databases or locked (SQLite, no SDL) |
+| `check-portkeys` | the bar over a port takes the Appearance word from the device database, the zone from the card's library (one this system has, on Date & Time's list or set by its Auto, else New York; never a path) and the theme file only when the database cannot be read, against scratch databases that are missing, empty, not databases or locked (SQLite, no SDL) |
 | `check-zyperrig` | Zyper's moves beside the top menu's heading: still at rest but for his breath and a blink every 3 to 6 s, the opening hop, a success's hop and pant and a failure's cocked head at their times, a reaction that starts from where he is, a press that drops what was booked and one on the way back that does nothing, a held key that starts nothing over, the first blink's window over a thousand seeds and a blink on its own time, and all of it across the clock's wrap (no SDL) |
 | `check-about-shots` | the two About pages leave the shelf below the panel unchanged; page counts belong in the heading, in both themes |
 | `check-about` | About storage and battery estimates: real filesystem reads, capacity fixtures, missing or malformed readings, overflow, decimal GB and rounded mAh |
 | `check-tour` | the tutorial's steps: what each button is to it and which glyph part the hand lights on each device, every step in order and what each waits for, the deaf start of a step for every key, START, every wrong press and its words, every button's name, POWER only in its own step, the reward's hold, the demonstration loops, Zyper's moves (the rig's, the corner's rise from where he is, the hello's pop-in), the little shelf's colors against `config/systems.cfg`, and `tour.done` saved only for a tour that is seen (no SDL) |
 | `check-tour-shots` | the tutorial as the launcher draws it, in both themes: Zyper only for the reward and a wrong press and one at a time in the power step and through the finish transition, the check disc, his bubble clear of "START: skip"; and the launcher's first start showing it on a fresh database and not after `--set tour.done=1` (builds the host launcher; skips without SDL2) |
 | `check-textfade` | cached text first drawn at partial opacity reaches the same pixels as text first drawn fully opaque, in both themes, through an SDL software renderer with no window |
+| `check-ds` | the design system's rules (DESIGN.md section 15, tools/ds-check.py): src/ds/ includes nothing of main.c; outside it no page foot typed as 704, no Zyper typed at a page's (123, 168), no tile mark or tiles style read off a name (tile_glyph, tiles_are_list) |
+| `check-glyphs` | the marks drawn from strokes (src/ds/glyph.c): every one within 32 strokes and 4 arrowheads, counted as it asks for them, kept or not; and the cache, full, giving the same pixels for a mark drawn again (needs SDL2) |
 | `check-zyper` | Zyper as the launcher draws him: in the top ZyperOS menu and no other, his tongue in after a failure, his eyes shut in a blink, and his shadow on Beard, in the menu and on the power-off screen where it goes out with him, never on Salt & Pepper; the host build's shots read back with Python's standard library (builds the host launcher; skips without SDL2) |
 | `check-portload` | the port loading screen over a white cover, a black one and a Nintendo DS game with a black one, in both themes: its words at 4.5:1 and its band at 3:1 as the screen reads them back, and neither words nor cover in Zyper's frame (builds the host launcher; skips without SDL2) |
 | `check-flip` | both home layouts, generated game covers and Now Playing match a cold start after a theme change; source sprites remain present, and removed settings never restore old layouts |
@@ -127,6 +131,7 @@ something once broke in a way nothing noticed:
 | `check-devmode` | developer mode on a release image: the unlock hold (L2 and R2 for five seconds, a bar that only rises, and letting go early, another page or holding on starting again), the setting kept in the card's database, a random one-time password in its alphabet, and only public keys without options taken from the card's key file, once each |
 | `check-ctl` | the launcher's command channel, the one `px2-open` talks to: the command lines, good and bad; a game's path split into its system's folder and the file, and anything else turned away (outside `Roms`, relative, `..`, a link that leads out); the system found by its folder in either case and the game by its launch path or its disc folder; a core by its name or its Core row's; the socket in a folder in `/tmp`, closed to others, a command in and an answer out, and the port record |
 | `check-sgdb` | SteamGridDB on the device: the real client and a whole run against a fake API (the key in a header and never a URL, the match, the formats, the refusals, a key refused with a 401 or 403 when it is entered said so and the one before it kept), its title and ratio held to tools/sgdb-check.py |
+| `check-snaps` | MENU > Scraper's settings: covers and videos per system (covers on and videos off to start, a card that had 1.0.4's Fetch with Box Art on still getting them), Videos for (all games, favorites, played) and which games it lets through |
 | `check-snapshelf` | when the shelf's cover turns into its video snap and back, on a clock the check moves by hand |
 | `check-ss` | whether this build can reach ScreenScraper, and whether an account survives a restart |
 | `check-savedlib` | the saved library a start shows first: a listing written, read and finished is the scan, and nothing but a whole file is read as one; four headless starts of the launcher, with a game added before the third, rebuilt in place |
@@ -138,9 +143,11 @@ something once broke in a way nothing noticed:
 | `check-mp4lock` | the play modes, and MP4's lock screen: every button blocked, power and volume too, and L1 + R1 held two seconds the one way out |
 | `check-mp4frame` | MP4's video frames between the daemon and the launcher: a writer and a reader on two threads over the same pages, every picture the reader keeps whole |
 | `check-controls` | what MENU > Controls says: every button on exactly one page, and rows short enough to sit still; and a game's Controls, for every system in systems.cfg: the core's names through its map and turbo, pages that fit |
+| `check-remap` | the remap rules: Diatom's map language read and written, a button's change and its swap worked from the base, what is stored and loaded, the N64's layer kept, the choices a system offers and its letter layout |
 | `check-controls-shots` | the in-game Controls pages drawn in both themes, each still and its own; every Controls page measured with the font against the panel (`--controls-fit`); the in-game menu's Controls row; MENU > System Order turned both ways (builds the host launcher; skips without SDL2) |
 | `check-logpack` | the logs pack: names and Bluetooth addresses masked, and a whole pack unpacked with the same tar and read back |
-| `check-clock` | Date & Time: each row moving only itself, the 12-hour and 24-hour words, the shelf's short clock, and the zone list west to east |
+| `check-clock` | Date & Time: each row moving only itself, the 12-hour and 24-hour words, the shelf's short clock, the zone list west to east, Auto before its west end, and the list A on Time Zone opens (Auto first with what it found, then every zone, the tick and the cursor on the choice that is on) with its rule: a zone picked by hand turns Auto off |
+| `check-autozone` | Date & Time's Auto (src/autozone.c): ipwho.is's reply read, and a refusal, a rate limit, a page that is not JSON, a reply cut short, a name that is a path and offsets no zone has not; the zone it comes to (the name when the system has it, else the offset's: Etc/GMT-N, or the city of an offset off the hour, each in the host's zone database); the row's words; and when it asks: once a connection after the network settles, again on a failure up to four tries, not within three hours of an answer, never with the clock unset, and again when Auto is chosen again; and 1.0.5's default on scratch library databases: a new card on Auto, a card from before switched on once with its zone kept until the first answer, a zone picked by hand after that kept |
 | `check-battery` | a charger change reaches the shared battery cache within 250 ms at the shelf's poll rate |
 | `check-battery-eta` | the time left on the battery: the estimate from how long a percent takes to fall, against a simulated gauge at several loads, across the clock's wrap, a change of load, a stall, the cable and a gauge that corrects itself; and the corner's rounding |
 | `check-dslang` | the Nintendo DS's language: each language MENU > Language has maps, in Auto, to the DS's own or to English (Português (Brasil) and 简体中文 have none), the Game Language row's eight choices round trip through the database and go round both ways, the core's option and its values are the patch's, and the launcher sends it first with every DS game and with no other; the row is on the DS shelf's menu in every language with nothing cut, and Left, Right and A go round it, saved (builds the host launcher for the second half; skips without SDL2) |
@@ -199,7 +206,7 @@ something once broke in a way nothing noticed:
 | `check-pace` | when a panel screen draws (src/pace.c): a still one its heartbeat (about 610 frames in 10 minutes, not 36,000), a change, the redraw clock's moment or anything moving at once, the memory's slow clock after 2 s still |
 | `check-keyhints` | button hints (src/keyhints.c), the one component for what each button does: rows in order and in their room, lists packed and read back in all eight languages |
 | `check-usblog` | the USB port's log for support (src/usblog.c): a plug a line, grown as it goes and closed with its time in, power in alone a line, the last 50 under 8 KB, read back from the file |
-| `check-usbpower` | What did you plug in?, the launcher's half of usbrole (src/usbpower.c): usbrole's state lines, the request and the setting written whole and never through a link, asked once per plug after 2 s (never on Automatic unless a computer paused it), the replug message for a plug a computer showed up on or came back to while paused, and Phone's messages kept while the port powers the phone |
+| `check-usbpower` | What did you plug in?, the launcher's half of usbrole (src/usbpower.c): usbrole's state lines, the request and the setting written whole and never through a link, asked once per plug after 2 s (never on Automatic unless a computer paused it), the replug message for a plug a computer showed up on or came back to while paused, Phone's messages kept while the port powers the phone, and Automatic offered once, at the second USB Accessory answer, on Ask, never again once answered |
 | `check-phonelink` | A phone's USB tethering (src/phonelink.c): its network interface told from the gadget's own usb0 and from a Wi-Fi adapter's, an iPhone told from a Mac on the bus (as sysfs reads them, newline and all), USB File Transfer opened once a link, and a way out to the internet from /proc/net/route (Wi-Fi, or a default route that is not lo; the phone's, metered; never the cable to a computer) |
 | `check-qr` | the hotspot's QR code, read back by zbarimg where the host has it |
 | `check-home` | the home's choice, labels, motion, cached music, renderer state, bounded assets, worker isolation and missing art, on the launcher's own objects |
@@ -266,7 +273,19 @@ Menu Music's page, the cursor on ROW and then STEPS presses of Down, a frame
 each, so the list goes round (`foot`: no cursor, the note pinned under the
 rows).
 `python3 tools/i18n-shots.py --keep DIR` writes the main screens in every
-language (`make check-i18n-shots`).
+language (`make check-i18n-shots`); `--theme dark` draws them in Salt &
+Pepper, and `--binary PATH` with another launcher.
+
+`make pixel-gate` (`tools/pixel-gate.py`) holds a change that means to
+change nothing on the screen to the same pixels: it builds the launcher at
+`BASE` (origin/main) in a worktree of its own and here, takes every shot of
+`check-i18n-shots` in every language and both themes with each, and
+compares them as decoded pixels, printing "pixel gate: K of N frames
+changed" and each one, with before and after sheets of what changed in
+`build-native/pixel-gate/`. Some shots or one language:
+`make pixel-gate GATE='--lang en usb-ask hare'`; `--allow-changes` for a
+change that means to change them. Not in `make check`: it builds twice and
+takes about 9,200 frames a side.
 
 `--tour STEP [MS [DONE]]` draws a frame of the tutorial in place of the shelf:
 STEP is `lang` (the language step: its cursor steps a language a second,

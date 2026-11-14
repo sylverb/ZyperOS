@@ -193,6 +193,29 @@ for name in ("crt", "crt-curved", "scanlines", "lcd"):
     send("SETDISPLAY\tfilter=" + name); got = drain()
     check_that("filter " + name + " is taken and said back",
                len(got) == 1 and ("\tfilter=" + name + "\t") in got[0], got)
+# The old screens' strength (diatom_port_strength): 100 until told, said at
+# the end of DISPLAY, kept across a filter change, refused whole when it is not
+# 0 to 100, and set with a filter in one message as the launcher sends it
+send("DISPLAY"); got = drain()
+check_that("strength is 100 until told, said last",
+           len(got) == 1 and got[0].endswith("\tstrength=100"), got)
+send("SETDISPLAY\tstrength=50"); got = drain()
+check_that("strength=50 is taken, the filter kept",
+           len(got) == 1 and "\tfilter=lcd\t" in got[0] and got[0].endswith("\tstrength=50"), got)
+send("SETDISPLAY\tfilter=scanlines"); got = drain()
+check_that("a filter alone keeps the strength",
+           len(got) == 1 and "\tfilter=scanlines\t" in got[0] and got[0].endswith("\tstrength=50"), got)
+for bad in ("101", "-1", "50x", "half"):
+    send("SETDISPLAY\tfilter=crt\tstrength=" + bad); got = drain()
+    check("strength " + bad + " refuses the whole message", got,
+          ["ERROR\tcode=bad_display\tmsg=" + bad])
+send("DISPLAY"); got = drain()
+check_that("filter and strength did not move",
+           len(got) == 1 and "\tfilter=scanlines\t" in got[0] and got[0].endswith("\tstrength=50"), got)
+send("SETDISPLAY\tfilter=crt\tstrength=0"); got = drain()
+check_that("a filter and its strength in one message, 0 allowed",
+           len(got) == 1 and "\tfilter=crt\t" in got[0] and got[0].endswith("\tstrength=0"), got)
+send("SETDISPLAY\tstrength=100"); drain()
 send("SETDISPLAY\tmode=stretch\tfilter=nearest"); got = drain()
 check_that("and nearest again with a mode",
            len(got) == 1 and got[0].startswith("DISPLAY\tmode=stretch\tfilter=nearest\trect="),
@@ -202,6 +225,14 @@ send("SETDISPLAY\tmode=integer"); drain()
 send("LEVELS"); check("desktop has no levels", drain(), ["LEVELS\tcount=0"])
 send("SETLEVEL\tkind=brightness\tindex=3\tcount=12")
 check("setlevel refused with no control", drain(), ["ERROR\tcode=bad_level\tmsg=brightness"])
+
+# The stick, live, with a game running: each mode answers whether the d-pad is
+# now the stick, an unknown one is refused (check-hotkeys reads the pad).
+for mode, on in (("plain", 1), ("off", 0), ("dpad", 1), ("toggle", 0), ("toggle-stick", 1), ("off", 0)):
+    send(f"SETSTICK\tmode={mode}"); check(f"SETSTICK {mode} while running", drain(), [f"STICK\ton={on}"])
+send("SETSTICK\tmode=sideways"); got = drain()
+check_that("an unknown stick mode is an ERROR while running",
+           len(got) == 1 and got[0].startswith("ERROR\tcode=bad_stick"), got)
 
 send("RESET"); check("reset while running", drain(), ["RESETDONE"])
 

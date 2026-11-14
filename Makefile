@@ -6,11 +6,11 @@
 # docs/building.md says how to work on a device.
 
 .PHONY: all clean native px2-payload vendor boot system-art checkmark \
-        check check-cheevos check-hare check-portal check-httpd check-idle check-taskhold check-saver check-rahash check-signin check-search \
-        check-raset check-xfer check-sshlink check-usblink check-devmode check-ctl check-menus check-status check-battery check-corner check-artscrape check-artrun check-sgdb check-snapshelf check-audioout \
+        check check-cheevos check-hare check-portal check-httpd check-idle check-taskhold check-saver check-rahash check-flacdec check-achtab check-signin check-search \
+        check-raset check-xfer check-sshlink check-usblink check-devmode check-ctl check-menus check-status check-battery check-corner check-artscrape check-artrun check-sgdb check-snapshelf check-snaps check-audioout \
         check-db check-gamedel check-gamern check-esmedia check-corepins check-targets yuvtarget check-storage check-stats check-sort check-bt check-ss check-titles check-dsv check-sidelights check-osdbar check-themefile check-pkkeys check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-kbnav check-tween check-menumotion check-menusnap check-cardgen check-blur check-roundrect check-rowmacro check-emptyhome check-zyperrig check-randgame check-shelfdir \
         check-sysmark check-flip check-menushots check-controls-shots check-design check-systemart check-linebreak check-portload \
-        check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-messages check-tour check-tour-shots check-textfade check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pmhelper check-portdoc check-boottheme check-px2-push check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr \
+        check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-messages check-tour check-tour-shots check-textfade check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pmhelper check-portdoc check-boottheme check-px2-push check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr check-autozone \
         check-home check-home-shots check-games check-cardpaint check-putpace landbench check-favorites-shots check-np-footer check-layout-shots check-artbadge check-artbadge-shots design sounds strings cjk-font check-strings check-i18n-shots \
         check-tour-previews tour-previews check-prep check-diatom check-simulator check-px2sim check-building-doc check-blog check-discord-release \
         check-installer release
@@ -28,14 +28,14 @@ NATIVE_J = $(if $(filter -j%,$(MAKEFLAGS))$(findstring j,$(filter-out -%,$(first
 # had to be remembered by name, which is a suite in the same sense that a list
 # of good intentions is a plan. A check nobody runs is a check that does not
 # exist, and check-menus was about to join eight others in that state.
-CHECKS = check-cheevos check-hare check-portal check-httpd check-idle check-taskhold check-saver check-rahash check-rasubmit check-raoffline check-signin check-noticeq check-badges check-badge-shots \
-         check-raset check-xfer check-sshlink check-usblink check-devmode check-ctl check-menus check-artscrape check-artrun check-sgdb check-snapshelf check-audioout \
+CHECKS = check-cheevos check-hare check-portal check-httpd check-idle check-taskhold check-saver check-rahash check-flacdec check-achtab check-rasubmit check-raoffline check-signin check-noticeq check-badges check-badge-shots \
+         check-raset check-xfer check-sshlink check-usblink check-devmode check-ctl check-menus check-artscrape check-artrun check-sgdb check-snapshelf check-snaps check-audioout \
          check-db check-gamedel check-gamern check-esmedia check-media check-snapsize check-corepins check-targets check-storage check-stats check-sort check-bt check-ss check-titles check-savedlib check-search \
-         check-muselib check-musequeue check-museart check-mp4lock check-mp4frame check-p2share check-webtheme check-p2ws check-p2codec check-p2d check-play check-p2 check-resident check-controls check-controls-shots check-logpack \
-         check-clock check-status check-battery check-battery-eta check-dslang check-dsresume check-corestate check-core-stamp check-core-room check-px2-perf check-px2-snap check-px2 check-lowbatt check-heat check-charging check-corner check-dsv check-sidelights check-osdbar check-themefile check-pkkeys check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-kbnav check-randgame check-shelfdir check-look \
+         check-muselib check-musequeue check-museart check-mp4lock check-mp4frame check-p2share check-webtheme check-p2ws check-p2codec check-p2d check-play check-p2 check-resident check-controls check-remap check-controls-shots check-logpack \
+         check-clock check-autozone check-status check-battery check-battery-eta check-dslang check-dsresume check-corestate check-core-stamp check-core-room check-px2-perf check-px2-snap check-px2 check-lowbatt check-heat check-charging check-corner check-dsv check-sidelights check-osdbar check-themefile check-pkkeys check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-kbnav check-randgame check-shelfdir check-look \
          check-tween check-menumotion check-menusnap check-cardgen check-blur check-roundrect check-rowmacro check-emptyhome check-zyperrig check-sysmark check-flip check-menushots check-design \
          check-systemart check-linebreak check-portload check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-messages \
-         check-tour check-tour-shots check-tour-previews check-textfade check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pmhelper check-pmart check-portdoc check-boottheme check-panelgamma check-px2-push check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr \
+         check-tour check-tour-shots check-tour-previews check-textfade check-glyphs check-ds check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pmhelper check-pmart check-portdoc check-boottheme check-panelgamma check-px2-push check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr \
          check-home check-home-shots check-games check-cardpaint check-putpace check-favorites-shots check-np-footer check-layout-shots check-artbadge check-artbadge-shots checkmark \
          check-installer check-from-rogue check-importers check-diatom check-simulator check-px2sim check-building-doc check-blog check-discord-release \
          check-strings check-i18n-shots
@@ -494,10 +494,10 @@ check-portdoc: build-native/portdoc-check
 	@./build-native/portdoc-check
 
 build-native/portdoc-check: tools/portdoc-check.c src/portdoc.c src/portdoc.h src/rajson.c src/rajson.h \
-                           src/controls.c src/controls.h src/portmenu.h src/menu.h $(I18N_SRC) FORCE
+                           src/controls.c src/controls.h src/remap.c src/remap.h src/portmenu.h src/menu.h $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -o $@ tools/portdoc-check.c src/portdoc.c \
-	      src/rajson.c src/controls.c $(I18N_SRC)
+	      src/rajson.c src/controls.c src/remap.c $(I18N_SRC)
 
 # plastron's make push writes the system slot the Pixel 2 is not running,
 # never the one it runs from (scripts/px2-slot.sh): the slot choice, the
@@ -981,6 +981,13 @@ strings:
 # strings and their tables (src/i18n.h). English, as the launcher is before
 # the setting is read, unless the check sets another.
 I18N_SRC := src/i18n.c src/i18n_tables.c
+# The RetroAchievements hasher and the disc readers under it (src/rahash.h,
+# src/discimg.h): every check that links one links them all, and liblzma
+# for a CHD's LZMA hunks (Homebrew's xz on a Mac; the device has the
+# system's, which FFmpeg already needs)
+RAHASH_SRC := src/rahash.c src/discimg.c src/chd.c src/flacdec.c
+LZMA_CFLAGS := $(shell pkg-config --cflags liblzma 2>/dev/null)
+LZMA_LIBS := $(shell pkg-config --libs liblzma 2>/dev/null || echo -llzma)
 
 check-strings:
 	@python3 tools/i18n.py --check
@@ -991,6 +998,15 @@ check-strings:
 # stderr), and lists what the pseudo-locale's longer words do not fit.
 check-i18n-shots:
 	@python3 tools/i18n-shots.py
+
+# The same pixels, proved (tools/pixel-gate.py): every shot of check-i18n-shots
+# in every language and both themes, at BASE (origin/main) and here, compared
+# as decoded pixels, with sheets of what changed. Not in CHECKS: it builds the
+# launcher twice. One language or theme: make pixel-gate GATE='--lang en'.
+BASE ?= origin/main
+.PHONY: pixel-gate
+pixel-gate:
+	@'$(PYIMG)' tools/pixel-gate.py --base '$(BASE)' $(GATE)
 
 # The Chinese UI's cut of Noto Sans SC (tools/cjkfont.py), from the two OTFs
 # in CJK_SRC; needs fontTools. Only when check-strings says a character is
@@ -1090,32 +1106,48 @@ check-systemart:
 check-controls: build-native/controls-check
 	@./build-native/controls-check
 
+# The remap rules, pure: Diatom's map language read and written, the swap rule
+# of a button's change, what is stored for a scope, and the choices a system
+# offers (docs/superpowers/specs/2026-11-13-button-remap-design.md).
+check-remap: build-native/remap-check
+	@./build-native/remap-check
+
+build-native/remap-check: tools/remap-check.c src/remap.c src/remap.h src/remapstore.c src/remapstore.h src/controls.c \
+                          src/controls.h src/padglyph.h src/menu.h src/config.c src/config.h \
+                          src/db.c src/db.h src/atomic.c config/systems.cfg \
+                          $(I18N_SRC) FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
+	      -o $@ tools/remap-check.c src/remap.c src/remapstore.c src/controls.c src/config.c src/db.c src/atomic.c \
+	      $(I18N_SRC) -lsqlite3
+
 # The in-game Controls pages and the home's A to Z order, drawn
 check-controls-shots:
 	@if pkg-config --exists sdl2 SDL2_image SDL2_ttf 2>/dev/null; then \
 		$(MAKE) --no-print-directory native || exit 1; \
 	fi
-	@sh tools/controls-shots-check.sh
+	@PYIMG='$(PYIMG)' sh tools/controls-shots-check.sh
 
 build-native/controls-check: tools/controls-check.c tools/legend.h src/controls.c \
-                            src/controls.h src/padglyph.h src/menu.h src/config.c src/config.h \
+                            src/controls.h src/remap.c src/remap.h src/padglyph.h src/menu.h src/config.c src/config.h \
                             src/db.c src/db.h src/atomic.c config/systems.cfg \
                             $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
-	      -o $@ tools/controls-check.c src/controls.c src/config.c src/db.c src/atomic.c \
+	      -o $@ tools/controls-check.c src/controls.c src/remap.c src/config.c src/db.c src/atomic.c \
 	      $(I18N_SRC) -lsqlite3
 
 build-native/menu-check: tools/menu-check.c tools/legend.h src/wifi_menu.c src/wifi.c \
-                        src/sys_menu.c src/menu.c src/game_menu.c src/controls.c \
+                        src/sys_menu.c src/menu.c src/game_menu.c src/controls.c src/remap.c \
+                        src/ctltab.c src/ctltab.h src/tdkey.h src/padglyph.h \
                         src/audioout.c src/sidelights.c src/wifi_menu.h src/sys_menu.h \
                         src/game_menu.h src/menu.h src/audioout.h src/sidelights.h \
                         src/controls.h src/spawn.c src/spawn.h $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -o $@ \
 	      tools/menu-check.c src/wifi_menu.c src/wifi.c src/sys_menu.c \
-	      src/menu.c src/game_menu.c src/controls.c src/audioout.c src/sidelights.c \
-	      src/keyhints.c src/spawn.c $(I18N_SRC)
+	      src/menu.c src/game_menu.c src/controls.c src/remap.c src/ctltab.c src/audioout.c \
+	      src/sidelights.c src/keyhints.c src/spawn.c $(I18N_SRC)
 
 # What the launcher tells the side lights' gauge (src/sidelights.h): the lines
 # as plastron's gauge reads them, the FIFO writer that never waits and never
@@ -1226,7 +1258,8 @@ build-native/saver-check: tools/saver-check.c src/saver.c src/saver.h src/idle.c
 	      -o $@ tools/saver-check.c src/saver.c src/idle.c
 
 # Date & Time: each row moving only itself, the 12-hour and 24-hour words, the
-# shelf's short clock, and the zone list running west to east - see
+# shelf's short clock, the zone list running west to east, and Time Zone's
+# list with its rule (a zone picked by hand turns Auto off) - see
 # tools/clock-check.c.
 check-clock: build-native/clock-check
 	@./build-native/clock-check
@@ -1260,6 +1293,23 @@ build-native/clock-check: tools/clock-check.c src/clock.c src/clock.h src/menu.h
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
 	      -o $@ tools/clock-check.c src/clock.c $(I18N_SRC)
+
+# Date & Time's Auto: ipwho.is's reply read (and refusals, pages that are not
+# JSON, replies cut short and names that are paths not), the zone it comes to
+# (the name the system has, else the offset's), the row's words, when it
+# asks, and 1.0.5's default on scratch databases (on for a new card, switched
+# on once for a card from before, a zone picked after it kept) - see
+# tools/autozone-check.c.
+check-autozone: build-native/autozone-check
+	@./build-native/autozone-check
+
+build-native/autozone-check: tools/autozone-check.c src/autozone.c src/autozone.h src/clock.c src/clock.h \
+                             src/rajson.c src/rajson.h src/menu.h src/db.c src/db.h src/atomic.c \
+                             $(I18N_SRC) FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
+	      -o $@ tools/autozone-check.c src/autozone.c src/clock.c src/rajson.c src/db.c src/atomic.c \
+	      $(I18N_SRC) -lsqlite3 -lpthread
 
 # The device's title matcher against the host tool's. A drift here does not
 # fail, it just finds fewer games - see tools/artscrape-check.c.
@@ -1303,6 +1353,16 @@ build-native/sgdb-check: tools/sgdb-check.c src/sgdb.c src/sgdb.h src/sgdbrun.c 
 	      -o $@ tools/sgdb-check.c src/sgdb.c src/sgdbrun.c src/artscrape.c src/artsrc.c src/rajson.c \
 	      src/urlenc.c src/library.c src/db.c $(I18N_SRC) -lsqlite3 -lpthread
 
+# Which systems get videos and for which games (src/snaps.h): off to start,
+# 1.0.4's setting kept, a system's own switch, Videos for.
+check-snaps: build-native/snaps-check
+	@./build-native/snaps-check
+
+build-native/snaps-check: tools/snaps-check.c src/snaps.c src/snaps.h src/db.c src/db.h FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Isrc \
+	      -o $@ tools/snaps-check.c src/snaps.c src/db.c -lsqlite3
+
 # When the shelf's cover turns into its video snap and back (src/snapshelf.h),
 # on a clock the check moves by hand.
 check-snapshelf: build-native/snapshelf-check
@@ -1319,10 +1379,28 @@ build-native/snapshelf-check: tools/snapshelf-check.c src/snapshelf.c src/snapsh
 check-rahash: build-native/rahash-check
 	@python3 tools/rahash-check.py
 
-build-native/rahash-check: tools/rahash-check.c src/rahash.c src/rahash.h FORCE
+# The in-game menu's Achievements tab, as words and rows (src/achtab.h): each
+# state its own sentence, in the order that decides it, the counts line, and
+# an achievement's row as both lists draw it
+check-achtab: build-native/achtab-check
+	@./build-native/achtab-check
+
+build-native/achtab-check: tools/achtab-check.c src/achtab.c src/achtab.h src/cheevos.h $(I18N_SRC) FORCE
 	@mkdir -p build-native
-	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
-	      -o $@ tools/rahash-check.c src/rahash.c -lz
+	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Isrc \
+	      -o $@ tools/achtab-check.c src/achtab.c $(I18N_SRC)
+
+# The FLAC frame decoder a CHD's FLAC hunks go through (src/flacdec.h), held
+# to libFLAC's own encoder at every setting it has. Needs the flac tool
+# (Homebrew's flac); skips cleanly without it.
+check-flacdec:
+	@python3 tools/flacdec-check.py
+
+build-native/rahash-check: tools/rahash-check.c $(RAHASH_SRC) src/rahashjob.c src/rahash.h src/rahashjob.h \
+                          src/discimg.h src/chd.h src/flacdec.h FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g $(LZMA_CFLAGS) \
+	      -o $@ tools/rahash-check.c $(RAHASH_SRC) src/rahashjob.c -lz $(LZMA_LIBS) -lpthread
 
 .PHONY: check-noticeq check-badges check-badge-shots check-rasubmit check-lowbatt check-heat check-charging
 
@@ -1376,21 +1454,21 @@ check-badge-shots:
 check-signin: build-native/signin-check
 	@./build-native/signin-check
 
-build-native/signin-check: tools/signin-check.c src/rafetch.c src/rafetch.h src/net.c src/net.h src/rajson.c src/rahash.c src/atomic.c src/db.c $(I18N_SRC) FORCE
+build-native/signin-check: tools/signin-check.c src/rafetch.c src/rafetch.h src/net.c src/net.h src/rajson.c $(RAHASH_SRC) src/atomic.c src/db.c $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -DZYPEROS_VERSION='"check"' \
 	      -DNET_TMP='"$(CURDIR)/build-native/signin-check-tmp"' \
-	      -o $@ tools/signin-check.c src/rafetch.c src/rajson.c src/rahash.c src/atomic.c src/db.c $(I18N_SRC) -lsqlite3 -lz
+	      $(LZMA_CFLAGS) -o $@ tools/signin-check.c src/rafetch.c src/rajson.c $(RAHASH_SRC) src/atomic.c src/db.c $(I18N_SRC) -lsqlite3 -lz $(LZMA_LIBS)
 
 # What a refused unlock means for the queue (ra_refusal): settled, the
 # account's, or that one row's. No request is made.
 check-rasubmit: build-native/rasubmit-check
 	@./build-native/rasubmit-check
 
-build-native/rasubmit-check: tools/rasubmit-check.c src/rafetch.c src/rafetch.h src/rajson.c src/rahash.c src/net.c src/atomic.c src/db.c $(I18N_SRC) FORCE
+build-native/rasubmit-check: tools/rasubmit-check.c src/rafetch.c src/rafetch.h src/rajson.c $(RAHASH_SRC) src/net.c src/atomic.c src/db.c $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -DZYPEROS_VERSION='"check"' \
-	      -o $@ tools/rasubmit-check.c src/rafetch.c src/rajson.c src/rahash.c src/net.c src/atomic.c src/db.c $(I18N_SRC) -lsqlite3 -lz
+	      $(LZMA_CFLAGS) -o $@ tools/rasubmit-check.c src/rafetch.c src/rajson.c $(RAHASH_SRC) src/net.c src/atomic.c src/db.c $(I18N_SRC) -lsqlite3 -lz $(LZMA_LIBS)
 
 # Achievements earned offline, sent when a network is back: the store, the
 # unlock queue's worker and the request, with this check's own binary for curl
@@ -1404,8 +1482,8 @@ check-raoffline:
 		  -DNET_TMP='"$(CURDIR)/build-native/raoffline-check-tmp"' \
 		  -DZYPEROS_VERSION='"check"' \
 		  -o build-native/raoffline-check tools/raoffline-check.c src/raqueue.c \
-		  src/cheevos.c src/rafetch.c src/rajson.c src/rahash.c src/atomic.c src/db.c \
-		  $(I18N_SRC) $$(pkg-config --libs sdl2) -lsqlite3 -lz -lpthread && \
+		  src/cheevos.c src/rafetch.c src/rajson.c $(RAHASH_SRC) src/atomic.c src/db.c \
+		  $(I18N_SRC) $(LZMA_CFLAGS) $$(pkg-config --libs sdl2) -lsqlite3 -lz $(LZMA_LIBS) -lpthread && \
 		./build-native/raoffline-check; \
 	else echo "skipped: no SDL2 for the offline achievements check"; fi
 
@@ -1415,10 +1493,10 @@ check-raoffline:
 check-raset: build-native/raset-check
 	@python3 tools/raset-check.py
 
-build-native/raset-check: tools/raset-check.c src/rafetch.c src/rajson.c src/rahash.c src/net.c src/atomic.c src/db.c $(I18N_SRC) FORCE
+build-native/raset-check: tools/raset-check.c src/rafetch.c src/rajson.c $(RAHASH_SRC) src/net.c src/atomic.c src/db.c $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -DZYPEROS_VERSION='"check"' \
-	      -o $@ tools/raset-check.c src/rafetch.c src/rajson.c src/rahash.c src/net.c src/atomic.c src/db.c $(I18N_SRC) -lsqlite3 -lz
+	      $(LZMA_CFLAGS) -o $@ tools/raset-check.c src/rafetch.c src/rajson.c $(RAHASH_SRC) src/net.c src/atomic.c src/db.c $(I18N_SRC) -lsqlite3 -lz $(LZMA_LIBS)
 
 # Whether this build can reach ScreenScraper, and whether an account survives
 # a restart. The live half needs a network and .screenscraper.env, and skips
@@ -1535,10 +1613,10 @@ build-native/savedlib-check: tools/savedlib-check.c src/savedlib.c src/savedlib.
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
 	      -o $@ tools/savedlib-check.c src/savedlib.c src/library.c src/db.c src/atomic.c -lsqlite3 -lpthread
 
-build-native/db-check: tools/db-check.c src/db.c src/db.h src/atomic.c FORCE
+build-native/db-check: tools/db-check.c src/db.c src/db.h src/atomic.c src/strength.c src/strength.h FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
-	      -o $@ tools/db-check.c src/db.c src/atomic.c -lsqlite3 -lpthread
+	      -o $@ tools/db-check.c src/db.c src/atomic.c src/strength.c -lsqlite3 -lpthread
 
 # Delete Game (src/gamedel.h) on a card made of small files: a cartridge, a
 # multi-disc set in its folder, a .cue with its tracks and an arcade set
@@ -1864,12 +1942,30 @@ check-textfade:
 		mkdir -p build-native; \
 		$(CC) -std=gnu11 -D_GNU_SOURCE -O1 -g -Wall -Wextra \
 		  $$(pkg-config --cflags sdl2 SDL2_ttf SDL2_image) -Isrc \
-		  -o build-native/textfade-check tools/textfade-check.c src/ui.c src/folderart.c src/roundrect.c src/theme.c src/look.c \
+		  -o build-native/textfade-check tools/textfade-check.c src/ui.c src/ds/glyph.c src/folderart.c src/roundrect.c src/theme.c src/look.c \
 		  src/themefile.c src/linebreak.c src/blur.c src/cardgen.c src/sysmark.c $(I18N_SRC) \
 		  $$(pkg-config --libs sdl2 SDL2_ttf SDL2_image) -lm && \
 		ZYPEROS_HEADLESS=1 SDL_VIDEODRIVER=dummy SDL_RENDER_DRIVER=software \
 		  ./build-native/textfade-check; \
 	else echo "skipped: no SDL2 for the text fade check"; fi
+
+# The design system's rules the compiler cannot hold (DESIGN.md section 15):
+# src/ds/ stands alone, and no page foot, page Zyper or tile mark is typed
+# again or read off a name outside it.
+.PHONY: check-ds
+check-ds:
+	@python3 tools/ds-check.py
+
+# The marks drawn from strokes (src/ds/glyph.c): every one within its strokes
+# and arrowheads, none dropped, and the cache giving the same pixels when full.
+.PHONY: check-glyphs
+check-glyphs:
+	@if pkg-config --exists sdl2; then \
+		mkdir -p build-native; \
+		$(CC) -std=gnu11 -D_GNU_SOURCE -O1 -g -Wall -Wextra $$(pkg-config --cflags sdl2) -Isrc \
+		  -o build-native/glyph-check tools/glyph-check.c src/ds/glyph.c $$(pkg-config --libs sdl2) -lm && \
+		SDL_VIDEODRIVER=dummy ./build-native/glyph-check; \
+	else echo "skipped: no SDL2 for the glyph check"; fi
 
 # Tutorial drawing across frames: low-alpha first frames and a theme round-trip
 # must not poison cached text, details or bars. No window or device required.
@@ -1878,7 +1974,7 @@ check-tour-colors:
 		mkdir -p build-native; \
 		$(CC) -std=gnu11 -D_GNU_SOURCE -O1 -g -Wall -Wextra \
 		  $$(pkg-config --cflags sdl2 SDL2_ttf SDL2_image) -Isrc \
-		  -o build-native/tour-colors-check tools/tour-colors-check.c src/ui.c src/folderart.c src/roundrect.c \
+		  -o build-native/tour-colors-check tools/tour-colors-check.c src/ui.c src/ds/glyph.c src/folderart.c src/roundrect.c \
 		  src/theme.c src/themefile.c src/look.c src/linebreak.c src/blur.c src/cardgen.c \
 		  src/sysmark.c src/tour.c src/tourdraw.c src/tourdevice.c src/zyperrig.c src/osdbar.c src/db.c $(I18N_SRC) \
 		  $$(pkg-config --libs sdl2 SDL2_ttf SDL2_image) -lsqlite3 -lm && \
