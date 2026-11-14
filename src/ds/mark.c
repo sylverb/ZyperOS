@@ -36,6 +36,18 @@ void ds_play_disc(SDL_Renderer *r, int x, int y, int d, Uint8 al)
 	ui_glyph_draw(r, UI_GLYPH_PLAY, x + d / 2 + d / 16, y + d / 2, d / 2, ui_col(theme()->on_accent, al));
 }
 
+void ds_more(SDL_Renderer *r, float cx, float top, bool up, SDL_Color c)
+{
+	const float hw = DS_MORE_W / 2.0f, h = DS_MORE_H;
+	SDL_Vertex v[3] = {
+		{ { cx - hw, up ? top + h : top }, c, { 0, 0 } },
+		{ { cx + hw, up ? top + h : top }, c, { 0, 0 } },
+		{ { cx, up ? top : top + h }, c, { 0, 0 } },
+	};
+
+	SDL_RenderGeometry(r, NULL, v, 3, NULL, 0);
+}
+
 void ds_bar(SDL_Renderer *r, int x, int y, int w, int fill, Uint8 al)
 {
 	ui_round_rect(r, &(SDL_Rect){ x, y, w, UI_BAR_H }, UI_BAR_H / 2, ui_col(theme()->track, al));

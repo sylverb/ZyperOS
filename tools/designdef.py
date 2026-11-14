@@ -265,6 +265,8 @@ LAYOUT = [
     ("badge-ring",      2,   "the edge round a badge, and a switch mark's ring"),
     ("badge-inset",     12,  "a badge from its cover's corner"),
     ("badge-inset-small", 9, "the same on a small cover"),
+    ("more-w",          24,  "the more-above or more-below triangle's width"),
+    ("more-h",          12,  "its height"),
     ("mark-line",       36,  "a mark beside its words over the keys"),
     ("mark-line-pad",   14,  "that mark to its words"),
     ("mark-stat",       44,  "a count's mark"),

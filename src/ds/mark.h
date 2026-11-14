@@ -27,6 +27,11 @@ void ds_switch(SDL_Renderer *r, int cx, int cy, int d, ui_glyph g, bool on);
  * its box); at `al`. On the shelf, the list and Cover and Video. */
 void ds_play_disc(SDL_Renderer *r, int x, int y, int d, Uint8 al);
 
+/* More rows above or below a list (DESIGN.md 11.3): a triangle DS_MORE_W
+ * wide and DS_MORE_H tall, centred on cx, its top at `top`, pointing up or
+ * down the way the list goes on; **text-dim** as a rule, `c` */
+void ds_more(SDL_Renderer *r, float cx, float top, bool up, SDL_Color c);
+
 /* The progress bar, UI_BAR_H (DS_BAR) high, `w` long at (x, y): **track**,
  * and `fill` of it from the left in **accent-ink** where fill > 0, at `al`.
  * The caller says how much is filled, so each keeps its own rounding. */

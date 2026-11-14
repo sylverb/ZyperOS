@@ -104,18 +104,6 @@ static void gl_follow(gl_motion *m, int cursor, int count, uint32_t now)
 	m->moved = now;
 }
 
-static void triangle(SDL_Renderer *r, float cx, float cy, float w, bool up, SDL_Color c)
-{
-	float h = w * .55f, d = up ? -1 : 1;
-	SDL_Vertex v[3] = {
-		{ { cx - w / 2, cy - d * h / 2 }, c, { 0, 0 } },
-		{ { cx + w / 2, cy - d * h / 2 }, c, { 0, 0 } },
-		{ { cx, cy + d * h / 2 }, c, { 0, 0 } },
-	};
-
-	SDL_RenderGeometry(r, NULL, v, 3, NULL, 0);
-}
-
 /* A game's mark: a little card, the theme's **surface** with an **edge**,
  * its band the system's mark color and the name's first letter or digit in
  * it - the generated card, small, so a list of games with no art and a list
@@ -253,9 +241,9 @@ uint32_t gl_draw(gl_motion *m, SDL_Renderer *r, const gl_info *in,
 	SDL_RenderSetClipRect(r, NULL);
 	/* More above, more below: the menus' small triangles */
 	if (top > 0.01f)
-		triangle(r, GL_X + GL_W / 2.0f, GL_TOP - 10, 18, true, UI_TEXT_DIM);
+		ds_more(r, GL_X + GL_W / 2.0f, GL_TOP - 10 - DS_MORE_H / 2.0f, true, UI_TEXT_DIM);
 	if (top + GL_ROWS < in->count - 0.01f)
-		triangle(r, GL_X + GL_W / 2.0f, GL_TOP + GL_ROWS * GL_ROW_H + 10, 18, false, UI_TEXT_DIM);
+		ds_more(r, GL_X + GL_W / 2.0f, GL_TOP + GL_ROWS * GL_ROW_H + 10 - DS_MORE_H / 2.0f, false, UI_TEXT_DIM);
 
 	/* The focused entry: its card, whole, at the top of the panel, and its
 	 * facts under it */
