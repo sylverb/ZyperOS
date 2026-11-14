@@ -1,0 +1,56 @@
+title: ZyperOS Controls, Save States and Resume
+description: Learn the GKD Pixel 2 buttons, quick-save hotkeys, six save slots and resume. Find each system's controls and keep your game progress.
+summary: The everyday buttons, system controls, quick saves and the difference between game saves and save states.
+crumb: Controls and saves
+topic: guide
+published: 2026-11-13
+updated: 2026-11-14
+image: controls-hotkeys
+image_alt: The in-game Controls page lists quick save, quick load and speed hotkeys
+related: zyperos-guide, nintendo-ds-gkd-pixel-2, manage-storage-gkd-pixel-2
+weight: 25
+---
+<p>ZyperOS uses the same menu buttons across the library. Game controls depend on the system. The handheld has a controls page for both, plus six save-state slots where the emulator supports them.</p>
+<p class="note">These steps cover <strong>ZyperOS 1.0.5</strong>. Check your version in <strong>MENU &gt; About</strong>.</p>
+
+<h2>Everyday buttons</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th scope="col">Button</th><th scope="col">Action</th></tr></thead>
+  <tbody>
+    <tr><th scope="row">A / B</th><td>Open or select / go back</td></tr>
+    <tr><th scope="row">X on a game</th><td>Open its details; Y there changes its favorite status</td></tr>
+    <tr><th scope="row">START on a game shelf</th><td>Switch covers and list</td></tr>
+    <tr><th scope="row">L1 / R1</th><td>Jump along a shelf; change tabs in the home menu</td></tr>
+    <tr><th scope="row">MENU</th><td>Open settings or pause into the game menu</td></tr>
+    <tr><th scope="row">MENU + VOL+ / VOL-</th><td>Increase or decrease screen brightness</td></tr>
+    <tr><th scope="row">SELECT outside a running game</th><td>Open MP4 for music, books and videos</td></tr>
+  </tbody>
+</table>
+</div>
+<p>On the Pixel 2, MENU is the FUNCTION key. It opens the menu when you release it. <strong>MENU &gt; About &gt; Controls</strong> lists all common buttons.</p>
+
+<h2>Find a system's controls</h2>
+<p>During a game, open <strong>MENU &gt; Controls</strong>. <kbd>Left</kbd> and <kbd>Right</kbd> turn pages. The first pages show the system's buttons. Later pages show hotkeys and common actions.</p>
+<p>For example, PSP uses <kbd>R2</kbd> to switch the D-pad between digital and analog control. Nintendo DS uses <kbd>L2</kbd> to swap screens. Its <kbd>R2</kbd> enables the stylus controls. The <a href="/blog/nintendo-ds-gkd-pixel-2/">Nintendo DS guide</a> explains the layouts and stylus.</p>
+
+<h2>Game saves and save states</h2>
+<p>A <strong>game save</strong> records progress through the game's own save system. A <strong>save state</strong> records the emulator at a specific moment. Use the game's save command when available.</p>
+<ol>
+  <li>Open <strong>MENU &gt; Save</strong> during play.</li>
+  <li>Select one of the six numbered slots with <kbd>Left</kbd> or <kbd>Right</kbd>.</li>
+  <li>Press <kbd>A</kbd> to save the state.</li>
+  <li>Use <strong>MENU &gt; Load</strong> to select and restore it later.</li>
+</ol>
+<p>Saving to an occupied slot replaces its state. ScummVM, J2ME, OpenBOR and TIC-80 do not provide these save states. Use their own save systems.</p>
+<p>A state belongs to its emulator. Changing a core can prevent resume, while the game's save remains.</p>
+
+<h2>Quick saves and speed</h2>
+<figure class="shot"><img src="/img/controls-hotkeys.png" alt="SELECT with R1 saves, L1 loads, R2 increases speed and L2 decreases speed"><figcaption>Hold SELECT, then press the shoulder button.</figcaption></figure>
+<p><kbd>SELECT</kbd> + <kbd>R1</kbd> saves; <kbd>SELECT</kbd> + <kbd>L1</kbd> loads. <strong>Quick Slot</strong> in the game menu selects their numbered slot. Each system remembers its choice.</p>
+<p><kbd>SELECT</kbd> + <kbd>R2</kbd> increases speed through 1.5x, 2x and 3x. <kbd>SELECT</kbd> + <kbd>L2</kbd> reduces it. The actual speed depends on the game, and fast play has no sound.</p>
+
+<h2>Stop and resume</h2>
+<p>For games with state support, <kbd>POWER</kbd> saves before shutdown. The next start resumes that game. On the shelf, <kbd>A</kbd> resumes an available state; <kbd>Y</kbd> starts fresh.</p>
+<p>To return to the shelf, press <kbd>MENU</kbd>, then <kbd>X</kbd>. If a game stops responding, hold <kbd>MENU</kbd> + <kbd>START</kbd> for one second. After a crash or power loss, ZyperOS opens the home screen.</p>
+<p class="note">Back up game saves and save states before changing emulators or removing games. The <a href="/blog/add-games-gkd-pixel-2/#the-file-transfer-page">File Transfer guide</a> explains file downloads.</p>

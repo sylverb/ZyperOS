@@ -1,0 +1,59 @@
+title: Player 2 on the GKD Pixel 2: Phone or Computer
+description: Join an NES game on ZyperOS from a phone browser or computer keyboard. Set up the Wi-Fi network or USB cable, then connect Player 2.
+summary: A friend joins your NES game from a browser, with a phone screen or computer keyboard.
+crumb: Player 2
+topic: guide
+published: 2026-11-13
+updated: 2026-11-14
+image: player2-hotspot
+image_alt: Player 2 setup with a QR code, network name, password and browser address
+related: gkd-pixel-2-wifi-adapter, zyperos-controls-and-saves, zyperos-guide
+weight: 35
+---
+<p>Player 2 lets a friend join your NES game from a phone or computer browser. The handheld remains player 1. Sound stays on the handheld. Your friend needs no app or account.</p>
+<p class="note">These steps cover <strong>ZyperOS 1.0.5</strong>. Check your version in <strong>MENU &gt; About</strong>.</p>
+
+<h2>What you need</h2>
+<p>Player 2 currently supports <strong>NES games only</strong> on the GKD Pixel 2. Choose a game with a two-player mode.</p>
+<ul>
+  <li><strong>Phone:</strong> a supported USB Wi-Fi adapter in the handheld. Player 2 creates its own Wi-Fi network.</li>
+  <li><strong>Computer:</strong> a USB data cable and a recent browser. The computer keyboard controls player 2.</li>
+</ul>
+<p>The Pixel 2 has no built-in Wi-Fi. See the <a href="/blog/gkd-pixel-2-wifi-adapter/">adapter guide</a> for connection details. A controller paired with the phone or computer does not work with Player 2 yet.</p>
+
+<h2>Connect a phone</h2>
+<ol>
+  <li>Connect the Wi-Fi adapter before you start the game.</li>
+  <li>Choose <strong>USB Accessory</strong> if the handheld asks what you connected.</li>
+  <li>Start an NES game.</li>
+  <li>Press <kbd>MENU</kbd>, then select <strong>Player 2</strong>.</li>
+  <li>Press <kbd>A</kbd> to start the network.</li>
+  <li>Scan the handheld's QR code with the phone camera.</li>
+  <li>Join the network.</li>
+  <li>Open <code>http://10.42.1.1/play</code> in the phone browser if the game page does not open automatically.</li>
+  <li>Press <kbd>B</kbd> on the handheld, then select <strong>Continue</strong>.</li>
+</ol>
+<figure class="shot"><img src="/img/player2-hotspot.png" alt="The handheld shows Player 2 network details and a waiting status"><figcaption>The setup screen uses demo data here. Scan the code on your handheld, which supplies the current password.</figcaption></figure>
+<p>The game page first opens in the phone's network sign-in window. The full browser also works at the address above. Select the game's two-player mode to play together.</p>
+
+<h2>Use the phone controls</h2>
+<p>The phone shows the game and an NES pad. Turn the phone sideways for controls beside the picture. <strong>Picture off</strong> hides the picture when your friend watches the handheld.</p>
+<figure class="shot browser"><img src="/img/play-phone-side.png" alt="Player 2 phone controls in landscape with the D-pad, B, A, SELECT and START"><figcaption>The real browser controls show a test picture here. The colored blocks are demo data.</figcaption></figure>
+
+<h2>Connect a computer</h2>
+<p>Connect the USB data cable, then start Player 2 from the game's menu. Open <code>http://zyperos.local/play</code>, or <code>http://10.42.0.1/play</code>, on the computer.</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th scope="col">Computer key</th><th scope="col">NES control</th></tr></thead>
+  <tbody>
+    <tr><th scope="row">Arrow keys</th><td>D-pad</td></tr>
+    <tr><th scope="row">Z / X</th><td>B / A</td></tr>
+    <tr><th scope="row">Shift / Enter</th><td>SELECT / START</td></tr>
+  </tbody>
+</table>
+</div>
+<p>Windows 10 lacks the driver for this USB connection. A USB-A to USB-C cable avoids connection problems with some computers' USB-C ports.</p>
+
+<h2>Stop or reconnect</h2>
+<p>Press <kbd>A</kbd> on the Player 2 page to stop it. Quitting the game also stops it. A new Wi-Fi session creates a new password, so your friend must scan the new code.</p>
+<p><strong>The game is full</strong> means another browser occupies player 2. That player can leave the page to free the place.</p>

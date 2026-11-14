@@ -1,0 +1,22 @@
+{
+  "source_commit": "5116943ba47f5521766afe4d5b25ae4b5b15b15a",
+  "renderer": "native ZyperOS launcher; software SDL; headless",
+  "source_audio": "res/bgm/Starfall Island.mp3",
+  "cover": "site/music/starfall-island.svg",
+  "cover_note": "Original preview sleeve rendered to PNG in Chromium at 512x512. Artwork is not the official album cover.",
+  "args": [
+    "--theme",
+    "light",
+    "--screen",
+    "systems",
+    "--phase",
+    "3200",
+    "--status",
+    "10:08 24h wifi=off batt=82",
+    "--nowplaying",
+    "0",
+    "0",
+    "12"
+  ],
+  "sha256": "8ca3ae1ec6705027c2cddc6e2bad0a9c3b31866abd972af102925bf2f8ef270f"
+}

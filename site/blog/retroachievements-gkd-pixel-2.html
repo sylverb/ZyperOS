@@ -4,13 +4,14 @@ summary: Sign in on the handheld, play offline after the first start, and see ba
 crumb: RetroAchievements
 topic: guide
 published: 2026-11-07
-updated: 2026-11-13
+updated: 2026-11-14
 image: cheevos
 image_alt: A game's achievements list in ZyperOS, with badges, points and a progress count
 related: gkd-pixel-2-wifi-adapter, box-art-gkd-pixel-2, best-custom-firmware-gkd-pixel-2
 weight: 40
 ---
 <p>RetroAchievements adds achievements to classic games: beat a boss without a hit, find every secret, finish a level under a time. ZyperOS has it built in on the GKD Pixel 2. You sign in on the handheld, and after a game's first start it works offline too. This guide shows what you need and how it looks.</p>
+<p class="note">These steps cover <strong>ZyperOS 1.0.5</strong>. Check your version in <strong>MENU &gt; About</strong>.</p>
 
 <h2>What you need</h2>
 <ul>
@@ -21,8 +22,8 @@ weight: 40
 
 <h2>Sign in</h2>
 <ol>
-  <li>Plug in the Wi-Fi adapter and join a network in <strong>MENU &gt; Wi-Fi</strong>. Or plug in an Android phone, choose <strong>Phone</strong> and turn on its USB tethering.</li>
-  <li>Open <strong>MENU &gt; Achievements</strong>. The row says <code>sign in</code>.</li>
+  <li>Plug in the Wi-Fi adapter and join a network in <strong>MENU &gt; Connections &gt; Wi-Fi</strong>. Or plug in an Android phone, choose <strong>Phone</strong> and turn on its USB tethering.</li>
+  <li>Open <strong>MENU &gt; Games &gt; Achievements</strong>. The row says <code>sign in</code>.</li>
   <li>Type your user name and password with the on-screen keyboard.</li>
 </ol>
 <p>The row then shows your account. The Achievements row only appears while the Wi-Fi adapter is in or a phone's USB tethering is on, since signing in needs the network.</p>
@@ -38,7 +39,7 @@ weight: 40
 <ul>
   <li><strong>An unlock</strong> shows a notice at the bottom of the screen with the achievement's badge and name, and Zyper at the right. Until the badge is on the card, a trophy stands in for it. The badges are fetched while the handheld is online and no game is running, never during a game.</li>
   <li><strong>Progress</strong>, for achievements that count something, shows a strip and a count such as <em>74 / 100</em>.</li>
-  <li><strong>The side lights</strong> sparkle for an achievement: two pairs of lights take turns. <strong>MENU &gt; Side Lights</strong> turns that off.</li>
+  <li><strong>The side lights</strong> sparkle for an achievement: two pairs of lights take turns. <strong>MENU &gt; System &gt; Side Lights</strong> turns that off.</li>
   <li><strong>The list</strong>, Achievements in the in-game menu, shows every achievement of the game with its badge, grey until you earn it, and the count where one is moving.</li>
 </ul>
 <figure class="shot"><img src="/img/cheevo-notice.png" alt="The notice over a game when an achievement unlocks: its badge at the left, Unlocked and its points over its name, and Zyper at the right"><figcaption>An unlock over a game: its badge, its name and points, and Zyper.</figcaption></figure>
@@ -47,15 +48,13 @@ weight: 40
 
 <h2>If an achievement does not unlock</h2>
 <ul>
-  <li><strong>Check the sign-in</strong> in MENU &gt; Achievements.</li>
+  <li><strong>Check the sign-in</strong> in MENU &gt; Games &gt; Achievements.</li>
   <li><strong>Check the first start was online.</strong> Without it, ZyperOS cannot identify the game, and its Achievements row says <code>not checked yet</code>. Start it once with the adapter in, or with a phone's USB tethering on.</li>
   <li><strong>Check the dump.</strong> A ROM with a different checksum is a game RetroAchievements has never seen. A zip is checked on its largest file, which is the one ZyperOS runs.</li>
 </ul>
 
+
 <h2>Sources</h2>
 <ol class="sources">
-  <li><a href="https://github.com/tarikbc/ZyperOS#faq">ZyperOS README, FAQ: How do achievements work?</a></li>
-  <li><a href="https://github.com/tarikbc/ZyperOS/blob/main/docs/guide.md#controls-and-menus">The ZyperOS user guide</a>: the Achievements row, the in-game menu, the side lights.</li>
-  <li><a href="https://github.com/tarikbc/ZyperOS/blob/main/DESIGN.md#117-notice-over-a-game">DESIGN.md, 11.7 Notice</a>: the badge and progress notices, and the achievements list.</li>
   <li><a href="https://github.com/tarikbc/ZyperOS/blob/main/src/rafetch.h">src/rafetch.h</a> and <a href="https://github.com/tarikbc/ZyperOS/blob/main/src/rahash.h">src/rahash.h</a>: softcore unlocks, and how a game is identified.</li>
 </ol>

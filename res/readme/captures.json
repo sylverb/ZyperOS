@@ -356,7 +356,8 @@
         "--home",
         "spotlight"
       ],
-      "sha256": "4fdfc1d8916bec8d526d156dc1c4fe0bc7958933feb6f2a720f97214dbcee4fc"
+      "sha256": "4fdfc1d8916bec8d526d156dc1c4fe0bc7958933feb6f2a720f97214dbcee4fc",
+      "source_commit": "5116943ba47f5521766afe4d5b25ae4b5b15b15a"
     },
     {
       "file": "light/gallery.png",
@@ -410,7 +411,8 @@
         "--screen",
         "games"
       ],
-      "sha256": "7e193cf00341b27fc40c7161382db5fc6af07ccd3fbdbfec88df11ef165c83c3"
+      "sha256": "7e193cf00341b27fc40c7161382db5fc6af07ccd3fbdbfec88df11ef165c83c3",
+      "source_commit": "5116943ba47f5521766afe4d5b25ae4b5b15b15a"
     },
     {
       "file": "light/shelf-snes.png",
@@ -465,7 +467,8 @@
         "games",
         "--info"
       ],
-      "sha256": "bffc081485b6984fa65670fd1a17704196c43884aefdb4b1fc960b3c1a363f53"
+      "sha256": "2ca9e14d9488b4fa2e340f1eba10718b4f4517fa6ec063eb3f0320f7e13be2f9",
+      "source_commit": "71c6122259150af55603b3a45d326ca486cc693c"
     },
     {
       "file": "light/info-delete.png",
@@ -524,7 +527,8 @@
         "{card}/Roms/PlayStation/.cheevos/Hagane.set",
         "b#"
       ],
-      "sha256": "9f4463ad3a0c173db830cb062b500312e2def0a2c47624465b55f442abdb10e6"
+      "sha256": "9f4463ad3a0c173db830cb062b500312e2def0a2c47624465b55f442abdb10e6",
+      "source_commit": "71c6122259150af55603b3a45d326ca486cc693c"
     },
     {
       "file": "light/cheevos-waiting.png",
@@ -547,7 +551,8 @@
         "{card}/Roms/PlayStation/.cheevos/Hagane.set",
         "b#"
       ],
-      "sha256": "d2027ef5279b48250fbb3be3736ba14e7dcd533d8ce627b92e7e273d6efdc384"
+      "sha256": "d2027ef5279b48250fbb3be3736ba14e7dcd533d8ce627b92e7e273d6efdc384",
+      "source_commit": "71c6122259150af55603b3a45d326ca486cc693c"
     },
     {
       "file": "light/cheevo-notice.png",
@@ -588,7 +593,8 @@
         "--menu",
         "Search Games"
       ],
-      "sha256": "0c64e4f4f7d142d4d0332faa0598d40c681273b8592282cc2572c81a8ccfc133"
+      "sha256": "0c64e4f4f7d142d4d0332faa0598d40c681273b8592282cc2572c81a8ccfc133",
+      "source_commit": "71c6122259150af55603b3a45d326ca486cc693c"
     },
     {
       "file": "light/mp4.png",
@@ -606,7 +612,8 @@
         "--screen",
         "games"
       ],
-      "sha256": "f8609d18e498d050da1c8414ac27ff53cb4c796e355461b245e0e2c76dd56037"
+      "sha256": "f8609d18e498d050da1c8414ac27ff53cb4c796e355461b245e0e2c76dd56037",
+      "source_commit": "71c6122259150af55603b3a45d326ca486cc693c"
     },
     {
       "file": "light/nowplaying.png",
@@ -626,7 +633,8 @@
         "0",
         "83"
       ],
-      "sha256": "7547dc533e6c4cf8c982acc9c46a606b6d7deded073cb98fbd66873f34fef680"
+      "sha256": "7547dc533e6c4cf8c982acc9c46a606b6d7deded073cb98fbd66873f34fef680",
+      "source_commit": "71c6122259150af55603b3a45d326ca486cc693c"
     },
     {
       "file": "light/hare.png",
@@ -685,7 +693,8 @@
         "--usb-ask",
         "0"
       ],
-      "sha256": "2d9437374b6a0a1844dbc4b409f43aa350e023f1d09ac4ba01b4b4108a9361dd"
+      "sha256": "2d9437374b6a0a1844dbc4b409f43aa350e023f1d09ac4ba01b4b4108a9361dd",
+      "source_commit": "71c6122259150af55603b3a45d326ca486cc693c"
     },
     {
       "file": "light/scummvm.png",
@@ -739,10 +748,11 @@
         "--status",
         "10:08 24h wifi=off batt=82",
         "--fn-volume",
-        "--scraper",
-        "2"
+        "--scraper-page",
+        "1"
       ],
-      "sha256": "45edb86e7c805ca4d0364d8c2e427bfcf9870314d16775f0a3b36177bc1163a3"
+      "sha256": "0bfda685145fc42f6134c7d12ddac888b3cad8618f7fb628692d1ad08ab3b8cd",
+      "source_commit": "71c6122259150af55603b3a45d326ca486cc693c"
     },
     {
       "file": "light/update.png",
@@ -759,7 +769,8 @@
         "--fn-volume",
         "--update"
       ],
-      "sha256": "1eb4f64e067e7123aa2a357f212cfb8f5fb2797123e7c15e07a37a82afe0ea91"
+      "sha256": "7f7bc6867ace30d106a06f89357a6a456dcbaab0426f4960fa49460da709a394",
+      "source_commit": "71c6122259150af55603b3a45d326ca486cc693c"
     },
     {
       "file": "light/ports.png",
@@ -819,7 +830,8 @@
         "0",
         "PRT"
       ],
-      "sha256": "b0fb310088e591d9c4bf4ca27c63841ef502f6870c7f5842d9e9894d095d1a85"
+      "sha256": "b0fb310088e591d9c4bf4ca27c63841ef502f6870c7f5842d9e9894d095d1a85",
+      "source_commit": "71c6122259150af55603b3a45d326ca486cc693c"
     },
     {
       "file": "light/portmaster.png",
@@ -837,7 +849,8 @@
         "--portmaster",
         "running"
       ],
-      "sha256": "80b882463384229578b1ff9cd451433c0125f67ae7fc8bf51bb389ee885a9e5c"
+      "sha256": "80b882463384229578b1ff9cd451433c0125f67ae7fc8bf51bb389ee885a9e5c",
+      "source_commit": "71c6122259150af55603b3a45d326ca486cc693c"
     },
     {
       "file": "light/storage.png",
@@ -855,7 +868,8 @@
         "--storage",
         "main"
       ],
-      "sha256": "83c831faa41417184d51e0b69e3ffdf50699840ffb97f04982e8a7823db2255d"
+      "sha256": "83c831faa41417184d51e0b69e3ffdf50699840ffb97f04982e8a7823db2255d",
+      "source_commit": "71c6122259150af55603b3a45d326ca486cc693c"
     },
     {
       "file": "light/storage-system.png",
@@ -873,7 +887,8 @@
         "--storage",
         "system"
       ],
-      "sha256": "bc2d1352a618ce425677f9dae0f59baca4fbd438ada16bdbb5add0704811509e"
+      "sha256": "bc2d1352a618ce425677f9dae0f59baca4fbd438ada16bdbb5add0704811509e",
+      "source_commit": "71c6122259150af55603b3a45d326ca486cc693c"
     },
     {
       "file": "light/storage-music.png",
@@ -891,7 +906,8 @@
         "--storage",
         "music"
       ],
-      "sha256": "a673d828a176513c3ed98bcea1bb3f47aab8048e7af28066fcaca58abf95dc55"
+      "sha256": "14df683ed793944803839936ac5a7c8ec6871a445f4d12862bd5599e29a0bdba",
+      "source_commit": "71c6122259150af55603b3a45d326ca486cc693c"
     },
     {
       "file": "light/media.png",
@@ -913,7 +929,8 @@
         "--media-art",
         "{card}/media-art"
       ],
-      "sha256": "a4eb68d92a31c748b3de95c2a0c3cc3731782eb0dfe04484de1259a9f1ac1172"
+      "sha256": "a4eb68d92a31c748b3de95c2a0c3cc3731782eb0dfe04484de1259a9f1ac1172",
+      "source_commit": "71c6122259150af55603b3a45d326ca486cc693c"
     },
     {
       "file": "light/media-look.png",
@@ -935,7 +952,8 @@
         "--media-art",
         "{card}/media-art"
       ],
-      "sha256": "f0c5292eb5e257281ad42c9c231eb144b6e047e89119559a2399909eed5ade3a"
+      "sha256": "f0c5292eb5e257281ad42c9c231eb144b6e047e89119559a2399909eed5ade3a",
+      "source_commit": "71c6122259150af55603b3a45d326ca486cc693c"
     },
     {
       "file": "light/media-video.png",
@@ -957,7 +975,8 @@
         "--media-art",
         "{card}/media-art"
       ],
-      "sha256": "02da9b86d186129b8a1d445cbb35db6b73d542ece17f6376d52ac9e4c6556b9c"
+      "sha256": "02da9b86d186129b8a1d445cbb35db6b73d542ece17f6376d52ac9e4c6556b9c",
+      "source_commit": "71c6122259150af55603b3a45d326ca486cc693c"
     },
     {
       "file": "light/empty.png",
@@ -1015,7 +1034,8 @@
         "--tour-pick",
         "1"
       ],
-      "sha256": "fab7110c0fabe2e5c27932fae2c6fd3fe9ce1058cd346da5bc98c00bb63b5c59"
+      "sha256": "fab7110c0fabe2e5c27932fae2c6fd3fe9ce1058cd346da5bc98c00bb63b5c59",
+      "source_commit": "71c6122259150af55603b3a45d326ca486cc693c"
     },
     {
       "file": "light/tour-sounds.png",
@@ -1073,7 +1093,8 @@
         "--charging",
         "4000"
       ],
-      "sha256": "b1fba038aa10f4f934acfcba2acbf2f75ce5196e576f4f40e82dc2eb392dc65b"
+      "sha256": "5d8181966429152e1408c7e77551f9c830778e88db7cb7acedf1d005a5d4508c",
+      "source_commit": "71c6122259150af55603b3a45d326ca486cc693c"
     },
     {
       "file": "light/heat.png",
@@ -1091,7 +1112,8 @@
         "--heatpop",
         "1600"
       ],
-      "sha256": "f2b3df3a00d6d3d79e150be335757107da707125c4226e866122ab86cab2e356"
+      "sha256": "f2b3df3a00d6d3d79e150be335757107da707125c4226e866122ab86cab2e356",
+      "source_commit": "71c6122259150af55603b3a45d326ca486cc693c"
     },
     {
       "file": "light/tour-language.png",
@@ -1110,7 +1132,8 @@
         "--tour-pick",
         "1"
       ],
-      "sha256": "00c929278b96a3e8ff719c4d879d805d5701ad8079ce19ff553994fe8c64caa5"
+      "sha256": "3ec5ab1df2aca2966f98991bb9a7a16cc8d47632a351be4bb6de8d75d4313ae6",
+      "source_commit": "71c6122259150af55603b3a45d326ca486cc693c"
     },
     {
       "file": "light/menu-pt.png",
@@ -1168,7 +1191,8 @@
         "--menu",
         "Battery Icon"
       ],
-      "sha256": "67dd96b4430277ee8e15187a94e6c3b6ad0a5c4bcf29c89931327a1ece890bb1"
+      "sha256": "67dd96b4430277ee8e15187a94e6c3b6ad0a5c4bcf29c89931327a1ece890bb1",
+      "source_commit": "71c6122259150af55603b3a45d326ca486cc693c"
     },
     {
       "file": "light/topbar.png",
@@ -1188,7 +1212,8 @@
         "--song",
         "Night Drive"
       ],
-      "sha256": "a7964f19749d9e0d9d6bfd8831ec3cd1a7a51bb98283eed70059c01e8ff12afc"
+      "sha256": "a7964f19749d9e0d9d6bfd8831ec3cd1a7a51bb98283eed70059c01e8ff12afc",
+      "source_commit": "71c6122259150af55603b3a45d326ca486cc693c"
     },
     {
       "file": "light/topbar-paused.png",
@@ -1359,11 +1384,14 @@
         "--screen",
         "games",
         "--gamemenu",
-        "5",
+        "1",
+        "--gm-tab",
+        "1",
         "--backdrop",
         "{art}/Sony_-_PlayStation/Named_Snaps/Spyro the Dragon (USA).png"
       ],
-      "sha256": "6ac7d81bc37b680da825d301ed611798743a6f6d63a165ffb3a3f46f5d6cb0d5"
+      "sha256": "cf68899f35c88464f548e02b6061647d670b96f3762d0033c0b444c71a8dbac2",
+      "source_commit": "71c6122259150af55603b3a45d326ca486cc693c"
     },
     {
       "file": "light/controls-ps1.png",
@@ -1409,7 +1437,8 @@
         "--backdrop",
         "{art}/Sony_-_PlayStation/Named_Snaps/Spyro the Dragon (USA).png"
       ],
-      "sha256": "8cc8c20eeacec80fd5a78ae480830094eaec2638b4a44def2eaee8bd7e7d1f2f"
+      "sha256": "8cc8c20eeacec80fd5a78ae480830094eaec2638b4a44def2eaee8bd7e7d1f2f",
+      "source_commit": "71c6122259150af55603b3a45d326ca486cc693c"
     },
     {
       "file": "light/controls-psp.png",
@@ -1450,7 +1479,8 @@
         "--home",
         "spotlight"
       ],
-      "sha256": "a3593af610e8132ca93cf30244282a1c11e960bd6cda7afe943d19b7e0b3acbc"
+      "sha256": "a3593af610e8132ca93cf30244282a1c11e960bd6cda7afe943d19b7e0b3acbc",
+      "source_commit": "5116943ba47f5521766afe4d5b25ae4b5b15b15a"
     },
     {
       "file": "dark/shelf-n64.png",
@@ -1468,7 +1498,8 @@
         "--screen",
         "games"
       ],
-      "sha256": "9d2b9ce042ae58e12991fb82c79f767982bc816ca801efcb1f0dabacc1f77696"
+      "sha256": "9d2b9ce042ae58e12991fb82c79f767982bc816ca801efcb1f0dabacc1f77696",
+      "source_commit": "5116943ba47f5521766afe4d5b25ae4b5b15b15a"
     },
     {
       "file": "dark/menu.png",
@@ -1486,7 +1517,8 @@
         "--menu",
         "Search Games"
       ],
-      "sha256": "a11aa0e66d8500f2a031ff464ac4df2ce08ca350f172a27696d716b9a31ce38b"
+      "sha256": "a11aa0e66d8500f2a031ff464ac4df2ce08ca350f172a27696d716b9a31ce38b",
+      "source_commit": "71c6122259150af55603b3a45d326ca486cc693c"
     },
     {
       "file": "dark/nowplaying.png",
@@ -1506,7 +1538,8 @@
         "0",
         "83"
       ],
-      "sha256": "d35bd12c4fb60e1ae5f27fb65b889d38ec49e649fa07459a25b82eedc9c1790b"
+      "sha256": "d35bd12c4fb60e1ae5f27fb65b889d38ec49e649fa07459a25b82eedc9c1790b",
+      "source_commit": "71c6122259150af55603b3a45d326ca486cc693c"
     },
     {
       "file": "dark/media.png",
@@ -1528,7 +1561,8 @@
         "--media-art",
         "{card}/media-art"
       ],
-      "sha256": "c836a4acf5c06acf41d95781337799beae80b70654cbde432d92a3646e916cce"
+      "sha256": "c836a4acf5c06acf41d95781337799beae80b70654cbde432d92a3646e916cce",
+      "source_commit": "71c6122259150af55603b3a45d326ca486cc693c"
     },
     {
       "file": "dark/topbar.png",
@@ -1548,7 +1582,8 @@
         "--song",
         "Night Drive"
       ],
-      "sha256": "a2dcafb410658f24bad7b5704572ec72f25b12baa4bbcaf5136951e7138786d5"
+      "sha256": "a2dcafb410658f24bad7b5704572ec72f25b12baa4bbcaf5136951e7138786d5",
+      "source_commit": "71c6122259150af55603b3a45d326ca486cc693c"
     },
     {
       "file": "dark/video-controls.png",
@@ -1609,7 +1644,8 @@
         ],
         "page": "res/web/index.html"
       },
-      "sha256": "f976dce4167e4859e12a2572db0df51853297f2f43134596e6c35b3fb97bd6d0"
+      "sha256": "93072d428cadb801333001414ffdf4c9d99a0427e0018dff627ae4b915b6f177",
+      "source_commit": "5116943ba47f5521766afe4d5b25ae4b5b15b15a"
     },
     {
       "file": "light/portal-pin.png",
@@ -1673,7 +1709,8 @@
         "--saver-pic",
         "{art}/Sony_-_PlayStation/Named_Snaps/Metal Gear Solid (USA).png"
       ],
-      "sha256": "692ef7648aca32156df4cf7e0b52df574748fab59ea88eabc19224f3bafd017f"
+      "sha256": "692ef7648aca32156df4cf7e0b52df574748fab59ea88eabc19224f3bafd017f",
+      "source_commit": "71c6122259150af55603b3a45d326ca486cc693c"
     },
     {
       "file": "light/es-shelf.png",
@@ -1732,7 +1769,8 @@
         "Metal Gear Solid (USA)",
         "Rename"
       ],
-      "sha256": "0785d4d5069ea5a6a00080c87f1cebebb0a23d906251500b9196b1989fe3acf3"
+      "sha256": "0785d4d5069ea5a6a00080c87f1cebebb0a23d906251500b9196b1989fe3acf3",
+      "source_commit": "71c6122259150af55603b3a45d326ca486cc693c"
     },
     {
       "file": "light/player2-hotspot.png",
@@ -1752,7 +1790,8 @@
         "--player2",
         "hotspot"
       ],
-      "sha256": "9bced84c5ff87cf7143fd79b775573576604d699eb6dde903031f56ea7e15cb2"
+      "sha256": "9bced84c5ff87cf7143fd79b775573576604d699eb6dde903031f56ea7e15cb2",
+      "source_commit": "5116943ba47f5521766afe4d5b25ae4b5b15b15a"
     },
     {
       "file": "light/play-phone.png",
@@ -1796,7 +1835,8 @@
         "--screen",
         "games"
       ],
-      "sha256": "762bcd00d7fcaeb7029a06e39ee89d6335258fe56cda913b44aed4d060bca87e"
+      "sha256": "762bcd00d7fcaeb7029a06e39ee89d6335258fe56cda913b44aed4d060bca87e",
+      "source_commit": "71c6122259150af55603b3a45d326ca486cc693c"
     },
     {
       "file": "light/folder-inside.png",
@@ -1834,7 +1874,8 @@
         "--view",
         "list"
       ],
-      "sha256": "db1e2d8654f05dc3704a89af1aac116daa877138038eb1c815e53f9361b49334"
+      "sha256": "db1e2d8654f05dc3704a89af1aac116daa877138038eb1c815e53f9361b49334",
+      "source_commit": "71c6122259150af55603b3a45d326ca486cc693c"
     },
     {
       "file": "light/list-inside.png",
@@ -1872,7 +1913,8 @@
         "--screen",
         "games"
       ],
-      "sha256": "65e9c741a141472cd5c5ef8b02053b8bfbe1eb53b62b999e53da928ecdc376ac"
+      "sha256": "65e9c741a141472cd5c5ef8b02053b8bfbe1eb53b62b999e53da928ecdc376ac",
+      "source_commit": "71c6122259150af55603b3a45d326ca486cc693c"
     },
     {
       "file": "dark/list.png",
@@ -1892,7 +1934,8 @@
         "--view",
         "list"
       ],
-      "sha256": "f8962f9ec78532d65d8c062fa4594454d8ca669968f9f5f984cf5a46909f8d2d"
+      "sha256": "f8962f9ec78532d65d8c062fa4594454d8ca669968f9f5f984cf5a46909f8d2d",
+      "source_commit": "71c6122259150af55603b3a45d326ca486cc693c"
     },
     {
       "file": "light/display.png",
@@ -1950,7 +1993,9 @@
         "theme",
         "0"
       ],
-      "sha256": "2a33f111d9e5ca840ab04ded37cc3f155039800d2ed713ee828c0ea038efd99d"
+      "sha256": "2a33f111d9e5ca840ab04ded37cc3f155039800d2ed713ee828c0ea038efd99d",
+      "source_commit": "71c6122259150af55603b3a45d326ca486cc693c"
     }
-  ]
+  ],
+  "capture_note": "Screenshots refreshed separately record their own source_commit; other screenshots use the top-level source_commit."
 }

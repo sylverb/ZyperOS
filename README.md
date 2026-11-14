@@ -87,8 +87,8 @@ Questions, ideas, or want to help build it? Come say hi on [the ZyperOS Discord]
 
 <!-- tour-video: the tour on zyperos.com (video/README.md) -->
 <p align="center">
-  <a href="https://zyperos.com/#tour"><img src="res/readme/tour-poster.jpg" width="720" alt="Watch the ZyperOS tour: a green GKD Pixel 2 showing a shelf of PlayStation covers, beside the ZyperOS name"></a><br>
-  <sub>The tour, 105 seconds on zyperos.com</sub>
+  <a href="https://zyperos.com/zyperos-tour.mp4"><img src="res/readme/tour-poster.jpg" width="720" alt="Watch the ZyperOS tour: a green GKD Pixel 2 showing a shelf of PlayStation covers, beside the ZyperOS name"></a><br>
+  <sub>The original video tour, 105 seconds. See the <a href="https://zyperos.com/#tour">current screens</a> on zyperos.com.</sub>
 </p>
 <!-- /tour-video -->
 
@@ -109,7 +109,7 @@ Questions, ideas, or want to help build it? Come say hi on [the ZyperOS Discord]
   </tr>
   <tr>
     <td align="center"><img src="res/readme/cheevo-notice.png" width="240" alt="An achievement's unlock notice: its badge, 'Unlocked · 10 points' over its name, and Zyper at the right"><br><sub>RetroAchievements, and Zyper cheers</sub></td>
-    <td align="center"><img src="res/readme/gamemenu-shader.png" width="240" alt="The in-game menu over a paused Spyro the Dragon, on its Shader row: Sharp-Shimmerless, with Quick Slot 1 above it"><br><sub>A shader and a quick slot for each system</sub></td>
+    <td align="center"><img src="res/readme/gamemenu-shader.png" width="240" alt="The in-game menu over a paused Spyro the Dragon, on its Display tab and Shader row: Sharp-Shimmerless, with Game and Controls beside it"><br><sub>A shader for each system, in the Display tab</sub></td>
     <td align="center"><img src="res/readme/controls-hotkeys.png" width="240" alt="Controls: Hotkeys. SELECT with R1 and L1 quick save and load, with R2 and L2 faster and slower"><br><sub>SELECT with a shoulder: the hotkeys</sub></td>
   </tr>
   <tr>
