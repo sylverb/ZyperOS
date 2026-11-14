@@ -354,6 +354,18 @@ extern const menu_style *g_muse_over;
 extern void             *g_muse_over_ctx;
 extern bool              g_muse_gone;
 
+/* ---- main.c's, for src/muse_screen.c; each is described where it is defined ---- */
+#define TEX_KEEP_FAR    4   /* ...and around the cursor of a system you left  */
+extern app *g_logs_app;
+const char *b_legend(str_id word);
+int book_place(int al, double *at);
+double book_speed(int al);
+void muse_play_videos(const char *const *paths, int n, int start,
+                      const char *artist, const char *album);
+void evict_far(sysview *v, int keep);
+void panel_base_close(int lv);
+int shelf_letter_jump(sysview *v, int dir);
+
 /* ---- main.c's, for src/saver_screen.c; each is described where it is defined ---- */
 typedef struct {
 	char folder[CFG_STR];
