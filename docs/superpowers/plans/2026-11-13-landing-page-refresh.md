@@ -27,7 +27,7 @@
 
 ### Open work
 
-- [x] Full README feature coverage: all 48 feature bullets, nine chapters, 27 screenshot choices, charging screen, and charge-limit preview. Browser and build checks passed.
+- [x] Full README feature coverage: all 50 feature bullets, nine chapters, 28 screenshot choices, charging screen, and charge-limit preview. Browser and build checks passed.
 
 - [x] Shoulder clarification: all four buttons now have an abrupt underside step, from a thicker main body to a thin rear lip. The case stays unchanged. Source and exported geometry checks pass.
 - [x] Standalone /download/ page with latest-release files, fallback links, and a separate installation guide. Primary download actions now point there.
@@ -38,7 +38,7 @@ Publication is separate from this local preview work.
 
 ### Delivery status
 
-All changes remain in the local checkout. They are not committed, pushed, merged, or deployed.
+The implementation is committed for PR delivery. Git history and the pull request record its merge and deployment state.
 The preview server remains available at http://127.0.0.1:8887/.
 
 Latest link audit: the built homepage has no external anchors, and the site has no first-party GitHub Markdown help links.
@@ -56,7 +56,7 @@ The user approved the first design and then directed the following additions.
 - Player 2 has its own section. An iPhone-style phone and the actual GLB model show one original browser game. Player 1 moves automatically; the visitor controls Player 2. The page explains that this is not NES emulation or a device connection.
 - A dark power-off/resume section separates Player 2 and music. A book and lime bookmark represent keeping a place. Text limits auto-resume to games with state support.
 - The music scene combines the accurate device, a native player capture, wired earbuds, and a mix CD. Three 30-second CC0 previews have real playback and seek controls.
-- Nine feature chapters cover all 48 README feature bullets. Each has three screenshot choices, plus a dedicated charging screen and charge-limit preview.
+- Nine feature chapters cover all 50 README feature bullets with 28 screenshot choices, plus a dedicated charging screen and charge-limit preview.
 - Every homepage link stays on the site. Six task guides, an About page, and the Eric story provide on-site destinations. GitHub Markdown help links no longer replace the guides.
 - The install guide covers ZyperOS only. Direct macOS, Windows, DEB, RPM, card-image, and checksum links update from GitHub's latest release API. Verified fallback links work without JavaScript or API access.
 - Install, Guide, and Blog navigation states follow the current page.
@@ -127,7 +127,7 @@ The shared header is rendered from `site/_includes/header.html` by `mk/site_head
 
 ## README feature coverage, 14 November 2026
 
-The table maps each top-level README feature to visible landing content. Details remain in native disclosures.
+The table maps each top-level README feature to visible landing content. The main-branch integration adds button remapping below. Details remain in native disclosures.
 The source behavior takes precedence over stale comments: `src/powerscreens.c` uses `IN_Y` for a one-time full charge. The battery guide now matches.
 
 | README feature | Landing destination |
@@ -160,12 +160,14 @@ The source behavior takes precedence over stale comments: `src/powerscreens.c` u
 | Player 2 on a friend's phone | #feature-connections |
 | System Update | #feature-connections |
 | Autosave and resume | #feature-gameplay |
+| Change the disc in a multi-disc game | #feature-systems |
 | Quick save and quick load, without opening a menu | #feature-gameplay |
 | A QWERTY keyboard | #feature-library |
 | Clocks per system | #feature-care |
 | Turbo buttons | #feature-gameplay |
 | Faster and slower | #feature-gameplay |
 | Shaders, from sharp pixels to an old TV | #feature-gameplay |
+| Change what a button does, for one game or a whole system | #feature-gameplay |
 | Every control, in the game | #feature-gameplay |
 | Rumble on the Pixel 2 | #feature-gameplay |
 | A USB-C headphone adapter on the Pixel 2 | #feature-sound |
@@ -203,3 +205,9 @@ Recaptured 36 feature frames using the clean final checkout at main commit `71c6
 The landing chapter now shows the full-page plan, and its copy and image descriptions match. The box-art guide uses the current A / Y / START flow, video selection, and one-second preview delay. Guide images and blog thumbnails now carry content hashes, as the landing images already do.
 
 Verified: source, built and HTTP-served screenshot hashes match; the landing image and guide use the new capture; screenshot switching works; the mobile chapter has no overflow; guide and thumbnail hashes agree. `make check-blog` and `git diff --check` pass. Capture source guidance in `res/readme/README.md` prevents an older checkout from being mistaken for the current interface.
+
+## PR integration checks
+
+Merged main at `d52b970` before final verification. Preserved the current video, Controls remapping and screenshot, Achievements tab, shader strength, and guide updates. The newly published v1.0.5 release now supplies all six static download fallbacks. Browser feature verification passes for 28 screenshot choices.
+
+Final local ship checks: 168 checks passed with `CHECK_JOBS=3 make check`. The download checks passed for live v1.0.5, future and partial releases, API failure/retry, no JavaScript, and both themes. Player 2 reached 8/8 through actual keyboard input. Two independent reviews finished; the Controls instructions, achievement format claims, and install link wording were corrected.
