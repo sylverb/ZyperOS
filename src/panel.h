@@ -358,6 +358,12 @@ extern const menu_style *g_muse_over;
 extern void             *g_muse_over_ctx;
 extern bool              g_muse_gone;
 
+/* ---- main.c's, for src/about_screen.c; each is described where it is defined ---- */
+#ifndef ZYPEROS_VERSION
+#define ZYPEROS_VERSION "0.0"       /* set by the makefiles from Makefile's VERSION */
+#endif
+extern mm_frame g_pframe;
+
 /* ---- main.c's, for src/signin_screen.c; each is described where it is defined ---- */
 
 /* ---- main.c's, for src/devmode_screen.c; each is described where it is defined ---- */
