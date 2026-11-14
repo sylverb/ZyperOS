@@ -9,6 +9,9 @@
 #include "app.h"
 #include "dslang.h"
 #include "game_menu.h"
+#include "hare.h"
+#include "heat.h"
+#include "hotspot.h"
 #include "keyboard.h"
 #include "menu.h"
 #include "menumotion.h"
@@ -350,6 +353,68 @@ extern bool g_message_stopped;
 extern const menu_style *g_muse_over;
 extern void             *g_muse_over_ctx;
 extern bool              g_muse_gone;
+
+/* ---- main.c's, for src/saver_screen.c; each is described where it is defined ---- */
+typedef struct {
+	char folder[CFG_STR];
+	time_t mtime;
+	unsigned looked;
+	unsigned gen;                    /* snapshelf_media_gen() when listed */
+	bool on;
+	char **stems;
+	int n;
+} snap_names;
+typedef struct {
+	unsigned long long total, win, rate;   /* the bytes since the start, this second's, its speed */
+	unsigned moved;                        /* when it last moved */
+	bool active;
+} xs_flow;
+typedef struct {
+	bool        on;             /* the server is up */
+	bool        shown;          /* its screen is open */
+	bool        cable, hot;
+	/* On a phone's USB tethering (plat_phone_link): the cable's name, the
+	 * address the phone gave, the phone's browser; no SSH, no steps of the
+	 * cable's (the link is the phone's network, as Wi-Fi's is) */
+	bool        phone;
+	bool        hot_failed, ssh_shown;
+	bool        rescan_due;     /* ended behind the shelf with the shelf changed */
+	const char *name;
+	char        pin[32], login[96], addr[96];
+	unsigned long long in, out;
+	hare_stats  st;
+	hotspot_state hs;
+	unsigned    addr_at, moved_at, link_lost_at, restart_at;
+	int         busy;
+	link_steps  steps;          /* the link, step by step (linksteps.h) */
+	link_sense  sense;          /* the cable's facts, read five times a second */
+	bool        sensed;         /* the device can tell them: steps over the cable */
+	bool        joined;         /* Wi-Fi: on a network */
+	/* Someone came in: a browser entered the PIN (hare_signed_once) or SSH
+	 * signed in. The screen is the way in until then and its news after,
+	 * and stays the news when they leave (DESIGN.md 11.35) */
+	bool        met;
+	/* The cable's loading bar (xs_load_step): its fill as drawn, 0..1, and
+	 * the moment it last moved */
+	float       load_k;
+	unsigned    load_ms;
+	unsigned    sense_at;
+	side_lights_batch lit;      /* files arriving, for the side lights */
+	side_lights_move  mv;       /* files moving either way, for their wave */
+	/* The panel's tiles (xs_move_*): a file's bytes each way, Download
+	 * then Upload; the second they count from; the last frame's uploads
+	 * and downloads, whose last bytes land in the poll that ends them */
+	xs_flow     flow[2];
+	unsigned    flow_at;
+	bool        flow_up, flow_send;
+} xfer_sess;
+extern heat_state g_heat;
+extern xfer_sess g_xs;
+extern int g_shot_saver;
+extern float g_shot_saver_alpha;
+extern const char *g_shot_saver_pic;
+int snap_name_cmp(const void *x, const void *y);
+const snap_names *snap_names_for(const char *folder);
 
 /* ---- main.c's, for src/launch_screen.c; each is described where it is defined ---- */
 #define HEAT_HEAD T(S_HEAT_HEAD)
