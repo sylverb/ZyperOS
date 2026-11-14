@@ -211,3 +211,9 @@ Verified: source, built and HTTP-served screenshot hashes match; the landing ima
 Merged main at `d52b970` before final verification. Preserved the current video, Controls remapping and screenshot, Achievements tab, shader strength, and guide updates. The newly published v1.0.5 release now supplies all six static download fallbacks. Browser feature verification passes for 28 screenshot choices.
 
 Final local ship checks: 168 checks passed with `CHECK_JOBS=3 make check`. The download checks passed for live v1.0.5, future and partial releases, API failure/retry, no JavaScript, and both themes. Player 2 reached 8/8 through actual keyboard input. Two independent reviews finished; the Controls instructions, achievement format claims, and install link wording were corrected.
+
+## Hosted audio verification
+
+The first Cloudflare preview returned complete MP3 responses without a seekable byte range. Playback worked, but seeking returned to the start despite a fully buffered clip. The custom player now fetches a local Blob only on an explicit seek when the native source cannot seek. Normal playback still starts directly from the user action.
+
+A browser reproduction with HTTP 200 and no range support passed forward/backward seek, paused seeking, Play cancellation, track changes during a delayed fetch, leaving the section, failed fetch recovery, and no automatic download. The independent source reviewer found no remaining issue.
