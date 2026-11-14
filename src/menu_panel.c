@@ -4,6 +4,7 @@
 #include "app.h"
 #include "keyhints.h"
 #include "keyhints_draw.h"
+#include "ds/panel.h"     /* the slab, its lift and the pass */
 #include "look.h"
 #include "panel.h"
 #include "tween.h"
@@ -46,6 +47,10 @@ int menu_row_h(void) { return ui_font_line(UI_F_MENU) * 3 / 2; }
  * draws it and menu_std_width subtracts it, and a panel width means nothing
  * unless both use the same number. */
 int menu_pad(void)   { return menu_row_h() * 3 / 4; }
+
+/* The menus' panel pass as src/ds/panel.h asks for it */
+static bool menu_pass_begin(void *ctx) { return panel_pass_begin(ctx); }
+static void menu_pass_end(void *ctx, const SDL_Rect *panel, mm_pose pose) { panel_pass_end(ctx, panel, pose); }
 
 /* X's glyph at a row's right (MENU_KEY_X): the keyboard's action keys' 40,
  * DESIGN.md 11.9, which sits in a menu row as a hint's sits in its legend */
@@ -723,19 +728,11 @@ void menu_panel(app *a, const char *heading, const menu_row *rows,
 	 * its strength, and the panel into the pass: a shadow or a glow drawn
 	 * into a clear texture and copied out with its alpha would be faded
 	 * twice over. */
-	if (posed) {
-		SDL_FRect f = panel_scaled(&panel, pose.scale);
-		SDL_Rect q = { (int)(f.x + 0.5f), (int)(f.y + 0.5f),
-		               (int)(f.w + 0.5f), (int)(f.h + 0.5f) };
+	{
+		const ds_pass pass = { panel_scaled, menu_pass_begin, menu_pass_end, a };
 
-		ui_lift_k(a->r, &q, accent == MENU_ZYPEROS ? CFG_NO_COLOR : accent,
-		          UI_LIFT_PANEL, pose.alpha);
-		posed = panel_pass_begin(a);
-	} else {
-		ui_lift(a->r, &panel, accent == MENU_ZYPEROS ? CFG_NO_COLOR : accent,
-		        UI_LIFT_PANEL);
+		posed = ds_panel_open(a->r, &panel, accent == MENU_ZYPEROS ? CFG_NO_COLOR : accent, pose, &pass);
 	}
-	ui_panel(a->r, &panel, DS_RADIUS_PANEL);
 
 	if (heading) {
 		/* Centered in the band by its ink, on the same reasoning as the rows:
