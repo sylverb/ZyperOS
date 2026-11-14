@@ -118,21 +118,29 @@ seconds.
 
 ## The 1.0.5 cut for Reddit
 
-`src/reddit/` is a second composition, `Reddit105`: what 1.0.5 added, in the
-order the Reddit post lists it (button remapping the longest scene), then
-1.0.3's and 1.0.4's USB File Transfer and Flash Drive, in 55 seconds at 4:5
+`src/reddit/` is a second composition, `Reddit105`: what 1.0.5 added, then
+1.0.3's and 1.0.4's USB File Transfer and Flash Drive, in 58 seconds at 4:5
 (1080x1350), the tallest a phone's feed shows at full width. It plays muted
 there, so every feature is named in large words over the screen, with the
-release it came in; "ZyperOS 1.0.5" is on screen from the first frame. It uses
-the tour's takes and music, and a few of its own (`phone`, `flashdrive`,
-`usbsteps` in `footage/takes.py`; `saver`, `rename`, `renamed`, `update-bg`
-and `charge-full` are its first cut's). The shaders scene shows the README's
-picture of the six looks on Balloon Fight, made in the QEMU machine with
-Diatom's own shaders, one look at a time, then the Display tab's Strength row.
+release it came in; "ZyperOS 1.0.5" is on screen from the first frame. It
+opens on NES Player 2 as a small story of six bars: MENU > Player 2 and its
+code on the handheld, the friend's phone coming in, its d-pad and A pressed
+while the handheld plays on; the end card comes back to the two of them. The
+rest follows the order the Reddit post lists it. It uses the tour's takes and
+music, a few takes of its own (`phone`, `flashdrive`, `usbsteps` in
+`footage/takes.py`; `saver`, `rename`, `renamed`, `update-bg` and
+`charge-full` are its first cut's), and the phone's presses:
+`footage/phone-presses.py` opens the play page on the real p2d in Chrome, as
+`tools/readme-shots.py` takes play-phone.png, and takes a picture while a
+finger holds the d-pad or A, so the page lights its own keys. The shaders scene
+shows the README's picture of the six looks on Balloon Fight, made in the QEMU
+machine with Diatom's own shaders, one look at a time, then the Display tab's
+Strength row.
 
 ```sh
 python3 video/footage/takes.py      # with the tour's SNAP_* settings, for the screensaver's snap
 sh video/scripts/prepare-assets.sh
+python3 video/footage/phone-presses.py   # Player 2's phone, pressed
 cd video && npm run stills:reddit   # out/reddit/contact-sheet.jpg
 npx remotion render Reddit105 out/reddit/zyperos-1.0.5-reddit-raw.mp4 --crf=6
 sh scripts/finish-reddit.sh         # the master, outside the repository
