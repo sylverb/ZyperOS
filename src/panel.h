@@ -358,6 +358,14 @@ extern const menu_style *g_muse_over;
 extern void             *g_muse_over_ctx;
 extern bool              g_muse_gone;
 
+/* ---- main.c's, for src/xfer_screen.c; each is described where it is defined ---- */
+bool up_running(void);
+unsigned pace_rows(const char *heading, const menu_row *rows, int n, int sel, float k,
+                   unsigned tint);
+bool pace_busy(const app *a);
+void ram_idle_set(bool idle);
+const char *tiles_hints(const char *b_word);
+
 /* ---- main.c's, for src/usbdrive_screen.c; each is described where it is defined ---- */
 extern bool g_usb_kept;
 extern bool g_usb_offer_due;
