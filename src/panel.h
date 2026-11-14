@@ -358,6 +358,9 @@ extern const menu_style *g_muse_over;
 extern void             *g_muse_over_ctx;
 extern bool              g_muse_gone;
 
+/* ---- main.c's, for src/tour_screen.c; each is described where it is defined ---- */
+void language_apply(app *a, lang l, bool keep);
+
 /* ---- main.c's, for src/player2_screen.c; each is described where it is defined ---- */
 /* Which drawer a copy is for. A question in tiles says its style by its kind
  * (tiles_show): PANEL_TILES a row of tiles, PANEL_TILES_GRID two to a row
@@ -608,7 +611,6 @@ void language_screen(app *a);
 void lights_screen(app *a);
 void about_screen(app *a);
 void controls_screen(app *a);
-void tour_run(app *a, bool first);
 menu_style zyperos_menu_style(app *a, int screen);
 int sysmenu_build(void *ctx, menu_row *rows, int max,
                   const char **heading);

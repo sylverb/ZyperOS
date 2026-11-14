@@ -18,7 +18,7 @@ LAUNCHER = ("src/main.c", "src/aout_route.c", "src/bgm_screen.c", "src/bt_screen
             "src/raqueue.c", "src/saver_screen.c", "src/search_screen.c",
             "src/shelf_draw.c", "src/shelf_keys.c", "src/shelfbuild.c",
             "src/stats_screen.c", "src/storage_screen.c", "src/sysmenu_screen.c",
-            "src/update_screen.c", "src/zyperdraw.c")
+            "src/tour_screen.c", "src/update_screen.c", "src/zyperdraw.c")
 source = "\n".join(Path(p).read_text() for p in LAUNCHER)
 source = re.sub(r'/\*.*?\*/|//[^\n]*', '', source, flags=re.S)
 stale = list(re.finditer(r'\bSDL_Delay\s*\(\s*(900|1400|1600|1800|2200)\s*\)', source))

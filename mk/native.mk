@@ -19,7 +19,7 @@ MAIN_SRC := src/main.c src/aout_route.c src/bgm_screen.c src/bt_screen.c \
             src/player2_screen.c src/portload.c src/powerscreens.c src/raqueue.c \
             src/saver_screen.c src/search_screen.c src/shelf_draw.c src/shelf_keys.c \
             src/shelfbuild.c src/stats_screen.c src/storage_screen.c src/sysmenu_screen.c \
-            src/update_screen.c src/zyperdraw.c
+            src/tour_screen.c src/update_screen.c src/zyperdraw.c
 
 PKGS := sdl2 SDL2_image SDL2_ttf
 VERSION ?= 0.0
