@@ -1,0 +1,146 @@
+#!/bin/sh
+# The Wi-Fi link watched while wpa_supplicant runs (/etc/init.d/wpa_supplicant
+# starts it beside the supplicant and stops it with it). Two jobs, both told in
+# the supplicant's own log, logs/wifi.log, with its time format and
+# "zyperos:" in front, so a log someone sends says what happened:
+#
+# 1. The signal. A look every LOOK seconds (wpa_cli signal_poll, a small fork:
+#    this is not the launcher), and a line at least every EVERY seconds while
+#    joined, or at once when the signal moves by JUMP dB. When the link drops,
+#    a line with the last look and how old it was: a log then says whether the
+#    adapter was on a weak signal when it lost the network. No network name in
+#    any of it (File Transfer's Download logs masks the names the supplicant
+#    writes; this writes none).
+#
+# 2. A drop that cut a handshake is not a wrong password. wpa_supplicant
+#    counts any drop during the 4-way handshake as a possible wrong password
+#    (events.c could_be_psk_mismatch) and keeps the network off for 10 s, then
+#    20, 30, 60, 90... while it goes on: on an adapter that loses the network
+#    for a few seconds now and then, that is minutes with no Wi-Fi for nothing
+#    (seen in a 1.0.5 log: a reason=0 drop, then "4-Way Handshake failed -
+#    pre-shared key may be incorrect" and 10 s off). So when the network that
+#    is turned off for WRONG_KEY already joined with its password since the
+#    supplicant started, it is turned back on at once, disable_network then
+#    enable_network (only that clears the wait in 2.11:
+#    wpa_supplicant_enable_one_network). Once per join: if the very next try
+#    fails the same way, the supplicant's own wait stands, so a password that
+#    really changed costs one extra try, never a loop.
+#
+# Settings for tools/wifi-watch-check.sh, which runs this on a computer
+# against a stand-in wpa_cli and log: WIFI_LOG, WPA_CLI, WIFI_IFACE,
+# WIFI_FIFO, LOOK, EVERY, JUMP.
+LOG=${WIFI_LOG:-${USERDATA_PATH:-/mnt/SDCARD/.userdata/pixel2}/logs/wifi.log}
+CLI=${WPA_CLI:-wpa_cli}
+IFACE=${WIFI_IFACE:-wlan0}
+FIFO=${WIFI_FIFO:-/var/run/wifi-watch.fifo}
+LOOK=${LOOK:-10}
+EVERY=${EVERY:-60}
+JUMP=${JUMP:-8}
+
+joined=0          # associated, as the last CONNECTED / DISCONNECTED said
+ok_ids=" "        # networks that joined with their password since the start
+armed=1           # one handshake retry per join
+looked=0          # when the signal was last asked for
+seen_at=0         # when it last answered, and what it said
+rssi="" speed="" freq=""
+said_at=0 said_rssi=""   # the last signal line written
+
+now() { date +%s; }
+
+note() { printf '%s.000000: zyperos: %s\n' "$(now)" "$*" >> "$LOG"; }
+
+cli() { "$CLI" -i "$IFACE" "$@" 2> /dev/null; }
+
+# A signal line is due: never written since the join, old, or a jump
+due() {
+	[ "$said_at" -eq 0 ] && return 0
+	[ $(($1 - said_at)) -ge "$EVERY" ] && return 0
+	d=$((rssi - said_rssi))
+	[ "$d" -lt 0 ] && d=$((-d))
+	[ "$d" -ge "$JUMP" ]
+}
+
+look() {
+	t=$1
+	out=$(cli signal_poll) || return
+	r=$(printf '%s\n' "$out" | sed -n 's/^RSSI=\(-\{0,1\}[0-9][0-9]*\)$/\1/p')
+	# No number, or the drivers' "none" (-9999): not associated now
+	[ -n "$r" ] && [ "$r" -gt -1000 ] || return
+	rssi=$r
+	speed=$(printf '%s\n' "$out" | sed -n 's/^LINKSPEED=\([0-9][0-9]*\)$/\1/p')
+	freq=$(printf '%s\n' "$out" | sed -n 's/^FREQUENCY=\([0-9][0-9]*\)$/\1/p')
+	seen_at=$t
+	[ "$joined" -eq 1 ] || return
+	if due "$t"; then
+		note "signal $rssi dBm, ${speed:-?} Mbps, ${freq:-?} MHz"
+		said_at=$t
+		said_rssi=$rssi
+	fi
+}
+
+on_line() {
+	case "$1" in
+	*": zyperos: "*) ;;     # its own lines, back through the log
+	*"CTRL-EVENT-CONNECTED"*)
+		id=$(printf '%s\n' "$1" | sed -n 's/.*\[id=\([0-9][0-9]*\) .*/\1/p')
+		joined=1
+		armed=1
+		said_at=0
+		looked=0            # a signal line soon after each join
+		case "$ok_ids" in *" $id "*) ;; *) [ -n "$id" ] && ok_ids="$ok_ids$id " ;; esac
+		;;
+	*"CTRL-EVENT-DISCONNECTED"*)
+		if [ "$joined" -eq 1 ]; then
+			if [ "$seen_at" -gt 0 ]; then
+				note "link lost; last look $(($(now) - seen_at)) s before: $rssi dBm, ${speed:-?} Mbps"
+			else
+				note "link lost; no signal look yet"
+			fi
+		fi
+		joined=0
+		;;
+	*"CTRL-EVENT-SSID-TEMP-DISABLED id="*" reason=WRONG_KEY")
+		id=$(printf '%s\n' "$1" | sed -n 's/.*CTRL-EVENT-SSID-TEMP-DISABLED id=\([0-9][0-9]*\) .*/\1/p')
+		case "$ok_ids" in
+		*" $id "*)
+			if [ "$armed" -eq 1 ]; then
+				armed=0
+				cli disable_network "$id" > /dev/null
+				cli enable_network "$id" > /dev/null
+				note "network $id joined with this password before; a drop cut the handshake, so trying again now"
+			fi
+			;;
+		esac
+		;;
+	*"CTRL-EVENT-TERMINATING"*) stop ;;
+	esac
+}
+
+stop() {
+	[ -n "$tailpid" ] && kill "$tailpid" 2> /dev/null
+	rm -f "$FIFO"
+	exit 0
+}
+
+trap stop TERM INT HUP
+
+# The log through a pipe this shell reads itself, so its state is not in a
+# pipeline's subshell, and stopping it stops the tail too
+rm -f "$FIFO"
+mkfifo "$FIFO" || exit 1
+tail -n 0 -F "$LOG" > "$FIFO" 2> /dev/null &
+tailpid=$!
+exec 3< "$FIFO"
+
+while :; do
+	if IFS= read -r -t "$LOOK" line <&3; then
+		on_line "$line"
+	elif ! kill -0 "$tailpid" 2> /dev/null; then
+		stop
+	fi
+	t=$(now)
+	if [ $((t - looked)) -ge "$LOOK" ]; then
+		looked=$t
+		look "$t"
+	fi
+done
