@@ -11,6 +11,7 @@ mod device;
 mod image;
 mod install;
 mod release;
+mod selfupdate;
 mod writer;
 
 use std::path::{Path, PathBuf};
@@ -91,10 +92,131 @@ async fn latest_zyperos() -> Result<String, String> {
         .map_err(|e| e.to_string())?
 }
 
-/// A newer installer's version, if one is out.
+/// A newer installer, if one is out, and whether this one can put it in its
+/// own place (selfupdate.rs). Says nothing when GitHub can't be asked: this
+/// is only ever a notice.
 #[tauri::command]
-async fn newer_installer() -> Option<String> {
-    tauri::async_runtime::spawn_blocking(release::newer_installer).await.ok().flatten()
+async fn installer_update(app: AppHandle) -> Option<selfupdate::Offer> {
+    let pending = app.state::<selfupdate::Pending>();
+    let why = match selfupdate::way(&pending.exe) {
+        selfupdate::Way::InPlace => {
+            // Tauri's updater first; when its look doesn't work (no
+            // latest.json in the latest release, as up to 1.0.5), the
+            // releases' look below
+            #[cfg(any(target_os = "macos", windows))]
+            if let Ok(offer) = selfupdate::check(&app, &pending).await {
+                return offer;
+            }
+            None
+        }
+        selfupdate::Way::Page(why) => why,
+    };
+    let version = tauri::async_runtime::spawn_blocking(release::newer_installer).await.ok().flatten()?;
+    Some(selfupdate::Offer { version, in_place: false, why: why.map(String::from) })
+}
+
+#[cfg(any(target_os = "macos", windows))]
+#[derive(serde::Serialize, Clone)]
+struct UpdateProgress {
+    done: u64,
+    /// 0 when the server didn't say
+    total: u64,
+}
+
+/// Downloads the newer installer installer_update found and checks its
+/// signature; its progress arrives as "update-progress" events. It doesn't
+/// touch any card, so it may go on during a write.
+#[tauri::command]
+async fn download_update(app: AppHandle) -> Result<(), String> {
+    #[cfg(any(target_os = "macos", windows))]
+    {
+        let pending = app.state::<selfupdate::Pending>();
+        let mut last: Option<std::time::Instant> = None;
+        selfupdate::download(&pending, |done, total| {
+            if last.is_none_or(|t| t.elapsed().as_millis() >= 100) || Some(done) == total {
+                let _ = app.emit("update-progress", UpdateProgress { done, total: total.unwrap_or(0) });
+                last = Some(std::time::Instant::now());
+            }
+        })
+        .await
+    }
+    #[cfg(not(any(target_os = "macos", windows)))]
+    {
+        let _ = app;
+        Err("This installer can't update itself on this system.".into())
+    }
+}
+
+/// What restart_to_update says during a write; the page keeps offering it
+const BEING_WRITTEN: &str = "A card is being written. Restart when it is done.";
+
+/// Puts the downloaded installer in this one's place and opens it. Never
+/// during a write; and no write starts while it goes in place.
+#[tauri::command]
+async fn restart_to_update(app: AppHandle) -> Result<(), String> {
+    #[cfg(any(target_os = "macos", windows))]
+    {
+        let pending = app.state::<selfupdate::Pending>();
+        {
+            // Under the write's lock: start() looks at installing under it too
+            let running = app.state::<Running>();
+            let slot = running.0.lock().unwrap();
+            if slot.is_some() {
+                return Err(BEING_WRITTEN.into());
+            }
+            pending.installing.store(true, Ordering::SeqCst);
+        }
+        let handle = app.clone();
+        let installed = tauri::async_runtime::spawn_blocking(move || {
+            selfupdate::install(&handle.state::<selfupdate::Pending>())
+        })
+        .await
+        .map_err(|e| e.to_string())
+        .and_then(|r| r);
+        match installed {
+            Ok(()) => selfupdate::restart(&app, &pending),
+            Err(e) => {
+                pending.installing.store(false, Ordering::SeqCst);
+                Err(e)
+            }
+        }
+    }
+    #[cfg(not(any(target_os = "macos", windows)))]
+    {
+        let _ = (app, BEING_WRITTEN);
+        Err("This installer can't update itself on this system.".into())
+    }
+}
+
+/// Debug builds only: with ZYPEROS_INSTALLER_SELFUPDATE_TEST naming a file,
+/// the window updates the installer as soon as it opens, with no click, and
+/// writes each step to that file: for trying an update end to end on this
+/// computer with a test key and a local latest.json (installer/README.md).
+#[cfg(all(debug_assertions, any(target_os = "macos", windows)))]
+async fn selfupdate_test(app: AppHandle, log: PathBuf) {
+    use std::io::Write;
+    let say = |line: String| {
+        if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(&log) {
+            let _ = writeln!(f, "{line}");
+        }
+    };
+    let pending = app.state::<selfupdate::Pending>();
+    say(format!("running {} from {}", app.package_info().version, pending.exe.display()));
+    match selfupdate::check(&app, &pending).await {
+        Ok(Some(offer)) => say(format!("offered {}", offer.version)),
+        Ok(None) => return say("up to date".into()),
+        Err(e) => return say(format!("check failed: {e}")),
+    }
+    let mut seen = 0;
+    if let Err(e) = selfupdate::download(&pending, |done, _| seen = done).await {
+        return say(format!("download failed: {e}"));
+    }
+    say(format!("downloaded and checked {seen} bytes"));
+    if let Err(e) = selfupdate::install(&pending) {
+        return say(format!("install failed: {e}"));
+    }
+    say("installed, restarting".into());
+    selfupdate::restart(&app, &pending);
 }
 
 /// The installer's releases page, in the browser. A fixed address: nothing
@@ -335,6 +457,10 @@ fn start(app: AppHandle, running: State<Running>, card: String, size: u64, devic
         if slot.is_some() {
             return Err("A card is already being written.".into());
         }
+        // The new installer going in place, just before it restarts
+        if app.state::<selfupdate::Pending>().installing.load(Ordering::SeqCst) {
+            return Err("The installer is updating itself, and opens again in a moment.".into());
+        }
         *slot = Some(cancel.clone());
     }
     std::thread::spawn(move || {
@@ -401,18 +527,30 @@ fn main() {
         println!("{}", serde_json::to_string_pretty(&cards::list()).unwrap_or_default());
         return;
     }
-    tauri::Builder::default()
-        .plugin(tauri_plugin_dialog::init())
+    // Read now: an update on Windows renames this exe before it restarts
+    let exe = std::env::current_exe().unwrap_or_default();
+    #[cfg(windows)]
+    selfupdate::remove_kept_aside(&exe);
+    let builder = tauri::Builder::default().plugin(tauri_plugin_dialog::init());
+    #[cfg(any(target_os = "macos", windows))]
+    let builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
+    builder
         .manage(Running::default())
+        .manage(selfupdate::Pending::new(exe))
         .setup(|_app| {
             #[cfg(windows)]
             if let Some(Ok(hwnd)) = _app.get_webview_window("main").map(|w| w.hwnd()) {
                 autoplay::watch(hwnd.0 as isize);
             }
+            #[cfg(all(debug_assertions, any(target_os = "macos", windows)))]
+            if let Some(log) = std::env::var_os("ZYPEROS_INSTALLER_SELFUPDATE_TEST") {
+                tauri::async_runtime::spawn(selfupdate_test(_app.handle().clone(), log.into()));
+            }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![list_cards, latest_zyperos, newer_installer, open_installer_releases,
-                                                 check_image, pick_image, start, cancel])
+        .invoke_handler(tauri::generate_handler![list_cards, latest_zyperos, installer_update, download_update,
+                                                 restart_to_update, open_installer_releases, check_image, pick_image,
+                                                 start, cancel])
         .run(tauri::generate_context!())
         .expect("ZyperOS Installer could not start");
 }

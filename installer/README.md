@@ -22,6 +22,9 @@ version. The GKD Pixel 2's image is there; the TrimUI Brick's comes later.
 | **Linux** (Debian, Ubuntu, Mint) | `ZyperOS-Installer-<version>-amd64.deb` |
 | **Linux** (Fedora) | `ZyperOS-Installer-<version>-x86_64.rpm` |
 
+The release's other installer files (`-macOS-update.tar.gz`, the `.sig`
+files and `latest.json`) are for the installer's own updates.
+
 The first time it opens:
 
 - **macOS:** unzip it and open the app. It isn't signed by Apple, so macOS
@@ -68,6 +71,28 @@ card is ejected, ready to go in the handheld.
   the one confirmed, at the size confirmed. A card swapped in the same reader
   meanwhile is refused.
 - A card with its lock switch down is shown, but can't be chosen.
+
+### Its own updates
+
+When it opens, the installer looks for a newer version of itself. If one is
+out, a chip in the window's header says so:
+
+- **macOS and Windows:** *Update to 1.0.7* downloads the new installer and
+  checks its signature against the key this one carries; then *Restart to
+  update* puts it in this one's place and opens it. Nothing downloads before
+  the click, it never restarts by itself, and never while a card is being
+  written: the chip waits for the write to end. The new one opens with no
+  first-time question from macOS, as the installer downloaded it itself. On
+  Windows the exe keeps its name, so shortcuts still work. A Mac app in a
+  folder your account can't write to asks for an administrator's password.
+- **Linux:** *Installer 1.0.7 is out* opens the releases page: update the
+  package as you installed it.
+- An update that didn't work says so, and its click opens the releases page.
+  A Mac app opened straight from Downloads can't replace itself (macOS runs a
+  read-only copy of it): move it to Applications.
+
+Installers up to 1.0.5 can't update themselves: their chip opens the releases
+page.
 
 ### How each system writes
 
@@ -120,7 +145,58 @@ cd src-tauri && npx --yes @tauri-apps/cli@2 dev
 image the release row uses in place of a download, for trying a build before
 it is published. The page also opens in a plain browser, on made-up cards
 and a made-up write, to look at the design: serve `ui/` and open it (add
-`?release` for a release to download, `?nocard` for no card).
+`?release` for a release to download, `?nocard` for no card, and
+`?update=available` for a newer installer to update to; `downloading`,
+`ready`, `installing`, `failed` and `page` show the chip's other states).
+
+### The installer's own updates
+
+Tauri's updater ([tauri-plugin-updater](https://v2.tauri.app/plugin/updater/))
+does the looking, the download and the signature check (`src/selfupdate.rs`):
+
+- It reads `https://github.com/tarikbc/ZyperOS/releases/latest/download/latest.json`
+  (`plugins.updater` in `src-tauri/tauri.conf.json`). Each release carries
+  one, written by `tools/latest-json.py` in `.github/workflows/release.yml`:
+  the macOS app as `ZyperOS-Installer-<version>-macOS-update.tar.gz` for both
+  kinds of Mac, and the Windows exe itself, each with its signature. No Linux
+  entry. When the latest release has none, or the look fails, the
+  installer asks GitHub's releases list instead (`src/release.rs`), and the
+  chip opens the releases page.
+- The files are signed with the updater key, a minisign key that `tauri
+  signer` makes. Its public half is `plugins.updater.pubkey`; the signature
+  must also name the version `latest.json` announces (`requireSignedVersion`),
+  so an older release can't be passed off as a newer one.
+- macOS: the updater's own install swaps the new app in for the old one.
+  Windows: the updater only installs Windows installers, and this exe is
+  portable, so the installer renames itself to `<name>.old`, puts the new exe
+  in its place, starts it, and the new one removes the `.old` file.
+
+`tools/try-selfupdate.sh` tries it end to end on a Mac, with nothing
+published: two debug builds signed with a throwaway key, a `latest.json` on
+`127.0.0.1`, and the old app updating itself twice, once as it is and once
+marked as a download the user allowed; each time it must open again as the
+new one, with no quarantine mark. Debug builds update with no click when
+`ZYPEROS_INSTALLER_SELFUPDATE_TEST` names a file to log the steps to.
+
+#### The updater key
+
+The private key is on the Mac that makes releases, in
+`~/.config/zyperos/installer-updater.key` (no password; never in the
+repository), and in the repository's `INSTALLER_UPDATER_KEY` secret, which
+only a release tag's build reads (a pull request signs with a throwaway key):
+
+```bash
+gh secret set INSTALLER_UPDATER_KEY --repo tarikbc/ZyperOS < ~/.config/zyperos/installer-updater.key
+```
+
+A release whose files don't check out against `plugins.updater.pubkey` stops
+before anything is uploaded. Keep a copy of the key somewhere safe. If it is
+ever lost or leaked, make a new one
+(`npx --yes @tauri-apps/cli@2 signer generate --ci -p "" -w <file>`), put its
+`.pub` file's text in `plugins.updater.pubkey`, and set the secret again: the
+installers already out there refuse the next release's files, so for that one
+update their chip opens the releases page, and from then on they use the new
+key.
 
 ## Thanks
 
