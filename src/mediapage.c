@@ -66,17 +66,12 @@ static SDL_Rect irect(SDL_FRect f)
 	return (SDL_Rect){ (int)f.x, (int)f.y, (int)f.w, (int)f.h };
 }
 
+/* A load's bar (ds_bar): once started, never shorter than its own round end */
 static void bar(SDL_Renderer *r, int x, int y, int w, float k)
 {
-	const ds_theme *th = theme();
-	SDL_Rect t = { x, y, w, UI_BAR_H };
+	int fill = k > 0 ? (int)lroundf(w * (k > 1 ? 1 : k)) : 0;
 
-	ui_round_rect(r, &t, UI_BAR_H / 2, col(th->track));
-	if (k > 0) {
-		t.w = (int)lroundf(w * (k > 1 ? 1 : k));
-		if (t.w < UI_BAR_H) t.w = UI_BAR_H;
-		ui_round_rect(r, &t, UI_BAR_H / 2, col(th->accent_ink));
-	}
+	ds_bar(r, x, y, w, k > 0 && fill < UI_BAR_H ? UI_BAR_H : fill, 255);
 }
 
 static void chip(SDL_Renderer *r, int x, int y, const char *s)
