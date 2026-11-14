@@ -3,7 +3,9 @@
 // card (list_cards every two seconds, so a card put in or taken out shows by
 // itself), and what to do. Then a sheet that names the card and its size
 // before anything is written, the write with its progress ("progress" and
-// "finished" events from the app), and how it ended.
+// "finished" events from the app), and how it ended. In the header, a chip
+// when a newer installer is out, which on macOS and Windows updates the
+// installer itself.
 //
 // Opened in a plain browser (no Tauri), it runs on made-up cards and a
 // made-up write, to look at the design: demo() at the end.
@@ -190,7 +192,9 @@ function render() {
 	const stop = blocker(card);
 	const fresh = state.action === "fresh";
 	const go = $("go");
-	go.disabled = !!stop;
+	// Nothing starts while the installer is replacing itself, just before it
+	// restarts
+	go.disabled = !!stop || update.state === "installing";
 	go.textContent = fresh ? "Erase and install" : "Update card";
 	const note = $("note");
 	note.classList.toggle("warn", !!(stop && stop.warn));
@@ -282,6 +286,7 @@ function show(name) {
 	for (const s of ["main", "working", "finished"]) $(s).hidden = s !== name;
 	$("bottom").hidden = name !== "main";
 	state.screen = name;
+	renderUpdate();
 }
 
 // ---- the sheet before anything is written --------------------------------
@@ -486,6 +491,108 @@ dropEvents((p) => {
 	if (p.type === "drop" && p.paths && p.paths.length) useImage(invoke("check_image", { path: p.paths[0] }));
 });
 
+// ---- the installer's own update ------------------------------------------
+//
+// One look on open (installer_update). Nothing shows while it runs, when this
+// is the newest installer, or when GitHub can't be asked: a notice, never in
+// the way. A newer one is a chip in the header:
+// - "Update to 1.0.7" where the installer can replace itself (macOS, Windows):
+//   it downloads the new one and checks its signature ("Downloading 1.0.7 ·
+//   42%", a line under the words), then waits for "Restart to update", so it
+//   never restarts under the hand. That click puts the new one in place and
+//   opens it.
+// - "Installer 1.0.7 is out" where it can't (Linux's packages; a Mac app
+//   macOS runs from a read-only copy, when the original can't be found): the
+//   releases page, as before.
+// - An update that didn't work says so, and its click is the releases page
+//   too.
+// Never during a write: the chip is hidden on the working screen, and the app
+// refuses to restart while a card is being written.
+
+const update = { state: null, version: null, part: null, error: null, why: null };
+
+function renderUpdate() {
+	const chip = $("newer");
+	const u = update;
+	chip.hidden = !u.state || state.screen === "working";
+	if (!u.state) return;
+	const v = u.version;
+	chip.classList.toggle("ready", u.state === "ready");
+	chip.classList.toggle("failed", u.state === "failed");
+	chip.classList.toggle("loading", u.state === "downloading");
+	chip.disabled = u.state === "downloading" || u.state === "installing";
+	chip.style.setProperty("--part", (u.part || 0) * 100 + "%");
+	chip.textContent = {
+		available: "Update to " + v,
+		downloading: "Downloading " + v + (u.part != null ? " · " + Math.floor(u.part * 100) + "%" : ""),
+		ready: "Restart to update",
+		installing: "Installing " + v,
+		failed: "Couldn't update · Get " + v + " on GitHub",
+		page: "Installer " + v + " is out",
+	}[u.state];
+	chip.title = {
+		available: "Downloads ZyperOS Installer " + v + ", checks its signature, then asks to restart into it.",
+		downloading: "The card choices still work meanwhile.",
+		ready: "ZyperOS Installer " + v + " is downloaded and its signature checked. Restart to use it.",
+		installing: "",
+		failed: u.error || "",
+		page: u.why || "Opens the releases page, to download it.",
+	}[u.state];
+}
+
+async function downloadUpdate() {
+	update.state = "downloading";
+	update.part = null;
+	renderUpdate();
+	try {
+		await invoke("download_update");
+		update.state = "ready";
+	} catch (e) {
+		update.state = "failed";
+		update.error = String(e);
+	}
+	renderUpdate();
+}
+
+async function restartToUpdate() {
+	update.state = "installing";
+	renderUpdate();
+	render();
+	try {
+		// Ends this window when it works
+		await invoke("restart_to_update");
+	} catch (e) {
+		// A card being written: the restart waits for it, still offered
+		if (/being written/.test(String(e))) update.state = "ready";
+		else { update.state = "failed"; update.error = String(e); }
+	}
+	renderUpdate();
+	render();
+}
+
+$("newer").addEventListener("click", () => {
+	switch (update.state) {
+	case "available": return downloadUpdate();
+	case "ready": return restartToUpdate();
+	case "failed": case "page": return invoke("open_installer_releases");
+	}
+});
+listen("update-progress", (e) => {
+	if (update.state !== "downloading") return;
+	update.part = e.payload.total ? Math.min(1, e.payload.done / e.payload.total) : null;
+	renderUpdate();
+});
+
+async function findUpdate() {
+	let offer = null;
+	try { offer = await invoke("installer_update"); } catch (_) { return; }
+	if (!offer) return;
+	update.version = offer.version;
+	update.why = offer.why || null;
+	update.state = offer.in_place ? "available" : "page";
+	renderUpdate();
+}
+
 // ---- start ---------------------------------------------------------------
 
 // Which ZyperOS the release row installs, asked once; again every half minute
@@ -506,12 +613,7 @@ async function findRelease() {
 listen("progress", (e) => progress(e.payload));
 listen("finished", (e) => finish(e.payload));
 if (TAURI) TAURI.app.getVersion().then((v) => { $("ver").textContent = v; });
-invoke("newer_installer").then((v) => {
-	if (!v) return;
-	$("newer").textContent = "Installer " + v + " is out";
-	$("newer").hidden = false;
-});
-$("newer").addEventListener("click", () => invoke("open_installer_releases"));
+findUpdate();
 findRelease();
 render();
 refresh();
@@ -531,6 +633,7 @@ function demo() {
 			os: null, version: null, games: 0, songs: 0, books: 0, volume: "/Volumes/ROMS", started: true },
 	];
 	let stop = false;
+	$("ver").textContent = q.get("ver") || "1.0.6";
 	demo.api = {
 		listen: (name, h) => { (handlers[name] = handlers[name] || []).push(h); return Promise.resolve(); },
 		invoke: (cmd, args) => {
@@ -538,7 +641,35 @@ function demo() {
 			case "list_cards": return Promise.resolve(cards);
 			case "latest_zyperos": return q.has("release") ? Promise.resolve("0.1.0")
 				: Promise.reject("ZyperOS has no release to download yet. Choose an image file instead.");
-			case "newer_installer": return Promise.resolve(null);
+			// ?update=available (or page, for Linux's chip) shows a newer
+			// installer; downloading, ready, installing and failed show that
+			// state and stay in it, for a look at each
+			case "installer_update": {
+				const u = q.get("update");
+				if (!u) return Promise.resolve(null);
+				if (["downloading", "ready", "installing", "failed"].includes(u)) {
+					setTimeout(() => {
+						Object.assign(update, { state: u, part: 0.42,
+							error: "The download's signature didn't match ZyperOS's key, so it wasn't used." });
+						renderUpdate();
+					});
+				}
+				return Promise.resolve({ version: "1.0.7", in_place: u !== "page" });
+			}
+			case "download_update":
+				return new Promise((resolve) => {
+					const total = 6.1e6;
+					let done = 0;
+					const tick = () => {
+						done = Math.min(total, done + total / 25);
+						emit("update-progress", { done, total });
+						if (done < total) setTimeout(tick, 80); else resolve();
+					};
+					tick();
+				});
+			case "restart_to_update":
+				setTimeout(() => { location.search = q.has("release") ? "?release" : ""; }, 700);
+				return new Promise(() => {});
 			case "pick_image": case "check_image":
 				return Promise.resolve({ path: "/tmp/ZyperOS-v0.1.0-pixel2.img.xz", name: "ZyperOS-v0.1.0-pixel2.img.xz",
 					file_bytes: 74e6, image_bytes: 352321536, device: "pixel2", checksum: true });

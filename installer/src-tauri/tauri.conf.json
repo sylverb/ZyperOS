@@ -21,6 +21,13 @@
       "csp": "default-src 'self'; img-src 'self' data:; style-src 'self'; font-src 'self'"
     }
   },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDlDQzA0QjRGQTU4M0M2NDUKUldSRnhvT2xUMHZBblBsQk9hckVoMGRSc1ZBMkhRWEVzd2h1OUovc2xmNTVUT1FpU0c3RCtESmIK",
+      "endpoints": ["https://github.com/tarikbc/ZyperOS/releases/latest/download/latest.json"],
+      "requireSignedVersion": true
+    }
+  },
   "bundle": {
     "active": true,
     "targets": "all",
