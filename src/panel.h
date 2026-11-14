@@ -358,6 +358,11 @@ extern const menu_style *g_muse_over;
 extern void             *g_muse_over_ctx;
 extern bool              g_muse_gone;
 
+/* ---- main.c's, for src/shelf_keys.c; each is described where it is defined ---- */
+void shelf_into(app *a, sysview *v);
+void shelf_up(app *a, sysview *v);
+void game_info_screen(app *a);
+
 /* ---- main.c's, for src/shelf_draw.c; each is described where it is defined ---- */
 /* The battery's low and critical warnings, 10% and 5%, are src/status.h's
  * (STATUS_BATT_LOW, STATUS_BATT_CRITICAL), which the shelf's battery mark and

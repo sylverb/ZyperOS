@@ -166,6 +166,7 @@
 #include "launch_screen.h"
 #include "saver_screen.h"
 #include "muse_screen.h"
+#include "shelf_keys.h"
 #include "shelf_draw.h"
 #include "zyperdraw.h"
 #include "zypermark.h"
@@ -1934,7 +1935,7 @@ void shelf_reveal(app *a, int s, const char *file)
 
 /* The folder on the shelf under the cursor, opened (A), or the shelf's own
  * folder left for the one it is in (B), its cursor on the folder it left */
-static void shelf_into(app *a, sysview *v)
+void shelf_into(app *a, sysview *v)
 {
 	char dir[LIB_PATH];
 
@@ -1943,7 +1944,7 @@ static void shelf_into(app *a, sysview *v)
 	shelf_open_dir(a, a->sys_cursor, dir, NULL);
 }
 
-static void shelf_up(app *a, sysview *v)
+void shelf_up(app *a, sysview *v)
 {
 	char was[LIB_PATH], up[LIB_PATH];
 
@@ -10647,8 +10648,6 @@ static int info_build(void *ctx, menu_row *rows, int max, const char **heading)
 	return n > max ? max : n;
 }
 
-static void fav_toggle_heard(const char *tag, const char *file);
-
 static menu_result info_key(app *a, void *ctx, in_button key, int sel)
 {
 	info_ctx *c = ctx;
@@ -10765,7 +10764,7 @@ static menu_result info_key(app *a, void *ctx, in_button key, int sel)
 	return MENU_STAY;
 }
 
-static void game_info_screen(app *a)
+void game_info_screen(app *a)
 {
 	info_ctx c = { 0 };
 
@@ -12234,296 +12233,6 @@ void copy_file(const char *from, const char *to)
 	fclose(b);
 }
 
-
-/* ---------- input --------------------------------------------------------- */
-
-void enter_system(app *a)
-{
-	sysview *v = &a->view[a->sys_cursor];
-	/* Muse too: its cards are albums, and opening one is the games shelf's
-	 * own A - see update_games. */
-	if (v->list.count == 0) return;
-	a->screen = SCREEN_GAMES;
-	cf_reset(&v->cf, v->cursor);
-	games_reset(&v->row, v->cursor, v->list.count, plat_now_ms());
-	prime_window(a, a->sys_cursor);
-}
-
-/* Y on a card: a favorite added is a reward, one taken away goes back, and a
- * list already full (FAV_MAX) is a press nothing can act on. */
-static void fav_toggle_heard(const char *tag, const char *file)
-{
-	bool was = fav_is(tag, file), now = fav_toggle(tag, file);
-
-	uisound_play(now ? DS_SOUND_REWARD : was ? DS_SOUND_BACK : DS_SOUND_DENY);
-}
-
-/* Start on a system's cards when the systems row moves onto it, not when A is
- * pressed.
- *
- * Entering used to be the first time anything asked for a system's covers, so
- * the games shelf drew with empty slots until they arrived. Measured
- * 2026-09-14, cold after a reboot, across six systems: the focused card 70-160ms
- * after A, the whole row 95-177ms. Short, and visible. Leaving a system keeps
- * the cards around its cursor, which is why only the first entry showed it.
- *
- * Starting here gives the decode however long it takes to reach the system and
- * press A, and that is enough: re-measured the same way, four systems entered
- * after a reboot all had every card already loaded on arrival.
- *
- * Whatever was queued for the system just passed is dropped first, so a
- * held direction does not decode a row for every system it crosses, and the one
- * the row stops on is not left waiting behind them.
- *
- * The visible row only; entering asks for two more either side. They stay after
- * the row moves on, which is less than already stays: a system entered and left
- * keeps nine. */
-static void load_ahead(app *a)
-{
-	texload_forget();
-	prime_toward(a, a->sys_cursor, a->view[a->sys_cursor].cursor);
-}
-
-/* Where up (-1) or down (+1) goes on the home with the order on A to Z */
-static int home_letter_at(const app *a, int dir)
-{
-	unsigned char keys[CFG_MAX_SYSTEMS];
-	int i, n = a->sys.count < CFG_MAX_SYSTEMS ? a->sys.count : CFG_MAX_SYSTEMS;
-
-	for (i = 0; i < n; i++) keys[i] = home_group_key(a->sys.systems[i].tag, a->sys.systems[i].core,
-		                         a->sys.systems[i].name);
-	return home_letter_jump(keys, n, a->sys_cursor, dir);
-}
-
-static void update_systems(app *a)
-{
-	int n = a->sys.count;
-
-	/* No games: the empty home's keys (and MP4 alone is no shelf to move
-	 * on). No systems at all also means the modulo below divides by zero:
-	 * the first press of left or right took the launcher down with SIGFPE
-	 * the moment empty systems started being hidden. */
-	if (no_games(a)) { empty_keys(a); return; }
-
-	/* The direction is carried through, not inferred from the cursor: on a
-	 * shelf of two, moving from either card to the other is one step in BOTH
-	 * directions, and only the press says which. */
-	in_button back = IN_LEFT;
-	in_button fwd  = IN_RIGHT;
-	in_button sb = IN_NONE;              /* the step's button, for its sound */
-	int dir = 0, was = a->sys_cursor;
-
-	if (in_repeat(&a->in, back)) { a->sys_cursor = (a->sys_cursor - 1 + n) % n; dir = -1; sb = back; }
-	if (in_repeat(&a->in, fwd))  { a->sys_cursor = (a->sys_cursor + 1) % n; dir = +1; sb = fwd; }
-	/* L1/R1 jump three systems, round the ends as a step goes (home_jump),
-	 * the row moving all the way in the press's direction */
-	if (in_repeat(&a->in, IN_L1)) { a->sys_cursor = home_jump(a->sys_cursor, n, -1); dir = -1; sb = IN_L1; }
-	if (in_repeat(&a->in, IN_R1)) { a->sys_cursor = home_jump(a->sys_cursor, n, +1); dir = +1; sb = IN_R1; }
-	/* Up and down do the same, one group at a time: three systems by release
-	 * date, and an initial by A to Z (home_letter_jump). Built on the press,
-	 * from the names in memory - nothing is read. */
-	if (in_repeat(&a->in, IN_UP) || in_repeat(&a->in, IN_DOWN)) {
-		int d = in_repeat(&a->in, IN_DOWN) ? +1 : -1;
-
-		a->sys_cursor = g_order_release ? home_jump(a->sys_cursor, n, d)
-		                                : home_letter_at(a, d);
-		dir = d; sb = d > 0 ? IN_DOWN : IN_UP;
-	}
-	if (a->sys_cursor == was) dir = 0;
-	if (dir) load_ahead(a);
-	if (sb != IN_NONE) step_sound(a, sb, was, a->sys_cursor);
-	/* Muse's card opens Muse, the one SELECT opens - see update_games. */
-	if (a->in.pressed[IN_ACCEPT]) {
-		if (is_muse(&a->sys.systems[a->sys_cursor])) muse_open(a, NULL, NULL);
-		else { uisound_play(DS_SOUND_ACCEPT); enter_system(a); }
-	}
-	home_select(&a->home, a->sys_cursor, n, dir, plat_now_ms());
-}
-
-/* The first alphanumeric character of a name, upper-cased, or '\0' for a name
- * with none at all - which groups those few together rather than giving each
- * one a group of its own. Leading articles and punctuation are deliberately
- * NOT skipped: lib_scan sorts the shelf by its displayed title with strcasecmp,
- * so grouping that disagreed with the order the cards are drawn in would make
- * the jump land somewhere that looks arbitrary. "The Legend of Zelda" files
- * under T here because it sits under T on the shelf. */
-static char shelf_initial(const char *s)
-{
-	for (; *s; s++) {
-		unsigned char c = (unsigned char)*s;
-		if (c >= 'a' && c <= 'z') return (char)(c - 32);
-		if ((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')) return (char)c;
-	}
-	return '\0';
-}
-
-/* The first game sharing idx's initial, walking backwards from it. */
-/* What the letter jump reads: the title, or on Muse's shelf the artist. */
-static const char *shelf_key(const sysview *v, int i)
-{
-	/* A film loose in Videos is under no name, and goes by its own: MP4's
-	 * All in folder order puts it where its title does (muselib.h) */
-	return v->jump_by_name && v->list.items[i].name[0] ? v->list.items[i].name
-	                                                   : v->list.items[i].title;
-}
-
-static int shelf_group_start(sysview *v, int idx)
-{
-	int n = v->list.count, i = idx;
-	char c = shelf_initial(shelf_key(v, idx));
-
-	for (;;) {
-		int p = (i - 1 + n) % n;
-		if (p == idx) return idx;             /* one initial, the whole shelf */
-		if (shelf_initial(shelf_key(v, p)) != c) break;
-		i = p;
-	}
-	return i;
-}
-
-/* Up and down cross the shelf one initial at a time, which on a long library
- * is the difference between forty presses and two. Down lands on the first
- * game of the next initial. Up lands on the first game of THIS one, and moves
- * to the previous initial only when the cursor is already there - so from any
- * group's first game, up and down are exact inverses. */
-int shelf_letter_jump(sysview *v, int dir)
-{
-	int n = v->list.count, i, cur = v->cursor;
-	char c0 = shelf_initial(shelf_key(v, cur));
-
-	if (n <= 1) return cur;
-	if (dir > 0) {
-		for (i = 1; i < n; i++) {
-			int k = (cur + i) % n;
-			if (shelf_initial(shelf_key(v, k)) != c0) return k;
-		}
-		return cur;                           /* every name starts alike */
-	}
-	i = shelf_group_start(v, cur);
-	if (i != cur) return i;
-	/* Already at the top of the group. If what precedes it shares the initial
-	 * then the shelf is one group and there is nowhere to go - the same answer
-	 * down gives, rather than shuffling back by one. */
-	i = (cur - 1 + n) % n;
-	if (shelf_initial(shelf_key(v, i)) == c0) return cur;
-	return shelf_group_start(v, i);
-}
-
-static void update_games(app *a)
-{
-	sysview *v = &a->view[a->sys_cursor];
-	int n = v->list.count;
-	if (n <= 0) { a->screen = SCREEN_SYSTEMS; return; }
-	/* MUSE HAS ONE DOOR. Its card used to open its shelf HERE, in the main
-	 * loop, as if it were a console: a second Muse beside the one SELECT
-	 * opens, so SELECT on it opened that one on top, and the two looked
-	 * alike. Eric's call, 2026-09-23: the card opens the same Muse SELECT
-	 * does. Whatever lands the main loop on Muse's shelf - A on its card, a
-	 * jump to it, a screen put back at boot - hands over to muse_open, which
-	 * comes back to the card on the systems row. */
-	if (is_muse(&a->sys.systems[a->sys_cursor])) {
-		a->screen = SCREEN_SYSTEMS;
-		muse_open(a, NULL, NULL);
-		return;
-	}
-	/* The two axes trade roles with the shelf rather than one of them being
-	 * reassigned onto the other: stepping always runs along the row, and the
-	 * letter jump always runs across it. Turning the shelf turns the d-pad
-	 * with it and nothing is left doing two jobs. */
-	in_button back = IN_LEFT, fwd = IN_RIGHT;
-	in_button jup = IN_UP, jdn = IN_DOWN;
-	in_button sb = IN_NONE;              /* the step's button, for its sound */
-	int dir = 0, was = v->cursor;
-	/* L1/R1's jump: a screenful of covers, or of the list's rows */
-	int page = v->listed ? GL_ROWS : CF_WINDOW;
-
-	/* The list (MENU > View) is the row turned: Up and Down step along it,
-	 * Left and Right jump a letter (DESIGN.md 11.39) */
-	if (v->listed) { back = IN_UP; fwd = IN_DOWN; jup = IN_LEFT; jdn = IN_RIGHT; }
-
-	if (in_repeat(&a->in, back)) { v->cursor = (v->cursor - 1 + n) % n; dir = -1; sb = back; }
-	if (in_repeat(&a->in, fwd))  { v->cursor = (v->cursor + 1) % n; dir = +1; sb = fwd; }
-	if (in_repeat(&a->in, jdn))  { v->cursor = shelf_letter_jump(v, +1); sb = jdn; }
-	if (in_repeat(&a->in, jup))  { v->cursor = shelf_letter_jump(v, -1); sb = jup; }
-	/* L1/R1 jump a screenful, so a long shelf is crossable. Wrapped the long
-	 * way round on purpose: C's % truncates toward zero, so on a shelf of
-	 * three games the obvious `(cursor - CF_WINDOW + n*2) % n` lands on -1 and
-	 * the draw walks off the front of the list. */
-	if (in_repeat(&a->in, IN_L1))    { v->cursor = ((v->cursor - page) % n + n) % n; sb = IN_L1; }
-	if (in_repeat(&a->in, IN_R1))    { v->cursor = (v->cursor + page) % n; sb = IN_R1; }
-	if (sb != IN_NONE)
-		step_sound(a, sb, was, v->cursor);
-	/* HERE, AND NOT AT THE END OF THE PASS, because four of the handlers below
-	 * return without reaching the end.
-	 *
-	 * A repeat fires from the clock every REPEAT_RATE_MS while a direction is
-	 * held, and the loop passes at about 60Hz while any button is down, so
-	 * roughly one pass in five moves the cursor. Press A on one of those passes
-	 * and the shelf was never told: `target` stays a card behind `cursor`, the
-	 * game runs, the render on the way back snaps the cards to that stale
-	 * target, and the NEXT pass through here finally notices and animates the
-	 * difference. Which is exactly the report - the shelf comes back showing a
-	 * game off to the side and then slides across to the right one - and the
-	 * one-in-five is why it only happened sometimes.
-	 *
-	 * X and Y are the same shape: the info screen and a favorite toggle both
-	 * return from here too. B is the only one that got away with it, because
-	 * enter_system resets this coverflow on the way back in.
-	 *
-	 * The call is unconditional and `dir` may be 0: a letter jump and L1/R1
-	 * move the cursor without a direction, and cf_set_cursor_dir works out the
-	 * rest itself. It returns immediately when the cursor has not moved. */
-	games_select(&v->row, v->cursor, n, dir, plat_now_ms());
-	/* START turns the shelf's View over, covers to the list and back, as
-	 * MENU's View row does (2026-11-13: "make clicking start in a system
-	 * change view mode to list and vice versa"). Not with MENU or SELECT
-	 * held: MENU + START is the way out (tools/zyhome.c), SELECT + START
-	 * MP4's lock. */
-	if (a->in.pressed[IN_START] && !a->in.down[IN_MENU] && !a->in.down[IN_SELECT]) {
-		uisound_play(DS_SOUND_MOVE);
-		view_turn(a, a->sys_cursor);
-		return;
-	}
-	/* B in a folder goes up one (src/shelfdir.h), onto the folder it left;
-	 * at the top, to the systems */
-	if (a->in.pressed[IN_BACK] && v->dir[0]) {
-		uisound_play(DS_SOUND_BACK);
-		shelf_up(a, v);
-		return;
-	}
-	if (a->in.pressed[IN_BACK]) {
-		uisound_play(DS_SOUND_BACK);
-		a->screen = SCREEN_SYSTEMS;
-		evict_far(v, TEX_KEEP_FAR);
-		return;
-	}
-	/* A folder has no details and nothing to start over: a press nobody can
-	 * act on still gets its sound (DESIGN.md 1) */
-	if ((a->in.pressed[IN_X] || a->in.pressed[IN_Y]) && v->list.items[v->cursor].folder) {
-		uisound_play(DS_SOUND_DENY);
-		return;
-	}
-	/* A on a folder opens it */
-	if (a->in.pressed[IN_ACCEPT] && v->list.items[v->cursor].folder) {
-		uisound_play(DS_SOUND_ACCEPT);
-		shelf_into(a, v);
-		return;
-	}
-	/* X opens the game's details, where Y marks it a favorite. */
-	if (a->in.pressed[IN_X] && n > 0) { uisound_play(DS_SOUND_ACCEPT); game_info_screen(a); return; }
-	/* Y starts the game under the cursor fresh, without its resume point
-	 * (2026-11-08): A continues it, Y starts over. A game with nothing to
-	 * resume has nothing to start over from, so Y does nothing there.
-	 * Favorites moved to the details page (X, then Y). */
-	if (a->in.pressed[IN_Y] && n > 0) {
-		if (!(g_game_page.valid && g_game_page.resume)) { uisound_play(DS_SOUND_DENY); return; }
-		g_ctl_fresh = true;
-		launch(a);
-		g_ctl_fresh = false;
-		return;
-	}
-	if (a->in.pressed[IN_ACCEPT]) { launch(a); return; }
-}
 
 /* ---------- main ---------------------------------------------------------- */
 
