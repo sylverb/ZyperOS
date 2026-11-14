@@ -12,6 +12,7 @@
 #include "keyboard.h"
 #include "menu.h"
 #include "menumotion.h"
+#include "noticeq.h"
 #include "p2.h"
 #include "platform.h"
 #include "rahash.h"
@@ -19,6 +20,7 @@
 #include "wifi.h"
 
 #include <stdbool.h>
+#include <sys/stat.h>
 
 /* The accent of a menu that is no system's: the launcher's own, which are
  * ZyperOS's. Its heading rule is the plain **edge** one, and it is lifted with
@@ -348,6 +350,44 @@ extern bool g_message_stopped;
 extern const menu_style *g_muse_over;
 extern void             *g_muse_over_ctx;
 extern bool              g_muse_gone;
+
+/* ---- main.c's, for src/launch_screen.c; each is described where it is defined ---- */
+#define HEAT_HEAD T(S_HEAT_HEAD)
+#define HEAT_BODY T(S_HEAT_SLOWING)
+extern unsigned t_back0;
+extern long g_sync_game;
+extern bool g_sync_flush;
+extern char g_sync_rom[LIB_PATH * 2], g_sync_tag[16];
+extern char g_sync_rom[LIB_PATH * 2], g_sync_tag[16];
+extern int g_sync_cur;
+extern char g_pending_active[LIB_PATH * 2];
+extern bool g_pending_hashing;
+extern unsigned g_watch_ms;
+extern char g_watch_active[LIB_PATH * 2];
+extern int g_idle_secs;
+extern bool g_idle_charging;
+extern noticeq g_nq;
+void present_ground(app *a);
+bool ds_resume_fresh(const system_cfg *s, const char *romfile, const char *st,
+                     char *lang, size_t n);
+bool core_resume_fresh(const system_cfg *s, const char *romfile, const char *st);
+void ds_resume_record(const char *st, const char *lang, const struct stat *before,
+                      bool had);
+bool two_screens(const system_cfg *s);
+void prime_home(app *a);
+void pause_preview_path(char *out, size_t n);
+void quick_bind(app *a, int s, const game_entry *g);
+void persist_dir_ensure(app *a, int s);
+bool has_box_art(const char *folder, const char *name);
+void prime_window(app *a, int s);
+void chv_active_path(char *out, size_t n);
+void sync_begin(long game, const char *set_path);
+int sync_poll(void);
+void render(app *a);
+void anim_launch(app *a);
+bool up_read(const char *path, char *buf, size_t n);
+void up_first_line(const char *path, char *buf, size_t n);
+bool xs_before_game(app *a);
 
 /* ---- main.c's, for src/sysmenu_screen.c; each is described where it is defined ---- */
 #define AUTO_OFF_COUNT ((int)(sizeof AUTO_OFF / sizeof AUTO_OFF[0]))
