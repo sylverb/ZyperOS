@@ -2859,7 +2859,7 @@ static int      g_marks_w;   /* the marks' width as status_marks_width gave it *
 static int      g_pct_natural;
 
 /* The screen was cleared: nothing recorded above is on it any more. */
-static void drawn_forget(void)
+void drawn_forget(void)
 {
 	g_corner_box = g_clock_box = g_menu_panel = g_title_caps = (SDL_Rect){ 0 };
 	g_marks_w = 0;
@@ -13908,75 +13908,6 @@ void pick_launch(app *a)
 	} while ((int)(until - plat_now_ms()) > 0 && a->running && !want_quit);
 	memset(&a->in, 0, sizeof a->in);
 	launch(a);
-}
-
-/* ---------- launching ----------------------------------------------------- */
-
-/* The in-game menu - the launcher's, over Diatom's pause.
- *
- * MENU in a game makes Diatom write a preview of the frame, stop presenting,
- * and say PAUSED. From that word the display is ours: the menu is that frame
- * dimmed, with the rows a player expects - Continue, Save, Load, Reset, Quit
- * - drawn with the launcher's own font and glow. The menu is the launcher's,
- * not something patched into the emulator.
- *
- * Every row acts through one protocol line. Save and Load use the same autosave
- * paths the launch handed over, so the autosave funnel stays one thing. */
-/* Display sits with the things you do to the game rather than the things you do
- * to a save, because it is the one row whose effect you judge by looking at the
- * game behind the menu. */
-/* gm_row, gm_ui and gm_rows: src/game_menu.h */
-
-/* The paused frame, drawn where the game actually is.
- *
- * Diatom reports its rect with every DISPLAY message (put there so a launcher
- * need not recompute it from geometry it does not have), and the preview it
- * writes is the CORE'S frame - 256x224 for an NES, no display mode applied.
- * Stretching that to the panel, which is what this used to do, showed a game
- * that looked nothing like the one paused underneath at any mode that does
- * not fill the screen, and made the picture jump size the moment MENU was
- * pressed.
- *
- * Falls back to filling the panel when Diatom has not said - the standalone
- * path, and the first moments of a launch. */
-static void draw_paused_frame(app *a, SDL_Texture *bg)
-{
-	SDL_Rect r;
-
-	if (!bg) return;
-	if (plat_resident_rect(&r)) SDL_RenderCopy(a->r, bg, NULL, &r);
-	else                        SDL_RenderCopy(a->r, bg, NULL, NULL);
-}
-
-/* What every screen over a paused game sits on - the in-game menu, the save
- * slots, the achievements: the frame where the game is, on **ink** where it
- * is not, under **scrim.game**, which is as heavy in Beard as in Salt &
- * Pepper because the game is content and not part of the theme (DESIGN.md
- * 3.4). The in-game menu had the shelf's lighter scrim, and the slots and
- * achievements beside it the heavy one, over the same paused game. The
- * scrim at `k` of its strength, which is 1 but while the in-game menu opens
- * or closes (panel_frame).
- *
- * And the status corner over it all, as on the shelf (DESIGN.md 11.12): this
- * process draws these screens, so it draws the corner (in the game, Diatom
- * draws its disc). In Salt & Pepper, as scrim.game is dark in both themes,
- * with the clock in **text**, since a white frame under the scrim leaves
- * text-soft at 4.4:1. Each of these screens' loops draws every frame, so the
- * blink needs nothing more. */
-void paused_backdrop(app *a, SDL_Texture *bg, float k)
-{
-	const ds_rgb ink = theme()->ink;
-
-	g_frame_no++;
-	SDL_SetRenderDrawColor(a->r, ink.r, ink.g, ink.b, 255);
-	SDL_RenderClear(a->r);
-	drawn_forget();
-	draw_paused_frame(a, bg);
-	ui_scrim_k(a->r, 1, k);
-	/* The top bar (src/topbar.h): the clock at the top left and the marks
-	 * with the battery's text at the top right, as on the home, so they match
-	 * and a long Time Left text never meets the clock. */
-	draw_topbar(a->r, DS_DARK, ui_col(theme_at(DS_DARK)->text, 255), frames_wanted());
 }
 
 /* ---------- NES Player 2 ---------------------------------------------------

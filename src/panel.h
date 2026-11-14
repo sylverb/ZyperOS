@@ -477,6 +477,7 @@ extern bool g_shot_p2;
 extern const char *shot_path;
 extern int shot_cheevos_waiting;
 void present_clear(app *a, ds_rgb c);
+void drawn_forget(void);
 int shader_step(int k, int d);
 void display_save(app *a);
 void shader_save(app *a, int sys);
@@ -500,7 +501,6 @@ void menu_draw_caption(app *a, const char *heading, const menu_row *rows,
 leave_end panel_leave_run(app *a, void (*backdrop)(app *, void *, float),
                           void *ctx);
 int menu_measure(const menu_row *rows, int n, const char *heading);
-void paused_backdrop(app *a, SDL_Texture *bg, float k);
 p2_state p2_row_state(void);
 void player2_page(app *a, SDL_Texture *bg);
 bool is_port(const system_cfg *s);

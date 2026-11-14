@@ -47,6 +47,7 @@ typedef struct {
 } gm_ctx;
 
 /* What main.c uses of it; each is described where it is defined */
+void paused_backdrop(app *a, SDL_Texture *bg, float k);
 extern gm_disc_state g_gm_disc;
 extern int g_shot_discs;
 extern const char *g_shot_disc_label;
