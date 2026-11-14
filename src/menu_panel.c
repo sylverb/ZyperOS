@@ -5,6 +5,8 @@
 #include "keyhints.h"
 #include "keyhints_draw.h"
 #include "ds/panel.h"     /* the slab, its lift and the pass */
+#include "ds/layout.h"
+#include "ds/mark.h"      /* the more marks */
 #include "look.h"
 #include "panel.h"
 #include "tween.h"
@@ -497,7 +499,7 @@ void menu_panel(app *a, const char *heading, const menu_row *rows,
 	int content_off = (heading ? head_h + pad / 2 : pad)
 	                  + (g_menu_header ? g_menu_header_h : 0);
 	bool two_col = false;
-	int content_w = 0, i, k, rows_h = 0;
+	int content_w = 0, i, rows_h = 0;
 	SDL_Rect panel;
 	int cx, content_x, content_y;
 	/* The list can outgrow the screen from either end - a menu is meant to
@@ -1030,7 +1032,7 @@ void menu_panel(app *a, const char *heading, const menu_row *rows,
 	row_cx = side_w ? content_x + content_w / 2 : cx;
 	/* `v` walks the slots on screen and `i` is the row each holds: one and
 	 * the same unless the list goes round */
-	for (k = 0, v = lo; (loop || v < n) && v <= hi; k++, v++) {
+	for (v = lo; (loop || v < n) && v <= hi; v++) {
 		int y, ty, j;
 		float sel_w;
 		SDL_Color lc, vc;
@@ -1367,24 +1369,15 @@ void menu_panel(app *a, const char *heading, const menu_row *rows,
 	 * the indicator belongs to the list in any case. */
 	if (vis < n && !scroll_h) {
 		/* It points the way the list continues, which three dots could not
-		 * say. Drawn as rows because there is no filled-triangle primitive
-		 * and this needs no texture. */
-		const int tw = row_h / 3, th = tw / 2, off = 8;
+		 * say: the more mark (ds_more), 8 clear of the rows */
+		const int off = 8;
+		const SDL_Color dim = ui_col(thm->text_dim, 255);
 
-		SDL_SetRenderDrawColor(a->r, thm->text_dim.r, thm->text_dim.g,
-		                       thm->text_dim.b, 255);
-		for (k = 0; k < th; k++) {
-			int up_w   = tw * (k + 1) / th;      /* apex at the top */
-			int down_w = tw * (th - k) / th;     /* apex at the bottom */
-
-			/* a list that goes round carries on both ways, always */
-			if (first > 0 || loop)
-				SDL_RenderFillRect(a->r, &(SDL_Rect){ cx - up_w / 2,
-				                   content_y - off - th + k, up_w, 1 });
-			if (first + vis < n || loop)
-				SDL_RenderFillRect(a->r, &(SDL_Rect){ cx - down_w / 2,
-				                   content_y + vis * row_h + off + k, down_w, 1 });
-		}
+		/* a list that goes round carries on both ways, always */
+		if (first > 0 || loop)
+			ds_more(a->r, (float)cx, (float)(content_y - off - DS_MORE_H), true, dim);
+		if (first + vis < n || loop)
+			ds_more(a->r, (float)cx, (float)(content_y + vis * row_h + off), false, dim);
 	}
 	if (posed) {
 		panel_pass_end(a, &panel, pose);

@@ -9,6 +9,7 @@
 #include "place.h"
 #include "theme.h"
 #include "ui.h"
+#include "ds/mark.h"      /* the more marks */
 #include "uisound.h"
 #include "zyperdraw.h"
 #include "zypermark.h"
@@ -53,15 +54,7 @@ int up_notes(char out[UP_NOTES][UP_NOTE_W])
  * **text-dim**, centered on x, its flat side at y */
 static void up_arrow_v(SDL_Renderer *r, int x, int y, bool up)
 {
-	SDL_Color c = UI_TEXT_DIM;
-	SDL_Vertex v[3];
-	int i, hw = 12, h = 10;
-
-	v[0].position = (SDL_FPoint){ (float)(x - hw), (float)(up ? y + h : y) };
-	v[1].position = (SDL_FPoint){ (float)(x + hw), (float)(up ? y + h : y) };
-	v[2].position = (SDL_FPoint){ (float)x, (float)(up ? y : y + h) };
-	for (i = 0; i < 3; i++) { v[i].color = c; v[i].tex_coord = (SDL_FPoint){ 0, 0 }; }
-	SDL_RenderGeometry(r, NULL, v, 3, NULL, 0);
+	ds_more(r, (float)x, (float)y, up, UI_TEXT_DIM);
 }
 
 /* The arrow between the versions, drawn: the faces have no U+2192. A shaft
