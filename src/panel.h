@@ -7,10 +7,13 @@
  * what a screen with a panel calls every frame. Each is described in
  * main.c. */
 #include "app.h"
+#include "game_menu.h"
 #include "keyboard.h"
 #include "menu.h"
 #include "menumotion.h"
+#include "p2.h"
 #include "platform.h"
+#include "rahash.h"
 
 #include <stdbool.h>
 
@@ -342,6 +345,74 @@ extern bool g_message_stopped;
 extern const menu_style *g_muse_over;
 extern void             *g_muse_over_ctx;
 extern bool              g_muse_gone;
+
+/* ---- main.c's, for src/ingame_screen.c; each is described where it is defined ---- */
+/* How panel_leave_run ended: the panel gone, or a press that ended it at
+ * once, which is the same to the caller; the power button or Auto Off; or a
+ * quit. */
+typedef enum { LEAVE_GONE, LEAVE_POWER, LEAVE_QUIT } leave_end;
+/* wrap_text and syn_layout's sizes, the synopsis's (src/ingame_screen.c) */
+#define SYN_WRAP_LINES 80
+/* The blank lines and the rule between the two copies of a synopsis */
+#define SYN_LOOP_GAP 5
+#define SYN_ROWS (SYN_WRAP_LINES * 2 + SYN_LOOP_GAP)
+/* The slot carousel: Auto plus the manual slots for Load, the manual slots for
+ * Save. One slot at a
+ * time, large - the paused frame at a size you can actually read - with the
+ * save's own timestamp under it and a dot rail for where you are. Left and
+ * right cycle; Load skips slots with nothing behind them, Save cannot aim at
+ * Auto, which belongs to the exit funnel alone. */
+typedef struct {
+	SDL_Texture *thumb[GM_SLOTS + 1];   /* [0]=Auto, [1..GM_SLOTS] */
+	int have[GM_SLOTS + 1];
+	char when[GM_SLOTS + 1][40];
+	/* Every slot of one game holds the same machine's frame, so one aspect
+	 * describes them all and the picture can be framed exactly rather than
+	 * dropped into a fixed box with bars down its sides. 4:3 until a slot
+	 * with a picture in it says otherwise. */
+	float aspect;
+	int saving;
+} slot_view;
+extern bool g_port_menu;
+extern const ds_rgb DIATOM_PAGE;
+extern bool g_game_dual;
+extern char g_pending_set[LIB_PATH * 2];
+extern char g_game_set[LIB_PATH * 2];
+extern ra_hash_kind g_game_no_hash;
+extern bool g_shot_unchecked;
+extern ra_hash_kind g_shot_no_hash;
+extern bool g_in_game_menu;
+extern bool g_shot_p2;
+extern const char *shot_path;
+extern int shot_cheevos_waiting;
+void present_clear(app *a, ds_rgb c);
+int shader_step(int k, int d);
+void display_save(app *a);
+void shader_save(app *a, int sys);
+const char *strength_row_label(const app *a, int sys);
+void screens_get(const char *tag, int *layout, bool *swap);
+void screens_put(const char *tag, int layout, bool swap);
+int quick_slot_get(const char *tag);
+void quick_slot_put(const char *tag, int slot);
+bool pak_system(const system_cfg *s);
+const char *pak_get(const system_cfg *s, const char *file);
+void pak_put(const char *tag, const char *file, const char *value);
+void slot_state_path(app *a, int s, const game_entry *g, int slot,
+                     char *out, size_t n);
+void slot_preview_path(app *a, int s, const game_entry *g, int slot,
+                       char *out, size_t n);
+sysview *owner_view(app *a);
+void menu_draw_caption(app *a, const char *heading, const menu_row *rows,
+                       int n, int sel, int fixed_w, unsigned accent,
+                       const unsigned *vcolors, bool visits_all, int loop_at,
+                       const char *heading_note);
+leave_end panel_leave_run(app *a, void (*backdrop)(app *, void *, float),
+                          void *ctx);
+int menu_measure(const menu_row *rows, int n, const char *heading);
+void paused_backdrop(app *a, SDL_Texture *bg, float k);
+p2_state p2_row_state(void);
+void player2_page(app *a, SDL_Texture *bg);
+bool is_port(const system_cfg *s);
 
 /* SELECT: Muse, over whatever is on screen */
 bool muse_open(app *a, const menu_style *over, void *ctx);
