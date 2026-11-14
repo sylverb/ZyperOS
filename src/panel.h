@@ -358,6 +358,8 @@ extern const menu_style *g_muse_over;
 extern void             *g_muse_over_ctx;
 extern bool              g_muse_gone;
 
+/* ---- main.c's, for src/signin_screen.c; each is described where it is defined ---- */
+
 /* ---- main.c's, for src/devmode_screen.c; each is described where it is defined ---- */
 
 /* ---- main.c's, for src/tour_screen.c; each is described where it is defined ---- */
