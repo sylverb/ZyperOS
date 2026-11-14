@@ -88,8 +88,10 @@ out, a chip in the window's header says so:
 - **Linux:** *Installer 1.0.7 is out* opens the releases page: update the
   package as you installed it.
 - An update that didn't work says so, and its click opens the releases page.
-  A Mac app opened straight from Downloads can't replace itself (macOS runs a
-  read-only copy of it): move it to Applications.
+
+A Mac app opened straight from Downloads runs from a read-only copy macOS
+makes of it, even after *Open Anyway*: the update replaces the app in
+Downloads and opens that one, and from then on macOS runs it where it is.
 
 Installers up to 1.0.5 can't update themselves: their chip opens the releases
 page.
@@ -166,16 +168,20 @@ does the looking, the download and the signature check (`src/selfupdate.rs`):
   signer` makes. Its public half is `plugins.updater.pubkey`; the signature
   must also name the version `latest.json` announces (`requireSignedVersion`),
   so an older release can't be passed off as a newer one.
-- macOS: the updater's own install swaps the new app in for the old one.
+- macOS: the updater's own install swaps the new app in for the old one. An
+  app macOS runs translocated (from a read-only copy, as it runs a download
+  opened where it was saved) has the original replaced instead, found as
+  that copy's mount source (`statfs`), and the original opened.
   Windows: the updater only installs Windows installers, and this exe is
   portable, so the installer renames itself to `<name>.old`, puts the new exe
   in its place, starts it, and the new one removes the `.old` file.
 
 `tools/try-selfupdate.sh` tries it end to end on a Mac, with nothing
 published: two debug builds signed with a throwaway key, a `latest.json` on
-`127.0.0.1`, and the old app updating itself twice, once as it is and once
-marked as a download the user allowed; each time it must open again as the
-new one, with no quarantine mark. Debug builds update with no click when
+`127.0.0.1`, and the old app updating itself three times: as it is, marked
+as a download the user allowed and moved, and marked as one allowed but left
+where it was saved (which macOS translocates). Each time it must open again
+as the new one, where the user has it, with no quarantine mark. Debug builds update with no click when
 `ZYPEROS_INSTALLER_SELFUPDATE_TEST` names a file to log the steps to.
 
 #### The updater key

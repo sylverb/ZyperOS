@@ -28,7 +28,7 @@ window: the update is a notice, and the card is what the window is for.
 | Ready: downloaded, signature checked | **Restart to update**, the accent as a fill, as the primary button | puts the new app in place and opens it |
 | Installing (a second, before the restart) | **Installing 1.0.7** | nothing (disabled); the write button waits too |
 | Failed (download, signature or install) | **Couldn't update · Get 1.0.7 on GitHub**, in warning's color; the reason in its tooltip | opens the releases page: the old way |
-| Can't update in place (Linux `.deb`/`.rpm`, a Mac app run from Downloads) | **Installer 1.0.7 is out**, exactly as today | opens the releases page |
+| Can't update in place (Linux `.deb`/`.rpm`; a translocated Mac app whose original isn't found) | **Installer 1.0.7 is out**, exactly as today | opens the releases page |
 
 Choices, and why:
 
@@ -44,9 +44,14 @@ Choices, and why:
 - **Linux keeps today's chip.** The `.deb` and `.rpm` were installed by the system's package manager
   and belong to it; the words stay "Installer 1.0.7 is out", which reads naturally with no mention
   of Linux. (The plugin 2.14 can run `dpkg -i`/`rpm -U` through `pkexec`; not used here.)
-- **A Mac app still in Downloads** runs from a read-only copy macOS makes (App Translocation), which
-  can't be replaced: that case gets today's chip, and its tooltip says to move the app to
-  Applications.
+- **A Mac app opened where it was downloaded updates too.** macOS runs it from a read-only copy (App
+  Translocation), even after *Open Anyway*: my own 1.0.1, opened from Downloads on 2026-11-07, still
+  ran from `AppTranslocation/<id>/d/` a week later, quarantine `00c1`. So this is the common case,
+  not a corner. That copy can't be replaced, but the original can: the copy is a read-only mount
+  whose source (`statfs`'s `f_mntfromname`) is the original `.app`. The update replaces that one and
+  opens it; written by the installer, it carries no quarantine mark, so macOS runs it where it is
+  from then on. Only when the original can't be found does it get today's chip, its tooltip saying
+  to move the app to Applications.
 
 ## How it works
 
@@ -65,7 +70,8 @@ Choices, and why:
   can't pair a new version number with an older, validly signed file.
 - **macOS:** the plugin's own install: the new `.app` is unpacked next to the old one and swapped in
   one step (APFS `renamex_np`), asking for an administrator's password only when the app's folder
-  isn't writable. Then the app restarts.
+  isn't writable. Then the app restarts. A translocated app sets the updater's `executable_path` to
+  the original's, so the original is what is swapped, and opens the original with `open -n`.
 - **Windows:** the plugin installs NSIS and MSI installers only, and the Windows download is a
   portable exe, which stays. So the plugin checks, downloads and verifies, and the installer swaps
   its own exe: the running file is renamed to `<name>.old` (Windows allows renaming a running exe,
@@ -98,10 +104,13 @@ stops the release before anything is uploaded), writes `latest.json` with
 
 - **An updated app carries no quarantine mark.** Debug builds 1.0.0 and 1.0.1 of this branch, signed
   with a test key, `latest.json` on 127.0.0.1. Opened through LaunchServices, 1.0.0 found 1.0.1,
-  downloaded it (11.9 MB), checked its signature, swapped itself and opened again as 1.0.1. Twice:
-  once as built, once with every file of the old app marked `com.apple.quarantine`
-  `01c1;…;Safari;…`, the "downloaded, and the user allowed it" mark every app this Mac got from a
-  browser and opened carries. Both times the new bundle had no `com.apple.quarantine` on any file,
+  downloaded it (11.9 MB), checked its signature, swapped itself and opened again as 1.0.1. Three
+  times: as built; with every file of the old app marked `com.apple.quarantine`
+  `01c1;…;Safari;…`, the "downloaded, allowed, and moved" mark of every app in this Mac's
+  Applications that came from a browser; and marked `00c1` ("allowed", not moved), which macOS ran
+  translocated, from `AppTranslocation/<id>/d/`: that one replaced the original and opened again
+  from the original's path, no longer translocated. Each time the new bundle had no
+  `com.apple.quarantine` on any file,
   only `com.apple.provenance` (which every file a process writes gets). syspolicyd's log has
   Gatekeeper look at the quarantined old app with its quarantine fields set (`1, 1, 1, 0, 8`) and at
   the new one with them clear (`0, 0, 1, 0, 8`), as for an app never downloaded: no prompt, and it
@@ -114,6 +123,5 @@ stops the release before anything is uploaded), writes `latest.json` with
   in the app: the binary built with it is byte for byte the one built without, and the `.tar.gz`
   holds exactly that app. The release build opens (hidden, `open -g -j`).
 - **Not tried:** an app in a folder the user can't write to (the updater asks for an
-  administrator's password through AppleScript); a translocated app (refused before the update, see
-  above); Windows, which has no machine here (the swap is tested on any system with files, and
-  Windows CI builds and tests it).
+  administrator's password through AppleScript); Windows, which has no machine here (the swap is
+  tested on any system with files, and Windows CI builds and tests it).

@@ -501,8 +501,9 @@ dropEvents((p) => {
 //   42%", a line under the words), then waits for "Restart to update", so it
 //   never restarts under the hand. That click puts the new one in place and
 //   opens it.
-// - "Installer 1.0.7 is out" where it can't (Linux's packages, a Mac app
-//   still in Downloads): the releases page, as before.
+// - "Installer 1.0.7 is out" where it can't (Linux's packages; a Mac app
+//   macOS runs from a read-only copy, when the original can't be found): the
+//   releases page, as before.
 // - An update that didn't work says so, and its click is the releases page
 //   too.
 // Never during a write: the chip is hidden on the working screen, and the app

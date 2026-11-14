@@ -98,7 +98,7 @@ async fn latest_zyperos() -> Result<String, String> {
 #[tauri::command]
 async fn installer_update(app: AppHandle) -> Option<selfupdate::Offer> {
     let pending = app.state::<selfupdate::Pending>();
-    let why = match selfupdate::way(&pending.exe) {
+    let why = match selfupdate::way(&pending.exe, pending.original()) {
         selfupdate::Way::InPlace => {
             // Tauri's updater first; when its look doesn't work (no
             // latest.json in the latest release, as up to 1.0.5), the

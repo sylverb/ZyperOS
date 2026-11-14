@@ -4,9 +4,16 @@
 // release carries (tauri.conf.json's plugins.updater names it and the key its
 // files are signed with), downloads the file for this system and checks its
 // signature. Where it can't (Linux's packages, which are the package
-// manager's; a Mac app run from where it was downloaded), or when that look
-// fails, release.rs's look at the releases says whether a newer one is out,
-// and the page offers the releases page, as it always did.
+// manager's), or when that look fails, release.rs's look at the releases says
+// whether a newer one is out, and the page offers the releases page, as it
+// always did.
+//
+// A Mac app opened from where it was downloaded (Downloads, most often) runs
+// from a read-only copy macOS makes of it, App Translocation, even once the
+// user has let it open: that copy can't be replaced, so the update replaces
+// the one in Downloads and opens that. Written by the installer itself, the
+// new app carries no quarantine mark, so macOS runs it where it is from then
+// on, with no question.
 //
 // Never while a card is being written: main.rs refuses the restart during a
 // write, and a write while the new installer goes in place.
@@ -37,22 +44,58 @@ pub enum Way {
 pub const MOVE_TO_APPLICATIONS: &str =
     "Move ZyperOS Installer to your Applications folder, and it updates itself from then on.";
 
-/// The way for the executable at `exe`, on this system
-pub fn way(exe: &Path) -> Way {
+/// The way for the executable at `exe`, on this system. `original` is the
+/// app as the user has it ([`original_bundle`]): for a translocated Mac app,
+/// the one it was copied from, which the update replaces; without it there,
+/// the releases page.
+pub fn way(exe: &Path, original: Option<&Path>) -> Way {
     if cfg!(not(any(target_os = "macos", windows))) {
         return Way::Page(None);
     }
-    if cfg!(target_os = "macos") && translocated(exe) {
+    if cfg!(target_os = "macos") && translocated(exe) && original.is_none() {
         return Way::Page(Some(MOVE_TO_APPLICATIONS));
     }
     Way::InPlace
 }
 
-/// A Mac app opened from where it was downloaded, still quarantined, runs
-/// from a read-only copy macOS makes of it (App Translocation), which can
-/// never be replaced. Moved to Applications in the Finder, it runs from there.
+/// Whether a Mac app runs from App Translocation's read-only copy
 fn translocated(exe: &Path) -> bool {
     exe.components().any(|c| c.as_os_str() == "AppTranslocation")
+}
+
+/// The .app the executable at `exe` is in, as the user has it. For a
+/// translocated app, the original: macOS mounts it read-only at
+/// AppTranslocation/<id>/d/<name>.app, and the mount's source, which
+/// statfs(2) gives, is the original .app. None when `exe` isn't in an app, or
+/// the original can't be found (then the update can't go anywhere).
+#[cfg(target_os = "macos")]
+pub fn original_bundle(exe: &Path) -> Option<PathBuf> {
+    use std::os::unix::ffi::OsStrExt;
+    let bundle = exe.parent()?.parent()?.parent()?;
+    if bundle.extension()? != "app" {
+        return None;
+    }
+    if !translocated(exe) {
+        return Some(bundle.to_path_buf());
+    }
+    let path = std::ffi::CString::new(exe.as_os_str().as_bytes()).ok()?;
+    let mut fs: libc::statfs = unsafe { std::mem::zeroed() };
+    // SAFETY: a NUL-terminated path and a statfs to fill, both valid for the call
+    if unsafe { libc::statfs(path.as_ptr(), &mut fs) } != 0 {
+        return None;
+    }
+    // SAFETY: the kernel fills f_mntfromname with a NUL-terminated string
+    let from = unsafe { std::ffi::CStr::from_ptr(fs.f_mntfromname.as_ptr()) };
+    let original = PathBuf::from(std::ffi::OsStr::from_bytes(from.to_bytes()));
+    original_of(bundle, &original)
+}
+
+/// `original` if it can be the app `translocated` was copied from: an
+/// absolute path to an .app of the same name, there now
+#[cfg(any(target_os = "macos", test))]
+fn original_of(translocated: &Path, original: &Path) -> Option<PathBuf> {
+    let same_name = original.file_name().is_some() && original.file_name() == translocated.file_name();
+    (original.is_absolute() && same_name && original.join("Contents").is_dir()).then(|| original.to_path_buf())
 }
 
 /// Whether `remote` is an update for `current`: a release, never a beta, and
@@ -156,6 +199,9 @@ fn failed(what: &str, e: impl std::fmt::Display) -> String {
 pub struct Pending {
     /// This executable's path, read on start, before an update renames it
     pub exe: PathBuf,
+    /// The app as the user has it ([`original_bundle`])
+    #[cfg(target_os = "macos")]
+    bundle: Option<PathBuf>,
     pub installing: AtomicBool,
     #[cfg(any(target_os = "macos", windows))]
     update: Mutex<Option<tauri_plugin_updater::Update>>,
@@ -165,7 +211,34 @@ pub struct Pending {
 
 impl Pending {
     pub fn new(exe: PathBuf) -> Self {
-        Pending { exe, ..Default::default() }
+        Pending {
+            #[cfg(target_os = "macos")]
+            bundle: original_bundle(&exe),
+            exe,
+            ..Default::default()
+        }
+    }
+
+    /// The Mac app as the user has it, for [`way`]
+    pub fn original(&self) -> Option<&Path> {
+        #[cfg(target_os = "macos")]
+        {
+            self.bundle.as_deref()
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            None
+        }
+    }
+
+    /// For a translocated Mac app, the original's executable: the updater
+    /// replaces the app that one is in
+    #[cfg(target_os = "macos")]
+    fn original_exe(&self) -> Option<PathBuf> {
+        if !translocated(&self.exe) {
+            return None;
+        }
+        Some(self.bundle.as_ref()?.join("Contents/MacOS").join(self.exe.file_name()?))
     }
 }
 
@@ -175,12 +248,18 @@ impl Pending {
 #[cfg(any(target_os = "macos", windows))]
 pub async fn check<R: tauri::Runtime>(app: &tauri::AppHandle<R>, pending: &Pending) -> Result<Option<Offer>, String> {
     use tauri_plugin_updater::UpdaterExt;
-    let updater = app
+    let builder = app
         .updater_builder()
         .version_comparator(|current, release| is_update(&current, &release.version))
-        .timeout(std::time::Duration::from_secs(30))
-        .build()
-        .map_err(|e| failed("Setting up the update", e))?;
+        .timeout(std::time::Duration::from_secs(30));
+    // A translocated app: the one in Downloads is replaced, never the
+    // read-only copy that runs
+    #[cfg(target_os = "macos")]
+    let builder = match pending.original_exe() {
+        Some(exe) => builder.executable_path(exe),
+        None => builder,
+    };
+    let updater = builder.build().map_err(|e| failed("Setting up the update", e))?;
     let Some(update) = updater.check().await.map_err(|e| failed("Looking for an update", e))? else {
         return Ok(None);
     };
@@ -249,8 +328,19 @@ pub fn restart<R: tauri::Runtime>(app: &tauri::AppHandle<R>, pending: &Pending) 
     }
     #[cfg(target_os = "macos")]
     {
-        let _ = pending;
-        // Through LaunchServices, the new bundle at the same path
+        // A translocated app: the updated one is where it was downloaded, so
+        // that one opens (through LaunchServices, as Tauri's restart does)
+        if let Some(bundle) = pending.original_exe().and(pending.bundle.as_ref()) {
+            let opened = std::process::Command::new("/usr/bin/open")
+                .arg("-n")
+                .arg(bundle)
+                .stdin(std::process::Stdio::null())
+                .output();
+            if opened.is_ok_and(|o| o.status.success()) {
+                std::process::exit(0);
+            }
+        }
+        // The new bundle at this one's path
         app.restart()
     }
 }
@@ -281,14 +371,42 @@ mod tests {
         let translocated = Path::new(
             "/private/var/folders/x/T/AppTranslocation/4D5E/d/ZyperOS Installer.app/Contents/MacOS/zyperos-installer",
         );
+        let downloads = Path::new("/Users/me/Downloads/ZyperOS Installer.app");
         if cfg!(target_os = "macos") {
-            assert_eq!(way(applications), Way::InPlace);
-            assert_eq!(way(translocated), Way::Page(Some(MOVE_TO_APPLICATIONS)));
+            assert_eq!(way(applications, Some(Path::new("/Applications/ZyperOS Installer.app"))), Way::InPlace);
+            // Translocated: the one in Downloads is updated; with no original
+            // found, the releases page
+            assert_eq!(way(translocated, Some(downloads)), Way::InPlace);
+            assert_eq!(way(translocated, None), Way::Page(Some(MOVE_TO_APPLICATIONS)));
         } else if cfg!(windows) {
-            assert_eq!(way(Path::new(r"C:\Users\me\Downloads\ZyperOS-Installer-1.0.6-Windows.exe")), Way::InPlace);
+            let exe = Path::new(r"C:\Users\me\Downloads\ZyperOS-Installer-1.0.6-Windows.exe");
+            assert_eq!(way(exe, None), Way::InPlace);
         } else {
-            assert_eq!(way(Path::new("/usr/bin/zyperos-installer")), Way::Page(None));
+            assert_eq!(way(Path::new("/usr/bin/zyperos-installer"), None), Way::Page(None));
         }
+    }
+
+    #[test]
+    fn finds_where_a_translocated_app_came_from() {
+        let dir = folder("translocated");
+        let original = dir.join("Downloads/ZyperOS Installer.app");
+        std::fs::create_dir_all(original.join("Contents/MacOS")).unwrap();
+        let running = Path::new("/private/var/folders/x/T/AppTranslocation/4D5E/d/ZyperOS Installer.app");
+        assert_eq!(original_of(running, &original), Some(original.clone()));
+        // Another app, a path that isn't there, a relative one: none
+        assert_eq!(original_of(running, &dir.join("Downloads/Other.app")), None);
+        assert_eq!(original_of(running, &dir.join("Gone/ZyperOS Installer.app")), None);
+        assert_eq!(original_of(running, Path::new("ZyperOS Installer.app")), None);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// This test binary isn't in an app, so it has no bundle
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn a_program_outside_an_app_has_no_bundle() {
+        assert_eq!(original_bundle(&std::env::current_exe().unwrap()), None);
+        let app = Path::new("/Applications/ZyperOS Installer.app/Contents/MacOS/zyperos-installer");
+        assert_eq!(original_bundle(app), Some(PathBuf::from("/Applications/ZyperOS Installer.app")));
     }
 
     /// What tools/latest-json.py writes for made-up signatures: the file each

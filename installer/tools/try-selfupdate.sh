@@ -2,11 +2,16 @@
 # Tries the installer's own update end to end on this Mac, with nothing
 # published: two debug builds of this checkout, an "old" one and a "new" one,
 # signed with a throwaway key; a latest.json for the new one served on
-# 127.0.0.1; the old app opened twice, once as it is and once marked as a
-# download the user allowed (com.apple.quarantine, as Safari and "Open
-# Anyway" leave it). Each time it must update itself and open again as the
-# new one, and the new app must carry no quarantine mark, so macOS asks
-# nothing more when it opens.
+# 127.0.0.1; the old app opened three times: as it is; marked as a download
+# the user allowed and moved (com.apple.quarantine 01c1, as apps in
+# /Applications have it); and marked as one allowed but left where it was
+# downloaded (00c1), which macOS runs translocated, from a read-only copy.
+# Each time it must update itself (the translocated one: the original) and
+# open again as the new one, from where the user has it, and the new app must
+# carry no quarantine mark, so macOS asks nothing more when it opens.
+#
+# The translocated case leaves macOS's read-only mount of the old app until
+# logout (only root can unmount it); nothing uses it.
 #
 # The apps are "ZyperOS Installer Test" (their own identifier, no window),
 # and update with no click: debug builds do with ZYPEROS_INSTALLER_SELFUPDATE_TEST
@@ -61,16 +66,20 @@ trap 'kill $SERVER 2>/dev/null; wait $SERVER 2>/dev/null; pkill -f "$WORK/.*/$NA
 sleep 1
 
 fail=0
-for case in plain allowed; do
+for case in plain allowed downloads; do
 	say "1.0.0 updating itself, $case"
 	DIR=$WORK/case-$case
 	rm -rf "$DIR" && mkdir -p "$DIR"
 	APP=$DIR/$NAME.app
 	ditto "$WORK/1.0.0/$NAME.app" "$APP"
-	if [ $case = allowed ]; then
-		# What a download the user let open looks like: flag 0x40 is "allowed"
-		xattr -r -w com.apple.quarantine "01c1;$(printf %x "$(date +%s)");Safari;$(uuidgen)" "$APP"
-	fi
+	# What a download the user let open looks like: flag 0x40 is "allowed";
+	# without 0x100, macOS runs it translocated
+	case $case in
+	allowed) flags=01c1 ;;
+	downloads) flags=00c1 ;;
+	*) flags= ;;
+	esac
+	[ -z "$flags" ] || xattr -r -w com.apple.quarantine "$flags;$(printf %x "$(date +%s)");Safari;$(uuidgen)" "$APP"
 	open -g -j -n --env ZYPEROS_INSTALLER_SELFUPDATE_TEST="$DIR/log.txt" "$APP"
 	for _ in $(seq 1 60); do
 		grep -q -E 'up to date|failed' "$DIR/log.txt" 2>/dev/null && break
@@ -80,8 +89,12 @@ for case in plain allowed; do
 	now=$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$APP/Contents/Info.plist")
 	marks=$(xattr -lr "$APP" | grep -c com.apple.quarantine || true)
 	echo "the app is now $now, with $marks quarantine marks"
-	if [ "$now" != 1.0.1 ] || [ "$marks" != 0 ] || ! grep -q 'running 1.0.1' "$DIR/log.txt" 2>/dev/null; then
-		echo "FAILED: expected it to run as 1.0.1 with no quarantine mark" >&2
+	if [ "$now" != 1.0.1 ] || [ "$marks" != 0 ] || ! grep -q "running 1.0.1 from $APP/" "$DIR/log.txt" 2>/dev/null; then
+		echo "FAILED: expected it to run as 1.0.1 from $APP, with no quarantine mark" >&2
+		fail=1
+	fi
+	if [ $case = downloads ] && ! grep -q 'running 1.0.0 from .*/AppTranslocation/' "$DIR/log.txt" 2>/dev/null; then
+		echo "FAILED: macOS didn't translocate it, so this case tried nothing new" >&2
 		fail=1
 	fi
 	pkill -f "$APP/Contents/MacOS/" 2>/dev/null || true
@@ -90,5 +103,5 @@ for case in plain allowed; do
 done
 
 say "Done, in $WORK"
-[ $fail = 0 ] && echo "Both updated themselves and opened again as 1.0.1, with no quarantine mark."
+[ $fail = 0 ] && echo "All three updated themselves and opened again as 1.0.1 where the user has them, with no quarantine mark."
 exit $fail
