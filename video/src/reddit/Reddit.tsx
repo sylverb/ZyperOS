@@ -4,7 +4,7 @@ import { ease } from "../anim";
 import { MUSIC } from "../music";
 import { Cam, Device, DeviceInfo, FONT, Footage, Label, LIGHT, mixCam, Phone, pop, punchAt, Screen } from "../parts";
 import { SOUND_CUES } from "../sounds";
-import { BEAT, FPS, MUSIC_START_S, Pose } from "../timeline";
+import { BEAT, FPS, MUSIC_START_S, Pose, Scene } from "../timeline";
 import { HOOK_BEATS, REDDIT, SHADERS } from "./timeline";
 
 export type RedditProps = { footage: Footage; device: DeviceInfo };
@@ -16,11 +16,12 @@ export const H = 1350;
 /** Where the screen is for a pose, in the frame: its left, its top and its width.
  * "main": as wide as the frame allows, under the caption (the device's top edge
  * is 150 of its pixels above the screen, so its body clears the caption);
- * "split": smaller, the phone beside it; "hero": the end card's, under its words */
+ * "split": smaller, the phone beside it; "hero": the end card's, under its words,
+ * with the friend's phone beside it */
 const SCREEN: Record<string, { x: number; y: number; w: number }> = {
   main: { x: 40, y: 560, w: 1000 },
   split: { x: 36, y: 560, w: 600 },
-  hero: { x: 250, y: 760, w: 580 },
+  hero: { x: 110, y: 760, w: 580 },
 };
 const camOf = (pose: Pose, d: DeviceInfo): Cam => {
   const s = SCREEN[pose] ?? SCREEN.main;
@@ -35,6 +36,17 @@ const camera = (frame: number, d: DeviceInfo): Cam => {
   const target = camOf(sc.pose, d);
   if (i === 0) return target;
   return mixCam(camOf(REDDIT.scenes[i - 1].pose, d), target, pop(frame, REDDIT.starts[i], 150, 17));
+};
+
+/** The phone's picture at a frame: its sequence's, from the moment it comes in, else its one */
+const phoneSrc = (frame: number, start: number, b: NonNullable<Scene["browser"]>): string => {
+  let src = b.phone ?? "";
+  let at = start + (b.phoneAt ?? 0) * BEAT;
+  for (const p of b.phoneSeq ?? []) {
+    if (frame >= at) src = p.src;
+    at += p.beats * BEAT;
+  }
+  return src;
 };
 
 /** ZyperOS's wordmark and the release, large for the hook and the end, small in the corner between */
@@ -83,7 +95,8 @@ export const Reddit: React.FC<RedditProps> = ({ footage, device }) => {
         </Device>
 
         {sc.browser?.phone && (
-          <Phone src={sc.browser.phone} pic={sc.browser.phonePic} x={672} y={500} height={760}
+          <Phone src={phoneSrc(frame, start, sc.browser)} pic={sc.browser.phonePic} x={isEnd ? 740 : 672} y={isEnd ? 690 : 500}
+            height={isEnd ? 600 : 760}
             k={pop(frame, start + (sc.browser.phoneAt ?? 0) * BEAT, 160, 14) * (1 - ease(frame, end - 5, end))} />
         )}
 

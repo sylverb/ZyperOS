@@ -5,16 +5,17 @@
  * on the sound; the music is the tour's (src/music.ts) from its first
  * downbeat, and every scene is whole bars of it.
  *
- * The scenes go in the order the Reddit post lists them, the most asked for
- * first: the new systems, button remapping (the longest scene), shaders and
- * their strength, a theme, folders and the list, the Scraper, a phone's
- * internet, the Achievements tab, a disc swapped, NES Player 2 and the pixel
- * art; then 1.0.3's and 1.0.4's USB File Transfer and Flash Drive, and the
- * end, two beats past bar 35, while the music fades. On Leap's sections
- * (LICENSES.md): the full band to bar 15 for the systems to the folders, the
- * break at 16 to 19 for the Scraper's run and the phone, the band at 20, and so
- * on. Each scene's tag is the release it came in. The takes are the tour's
- * (video/footage/takes.py), and the screens are the launcher's own.
+ * It opens on NES Player 2 as a small story over six bars: MENU > Player 2 on
+ * the handheld and its code, then the friend's phone in, its touch pad pressed
+ * while the handheld plays on. Then the rest in the order the Reddit post
+ * lists it: the new systems, button remapping, shaders and their strength, a
+ * theme, folders and the list, the Scraper, a phone's internet, the
+ * Achievements tab, a disc swapped and the pixel art; then 1.0.3's and
+ * 1.0.4's USB File Transfer and Flash Drive, and the end, two beats past bar
+ * 37, the handheld and the friend's phone in the same game again, while the
+ * music fades. Each scene's tag is the release it came in. The
+ * takes are the tour's (video/footage/takes.py), the phone's presses
+ * video/footage/phone-presses.py's, and the screens the launcher's own.
  */
 import { BPM, layout, Scene, Step } from "../timeline";
 
@@ -34,12 +35,33 @@ export const SHADERS = [
 ];
 const shaderSteps: Step[] = SHADERS.map((s) => ({ image: `img/shader-${s.file}.png`, beats: s.beats }));
 
+/** The friend's phone: the play page as it opens, then a finger on its d-pad and A */
+const PRESSES = [
+  { src: "img/play-phone.png", beats: 2.5 }, { src: "img/play-phone-right.png", beats: 1.5 },
+  { src: "img/play-phone-right-a.png", beats: 1 }, { src: "img/play-phone-right.png", beats: 0.5 },
+  { src: "img/play-phone.png", beats: 1 }, { src: "img/play-phone-a.png", beats: 0.5 },
+  { src: "img/play-phone.png", beats: 0.5 }, { src: "img/play-phone-right.png", beats: 1.5 },
+  { src: "img/play-phone-right-a.png", beats: 1 }, { src: "img/play-phone.png", beats: 1 },
+];
+
 export const REDDIT_SCENES: Scene[] = [
-  // "ZyperOS 1.0.5" for the first four beats, over the new systems' own starts
-  { id: "hook", tag: "1.0.5", bars: 3, pose: "main", screen: [{ take: "newsys", from: 0, to: "fill", rate: 1.34 }],
-    label: "PSP, and three more systems", sub: "Doom, ColecoVision and TIC-80", labelAt: 4 },
-  // The headline: R1 to Controls, the handheld leaning toward each button, Y
-  // given another button, then in on the handheld as L1 tilts it back
+  // "ZyperOS 1.0.5" for the first four beats, over Super Mario Bros. 3 and the
+  // in-game menu down to Player 2; A, and its code to scan, held
+  { id: "p2", tag: "1.0.5", bars: 3, pose: "main",
+    screen: [{ image: "img/smb3.png", beats: 2 }, { take: "player2", from: 0, to: 1600 },
+             { take: "player2", from: 1600, to: "fill", rate: 0.71 }],
+    label: "Player 2 on a friend's phone", sub: "MENU > Player 2 shows a code to scan", labelAt: 4 },
+  // The phone in as the panel says connected; the handheld back in the game
+  // while the friend's finger presses the d-pad and A
+  { id: "p2play", tag: "1.0.5", bars: 3, pose: "split",
+    screen: [{ take: "player2", from: 3100, to: 4700, rate: 0.8 }, { image: "img/smb3.png" }],
+    label: "Scan it, and they're in", sub: "No app, no account. The game and a touch pad on their phone.",
+    browser: { phone: "img/play-phone.png", phonePic: "img/smb3.png", phoneAt: 0.5, phoneSeq: PRESSES } },
+  // The four new systems, each console's own start
+  { id: "newsys", tag: "1.0.5", bars: 2, pose: "main", screen: [{ take: "newsys", from: 0, to: "fill", rate: 2 }],
+    label: "PSP, and three more systems", sub: "Doom, ColecoVision and TIC-80" },
+  // R1 to Controls, the handheld leaning toward each button, Y given another
+  // button, then in on the handheld as L1 tilts it back
   { id: "remap", tag: "1.0.5", bars: 4, pose: "main", screen: [{ take: "gm-remap", from: 0, to: "fill", rate: 0.94 }],
     label: "Remap any button", sub: "Per game or per system, in the game's menu",
     punch: [{ at: 10, x: 0.22, y: 0.62, zoom: 1.55 }] },
@@ -66,10 +88,6 @@ export const REDDIT_SCENES: Scene[] = [
     label: "An Achievements tab", sub: "In the game's menu. PSP and PS1 .chd too." },
   { id: "disc", tag: "1.0.5", bars: 2, pose: "main", screen: [{ take: "gm-disc", from: 0, to: "fill", rate: 1.15 }],
     label: "Swap discs in the game", sub: "For multi-disc PS1 games" },
-  // The phone comes in as the panel says connected (beat 5.8)
-  { id: "player2", tag: "1.0.5", bars: 3, pose: "split", screen: [{ image: "img/smb3.png", beats: 1 }, { take: "player2", from: 600, to: "fill", rate: 1.39 }],
-    label: "Player 2 on a friend's phone", sub: "NES in a browser. No app, no account.",
-    browser: { phone: "img/play-phone.png", phonePic: "img/smb3.png", phoneAt: 5.8 } },
   { id: "art", tag: "1.0.5", bars: 2, pose: "main", screen: [{ take: "home", from: 2100, to: "fill", rate: 1.28 }],
     label: "New pixel art for every system", sub: "Drawn for ZyperOS, and it moves" },
   // 1.0.3: USB File Transfer at zyperos.local, each step ticked as it connects
@@ -78,7 +96,11 @@ export const REDDIT_SCENES: Scene[] = [
   // 1.0.4: Flash Drive
   { id: "flashdrive", tag: "1.0.4", bars: 2, pose: "main", screen: [{ take: "flashdrive", from: 0, to: "fill", rate: 1.28 }],
     label: "A plain flash drive", sub: "Any computer, no driver" },
-  { id: "end", bars: 2.5, pose: "hero", screen: [{ take: "home", from: 4000, to: "fill" }] },
+  // Back to Player 2: the handheld and the friend's phone in the same game
+  { id: "end", bars: 2.5, pose: "hero", screen: [{ image: "img/smb3.png" }],
+    browser: { phone: "img/play-phone.png", phonePic: "img/smb3.png", phoneAt: 1,
+      phoneSeq: [{ src: "img/play-phone.png", beats: 2 }, { src: "img/play-phone-right.png", beats: 2 }, { src: "img/play-phone-right-a.png", beats: 1 },
+        { src: "img/play-phone-right.png", beats: 1 }] } },
 ];
 
 export const REDDIT = layout(REDDIT_SCENES);

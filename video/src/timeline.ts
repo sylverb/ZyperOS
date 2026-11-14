@@ -49,7 +49,9 @@ export type Scene = {
   /** a short tag beside the label (the Reddit cut's release a feature came in) */
   tag?: string;
   /** the computer and the phone of File Transfer */
-  browser?: { laptop?: string; phone?: string; phoneAt?: number; laptopAt?: number; phonePic?: string };
+  browser?: { laptop?: string; phone?: string; phoneAt?: number; laptopAt?: number; phonePic?: string;
+    /** the phone's pictures one after another from phoneAt, each its beats, the last held (the Reddit cut's presses) */
+    phoneSeq?: { src: string; beats: number }[] };
   dark?: boolean;
 };
 
