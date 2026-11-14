@@ -7,6 +7,7 @@
  * what a screen with a panel calls every frame. Each is described in
  * main.c. */
 #include "app.h"
+#include "dslang.h"
 #include "game_menu.h"
 #include "keyboard.h"
 #include "menu.h"
@@ -14,6 +15,8 @@
 #include "p2.h"
 #include "platform.h"
 #include "rahash.h"
+#include "sys_menu.h"
+#include "wifi.h"
 
 #include <stdbool.h>
 
@@ -345,6 +348,94 @@ extern bool g_message_stopped;
 extern const menu_style *g_muse_over;
 extern void             *g_muse_over_ctx;
 extern bool              g_muse_gone;
+
+/* ---- main.c's, for src/sysmenu_screen.c; each is described where it is defined ---- */
+#define AUTO_OFF_COUNT ((int)(sizeof AUTO_OFF / sizeof AUTO_OFF[0]))
+#define CHARGE_LIMITS_COUNT ((int)(sizeof CHARGE_LIMITS / sizeof CHARGE_LIMITS[0]))
+/* MENU > Battery Icon: the corner's battery as the mark alone ("bars", the
+ * default), with its charge written beside it ("percentage"), my ask of
+ * 2026-11-05, or with the time left written there ("time"), my ask of
+ * 2026-11-07. Read with the clock's setting; draw_topbar writes the text.
+ * The time left is the estimate in src/battery_eta.h off the cable and the
+ * time to full (or to the charge limit) on it, from the gauge's charge and
+ * current at the first read. Where there is none yet but one is coming it
+ * writes three dots filling in turn (2026-11-08, from a first try on the Pixel
+ * 2 that kept the percentage for minutes); held at the charge limit, "On
+ * hold"; full on the cable, "Charged"; and where none can come - a gauge
+ * that cannot say its current on the cable - the percentage, so the corner
+ * is never empty. */
+enum { BATT_BARS, BATT_PCT, BATT_TIME, BATT_MODES };
+/* The system menu's context. It holds the app rather than a copy of what was
+ * on screen when it opened, so `a->screen` and `a->sys_cursor` are read live
+ * exactly as the hand-written loop read them. Neither can change while the
+ * menu is up; reading them is simply one fewer thing that could drift. */
+typedef struct {
+	app      *a;
+	menu_bufs bufs;   /* the built rows point into this, so it outlives them */
+	/* Which of the two menus to build. Normally the screen you are on, but
+	 * Both has no screens to be on: there MENU means the firmware and B
+	 * means this system, and neither can be inferred from where you are. */
+	int       screen;
+	/* MENU's cursor as the runner last had it (menu_style's sel_out) */
+	int       seen;
+} sysmenu_ctx;
+extern int g_shader_all;
+/* Auto Off's and Charge Limit's steps (main.c): sized here for their
+ * counts; a step more there is a type conflict until this says so */
+extern const int AUTO_OFF[6];
+extern int g_saver_s;
+extern const int CHARGE_LIMITS[4];
+extern int g_charge_limit;
+extern bool g_usb_auto;
+extern unsigned g_usb_wait;
+extern bool shot_usb_menu;
+extern const char *const BATT_IDS[BATT_MODES];
+extern int g_batt_mode;
+extern char g_scraper_val[32];
+void shader_set_all(app *a, int k);
+const char *shader_all_label(const app *a);
+bool strength_all_shown(const app *a);
+const char *strength_all_label(const app *a);
+const char *core_label(const char *core, char *buf, size_t n);
+void core_step(app *a, int sys, int d);
+dsl_choice dslang_load(void);
+bool dslang_row_shown(const app *a, int sys);
+const char *dslang_label(dsl_choice c, char *buf, size_t n);
+void view_turn(app *a, int sys);
+void sort_save(app *a);
+bool muse_books_shown(void);
+int muse_rows_kind(void);
+int muse_kinds(void);
+void free_view_textures(sysview *v);
+void muse_show(sysview *v, ml_kind kind);
+void auto_off_save(int seconds);
+void saver_save(int seconds);
+void charge_limit_apply(void);
+void clock24_save(bool on);
+void usb_auto_save(bool on);
+bool shot_time(time_t *t);
+wifi_state menu_wifi(char *ssid, int cap);
+bool xfer_link_up(void);
+bool up_have(void);
+bool random_pick(app *a, bool all, int *shelf, int *game);
+void wifi_screen(app *a);
+menu_result ra_signin_screen(app *a);
+void usb_power_ask(app *a, unsigned plug);
+void dev_screen(app *a);
+bool xs_row_cable(void);
+const char *xs_row_value(void);
+void xfer_screen(app *a);
+void scraper_page(app *a, const char *only);
+menu_result scraper_screen(app *a);
+void language_screen(app *a);
+void lights_screen(app *a);
+void about_screen(app *a);
+void controls_screen(app *a);
+void tour_run(app *a, bool first);
+menu_style zyperos_menu_style(app *a, int screen);
+int sysmenu_build(void *ctx, menu_row *rows, int max,
+                  const char **heading);
+void album_art_screen(app *a);
 
 /* ---- main.c's, for src/ingame_screen.c; each is described where it is defined ---- */
 /* How panel_leave_run ended: the panel gone, or a press that ended it at
