@@ -358,6 +358,28 @@ extern const menu_style *g_muse_over;
 extern void             *g_muse_over_ctx;
 extern bool              g_muse_gone;
 
+/* ---- main.c's, for src/player2_screen.c; each is described where it is defined ---- */
+/* Which drawer a copy is for. A question in tiles says its style by its kind
+ * (tiles_show): PANEL_TILES a row of tiles, PANEL_TILES_GRID two to a row
+ * (Computer Connected), PANEL_LIST rows the panel's width with a line under
+ * each name (What did you plug in?, the Scraper's Settings). They were read
+ * off the first tile's name before (tile_glyph), which cut "ScreenScraper". */
+enum { PANEL_MENU, PANEL_HOT, PANEL_TILES, PANEL_P2, PANEL_MOVE, PANEL_TILES_GRID, PANEL_LIST };
+typedef struct {
+	bool     run;            /* started for this plug: not again until the cable is out */
+	bool     up;             /* sshlink_start said yes */
+	char     pw[16], ip[64];
+	int      nkeys;
+	unsigned at, retry;
+} dv_state;
+extern dv_state g_dv;
+void notice_queue(nq_kind kind, int id, int ms, const char *head,
+                  const char *body, const char *badge, int value, int target);
+void panel_show(app *a, int kind, const char *heading,
+                const menu_row *rows, int n, int sel, int fixed_w,
+                unsigned accent, const unsigned *vcolors,
+                bool visits_all, int loop_at, const char *heading_note);
+
 /* ---- main.c's, for src/shelf_keys.c; each is described where it is defined ---- */
 void shelf_into(app *a, sysview *v);
 void shelf_up(app *a, sysview *v);
