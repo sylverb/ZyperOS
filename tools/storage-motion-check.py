@@ -12,7 +12,7 @@ a panel there, gone, and back (seen on the Pixel 2, 2026-11-08).
 
 --storage delete-open --shot-at T is that open as the handheld does it:
 MENU's panel at rest and drawn, Storage's page a base, a second on it, then
-the question opening (src/main.c, shot_motion). Held to the pictures it
+the question opening (src/shots.c, shot_motion). Held to the pictures it
 must be, byte for byte, in both themes:
 
   - at 0, the page with nothing on it (--storage system);

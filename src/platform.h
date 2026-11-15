@@ -70,6 +70,11 @@ typedef struct {
 	Uint32 down_since[IN_COUNT];
 	Uint32 last_repeat[IN_COUNT];
 	bool   quit_requested;
+	/* POWER went down this frame, whatever MENU > Power Button says:
+	 * pressed[IN_POWER] is the turn-off, a press or a hold done
+	 * (src/powerhold.h), and this the key itself, for the charging screen,
+	 * where a press starts the handheld as an off one's would */
+	bool   power_tap;
 } in_state;
 
 bool plat_video_init(void);
@@ -411,8 +416,10 @@ bool plat_cable_link(char *addr, size_t n);
 void plat_cable_reconnect(void);
 /* USB's charge-only rule: what is on the port, and the link (usbpeer.h) */
 #include "usbpeer.h"
-/* kind: 1 = brightness, 2 = volume */
+/* kind: 1 = brightness, 2 = volume, 3 = POWER's hold (OSDBAR_*) */
 void plat_osd_show(int kind, int val, int max);
+/* Out at once rather than after its hold: POWER let go early */
+void plat_osd_fade(void);
 void plat_draw_osd(SDL_Renderer *r);
 /* Something the launcher draws over every screen, every frame a screen draws
  * its bar (plat_draw_osd), under the bar: the replug message (main.c,
@@ -432,6 +439,23 @@ void plat_osd_forget(void);
  * holds. A launcher that only redraws when something changes asks this, or
  * the bar would freeze half faded until the next unrelated redraw. */
 Uint32 plat_osd_until(void);
+
+/* POWER, a press or a hold (src/powerhold.h), for every loop that reads the
+ * key. plat_power_event: the key went down or up, true when that is the
+ * turn-off (a press, in Press mode). plat_power_due: true once when a hold
+ * is done (Hold mode). plat_power_hold: how far a hold has got, 0 to 1000, or
+ * -1 for none under way. plat_power_consume: this time down was taken for
+ * something else (the charging screen's hold to start), so it turns nothing
+ * off. plat_power_poll: each device's plat_input_poll, last, so a hold done
+ * is pressed[IN_POWER] that frame. plat_power_wait: `ms`, or less to wake for
+ * the hold's next segment or its end, for each device's plat_input_wait. The
+ * settings pill shows a hold while it is under way. */
+bool plat_power_event(bool down);
+bool plat_power_due(void);
+int  plat_power_hold(void);
+void plat_power_consume(void);
+void plat_power_poll(in_state *st);
+unsigned plat_power_wait(unsigned ms);
 
 /* Read only the requested fields: NULL skips that sysfs read. With pct,
  * returns whether capacity was read; with charging alone, whether cable

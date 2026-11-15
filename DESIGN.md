@@ -555,7 +555,7 @@ beside a cubic one. One function each, in `src/design.h`.)*
 | **zyper-ears** | 420 | - | Zyper's ears swinging out and back as he says hello |
 | **tour-reward** | 1100 | - | a tutorial step's reward, before the next |
 | **tour-pulse** | 440 | - | the right glyph's two pulses after a press of the wrong button |
-| **hold-unlock** | 2000 | - | MP4's lock: SELECT and START held together this long unlock it |
+| **hold-unlock** | 2000 | - | MP4's lock: SELECT and START held together this long unlock it; POWER held this long starts the charging screen's handheld, and turns it off with Power Button on Hold |
 | **hold-lock-lit** | 4000 | - | MP4's lock screen, lit as it locks |
 | **hold-controls** | 3000 | - | MP4's video controls after the last press, full screen |
 | **hold-snap** | 1000 | - | a game focused on the shelf before its cover turns into its video snap |
@@ -939,7 +939,7 @@ where it was.)*
 | **Display** | Appearance, Auto Hours, Theme, Home Screen, System Order, Battery Icon |
 | **Sound** | Audio Output, Audio Channels, UI Sounds, Menu Music |
 | **Connections** | USB Device (while a plug waits), Wi-Fi, Bluetooth, File Transfer, USB Accessories, Developer Mode |
-| **System** | Date & Time, Clock, Language, Auto Off, Charge Limit, Side Lights, Storage, System Update |
+| **System** | Date & Time, Clock, Language, Power Button, Auto Off, Charge Limit, Side Lights, Storage, System Update |
 | **About** | About ZyperOS, Controls, Show Tutorial |
 
 A row added to MENU goes into `pm_row` where its tab's rows are and into
@@ -1035,6 +1035,16 @@ the launcher has exited for, reads Appearance from the launcher's database
 and resolves Auto by the launcher's rule in the zone Date & Time saved, and
 reads the file only when the database cannot be read, so a hand edit of the
 file changes the bar over a port only then.
+
+**POWER held** (MENU > Power Button on **Hold**, 11.47) is the same pill with
+the power mark - a ring open at the top and the line down into it, as every
+power button has it - and 20 segments in **accent-ink** over **track**, one
+lit for each twentieth of **hold-unlock** while POWER is held. Full, the
+handheld turns off as a press does, and the pill holds and fades as after a
+level step; let go early, it goes in **fade.out** at once and nothing else
+happens. On the shelf and every screen, over a Diatom game (the launcher
+tells Diatom, SETPOWERHOLD, and Diatom fills it on its own clock) and over a
+port (portkeys reads POWER there). A host shot: `--osd power LEVEL`.
 
 ### 11.7 Notice (over a game)
 A slab of **surface** at 85%, **radius.panel**, at the bottom center; heading
@@ -2052,6 +2062,12 @@ was the focus's alone, with its videos on the card added in.)
   **Unlink** (which asks first, 11.8's question), and two notes under a
   rule on where an account or a key comes from; SteamGridDB's tile says
   "key refused" when it is. libretro needs nothing and has no tile.
+  **Names and Details** (1.0.6) is the fourth row, the open book its mark,
+  `on` or `off` under it: a choice of two, so A switches it where it is and
+  the list stays open. Off, a run asks no names for covered games with none
+  (artscrape.c, art_names) and fetches only what is missing; on, the plan's
+  line over the keys starts with the names a run will look up ("199 names"),
+  the book its mark, before the room.
 - **The run**: the game it is asking about is the heading, cut to the
   screen; under it its system's icon, the mark of the source being asked
   (a cloud for ScreenScraper, a book for libretro, a grid for SteamGridDB),
@@ -4355,3 +4371,28 @@ held to `make pixel-gate BASE=origin/main` (`tools/pixel-gate.py`): every
 shot of `check-i18n-shots`, in every language and both themes, built at the
 base and here and compared as pixels. A change meant to change the screen
 shows the frames it changes in the before and after sheets it writes.
+
+### 11.47 Power Button
+*(Asked for on the Discord, 2026-11-15: "A long press on the power button
+should be required to shut down. My Pixel shuts down after a momentary press,
+which is too easy to do accidentally." My pick: a MENU setting.)*
+**Power Button** in MENU's System tab, over Auto Off, the first of the rows
+about the handheld going off: **Press**, the default on every card, POWER
+pressed saves the game and turns the handheld off, as it always has; **Hold**,
+POWER held for **hold-unlock**, the same two seconds the charging screen's
+Hold (POWER) to start asks for, with the pill of 11.6 filling while it is
+held. Two choices, so A switches it, as Left and Right do, heard as a ring.
+
+One rule wherever POWER is read (src/powerhold.h): every screen of the
+launcher, its watch over a game and over a program it waits for, and
+portkeys over a port, so a hold is the same two seconds whichever of them
+reads it, and one begun in a game and ended in the in-game menu is still one
+hold. What is not a turn-off stays a press: POWER starts an off handheld (the
+power chip's), and during the charging screen's send-off a press starts
+ZyperOS, as from off; the hold that starts ZyperOS from the charging screen
+is taken by it, so the same two seconds never turn it off again. Holding
+POWER about 10 s is still the power chip's own cut, for a handheld that does
+not answer. With Hold on, Controls says "Hold: save and turn off" ("Hold:
+turn off", "Hold: quit and turn off" over a port), and the tutorial's POWER
+step says "Hold POWER to save and turn off." and lands on the hold.
+

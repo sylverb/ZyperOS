@@ -32,7 +32,7 @@ CHECKS = check-cheevos check-hare check-portal check-httpd check-idle check-task
          check-raset check-xfer check-sshlink check-usblink check-devmode check-ctl check-menus check-artscrape check-artrun check-sgdb check-snapshelf check-snaps check-audioout \
          check-db check-gamedel check-gamern check-esmedia check-media check-snapsize check-corepins check-targets check-storage check-stats check-sort check-bt check-ss check-titles check-savedlib check-search \
          check-muselib check-musequeue check-museart check-mp4lock check-mp4frame check-p2share check-webtheme check-p2ws check-p2codec check-p2d check-play check-p2 check-resident check-spawn check-controls check-remap check-controls-shots check-logpack \
-         check-clock check-autozone check-status check-battery check-battery-eta check-dslang check-dsresume check-corestate check-core-stamp check-core-room check-px2-perf check-px2-snap check-px2 check-lowbatt check-heat check-charging check-corner check-dsv check-sidelights check-osdbar check-themefile check-pkkeys check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-kbnav check-randgame check-shelfdir check-look \
+         check-clock check-autozone check-status check-battery check-battery-eta check-dslang check-dsresume check-corestate check-core-stamp check-core-room check-px2-perf check-px2-snap check-px2 check-lowbatt check-powerhold check-heat check-charging check-corner check-dsv check-sidelights check-osdbar check-themefile check-pkkeys check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-kbnav check-randgame check-shelfdir check-look \
          check-tween check-menumotion check-menusnap check-cardgen check-blur check-roundrect check-rowmacro check-emptyhome check-zyperrig check-sysmark check-flip check-menushots check-design \
          check-systemart check-linebreak check-portload check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-messages \
          check-tour check-tour-shots check-tour-previews check-textfade check-glyphs check-ds check-flex check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pmhelper check-pmart check-portdoc check-boottheme check-panelgamma check-displayback check-px2-push check-wifi-watch check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr \
@@ -247,6 +247,17 @@ build-native/audioout-check: tools/audioout-check.c src/audioout.c \
 # its in, hold and out at the moments the three ask about.
 check-osdbar: build-native/osdbar-check
 	@./build-native/osdbar-check
+
+# MENU > Power Button's rule (src/powerhold.h): a press turns the handheld off
+# in Press mode and a hold of two seconds in Hold mode, once per time down;
+# the pill's progress and the waits that keep it moving.
+check-powerhold: build-native/powerhold-check
+	@./build-native/powerhold-check
+
+build-native/powerhold-check: tools/powerhold-check.c src/powerhold.c src/powerhold.h src/osdbar.h \
+                              src/design.h FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -o $@ tools/powerhold-check.c src/powerhold.c
 
 build-native/osdbar-check: tools/osdbar-check.c src/osdbar.c src/osdbar.h FORCE
 	@mkdir -p build-native
@@ -497,7 +508,7 @@ build-native/portdoc-check: tools/portdoc-check.c src/portdoc.c src/portdoc.h sr
                            src/controls.c src/controls.h src/remap.c src/remap.h src/portmenu.h src/menu.h $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -o $@ tools/portdoc-check.c src/portdoc.c \
-	      src/rajson.c src/controls.c src/remap.c $(I18N_SRC)
+	      src/rajson.c src/controls.c src/powerhold.c src/remap.c $(I18N_SRC)
 
 # plastron's make push writes the system slot the Pixel 2 is not running,
 # never the one it runs from (scripts/px2-slot.sh): the slot choice, the
@@ -869,7 +880,7 @@ build-native/tour-check: tools/tour-check.c src/tour.c src/tour.h src/design.h \
                          $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
-	      -o $@ tools/tour-check.c src/tour.c src/zyperrig.c src/config.c src/db.c \
+	      -o $@ tools/tour-check.c src/tour.c src/powerhold.c src/zyperrig.c src/config.c src/db.c \
 	      src/atomic.c $(I18N_SRC) -lsqlite3 -lm
 
 # A system's color as a mark (DESIGN.md 3.3): as systems.cfg has it on Salt &
@@ -1133,7 +1144,7 @@ build-native/remap-check: tools/remap-check.c src/remap.c src/remap.h src/remaps
                           $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
-	      -o $@ tools/remap-check.c src/remap.c src/remapstore.c src/controls.c src/config.c src/db.c src/atomic.c \
+	      -o $@ tools/remap-check.c src/remap.c src/remapstore.c src/controls.c src/powerhold.c src/config.c src/db.c src/atomic.c \
 	      $(I18N_SRC) -lsqlite3
 
 # The in-game Controls pages and the home's A to Z order, drawn
@@ -1149,7 +1160,7 @@ build-native/controls-check: tools/controls-check.c tools/legend.h src/controls.
                             $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
-	      -o $@ tools/controls-check.c src/controls.c src/remap.c src/config.c src/db.c src/atomic.c \
+	      -o $@ tools/controls-check.c src/controls.c src/powerhold.c src/remap.c src/config.c src/db.c src/atomic.c \
 	      $(I18N_SRC) -lsqlite3
 
 build-native/menu-check: tools/menu-check.c tools/legend.h src/wifi_menu.c src/wifi.c \
@@ -1161,7 +1172,7 @@ build-native/menu-check: tools/menu-check.c tools/legend.h src/wifi_menu.c src/w
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -o $@ \
 	      tools/menu-check.c src/wifi_menu.c src/wifi.c src/sys_menu.c \
-	      src/menu.c src/game_menu.c src/controls.c src/remap.c src/ctltab.c src/audioout.c \
+	      src/menu.c src/game_menu.c src/controls.c src/powerhold.c src/remap.c src/ctltab.c src/audioout.c \
 	      src/sidelights.c src/keyhints.c src/spawn.c $(I18N_SRC)
 
 # What the launcher tells the side lights' gauge (src/sidelights.h): the lines
@@ -1291,10 +1302,10 @@ check-resident:
 		echo "check-resident: skipped, no SDL2"; \
 	fi
 
-build-native/resident-check: tools/resident-check.c src/resident.c src/platform.h src/device.h FORCE
+build-native/resident-check: tools/resident-check.c src/resident.c src/powerhold.c src/platform.h src/device.h FORCE
 	@mkdir -p build-native
 	@$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g $$(sdl2-config --cflags) \
-	      -o $@ tools/resident-check.c src/resident.c $$(sdl2-config --libs)
+	      -o $@ tools/resident-check.c src/resident.c src/powerhold.c $$(sdl2-config --libs)
 
 # spawn_detached (src/spawn.h): a program that outlives the launcher, with
 # real processes - its own pid back, not this process's child, a failed exec
@@ -1310,10 +1321,10 @@ build-native/spawn-check: tools/spawn-check.c src/spawn.c src/spawn.h FORCE
 # The launcher's resident.c, the device stubbed, against a real Diatom: the
 # zone chosen in Date & Time reaches a game's clock (tools/gamezone-check.c).
 # Run by check-diatom, after Diatom's own build.
-build-native/gamezone-check: tools/gamezone-check.c src/resident.c src/platform.h src/device.h FORCE
+build-native/gamezone-check: tools/gamezone-check.c src/resident.c src/powerhold.c src/platform.h src/device.h FORCE
 	@mkdir -p build-native
 	@$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g $$(sdl2-config --cflags) \
-	      -o $@ tools/gamezone-check.c src/resident.c $$(sdl2-config --libs)
+	      -o $@ tools/gamezone-check.c src/resident.c src/powerhold.c $$(sdl2-config --libs)
 
 build-native/clock-check: tools/clock-check.c src/clock.c src/clock.h src/menu.h $(I18N_SRC) FORCE
 	@mkdir -p build-native
@@ -1428,7 +1439,7 @@ build-native/rahash-check: tools/rahash-check.c $(RAHASH_SRC) src/rahashjob.c sr
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g $(LZMA_CFLAGS) \
 	      -o $@ tools/rahash-check.c $(RAHASH_SRC) src/rahashjob.c -lz $(LZMA_LIBS) -lpthread
 
-.PHONY: check-noticeq check-badges check-badge-shots check-rasubmit check-lowbatt check-heat check-charging
+.PHONY: check-noticeq check-badges check-badge-shots check-rasubmit check-lowbatt check-powerhold check-heat check-charging
 
 # The pop-ups over a game, one after another (src/noticeq.h)
 check-noticeq: build-native/noticeq-check
@@ -2012,7 +2023,7 @@ check-tour-colors:
 		  $$(pkg-config --cflags sdl2 SDL2_ttf SDL2_image) -Isrc \
 		  -o build-native/tour-colors-check tools/tour-colors-check.c src/ui.c src/ds/glyph.c src/folderart.c src/roundrect.c \
 		  src/theme.c src/themefile.c src/look.c src/linebreak.c src/blur.c src/cardgen.c \
-		  src/sysmark.c src/tour.c src/tourdraw.c src/tourdevice.c src/zyperrig.c src/osdbar.c src/db.c $(I18N_SRC) \
+		  src/sysmark.c src/tour.c src/powerhold.c src/tourdraw.c src/tourdevice.c src/zyperrig.c src/osdbar.c src/db.c $(I18N_SRC) \
 		  $$(pkg-config --libs sdl2 SDL2_ttf SDL2_image) -lsqlite3 -lm && \
 		ZYPEROS_HEADLESS=1 SDL_VIDEODRIVER=dummy SDL_RENDER_DRIVER=software \
 		  ./build-native/tour-colors-check; \
