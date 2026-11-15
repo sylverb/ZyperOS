@@ -7,6 +7,7 @@
 
 #include "design.h"
 #include "sys_menu.h"
+#include "homesys.h"
 #include "i18n.h"
 #include "uisound.h"
 
@@ -74,7 +75,7 @@ pm_tab sys_menu_tab_of(pm_row r)
 	case PM_SCRAPER:
 		return PT_GAMES;
 	case PM_APPEARANCE: case PM_AUTOHOURS: case PM_THEME: case PM_HOME:
-	case PM_ORDER: case PM_BATTERY: case PM_SAVER: case PM_SHADER:
+	case PM_ORDER: case PM_HOMESYS: case PM_BATTERY: case PM_SAVER: case PM_SHADER:
 	case PM_STRENGTH:
 		return PT_DISPLAY;
 	case PM_AUDIO: case PM_CHANNELS: case PM_SOUNDS: case PM_MUSIC:
@@ -210,6 +211,42 @@ int sys_menu_lights_rows(side_lights on, menu_row *out, side_light_part *ids)
 		                                                             : T(S_MENU_OFF_TITLE), true };
 	}
 	return LP_COUNT;
+}
+
+int sys_menu_homesys_rows(const homesys_ui *u, menu_row *out, const char **ids)
+{
+	static const char *const groups[2] = { HOMESYS_FAV, HOMESYS_RECENT };
+	int n = 0, i, on = 0;
+
+	for (i = 0; i < 2; i++) {
+		ids[n] = groups[i];
+		out[n++] = (menu_row){ T(i ? S_LIBRARY_RECENTS : S_LIBRARY_FAVORITES),
+		                       homesys_shown(groups[i]) ? T(S_MENU_ON_TITLE) : T(S_MENU_OFF_TITLE),
+		                       true };
+	}
+	for (i = 0; i < u->n; i++) on += homesys_shown(u->tags[i]);
+	if (u->n > 0) {
+		ids[n] = NULL;
+		out[n++] = MENU_RULE;
+	}
+	for (i = 0; i < u->n && n < HS_ROWS - 4; i++) {
+		bool shown = homesys_shown(u->tags[i]);
+
+		ids[n] = u->tags[i];
+		/* The last one on stays on: a home with no system is the empty
+		 * home's, which says the card has no games */
+		out[n++] = (menu_row){ u->names[i], shown ? T(S_MENU_ON_TITLE) : T(S_MENU_OFF_TITLE),
+		                       !(shown && on == 1) };
+	}
+	ids[n] = NULL;
+	out[n++] = MENU_RULE;
+	ids[n] = NULL;
+	out[n++] = MENU_NOTE(T(S_SYSMENU_HOME_SYSTEMS_NOTE));
+	if (on == 1) {
+		ids[n] = NULL;
+		out[n++] = MENU_NOTE(T(S_SYSMENU_HOME_SYSTEMS_LAST));
+	}
+	return n;
 }
 
 int sys_menu_sgdb_rows(const char *masked, const char *state, menu_row *out,
@@ -528,6 +565,9 @@ int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
 	/* The systems' order on the home, A to Z or by release date, stepped
 	 * round like Home Screen (docs/design/mock/controls-lab.html) */
 	full[PM_ORDER] = (menu_row){ T(S_SYSMENU_SYSTEM_ORDER), u->order ? u->order : sys_menu_order_name(false), true };
+	/* Which shelves the home shows (src/homesys.h); A opens the switches */
+	full[PM_HOMESYS] = (menu_row){ T(S_SYSMENU_HOME_SYSTEMS),
+	                               u->homesys ? u->homesys : T(S_SYSMENU_HOME_SYSTEMS_ALL), true };
 	/* The status corner's battery: the mark alone, or its charge written
 	 * beside it (2026-11-05). On every device: both have a battery. */
 	full[PM_BATTERY] = (menu_row){ T(S_SYSMENU_BATTERY_ICON), u->battery ? u->battery : sys_menu_battery_name(0), true };

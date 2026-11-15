@@ -334,6 +334,61 @@ de = Erscheinungsdatum
 ja = 発売日
 it = Data di uscita
 
+[sysmenu.home_systems]
+note = A MENU row on Display, under System Order: which shelves the home shows, each system with games, Favorites and Recents; A opens the page of switches. Its heading too
+en = Home Systems
+zh-Hans = 主屏幕系统
+es = Sistemas en inicio
+pt-BR = Sistemas no início
+fr = Systèmes affichés
+de = Angezeigte Systeme
+ja = ホームのシステム
+it = Sistemi in Home
+
+[sysmenu.home_systems_all]
+note = Home Systems' value when every shelf is on the home. Short, as a value is
+en = All
+zh-Hans = 全部
+es = Todos
+pt-BR = Todos
+fr = Tous
+de = Alle
+ja = すべて
+it = Tutti
+
+[sysmenu.home_systems_some]
+note = Home Systems' value when some shelves are off: how many are on the home, of how many there are (12 of 15)
+en = %d of %d
+zh-Hans = %d / %d
+es = %d de %d
+pt-BR = %d de %d
+fr = %d sur %d
+de = %d von %d
+ja = %d / %d
+it = %d di %d
+
+[sysmenu.home_systems_note]
+note = Under Home Systems' switches: a system turned off leaves the home, Random Game and Search, and nothing of it is deleted: its games stay on the card. One line, as short as English's
+en = Games stay on the card.
+zh-Hans = 游戏仍保留在存储卡上。
+es = Los juegos siguen en la tarjeta.
+pt-BR = Os jogos ficam no cartão.
+fr = Les jeux restent sur la carte.
+de = Spiele bleiben auf der Karte.
+ja = ゲームはカードに残ります。
+it = I giochi restano sulla scheda.
+
+[sysmenu.home_systems_last]
+note = Under Home Systems' switches, when only one system is on the home: that one cannot be turned off, and this says why. One line, as short as English's
+en = One system stays on the home.
+zh-Hans = 主屏幕至少保留一个系统。
+es = Un sistema sigue en el inicio.
+pt-BR = Um sistema fica no início.
+fr = Un système reste à l'accueil.
+de = Ein System bleibt immer an.
+ja = システムは 1 つ残ります。
+it = Un sistema resta sulla Home.
+
 [sysmenu.battery_icon]
 note = A MENU row: how the status corner shows the battery
 en = Battery Icon

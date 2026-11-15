@@ -35,6 +35,17 @@ de = Favoriten
 ja = お気に入り
 it = Preferiti
 
+[home.recents]
+note = The Recents shelf's name on the home: the 10 games played last (beside Favorites)
+en = Recents
+zh-Hans = 最近
+es = Recientes
+pt-BR = Recentes
+fr = Récents
+de = Zuletzt
+ja = 最近
+it = Recenti
+
 [home.system]
 note = A system's name on the home when it has none of its own
 en = System

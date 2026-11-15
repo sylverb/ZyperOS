@@ -102,7 +102,12 @@ class Page:
         self.browser = subprocess.Popen(
             [chrome, '--headless=new', '--remote-debugging-port=0', f'--user-data-dir={self.profile}',
              '--no-first-run', '--no-default-browser-check', '--disable-background-networking',
-             '--disable-component-update', '--disable-sync', '--no-pings', 'about:blank'],
+             '--disable-component-update', '--disable-sync', '--no-pings',
+             # at the priority of a page in front, as tools/play-check.py's
+             # CHROME_FLAGS says: covered or in the background, Chrome turns
+             # its renderer down, and the page's timed steps came late
+             '--disable-renderer-backgrounding', '--disable-background-timer-throttling',
+             '--disable-backgrounding-occluded-windows', 'about:blank'],
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         for _ in range(100):
             port = self.profile / 'DevToolsActivePort'

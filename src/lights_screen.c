@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "lights_screen.h"
+#include "shelfbuild.h"
 
 #include "app.h"
 #include "panel.h"
@@ -73,11 +74,9 @@ void language_apply(app *a, lang l, bool keep)
 	ui_fonts_for(l);
 	ui_text_memo_clear();
 	a->menu_w = 0;
-	/* The one shelf whose name is a word and not a system's: Favorites,
-	 * named when the shelves were built (src/shelfbuild.c) */
-	if (a->sys.count > 0 && !strcmp(a->sys.systems[0].tag, "FAV"))
-		snprintf(a->sys.systems[0].name, sizeof a->sys.systems[0].name, "%s",
-		         T(S_LIBRARY_FAVORITES));
+	/* The shelves whose names are words and not a system's: Favorites and
+	 * Recents, named when the shelves were built (src/shelfbuild.c) */
+	shelf_groups_rename(a);
 	if (!keep) return;
 	db_set_str(db_dev(), "language", lang_code(l));
 	boot_theme_changed();
