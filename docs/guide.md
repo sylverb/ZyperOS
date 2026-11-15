@@ -119,7 +119,7 @@ it away.
 | **F1/F2** | brightness, everywhere, including in game |
 | **MENU** (on the systems row) | the ZyperOS menu - settings that are about the firmware |
 | **MENU** (inside a system) | that system's menu, below |
-| **MENU** (in game) | the in-game menu, in four tabs that L1 and R1 go round: **Game** (Continue, Save, Load, Quick Slot, Disc in a game on more than one disc, Player 2 in an NES game on the Pixel 2, Achievements, Reset, Quit), **Display** (Display, Shader, Strength while the shader is an old screen, and a DS game's Screens, Swap Screens and Stylus), **Controls** (what each button does, Pak in a Nintendo 64 game) and **Achievements** (the game's list, A opening one, or why it has none; A on the Game tab's Achievements row turns to it). See **Changing a button** below and **Player 2**. It opens when you let go, so MENU can be held for brightness, and it opens on the tab and row you left while you play the same game |
+| **MENU** (in game) | the in-game menu, in four tabs that L1 and R1 go round: **Game** (Continue, Save, Load, Undo Load after a load, Quick Slot, Disc in a game on more than one disc, Player 2 in an NES game on the Pixel 2, Achievements, Reset, Quit), **Display** (Display, Shader, Strength while the shader is an old screen, and a DS game's Screens, Swap Screens and Stylus), **Controls** (what each button does, Pak in a Nintendo 64 game) and **Achievements** (the game's list, A opening one, or why it has none; A on the Game tab's Achievements row turns to it). See **Changing a button** below and **Player 2**. It opens when you let go, so MENU can be held for brightness, and it opens on the tab and row you left while you play the same game |
 | **X** (in the in-game menu) | Quit, from any row of any tab: the game ends and the shelf comes back, as A on Quit does. The Quit row shows the X button to remind you |
 | **SELECT+R1** (in game) | quick save: a state into the Quick Slot |
 | **SELECT+L1** (in game) | quick load: the state in the Quick Slot |
@@ -457,7 +457,16 @@ On a network, that driver's power saving is off: with it on, this chip is
 known to drop off some routers over and over. Each join and each drop, with
 the reason the network or the adapter gave, goes in
 `.userdata/pixel2/logs/wifi.log`, which File Transfer's **Download logs**
-packs with the other logs.
+packs with the other logs. While joined, the signal goes there too: its
+strength, speed and channel every minute and when it changes a lot, and at
+each drop the last one seen, so a log says whether the adapter was on a weak
+signal when it lost the network.
+
+A drop in the middle of joining used to count as a wrong password: the
+network then stayed off for 10 seconds, and longer each time it happened
+again. A network that already joined with its password now tries again at
+once instead, one time for each join, so a password that really changed
+still waits as before.
 
 On the Play Time screen, **left and right** change the window - all time, this
 year, this month, this week, today - and **Y** switches between one row per
@@ -605,6 +614,12 @@ written. Quick Slot is one of the six slots of Save and Load, slot 1 until you
 pick another, and each system remembers its own. A system whose emulator keeps
 no states (ScummVM, J2ME) has no Quick Slot, and there R1 and L1 under SELECT
 are the game's.
+
+**Undo Load.** Every load you make, the in-game menu's Load or SELECT+L1,
+first keeps the game as it was a moment before. After a load the in-game
+menu's Game tab has **Undo Load**, under Load: A on it takes the game back to
+that moment, so a slot loaded by mistake costs nothing. One is kept, for each
+game, until the next load replaces it.
 
 **Save states are packed** as they are written, the six slots and the resume
 point alike, so they take little of the card: a Nintendo 64 game's is about

@@ -121,6 +121,17 @@ de = Sitzung beendet. Gib die PIN erneut ein.
 ja = セッションが終了しました。もう一度 PIN を入力してください。
 it = Sessione terminata. Inserisci di nuovo il PIN.
 
+[web.gate.session_ended_sending]
+note = The PIN screen comes back while a file waits to go on: after the PIN, it goes on from what the handheld kept
+en = Session ended. Enter the PIN again, and sending goes on from where it stopped.
+zh-Hans = 会话已结束。请重新输入 PIN，发送会从中断处继续。
+es = La sesión terminó. Escribe el PIN de nuevo y el envío seguirá desde donde se detuvo.
+pt-BR = A sessão terminou. Digite o PIN de novo, e o envio continua de onde parou.
+fr = Session terminée. Saisissez de nouveau le PIN, et l'envoi reprend là où il s'est arrêté.
+de = Sitzung beendet. Gib die PIN erneut ein, dann geht das Senden dort weiter, wo es stoppte.
+ja = セッションが終了しました。もう一度 PIN を入力すると、止まったところから送信を続けます。
+it = Sessione terminata. Inserisci di nuovo il PIN e l'invio riprende da dove si era fermato.
+
 # ---- the sidebar --------------------------------------------------------------
 
 [web.side.folders]
@@ -966,6 +977,127 @@ fr = non envoyé
 de = nicht gesendet
 ja = 未送信
 it = non inviato
+
+[web.queue.waiting_head]
+note = The uploads' heading while a file waits for the handheld: the connection broke, and the page asks every two seconds to go on
+en = Waiting for the handheld
+zh-Hans = 正在等待掌机
+es = Esperando a la consola
+pt-BR = Aguardando o console
+fr = En attente de la console
+de = Warten auf die Konsole
+ja = 本体を待っています
+it = In attesa della console
+
+[web.queue.waiting_kept]
+note = Under that heading: how much of the file the handheld keeps ("300.2 MB" of "517.0 MB"), and that the rest goes by itself
+en = Connection lost. %s of %s is kept on the handheld, and the rest goes when it answers.
+zh-Hans = 连接已断开。掌机上已保留 %s（共 %s），掌机响应后继续发送其余部分。
+es = Se perdió la conexión. La consola guarda %s de %s, y el resto se envía cuando responda.
+pt-BR = A conexão caiu. O console guardou %s de %s, e o resto vai quando ele responder.
+fr = Connexion perdue. La console garde %s sur %s, et le reste part dès qu'elle répond.
+de = Verbindung verloren. Die Konsole behält %s von %s, der Rest folgt, sobald sie antwortet.
+ja = 接続が切れました。本体に %s / %s が保存されています。本体が応答したら残りを送ります。
+it = Connessione persa. La console conserva %s di %s, e il resto parte quando risponde.
+
+[web.queue.waiting_check]
+note = After 30 seconds with no answer: the address the page is open at ("192.168.1.42"), which the handheld's screen shows
+en = Still no answer. Check that File Transfer is open on the handheld at %s.
+zh-Hans = 仍然没有响应。请确认掌机上的文件传输仍在 %s 打开。
+es = Sigue sin responder. Comprueba que Transferir archivos esté abierto en la consola en %s.
+pt-BR = Ainda sem resposta. Veja se o Transferir arquivos está aberto no console em %s.
+fr = Toujours pas de réponse. Vérifiez que Transfert de fichiers est ouvert sur la console à %s.
+de = Noch keine Antwort. Prüfe, ob die Dateiübertragung auf der Konsole unter %s geöffnet ist.
+ja = まだ応答がありません。本体のファイル転送が %s で開いているか確認してください。
+it = Ancora nessuna risposta. Controlla che Trasferimento file sia aperto sulla console a %s.
+
+[web.job.paused]
+note = A file's status in the uploads' list while it waits: how much of it the handheld keeps ("58%")
+en = paused at %s
+zh-Hans = 已暂停于 %s
+es = en pausa al %s
+pt-BR = pausado em %s
+fr = en pause à %s
+de = pausiert bei %s
+ja = %s で一時停止
+it = in pausa al %s
+
+[web.queue.stop]
+note = A button while a file waits for the handheld: what has not gone stays on this computer
+en = Stop sending
+zh-Hans = 停止发送
+es = Dejar de enviar
+pt-BR = Parar de enviar
+fr = Arrêter l'envoi
+de = Senden stoppen
+ja = 送信を止める
+it = Interrompi l'invio
+
+[web.queue.back]
+note = For a few seconds once the handheld answers again: the file goes on from what it kept ("58%")
+en = Connection back. Going on from %s.
+zh-Hans = 连接已恢复。从 %s 继续。
+es = Conexión recuperada. Sigue desde el %s.
+pt-BR = A conexão voltou. Continuando de %s.
+fr = Connexion rétablie. Reprise à %s.
+de = Verbindung wieder da. Weiter ab %s.
+ja = 接続が戻りました。%s から続けます。
+it = Connessione tornata. Si riprende dal %s.
+
+[web.queue.back_dock]
+note = The same on a phone's one line of uploads, before "2 of 3"
+en = Connection back
+zh-Hans = 连接已恢复
+es = Conexión recuperada
+pt-BR = A conexão voltou
+fr = Connexion rétablie
+de = Verbindung wieder da
+ja = 接続が戻りました
+it = Connessione tornata
+
+[web.queue.gave_up]
+note = After 10 minutes with no answer the page stops asking: Try again goes on from what the handheld kept ("58%")
+en = The handheld did not answer for 10 minutes. Try again to go on from %s.
+zh-Hans = 掌机 10 分钟没有响应。重试即可从 %s 继续。
+es = La consola no respondió durante 10 minutos. Vuelve a intentarlo para seguir desde el %s.
+pt-BR = O console não respondeu por 10 minutos. Tente de novo para continuar de %s.
+fr = La console n'a pas répondu pendant 10 minutes. Réessayez pour reprendre à %s.
+de = Die Konsole hat 10 Minuten nicht geantwortet. Versuche es erneut, um ab %s weiterzumachen.
+ja = 本体が 10 分間応答しませんでした。もう一度試すと %s から続けます。
+it = La console non ha risposto per 10 minuti. Riprova per continuare dal %s.
+
+[web.queue.gave_up_none]
+note = The same when the handheld kept nothing of the file
+en = The handheld did not answer for 10 minutes.
+zh-Hans = 掌机 10 分钟没有响应。
+es = La consola no respondió durante 10 minutos.
+pt-BR = O console não respondeu por 10 minutos.
+fr = La console n'a pas répondu pendant 10 minutes.
+de = Die Konsole hat 10 Minuten nicht geantwortet.
+ja = 本体が 10 分間応答しませんでした。
+it = La console non ha risposto per 10 minuti.
+
+[web.queue.retry]
+note = The button that puts the files that did not go back into the uploads
+en = Try again
+zh-Hans = 重试
+es = Reintentar
+pt-BR = Tentar de novo
+fr = Réessayer
+de = Erneut versuchen
+ja = もう一度試す
+it = Riprova
+
+[web.job.changed]
+note = A file's status: it changed on the phone or computer while it waited, so it cannot go on
+en = changed on this computer
+zh-Hans = 此设备上的文件已更改
+es = cambió en este equipo
+pt-BR = mudou neste computador
+fr = modifié sur cet ordinateur
+de = auf diesem Computer geändert
+ja = このコンピュータで変更されました
+it = modificato su questo computer
 
 [web.queue.n_of]
 note = A phone's one line of uploads: which file of how many

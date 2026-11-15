@@ -8,7 +8,8 @@ from pathlib import Path
 import re
 import sys
 
-source = Path(sys.argv[1]).read_text()
+# main.c and the files split from it that hold the hooks; the header last
+source = '\n'.join(Path(p).read_text() for p in sys.argv[1:-1])
 functions = []
 for name in ('sort_shelf', 'refresh_game_titles', 'scraper_page'):
     # sort_shelf is not static: src/shelfbuild.c sorts too (src/app.h)
@@ -17,4 +18,4 @@ for name in ('sort_shelf', 'refresh_game_titles', 'scraper_page'):
     if not match:
         raise SystemExit(f'Cannot extract production function: {name}')
     functions.append(match.group())
-Path(sys.argv[2]).write_text('\n\n'.join(functions) + '\n')
+Path(sys.argv[-1]).write_text('\n\n'.join(functions) + '\n')

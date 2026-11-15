@@ -389,10 +389,12 @@ static const ctl_pad PADS[] = {
 	/* PrBoom's classic layout (libretro/libretro.c at the pin, after the
 	 * PlayStation's Doom): the d-pad walks and turns, the RetroPad's B
 	 * strafes while held and its X fires. map|DOOM swaps the two, so Fire is
-	 * the B cap, under the thumb beside Run on Y, and Strafe the X cap */
+	 * the B cap, under the thumb beside Run on Y, and Strafe the X cap. Run
+	 * inverts autorun, which ZyperOS's prboom.cfg turns on (1.0.6), so Y
+	 * walks while held */
 	{ "DOOM", NULL, { [P_DPAD] = SAYS(S_CONTROLS_MOVE_TURN),
 	                  [P_A] = SAYS(S_CONTROLS_USE), [P_B] = SAYS(S_CONTROLS_STRAFE),
-	                  [P_X] = SAYS(S_CONTROLS_FIRE), [P_Y] = SAYS(S_CONTROLS_RUN),
+	                  [P_X] = SAYS(S_CONTROLS_FIRE), [P_Y] = SAYS(S_CONTROLS_WALK),
 	                  [P_L1] = SAYS(S_CONTROLS_STRAFE_LEFT),
 	                  [P_R1] = SAYS(S_CONTROLS_STRAFE_RIGHT),
 	                  [P_L2] = SAYS(S_CONTROLS_PREV_WEAPON),

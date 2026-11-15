@@ -143,9 +143,13 @@ bool plat_run_power_pressed(void);
 void plat_note_power_pressed(void);
 
 /* Start a child and forget it: it outlives this process and leaves no zombie
- * behind. This is how a resident emulator that has died gets started again. */
+ * behind. This is how a resident emulator that has died gets started again.
+ * The _pid form returns the program's pid once it is running, or -1 when it
+ * could not be started; the other, whether it was. */
 bool plat_spawn_detached(char *const argv[], const char *const envkv[],
                          const char *workdir);
+long plat_spawn_detached_pid(char *const argv[], const char *const envkv[],
+                             const char *workdir);
 
 /* The resident emulator. plat_resident_send() hands over a game and returns
  * at once - the launcher draws nothing over the load, because it and the
@@ -162,6 +166,13 @@ bool plat_spawn_detached(char *const argv[], const char *const envkv[],
 #define RES_EXIT   1   /* the game ran and is over */
 #define RES_PAUSED 2   /* Diatom only: menu open, the launcher owns the display */
 const char *plat_resident_socket(void);
+/* The resident's pid file, /tmp/diatom.pid (ZYPEROS_DIATOM_PIDFILE for a
+ * check): launch.sh writes it when it starts a resident, and the launcher
+ * when it starts one again after a crash (plat_resident_note_pid, written
+ * whole under another name and renamed over), so launch.sh, which reads it
+ * to find the running resident, never starts a second one beside it. */
+const char *plat_resident_pidfile(void);
+bool plat_resident_note_pid(long pid);
 bool plat_resident_ready(void);
 /* plat_resident_ready, waiting up to max_ms for a Diatom that is running but
  * not answering yet (still starting); false at once when none is running. */

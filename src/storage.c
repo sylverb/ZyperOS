@@ -574,7 +574,7 @@ static unsigned long long unused_art(const char *roms, const char *folder,
  * left in, src/dsresume.h): its base's length, 0 when it is not one */
 static size_t state_base_len(const char *name)
 {
-	static const char *const SLOTS[] = { "auto", "1", "2", "3", "4", "5", "6" };
+	static const char *const SLOTS[] = { "auto", "1", "2", "3", "4", "5", "6", "undo" };
 	size_t n = strlen(name), i;
 
 	if (ends_ci(name, n, ".state")) n -= 6;

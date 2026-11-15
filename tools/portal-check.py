@@ -36,6 +36,13 @@ protocol. What it holds, each a thing I asked for on 2026-11-06:
     Transfer over the cable and Wi-Fi File Transfer over Wi-Fi, in its tab,
     on the PIN screen and over the folders, and never a name the browser
     kept from the other link
+  - a drop in the middle of an upload (2026-11-14: a 517 MB disc lost
+    whole to a few seconds without Wi-Fi): the file waits for the handheld,
+    says how much it kept and, after a while, the address to check, then
+    goes on from there and lands to the byte; Stop sending lets the handheld
+    go of its part; ten minutes with no answer give up, and Try again goes
+    on from the part; a page loaded again, with the same file picked again,
+    goes on from it too
 
 No device is touched and nothing is fetched from the internet: the release
 GitHub would answer is given to the page. Chrome is needed; without it the
@@ -457,6 +464,145 @@ def main():
             check(signed_in(page, server) and page.js(f"{names}.every((n) => n === 'Wi-Fi File Transfer')"),
                   f"the page is Wi-Fi File Transfer: {page.js(names)}")
             server.stop()
+
+            print('a drop in the middle of an upload: the file waits, then goes on:')
+            server = Server(card, web, 'update=off')
+            nes = card / 'Roms/NES'
+            check(signed_in(page, server, 'roms/NES'), 'the page came up past the PIN')
+            offline = lambda on, up=-1: page.dt.call('Network.emulateNetworkConditions', offline=on, latency=0,
+                                                     downloadThroughput=-1, uploadThroughput=up)
+            head = "document.getElementById('queuehead').textContent"
+            left = "document.getElementById('queueleft').textContent"
+            row = "(document.querySelector('#queuelist .p') || {}).textContent"
+            shown = lambda id: f"!document.getElementById('{id}').hidden"
+            pattern = bytes(i * 13 % 251 for i in range(3000000))
+            page.js("""(() => {
+                Object.assign(RESUME, { min: 0, ask: 300, wait: 1000, stall: 3000, check: 1500 });
+                window.__puts = [];
+                const open = XMLHttpRequest.prototype.open;
+                XMLHttpRequest.prototype.open = function (m, url) { window.__puts.push(url); return open.apply(this, arguments); };
+                const d = new Uint8Array(3000000).map((_, i) => i * 13 % 251);
+                window.__drop = (name) => new File([d], name, { lastModified: 1731500000000 });
+            })()""")
+
+            def cut(name):
+                """The file going up slowly, and a third of the way in the
+                handheld off the network, its connections gone with it
+                (portal-serve's away and cut: Chrome's offline lets an upload
+                on its way finish)"""
+                offline(False, 262144)
+                page.js(f"enqueue([__drop({json.dumps(name)})], 'roms/NES')")
+                ok = page.until("queue.length > 0 && queue[0].loaded > 900000", 20)
+                server.say('away')
+                server.say('cut')
+                offline(False)
+                return ok and page.until(f"{head} === 'Waiting for the handheld'", 10)
+
+            check(cut('Drop.bin'), 'the network gone, the file waits for the handheld: ' + str(page.js(head)))
+            check(page.js(f"{left}.startsWith('Connection lost. ') && {left}.endsWith(' is kept on the handheld, "
+                          f"and the rest goes when it answers.')") and
+                  page.js(f"/^paused at \\d+%$/.test({row})") and page.js(shown('queuestop')),
+                  'it says what is kept, the row is paused, and Stop sending is there: ' +
+                  str(page.js(f"[{left}, {row}]")))
+            check(page.until(shown('queuecheck'), 15) and
+                  page.js("document.getElementById('queuecheck').textContent") ==
+                  f"Still no answer. Check that File Transfer is open on the handheld at {server.origin[7:]}.",
+                  'after a while, the address to check: ' + str(page.js("document.getElementById('queuecheck').textContent")))
+            check((nes / 'Drop.bin.part').is_file() and not (nes / 'Drop.bin').exists(),
+                  'the handheld kept a part and nothing under the name')
+            server.say('back')
+            check(page.until("queue[0].state === 'done'", 30), 'the network back, it went on: ' +
+                  str(page.js("queue.map((j) => j.state + ' ' + (j.why || ''))")))
+            puts = page.js("window.__puts")
+            check(len(puts) >= 2 and '&from=0' in puts[0] and '&from=0' not in puts[-1],
+                  f'the second try went on from where the first stopped: {puts}')
+            check((nes / 'Drop.bin').read_bytes() == pattern and not (nes / 'Drop.bin.part').exists(),
+                  'on the card to the byte, and no part left')
+            page.until("queue.length === 0", 5)
+
+            print('  a drop the browser does not notice: a file that stops moving waits too:')
+            page.js("window.__puts.length = 0")
+            offline(False, 262144)
+            page.js("enqueue([__drop('Still.bin')], 'roms/NES')")
+            check(page.until("queue.length > 0 && queue[0].loaded > 600000", 20), 'it went up a while')
+            server.say('away')
+            # The computer's own buffers take what they can first, a few
+            # seconds of it at this speed
+            check(page.until(f"{head} === 'Waiting for the handheld'", 40), 'stopped moving, it waits: ' + str(page.js(head)))
+            offline(False)
+            server.say('back')
+            check(page.until("queue[0].state === 'done'", 30), 'the handheld back, it went on')
+            check((nes / 'Still.bin').read_bytes() == pattern and not (nes / 'Still.bin.part').exists(),
+                  'on the card to the byte, and no part left')
+            page.until("queue.length === 0", 5)
+
+            print('  Stop sending:')
+            page.js("RESUME.ask = 60000")
+            check(cut('Stopped.bin'), 'waiting for the handheld again')
+            check((nes / 'Stopped.bin.part').is_file(), 'a part kept')
+            # Stopped while the handheld is still away, so nothing can go on
+            # first; its DELETE waits for it to come back
+            page.js("document.getElementById('queuestop').click()")
+            server.say('back')
+            check(page.until(f"{head} === '0 sent, 1 not sent'", 5) and page.js(f"{row} === 'not sent'"),
+                  'it stopped, and the file stayed here: ' + str(page.js(f"[{head}, {row}]")))
+            check(page.until("document.getElementById('queueacts').hidden", 2), 'no button is left')
+            # Its DELETE may wait for a connection a while: the handheld's
+            # queue of them filled with the page's asks while it was away
+            for _ in range(250):
+                if not (nes / 'Stopped.bin.part').exists():
+                    break
+                time.sleep(0.1)
+            check(not (nes / 'Stopped.bin.part').exists() and not (nes / 'Stopped.bin').exists(),
+                  'the handheld let go of its part')
+            page.js("fresh()")
+
+            print('  ten minutes with no answer, and Try again:')
+            page.js("Object.assign(RESUME, { ask: 300, giveUp: 2000 })")
+            check(cut('Late.bin'), 'waiting for the handheld once more')
+            # A browser may send the broken PUT again by itself, into its own
+            # buffers, before it stalls: the wait counts from then
+            check(page.until(f"{head} === '0 sent, 1 failed'", 40) and
+                  page.js(f"/^The handheld did not answer for 10 minutes. Try again to go on from \\d+%.$/.test({left})") and
+                  page.js(f"{row} === 'connection lost'") and page.js(shown('queueretry')) and
+                  not page.js(shown('queuestop')),
+                  'it gave up, said so, and offers Try again: ' + str(page.js(f"[{head}, {left}, {row}]")))
+            server.say('back')
+            page.js("window.__puts.length = 0; document.getElementById('queueretry').click()")
+            check(page.until("queue[0].state === 'done'", 30), 'Try again sent it: ' +
+                  str(page.js("queue.map((j) => j.state + ' ' + (j.why || ''))")))
+            puts = page.js("window.__puts")
+            check(puts and all('&from=0' not in u for u in puts), f'from the part the handheld kept: {puts}')
+            check((nes / 'Late.bin').read_bytes() == pattern, 'on the card to the byte')
+            page.until("queue.length === 0", 5)
+
+            print('  loaded again, the same file picked again:')
+            check(cut('Again.bin'), 'waiting for the handheld before the page is left')
+            # Left while the handheld is away, so this page cannot go on with
+            # it, and opened again once it is back
+            page.js("sending = false")
+            page.dt.call('Page.navigate', url='about:blank')
+            page.until("location.href === 'about:blank'")
+            server.say('back')
+            time.sleep(0.5)
+            check((nes / 'Again.bin.part').is_file(), 'the part is kept')
+            fresh(page, f'{server.origin}/#roms/NES')
+            check(page.until("document.readyState === 'complete' && typeof enqueue === 'function' && "
+                             "!document.getElementById('app').hidden", 10), 'the page came up again, still signed in')
+            page.js("""(() => {
+                RESUME.min = 0;
+                window.__puts = [];
+                const open = XMLHttpRequest.prototype.open;
+                XMLHttpRequest.prototype.open = function (m, url) { window.__puts.push(url); return open.apply(this, arguments); };
+                const d = new Uint8Array(3000000).map((_, i) => i * 13 % 251);
+                enqueue([new File([d], 'Again.bin', { lastModified: 1731500000000 })], 'roms/NES');
+            })()""")
+            check(page.until("queue.length > 0 && queue[0].state === 'done'", 30), 'the file picked again went')
+            puts = page.js("window.__puts")
+            check(puts and all('&from=0' not in u for u in puts), f'it went on from the kept part: {puts}')
+            check((nes / 'Again.bin').read_bytes() == pattern, 'on the card to the byte')
+            offline(False)
+            server.stop()
         finally:
             page.close()
     if failures:
@@ -464,7 +610,7 @@ def main():
         return 1
     print('\nok: the page wears its art, hides dot folders, counts the room, says the time, '
           'follows the handheld\'s stop, updates over the cable, moves files by dragging, '
-          'speaks its language and is named after its link')
+          'speaks its language, is named after its link and goes on after a drop')
     return 0
 
 

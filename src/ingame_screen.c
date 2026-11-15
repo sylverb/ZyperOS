@@ -25,6 +25,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 /* ---------- launching ----------------------------------------------------- */
 
@@ -398,6 +399,20 @@ static void gm_step_strength(app *a, int d)
 gm_disc_state g_gm_disc;
 int g_shot_discs;
 const char *g_shot_disc_label;
+/* --gm-undo: Undo Load's row in a shot, with no state behind it */
+bool g_shot_undo;
+
+/* Where the focused game's Undo Load state is (SLOT_UNDO): as its slots are,
+ * under its own system on Favorites too (shelf_owner). False with no game. */
+static bool undo_path(app *a, char *out, size_t n)
+{
+	sysview *sv = &a->view[a->sys_cursor];
+
+	if (sv->list.count <= 0 || sv->cursor < 0 || sv->cursor >= sv->list.count) return false;
+	slot_state_path(a, shelf_owner(a, a->sys_cursor, sv->cursor),
+	                &sv->list.items[sv->cursor], SLOT_UNDO, out, n);
+	return true;
+}
 
 /* "DISC\tindex=1\tcount=3\tejected=0\tlabel=..." into g_gm_disc. The label is
  * the last field and may hold spaces; Diatom made its tabs spaces. */
@@ -475,7 +490,10 @@ void gm_gather(app *a, gm_ui *out)
 	gm_ui u;
 
 	memset(&u, 0, sizeof u);
-	u.dmode  = dmode_label(a->view[a->sys_cursor].dmode);
+	/* The owner's, as the shader's: the game's own system's, which launch
+	 * sent and the row sets (gm_cycle_display). The shelf's read Stretch
+	 * over every favorite until 1.0.6: nothing sets Favorites' own mode. */
+	u.dmode  = dmode_label(owner_view(a)->dmode);
 	/* The owner's, which is the one its row sets (gm_cycle_shader) */
 	u.shader = shader_label(owner_view(a)->shader);
 	u.strength = strength_row_label(a, (int)(owner_view(a) - a->view));
@@ -498,6 +516,13 @@ void gm_gather(app *a, gm_ui *out)
 		                                      a->view[a->sys_cursor].cursor)];
 
 		u.quick = ctl_has_states(q->tag) ? quick_slot_get(q->tag) : 0;
+		/* A state from before the last load: Undo Load. Asked of the card
+		 * at each key, as cheap as the slot strip's look at its files */
+		if (ctl_has_states(q->tag)) {
+			char up[LIB_PATH * 2];
+
+			u.undo = g_shot_undo || (undo_path(a, up, sizeof up) && access(up, R_OK) == 0);
+		}
 		/* An N64 game's Pak, on either N64 core */
 		if (pak_system(q) && a->view[a->sys_cursor].list.count > 0)
 			u.pak = gm_pak_name(pak_get(q, a->view[a->sys_cursor].list
@@ -1627,6 +1652,12 @@ static menu_result gm_key(app *a, void *ctx, in_button key, int sel)
 				                  slot, pp, sizeof pp);
 				copy_file(plat_resident_last_preview(), pp);
 			} else {
+				char up[LIB_PATH * 2];
+
+				/* The game as it is, for Undo Load, first: Diatom writes
+				 * it, then loads the slot over it */
+				if (undo_path(a, up, sizeof up))
+					plat_resident_line("SAVE\tpath=%s", up);
 				plat_resident_line("LOAD\tpath=%s", sp);
 			}
 			c->resume = true;
@@ -1664,6 +1695,16 @@ static menu_result gm_key(app *a, void *ctx, in_button key, int sel)
 		g_menu_sel_to = k < n ? k : 0;
 		redraw_now();
 		return MENU_STAY;
+	}
+	/* Back to the game as it was before the last load. Kept: the row stays,
+	 * and goes back to the same moment until the next load writes over it */
+	case GM_UNDO: {
+		char up[LIB_PATH * 2];
+
+		if (!undo_path(a, up, sizeof up) || access(up, R_OK) != 0) break;
+		plat_resident_line("LOAD\tpath=%s", up);
+		c->resume = true;
+		return MENU_DONE;
 	}
 	case GM_RESET:
 		plat_resident_line("RESET");

@@ -372,7 +372,7 @@ bool gd_plan_make(const gd_card *card, const gd_game *g,
 {
 	static sheet_names mine, theirs;
 	static bool shared[SHEET_NAMES];
-	static const char *const SLOTS[] = { "auto", "1", "2", "3", "4", "5", "6" };
+	static const char *const SLOTS[] = { "auto", "1", "2", "3", "4", "5", "6", "undo" };
 	static const char *const MEDIA[] = { "png", "mp4", "png.part", "mp4.part", "mp4.snap",
 	                                     "mp4.snap.part", "png.sgdb", "png.tmp", "png.pick",
 	                                     "png.swap" };
@@ -514,7 +514,7 @@ bool gd_plan_make(const gd_card *card, const gd_game *g,
 		}
 	}
 
-	/* 3. Its states and their pictures, the six slots and Auto (slot_state_path
+	/* 3. Its states and their pictures, the six slots, Auto and Undo Load's (slot_state_path
 	 * in main.c), and the console's states folder if that leaves it empty */
 	if (shares_state(others, nothers, g->folder, sbase)) {
 		p->kept++;

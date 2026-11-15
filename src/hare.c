@@ -487,7 +487,7 @@ void hare_set_space(bool (*fn)(long long *free, long long *total)) { g_space = f
 
 void hare_close_after(void) { g_closing = true; note("%s", T(S_HARE_CLOSING)); }
 bool hare_closing(void) { return g_closing; }
-int  hare_inflight(void) { return g_uploads + g_sends; }
+int  hare_inflight(void) { return g_uploads + g_sends + hare_paused(); }
 unsigned hare_quiet_ms(void) { return now_ms32() - g_last_req; }
 void hare_shelf_seen(void) { g_shelf_changed = false; }
 
@@ -900,7 +900,7 @@ static bool trailer_off(const char *part)
 }
 
 /* Is there room for `want` more bytes where `path` is going? */
-static bool room_for(const char *path, long want)
+static bool room_for(const char *path, long long want)
 {
 	struct statvfs vfs;
 	char dir[XFER_PATH_MAX];
@@ -931,20 +931,458 @@ static bool card_space(long long *free, long long *total)
 /* What a request has put on the screen, so on_end knows it has more to say. */
 enum { TAG_SENDING = 1, TAG_RECEIVING = 2 };
 
+/* ---- uploads that go on from where they broke ---------------------------
+ *
+ * A player's adapter lost the router for a few seconds in the middle of a
+ * 517 MB PlayStation disc, as it did every few minutes on his network, and
+ * the whole upload went each time (2026-11-14): its part-file went with its
+ * connection. Now the page says which file it is sending (size= and mod=
+ * on the PUT, its whole size and its time), and the part of one that breaks
+ * is kept: GET /api/upload says how much of it is here, and the next PUT of
+ * the same file goes on from there (from=). The file takes its name only once
+ * it is whole, as every upload does.
+ *
+ * Which file a part is of: where it is going, its size and its time, as the
+ * page's File has them - not a number the page makes up, so a page loaded
+ * again, or opened at the handheld's new address, sends the same file with
+ * the same three and it goes on. Kept here, in memory; the bytes are in
+ * <name>.part as every upload's. Nothing new on the card, and nothing to
+ * trust once the launcher starts again (a power cut can leave a part's end
+ * unwritten), when sweep_parts takes every part as it always did. A File
+ * Transfer closed and opened again keeps them.
+ *
+ * A part nobody goes on with goes HARE_KEEP_MS after its last byte; at once
+ * when the page stops it (DELETE /api/upload), when another file goes to its
+ * name, at Cancel now (hare_drop_paused), and the oldest when there are more
+ * than KEPT_MAX. A file in place keeps its key as long, so a page that lost
+ * the answer to its last PUT in the drop hears it is done rather than sending
+ * it again. */
+#define KEPT_MAX     8
+/* A kept upload's connection may say nothing this long (httpd_set_idle): TCP
+ * can carry it over a Wi-Fi drop shorter than that by itself, and one that
+ * really went is ended by the PUT that goes on from it */
+#define KEPT_IDLE_MS 60000u
+
+typedef struct {
+	bool       used;
+	bool       done;           /* in place under its name */
+	char       abs[XFER_PATH_MAX];
+	long long  size, mod;
+	unsigned   last;           /* kept_now() at its last byte, or when placed */
+	httpd_req *writer;         /* the request writing it now, or NULL: paused */
+	long long  from;           /* where that request's body starts in it */
+} kept_up;
+
+static kept_up g_kept[KEPT_MAX];
+static unsigned (*g_clock)(void) = now_ms32;
+
+void hare_set_clock(unsigned (*now)(void)) { g_clock = now ? now : now_ms32; }
+static unsigned kept_now(void) { return g_clock(); }
+
+static bool part_of(const char *abs, char *part, size_t n)
+{
+	return snprintf(part, n, "%s.part", abs) < (int)n;
+}
+
+static kept_up *kept_find(const char *abs)
+{
+	int i;
+
+	for (i = 0; i < KEPT_MAX; i++)
+		if (g_kept[i].used && !strcmp(g_kept[i].abs, abs)) return &g_kept[i];
+	return NULL;
+}
+
+static kept_up *kept_writing(const httpd_req *r)
+{
+	int i;
+
+	for (i = 0; i < KEPT_MAX; i++)
+		if (g_kept[i].used && g_kept[i].writer == r) return &g_kept[i];
+	return NULL;
+}
+
+/* Its writer ended by someone else - the PUT that goes on from it, the page
+ * stopping it, a part pushed out: the connection closed with what arrived
+ * kept (httpd_drop), and counted out as on_end would have */
+static void kept_unwrite(kept_up *k)
+{
+	if (!k->writer) return;
+	httpd_drop(k->writer);
+	k->writer = NULL;
+	k->last = kept_now();
+	if (g_uploads > 0) g_uploads--;
+}
+
+/* Gone: its writer ended, and its part with it unless it is in place */
+static void kept_forget(kept_up *k)
+{
+	char part[XFER_PATH_MAX];
+
+	kept_unwrite(k);
+	if (!k->done && part_of(k->abs, part, sizeof part)) remove(part);
+	memset(k, 0, sizeof *k);
+}
+
+/* A place for one more: a free one, or the one that goes - a file in place
+ * before a paused part, a paused part before one being written, and of
+ * those the oldest */
+static kept_up *kept_slot(void)
+{
+	kept_up *out = NULL;
+	unsigned now = kept_now();
+	int i, rank = 3;
+
+	for (i = 0; i < KEPT_MAX; i++)
+		if (!g_kept[i].used) return &g_kept[i];
+	for (i = 0; i < KEPT_MAX; i++) {
+		kept_up *k = &g_kept[i];
+		int r = k->done ? 0 : !k->writer ? 1 : 2;
+
+		if (r < rank || (r == rank && now - k->last > now - out->last)) { out = k; rank = r; }
+	}
+	kept_forget(out);
+	return out;
+}
+
+/* How much of it is here: all of it once in place; what its writer has had,
+ * or the part's size with nobody writing it; never past the file's size (a
+ * break can leave part of the page's trailer after the file's last byte) */
+static long long kept_have(const kept_up *k)
+{
+	char part[XFER_PATH_MAX];
+	struct stat st;
+	long long have = 0;
+
+	if (k->done) return k->size;
+	if (k->writer) have = k->from + httpd_body_got(k->writer);
+	else if (part_of(k->abs, part, sizeof part) && stat(part, &st) == 0) have = (long long)st.st_size;
+	return have < k->size ? have : k->size;
+}
+
+/* The parts nobody went on with for HARE_KEEP_MS, and the keys of files in
+ * place as long ago: gone */
+static void kept_tick(void)
+{
+	unsigned now = kept_now();
+	int i;
+
+	for (i = 0; i < KEPT_MAX; i++) {
+		kept_up *k = &g_kept[i];
+
+		if (!k->used || k->writer || now - k->last <= HARE_KEEP_MS) continue;
+		if (!k->done) note(T(S_HARE_FAILED), base_of(k->abs));
+		kept_forget(k);
+	}
+}
+
+/* Is `path` a part the page may still go on with? sweep_parts leaves it. */
+static bool kept_part(const char *path)
+{
+	char part[XFER_PATH_MAX];
+	int i;
+
+	for (i = 0; i < KEPT_MAX; i++)
+		if (g_kept[i].used && !g_kept[i].done && part_of(g_kept[i].abs, part, sizeof part) &&
+		    !strcmp(part, path))
+			return true;
+	return false;
+}
+
+int hare_paused(void)
+{
+	unsigned now = kept_now();
+	int i, n = 0;
+
+	for (i = 0; i < KEPT_MAX; i++)
+		if (g_kept[i].used && !g_kept[i].done && !g_kept[i].writer &&
+		    now - g_kept[i].last < HARE_PAUSE_MS)
+			n++;
+	return n;
+}
+
+void hare_drop_paused(void)
+{
+	int i;
+
+	for (i = 0; i < KEPT_MAX; i++)
+		if (g_kept[i].used && !g_kept[i].done) kept_forget(&g_kept[i]);
+}
+
+/* The newest paused part: its bytes here, and its whole size, for the
+ * screen's bar while nothing arrives. False with none. */
+static bool kept_newest(long long *got, long long *total)
+{
+	const kept_up *best = NULL;
+	unsigned now = kept_now();
+	int i;
+
+	for (i = 0; i < KEPT_MAX; i++) {
+		const kept_up *k = &g_kept[i];
+
+		if (!k->used || k->done || k->writer || now - k->last >= HARE_PAUSE_MS) continue;
+		if (!best || now - k->last < now - best->last) best = k;
+	}
+	if (!best) return false;
+	*got = kept_have(best);
+	*total = best->size;
+	return true;
+}
+
+/* A whole number from the query as the page writes one: digits, with a minus
+ * first where `neg` allows one (a file's time before 1970). False when it is
+ * not there or is anything else. */
+static bool query_num(const httpd_req *r, const char *key, bool neg, long long *out)
+{
+	char v[24];
+	const char *p = v;
+
+	httpd_query(r, key, v, sizeof v);
+	if (neg && *p == '-') p++;
+	if (!*p || strlen(p) > 18) return false;
+	for (; *p; p++) if (*p < '0' || *p > '9') return false;
+	*out = strtoll(v, NULL, 10);
+	return true;
+}
+
+static bool query_has(const httpd_req *r, const char *key)
+{
+	char v[4];
+
+	return httpd_query(r, key, v, sizeof v)[0] != '\0';
+}
+
+/* Which file an upload is (size= and mod=), and for a PUT where it starts
+ * (from=): 1 with all of them, 0 with none - a PUT as it always was - and -1
+ * for anything between or malformed */
+static int upload_key(const httpd_req *r, bool put, long long *size, long long *mod,
+                      long long *from)
+{
+	bool any = query_has(r, "size") || query_has(r, "mod") || (put && query_has(r, "from"));
+
+	if (!any) return 0;
+	if (!query_num(r, "size", false, size) || !query_num(r, "mod", true, mod)) return -1;
+	if (!put) return 1;
+	if (!query_num(r, "from", false, from) || *from > *size) return -1;
+	return 1;
+}
+
+/* 409: not from where this one asked, and how much is here, in a header the
+ * page reads and in words a person can */
+static void reply_have(httpd_req *r, long long have)
+{
+	char head[64], num[24], words[160], body[200];
+	int n;
+
+	snprintf(head, sizeof head, "X-Upload-Have: %lld\r\n", have);
+	snprintf(num, sizeof num, "%lld", have);
+	snprintf(words, sizeof words, T(S_HARE_HAVE), num);
+	n = snprintf(body, sizeof body, "409 Conflict\n%s\n", words);
+	if (n < 0 || n >= (int)sizeof body) n = 0;
+	httpd_reply(r, 409, "text/plain; charset=utf-8", body, (size_t)n, head);
+}
+
+/* A cover into a console's or an album's .media: the folder is made by what
+ * puts the first cover there (mk/payload.sh no longer ships an empty one per
+ * console), so it is made here, that one level and only under a folder that
+ * is there. */
+static void media_dir(const char *abs)
+{
+	char dir[XFER_PATH_MAX];
+	char *sl;
+
+	snprintf(dir, sizeof dir, "%s", abs);
+	if ((sl = strrchr(dir, '/'))) {
+		*sl = '\0';
+		if (!strcmp(base_of(dir), ".media")) mkdir(dir, 0777);
+	}
+}
+
+/* A PUT that says which file it is, before its body: on from where it says,
+ * or refused with nothing changed */
+static void put_kept(httpd_req *r, const char *abs, long trail, long long size, long long mod,
+                     long long from)
+{
+	char part[XFER_PATH_MAX];
+	kept_up *k = kept_find(abs);
+	bool same = k && !k->done && k->size == size && k->mod == mod;
+
+	/* Closing after the file on its way: that file, paused, still goes on */
+	if (g_closing && !same) {
+		httpd_want_body(r, HTTPD_BODY_NONE, NULL);
+		httpd_reply_status(r, 503, T(S_HARE_CLOSING_REPLY));
+		return;
+	}
+	if (!xfer_name_ok(base_of(abs))) {
+		httpd_want_body(r, HTTPD_BODY_NONE, NULL);
+		httpd_reply_status(r, 400, T(S_HARE_BAD_NAME));
+		return;
+	}
+	/* The body is the rest of the file, and the trailer when it says so */
+	if (trail < 0 || (long long)httpd_content_len(r) - trail != size - from) {
+		httpd_want_body(r, HTTPD_BODY_NONE, NULL);
+		httpd_reply_status(r, 400, T(S_HARE_NOT_AS_SENT));
+		return;
+	}
+	if (!part_of(abs, part, sizeof part)) {
+		httpd_want_body(r, HTTPD_BODY_NONE, NULL);
+		httpd_reply_status(r, 400, T(S_HARE_LONG_NAME));
+		return;
+	}
+	/* Another file under this name, or the same one in place already: from
+	 * the start, or refused when it asks to go on */
+	if (k && !same) {
+		if (from > 0) {
+			httpd_want_body(r, HTTPD_BODY_NONE, NULL);
+			reply_have(r, 0);
+			return;
+		}
+		kept_forget(k);
+		k = NULL;
+	}
+	/* A broken request still writing it - the client's hang-up lost with
+	 * the network - ends here, what it had on the card, and this goes on.
+	 * From exactly what is here, from the start too: a browser sends a PUT
+	 * that broke on a connection it had kept open again by itself, the
+	 * whole of it, and the page never hears of it (Chrome, seen in
+	 * tools/portal-check.py). That one is refused with what is here, so the
+	 * page asks and goes on from there, rather than the part going back to
+	 * nothing. */
+	if (k) kept_unwrite(k);
+	if (from != (k ? kept_have(k) : 0)) {
+		httpd_want_body(r, HTTPD_BODY_NONE, NULL);
+		reply_have(r, k ? kept_have(k) : 0);
+		return;
+	}
+	/* Room for what is still to come: the part holds the rest already */
+	if (!room_for(abs, size - from)) {
+		httpd_want_body(r, HTTPD_BODY_NONE, NULL);
+		httpd_reply_status(r, 507, T(S_HARE_NO_ROOM));
+		return;
+	}
+	media_dir(abs);
+	if (!httpd_want_body_at(r, part, from)) {
+		httpd_want_body(r, HTTPD_BODY_NONE, NULL);
+		httpd_reply_status(r, 500, T(S_HARE_NOT_PLACED));
+		return;
+	}
+	if (!k) {
+		k = kept_slot();
+		k->used = true;
+		snprintf(k->abs, sizeof k->abs, "%s", abs);
+		k->size = size;
+		k->mod = mod;
+	}
+	k->writer = r;
+	k->from = from;
+	k->last = kept_now();
+	httpd_set_idle(r, KEPT_IDLE_MS);
+	g_uploads++;
+	snprintf(g_file, sizeof g_file, "%s", base_of(abs));
+	note(T(S_HARE_RECEIVING), base_of(abs));
+	httpd_set_tag(r, TAG_RECEIVING);
+}
+
+/* Its body is here: the trailer off, the file whole, and in place under its
+ * name; or refused, and the part gone with its key */
+static void put_kept_done(httpd_req *r, kept_up *k, long trail)
+{
+	char part[XFER_PATH_MAX];
+	struct stat st;
+
+	if (g_uploads > 0) g_uploads--;
+	httpd_set_tag(r, 0);
+	k->writer = NULL;
+	k->last = kept_now();
+	if (!part_of(k->abs, part, sizeof part) || (trail && !trailer_off(part)) ||
+	    stat(part, &st) != 0 || (long long)st.st_size != k->size) {
+		note(T(S_HARE_FAILED), base_of(k->abs));
+		kept_forget(k);
+		httpd_reply_status(r, 400, T(S_HARE_NOT_AS_SENT));
+		return;
+	}
+	if (rename(part, k->abs) != 0) {
+		note(T(S_HARE_FAILED), base_of(k->abs));
+		kept_forget(k);
+		httpd_reply_status(r, 500, T(S_HARE_NOT_PLACED));
+		return;
+	}
+	k->done = true;
+	note_write(k->abs);
+	if (g_after_write) g_after_write(k->abs);
+	note(T(S_HARE_RECEIVED), base_of(k->abs));
+	httpd_reply(r, 200, "text/plain", "ok", 2, NULL);
+}
+
+/* GET: how much of that file is here; DELETE: its part, gone */
+static void route_upload(httpd_req *r, bool del)
+{
+	char req[XFER_PATH_MAX], abs[XFER_PATH_MAX], json[160];
+	long long size, mod, have = 0, from;
+	struct stat st;
+	kept_up *k;
+	bool busy = false, done = false;
+	int n;
+
+	httpd_query(r, "p", req, sizeof req);
+	if (!xfer_resolve(req, abs, sizeof abs)) {
+		httpd_reply_status(r, 403, T(S_HARE_CANNOT_WRITE));
+		return;
+	}
+	if (!xfer_name_ok(base_of(abs)) || upload_key(r, false, &size, &mod, &from) != 1) {
+		httpd_reply_status(r, 400, T(S_HARE_BAD_NAME));
+		return;
+	}
+	k = kept_find(abs);
+	if (k && (k->size != size || k->mod != mod)) k = NULL;     /* another file's */
+	/* In place, unless it is not there as it was placed any more */
+	if (k && k->done && !(stat(abs, &st) == 0 && S_ISREG(st.st_mode) && (long long)st.st_size == size)) {
+		kept_forget(k);
+		k = NULL;
+	}
+	if (del) {
+		if (k && !k->done) {
+			note(T(S_HARE_FAILED), base_of(abs));
+			kept_forget(k);
+		}
+		httpd_reply(r, 200, "text/plain", "ok", 2, NULL);
+		return;
+	}
+	if (k) {
+		have = kept_have(k);
+		busy = k->writer != NULL;
+		done = k->done;
+	}
+	n = snprintf(json, sizeof json, "{\"have\":%lld,\"size\":%lld,\"busy\":%s,\"done\":%s}",
+	             have, size, busy ? "true" : "false", done ? "true" : "false");
+	httpd_reply(r, 200, "application/json", json, (size_t)n, NULL);
+}
+
+
 /* A request is over. Only the two that put something on the screen have
  * anything to add to it.
  *
  * An upload still tagged never reached its second call - its body did not
  * arrive whole - so it failed however the connection ended, and its part-file
- * goes when httpd releases the request. A download says whether it went out
+ * goes when httpd releases the request; or, one that said which file it is,
+ * paused, its part kept for the page to go on with. A download says whether it went out
  * whole. */
 static void on_end(httpd_req *r, bool whole, void *ctx)
 {
 	char req[XFER_PATH_MAX], abs[XFER_PATH_MAX];
 	int tag = httpd_tag(r);
+	kept_up *k;
 
 	(void)ctx;
 	if (!tag) return;
+	/* An upload that says which file it is broke: kept to go on with */
+	if (tag == TAG_RECEIVING && (k = kept_writing(r))) {
+		k->writer = NULL;
+		k->last = kept_now();
+		if (g_uploads > 0) g_uploads--;
+		note(T(S_HARE_PAUSED), base_of(k->abs));
+		return;
+	}
 	/* Logs and an update's file name no root path: counted all the same */
 	httpd_query(r, "p", req, sizeof req);
 	if (!xfer_resolve(req, abs, sizeof abs)) {
@@ -1155,15 +1593,20 @@ static void on_request(httpd_req *r, bool done, void *ctx)
 	 * (free, whole, and what it keeps whatever is sent), and whether the
 	 * handheld is closing File Transfer after the files on their way. */
 	if (!strcmp(path, "/api/state") && !strcmp(m, "GET")) {
-		long long free = -1, total = -1;
-		char json[192];
-		int n;
+		long long free = -1, total = -1, kept = 0;
+		char json[256];
+		int n, i;
 
 		if (!done) httpd_want_body(r, HTTPD_BODY_NONE, NULL);
 		card_space(&free, &total);
+		/* The parts kept to go on with: on the card, so counted in free */
+		for (i = 0; i < KEPT_MAX; i++)
+			if (g_kept[i].used && !g_kept[i].done) kept += kept_have(&g_kept[i]);
 		n = snprintf(json, sizeof json,
-		             "{\"closing\":%s,\"free\":%lld,\"total\":%lld,\"reserve\":%lld,\"uploads\":%d}",
-		             g_closing ? "true" : "false", free, total, (long long)HARE_RESERVE, g_uploads);
+		             "{\"closing\":%s,\"free\":%lld,\"total\":%lld,\"reserve\":%lld,\"uploads\":%d,"
+		             "\"paused\":%d,\"kept\":%lld}",
+		             g_closing ? "true" : "false", free, total, (long long)HARE_RESERVE, g_uploads,
+		             hare_paused(), kept);
 		httpd_reply(r, 200, "application/json", json, (size_t)n, NULL);
 		return;
 	}
@@ -1477,14 +1920,40 @@ static void on_request(httpd_req *r, bool done, void *ctx)
 		return;
 	}
 
+	/* How much of a file the handheld holds, to go on from; or its part
+	 * gone (the uploads that go on from where they broke, above) */
+	if (!strcmp(path, "/api/upload") && (!strcmp(m, "GET") || !strcmp(m, "DELETE"))) {
+		if (!done) httpd_want_body(r, HTTPD_BODY_NONE, NULL);
+		route_upload(r, !strcmp(m, "DELETE"));
+		return;
+	}
+
 	if (!strcmp(path, "/api/file") && !strcmp(m, "PUT")) {
 		char req[XFER_PATH_MAX], abs[XFER_PATH_MAX];
 		long trail = trailer_of(r);
+		long long size = 0, mod = 0, from = 0;
+		int key = upload_key(r, true, &size, &mod, &from);
+		kept_up *k;
 
 		httpd_query(r, "p", req, sizeof req);
 		if (!xfer_resolve(req, abs, sizeof abs)) {
 			if (!done) httpd_want_body(r, HTTPD_BODY_NONE, NULL);
 			httpd_reply_status(r, 403, T(S_HARE_CANNOT_WRITE));
+			return;
+		}
+		/* One that says which file it is: kept when it breaks, and on from
+		 * where the last one stopped */
+		if (!done && key < 0) {
+			httpd_want_body(r, HTTPD_BODY_NONE, NULL);
+			httpd_reply_status(r, 400, T(S_HARE_NOT_AS_SENT));
+			return;
+		}
+		if (!done && key > 0) {
+			put_kept(r, abs, trail, size, mod, from);
+			return;
+		}
+		if (done && (k = kept_writing(r))) {
+			put_kept_done(r, k, trail);
 			return;
 		}
 		if (!done) {
@@ -1517,20 +1986,7 @@ static void on_request(httpd_req *r, bool done, void *ctx)
 				httpd_reply_status(r, 507, T(S_HARE_NO_ROOM));
 				return;
 			}
-			/* A cover into a console's or an album's .media: the folder is
-			 * made by what puts the first cover there (mk/payload.sh no
-			 * longer ships an empty one per console), so it is made here,
-			 * that one level and only under a folder that is there. */
-			{
-				char dir[XFER_PATH_MAX];
-				char *sl;
-
-				snprintf(dir, sizeof dir, "%s", abs);
-				if ((sl = strrchr(dir, '/'))) {
-					*sl = '\0';
-					if (!strcmp(base_of(dir), ".media")) mkdir(dir, 0777);
-				}
-			}
+			media_dir(abs);
 			/* Into a part-file and renamed at the end, so a transfer that
 			 * dies halfway leaves the original alone rather than replacing it
 			 * with the front half of something else. The same argument as
@@ -1977,7 +2433,8 @@ static void on_request(httpd_req *r, bool done, void *ctx)
 
 /* Part-files from a transfer that died. Swept at open rather than at close,
  * because the death that leaves one is usually the death that stops close
- * from running. */
+ * from running. Not a part the page may still go on with (kept_part): those
+ * go by their own clock (kept_tick), which runs first. */
 static void sweep_parts(const char *dir, int depth)
 {
 	DIR *d;
@@ -1996,7 +2453,7 @@ static void sweep_parts(const char *dir, int depth)
 			continue;
 		if (stat(full, &st) != 0) continue;
 		if (S_ISDIR(st.st_mode)) sweep_parts(full, depth + 1);
-		else if (n > 5 && !strcmp(e->d_name + n - 5, ".part")) remove(full);
+		else if (n > 5 && !strcmp(e->d_name + n - 5, ".part") && !kept_part(full)) remove(full);
 	}
 	closedir(d);
 }
@@ -2037,6 +2494,7 @@ bool hare_start(const char *roms_dir, const char *card_dir,
 	 * the roots themselves, and the card's top level is not a root. v1.0
 	 * shipped no Music/, and updating only ZyperOS/ does not bring one. EEXIST
 	 * is the usual answer and is ignored with the rest. */
+	kept_tick();
 	for (i = 0; i < xfer_root_count(); i++) {
 		mkdir(xfer_root_at(i)->path, 0777);
 		sweep_parts(xfer_root_at(i)->path, 0);
@@ -2049,6 +2507,15 @@ bool hare_start(const char *roms_dir, const char *card_dir,
 
 void hare_stop(void)
 {
+	int i;
+
+	/* The uploads being written pause with their connections, which
+	 * httpd_stop closes with their parts kept and no httpd_end */
+	for (i = 0; i < KEPT_MAX; i++)
+		if (g_kept[i].used && g_kept[i].writer) {
+			g_kept[i].writer = NULL;
+			g_kept[i].last = kept_now();
+		}
 	httpd_stop();
 	/* The PIN and every session die with the screen. There is nothing left
 	 * listening and nothing left to guess at. */
@@ -2072,6 +2539,7 @@ int hare_poll(void)
 	unsigned long in = 0, out = 0;
 	int did = httpd_poll(on_request, on_end, NULL);
 
+	kept_tick();
 	httpd_traffic(&in, &out);
 	g_in += in;
 	g_out += out;
@@ -2094,6 +2562,10 @@ void hare_status(hare_stats *out)
 	out->sends = g_sends;
 	snprintf(out->last, sizeof out->last, "%s", g_last);
 	snprintf(out->file, sizeof out->file, "%s", g_file);
-	httpd_body_progress(&out->up_got, &out->up_total);
+	/* What arrives now, or with nothing arriving the paused upload's kept
+	 * bytes: the screen's bar stays where the file stopped */
+	if (!httpd_body_progress(&out->up_got, &out->up_total) && !kept_newest(&out->up_got, &out->up_total))
+		out->up_got = out->up_total = 0;
+	out->paused = hare_paused();
 	g_in = g_out = 0;
 }

@@ -1,0 +1,27 @@
+flycast2021 (metallic77/flycast 603814c): the disc list (disk_paths,
+disk_labels, disk_index) outlives its game. retro_unload_game and
+retro_deinit leave it, so in a frontend that keeps the core loaded between
+games (Diatom does), the second game's load found the list filled, took the
+.m3u branch and started the first game's disc again; NAOMI and Atomiswave
+load the same game_data. Cleared at the start of each retro_load_game; the
+initial index and path a frontend sets before the load are kept.
+
+--- a/core/libretro/libretro.cpp
++++ b/core/libretro/libretro.cpp
+@@ -1879,6 +1879,16 @@
+ #else
+    char slash = '/';
+ #endif
++
++   /* A new game's discs only. The list outlived the game it was filled for
++    * (retro_unload_game and retro_deinit leave it), so a frontend that keeps
++    * the core loaded between games took a second game's load for an .m3u
++    * load and started the first game's disc again. The initial index and
++    * path are kept: a frontend sets them before the load. */
++   disk_paths.clear();
++   disk_labels.clear();
++   disk_index = 0;
++   disc_tray_open = false;
+ 
+    extract_basename(g_base_name, game->path, sizeof(g_base_name));
+    extract_directory(game_dir, game->path, sizeof(game_dir));
