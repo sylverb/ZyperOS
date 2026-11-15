@@ -194,7 +194,11 @@ static bool packed(const char *name)
 {
 	return !strncmp(name, "zyperos.log", 10) || !strcmp(name, "usb.log") ||
 	       !strcmp(name, "wifi.log") || !strcmp(name, "wifi.log.1") ||
-	       !strcmp(name, "card-check.txt");
+	       !strcmp(name, "card-check.txt") ||
+	       /* and the reports of a panic or a reset before a start
+	        * (crash-*.txt, plastron's /usr/sbin/crashlog) */
+	       (!strncmp(name, "crash-", 6) && strlen(name) > 10 &&
+	        !strcmp(name + strlen(name) - 4, ".txt"));
 }
 
 bool logpack_build(const char *logs_dir, const char *about,

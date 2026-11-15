@@ -240,6 +240,13 @@ device() {
 # log in the same place (the device's own firmware, twigUI).
 kept() {
 	local f any=
+	# The report crashlog made of them at this start, when it took the
+	# dumps first (/usr/sbin/crashlog, run by init before this)
+	if [ -f /run/crashlog.txt ]; then
+		echo "--- kept from before this start (crashlog) ---"
+		cat /run/crashlog.txt
+		any=1
+	fi
 	mountpoint -q $PSTORE || mount -t pstore pstore $PSTORE 2> /dev/null || return 0
 	for f in $PSTORE/dmesg-ramoops-*; do
 		[ -f "$f" ] || continue

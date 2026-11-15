@@ -11,6 +11,9 @@
 ::sysinit:/bin/mount -a
 # The card's games partition, ahead of rcS: see the script
 ::sysinit:/etc/init.d/datapart start
+# A report of a panic or a reset before this start, from pstore, onto the
+# card and PX2BOOT (see the script), as soon as the card is there
+::sysinit:/usr/sbin/crashlog
 ::sysinit:/bin/mkdir -p /run/lock/subsys
 null::sysinit:/bin/ln -sf /proc/self/fd /dev/fd
 null::sysinit:/bin/ln -sf /proc/self/fd/0 /dev/stdin
