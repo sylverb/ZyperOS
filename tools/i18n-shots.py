@@ -265,13 +265,13 @@ EXTRA = {
     "synopsis": ("demo", "PS1", ["--screen", "games", "--info", "--synopsis"]),
     "keyboard": ("demo", "PS1", ["--keyboard"]),
     "video-controls": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--video", "controls"]),
-    "video-full": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--video", "full"]),
+    "video-full": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--video", "hidden"]),
     # MP4's lock screen, its panel with the bar a hold fills: over music, and
     # over a video, where the panel is the same and the picture is under it
     # MP4's menu on its shelf, which shows All (albums and videos mixed)
     "mp4-menu": ("media", "MUSE", ["--screen", "games", "--menu"]),
     "mp4-locked": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--locked"]),
-    "mp4-locked-video": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--video", "controls", "--locked"]),
+    "mp4-locked-video": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--video", "hidden", "--locked"]),
     "tour-lang": ("demo", "PS1", ["--tour", "lang", "3500"]),
     "tour-lang-ja": ("demo", "PS1", ["--tour", "lang", "3000", "--tour-pick", "6"]),
     "tour-welcome": ("demo", "PS1", ["--tour", "welcome", "3000"]),
@@ -711,10 +711,9 @@ def all_systems_card(card):
 # began to check it (src/ui.c's ui_fit_mark, 1.0.6), each a layout to decide
 # on its own (DESIGN.md section 14): Storage's two-line caption, its accents
 # and ascenders under the sort key (es, pt-BR), the sort key filling the only
-# room between the list and the caption; and the video controls' keys, wrapped
-# to two rows in Japanese, under the times, the frame over them. Any other
-# screen whose words meet a key or a mark fails.
-KNOWN_KEYS = {"storage-music-rest", "storage-system-last", "video-controls", "mp4-locked-video"}
+# room between the list and the caption. Any other screen whose words meet a
+# key or a mark fails.
+KNOWN_KEYS = {"storage-music-rest", "storage-system-last"}
 
 
 def run_language(code, shots, binary, keep, theme="light"):

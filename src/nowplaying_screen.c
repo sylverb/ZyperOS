@@ -647,15 +647,24 @@ static void np_next_name(char *next, size_t n)
 
 /* ---- MP4: video -----------------------------------------------------------
  *
- * A file with a picture plays on the same Now Playing, in one of two views
- * Y turns between, kept across restarts (`mp4.view`):
+ * A file with a picture plays on the same Now Playing, in one view, as a
+ * phone's or a TV's player does it (2026-11-15; there were two before, a
+ * full screen and one with the picture smaller and its controls under it,
+ * which Y turned between):
  *
- *   full screen   the picture as large as the screen takes it, on black,
- *                 and the controls over its foot only for hold-controls
- *                 after a press, or while paused - fading in over quick and
- *                 out over fade-out
- *   with controls the picture in a 16:9 frame on the theme's ground, the
- *                 title above it and the bar and keys below, always there
+ *   the picture   as wide as the screen at 16:9, under the header's band
+ *                 (the clock, the title, the marks), the same in every
+ *                 language: nothing of it is given up for the controls
+ *   the controls  over the picture's foot on the theme's surface: the bar
+ *                 with the time played and the time left at its two ends,
+ *                 and the keys under it, wrapping onto a second row where a
+ *                 language needs it, which only makes the band taller. Up
+ *                 for hold-controls after any key and for as long as it is
+ *                 paused, fading in over quick and out over fade-out; every
+ *                 key also does what it does, the first one too. Y shows
+ *                 them, or hides them at once
+ *   paused        a play disc in the picture's middle (ds_play_disc), the
+ *                 bar's fill faded
  *
  * The picture itself is the GPU's: the daemon's newest frame uploaded as YUV
  * (src/mp4video.c) and drawn UNDER the screen at the panel's own resolution
@@ -663,171 +672,154 @@ static void np_next_name(char *next, size_t n)
  * The screen is presented when a new frame arrives - the video's own rate,
  * 24 to 30 times a second - and otherwise when the controls change. */
 
-int g_np_view = -1;               /* -1 until read from the settings */
-
-static int np_view(void)
-{
-	if (g_np_view < 0) {
-		char v[16];
-
-		db_get_str(db_dev(), "mp4.view", v, sizeof v, "full");
-		g_np_view = !strcmp(v, "controls") ? NPV_CONTROLS : NPV_FULL;
-	}
-	return g_np_view;
-}
-
-static void np_view_toggle(void)
-{
-	g_np_view = np_view() == NPV_FULL ? NPV_CONTROLS : NPV_FULL;
-	db_set_str(db_dev(), "mp4.view", g_np_view == NPV_FULL ? "full" : "controls");
-}
-
-/* The 16:9 frame of the view with controls, and the column its words share. */
+/* The player's column: the margins its words keep, and the header's band
+ * the picture starts under */
 #define NPV_X 64
-#define NPV_W (ZYPEROS_SCREEN_W - 2 * NPV_X)
 #define NPV_Y 96
-#define NPV_H (NPV_W * 9 / 16)
 
-/* The foot: what the buttons do on Now Playing, as the shelves' hints are
- * drawn (page_hint: a glyph and a word), in a row from x 64 to 960 with the
- * room left over shared between them. Listed most needed first; a row that
- * does not fit its language's words goes on to a second one above it, never
- * cut (DESIGN.md 12). `kind`: 0 music, 1 a book, 2 a video in full screen, 3
- * a video with its controls. `count` is a video's folder, `cy` the last
- * row's middle (0 for a shelf's foot, DS_SHELF_FOOT_Y), `alpha` how much of it shows. */
-static void np_hints(SDL_Renderer *r, bool playing, int kind, int count, int cy,
-                     bool video, Uint8 alpha)
+/* The band: its top to the bar's row (a section), the bar's row, and the
+ * row to the keys; all on the 8-unit grid */
+#define NPV_BAND_PAD 24
+#define NPV_BAR_ROW  32
+#define NPV_BAR_GAP  16
+
+/* What the buttons do on Now Playing, listed most needed first: A, B, X,
+ * then Y (music and books) and L1/R1, then the d-pad. `kind`: 0 music, 1 a
+ * book. On a video Y has no hint: it only shows or hides the controls. */
+static int np_hint_list(key_hint *h, bool playing, int kind, int count, bool video)
 {
-	key_hint h[7];
 	int n = 0;
 
-	if (!cy) cy = DS_SHELF_FOOT_Y;
 	h[n].key = "A";  h[n++].label = playing ? T(S_MUSE_HINT_PAUSE) : T(S_MUSE_HINT_PLAY);
 	h[n].key = "B";  h[n++].label = T(S_CONTROLS_BACK);
+	h[n].key = "X";  h[n++].label = T(S_MP4_HINT_LOCK);
 	if (video) {
-		h[n].key = "X";     h[n++].label = T(S_MP4_HINT_LOCK);
-		h[n].key = "Y";     h[n++].label = kind == 2 ? T(S_MP4_HINT_CONTROLS) : T(S_MP4_HINT_FULL_SCREEN);
 		if (count > 1) { h[n].key = "L1/R1"; h[n++].label = T(S_MP4_HINT_VIDEO); }
 	} else {
-		h[n].key = "X";     h[n++].label = T(S_MP4_HINT_LOCK);
 		h[n].key = "Y";     h[n++].label = kind == 1 ? T(S_MUSE_HINT_SPEED) : T(S_MUSE_HINT_MODE);
 		h[n].key = "L1/R1"; h[n++].label = !musec_is_book() ? T(S_MUSE_HINT_TRACK)
 		                                  : musec_chapters() > 1 ? T(S_MUSE_HINT_CHAPTER)
 		                                                         : T(S_MUSE_HINT_FILE);
 	}
 	h[n].key = KEYHINT_LEFT_RIGHT; h[n++].label = T(S_MUSE_HINT_SEEK);
-	/* The button hints' component (keyhints.h), spread from x 64 to 960,
-	 * the last row on its line and any more above it */
-	keyhints_draw(r, h, n, 64, ZYPEROS_SCREEN_W - 64, cy, KEYHINTS_SPREAD, true, alpha);
+	return n;
 }
 
-/* The bar, and with `times` the times under it - "1:26", what is left, and
- * the state when it is not playing - from y, `w` wide at x, in alpha `a`.
- * Without, the state alone, over the bar's right end. */
-static void np_video_bar(SDL_Renderer *r, const mu_now *mn, int x, int y, int w, Uint8 a,
-                         bool times)
+/* The foot of the music view: the hints as the shelves' hints are drawn
+ * (page_hint: a glyph and a word), spread from x 64 to 960, a row that does
+ * not fit its language's words going on to a second one above it, never cut
+ * (DESIGN.md 12). `cy` is the last row's middle (0 for a shelf's foot,
+ * DS_SHELF_FOOT_Y), `alpha` how much of it shows. */
+static void np_hints(SDL_Renderer *r, bool playing, int kind, int count, int cy,
+                     bool video, Uint8 alpha)
+{
+	key_hint h[KEYHINTS_MAX];
+	int n = np_hint_list(h, playing, kind, count, video);
+
+	if (!cy) cy = DS_SHELF_FOOT_Y;
+	keyhints_draw(r, h, n, NPV_X, ZYPEROS_SCREEN_W - NPV_X, cy, KEYHINTS_SPREAD, true, alpha);
+}
+
+/* The bar from (x, y), `w` wide, in alpha `a`: its fill faded while paused
+ * or stopped */
+static void np_video_bar(SDL_Renderer *r, const mu_now *mn, int x, int y, int w, Uint8 a)
+{
+	SDL_Color acc = ui_col(theme()->accent_ink, a);
+	double k = mn->len > 0 ? mn->at / mn->len : 0;
+	int fill = (int)(w * (k < 0 ? 0 : k > 1 ? 1 : k) + 0.5);
+
+	ds_bar_in(r, &(SDL_Rect){ x, y, w, UI_BAR_H }, fill, ui_col(theme()->track, a),
+	          mn->state != MU_PLAYING ? ui_fade(acc, 0.45f) : acc);
+}
+
+/* Where the player's parts go, by rule from the canvas and what it holds:
+ * no y is typed, so round 3's layout engine can take it over as it is. */
+typedef struct {
+	SDL_Rect pic;      /* the picture's 16:9 box */
+	SDL_Rect band;     /* the controls' surface, from the bar's row to the screen's foot */
+	SDL_Rect bar;      /* the bar between the two times */
+	SDL_Rect t0, t1;   /* the time played, the time left */
+	int keys_cy;       /* the keys' last row's middle */
+} np_player;
+
+static void np_player_layout(np_player *L, const key_hint *h, int n, const char *t0, const char *t1)
 {
 	TTF_Font *fs = ui_font(UI_F_META);
-	SDL_Color acc = ui_col(theme()->accent_ink, a), soft = UI_TEXT_SOFT;
-	const char *state = mn->state == MU_PLAYING ? NULL
-	                  : mn->state == MU_PAUSED  ? T(S_MUSE_PAUSED) : T(S_MUSE_STOPPED);
-	double k = mn->len > 0 ? mn->at / mn->len : 0;
-	char t0[16], t1[16], line[24];
-	int fill, ty, left, right;
+	int start[KEYHINTS_MAX + 1], rows, keys_top, row_y, w0, w1, x0, x1;
 
-	soft.a = a;
-	fill = (int)(w * (k < 0 ? 0 : k > 1 ? 1 : k) + 0.5);
-	ds_bar_in(r, &(SDL_Rect){ x, y, w, UI_BAR_H }, fill, ui_col(theme()->track, a), state ? ui_fade(acc, 0.45f) : acc);
-	if (!times) return;
-	mmss(t0, sizeof t0, mn->at);
-	ty = ui_line_y(UI_F_META, y + 16);
-	left = x + ui_text_tabular(r, fs, t0, x, ty, -1, soft);
-	right = x + w;
-	if (mn->len > 0) {
-		mmss(t1, sizeof t1, mn->len > mn->at ? mn->len - mn->at : 0);
-		snprintf(line, sizeof line, "-%s", t1);
-		right -= ui_text_tabular(r, fs, line, x + w, ty, 1, soft);
-	}
-	if (state) ui_text(r, fs, state, (left + right) / 2, ty, 0, acc);
+	/* The picture: the canvas's width at 16:9, under the header's band */
+	L->pic = (SDL_Rect){ 0, NPV_Y, ZYPEROS_SCREEN_W, ZYPEROS_SCREEN_W * 9 / 16 };
+	/* The keys on the shelf's foot, as many rows as their words take,
+	 * spread as keyhints_draw spreads them */
+	rows = keyhints_rows(h, n, ZYPEROS_SCREEN_W - 2 * NPV_X, KEYHINTS_GAP_SPREAD, keyhints_width, start);
+	if (rows < 1) rows = 1;
+	L->keys_cy = DS_SHELF_FOOT_Y;
+	keys_top = L->keys_cy - DS_HINT_GLYPH / 2 - (rows - 1) * KEYHINTS_ROW;
+	/* The bar's row over them, and the band from its top to the foot */
+	row_y = keys_top - NPV_BAR_GAP - NPV_BAR_ROW;
+	L->band = (SDL_Rect){ 0, row_y - NPV_BAND_PAD, ZYPEROS_SCREEN_W, ZYPEROS_SCREEN_H - (row_y - NPV_BAND_PAD) };
+	w0 = ui_text_tabular_width(fs, t0);
+	w1 = t1[0] ? ui_text_tabular_width(fs, t1) : 0;
+	L->t0 = (SDL_Rect){ NPV_X, row_y, w0, NPV_BAR_ROW };
+	L->t1 = (SDL_Rect){ ZYPEROS_SCREEN_W - NPV_X - w1, row_y, w1, NPV_BAR_ROW };
+	x0 = NPV_X + w0 + NPV_BAR_GAP;
+	x1 = ZYPEROS_SCREEN_W - NPV_X - (w1 ? w1 + NPV_BAR_GAP : 0);
+	L->bar = (SDL_Rect){ x0, row_y + (NPV_BAR_ROW - UI_BAR_H) / 2, x1 - x0, UI_BAR_H };
 }
 
-/* One frame of the video view, the controls at `k` (0 hidden, 1 shown; the
- * view with controls always has them). */
+/* One frame of the video, the controls at `k` (0 hidden, 1 shown). The run
+ * loop keeps them up while paused; the lock draws them hidden, since no key
+ * they name does anything while it is locked. */
 void np_draw_video(app *a, const mu_now *mn, float k)
 {
 	SDL_Renderer *r = a->r;
 	SDL_Texture *tex = mp4v_texture();
-	TTF_Font *fm = ui_font(UI_F_MENU), *fs = ui_font(UI_F_META);
-	bool full = np_view() == NPV_FULL;
-	SDL_Rect box = full ? (SDL_Rect){ 0, 0, ZYPEROS_SCREEN_W, ZYPEROS_SCREEN_H }
-	                    : (SDL_Rect){ NPV_X, NPV_Y, NPV_W, NPV_H };
-	SDL_Rect pic = mp4v_fit(box);
-	ds_rgb g = full ? DS_THEME[DS_DARK].ink : theme()->ground;
-	char fit[200];
+	TTF_Font *fs = ui_font(UI_F_META), *fh = page_font(PAGE_ACTION);
+	ds_rgb g = theme()->ground;
+	SDL_Color soft = UI_TEXT_SOFT;
+	key_hint h[KEYHINTS_MAX];
+	char t0[16], t1[24], left[16], fit[200];
+	np_player L;
+	SDL_Rect pic;
+	int n;
 	Uint8 al;
 
-	if (!full) k = 1;
 	al = (Uint8)(255 * (k < 0 ? 0 : k > 1 ? 1 : k) + 0.5f);
+	n = np_hint_list(h, mn->state == MU_PLAYING, 0, mn->count, true);
+	mmss(t0, sizeof t0, mn->at);
+	t1[0] = 0;
+	if (mn->len > 0) {
+		mmss(left, sizeof left, mn->len > mn->at ? mn->len - mn->at : 0);
+		snprintf(t1, sizeof t1, "-%s", left);
+	}
+	np_player_layout(&L, h, n, t0, t1);
+
+	pic = mp4v_fit(L.pic);
 	plat_video_under(tex, &pic, (SDL_Color){ g.r, g.g, g.b, 255 });
 	ui_fit_frame();   /* the picture covers what was drawn (the host's fit check) */
 	SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
+	/* Before the first picture: its box, empty, so nothing jumps. */
+	if (!tex) ui_round_rect(r, &L.pic, 0, (SDL_Color){ 0, 0, 0, 255 });
 
-
-	if (full) {
-		/* The controls over the picture's foot, on the theme's surface, all
-		 * of it fading as one. */
-		SDL_Rect band = { 0, ZYPEROS_SCREEN_H - 200, ZYPEROS_SCREEN_W, 200 };
-		SDL_Color text = UI_TEXT, dim = UI_TEXT_DIM;
-
-		SDL_Color soft = UI_TEXT_SOFT;
-		char t0[16], t1[16], when[40];
-		int tw;
-
-		if (al == 0) return;
-		ui_round_rect(r, &band, 0, ui_col(theme()->surface, (Uint8)(al * 0.92f)));
-		text.a = dim.a = soft.a = al;
-		/* The title and, at its right, where in the video: "1:26 / 2:32:38". */
-		mmss(t0, sizeof t0, mn->at);
-		mmss(t1, sizeof t1, mn->len);
-		snprintf(when, sizeof when, mn->len > 0 ? "%s / %s" : "%s", t0, t1);
-		tw = ui_text_tabular(r, fs, when, NPV_X + NPV_W,
-		                     ui_line_y(UI_F_META, band.y + 30), 1, soft);
-		/* Paused, or stopped at the end, before the time in accent-ink. */
-		if (mn->state != MU_PLAYING) {
-			SDL_Color acc = ui_col(theme()->accent_ink, al);
-			const char *st = mn->state == MU_PAUSED ? T(S_MUSE_PAUSED) : T(S_MUSE_STOPPED);
-
-			tw += 24 + ui_text(r, fs, st, NPV_X + NPV_W - tw - 24,
-			                   ui_line_y(UI_F_META, band.y + 30), 1, acc);
-		}
-		ui_fit_text(fm, mn->title, fit, sizeof fit, NPV_W - tw - 32);
-		ui_text(r, fm, fit, NPV_X, ui_line_y(UI_F_MENU, band.y + 22), -1, text);
-		np_video_bar(r, mn, NPV_X, band.y + 88, NPV_W, al, false);
-		np_hints(r, mn->state == MU_PLAYING, 2, mn->count, 730, true, al);
-		return;
-	}
-	/* With controls: the home's header, as on every MP4 screen (2026-11-09),
-	 * the clock at the left and the marks at the right, and the title
-	 * between them in its row, centered; the frame, then the bar and the
-	 * keys. The title was at the left, where the clock is now. */
+	/* The home's header, as on every MP4 screen (2026-11-09): the clock at
+	 * the left, the marks at the right, and the title between them in the
+	 * clock's face, centered */
 	draw_topbar(r, theme_index(), UI_TEXT_SOFT, true);
-	{
-		/* In the clock's face, which the row is made for: the menu's, over
-		 * the frame's top edge, its descenders touched the picture */
-		TTF_Font *fh = page_font(PAGE_ACTION);
+	ui_fit_text(fh, mn->title, fit, sizeof fit, 2 * header_half());
+	ui_text(r, fh, fit, ZYPEROS_SCREEN_W / 2, ui_cap_y(fh, TOPBAR_MID), 0, UI_TEXT);
 
-		ui_fit_text(fh, mn->title, fit, sizeof fit, 2 * header_half());
-		ui_text(r, fh, fit, ZYPEROS_SCREEN_W / 2, ui_cap_y(fh, TOPBAR_MID), 0,
-		        UI_TEXT);
-	}
-	if (!tex) {
-		/* Before the first picture: the frame, empty, so nothing jumps. */
-		SDL_Color ink = { 0, 0, 0, 255 };
+	if (mn->state != MU_PLAYING) {
+		int d = 120;
 
-		ui_round_rect(r, &box, 0, ink);
+		ds_play_disc(r, pic.x + (pic.w - d) / 2, pic.y + (pic.h - d) / 2, d, 255);
 	}
-	np_video_bar(r, mn, NPV_X, NPV_Y + NPV_H + 24, NPV_W, 255, true);
-	np_hints(r, mn->state == MU_PLAYING, 3, mn->count, 730, true, 255);
+	if (al == 0) return;
+	ui_round_rect(r, &L.band, 0, ui_col(theme()->surface, (Uint8)(al * 0.92f)));
+	soft.a = al;
+	np_video_bar(r, mn, L.bar.x, L.bar.y, L.bar.w, al);
+	ui_text_tabular(r, fs, t0, L.t0.x, ui_cap_y(fs, L.t0.y + L.t0.h / 2), -1, soft);
+	if (t1[0]) ui_text_tabular(r, fs, t1, L.t1.x + L.t1.w, ui_cap_y(fs, L.t1.y + L.t1.h / 2), 1, soft);
+	keyhints_draw(r, h, n, NPV_X, ZYPEROS_SCREEN_W - NPV_X, L.keys_cy, KEYHINTS_SPREAD, true, al);
 }
 
 /* MUSE_CLOSE for SELECT and the power button, which leave Muse altogether;
@@ -859,7 +851,7 @@ static muse_exit muse_now_screen_run(app *a)
 		const mu_now *mn;
 		char next[128] = "";
 		unsigned now;
-		bool touched = false, video, fresh = false;
+		bool touched = false, video, fresh = false, ctl_y = false, up;
 		int b;
 
 		muse_screen_poll();
@@ -890,7 +882,7 @@ static muse_exit muse_now_screen_run(app *a)
 		 * mode says, its speed; on a video, the view. */
 		if (a->in.pressed[IN_Y]) {
 			uisound_play(DS_SOUND_ACCEPT);
-			if (video)                 np_view_toggle();
+			if (video)                 ctl_y = true;
 			else if (musec_is_book())  book_cycle_speed();
 			else if (!musec_is_videos()) muse_cycle_mode();
 		}
@@ -918,8 +910,12 @@ static muse_exit muse_now_screen_run(app *a)
 			float want, step;
 
 			fresh = mp4v_update(a->r);
+			/* Y shows them, or hides them at once if they were up; any
+			 * other key shows them and does what it does */
+			up = (int)(ctl_until - now) > 0;
 			for (b = 0; b < IN_COUNT; b++)
-				if (a->in.pressed[b]) { ctl_until = now + DS_MS_HOLD_CONTROLS; break; }
+				if (b != IN_Y && a->in.pressed[b]) { ctl_until = now + DS_MS_HOLD_CONTROLS; break; }
+			if (ctl_y) ctl_until = up ? now : now + DS_MS_HOLD_CONTROLS;
 			want = mn->state != MU_PLAYING || (int)(ctl_until - now) > 0 ? 1.0f : 0.0f;
 			step = (float)(now - ctl_at) / (want > ctl ? DS_MS_QUICK : DS_MS_FADE_OUT);
 			ctl = want > ctl ? (ctl + step > want ? want : ctl + step)

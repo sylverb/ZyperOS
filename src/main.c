@@ -5103,9 +5103,12 @@ int main(int argc, char *argv[])
 		else if (!strcmp(argv[i], "--paused")) shot_np_paused = 1;
 		else if (!strcmp(argv[i], "--locked")) shot_locked = 1;
 		else if (!strcmp(argv[i], "--video")) {
-			shot_video = NPV_FULL;
-			if (i + 1 < argc && !strcmp(argv[i + 1], "controls")) { shot_video = NPV_CONTROLS; i++; }
-			else if (i + 1 < argc && !strcmp(argv[i + 1], "full")) i++;
+			/* "controls": with the controls up; "hidden" ("full" before
+			 * the one view) or nothing: the picture alone, as it is 3 s
+			 * after the last press and under the lock */
+			shot_video = 0;
+			if (i + 1 < argc && !strcmp(argv[i + 1], "controls")) { shot_video = 1; i++; }
+			else if (i + 1 < argc && (!strcmp(argv[i + 1], "hidden") || !strcmp(argv[i + 1], "full"))) i++;
 		}
 		else if (!strcmp(argv[i], "--mode") && i + 1 < argc) shot_mode = argv[++i];
 		else if (!strcmp(argv[i], "--sysmove") && i + 1 < argc)
