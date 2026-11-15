@@ -33,8 +33,8 @@ static void ck(int cond, const char *what)
 }
 
 /* The Brick's front function keys are FUNCTION with the volume keys on the
- * Pixel 2 (ctl_set_fn_volume): each device's pages name its own, and never
- * the other's. L2+R2 is the Pixel 2's battery level (ctl_set_battery_lights),
+ * Pixel 2 (ctl_set_chords): each device's pages name its own, and never
+ * the other's. L2+R2 is the Pixel 2's battery level (the same chords),
  * which the Brick has no lights for. */
 static bool pixel;
 static int other_devices(const char *b)
