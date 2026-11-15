@@ -1,10 +1,10 @@
-# ZyperOS on more than one handheld: a device profile, then the TrimUI Brick
+# ZyperOS on more than one handheld: a device profile, then the TrimUI Brick and Brick Pro
 
 ## Intent
 
 ZyperOS runs on one handheld today, the GKD Pixel 2. For 1.0.6 I want it
 ready for other handhelds, possibly with other CPUs, and then I want the
-TrimUI Brick to be the second one. ZyperOS grew out of TortOS, which ran on
+TrimUI Brick to be the second one and the TrimUI Brick Pro the third. ZyperOS grew out of TortOS, which ran on
 the Brick, so much of the Brick's code is still in the tree: a device file
 for the launcher, a Diatom port, a card script, a whole plastron board. But
 every feature since early November was built and tried on the Pixel 2 alone,
@@ -37,6 +37,8 @@ profile, drawing it, and catching its drivers up, the layer is right.
 - **The Brick as the second device**: its own tutorial handheld and Controls
   tab handheld (original art), its key hints and button glyphs, its systems
   and cores, its image, installer support and release artifacts.
+- **The Brick Pro as the third device**: the Brick's chip in a bigger body
+  with a bigger screen, and the first ZyperOS handheld with analog sticks.
 - **Room for another CPU.** The core set, the build flags and the release
   carry an architecture, even while every device is aarch64.
 
@@ -48,12 +50,13 @@ profile, drawing it, and catching its drivers up, the layer is right.
 - **A screen that is not 4:3.** The launcher keeps drawing 1024x768. A 16:9
   device is a later design; the profile carries the aspect so such a device
   can say it does not fit yet.
-- **Analog sticks, touch screens, L3/R3.** Neither device has them.
+- **Touch screens.** None of the three devices has one. (Analog sticks and
+  L3/R3 are not a non-goal any more: the Brick Pro has them, section 6b.)
 - **Building cores for armhf or x86_64 now.** The architecture becomes a
   name in the paths and the release; only aarch64 is filled in.
-- **A third device in 1.0.6.** The TrimUI Brick Pro (Allwinner A523, Mali)
-  and the RK3566 handhelds are what the profile should be able to take
-  later; none is added here.
+- **The Brick Pro in 1.0.6.** It comes after the Brick (section 6b, steps 8
+  and 9). The RK3566 handhelds and other chips are what the profile should
+  be able to take later; none is added here.
 - **Renaming the `px2-*` debug tools.** They gain a device; their names stay.
 
 ## Anti-goals
@@ -348,17 +351,21 @@ The Brick's profile, as far as the code knows it (to be checked on the
 device):
 
 - **Screen**: 1024x768, no turn, scale 1: the canvas is its panel.
-- **Buttons**: an 8-way d-pad, A B X Y, L1 R1 L2 R2 on the top edge (L2
-  and R2 plain buttons; the shoulder caps come off, in a rectangular and a
-  rounded set), SELECT, START, MENU (a real button, `BTN_MODE`), F1 and F2
-  on the front (brightness), VOL+ and VOL-, POWER on a side, and a switch
-  that TrimUI sells as a "custom FN switch" and `brick.c` reads as a mute
-  switch (gpio243).
+- **Buttons**: on the front, an 8-way d-pad, the A B X Y diamond, two lit
+  pill keys above the face buttons (F1 and F2: brightness) and three round
+  keys along the bottom (MENU, SELECT and START by their icons; which cap is
+  which is checked against the key codes). L1 L2 R2 R1 sit on a ledge on
+  the back, where the thin upper half meets the thick lower half, with a
+  USB-C port between L2 and R2 (L2 and R2 are plain buttons; the shoulder
+  caps come off, in a rectangular and a rounded set). VOL+ and VOL- on the
+  left side; on the right side POWER and a slider that TrimUI sells as a
+  "custom FN switch" and `brick.c` reads as a mute switch (gpio243). MENU
+  is a real button (`BTN_MODE`).
 - **Radios**: Wi-Fi and Bluetooth built in (XR829). A hotspot for Player 2:
   off until it is tried on the device.
 - **USB**: two USB-C ports. The bottom one charges and is the gadget link
-  to a computer (10.55.0.2, NCM). The top one is a USB host for game
-  controllers in TrimUI's system; plastron's Brick kernel has USB host off
+  to a computer (10.55.0.2, NCM). The one on the back ledge is a USB host
+  for game controllers in TrimUI's system; plastron's Brick kernel has USB host off
   (kernel patch 0019), so controllers on the top port are later work. No
   power out to a phone, no phone tethering, no Flash Drive at first.
 - **Battery**: AXP2202, with the charger-online rule the Pixel 2 needed; no
@@ -391,17 +398,19 @@ device):
 The Brick's front end:
 
 - **Its handheld**, drawn in code like the Pixel 2's: a `td_model` with its
-  own colors from the theme's roles and its keys on their faces (shoulders
-  on top, F1/F2 and MENU on the front). The numbers come from published
-  measurements: 73.2 mm wide, 109.9 mm tall, 19.9 mm deep at its thick part
+  own colors from the theme's roles and its keys on their faces (the
+  shoulders on the back ledge, which a tilt shows, as the Pixel 2's top
+  shows its shoulders; F1/F2 and MENU on the front). The outline is
+  published: 73.2 mm wide, 109.9 mm tall, 19.9 mm deep at its thick part
   and 11.79 mm at its thin part (TrimUI's store page for the width and
   depths, RetroHandhelds for the height; the store's own "10.99 mm" height
-  is a slip for 109.9). No source publishes the keys'
-  places, so they are measured in millimetres from the maker's published
-  front, back and side views, scaled to that outline, and the model file
-  says which numbers are measured that way. A case maker notes a later
-  color run is slightly bigger; the model follows the first run. When I call
-  for testers, one owner's ruler checks the model. Original art only.
+  is a slip for 109.9). The keys' places and sizes are measured from
+  TrimUI's six-view product images, scaled to that outline (appendix,
+  "Measurements"). Those images are reference only, for proportions,
+  layout and key shapes: they are never shipped or traced, and the model
+  carries no TrimUI mark. A case maker notes a later color run is slightly
+  bigger; the model follows the first run. When I call for testers, one
+  owner's ruler checks the numbers. Original art only.
 - **The tutorial** keeps its lessons; the Brightness lesson already teaches
   F1/F2, MENU already acts on press. With the model, the Brick's lessons
   shift right and show the handheld as the Pixel 2's do. Lessons the Brick
@@ -426,6 +435,53 @@ The Brick's back end and image:
   `third-party-packages.md`).
 - Release artifacts: `ZyperOS-v<ver>-brick.img.xz`, its update lists when it
   has System Update, the installer's Brick entry, the site's Brick button.
+
+### 6b. The TrimUI Brick Pro
+
+The Brick Pro is the Brick's chip in a bigger body (public specs: TrimUI's
+store, The Gadgeteer, RetroCatalog, RetroHandhelds):
+
+- **Chip, GPU, memory**: Allwinner A133P, 4 x Cortex-A53 at 1.8 GHz,
+  PowerVR GE8300 at up to 660 MHz, 1 GB LPDDR3, 8 GB eMMC, microSD. The same
+  as the Brick, so the same kernel family, the same Diatom port, the same
+  cores and the same closed GPU files (section 7). An early leak said A523
+  and Mali; the shipped device is A133P.
+- **Screen**: 3.95 inches, 1024x768, 4:3, IPS, laminated, 60 Hz. The canvas
+  is its panel, scale 1, as on the Brick.
+- **Body**: 86.6 x 129.9 mm (RetroCatalog), 236 g; about 11.7 mm deep at
+  the upper part and 23.6 mm at the lower part, measured from the views
+  (no published depth). A 5000 mAh battery.
+- **Controls**: the Brick's front keys and back-ledge shoulders, plus two
+  Hall-effect sticks (JF15) under the d-pad and the face buttons, with
+  L3/R3 clicks and RGB rings, and a HOME key on the left side under the
+  volume keys. The right side has the FN slider (a lock switch here) and
+  POWER.
+- **Ports**: a USB-C host on the back ledge (it also carries DisplayPort
+  video out at 1080p60, which ZyperOS does not use), the bottom USB-C for
+  charging and a computer, a 3.5 mm jack, stereo speakers, a mono mic.
+- **Radios**: Wi-Fi 4 and Bluetooth 4.2; no page names the chip, so its
+  firmware is checked in TrimUI's Brick Pro firmware before the image work.
+- **Lights**: RGB on the top bar, the four shoulders, F1/F2 and the stick
+  rings.
+- **Model number**: the views' back label names TG4070 and 5000 mAh.
+  TrimUI's store also lists an Android "Brick Hammer Pro U" (Snapdragon
+  G2 Gen 1) near that number; that is another device, not a target here.
+
+What it needs beyond the Brick:
+
+- **Its own profile and image** (`brickpro`, `ZyperOS-v<ver>-brickpro.img.xz`),
+  built from the Brick's plastron board with its own device tree (panel,
+  sticks, HOME), made the way the Brick's was: from the stock device tree
+  in TrimUI's own firmware, decompiled. *(My call: one image per device
+  keeps the profile a build-time choice; the two share everything else.)*
+- **Analog sticks, the first in ZyperOS.** The profile declares them; the
+  launcher reads the left stick as the d-pad in menus; Diatom passes both
+  sticks to cores as analog (`RETRO_DEVICE_ANALOG`, with a dead zone), so
+  the d-pad-as-stick setting becomes a choice, not a need; the Controls
+  tab gets stick rows and the handheld model gets its sticks, L3/R3 and
+  HOME; the tutorial's Move lesson names the stick too.
+- **Its handheld**: a `td_model` from its six-view images, the same way as
+  the Brick's (appendix, "Measurements").
 
 ### 7. The Brick's closed files
 
@@ -497,13 +553,50 @@ broken knowingly; nobody has written permission.
    Allwinner kernel tree may carry it). The most work; the source least
    likely to disappear.
 
-**My recommendation:** 2 for the first public Brick release, with 3 as its
-fallback if the Sonic Pad files ever go away. It keeps ZyperOS's own release
-files clean of anything without a license, and it costs one installer step
-that testers exercise from the first test build. **This is a legal decision
-for me, not a technical one**: 1 is what TortOS and Knulli do and is the
-least work; 2 and 3 avoid passing the files on. A lawyer's look is worth it
-before the first public Brick release, whichever way.
+4. **No closed files at all.** The launcher draws with the CPU (SDL's
+   software renderer straight to the framebuffer), Diatom uses the CPU path
+   it already has on the Brick, the GPU-frame systems stay hidden, and Wi-Fi
+   comes only from a USB Wi-Fi adapter on the back port (the Pixel 2's
+   adapter, whose firmware is in linux-firmware and may be passed on), which
+   needs USB host turned back on in the Brick's kernel. No Bluetooth. Every
+   byte of the image is open. The costs: the launcher's speed on the CPU is
+   not measured yet, there is no built-in Wi-Fi or Bluetooth, and the
+   adapter takes the controller port.
+
+**Can ZyperOS make its own versions instead?** I looked; not in a useful
+way, and not faster than the vendor's:
+
+- **The GPU libraries** are a whole GPU driver (the GLSL compiler, the
+  shader core's instruction set, the firmware interface), with no public
+  documentation for this version. The open route exists only in part:
+  Mesa's open PowerVR driver lists the GE8300 since Mesa 25.3 but marks it
+  unsupported and not under active development, it is Vulkan only (GLES
+  would go through Zink) and not conformant on it; it needs the mainline
+  kernel's `drm/imagination` driver, which names other Rogue cores, not the
+  GE8300; and the A133's mainline display support is partial (no DSI panel
+  yet). Not for 1.0.6, and today it would be slower and less complete than
+  the vendor's driver. Worth watching: if it matures, the Brick gets an
+  open GPU stack on a mainline kernel.
+- **The GPU firmware** (`rgx.fw`) runs inside the GPU and must match the
+  driver; it is not ours to write.
+- **The XR829 firmware** runs on the Wi-Fi chip's own processor; there is
+  no documentation and no open firmware for it.
+
+What ZyperOS can make faster is how it uses the GPU (fewer draws, kept
+textures, as on the Pixel 2), not the vendor's driver itself.
+
+**My recommendation:** measure before choosing. Option 4's one unknown is
+the launcher's speed on the CPU, and the Pixel 2 gives a cheap lower bound
+(its CPU is slower than the Brick's): the launcher with SDL's software
+renderer on my 32 GB test card, menus and the tutorial measured with
+`px2-shot --fps`. If it holds 60 fps where it matters, the Brick's base
+image carries no closed files (4), and the installer offers the GPU
+systems and built-in Wi-Fi and Bluetooth as the player's own copy (2). If
+not, 2 for the first public Brick release, with 3 as its fallback if the
+Sonic Pad files ever go away. **This is a legal decision for me, not a
+technical one**: 1 is what TortOS and Knulli do and is the least work; 2, 3
+and 4 avoid passing the files on. A lawyer's look is worth it before the
+first public Brick release, whichever way.
 
 ### 8. Testing on Bricks I do not have
 
@@ -531,8 +624,8 @@ The Brick work is tried by Brick owners on the ZyperOS Discord.
   back.
 - **The call for testers** goes out when there is something to test, not
   before: I post it on Discord myself. It asks for each tester's exact model
-  (TG3040 Brick or Brick Hammer, not the Brick Pro), its color and a spare
-  card, and for one ruler check of the handheld model's numbers.
+  (TG3040 Brick, Brick Hammer or Brick Pro), its color and a spare card,
+  and for one ruler check of the handheld model's numbers.
 - **The pass**: a kit's test list done by at least one tester with no
   failure left open is the `Tested on` line for that version (section 5).
 
@@ -580,6 +673,14 @@ done by then).
 7. **The Brick's release.** Release artifacts, installer (with the
    player's-own-copy step if I choose 2), site, docs; only after a kit
    passes and I say release.
+8. **The Brick Pro.** Its profile and handheld (host, can come with step
+   5), its device tree from TrimUI's firmware, analog sticks in the
+   launcher, Diatom, the Controls tab and the tutorial, its image; test kits
+   for Brick Pro owners.
+9. **The Brick Pro's release.** As step 7, for `brickpro`.
+
+Before step 6, the CPU-drawing measurement on the Pixel 2 test card
+(section 7) settles whether option 4 is real.
 
 ## What is left to the builder
 
@@ -617,12 +718,48 @@ Each is marked *(My call)* where it is written:
 - **Hardware**: I have no Brick; Brick owners on Discord test (section 8).
 - **System Update on the Brick**: A/B slots and System Update from its first
   release.
+- **The Brick Pro**: added as the third device, from TrimUI's reference
+  views (section 6b); the Brick's measurements may come from online
+  sources.
 
 ## One decision left
 
 - **How the closed files reach the player** (section 7): in the image as
-  TortOS and Knulli do, or the player's own copy through the installer (my
-  recommendation). Needed before step 6 fixes the Brick's card layout.
+  TortOS and Knulli do; the player's own copy through the installer; or no
+  closed files in the image at all, with the own copy as an option (my
+  recommendation, if the CPU-drawing measurement on the Pixel 2 test card
+  holds). Needed before step 6 fixes the Brick's card layout. The
+  measurement needs my OK for the test card.
+
+## Appendix: measurements
+
+Taken from TrimUI's six-view product images (the 1600 px views of the
+purple Brick and of the Brick Pro), by pixel, scaled to the published
+outlines: the Brick at 7.0 px/mm (73.2 x 109.9 mm), the Brick Pro at
+5.55 px/mm (86.6 x 129.9 mm). Reference only: the images are not shipped,
+not traced, and nothing of TrimUI's marks goes on the models. Millimetres
+from the front's top-left corner, x to the right, y down; key places are
+centers; good to about half a millimetre.
+
+| | Brick (TG3040) | Brick Pro |
+|---|---|---|
+| Outline | 73.2 x 109.9 (published) | 86.6 x 129.9 (published) |
+| Corners, front | top r 0.5, bottom r 4.1 | top r under 1, bottom r 5.4 |
+| Depth | 11.8 above the ledge, 19.9 below (published 11.79 / 19.9) | 11.7 above, 23.6 below (measured) |
+| Back ledge (top of the thick part) | y 42.9 | y 49.1 |
+| Screen glass | x 0.9 to 72.2, y 0.8 to 57.2 | x 1.3 to 85.1, y 0.4 to 66.2 |
+| Active screen (from its size) | 65.0 x 48.8, 3.2 in, centered in the glass | 80.3 x 60.2, 3.95 in |
+| D-pad | center (15.9, 72.3), span 19.3, arm 7.0 wide | center (17.4, 81.2), span 20.0 |
+| F1, F2 (pills) | (30.9, 63.6), (41.6, 63.6); 7.1 x 2.6 | (36.8, 73.2), (49.4, 73.2); about 8 wide |
+| Face diamond | center (56.3, 72.1), keys 7.6 from it, each 7.7 across | center (69.0, 81.2), keys 7.5 from it |
+| Sticks | none | (25.2, 104.9), (61.2, 104.9); caps 13.5 across, rings about 15 |
+| Bottom round keys | (26.1, 101.4), (36.1, 101.4), (46.2, 101.4); 5.4 across | (33.2, 121.7), (43.1, 121.7), (53.2, 121.7) |
+| Speaker grilles | (11.1, 99.6), (61.9, 99.6); 7.4 wide, two dot rows | (14.5, 121.7), (71.7, 121.7) |
+| Left side | VOL+ at y 10.3, VOL- at y 21.4, each 7.7 long | VOL+ y 17.9, VOL- y 30.9, HOME y 51.8 (8.5 long) |
+| Right side | FN slider at y 23.3 (10.3 long), POWER at y 39.3 (7.1 across) | FN slider y 22.5 (9.7 long), POWER y 39.7 |
+| Shoulders (on the back ledge) | L1 and R1 outside, about 17.5 wide; L2 and R2 inside, about 11; the USB-C housing between, about 13.5; keys from y 41.3 to 47.0 | the same order; keys from y 50.1 to 59.5 |
+| Top edge | a light bar 37.9 wide, centered, at the back | a light bar, centered |
+| Bottom edge, left to right | microSD, a small hole, USB-C (center), a pinhole, 3.5 mm jack | the same |
 
 ## Appendix: the map
 
