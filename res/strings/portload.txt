@@ -34,3 +34,51 @@ fr = Cela peut prendre une minute.
 de = Das kann eine Minute dauern.
 ja = 1 分ほどかかる場合があります。
 it = Può volerci un minuto.
+
+# The same screen after a minute, when the port still has not taken the
+# display (tools/portkeys.c shows it): it is still starting, or it hangs, and
+# MENU and START held together end it (zyhome) and bring the shelf back.
+
+[portload.still_go_back]
+note = The line after a minute, on one line: portload.still and portload.go_back together. MENU and START are the handheld's buttons, never translated.
+en = Still starting. Hold MENU and START to go back.
+zh-Hans = 仍在启动。按住 MENU 和 START 可返回。
+es = Sigue iniciando. Mantén MENU y START para volver.
+pt-BR = Ainda iniciando. Segure MENU e START para voltar.
+fr = Toujours en démarrage. Maintenez MENU et START pour revenir.
+de = Startet noch. MENU und START halten, um zurückzugehen.
+ja = まだ起動中です。MENU と START を長押しで戻ります。
+it = Ancora in avvio. Tieni MENU e START per tornare.
+
+[portload.still]
+note = The first sentence of the line after a minute, on its own line when the two do not fit one
+en = Still starting.
+zh-Hans = 仍在启动。
+es = Sigue iniciando.
+pt-BR = Ainda iniciando.
+fr = Toujours en démarrage.
+de = Startet noch.
+ja = まだ起動中です。
+it = Ancora in avvio.
+
+[portload.go_back]
+note = The second sentence of the line after a minute: how to give up and go back to the shelf. MENU and START never translated.
+en = Hold MENU and START to go back.
+zh-Hans = 按住 MENU 和 START 可返回。
+es = Mantén MENU y START para volver.
+pt-BR = Segure MENU e START para voltar.
+fr = Maintenez MENU et START pour revenir.
+de = MENU und START halten, um zurückzugehen.
+ja = MENU と START を長押しで戻ります。
+it = Tieni MENU e START per tornare.
+
+[portload.keep_waiting]
+note = The first row of the in-game menu MENU opens over a port that is still starting (its loading screen behind): it closes the menu and lets the port go on starting. Where Continue is over a running game.
+en = Keep Waiting
+zh-Hans = 继续等待
+es = Seguir esperando
+pt-BR = Continuar esperando
+fr = Continuer d'attendre
+de = Weiter warten
+ja = 待ち続ける
+it = Continua ad aspettare

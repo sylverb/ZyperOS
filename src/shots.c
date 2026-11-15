@@ -924,11 +924,10 @@ static void np_shot(app *a)
 	}
 	np_cover(a, shot_np);
 	if (shot_video >= 0) {
-		g_np_view = shot_video;
 		mp4v_test_picture(a->r, 640, 360);
 		mn.vw = 640;
 		mn.vh = 360;
-		np_draw_video(a, &mn, 1);
+		np_draw_video(a, &mn, (float)shot_video);
 	} else {
 		np_draw(a, &mn, next);
 	}
