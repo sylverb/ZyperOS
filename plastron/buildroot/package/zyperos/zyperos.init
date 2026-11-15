@@ -170,7 +170,37 @@ seed_staged() {
 	[ -f "$LAUNCH" ]
 }
 
+# The backlight at the player's brightness from here on (ZyperOS's
+# src/boottheme.h): the card's .userdata/<device>/boot-brightness, the
+# backlight's own value at the player's rung, which ZyperOS keeps there as
+# well as in theme.txt. On a card whose boot.scr is older than zybright the
+# splash lit the panel at the kernel's level; this brings it down before
+# the update or copy line and a charger's start. Each backlight within its
+# own maximum, the Brick's through its display engine; nothing without the
+# file (a card ZyperOS never started on) or with anything but a number.
+# ZyperOS's tools/bootbright-check.sh runs it on a scratch card, the two
+# places to write given in ZYPEROS_BACKLIGHTS and ZYPEROS_BRICK_BACKLIGHT.
+bright_keep() {
+	local f v b max
+	local lights=${ZYPEROS_BACKLIGHTS:-/sys/class/backlight}
+	local brick=${ZYPEROS_BRICK_BACKLIGHT:-/usr/lib/brick/backlight}
+	for f in "$CARD"/.userdata/*/boot-brightness; do
+		[ -f "$f" ] && read -r v < "$f" || continue
+		case $v in ''|0*|*[!0-9]*) continue ;; esac
+		if [ -x "$brick" ]; then
+			[ "$v" -le 255 ] && "$brick" "$v"
+			return
+		fi
+		for b in "$lights"/*; do
+			[ -f "$b/max_brightness" ] && read -r max < "$b/max_brightness" || continue
+			[ "$v" -le "$max" ] && echo "$v" > "$b/brightness"
+		done
+		return
+	done
+}
+
 start() {
+	bright_keep
 	# A card from before ZyperOS had its own name keeps everything in TortOS/.
 	# Moved once, less the launcher and the launch.sh that knows the old
 	# paths, so the copy below comes in as on a card with no ZyperOS. The

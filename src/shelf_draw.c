@@ -134,10 +134,11 @@ static void tick_update_trial(void)
 	}
 }
 
-/* The boot screen in the chosen theme (src/boottheme.h, DESIGN.md 11.21):
- * theme.txt on the boot partition, for the next start. Ten seconds into a
- * start, as tick_update_trial, and two seconds after the last change of
- * Appearance or the clock's zone, so a held Left or Right writes it once.
+/* The boot screen in the chosen theme and brightness (src/boottheme.h,
+ * DESIGN.md 11.21): theme.txt on the boot partition, for the next start. Ten
+ * seconds into a start, as tick_update_trial, and two seconds after the last
+ * change of Appearance, the clock's zone or the brightness, so a held Left
+ * or Right writes it once.
  * Written only when it differs from what this start's kernel line carried,
  * which is what the boot partition had: a normal start writes nothing. A
  * boot.scr from before the theme carries no words at all (System Update
@@ -170,6 +171,34 @@ static void lang_file_keep(void)
 	}
 }
 
+/* And the brightness on the card too, P_USERDATA/BOOT_BRIGHT_FILE: the
+ * backlight's own value at the player's rung (plat_brightness_raw, the
+ * device's ladder, whatever its size) and a line end. plastron's init sets
+ * the backlight to it as soon as the card is mounted, so the boot screen's
+ * update and copy lines and a charger's start are at the player's light on a
+ * card whose boot.scr is older than zybright (src/boottheme.h). Written only
+ * when it says something else; none where the device gives no value. */
+#define BOOT_BRIGHT_FILE "boot-brightness"
+
+static void bright_file_keep(int bright)
+{
+	char path[512], had[32] = "", want[32];
+	FILE *f;
+
+	if (bright < 1) return;
+	snprintf(path, sizeof path, "%s/%s", P_USERDATA, BOOT_BRIGHT_FILE);
+	snprintf(want, sizeof want, "%d\n", bright);
+	if ((f = fopen(path, "r"))) {
+		if (!fgets(had, sizeof had, f)) had[0] = '\0';
+		fclose(f);
+	}
+	if (!strcmp(had, want)) return;
+	if ((f = fopen(path, "w"))) {
+		fputs(want, f);
+		fclose(f);
+	}
+}
+
 void boot_theme_changed(void)
 {
 	g_boot_theme_at = plat_now_ms() ? plat_now_ms() : 1;
@@ -179,10 +208,18 @@ static void tick_boot_theme(void)
 {
 	static bool read, settled;
 	static char said[BOOTTHEME_MAX];
+	static int bright_seen = -2;
 	char line[BOOTTHEME_MAX], file[BOOTTHEME_MAX], zone[64];
 	unsigned now = plat_now_ms();
+	const int bright = plat_brightness_raw(plat_brightness_get());
 	int r;
 
+	/* A brightness changed (MENU, the chord, a game's) is a change of the
+	 * boot screen's words too, kept 2 s after the last one as the others are */
+	if (bright != bright_seen) {
+		if (bright_seen != -2) boot_theme_changed();
+		bright_seen = bright;
+	}
 	if (now - t_boot0 < 10000) return;
 	if (g_boot_theme_at && now - g_boot_theme_at < 2000) return;
 	/* Asked once, and again only after a change: what it compares is the
@@ -201,10 +238,11 @@ static void tick_boot_theme(void)
 		read = true;
 	}
 	db_get_str(db_lib(), "timezone", zone, sizeof zone, "America/New_York");
-	boottheme_words(appearance_id(theme_appearance()), zone, lang_code(i18n_lang()),
+	boottheme_words(appearance_id(theme_appearance()), zone, lang_code(i18n_lang()), bright,
 	                line, sizeof line, file, sizeof file);
 	g_boot_theme_at = 0;
 	lang_file_keep();
+	bright_file_keep(bright);
 	if (boottheme_same(line, said)) return;
 	{
 		char note[512], last[BOOTTHEME_MAX] = "";

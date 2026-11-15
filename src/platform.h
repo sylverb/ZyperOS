@@ -363,7 +363,8 @@ void plat_brightness_nudge(int delta);
 void plat_volume_set_pct(int pct);
 void plat_brightness_set(int level);
 /* The backlight's own value at rung `level` (its ladder), -1 where there is
- * none to hand to another program: Flash Drive's usbdrive steps the same rungs */
+ * none to hand to another program: Flash Drive's usbdrive steps the same
+ * rungs, and the boot screens light at the player's (src/boottheme.h) */
 int  plat_brightness_raw(int level);
 
 /* The panel's backlight off or on, leaving the brightness level as it was -

@@ -2312,6 +2312,20 @@ travels with it (`zylang=`, 11.20), and a card whose boot.scr is older than
 that, which System Update leaves as it was, keeps the language on the card
 as well.
 
+The boot screens are at the player's brightness, not the kernel's full light
+*(Discord, 2026-11-15: "Update, boot and charging screen brightness. Can
+those screens follow the set brightness? Currently they illuminate the whole
+room.")*: the boot animation, its first start's and update's lines, and a
+charger's start before the charging screen (11.25). The launcher keeps the
+backlight's own value at the player's rung (the device's ladder) with the
+theme (`zybright=`), and the splash sets it before it lights the panel. On a
+card whose boot.scr is older than that, the launcher keeps it on the card as
+well (`.userdata/<device>/boot-brightness`), and plastron's init sets it as
+soon as the card is mounted, before an update's or a copy's line. Until a
+brightness was ever kept (a new card), the panel lights at the kernel's
+level, as before; a value of 0, or above the backlight's maximum, is never
+taken.
+
 ### 11.22 Song pop-up
 Zyper saying the menu music's new song on the home and the games shelf
 *(2026-11-06: "whenever the bg song changes, can we have zyper popup
