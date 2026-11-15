@@ -367,6 +367,27 @@ art from libretro-thumbnails, cached outside the repository. See
 [`res/readme/README.md`](../res/readme/README.md) for capture provenance and
 the refresh steps.
 
+## Devices
+
+Each handheld is a profile (`src/device/profile.h`): plain data in
+`src/device/<id>_profile.c` saying what it is, its name and folders, its
+screen as glass and pixels, its controls as printed, the chords a missing or
+doubled button needs, and what it has. A screen asks the profile what the
+handheld has (`plat_profile()`, and the `plat_*` answers made from it) and
+the platform what it is doing; it never asks which handheld it is. The
+device build links its own profile (`DEVICE=` in `mk/cross.mk`); the host
+build links all of them and wears `desktop` unless told:
+
+    build-native/zyperos --shot /tmp/tour.png --device pixel2 --tour menu 2000
+    build-native/zyperos --shot /tmp/tour.png --device brick --tour menu 2000
+
+`desktop` answers as the host always has, so every shot taken before
+profiles is taken the same. `make check-devices` holds each profile whole and
+no device guessed in `src/` (`tools/devices-lint.py`); `make
+check-device-compile` compiles every device file's Linux half, which the CI
+job `devices` runs on Ubuntu. The design and the order of work:
+`docs/superpowers/specs/2026-11-14-device-modular-design.md`.
+
 ## On device
 
 A change to ZyperOS goes onto a Pixel 2 as a payload, without a new image:

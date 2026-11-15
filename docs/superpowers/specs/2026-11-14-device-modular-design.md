@@ -764,7 +764,7 @@ host-only and can be in 1.0.6; steps 6 and 7 need testers and ship in the
 first release after the Brick passes its test list (1.0.6 if that work is
 done by then).
 
-1. **The device profile.** `device_profile`, the `pixel2`, `brick` and
+1. **The device profile** (built 2026-11-15). `device_profile`, the `pixel2`, `brick` and
    `desktop` profiles, `plat_profile()`, the host `--device` flag,
    capabilities in place of `fn_volume` and of the side-effect guesses,
    `plat_system_has` (today's file checks behind it; the image's `has` line
@@ -839,6 +839,30 @@ Each is marked *(My call)* where it is written:
 - One core set per architecture at the `cortex-a53` baseline.
 - Every release carries every released device and waits for each one's
   `Tested on` line.
+
+Made while building step 1 (2026-11-15; the plan,
+`docs/superpowers/plans/2026-11-15-device-profile-step1.md`, has the why):
+
+- The desktop driver split moves to step 6: `src/device/brick.c` keeps its
+  host half, and the host build wears the new `desktop` profile.
+- The generated `<id>.mk` / `<id>.h` move to step 4, with plastron's device
+  symbol, their first reader.
+- `--fn-volume` stays a narrow shot flag (the Pixel 2's chords and the
+  tutorial's handheld over the profile in force) until step 5 moves the
+  shots to `--device pixel2` on a reviewed sheet.
+- The tutorial draws the handheld where the profile has one and brightness
+  is MENU+VOL (`dev_tutorial_handheld`); the second half exists only for the
+  desktop profile and goes in step 5.
+- The capability `plat_*` functions stay as the read path, defined once in
+  `src/profile.c` from the profile; their prototypes live in
+  `src/device/profile.h`, which `src/platform.h` includes.
+- System Update's device name stays the userdata folder's name until step 4.
+- `pixel2.c` does not read the profile's screen facts yet (QEMU's landscape
+  display runs the Pixel 2 build).
+- The desktop profile answers GPU shaders "yes" (shots are headless, where
+  they always were; the windowed Mac run now offers them too).
+- The in-game Controls tab keeps its column on a device with no drawing,
+  empty, until that device's drawing comes (step 5 for the Brick).
 
 ## Decided
 
