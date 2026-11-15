@@ -20,7 +20,7 @@
   &nbsp;
   <a href="https://discord.gg/Ust8sE22Tm"><img src="https://img.shields.io/badge/Discord-Join_us-5865F2?style=for-the-badge&logo=discord&logoColor=white" height="34" alt="Join the ZyperOS Discord"></a>
   &nbsp;
-  <a href="https://github.com/tarikbc/ZyperOS/releases"><img src="https://img.shields.io/github/downloads/tarikbc/ZyperOS/total?style=for-the-badge&label=Downloads&color=1a1c1a" height="34" alt="Downloads of every ZyperOS release"></a>
+  <a href="https://github.com/tarikbc/ZyperOS/releases"><img src="https://img.shields.io/endpoint?url=https%3A%2F%2Ftarikbc.github.io%2FZyperOS%2Fdownloads.json&style=for-the-badge" height="34" alt="Card image downloads of every ZyperOS release"></a>
 </p>
 
 <p align="center">
