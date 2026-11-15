@@ -15956,8 +15956,10 @@ static void shot_compose(app *a)
 		 * session's numbers over Wi-Fi (--hare-move): nothing moving after
 		 * a file came in, a file coming in (its bar at 62%), one going
 		 * out, both, closing after the one coming in, Play after this
-		 * file's wait, and Wi-Fi gone with the totals kept. `now` is the
-		 * Now row's words for the file (shot_hare_head). */
+		 * file's wait, Wi-Fi gone with the totals kept, and Wi-Fi gone in
+		 * the middle of a file, paused with its part kept (its bar at 58%,
+		 * hare_paused). `now` is the Now row's words for the file
+		 * (shot_hare_head). */
 		static const struct {
 			const char *state;
 			bool on[2];
@@ -15972,6 +15974,7 @@ static void shot_compose(app *a)
 			{ "closing", { true, false },  { 2400000ull, 0 },          840, S_XFER_CLOSING_AFTER },
 			{ "finish",  { true, false },  { 2400000ull, 0 },          840, S_XFER_FINISHING },
 			{ "gone",    { false, false }, { 0, 0 },                   -1,  S_HARE_RECEIVED },
+			{ "paused",  { false, false }, { 0, 0 },                   580, S_HARE_PAUSED },
 		};
 		int m = 1, k;
 		xs_flow flow[2] = { { 186000000ull, 0, 0, 0, false }, { 41000000ull, 0, 0, 0, false } };
@@ -16004,14 +16007,15 @@ static void shot_compose(app *a)
 			ui_scrim(a->r, 0);
 			xs_page_show(a, XFER_NAME_WIFI, rows, xs_finish_rows(rows, now, sizeof now, shot_hare_head));
 		} else {
-			const bool gone = m == 6;
+			const bool gone = m == 6 || m == 7;
 
 			hare_preview(a, gone ? "" : "zyperos.local", gone ? T(S_XFER_WIFI_GONE) : shot_hare_addr,
 			             "4071", shot_hare_who,
 			             /* the cable's address is USB File Transfer, with SSH */
 			             !strcmp(shot_hare_addr, "10.42.0.1") ? "1 signed in" : NULL, now,
 			             m == 4 ? S_KEYHINT_HIDE
-			             : MV[m].on[0] || MV[m].on[1] ? S_KEYHINT_KEEP_GOING_OR_STOP : S_KEYHINT_CLOSE);
+			             : MV[m].on[0] || MV[m].on[1] || m == 7 ? S_KEYHINT_KEEP_GOING_OR_STOP
+			             : S_KEYHINT_CLOSE);
 		}
 	} else if (shot_hot)
 		hot_preview(a, shot_hot_ssid, shot_hot_pass, shot_hot_phones, shot_hot_now);
