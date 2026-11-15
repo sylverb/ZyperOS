@@ -111,7 +111,8 @@ void update_systems(app *a)
 	if (in_repeat(&a->in, fwd))  { a->sys_cursor = (a->sys_cursor + 1) % n; dir = +1; sb = fwd; }
 	/* The Grid home (DESIGN.md 11.1): Up and Down a row, stopping at the top
 	 * and the foot (the edge sound), Down over a short last row onto its
-	 * last system; L1 and R1 a screenful, round the ends */
+	 * last system; L1 and R1 a screenful, or to the end, then round
+	 * (gg_page, as the shelf grid's) */
 	if (a->home_layout == HOME_GRID) {
 		int cols = home_grid_cols(), page = cols * HOME_GRID_ROWS, to = a->sys_cursor;
 
@@ -120,8 +121,8 @@ void update_systems(app *a)
 			if (to / cols < (n - 1) / cols) to = to + cols < n ? to + cols : n - 1;
 			sb = IN_DOWN;
 		}
-		if (in_repeat(&a->in, IN_L1)) { to = ((to - page) % n + n) % n; sb = IN_L1; }
-		if (in_repeat(&a->in, IN_R1)) { to = (to + page) % n; sb = IN_R1; }
+		if (in_repeat(&a->in, IN_L1)) { to = gg_page(to, n, page, -1); sb = IN_L1; }
+		if (in_repeat(&a->in, IN_R1)) { to = gg_page(to, n, page, +1); sb = IN_R1; }
 		if (to != a->sys_cursor) dir = to > a->sys_cursor ? 1 : -1;
 		a->sys_cursor = to;
 		if (a->sys_cursor == was) dir = 0;

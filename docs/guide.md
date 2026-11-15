@@ -1262,7 +1262,7 @@ beside its animated console sprite, with nearby systems below. Gallery puts the
 focused sprite between its neighbors and shows the full system name below.
 Grid shows the systems in three rows of six, each sprite with its short name,
 the focused one underlined and its full name and count under the grid; Up and
-Down move a row there. Spotlight and Grid use short names, such as GBA and N64.
+Down move a row there, and L1 and R1 a screenful or to the last system. Spotlight and Grid use short names, such as GBA and N64.
 These labels do not rename any folder. Every layout remembers the same
 selected system.
 

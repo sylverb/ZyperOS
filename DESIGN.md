@@ -796,7 +796,7 @@ the systems are more than three rows. The band: the system's whole name in
 its right, its count under it in **support**; the foot at 720: MENU, the
 place, SELECT. **Up** and **Down** move a row, stopping at the top and the foot
 with the edge sound (Down over a short last row lands on its last system);
-**Left** and **Right** step round the ends; **L1** and **R1** jump a screenful.
+**Left** and **Right** step round the ends; **L1** and **R1** jump a screenful, or to the last (first) system where less is left, and from the last round to the first (as the shelf grid's, 11.47).
 A system hidden or emptied leaves the grid as it leaves the row; Favorites is
 a tile like any other.
 
