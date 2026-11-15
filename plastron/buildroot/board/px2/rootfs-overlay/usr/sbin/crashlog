@@ -1,0 +1,132 @@
+#!/bin/sh
+# crashlog: at every start, what the kernel kept in RAM across a reset
+# (pstore's ramoops: the device tree's ramoops@110000, linux-px2.config) put
+# where a player finds it, and the kernel told to panic on a stuck CPU.
+#
+# A freeze used to leave nothing. One GKD Pixel 2 froze 30 to 60 s into its
+# menus, and either rebooted 30 s later or never came back (2026-11-15), and
+# its logs had nothing in them: the kernel's own lines are in RAM only, and a
+# player holding POWER ends the RAM with the power. So:
+#
+#   - The kernel panics when a CPU is stuck: the lockup detectors
+#     (linux-px2.config: a soft lockup, 20 s in the kernel without a switch,
+#     and a hard one, 10 s without its interrupts) and, set here, an RCU
+#     stall (21 s). A panic dumps the kernel's last lines into pstore and
+#     reboots 30 s later (panic=30, boot-prelude.cmd), the DDR still powered,
+#     so the start after has the report. A freeze that stops the whole chip
+#     (the DDR or its bus) stops these too; no hardware watchdog (a false
+#     reset under a long card copy is worse, plastron PR #115).
+#   - At the start after (this, run by init after the card is mounted), each
+#     dump the kernel kept, and the end of the kernel log before the reset,
+#     go into CRASH_DIR/crash-DATE.txt on the card (ZyperOS's logs folder,
+#     which its Download logs packs) and into zyperos-crash.txt on the boot
+#     partition, PX2BOOT, which a Windows PC or a Mac shows as a drive of its
+#     own the moment the card is in, the newest only. Then the dumps are let
+#     go, so each report is said once.
+#   - A reset without a panic (the chip's thermal cut-off, a reset that is
+#     not Linux's) leaves the console but no dump: that too is a report, when
+#     the console does not end in the kernel's own restart or power-off line.
+#     After a power-off, or a reset asked for, there is nothing to say.
+#
+# Settings in /etc/default/crashlog: CRASH_DIR (default the card's
+# .plastron/crash), CRASH_KEEP (how many reports CRASH_DIR keeps, 10). For a
+# check on a computer (tools/crashlog-check.sh), the same names and PSTORE,
+# the folder pstore is in, RCU_PANIC, the file the RCU stall panic is set
+# in, and RUN_REPORT, where this start's report stays for setuplog.
+PSTORE=${PSTORE:-/sys/fs/pstore}
+RCU_PANIC=${RCU_PANIC:-/proc/sys/kernel/panic_on_rcu_stall}
+RUN_REPORT=${RUN_REPORT:-/run/crashlog.txt}
+CARD=/dev/mmcblk0
+CRASH_DIR=${CRASH_DIR:-/mnt/SDCARD/.plastron/crash}
+CRASH_KEEP=${CRASH_KEEP:-10}
+[ -r /etc/default/datapart ] && . /etc/default/datapart
+[ -r /etc/default/crashlog ] && . /etc/default/crashlog
+case $CARD in
+*[0-9]) PART=${CARD}p ;;
+*) PART=$CARD ;;
+esac
+BOOT=${BOOT:-${PART}1}
+MNT=/run/crashlog
+
+# An RCU stall panics, as the lockups do (linux-px2.config): at every start,
+# not only during the first start's copy (setuplog), so a CPU stuck in the
+# kernel for 21 s anywhere reboots with its report
+[ -w "$RCU_PANIC" ] && echo 1 > "$RCU_PANIC"
+
+mountpoint -q "$PSTORE" 2> /dev/null || mount -t pstore pstore "$PSTORE" 2> /dev/null
+
+dumps=
+for f in "$PSTORE"/dmesg-ramoops-*; do
+	[ -f "$f" ] && dumps="$dumps $f"
+done
+console=$PSTORE/console-ramoops-0
+# The console of the start before: a report when it has no dump with it only
+# if it ended some other way than the kernel's own restart or power-off
+reset=
+if [ -z "$dumps" ] && [ -f "$console" ]; then
+	tail -c 4096 "$console" | grep -q -E 'reboot: (Restarting system|Power down)' || reset=1
+fi
+[ -n "$dumps" ] || [ -n "$reset" ] || exit 0
+
+now=$(date '+%Y-%m-%d %H:%M:%S')
+report=$(mktemp) || exit 0
+{
+	if [ -n "$dumps" ]; then
+		echo "ZyperOS's kernel stopped with a panic before this start ($now)."
+	else
+		echo "The handheld was reset before this start without the kernel's own restart ($now)."
+	fi
+	[ -r /etc/zyperos/system ] && sed -n 's/^version /System version: /p' /etc/zyperos/system
+	echo "Kernel: $(uname -r)"
+	echo
+	for f in $dumps; do
+		echo "--- ${f##*/}: what the kernel printed last, up to the panic ---"
+		tail -c 24576 "$f" | tr -d '\r'
+		echo
+	done
+	if [ -f "$console" ]; then
+		echo "--- the end of the kernel log before the reset ---"
+		tail -c 16384 "$console" | tr -d '\r'
+		echo
+	fi
+	echo "--- end ---"
+} > $report 2> /dev/null
+
+# On the card, beside the reports before it, the newest CRASH_KEEP kept
+if mkdir -p "$CRASH_DIR" 2> /dev/null; then
+	stem=crash-$(date '+%Y%m%d-%H%M%S')
+	name=$stem.txt
+	n=2
+	while [ -e "$CRASH_DIR/$name" ]; do
+		name=$stem-$n.txt
+		n=$((n + 1))
+	done
+	cp $report "$CRASH_DIR/$name.new" && mv "$CRASH_DIR/$name.new" "$CRASH_DIR/$name"
+	ls -1 "$CRASH_DIR" | grep '^crash-.*\.txt$' | sort -r | tail -n +$((CRASH_KEEP + 1)) |
+	while IFS= read -r old; do
+		rm -f "$CRASH_DIR/$old"
+	done
+fi
+
+# On the boot partition, the newest only: mounted for the write and let go,
+# as the launcher writes its theme.txt there, written whole under another
+# name and renamed over
+if [ -b "$BOOT" ] && blkid "$BOOT" 2> /dev/null | grep -q 'LABEL="PX2BOOT"'; then
+	mkdir -p $MNT
+	if mount -t vfat -o noatime,nosuid,nodev,noexec "$BOOT" $MNT 2> /dev/null; then
+		cp $report $MNT/zyperos-crash.new && sync && mv $MNT/zyperos-crash.new $MNT/zyperos-crash.txt
+		sync
+		umount $MNT
+	fi
+	rmdir $MNT 2> /dev/null
+fi
+
+echo "crashlog: a report from before this start kept in $CRASH_DIR and on PX2BOOT" 2> /dev/null > /dev/kmsg
+# Said once: the dumps let go (the console is the kernel's to replace). The
+# report stays in /run for this start's setup record, when there is one
+# (setuplog, which showed the dumps itself before this took them)
+for f in $dumps; do
+	rm -f "$f"
+done
+mv -f $report "$RUN_REPORT" 2> /dev/null || rm -f $report
+exit 0

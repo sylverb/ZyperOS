@@ -1,0 +1,4 @@
+# plastron's /usr/sbin/crashlog on ZyperOS: a report of a panic or a reset
+# before a start goes into ZyperOS's logs folder, which its Download logs
+# packs (crash-*.txt), as well as onto PX2BOOT
+CRASH_DIR=/mnt/SDCARD/.userdata/pixel2/logs

@@ -204,10 +204,14 @@ bool logpack_build(const char *logs_dir, const char *about,
 	if ((d = opendir(logs_dir))) {
 		while ((e = readdir(d))) {
 			/* Every boot's zyperos.log, the USB port's plugs (usblog.h),
-			 * and the Wi-Fi supplicant's joins and drops (wifi.log and
-			 * wifi.log.1, /etc/init.d/wpa_supplicant on the Pixel 2) */
+			 * the Wi-Fi supplicant's joins and drops (wifi.log and
+			 * wifi.log.1, /etc/init.d/wpa_supplicant on the Pixel 2), and
+			 * the reports of a panic or a reset before a start (crash-*.txt,
+			 * plastron's /usr/sbin/crashlog: the kernel's last lines) */
 			if (strncmp(e->d_name, "zyperos.log", 10) != 0 && strcmp(e->d_name, "usb.log") != 0 &&
-			    strcmp(e->d_name, "wifi.log") != 0 && strcmp(e->d_name, "wifi.log.1") != 0) continue;
+			    strcmp(e->d_name, "wifi.log") != 0 && strcmp(e->d_name, "wifi.log.1") != 0 &&
+			    !(strncmp(e->d_name, "crash-", 6) == 0 && strlen(e->d_name) > 10 &&
+			      strcmp(e->d_name + strlen(e->d_name) - 4, ".txt") == 0)) continue;
 			snprintf(from, sizeof from, "%s/%s", logs_dir, e->d_name);
 			snprintf(path, sizeof path, "%s/%s", dir, e->d_name);
 			if (copy_masked(from, path, secrets, n,

@@ -17,6 +17,9 @@
 # the background, and the rest of the boot carries on beside it. It takes the
 # display from the splash and handles the power button itself.
 ::sysinit:/etc/init.d/datapart start
+# A report of a panic or a reset before this start, from pstore, onto the
+# card and PX2BOOT (see the script), as soon as the card is there
+::sysinit:/usr/sbin/crashlog
 ::sysinit:/etc/init.d/zyperos start
 ::sysinit:/bin/mkdir -p /run/lock/subsys
 null::sysinit:/bin/ln -sf /proc/self/fd /dev/fd
