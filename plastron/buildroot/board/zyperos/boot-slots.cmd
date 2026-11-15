@@ -39,21 +39,23 @@ if test "${zy_count}" = "1"; then
 	env export -t ${zy_state} slot trial try fell a b
 	fatwrite ${devtype} ${devnum}:${distro_bootpart} ${zy_state} /bootstate.txt ${filesize}
 fi
-# The boot screen's theme and language (ZyperOS's src/boottheme.h, DESIGN.md
-# 11.20 and 11.21): theme.txt, which the launcher keeps here, onto the
-# kernel's line as three words without a dot, which the kernel hands to
-# init's environment, where the splash reads them. "-" without the file, so
-# the launcher knows this boot.scr asked and found none (and writes it),
-# where an older one says nothing; the splash plays its default for "-", and
-# its first start's line in English. After bootstate's write, which used the
-# same memory.
+# The boot screen's theme, language and brightness (ZyperOS's
+# src/boottheme.h, DESIGN.md 11.20 and 11.21): theme.txt, which the launcher
+# keeps here, onto the kernel's line as four words without a dot, which the
+# kernel hands to init's environment, where the splash reads them. "-"
+# without the file, so the launcher knows this boot.scr asked and found none
+# (and writes it), where an older one says nothing; the splash plays its
+# default for "-", its first start's line in English, and lights the panel
+# at the kernel's own level. After bootstate's write, which used the same
+# memory.
 setenv zytheme -
 setenv zyzone -
 setenv zylang -
+setenv zybright -
 if load ${devtype} ${devnum}:${distro_bootpart} ${zy_state} /theme.txt; then
-	env import -t ${zy_state} ${filesize} zytheme zyzone zylang
+	env import -t ${zy_state} ${filesize} zytheme zyzone zylang zybright
 fi
-setenv zy_theme "zytheme=${zytheme} zyzone=${zyzone} zylang=${zylang}"
+setenv zy_theme "zytheme=${zytheme} zyzone=${zyzone} zylang=${zylang} zybright=${zybright}"
 if test "${slot}" = "b"; then setenv zy_part 4; else setenv slot a; setenv zy_part 2; fi
 load ${devtype} ${devnum}:${distro_bootpart} ${kernel_addr_r} /${slot}/Image
 if test -n "${zy_dtb}"; then

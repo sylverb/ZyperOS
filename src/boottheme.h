@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* The boot screen in the theme the player chose (DESIGN.md 11.21).
+/* The boot screen in the theme the player chose (DESIGN.md 11.21), and at
+ * the brightness the player chose.
  *
  * The boot animation plays from the moment the panel lights, before the card
  * with the settings is mounted, so the choice reaches it another way: the
@@ -15,6 +16,12 @@
  *   zylang=pt-BR              MENU > Language's code (src/i18n.h), for the
  *                             first start's line under the animation
  *                             (DESIGN.md 11.20); "en" for any other word
+ *   zybright=74               the backlight's own value at the player's
+ *                             brightness (the device's ladder,
+ *                             plat_brightness_raw), which the splash sets
+ *                             before its first frame; "-" when none was
+ *                             ever kept, and the panel lights as the
+ *                             kernel has it
  *
  * A boot.scr from before the language carries the first two only: System
  * Update does not write boot.scr, so a card that had 1.0.0 keeps one. The
@@ -29,25 +36,27 @@
 
 #include <stddef.h>
 
-#define BOOTTHEME_MAX 128
+#define BOOTTHEME_MAX 160
 
-/* The three words for `appearance` ("light", "dark", "auto"; anything else
- * is light, as the launcher reads it), `zone` and `lang` (a language's code,
- * "en" for one that is none): in `line` as a kernel line has them, one space
- * between, and in `file` as theme.txt holds them, a line each, for U-Boot's
- * env import. */
-void boottheme_words(const char *appearance, const char *zone, const char *lang,
+/* The four words for `appearance` ("light", "dark", "auto"; anything else
+ * is light, as the launcher reads it), `zone`, `lang` (a language's code,
+ * "en" for one that is none) and `bright` (the backlight's value, "-" for
+ * one below 1): in `line` as a kernel line has them, one space between, and
+ * in `file` as theme.txt holds them, a line each, for U-Boot's env import. */
+void boottheme_words(const char *appearance, const char *zone, const char *lang, int bright,
                      char *line, size_t n, char *file, size_t fn);
 
 /* The words this start's kernel line carried, as boottheme_words writes
  * `line`; "" when it carried none (an older boot.scr, or no theme.txt). A
- * line from a boot.scr that carries no zylang has the words it does carry:
- * boottheme_same then leaves the language out of the comparison. */
+ * line from a boot.scr that carries no zylang, or no zybright, has the words
+ * it does carry: boottheme_same then leaves the others out of the
+ * comparison. */
 void boottheme_from_cmdline(const char *cmdline, char *line, size_t n);
 
 /* Whether `want` (boottheme_words' line) is what `said` (the kernel line's)
- * already says: all three words, or the first two where `said` has no
- * zylang, as a boot.scr from before the language could not carry it. */
+ * already says: every word `said` has, as a boot.scr from before the
+ * language or the brightness could not carry those (each word after the
+ * theme and the zone is left out where `said` has none of it). */
 int boottheme_same(const char *want, const char *said);
 
 #endif
