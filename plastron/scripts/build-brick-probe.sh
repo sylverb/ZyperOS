@@ -1,20 +1,25 @@
 #!/bin/sh
 # The Brick panel probe's card image (board/brick/probe): plastron's Brick
 # kernel and boot loader with the probe as the whole initramfs, nothing else.
-# Runs in plastron-builder with the volume, after make brick (its toolchain,
-# mkimage and genimage) and make brick-kernel (the Image and device tree).
-# Output in /work/brick-probe/brick-panel-probe.img.
+# Runs in plastron-builder with the volume, after make brick-kernel (the Image
+# and device tree) and either build of plastron: the probe needs only an
+# aarch64 compiler for its static program, mkimage and genimage, which the
+# Brick's build has and the Pixel 2's too (make), so the kit can be made
+# without the Brick's closed files, which make brick needs and the kit never
+# holds. Output in /work/brick-probe/brick-panel-probe.img.
 set -eu
 BOARD=/src/buildroot/board/brick
 PROBE=$BOARD/probe
+# The Brick's build's host tools, or the Pixel 2's where there is no Brick build
 HOST=/work/output-brick/host
+[ -x "$HOST/bin/aarch64-linux-gcc" ] || HOST=/work/output/host
 KERNEL=/work/brick-kernel/images
 OUT=/work/brick-probe
 # One probe build at a time, from a Brick build and kernel that hold still
 # while it reads them (scripts/lock.sh)
 . /src/scripts/lock.sh
 plastron_lock "$OUT"
-plastron_lock /work/output-brick -s
+plastron_lock "${HOST%/host}" -s
 plastron_lock /work/brick-kernel -s
 export SOURCE_DATE_EPOCH=1791936000
 # genimage calls mkdosfs and mcopy, Buildroot's host builds of them
@@ -22,7 +27,7 @@ export PATH=$HOST/bin:$HOST/sbin:$PATH
 
 for f in "$HOST/bin/aarch64-linux-gcc" "$HOST/bin/mkimage" "$HOST/bin/genimage" \
 	"$KERNEL/Image" "$KERNEL/brick.dtb"; do
-	[ -e "$f" ] || { echo "missing $f: make brick and make brick-kernel first" >&2; exit 1; }
+	[ -e "$f" ] || { echo "missing $f: make (or make brick) and make brick-kernel first" >&2; exit 1; }
 done
 rm -rf "$OUT"
 mkdir -p "$OUT/input" "$OUT/build" "$OUT/initramfs/dev" "$OUT/initramfs/sys"
