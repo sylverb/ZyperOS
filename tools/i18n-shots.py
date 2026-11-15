@@ -324,6 +324,14 @@ EXTRA = {
     "dev-page-keys": ("demo", "PS1", ["--dev-page", "1"]),
     "dev-page-none": ("demo", "PS1", ["--dev-page", "2"]),
     "dev-on": ("demo", "PS1", ["--dev-page", "3"]),
+    # SSH over Wi-Fi (src/sshlink.h, sshlink_want): the Developer page over
+    # Wi-Fi (keys only, no password), the message as it is turned on, with
+    # no key, with Wi-Fi up and the switch off, and the cursor on Developer Mode
+    "dev-page-wifi": ("demo", "PS1", ["--dev-page", "4"]),
+    "dev-wifi-said": ("demo", "PS1", ["--dev-page", "5"]),
+    "dev-page-wifi-nokey": ("demo", "PS1", ["--dev-page", "6"]),
+    "dev-page-wifi-off": ("demo", "PS1", ["--dev-page", "7"]),
+    "dev-page-mode-row": ("demo", "PS1", ["--dev-page", "8"]),
     "empty-ways": ("empty", "", ["--ways", "none,brick"]),
     # MENU > Scraper's page (DESIGN.md 11.19): the plan with videos off, on
     # for three systems and for one (the plurals' one), Systems with a long

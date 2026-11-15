@@ -138,10 +138,23 @@ EOF
 )
 check "Ctrl-C halfway: the lock let go, 130 ($rc)" '[ "$rc" = 130 ] && [ ! -e "$D/lock" ]'
 
-# The default lock is the Pixel 2's own only for the Pixel 2
-check "the Pixel 2 at 10.42.0.1:22 takes /tmp/px2-lock, anything else its own" \
-	'grep -q "elif \[ \"\$HOST:\$PORT\" = 10.42.0.1:22 \]; then LOCK=/tmp/px2-lock$" "$PX2" &&
-	 grep -q "else LOCK=/tmp/px2-lock-\$HOST-\$PORT$" "$PX2"'
+# The default lock is the Pixel 2's own for the Pixel 2, on the cable or over
+# Wi-Fi (a device on port 22), and a VM's own for anything on this computer
+lock_for() {
+	# The lock tools/px2 picks, run as far as its choice and no further
+	PX2_LOCK= PX2_HOST=$1 PX2_PORT=$2 sh -c '
+		HOST=$PX2_HOST PORT=$PX2_PORT
+		eval "$(sed -n "/^if \[ -n \"\${PX2_LOCK:-}\" \]; then LOCK=/,/^fi$/p" "$0")"
+		echo "$LOCK"' "$PX2"
+}
+check "the Pixel 2 on the cable takes /tmp/px2-lock ($(lock_for 10.42.0.1 22))" \
+	'[ "$(lock_for 10.42.0.1 22)" = /tmp/px2-lock ]'
+check "and over Wi-Fi, by address or name ($(lock_for 192.168.1.23 22), $(lock_for zyperos.local 22))" \
+	'[ "$(lock_for 192.168.1.23 22)" = /tmp/px2-lock ] && [ "$(lock_for zyperos.local 22)" = /tmp/px2-lock ]'
+check "a VM takes its own ($(lock_for 127.0.0.1 2222))" \
+	'[ "$(lock_for 127.0.0.1 2222)" = /tmp/px2-lock-127.0.0.1-2222 ] &&
+	 [ "$(lock_for 127.0.0.1 22)" = /tmp/px2-lock-127.0.0.1-22 ] &&
+	 [ "$(lock_for 192.168.1.23 2222)" = /tmp/px2-lock-192.168.1.23-2222 ]'
 
 if [ $fails -gt 0 ]; then
 	echo "$fails failed"

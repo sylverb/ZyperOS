@@ -3,7 +3,8 @@
 # taking the card out: `make push` (`make push BOOT=1` for boot.scr too,
 # `make push LOADER=1` for the bootloader). Needs a development build's SSH
 # key (local/authorized_keys) on the card already, and the device on the
-# cable at 10.42.0.1.
+# cable at 10.42.0.1, or PX2_HOST (its Wi-Fi address, with ZyperOS's SSH
+# over Wi-Fi on).
 #
 # It writes the system slot the device is NOT running, as System Update does
 # (ZyperOS's docs/updates.md, layer 2): the root into that slot's partition,

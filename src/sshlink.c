@@ -99,12 +99,98 @@ bool sshlink_shadow(const char *shadow, const char *hash, char *out, size_t n)
 	return root;
 }
 
+sshlink_mode sshlink_want(const sshlink_facts *f)
+{
+	/* A radio first: with one there, the password is never offered, and
+	 * the only SSH there can be is the one that takes keys alone */
+	if (f->radio) return f->over_wifi ? SSHLINK_NET : SSHLINK_OFF;
+	if (f->cable && !f->cable_spent) return SSHLINK_CABLE;
+	return SSHLINK_OFF;
+}
+
+sshlink_mode sshlink_step(sshlink_plan *p, const sshlink_facts *f, sshlink_mode running)
+{
+	sshlink_facts g = *f;
+	sshlink_mode want;
+
+	if (!f->cable) p->spent = false;            /* the next plug is a fresh one */
+	/* The cable's ended by itself, the cable still in: a lockout or a
+	 * dropbear gone stays so until a replug */
+	if (p->mode == SSHLINK_CABLE && running != SSHLINK_CABLE && f->cable) p->spent = true;
+	g.cable_spent = p->spent;
+	want = sshlink_want(&g);
+	/* And one ended now (a radio came) the same */
+	if (p->mode == SSHLINK_CABLE && want != SSHLINK_CABLE && f->cable) p->spent = true;
+	return want;
+}
+
+int sshlink_argv(sshlink_mode mode, const char *listen, const char *key, const char **argv)
+{
+	int n = 0;
+
+	if (mode != SSHLINK_CABLE && mode != SSHLINK_NET) { argv[0] = NULL; return 0; }
+	argv[n++] = "dropbear";
+	argv[n++] = "-F";                    /* in the foreground: the launcher's child */
+	argv[n++] = "-E";                    /* its log down the pipe sshlink_poll reads */
+	argv[n++] = "-p";
+	/* NET: port 22 on every address, IPv4 and IPv6, so a new address from
+	 * the network's DHCP needs no restart */
+	argv[n++] = mode == SSHLINK_NET ? "22" : listen;
+	argv[n++] = "-r";
+	argv[n++] = key;
+	argv[n++] = "-T";                    /* three tries a connection */
+	argv[n++] = "3";
+	if (mode == SSHLINK_NET) argv[n++] = "-s";   /* no password logins at all */
+	argv[n] = NULL;
+	return n;
+}
+
+int sshlink_key_lines(const char *text)
+{
+	int n = 0;
+
+	while (text && *text) {
+		const char *p = text;
+
+		while (*p == ' ' || *p == '\t') p++;
+		if (*p && *p != '\n' && *p != '\r' && *p != '#') n++;
+		text = strchr(text, '\n');
+		if (text) text++;
+	}
+	return n;
+}
+
+/* The keys dropbear will read: keydir/authorized_keys, as many lines as are
+ * keys (sshlink_key_lines) */
+#include <fcntl.h>
+#include <unistd.h>
+
+int sshlink_keys(const char *keydir)
+{
+	char path[600], buf[16384];
+	ssize_t got;
+	int fd;
+
+	snprintf(path, sizeof path, "%s/authorized_keys", keydir);
+	fd = open(path, O_RDONLY | O_CLOEXEC);
+	if (fd < 0) return 0;
+	got = read(fd, buf, sizeof buf - 1);
+	close(fd);
+	if (got <= 0) return 0;
+	buf[got] = '\0';
+	return sshlink_key_lines(buf);
+}
+
 #ifdef __linux__
 
+#include <arpa/inet.h>
 #include <dirent.h>
 #include <dlfcn.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <ifaddrs.h>
+#include <net/if.h>
+#include <netinet/in.h>
 #include <sched.h>
 #include <signal.h>
 #include <sys/mount.h>
@@ -127,9 +213,10 @@ bool sshlink_shadow(const char *shadow, const char *hash, char *out, size_t n)
 #define RUN_NS       "/tmp/zyperos-ssh.ns"   /* outside RUN_DIR: see learn_ns */
 #define SHADOW_MAX   8192
 
-typedef enum { ST_OFF, ST_ON, ST_DEV, ST_LOCKED, ST_FAILED, ST_RADIO } ssh_state;
+typedef enum { ST_OFF, ST_ON, ST_DEV, ST_LOCKED, ST_FAILED, ST_RADIO, ST_NOKEY } ssh_state;
 
 static ssh_state     g_st = ST_OFF;
+static sshlink_mode  g_mode = SSHLINK_OFF;   /* how the running one listens */
 static pid_t         g_pid = -1;      /* the dropbear master */
 static int           g_fd = -1;       /* its stderr, and every connection's */
 static char          g_ns[64];        /* its mount namespace, "mnt:[...]" */
@@ -248,7 +335,8 @@ static bool run_quiet(char *const argv[])
 }
 
 /* /tmp/zyperos-ssh: the shadow with the PIN's hash, and a home whose .ssh is
- * the card's key folder. The host key is made there the first time. */
+ * the card's key folder. The host key is made there the first time. No
+ * `pin` (SSH over Wi-Fi): root's password field is "*", no password at all. */
 static bool prepare(const char *pin, const char *keydir, char *key, size_t kn)
 {
 	char *shadow = NULL, *built = NULL;
@@ -295,7 +383,9 @@ static bool prepare(const char *pin, const char *keydir, char *key, size_t kn)
 
 	/* Without a hash the PIN cannot sign in; keys still can, and root's
 	 * password field says no password at all ("*", never empty). */
-	if (!pin_hash(pin, hash, sizeof hash)) {
+	if (!pin) {
+		snprintf(hash, sizeof hash, "*");
+	} else if (!pin_hash(pin, hash, sizeof hash)) {
 		fprintf(stderr, "ssh: no libcrypt, so keys only\n");
 		snprintf(hash, sizeof hash, "*");
 	}
@@ -322,16 +412,19 @@ out:
 }
 
 /* dropbear, in a mount namespace of its own. Between fork and exec only
- * system calls: the launcher has threads, and nothing else is safe there. */
-static pid_t spawn(const char *listen, const char *key, int errfd)
+ * system calls: the launcher has threads, and nothing else is safe there.
+ * Its words are made before the fork (sshlink_argv). */
+static pid_t spawn(sshlink_mode mode, const char *listen, const char *key, int errfd)
 {
 	static char *const env[] = { (char *)"PATH=/usr/sbin:/usr/bin:/sbin:/bin", NULL };
+	const char *argv[SSHLINK_ARGV];
 	struct sigaction dfl;
 	struct rlimit lim;
 	sigset_t none;
 	pid_t pid;
 	int null, maxfd, sig;
 
+	if (sshlink_argv(mode, listen, key, argv) == 0) return -1;
 	sigemptyset(&none);
 	memset(&dfl, 0, sizeof dfl);
 	dfl.sa_handler = SIG_DFL;
@@ -369,8 +462,7 @@ static pid_t spawn(const char *listen, const char *key, int errfd)
 	if (mount(NULL, "/", NULL, MS_REC | MS_PRIVATE, NULL) != 0) _exit(3);
 	if (mount(RUN_SHADOW, "/etc/shadow", NULL, MS_BIND, NULL) != 0) _exit(4);
 	if (mount(RUN_HOME, "/root", NULL, MS_BIND, NULL) != 0) _exit(5);
-	execle(DROPBEAR, "dropbear", "-F", "-E", "-p", listen, "-r", key,
-	       "-T", "3", (char *)NULL, env);
+	execve(DROPBEAR, (char *const *)argv, env);
 	_exit(127);
 }
 
@@ -381,12 +473,13 @@ static pid_t spawn(const char *listen, const char *key, int errfd)
  * but Linux answers a packet for any of its addresses on any interface, so a
  * stranger on the same Wi-Fi who routes 10.42.0.1 at the device would reach
  * it. Without netfilter in the kernel, staying off is the guard. */
-static bool radio_up(void)
+static bool radio_named(char *ifname, size_t in)
 {
 	DIR *d = opendir("/sys/class/net");
 	struct dirent *e;
 	bool up = false;
 
+	if (in) ifname[0] = '\0';
 	if (!d) return false;
 	while (!up && (e = readdir(d))) {
 		char p[300];
@@ -396,9 +489,35 @@ static bool radio_up(void)
 		if (access(p, F_OK) == 0) up = true;
 		snprintf(p, sizeof p, "/sys/class/net/%s/phy80211", e->d_name);
 		if (access(p, F_OK) == 0) up = true;
+		if (up && in) snprintf(ifname, in, "%s", e->d_name);
 	}
 	closedir(d);
 	return up;
+}
+
+static bool radio_up(void) { return radio_named(NULL, 0); }
+
+bool sshlink_radio(char *ifname, size_t in, char *addr, size_t an)
+{
+	char name[64];
+	struct ifaddrs *all, *p;
+
+	if (an) addr[0] = '\0';
+	if (!radio_named(name, sizeof name)) {
+		if (in) ifname[0] = '\0';
+		return false;
+	}
+	if (in) snprintf(ifname, in, "%s", name);
+	if (an && getifaddrs(&all) == 0) {
+		for (p = all; p; p = p->ifa_next) {
+			if (!p->ifa_addr || p->ifa_addr->sa_family != AF_INET || strcmp(p->ifa_name, name)) continue;
+			if (!(p->ifa_flags & IFF_UP)) continue;
+			inet_ntop(AF_INET, &((struct sockaddr_in *)(void *)p->ifa_addr)->sin_addr, addr, (socklen_t)an);
+			break;
+		}
+		freeifaddrs(all);
+	}
+	return true;
 }
 
 /* Every process in dropbear's mount namespace: the master, each connection
@@ -487,6 +606,7 @@ static void halt(ssh_state why, bool reaped)
 	g_c.sessions = 0;
 	clean_run();
 	g_st = why;
+	g_mode = SSHLINK_OFF;
 }
 
 /* No more PINs, at once: root's password field becomes "*" in the very file
@@ -510,7 +630,7 @@ static void lock_pin(void)
 	free(out);
 }
 
-bool sshlink_start(const char *addr, const char *pin, const char *keydir)
+static bool start(sshlink_mode mode, const char *addr, const char *pin, const char *keydir)
 {
 	char listen[80], key[600];
 	int fds[2], i;
@@ -531,18 +651,27 @@ bool sshlink_start(const char *addr, const char *pin, const char *keydir)
 		g_st = ST_DEV;
 		return false;
 	}
-	if (radio_up()) {
+	/* The password never with a radio there (sshlink.h) */
+	if (mode == SSHLINK_CABLE && radio_up()) {
 		fprintf(stderr, "ssh: not while a Wi-Fi interface is up\n");
 		g_st = ST_RADIO;
 		return false;
 	}
-	if (!prepare(pin, keydir, key, sizeof key) || pipe2(fds, O_CLOEXEC) != 0) {
+	/* Keys only, and none: nobody could sign in, so it does not listen */
+	if (mode == SSHLINK_NET && sshlink_keys(keydir) == 0) {
+		fprintf(stderr, "ssh: no key in %s/authorized_keys, so no SSH over Wi-Fi\n", keydir);
+		g_st = ST_NOKEY;
+		return false;
+	}
+	if (!prepare(mode == SSHLINK_NET ? NULL : pin, keydir, key, sizeof key) ||
+	    pipe2(fds, O_CLOEXEC) != 0) {
 		clean_run();
 		g_st = ST_FAILED;
 		return false;
 	}
-	snprintf(listen, sizeof listen, "%s:22", addr);
-	g_pid = spawn(listen, key, fds[1]);
+	if (mode == SSHLINK_NET) snprintf(listen, sizeof listen, "22 (every address, keys only)");
+	else snprintf(listen, sizeof listen, "%s:22", addr);
+	g_pid = spawn(mode, listen, key, fds[1]);
 	close(fds[1]);
 	if (g_pid < 0) {
 		close(fds[0]);
@@ -559,8 +688,19 @@ bool sshlink_start(const char *addr, const char *pin, const char *keydir)
 		if (!g_ns[0]) sleep_ms(2);
 	}
 	g_st = ST_ON;
+	g_mode = mode;
 	fprintf(stderr, "ssh: dropbear %d on %s\n", (int)g_pid, listen);
 	return true;
+}
+
+bool sshlink_start(const char *addr, const char *pin, const char *keydir)
+{
+	return start(SSHLINK_CABLE, addr, pin, keydir);
+}
+
+bool sshlink_start_net(const char *keydir)
+{
+	return start(SSHLINK_NET, NULL, NULL, keydir);
 }
 
 void sshlink_poll(void)
@@ -609,7 +749,8 @@ void sshlink_poll(void)
 	now = (unsigned)(ts.tv_sec * 1000u + (unsigned)(ts.tv_nsec / 1000000));
 	if (now - g_radio_at >= 2000u) {
 		g_radio_at = now;
-		if (radio_up()) {
+		/* The password's SSH only: over Wi-Fi a radio is the point */
+		if (g_mode == SSHLINK_CABLE && radio_up()) {
 			fprintf(stderr, "ssh: a Wi-Fi interface came up, so SSH stops\n");
 			halt(ST_RADIO, false);
 			return;
@@ -639,11 +780,16 @@ void sshlink_stop(void)
 		fprintf(stderr, "ssh: stopped\n");
 	}
 	g_st = ST_OFF;
+	g_mode = SSHLINK_OFF;
 }
 
 int sshlink_sessions(void) { return g_st == ST_ON ? g_c.sessions : 0; }
 
 bool sshlink_on(void) { return g_st == ST_ON; }
+
+sshlink_mode sshlink_running(void) { return g_st == ST_ON ? g_mode : SSHLINK_OFF; }
+
+bool sshlink_needs_key(void) { return g_st == ST_NOKEY; }
 
 void sshlink_note_web(int wrong) { g_web_bad = wrong; }
 
@@ -657,6 +803,7 @@ const char *sshlink_status(void)
 	case ST_DEV:    return T(S_SSH_DEV_IMAGE);
 	case ST_LOCKED: return T(S_SSH_LOCKED);
 	case ST_RADIO:  return T(S_SSH_NOT_WITH_WIFI);
+	case ST_NOKEY:  return T(S_SSH_NEEDS_KEY);
 	default:        return T(S_SSH_OFF);
 	}
 }
@@ -668,9 +815,22 @@ bool sshlink_start(const char *addr, const char *pin, const char *keydir)
 	(void)addr; (void)pin; (void)keydir;
 	return false;
 }
+bool sshlink_start_net(const char *keydir)
+{
+	(void)keydir;
+	return false;
+}
+bool sshlink_radio(char *ifname, size_t in, char *addr, size_t an)
+{
+	if (in) ifname[0] = '\0';
+	if (an) addr[0] = '\0';
+	return false;
+}
 void sshlink_poll(void) {}
 void sshlink_stop(void) {}
 bool sshlink_on(void) { return false; }
+sshlink_mode sshlink_running(void) { return SSHLINK_OFF; }
+bool sshlink_needs_key(void) { return false; }
 void sshlink_note_web(int wrong) { (void)wrong; }
 int sshlink_sessions(void) { return 0; }
 const char *sshlink_status(void) { return T(S_SSH_OFF); }

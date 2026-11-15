@@ -124,11 +124,34 @@ static void check_setting(const char *dir)
 	if (!db_init(dev, lib, NULL)) { printf("no database\n"); failures++; return; }
 	d = db_dev();
 	CHECK(devmode_unlocked(d), "unlocked did not survive a restart");
+	/* SSH over Wi-Fi: off as it ships, kept, and only while Developer
+	 * Mode is on (src/devmode.h) */
+	CHECK(!devmode_wifi(d), "SSH over Wi-Fi starts on");
+	devmode_set_wifi(d, true);
+	CHECK(devmode_wifi(d), "SSH over Wi-Fi on was not kept");
+	db_shutdown();
+	if (!db_init(dev, lib, NULL)) { printf("no database\n"); failures++; return; }
+	d = db_dev();
+	CHECK(devmode_wifi(d), "SSH over Wi-Fi did not survive a restart");
+	devmode_set_wifi(d, false);
+	CHECK(!devmode_wifi(d), "SSH over Wi-Fi off was not kept");
+	devmode_set_wifi(d, true);
 	devmode_set(d, false);
 	CHECK(!devmode_unlocked(d), "turning it off was not kept");
+	CHECK(!devmode_wifi(d), "Developer Mode off left SSH over Wi-Fi on");
+	devmode_set(d, true);
+	CHECK(!devmode_wifi(d), "the next unlock came back with SSH over Wi-Fi on");
+	devmode_set(d, false);
+	devmode_set_wifi(d, true);
+	CHECK(!devmode_wifi(d), "SSH over Wi-Fi turned on with Developer Mode off");
+	devmode_set(d, true);
+	CHECK(!devmode_wifi(d), "a choice made while locked came back with the unlock");
+	devmode_set(d, false);
+	CHECK(!devmode_wifi(NULL), "no database reads as SSH over Wi-Fi on");
 	db_shutdown();
 	if (!db_init(dev, lib, NULL)) { printf("no database\n"); failures++; return; }
 	CHECK(!devmode_unlocked(db_dev()), "off did not survive a restart");
+	CHECK(!devmode_wifi(db_dev()), "SSH over Wi-Fi off did not survive a restart");
 	db_shutdown();
 }
 
