@@ -23,6 +23,7 @@
 #include "sys_menu.h"
 #include "topbar.h"
 #include "ui.h"
+#include "ds/layout.h"   /* DS_PAGE_FOOT_LOW */
 #include "uisound.h"
 #include "zyperdraw.h"
 
@@ -543,7 +544,7 @@ static void media_watch(media_view *v)
 
 			SDL_RenderCopyF(a->r, t, src.w > 0 ? &src : NULL, &d);
 		}
-		page_hint(a->r, "B", T(S_MEDIA_BACK), 64, 724, false, false);
+		page_hint(a->r, "B", T(S_MEDIA_BACK), 64, DS_PAGE_FOOT_LOW, false, false);   /* as Cover and Video's */
 		plat_draw_osd(a->r);
 		plat_present();
 		ui_frame_rest(8);

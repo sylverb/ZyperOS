@@ -240,6 +240,7 @@ LAYOUT = [
     ("page-line-gap",   48,  "between the line's marks and words"),
     ("page-line-gap-tight", 24, "...where they are wider than the page"),
     ("page-foot-y",     704, "the keys' middle at a page's foot"),
+    ("page-foot-low",   724, "a page whose content stands over a page's foot: Cover and Video, the MP4 player"),
     ("page-foot-gap",   40,  "between the hints at a page's foot"),
     ("page-foot-gap-tight", 20, "...where they are wider than the page"),
     ("page-foot-gap-pair", 48, "between Flash Drive's two hints"),
