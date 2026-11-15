@@ -5,6 +5,7 @@
 #include "home.h"
 #include "keyhints_draw.h"
 #include "ui.h"
+#include "ds/flex.h"     /* the shelf, laid out by rules */
 #include "ds/layout.h"
 #include "ds/mark.h"
 #include "theme.h"
@@ -55,24 +56,62 @@ int games_slots(const games_row *r,uint32_t now,games_slot out[GAMES_WINDOW])
     }
     return n;
 }
+/* THE SHELF, LAID OUT BY RULES (src/ds/flex.h): one column between the
+ * page's margins (64), from the system's line to the keys on every screen's
+ * foot. Each part's box: */
+#define SHELF_MARGIN    64    /* the page's sides */
+#define SHELF_SYS_TOP   132   /* the system's line, its box's top (its middle at 152) */
+#define SHELF_SYS_H     40    /* that line: meta's */
+#define SHELF_COVER_GAP 40    /* the covers' band under it */
+#define SHELF_TITLE_GAP 24    /* the name's first line under the covers' band */
+typedef struct { SDL_Rect sys, covers, title, keys; } shelf_frame;
+static shelf_frame shelf_layout(void)
+{
+    static ds_flex F;
+    static shelf_frame f;
+    static bool done;
+    if(done) return f;
+    int root=ds_flex_begin(&F,ZYPEROS_SCREEN_W,ZYPEROS_SCREEN_H,
+                           &(ds_box){.dir=DS_COL,.pad={SHELF_MARGIN,SHELF_SYS_TOP,SHELF_MARGIN,DS_FOOT_INSET}});
+    int sys=ds_flex_add(&F,root,&(ds_box){.h=SHELF_SYS_H});
+    int covers=ds_flex_add(&F,root,&(ds_box){.pad={0,SHELF_COVER_GAP,0,0},.h=SHELF_COVER_GAP+GAMES_COVER_H});
+    int title=ds_flex_add(&F,root,&(ds_box){.pad={0,SHELF_TITLE_GAP,0,0},.grow=1});
+    int keys=ds_flex_add(&F,root,&(ds_box){.h=DS_HINT_GLYPH});
+    ds_flex_solve(&F);
+    f.sys=ds_flex_rect(&F,sys);
+    f.covers=ds_flex_rect(&F,covers);
+    f.covers.y+=SHELF_COVER_GAP; f.covers.h-=SHELF_COVER_GAP;
+    f.title=ds_flex_rect(&F,title);
+    f.title.y+=SHELF_TITLE_GAP; f.title.h-=SHELF_TITLE_GAP;
+    f.keys=ds_flex_rect(&F,keys);
+    done=true;
+    return f;
+}
 SDL_FRect games_cover_rect(int width,int height,float offset)
 {
     if(width<=0 || height<=0) return (SDL_FRect){0};
     float focus=fmaxf(0,1-fabsf(offset)), scale=.72f+.28f*focus;
     float fit=fminf((float)GAMES_COVER_W/width,(float)GAMES_COVER_H/height)*scale;
     float w=width*fit,h=height*fit;
-    return (SDL_FRect){512+offset*390-w/2,376-h/2,w,h};
+    const shelf_frame sf=shelf_layout();
+    return (SDL_FRect){sf.covers.x+sf.covers.w/2.0f+offset*390-w/2,sf.covers.y+sf.covers.h/2.0f-h/2,w,h};
 }
 /* See whether balancing retained all words. A longer name gets a full marquee,
  * rather than silently losing the tail to lb_balance's final-line ellipsis. */
 /* One part of the line under the name at x, or nothing once a part did not
  * fit (x < 0): returns where the next one starts, or -1 */
-#define GAMES_META_RIGHT (1024-64)
-/* The system's line beside A's hint (page_hint at x 800): 40 short of it */
-#define GAMES_ORIGIN_RIGHT 760
+#define GAMES_META_RIGHT (ZYPEROS_SCREEN_W-SHELF_MARGIN)
+/* A's hint beside the name: its left, and its middle 16 under the name's
+ * first line's (600) */
+#define SHELF_HINT_X  800
+#define SHELF_HINT_DY 16
+/* The name's room ends 80 short of A's hint (656 from the margin), and the
+ * system's line beside the hint 40 short of it */
+#define SHELF_TITLE_END 80
+#define GAMES_ORIGIN_RIGHT (SHELF_HINT_X-40)
 /* The name's lines: the first's middle, and the game title's line, 40 (44
  * until 1.0.6) */
-#define GAMES_TITLE_Y    584
+#define GAMES_TITLE_Y    (shelf_layout().title.y+GAMES_TITLE_STEP/2)   /* 584 */
 #define GAMES_TITLE_STEP 40
 /* Where the line under the name sits: a title of one line leaves the second
  * line's place (a title line down) to it, whether it names the system
@@ -112,12 +151,14 @@ uint32_t games_draw(games_row *row,SDL_Renderer *r,const games_info *info,
     TTF_Font *meta=page_font(PAGE_META),*chrome=page_font(PAGE_CHROME);
     char count[40]; snprintf(count,sizeof count,"%d / %d",info->count?info->cursor+1:0,info->count);
     int countw=ui_text_tabular_width(chrome,count);
-    int sw=ui_text_width(meta,info->system),room=960-64-countw-32;
+    const shelf_frame sf=shelf_layout();
+    const int sys_cy=sf.sys.y+sf.sys.h/2;
+    int sw=ui_text_width(meta,info->system),room=sf.sys.w-countw-32;
     if(sw>room) {
-        ui_text_marquee(r,meta,info->system,64,ui_cap_y(meta,152),room,phase,UI_TEXT_SOFT);
+        ui_text_marquee(r,meta,info->system,sf.sys.x,ui_cap_y(meta,sys_cy),room,phase,UI_TEXT_SOFT);
         unsigned next=ui_pingpong_wait(sw-room,phase); if(next<wait) wait=next;
-    } else ui_text(r,meta,info->system,64,ui_cap_y(meta,152),-1,UI_TEXT_SOFT);
-    ui_text_tabular(r,chrome,count,960,ui_cap_y(chrome,152),1,UI_TEXT_DIM);
+    } else ui_text(r,meta,info->system,sf.sys.x,ui_cap_y(meta,sys_cy),-1,UI_TEXT_SOFT);
+    ui_text_tabular(r,chrome,count,sf.sys.x+sf.sys.w,ui_cap_y(chrome,sys_cy),1,UI_TEXT_DIM);
 
     games_slot slots[GAMES_WINDOW]; int n=games_slots(row,now,slots);
     for(int i=0;i<n;i++) {
@@ -183,12 +224,12 @@ uint32_t games_draw(games_row *row,SDL_Renderer *r,const games_info *info,
      * hard to see), in **favorite** as every heart is, centered on the
      * first line's capitals; the name moves over for it. Not on Favorites,
      * where every game is one (info->favorite is false there). */
-    int tx=64,tw=656;
+    int tx=sf.title.x,tw=SHELF_HINT_X-SHELF_TITLE_END-sf.title.x;
     if(info->favorite&&info->count) {
         int cap=ui_cap_height(title);
         float hr=cap*.55f;
-        draw_heart(r,64+hr,GAMES_TITLE_Y,hr,ui_col(theme()->favorite,255));
-        tx=64+(int)lroundf(hr*2)+16; tw=656-(tx-64);
+        draw_heart(r,sf.title.x+hr,GAMES_TITLE_Y,hr,ui_col(theme()->favorite,255));
+        tx=sf.title.x+(int)lroundf(hr*2)+16; tw=SHELF_HINT_X-SHELF_TITLE_END-tx;
     }
     char lines[2][LB_LINE];
     int nlines=ui_balance_lines(title,name,tw,2,lines);
@@ -205,14 +246,14 @@ uint32_t games_draw(games_row *row,SDL_Renderer *r,const games_info *info,
      * of two lines there is no room above the line below, so it leads that
      * line instead. */
     bool origin=info->origin && *info->origin;
-    if(origin && (!whole || nlines<2) && 64+ui_text_width(chrome,info->origin)<=GAMES_ORIGIN_RIGHT) {
-        ui_text(r,chrome,info->origin,64,ui_cap_y(chrome,GAMES_SUBLINE_Y),-1,UI_TEXT_DIM);
+    if(origin && (!whole || nlines<2) && sf.title.x+ui_text_width(chrome,info->origin)<=GAMES_ORIGIN_RIGHT) {
+        ui_text(r,chrome,info->origin,sf.title.x,ui_cap_y(chrome,GAMES_SUBLINE_Y),-1,UI_TEXT_DIM);
         origin=false;
     }
     /* The line below: the system when it did not fit above, then Played,
      * then achievements, 32 apart. A part that would pass the right margin
      * is left out with the ones after it, never drawn over the edge. */
-    int x=64;
+    int x=sf.title.x;
     /* The slot beside A's hint ends at GAMES_ORIGIN_RIGHT; a line that would
      * pass it takes the low slot, where the whole width is free. */
     int my=GAMES_SUBLINE_Y_LOW;
@@ -227,7 +268,7 @@ uint32_t games_draw(games_row *row,SDL_Renderer *r,const games_info *info,
         if(info->played && *info->played) { snprintf(pt,sizeof pt,T(S_GAMES_PLAYED),info->played); w+=ui_text_width(chrome,pt); parts++; }
         if(info->has_achievements) { char at[64]; snprintf(at,sizeof at,T(S_GAMES_ACHIEVEMENTS),info->earned,info->total); w+=ui_text_width(chrome,at); parts++; }
         if(parts) w+=(parts-1)*32;
-        if(64+w<=GAMES_ORIGIN_RIGHT) my=GAMES_SUBLINE_Y;
+        if(sf.title.x+w<=GAMES_ORIGIN_RIGHT) my=GAMES_SUBLINE_Y;
     }
     if(origin) x=meta_part(r,chrome,info->origin,x,my);
     if(games_line[0]) x=meta_part(r,chrome,games_line,x,my);
@@ -241,7 +282,7 @@ uint32_t games_draw(games_row *row,SDL_Renderer *r,const games_info *info,
         meta_part(r,chrome,text,x,my);
     }
     if(info->count) page_hint(r,"A",T(info->folder>0?S_GAMES_OPEN:info->install?S_PORTMASTER_INSTALL:
-                                      info->resumable?S_GAMES_RESUME:S_GAMES_PLAY),800,600,true,false);
+                                      info->resumable?S_GAMES_RESUME:S_GAMES_PLAY),SHELF_HINT_X,GAMES_TITLE_Y+SHELF_HINT_DY,true,false);
     /* The foot, spread from B at the left to X at the right (DESIGN.md
      * 11.4): START turns the shelf into the grid, the next View (11.47) */
     key_hint foot[4]; int nf=0;
@@ -250,7 +291,7 @@ uint32_t games_draw(games_row *row,SDL_Renderer *r,const games_info *info,
     if(info->count&&info->resumable&&!info->install&&!info->folder) foot[nf++]=(key_hint){"Y",T(S_GAMES_FRESH)};
     if(!info->folder) foot[nf++]=(key_hint){"X",T(S_GAMES_DETAILS)};
     /* DS_FOOT_Y, every screen's: a two-line name's system line (cap 664) stays 30 from the keys */
-    keyhints_draw(r,foot,nf,64,960,DS_FOOT_Y,KEYHINTS_SPREAD,true,255);
+    keyhints_draw(r,foot,nf,sf.keys.x,sf.keys.x+sf.keys.w,sf.keys.y+sf.keys.h/2,KEYHINTS_SPREAD,true,255);
     SDL_SetRenderDrawColor(r,red,green,blue,alpha);
     SDL_SetRenderDrawBlendMode(r,blend);
     return wait;
