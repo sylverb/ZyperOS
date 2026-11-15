@@ -28,6 +28,12 @@
  * first and wedged the display. A number nothing could test. */
 #define GM_SLOTS  6
 #define SLOT_AUTO (GM_SLOTS + 1)
+/* Undo Load's (1.0.6): the game as it was just before the last state was
+ * loaded into it, `<game>.undo.state`, written by every load the player asks
+ * for (the in-game menu's and SELECT+L1's) and loaded by the Undo Load row.
+ * Kept once: the next load writes over it. Named, like Auto, and none of the
+ * player's slots. */
+#define SLOT_UNDO (GM_SLOTS + 2)
 
 /* The carousel shows Auto first, then the numbered slots. This is the only
  * place that mapping is written down. */
@@ -176,13 +182,15 @@ int gi_rows(menu_row *out, const game_info *gi, bool net);
  * it on, on the Game tab after Quick Slot; and Disc (2026-11-13, issue #102),
  * a game on more than one disc's, on the Game tab after Quick Slot too; and
  * Strength (2026-11-14, src/strength.h), how strongly an old screen's shader
- * is drawn, on the Display tab right under Shader while the shader is one. */
+ * is drawn, on the Display tab right under Shader while the shader is one;
+ * and Undo Load (1.0.6, SLOT_UNDO), on the Game tab right under Load while
+ * the game has a state from before its last load. */
 typedef enum {
 	GM_CONTINUE, GM_SAVE, GM_LOAD, GM_QUICK, GM_DISPLAY, GM_SHADER, GM_CONTROLS, GM_CHEEVOS,
 	GM_RESET, GM_QUIT,
 	GM_ROWS,
 	GM_SCREENS = GM_ROWS, GM_SWAP, GM_STYLUS, GM_PAK, GM_PLAYER2, GM_DISC,
-	GM_STRENGTH,
+	GM_STRENGTH, GM_UNDO,
 	GM_MAX_ROWS
 } gm_row;
 
@@ -225,6 +233,9 @@ typedef struct {
 	bool        port;
 	/* The quick slot, 1 to GM_SLOTS; 0 where the system keeps no states */
 	int         quick;
+	/* The game has a state from before its last load (SLOT_UNDO): the Undo
+	 * Load row */
+	bool        undo;
 	/* A Nintendo 64 game's Pak, as gm_pak_name says it; NULL for no row */
 	const char *pak;
 	/* Player 2 is offered on this game's core (p2_offered), and its row's
