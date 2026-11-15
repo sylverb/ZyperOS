@@ -358,6 +358,8 @@ extern const menu_style *g_muse_over;
 extern void             *g_muse_over_ctx;
 extern bool              g_muse_gone;
 
+/* ---- main.c's, for src/gameinfo_screen.c; each is described where it is defined ---- */
+
 /* ---- main.c's, for src/scraper_screen.c; each is described where it is defined ---- */
 /* What the next panel drawn is to be, which panel_frame says and panel_show
  * puts back at rest as it takes it: a panel drawn by anything else, a message
