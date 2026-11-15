@@ -15,17 +15,21 @@
  * edges are drawn by hand, and each device's are its own. It reads the key
  * places from here. Millimetres, as tools/build-pixel2-model.py measures the
  * Pixel 2: x right, z up, from the body's middle; on a side face, x is the
- * face's own across (the depth, front negative). No SDL, so the profiles and
- * the checks link it as it is. */
+ * face's own across (the depth, front negative); on the top edge and on a
+ * back ledge, a shoulder's x, its top's z and its half width. No SDL, so the
+ * profiles and the checks link it as it is. */
 
 #include <stdbool.h>
 
 #include "../tdkey.h"
 
-typedef enum { TD_FACE_FRONT, TD_FACE_LEFT, TD_FACE_RIGHT, TD_FACE_TOP } td_face;
+/* The faces a key can be on: the front, the sides, the top edge (the Pixel
+ * 2's shoulders), and a ledge on the back, the top of a thicker part below
+ * the top edge (the Brick's shoulders), which no front view shows */
+typedef enum { TD_FACE_FRONT, TD_FACE_LEFT, TD_FACE_RIGHT, TD_FACE_TOP, TD_FACE_LEDGE } td_face;
 
 /* Which art draws the body and its keys (src/tourdevice.c) */
-typedef enum { TD_ART_PIXEL2 } td_art;
+typedef enum { TD_ART_PIXEL2, TD_ART_BRICK } td_art;
 
 /* A key: where on which face, and how big - a round key's radius, an
  * elongated one's half length, a shoulder's half width */
@@ -53,9 +57,13 @@ typedef struct td_model {
 	const td_part *parts;
 	int         n_parts;
 	/* The tutorial's views: facing front, turned to show the right side or
-	 * the left, front with both sides' keys out of the edges, and tilted
-	 * back to show the top */
-	td_view     front, right, left, both, top;
+	 * the left, front with both sides' keys out of the edges, tilted back to
+	 * show the top, and turned round to the back, tilted, to show a back
+	 * ledge's keys (a model with no key on a face has its front there) */
+	td_view     front, right, left, both, top, back;
+	/* The Controls tab's front pose: its turn and its size (its pitch 0);
+	 * its leans are off it (ct_lean) */
+	td_view     tab;
 	/* The kept textures' boxes: the tutorial's (from the screen's corner,
 	 * as it stands still in its column) and the Controls tab's (from the
 	 * pose's middle) */
@@ -66,5 +74,6 @@ typedef struct td_model {
 const td_part *td_part_of(const td_model *m, td_key k);
 
 extern const td_model td_model_pixel2;
+extern const td_model td_model_brick;
 
 #endif

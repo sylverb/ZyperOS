@@ -1082,7 +1082,8 @@ I18N_SRC := src/i18n.c src/i18n_tables.c
 # The device profiles' data (src/device/profile.h), for checks that pose a
 # device; src/profile.c is linked only where one is chosen (check-devices)
 DEVICE_PROFILES := src/device/pixel2_profile.c src/device/brick_profile.c src/device/desktop_profile.c \
-                   src/device/td_model.c src/device/pixel2_model.c src/device/pixel2_coreopts.c
+                   src/device/td_model.c src/device/pixel2_model.c src/device/brick_model.c \
+                   src/device/pixel2_coreopts.c
 # Each device's build and card (src/device/build.h): the generator and the
 # checks link them; the launcher never does
 DEVICE_BUILDS := src/device/pixel2_build.c src/device/brick_build.c
@@ -1246,14 +1247,15 @@ build-native/menu-check: tools/menu-check.c tools/legend.h src/wifi_menu.c src/w
                         src/sys_menu.c src/homesys.c src/homesys.h src/menu.c src/game_menu.c src/controls.c src/remap.c \
                         src/ctltab.c src/ctltab.h src/tdkey.h src/padglyph.h \
                         src/device/td_model.h src/device/td_model.c src/device/pixel2_model.c \
-                        src/audioout.c src/sidelights.c src/wifi_menu.h src/sys_menu.h \
+                        src/device/brick_model.c src/audioout.c src/sidelights.c src/wifi_menu.h src/sys_menu.h \
                         src/game_menu.h src/menu.h src/audioout.h src/sidelights.h \
                         src/controls.h src/spawn.c src/spawn.h $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -o $@ \
 	      tools/menu-check.c src/wifi_menu.c src/wifi.c src/sys_menu.c src/homesys.c \
 	      src/menu.c src/game_menu.c src/controls.c src/powerhold.c src/remap.c src/ctltab.c src/audioout.c \
-	      src/sidelights.c src/keyhints.c src/spawn.c src/device/td_model.c src/device/pixel2_model.c $(I18N_SRC)
+	      src/sidelights.c src/keyhints.c src/spawn.c src/device/td_model.c src/device/pixel2_model.c \
+	      src/device/brick_model.c $(I18N_SRC)
 
 # What the launcher tells the side lights' gauge (src/sidelights.h): the lines
 # as plastron's gauge reads them, the FIFO writer that never waits and never
@@ -1373,16 +1375,17 @@ check-device-compile:
 		diatom/port/pixel2.c diatom/port/rumble_evdev.c diatom/port/panelgamma.c; \
 	echo "ok: every device file compiles"
 
-# The handhelds' models (src/device/td_model.h): every key once, and the GKD
-# Pixel 2's places, views and kept boxes as the drawing had them. No SDL.
+# The handhelds' models (src/device/td_model.h): every key once, the GKD
+# Pixel 2's places, views and kept boxes as the drawing had them, and the
+# TrimUI Brick's as measured, its shoulders on the back ledge. No SDL.
 check-model: build-native/model-check
 	@./build-native/model-check
 
 build-native/model-check: tools/model-check.c src/device/td_model.h src/device/td_model.c \
-                          src/device/pixel2_model.c src/tdkey.h FORCE
+                          src/device/pixel2_model.c src/device/brick_model.c src/tdkey.h FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
-	      -o $@ tools/model-check.c src/device/td_model.c src/device/pixel2_model.c
+	      -o $@ tools/model-check.c src/device/td_model.c src/device/pixel2_model.c src/device/brick_model.c
 
 # Developer mode (src/devmode.h): the unlock hold on a clock moved by hand,
 # the setting in a real database, the one-time password and the keys the

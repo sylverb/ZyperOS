@@ -2149,6 +2149,15 @@ static bool lean_is(unsigned keys, float yaw, float pitch)
 	return y == yaw && p == pitch;
 }
 
+/* ...on the Brick, whose shoulders are on its back ledge */
+static bool brick_lean_is(unsigned keys, float yaw, float pitch)
+{
+	float y = -99.0f, p = -99.0f;
+
+	ct_lean(&td_model_brick, keys, &y, &p);
+	return y == yaw && p == pitch;
+}
+
 /* Where row `id` is, -1 for nowhere */
 static int ct_at(const ct_row *ids, int n, ct_row id)
 {
@@ -2473,6 +2482,29 @@ static void ctl_tab(void)
 	m.cur = m.base = m.zdef = m.def;
 	m.face_offered = ctl_letter_layout("DC", &m.letters);
 	ck(lean_is(ct_lit(&m, CT_FACE), CT_LEAN_DEG, 0.0f), "ct_lean: Face Buttons lean right, no pitch");
+
+	/* ct_lean on the Brick: its front's keys as the Pixel 2's; its shoulders,
+	 * on the back ledge no front pose shows, turn it round to its back view
+	 * (off the tab's front pose), whichever side they are on */
+	{
+		const td_model *b = &td_model_brick;
+		const float back = b->back.deg - b->tab.deg, tilt = b->back.pitch;
+
+		ck(back > 140.0f && tilt > 0.0f, "ct_lean: the Brick's back view is turned round and tilted");
+		ck(brick_lean_is(1u << TD_DPAD, -CT_LEAN_DPAD_DEG, 0.0f) && brick_lean_is(1u << TD_Y, CT_LEAN_DEG, 0.0f) &&
+		   brick_lean_is(1u << TD_A, CT_LEAN_DEG, 0.0f), "ct_lean: the Brick's d-pad left, Y and A right, level");
+		ck(brick_lean_is(1u << TD_SELECT, 0.0f, 0.0f) && brick_lean_is(1u << TD_START, 0.0f, 0.0f) &&
+		   brick_lean_is(1u << TD_MENU, 0.0f, 0.0f), "ct_lean: the Brick's SELECT, START and MENU, front");
+		ck(brick_lean_is(1u << TD_L1, back, tilt) && brick_lean_is(1u << TD_L2, back, tilt) &&
+		   brick_lean_is(1u << TD_R2, back, tilt) && brick_lean_is(1u << TD_R1, back, tilt),
+		   "ct_lean: each of the Brick's shoulders, the back view");
+		ck(brick_lean_is(1u << TD_L1 | 1u << TD_R1, back, tilt) && brick_lean_is(1u << TD_L2 | 1u << TD_SELECT, back, tilt),
+		   "ct_lean: the Brick's shoulders on both sides, or with a centre key, the back view");
+		ck(brick_lean_is(1u << TD_A | 1u << TD_R2, CT_LEAN_DEG, 0.0f) &&
+		   brick_lean_is(1u << TD_DPAD | 1u << TD_L1, -CT_LEAN_DPAD_DEG, 0.0f) &&
+		   brick_lean_is(1u << TD_B | 1u << TD_L1, CT_LEAN_DEG, 0.0f),
+		   "ct_lean: a front key with the Brick's shoulders leans as the front key, level");
+	}
 
 	/* The steps, round the choices, and Nothing */
 	ct_ps1(&m);

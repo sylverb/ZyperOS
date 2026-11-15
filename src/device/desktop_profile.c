@@ -7,10 +7,10 @@
  * 2's, which the host borrowed to show the Pixel 2's screens: the GPU's old
  * screens in Display's Shader row (they were offered when headless, which
  * every shot is; a windowed run offers them now too), and the 3D handheld
- * on the in-game Controls tab. The
- * tutorial shows that handheld only with --fn-volume, as before (src/
- * profile.c, dev_tutorial_model). Shots of a real handheld wear its own
- * profile: --device pixel2, --device brick. */
+ * on the in-game Controls tab. The handheld is borrowed (model_borrowed):
+ * the tutorial shows it only with --fn-volume, as before (src/profile.c,
+ * dev_tutorial_model). Shots of a real handheld wear its own profile:
+ * --device pixel2, --device brick. */
 #include "profile.h"
 #include "brick_buttons.h"
 
@@ -29,6 +29,7 @@ const device_profile device_profile_desktop = {
 	.buttons = brick_buttons,
 	.n_buttons = (int)(sizeof brick_buttons / sizeof brick_buttons[0]),
 	.model = &td_model_pixel2,
+	.model_borrowed = true,
 	.bluetooth = true,
 	.gpu_shaders = true,
 	.gpu_frames = true,

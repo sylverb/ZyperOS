@@ -125,17 +125,20 @@ unsigned ct_lit(const ct_model *m, ct_row id);
 #define CT_PITCH_DEG     TD_PITCH_DEG   /* the shoulders' tilt back, so the top shows */
 
 /* The pose handheld `m` takes for the keys a row lights (a ct_lit mask), as
- * offsets from the front pose: the yaw in *yaw_deg (more than 0 shows its
- * right side) and the pitch in *pitch_deg (more than 0 shows its top). Which
- * side a key is on is where `m` has it: on the front, left or right of the
- * middle (a centre key within m->lean_centre of it, as SELECT and START are
- * on the Pixel 2), or a shoulder on the top edge, left or right; a key on a
- * side face, or one `m` has not, is a centre key. Keys on the front of the
- * right turn it CT_LEAN_DEG right and of the left CT_LEAN_DPAD_DEG left (the
- * d-pad), level, with their side's shoulders or not; shoulders alone on one
- * side turn it CT_LEAN_DEG their way and tilt it CT_PITCH_DEG. Centre keys
- * alone, no keys, keys on both sides, or no model: the front pose, level. A
- * centre key with side keys changes nothing. */
+ * offsets from the front pose (m->tab): the yaw in *yaw_deg (more than 0
+ * shows its right side) and the pitch in *pitch_deg (more than 0 shows its
+ * top). Which side a key is on is where `m` has it: on the front, left or
+ * right of the middle (a centre key within m->lean_centre of it, as SELECT
+ * and START are on the Pixel 2), or a shoulder on the top edge, left or
+ * right; a key on a side face, or one `m` has not, is a centre key. Keys on
+ * the front of the right turn it CT_LEAN_DEG right and of the left
+ * CT_LEAN_DPAD_DEG left (the d-pad), level, with their side's shoulders or
+ * not; shoulders alone on one side turn it CT_LEAN_DEG their way and tilt it
+ * CT_PITCH_DEG. Shoulders on a back ledge (the Brick's), with centre keys or
+ * not and on either side, turn it round to its back view (m->back's turn
+ * and tilt), which no front pose shows them from. Centre keys alone, no
+ * keys, keys on both sides, or no model: the front pose, level. A centre key
+ * with side keys changes nothing. */
 void ct_lean(const td_model *m, unsigned keys, float *yaw_deg, float *pitch_deg);
 
 /* The button a button row is about (RM_*), -1 for another row */

@@ -21,17 +21,17 @@
 
 /* ---- the handheld's place and motion (the mock, 2026-11-13) ----------------
  *
- * Centered 99 units in from the content's left edge, so its left edge is on
- * the heading rule's left end, at y 458 of the 1024 x 768 screen, 3.15
- * units a millimetre, turned 10 degrees (the tutorial's front pose): its
- * halos and rings end at x 302 of the 335 where the focus fill starts. The
- * panel is as tall as the screen allows on every tab and page that has it
- * (menu_style's side), so it stands at the same place on all of them. */
+ * Centered 99 units in from the content's left edge, at y 458 of the 1024 x
+ * 768 screen, as big and turned as its model's tab pose says (td_model.h):
+ * the Pixel 2's 3.15 units a millimetre, turned 10 degrees (the tutorial's
+ * front pose), its left edge on the heading rule's left end and its halos
+ * and rings ending at x 302 of the 335 where the focus fill starts; the
+ * Brick as tall, so narrower. The panel is as tall as the screen allows on
+ * every tab and page that has it (menu_style's side), so it stands at the
+ * same place on all of them. */
 #define DEV_DX    99.0f
 #define DEV_CY    458.0f
-#define DEV_SCALE 3.15f
-#define DEV_DEG   10.0f
-/* Turned this far as the tab comes in, to DEV_DEG in **turn** */
+/* Turned this far as the tab comes in, to the tab pose's turn in **turn** */
 #define DEV_DEG_IN 40.0f
 /* How far a tab's move takes it: in with the rows, 64 units the press's way;
  * out with the old tab's name, 96 the press's way (menu_tabs_draw's) */
@@ -42,7 +42,7 @@
 typedef enum { CS_TAB, CS_PICK } cs_mode;
 
 /* The handheld's lean toward the keys the focused row lights (ct_lean):
- * degrees off the front pose, turned (off DEV_DEG) and tilted back */
+ * degrees off the front pose, turned (off its tab pose's) and tilted back */
 typedef struct { float yaw, pitch; } cs_lean;
 
 static struct {
@@ -302,11 +302,14 @@ static bool lights_of(const menu_side *at, unsigned *target)
  * gone); whether it moves, in *moving */
 static bool pose_of(const menu_side *at, td_pose *p, bool *moving)
 {
-	float dx = 0.0f, op = 1.0f, deg = DEV_DEG;
+	const td_model *m = plat_profile()->model;
+	float dx = 0.0f, op = 1.0f, deg;
 	cs_lean ln;
 	int k;
 
 	*moving = false;
+	if (!m) return false;
+	deg = m->tab.deg;
 	if (g_cs.mode == CS_TAB && at->tab_at >= 0) {
 		const unsigned el = at->now - at->tab_t0;
 		const float mv = at->tab_t0 && el < DS_MS_MOVE ? ds_out((float)el / DS_MS_MOVE) : 1.0f;
@@ -316,7 +319,7 @@ static bool pose_of(const menu_side *at, td_pose *p, bool *moving)
 			dx = at->tab_dir * DEV_IN_DX * (1.0f - mv);
 			op = mv;
 			if (at->tab_t0 && at->tab_from != GT_CONTROLS && el < DS_MS_TURN) {
-				deg = DEV_DEG_IN + (DEV_DEG - DEV_DEG_IN) * ds_turn((float)el / DS_MS_TURN);
+				deg = DEV_DEG_IN + (m->tab.deg - DEV_DEG_IN) * ds_turn((float)el / DS_MS_TURN);
 				*moving = true;
 			}
 		} else if (at->tab_from == GT_CONTROLS && mv < 1.0f) {
@@ -334,10 +337,10 @@ static bool pose_of(const menu_side *at, td_pose *p, bool *moving)
 	if (g_cs.lean_t0 && at->now - g_cs.lean_t0 < DS_MS_TURN) *moving = true;
 	/* Cleared whole, padding too, so two poses compare as bytes */
 	memset(p, 0, sizeof *p);
-	p->model = plat_profile()->model;
+	p->model = m;
 	p->cx = (float)at->content_x + DEV_DX + dx;
 	p->cy = DEV_CY;
-	p->scale = DEV_SCALE;
+	p->scale = m->tab.s;
 	p->deg = deg;
 	p->pitch = ln.pitch;
 	p->op = op;
