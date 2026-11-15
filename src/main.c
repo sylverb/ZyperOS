@@ -1376,6 +1376,7 @@ static const char *slot_name(int slot)
 {
 	static char buf[8];
 	if (slot == SLOT_AUTO) return "auto";
+	if (slot == SLOT_UNDO) return "undo";
 	snprintf(buf, sizeof buf, "%d", slot);
 	return buf;
 }
@@ -2661,8 +2662,13 @@ static void on_quick(int what, const char *path)
 		}
 		g_quick.asked = n;
 		g_quick.load = load;
-		if (load)
+		if (load) {
+			/* The game as it is, for Undo Load (SLOT_UNDO), first: Diatom
+			 * writes it, then loads the slot over it. Its answer is no
+			 * business of the pop-up's (another path). */
+			plat_resident_line("SAVE\tpath=%s.undo.state", g_quick.stem);
 			plat_resident_line("LOAD\tpath=%s", g_quick.path);
+		}
 		else
 			plat_resident_line("SAVE\tpath=%s\tpreview=%s.%d.bmp", g_quick.path,
 			                   g_quick.stem, n);
@@ -14863,6 +14869,9 @@ int main(int argc, char *argv[])
 			g_gm_disc.index = g_shot_discs > 1 ? 1 : 0;
 			if (i + 1 < argc && strncmp(argv[i + 1], "--", 2) != 0) g_shot_disc_label = argv[++i];
 		}
+		/* --gm-undo: the game has a state from before its last load, so
+		 * the Game tab has Undo Load */
+		else if (!strcmp(argv[i], "--gm-undo")) g_shot_undo = true;
 		else if (!strcmp(argv[i], "--gm-tab-from") && i + 1 < argc) shot_gm_from = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--gm-press") && i + 1 < argc) shot_gm_press = argv[++i];
 		else if (!strcmp(argv[i], "--backdrop") && i + 1 < argc) shot_backdrop = argv[++i];

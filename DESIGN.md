@@ -2419,10 +2419,18 @@ and R1 go round them, and the panel is the same size on every tab:
 
 | Tab | Rows |
 |---|---|
-| **Game** | Continue, Save, Load, Quick Slot, Disc (a game on more than one disc), Player 2 (an NES game, 11.43), Achievements, Reset, Quit |
+| **Game** | Continue, Save, Load, Undo Load (after a load, below), Quick Slot, Disc (a game on more than one disc), Player 2 (an NES game, 11.43), Achievements, Reset, Quit |
 | **Display** | Display, Shader; a DS game's Screens, Swap Screens, Stylus |
 | **Controls** | Applies To, D-pad as Stick, Pak, Face Buttons, one row a button, Reset Buttons, Hotkeys (11.45) |
 | **Achievements** | the game's achievements, or the sentence that says why it has none (11.46) |
+
+**Undo Load** (1.0.6). Every load the player makes, Load's slot strip or
+SELECT+L1, first saves the game as it is to `<game>.undo.state` (SLOT_UNDO),
+then loads the slot over it. While that file is there the Game tab has a
+plain Undo Load row right under Load, and A on it loads it and resumes. One
+is kept, for each game: Undo Load itself writes none, so A on it twice goes
+back to the same moment, and the next load replaces it. Delete Game, Rename
+and Storage count it with the game's slots.
 
 **Where it opens.** The first MENU of a game opens on Game, on Continue.
 After that it opens on the tab and the row it was left on, until the game
