@@ -150,6 +150,17 @@ int main(void)
 	NEED(gg_key("Metroid (USA).nes") == gg_key("Metroid (USA).nes"), "a key is the same twice");
 	NEED(gg_key("Metroid (USA).nes") != gg_key("Metroid (Europe).nes"), "two names, two keys");
 
+	/* L1 and R1: a screenful in the same column, else to the end, and
+	 * from the end round to the other one */
+	NEED(gg_page(0, 23, 10, +1) == 10 && gg_page(10, 23, 10, +1) == 20, "R1 a screenful, the same column");
+	NEED(gg_page(15, 23, 10, +1) == 22, "R1 with less than a screenful left goes to the last");
+	NEED(gg_page(22, 23, 10, +1) == 0, "R1 on the last comes round to the first");
+	NEED(gg_page(20, 23, 10, -1) == 10 && gg_page(5, 23, 10, -1) == 0, "L1 a screenful, else to the first");
+	NEED(gg_page(0, 23, 10, -1) == 22, "L1 on the first comes round to the last");
+	NEED(gg_page(0, 12, 18, +1) == 11 && gg_page(11, 12, 18, +1) == 0, "a grid on one screen: R1 last, then first");
+	NEED(gg_page(4, 12, 18, -1) == 0 && gg_page(0, 12, 18, -1) == 11, "a grid on one screen: L1 first, then last");
+	NEED(gg_page(0, 1, 10, +1) == 0 && gg_page(0, 0, 10, +1) == 0, "one cover, or none, stays put");
+
 	if (failed) { printf("gridrule: %d failed\n", failed); return 1; }
 	printf("gridrule: every shape, mix and cell as DESIGN.md 11.47 says\n");
 	return 0;

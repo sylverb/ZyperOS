@@ -40,6 +40,12 @@ float gg_shape(const float *art, int n, int cutouts);
 typedef struct { int x, y, cols, rows, cw, ch, gap; } gg_geom;
 gg_geom gg_layout(int left, int top, int w, int h, float shape, int gap, int least);
 
+/* L1 (dir < 0) and R1 (dir > 0) on a grid of `n`: a screenful (`page`) on,
+ * the same column, or to the end where less than a screenful is left; from
+ * the end itself, round to the other end. So a grid that fits on one screen
+ * gets first and last, never a jump of the page modulo its length. Pure. */
+int gg_page(int cursor, int n, int page, int dir);
+
 /* The key gg_note and gg_art_of take: a file name's hash */
 unsigned gg_key(const char *file);
 

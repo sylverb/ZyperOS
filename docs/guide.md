@@ -108,7 +108,7 @@ it away.
 |---|---|
 | **Left/Right** | move left or right along the shelf |
 | **Up/Down** | jump to the previous or next initial on the games shelf. On a shelf shown as a list (MENU > View), Up and Down step along it and Left and Right jump an initial; in the grid, Up and Down move a row and stop at the top and bottom |
-| **L1/R1** | jump three systems on the systems row, a screenful on a games shelf, coming round at the ends |
+| **L1/R1** | jump three systems on the systems row, a screenful on a games shelf, coming round at the ends. In the grid, a screenful or to the last game, then round to the first |
 | **L2/R2** | the previous / next song on the systems row and a games shelf: MP4's while it plays (a book's chapter, as L1/R1 in MP4), else the menu music's. Zyper pops up with its name |
 | **A** | open a system, a folder of games, or start a game |
 | **B** | up one folder of games, or back to the systems row from a shelf's top |
