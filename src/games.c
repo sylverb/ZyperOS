@@ -245,7 +245,8 @@ uint32_t games_draw(games_row *row,SDL_Renderer *r,const games_info *info,
     if(info->count) foot[nf++]=(key_hint){"START",T(S_GAMES_TO_LIST)};
     if(info->count&&info->resumable&&!info->install&&!info->folder) foot[nf++]=(key_hint){"Y",T(S_GAMES_FRESH)};
     if(!info->folder) foot[nf++]=(key_hint){"X",T(S_GAMES_DETAILS)};
-    keyhints_draw(r,foot,nf,64,960,720,KEYHINTS_SPREAD,true,255);
+    /* DS_SHELF_FOOT_Y, not a page's 704: a two-line name's system line (cap 664) would be 14 from the keys */
+    keyhints_draw(r,foot,nf,64,960,DS_SHELF_FOOT_Y,KEYHINTS_SPREAD,true,255);
     SDL_SetRenderDrawColor(r,red,green,blue,alpha);
     SDL_SetRenderDrawBlendMode(r,blend);
     return wait;
