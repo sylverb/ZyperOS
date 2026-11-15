@@ -212,7 +212,11 @@ port_procs() {
 # LOVE), then ends by itself. 2 s later the whole group, the script too; and
 # CONT with each TERM, for a port portkeys has stopped under its in-game menu
 # (a stopped process takes TERM only once it goes on). Whatever is left 4 s
-# after the first TERM is killed.
+# after the first TERM is killed, and said in the log with the kernel's last
+# lines: a port that has to be killed, or that a kill cannot end (a process
+# stuck in the kernel, a GPU hang, a read from the card), leaves the reason
+# there, in Download logs, and not only on a player's description (1.0.6,
+# ports stuck on their loading screen).
 port_end() {
 	local procs
 	[ -n "$PORT_PID" ] || return
@@ -220,7 +224,22 @@ port_end() {
 	[ -n "$procs" ] && kill -TERM $procs 2> /dev/null
 	kill -CONT -"$PORT_PID" 2> /dev/null
 	( sleep 2; kill -TERM -"$PORT_PID" 2> /dev/null; kill -CONT -"$PORT_PID" 2> /dev/null
-	  sleep 2; kill -KILL -"$PORT_PID" 2> /dev/null ) &
+	  sleep 2
+	  if kill -0 -"$PORT_PID" 2> /dev/null; then
+		echo "port: still there 4 s after TERM, killing it; the kernel's last lines:" >> "$LOG"
+		dmesg | tail -n 20 >> "$LOG" 2> /dev/null
+	  fi
+	  kill -KILL -"$PORT_PID" 2> /dev/null
+	  sleep 1
+	  if kill -0 -"$PORT_PID" 2> /dev/null; then
+		echo "port: a kill did not end it; what is left and where it waits:" >> "$LOG"
+		for p in /proc/[0-9]*; do
+			read -r s < "$p/stat" 2> /dev/null || continue
+			set -- ${s##*) }
+			[ "$3" = "$PORT_PID" ] || continue
+			echo "  ${p#/proc/} $(grep -m1 '^State' "$p/status" 2> /dev/null) $(cat "$p/wchan" 2> /dev/null) $(tr '\0' ' ' < "$p/cmdline" 2> /dev/null | cut -c1-80)" >> "$LOG"
+		done
+	  fi ) &
 }
 # What a port left mounted once it has ended, killed before its script could
 # unmount it, or never unmounted: a runtime mounted from a file on the card
@@ -340,9 +359,15 @@ run_port() {
 	done
 	[ "$m" = 480x640 ] && turn=270
 	# The loading screen the launcher left (launch_port), held on the panel
-	# until the port draws, so a minute of loading is not a black panel
+	# until the port draws, so a minute of loading is not a black panel; and
+	# the same screen after a minute, saying how to leave (SPLASH_LATER, which
+	# a splash older than 1.0.6 ignores)
 	if [ -n "$turn" ] && [ -f /tmp/zyperos_loading.raw ] && [ -x /usr/bin/splash ]; then
-		/usr/bin/splash --still /tmp/zyperos_loading.raw &
+		if [ -f /tmp/zyperos_loading_later.raw ]; then
+			SPLASH_LATER=/tmp/zyperos_loading_later.raw /usr/bin/splash --still /tmp/zyperos_loading.raw &
+		else
+			/usr/bin/splash --still /tmp/zyperos_loading.raw &
+		fi
 		still=$!
 	fi
 	# A program of its own (OpenBOR, the standalone Flycast, a port,

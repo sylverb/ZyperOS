@@ -148,11 +148,17 @@ static void signal_splash(int sig)
  * master being free again is the answer, so this tries until it is. A frame
  * and a flip at most, and bounded, so a stuck splash costs a log line and not
  * the launcher. */
+/* The port menu (src/main.c, port_menu_main): over a port still starting,
+ * the loading screen splash --still holds must outlive the menu, which
+ * portkeys puts back for Keep Waiting (tools/portkeys.c, menu_waiting).
+ * Only the boot animation is a splash to stop and end. */
+extern bool g_port_menu;
+
 static void take_from_splash(void)
 {
 	Uint32 t0 = SDL_GetTicks();
 
-	signal_splash(SIGUSR1);
+	if (!g_port_menu) signal_splash(SIGUSR1);
 	while (drm_fd >= 0 && ioctl(drm_fd, PX_DRM_IOCTL_SET_MASTER, 0) != 0 &&
 	       SDL_GetTicks() - t0 < 300)
 		SDL_Delay(1);
@@ -323,7 +329,7 @@ void plat_present(void)
 		take_from_splash();
 		show_screen();
 		show_screen();
-		signal_splash(SIGTERM);
+		if (!g_port_menu) signal_splash(SIGTERM);
 		shown = true;
 	} else if (display_lost) {
 		int err = 0;

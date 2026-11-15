@@ -385,6 +385,28 @@ static void gm_undo_row_only_with_undo(void)
 	   "SLOT_UNDO is none of the player's slots, nor Auto");
 }
 
+/* Over a program still starting (PORT_MENU_WAITING, 1.0.6): the port's
+ * three rows, Continue named Keep Waiting */
+static void gm_port_waiting(void)
+{
+	gm_ui u = { 0 };
+	gm_bufs b;
+	menu_row rows[GM_MAX_ROWS];
+	int n;
+
+	printf("in-game menu over a port still starting:\n");
+	u.dmode = "Full Screen"; u.port = true;
+	n = gm_rows(&u, GT_GAME, rows, &b);
+	ck(n == 3 && !strcmp(rows[0].label, "Continue"), "over a running port: Continue");
+	u.waiting = true;
+	n = gm_rows(&u, GT_GAME, rows, &b);
+	ck(n == 3 && !strcmp(rows[0].label, "Keep Waiting") && !strcmp(rows[2].label, "Quit"),
+	   "over one still starting: Keep Waiting, Controls, Quit");
+	u.port = false;
+	n = gm_rows(&u, GT_GAME, rows, &b);
+	ck(!strcmp(rows[0].label, "Continue"), "and a game's menu is not touched by it");
+}
+
 static void disc_value_check(void)
 {
 	char out[64];
@@ -2975,6 +2997,7 @@ int main(void)
 	player2_row_on_nes_only();
 	gm_disc_row_only_with_discs();
 	gm_undo_row_only_with_undo();
+	gm_port_waiting();
 	disc_value_check();
 	audio_row();
 	channels_row();
