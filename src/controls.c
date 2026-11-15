@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 /* See controls.h. The pages, and nothing else. */
 #include "controls.h"
+#include "powerhold.h"
 
 #include <stddef.h>
 #include <stdio.h>
@@ -20,7 +21,12 @@ void ctl_set_battery_lights(bool on) { battery_lights = on; }
  * printed, in every language; what it does is in the language that is on. */
 static menu_row row_menu(void)   { return (menu_row){ "MENU", T(S_CONTROLS_INGAME_MENU), false }; }
 static menu_row row_mp4(void)    { return (menu_row){ "SELECT", T(S_CONTROLS_MP4_MENU), false }; }
-static menu_row row_save_off(void) { return (menu_row){ "POWER", T(S_CONTROLS_SAVE_OFF), false }; }
+/* POWER's rows say a hold when MENU > Power Button is Hold (src/powerhold.h) */
+static menu_row row_save_off(void)
+{
+	return (menu_row){ "POWER", T(powerhold_mode() ? S_CONTROLS_SAVE_OFF_HOLD : S_CONTROLS_SAVE_OFF),
+	                   false };
+}
 /* X in the in-game menu, from any row: its Quit, whose row draws X's glyph
  * (src/game_menu.h, gm_x_row). MENU then X, a comma for one after the
  * other, as a plus is for held together; the value is the row's own name. */
@@ -196,7 +202,8 @@ static int anywhere(menu_row *out)
 	out[n++] = row_volume();
 	out[n++] = row_brightness();
 	if (fn_volume) out[n++] = row_home();
-	out[n++] = (menu_row){ "POWER",  T(S_CONTROLS_TURN_OFF), false };
+	out[n++] = (menu_row){ "POWER",  T(powerhold_mode() ? S_CONTROLS_TURN_OFF_HOLD
+	                                                    : S_CONTROLS_TURN_OFF), false };
 	return n;
 }
 
@@ -1038,7 +1045,8 @@ static int in_a_port(const ctl_game *g, menu_row *out)
 	out[n++] = row_brightness();
 	/* Not MENU+START's way home: a port's page is full with SELECT+START,
 	 * and the home's Anywhere page says it for every screen */
-	out[n++] = (menu_row){ "POWER", T(S_CONTROLS_QUIT_OFF), false };
+	out[n++] = (menu_row){ "POWER", T(powerhold_mode() ? S_CONTROLS_QUIT_OFF_HOLD
+	                                                   : S_CONTROLS_QUIT_OFF), false };
 	return n;
 }
 

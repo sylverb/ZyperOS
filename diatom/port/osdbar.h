@@ -12,7 +12,9 @@
  *
  * A pill at the top center of the screen: the setting's mark on the left (a
  * speaker, with a cross at silence, or a sun whose rays grow with the level)
- * and one segment per step to its right, filled up to the level. Every color
+ * and one segment per step to its right, filled up to the level. And POWER's
+ * hold, the same pill with the power mark, its segments filling as the
+ * button is held (OSDBAR_POWER). Every color
  * and time is a token of src/design.h (DESIGN.md 11.6), drawn in the theme
  * the caller names, Beard or Salt & Pepper: the surface and edge for the
  * pill, the track for a step not yet reached, and for the steps reached a
@@ -45,7 +47,13 @@
 
 #include "design.h"
 
-enum { OSDBAR_BRIGHT = 1, OSDBAR_VOLUME = 2 };   /* plat_osd_show's kinds */
+enum { OSDBAR_BRIGHT = 1, OSDBAR_VOLUME = 2, OSDBAR_POWER = 3 };   /* plat_osd_show's kinds */
+
+/* POWER held to turn the handheld off (src/powerhold.h, MENU > Power Button
+ * on Hold): the power mark, and a segment lit for each tenth of the hold,
+ * in accent-ink as the lock screen's bar and the charging screen's hold
+ * fill. Its level is how many are lit, of this many. */
+#define OSDBAR_POWER_STEPS 20
 
 /* The buffer: the pill (452 x 64) and a margin around it its shadow falls
  * into, in units. OSDBAR_X/Y are where the buffer's top left goes on the

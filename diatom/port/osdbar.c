@@ -96,8 +96,15 @@ static float sd(const shape *s, float x, float y)
 		return sd_segment(x, y, s->a, s->b, s->c, s->d) - s->r;
 	case SH_ARC: {
 		/* An arc of a circle opening to the right, round-capped: the ring's
-		 * distance within the angle, the caps' outside it. */
+		 * distance within the angle, the caps' outside it. Turned by q[0]
+		 * radians, clockwise on screen, when that is set (the power mark's
+		 * ring, centered on its bottom). */
 		float px = x - s->a, py = y - s->b;
+		if (s->q[0] != 0) {
+			float c = cosf(s->q[0]), sn = sinf(s->q[0]), tx = px;
+			px = tx * c + py * sn;
+			py = -tx * sn + py * c;
+		}
 		float ang = atan2f(py, px);
 		if (fabsf(ang) <= s->d)
 			return fabsf(sqrtf(px * px + py * py) - s->c) - s->r;
@@ -257,6 +264,21 @@ static void sun(canvas *cv, float cx, float cy, int level, int max, const float 
 	}
 }
 
+/* The power mark: a ring open at the top, and the line down into the gap,
+ * as every power button has it (IEC 60417-5009, a public symbol). */
+static void power_mark(canvas *cv, float cx, float cy, const float *col, float px)
+{
+	const float s = ICON_S;
+	const float r = 0.40f * s;
+	shape ring = { .kind = SH_ARC, .a = cx, .b = cy + 0.05f * s, .c = r,
+	               .d = (float)M_PI - 0.70f, .r = STROKE / 2,
+	               .q = { (float)M_PI / 2 } };
+	shape stem = line(cx, cy - 0.50f * s, cx, cy - 0.04f * s);
+
+	paint(cv, &ring, col, 1, px, NULL, 0);
+	paint(cv, &stem, col, 1, px, NULL, 0);
+}
+
 void osdbar_size(float scale, int *w, int *h)
 {
 	*w = (int)ceilf(OSDBAR_W * scale);
@@ -323,8 +345,9 @@ void osdbar_render(uint32_t *px, int w, int h, int stride, float scale,
 
 		paint(&cv, &sh, ink, th->bar_shadow / 255.0f, SHADOW_SOFT, NULL, 0);
 		paint(&cv, &body, edge, BODY_A, pix, surface, BORDER);
-		if (kind == OSDBAR_BRIGHT) sun(&cv, ICON_CX, cy, level, max, col, pix);
-		else                       speaker(&cv, ICON_CX, cy, level, max, col, pix);
+		if (kind == OSDBAR_BRIGHT)     sun(&cv, ICON_CX, cy, level, max, col, pix);
+		else if (kind == OSDBAR_POWER) power_mark(&cv, ICON_CX, cy, col, pix);
+		else                           speaker(&cv, ICON_CX, cy, level, max, col, pix);
 
 		/* One segment per step, widths shared out evenly across the track. */
 		sw = (SEG_X1 - SEG_X0 - SEG_GAP * (max - 1)) / max;
