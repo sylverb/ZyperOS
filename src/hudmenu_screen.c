@@ -322,7 +322,7 @@ void hud_page_shot(app *a, SDL_Texture *bg, int sel, bool items, int pick, const
 		/* A on an option row of more than two: its list, as menu_pick
 		 * draws it over the paused game, the one on ticked */
 		const menu_choice *ch = &g_hm_choice[pick];
-		static char pw[HUD_COLORS > HUD_CORNERS ? HUD_COLORS : HUD_CORNERS][64];
+		static char pw[8][64];
 		menu_row pr[8];
 		int k;
 
