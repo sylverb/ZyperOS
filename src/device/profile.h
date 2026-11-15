@@ -87,8 +87,12 @@ typedef struct device_profile {
 	const dev_button *buttons;
 	int               n_buttons;
 	/* Its 3D drawing for the tutorial and the Controls tab (td_model.h),
-	 * NULL where it has none yet: never another device's */
+	 * NULL where it has none yet: never another device's, but on the host */
 	const td_model *model;
+	/* `model` is another device's: the host's desktop borrows the Pixel 2's
+	 * for the Controls tab while it teaches the Brick's F1 and F2, so the
+	 * tutorial shows it only with the Pixel 2's chords (dev_tutorial_model) */
+	bool model_borrowed;
 	bool bluetooth;
 	bool gpu_shaders;        /* Diatom's old screens are a GPU's pass here */
 	/* Diatom gives a core that asks for one a GPU to draw its frames on
@@ -138,10 +142,9 @@ bool dev_button_place(const device_profile *p, in_button b, td_face *face, float
  * has them until the shots wear --device pixel2 (step 5 of the device spec) */
 dev_chords dev_chords_fn_volume(dev_chords base);
 /* The handheld the tutorial draws beside its lessons for `p` with chords
- * `c`, NULL for none: `p`'s model where brightness is MENU+VOL. The second
- * half is for the host's desktop profile alone, which borrows the Pixel 2's
- * drawing for the Controls tab but teaches the Brick's F1 and F2; it goes
- * when the Brick gets a drawing of its own (step 5). */
+ * `c`, NULL for none: `p`'s own model always; a borrowed one (model_borrowed,
+ * the host's desktop's) only where brightness is MENU+VOL, the chords of the
+ * device it is (--fn-volume), not beside the F1 and F2 it would not show. */
 const td_model *dev_tutorial_model(const device_profile *p, const dev_chords *c);
 /* L2 and R2 both held this moment, for Developer Mode's unlock: as taps where
  * the chords say they are taps (`tap_l2`, `tap_r2`: plat_tap_held), as the

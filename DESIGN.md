@@ -1278,8 +1278,10 @@ of the player's own goes on from wherever the loop was.
 - Title in **title** **text** on y 516, line in **meta** **text-soft** on y 578,
   an optional second line in **meta** **text-dim** on y 624. A step's stage,
   glyph and lines fade in over **move**.
-- **The handheld** (a device whose profile has a drawing, the GKD Pixel 2
-  today; src/device/profile.h, `dev_tutorial_model`): each lesson shows
+- **The handheld** (a device whose profile has a drawing of its own, the
+  GKD Pixel 2 and the TrimUI Brick; src/device/profile.h,
+  `dev_tutorial_model`; the host's desktop borrows the Pixel 2's and shows
+  it only with the Pixel 2's chords): each lesson shows
   the handheld the tutorial is running on, in a column at the left, with the lesson's
   key lit, so a player who has never seen MENU, the volume keys or POWER -
   all on its sides - finds them. *(My pick in the tutorial-buttons lab,
@@ -1290,15 +1292,19 @@ of the player's own goes on from wherever the loop was.
   bubble and "START: skip" stay. A title, line or note wider than that
   leaves keeps the **inset** from the right edge instead, ending where
   "START: skip" ends (Music's line, wider than the stage, sits a little
-  left of the stage's middle). On a device with no drawing yet (the Brick)
-  nothing moves and there is no handheld. src/tourdevice.c draws it in code, no image files,
+  left of the stage's middle). On a device with no drawing (the host's
+  own, beside F1 and F2) nothing moves and there is no handheld.
+  src/tourdevice.c draws it in code, no image files,
   from the device's model (src/device/td_model.h: where each key is and on
   which face, the views it turns to and its kept textures' boxes; the Pixel
-  2's in src/device/pixel2_model.c). A lesson's view follows from the faces
-  of the keys it lights: a key on the top edge tilts it back, keys on both
+  2's in src/device/pixel2_model.c, the Brick's in src/device/
+  brick_model.c). A lesson's view follows from the faces
+  of the keys it lights: a key on a back ledge turns it round to its back,
+  a key on the top edge tilts it back, keys on both
   sides face it front with their tabs out of the edges, one side's turn it
-  to that side, and the rest face front. It draws into a
-  304 x 382 texture kept while it does not change (it changes only as it
+  to that side, and the rest face front. It draws into a texture of its
+  model's size (the Pixel 2's 304 x 382, the Brick's 256 x 334)
+  kept while it does not change (it changes only as it
   turns, a key lights or presses, and in the first lesson's fade-in): drawn
   every frame it cost the Pixel 2 a third of the lesson's frame rate, kept
   it costs nothing measurable. `check-tour-shots` holds each lesson's lit key on its side of the
@@ -1372,6 +1378,29 @@ of the player's own goes on from wherever the loop was.
     drawn before the body, so it glows from behind the edge, and its ring
     goes round what stands up. The player's own press shows on it (the
     shoulders have no glyph), back toward the edge in **press**.
+  - **The TrimUI Brick** (src/device/brick_model.c; the plan
+    `docs/superpowers/plans/2026-11-15-brick-front-step5.md`): original art
+    from its published outline, 73.2 x 109.9 mm, in the same roles and lit
+    look. Two blocks: the thin part, 11.8 deep and the whole height (front
+    corners 0.5 at the top, 4.1 at the bottom), and the thick part behind
+    it from the back ledge (y 42.9 from the top) down, 19.9 deep, each
+    drawn from whichever way it is turned, the farther first, its top a
+    tone between its sides and its ends. The front: the glass and the
+    screen in it, the d-pad with a plain middle, the F1 and F2 pills, A B X
+    Y, MENU (plain: no maker's mark), SELECT (a small square) and START (a
+    play triangle) in MENU's dots' colors, and two speaker grilles of dots;
+    the left side the volume keys with their + and -; the right the FN
+    slider (drawn, never lit: no key of the launcher's) and POWER; the top
+    edge a light bar at the back, a mark as the Pixel 2's lenses are, and
+    six screws in the back so it reads as one. Its shoulders, L1 L2 R2 R1
+    with the USB-C housing between L2 and R2, are blocks on the ledge, which
+    the thin part hides from any front view, so a lesson lighting them
+    (Move Around, Music) turns it round 160 degrees, the right side's way,
+    and tilts it back 20, where they stand up 1.6 mm off the ledge, L1 and
+    L2 at the right; the d-pad Move Around also lights is not seen there,
+    and A, B, X and Y show it in the lessons after. F1 and F2 lit together
+    take one ring, as VOL's does. As tall as the Pixel 2: 2.6 units a
+    millimetre facing front, 2.9 turned to a side, 2.45 at the back.
 - **The choices**: after the power step's reward and before the finish,
   four steps make the handheld the player's - **Theme** (Appearance, Light
   or Dark), **Home Screen** (Spotlight, Gallery or Grid), **Sounds** (UI Sounds:
@@ -4259,8 +4288,16 @@ front pose, level; a side key with a centre key leans to its side (the N64's
 d-pad and SELECT as the d-pad), and a face with a right shoulder as the face,
 level. Which side a key is on is where the device's model has it
 (`ct_lean`): on the front, left or right of the middle, SELECT and START
-within 8 mm of it being the centre; on the top edge, a shoulder left or
-right; a key on a side face is a centre key here.
+within 8 mm of it being the centre (11 mm on the Brick, where MENU, F1 and
+F2 are the middle too); on the top edge, a shoulder left or right; a key on
+a side face is a centre key here. The Brick's shoulders are on its back
+ledge, which no front pose shows: a row lighting any of them, alone, with
+another shoulder or with a centre key, turns it round to its back view (160
+degrees, tilted back 20), the same for all four, so a step from one
+shoulder's row to the next only moves the light; with a front key it leans
+as that key does. The pose's size and turn are the model's (the Pixel 2 at
+3.15 units a millimetre, the Brick as tall at 2.3, both turned 10), and so
+is the kept texture's box.
 
 | What | Token and how |
 |---|---|

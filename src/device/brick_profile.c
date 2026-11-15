@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 /* The TrimUI Brick (TG3040) as a profile (src/device/profile.h). Its glass:
- * 3.2 in at 1024x768, 65.0 x 48.8 mm. No handheld drawing yet (step 5 of
- * the device spec draws one), so its tutorial keeps its block in the middle
- * and its Controls tab draws no other device's. */
+ * 3.2 in at 1024x768, 65.0 x 48.8 mm. Its own handheld beside the
+ * tutorial's lessons and on the Controls tab (src/device/brick_model.c). */
 #include "profile.h"
 #include "brick_buttons.h"
 
@@ -20,7 +19,7 @@ const device_profile device_profile_brick = {
 	.chords = { .bright = DEV_BRIGHT_KEYS },
 	.buttons = brick_buttons,
 	.n_buttons = (int)(sizeof brick_buttons / sizeof brick_buttons[0]),
-	.model = NULL,
+	.model = &td_model_brick,
 	.bluetooth = true,
 	.gpu_shaders = false,
 	/* Off until a GPU core runs on its PowerVR (the spec's section 6) */

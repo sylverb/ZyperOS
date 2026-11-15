@@ -119,7 +119,8 @@ dev_chords dev_chords_fn_volume(dev_chords base)
 
 const td_model *dev_tutorial_model(const device_profile *p, const dev_chords *c)
 {
-	return c->bright == DEV_BRIGHT_MENU_VOL ? p->model : NULL;
+	if (p->model_borrowed) return c->bright == DEV_BRIGHT_MENU_VOL ? p->model : NULL;
+	return p->model;
 }
 
 bool dev_l2r2_held(const dev_chords *c, bool tap_l2, bool tap_r2, bool down_l2, bool down_r2)

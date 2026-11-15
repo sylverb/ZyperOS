@@ -23,16 +23,20 @@ first start forgets the tutorial. So this shoots the host build headless
     the side of it the key is on, the shoulders its note names (L1/R1 in
     Move Around, L2/R2 in Music) lit on its top, tilted back to show it, and
     no others, it stays in its kept texture's box in every frame of every
-    turn (--handheld-box tour), the lesson block is the Brick's moved
+    turn (--handheld-box tour), the lesson block is the host's moved
     TOURDEV_SHIFT right, its words keep the screen's inset from the right
     edge, Zyper's corner and bubble keep their place, and the welcome and
-    the finish are the Brick's, pixel for pixel;
+    the finish are the host's, pixel for pixel;
+  - on the Brick (--device brick) its own handheld, its key lit on the side
+    it is on, turned round to its back (no glass showing) for the lessons
+    that light its shoulders on the back ledge, inside its own kept box in
+    every frame of every turn, and the block moved as the Pixel 2's;
   - the choices after the lessons (Theme, Home Screen, Sounds, Menu Music)
     ring and name the focused choice alone and nothing else, put the
     reward's check on the kept one, show the home screen previews (Light at
     the left and Dark at the right in Theme, whatever the screen's theme),
-    and are the same on the Pixel 2 as on the Brick: no handheld, nothing
-    moved;
+    and are the same on the Pixel 2 as on the host (the Brick's chords): no
+    handheld, nothing moved;
 
 and it starts the launcher itself, headless, on a fresh database, where the
 tutorial must be drawn before the shelf (tour_run says "tour: the first
@@ -182,11 +186,11 @@ def shifted_same(p2, brick, box):
                if zc.px(p2, x + SHIFT, y) != zc.px(brick, x, y))
 
 
-def handheld_box():
+def handheld_box(*device):
     """--handheld-box tour: the handheld measured in every lesson and every
     frame of the turn into it against its kept texture's box"""
     path = os.path.join(D, "box.png")
-    p = subprocess.run([BIN, "--shot", path, "--theme", "light", "--handheld-box", "tour"],
+    p = subprocess.run([BIN, "--shot", path, "--theme", "light", *device, "--handheld-box", "tour"],
                        env=env(), cwd=ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
     err = p.stderr.decode("utf-8", "replace")
     with open(os.path.join(D, "log"), "a") as log:
@@ -197,8 +201,8 @@ def handheld_box():
     measured = [l for l in err.splitlines() if l.startswith("handheld-box:") and "measured" in l]
     n = int(measured[-1].split(" and ")[1].split()[0]) if measured else 0
     ck(p.returncode == 0 and not out and n >= 400,
-       "the tutorial's handheld stays in its kept box: %d poses out of %d measured"
-       % (len(out), n))
+       "the tutorial's handheld%s stays in its kept box: %d poses out of %d measured"
+       % (" (%s)" % " ".join(device) if device else "", len(out), n))
 
 
 def pixel2():
@@ -239,18 +243,19 @@ def pixel2():
                 runs = sum(1 for i, d in enumerate(down) if d and (i == 0 or not down[i - 1]))
                 ck(runs == 3, "%s %s: MENU on the handheld shows its three dots (%d)"
                    % (th, step, runs))
-        # The same step, the Brick's way and the Pixel 2's: the stage and
-        # what plays on it, the glyph and the words, moved and otherwise the
-        # same; the Brick has no handheld.
+        # The same step, the host's way (the Brick's chords, its borrowed
+        # handheld not shown beside F1 and F2) and the Pixel 2's: the stage
+        # and what plays on it, the glyph and the words, moved and otherwise
+        # the same; the host has no handheld.
         for step in ("menu", "power"):
             brick = shot("brick-%s-%s" % (step, th), "--theme", th, "--tour", step, "2000")
             p2 = shot("p2-%s-%s" % (step, th), "--theme", th, "--fn-volume", "--tour", step, "2000")
             if None in (brick, p2):
                 continue
             ck(count(brick, ACCENT, (0, 82, 172, 442)) == 0,
-               "%s %s: the Brick has no handheld at the left" % (th, step))
+               "%s %s: the host has no handheld at the left" % (th, step))
             off = shifted_same(p2, brick, (STAGE[0], 20, STAGE[2] - 4, 660))
-            ck(off == 0, "%s %s: the lesson block is the Brick's moved %d right (%d pixels "
+            ck(off == 0, "%s %s: the lesson block is the host's moved %d right (%d pixels "
                "differ)" % (th, step, SHIFT, off))
         # Zyper's corner, his bubble and START: skip stay where they were.
         done = shot("p2-a-done-" + th, "--theme", th, "--fn-volume", "--tour", "a", "4000", "300")
@@ -261,7 +266,7 @@ def pixel2():
             bub, leg = xs(longest, TEXT[th], BUBBLE), xs(longest, TEXT_SOFT[th], LEGEND)
             ck(bub and leg and max(bub) + 8 <= min(leg),
                "%s: on the Pixel 2 the longest answer stays clear of START: skip" % th)
-        # Not on the welcome or the finish: those are the Brick's, pixel for pixel.
+        # Not on the welcome or the finish: those are the host's, pixel for pixel.
         for step in ("welcome", "finish"):
             brick = shot("brick-%s-%s" % (step, th), "--theme", th, "--tour", step, "2000")
             p2 = shot("p2-%s-%s" % (step, th), "--theme", th, "--fn-volume", "--tour", step, "2000")
@@ -273,20 +278,58 @@ def pixel2():
 
 
 # --device (src/device/profile.h): the tutorial reads only a device's chords
-# and whether it has a drawing, so wearing the Pixel 2's profile draws its
-# lessons as --fn-volume does, and the Brick's as the host's own does
+# and its drawing, so wearing the Pixel 2's profile draws its lessons as
+# --fn-volume does
 def devices():
     for step in ("move", "menu", "bright"):
-        pairs = (("pixel2", ("--device", "pixel2"), ("--fn-volume",)),
-                 ("brick", ("--device", "brick"), ()))
-        for name, worn, as_before in pairs:
-            a = shot("dev-%s-%s" % (name, step), "--theme", "light", *worn, "--tour", step, "2000")
-            b = shot("was-%s-%s" % (name, step), "--theme", "light", *as_before, "--tour", step, "2000")
-            if None in (a, b):
+        a = shot("dev-pixel2-%s" % step, "--theme", "light", "--device", "pixel2", "--tour", step, "2000")
+        b = shot("was-pixel2-%s" % step, "--theme", "light", "--fn-volume", "--tour", step, "2000")
+        if None in (a, b):
+            continue
+        off = sum(1 for y in range(0, 768, 2) for x in range(0, 1024, 2)
+                  if zc.px(a, x, y) != zc.px(b, x, y))
+        ck(off == 0, "--device pixel2 %s: the lesson as before (%d pixels differ)" % (step, off))
+
+
+# The Brick (--device brick), its own handheld: the key a lesson lights on
+# the side of the column it shows on - the shoulders, on its back ledge,
+# from the back, turned round, where L1 and L2 are at the right - and the
+# glass only from the front. Its F1 and F2 one ring, MENU the bottom row's.
+BRICK_LIT_SIDE = {"move": "lr", "a": "r", "b": "r", "y": "r", "x": "r", "menu": "l",
+                  "select": "lr", "vol": "l", "bright": "lr", "power": "r"}
+BRICK_BACK = ("move", "select")
+GLASS = (17, 19, 16)            # **ink**, Beard's glass
+
+
+def brick():
+    print("on the Brick: its own handheld beside each lesson, its key lit where it is, "
+          "the shoulders from the back, the block moved as the Pixel 2's")
+    handheld_box("--device", "brick")
+    for th in ("light", "dark"):
+        own = {}
+        for step, side in BRICK_LIT_SIDE.items():
+            img = own[step] = shot("brick-own-%s-%s" % (step, th), "--theme", th, "--device", "brick",
+                                   "--tour", step, "2000")
+            if img is None:
                 continue
-            off = sum(1 for y in range(0, 768, 2) for x in range(0, 1024, 2)
-                      if zc.px(a, x, y) != zc.px(b, x, y))
-            ck(off == 0, "--device %s %s: the lesson as before (%d pixels differ)" % (name, step, off))
+            left, right = count(img, ACCENT, COLUMN_L), count(img, ACCENT, COLUMN_R)
+            ck(("l" in side) == (left > 30) and ("r" in side) == (right > 30),
+               "brick %s %s: the lit key is on the %s of the handheld (lit pixels left %d, right %d)"
+               % (th, step, {"l": "left", "r": "right", "lr": "both sides"}[side], left, right))
+            if th == "light":
+                glass = count(img, GLASS, (0, 82, 276, 442))
+                ck((glass < 400) == (step in BRICK_BACK),
+                   "brick %s: %s (%d glass pixels)" % (step, "turned round to its back, no glass"
+                   if step in BRICK_BACK else "facing front or a side, the glass showing", glass))
+        # The block moved as for the Pixel 2: the host's own (no handheld)
+        # moved TOURDEV_SHIFT right
+        for step in ("menu", "power"):
+            host = shot("brick-%s-%s" % (step, th), "--theme", th, "--tour", step, "2000")
+            if None in (own[step], host):
+                continue
+            off = shifted_same(own[step], host, (STAGE[0], 20, STAGE[2] - 4, 660))
+            ck(off == 0, "brick %s %s: the lesson block is the host's moved %d right (%d pixels "
+               "differ)" % (th, step, SHIFT, off))
 
 
 # The choices, as src/tourdraw.c lays them out: two 380 x 285 at y 96, 56
@@ -341,7 +384,7 @@ def choices():
                    "%s %s: no check and no Zyper while it waits" % (th, step))
                 off = sum(1 for y in range(0, 768, 4) for x in range(0, 1024, 4)
                           if zc.px(p2, x, y) != zc.px(img, x, y))
-                ck(off == 0, "%s %s: the Pixel 2's is the Brick's, no handheld (%d pixels "
+                ck(off == 0, "%s %s: the Pixel 2's is the host's, no handheld (%d pixels "
                    "differ)" % (th, step, off))
         # Theme: the home screen in Light at the left and in Dark at the right,
         # whatever the screen is in; Home Screen in the screen's theme
@@ -442,6 +485,7 @@ def main():
 
     pixel2()
     devices()
+    brick()
     choices()
 
     if fails:
