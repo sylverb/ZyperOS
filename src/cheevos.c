@@ -21,8 +21,13 @@ static char   g_src[1024];         /* the file loaded, for chv_write_active */
 
 /* The earned store, whole-library. Sized so a player who finishes a hundred
  * games never meets the cap; at 64 bytes a row that is 256KB, which on a
- * device with a gigabyte is not worth a smarter structure. */
-#define CHV_EARNED_MAX 4096
+ * device with a gigabyte is not worth a smarter structure.
+ *
+ * 16384 since 1.0.6: MENU > Achievements' Download takes what the account
+ * holds for every game on the card at once (src/radl.h), not a game at a
+ * time as they are played, and a long-standing account holds thousands.
+ * A megabyte. */
+#define CHV_EARNED_MAX 16384
 typedef struct {
 	int  game, id;
 	bool synced;
@@ -346,6 +351,14 @@ int chv_pending_for(int game)
 	int i, k = 0;
 	for (i = 0; i < g_nearned; i++)
 		if (!g_earned[i].synced && g_earned[i].game == game) k++;
+	return k;
+}
+
+int chv_synced_for(int game)
+{
+	int i, k = 0;
+	for (i = 0; i < g_nearned; i++)
+		if (g_earned[i].synced && g_earned[i].game == game) k++;
 	return k;
 }
 

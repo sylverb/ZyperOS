@@ -125,6 +125,34 @@ bool js_next(jsv arr, jsv *it, jsv *elem)
 	return true;
 }
 
+bool js_next_member(jsv obj, jsv *it, jsv *key, jsv *val)
+{
+	const char *p = skip_ws(obj.b, obj.e);
+
+	if (p >= obj.e || *p != '{') return false;
+	if (!it->b) {
+		p++;                                   /* the first member */
+	} else {
+		p = skip_ws(it->e, obj.e);
+		if (p >= obj.e || *p != ',') return false;
+		p++;
+	}
+	p = skip_ws(p, obj.e);
+	if (p >= obj.e || *p != '"') return false;      /* '}' or not a key */
+
+	key->b = p;
+	key->e = skip_string(p, obj.e);
+	p = skip_ws(key->e, obj.e);
+	if (p >= obj.e || *p != ':') return false;
+	p = skip_ws(p + 1, obj.e);
+	if (p >= obj.e) return false;
+	val->b = p;
+	val->e = skip_value(p, obj.e);
+	/* The next call goes on from the end of the value */
+	*it = *val;
+	return true;
+}
+
 static void put_utf8(char **o, char *end, unsigned cp)
 {
 	char *p = *o;

@@ -100,6 +100,12 @@ int net_get_pngs(const char *const *urls, const char *const *paths, int n,
  * started or it failed. Reaping is the caller's job via poll; an unreaped
  * child is a zombie until then. */
 bool net_post_async(const net_field *f, int n, const char *path, int timeout_s);
+/* The same, saying who answered: once the poll returns non-zero,
+ * net_async_http has the status - 200, a 429 asking to slow down, a 401, a
+ * 503 - or 0 when no server answered at all. The file holds the body alone,
+ * as net_post_async's does. For a run that has to tell "slow down" from
+ * "no network" from "no such thing" (src/radl.h). */
+bool net_post_async_status(const net_field *f, int n, const char *path, int timeout_s);
 int  net_async_poll(void);
 /* Whether the one slot holds a request, finished or not, that nobody has
  * polled to its end: another screen's, for a caller that waits its turn
