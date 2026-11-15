@@ -64,8 +64,7 @@ int games_slots(const games_row *r,uint32_t now,games_slot out[GAMES_WINDOW])
 #define SHELF_SYS_H     40    /* that line: meta's */
 #define SHELF_COVER_GAP 40    /* the covers' band under it */
 #define SHELF_TITLE_GAP 24    /* the name's first line under the covers' band */
-typedef struct { SDL_Rect sys, covers, title, keys; } shelf_frame;
-static shelf_frame shelf_layout(void)
+shelf_frame games_frame(void)
 {
     static ds_flex F;
     static shelf_frame f;
@@ -93,7 +92,7 @@ SDL_FRect games_cover_rect(int width,int height,float offset)
     float focus=fmaxf(0,1-fabsf(offset)), scale=.72f+.28f*focus;
     float fit=fminf((float)GAMES_COVER_W/width,(float)GAMES_COVER_H/height)*scale;
     float w=width*fit,h=height*fit;
-    const shelf_frame sf=shelf_layout();
+    const shelf_frame sf=games_frame();
     return (SDL_FRect){sf.covers.x+sf.covers.w/2.0f+offset*390-w/2,sf.covers.y+sf.covers.h/2.0f-h/2,w,h};
 }
 /* See whether balancing retained all words. A longer name gets a full marquee,
@@ -111,7 +110,7 @@ SDL_FRect games_cover_rect(int width,int height,float offset)
 #define GAMES_ORIGIN_RIGHT (SHELF_HINT_X-40)
 /* The name's lines: the first's middle, and the game title's line, 40 (44
  * until 1.0.6) */
-#define GAMES_TITLE_Y    (shelf_layout().title.y+GAMES_TITLE_STEP/2)   /* 584 */
+#define GAMES_TITLE_Y    (games_frame().title.y+GAMES_TITLE_STEP/2)   /* 584 */
 #define GAMES_TITLE_STEP 40
 /* Where the line under the name sits: a title of one line leaves the second
  * line's place (a title line down) to it, whether it names the system
@@ -151,7 +150,7 @@ uint32_t games_draw(games_row *row,SDL_Renderer *r,const games_info *info,
     TTF_Font *meta=page_font(PAGE_META),*chrome=page_font(PAGE_CHROME);
     char count[40]; snprintf(count,sizeof count,"%d / %d",info->count?info->cursor+1:0,info->count);
     int countw=ui_text_tabular_width(chrome,count);
-    const shelf_frame sf=shelf_layout();
+    const shelf_frame sf=games_frame();
     const int sys_cy=sf.sys.y+sf.sys.h/2;
     int sw=ui_text_width(meta,info->system),room=sf.sys.w-countw-32;
     if(sw>room) {

@@ -3,11 +3,13 @@
 
 #include "design.h"
 #include "folderart.h"
+#include "games.h"        /* games_frame: the shelf's line and keys */
 #include "home.h"
 #include "keyhints_draw.h"
 #include "i18n.h"
 #include "theme.h"
 #include "ui.h"
+#include "ds/flex.h"     /* the list and its panel, laid out by rules */
 #include "ds/layout.h"
 #include "ds/mark.h"
 #include "zyperdraw.h"
@@ -16,22 +18,51 @@
 #include <stdio.h>
 #include <string.h>
 
-/* The list's geometry, in the launcher's 1024 x 768 (DESIGN.md 11.39). The
- * heading and the foot are the cover row's, so turning View over moves
- * nothing but the middle. */
-#define GL_X        40      /* the focus plate's left; the text's is 64 */
-#define GL_W        552     /* to 592 */
-#define GL_TOP      200     /* the first row's top, under the heading: room for
-                             * the triangle that says more is above */
+/* The list's geometry (DESIGN.md 11.39), laid out by rules (src/ds/flex.h):
+ * the heading and the foot are the cover row's (games_frame), so turning
+ * View over moves nothing but the middle; in the middle, from the page's
+ * margins, the list's column and the focused entry's panel, GL_GAP apart */
+#define GL_TOP_GAP   28      /* the first row's top under the heading's line (200):
+                              * room for the triangle that says more is above */
+#define GL_GAP       48      /* the list's column to the panel */
+#define GL_PANEL_W   320
+#define GL_PLATE_OUT 24      /* the focus plate past the list's column at its left */
+typedef struct { SDL_Rect list, panel; } gl_frame;
+static gl_frame gl_layout(void)
+{
+	static ds_flex F;
+	static gl_frame g;
+	static bool done;
+
+	if (!done) {
+		const shelf_frame sf = games_frame();
+		const int top = sf.sys.y + sf.sys.h + GL_TOP_GAP;
+		const int root = ds_flex_begin(&F, ZYPEROS_SCREEN_W, ZYPEROS_SCREEN_H,
+		                               &(ds_box){ .dir = DS_ROW, .gap = GL_GAP,
+		                                          .pad = { sf.sys.x, top, ZYPEROS_SCREEN_W - sf.sys.x - sf.sys.w,
+		                                                   ZYPEROS_SCREEN_H - sf.keys.y } });
+		const int list = ds_flex_add(&F, root, &(ds_box){ .grow = 1 });
+		const int panel = ds_flex_add(&F, root, &(ds_box){ .w = GL_PANEL_W });
+
+		ds_flex_solve(&F);
+		g.list = ds_flex_rect(&F, list);
+		g.panel = ds_flex_rect(&F, panel);
+		done = true;
+	}
+	return g;
+}
+#define GL_X        (gl_layout().list.x - GL_PLATE_OUT)          /* the focus plate's left (40); the text's is 64 */
+#define GL_W        (gl_layout().list.w + GL_PLATE_OUT)          /* to 592 */
+#define GL_TOP      (gl_layout().list.y)                         /* the first row's top (200) */
 #define GL_ROW_H    56      /* a row: meta's 37 and room either side */
-#define GL_MARK_X   80      /* a row's mark, centered here */
-#define GL_NAME_X   120     /* a row's name */
-#define GL_END_X    568     /* a row's right end: a folder's count, a heart */
-#define GL_PANEL_X  640     /* the focused entry's panel, to 960 */
-#define GL_PANEL_W  320
+#define GL_MARK_X   (gl_layout().list.x + 16)                    /* a row's mark, centered here (80) */
+#define GL_NAME_X   (gl_layout().list.x + 56)                    /* a row's name (120) */
+#define GL_END_X    (gl_layout().list.x + gl_layout().list.w - 24) /* a row's right end (568): a folder's count, a heart */
+#define GL_PANEL_X  (gl_layout().panel.x)                        /* the focused entry's panel (640), to 960 */
 #define GL_COVER_H  320     /* the cover's box under the heading */
-#define GL_FACT_Y   552     /* the first fact's capitals; the next 32 down */
-#define GL_A_Y      664     /* A's hint, under three facts */
+#define GL_FACT_STEP 32
+#define GL_FACT_Y   (GL_TOP + GL_COVER_H + GL_FACT_STEP)         /* the first fact's capitals (552); the next GL_FACT_STEP down */
+#define GL_A_Y      (GL_FACT_Y + 3 * GL_FACT_STEP + 16)          /* A's hint, under three facts (664) */
 /* The mark of a game: a small card, its band in the system's color and the
  * name's first letter on it */
 #define GL_MARK_W   36
@@ -208,21 +239,23 @@ uint32_t gl_draw(gl_motion *m, SDL_Renderer *r, const gl_info *in,
 	top = lerp_out(m->top_from, m->top_to, now - m->moved);
 	plate = lerp_out(m->plate_from, m->plate_to, now - m->moved);
 
-	/* The heading and the count, as the cover row has them */
+	/* The heading and the count, as the cover row has them (games_frame) */
+	const shelf_frame sf = games_frame();
+	const int sys_cy = sf.sys.y + sf.sys.h / 2;
 	snprintf(count, sizeof count, "%d / %d", in->count ? in->cursor + 1 : 0, in->count);
 	countw = ui_text_tabular_width(chrome, count);
 	sw = ui_text_width(meta, in->heading);
-	room = 960 - 64 - countw - 32;
+	room = sf.sys.w - countw - 32;
 	if (sw > room) {
 		unsigned next;
 
-		ui_text_marquee(r, meta, in->heading, 64, ui_cap_y(meta, 152), room, phase, UI_TEXT_SOFT);
+		ui_text_marquee(r, meta, in->heading, sf.sys.x, ui_cap_y(meta, sys_cy), room, phase, UI_TEXT_SOFT);
 		next = ui_pingpong_wait(sw - room, phase);
 		if (next < wait) wait = next;
 	} else {
-		ui_text(r, meta, in->heading, 64, ui_cap_y(meta, 152), -1, UI_TEXT_SOFT);
+		ui_text(r, meta, in->heading, sf.sys.x, ui_cap_y(meta, sys_cy), -1, UI_TEXT_SOFT);
 	}
-	ui_text_tabular(r, chrome, count, 960, ui_cap_y(chrome, 152), 1, UI_TEXT_DIM);
+	ui_text_tabular(r, chrome, count, sf.sys.x + sf.sys.w, ui_cap_y(chrome, sys_cy), 1, UI_TEXT_DIM);
 
 	/* The rows, in a window the list scrolls through */
 	SDL_RenderSetClipRect(r, &(SDL_Rect){ 0, GL_TOP, GL_PANEL_X - 16, GL_ROWS * GL_ROW_H });
@@ -326,7 +359,8 @@ uint32_t gl_draw(gl_motion *m, SDL_Renderer *r, const gl_info *in,
 		if (in->count > 0 && in->resumable && !in->install && !games)
 			foot[nf++] = (key_hint){ "Y", T(S_GAMES_FRESH) };
 		if (in->count > 0 && !games) foot[nf++] = (key_hint){ "X", T(S_GAMES_DETAILS) };
-		keyhints_draw(r, foot, nf, 64, 960, DS_FOOT_Y, KEYHINTS_SPREAD, true, 255);   /* as the shelf's */
+		keyhints_draw(r, foot, nf, sf.keys.x, sf.keys.x + sf.keys.w, sf.keys.y + sf.keys.h / 2,
+		              KEYHINTS_SPREAD, true, 255);   /* as the shelf's */
 	}
 	SDL_SetRenderDrawColor(r, red, green, blue, alpha);
 	SDL_SetRenderDrawBlendMode(r, blend);
