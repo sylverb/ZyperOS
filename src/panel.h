@@ -739,6 +739,7 @@ typedef struct {
 	int saving;
 } slot_view;
 extern bool g_port_menu;
+extern bool g_port_waiting;
 extern const ds_rgb DIATOM_PAGE;
 extern bool g_game_dual;
 extern char g_pending_set[LIB_PATH * 2];

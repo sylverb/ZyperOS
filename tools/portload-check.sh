@@ -67,29 +67,32 @@ cp "$D/Roms/Ports/.media/Blackout.png" "$D/Roms/Nintendo DS/.media/Silver.png" |
 : >"$D/log"
 
 fails=0
-echo "the words keep 4.5:1 and the band 3:1 over a white and a black cover, out of Zyper's frame"
-for game in Whiteout Blackout Silver; do
+echo "the words keep 4.5:1 and the band 3:1 over a white and a black cover, out of Zyper's frame,"
+echo "with the start's line and with the one after a minute (--portload-later)"
+for game in Whiteout Blackout Silver Whiteout+later Silver+later; do
 	for theme in dark light; do
-		out=$D/$game-$theme.png
+		later= name=$game
+		case $game in *+later) later=--portload-later; name=${game%+later} ;; esac
+		out=$D/$name-$theme${later:+-later}.png
 		ZYPEROS_HEADLESS=1 SDL_VIDEODRIVER=dummy SDL_RENDER_DRIVER=software \
 		ZYPEROS_ROOT="$D/root" ZYPEROS_CARD="$D" ZYPEROS_ROMS="$D/Roms" \
 		ZYPEROS_USERDATA="$D/userdata" ZYPEROS_SHARED="$D/shared" ZYPEROS_WEB="$D" \
 		ZYPEROS_FONT=res/fonts/menu.ttf "$BIN" --shot "$out" --theme "$theme" \
-			--portload "$game" >"$D/one.log" 2>&1
+			$later --portload "$name" >"$D/one.log" 2>&1
 		st=$?
 		cat "$D/one.log" >>"$D/log"
 		said=$(sed -n 's/^port: loading screen in [0-9]* ms, //p' "$D/one.log")
-		echo "  $game, $theme: ${said:-nothing said}"
+		echo "  $name, $theme${later:+, after a minute}: ${said:-nothing said}"
 		if grep -q "loading screen short\|reaches Zyper's frame\|no game called" "$D/one.log"; then
-			echo "  FAIL $game, $theme:"
+			echo "  FAIL $name, $theme${later:+, after a minute}:"
 			grep "loading screen short\|reaches Zyper's frame\|no game called" "$D/one.log" | sed 's/^/    /'
 			fails=$((fails + 1))
 		elif [ "$st" -ne 0 ]; then
-			echo "  FAIL $game, $theme: the shot failed, exit $st (see $D/log)"
+			echo "  FAIL $name, $theme: the shot failed, exit $st (see $D/log)"
 			tail -n 3 "$D/one.log" | sed 's/^/    /'
 			fails=$((fails + 1))
 		elif [ ! -s "$out" ] || [ -z "$said" ]; then
-			echo "  FAIL $game, $theme: no shot, or no contrast read (see $D/log)"
+			echo "  FAIL $name, $theme: no shot, or no contrast read (see $D/log)"
 			fails=$((fails + 1))
 		fi
 	done

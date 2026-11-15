@@ -323,6 +323,43 @@ Lexend's time the first time it is drawn, then cached like any line.
 | **rail-min** | 18 | the rail marker's least length |
 <!-- /generated:space -->
 
+### The system (round 3)
+
+One way every screen is spaced, so every screen feels like one launcher, and
+one way it is laid out, so a longer language or a second row of keys moves
+the layout instead of landing on a word.
+
+- **The grid.** 8 units, exactly 5 pixels on the Pixel 2, for every position
+  and every distance between parts; 4 and 12 only inside a component (a
+  glyph to its word). On the Brick and the Brick Pro every unit is a whole
+  pixel anyway. Strokes (a rule, a frame, a ring) are hairlines and keep
+  their widths.
+- **The scale.** 8, 16, 24, 32, 40, 48, 64.
+- **The roles** a screen keeps everywhere, in `src/ds/layout.h`: **margin**
+  64 (content from the sides), **header** 72 (the top bar's band; content
+  starts a **section**, 24, under it), **related** 8 (things that go
+  together), **foot-inset** 32 (the keys' foot from the screen's: one row's
+  middle at 720), **foot-gap** 24 (content over the keys keeps at least
+  this), **caption-inset** 40, **list-row** 72, and each type's line as a
+  box (**line-title** 72 down to **line-chrome** 32).
+- **Corners nest.** A shape inside another keeps their corners concentric:
+  inner radius = outer radius - inset, as a row's fill in a panel does.
+
+**The layout engine** (`src/ds/flex.h`). A screen builds a small tree of
+boxes each frame - columns and rows with padding, gaps, alignment, grow and
+shrink, a row that wraps, a kept aspect (a leaf's: a picture, a cover),
+sizes in whole steps (a list's rows) - its leaves measured with the real
+font and line breaks of the language that is on, solves it, and draws each
+part in its box. Integer units, no allocation. When something needs more
+room, the rules give it: a text wraps, the part that grows gives room back,
+a single line ellipsizes, and nothing is cut or overlaps (the keys check,
+13). `check-flex` holds its rules, a thousand random trees that stay in
+their parents the same way every time, and its time (a screen's 14 boxes in
+a third of a microsecond on a Mac).
+
+Screens move onto the engine and these roles one at a time, each first with
+its pixels unchanged and then with its spacing on a sheet (section 14).
+
 ### Layout
 
 Where the launcher's own parts sit: a page's frame (Flash Drive, File
@@ -390,6 +427,20 @@ its own says why beside it.
 | **hints-gap** | 32 | one hint to the next |
 | **hints-gap-spread** | 16 | the least between hints spread across a foot |
 | **hints-row** | 44 | one row of hints to the next |
+| **margin** | 64 | content from the screen's sides |
+| **header** | 72 | the top bar's band: the clock, a title, the marks; content starts a section under it |
+| **section** | 24 | between the parts of a screen |
+| **related** | 8 | between things that go together: a bar and its times |
+| **foot-inset** | 32 | the keys' foot from the screen's foot: one row's middle at 720 |
+| **foot-gap** | 24 | content over the keys keeps at least this |
+| **caption-inset** | 40 | a caption at the foot: its last line's box from the screen's foot |
+| **list-row** | 72 | a list's row |
+| **line-title** | 72 | a title's line, as a box |
+| **line-label** | 64 | a label's line |
+| **line-menu** | 56 | a menu row's line |
+| **line-meta** | 40 | a meta line: times, a caption's line |
+| **line-support** | 36 | a support line |
+| **line-chrome** | 32 | a chrome line: a key's word, the header |
 <!-- /generated:layout -->
 
 ---
@@ -4267,6 +4318,7 @@ the tiles' style is read off a name.
 | Tokens | `tools/designdef.py` → `src/design.h` | color, type, space, shape, elevation, motion and sound (sections 3 to 9). Diatom and portkeys carry copies of `design.h`. |
 | Layout tokens | `tools/designdef.py` → `src/ds/layout.h` | where the launcher's own parts sit (section 5, Layout): `DS_PAGE_*`, `DS_TILE_*`, `DS_LIST_*`, `DS_BADGE*`, `DS_MARK_*`, `DS_HINT*` |
 | Primitives | `src/ui.c`, `src/ui.h` | text and its faces, the rounded rect, the panel's slab (`ui_panel`), lift, scrim, the rail, button glyphs (`ui_button`, 11.9), the generated cards |
+| Layout engine | `src/ds/flex.c`, `flex.h` | boxes laid out by rules (section 5, The system): `ds_flex_begin`, `ds_flex_add`, `ds_flex_solve`, `ds_flex_rect`; `check-flex` holds its rules |
 | Stroke marks | `src/ds/glyph.c`, `glyph.h` | the 25 `ui_glyph` marks and their cache; `check-glyphs` holds each to 32 strokes and 4 arrowheads |
 | Page frame | `src/ds/page.c`, `page.h` | `ds_page_frame_of`; the heading (`ds_page_head`: `DS_HEAD_BALANCED`, `DS_HEAD_TWO`, `DS_HEAD_SUB`); the line of marks over the keys (`ds_page_line`, its tones `DS_TONE_*`); a line of words under the tiles (`ds_page_meta`); the foot (`ds_page_foot`). `page_top` in `src/main.c` draws the ground and Zyper and hands back the frame. |
 | Tiles and the list | `src/ds/tiles.c`, `tiles.h` | `ds_tiles_draw`: `DS_TILES_ROW`, `DS_TILES_GRID`, `DS_TILES_LIST`. In `src/main.c`, `tiles_show` takes the style as the panel's kind (`PANEL_TILES`, `PANEL_TILES_GRID`, `PANEL_LIST`) and each tile's mark. |
