@@ -62,6 +62,7 @@ static void respawn_resident(app *a)
 	char elf[CFG_STR * 2], save[CFG_STR * 2], bios[CFG_STR * 2];
 	char cores[CFG_STR * 2];
 	char *argv[10];
+	long pid;
 	(void)a;
 
 	if (plat_resident_ready()) return;
@@ -86,8 +87,17 @@ static void respawn_resident(app *a)
 	argv[5] = (char *)"--save";   argv[6] = save;
 	argv[7] = (char *)"--system"; argv[8] = bios;
 	argv[9] = NULL;
-	fprintf(stderr, "resident emulator is gone, starting diatom\n");
-	plat_spawn_detached(argv, NULL, P_ROOT);
+	/* Its pid goes in the pid file, where launch.sh looks for the running
+	 * resident before it starts one (plat_resident_note_pid says why) */
+	pid = plat_spawn_detached_pid(argv, NULL, P_ROOT);
+	if (pid <= 0)
+		fprintf(stderr, "resident emulator is gone, and diatom would not start: %s\n",
+		        strerror(errno));
+	else if (!plat_resident_note_pid(pid))
+		fprintf(stderr, "resident emulator is gone, started diatom (pid %ld), but could "
+		        "not write %s\n", pid, plat_resident_pidfile());
+	else
+		fprintf(stderr, "resident emulator is gone, started diatom (pid %ld)\n", pid);
 }
 
 /* The Ports shelf. A port is a Linux program with a script of its own - a
