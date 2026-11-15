@@ -11,11 +11,23 @@
  * "Exit (x" or "Password auth succeeded for x" must count as nothing all
  * the same.
  *
- * No device, no dropbear. Every answer is a number or a string.
+ * And the run folder SSH starts from, /tmp/zyperos-ssh, cleaned whole
+ * (src/rmtree.h): dropbear's home is bound onto /root, so what a session
+ * writes to ~ lands in it, and a clean of the two entries ZyperOS put there
+ * left the folder behind; every Developer Mode start after a launcher
+ * restart then failed to make it again ("File exists") until a reboot. Here
+ * in a temp folder, with the card's key folder linked from it as .ssh.
+ *
+ * No device, no dropbear. Every answer is a number, a string or a file.
  */
+#include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
+#include "../src/rmtree.h"
 #include "../src/sshlink.h"
 
 static int failures;
@@ -29,6 +41,113 @@ static int failures;
 			failures++;                                                       \
 		}                                                                     \
 	} while (0)
+
+static bool there(const char *p)
+{
+	struct stat st;
+
+	return lstat(p, &st) == 0;
+}
+
+static void put(const char *p, const char *text)
+{
+	FILE *f = fopen(p, "w");
+
+	if (f) { fputs(text, f); fclose(f); }
+}
+
+static bool says(const char *p, const char *text)
+{
+	char b[128];
+	size_t n;
+	FILE *f = fopen(p, "r");
+
+	if (!f) return false;
+	n = fread(b, 1, sizeof b - 1, f);
+	fclose(f);
+	b[n] = '\0';
+	return !strcmp(b, text);
+}
+
+/* /tmp/zyperos-ssh as prepare() leaves it (src/sshlink.c), and what a
+ * session put in ~ meanwhile: a shell's history, a folder with a file, and
+ * a link to a file elsewhere. */
+static void run_folder_fill(const char *t, const char *run, const char *keys)
+{
+	char p[512];
+
+	snprintf(p, sizeof p, "%s/home", run);
+	mkdir(run, 0700);
+	mkdir(p, 0700);
+	snprintf(p, sizeof p, "%s/shadow", run);
+	put(p, "root:$6$s$h:::::::\n");
+	snprintf(p, sizeof p, "%s/home/.ssh", run);
+	if (symlink(keys, p) != 0) printf("  (could not link %s)\n", p);
+	snprintf(p, sizeof p, "%s/home/.ash_history", run);
+	put(p, "ls\nexit\n");
+	snprintf(p, sizeof p, "%s/home/stuff", run);
+	mkdir(p, 0700);
+	snprintf(p, sizeof p, "%s/home/stuff/notes.txt", run);
+	put(p, "x");
+	snprintf(p, sizeof p, "%s/outside.txt", t);
+	put(p, "keep");
+	{
+		char l[512];
+
+		snprintf(l, sizeof l, "%s/home/outside", run);
+		if (symlink(p, l) != 0) printf("  (could not link %s)\n", l);
+	}
+}
+
+static void run_folder(void)
+{
+	char t[] = "/tmp/sshlink-check.XXXXXX", run[256], keys[256], p[512];
+
+	printf("  the run folder, cleaned whole:\n");
+	if (!mkdtemp(t)) { CHECK(false, "no temp folder"); return; }
+	snprintf(run, sizeof run, "%s/zyperos-ssh", t);
+	snprintf(keys, sizeof keys, "%s/keys", t);
+	mkdir(keys, 0700);
+	snprintf(p, sizeof p, "%s/dropbear_ed25519_host_key", keys);
+	put(p, "host key");
+	snprintf(p, sizeof p, "%s/authorized_keys", keys);
+	put(p, "ssh-ed25519 AAAA me\n");
+
+	/* 1.0.5's clean: the shadow, the .ssh link, then the two folders */
+	run_folder_fill(t, run, keys);
+	snprintf(p, sizeof p, "%s/shadow", run);
+	unlink(p);
+	snprintf(p, sizeof p, "%s/home/.ssh", run);
+	unlink(p);
+	snprintf(p, sizeof p, "%s/home", run);
+	rmdir(p);
+	rmdir(run);
+	CHECK(there(run), "the old clean was expected to leave the folder, as it did on the Pixel");
+	rm_tree(run);
+
+	/* Now: the whole folder, links removed and never followed */
+	run_folder_fill(t, run, keys);
+	CHECK(rm_tree(run), "rm_tree said the folder stayed");
+	CHECK(!there(run), "%s is still there after the clean", run);
+	snprintf(p, sizeof p, "%s/dropbear_ed25519_host_key", keys);
+	CHECK(says(p, "host key"), "the card's host key was touched");
+	snprintf(p, sizeof p, "%s/authorized_keys", keys);
+	CHECK(says(p, "ssh-ed25519 AAAA me\n"), "the card's authorized_keys was touched");
+	snprintf(p, sizeof p, "%s/outside.txt", t);
+	CHECK(says(p, "keep"), "a file a link in ~ led to was touched");
+	CHECK(rm_tree(run), "a folder that is not there is not a failure");
+	CHECK(mkdir(run, 0700) == 0, "and the next start could not make it again");
+	rmdir(run);
+
+	/* The run folder's name itself a link (to the key folder): the link
+	 * goes, and nothing it leads to */
+	if (symlink(keys, run) != 0) printf("  (could not link %s)\n", run);
+	CHECK(rm_tree(run) && !there(run), "a link in the run folder's place stayed");
+	snprintf(p, sizeof p, "%s/authorized_keys", keys);
+	CHECK(says(p, "ssh-ed25519 AAAA me\n"), "and a link in its place led the clean into the key folder");
+	rm_tree(t);
+	CHECK(!there(t), "the temp folder stayed");
+}
 
 static sshlink_count feed(const char *const *lines)
 {
@@ -131,11 +250,14 @@ int main(void)
 		      "another account kept a password: [%s]", out);
 	}
 
+	run_folder();
+
 	if (failures) {
 		printf("sshlink: %d FAILED\n", failures);
 		return 1;
 	}
 	printf("sshlink: dropbear's sign-ins, exits, wrong PINs and listen failures are counted, "
-	       "a user name moves nothing, and in the shadow only root has a password: the PIN's\n");
+	       "a user name moves nothing, in the shadow only root has a password: the PIN's, and the "
+	       "run folder goes whole, whatever a session left in ~, the card's keys untouched\n");
 	return 0;
 }
