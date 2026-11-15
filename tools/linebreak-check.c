@@ -3,7 +3,7 @@
  *     make check-linebreak
  *
  * The port loading screen sets the game's name in a column 456 units wide,
- * in up to three lines (src/main.c, port_loading_screen), and every rule of
+ * in up to three lines (src/portload.c, port_loading_screen), and every rule of
  * where those lines break fails where nobody is looking for it:
  *
  *   a name that fits, broken anyway, is two short lines where one would do;

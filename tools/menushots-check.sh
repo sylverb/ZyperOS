@@ -8,7 +8,7 @@
 # there sees a pass that leaves a panel a shade off at rest, a scrim that
 # does not come all the way in or go all the way out, or a leave that ends
 # on something other than what is under it. So this takes the shots that
-# --shot-at presses on --menu (src/main.c, shot_motion) and holds each end
+# --shot-at presses on --menu (src/shots.c, shot_motion) and holds each end
 # of each motion to the picture it must be, byte for byte:
 #
 #   - --open at quick is the menu at rest, and at 0 the shelf with nothing

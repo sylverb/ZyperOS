@@ -3,7 +3,7 @@
 """MENU > Scraper's page through the real launcher, live, on the Mac.
 
 ZYPEROS_SCRAPER_TEST makes the launcher open the page at start and play a
-comma script on it (src/main.c, scp_test): button names (A B X Y START UP
+comma script on it (src/scraper_screen.c, scp_test): button names (A B X Y START UP
 DOWN LEFT RIGHT), wait=MS, run=MS (until a run ends, at most MS) and
 shot=PATH. Each step prints a "scraper-test:" line with where the page is.
 

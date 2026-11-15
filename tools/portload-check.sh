@@ -4,7 +4,7 @@
 #
 #     make check-portload
 #
-# The screen (src/main.c, port_loading_draw) puts its words and the system's
+# The screen (src/portload.c, port_loading_draw) puts its words and the system's
 # band on the cover itself, blurred to fill the screen under the theme's
 # ground. The lab's scrim, 70% at the top to 90% at the foot, holds **text**
 # over any cover but not **text-dim**: a white cover under Salt & Pepper's
