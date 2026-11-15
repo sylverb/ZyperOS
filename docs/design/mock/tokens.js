@@ -167,7 +167,21 @@ window.ZYPER_TOKENS = {
     "hint-gap": 12,
     "hints-gap": 32,
     "hints-gap-spread": 16,
-    "hints-row": 44
+    "hints-row": 44,
+    "margin": 64,
+    "header": 72,
+    "section": 24,
+    "related": 8,
+    "foot-inset": 32,
+    "foot-gap": 24,
+    "caption-inset": 40,
+    "list-row": 72,
+    "line-title": 72,
+    "line-label": 64,
+    "line-menu": 56,
+    "line-meta": 40,
+    "line-support": 36,
+    "line-chrome": 32
   },
   "motion": {
     "press": {

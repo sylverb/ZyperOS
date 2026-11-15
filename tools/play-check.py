@@ -227,15 +227,29 @@ class Rig:
 
 # ---- the browser ------------------------------------------------------------
 
+# A page in a tab that is not the front one, or in a headless window, runs at
+# the priority of one in front: its renderer, its timers and the window's
+# occlusion, each of which Chrome would otherwise turn down
+CHROME_FLAGS = ['--disable-renderer-backgrounding', '--disable-background-timer-throttling',
+                '--disable-backgrounding-occluded-windows']
+
 class Browser:
     """Headless Chrome, its tabs opened over its DevTools HTTP endpoint"""
 
     def __init__(self, chrome, profile):
+        # Chrome lowers the priority of a renderer it takes for one in the
+        # background or covered, which a headless window and every tab but the
+        # last one opened are. With other checks at once (make check, three
+        # on CI's runner, its picture drawn in software) the page's renderer
+        # then went more than 5 s without the CPU to unpack a frame, so p2d
+        # dropped it as silent with a frame not acked - a second tab told it
+        # is player 2, not that the game is full. Not throttled, the page
+        # keeps up: CHROME_FLAGS.
         self.p = subprocess.Popen(
             [chrome, '--headless=new', '--remote-debugging-port=0', f'--user-data-dir={profile}',
              '--no-first-run', '--no-default-browser-check', '--hide-scrollbars',
              '--disable-background-networking', '--disable-component-update', '--disable-sync',
-             '--no-pings', 'about:blank'],
+             '--no-pings'] + CHROME_FLAGS + ['about:blank'],
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         port = profile / 'DevToolsActivePort'
         if not wait_for(lambda: port.is_file() and port.read_text().strip(), 30, 0.1):

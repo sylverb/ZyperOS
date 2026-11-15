@@ -34,28 +34,6 @@ de = Sperren
 ja = ロック
 it = Blocca
 
-[mp4.hint_controls]
-note = The word by a hint on a video, in full screen: Y shows the video smaller with its controls under it
-en = Controls
-zh-Hans = 控制栏
-es = Controles
-pt-BR = Controles
-fr = Commandes
-de = Steuerung
-ja = コントロール
-it = Controlli
-
-[mp4.hint_full_screen]
-note = The word by a hint on a video, with the controls shown: Y shows the video full screen
-en = Full screen
-zh-Hans = 全屏
-es = Pantalla completa
-pt-BR = Tela cheia
-fr = Plein écran
-de = Vollbild
-ja = 全画面
-it = Schermo intero
-
 [mp4.hint_video]
 note = The word by a hint on a video, when the folder has more than one: L1/R1 go to the video before or after
 en = Video

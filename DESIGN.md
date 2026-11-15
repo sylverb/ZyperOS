@@ -323,6 +323,43 @@ Lexend's time the first time it is drawn, then cached like any line.
 | **rail-min** | 18 | the rail marker's least length |
 <!-- /generated:space -->
 
+### The system (round 3)
+
+One way every screen is spaced, so every screen feels like one launcher, and
+one way it is laid out, so a longer language or a second row of keys moves
+the layout instead of landing on a word.
+
+- **The grid.** 8 units, exactly 5 pixels on the Pixel 2, for every position
+  and every distance between parts; 4 and 12 only inside a component (a
+  glyph to its word). On the Brick and the Brick Pro every unit is a whole
+  pixel anyway. Strokes (a rule, a frame, a ring) are hairlines and keep
+  their widths.
+- **The scale.** 8, 16, 24, 32, 40, 48, 64.
+- **The roles** a screen keeps everywhere, in `src/ds/layout.h`: **margin**
+  64 (content from the sides), **header** 72 (the top bar's band; content
+  starts a **section**, 24, under it), **related** 8 (things that go
+  together), **foot-inset** 32 (the keys' foot from the screen's: one row's
+  middle at 720), **foot-gap** 24 (content over the keys keeps at least
+  this), **caption-inset** 40, **list-row** 72, and each type's line as a
+  box (**line-title** 72 down to **line-chrome** 32).
+- **Corners nest.** A shape inside another keeps their corners concentric:
+  inner radius = outer radius - inset, as a row's fill in a panel does.
+
+**The layout engine** (`src/ds/flex.h`). A screen builds a small tree of
+boxes each frame - columns and rows with padding, gaps, alignment, grow and
+shrink, a row that wraps, a kept aspect (a leaf's: a picture, a cover),
+sizes in whole steps (a list's rows) - its leaves measured with the real
+font and line breaks of the language that is on, solves it, and draws each
+part in its box. Integer units, no allocation. When something needs more
+room, the rules give it: a text wraps, the part that grows gives room back,
+a single line ellipsizes, and nothing is cut or overlaps (the keys check,
+13). `check-flex` holds its rules, a thousand random trees that stay in
+their parents the same way every time, and its time (a screen's 14 boxes in
+a third of a microsecond on a Mac).
+
+Screens move onto the engine and these roles one at a time, each first with
+its pixels unchanged and then with its spacing on a sheet (section 14).
+
 ### Layout
 
 Where the launcher's own parts sit: a page's frame (Flash Drive, File
@@ -389,6 +426,20 @@ its own says why beside it.
 | **hints-gap** | 32 | one hint to the next |
 | **hints-gap-spread** | 16 | the least between hints spread across a foot |
 | **hints-row** | 44 | one row of hints to the next |
+| **margin** | 64 | content from the screen's sides |
+| **header** | 72 | the top bar's band: the clock, a title, the marks; content starts a section under it |
+| **section** | 24 | between the parts of a screen |
+| **related** | 8 | between things that go together: a bar and its times |
+| **foot-inset** | 32 | the keys' foot from the screen's foot: one row's middle at 720 |
+| **foot-gap** | 24 | content over the keys keeps at least this |
+| **caption-inset** | 40 | a caption at the foot: its last line's box from the screen's foot |
+| **list-row** | 72 | a list's row |
+| **line-title** | 72 | a title's line, as a box |
+| **line-label** | 64 | a label's line |
+| **line-menu** | 56 | a menu row's line |
+| **line-meta** | 40 | a meta line: times, a caption's line |
+| **line-support** | 36 | a support line |
+| **line-chrome** | 32 | a chrome line: a key's word, the header |
 <!-- /generated:layout -->
 
 ---
@@ -505,7 +556,7 @@ beside a cubic one. One function each, in `src/design.h`.)*
 | **tour-pulse** | 440 | - | the right glyph's two pulses after a press of the wrong button |
 | **hold-unlock** | 2000 | - | MP4's lock: SELECT and START held together this long unlock it; POWER held this long starts the charging screen's handheld, and turns it off with Power Button on Hold |
 | **hold-lock-lit** | 4000 | - | MP4's lock screen, lit as it locks |
-| **hold-controls** | 3000 | - | MP4's video controls after the last press, full screen |
+| **hold-controls** | 3000 | - | MP4's video controls after the last press |
 | **hold-snap** | 1000 | - | a game focused on the shelf before its cover turns into its video snap |
 | **hold-low-battery** | 6000 | - | the low-battery start screen before the handheld powers off |
 | **hold-heat** | 4000 | - | "Getting hot", on the home and over a game |
@@ -884,7 +935,7 @@ where it was.)*
 | Tab | Rows |
 |---|---|
 | **Games** | Search Games, Play Time, Random Game, Achievements, Scraper |
-| **Display** | Appearance, Auto Hours, Theme, Home Screen, System Order, Battery Icon |
+| **Display** | Appearance, Auto Hours, Theme, Home Screen, System Order, Home Systems, Battery Icon |
 | **Sound** | Audio Output, Audio Channels, UI Sounds, Menu Music |
 | **Connections** | USB Device (while a plug waits), Wi-Fi, Bluetooth, File Transfer, USB Accessories, Developer Mode |
 | **System** | Date & Time, Clock, Language, Power Button, Auto Off, Charge Limit, Side Lights, Storage, System Update |
@@ -1556,19 +1607,26 @@ Muse, so a card's saved places and modes still read.
   own frames (src/muse/cover.c). On videos, Sort By is Folder or Title and
   there is no Album Art; Shuffle All and Album Art are on music, and on All
   when the card has songs.
-- **Video.** On Now Playing, in one of two views, Y between them, kept:
-  **full screen** - the picture as large as it fits on **ink**, the controls
-  (title, the bar, the key hints) on **surface** at 92% over its foot,
-  in over **quick** after any press and out over **fade-out** after
-  **hold-controls**, and up for as long as it is paused; it opens in this
-  one - and **with
-  controls** - the picture in a 16:9 frame 896 wide on **ground**, the
-  header above it with the title in its row, and the bar and legend below,
-  always there.
-  Their keys are hints as the shelves draw them (`page_hint`: a glyph and a word,
+- **Video.** On Now Playing, one view, as a phone's or a TV's player
+  (1.0.6; before, two views Y turned between, the smaller one giving up
+  nothing to the keys but its frame): the picture as wide as the screen at
+  16:9 under the header's band (the clock, the title in its row, the marks)
+  on **ground**, the same size in every language; over its foot, on
+  **surface** at 92%, the bar with the time played and the time left at its
+  two ends on one row, and the keys under it on the shelf's foot. The band
+  is as tall as the keys need: a language whose words take a second row
+  makes it taller, never the picture smaller. The controls come up on any
+  key, which also does what it does (the first press too, as a remote's
+  would), stay for **hold-controls** after the last press and for as long
+  as it is paused, in over **quick** and out over **fade-out**; Y shows
+  them, or hides them at once. Paused or stopped, a play disc
+  (`ds_play_disc`) stands in the picture's middle. Under the lock the
+  controls stay hidden: no key they name works there.
+  The keys are hints as the shelves draw them (`page_hint`: a glyph and a word,
   **chrome** type, **text-soft**), from x 64 to 960 with the room shared out, and
-  on a second row above where a language's words need it, never cut: Now
-  Playing's too (A, B, X, Y, L1/R1, the d-pad with its sides lit, 11.4).
+  on a second row above where a language's words need it, never cut: A, B,
+  X, L1/R1 (a folder of more than one), the d-pad with its sides lit
+  (11.4). Now Playing's music view keeps Y (its mode or a book's speed).
   The picture is drawn under the screen at the panel's own resolution
   (plat_video_under), so nothing scales it twice. A video keeps its place
   as a book does, per file; none is kept in its first or last minute.
@@ -4147,12 +4205,11 @@ when its change lands.
 - Words whose ink comes within 3 units of a key or a more mark, found when
   the host began to check it (1.0.6): Storage's two-line caption under the
   sort key (X with the order), its accents and ascenders in Spanish and
-  Portuguese, and the video controls' keys, wrapped to two rows in Japanese,
-  under the times. The sort key sits in the only room between the list and
-  the caption, so moving it is a layout of its own; the video player's
-  controls get a new layout that keeps the picture at its full size in every
-  language. `check-i18n-shots` lists these screens as known (`KNOWN_KEYS`)
-  and fails on any other.
+  Portuguese. The sort key sits in the only room between the list and the
+  caption, so moving it is a layout of its own. `check-i18n-shots` lists
+  these screens as known (`KNOWN_KEYS`) and fails on any other. (The video
+  controls' keys, wrapped under the times in Japanese, were the other; the
+  one-view player, 1.0.6, keeps them in a band that grows instead.)
 - A heart is drawn three ways: filled (`draw_heart`, `src/heart.c`, the
   favorites' mark), as a stroke mark (`UI_GLYPH_HEART`, the Favorites tile),
   and as a distance field for a cover badge that only its check draws
@@ -4263,6 +4320,7 @@ the tiles' style is read off a name.
 | Tokens | `tools/designdef.py` → `src/design.h` | color, type, space, shape, elevation, motion and sound (sections 3 to 9). Diatom and portkeys carry copies of `design.h`. |
 | Layout tokens | `tools/designdef.py` → `src/ds/layout.h` | where the launcher's own parts sit (section 5, Layout): `DS_PAGE_*`, `DS_TILE_*`, `DS_LIST_*`, `DS_BADGE*`, `DS_MARK_*`, `DS_HINT*` |
 | Primitives | `src/ui.c`, `src/ui.h` | text and its faces, the rounded rect, the panel's slab (`ui_panel`), lift, scrim, the rail, button glyphs (`ui_button`, 11.9), the generated cards |
+| Layout engine | `src/ds/flex.c`, `flex.h` | boxes laid out by rules (section 5, The system): `ds_flex_begin`, `ds_flex_add`, `ds_flex_solve`, `ds_flex_rect`; `check-flex` holds its rules |
 | Stroke marks | `src/ds/glyph.c`, `glyph.h` | the 25 `ui_glyph` marks and their cache; `check-glyphs` holds each to 32 strokes and 4 arrowheads |
 | Page frame | `src/ds/page.c`, `page.h` | `ds_page_frame_of`; the heading (`ds_page_head`: `DS_HEAD_BALANCED`, `DS_HEAD_TWO`, `DS_HEAD_SUB`); the line of marks over the keys (`ds_page_line`, its tones `DS_TONE_*`); a line of words under the tiles (`ds_page_meta`); the foot (`ds_page_foot`). `page_top` in `src/main.c` draws the ground and Zyper and hands back the frame. |
 | Tiles and the list | `src/ds/tiles.c`, `tiles.h` | `ds_tiles_draw`: `DS_TILES_ROW`, `DS_TILES_GRID`, `DS_TILES_LIST`. In `src/main.c`, `tiles_show` takes the style as the panel's kind (`PANEL_TILES`, `PANEL_TILES_GRID`, `PANEL_LIST`) and each tile's mark. |
@@ -4342,4 +4400,40 @@ POWER about 10 s is still the power chip's own cut, for a handheld that does
 not answer. With Hold on, Controls says "Hold: save and turn off" ("Hold:
 turn off", "Hold: quit and turn off" over a port), and the tutorial's POWER
 step says "Hold POWER to save and turn off." and lands on the hold.
+
+### 11.48 Home Systems and Recents
+*(Asked for on the Discord, 2026-11-15: "can we have the option to hide/reveal
+ROM sections on the main menu? I'd like to hide the Ports menu". My picks: a
+page of switches in MENU, and a new group, Recents, beside Favorites.)*
+
+**Recents** is a group like Favorites: the ten games played last, from the
+play time's sessions (src/stats.h, `stats_recent`), newest first, from every
+system the home shows. It sits right after Favorites, first when there is
+none, and is named **Recents** in the language that is on. Its card is a
+placeholder until a real design comes: a pixel-art clock with ZyperOS's lime
+rim, its minute hand stepping between twelve and one in two poses of 400 ms,
+as Favorites' heart beats (res/system-art/original/placeholders/recents.py).
+Its shelf's order is **Last Played** as it ships, so the game just played is
+first; it is built again when a game ends, and MENU > Sort By sorts it
+otherwise, kept by its tag as Favorites' is. Its MENU is Favorites': Games,
+Random Game, Sort By, View. With nothing played yet there is no Recents card,
+as an empty Favorites shows none: a card should lead somewhere.
+
+**Home Systems** in MENU's Display tab, under System Order: its value
+**All**, or how many of them are on ("8 of 10"); A opens its page. The page
+lists Favorites and Recents, a rule, then every system the card has games
+for, in the home's order (a system with none is not on the home, so not on
+the page either), each **On** or **Off**, Left, Right or A turning it over,
+heard as a ring, as Side Lights' parts are. Under a rule, the note: "Games
+stay on the card." All of them On as they ship. A system turned off leaves
+the home, and with it Random Game, Search, Favorites and Recents; its games
+stay on the card and in File Transfer, and come back the moment it is on
+again. The last system on cannot be turned off, since a home with no system
+is the empty home's, which says the card has no games: its row is dead, and a
+second note says why ("One system stays on the home."). The home is built
+again once, as the page closes on a change, from the saved library, keeping
+the player's place (`shelves_reload`). The setting is one word in the device
+database, `home.hidden`: the tags that are off ("PRT,RECENT"), so a new
+system is On without anyone saying so (src/homesys.h). Host shots:
+`--homesys-page ROW`.
 

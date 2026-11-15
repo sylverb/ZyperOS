@@ -306,6 +306,64 @@ static int by_seconds(const void *a, const void *b)
 	return strcmp(x->file, y->file);      /* stable enough to read twice */
 }
 
+/* stats_recent's pass: the rows kept so far, newest-first once done */
+typedef struct {
+	stats_recent_row *out;
+	int n, max;
+} recent_ctx;
+
+static bool recent_fold(const char *key, const char *value, void *ctx)
+{
+	const char *rest = key + strlen("sess.");
+	const char *dot = strchr(rest, '.'), *tab;
+	recent_ctx *r = ctx;
+	char tag[STATS_TAG_MAX];
+	long start;
+	int i, oldest = -1;
+
+	(void)value;
+	if (!dot) return true;
+	start = strtol(rest, NULL, 10);
+	if (!(dot = strchr(dot + 1, '.'))) return true;
+	if (!(tab = strchr(dot + 1, '\t'))) return true;
+	if ((size_t)(tab - dot - 1) >= STATS_TAG_MAX || !tab[1]) return true;
+	snprintf(tag, sizeof tag, "%.*s", (int)(tab - dot - 1), dot + 1);
+	for (i = 0; i < r->n; i++) {
+		if (!strcmp(r->out[i].tag, tag) && !strcmp(r->out[i].file, tab + 1)) {
+			if (start > r->out[i].last) r->out[i].last = start;
+			return true;
+		}
+		if (oldest < 0 || r->out[i].last < r->out[oldest].last) oldest = i;
+	}
+	/* A new game: in, or in place of the one started longest ago when that
+	 * one is older */
+	if (r->n < r->max) i = r->n++;
+	else if (oldest >= 0 && start > r->out[oldest].last) i = oldest;
+	else return true;
+	snprintf(r->out[i].tag, sizeof r->out[i].tag, "%s", tag);
+	snprintf(r->out[i].file, sizeof r->out[i].file, "%s", tab + 1);
+	r->out[i].last = start;
+	return true;
+}
+
+static int by_last(const void *a, const void *b)
+{
+	const stats_recent_row *x = a, *y = b;
+
+	if (x->last != y->last) return x->last < y->last ? 1 : -1;
+	return strcmp(x->file, y->file);
+}
+
+int stats_recent(stats_recent_row *out, int max)
+{
+	recent_ctx r = { out, 0, max };
+
+	if (!out || max <= 0) return 0;
+	db_each_prefix(db_lib(), "sess.", recent_fold, &r);
+	qsort(out, (size_t)r.n, sizeof *out, by_last);
+	return r.n;
+}
+
 int stats_summarize(stats_window w, bool by_system, long now)
 {
 	fold_ctx f;

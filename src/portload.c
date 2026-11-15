@@ -31,6 +31,12 @@
  * under the column; and behind it all the cover itself, blurred to fill the
  * screen under the theme's ground. In units. */
 #define PORT_LOADING "/tmp/zyperos_loading.raw"
+/* The same screen with the line after a minute (portload.still_go_back):
+ * tools/portkeys.c shows it when the port still holds no display then */
+#define PORT_LOADING_LATER "/tmp/zyperos_loading_later.raw"
+
+/* Which line the next draw writes: the start's, or the one after a minute */
+bool g_port_loading_later;
 
 #define LOAD_COVER_AREA (368 * 512)  /* the cover's area, any shape (equal area) */
 #define LOAD_COVER_CX   272          /* ...centered here */
@@ -46,9 +52,10 @@
 #define LOAD_NAME_LINES 3
 #define LOAD_NAME_STEP  64           /* one line of the name to the next */
 #define LOAD_SAY_STEP   48           /* and of the line under it */
-#define LOAD_SAY_A      T(S_PORTLOAD_STARTING)
-#define LOAD_SAY_B      T(S_PORTLOAD_A_MINUTE)
-#define LOAD_SAY_AB     T(S_PORTLOAD_STARTING_A_MINUTE)   /* the two on one line */
+#define LOAD_SAY_A      T(g_port_loading_later ? S_PORTLOAD_STILL : S_PORTLOAD_STARTING)
+#define LOAD_SAY_B      T(g_port_loading_later ? S_PORTLOAD_GO_BACK : S_PORTLOAD_A_MINUTE)
+/* the two on one line */
+#define LOAD_SAY_AB     T(g_port_loading_later ? S_PORTLOAD_STILL_GO_BACK : S_PORTLOAD_STARTING_A_MINUTE)
 /* Zyper's frame, where splash draws his loop: 120 x 116 panel pixels with its
  * top left at loading.txt's x 315 y 330, which is these units. Neither the
  * words nor the cover go in it: the block of words is at most 364 high (three
@@ -311,9 +318,19 @@ static void load_layout_make(load_layout *L, const system_cfg *s, const char *ti
 		snprintf(L->line[LOAD_SAY][0], LB_LINE, "%s", LOAD_SAY_AB);
 		L->lines[LOAD_SAY] = 1;
 	} else {
+		/* The second sentence in two balanced lines when it needs them: the
+		 * one after a minute says which buttons to hold, and is long in
+		 * most languages (1.0.6) */
+		int nb;
+
 		ui_fit_text(meta, LOAD_SAY_A, L->line[LOAD_SAY][0], LB_LINE, LOAD_COL_W);
-		ui_fit_text(meta, LOAD_SAY_B, L->line[LOAD_SAY][1], LB_LINE, LOAD_COL_W);
-		L->lines[LOAD_SAY] = 2;
+		nb = ui_balance_lines(meta, LOAD_SAY_B, LOAD_COL_W, LOAD_NAME_LINES - 1,
+		                      &L->line[LOAD_SAY][1]);
+		if (nb < 1) {
+			ui_fit_text(meta, LOAD_SAY_B, L->line[LOAD_SAY][1], LB_LINE, LOAD_COL_W);
+			nb = 1;
+		}
+		L->lines[LOAD_SAY] = 1 + nb;
 	}
 
 	total = DS_BAR + LOAD_GAP_BAND + cm + LOAD_GAP_SYS +
@@ -561,9 +578,17 @@ bool port_loading_draw(app *a, const system_cfg *s, int i)
 	return held;
 }
 
-/* The still for the game under the cursor, written for splash. */
+/* The still for the game under the cursor, written for splash, and the same
+ * with the line after a minute, for portkeys (1.0.6: a port that hung under
+ * the still looked the same as one starting, and nothing said how to leave).
+ * The later one first, so the screen ends on the start's. */
 void port_loading_screen(app *a, const system_cfg *s)
 {
+	unlink(PORT_LOADING_LATER);
+	g_port_loading_later = true;
+	port_loading_draw(a, s, a->view[a->sys_cursor].cursor);
+	if (!plat_save_screen(PORT_LOADING_LATER)) unlink(PORT_LOADING_LATER);
+	g_port_loading_later = false;
 	port_loading_draw(a, s, a->view[a->sys_cursor].cursor);
 	unlink(PORT_LOADING);
 	if (!plat_save_screen(PORT_LOADING)) plat_present();

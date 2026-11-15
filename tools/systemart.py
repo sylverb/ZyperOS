@@ -53,7 +53,7 @@ KEY = re.compile(r"[A-Z0-9_]{1,32}\Z")
 EXTRA = {"FOLDER": "FOLDER_SMALL", "ROMS": "ROMS", "MUSIC": "MUSIC", "BOOKS": "BOOKS", "VIDEOS": "VIDEOS",
          "BIOS": "BIOS", "SAVES": "SAVES", "STATES": "STATES", "BGM": "BGM"}
 # Shelves that are not in config/systems.cfg
-SYNTHETIC = [("FAVORITES", "FAV", "Favorites"), ("MUSE", "MUSE", "Muse")]
+SYNTHETIC = [("FAVORITES", "FAV", "Favorites"), ("RECENTS", "RECENT", "Recents"), ("MUSE", "MUSE", "Muse")]
 
 
 class ArtError(ValueError):
