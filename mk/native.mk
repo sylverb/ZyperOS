@@ -9,7 +9,9 @@ BUILD := build-native
 # beside it: that is what this build has always run.
 DEVICE ?= brick
 # src/ds/: the design system's components and marks (DESIGN.md, "Where each part lives")
-SRC := $(wildcard src/*.c) $(wildcard src/ds/*.c) src/device/$(DEVICE).c
+# Every device's profile (src/device/profile.h), so --device can wear any;
+# the host's own is desktop's
+SRC := $(wildcard src/*.c) $(wildcard src/ds/*.c) src/device/$(DEVICE).c $(wildcard src/device/*_profile.c)
 # src/main.c and the files split from it, which call into one another: the
 # checks that link the rest of src/ leave them all out.
 MAIN_SRC := src/main.c src/about_screen.c src/aout_route.c src/bgm_screen.c \
@@ -51,6 +53,8 @@ CFLAGS += -Isrc
 # The pseudo-locale, xx (src/i18n.h): every string accented and longer, for
 # the host's shots to find what does not fit. Never on a device.
 CFLAGS += -DI18N_PSEUDO
+# The profile the host wears unless told (--device), and all of them linked
+CFLAGS += -DZYPEROS_PROFILE=device_profile_desktop -DZYPEROS_PROFILES_ALL
 
 .PHONY: all creds
 all: $(BUILD)/zyperos
