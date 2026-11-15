@@ -28,6 +28,8 @@ SRC = ROOT / "src"
 RULES = [
     (re.compile(r"\b(?:page_hint(?:_fade)?|keyhints_draw)\s*\([^;]*?,\s*(?:704|714|720|724)\s*,"),
      "a foot typed as a number: DS_FOOT_Y (src/ds/layout.h), or a named one of the screen's own with why"),
+    (re.compile(r"\bui_cap_y\s*\([^;]*?,\s*(?:704|714|720|724)\s*\)"),
+     "words on the keys' line typed as a number (the home's count): DS_FOOT_Y"),
     (re.compile(r"\b(?:draw_zyper(?:_pose)?|zyper)\s*\([^;]*?,\s*123(?:\.0f?)?\s*,\s*16\d(?:\.0f?)?\s*,"),
      "Zyper beside a page's heading typed again: DS_PAGE_ZYPER_X, _Y and _H"),
     (re.compile(r"\b(?:tile_glyph|tiles_are_list)\s*\("),

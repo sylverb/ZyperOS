@@ -601,7 +601,7 @@ uint32_t home_draw(home *h,SDL_Renderer *r,home_layout layout,
     SDL_SetRenderDrawColor(r,accent.r,accent.g,accent.b,255);
     SDL_Rect underline={492,gallery?512:672,40,DS_BAR}; SDL_RenderFillRect(r,&underline);
     char index[32]; snprintf(index,sizeof index,"%d / %d",cursor+1,count);
-    ui_text(r,page_font(PAGE_CHROME),index,512,ui_cap_y(page_font(PAGE_CHROME),704),0,UI_TEXT_DIM);
+    ui_text(r,page_font(PAGE_CHROME),index,512,ui_cap_y(page_font(PAGE_CHROME),DS_FOOT_Y),0,UI_TEXT_DIM);   /* on the hints' line */
     page_hint(r,"MENU",T(S_HOME_SETTINGS),64,DS_FOOT_Y,false,false);
     if(!gallery) page_hint(r,"SELECT","MP4",784,DS_FOOT_Y,false,false);
     /* The gallery's A hint starts at 768 and keeps there while it ends by 1000;
