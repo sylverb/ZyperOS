@@ -273,15 +273,18 @@ def pixel2():
 
 
 # The choices, as src/tourdraw.c lays them out: two 380 x 285 at y 96, 56
-# apart, or four 180 x 180 tiles at y 130, 32 apart; a name 48 under each.
+# apart; three (Home Screen) 272 x 204, 32 apart, on the two's middle line;
+# or four 180 x 180 tiles at y 130, 32 apart; a name 48 under each.
 def choice_box(n, i):
+    if n == 3:
+        return ((1024 - (3 * 272 + 2 * 32)) // 2 + i * 304, 136, 272, 204)
     if n > 2:
         x0 = (1024 - (n * 180 + (n - 1) * 32)) // 2
         return (x0 + i * 212, 130, 180, 180)
     return (104 + i * 436, 96, 380, 285)
 
 
-CHOICE_N = {"theme": 2, "home": 2, "sounds": 4, "music": 2}
+CHOICE_N = {"theme": 2, "home": 3, "sounds": 4, "music": 2}
 
 
 def ring_px(img, b):
@@ -330,12 +333,18 @@ def choices():
         if None not in (img, home):
             for i, want in enumerate(("light", "dark")):
                 x, y, w, h = choice_box(2, i)
-                ck(zc.px(img, x + 190, y + 40) == GROUND[want],
+                ck(zc.px(img, x + w // 2, y + 40) == GROUND[want],
                    "%s theme: preview %d is the home screen in %s" % (th, i, want))
-                ck(zc.px(home, x + 190, y + 40) == GROUND[th],
+            for i in range(3):
+                x, y, w, h = choice_box(3, i)
+                ck(zc.px(home, x + w // 2, y + 30) == GROUND[th],
                    "%s home: preview %d is the home screen in the screen's theme" % (th, i))
-            ck(any(zc.px(home, 540 + 190, 96 + y) != zc.px(home, 104 + 190, 96 + y)
-                   for y in range(60, 240, 4)), "%s home: Spotlight and Gallery differ" % th)
+            # Spotlight, Gallery and Grid differ, each from the next
+            for i in range(2):
+                a, b = choice_box(3, i), choice_box(3, i + 1)
+                ck(any(zc.px(home, a[0] + dx, a[1] + dy) != zc.px(home, b[0] + dx, b[1] + dy)
+                       for dy in range(40, 180, 4) for dx in range(20, 250, 20)),
+                   "%s home: preview %d and %d differ" % (th, i, i + 1))
         # The reward: the check on the kept one, and Zyper up with "Saved!"
         done = shot("c-sounds-done-%s" % th, "--theme", th, "--tour", "sounds", "3000", "400",
                     "--tour-music", "--tour-pick", "2")

@@ -759,15 +759,16 @@ static uint32_t home_grid_draw(home *h, SDL_Renderer *r, const home_item *items,
         ui_text(r, meta, count_label ? count_label : "", HG_MARGIN, ui_cap_y(meta, fy2), -1, UI_TEXT_DIM);
     }
     /* The foot, as Spotlight's: MENU at the left, the place in the middle,
-     * SELECT at the right, on the shelf's foot */
+     * SELECT at the right, on the shelf's foot (DS_SHELF_FOOT_Y, the shelf
+     * grid's) */
     {
         char index[32];
         int sw = page_hint_width("SELECT", "MP4", false);
 
         snprintf(index, sizeof index, "%d / %d", cursor + 1, count);
-        ui_text_tabular(r, page_font(PAGE_CHROME), index, 512, ui_cap_y(page_font(PAGE_CHROME), 720), 0, UI_TEXT_DIM);
-        page_hint(r, "MENU", T(S_HOME_SETTINGS), HG_MARGIN, 720, false, false);
-        page_hint(r, "SELECT", "MP4", 1024 - HG_MARGIN - sw, 720, false, false);
+        ui_text_tabular(r, page_font(PAGE_CHROME), index, 512, ui_cap_y(page_font(PAGE_CHROME), DS_SHELF_FOOT_Y), 0, UI_TEXT_DIM);
+        page_hint(r, "MENU", T(S_HOME_SETTINGS), HG_MARGIN, DS_SHELF_FOOT_Y, false, false);
+        page_hint(r, "SELECT", "MP4", 1024 - HG_MARGIN - sw, DS_SHELF_FOOT_Y, false, false);
     }
     return *wait;
 }

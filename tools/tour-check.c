@@ -110,9 +110,10 @@ static void choices(void)
 	int c;
 
 	printf("the choices:\n");
-	ck(tour_choice_count(TOUR_THEME) == 2 && tour_choice_count(TOUR_HOME) == 2 &&
+	ck(tour_choice_count(TOUR_THEME) == 2 && tour_choice_count(TOUR_HOME) == 3 &&
 	   tour_choice_count(TOUR_SOUNDS) == 4 && tour_choice_count(TOUR_MUSIC) == 2 &&
-	   tour_choice_count(TOUR_POWER) == 0, "Theme 2, Home Screen 2, Sounds 4, Menu Music 2");
+	   tour_choice_count(TOUR_POWER) == 0, "Theme 2, Home Screen 3, Sounds 4, Menu Music 2");
+	ck(!strcmp(tour_choice_name(TOUR_HOME, 2), "Grid"), "Home Screen's third is Grid");
 	ck(!strcmp(tour_choice_name(TOUR_THEME, 1), "Dark") &&
 	   !strcmp(tour_choice_name(TOUR_HOME, 1), "Gallery") &&
 	   !strcmp(tour_choice_name(TOUR_SOUNDS, 3), "Off") &&
