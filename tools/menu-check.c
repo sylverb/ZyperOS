@@ -2905,8 +2905,42 @@ static void row_sounds(void)
 	   "and play as any network does: the Wi-Fi screen has no classes to read");
 }
 
+/* An option row's choice is reached by its own Left and Right, straight
+ * there and never round past an end (menu_choice_steps), and a build's
+ * table is copied to its rows' places (sys_menu_build) */
+static void option_choices(void)
+{
+	static const char *const lab[4] = { "A", "B", "C", "D" };
+	menu_choice c = { .n = 4, .cur = 1, .labels = lab }, t[3] = { { 0 } };
+	menu_choice pm[PM_ROWS];
+	menu_bufs b;
+	menu_row out[MENU_MAX_ROWS];
+	const char *heading;
+	sys_ui u = { 0 };
+	bool right;
+	int i, n, found = 0;
+
+	ck(menu_choice_steps(&c, 3, &right) == 2 && right, "two to the right, straight there");
+	ck(menu_choice_steps(&c, 0, &right) == 1 && !right, "one to the left, never round past the end");
+	ck(menu_choice_steps(&c, 1, &right) == 0, "the one that is on: nothing to send");
+	c.none = true;
+	ck(menu_choice_steps(&c, 1, &right) == 2, "none on as a whole: right and back sets it for all");
+	ck(menu_choice_steps(&c, 9, &right) == 0, "a choice past the end: nothing");
+	t[1] = c;
+	ck(menu_choice_at(t, 3, 1) == &t[1] && !menu_choice_at(t, 3, 0) && !menu_choice_at(t, 3, 5) &&
+	   !menu_choice_at(NULL, 3, 1), "a row's choices by place, none for a row with no table");
+	memset(pm, 0, sizeof pm);
+	pm[PM_SAVER] = (menu_choice){ .n = 4, .cur = 2, .labels = lab };
+	u.pm_choice = pm;
+	n = sys_menu_build(&u, out, &b, &heading);
+	for (i = 0; i < n; i++)
+		if (b.choice[i].n == 4 && b.choice[i].cur == 2) found = !strcmp(out[i].label, T(S_SYSMENU_SCREENSAVER));
+	ck(found, "MENU's table reaches the Screensaver row's place");
+}
+
 int main(void)
 {
+	option_choices();
 	off_state();
 	scanning_state();
 	scanned_state();

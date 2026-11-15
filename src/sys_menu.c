@@ -300,6 +300,7 @@ int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
 	bool net = u->wifi == WIFI_CONNECTED, fetch = net || u->online;
 
 	memset(b->sound, 0, sizeof b->sound);
+	memset(b->choice, 0, sizeof b->choice);
 
 	if (u->games) {
 		snprintf(b->a, sizeof b->a, "%d", u->game_count);
@@ -317,6 +318,7 @@ int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
 			b->sound[1] = SM_SOUND[SM_RANDOM];
 			b->sound[2] = SM_SOUND[SM_SORT];
 			b->sound[3] = SM_SOUND[SM_VIEW];
+			if (u->sm_choice) b->choice[2] = u->sm_choice[SM_SORT];
 			return SM_FAV_ROWS;
 		}
 		if (u->muse) {
@@ -326,6 +328,8 @@ int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
 			                              u->muse_both, u->no_wifi && !u->online, ids);
 
 			for (k = 0; k < n; k++) b->sound[k] = smm_sound(ids[k]);
+			if (u->smm_choice)
+				for (k = 0; k < n; k++) b->choice[k] = u->smm_choice[ids[k]];
 			for (k = 0; k < n; k++)
 				switch (ids[k]) {
 				case SMM_COUNT:
@@ -417,6 +421,7 @@ int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
 			for (k = 0; k < n; k++) {
 				out[k] = full[ids[k]];
 				b->sound[k] = SM_SOUND[ids[k]];
+				if (u->sm_choice) b->choice[k] = u->sm_choice[ids[k]];
 			}
 			return n;
 		}
@@ -583,6 +588,7 @@ int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
 		for (k = 0; k < n; k++) {
 			out[k] = full[ids[k]];
 			b->sound[k] = PM_SOUND[ids[k]];
+			if (u->pm_choice) b->choice[k] = u->pm_choice[ids[k]];
 		}
 		return n;
 	}

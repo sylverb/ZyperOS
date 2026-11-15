@@ -821,6 +821,33 @@ The focused row is an **accent** fill, **radius.row**, its label and value in
 **on-accent**. More rows above or below: a small triangle in **text-dim**.
 Opens and closes as 8.2 says.
 
+**Option rows, one rule (1.0.6).** A row whose value is one of several
+choices answers the same way on every page - MENU, a system's menu, the
+Muse shelf, the in-game menu's Game and Display tabs, Theme, Auto Hours,
+Video Snaps, Menu Music:
+
+- **More than two choices: A opens their list**, a panel of its own under
+  the row's name, the choice that is on ticked and the cursor on it; A
+  chooses one, B leaves it as it was. Its words begin with a capital, as a
+  list's rows do, where the row's value may be "never" or "stereo". A
+  shader or a strength each system has its own of ticks none.
+- **Two: A turns it over.**
+- **Left and Right step every row**, as before, and show the change at
+  once, so a look before choosing is one press away. A scale (minutes,
+  percent, volume) stops at its ends; a set of names goes round.
+- Not option rows: a row that opens a page (Theme, Side Lights, Player 2),
+  Date & Time's year, month, day, hour and minute (digits of one value), and
+  rows with a list of their own (Language, Time Zone, a Controls button).
+
+It is one runner, not code on each row: a page's build gives each option
+row a table of its choices (`menu_choice`, src/menu.h) beside its rows, as it
+gives their sound classes, in the order its Left and Right go; the runner
+opens the list (src/menu_pick.c) and applies the choice by sending the row's
+own Left or Right as many times as it is away (`menu_choose`), so a screen
+needs no code to apply one. `check-menu-rows` fails on a row that steps with
+no table, unless it is a switch or a pair, and on a table that says
+something other than its row.
+
 **Lists go round.** Down on the last row that can be selected goes to the
 first, and Up on the first to the last, in every menu list - MENU, a
 system's menu, the in-game menu, a screen's rows, Muse's list, the
@@ -2286,7 +2313,7 @@ lithium battery ages slower when it is not kept full.
 
 **Charge Limit** in MENU, directly under Auto Off and over Side Lights:
 **Off**, the default on every card, a full charge as before; **80%**,
-**85%**, **90%**. Left and right step it round, A steps it on, heard as a
+**85%**, **90%**. Left and right step it round, A opens its list (11.3), heard as a
 ring, as Side Lights is. Only where the charger can stop short: plastron's
 rk817 driver on the GKD Pixel 2 (`charge_control_end_threshold`), which at
 the limit lets the cable give only 80 mA, less than the handheld draws, so
@@ -3616,7 +3643,7 @@ Host shots: `--info-delete` shows the row above Delete Game.
 **Theme** (MENU > Display) is a menu panel of six rows over the shelf:
 **Accent**, **Light Background**, **Dark Background**, **Corners**,
 **Zyper** and **Reset to Default** (3.5). Left and Right step a row round
-and apply it at once, saved; A steps forward, and on Reset to Default puts
+and apply it at once, saved; A opens a row's list (11.3), and on Reset to Default puts
 all four back as they ship. Between the heading's rule and the rows, both
 themes as the look has them, small, side by side, Light at the left
 whatever is on: each the home (its name and count, A, the art, the dock and

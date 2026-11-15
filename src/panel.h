@@ -105,6 +105,11 @@ typedef struct {
 	 * rows by their ids and the runner reads by place (menu_sound_at). NULL:
 	 * every row plain, as on a screen whose rows are named by their owners. */
 	const unsigned char *sound;
+	/* Each row's choices by place (menu.h's menu_choice): more than two
+	 * and A opens their list, two and A turns it over, the runner sending
+	 * the row's own Left and Right to apply it. Read every frame through
+	 * the pointer, so the build may write it. NULL: no option rows. */
+	const struct menu_choice *choices;
 	/* Zyper beside the heading (DESIGN.md 10): the top ZyperOS menu, the one
 	 * MENU opens on the systems row, and no other. MENU_ZYPEROS is Wi-Fi,
 	 * About and the sign-ins too, so the accent cannot say it. */

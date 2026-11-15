@@ -93,6 +93,7 @@
 #include "wifi.h"
 #include "audioout.h"
 #include "uisound.h"
+#include "menu_pick.h"
 #include "menu.h"
 #include "menumotion.h"
 #include "message.h"
@@ -4442,6 +4443,43 @@ static menu_result menu_side_key(app *a, zr_rig *z, menu_build_fn build,
 	return r;
 }
 
+/* An option row's A (menu.h's menu_choice, DESIGN.md 9): more than two
+ * choices and their list opens (src/menu_pick.c); two and the other one. The
+ * choice is applied by sending the row's own Left or Right as many times as
+ * it is away, so the screen's handler does what it always did and a screen
+ * needs no code of its own to apply one; only the last step goes through
+ * menu_send, so Zyper answers once. */
+static menu_result menu_choose(app *a, zr_rig *z, const menu_style *st, menu_key_fn on_key,
+                               void *ctx, const char *heading, const menu_choice *c, int sel)
+{
+	menu_result r = MENU_STAY;
+	bool right;
+	int to, steps;
+
+	uisound_play(DS_SOUND_ACCEPT);
+	if (c->n > 2) {
+		to = menu_pick(a, st, ctx, heading, c->labels, c->n, c->none ? -1 : c->cur, c->cur);
+		if (to == MENU_PICK_POWER) return MENU_DONE;   /* as POWER on the menu itself */
+		if (to < 0 || !a->running || want_quit || g_message_stopped || g_menu_closing) return MENU_STAY;
+	} else {
+		to = c->cur == 0 ? 1 : 0;
+	}
+	steps = menu_choice_steps(c, to, &right);
+	/* None on as a whole and that one chosen: Right and back, which sets
+	 * it for all (menu_choice_steps) */
+	if (to == c->cur && steps == 2) {
+		if (c->cur + 1 >= c->n) right = false;
+		r = on_key(a, ctx, right ? IN_RIGHT : IN_LEFT, sel);
+		return r == MENU_DONE ? r : menu_send(a, z, on_key, ctx, right ? IN_LEFT : IN_RIGHT, sel);
+	}
+	while (steps > 0 && r != MENU_DONE && a->running) {
+		in_button b = right ? IN_RIGHT : IN_LEFT;
+
+		r = --steps ? on_key(a, ctx, b, sel) : menu_send(a, z, on_key, ctx, b, sel);
+	}
+	return r;
+}
+
 /* The loop itself. Called only through menu_run below, which owns the flush on
  * either side of it. */
 /* A panel screen's picture, for pace_due (src/pace.h): its heading and
@@ -4644,6 +4682,20 @@ static menu_exit menu_run_body(app *a, const menu_style *st,
 			if (b == IN_UP || b == IN_DOWN || b == IN_BACK || b == IN_MENU
 			    || b == IN_POWER || b == IN_VOLUP || b == IN_VOLDN
 			    || b == IN_BRIGHTUP || b == IN_BRIGHTDN) continue;
+			/* A on an option row: its list, or the other of two, applied
+			 * through the row's Left and Right (menu_choose); its screen
+			 * does not get this A */
+			if (b == IN_ACCEPT && on_key && rows[sel].live) {
+				const menu_choice *c = menu_choice_at(st->choices, n, sel);
+
+				if (c && !c->own && c->n >= 2) {
+					if (menu_choose(a, z, st, on_key, ctx, rows[sel].label, c, sel) == MENU_DONE)
+						return MENU_LEFT_SCREEN;
+					if (!a->running || want_quit || g_message_stopped) return MENU_LEFT_GONE;
+					if (g_menu_closing) return MENU_LEFT_BACK;
+					continue;
+				}
+			}
 			/* A, answered before the screen has it, since what it opens
 			 * runs its own loop: accept, or deny on a row that can do
 			 * nothing, or nothing with A; a row that plays its own is
@@ -10405,6 +10457,7 @@ typedef struct {
 	int           nc;
 	unsigned long long total;
 	unsigned char sound[SN_ROWS];      /* each row's sound class, by place */
+	menu_choice   choice[SN_ROWS];     /* and its choices: Sound's three (menu.h) */
 	menu_result   said;
 } snaps_ctx;
 
@@ -10446,10 +10499,36 @@ static int snaps_build(void *ctx, menu_row *rows, int max, const char **heading)
 	(void)max;
 	*heading = T(S_SNAPS_HEADING);
 	n = snaps_rows_now(s, rows, ids, con);
-	/* Every switch steps round with Left and Right, and is heard so */
-	for (i = 0; i < n; i++)
+	/* Every switch steps round with Left and Right, and is heard so; Sound,
+	 * three of them, opens its list on A (menu_choose) */
+	for (i = 0; i < n; i++) {
+		static const char *sound_lab[3];
+
 		s->sound[i] = ids[i] == SN_DELETE || ids[i] == SN_NONE ? 0 : MENU_SND_RING;
+		s->choice[i] = (menu_choice){ 0 };
+		if (ids[i] == SN_SOUND) {
+			sound_lab[0] = T(S_SYSMENU_SN_MUTED);
+			sound_lab[1] = T(S_SYSMENU_SN_QUIET);
+			sound_lab[2] = T(S_SYSMENU_SN_FULL);
+			s->choice[i] = (menu_choice){ .n = 3, .cur = (unsigned char)(snaps_sound() % 3), .labels = sound_lab };
+		}
+	}
 	return n;
+}
+
+/* --rows-report: Video Snaps' rows (menu_rows_print) */
+static void snaps_rows_report(app *a)
+{
+	static snaps_ctx s;
+	menu_row rows[SN_ROWS];
+	const char *h;
+	int n;
+
+	memset(&s, 0, sizeof s);
+	s.a = a;
+	snaps_read(&s);
+	n = snaps_build(&s, rows, SN_ROWS, &h);
+	menu_rows_print("snaps", rows, n, s.sound, s.choice);
 }
 
 static menu_result snaps_key(app *a, void *ctx, in_button key, int sel)
@@ -10502,7 +10581,7 @@ static menu_result snaps_screen(app *a)
 	s.said = MENU_STAY;
 	snaps_read(&s);
 	menu_run(a, &(menu_style){ .accent = MENU_ZYPEROS, .fixed_w = menu_std_width(a),
-	                           .sound = s.sound },
+	                           .sound = s.sound, .choices = s.choice },
 	         snaps_build, snaps_key, &s);
 	return s.said;
 }
@@ -12641,6 +12720,8 @@ static int  shot_gm_keys = -1;
  * yet, so the frames of a motion go on from the one before. */
 static int  shot_gm_from = -1;
 static const char *shot_gm_press;
+static int shot_gm_choose;   /* --gm-choose: an option row's list, A pressed on it */
+static int shot_rows_report;   /* --rows-report: every option page's rows (tools/menu-rows-check.py) */
 static unsigned shot_gm_t0;
 static bool shot_gm_open;
 
@@ -12757,6 +12838,30 @@ static void shot_draw_gamemenu(app *a)
 	g_menu_tabs = u.port ? NULL : &tabs;
 	/* The handheld leaving with the Controls tab's name */
 	g_menu_side = u.port ? NULL : ctlscr_side;
+	/* --gm-choose: A on the row, as the runner answers an option row of
+	 * more than two (menu_choose): its list over the paused game */
+	if (shot_gm_choose && !u.port) {
+		gm_row ids[GM_MAX_ROWS];
+		int ni = gm_tab_rows(&u, (gm_tab)tabs.at, ids), sel = shot_gamemenu_sel < n ? shot_gamemenu_sel : n - 1;
+		const menu_choice *ch = sel >= 0 && sel < ni ? &gm_choices(a, &u)[ids[sel]] : NULL;
+
+		if (ch && ch->n > 2) {
+			menu_row pr[MENU_CHOICES_MAX];
+			static char pw[MENU_CHOICES_MAX][64];
+			int k;
+
+			for (k = 0; k < ch->n; k++) {
+				menu_pick_word(ch->labels[k], pw[k], (int)sizeof pw[k]);
+				pr[k] = (menu_row){ pw[k], k == ch->cur ? MENU_TICK : NULL, true };
+			}
+			g_menu_epoch++;
+			g_menu_tabs = NULL;   /* a list of its own: the row's name, no tabs */
+			g_menu_side = NULL;
+			menu_draw(a, rows[sel].label, pr, ch->n, ch->cur, gm_width(a), a->tint);
+			if (bg) SDL_DestroyTexture(bg);
+			return;
+		}
+	}
 	menu_draw(a, u.port ? NULL : gm_tab_name(tabs.at), rows, n,
 	          shot_gamemenu_sel < n ? shot_gamemenu_sel : n - 1,
 	          gm_width(a), a->tint);
@@ -12988,6 +13093,8 @@ static void controls_fit_report(app *a)
  * that changes a setting (Clock, Appearance, Auto Off), not one that opens a
  * screen. The setting is saved as it would be, in the card the shot runs on. */
 static int shot_key = -1;   /* not shot_press, which is --shot-at's */
+static menu_choice shot_pick;          /* --press a on an option row: its list */
+static const char *shot_pick_heading;
 /* --menu's row by its label, found when the menu is built */
 static const char *shot_menu_label;
 
@@ -13238,11 +13345,29 @@ static void shot_compose(app *a)
 	}
 	if (shot_menu && shot_key >= 0) {
 		sysmenu_ctx c;
+		const menu_choice *ch = NULL;
 
 		memset(&c, 0, sizeof c);
 		c.a = a;
 		c.screen = a->screen;
-		sysmenu_key(a, &c, (in_button)shot_key, shot_menu_sel);
+		/* A on an option row, as the runner answers it (menu_choose): its
+		 * list over the menu for more than two, the other one for two */
+		if (shot_key == IN_ACCEPT) {
+			static menu_row mr[MENU_RUN_ROWS];
+			const char *mh;
+			int mn = menu_build(a, a->screen, a->sys_cursor, mr, &c.bufs, &mh);
+
+			ch = menu_choice_at(c.bufs.choice, mn, shot_menu_sel);
+			if (ch && !ch->own && ch->n > 2) {
+				shot_pick = *ch;
+				shot_pick_heading = mr[shot_menu_sel].label;
+			} else if (ch && !ch->own && ch->n == 2) {
+				sysmenu_key(a, &c, ch->cur == 0 ? IN_RIGHT : IN_LEFT, shot_menu_sel);
+			} else {
+				ch = NULL;
+			}
+		}
+		if (!ch) sysmenu_key(a, &c, (in_button)shot_key, shot_menu_sel);
 		shot_key = -1;   /* once: --flip composes the shot more than once */
 		/* L1 or R1 moved MENU's tab and its cursor, as the runner would;
 		 * the shot is the tab at rest */
@@ -13379,8 +13504,25 @@ static void shot_compose(app *a)
 	 * after --swap's it has given way to the page below */
 	if (shot_menu) {
 		if (shot_pressed && shot_press == SHOT_CLOSE) panel_leave_draw(a, 0);
-		else if (!shot_pressed || shot_press != SHOT_SWAP)
-			zyperos_menu_draw(a, shot_menu_sel);
+		else if (!shot_pressed || shot_press != SHOT_SWAP) {
+			if (!shot_pick.n) zyperos_menu_draw(a, shot_menu_sel);
+		}
+		/* --press a on an option row of more than two: its list, which
+		 * opens over the shelf as MENU > Language does (menu_pick) */
+		if (shot_pick.n) {
+			menu_row pr[MENU_CHOICES_MAX];
+			int k;
+
+			static char pw[MENU_CHOICES_MAX][64];
+
+			for (k = 0; k < shot_pick.n; k++) {
+				menu_pick_word(shot_pick.labels[k], pw[k], (int)sizeof pw[k]);
+				pr[k] = (menu_row){ pw[k], !shot_pick.none && k == shot_pick.cur ? MENU_TICK : NULL, true };
+			}
+			ui_scrim(a->r, 0);
+			g_menu_epoch++;   /* another menu: a list opens at rest on its choice, as menu_run marks it */
+			menu_draw(a, shot_pick_heading, pr, shot_pick.n, shot_pick.cur, menu_std_width(a), MENU_ZYPEROS);
+		}
 	}
 	if (shot_look_page) shot_draw_look(a);
 	if (shot_slots) shot_draw_slots(a);
@@ -13388,6 +13530,13 @@ static void shot_compose(app *a)
 	else if (g_shot_p2 && a->sys.count > 0) shot_draw_player2(a);
 	if (shot_gamecontrols >= 0 && a->sys.count > 0) shot_draw_gamecontrols(a);
 	if (shot_controls_fit) controls_fit_report(a);
+	if (shot_rows_report) {
+		sysmenu_rows_report(a);
+		gm_rows_report(a);
+		snaps_rows_report(a);
+		bgm_rows_report(a);
+		shot_rows_report = 0;   /* once: --flip composes the shot twice */
+	}
 	if (shot_handheld_box) handheld_box_report();
 	/* Over **scrim.menu**, as the screens they picture are: kb_prompt's
 	 * backdrop, wait_panel and the achievement list opened over the shelf. */
@@ -14865,6 +15014,8 @@ int main(int argc, char *argv[])
 		}
 		else if (!strcmp(argv[i], "--gm-tab-from") && i + 1 < argc) shot_gm_from = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--gm-press") && i + 1 < argc) shot_gm_press = argv[++i];
+		else if (!strcmp(argv[i], "--gm-choose")) shot_gm_choose = 1;
+		else if (!strcmp(argv[i], "--rows-report")) shot_rows_report = 1;
 		else if (!strcmp(argv[i], "--backdrop") && i + 1 < argc) shot_backdrop = argv[++i];
 		else if (!strcmp(argv[i], "--press") && i + 1 < argc) {
 			i++;

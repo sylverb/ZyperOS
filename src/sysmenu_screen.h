@@ -33,4 +33,7 @@ int look_build(void *ctx, menu_row *rows, int max, const char **heading);
 menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel);
 void zyperos_menu(app *a);
 
+/* --rows-report: MENU's rows, the shelf's menu's, Theme's and Auto Hours' (menu_rows_print) */
+void sysmenu_rows_report(app *a);
+
 #endif

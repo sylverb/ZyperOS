@@ -80,4 +80,11 @@ void gm_backdrop(app *a, void *ctx, float k);
 void game_menu(app *a);
 int port_menu(app *a);
 
+/* The in-game menu's option rows' choices by gm_row, for the state `u`
+ * (menu.h's menu_choice): what gm_menu_build gives the runner */
+const menu_choice *gm_choices(app *a, const gm_ui *u);
+
+/* --rows-report: the in-game menu's Game and Display tabs (menu_rows_print) */
+void gm_rows_report(app *a);
+
 #endif

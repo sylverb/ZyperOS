@@ -2,6 +2,9 @@
 #include "sysmenu_screen.h"
 
 #include "aout_route.h"
+#include "muselib.h"
+#include "audioout.h"
+#include "dslang.h"
 #include "app.h"
 #include "bgm.h"
 #include "bgm_menu.h"
@@ -15,6 +18,7 @@
 #include "linebreak.h"
 #include "look.h"
 #include "menu_panel.h"
+#include "menu_pick.h"
 #include "nowplaying_screen.h"
 #include "osdbar.h"
 #include "panel.h"
@@ -107,6 +111,187 @@ static void usb_auto_message(app *a)
 
 static const char *look_accent_name(void);   /* with the Theme page */
 static const char *auto_hours_value(void);
+
+/* ---------- option rows' choices (menu.h's menu_choice, DESIGN.md 9) ------ */
+
+/* Each option row of more than two choices in MENU, a system's menu and the
+ * Muse shelf, and the Muse shelf's Sort By (two A did not turn), as their
+ * key handlers step them: in the order Left and Right go, so the runner
+ * applies a choice by sending them. The words live here until the next
+ * build. */
+#define CH_MAX 48   /* a MENU row's most: Auto Hours' 48 half hours */
+typedef struct {
+	const char *lab[CH_MAX];
+	char buf[CH_MAX][48];
+} ch_pool;
+
+static menu_choice g_pm_choice[PM_ROWS], g_sm_choice[SM_ROWS], g_smm_choice[SM_MUSE_ROWS];
+
+static menu_choice ch_make(const ch_pool *p, int n, int cur, bool none)
+{
+	if (n > CH_MAX) n = CH_MAX;
+	return (menu_choice){ .n = (unsigned char)n, .cur = (unsigned char)(cur >= 0 && cur < n ? cur : 0),
+	                      .none = none, .labels = p->lab };
+}
+
+/* The shaders this device runs, in shader_step's order, `cur` the place of
+ * shader `on` */
+static int ch_shaders(ch_pool *p, int on, int *cur)
+{
+	int k, n = 0;
+
+	*cur = 0;
+	for (k = 0; k < SHADER_COUNT && n < CH_MAX; k++) {
+		if (SHADERS[k].gpu && !plat_gpu_shaders()) continue;
+		if (k == on) *cur = n;
+		p->lab[n++] = shader_label(k);
+	}
+	return n;
+}
+
+/* Strength's rungs, 10% to 100% */
+static int ch_strengths(ch_pool *p, int on, int *cur)
+{
+	int v, n = 0;
+
+	*cur = 0;
+	for (v = STRENGTH_MIN; v <= STRENGTH_MAX && n < CH_MAX; v += STRENGTH_STEP) {
+		if (v == on) *cur = n;
+		snprintf(p->buf[n], sizeof p->buf[n], "%d%%", v);
+		p->lab[n] = p->buf[n];
+		n++;
+	}
+	return n;
+}
+
+static void menu_choices(app *a, int sys, bool games)
+{
+	/* A system's menu and MENU each their own words: the shelf under MENU
+	 * builds a system's rows too, and must not write over MENU's */
+	static ch_pool PS[8], PM[9];
+	ch_pool *P = games ? PS : PM;
+	int i, n, cur;
+
+	memset(g_pm_choice, 0, sizeof g_pm_choice);
+	memset(g_sm_choice, 0, sizeof g_sm_choice);
+	memset(g_smm_choice, 0, sizeof g_smm_choice);
+	if (games) {
+		const system_cfg *sc = &a->sys.systems[sys];
+		sysview *v = &a->view[sys];
+
+		if (is_muse(sc)) {
+			/* Show: the kinds the card has, then All, round (ML_ALL is
+			 * the number after the three) */
+			static const int show_text[ML_ALL + 1] = { S_SYSMENU_MUSE_MUSIC, S_SYSMENU_MUSE_AUDIOBOOKS,
+			                                           S_SYSMENU_MUSE_VIDEOS, S_SYSMENU_MUSE_ALL };
+
+			for (i = 0, n = 0, cur = 0; i <= ML_ALL; i++) {
+				if (!ml_count_kind(&g_muse, (ml_kind)i)) continue;
+				if (i == (int)muse_kind_shown()) cur = n;
+				P[0].lab[n++] = T(show_text[i]);
+			}
+			g_smm_choice[SMM_SHOW] = ch_make(&P[0], n, cur, false);
+			for (i = 0; i < ML_ORDERS; i++) P[1].lab[i] = ml_order_label_kind((ml_order)i, muse_kind_shown());
+			g_smm_choice[SMM_SORT] = ch_make(&P[1], ML_ORDERS, v->sort, false);
+			return;
+		}
+		n = cfg_core_count(sc);
+		for (i = 0, cur = 0; i < n && i < CH_MAX; i++) {
+			char core[CFG_STR];
+
+			if (!cfg_core_at(sc, i, core, sizeof core)) core[0] = '\0';
+			if (!strcmp(core, sc->core)) cur = i;
+			core_label(core, P[2].buf[i], sizeof P[2].buf[i]);
+			P[2].lab[i] = P[2].buf[i];
+		}
+		if (n > 1) g_sm_choice[SM_CORE] = ch_make(&P[2], n, cur, false);
+		for (i = 0; i < DSL_CHOICES; i++) P[3].lab[i] = dslang_label((dsl_choice)i, P[3].buf[i], sizeof P[3].buf[i]);
+		g_sm_choice[SM_DSLANG] = ch_make(&P[3], DSL_CHOICES, dslang_load(), false);
+		for (i = 0; i < SORT_COUNT; i++) P[4].lab[i] = sort_label(i);
+		g_sm_choice[SM_SORT] = ch_make(&P[4], SORT_COUNT, v->sort, false);
+		for (i = 0; i < DMODE_COUNT && i < CH_MAX; i++) P[5].lab[i] = dmode_label(i);
+		g_sm_choice[SM_DISPLAY] = ch_make(&P[5], DMODE_COUNT, v->dmode, false);
+		n = ch_shaders(&P[6], v->shader, &cur);
+		g_sm_choice[SM_SHADER] = ch_make(&P[6], n, cur, false);
+		n = ch_strengths(&P[7], strength_clamp(v->strength), &cur);
+		g_sm_choice[SM_STRENGTH] = ch_make(&P[7], n, cur, false);
+		return;
+	}
+	/* MENU */
+	for (i = 0; i < 3; i++) P[0].lab[i] = appearance_name((appearance)i);
+	g_pm_choice[PM_APPEARANCE] = ch_make(&P[0], 3, (int)theme_appearance(), false);
+	P[1].lab[BATT_BARS] = T(S_PANEL_BATTERY_BARS);
+	P[1].lab[BATT_PCT] = T(S_PANEL_BATTERY_PERCENTAGE);
+	P[1].lab[BATT_TIME] = T(S_PANEL_BATTERY_TIME);
+	g_pm_choice[PM_BATTERY] = ch_make(&P[1], BATT_MODES, g_batt_mode, false);
+	for (i = 0, cur = 0; i < CHARGE_LIMITS_COUNT; i++) {
+		if (CHARGE_LIMITS[i] == g_charge_limit) cur = i;
+		if (CHARGE_LIMITS[i] > 0) snprintf(P[2].buf[i], sizeof P[2].buf[i], "%d%%", CHARGE_LIMITS[i]);
+		P[2].lab[i] = CHARGE_LIMITS[i] > 0 ? P[2].buf[i] : T(S_MENU_OFF_TITLE);
+	}
+	g_pm_choice[PM_CHARGE] = ch_make(&P[2], CHARGE_LIMITS_COUNT, cur, false);
+	{
+		bool mixed = false;
+
+		for (i = 0; i < a->sys.count; i++) if (a->view[i].shader != g_shader_all) mixed = true;
+		n = ch_shaders(&P[3], g_shader_all, &cur);
+		g_pm_choice[PM_SHADER] = ch_make(&P[3], n, cur, mixed);
+		mixed = false;
+		{
+			int all = strength_read_all(db_dev());
+
+			for (i = 0; i < a->sys.count; i++)
+				if (strength_clamp(a->view[i].strength) != strength_clamp(all)) mixed = true;
+			n = ch_strengths(&P[4], strength_clamp(all), &cur);
+			g_pm_choice[PM_STRENGTH] = ch_make(&P[4], n, cur, mixed);
+		}
+	}
+	{
+		aout_state ao = aout_now();
+		aout_dest dest = aout_actual(&ao);
+
+		for (i = 0; i < AOUT_CHANNELS_COUNT && i < CH_MAX; i++) {
+			aout_channels_label((aout_channels)i, aout_channels_for((aout_channels)i, dest, plat_speaker_mono()),
+			                    P[5].buf[i], sizeof P[5].buf[i]);
+			P[5].lab[i] = P[5].buf[i];
+		}
+		g_pm_choice[PM_CHANNELS] = ch_make(&P[5], AOUT_CHANNELS_COUNT, (int)g_channels, false);
+	}
+	{
+		/* The voices round from the first, as uisound_setting_step goes */
+		int s0 = 0, s = s0, on = uisound_setting();
+
+		for (n = 0, cur = 0; n < CH_MAX; ) {
+			if (s == on) cur = n;
+			P[6].lab[n++] = uisound_setting_name(s);
+			s = uisound_setting_step(s, 1);
+			if (s == s0) break;
+		}
+		g_pm_choice[PM_SOUNDS] = ch_make(&P[6], n, cur, false);
+	}
+	for (i = 0, cur = 0; i < AUTO_OFF_COUNT; i++) {
+		if (AUTO_OFF[i] == a->auto_off) cur = i;
+		sys_menu_auto_off_label(AUTO_OFF[i], P[7].buf[i], sizeof P[7].buf[i]);
+		P[7].lab[i] = P[7].buf[i];
+	}
+	g_pm_choice[PM_SLEEP] = ch_make(&P[7], AUTO_OFF_COUNT, cur, false);
+	{
+		/* The screensaver's rungs, from its lowest up, as saver_step goes */
+		int s = g_saver_s, t;
+
+		while ((t = saver_step(s, -1)) != s) s = t;
+		for (n = 0, cur = 0; n < CH_MAX; ) {
+			if (s == g_saver_s) cur = n;
+			sys_menu_saver_label(s, P[8].buf[n], sizeof P[8].buf[n]);
+			P[8].lab[n] = P[8].buf[n];
+			n++;
+			if ((t = saver_step(s, 1)) == s) break;
+			s = t;
+		}
+		g_pm_choice[PM_SAVER] = ch_make(&P[8], n, cur, false);
+	}
+	g_pm_choice[PM_LANGUAGE] = (menu_choice){ .n = LANG_COUNT, .cur = (unsigned char)i18n_lang(), .own = true };
+}
 
 int menu_build(app *a, screen_id screen, int sys,
                menu_row *out, menu_bufs *b, const char **heading)
@@ -250,6 +435,10 @@ int menu_build(app *a, screen_id screen, int sys,
 			u.bt_name = btname[0] ? btname : NULL;
 		}
 	}
+	menu_choices(a, sys, u.games);
+	u.pm_choice = g_pm_choice;
+	u.sm_choice = g_sm_choice;
+	u.smm_choice = g_smm_choice;
 	return sys_menu_build(&u, out, b, heading);
 }
 
@@ -328,10 +517,17 @@ static const char *auto_hours_value(void)
 
 static const unsigned char HOURS_SOUND[2] = { MENU_SND_RING, MENU_SND_RING };
 
+/* Auto Hours' two rows' choices (menu.h's menu_choice): the day's half
+ * hours from midnight, as hours_key steps them, so A opens their list */
+static menu_choice g_hours_choice[2];
+
 int hours_build(void *ctx, menu_row *rows, int max, const char **heading)
 {
+	static const char *lab[24 * 60 / THEME_HOURS_STEP];
+	static char buf[24 * 60 / THEME_HOURS_STEP][24];
+	_Static_assert(24 * 60 / THEME_HOURS_STEP <= MENU_CHOICES_MAX, "Auto Hours' list");
 	hours_view *v = ctx;
-	int lm, dm;
+	int lm, dm, i, n = 24 * 60 / THEME_HOURS_STEP;
 
 	(void)max;
 	theme_hours(&lm, &dm);
@@ -340,6 +536,12 @@ int hours_build(void *ctx, menu_row *rows, int max, const char **heading)
 	*heading = T(S_SYSMENU_AUTO_HOURS);
 	rows[0] = (menu_row){ T(S_LOOK_LIGHT_FROM), v->l, true };
 	rows[1] = (menu_row){ T(S_LOOK_DARK_FROM), v->d, true };
+	for (i = 0; i < n; i++) {
+		time_of_day(i * THEME_HOURS_STEP, buf[i], sizeof buf[i]);
+		lab[i] = buf[i];
+	}
+	g_hours_choice[0] = (menu_choice){ .n = (unsigned char)n, .cur = (unsigned char)(lm / THEME_HOURS_STEP), .labels = lab };
+	g_hours_choice[1] = (menu_choice){ .n = (unsigned char)n, .cur = (unsigned char)(dm / THEME_HOURS_STEP), .labels = lab };
 	return 2;
 }
 
@@ -366,7 +568,7 @@ static void auto_hours_screen(app *a)
 {
 	hours_view v = { .a = a };
 	menu_style st = { .fixed_w = menu_std_width(a), .accent = MENU_ZYPEROS,
-	                  .sound = HOURS_SOUND };
+	                  .sound = HOURS_SOUND, .choices = g_hours_choice };
 
 	menu_run(a, &st, hours_build, hours_key, &v);
 }
@@ -475,11 +677,26 @@ static const char *look_accent_name(void)
 	return T(ACCENT_NAME[look_now()->accent]);
 }
 
+/* Theme's rows' choices (menu.h's menu_choice): the accents and each
+ * theme's grounds, as look_key steps them, so A opens their list */
+static menu_choice g_lk_choice[LK_ROWS];
+
 int look_build(void *ctx, menu_row *rows, int max, const char **heading)
 {
+	static const char *acc[DS_ACCENTS], *tone[DS_THEMES][DS_TONES];
 	const look *l = look_now();
+	int i, t;
 
 	(void)ctx; (void)max;
+	for (i = 0; i < DS_ACCENTS; i++) acc[i] = T(ACCENT_NAME[i]);
+	for (t = 0; t < DS_THEMES; t++)
+		for (i = 0; i < DS_TONES; i++) tone[t][i] = T(TONE_NAME[t][i]);
+	memset(g_lk_choice, 0, sizeof g_lk_choice);
+	g_lk_choice[LK_ACCENT] = (menu_choice){ .n = DS_ACCENTS, .cur = (unsigned char)l->accent, .labels = acc };
+	g_lk_choice[LK_LIGHT] = (menu_choice){ .n = DS_TONES, .cur = (unsigned char)l->tone[DS_LIGHT],
+	                                       .labels = tone[DS_LIGHT] };
+	g_lk_choice[LK_DARK] = (menu_choice){ .n = DS_TONES, .cur = (unsigned char)l->tone[DS_DARK],
+	                                      .labels = tone[DS_DARK] };
 	*heading = T(S_SYSMENU_THEME);
 	rows[LK_ACCENT]  = (menu_row){ T(S_LOOK_ACCENT), T(ACCENT_NAME[l->accent]), true };
 	rows[LK_LIGHT]   = (menu_row){ T(S_LOOK_BG_LIGHT), T(TONE_NAME[DS_LIGHT][l->tone[DS_LIGHT]]), true };
@@ -515,7 +732,7 @@ static menu_result look_key(app *a, void *ctx, in_button key, int sel)
 static void look_screen(app *a)
 {
 	menu_style st = { .fixed_w = menu_std_width(a), .accent = MENU_ZYPEROS,
-	                  .sound = LOOK_SOUND, .row_mark = look_row_mark,
+	                  .sound = LOOK_SOUND, .choices = g_lk_choice, .row_mark = look_row_mark,
 	                  .header = look_header, .header_h = 150 };
 
 	menu_run(a, &st, look_build, look_key, NULL);
@@ -553,7 +770,7 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 				return MENU_DONE;
 			} else if (id == SMM_SHOW) {
 				/* All, then the kinds the card has, round in either
-				 * direction; A goes forward, as right does. ML_ALL is the
+				 * direction (A opens their list, menu_choose). ML_ALL is the
 				 * number after the three, so the round is All, Music,
 				 * Audiobooks, Videos. */
 				if (d || key == IN_ACCEPT) {
@@ -791,7 +1008,7 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 		return MENU_CHANGED;
 	}
 	/* Charge Limit, round Off, 80%, 85% and 90% as Side Lights goes round its
-	 * four, A going forward: saved, and the kernel told at once, so the
+	 * four (A opens their list, menu_choose): saved, and the kernel told at once, so the
 	 * charger stops or goes on by its next reading */
 	if (sel == PM_CHARGE && (d || key == IN_ACCEPT)) {
 		int k, at = 0;
@@ -805,7 +1022,7 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 		redraw_now();
 		return MENU_CHANGED;
 	}
-	/* Light, Dark, Auto, stepped either way with A going forward, like the
+	/* Light, Dark, Auto, stepped either way (A opens their list), like the
 	 * choices, and applied the moment it changes: the theme is resolved
 	 * again here, saved as its word, and the theme file the bar's other
 	 * programs read is rewritten by theme_init - so the next frame is drawn
@@ -824,7 +1041,7 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 		return MENU_CHANGED;
 	}
 
-	/* The shader for every system, stepped round with A going forward:
+	/* The shader for every system, stepped round (A opens the list):
 	 * kept as MENU's, and each system's own choice goes with it
 	 * (shader_set_all). From "per system" a step goes on from MENU's last. */
 	if (sel == PM_SHADER && (d || key == IN_ACCEPT)) {
@@ -883,7 +1100,7 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 		return MENU_CHANGED;
 	}
 	/* Bars, Percentage or Time Left: three positions round, as Charge Limit
-	 * goes, Right and A forward and Left back, saved as its word */
+	 * goes, Right forward and Left back (A opens the list), saved as its word */
 	if (sel == PM_BATTERY && (d || key == IN_ACCEPT)) {
 		g_batt_mode = (g_batt_mode + (d < 0 ? BATT_MODES - 1 : 1)) % BATT_MODES;
 		db_set_str(db_dev(), "battery_icon", BATT_IDS[g_batt_mode]);
@@ -905,7 +1122,7 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 	}
 
 	/* Five positions, Auto after mono right and before stereo, stepped either
-	 * way like the card sets, A going forward.
+	 * way like the card sets (A opens their list).
 	 * Applied at once, to Muse and to Diatom if they are there to be told, so
 	 * a player trying them over music hears each as it is chosen. */
 	if (sel == PM_CHANNELS && (d || key == IN_ACCEPT)) {
@@ -978,6 +1195,8 @@ void zyperos_menu_for(app *a, int screen)
 	menu_style st = zyperos_menu_style(a, screen);
 	/* Each row's sound class, which the build sets beside the rows */
 	st.sound = c.bufs.sound;
+	/* And its choices, so an option row's A opens its list (menu_choose) */
+	st.choices = c.bufs.choice;
 
 	if (st.tabs) {
 		sys_ui dev = { .no_wifi = !plat_has_wifi(), .no_bt = !plat_has_bluetooth(),
@@ -1024,4 +1243,24 @@ void zyperos_menu_for(app *a, int screen)
 void zyperos_menu(app *a)
 {
 	zyperos_menu_for(a, a->screen);
+}
+
+void sysmenu_rows_report(app *a)
+{
+	static menu_row rows[MENU_MAX_ROWS];
+	static menu_bufs b;
+	hours_view hv = { .a = a };
+	const char *h;
+	int n, was = g_tabs.at;
+
+	g_tabs.at = PT_TABS;   /* every one of MENU's rows (sys_menu_build) */
+	n = menu_build(a, SCREEN_SYSTEMS, a->sys_cursor, rows, &b, &h);
+	menu_rows_print("menu", rows, n, b.sound, b.choice);
+	g_tabs.at = was;
+	n = menu_build(a, SCREEN_GAMES, a->sys_cursor, rows, &b, &h);
+	menu_rows_print("system", rows, n, b.sound, b.choice);
+	n = look_build(NULL, rows, MENU_MAX_ROWS, &h);
+	menu_rows_print("theme", rows, n, LOOK_SOUND, g_lk_choice);
+	n = hours_build(&hv, rows, MENU_MAX_ROWS, &h);
+	menu_rows_print("hours", rows, n, HOURS_SOUND, g_hours_choice);
 }

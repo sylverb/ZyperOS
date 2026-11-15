@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "ingame_screen.h"
+#include "menu_pick.h"
 
 #include "achtab_screen.h"
 #include "aout_route.h"
@@ -1387,6 +1388,57 @@ static int gm_ids(app *a, gm_ctx *c, const gm_ui *u, int tab, int *ids, int max)
 	return n;
 }
 
+
+/* The in-game menu's option rows of more than two choices (menu.h's
+ * menu_choice, DESIGN.md 9), as gm_key steps them, so A opens their list:
+ * Display, Shader, Strength, the quick slot, the disc and a DS game's
+ * Screens. The words live here until the next build. */
+static menu_choice g_gm_choice[GM_MAX_ROWS];
+#define GM_CH_MAX 32   /* an in-game row's most: Display's modes, the discs */
+
+const menu_choice *gm_choices(app *a, const gm_ui *u)
+{
+	static const char *lab[6][GM_CH_MAX];
+	static char buf[3][GM_CH_MAX][160];
+	sysview *v = owner_view(a);
+	int i, n, cur;
+
+	memset(g_gm_choice, 0, sizeof g_gm_choice);
+	for (i = 0; i < DMODE_COUNT && i < GM_CH_MAX; i++) lab[0][i] = dmode_label(i);
+	g_gm_choice[GM_DISPLAY] = (menu_choice){ .n = (unsigned char)DMODE_COUNT, .cur = (unsigned char)v->dmode,
+	                                         .labels = lab[0] };
+	for (i = 0, n = 0, cur = 0; i < SHADER_COUNT && n < GM_CH_MAX; i++) {
+		if (SHADERS[i].gpu && !plat_gpu_shaders()) continue;
+		if (i == v->shader) cur = n;
+		lab[1][n++] = shader_label(i);
+	}
+	g_gm_choice[GM_SHADER] = (menu_choice){ .n = (unsigned char)n, .cur = (unsigned char)cur, .labels = lab[1] };
+	for (i = STRENGTH_MIN, n = 0, cur = 0; i <= STRENGTH_MAX && n < GM_CH_MAX; i += STRENGTH_STEP, n++) {
+		if (i == strength_clamp(v->strength)) cur = n;
+		snprintf(buf[0][n], sizeof buf[0][n], "%d%%", i);
+		lab[2][n] = buf[0][n];
+	}
+	g_gm_choice[GM_STRENGTH] = (menu_choice){ .n = (unsigned char)n, .cur = (unsigned char)cur, .labels = lab[2] };
+	for (i = 0; i < GM_SLOTS; i++) {
+		snprintf(buf[1][i], sizeof buf[1][i], "%d", i + 1);
+		lab[3][i] = buf[1][i];
+	}
+	if (u->quick)
+		g_gm_choice[GM_QUICK] = (menu_choice){ .n = GM_SLOTS, .cur = (unsigned char)(u->quick - 1), .labels = lab[3] };
+	for (i = 0; i < u->discs && i < GM_CH_MAX; i++) {
+		if (i == u->disc) gm_disc_value(u, buf[2][i], sizeof buf[2][i], u->disc_fits);
+		else snprintf(buf[2][i], sizeof buf[2][i], T(S_GAMEMENU_DISC_VALUE), i + 1, u->discs);
+		lab[4][i] = buf[2][i];
+	}
+	if (u->discs > 1)
+		g_gm_choice[GM_DISC] = (menu_choice){ .n = (unsigned char)u->discs, .cur = (unsigned char)u->disc,
+		                                      .labels = lab[4] };
+	for (i = 0; i < GM_LAYOUTS; i++) lab[5][i] = gm_layout_label(i);
+	if (u->screens)
+		g_gm_choice[GM_SCREENS] = (menu_choice){ .n = GM_LAYOUTS, .cur = (unsigned char)u->layout, .labels = lab[5] };
+	return g_gm_choice;
+}
+
 static int gm_menu_build(void *ctx, menu_row *rows, int max,
                          const char **heading)
 {
@@ -1408,6 +1460,7 @@ static int gm_menu_build(void *ctx, menu_row *rows, int max,
 		gm_ctl_game(c->a, c, &g);
 		n = ctlscr_rows(c->a, &g, rows, c->ct_vcol, c->ct_sound, NULL);
 		c->st.sound = c->ct_sound;
+		c->st.choices = NULL;   /* a button opens its own list (ctlscr_key) */
 		c->st.vcolors = c->ct_vcol;
 		c->st.side_w = CTLSCR_SIDE_W;
 		c->st.header = NULL;
@@ -1422,6 +1475,7 @@ static int gm_menu_build(void *ctx, menu_row *rows, int max,
 		at_facts f;
 
 		gm_at_facts(&f);
+		c->st.choices = NULL;
 		return achtab_rows(c->a, &f, gm_at_source(), &c->ach, rows, max,
 		                   c->st.fixed_w, &c->st);
 	}
@@ -1430,8 +1484,11 @@ static int gm_menu_build(void *ctx, menu_row *rows, int max,
 	c->st.row_icon = NULL;
 	c->st.visits_all = false;
 	c->st.sound = c->bufs.sound;
+	c->st.choices = c->bufs.choice;
 	c->st.vcolors = NULL;
 	c->st.side_w = 0;
+	gm_choices(c->a, &u);
+	u.choice = g_gm_choice;
 	n = gm_rows(&u, (gm_tab)c->tabs.at, rows, &c->bufs);
 	/* A tab with no rows: one empty note, with no cursor on it, because the
 	 * runner leaves a menu that has none */
@@ -1640,9 +1697,9 @@ static menu_result gm_key(app *a, void *ctx, in_button key, int sel)
 		memset(&a->in, 0, sizeof a->in);
 		break;
 	}
-	/* A cycles it forward as well as left and right. Every other row in this
-	 * menu is something A does, so a row that only answered to left and right
-	 * was a row that looked broken. */
+	/* A on Display opens its list (the runner's menu_choose, DESIGN.md
+	 * 11.3) and never reaches here from the menu; a forward step stays for
+	 * any caller that sends A itself. */
 	case GM_DISPLAY:
 		gm_cycle_display(a, +1);
 		break;
@@ -1879,4 +1936,19 @@ int port_menu(app *a)
 	/* A TERM to this process is not the player's Quit: the game goes on, or
 	 * ends with the system that sent it */
 	return c.resume || want_quit ? PORT_MENU_CONTINUE : PORT_MENU_QUIT;
+}
+
+void gm_rows_report(app *a)
+{
+	menu_row rows[GM_MAX_ROWS];
+	gm_bufs b;
+	gm_ui u;
+	int n;
+
+	gm_gather(a, &u);
+	u.choice = gm_choices(a, &u);
+	n = gm_rows(&u, GT_GAME, rows, &b);
+	menu_rows_print("ingame-game", rows, n, b.sound, b.choice);
+	n = gm_rows(&u, GT_DISPLAY, rows, &b);
+	menu_rows_print("ingame-display", rows, n, b.sound, b.choice);
 }
