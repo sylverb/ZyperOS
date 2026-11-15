@@ -66,9 +66,9 @@ profile, drawing it, and catching its drivers up, the layer is right.
   load, no Player 2 that never connects, no lesson for side lights it does
   not have, no System Update row that cannot update.
 - **Somebody else's art.** The Brick's handheld is drawn in code, as the
-  Pixel 2's was, from measurements and reference photos that Brick owners
-  send for this, or from published dimensions; never traced from other
-  people's renders, icon packs or product shots.
+  Pixel 2's was: its own geometry, built from measurements. Published
+  dimensions and the maker's own views give the numbers; nothing is traced
+  or copied from other people's renders, 3D models, icon packs or photos.
 - **Closed files in git.** The Brick's GPU libraries and Wi-Fi firmware stay
   outside the repository, as today.
 
@@ -348,22 +348,34 @@ The Brick's profile, as far as the code knows it (to be checked on the
 device):
 
 - **Screen**: 1024x768, no turn, scale 1: the canvas is its panel.
-- **Buttons**: d-pad, A B X Y, L1 R1 L2 R2 (L2 and R2 plain buttons), SELECT,
-  START, MENU (a real button, `BTN_MODE`), F1 and F2 on the front
-  (brightness), VOL+ and VOL-, POWER, a mute switch.
+- **Buttons**: an 8-way d-pad, A B X Y, L1 R1 L2 R2 on the top edge (L2
+  and R2 plain buttons; the shoulder caps come off, in a rectangular and a
+  rounded set), SELECT, START, MENU (a real button, `BTN_MODE`), F1 and F2
+  on the front (brightness), VOL+ and VOL-, POWER on a side, and a switch
+  that TrimUI sells as a "custom FN switch" and `brick.c` reads as a mute
+  switch (gpio243).
 - **Radios**: Wi-Fi and Bluetooth built in (XR829). A hotspot for Player 2:
   off until it is tried on the device.
-- **USB**: a gadget link to a computer (10.55.0.2), no host role, no power
-  out, no phone tethering, no Flash Drive at first.
+- **USB**: two USB-C ports. The bottom one charges and is the gadget link
+  to a computer (10.55.0.2, NCM). The top one is a USB host for game
+  controllers in TrimUI's system; plastron's Brick kernel has USB host off
+  (kernel patch 0019), so controllers on the top port are later work. No
+  power out to a phone, no phone tethering, no Flash Drive at first.
 - **Battery**: AXP2202, with the charger-online rule the Pixel 2 needed; no
   charge limit until the driver has one.
 - **GPU**: PowerVR GE8300 through Imagination's closed GLES; GPU frames
   **off** until a GPU core runs on it (Diatom's fbdev EGL path is new work);
   the old-screen shaders stay the CPU's Sharp map, as today.
-- **Sound**: two speakers (stereo), the ladders already in `brick.c`, moved
-  to `brick_levels.h`.
-- **Lights**: whatever the Brick has, once a tester shows them; none until
-  then.
+- **Sound**: two front-firing speakers (stereo), a headphone jack at the
+  bottom, the ladders already in `brick.c`, moved to `brick_levels.h`.
+- **Lights**: RGB lights in a bar on the top edge, in each of the four
+  shoulder keys and behind F1 and F2, plus a charge light by the power key
+  (TrimUI's store page). They hang off the A133's LED controller (`ledc` in
+  the Brick's device tree), which plastron does not drive today. So the
+  profile's lights part grows from "side lights" to a list of light groups
+  with what each can show; the Brick's first release declares none, and
+  driving them (the battery on the top bar, the shoulders lighting with the
+  tutorial's keys) is later work.
 - **Card**: A/B system slots and System Update from the Brick's first
   release (decided), the same scheme as the Pixel 2: a boot partition with
   `a/`, `b/` and `bootstate.txt`, two root slots, the games partition, and
@@ -378,12 +390,17 @@ device):
 
 The Brick's front end:
 
-- **Its handheld**, drawn in code like the Pixel 2's: a `td_model` from the
-  measurements and reference photos Brick owners send (a request I post on
-  Discord), its own colors from the theme's roles, its keys on their faces
-  (shoulders on top, F1/F2 and MENU on the front). Until those arrive, the
-  published outline (about 110 x 73 mm, 12 to 20 mm deep) gives a first
-  model marked as approximate in its file. Original art only.
+- **Its handheld**, drawn in code like the Pixel 2's: a `td_model` with its
+  own colors from the theme's roles and its keys on their faces (shoulders
+  on top, F1/F2 and MENU on the front). The numbers come from published
+  measurements: 73.2 mm wide, 109.9 mm tall, 19.9 mm deep at its thick part
+  and 11.79 mm at its thin part (TrimUI's store page; the store's own
+  "10.99 mm" height is a slip for 109.9). No source publishes the keys'
+  places, so they are measured in millimetres from the maker's published
+  front, back and side views, scaled to that outline, and the model file
+  says which numbers are measured that way. A case maker notes a later
+  color run is slightly bigger; the model follows the first run. When I call
+  for testers, one owner's ruler checks the model. Original art only.
 - **The tutorial** keeps its lessons; the Brightness lesson already teaches
   F1/F2, MENU already acts on press. With the model, the Brick's lessons
   shift right and show the handheld as the Pixel 2's do. Lessons the Brick
@@ -511,11 +528,10 @@ The Brick work is tried by Brick owners on the ZyperOS Discord.
   `.userdata/brick/logs` with a computer. Plus a photo where the screen is
   the result. Testers post them in one Discord thread per kit; I bring them
   back.
-- **The art**: a short request for measurements (width, height, depth at
-  the top and bottom, the place and size of each key) and straight-on
-  photos of the front, back, sides and top, with a ruler in frame, plus
-  each tester's exact model (TG3040 Brick or Brick Hammer) and color. I
-  post it on Discord myself.
+- **The call for testers** goes out when there is something to test, not
+  before: I post it on Discord myself. It asks for each tester's exact model
+  (TG3040 Brick or Brick Hammer, not the Brick Pro), its color and a spare
+  card, and for one ruler check of the handheld model's numbers.
 - **The pass**: a kit's test list done by at least one tester with no
   failure left open is the `Tested on` line for that version (section 5).
 
