@@ -190,6 +190,7 @@ typedef struct {
 	char md5[33];             /* "" not made, "-" could not be */
 	int  checked;             /* the set's count when last checked, -1 never */
 	int  gid;
+	bool from_lib;            /* the id is this system's library's: its counts were asked */
 	bool had_set, had_none;
 	int  published, unlocked; /* allprogress's, -1 not said */
 } dl_game;
@@ -831,7 +832,10 @@ static void system_match(void)
 
 					while (a > 0 && !strcmp(g.games[idx[a - 1]].md5, md5)) a--;
 					while (b < n - 1 && !strcmp(g.games[idx[b + 1]].md5, md5)) b++;
-					for (; a <= b; a++) g.games[idx[a]].gid = (int)js_int(v);
+					for (; a <= b; a++) {
+						g.games[idx[a]].gid = (int)js_int(v);
+						g.games[idx[a]].from_lib = true;
+					}
 					break;
 				}
 				if (d < 0) lo = mid + 1; else hi = mid - 1;
@@ -908,7 +912,8 @@ static bool game_read_set(dl_game *d, char *hash)
 /* A game with no set whose id is known now: its set is asked for, unless the
  * account's counts, which list every game of the console that has
  * achievements, do not list it - nothing to earn, and no request to learn
- * that again on every run */
+ * that again on every run. Only for an id from this system's own library:
+ * one r=gameid found is another console's game, whose counts were not asked. */
 static void game_known(dl_game *d)
 {
 	const prog_row *pr = prog_of(d->gid);
@@ -916,7 +921,7 @@ static void game_known(dl_game *d)
 	if (pr) {
 		d->published = pr->published;
 		d->unlocked = pr->unlocked;
-	} else if (g.prog_ok) {
+	} else if (g.prog_ok && d->from_lib) {
 		game_none(d);
 		g.gs = G_NEXT;
 		return;
@@ -952,9 +957,12 @@ static void game_look(dl_game *d)
 	if (!strcmp(d->md5, "-")) { game_none(d); g.gs = G_NEXT; return; }
 	if (strlen(d->md5) != 32) { g.p.failed++; g.gs = G_NEXT; return; }
 	if (d->gid > 0) { game_known(d); return; }
-	/* Not in the hash library: RetroAchievements does not know it - unless
-	 * the library never came, and then it is asked by its hash alone */
-	if (!g.lib_failed) { game_none(d); g.gs = G_NEXT; return; }
+	/* Not in the system's hash library. Asked once by its hash alone, as a
+	 * first play would ask it: a game on another console's shelf (a Game Boy
+	 * game among the Game Boy Color's, a Master System one among the Game
+	 * Gear's) is in that console's library, not this one's. Once marked none,
+	 * the library is all a later run asks - unless it never came. */
+	if (d->had_none && !g.lib_failed) { game_none(d); g.gs = G_NEXT; return; }
 	g.gs = G_GAMEID;
 }
 
@@ -1133,6 +1141,7 @@ static int game_step(unsigned now)
 			jsv v;
 
 			d->gid = js_member(js_root(g.ask.body, g.ask.len), "GameID", &v) ? (int)js_int(v) : -1;
+			d->from_lib = false;
 			if (d->gid < 0) { d->gid = 0; g.p.failed++; g.gs = G_NEXT; }
 			else if (d->gid == 0) { game_none(d); g.gs = G_NEXT; }
 			else game_known(d);

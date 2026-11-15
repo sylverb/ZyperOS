@@ -39,8 +39,11 @@
  *
  * Then per game only what is missing: r=patch for a set not on the card or
  * out of date, r=unlocks when the account holds more. A game already right
- * costs nothing. A console with no id here (radl_consoles), or whose hash
- * library did not come, asks r=gameid for each of its games instead.
+ * costs nothing. A hash the system's library lacks is asked once with
+ * r=gameid, as a first play asks it - a game on another console's shelf is
+ * in that console's library - and is then marked none, which a later run
+ * checks against the library alone. A console whose library did not come
+ * asks r=gameid for each of its games.
  *
  * HASHES are the slow part of a first run, and are kept: Roms/<System>/
  * .cheevos/.hashes, one line a file - its size, its time, its hash and the

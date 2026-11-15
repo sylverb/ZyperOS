@@ -381,7 +381,7 @@ static int run_until_done(int (*on_step)(int step, const radl_progress *p))
 /* ---- the scenarios ----------------------------------------------------------- */
 
 static char H_CACHED[33], H_STALE[33], H_NEW[33], H_UNKNOWN[33], H_EMPTY[33], H_WASNONE[33],
-            H_GB[33], H_LATER[33];
+            H_GB[33], H_LATER[33], H_MISFILED[33];
 
 /* The server as it is, `later` with the game copied later known to it,
  * and `extra` lines after (fail lines) */
@@ -396,15 +396,15 @@ static void write_server(bool later, const char *extra)
 	snprintf(text, sizeof text,
 	         "lib 7 %s=101 %s=102 %s=103 %s=104 %s=105%s\n"
 	         "lib 81\n"
-	         "lib 4 %s=201\n"
+	         "lib 4 %s=201 %s=202\n"
 	         "prog 7 101:2:1 102:3:0 103:2:1 105:1:0%s\n"
 	         "prog 81\n"
 	         "prog 4 201:1:0\n"
 	         "patch 101 Cached 2\npatch 102 Stale 3\npatch 103 New 2\npatch 104 Empty 0\n"
-	         "patch 105 WasNone 1\npatch 201 GbGame 1\npatch 106 Later 1\n"
+	         "patch 105 WasNone 1\npatch 201 GbGame 1\npatch 106 Later 1\npatch 202 Misfiled 1\n"
 	         "unlocks 101 10101 999999\nunlocks 103 10302\n"
 	         "%s",
-	         H_CACHED, H_STALE, H_NEW, H_EMPTY, H_WASNONE, lib106, H_GB, prog106,
+	         H_CACHED, H_STALE, H_NEW, H_EMPTY, H_WASNONE, lib106, H_GB, H_MISFILED, prog106,
 	         extra ? extra : "");
 	put(SERVER, text);
 }
@@ -502,6 +502,9 @@ int main(int argc, char **argv)
 	rom(ROMS "/NES/Empty.nes", "a game with nothing to earn", H_EMPTY);
 	rom(ROMS "/NES/Was None.nes", "known since", H_WASNONE);
 	rom(ROMS "/Game Boy/Gb Game.gb", "game boy bytes", H_GB);
+	/* A Game Boy game on the NES shelf: not in the NES's library, in the Game
+	 * Boy's (a first play finds it by its hash, whatever the shelf) */
+	rom(ROMS "/NES/Misfiled.nes", "a game boy game on the wrong shelf", H_MISFILED);
 	put(ROMS "/Ports/Doom.sh", "#!/bin/sh\n");
 	set_file(ROMS "/NES/.cheevos/Cached.set", 101, 2, H_CACHED);
 	set_file(ROMS "/NES/.cheevos/Stale.set", 102, 1, H_STALE);
@@ -513,8 +516,8 @@ int main(int argc, char **argv)
 	printf("radl: the plan, before a run\n");
 	n = radl_plan(&g_sys, ROMS, plan, 8);
 	CHECK(n == 2, "two systems with games RetroAchievements could know (Ports has none): %d", n);
-	CHECK(n >= 1 && plan[0].games == 6 && plan[0].ready == 2 && plan[0].none == 1 && plan[0].todo == 3,
-	      "NES: 6 games, 2 ready, 1 none, 3 to ask: %d %d %d %d",
+	CHECK(n >= 1 && plan[0].games == 7 && plan[0].ready == 2 && plan[0].none == 1 && plan[0].todo == 4,
+	      "NES: 7 games, 2 ready, 1 none, 4 to ask: %d %d %d %d",
 	      plan[0].games, plan[0].ready, plan[0].none, plan[0].todo);
 	CHECK(n >= 2 && plan[1].games == 1 && plan[1].todo == 1, "Game Boy: one to ask");
 
@@ -523,24 +526,26 @@ int main(int argc, char **argv)
 	write_server(false, "fail hashlibrary/4 429 1\n");
 	CHECK(radl_begin(&g_sys, ROMS, NULL, g_now), "a run starts");
 	radl_status(&p);
-	CHECK(p.systems == 2 && p.games == 7, "it will look at 2 systems, 7 games: %d %d", p.systems, p.games);
+	CHECK(p.systems == 2 && p.games == 8, "it will look at 2 systems, 8 games: %d %d", p.systems, p.games);
 	g_saw_slow = false;
 	run_until_done(NULL);
 	CHECK(g_saw_slow, "the 429 was met and waited out (RADL_SLOWED, the server's minute)");
 	radl_status(&p);
 	CHECK(!radl_running() && p.problem == RADL_OK, "the run ends well: problem %d", p.problem);
-	CHECK(p.fetched == 3, "three sets new on the card (New, Was None, Gb Game): %d", p.fetched);
+	CHECK(p.fetched == 4, "four sets new on the card (New, Was None, Misfiled, Gb Game): %d", p.fetched);
 	CHECK(p.updated == 1, "one out of date replaced (Stale): %d", p.updated);
 	CHECK(p.none == 2, "two RetroAchievements has nothing for (Unknown, Empty): %d", p.none);
 	CHECK(log_count("g=104") == 0, "Empty's set never asked: the account's counts do not list it");
-	CHECK(p.ready == 5, "five ready offline: %d", p.ready);
+	CHECK(p.ready == 6, "six ready offline: %d", p.ready);
 	CHECK(p.failed == 0, "none failed: %d", p.failed);
 	CHECK(p.unlocks == 2, "the account's unlocks taken (Cached 1, New 1): %d", p.unlocks);
 	CHECK(log_count("hashlibrary c=4") == 2, "the Game Boy's library asked again after the 429: %d",
 	      log_count("hashlibrary c=4"));
-	CHECK(log_count("patch c=") == 4, "four sets asked for (Stale, New, Was None, Gb Game): %d",
+	CHECK(log_count("patch c=") == 5, "five sets asked for (Stale, New, Was None, Misfiled, Gb Game): %d",
 	      log_count("patch c="));
-	CHECK(log_count("gameid") == 0, "no game asked by its hash alone: the libraries said");
+	CHECK(log_count("gameid") == 2, "the two hashes the NES's library lacks asked once by hash alone "
+	      "(Unknown, Misfiled): %d", log_count("gameid"));
+	CHECK(set_count(ROMS "/NES/.cheevos/Misfiled.set") == 1, "and the one on the wrong shelf found");
 	CHECK(log_count("unlocks c=") == 2, "unlocks asked only where the account holds more: %d",
 	      log_count("unlocks c="));
 	CHECK(log_count("c=0") == 0 && log_count("Ports") == 0, "nothing asked for Ports");
@@ -588,7 +593,8 @@ int main(int argc, char **argv)
 	CHECK(!g_hashed, "nothing hashed: every file's hash was kept");
 	CHECK(p.fetched == 0 && p.updated == 0 && p.unlocks == 0, "nothing new: %d %d %d",
 	      p.fetched, p.updated, p.unlocks);
-	CHECK(p.ready == 5 && p.none == 2, "the same five ready, two none: %d %d", p.ready, p.none);
+	CHECK(p.ready == 6 && p.none == 2, "the same six ready, two none: %d %d", p.ready, p.none);
+	CHECK(log_count("gameid") == 0, "and Unknown, marked none, is not asked by its hash again");
 	/* NES: two libraries (two games have no set), two counts; Game Boy: its count */
 	CHECK(p.requests == 5 && log_count(NULL) == 5,
 	      "five requests, a system's few, none a game: %d", p.requests);
