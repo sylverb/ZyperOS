@@ -12,8 +12,9 @@ Beard and Salt & Pepper themes, Zyper).
 
 Every ZyperOS release on the
 [releases page](https://github.com/tarikbc/ZyperOS/releases/latest), from
-1.0.0 on, carries the installer with ZyperOS's card image, at ZyperOS's
-version. The GKD Pixel 2's image is there; the TrimUI Brick's comes later.
+1.0.0 on, carries the installer with ZyperOS's card images, at ZyperOS's
+version: one for each device the release is for (`config/devices`). The GKD
+Pixel 2's image is there; the TrimUI Brick's comes later.
 
 | | |
 |---|---|
@@ -40,8 +41,11 @@ The first time it opens:
 
 ## Using it
 
-1. **Device:** the GKD Pixel 2 or the TrimUI Brick. A card that already has
-   ZyperOS picks its device by itself.
+1. **Device:** each device the newest release has a card image for
+   (`ZyperOS-v<version>-<id>.img.xz`): the GKD Pixel 2 today, the TrimUI
+   Brick once a release has its image. A device with no image there is not
+   offered, unless an image file you choose is for it. A card that already
+   has ZyperOS picks its device by itself, when that device is offered.
 2. **ZyperOS:** the latest release, downloaded from GitHub and checked
    against the release's `SHA256SUMS`; or an image file on your computer
    (`ZyperOS-v<version>-<device>.img.xz`, or a plain `.img`). Choose one, or
@@ -145,9 +149,11 @@ cd src-tauri && npx --yes @tauri-apps/cli@2 dev
 
 `ZYPEROS_IMAGE` (Pixel 2) and `ZYPEROS_BRICK_IMAGE` (Brick) name a local
 image the release row uses in place of a download, for trying a build before
-it is published. The page also opens in a plain browser, on made-up cards
-and a made-up write, to look at the design: serve `ui/` and open it (add
-`?release` for a release to download, `?nocard` for no card, and
+it is published; its device is offered even when the release has no image
+for it. The page also opens in a plain browser, on made-up cards and a
+made-up write, to look at the design: serve `ui/` and open it (add
+`?release` for a release to download, the Pixel 2's only, `&brick` for the
+Brick's too, `?nocard` for no card, and
 `?update=available` for a newer installer to update to; `downloading`,
 `ready`, `installing`, `failed` and `page` show the chip's other states).
 
