@@ -1438,9 +1438,16 @@ const menu_choice *gm_choices(app *a, const gm_ui *u)
 	int i, n, cur;
 
 	memset(g_gm_choice, 0, sizeof g_gm_choice);
-	for (i = 0; i < DMODE_COUNT && i < GM_CH_MAX; i++) lab[0][i] = dmode_label(i);
-	g_gm_choice[GM_DISPLAY] = (menu_choice){ .n = (unsigned char)DMODE_COUNT, .cur = (unsigned char)v->dmode,
-	                                         .labels = lab[0] };
+	{
+		static const char *notes[GM_CH_MAX];
+
+		for (i = 0; i < DMODE_COUNT && i < GM_CH_MAX; i++) {
+			lab[0][i] = dmode_label(i);
+			notes[i] = dmode_note(i);
+		}
+		g_gm_choice[GM_DISPLAY] = (menu_choice){ .n = (unsigned char)DMODE_COUNT, .cur = (unsigned char)v->dmode,
+		                                         .labels = lab[0], .notes = notes };
+	}
 	for (i = 0, n = 0, cur = 0; i < SHADER_COUNT && n < GM_CH_MAX; i++) {
 		if (SHADERS[i].gpu && !plat_gpu_shaders()) continue;
 		if (i == v->shader) cur = n;

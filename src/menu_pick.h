@@ -16,7 +16,12 @@
  * in-game menu's stop), so that menu closes too. `ticked`
  * is the one that is on (-1: none), `at` the one the cursor starts on. */
 int menu_pick(app *a, const menu_style *from, void *from_ctx, const char *heading,
-              const char *const *labels, int n, int ticked, int at);
+              const char *const *labels, const char *const *notes, int n, int ticked, int at);
+
+/* What a choice does, wrapped to the list's two lines under it (`notes`),
+ * as the Display row's own line is; the lines it took. The shots draw it
+ * too. */
+int menu_pick_note(const char *note, char out[2][CHV_WRAP_COLS]);
 
 /* A choice's words as its list shows them, begun with a capital: "never" is
  * "Never" there. The shots draw a list with it too. */

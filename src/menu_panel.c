@@ -10,6 +10,7 @@
 #include "ds/mark.h"      /* the more marks */
 #include "look.h"
 #include "panel.h"
+#include "sys_menu.h"   /* SM_NOTE_W: a choice's line, as the Display row's */
 #include "tween.h"
 #include "ui.h"
 #include "zyperdraw.h"
@@ -458,7 +459,7 @@ void menu_panel(app *a, const char *heading, const menu_row *rows,
 	 * which crashed the launcher whenever DOWN was held in MENU while the
 	 * list still eased (2026-11-05). tools/rowmacro-check.py holds it. */
 #define ROW_H(r) panel_row_h((r), rule_h, note_h, row_h)
-#define SLOT_H(v) panel_slot_h(rows, n, loop, (v), rule_h, note_h, row_h)
+#define SLOT_H(v) panel_slot_h(rows, nl, loop, (v), rule_h, note_h, row_h)
 	/* A row's text is centered on its capitals (ui_cap_y), not on its box.
 	 * The box reserves a descender's depth below the baseline that labels
 	 * like "Wi-Fi" and "Bluetooth" never use, so centering the box leaves
@@ -509,6 +510,11 @@ void menu_panel(app *a, const char *heading, const menu_row *rows,
 	 * top is worse than one that scrolls. */
 	const int margin = MENU_MARGIN;
 	int vis = n, first = 0;
+	/* The list's rows, and its footer's: a list with a cursor that ends in a
+	 * footer (a MENU_RULE and only notes past it) windows the rows above the
+	 * rule and keeps the footer under them, as a card pins its footer. A
+	 * list that does not end in one is all list (nl == n). */
+	int nl = n, foot_h = 0, list_h = 0;
 	/* A list too long for its window goes round without end (menu_loop_*,
 	 * DESIGN.md 11.3): `first` and `vsel` are then slots, not rows */
 	bool loop = false;
@@ -581,6 +587,23 @@ void menu_panel(app *a, const char *heading, const menu_row *rows,
 		int avail = MENU_AVAIL_H - content_off - pad;
 
 		if (sel >= 0) {
+			/* A FOOTER STAYS. What it says is about the row under the
+			 * cursor (Display Mode's list says what the mode does), so it
+			 * is wanted while the rows move, not a lap of the list later:
+			 * the window is what is left above it. */
+			{
+				int j, k = -1;
+
+				for (j = 0; j < n; j++)
+					if (!rows[j].label && !ROW_IS_HR(rows[j])) { k = j; break; }
+				for (j = k + 1; k > sel && j < n; j++)
+					if (rows[j].live || (rows[j].label && !ROW_IS_NOTE(rows[j]))) k = -1;
+				if (k > sel) {
+					for (j = k; j < n; j++) foot_h += ROW_H(rows[j]);
+					if (avail - foot_h >= row_h) { nl = k; avail -= foot_h; }
+					else foot_h = 0;
+				}
+			}
 			/* THE WINDOW ONLY MOVES WHEN THE CURSOR WOULD LEAVE IT.
 			 *
 			 * It used to center itself on the selection, which meant almost
@@ -599,7 +622,7 @@ void menu_panel(app *a, const char *heading, const menu_row *rows,
 
 			vis = avail / row_h;
 			if (vis < 1) vis = 1;
-			if (vis > n) vis = n;
+			if (vis > nl) vis = nl;
 
 			if (win_n != n || win_epoch != g_menu_epoch) { win_first = 0; win_slot = sel; }
 			win_n = n;
@@ -611,9 +634,9 @@ void menu_panel(app *a, const char *heading, const menu_row *rows,
 			 * it as it follows any step. (2026-11-12: lists go round, and
 			 * the list I see moves on rather than jumping back to its top.) */
 			loop = true;
-			vsel = menu_loop_slot(n, sel, win_slot);
+			vsel = menu_loop_slot(nl, sel, win_slot);
 			win_slot = vsel;
-			win_first = menu_loop_first(rows, n, vsel, vis, win_first);
+			win_first = menu_loop_first(rows, nl, vsel, vis, win_first);
 			first = win_first;
 		} else {
 			/* NO CURSOR MEANS NOTHING CAN SCROLL IT, so it scrolls itself.
@@ -682,7 +705,9 @@ void menu_panel(app *a, const char *heading, const menu_row *rows,
 	{   /* the heights actually on screen, not vis * row_h */
 		int sum = 0, j, last = first + vis - 1;
 
-		for (j = first; j < first + vis && (loop || j < n); j++) sum += SLOT_H(j);
+		for (j = first; j < first + vis && (loop || j < nl); j++) sum += SLOT_H(j);
+		list_h = sum;
+		sum += foot_h;   /* and the footer under the window */
 		/* A scrolling card is as tall as its viewport plus its pinned footer.
 		 * Summing the rows would size the panel to text that is deliberately
 		 * not all on it. */
@@ -907,7 +932,7 @@ void menu_panel(app *a, const char *heading, const menu_row *rows,
 			if (b0 - a0 > (loop ? 2 : 1)) {
 				tween_snap(&give, 0.0f);
 			} else {
-				for (j2 = a0; j2 < b0 && (loop || j2 < n); j2++) d += SLOT_H(j2);
+				for (j2 = a0; j2 < b0 && (loop || j2 < nl); j2++) d += SLOT_H(j2);
 				tween_kick(&give, (first > wfirst) ? d : -d, DS_MS_QUICK, nw);
 			}
 		}
@@ -947,7 +972,7 @@ void menu_panel(app *a, const char *heading, const menu_row *rows,
 		float tgt_h = (float)ROW_H(rows[sel]);
 		SDL_Rect plate;
 
-		for (jj = first; jj < vsel && (loop || jj < n); jj++) ty_sel += SLOT_H(jj);
+		for (jj = first; jj < vsel && (loop || jj < nl); jj++) ty_sel += SLOT_H(jj);
 
 		/* Another menu, or another tab of MENU: no journey. Anything else
 		 * glides, a wrap too: in a list that fits, the fill goes back up
@@ -1005,7 +1030,7 @@ void menu_panel(app *a, const char *heading, const menu_row *rows,
 	if (vis < n) {
 		SDL_Rect rc = { panel.x + UI_PANEL_BORDER, content_y,
 		                panel.w - UI_PANEL_BORDER * 2,
-		                panel.y + panel.h - pad - content_y };
+		                foot_h ? list_h : panel.y + panel.h - pad - content_y };
 		float cover;
 
 		SDL_RenderSetClipRect(a->r, &rc);
@@ -1014,8 +1039,8 @@ void menu_panel(app *a, const char *heading, const menu_row *rows,
 			lo--;
 			cover += SLOT_H(lo);
 		}
-		cover = loop || hi < n ? SLOT_H(hi) : 0;
-		while ((loop || hi + 1 < n) && cover < -win_off) {
+		cover = loop || hi < nl ? SLOT_H(hi) : 0;
+		while ((loop || hi + 1 < nl) && cover < -win_off) {
 			hi++;
 			cover += SLOT_H(hi);
 		}
@@ -1033,23 +1058,40 @@ void menu_panel(app *a, const char *heading, const menu_row *rows,
 	row_cx = side_w ? content_x + content_w / 2 : cx;
 	/* `v` walks the slots on screen and `i` is the row each holds: one and
 	 * the same unless the list goes round */
-	for (v = lo; (loop || v < n) && v <= hi; v++) {
+	int fk = -1;   /* the footer's row being drawn, once the list's are */
+
+	for (v = lo; ; v++) {
 		int y, ty, j;
 		float sel_w;
 		SDL_Color lc, vc;
 
-		i = loop ? menu_loop_row(n, v) : v;
-		if (scroll_h && i >= scroll_split) {
-			/* Pinned. Measured from the bottom of the viewport rather than
-			 * from the top of the rows, so the footer does not move when the
-			 * body does. The clip comes off here and stays off. */
-			if (i == scroll_split) SDL_RenderSetClipRect(a->r, NULL);
-			y = content_y + scroll_h;
-			for (j = scroll_split; j < i; j++) y += ROW_H(rows[j]);
+		if (fk < 0 && !((loop || v < nl) && v <= hi)) {
+			if (!foot_h) break;
+			fk = nl;   /* the list is drawn: the footer, unclipped by its window */
+			SDL_RenderSetClipRect(a->r, tab_moving
+			    ? &(SDL_Rect){ panel.x + UI_PANEL_BORDER, panel.y,
+			                   panel.w - UI_PANEL_BORDER * 2, panel.h }
+			    : NULL);
+		}
+		if (fk >= 0) {
+			if (fk >= n) break;
+			i = fk++;
+			y = content_y + list_h;
+			for (j = nl; j < i; j++) y += ROW_H(rows[j]);
 		} else {
-			y = content_y - scroll + (int)win_off;
-			if (v >= first) for (j = first; j < v; j++) y += SLOT_H(j);
-			else            for (j = v; j < first; j++) y -= SLOT_H(j);
+			i = loop ? menu_loop_row(nl, v) : v;
+			if (scroll_h && i >= scroll_split) {
+				/* Pinned. Measured from the bottom of the viewport rather than
+				 * from the top of the rows, so the footer does not move when the
+				 * body does. The clip comes off here and stays off. */
+				if (i == scroll_split) SDL_RenderSetClipRect(a->r, NULL);
+				y = content_y + scroll_h;
+				for (j = scroll_split; j < i; j++) y += ROW_H(rows[j]);
+			} else {
+				y = content_y - scroll + (int)win_off;
+				if (v >= first) for (j = first; j < v; j++) y += SLOT_H(j);
+				else            for (j = v; j < first; j++) y -= SLOT_H(j);
+			}
 		}
 		/* The seam, where a list that goes round starts again: the
 		 * heading's rule, across the middle of a row's height */
@@ -1396,8 +1438,11 @@ typedef struct {
 	const char *heading;
 	const char *const *labels;
 	int n, cur, picked;
-	unsigned char sound[MENU_CHOICES_MAX];
+	const char *const *notes;  /* what each choice does (NULL: none) */
+	int sel;                   /* the cursor, as the runner leaves it (sel_out) */
+	unsigned char sound[MENU_CHOICES_MAX + 3];
 	char word[MENU_CHOICES_MAX][64];
+	char note[2][CHV_WRAP_COLS];
 } pick_ctx;
 
 static int pick_build(void *ctx, menu_row *rows, int max, const char **heading)
@@ -1411,7 +1456,26 @@ static int pick_build(void *ctx, menu_row *rows, int max, const char **heading)
 		rows[i] = (menu_row){ p->word[i], i == p->cur ? MENU_TICK : NULL, true };
 		p->sound[i] = 0;
 	}
+	/* What the choice under the cursor does, under a rule: two lines,
+	 * always two, so the panel holds its size as the cursor moves, left
+	 * as a paragraph is, as the Display row's own (DESIGN.md 11.3) */
+	if (p->notes && i + 3 <= max) {
+		int s = p->sel >= 0 && p->sel < p->n ? p->sel : 0, nl;
+
+		nl = menu_pick_note(p->notes[s], p->note);
+		rows[i] = MENU_RULE;
+		p->sound[i++] = 0;
+		rows[i] = MENU_BODY(nl > 0 ? p->note[0] : "");
+		p->sound[i++] = 0;
+		rows[i] = MENU_BODY(nl > 1 ? p->note[1] : "");
+		p->sound[i++] = 0;
+	}
 	return i;
+}
+
+int menu_pick_note(const char *note, char out[2][CHV_WRAP_COLS])
+{
+	return note ? wrap_text(ui_font(UI_F_MENU), note, SM_NOTE_W, out, 2) : 0;
 }
 
 static menu_result pick_key(app *a, void *ctx, in_button key, int sel)
@@ -1443,7 +1507,7 @@ static menu_result pick_power(app *a, void *ctx)
 }
 
 int menu_pick(app *a, const menu_style *from, void *from_ctx, const char *heading,
-              const char *const *labels, int n, int ticked, int at)
+              const char *const *labels, const char *const *notes, int n, int ticked, int at)
 {
 	static pick_ctx p;
 
@@ -1455,6 +1519,8 @@ int menu_pick(app *a, const menu_style *from, void *from_ctx, const char *headin
 	p.picked = -1;
 	p.over = from;
 	p.over_ctx = from_ctx;
+	p.notes = notes;
+	p.sel = at;
 	int cur = at;
 
 	menu_run(a, &(menu_style){ .accent = from ? from->accent : MENU_ZYPEROS,
@@ -1462,7 +1528,8 @@ int menu_pick(app *a, const menu_style *from, void *from_ctx, const char *headin
 	                           .backdrop = from && from->backdrop ? pick_backdrop : NULL,
 	                           .on_power = from && from->on_power ? pick_power : NULL,
 	                           .fixed_w = from && from->fixed_w ? from->fixed_w : menu_std_width(a),
-	                           .sound = p.sound, .start_sel = cur >= 0 && cur < p.n ? cur : 0 },
+	                           .sound = p.sound, .start_sel = cur >= 0 && cur < p.n ? cur : 0,
+	                           .sel_out = notes ? &p.sel : NULL },
 	         pick_build, pick_key, &p);
 	return p.powered ? MENU_PICK_POWER : p.picked;
 }

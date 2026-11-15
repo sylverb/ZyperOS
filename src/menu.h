@@ -72,6 +72,8 @@ typedef struct menu_choice {
 	bool own;                    /* opens its own list on A */
 	bool none;                   /* none of them is on as a whole */
 	const char *const *labels;   /* their words, n of them (NULL with own) */
+	const char *const *notes;    /* what each one does, shown under the list for the one under
+	                              * the cursor (Display Mode's); NULL for none */
 } menu_choice;
 
 /* Row `sel`'s choices from a build's table, or NULL: no table, a place past

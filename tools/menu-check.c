@@ -268,7 +268,7 @@ static void zyperos_menu_offline(void)
 	   "Scraper is live offline: its Video Snaps and sources need no network");
 	ck(!strcmp(val(&rows[PM_ACHIEVEMENTS]), "sign in"), "Achievements invites a sign in");
 	ck(rows[PM_ACHIEVEMENTS].live, "Achievements is reachable signed out");
-	ck(!strcmp(val(&rows[PM_SLEEP]), "2m"), "120s reads as 2m");
+	ck(!strcmp(val(&rows[PM_SLEEP]), "2 min"), "120 s reads as 2 min");
 	ck(!strcmp(rows[PM_CLOCK].label, "Date & Time") &&
 	   !strcmp(val(&rows[PM_CLOCK]), "Oct 3, 6:12 AM"), "Date & Time reads the time");
 	ck(rows[PM_CLOCK].live, "and opens with no network: it is how the Pixel gets one");
@@ -1102,8 +1102,8 @@ static void auto_off_words(void)
 {
 	char s[16];
 	struct { int sec; const char *want; } t[] = {
-		{ 0, "never" }, { 30, "30s" }, { 60, "1m" },
-		{ 120, "2m" }, { 300, "5m" }, { 600, "10m" },
+		{ 0, "never" }, { 30, "30 s" }, { 60, "1 min" },
+		{ 120, "2 min" }, { 300, "5 min" }, { 600, "10 min" },
 	};
 	size_t i;
 
@@ -2817,7 +2817,7 @@ static void saver_row(void)
 	const char *heading;
 	char s[16];
 	struct { int sec; const char *want; } t[] = {
-		{ 0, "off" }, { 30, "30s" }, { 60, "1m" }, { 120, "2m" }, { 300, "5m" }, { 600, "10m" },
+		{ 0, "off" }, { 30, "30 s" }, { 60, "1 min" }, { 120, "2 min" }, { 300, "5 min" }, { 600, "10 min" },
 	};
 	int n, k, i, found = 0;
 	size_t j;
@@ -2840,7 +2840,7 @@ static void saver_row(void)
 		if (rows[i].label && !strcmp(rows[i].label, "Screensaver")) {
 			found++;
 			ck(rows[i].live, "is live");
-			ck(!strcmp(val(&rows[i]), "1m"), "reads its delay");
+			ck(!strcmp(val(&rows[i]), "1 min"), "reads its delay");
 			ck(menu_sound_at(b.sound, n, i) == MENU_SND_NO_A,
 			   "steps with left and right and is heard after, as Auto Off is");
 		}

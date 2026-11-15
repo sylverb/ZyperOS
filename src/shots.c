@@ -585,18 +585,28 @@ static void shot_draw_gamemenu(app *a)
 		const menu_choice *ch = sel >= 0 && sel < ni ? &gm_choices(a, &u)[ids[sel]] : NULL;
 
 		if (ch && ch->n > 2) {
-			menu_row pr[MENU_CHOICES_MAX];
+			menu_row pr[MENU_CHOICES_MAX + 3];
 			static char pw[MENU_CHOICES_MAX][64];
 			int k;
+
+			static char pn[2][CHV_WRAP_COLS];
+			int np = ch->n;
 
 			for (k = 0; k < ch->n; k++) {
 				menu_pick_word(ch->labels[k], pw[k], (int)sizeof pw[k]);
 				pr[k] = (menu_row){ pw[k], k == ch->cur ? MENU_TICK : NULL, true };
 			}
+			if (ch->notes) {   /* and what the choice under the cursor does */
+				int nl = menu_pick_note(ch->notes[ch->cur], pn);
+
+				pr[np++] = MENU_RULE;
+				pr[np++] = MENU_BODY(nl > 0 ? pn[0] : "");
+				pr[np++] = MENU_BODY(nl > 1 ? pn[1] : "");
+			}
 			g_menu_epoch++;
 			g_menu_tabs = NULL;   /* a list of its own: the row's name, no tabs */
 			g_menu_side = NULL;
-			menu_draw(a, rows[sel].label, pr, ch->n, ch->cur, gm_width(a), a->tint);
+			menu_draw(a, rows[sel].label, pr, np, ch->cur, gm_width(a), a->tint);
 			if (bg) SDL_DestroyTexture(bg);
 			return;
 		}
@@ -1257,17 +1267,27 @@ static void shot_compose(app *a)
 		/* --press a on an option row of more than two: its list, which
 		 * opens over the shelf as MENU > Language does (menu_pick) */
 		if (shot_pick.n) {
-			menu_row pr[MENU_CHOICES_MAX];
+			menu_row pr[MENU_CHOICES_MAX + 3];
 			static char pw[MENU_CHOICES_MAX][64];
 			int k;
+
+			static char pn[2][CHV_WRAP_COLS];
+			int np = shot_pick.n;
 
 			for (k = 0; k < shot_pick.n; k++) {
 				menu_pick_word(shot_pick.labels[k], pw[k], (int)sizeof pw[k]);
 				pr[k] = (menu_row){ pw[k], !shot_pick.none && k == shot_pick.cur ? MENU_TICK : NULL, true };
 			}
+			if (shot_pick.notes) {   /* and what the choice under the cursor does */
+				int nl = menu_pick_note(shot_pick.notes[shot_pick.cur], pn);
+
+				pr[np++] = MENU_RULE;
+				pr[np++] = MENU_BODY(nl > 0 ? pn[0] : "");
+				pr[np++] = MENU_BODY(nl > 1 ? pn[1] : "");
+			}
 			ui_scrim(a->r, 0);
 			g_menu_epoch++;   /* another menu: a list opens at rest on its choice, as menu_run marks it */
-			menu_draw(a, shot_pick_heading, pr, shot_pick.n, shot_pick.cur, menu_std_width(a), MENU_ZYPEROS);
+			menu_draw(a, shot_pick_heading, pr, np, shot_pick.cur, menu_std_width(a), MENU_ZYPEROS);
 		}
 	}
 	if (shot_look_page) shot_draw_look(a);

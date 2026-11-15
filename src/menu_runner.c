@@ -166,7 +166,7 @@ static menu_result menu_choose(app *a, zr_rig *z, const menu_style *st, menu_key
 
 	uisound_play(DS_SOUND_ACCEPT);
 	if (c->n > 2) {
-		to = menu_pick(a, st, ctx, heading, c->labels, c->n, c->none ? -1 : c->cur, c->cur);
+		to = menu_pick(a, st, ctx, heading, c->labels, c->notes, c->n, c->none ? -1 : c->cur, c->cur);
 		if (to == MENU_PICK_POWER) return MENU_DONE;   /* as POWER on the menu itself */
 		if (to < 0 || !a->running || want_quit || g_message_stopped || g_menu_closing) return MENU_STAY;
 	} else {

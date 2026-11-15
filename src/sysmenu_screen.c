@@ -213,8 +213,16 @@ static void menu_choices(app *a, int sys, bool games)
 		g_sm_choice[SM_DSLANG] = ch_make(&P[3], DSL_CHOICES, dslang_load(), false);
 		for (i = 0; i < SORT_COUNT; i++) P[4].lab[i] = sort_label(i);
 		g_sm_choice[SM_SORT] = ch_make(&P[4], SORT_COUNT, v->sort, false);
-		for (i = 0; i < DMODE_COUNT && i < CH_MAX; i++) P[5].lab[i] = dmode_label(i);
-		g_sm_choice[SM_DISPLAY] = ch_make(&P[5], DMODE_COUNT, v->dmode, false);
+		{
+			static const char *notes[CH_MAX];
+
+			for (i = 0; i < DMODE_COUNT && i < CH_MAX; i++) {
+				P[5].lab[i] = dmode_label(i);
+				notes[i] = dmode_note(i);
+			}
+			g_sm_choice[SM_DISPLAY] = ch_make(&P[5], DMODE_COUNT, v->dmode, false);
+			g_sm_choice[SM_DISPLAY].notes = notes;
+		}
 		n = ch_shaders(&P[6], v->shader, &cur);
 		g_sm_choice[SM_SHADER] = ch_make(&P[6], n, cur, false);
 		n = ch_strengths(&P[7], strength_clamp(v->strength), &cur);

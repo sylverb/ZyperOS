@@ -871,7 +871,10 @@ in **edge** (in a system's menu, in that system's color). Rows in **menu**:
 live rows **text-soft**, values **text-dim**, dead rows **text-dim** at both.
 The focused row is an **accent** fill, **radius.row**, its label and value in
 **on-accent**. More rows above or below: a small triangle in **text-dim**,
-24 by 12 (`ds_more`), as on every list.
+24 by 12 (`ds_more`), as on every list. A list that ends in a footer (a
+rule and only notes under it) and does not fit keeps the footer still under
+its rows: the rows above the rule scroll in what room is left, as a card's
+body scrolls over its pinned footer.
 Opens and closes as 8.2 says.
 
 **Option rows, one rule (1.0.6).** A row whose value is one of several
@@ -883,7 +886,10 @@ Video Snaps, Menu Music:
   the row's name, the choice that is on ticked and the cursor on it; A
   chooses one, B leaves it as it was. Its words begin with a capital, as a
   list's rows do, where the row's value may be "never" or "stereo". A
-  shader or a strength each system has its own of ticks none.
+  shader or a strength each system has its own of ticks none. Where the
+  row says what its value does (Display: "Fills the screen..."), the list
+  says it too, for the choice under the cursor: two lines under a rule,
+  always two, so the panel holds its size as the cursor moves.
 - **Two: A turns it over.**
 - **Left and Right step every row**, as before, and show the change at
   once, so a look before choosing is one press away. A scale (minutes,
