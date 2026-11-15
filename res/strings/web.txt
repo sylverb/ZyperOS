@@ -2212,7 +2212,7 @@ ja = %1$s をタップし、「このネットワークをそのまま使用」�
 it = Tocca %1$s, poi Usa questa rete così com'è. Quindi apri %2$s in Chrome.
 
 [web.act.select]
-note = A row's menu: picks the file or folder, to drag it onto a folder with the others picked (moving files on the card)
+note = A row's menu: picks the file or folder; once one is picked a press on a row picks it too, and a bar at the foot moves or deletes all the rows picked (or they are dragged onto a folder together)
 en = Select
 zh-Hans = 选择
 es = Seleccionar
@@ -2250,13 +2250,224 @@ ja = %d 項目
 it.one = %d elemento
 it.other = %d elementi
 
-[web.move.done]
-note = A toast after files or folders were dragged onto a folder and moved there; %s is the folder's name
-en = Moved to %s
-zh-Hans = 已移动到 %s
-es = Movido a %s
-pt-BR = Movido para %s
-fr = Déplacé dans %s
-de = Nach %s verschoben
-ja = %s に移動しました
-it = Spostato in %s
+[web.move.done_named]
+note = A toast after one file or folder was moved (dragged onto a folder, or Move to folder), with Undo after it; %1$s is its name, %2$s the folder's
+en = Moved %1$s to %2$s
+zh-Hans = 已将 %1$s 移动到 %2$s
+es = %1$s movido a %2$s
+pt-BR = %1$s movido para %2$s
+fr = %1$s déplacé dans %2$s
+de = %1$s nach %2$s verschoben
+ja = %1$s を %2$s に移動しました
+it = %1$s spostato in %2$s
+
+[web.move.done_n]
+note = A toast after several picked files and folders were moved, with Undo after it; %1$d is how many, %2$s the folder's name
+en.one = Moved %1$d item to %2$s
+en.other = Moved %1$d items to %2$s
+zh-Hans = 已将 %1$d 项移动到 %2$s
+es.one = %1$d elemento movido a %2$s
+es.other = %1$d elementos movidos a %2$s
+pt-BR.one = %1$d item movido para %2$s
+pt-BR.other = %1$d itens movidos para %2$s
+fr.one = %1$d élément déplacé dans %2$s
+fr.other = %1$d éléments déplacés dans %2$s
+de.one = %1$d Element nach %2$s verschoben
+de.other = %1$d Elemente nach %2$s verschoben
+ja = %1$d 件を %2$s に移動しました
+it.one = %1$d elemento spostato in %2$s
+it.other = %1$d elementi spostati in %2$s
+
+[web.act.undo]
+note = The button in the toast after a move: moves each back to the folder it came from
+en = Undo
+zh-Hans = 撤销
+es = Deshacer
+pt-BR = Desfazer
+fr = Annuler
+de = Rückgängig
+ja = 元に戻す
+it = Annulla
+
+[web.move.undone]
+note = A toast after Undo moved them back where they were
+en = Moved back.
+zh-Hans = 已移回原处。
+es = Movimiento deshecho.
+pt-BR = Movimento desfeito.
+fr = Déplacement annulé.
+de = Zurückverschoben.
+ja = 元の場所に戻しました。
+it = Spostamento annullato.
+
+[web.sel.count]
+note = The bar at the foot of the list while rows are picked: how many files and folders are picked (followed by their size when they are all files)
+en.one = %d selected
+en.other = %d selected
+zh-Hans = 已选择 %d 项
+es.one = %d seleccionado
+es.other = %d seleccionados
+pt-BR.one = %d selecionado
+pt-BR.other = %d selecionados
+fr.one = %d sélectionné
+fr.other = %d sélectionnés
+de.one = %d ausgewählt
+de.other = %d ausgewählt
+ja = %d 件を選択中
+it.one = %d selezionato
+it.other = %d selezionati
+
+[web.sel.all]
+note = The bar's button that picks every file and folder in the folder shown
+en = Select all
+zh-Hans = 全选
+es = Seleccionar todo
+pt-BR = Selecionar tudo
+fr = Tout sélectionner
+de = Alle auswählen
+ja = すべて選択
+it = Seleziona tutto
+
+[web.sel.clear]
+note = The bar's ✕, for a screen reader: puts down every pick
+en = Clear selection
+zh-Hans = 取消全部选择
+es = Quitar la selección
+pt-BR = Limpar seleção
+fr = Effacer la sélection
+de = Auswahl aufheben
+ja = 選択を解除
+it = Annulla selezione
+
+[web.act.move_to]
+note = A row's menu and the bar's button: opens a panel to pick the folder the file or folder (or every one picked) moves to, on the card
+en = Move to folder
+zh-Hans = 移动到文件夹
+es = Mover a carpeta
+pt-BR = Mover para pasta
+fr = Déplacer vers un dossier
+de = In Ordner verschieben
+ja = フォルダへ移動
+it = Sposta in cartella
+
+[web.moveto.head]
+note = Move to folder's panel heading for one file or folder; %s is its name. The folder it goes to is picked below
+en = Move %s to
+zh-Hans = 将 %s 移动到
+es = Mover %s a
+pt-BR = Mover %s para
+fr = Déplacer %s vers
+de = %s verschieben nach
+ja = %s の移動先
+it = Sposta %s in
+
+[web.moveto.head_n]
+note = Move to folder's panel heading for several picked files and folders; %d is how many
+en.one = Move %d item to
+en.other = Move %d items to
+zh-Hans = 将 %d 项移动到
+es.one = Mover %d elemento a
+es.other = Mover %d elementos a
+pt-BR.one = Mover %d item para
+pt-BR.other = Mover %d itens para
+fr.one = Déplacer %d élément vers
+fr.other = Déplacer %d éléments vers
+de.one = %d Element verschieben nach
+de.other = %d Elemente verschieben nach
+ja = %d 件の移動先
+it.one = Sposta %d elemento in
+it.other = Sposta %d elementi in
+
+[web.moveto.go]
+note = Move to folder's main button; %s is the name of the folder the panel shows, where they go
+en = Move to %s
+zh-Hans = 移动到 %s
+es = Mover a %s
+pt-BR = Mover para %s
+fr = Déplacer dans %s
+de = Nach %s verschieben
+ja = %s に移動
+it = Sposta in %s
+
+[web.moveto.this_folder]
+note = Move to folder's panel: beside the folder the files are in now, in its list of folders
+en = current folder
+zh-Hans = 当前文件夹
+es = carpeta actual
+pt-BR = pasta atual
+fr = dossier actuel
+de = aktueller Ordner
+ja = 現在のフォルダ
+it = cartella attuale
+
+[web.moveto.already]
+note = Move to folder's panel, under the folders, when it shows the folder the files are in now: the button is off
+en = They are in this folder already.
+zh-Hans = 它们已在此文件夹中。
+es = Ya están en esta carpeta.
+pt-BR = Eles já estão nesta pasta.
+fr = Ils sont déjà dans ce dossier.
+de = Sie sind bereits in diesem Ordner.
+ja = すでにこのフォルダにあります。
+it = Sono già in questa cartella.
+
+[web.moveto.inside]
+note = Move to folder's panel, when it shows a folder inside one of the folders being moved: the button is off
+en = A folder cannot go inside itself.
+zh-Hans = 文件夹不能移动到自身内部。
+es = Una carpeta no puede ir dentro de sí misma.
+pt-BR = Uma pasta não pode ir para dentro dela mesma.
+fr = Un dossier ne peut pas aller dans lui-même.
+de = Ein Ordner kann nicht in sich selbst verschoben werden.
+ja = フォルダをそれ自体の中には移動できません。
+it = Una cartella non può andare dentro se stessa.
+
+[web.moveto.pick_console]
+note = Move to folder's panel, when it shows ROMs itself: the button is off, because a game there is on no console's shelf
+en = Games go in a console's folder.
+zh-Hans = 游戏需放在某个主机的文件夹中。
+es = Los juegos van en la carpeta de una consola.
+pt-BR = Os jogos ficam na pasta de um console.
+fr = Les jeux vont dans le dossier d'une console.
+de = Spiele gehören in den Ordner einer Konsole.
+ja = ゲームは各機種のフォルダに入れます。
+it = I giochi vanno nella cartella di una console.
+
+[web.moveto.no_folders]
+note = Move to folder's panel, where the folder shown has no folders in it
+en = No folders here.
+zh-Hans = 这里没有文件夹。
+es = No hay carpetas aquí.
+pt-BR = Não há pastas aqui.
+fr = Aucun dossier ici.
+de = Hier gibt es keine Ordner.
+ja = ここにはフォルダがありません。
+it = Nessuna cartella qui.
+
+[web.del.many_head]
+note = The question before several picked files and folders are deleted; %d is how many
+en.one = Delete %d item?
+en.other = Delete %d items?
+zh-Hans = 删除 %d 项？
+es.one = ¿Eliminar %d elemento?
+es.other = ¿Eliminar %d elementos?
+pt-BR.one = Excluir %d item?
+pt-BR.other = Excluir %d itens?
+fr.one = Supprimer %d élément ?
+fr.other = Supprimer %d éléments ?
+de.one = %d Element löschen?
+de.other = %d Elemente löschen?
+ja = %d 件を削除しますか？
+it.one = Eliminare %d elemento?
+it.other = Eliminare %d elementi?
+
+[web.del.many_in]
+note = The question before several are deleted, when folders among them hold files; %s is web.del.files ("48 files")
+en = Everything in the folders goes too: %s.
+zh-Hans = 文件夹中的所有内容也会删除：%s。
+es = También se elimina todo lo que hay en las carpetas: %s.
+pt-BR = Tudo o que está nas pastas também será excluído: %s.
+fr = Tout le contenu des dossiers est aussi supprimé : %s.
+de = Alles in den Ordnern wird ebenfalls gelöscht: %s.
+ja = フォルダの中身もすべて削除されます：%s。
+it = Viene eliminato anche tutto il contenuto delle cartelle: %s.

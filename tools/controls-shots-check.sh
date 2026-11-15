@@ -79,6 +79,17 @@ a, b = (Image.open(p).convert("RGB").crop((0, 100, 8, 700)).tobytes() for p in s
 sys.exit(a != b)' "$D/$2.png" "$D/$3.png" || fail "$1 ($D/$2.png against $D/$3.png, the left edge)"
 }
 
+# How many pixels of the lit key's lime (#bef23c, both themes) are in the
+# Controls tab's handheld column (x 60 to 319, y 220 to 649), or -1 without
+# Pillow, where it is said and not judged
+lime() {
+	if [ -z "${PYIMG:-}" ]; then echo -1; return; fi
+	"$PYIMG" -c 'import sys
+from PIL import Image
+im = Image.open(sys.argv[1]).convert("RGB").crop((60, 220, 320, 650))
+print(sum(1 for r, g, b in im.getdata() if abs(r - 190) < 30 and abs(g - 242) < 30 and abs(b - 60) < 40))' "$D/$1.png"
+}
+
 echo "the in-game Controls pages, still, each its own"
 # tag:pages - Genesis's buttons, then Hotkeys and In a game; the Nintendo 64
 # and the DS a page of their own between (C buttons, two screens); the
@@ -187,7 +198,8 @@ for th in light dark; do
 done
 
 echo "the in-game Display row says the mode the game plays in, on Favorites too"
-# A Game Boy game played from Favorites, the Game Boy set to Integer: the row
+# A Game Boy game played from Favorites, the Game Boy set to integer (Sharp
+# Pixels since 1.0.6): the row
 # is the game's system's mode, the one launch sent and Left and Right change
 # (gm_cycle_display), never the Favorites shelf's own, which nothing sets.
 # Before 1.0.6 it read Stretch there whatever the mode. A card of its own,
@@ -214,10 +226,10 @@ if command -v sqlite3 >/dev/null; then
 	frun --shot "$F/gm-fav.png" --theme light --screen games --gamemenu 0 --gm-tab 1 >"$F/one.log" 2>&1
 	cat "$F/one.log" >>"$D/log"
 	grep -q "^scan: Favorites" "$F/one.log" || fail "the favorite's card has no Favorites shelf (see $D/log)"
-	grep -q "^fit: drawn: Integer$" "$F/one.log" ||
-		fail "over a favorite, Display does not say the Game Boy's Integer ($F/gm-fav.png)"
-	grep -q "^fit: drawn: Stretch$" "$F/one.log" &&
-		fail "over a favorite, Display says Favorites' Stretch ($F/gm-fav.png)"
+	grep -q "^fit: drawn: Sharp Pixels$" "$F/one.log" ||
+		fail "over a favorite, Display does not say the Game Boy's Sharp Pixels (integer) ($F/gm-fav.png)"
+	grep -q "^fit: drawn: Full Screen$" "$F/one.log" &&
+		fail "over a favorite, Display says Favorites' Full Screen (stretch) ($F/gm-fav.png)"
 else
 	echo "  (no sqlite3: the Display row over a favorite not judged)"
 fi
@@ -256,6 +268,19 @@ for th in light dark; do
 	other "$th: L1 (tilted) is not SELECT (front)" "ctltab-l1-$th" "ctltab-select-$th"
 	other "$th: R2 (tilted) is not SELECT (front)" "ctltab-r2-$th" "ctltab-select-$th"
 	same "$th: the tilted handheld sits still" "ctltab-r2-$th" "ctltab-r2-later-$th"
+	# A device with no drawing of its own shows none (src/ctltab_screen.c),
+	# never the Pixel 2's: the Brick's profile, the d-pad's row lit
+	if [ "$th" = light ]; then
+		shot "ctltab-stick-brick" --theme light --screen games --gamemenu 1 --gm-tab 2 --device brick
+		lit=$(lime "ctltab-stick-$th")
+		none=$(lime "ctltab-stick-brick")
+		if [ "$lit" = -1 ]; then
+			echo "  (no Python with Pillow: the Brick's empty column not judged)"
+		else
+			[ "$lit" -gt 50 ] || fail "the host's Controls tab lights the handheld's d-pad ($lit lime pixels)"
+			[ "$none" -eq 0 ] || fail "the Brick's Controls tab draws no handheld ($none lime pixels in its column)"
+		fi
+	fi
 	# The swap is kept in the library, so on a library of its own: the
 	# shots after it show the card's own table
 	rm -rf "$D/shared-swap" && mkdir -p "$D/shared-swap" || exit 1

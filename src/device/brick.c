@@ -1113,27 +1113,14 @@ void plat_brightness_set(int level)
 /* Both radios are on the Brick's board: the xradio chip carries Wi-Fi and
  * Bluetooth. */
 bool plat_has_wifi(void)      { return true; }
-bool plat_has_bluetooth(void) { return true; }
-/* Diatom scales on the CPU here (port/brick.c): Off and Sharp-Shimmerless.
- * A host build shot or checked (ZYPEROS_HEADLESS) stands for the Pixel 2's
- * menus, so it offers them all, and the fit check measures them. */
-bool plat_gpu_shaders(void)   { return getenv("ZYPEROS_HEADLESS") != NULL; }
-/* Two speakers, a few centimeters apart: Auto keeps them stereo */
-bool plat_speaker_mono(void) { return false; }
-
-/* F1 and F2, the front function keys. */
-bool plat_brightness_on_volume(void) { return false; }
+/* Bluetooth, CPU shaders (Off and Sharp-Shimmerless, port/brick.c), two
+ * speakers, F1 and F2 for brightness, no battery lights and no Player 2:
+ * its profile's (src/device/brick_profile.c), or on the host desktop's. */
 /* MENU is a button of its own, and in_state has it. */
 bool plat_menu_held(void) { return false; }
 /* L2 and R2 are buttons of their own too. */
 bool plat_tap_held(in_button b) { (void)b; return false; }
 
-/* No lights of its own for the battery. */
-bool plat_battery_lights(void) { return false; }
-
-/* Never tried here: its image may have no hostapd, and its cable no
- * network link (plat_usb_peer cannot tell it a computer) */
-bool plat_player2(void) { return false; }
 side_lights plat_side_lights(void) { return LIGHTS_ALL; }
 void plat_side_lights_set(side_lights on) { (void)on; }
 void plat_side_lights_say(const char *line) { (void)line; }

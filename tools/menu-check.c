@@ -227,7 +227,13 @@ static void respects_max(void)
 
 /* ---------- the two MENU-button menus ------------------------------------- */
 
-static const char *val(const menu_row *r) { return r->value ? r->value : ""; }
+/* A row's value, "" for none and for a note, a body line or a rule inside a
+ * body, whose `value` is a mark (menu.h) and no string */
+static const char *val(const menu_row *r)
+{
+	if (ROW_IS_NOTE(*r) || ROW_IS_HR(*r)) return "";
+	return r->value ? r->value : "";
+}
 /* A row's label, "" for a rule, which has none: every loop over a menu's
  * rows compares through this, so a rule in the list is not a NULL strcmp. */
 static const char *lbl(const menu_row *r) { return r->label ? r->label : ""; }
@@ -384,6 +390,38 @@ static void gm_undo_row_only_with_undo(void)
 	ck(gm_row_at(&u, GT_DISPLAY, GM_UNDO) == -1, "and not on the Display tab");
 	ck(SLOT_UNDO != SLOT_AUTO && (SLOT_UNDO < 1 || SLOT_UNDO > GM_SLOTS),
 	   "SLOT_UNDO is none of the player's slots, nor Auto");
+}
+
+/* The display mode's caption on the in-game Display tab (1.0.6): the lines
+ * the caller wrapped, right under Display, body rows no cursor stops on;
+ * none when there is none, and never on another tab */
+static void gm_display_caption(void)
+{
+	gm_ui u = { 0 };
+	gm_bufs b;
+	menu_row rows[GM_MAX_ROWS];
+	gm_row ids[GM_MAX_ROWS];
+	int n;
+
+	printf("in-game menu, the display mode's caption:\n");
+	u.dmode = "Full Screen"; u.quick = 2;
+	n = gm_tab_rows(&u, GT_DISPLAY, ids);
+	ck(n == 2 && ids[1] == GM_SHADER, "no caption: Display, then Shader");
+	u.dmode_note[0] = "Fills the screen.";
+	u.dmode_note[1] = "The picture's shape changes.";
+	n = gm_rows(&u, GT_DISPLAY, rows, &b);
+	ck(n == 4 && gm_row_at(&u, GT_DISPLAY, GM_DNOTE1) == 1 &&
+	   gm_row_at(&u, GT_DISPLAY, GM_DNOTE2) == 2 && gm_row_at(&u, GT_DISPLAY, GM_SHADER) == 3,
+	   "two lines right under Display, Shader after them");
+	ck(ROW_IS_BODY(rows[1]) && ROW_IS_BODY(rows[2]) && !rows[1].live && !rows[2].live &&
+	   !b.sound[1] && !b.sound[2], "body rows, no stop, no sound");
+	ck(!strcmp(rows[1].label, "Fills the screen.") && !strcmp(rows[2].label, "The picture's shape changes."),
+	   "saying the lines given");
+	u.dmode_note[1] = NULL;
+	ck(gm_tab_rows(&u, GT_DISPLAY, ids) == 3 && ids[2] == GM_SHADER, "one line: one row");
+	ck(gm_row_at(&u, GT_GAME, GM_DNOTE1) < 0, "and none on the Game tab");
+	u.port = true;
+	ck(gm_row_at(&u, GT_DISPLAY, GM_DNOTE1) < 0, "nor over a port");
 }
 
 /* Over a program still starting (PORT_MENU_WAITING, 1.0.6): the port's
@@ -834,10 +872,32 @@ static void system_menu(void)
 	ck(!strcmp(val(&rows[sm_at(&u, SM_GAMES)]), "412"), "the count is the real one");
 	ck(!strcmp(val(&rows[sm_at(&u, SM_CORE)]), "gambatte"), "the core is the real one");
 	ck(!strcmp(val(&rows[sm_at(&u, SM_DISPLAY)]), "Sharp"), "display mode is passed through");
-	ck(sm_at(&u, SM_SHADER) == sm_at(&u, SM_DISPLAY) + 1 &&
+	/* What the mode does, two caption lines right under it (1.0.6): body
+	 * rows, never a stop, and two whatever the mode says, so no row after
+	 * them moves when it changes */
+	ck(sm_at(&u, SM_DNOTE1) == sm_at(&u, SM_DISPLAY) + 1 &&
+	   sm_at(&u, SM_DNOTE2) == sm_at(&u, SM_DISPLAY) + 2 &&
+	   ROW_IS_BODY(rows[sm_at(&u, SM_DNOTE1)]) && ROW_IS_BODY(rows[sm_at(&u, SM_DNOTE2)]) &&
+	   !rows[sm_at(&u, SM_DNOTE1)].live && !rows[sm_at(&u, SM_DNOTE2)].live,
+	   "Display Mode's caption: two body lines under it, no stop");
+	ck(!strcmp(rows[sm_at(&u, SM_DNOTE1)].label, "") && !strcmp(rows[sm_at(&u, SM_DNOTE2)].label, ""),
+	   "empty when nothing is said");
+	u.dmode_note[0] = "Fills the screen.";
+	u.dmode_note[1] = "The picture's shape changes.";
+	sys_menu_build(&u, rows, &b, &heading);
+	ck(!strcmp(rows[sm_at(&u, SM_DNOTE1)].label, "Fills the screen.") &&
+	   !strcmp(rows[sm_at(&u, SM_DNOTE2)].label, "The picture's shape changes."),
+	   "and the caption's two lines when it is");
+	u.dmode_note[1] = NULL;
+	n = sys_menu_build(&u, rows, &b, &heading);
+	ck(n == SM_ROWS - 1 && !strcmp(rows[sm_at(&u, SM_DNOTE2)].label, ""),
+	   "a caption of one line keeps its second, empty, and every row its place");
+	u.dmode_note[0] = NULL;
+	n = sys_menu_build(&u, rows, &b, &heading);
+	ck(sm_at(&u, SM_SHADER) == sm_at(&u, SM_DISPLAY) + 3 &&
 	   !strcmp(rows[sm_at(&u, SM_SHADER)].label, "Shader") &&
 	   !strcmp(val(&rows[sm_at(&u, SM_SHADER)]), "Off") && rows[sm_at(&u, SM_SHADER)].live,
-	   "Shader right after Display Mode, Off when nothing is said, a stop");
+	   "Shader right after Display Mode's caption, Off when nothing is said, a stop");
 	ck(b.sound[sm_at(&u, SM_SHADER)] == MENU_SND_RING, "and it steps round, on A too");
 	u.shader = "Sharp-Shimmerless";
 	sys_menu_build(&u, rows, &b, &heading);
@@ -1459,6 +1519,24 @@ static void step_goes_round(void)
 		f = menu_loop_first(r8, 8, s, 6, f);
 		ck(s == 7 && f == 4, "and back over the seam with no jump");
 	}
+	/* A row's caption under it (body lines, Display Mode's since 1.0.6)
+	 * comes into view with the cursor: ten rows, the window six, a two-line
+	 * caption under row 5 */
+	{
+		menu_row r10[10];
+
+		for (i = 0; i < 10; i++) r10[i] = (menu_row){ "row", NULL, true };
+		r10[6] = MENU_BODY("what row 5 does,");
+		r10[7] = MENU_BODY("in two lines");
+		f = menu_loop_first(r10, 10, 5, 6, 0);
+		ck(f == 2, "down onto a row with a caption: the window shows its two lines too");
+		f = menu_loop_first(r10, 10, 4, 6, 0);
+		ck(f == 0, "the row above it moves nothing");
+		r10[7] = (menu_row){ "row", NULL, true };
+		r10[6] = MENU_NOTE("a note, not a caption");
+		f = menu_loop_first(r10, 10, 5, 6, 0);
+		ck(f == 0, "a plain note under a row is no caption: the window stays");
+	}
 }
 
 /* MENU's tabs (DESIGN.md 11.3): every row is in one, in the enum's order
@@ -2052,7 +2130,7 @@ static bool lean_is(unsigned keys, float yaw, float pitch)
 {
 	float y = -99.0f, p = -99.0f;
 
-	ct_lean(keys, &y, &p);
+	ct_lean(&td_model_pixel2, keys, &y, &p);
 	return y == yaw && p == pitch;
 }
 
@@ -2347,6 +2425,14 @@ static void ctl_tab(void)
 	   "ct_lean: Applies To and Hotkeys, front");
 	ck(lean_is(1u << TD_START, 0.0f, 0.0f) && lean_is(0, 0.0f, 0.0f), "ct_lean: START alone and no keys, front");
 	ck(lean_is(1u << TD_L1 | 1u << TD_R1, 0.0f, 0.0f), "ct_lean: both sides' shoulders, front");
+	ck(lean_is(1u << TD_MENU, 0.0f, 0.0f) && lean_is(1u << TD_F1 | 1u << TD_F2, 0.0f, 0.0f),
+	   "ct_lean: a side face's key, and keys the Pixel 2 has not, front");
+	{
+		float y = -99.0f, p = -99.0f;
+
+		ct_lean(NULL, 1u << TD_A, &y, &p);
+		ck(y == 0.0f && p == 0.0f, "ct_lean: no model, front");
+	}
 	ck(lean_is(1u << TD_L1 | 1u << TD_SELECT, -CT_LEAN_DEG, CT_PITCH_DEG),
 	   "ct_lean: a shoulder with a centre key leans to its side and shows the top");
 	ck(lean_is(1u << TD_A | 1u << TD_R2, CT_LEAN_DEG, 0.0f), "ct_lean: a face with a right shoulder, no pitch");
@@ -3081,6 +3167,7 @@ int main(void)
 	player2_row_on_nes_only();
 	gm_disc_row_only_with_discs();
 	gm_undo_row_only_with_undo();
+	gm_display_caption();
 	gm_port_waiting();
 	disc_value_check();
 	audio_row();

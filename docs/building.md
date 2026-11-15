@@ -104,7 +104,7 @@ something once broke in a way nothing noticed:
 | `check-tour` | the tutorial's steps: what each button is to it and which glyph part the hand lights on each device, every step in order and what each waits for, the deaf start of a step for every key, START, every wrong press and its words, every button's name, POWER only in its own step, the reward's hold, the demonstration loops, Zyper's moves (the rig's, the corner's rise from where he is, the hello's pop-in), the little shelf's colors against `config/systems.cfg`, and `tour.done` saved only for a tour that is seen (no SDL) |
 | `check-tour-shots` | the tutorial as the launcher draws it, in both themes: Zyper only for the reward and a wrong press and one at a time in the power step and through the finish transition, the check disc, his bubble clear of "START: skip"; and the launcher's first start showing it on a fresh database and not after `--set tour.done=1` (builds the host launcher; skips without SDL2) |
 | `check-textfade` | cached text first drawn at partial opacity reaches the same pixels as text first drawn fully opaque, in both themes, through an SDL software renderer with no window |
-| `check-ds` | the design system's rules (DESIGN.md section 15, tools/ds-check.py): src/ds/ includes nothing of main.c; outside it no foot typed as 704, 714, 720 or 724 at a page_hint or keyhints_draw, no Zyper typed at a page's (123, 168), no tile mark or tiles style read off a name (tile_glyph, tiles_are_list) |
+| `check-ds` | the design system's rules (DESIGN.md section 15, tools/ds-check.py): src/ds/ includes nothing of main.c; outside it no foot typed as 704, 714, 720 or 724 at a page_hint, a keyhints_draw or words on the keys' line (ui_cap_y), no Zyper typed at a page's (123, 168), no tile mark or tiles style read off a name (tile_glyph, tiles_are_list) |
 | `check-flex` | the layout engine (src/ds/flex.c): each rule (padding, gaps, grow and shrink, min and max, justify and align, a wrapping row as keyhints_rows breaks one, whole steps, a kept aspect, a measured text), a thousand random trees that stay in their parents the same way every time, and its time per screen |
 | `check-glyphs` | the marks drawn from strokes (src/ds/glyph.c): every one within 32 strokes and 4 arrowheads, counted as it asks for them, kept or not; and the cache, full, giving the same pixels for a mark drawn again (needs SDL2) |
 | `check-zyper` | Zyper as the launcher draws him: in the top ZyperOS menu and no other, his tongue in after a failure, his eyes shut in a blink, and his shadow on Beard, in the menu and on the power-off screen where it goes out with him, never on Salt & Pepper; the host build's shots read back with Python's standard library (builds the host launcher; skips without SDL2) |
@@ -131,6 +131,8 @@ something once broke in a way nothing noticed:
 | `check-sshlink` | USB File Transfer's SSH: what it counts in dropbear's log (sign-ins, wrong PINs, a port it cannot have), names that try to say otherwise, and the shadow it gives dropbear |
 | `check-usblink` | USB charges only until asked: a computer is asked about once per plug and a charger never, every choice ends with its screen or its cable, and Developer Mode keeps the link |
 | `check-devmode` | developer mode on a release image: the unlock hold (L2 and R2 for five seconds, a bar that only rises, and letting go early, another page or holding on starting again), the setting kept in the card's database, a random one-time password in its alphabet, and only public keys without options taken from the card's key file, once each |
+| `check-devices` | the device profiles (src/device/profile.h): each one whole (named, its folders, a 4:3 screen with its glass in millimetres, every control printed once), today's answers for the GKD Pixel 2, the TrimUI Brick and the host's desktop, and the choice of one by its id, as `--device` makes it |
+| `check-model` | the handhelds' 3D models (src/device/td_model.h): every key once, and the GKD Pixel 2's key places, views and kept boxes as the drawing had them before they were data |
 | `check-ctl` | the launcher's command channel, the one `px2-open` talks to: the command lines, good and bad; a game's path split into its system's folder and the file, and anything else turned away (outside `Roms`, relative, `..`, a link that leads out); the system found by its folder in either case and the game by its launch path or its disc folder; a core by its name or its Core row's; the socket in a folder in `/tmp`, closed to others, a command in and an answer out, and the port record |
 | `check-sgdb` | SteamGridDB on the device: the real client and a whole run against a fake API (the key in a header and never a URL, the match, the formats, the refusals, a key refused with a 401 or 403 when it is entered said so and the one before it kept), its title and ratio held to tools/sgdb-check.py |
 | `check-snaps` | MENU > Scraper's settings: covers and videos per system (covers on and videos off to start, a card that had 1.0.4's Fetch with Box Art on still getting them), Videos for (all games, favorites, played) and which games it lets through |
@@ -367,6 +369,27 @@ with an isolated demonstration library; `--art` gives its games their real box
 art from libretro-thumbnails, cached outside the repository. See
 [`res/readme/README.md`](../res/readme/README.md) for capture provenance and
 the refresh steps.
+
+## Devices
+
+Each handheld is a profile (`src/device/profile.h`): plain data in
+`src/device/<id>_profile.c` saying what it is, its name and folders, its
+screen as glass and pixels, its controls as printed, the chords a missing or
+doubled button needs, and what it has. A screen asks the profile what the
+handheld has (`plat_profile()`, and the `plat_*` answers made from it) and
+the platform what it is doing; it never asks which handheld it is. The
+device build links its own profile (`DEVICE=` in `mk/cross.mk`); the host
+build links all of them and wears `desktop` unless told:
+
+    build-native/zyperos --shot /tmp/tour.png --device pixel2 --tour menu 2000
+    build-native/zyperos --shot /tmp/tour.png --device brick --tour menu 2000
+
+`desktop` answers as the host always has, so every shot taken before
+profiles is taken the same. `make check-devices` holds each profile whole and
+no device guessed in `src/` (`tools/devices-lint.py`); `make
+check-device-compile` compiles every device file's Linux half, which the CI
+job `devices` runs on Ubuntu. The design and the order of work:
+`docs/superpowers/specs/2026-11-14-device-modular-design.md`.
 
 ## On device
 

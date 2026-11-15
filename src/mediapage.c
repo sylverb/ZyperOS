@@ -42,7 +42,7 @@
 #define BIG_H       488
 #define BIG_CAP1    640
 #define BIG_CAP2    682
-#define FOOT_Y      DS_PAGE_FOOT_LOW   /* 724, not a page's 704: the big view's two caption lines (640, 682) sit over it, and at 704 A's hint met the second (1.0.6 sheet) */
+#define FOOT_Y      DS_FOOT_Y   /* every screen's keys (720): the big view's two caption lines (640, 682) sit over it, clear */
 
 static SDL_Color col(ds_rgb c) { return ui_col(c, 255); }
 

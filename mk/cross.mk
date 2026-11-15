@@ -4,7 +4,9 @@
 BUILD := build
 # Every device shares src/*.c; DEVICE picks the one device file built with it.
 DEVICE ?= brick
-SRC := $(wildcard src/*.c) $(wildcard src/ds/*.c) src/device/$(DEVICE).c
+# and its profile (src/device/profile.h), the one the build is for
+SRC := $(wildcard src/*.c) $(wildcard src/ds/*.c) src/device/$(DEVICE).c src/device/$(DEVICE)_profile.c \
+       src/device/td_model.c $(wildcard src/device/$(DEVICE)_model.c)
 CC ?= aarch64-linux-gnu-gcc
 
 VERSION ?= 0.0
@@ -36,6 +38,8 @@ CREDS := $(BUILD)/ss_creds.h
 CFLAGS += -I$(BUILD)
 # src too, so a device file in src/device/ includes the shared headers by name
 CFLAGS += -Isrc
+# The device's profile is the one in force (src/profile.c)
+CFLAGS += -DZYPEROS_PROFILE=device_profile_$(DEVICE)
 
 .PHONY: creds
 creds:

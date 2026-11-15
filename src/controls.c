@@ -10,11 +10,16 @@
 #include "i18n.h"
 #include "padglyph.h"
 
-static bool fn_volume;        /* see ctl_set_fn_volume */
-static bool battery_lights;   /* see ctl_set_battery_lights */
+static bool fn_volume;        /* brightness is MENU+VOL: ctl_set_chords */
+static bool home_chord;       /* MENU+START goes Home */
+static bool battery_lights;   /* L2+R2 shows the battery on the lights */
 
-void ctl_set_fn_volume(bool on) { fn_volume = on; }
-void ctl_set_battery_lights(bool on) { battery_lights = on; }
+void ctl_set_chords(const dev_chords *c)
+{
+	fn_volume = c->bright == DEV_BRIGHT_MENU_VOL;
+	home_chord = c->home_chord;
+	battery_lights = c->battery_chord;
+}
 
 /* The rows the home's pages and a game's In a game page both say, written
  * once so the two cannot come to disagree. A button is named as it is
@@ -201,7 +206,7 @@ static int anywhere(menu_row *out)
 	out[n++] = (menu_row){ "MENU",   T(S_CONTROLS_SETTINGS), false };
 	out[n++] = row_volume();
 	out[n++] = row_brightness();
-	if (fn_volume) out[n++] = row_home();
+	if (home_chord) out[n++] = row_home();
 	out[n++] = (menu_row){ "POWER",  T(powerhold_mode() ? S_CONTROLS_TURN_OFF_HOLD
 	                                                    : S_CONTROLS_TURN_OFF), false };
 	return n;
@@ -317,6 +322,12 @@ static const ctl_pad PADS[] = {
 	                    [P_R2] = SAYS_ON(S_CONTROLS_KEYPAD, "6"),
 	                    [P_START] = SAYS_ON(S_CONTROLS_KEYPAD, "*"),
 	                    [P_SELECT] = SAYS_ON(S_CONTROLS_KEYPAD, "#") } },
+	/* Genesis Plus GX's two-button pad, as the Master System's: the
+	 * SG-1000's buttons 1 and 2, START the PAUSE button on the console
+	 * (core/system.c at v1.7.4 b7e79b3: START is the NMI on every system
+	 * but the Game Gear) */
+	{ "SG1000", NULL, { [P_A] = SAYS_ON(S_CONTROLS_BUTTON, "2"),
+	                    [P_B] = SAYS_ON(S_CONTROLS_BUTTON, "1"), [P_START] = BTN("Pause") } },
 	{ "VECTREX", NULL, { [P_A] = SAYS_ON(S_CONTROLS_BUTTON, "1"),
 	                     [P_B] = SAYS_ON(S_CONTROLS_BUTTON, "2"),
 	                     [P_X] = SAYS_ON(S_CONTROLS_BUTTON, "3"),
@@ -1023,7 +1034,7 @@ static int in_a_game(menu_row *out)
 	out[n++] = row_quit();
 	out[n++] = row_volume();
 	out[n++] = row_brightness();
-	if (fn_volume) out[n++] = row_home();
+	if (home_chord) out[n++] = row_home();
 	out[n++] = row_save_off();
 	return n;
 }

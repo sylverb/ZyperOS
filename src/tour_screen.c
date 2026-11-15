@@ -167,7 +167,8 @@ void tour_run(app *a, bool first)
 
 	bool lang_kept = false;
 
-	tour_start(&t, plat_now_ms(), plat_brightness_on_volume());
+	tour_start(&t, plat_now_ms(), &plat_profile()->chords,
+	           dev_tutorial_model(plat_profile(), &plat_profile()->chords));
 	tour_lang_from(&t, (int)i18n_lang());
 	tour_settings(a, at);
 	tour_choices_from(&t, at);

@@ -63,6 +63,7 @@ static const db_default library_defaults[] = {
 	 * reason and not by oversight. */
 	{ "turbo.NES",  "x:a~3,y:b~3" },
 	{ "turbo.SMS",  "x:a~3,y:b~3" },
+	{ "turbo.SG1000", "x:a~3,y:b~3" },
 	{ "turbo.PCE",  "x:a~3,y:b~3" },
 	{ "turbo.GB",   "x:a~3,y:b~3" },
 	{ "turbo.GBC",  "x:a~3,y:b~3" },

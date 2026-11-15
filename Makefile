@@ -7,7 +7,7 @@
 
 .PHONY: all clean native px2-payload vendor boot system-art checkmark \
         check check-cheevos check-hare check-portal check-httpd check-idle check-taskhold check-saver check-rahash check-flacdec check-achtab check-signin check-search \
-        check-raset check-xfer check-sshlink check-usblink check-devmode check-ctl check-menus check-status check-battery check-corner check-artscrape check-artrun check-sgdb check-snapshelf check-snaps check-audioout \
+        check-raset check-xfer check-sshlink check-usblink check-devmode check-devices check-model check-ctl check-menus check-status check-battery check-corner check-artscrape check-artrun check-sgdb check-snapshelf check-snaps check-audioout \
         check-db check-gamedel check-gamern check-esmedia check-corepins check-targets yuvtarget check-storage check-stats check-sort check-bt check-ss check-titles check-dsv check-sidelights check-osdbar check-themefile check-pkkeys check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-kbnav check-tween check-menumotion check-menusnap check-cardgen check-blur check-roundrect check-rowmacro check-emptyhome check-zyperrig check-randgame check-shelfdir \
         check-sysmark check-flip check-menushots check-controls-shots check-design check-systemart check-linebreak check-portload \
         check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-messages check-tour check-tour-shots check-textfade check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pmhelper check-portdoc check-boottheme check-px2-push check-wifi-watch check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr check-autozone \
@@ -29,7 +29,7 @@ NATIVE_J = $(if $(filter -j%,$(MAKEFLAGS))$(findstring j,$(filter-out -%,$(first
 # of good intentions is a plan. A check nobody runs is a check that does not
 # exist, and check-menus was about to join eight others in that state.
 CHECKS = check-cheevos check-hare check-portal check-httpd check-idle check-taskhold check-saver check-rahash check-flacdec check-achtab check-rasubmit check-raoffline check-signin check-noticeq check-badges check-badge-shots \
-         check-raset check-xfer check-sshlink check-usblink check-devmode check-ctl check-menus check-artscrape check-artrun check-sgdb check-snapshelf check-snaps check-audioout \
+         check-raset check-xfer check-sshlink check-usblink check-devmode check-devices check-model check-ctl check-menus check-artscrape check-artrun check-sgdb check-snapshelf check-snaps check-audioout \
          check-db check-gamedel check-gamern check-esmedia check-media check-snapsize check-corepins check-targets check-storage check-stats check-sort check-bt check-ss check-titles check-savedlib check-search \
          check-muselib check-musequeue check-museart check-mp4lock check-mp4frame check-p2share check-webtheme check-p2ws check-p2codec check-p2d check-play check-p2 check-resident check-spawn check-controls check-remap check-controls-shots check-logpack \
          check-clock check-autozone check-status check-battery check-battery-eta check-dslang check-dsresume check-corestate check-core-stamp check-core-room check-px2-perf check-px2-snap check-px2 check-lowbatt check-powerhold check-homesys check-heat check-charging check-corner check-dsv check-sidelights check-osdbar check-themefile check-pkkeys check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-kbnav check-randgame check-shelfdir check-look \
@@ -891,7 +891,7 @@ build-native/tour-check: tools/tour-check.c src/tour.c src/tour.h src/design.h \
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
 	      -o $@ tools/tour-check.c src/tour.c src/powerhold.c src/zyperrig.c src/config.c src/db.c \
-	      src/atomic.c $(I18N_SRC) -lsqlite3 -lm
+	      src/atomic.c $(I18N_SRC) $(DEVICE_PROFILES) -lsqlite3 -lm
 
 # A system's color as a mark (DESIGN.md 3.3): as systems.cfg has it on Salt &
 # Pepper and a quarter toward text on Beard, for every shipped system; no
@@ -1017,6 +1017,10 @@ strings:
 # strings and their tables (src/i18n.h). English, as the launcher is before
 # the setting is read, unless the check sets another.
 I18N_SRC := src/i18n.c src/i18n_tables.c
+# The device profiles' data (src/device/profile.h), for checks that pose a
+# device; src/profile.c is linked only where one is chosen (check-devices)
+DEVICE_PROFILES := src/device/pixel2_profile.c src/device/brick_profile.c src/device/desktop_profile.c \
+                   src/device/td_model.c src/device/pixel2_model.c
 # The RetroAchievements hasher and the disc readers under it (src/rahash.h,
 # src/discimg.h): every check that links one links them all, and liblzma
 # for a CHD's LZMA hunks (Homebrew's xz on a Mac; the device has the
@@ -1171,11 +1175,12 @@ build-native/controls-check: tools/controls-check.c tools/legend.h src/controls.
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
 	      -o $@ tools/controls-check.c src/controls.c src/powerhold.c src/remap.c src/config.c src/db.c src/atomic.c \
-	      $(I18N_SRC) -lsqlite3
+	      $(I18N_SRC) $(DEVICE_PROFILES) -lsqlite3
 
 build-native/menu-check: tools/menu-check.c tools/legend.h src/wifi_menu.c src/wifi.c \
                         src/sys_menu.c src/homesys.c src/homesys.h src/menu.c src/game_menu.c src/controls.c src/remap.c \
                         src/ctltab.c src/ctltab.h src/tdkey.h src/padglyph.h \
+                        src/device/td_model.h src/device/td_model.c src/device/pixel2_model.c \
                         src/audioout.c src/sidelights.c src/wifi_menu.h src/sys_menu.h \
                         src/game_menu.h src/menu.h src/audioout.h src/sidelights.h \
                         src/controls.h src/spawn.c src/spawn.h $(I18N_SRC) FORCE
@@ -1183,7 +1188,7 @@ build-native/menu-check: tools/menu-check.c tools/legend.h src/wifi_menu.c src/w
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -o $@ \
 	      tools/menu-check.c src/wifi_menu.c src/wifi.c src/sys_menu.c src/homesys.c \
 	      src/menu.c src/game_menu.c src/controls.c src/powerhold.c src/remap.c src/ctltab.c src/audioout.c \
-	      src/sidelights.c src/keyhints.c src/spawn.c $(I18N_SRC)
+	      src/sidelights.c src/keyhints.c src/spawn.c src/device/td_model.c src/device/pixel2_model.c $(I18N_SRC)
 
 # What the launcher tells the side lights' gauge (src/sidelights.h): the lines
 # as plastron's gauge reads them, the FIFO writer that never waits and never
@@ -1235,6 +1240,56 @@ build-native/usblink-check: tools/usblink-check.c src/usblink.c src/usblink.h sr
 	      -DDEV_SCRIPT='"$(CURDIR)/build-native/usblink-check-S50dropbear"' \
 	      -DUSBLINK_CHECK_SCRIPT='"$(CURDIR)/build-native/usblink-check-S50dropbear"' \
 	      -o $@ tools/usblink-check.c src/usblink.c src/db.c src/atomic.c -lsqlite3
+
+# The device profiles (src/device/profile.h): each one whole, today's answers
+# for the Pixel 2, the Brick and the host's desktop, and the choice of one by
+# its id (--device). Built with all three, as the host build is. No SDL. Then
+# no device guessed in src/ (tools/devices-lint.py).
+check-devices: build-native/devices-check
+	@./build-native/devices-check
+	@python3 tools/devices-lint.py
+
+build-native/devices-check: tools/devices-check.c src/profile.c src/device/profile.h src/device/brick_buttons.h src/inbutton.h $(DEVICE_PROFILES) FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Isrc \
+	      -DZYPEROS_PROFILE=device_profile_desktop -DZYPEROS_PROFILES_ALL \
+	      -o $@ tools/devices-check.c src/profile.c $(DEVICE_PROFILES)
+
+# Every device file compiled, the Linux halves the Mac's build never sees (CI
+# job "devices", .github/workflows/check.yml): the launcher's device files,
+# src/profile.c with each device's profile and model, and Diatom's two ports. Syntax
+# only, so it needs the headers and no device. Elsewhere it says it skipped,
+# so it is not in CHECKS (the macOS job would only ever skip it).
+.PHONY: check-device-compile
+check-device-compile:
+	@if [ "$$(uname -s)" != Linux ]; then echo "skipped: device files compile on Linux (CI job devices)"; exit 0; fi; \
+	set -e; F="-std=gnu11 -D_GNU_SOURCE -fsyntax-only -Wall -Wextra -Wno-unused-parameter"; \
+	S="$$(pkg-config --cflags sdl2)"; \
+	for d in pixel2 brick; do \
+		echo "  launcher: src/device/$$d.c"; \
+		$(CC) $$F -Isrc $$S src/device/$$d.c; \
+		echo "  launcher: src/profile.c with src/device/$${d}_profile.c and its model"; \
+		$(CC) $$F -Isrc -DZYPEROS_PROFILE=device_profile_$$d src/profile.c src/device/$${d}_profile.c \
+			src/device/td_model.c $$(ls src/device/$${d}_model.c 2>/dev/null); \
+	done; \
+	D="-Idiatom/include -Idiatom/src -Idiatom/vendor/rcheevos/include -Idiatom/vendor/lz4"; \
+	echo "  diatom: port/brick.c"; \
+	$(CC) $$F $$D $$S diatom/port/brick.c diatom/port/osdbar.c diatom/port/themefile.c; \
+	echo "  diatom: port/pixel2.c"; \
+	$(CC) $$F $$D $$(pkg-config --cflags sdl2 egl glesv2 gbm libdrm) \
+		diatom/port/pixel2.c diatom/port/rumble_evdev.c diatom/port/panelgamma.c; \
+	echo "ok: every device file compiles"
+
+# The handhelds' models (src/device/td_model.h): every key once, and the GKD
+# Pixel 2's places, views and kept boxes as the drawing had them. No SDL.
+check-model: build-native/model-check
+	@./build-native/model-check
+
+build-native/model-check: tools/model-check.c src/device/td_model.h src/device/td_model.c \
+                          src/device/pixel2_model.c src/tdkey.h FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
+	      -o $@ tools/model-check.c src/device/td_model.c src/device/pixel2_model.c
 
 # Developer mode (src/devmode.h): the unlock hold on a clock moved by hand,
 # the setting in a real database, the one-time password and the keys the
@@ -2033,7 +2088,7 @@ check-tour-colors:
 		  $$(pkg-config --cflags sdl2 SDL2_ttf SDL2_image) -Isrc \
 		  -o build-native/tour-colors-check tools/tour-colors-check.c src/ui.c src/ds/glyph.c src/folderart.c src/roundrect.c \
 		  src/theme.c src/themefile.c src/look.c src/linebreak.c src/blur.c src/cardgen.c \
-		  src/sysmark.c src/tour.c src/powerhold.c src/tourdraw.c src/tourdevice.c src/zyperrig.c src/osdbar.c src/db.c $(I18N_SRC) \
+		  src/sysmark.c src/tour.c src/powerhold.c src/tourdraw.c src/tourdevice.c src/zyperrig.c src/osdbar.c src/db.c $(I18N_SRC) $(DEVICE_PROFILES) \
 		  $$(pkg-config --libs sdl2 SDL2_ttf SDL2_image) -lsqlite3 -lm && \
 		ZYPEROS_HEADLESS=1 SDL_VIDEODRIVER=dummy SDL_RENDER_DRIVER=software \
 		  ./build-native/tour-colors-check; \

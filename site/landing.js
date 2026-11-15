@@ -126,7 +126,7 @@
         artCache.set(key, atlas);
       }
       if (ticket !== artTicket || paused() || !artVisible || !visibleArt.has(currentArt) || document.hidden) return;
-      // The full catalogue has 44 systems. Retain only the three latest atlases.
+      // The full catalogue has 45 systems. Retain only the three latest atlases.
       const texture = artCache.get(key);
       artCache.delete(key); artCache.set(key, texture);
       while (artCache.size > 3) artCache.delete(artCache.keys().next().value);
