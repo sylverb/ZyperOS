@@ -358,6 +358,17 @@ extern const menu_style *g_muse_over;
 extern void             *g_muse_over_ctx;
 extern bool              g_muse_gone;
 
+/* ---- main.c's, for src/scraper_screen.c; each is described where it is defined ---- */
+/* What the next panel drawn is to be, which panel_frame says and panel_show
+ * puts back at rest as it takes it: a panel drawn by anything else, a message
+ * or a shot, is drawn at rest. */
+#define PANEL_REST ((mm_frame){ { 1.0f, 0.0f }, { 1.0f, 1.0f }, 1.0f, false })
+extern const systems_cfg *g_snap_sys;
+bool es_art_cover(const char *dir, const char *file, const char *stem);
+bool es_art_video(const char *dir, const char *file, const char *stem);
+void tiles_panel(app *a, int kind, const char *heading, const menu_row *tiles,
+                 const int *marks, int n, int sel, mm_pose pose);
+
 /* ---- main.c's, for src/xfer_screen.c; each is described where it is defined ---- */
 bool up_running(void);
 unsigned pace_rows(const char *heading, const menu_row *rows, int n, int sel, float k,
