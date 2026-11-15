@@ -345,8 +345,10 @@ int gm_rows(const gm_ui *u, gm_tab t, menu_row *out, gm_bufs *b)
 	full[GM_QUIT].value    = MENU_KEY_X;
 
 	n = gm_tab_rows(u, t, ids);
+	memset(b->choice, 0, sizeof b->choice);
 	for (i = 0; i < n; i++) {
 		out[i] = full[ids[i]];
+		if (u->choice) b->choice[i] = u->choice[ids[i]];
 		/* Display steps round on left and right and on A; so do Shader,
 		 * the quick slot and the three for two screens. Strength steps
 		 * on left and right alone. Every other row is plain. */

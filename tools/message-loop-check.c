@@ -37,6 +37,8 @@ static int g_menu_header_h;
 typedef struct menu_side menu_side;
 static void (*g_menu_side)(app *a, const menu_side *at);
 static int g_menu_side_w;
+/* ...and whether its footer stays under its rows (menu_style's pin_foot) */
+static bool g_menu_pin_foot;
 static bool g_snap_drawing;
 static mm_frame g_pframe;
 #define PANEL_REST ((mm_frame){ {1,0}, {1,1}, 1, false })

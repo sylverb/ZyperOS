@@ -259,6 +259,9 @@ typedef struct {
 	int         disc;
 	const char *disc_label;
 	bool      (*disc_fits)(const char *label);
+	/* Each option row's choices by its gm_row (menu.h's menu_choice), which
+	 * the screen fills and gm_rows copies to its rows' places. NULL: none. */
+	const menu_choice *choice;
 } gm_ui;
 
 /* The Disc row's value: the core's label when `fits` says it fits (NULL: it
@@ -307,6 +310,7 @@ typedef struct {
 	char quick[8];
 	char disc[160];
 	unsigned char sound[GM_MAX_ROWS];
+	menu_choice choice[GM_MAX_ROWS];   /* by place, from gm_ui's choice */
 } gm_bufs;
 
 /* Tab `t`'s rows, built from gm_tab_rows's list */
