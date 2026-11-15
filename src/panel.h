@@ -15,12 +15,14 @@
 #include "keyboard.h"
 #include "menu.h"
 #include "menumotion.h"
+#include "menusnap.h"
 #include "noticeq.h"
 #include "p2.h"
 #include "platform.h"
 #include "rahash.h"
 #include "sys_menu.h"
 #include "texload.h"
+#include "uisound.h"
 #include "wifi.h"
 
 #include <stdbool.h>
@@ -357,6 +359,22 @@ extern bool g_message_stopped;
 extern const menu_style *g_muse_over;
 extern void             *g_muse_over_ctx;
 extern bool              g_muse_gone;
+
+/* ---- main.c's, for src/menu_runner.c; each is described where it is defined ---- */
+extern menu_snap *g_snap_next;
+extern menu_snap *g_snap;
+extern uis_steps g_steps;
+void wifi_pref_save(bool on);
+void snap_record(menu_snap *s, int kind, const char *heading,
+                 const menu_row *rows, int n, int sel, int fixed_w,
+                 unsigned accent, const unsigned *vcolors,
+                 bool visits_all, int loop_at, const char *heading_note);
+void snap_draw(app *a, mm_pose pose);
+int snap_shown(void);
+int menu_step_heard(app *a, const menu_row *rows, int n, int sel,
+                    int dir, in_button b);
+int panel_settle(int lv);
+void panel_close_at(app *a, int lv, bool cut, unsigned now);
 
 /* ---- main.c's, for src/lights_screen.c; each is described where it is defined ---- */
 
