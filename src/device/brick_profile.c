@@ -8,6 +8,8 @@
 const device_profile device_profile_brick = {
 	.id = "brick",
 	.name = "TrimUI Brick",
+	/* Allwinner's Linux 4.9 for the A133 (plastron/THIRD-PARTY.md) */
+	.kernel = { "Allwinner", "Brick" },
 	.userdata = "brick",
 	.boot_label = "BRICKBOOT",
 	.screen = {
