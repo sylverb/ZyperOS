@@ -238,6 +238,9 @@ EXTRA = {
     "gamemenu-unchecked": ("demo", "PS1", ["--gamemenu", "0", "--cheevos-unchecked"]),
     "info-unchecked": ("demo", "PS1", ["--screen", "games", "--info", "--cheevos-unchecked"]),
     "gamemenu-display": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "1"]),
+    # The menu over a port still starting, and its loading screen after a
+    # minute (1.0.6)
+    "gamemenu-port-waiting": ("demo", "PS1", ["--gamemenu", "0", "port", "--port-waiting"]),
     "gamemenu-controls": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "2"]),
     # ...and of a game the launcher has no hash for: a PSP game ("system"),
     # a PlayStation .chd ("file"), one in each screen; the Achievements row
