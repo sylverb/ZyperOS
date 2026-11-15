@@ -2106,6 +2106,7 @@ static int run_session_inner(const diatom_session *sn)
 	/* Per-game state that must not carry over from the previous session. */
 	g_speed_ix = 0;
 	g_sel_live = CHORD_KEYS;
+	diatom_env_core_quit_reset();
 	g_audio_fast = false;
 	g_present_frames = 0;
 	g_present_us = 0;
@@ -2431,7 +2432,7 @@ static int run_session_inner(const diatom_session *sn)
 	 * run_session's end, paused or not */
 	diatom_now_begin(sn->core, sn->rom, av.timing.fps);
 
-	while (!diatom_port_should_quit() && !g_terminate && !stop &&
+	while (!diatom_port_should_quit() && !g_terminate && !stop && !diatom_env_core_quit() &&
 	       (sn->limit <= 0 || frames < sn->limit)) {
 		uint64_t now;
 
@@ -2529,6 +2530,9 @@ static int run_session_inner(const diatom_session *sn)
 			g_core->run();
 			frames++;
 			ran++;
+			/* The game ended itself (env.c, RETRO_ENVIRONMENT_SHUTDOWN): no
+			 * frame more, and the session ends as a quit does */
+			if (diatom_env_core_quit()) break;
 
 			/* Immediately after the frame the core produced, and before
 			 * anything else can touch memory. This one line is why
@@ -2956,6 +2960,8 @@ static int run_session_inner(const diatom_session *sn)
 	 * costume of a pacing bug. */
 	if (g_terminate)
 		printf("diatom: terminated by signal; saving\n");
+	if (diatom_env_core_quit())
+		printf("diatom: the game ended itself (RETRO_ENVIRONMENT_SHUTDOWN); saving\n");
 	/* The game is over, and a rumble it had going stops now rather than
 	 * after the saves below, which can take a second: a power press ends a
 	 * game this way and the device powers off after them (the core's stop
@@ -3367,6 +3373,8 @@ int main(int argc, char **argv)
 			              : !strcmp(m.power, "medium") ? DIATOM_POWER_MEDIUM
 			              : DIATOM_POWER_FULL;
 			sn.controller = m.controller;
+			/* The system's share of the core's rumble, this game on */
+			diatom_env_rumble_scale(m.rumble);
 			sn.dpad_stick = !strcmp(m.stick, "dpad");
 			sn.stick_toggle = !strcmp(m.stick, "toggle") ? 1
 			                : !strcmp(m.stick, "toggle-stick") ? 2 : 0;
