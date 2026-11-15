@@ -872,11 +872,11 @@ static void apply_display(int mode, diatom_filter filter)
 	 * would do with it before one is chosen (ZyperOS's Display list). */
 	if (diatom_proto_connected())
 		diatom_proto_send("DISPLAY\tmode=%s\tfilter=%s\trect=%dx%d+%d+%d\tsurface=%dx%d"
-		                  "\tstrength=%d\tsource=%dx%d\taspect=%.5f",
+		                  "\tsource=%dx%d\taspect=%.5f\tstrength=%d",
 		                  diatom_modes[mode].name, filter_name(filter),
 		                  shown.w, shown.h, shown.x, shown.y,
-		                  g_caps.surface_w, g_caps.surface_h, g_strength,
-		                  g_base_w, g_base_h, g_base_aspect > 0 ? g_base_aspect : 0.0);
+		                  g_caps.surface_w, g_caps.surface_h,
+		                  g_base_w, g_base_h, g_base_aspect > 0 ? g_base_aspect : 0.0, g_strength);
 }
 
 /* The in-game menu handover.

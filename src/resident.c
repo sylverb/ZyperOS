@@ -657,7 +657,7 @@ static void d_note_cheevo(const char *l)
 }
 
 /* "DISPLAY\tmode=native\tfilter=nearest\trect=256x224+384+272\tsurface=1024x768
- *  \tsource=256x224\taspect=1.33333"
+ *  \tsource=256x224\taspect=1.33333\tstrength=100"
  *
  * The rect is in Diatom's surface, which need not be the size ZyperOS draws at:
  * on the GKD Pixel 2 it is 640x480, and the paused frame behind the in-game
