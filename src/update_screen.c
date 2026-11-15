@@ -273,11 +273,7 @@ void update_page_draw(app *a, const char *heading, const su_page *p,
 	if (p->bar) {
 		SDL_Rect tr = { UP_X, 572, UP_W, 18 };
 		w = (int)((float)UP_W * p->frac + 0.5f);
-		ui_round_rect(r, &tr, 9, ui_col(thm->track, 255));
-		if (w > 0) {
-			SDL_Rect fi = { UP_X, 572, w < 18 ? 18 : w, 18 };
-			ui_round_rect(r, &fi, 9, ui_col(thm->accent_ink, 255));
-		}
+		ds_bar_in(r, &tr, w > 0 && w < 18 ? 18 : w, ui_col(thm->track, 255), ui_col(thm->accent_ink, 255));
 		ui_text(r, fs, p->bar_left, UP_X, ui_cap_y(fs, 626), -1, UI_TEXT_DIM);
 		ui_text(r, fs, p->bar_right, UP_X + UP_W, ui_cap_y(fs, 626), 1, UI_TEXT_DIM);
 	} else if (p->line[0]) {

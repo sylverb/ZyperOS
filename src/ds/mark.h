@@ -37,4 +37,10 @@ void ds_more(SDL_Renderer *r, float cx, float top, bool up, SDL_Color c);
  * The caller says how much is filled, so each keeps its own rounding. */
 void ds_bar(SDL_Renderer *r, int x, int y, int w, int fill, Uint8 al);
 
+/* A bar of any size and colors, for one that says more than progress (the
+ * low battery's **warning**, a paused track's faded fill, System Update's
+ * tall one): `track` in `track_c`, and `fill` of its width from the left in
+ * `fill_c` where fill > 0, both with round ends (half the height) */
+void ds_bar_in(SDL_Renderer *r, const SDL_Rect *track, int fill, SDL_Color track_c, SDL_Color fill_c);
+
 #endif

@@ -12,6 +12,7 @@
 #include "topbar.h"
 #include "ui.h"
 #include "ds/layout.h"   /* DS_PAGE_FOOT_Y */
+#include "ds/mark.h"     /* ds_bar_in */
 #include "uisound.h"
 #include "zyperdraw.h"
 
@@ -193,12 +194,9 @@ unsigned np_draw(app *a, const mu_now *mn, const char *next)
 	/* Where in the track. What is left rather than the whole length on the
 	 * right, because the question is usually how long until the next one. */
 	bar = NP_Y + NP_SIDE - 132;
-	ui_round_rect(r, &(SDL_Rect){ NP_TX, bar, NP_TW, UI_BAR_H }, UI_BAR_H / 2,
-	              ui_col(theme()->track, 255));
 	fill = (int)(NP_TW * (k < 0 ? 0 : k > 1 ? 1 : k) + 0.5);
-	if (fill > 0)
-		ui_round_rect(r, &(SDL_Rect){ NP_TX, bar, fill, UI_BAR_H }, UI_BAR_H / 2,
-		              state ? ui_fade(acc, 0.45f) : acc);
+	ds_bar_in(r, &(SDL_Rect){ NP_TX, bar, NP_TW, UI_BAR_H }, fill, ui_col(theme()->track, 255),
+	          state ? ui_fade(acc, 0.45f) : acc);
 	/* Tabular, so the clock ticking does not move what sits beside it. */
 	mmss(t0, sizeof t0, mn->at);
 	ty = ui_line_y(UI_F_META, bar + 16);
@@ -481,11 +479,8 @@ void lock_panel(app *a, const mp4lock *l)
 	y += 28;
 	/* The hold, as the one bar every hold in the system is (UI_BAR_H). */
 	{
-		SDL_Rect bar = { cx - 200, y, 400, UI_BAR_H };
-
-		ui_round_rect(r, &bar, UI_BAR_H / 2, ui_col(theme()->track, 255));
-		bar.w = (int)(400 * k + 0.5f);
-		if (bar.w > 0) ui_round_rect(r, &bar, UI_BAR_H / 2, ink);
+		ds_bar_in(r, &(SDL_Rect){ cx - 200, y, 400, UI_BAR_H }, (int)(400 * k + 0.5f), ui_col(theme()->track, 255),
+		          ink);
 	}
 }
 
@@ -741,11 +736,8 @@ static void np_video_bar(SDL_Renderer *r, const mu_now *mn, int x, int y, int w,
 	int fill, ty, left, right;
 
 	soft.a = a;
-	ui_round_rect(r, &(SDL_Rect){ x, y, w, UI_BAR_H }, UI_BAR_H / 2, ui_col(theme()->track, a));
 	fill = (int)(w * (k < 0 ? 0 : k > 1 ? 1 : k) + 0.5);
-	if (fill > 0)
-		ui_round_rect(r, &(SDL_Rect){ x, y, fill, UI_BAR_H }, UI_BAR_H / 2,
-		              state ? ui_fade(acc, 0.45f) : acc);
+	ds_bar_in(r, &(SDL_Rect){ x, y, w, UI_BAR_H }, fill, ui_col(theme()->track, a), state ? ui_fade(acc, 0.45f) : acc);
 	if (!times) return;
 	mmss(t0, sizeof t0, mn->at);
 	ty = ui_line_y(UI_F_META, y + 16);
