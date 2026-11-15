@@ -185,6 +185,22 @@ static bool run(char *const argv[])
 	return WIFEXITED(status) && WEXITSTATUS(status) == 0;
 }
 
+/* Which files of the logs folder go in: every boot's zyperos.log, the USB
+ * port's plugs (usblog.h), the Wi-Fi supplicant's joins and drops (wifi.log
+ * and wifi.log.1, /etc/init.d/wpa_supplicant on the Pixel 2), and the card
+ * checks after a power-off that left the card dirty (card-check.txt,
+ * plastron's /etc/init.d/datapart: what fsck.exfat found and did) */
+static bool packed(const char *name)
+{
+	return !strncmp(name, "zyperos.log", 10) || !strcmp(name, "usb.log") ||
+	       !strcmp(name, "wifi.log") || !strcmp(name, "wifi.log.1") ||
+	       !strcmp(name, "card-check.txt") ||
+	       /* and the reports of a panic or a reset before a start
+	        * (crash-*.txt, plastron's /usr/sbin/crashlog) */
+	       (!strncmp(name, "crash-", 6) && strlen(name) > 10 &&
+	        !strcmp(name + strlen(name) - 4, ".txt"));
+}
+
 bool logpack_build(const char *logs_dir, const char *about,
                    const char *const *secrets, int n,
                    const char *folder, const char *out, char *err, size_t en)
@@ -203,11 +219,7 @@ bool logpack_build(const char *logs_dir, const char *about,
 
 	if ((d = opendir(logs_dir))) {
 		while ((e = readdir(d))) {
-			/* Every boot's zyperos.log, the USB port's plugs (usblog.h),
-			 * and the Wi-Fi supplicant's joins and drops (wifi.log and
-			 * wifi.log.1, /etc/init.d/wpa_supplicant on the Pixel 2) */
-			if (strncmp(e->d_name, "zyperos.log", 10) != 0 && strcmp(e->d_name, "usb.log") != 0 &&
-			    strcmp(e->d_name, "wifi.log") != 0 && strcmp(e->d_name, "wifi.log.1") != 0) continue;
+			if (!packed(e->d_name)) continue;
 			snprintf(from, sizeof from, "%s/%s", logs_dir, e->d_name);
 			snprintf(path, sizeof path, "%s/%s", dir, e->d_name);
 			if (copy_masked(from, path, secrets, n,

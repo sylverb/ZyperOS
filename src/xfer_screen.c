@@ -790,8 +790,8 @@ static void xs_page_draw(app *a, const char *heading, const menu_row *rows, int 
 		        g_move.total[k], g_move.nt[k], k == 0 ? g_move.bar : -1.0f, NULL);
 	}
 	/* where Flash Drive's eject line is, the news, and under it the rest */
-	if (n > 1) ds_page_meta(a->r, &pf, rows, 1, DS_PAGE_NEWS_Y, plat_now_ms());
-	if (n > 2) ds_page_meta(a->r, &pf, rows + 1, n - 2, DS_PAGE_NEWS2_Y, plat_now_ms());
+	if (n > 1) ds_page_meta(a->r, &pf, rows, 1, pf.news_y, plat_now_ms());
+	if (n > 2) ds_page_meta(a->r, &pf, rows + 1, n - 2, pf.news_y + DS_PAGE_NEWS_STEP, plat_now_ms());
 	if (n > 0) ud_page_foot(a->r, rows[n - 1].value, rows[n - 1].label, NULL, NULL);
 }
 

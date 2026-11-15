@@ -4,10 +4,15 @@
  * Scraper (DESIGN.md 11.18, 11.19, 11.35). One frame, from src/ds/layout.h:
  *
  *     Zyper (DS_PAGE_ZYPER_*)   the heading at head_x, its middle DS_PAGE_HEAD_Y
- *     x0 .......... what the page holds, from body_y .......... x1
- *     (DS_PAGE_NEWS_Y, DS_PAGE_NEWS2_Y: lines of words under two tiles)
+ *     x0 .......... what the page holds, the body, from body_y .......... x1
+ *     tile[0] tile[1]: two tiles at the body's top, from the insets
+ *     news_y: a line of words under them (DS_PAGE_NEWS_STEP to another)
  *     line_y: marks and their words over the keys
  *     foot_y: the button hints
+ *
+ * One column of boxes laid out by rules (src/ds/flex.h, DESIGN.md "The
+ * system"): the heading's band, the body, and the line and the keys on the
+ * screen's foot; no y is typed but the band's height.
  *
  * The caller draws the ground and Zyper (src/main.c's page_top, which hands
  * back the frame) and its own content in the frame's places; these draw the
@@ -29,6 +34,9 @@ typedef struct {
 	int body_y;     /* where what the page holds starts */
 	int line_y;     /* the line over the keys */
 	int foot_y;     /* the keys */
+	SDL_Rect body;  /* what the page holds: from body_y to the line's box */
+	SDL_Rect tile[2];  /* two tiles side by side at the body's top (Flash Drive's, File Transfer's) */
+	int news_y;     /* a line of words under the tiles: its middle */
 } ds_page_frame;
 
 /* The frame, with Zyper beside the heading or not (the look's Zyper off) */

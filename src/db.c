@@ -2,6 +2,7 @@
 /* See db.h. No SDL and no platform header, deliberately, so the check can link
  * it without a window - the same reason atomic.c is kept clean. */
 #include <sqlite3.h>
+#include <stdio.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -160,13 +161,104 @@ static bool games_schema(db *d)
 	       "ALTER TABLE games ADD COLUMN title TEXT NOT NULL DEFAULT '';"));
 }
 
+/* A database SQLite cannot read where it starts - not a database at all, or
+ * damaged in its header or schema - is set aside under another name, with its
+ * -wal and -shm, and a new one is made in its place. A power cut while the
+ * card was being written can leave it so (2026-11-15, a Pixel 2 forced off
+ * after a freeze), and without this the launcher came up on the shipped
+ * defaults at every start from then on, the tutorial included, and nothing
+ * set was ever remembered again, as the broken file stayed where it was. Set
+ * aside and not deleted, so it can still be looked at or recovered; a later
+ * one replaces it. Only for those two errors: a file that is busy, locked or
+ * on a card that will not answer is left alone and the start goes on as
+ * before. */
+static bool unreadable(int code)
+{
+	return code == SQLITE_NOTADB || code == SQLITE_CORRUPT;
+}
+
+static void set_aside(const char *path)
+{
+	static const char *const suffix[] = { "", "-wal", "-shm" };
+	char from[1100], to[1100];
+	size_t i;
+
+	for (i = 0; i < sizeof suffix / sizeof *suffix; i++) {
+		snprintf(from, sizeof from, "%s%s", path, suffix[i]);
+		snprintf(to, sizeof to, "%s.broken%s", path, suffix[i]);
+		if (rename(from, to) != 0) unlink(to);
+	}
+}
+
+/* The first line of the file NAME beside the database at PATH, its line end
+ * taken off; empty when there is none */
+static void beside(const char *path, const char *name, char *out, size_t n)
+{
+	const char *slash = strrchr(path, '/');
+	char file[1100];
+	FILE *f;
+
+	out[0] = '\0';
+	if (slash) snprintf(file, sizeof file, "%.*s/%s", (int)(slash - path), path, name);
+	else snprintf(file, sizeof file, "%s", name);
+	if (!(f = fopen(file, "r"))) return;
+	if (!fgets(out, (int)n, f)) out[0] = '\0';
+	fclose(f);
+	out[strcspn(out, "\r\n")] = '\0';
+}
+
+/* What a set-aside device database still says, though it cannot be read:
+ * that this handheld was in use, so the tutorial is not shown again; its
+ * language, which the launcher keeps beside it on the card too (src/i18n.h,
+ * LANG_FILE: "language", its code and a line end), so the start after is in
+ * it and not in English; and its Appearance, which the launcher notes beside
+ * it for the boot screen ("boot-theme", src/boottheme.h's line:
+ * zytheme=light|dark|auto first). The rest is back to the shipped defaults. */
+static void carry_over(db *d, const char *path)
+{
+	char code[32], line[160];
+	const char *t;
+	size_t i, n;
+
+	db_set_str(d, "tour.done", "1");
+	beside(path, "language", code, sizeof code);
+	n = strlen(code);
+	for (i = 0; i < n; i++)
+		if (!((code[i] >= 'a' && code[i] <= 'z') || (code[i] >= 'A' && code[i] <= 'Z') || code[i] == '-'))
+			break;
+	if (n >= 2 && i == n) db_set_str(d, "language", code);
+	beside(path, "boot-theme", line, sizeof line);
+	if (strncmp(line, "zytheme=", 8)) return;
+	t = line + 8;
+	n = strcspn(t, " ");
+	if ((n == 5 && !strncmp(t, "light", 5)) || (n == 4 && !strncmp(t, "dark", 4)) ||
+	    (n == 4 && !strncmp(t, "auto", 4)))
+		db_set_str(d, "appearance", n == 5 ? "light" : !strncmp(t, "dark", 4) ? "dark" : "auto");
+}
+
+static db *open_once(const char *path, db_scope scope, int *code);
+
 db *db_open(const char *path, db_scope scope)
+{
+	int code = SQLITE_OK;
+	db *d;
+
+	if (!path || !*path) return NULL;
+	if ((d = open_once(path, scope, &code)) || !unreadable(code)) return d;
+	set_aside(path);
+	fprintf(stderr, "settings: %s could not be read (%s); set aside as %s.broken, "
+	        "a new one made\n", path, sqlite3_errstr(code), path);
+	d = open_once(path, scope, &code);
+	if (d && scope == DB_DEVICE) carry_over(d, path);
+	return d;
+}
+
+static db *open_once(const char *path, db_scope scope, int *code)
 {
 	db *d;
 	const db_default *def;
 	size_t n, i;
 
-	if (!path || !*path) return NULL;
 	if (!(d = calloc(1, sizeof *d))) return NULL;
 
 	/* Serialized, whatever the library's default: the start's scan thread
@@ -174,14 +266,17 @@ db *db_open(const char *path, db_scope scope)
 	 * the settings. The device's SQLite is serialized already; macOS's is
 	 * multi-thread, where one connection on two threads at once corrupts
 	 * the heap, and a host shot crashed in db_get_str that way (2026-11-07). */
-	if (sqlite3_open_v2(path, &d->h, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE |
-	                    SQLITE_OPEN_FULLMUTEX, NULL) != SQLITE_OK) {
+	if ((*code = sqlite3_open_v2(path, &d->h, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE |
+	                             SQLITE_OPEN_FULLMUTEX, NULL)) != SQLITE_OK) {
 		if (d->h) sqlite3_close(d->h);
 		free(d);
 		return NULL;
 	}
-	if (!run(d, SCHEMA)) { db_close(d); return NULL; }
-	if (scope == DB_LIBRARY && !games_schema(d)) { db_close(d); return NULL; }
+	if (!run(d, SCHEMA) || (scope == DB_LIBRARY && !games_schema(d))) {
+		*code = sqlite3_errcode(d->h);
+		db_close(d);
+		return NULL;
+	}
 
 	/* The device database holds the RetroAchievements session token, so it
 	 * asks for 0600. Sidecars included: a -wal holding the same pages at 0644
@@ -749,14 +844,16 @@ bool db_write_boot_env(void)
 
 	if (!g_dev || !g_lib || !g_boot_env[0]) return false;
 
-	/* Shell-sourced, so every value is quoted and nothing is computed here.
+	/* Shell-read (launch.sh's boot_env, which reads these lines as they are
+	 * and no longer sources them), so every value is quoted and nothing is
+	 * computed here.
 	 * The launcher already resolved "the player's choice, else the shipped
 	 * default" by seeding, which is why launch.sh needs no fallback for
 	 * either. */
 	n = snprintf(body, sizeof body,
 	             "# Written by ZyperOS from the settings database. Derived, not\n"
 	             "# authoritative: delete it and the next settings change\n"
-	             "# rewrites it. Sourced by launch.sh before zyperos.elf runs.\n"
+	             "# rewrites it. Read by launch.sh before zyperos.elf runs.\n"
 	             "WIFI='%d'\n"
 	             "BLUETOOTH='%d'\n",
 	             db_get_int(g_dev, "wifi", 0) ? 1 : 0,
@@ -776,9 +873,31 @@ bool db_write_boot_env(void)
 		struct stat sb;
 		if (!strcmp(body, last) && stat(g_boot_env, &sb) == 0) return true;
 	}
+	/* And the first write of a start, which every start makes, compares with
+	 * the file there: the same, and it stays as it is. Each rewrite is a new
+	 * file and a rename in the folder that holds the two databases, and a
+	 * power cut soon after one (a start ends in a freeze, the player holds
+	 * POWER) can leave that folder for the next start's card check to repair
+	 * (2026-11-15). */
+	if (!last[0]) {
+		char was[sizeof body];
+		size_t got = 0;
+
+		if ((f = fopen(g_boot_env, "r"))) {
+			got = fread(was, 1, sizeof was - 1, f);
+			fclose(f);
+		}
+		was[got] = '\0';
+		if (got && !strcmp(was, body)) {
+			snprintf(last, sizeof last, "%s", body);
+			return true;
+		}
+	}
 
 	/* Written to a temporary and renamed, but NOT fsynced. rename is what
-	 * makes it atomic, so launch.sh can never source half a file; the fsync
+	 * makes it atomic on a filesystem that keeps order, so launch.sh never
+	 * reads half a file there; exFAT after a power cut can still give it
+	 * junk, which launch.sh's boot_env passes over. The fsync
 	 * would only add durability, and this file is derived - losing it to a
 	 * power cut costs one boot at the shipped defaults and the next settings
 	 * change rewrites it. That is the whole reason it is allowed to be a

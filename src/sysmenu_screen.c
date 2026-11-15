@@ -172,7 +172,7 @@ static void menu_choices(app *a, int sys, bool games)
 {
 	/* A system's menu and MENU each their own words: the shelf under MENU
 	 * builds a system's rows too, and must not write over MENU's */
-	static ch_pool PS[8], PM[9];
+	static ch_pool PS[9], PM[10];
 	ch_pool *P = games ? PS : PM;
 	int i, n, cur;
 
@@ -227,6 +227,11 @@ static void menu_choices(app *a, int sys, bool games)
 		g_sm_choice[SM_SHADER] = ch_make(&P[6], n, cur, false);
 		n = ch_strengths(&P[7], strength_clamp(v->strength), &cur);
 		g_sm_choice[SM_STRENGTH] = ch_make(&P[7], n, cur, false);
+		/* View: in the order Right steps it (view_turn) */
+		P[8].lab[0] = T(S_SYSMENU_VIEW_COVERS);
+		P[8].lab[1] = T(S_SYSMENU_VIEW_GRID);
+		P[8].lab[2] = T(S_SYSMENU_VIEW_LIST);
+		g_sm_choice[SM_VIEW] = ch_make(&P[8], 3, v->listed ? 2 : v->grid ? 1 : 0, false);
 		return;
 	}
 	/* MENU */
@@ -302,6 +307,9 @@ static void menu_choices(app *a, int sys, bool games)
 		}
 		g_pm_choice[PM_SAVER] = ch_make(&P[8], n, cur, false);
 	}
+	/* Home Screen: in the order Right steps it */
+	for (i = 0; i < HOME_LAYOUTS; i++) P[9].lab[i] = home_name((home_layout)i);
+	g_pm_choice[PM_HOME] = ch_make(&P[9], HOME_LAYOUTS, (int)a->home_layout, false);
 	g_pm_choice[PM_LANGUAGE] = (menu_choice){ .n = LANG_COUNT, .cur = (unsigned char)i18n_lang(), .own = true };
 }
 
@@ -372,6 +380,7 @@ int menu_build(app *a, screen_id screen, int sys,
 		u.strength   = strength_row_label(a, sys);
 		u.no_strength = !u.strength;
 		u.listed     = a->view[sys].listed;
+		u.grid       = a->view[sys].grid;
 		u.muse_books = u.muse && muse_books_shown();
 		u.muse_videos = u.muse && muse_kind_shown() == ML_VIDEOS;
 		u.muse_all   = u.muse && muse_kind_shown() == ML_ALL;
@@ -875,11 +884,13 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 		}
 		/* Display mode, saved the moment it changes because there is no
 		 * confirm step to hang the write off. */
-		/* View: the covers or a list, this shelf's (DESIGN.md 11.39). Left,
-		 * Right and A turn it over, as a choice of two does; the shelf under
-		 * the menu turns with it, on the game it was on. */
+		/* View: the covers, the grid or a list, this shelf's (DESIGN.md
+		 * 11.39, 11.47). Right steps it forward, Left back, round the
+		 * three; A opens the three as a list (menu_choices' SM_VIEW, the
+		 * runner's). The shelf under the menu turns with it, on the game it
+		 * was on. */
 		if ((d || key == IN_ACCEPT) && sel == SM_VIEW) {
-			view_turn(a, a->sys_cursor);
+			view_turn(a, a->sys_cursor, d < 0 ? -1 : 1);
 			return MENU_STAY;
 		}
 		if (d && sel == SM_DISPLAY) {
@@ -1038,7 +1049,9 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 	}
 	/* The home layout is independent of Appearance and the selected system. */
 	if (sel == PM_HOME && (d || key == IN_ACCEPT)) {
-		a->home_layout = a->home_layout == HOME_SPOTLIGHT ? HOME_GALLERY : HOME_SPOTLIGHT;
+		/* Spotlight, Gallery, Grid and round: Right on, Left back; A opens
+		 * the three as a list (menu_choices' PM_HOME, the runner's) */
+		a->home_layout = (home_layout)(((int)a->home_layout + (d < 0 ? HOME_LAYOUTS - 1 : 1)) % HOME_LAYOUTS);
 		db_set_str(db_dev(), "home", home_id(a->home_layout));
 		home_reset(&a->home, a->sys_cursor, a->sys.count, plat_now_ms());
 		redraw_now();

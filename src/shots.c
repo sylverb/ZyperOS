@@ -905,8 +905,10 @@ static const char *shot_corner_clear(app *a)
 		return why;
 	}
 	if (a->sys.count > 0 && a->screen == SCREEN_SYSTEMS) {
+		/* Grid's sprites start under the top bar's band (96): none meets it */
 		card = a->home_layout == HOME_GALLERY ? (SDL_Rect){320,128,384,384}
-		                                        : (SDL_Rect){536,112,448,448};
+		     : a->home_layout == HOME_GRID ? (SDL_Rect){0,0,0,0}
+		                                   : (SDL_Rect){536,112,448,448};
 		if (SDL_HasIntersection(&c, &card)) {
 			snprintf(why, sizeof why, "the corner (x %d..%d) meets the focused card "
 			         "(x %d..%d)", c.x, c.x + c.w, card.x, card.x + card.w);

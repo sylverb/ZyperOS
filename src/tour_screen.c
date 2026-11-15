@@ -119,7 +119,7 @@ static void tour_skip_message(app *a)
 void tour_settings(const app *a, int at[TOUR_CHOICES])
 {
 	at[0] = theme_index() == DS_DARK ? 1 : 0;
-	at[1] = a->home_layout == HOME_GALLERY ? 1 : 0;
+	at[1] = (int)a->home_layout;          /* Spotlight, Gallery, Grid: home_layout's order */
 	at[2] = uisound_setting();
 	at[3] = bgm_on() ? 0 : 1;
 }
@@ -140,7 +140,7 @@ static void tour_apply(app *a, int c, int v, bool save)
 		}
 		if (theme_index() != was) theme_changed(a);
 	} else if (c == 1 && save) {
-		a->home_layout = v ? HOME_GALLERY : HOME_SPOTLIGHT;
+		a->home_layout = v == 2 ? HOME_GRID : v ? HOME_GALLERY : HOME_SPOTLIGHT;
 		db_set_str(db_dev(), "home", home_id(a->home_layout));
 		home_reset(&a->home, a->sys_cursor, a->sys.count, plat_now_ms());
 	} else if (c == 2) {

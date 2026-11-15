@@ -31,6 +31,10 @@ BIN = ROOT / "build-native" / "zyperos"
 OUT = ROOT / "res" / "tour"
 WORK = ROOT / "build-native" / "tour-previews"
 STAND_INS = ("Game Boy", "NES", "SNES", "Game Boy Color", "Neo Geo Pocket Color")
+# Grid's preview shows a library of a grid's worth, so it reads as a grid:
+# twelve systems, two rows (DESIGN.md 11.1)
+STAND_INS_GRID = STAND_INS + ("Genesis", "PlayStation", "Game Boy Advance", "Nintendo 64",
+                              "Master System", "Game Gear", "Atari 2600")
 FOCUS = "SNES"
 STATUS = "10:08 24h wifi=3 batt=82"
 SIZE = (380, 285)
@@ -39,7 +43,7 @@ RADIUS = 14        # DS_RADIUS_ROW, in the preview's own units
 TOLERANCE = 2.0
 
 
-def card(base):
+def card(base, stand_ins=STAND_INS):
     if base.exists():
         shutil.rmtree(base)
     for d in ("root", "Roms", "userdata", "shared"):
@@ -47,13 +51,13 @@ def card(base):
     rows = []
     for line in (ROOT / "config" / "systems.cfg").read_text().splitlines():
         f = line.split("|")
-        if line.startswith("sys|") and f[1] in STAND_INS:
+        if line.startswith("sys|") and f[1] in stand_ins:
             rows.append(line)
             folder = base / "Roms" / f[2]
             folder.mkdir(parents=True, exist_ok=True)
             (folder / ("Example." + f[7].split(",")[0])).touch()
-    if len(rows) != len(STAND_INS):
-        raise SystemExit("tour-previews: systems.cfg lacks one of " + ", ".join(STAND_INS))
+    if len(rows) != len(stand_ins):
+        raise SystemExit("tour-previews: systems.cfg lacks one of " + ", ".join(stand_ins))
     (base / "root" / "systems.cfg").write_text("\n".join(rows) + "\n")
     (base / "root" / "system-icons").symlink_to(ROOT / "res" / "system-icons", target_is_directory=True)
     return os.environ | {
@@ -74,11 +78,14 @@ def previews(into):
     """Shoot the four and cut them to the step's size, into `into`."""
     env = card(WORK / "card")
     run(env, "--set", "startup_system=" + FOCUS)
+    grid_env = card(WORK / "card-grid", STAND_INS_GRID)
+    run(grid_env, "--set", "startup_system=" + FOCUS)
     into.mkdir(parents=True, exist_ok=True)
     mask = Image.new("L", SIZE, 0)
     ImageDraw.Draw(mask).rounded_rectangle((0, 0, SIZE[0] - 1, SIZE[1] - 1), RADIUS, fill=255)
     made = []
-    for layout in ("spotlight", "gallery"):
+    for layout in ("spotlight", "gallery", "grid"):
+        env = grid_env if layout == "grid" else env
         for theme in ("light", "dark"):
             full = WORK / ("full-%s-%s.png" % (layout, theme))
             run(env, "--shot", str(full), "--screen", "systems", "--status", STATUS,

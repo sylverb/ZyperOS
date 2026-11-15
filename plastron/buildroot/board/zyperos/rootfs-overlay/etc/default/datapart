@@ -1,2 +1,8 @@
 # The data partition's label, as a Mac or PC shows it (see /etc/init.d/datapart)
 DATA_LABEL=ZYPEROS
+# The CPU's ceiling while the card is checked after a power-off that left it
+# dirty, in kHz, as for ZyperOS's first copy (/etc/default/zyperos says why).
+# Only on a device with cpufreq; QEMU's has none and goes on without.
+CHECK_CPU_MAX=1008000
+# The check's report beside ZyperOS's own logs, which Download logs packs
+CHECK_LOG=.userdata/pixel2/logs/card-check.txt

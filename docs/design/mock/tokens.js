@@ -127,9 +127,9 @@ window.ZYPER_TOKENS = {
     "page-sub-y": 208,
     "page-sub-mark": 32,
     "page-body-y": 256,
-    "page-news-y": 592,
-    "page-news2-y": 640,
-    "page-line-y": 648,
+    "page-news-drop": 56,
+    "page-news-step": 48,
+    "page-line-over": 40,
     "page-line-gap": 48,
     "page-line-gap-tight": 24,
     "foot-y": 720,
@@ -179,7 +179,12 @@ window.ZYPER_TOKENS = {
     "line-menu": 56,
     "line-meta": 40,
     "line-support": 36,
-    "line-chrome": 32
+    "line-chrome": 32,
+    "grid-gap": 24,
+    "grid-band-gap": 24,
+    "focus-ring": 4,
+    "focus-gap": 4,
+    "radius-cell": 14
   },
   "motion": {
     "press": {

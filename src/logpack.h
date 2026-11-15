@@ -7,8 +7,11 @@
 
 /* The logs, packed to send to whoever is helping: every boot's zyperos.log,
  * usb.log (the USB port's last plugs, src/usblog.h), wifi.log and
- * wifi.log.1 (the Wi-Fi supplicant's joins and drops, on the Pixel 2), an
- * about.txt the caller writes, gzipped into one tar by the device's own tar.
+ * wifi.log.1 (the Wi-Fi supplicant's joins and drops, on the Pixel 2),
+ * card-check.txt (what the card check after a dirty power-off found, from
+ * plastron's datapart), crash-*.txt (a panic's or a reset's report, from
+ * plastron's crashlog), an about.txt the caller writes, gzipped into one tar
+ * by the device's own tar.
  * Over The Hare's Download logs button is the one caller.
  *
  * MASKED ON THE WAY OUT, never on the card. A log names the Wi-Fi network,

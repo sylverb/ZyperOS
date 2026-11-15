@@ -35,9 +35,11 @@ typedef enum { DB_DEVICE, DB_LIBRARY } db_scope;
 
 /* Opens, creates the schema if absent, and seeds any key the compiled-in
  * defaults for this scope declare and the file does not already hold. A
- * deleted or unreadable database therefore comes back as a fresh one with
- * shipped defaults rather than as a failure - there is no .db in the payload
- * to drift from this code. NULL if it cannot be opened. */
+ * deleted database therefore comes back as a fresh one with shipped defaults
+ * rather than as a failure - there is no .db in the payload to drift from
+ * this code - and so does one SQLite cannot read (not a database, or damaged
+ * in its header or schema), which is set aside as PATH.broken first. NULL if
+ * it cannot be opened. */
 db *db_open(const char *path, db_scope scope);
 void db_close(db *d);
 

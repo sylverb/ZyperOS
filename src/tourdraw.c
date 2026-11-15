@@ -1406,6 +1406,12 @@ static void lang_step(SDL_Renderer *r, const tour *t, uint32_t now, const tour_h
 #define CH_TILE     180.0f
 #define CH_TILE_GAP 32.0f
 #define CH_TILE_Y   130.0f
+/* Three previews (Home Screen: Spotlight, Gallery, Grid): 4:3 as the two are,
+ * 32 apart, on the two's middle line */
+#define CH3_W       272.0f
+#define CH3_H       204.0f
+#define CH3_GAP     32.0f
+#define CH3_Y       (CH_Y + (CH_H - CH3_H) / 2.0f)
 /* A name's middle under its choice's bottom edge, and its pill */
 #define CH_NAME_DY  48.0f
 #define CH_PILL_H   52.0f
@@ -1420,6 +1426,9 @@ typedef struct { float x, y, w, h, rad; } ch_box;
 
 static ch_box choice_box(int n, float i)
 {
+	if (n == 3)
+		return (ch_box){ (SCR_W - (3 * CH3_W + 2 * CH3_GAP)) / 2.0f + i * (CH3_W + CH3_GAP),
+		                 CH3_Y, CH3_W, CH3_H, DS_RADIUS_ROW };
 	if (n > 2) {
 		const float x0 = (SCR_W - (n * CH_TILE + (n - 1) * CH_TILE_GAP)) / 2.0f;
 
@@ -1432,12 +1441,12 @@ static ch_box choice_box(int n, float i)
 
 /* The home screen previews, res/tour/home-LAYOUT-THEME.png: loaded the first
  * time one is drawn and kept until tour_draw_free. [layout][theme]. */
-static SDL_Texture *prev_tex[2][DS_THEMES];
-static bool prev_tried[2][DS_THEMES];
+static SDL_Texture *prev_tex[3][DS_THEMES];
+static bool prev_tried[3][DS_THEMES];
 
 static SDL_Texture *preview(SDL_Renderer *r, const tour_hooks *hk, int layout, int th)
 {
-	static const char *const LAYOUT[2] = { "spotlight", "gallery" };
+	static const char *const LAYOUT[3] = { "spotlight", "gallery", "grid" };
 	char path[1024];
 	SDL_Surface *s;
 
@@ -1763,7 +1772,7 @@ void tour_draw_free(void)
 	}
 	tile_theme = -1;
 	tile_failed = false;
-	for (int l = 0; l < 2; l++)
+	for (int l = 0; l < 3; l++)
 		for (int k = 0; k < DS_THEMES; k++) {
 			if (prev_tex[l][k]) SDL_DestroyTexture(prev_tex[l][k]);
 			prev_tex[l][k] = NULL;
