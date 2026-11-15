@@ -540,8 +540,10 @@ def main():
             page.js("RESUME.ask = 60000")
             check(cut('Stopped.bin'), 'waiting for the handheld again')
             check((nes / 'Stopped.bin.part').is_file(), 'a part kept')
-            server.say('back')
+            # Stopped while the handheld is still away, so nothing can go on
+            # first; its DELETE waits for it to come back
             page.js("document.getElementById('queuestop').click()")
+            server.say('back')
             check(page.until(f"{head} === '0 sent, 1 not sent'", 5) and page.js(f"{row} === 'not sent'"),
                   'it stopped, and the file stayed here: ' + str(page.js(f"[{head}, {row}]")))
             check(page.until("document.getElementById('queueacts').hidden", 2), 'no button is left')
