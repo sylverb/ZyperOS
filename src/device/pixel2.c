@@ -1674,8 +1674,11 @@ void plat_side_lights_say(const char *line) { side_lights_say_to(SIDE_LIGHTS_FIF
  * when the game ends. 194 MHz saved only 8 mW more than 328 on an idle shelf,
  * and a switch takes about 1.5 ms (2026-11-04).
  *
- * Never slowed on a card with the file steady-memory in its .userdata/pixel2
- * (Diatom's port/pixel2.c reads the same file for a game's ceilings). Each
+ * Never slowed on a card with the file steady-memory in its .userdata/pixel2,
+ * or with steady-memory.txt on its boot partition, PX2BOOT, which a player
+ * can make from any computer before the first start (plastron's zyperos.init
+ * turns it into /run/zyperos-steady-memory at each start). Diatom's
+ * port/pixel2.c reads the same two for a game's ceilings. Each
  * switch stops the DDR while the display reads it, at any moment of its
  * scan: plastron's DMC driver asks BL31 for no wait for the vertical blank,
  * as Rockchip's own kernel does. One Pixel 2 froze in the menus, where the
@@ -1689,7 +1692,8 @@ void plat_ram_idle(bool idle)
 
 	snprintf(steady, sizeof steady, "%s/steady-memory", P_USERDATA);
 	write_file("/sys/class/devfreq/dmc/max_freq",
-	           idle && access(steady, F_OK) != 0 ? "328000000" : "0");
+	           idle && access(steady, F_OK) != 0 &&
+	           access("/run/zyperos-steady-memory", F_OK) != 0 ? "328000000" : "0");
 }
 
 /* ---- the chip's temperature ---- */

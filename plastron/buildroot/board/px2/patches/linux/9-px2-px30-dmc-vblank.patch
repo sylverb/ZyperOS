@@ -1,0 +1,52 @@
+From: plastron
+Subject: [PATCH] devfreq: px30_dmc: switch the DDR in the vertical blank
+
+Ask Rockchip's BL31 to switch the DDR rate in the display's vertical
+blank, as Rockchip's own kernel does for every switch: the panel's kind
+(SCREEN_MIPI, a DSI panel) and both wait flags in the page shared with
+BL31. BL31 v1.37 (rkbin rk3326_bl31_v1.37) then waits for the VOP's line
+flag 0, which the VOP driver puts at the end of the active area, unless
+the display is off ("check_vop_en or pd_vo power_down break"), answers
+PENDING when it has to wait and finishes from FIQ, which this driver
+already handles with the complete interrupt.
+
+The driver left them at 0 ("switching while the panel scans showed no
+glitches"), so each switch stopped the DDR at any moment of the scan,
+while the display read it. On ZyperOS the DDR switches every few seconds
+in the menus (the launcher's idle ceiling) and around the in-game menu,
+and one GKD Pixel 2 froze exactly there (2026-11-15).
+---
+diff --git a/drivers/devfreq/px30_dmc.c b/drivers/devfreq/px30_dmc.c
+index e7e258c..2e13823 100644
+--- a/drivers/devfreq/px30_dmc.c
++++ b/drivers/devfreq/px30_dmc.c
+@@ -29,6 +29,9 @@
+ #define PX30_SHARE_PAGE_TYPE_DDR	2
+ #define PX30_DRAM_GET_VERSION		0x08
+ #define PX30_SET_RATE_PENDING		-6
++/* The panel's kind, for BL31's wait for the vertical blank: a DSI panel,
++ * Rockchip's SCREEN_MIPI (include/soc/rockchip/rockchip_dmc.h) */
++#define PX30_SCREEN_MIPI		7
+ 
+ /* Start of the request page shared with BL31 */
+ struct px30_dmc_params {
+@@ -225,6 +228,19 @@ static int px30_dmc_set_rate(struct px30_dmc *dmc, unsigned long rate)
+ {
+ 	struct arm_smccc_res res;
+ 
++	/*
++	 * The switch in the display's vertical blank, as Rockchip's own kernel
++	 * asks for every switch (rockchip_dmc.c sets the panel's kind and both
++	 * wait flags each time): BL31 waits for the VOP's line flag 0, which
++	 * the VOP driver puts at the end of the active area, unless the
++	 * display is off, and answers PENDING when it has to wait, then
++	 * switches from FIQ and raises the complete interrupt (below). Left at
++	 * 0, the DDR stopped for the switch at any moment of the scan, while
++	 * the display read it.
++	 */
++	writel(PX30_SCREEN_MIPI, &dmc->params->lcdc_type);
++	writel(1, &dmc->params->wait_flag0);
++	writel(1, &dmc->params->wait_flag1);
+ 	writel(rate, &dmc->params->hz);
+ 	res = px30_dmc_sip(PX30_SHARE_PAGE_TYPE_DDR,
+ 			   ROCKCHIP_SIP_CONFIG_DRAM_ROUND_RATE);

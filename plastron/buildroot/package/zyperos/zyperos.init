@@ -221,11 +221,41 @@ start() {
 	if [ -f "$LAUNCH" ]; then
 		sh "$LAUNCH" < /dev/null > /dev/null 2>&1 &
 		echo $! > $PID
+		steady_memory < /dev/null > /dev/null 2>&1 &
 	else
 		echo "zyperos: no $LAUNCH; the splash stays and power works" > /dev/kmsg
 		[ -x /usr/sbin/powerkey ] &&
 			/usr/sbin/powerkey < /dev/null > /dev/null 2>&1 &
 	fi
+}
+
+# steady-memory.txt on the boot partition, PX2BOOT, which any computer shows
+# as a drive of its own, so a player can put it there before ZyperOS's first
+# start: then /run/zyperos-steady-memory for this start, which ZyperOS's
+# launcher and Diatom read beside the card's own .userdata/pixel2/steady-memory
+# (ZyperOS's src/device/pixel2.c, plat_ram_idle, says what it does). In the
+# background, after ZyperOS is on its way, read-only, mounted and let go at
+# once: the start waits for none of it. The Pixel 2's: a card whose first
+# partition is not PX2BOOT has nothing to say.
+steady_memory() {
+	# CARD here is datapart's, the card's device (QEMU's /dev/vda), not
+	# this script's mount point: local, and in a job of its own anyway
+	local card=/dev/mmcblk0 part mnt=/run/zyperos-px2boot CARD=
+	[ -r /etc/default/datapart ] && . /etc/default/datapart
+	[ -n "$CARD" ] && card=$CARD
+	case $card in
+	*[0-9]) part=${card}p1 ;;
+	*) part=${card}1 ;;
+	esac
+	[ -b "$part" ] || return 0
+	mkdir -p $mnt
+	mount -t vfat -o ro,nosuid,nodev,noexec "$part" $mnt 2> /dev/null || { rmdir $mnt; return 0; }
+	if [ -e $mnt/steady-memory.txt ]; then
+		: > /run/zyperos-steady-memory
+		echo "zyperos: steady-memory.txt on PX2BOOT: the DDR stays at its full rate" > /dev/kmsg
+	fi
+	umount $mnt
+	rmdir $mnt
 }
 
 # At shutdown, ahead of init's TERM to everything: launch.sh first, or it
