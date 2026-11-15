@@ -187,6 +187,15 @@ start() {
 	if [ -f /usr/lib/zyperos/update-apply.sh ] && update_pending; then
 		sh /usr/lib/zyperos/update-apply.sh "$CARD"
 	fi
+	# launch.sh there, but not the launcher or its systems.cfg: the card check
+	# after a power-off (datapart) took a damaged file away, or a copy by hand
+	# was cut short. ZyperOS goes on again as on a card without it, below:
+	# only its own files are replaced. Two stats on every start.
+	if [ -f "$LAUNCH" ] && [ -f "$SEED/ZyperOS/zyperos.elf" ] &&
+	   { [ ! -f "$CARD/ZyperOS/zyperos.elf" ] || [ ! -f "$CARD/ZyperOS/systems.cfg" ]; }; then
+		echo "zyperos: ZyperOS's own files are missing from the card; copying it again" > /dev/kmsg
+		rm -f "$LAUNCH"
+	fi
 	if [ ! -f "$LAUNCH" ] && [ -f "$SEED/ZyperOS/launch.sh" ]; then
 		echo "zyperos: no ZyperOS on the card; copying it from the image" > /dev/kmsg
 		setup_begin setup

@@ -277,19 +277,50 @@ static void boot_env_says_what_the_shell_needs(void)
 	ck(seen_bt,     "bluetooth is the stored value, from the device scope");
 
 	/* The format is a contract with a reader written in another language:
-	 * launch.sh sources the file. A quoting change here would break the boot,
-	 * so it is exercised rather than eyeballed. */
+	 * launch.sh's boot_env reads it (each device's, sd/DEVICE/launch.sh). A
+	 * quoting change here would break the boot, so it is exercised rather
+	 * than eyeballed: the function as launch.sh has it, run by sh. And what a
+	 * power cut can leave in the file instead (2026-11-15) - half a line,
+	 * another file's old bytes, zeros - reads as off, and the script goes
+	 * on: sourced, a syntax error in it ended launch.sh before ZyperOS. */
 	{
-		char cmd[512];
+		static const char *const scripts[] = { "sd/pixel2/launch.sh", "sd/brick/launch.sh" };
+		static const char *const junk[] = {
+			"WIFI='1\nBLUET", "\x01\x02)(\xff'\"`\n\x7f", "\0\0\0\0\0\0\0\0",
+		};
+		char cmd[1024], bad[sizeof test_dir + sizeof "/bad.env"];
 		FILE *r;
-		char got[128] = { 0 };
+		char got[128];
+		size_t i, j;
 
-		snprintf(cmd, sizeof cmd,
-		         "sh -c '. %s; printf \"%%s %%s\" \"$WIFI\" \"$BLUETOOTH\"'",
-		         path);
-		r = popen(cmd, "r");
-		if (r) { if (!fgets(got, sizeof got, r)) got[0] = '\0'; pclose(r); }
-		ck(!strcmp(got, "1 1"), "a POSIX shell can source it");
+		snprintf(bad, sizeof bad, "%s/bad.env", test_dir);
+		for (i = 0; i < sizeof scripts / sizeof *scripts; i++) {
+			snprintf(cmd, sizeof cmd,
+			         "sh -c 'eval \"$(sed -n \"/^boot_env()/,/^}$/p\" %s)\"; BOOT_ENV=%s; "
+			         "boot_env; printf \"%%s %%s\" \"$WIFI\" \"$BLUETOOTH\"'",
+			         scripts[i], path);
+			got[0] = '\0';
+			r = popen(cmd, "r");
+			if (r) { if (!fgets(got, sizeof got, r)) got[0] = '\0'; pclose(r); }
+			printf("  %s: \"%s\"\n", scripts[i], got);
+			ck(!strcmp(got, "1 1"), "launch.sh's boot_env reads it");
+
+			for (j = 0; j < sizeof junk / sizeof *junk; j++) {
+				FILE *b = fopen(bad, "wb");
+				size_t len = j == 2 ? 8 : strlen(junk[j]);
+
+				if (b) { fwrite(junk[j], 1, len, b); fclose(b); }
+				snprintf(cmd, sizeof cmd,
+				         "sh -c 'eval \"$(sed -n \"/^boot_env()/,/^}$/p\" %s)\"; BOOT_ENV=%s; "
+				         "boot_env; printf \"%%s %%s after\" \"$WIFI\" \"$BLUETOOTH\"' 2>/dev/null",
+				         scripts[i], bad);
+				got[0] = '\0';
+				r = popen(cmd, "r");
+				if (r) { if (!fgets(got, sizeof got, r)) got[0] = '\0'; pclose(r); }
+				ck(!strcmp(got, "0 0 after"), "a broken boot.env reads as off, and the script goes on");
+			}
+		}
+		unlink(bad);
 	}
 
 	/* Derived, not authoritative: losing it must cost nothing. This is also
@@ -422,6 +453,81 @@ static void shader_strength(void)
 /* A settings failure must not take the launcher down: launch.sh restarts it,
  * and five exits inside five seconds each makes it call poweroff. So every
  * getter has to survive there being no database at all. */
+/* What a power cut can leave of a database: a file SQLite cannot read. It is
+ * set aside as NAME.broken and a new one comes in its place, so what is set
+ * from then on is kept (2026-11-15: a broken one stayed, and every start was
+ * the shipped defaults and the tutorial again). */
+static void a_broken_database_is_set_aside(void)
+{
+	static const char junk[] = "this is not a database, it is what a power cut left";
+	char broken[sizeof DEV + sizeof ".broken"], wal[sizeof DEV + sizeof "-wal"];
+	char page[4096];
+	db *d;
+	FILE *f;
+	int pass;
+
+	printf("a database a power cut broke is set aside, and a new one made:\n");
+	snprintf(broken, sizeof broken, "%s.broken", DEV);
+	snprintf(wal, sizeof wal, "%s-wal", DEV);
+	for (pass = 0; pass < 2; pass++) {
+		scrub();
+		unlink(broken);
+		f = fopen(DEV, "wb");
+		if (!f) { ck(0, "the test writes a broken file"); return; }
+		if (pass == 0) {
+			fwrite(junk, 1, sizeof junk, f);
+		} else {
+			/* a whole page of zeros: the size of a database, not its header */
+			memset(page, 0, sizeof page);
+			fwrite(page, 1, sizeof page, f);
+		}
+		fclose(f);
+		f = fopen(wal, "wb");
+		if (f) { fputs("junk", f); fclose(f); }
+
+		/* The language the launcher keeps beside it (src/i18n.h, LANG_FILE) */
+		{
+			char lang[sizeof test_dir + sizeof "/language"];
+			FILE *l;
+
+			snprintf(lang, sizeof lang, "%s/language", test_dir);
+			if ((l = fopen(lang, "w"))) { fputs(pass ? "x\n" : "pt-BR\n", l); fclose(l); }
+		}
+
+		d = db_open(DEV, DB_DEVICE);
+		ck(d != NULL, pass ? "a page of zeros opens as a new database" : "junk opens as a new database");
+		ck(!access(broken, F_OK), "the broken file is kept beside it, as .broken");
+		ck(db_get_int(d, "volume", -1) == 8, "the new one has the shipped defaults");
+		ck(db_get_int(d, "tour.done", 0) == 1, "but not the tutorial: this handheld was in use");
+		db_get_str(d, "language", page, sizeof page, "");
+		ck(!strcmp(page, pass ? "en" : "pt-BR"),
+		   pass ? "a language file that says no code leaves English" : "and the language kept on the card beside it");
+		ck(db_set_int(d, "volume", 11), "and takes a setting");
+		db_close(d);
+		d = db_open(DEV, DB_DEVICE);
+		ck(db_get_int(d, "volume", -1) == 11, "which is still there at the next open");
+		db_close(d);
+	}
+	unlink(broken);
+	snprintf(broken, sizeof broken, "%s.broken-wal", DEV);
+	unlink(broken);
+	snprintf(broken, sizeof broken, "%s/language", test_dir);
+	unlink(broken);
+
+	/* A library database too: its own scope, its own schema */
+	scrub();
+	f = fopen(LIB, "wb");
+	if (f) { fwrite(junk, 1, sizeof junk, f); fclose(f); }
+	d = db_open(LIB, DB_LIBRARY);
+	ck(d != NULL, "a broken library database opens as a new one");
+	ck(d && db_get_str(d, "timezone", page, sizeof page, NULL), "with its own defaults");
+	db_close(d);
+	snprintf(broken, sizeof broken, "%s.broken", LIB);
+	ck(!access(broken, F_OK), "and the broken one is kept as .broken");
+	unlink(broken);
+	scrub();
+}
+
 static void no_database_is_survivable(void)
 {
 	char buf[32];
@@ -567,6 +673,7 @@ int main(void)
 	a_default_never_beats_a_choice();
 	round_trips();
 	a_lost_database_self_heals();
+	a_broken_database_is_set_aside();
 	the_games_table();
 	the_scopes_stay_apart();
 	boot_env_says_what_the_shell_needs();

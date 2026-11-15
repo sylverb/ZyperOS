@@ -129,9 +129,27 @@ LOG=$LOGS_PATH/zyperos.log
 
 # The settings this script needs before ZyperOS runs, which ZyperOS writes out
 # for it, as on the Brick. The default is for a fresh card's first boot.
-WIFI=0
 BOOT_ENV=$USERDATA_PATH/boot.env
-[ -f "$BOOT_ENV" ] && . "$BOOT_ENV"
+# boot.env read line by line, never sourced, and only the two lines ZyperOS
+# writes (src/db.c, db_write_boot_env), with read and case, builtins, so no
+# fork. A power cut can leave the file half written or full of another file's
+# old bytes, and a syntax error in a sourced file ends the whole script: then
+# nothing started ZyperOS, the boot animation stayed and POWER did nothing,
+# boot after boot, as ZyperOS is what writes the file again (2026-11-15, a
+# Pixel 2 after a forced power-off). Anything else in it is passed over.
+boot_env() {
+	local line
+	WIFI=0
+	BLUETOOTH=0
+	[ -f "$BOOT_ENV" ] || return 0
+	while IFS= read -r line || [ -n "$line" ]; do
+		case $line in
+		"WIFI='1'" | WIFI=1) WIFI=1 ;;
+		"BLUETOOTH='1'" | BLUETOOTH=1) BLUETOOTH=1 ;;
+		esac
+	done < "$BOOT_ENV"
+}
+boot_env
 
 # Wi-Fi on, as the Brick does at boot, when it was left on and an adapter is
 # in (wifi_follow, below): the supplicant rejoins a saved network by itself,
@@ -470,8 +488,7 @@ wifi_follow() {
 		if [ -d /sys/class/net/wlan0 ]; then
 			if [ -z "$had" ]; then
 				had=1
-				WIFI=0
-				[ -f "$BOOT_ENV" ] && . "$BOOT_ENV"
+				boot_env
 				[ "$WIFI" = 1 ] && wifi_on &
 			fi
 		elif [ -n "$had" ]; then
@@ -500,6 +517,28 @@ wifi_follow &
 
 # The launcher, restarted if it exits on its own; five fast failures in a row
 # and the device powers off rather than looping on a broken build.
+# Five fast failures in a row: something ZyperOS reads at its start is broken,
+# often by a power cut, and then by the card check after it (plastron's
+# datapart), which takes a damaged file away. Before the power-off, launch.sh
+# is set aside, so the next start copies ZyperOS again from the system image,
+# as a new card's first start does (plastron's zyperos.init copies it
+# whenever launch.sh is missing): ZyperOS's own files only, never the games,
+# saves or settings. Once: a ZyperOS that still fails after that copy is left
+# as it is, and the handheld goes off as before, the log saying so. A start
+# that lasts, or a power-off asked for, takes the marker away.
+START_FAILED=$USERDATA_PATH/start-failed
+start_failed() {
+	echo "launch: ZyperOS stopped $FAILS times in a row within 5 s of starting" >> "$LOG"
+	if [ -f "$START_FAILED" ]; then
+		echo "launch: it did after a fresh copy too; left as it is" >> "$LOG"
+		return
+	fi
+	[ -f /usr/share/zyperos/card/ZyperOS/launch.sh ] || return
+	echo "launch: the next start copies ZyperOS onto the card again" >> "$LOG"
+	date > "$START_FAILED"
+	mv -f "$ZYPEROS_DIR/launch.sh" "$ZYPEROS_DIR/launch.sh.failed"
+}
+
 cd "$ZYPEROS_DIR"
 FAILS=0
 while : ; do
@@ -558,6 +597,7 @@ while : ; do
 		[ $FAILS -ge 5 ] && break
 	else
 		FAILS=0
+		[ -f "$START_FAILED" ] && rm -f "$START_FAILED"
 	fi
 	sleep 1
 	# Bring the emulator back if it died, before the launcher restarts. Here
@@ -566,6 +606,7 @@ while : ; do
 	# shell, and start a second Diatom. Measured 2026-10-01, two of them.
 	start_resident
 done
+if [ $FAILS -ge 5 ]; then start_failed; else rm -f "$START_FAILED"; fi
 if [ -f /tmp/zyperos_reboot ]; then
 	sync
 	echo "restart for System Update" >> "$LOG"

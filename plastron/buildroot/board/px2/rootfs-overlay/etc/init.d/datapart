@@ -10,11 +10,16 @@
 #
 # The label comes from /etc/default/datapart (DATA_LABEL=...), if there is one,
 # and so does the card, where it isn't the SD card (CARD=/dev/vda: QEMU's
-# virtio disk, plastron's qemu_defconfig).
+# virtio disk, plastron's qemu_defconfig), and the two settings of the repair
+# below: CHECK_CPU_MAX and CHECK_LOG.
 
 CARD=/dev/mmcblk0
 MOUNT=/mnt/SDCARD
 DATA_LABEL=PIXEL2
+# The CPU's ceiling while the repair runs, in kHz; none by default
+CHECK_CPU_MAX=
+# Where on the mounted partition the repair's report goes
+CHECK_LOG=.plastron/card-check.txt
 [ -r /etc/default/datapart ] && . /etc/default/datapart
 # A disk whose name ends in a digit numbers its partitions after a p
 # (mmcblk0p3), any other straight after its name (vda3)
@@ -61,12 +66,49 @@ create() {
 # card needed fsck - seen 2026-10-02 after shutdowns that unmounted fine. The
 # flag is bit 1 of VolumeFlags, byte 106 of the boot sector: one od, so a
 # clean boot pays for reading one byte.
+#
+# The CPU under CHECK_CPU_MAX while it runs, where the image sets one (the
+# GKD Pixel 2's, at 1008 MHz, as for ZyperOS's first copy: its
+# /etc/default/zyperos says why). This runs before rcS, on the kernel's
+# performance governor, so it would otherwise run at the CPU's top clock,
+# with the card and the DDR at their busiest: the copy that hung one Pixel 2
+# at that clock was the same work (2026-11-13), and a freeze here leaves the
+# card dirty again for the next boot to check (2026-11-15). Put back after.
+#
+# What fsck.exfat said and did goes into CHECK_LOG once the partition is
+# mounted (report, below): it is what tells which file a repair took away.
 repair() {
+	local cpu_max=/sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq cpu_was= t0 t1 rest rc
 	flags=$(od -An -tu1 -j106 -N1 $DATA)
 	[ $(( flags & 2 )) -eq 0 ] && return
 	echo "datapart: $DATA was not unmounted cleanly; checking it" > /dev/kmsg
-	fsck.exfat -p $DATA > /dev/null 2>&1
-	echo "datapart: fsck.exfat finished with status $?" > /dev/kmsg
+	if [ -n "$CHECK_CPU_MAX" ] && [ -w $cpu_max ] && read -r cpu_was < $cpu_max; then
+		echo "$CHECK_CPU_MAX" > $cpu_max
+	fi
+	read -r t0 rest < /proc/uptime
+	fsck.exfat -p $DATA > /tmp/datapart-check 2>&1
+	rc=$?
+	[ -n "$cpu_was" ] && echo "$cpu_was" > $cpu_max
+	read -r t1 rest < /proc/uptime
+	echo "datapart: fsck.exfat finished with status $rc" > /dev/kmsg
+	echo "status $rc, from ${t0}s to ${t1}s after the kernel started" >> /tmp/datapart-check
+}
+
+# The repair's report on the partition, where a computer or the logs a
+# player sends read it: its date, then what fsck.exfat printed, after the
+# reports before it, of which the file keeps its last 400 lines. Nothing on
+# a clean boot. A status above 0 means it found something: 1 that it fixed
+# it, 4 that some was left as it was.
+report() {
+	local log=$MOUNT/$CHECK_LOG
+	[ -f /tmp/datapart-check ] || return 0
+	mkdir -p "${log%/*}"
+	{
+		[ -f "$log" ] && tail -n 400 "$log"
+		echo "--- $(date '+%Y-%m-%d %H:%M:%S') the card was not shut down cleanly; fsck.exfat -p:"
+		cat /tmp/datapart-check
+	} > "$log.new" && mv "$log.new" "$log"
+	rm -f /tmp/datapart-check
 }
 
 start() {
@@ -99,6 +141,7 @@ start() {
 	fi
 	mkdir -p $MOUNT
 	mount -t exfat -o noatime $DATA $MOUNT || return 1
+	report
 	# The kernel's random numbers ready at once: last boot's seed from the
 	# card, and a fresh one written for the next. The read-only root can't
 	# keep it where Linux usually does, so it lives on the writable partition,
