@@ -2887,7 +2887,10 @@ asks it.
   the list keeps the whole rows that fit over it, laid out by rules (src/ds/flex.h):
   a page whose captions take two lines in a longer language shows a row
   fewer, the same while the cursor moves, and the sort key never meets them.
-  A row's text stands on the 64 margin, its fill 16 outside it.
+  A row's text stands on the 64 margin, its fill 16 outside it. A name too
+  long for its row ends in "..." as a menu row's does (`ui_fit_text`), its
+  room ending 24 before the size; on the focused row it rests so, then
+  slides to its end and back.
 
 **A system's page**: its name as the heading, its sprite at the left (x 56,
 y 92, 112 square) where System Update has Zyper, its size in **title** and its
