@@ -12,6 +12,9 @@ Every ZyperOS version is one release on GitHub, tagged `v<version>`, with:
 | `ZyperOS-Installer-<version>-Windows.exe` | ZyperOS Installer for Windows 10 and 11 |
 | `ZyperOS-Installer-<version>-amd64.deb` | ZyperOS Installer for Debian, Ubuntu and Mint |
 | `ZyperOS-Installer-<version>-x86_64.rpm` | ZyperOS Installer for Fedora |
+| `ZyperOS-Installer-<version>-macOS-update.tar.gz` and `.sig` | The macOS app again, for the installer's own update, with its signature |
+| `ZyperOS-Installer-<version>-Windows.exe.sig` | The Windows exe's signature, for the installer's own update |
+| `latest.json` | What the installer's own update reads (`releases/latest/download/latest.json`): the version, and each update file with its signature |
 | `SHA256SUMS` | The checksums of all of them |
 
 The installer has ZyperOS's version and downloads the newest published
@@ -48,9 +51,13 @@ image joins once the Mac that makes releases has the Brick's GPU files
    driver), raise `res/update/min-system` to this version first: devices with
    an older image are then told to use the installer.
 5. The tag starts **Release** on GitHub (`.github/workflows/release.yml`): it
-   builds the installer for macOS, Windows and Linux with its tests, adds the
-   four files to the draft, puts them in `SHA256SUMS`, and publishes the
-   release. A tag pushed with no draft waiting is refused.
+   builds the installer for macOS, Windows and Linux with its tests, signs
+   the macOS and Windows update files with the installer's updater key (the
+   `INSTALLER_UPDATER_KEY` secret; see `installer/README.md`), checks those
+   signatures against the key the installer carries, adds the files and
+   `latest.json` to the draft, puts them in `SHA256SUMS`, and publishes the
+   release. A tag pushed with no draft waiting is refused, and so is one
+   whose update files don't check out against that key.
 6. `tools/release.sh` waits for that, then posts the notes in the Discord's
    #releases (`tools/discord-release.py`, with Zyper's token from
    `~/.config/zyperos/discord-bot.token`): the first paragraph, What's new,

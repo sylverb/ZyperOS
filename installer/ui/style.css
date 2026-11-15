@@ -258,6 +258,23 @@ picture { display: contents; }
 	color: var(--accent-ink);
 }
 .chip + .ver { margin-left: 0; }
+/* The installer's own update (app.js): the accent as a fill once it is ready
+ * to restart into, as the primary action is; a line under the words while it
+ * downloads; warning's color when it didn't work */
+.chip { position: relative; overflow: hidden; }
+.chip:disabled { color: var(--text-soft); }
+.chip.ready { background: var(--accent); color: var(--on-accent); border-color: transparent; font-weight: 600; }
+.chip.failed { color: var(--warning); }
+.chip.loading::after {
+	content: "";
+	position: absolute;
+	left: 0;
+	bottom: 0;
+	height: 2px;
+	width: var(--part, 0%);
+	background: var(--accent-ink);
+	transition: width var(--quick) linear;
+}
 
 /* ---- the choices -------------------------------------------------------- */
 
