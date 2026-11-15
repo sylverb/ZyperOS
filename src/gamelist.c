@@ -326,7 +326,7 @@ uint32_t gl_draw(gl_motion *m, SDL_Renderer *r, const gl_info *in,
 		if (in->count > 0 && in->resumable && !in->install && !games)
 			foot[nf++] = (key_hint){ "Y", T(S_GAMES_FRESH) };
 		if (in->count > 0 && !games) foot[nf++] = (key_hint){ "X", T(S_GAMES_DETAILS) };
-		keyhints_draw(r, foot, nf, 64, 960, 720, KEYHINTS_SPREAD, true, 255);
+		keyhints_draw(r, foot, nf, 64, 960, DS_PAGE_FOOT_Y, KEYHINTS_SPREAD, true, 255);
 	}
 	SDL_SetRenderDrawColor(r, red, green, blue, alpha);
 	SDL_SetRenderDrawBlendMode(r, blend);

@@ -11,6 +11,7 @@
 #include "panel.h"
 #include "topbar.h"
 #include "ui.h"
+#include "ds/layout.h"   /* DS_PAGE_FOOT_Y */
 #include "uisound.h"
 #include "zyperdraw.h"
 
@@ -698,14 +699,14 @@ static void np_view_toggle(void)
  * does not fit its language's words goes on to a second one above it, never
  * cut (DESIGN.md 12). `kind`: 0 music, 1 a book, 2 a video in full screen, 3
  * a video with its controls. `count` is a video's folder, `cy` the last
- * row's middle (0 for the standard 720), `alpha` how much of it shows. */
+ * row's middle (0 for a page's foot, DS_PAGE_FOOT_Y), `alpha` how much of it shows. */
 static void np_hints(SDL_Renderer *r, bool playing, int kind, int count, int cy,
                      bool video, Uint8 alpha)
 {
 	key_hint h[7];
 	int n = 0;
 
-	if (!cy) cy = 720;
+	if (!cy) cy = DS_PAGE_FOOT_Y;
 	h[n].key = "A";  h[n++].label = playing ? T(S_MUSE_HINT_PAUSE) : T(S_MUSE_HINT_PLAY);
 	h[n].key = "B";  h[n++].label = T(S_CONTROLS_BACK);
 	if (video) {
