@@ -689,6 +689,14 @@ def all_systems_card(card):
 
 
 # Each language's own run of every shot, on its own cards
+# Screens whose words came within the margin of a key or a mark when the host
+# began to check it (src/ui.c's ui_fit_mark, 1.0.6), each to be fixed on its
+# own (DESIGN.md section 14): Storage's two-line caption under the sort key
+# (es, pt-BR, it, ja), and the video controls' wrapped keys under the times
+# (ja). Any other screen whose words meet a key or a mark fails.
+KNOWN_KEYS = {"storage-snaps", "storage-music-rest", "storage-system-last", "video-controls", "mp4-locked-video"}
+
+
 def run_language(code, shots, binary, keep, theme="light"):
     notes, failures, data, drawn = [], [], {}, set()
     with tempfile.TemporaryDirectory(prefix="zyperos-i18n-%s-" % code) as tmp:
@@ -766,6 +774,7 @@ def run_language(code, shots, binary, keep, theme="light"):
                     px, box, text = line[15:].split("|", 2)
                     kind, span, *beside = box.split(" ", 2)
                     what = {"screen": "past the screen's edge",
+                            "keys": "into a key or a more mark at x %s" % span,
                             "meets": "into the text beside it (x %s, \"%s\")" % (span, beside[0] if beside else ""),
                             "box": "past its box (x %s)" % span}[kind]
                     text = unescape(text)
@@ -854,6 +863,12 @@ def main():
     bad = 0
     for code in langs:
         notes, failures = results[code][:2]
+        # A screen whose words met a key or a mark before the check was there:
+        # said, not failed, until its own fix (DESIGN.md section 14)
+        known = [n for n in notes if " into a key or a more mark " in n and n.split(": ")[0].split("/")[-1] in KNOWN_KEYS]
+        for n in known:
+            print("known " + n)
+        notes = [n for n in notes if n not in known]
         for f in failures:
             print("FAIL " + f)
             bad += 1

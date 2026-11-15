@@ -4077,6 +4077,8 @@ says; MENU, the volume keys and POWER cannot be remapped.
 - [ ] A style or a mark is the caller's word, never read off a label or the
       first row's mark.
 - [ ] `make pixel-gate` lists only the frames it means to change.
+- [ ] No word comes within 3 units of a key or a more mark (`check-i18n-shots`
+      says where), in any language: a foot moved closer to a caption met it.
 - [ ] It works in both themes.
 - [ ] Every press on it does something visible and audible in the next frame.
 - [ ] Its motion starts from where things are, can be interrupted, and tells
@@ -4111,6 +4113,12 @@ when its change lands.
   other hold fills in **accent-ink**. The tutorial draws its bars and more
   marks in its own layer, at `ds_bar`'s and `ds_more`'s sizes.
 - The keyboard copies the menu panel's padding formula (`menu_pad`).
+- Words that come within 3 units of a key or a more mark, found when the host
+  began to check it (1.0.6): Storage's two-line caption under the sort key
+  (X with the order) in Spanish, Portuguese, Italian and Japanese, and the
+  video controls' keys, wrapped to two rows in Japanese, under the times.
+  `check-i18n-shots` lists the five screens as known (`KNOWN_KEYS`) and fails
+  on any other.
 - A heart is drawn three ways: filled (`draw_heart`, `src/heart.c`, the
   favorites' mark), as a stroke mark (`UI_GLYPH_HEART`, the Favorites tile),
   and as a distance field for a cover badge that only its check draws

@@ -900,8 +900,31 @@ static SDL_Rect fit_rect[FIT_RECTS];
 static int fit_n;
 static struct { SDL_Rect r; unsigned h; char text[32]; } fit_line[FIT_RECTS];
 static int fit_lines;
+/* The keys and the marks: every button glyph and more mark drawn, and every
+ * string's ink (its capitals' top to its baseline: a descender is one
+ * letter's, and taken across the whole string it met a key under the "an"
+ * of "Japan"), so that a string meeting a key or a mark
+ * is said, whichever is drawn first. A button's own letter is not a string
+ * that meets it (fit_quiet). */
+static SDL_Rect fit_mark[FIT_RECTS];
+static int fit_marks;
+static struct { SDL_Rect r; char text[32]; } fit_ink[FIT_RECTS];
+static int fit_inks, fit_quiet;
 
-void ui_fit_frame(void) { fit_n = 0; fit_lines = 0; }
+void ui_fit_frame(void) { fit_n = 0; fit_lines = 0; fit_marks = 0; fit_inks = 0; }
+
+/* Do `a` and `b` come within `m` of each other? How far, top to bottom */
+static bool fit_meet(const SDL_Rect *a, const SDL_Rect *b, int m, int *px)
+{
+	int top = a->y > b->y - m ? a->y : b->y - m;
+	int bot = a->y + a->h < b->y + b->h + m ? a->y + a->h : b->y + b->h + m;
+	int left = a->x > b->x - m ? a->x : b->x - m;
+	int right = a->x + a->w < b->x + b->w + m ? a->x + a->w : b->x + b->w + m;
+
+	if (bot <= top || right <= left) return false;
+	*px = bot - top;
+	return true;
+}
 
 static void fit_box(const SDL_Rect *q)
 {
@@ -936,6 +959,45 @@ void ui_fit_drawn(const char *s)
 {
 	if (s && *s) fit_say("drawn", "", s);
 }
+
+void ui_fit_mark(const SDL_Rect *q)
+{
+#ifdef I18N_PSEUDO
+	char head[96];
+	int i, px;
+
+	for (i = 0; i < fit_inks; i++)
+		if (fit_meet(&fit_ink[i].r, q, FIT_MARGIN, &px)) {
+			snprintf(head, sizeof head, "%d|keys %d..%d|", px, q->x, q->x + q->w);
+			fit_say("overflow", head, fit_ink[i].text);
+		}
+	if (fit_marks < FIT_RECTS) fit_mark[fit_marks++] = *q;
+#else
+	(void)q;
+#endif
+}
+
+#ifdef I18N_PSEUDO
+/* A string's ink against the keys and marks drawn before it, then kept for
+ * the ones after */
+static void fit_ink_check(const char *s, const SDL_Rect *ink)
+{
+	char head[96];
+	int i, px;
+
+	for (i = 0; i < fit_marks; i++)
+		if (fit_meet(ink, &fit_mark[i], FIT_MARGIN, &px)) {
+			snprintf(head, sizeof head, "%d|keys %d..%d|", px, fit_mark[i].x, fit_mark[i].x + fit_mark[i].w);
+			fit_say("overflow", head, s);
+		}
+	if (fit_inks < FIT_RECTS) {
+		fit_ink[fit_inks].r = *ink;
+		snprintf(fit_ink[fit_inks].text, sizeof fit_ink[fit_inks].text, "%.30s", s);
+		for (char *c = fit_ink[fit_inks].text; *c; c++) if (*c == '\n' || *c == '|') *c = ' ';
+		fit_inks++;
+	}
+}
+#endif
 
 /* `dst` is where `s` is drawn, at anchor x `ax` */
 static void fit_check(SDL_Renderer *r, const char *s, const SDL_Rect *dst, int ax)
@@ -1071,6 +1133,12 @@ int ui_text(SDL_Renderer *r, TTF_Font *f, const char *s, int x, int y,
 	dst.y = y + e->dy;
 #ifdef I18N_PSEUDO
 	fit_check(r, s, &dst, x);
+	if (!fit_quiet && !SDL_RenderIsClipEnabled(r)) {
+		int asc = TTF_FontAscent(f), cap = ui_cap_height(f);
+		SDL_Rect ink = { dst.x, y + asc - cap, dst.w, cap };
+
+		fit_ink_check(s, &ink);
+	}
 #endif
 	SDL_SetTextureAlphaMod(e->tex, col.a);
 	SDL_RenderCopy(r, e->tex, NULL, &dst);
@@ -2339,8 +2407,11 @@ void ui_button(SDL_Renderer *r, const char *label, int cx, int cy, int size,
 	/* Centered on the capitals: every label is capitals and digits, and the
 	 * em box would hang a descender's depth of nothing under them and sit
 	 * them high in the glyph. */
+	fit_quiet++;
 	if (button_menu(label)) menu_key_dots(r, f, (float)cx, (float)cy, 1.0f, ink);
 	else ui_text(r, f, label, cx, ui_cap_y(f, cy), 0, ink);
+	fit_quiet--;
+	ui_fit_mark(&q);
 }
 
 /* ---- the glyph pressed, and the glyphs that are no letter -------------------

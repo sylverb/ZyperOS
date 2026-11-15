@@ -236,6 +236,11 @@ void ui_fit_drawn(const char *s);
 /* A menu row's value `s`, `w` wide, in `room` of a row `row_w` wide: said
  * on a host when it fits by less than 2% of the row (see ui.c) */
 void ui_fit_tight(const char *s, int w, int room, int row_w);
+/* A key's glyph or a mark drawn (ui_button, ds_more), for the host's check:
+ * a string whose ink comes within FIT_MARGIN of one is said (src/ui.c, "the
+ * keys and the marks"), as the keys of a foot met a caption over them on
+ * Cover and Video (1.0.6). Nothing on the device. */
+void ui_fit_mark(const SDL_Rect *q);
 #ifdef I18N_PSEUDO
 /* A cleared screen is a new frame for it too */
 #define SDL_RenderClear(r) (ui_fit_frame(), SDL_RenderClear(r))

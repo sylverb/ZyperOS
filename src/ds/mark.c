@@ -46,6 +46,7 @@ void ds_more(SDL_Renderer *r, float cx, float top, bool up, SDL_Color c)
 	};
 
 	SDL_RenderGeometry(r, NULL, v, 3, NULL, 0);
+	ui_fit_mark(&(SDL_Rect){ (int)(cx - hw), (int)top, DS_MORE_W, DS_MORE_H });
 }
 
 void ds_bar_in(SDL_Renderer *r, const SDL_Rect *track, int fill, SDL_Color track_c, SDL_Color fill_c)
