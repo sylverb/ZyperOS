@@ -9,9 +9,13 @@
 #include "app.h"
 #include "dslang.h"
 #include "game_menu.h"
+#include "hare.h"
+#include "heat.h"
+#include "hotspot.h"
 #include "keyboard.h"
 #include "menu.h"
 #include "menumotion.h"
+#include "noticeq.h"
 #include "p2.h"
 #include "platform.h"
 #include "rahash.h"
@@ -19,6 +23,7 @@
 #include "wifi.h"
 
 #include <stdbool.h>
+#include <sys/stat.h>
 
 /* The accent of a menu that is no system's: the launcher's own, which are
  * ZyperOS's. Its heading rule is the plain **edge** one, and it is lifted with
@@ -348,6 +353,118 @@ extern bool g_message_stopped;
 extern const menu_style *g_muse_over;
 extern void             *g_muse_over_ctx;
 extern bool              g_muse_gone;
+
+/* ---- main.c's, for src/muse_screen.c; each is described where it is defined ---- */
+#define TEX_KEEP_FAR    4   /* ...and around the cursor of a system you left  */
+extern app *g_logs_app;
+const char *b_legend(str_id word);
+int book_place(int al, double *at);
+double book_speed(int al);
+void muse_play_videos(const char *const *paths, int n, int start,
+                      const char *artist, const char *album);
+void evict_far(sysview *v, int keep);
+void panel_base_close(int lv);
+int shelf_letter_jump(sysview *v, int dir);
+
+/* ---- main.c's, for src/saver_screen.c; each is described where it is defined ---- */
+typedef struct {
+	char folder[CFG_STR];
+	time_t mtime;
+	unsigned looked;
+	unsigned gen;                    /* snapshelf_media_gen() when listed */
+	bool on;
+	char **stems;
+	int n;
+} snap_names;
+typedef struct {
+	unsigned long long total, win, rate;   /* the bytes since the start, this second's, its speed */
+	unsigned moved;                        /* when it last moved */
+	bool active;
+} xs_flow;
+typedef struct {
+	bool        on;             /* the server is up */
+	bool        shown;          /* its screen is open */
+	bool        cable, hot;
+	/* On a phone's USB tethering (plat_phone_link): the cable's name, the
+	 * address the phone gave, the phone's browser; no SSH, no steps of the
+	 * cable's (the link is the phone's network, as Wi-Fi's is) */
+	bool        phone;
+	bool        hot_failed, ssh_shown;
+	bool        rescan_due;     /* ended behind the shelf with the shelf changed */
+	const char *name;
+	char        pin[32], login[96], addr[96];
+	unsigned long long in, out;
+	hare_stats  st;
+	hotspot_state hs;
+	unsigned    addr_at, moved_at, link_lost_at, restart_at;
+	int         busy;
+	link_steps  steps;          /* the link, step by step (linksteps.h) */
+	link_sense  sense;          /* the cable's facts, read five times a second */
+	bool        sensed;         /* the device can tell them: steps over the cable */
+	bool        joined;         /* Wi-Fi: on a network */
+	/* Someone came in: a browser entered the PIN (hare_signed_once) or SSH
+	 * signed in. The screen is the way in until then and its news after,
+	 * and stays the news when they leave (DESIGN.md 11.35) */
+	bool        met;
+	/* The cable's loading bar (xs_load_step): its fill as drawn, 0..1, and
+	 * the moment it last moved */
+	float       load_k;
+	unsigned    load_ms;
+	unsigned    sense_at;
+	side_lights_batch lit;      /* files arriving, for the side lights */
+	side_lights_move  mv;       /* files moving either way, for their wave */
+	/* The panel's tiles (xs_move_*): a file's bytes each way, Download
+	 * then Upload; the second they count from; the last frame's uploads
+	 * and downloads, whose last bytes land in the poll that ends them */
+	xs_flow     flow[2];
+	unsigned    flow_at;
+	bool        flow_up, flow_send;
+} xfer_sess;
+extern heat_state g_heat;
+extern xfer_sess g_xs;
+extern int g_shot_saver;
+extern float g_shot_saver_alpha;
+extern const char *g_shot_saver_pic;
+int snap_name_cmp(const void *x, const void *y);
+const snap_names *snap_names_for(const char *folder);
+
+/* ---- main.c's, for src/launch_screen.c; each is described where it is defined ---- */
+#define HEAT_HEAD T(S_HEAT_HEAD)
+#define HEAT_BODY T(S_HEAT_SLOWING)
+extern unsigned t_back0;
+extern long g_sync_game;
+extern bool g_sync_flush;
+extern char g_sync_rom[LIB_PATH * 2], g_sync_tag[16];
+extern char g_sync_rom[LIB_PATH * 2], g_sync_tag[16];
+extern int g_sync_cur;
+extern char g_pending_active[LIB_PATH * 2];
+extern bool g_pending_hashing;
+extern unsigned g_watch_ms;
+extern char g_watch_active[LIB_PATH * 2];
+extern int g_idle_secs;
+extern bool g_idle_charging;
+extern noticeq g_nq;
+void present_ground(app *a);
+bool ds_resume_fresh(const system_cfg *s, const char *romfile, const char *st,
+                     char *lang, size_t n);
+bool core_resume_fresh(const system_cfg *s, const char *romfile, const char *st);
+void ds_resume_record(const char *st, const char *lang, const struct stat *before,
+                      bool had);
+bool two_screens(const system_cfg *s);
+void prime_home(app *a);
+void pause_preview_path(char *out, size_t n);
+void quick_bind(app *a, int s, const game_entry *g);
+void persist_dir_ensure(app *a, int s);
+bool has_box_art(const char *folder, const char *name);
+void prime_window(app *a, int s);
+void chv_active_path(char *out, size_t n);
+void sync_begin(long game, const char *set_path);
+int sync_poll(void);
+void render(app *a);
+void anim_launch(app *a);
+bool up_read(const char *path, char *buf, size_t n);
+void up_first_line(const char *path, char *buf, size_t n);
+bool xs_before_game(app *a);
 
 /* ---- main.c's, for src/sysmenu_screen.c; each is described where it is defined ---- */
 #define AUTO_OFF_COUNT ((int)(sizeof AUTO_OFF / sizeof AUTO_OFF[0]))

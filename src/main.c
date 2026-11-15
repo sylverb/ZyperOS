@@ -163,6 +163,9 @@
 #include "stats_screen.h"
 #include "ingame_screen.h"
 #include "sysmenu_screen.h"
+#include "launch_screen.h"
+#include "saver_screen.h"
+#include "muse_screen.h"
 #include "zyperdraw.h"
 #include "zypermark.h"
 
@@ -192,7 +195,6 @@
 /* BATT_EMPTY_PCT, where the device powers off, is src/status.h's too:
  * portkeys powers off there over a port. */
 #define TEX_KEEP_NEAR   8   /* card textures kept around the cursor, in view  */
-#define TEX_KEEP_FAR    4   /* ...and around the cursor of a system you left  */
 
 /* The row is allowed to glide only across cards this policy keeps decoded. If
  * TEX_KEEP_NEAR ever drops below it, a long move would animate over cold cards
@@ -200,11 +202,7 @@
 _Static_assert(TEX_KEEP_NEAR >= CF_WARM_CARDS,
                "the row glides across cards the texture policy must keep");
 
-/* Muse's shelf borrows the games shelf's cards and its letter jump, both of
- * which live down with the shelf code. */
-static void muse_shelf_screen(app *a, bool now);
-static int  shelf_letter_jump(sysview *v, int dir);
-/* Same reason: Wi-Fi File Transfer is a screen up here. */
+/* Wi-Fi File Transfer is a screen further down. */
 static void xfer_screen_way(app *a, int way);
 
 volatile sig_atomic_t want_quit;
@@ -230,7 +228,7 @@ static void t_mark(const char *what)
  * it from 213ms to here are in the history if it ever needs breaking down
  * again; the budget they found was 5ms to black, 4ms of bookkeeping, and the
  * rest decoding the focused card's autosave preview off the SD card. */
-static unsigned t_back0;
+unsigned t_back0;
 
 /* Counts the frames begun. What starts a whole frame steps it - draw_shelf,
  * paused_backdrop, present_clear and Now Playing's np_draw, one of which
@@ -239,7 +237,7 @@ static unsigned t_back0;
  * one on screen only while the count has not moved since: a keyboard, a slot
  * strip or Now Playing drawn after it has moved it. */
 /* A screen's one-button hint, B and its word (keyhints.h), for a row */
-static const char *b_legend(str_id word)
+const char *b_legend(str_id word)
 {
 	return keyhints_legend((key_hint[]){ { "B", T(word) } }, 1);
 }
@@ -279,7 +277,7 @@ void present_clear(app *a, ds_rgb c)
  * that was tried and reverted: that guarded a stale back buffer, which a swap
  * cannot show. This gets a stale FRONT frame off the glass, which is
  * measurable and was measured. */
-static void present_ground(app *a)
+void present_ground(app *a)
 {
 	present_clear(a, theme()->ground);
 }
@@ -600,8 +598,8 @@ const char *dslang_label(dsl_choice c, char *buf, size_t n)
  * starts fresh instead. The language is the one the core gets: the last
  * dsperate_language the launcher sends, which is the row's unless the
  * library database has one of its own (src/platform.c). */
-static bool ds_resume_fresh(const system_cfg *s, const char *romfile, const char *st,
-                            char *lang, size_t n)
+bool ds_resume_fresh(const system_cfg *s, const char *romfile, const char *st,
+                     char *lang, size_t n)
 {
 	char fw[CFG_STR * 2], opt[32] = "", was[16];
 	const char *eff, *rec;
@@ -631,7 +629,7 @@ static bool ds_resume_fresh(const system_cfg *s, const char *romfile, const char
  * game starts on now, so it starts fresh instead of having Diatom refuse the
  * state without a word. The N64's: a game left on Mupen64Plus-Next, before
  * ParallelN64 was the default, or on whichever the Core row chose then. */
-static bool core_resume_fresh(const system_cfg *s, const char *romfile, const char *st)
+bool core_resume_fresh(const system_cfg *s, const char *romfile, const char *st)
 {
 	char who[96];
 
@@ -646,8 +644,8 @@ static bool core_resume_fresh(const system_cfg *s, const char *romfile, const ch
  * the file `before` saw), the language it was written in goes beside it. The
  * state's own time and size, not the way the game ended: Diatom writes it at
  * a quit, at POWER and at a shutdown's TERM alike, and not after a crash. */
-static void ds_resume_record(const char *st, const char *lang, const struct stat *before,
-                             bool had)
+void ds_resume_record(const char *st, const char *lang, const struct stat *before,
+                      bool had)
 {
 	struct stat now;
 
@@ -672,7 +670,7 @@ static void ds_resume_record(const char *st, const char *lang, const struct stat
 /* The game running now is one: set at launch, read by the in-game menu. */
 bool g_game_dual;
 
-static bool two_screens(const system_cfg *s)
+bool two_screens(const system_cfg *s)
 {
 	return !strcmp(s->tag, "NDS") && strncmp(s->core, "run:", 4) != 0 &&
 	       strcmp(s->core, "port") != 0;
@@ -1106,7 +1104,7 @@ static void book_finish(int al)
 
 /* Where book `al` starts: its file, and `at` seconds into it. The beginning
  * for a book never started, or finished. */
-static int book_place(int al, double *at)
+int book_place(int al, double *at)
 {
 	const ml_album *b = &g_muse.albums[al];
 	char key[LIB_PATH + 8], val[LIB_PATH + 32];
@@ -1243,7 +1241,7 @@ static void book_speed_key(int al, char *out, size_t n)
 	snprintf(out, n, "bookspeed.%.*s", slash ? (int)(slash - p) : 0, p);
 }
 
-static double book_speed(int al)
+double book_speed(int al)
 {
 	char key[LIB_PATH + 16], val[16];
 	double x;
@@ -1289,8 +1287,8 @@ void muse_play(const char *const *paths, int n, int start, double at,
 }
 
 /* A queue of videos, from `start`, at its file's kept place. */
-static void muse_play_videos(const char *const *paths, int n, int start,
-                             const char *artist, const char *album)
+void muse_play_videos(const char *const *paths, int n, int start,
+                      const char *artist, const char *album)
 {
 	book_keep(true);
 	g_bk.al = -1;
@@ -1349,7 +1347,7 @@ static void home_items(const app *a, home_item *items)
 	for (int i = 0; i < a->sys.count; i++)
 		items[i] = (home_item){ a->sys.systems[i].tag, a->sys.systems[i].name };
 }
-static void prime_home(app *a)
+void prime_home(app *a)
 {
 	if (a->screen != SCREEN_SYSTEMS || g_loads_held) return;
 	home_item items[CFG_MAX_SYSTEMS];
@@ -1428,7 +1426,7 @@ void preview_path(app *a, int s, const game_entry *g, char *out, size_t n)
  * One scratch file for the whole device rather than one per game: nothing
  * reads it after the launch that wrote it, and a per-game copy would leave
  * litter beside every save. */
-static void pause_preview_path(char *out, size_t n)
+void pause_preview_path(char *out, size_t n)
 {
 	snprintf(out, n, "%s/pause.bmp", P_USERDATA);
 }
@@ -1465,7 +1463,7 @@ void state_path(app *a, int s, const game_entry *g, char *out, size_t n)
 
 /* The hotkeys' copy of where this game's slots are (g_quick), at its launch:
  * slot_state_path's, less the slot */
-static void quick_bind(app *a, int s, const game_entry *g)
+void quick_bind(app *a, int s, const game_entry *g)
 {
 	const system_cfg *sc = &a->sys.systems[s];
 
@@ -1504,7 +1502,7 @@ static bool db_paths_ready(char *dev, size_t ndev, char *lib, size_t nlib,
 	return true;
 }
 
-static void persist_dir_ensure(app *a, int s)
+void persist_dir_ensure(app *a, int s)
 {
 	char d[LIB_PATH * 2];
 	snprintf(d, sizeof d, "%s/.zyperos", P_SHARED);
@@ -1561,7 +1559,7 @@ void box_art_path(const char *folder, const char *name, char *out, size_t n)
 
 /* Whether it is there. An empty file is not art - the rule the info screen
  * already used, now the rule for everyone. */
-static bool has_box_art(const char *folder, const char *name)
+bool has_box_art(const char *folder, const char *name)
 {
 	char p[LIB_PATH * 3];
 	struct stat st;
@@ -1644,10 +1642,6 @@ static bool game_card_wanted(const sysview *v, int i)
 {
 	return !v->tex[i] || tex_stale(v->tex[i]);
 }
-
-/* Muse's half of the card machinery, defined with the rest of Muse. */
-static void muse_card_want(app *a, int s, int i);
-static void cover_shape(SDL_Surface **s);
 
 SDL_Texture *game_get_tex(void *ctx, int i, int *w, int *h, float *cb)
 {
@@ -1816,7 +1810,7 @@ static void texload_drain(app *a)
 	texload_deliver(theme_index(), shelf_put, a);
 }
 
-static void evict_far(sysview *v, int keep)
+void evict_far(sysview *v, int keep)
 {
 	for (int i = 0; i < v->list.count; i++) {
 		int d = abs(i - v->cursor);
@@ -1880,7 +1874,7 @@ static void prime_around(app *a, int s, int center, int half)
 
 /* The visible row and two more either side, so the first scroll finds its
  * neighbors already there instead of sliding in blank. */
-static void prime_window(app *a, int s)
+void prime_window(app *a, int s)
 {
 	prime_around(a, s, a->view[s].cursor, PRIME_HALF_MAX);
 }
@@ -2028,7 +2022,7 @@ static void wifi_pref_save(bool on)
 /* Diatom watches this file, and it is rewritten per launch: it is the set
  * minus what has already been earned, which only this side knows. Runtime
  * scratch, so per-device rather than shared. */
-static void chv_active_path(char *out, size_t n)
+void chv_active_path(char *out, size_t n)
 {
 	snprintf(out, n, "%s/cheevos-active.set", P_USERDATA);
 }
@@ -2147,15 +2141,15 @@ void charge_full_end(void)
  * - the answer landing, or something else needing the one async slot, which
  * gives up on the answer and sends anyway. Duplicates that causes are answered
  * as already held, which settles them just the same. */
-static long g_sync_game;                   /* the game asked about, 0 none */
+long g_sync_game;                   /* the game asked about, 0 none */
 static char g_sync_set[LIB_PATH * 2];      /* its set, to check the answer against */
 
 /* A send waiting for the answer. */
-static bool g_sync_flush;
-static char g_sync_rom[LIB_PATH * 2], g_sync_tag[16];
-static int  g_sync_cur;
+bool g_sync_flush;
+char g_sync_rom[LIB_PATH * 2], g_sync_tag[16];
+int  g_sync_cur;
 
-static void sync_begin(long game, const char *set_path)
+void sync_begin(long game, const char *set_path)
 {
 	ra_sync_begin(game);
 	g_sync_game = ra_sync_pending() ? game : 0;
@@ -2173,7 +2167,7 @@ static void sync_flush_now(void)
  * what this device knew - nonzero means the list Diatom is watching still
  * holds some the account already has. Cheap when nothing has landed: a
  * waitpid that does not wait. */
-static int sync_poll(void)
+int sync_poll(void)
 {
 	int ids[CHV_MAX], n, rc, added = 0;
 
@@ -2214,9 +2208,9 @@ void sync_abandon(void)
  * game rather than in front of it, and when it lands the player is told the
  * only way anyone can be told during a game - over Diatom's overlay. */
 char g_pending_set[LIB_PATH * 2];
-static char g_pending_active[LIB_PATH * 2];
+char g_pending_active[LIB_PATH * 2];
 /* ...whose hash is still being made, on its own thread (src/rahashjob.h) */
-static bool g_pending_hashing;
+bool g_pending_hashing;
 /* Auto crossed 7:00 or 19:00 while a game ran, and the file was rewritten
  * for Diatom's bar but nobody has told the shelf: theme() is the new theme
  * and the cards kept are the old one's. tick_theme takes it as a change like
@@ -2228,8 +2222,8 @@ static bool g_theme_late;
 /* The watch list Diatom was last handed and when, so an account answer that
  * lands early can trim it. 0 when there is no list to trim. */
 #define WATCH_RETRIM_MS 5000
-static unsigned g_watch_ms;
-static char     g_watch_active[LIB_PATH * 2];
+unsigned g_watch_ms;
+char     g_watch_active[LIB_PATH * 2];
 /* The set path of the game actually running, so a fetch that lands during a
  * DIFFERENT game can be recognized and dropped. Written at every launch. */
 char g_game_set[LIB_PATH * 2];
@@ -2241,17 +2235,15 @@ ra_hash_kind g_game_no_hash;
  * and this process is blocked in plat_resident_wait; the launcher's part is
  * telling it the number and keeping that number true as the charger comes and
  * goes. See on_charger, which lives beside battery_level. */
-static int  g_idle_secs;         /* the Auto Off setting, 0 off */
-static bool g_idle_charging;     /* what was true when SETIDLE was last sent */
+int  g_idle_secs;         /* the Auto Off setting, 0 off */
+bool g_idle_charging;     /* what was true when SETIDLE was last sent */
 
 /* "Getting hot" (src/heat.h, DESIGN.md 11.23): the chip's temperature, read
  * every HEAT_POLL_MS by every screen through idle_due and by a game's tick,
  * and said where it can be seen - Zyper's pop-up on the home and the shelves
  * (heat_watch), a notice over a running game (on_game_tick). The words are
  * short enough for the pop-up's slab without scrolling. */
-static heat_state g_heat;
-#define HEAT_HEAD T(S_HEAT_HEAD)
-#define HEAT_BODY T(S_HEAT_SLOWING)
+heat_state g_heat;
 
 void heat_tick(void)
 {
@@ -2474,7 +2466,7 @@ static void on_game_tick(void)
  * seconds while a count moves, and each was a write to the card. */
 #define NOTICE_FILE "/tmp/zyperos-notice.dtov"
 
-static noticeq g_nq;
+noticeq g_nq;
 
 /* What a notice carries besides its words (src/notice.h), by what it is
  * about: an unlock, and mastery, which is one, has its badge and Zyper; a
@@ -3993,24 +3985,15 @@ static void shelf_snap(app *a, sysview *v, const game_entry *g, int owner, bool 
  * every two seconds - so a frame asks no file and no setting per card. The
  * Favorites shelf draws from many folders, so a few are kept. */
 #define SNAP_NAMES_KEEP 8
-typedef struct {
-	char folder[CFG_STR];
-	time_t mtime;
-	unsigned looked;
-	unsigned gen;                    /* snapshelf_media_gen() when listed */
-	bool on;
-	char **stems;
-	int n;
-} snap_names;
 static snap_names g_snap_names[SNAP_NAMES_KEEP];
 static int g_snap_names_next;
 
-static int snap_name_cmp(const void *x, const void *y)
+int snap_name_cmp(const void *x, const void *y)
 {
 	return strcmp(*(char *const *)x, *(char *const *)y);
 }
 
-static const snap_names *snap_names_for(const char *folder)
+const snap_names *snap_names_for(const char *folder)
 {
 	unsigned now = plat_now_ms();
 	snap_names *s = NULL;
@@ -4985,7 +4968,7 @@ static void focus_frame(app *a)
 	else redraw_now();                 /* a whole frame, then */
 }
 
-static void render(app *a)
+void render(app *a)
 {
 	g_redraw_at = REDRAW_NEVER;
 	g_focus_at = REDRAW_NEVER;
@@ -5081,7 +5064,7 @@ static void launch_frame(app *a, SDL_Texture *card, const SDL_Rect *from,
 	SDL_SetTextureAlphaMod(card, 255);
 }
 
-static void anim_launch(app *a)
+void anim_launch(app *a)
 {
 	sysview *v = &a->view[a->sys_cursor];
 	unsigned t0 = plat_now_ms(), now;
@@ -5687,7 +5670,7 @@ static bool up_running(void)
 	return busy;
 }
 
-static bool up_read(const char *path, char *buf, size_t n)
+bool up_read(const char *path, char *buf, size_t n)
 {
 	FILE *f = fopen(path, "r");
 	size_t got;
@@ -5698,7 +5681,7 @@ static bool up_read(const char *path, char *buf, size_t n)
 	return true;
 }
 
-static void up_first_line(const char *path, char *buf, size_t n)
+void up_first_line(const char *path, char *buf, size_t n)
 {
 	up_read(path, buf, n);
 	buf[strcspn(buf, "\r\n")] = 0;
@@ -6125,7 +6108,7 @@ int panel_base(void)
 	return mm_base(anim_now(), panel_settle(mm_depth()) > 0);
 }
 
-static void panel_base_close(int lv)
+void panel_base_close(int lv)
 {
 	mm_close(lv, anim_now(), 0, false);
 }
@@ -7703,7 +7686,7 @@ static void hot_preview(app *a, const char *ssid, const char *pass,
  * knows them - every saved network rather than just the one it is on, since
  * an older boot's log can name another; every paired headset; both account
  * names. about.txt carries the first questions asked about any report. */
-static app *g_logs_app;
+app *g_logs_app;
 
 static bool pack_logs(char *path, size_t pn, char *name, size_t nn)
 {
@@ -7920,15 +7903,6 @@ static void muse_after_rename(const char *from, const char *to, bool tidied)
 	if (tidied) book_file_follows(trel, NULL, NULL);
 	if (strcmp(frel, trel)) fprintf(stderr, "muse: %s is now %s\n", frel, trel);
 }
-
-/* Album covers for the page, down with Muse's Album Art, and the covers the
- * shelf draws, down with Muse's shelf. */
-static bool  cover_file(int al, char *out, size_t n);
-static void  cover_recheck(int al);
-static char *albums_wanted(size_t *len, char *why, size_t wn);
-static char *album_pick(int id, const char *json, size_t n, size_t *len,
-                        char *why, size_t wn);
-static void  xfer_after_write(const char *abs);
 
 /* No network to be on, and an adapter that can be one: the screen makes the
  * handheld its own network (src/hotspot.h). On a network means an address,
@@ -8346,11 +8320,6 @@ static SDL_Rect ud_page_tile(bool in)
  * panel was the first try: at most 648 tall, its heading and rows over the
  * cable took 487 of it, and Flash Drive's tiles did not fit beside them. */
 #define XS_FLOW_IDLE_MS 2000u   /* drivestat.h's DST_IDLE_MS */
-typedef struct {
-	unsigned long long total, win, rate;   /* the bytes since the start, this second's, its speed */
-	unsigned moved;                        /* when it last moved */
-	bool active;
-} xs_flow;
 
 /* A second's end for a way: its speed, lit or idle */
 static void xs_flow_step(xs_flow *f, unsigned dt, unsigned now)
@@ -9357,46 +9326,7 @@ static char *xfer_sgdb(int op, const char *body, size_t n, size_t *len,
 #define XS_LEGEND_MOV b_legend(S_KEYHINT_KEEP_GOING_OR_STOP)
 #define XS_LEGEND_END b_legend(S_KEYHINT_HIDE)
 
-typedef struct {
-	bool        on;             /* the server is up */
-	bool        shown;          /* its screen is open */
-	bool        cable, hot;
-	/* On a phone's USB tethering (plat_phone_link): the cable's name, the
-	 * address the phone gave, the phone's browser; no SSH, no steps of the
-	 * cable's (the link is the phone's network, as Wi-Fi's is) */
-	bool        phone;
-	bool        hot_failed, ssh_shown;
-	bool        rescan_due;     /* ended behind the shelf with the shelf changed */
-	const char *name;
-	char        pin[32], login[96], addr[96];
-	unsigned long long in, out;
-	hare_stats  st;
-	hotspot_state hs;
-	unsigned    addr_at, moved_at, link_lost_at, restart_at;
-	int         busy;
-	link_steps  steps;          /* the link, step by step (linksteps.h) */
-	link_sense  sense;          /* the cable's facts, read five times a second */
-	bool        sensed;         /* the device can tell them: steps over the cable */
-	bool        joined;         /* Wi-Fi: on a network */
-	/* Someone came in: a browser entered the PIN (hare_signed_once) or SSH
-	 * signed in. The screen is the way in until then and its news after,
-	 * and stays the news when they leave (DESIGN.md 11.35) */
-	bool        met;
-	/* The cable's loading bar (xs_load_step): its fill as drawn, 0..1, and
-	 * the moment it last moved */
-	float       load_k;
-	unsigned    load_ms;
-	unsigned    sense_at;
-	side_lights_batch lit;      /* files arriving, for the side lights */
-	side_lights_move  mv;       /* files moving either way, for their wave */
-	/* The panel's tiles (xs_move_*): a file's bytes each way, Download
-	 * then Upload; the second they count from; the last frame's uploads
-	 * and downloads, whose last bytes land in the poll that ends them */
-	xs_flow     flow[2];
-	unsigned    flow_at;
-	bool        flow_up, flow_send;
-} xfer_sess;
-static xfer_sess g_xs;
+xfer_sess g_xs;
 
 static void xs_stop(app *a, bool panels);
 
@@ -10491,7 +10421,7 @@ static int xs_stop_ask(app *a)
  * it closes for the game and says so; with files on their way, the player
  * says: not now, after the file on its way, or cancel and play. True when
  * the game may start. */
-static bool xs_before_game(app *a)
+bool xs_before_game(app *a)
 {
 	const char *name = g_xs.name;
 	int c;
@@ -12698,10 +12628,6 @@ static int info_build(void *ctx, menu_row *rows, int max, const char **heading)
 
 static void fav_toggle_heard(const char *tag, const char *file);
 
-/* PortMaster's page, below with the Ports shelf (src/pminstall.h) */
-static void pm_install_screen(app *a, const system_cfg *s, bool repair, const char *failed,
-                              bool crashed);
-
 static menu_result info_key(app *a, void *ctx, in_button key, int sel)
 {
 	info_ctx *c = ctx;
@@ -13869,8 +13795,6 @@ int sysmenu_build(void *ctx, menu_row *rows, int max,
  * launched as A there would. Shared by the two, word for word. */
 game_pick g_pick = { -1, -1, 0 };
 
-static void launch(app *a);
-
 void pick_launch(app *a)
 {
 	int shelf = g_pick.shelf, game = g_pick.game, was = a->sys_cursor;
@@ -14289,2167 +14213,6 @@ void copy_file(const char *from, const char *to)
 	fclose(b);
 }
 
-/* ---- Muse: covers --------------------------------------------------------- */
-
-bool file_nonempty(const char *p)
-{
-	struct stat st;
-
-	return stat(p, &st) == 0 && st.st_size > 0;
-}
-
-/* Album `al`'s cover, when there is one on the card: true, with where in
- * `out`.
- *
- * The first time an album is asked about, a cover already on the card - from
- * an earlier visit - is found by looking. Otherwise the daemon is asked for the
- * one the music carries, and this answers false until cover_answers hears
- * back, a few milliseconds later. */
-static bool cover_file(int al, char *out, size_t n)
-{
-	char base[LIB_PATH * 2];
-	cover_state *c;
-	unsigned now = plat_now_ms();
-
-	if (!g_cov || al < 0 || al >= g_muse.nalbums) return false;
-	c = &g_cov[al];
-	ml_cover_base(g_muse_root, &g_muse, al, base, sizeof base);
-	if (!base[0]) return false;
-	/* Singles' is its own, the one put there for it or one put in its place,
-	 * never a song's: its songs have nothing to do with one another, and the
-	 * first one's picture became the album's (2026-10-05). So it is looked
-	 * for each time and Muse is never asked. */
-	if (g_muse.albums[al].singles) {
-		snprintf(out, n, "%s.jpg", base);
-		if (file_nonempty(out)) return true;
-		snprintf(out, n, "%s.png", base);
-		return file_nonempty(out);
-	}
-	if (c->st == COV_JPG || c->st == COV_PNG) {
-		snprintf(out, n, "%s.%s", base, c->st == COV_JPG ? "jpg" : "png");
-		return true;
-	}
-	if (c->st == COV_FOLDER) return ml_folder_image(g_muse_root, &g_muse, al, out, n);
-	if (c->st == COV_NONE) return false;
-	if (c->st == COV_ASKED && now - c->asked_ms < 5000) return false;
-
-	snprintf(out, n, "%s.jpg", base);
-	if (file_nonempty(out)) { c->st = COV_JPG; return true; }
-	snprintf(out, n, "%s.png", base);
-	if (file_nonempty(out)) { c->st = COV_PNG; return true; }
-	/* A video's picture beside it before one of its frames: the daemon
-	 * answers every video with a frame when it carries no cover (src/muse/
-	 * cover.c), so the folder would never be looked at after it. */
-	if (g_muse.albums[al].kind == ML_VIDEOS &&
-	    ml_folder_image(g_muse_root, &g_muse, al, out, n)) {
-		c->st = COV_FOLDER;
-		return true;
-	}
-	if (musec_cover_ask(g_muse.tracks[g_muse.albums[al].first].path, base)) {
-		c->st = COV_ASKED;
-		c->asked_ms = now;
-	}
-	return false;
-}
-
-/* What is known about album `al`'s cover, forgotten when the file it names is
- * no longer on the card, so cover_file looks again and asks Muse for the one
- * the music carries. The transfer screen's: files there come and go under the
- * launcher, and a cover moved off the card stayed "a JPG" until a restart, so
- * its embedded picture was never copied out again (2026-10-05). */
-static void cover_recheck(int al)
-{
-	char base[LIB_PATH * 2], p[LIB_PATH * 2 + 8];
-	cover_state *c;
-
-	if (!g_cov || al < 0 || al >= g_muse.nalbums) return;
-	c = &g_cov[al];
-	if (c->st == COV_JPG || c->st == COV_PNG) {
-		ml_cover_base(g_muse_root, &g_muse, al, base, sizeof base);
-		snprintf(p, sizeof p, "%s.%s", base, c->st == COV_JPG ? "jpg" : "png");
-		if (!file_nonempty(p)) c->st = COV_UNKNOWN;
-	} else if (c->st == COV_FOLDER &&
-	           !ml_folder_image(g_muse_root, &g_muse, al, p, sizeof p)) {
-		c->st = COV_UNKNOWN;
-	}
-}
-
-/* What the daemon said about the covers it was asked for. Matched by path, not
- * by album number, so an answer that lands after a rescan finds the album it
- * was about or none at all. True when anything landed, so a shelf that only
- * draws when something changes knows it has. */
-bool cover_answers(void)
-{
-	char base[LIB_PATH * 2], file[LIB_PATH * 2 + 8], b[LIB_PATH * 2];
-	bool landed = false;
-	size_t fl;
-	int i;
-
-	while (musec_cover_take(base, sizeof base, file, sizeof file)) {
-		landed = true;
-		fl = strlen(file);
-		for (i = 0; g_cov && i < g_muse.nalbums; i++) {
-			char pic[LIB_PATH * 2 + 8];
-
-			ml_cover_base(g_muse_root, &g_muse, i, b, sizeof b);
-			if (strcmp(b, base)) continue;
-			/* Nothing in the files: a picture in the album's folder, which
-			 * is where a book's cover usually is, before the card. */
-			g_cov[i].st = fl > 0 ? (fl > 4 && !strcmp(file + fl - 4, ".png") ? COV_PNG : COV_JPG)
-			            : ml_folder_image(g_muse_root, &g_muse, i, pic, sizeof pic)
-			            ? COV_FOLDER : COV_NONE;
-			break;
-		}
-	}
-	return landed;
-}
-
-/* A cover's shape, wherever it is drawn: square, and square-cornered - Eric's
- * call, 2026-09-18; a sleeve is a square. An ARGB8888 surface, replaced when
- * it had to be cropped.
- *
- * Square by taking the middle of it. Covers are square nearly always, and the
- * ones that are not are a scan with a few pixels of scanner either side - the
- * first card has one, 245 by 225 - which cropping loses and stretching would
- * put into the picture. */
-static void cover_shape(SDL_Surface **ps)
-{
-	SDL_Surface *s = *ps, *sq;
-	int side = s->w < s->h ? s->w : s->h;
-
-	if (s->w != s->h &&
-	    (sq = SDL_CreateRGBSurfaceWithFormat(0, side, side, 32,
-	                                         SDL_PIXELFORMAT_ARGB8888))) {
-		SDL_SetSurfaceBlendMode(s, SDL_BLENDMODE_NONE);
-		SDL_BlitSurface(s, &(SDL_Rect){ (s->w - side) / 2, (s->h - side) / 2,
-		                                side, side }, sq, NULL);
-		SDL_FreeSurface(s);
-		*ps = sq;
-	}
-}
-
-/* A cover as Now Playing draws it. NULL when the file will not decode. */
-static SDL_Texture *load_cover(SDL_Renderer *r, const char *path)
-{
-	SDL_Surface *raw = IMG_Load(path), *s;
-	SDL_Texture *t;
-
-	if (!raw) return NULL;
-	s = SDL_ConvertSurfaceFormat(raw, SDL_PIXELFORMAT_ARGB8888, 0);
-	SDL_FreeSurface(raw);
-	if (!s) return NULL;
-	cover_shape(&s);
-	t = SDL_CreateTextureFromSurface(r, s);
-	SDL_FreeSurface(s);
-	if (t) SDL_SetTextureBlendMode(t, SDL_BLENDMODE_BLEND);
-	return t;
-}
-
-void np_forget(void)
-{
-	if (g_np.tex) SDL_DestroyTexture(g_np.tex);
-	g_np.tex = NULL;
-	g_np.album = -1;
-	g_np.done = false;
-}
-
-/* Bring the Now Playing cover up to date with album `al`, which may be -1 for
- * nothing. Called every frame; it costs a comparison once the cover is in. */
-void np_cover(app *a, int al)
-{
-	char path[LIB_PATH * 2 + 8];
-	int w, h;
-
-	if (al != g_np.album) { np_forget(); g_np.album = al; }
-	if (g_np.done || al < 0) return;
-	if (cover_file(al, path, sizeof path)) {
-		unsigned t0 = plat_now_ms();
-
-		g_np.tex = load_cover(a->r, path);
-		fprintf(stderr, "muse: cover for %s in %u ms\n", g_muse.albums[al].name,
-		        plat_now_ms() - t0);
-		/* There, and not a picture: the card, as for an album with none. */
-		if (!g_np.tex) g_cov[al].st = COV_NONE;
-	}
-	if (!g_np.tex && g_cov[al].st == COV_NONE) {
-		g_np.tex = ui_make_cover(a->r, g_muse.albums[al].name, ZYPEROS_ACCENT,
-		                         &w, &h);
-	}
-	g_np.done = g_np.tex != NULL;
-}
-
-/* Card `i` on Muse's shelf - game_get_tex's half for Muse. Its album's cover
- * when the card holds one, decoded on the worker like any box art; the
- * generated card when the music carries none, drawn on the worker too;
- * nothing yet while the daemon is being asked, which cover_answers settles a
- * few milliseconds later. Asked for while the slot is empty or holds the card
- * of the theme that was, which it shows until its replacement lands, as a
- * game's slot does. */
-static void muse_card_want(app *a, int s, int i)
-{
-	sysview *v = &a->view[s];
-	char path[LIB_PATH * 2 + 8];
-	ui_card_order card;
-	int al;
-
-	if (!v->album || i < 0 || i >= v->list.count) return;
-	al = v->album[i];
-	if (al < 0 || al >= g_muse.nalbums) return;
-	if (cover_file(al, path, sizeof path)) {
-		/* A cover that will not decode is the card in the shelf's color,
-		 * as shelf_put has always made it */
-		ui_card_order_set(&card, v->list.items[i].title,
-		                  a->sys.systems[shelf_owner(a, s, i)].accent, true);
-		if (texload_want_or_draw(s, i, path, NULL, &card)) return;
-		/* No worker - a shot - so here, as game_get_tex does without one. */
-		if (v->tex[i]) SDL_DestroyTexture(v->tex[i]);
-		v->tex[i] = load_cover(a->r, path);
-		if (v->tex[i]) {
-			SDL_QueryTexture(v->tex[i], NULL, NULL, &v->tw[i], &v->th[i]);
-			v->cb[i] = 1.0f;
-			return;
-		}
-		g_cov[al].st = COV_NONE;             /* there, and not a picture */
-	}
-	if (g_cov && g_cov[al].st == COV_NONE) {
-		ui_card_order_set(&card, v->list.items[i].title, ZYPEROS_ACCENT, true);
-		if (texload_want_or_draw(s, i, NULL, NULL, &card)) return;
-		if (v->tex[i]) SDL_DestroyTexture(v->tex[i]);
-		v->tex[i] = ui_make_cover(a->r, v->list.items[i].title, ZYPEROS_ACCENT,
-		                          &v->tw[i], &v->th[i]);
-		v->cb[i] = 1.0f;
-	}
-}
-
-/* ---- Muse: the play mode --------------------------------------------------- */
-
-/* Y ON NOW PLAYING, AND NOWHERE ELSE IN MUSE. Eric's call, 2026-09-19.
- *
- * Y used to cycle the mode on every Muse screen, and because a mark on its own
- * is a new shape to learn, each press named the mode on a pill in the middle
- * of the screen for 1400 ms. On Now Playing that pill said what the mark
- * beside the track count was already saying, a moment later and larger.
- *
- * The mode is now set where it is shown. That leaves the shelf and the lists
- * with nothing to announce, so the pill is gone with them, and Y is free there
- * the way X is. The cost is that the mode cannot be changed before something
- * plays, since Now Playing is a screen about a track - and it is kept across
- * restarts, so it is not a thing anyone sets often. */
-void muse_cycle_mode(void)
-{
-	muq_mode m = (muq_mode)((musec_mode() + 1) % MUQ_MODES);
-
-	musec_set_mode(m);
-	db_set_str(db_dev(), "muse.mode", MUSE_MODES[m].key);
-}
-
-/* ---- Muse: what it is open over ------------------------------------------ */
-
-/* NULL is the shelf. The in-game menu hands over its style for as long as Muse
- * is up, because a game is paused underneath: the list is drawn over that
- * game's frame rather than a shelf it is not on, and power stops the game
- * rather than the device - which is what that menu's power rule does, and why
- * it has one. Muse is modal and never opens itself, so one of each is enough. */
-const menu_style *g_muse_over;
-void             *g_muse_over_ctx;
-bool              g_muse_gone;    /* that rule ended what was underneath */
-
-static void muse_backdrop(app *a, float k)
-{
-	draw_shelf(a);
-	ui_scrim_k(a->r, 0, k);
-}
-
-/* The power button or Auto Off, inside Muse. It closes Muse either way; what
- * else it does is up to whatever Muse is open over. */
-void muse_power(app *a)
-{
-	if (g_muse_over && g_muse_over->on_power) {
-		if (g_muse_over->on_power(a, g_muse_over_ctx) == MENU_DONE)
-			g_muse_gone = true;
-		return;
-	}
-	power_off(a);
-}
-
-/* ---- Muse: an album's tracks ---------------------------------------------- */
-
-/* The album the queue is on, and the row its track sits at. -1 when nothing
- * is loaded, or when what is loaded is not on the card any more. */
-static int muse_playing_album(int *row)
-{
-	const char *t = musec_track(musec_now()->index);
-	int al = ml_album_of(&g_muse, t), i;
-
-	if (row) *row = 0;
-	if (al < 0) return -1;
-	if (row)
-		for (i = 0; i < g_muse.albums[al].n; i++)
-			if (!strcmp(g_muse.tracks[g_muse.albums[al].first + i].path, t))
-				*row = i;
-	return al;
-}
-
-/* One album's tracks, over the shelf its cover sits on.
- *
- * THIS USED TO BE THE WHOLE OF MUSE: artists, then their albums, then tracks,
- * with Now Playing as a row at the top, because the covers it browsed by had
- * no shelf of their own yet. They have one now - see muse_shelf_screen - and
- * SELECT lands there, so the two levels above this one had nothing left to
- * do. Eric's, 2026-09-20: the rest of the launcher is pictures, and a list
- * was the wrong front door for the one screen that is all covers.
- *
- * A plays a track and opens Now Playing; on the track already playing it just
- * opens Now Playing, rather than starting it over. B goes back to the shelf.
- * SELECT closes Muse from here, and MENU is Muse's menu, as everywhere in Muse.
- * L1 and R1 are the previous and next track, left and right seek ten seconds.
- * X and Y are free. Leaving does not stop the music - that is what the daemon
- * is for.
- *
- * `now` opens straight onto Now Playing, with these tracks underneath, so B
- * from there lands on the album it is playing. Returns how it was left, so
- * the shelf can close too when SELECT closed Muse - it used to be told
- * nothing, and SELECT from Now Playing landed on the shelf instead. */
-static muse_exit muse_tracks(app *a, int album, bool now)
-{
-	int sel = 0, done = 0, art, i, lv;
-	float k;
-	muse_exit how = MUSE_BACK;
-	menu_row *rows;
-	char (*vals)[24];
-	char heading[300], note[300], t0[16], t1[16];
-	const ml_album *al;
-
-	if (album < 0 || album >= g_muse.nalbums || g_muse.nartists == 0) return MUSE_BACK;
-	al = &g_muse.albums[album];
-	art = muse_artist_of(album);
-	rows = calloc((size_t)al->n + 4, sizeof *rows);
-	vals = calloc((size_t)al->n + 4, sizeof *vals);
-	if (!rows || !vals) { free(rows); free(vals); return MUSE_BACK; }
-
-	/* On the track that is playing, when it is one of these. */
-	if (muse_playing_album(&i) == album) sel = i;
-
-	if (now) {
-		how = muse_now_screen(a);
-		if (how != MUSE_BACK) done = 1;
-		else if (muse_playing_album(&i) == album) sel = i;
-	}
-
-	plat_input_flush();
-	memset(&a->in, 0, sizeof a->in);
-	muse_input_reset();
-	/* Opened from here, after a Now Playing it may have opened onto */
-	lv = done ? 0 : panel_open();
-
-	while (!done && !want_quit && a->running) {
-		const mu_now *mn;
-		bool loaded, open_now = false;
-		int n = 0, items;
-		const char *playing;
-
-		muse_screen_poll();
-		cover_answers();
-		mn = musec_now();
-		loaded = mn->state == MU_PLAYING || mn->state == MU_PAUSED;
-		playing = musec_path();
-		muse_input(a);
-
-		/* The album over its artist - and the album alone when there is no
-		 * artist over it, a folder of tracks or of episodes straight in
-		 * Music or Videos, which would say its name twice. */
-		if (!g_muse.artists[art].name[0] || !strcmp(g_muse.artists[art].name, al->name))
-			snprintf(heading, sizeof heading, "%s", al->name);
-		else
-			snprintf(heading, sizeof heading, "%s\n%s", al->name,
-			         g_muse.artists[art].name);
-		for (i = 0; i < al->n; i++, n++) {
-			const ml_track *t = &g_muse.tracks[al->first + i];
-			/* Every row a value, if only an empty one: a list with a value
-			 * anywhere is laid out in two columns, left-aligned, and one
-			 * without is centered. Without this the list sat centered until
-			 * one of its tracks played and then jumped left, every name
-			 * moving the moment A was pressed. Eric, 2026-09-19. */
-			const char *v = "";
-
-			if (playing[0] && !strcmp(playing, t->path))
-				v = mn->state == MU_PAUSED ? T(S_MUSE_ROW_PAUSED) : T(S_MUSE_ROW_PLAYING);
-			rows[n] = (menu_row){ t->name, v, true };
-		}
-		items = n;
-		if (sel >= items) sel = items ? items - 1 : 0;
-
-		/* What is playing, under a rule, even when it is another album's -
-		 * the list is a way to reach music, and the music is the point. */
-		if (loaded) {
-			char facts[sizeof note];
-
-			mmss(t0, sizeof t0, mn->at);
-			mmss(t1, sizeof t1, mn->len);
-			snprintf(facts, sizeof facts, "%s · %s · %s / %s", mn->title,
-			         mn->artist[0] ? mn->artist : mn->album, t0, t1);
-			snprintf(note, sizeof note, mn->state == MU_PAUSED ? T(S_MUSE_PAUSED_NOTE) : "%s",
-			         facts);
-			rows[n++] = MENU_RULE;
-			rows[n++] = MENU_NOTE(note);
-		}
-
-		if (items > 0) {
-			if (in_repeat(&a->in, IN_UP))   sel = list_step_heard(a, IN_UP, items, sel);
-			if (in_repeat(&a->in, IN_DOWN)) sel = list_step_heard(a, IN_DOWN, items, sel);
-		}
-		if (in_repeat(&a->in, IN_LEFT))     { moved_sound(a, IN_LEFT); musec_seek_by(-seek_step(&a->in, IN_LEFT)); }
-		if (in_repeat(&a->in, IN_RIGHT))    { moved_sound(a, IN_RIGHT); musec_seek_by(+seek_step(&a->in, IN_RIGHT)); }
-		if (in_repeat(&a->in, IN_L1))       { moved_sound(a, IN_L1); musec_prev(); }
-		if (in_repeat(&a->in, IN_R1))       { moved_sound(a, IN_R1); musec_next(); }
-		if (muse_keys(a)) {
-			muse_locked(a);
-			if (!a->running || g_muse_gone) { how = MUSE_CLOSE; break; }
-			continue;
-		}
-
-		if (a->in.pressed[IN_ACCEPT])
-			uisound_play(items > 0 ? DS_SOUND_ACCEPT : DS_SOUND_DENY);
-		if (a->in.pressed[IN_ACCEPT] && items > 0) {
-			/* The track already playing is not started over: A on it is the
-			 * way to its Now Playing, the same as the row. */
-			if (!loaded || strcmp(playing, g_muse.tracks[al->first + sel].path)) {
-				const char **paths = calloc((size_t)al->n, sizeof *paths);
-
-				if (paths) {
-					for (i = 0; i < al->n; i++)
-						paths[i] = g_muse.tracks[al->first + i].path;
-					/* A book's file from its start: choosing one is choosing
-					 * where to listen from, and the place moves with it. An
-					 * episode from where it was left. */
-					if (al->kind == ML_VIDEOS)
-						muse_play_videos(paths, al->n, sel, g_muse.artists[art].name,
-						                 al->name);
-					else
-						muse_play(paths, al->n, sel, 0, al->book,
-						          al->book ? book_speed(album) : 1.0,
-						          g_muse.artists[art].name, al->name);
-					free(paths);
-				}
-			}
-			open_now = true;
-		}
-		if (a->in.pressed[IN_BACK] || muse_select()) uisound_play(DS_SOUND_BACK);
-		if (a->in.pressed[IN_BACK]) done = 1;
-		if (muse_select()) { how = MUSE_CLOSE; break; }
-		if (a->in.pressed[IN_POWER] || idle_due(a)) { muse_power(a); how = MUSE_CLOSE; break; }
-		/* After a rescan `al` is gone with the old library: not one more
-		 * frame from it. */
-		if (a->in.pressed[IN_MENU]) {
-			how = muse_menu(a);
-			if (how != MUSE_BACK) break;
-			continue;
-		}
-
-		/* Back from Now Playing onto the track it had reached, which may be
-		 * several past the one chosen. */
-		if (open_now) {
-			how = muse_now_screen(a);
-			if (how != MUSE_BACK) break;
-			if (muse_playing_album(&i) == album) sel = i;
-			continue;
-		}
-
-		if (!panel_frame(a, lv, &k)) continue;
-		tick_theme(a);
-		muse_backdrop(a, k);
-		menu_draw(a, heading, rows, n, sel, menu_std_width(a), ZYPEROS_ACCENT);
-		plat_draw_osd(a->r);
-		plat_present();
-		ui_frame_rest(8);
-	}
-
-	if (lv) panel_close(a, lv, !a->running);
-	free(rows);
-	free(vals);
-	plat_input_flush();
-	memset(&a->in, 0, sizeof a->in);
-	return how;
-}
-
-/* SELECT, from anywhere but a running game - the shelf, every menu, and the
- * in-game menu, where the game waits paused underneath: Muse, and straight to
- * Now Playing when something is playing or paused. Nothing on a card with no
- * music, which is also a card with no Muse on its shelf.
- *
- * `over` is the menu it opened over, or NULL for the shelf and the screens
- * that draw it. True when that menu's power rule ended it too. */
-bool muse_open(app *a, const menu_style *over, void *ctx)
-{
-	snap_off();
-	const mu_now *mn = musec_now();
-
-	/* SELECT with nothing on the card to play: a press nothing can act on. */
-	if (g_muse.ntracks == 0) { uisound_play(DS_SOUND_DENY); return false; }
-	uisound_play(DS_SOUND_ACCEPT);
-	g_muse_over = over;
-	g_muse_over_ctx = ctx;
-	g_muse_gone = false;
-	muse_shelf_screen(a, mn->state == MU_PLAYING || mn->state == MU_PAUSED);
-	g_muse_over = NULL;
-	g_muse_over_ctx = NULL;
-	/* Nothing Muse did closes the menu it may have been opened over. */
-	g_menu_closing = false;
-	return g_muse_gone || g_message_stopped;
-}
-
-/* A on a book: where it was left, straight onto Now Playing with its files
- * underneath. The beginning for a book never started or finished; nothing new
- * for the book already playing or paused, which A only opens. */
-static muse_exit muse_book(app *a, int al)
-{
-	const mu_now *mn = musec_now();
-	bool loaded = mn->state == MU_PLAYING || mn->state == MU_PAUSED;
-
-	if (!loaded || muse_playing_album(NULL) != al) {
-		const ml_album *b = &g_muse.albums[al];
-		const char **paths = calloc((size_t)b->n, sizeof *paths);
-		double at;
-		int i, start = book_place(al, &at);
-
-		if (!paths) return MUSE_BACK;
-		for (i = 0; i < b->n; i++) paths[i] = g_muse.tracks[b->first + i].path;
-		fprintf(stderr, "muse: %s from file %d at %.1f\n", b->name, start + 1, at);
-		muse_play(paths, b->n, start, at, true, book_speed(al),
-		          g_muse.artists[muse_artist_of(al)].name, b->name);
-		free(paths);
-	}
-	return muse_tracks(a, al, true);
-}
-
-/* A on a film: where it was left, straight onto the player, and B from there
- * back to the shelf - a list of one file would be a screen with nothing to
- * choose. Nothing new for the film already playing or paused, which A only
- * opens. */
-static muse_exit muse_film(app *a, int al)
-{
-	const mu_now *mn = musec_now();
-	bool loaded = mn->state == MU_PLAYING || mn->state == MU_PAUSED;
-
-	if (!loaded || muse_playing_album(NULL) != al) {
-		const char *p = g_muse.tracks[g_muse.albums[al].first].path;
-
-		muse_play_videos(&p, 1, 0, "", g_muse.albums[al].name);
-	}
-	return muse_now_screen(a);
-}
-
-/* A on card `k` of Muse's shelf: its album's tracks, over the shelf, or a
- * book where it was left - and a film, which is one file, straight onto the
- * player; a folder of videos lists its episodes like an album. */
-static muse_exit muse_album(app *a, const sysview *v, int k)
-{
-	if (!v->album || k < 0 || k >= v->list.count) return MUSE_BACK;
-	if (g_muse.albums[v->album[k]].book) return muse_book(a, v->album[k]);
-	if (g_muse.albums[v->album[k]].solo) return muse_film(a, v->album[k]);
-	return muse_tracks(a, v->album[k], false);
-}
-
-/* Muse's shelf again after its menu, whose Rescan Folder rebuilds every view
- * on the card, so the view being held is found again rather than trusted.
- * NULL when there is no Muse left to show. */
-static sysview *muse_shelf_refind(app *a)
-{
-	sysview *v;
-	int i, muse = -1;
-
-	for (i = 0; i < a->sys.count; i++)
-		if (is_muse(&a->sys.systems[i])) { muse = i; break; }
-	if (muse < 0 || a->view[muse].list.count <= 0) return NULL;
-	a->sys_cursor = muse;
-	a->screen = SCREEN_GAMES;
-	v = &a->view[muse];
-	if (v->cursor >= v->list.count) v->cursor = v->list.count - 1;
-	cf_reset(&v->cf, v->cursor);
-	games_reset(&v->row, v->cursor, v->list.count, plat_now_ms());
-	return v;
-}
-
-/* Which card on Muse's shelf is that album, or -1. */
-static int muse_card_of(const sysview *v, int album)
-{
-	int k;
-
-	for (k = 0; v->album && k < v->list.count; k++)
-		if (v->album[k] == album) return k;
-	return -1;
-}
-
-/* MUSE'S SHELF, OPENED ON TOP OF WHATEVER WAS ON SCREEN. Eric's, 2026-09-20.
- *
- * SELECT used to open a list of artists, because this shelf belongs to the
- * main loop - it is the games shelf, drawn for Muse's own view - and SELECT
- * can be pressed inside a menu, on Play Time, or in the in-game menu over a
- * paused game, none of which the main loop is driving. A list could draw over
- * any of those and the shelf could not, so the front door to a screen made
- * entirely of covers was text. The rest of the launcher is pictures.
- *
- * So the shelf is driven from here as well: the same view, the same cards, the
- * same movement, and draw_shelf doing the drawing - the one loop in this file
- * that borrows another screen's. What it does NOT borrow is update_games'
- * input, because B has to come back here rather than walk out to the systems
- * row, and MENU has to survive a Rescan rebuilding every view underneath it.
- *
- * The screen and the cursor are put back on the way out, so whatever opened
- * Muse is still there when it closes. */
-static void muse_shelf_screen(app *a, bool now)
-{
-	int prev_screen = a->screen, prev_sys = a->sys_cursor;
-	in_button back = IN_LEFT, fwd = IN_RIGHT;
-	in_button jup = IN_UP, jdn = IN_DOWN;
-	sysview *v;
-	int muse = -1, i, playing, base;
-	bool done = false;
-
-	for (i = 0; i < a->sys.count; i++)
-		if (is_muse(&a->sys.systems[i])) { muse = i; break; }
-	if (muse < 0 || a->view[muse].list.count <= 0) return;
-
-	a->sys_cursor = muse;
-	muse_input_reset();
-	enter_system(a);                      /* the screen, the coverflow, the window */
-	v = &a->view[muse];
-	base = panel_base();
-
-	/* On the album that is playing, so SELECT lands where the music is - on
-	 * the books when it is a book. */
-	playing = muse_playing_album(NULL);
-	if (playing >= 0 && muse_kind_shown() != ML_ALL &&
-	    g_muse.albums[playing].kind != muse_kind_shown())
-		muse_show(v, g_muse.albums[playing].kind);
-	if (playing >= 0) {
-		int k = muse_card_of(v, playing);
-
-		if (k >= 0) { v->cursor = k; cf_reset(&v->cf, k); }
-	}
-	if (now && playing >= 0) {
-		/* A film is its player, with no list of one under it. */
-		muse_exit how = g_muse.albums[playing].solo ? muse_now_screen(a)
-		                                            : muse_tracks(a, playing, true);
-
-		if (how == MUSE_CLOSE || g_muse_gone) done = true;
-		else if (how == MUSE_REBUILT) {
-			sysview *nv = muse_shelf_refind(a);
-
-			if (nv) v = nv; else done = true;
-		}
-	}
-
-	while (!done && !want_quit && a->running) {
-		int n = v->list.count, dir = 0;
-
-		muse_screen_poll();
-		cover_answers();
-		muse_input(a);
-		if (a->in.quit_requested) { a->running = false; break; }
-		if (a->in.pressed[IN_POWER] || idle_due(a)) { muse_power(a); break; }
-		/* B and SELECT both leave, which is the rule everywhere in Muse: one
-		 * button in, the same button out, and B for the level below. SELECT
-		 * as it is let go, and not with START, which locks (muse_input). */
-		if (a->in.pressed[IN_BACK] || muse_select()) {
-			uisound_play(DS_SOUND_BACK);
-			break;
-		}
-
-		if (n > 0) {
-			in_button sb = IN_NONE;          /* the step's button, for its sound */
-			int was = v->cursor;
-
-			if (in_repeat(&a->in, back)) { v->cursor = (v->cursor - 1 + n) % n; dir = -1; sb = back; }
-			if (in_repeat(&a->in, fwd))  { v->cursor = (v->cursor + 1) % n; dir = +1; sb = fwd; }
-			if (in_repeat(&a->in, jdn))  { v->cursor = shelf_letter_jump(v, +1); sb = jdn; }
-			if (in_repeat(&a->in, jup))  { v->cursor = shelf_letter_jump(v, -1); sb = jup; }
-			if (in_repeat(&a->in, IN_L1)) { v->cursor = ((v->cursor - CF_WINDOW) % n + n) % n; sb = IN_L1; }
-			if (in_repeat(&a->in, IN_R1)) { v->cursor = (v->cursor + CF_WINDOW) % n; sb = IN_R1; }
-			cf_set_cursor_dir(&v->cf, v->cursor, n, dir);
-			if (sb != IN_NONE)
-				step_sound(a, sb, was, v->cursor);
-		}
-		if (muse_keys(a)) {
-			muse_locked(a);
-			if (!a->running || g_muse_gone) break;
-			continue;
-		}
-
-		if (a->in.pressed[IN_ACCEPT]) {
-			/* SELECT from the tracks or Now Playing closes all of Muse, and
-			 * a rescan from their MENU leaves this shelf to be found again. */
-			muse_exit how;
-
-			uisound_play(DS_SOUND_ACCEPT);
-			how = muse_album(a, v, v->cursor);
-
-			if (how == MUSE_CLOSE || g_muse_gone) break;
-			if (how == MUSE_REBUILT) {
-				sysview *nv = muse_shelf_refind(a);
-
-				if (!nv) break;
-				v = nv;
-			}
-		} else if (a->in.pressed[IN_MENU]) {
-			/* Muse's own menu. Sort By reorders this shelf and Rescan
-			 * Folder rebuilds it, so it is found again either way. */
-			sysview *nv;
-
-			if (muse_menu(a) == MUSE_CLOSE) break;
-			if (!(nv = muse_shelf_refind(a))) break;
-			v = nv;
-		}
-
-		tick_tint(a);
-		tick_theme(a);
-		draw_shelf(a);
-		panel_leave_draw(a, 0);
-		plat_draw_osd(a->r);
-		plat_present();
-		ui_frame_rest(8);
-	}
-
-	panel_base_close(base);
-	evict_far(v, TEX_KEEP_FAR);
-	a->screen = prev_screen;
-	a->sys_cursor = prev_sys;
-	plat_input_flush();
-	memset(&a->in, 0, sizeof a->in);
-}
-
-/* ---- Muse: Album Art -------------------------------------------------------- */
-
-/* The artist an album is under, and its folder relative to the Music folder. */
-int muse_artist_of(int al)
-{
-	int ar;
-
-	for (ar = 0; ar < g_muse.nartists - 1; ar++)
-		if (al < g_muse.artists[ar].first + g_muse.artists[ar].n) break;
-	return ar;
-}
-
-void muse_album_dir(int al, char *out, size_t n)
-{
-	const char *p = g_muse.albums[al].n > 0 ? g_muse.tracks[g_muse.albums[al].first].path : "";
-	const char *slash = strrchr(p, '/');
-
-	snprintf(out, n, "%.*s", slash ? (int)(slash - p) : 0, p);
-}
-
-/* Which albums Album Art asks about: every one with no cover on the card, or
- * with one smaller on its short side than the shelf draws it - the album
- * frame's height, 461px - which the service has not already supplied. Eric's
- * rule, 2026-09-19. A cover the service gave is remembered, because its own
- * can be small too - La Strada's is 360px - and asking again would only fetch
- * the same one; an album it could not find is asked about on every run. */
-static int museart_jobs(museart_job *jobs, int max)
-{
-	int crisp = (int)(ZYPEROS_SCREEN_H * CF_LAYOUT_ALBUMS.size + 0.5f);
-	int i, n = 0;
-
-	for (i = 0; i < g_muse.nalbums && n < max; i++) {
-		char dir[LIB_PATH], key[LIB_PATH + 16], p[LIB_PATH * 2 + 8];
-		museart_job *j = &jobs[n];
-		int w = 0, h = 0;
-		bool have;
-
-		/* Not a book: MusicBrainz knows records, and a book's cover is its
-		 * own file or the picture in its folder. Nor Singles, which is no
-		 * record at all and has its own cover. */
-		if (g_muse.albums[i].n <= 0 || g_muse.albums[i].kind != ML_MUSIC ||
-		    g_muse.albums[i].singles) continue;
-		muse_album_dir(i, dir, sizeof dir);
-		snprintf(key, sizeof key, "museart.%s", dir);
-		ml_cover_base(g_muse_root, &g_muse, i, j->base, sizeof j->base);
-		snprintf(p, sizeof p, "%s.jpg", j->base);
-		have = file_nonempty(p);
-		if (!have) { snprintf(p, sizeof p, "%s.png", j->base); have = file_nonempty(p); }
-		/* Remembered only while the cover it gave is on the card: one deleted
-		 * since is asked about again, where the memory alone kept every such
-		 * album off the list for good (2026-10-05). */
-		if (have && db_has(db_lib(), key)) continue;
-		if (have && museart_image_size(p, &w, &h) && (w < h ? w : h) >= crisp) continue;
-		snprintf(j->artist, sizeof j->artist, "%s", g_muse.artists[muse_artist_of(i)].name);
-		snprintf(j->album, sizeof j->album, "%s", g_muse.albums[i].name);
-		j->tracks = g_muse.albums[i].n;
-		j->id = i;
-		n++;
-	}
-	return n;
-}
-
-/* A cover arrived for album `al`: remember where it came from, and drop the old
- * one from the shelf and from Now Playing so both draw the new one. The whole
- * worker queue is disowned, not just this card, because a decode of the OLD
- * file may already be in flight and would otherwise land on top. */
-static void album_art_landed(app *a, int al, const char *rg)
-{
-	char dir[LIB_PATH], key[LIB_PATH + 16];
-	int s;
-
-	if (al < 0 || al >= g_muse.nalbums) return;
-	muse_album_dir(al, dir, sizeof dir);
-	snprintf(key, sizeof key, "museart.%s", dir);
-	db_set_str(db_lib(), key, rg[0] ? rg : "fetched");
-	if (g_cov) g_cov[al].st = COV_JPG;
-	for (s = 0; s < a->sys.count; s++) {
-		sysview *v = &a->view[s];
-		int k;
-
-		if (!is_muse(&a->sys.systems[s]) || !v->tex || !v->album) continue;
-		for (k = 0; k < v->list.count; k++)
-			if (v->album[k] == al && v->tex[k]) {
-				SDL_DestroyTexture(v->tex[k]);
-				v->tex[k] = NULL;
-			}
-	}
-	texload_bump();
-	if (g_np.album == al) np_forget();
-}
-
-/* ---- Muse: album covers from the web page (USB File Transfer) ------------
- *
- * Album Art's rules, answered for the page at the other end of the cable,
- * which asks MusicBrainz and the Cover Art Archive itself: the Pixel has no
- * network. Which albums want a cover is museart_jobs, which release a reply
- * names is museart_pick, and a cover that lands is remembered as Album Art
- * remembers its own. See hare_set_albums. */
-
-/* Where an album's cover goes, as a path the page uploads to: the card's
- * Music/<artist>/.media/<album>.jpg is music/<artist>/.media/<album>.jpg. */
-static bool album_cover_path(int al, char *out, size_t n)
-{
-	char base[LIB_PATH * 2];
-	size_t root = strlen(g_muse_root);
-
-	ml_cover_base(g_muse_root, &g_muse, al, base, sizeof base);
-	if (strncmp(base, g_muse_root, root) || strncmp(base + root, "/Music/", 7))
-		return false;
-	return snprintf(out, n, "music/%s.jpg", base + root + 7) < (int)n;
-}
-
-/* The album a pick answered and its release group, until its cover lands.
- * One at a time: the page uploads each cover straight after its pick. */
-static int  g_pick_al = -1;
-static char g_pick_rg[64];
-
-static char *albums_wanted(size_t *len, char *why, size_t wn)
-{
-	museart_job *jobs = calloc((size_t)(g_muse.nalbums > 0 ? g_muse.nalbums : 1),
-	                           sizeof *jobs);
-	hj o = { 0 };
-	bool first = true;
-	int n, i, k;
-
-	if (!jobs) { snprintf(why, wn, "out of memory"); return NULL; }
-	n = museart_jobs(jobs, g_muse.nalbums);
-	hj_lit(&o, "{\"albums\":[");
-	for (i = 0; i < n; i++) {
-		char artists[MUSEART_TRIES][128], albums[MUSEART_TRIES][128];
-		char url[1024], cover[LIB_PATH * 2];
-		int tries = museart_tries(jobs[i].artist, jobs[i].album, artists, albums);
-
-		if (!album_cover_path(jobs[i].id, cover, sizeof cover)) continue;
-		if (!first) hj_lit(&o, ",");
-		first = false;
-		hj_lit(&o, "{\"id\":");
-		hj_int(&o, jobs[i].id);
-		hj_lit(&o, ",\"artist\":");
-		hj_str(&o, jobs[i].artist);
-		hj_lit(&o, ",\"album\":");
-		hj_str(&o, jobs[i].album);
-		/* The searches in Album Art's order, each asked only if the one
-		 * before named nothing. */
-		hj_lit(&o, ",\"searches\":[");
-		for (k = 0; k < tries; k++) {
-			if (!museart_search_url(artists[k], albums[k], url, sizeof url)) continue;
-			if (k) hj_lit(&o, ",");
-			hj_str(&o, url);
-		}
-		hj_lit(&o, "]}");
-	}
-	hj_lit(&o, "]}");
-	free(jobs);
-	return hj_done(&o, len, why, wn);
-}
-
-static char *album_pick(int id, const char *json, size_t n, size_t *len,
-                        char *why, size_t wn)
-{
-	char rg[64] = "", cover[LIB_PATH * 2] = "", base[LIB_PATH * 2], *slash;
-	hj o = { 0 };
-
-	if (id < 0 || id >= g_muse.nalbums || g_muse.albums[id].kind != ML_MUSIC) {
-		snprintf(why, wn, "no such album");
-		return NULL;
-	}
-	if (museart_pick(json, n, g_muse.albums[id].n, rg, sizeof rg) &&
-	    album_cover_path(id, cover, sizeof cover)) {
-		/* The .media folder, which an album whose files never carried a
-		 * cover does not have: the upload needs it to exist. */
-		ml_cover_base(g_muse_root, &g_muse, id, base, sizeof base);
-		if ((slash = strrchr(base, '/'))) { *slash = '\0'; mkdir(base, 0755); }
-		g_pick_al = id;
-		snprintf(g_pick_rg, sizeof g_pick_rg, "%s", rg);
-	} else {
-		rg[0] = cover[0] = '\0';
-	}
-	hj_lit(&o, "{\"rg\":");
-	hj_str(&o, rg);
-	hj_lit(&o, ",\"cover\":");
-	hj_str(&o, cover);
-	hj_lit(&o, "}");
-	return hj_done(&o, len, why, wn);
-}
-
-/* Every upload, from the transfer screen: a game's cover is shrunk, and the
- * cover of the album last picked is taken as Album Art takes one, the PNG the
- * files carried removed and the release group remembered. */
-static void xfer_after_write(const char *abs)
-{
-	char base[LIB_PATH * 2], p[LIB_PATH * 2 + 8];
-
-	hareart_after_write(abs);
-	if (g_pick_al < 0 || g_pick_al >= g_muse.nalbums) return;
-	ml_cover_base(g_muse_root, &g_muse, g_pick_al, base, sizeof base);
-	snprintf(p, sizeof p, "%s.jpg", base);
-	if (strcmp(p, abs)) return;
-	snprintf(p, sizeof p, "%s.png", base);
-	remove(p);
-	if (g_logs_app) album_art_landed(g_logs_app, g_pick_al, g_pick_rg);
-	g_pick_al = -1;
-}
-
-/* Album Art, from Muse's menu: MusicBrainz and the Cover Art Archive, for the
- * albums museart_jobs chooses. The covers change on the shelf behind the panel
- * as they arrive. B stops. */
-void album_art_screen(app *a)
-{
-	museart_job *jobs;
-	museart_status st;
-	menu_row rows[3];
-	char head[300], fit[200], where[64], counts[160];
-	bool working, done = false;
-	int n, lv;
-	float k;
-
-	if (!net_online()) {
-		menu_row row = { MSG_NEEDS_WIFI, NULL, false };
-
-		timed_message(a, T(S_MUSE_ART_TITLE), &row, 1, 0, ZYPEROS_ACCENT);
-		return;
-	}
-	jobs = calloc((size_t)(g_muse.nalbums > 0 ? g_muse.nalbums : 1), sizeof *jobs);
-	if (!jobs) return;
-	n = museart_jobs(jobs, g_muse.nalbums);
-	/* The one async slot, which an account answer from a game just quit may
-	 * still be holding - the same reason Box Art gives it up first. */
-	sync_abandon();
-	working = museart_begin(jobs, n, "/tmp/zyperos-musicbrainz.json");
-	free(jobs);
-	fprintf(stderr, "album art: %d album%s to ask about\n", n, n == 1 ? "" : "s");
-
-	plat_input_flush();
-	memset(&a->in, 0, sizeof a->in);
-	lv = panel_open();
-	while (!done && !want_quit && a->running) {
-		if (working && museart_step(plat_now_ms()) == 0) {
-			working = false;
-			museart_status_get(&st);
-			fprintf(stderr, "album art: %d found, %d not found, %d failed%s%s\n",
-			        st.found, st.missing, st.failed, st.problem[0] ? " - " : "",
-			        st.problem);
-		}
-		museart_status_get(&st);
-		if (st.landed >= 0) album_art_landed(a, st.landed, st.rg);
-
-		ui_fit_text(ui_font(UI_F_LABEL),
-		            working ? (st.now[0] ? st.now : T(S_MUSE_ART_STARTING))
-		            : st.problem[0] ? st.problem
-		            : n == 0 ? T(S_MUSE_ART_ALL_CRISP) : T(S_MUSE_ART_DONE),
-		            fit, sizeof fit, ZYPEROS_SCREEN_W * 3 / 4);
-		snprintf(head, sizeof head, "%s\n%s", T(S_MUSE_ART_TITLE), fit);
-		snprintf(where, sizeof where, "%d / %d", st.done, st.n);
-		if (st.failed)
-			snprintf(counts, sizeof counts, T(S_MUSE_ART_COUNTS_FAILED),
-			         st.found, st.missing, st.failed);
-		else
-			snprintf(counts, sizeof counts, T(S_MUSE_ART_COUNTS), st.found, st.missing);
-		rows[0] = (menu_row){ T(S_MUSE_ART_ALBUMS), where,  false };
-		rows[1] = (menu_row){ T(S_MUSE_ART_COVERS), counts, false };
-		rows[2] = (menu_row){ working ? b_legend(S_KEYHINT_STOP) : b_legend(S_KEYHINT_CLOSE), NULL, false };
-
-		plat_input_poll(&a->in);
-		ui_sounds_follow();
-		if (a->in.quit_requested) { museart_cancel(); a->running = false; return; }
-		if (a->in.pressed[IN_POWER] || idle_due(a)) {
-			museart_cancel();
-			power_off(a);
-			return;
-		}
-		if (menu_leaving(a)) done = true;
-		if (in_repeat(&a->in, IN_VOLUP))    plat_volume_nudge(+1);
-		if (in_repeat(&a->in, IN_VOLDN))    plat_volume_nudge(-1);
-		if (in_repeat(&a->in, IN_BRIGHTUP)) plat_brightness_nudge(+1);
-		if (in_repeat(&a->in, IN_BRIGHTDN)) plat_brightness_nudge(-1);
-
-		/* Idle does not count while covers are arriving: it is the device
-		 * doing what it was asked, and powering off halfway loses the rest.
-		 * Said as every long task says it (src/taskhold.h). */
-		if (working) task_note(TASK_COVERS, plat_now_ms());
-
-		if (!panel_frame(a, lv, &k)) continue;
-		tick_tint(a);
-		tick_theme(a);
-		draw_shelf(a);
-		ui_scrim_k(a->r, 0, k);
-		menu_draw(a, head, rows, 3, -1, menu_std_width(a), ZYPEROS_ACCENT);
-		plat_draw_osd(a->r);
-		plat_present();
-		ui_frame_rest(8);
-	}
-	panel_close(a, lv, false);
-	museart_cancel();
-	plat_input_flush();
-	memset(&a->in, 0, sizeof a->in);
-}
-
-
-/* Bring the resident emulator back.
- *
- * With one process per game a core that segfaults takes down that game and
- * nothing else. With a resident emulator it takes down the emulator, and every
- * launch for the rest of the session would fall back to the slow path -- until
- * the launcher itself exits and launch.sh starts a new one. So the launcher
- * starts one too, once the fallback game has given the display back. Never
- * while a game is running: two GL contexts and a launcher is one more than
- * this device should be asked for. */
-static void respawn_resident(app *a)
-{
-	char elf[CFG_STR * 2], save[CFG_STR * 2], bios[CFG_STR * 2];
-	char cores[CFG_STR * 2];
-	char *argv[10];
-	(void)a;
-
-	if (plat_resident_ready()) return;
-
-	/* The resident is Diatom. It maps every core in the directory it is given
-	 * and keeps them, so the directory is the only thing handed over and
-	 * nothing here changes when a system is added. */
-	snprintf(elf, sizeof elf, "%s/diatom", P_ROOT);
-	if (access(elf, X_OK) != 0) return;
-	snprintf(save, sizeof save, "%s/Saves", P_CARD);
-	snprintf(bios, sizeof bios, "%s/Bios", P_CARD);
-	/* --cores here as well as in launch.sh. There are two places that start
-	 * the resident emulator - the boot script and this - and a flag added to
-	 * only one of them means every restart after the first silently loses it.
-	 * That is exactly what happened: the log showed a premapped boot, then a
-	 * dlopen on every launch once this path had restarted it. */
-	snprintf(cores, sizeof cores, "%s/cores", P_ROOT);
-	argv[0] = elf;
-	argv[1] = (char *)"--socket";
-	argv[2] = (char *)plat_resident_socket();
-	argv[3] = (char *)"--cores";  argv[4] = cores;
-	argv[5] = (char *)"--save";   argv[6] = save;
-	argv[7] = (char *)"--system"; argv[8] = bios;
-	argv[9] = NULL;
-	fprintf(stderr, "resident emulator is gone, starting diatom\n");
-	plat_spawn_detached(argv, NULL, P_ROOT);
-}
-
-/* The Ports shelf. A port is a Linux program with a script of its own - a
- * PortMaster port, OpenBOR, anything that is not a libretro core - and it
- * wants the display, the buttons and most of the memory, which this process
- * and the resident Diatom are holding. So it does not run under the launcher
- * at all: the launcher names the script in PORT_REQUEST and exits, and
- * launch.sh stops Diatom, runs the script, and starts both again
- * (sd/pixel2/launch.sh). Coming back costs a cold start, which a port's own
- * start dwarfs.
- *
- * A shelf whose core is "run:<script>" is the same handoff for a standalone
- * emulator: the script, under the card, is run with the game as its one
- * argument - OpenBOR, which has no libretro core, or the Dreamcast through
- * the standalone Flycast.
- *
- * The request is one line of three fields, a tab between each: the script,
- * the game it is given (none for a port, whose script is the game), and the
- * tag of the system whose in-game menu goes over it (src/portmenu.h), none
- * for a program that has no menu. Empty fields stay fields: launch.sh splits
- * the line by hand, not with read, which would run two tabs together. */
-#define PORT_REQUEST "/tmp/zyperos_port"
-/* Left by launch_port for the launcher launch.sh starts after the port, so it
- * opens on the game list the port was started from rather than on the systems
- * shelf - which is where a game in Diatom comes back to, since this process
- * never stops for one. Under /tmp, so a boot never sees one: a power-off in the
- * middle of a port starts on the shelf, as every boot does. */
-#define PORT_RETURN  "/tmp/zyperos_port_return"
-
-bool is_port(const system_cfg *s)
-{
-	return !strcmp(s->core, PORT_CORE) ||
-	       !strncmp(s->core, RUN_PREFIX, strlen(RUN_PREFIX));
-}
-
-static bool pm_locked(void);
-static void pm_install_screen(app *a, const system_cfg *s, bool repair, const char *failed,
-                              bool crashed);
-
-/* PortMaster's config/ before it starts: a file of it cut off is removed,
- * for PortMaster to make again, and the settings with a cut-off source list
- * (src/pminstall.h, pm_json_whole). Its first and last bytes read of each,
- * the whole of the small ones: a few reads, where PortMaster's own start
- * takes seconds. */
-static void pm_heal_config(const char *folder)
-{
-	static char buf[PM_JSON_SCAN];
-	char dir[LIB_PATH], path[LIB_PATH * 2];
-	bool reset = false;
-	struct dirent *e;
-	DIR *d;
-
-	snprintf(dir, sizeof dir, "%s/%s/%s/%s", P_ROMS, folder, PM_FOLDER, PM_CONFIG);
-	if (!(d = opendir(dir))) return;
-	while ((e = readdir(d))) {
-		size_t len = strlen(e->d_name);
-		char head[64], tail[64];
-		size_t hn = 0, tn = 0;
-		bool whole;
-		long size;
-		FILE *f;
-
-		if (len < 6 || strcasecmp(e->d_name + len - 5, ".json") || e->d_name[0] == '.') continue;
-		snprintf(path, sizeof path, "%s/%s", dir, e->d_name);
-		if (!(f = fopen(path, "rb"))) continue;
-		if (fseek(f, 0, SEEK_END) != 0 || (size = ftell(f)) < 0) { fclose(f); continue; }
-		rewind(f);
-		if (size <= (long)sizeof buf) {
-			size_t got = fread(buf, 1, sizeof buf, f);
-			whole = got == (size_t)size && pm_json_balanced(buf, got);
-		} else {
-			hn = fread(head, 1, sizeof head, f);
-			if (fseek(f, -(long)sizeof tail, SEEK_END) == 0) tn = fread(tail, 1, sizeof tail, f);
-			whole = pm_json_whole(head, hn, tail, tn);
-		}
-		fclose(f);
-		if (whole) continue;
-		fprintf(stderr, "portmaster: %s/%s was cut off (%ld bytes): removed, PortMaster makes it again\n",
-		        PM_CONFIG, e->d_name, size);
-		unlink(path);
-		if (pm_json_resets_settings(e->d_name)) reset = true;
-	}
-	closedir(d);
-	if (reset) {
-		snprintf(path, sizeof path, "%s/%s", dir, PM_SETTINGS);
-		if (!unlink(path))
-			fprintf(stderr, "portmaster: its settings removed with it, for its first start's sources\n");
-	}
-}
-
-static void launch_port(app *a, const system_cfg *s, const char *file)
-{
-	char path[LIB_PATH * 2];
-	FILE *f;
-	bool ok;
-
-	/* PortMaster's entry while PortMaster is not on the card, asked of the
-	 * card now: its page, which installs it (src/pminstall.h). And while
-	 * its installer runs, a reinstall left going on its page: its page
-	 * again, not a PortMaster whose folder is about to be swapped */
-	if (!strcmp(s->core, PORT_CORE) && !strcasecmp(file, PM_SCRIPT) &&
-	    (pm_offer_refresh(a) || pm_locked())) {
-		if (a->in.pressed[IN_ACCEPT]) uisound_play(DS_SOUND_ACCEPT);
-		pm_install_screen(a, s, pm_on_card(s->folder), NULL, false);
-		return;
-	}
-
-	snprintf(path, sizeof path, "%s/%s/%s", P_ROMS, s->folder, file);
-	/* PortMaster itself: its cached lists and settings as it can start on */
-	if (!strcmp(s->core, PORT_CORE) && !strcasecmp(file, PM_SCRIPT)) pm_heal_config(s->folder);
-	/* Written whole, then renamed into place: launch.sh reads it the moment
-	 * this process is gone, and half a path would run nothing. */
-	f = fopen(PORT_REQUEST ".tmp", "w");
-	/* A program of its own has the in-game menu over it: the system's tag,
-	 * the request's third field, says so to launch.sh, which gives it to
-	 * portkeys with --menu (src/portmenu.h). A standalone emulator's script
-	 * gets the game as its argument, the second field; a port's script is
-	 * the game, and its second field is empty (port_menu_for) */
-	if (!strncmp(s->core, RUN_PREFIX, strlen(RUN_PREFIX)))
-		ok = f && fprintf(f, "%s/%s\t%s\t%s\n", P_CARD, s->core + strlen(RUN_PREFIX), path,
-		                  port_menu_for(s->core) ? s->tag : "") > 0;
-	else
-		ok = f && fprintf(f, "%s\t\t%s\n", path, port_menu_for(s->core) ? s->tag : "") > 0;
-	if (f && fclose(f) != 0) ok = false;
-	if (!ok || rename(PORT_REQUEST ".tmp", PORT_REQUEST) != 0) {
-		fprintf(stderr, "port: couldn't write %s\n", PORT_REQUEST);
-		unlink(PORT_REQUEST ".tmp");
-		if (a->in.pressed[IN_ACCEPT]) uisound_play(DS_SOUND_DENY);
-		result_message(a, s->name, T(S_LAUNCH_COULDNT_START));
-		return;
-	}
-	/* A's answer, now that the port will start, and before remember_place
-	 * waits on the card. */
-	if (a->in.pressed[IN_ACCEPT]) uisound_play(DS_SOUND_ACCEPT);
-	bgm_hold(BGM_HOLD_GAME, true);              /* faded under the loading screen */
-	fprintf(stderr, "port: %s\n", path);
-	/* What px2-open's status says while no launcher runs to say it, with
-	 * launch.sh's process for its quit (src/ctl.h) */
-	ctl_port_write(ctl_dir(), (int)getppid(), (long)time(NULL), path);
-	/* The shelf comes back on this game, and an audiobook keeps its place:
-	 * launch.sh stops Muse too, as the port needs the sound card. */
-	remember_place(a);
-	{
-		FILE *r = fopen(PORT_RETURN, "w");
-		if (r) fclose(r);
-	}
-	book_keep(true);
-	anim_launch(a);
-	port_loading_screen(a, s);
-	/* "Getting hot" for portkeys to show over the port, which this process
-	 * is not there to render then (src/portmenu.h), in either theme, as Auto
-	 * can turn it while the port runs */
-	notice_render_mark(HEAT_HEAD, HEAT_BODY, NOTICE_MARK_HEAT, PORT_HEAT_LIGHT, DS_LIGHT);
-	notice_render_mark(HEAT_HEAD, HEAT_BODY, NOTICE_MARK_HEAT, PORT_HEAT_DARK, DS_DARK);
-	a->running = false;
-}
-
-/* ---------- Install PortMaster (src/pminstall.h, DESIGN.md 11.32) --------
- *
- * The Ports shelf's PortMaster while it is not on the card: System Update's
- * page with its own words. Install starts res/portmaster/pm-install.py on
- * its own (it outlives this screen: B leaves it working, as System Update's
- * download goes on), and the page draws the status file it writes. */
-
-#define PM_PYTHON "/usr/bin/python3"
-
-static void pm_status_path(char *out, size_t n)
-{
-	const char *e = getenv("ZYPEROS_PM_STATUS");   /* a host shot's status file */
-
-	snprintf(out, n, "%s", e && *e ? e : PM_STATUS_DIR "/status");
-}
-
-/* The installer holds its lock, beside the status file, while it runs */
-static bool pm_locked(void)
-{
-	char p[LIB_PATH], *slash;
-	bool busy;
-	int fd;
-
-	pm_status_path(p, sizeof p);
-	if (!(slash = strrchr(p, '/'))) return false;
-	snprintf(slash + 1, sizeof p - (size_t)(slash + 1 - p), "lock");
-	if ((fd = open(p, O_RDONLY | O_CLOEXEC)) < 0) return false;
-	busy = flock(fd, LOCK_SH | LOCK_NB) != 0;
-	close(fd);
-	return busy;
-}
-
-/* A way out to the internet: Wi-Fi, or a default route on another link
- * (a phone's tethering, QEMU's network, a wired adapter): net_internet. A
- * computer on the USB cable gives no route out, so File Transfer's link is
- * not one. */
-static bool pm_network(void)
-{
-	return net_internet(NULL);
-}
-
-static pm_view g_pm;
-static unsigned g_pm_read_at, g_pm_started;
-/* The page's errand, kept beside the view it reads again: a reinstall
- * (pm_install_screen's `repair`), A pressed on it this visit, and the error
- * PortMaster closed with when that is why it opened */
-static bool g_pm_repair, g_pm_asked, g_pm_crashed;
-static char g_pm_failed[PM_WHY];
-/* --portmaster [running,nonet,nopython,installed]: a host shot's view, the
- * status from ZYPEROS_PM_STATUS; -1 none */
-static int g_pm_shot = -1;
-enum { PM_SHOT_RUNNING = 1, PM_SHOT_NONET = 2, PM_SHOT_NOPYTHON = 4, PM_SHOT_INSTALLED = 8,
-       PM_SHOT_REPAIR = 16, PM_SHOT_FAILED = 32 };
-
-/* The version of the PortMaster in a Ports folder, "" when it has none */
-static void pm_have(const char *folder, char *out, size_t n)
-{
-	char p[LIB_PATH];
-
-	snprintf(p, sizeof p, "%s/%s/%s/version", P_ROMS, folder, PM_FOLDER);
-	up_first_line(p, out, n);
-	if (strlen(out) > 31 || strchr(out, ' ')) out[0] = 0;
-}
-
-/* Everything the page shows, read again at most four times a second: the
- * page asks every frame */
-/* The installer at work, for Auto Off (long_task_busy, from every screen and
- * from a game): its lock, looked at twice a second at most, since the
- * question comes with every frame of every loop and the lock is a file */
-bool pm_installing(void)
-{
-	static unsigned at;
-	static bool busy;
-	unsigned t = plat_now_ms();
-
-	if (!at || t - at >= 500) {
-		at = t ? t : 1;
-		/* Python takes a moment to start and take its lock: a run just
-		 * begun counts, as the page counts it (pm_view_read) */
-		busy = pm_locked() || (g_pm_started && t - g_pm_started < 5000);
-	}
-	return busy;
-}
-
-static const pm_view *pm_view_read(const system_cfg *s, bool now)
-{
-	unsigned t = plat_now_ms();
-	char p[LIB_PATH], text[512] = "";
-
-	if (!now && g_pm_read_at && t - g_pm_read_at < 250) return &g_pm;
-	g_pm_read_at = t ? t : 1;
-	memset(&g_pm, 0, sizeof g_pm);
-	pm_status_path(p, sizeof p);
-	up_read(p, text, sizeof text);
-	pm_status_parse(text, &g_pm.st);
-	g_pm.repair = g_pm_repair;
-	g_pm.asked = g_pm_asked;
-	g_pm.crashed = g_pm_crashed;
-	snprintf(g_pm.failed, sizeof g_pm.failed, "%s", g_pm_failed);
-	if (g_pm_shot >= 0) {
-		const char *why = getenv("ZYPEROS_PM_WHY");
-
-		g_pm.running = g_pm_shot & PM_SHOT_RUNNING;
-		g_pm.network = !(g_pm_shot & PM_SHOT_NONET);
-		g_pm.python = !(g_pm_shot & PM_SHOT_NOPYTHON);
-		g_pm.installed = g_pm_shot & PM_SHOT_INSTALLED;
-		g_pm.repair = g_pm_shot & (PM_SHOT_REPAIR | PM_SHOT_FAILED);
-		g_pm.asked = g_pm.repair && (g_pm.running || g_pm.st.reinstall);
-		g_pm.crashed = g_pm_shot & PM_SHOT_FAILED;
-		if (g_pm.crashed)
-			snprintf(g_pm.failed, sizeof g_pm.failed, "%s",
-			         why ? why : "ModuleNotFoundError: No module named 'sdl2'");
-		snprintf(g_pm.have, sizeof g_pm.have, "%s", "2026.11.12-1059");
-		return &g_pm;
-	}
-	pm_have(s->folder, g_pm.have, sizeof g_pm.have);
-	/* Python takes a moment to start and take its lock: a run just begun
-	 * is running until it says it is done or failed */
-	g_pm.running = pm_locked() ||
-	               (g_pm_started && t - g_pm_started < 5000 &&
-	                g_pm.st.state != PM_DONE && g_pm.st.state != PM_ERROR);
-	g_pm.network = pm_network();
-	g_pm.python = access(PM_PYTHON, X_OK) == 0;
-	g_pm.installed = pm_on_card(s->folder);
-	return &g_pm;
-}
-
-static void pm_spawn(const system_cfg *s, bool reinstall)
-{
-	char script[LIB_PATH], ports[LIB_PATH], status[LIB_PATH];
-	char *argv[] = { (char *)PM_PYTHON, (char *)"-I", script, (char *)"--ports", ports,
-	                 (char *)"--status", status, reinstall ? (char *)"--reinstall" : NULL, NULL };
-	FILE *f;
-
-	snprintf(script, sizeof script, "%s/%s", P_ROOT, PM_INSTALLER);
-	snprintf(ports, sizeof ports, "%s/%s", P_ROMS, s->folder);
-	pm_status_path(status, sizeof status);
-	/* The last run's word is not this one's: the page says it is looking
-	 * from the press on, until the installer writes its own */
-	mkdir(PM_STATUS_DIR, 0755);
-	if ((f = fopen(status, "w"))) {
-		fputs(reinstall ? "state checking\nkind reinstall\n" : "state checking\n", f);
-		fclose(f);
-	}
-	fprintf(stderr, "portmaster: %s into %s\n", reinstall ? "reinstalling" : "installing", ports);
-	plat_spawn_detached(argv, NULL, P_ROOT);
-	g_pm_started = plat_now_ms();
-	if (!g_pm_started) g_pm_started = 1;
-	g_pm_read_at = 0;
-}
-
-/* PortMaster's icon for its page, or NULL (Zyper, then) */
-static SDL_Texture *pm_icon_tex(app *a)
-{
-	char path[LIB_PATH * 2];
-
-	return pm_icon_path(path, sizeof path) ? IMG_LoadTexture(a->r, path) : NULL;
-}
-
-static void pm_install_loop(app *a, const system_cfg *s, SDL_Texture *icon)
-{
-	char notes[PM_NOTES][120];
-	bool had = pm_view_read(s, true)->installed;
-
-	while (!want_quit && a->running) {
-		const pm_view *v = pm_view_read(s, false);
-		su_action act = SUA_NONE;
-		su_page p;
-		int nnotes;
-
-		/* A reinstall seen at work is this page's to follow to its end,
-		 * started here or before the page opened */
-		if (g_pm_repair && v->running) g_pm_asked = true;
-		pm_page_build(v, &p, notes, &nnotes);
-		/* Installed while the page is up: the shelf's A says Play now */
-		if (v->installed && !had) {
-			had = true;
-			pm_offer_refresh(a);
-		}
-		plat_input_poll(&a->in);
-		muse_poll();
-		aout_apply(false);
-		if (a->in.quit_requested) { a->running = false; return; }
-		if (a->in.pressed[IN_POWER] || idle_due(a)) { power_off(a); return; }
-		if (a->in.pressed[IN_SELECT]) muse_open(a, NULL, NULL);
-		if (in_repeat(&a->in, IN_VOLUP))    plat_volume_nudge(+1);
-		if (in_repeat(&a->in, IN_VOLDN))    plat_volume_nudge(-1);
-		if (in_repeat(&a->in, IN_BRIGHTUP)) plat_brightness_nudge(+1);
-		if (in_repeat(&a->in, IN_BRIGHTDN)) plat_brightness_nudge(-1);
-		if (a->in.pressed[IN_ACCEPT]) act = update_page_key(&p, "A");
-		if (a->in.pressed[IN_BACK] || a->in.pressed[IN_MENU]) {
-			uisound_play(DS_SOUND_BACK);
-			break;
-		}
-		if (a->in.pressed[IN_ACCEPT] && act == SUA_NONE) uisound_play(DS_SOUND_DENY);
-		switch (act) {
-		case SUA_DOWNLOAD:
-			uisound_play(DS_SOUND_ACCEPT);
-			pm_spawn(s, g_pm_repair);
-			g_pm_asked = true;
-			break;
-		case SUA_OPEN:
-			/* PortMaster, run as any port is: the launcher exits for it */
-			pm_offer_refresh(a);
-			launch_port(a, s, PM_SCRIPT);
-			return;
-		case SUA_BACK:
-			uisound_play(DS_SOUND_BACK);
-			pm_offer_refresh(a);
-			return;
-		default:
-			break;
-		}
-
-		tick_tint(a);
-		tick_theme(a);
-		{
-			const char *np[PM_NOTES];
-			int i;
-
-			for (i = 0; i < PM_NOTES; i++) np[i] = notes[i];
-			update_page_draw(a, T(g_pm_repair ? S_PORTMASTER_REINSTALL_TITLE : S_PORTMASTER_TITLE),
-			                 &p, np, nnotes, icon);
-		}
-		plat_draw_osd(a->r);
-		plat_present();
-		ui_frame_rest(16);
-	}
-	pm_offer_refresh(a);
-}
-
-/* The page: Install PortMaster, or with `repair` Reinstall PortMaster, the
- * error it closed with in `failed` when `crashed` (pm_after_run) */
-static void pm_install_screen(app *a, const system_cfg *s, bool repair, const char *failed,
-                              bool crashed)
-{
-	SDL_Texture *icon = pm_icon_tex(a);
-
-	g_pm_repair = repair;
-	g_pm_asked = false;
-	g_pm_crashed = repair && crashed;
-	snprintf(g_pm_failed, sizeof g_pm_failed, "%s", failed ? failed : "");
-	g_pm_read_at = 0;
-	pm_install_loop(a, s, icon);
-	g_pm_repair = g_pm_asked = g_pm_crashed = false;
-	g_pm_failed[0] = 0;
-	g_pm_read_at = 0;
-	if (icon) SDL_DestroyTexture(icon);
-}
-
-/* The last `n` bytes of a file at most, from a line's start, into a buffer
- * of n + 1; false when it cannot be read */
-static bool pm_read_tail(const char *path, char *buf, size_t n)
-{
-	FILE *f = fopen(path, "r");
-	long size;
-	size_t got;
-	char *nl;
-
-	buf[0] = 0;
-	if (!f) return false;
-	if (fseek(f, 0, SEEK_END) == 0 && (size = ftell(f)) > (long)n)
-		fseek(f, size - (long)n, SEEK_SET);
-	else
-		fseek(f, 0, SEEK_SET);
-	got = fread(buf, 1, n, f);
-	fclose(f);
-	buf[got] = 0;
-	/* Cut into the middle of a line: from the next one */
-	if (got == n && (nl = strchr(buf, '\n'))) memmove(buf, nl + 1, strlen(nl + 1) + 1);
-	return true;
-}
-
-/* How long a PortMaster that left no word in its log may have run for it
- * still to be one that never started: its launcher script truncates the log
- * as one of its first steps */
-#define PM_QUIET_START_S 20
-
-/* Back from PortMaster (launch.sh's PM_RAN): when it closed with an error,
- * its page says so, with the line of its log that says how, and offers
- * Reinstall PortMaster, before the shelf (DESIGN.md 11.33). Before this a
- * PortMaster that could not start fell back to the shelf with nothing said,
- * every time it was opened. */
-static void pm_after_run(app *a)
-{
-	static char tail[32 * 1024 + 1];
-	char ran[96], log[LIB_PATH * 2], why[PM_WHY] = "";
-	long long start = 0, end = 0;
-	const system_cfg *s = NULL;
-	struct stat st;
-	bool crashed;
-	int rc = 0, i;
-
-	if (!up_read(PM_RAN, ran, sizeof ran)) return;
-	unlink(PM_RAN);
-	if (sscanf(ran, "%lld %lld %d", &start, &end, &rc) < 2) return;
-	for (i = 0; i < a->sys.count && !s; i++)
-		if (!strcmp(a->sys.systems[i].core, PORT_CORE) && pm_on_card(a->sys.systems[i].folder))
-			s = &a->sys.systems[i];
-	if (!s) return;
-	snprintf(log, sizeof log, "%s/%s/%s/%s", P_ROMS, s->folder, PM_FOLDER, PM_LOG);
-	if (stat(log, &st) != 0 || (long long)st.st_mtime + 2 < start)
-		/* Its log not written this run: the script stopped before it */
-		crashed = end - start < PM_QUIET_START_S;
-	else
-		crashed = pm_read_tail(log, tail, sizeof tail - 1) && pm_failure(tail, why, sizeof why);
-	if (!crashed) return;
-	fprintf(stderr, "portmaster: closed with an error after %llds (status %d): %s\n",
-	        end - start, rc, why[0] ? why : "nothing in its log");
-	pm_install_screen(a, s, true, why, true);
-}
-
-/* A shelf's disc bios in Bios/: any one of its names, which config/systems.cfg
- * lists with commas (the Saturn core takes any of three). The first is the
- * one a refusal names. */
-bool disc_bios_found(const char *bios, const char *names)
-{
-	const char *p = names;
-
-	while (*p) {
-		size_t n = strcspn(p, ",");
-		char fw[CFG_STR * 3];
-
-		snprintf(fw, sizeof fw, "%s/%.*s", bios, (int)n, p);
-		if (n && access(fw, R_OK) == 0) return true;
-		p += n;
-		if (*p) p++;
-	}
-	return false;
-}
-
-static void launch(app *a)
-{
-	/* The game has the screen, and the CPU: no snap under it */
-	snap_off();
-	sysview *v = &a->view[a->sys_cursor];
-	/* The game's system, not the shelf's. Launching a favorite off the
-	 * Favorites shelf otherwise loads whatever core the shelf claims, which
-	 * is none, and looks for the ROM under a folder that does not exist. */
-	int o = shelf_owner(a, a->sys_cursor, v->cursor);
-	const system_cfg *s = &a->sys.systems[o];
-	char core[CFG_STR * 2], elf[CFG_STR * 2], rom[LIB_PATH * 2];
-	char st[LIB_PATH * 2], pv[LIB_PATH * 2], apv[LIB_PATH * 2];
-	char save[CFG_STR * 2], bios[CFG_STR * 2];
-	char active[LIB_PATH * 2] = "";
-	char set[LIB_PATH * 2];
-	int  console = 0;
-	bool first_play = false;
-	/* 22 fixed entries (the shader's two and its strength's since 1.0.5)
-	 * plus NULL, seven more for a DS game's two screens, then two per core
-	 * option. Sized off the loader's own cap so the two cannot drift apart:
-	 * the previous 20 was already 18 full, and a silent bound check would
-	 * have dropped every option rather than failing loudly. */
-	char *argv[31 + 2 * 32];
-	bool resident = false, want_menu;
-	/* A DS game's resume by its language (ds_resume_fresh): what it will
-	 * run in, whether it starts fresh, and its auto state as it was */
-	char ds_lang[16] = "";
-	bool ds_fresh = false, ds_had = false;
-	/* And by the core that left it (core_resume_fresh) */
-	bool core_fresh = false;
-	struct stat ds_before;
-	unsigned waited;
-	int n = 0;
-
-	if (v->list.count == 0) return;
-	/* Not beside File Transfer: the game takes the loop that moves the files
-	 * (2026-11-06). Closed for it, or the player says when. */
-	if (!xs_before_game(a)) return;
-
-	snprintf(core, sizeof core, "%s/cores/%s_libretro.so", P_ROOT, s->core);
-	snprintf(elf, sizeof elf, "%s/diatom", P_ROOT);
-	/* Captured once, beside the path it goes into: play time is keyed on the
-	 * launch path the same way favorites are, and reading the cursor again
-	 * further down would be reading it at a different moment. */
-	const char *romfile = v->list.items[v->cursor].file;
-
-	if (is_port(s)) {
-		launch_port(a, s, romfile);
-		return;
-	}
-
-	/* A new game: its in-game menu starts on the Game tab again */
-	gm_mem_reset();
-	snprintf(rom, sizeof rom, "%s/%s/%s", P_ROMS, s->folder, romfile);
-	snprintf(save, sizeof save, "%s/Saves", P_CARD);
-	snprintf(bios, sizeof bios, "%s/Bios", P_CARD);
-
-	/* A DS game: two screens in one frame, a DraStic save (ROGUE OS's) to
-	 * take over the first time, and frames left undrawn when they run late -
-	 * DSperate's 3D is the heaviest thing a Cortex-A35 is asked to draw, and
-	 * a skipped drawing keeps the game at its speed where a late frame slows
-	 * it. */
-	g_game_dual = two_screens(s);
-	if (g_game_dual) dsv_import(save, romfile);
-	{
-		/* The RUN keys this game needs beyond the usual: a DS game's two
-		 * screens, the system's clock ceiling, controller type and d-pad
-		 * stick, and its button map (config.h: power, controller, stick,
-		 * map) */
-		char keys[128], stick[24];
-		rm_table sent;
-		char map[320];
-		bool stick_on = rms_stick_get(s, romfile);
-
-		cfg_run_keys(s, g_game_dual, keys, (int)sizeof keys);
-		/* The d-pad as the stick, a game's own (rms_stick_get): the PSP's
-		 * stick=toggle-stick when it was left on the stick */
-		rms_run_stick(s, stick_on, stick, sizeof stick);
-		if (stick[0] && strlen(keys) + strlen(stick) + 2 <= sizeof keys)
-			snprintf(keys + strlen(keys), sizeof keys - strlen(keys), "%s%s",
-			         keys[0] ? "\t" : "", stick);
-		if (keys[0]) plat_resident_run_keys(keys);
-		/* The whole table, whatever the card holds for the game or its
-		 * system (rms_sent): Diatom is sent no turbo of its own */
-		rms_sent(s, romfile, stick_on, &sent);
-		rm_format(&sent, map, sizeof map);
-		plat_resident_map(strcmp(map, "identity") ? map : "");
-		/* And an N64 game's Pak, its own over the system's; none else */
-		if (pak_system(s))
-			plat_resident_opt(gm_pak_option(s->core), pak_get(s, romfile));
-		else
-			plat_resident_opt(NULL, NULL);
-	}
-
-	/* A disc that needs firmware, before anything tries to run it.
-	 *
-	 * Diatom checks this too and answers bios_missing, but that answer has
-	 * never been reachable: it acts on a `firmware=` key the launcher has
-	 * never sent. So the core was asked to load a CD with no System Card,
-	 * refused it the way it refuses a corrupt ROM, and the shelf came back
-	 * with nothing said - which is a long way from "needs Bios/syscard3.pce".
-	 *
-	 * Disc images only. A HuCard needs no System Card, and refusing every
-	 * cartridge on the shelf because a CD would have needed one is a worse
-	 * failure than the one being fixed. Every game where the shelf's whole
-	 * library needs it (bios_every, a `bios|tag|names` line: the
-	 * ColecoVision's). */
-	if (s->disc_bios[0] && (s->bios_every || lib_is_disc(v->list.items[v->cursor].file))) {
-		if (!disc_bios_found(bios, s->disc_bios)) {
-			char msg[CFG_STR + 96];
-
-			snprintf(msg, sizeof msg, T(S_LAUNCH_NEEDS_BIOS),
-				 (int)strcspn(s->disc_bios, ","), s->disc_bios);
-			if (a->in.pressed[IN_ACCEPT]) uisound_play(DS_SOUND_DENY);
-			result_message(a, v->list.items[v->cursor].title, msg);
-			return;
-		}
-	}
-
-	/* A's answer, once nothing is left that can refuse the launch: the
-	 * work below reads files and is not to be waited for. Only for A: a game
-	 * resumed at boot, or started by ZYPEROS_AUTOLAUNCH, had no press. */
-	if (a->in.pressed[IN_ACCEPT]) uisound_play(DS_SOUND_ACCEPT);
-
-	/* The autosave story, by path rather than by convention: the state and the
-	 * preview live beside each other, the launch hands both over, and a game
-	 * always comes up where it was left. */
-	state_path(a, o, &v->list.items[v->cursor], st, sizeof st);
-	/* Not a resume a DS game would come back from in another language than
-	 * the one Game Language says now (src/dsresume.h) */
-	ds_fresh = ds_resume_fresh(s, romfile, st, ds_lang, sizeof ds_lang);
-	/* Nor one the shelf's other core left (src/corestate.h) */
-	core_fresh = !ds_fresh && core_resume_fresh(s, romfile, st);
-	ds_had = ds_lang[0] && stat(st, &ds_before) == 0;
-	quick_bind(a, o, &v->list.items[v->cursor]);
-	/* The scratch, not the Auto card - see pause_preview_path. The card is
-	 * written from this only when the game actually ends, below. */
-	pause_preview_path(pv, sizeof pv);
-	persist_dir_ensure(a, o);
-
-	/* Achievements, if this game has any. Most of a library does not, and that
-	 * is not a failure: chv_load says so by returning false and everything
-	 * below carries on with console 0 and no set, which is what Diatom reads
-	 * as "this game has none". */
-	{
-		chv_path(P_ROMS, s->folder, v->list.items[v->cursor].name,
-		         set, sizeof set);
-		/* Every launch, not just a first play: this is what a late fetch is
-		 * checked against, and it has to name the game on screen now rather
-		 * than the last one that went looking for a set. */
-		snprintf(g_game_set, sizeof g_game_set, "%s", set);
-		g_game_no_hash = ra_hash_support(s->tag, romfile, s->exts);
-
-		/* The async slot, cleared of an account answer from the last game that
-		 * never landed, before this launch asks anything of its own. And no
-		 * watch list to trim until this game has handed one over. */
-		sync_abandon();
-		g_watch_ms = 0;
-
-		/* Fetch it if this game has never been played here. Only then: a
-		 * cached set costs nothing and this is the launch path, so the delay
-		 * is paid once per game rather than every time. Failing is ordinary -
-		 * offline, not signed in, or a game RetroAchievements has never seen -
-		 * and the launch carries on without. */
-		/* Never played here, so there is no set to hand over. The game starts
-		 * anyway and the set is found behind it - see ra_fetch_begin. Nothing
-		 * in front of the launch. */
-		/* Not for a game the launcher has no hash for: nothing would be
-		 * asked, and its rows already say so (ra_hash_support) */
-		first_play = ra_signed_in() && access(set, R_OK) != 0 && net_online() &&
-		             g_game_no_hash == RA_HASH_OK;
-
-		if (chv_load(set)) {
-			/* Reconcile with the account BEFORE deciding what to watch.
-			 * Without this the launcher filters against what this device
-			 * happens to have seen, which is not the same question and does
-			 * not look different: measured 2026-08-29 as 3 of 40 for Contra
-			 * against the site's own 13. */
-			/* The account's answer, without the launch waiting for it - read
-			 * while the game runs, see sync_poll. On a first play there is
-			 * nothing to ask about yet; that question is asked once the set
-			 * arrives. */
-			if (!first_play) sync_begin(chv_game(), set);
-
-
-			/* No "startsession" request, deliberately. It drives the "currently
-			 * playing" indicator on the website and nothing on the device, and
-			 * it is another 320ms request - which is the exact trade this whole
-			 * path exists to refuse. */
-
-			chv_active_path(active, sizeof active);
-			if (chv_write_active(active)) {
-				console = chv_console();
-			} else {
-				/* Everything in the set is already earned. Nothing to watch,
-				 * and sending an empty file would have Diatom log a set with
-				 * no achievements in it every launch. */
-				active[0] = '\0';
-			}
-		}
-	}
-
-	/* The pop-ups start with this game; the first is what is earned so far,
-	 * once the game is running (the tick shows it), when the set was here
-	 * before the launch - a first play says it when the set arrives */
-	nq_clear(&g_nq);
-	/* Said as the game starts, ahead of anything else: why it is not where
-	 * it was left */
-	if (ds_fresh || core_fresh) {
-		nq_item it;
-
-		memset(&it, 0, sizeof it);
-		it.kind = NQ_ALERT;
-		it.ms = 4000;
-		snprintf(it.head, sizeof it.head, "%s",
-		         ds_fresh ? T(S_POPUP_DSLANG_HEAD) : T(S_POPUP_CORESTATE_HEAD));
-		snprintf(it.body, sizeof it.body, "%s",
-		         ds_fresh ? T(S_POPUP_DSLANG_BODY) : T(S_POPUP_CORESTATE_BODY));
-		nq_push(&g_nq, &it);
-	}
-	if (active[0] || (chv_count() > 0 && !first_play)) {
-		nq_item it;
-
-		memset(&it, 0, sizeof it);
-		it.kind = NQ_SET;
-		it.ms = 3000;
-		snprintf(it.head, sizeof it.head, T(S_CHEEVOLIST_UNLOCKED), chv_earned(), chv_count());
-		snprintf(it.body, sizeof it.body, "%s", chv_game_title());
-		nq_push(&g_nq, &it);
-	}
-
-	remember_place(a);
-	/* Before the launch, not after: a device that loses power during the load
-	 * was still playing this game. */
-	playing_set(a);
-
-	/* Read and cleared together. Leaving it set would have the NEXT game
-	 * launched in this session open with its menu up too, which is the sort
-	 * of thing that looks like a haunting rather than a bug. */
-	want_menu = a->resume_menu;
-	a->resume_menu = false;
-
-	/* The output is let go the moment A's accept ends, well before the game
-	 * makes a sound of its own. */
-	uisound_release();
-	/* Menu music fades out under the launch; the shelf lets it go again */
-	bgm_hold(BGM_HOLD_GAME, true);
-
-	/* Whether this game should be heard - quiet while Muse plays, Diatom's
-	 * QUIET. Stated before the RUN goes out, which sends it. */
-	plat_resident_quiet(musec_playing());
-	/* And whether the battery is low, so the disc is over its first frame. */
-	plat_resident_low_battery(battery_level());
-
-	/* A game resumed at boot waited 71 and 47 ms for the resident on the
-	 * Pixel 2 (2026-10-05, a DAC plugged in), where it had been falling back
-	 * unseen. A second is ten times that, and only ever spent on a Diatom
-	 * that is running but stuck; one that isn't running falls back at once. */
-	if (plat_resident_await(1000, &waited)) {
-		if (waited)
-			fprintf(stderr, "resident emulator answered after %u ms\n", waited);
-		/* The emulator is already up, holding its context and every core,
-		 * so this is ~200ms rather than ~1100. Nothing here is torn
-		 * down -- this process keeps its own context through the whole game,
-		 * which is why coming back is a frame rather than a second and a
-		 * half. The two do overlap for the length of this animation, while
-		 * the game loads behind it; after that only the emulator draws,
-		 * because this process is blocked - except when the player opens
-		 * the in-game menu, which is drawn HERE now, over the frame the
-		 * emulator hands us on the way into its pause. */
-		aout_before_launch();
-		if (plat_resident_send(s->tag, core, rom, ds_fresh || core_fresh || g_ctl_fresh ? "" : st, st, pv,
-		                       console, active[0] ? active : NULL)) {
-			int r;
-
-			/* What px2-open's status says from here to the wait's end */
-			memset(&g_ctl_game, 0, sizeof g_ctl_game);
-			g_ctl_game.on = true;
-			snprintf(g_ctl_game.tag, sizeof g_ctl_game.tag, "%s", s->tag);
-			snprintf(g_ctl_game.name, sizeof g_ctl_game.name, "%s", s->name);
-			snprintf(g_ctl_game.core, sizeof g_ctl_game.core, "%s", s->core);
-			snprintf(g_ctl_game.path, sizeof g_ctl_game.path, "%s", rom);
-			g_ctl_game.since = (long)time(NULL);
-			if (g_ctl_fresh) fprintf(stderr, "ctl: %s starts fresh, without its auto state\n", rom);
-
-			/* The list Diatom was just handed, for an early answer to trim. */
-			if (active[0]) {
-				g_watch_ms = plat_now_ms();
-				snprintf(g_watch_active, sizeof g_watch_active, "%s", active);
-			}
-
-			/* Play time starts here, and costs a clock read. Nothing is
-			 * opened or written - the launch path does no I/O for this, on
-			 * purpose, because a millisecond bought here is the first of
-			 * several. See stats.h. */
-			stats_begin(s->tag, romfile, plat_now_ms());
-
-			/* Straight after RUN and the levels, and for the same reason: the
-			 * mode is Diatom's own global and survives from the last game, so
-			 * a system that has never been set would otherwise inherit
-			 * whatever the previous one chose. Ordered on the same socket, so
-			 * it lands before the first frame. The shader with it, Diatom's
-			 * global as well. */
-			plat_resident_line("SETDISPLAY\tmode=%s\tfilter=%s\tstrength=%d",
-			                   DMODES[a->view[o].dmode].name,
-			                   SHADERS[a->view[o].shader].name,
-			                   strength_clamp(a->view[o].strength));
-			/* The DS layout, for the same reason and in the same place: the
-			 * layout is Diatom's own global too. */
-			if (g_game_dual) {
-				int lay;
-				bool sw;
-
-				screens_get(s->tag, &lay, &sw);
-				plat_resident_line("SETSCREENS\tlayout=%s\tswap=%d",
-				                   gm_layout_names[lay], sw ? 1 : 0);
-			}
-
-			/* Auto Off. Out here rather than inside the chv_load branch
-			 * above, which is where the first version put it and is the same
-			 * mistake the paragraph below describes: that branch is the one a
-			 * game with no achievements never takes, so Auto Off only ever
-			 * worked for games that happened to have a cached set.
-			 *
-			 * Unless on the charger - the feature exists to stop a game
-			 * running unattended on battery, and plugged in there is no
-			 * battery reason and no cost to leaving it. on_game_tick keeps
-			 * this true if the cable changes mid-game. */
-			g_idle_secs = a->auto_off;
-			g_idle_charging = idle_held();
-			plat_resident_line("SETIDLE\tms=%d",
-			                   (g_idle_secs > 0 && !g_idle_charging)
-			                       ? g_idle_secs * 1000 : 0);
-
-			/* The first play of this game: nothing was cached, so there is a
-			 * set to go and find. Out here and not inside the chv_load branch
-			 * above, which is the mistake the first version made - that
-			 * branch is precisely the one a first play does not take.
-			 *
-			 * Hashing is local work and happens after RUN, so it overlaps the
-			 * game's own startup rather than delaying it - on a thread of its
-			 * own since 1.0.5 (src/rahashjob.h), because a PSP disc's hash
-			 * can take seconds and this loop is the power button's watchdog.
-			 * The two requests then run behind the game and on_game_tick
-			 * hands the set over when they land. A file the launcher cannot
-			 * read gets the "none" marker there; a kind it has no hash for at
-			 * all never gets here (first_play) and needs no marker: its rows
-			 * say so by its name. */
-			if (first_play) {
-				chv_active_path(g_pending_active, sizeof g_pending_active);
-				if (rhj_begin(rom, s->tag, set)) {
-					snprintf(g_pending_set, sizeof g_pending_set, "%s", set);
-					g_pending_hashing = true;
-				}
-			}
-			/* Coming back from a shutdown: the game loads and the menu is
-			 * already up, so nothing is handed control of a game the player
-			 * may not have meant to resume. Ordered on the same socket, so it
-			 * lands before the first frame the player could act on. */
-			if (want_menu) plat_resident_line("PAUSE");
-			g_menu_unasked = want_menu;
-			/* No launch animation, and it is a display-safety rule, not a
-			 * taste call: Diatom presents through fbdev, this process
-			 * through GL, and the handoff spike's one invariant is that
-			 * they never present concurrently - a 190ms overlap that is
-			 * harmless GL-on-GL is the exact case that wedges the display
-			 * engine when one side is fbdev. A warm launch is 26 to 44 ms from
-			 * RUN to RUNNING, so there is nothing to animate over anyway; the
-			 * shelf simply holds until the game's first frame replaces it. */
-			for (;;) {
-				r = plat_resident_wait();
-				if (r == RES_PAUSED) {
-					g_ctl_game.paused = true;
-					game_menu(a);
-					g_ctl_game.paused = false;
-					continue;
-				}
-				break;
-			}
-			g_ctl_game.on = false;
-			resident = (r == RES_EXIT);
-			/* The game is over, and however it ended it ended here: Quit,
-			 * a crash (EXIT reason=crash) or Diatom gone (RES_DEAD), POWER,
-			 * the battery, Auto Off, px2-open's next game, a TERM. NES
-			 * Player 2 goes with it: p2d, Diatom's share, and the hotspot
-			 * with the Wi-Fi the player had back (a second or two, said as
-			 * File Transfer says it) or the cable's link as it was. */
-			p2_game_over();          /* before the panel's tick: nothing more is said */
-			if (p2_link_on() == P2_HOTSPOT)
-				wait_panel(a, T(S_PLAYER2_ROW), T(S_XFER_CLOSING_HOTSPOT));
-			p2_stop();
-
-			/* The Auto card's picture, written ONLY here - at the same moment
-			 * Diatom wrote the state it belongs to, so the two cannot drift.
-			 * Between exits the card keeps the previous session's frame, which
-			 * is exactly what resuming would give you. */
-			if (resident) {
-				char ap[LIB_PATH * 2];
-
-				preview_path(a, o, &v->list.items[v->cursor],
-				             ap, sizeof ap);
-				copy_file(plat_resident_last_preview(), ap);
-			}
-
-			/* The game is over, so this is the one write that is synced -
-			 * on the path where the player is waiting for the shelf rather
-			 * than for a game to start. */
-			stats_end(NULL, plat_now_ms());
-
-			/* Whatever was earned is sent now, behind the shelf rather than in
-			 * front of it - see ra_flush_start. It used to be sent right here,
-			 * blocking, on the reasoning that the wait loop above is the power
-			 * button's watchdog and so the first safe moment was after it. True
-			 * of that loop, and not the only place the watchdog matters: this
-			 * spot is between that loop and the shelf's, so the button was
-			 * read by neither while it waited. Whatever will not send stays
-			 * queued. */
-			/* After the account's answer, so anything it already held is
-			 * settled before deciding what is owed - otherwise the flush would
-			 * cheerfully submit a dozen duplicates. The answer has usually been
-			 * in since half a second into the game. If it is still on its way,
-			 * the sending waits for it rather than the shelf - see sync_poll.
-			 *
-			 * The game is passed rather than read later: by the time a waiting
-			 * send starts, the info screen may have loaded another set. */
-			g_watch_ms = 0;
-			sync_poll();
-			if (g_sync_game) {
-				g_sync_flush = true;
-				snprintf(g_sync_rom, sizeof g_sync_rom, "%s", rom);
-				snprintf(g_sync_tag, sizeof g_sync_tag, "%s", s->tag);
-				g_sync_cur = chv_game();
-				fprintf(stderr, "ra: the account's answer is still on its way; "
-				                "sending waits for it\n");
-			} else {
-				ra_flush_start(rom, s->tag, chv_game());
-			}
-			/* The set's badges, behind the shelf, for the next time it is
-			 * played or opened (src/rabadge.h) */
-			rb_fetch_loaded();
-
-			/* RES_DEAD means it stopped answering -- it died, or the game
-			 * never started. Say so by falling through to the path that
-			 * runs it the slow way, rather than fading the shelf back up
-			 * as though it had run. */
-			if (!resident)
-				fprintf(stderr, "resident emulator stopped answering, falling back\n");
-		} else {
-			fprintf(stderr, "resident emulator did not answer, falling back\n");
-		}
-	} else {
-		/* Silent until 2026-10-05, which is how a resumed game running in
-		 * the fallback went unnoticed. */
-		fprintf(stderr, "no resident emulator to connect to (waited %u ms), falling back\n",
-		        waited);
-	}
-
-	if (!resident) {
-		/* One game per process, the old way: the fallback for a resident that
-		 * is missing or has died. Diatom standalone IS the one-shot mode -
-		 * same binary, no socket - so the fallback stopped being a different
-		 * emulator and became the same one held differently. It has to take
-		 * the display, so this side tears its own down first. */
-		anim_launch(a);
-		free_all_textures(a);
-		page_fonts_quit();
-		ui_quit();
-		plat_input_quit();
-		plat_video_quit();
-
-		argv[n++] = elf;
-		argv[n++] = (char *)"--core";            argv[n++] = core;
-		argv[n++] = (char *)"--rom";             argv[n++] = rom;
-		argv[n++] = (char *)"--save";            argv[n++] = save;
-		argv[n++] = (char *)"--system";          argv[n++] = bios;
-		argv[n++] = (char *)"--display";
-		argv[n++] = (char *)DMODES[a->view[o].dmode].name;
-		argv[n++] = (char *)"--filter";
-		argv[n++] = (char *)SHADERS[a->view[o].shader].name;
-		/* Only under 100%, which is Diatom's own default */
-		if (shader_has_strength(a->view[o].shader) && strength_clamp(a->view[o].strength) < 100) {
-			static char pct[8];
-
-			snprintf(pct, sizeof pct, "%d", strength_clamp(a->view[o].strength));
-			argv[n++] = (char *)"--strength";
-			argv[n++] = pct;
-		}
-		/* The channels too: this path is rare, but a player who hears with
-		 * one ear should not lose half a game to it. It plays on the codec,
-		 * so the cable decides between headphones and the speaker. */
-		{
-			aout_state cs = aout_now();
-
-			argv[n++] = (char *)"--channels";
-			argv[n++] = (char *)aout_channels_wire(
-				aout_channels_for(g_channels, aout_dest_of(&cs, ""), plat_speaker_mono()));
-		}
-		if (!ds_fresh && !core_fresh && !g_ctl_fresh) {
-			argv[n++] = (char *)"--load-state";  argv[n++] = st;
-		}
-		argv[n++] = (char *)"--state-on-exit";   argv[n++] = st;
-		/* A DS game's screens, as RUN and SETSCREENS give them to the
-		 * resident one. */
-		if (g_game_dual) {
-			int lay;
-			bool sw;
-
-			screens_get(s->tag, &lay, &sw);
-			argv[n++] = (char *)"--screens";   argv[n++] = (char *)"2";
-			argv[n++] = (char *)"--frameskip"; argv[n++] = (char *)"late";
-			argv[n++] = (char *)"--layout";    argv[n++] = (char *)gm_layout_names[lay];
-			if (sw) argv[n++] = (char *)"--swap";
-		}
-		/* The Auto card's own path here, not the scratch the resident mode
-		 * uses. Standalone has no in-game menu - the launcher is torn down -
-		 * so nothing can overwrite it mid-session, and it is written once at
-		 * exit beside the state. The resident path needs the indirection
-		 * because a pause writes the preview too; this one does not. */
-		preview_path(a, o, &v->list.items[v->cursor], apv, sizeof apv);
-		argv[n++] = (char *)"--preview-on-exit"; argv[n++] = apv;
-		/* Same opinions as the resident path gets over SETOPT, so a game plays
-		 * the same whether the resident was up or the fallback ran it. */
-		{
-			int ci;
-			for (ci = 0; ci < plat_coreopt_count(s->tag) && n < (int)(sizeof argv / sizeof argv[0]) - 3; ci++) {
-				argv[n++] = (char *)"--core-option";
-				argv[n++] = (char *)plat_coreopt(s->tag, ci);
-			}
-		}
-		argv[n] = NULL;
-		fprintf(stderr, "diatom exited %d\n", plat_run(argv, NULL, P_ROOT));
-
-		if (!plat_video_init() || !plat_input_init()) { a->running = false; return; }
-		a->r = plat_renderer();
-		ui_init(a->r, P_FONT);
-		page_fonts_init(P_FONT);
-		a->menu_w = 0;   /* fonts reopened: remeasure the panel */
-		prime_home(a);
-		prime_window(a, a->sys_cursor);
-		/* The display is ours again and no game is running: the safe moment
-		 * to put a resident emulator back, so the NEXT launch is fast. */
-		respawn_resident(a);
-	}
-
-	t_back0 = plat_now_ms();
-	present_ground(a);
-	/* The language its auto state was just written in, if it was */
-	ds_resume_record(st, ds_lang, &ds_before, ds_had);
-
-	/* The game has just written a fresh autosave preview. Throw the card's
-	 * texture away so it picks that up - but only if the preview is what the
-	 * card is drawn FROM.
-	 *
-	 * Box art comes first in the order a card finds its picture, so for a game
-	 * that has it this used to rebuild the card from a file that had not
-	 * changed, into a pixel-identical texture. That was always wasted work, and
-	 * it was invisible while decoding blocked the frame: the card was back
-	 * before anything drew. Since decoding moved to a worker, the card is
-	 * genuinely absent for a few frames, and the one you just quit popped in
-	 * while every card beside it was already there. The question was never
-	 * "did the preview change", it is "is this card showing the preview". */
-	{
-		game_entry *g = &v->list.items[v->cursor];
-		int o = shelf_owner(a, a->sys_cursor, v->cursor);
-
-		if (v->tex[v->cursor] && !has_box_art(a->sys.systems[o].folder, g->name)) {
-			SDL_DestroyTexture(v->tex[v->cursor]);
-			v->tex[v->cursor] = NULL;
-		}
-	}
-
-	plat_input_flush();
-	memset(&a->in, 0, sizeof a->in);
-	/* The idle clock is not restarted here, though it has been stopped for
-	 * the whole session. idle_due notices the gap on its own, which is what
-	 * stops this from being a list of places to remember. */
-
-	/* A power-off from outside ends the game the same way: the system's
-	 * shutdown TERMs this process and Diatom together (plastron's zyperos
-	 * stop), and Diatom saves the game and its state on its way out - the
-	 * kernel's at 115 C (an orderly power-off, src/heat.h), `poweroff` from
-	 * a shell. That is a power-off mid-game,
-	 * as POWER is, so the marker stays and the next start goes back into the
-	 * game; it was cleared below as a return to the shelf. Marked as asked
-	 * for (playing_mark_clean), as a crash or a power cut is not - except
-	 * MENU+START's TERM (tools/zyhome.c), which is the way to the home. */
-	if (access(ZYPEROS_POWEROFF_FLAG, F_OK) == 0 || want_quit) {
-		if (access(CTL_HOME_FLAG, F_OK) != 0) playing_mark_clean();
-		a->running = false;
-		return;
-	}
-	/* Power was pressed during the game. The emulator no longer handles that
-	 * key itself, so the press arrived here. */
-	if (plat_run_power_pressed()) { power_off(a); return; }
-
-	/* Past both power checks, so this is a real return to the shelf rather
-	 * than a shutdown. Everything above leaves the marker standing, which is
-	 * what makes the next boot able to tell them apart. */
-	playing_clear();
-
-
-	tick_theme(a);
-	render(a);
-	fprintf(stderr, "exit: back in %u ms\n", plat_now_ms() - t_back0);
-}
 
 /* ---------- input --------------------------------------------------------- */
 
@@ -16602,7 +14365,7 @@ static int shelf_group_start(sysview *v, int idx)
  * game of the next initial. Up lands on the first game of THIS one, and moves
  * to the previous initial only when the cursor is already there - so from any
  * group's first game, up and down are exact inverses. */
-static int shelf_letter_jump(sysview *v, int dir)
+int shelf_letter_jump(sysview *v, int dir)
 {
 	int n = v->list.count, i, cur = v->cursor;
 	char c0 = shelf_initial(shelf_key(v, cur));
@@ -17668,10 +15431,9 @@ static void shot_draw_look(app *a)
 }
 
 /* Everything a shot draws, in the theme that is on. */
-static int   g_shot_saver = -1;          /* --saver [cover]: 0 video, 1 cover */
-static float g_shot_saver_alpha = 1;     /* --saver-alpha F: how far it has faded up */
-static const char *g_shot_saver_pic;     /* --saver-pic FILE: its picture, a screenshot */
-static void saver_shot(app *a);
+int   g_shot_saver = -1;          /* --saver [cover]: 0 video, 1 cover */
+float g_shot_saver_alpha = 1;     /* --saver-alpha F: how far it has faded up */
+const char *g_shot_saver_pic;     /* --saver-pic FILE: its picture, a screenshot */
 
 static void shot_compose(app *a)
 {
@@ -19116,491 +16878,6 @@ static int port_menu_main(int argc, char **argv)
 	plat_video_quit();
 	db_shutdown();
 	return how;
-}
-
-/* ---------- the screensaver (src/saver.h; DESIGN.md 11.37) ---------------- *
- *
- * A MODE OF THE SHELF'S LOOP, not a screen of its own: the loop goes on
- * doing everything it does (the power button and Auto Off, the dark screen on
- * the cable, a computer plugged in, px2-open's commands), and where it would
- * draw the shelf it draws this. So the screensaver never has to remember to
- * be a good citizen, and cannot outlive what ends the shelf: idle_due is
- * asked before saver_pass on every pass.
- *
- * What it plays is the video snaps the scraper keeps (src/snaps.c), one at a
- * time through the same daemon thread the shelf's focused cover uses
- * (snap_ask), muted always; with no snap on the card, the covers, one drawn
- * frame each; with neither, nothing, and it does not try again until a button
- * is pressed. */
-
-static struct {
-	bool         on;
-	bool         video;              /* the pool is of snaps; else of covers */
-	unsigned     started, last_pass, last_draw;
-	saver_start  st;                 /* when it starts: lives while it is off too */
-	saver_show   show;
-	saver_recent recent;
-	int         *shelf, *game;       /* the pool: a game on a shelf with a snap */
-	int          n, cap;
-	int          at;                 /* the pool entry on screen */
-	char         title[LIB_NAME], sysname[CFG_STR];
-	unsigned     accent;
-	SDL_Texture *cover;
-	int          cw, ch;
-} g_sv;
-
-static void saver_pool_free(void)
-{
-	free(g_sv.shelf);
-	free(g_sv.game);
-	g_sv.shelf = g_sv.game = NULL;
-	g_sv.n = g_sv.cap = 0;
-}
-
-static bool saver_pool_add(int shelf, int game)
-{
-	if (g_sv.n == g_sv.cap) {
-		int cap = g_sv.cap ? g_sv.cap * 2 : 256;
-		int *s = realloc(g_sv.shelf, (size_t)cap * sizeof *s);
-		int *g;
-
-		if (!s) return false;
-		g_sv.shelf = s;
-		if (!(g = realloc(g_sv.game, (size_t)cap * sizeof *g))) return false;
-		g_sv.game = g;
-		g_sv.cap = cap;
-	}
-	g_sv.shelf[g_sv.n] = shelf;
-	g_sv.game[g_sv.n++] = game;
-	return true;
-}
-
-/* A console's covers by stem, sorted, as snap_names_for lists its snaps: one
- * listing of its .media. NULL, and 0, when there are none. The caller frees. */
-static char **saver_cover_stems(const char *folder, int *count)
-{
-	char dir[CFG_STR * 4], **v = NULL;
-	struct dirent *e;
-	int n = 0, cap = 0;
-	DIR *d;
-
-	*count = 0;
-	snprintf(dir, sizeof dir, "%s/%s/.media", P_ROMS, folder);
-	if (!(d = opendir(dir))) return NULL;
-	while ((e = readdir(d))) {
-		size_t len = strlen(e->d_name);
-		char *stem;
-
-		if (e->d_name[0] == '.' || len < 5 || strcasecmp(e->d_name + len - 4, ".png")) continue;
-		if (n == cap) {
-			char **w = realloc(v, (size_t)(cap = cap ? cap * 2 : 64) * sizeof *w);
-
-			if (!w) break;
-			v = w;
-		}
-		if (!(stem = strndup(e->d_name, len - 4))) break;
-		v[n++] = stem;
-	}
-	closedir(d);
-	if (n) qsort(v, (size_t)n, sizeof *v, snap_name_cmp);
-	*count = n;
-	return v;
-}
-
-/* The games it may show: those Random Game picks from every system (not Muse's
- * albums, not Favorites' copies, not a Ports shelf with only PortMaster's
- * offer) that have a snap on the card and on for their console with `video`
- * (snap_names_for), else a cover. One listing of each console's .media, here
- * and once, as the screensaver begins. */
-static void saver_pool_build(app *a, bool video)
-{
-	int i, j;
-
-	saver_pool_free();
-	for (i = 0; i < a->sys.count; i++) {
-		const system_cfg *s = &a->sys.systems[i];
-		/* Every game of the system, in every folder (sys_games): the index
-		 * is pick_launch's, which opens the game's folder */
-		const game_list *gl = sys_games(&a->view[i]);
-		char **stems = NULL;
-		int n = 0;
-
-		if (is_muse(s) || a->view[i].owner || pm_only_offer(a, i) || !s->folder[0]) continue;
-		if (video) {
-			const snap_names *sn = snap_names_for(s->folder);
-
-			if (!sn->on || !sn->n) continue;
-			stems = sn->stems;
-			n = sn->n;
-		} else {
-			stems = saver_cover_stems(s->folder, &n);
-			if (!n) continue;
-		}
-		for (j = 0; j < gl->count; j++) {
-			const char *name = gl->items[j].name;
-
-			if (bsearch(&name, stems, (size_t)n, sizeof *stems, snap_name_cmp) &&
-			    !saver_pool_add(i, j))
-				break;
-		}
-		/* snap_names_for's lists are its own, kept; the covers' are ours */
-		if (!video) {
-			while (n > 0) free(stems[--n]);
-			free(stems);
-		}
-	}
-}
-
-/* A cover as a texture, through the surface texload makes one from: ARGB8888,
- * the one format every GPU path of the launcher takes (a texture straight
- * from IMG_LoadTexture of an RGB file drew nothing on the Pixel 2's GL). */
-static SDL_Texture *saver_cover_load(SDL_Renderer *r, const char *path, int *w, int *h)
-{
-	SDL_Surface *raw = IMG_Load(path), *conv;
-	SDL_Texture *t;
-
-	if (!raw) return NULL;
-	conv = SDL_ConvertSurfaceFormat(raw, SDL_PIXELFORMAT_ARGB8888, 0);
-	SDL_FreeSurface(raw);
-	if (!conv) return NULL;
-	t = SDL_CreateTextureFromSurface(r, conv);
-	*w = conv->w;
-	*h = conv->h;
-	SDL_FreeSurface(conv);
-	if (t) SDL_SetTextureBlendMode(t, SDL_BLENDMODE_BLEND);
-	return t;
-}
-
-/* The next one: picked, checked to be on the card, and asked for. False when
- * none could be found. */
-static bool saver_next(app *a, unsigned now)
-{
-	int tries = 6, k;
-
-	if (g_sv.cover) { SDL_DestroyTexture(g_sv.cover); g_sv.cover = NULL; }
-	for (k = 0; k < tries; k++) {
-		int i = saver_pick(g_sv.n, rg_random(), &g_sv.recent);
-		const system_cfg *s;
-		const game_entry *g;
-		char path[LIB_PATH * 2];
-		struct stat st;
-
-		if (i < 0) return false;
-		saver_recent_add(&g_sv.recent, i);
-		if (g_sv.shelf[i] >= a->sys.count || g_sv.game[i] >= sys_games(&a->view[g_sv.shelf[i]])->count)
-			continue;
-		s = &a->sys.systems[g_sv.shelf[i]];
-		g = &sys_games(&a->view[g_sv.shelf[i]])->items[g_sv.game[i]];
-		if (g_sv.video) {
-			if (!snaps_path(P_ROMS, s->folder, g->name, path, sizeof path) ||
-			    stat(path, &st) != 0 || st.st_size <= 0)
-				continue;
-		} else {
-			box_art_path(s->folder, g->name, path, sizeof path);
-			if (stat(path, &st) != 0 || st.st_size <= 0) continue;
-			if (!(g_sv.cover = saver_cover_load(a->r, path, &g_sv.cw, &g_sv.ch))) continue;
-		}
-		g_sv.at = i;
-		snprintf(g_sv.title, sizeof g_sv.title, "%s", g->title[0] ? g->title : g->name);
-		snprintf(g_sv.sysname, sizeof g_sv.sysname, "%s", s->name);
-		g_sv.accent = s->accent;
-		saver_show_begin(&g_sv.show, now, !g_sv.video);
-		if (g_sv.video) {
-			/* Muted, whatever the setting says for the shelf: a screensaver
-			 * is never a sound that nobody asked for */
-			g_snap_force_vol = 0;
-			snap_ask(path, false);
-			g_snap_force_vol = -1;
-		}
-		fprintf(stderr, "saver: %s/%s (%s)\n", s->folder, g->file, g_sv.video ? "video" : "cover");
-		return true;
-	}
-	return false;
-}
-
-static void saver_stop(app *a, const char *why)
-{
-	(void)a;
-	if (!g_sv.on) return;
-	g_sv.on = false;
-	/* The daemon stops that same frame, and the picture is let go */
-	snap_off();
-	if (g_sv.cover) { SDL_DestroyTexture(g_sv.cover); g_sv.cover = NULL; }
-	saver_pool_free();
-	fprintf(stderr, "saver: ended, %s (%u s)\n", why, (plat_now_ms() - g_sv.started) / 1000);
-	redraw_now();
-}
-
-static bool saver_begin(app *a, unsigned now)
-{
-	/* The shelf's own snap gives way, and the first listing is of snaps */
-	snap_off();
-	g_sv.video = true;
-	saver_pool_build(a, true);
-	if (g_sv.n == 0) {
-		g_sv.video = false;
-		saver_pool_build(a, false);
-	}
-	saver_recent_clear(&g_sv.recent);
-	g_sv.started = g_sv.last_draw = now;
-	if (g_sv.n == 0 || !saver_next(a, now)) {
-		fprintf(stderr, "saver: nothing to show (no snaps, no covers); waits for a button\n");
-		saver_pool_free();
-		saver_spend(&g_sv.st);
-		return false;
-	}
-	fprintf(stderr, "saver: starts, %d %s\n", g_sv.n, g_sv.video ? "games with a video" : "games (no snaps on the card: covers)");
-	g_sv.on = true;
-	return true;
-}
-
-/* The picture's rectangle: `w` by `h` as large as `box` takes, centered */
-static SDL_FRect saver_fit(const SDL_Rect *box, int w, int h, float most)
-{
-	float k = fminf((float)box->w / w, (float)box->h / h);
-
-	if (k > most) k = most;
-	return (SDL_FRect){ box->x + (box->w - w * k) / 2, box->y + (box->h - h * k) / 2, w * k, h * k };
-}
-
-/* One frame, `alpha` of the clip faded up. The picture on the ink both
- * themes keep for content (MP4's full view does too), and the game's name and
- * system and the two keys on slabs of the theme's surface at 85%, the notice's
- * (DESIGN.md 11.7), so they read on any picture. */
-static void saver_draw(app *a, float alpha)
-{
-	SDL_Renderer *r = a->r;
-	const ds_rgb ink = DS_THEME[DS_DARK].ink;
-	const int margin = 48, padx = 28, pady = 14, gap = 12;
-	TTF_Font *fl = ui_font(UI_F_LABEL), *fm = ui_font(UI_F_META), *fc = page_font(PAGE_CHROME);
-	SDL_Texture *t = NULL;
-	SDL_Rect src = { 0, 0, 0, 0 }, box = { 0, 24, ZYPEROS_SCREEN_W, 552 };
-	int w = 0, h = 0;
-	Uint8 al = (Uint8)(255 * (alpha < 0 ? 0 : alpha > 1 ? 1 : alpha) + 0.5f);
-
-	SDL_SetRenderDrawColor(r, ink.r, ink.g, ink.b, 255);
-	SDL_RenderClear(r);
-	SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
-	if (g_sv.video) {
-		t = snapv_texture(&w, &h, &src);
-		/* A host shot has no daemon: a screenshot it is given, or the test
-		 * picture MP4's shots use */
-		if (g_shot_saver >= 0) {
-			static SDL_Texture *pic;
-
-			if (g_shot_saver_pic && !pic) pic = IMG_LoadTexture(r, g_shot_saver_pic);
-			if (pic) {
-				t = pic;
-				SDL_QueryTexture(pic, NULL, NULL, &w, &h);
-			} else {
-				if (!mp4v_texture()) mp4v_test_picture(r, 640, 480);
-				t = mp4v_texture();
-				w = 640; h = 480;
-			}
-			src = (SDL_Rect){ 0, 0, 0, 0 };
-		}
-		if (t && w > 0 && h > 0) {
-			/* The whole screen, in its own shape, never stretched */
-			SDL_FRect d = saver_fit(&(SDL_Rect){ 0, 0, ZYPEROS_SCREEN_W, ZYPEROS_SCREEN_H }, w, h, 8.0f);
-
-			SDL_RenderCopyF(r, t, src.w > 0 ? &src : NULL, &d);
-		}
-	} else if (g_sv.cover && g_sv.cw > 0 && g_sv.ch > 0) {
-		/* A cover is small: not blown up past a third more, on a ground of
-		 * its own, with the foot's room left under it */
-		SDL_FRect d = saver_fit(&box, g_sv.cw, g_sv.ch, 1.34f);
-
-		SDL_RenderCopyF(r, g_sv.cover, NULL, &d);
-	}
-	(void)t;
-	/* Fading up from black, and to it */
-	if (al < 255) {
-		SDL_SetRenderDrawColor(r, ink.r, ink.g, ink.b, (Uint8)(255 - al));
-		SDL_RenderFillRect(r, NULL);
-	}
-	if (al > 0) {
-		const SDL_Color text = ui_fade(UI_TEXT, alpha), dim = ui_fade(UI_TEXT_DIM, alpha);
-		const SDL_Color slab = ui_col(theme()->surface, (Uint8)(al * 0.85f + 0.5f));
-		const char *back = T(S_SAVER_BACK), *play = T(S_GAMES_PLAY);
-		int hint_w = page_hint_width("START", play, false);
-		int back_w = ui_text_width(fc, back);
-		int rw = (hint_w > back_w ? hint_w : back_w) + 2 * padx;
-		int line_m = ui_font_line(UI_F_META), line_l = ui_font_line(UI_F_LABEL);
-		int sh = pady * 2 + line_m + gap + line_l;           /* the game slab's height */
-		int top = ZYPEROS_SCREEN_H - margin - sh;
-		int maxw = ZYPEROS_SCREEN_W - 2 * margin;
-		int kh = pady * 2 + 40 + 44;                          /* the keys slab's height */
-		int dot = 14, dgap = 14, tw, sw, lw, x;
-		unsigned mark = ui_sys_mark(g_sv.accent);
-		char fit_t[LIB_NAME], fit_s[CFG_STR];
-		SDL_Rect q;
-
-		ui_fit_text(fl, g_sv.title, fit_t, sizeof fit_t, maxw - 2 * padx);
-		ui_fit_text(fm, g_sv.sysname, fit_s, sizeof fit_s, maxw - 2 * padx - dot - dgap);
-		tw = ui_text_width(fl, fit_t);
-		sw = dot + dgap + ui_text_width(fm, fit_s);
-		lw = (tw > sw ? tw : sw) + 2 * padx;
-		/* The game, at the foot: its system in the quiet line over its name,
-		 * as a notice says its heading over its body */
-		q = (SDL_Rect){ margin, top, lw, sh };
-		ui_round_rect(r, &q, DS_RADIUS_PANEL < sh / 2 ? DS_RADIUS_PANEL : sh / 2, slab);
-		x = q.x + padx;
-		ui_round_rect(r, &(SDL_Rect){ x, top + pady + line_m / 2 - dot / 2, dot, dot }, dot / 2,
-		              (SDL_Color){ (Uint8)(mark >> 16), (Uint8)(mark >> 8), (Uint8)mark, al });
-		ui_text(r, fm, fit_s, x + dot + dgap, ui_line_y(UI_F_META, top + pady), -1, dim);
-		ui_text(r, fl, fit_t, x, ui_line_y(UI_F_LABEL, top + pady + line_m + gap), -1, text);
-		/* The keys, at the top's right where they cover little: START plays
-		 * it, anything else goes back */
-		q = (SDL_Rect){ ZYPEROS_SCREEN_W - margin - rw, margin, rw, kh };
-		ui_round_rect(r, &q, DS_RADIUS_PANEL < kh / 2 ? DS_RADIUS_PANEL : kh / 2, slab);
-		page_hint_fade(r, "START", play, q.x + padx, q.y + pady + 20, false, false, al);
-		ui_text(r, fc, back, q.x + padx, ui_cap_y(fc, q.y + pady + 20 + 44), -1, dim);
-		(void)line_l;
-	}
-	plat_draw_osd(r);
-	plat_present();
-}
-
-/* --saver [cover]: one frame of it for a host shot, the first game on the
- * first shelf that has one, a test picture for its video or its cover when
- * the card has none (there is no daemon to play a snap) */
-static void saver_shot(app *a)
-{
-	int i, j = 0;
-
-	/* The game the shelf is on, else the first game on the first shelf */
-	i = a->sys_cursor;
-	if (i >= 0 && i < a->sys.count && !is_muse(&a->sys.systems[i]) && a->view[i].list.count > 0)
-		j = a->view[i].cursor;
-	else
-		for (i = 0; i < a->sys.count; i++)
-			if (!is_muse(&a->sys.systems[i]) && !a->view[i].owner && a->view[i].list.count > 0) break;
-	if (i < a->sys.count) {
-		const game_entry *g = &a->view[i].list.items[j < a->view[i].list.count ? j : 0];
-
-		snprintf(g_sv.title, sizeof g_sv.title, "%s", g->title[0] ? g->title : g->name);
-		snprintf(g_sv.sysname, sizeof g_sv.sysname, "%s", a->sys.systems[i].name);
-		g_sv.accent = a->sys.systems[i].accent;
-	}
-	g_sv.video = g_shot_saver == 0;
-	if (!g_sv.video && !g_sv.cover) {
-		/* A file given is loaded as saver_next loads a cover */
-		if (g_shot_saver_pic &&
-		    (g_sv.cover = saver_cover_load(a->r, g_shot_saver_pic, &g_sv.cw, &g_sv.ch))) {
-			/* loaded as saver_next loads one */
-		} else {
-			if (!mp4v_texture()) mp4v_test_picture(a->r, 640, 480);
-			g_sv.cover = mp4v_texture();
-			g_sv.cw = 640;
-			g_sv.ch = 480;
-		}
-	}
-	saver_draw(a, g_shot_saver_alpha);
-	g_sv.cover = NULL;
-}
-
-/* One pass of the shelf's loop, after the power button and Auto Off have had
- * theirs. True when the screensaver took the pass (the loop goes round
- * again). */
-static bool saver_pass(app *a)
-{
-	unsigned now = plat_now_ms();
-	bool any = false, press = false, busy, newpic = false, ready, draw;
-	saver_end why;
-	float alpha = 0;
-	int pct = -1, b;
-	bool charging = false;
-
-	/* A gap: a menu, a game or a message had the screen in between, and
-	 * whatever this drew is not on it any more */
-	if (g_sv.on && now - g_sv.last_pass >= 500) saver_stop(a, "something else had the screen");
-	for (b = 0; b < IN_COUNT && !any; b++)
-		any = a->in.pressed[b] || a->in.down[b];
-	if (!battery_now(&pct, &charging)) pct = -1;
-	/* Not idle: music playing, File Transfer on, a long task at work */
-	busy = musec_playing() || g_xs.on || long_task_busy();
-
-	if (!g_sv.on) {
-		if (!saver_due(&g_sv.st, now, g_saver_s, any, busy || saver_low_battery(pct, charging)))
-			return false;
-		if (!saver_begin(a, now)) return false;
-	}
-	g_sv.last_pass = now;
-
-	/* Decoding video warms the chip: "Getting hot" (src/heat.h) is due, so
-	 * the screensaver goes, and the shelf says it as it does on any pass
-	 * (heat_watch takes it). It stays gone until a button. */
-	if (g_heat.due) {
-		saver_spend(&g_sv.st);
-		saver_stop(a, "the chip is getting hot");
-		return true;
-	}
-	why = saver_must_end(now, g_sv.started, busy, pct, charging);
-	if (why != SAVER_GO_ON) {
-		/* Ended on its own: on battery's cap or a low battery it waits for a
-		 * button; a task starting only waits for the task */
-		if (why != SAVER_END_HELD) saver_spend(&g_sv.st);
-		saver_stop(a, why == SAVER_END_HELD ? "a long task began"
-		              : why == SAVER_END_BATTERY ? "the battery is low" : "on battery for long enough");
-		return true;
-	}
-
-	/* A button: START boots the game on screen, as A on its card would; the
-	 * volume and brightness keys do their own work and leave it be; any
-	 * other goes back to the shelf as it was, and is spent doing that */
-	for (b = 0; b < IN_COUNT; b++)
-		if (a->in.pressed[b] && b != IN_VOLUP && b != IN_VOLDN && b != IN_BRIGHTUP &&
-		    b != IN_BRIGHTDN)
-			press = true;
-	if (press) {
-		bool boot = a->in.pressed[IN_START] && g_sv.at >= 0 && g_sv.at < g_sv.n;
-		int shelf = boot ? g_sv.shelf[g_sv.at] : -1, game = boot ? g_sv.game[g_sv.at] : -1;
-
-		saver_stop(a, boot ? "START" : "a button");
-		plat_input_flush();
-		memset(&a->in, 0, sizeof a->in);
-		if (boot) {
-			uisound_play(DS_SOUND_ACCEPT);
-			g_pick.shelf = shelf;
-			g_pick.game = game;
-			g_pick.hold_ms = 0;
-			pick_launch(a);
-		}
-		return true;
-	}
-
-	if (g_sv.video) {
-		newpic = snapv_update(a->r);
-		ready = snapv_texture(NULL, NULL, NULL) != NULL;
-	} else {
-		ready = g_sv.cover != NULL;
-	}
-	if (saver_show_step(&g_sv.show, now, ready, &alpha)) {
-		if (!saver_next(a, now)) {
-			saver_spend(&g_sv.st);
-			saver_stop(a, "nothing more to show");
-			return true;
-		}
-		alpha = 0;
-	}
-	/* A frame when the daemon put out a new picture, while a fade moves, a
-	 * moment after the volume bar, and once a second regardless (the
-	 * heartbeat the shelf has): a cover or a held picture is one drawn frame */
-	draw = newpic || saver_show_moving(&g_sv.show) || now - g_sv.last_draw >= 1000 ||
-	       plat_osd_until() != UINT32_MAX;
-	/* The housekeeping every pass of the shelf's loop does through
-	 * tick_theme - a File Transfer behind the shelf, the update's daily look,
-	 * the theme's hour - and a theme that turned is a frame */
-	g_ctl_shelf_pass = true;
-	if (tick_theme(a)) draw = true;
-	g_ctl_shelf_pass = false;
-	if (draw) {
-		saver_draw(a, alpha);
-		g_sv.last_draw = now;
-	} else {
-		plat_input_wait(16);
-	}
-	return true;
 }
 
 int main(int argc, char *argv[])
