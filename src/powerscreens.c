@@ -543,8 +543,11 @@ static bool chg_cable_in(void)
 static cs_step chg_send_off_check(app *a, unsigned t0)
 {
 	plat_input_poll(&a->in);
-	if (a->in.pressed[IN_POWER]) {
+	/* A press, whatever MENU > Power Button says: this starts the handheld,
+	 * as a press starts an off one, and the press is not a turn-off after */
+	if (a->in.power_tap) {
 		fprintf(stderr, "charging: POWER %u ms into the send-off, starting\n", plat_now_ms() - t0);
+		plat_power_consume();
 		return CS_START;
 	}
 	if (chg_cable_in()) {
@@ -642,6 +645,9 @@ static int charging_run(app *a)
 		if (step == CS_START || step == CS_OFF) {
 			fprintf(stderr, "charging: %s\n", step == CS_START ? "POWER, starting"
 			                                                   : "unplugged, turning off");
+			/* The hold that started it is not one that turns it off
+			 * (MENU > Power Button on Hold: the same two seconds) */
+			if (step == CS_START) plat_power_consume();
 			return step;
 		}
 		/* Y: to 100% this time; over with the cable out or full */

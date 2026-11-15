@@ -385,6 +385,28 @@ static void gm_undo_row_only_with_undo(void)
 	   "SLOT_UNDO is none of the player's slots, nor Auto");
 }
 
+/* Over a program still starting (PORT_MENU_WAITING, 1.0.6): the port's
+ * three rows, Continue named Keep Waiting */
+static void gm_port_waiting(void)
+{
+	gm_ui u = { 0 };
+	gm_bufs b;
+	menu_row rows[GM_MAX_ROWS];
+	int n;
+
+	printf("in-game menu over a port still starting:\n");
+	u.dmode = "Full Screen"; u.port = true;
+	n = gm_rows(&u, GT_GAME, rows, &b);
+	ck(n == 3 && !strcmp(rows[0].label, "Continue"), "over a running port: Continue");
+	u.waiting = true;
+	n = gm_rows(&u, GT_GAME, rows, &b);
+	ck(n == 3 && !strcmp(rows[0].label, "Keep Waiting") && !strcmp(rows[2].label, "Quit"),
+	   "over one still starting: Keep Waiting, Controls, Quit");
+	u.port = false;
+	n = gm_rows(&u, GT_GAME, rows, &b);
+	ck(!strcmp(rows[0].label, "Continue"), "and a game's menu is not touched by it");
+}
+
 static void disc_value_check(void)
 {
 	char out[64];
@@ -2750,6 +2772,38 @@ static void saver_row(void)
 	ck(found == 1, "and the list names it");
 }
 
+/* Power Button (1.0.6, src/powerhold.h): on System, over Auto Off, Press
+ * as it ships and Hold when it is set, and A switches it, as Left and Right
+ * do: two choices, heard as a ring */
+static void power_row(void)
+{
+	sys_ui u;
+	menu_bufs b;
+	menu_row rows[MENU_MAX_ROWS];
+	const char *heading;
+	pm_row tab[PM_ROWS];
+	int n, k;
+
+	printf("the Power Button row:\n");
+	ck(sys_menu_tab_of(PM_POWER) == PT_SYSTEM && PM_SLEEP == PM_POWER + 1,
+	   "Power Button is on System, over Auto Off");
+	memset(&u, 0, sizeof u);
+	u.tab = PT_TABS;
+	sys_menu_build(&u, rows, &b, &heading);
+	ck(!strcmp(rows[PM_POWER].label, "Power Button") && rows[PM_POWER].live,
+	   "it is there and live on every device");
+	ck(!strcmp(val(&rows[PM_POWER]), "Press"), "Press when nothing is set, as it ships");
+	ck(b.sound[PM_POWER] == MENU_SND_RING, "switched on A too, heard as a ring");
+	u.power_hold = true;
+	sys_menu_build(&u, rows, &b, &heading);
+	ck(!strcmp(val(&rows[PM_POWER]), "Hold"), "Hold when it is set");
+	u.tab = PT_SYSTEM;
+	n = sys_menu_tab_rows(&u, PT_SYSTEM, tab);
+	for (k = 0; k < n && tab[k] != PM_POWER; k++) ;
+	ck(k < n && k + 1 < n && tab[k + 1] == PM_SLEEP && k > 0 && tab[k - 1] == PM_LANGUAGE,
+	   "on System's page between Language and Auto Off");
+}
+
 static void lights_row(void)
 {
 	sys_ui u;
@@ -2975,11 +3029,13 @@ int main(void)
 	player2_row_on_nes_only();
 	gm_disc_row_only_with_discs();
 	gm_undo_row_only_with_undo();
+	gm_port_waiting();
 	disc_value_check();
 	audio_row();
 	channels_row();
 	sounds_row();
 	charge_row();
+	power_row();
 	lights_row();
 	row_sounds();
 	if (fails) { printf("\n%d menu check(s) failed\n", fails); return 1; }

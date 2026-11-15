@@ -268,6 +268,11 @@ typedef enum {
 	DIATOM_MSG_PLAYER2,    /* report whether it is on, and what it gives */
 	DIATOM_MSG_SETPLAYER2, /* turn it on or off: `on` = 1 | 0; for an on,
 	                        * `buttons` and `players` */
+	/* POWER held, with the launcher's Power Button on Hold: the settings
+	 * pill fills over the game while it is. `on` = 1 with `ms` (the hold's
+	 * length, in `count`) and `at` (how far it has got, in `index`); `on` =
+	 * 0 when it ends, `done` = 1 when it ended done. No answer. */
+	DIATOM_MSG_SETPOWERHOLD,
 	/* The launcher went away - or was displaced by a newer one, which means
 	 * the same thing. The game keeps running. */
 	DIATOM_MSG_HANGUP
@@ -328,6 +333,7 @@ typedef struct {
 	 * audio.c fades it. */
 	int  on;
 	int  blink;            /* SETLOWBATTERY: the disc blinks */
+	int  done;             /* SETPOWERHOLD on=0: the hold was done */
 	/* SETPLAYER2 on=1: what the system gives a guest, from the launcher's
 	 * system table: its RetroPad bits (`buttons=`, hex 0x... or decimal) and
 	 * how many play at once (`players=`). 0 when not said, which player2.h

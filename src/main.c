@@ -214,6 +214,8 @@ static void on_sigterm(int sig) { (void)sig; want_quit = 1; plat_terminate(); }
  * started for it by portkeys while the port is stopped: the menu, its
  * Controls page and nothing else. */
 bool g_port_menu;
+/* ...over a program still starting, under its loading screen (PORT_MENU_WAITING) */
+bool g_port_waiting;
 
 /* Boot time is the one number a launcher cannot be careless about, so the
  * phases are timed and logged rather than guessed at. On the project this
@@ -4936,6 +4938,7 @@ static int port_menu_main(int argc, char **argv)
 		return PORT_MENU_CONTINUE;
 	}
 	g_port_menu = true;
+	g_port_waiting = argc > 4 && !strcmp(argv[4], PORT_MENU_WAITING);
 	/* Its buttons when ZyperOS knows them (OpenBOR's); over the standalone
 	 * Flycast, In a game alone (port_menu_pads) */
 	g_port_ctl = (ctl_game){ port_menu_pads(s->tag) ? s->tag : "", s->name,
@@ -5100,9 +5103,12 @@ int main(int argc, char *argv[])
 		else if (!strcmp(argv[i], "--paused")) shot_np_paused = 1;
 		else if (!strcmp(argv[i], "--locked")) shot_locked = 1;
 		else if (!strcmp(argv[i], "--video")) {
-			shot_video = NPV_FULL;
-			if (i + 1 < argc && !strcmp(argv[i + 1], "controls")) { shot_video = NPV_CONTROLS; i++; }
-			else if (i + 1 < argc && !strcmp(argv[i + 1], "full")) i++;
+			/* "controls": with the controls up; "hidden" ("full" before
+			 * the one view) or nothing: the picture alone, as it is 3 s
+			 * after the last press and under the lock */
+			shot_video = 0;
+			if (i + 1 < argc && !strcmp(argv[i + 1], "controls")) { shot_video = 1; i++; }
+			else if (i + 1 < argc && (!strcmp(argv[i + 1], "hidden") || !strcmp(argv[i + 1], "full"))) i++;
 		}
 		else if (!strcmp(argv[i], "--mode") && i + 1 < argc) shot_mode = argv[++i];
 		else if (!strcmp(argv[i], "--sysmove") && i + 1 < argc)
@@ -5126,10 +5132,12 @@ int main(int argc, char *argv[])
 		/* The game under the cursor deleted as Delete Game's yes deletes it,
 		 * then the shot: the shelf after, and what went on stderr */
 		else if (!strcmp(argv[i], "--delete-now")) shot_delete_now = 1;
-		/* --osd volume|brightness LEVEL: the settings bar at that level, on
-		 * top of the rest of the shot. */
+		/* --osd volume|brightness|power LEVEL: the settings bar at that
+		 * level, on top of the rest of the shot; power is POWER's hold, LEVEL
+		 * segments of OSDBAR_POWER_STEPS lit (MENU > Power Button on Hold). */
 		else if (!strcmp(argv[i], "--osd") && i + 2 < argc) {
-			shot_osd_kind = !strcmp(argv[i + 1], "brightness") ? 1 : 2;
+			shot_osd_kind = !strcmp(argv[i + 1], "brightness") ? OSDBAR_BRIGHT
+			              : !strcmp(argv[i + 1], "power") ? OSDBAR_POWER : OSDBAR_VOLUME;
 			shot_osd_val = atoi(argv[i + 2]);
 			i += 2;
 		}
@@ -5292,6 +5300,11 @@ int main(int argc, char *argv[])
 				shot_tour_pick_ms = atoi(argv[++i]);
 		}
 		else if (!strcmp(argv[i], "--tour-music")) shot_tour_music = true;
+		/* --port-waiting: with --gamemenu N port, the menu over a program
+		 * still starting (Keep Waiting) */
+		else if (!strcmp(argv[i], "--port-waiting")) g_port_waiting = true;
+		/* --portload-later: the still with the line after a minute */
+		else if (!strcmp(argv[i], "--portload-later")) g_port_loading_later = true;
 		else if (!strcmp(argv[i], "--portload") && i + 1 < argc)
 			shot_portload = argv[++i];
 		else if (!strcmp(argv[i], "--portmaster")) {
@@ -6133,6 +6146,7 @@ int main(int argc, char *argv[])
 	}
 	system_order_load();
 	system_order_apply(&a.sys);
+	power_button_load();
 
 	/* Before the scan, because the scan builds the Favorites shelf out of
 	 * them and a shelf cannot be built from a list that has not been read. */

@@ -15,7 +15,9 @@
 #include <time.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#include "osdbar.h"
 #include "pkkeys.h"
+#include "powerhold.h"
 #include "status.h"
 #ifdef __linux__
 #include <linux/input.h>
@@ -76,6 +78,15 @@ static void put(int id, int64_t us, int type, int code, int value)
 }
 static long now_ms(void) { return (long)mono_ms; }
 static int bar_tick(void) { return -1; }
+/* The bar's POWER kind while a hold fills it (pw_bar): how often, the last
+ * level, and how often it was let go to fade at once */
+static int bar_shows, bar_level, bar_fades;
+static void bar_show(int kind, int level, int max)
+{
+	(void)max;
+	if (kind == OSDBAR_POWER) { bar_shows++; bar_level = level; }
+}
+static void bar_fade(void) { bar_fades++; }
 static void release(bool unused) { (void)unused; }
 static void apply_volume(void) {}
 static int mock_close(int fd) { (void)fd; closes++; return 0; }
@@ -195,6 +206,8 @@ static void reset(void)
 	powfd = -1; kills = kill_sig = 0; kill_pid = 0; parent_pid = 4242;
 	batt_next = 0; batt_seen = 0; batt_len = batt_i = 0; batt_charging = false;
 	menu_shows = 0; menu_answer = 1;
+	powerhold_set_mode(false); PW = (powerhold){ 0 }; pw_shown = false;
+	bar_shows = bar_level = bar_fades = 0;
 	for (int i = 0; i < 8; i++) { clocks[i] = 1000100; times[i] = 1000; waits[i] = -99; }
 	wall_us = clocks[0]; mono_ms = times[0];
 	fds[0] = (struct pollfd){10, POLLIN, 0}; fds[1] = (struct pollfd){11, POLLIN, 0};
@@ -318,6 +331,26 @@ int main(void)
 	reset(); powfd = 12; ready = 1 << 2; eof_device = 2;
 	run_loop();
 	ck(kills == 0 && powfd == -1 && closes == 1, "a power key gone is closed, not read again");
+	/* MENU > Power Button on Hold (src/powerhold.h): the press is not the
+	 * turn-off; the hold is, POWERHOLD_MS after it, once, with the loop woken
+	 * for the bar's next segment and the bar showing the hold; let go early,
+	 * nothing ends */
+	reset(); has_vol[0] = has_menu[1] = true; powfd = 12; ready = 1 << 2; limit = 3;
+	powerhold_set_mode(true);
+	times[0] = 1000; times[1] = 2000; times[2] = 1000 + POWERHOLD_MS + 50;
+	put(2, 1000000, EV_KEY, KEY_POWER, 1);
+	run_loop();
+	ck(kills == 1 && kill_sig == SIGUSR1 && kill_pid == 4242,
+	   "Hold: POWER held for its time is one USR1 to launch.sh");
+	ck(waits[1] > 0 && waits[1] <= (int)(POWERHOLD_MS / OSDBAR_POWER_STEPS),
+	   "Hold: the loop wakes for the bar's next segment while POWER is held");
+	ck(bar_shows >= 2 && bar_level == OSDBAR_POWER_STEPS, "Hold: the bar fills, and ends full");
+	reset(); has_vol[0] = has_menu[1] = true; powfd = 12; ready = 1 << 2; limit = 2;
+	powerhold_set_mode(true);
+	times[0] = 1000; times[1] = 1000 + POWERHOLD_MS + 50;
+	put(2, 1000000, EV_KEY, KEY_POWER, 1); put(2, 1000300, EV_KEY, KEY_POWER, 0);
+	run_loop();
+	ck(kills == 0, "Hold: a press let go early ends nothing");
 	/* The battery run flat over a port: two readings at BATT_EMPTY_PCT, 5 s
 	 * apart, off the charger, are one USR1, and a third is not a second; on
 	 * the charger, a point above, or one stray reading, nothing */

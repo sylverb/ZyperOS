@@ -99,6 +99,7 @@
 #include "osdbar.h"
 #include "pkkeys.h"
 #include "pkset.h"
+#include "powerhold.h"
 #include "portmenu.h"
 #include "sidelights.h"
 #include "status.h"
@@ -634,6 +635,15 @@ static void bar_show(int kind, int level, int max)
 	B.max = max;
 	B.changed = now;
 	B.live = true;
+}
+
+/* Out at once rather than after its hold: POWER let go before its hold was
+ * done (pw_bar) */
+static void bar_fade(void)
+{
+	long now = now_ms();
+
+	if (B.live && now - B.changed < OSDBAR_HOLD_MS) B.changed = now - OSDBAR_HOLD_MS;
 }
 
 /* ---- "Getting hot" over a port ----------------------------------------------
@@ -1250,6 +1260,132 @@ static long mem_available_mb(void)
 /* MENU tapped: the in-game menu, as at the top of this section. 0 when there
  * was none (no --menu, or no port holding the display); 1 when it was up, and
  * this process's keys and levels are then to be read again. */
+/* The port's group while nothing holds the display yet: the child of
+ * launch.sh (this process's parent) that leads a group of its own, as the
+ * port's script does under setsid. 0 for none. Splash and this process are
+ * launch.sh's children too, in its group. */
+static pid_t port_group(void)
+{
+	DIR *proc = opendir("/proc");
+	struct dirent *pe;
+	pid_t self = getpid(), parent = getppid(), found = 0;
+
+	while (proc && (pe = readdir(proc))) {
+		char path[64], line[512], *close_paren;
+		int pid = atoi(pe->d_name), ppid = 0, pgrp = 0, fd;
+		ssize_t n;
+
+		if (pid <= 1 || pid == self) continue;
+		snprintf(path, sizeof path, "/proc/%d/stat", pid);
+		if ((fd = open(path, O_RDONLY | O_CLOEXEC)) < 0) continue;
+		n = read(fd, line, sizeof line - 1);
+		close(fd);
+		if (n <= 0) continue;
+		line[n] = '\0';
+		/* After the name, which may hold spaces and parentheses */
+		if (!(close_paren = strrchr(line, ')')) ||
+		    sscanf(close_paren + 1, " %*c %d %d", &ppid, &pgrp) != 2)
+			continue;
+		if (ppid == parent && pgrp == pid) {
+			found = pid;
+			break;
+		}
+	}
+	if (proc) closedir(proc);
+	return found;
+}
+
+/* MENU while a port is still starting: no program holds the display yet,
+ * and the loading screen splash holds is on the panel. The same in-game menu
+ * over that screen, Continue named Keep Waiting (PORT_MENU_WAITING), so a
+ * port that hangs as it starts is MENU and Quit away from the shelf, and one
+ * that is only slow goes on (1.0.6; before, MENU did nothing until the port
+ * drew, and POWER or MENU+START held were the only ways out). The port's
+ * group is stopped while the menu is up, as over a running port: one that
+ * reached its display meanwhile would find the menu's master in its way.
+ * 1 when the menu was up. */
+static int menu_waiting(void)
+{
+	struct drm_mode_crtc c;
+	uint32_t conn;
+	pid_t pg = port_group(), child;
+	int fd, status = 0, how = PORT_MENU_CONTINUE, i;
+	long t0 = now_ms();
+
+	if ((fd = open(CARD, O_RDWR | O_CLOEXEC)) < 0) return 0;
+	/* Opened while nobody is master (splash let go of it), this file has
+	 * become master, and the menu could never take the display: let go.
+	 * Nothing below needs it until the menu has ended. */
+	ioctl(fd, DRM_IOCTL_DROP_MASTER, 0);
+	G.fd = fd;
+	if (!find_crtc(fd)) {
+		G.fd = -1;
+		close(fd);
+		return 0;
+	}
+	fprintf(stderr, "portkeys: MENU while the port starts (group %d); the menu over its loading screen\n",
+	        (int)pg);
+	if (pg > 1) kill(-pg, SIGSTOP);
+	memset(&c, 0, sizeof c);
+	c.crtc_id = G.crtc;
+	if (ioctl(fd, DRM_IOCTL_MODE_GETCRTC, &c) < 0) c.fb_id = 0;
+	unlink(PORT_MENU_STILL);
+	if (c.fb_id) still_save(c.fb_id);
+	conn = crtc_connector();
+
+	child = fork();
+	if (child == 0) {
+		int o = open("/proc/self/oom_score_adj", O_WRONLY | O_CLOEXEC);
+
+		if (o >= 0) {
+			if (write(o, PORT_MENU_OOM, strlen(PORT_MENU_OOM)) < 0) {}
+			close(o);
+		}
+		execl(menu_elf, menu_elf, PORT_MENU_ARG, menu_tag, menu_game, PORT_MENU_WAITING,
+		      (char *)NULL);
+		_exit(127);
+	}
+	if (child < 0) fprintf(stderr, "portkeys: cannot start the menu (%s)\n", strerror(errno));
+	while (child > 0 && waitpid(child, &status, 0) < 0 && errno == EINTR) {}
+	if (child > 0 && WIFEXITED(status) &&
+	    (WEXITSTATUS(status) == PORT_MENU_QUIT || WEXITSTATUS(status) == PORT_MENU_POWER))
+		how = WEXITSTATUS(status);
+
+	/* The loading screen back on the panel: the launcher's picture went
+	 * with it. Set even when the panel still shows the splash's buffer (the
+	 * menu could not draw): a display that keeps its own copy of it (QEMU's)
+	 * shows what splash wrote meanwhile, its after-a-minute line, only once
+	 * set. Nobody holds the master now, so this file can */
+	for (i = 0; i < 150 && ioctl(fd, DRM_IOCTL_SET_MASTER, 0) < 0; i++) usleep(2000);
+	if (i < 150) {
+		if (c.fb_id && c.mode_valid && conn) {
+			c.set_connectors_ptr = (uintptr_t)&conn;
+			c.count_connectors = 1;
+			if (ioctl(fd, DRM_IOCTL_MODE_SETCRTC, &c) < 0)
+				fprintf(stderr, "portkeys: cannot put the loading screen back (%s)\n", strerror(errno));
+		}
+		ioctl(fd, DRM_IOCTL_DROP_MASTER, 0);
+	}
+	G.fd = -1;
+	close(fd);
+	wait_released(1500);
+	if (pg > 1) {
+		port_input_flush(pg);
+		kill(-pg, SIGCONT);
+	}
+	pk_levels_load(db, BACKLIGHT, &L);
+	fprintf(stderr, "portkeys: the menu was up %ld ms while the port started: %s\n", now_ms() - t0,
+	        how == PORT_MENU_QUIT ? "Quit" : how == PORT_MENU_POWER ? "POWER" : "Keep Waiting");
+	if (how == PORT_MENU_QUIT) {
+		pid_t parent = getppid();
+
+		if (parent > 1) kill(parent, SIGUSR2);
+	} else if (how == PORT_MENU_POWER) {
+		end_port();
+	}
+	return 1;
+}
+
 static int menu_show(void)
 {
 	struct drm_mode_crtc c;
@@ -1262,6 +1398,8 @@ static int menu_show(void)
 	/* The bar down and let go of, and the display found afresh */
 	release(false);
 	if (!master_copy()) {
+		/* Still starting, under its loading screen: the menu over that */
+		if (menu_waiting()) return 1;
 		fprintf(stderr, "portkeys: MENU, but no program holds the display; no menu\n");
 		return 0;
 	}
@@ -1437,6 +1575,27 @@ static bool batt_empty(int pct, bool charging)
 	return batt_seen == 2;
 }
 
+/* A press, or with MENU > Power Button on Hold a hold of POWERHOLD_MS, as
+ * the launcher reads it (src/powerhold.h): PW is the key's state, and the
+ * bar shows the hold's power kind for as long as it is under way, full when
+ * it is done, gone at once when it is let go early (pw_bar). */
+static powerhold PW;
+static bool pw_shown;
+
+static void pw_bar(long now)
+{
+	int pm = powerhold_permille(&PW, (unsigned)now);
+
+	if (pm >= 0) {
+		bar_show(OSDBAR_POWER, pm * OSDBAR_POWER_STEPS / 1000, OSDBAR_POWER_STEPS);
+		pw_shown = true;
+	} else if (pw_shown) {
+		pw_shown = false;
+		if (PW.fired) bar_show(OSDBAR_POWER, OSDBAR_POWER_STEPS, OSDBAR_POWER_STEPS);
+		else bar_fade();
+	}
+}
+
 static void power_read(void)
 {
 	struct input_event ev[16];
@@ -1446,8 +1605,10 @@ static void power_read(void)
 		size_t k;
 
 		for (k = 0; k < (size_t)r / sizeof *ev; k++) {
-			if (ev[k].type != EV_KEY || ev[k].code != KEY_POWER || ev[k].value != 1)
+			/* A repeat is neither a press nor a let-go */
+			if (ev[k].type != EV_KEY || ev[k].code != KEY_POWER || ev[k].value == 2)
 				continue;
+			if (!powerhold_key(&PW, ev[k].value == 1, (unsigned)now_ms())) continue;
 			fprintf(stderr, "portkeys: POWER, the port ends\n");
 			end_port();
 		}
@@ -1455,7 +1616,21 @@ static void power_read(void)
 	if (r == 0 || (r < 0 && errno != EAGAIN && errno != EINTR)) {
 		close(powfd);
 		powfd = -1;
+		PW = (powerhold){ 0 };
 	}
+	pw_bar(now_ms());
+}
+
+/* Every pass: a hold of POWER done ends the port as a press does */
+static void power_due(void)
+{
+	long now = now_ms();
+
+	if (powerhold_due(&PW, (unsigned)now)) {
+		fprintf(stderr, "portkeys: POWER held, the port ends\n");
+		end_port();
+	}
+	pw_bar(now);
 }
 
 /* After the in-game menu (menu_show), which read POWER itself: what the power
@@ -1470,6 +1645,9 @@ static void power_drain(void)
 		close(powfd);
 		powfd = -1;
 	}
+	/* And a hold under way when the menu came up was the launcher's too */
+	PW = (powerhold){ 0 };
+	pw_bar(now_ms());
 }
 
 /* The clock the devices stamp their events with: CLOCK_MONOTONIC, set on
@@ -1668,6 +1846,13 @@ int main(int argc, char **argv)
 	 * port runs either: the bar's colors in both themes, and the hours the
 	 * clock turns it at (src/look.h, src/theme.h) */
 	if (appearance_read) look_load_db(db);
+	/* MENU > Power Button, a press or a hold, as the launcher saved it
+	 * (src/powerhold.h); nothing changes it while a port runs */
+	{
+		char pb[8];
+
+		if (pkset_text(db, POWERHOLD_KEY, pb, sizeof pb)) powerhold_set_mode(!strcmp(pb, "hold"));
+	}
 	pkset_zone_load(argc > 2 ? argv[2] : NULL);
 	/* The heat notice the launcher left, in both themes (heat_check) */
 	heat_init(&H);
@@ -1726,6 +1911,13 @@ int main(int argc, char **argv)
 		/* A held key's next repeat, or at once when events wait for this
 		 * pass (pkkeys_wait) */
 		if (rep >= 0 && (wait < 0 || rep < wait)) wait = rep;
+		/* POWER held in Hold mode: the bar's next segment, or the hold's
+		 * end, which no event marks */
+		{
+			int hw = powerhold_next_ms(&PW, (unsigned)now_ms(), OSDBAR_POWER_STEPS);
+
+			if (hw >= 0 && (wait < 0 || hw < wait)) wait = hw;
+		}
 		/* While the port's file is borrowed, look at it at least five times a
 		 * second. held() (kcmp, and whether this is still the master) is asked
 		 * in bar_tick, which runs when this returns, and the wait above is up
@@ -1765,6 +1957,7 @@ int main(int argc, char **argv)
 		if (poll(fds, (nfds_t)m, wait) < 0) continue;
 		if (pi >= 0 && (fds[pi].revents & (POLLIN | POLLHUP | POLLERR))) release(true);
 		if (pw >= 0 && fds[pw].revents) power_read();
+		power_due();
 
 		/* poll is only a wakeup hint. A key may arrive on an fd after poll
 		 * checked it but before another fd woke us. Read ALL open inputs,
