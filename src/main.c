@@ -5362,6 +5362,11 @@ int main(int argc, char *argv[])
 		else if (!strcmp(argv[i], "--gm-tab-from") && i + 1 < argc) shot_gm_from = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--gm-press") && i + 1 < argc) shot_gm_press = argv[++i];
 		else if (!strcmp(argv[i], "--gm-choose")) shot_gm_choose = 1;
+		/* --hud-page ROW: the On-Screen Stats page (src/hudmenu_screen.h)
+		 * over the paused game, the cursor on ROW, with --gamemenu; and
+		 * --hud-items, its Shows list instead */
+		else if (!strcmp(argv[i], "--hud-page") && i + 1 < argc) shot_hud_page = atoi(argv[++i]);
+		else if (!strcmp(argv[i], "--hud-items")) shot_hud_items = true;
 		else if (!strcmp(argv[i], "--rows-report")) shot_rows_report = 1;
 		else if (!strcmp(argv[i], "--backdrop") && i + 1 < argc) shot_backdrop = argv[++i];
 		else if (!strcmp(argv[i], "--press") && i + 1 < argc) {

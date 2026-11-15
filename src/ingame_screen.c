@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "ingame_screen.h"
+#include "hudmenu_screen.h"
 #include "menu_pick.h"
 
 #include "achtab_screen.h"
@@ -509,6 +510,7 @@ void gm_gather(app *a, gm_ui *out)
 	/* The owner's, which is the one its row sets (gm_cycle_shader) */
 	u.shader = shader_label(owner_view(a)->shader);
 	u.strength = strength_row_label(a, (int)(owner_view(a) - a->view));
+	u.hud = db_get_int(db_dev(), HUD_KEY, 0) == 1;
 	u.earned = chv_earned();
 	u.total  = chv_count();
 	/* g_game_set is the game running's, written at every launch, and
@@ -1664,6 +1666,23 @@ static menu_result gm_key(app *a, void *ctx, in_button key, int sel)
 	/* The shader, on left, right and A, sent to the game the same way */
 	if (sel == GM_SHADER && (key == IN_LEFT || key == IN_RIGHT || key == IN_ACCEPT)) {
 		gm_cycle_shader(a, key == IN_LEFT ? -1 : 1);
+		return MENU_STAY;
+	}
+	/* On-Screen Stats: left and right turn it over, kept for the player and
+	 * sent to the game at once (Diatom takes SETHUD while paused, and the
+	 * line is over the game when it comes back); A opens its page, what it
+	 * shows and how (src/hudmenu_screen.h) */
+	if (sel == GM_HUD && (key == IN_LEFT || key == IN_RIGHT)) {
+		hm_state s;
+
+		hm_load(&s);
+		s.on = !s.on;
+		db_set_int(db_dev(), HUD_KEY, s.on ? 1 : 0);
+		hm_send(&s);
+		return MENU_STAY;
+	}
+	if (sel == GM_HUD && key == IN_ACCEPT) {
+		hud_page(a, c->bg);
 		return MENU_STAY;
 	}
 	/* Its strength, on left and right alone */

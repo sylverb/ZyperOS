@@ -145,6 +145,8 @@ extern const char *shot_handheld_box;
 extern const char *shot_controls_fit;
 extern int shot_key;
 extern int shot_gm_choose;     /* --gm-choose */
+extern int shot_hud_page;      /* --hud-page ROW, -1 for none */
+extern bool shot_hud_items;    /* --hud-items */
 extern int shot_rows_report;   /* --rows-report */
 extern const char *shot_menu_label;
 bool shot_status_parse(const char *spec);

@@ -48,6 +48,7 @@
 
 #include "diatom_port.h"
 #include "ladder.h"
+#include "hud.h"
 #include "osdbar.h"
 #include "panelgamma.h"
 #include "port_clock.h"
@@ -162,7 +163,7 @@ static bool   g_prog_failed[DIATOM_FILTER_COUNT];
  * so a frame at 100% draws with the program above and nothing more. */
 static GLuint g_prog_soft[DIATOM_FILTER_COUNT];
 static bool   g_soft_failed[DIATOM_FILTER_COUNT];
-static GLuint g_frame_tex, g_overlay_tex, g_osdbar_tex;
+static GLuint g_frame_tex, g_overlay_tex, g_osdbar_tex, g_hud_tex;
 static int    g_tex_w = -1, g_tex_h = -1;
 static diatom_pixfmt g_tex_fmt;
 
@@ -302,6 +303,14 @@ static int      g_osd_theme;                          /* DS_LIGHT or DS_DARK */
 static ds_theme g_osd_colors;
 static unsigned g_osd_colors_gen;
 static bool     g_lowbat, g_lowbat_blink;   /* the low-battery disc; under g_mx */
+/* On-Screen Stats (diatom_port_hud): its line, its style and the look's
+ * colors as the host last said them, and whether the render thread has
+ * painted them yet; under g_mx. The style is the emulation thread's too
+ * (g_hud_style_now), which makes the line from it. */
+static bool      g_hud_on, g_hud_dirty;
+static char      g_hud_text[160];
+static ds_theme  g_hud_colors;
+static hud_style g_hud_style;
 
 /* ---------- levels ---------------------------------------------------------- */
 
@@ -1118,6 +1127,36 @@ static void draw_level_bar(int kind, int level, int max, int theme, float alpha,
 	          (float)w, (float)h, turned);
 }
 
+/* On-Screen Stats (hud.c, ZyperOS's src/hud.c): painted into pixels at the
+ * surface's scale, 0.625 on the 640x480 panel, only when its line, style or
+ * the look's colors moved (twice a second at most), and drawn as one quad
+ * where hud_place puts it on every frame while it is on. BGRA with straight
+ * alpha, the level bar's way. */
+static void draw_hud(bool repaint, const char *text, const hud_style *st,
+                     const ds_theme *colors, bool turned)
+{
+	static uint32_t px[1024 * 128];
+	static int w, h, x, y;
+	const float s = (float)g_surface_w / 1024.0f;
+
+	if (s <= 0 || s > 1) return;
+	if (repaint) {
+		hud_size(text, s, st, &w, &h);
+		if (!w || w > 1024 || h > 128) { w = h = 0; return; }
+		hud_render(px, w, h, w, s, text, st, colors, false);
+		hud_place(st, s, w, h, g_surface_w, g_surface_h, &x, &y);
+		glBindTexture(GL_TEXTURE_2D, g_hud_tex);
+		glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, px);
+	}
+	if (!w || !h) return;
+	glBindTexture(GL_TEXTURE_2D, g_hud_tex);
+	glUseProgram(g_prog_plain);
+	glUniform1i(uloc(g_prog_plain, "u_tex"), 0);
+	glUniform2f(uloc(g_prog_plain, "u_size"), (float)w, (float)h);
+	draw_quad((float)x, (float)y, (float)w, (float)h, (float)w, (float)h, turned);
+}
+
 /* The low-battery disc: the one the launcher drew on the shelf until its
  * status corner replaced it (ZyperOS 87db5aa, which took out
  * draw_low_battery_dot), in its place and color, as horizontal spans so it
@@ -1216,7 +1255,8 @@ static void quad_scale(diatom_filter filter, GLuint prog, float dw, float dh,
 static void draw_scene(const mailbox_frame *f, bool overlay_live, bool osd_live,
                        int osd_kind, int osd_level, int osd_max, int osd_theme,
                        float osd_alpha, float osd_rise, bool lowbat,
-                       bool turned)
+                       bool hud_live, bool hud_repaint, const char *hud_text_now,
+                       const hud_style *hud_st, const ds_theme *hud_colors, bool turned)
 {
 	bool   soft;
 	GLuint prog = filter_prog(f->filter, f->strength, &soft);
@@ -1277,6 +1317,10 @@ static void draw_scene(const mailbox_frame *f, bool overlay_live, bool osd_live,
 	 * ignore it (the Brick's composited per pixel - see brick.c, g_opaque). */
 	glEnable(GL_BLEND);
 	glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ZERO, GL_ONE);
+	/* On-Screen Stats under the rest: an achievement's notice draws over a
+	 * line in a bottom corner, the level bar and the disc are clear of it */
+	if (hud_live)
+		draw_hud(hud_repaint, hud_text_now, hud_st, hud_colors, turned);
 	if (overlay_live) {
 		/* The launcher draws a notice in its 1024-unit screen, as the level
 		 * bar is drawn (draw_level_bar), so it is scaled to the surface the
@@ -1576,6 +1620,7 @@ static bool gl_start(void)
 	glGenTextures(1, &g_frame_tex);
 	glGenTextures(1, &g_overlay_tex);
 	glGenTextures(1, &g_osdbar_tex);
+	glGenTextures(1, &g_hud_tex);
 	glBindTexture(GL_TEXTURE_2D, g_frame_tex);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
@@ -1591,6 +1636,14 @@ static bool gl_start(void)
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_B, GL_RED);
 	/* The level bar: the same, BGRA straight alpha (draw_level_bar). */
 	glBindTexture(GL_TEXTURE_2D, g_osdbar_tex);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_R, GL_BLUE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_B, GL_RED);
+	/* The FPS readout: the same, BGRA straight alpha (draw_hud) */
+	glBindTexture(GL_TEXTURE_2D, g_hud_tex);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -1643,7 +1696,8 @@ static bool capture_front(int front, const char *path)
 	glViewport(0, 0, g_surface_w, g_surface_h);
 
 	upload_frame(&g_frames[front]);
-	draw_scene(&g_frames[front], false, false, 0, 0, 0, 0, 0, 0, false, false);
+	draw_scene(&g_frames[front], false, false, 0, 0, 0, 0, 0, 0, false,
+	           false, false, NULL, NULL, NULL, false);
 	glReadPixels(0, 0, g_surface_w, g_surface_h, GL_RGBA, GL_UNSIGNED_BYTE, rgba);
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -1679,11 +1733,14 @@ static void *present_thread(void *arg)
 
 	while (!g_thread_stop) {
 		int frame;
-		bool ov_live, osd_live, lowbat;
+		bool ov_live, osd_live, lowbat, hud_live, hud_repaint;
 		int osd_kind, osd_level, osd_max, osd_theme;
 		float osd_alpha = 0, osd_rise = 0;
 		uint64_t now, t0 = 0;
 		EGLSyncKHR done;
+		char hud_text_now[sizeof g_hud_text];
+		ds_theme hud_colors;
+		hud_style hud_st;
 
 		if (g_pending < 0 && !g_want_blank && !g_capture_path) {
 			pthread_cond_wait(&g_cv, &g_mx);
@@ -1751,6 +1808,16 @@ static void *present_thread(void *arg)
 		}
 		/* Blinking: the even seconds, the launcher's rhythm. */
 		lowbat    = g_lowbat && (!g_lowbat_blink || (now / 1000000u) % 2 == 0);
+		/* On-Screen Stats' line, style and colors, copied when they
+		 * moved, for draw_hud to paint again outside the lock */
+		hud_live = g_hud_on;
+		hud_repaint = hud_live && g_hud_dirty;
+		if (hud_repaint) {
+			memcpy(hud_text_now, g_hud_text, sizeof hud_text_now);
+			hud_colors = g_hud_colors;
+			hud_st = g_hud_style;
+			g_hud_dirty = false;
+		}
 		pthread_mutex_unlock(&g_mx);
 
 		if (g_present_debug) t0 = diatom_port_now_us();
@@ -1773,7 +1840,8 @@ static void *present_thread(void *arg)
 		}
 		upload_frame(&g_frames[frame]);
 		draw_scene(&g_frames[frame], ov_live, osd_live, osd_kind, osd_level,
-		           osd_max, osd_theme, osd_alpha, osd_rise, lowbat, g_turned);
+		           osd_max, osd_theme, osd_alpha, osd_rise, lowbat,
+		           hud_live, hud_repaint, hud_text_now, &hud_st, &hud_colors, g_turned);
 		/* The core may draw into this texture again once the GPU has read
 		 * it: a fence for diatom_port_gpu_target to wait on. */
 		done = g_frames[frame].gpu
@@ -2660,6 +2728,150 @@ uint32_t diatom_port_level_keys(void)
 void diatom_port_level_shown(diatom_level_kind kind, int pos, int positions)
 {
 	osd_show(kind == DIATOM_LEVEL_BRIGHTNESS ? 1 : 0, pos, positions - 1);
+}
+
+/* On-Screen Stats' style from the host (SETHUD), on the emulation thread:
+ * the words read into a style once, here, and kept for the line it makes
+ * next; a word this does not know keeps the default's */
+static hud_style g_hud_style_now;
+static bool      g_hud_clock24 = true;
+
+void diatom_port_hud_style(const diatom_hud_words *w)
+{
+	static const char *const EDGE[HUD_EDGES] = { "close", "normal", "far" };
+	static const char *const OPACITY[HUD_OPACITIES] = { "100", "75", "50" };
+	hud_style st = hud_default;
+	int k;
+
+	st.items = hud_items_parse(w->items);
+	if ((k = hud_find(hud_corner_id, HUD_CORNERS, w->corner)) >= 0) st.corner = (uint8_t)k;
+	if ((k = hud_find(EDGE, HUD_EDGES, w->edge)) >= 0) st.edge = (uint8_t)k;
+	if ((k = hud_find(hud_background_id, HUD_BACKGROUNDS, w->bg)) >= 0) st.background = (uint8_t)k;
+	if ((k = hud_find(OPACITY, HUD_OPACITIES, w->opacity)) >= 0) st.opacity = (uint8_t)k;
+	if ((k = hud_find(hud_color_id, HUD_COLORS, w->color)) >= 0) st.color = (uint8_t)k;
+	if ((k = hud_find(hud_size_id, HUD_SIZES, w->size)) >= 0) st.size = (uint8_t)k;
+	hud_clamp(&st);
+	g_hud_style_now = st;
+	g_hud_clock24 = w->clock24 != 0;
+	pthread_mutex_lock(&g_mx);
+	g_hud_style = st;
+	g_hud_dirty = true;
+	pthread_mutex_unlock(&g_mx);
+}
+
+static int read_int(const char *path)
+{
+	char b[32];
+	int fd = open(path, O_RDONLY | O_CLOEXEC), v = -1;
+	ssize_t n;
+
+	if (fd < 0) return -1;
+	n = read(fd, b, sizeof b - 1);
+	close(fd);
+	if (n > 0) {
+		b[n] = 0;
+		v = atoi(b);
+	}
+	return v;
+}
+
+/* The chip's hotter zone, in degrees: the SoC's and the GPU's thermal
+ * zones, found by their names once, as the launcher's plat_chip_temp */
+static int hud_temp_c(void)
+{
+	static char zone[2][48];
+	static int nzones = -1;
+	int best = -1, v, i;
+
+	if (nzones < 0) {
+		nzones = 0;
+		for (i = 0; i < 8 && nzones < 2; i++) {
+			char path[64], type[32] = "";
+			int fd;
+			ssize_t n;
+
+			snprintf(path, sizeof path, "/sys/class/thermal/thermal_zone%d/type", i);
+			if ((fd = open(path, O_RDONLY | O_CLOEXEC)) < 0) continue;
+			n = read(fd, type, sizeof type - 1);
+			close(fd);
+			type[n > 0 ? n : 0] = 0;
+			if (strncmp(type, "soc-thermal", 11) && strncmp(type, "gpu-thermal", 11)) continue;
+			snprintf(zone[nzones++], sizeof zone[0], "/sys/class/thermal/thermal_zone%d/temp", i);
+		}
+	}
+	for (i = 0; i < nzones; i++)
+		if ((v = read_int(zone[i])) > best) best = v;
+	return best < 0 ? -1 : (best + 500) / 1000;
+}
+
+/* Busy against idle since the last time it was asked, from /proc/stat's
+ * first line; -1 the first time */
+static int hud_cpu_pct(void)
+{
+	static unsigned long long last_busy, last_all;
+	unsigned long long v[10] = { 0 }, all = 0, idle, busy;
+	char line[256];
+	FILE *f = fopen("/proc/stat", "re");
+	int i, pct = -1;
+
+	if (!f) return -1;
+	if (!fgets(line, sizeof line, f)) line[0] = 0;
+	fclose(f);
+	if (sscanf(line, "cpu %llu %llu %llu %llu %llu %llu %llu %llu %llu %llu", &v[0], &v[1], &v[2],
+	           &v[3], &v[4], &v[5], &v[6], &v[7], &v[8], &v[9]) < 4)
+		return -1;
+	for (i = 0; i < 8; i++) all += v[i];   /* guest time is in user's already */
+	idle = v[3] + v[4];
+	busy = all - idle;
+	if (last_all && all > last_all)
+		pct = (int)((busy - last_busy) * 100 / (all - last_all));
+	last_busy = busy;
+	last_all = all;
+	return pct;
+}
+
+/* On-Screen Stats' numbers from the host (diatom_port.h), twice a second:
+ * the line made here, on the emulation thread, before g_mx, with what else
+ * its items say read now and only those, and the look's colors read as
+ * osd_show reads the theme; painted by the render thread */
+void diatom_port_hud(bool on, double fps, double speed)
+{
+	char text[sizeof g_hud_text] = "";
+	ds_theme colors;
+	const uint8_t items = g_hud_style_now.items ? g_hud_style_now.items : hud_default.items;
+
+	memset(&colors, 0, sizeof colors);
+	if (on) {
+		hud_values v = { fps, speed, -1, -1, -1, -1, -1, -1, g_hud_clock24 };
+
+		if (items & (1u << HUD_TEMP)) v.temp_c = hud_temp_c();
+		if (items & (1u << HUD_CPU)) v.cpu_pct = hud_cpu_pct();
+		if (items & (1u << HUD_CLOCK)) {
+			int khz = read_int(DIATOM_CPUFREQ "scaling_cur_freq");
+			v.cpu_mhz = khz > 0 ? (khz + 500) / 1000 : -1;
+		}
+		if (items & (1u << HUD_BATTERY)) v.battery_pct = read_int("/sys/class/power_supply/battery/capacity");
+		if (items & (1u << HUD_TIME)) {
+			time_t t = time(NULL);
+			struct tm tm;
+
+			if (localtime_r(&t, &tm)) {
+				v.hour = tm.tm_hour;
+				v.min = tm.tm_min;
+			}
+		}
+		hud_text(text, sizeof text, &v, items);
+		themefile_read_bar(THEME_FILE, &colors);
+	}
+	pthread_mutex_lock(&g_mx);
+	if (on && (!g_hud_on || strcmp(text, g_hud_text) ||
+	           memcmp(&colors.ground, &g_hud_colors.ground, sizeof colors.ground * 18))) {
+		snprintf(g_hud_text, sizeof g_hud_text, "%s", text);
+		g_hud_colors = colors;
+		g_hud_dirty = true;
+	}
+	g_hud_on = on && text[0];
+	pthread_mutex_unlock(&g_mx);
 }
 
 void diatom_port_low_battery(bool on, bool blink)

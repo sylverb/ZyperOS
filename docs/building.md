@@ -172,6 +172,7 @@ something once broke in a way nothing noticed:
 | `check-charging` | the charging screen: the charger's kind, its lines, the time to full through CC and CV, and its rules |
 | `check-dsv` | DraStic's DS saves taken over by DSperate: footer off, the chip's bytes kept, an .srm already there never touched, written whole and flushed |
 | `check-osdbar` | the volume and brightness bar the launcher, Diatom and portkeys all draw: a segment lit per step and no more, at both scales, and its in, hold and out |
+| `check-hud` | the FPS readout Diatom draws over a game (src/hud.h): its text rounded and clamped ("59.7 fps · 100%", at most 999.9 fps and 999%), its pill left of the level bar's at both scales at the widest it can say, the surface's color inside its rim and clear outside it, and Diatom's copies (diatom/port/hud.c, hud.h, hudglyphs.h) the same as ZyperOS's |
 | `check-themefile` | the theme file the launcher writes and Diatom and portkeys read: a missing or nonsense file reads as Beard, the word written reads back, no half-written file is ever seen |
 | `check-theme` | which theme is on: MENU > Appearance's three settings, Auto's seven to seven and the hours MENU > Display > Auto Hours sets (round midnight too), the minute it may be late by, and the file the bar's other programs read after every kind of change |
 | `check-look` | the player's look (MENU > Display > Theme): every accent with every background tone, in both themes, held to the contrast each color is owed; the look as it ships is the tokens to the byte, and its words read back |

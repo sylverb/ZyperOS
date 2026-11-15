@@ -426,6 +426,26 @@ void diatom_port_level_shown(diatom_level_kind kind, int pos, int positions);
  * of its own implements this as a no-op and is correct. */
 void diatom_port_low_battery(bool on, bool blink);
 
+/* On-Screen Stats over the game (ZyperOS's src/hud.h, the launcher's
+ * in-game menu): its style, as the launcher's SETHUD words say it - the
+ * items ("fps,speed,temp"), corner, edge, bg, opacity, color and size, and
+ * the clock's 24 hours - kept by the port until said again, a word it does
+ * not know leaving its default. */
+typedef struct {
+	char items[64], corner[8], edge[8], bg[8], opacity[8], color[8], size[8];
+	int  clock24;
+} diatom_hud_words;
+void diatom_port_hud_style(const diatom_hud_words *w);
+
+/* ...and the line shown with these numbers, the frames the core ran a
+ * second and that against the game's own rate (1 is full speed), until the
+ * next call; or taken off. The port reads what else its items say (the
+ * chip's temperature, load and clock, the battery, the time) itself, then,
+ * and only those picked. The host calls it twice a second while it is on,
+ * from the emulation thread. A port with no screen of its own implements
+ * these as no-ops and is correct. */
+void diatom_port_hud(bool on, double fps, double speed);
+
 /* POWER held, with the launcher's Power Button on Hold (SETPOWERHOLD): the
  * level bar's power kind (osdbar.h, OSDBAR_POWER) over the game, its
  * segments filling on the port's own clock over `ms`, `at` of which have
