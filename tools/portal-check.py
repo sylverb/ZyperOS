@@ -547,7 +547,9 @@ def main():
             check(page.until(f"{head} === '0 sent, 1 not sent'", 5) and page.js(f"{row} === 'not sent'"),
                   'it stopped, and the file stayed here: ' + str(page.js(f"[{head}, {row}]")))
             check(page.until("document.getElementById('queueacts').hidden", 2), 'no button is left')
-            for _ in range(50):
+            # Its DELETE may wait for a connection a while: the handheld's
+            # queue of them filled with the page's asks while it was away
+            for _ in range(250):
                 if not (nes / 'Stopped.bin.part').exists():
                     break
                 time.sleep(0.1)

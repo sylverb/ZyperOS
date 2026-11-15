@@ -1624,13 +1624,30 @@ function stopSending() {
 				j.xhr = null;
 				x.abort();
 			}
-			fetch('/api/upload?' + keyOf(j), { method: 'DELETE', credentials: 'same-origin' }).catch(() => {});
 			j.state = 'held';
+			letGo(j, 5);
 		} else if (j.state === 'waiting') {
 			j.state = 'held';
 		}
 	}
 	next();
+}
+
+/* The handheld told to let go of a file's part (DELETE /api/upload): asked
+ * again a few times when it cannot be reached, Stop sending pressed in the
+ * middle of a drop, for as long as the file stays here not sent. A part it
+ * never hears about goes by itself after half an hour. */
+function letGo(job, tries) {
+	const stop = new AbortController();
+	const timer = setTimeout(() => stop.abort(), RESUME.wait);
+	fetch('/api/upload?' + keyOf(job), { method: 'DELETE', credentials: 'same-origin', signal: stop.signal })
+		.then((r) => { if (!r.ok && r.status !== 401) throw new Error(r.statusText); })
+		.catch(() => {
+			if (tries > 1) setTimeout(() => {
+				if (job.state === 'held' && queue.includes(job)) letGo(job, tries - 1);
+			}, 2000);
+		})
+		.finally(() => clearTimeout(timer));
 }
 
 /* Try again: what gave up and what stayed, back in the queue */
