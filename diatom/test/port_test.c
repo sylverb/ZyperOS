@@ -43,6 +43,18 @@ static void ck(int cond, const char *what)
 
 #define BOGUS "no such sink anywhere on this machine"
 
+/* As much as the queue takes, in 512-frame writes. The dummy driver plays the
+ * queue in real time, so one write (about 11 ms) can be gone before the next
+ * line reads it on a busy CI runner; a full queue lasts long enough that
+ * "nothing left" can only mean a reopen threw it away. */
+static void fill(const int16_t *buf)
+{
+	int i;
+
+	for (i = 0; i < 64; i++)
+		if (diatom_port_audio_write(buf, 512) == 0) break;
+}
+
 int main(void)
 {
 	diatom_port_caps caps;
@@ -75,7 +87,7 @@ int main(void)
 
 	printf("opening the sound device:\n");
 	ck(diatom_port_audio_start(), "the default device opens when asked");
-	diatom_port_audio_write(buf, 512);
+	fill(buf);
 	queued_before = diatom_port_audio_queued();
 	ck(diatom_port_audio_start(), "and asking again says it is open");
 	ck(!(queued_before > 0 && diatom_port_audio_queued() == 0),
@@ -93,7 +105,7 @@ int main(void)
 	   "audio still flows after the fallback");
 
 	printf("re-stating the current device:\n");
-	diatom_port_audio_write(buf, 512);
+	fill(buf);
 	queued_before = diatom_port_audio_queued();
 	ck(diatom_port_audio_set("", at, sizeof at), "succeeds");
 	queued_after = diatom_port_audio_queued();
