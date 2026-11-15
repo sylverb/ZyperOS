@@ -426,6 +426,15 @@ void diatom_port_level_shown(diatom_level_kind kind, int pos, int positions);
  * of its own implements this as a no-op and is correct. */
 void diatom_port_low_battery(bool on, bool blink);
 
+/* POWER held, with the launcher's Power Button on Hold (SETPOWERHOLD): the
+ * level bar's power kind (osdbar.h, OSDBAR_POWER) over the game, its
+ * segments filling on the port's own clock over `ms`, `at` of which have
+ * gone already, until it is full; then it holds and fades as the level bar
+ * does. on=false takes it off: at once, or, `done`, full and fading as
+ * after a level step. A port with no screen of its own implements this as a
+ * no-op and is correct. */
+void diatom_port_power_hold(bool on, unsigned ms, unsigned at, bool done);
+
 /* Hold the CPU at its top clock (`cpu`), and the GPU at its top with it
  * (`gpu`), or give each clock back to its governor. The host says true while
  * a game runs fast, and false at 1x, in the menu, at the end of a session and

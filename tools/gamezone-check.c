@@ -38,6 +38,8 @@ void device_display_release(void) {}
 void device_display_take(void) {}
 void device_levels_forget(void) {}
 bool device_power_pressed(void) { return false; }
+/* POWER's hold (src/powerhold.h): none under way */
+int plat_power_hold(void) { return -1; }
 int  plat_brightness_get(void) { return -1; }
 void plat_brightness_set(int level) { (void)level; }
 int  plat_coreopt_count(const char *tag) { (void)tag; return 0; }

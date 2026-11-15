@@ -168,6 +168,9 @@ static void tile_sub_lay(const char *label, const char *value, int w, tile_sub *
 #define CHOICE_ROW_GAP DS_LIST_ROW_GAP   /* 12 */
 #define CHOICE_PAD_Y   DS_LIST_PAD_Y     /* 14 */
 #define CHOICE_MARK    DS_LIST_MARK      /* 64 */
+/* The rows a list holds: Scraper's Settings has four since 1.0.6 (Names and
+ * Details); more than this are not drawn */
+#define CHOICE_MAX     4
 /* MENU > Scraper's Settings is one too: a tile is 248 wide inside, and the
  * name alone takes 264 in meta, with "linked as" and the account under it
  * (2026-11-13). */
@@ -181,9 +184,11 @@ static void choice_list_panel(SDL_Renderer *r, const ds_pass *pass, const char *
 	const int pad = TILE_PAD, text_x = 24 + 96 + 16;
 	bool posed = pose.scale != 1.0f || pose.alpha != 1.0f;
 	key_hint hints[KEYHINTS_MAX];
-	char hbuf[512], head[2][LB_LINE], sub[3][2][LB_LINE];
-	int nh, nhead, nsub[3], rh[3], i, k, y, inner, total = 0;
+	char hbuf[512], head[2][LB_LINE], sub[CHOICE_MAX][2][LB_LINE];
+	int nh, nhead, nsub[CHOICE_MAX], rh[CHOICE_MAX], i, k, y, inner, total = 0;
 	SDL_Rect panel, rule;
+
+	if (n > CHOICE_MAX) n = CHOICE_MAX;
 
 	nh = keyhints_unpack(legend, hbuf, sizeof hbuf, hints, KEYHINTS_MAX);
 	panel.w = ZYPEROS_SCREEN_W - 2 * 40;
