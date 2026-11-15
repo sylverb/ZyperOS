@@ -55,11 +55,34 @@ static void part_name(const char *card, int n, char *out, size_t len)
 	snprintf(out, len, "%s%s%d", card, digit ? "p" : "", n);
 }
 
+/* The number after `key` in the image's /etc/zyperos/system (`text`), as
+ * plastron writes it from the device's build (ZyperOS's config/device/
+ * <id>.system: "part-root-b 4"); `fallback` where it says none or nothing
+ * sensible, as an image from before those lines */
+static int system_part(const char *text, const char *key, int fallback)
+{
+	size_t kl = strlen(key);
+	const char *p = text;
+
+	while (p && *p) {
+		if (!strncmp(p, key, kl) && p[kl] == ' ') {
+			int n = atoi(p + kl + 1);
+
+			return n >= 1 && n <= 128 ? n : fallback;
+		}
+		p = strchr(p, '\n');
+		if (p) p++;
+	}
+	return fallback;
+}
+
 bool up_slots_init(void)
 {
-	char text[2048], card[128] = "/dev/mmcblk0";
+	char text[2048], card[128] = "/dev/mmcblk0", sys[1024] = "";
 	const char *cmd = getenv("ZYPEROS_UPDATE_CMDLINE"), *s;
+	const char *sysfile = getenv("ZYPEROS_UPDATE_SYSTEM");
 	struct stat sb;
+	int boot, root_a, root_b;
 
 	g_slot = 0;
 	g_trial = false;
@@ -82,9 +105,18 @@ bool up_slots_init(void)
 			if (*c) snprintf(card, sizeof card, "%s", c);
 		}
 	}
-	part_name(card, 1, g_bootdev, sizeof g_bootdev);
-	part_name(card, 2, g_part[0], sizeof g_part[0]);
-	part_name(card, 4, g_part[1], sizeof g_part[1]);
+	/* The card's device for the checks (tools/update-check.sh), as the
+	 * kernel's line and the system file have theirs */
+	if ((s = getenv("ZYPEROS_UPDATE_CARD"))) snprintf(card, sizeof card, "%s", s);
+	/* Its partitions as the image says them (the boot partition, root A,
+	 * root B), or the Pixel 2's 1, 2 and 4 on an image from before */
+	read_line_file(sysfile ? sysfile : "/etc/zyperos/system", sys, sizeof sys);
+	boot = system_part(sys, "part-boot", 1);
+	root_a = system_part(sys, "part-root-a", 2);
+	root_b = system_part(sys, "part-root-b", 4);
+	part_name(card, boot, g_bootdev, sizeof g_bootdev);
+	part_name(card, root_a, g_part[0], sizeof g_part[0]);
+	part_name(card, root_b, g_part[1], sizeof g_part[1]);
 	if ((s = getenv("ZYPEROS_UPDATE_PART2"))) snprintf(g_part[0], sizeof g_part[0], "%s", s);
 	if ((s = getenv("ZYPEROS_UPDATE_PART4"))) snprintf(g_part[1], sizeof g_part[1], "%s", s);
 	/* A card from before the slots boots slot a and has no partition 4 */

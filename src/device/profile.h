@@ -184,8 +184,9 @@ bool plat_player2(void);
  * card can hold a newer ZyperOS folder on an older system (Flash Drive came
  * with 1.0.4's), so a feature shows when the handheld can do it AND the
  * system has its part. "usbdrive" (Flash Drive's program), "hostapd" (the
- * hotspot's); any other part false. Read from the system's files for now;
- * the image will say it in /etc/zyperos/system (step 4 of the device spec). */
+ * hotspot's); any other part false. Read from the image's "has" line in
+ * /etc/zyperos/system, which plastron writes at the image's build; on an
+ * image from before that line, from the program's own file. */
 bool plat_system_has(const char *part);
 
 #endif

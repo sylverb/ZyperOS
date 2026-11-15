@@ -11,7 +11,7 @@ SPLASH_LICENSE = GPL-3.0+
 SPLASH_LICENSE_FILES = LICENSE
 # The TrimUI Brick's display is a framebuffer, not DRM: splash-fb.c there,
 # with the frames at its panel's 1024x768
-ifeq ($(BR2_PACKAGE_PVR_GE8300),y)
+ifeq ($(PLASTRON_DEVICE),brick)
 SPLASH_DEPENDENCIES = zlib
 SPLASH_SOURCE_C = splash-fb.c
 SPLASH_FRAMES = frames-brick.bin

@@ -8,6 +8,7 @@
 #include "ctl_channel.h"
 #include "dsv.h"
 #include "ingame_screen.h"
+#include "hudmenu_screen.h"
 #include "musec.h"
 #include "net.h"
 #include "notice.h"
@@ -879,6 +880,14 @@ void launch(app *a)
 			                   DMODES[a->view[o].dmode].name,
 			                   SHADERS[a->view[o].shader].name,
 			                   strength_clamp(a->view[o].strength));
+			/* On-Screen Stats, the player's, the same way: Diatom keeps
+			 * it from game to game, and a new launcher's is the one kept */
+			{
+				hm_state hs;
+
+				hm_load(&hs);
+				hm_send(&hs);
+			}
 			/* The DS layout, for the same reason and in the same place: the
 			 * layout is Diatom's own global too. */
 			if (g_game_dual) {

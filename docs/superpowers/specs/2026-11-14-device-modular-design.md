@@ -780,7 +780,7 @@ done by then).
    lines and the profile's GPU frames, core option defaults per device at run
    time, the power steps in the Diatom port. The payload's cores per device,
    `vendor/<arch>/` and `-mcpu` from the profile moved to step 4.
-4. **Build, card and release by device.** The cores' architecture
+4. **Build, card and release by device** (4a built 2026-11-15). The cores' architecture
    (`vendor/<arch>/cores`, `-mcpu` from the profile) and the payload's cores
    per device (no GPU-frame cores where there are no GPU frames), read from
    the generated `<id>.mk`. plastron's device symbol, one
@@ -905,6 +905,29 @@ Made while building step 3 (2026-11-15; the plan,
   cleanup deletes what 1.0.5 seeded wherever a card moves.
 - The Brick declares no GPU frames, no core option defaults of its own and
   no power steps until they are measured there.
+
+Made while building step 4 (2026-11-15; the plan,
+`docs/superpowers/plans/2026-11-15-device-build-step4.md`):
+
+- Step 4 is five PRs: the build by device (4a), the image's facts read at
+  run time (4b), one card script (4c), the release over a list of devices
+  (4d) and the cores' architecture (4e). Only the build path can keep the
+  Pixel 2's payload byte for byte, so it goes first with that proof; the
+  others change the launcher, System Update or `launch.sh` by design.
+- The build facts are not in `device_profile`: they live in
+  `src/device/<id>_build.c`, which the launcher never links, so its binary
+  stays the same. `tools/devicegen.c` writes them out as
+  `config/device/<id>.mk` and `<id>.system`, kept in git as
+  `src/i18n_tables.c` is and held by `check-devicegen`, so the SDK build and
+  Buildroot need no host step. The generated `<id>.h` the design named has
+  no reader yet and is not written.
+- plastron's symbol is `BR2_PLASTRON_DEVICE`, in plastron's own `Config.in`:
+  it names the board's device for every package, with ZyperOS or without.
+  SDL2's PowerVR options and the squashfs order keep their own tests (the
+  GPU library, the board's packages), so QEMU's image does not change.
+- `/etc/zyperos/system` is written on every device now (the Brick's too,
+  `update 0`), its three lines as before, then the card's table and
+  partitions and a `has` line (usbdrive, hostapd) for `plat_system_has`.
 
 ## Decided
 

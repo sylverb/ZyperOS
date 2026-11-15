@@ -192,6 +192,7 @@ emptyhome.cheer.other
 gamemenu.own_buttons  # wrapped to the Controls tab's column a line a row, as a paragraph is, so no drawn line is the string; gamemenu-controls-all draws it
 gamemenu.reset_buttons_game  # wrapped to its question's lines as Delete Game's is; gamemenu-controls-ask draws it
 gamemenu.reset_buttons_all  # wrapped to its question's lines as Delete Game's is; gamemenu-controls-ask-all draws it
+gamemenu.hud_items.one  # Shows names one or two items and counts only three or more, so its singular is never drawn; hud-page draws .other
 gamemenu.delete_ask
 gamemenu.delete_ask_this
 gamemenu.delete_ask_port

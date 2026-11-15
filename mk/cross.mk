@@ -4,6 +4,10 @@
 BUILD := build
 # Every device shares src/*.c; DEVICE picks the one device file built with it.
 DEVICE ?= brick
+# The device's build (config/device/<id>.mk, from src/device/<id>_build.c):
+# the baseline its code is built for, and the helpers its payload carries
+include config/device/$(DEVICE).mk
+MCPU := -mcpu=$(ZYDEV_MCPU)
 # and its profile (src/device/profile.h), the one the build is for
 SRC := $(wildcard src/*.c) $(wildcard src/ds/*.c) src/device/$(DEVICE).c src/device/$(DEVICE)_profile.c \
        src/device/td_model.c $(wildcard src/device/$(DEVICE)_model.c) \
@@ -11,7 +15,7 @@ SRC := $(wildcard src/*.c) $(wildcard src/ds/*.c) src/device/$(DEVICE).c src/dev
 CC ?= aarch64-linux-gnu-gcc
 
 VERSION ?= 0.0
-CFLAGS := -DZYPEROS_VERSION='"$(VERSION)"' -O2 -mcpu=cortex-a53 -Wall -Wextra -Wno-unused-parameter -std=gnu11 \
+CFLAGS := -DZYPEROS_VERSION='"$(VERSION)"' -O2 $(MCPU) -Wall -Wextra -Wno-unused-parameter -std=gnu11 \
           -I$(SYSROOT)/usr/include/SDL2 -D_GNU_SOURCE
 # No undefined symbols allowed, in this code or in the libraries it links:
 # SYSROOT has SDL and everything SDL needs, so the link checks that ZyperOS uses
@@ -69,7 +73,7 @@ $(BUILD)/zyperos.elf: $(SRC) $(CREDS) $(wildcard src/*.h) $(wildcard src/ds/*.h)
 MUSE_SRC := $(wildcard src/muse/*.c)
 $(BUILD)/muse: $(MUSE_SRC) $(wildcard src/muse/*.h) src/mp4frame.h src/monoclock.h
 	mkdir -p $(BUILD)
-	$(CC) -O2 -mcpu=cortex-a53 -Wall -Wextra -Wno-unused-parameter -std=gnu11 \
+	$(CC) -O2 $(MCPU) -Wall -Wextra -Wno-unused-parameter -std=gnu11 \
 	      -D_GNU_SOURCE -I$(SYSROOT)/usr/include $(LDFLAGS) -o $@ $(MUSE_SRC) \
 	      -lavformat -lavcodec -lavfilter -lswscale -lswresample -lavutil -lasound -lpthread -lm
 
@@ -82,7 +86,7 @@ P2D_SRC := $(wildcard src/p2d/*.c) src/httpd.c src/captive.c
 $(BUILD)/p2d: $(P2D_SRC) $(wildcard src/p2d/*.h) src/httpd.h src/captive.h src/p2share.h \
               src/monoclock.h src/xfer.h
 	mkdir -p $(BUILD)
-	$(CC) -O2 -mcpu=cortex-a53 -Wall -Wextra -Wno-unused-parameter -std=gnu11 \
+	$(CC) -O2 $(MCPU) -Wall -Wextra -Wno-unused-parameter -std=gnu11 \
 	      -D_GNU_SOURCE -I$(SYSROOT)/usr/include $(LDFLAGS) -o $@ $(P2D_SRC) -lz
 
 # Registers a do-nothing media player with BlueZ so a headset's absolute
@@ -106,18 +110,18 @@ $(BUILD)/portkeys: $(PORTKEYS_SRC) tools/pkkeys.h src/keyrepeat.h tools/pkset.h 
                    src/clock.h src/design.h src/look.h src/audioout.h src/device/pixel2_levels.h src/sidelights.h \
                    src/heat.h src/portmenu.h src/powerhold.h
 	mkdir -p $(BUILD)
-	$(CC) -O2 -mcpu=cortex-a53 -Wall -Wextra -std=gnu11 -Isrc -I$(SYSROOT)/usr/include \
+	$(CC) -O2 $(MCPU) -Wall -Wextra -std=gnu11 -Isrc -I$(SYSROOT)/usr/include \
 	      $(LDFLAGS) -o $@ $(PORTKEYS_SRC) -lsqlite3 -lm
 
 # MENU+START held a second, back to the home from anything (tools/zyhome.c),
 # run by launch.sh beside everything
 $(BUILD)/zyhome: tools/zyhome.c tools/zychord.h src/ctl.c src/ctl.h
 	mkdir -p $(BUILD)
-	$(CC) -O2 -mcpu=cortex-a53 -Wall -Wextra -std=gnu11 -Isrc $(LDFLAGS) -o $@ tools/zyhome.c src/ctl.c
+	$(CC) -O2 $(MCPU) -Wall -Wextra -std=gnu11 -Isrc $(LDFLAGS) -o $@ tools/zyhome.c src/ctl.c
 
 $(BUILD)/btplayer: tools/btplayer.c
 	mkdir -p $(BUILD)
-	$(CC) -O2 -mcpu=cortex-a53 -Wall -Wextra -std=gnu11 \
+	$(CC) -O2 $(MCPU) -Wall -Wextra -std=gnu11 \
 	      -I$(SYSROOT)/usr/include/dbus-1.0 -I$(SYSROOT)/usr/lib/dbus-1.0/include \
 	      $(LDFLAGS) -o $@ $< -ldbus-1
 
@@ -131,6 +135,16 @@ $(BUILD)/btplayer: tools/btplayer.c
 UPDATE_SRC := update/main.c update/manifest.c update/status.c update/slots.c
 $(BUILD)/zyperos-update: $(UPDATE_SRC) update/update.h
 	mkdir -p $(BUILD)
-	$(CC) -O2 -mcpu=cortex-a53 -Wall -Wextra -Wno-unused-parameter -Wno-format-truncation -std=gnu11 -D_GNU_SOURCE \
+	$(CC) -O2 $(MCPU) -Wall -Wextra -Wno-unused-parameter -Wno-format-truncation -std=gnu11 -D_GNU_SOURCE \
 	      -DZYPEROS_VERSION='"$(VERSION)"' -I$(SYSROOT)/usr/include \
 	      $(LDFLAGS) -o $@ $(UPDATE_SRC) -lcurl -lcrypto -lz
+
+# The device's programs: the launcher, Muse, and its helpers' (ZYDEV_HELPERS;
+# ports and Bluetooth sound are files, no program)
+HELPER_ELF_portkeys := $(BUILD)/portkeys
+HELPER_ELF_zyhome := $(BUILD)/zyhome
+HELPER_ELF_update := $(BUILD)/zyperos-update
+HELPER_ELF_p2d := $(BUILD)/p2d
+HELPER_ELF_btplayer := $(BUILD)/btplayer
+.PHONY: device-programs
+device-programs: $(BUILD)/zyperos.elf $(BUILD)/muse $(foreach h,$(ZYDEV_HELPERS),$(HELPER_ELF_$(h)))

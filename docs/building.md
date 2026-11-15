@@ -134,6 +134,7 @@ something once broke in a way nothing noticed:
 | `check-usblink` | USB charges only until asked: a computer is asked about once per plug and a charger never, every choice ends with its screen or its cable, and Developer Mode keeps the link |
 | `check-devmode` | developer mode on a release image: the unlock hold (L2 and R2 for five seconds, a bar that only rises, and letting go early, another page or holding on starting again), the setting kept in the card's database, a random one-time password in its alphabet, and only public keys without options taken from the card's key file, once each |
 | `check-devices` | the device profiles (src/device/profile.h): each one whole (named, its folders, a 4:3 screen with its glass in millimetres, every control printed once), today's answers for the GKD Pixel 2, the TrimUI Brick and the host's desktop, and the choice of one by its id, as `--device` makes it |
+| `check-devicegen` | `config/device/<id>.mk` and `<id>.system`, which the cross build, the payload and plastron read, are what each device's `src/device/<id>_build.c` says (`make device-files` writes them) |
 | `check-model` | the handhelds' 3D models (src/device/td_model.h): every key once, and the GKD Pixel 2's key places, views and kept boxes as the drawing had them before they were data |
 | `check-ctl` | the launcher's command channel, the one `px2-open` talks to: the command lines, good and bad; a game's path split into its system's folder and the file, and anything else turned away (outside `Roms`, relative, `..`, a link that leads out); the system found by its folder in either case and the game by its launch path or its disc folder; a core by its name or its Core row's; the socket in a folder in `/tmp`, closed to others, a command in and an answer out, and the port record |
 | `check-sgdb` | SteamGridDB on the device: the real client and a whole run against a fake API (the key in a header and never a URL, the match, the formats, the refusals, a key refused with a 401 or 403 when it is entered said so and the one before it kept), its title and ratio held to tools/sgdb-check.py |
@@ -171,6 +172,7 @@ something once broke in a way nothing noticed:
 | `check-charging` | the charging screen: the charger's kind, its lines, the time to full through CC and CV, and its rules |
 | `check-dsv` | DraStic's DS saves taken over by DSperate: footer off, the chip's bytes kept, an .srm already there never touched, written whole and flushed |
 | `check-osdbar` | the volume and brightness bar the launcher, Diatom and portkeys all draw: a segment lit per step and no more, at both scales, and its in, hold and out |
+| `check-hud` | the FPS readout Diatom draws over a game (src/hud.h): its text rounded and clamped ("59.7 fps · 100%", at most 999.9 fps and 999%), its pill left of the level bar's at both scales at the widest it can say, the surface's color inside its rim and clear outside it, and Diatom's copies (diatom/port/hud.c, hud.h, hudglyphs.h) the same as ZyperOS's |
 | `check-themefile` | the theme file the launcher writes and Diatom and portkeys read: a missing or nonsense file reads as Beard, the word written reads back, no half-written file is ever seen |
 | `check-theme` | which theme is on: MENU > Appearance's three settings, Auto's seven to seven and the hours MENU > Display > Auto Hours sets (round midnight too), the minute it may be late by, and the file the bar's other programs read after every kind of change |
 | `check-look` | the player's look (MENU > Display > Theme): every accent with every background tone, in both themes, held to the contrast each color is owed; the look as it ships is the tokens to the byte, and its words read back |
@@ -561,7 +563,7 @@ card (249737216) or any other only with `--real-card`. A wrong use of a
 command is refused before either.
 
 The device is `PX2_HOST` and `PX2_PORT`, as for `tools/px2-deploy.sh`
-(10.42.0.1 on the USB cable), with `PX2_KEY`; `--vm NAME` is a QEMU VM of
+(10.42.0.1 on the USB cable), with `PX2_KEY` and `PX2_DEVICE` (the device's id, `pixel2`, for its `.userdata` folder and log); `--vm NAME` is a QEMU VM of
 `tools/qemu-run.sh`'s, with a lock of its own (`/tmp/px2-lock-HOST-PORT`, as
 for any device but the Pixel 2 at 10.42.0.1:22, or `PX2_LOCK`). On an image
 from before px2-perf and px2-snap, `tools/px2` copies them to `/tmp/px2-bin` on
