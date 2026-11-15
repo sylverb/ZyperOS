@@ -166,7 +166,7 @@ const tour_info *tour_step_info(tour_step s)
  * through them. */
 static const struct { int n; str_id name[TOUR_CHOICE_MAX]; } CHOICES[TOUR_CHOICES] = {
 	{ 2, { S_TOUR_CHOICE_LIGHT, S_TOUR_CHOICE_DARK } },
-	{ 2, { S_TOUR_CHOICE_SPOTLIGHT, S_TOUR_CHOICE_GALLERY } },
+	{ 3, { S_TOUR_CHOICE_SPOTLIGHT, S_TOUR_CHOICE_GALLERY, S_TOUR_CHOICE_GRID } },
 	{ 4, { S_TOUR_CHOICE_WOOD, S_TOUR_CHOICE_GLASS, S_TOUR_CHOICE_BUBBLE, S_TOUR_CHOICE_OFF } },
 	{ 2, { S_TOUR_CHOICE_ON, S_TOUR_CHOICE_OFF } },
 };

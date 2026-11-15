@@ -423,6 +423,7 @@ typedef struct {
 	const char *sort;
 	/* The shelf shows a list rather than its covers (View, SM_VIEW) */
 	bool        listed;
+	bool        grid;       /* the shelf is a grid of covers (MENU > View) */
 	/* Each option row's choices, by its row (MENU's by pm_row, the system
 	 * menu's by sm_row, the Muse shelf's by sm_muse_row), which the screen
 	 * fills from what it knows and the build copies to its rows' places

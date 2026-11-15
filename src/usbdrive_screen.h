@@ -15,10 +15,6 @@ enum { UD_CONNECTED, UD_FINISHING, UD_FAILED, UD_CONFIRM, UD_FRAMES };
 
 #define UD_TILE_W    DS_PAGE_TILE_W                             /* 472 */
 
-#define UD_TILE_X0   DS_INSET                                   /* 24 */
-
-#define UD_TILE_X1   (ZYPEROS_SCREEN_W - DS_INSET - UD_TILE_W)  /* 528 */
-
 #define UD_PAD       DS_PAGE_TILE_PAD                           /* 32 */
 
 /* One way's tile, on Flash Drive's page and in File Transfer's panel

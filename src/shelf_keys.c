@@ -109,6 +109,32 @@ void update_systems(app *a)
 
 	if (in_repeat(&a->in, back)) { a->sys_cursor = (a->sys_cursor - 1 + n) % n; dir = -1; sb = back; }
 	if (in_repeat(&a->in, fwd))  { a->sys_cursor = (a->sys_cursor + 1) % n; dir = +1; sb = fwd; }
+	/* The Grid home (DESIGN.md 11.1): Up and Down a row, stopping at the top
+	 * and the foot (the edge sound), Down over a short last row onto its
+	 * last system; L1 and R1 a screenful, or to the end, then round
+	 * (gg_page, as the shelf grid's) */
+	if (a->home_layout == HOME_GRID) {
+		int cols = home_grid_cols(), page = cols * HOME_GRID_ROWS, to = a->sys_cursor;
+
+		if (in_repeat(&a->in, IN_UP)) { if (to >= cols) to -= cols; sb = IN_UP; }
+		if (in_repeat(&a->in, IN_DOWN)) {
+			if (to / cols < (n - 1) / cols) to = to + cols < n ? to + cols : n - 1;
+			sb = IN_DOWN;
+		}
+		if (in_repeat(&a->in, IN_L1)) { to = gg_page(to, n, page, -1); sb = IN_L1; }
+		if (in_repeat(&a->in, IN_R1)) { to = gg_page(to, n, page, +1); sb = IN_R1; }
+		if (to != a->sys_cursor) dir = to > a->sys_cursor ? 1 : -1;
+		a->sys_cursor = to;
+		if (a->sys_cursor == was) dir = 0;
+		if (dir) load_ahead(a);
+		if (sb != IN_NONE) step_sound(a, sb, was, a->sys_cursor);
+		if (a->in.pressed[IN_ACCEPT]) {
+			if (is_muse(&a->sys.systems[a->sys_cursor])) muse_open(a, NULL, NULL);
+			else { uisound_play(DS_SOUND_ACCEPT); enter_system(a); }
+		}
+		home_select(&a->home, a->sys_cursor, n, dir, plat_now_ms());
+		return;
+	}
 	/* L1/R1 jump three systems, round the ends as a step goes (home_jump),
 	 * the row moving all the way in the press's direction */
 	if (in_repeat(&a->in, IN_L1)) { a->sys_cursor = home_jump(a->sys_cursor, n, -1); dir = -1; sb = IN_L1; }
@@ -234,17 +260,44 @@ void update_games(app *a)
 	/* The list (MENU > View) is the row turned: Up and Down step along it,
 	 * Left and Right jump a letter (DESIGN.md 11.39) */
 	if (v->listed) { back = IN_UP; fwd = IN_DOWN; jup = IN_LEFT; jdn = IN_RIGHT; }
+	/* The grid (11.47): Left and Right step along its rows, round the ends
+	 * as the row does; Up and Down a row, stopping at the top and the foot
+	 * (the edge sound), and Down from over a short last row lands on its
+	 * last cover; L1 and R1 a screenful. The four directions are the
+	 * grid's, so it has no letter jump. */
+	if (v->grid) {
+		int cols = gg_cols(&v->gm), to = v->cursor;
+
+		page = cols * GG_ROWS;
+		jup = jdn = IN_NONE;
+		if (in_repeat(&a->in, IN_UP)) {
+			if (to >= cols) to -= cols;
+			sb = IN_UP;
+		}
+		if (in_repeat(&a->in, IN_DOWN)) {
+			if (to / cols < (n - 1) / cols) to = to + cols < n ? to + cols : n - 1;
+			sb = IN_DOWN;
+		}
+		v->cursor = to;
+	}
 
 	if (in_repeat(&a->in, back)) { v->cursor = (v->cursor - 1 + n) % n; dir = -1; sb = back; }
 	if (in_repeat(&a->in, fwd))  { v->cursor = (v->cursor + 1) % n; dir = +1; sb = fwd; }
-	if (in_repeat(&a->in, jdn))  { v->cursor = shelf_letter_jump(v, +1); sb = jdn; }
-	if (in_repeat(&a->in, jup))  { v->cursor = shelf_letter_jump(v, -1); sb = jup; }
+	if (jdn != IN_NONE && in_repeat(&a->in, jdn))  { v->cursor = shelf_letter_jump(v, +1); sb = jdn; }
+	if (jup != IN_NONE && in_repeat(&a->in, jup))  { v->cursor = shelf_letter_jump(v, -1); sb = jup; }
 	/* L1/R1 jump a screenful, so a long shelf is crossable. Wrapped the long
 	 * way round on purpose: C's % truncates toward zero, so on a shelf of
 	 * three games the obvious `(cursor - CF_WINDOW + n*2) % n` lands on -1 and
-	 * the draw walks off the front of the list. */
-	if (in_repeat(&a->in, IN_L1))    { v->cursor = ((v->cursor - page) % n + n) % n; sb = IN_L1; }
-	if (in_repeat(&a->in, IN_R1))    { v->cursor = (v->cursor + page) % n; sb = IN_R1; }
+	 * the draw walks off the front of the list.
+	 * The grid's is a page's: on to the end, then round (gg_page). */
+	if (in_repeat(&a->in, IN_L1)) {
+		v->cursor = v->grid ? gg_page(v->cursor, n, page, -1) : ((v->cursor - page) % n + n) % n;
+		sb = IN_L1;
+	}
+	if (in_repeat(&a->in, IN_R1)) {
+		v->cursor = v->grid ? gg_page(v->cursor, n, page, +1) : (v->cursor + page) % n;
+		sb = IN_R1;
+	}
 	if (sb != IN_NONE)
 		step_sound(a, sb, was, v->cursor);
 	/* HERE, AND NOT AT THE END OF THE PASS, because four of the handlers below
@@ -268,14 +321,14 @@ void update_games(app *a)
 	 * move the cursor without a direction, and cf_set_cursor_dir works out the
 	 * rest itself. It returns immediately when the cursor has not moved. */
 	games_select(&v->row, v->cursor, n, dir, plat_now_ms());
-	/* START turns the shelf's View over, covers to the list and back, as
+	/* START turns the shelf's View on, Covers to Grid to List and round, as
 	 * MENU's View row does (2026-11-13: "make clicking start in a system
-	 * change view mode to list and vice versa"). Not with MENU or SELECT
-	 * held: MENU + START is the way out (tools/zyhome.c), SELECT + START
-	 * MP4's lock. */
+	 * change view mode to list and vice versa"; the grid between them,
+	 * 2026-11-15). Not with MENU or SELECT held: MENU + START is the way
+	 * out (tools/zyhome.c), SELECT + START MP4's lock. */
 	if (a->in.pressed[IN_START] && !a->in.down[IN_MENU] && !a->in.down[IN_SELECT]) {
 		uisound_play(DS_SOUND_MOVE);
-		view_turn(a, a->sys_cursor);
+		view_turn(a, a->sys_cursor, 1);
 		return;
 	}
 	/* B in a folder goes up one (src/shelfdir.h), onto the folder it left;

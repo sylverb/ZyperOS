@@ -183,6 +183,7 @@ something once broke in a way nothing noticed:
 | `check-menusnap` | a menu's panel kept whole for the next screen to draw it leaving: every row's text copied, its marks kept, nothing past the bounds |
 | `check-cardgen` | the card drawn where there is no art: its title reads on every row of its slab in both themes, and a card made for one theme is never shown in the other |
 | `check-blur` | Beard's shadows: the box blur keeps its light, reaches exactly as far as the texture is padded, and its nine pieces cover a rect of any size once with no seam |
+| `check-gridrule` | the grid's rule (DESIGN.md 11.47): the shape a shelf takes from its art for every common shape, a shelf mostly of one shape, an even mix (square), cut-outs alone and no art, kept between 1:2 and 2:1; the cells on the 1024 canvas as the design's table gives them and on a wider one, inside their room, filling its width, six covers at least, each cell within 12% of the shape with the fewest columns; and which art is a cut-out |
 | `check-roundrect` | the rects a rounded rectangle is drawn with cover the old row-by-row shape exactly once, for every radius and a spread of sizes |
 | `check-rowmacro` | no row macro is handed a side effect, and ROW_H reads its row once (the MENU-and-DOWN crash of 2026-11-05) |
 | `check-emptyhome` | the empty home's words for every device and port state: the screens' names, each way's button, no address the device does not have, a reason exactly when a way cannot start |

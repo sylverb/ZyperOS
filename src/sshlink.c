@@ -8,6 +8,7 @@
 #include <string.h>
 
 #include "sshlink.h"
+#include "rmtree.h"
 
 #include "i18n.h"
 
@@ -210,12 +211,16 @@ static bool port22_taken(void)
 	return false;
 }
 
+/* The run folder, whole. dropbear's namespace binds RUN_HOME onto /root, so
+ * what a session writes to ~ lands in it: a shell's .ash_history, a file
+ * saved there, an scp to an empty path. Removing only the shadow and the
+ * .ssh link left the folder, and every start after a launcher restart then
+ * failed to make it ("File exists") until a reboot emptied /tmp. The .ssh
+ * link to the card's key folder is removed, never followed (src/rmtree.h). */
 static void clean_run(void)
 {
-	unlink(RUN_SHADOW);
-	unlink(RUN_SSH);
-	rmdir(RUN_HOME);
-	rmdir(RUN_DIR);
+	if (!rm_tree(RUN_DIR))
+		fprintf(stderr, "ssh: could not clear %s: %s\n", RUN_DIR, strerror(errno));
 }
 
 /* A program run to its end, quietly: dropbearkey, once per card. */

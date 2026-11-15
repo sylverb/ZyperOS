@@ -17,8 +17,9 @@ five rows the window shows. Held to:
     and its hint says so;
   - the media pages' rows: albums, films and books, Music's Menu Music, and
     Other Files last where the rows do not come to the folder's whole;
-  - nothing cut or past its box, in either theme (the launcher's "fit:" and
-    "i18n:" lines).
+  - no word of the page cut or past its box, in either theme (the
+    launcher's "fit:" and "i18n:" lines); a game's name too long for its row
+    ends in "..." (DESIGN.md 11.32), which the launcher says as "cut data".
 
 src/storage.c's own orders and the media rows' bytes are held by
 tools/storage-check.c; this is that they reach the page. Needs the host
@@ -82,7 +83,7 @@ def main():
                 fail("%s: the shot failed: %s" % (where, r.stdout.strip()[-300:]))
                 return None, None
             for line in r.stdout.splitlines():
-                if line.startswith(("fit: overflow", "i18n: cut", "i18n: off screen")):
+                if line.startswith(("fit: overflow", "i18n: cut:", "i18n: off screen")):
                     fail("%s: %s" % (where, line))
             said = [l for l in r.stdout.splitlines() if l.startswith("storage: order ")]
             if not said:

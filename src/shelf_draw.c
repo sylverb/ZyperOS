@@ -981,6 +981,30 @@ static SDL_Texture *folder_icon(app *a, unsigned rgb)
 	return g_folder_icon;
 }
 
+/* The grid's (src/gamegrid.h): cover i's texture if it is in hand, without
+ * asking for it; what the grid knows of it beside, when that was made for
+ * the texture the slot holds now and the game in it */
+static SDL_Texture *grid_peek(void *ctx, int i, int *w, int *h, float *cb)
+{
+	app *a = ctx;
+	sysview *v = &a->view[a->sys_cursor];
+
+	if (i < 0 || i >= v->list.count || !v->tex || !v->tex[i]) return NULL;
+	*w = v->tw[i];
+	*h = v->th[i];
+	if (cb) *cb = v->cb[i];
+	return v->tex[i];
+}
+
+static const gg_art *grid_art(void *ctx, int i)
+{
+	app *a = ctx;
+	sysview *v = &a->view[a->sys_cursor];
+
+	if (i < 0 || i >= v->list.count || !v->tex) return NULL;
+	return gg_art_of(&v->gart, i, v->tex[i], gg_key(v->list.items[i].file));
+}
+
 static void draw_games(app *a)
 {
 	sysview *v = &a->view[a->sys_cursor];
@@ -990,20 +1014,58 @@ static void draw_games(app *a)
 	char head[LIB_PATH + CFG_STR + 64];
 
 	shelf_heading(s, v, head, sizeof head);
-	if (v->listed) {
+	if (v->listed || v->grid) {
 		/* MENU > View > List (DESIGN.md 11.39): the focused game's video
 		 * snap plays in its cover's place on the panel, as on the cover row
 		 * (2026-11-13: "the list mode should also play the video preview"),
 		 * when the list has stopped on it */
 		const game_entry *g = v->list.count ? &v->list.items[v->cursor] : NULL;
 		int owner = g ? shelf_owner(a, a->sys_cursor, v->cursor) : a->sys_cursor;
-		bool settled = !gl_moving(&v->lm, now);
+		bool settled = v->grid ? !gg_moving(&v->gm, now) : !gl_moving(&v->lm, now);
 		games_info si = { 0 };
 		gl_info li;
 		unsigned wait;
 
 		game_page_facts(a, settled);
 		shelf_snap(a, v, g && !g->folder ? g : NULL, owner, settled, &si);
+		if (v->grid) {
+			/* MENU > View > Grid (DESIGN.md 11.47): the shape kept for
+			 * this shelf read as it opens, what its covers measured kept
+			 * once it settles, for its next opening */
+			gg_info gi;
+
+			if (!v->gm.set) { v->grid_kept = grid_shape_load(a, a->sys_cursor); v->grid_saved = false; }
+			gi = (gg_info){
+				.heading = head, .count = v->list.count, .cursor = v->cursor,
+				.accent = s->accent, .accent_of = v->owner ? list_accent : NULL,
+				.title_of = list_title, .folder_of = list_folder,
+				.fav_of = !strcmp(s->tag, HOMESYS_FAV) || is_muse(s) ? NULL : list_fav,
+				.peek = grid_peek, .art_of = grid_art, .kept = v->grid_kept,
+				.played = g_game_page.valid ? g_game_page.played : "",
+				.origin = g && owner != a->sys_cursor ? a->sys.systems[owner].name : NULL,
+				.has_achievements = g_game_page.valid && g_game_page.achievements,
+				.resumable = g_game_page.valid && g_game_page.resume,
+				.install = pm_is_offer(a, owner, g),
+				.inside = v->dir[0] != '\0',
+				.earned = g_game_page.earned, .total = g_game_page.total,
+				.snap = si.snap, .snap_w = si.snap_w, .snap_h = si.snap_h,
+				.snap_src = si.snap_src, .snap_k = si.snap_k, .snap_wait = si.snap_wait,
+				.has_snap = g && game_has_snap(a, v->cursor),
+				.start_word = T(S_GAMES_TO_LIST),
+			};
+			wait = gg_draw(&v->gm, a->r, &gi, game_get_tex, a, now, title_phase(a));
+			if (v->gm.settled && !v->grid_saved) {
+				if (fabsf(v->gm.measured - v->grid_kept) > .005f)
+					grid_shape_save(a, a->sys_cursor, v->gm.measured);
+				v->grid_saved = true;
+			}
+			if (wait != UINT32_MAX) redraw_at(plat_now_ms() + wait);
+			/* three rows of covers either way stay: the two in sight and
+			 * the next one, as the row keeps its window */
+			evict_far(v, gg_cols(&v->gm) * (GG_ROWS + 1));
+			g_title_caps = (SDL_Rect){ 0, 0, 0, 0 };
+			return;
+		}
 		li = (gl_info){
 			.heading = head, .count = v->list.count, .cursor = v->cursor,
 			.accent = s->accent, .accent_of = v->owner ? list_accent : NULL,

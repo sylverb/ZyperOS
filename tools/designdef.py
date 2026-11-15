@@ -233,10 +233,10 @@ LAYOUT = [
     ("page-title-y",    150, "a heading with a smaller line under it: the heading's middle"),
     ("page-sub-y",      208, "that smaller line's middle"),
     ("page-sub-mark",   32,  "a mark before the smaller line"),
-    ("page-body-y",     256, "where a page's content starts"),
-    ("page-news-y",     592, "the first line of words under a page's two tiles"),
-    ("page-news2-y",    640, "the second"),
-    ("page-line-y",     648, "the line of marks and words over the keys"),
+    ("page-body-y",     256, "where a page's content starts: the heading's band, Zyper in it, is this tall"),
+    ("page-news-drop",  56,  "the first line of words under a page's two tiles: its middle this far under their foot (592)"),
+    ("page-news-step",  48,  "a second line of other words: its middle this far under the first's (File Transfer's Browsers, 640); a sentence on two lines keeps meta's line, 40"),
+    ("page-line-over",  40,  "the line of marks and words over the keys: its box, a glyph tall, this far over theirs (its middle at 648)"),
     ("page-line-gap",   48,  "between the line's marks and words"),
     ("page-line-gap-tight", 24, "...where they are wider than the page"),
     ("foot-y",          720, "every screen's keys: the last row's middle, 32 from the screen's foot to the glyph's (one foot since 1.0.6; pages had 704, Cover and Video 724)"),
@@ -295,6 +295,12 @@ LAYOUT = [
     ("line-meta",       40,  "a meta line: times, a caption's line"),
     ("line-support",    36,  "a support line"),
     ("line-chrome",     32,  "a chrome line: a key's word, the header"),
+    # the dense grid (src/gamegrid.c)
+    ("grid-gap",        24,  "between a grid's cells"),
+    ("grid-band-gap",   24,  "a grid's foot to the band under it: the name and its facts"),
+    ("focus-ring",      4,   "the ring round a focused cell"),
+    ("focus-gap",       4,   "the ground between that ring and the cell"),
+    ("radius-cell",     14,  "a grid cell's corners; its ring's are radius-card (14 + 4 + 4)"),
 ]
 
 # ---- elevation -----------------------------------------------------------------
