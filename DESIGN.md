@@ -4346,7 +4346,9 @@ cover alone.
 **The keys** (src/shelf_keys.c): Left and Right step along the rows, round
 the ends as the row does; Up and Down a row, stopping at the top and the
 foot with the edge sound, Down from over a short last row landing on its
-last cover; L1 and R1 a screenful, round the ends. The four directions are
+last cover; L1 and R1 a screenful in the same column, or to the last (first)
+cover where less is left, and from the last round to the first, so a grid
+that fits on one screen gets its two ends (`gg_page`). The four directions are
 the grid's, so it has no letter jump. A, B, X, Y, START as on the cover row.
 Three rows of covers either way stay decoded (the two in sight and the next),
 where the row keeps eight.

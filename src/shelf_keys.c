@@ -287,9 +287,16 @@ void update_games(app *a)
 	/* L1/R1 jump a screenful, so a long shelf is crossable. Wrapped the long
 	 * way round on purpose: C's % truncates toward zero, so on a shelf of
 	 * three games the obvious `(cursor - CF_WINDOW + n*2) % n` lands on -1 and
-	 * the draw walks off the front of the list. */
-	if (in_repeat(&a->in, IN_L1))    { v->cursor = ((v->cursor - page) % n + n) % n; sb = IN_L1; }
-	if (in_repeat(&a->in, IN_R1))    { v->cursor = (v->cursor + page) % n; sb = IN_R1; }
+	 * the draw walks off the front of the list.
+	 * The grid's is a page's: on to the end, then round (gg_page). */
+	if (in_repeat(&a->in, IN_L1)) {
+		v->cursor = v->grid ? gg_page(v->cursor, n, page, -1) : ((v->cursor - page) % n + n) % n;
+		sb = IN_L1;
+	}
+	if (in_repeat(&a->in, IN_R1)) {
+		v->cursor = v->grid ? gg_page(v->cursor, n, page, +1) : (v->cursor + page) % n;
+		sb = IN_R1;
+	}
 	if (sb != IN_NONE)
 		step_sound(a, sb, was, v->cursor);
 	/* HERE, AND NOT AT THE END OF THE PASS, because four of the handlers below
