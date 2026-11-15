@@ -17,7 +17,8 @@
 #define HOME_NEAR 2
 #define HOME_LOADER_ATLAS (-3)
 #define HOME_LOADER_STILL (-4)
-typedef enum { HOME_SPOTLIGHT, HOME_GALLERY } home_layout;
+typedef enum { HOME_SPOTLIGHT, HOME_GALLERY, HOME_GRID } home_layout;
+#define HOME_LAYOUTS 3
 typedef struct { const char *key, *name; } home_item;
 typedef struct { bool active, paused; char title[128]; } home_song;
 /* `content`: the opaque texels of every pose of an atlas together, in the
@@ -42,6 +43,11 @@ typedef struct {
     uint32_t moved, animation;
     home_texture atlas, near[HOME_NEAR], still[HOME_STILLS];
     SDL_Renderer *renderer;
+    /* Grid (DESIGN.md 11.1): the cursor it last drew, the first row in sight
+     * and the focus's cell, each easing from where it was (ms.move, ms.quick) */
+    int grid_cursor, grid_cols;
+    float grid_top_from, grid_top_to, grid_fx, grid_fy;
+    uint32_t grid_moved;
 } home;
 
 /* The approved 640px previews use these sizes on the 1024px logical canvas. */
@@ -106,6 +112,11 @@ int home_focus_ground(const home *h, int count, int cursor, uint32_t now,
                       SDL_Rect out[HOME_FOCUS_GROUNDS]);
 uint32_t home_draw_focus(home *h, SDL_Renderer *r, const home_item *items, int count,
                          int cursor, uint32_t now, bool animate);
+/* Grid's columns on the canvas (6 on the 1024-wide one) and its rows (3):
+ * Up and Down move a row, L1 and R1 a screenful (src/shelf_keys.c) */
+#define HOME_GRID_ROWS 3
+extern int home_asks;
+int home_grid_cols(void);
 /* Returns the delay to the next changed frame, UINT32_MAX when still/hidden. */
 uint32_t home_draw(home *h, SDL_Renderer *r, home_layout layout,
                     const home_item *items, int count, int cursor,

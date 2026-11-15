@@ -12,7 +12,7 @@
 - [Source and community](https://zyperos.com/blog/about-zyperos/#source-and-community): development repository, support, and discussion.
 
 ## What it does
-- Animated pixel-art consoles on a Spotlight or Gallery home; games as a row of covers or a list, in the folders you made on the card; search and Random Game.
+- Animated pixel-art consoles on a Spotlight, Gallery or Grid home; games as a row of covers or a list, in the folders you made on the card; search and Random Game.
 - An EmulationStation library as it is: roms folders copied over from Knulli, ROCKNIX, ArkOS or ROGUE OS (nds, psx, megadrive and the rest) are read as their systems, with the covers, video snaps, names and details their scrapers left.
 - Rename a game on the handheld: its saves, save states, cover, video snap, achievements, favorite and play time follow it.
 - A first-start tutorial that teaches each button and asks for the theme, home screen, button sounds and menu music.

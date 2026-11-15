@@ -24,6 +24,17 @@ de = Galerie
 ja = ギャラリー
 it = Galleria
 
+[home.grid]
+note = MENU > Home Screen's value: the systems in a grid, three rows of them
+en = Grid
+zh-Hans = 网格
+es = Cuadrícula
+pt-BR = Grade
+fr = Grille
+de = Raster
+ja = グリッド
+it = Griglia
+
 [home.favorites]
 note = The Favorites shelf's name on the home
 en = Favorites

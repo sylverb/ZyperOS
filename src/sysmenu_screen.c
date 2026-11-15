@@ -787,7 +787,8 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 	}
 	/* The home layout is independent of Appearance and the selected system. */
 	if (sel == PM_HOME && (d || key == IN_ACCEPT)) {
-		a->home_layout = a->home_layout == HOME_SPOTLIGHT ? HOME_GALLERY : HOME_SPOTLIGHT;
+		/* Spotlight, Gallery, Grid and round: Right and A on, Left back */
+		a->home_layout = (home_layout)(((int)a->home_layout + (d < 0 ? HOME_LAYOUTS - 1 : 1)) % HOME_LAYOUTS);
 		db_set_str(db_dev(), "home", home_id(a->home_layout));
 		home_reset(&a->home, a->sys_cursor, a->sys.count, plat_now_ms());
 		redraw_now();

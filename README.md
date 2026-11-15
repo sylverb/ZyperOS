@@ -128,7 +128,7 @@ Questions, ideas, or want to help build it? Come say hi on [the ZyperOS Discord]
     <td align="center"><img src="res/readme/list-inside.png" width="240" alt="Inside the folder Commercial Owned as a list: Golden Sun focused, its box art on the right, B Back"><br><sub>A folder open, its covers beside it</sub></td>
   </tr>
   <tr>
-    <td align="center"><img src="res/readme/grid.png" width="240" alt="The Game Boy Advance shelf as a grid: two rows of square cells, four folders above and four boxes below, Commercial Owned ringed in the accent, its name and 4 games under the grid"><br><sub>Or a grid, more covers at once</sub></td>
+    <td align="center"><img src="res/readme/home-grid.png" width="240" alt="The Grid home: eighteen systems' consoles in three rows of six, each with its name, NES underlined, its whole name and 18 games under the grid"><br><sub>Or the Grid home, 18 systems at once</sub></td>
     <td align="center"><img src="res/readme/grid-favorites.png" width="240" alt="Favorites as a grid of square cells: boxes of every shape from seven systems, the portrait and landscape ones whole over their own colors blurred, Sonic The Hedgehog 2 ringed"><br><sub>Every shape of art, at home in one grid</sub></td>
     <td align="center"><img src="res/readme/grid-snap.png" width="240" alt="The PlayStation shelf as a grid, Metal Gear Solid's video snap opened two cells wide over its neighbors"><br><sub>A game's video opens wide in the grid</sub></td>
   </tr>
@@ -150,7 +150,7 @@ Questions, ideas, or want to help build it? Come say hi on [the ZyperOS Discord]
 - **Nintendo DS your way:** [DSperate](https://github.com/beebono/DSperate) inside the emulator, with three screen layouts and a d-pad stylus. A Mario Kart DS race keeps 60 frames a second on the Pixel 2. **Game Language** in the DS shelf's menu picks the language a game speaks: Auto, the language of **MENU > Language** where the DS has it (English, Español, Français, Deutsch, Italiano, 日本語) and English where it doesn't, or any of them outright, whatever `firmware.bin` says. A game left in another language starts fresh in the new one, with its battery save.
 - **Nintendo 64 at full speed:** [ParallelN64](https://github.com/libretro/parallel-n64) with Glide64, as ROGUE OS ran it. Super Mario 64 and a Mario Kart 64 race hold their 30 frames a second on the Pixel 2, and the d-pad is the N64's stick. Mupen64Plus-Next is the second choice on the shelf's **Core** row, for a game Glide64 draws badly. A game left on the other core starts fresh, with its battery save.
 - **Dreamcast** on flycast2021, the 2021 libretro [Flycast](https://github.com/flyinghead/flycast), drawn on the GPU inside the emulator, with saves, states and resume like any other system. Standalone Flycast is the second choice if you add it.
-- **A home screen in pixel art:** every system as its own console, drawn for ZyperOS, and it moves: a handheld plays its startup, a console takes its cartridge or its disc, and Favorites' heart beats. On a Spotlight or a Gallery home, with your games as a row of covers. The systems go A to Z, or by release date in **MENU > System Order**. Light or dark, [as you like](#light-and-dark).
+- **A home screen in pixel art:** every system as its own console, drawn for ZyperOS, and it moves: a handheld plays its startup, a console takes its cartridge or its disc, and Favorites' heart beats. On a Spotlight, a Gallery or a Grid home (18 systems at once), with your games as a row of covers, a grid or a list. The systems go A to Z, or by release date in **MENU > System Order**. Light or dark, [as you like](#light-and-dark).
 - **Eight languages:** English, 简体中文, Español, Português (Brasil), Français, Deutsch, 日本語 and Italiano, chosen on the first start or in **MENU > Language**. Every word follows it: the menus, the in-game menu, the charging and low battery screens, the boot screen's line while ZyperOS is copied onto the card, and the File Transfer page. Chinese and Japanese each have a face of their own, so they read as clearly as the rest, and switching languages costs no speed ([below](#languages)).
 - **A first start that asks:** Zyper says hello in each language until you pick yours, teaches each button and shows where it is on the Pixel 2, then asks for the theme, the home screen, the button sounds and the menu music ([below](#the-first-start)).
 - **An empty card that says what to do:** with no games yet, the home shows the two ways to add them, one button each, and Zyper cheers when the first ones arrive.
@@ -298,6 +298,10 @@ ZyperOS has two themes, Beard in light and Salt & Pepper in dark. **MENU > Displ
   <tr>
     <td><img src="res/readme/systems.png" width="360" alt="The Spotlight home in the light theme"></td>
     <td><img src="res/readme/dark/systems.png" width="360" alt="The Spotlight home in the dark theme"></td>
+  </tr>
+  <tr>
+    <td><img src="res/readme/home-grid.png" width="360" alt="The Grid home in the light theme"></td>
+    <td><img src="res/readme/dark/home-grid.png" width="360" alt="The Grid home in the dark theme"></td>
   </tr>
   <tr>
     <td><img src="res/readme/media.png" width="360" alt="A game's Cover and Video page in the light theme"></td>
@@ -450,7 +454,7 @@ The first time ZyperOS starts, Zyper says hello in each of its eight languages i
 <table>
   <tr>
     <td align="center"><img src="res/readme/tour-theme.png" width="320" alt="The tutorial asks: Light or dark? The home screen shown in both themes"><br><sub>Light or dark?</sub></td>
-    <td align="center"><img src="res/readme/tour-home.png" width="320" alt="The tutorial asks for the home screen: Spotlight or Gallery"><br><sub>Your home screen</sub></td>
+    <td align="center"><img src="res/readme/tour-home.png" width="320" alt="The tutorial asks for the home screen: Spotlight, Gallery or Grid"><br><sub>Your home screen</sub></td>
   </tr>
   <tr>
     <td align="center"><img src="res/readme/tour-sounds.png" width="320" alt="The tutorial asks for the button sounds: Wood, Glass, Bubble or Off"><br><sub>Button sounds</sub></td>

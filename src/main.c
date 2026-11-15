@@ -5747,8 +5747,10 @@ static const char *shot_corner_clear(app *a)
 		return why;
 	}
 	if (a->sys.count > 0 && a->screen == SCREEN_SYSTEMS) {
+		/* Grid's sprites start under the top bar's band (96): none meets it */
 		card = a->home_layout == HOME_GALLERY ? (SDL_Rect){320,128,384,384}
-		                                        : (SDL_Rect){536,112,448,448};
+		     : a->home_layout == HOME_GRID ? (SDL_Rect){0,0,0,0}
+		                                   : (SDL_Rect){536,112,448,448};
 		if (SDL_HasIntersection(&c, &card)) {
 			snprintf(why, sizeof why, "the corner (x %d..%d) meets the focused card "
 			         "(x %d..%d)", c.x, c.x + c.w, card.x, card.x + card.w);
@@ -7479,11 +7481,11 @@ int main(int argc, char *argv[])
 		else if (!strcmp(argv[i], "--song-paused")) shot_song_paused = true;
 		else if (!strcmp(argv[i], "--home")) {
 			if (i + 1 >= argc) {
-				fprintf(stderr, "--home needs spotlight or gallery\n"); return 2;
+				fprintf(stderr, "--home needs spotlight, gallery or grid\n"); return 2;
 			}
 			const char *value = argv[++i];
-			if (strcmp(value, "spotlight") && strcmp(value, "gallery")) {
-				fprintf(stderr, "--home needs spotlight or gallery\n"); return 2;
+			if (strcmp(value, "spotlight") && strcmp(value, "gallery") && strcmp(value, "grid")) {
+				fprintf(stderr, "--home needs spotlight, gallery or grid\n"); return 2;
 			}
 			shot_home = home_parse(value);
 		}
@@ -8770,6 +8772,7 @@ int main(int argc, char *argv[])
 
 	if (shot_path) {
 		if (shot_screen >= 0) a.screen = (screen_id)shot_screen;
+		home_asks = HOME_STILLS;          /* every still at once: no loader in a shot */
 		if (shot_view) {
 			a.view[a.sys_cursor].listed = !strcmp(shot_view, "list");
 			a.view[a.sys_cursor].grid = !strcmp(shot_view, "grid");
