@@ -7,7 +7,7 @@
 
 .PHONY: all clean native px2-payload vendor boot system-art checkmark \
         check check-cheevos check-hare check-portal check-httpd check-idle check-taskhold check-saver check-rahash check-flacdec check-achtab check-signin check-search \
-        check-raset check-xfer check-sshlink check-usblink check-devmode check-devices check-ctl check-menus check-status check-battery check-corner check-artscrape check-artrun check-sgdb check-snapshelf check-snaps check-audioout \
+        check-raset check-xfer check-sshlink check-usblink check-devmode check-devices check-model check-ctl check-menus check-status check-battery check-corner check-artscrape check-artrun check-sgdb check-snapshelf check-snaps check-audioout \
         check-db check-gamedel check-gamern check-esmedia check-corepins check-targets yuvtarget check-storage check-stats check-sort check-bt check-ss check-titles check-dsv check-sidelights check-osdbar check-themefile check-pkkeys check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-kbnav check-tween check-menumotion check-menusnap check-cardgen check-blur check-roundrect check-rowmacro check-emptyhome check-zyperrig check-randgame check-shelfdir \
         check-sysmark check-flip check-menushots check-controls-shots check-design check-systemart check-linebreak check-portload \
         check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-messages check-tour check-tour-shots check-textfade check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pmhelper check-portdoc check-boottheme check-px2-push check-wifi-watch check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr check-autozone \
@@ -29,7 +29,7 @@ NATIVE_J = $(if $(filter -j%,$(MAKEFLAGS))$(findstring j,$(filter-out -%,$(first
 # of good intentions is a plan. A check nobody runs is a check that does not
 # exist, and check-menus was about to join eight others in that state.
 CHECKS = check-cheevos check-hare check-portal check-httpd check-idle check-taskhold check-saver check-rahash check-flacdec check-achtab check-rasubmit check-raoffline check-signin check-noticeq check-badges check-badge-shots \
-         check-raset check-xfer check-sshlink check-usblink check-devmode check-devices check-ctl check-menus check-artscrape check-artrun check-sgdb check-snapshelf check-snaps check-audioout \
+         check-raset check-xfer check-sshlink check-usblink check-devmode check-devices check-model check-ctl check-menus check-artscrape check-artrun check-sgdb check-snapshelf check-snaps check-audioout \
          check-db check-gamedel check-gamern check-esmedia check-media check-snapsize check-corepins check-targets check-storage check-stats check-sort check-bt check-ss check-titles check-savedlib check-search \
          check-muselib check-musequeue check-museart check-mp4lock check-mp4frame check-p2share check-webtheme check-p2ws check-p2codec check-p2d check-play check-p2 check-resident check-spawn check-controls check-remap check-controls-shots check-logpack \
          check-clock check-autozone check-status check-battery check-battery-eta check-dslang check-dsresume check-corestate check-core-stamp check-core-room check-px2-perf check-px2-snap check-px2 check-lowbatt check-powerhold check-homesys check-heat check-charging check-corner check-dsv check-sidelights check-osdbar check-themefile check-pkkeys check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-kbnav check-randgame check-shelfdir check-look \
@@ -1276,6 +1276,17 @@ check-device-compile:
 	$(CC) $$F $$D $$(pkg-config --cflags sdl2 egl glesv2 gbm libdrm) \
 		diatom/port/pixel2.c diatom/port/rumble_evdev.c diatom/port/panelgamma.c; \
 	echo "ok: every device file compiles"
+
+# The handhelds' models (src/device/td_model.h): every key once, and the GKD
+# Pixel 2's places, views and kept boxes as the drawing had them. No SDL.
+check-model: build-native/model-check
+	@./build-native/model-check
+
+build-native/model-check: tools/model-check.c src/device/td_model.h src/device/td_model.c \
+                          src/device/pixel2_model.c src/tdkey.h FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
+	      -o $@ tools/model-check.c src/device/td_model.c src/device/pixel2_model.c
 
 # Developer mode (src/devmode.h): the unlock hold on a clock moved by hand,
 # the setting in a real database, the one-time password and the keys the
