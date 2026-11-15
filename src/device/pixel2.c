@@ -1672,10 +1672,24 @@ void plat_side_lights_say(const char *line) { side_lights_say_to(SIDE_LIGHTS_FIF
  * 328 MHz, the slower of its two working rates, or 0, no ceiling (1056 MHz).
  * The same file Diatom sets for a game's power profile and gives back at 0
  * when the game ends. 194 MHz saved only 8 mW more than 328 on an idle shelf,
- * and a switch takes about 1.5 ms (2026-11-04). */
+ * and a switch takes about 1.5 ms (2026-11-04).
+ *
+ * Never slowed on a card with the file steady-memory in its .userdata/pixel2
+ * (Diatom's port/pixel2.c reads the same file for a game's ceilings). Each
+ * switch stops the DDR while the display reads it, at any moment of its
+ * scan: plastron's DMC driver asks BL31 for no wait for the vertical blank,
+ * as Rockchip's own kernel does. One Pixel 2 froze in the menus, where the
+ * idle shelf above switched every few seconds (1,429 switches in 45 min of
+ * use on another, 2026-11-15), and not in a game held at one rate. Off by
+ * default: a still shelf drew 17 mA more from the battery at 1056 MHz
+ * (2026-11-15), as 69 mW did in 2026-11-04's measure. */
 void plat_ram_idle(bool idle)
 {
-	write_file("/sys/class/devfreq/dmc/max_freq", idle ? "328000000" : "0");
+	char steady[512];
+
+	snprintf(steady, sizeof steady, "%s/steady-memory", P_USERDATA);
+	write_file("/sys/class/devfreq/dmc/max_freq",
+	           idle && access(steady, F_OK) != 0 ? "328000000" : "0");
 }
 
 /* ---- the chip's temperature ---- */
