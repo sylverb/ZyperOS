@@ -80,7 +80,8 @@ dark cap for surfaces, beard white for text.
 
 MENU > Appearance chooses: **Light**, **Dark**, or **Auto**, which is Light
 from 7:00 to 19:00 by the handheld's clock. *(The setting's name and Auto's
-hours are this document's call.)* The shelf has one card style and one horizontal layout.
+hours are this document's call.)* A shelf shows its games as a row of covers, a grid of them
+(11.47) or a list of names (11.39), each in one style.
 
 ### 3.2 Roles
 
@@ -760,8 +761,8 @@ keeps its aspect ratio. There is no perspective tilt, reflection or added
 card frame. The full scraped title appears below, followed by play time and
 the achievement count. Missing metadata is omitted rather than invented.
 A is **Resume** only when the existing resume path is available, otherwise
-**Play**. B returns to systems, START turns the shelf into the list and back
-(11.39), Y starts the game from the start, and X opens game details, whose
+**Play**. B returns to systems, START steps the shelf's View on, Covers to Grid
+to List and round (11.39, 11.47), Y starts the game from the start, and X opens game details, whose
 last row is Delete Game (11.31). The foot spreads their hints from B at the
 left to X at the right (11.4).
 Long titles wrap or fit within their region, clear of the action and footer.
@@ -3473,22 +3474,25 @@ its label and a small one for rows, I kept this one: it carries the folder's
 name and its system's color.)*
 
 **The list** (MENU > View > List, src/gamelist.h). A system's menu has
-**View** under Sort By: **Covers**, the row as it always was, or **List**.
+**View** under Sort By: **Covers**, the row as it always was, **Grid**
+(11.47), or **List**.
 Each shelf keeps its own, Favorites too, in the device's database by the
 system's tag (`view.<tag>`): the choice belongs with Sort By and Display
 Mode, which are per shelf, because it follows what a shelf holds - a
 shelf with good covers reads as a row, an Arcade or a long library as a
-list. A, Left, Right turn it over; the shelf under the menu turns with it,
-on the same entry.
+list. Right and A step it on, Covers to Grid to List and round, and Left
+back; the shelf under the menu turns with it, on the same entry.
 
-**START** on the shelf turns it over too, with no menu *(2026-11-13: "make
-clicking start in a system change view mode to list and vice versa")*: the
+**START** on the shelf steps it on too, Covers to Grid to List and round,
+with no menu *(2026-11-13: "make clicking start in a system change view
+mode to list and vice versa"; the grid between them, 2026-11-15)*: the
 row's own setting, saved the same way, the shelf on the same entry, with
 the move sound. Favorites, folders and Ports alike; MP4's shelf is MP4's
 own screen, where START does nothing alone. Not with MENU or SELECT held:
 MENU + START is the way out (tools/zyhome.c) and SELECT + START MP4's lock.
-Before, START did nothing on a shelf. The foot names it: **START List**
-under the covers, **START Covers** under the list; MENU > Controls has it
+Before, START did nothing on a shelf. The foot names where it goes:
+**START Grid** under the covers, **START List** under the grid, **START
+Covers** under the list; MENU > Controls has it
 on the shelf's page. The tutorial is as it was: it teaches one button a
 step, its START skips it, and its last page sends you to MENU > Controls.
 
@@ -4033,6 +4037,115 @@ adds, Hotkeys and In a game, at their own width and with no handheld.
 Hotkeys, SELECT with a shoulder, stay on the physical buttons whatever the map
 says; MENU, the volume keys and POWER cannot be remapped.
 
+### 11.47 The grid
+
+**The grid** (MENU > View > Grid, src/gamegrid.h; the rule src/gridrule.h).
+A shelf's covers in two rows of cells of one shape, more of them at once and
+each at least as large as the cover row's side covers: Covers shows about
+three, the grid six to twelve. *(2026-11-15: Bruno Jenso, Discord, on 1.0.5:
+"all art ... feels a wee bit too small"; I asked for a layout more dense that
+looks as good as the others, and for every shape of art and a mix of them to
+look meant. Picked from three mocked layouts, the shape rule, the fill, the
+cut and START's order as recommended.)*
+
+**The shape comes from the art.** Every cover's shape (its width over its
+opaque height) is read when its picture arrives. A folder, a game with no
+art and a cut-out (below) say nothing. Three groups: **portrait** under
+0.83 (2:3 grids, the boxes of the NES, the Genesis and American cases, tall
+PSP cases), **square** 0.83 to 1.2 (square thumbnails, jewel cases, Game
+Boy and DS boxes), **landscape** over it (SNES and N64 boxes, screenshots,
+title screens, 16:9 heroes). The group that holds at least half of a
+shelf's art gives its shape, as its middle cover's (the median); kept between
+1:2 and 2:1. **An even mix** - no group with half - takes square cells: a
+portrait or a landscape cover fills about 70% of a square cell, where a
+landscape cover in a portrait cell fills half. A shelf of cut-outs alone (an
+EmulationStation wheel set) takes landscape cards of 1.4; one with no art at
+all the generated card's portrait. The shape is measured from the covers in
+hand, nearest the cursor first, until every cover in sight is in or 1.5 s
+have passed, and kept in the device's database by the shelf
+(`grid.shape.<tag>`, and `/<folder>` for a folder of it), so the next time
+the shelf opens in its shape at once and nothing moves as covers arrive.
+
+**The cells.** Two rows. The cells fill the width between the margins (64),
+DS_GRID_GAP (24) apart, no taller than two rows allow in the room from the
+top bar's band and a section (96) to where the band under it must start; the
+columns are the fewest that show at least six covers with cells within 12%
+of the shelf's shape, and the grid stands in the middle of its room. On the
+1024 x 768 canvas:
+
+| Art on the shelf | Cell | Across | Each cover | On the Pixel 2 | Covers |
+|---|---|---|---|---|---|
+| 2:3 grids, portrait boxes | 0.71 | 5 | 160 x 224 | 100 x 140 px | 10 |
+| Tall cases (PSP) | 0.58 | 6 | 129 x 222 | 81 x 139 px | 12 |
+| Square, an even mix | 1.0 | 4 | 206 x 206 | 129 x 129 px | 8 |
+| DS boxes | 1.11 | 4 | 206 x 185 | 129 x 116 px | 8 |
+| Landscape boxes, cut-outs alone | 1.4 | 3 | 282 x 201 | 176 x 126 px | 6 |
+| 4:3 screenshots | 1.33 | 3 | 282 x 212 | 176 x 132 px | 6 |
+| 16:9 heroes | 1.78 | 3 | 282 x 159 | 176 x 99 px | 6 |
+
+A wider canvas (a screen of another shape in the 768-high design space) has
+more columns by the same rule. `check-gridrule` holds the shapes and this
+table.
+
+**Each cover in its cell**, corners DS_RADIUS_CELL (14):
+- A cover within 12% of its cell's shape **fills** it; the sliver over, less
+  than 6% of a side, is cut from its middle.
+- A cover of another shape sits **whole** in the middle, over **its own
+  colors, blurred** (sampled to 48 across and blurred three passes on the
+  frame as the picture arrives, src/gamegrid.c's gg_note), toned toward
+  **ground** (35% in Salt & Pepper, 20% in Beard) so the art stands in front;
+  the cover's own corners at half the cell's. A plain **surface** card behind
+  it until its colors are in hand.
+- A **cut-out** - a quarter of its edge clear, or a sixth of all of it: a
+  logo, a box in 3D on nothing - sits whole on a plain **surface** card,
+  12% of the cell's width round it.
+- A game with **no art** gets the generated card drawn at the cell's shape:
+  the slab falling toward the ground (cardgen_slab), the system's color as a
+  band across the top inside the corners, the name a fifth of the way down
+  in the largest of **support**, **action** and **chrome** in which its
+  words fit whole and its lines fit the card (in 36, 32 and 28 line boxes), a
+  rule of the system's mark color under it. Never cut: in **chrome** a word
+  longer than a line goes in pieces with a hyphen, the last resort.
+- A **folder** is its pixel folder (11.39), whole, on the ground.
+- A cover still coming is its cell in **raised**.
+
+**The focus**: a ring of **accent-ink**, DS_FOCUS_RING (4), DS_FOCUS_GAP (4)
+of **ground** inside it, its corners nesting round the cell's (14 + 4 + 4 =
+radius.card), round the cell, or round a folder's picture; under it the lift
+of a thumbnail (UI_LIFT_FOCUS_SMALL). No cover is dimmed. The ring glides
+from cell to cell in **ms.quick** and the window of rows in **ms.move**, both
+**out**; a jump of more than a row lands with a short glide, as the row's
+jumps do. The rail at the right, 23 from the edge (11.2's, standing), when
+the shelf has more rows than two.
+
+**The band** under the grid, DS_GRID_BAND_GAP (24) under its room: the
+focused entry's name in **game-title**, in a 40-unit line box, a favorite's
+heart before it (not on Favorites), sliding when it is too long, and A's hint
+at its right; 8 under it, the facts in **support** in a 36-unit line box, 32
+apart: the heading (the system, and the folders down to the one on screen,
+"Game Boy Advance / Rom Hacks"), the game's own system on Favorites, a
+folder's count, PortMaster's not installed, Played, the achievements; a part
+that would pass the right margin is left out with the ones after it, and a
+heading wider than the line slides over the whole of it alone. The grid has
+no heading line of its own: the facts carry it, so the covers have the room.
+The keys on the shelf's foot (720): B, START List, Y, X, spread as the
+cover row's are (11.4).
+
+**The video snap** (11.19): after the same wait, shown as the bar along the
+focused cover's foot inside its cell, the cell opens to two cells across (no
+wider and no taller than the grid) over its neighbors, at the video's own
+shape, growing from the cell as the cover row's turns wide, the ring and a
+card's lift (UI_LIFT_FOCUS) going with it. The play mark on the focused
+cover alone.
+
+**The keys** (src/shelf_keys.c): Left and Right step along the rows, round
+the ends as the row does; Up and Down a row, stopping at the top and the
+foot with the edge sound, Down from over a short last row landing on its
+last cover; L1 and R1 a screenful, round the ends. The four directions are
+the grid's, so it has no letter jump. A, B, X, Y, START as on the cover row.
+Three rows of covers either way stay decoded (the two in sight and the next),
+where the row keeps eight.
+
 ## 12. Copy
 
 - Headings and rows in Title Case; status values lowercase; lines and
@@ -4219,6 +4332,7 @@ the tiles' style is read off a name.
 | Stroke marks | `src/ds/glyph.c`, `glyph.h` | the 25 `ui_glyph` marks and their cache; `check-glyphs` holds each to 32 strokes and 4 arrowheads |
 | Page frame | `src/ds/page.c`, `page.h` | `ds_page_frame_of`; the heading (`ds_page_head`: `DS_HEAD_BALANCED`, `DS_HEAD_TWO`, `DS_HEAD_SUB`); the line of marks over the keys (`ds_page_line`, its tones `DS_TONE_*`); a line of words under the tiles (`ds_page_meta`); the foot (`ds_page_foot`). `page_top` in `src/main.c` draws the ground and Zyper and hands back the frame. |
 | Tiles and the list | `src/ds/tiles.c`, `tiles.h` | `ds_tiles_draw`: `DS_TILES_ROW`, `DS_TILES_GRID`, `DS_TILES_LIST`. In `src/main.c`, `tiles_show` takes the style as the panel's kind (`PANEL_TILES`, `PANEL_TILES_GRID`, `PANEL_LIST`) and each tile's mark. |
+| The grid | `src/gamegrid.c`, `gamegrid.h`; the rule `src/gridrule.c`, `gridrule.h` | 11.47: the shape from the art, the cells, the covers in them, the band; `check-gridrule` |
 | Marks | `src/ds/mark.c`, `mark.h` | `ds_badge`, `ds_switch` (a switch as a mark), `ds_play_disc` (a cover's video snap), `ds_bar` |
 | Button hints | `src/keyhints.c`, `src/keyhints_draw.c`; `page_hint` in `src/home.c` | 11.4 |
 | Menu panel | `menu_panel` (with the main.c split, a file of its own) | 11.3 |

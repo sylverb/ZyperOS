@@ -7,6 +7,7 @@
 #include "design.h"
 #include "home.h"
 #include "keyhints_draw.h"
+#include "look.h"
 #include "i18n.h"
 #include "platform.h"
 #include "theme.h"
@@ -302,6 +303,9 @@ static void tex_round(SDL_Renderer *r, SDL_Texture *t, int tw, int th, SDL_FRect
 	SDL_Color c = { 255, 255, 255, alpha };
 	static const float cx[4] = { 1, 1, 0, 0 }, cy[4] = { 0, 1, 1, 0 };
 
+	/* MENU > Display > Theme's Square corners square a cover as every panel
+	 * (DESIGN.md 3.5), as ui_round_rect squares the ring round it */
+	if (look_square() && rad * 2 < fminf(dst.w, dst.h)) rad = 0;
 	if (rad > dst.w / 2) rad = dst.w / 2;
 	if (rad > dst.h / 2) rad = dst.h / 2;
 	v[0] = (SDL_Vertex){ { dst.x + dst.w / 2, dst.y + dst.h / 2 }, c,

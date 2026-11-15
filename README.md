@@ -128,6 +128,11 @@ Questions, ideas, or want to help build it? Come say hi on [the ZyperOS Discord]
     <td align="center"><img src="res/readme/list-inside.png" width="240" alt="Inside the folder Commercial Owned as a list: Golden Sun focused, its box art on the right, B Back"><br><sub>A folder open, its covers beside it</sub></td>
   </tr>
   <tr>
+    <td align="center"><img src="res/readme/grid.png" width="240" alt="The Game Boy Advance shelf as a grid: two rows of square cells, four folders above and four boxes below, Commercial Owned ringed in the accent, its name and 4 games under the grid"><br><sub>Or a grid, more covers at once</sub></td>
+    <td align="center"><img src="res/readme/grid-favorites.png" width="240" alt="Favorites as a grid of square cells: boxes of every shape from seven systems, the portrait and landscape ones whole over their own colors blurred, Sonic The Hedgehog 2 ringed"><br><sub>Every shape of art, at home in one grid</sub></td>
+    <td align="center"><img src="res/readme/grid-snap.png" width="240" alt="The PlayStation shelf as a grid, Metal Gear Solid's video snap opened two cells wide over its neighbors"><br><sub>A game's video opens wide in the grid</sub></td>
+  </tr>
+  <tr>
     <td align="center"><img src="res/readme/es-shelf.png" width="240" alt="The PlayStation shelf read from Knulli's psx folder: Metal Gear Solid's box between Crash Bandicoot and Spyro the Dragon, each with a play mark for its video"><br><sub>Your EmulationStation art, as it is</sub></td>
     <td align="center"><img src="res/readme/info-rename.png" width="240" alt="Metal Gear Solid's details: Genre, Achievements, Favorite, Cover and Video, Rename (chosen) and Delete Game"><br><sub>Rename a game on the handheld</sub></td>
     <td align="center"><img src="res/readme/rename.png" width="240" alt="The keyboard titled Rename, holding Metal Gear Solid (USA)"><br><sub>The new name, on the keyboard</sub></td>
@@ -150,7 +155,7 @@ Questions, ideas, or want to help build it? Come say hi on [the ZyperOS Discord]
 - **A first start that asks:** Zyper says hello in each language until you pick yours, teaches each button and shows where it is on the Pixel 2, then asks for the theme, the home screen, the button sounds and the menu music ([below](#the-first-start)).
 - **An empty card that says what to do:** with no games yet, the home shows the two ways to add them, one button each, and Zyper cheers when the first ones arrive.
 - **Your folders, kept:** sort a system's games into folders on the card, "Homebrew", "Rom Hacks", "Translations" inside it, as deep as you like, and the shelf shows them as you made them: the folders first, each a pixel-art folder in the system's color with papers in it and its count of games, then the loose games. A opens a folder, B goes back up. A disc set, a ScummVM game and a port stay one game each, as before. Favorites, Search Games, Random Game, Storage, Delete Game, play time and resume all reach the games inside folders.
-- **Covers or a list:** **START** on a system's shelf, or **MENU > View**, turns its row of covers into a list of names, each with a small card in the system's color, and the focused game's cover and play time beside it; **START** again brings the covers back. Up and Down step, Left and Right jump a letter, and the focused game's video snap plays in its cover's place, as on the row. Each system keeps its own choice, as it keeps its sort order.
+- **Covers, a grid or a list:** **START** on a system's shelf, or **MENU > View**, steps from its row of covers to a grid and then to a list, and back to the covers. The grid shows six to twelve covers at once in two rows, each about as large as the row's side covers, with the focused game's name and play time under it; its video snap opens wide over its neighbors. The cells take the shape of the system's art: 2:3 grids from SteamGridDB five across, square thumbnails four across, SNES boxes, screenshots and 16:9 art three wide ones, square cells for a mix. Art of another shape sits whole on a blur of its own colors, a logo on a plain card, so nothing is cut but a sliver. The list shows names, each with a small card in the system's color, and the focused game's cover and play time beside it; Up and Down step, Left and Right jump a letter. Each system keeps its own choice, as it keeps its sort order.
 - **MENU in tabs:** Games, Display, Sound, Connections, System and About, with **L1** and **R1** going round them. MENU opens on the tab you left it on, and every list goes round: Down on the last row goes to the first, and a long list carries on past its end, while a held button stops at the end.
 - **Your look:** **MENU > Display > Theme** picks the accent (ten of them, lime as it ships), a background tone for the light theme (warm, neutral or cool) and one for the dark (black, deep blue or dark grey), rounded or square corners, and Zyper on or off, with both themes shown small as you go. Every color is worked out to stay readable, and the volume bar over a game follows ([below](#light-and-dark)).
 - **Search Games and Random Game:** **MENU > Search Games** finds any game by a few letters of its name, on any system. **Random Game** picks one and starts it, from every system in MENU or from one shelf in that system's menu.
@@ -224,7 +229,7 @@ The GKD Pixel 2 has several operating systems to choose from. This is ZyperOS be
 | **Shaders** | Sharp-Shimmerless, and CRT (flat or curved), scanlines and an LCD grid at a strength you set, for one system or every system | — | A screen filter in DraStic | — | Built in, per game or per system | — |
 | **Change a button** | In the game, for one game or a system, with the d-pad as a stick | — | — | — | — | — |
 | **Side lights** | Battery, volume and brightness, files moving and finished, achievements: each on or off | — | — | Battery | Battery | — |
-| **Folders of games, and a list** | Folders to any depth, each with its count; covers or a list for each system | EmulationStation's | — | — | EmulationStation's | — |
+| **Folders of games, a grid and a list** | Folders to any depth, each with its count; covers, a grid in the shape of the art, or a list for each system | EmulationStation's | — | — | EmulationStation's | — |
 | **Storage by part and by game** | Yes, with recommendations and media pages | — | — | — | — | — |
 | **Pick a game's cover on the device** | From three sources, a big look first, the old one kept to put back | — | — | — | — | — |
 | **Rename a game on the device** | With its saves, states, art and EmulationStation entry | — | — | — | — | — |
@@ -284,6 +289,10 @@ ZyperOS has two themes, Beard in light and Salt & Pepper in dark. **MENU > Displ
   <tr>
     <td><img src="res/readme/list.png" width="360" alt="The Game Boy Advance shelf as a list in the light theme"></td>
     <td><img src="res/readme/dark/list.png" width="360" alt="The Game Boy Advance shelf as a list in the dark theme"></td>
+  </tr>
+  <tr>
+    <td><img src="res/readme/grid-favorites.png" width="360" alt="Favorites as a grid in the light theme"></td>
+    <td><img src="res/readme/dark/grid-favorites.png" width="360" alt="Favorites as a grid in the dark theme"></td>
   </tr>
   <tr>
     <td><img src="res/readme/systems.png" width="360" alt="The Spotlight home in the light theme"></td>
