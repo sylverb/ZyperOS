@@ -23,15 +23,17 @@ set -e
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 DEVICE=${DEVICE:-brick}
 # The device's build (config/device/<id>.mk, from src/device/<id>_build.c):
-# its Diatom port and the helpers its payload carries beside the launcher
+# its Diatom port and the helpers its payload carries beside the launcher.
+# The card script is one for every device (sd/zyperos/launch.sh); what a
+# device has of its own is its device.sh, which launch.sh sources
 DEVFILE=$ROOT/config/device/$DEVICE.mk
-[ -f "$DEVFILE" ] && [ -f "$ROOT/sd/$DEVICE/launch.sh" ] ||
-	{ echo "payload: unknown DEVICE $DEVICE (no config/device/$DEVICE.mk or sd/$DEVICE/launch.sh)" >&2; exit 1; }
+DEVICE_SH=$ROOT/sd/$DEVICE/device.sh
+[ -f "$DEVFILE" ] && [ -f "$DEVICE_SH" ] ||
+	{ echo "payload: unknown DEVICE $DEVICE (no config/device/$DEVICE.mk or sd/$DEVICE/device.sh)" >&2; exit 1; }
 DIATOM_PORT=$(sed -n 's/^ZYDEV_DIATOM_PORT = *//p' "$DEVFILE")
 HELPERS=" $(sed -n 's/^ZYDEV_HELPERS = *//p' "$DEVFILE") "
 has_helper() { case $HELPERS in *" $1 "*) return 0 ;; esac; return 1; }
 if [ "$DEVICE" = brick ]; then OUT=${OUT:-$ROOT/out/sd}; else OUT=${OUT:-$ROOT/out/sd-$DEVICE}; fi
-LAUNCH=$ROOT/sd/$DEVICE/launch.sh
 P=$OUT/ZyperOS
 ZYPEROS_ELF=${ZYPEROS_ELF:-$ROOT/build/zyperos.elf}
 MUSE_ELF=${MUSE_ELF:-$ROOT/build/muse}
@@ -61,7 +63,8 @@ cp "$MUSE_ELF" "$P/muse"                  # the audio player's engine; Muse cann
 # P_ROOT/p2d (src/main.c's p2_setup). It serves the page from res/web/play,
 # below.
 [ -n "${P2D_ELF:-}" ] && cp "$P2D_ELF" "$P/p2d"
-cp "$LAUNCH" "$P/launch.sh"
+cp "$ROOT/sd/zyperos/launch.sh" "$P/launch.sh"
+cp "$DEVICE_SH" "$P/device.sh"
 # Which ZyperOS this is, for plastron: the Pixel's image copies its ZyperOS/ over
 # the card's only when it is newer than the card's (/etc/init.d/zyperos), so a
 # system-only update brings the new ZyperOS with it. Only when the build says:
@@ -229,15 +232,15 @@ chmod +x "$P/launch.sh" "$P/zyperos.elf" "$P/diatom" "$P/muse"
 [ -f "$P/zyperos-update" ] && chmod +x "$P/zyperos-update"
 [ -f "$P/p2d" ] && chmod +x "$P/p2d"
 
-# The headsets' ALSA config: the Brick's launch.sh sources it at boot, and
+# The headsets' ALSA config: the Brick's device.sh sources it at boot, and
 # ZyperOS runs it after a pair or a forget. The devices with Bluetooth sound.
 has_helper btalsa && cp "$ROOT/sd/zyperos/bt-alsa.sh" "$P/"
 
 # PortMaster's control.txt for the Ports shelf, which launch.sh puts in place
 # before each port, and the installer the shelf runs when PortMaster is not on
 # the card (src/pminstall.h), with its entry's covers and its page's icon
-# (the system art's, res/system-art/original/utility). The devices whose
-# launch.sh runs ports (the Pixel 2's).
+# (the system art's, res/system-art/original/utility). The devices that
+# run ports (the Pixel 2: HAS_PORTS in its device.sh).
 if has_helper ports; then
 	mkdir -p "$P/portmaster"
 	cp "$ROOT/res/portmaster/control.txt" "$ROOT/res/portmaster/libgl_ZyperOS.txt" \
@@ -246,7 +249,7 @@ if has_helper ports; then
 	   "$ROOT/res/portmaster/icon.png" "$P/portmaster/"
 	# OpenBOR, the OpenBOR shelf's program (mk/build-openbor.sh), and the
 	# script its "run:" names. The Pixel 2 only, as its ports are: only its
-	# launch.sh runs a shelf's script.
+	# device.sh has launch.sh run a shelf's script.
 	[ -f "$VENDOR_DIR/openbor/OpenBOR" ] ||
 		{ echo "payload: no OpenBOR in vendor/; run mk/build-openbor.sh" >&2; exit 1; }
 	mkdir -p "$P/openbor"

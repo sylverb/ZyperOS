@@ -208,7 +208,7 @@ is the next thing to try.
   device files take a landscape display (`src/device/pixel2.c` draws
   unturned there, Diatom's port already did) and Diatom's falls back to
   XRGB8888 frames; `tools/px2-shot.c` writes a landscape display as it is;
-  `sd/pixel2/launch.sh` turns a port's picture only on a portrait panel.
+  `sd/zyperos/launch.sh` turns a port's picture only on a portrait panel.
 - The VM: 4 cores and 1 GB as the device, virtio disk (the card image, its
   partitions as on the device), network (SSH and port 80 forwarded on
   127.0.0.1), GPU (KMS only), sound, keyboard, random numbers, a serial
