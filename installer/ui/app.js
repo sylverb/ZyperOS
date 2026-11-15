@@ -1,4 +1,5 @@
-// ZyperOS Installer's page. The main screen is four choices: the device,
+// ZyperOS Installer's page. The main screen is four choices: the device (each
+// one the newest release has a card image for, and an image file's own),
 // which ZyperOS (the latest release, or an image file on this computer), the
 // card (list_cards every two seconds, so a card put in or taken out shows by
 // itself), and what to do. Then a sheet that names the card and its size
@@ -17,6 +18,8 @@ const TAURI = window.__TAURI__ || null;
 const invoke = TAURI ? TAURI.core.invoke : demo().invoke;
 const listen = TAURI ? TAURI.event.listen : demo().listen;
 
+// Every device the page knows, in its order; which of them it offers is
+// offered()'s
 const DEVICE = { pixel2: "GKD Pixel 2", brick: "TrimUI Brick" };
 const THE = { pixel2: "the GKD Pixel 2", brick: "the TrimUI Brick" };
 // A card this big is likely a drive, not a card: said on its row
@@ -34,6 +37,9 @@ const state = {
 	deviceByHand: false,
 	source: "release",
 	release: null,
+	// The devices the release row installs (latest_zyperos): null until it
+	// answers
+	devices: null,
 	releaseError: null,
 	image: null,
 	action: null,
@@ -97,6 +103,15 @@ function selected() {
 	return state.cards.find((c) => c.id === state.cardId) || null;
 }
 
+// The devices to choose from: those the newest release has a card image for
+// (until it answers, or when GitHub can't be reached, the GKD Pixel 2, which
+// every release carries), and a chosen image file's own device. A device with
+// neither is not offered
+function offered() {
+	const have = state.devices || ["pixel2"];
+	return Object.keys(DEVICE).filter((d) => have.includes(d) || (state.image && state.image.device === d));
+}
+
 // Why an update can't be done on this card, or null if it can (or there is
 // no card yet to ask about)
 function updateBlocked(card) {
@@ -110,6 +125,9 @@ function updateBlocked(card) {
 function blocker(card) {
 	if (state.source === "release" && !state.release)
 		return state.releaseError ? { text: state.releaseError, warn: !!state.release } : { text: "Looking for ZyperOS on GitHub." };
+	// Offered for its image file, chosen while the release row is
+	if (state.source === "release" && state.devices && !state.devices.includes(state.device))
+		return { text: zyperos() + " has no card image for " + THE[state.device] + ". Choose an image file for it.", warn: true };
 	if (state.source === "file" && !state.image) return { text: "Choose an image file." };
 	if (state.source === "file" && state.image.device !== state.device)
 		return { text: state.image.name + " is for " + THE[state.image.device] + ".", warn: true };
@@ -131,6 +149,13 @@ function setOn(group, value) {
 
 function render() {
 	const card = selected();
+	const devices = offered();
+	if (!devices.includes(state.device)) {
+		state.device = devices[0] || "pixel2";
+		state.deviceByHand = false;
+		state.action = null;
+	}
+	for (const b of document.querySelectorAll("[data-group=device] [data-value]")) b.hidden = !devices.includes(b.dataset.value);
 	setOn("device", state.device);
 
 	// Which ZyperOS
@@ -203,10 +228,11 @@ function render() {
 			+ (fresh ? "Everything on the card is erased." : "Nothing on the card is erased.");
 }
 
-// A card chosen: its device, unless the device was chosen by hand
+// A card chosen: its device, unless the device was chosen by hand or isn't
+// offered
 function cardChanged() {
 	const card = selected();
-	if (card && card.device && !state.deviceByHand) state.device = card.device;
+	if (card && card.device && !state.deviceByHand && offered().includes(card.device)) state.device = card.device;
 	state.action = null;
 	render();
 }
@@ -595,12 +621,14 @@ async function findUpdate() {
 
 // ---- start ---------------------------------------------------------------
 
-// Which ZyperOS the release row installs, asked once; again every half minute
-// while GitHub can't be reached. No release at all: the image file is the
-// way, and is chosen.
+// Which ZyperOS the release row installs, and for which devices, asked once;
+// again every half minute while GitHub can't be reached. No release at all:
+// the image file is the way, and is chosen.
 async function findRelease() {
 	try {
-		state.release = await invoke("latest_zyperos");
+		const latest = await invoke("latest_zyperos");
+		state.release = latest.version;
+		state.devices = latest.devices;
 		state.releaseError = null;
 	} catch (e) {
 		state.releaseError = String(e);
@@ -639,7 +667,10 @@ function demo() {
 		invoke: (cmd, args) => {
 			switch (cmd) {
 			case "list_cards": return Promise.resolve(cards);
-			case "latest_zyperos": return q.has("release") ? Promise.resolve("0.1.0")
+			// ?release for a release to download, the Pixel 2's only; with
+			// ?brick, the Brick's too
+			case "latest_zyperos": return q.has("release")
+				? Promise.resolve({ version: "0.1.0", devices: q.has("brick") ? ["pixel2", "brick"] : ["pixel2"] })
 				: Promise.reject("ZyperOS has no release to download yet. Choose an image file instead.");
 			// ?update=available (or page, for Linux's chip) shows a newer
 			// installer; downloading, ready, installing and failed show that

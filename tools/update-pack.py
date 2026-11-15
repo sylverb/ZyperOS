@@ -18,10 +18,11 @@ tools/update-key.sh sign turns the .unsigned list into ZyperOS-<device>-
 update.txt by adding the "sign" line. The format is docs/updates.md's (and
 update/manifest.c's header). --card-extra is the payload's card root (the
 folder above DIR): its Licenses/ files and its empty Roms folders go in under
-".card/", which the switch adds to the card. --min-system defaults to
-res/update/min-system. --notes takes the release notes' first eight bullet
-points ("- " lines, markdown taken out) as the list's "note" lines, which
-the device shows as What's New: signed with the rest.
+".card/", which the switch adds to the card. --min-system defaults to the
+device's own, res/update/min-system-<device>. --notes takes the release
+notes' first eight bullet points ("- " lines, markdown taken out) as the
+list's "note" lines, which the device shows as What's New: signed with the
+rest.
 
 Standard library only: it runs on the Mac and in plastron's build container.
 """
@@ -120,7 +121,11 @@ def main():
         sys.exit("update-pack: %s is not a device name" % a.device)
     min_system = a.min_system
     if not min_system:
-        with open(os.path.join(ROOT, "res", "update", "min-system")) as f:
+        # Each device's own: its system images are not the others'
+        path = os.path.join(ROOT, "res", "update", "min-system-" + a.device)
+        if not os.path.isfile(path):
+            sys.exit("update-pack: no res/update/min-system-%s for %s (or --min-system)" % (a.device, a.device))
+        with open(path) as f:
             min_system = f.read().strip()
     if not VERSION_RE.match(min_system):
         sys.exit("update-pack: min-system %s is not a version" % min_system)

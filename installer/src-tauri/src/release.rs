@@ -1,8 +1,13 @@
-// What to put on the card: the latest ZyperOS release from GitHub, the
-// Brick's or the Pixel's card image out of it, checked against the release's
-// SHA256SUMS before anything is written; or an image file the player chose,
-// checked against a SHA256SUMS beside it when there is one. And whether a
-// newer installer is out.
+// What to put on the card: the latest ZyperOS release from GitHub, a device's
+// card image out of it, checked against the release's SHA256SUMS before
+// anything is written; or an image file the player chose, checked against a
+// SHA256SUMS beside it when there is one. And whether a newer installer is
+// out.
+//
+// The devices offered are the ones the newest release has a card image for
+// (ZyperOS's config/devices, which its tools/release.sh builds): a device with
+// none in it is not offered, so the TrimUI Brick shows up with its first
+// release, not before.
 //
 // The installer lives in ZyperOS's repository (installer/) and has ZyperOS's
 // version: every release, tagged v<version>, carries both the card images
@@ -18,6 +23,7 @@ use std::path::{Path, PathBuf};
 
 use sha2::{Digest, Sha256};
 
+use crate::cards::Device;
 use crate::writer::Progress;
 
 /// Where the releases are: each has ZyperOS-v<version>-<device>.img.xz (from
@@ -68,12 +74,19 @@ impl Release {
 
     /// The device's card image: ZyperOS-v0.1.0-pixel2.img.xz or
     /// ZyperOS-v0.1.0-brick.img.xz
-    pub fn asset(&self, brick: bool) -> Result<&Asset, String> {
-        let want = format!("ZyperOS-v{}-{}.img.xz", self.version(), if brick { "brick" } else { "pixel2" });
+    pub fn asset(&self, device: Device) -> Result<&Asset, String> {
+        let want = format!("ZyperOS-v{}-{}.img.xz", self.version(), device.id());
         self.assets
             .iter()
             .find(|a| a.name == want)
             .ok_or_else(|| format!("ZyperOS {} has no {want} to download.", self.version()))
+    }
+
+    /// The devices this release has a card image for, from its files' names,
+    /// in the page's order. A device this installer doesn't know is left out:
+    /// it can't tell its card or write it
+    pub fn devices(&self) -> Vec<Device> {
+        Device::ALL.into_iter().filter(|&d| self.asset(d).is_ok()).collect()
     }
 }
 
@@ -313,9 +326,36 @@ mod tests {
               "ZyperOS-v0.1.0-brick-sources.tar", "ZyperOS-v0.1.0-brick.img.xz"],
         );
         assert_eq!(r.version(), "0.1.0");
-        assert_eq!(r.asset(true).unwrap().name, "ZyperOS-v0.1.0-brick.img.xz");
-        assert_eq!(r.asset(false).unwrap().name, "ZyperOS-v0.1.0-pixel2.img.xz");
-        assert!(release("v0.2.0", &["ZyperOS-v0.2.0-pixel2.img.xz"]).asset(true).is_err());
+        assert_eq!(r.asset(Device::Brick).unwrap().name, "ZyperOS-v0.1.0-brick.img.xz");
+        assert_eq!(r.asset(Device::Pixel2).unwrap().name, "ZyperOS-v0.1.0-pixel2.img.xz");
+        assert!(release("v0.2.0", &["ZyperOS-v0.2.0-pixel2.img.xz"]).asset(Device::Brick).is_err());
+    }
+
+    #[test]
+    fn offers_the_devices_the_release_has_an_image_for() {
+        // 1.0.5 as GitHub has it: the Pixel 2 only, with its update files
+        // and the installers
+        let r = release(
+            "v1.0.5",
+            &["SHA256SUMS", "latest.json", "ZyperOS-v1.0.5-pixel2.img.xz", "ZyperOS-v1.0.5-pixel2-sources.tar",
+              "ZyperOS-v1.0.5-pixel2-update.zpk", "ZyperOS-pixel2-update.txt", "ZyperOS-v1.0.5-pixel2-system.zpk",
+              "ZyperOS-pixel2-system.txt", "ZyperOS-Installer-1.0.5-macOS.zip", "ZyperOS-Installer-1.0.5-Windows.exe"],
+        );
+        assert_eq!(r.devices(), vec![Device::Pixel2]);
+        // Both, in the page's order whatever the release's
+        let both = release("v1.1.0", &["ZyperOS-v1.1.0-brick.img.xz", "SHA256SUMS", "ZyperOS-v1.1.0-pixel2.img.xz"]);
+        assert_eq!(both.devices(), vec![Device::Pixel2, Device::Brick]);
+        // Only an image counts: the Brick's sources, update files or an
+        // image of another version are no image to download
+        let not = release(
+            "v1.1.0",
+            &["ZyperOS-v1.1.0-pixel2.img.xz", "ZyperOS-v1.1.0-brick-sources.tar", "ZyperOS-v1.1.0-brick-update.zpk",
+              "ZyperOS-brick-update.txt", "ZyperOS-v1.0.9-brick.img.xz", "ZyperOS-v1.1.0-brick.img", "ZyperOS-v1.1.0-Brick.img.xz"],
+        );
+        assert_eq!(not.devices(), vec![Device::Pixel2]);
+        // A device this installer doesn't know, and a release with no image
+        assert_eq!(release("v1.2.0", &["ZyperOS-v1.2.0-brickpro.img.xz"]).devices(), vec![]);
+        assert_eq!(release("v1.2.0", &["SHA256SUMS", "ZyperOS-Installer-1.2.0-macOS.zip"]).devices(), vec![]);
     }
 
     #[test]
@@ -420,16 +460,17 @@ mod tests {
         let r = latest().unwrap();
         assert_eq!(r.version(), "0.1.0");
         let mut last = None;
-        let path = download(&r, r.asset(false).unwrap(), &dir, &mut |p| last = Some(p), &|| false).unwrap();
+        let path = download(&r, r.asset(Device::Pixel2).unwrap(), &dir, &mut |p| last = Some(p), &|| false).unwrap();
         assert_eq!(std::fs::read(&path).unwrap(), image);
         assert_eq!(last, Some(Progress::Downloading { done: image.len() as u64, total: image.len() as u64 }));
-        assert!(r.asset(true).is_err(), "no Brick image in this release");
+        assert!(r.asset(Device::Brick).is_err(), "no Brick image in this release");
+        assert_eq!(r.devices(), vec![Device::Pixel2], "so the Brick is not offered");
 
         // The same release with a checksum that doesn't match
         let base = fake_github(image.clone(), format!("{}  ZyperOS-v0.1.0-pixel2.img.xz\n", "0".repeat(64)), 3);
         std::env::set_var("ZYPEROS_INSTALLER_API", &base);
         let r = latest().unwrap();
-        let e = download(&r, r.asset(false).unwrap(), &dir, &mut |_| {}, &|| false).unwrap_err();
+        let e = download(&r, r.asset(Device::Pixel2).unwrap(), &dir, &mut |_| {}, &|| false).unwrap_err();
         assert!(e.contains("didn't match its checksum"), "{e}");
         assert!(!dir.join("ZyperOS-v0.1.0-pixel2.img.xz").exists(), "a bad download is removed");
 
@@ -444,15 +485,17 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
-    /// The real thing, over the network: ZyperOS's latest release, both files
-    /// downloaded and checked. Fails while ZyperOS has no release.
+    /// The real thing, over the network: ZyperOS's latest release, each
+    /// device's image downloaded and checked. Fails while ZyperOS has no
+    /// release.
     #[test]
     #[ignore]
     fn downloads_the_latest() {
         let r = latest().unwrap();
         let dir = std::env::temp_dir().join("zyperos-installer-test");
-        for brick in [true, false] {
-            let asset = r.asset(brick).unwrap();
+        assert!(!r.devices().is_empty(), "ZyperOS {} has no card image", r.version());
+        for device in r.devices() {
+            let asset = r.asset(device).unwrap();
             let started = std::time::Instant::now();
             let path = download(&r, asset, &dir, &mut |_| {}, &|| false).unwrap();
             println!("{} {} bytes in {:?}", asset.name, asset.size, started.elapsed());

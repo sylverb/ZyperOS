@@ -25,6 +25,24 @@ pub enum Device {
     Pixel2,
 }
 
+impl Device {
+    /// Every device this installer knows, in the order the page shows them
+    pub const ALL: [Device; 2] = [Device::Pixel2, Device::Brick];
+
+    /// Its id, as ZyperOS names it (config/devices, the release's
+    /// ZyperOS-v<version>-<id>.img.xz, the page's data-value)
+    pub fn id(self) -> &'static str {
+        match self {
+            Device::Pixel2 => "pixel2",
+            Device::Brick => "brick",
+        }
+    }
+
+    pub fn from_id(id: &str) -> Option<Device> {
+        Device::ALL.into_iter().find(|d| d.id() == id)
+    }
+}
+
 #[derive(Serialize, Clone, Debug)]
 pub struct Card {
     /// How this system names the disk: disk4 on a Mac, /dev/sdb on Linux,
@@ -891,6 +909,19 @@ mod tests {
         assert_eq!(system_of("PX2BOOT"), Some(Device::Pixel2));
         assert_eq!(system_of("BRICKBOOT"), Some(Device::Brick));
         assert_eq!(system_of("EMUELEC"), None);
+    }
+
+    #[test]
+    fn names_each_device_as_zyperos_does() {
+        for d in Device::ALL {
+            assert_eq!(Device::from_id(d.id()), Some(d));
+            // The page gets the same word from serde as from id()
+            assert_eq!(serde_json::to_string(&d).unwrap(), format!("\"{}\"", d.id()));
+        }
+        assert_eq!(Device::from_id("pixel2"), Some(Device::Pixel2));
+        assert_eq!(Device::from_id("brick"), Some(Device::Brick));
+        assert_eq!(Device::from_id("Pixel2"), None);
+        assert_eq!(Device::from_id("brickpro"), None);
     }
 
     #[cfg(target_os = "macos")]
