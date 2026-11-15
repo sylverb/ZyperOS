@@ -332,6 +332,14 @@ static char **child_environ(const char *const envkv[])
 	return out;
 }
 
+/* The launcher's slice of a game run the slow way (plat_run_on_tick), and
+ * a stop asked of it (plat_run_stop) */
+static void (*run_tick)(void);
+static volatile bool run_stop;
+
+void plat_run_on_tick(void (*fn)(void)) { run_tick = fn; }
+void plat_run_stop(void) { run_stop = true; }
+
 int plat_run(char *const argv[], const char *const envkv[], const char *workdir)
 {
 	pid_t pid;
@@ -340,6 +348,7 @@ int plat_run(char *const argv[], const char *const envkv[], const char *workdir)
 
 	if (!env) return -1;
 	run_power_pressed = false;
+	run_stop = false;
 	pid = fork();
 	if (pid < 0) { free(env); return -1; }
 	if (pid == 0) {
@@ -369,8 +378,16 @@ int plat_run(char *const argv[], const char *const envkv[], const char *workdir)
 		if (r == pid) break;
 		if (r < 0) return -1;
 		usleep(100 * 1000);
+		if (run_tick) run_tick();
 		if (device_power_pressed() && ms_since_term < 0) {
 			run_power_pressed = true;
+			kill(pid, SIGTERM);
+			ms_since_term = 0;
+		}
+		/* A quit asked from the launcher's own channel (px2-open): ended as
+		 * a power press ends it, TERM and its state written, but not taken
+		 * for one */
+		if (run_stop && ms_since_term < 0) {
 			kill(pid, SIGTERM);
 			ms_since_term = 0;
 		}

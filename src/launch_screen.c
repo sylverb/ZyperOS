@@ -58,6 +58,13 @@
  * starts one too, once the fallback game has given the display back. Never
  * while a game is running: two GL contexts and a launcher is one more than
  * this device should be asked for. */
+/* A game run the slow way: px2-open's status and quit (ctl_poll), which
+ * the slow path's wait in plat_run calls ten times a second */
+static void fallback_tick(void)
+{
+	if (g_ctl_app) ctl_poll(g_ctl_app, CTL_AT_GAME);
+}
+
 static void respawn_resident(app *a)
 {
 	char elf[CFG_STR * 2], save[CFG_STR * 2], bios[CFG_STR * 2];
@@ -1111,7 +1118,21 @@ void launch(app *a)
 			}
 		}
 		argv[n] = NULL;
+		/* px2-open's status and quit while it runs, as over a resident's
+		 * game (on_game_tick): with nothing answering, a quit asked of it
+		 * waited for the game to end some other way (2026-11-15) */
+		memset(&g_ctl_game, 0, sizeof g_ctl_game);
+		g_ctl_game.on = true;
+		g_ctl_game.fallback = true;
+		snprintf(g_ctl_game.tag, sizeof g_ctl_game.tag, "%s", s->tag);
+		snprintf(g_ctl_game.name, sizeof g_ctl_game.name, "%s", s->name);
+		snprintf(g_ctl_game.core, sizeof g_ctl_game.core, "%s", s->core);
+		snprintf(g_ctl_game.path, sizeof g_ctl_game.path, "%s", rom);
+		g_ctl_game.since = (long)time(NULL);
+		plat_run_on_tick(fallback_tick);
 		fprintf(stderr, "diatom exited %d\n", plat_run(argv, NULL, P_ROOT));
+		plat_run_on_tick(NULL);
+		g_ctl_game.on = false;
 
 		if (!plat_video_init() || !plat_input_init()) { a->running = false; return; }
 		a->r = plat_renderer();
@@ -1122,6 +1143,21 @@ void launch(app *a)
 		prime_window(a, a->sys_cursor);
 		/* The display is ours again and no game is running: the safe moment
 		 * to put a resident emulator back, so the NEXT launch is fast. */
+		respawn_resident(a);
+	}
+
+	/* The emulator crashed as the game ended (EXIT reason=crash), and took
+	 * the resident with it. Without one, the next game, of any system, ran
+	 * the slow fallback, with no in-game menu, no Auto Off and nothing for
+	 * px2-open to talk to: every game after a Saturn quit, whose core
+	 * crashes in its unload (2026-11-15). So it is started again here, at
+	 * the shelf, as after a fallback game; the next launch waits for it
+	 * (plat_resident_await, while a Diatom is running). */
+	if (resident && plat_resident_crashed()) {
+		/* After the crashed one is gone: still on its way out, its socket
+		 * would answer, and respawn_resident would start none */
+		if (!plat_resident_wait_gone(2000))
+			fprintf(stderr, "resident emulator crashed and is still running after 2 s\n");
 		respawn_resident(a);
 	}
 

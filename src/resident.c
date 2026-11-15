@@ -265,6 +265,17 @@ static bool diatom_running(void)
 	return found;
 }
 
+bool plat_resident_wait_gone(unsigned max_ms)
+{
+	unsigned t0 = plat_now_ms();
+
+	while (diatom_running()) {
+		if (plat_now_ms() - t0 >= max_ms) return false;
+		usleep(20000);
+	}
+	return true;
+}
+
 /* A game resumed at boot launches about as soon as the resident Diatom is up
  * to answer, and lost that race now and then: it ran in the standalone
  * fallback, which has no socket, so no in-game menu and no following the
@@ -892,6 +903,11 @@ static void d_power_hold(bool done)
 	}
 }
 
+/* The last game's EXIT said reason=crash: the resident died with it */
+static bool d_crashed;
+
+bool plat_resident_crashed(void) { return d_crashed; }
+
 static int diatom_wait(void)
 {
 	int sent_stop = 0;
@@ -903,6 +919,7 @@ static int diatom_wait(void)
 
 	d_hold_told = false;
 	d_power_hold(power);
+	d_crashed = false;
 
 	for (;;) {
 		char *l;
@@ -995,6 +1012,7 @@ static int diatom_wait(void)
 				 * exit says nothing about the interesting ones. */
 				if (strncmp(l, "EXIT\treason=user", 16) != 0)
 					fprintf(stderr, "diatom: %s\n", l);
+				d_crashed = strstr(l, "reason=crash") != NULL;
 				d_apply_levels();
 				return RES_EXIT;
 			}

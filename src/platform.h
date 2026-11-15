@@ -141,6 +141,11 @@ void plat_terminate(void);
  * process's own environment, or NULL for that environment alone. */
 int  plat_run(char *const argv[], const char *const envkv[], const char *workdir);
 bool plat_run_power_pressed(void);
+/* While plat_run waits for its child: `fn` every 100 ms (NULL none), the
+ * launcher's slice of a game run the slow way; and plat_run_stop ends the
+ * child as a power press would, TERM then KILL, without counting as one */
+void plat_run_on_tick(void (*fn)(void));
+void plat_run_stop(void);
 /* Say that something equivalent to a power press has happened, for the paths
  * the evdev watchdog cannot see: a screen the launcher is drawing over a
  * paused game, where plat_resident_wait is not running and so nothing is
@@ -306,6 +311,12 @@ bool plat_resident_rect(SDL_Rect *out);
 bool plat_resident_source(int *w, int *h, double *aspect);
 /* And the surface Diatom draws on (its DISPLAY's surface=), in pixels */
 bool plat_resident_source_surface(int *w, int *h);
+/* Whether the game that just ended took the resident emulator with it (its
+ * EXIT said reason=crash): then there is no resident until one is started */
+bool plat_resident_crashed(void);
+/* Waits up to `max_ms` for no Diatom to be running (a crashed one still on
+ * its way out); false when one still is */
+bool plat_resident_wait_gone(unsigned max_ms);
 /* Read replies for up to timeout_ms, stopping as soon as a DISPLAY arrives.
  * For changing the mode from the in-game menu: Diatom answers a SETDISPLAY with
  * the new rect, and the menu wants it now so its backdrop can redraw where the
