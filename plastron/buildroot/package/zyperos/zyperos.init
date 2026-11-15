@@ -231,31 +231,38 @@ start() {
 
 # steady-memory.txt on the boot partition, PX2BOOT, which any computer shows
 # as a drive of its own, so a player can put it there before ZyperOS's first
-# start: then /run/zyperos-steady-memory for this start, which ZyperOS's
-# launcher and Diatom read beside the card's own .userdata/pixel2/steady-memory
-# (ZyperOS's src/device/pixel2.c, plat_ram_idle, says what it does). In the
-# background, after ZyperOS is on its way, read-only, mounted and let go at
-# once: the start waits for none of it. The Pixel 2's: a card whose first
-# partition is not PX2BOOT has nothing to say.
+# start, or in the card's .userdata/pixel2 after it: then
+# /run/zyperos-steady-memory for this start, which ZyperOS's launcher and
+# Diatom read (ZyperOS's src/device/pixel2.c, plat_ram_idle, says what it
+# does). Any file whose name begins steady-memory, in any case: Windows
+# hides the .txt it adds, so a file named steady-memory.txt there is
+# steady-memory.txt.txt. In the background, after ZyperOS is on its way,
+# PX2BOOT read-only, mounted and let go at once: the start waits for none of
+# it. A card whose first partition is not FAT has nothing to say there.
 steady_memory() {
 	# CARD here is datapart's, the card's device (QEMU's /dev/vda), not
 	# this script's mount point: local, and in a job of its own anyway
-	local card=/dev/mmcblk0 part mnt=/run/zyperos-px2boot CARD=
+	local card=/dev/mmcblk0 part mnt=/run/zyperos-px2boot CARD= f found=
+	for f in /mnt/SDCARD/.userdata/pixel2/[Ss][Tt][Ee][Aa][Dd][Yy]-[Mm][Ee][Mm][Oo][Rr][Yy]*; do
+		[ -e "$f" ] && found='the card'
+	done
 	[ -r /etc/default/datapart ] && . /etc/default/datapart
 	[ -n "$CARD" ] && card=$CARD
 	case $card in
 	*[0-9]) part=${card}p1 ;;
 	*) part=${card}1 ;;
 	esac
-	[ -b "$part" ] || return 0
-	mkdir -p $mnt
-	mount -t vfat -o ro,nosuid,nodev,noexec "$part" $mnt 2> /dev/null || { rmdir $mnt; return 0; }
-	if [ -e $mnt/steady-memory.txt ]; then
-		: > /run/zyperos-steady-memory
-		echo "zyperos: steady-memory.txt on PX2BOOT: the DDR stays at its full rate" > /dev/kmsg
+	if [ -z "$found" ] && [ -b "$part" ] && mkdir -p $mnt &&
+	   mount -t vfat -o ro,nosuid,nodev,noexec "$part" $mnt 2> /dev/null; then
+		for f in $mnt/[Ss][Tt][Ee][Aa][Dd][Yy]-[Mm][Ee][Mm][Oo][Rr][Yy]*; do
+			[ -e "$f" ] && found=PX2BOOT
+		done
+		umount $mnt
 	fi
-	umount $mnt
-	rmdir $mnt
+	rmdir $mnt 2> /dev/null
+	[ -n "$found" ] || return 0
+	: > /run/zyperos-steady-memory
+	echo "zyperos: steady-memory on $found: the DDR stays at its full rate" > /dev/kmsg
 }
 
 # At shutdown, ahead of init's TERM to everything: launch.sh first, or it
