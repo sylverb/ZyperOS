@@ -112,7 +112,7 @@ ja = 戻る
 it = Indietro
 
 [games.to_list]
-note = The hint by START at a shelf's foot when it shows covers: START shows the shelf as a list of names (MENU > View's List)
+note = The hint by START at a shelf's foot when it shows a grid of covers: START shows the shelf as a list of names (MENU > View's List)
 en = List
 zh-Hans = 列表
 es = Lista
@@ -121,6 +121,17 @@ fr = Liste
 de = Liste
 ja = リスト
 it = Elenco
+
+[games.to_grid]
+note = The hint by START at a shelf's foot when it shows covers in a row: START shows the shelf as a grid of covers (MENU > View's Grid)
+en = Grid
+zh-Hans = 网格
+es = Cuadrícula
+pt-BR = Grade
+fr = Grille
+de = Raster
+ja = グリッド
+it = Griglia
 
 [games.to_covers]
 note = The hint by START at a shelf's foot when it shows a list: START shows its covers again (MENU > View's Covers; the Box Art term)

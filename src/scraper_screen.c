@@ -81,11 +81,10 @@
 #define SCP_MB_PER_COVER 0.25  /* a cover, until the card's own say */
 /* The page's frame, as Flash Drive's pages (DESIGN.md 11.18): the sides at
  * DS_INSET, what the page holds from under the heading and Zyper, a line
- * over the keys, and the keys at 704 */
+ * over the keys (the frame's line_y), and the keys on every screen's foot */
 #define SCP_X0    DS_INSET                        /* 24 */
 #define SCP_X1    (ZYPEROS_SCREEN_W - DS_INSET)   /* 1000 */
 #define SCP_TOP   DS_PAGE_BODY_Y                  /* 256 */
-#define SCP_LINE  DS_PAGE_LINE_Y                  /* 648 */
 /* What a run leaves free on the card, and when one stops for room */
 #define SCP_RESERVE (200ULL * 1000 * 1000)
 #define SCP_FLOOR   (100ULL * 1000 * 1000)
@@ -571,7 +570,7 @@ static void scp_plan_draw(scp_view *v)
 		};
 
 		for (i = 0; i < 2; i++) {
-			SDL_Rect q = { i ? UD_TILE_X1 : UD_TILE_X0, ty, UD_TILE_W, th };
+			SDL_Rect q = { pf.tile[i].x, ty, pf.tile[i].w, th };
 
 			ui_round_rect(a->r, &q, DS_RADIUS_CARD, ui_col(t->raised, 255));
 			ui_glyph_draw(a->r, TL[i].g, q.x + UD_PAD + 28, q.y + 50, 56,
@@ -779,7 +778,7 @@ static void scp_run_draw(scp_view *v, unsigned now)
 		scp_cover_draw(a, &v->ring[0], b, (Uint8)(255 * e), true, true);
 	}
 	scp_time(scp_eta(v, now, looked, total), false, eta, sizeof eta);
-	scp_stats(a, ZYPEROS_SCREEN_W / 2, SCP_LINE, v->p.found, v->p.snaps, -1, eta);
+	scp_stats(a, ZYPEROS_SCREEN_W / 2, pf.line_y, v->p.found, v->p.snaps, -1, eta);
 	ds_page_foot(a->r, &pf, K, L, 1, DS_PAGE_FOOT_GAP, DS_PAGE_FOOT_GAP_TIGHT);
 }
 
@@ -813,7 +812,7 @@ static void scp_done_draw(scp_view *v)
 			scp_mb(room / 1e6, sz, sizeof sz);
 			snprintf(line, sizeof line, TN(S_SCRAPER_VIDEOS_ON_CARD, nv), nv, sz);
 		}
-		ui_text(a->r, fs, line, ZYPEROS_SCREEN_W / 2, ui_cap_y(fs, SCP_LINE), 0, UI_TEXT_SOFT);
+		ui_text(a->r, fs, line, ZYPEROS_SCREEN_W / 2, ui_cap_y(fs, pf.line_y), 0, UI_TEXT_SOFT);
 	}
 	ds_page_foot(a->r, &pf, K, L, 2, DS_PAGE_FOOT_GAP, DS_PAGE_FOOT_GAP_TIGHT);
 }

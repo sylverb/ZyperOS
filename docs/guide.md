@@ -107,14 +107,14 @@ it away.
 | | |
 |---|---|
 | **Left/Right** | move left or right along the shelf |
-| **Up/Down** | jump to the previous or next initial on the games shelf. On a shelf shown as a list (MENU > View), Up and Down step along it and Left and Right jump an initial |
-| **L1/R1** | jump three systems on the systems row, a screenful on a games shelf, coming round at the ends |
+| **Up/Down** | jump to the previous or next initial on the games shelf. On a shelf shown as a list (MENU > View), Up and Down step along it and Left and Right jump an initial; in the grid, Up and Down move a row and stop at the top and bottom |
+| **L1/R1** | jump three systems on the systems row, a screenful on a games shelf, coming round at the ends. In the grid, a screenful or to the last game, then round to the first |
 | **L2/R2** | the previous / next song on the systems row and a games shelf: MP4's while it plays (a book's chapter, as L1/R1 in MP4), else the menu music's. Zyper pops up with its name |
 | **A** | open a system, a folder of games, or start a game |
 | **B** | up one folder of games, or back to the systems row from a shelf's top |
 | **X** | game info for the card under the cursor |
 | **Y** | start the game from the start, without its resume point, when it has one. In a game's details (X), Y favorites it - Favorites is a shelf of its own. Nothing on MP4's shelf |
-| **START** | on a games shelf, covers or a list: the row of covers turns into a list of names, and back again. It is MENU > View's setting, kept for each shelf. Nothing on MP4's shelf |
+| **START** | on a games shelf: the row of covers turns into the grid, the grid into a list of names, and the list back into covers. It is MENU > View's setting, kept for each shelf. Nothing on MP4's shelf |
 | **Volume rocker** | volume, everywhere, including in game |
 | **F1/F2** | brightness, everywhere, including in game |
 | **MENU** (on the systems row) | the ZyperOS menu - settings that are about the firmware |
@@ -491,7 +491,7 @@ The system menu opens on a shelf of games and applies to that system alone:
 | **Core** | which core runs them; left/right/A choose on a shelf that has two (the Dreamcast's) |
 | **Game Language** | the Nintendo DS shelf's: left/right/A go round `Auto`, English, Español, Français, Deutsch, Italiano, 日本語 and 简体中文, saved the moment it changes. `Auto` is the language of MENU > Language where the DS has it and English where it does not, and the row says which. The next game started speaks it, whatever the language of the `firmware.bin` in `Bios/`. A game whose resume point was left in another language starts fresh in this one, with a note that says so, its battery save kept; a save state you load keeps its own language until Reset |
 | **Sort By** | left/right; `Name`, `Play Time`, `Last Played` or `Recently Added` |
-| **View** | left/right/A; `Covers`, the row of covers, or `List`, the games as a list of names with the focused one's cover beside it. START on the shelf turns it too, without the menu |
+| **View** | left/right, or A for the list; `Covers`, the row of covers, `Grid`, two rows of covers in cells shaped like the shelf's own art, or `List`, the games as a list of names with the focused one's cover beside it. START on the shelf steps it too, without the menu |
 | **Display** | how the picture fills the screen: Full Screen, Original Shape, Sharp Pixels, Sharp Pixels, Tall, Sharp Pixels, Zoomed, Fill, Edges Cut or Actual Size, with a line under it that says what the one shown does; left/right cycles it; saved the moment it changes |
 | **Shader** | `Off`, `Sharp-Shimmerless`, `CRT`, `CRT Curved`, `Scanlines` or `LCD Grid`, for this system alone: left, right or A steps it, saved the moment it changes. The next game started plays with it |
 | **Strength** | right under Shader while it is `CRT`, `CRT Curved`, `Scanlines` or `LCD Grid`: `10%` to `100%`, for this system alone. Left and right step it 10% at a time and stop at the ends |
@@ -518,11 +518,14 @@ the bottom rather than into the middle, and two games it cannot tell apart
 fall back to name - a shelf that reshuffles itself when nothing has changed
 reads as broken even when the top of it is right.
 
-View is per-system too: a shelf with good covers reads well as a row, and an
-Arcade shelf or a library of hundreds of games reads better as a list.
-START on a shelf turns it over at a press, the same setting as the menu's
-row, and the foot says which way it goes: `List` under the covers, `Covers`
-under the list.
+View is per-system too: a shelf with good covers reads well as a row, a
+shelf where you want more covers at once as the grid, and an Arcade shelf
+or a library of hundreds of games better as a list. The grid takes its
+cells' shape from the shelf's art: tall boxes, square thumbnails or wide
+screenshots each fill their cells, and art of another shape sits whole over
+its own colors. START on a shelf steps it at a press, the same setting as
+the menu's row, and the foot says where it goes: `Grid` under the covers,
+`List` under the grid, `Covers` under the list.
 
 **Folders of games.** A folder inside a system's folder on the card is a
 folder on its shelf, as deep as you like: the folders come first, A to Z,
@@ -1251,14 +1254,17 @@ Up and down jump by initial on a games or album shelf. A opens a system or start
 B returns to the systems row. Fancy Pants and UI Direction are removed.
 Old saved layout and card-style values do not change this behavior.
 
-MENU > Home Screen selects Spotlight or Gallery. MENU > System Order puts the
+MENU > Home Screen selects Spotlight, Gallery or Grid. MENU > System Order puts the
 systems A to Z by name (3DO, 32X, Arcade, Atari 2600 ...) or by their release
 dates, as before. Favorites stays first, then Recents, and Ports and MP4 stay last.
 MENU > Home Systems shows or hides each of them. Spotlight puts the system name
 beside its animated console sprite, with nearby systems below. Gallery puts the
 focused sprite between its neighbors and shows the full system name below.
-Spotlight uses short names, such as GBA and N64. These labels do not rename any
-folder. Both layouts use the same controls and remember the same selected system.
+Grid shows the systems in three rows of six, each sprite with its short name,
+the focused one underlined and its full name and count under the grid; Up and
+Down move a row there, and L1 and R1 a screenful or to the last system. Spotlight and Grid use short names, such as GBA and N64.
+These labels do not rename any folder. Every layout remembers the same
+selected system.
 
 Appearance selects Light, Dark or Auto. Console sprites retain their source
 colors in both themes. Only the focused system animates. The top bar shows the

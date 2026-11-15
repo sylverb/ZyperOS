@@ -6,6 +6,7 @@
  * scp_foot, one now). */
 #include "ds/page.h"
 
+#include "ds/flex.h"
 #include "ds/mark.h"
 #include "home.h"        /* page_hint: a button glyph and its word */
 #include "linebreak.h"
@@ -17,14 +18,44 @@
 
 ds_page_frame ds_page_frame_of(bool zyper)
 {
-	return (ds_page_frame){
-		.x0 = DS_INSET,
-		.x1 = ZYPEROS_SCREEN_W - DS_INSET,
-		.head_x = zyper ? DS_PAGE_HEAD_X : DS_INSET,
-		.body_y = DS_PAGE_BODY_Y,
-		.line_y = DS_PAGE_LINE_Y,
-		.foot_y = DS_FOOT_Y,
-	};
+	static ds_flex F;
+	ds_page_frame f;
+	int root, body, tiles, t0, t1, news, keys, line, foot;
+	SDL_Rect rl, rf, rn;
+
+	/* One column from the insets: the heading's band (Zyper and the
+	 * heading, drawn by the page), the body taking what is left, and on the
+	 * screen's foot the keys with the line of marks over them */
+	root = ds_flex_begin(&F, ZYPEROS_SCREEN_W, ZYPEROS_SCREEN_H,
+	                     &(ds_box){ .dir = DS_COL, .pad = { DS_INSET, 0, DS_INSET, DS_FOOT_INSET } });
+	ds_flex_add(&F, root, &(ds_box){ .h = DS_PAGE_BODY_Y });
+	body = ds_flex_add(&F, root, &(ds_box){ .dir = DS_COL, .grow = 1,
+	                                        .gap = DS_PAGE_NEWS_DROP - DS_LINE_META / 2 });
+	/* in the body: two tiles from the insets, and a line of words under
+	 * them (its middle DS_PAGE_NEWS_DROP under their foot) */
+	tiles = ds_flex_add(&F, body, &(ds_box){ .dir = DS_ROW, .justify = DS_J_BETWEEN, .h = DS_PAGE_TILE_H });
+	t0 = ds_flex_add(&F, tiles, &(ds_box){ .w = DS_PAGE_TILE_W, .h = DS_PAGE_TILE_H });
+	t1 = ds_flex_add(&F, tiles, &(ds_box){ .w = DS_PAGE_TILE_W, .h = DS_PAGE_TILE_H });
+	news = ds_flex_add(&F, body, &(ds_box){ .h = DS_LINE_META });
+	keys = ds_flex_add(&F, root, &(ds_box){ .dir = DS_COL, .gap = DS_PAGE_LINE_OVER });
+	line = ds_flex_add(&F, keys, &(ds_box){ .h = DS_HINT_GLYPH });
+	foot = ds_flex_add(&F, keys, &(ds_box){ .h = DS_HINT_GLYPH });
+	ds_flex_solve(&F);
+
+	rl = ds_flex_rect(&F, line);
+	rf = ds_flex_rect(&F, foot);
+	rn = ds_flex_rect(&F, news);
+	f.body = ds_flex_rect(&F, body);
+	f.tile[0] = ds_flex_rect(&F, t0);
+	f.tile[1] = ds_flex_rect(&F, t1);
+	f.x0 = f.body.x;
+	f.x1 = f.body.x + f.body.w;
+	f.head_x = zyper ? DS_PAGE_HEAD_X : f.x0;
+	f.body_y = f.body.y;
+	f.news_y = rn.y + rn.h / 2;
+	f.line_y = rl.y + rl.h / 2;
+	f.foot_y = rf.y + rf.h / 2;
+	return f;
 }
 
 /* A heading's line beside Zyper: **title** where it fits whole, **label**

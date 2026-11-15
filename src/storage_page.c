@@ -4,6 +4,8 @@
  * 1024x768 units, from DESIGN.md's tokens. */
 #include "storage_page.h"
 
+#include "ds/flex.h"     /* the list's room, laid out by rules */
+
 #include "design.h"
 #include "platform.h"
 #include "theme.h"
@@ -34,11 +36,13 @@
 #define SP_LIST_Y    266
 #define SP_ROWS      5
 #define SP_RULE_H    16                     /* a rule and its room */
-#define SP_PAD       28                     /* a row's text from its fill's edge */
+#define SP_PAD       16                     /* a row's text from its fill's edge: on the 64 margin, the numbers' (28 until 1.0.6) */
 #define SP_ICON      64
 #define SP_NAME_X    112                    /* a row's name after its icon */
-#define SP_CAP_Y     702                    /* the focused row's facts, one line */
-#define SP_CAP_LINE  36                     /* ...two, from SP_CAP_Y - 10 */
+#define SP_NAME_GAP  24                     /* a name's room ends this far before its size: three grid units, so a cut name never reads as the size's word */
+#define SP_CAP_Y     (ZYPEROS_SCREEN_H - DS_CAPTION_INSET - DS_LINE_META / 2)  /* 708: a caption's last line */
+#define SP_CAP_LINE  DS_LINE_META           /* 40 between its two lines */
+#define SP_FOOT_ROW  28                     /* the more mark's and the sort key's line under the list */
 
 static float row_h(void)
 {
@@ -74,10 +78,38 @@ static int legend_lines(const sp_page *p, int x0, int x1);
 
 /* The list's window: SP_ROWS rows and a rule's room, a row less for each
  * line more the legend takes in a longer language */
+static int caption_lines_most(const sp_page *p);
+static int list_y(const sp_page *p);
+
+/* The room the list has, laid out by rules (src/ds/flex.h, DESIGN.md "The
+ * system"): the page's top down to the list, the list, the more mark's and
+ * sort key's line, and the caption at the foot, as tall as the page's
+ * tallest caption, so the window keeps its rows while the cursor moves */
+static int list_room(const sp_page *p)
+{
+	ds_flex L;
+	int root, upper, list, lines = caption_lines_most(p);
+
+	root = ds_flex_begin(&L, ZYPEROS_SCREEN_W, ZYPEROS_SCREEN_H,
+	                     &(ds_box){ .dir = DS_COL, .gap = 16, .pad = { 0, 0, 0, DS_CAPTION_INSET } });
+	upper = ds_flex_add(&L, root, &(ds_box){ .dir = DS_COL, .grow = 1, .shrink = 1 });
+	ds_flex_add(&L, upper, &(ds_box){ .h = list_y(p) });
+	list = ds_flex_add(&L, upper, &(ds_box){ .grow = 1, .shrink = 1 });
+	ds_flex_add(&L, upper, &(ds_box){ .h = SP_FOOT_ROW });
+	ds_flex_add(&L, root, &(ds_box){ .h = lines * DS_LINE_META });
+	ds_flex_solve(&L);
+	return ds_flex_rect(&L, list).h;
+}
+
+/* The list's window: whole rows and a rule's room, as many as the room the
+ * foot leaves, and a row less for each line more the legend takes in a
+ * longer language */
 static float window_h(const sp_page *p)
 {
 	int rows = SP_ROWS - (legend_lines(p, 24, 1000) - 1);
+	int fit = (int)((list_room(p) - SP_RULE_H) / row_h());
 
+	if (fit < rows) rows = fit;
 	return (rows < 2 ? 2 : rows) * row_h() + SP_RULE_H;
 }
 
@@ -371,10 +403,24 @@ static void row_draw(SDL_Renderer *r, const sp_page *p, int i, float y, bool sel
 		vw = ui_text_tabular_width(fm, row->value);
 		ui_text_tabular(r, fm, row->value, vr, ui_cap_y(fm, (int)(mid + 0.5f)), 1, value);
 	}
-	/* A name too long for its room slides on the focused row and rests at
-	 * its start on the others, between two letters (ui_text_marquee) */
-	ui_text_marquee(r, fm, row->name, x, ui_cap_y(fm, (int)(mid + 0.5f)),
-	                vr - (vw ? vw + SP_PAD : 0) - x, sel ? phase : 0, name);
+	/* A name too long for its room ends in "..." (ui_fit_text, as a menu's
+	 * rows do), and on the focused row slides to its end and back
+	 * (ui_text_marquee), "..." again while it rests at its start; its room
+	 * ends SP_NAME_GAP before the size, so a cut name is never read as the
+	 * size's first word */
+	{
+		int room = vr - (vw ? vw + SP_NAME_GAP : 0) - x, ty = ui_cap_y(fm, (int)(mid + 0.5f));
+		int over = ui_text_width(fm, row->name) - room;
+
+		if (sel && over > 0 && ui_pingpong(over, phase) > 0) {
+			ui_text_marquee(r, fm, row->name, x, ty, room, phase, name);
+		} else {
+			char fit[LB_LINE];
+
+			ui_fit_text(fm, row->name, fit, sizeof fit, room);
+			ui_text(r, fm, fit, x, ty, -1, name);
+		}
+	}
 }
 
 /* The list's more marks (ds_more), their top at y */
@@ -383,6 +429,25 @@ static void more_mark(SDL_Renderer *r, int y, bool up, SDL_Color c)
 	ds_more(r, ZYPEROS_SCREEN_W / 2.0f, (float)y, up, c);
 }
 
+/* The most lines any of the page's captions takes: their room under the
+ * list, the same while the cursor moves */
+static int caption_lines_most(const sp_page *p)
+{
+	TTF_Font *fs = ui_font(UI_F_META);
+	char lines[2][LB_LINE];
+	int i, most = p->note && p->note[0] ? ui_balance_lines(fs, p->note, SP_X1 - SP_X0, 2, lines) : 0;
+
+	for (i = 0; i < p->nrows; i++)
+		if (p->rows[i].caption[0]) {
+			int n = ui_balance_lines(fs, p->rows[i].caption, SP_X1 - SP_X0, 2, lines);
+
+			if (n > most) most = n;
+		}
+	return most;
+}
+
+/* A caption's last line where a one-line caption stands (y), any line
+ * before it a line above */
 static void caption_draw(SDL_Renderer *r, const char *text, int y)
 {
 	TTF_Font *fs = ui_font(UI_F_META);
@@ -391,11 +456,9 @@ static void caption_draw(SDL_Renderer *r, const char *text, int y)
 
 	if (!text || !text[0]) return;
 	n = ui_balance_lines(fs, text, SP_X1 - SP_X0, 2, lines);
-	/* Two lines sit higher, so the second clears the screen's inset and the
-	 * first the more-rows mark */
 	for (k = 0; k < n; k++)
 		ui_text(r, fs, lines[k], ZYPEROS_SCREEN_W / 2,
-		        ui_cap_y(fs, (n > 1 ? y - 10 : y) + k * SP_CAP_LINE), 0, UI_TEXT_DIM);
+		        ui_cap_y(fs, y - (n - 1 - k) * SP_CAP_LINE), 0, UI_TEXT_DIM);
 }
 
 /* ---- the page ------------------------------------------------------------- */
