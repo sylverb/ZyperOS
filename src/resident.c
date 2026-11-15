@@ -122,13 +122,44 @@ static const char *dpeek(int timeout_ms)
 	}
 }
 
-/* launch.sh writes the pid when it starts Diatom. Verified against
- * /proc/<pid>/cmdline before any signal is sent: a stale file after a crash
- * and respawn would otherwise aim SIGTERM at whoever inherited the number. */
+const char *plat_resident_pidfile(void)
+{
+	const char *v = getenv("ZYPEROS_DIATOM_PIDFILE");
+	return v && v[0] ? v : "/tmp/diatom.pid";
+}
+
+/* The pid of a resident the launcher started again (src/launch_screen.c,
+ * respawn_resident), as launch.sh writes its own: "1907\n". Left naming the
+ * Diatom that crashed, the file sent launch.sh's diatom_running to /proc for
+ * a process that was gone, and launch.sh started a second resident beside
+ * the running one at the launcher's next restart, removing its socket (seen
+ * twice on the GKD Pixel 2, 2026-11-14); run_port's stop before a port, and
+ * the escalation in diatom_wait, missed it the same way. Written whole under
+ * another name and renamed over, so a reader never sees half of it. */
+bool plat_resident_note_pid(long pid)
+{
+	const char *path = plat_resident_pidfile();
+	char tmp[256], line[24];
+	int fd, n, ok;
+
+	if (pid <= 0 || snprintf(tmp, sizeof tmp, "%s.new", path) >= (int)sizeof tmp) return false;
+	n = snprintf(line, sizeof line, "%ld\n", pid);
+	if ((fd = open(tmp, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644)) < 0) return false;
+	ok = write(fd, line, (size_t)n) == n;
+	if (close(fd) != 0) ok = 0;
+	if (ok && rename(tmp, path) == 0) return true;
+	unlink(tmp);
+	return false;
+}
+
+/* launch.sh writes the pid when it starts Diatom, and the launcher when it
+ * starts one again (plat_resident_note_pid). Verified against
+ * /proc/<pid>/cmdline before any signal is sent: a file left naming a Diatom
+ * that crashed would otherwise aim SIGTERM at whoever inherited the number. */
 static pid_t diatom_pid(void)
 {
 	char path[64], cmd[256];
-	FILE *f = fopen("/tmp/diatom.pid", "r");
+	FILE *f = fopen(plat_resident_pidfile(), "r");
 	long v = 0;
 	int fd, n;
 
