@@ -51,6 +51,7 @@ void ds_more(SDL_Renderer *r, float cx, float top, bool up, SDL_Color c)
 void ds_bar_in(SDL_Renderer *r, const SDL_Rect *track, int fill, SDL_Color track_c, SDL_Color fill_c)
 {
 	ui_round_rect(r, track, track->h / 2, track_c);
+	if (fill > 0 && fill < track->h) fill = track->h;
 	if (fill > 0)
 		ui_round_rect(r, &(SDL_Rect){ track->x, track->y, fill, track->h }, track->h / 2, fill_c);
 }
