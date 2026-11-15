@@ -37,7 +37,7 @@ static int pick_build(void *ctx, menu_row *rows, int max, const char **heading)
 
 	*heading = p->heading;
 	for (i = 0; i < p->n && i < max && i < MENU_CHOICES_MAX; i++) {
-		menu_pick_word(p->labels[i], p->word[i], (int)sizeof p->word[i]);
+		menu_pick_word(p->labels ? p->labels[i] : NULL, p->word[i], (int)sizeof p->word[i]);
 		rows[i] = (menu_row){ p->word[i], i == p->cur ? MENU_TICK : NULL, true };
 		p->sound[i] = 0;
 	}

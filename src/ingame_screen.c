@@ -1423,18 +1423,22 @@ const menu_choice *gm_choices(app *a, const gm_ui *u)
 		snprintf(buf[1][i], sizeof buf[1][i], "%d", i + 1);
 		lab[3][i] = buf[1][i];
 	}
-	if (u->quick)
+	if (u->quick >= 1 && u->quick <= GM_SLOTS)
 		g_gm_choice[GM_QUICK] = (menu_choice){ .n = GM_SLOTS, .cur = (unsigned char)(u->quick - 1), .labels = lab[3] };
-	for (i = 0; i < u->discs && i < GM_CH_MAX; i++) {
+	/* The discs Diatom says there are, as many as the list holds: a count
+	 * or an index past what was filled gives no table, and the row keeps
+	 * Left and Right */
+	n = u->discs < GM_CH_MAX ? u->discs : GM_CH_MAX;
+	for (i = 0; i < n; i++) {
 		if (i == u->disc) gm_disc_value(u, buf[2][i], sizeof buf[2][i], u->disc_fits);
 		else snprintf(buf[2][i], sizeof buf[2][i], T(S_GAMEMENU_DISC_VALUE), i + 1, u->discs);
 		lab[4][i] = buf[2][i];
 	}
-	if (u->discs > 1)
-		g_gm_choice[GM_DISC] = (menu_choice){ .n = (unsigned char)u->discs, .cur = (unsigned char)u->disc,
+	if (n > 1 && u->discs == n && u->disc >= 0 && u->disc < n)
+		g_gm_choice[GM_DISC] = (menu_choice){ .n = (unsigned char)n, .cur = (unsigned char)u->disc,
 		                                      .labels = lab[4] };
 	for (i = 0; i < GM_LAYOUTS; i++) lab[5][i] = gm_layout_label(i);
-	if (u->screens)
+	if (u->screens && u->layout >= 0 && u->layout < GM_LAYOUTS)
 		g_gm_choice[GM_SCREENS] = (menu_choice){ .n = GM_LAYOUTS, .cur = (unsigned char)u->layout, .labels = lab[5] };
 	return g_gm_choice;
 }
