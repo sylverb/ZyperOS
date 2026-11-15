@@ -28,7 +28,8 @@
 #
 # The device: PX2_HOST (10.42.0.1) and PX2_PORT (22) as tools/px2-deploy.sh
 # takes them, or --vm NAME for a VM of tools/qemu-run.sh's (its port);
-# PX2_KEY (~/.ssh/zyperos_pixel2). A development image, or Developer Mode.
+# PX2_KEY (~/.ssh/zyperos_pixel2), and PX2_DEVICE (pixel2), whose .userdata
+# folder holds the log. A development image, or Developer Mode.
 #
 # The device's own tools are in its image (/usr/bin). On an image from before
 # px2-perf and px2-snap, they are copied to /tmp/px2-bin first: px2-snap from
@@ -45,7 +46,10 @@ KEY=${PX2_KEY:-$HOME/.ssh/zyperos_pixel2}
 SSH_BIN=${PX2_SSH:-ssh}
 REAL_CARD_SECTORS=249737216
 TEST_CARD_SECTORS=62333952
-LOG=/mnt/SDCARD/.userdata/pixel2/logs/zyperos.log
+# The device's id (src/device/<id>_profile.c): its .userdata folder, where
+# the log is; the Pixel 2 unless PX2_DEVICE says another
+DEVICE=${PX2_DEVICE:-pixel2}
+LOG=/mnt/SDCARD/.userdata/$DEVICE/logs/zyperos.log
 # dropbear makes a new host key at every boot of a read-only root: no key to check
 OPTS="-o ConnectTimeout=8 -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR"
 

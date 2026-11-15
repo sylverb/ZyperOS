@@ -1415,9 +1415,30 @@ static void usage(void)
 	exit(2);
 }
 
+/* The image's own device, its system file's "device" line (plastron writes
+ * it on every device), into `out`; "pixel2", the one device System Update
+ * ran on before the line was read, where the file has none */
+static void system_device(const char *path, char *out, size_t n)
+{
+	FILE *f = fopen(path, "r");
+	char line[128];
+
+	snprintf(out, n, "pixel2");
+	if (!f) return;
+	while (fgets(line, sizeof line, f)) {
+		line[strcspn(line, "\r\n")] = 0;
+		if (!strncmp(line, "device ", 7) && line[7]) {
+			snprintf(out, n, "%s", line + 7);
+			break;
+		}
+	}
+	fclose(f);
+}
+
 int main(int argc, char **argv)
 {
-	const char *cmd = NULL, *card = "/mnt/SDCARD", *device = "pixel2";
+	const char *cmd = NULL, *card = "/mnt/SDCARD", *device = NULL;
+	char sys_device[64];
 	const char *source = NULL, *cacert = NULL, *keys = NULL, *sys = NULL;
 	char p[PATH_MAX];
 	int i, lock, rc = 2;
@@ -1436,6 +1457,13 @@ int main(int argc, char **argv)
 		else usage();
 	}
 	if (!cmd) usage();
+	/* No --device: the image's own */
+	if (!device) {
+		system_device(sys ? sys : getenv("ZYPEROS_UPDATE_SYSTEM") ? getenv("ZYPEROS_UPDATE_SYSTEM")
+		                                                           : "/etc/zyperos/system",
+		              sys_device, sizeof sys_device);
+		device = sys_device;
+	}
 	if (!up_path_ok(device) || strchr(device, '/')) usage();
 	/* Every path this builds is the card's (at most 1 KB), a folder name,
 	 * and a list's path (at most UP_MAX_PATH): well inside PATH_MAX, so no

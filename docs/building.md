@@ -560,7 +560,7 @@ card (249737216) or any other only with `--real-card`. A wrong use of a
 command is refused before either.
 
 The device is `PX2_HOST` and `PX2_PORT`, as for `tools/px2-deploy.sh`
-(10.42.0.1 on the USB cable), with `PX2_KEY`; `--vm NAME` is a QEMU VM of
+(10.42.0.1 on the USB cable), with `PX2_KEY` and `PX2_DEVICE` (the device's id, `pixel2`, for its `.userdata` folder and log); `--vm NAME` is a QEMU VM of
 `tools/qemu-run.sh`'s, with a lock of its own (`/tmp/px2-lock-HOST-PORT`, as
 for any device but the Pixel 2 at 10.42.0.1:22, or `PX2_LOCK`). On an image
 from before px2-perf and px2-snap, `tools/px2` copies them to `/tmp/px2-bin` on

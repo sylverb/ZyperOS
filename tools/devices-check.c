@@ -7,6 +7,8 @@
  * profile by its id, as --device makes it on the host. Built with all three
  * profiles, as the host build is. No SDL. */
 #include <stdio.h>
+#include <unistd.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "../src/device/profile.h"
@@ -195,6 +197,33 @@ static void places(void)
 	ck(!dev_button_place(br, IN_ACCEPT, &f, &x, &z), "brick: no places until it has a model");
 }
 
+/* What the system has: the image's has line where it has one, whatever the
+ * files say; the program's file on an image without one (none on the host) */
+static void system_has(void)
+{
+	char dir[] = "/tmp/zyperos-sysfile-XXXXXX", path[64];
+	FILE *f;
+
+	if (!mkdtemp(dir)) { ck(0, "a scratch folder"); return; }
+	snprintf(path, sizeof path, "%s/system", dir);
+	setenv("ZYPEROS_SYSTEM_FILE", path, 1);
+	if ((f = fopen(path, "w"))) {
+		fputs("version 1.0.6\nupdate 1\ndevice pixel2\ntable mbr\npart-boot 1\nhas usbdrive hostapd\n", f);
+		fclose(f);
+	}
+	ck(plat_system_has("usbdrive") && plat_system_has("hostapd"), "the image says usbdrive and hostapd: both");
+	ck(!plat_system_has("teleporter") && !plat_system_has("") && !plat_system_has(NULL),
+	   "and nothing it does not name");
+	if ((f = fopen(path, "w"))) { fputs("version 1.0.6\ndevice brick\nhas\n", f); fclose(f); }
+	ck(!plat_system_has("usbdrive") && !plat_system_has("hostapd"), "an empty has line: none");
+	if ((f = fopen(path, "w"))) { fputs("version 1.0.5\nupdate 1\ndevice pixel2\nhashes x\n", f); fclose(f); }
+	ck(!plat_system_has("usbdrive"), "an image from before the line: the files, none here");
+	unlink(path);
+	ck(!plat_system_has("usbdrive"), "no system file: the files, none here");
+	unsetenv("ZYPEROS_SYSTEM_FILE");
+	rmdir(dir);
+}
+
 static void choosing(void)
 {
 	ck(plat_profile() == &device_profile_desktop, "the host starts as desktop");
@@ -230,6 +259,7 @@ int main(void)
 	unlock();
 	tutorial();
 	places();
+	system_has();
 	choosing();
 	if (fails) {
 		printf("devices: %d of %d checks failed\n", fails, checks);

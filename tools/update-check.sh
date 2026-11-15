@@ -443,6 +443,39 @@ expect "slots: a folder list as the system's is refused; the folder is offered" 
 grep -q 'a folder list where a system list belongs' "$CARD/.userdata/pixel2/update/log" && ok "  ...for its kind" || bad "  ...not for its kind"
 unset ZYPEROS_UPDATE_CMDLINE ZYPEROS_UPDATE_BOOT ZYPEROS_UPDATE_PART2 ZYPEROS_UPDATE_PART4
 
+# --- the card's partitions, as the image names them ---------------------------
+# An image whose system file names root A at 6 and root B at 7 (plastron
+# writes ZyperOS's config/device/<id>.system there), and no partition named
+# by the checks: the new system goes into the card's partition 7, not 4
+# (update/slots.c; 1, 2 and 4 where the file names none)
+sh "$ROOT/tools/update-key.sh" sign "$T/rel2/ZyperOS-pixel2-system.txt.unsigned" \
+	"$T/rel2/ZyperOS-pixel2-system.txt" "$KEY" > /dev/null || bad "signing the system list again"
+head -c 3000000 /dev/zero > "$SL/card6"
+head -c 3000000 /dev/zero > "$SL/card7"
+printf 'slot=a\ntrial=0\ntry=0\nfell=-\na=0.1.0\nb=-\n' > "$SL/boot/bootstate.txt"
+echo "root=/dev/vda6 zyperos.slot=a zyperos.trial=0" > "$SL/cmdline"
+printf 'version 0.1.0\nupdate 1\ndevice pixel2\ntable mbr\npart-boot 1\npart-root-a 6\npart-root-b 7\npart-games 3\nhas usbdrive\n' > "$T/system"
+export ZYPEROS_UPDATE_CMDLINE=$SL/cmdline ZYPEROS_UPDATE_BOOT=$SL/boot ZYPEROS_UPDATE_CARD=$SL/card
+newcard
+run check --source "file://$T/rel2/" > /dev/null
+run download --source "file://$T/rel2/"
+expect "parts: the system goes into the partition the image names for root B" "$?:$(state)" "0:ready"
+head -c 2000000 "$SL/card7" | cmp -s - "$SL/sys2/root.squashfs" && ok "  ...partition 7 holds the new root" || bad "  ...partition 7 does not hold the new root"
+head -c 2000000 "$SL/card6" | cmp -s - "$SL/sys2/root.squashfs" && bad "  ...partition 6, the running root, was written" || ok "  ...partition 6, the running root, untouched"
+unset ZYPEROS_UPDATE_CMDLINE ZYPEROS_UPDATE_BOOT ZYPEROS_UPDATE_CARD
+
+# --- the device, as the image names it ----------------------------------------
+# No --device: the system file's device line, and pixel2 where it has none
+printf 'version 0.1.0\nupdate 1\ndevice brick\n' > "$T/system"
+newcard
+"$BIN" status --card "$CARD" > /dev/null 2>&1
+[ -d "$CARD/.userdata/brick/update" ] && [ ! -d "$CARD/.userdata/pixel2/update" ] &&
+	ok "device: the image's device line names the state folder" || bad "device: not the image's device line"
+printf 'version 0.1.0\nupdate 1\n' > "$T/system"
+newcard
+"$BIN" status --card "$CARD" > /dev/null 2>&1
+[ -d "$CARD/.userdata/pixel2/update" ] && ok "device: pixel2 where the image names none" || bad "device: no pixel2 where the image names none"
+
 if [ $fails -gt 0 ]; then
 	echo "check-update: $fails failed (files in $T)"
 	exit 1
