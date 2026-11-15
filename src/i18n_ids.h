@@ -494,6 +494,7 @@ typedef enum {
 	S_GAMES_OPEN,
 	S_GAMES_BACK,
 	S_GAMES_TO_LIST,
+	S_GAMES_TO_GRID,
 	S_GAMES_TO_COVERS,
 	/* res/strings/hare.txt */
 	S_HARE_WAITING,
@@ -1180,6 +1181,7 @@ typedef enum {
 	S_SYSMENU_USB_CHOOSE,
 	S_SYSMENU_VIEW,
 	S_SYSMENU_VIEW_COVERS,
+	S_SYSMENU_VIEW_GRID,
 	S_SYSMENU_VIEW_LIST,
 	/* res/strings/sysupdate.txt */
 	S_SYSUPDATE_NO_PROGRAM,

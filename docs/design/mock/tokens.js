@@ -179,7 +179,12 @@ window.ZYPER_TOKENS = {
     "line-menu": 56,
     "line-meta": 40,
     "line-support": 36,
-    "line-chrome": 32
+    "line-chrome": 32,
+    "grid-gap": 24,
+    "grid-band-gap": 24,
+    "focus-ring": 4,
+    "focus-gap": 4,
+    "radius-cell": 14
   },
   "motion": {
     "press": {

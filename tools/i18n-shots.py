@@ -596,6 +596,8 @@ EXTRA.setdefault("menu-saver-off", ("demo", "PS1", ["--menu-tab", "1", "--menu",
 # cursor does under it, from a system's menu and from the in-game menu
 EXTRA.setdefault("menu-autooff-list", ("demo", "PS1", ["--menu", "Auto Off", "--press", "a"]))
 EXTRA.setdefault("system-menu-display-list", ("demo", "PS1", ["--screen", "games", "--menu", "Display", "--press", "a"]))
+# View's three (Covers, Grid, List) over a shelf in the grid
+EXTRA.setdefault("system-menu-view-list", ("demo", "NES", ["--screen", "games", "--view", "grid", "--menu", "View", "--press", "a"]))
 EXTRA.setdefault("gamemenu-display-list", ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "1", "--gm-choose"]))
 # Display's Theme page (DESIGN.md 11.42) in each of the ten accents, the
 # tones going round in both themes and the corners turning over, so every

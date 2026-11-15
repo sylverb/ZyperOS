@@ -836,21 +836,27 @@ void sort_load(app *a)
 	}
 }
 
-/* MENU > View, per shelf like Sort By: "list" or none (the covers), kept
- * in the device's database by the system's tag (DESIGN.md 11.39) */
-bool view_listed(const char *tag)
+/* MENU > View, per shelf like Sort By: "list", "grid" or none (the
+ * covers), kept in the device's database by the system's tag (DESIGN.md
+ * 11.39, 11.47) */
+static bool view_is(const char *tag, const char *want)
 {
 	char key[CFG_STR + 16], v[16];
 
 	snprintf(key, sizeof key, "view.%s", tag);
-	return db_get_str(db_dev(), key, v, sizeof v, NULL) && !strcmp(v, "list");
+	return db_get_str(db_dev(), key, v, sizeof v, NULL) && !strcmp(v, want);
 }
+
+bool view_listed(const char *tag) { return view_is(tag, "list"); }
+bool view_grid(const char *tag)   { return view_is(tag, "grid"); }
 
 void view_load(app *a)
 {
 	for (int i = 0; i < a->sys.count; i++) {
 		a->view[i].listed = view_listed(a->sys.systems[i].tag);
+		a->view[i].grid = !a->view[i].listed && view_grid(a->sys.systems[i].tag);
 		a->view[i].lm.set = false;
+		a->view[i].gm.set = false;
 	}
 }
 
@@ -859,20 +865,52 @@ static void view_save(app *a, int sys)
 	char key[CFG_STR + 16];
 
 	snprintf(key, sizeof key, "view.%s", a->sys.systems[sys].tag);
-	db_set_str(db_dev(), key, a->view[sys].listed ? "list" : "covers");
+	db_set_str(db_dev(), key, a->view[sys].listed ? "list" : a->view[sys].grid ? "grid" : "covers");
 }
 
-/* View turned over on shelf `sys`: covers to the list or back, saved, the
- * shelf on the same entry. MENU's View row and START on the shelf both. */
-void view_turn(app *a, int sys)
+/* View turned on shelf `sys`, `dir` 1 or -1 round Covers, Grid and List,
+ * saved, the shelf on the same entry: START on the shelf goes forward, and
+ * MENU's View row either way (2026-11-15: the grid between the two) */
+void view_turn(app *a, int sys, int dir)
 {
 	sysview *v = &a->view[sys];
+	int k = v->listed ? 2 : v->grid ? 1 : 0;
 
-	v->listed = !v->listed;
+	k = (k + (dir < 0 ? 2 : 1)) % 3;
+	v->listed = k == 2;
+	v->grid = k == 1;
 	v->lm.set = false;
+	v->gm.set = false;
 	view_save(a, sys);
 	cf_reset(&v->cf, v->cursor);
 	games_reset(&v->row, v->cursor, v->list.count, plat_now_ms());
+}
+
+/* The grid's shape kept for shelf `sys` (src/gamegrid.h): by its tag, and
+ * the folder of it on screen, so each folder of a shelf keeps its own; 0
+ * for none yet */
+static void grid_shape_key(const app *a, int sys, char *key, size_t n)
+{
+	const sysview *v = &a->view[sys];
+
+	snprintf(key, n, "grid.shape.%s%s%s", a->sys.systems[sys].tag, v->dir[0] ? "/" : "", v->dir);
+}
+
+float grid_shape_load(const app *a, int sys)
+{
+	char key[CFG_STR + LIB_PATH + 16], v[24];
+
+	grid_shape_key(a, sys, key, sizeof key);
+	return db_get_str(db_dev(), key, v, sizeof v, NULL) ? (float)atof(v) : 0;
+}
+
+void grid_shape_save(const app *a, int sys, float shape)
+{
+	char key[CFG_STR + LIB_PATH + 16], v[24];
+
+	grid_shape_key(a, sys, key, sizeof key);
+	snprintf(v, sizeof v, "%.3f", shape);
+	db_set_str(db_dev(), key, v);
 }
 
 void sort_save(app *a)
@@ -1651,6 +1689,39 @@ static bool game_card_wanted(const sysview *v, int i)
 	return !v->tex[i] || tex_stale(v->tex[i]);
 }
 
+/* What the grid keeps of cover i of shelf s beside its texture (src/gamegrid.h):
+ * from its picture `surf` before that is freed, or that it is the generated
+ * card. Not for MP4's shelf, which has no grid. */
+void grid_note(app *a, int s, int i, SDL_Surface *surf, bool generated)
+{
+	sysview *v = &a->view[s];
+
+	if (is_muse(&a->sys.systems[s]) || i < 0 || i >= v->list.count || !v->tex[i]) return;
+	gg_note(&v->gart, a->r, v->list.count, i, v->tex[i], gg_key(v->list.items[i].file),
+	        surf, generated);
+}
+
+/* A cover read on the frame (no worker: a shot): its texture, where its art
+ * stops, and what the grid keeps of it */
+static SDL_Texture *load_cover(app *a, int s, int i, const char *path)
+{
+	sysview *v = &a->view[s];
+	SDL_Surface *conv = load_surface(path);
+	SDL_Texture *t;
+
+	v->cb[i] = 1.0f;
+	if (!conv) return NULL;
+	v->cb[i] = content_bottom(conv);
+	t = SDL_CreateTextureFromSurface(a->r, conv);
+	if (t) {
+		SDL_QueryTexture(t, NULL, NULL, &v->tw[i], &v->th[i]);
+		v->tex[i] = t;
+		grid_note(a, s, i, conv, false);
+	}
+	SDL_FreeSurface(conv);
+	return t;
+}
+
 SDL_Texture *game_get_tex(void *ctx, int i, int *w, int *h, float *cb)
 {
 	app *a = ctx;
@@ -1692,6 +1763,7 @@ SDL_Texture *game_get_tex(void *ctx, int i, int *w, int *h, float *cb)
 				v->cb[i] = content_bottom(sf);
 				v->tex[i] = ui_card_upload(a->r, sf, theme_index());
 				if (v->tex[i]) { v->tw[i] = sf->w; v->th[i] = sf->h; }
+				grid_note(a, s, i, sf, false);
 				SDL_FreeSurface(sf);
 			}
 		}
@@ -1718,13 +1790,15 @@ SDL_Texture *game_get_tex(void *ctx, int i, int *w, int *h, float *cb)
 			/* No worker. Exactly what this did before, on the frame, over
 			 * the card of the theme that was if there is one. */
 			if (v->tex[i]) SDL_DestroyTexture(v->tex[i]);
-			v->tex[i] = load_image(a->r, art, &v->tw[i], &v->th[i], &v->cb[i]);
+			v->tex[i] = load_cover(a, s, i, art);
 			if (!v->tex[i] && es_cover_late(es + 1, es, sizeof es))
-				v->tex[i] = load_image(a->r, es, &v->tw[i], &v->th[i], &v->cb[i]);
-			if (!v->tex[i])
+				v->tex[i] = load_cover(a, s, i, es);
+			if (!v->tex[i]) {
 				v->tex[i] = ui_make_card(a->r, v->list.items[i].title,
 				                         a->sys.systems[o].accent,
 				                         &v->tw[i], &v->th[i]);
+				grid_note(a, s, i, NULL, true);
+			}
 		}
 	}
 	if (!v->tex[i]) {
@@ -1774,6 +1848,7 @@ void shelf_put(void *ctx, texload_got *g)
 		v->tex[i] = ui_card_upload(a->r, surf, g->theme);
 		if (v->tex[i]) { v->tw[i] = surf->w; v->th[i] = surf->h; }
 		v->cb[i] = 1.0f;
+		grid_note(a, s, i, NULL, true);
 		SDL_FreeSurface(surf);
 		surf = NULL;
 	}
@@ -1788,6 +1863,7 @@ void shelf_put(void *ctx, texload_got *g)
 		                          : SDL_CreateTextureFromSurface(a->r, surf);
 		if (v->tex[i])
 			SDL_QueryTexture(v->tex[i], NULL, NULL, &v->tw[i], &v->th[i]);
+		grid_note(a, s, i, surf, false);
 		SDL_FreeSurface(surf);
 	}
 	if (!v->tex[i]) {
@@ -1805,6 +1881,7 @@ void shelf_put(void *ctx, texload_got *g)
 		                         a->sys.systems[o].accent,
 		                         &v->tw[i], &v->th[i]);
 		v->cb[i] = 1.0f;
+		grid_note(a, s, i, NULL, !v->list.items[i].folder);
 	}
 }
 
@@ -1827,6 +1904,7 @@ void evict_far(sysview *v, int keep)
 		if (v->tex[i] && d > keep) {
 			SDL_DestroyTexture(v->tex[i]);
 			v->tex[i] = NULL;
+			gg_drop(&v->gart, i);
 		}
 	}
 }
@@ -1934,6 +2012,7 @@ void shelf_open_dir(app *a, int s, const char *dir, const char *select)
 	for (i = 0; select && i < v->list.count; i++)
 		if (!strcmp(v->list.items[i].file, select)) { v->cursor = i; break; }
 	v->lm.set = false;                   /* the list finds its window again */
+	v->gm.set = false;                   /* ...and the grid its window and shape */
 	cf_reset(&v->cf, v->cursor);
 	games_reset(&v->row, v->cursor, v->list.count, plat_now_ms());
 }
@@ -4649,12 +4728,14 @@ static int menu_shelf_width(app *a)
 			}
 			rows[lrow].value = keep;
 		}
-		/* View's two values, the longer kept */
+		/* View's three values, the longest kept */
 		if (vrow >= 0 && vrow < n) {
 			const char *keep = rows[vrow].value;
 			int mw;
 
 			rows[vrow].value = T(S_SYSMENU_VIEW_COVERS);
+			if ((mw = menu_measure(rows, n, heading)) > w) w = mw;
+			rows[vrow].value = T(S_SYSMENU_VIEW_GRID);
 			if ((mw = menu_measure(rows, n, heading)) > w) w = mw;
 			rows[vrow].value = T(S_SYSMENU_VIEW_LIST);
 			if ((mw = menu_measure(rows, n, heading)) > w) w = mw;
@@ -5095,8 +5176,8 @@ int main(int argc, char *argv[])
 		else if (!strcmp(argv[i], "--game") && i + 1 < argc) shot_game = argv[++i];
 		else if (!strcmp(argv[i], "--view") && i + 1 < argc) {
 			shot_view = argv[++i];
-			if (strcmp(shot_view, "list") && strcmp(shot_view, "covers")) {
-				fprintf(stderr, "--view needs list or covers\n");
+			if (strcmp(shot_view, "list") && strcmp(shot_view, "covers") && strcmp(shot_view, "grid")) {
+				fprintf(stderr, "--view needs list, grid or covers\n");
 				return 2;
 			}
 		}
@@ -6506,7 +6587,10 @@ int main(int argc, char *argv[])
 
 	if (shot_path) {
 		if (shot_screen >= 0) a.screen = (screen_id)shot_screen;
-		if (shot_view) a.view[a.sys_cursor].listed = !strcmp(shot_view, "list");
+		if (shot_view) {
+			a.view[a.sys_cursor].listed = !strcmp(shot_view, "list");
+			a.view[a.sys_cursor].grid = !strcmp(shot_view, "grid");
+		}
 		if (shot_folder) shelf_open_dir(&a, a.sys_cursor, shot_folder, NULL);
 		if (shot_game) shelf_reveal(&a, a.sys_cursor, shot_game);
 		for (const char *k = shot_shelf_press; k && *k; ) {

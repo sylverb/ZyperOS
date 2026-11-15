@@ -192,6 +192,12 @@ SHOTS={
     'folders':('demo','GBA',['--screen','games']),
     'folder-inside':('demo','GBA',['--screen','games']),
     'list':('demo','GBA',['--screen','games','--view','list']),
+    # MENU > View > Grid (DESIGN.md 11.47): the Game Boy Advance shelf's top,
+    # its folders and its square boxes; Favorites, a shelf of every shape
+    # (square cells for an even mix); a game's video snap opened wide
+    'grid':('demo','GBA',['--screen','games','--view','grid']),
+    'grid-favorites':('demo','FAV',['--screen','games','--view','grid']),
+    'grid-snap':('demo','PS1',['--screen','games','--view','grid','--snap','1']),
     'list-inside':('demo','GBA',['--screen','games','--view','list']),
     # The in-game menu over OpenBOR (src/portmenu.h), on the launcher's
     # made-up frame rather than a game's
@@ -275,6 +281,10 @@ SHOTS={
 # shows on a focused cover and on a side one (src/artbadge.h). Only there, so
 # the other shots' homes have no Favorites shelf.
 SHOT_FAVS={'shelf':[('PS1',FOCUS+'.chd'),('PS1',GAMES[1]+'.chd')],
+           # the same seven systems on the grid
+           'grid-favorites':[('N64','Super Mario 64 (USA).z64'),('SFC','Super Metroid (USA).sfc'),('PS1',FOCUS+'.chd'),
+                             ('GBA','Metroid Fusion (USA).gba'),('MD','Sonic The Hedgehog 2 (USA).md'),
+                             ('NES','Super Mario Bros. 3 (USA).nes'),('DC','Jet Grind Radio (USA).chd')],
            # Favorites: one game from each of seven systems
            'favorites':[('N64','Super Mario 64 (USA).z64'),('SFC','Super Metroid (USA).sfc'),('PS1',FOCUS+'.chd'),
                         ('GBA','Metroid Fusion (USA).gba'),('MD','Sonic The Hedgehog 2 (USA).md'),
@@ -282,7 +292,8 @@ SHOT_FAVS={'shelf':[('PS1',FOCUS+'.chd'),('PS1',GAMES[1]+'.chd')],
 # The game a shot's shelf opens on, where it is not its system's own (below)
 # MP4's on the film, between an album and the book, so its three kinds show
 SHOT_FOCUS={'ports-menu':'Star Farm.sh','ports-controls':'Star Farm.sh','mp4':'Videos',
-            'folders':'Commercial Owned','list':'Commercial Owned',
+            'folders':'Commercial Owned','list':'Commercial Owned','grid':'Commercial Owned',
+            'grid-favorites':'Sonic The Hedgehog 2 (USA).md',
             'folder-inside':'Commercial Owned/Golden Sun (USA).gba',
             'list-inside':'Commercial Owned/Golden Sun (USA).gba',
             'shelf-n64':'Super Mario 64 (USA).z64','shelf-snes':'Super Mario World (USA).sfc',
@@ -294,7 +305,7 @@ STATUS={'battery':'10:08 24h wifi=3 batt=62 eta=205 icon=time',
         'topbar-still':'10:08 24h wifi=3 phones=on batt=62','topbar-long':'10:08 24h wifi=3 phones=on batt=62','topbar-long-moving':'10:08 24h wifi=3 phones=on batt=62'}
 # The README's light-and-dark section: these, in both themes
 DARK=['systems','menu','topbar','nowplaying','video-controls','video-full','media','shelf-n64',
-      'folders','list']
+      'folders','list','grid','grid-favorites']
 # A shot whose screen draws its own clock, outside the status corner, so the
 # launcher's corner check (shot_corner_clear in src/main.c) reports this after
 # writing a right picture: the charging screen's clock is its own (DESIGN.md

@@ -2022,6 +2022,113 @@
       ],
       "sha256": "2a33f111d9e5ca840ab04ded37cc3f155039800d2ed713ee828c0ea038efd99d",
       "source_commit": "71c6122259150af55603b3a45d326ca486cc693c"
+    },
+    {
+      "file": "light/grid.png",
+      "card": "demo",
+      "args": [
+        "--theme",
+        "light",
+        "--screen",
+        "systems",
+        "--phase",
+        "3200",
+        "--status",
+        "10:08 24h wifi=off batt=82",
+        "--fn-volume",
+        "--screen",
+        "games",
+        "--view",
+        "grid"
+      ],
+      "sha256": "bcd6a70d495f3a6118edcdea02d5db430b5b1bb20a304a7c8743453112eb7542",
+      "source_commit": "2d9bdb8215717948ca130977fc21acf4a54cba88"
+    },
+    {
+      "file": "light/grid-favorites.png",
+      "card": "demo",
+      "args": [
+        "--theme",
+        "light",
+        "--screen",
+        "systems",
+        "--phase",
+        "3200",
+        "--status",
+        "10:08 24h wifi=off batt=82",
+        "--fn-volume",
+        "--screen",
+        "games",
+        "--view",
+        "grid"
+      ],
+      "sha256": "e79b4e445513b62dd16d373a360cf8d980a74ad19bb7752c6974e881e8e15b9e",
+      "source_commit": "2d9bdb8215717948ca130977fc21acf4a54cba88"
+    },
+    {
+      "file": "light/grid-snap.png",
+      "card": "demo",
+      "args": [
+        "--theme",
+        "light",
+        "--screen",
+        "systems",
+        "--phase",
+        "3200",
+        "--status",
+        "10:08 24h wifi=off batt=82",
+        "--fn-volume",
+        "--screen",
+        "games",
+        "--view",
+        "grid",
+        "--snap",
+        "1"
+      ],
+      "sha256": "8b08df271e6ec5f134b1d083f2ff6a7d270038a4de5d15fe0b1b792a1be02f45",
+      "source_commit": "2d9bdb8215717948ca130977fc21acf4a54cba88"
+    },
+    {
+      "file": "dark/grid.png",
+      "card": "demo",
+      "args": [
+        "--theme",
+        "dark",
+        "--screen",
+        "systems",
+        "--phase",
+        "3200",
+        "--status",
+        "10:08 24h wifi=off batt=82",
+        "--fn-volume",
+        "--screen",
+        "games",
+        "--view",
+        "grid"
+      ],
+      "sha256": "503ab81ad8f432ddcd5a0b5734864627c1a8bdc747ef638011934027722814f9",
+      "source_commit": "2d9bdb8215717948ca130977fc21acf4a54cba88"
+    },
+    {
+      "file": "dark/grid-favorites.png",
+      "card": "demo",
+      "args": [
+        "--theme",
+        "dark",
+        "--screen",
+        "systems",
+        "--phase",
+        "3200",
+        "--status",
+        "10:08 24h wifi=off batt=82",
+        "--fn-volume",
+        "--screen",
+        "games",
+        "--view",
+        "grid"
+      ],
+      "sha256": "74b9e91339788f76698878b1d88706c3add342ab327949e86b585d3f4b52919f",
+      "source_commit": "2d9bdb8215717948ca130977fc21acf4a54cba88"
     }
   ],
   "capture_note": "Screenshots refreshed separately record their own source_commit; other screenshots use the top-level source_commit."

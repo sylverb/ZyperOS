@@ -295,6 +295,12 @@ LAYOUT = [
     ("line-meta",       40,  "a meta line: times, a caption's line"),
     ("line-support",    36,  "a support line"),
     ("line-chrome",     32,  "a chrome line: a key's word, the header"),
+    # the dense grid (src/gamegrid.c)
+    ("grid-gap",        24,  "between a grid's cells"),
+    ("grid-band-gap",   24,  "a grid's foot to the band under it: the name and its facts"),
+    ("focus-ring",      4,   "the ring round a focused cell"),
+    ("focus-gap",       4,   "the ground between that ring and the cell"),
+    ("radius-cell",     14,  "a grid cell's corners; its ring's are radius-card (14 + 4 + 4)"),
 ]
 
 # ---- elevation -----------------------------------------------------------------

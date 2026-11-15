@@ -71,5 +71,10 @@
 #define DS_LINE_META            40
 #define DS_LINE_SUPPORT         36
 #define DS_LINE_CHROME          32
+#define DS_GRID_GAP             24
+#define DS_GRID_BAND_GAP        24
+#define DS_FOCUS_RING           4
+#define DS_FOCUS_GAP            4
+#define DS_RADIUS_CELL          14
 
 #endif
