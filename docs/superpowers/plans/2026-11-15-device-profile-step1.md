@@ -31,6 +31,7 @@
 - **Button places on the handheld come with step 2's `td_model`**; this step's table carries the label, cap, icon and cap color the design system's glyph needs.
 - **The desktop profile answers GPU shaders "yes"** (today: only when headless). Shots are headless, so nothing in the gate moves; the windowed Mac run now offers those shaders too.
 - **Execution: native, then one fresh review of the whole branch** before the PR. The tasks share `src/main.c` and the profile's interfaces, so one implementer with the whole context is cheaper and safer than seven hand-offs; a pixel-gate failure, not a review, is the costly mistake here.
+- **System Update's device name stays the userdata folder's name until step 4** (`up_device()` in `src/xfer_screen.c`): the host's portal check runs with a Pixel 2 folder, and step 4 changes the update names anyway.
 - **The profile's screen facts are not read by `pixel2.c` yet**: QEMU's landscape display runs the Pixel 2 build, and `pixel2.c` keeps taking the panel from SDL at run time.
 
 ## Review Focus
@@ -39,7 +40,7 @@
 2. `--device` given an unknown id, or a device build asked for another device's profile: a one-line error naming the known ids and exit status 2, never a launcher drawn with the wrong buttons. (Task 5.)
 3. The Brick build still compiles and links with its own profile: plastron's `zyperos.mk` passes `DEVICE=brick` to `mk/cross.mk`. (Task 6's CI job compiles `src/profile.c` with `src/device/brick_profile.c` and `-DZYPEROS_PROFILE=device_profile_brick`.)
 4. Developer Mode's unlock: on the Pixel 2 it still needs L2 and R2 held as taps for 5 s; on a device whose L2 and R2 are plain buttons it reads them held. Neither unlocks from one shoulder. (Task 4.)
-5. A card's existing `.userdata/brick` or `.userdata/pixel2` folder and System Update's device name stay what they are today on each device and on the host. (Task 2 pins `userdata` per profile.)
+5. A card's existing `.userdata/brick` or `.userdata/pixel2` folder and System Update's device name stay what they are today on each device and on the host. (Task 1 pins `userdata` per profile; `up_device()` is untouched until step 4.)
 
 ---
 
@@ -105,7 +106,7 @@ assert(!plat_profile_select("gameboy") && plat_profile() == &device_profile_pixe
 ### Task 2: Capability answers from the profile
 
 **Files:**
-- Modify: `src/profile.c` (the wrappers), `src/device/pixel2.c` and `src/device/brick.c` (delete their definitions of the six functions below), `src/main.c` `up_device()` (or wherever PR E leaves it), `tools/devices-check.c`
+- Modify: `src/profile.c` (the wrappers), `src/device/profile.h` (the six prototypes, moved from `src/platform.h`, which now includes it), `src/device/pixel2.c` and `src/device/brick.c` (delete their definitions of the six functions below), `tools/devices-check.c`
 
 **Interfaces:**
 - Consumes: Task 1's `plat_profile()`.
@@ -113,7 +114,7 @@ assert(!plat_profile_select("gameboy") && plat_profile() == &device_profile_pixe
 
 - [ ] **Step 1: Extend the check:** for each of the three profiles, select it and assert each wrapper equals its field (link `src/profile.c` with SDL's cflags only; it calls no SDL).
 - [ ] **Step 2: Run** `make check-devices`. Expected: link error (duplicate or missing symbols) until Step 3.
-- [ ] **Step 3: Move the six definitions** from `pixel2.c` and `brick.c` into `src/profile.c`. `up_device()` returns `plat_profile()->userdata` instead of the basename of `P_USERDATA` (same string on every device and on the host).
+- [ ] **Step 3: Move the six definitions** from `pixel2.c` and `brick.c` into `src/profile.c`, and their prototypes from `src/platform.h` into `src/device/profile.h` (no SDL there, so the check links `src/profile.c` without SDL).
 - [ ] **Step 4: Run** `make check-devices && make native && make check`. Expected: all pass.
 - [ ] **Step 5: Run the pixel gate** (Global Constraints). Expected: 0 changed.
 - [ ] **Step 6: Commit:** `git commit -m "Devices: the constant answers come from the profile"`
