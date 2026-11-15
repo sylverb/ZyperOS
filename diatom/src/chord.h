@@ -10,15 +10,25 @@
  *   SELECT, then R1, L1, R2 or L2 while it is held (and before any other
  *       button): a hotkey. The game never sees that SELECT, nor the shoulder.
  *       More shoulders under the same SELECT are hotkeys too.
+ *   A shoulder, then SELECT at most CHORD_LEAD_MS later, the shoulder still
+ *       held: the same hotkey, on SELECT's turn. Two buttons pressed as one
+ *       reach the pad a frame or two apart, either one first; the game has
+ *       had the shoulder for those frames, and has it no more from then.
  *   SELECT, then any other button while it is held: the game's, at once,
  *       held with that button. A+B+START+SELECT, the soft reset, still works.
  *   SELECT alone, let go: the game's, as a press as long as the one made,
  *       given to the game as it is let go.
- *   SELECT alone, held for CHORD_HOLD_MS: the game's from then on, held.
+ *   SELECT alone, held for CHORD_HOLD_MS: the game's from then on, held;
+ *       and a shoulder pressed after that, before any other button, is still
+ *       a hotkey, so a player who holds SELECT and then finds R1 saves.
  *
- * Once a SELECT is the game's, the shoulders are the game's too until SELECT
- * is let go. A system with no SELECT (the N64, the PICO-8) loses nothing: a
- * SELECT given late reaches a core that ignores it.
+ * Once another button has made a SELECT the game's, the shoulders are the
+ * game's too until SELECT is let go. A system with no SELECT (the N64, the
+ * PICO-8) loses nothing: a SELECT given late reaches a core that ignores it.
+ *
+ * Before 1.0.6 a shoulder a frame ahead of SELECT, or a SELECT held past
+ * CHORD_HOLD_MS before the shoulder, was the game's: the hotkeys seemed to
+ * work only now and then, and holding longer never helped.
  *
  * Pure: no clock of its own and no port, so test/chord_test.c drives it turn
  * by turn. A turn is one turn of the frame loop, one input poll. */
@@ -34,6 +44,11 @@
  * deliberate chord comes well inside it; a game that wants SELECT held gets
  * it this late. */
 #define CHORD_HOLD_MS 400
+
+/* How long before SELECT a shoulder still held may have gone down and be its
+ * chord: two buttons pressed as one reach the pad a frame or two apart, in
+ * either order. Long enough for that, short of any shoulder held for play. */
+#define CHORD_LEAD_MS 100
 
 /* What a chord asks for */
 typedef enum {
@@ -56,6 +71,7 @@ typedef struct {
 	int      next;        /* a second press's turns, owed after the first's */
 	bool     gap;         /* the turn between the two, SELECT up */
 	uint32_t hidden;      /* shoulders a chord took, hidden until let go */
+	uint64_t key_ms[CHORD_ACTS]; /* when each act's shoulder last went down */
 } chord;
 
 /* One turn's answer */

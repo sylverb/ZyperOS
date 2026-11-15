@@ -3938,7 +3938,7 @@ Square, and both rows show it. Turbo and Nothing never swap (Y can be Turbo
 Cross while B stays Cross), and a swap never lands on a quiet row: it keeps
 what it gives. SELECT keeps the hotkeys' rule whatever it gives: Diatom's
 chord gives a lone SELECT to the game as it is let go, or once held 400 ms,
-and never under a shoulder.
+and never under a shoulder (pressed after it, or up to 100 ms before it).
 
 **The warning row.** A game button that no button gives now (Nothing on the
 only button that gave it, and no turbo of it either) gets a quiet row,
