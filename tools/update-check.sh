@@ -170,7 +170,7 @@ expect "check after: ready" "$?:$(state)" "0:ready"
 
 # --- over the USB cable: the files the page brought (docs/updates.md) ----------
 # The launcher keeps them in the state folder's cable/ under their release
-# names, and runs the program on them as on any release (main.c, xfer_update)
+# names, and runs the program on them as on any release (src/xfer_screen.c, xfer_update)
 newcard
 CABLE=$CARD/.userdata/pixel2/update/cable
 mkdir -p "$CABLE"

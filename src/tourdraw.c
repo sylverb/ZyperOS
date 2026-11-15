@@ -25,6 +25,7 @@
 #include "clamp.h"
 #include "config.h"      /* CFG_NO_COLOR */
 #include "design.h"
+#include "ds/layout.h"   /* DS_PAGE_FOOT_Y, DS_HINT_GLYPH, DS_MORE_* */
 #include "i18n.h"
 #include "osdbar.h"
 #include "platform.h"    /* plat_draw_to_screen, the levels' ranges */
@@ -1107,13 +1108,14 @@ static float legend_left(void)
 
 static void legend(SDL_Renderer *r)
 {
-	int x = (int)legend_left(), cy = SCR_H - 44, bw = ui_button_width("START", 32);
+	/* at a page's foot (src/ds/page.h; 724, the screen less 44, until 1.0.6) */
+	int x = (int)legend_left(), cy = DS_PAGE_FOOT_Y, bw = ui_button_width("START", DS_HINT_GLYPH);
 
 	if (g_hint) {
 		g_hint(r, "START", T(S_KEYHINT_SKIP), x, cy);
 		return;
 	}
-	ui_button(r, "START", x + bw / 2, cy, 32, UI_BUTTON_PLAIN);
+	ui_button(r, "START", x + bw / 2, cy, DS_HINT_GLYPH, UI_BUTTON_PLAIN);
 	words(r, UI_F_META, T(S_KEYHINT_SKIP), SCR_W - DS_INSET, cy, 1, theme()->text_soft, 1.0f);
 }
 
@@ -1370,21 +1372,21 @@ static void lang_step(SDL_Renderer *r, const tour *t, uint32_t now, const tour_h
 			ui_text(r, fm, lang_name((lang)i), (int)lroundf(LANG_X + 26.0f + g_ox),
 			        ui_cap_y(fm, (int)lroundf(cy + g_oy)), -1, ui_fade(ui_col(ink, 255), g_op));
 	}
-	/* More above, more below: the panel's marks (11.3), small */
+	/* More above, more below: the more marks (11.3, ds_more's size), in the layer */
 	{
 		const SDL_Color c = col(rgb(th->text_dim), 1.0f);
 
 		if (first > 0) {
-			SDL_FPoint up[3] = { { LANG_X + LANG_W / 2.0f - 12.0f, LANG_TOP - 10.0f },
-			                     { LANG_X + LANG_W / 2.0f + 12.0f, LANG_TOP - 10.0f },
-			                     { LANG_X + LANG_W / 2.0f, LANG_TOP - 22.0f } };
+			SDL_FPoint up[3] = { { LANG_X + LANG_W / 2.0f - DS_MORE_W / 2.0f, LANG_TOP - 10.0f },
+			                     { LANG_X + LANG_W / 2.0f + DS_MORE_W / 2.0f, LANG_TOP - 10.0f },
+			                     { LANG_X + LANG_W / 2.0f, LANG_TOP - 10.0f - DS_MORE_H } };
 			poly(r, up, 3, c);
 		}
 		if (first + LANG_SHOWN < n) {
 			const float b = LANG_TOP + LANG_SHOWN * LANG_ROW;
-			SDL_FPoint dn[3] = { { LANG_X + LANG_W / 2.0f - 12.0f, b + 10.0f },
-			                     { LANG_X + LANG_W / 2.0f + 12.0f, b + 10.0f },
-			                     { LANG_X + LANG_W / 2.0f, b + 22.0f } };
+			SDL_FPoint dn[3] = { { LANG_X + LANG_W / 2.0f - DS_MORE_W / 2.0f, b + 10.0f },
+			                     { LANG_X + LANG_W / 2.0f + DS_MORE_W / 2.0f, b + 10.0f },
+			                     { LANG_X + LANG_W / 2.0f, b + 10.0f + DS_MORE_H } };
 			poly(r, dn, 3, c);
 		}
 	}

@@ -12,23 +12,13 @@
 
 #include "menu.h"        /* menu_row, MENU_NOTE */
 #include "menumotion.h"  /* mm_pose */
+#include "ds/panel.h"     /* ds_pass: the caller's panel pass */
 
 typedef enum {
 	DS_TILES_ROW,    /* tiles side by side: a mark and a name on two lines */
 	DS_TILES_GRID,   /* two to a row, a name on one line (Computer Connected) */
 	DS_TILES_LIST,   /* rows the panel's width, a line under each name (What did you plug in?) */
 } ds_tiles_style;
-
-/* How a panel is drawn at a pose other than rest, scaled or faded as it
- * opens and closes: the caller's pass (src/main.c's panel_pass_begin and
- * panel_pass_end, with panel_scaled). `begin` false: drawn straight to the
- * screen. */
-typedef struct {
-	SDL_FRect (*scaled)(const SDL_Rect *panel, float scale);
-	bool (*begin)(void *ctx);
-	void (*end)(void *ctx, const SDL_Rect *panel, mm_pose pose);
-	void *ctx;
-} ds_pass;
 
 typedef struct {
 	ds_tiles_style style;

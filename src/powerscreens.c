@@ -9,6 +9,7 @@
 #include "theme.h"
 #include "uisound.h"
 #include "ui.h"
+#include "ds/mark.h"     /* ds_bar_in */
 #include "zyperdraw.h"
 #include "zypermark.h"
 
@@ -112,11 +113,8 @@ void lowbatt_draw(app *a, unsigned now, const zr_pose *p, float dim, float k,
 		const int bx = (ZYPEROS_SCREEN_W - LOWBATT_BAR_W) / 2;
 		int fill = (int)(LOWBATT_BAR_W * (1.0f - lowbatt_spent(&g_lb.l, now)) + 0.5f);
 
-		ui_round_rect(a->r, &(SDL_Rect){ bx, LOWBATT_BAR_TOP, LOWBATT_BAR_W, DS_BAR }, DS_BAR / 2,
-		              ui_fade(ui_col(t->track, 255), bar_k));
-		if (fill >= DS_BAR)
-			ui_round_rect(a->r, &(SDL_Rect){ bx, LOWBATT_BAR_TOP, fill, DS_BAR }, DS_BAR / 2,
-			              ui_fade(ui_col(t->warning, 255), bar_k));
+		ds_bar_in(a->r, &(SDL_Rect){ bx, LOWBATT_BAR_TOP, LOWBATT_BAR_W, DS_BAR }, fill,
+		          ui_fade(ui_col(t->track, 255), bar_k), ui_fade(ui_col(t->warning, 255), bar_k));
 	}
 }
 
@@ -507,10 +505,9 @@ void chg_draw(app *a, unsigned now, float dim, float k)
 			hint_draw(a->r, fm, start_pre, "POWER", gw, start_post, x, ty, CHG_HINT_MID, dimc);
 		if (held > 0.0f) {
 			SDL_Rect bar = { (ZYPEROS_SCREEN_W - CHG_BAR_W) / 2, CHG_BAR_TOP, CHG_BAR_W, UI_BAR_H };
+			int fill = (int)(CHG_BAR_W * held + 0.5f);
 
-			ui_round_rect(a->r, &bar, UI_BAR_H / 2, ui_col(t->track, 255));
-			bar.w = (int)(CHG_BAR_W * held + 0.5f);
-			if (bar.w >= UI_BAR_H) ui_round_rect(a->r, &bar, UI_BAR_H / 2, ui_col(t->accent_ink, 255));
+			ds_bar_in(a->r, &bar, fill, ui_col(t->track, 255), ui_col(t->accent_ink, 255));
 		}
 	}
 }

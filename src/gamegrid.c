@@ -26,11 +26,11 @@
  * where the band under it must start to keep DS_FOOT_GAP (24) over the
  * keys; the band, a band gap under the room: the name in game-title type in
  * a 40-unit line box, 8 (related), the facts in support type in a 36-unit
- * line box; the keys on the shelf's foot. Design system round 3's spacing
- * (2026-11-15), its rule engine's to take over. */
+ * line box; the keys on the shelf's foot (DS_SHELF_FOOT_Y). Design system
+ * round 3's spacing (2026-11-15), its rule engine's to take over. */
 #define GG_MARGIN     64
 #define GG_ROOM_TOP   96
-#define GG_FOOT(sh)   ((sh) - 48)                         /* 720 */
+#define GG_FOOT(sh)   ((sh) - (ZYPEROS_SCREEN_H - DS_SHELF_FOOT_Y))   /* 720 */
 #define GG_NAME_BOX   40
 #define GG_RELATED    8
 #define GG_FACTS_BOX  36

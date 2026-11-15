@@ -7,6 +7,7 @@
 
 #include "design.h"
 #include "ds/layout.h"
+#include "ds/panel.h"
 #include "hotpanel.h"
 #include "platform.h"
 #include "qr.h"
@@ -164,11 +165,6 @@ void hotpanel_draw(SDL_Renderer *r, const hotpanel *p, unsigned now_ms)
 		 * grid step) */
 		int cy = DS_PAGE_FOOT_Y;
 
-		if (keyhints_is(leg))
-			keyhints_draw_packed(r, leg, DS_INSET, ZYPEROS_SCREEN_W - DS_INSET, cy, 255);
-		else
-			ui_text(r, ui_font(UI_F_META), leg, ZYPEROS_SCREEN_W / 2,
-			        ui_line_y(UI_F_META, ZYPEROS_SCREEN_H - DS_INSET - DS_GRID -
-			                             ui_font_line(UI_F_META)), 0, UI_TEXT_DIM);
+		ds_panel_legend(r, leg, DS_INSET, ZYPEROS_SCREEN_W - DS_INSET, cy);
 	}
 }
