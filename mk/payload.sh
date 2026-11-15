@@ -152,6 +152,12 @@ if [ -f "$P/cores/scummvm_libretro.so" ]; then
 	cp -R "$VENDOR_DIR/scummvm" "$P/scummvm"
 fi
 
+# PrBoom's base settings (config/prboom.cfg): launch.sh copies them to
+# Bios/prboom/prboom.cfg, where the Doom shelf's core looks for a base
+# config, whenever they change.
+mkdir -p "$P/prboom"
+cp "$ROOT/config/prboom.cfg" "$P/prboom/prboom.cfg"
+
 # PPSSPP's assets, from mk/build-ppsspp.sh with its core: the PSP's fonts,
 # its VFPU tables, the game fixes and the system dialogs' languages. The core
 # reads them from Bios/PPSSPP, which launch.sh fills from here, as it fills

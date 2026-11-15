@@ -154,7 +154,7 @@ $(BUILD)/%.o: %.c
 # backend exists. Cheap to check, so check it.
 # Mechanical checks, each guarding a rule that decays the moment nothing fails
 # when it is broken: check-seam has held since day one for exactly that reason.
-check: check-seam check-copies check-corefacts check-rates check-cheevos check-screens check-chord check-stick check-bounds check-rumble check-statefile check-proto check-port check-stateplane check-resident check-hotkeys check-now check-rumble-e2e check-player2 check-states
+check: check-seam check-copies check-corefacts check-rates check-cheevos check-screens check-chord check-stick check-bounds check-rumble check-statefile check-proto check-port check-stateplane check-resident check-hotkeys check-coreend check-now check-rumble-e2e check-player2 check-states
 
 # Does a RetroAchievements address reach the byte it names? Offline, needs no
 # core and no ROM, and links only cheevos.c plus the vendored runtime - so it
@@ -353,6 +353,15 @@ check-hotkeys:
 	$(FRESH_IF_BUILT)
 	@python3 test/hotkeys.py
 .PHONY: check-hotkeys
+
+# How a core's life ends, end to end (test/coreend.py): PrBoom opened afresh
+# for each game (core.c, one_game_per_load), and a core's own quit
+# (RETRO_ENVIRONMENT_SHUTDOWN) ending its game as the player's would. On
+# check-stateplane's terms: a few seconds, skipped unbuilt.
+check-coreend:
+	$(FRESH_IF_BUILT)
+	@python3 test/coreend.py
+.PHONY: check-coreend
 
 # NES player 2 end to end (src/player2.h): the frames in the shared file,
 # ports 1 to 3 from the pads p2d writes, within the system's buttons and

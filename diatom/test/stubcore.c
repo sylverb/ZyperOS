@@ -167,6 +167,13 @@ static struct retro_disk_control_ext_callback tray = {
 	tray_count, tray_replace, tray_add, tray_initial, tray_path, tray_label,
 };
 
+/* How many games this library has loaded since it was opened, written to
+ * STUBCORE_INIT_LOG at each load: 1 every time for a core Diatom opens afresh
+ * for each game (core.c, one_game_per_load), counting up for one it keeps
+ * open, as a static a real core forgets to reset carries over. STUBCORE_NAME
+ * names the library as a real core does, which is what that rule goes by. */
+static int loads;
+
 void retro_init(void)
 {
 	unsigned v = 0;
@@ -183,7 +190,7 @@ unsigned retro_api_version(void) { return RETRO_API_VERSION; }
 void retro_get_system_info(struct retro_system_info *info)
 {
 	memset(info, 0, sizeof *info);
-	info->library_name     = "diatom-stub";
+	info->library_name     = getenv("STUBCORE_NAME") ? getenv("STUBCORE_NAME") : "diatom-stub";
 	info->library_version  = "1";
 	info->valid_extensions = "stub";
 	info->need_fullpath    = getenv("STUBCORE_FULLPATH") != NULL;
@@ -326,6 +333,15 @@ bool retro_load_game(const struct retro_game_info *game)
 	enum retro_pixel_format fmt = RETRO_PIXEL_FORMAT_RGB565;
 	report_load(game);                           /* content is optional here */
 	crash_configure();
+	{
+		const char *e = getenv("STUBCORE_INIT_LOG");
+		FILE *f = e ? fopen(e, "a") : NULL;
+
+		if (f) {
+			fprintf(f, "loads=%d\n", ++loads);
+			fclose(f);
+		}
+	}
 	/* Every game starts on its first disc with the lid shut. */
 	tray_disc = 0;
 	tray_open = false;
@@ -546,6 +562,18 @@ void retro_run(void)
 	n = (size_t)audio_accum;
 	audio_accum -= (double)n;
 	if (n > AUDIO_MAX_FRAMES) n = AUDIO_MAX_FRAMES;   /* cannot happen; guard anyway */
+
+	/* STUBCORE_SHUTDOWN_AT=N: the game's own Quit on frame N, as PrBoom's
+	 * Quit Game is: RETRO_ENVIRONMENT_SHUTDOWN, and from then on no frame */
+	{
+		const char *e = getenv("STUBCORE_SHUTDOWN_AT");
+
+		if (e && frame >= strtoul(e, NULL, 10)) {
+			if (frame == strtoul(e, NULL, 10)) env(RETRO_ENVIRONMENT_SHUTDOWN, NULL);
+			frame++;
+			return;
+		}
+	}
 
 	poll_cb();
 	sysram_tick();

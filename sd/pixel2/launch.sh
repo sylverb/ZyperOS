@@ -69,6 +69,17 @@ if [ -n "$pin_new" ] && [ "$pin_new" != "$pin_old" ]; then
 		cp "$ZYPEROS_DIR/scummvm/.pin" "$BIOS_PATH/scummvm/.pin"
 fi
 
+# PrBoom's base settings (config/prboom.cfg) where the Doom shelf's core
+# looks for a base config, Bios/prboom/prboom.cfg, copied again whenever a new
+# ZyperOS brings other ones. ZyperOS's file: a player's own settings go in
+# Roms/Doom/prboom.cfg, which the core reads first, and its own saved ones in
+# Saves/<game>/prboom.cfg
+if [ -f "$ZYPEROS_DIR/prboom/prboom.cfg" ] &&
+   ! cmp -s "$ZYPEROS_DIR/prboom/prboom.cfg" "$BIOS_PATH/prboom/prboom.cfg" 2> /dev/null; then
+	mkdir -p "$BIOS_PATH/prboom" &&
+		cp "$ZYPEROS_DIR/prboom/prboom.cfg" "$BIOS_PATH/prboom/prboom.cfg"
+fi
+
 # PPSSPP's assets (mk/build-ppsspp.sh) where the PSP's core looks,
 # Bios/PPSSPP, copied from ZyperOS/ppsspp again whenever a new ZyperOS brings
 # another build of them: the two .pin files name the PPSSPP commit. Copied
@@ -269,7 +280,10 @@ port_quit() {
 }
 run_port() {
 	local pid i rc
-	if [ -f /tmp/diatom.pid ] && read pid < /tmp/diatom.pid; then
+	# Only a pid that is still a Diatom's: the file names the one that
+	# crashed until something starts another, and its number may be
+	# another process's by then
+	if diatom_running && read pid < /tmp/diatom.pid; then
 		kill "$pid" 2> /dev/null
 		i=0
 		while [ $i -lt 30 ] && diatom_running; do

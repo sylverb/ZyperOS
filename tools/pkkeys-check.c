@@ -697,8 +697,59 @@ static void the_pending_order(void)
 	ck(m == 128 && !k.key[0].down, "exactly 256 transitions fit and stay in order");
 }
 
+/* The volume ladder's ends (src/device/pixel2_levels.h). Position 1 on the
+ * speaker was raw 172 until 1.0.6, called right by ear in 2026-10 and too
+ * loud at night by players (Discord, 1.0.5): the floor went down two of its
+ * old steps, so positions 1 and 2 are quieter than it was and position 3 is
+ * about it, with the top, the twenty positions and their bar as they were.
+ * The headphones' window is as it was. And Diatom's Pixel port holds the
+ * same numbers (diatom/port/pixel2.c): a level read back across a handover
+ * must mean the same position on both sides. */
+static long define_in(const char *path, const char *name)
+{
+	FILE *f = fopen(path, "r");
+	char line[256], key[64];
+	long v;
+
+	if (!f) return -1;
+	while (fgets(line, sizeof line, f))
+		if (sscanf(line, "#define %63s %ld", key, &v) == 2 && !strcmp(key, name)) {
+			fclose(f);
+			return v;
+		}
+	fclose(f);
+	return -1;
+}
+
+static void the_ladder(void)
+{
+	static const char *const names[] = { "SPK_ATT_TOP", "SPK_ATT_BOTTOM",
+	                                     "HP_ATT_TOP", "HP_ATT_BOTTOM" };
+	static const long mine[] = { SPK_ATT_TOP, SPK_ATT_BOTTOM, HP_ATT_TOP, HP_ATT_BOTTOM };
+	size_t i;
+
+	ck(px2_gain_raw(0, 0) == 0 && px2_gain_raw(0, 1) == 0, "ladder: position 0 is the cut, raw 0");
+	ck(px2_gain_raw(20, 0) == 255, "ladder: speaker top is raw 255; got %ld", px2_gain_raw(20, 0));
+	ck(px2_gain_raw(1, 0) == 163 && px2_gain_raw(2, 0) == 168,
+	   "ladder: speaker positions 1 and 2 under the old floor (172): got %ld, %ld",
+	   px2_gain_raw(1, 0), px2_gain_raw(2, 0));
+	ck(px2_gain_raw(3, 0) >= 171 && px2_gain_raw(3, 0) <= 174,
+	   "ladder: speaker position 3 about the old floor; got %ld", px2_gain_raw(3, 0));
+	for (i = 1; i < 20; i++)
+		ck(px2_gain_raw((int)i + 1, 0) > px2_gain_raw((int)i, 0),
+		   "ladder: speaker position %zu louder than %zu", i + 1, i);
+	ck(px2_gain_raw(1, 1) == 76 && px2_gain_raw(20, 1) == 244,
+	   "ladder: headphones as they were, 76 to 244; got %ld to %ld",
+	   px2_gain_raw(1, 1), px2_gain_raw(20, 1));
+	for (i = 0; i < sizeof names / sizeof names[0]; i++)
+		ck(define_in("diatom/port/pixel2.c", names[i]) == mine[i],
+		   "ladder: Diatom's Pixel port has %s %ld, as the launcher; got %ld",
+		   names[i], mine[i], define_in("diatom/port/pixel2.c", names[i]));
+}
+
 int main(void)
 {
+	the_ladder();
 	the_chord();
 	the_kernel_repeat();
 	the_clock();

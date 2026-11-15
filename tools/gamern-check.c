@@ -172,6 +172,7 @@ int main(void)
 	put("shared/.zyperos/Game Boy/Tetris (World).gb.auto.state", "st");
 	put("shared/.zyperos/Game Boy/Tetris (World).gb.auto.bmp", "bmp");
 	put("shared/.zyperos/Game Boy/Tetris (World).gb.3.state", "st");
+	put("shared/.zyperos/Game Boy/Tetris (World).gb.undo.state", "st");   /* Undo Load's */
 	put("shared/.zyperos/Game Boy/Tetris (World) (Rev 1).gb.auto.state", "st");
 	snprintf(m.title, sizeof m.title, "Tetris");
 	snprintf(m.year, sizeof m.year, "1989");
@@ -232,6 +233,8 @@ int main(void)
 	      there("shared/.zyperos/Game Boy/Tetris DX Test.gb.auto.bmp") &&
 	      there("shared/.zyperos/Game Boy/Tetris DX Test.gb.3.state") &&
 	      !there("shared/.zyperos/Game Boy/Tetris (World).gb.auto.state"));
+	CHECK(there("shared/.zyperos/Game Boy/Tetris DX Test.gb.undo.state") &&
+	      !there("shared/.zyperos/Game Boy/Tetris (World).gb.undo.state"));
 	CHECK(there("shared/.zyperos/Game Boy/Tetris (World) (Rev 1).gb.auto.state"));
 	CHECK(!db_game_title(db_lib(), "Game Boy", "Tetris DX Test.gb", t, sizeof t));   /* emptied */
 	CHECK(db_game_get(db_lib(), "Game Boy", "Tetris DX Test.gb", &m) && !strcmp(m.year, "1989"));

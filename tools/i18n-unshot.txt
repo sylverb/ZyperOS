@@ -232,6 +232,8 @@ hare.received
 hare.sending
 hare.sent
 hare.failed
+hare.paused
+hare.have
 hare.made
 hare.renamed
 hare.moved
