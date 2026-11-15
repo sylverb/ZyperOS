@@ -12,7 +12,8 @@ DEVICE ?= brick
 # Every device's profile (src/device/profile.h), so --device can wear any;
 # the host's own is desktop's
 SRC := $(wildcard src/*.c) $(wildcard src/ds/*.c) src/device/$(DEVICE).c $(wildcard src/device/*_profile.c) \
-       src/device/td_model.c $(filter-out src/device/td_model.c,$(wildcard src/device/*_model.c))
+       src/device/td_model.c $(filter-out src/device/td_model.c,$(wildcard src/device/*_model.c)) \
+       src/device/pixel2_coreopts.c
 # src/main.c and the files split from it, which call into one another: the
 # checks that link the rest of src/ leave them all out.
 MAIN_SRC := src/main.c src/about_screen.c src/aout_route.c src/bgm_screen.c \

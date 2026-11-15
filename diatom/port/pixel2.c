@@ -52,6 +52,7 @@
 #include "panelgamma.h"
 #include "port_clock.h"
 #include "port_cpufreq.h"
+#include "port_power.h"
 #include "rumble_evdev.h"
 #include "themefile.h"
 
@@ -2680,7 +2681,24 @@ void diatom_port_mute_set(bool on)
 
 bool diatom_port_mute_get(void) { return g_muted; }
 
-static bool sysfs_put(const char *path, const char *v);
+/* The ceilings, off this board's own tables: the CPU's steps (1296 MHz at
+ * the top), the DDR's three trained rates (194, 328, 1056 MHz) and the GPU's
+ * steps (200 to 520 MHz). FULL gives each back its top: the CPU its own
+ * maximum, and 0 to a devfreq max_freq, which the kernel reads as no
+ * ceiling. The DDR runs under the performance governor (plastron's
+ * S01governor), so its ceiling is its rate. And the GPU's floor at its top
+ * step, 520 MHz, while a core draws with it (see diatom_port.h). */
+static const diatom_power_profile PX2_POWER = {
+	.clock = {
+		{ DIATOM_CPUFREQ "scaling_max_freq", { NULL, "1008000", "816000" },
+		  DIATOM_CPUFREQ "cpuinfo_max_freq" },
+		{ "/sys/class/devfreq/dmc/max_freq", { "0", "0", "328000000" }, NULL },
+		{ "/sys/class/devfreq/ff400000.gpu/max_freq", { "0", "300000000", "200000000" }, NULL },
+	},
+	.n = 3,
+	.gpu_floor = "/sys/class/devfreq/ff400000.gpu/min_freq",
+	.gpu_floor_top = "520000000",
+};
 
 void diatom_port_fast_clock(bool cpu, bool gpu)
 {
@@ -2691,53 +2709,26 @@ void diatom_port_fast_clock(bool cpu, bool gpu)
 		said = true;
 		diatom_port_log(DIATOM_LOG_WARN, "pixel2: could not set the CPU's lowest clock");
 	}
-	/* And the GPU's floor at its top step, 520 MHz, for the same reason
-	 * (see diatom_port.h); 0 is no floor, the governor's again. The first
-	 * call always writes, as the CPU's does, so a crashed Diatom's hold is
+	/* And the GPU's floor at its top step, for the same reason (see
+	 * diatom_port.h); 0 is no floor, the governor's again. The first call
+	 * always writes, as the CPU's does, so a crashed Diatom's hold is
 	 * cleared. */
 	if (gpu_held != (int)gpu) {
 		gpu_held = gpu;
-		if (!sysfs_put("/sys/class/devfreq/ff400000.gpu/min_freq", gpu ? "520000000" : "0"))
+		if (!diatom_power_hold_gpu(&PX2_POWER, gpu))
 			diatom_port_log(DIATOM_LOG_WARN, "pixel2: could not set the GPU's lowest clock");
 	}
 }
 
-/* The ceilings, off this board's own tables: the CPU's steps (1296 MHz at
- * the top), the DDR's three trained rates (194, 328, 1056 MHz) and the GPU's
- * steps (200 to 520 MHz). FULL gives each back its top: the CPU its own
- * maximum, and 0 to a devfreq max_freq, which the kernel reads as no
- * ceiling. The DDR runs under the performance governor (plastron's
- * S01governor), so its ceiling is its rate. */
-static bool sysfs_put(const char *path, const char *v)
-{
-	int fd = open(path, O_WRONLY | O_CLOEXEC);
-	bool ok;
-
-	if (fd < 0) return false;
-	ok = write(fd, v, strlen(v)) == (ssize_t)strlen(v);
-	close(fd);
-	return ok;
-}
-
+/* The ceilings for a power level (PX2_POWER above) */
 void diatom_port_power(int level)
 {
-	static const struct { const char *cpu, *ram, *gpu; } lv[] = {
-		[DIATOM_POWER_FULL]   = { NULL,      "0",         "0" },
-		[DIATOM_POWER_MEDIUM] = { "1008000", "0",         "300000000" },
-		[DIATOM_POWER_LIGHT]  = { "816000",  "328000000", "200000000" },
-	};
 	static int now = -1;
-	bool ok;
 
 	if (level < DIATOM_POWER_FULL || level > DIATOM_POWER_LIGHT || level == now) return;
 	now = level;
-	ok = lv[level].cpu
-	   ? sysfs_put(DIATOM_CPUFREQ "scaling_max_freq", lv[level].cpu)
-	   : diatom_cpufreq_copy(DIATOM_CPUFREQ "cpuinfo_max_freq",
-	                         DIATOM_CPUFREQ "scaling_max_freq");
-	ok &= sysfs_put("/sys/class/devfreq/dmc/max_freq", lv[level].ram);
-	ok &= sysfs_put("/sys/class/devfreq/ff400000.gpu/max_freq", lv[level].gpu);
-	if (!ok) diatom_port_log(DIATOM_LOG_WARN, "pixel2: could not set every clock ceiling");
+	if (!diatom_power_set(&PX2_POWER, level))
+		diatom_port_log(DIATOM_LOG_WARN, "pixel2: could not set every clock ceiling");
 }
 
 /* ---------- lifecycle ------------------------------------------------------- */

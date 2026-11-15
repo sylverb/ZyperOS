@@ -13,6 +13,7 @@
  */
 #include "atomic.h"
 #include "autozone.h"
+#include "coreopts.h"   /* coreopts_migrate: 1.0.6's defaults at run time */
 #include "about.h"
 #include "battery_eta.h"
 #include "battery_poll.h"
@@ -6177,6 +6178,10 @@ int main(int argc, char *argv[])
 		if (!shot_path && autozone_migrate(db_lib()))
 			fprintf(stderr, "clock: auto zone %s, 1.0.5's default, once\n",
 			        db_get_int(db_lib(), AUTOZONE_KEY, 0) == 1 ? "on" : "not on");
+		/* And 1.0.6's: the core options 1.0.5 seeded, given at run time
+		 * now by the device the card is in (src/coreopts.h) */
+		if (!shot_path && coreopts_migrate(db_lib()))
+			fprintf(stderr, "coreopts: the seeded defaults left the library, once\n");
 		db_get_str(db_lib(), "timezone", tz, sizeof tz, "America/New_York");
 		plat_clock_zone(tz);
 	}

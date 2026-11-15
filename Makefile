@@ -8,7 +8,7 @@
 .PHONY: all clean native px2-payload vendor boot system-art checkmark \
         check check-cheevos check-hare check-portal check-httpd check-idle check-taskhold check-saver check-rahash check-flacdec check-achtab check-signin check-search \
         check-raset check-xfer check-sshlink check-usblink check-devmode check-devices check-model check-ctl check-menus check-status check-battery check-corner check-artscrape check-artrun check-sgdb check-snapshelf check-snaps check-audioout \
-        check-db check-gamedel check-gamern check-esmedia check-corepins check-targets yuvtarget check-storage check-stats check-sort check-bt check-ss check-titles check-dsv check-sidelights check-osdbar check-themefile check-pkkeys check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-kbnav check-tween check-menumotion check-menusnap check-cardgen check-blur check-roundrect check-rowmacro check-emptyhome check-zyperrig check-randgame check-shelfdir \
+        check-db check-coreopts check-gpuframes check-gamedel check-gamern check-esmedia check-corepins check-targets yuvtarget check-storage check-stats check-sort check-bt check-ss check-titles check-dsv check-sidelights check-osdbar check-themefile check-pkkeys check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-kbnav check-tween check-menumotion check-menusnap check-cardgen check-blur check-roundrect check-rowmacro check-emptyhome check-zyperrig check-randgame check-shelfdir \
         check-sysmark check-flip check-menushots check-controls-shots check-design check-systemart check-linebreak check-portload \
         check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-messages check-tour check-tour-shots check-textfade check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pmhelper check-portdoc check-boottheme check-px2-push check-wifi-watch check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr check-autozone \
         check-home check-home-shots check-games check-cardpaint check-putpace landbench check-favorites-shots check-np-footer check-menu-rows check-layout-shots check-artbadge check-artbadge-shots design sounds strings cjk-font check-strings check-i18n-shots \
@@ -30,9 +30,9 @@ NATIVE_J = $(if $(filter -j%,$(MAKEFLAGS))$(findstring j,$(filter-out -%,$(first
 # exist, and check-menus was about to join eight others in that state.
 CHECKS = check-cheevos check-hare check-portal check-httpd check-idle check-taskhold check-saver check-rahash check-flacdec check-achtab check-rasubmit check-raoffline check-signin check-noticeq check-badges check-badge-shots \
          check-raset check-xfer check-sshlink check-usblink check-devmode check-devices check-model check-ctl check-menus check-artscrape check-artrun check-sgdb check-snapshelf check-snaps check-audioout \
-         check-db check-gamedel check-gamern check-esmedia check-media check-snapsize check-corepins check-targets check-storage check-stats check-sort check-bt check-ss check-titles check-savedlib check-search \
+         check-db check-coreopts check-gamedel check-gamern check-esmedia check-media check-snapsize check-corepins check-targets check-storage check-stats check-sort check-bt check-ss check-titles check-savedlib check-search \
          check-muselib check-musequeue check-museart check-mp4lock check-mp4frame check-p2share check-webtheme check-p2ws check-p2codec check-p2d check-play check-p2 check-resident check-spawn check-controls check-remap check-controls-shots check-logpack \
-         check-clock check-autozone check-status check-battery check-battery-eta check-dslang check-dsresume check-corestate check-core-stamp check-core-room check-px2-perf check-px2-snap check-px2 check-lowbatt check-powerhold check-homesys check-heat check-charging check-corner check-dsv check-sidelights check-osdbar check-themefile check-pkkeys check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-kbnav check-randgame check-shelfdir check-look \
+         check-clock check-autozone check-status check-battery check-battery-eta check-dslang check-gpuframes check-dsresume check-corestate check-core-stamp check-core-room check-px2-perf check-px2-snap check-px2 check-lowbatt check-powerhold check-homesys check-heat check-charging check-corner check-dsv check-sidelights check-osdbar check-themefile check-pkkeys check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-kbnav check-randgame check-shelfdir check-look \
          check-tween check-menumotion check-menusnap check-cardgen check-blur check-roundrect check-rowmacro check-emptyhome check-zyperrig check-sysmark check-flip check-menushots check-design \
          check-systemart check-linebreak check-portload check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-messages \
          check-tour check-tour-shots check-tour-previews check-textfade check-glyphs check-ds check-flex check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pmhelper check-pmart check-portdoc check-boottheme check-panelgamma check-displayback check-px2-push check-wifi-watch check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr \
@@ -317,6 +317,13 @@ build-native/battery-eta-check: tools/battery-eta-check.c src/battery_eta.c src/
 check-dslang: build-native/dslang-check
 	@./build-native/dslang-check
 	@sh tools/dslang-check.sh
+
+# The systems whose cores need GPU frames (config/systems.cfg's needs lines):
+# no shelf for them on a handheld without GPU frames (the Brick's profile),
+# every shelf on one with them (the Pixel 2's). The launcher, built for the
+# host, scanning a scratch card.
+check-gpuframes:
+	@sh tools/gpuframes-check.sh
 
 build-native/dslang-check: tools/dslang-check.c src/dslang.c src/dslang.h src/i18n_ids.h \
                            mk/patches/dsperate-lr-language.patch FORCE
@@ -1020,7 +1027,7 @@ I18N_SRC := src/i18n.c src/i18n_tables.c
 # The device profiles' data (src/device/profile.h), for checks that pose a
 # device; src/profile.c is linked only where one is chosen (check-devices)
 DEVICE_PROFILES := src/device/pixel2_profile.c src/device/brick_profile.c src/device/desktop_profile.c \
-                   src/device/td_model.c src/device/pixel2_model.c
+                   src/device/td_model.c src/device/pixel2_model.c src/device/pixel2_coreopts.c
 # The RetroAchievements hasher and the disc readers under it (src/rahash.h,
 # src/discimg.h): every check that links one links them all, and liblzma
 # for a CHD's LZMA hunks (Homebrew's xz on a Mac; the device has the
@@ -1696,6 +1703,19 @@ check-genfirststart:
 # already shipped once.
 check-db: build-native/db-check
 	@./build-native/db-check
+
+# A game's core options (src/coreopts.h): the player's rows, then the
+# device's defaults, then every device's, in the library's order; and the
+# one-time cleanup of what 1.0.5 seeded, which keeps the player's own.
+check-coreopts: build-native/coreopts-check
+	@./build-native/coreopts-check
+
+build-native/coreopts-check: tools/coreopts-check.c src/coreopts.c src/coreopts.h src/db.c src/db.h \
+                             src/atomic.c src/strength.c src/device/pixel2_coreopts.c src/device/profile.h FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Isrc \
+	      -o $@ tools/coreopts-check.c src/coreopts.c src/db.c src/atomic.c src/strength.c \
+	      src/device/pixel2_coreopts.c -lsqlite3 -lpthread
 
 # The saved library a start shows before it reads the card (src/savedlib.h):
 # a listing written, read and finished is lib_scan's, the check's digest sees

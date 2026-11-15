@@ -4513,7 +4513,12 @@ heard as a ring, as Side Lights' parts are. Under a rule, the note: "Games
 stay on the card." All of them On as they ship. A system turned off leaves
 the home, and with it Random Game, Search, Favorites and Recents; its games
 stay on the card and in File Transfer, and come back the moment it is on
-again. The last system on cannot be turned off, since a home with no system
+again. On a handheld without GPU frames (the Brick's profile today,
+`plat_gpu_frames`), a system whose cores need them (config/systems.cfg's
+`needs` lines: the Dreamcast, NAOMI, Atomiswave, the N64, the PSP and
+Saturn) leaves the home the same way, and is no row of this page, since it
+could not be turned on; its games stay on the card, in File Transfer and on
+the Storage page. The last system on cannot be turned off, since a home with no system
 is the empty home's, which says the card has no games: its row is dead, and a
 second note says why ("One system stays on the home."). The home is built
 again once, as the page closes on a change, from the saved library, keeping

@@ -60,6 +60,7 @@ void plat_profile_ids(char *out, size_t n)
 
 bool plat_has_bluetooth(void)        { return active->bluetooth; }
 bool plat_gpu_shaders(void)          { return active->gpu_shaders; }
+bool plat_gpu_frames(void)           { return active->gpu_frames; }
 bool plat_speaker_mono(void)         { return active->speaker_mono; }
 bool plat_brightness_on_volume(void) { return active->chords.bright == DEV_BRIGHT_MENU_VOL; }
 bool plat_battery_lights(void)       { return active->chords.battery_chord; }
