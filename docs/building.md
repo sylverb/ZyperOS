@@ -131,6 +131,7 @@ something once broke in a way nothing noticed:
 | `check-sshlink` | USB File Transfer's SSH: what it counts in dropbear's log (sign-ins, wrong PINs, a port it cannot have), names that try to say otherwise, and the shadow it gives dropbear |
 | `check-usblink` | USB charges only until asked: a computer is asked about once per plug and a charger never, every choice ends with its screen or its cable, and Developer Mode keeps the link |
 | `check-devmode` | developer mode on a release image: the unlock hold (L2 and R2 for five seconds, a bar that only rises, and letting go early, another page or holding on starting again), the setting kept in the card's database, a random one-time password in its alphabet, and only public keys without options taken from the card's key file, once each |
+| `check-devices` | the device profiles (src/device/profile.h): each one whole (named, its folders, a 4:3 screen with its glass in millimetres, every control printed once), today's answers for the GKD Pixel 2, the TrimUI Brick and the host's desktop, and the choice of one by its id, as `--device` makes it |
 | `check-ctl` | the launcher's command channel, the one `px2-open` talks to: the command lines, good and bad; a game's path split into its system's folder and the file, and anything else turned away (outside `Roms`, relative, `..`, a link that leads out); the system found by its folder in either case and the game by its launch path or its disc folder; a core by its name or its Core row's; the socket in a folder in `/tmp`, closed to others, a command in and an answer out, and the port record |
 | `check-sgdb` | SteamGridDB on the device: the real client and a whole run against a fake API (the key in a header and never a URL, the match, the formats, the refusals, a key refused with a 401 or 403 when it is entered said so and the one before it kept), its title and ratio held to tools/sgdb-check.py |
 | `check-snaps` | MENU > Scraper's settings: covers and videos per system (covers on and videos off to start, a card that had 1.0.4's Fetch with Box Art on still getting them), Videos for (all games, favorites, played) and which games it lets through |
@@ -367,6 +368,27 @@ with an isolated demonstration library; `--art` gives its games their real box
 art from libretro-thumbnails, cached outside the repository. See
 [`res/readme/README.md`](../res/readme/README.md) for capture provenance and
 the refresh steps.
+
+## Devices
+
+Each handheld is a profile (`src/device/profile.h`): plain data in
+`src/device/<id>_profile.c` saying what it is, its name and folders, its
+screen as glass and pixels, its controls as printed, the chords a missing or
+doubled button needs, and what it has. A screen asks the profile what the
+handheld has (`plat_profile()`, and the `plat_*` answers made from it) and
+the platform what it is doing; it never asks which handheld it is. The
+device build links its own profile (`DEVICE=` in `mk/cross.mk`); the host
+build links all of them and wears `desktop` unless told:
+
+    build-native/zyperos --shot /tmp/tour.png --device pixel2 --tour menu 2000
+    build-native/zyperos --shot /tmp/tour.png --device brick --tour menu 2000
+
+`desktop` answers as the host always has, so every shot taken before
+profiles is taken the same. `make check-devices` holds each profile whole and
+no device guessed in `src/` (`tools/devices-lint.py`); `make
+check-device-compile` compiles every device file's Linux half, which the CI
+job `devices` runs on Ubuntu. The design and the order of work:
+`docs/superpowers/specs/2026-11-14-device-modular-design.md`.
 
 ## On device
 

@@ -1215,8 +1215,9 @@ of the player's own goes on from wherever the loop was.
 - Title in **title** **text** on y 516, line in **meta** **text-soft** on y 578,
   an optional second line in **meta** **text-dim** on y 624. A step's stage,
   glyph and lines fade in over **move**.
-- **The handheld** (the GKD Pixel 2 only): each lesson shows the handheld
-  the tutorial is running on, in a column at the left, with the lesson's
+- **The handheld** (a device whose profile has a drawing, the GKD Pixel 2
+  today; src/device/profile.h, `dev_tutorial_handheld`): each lesson shows
+  the handheld the tutorial is running on, in a column at the left, with the lesson's
   key lit, so a player who has never seen MENU, the volume keys or POWER -
   all on its sides - finds them. *(My pick in the tutorial-buttons lab,
   2026-11-05: "Turns to the key", over a figure that faces front with the
@@ -1226,8 +1227,8 @@ of the player's own goes on from wherever the loop was.
   bubble and "START: skip" stay. A title, line or note wider than that
   leaves keeps the **inset** from the right edge instead, ending where
   "START: skip" ends (Music's line, wider than the stage, sits a little
-  left of the stage's middle). On the Brick nothing moves and there is no
-  handheld. src/tourdevice.c draws it in code, no image files, into a
+  left of the stage's middle). On a device with no drawing yet (the Brick)
+  nothing moves and there is no handheld. src/tourdevice.c draws it in code, no image files, into a
   304 x 382 texture kept while it does not change (it changes only as it
   turns, a key lights or presses, and in the first lesson's fade-in): drawn
   every frame it cost the Pixel 2 a third of the lesson's frame rate, kept

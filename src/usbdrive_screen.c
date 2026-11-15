@@ -50,7 +50,7 @@ enum { UA_CHARGE, UA_XFER, UA_DEV, UA_DRIVE };
 bool shot_usb_drive;
 bool usb_drive_offered(void)
 {
-	return shot_usb_drive || access("/usr/sbin/usbdrive", X_OK) == 0;
+	return shot_usb_drive || plat_system_has("usbdrive");
 }
 
 int usb_ask_tiles(menu_row tiles[4], int what[4], int marks[4], bool dev)

@@ -248,10 +248,15 @@ void about_screen(app *a)
 		}
 		/* Developer Mode's unlock (devmode.h): L2 and R2 held together for
 		 * five seconds, on the first page. Another page, or letting go of
-		 * either, starts again; once it is on there is nothing left to hold. */
+		 * either, starts again; once it is on there is nothing left to hold.
+		 * Held as taps on a device whose L2 and R2 are taps, as buttons on
+		 * one whose are buttons (dev_l2r2_held). */
 		if (page != 0 || devmode_unlocked(db_dev())) {
 			devmode_hold_reset(&v.hold);
-		} else if (devmode_hold_step(&v.hold, plat_tap_held(IN_L2) && plat_tap_held(IN_R2),
+		} else if (devmode_hold_step(&v.hold,
+		                             dev_l2r2_held(&plat_profile()->chords,
+		                                           plat_tap_held(IN_L2), plat_tap_held(IN_R2),
+		                                           a->in.down[IN_L2], a->in.down[IN_R2]),
 		                             plat_now_ms())) {
 			menu_row said[2] = { { T(S_DEVMODE_IS_ON), NULL, false },
 			                     { T(S_DEVMODE_WHERE), NULL, false } };
@@ -307,8 +312,7 @@ void controls_screen(app *a)
 	int lv = panel_open();
 	float k;
 
-	ctl_set_fn_volume(plat_brightness_on_volume());
-	ctl_set_battery_lights(plat_battery_lights());
+	ctl_set_chords(&plat_profile()->chords);
 
 	while (!done && !want_quit && a->running) {
 		menu_row rows[CTL_MAX_ROWS];
