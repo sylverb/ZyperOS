@@ -250,6 +250,139 @@ int main(void)
 		      "another account kept a password: [%s]", out);
 	}
 
+	printf("  where SSH listens, and how one signs in (sshlink_want):\n");
+	{
+		/* Every combination of the four facts: the password's SSH only
+		 * with no radio at all, Wi-Fi's only with the choice on */
+		int k;
+
+		for (k = 0; k < 16; k++) {
+			sshlink_facts f = { .cable = k & 1, .radio = (k >> 1) & 1,
+			                    .over_wifi = (k >> 2) & 1, .cable_spent = (k >> 3) & 1 };
+			sshlink_mode m = sshlink_want(&f), want;
+
+			if (f.radio) want = f.over_wifi ? SSHLINK_NET : SSHLINK_OFF;
+			else want = f.cable && !f.cable_spent ? SSHLINK_CABLE : SSHLINK_OFF;
+			CHECK(m == want, "cable %d radio %d over_wifi %d spent %d: %d, not %d",
+			      f.cable, f.radio, f.over_wifi, f.cable_spent, (int)m, (int)want);
+			CHECK(!(f.radio && m == SSHLINK_CABLE),
+			      "the password offered with a radio there (cable %d over_wifi %d spent %d)",
+			      f.cable, f.over_wifi, f.cable_spent);
+		}
+		/* The four the device meets, by name */
+		CHECK(sshlink_want(&(sshlink_facts){ .radio = true }) == SSHLINK_OFF,
+		      "Wi-Fi up with the choice off did not stop SSH");
+		CHECK(sshlink_want(&(sshlink_facts){ .radio = true, .over_wifi = true }) == SSHLINK_NET,
+		      "Wi-Fi up with the choice on did not run SSH over Wi-Fi");
+		CHECK(sshlink_want(&(sshlink_facts){ .cable = true, .radio = true, .over_wifi = true }) ==
+		      SSHLINK_NET, "the cable and Wi-Fi together did not take keys alone");
+		CHECK(sshlink_want(&(sshlink_facts){ .cable = true, .over_wifi = true }) == SSHLINK_CABLE,
+		      "the cable alone, the choice on, lost its password");
+		CHECK(sshlink_want(&(sshlink_facts){ .cable = true, .over_wifi = true, .cable_spent = true }) ==
+		      SSHLINK_OFF, "a lockout on the cable came back before a replug");
+	}
+
+	printf("  look after look (sshlink_step, as dev_ssh_tick runs it):\n");
+	{
+		/* A plug, a lockout, a replug, a radio: what runs after each look,
+		 * the caller setting p.mode as dev_ssh_tick does */
+		sshlink_plan p = { SSHLINK_OFF, false };
+		sshlink_facts plug = { .cable = true }, none = { 0 };
+		sshlink_facts both = { .cable = true, .radio = true, .over_wifi = true };
+		sshlink_facts wifi = { .radio = true, .over_wifi = true };
+		sshlink_facts wifi_off = { .radio = true };
+		sshlink_mode m;
+		int k;
+
+		m = sshlink_step(&p, &plug, SSHLINK_OFF);
+		CHECK(m == SSHLINK_CABLE, "a computer plugged in: %d", (int)m);
+		p.mode = m;
+		/* 2026-11-15, on the Pixel: the plug that started it read as spent
+		 * at the next look, and SSH stopped 200 ms after it started */
+		for (k = 0; k < 5; k++) {
+			m = sshlink_step(&p, &plug, SSHLINK_CABLE);
+			CHECK(m == SSHLINK_CABLE && !p.spent, "look %d ended the cable's SSH it started: %d spent %d",
+			      k, (int)m, p.spent);
+		}
+		/* Five wrong passwords: it ends by itself, and stays off */
+		m = sshlink_step(&p, &plug, SSHLINK_OFF);
+		CHECK(m == SSHLINK_OFF && p.spent, "a lockout came back at once: %d", (int)m);
+		p.mode = SSHLINK_OFF;
+		m = sshlink_step(&p, &plug, SSHLINK_OFF);
+		CHECK(m == SSHLINK_OFF && p.spent, "a lockout came back before a replug: %d", (int)m);
+		m = sshlink_step(&p, &none, SSHLINK_OFF);
+		CHECK(m == SSHLINK_OFF && !p.spent, "the cable out kept the lockout: %d spent %d", (int)m, p.spent);
+		m = sshlink_step(&p, &plug, SSHLINK_OFF);
+		CHECK(m == SSHLINK_CABLE, "a replug did not bring it back: %d", (int)m);
+		p.mode = m;
+		/* A radio with the cable in (not the Pixel 2's, which has one
+		 * port): the password's ends, keys only on every address next */
+		m = sshlink_step(&p, &both, SSHLINK_CABLE);
+		CHECK(m == SSHLINK_NET, "a radio with the choice on: %d", (int)m);
+		p.mode = m;
+		m = sshlink_step(&p, &both, SSHLINK_NET);
+		CHECK(m == SSHLINK_NET, "SSH over Wi-Fi did not hold: %d", (int)m);
+		m = sshlink_step(&p, &plug, SSHLINK_NET);
+		CHECK(m == SSHLINK_OFF, "the radio gone, the cable's password came back on the same plug: %d", (int)m);
+		p.mode = SSHLINK_OFF;
+		m = sshlink_step(&p, &none, SSHLINK_OFF);
+		p = (sshlink_plan){ SSHLINK_OFF, false };
+		/* Wi-Fi alone, the Pixel 2's way */
+		m = sshlink_step(&p, &wifi_off, SSHLINK_OFF);
+		CHECK(m == SSHLINK_OFF, "Wi-Fi with the choice off started SSH: %d", (int)m);
+		m = sshlink_step(&p, &wifi, SSHLINK_OFF);
+		CHECK(m == SSHLINK_NET, "Wi-Fi with the choice on: %d", (int)m);
+		p.mode = m;
+		for (k = 0; k < 5; k++) {
+			m = sshlink_step(&p, &wifi, SSHLINK_NET);
+			CHECK(m == SSHLINK_NET, "look %d ended SSH over Wi-Fi: %d", k, (int)m);
+		}
+		m = sshlink_step(&p, &wifi_off, SSHLINK_NET);
+		CHECK(m == SSHLINK_OFF, "SSH over Wi-Fi turned off went on: %d", (int)m);
+		p.mode = SSHLINK_OFF;
+		m = sshlink_step(&p, &wifi, SSHLINK_OFF);
+		CHECK(m == SSHLINK_NET && !p.spent, "turned on again: %d", (int)m);
+		p.mode = m;
+		m = sshlink_step(&p, &none, SSHLINK_NET);
+		CHECK(m == SSHLINK_OFF, "the radio gone, SSH over Wi-Fi went on: %d", (int)m);
+	}
+
+	printf("  what dropbear is started with (sshlink_argv):\n");
+	{
+		const char *argv[SSHLINK_ARGV];
+		int n, k;
+		bool s = false, p22 = false;
+
+		n = sshlink_argv(SSHLINK_NET, "unused", "/k", argv);
+		CHECK(n > 0 && n < SSHLINK_ARGV && argv[n] == NULL, "SSH over Wi-Fi's words: %d", n);
+		for (k = 1; k < n; k++) {
+			if (!strcmp(argv[k], "-s")) s = true;
+			if (!strcmp(argv[k], "-p") && k + 1 < n) p22 = !strcmp(argv[k + 1], "22");
+			CHECK(strcmp(argv[k], "unused"), "the cable's address in SSH over Wi-Fi's words");
+		}
+		CHECK(s, "SSH over Wi-Fi takes passwords: no -s");
+		CHECK(p22, "SSH over Wi-Fi is not on port 22 of every address");
+		CHECK(!strcmp(argv[0], "dropbear"), "its name: %s", argv[0]);
+
+		s = p22 = false;
+		n = sshlink_argv(SSHLINK_CABLE, "10.42.0.1:22", "/k", argv);
+		CHECK(n > 0 && argv[n] == NULL, "the cable's words: %d", n);
+		for (k = 1; k < n; k++) {
+			if (!strcmp(argv[k], "-s")) s = true;
+			if (!strcmp(argv[k], "-p") && k + 1 < n) p22 = !strcmp(argv[k + 1], "10.42.0.1:22");
+		}
+		CHECK(!s, "the cable lost its password: -s");
+		CHECK(p22, "the cable's SSH is not on the cable's address alone");
+		CHECK(sshlink_argv(SSHLINK_OFF, "x", "/k", argv) == 0 && argv[0] == NULL, "off started something");
+	}
+
+	printf("  keys in authorized_keys (sshlink_key_lines):\n");
+	CHECK(sshlink_key_lines(NULL) == 0 && sshlink_key_lines("") == 0, "nothing read as a key");
+	CHECK(sshlink_key_lines("\n  \n# a comment\n\t# another\n") == 0, "blanks and comments read as keys");
+	CHECK(sshlink_key_lines("ssh-ed25519 AAAA me\n") == 1, "one key");
+	CHECK(sshlink_key_lines("ssh-ed25519 AAAA me\n\nssh-rsa BBBB you") == 2, "two keys, the last unended");
+	CHECK(sshlink_key_lines("\r\nssh-ed25519 AAAA me\r\n") == 1, "a Windows file's lines");
+
 	run_folder();
 
 	if (failures) {
@@ -257,7 +390,9 @@ int main(void)
 		return 1;
 	}
 	printf("sshlink: dropbear's sign-ins, exits, wrong PINs and listen failures are counted, "
-	       "a user name moves nothing, in the shadow only root has a password: the PIN's, and the "
-	       "run folder goes whole, whatever a session left in ~, the card's keys untouched\n");
+	       "a user name moves nothing, in the shadow only root has a password: the PIN's, the "
+	       "run folder goes whole, whatever a session left in ~, the card's keys untouched; "
+	       "the password never with a radio, SSH over Wi-Fi only with the choice on and keys "
+	       "alone (-s, every address), a lockout held until a replug\n");
 	return 0;
 }

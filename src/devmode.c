@@ -14,6 +14,7 @@
 #include <unistd.h>
 
 #define KEY "devmode"        /* the device database: 1 unlocked, 0 or missing locked */
+#define WIFI_KEY "devmode.wifi" /* 1: SSH over Wi-Fi too (devmode_wifi) */
 
 /* ---- the unlock ------------------------------------------------------- */
 
@@ -58,7 +59,21 @@ bool devmode_unlocked(db *dev)
 
 void devmode_set(db *dev, bool on)
 {
-	if (dev) db_set_int(dev, KEY, on ? 1 : 0);
+	if (!dev) return;
+	db_set_int(dev, KEY, on ? 1 : 0);
+	/* Off takes SSH over Wi-Fi with it: the next unlock starts on the
+	 * cable alone, and over Wi-Fi is a choice made again */
+	if (!on) db_set_int(dev, WIFI_KEY, 0);
+}
+
+bool devmode_wifi(db *dev)
+{
+	return devmode_unlocked(dev) && db_get_int(dev, WIFI_KEY, 0) == 1;
+}
+
+void devmode_set_wifi(db *dev, bool on)
+{
+	if (dev) db_set_int(dev, WIFI_KEY, on && devmode_unlocked(dev) ? 1 : 0);
 }
 
 /* ---- the password ----------------------------------------------------- */

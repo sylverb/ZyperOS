@@ -468,11 +468,15 @@ void language_apply(app *a, lang l, bool keep);
  * off the first tile's name before (tile_glyph), which cut "ScreenScraper". */
 enum { PANEL_MENU, PANEL_HOT, PANEL_TILES, PANEL_P2, PANEL_MOVE, PANEL_TILES_GRID, PANEL_LIST };
 typedef struct {
-	bool     run;            /* started for this plug: not again until the cable is out */
-	bool     up;             /* sshlink_start said yes */
-	char     pw[16], ip[64];
+	bool     run;            /* ours runs now, as `mode`, and has the name (mdns) */
+	bool     up;             /* sshlink_start or sshlink_start_net said yes */
+	bool     spent;          /* the cable's SSH ran for this plug: not again until the cable is out */
+	int      mode;           /* sshlink_mode it runs as: SSHLINK_CABLE or SSHLINK_NET */
+	char     pw[16], ip[64]; /* the password (the cable's only) and the address to type */
+	char     ifn[16];        /* over Wi-Fi: the radio's interface, for the name */
+	bool     radio;          /* an 802.11 interface at the last look */
 	int      nkeys;
-	unsigned at, retry;
+	unsigned at, retry, addr_at;
 } dv_state;
 extern dv_state g_dv;
 void notice_queue(nq_kind kind, int id, int ms, const char *head,

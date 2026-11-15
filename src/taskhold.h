@@ -8,7 +8,8 @@
  *
  * ONE RULE, in one place. A job the device was asked to do (the scraper's
  * art and video downloads, System Update's download, PortMaster's install,
- * Storage's walk of the card, File Transfer's copies, Muse's cover fetch)
+ * Storage's walk of the card, File Transfer's copies, Muse's cover fetch,
+ * a Developer Mode SSH session over Wi-Fi)
  * holds Auto Off's clock the way the charger does: the countdown does not
  * run while the job does, and a whole fresh one starts when it ends. Nobody
  * has to be pressing buttons for a download to be work somebody is waiting
@@ -42,6 +43,7 @@ typedef enum {
 	TASK_TRANSFER,      /* File Transfer: bytes moving, a browser, an SSH session, a phone */
 	TASK_COVERS,        /* Muse's album covers coming */
 	TASK_STORAGE,       /* Storage's walk of the card */
+	TASK_SSH,           /* Developer Mode's SSH: somebody signed in, over Wi-Fi above all */
 	TASK_COUNT
 } task_id;
 

@@ -17,8 +17,10 @@
 #
 # Every command first takes the device's lock on this computer, a folder
 # made with mkdir (atomic, so two sessions never both have it) with an owner
-# file saying who: /tmp/px2-lock for the Pixel 2 at 10.42.0.1:22, and
-# /tmp/px2-lock-HOST-PORT for anything else (a VM), or PX2_LOCK. A lock held
+# file saying who: /tmp/px2-lock for the Pixel 2 on port 22, over the cable
+# (10.42.0.1) or over Wi-Fi (any other address: SSH over Wi-Fi), and
+# /tmp/px2-lock-HOST-PORT for anything on this computer or another port (a
+# VM), or PX2_LOCK. A lock held
 # is a refusal naming its owner, or a wait with --wait. It is let go when the
 # command ends, however it ends: Ctrl-C, an error, a dropped cable.
 #
@@ -26,7 +28,7 @@
 # sectors) and a VM's card are fine; the owner's own 128 GB card (249737216)
 # or any other is refused unless --real-card says so.
 #
-# The device: PX2_HOST (10.42.0.1) and PX2_PORT (22) as tools/px2-deploy.sh
+# The device: PX2_HOST (10.42.0.1, or its Wi-Fi address) and PX2_PORT (22) as tools/px2-deploy.sh
 # takes them, or --vm NAME for a VM of tools/qemu-run.sh's (its port);
 # PX2_KEY (~/.ssh/zyperos_pixel2), and PX2_DEVICE (pixel2), whose .userdata
 # folder holds the log. A development image, or Developer Mode.
@@ -80,7 +82,7 @@ if [ -n "$vm" ]; then
 	PORT=$(cat "$f")
 fi
 if [ -n "${PX2_LOCK:-}" ]; then LOCK=$PX2_LOCK
-elif [ "$HOST:$PORT" = 10.42.0.1:22 ]; then LOCK=/tmp/px2-lock
+elif [ "$PORT" = 22 ] && [ "$HOST" != 127.0.0.1 ] && [ "$HOST" != localhost ]; then LOCK=/tmp/px2-lock
 else LOCK=/tmp/px2-lock-$HOST-$PORT
 fi
 

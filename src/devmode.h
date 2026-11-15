@@ -14,7 +14,8 @@
  *  - On: the setting is kept in the device database (db_dev, "devmode"), so
  *    it follows the card's own settings and a new card starts without it.
  *    About says "Developer mode: On"; MENU's Developer Mode row opens its
- *    page, where A turns it off, and the next unlock is the hold again.
+ *    page, whose Developer Mode switch turns it off (and SSH over Wi-Fi with
+ *    it), and the next unlock is the hold again.
  *  - What it adds: what a development image has, on the player's terms. The
  *    USB link stays up while a computer is on the cable and nothing is asked
  *    (usblink_release_dev), and SSH runs on the cable's address alone
@@ -77,6 +78,13 @@ void devmode_hold_reset(devmode_hold *h);
  * (usblink_dev_image), which the caller joins with this. */
 bool devmode_unlocked(db *dev);
 void devmode_set(db *dev, bool on);
+
+/* SSH over Wi-Fi (db_dev "devmode.wifi"), off as it ships: Developer Mode's
+ * SSH also runs while Wi-Fi is up, on every address and with keys alone
+ * (src/sshlink.h, sshlink_want). Only ever on while Developer Mode is, and
+ * Developer Mode turned off turns it off too. */
+bool devmode_wifi(db *dev);
+void devmode_set_wifi(db *dev, bool on);
 
 /* ---- what Developer (SSH) does on a release image ---------------------- */
 
