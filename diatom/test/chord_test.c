@@ -189,8 +189,9 @@ static void game_select(void)
 		   "and after CHORD_HOLD_MS the game sees all four, the soft reset");
 	}
 
-	/* SELECT alone, held: the game's after CHORD_HOLD_MS, then R1 is the
-	 * game's */
+	/* SELECT alone, held: the game's after CHORD_HOLD_MS, held, and a
+	 * shoulder pressed after that is still a hotkey: a player who holds
+	 * SELECT and then looks for R1 gets the save, not an R1 */
 	memset(h, 0, sizeof h);
 	fill(h, 2, 60, SEL);
 	fill(h, 50, 3, R1);
@@ -200,8 +201,20 @@ static void game_select(void)
 
 		ck(count(2, 2 + wait, SEL) == 0, "SELECT held alone: hidden for CHORD_HOLD_MS");
 		ck(count(2 + wait, 62, SEL) == 60 - wait, "then the game's, held");
-		ck(acts_in(0, 70) == 0 && count(50, 53, R1) == 3, "and an R1 after it is the game's");
+		ck(acts[50] == 1u << CHORD_SAVE && acts_in(0, 50) == 0 && acts_in(51, 70) == 0,
+		   "and an R1 after it still saves, on its turn");
+		ck(count(50, 53, R1) == 0, "and that R1 is not the game's");
 	}
+
+	/* SELECT held long, then A, then R1: A made it the game's SELECT, so
+	 * the shoulders are the game's again */
+	memset(h, 0, sizeof h);
+	fill(h, 2, 60, SEL);
+	fill(h, 40, 3, A);
+	fill(h, 50, 3, R1);
+	run(h, 70, ALL);
+	ck(acts_in(0, 70) == 0, "SELECT held, A, then R1: no hotkey");
+	ck(count(50, 53, R1) == 3, "the R1 is the game's");
 
 	/* SELECT and A in one turn: the game's at once */
 	memset(h, 0, sizeof h);
@@ -209,14 +222,75 @@ static void game_select(void)
 	run(h, 12, ALL);
 	ck(count(3, 7, SEL) == 4, "SELECT and A in one turn: the game's from that turn");
 
-	/* A shoulder held before SELECT is no chord: it did not go down
-	 * under SELECT */
+	/* A shoulder held well before SELECT is no chord: it went down for
+	 * the game, longer ago than CHORD_LEAD_MS */
 	memset(h, 0, sizeof h);
-	fill(h, 1, 20, R1);
-	fill(h, 4, 4, SEL);
+	fill(h, 1, 30, R1);
+	fill(h, 14, 4, SEL);
+	run(h, 35, ALL);
+	ck(acts_in(0, 35) == 0, "R1 held long, then SELECT: no hotkey");
+	ck(count(18, 22, SEL) == 4, "and the SELECT is the game's tap");
+	ck(count(1, 31, R1) == 30, "and R1 stays the game's throughout");
+}
+
+/* Two buttons a player means as one press reach the pad a frame or two
+ * apart, either one first */
+static void together(void)
+{
+	uint32_t h[MAXT] = { 0 };
+
+	/* R1 two turns before SELECT, both held */
+	fill(h, 3, 8, R1);
+	fill(h, 5, 8, SEL);
+	run(h, 20, ALL);
+	ck(acts[5] == 1u << CHORD_SAVE && acts_in(0, 5) == 0 && acts_in(6, 20) == 0,
+	   "R1 a moment before SELECT: a save, on SELECT's turn");
+	ck(count(0, 20, SEL) == 0, "the game never sees that SELECT");
+	ck(count(3, 5, R1) == 2 && count(5, 20, R1) == 0,
+	   "the R1 is the game's only until SELECT came");
+
+	/* L1 one turn before */
+	memset(h, 0, sizeof h);
+	fill(h, 3, 6, L1);
+	fill(h, 4, 6, SEL);
+	run(h, 15, ALL);
+	ck(acts[4] == 1u << CHORD_LOAD, "L1 a moment before SELECT: a load");
+
+	/* The latest a lead may come */
+	memset(h, 0, sizeof h);
+	{
+		int lead = CHORD_LEAD_MS / TURN_MS;
+
+		fill(h, 3, lead + 6, R1);
+		fill(h, 3 + lead, 6, SEL);
+		run(h, lead + 15, ALL);
+		ck(acts[3 + lead] == 1u << CHORD_SAVE, "R1 CHORD_LEAD_MS before SELECT: still a save");
+	}
+
+	/* A shoulder let go before SELECT came is no lead */
+	memset(h, 0, sizeof h);
+	fill(h, 3, 2, R1);
+	fill(h, 6, 4, SEL);
+	run(h, 15, ALL);
+	ck(acts_in(0, 15) == 0, "R1 tapped and let go, then SELECT: no hotkey");
+	ck(count(10, 14, SEL) == 4, "and the SELECT is the game's tap");
+
+	/* A lead is the hotkeys' once: a second SELECT over the same R1 is
+	 * no second save */
+	memset(h, 0, sizeof h);
+	fill(h, 3, 20, R1);
+	fill(h, 4, 3, SEL);
+	fill(h, 9, 3, SEL);
 	run(h, 25, ALL);
-	ck(acts_in(0, 25) == 0, "R1 held, then SELECT: no hotkey");
-	ck(count(8, 12, SEL) == 4, "and the SELECT is the game's tap");
+	ck(acts[4] == 1u << CHORD_SAVE && acts_in(5, 25) == 0,
+	   "one R1 under two SELECTs: one save");
+
+	/* No states: a lead of R1 is no hotkey */
+	memset(h, 0, sizeof h);
+	fill(h, 3, 8, R1);
+	fill(h, 5, 4, SEL);
+	run(h, 20, R2 | L2);
+	ck(acts_in(0, 20) == 0, "no states: R1 then SELECT does nothing");
 }
 
 static void live_keys(void)
@@ -270,6 +344,7 @@ int main(void)
 	tap();
 	chords();
 	game_select();
+	together();
 	live_keys();
 	presses();
 	printf("chord: %d passed, %d failed\n", g_pass, g_fail);

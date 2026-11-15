@@ -8,8 +8,10 @@
  *   CS_IDLE   SELECT is up
  *   CS_WAIT   down, hidden, waiting to see whose it is
  *   CS_CHORD  the hotkeys': hidden until let go, the shoulders are hotkeys
+ *   CS_HELD   held alone past CHORD_HOLD_MS: seen, held, by the game, and
+ *             the shoulders are still hotkeys until another button goes down
  *   CS_GAME   the game's: seen, the shoulders are the game's */
-enum { CS_IDLE, CS_WAIT, CS_CHORD, CS_GAME };
+enum { CS_IDLE, CS_WAIT, CS_CHORD, CS_HELD, CS_GAME };
 
 #define SEL  DIATOM_BIT(DIATOM_BTN_SELECT)
 #define MENU DIATOM_BIT(DIATOM_BTN_MENU)
@@ -29,6 +31,23 @@ static const int ACT_KEY[CHORD_ACTS] = {
 void chord_reset(chord *c)
 {
 	memset(c, 0, sizeof *c);
+}
+
+/* The shoulders still held that went down at most CHORD_LEAD_MS ago, and
+ * not this turn: SELECT's partners, pressed a moment before it */
+static uint32_t leads(const chord *c, uint32_t held, uint32_t pressed,
+                      uint64_t now_ms)
+{
+	uint32_t l = 0;
+	int i;
+
+	for (i = 0; i < CHORD_ACTS; i++) {
+		const uint32_t k = DIATOM_BIT(ACT_KEY[i]);
+
+		if ((held & k) && !(pressed & k) && now_ms - c->key_ms[i] <= CHORD_LEAD_MS)
+			l |= k;
+	}
+	return l;
 }
 
 static unsigned acts_of(uint32_t keys)
@@ -59,17 +78,25 @@ chord_out chord_turn(chord *c, uint32_t held, uint32_t was, uint64_t now_ms,
 	const uint32_t hot = live & CHORD_KEYS;
 	/* What else went down this turn: MENU is Diatom's, not a game button */
 	const uint32_t others = pressed & ~SEL & ~MENU;
+	uint32_t lead = 0;
+	int i;
 
 	/* A shoulder a chord took is the hotkeys' until it is let go, as MENU's
 	 * chords hold theirs: the frame it goes up is the first the game may
 	 * have it again. */
 	c->hidden &= held;
+	for (i = 0; i < CHORD_ACTS; i++)
+		if (pressed & DIATOM_BIT(ACT_KEY[i])) c->key_ms[i] = now_ms;
 
 	switch (c->state) {
 	case CS_IDLE:
 		if (!(pressed & SEL)) break;
+		/* A shoulder a moment before it is pressed with it, as one that
+		 * comes in the same turn: the game has had it for those turns,
+		 * and has it no more from this one. Not one a chord has taken. */
+		lead = leads(c, held, pressed, now_ms) & hot & ~c->hidden;
 		/* Pressed together, in one turn: what came with it decides */
-		if (others & hot) c->state = CS_CHORD;
+		if ((others & hot) || lead) c->state = CS_CHORD;
 		else if (others) c->state = CS_GAME;
 		else {
 			c->state = CS_WAIT;
@@ -83,19 +110,27 @@ chord_out chord_turn(chord *c, uint32_t held, uint32_t was, uint64_t now_ms,
 			c->state = CS_IDLE;
 		} else if (others & hot) {
 			c->state = CS_CHORD;
-		} else if (others || now_ms - c->down_ms >= CHORD_HOLD_MS) {
-			/* With the other button, in this same turn, or held: from
-			 * this turn on */
+		} else if (others) {
+			/* With the other button, in this same turn: from this turn
+			 * on */
 			c->state = CS_GAME;
+		} else if (now_ms - c->down_ms >= CHORD_HOLD_MS) {
+			/* Held alone: the game's, held, from this turn on; a
+			 * shoulder is still a hotkey */
+			c->state = CS_HELD;
 		}
+		break;
+	case CS_HELD:
+		if (!(held & SEL)) c->state = CS_IDLE;
+		else if (others & ~hot) c->state = CS_GAME;
 		break;
 	default:
 		if (!(held & SEL)) c->state = CS_IDLE;
 		break;
 	}
 
-	if (c->state == CS_CHORD) {
-		uint32_t t = pressed & hot;
+	if (c->state == CS_CHORD || c->state == CS_HELD) {
+		uint32_t t = (pressed & hot) | lead;
 
 		o.took = t;
 		o.acts = acts_of(t);
