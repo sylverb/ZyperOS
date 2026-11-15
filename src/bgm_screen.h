@@ -33,4 +33,7 @@ int bgm_build(void *ctx, menu_row *rows, int max, const char **heading);
 /* MENU > Menu Music */
 void bgm_screen(app *a);
 
+/* --rows-report: Menu Music's rows (menu_rows_print) */
+void bgm_rows_report(app *a);
+
 #endif
