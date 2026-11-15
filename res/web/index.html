@@ -161,6 +161,16 @@
          shown only to somebody already dragging is not shown. Lit while a
          file is over the window. -->
     <p id="dropmsg" class="hint" role="status"></p>
+    <!-- The rows picked (app.js, "picking"): how many, and what goes for all
+         of them at once. Up while any is picked: held to the foot of the window on a computer,
+         over Upload on a phone. -->
+    <div id="selbar" class="selbar" role="toolbar" hidden>
+      <button id="selclear" type="button" class="iconbtn i i-x" data-t-aria="sel.clear"></button>
+      <span id="selcount" class="count" aria-live="polite"></span>
+      <button id="selall" type="button" class="btn quiet" data-t="sel.all"></button>
+      <button id="selmove" type="button" class="btn pri i i-moveto" data-t="act.move_to"></button>
+      <button id="seldel" type="button" class="iconbtn i i-bin" data-t-aria="act.delete"></button>
+    </div>
   </main>
 
   <input id="picker" type="file" multiple hidden>
@@ -190,6 +200,23 @@
       <button id="dlgyes" type="submit" class="btn pri"></button>
     </div>
   </form>
+</div>
+
+<!-- Move to: a folder of the same place on the card, walked to from where
+     the rows are, and Move here. Its own folders only; files are not shown. -->
+<div id="movedlg" class="dialog" role="dialog" aria-modal="true" aria-labelledby="movehead" hidden>
+  <div class="panel picker">
+    <h2 id="movehead"></h2>
+    <nav id="movecrumbs" class="crumbs" data-t-aria="crumbs"></nav>
+    <ul id="movelist" class="folders"></ul>
+    <p id="movenote" class="note"></p>
+    <div class="acts">
+      <button id="movenew" type="button" class="btn quiet i i-newfolder" data-t="tool.new_folder"></button>
+      <span class="gap"></span>
+      <button id="moveno" type="button" class="btn" data-t="cancel"></button>
+      <button id="moveyes" type="button" class="btn pri"></button>
+    </div>
+  </div>
 </div>
 
 <div id="toast" class="toast" role="status" aria-live="polite"></div>

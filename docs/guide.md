@@ -732,7 +732,13 @@ the uploads go on under them. On a phone the folders are a row of chips over
 the list, **Upload** is a button at the bottom right, and New folder, Upload
 folder, Tidy names, the covers and the logs are behind the **⋯** at the top.
 Every file and folder has a **⋯** of its own (a right-click on a computer
-does the same) for Download, Rename and Delete; a delete always asks first.
+does the same) for Download, Rename, Move to folder, Select and Delete; a
+delete always asks first. Once one row is picked (Select, Ctrl or Cmd with a
+click, or a finger held still on it), a tap picks or unpicks the others, and
+a bar at the bottom says how many and moves or deletes them all together.
+**Move to folder** opens on the folders next to the one you are in: open
+one, or make a New folder there, then press Move to it. A note then says
+what moved where, with **Undo** to put it all back.
 Drop files anywhere on the page to put them in the folder that is open, or
 onto a folder to put them there; a dropped folder keeps its folders. The page
 wears the light or dark theme the phone or computer is in.

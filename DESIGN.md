@@ -1782,6 +1782,41 @@ block. *(My picks in the File Transfer lab, 2026-11-05:
   folder, or one in BIOS or Saves, stays where the shelf and the cores look.
   A name already in the folder refuses the whole move, and the toast says
   which ("Contra.nes is already in Hacks").
+- **Picking several** (1.0.6, Discord: "tick several ROMs and move them to
+  another folder"): once a row is picked - **Select**, Ctrl or Cmd with a
+  press, or a finger held still for the lift's 450 ms and let go where it is -
+  the list is picking. A press on any row picks or unpicks it (Shift with a
+  press, the rows from the last one picked); a folder does not open. Each
+  row's ⋯ and › give way to a tick: a ring of **edge**, filled **accent** with
+  an **on-accent** check when picked. A bar on the **surface** with the small
+  lift is held to the foot of the window under the list (on a phone, fixed
+  where Upload is, which goes, in two lines): ✕, "3 selected · 328 KB" (the
+  size when only files are picked), Select all (gone once all are), **Move
+  to folder** in **accent** and a bin. Escape or ✕ puts them all down, as
+  another folder does; Ctrl or Cmd+A picks every row and Delete asks about
+  the picks. **Delete** asks once, with what the folders among them hold
+  (each counted by `/api/count`, the one-row rules: a console's folder stops
+  it, with why).
+- **Move to folder** (the bar, and a row's ⋯ for one): a dialog of one height
+  (600 px, 82% of a phone's height as a sheet) whatever it holds, so it does
+  not jump as folders are walked: the heading ("Move 3 items to"), crumbs,
+  the folders of the place shown as rows with their pixel art and ›, a note,
+  and New folder, Cancel and the yes, which names where ("Move to Game
+  Boy"). It opens at the folder above theirs, scrolled to their own, which
+  says "current folder"; ROMs itself, the folder they are in and any folder
+  inside one being moved are no place to go: the yes is off and the note
+  says why. A folder being moved is dimmed and cannot be walked into. New
+  folder asks for a name, makes it there and opens it. The moves are
+  `/api/move` one by one, as a drag's. After a move (a drag's too) the picks
+  go down and a toast says what went where ("Moved 3 items to Game Boy",
+  "Moved Contra.nes to Hacks") with **Undo** at its end (**text**, bold
+  and underlined: **accent-ink** misses 4.5:1 on **raised** in Beard),
+  held three times **hold-long** and not while the pointer is on it; Undo
+  moves each back to the folder it came from (a disc set's folder and a
+  `.cue` with its tracks go back as they went) and says "Moved back.". A
+  move that was refused says why instead, with no Undo. No copy: a copy is a second full copy
+  on the same card, and the page's server runs in the launcher's loop, so a
+  disc image would hold File Transfer for minutes.
 
 ### 11.16 Hotspot screen
 Wi-Fi File Transfer when the handheld is its own network (src/hotspot.h): a
