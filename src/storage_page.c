@@ -39,6 +39,7 @@
 #define SP_PAD       16                     /* a row's text from its fill's edge: on the 64 margin, the numbers' (28 until 1.0.6) */
 #define SP_ICON      64
 #define SP_NAME_X    112                    /* a row's name after its icon */
+#define SP_NAME_GAP  24                     /* a name's room ends this far before its size: three grid units, so a cut name never reads as the size's word */
 #define SP_CAP_Y     (ZYPEROS_SCREEN_H - DS_CAPTION_INSET - DS_LINE_META / 2)  /* 708: a caption's last line */
 #define SP_CAP_LINE  DS_LINE_META           /* 40 between its two lines */
 #define SP_FOOT_ROW  28                     /* the more mark's and the sort key's line under the list */
@@ -402,10 +403,24 @@ static void row_draw(SDL_Renderer *r, const sp_page *p, int i, float y, bool sel
 		vw = ui_text_tabular_width(fm, row->value);
 		ui_text_tabular(r, fm, row->value, vr, ui_cap_y(fm, (int)(mid + 0.5f)), 1, value);
 	}
-	/* A name too long for its room slides on the focused row and rests at
-	 * its start on the others, between two letters (ui_text_marquee) */
-	ui_text_marquee(r, fm, row->name, x, ui_cap_y(fm, (int)(mid + 0.5f)),
-	                vr - (vw ? vw + SP_PAD : 0) - x, sel ? phase : 0, name);
+	/* A name too long for its room ends in "..." (ui_fit_text, as a menu's
+	 * rows do), and on the focused row slides to its end and back
+	 * (ui_text_marquee), "..." again while it rests at its start; its room
+	 * ends SP_NAME_GAP before the size, so a cut name is never read as the
+	 * size's first word */
+	{
+		int room = vr - (vw ? vw + SP_NAME_GAP : 0) - x, ty = ui_cap_y(fm, (int)(mid + 0.5f));
+		int over = ui_text_width(fm, row->name) - room;
+
+		if (sel && over > 0 && ui_pingpong(over, phase) > 0) {
+			ui_text_marquee(r, fm, row->name, x, ty, room, phase, name);
+		} else {
+			char fit[LB_LINE];
+
+			ui_fit_text(fm, row->name, fit, sizeof fit, room);
+			ui_text(r, fm, fit, x, ty, -1, name);
+		}
+	}
 }
 
 /* The list's more marks (ds_more), their top at y */

@@ -26,6 +26,9 @@ void lb_fit(const char *src, char *dst, size_t dstn, int maxw,
 	while (n > 0) {
 		n--;
 		while (n > 0 && ((unsigned char)dst[n] & 0xC0) == 0x80) n--;
+		/* the dots right after the last letter, never after a space
+		 * ("Symphony of..." and not "Symphony of ...") */
+		while (n > 0 && dst[n - 1] == ' ') n--;
 		if (n + 3 >= dstn) continue;
 		memcpy(dst + n, "...", 4);
 		if (width(ctx, dst) <= maxw) return;
