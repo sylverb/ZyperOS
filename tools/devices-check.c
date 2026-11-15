@@ -10,6 +10,7 @@
 #include <string.h>
 
 #include "../src/device/profile.h"
+#include "device/build.h"
 
 static int fails, checks;
 
@@ -195,6 +196,28 @@ static void places(void)
 	ck(!dev_button_place(br, IN_ACCEPT, &f, &x, &z), "brick: no places until it has a model");
 }
 
+/* Each device's build and card (src/device/build.h): its own id, the
+ * shared aarch64 baseline, its Diatom port, its partitions and helpers */
+static void builds(void)
+{
+	const dev_build *px = &device_build_pixel2, *br = &device_build_brick;
+
+	ck(!strcmp(px->id, device_profile_pixel2.id) && !strcmp(br->id, device_profile_brick.id),
+	   "each build is its profile's device");
+	ck(!strcmp(px->arch, "aarch64") && !strcmp(px->mcpu, "cortex-a53") && !strcmp(px->cpu, "cortex-a35"),
+	   "pixel2: aarch64, built for the A53 baseline, an A35 inside");
+	ck(!strcmp(br->arch, "aarch64") && !strcmp(br->mcpu, "cortex-a53") && !strcmp(br->cpu, "cortex-a53"),
+	   "brick: aarch64, the same baseline, an A53 inside");
+	ck(!strcmp(px->diatom_port, "pixel2") && !strcmp(br->diatom_port, "brick"), "each its own Diatom port");
+	ck(!strcmp(px->table, "mbr") && px->part_boot == 1 && px->part_root_a == 2 && px->part_root_b == 4 &&
+	   px->part_games == 3, "pixel2: MBR, boot 1, roots 2 and 4, games 3");
+	ck(!strcmp(br->table, "gpt") && br->part_boot == 1 && br->part_root_a == 2 && br->part_root_b == 0 &&
+	   br->part_games == 4, "brick: GPT, boot 1, one root at 2, games 4");
+	ck(px->helpers == (DEV_HELPER_PORTKEYS | DEV_HELPER_ZYHOME | DEV_HELPER_UPDATE | DEV_HELPER_P2D |
+	                   DEV_HELPER_PORTS), "pixel2: portkeys, zyhome, System Update, Player 2, ports");
+	ck(br->helpers == (DEV_HELPER_BTPLAYER | DEV_HELPER_BTALSA), "brick: btplayer and Bluetooth sound");
+}
+
 static void choosing(void)
 {
 	ck(plat_profile() == &device_profile_desktop, "the host starts as desktop");
@@ -230,6 +253,7 @@ int main(void)
 	unlock();
 	tutorial();
 	places();
+	builds();
 	choosing();
 	if (fails) {
 		printf("devices: %d of %d checks failed\n", fails, checks);

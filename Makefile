@@ -7,7 +7,7 @@
 
 .PHONY: all clean native px2-payload vendor boot system-art checkmark \
         check check-cheevos check-hare check-portal check-httpd check-idle check-taskhold check-saver check-rahash check-flacdec check-achtab check-signin check-search \
-        check-raset check-xfer check-sshlink check-usblink check-devmode check-devices check-model check-ctl check-menus check-status check-battery check-corner check-artscrape check-artrun check-sgdb check-snapshelf check-snaps check-audioout \
+        check-raset check-xfer check-sshlink check-usblink check-devmode check-devices check-devicegen check-model check-ctl check-menus check-status check-battery check-corner check-artscrape check-artrun check-sgdb check-snapshelf check-snaps check-audioout \
         check-db check-coreopts check-gpuframes check-gamedel check-gamern check-esmedia check-corepins check-targets yuvtarget check-storage check-stats check-sort check-bt check-ss check-titles check-dsv check-sidelights check-osdbar check-themefile check-pkkeys check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-kbnav check-tween check-menumotion check-menusnap check-cardgen check-blur check-gridrule check-roundrect check-rowmacro check-emptyhome check-zyperrig check-randgame check-shelfdir \
         check-sysmark check-flip check-menushots check-controls-shots check-design check-systemart check-linebreak check-portload \
         check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-messages check-tour check-tour-shots check-textfade check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pmhelper check-portdoc check-boottheme check-splashbright check-bootbright check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr check-autozone \
@@ -29,7 +29,7 @@ NATIVE_J = $(if $(filter -j%,$(MAKEFLAGS))$(findstring j,$(filter-out -%,$(first
 # of good intentions is a plan. A check nobody runs is a check that does not
 # exist, and check-menus was about to join eight others in that state.
 CHECKS = check-cheevos check-hare check-portal check-httpd check-idle check-taskhold check-saver check-rahash check-flacdec check-achtab check-rasubmit check-raoffline check-signin check-noticeq check-badges check-badge-shots \
-         check-raset check-xfer check-sshlink check-usblink check-devmode check-devices check-model check-ctl check-menus check-artscrape check-artrun check-sgdb check-snapshelf check-snaps check-audioout \
+         check-raset check-xfer check-sshlink check-usblink check-devmode check-devices check-devicegen check-model check-ctl check-menus check-artscrape check-artrun check-sgdb check-snapshelf check-snaps check-audioout \
          check-db check-coreopts check-gamedel check-gamern check-esmedia check-media check-snapsize check-corepins check-targets check-storage check-stats check-sort check-bt check-ss check-titles check-savedlib check-search \
          check-muselib check-musequeue check-museart check-mp4lock check-mp4frame check-p2share check-webtheme check-p2ws check-p2codec check-p2d check-play check-p2 check-resident check-spawn check-controls check-remap check-controls-shots check-logpack \
          check-clock check-autozone check-status check-battery check-battery-eta check-dslang check-gpuframes check-dsresume check-corestate check-core-stamp check-core-room check-px2-perf check-px2-snap check-px2 check-lowbatt check-powerhold check-homesys check-heat check-charging check-corner check-dsv check-sidelights check-osdbar check-themefile check-pkkeys check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-kbnav check-randgame check-shelfdir check-look \
@@ -1063,6 +1063,9 @@ I18N_SRC := src/i18n.c src/i18n_tables.c
 # device; src/profile.c is linked only where one is chosen (check-devices)
 DEVICE_PROFILES := src/device/pixel2_profile.c src/device/brick_profile.c src/device/desktop_profile.c \
                    src/device/td_model.c src/device/pixel2_model.c src/device/pixel2_coreopts.c
+# Each device's build and card (src/device/build.h): the generator and the
+# checks link them; the launcher never does
+DEVICE_BUILDS := src/device/pixel2_build.c src/device/brick_build.c
 # The RetroAchievements hasher and the disc readers under it (src/rahash.h,
 # src/discimg.h): every check that links one links them all, and liblzma
 # for a CHD's LZMA hunks (Homebrew's xz on a Mac; the device has the
@@ -1291,11 +1294,39 @@ check-devices: build-native/devices-check
 	@./build-native/devices-check
 	@python3 tools/devices-lint.py
 
-build-native/devices-check: tools/devices-check.c src/profile.c src/device/profile.h src/device/brick_buttons.h src/inbutton.h $(DEVICE_PROFILES) FORCE
+# Each device's build for make and for the image (src/device/build.h,
+# tools/devicegen.c): config/device/<id>.mk and <id>.system, kept in git so a
+# cross build and plastron read them with no host step. device-files writes
+# them; check-devicegen writes them again beside and fails on any that is
+# stale, or on a file there that no device writes.
+build-native/devicegen: tools/devicegen.c src/device/build.h $(DEVICE_BUILDS) FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -O1 -g -o $@ tools/devicegen.c $(DEVICE_BUILDS)
+
+.PHONY: device-files
+device-files: build-native/devicegen
+	@mkdir -p config/device
+	./build-native/devicegen config/device
+
+check-devicegen: build-native/devicegen
+	@mkdir -p build-native/devicegen-out
+	@./build-native/devicegen build-native/devicegen-out
+	@bad=0; for f in config/device/*; do \
+		n=$${f##*/}; \
+		if ! cmp -s "build-native/devicegen-out/$$n" "$$f"; then \
+			echo "  FAIL $$f is not what its device's _build.c says (make device-files), or no device's"; bad=1; \
+		fi; \
+	done; \
+	for id in pixel2 brick; do for k in mk system; do \
+		[ -f config/device/$$id.$$k ] || { echo "  FAIL no config/device/$$id.$$k (make device-files)"; bad=1; }; \
+	done; done; \
+	[ $$bad = 0 ] && echo "ok: config/device holds each device's build as its _build.c says"
+
+build-native/devices-check: tools/devices-check.c src/profile.c src/device/profile.h src/device/build.h src/device/brick_buttons.h src/inbutton.h $(DEVICE_PROFILES) $(DEVICE_BUILDS) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Isrc \
 	      -DZYPEROS_PROFILE=device_profile_desktop -DZYPEROS_PROFILES_ALL \
-	      -o $@ tools/devices-check.c src/profile.c $(DEVICE_PROFILES)
+	      -o $@ tools/devices-check.c src/profile.c $(DEVICE_PROFILES) $(DEVICE_BUILDS)
 
 # Every device file compiled, the Linux halves the Mac's build never sees (CI
 # job "devices", .github/workflows/check.yml): the launcher's device files,
