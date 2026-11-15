@@ -1044,27 +1044,6 @@
       "sha256": "7052fd868d7ffd607a0c31b16e5e11e9c1ed5fe633056a9a958f541410be61d0"
     },
     {
-      "file": "light/tour-home.png",
-      "card": "demo",
-      "args": [
-        "--theme",
-        "light",
-        "--screen",
-        "systems",
-        "--phase",
-        "3200",
-        "--fn-volume",
-        "--tour",
-        "home",
-        "2000",
-        "--tour-music",
-        "--tour-pick",
-        "1"
-      ],
-      "sha256": "fab7110c0fabe2e5c27932fae2c6fd3fe9ce1058cd346da5bc98c00bb63b5c59",
-      "source_commit": "71c6122259150af55603b3a45d326ca486cc693c"
-    },
-    {
       "file": "light/tour-sounds.png",
       "card": "demo",
       "args": [
@@ -2129,6 +2108,65 @@
       ],
       "sha256": "74b9e91339788f76698878b1d88706c3add342ab327949e86b585d3f4b52919f",
       "source_commit": "2d9bdb8215717948ca130977fc21acf4a54cba88"
+    },
+    {
+      "file": "light/home-grid.png",
+      "card": "systems",
+      "args": [
+        "--theme",
+        "light",
+        "--screen",
+        "systems",
+        "--phase",
+        "3200",
+        "--status",
+        "10:08 24h wifi=off batt=82",
+        "--fn-volume",
+        "--home",
+        "grid"
+      ],
+      "sha256": "1c6f47cb69b071f03a7772f863f415a66714bbe4e113fa46209e3fff8b7e62fe",
+      "source_commit": "afddb4ecea000672a0cb6fe7ca22f919ebd15e3e"
+    },
+    {
+      "file": "light/tour-home.png",
+      "card": "demo",
+      "args": [
+        "--theme",
+        "light",
+        "--screen",
+        "systems",
+        "--phase",
+        "3200",
+        "--fn-volume",
+        "--tour",
+        "home",
+        "2000",
+        "--tour-music",
+        "--tour-pick",
+        "1"
+      ],
+      "sha256": "e6f69a73fba110902ed289874b26cbfe3aea0566fd65cd59f5952213681243e0",
+      "source_commit": "afddb4ecea000672a0cb6fe7ca22f919ebd15e3e"
+    },
+    {
+      "file": "dark/home-grid.png",
+      "card": "systems",
+      "args": [
+        "--theme",
+        "dark",
+        "--screen",
+        "systems",
+        "--phase",
+        "3200",
+        "--status",
+        "10:08 24h wifi=off batt=82",
+        "--fn-volume",
+        "--home",
+        "grid"
+      ],
+      "sha256": "e446079edf45915b915305f3199c413b574f9296ab5565fb68e93ade6c814d68",
+      "source_commit": "afddb4ecea000672a0cb6fe7ca22f919ebd15e3e"
     }
   ],
   "capture_note": "Screenshots refreshed separately record their own source_commit; other screenshots use the top-level source_commit."

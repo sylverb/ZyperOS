@@ -146,6 +146,8 @@ OPENBOR=['Beats of Rage.pak']
 SHOTS={
     'systems':('demo','PS1',['--home','spotlight']),
     'gallery':('demo','PS1',['--home','gallery']),
+    # The Grid home (DESIGN.md 11.1), on the card of more systems
+    'home-grid':('systems','NES',['--home','grid']),
     'shelf':('demo','PS1',['--screen','games']),
     # Other shelves of the demonstration card, and Favorites across systems
     'shelf-n64':('demo','N64',['--screen','games']),
@@ -305,7 +307,7 @@ STATUS={'battery':'10:08 24h wifi=3 batt=62 eta=205 icon=time',
         'topbar-still':'10:08 24h wifi=3 phones=on batt=62','topbar-long':'10:08 24h wifi=3 phones=on batt=62','topbar-long-moving':'10:08 24h wifi=3 phones=on batt=62'}
 # The README's light-and-dark section: these, in both themes
 DARK=['systems','menu','topbar','nowplaying','video-controls','video-full','media','shelf-n64',
-      'folders','list','grid','grid-favorites']
+      'folders','list','grid','grid-favorites','home-grid']
 # A shot whose screen draws its own clock, outside the status corner, so the
 # launcher's corner check (shot_corner_clear in src/main.c) reports this after
 # writing a right picture: the charging screen's clock is its own (DESIGN.md
@@ -491,6 +493,20 @@ def demo_card(card,art,manifest):
     # A test release's source on the card counts as a network to look with
     # (docs/updates.md), so the page offers its download as on Wi-Fi
     (up/'source').write_text('file:///nonexistent\n')
+
+# The Grid home's card: the demonstration library and a game on each of
+# twelve more systems (empty files, no art), so the grid fills as a big
+# library's does
+MORE_SYSTEMS=['Atari 2600/Pitfall!.a26','Master System/Alex Kidd in Miracle World.sms',
+              'Game Boy Color/Pokemon Crystal.gbc','Game Gear/Shinobi.gg',
+              'Neo Geo Pocket Color/SNK vs. Capcom.ngp','WonderSwan Color/Final Fantasy.wsc',
+              'Nintendo DS/Mario Kart DS.nds','PSP/Patapon.iso','Arcade/sf2.zip',
+              'PICO-8/Celeste.p8','Atari Lynx/California Games.lnx','Virtual Boy/Wario Land.vb']
+def systems_card(card,art=None,manifest=None):
+    demo_card(card,art,manifest if manifest is not None else {'artwork':{}})
+    for f in MORE_SYSTEMS:
+        (card/'Roms'/f).parent.mkdir(parents=True,exist_ok=True)
+        (card/'Roms'/f).touch()
 
 def media_card(card,art=None,manifest=None):
     """The demonstration card, a film, Blender's freely licensed Sintel as a
@@ -902,12 +918,14 @@ def main():
               'artwork':{},'screenshots':[]}
     with tempfile.TemporaryDirectory(prefix='zyperos-readme-') as temporary:
         cards={'demo':Path(temporary)/'demo','empty':Path(temporary)/'empty','scummvm':Path(temporary)/'scummvm',
+               'systems':Path(temporary)/'systems',
                'openbor':Path(temporary)/'openbor','ports':Path(temporary)/'ports',
                'portdocs':Path(temporary)/'portdocs','media':Path(temporary)/'media',
                'psp':Path(temporary)/'psp','es':Path(temporary)/'es'}
         art=args.art_cache if args.art else None
         demo_card(cards['demo'],art,manifest)
         media_card(cards['media'],art)
+        systems_card(cards['systems'],art)
         es_card(cards['es'],art,manifest)
         scummvm_card(cards['scummvm'],art,manifest)
         backdrop=art_file(art,LR_REPO['PlayStation'],'Named_Snaps',BACKDROP_GAME) if art else None

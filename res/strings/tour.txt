@@ -466,6 +466,16 @@ de = Galerie
 ja = ギャラリー
 it = Galleria
 
+[tour.choice.grid]
+en = Grid
+zh-Hans = 网格
+es = Cuadrícula
+pt-BR = Grade
+fr = Grille
+de = Raster
+ja = グリッド
+it = Griglia
+
 [tour.choice.wood]
 note = The UI sounds.
 en = Wood

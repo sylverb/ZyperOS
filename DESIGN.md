@@ -760,8 +760,8 @@ are ZyperOS's own system art (`res/system-art/original`, 2026-11-12): every
 console and handheld drawn for ZyperOS, 256 units square, with a motion of
 its own. *(2026-11-13: "We should leave no trace of the old art behind".)*
 
-MENU > Home Screen offers **Spotlight** (default) and **Gallery**. Both remain
-horizontal. Old `cards` and `cards_dir` settings have no effect. Fancy Pants,
+MENU > Home Screen offers **Spotlight** (default), **Gallery** and **Grid**
+(below); Right steps on, Left back, and A opens the three as a list (11.3's option rows). Old `cards` and `cards_dir` settings have no effect. Fancy Pants,
 the old system posters and their generators are removed, not hidden.
 
 **Spotlight:** system name and count on the left, the console art on the
@@ -775,6 +775,31 @@ The focused sprite is one and a half times its 256-unit cell (384, at y 120 to 5
 its underline sits a grid step under the whole cell, never on the art, and
 the name a little lower again, so tall art such as the Game Boy keeps its
 lower body clear.
+**Grid** *(2026-11-15, the dense layout, with the shelves' Grid, 11.47)*: the
+systems in a grid, more of them at once - 18 on the 1024-wide canvas, six
+across and three rows - each its still (104 units) with its concise name
+under it in **chrome**, **text-soft**; the focus on a **surface** tile, 8
+round its cell and its underline, corners radius.card (square with Square
+corners), with a thumbnail's lift as the shelf grid's focused cover has
+(UI_LIFT_FOCUS_SMALL, in the system's color in Salt & Pepper), its name in
+**text** with the **accent-ink** underline (40 x DS_BAR) a grid step under it;
+tile and underline glide from cell to cell in **ms.quick**, the window of
+rows in **ms.move**. *(2026-11-15: a name and its underline alone were hard to
+find at arm's length among 21 systems; the tile makes the home's focus read as
+the shelf grid's.)* Only the
+focused system's sprite moves, as on the others. The grid's room and band are
+the shelf grid's: from the top bar's band and a section (96) to 568, the cells
+DS_GRID_GAP apart, as many across as cells of at least 128 fit between the
+64 margins, the grid in the middle of its room; the rail at the right when
+the systems are more than three rows. The band: the system's whole name in
+**game-title** (Favorites in the language that is on), A's **Open games** at
+its right, its count under it in **support**; the foot at 720: MENU, the
+place, SELECT. **Up** and **Down** move a row, stopping at the top and the foot
+with the edge sound (Down over a short last row lands on its last system);
+**Left** and **Right** step round the ends; **L1** and **R1** jump a screenful, or to the last (first) system where less is left, and from the last round to the first (as the shelf grid's, 11.47).
+A system hidden or emptied leaves the grid as it leaves the row; Favorites is
+a tile like any other.
+
 MENU remains at the left footer, the position in the middle, and A at the
 right. SELECT still opens the player without another footer caption.
 **L1**/**R1** jump three systems, coming round past either end as a step
@@ -1198,7 +1223,7 @@ for the reward, and a wrong press tilted, nudged and answered.)*
 | Brightness | MENU+VOL: the MENU pill, a plus and the rocker (F1 and F2 on the Brick) | the stand-in bar's sun steps up | the chord, which changes the real brightness |
 | Power | POWER | the shelf fades to the ground and the power-off's own frames play small, "Saved. See you soon." | POWER, which in this step only does not turn the handheld off; the line under it says so, and after the press it says to hold POWER for 10 s only if the screen stops answering |
 | Theme | none: the choices side by side | the home screen in Light and in Dark | A, on the one focused |
-| Home Screen | none | the home screen in Spotlight and in Gallery | A |
+| Home Screen | none | the home screen in Spotlight, in Gallery and in Grid | A |
 | Sounds | none | four tiles, Wood, Glass, Bubble and Off, heard as they are focused | A |
 | Menu Music | none, and no step on a card without tracks | On and Off, the music playing while On is focused | A |
 | Finish | A | Zyper hops among falling confetti, "You're all set!" in his bubble, "Every button is in MENU > Controls." | A |
@@ -1349,7 +1374,7 @@ of the player's own goes on from wherever the loop was.
     shoulders have no glyph), back toward the edge in **press**.
 - **The choices**: after the power step's reward and before the finish,
   four steps make the handheld the player's - **Theme** (Appearance, Light
-  or Dark), **Home Screen** (Spotlight or Gallery), **Sounds** (UI Sounds:
+  or Dark), **Home Screen** (Spotlight, Gallery or Grid), **Sounds** (UI Sounds:
   Wood, Glass, Bubble or Off) and **Menu Music** (On or Off), the last only
   on a card with menu music to play. *(I asked for them on
   2026-11-06, "our onboarding should ask the user for which theme, display
@@ -1373,7 +1398,8 @@ of the player's own goes on from wherever the loop was.
     with its name under it, the title, the line "Press LEFT or RIGHT to look,
     A to keep it." and the note "Change it later in MENU > Appearance." (the
     row's own name) on 11.10's lines. Two choices are 380 x 285 previews at
-    y 96, 56 apart (x 104 and 540); the four sounds are 180 x 180 tiles at y
+    y 96, 56 apart (x 104 and 540); three (Home Screen) 272 x 204, 32 apart,
+    on the two's middle line; the four sounds are 180 x 180 tiles at y
     130, 32 apart. A name is **meta** 48 under its choice's bottom edge,
     **text-dim**, the focused one on an **accent** pill in **on-accent**.
     The focus is a 6-unit **accent** ring 10 out from the choice, sliding to
@@ -1381,9 +1407,10 @@ of the player's own goes on from wherever the loop was.
     reward's check sits on the kept choice's top right corner.
   - **The previews**: Theme shows the home screen in Spotlight in Light and
     in Dark, both, with the screen around them in the focused one; Home
-    Screen shows Spotlight and Gallery in the theme that is on. They are the
-    launcher's own frames of a card holding the little shelf's five
-    systems - stand-ins, as on the stage, never the player's library -
+    Screen shows Spotlight, Gallery and Grid in the theme that is on. They
+    are the launcher's own frames of a card holding the little shelf's five
+    systems (Grid's twelve, so it reads as a grid) - stand-ins, as on the
+    stage, never the player's library -
     shipped as `res/tour/home-LAYOUT-THEME.png` (380 x 285) and made by
     `make tour-previews`; a 3-unit **edge** frame at **radius.row**. Sounds
     is a speaker and Menu Music a note, each drawn in **text-soft** on a
@@ -2073,7 +2100,7 @@ itself.
 
 When games arrive (the transfer screen closes and rescans, or Roms/ changes
 by any other way, which it looks at every two seconds), the home becomes
-Spotlight or Gallery, and Zyper cheers once over it: the home fades toward
+Spotlight, Gallery or Grid, and Zyper cheers once over it: the home fades toward
 the **ground** (65%) on **move**, Zyper hops and pants (8.3) at the middle,
 the tutorial's lime check pops on **zyper-pop**, his bubble says "12
 games!", and with the **reward** sound it holds **tour-reward** and leaves

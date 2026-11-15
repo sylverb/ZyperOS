@@ -1254,14 +1254,17 @@ Up and down jump by initial on a games or album shelf. A opens a system or start
 B returns to the systems row. Fancy Pants and UI Direction are removed.
 Old saved layout and card-style values do not change this behavior.
 
-MENU > Home Screen selects Spotlight or Gallery. MENU > System Order puts the
+MENU > Home Screen selects Spotlight, Gallery or Grid. MENU > System Order puts the
 systems A to Z by name (3DO, 32X, Arcade, Atari 2600 ...) or by their release
 dates, as before. Favorites stays first, then Recents, and Ports and MP4 stay last.
 MENU > Home Systems shows or hides each of them. Spotlight puts the system name
 beside its animated console sprite, with nearby systems below. Gallery puts the
 focused sprite between its neighbors and shows the full system name below.
-Spotlight uses short names, such as GBA and N64. These labels do not rename any
-folder. Both layouts use the same controls and remember the same selected system.
+Grid shows the systems in three rows of six, each sprite with its short name,
+the focused one underlined and its full name and count under the grid; Up and
+Down move a row there, and L1 and R1 a screenful or to the last system. Spotlight and Grid use short names, such as GBA and N64.
+These labels do not rename any folder. Every layout remembers the same
+selected system.
 
 Appearance selects Light, Dark or Auto. Console sprites retain their source
 colors in both themes. Only the focused system animates. The top bar shows the

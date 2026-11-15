@@ -598,6 +598,8 @@ EXTRA.setdefault("menu-autooff-list", ("demo", "PS1", ["--menu", "Auto Off", "--
 EXTRA.setdefault("system-menu-display-list", ("demo", "PS1", ["--screen", "games", "--menu", "Display", "--press", "a"]))
 # View's three (Covers, Grid, List) over a shelf in the grid
 EXTRA.setdefault("system-menu-view-list", ("demo", "NES", ["--screen", "games", "--view", "grid", "--menu", "View", "--press", "a"]))
+# Home Screen's three (Spotlight, Gallery, Grid) over the Grid home
+EXTRA.setdefault("menu-home-list", ("demo", "PS1", ["--home", "grid", "--menu-tab", "1", "--menu", "Home Screen", "--press", "a"]))
 EXTRA.setdefault("gamemenu-display-list", ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "1", "--gm-choose"]))
 # Display's Theme page (DESIGN.md 11.42) in each of the ten accents, the
 # tones going round in both themes and the corners turning over, so every
@@ -758,8 +760,10 @@ def run_language(code, shots, binary, keep, theme="light"):
         cards = {"demo": Path(tmp) / "demo", "empty": Path(tmp) / "empty", "scummvm": Path(tmp) / "scummvm",
                  "openbor": Path(tmp) / "openbor", "ports": Path(tmp) / "ports", "all": Path(tmp) / "all",
                  "portdocs": Path(tmp) / "portdocs", "media": Path(tmp) / "media",
-                 "pmcard": Path(tmp) / "pmcard", "psp": Path(tmp) / "psp", "es": Path(tmp) / "es"}
+                 "pmcard": Path(tmp) / "pmcard", "psp": Path(tmp) / "psp", "es": Path(tmp) / "es",
+                 "systems": Path(tmp) / "systems"}
         R.demo_card(cards["demo"], None, {"artwork": {}})
+        R.systems_card(cards["systems"])
         R.media_card(cards["media"])
         R.es_card(cards["es"])
         R.ports_card(cards["ports"])

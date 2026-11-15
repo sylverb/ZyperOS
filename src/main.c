@@ -1390,7 +1390,7 @@ bool g_loads_held;
 void home_items(const app *a, home_item *items)
 {
 	for (int i = 0; i < a->sys.count; i++)
-		items[i] = (home_item){ a->sys.systems[i].tag, a->sys.systems[i].name };
+		items[i] = (home_item){ a->sys.systems[i].tag, a->sys.systems[i].name, a->sys.systems[i].accent };
 }
 void prime_home(app *a)
 {
@@ -5260,11 +5260,11 @@ int main(int argc, char *argv[])
 		else if (!strcmp(argv[i], "--song-paused")) shot_song_paused = true;
 		else if (!strcmp(argv[i], "--home")) {
 			if (i + 1 >= argc) {
-				fprintf(stderr, "--home needs spotlight or gallery\n"); return 2;
+				fprintf(stderr, "--home needs spotlight, gallery or grid\n"); return 2;
 			}
 			const char *value = argv[++i];
-			if (strcmp(value, "spotlight") && strcmp(value, "gallery")) {
-				fprintf(stderr, "--home needs spotlight or gallery\n"); return 2;
+			if (strcmp(value, "spotlight") && strcmp(value, "gallery") && strcmp(value, "grid")) {
+				fprintf(stderr, "--home needs spotlight, gallery or grid\n"); return 2;
 			}
 			shot_home = home_parse(value);
 		}
@@ -6587,6 +6587,7 @@ int main(int argc, char *argv[])
 
 	if (shot_path) {
 		if (shot_screen >= 0) a.screen = (screen_id)shot_screen;
+		home_asks = HOME_STILLS;          /* every still at once: no loader in a shot */
 		if (shot_view) {
 			a.view[a.sys_cursor].listed = !strcmp(shot_view, "list");
 			a.view[a.sys_cursor].grid = !strcmp(shot_view, "grid");

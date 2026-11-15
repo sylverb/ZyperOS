@@ -12,6 +12,10 @@
 #include <string.h>
 #include "systemart_data.h"
 
+/* Stills asked for a pass: eight, as the loader's queue is shared with the
+ * covers; a shot, which has no loader, takes every one at once, for the
+ * Grid home shows eighteen (main.c) */
+int home_asks = 8;
 static TTF_Font *page_fonts[PAGE_FONTS];
 /* The same four in the cuts of Noto Sans SC and JP, for 简体中文 and 日本語
  * (src/ui.h, ui_fonts_for, ui_font_set 1 and 2): each opened the first time
@@ -66,9 +70,15 @@ TTF_Font *page_font(page_font_role role)
 }
 
 home_layout home_parse(const char *id)
-{ return id && !strcmp(id, "gallery") ? HOME_GALLERY : HOME_SPOTLIGHT; }
-const char *home_id(home_layout l) { return l == HOME_GALLERY ? "gallery" : "spotlight"; }
-const char *home_name(home_layout l) { return T(l == HOME_GALLERY ? S_HOME_GALLERY : S_HOME_SPOTLIGHT); }
+{
+    if (id && !strcmp(id, "gallery")) return HOME_GALLERY;
+    if (id && !strcmp(id, "grid")) return HOME_GRID;
+    return HOME_SPOTLIGHT;
+}
+const char *home_id(home_layout l)
+{ return l == HOME_GALLERY ? "gallery" : l == HOME_GRID ? "grid" : "spotlight"; }
+const char *home_name(home_layout l)
+{ return T(l == HOME_GALLERY ? S_HOME_GALLERY : l == HOME_GRID ? S_HOME_GRID : S_HOME_SPOTLIGHT); }
 const char *home_label(const char *key, const char *canonical)
 {
     static const struct { const char *key, *name; } labels[] = {
@@ -104,6 +114,7 @@ void home_reset(home *h, int cursor, int count, uint32_t now)
 {
     h->initialized = true; h->cursor = cursor; h->count = count;
     h->from = h->target = (float)cursor; h->moved = h->animation = now;
+    h->grid_cols = 0;              /* the grid placed again on its next frame */
     row_reset(&h->motion,cursor,count,now);
 }
 void home_select(home *h, int cursor, int count, int direction, uint32_t now)
@@ -355,14 +366,14 @@ void home_prepare(home *h, SDL_Renderer *r, const char *root,
      * loader's queue (24) is shared with the game covers and drops its
      * oldest when full. The home asks again every frame it draws, so the
      * rest follow within a few frames of the launcher starting. */
-    home_texture *ask[8]; int asks=0;
+    home_texture *ask[HOME_STILLS]; int asks=0;
     for(int k=0;k<n;k++) {
         home_texture *slot=NULL;
         for(int j=0;j<HOME_STILLS;j++) if(h->still[j].asset==wanted[k]) slot=&h->still[j];
         if(!slot) for(int j=0;j<HOME_STILLS;j++) if(h->still[j].asset<0) {
             slot=&h->still[j]; slot->asset=wanted[k]; break;
         }
-        if(slot && !slot->done && asks<8) ask[asks++]=slot;
+        if(slot && !slot->done && asks<home_asks) ask[asks++]=slot;
     }
     /* Newest request is decoded first: the farthest of these first. */
     for(int k=asks-1;k>=0;k--) request(ask[k],r,root,false);
@@ -536,7 +547,7 @@ bool home_focus_alone(const home *h,home_layout layout,int count,int cursor,uint
     bool hit[ROW_SLOTS];
     SDL_Rect c;
 
-    if (layout==HOME_GALLERY || count<=0 || cursor<0 || cursor>=count ||
+    if (layout!=HOME_SPOTLIGHT || count<=0 || cursor<0 || cursor>=count ||
         row_moving(&h->motion,now))
         return false;
     c=content_rect(h);
@@ -576,6 +587,217 @@ uint32_t home_draw_focus(home *h,SDL_Renderer *r,const home_item *items,int coun
     return wait;
 }
 
+/* ---- Grid (DESIGN.md 11.1) ---------------------------------------------- */
+
+/* The systems in a grid: each its still and its short name under it, the
+ * focus its moving sprite on a **surface** tile with a thumbnail's lift, its
+ * name in **text** with the accent's underline under it, the others in
+ * **text-soft**. The grid's room is the shelf grid's
+ * (src/gamegrid.c): from the top bar's band and a section (96) to where the
+ * band under it starts; its cells DS_GRID_GAP apart, as many across as cells
+ * of at least HG_CELL fit between the margins, three rows, the grid in the
+ * middle of its room. The band, the shelf grid's: the system's whole name,
+ * its count, A. */
+#define HG_MARGIN   64
+#define HG_TOP      96
+#define HG_FOOT     568      /* the room's foot: the band's top less DS_GRID_BAND_GAP */
+#define HG_BAND_TOP 592
+#define HG_CELL     128      /* a cell at the least: a still and room either side */
+#define HG_SPRITE   104      /* the still in its cell */
+#define HG_LABEL_GAP 8       /* the still to its name (related) */
+#define HG_LABEL_BOX 28      /* the name's line box, chrome type */
+#define HG_CELL_H   (HG_SPRITE + HG_LABEL_GAP + HG_LABEL_BOX)
+#define HG_TILE_PAD 8        /* the focus's tile round its cell and its underline */
+
+typedef struct { int x, y, cols, cw, gap; } hg_geom;
+
+static hg_geom hg_of(int sw)
+{
+    int room = sw - 2 * HG_MARGIN, gap = DS_GRID_GAP;
+    int cols = (room + gap) / (HG_CELL + gap);
+    hg_geom g;
+    int h;
+
+    if (cols < 3) cols = 3;
+    g = (hg_geom){ HG_MARGIN, 0, cols, (room - (cols - 1) * gap) / cols, gap };
+    h = HOME_GRID_ROWS * HG_CELL_H + (HOME_GRID_ROWS - 1) * gap;
+    g.x = HG_MARGIN + (room - (cols * g.cw + (cols - 1) * gap)) / 2;
+    g.y = HG_TOP + (HG_FOOT - HG_TOP - h) / 2;
+    return g;
+}
+
+int home_grid_cols(void) { return hg_of(1024).cols; }
+
+static int hg_window(int cursor, int count, int cols, int top)
+{
+    int row = cursor / cols, last = (count + cols - 1) / cols - HOME_GRID_ROWS;
+
+    if (last < 0) last = 0;
+    if (top < 0) top = row - HOME_GRID_ROWS / 2;
+    if (row < top) top = row;
+    if (row > top + HOME_GRID_ROWS - 1) top = row - HOME_GRID_ROWS + 1;
+    if (top > last) top = last;
+    if (top < 0) top = 0;
+    return top;
+}
+
+static float hg_eased(float from, float to, uint32_t since, int ms)
+{
+    float k = (float)since / ms;
+
+    return k >= 1 ? to : from + (to - from) * ds_out(k);
+}
+
+/* The cursor moved: the window glides in ms.move, the underline in
+ * ms.quick, from where they are; a jump of more than a row shows where it
+ * lands with a short glide, as the shelf's do */
+static void hg_follow(home *h, const hg_geom *g, int cursor, int count, uint32_t now)
+{
+    float top, fx, fy;
+
+    if (h->grid_cols != g->cols || h->grid_cursor < 0 || h->grid_cursor >= count) {
+        int t = hg_window(cursor, count, g->cols, -1);
+
+        h->grid_cols = g->cols;
+        h->grid_cursor = cursor;
+        h->grid_top_from = h->grid_top_to = (float)t;
+        h->grid_fx = (float)(cursor % g->cols);
+        h->grid_fy = (float)(cursor / g->cols);
+        h->grid_moved = now - DS_MS_MOVE;
+        return;
+    }
+    if (h->grid_cursor == cursor) return;
+    top = hg_eased(h->grid_top_from, h->grid_top_to, now - h->grid_moved, DS_MS_MOVE);
+    fx = hg_eased(h->grid_fx, (float)(h->grid_cursor % g->cols), now - h->grid_moved, DS_MS_QUICK);
+    fy = hg_eased(h->grid_fy, (float)(h->grid_cursor / g->cols), now - h->grid_moved, DS_MS_QUICK);
+    h->grid_top_to = (float)hg_window(cursor, count, g->cols, (int)lroundf(h->grid_top_to));
+    h->grid_top_from = top;
+    h->grid_fx = fx;
+    h->grid_fy = fy;
+    if (abs(cursor / g->cols - h->grid_cursor / g->cols) > 1) {
+        int dir = cursor > h->grid_cursor ? 1 : -1;
+
+        h->grid_top_from = h->grid_top_to - (h->grid_top_to != top ? dir * .2f : 0);
+        h->grid_fx = (float)(cursor % g->cols);
+        h->grid_fy = (float)(cursor / g->cols) - dir * .2f;
+    }
+    h->grid_cursor = cursor;
+    h->grid_moved = now;
+}
+
+static uint32_t home_grid_draw(home *h, SDL_Renderer *r, const home_item *items, int count,
+                               int cursor, const char *count_label, const char *open_label,
+                               uint32_t now, uint32_t phase, uint32_t *wait)
+{
+    hg_geom g = hg_of(1024);
+    TTF_Font *label = page_font(PAGE_CHROME), *title = page_font(PAGE_GAME_TITLE);
+    TTF_Font *meta = page_font(PAGE_META);
+    int rows = (count + g.cols - 1) / g.cols, pitch = HG_CELL_H + g.gap;
+    float top, fx, fy;
+    SDL_Rect clip;
+
+    hg_follow(h, &g, cursor, count, now);
+    top = hg_eased(h->grid_top_from, h->grid_top_to, now - h->grid_moved, DS_MS_MOVE);
+    fx = hg_eased(h->grid_fx, (float)(cursor % g.cols), now - h->grid_moved, DS_MS_QUICK);
+    fy = hg_eased(h->grid_fy, (float)(cursor / g.cols), now - h->grid_moved, DS_MS_QUICK);
+    if (now - h->grid_moved < DS_MS_MOVE) *wait = 0;
+
+    /* The window of rows: from the top row's tile to the foot of the last
+     * row's, so a row scrolling in or out is cut there and the next is not
+     * seen. The tile and its lift get room round it for the lift's blur. */
+    clip = (SDL_Rect){ 0, g.y - HG_TILE_PAD, 1024,
+                       (HOME_GRID_ROWS - 1) * pitch + HG_CELL_H + 4 + DS_BAR + 2 * HG_TILE_PAD };
+    SDL_RenderSetClipRect(r, &(SDL_Rect){ clip.x, clip.y - g.gap, clip.w, clip.h + 2 * g.gap });
+    /* The focus's tile (2026-11-15: in a grid of many systems a name and its
+     * underline alone are hard to find at arm's length): **surface** behind
+     * the focused cell, the still and its name, corners radius.card (square
+     * with Square corners, as every panel), with a thumbnail's lift as the
+     * shelf grid's focused cover has (UI_LIFT_FOCUS_SMALL, in the system's
+     * color in Salt & Pepper), gliding from cell to cell with the underline */
+    {
+        SDL_Rect tile = {
+            (int)lroundf(g.x + fx * (g.cw + g.gap)) - HG_TILE_PAD,
+            (int)lroundf(g.y + (fy - top) * pitch) - HG_TILE_PAD,
+            g.cw + 2 * HG_TILE_PAD,
+            HG_CELL_H + 4 + DS_BAR + 2 * HG_TILE_PAD,
+        };
+
+        ui_lift_k(r, &tile, items[cursor].accent, UI_LIFT_FOCUS_SMALL, 1);
+        SDL_RenderSetClipRect(r, &clip);
+        ui_round_rect(r, &tile, DS_RADIUS_CARD, ui_col(theme()->surface, 255));
+    }
+    for (int i = (int)floorf(top) * g.cols; i < count && i < ((int)floorf(top) + HOME_GRID_ROWS + 1) * g.cols; i++) {
+        float cx = g.x + (i % g.cols) * (g.cw + g.gap) + g.cw / 2.0f;
+        float y = g.y + (i / g.cols - top) * pitch;
+        bool focus = i == cursor;
+        const char *name = home_label(items[i].key, items[i].name);
+        char fit[64];
+
+        if (y > clip.y + clip.h || y + HG_CELL_H < clip.y) continue;
+        sprite(h, r, &items[i], (SDL_FRect){ roundf(cx - HG_SPRITE / 2.0f), y, HG_SPRITE, HG_SPRITE },
+               focus, phase, wait, 1);
+        ui_fit_text(label, name, fit, sizeof fit, g.cw + g.gap - 8);
+        ui_text(r, label, fit, (int)lroundf(cx),
+                ui_cap_y(label, (int)lroundf(y) + HG_SPRITE + HG_LABEL_GAP + HG_LABEL_BOX / 2), 0,
+                focus ? UI_TEXT : UI_TEXT_SOFT);
+    }
+    /* The focus's underline, gliding from cell to cell: a grid step under
+     * its name's box, as Spotlight's is under its sprite */
+    {
+        ds_rgb ink = theme()->accent_ink;
+        float ux = g.x + fx * (g.cw + g.gap) + g.cw / 2.0f;
+        float uy = g.y + (fy - top) * pitch + HG_SPRITE + HG_LABEL_GAP + HG_LABEL_BOX + 4;
+
+        SDL_SetRenderDrawColor(r, ink.r, ink.g, ink.b, 255);
+        SDL_RenderFillRect(r, &(SDL_Rect){ (int)lroundf(ux) - 20, (int)lroundf(uy), 40, DS_BAR });
+    }
+    SDL_RenderSetClipRect(r, NULL);
+    /* The rail, when the systems are more than the window */
+    if (rows > HOME_GRID_ROWS) {
+        int x = 1024 - DS_RAIL_INSET - DS_BAR, hh = HOME_GRID_ROWS * HG_CELL_H + (HOME_GRID_ROWS - 1) * g.gap;
+        int mh = hh * HOME_GRID_ROWS / rows, my;
+
+        if (mh < DS_RAIL_MIN) mh = DS_RAIL_MIN;
+        my = g.y + (int)lroundf((hh - mh) * top / (rows - HOME_GRID_ROWS));
+        ui_round_rect(r, &(SDL_Rect){ x, g.y, DS_BAR, hh }, DS_BAR / 2, ui_col(theme()->track, 255));
+        ui_round_rect(r, &(SDL_Rect){ x, my, DS_BAR, mh }, DS_BAR / 2, ui_col(theme()->accent_ink, 255));
+    }
+    /* The band: the system's whole name (Favorites in the language that is
+     * on), A at its right; its count under it */
+    {
+        const char *full = items[cursor].key && !strcmp(items[cursor].key, "FAV")
+                         ? home_label("FAV", NULL)
+                         : items[cursor].name && items[cursor].name[0] ? items[cursor].name
+                         : home_label(items[cursor].key, NULL);
+        const char *open = open_label ? open_label : T(S_HOME_OPEN_GAMES);
+        int aw = page_hint_width("A", open, true), ny = HG_BAND_TOP + 20, fy2 = HG_BAND_TOP + 40 + 8 + 18;
+        int room = 1024 - HG_MARGIN - aw - 32 - HG_MARGIN, tw = ui_text_width(title, full);
+
+        if (tw > room) {
+            ui_text_marquee(r, title, full, HG_MARGIN, ui_cap_y(title, ny), room, phase, UI_TEXT);
+            uint32_t next = ui_pingpong_wait(tw - room, phase);
+            if (next < *wait) *wait = next;
+        } else {
+            ui_text(r, title, full, HG_MARGIN, ui_cap_y(title, ny), -1, UI_TEXT);
+        }
+        page_hint(r, "A", open, 1024 - HG_MARGIN - aw, ny, true, false);
+        ui_text(r, meta, count_label ? count_label : "", HG_MARGIN, ui_cap_y(meta, fy2), -1, UI_TEXT_DIM);
+    }
+    /* The foot, as Spotlight's: MENU at the left, the place in the middle,
+     * SELECT at the right, on the one foot (DS_FOOT_Y, the shelf
+     * grid's) */
+    {
+        char index[32];
+        int sw = page_hint_width("SELECT", "MP4", false);
+
+        snprintf(index, sizeof index, "%d / %d", cursor + 1, count);
+        ui_text_tabular(r, page_font(PAGE_CHROME), index, 512, ui_cap_y(page_font(PAGE_CHROME), DS_FOOT_Y), 0, UI_TEXT_DIM);
+        page_hint(r, "MENU", T(S_HOME_SETTINGS), HG_MARGIN, DS_FOOT_Y, false, false);
+        page_hint(r, "SELECT", "MP4", 1024 - HG_MARGIN - sw, DS_FOOT_Y, false, false);
+    }
+    return *wait;
+}
+
 uint32_t home_draw(home *h,SDL_Renderer *r,home_layout layout,
                     const home_item *items,int count,int cursor,
                     const char *count_label,const char *open_label,uint32_t now,bool animate)
@@ -587,6 +809,12 @@ uint32_t home_draw(home *h,SDL_Renderer *r,home_layout layout,
     uint32_t wait=UINT32_MAX, phase=animate?now-h->animation:0;
     
     bool gallery=layout==HOME_GALLERY;
+    if(layout==HOME_GRID) {
+        home_grid_draw(h,r,items,count,cursor,count_label,open_label,now,phase,&wait);
+        if(!animate) wait=UINT32_MAX;
+        restore_state(r,saved);
+        return wait;
+    }
     if(!gallery) sprite(h,r,&items[cursor],FOCUS,true,phase,&wait,1);
     row_draw row[ROW_SLOTS]; int nr=row_draws(h,gallery,count,cursor,now,row);
     for(int k=0;k<nr;k++)

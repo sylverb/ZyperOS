@@ -172,7 +172,7 @@ static void menu_choices(app *a, int sys, bool games)
 {
 	/* A system's menu and MENU each their own words: the shelf under MENU
 	 * builds a system's rows too, and must not write over MENU's */
-	static ch_pool PS[9], PM[9];
+	static ch_pool PS[9], PM[10];
 	ch_pool *P = games ? PS : PM;
 	int i, n, cur;
 
@@ -307,6 +307,9 @@ static void menu_choices(app *a, int sys, bool games)
 		}
 		g_pm_choice[PM_SAVER] = ch_make(&P[8], n, cur, false);
 	}
+	/* Home Screen: in the order Right steps it */
+	for (i = 0; i < HOME_LAYOUTS; i++) P[9].lab[i] = home_name((home_layout)i);
+	g_pm_choice[PM_HOME] = ch_make(&P[9], HOME_LAYOUTS, (int)a->home_layout, false);
 	g_pm_choice[PM_LANGUAGE] = (menu_choice){ .n = LANG_COUNT, .cur = (unsigned char)i18n_lang(), .own = true };
 }
 
@@ -1046,7 +1049,9 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 	}
 	/* The home layout is independent of Appearance and the selected system. */
 	if (sel == PM_HOME && (d || key == IN_ACCEPT)) {
-		a->home_layout = a->home_layout == HOME_SPOTLIGHT ? HOME_GALLERY : HOME_SPOTLIGHT;
+		/* Spotlight, Gallery, Grid and round: Right on, Left back; A opens
+		 * the three as a list (menu_choices' PM_HOME, the runner's) */
+		a->home_layout = (home_layout)(((int)a->home_layout + (d < 0 ? HOME_LAYOUTS - 1 : 1)) % HOME_LAYOUTS);
 		db_set_str(db_dev(), "home", home_id(a->home_layout));
 		home_reset(&a->home, a->sys_cursor, a->sys.count, plat_now_ms());
 		redraw_now();
