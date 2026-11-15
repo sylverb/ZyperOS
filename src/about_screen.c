@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "about_screen.h"
+#include "ds/mark.h"   /* ds_bar_in */
 
 #include "about.h"
 #include "aout_route.h"
@@ -194,9 +195,10 @@ void about_draw(app *a, const about_view *v, int page)
 			SDL_Rect bar = { x0, g_menu_body.y + g_menu_body.h - pitch / 2 - UI_BAR_H / 2,
 			                 g_menu_body.x + g_menu_body.w - x0, UI_BAR_H };
 
-			ui_round_rect(a->r, &bar, UI_BAR_H / 2, ui_col(theme()->track, 255));
-			bar.w = bar.w * pm / 1000;
-			if (bar.w > 0) ui_round_rect(a->r, &bar, UI_BAR_H / 2, UI_TEXT);
+			/* in accent-ink, as every other hold fills (it filled in text
+			 * until 1.0.6) */
+			ds_bar_in(a->r, &bar, bar.w * pm / 1000, ui_col(theme()->track, 255),
+			          ui_col(theme()->accent_ink, 255));
 		}
 	}
 	if (page == 2 && v->photo && rest && g_menu_body.h > 0) {
