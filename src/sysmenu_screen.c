@@ -18,6 +18,7 @@
 #include "nowplaying_screen.h"
 #include "osdbar.h"
 #include "panel.h"
+#include "powerhold.h"
 #include "powerscreens.h"
 #include "rafetch.h"
 #include "saver.h"
@@ -211,6 +212,7 @@ int menu_build(app *a, screen_id screen, int sys,
 		u.ui_sounds  = uisound_setting_name(uisound_setting());
 		u.menu_music = bgm_menu_value(bgm_on(), bgm_count());
 		u.auto_off  = a->auto_off;
+		u.power_hold = powerhold_mode();
 		u.saver     = g_saver_s;
 		{
 			static char lv[16];
@@ -775,6 +777,15 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 		a->idle.since_ms = plat_now_ms();
 		return a->auto_off != was ? MENU_CHANGED : MENU_STAY;
 	}
+	/* Power Button, Press or Hold (src/powerhold.h): two choices, so A
+	 * switches it as Left and Right do. Saved as its word, which portkeys
+	 * reads from the same database as a port starts. */
+	if (sel == PM_POWER && (d || key == IN_ACCEPT)) {
+		powerhold_set_mode(!powerhold_mode());
+		db_set_str(db_dev(), POWERHOLD_KEY, powerhold_mode() ? "hold" : "press");
+		redraw_now();
+		return MENU_CHANGED;
+	}
 	/* Screensaver, on Auto Off's idiom: left and right step the delay, off
 	 * at one end; a step past either end changes nothing. */
 	if (d && sel == PM_SAVER) {
@@ -1036,4 +1047,14 @@ void zyperos_menu_for(app *a, int screen)
 void zyperos_menu(app *a)
 {
 	zyperos_menu_for(a, a->screen);
+}
+
+/* MENU > Power Button as saved: "hold" is Hold, anything else Press, the
+ * default (src/powerhold.h). Once, as the launcher starts. */
+void power_button_load(void)
+{
+	char v[8];
+
+	db_get_str(db_dev(), POWERHOLD_KEY, v, sizeof v, "press");
+	powerhold_set_mode(!strcmp(v, "hold"));
 }

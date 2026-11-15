@@ -127,7 +127,7 @@ it away.
 | **SELECT+L2** (in game) | slower, a step a press, back to normal speed |
 | **MENU** (inside any menu) | closes the whole menu, however deep in it you are. B goes back one screen |
 | **SELECT** | MP4, the music, audiobook and video player, from anywhere but a running game - the in-game menu included. Again to close it |
-| **POWER** | powers off. In a game, the game is saved first, and the next start goes straight back into it. After a crash or a power cut, the next start is the home instead |
+| **POWER** | powers off. In a game, the game is saved first, and the next start goes straight back into it. After a crash or a power cut, the next start is the home instead. With **MENU > Power Button** on **Hold**, POWER has to be held for two seconds, and a press alone does nothing: a bar at the top of the screen fills while it is held, on the home, in a game and over a port |
 
 **On the Pixel 2:**
 
