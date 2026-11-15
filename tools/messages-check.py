@@ -18,7 +18,7 @@ LAUNCHER = ("src/main.c", "src/about_screen.c", "src/aout_route.c", "src/bgm_scr
             "src/nowplaying_screen.c", "src/place.c", "src/player2_screen.c",
             "src/portload.c", "src/powerscreens.c", "src/raqueue.c", "src/saver_screen.c",
             "src/scraper_screen.c", "src/search_screen.c", "src/shelf_draw.c",
-            "src/shelf_keys.c", "src/shelfbuild.c", "src/signin_screen.c",
+            "src/shelf_keys.c", "src/shelfbuild.c", "src/shots.c", "src/signin_screen.c",
             "src/stats_screen.c", "src/storage_screen.c", "src/sysmenu_screen.c",
             "src/tour_screen.c", "src/update_screen.c", "src/usbdrive_screen.c",
             "src/xfer_screen.c", "src/zyperdraw.c")

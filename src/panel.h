@@ -22,6 +22,7 @@
 #include "rahash.h"
 #include "sys_menu.h"
 #include "texload.h"
+#include "tour.h"
 #include "uisound.h"
 #include "wifi.h"
 
@@ -359,6 +360,28 @@ extern bool g_message_stopped;
 extern const menu_style *g_muse_over;
 extern void             *g_muse_over_ctx;
 extern bool              g_muse_gone;
+
+/* ---- main.c's, for src/shots.c; each is described where it is defined ---- */
+/* What --shot-at presses at 0 in a --menu shot (shot_motion): a step onto
+ * its row; or with --open, --close and --swap, the top menu opening on the
+ * shelf, closing onto it, or giving way to MENU > Controls. `shot_lv` is the
+ * level the menu motion's frames are drawn at, 0 when there is none, and
+ * `shot_pressed` says the press has come. */
+enum { SHOT_STEP, SHOT_OPEN, SHOT_CLOSE, SHOT_SWAP };
+extern bool g_loads_held;
+extern bool g_full_shot;
+extern bool shot_usb_said;
+extern bool shot_usb_offer;
+extern SDL_Rect g_clock_box;
+extern int g_pct_natural;
+extern int shot_press;
+extern bool shot_pressed;
+extern unsigned shot_t0;
+extern const char *const TOUR_STEP_NAMES[TOUR_STEPS];
+unsigned notice_look(nq_kind kind);
+void menu_message(app *a, const char *heading, menu_row row,
+                  unsigned accent);
+void zyperos_menu_draw(app *a, int sel);
 
 /* ---- main.c's, for src/menu_runner.c; each is described where it is defined ---- */
 extern menu_snap *g_snap_next;
