@@ -238,6 +238,14 @@ EXTRA = {
     "gamemenu-unchecked": ("demo", "PS1", ["--gamemenu", "0", "--cheevos-unchecked"]),
     "info-unchecked": ("demo", "PS1", ["--screen", "games", "--info", "--cheevos-unchecked"]),
     "gamemenu-display": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "1"]),
+    # Every display mode's name and its caption under the Display row (1.0.6)
+    "gamemenu-dmode-aspect": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "1", "--dmode", "aspect"]),
+    "gamemenu-dmode-integer": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "1", "--dmode", "integer"]),
+    "gamemenu-dmode-tall": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "1", "--dmode", "integer-vertical"]),
+    "gamemenu-dmode-overscale": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "1", "--dmode", "overscale"]),
+    "gamemenu-dmode-fill": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "1", "--dmode", "fill"]),
+    "gamemenu-dmode-native": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "1", "--dmode", "native"]),
+    "system-menu-dmode-fill": ("demo", "PS1", ["--screen", "games", "--menu", "Display", "--dmode", "fill"]),
     "gamemenu-controls": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "2"]),
     # ...and of a game the launcher has no hash for: a PSP game ("system"),
     # a PlayStation .chd ("file"), one in each screen; the Achievements row

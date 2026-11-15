@@ -187,7 +187,8 @@ for th in light dark; do
 done
 
 echo "the in-game Display row says the mode the game plays in, on Favorites too"
-# A Game Boy game played from Favorites, the Game Boy set to Integer: the row
+# A Game Boy game played from Favorites, the Game Boy set to integer (Sharp
+# Pixels since 1.0.6): the row
 # is the game's system's mode, the one launch sent and Left and Right change
 # (gm_cycle_display), never the Favorites shelf's own, which nothing sets.
 # Before 1.0.6 it read Stretch there whatever the mode. A card of its own,
@@ -214,10 +215,10 @@ if command -v sqlite3 >/dev/null; then
 	frun --shot "$F/gm-fav.png" --theme light --screen games --gamemenu 0 --gm-tab 1 >"$F/one.log" 2>&1
 	cat "$F/one.log" >>"$D/log"
 	grep -q "^scan: Favorites" "$F/one.log" || fail "the favorite's card has no Favorites shelf (see $D/log)"
-	grep -q "^fit: drawn: Integer$" "$F/one.log" ||
-		fail "over a favorite, Display does not say the Game Boy's Integer ($F/gm-fav.png)"
-	grep -q "^fit: drawn: Stretch$" "$F/one.log" &&
-		fail "over a favorite, Display says Favorites' Stretch ($F/gm-fav.png)"
+	grep -q "^fit: drawn: Sharp Pixels$" "$F/one.log" ||
+		fail "over a favorite, Display does not say the Game Boy's Sharp Pixels (integer) ($F/gm-fav.png)"
+	grep -q "^fit: drawn: Full Screen$" "$F/one.log" &&
+		fail "over a favorite, Display says Favorites' Full Screen (stretch) ($F/gm-fav.png)"
 else
 	echo "  (no sqlite3: the Display row over a favorite not judged)"
 fi

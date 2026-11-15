@@ -491,17 +491,17 @@ The system menu opens on a shelf of games and applies to that system alone:
 | **Game Language** | the Nintendo DS shelf's: left/right/A go round `Auto`, English, Español, Français, Deutsch, Italiano, 日本語 and 简体中文, saved the moment it changes. `Auto` is the language of MENU > Language where the DS has it and English where it does not, and the row says which. The next game started speaks it, whatever the language of the `firmware.bin` in `Bios/`. A game whose resume point was left in another language starts fresh in this one, with a note that says so, its battery save kept; a save state you load keeps its own language until Reset |
 | **Sort By** | left/right; `Name`, `Play Time`, `Last Played` or `Recently Added` |
 | **View** | left/right/A; `Covers`, the row of covers, or `List`, the games as a list of names with the focused one's cover beside it. START on the shelf turns it too, without the menu |
-| **Display Mode** | left/right cycles it; saved the moment it changes |
+| **Display** | how the picture fills the screen: Full Screen, Original Shape, Sharp Pixels, Sharp Pixels, Tall, Sharp Pixels, Zoomed, Fill, Edges Cut or Actual Size, with a line under it that says what the one shown does; left/right cycles it; saved the moment it changes |
 | **Shader** | `Off`, `Sharp-Shimmerless`, `CRT`, `CRT Curved`, `Scanlines` or `LCD Grid`, for this system alone: left, right or A steps it, saved the moment it changes. The next game started plays with it |
 | **Strength** | right under Shader while it is `CRT`, `CRT Curved`, `Scanlines` or `LCD Grid`: `10%` to `100%`, for this system alone. Left and right step it 10% at a time and stop at the ends |
 | **Box Art** | fetch what this system is missing, and nothing else |
 | **Rescan Folder** | read the card again, for ROMs that arrived since boot |
 
 On Favorites the menu is only Games, Random Game, Sort By and View. The rest is about one
-console, and a game there takes its console's Display Mode wherever it was
+console, and a game there takes its console's Display wherever it was
 started from.
 
-Display Mode is per-system, because a Game Boy and a Genesis do not want the
+Display is per-system, because a Game Boy and a Genesis do not want the
 same answer. Set here it applies from the next launch; the same row in the
 in-game menu changes the running game as you press it, which is the one to use
 when you want to see the difference rather than guess at it. Either way it is
@@ -547,7 +547,7 @@ and some three, and a scrolling picture shimmers as they swap.
 screen pixel inside one of the game's pixels is that pixel exactly, and only
 one that falls across two of them mixes the two, by how much of it each
 covers. The picture stays as sharp as it can at that size and a scroll stays
-steady. At a whole number of times (Integer, Native 1:1) the two are the
+steady. At a whole number of times (Sharp Pixels, Actual Size) the two are the
 same.
 
 The other four draw an old screen. `CRT` is Timothy Lottes's CRT shader: a
@@ -558,7 +558,7 @@ and the corners round, and the picture's edges go into the curve.
 `Scanlines` is Sharp-Shimmerless with a dark band under each of the game's
 lines, and nothing more; `LCD Grid` has the band around each of its pixels,
 as on a Game Boy's screen. The CRT's lines are most even where the
-picture's height is a whole number of times the game's: Integer tall draws
+picture's height is a whole number of times the game's: Sharp Pixels, Tall draws
 a 224-line SNES game at twice its height. These four are the Pixel 2's,
 whose last step is its GPU's; the Brick draws them as Sharp-Shimmerless, and
 its rows step over them.

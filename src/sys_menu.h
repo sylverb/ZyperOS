@@ -133,9 +133,16 @@ typedef enum { PT_GAMES, PT_DISPLAY, PT_SOUND, PT_CONNECTIONS, PT_SYSTEM,
  * so these are hooks waiting to be wired, not wishes. */
 /* View, under Sort By (1.0.5, DESIGN.md 11.39): the shelf's covers in a
  * row, or its games as a list, this shelf's own choice as Sort By is. */
+/* The width Display's caption (SM_DNOTE1, SM_DNOTE2) wraps to, in pixels of
+ * the menu's font: the shelf menu's panel is measured with every mode's
+ * caption in it (main.c, menu_shelf_width), so it holds still as the mode
+ * changes */
+#define SM_NOTE_W 760
+
 typedef enum {
 	SM_GAMES, SM_RANDOM, SM_CORE, SM_DSLANG, SM_SORT, SM_VIEW,
-	SM_DISPLAY, SM_SHADER, SM_STRENGTH, /* SM_BUTTONS, */ SM_BOXART, SM_RESCAN, SM_ROWS
+	SM_DISPLAY, SM_DNOTE1, SM_DNOTE2, SM_SHADER, SM_STRENGTH, /* SM_BUTTONS, */ SM_BOXART,
+	SM_RESCAN, SM_ROWS
 } sm_row;
 
 /* What the Favorites shelf's menu is, which is two of those rows.
@@ -386,6 +393,9 @@ typedef struct {
 	const char *dslang;
 	int         game_count;
 	const char *dmode;
+	/* What it does, the caption under Display Mode (SM_DNOTE1, SM_DNOTE2),
+	 * wrapped a line each (1.0.6); NULL reads as an empty line */
+	const char *dmode_note[2];
 	/* This system's shader's label, after Display Mode; NULL reads Off */
 	const char *shader;
 	/* Its strength, "50%", when it is an old screen (no_strength says

@@ -37,6 +37,7 @@
 #include <stdio.h>
 #include <string.h>
 
+
 /* Developer (SSH) is offered on a development image (dropbear at boot) and
  * on a release image once the player has unlocked Developer Mode (devmode.h) */
 static bool dev_offered(void)
@@ -162,6 +163,16 @@ int menu_build(app *a, screen_id screen, int sys,
 		 * entries would count a folder as one */
 		u.game_count = sys_games(&a->view[sys])->count;
 		u.dmode      = dmode_label(a->view[sys].dmode);
+		/* and what it does, under it: two lines at most, narrower than any
+		 * width the panel is measured to, so it never widens it */
+		{
+			static char note[2][CHV_WRAP_COLS];
+			int nl = wrap_text(ui_font(UI_F_MENU), dmode_note(a->view[sys].dmode),
+			                   SM_NOTE_W, note, 2);
+
+			u.dmode_note[0] = nl > 0 ? note[0] : NULL;
+			u.dmode_note[1] = nl > 1 ? note[1] : NULL;
+		}
 		u.shader     = shader_label(a->view[sys].shader);
 		u.strength   = strength_row_label(a, sys);
 		u.no_strength = !u.strength;
