@@ -596,6 +596,22 @@ way, and not faster than the vendor's:
 What ZyperOS can make faster is how it uses the GPU (fewer draws, kept
 textures, as on the Pixel 2), not the vendor's driver itself.
 
+**Reverse engineering them** (static analysis of the aarch64 libraries and
+the firmware blobs, with REA and Ghidra) does not change this. The useful
+GPU set is about 5 MB of code: a whole OpenGL ES 3.2 stack, a GLSL compiler
+and a shader-core back end. Rewriting it from what we learn is an open GPU
+driver project on the scale of Panfrost or Asahi's GPU driver, years for a
+team, and it would rediscover what Imagination's own open Mesa driver
+already documents (the Rogue instruction set, its compiler, its firmware
+interface); the register-level setup is already open in the MIT/GPL kernel
+driver. The XR829 firmware is a Wi-Fi MAC for an undocumented chip. Where
+reverse engineering pays is small and bounded: reading which EGL and GLES
+features DDK 1.11 offers (fence sync, surfaceless contexts, wait sync, the
+GLES version), the main unknown for Diatom's GPU frames on the Brick
+(section 6), before step 6, with no device. Any reverse engineering keeps
+the clean-room rule: notes on behavior only, and nothing of the binaries
+in the repository.
+
 **My recommendation:** measure before choosing. Option 4's one unknown is
 the launcher's speed on the CPU, and the Pixel 2 gives a cheap lower bound
 (its CPU is slower than the Brick's): the launcher with SDL's software
