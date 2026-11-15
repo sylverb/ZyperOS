@@ -272,6 +272,10 @@ static const sa_frame SA_FRAMES_PSP[] = {
     { 23, 93 }, { 24, 94 }, { 25, 94 }, { 26, 94 }, { 27, 93 }, { 28, 94 },
 };
 
+static const sa_frame SA_FRAMES_RECENTS[] = {
+    { 0, 400 }, { 1, 400 },
+};
+
 static const sa_frame SA_FRAMES_ROMS[] = {
     { 0, 0 },
 };
@@ -398,6 +402,7 @@ static const sa_asset SA_ASSETS[] = {
     { "PORTS", "system-icons/PORTS.png", "system-icons/PORTS-still.png", 256, 2, 1, 2, 63, 37, 126, 192, 800, SA_FRAMES_PORTS },
     { "PS1", "system-icons/PS1.png", "system-icons/PS1-still.png", 256, 3, 9, 27, 93, 10, 108, 121, 6000, SA_FRAMES_PS1 },
     { "PSP", "system-icons/PSP.png", "system-icons/PSP-still.png", 256, 3, 15, 46, 74, 95, 109, 62, 6000, SA_FRAMES_PSP },
+    { "RECENTS", "system-icons/RECENTS.png", "system-icons/RECENTS-still.png", 256, 2, 1, 2, 120, 80, 32, 40, 800, SA_FRAMES_RECENTS },
     { "ROMS", "system-icons/ROMS.png", "system-icons/ROMS-still.png", 256, 0, 0, 1, 0, 0, 0, 0, 0, SA_FRAMES_ROMS },
     { "SATURN", "system-icons/SATURN.png", "system-icons/SATURN-still.png", 256, 3, 9, 27, 90, 15, 109, 101, 6000, SA_FRAMES_SATURN },
     { "SAVES", "system-icons/SAVES.png", "system-icons/SAVES-still.png", 256, 0, 0, 1, 0, 0, 0, 0, 0, SA_FRAMES_SAVES },

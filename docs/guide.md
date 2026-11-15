@@ -279,7 +279,8 @@ than any one console:
 | **Auto Off** | how long without a button before the device powers itself down. It waits while a long job runs (a scraper run, a System Update download, PortMaster's install, Storage measuring the card, files moving over File Transfer) and counts again from the start when the job ends. On the charger it does not power down; on the shelf the screen goes off instead, and any button (power too) lights it again. On USB File Transfer the screen goes off when nothing is moving, and only dims while files are on their way; a button, a browser coming to the page or files starting to move light it fully, and files keep moving while it is dark |
 | **Screensaver** | `off`, `30s`, `1m`, `2m`, `5m` or `10m` with nothing pressed on the shelf before the video snaps of random games play over the whole screen, each with its game's name and system. START boots the game on screen; any other button goes back. `1m` on a new device. It never starts in a game, a menu, MP4 or File Transfer, while music plays or a long job runs, or under 20% on battery; on battery it ends by itself after 10 minutes, and Auto Off still powers the device off at its own time. With no video snaps on the card it shows covers instead, and with neither, nothing - see **Screensaver** below |
 | **Side Lights** | the Pixel 2 only: a page of switches for what the side lights show on their own, `Charging Bar`, `Low Battery`, `Volume and Brightness`, `Files and Covers` and `Achievements`, each `On` or `Off`, and the row under the cursor plays its pattern on the lights; the row says how many are on. L2+R2 shows the level in all four. `All on` on a new device |
-| **System Order** | the home's systems `A to Z` by name, on a new device and after an upgrade, or by `Release Date`. Favorites stays first, and Ports and MP4 stay last |
+| **System Order** | the home's systems `A to Z` by name, on a new device and after an upgrade, or by `Release Date`. Favorites stays first, then Recents, and Ports and MP4 stay last |
+| **Home Systems** | which shelves the home shows: `All`, or how many are on. A opens a switch for Favorites, Recents (the ten games played last) and every system with games; Left, Right or A turns one on or off. A hidden system leaves the home, Random Game, Search, Favorites and Recents, and its games stay on the card. The last system on stays on |
 | **Appearance** | `Light`, `Dark` or `Auto`, which is light from 7:00 to 19:00 by the clock. `Light` on a new device and after an upgrade |
 | **Scraper** | box art, its sources and video snaps - see below. Its value is how many games have no cover, or `complete` |
 | **Achievements** | the RetroAchievements account, or `sign in` |
@@ -497,7 +498,7 @@ The system menu opens on a shelf of games and applies to that system alone:
 | **Box Art** | fetch what this system is missing, and nothing else |
 | **Rescan Folder** | read the card again, for ROMs that arrived since boot |
 
-On Favorites the menu is only Games, Random Game, Sort By and View. The rest is about one
+On Favorites and Recents the menu is only Games, Random Game, Sort By and View. The rest is about one
 console, and a game there takes its console's Display Mode wherever it was
 started from.
 
@@ -1246,7 +1247,8 @@ Old saved layout and card-style values do not change this behavior.
 
 MENU > Home Screen selects Spotlight or Gallery. MENU > System Order puts the
 systems A to Z by name (3DO, 32X, Arcade, Atari 2600 ...) or by their release
-dates, as before. Favorites stays first, and Ports and MP4 stay last. Spotlight puts the system name
+dates, as before. Favorites stays first, then Recents, and Ports and MP4 stay last.
+MENU > Home Systems shows or hides each of them. Spotlight puts the system name
 beside its animated console sprite, with nearby systems below. Gallery puts the
 focused sprite between its neighbors and shows the full system name below.
 Spotlight uses short names, such as GBA and N64. These labels do not rename any

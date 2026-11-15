@@ -55,6 +55,7 @@
 #include "hare.h"
 #include "xfer.h"
 #include "home.h"
+#include "homesys_screen.h"
 #include "games.h"
 #include "hareart.h"
 #include "hotspot.h"
@@ -5044,6 +5045,10 @@ int main(int argc, char *argv[])
 		 * move (DESIGN.md 11.3) */
 		else if (!strcmp(argv[i], "--look") && i + 1 < argc)
 			shot_look = argv[++i];
+		/* --homesys-page ROW: MENU > Display > Home Systems' page, the
+		 * cursor on ROW (src/homesys_screen.c) */
+		else if (!strcmp(argv[i], "--homesys-page") && i + 1 < argc)
+			shot_homesys = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--look-page") && i + 1 < argc) {
 			shot_look_page = argv[++i];
 			if (i + 1 < argc && argv[i + 1][0] >= '0' && argv[i + 1][0] <= '9')
@@ -6150,6 +6155,7 @@ int main(int argc, char *argv[])
 	system_order_load();
 	system_order_apply(&a.sys);
 	power_button_load();
+	homesys_load();
 
 	/* Before the scan, because the scan builds the Favorites shelf out of
 	 * them and a shelf cannot be built from a list that has not been read. */

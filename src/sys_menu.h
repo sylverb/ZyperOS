@@ -99,6 +99,10 @@
  * handheld going off: Press, POWER pressed turns it off, as it always has;
  * Hold, POWER held for two seconds (src/powerhold.h). Two choices, so A
  * switches it, as Left and Right do (1.0.6, asked for on the Discord). */
+/* PM_HOMESYS is Home Systems, under System Order: which shelves the home
+ * shows, each system with games, Favorites and Recents (src/homesys.h). Its
+ * value "All", or how many of them are on; A opens the page of switches
+ * (sys_menu_homesys_rows). 1.0.6, asked for on the Discord. */
 /* PM_AUTOHOURS is Auto Hours, under Appearance: when Auto turns light and
  * when dark, by the half hour (src/theme.h), 7:00 and 19:00 as it ships.
  * PM_THEME is Theme, under it: the accent, a background tone for each theme,
@@ -107,7 +111,8 @@ typedef enum {
 	/* Games */
 	PM_SEARCH, PM_STATS, PM_RANDOM, PM_ACHIEVEMENTS, PM_SCRAPER,
 	/* Display */
-	PM_APPEARANCE, PM_AUTOHOURS, PM_THEME, PM_HOME, PM_ORDER, PM_BATTERY, PM_SAVER, PM_SHADER,
+	PM_APPEARANCE, PM_AUTOHOURS, PM_THEME, PM_HOME, PM_ORDER, PM_HOMESYS, PM_BATTERY, PM_SAVER,
+	PM_SHADER,
 	PM_STRENGTH,
 	/* Sound */
 	PM_AUDIO, PM_CHANNELS, PM_SOUNDS, PM_MUSIC,
@@ -347,6 +352,8 @@ typedef struct {
 	/* System Order, under Home Screen: "A to Z" (default, NULL reads it) or
 	 * "Release Date", systems.cfg's order (2026-11-06) */
 	const char *order;
+	/* Home Systems' value: "All", or "12 of 15"; NULL reads All */
+	const char *homesys;
 	const char *battery;    /* the corner's battery: Bars (default), Percentage or Time Left */
 	int         auto_off;    /* seconds, 0 for off */
 	bool        power_hold;  /* Power Button is Hold; false, Press */
@@ -485,6 +492,20 @@ void sys_menu_bytes(unsigned long long n, char *out, size_t outn);
 /* MENU > Side Lights' page (src/sidelights.h): a row for each part, On or
  * Off, stepped by Left, Right or A. `ids` gets each row's part. */
 int sys_menu_lights_rows(side_lights on, menu_row *out, side_light_part *ids);
+
+/* MENU > Display > Home Systems' page (src/homesys.h): Favorites and Recents,
+ * a rule, then every system the card has games for (`names` and `tags`, `n`
+ * of them, in the home's order), each On or Off as homesys_shown says,
+ * stepped by Left, Right or A; then the note. While one system alone is on,
+ * its row is dead and a second note says why. `ids` gets each row's tag, NULL
+ * for a rule or a note. Returns how many rows. */
+typedef struct {
+	const char *const *names;
+	const char *const *tags;
+	int n;
+} homesys_ui;
+#define HS_ROWS (CFG_MAX_SYSTEMS + 6)
+int sys_menu_homesys_rows(const homesys_ui *u, menu_row *out, const char **ids);
 
 /* Build whichever menu u->games calls for. Returns the row count, so the input
  * loop never needs to know which of the two it is driving. */
