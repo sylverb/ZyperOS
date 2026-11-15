@@ -39,9 +39,7 @@ void muse_locked(app *a);
 /* MP4's menu, from Now Playing and the shelf */
 muse_exit muse_menu(app *a);
 
-/* The video view: the whole picture, or with its controls */
-enum { NPV_FULL, NPV_CONTROLS };
-extern int g_np_view;                    /* -1 until read from the settings */
+/* A frame of the video player, its controls at k (0 hidden, 1 shown) */
 void np_draw_video(app *a, const mu_now *mn, float k);
 /* Now Playing, opened from the shelf or a list */
 muse_exit muse_now_screen(app *a);

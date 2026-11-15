@@ -706,8 +706,6 @@ typedef enum {
 	S_MP4_LOCKED,
 	S_MP4_HOLD_UNLOCK,
 	S_MP4_HINT_LOCK,
-	S_MP4_HINT_CONTROLS,
-	S_MP4_HINT_FULL_SCREEN,
 	S_MP4_HINT_VIDEO,
 	/* res/strings/muse.txt */
 	S_MUSE_CHAPTER_OF,

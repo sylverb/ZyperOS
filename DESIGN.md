@@ -506,7 +506,7 @@ beside a cubic one. One function each, in `src/design.h`.)*
 | **tour-pulse** | 440 | - | the right glyph's two pulses after a press of the wrong button |
 | **hold-unlock** | 2000 | - | MP4's lock: SELECT and START held together this long unlock it |
 | **hold-lock-lit** | 4000 | - | MP4's lock screen, lit as it locks |
-| **hold-controls** | 3000 | - | MP4's video controls after the last press, full screen |
+| **hold-controls** | 3000 | - | MP4's video controls after the last press |
 | **hold-snap** | 1000 | - | a game focused on the shelf before its cover turns into its video snap |
 | **hold-low-battery** | 6000 | - | the low-battery start screen before the handheld powers off |
 | **hold-heat** | 4000 | - | "Getting hot", on the home and over a game |
@@ -1547,19 +1547,26 @@ Muse, so a card's saved places and modes still read.
   own frames (src/muse/cover.c). On videos, Sort By is Folder or Title and
   there is no Album Art; Shuffle All and Album Art are on music, and on All
   when the card has songs.
-- **Video.** On Now Playing, in one of two views, Y between them, kept:
-  **full screen** - the picture as large as it fits on **ink**, the controls
-  (title, the bar, the key hints) on **surface** at 92% over its foot,
-  in over **quick** after any press and out over **fade-out** after
-  **hold-controls**, and up for as long as it is paused; it opens in this
-  one - and **with
-  controls** - the picture in a 16:9 frame 896 wide on **ground**, the
-  header above it with the title in its row, and the bar and legend below,
-  always there.
-  Their keys are hints as the shelves draw them (`page_hint`: a glyph and a word,
+- **Video.** On Now Playing, one view, as a phone's or a TV's player
+  (1.0.6; before, two views Y turned between, the smaller one giving up
+  nothing to the keys but its frame): the picture as wide as the screen at
+  16:9 under the header's band (the clock, the title in its row, the marks)
+  on **ground**, the same size in every language; over its foot, on
+  **surface** at 92%, the bar with the time played and the time left at its
+  two ends on one row, and the keys under it on the shelf's foot. The band
+  is as tall as the keys need: a language whose words take a second row
+  makes it taller, never the picture smaller. The controls come up on any
+  key, which also does what it does (the first press too, as a remote's
+  would), stay for **hold-controls** after the last press and for as long
+  as it is paused, in over **quick** and out over **fade-out**; Y shows
+  them, or hides them at once. Paused or stopped, a play disc
+  (`ds_play_disc`) stands in the picture's middle. Under the lock the
+  controls stay hidden: no key they name works there.
+  The keys are hints as the shelves draw them (`page_hint`: a glyph and a word,
   **chrome** type, **text-soft**), from x 64 to 960 with the room shared out, and
-  on a second row above where a language's words need it, never cut: Now
-  Playing's too (A, B, X, Y, L1/R1, the d-pad with its sides lit, 11.4).
+  on a second row above where a language's words need it, never cut: A, B,
+  X, L1/R1 (a folder of more than one), the d-pad with its sides lit
+  (11.4). Now Playing's music view keeps Y (its mode or a book's speed).
   The picture is drawn under the screen at the panel's own resolution
   (plat_video_under), so nothing scales it twice. A video keeps its place
   as a book does, per file; none is kept in its first or last minute.
@@ -4121,12 +4128,11 @@ when its change lands.
 - Words whose ink comes within 3 units of a key or a more mark, found when
   the host began to check it (1.0.6): Storage's two-line caption under the
   sort key (X with the order), its accents and ascenders in Spanish and
-  Portuguese, and the video controls' keys, wrapped to two rows in Japanese,
-  under the times. The sort key sits in the only room between the list and
-  the caption, so moving it is a layout of its own; the video player's
-  controls get a new layout that keeps the picture at its full size in every
-  language. `check-i18n-shots` lists these screens as known (`KNOWN_KEYS`)
-  and fails on any other.
+  Portuguese. The sort key sits in the only room between the list and the
+  caption, so moving it is a layout of its own. `check-i18n-shots` lists
+  these screens as known (`KNOWN_KEYS`) and fails on any other. (The video
+  controls' keys, wrapped under the times in Japanese, were the other; the
+  one-view player, 1.0.6, keeps them in a band that grows instead.)
 - A heart is drawn three ways: filled (`draw_heart`, `src/heart.c`, the
   favorites' mark), as a stroke mark (`UI_GLYPH_HEART`, the Favorites tile),
   and as a distance field for a cover badge that only its check draws
