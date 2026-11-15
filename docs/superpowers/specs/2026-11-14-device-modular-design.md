@@ -92,16 +92,20 @@ profile, drawing it, and catching its drivers up, the layer is right.
   `usbdrive_screen.c` move out of main.c there). This work writes no launcher
   code until both are merged.
 - **The design system's round 3** brings a layout engine (Clay, Yoga or its
-  own) and resolution-independent tokens on a 4-unit grid. The seam between
-  them and the profile is agreed with that work before step 1 fixes how
-  screen geometry reaches the UI. My proposal to it: the profile gives
-  physical facts only (panel pixels, turn, active area in millimetres,
-  insets, aspect, whether a panel still can be saved), read once at start;
-  the layout system owns the logical canvas, the grid, the tokens and any
-  density-based type; the platform layer stays the only code that knows the
-  turn. The same 1024x768 canvas is 0.048 mm a unit on the Pixel 2, 0.063 mm
-  on the Brick and 0.078 mm on the Brick Pro, which that work may want for
-  type sizes.
+  own) and resolution-independent tokens on a 4-unit grid. The seams with it
+  are agreed (2026-11-15) and go into its round 3 spec too:
+  - **Screen.** The profile gives physical facts only: panel pixels, turn,
+    active area in millimetres, insets in panel pixels, aspect, whether a
+    panel still can be saved. The layout system computes the canvas from
+    them: 768 units high, 768 x aspect wide on the 4-unit grid (1024 on all
+    three devices). The profile states no scale: `plat_present` derives it
+    from `panel_h / 768`. The layout converts insets to canvas units,
+    rounds them up to the grid and adds them to its safe-area token (all 0
+    today). Round 3 uses no density; the millimetres stay in the profile
+    for a later density rule, which is mine to decide (the same canvas is
+    0.048 mm a unit on the Pixel 2, 0.063 mm on the Brick, 0.078 mm on the
+    Brick Pro). The platform layer stays the only code that knows the turn.
+  - **Buttons.** See section 1, "Buttons differ from device to device".
 - **Performance first** (the Pixel 2's frame budget): a profile is constant
   data read at start; nothing is looked up per frame that was a literal.
 - **The license.** ZyperOS is GPL-3.0-only; the Brick code from the TortOS
@@ -208,7 +212,7 @@ profile by a host tool, so a value is stated once.
 | Part | What a device declares |
 |---|---|
 | **Identity** | `id` (`pixel2`, `brick`), the name people use ("GKD Pixel 2", "TrimUI Brick"), the `.userdata/<id>` folder, the host name, the boot partition's label (`PX2BOOT`, `BRICKBOOT`), the image's name part |
-| **Screen** | panel width and height in pixels, its turn (0, 90, 270), the canvas's scale to it (0.625 on the Pixel 2, 1 on the Brick), the aspect (4:3 only for now), whether a still of the panel can be saved for a port's loading screen |
+| **Screen** | panel width and height in pixels, its turn (0, 90, 270), the active area in millimetres, insets in panel pixels (0 on all three), the aspect (4:3 only for now), whether a still of the panel can be saved for a port's loading screen. No canvas size and no scale: the layout system derives the canvas, `plat_present` the scale |
 | **Buttons** | which of `in_button` exist; how each is printed on the device (label and shape: letter, word, round with dots, pill, rocker); the face layout (SNES: A right, B bottom); MENU as a real button or as FUNCTION reported on release; L2/R2 as plain buttons or as taps; the chords: brightness (own keys, or MENU+VOL), the battery level (L2+R2 on lights, or none), Home (MENU+START, or none), the Developer Mode unlock |
 | **Handheld art** | a `td_model`: body size and corners, the body's color roles, every key's face (front, left, right, top), place and shape in millimetres, the lights' lenses, the poses (turn and tilt per face), the drawing's scale and column on the tutorial and the Controls tab, the kept texture's box. `NULL` for a device that has none yet, and every screen copes |
 | **Lights** | none, or side lights: how many, which parts (battery, levels, files, cheer), the FIFO line format already used by `gauge` |
@@ -225,16 +229,33 @@ profile by a host tool, so a value is stated once.
 profile's buttons part is a table, one row per physical control: its
 `in_button` id (or a new one: HOME, L3, R3, the sticks), whether this
 device has it, the label printed on it ("A", "MENU", "F1", a shape), its
-cap's shape (round, pill, the Pixel 2's round MENU with three dots, the
-Brick's round keys with icons, a stick), its cap color for the handheld
-drawing (the Brick Pro's maroon A B X Y), its place on the handheld model,
-and its roles in chords (MENU or FN with the volume keys, HOME, MENU with
-START, SELECT with the shoulders for Diatom's hotkeys). Every key hint,
-tutorial lesson, Controls row, chord help line and wrong-press answer reads
-a button from this table and draws it through one glyph component; none
-names a Pixel 2 key. Which glyph family a device's buttons use (letters in
-circles, shapes, words) is the design system's to draw, from the profile's
-facts; the seam is agreed with that work as the screen's is.
+cap's shape (round, pill, stick) with an icon from the design system's
+closed set (square, play triangle, three dots, stick, none), its cap color,
+its place on the handheld model, and its roles in chords (MENU or FN with
+the volume keys, HOME, MENU with START, SELECT with the shoulders for
+Diatom's hotkeys). Agreed with the design system (2026-11-15):
+
+- **One glyph component** in `src/ds/` draws any button from its label and
+  cap shape and icon, at sizes on the 4-unit grid. The design system owns
+  it and the glyph families.
+- **Hints, key rows and chords name buttons by id**, never by a printed
+  string. A chord is a list of ids, where "+" means together (SELECT +
+  START) and "/" means either (L1 / R1); today's one "L1/R1" pill becomes
+  two glyphs.
+- **On-screen glyphs use the theme's colors**, so contrast holds. The cap
+  color is for the 3D handheld only (the Brick Pro's maroon A B X Y).
+- **A vendor logo is never an icon.** A key that shows TrimUI's mark (the
+  Brick's MENU) gets its word, "MENU", as its label, and the glyph draws
+  that word. The Pixel 2's MENU keeps the three dots, an icon of the set.
+- **Fit runs per device**, with the keys-overlap check. The full i18n set
+  runs on the default shot device; on the others, the screens whose fit
+  depends on glyph widths, unless all three fit the check budget (the
+  design system decides from measured times).
+
+Every key hint, tutorial lesson, Controls row, chord help line and
+wrong-press answer reads its buttons from this table; none names a Pixel 2
+key. The fields can land in step 1; the design system's round 3 migration
+is the first to read them.
 
 `plat_*` functions that were capability questions (`plat_has_wifi`,
 `plat_gpu_shaders`, `plat_speaker_mono`, `plat_brightness_on_volume`,
@@ -379,8 +400,9 @@ device):
 - **Screen**: 1024x768, no turn, scale 1: the canvas is its panel.
 - **Buttons**: on the front, an 8-way d-pad, the A B X Y diamond, two lit
   pill keys above the face buttons (F1 and F2: brightness) and three round
-  keys along the bottom (MENU, SELECT and START by their icons; which cap is
-  which is checked against the key codes). L1 L2 R2 R1 sit on a ledge on
+  keys along the bottom (MENU, SELECT and START: TrimUI's mark, a square and
+  a play triangle on the caps; on screen MENU is the word, as no vendor
+  logo is an icon; which cap is which is checked against the key codes). L1 L2 R2 R1 sit on a ledge on
   the back, where the thin upper half meets the thick lower half, with a
   USB-C port between L2 and R2 (L2 and R2 are plain buttons; the shoulder
   caps come off, in a rectangular and a rounded set). VOL+ and VOL- on the
