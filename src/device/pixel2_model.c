@@ -42,6 +42,10 @@ const td_model td_model_pixel2 = {
 	.left = { -52.0f, 3.95f, 0.0f },
 	.both = { 0.0f, 3.45f, 0.0f },
 	.top = { 10.0f, 3.55f, TD_PITCH_DEG },
+	/* No key on a back ledge: the front */
+	.back = { 10.0f, 3.55f, 0.0f },
+	/* The Controls tab's front pose, 3.15 units a millimetre */
+	.tab = { 10.0f, 3.15f, 0.0f },
 	/* Every vertex of every pose and turn, a halo's faint edge too, as
 	 * --handheld-box measures it (src/tourdevice.c, td_box_holds) */
 	.keep_tour = { 0, 66, 304, 382 },

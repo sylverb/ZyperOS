@@ -376,6 +376,49 @@ int main(void)
 		CHECK(sshlink_argv(SSHLINK_OFF, "x", "/k", argv) == 0 && argv[0] == NULL, "off started something");
 	}
 
+	printf("  over a port (sshlink_owner_of, sshlink_want_port, portkeys):\n");
+	{
+		const char *argv[SSHLINK_ARGV];
+		int k, n;
+		bool s = false, at_cable = false;
+
+		/* Who runs SSH: the launcher, portkeys over a port, nobody in the
+		 * in-game menu over a port (a second zyperos.elf for a moment) */
+		CHECK(sshlink_owner_of(false, false) == SSHLINK_BY_LAUNCHER, "the shelf's SSH is not the launcher's");
+		CHECK(sshlink_owner_of(true, false) == SSHLINK_BY_PORTKEYS, "a port's SSH is not portkeys'");
+		CHECK(sshlink_owner_of(false, true) == SSHLINK_BY_NONE && sshlink_owner_of(true, true) == SSHLINK_BY_NONE,
+		      "the in-game menu over a port runs SSH of its own");
+		/* Every combination: never the password, nothing with Developer
+		 * Mode off, and a radio with the switch off is nothing, as ever */
+		for (k = 0; k < 16; k++) {
+			sshlink_facts f = { .cable = k & 1, .radio = (k >> 1) & 1,
+			                    .over_wifi = (k >> 2) & 1, .cable_spent = false };
+			bool dev = (k >> 3) & 1;
+			sshlink_mode m = sshlink_want_port(&f, dev), want;
+
+			if (!dev) want = SSHLINK_OFF;
+			else if (f.radio) want = f.over_wifi ? SSHLINK_NET : SSHLINK_OFF;
+			else want = f.cable ? SSHLINK_CABLE_KEYS : SSHLINK_OFF;
+			CHECK(m == want, "port: cable %d radio %d over_wifi %d devmode %d: %d, not %d",
+			      f.cable, f.radio, f.over_wifi, dev, (int)m, (int)want);
+			CHECK(m != SSHLINK_CABLE, "the password over a port (cable %d radio %d over_wifi %d)",
+			      f.cable, f.radio, f.over_wifi);
+		}
+		/* A lockout's spent plug is the launcher's; keys only has nothing
+		 * to lock, so a port on the same plug still has SSH */
+		CHECK(sshlink_want_port(&(sshlink_facts){ .cable = true, .cable_spent = true }, true) == SSHLINK_CABLE_KEYS,
+		      "a launcher's lockout kept SSH off over a port");
+		/* dropbear over a port on the cable: its address alone, -s */
+		n = sshlink_argv(SSHLINK_CABLE_KEYS, "10.42.0.1:22", "/k", argv);
+		CHECK(n > 0 && argv[n] == NULL, "the port's cable words: %d", n);
+		for (k = 1; k < n; k++) {
+			if (!strcmp(argv[k], "-s")) s = true;
+			if (!strcmp(argv[k], "-p") && k + 1 < n) at_cable = !strcmp(argv[k + 1], "10.42.0.1:22");
+		}
+		CHECK(s, "over a port the cable takes passwords: no -s");
+		CHECK(at_cable, "over a port the cable's SSH is not on its address alone");
+	}
+
 	printf("  keys in authorized_keys (sshlink_key_lines):\n");
 	CHECK(sshlink_key_lines(NULL) == 0 && sshlink_key_lines("") == 0, "nothing read as a key");
 	CHECK(sshlink_key_lines("\n  \n# a comment\n\t# another\n") == 0, "blanks and comments read as keys");
@@ -393,6 +436,7 @@ int main(void)
 	       "a user name moves nothing, in the shadow only root has a password: the PIN's, the "
 	       "run folder goes whole, whatever a session left in ~, the card's keys untouched; "
 	       "the password never with a radio, SSH over Wi-Fi only with the choice on and keys "
-	       "alone (-s, every address), a lockout held until a replug\n");
+	       "alone (-s, every address), a lockout held until a replug; over a port portkeys' SSH, keys "
+	       "only on every link, and none in the in-game menu\n");
 	return 0;
 }

@@ -99,11 +99,18 @@
 #include "osdbar.h"
 #include "pkkeys.h"
 #include "pkset.h"
+#include "pkssh.h"
 #include "powerhold.h"
 #include "portmenu.h"
 #include "sidelights.h"
 #include "status.h"
 #include "themefile.h"
+
+/* TERM, from launch.sh as the port ends: Developer SSH is stopped first
+ * (pkssh_stop), its sessions with it, then this ends, as it ended on TERM
+ * before. A flag, which the main loop and menu_show's wait look at. */
+static volatile sig_atomic_t g_term;
+static void on_term(int sig) { (void)sig; g_term = 1; }
 
 #ifndef SYS_pidfd_open
 #define SYS_pidfd_open 434
@@ -1346,7 +1353,7 @@ static int menu_waiting(void)
 		_exit(127);
 	}
 	if (child < 0) fprintf(stderr, "portkeys: cannot start the menu (%s)\n", strerror(errno));
-	while (child > 0 && waitpid(child, &status, 0) < 0 && errno == EINTR) {}
+	while (child > 0 && waitpid(child, &status, 0) < 0 && errno == EINTR && !g_term) {}
 	if (child > 0 && WIFEXITED(status) &&
 	    (WEXITSTATUS(status) == PORT_MENU_QUIT || WEXITSTATUS(status) == PORT_MENU_POWER))
 		how = WEXITSTATUS(status);
@@ -1838,6 +1845,15 @@ int main(int argc, char **argv)
 	 * rung nearest what the panel is at. A volume never saved stays
 	 * untouched until the first press, which starts from the middle. */
 	pk_levels_load(db, BACKLIGHT, &L);
+	/* Developer SSH for the port's length (pkssh.h), and TERM to end it */
+	pkssh_init(db, argc > 1 ? argv[1] : NULL);
+	{
+		struct sigaction sa;
+
+		memset(&sa, 0, sizeof sa);
+		sa.sa_handler = on_term;
+		sigaction(SIGTERM, &sa, NULL);
+	}
 	/* The bar's theme (bar_show): MENU > Appearance, from the same device
 	 * database the launcher reads it from, and the zone from the card's
 	 * library, from launch.sh: $SHARED_USERDATA_PATH/.zyperos/library.db */
@@ -1904,9 +1920,20 @@ int main(int argc, char **argv)
 		bool plugged = false, unreliable = false;
 		int64_t cutoff;
 
+		if (g_term) {
+			pkssh_stop();
+			return 0;
+		}
 		if (!n && G.fd < 0) {
 			fprintf(stderr, "portkeys: no keys left to read\n");
+			pkssh_stop();
 			return 0;
+		}
+		/* Developer SSH's next look (pkssh.h) */
+		{
+			int sw = pkssh_tick(now_ms());
+
+			if (sw >= 0 && (wait < 0 || sw < wait)) wait = sw;
 		}
 		/* A held key's next repeat, or at once when events wait for this
 		 * pass (pkkeys_wait) */

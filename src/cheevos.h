@@ -151,6 +151,10 @@ bool chv_note_earned(int game, int id, bool synced);
 int  chv_pending_count(void);
 /* Owed for one game, for its list's heading */
 int  chv_pending_for(int game);
+/* On the account for one game, as far as the store knows: what a download
+ * compares the account's own count with, to ask for its unlocks only when
+ * it holds more (src/radl.h) */
+int  chv_synced_for(int game);
 bool chv_pending_at(int n, int *game, int *id);
 
 /* One owed unlock, whole, for the sending */

@@ -55,12 +55,13 @@ done
 $SSH "sync; rm -rf /tmp/px2-deploy"
 
 # A new launch.sh only runs from the next boot: the shell running the old one
-# keeps reading the file it opened. Anything else: the launcher restarts
-# itself when it exits (launch.sh), and Diatom with it, so a new diatom or
-# core is the one that runs.
-if grep -qx launch.sh "$LIST"; then
+# keeps reading the file it opened. Its device.sh the same: launch.sh sourced
+# it once, at its start. Anything else: the launcher restarts itself when it
+# exits (launch.sh), and Diatom with it, so a new diatom or core is the one
+# that runs.
+if grep -qx -e launch.sh -e device.sh "$LIST"; then
 	$SSH 'reboot' || true
-	echo "px2-deploy: done; launch.sh changed, so the device is restarting"
+	echo "px2-deploy: done; launch.sh or device.sh changed, so the device is restarting"
 else
 	$SSH 'kill $(pidof diatom) 2> /dev/null; kill $(pidof zyperos.elf) 2> /dev/null; true'
 	echo "px2-deploy: done; ZyperOS is restarting"

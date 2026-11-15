@@ -28,7 +28,7 @@ NATIVE_J = $(if $(filter -j%,$(MAKEFLAGS))$(findstring j,$(filter-out -%,$(first
 # had to be remembered by name, which is a suite in the same sense that a list
 # of good intentions is a plan. A check nobody runs is a check that does not
 # exist, and check-menus was about to join eight others in that state.
-CHECKS = check-cheevos check-hare check-portal check-httpd check-idle check-taskhold check-saver check-rahash check-flacdec check-achtab check-rasubmit check-raoffline check-signin check-noticeq check-badges check-badge-shots \
+CHECKS = check-cheevos check-hare check-portal check-httpd check-idle check-taskhold check-saver check-rahash check-flacdec check-achtab check-rasubmit check-raoffline check-radl check-signin check-noticeq check-badges check-badge-shots \
          check-raset check-xfer check-sshlink check-usblink check-devmode check-devices check-devicegen check-model check-ctl check-menus check-artscrape check-artrun check-sgdb check-snapshelf check-snaps check-audioout \
          check-db check-coreopts check-gamedel check-gamern check-esmedia check-media check-snapsize check-corepins check-targets check-storage check-stats check-sort check-bt check-ss check-titles check-savedlib check-search \
          check-muselib check-musequeue check-museart check-mp4lock check-mp4frame check-p2share check-webtheme check-p2ws check-p2codec check-p2d check-play check-p2 check-resident check-spawn check-controls check-remap check-controls-shots check-logpack \
@@ -558,9 +558,10 @@ check-px2-push:
 check-wifi-watch:
 	@sh tools/wifi-watch-check.sh
 
-# launch.sh's start on a card a power cut broke (sd/DEVICE/launch.sh): a junk
-# boot.env read as off, not sourced, and five fast stops of the launcher set
-# launch.sh aside once, so the next start copies ZyperOS again
+# launch.sh's start on a card a power cut broke (sd/zyperos/launch.sh with each
+# device's sd/DEVICE/device.sh): a junk boot.env read as off, not sourced, and
+# five fast stops of the launcher, or no device.sh, set launch.sh aside once,
+# so the next start copies ZyperOS again
 check-launch-start:
 	@sh tools/launch-start-check.sh
 
@@ -1082,7 +1083,8 @@ I18N_SRC := src/i18n.c src/i18n_tables.c
 # The device profiles' data (src/device/profile.h), for checks that pose a
 # device; src/profile.c is linked only where one is chosen (check-devices)
 DEVICE_PROFILES := src/device/pixel2_profile.c src/device/brick_profile.c src/device/desktop_profile.c \
-                   src/device/td_model.c src/device/pixel2_model.c src/device/pixel2_coreopts.c
+                   src/device/td_model.c src/device/pixel2_model.c src/device/brick_model.c \
+                   src/device/pixel2_coreopts.c
 # Each device's build and card (src/device/build.h): the generator and the
 # checks link them; the launcher never does
 DEVICE_BUILDS := src/device/pixel2_build.c src/device/brick_build.c
@@ -1246,14 +1248,15 @@ build-native/menu-check: tools/menu-check.c tools/legend.h src/wifi_menu.c src/w
                         src/sys_menu.c src/homesys.c src/homesys.h src/menu.c src/game_menu.c src/controls.c src/remap.c \
                         src/ctltab.c src/ctltab.h src/tdkey.h src/padglyph.h \
                         src/device/td_model.h src/device/td_model.c src/device/pixel2_model.c \
-                        src/audioout.c src/sidelights.c src/wifi_menu.h src/sys_menu.h \
+                        src/device/brick_model.c src/audioout.c src/sidelights.c src/wifi_menu.h src/sys_menu.h \
                         src/game_menu.h src/menu.h src/audioout.h src/sidelights.h \
                         src/controls.h src/spawn.c src/spawn.h $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -o $@ \
 	      tools/menu-check.c src/wifi_menu.c src/wifi.c src/sys_menu.c src/homesys.c \
 	      src/menu.c src/game_menu.c src/controls.c src/powerhold.c src/remap.c src/ctltab.c src/audioout.c \
-	      src/sidelights.c src/keyhints.c src/spawn.c src/device/td_model.c src/device/pixel2_model.c $(I18N_SRC)
+	      src/sidelights.c src/keyhints.c src/spawn.c src/device/td_model.c src/device/pixel2_model.c \
+	      src/device/brick_model.c $(I18N_SRC)
 
 # What the launcher tells the side lights' gauge (src/sidelights.h): the lines
 # as plastron's gauge reads them, the FIFO writer that never waits and never
@@ -1373,16 +1376,17 @@ check-device-compile:
 		diatom/port/pixel2.c diatom/port/rumble_evdev.c diatom/port/panelgamma.c; \
 	echo "ok: every device file compiles"
 
-# The handhelds' models (src/device/td_model.h): every key once, and the GKD
-# Pixel 2's places, views and kept boxes as the drawing had them. No SDL.
+# The handhelds' models (src/device/td_model.h): every key once, the GKD
+# Pixel 2's places, views and kept boxes as the drawing had them, and the
+# TrimUI Brick's as measured, its shoulders on the back ledge. No SDL.
 check-model: build-native/model-check
 	@./build-native/model-check
 
 build-native/model-check: tools/model-check.c src/device/td_model.h src/device/td_model.c \
-                          src/device/pixel2_model.c src/tdkey.h FORCE
+                          src/device/pixel2_model.c src/device/brick_model.c src/tdkey.h FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
-	      -o $@ tools/model-check.c src/device/td_model.c src/device/pixel2_model.c
+	      -o $@ tools/model-check.c src/device/td_model.c src/device/pixel2_model.c src/device/brick_model.c
 
 # Developer mode (src/devmode.h): the unlock hold on a clock moved by hand,
 # the setting in a real database, the one-time password and the keys the
@@ -1597,7 +1601,7 @@ build-native/rahash-check: tools/rahash-check.c $(RAHASH_SRC) src/rahashjob.c sr
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g $(LZMA_CFLAGS) \
 	      -o $@ tools/rahash-check.c $(RAHASH_SRC) src/rahashjob.c -lz $(LZMA_LIBS) -lpthread
 
-.PHONY: check-noticeq check-badges check-badge-shots check-rasubmit check-lowbatt check-powerhold check-homesys check-heat check-charging
+.PHONY: check-noticeq check-badges check-badge-shots check-radl check-rasubmit check-lowbatt check-powerhold check-homesys check-heat check-charging
 
 # The pop-ups over a game, one after another (src/noticeq.h)
 check-noticeq: build-native/noticeq-check
@@ -1681,6 +1685,23 @@ check-raoffline:
 		  $(I18N_SRC) $(LZMA_CFLAGS) $$(pkg-config --libs sdl2) -lsqlite3 -lz $(LZMA_LIBS) -lpthread && \
 		./build-native/raoffline-check; \
 	else echo "skipped: no SDL2 for the offline achievements check"; fi
+
+# MENU > Achievements' Download (src/radl.h): a whole card's run against a
+# RetroAchievements of the check's own - this check is its curl, net.c read in
+# whole - on a mixed card: sets right and out of date, new, unknown, empty, a
+# marker RetroAchievements has news for, a 429, the network gone mid-run, a
+# run stopped and finished by the next, libraries that never come, an account
+# refused. The time is the check's. No network.
+check-radl: build-native/radl-check
+	@./build-native/radl-check
+
+build-native/radl-check: tools/radl-check.c src/radl.c src/radl.h src/net.c src/net.h src/rafetch.c src/rajson.c src/cheevos.c src/library.c $(RAHASH_SRC) src/atomic.c src/db.c $(I18N_SRC) FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -DZYPEROS_VERSION='"check"' \
+	      -DNET_TMP='"$(CURDIR)/build-native/radl-check-tmp"' \
+	      -DRADL_TMP='"$(CURDIR)/build-native"' \
+	      $(LZMA_CFLAGS) -o $@ tools/radl-check.c src/radl.c src/rafetch.c src/rajson.c src/cheevos.c \
+	      src/library.c $(RAHASH_SRC) src/atomic.c src/db.c $(I18N_SRC) -lsqlite3 -lz $(LZMA_LIBS) -lpthread
 
 # The two set converters - one C on the device, one Python in the bulk tool -
 # over real RetroAchievements responses. Needs credentials and a network;

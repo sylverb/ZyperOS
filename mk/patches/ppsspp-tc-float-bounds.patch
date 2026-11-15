@@ -1,0 +1,80 @@
+ZyperOS: the ARM64 vertex decoder JIT keeps the texture bounds for through-mode
+float texture coordinates, as the C++ step does.
+
+Step_TcFloatThrough updates gstate_c.vertBounds with each vertex's U and V (as
+u16); Jit_TcFloatThrough only copies the two floats, and the Compile prologue
+loads and stores the bounds only for Step_TcU16ThroughToFloat. So with the
+decoder JIT on, a through-mode draw with float UVs leaves the bounds at their
+reset values (min 512, max 0), and FramebufferManagerCommon::CopyFramebufferForColorTexture,
+which crops its copy to those bounds, copies the whole framebuffer for every
+such draw that textures from the current render target.
+
+MotorStorm: Arctic Edge draws its 2D sprites that way (vertex type 0x04800183:
+through mode, float UV, float position, about 30 a frame), from the render
+target it draws to ("Attempting to texture from current render target ...
+making a copy", flags=7, in its log). On a GKD Pixel 2 (RK3326,
+Mali-G31 on Panfrost) it ran at 2.8 frames a second with the decoder JIT and
+18.7 without it, the CPU JIT on in both; the decoder's own time was a fraction
+of a millisecond either way. Same with the IR interpreter as the CPU core.
+With this patch: 19.1 with the decoder JIT on. Burnout Legends, which draws
+no such sprites, 29.95 before and after.
+
+The fix: the prologue tracks bounds for Step_TcFloatThrough too, and the JIT
+step converts U and V as the C++ cast does on ARM64 (FCVTZU, then the low 16
+bits) and updates the four bounds registers as Jit_TcU16ThroughToFloat does.
+ZyperOS's pair loop (ppsspp-vertex-pairs.patch) does not take decoders with
+this step any more: they are sprites, two vertices a draw, and its bounds
+lanes only knew the u16 step.
+
+Upstream: the x86, ARM32 and RISC-V decoder JITs skip the bounds for this step
+the same way.
+
+--- a/GPU/Common/VertexDecoderArm64.cpp
++++ b/GPU/Common/VertexDecoderArm64.cpp
+@@ -170,7 +170,8 @@
+ 			dec.steps_[i] == &VertexDecoder::Step_WeightsFloatSkin) {
+ 			skinning = true;
+ 		}
+-		if (dec.steps_[i] == &VertexDecoder::Step_TcU16ThroughToFloat) {
++		if (dec.steps_[i] == &VertexDecoder::Step_TcU16ThroughToFloat ||
++			dec.steps_[i] == &VertexDecoder::Step_TcFloatThrough) {
+ 			updateTexBounds = true;
+ 		}
+ 	}
+@@ -668,6 +669,27 @@
+ void VertexDecoderJitCache::Jit_TcFloatThrough() {
+ 	LDP(INDEX_SIGNED, tempReg1, tempReg2, srcReg, dec_->tcoff);
+ 	STP(INDEX_SIGNED, tempReg1, tempReg2, dstReg, dec_->decFmt.uvoff);
++
++	// The texture bounds, as Step_TcFloatThrough keeps them: each coordinate
++	// converted to unsigned toward zero, then kept as a u16. Without them the
++	// framebuffer copy for a through-mode draw that samples a render target
++	// copies the whole framebuffer rather than the rectangle it reads.
++	fp.LDUR(64, neonScratchRegD, srcReg, dec_->tcoff);
++	fp.FCVTZU(32, neonScratchRegD, neonScratchRegD);
++	fp.UMOV(32, tempReg1, neonScratchRegQ, 0);
++	fp.UMOV(32, tempReg2, neonScratchRegQ, 1);
++	UXTH(tempReg1, tempReg1);
++	UXTH(tempReg2, tempReg2);
++
++	auto updateSide = [&](ARM64Reg src, CCFlags cc, ARM64Reg dst) {
++		CMP(src, dst);
++		CSEL(dst, src, dst, cc);
++	};
++
++	updateSide(tempReg1, CC_LT, boundsMinUReg);
++	updateSide(tempReg1, CC_GT, boundsMaxUReg);
++	updateSide(tempReg2, CC_LT, boundsMinVReg);
++	updateSide(tempReg2, CC_GT, boundsMaxVReg);
+ }
+ 
+ void VertexDecoderJitCache::Jit_TcFloat() {
+@@ -967,7 +989,7 @@
+ 	}
+ 	static const StepFunction ok[] = {
+ 		&V::Step_TcU8Prescale, &V::Step_TcU16Prescale, &V::Step_TcFloatPrescale, &V::Step_TcU8ToFloat, &V::Step_TcU16ToFloat,
+-		&V::Step_TcFloat, &V::Step_TcFloatThrough, &V::Step_TcU16ThroughToFloat,
++		&V::Step_TcFloat, &V::Step_TcU16ThroughToFloat,
+ 		&V::Step_Color8888, &V::Step_Color4444, &V::Step_Color565, &V::Step_Color5551,
+ 		&V::Step_NormalS8, &V::Step_NormalS16, &V::Step_NormalFloat,
+ 		&V::Step_PosS8, &V::Step_PosS16, &V::Step_PosFloat, &V::Step_PosS8Through, &V::Step_PosS16Through, &V::Step_PosFloatThrough,

@@ -1,10 +1,14 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* The handhelds' models (src/device/td_model.h): every key once, and the
- * GKD Pixel 2's places, views and kept boxes as src/tourdevice.c drew them
+/* The handhelds' models (src/device/td_model.h): every key once, the GKD
+ * Pixel 2's places, views and kept boxes as src/tourdevice.c drew them
  * before they were data (its FACE[], DPAD_*, MENU_*, POWER_*, VOL*_Z,
  * SHOULDER[], SH_TOP, the FRONT/RIGHT/LEFT/BOTH/TOP poses, the tutorial's
- * 304 x 382 box and the Controls tab's 256 x 332), so the drawing that reads
- * them draws the same pixels. No SDL. */
+ * 304 x 382 box and the Controls tab's 256 x 332, 3.15 units a millimetre
+ * turned 10 degrees), so the drawing that reads them draws the same pixels;
+ * and the TrimUI Brick's as the plan measures them (docs/superpowers/plans/
+ * 2026-11-15-brick-front-step5.md): its outline, its keys on their faces at
+ * their places and sizes, the shoulders on the back ledge, and the back
+ * view that shows them. No SDL. */
 #include <stdio.h>
 
 #include "../src/device/td_model.h"
@@ -29,9 +33,9 @@ static int view_is(td_view v, float deg, float s, float pitch)
 	return v.deg == deg && v.s == s && v.pitch == pitch;
 }
 
-int main(void)
+/* Every part of `m` a key of the handheld's, each once */
+static void keys_once(const td_model *m)
 {
-	const td_model *m = &td_model_pixel2;
 	int i, j;
 
 	for (i = 0; i < m->n_parts; i++) {
@@ -39,6 +43,95 @@ int main(void)
 		for (j = i + 1; j < m->n_parts; j++)
 			ck(m->parts[j].key != m->parts[i].key, "no key twice");
 	}
+}
+
+static int near(float a, float b)
+{
+	return a - b < 0.001f && b - a < 0.001f;
+}
+
+/* The plan's front-view millimetres (from the front's top left, y down) in
+ * the model's (x right, z up, from the middle) */
+static int at_front(const td_model *m, td_key k, float fx, float fy, float r)
+{
+	const td_part *p = td_part_of(m, k);
+
+	return p && p->face == TD_FACE_FRONT && near(p->x, fx - 36.6f) && near(p->z, 54.95f - fy) && near(p->r, r);
+}
+
+static void brick(void)
+{
+	const td_model *m = &td_model_brick;
+	const td_part *p;
+	int i, on_top = 0, on_ledge = 0;
+
+	keys_once(m);
+	ck(m->art == TD_ART_BRICK && m->body_w == 73.2f && m->body_h == 109.9f,
+	   "brick: its art, its 73.2 x 109.9 body");
+	ck(at_front(m, TD_DPAD, 15.9f, 72.3f, 9.65f), "brick: the d-pad at (15.9, 72.3), 19.3 across");
+	ck(at_front(m, TD_A, 63.9f, 72.1f, 3.85f) && at_front(m, TD_B, 56.3f, 79.7f, 3.85f) &&
+	   at_front(m, TD_X, 56.3f, 64.5f, 3.85f) && at_front(m, TD_Y, 48.7f, 72.1f, 3.85f),
+	   "brick: A B X Y 7.6 from (56.3, 72.1), A right, B bottom, X top, Y left, 7.7 across");
+	ck(at_front(m, TD_F1, 30.9f, 63.6f, 3.55f) && at_front(m, TD_F2, 41.6f, 63.6f, 3.55f),
+	   "brick: F1 and F2 at y 63.6, 7.1 long");
+	ck(at_front(m, TD_MENU, 26.1f, 101.4f, 2.7f) && at_front(m, TD_SELECT, 36.1f, 101.4f, 2.7f) &&
+	   at_front(m, TD_START, 46.2f, 101.4f, 2.7f), "brick: MENU, SELECT and START along the bottom, 5.4 across");
+	p = td_part_of(m, TD_VOLUP);
+	ck(p && p->face == TD_FACE_LEFT && near(p->z, 54.95f - 10.3f) && near(p->r, 3.85f), "brick: VOL+ on the left at y 10.3");
+	p = td_part_of(m, TD_VOLDN);
+	ck(p && p->face == TD_FACE_LEFT && near(p->z, 54.95f - 21.4f) && near(p->r, 3.85f), "brick: VOL- on the left at y 21.4");
+	p = td_part_of(m, TD_POWER);
+	ck(p && p->face == TD_FACE_RIGHT && near(p->z, 54.95f - 39.3f) && near(p->r, 3.55f),
+	   "brick: POWER on the right at y 39.3, 7.1 across");
+	/* The side keys on the thin part, across its middle: 11.8 deep from the
+	 * front at -9.95 */
+	for (i = 0; i < m->n_parts; i++)
+		if (m->parts[i].face == TD_FACE_LEFT || m->parts[i].face == TD_FACE_RIGHT)
+			ck(near(m->parts[i].x, -9.95f + 11.8f / 2.0f), "brick: a side key across the thin part's middle");
+	/* The shoulders on the back ledge, standing up to 13.65 (y 41.3), left to
+	 * right L1, L2, R2, R1; L1 and R1 from the body's edges */
+	for (i = 0; i < m->n_parts; i++) {
+		on_top += m->parts[i].face == TD_FACE_TOP;
+		on_ledge += m->parts[i].face == TD_FACE_LEDGE;
+	}
+	ck(on_top == 0 && on_ledge == 4, "brick: four keys on the ledge, none on the top edge");
+	{
+		const td_part *l1 = td_part_of(m, TD_L1), *l2 = td_part_of(m, TD_L2);
+		const td_part *r2 = td_part_of(m, TD_R2), *r1 = td_part_of(m, TD_R1);
+
+		ck(l1 && l2 && r2 && r1 && l1->face == TD_FACE_LEDGE && l2->face == TD_FACE_LEDGE &&
+		   r2->face == TD_FACE_LEDGE && r1->face == TD_FACE_LEDGE, "brick: L1 L2 R2 R1 on the ledge");
+		ck(l1 && r1 && near(l1->z, 13.65f) && near(r1->z, 13.65f) && l2 && r2 && near(l2->z, 13.65f) &&
+		   near(r2->z, 13.65f), "brick: the shoulders stand up to 13.65");
+		ck(l1 && l2 && r2 && r1 && l1->x < l2->x && l2->x < r2->x && r2->x < r1->x,
+		   "brick: L1, L2, R2, R1 from left to right");
+		ck(l1 && r1 && near(l1->x - l1->r, -36.6f) && near(r1->x + r1->r, 36.6f) && near(l1->r, 8.75f) &&
+		   near(r1->r, 8.75f), "brick: L1 and R1 17.5 wide from the body's edges");
+		ck(l2 && r2 && near(l2->x, -12.3f) && near(r2->x, 12.3f) && near(l2->r, 5.5f) && near(r2->r, 5.5f),
+		   "brick: L2 and R2 11 wide at -12.3 and 12.3");
+	}
+	ck(m->lean_centre > 9.6f && m->lean_centre < 12.1f,
+	   "brick: SELECT, START and MENU the middle, Y (12.1 right) not");
+	ck(view_is(m->front, 10.0f, m->front.s, 0.0f) && view_is(m->right, 52.0f, m->right.s, 0.0f) &&
+	   view_is(m->left, -52.0f, m->left.s, 0.0f), "brick: front, right and left as the Pixel 2's turn");
+	ck(m->back.deg >= 150.0f && m->back.deg <= 170.0f && m->back.pitch >= 15.0f && m->back.pitch <= 25.0f,
+	   "brick: the back view turned round the right side's way, tilted back about 20");
+	ck(m->tab.deg == 10.0f && m->tab.pitch == 0.0f, "brick: the Controls tab's front pose turned 10, level");
+	/* As tall as the Pixel 2: 109.9 mm at the scale 81 is at 3.55 in the
+	 * tutorial, at 3.15 on the Controls tab, give or take 3% */
+	ck(m->front.s * 109.9f > 0.97f * 81.0f * 3.55f && m->front.s * 109.9f < 1.03f * 81.0f * 3.55f,
+	   "brick: as tall in the tutorial as the Pixel 2");
+	ck(m->tab.s * 109.9f > 0.97f * 81.0f * 3.15f && m->tab.s * 109.9f < 1.03f * 81.0f * 3.15f,
+	   "brick: as tall on the Controls tab as the Pixel 2");
+	ck(m->keep_tour.w > 0 && m->keep_tour.h > 0 && m->keep_tab.w > 0 && m->keep_tab.h > 0,
+	   "brick: its kept boxes (--handheld-box holds them)");
+}
+
+int main(void)
+{
+	const td_model *m = &td_model_pixel2;
+
+	keys_once(m);
 	ck(m->art == TD_ART_PIXEL2 && m->body_w == 63.0f && m->body_h == 81.0f && m->lean_centre == 8.0f,
 	   "pixel2: its art, its 63 x 81 body, SELECT and START in the middle");
 	ck(is(m, TD_DPAD, TD_FACE_FRONT, -16.9f, -21.0f, 9.0f), "pixel2: the d-pad");
@@ -62,6 +155,15 @@ int main(void)
 	   "pixel2: the tutorial's kept box");
 	ck(m->keep_tab.l == 128 && m->keep_tab.t == 176 && m->keep_tab.w == 256 && m->keep_tab.h == 332,
 	   "pixel2: the Controls tab's kept box");
+	ck(view_is(m->tab, 10.0f, 3.15f, 0.0f), "pixel2: the Controls tab's pose, 3.15 turned 10");
+	{
+		int i, ledge = 0;
+
+		for (i = 0; i < m->n_parts; i++) ledge += m->parts[i].face == TD_FACE_LEDGE;
+		ck(!ledge && view_is(m->back, m->front.deg, m->front.s, m->front.pitch),
+		   "pixel2: no key on a ledge, its back view the front");
+	}
+	brick();
 	if (fails) {
 		printf("model: %d of %d checks failed\n", fails, checks);
 		return 1;

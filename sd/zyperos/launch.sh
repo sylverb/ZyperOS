@@ -1,21 +1,74 @@
 #!/bin/sh
-# ZyperOS on the GKD Pixel 2. plastron's init starts this once the card's
-# games partition is mounted at /mnt/SDCARD.
+# ZyperOS on every handheld it runs on: the GKD Pixel 2 and the TrimUI Brick.
+# plastron's init starts this once the card's games partition is mounted at
+# /mnt/SDCARD.
 #
-# The Brick's launch.sh, less what the Pixel doesn't have: Bluetooth, and a
-# radio of its own (its Wi-Fi is a USB adapter, when one is plugged in). The
-# Pixel's system is plastron, ours from the kernel up, so there is nothing
-# here to work around: start the emulator, start the launcher, power off when
-# it is done.
+# The system is plastron, ours from the kernel up, so there is nothing here
+# to work around: start the emulator, start the launcher, power off when it
+# is done. What one handheld has and another doesn't is in device.sh beside
+# this file (sd/<device>/device.sh in ZyperOS's tree, put here by
+# mk/payload.sh): where its settings live, its drivers, its backlight, its
+# radios, and which of the features below it has what they need for.
 
 ZYPEROS_DIR=/mnt/SDCARD/ZyperOS
 SDCARD=/mnt/SDCARD
+
+# What device.sh says, besides its environment (USERDATA_PATH, its folder
+# in .userdata, exported, and its drivers): which of these features the
+# handheld has what it needs for, 1 for each it has. Unset is off.
+#
+#   HAS_PORTS        ports and "run:" programs, which the launcher hands over
+#                    (run_port): bash in the system image, as their scripts
+#                    are bash
+#   HAS_PORTMASTER   PortMaster's files put back before each port, and its
+#                    start timed (ZyperOS/portmaster in the payload)
+#   HAS_PORTKEYS     the volume keys, POWER and the in-game menu over a port
+#                    (ZyperOS/portkeys in the payload)
+#   HAS_PORT_STILL   the loading screen held until a port draws (plastron's
+#                    splash --still)
+#   HAS_PORT_TURN    a port's picture turned onto a panel mounted turned
+#                    (plastron's SDL2, its kmsdrm rotation patch)
+#   HAS_ZYHOME       MENU+START held, back to the home (ZyperOS/zyhome in the
+#                    payload)
+#   HAS_USBDRIVE     Computer Connected > USB Drive (the image's usbdrive)
+#   HAS_OFF_PENDING  the marker a charger that comes during a power-off is
+#                    started for (plastron's lastoff, the power-off's last step)
+#
+# BACKLIGHT, the system's tool that lights the panel at each start of the
+# launcher, where the launcher does not light it itself; WIFI_DOWN, what the
+# log says when Wi-Fi does not come up; and these, called where they are
+# named below, each nothing where device.sh does not say otherwise.
+device_card() { :; }       # before the card's folders are made
+device_log() { :; }        # once this boot's log is open
+device_resident() { :; }   # just before Diatom starts
+device_radios() { :; }     # in the background, once Diatom has started
+BACKLIGHT=
+WIFI_DOWN="it did not come up"
+
+# The handheld's part. Tested first: `.` on a missing file ends a
+# non-interactive shell, and this one ending would leave no ZyperOS, the boot
+# animation up and POWER doing nothing. plastron's zyperos.init copies
+# device.sh onto the card before launch.sh, so a card with this file and no
+# device.sh has had a file taken away (the card check after a power cut) or a
+# copy by hand cut short: this file is set aside, as after five fast failures
+# (start_failed, below), so the next start copies ZyperOS onto the card again,
+# and the handheld goes off.
+if [ -f "$ZYPEROS_DIR/device.sh" ]; then
+	. "$ZYPEROS_DIR/device.sh"
+else
+	if [ -f /usr/share/zyperos/card/ZyperOS/launch.sh ]; then
+		mv -f "$ZYPEROS_DIR/launch.sh" "$ZYPEROS_DIR/launch.sh.failed"
+		echo "zyperos: no device.sh beside launch.sh; the next start copies ZyperOS onto the card again" 2> /dev/null > /dev/kmsg
+	fi
+	sync
+	poweroff
+	exit 1
+fi
 
 export BIOS_PATH=$SDCARD/Bios
 export ROMS_PATH=$SDCARD/Roms
 export SAVES_PATH=$SDCARD/Saves
 export CORES_PATH=$ZYPEROS_DIR/cores
-export USERDATA_PATH=$SDCARD/.userdata/pixel2
 export SHARED_USERDATA_PATH=$SDCARD/.userdata/shared
 export LOGS_PATH=$USERDATA_PATH/logs
 export HOME=$USERDATA_PATH
@@ -23,9 +76,11 @@ export ZYPEROS_DIATOM_SOCKET=/tmp/diatom.sock
 
 # Everything up to the launcher is on the boot's critical path, so it is done
 # with the shell's own built-ins wherever one will do: every helper program
-# (mkdir, pidof, rm, cut) is a process start, 5 to 15 ms each on this CPU
-# while the rest of the boot runs, and they added up to 93 ms before the
-# launcher started (measured 2026-10-01).
+# (mkdir, pidof, rm, cut) is a process start, 5 to 15 ms each on the Pixel 2's
+# CPU while the rest of the boot runs, and they added up to 93 ms before the
+# launcher started (measured 2026-10-01). The radios go in the background.
+
+device_card
 
 # Only on a fresh card are any of these missing
 for d in "$BIOS_PATH" "$ROMS_PATH" "$SAVES_PATH" "$USERDATA_PATH" "$LOGS_PATH" \
@@ -126,9 +181,11 @@ LOG=$LOGS_PATH/zyperos.log
 	done
 	[ -f "$LOG.prev" ] && mv -f "$LOG.prev" "$LOG.1"
 ) &
+device_log
 
 # The settings this script needs before ZyperOS runs, which ZyperOS writes out
-# for it, as on the Brick. The default is for a fresh card's first boot.
+# for it. The defaults are for a fresh card's first boot, before ZyperOS has
+# ever run.
 BOOT_ENV=$USERDATA_PATH/boot.env
 # boot.env read line by line, never sourced, and only the two lines ZyperOS
 # writes (src/db.c, db_write_boot_env), with read and case, builtins, so no
@@ -151,17 +208,18 @@ boot_env() {
 }
 boot_env
 
-# Wi-Fi on, as the Brick does at boot, when it was left on and an adapter is
-# in (wifi_follow, below): the supplicant rejoins a saved network by itself,
-# and once it has, the DHCP client, started exactly as src/wifi.c starts it
-# (the same PID file, no -q, so it stays and renews the lease), so ZyperOS
-# finds it running rather than starting a second. /etc/init.d/wpa_supplicant
-# stops it with Wi-Fi.
+# Wi-Fi on, when it was left on: at boot on a handheld with a radio of its
+# own, and on one whose Wi-Fi is a USB adapter when the adapter is in
+# (device_radios, device.sh's). The supplicant rejoins a saved network by
+# itself, but nothing asks for an address: so once it has joined, the DHCP
+# client, started exactly as src/wifi.c starts it (the same PID file, no -q,
+# so it stays and renews the lease), and ZyperOS finds it running rather than
+# starting a second. /etc/init.d/wpa_supplicant stops it with Wi-Fi.
 WPA_SOCK=/var/run/wpa_supplicant
 DHCP_PID=/var/run/udhcpc.wlan0.pid
 wifi_on() {
 	/etc/init.d/wpa_supplicant start > /dev/null 2>&1 || {
-		echo "wifi: no adapter, or it did not come up" >> "$LOG"
+		echo "wifi: $WIFI_DOWN" >> "$LOG"
 		return 1
 	}
 	i=0
@@ -201,6 +259,8 @@ start_resident() {
 # and exits (launch_port in src/main.c), and the port runs here, with nothing
 # of ZyperOS's left holding the display, the sound card or the memory: Diatom
 # keeps every core mapped, and Stardew Valley's Mono wants most of the 1 GB.
+# Only on a handheld whose image runs port scripts (HAS_PORTS, the loop
+# below).
 PORT_REQUEST=/tmp/zyperos_port
 PORTMASTER=$ROMS_PATH/Ports/PortMaster
 # POWER over a port: the launcher, which reads the power key and the battery,
@@ -334,7 +394,7 @@ run_port() {
 	# system they take this for; ours goes back before every port, with the
 	# gl4es settings PortMaster reads for CFW_NAME=ZyperOS (libgl_ZyperOS.txt)
 	# and the per-system lines port scripts source (mod_ZyperOS.txt)
-	if [ -d "$PORTMASTER" ]; then
+	if [ "$HAS_PORTMASTER" = 1 ] && [ -d "$PORTMASTER" ]; then
 		cp -f "$ZYPEROS_DIR/portmaster/control.txt" "$PORTMASTER/control.txt"
 		cp -f "$ZYPEROS_DIR/portmaster/libgl_ZyperOS.txt" "$PORTMASTER/libgl_ZyperOS.txt"
 		cp -f "$ZYPEROS_DIR/portmaster/mod_ZyperOS.txt" "$PORTMASTER/mod_ZyperOS.txt"
@@ -349,6 +409,7 @@ run_port() {
 	# the start is timed, for the launcher to tell a PortMaster that closed
 	# as it started from one the player closed (pm_failure, src/pminstall.h)
 	local pm_start=
+	[ "$HAS_PORTMASTER" = 1 ] &&
 	case $1 in "$ROMS_PATH"/Ports/[Pp][Oo][Rr][Tt][Mm][Aa][Ss][Tt][Ee][Rr].[Ss][Hh])
 		if [ -f "$PORTMASTER/PortMaster.sh" ]; then
 			cmp -s "$PORTMASTER/PortMaster.sh" "$1" 2> /dev/null ||
@@ -369,18 +430,21 @@ run_port() {
 	local keys= still= turn= m
 	trap port_power USR1
 	trap port_quit USR2
-	# The panel is a 480x640 portrait one mounted turned (below). A
+	# The Pixel 2's panel is a 480x640 portrait one mounted turned (below). A
 	# landscape display is QEMU's (plastron's qemu_defconfig), where nothing
 	# turns: the first mode of the first connector with one says which
-	for m in /sys/class/drm/card*-*/modes; do
-		read -r m < "$m" 2> /dev/null && [ -n "$m" ] && break
-	done
-	[ "$m" = 480x640 ] && turn=270
+	if [ "$HAS_PORT_TURN" = 1 ]; then
+		for m in /sys/class/drm/card*-*/modes; do
+			read -r m < "$m" 2> /dev/null && [ -n "$m" ] && break
+		done
+		[ "$m" = 480x640 ] && turn=270
+	fi
 	# The loading screen the launcher left (launch_port), held on the panel
 	# until the port draws, so a minute of loading is not a black panel; and
 	# the same screen after a minute, saying how to leave (SPLASH_LATER, which
 	# a splash older than 1.0.6 ignores)
-	if [ -n "$turn" ] && [ -f /tmp/zyperos_loading.raw ] && [ -x /usr/bin/splash ]; then
+	if [ "$HAS_PORT_STILL" = 1 ] && [ -n "$turn" ] && [ -f /tmp/zyperos_loading.raw ] &&
+	   [ -x /usr/bin/splash ]; then
 		if [ -f /tmp/zyperos_loading_later.raw ]; then
 			SPLASH_LATER=/tmp/zyperos_loading_later.raw /usr/bin/splash --still /tmp/zyperos_loading.raw &
 		else
@@ -394,7 +458,7 @@ run_port() {
 	# stopping the program and starting the launcher for the menu alone
 	# (--menu: the launcher, the tag and the game; src/portmenu.h). A port's
 	# game is its script, which its Controls pages are read beside
-	if [ -x "$ZYPEROS_DIR/portkeys" ]; then
+	if [ "$HAS_PORTKEYS" = 1 ] && [ -x "$ZYPEROS_DIR/portkeys" ]; then
 		if [ -n "$3" ]; then
 			"$ZYPEROS_DIR/portkeys" --menu "$ZYPEROS_DIR/zyperos.elf" "$3" "${2:-$1}" \
 				"$USERDATA_PATH/zyperos.db" \
@@ -405,12 +469,13 @@ run_port() {
 		fi
 		keys=$!
 	fi
-	# The panel is a 480x640 portrait one mounted turned. ZyperOS and Diatom
-	# turn their own pictures; for anything else plastron's SDL2 hands out a
-	# landscape window and turns each frame onto the panel (its kmsdrm
-	# rotation patch). And SDL's 2D renderer on GLES2: its desktop GL one,
-	# which SDL prefers once it has OpenGL, draws nothing but the clear color
-	# on Panfrost here, so a port that draws with SDL_Renderer was black.
+	# The Pixel 2's panel is a 480x640 portrait one mounted turned. ZyperOS
+	# and Diatom turn their own pictures; for anything else plastron's SDL2
+	# hands out a landscape window and turns each frame onto the panel (its
+	# kmsdrm rotation patch, HAS_PORT_TURN). And SDL's 2D renderer on GLES2:
+	# its desktop GL one, which SDL prefers once it has OpenGL, draws nothing
+	# but the clear color on the Pixel 2's Panfrost, so a port that draws with
+	# SDL_Renderer was black.
 	( cd "${1%/*}" &&
 	  if [ -n "$turn" ]; then export SDL_KMSDRM_ROTATION=$turn; fi &&
 	  SDL_RENDER_DRIVER=opengles2 exec setsid /bin/bash "$1" ${2:+"$2"} ) >> "$LOG" 2>&1 &
@@ -464,50 +529,25 @@ now_s() {
 	NOW=${up%%.*}
 }
 
+device_resident
 start_resident
 [ -e /tmp/zyperos_poweroff ] && rm -f /tmp/zyperos_poweroff
 [ -e /tmp/zyperos_reboot ] && rm -f /tmp/zyperos_reboot
 
-# Wi-Fi follows the adapter as it comes and goes: it isn't the Pixel's own, so
-# it can be plugged in or pulled at any time, a game included. Looked for every
-# 2 seconds with the shell's own test, no process started for it. When it
-# appears, and Wi-Fi was left on (boot.env, read again, as ZyperOS rewrites it
-# when the setting changes), the same as at boot; when it goes, the
-# supplicant and the DHCP client stop, so the next one starts clean. From when
-# the splash ends, as on the Brick, so the adapter's driver and the supplicant
-# stay out of ZyperOS's way to its first frame; a splash that never ends holds
-# it 20 s at most.
-wifi_follow() {
-	i=0
-	while [ $i -lt 200 ] && pidof splash > /dev/null; do
-		sleep 0.1
-		i=$((i + 1))
-	done
-	had=
-	while : ; do
-		if [ -d /sys/class/net/wlan0 ]; then
-			if [ -z "$had" ]; then
-				had=1
-				boot_env
-				[ "$WIFI" = 1 ] && wifi_on &
-			fi
-		elif [ -n "$had" ]; then
-			had=
-			/etc/init.d/wpa_supplicant stop > /dev/null 2>&1
-		fi
-		sleep 2
-	done
-}
-wifi_follow &
+# The radios (device.sh's): each handheld's own way of bringing them up
+device_radios &
 
 # MENU+START held a second: whatever runs ends and the home comes back
 # (tools/zyhome.c). Once, for as long as this script runs: it is the way out
 # when the launcher, Diatom or a port is the thing that is stuck, so nothing
 # of theirs may own it. An older payload has none, and goes without.
-[ -x "$ZYPEROS_DIR/zyhome" ] && "$ZYPEROS_DIR/zyhome" >> "$LOG" 2>&1 &
+[ "$HAS_ZYHOME" = 1 ] && [ -x "$ZYPEROS_DIR/zyhome" ] && "$ZYPEROS_DIR/zyhome" >> "$LOG" 2>&1 &
 
-# A Mac or PC leaves its own files on the card. Swept after the launcher is up,
-# as on the Brick, so it costs the boot nothing.
+# A Mac or PC leaves its own files on the card: ._ files, .DS_Store,
+# Thumbs.db and desktop.ini anywhere, and the folders macOS writes at the top
+# of any card it mounts, .Trashes included (Eric's choice, 2026-09-30: on a
+# handheld "deleted" means gone). Swept after the launcher is up, so it costs
+# the boot nothing.
 ( sleep 8
   rm -rf /mnt/SDCARD/.Trashes /mnt/SDCARD/.Spotlight-V100 /mnt/SDCARD/.fseventsd \
          /mnt/SDCARD/.TemporaryItems
@@ -542,6 +582,10 @@ start_failed() {
 cd "$ZYPEROS_DIR"
 FAILS=0
 while : ; do
+	# The panel lit, where a system tool lights it (BACKLIGHT, device.sh's):
+	# the launcher turns it off on its way out (a power-off, Auto Off), and
+	# the next pass needs it back on
+	[ -n "$BACKLIGHT" ] && [ -x "$BACKLIGHT" ] && "$BACKLIGHT" on
 	now_s; START=$NOW
 	./zyperos.elf >> "$LOG" 2>&1
 	[ -f /tmp/zyperos_poweroff ] && break
@@ -554,7 +598,7 @@ while : ; do
 	# helpers too), unmounts it, exports it, and when it is back runs this
 	# script again. Nothing of the card's may run meanwhile, this shell
 	# included, hence the exec, from /, with nothing open on the card.
-	if [ -f /tmp/zyperos_usbdrive ] && [ -x /usr/sbin/usbdrive ]; then
+	if [ "$HAS_USBDRIVE" = 1 ] && [ -f /tmp/zyperos_usbdrive ] && [ -x /usr/sbin/usbdrive ]; then
 		rm -f /tmp/zyperos_usbdrive
 		kill $(jobs -p) 2> /dev/null
 		cd /
@@ -569,7 +613,7 @@ while : ; do
 		start_resident
 		continue
 	fi
-	if [ -f "$PORT_REQUEST" ]; then
+	if [ "$HAS_PORTS" = 1 ] && [ -f "$PORT_REQUEST" ]; then
 		# The script, the game and the menu's tag, a tab between each
 		# (launch_port). Split by hand: read would run the two tabs around a
 		# port's empty game together, as it does any whitespace in IFS
@@ -618,7 +662,7 @@ else
 	# instead when the cable is in by then (lastoff), and the launcher, finding
 	# this and the cable in, shows its charging screen first. Any other start
 	# takes it away.
-	: > "$USERDATA_PATH/off-pending"
+	[ "$HAS_OFF_PENDING" = 1 ] && : > "$USERDATA_PATH/off-pending"
 	sync
 	poweroff
 fi
