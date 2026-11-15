@@ -22,22 +22,27 @@
 set -e
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 DEVICE=${DEVICE:-brick}
-case $DEVICE in
-brick)  OUT=${OUT:-$ROOT/out/sd};        LAUNCH=$ROOT/sd/brick/launch.sh ;;
-pixel2) OUT=${OUT:-$ROOT/out/sd-pixel2}; LAUNCH=$ROOT/sd/pixel2/launch.sh ;;
-*) echo "payload: unknown DEVICE $DEVICE (brick or pixel2)" >&2; exit 1 ;;
-esac
+# The device's build (config/device/<id>.mk, from src/device/<id>_build.c):
+# its Diatom port and the helpers its payload carries beside the launcher
+DEVFILE=$ROOT/config/device/$DEVICE.mk
+[ -f "$DEVFILE" ] && [ -f "$ROOT/sd/$DEVICE/launch.sh" ] ||
+	{ echo "payload: unknown DEVICE $DEVICE (no config/device/$DEVICE.mk or sd/$DEVICE/launch.sh)" >&2; exit 1; }
+DIATOM_PORT=$(sed -n 's/^ZYDEV_DIATOM_PORT = *//p' "$DEVFILE")
+HELPERS=" $(sed -n 's/^ZYDEV_HELPERS = *//p' "$DEVFILE") "
+has_helper() { case $HELPERS in *" $1 "*) return 0 ;; esac; return 1; }
+if [ "$DEVICE" = brick ]; then OUT=${OUT:-$ROOT/out/sd}; else OUT=${OUT:-$ROOT/out/sd-$DEVICE}; fi
+LAUNCH=$ROOT/sd/$DEVICE/launch.sh
 P=$OUT/ZyperOS
 ZYPEROS_ELF=${ZYPEROS_ELF:-$ROOT/build/zyperos.elf}
 MUSE_ELF=${MUSE_ELF:-$ROOT/build/muse}
 VENDOR_DIR=${VENDOR_DIR:-$ROOT/vendor}
 
 [ -f "$ZYPEROS_ELF" ] || { echo "run make first"; exit 1; }
-DIATOM_ELF=${DIATOM_ELF:-$ROOT/diatom/build/$DEVICE/diatom}
+DIATOM_ELF=${DIATOM_ELF:-$ROOT/diatom/build/$DIATOM_PORT/diatom}
 [ -f "$DIATOM_ELF" ] || { echo "no diatom at $DIATOM_ELF (set DIATOM_ELF)"; exit 1; }
 [ -f "$VENDOR_DIR/cores/fceumm_libretro.so" ] || { echo "run mk/fetch-vendor.sh first"; exit 1; }
-if [ "$DEVICE" = pixel2 ] && [ ! -f "${P2D_ELF:-}" ]; then
-	echo "payload: no p2d for the Pixel 2's Player 2 (set P2D_ELF)" >&2
+if has_helper p2d && [ ! -f "${P2D_ELF:-}" ]; then
+	echo "payload: no p2d for $DEVICE's Player 2 (set P2D_ELF)" >&2
 	exit 1
 fi
 
@@ -225,15 +230,15 @@ chmod +x "$P/launch.sh" "$P/zyperos.elf" "$P/diatom" "$P/muse"
 [ -f "$P/p2d" ] && chmod +x "$P/p2d"
 
 # The headsets' ALSA config: the Brick's launch.sh sources it at boot, and
-# ZyperOS runs it after a pair or a forget.
-[ "$DEVICE" = brick ] && cp "$ROOT/sd/zyperos/bt-alsa.sh" "$P/"
+# ZyperOS runs it after a pair or a forget. The devices with Bluetooth sound.
+has_helper btalsa && cp "$ROOT/sd/zyperos/bt-alsa.sh" "$P/"
 
 # PortMaster's control.txt for the Ports shelf, which launch.sh puts in place
 # before each port, and the installer the shelf runs when PortMaster is not on
 # the card (src/pminstall.h), with its entry's covers and its page's icon
-# (the system art's, res/system-art/original/utility). Only the Pixel 2's
-# launch.sh runs ports.
-if [ "$DEVICE" = pixel2 ]; then
+# (the system art's, res/system-art/original/utility). The devices whose
+# launch.sh runs ports (the Pixel 2's).
+if has_helper ports; then
 	mkdir -p "$P/portmaster"
 	cp "$ROOT/res/portmaster/control.txt" "$ROOT/res/portmaster/libgl_ZyperOS.txt" \
 	   "$ROOT/res/portmaster/mod_ZyperOS.txt" "$ROOT/res/portmaster/pm-install.py" \
