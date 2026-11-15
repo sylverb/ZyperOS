@@ -81,15 +81,42 @@ async fn list_cards() -> Vec<cards::Card> {
     tauri::async_runtime::spawn_blocking(cards::list).await.unwrap_or_default()
 }
 
-/// ZyperOS's latest version, for the screen to say what it installs.
+/// What the release row installs: for the screen to say which ZyperOS, and to
+/// offer the devices it has an image for.
+#[derive(serde::Serialize, Clone, Debug, PartialEq)]
+struct Latest {
+    /// "1.0.5", or "from <file>" with a local image in place of the download
+    version: String,
+    /// The devices the newest release has a card image for, and those with a
+    /// local image: a device with neither is not offered
+    devices: Vec<cards::Device>,
+}
+
+/// ZyperOS's latest version and its devices.
 #[tauri::command]
-async fn latest_zyperos() -> Result<String, String> {
-    if let Some(path) = local_release(false).or_else(|| local_release(true)) {
-        return Ok(format!("from {}", path.file_name().unwrap_or_default().to_string_lossy()));
-    }
-    tauri::async_runtime::spawn_blocking(|| release::latest().map(|r| r.version().to_string()))
-        .await
-        .map_err(|e| e.to_string())?
+async fn latest_zyperos() -> Result<Latest, String> {
+    tauri::async_runtime::spawn_blocking(latest).await.map_err(|e| e.to_string())?
+}
+
+fn latest() -> Result<Latest, String> {
+    let local: Vec<(cards::Device, PathBuf)> =
+        cards::Device::ALL.into_iter().filter_map(|d| local_release(d).map(|p| (d, p))).collect();
+    let Some((_, path)) = local.first() else {
+        let r = release::latest()?;
+        return Ok(Latest { version: r.version().to_string(), devices: r.devices() });
+    };
+    // A local image installs its own device whatever the release has; the
+    // others still download, where GitHub answers
+    let released = release::latest().map(|r| r.devices()).unwrap_or_default();
+    Ok(Latest {
+        version: format!("from {}", path.file_name().unwrap_or_default().to_string_lossy()),
+        devices: with_local(&released, &local.iter().map(|(d, _)| *d).collect::<Vec<_>>()),
+    })
+}
+
+/// The released devices and the local ones together, in the page's order
+fn with_local(released: &[cards::Device], local: &[cards::Device]) -> Vec<cards::Device> {
+    cards::Device::ALL.into_iter().filter(|d| released.contains(d) || local.contains(d)).collect()
 }
 
 /// A newer installer, if one is out, and whether this one can put it in its
@@ -310,9 +337,14 @@ async fn pick_image(app: AppHandle) -> Result<Option<LocalImage>, String> {
 
 /// A card image to use instead of downloading one, for trying out a build
 /// before it is published: ZYPEROS_BRICK_IMAGE for the Brick, ZYPEROS_IMAGE
-/// for the Pixel.
-fn local_release(brick: bool) -> Option<PathBuf> {
-    std::env::var_os(if brick { "ZYPEROS_BRICK_IMAGE" } else { "ZYPEROS_IMAGE" }).map(PathBuf::from)
+/// for the Pixel. Its device is offered even when the release has no image
+/// for it.
+fn local_release(device: cards::Device) -> Option<PathBuf> {
+    let var = match device {
+        cards::Device::Pixel2 => "ZYPEROS_IMAGE",
+        cards::Device::Brick => "ZYPEROS_BRICK_IMAGE",
+    };
+    std::env::var_os(var).map(PathBuf::from)
 }
 
 fn find(card_id: &str, size: u64) -> Result<cards::Card, String> {
@@ -352,14 +384,13 @@ fn private_dir() -> Result<PathBuf, String> {
 /// checked against the SHA256SUMS beside it. Returns its path and, for a
 /// download, the folder it is in, to be removed after.
 fn source(
-    brick: bool,
+    device: cards::Device,
     local: Option<PathBuf>,
     progress: &mut dyn FnMut(writer::Progress),
     cancel: &AtomicBool,
 ) -> Result<(PathBuf, Option<PathBuf>), String> {
-    let device = if brick { cards::Device::Brick } else { cards::Device::Pixel2 };
     let cancelled = || cancel.load(Ordering::Relaxed);
-    let (path, folder) = match local.or_else(|| local_release(brick)) {
+    let (path, folder) = match local.or_else(|| local_release(device)) {
         Some(path) => {
             let image = inspect(&path)?;
             if image.device != device {
@@ -372,7 +403,7 @@ fn source(
         }
         None => {
             let latest = release::latest()?;
-            let asset = latest.asset(brick)?;
+            let asset = latest.asset(device)?;
             let dir = private_dir()?;
             match release::download(&latest, asset, &dir, progress, &cancelled) {
                 Ok(path) => (path, Some(dir)),
@@ -407,23 +438,22 @@ fn device_name(d: cards::Device) -> &'static str {
 fn write(
     card_id: &str,
     card_size: u64,
-    brick: bool,
+    device: cards::Device,
     action: install::Action,
     local: Option<PathBuf>,
     progress: &mut dyn FnMut(writer::Progress),
     cancel: &AtomicBool,
 ) -> Result<(), String> {
     let card = find(card_id, card_size)?;
-    let device = if brick { cards::Device::Brick } else { cards::Device::Pixel2 };
     if action == install::Action::Update && card.device != Some(device) {
         return Err(format!("This card doesn't have ZyperOS for {} on it to update.", device_name(device)));
     }
-    let (path, folder) = source(brick, local, progress, cancel)?;
+    let (path, folder) = source(device, local, progress, cancel)?;
     // Found again after the download, which can take minutes: still there,
     // still the same card
     let result = find(card_id, card_size).and_then(|_| {
         let action = match action {
-            install::Action::Update if brick => install::Action::BrickUpdate,
+            install::Action::Update if device == cards::Device::Brick => install::Action::BrickUpdate,
             a => a,
         };
         install::run(card_id, action, &path, card_size, progress, cancel)
@@ -441,11 +471,7 @@ fn write(
 #[tauri::command]
 fn start(app: AppHandle, running: State<Running>, card: String, size: u64, device: String, action: String,
          image: Option<String>) -> Result<(), String> {
-    let brick = match device.as_str() {
-        "brick" => true,
-        "pixel2" => false,
-        _ => return Err("Unknown device".into()),
-    };
+    let device = cards::Device::from_id(&device).ok_or("Unknown device")?;
     let action = match install::Action::parse(&action) {
         Some(a @ (install::Action::Update | install::Action::Fresh)) => a,
         _ => return Err("Unknown action".into()),
@@ -483,7 +509,7 @@ fn start(app: AppHandle, running: State<Running>, card: String, size: u64, devic
         };
         #[cfg(windows)]
         autoplay::HOLD.store(true, Ordering::Relaxed);
-        let result = write(&card, size, brick, action, local, &mut progress, &cancel);
+        let result = write(&card, size, device, action, local, &mut progress, &cancel);
         // A card that finished well is ejected, ready to take out; one that
         // didn't stays, to be written again
         let eject = result.is_ok().then(|| {
@@ -557,6 +583,20 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
+    use super::cards::Device;
+
+    /// A local image's device is offered beside the release's, in the page's
+    /// order: a Brick image to try is offered when the release has the Pixel
+    /// 2 only
+    #[test]
+    fn offers_a_local_images_device_too() {
+        use super::with_local;
+        assert_eq!(with_local(&[Device::Pixel2], &[]), vec![Device::Pixel2]);
+        assert_eq!(with_local(&[Device::Pixel2], &[Device::Brick]), vec![Device::Pixel2, Device::Brick]);
+        assert_eq!(with_local(&[], &[Device::Brick]), vec![Device::Brick], "GitHub not answering");
+        assert_eq!(with_local(&[Device::Brick, Device::Pixel2], &[Device::Pixel2]), vec![Device::Pixel2, Device::Brick]);
+    }
+
     #[test]
     fn a_download_folder_is_new_and_private() {
         let a = super::private_dir().unwrap();

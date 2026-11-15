@@ -32,7 +32,7 @@
 
 #define BOOT_MOUNT "/run/zyperos-boot"
 
-static char g_part[2][256], g_bootdev[256], g_bootdir[256], g_slot;
+static char g_part[2][512], g_bootdev[512], g_bootdir[256], g_slot;
 static bool g_mounted, g_trial;
 
 static bool read_line_file(const char *path, char *out, size_t n)
@@ -48,18 +48,49 @@ static bool read_line_file(const char *path, char *out, size_t n)
 
 /* The card's disk, as /etc/default/datapart names it (CARD=), and its
  * partition n: /dev/mmcblk0p2, /dev/vda4 */
-static void part_name(const char *card, int n, char *out, size_t len)
+/* False, and `out` empty, where the name does not fit: a cut name is another
+ * device, never this one's partition (a long scratch path in the checks cut
+ * the card's name, and the system went to the folder update instead) */
+static bool part_name(const char *card, int n, char *out, size_t len)
 {
 	size_t l = strlen(card);
 	bool digit = l && card[l - 1] >= '0' && card[l - 1] <= '9';
-	snprintf(out, len, "%s%s%d", card, digit ? "p" : "", n);
+
+	if (snprintf(out, len, "%s%s%d", card, digit ? "p" : "", n) >= (int)len) {
+		out[0] = 0;
+		return false;
+	}
+	return true;
+}
+
+/* The number after `key` in the image's /etc/zyperos/system (`text`), as
+ * plastron writes it from the device's build (ZyperOS's config/device/
+ * <id>.system: "part-root-b 4"); `fallback` where it says none or nothing
+ * sensible, as an image from before those lines */
+static int system_part(const char *text, const char *key, int fallback)
+{
+	size_t kl = strlen(key);
+	const char *p = text;
+
+	while (p && *p) {
+		if (!strncmp(p, key, kl) && p[kl] == ' ') {
+			int n = atoi(p + kl + 1);
+
+			return n >= 1 && n <= 128 ? n : fallback;
+		}
+		p = strchr(p, '\n');
+		if (p) p++;
+	}
+	return fallback;
 }
 
 bool up_slots_init(void)
 {
-	char text[2048], card[128] = "/dev/mmcblk0";
+	char text[2048], card[480] = "/dev/mmcblk0", sys[1024] = "";
 	const char *cmd = getenv("ZYPEROS_UPDATE_CMDLINE"), *s;
+	const char *sysfile = getenv("ZYPEROS_UPDATE_SYSTEM");
 	struct stat sb;
+	int boot, root_a, root_b;
 
 	g_slot = 0;
 	g_trial = false;
@@ -79,12 +110,25 @@ bool up_slots_init(void)
 		else if (!strncmp(text, "CARD=", 5)) c = text + 5;
 		if (c) {
 			c[strcspn(c, "\n \t\"'")] = 0;
-			if (*c) snprintf(card, sizeof card, "%s", c);
+			if (*c && strlen(c) < sizeof card) snprintf(card, sizeof card, "%s", c);
 		}
 	}
-	part_name(card, 1, g_bootdev, sizeof g_bootdev);
-	part_name(card, 2, g_part[0], sizeof g_part[0]);
-	part_name(card, 4, g_part[1], sizeof g_part[1]);
+	/* The card's device for the checks (tools/update-check.sh), as the
+	 * kernel's line and the system file have theirs */
+	if ((s = getenv("ZYPEROS_UPDATE_CARD"))) {
+		if (strlen(s) >= sizeof card) return false;
+		snprintf(card, sizeof card, "%s", s);
+	}
+	/* Its partitions as the image says them (the boot partition, root A,
+	 * root B), or the Pixel 2's 1, 2 and 4 on an image from before */
+	read_line_file(sysfile ? sysfile : "/etc/zyperos/system", sys, sizeof sys);
+	boot = system_part(sys, "part-boot", 1);
+	root_a = system_part(sys, "part-root-a", 2);
+	root_b = system_part(sys, "part-root-b", 4);
+	if (!part_name(card, boot, g_bootdev, sizeof g_bootdev) ||
+	    !part_name(card, root_a, g_part[0], sizeof g_part[0]) ||
+	    !part_name(card, root_b, g_part[1], sizeof g_part[1]))
+		return false;
 	if ((s = getenv("ZYPEROS_UPDATE_PART2"))) snprintf(g_part[0], sizeof g_part[0], "%s", s);
 	if ((s = getenv("ZYPEROS_UPDATE_PART4"))) snprintf(g_part[1], sizeof g_part[1], "%s", s);
 	/* A card from before the slots boots slot a and has no partition 4 */

@@ -9,6 +9,7 @@ static const char *const NAME[TASK_COUNT] = {
 	[TASK_TRANSFER] = "File Transfer",
 	[TASK_COVERS]   = "album covers",
 	[TASK_STORAGE]  = "Storage scan",
+	[TASK_SSH]      = "SSH session",
 };
 
 void task_note(task_id t, unsigned now_ms)

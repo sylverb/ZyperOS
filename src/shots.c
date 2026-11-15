@@ -15,6 +15,7 @@
 #include "gamedel_screen.h"
 #include "gameinfo_screen.h"
 #include "ingame_screen.h"
+#include "hudmenu_screen.h"
 #include "launch_screen.h"
 #include "lights_screen.h"
 #include "media_screen.h"
@@ -40,6 +41,7 @@
 #include "shelf_draw.h"
 #include "storage_screen.h"
 #include "sysmenu_screen.h"
+#include "devmode_screen.h"
 #include "topbar.h"
 #include "tour_screen.h"
 #include "tourdevice.h"
@@ -228,7 +230,10 @@ int shot_usb = -1;   /* --usb-ask [N]: the question, tile N focused */
  * list open on its first zone (5), on its longest city in the middle (6), on
  * Auto with the zone it found (7), and with a long city (8) */
 int shot_datetime = -1;
-int shot_dev = -1;   /* --dev-page [N]: Developer Mode's page with 1, 12 or no keys (0..2), or the message that says it is on (3) */
+int shot_dev = -1;   /* --dev-page [N]: Developer Mode's page on the cable with 1, 12 or no keys (0..2), or the message that
+                      * says it is on (3); over Wi-Fi with one key signed in (4); SSH over Wi-Fi's message as it is turned
+                      * on (5); over Wi-Fi with no key (6); Wi-Fi up with SSH over Wi-Fi off (7); the cursor on
+                      * Developer Mode (8) */
 bool shot_usb_dev = true;   /* --usb-ask N plain: without the development image's tile */
 /* --usb-power [N]: What did you plug in?, row N focused (1, Computer,
  * where it starts; 2, Phone); --usb-power said: the message after
@@ -545,6 +550,12 @@ static void shot_draw_gamemenu(app *a)
 		tabs.dir = (tabs.at - tabs.from + GT_TABS) % GT_TABS == 1 ? +1 : -1;
 		tabs.t0 = shot_gm_t0;
 	}
+	/* The On-Screen Stats page, which A on the Display tab's row opens */
+	if (shot_hud_page >= 0 && !u.port) {
+		hud_page_shot(a, bg, shot_hud_page, shot_hud_items, shot_hud_pick, shot_hud_shows);
+		if (bg) SDL_DestroyTexture(bg);
+		return;
+	}
 	gm_backdrop(a, &(gm_ctx){ .a = a, .bg = bg }, 1.0f);
 	if (!u.port && tabs.at == GT_CONTROLS) {
 		shot_draw_ctltab(a, &tabs);
@@ -854,6 +865,11 @@ int shot_key = -1;   /* not shot_press, which is --shot-at's */
 static menu_choice shot_pick;          /* --press a on an option row: its list */
 static const char *shot_pick_heading;
 int shot_gm_choose;     /* --gm-choose: an option row's list, A pressed on it */
+int shot_hud_page = -1; /* --hud-page ROW: the On-Screen Stats page */
+bool shot_hud_items;    /* --hud-items: its Shows list */
+int  shot_hud_pick = -1; /* --hud-pick ROW: that row's list of choices */
+const char *shot_hud_shows; /* --hud-shows WORDS: the items it shows */
+bool shot_hud_alt;      /* --hud-alt: Shadow and Small, the two-choice rows' other values */
 int shot_rows_report;   /* --rows-report: every option page's rows (tools/menu-rows-check.py) */
 /* --menu's row by its label, found when the menu is built */
 const char *shot_menu_label;
@@ -1509,17 +1525,42 @@ static void shot_compose(app *a)
 		}
 	}
 	if (shot_dev >= 0) {
-		/* Developer Mode's page, as dev_screen builds it, and the message
-		 * the unlock leaves, in the language that is on */
-		char cmd[96], keys[48];
-		menu_row rows[6];
+		/* Developer Mode's page, as dev_screen builds it, the message the
+		 * unlock leaves and SSH over Wi-Fi's, in the language that is on.
+		 * The cursor rests on SSH over Wi-Fi, as the page opens. */
+		char lines[DEV_LINES][DEV_LINE], said[32];
+		menu_row rows[DEV_ROWS];
 		int n;
 
 		ui_scrim(a->r, 0);
+		snprintf(said, sizeof said, TN(S_SSH_SIGNED_IN, 1), 1);
 		if (shot_dev < 3) {
-			n = dev_rows(rows, cmd, sizeof cmd, keys, sizeof keys, true, "10.42.0.1", "x7k4mq2d",
+			n = dev_rows(rows, lines, false, false, true, "10.42.0.1", NULL, "x7k4mq2d",
 			             shot_dev == 0 ? 1 : shot_dev == 1 ? 12 : 0, T(S_SSH_WAITING));
-			menu_draw(a, T(S_XFER_DEV_HEADING), rows, n, -1, menu_std_width(a), MENU_ZYPEROS);
+			menu_draw(a, T(S_XFER_DEV_HEADING), rows, n, DEV_ROW_WIFI, menu_std_width(a), MENU_ZYPEROS);
+		} else if (shot_dev == 4) {
+			/* over Wi-Fi, one key, somebody signed in */
+			n = dev_rows(rows, lines, true, true, true, "192.168.110.68", "zyperos.local", "",
+			             1, said);
+			menu_draw(a, T(S_XFER_DEV_HEADING), rows, n, DEV_ROW_WIFI, menu_std_width(a), MENU_ZYPEROS);
+		} else if (shot_dev == 5) {
+			char said_lines[4][LB_LINE];
+
+			n = dev_wifi_lines(a, said_lines, rows);
+			menu_draw(a, T(S_DEVMODE_WIFI), rows, n, -1, menu_std_width(a), MENU_ZYPEROS);
+		} else if (shot_dev == 6) {
+			/* Wi-Fi up, SSH over Wi-Fi on, and no key on the card */
+			n = dev_rows(rows, lines, true, true, false, "", NULL, "", 0, T(S_SSH_NEEDS_KEY));
+			menu_draw(a, T(S_XFER_DEV_HEADING), rows, n, DEV_ROW_WIFI, menu_std_width(a), MENU_ZYPEROS);
+		} else if (shot_dev == 7) {
+			/* Wi-Fi up, SSH over Wi-Fi off: SSH stops, as it always has */
+			n = dev_rows(rows, lines, false, false, false, "", NULL, "", 1, T(S_SSH_NOT_WITH_WIFI));
+			menu_draw(a, T(S_XFER_DEV_HEADING), rows, n, DEV_ROW_WIFI, menu_std_width(a), MENU_ZYPEROS);
+		} else if (shot_dev == 8) {
+			/* the cursor on Developer Mode */
+			n = dev_rows(rows, lines, false, false, true, "10.42.0.1", NULL, "x7k4mq2d", 1,
+			             T(S_SSH_WAITING));
+			menu_draw(a, T(S_XFER_DEV_HEADING), rows, n, DEV_ROW_MODE, menu_std_width(a), MENU_ZYPEROS);
 		} else {
 			rows[0] = (menu_row){ T(S_DEVMODE_IS_ON), NULL, false };
 			rows[1] = (menu_row){ T(S_DEVMODE_WHERE), NULL, false };

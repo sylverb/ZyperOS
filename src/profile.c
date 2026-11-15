@@ -8,6 +8,7 @@
 
 #include <stddef.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -66,6 +67,31 @@ bool plat_brightness_on_volume(void) { return active->chords.bright == DEV_BRIGH
 bool plat_battery_lights(void)       { return active->chords.battery_chord; }
 bool plat_player2(void)              { return active->player2; }
 
+/* The image's "has" line (/etc/zyperos/system, written by plastron at the
+ * image's build: "has usbdrive hostapd"): 1 when it names `part`, 0 when it
+ * does not, -1 where the file has no such line (an image from before it).
+ * ZYPEROS_SYSTEM_FILE stands for the file in the checks. */
+static int system_has_line(const char *part)
+{
+	const char *path = getenv("ZYPEROS_SYSTEM_FILE");
+	char line[256];
+	int said = -1;
+	FILE *f = fopen(path ? path : "/etc/zyperos/system", "r");
+
+	if (!f) return -1;
+	while (said < 0 && fgets(line, sizeof line, f)) {
+		char *w;
+
+		line[strcspn(line, "\r\n")] = 0;
+		if (strncmp(line, "has", 3) || (line[3] && line[3] != ' ')) continue;
+		said = 0;
+		for (w = strtok(line + 3, " "); w; w = strtok(NULL, " "))
+			if (!strcmp(w, part)) said = 1;
+	}
+	fclose(f);
+	return said;
+}
+
 bool plat_system_has(const char *part)
 {
 	static const struct { const char *part, *path; } parts[] = {
@@ -73,8 +99,12 @@ bool plat_system_has(const char *part)
 		{ "hostapd",  "/usr/sbin/hostapd" },
 	};
 	size_t i;
+	int said;
 
-	for (i = 0; part && i < sizeof parts / sizeof parts[0]; i++)
+	if (!part || !*part) return false;
+	if ((said = system_has_line(part)) >= 0) return said == 1;
+	/* An image from before its has line: the program's file, as then */
+	for (i = 0; i < sizeof parts / sizeof parts[0]; i++)
 		if (!strcmp(parts[i].part, part)) return access(parts[i].path, X_OK) == 0;
 	return false;
 }

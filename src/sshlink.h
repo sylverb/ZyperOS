@@ -34,10 +34,20 @@
  *
  * Never with a radio: dropbear binds the cable's address, but Linux answers
  * for any of its addresses on any interface, and the kernel has no netfilter
- * to say otherwise. So SSH does not start, or stops, while any 802.11
- * interface exists - which on the Pixel 2 it cannot while the one USB port is
- * a computer's cable. A launcher that dies with sessions open leaves their
- * namespace's name in /tmp, and the next one ends them as it starts.
+ * to say otherwise. So SSH with the password does not start, or stops, while
+ * any 802.11 interface exists - which on the Pixel 2 it cannot while the one
+ * USB port is a computer's cable. A launcher that dies with sessions open
+ * leaves their namespace's name in /tmp, and the next one ends them as it
+ * starts.
+ *
+ * SSH over Wi-Fi (Developer Mode's choice, off as it ships) is the other way
+ * to run it: on every address, Wi-Fi's and the cable's alike, and with keys
+ * alone. dropbear takes no password at all there (-s), and root's password
+ * in its namespace is "*" besides, so nothing a network can send signs in
+ * without a key the card's owner put on the card. That is what makes it safe
+ * with a radio where the password is not: which interface a packet came in
+ * on stops mattering when no interface takes a password. sshlink_want says
+ * which of the two a moment wants.
  *
  * Linux only: elsewhere every call does nothing and the status is "off". */
 #ifndef SSHLINK_H
@@ -52,6 +62,18 @@
  * the host key under `keydir` (made if missing). False when it could not
  * start; sshlink_status says why in the screen's words. */
 bool sshlink_start(const char *addr, const char *pin, const char *keydir);
+
+/* Start SSH on every address (port 22 on Wi-Fi's and the cable's), keys
+ * only: no password is made or taken. False when it could not start, and
+ * when `keydir`/authorized_keys has no key, since then nobody could sign in
+ * (sshlink_status: "needs a key"). */
+bool sshlink_start_net(const char *keydir);
+
+/* An 802.11 interface on the device, and its name and IPv4 address into
+ * `ifname` and `addr` (empty while it has none: joining, or the radio is
+ * there and off). False when there is no radio. A walk of /sys and
+ * getifaddrs, no fork, so a screen's loop can ask a few times a second. */
+bool sshlink_radio(char *ifname, size_t in, char *addr, size_t an);
 
 /* What dropbear has said since the last call: sign-ins, sign-outs, wrong
  * PINs. Bounded; call it from the screen's loop. */
@@ -69,6 +91,9 @@ int sshlink_sessions(void);
 /* Listening, so the page may show the command. */
 bool sshlink_on(void);
 
+/* SSH over Wi-Fi's last start found no key to take (sshlink_start_net) */
+bool sshlink_needs_key(void);
+
 /* The wrong PINs the page has had since the screen opened (hare_wrong_pins).
  * They count toward the same five: the PIN is one secret, and a page that
  * waits 30 seconds after five and then takes five more would otherwise let a
@@ -77,10 +102,76 @@ void sshlink_note_web(int wrong);
 
 /* The screen's value for its SSH row, lowercase as status words are
  * (DESIGN.md 4): "waiting", "1 signed in", "locked", "dev image",
- * "not with Wi-Fi", "off". */
+ * "not with Wi-Fi", "needs a key", "off". */
 const char *sshlink_status(void);
 
 /* ---- the parts a host check can reach (tools/sshlink-check.c) ---------- */
+
+/* Where SSH listens, and how one signs in there */
+typedef enum {
+	SSHLINK_OFF,        /* nothing listens */
+	SSHLINK_CABLE,      /* the cable's address alone: the password or a key */
+	SSHLINK_NET,        /* every address, Wi-Fi's too: a key only */
+} sshlink_mode;
+
+/* What Developer Mode's SSH is listening as now: SSHLINK_OFF unless it is
+ * on. File Transfer's SSH over the cable reads SSHLINK_CABLE too. */
+sshlink_mode sshlink_running(void);
+
+/* What decides it, each a fact of the moment */
+typedef struct {
+	bool cable;         /* a computer on the cable, which has its address */
+	bool radio;         /* an 802.11 interface is there (sshlink_radio) */
+	bool over_wifi;     /* the player turned SSH over Wi-Fi on */
+	bool cable_spent;   /* the cable's SSH already ran for this plug: a
+	                     * lockout, or a radio that ended it, holds until
+	                     * the cable comes out */
+} sshlink_facts;
+
+/* Developer Mode's SSH, for these facts:
+ *   a radio, SSH over Wi-Fi on    SSHLINK_NET, with the cable in or not:
+ *                                 keys only on every address
+ *   a radio, SSH over Wi-Fi off   SSHLINK_OFF ("not with Wi-Fi"): the
+ *                                 password must never meet a network
+ *   no radio, a computer          SSHLINK_CABLE, once per plug
+ *   neither                       SSHLINK_OFF
+ * The password is never offered while a radio is there, whatever the
+ * choice says. */
+sshlink_mode sshlink_want(const sshlink_facts *f);
+
+/* What Developer Mode's side keeps between looks: the mode it started and
+ * believes runs, and whether the cable's SSH ended with the cable still in
+ * (a lockout, dropbear gone, a radio that came), which holds it off until
+ * the cable comes out. */
+typedef struct {
+	sshlink_mode mode;
+	bool         spent;
+} sshlink_plan;
+
+/* One look (dev_ssh_tick, five a second), with `running` what sshlink says
+ * runs now (sshlink_running). Returns the mode that should run after it:
+ * p->mode to leave things as they are, another to end the one running and
+ * start that one (none for SSHLINK_OFF). Keeps p->spent; p->mode is the
+ * caller's to set once a start works, and SSHLINK_OFF once it ends one.
+ * A cable SSH that runs is never ended by its own plug. */
+sshlink_mode sshlink_step(sshlink_plan *p, const sshlink_facts *f, sshlink_mode running);
+
+/* What dropbear is started with for `mode` (CABLE or NET) into `argv`, at
+ * most SSHLINK_ARGV entries with its NULL: `listen` is the cable's
+ * "addr:22" for CABLE, unused for NET, which takes port 22 on every
+ * address; `key` the host key. NET always carries -s (no password logins).
+ * Returns how many entries before the NULL, 0 for SSHLINK_OFF. */
+#define SSHLINK_ARGV 16
+int sshlink_argv(sshlink_mode mode, const char *listen, const char *key, const char **argv);
+
+/* The keys SSH takes: `keydir`/authorized_keys's (sshlink_key_lines), the
+ * Developer folder's and ssh-copy-id's alike. 0 with no file. */
+int sshlink_keys(const char *keydir);
+
+/* The keys in an authorized_keys text: lines that are not blank and not a
+ * comment. dropbear has the last word on each; this is only whether there
+ * is anything for it to read. */
+int sshlink_key_lines(const char *text);
 
 typedef struct {
 	int  sessions;      /* signed in now */

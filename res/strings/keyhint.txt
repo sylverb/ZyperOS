@@ -236,17 +236,6 @@ de = ändern
 ja = 変更
 it = cambia
 
-[keyhint.turn_off_mode]
-note = A button hint's word, beside its button's glyph (src/keyhints.h): Developer Mode: A turns it off. Short, as each language writes a hint's word (English's lowercase).
-en = turn off
-zh-Hans = 关闭模式
-es = desactivar
-pt-BR = desativar
-fr = désactiver
-de = ausschalten
-ja = オフ
-it = disattiva
-
 [keyhint.stop]
 note = A button hint's word, beside its button's glyph (src/keyhints.h): B stops what is running (a download, a look). Short, as each language writes a hint's word (English's lowercase).
 en = stop

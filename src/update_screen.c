@@ -9,6 +9,7 @@
 #include "place.h"
 #include "theme.h"
 #include "ui.h"
+#include "ds/flex.h"     /* the page's bands, laid out by rules */
 #include "ds/layout.h"
 #include "ds/mark.h"      /* the more marks */
 #include "uisound.h"
@@ -28,6 +29,15 @@
  * B leaves; this page starts it and draws what it says. */
 #define UP_X       90                         /* the page's left and right edge */
 #define UP_W       (ZYPEROS_SCREEN_W - 2 * UP_X)
+/* The page is one column of bands between those edges, laid out by rules
+ * (src/ds/flex.h, update_page_draw): the heading's, the versions' (Zyper at
+ * its left), What's New taking what is left, the bar's, and the keys on
+ * every screen's foot. Each band's height, and where its parts sit in it: */
+#define UP_HEAD_H   132   /* the heading in its middle (66) */
+#define UP_TOP_H    196   /* Zyper's middle 100 down, 68 in; the versions 68 down, 180 in; the line under them 138 down, 182 in */
+#define UP_BAR_H    128   /* the bar 4 down, its words 58 down; a line where it goes ends 32 down */
+#define UP_KEY_H    48    /* the keys' glyphs */
+#define UP_LINE_IN  20    /* What's New's first line's middle from its band's top, and its last from the foot */
 
 /* What's New: the release's own points, the list's "note" lines, signed with
  * it; the first UP_NOTES, each whole (a list from tools/update-pack.py since
@@ -79,15 +89,16 @@ static void up_arrow(SDL_Renderer *r, int x, int mid, int w)
  * PortMaster's, which is this page with its own words (src/pminstall.h).
  * `notes` are the points under the line, What's New on System Update's.
  * `icon`, PortMaster's (pm_icon_tex), stands where Zyper does, NULL for him. */
-/* What's New's lines, from its first at y 348 every UP_NOTE_STEP, as many
- * as reach UP_NOTE_END: a point's lines balanced in **meta**, its lead
+/* What's New's lines, from its first UP_LINE_IN under its band's top (348)
+ * every UP_NOTE_STEP, as many as reach UP_LINE_IN over its foot (548), or
+ * 56 over the bar's band's foot (640) where no bar or line takes it: a
+ * point's lines balanced in **meta**, its lead
  * ("**USB Accessories:**" in the release notes, the words before its first
  * ": ") in **text** and the rest in **text-soft**, a dot at its first line,
  * and air between points. Scrolled a line at a time (up and down); an
  * arrow at the right says there is more above or below. */
 #define UP_NOTE_STEP 42
 #define UP_NOTE_GAP  14
-#define UP_NOTE_END  548
 #define UP_NOTE_LINES 8
 
 typedef struct { const char *text; int len, lead, first; } up_note_line;
@@ -167,9 +178,28 @@ void update_page_draw(app *a, const char *heading, const su_page *p,
 	SDL_Color warn = ui_col(thm->warning, 255);
 	char buf[160];
 	int x, i, w, y;
+	static ds_flex F;
+	SDL_Rect hb, tb, nb, bb, kb;
 
+	{
+		const int root = ds_flex_begin(&F, ZYPEROS_SCREEN_W, ZYPEROS_SCREEN_H,
+		                               &(ds_box){ .dir = DS_COL,
+		                                          .pad = { UP_X, 0, UP_X, ZYPEROS_SCREEN_H - DS_FOOT_Y - UP_KEY_H / 2 } });
+		const int head = ds_flex_add(&F, root, &(ds_box){ .h = UP_HEAD_H });
+		const int top = ds_flex_add(&F, root, &(ds_box){ .h = UP_TOP_H });
+		const int news = ds_flex_add(&F, root, &(ds_box){ .grow = 1 });
+		const int bar = ds_flex_add(&F, root, &(ds_box){ .h = UP_BAR_H });
+		const int keys = ds_flex_add(&F, root, &(ds_box){ .h = UP_KEY_H });
+
+		ds_flex_solve(&F);
+		hb = ds_flex_rect(&F, head);
+		tb = ds_flex_rect(&F, top);
+		nb = ds_flex_rect(&F, news);
+		bb = ds_flex_rect(&F, bar);
+		kb = ds_flex_rect(&F, keys);
+	}
 	draw_background(a);
-	ui_text(r, fl, heading, ZYPEROS_SCREEN_W / 2, ui_cap_y(fl, 66), 0, UI_TEXT_SOFT);
+	ui_text(r, fl, heading, ZYPEROS_SCREEN_W / 2, ui_cap_y(fl, hb.y + hb.h / 2), 0, UI_TEXT_SOFT);
 	if (icon) {
 		/* Its 256 square drawn at 0.8, about Zyper's size */
 		int iw, ih;
@@ -178,17 +208,17 @@ void update_page_draw(app *a, const char *heading, const su_page *p,
 		iw = iw * 4 / 5;
 		ih = ih * 4 / 5;
 		/* A little over Zyper's middle, its quay clear of the points */
-		SDL_RenderCopy(r, icon, NULL, &(SDL_Rect){ 158 - iw / 2, 216 - ih / 2, iw, ih });
+		SDL_RenderCopy(r, icon, NULL, &(SDL_Rect){ tb.x + 68 - iw / 2, tb.y + 84 - ih / 2, iw, ih });
 	} else {
-		draw_zyper(r, 158.0f, 232.0f, 150.0f, ZYPER_TILT_DEG, 1.0f, 0.0f, 255);
+		draw_zyper(r, (float)(tb.x + 68), (float)(tb.y + 100), 150.0f, ZYPER_TILT_DEG, 1.0f, 0.0f, 255);
 	}
 
 	/* 0.1.0 → 0.2.0, or the installed version alone */
-	x = 270;
-	x += ui_text(r, ft, p->from, x, ui_cap_y(ft, 200), -1, UI_TEXT);
+	x = tb.x + 180;
+	x += ui_text(r, ft, p->from, x, ui_cap_y(ft, tb.y + 68), -1, UI_TEXT);
 	if (p->to[0]) {
-		up_arrow(r, x + 24, 200, 52);
-		ui_text(r, ft, p->to, x + 100, ui_cap_y(ft, 200), -1, UI_TEXT);
+		up_arrow(r, x + 24, tb.y + 68, 52);
+		ui_text(r, ft, p->to, x + 100, ui_cap_y(ft, tb.y + 68), -1, UI_TEXT);
 	}
 	/* The line under the versions wraps to a second line before it is cut
 	 * (a long sentence in French or Portuguese); the second sits under it,
@@ -196,12 +226,12 @@ void update_page_draw(app *a, const char *heading, const su_page *p,
 	int sub_lines;
 	{
 		char sl[2][LB_LINE];
-		int n = ui_balance_lines(fs, p->sub, ZYPEROS_SCREEN_W - 272 - UP_X, 2, sl), k;
+		int n = ui_balance_lines(fs, p->sub, tb.x + tb.w - (tb.x + 182), 2, sl), k;
 
 		sub_lines = n;
 		if (n > 1) ui_fit_drawn(p->sub);        /* drawn whole, in pieces */
 		for (k = 0; k < n; k++)
-			ui_text(r, fs, sl[k], 272, ui_cap_y(fs, 270 + k * 38), -1, p->sub_warn ? warn : UI_TEXT_DIM);
+			ui_text(r, fs, sl[k], tb.x + 182, ui_cap_y(fs, tb.y + 138 + k * 38), -1, p->sub_warn ? warn : UI_TEXT_DIM);
 	}
 
 	/* A problem, in full: **menu** **text**, up to three balanced lines from
@@ -209,12 +239,13 @@ void update_page_draw(app *a, const char *heading, const su_page *p,
 	if (p->warn[0]) {
 		char lines[4][LB_LINE];
 		int n = ui_balance_lines(fm, p->warn, UP_W - 34, 4, lines), k;
-		SDL_Rect mark = { UP_X, 348 - 30, 8, (n - 1) * 52 + 60 };
+		const int y0 = nb.y + UP_LINE_IN;
+		SDL_Rect mark = { nb.x, y0 - 30, 8, (n - 1) * 52 + 60 };
 
 		ui_round_rect(r, &mark, 4, warn);
 		if (n > 1) ui_fit_drawn(p->warn);       /* drawn whole, in pieces */
 		for (k = 0; k < n; k++)
-			ui_text(r, fm, lines[k], UP_X + 34, ui_cap_y(fm, 348 + k * 52), -1, UI_TEXT);
+			ui_text(r, fm, lines[k], nb.x + 34, ui_cap_y(fm, y0 + k * 52), -1, UI_TEXT);
 	}
 	g_up_more = false;
 	/* What's New (UP_NOTE_STEP above) */
@@ -223,9 +254,9 @@ void update_page_draw(app *a, const char *heading, const su_page *p,
 		static up_note_line ln[UP_NOTES * UP_NOTE_LINES];
 		/* Down to the bar's room, or to the buttons' when there is no bar
 		 * and no line where it goes */
-		int note_end = p->bar || p->line[0] ? UP_NOTE_END : 640;
+		int note_end = p->bar || p->line[0] ? nb.y + nb.h - UP_LINE_IN : bb.y + bb.h - 56;
 		/* Under a two-line sub, a little lower, so the two read apart */
-		int top = sub_lines > 1 ? 362 : 348;
+		int top = nb.y + UP_LINE_IN + (sub_lines > 1 ? UP_NOTE_GAP : 0);
 		int n = up_note_lines(fs, notes, nnotes, buf, ln, UP_NOTES * UP_NOTE_LINES), fits, k;
 
 		/* Each point drawn whole, in pieces when it wraps */
@@ -271,32 +302,32 @@ void update_page_draw(app *a, const char *heading, const su_page *p,
 
 	/* The bar, track with accent-ink over it, and its two words under it */
 	if (p->bar) {
-		SDL_Rect tr = { UP_X, 572, UP_W, 18 };
-		w = (int)((float)UP_W * p->frac + 0.5f);
+		SDL_Rect tr = { bb.x, bb.y + 4, bb.w, 18 };
+		w = (int)((float)bb.w * p->frac + 0.5f);
 		ds_bar_in(r, &tr, w, ui_col(thm->track, 255), ui_col(thm->accent_ink, 255));
-		ui_text(r, fs, p->bar_left, UP_X, ui_cap_y(fs, 626), -1, UI_TEXT_DIM);
-		ui_text(r, fs, p->bar_right, UP_X + UP_W, ui_cap_y(fs, 626), 1, UI_TEXT_DIM);
+		ui_text(r, fs, p->bar_left, bb.x, ui_cap_y(fs, bb.y + 58), -1, UI_TEXT_DIM);
+		ui_text(r, fs, p->bar_right, bb.x + bb.w, ui_cap_y(fs, bb.y + 58), 1, UI_TEXT_DIM);
 	} else if (p->line[0]) {
 		/* Up to three lines, centered, the last where the one line stood */
 		char ll[3][LB_LINE];
 		int n = ui_balance_lines(fs, p->line, UP_W, 3, ll), k;
 		for (k = 0; k < n; k++)
-			ui_text(r, fs, ll[k], ZYPEROS_SCREEN_W / 2, ui_cap_y(fs, 600 - (n - 1 - k) * 38), 0,
+			ui_text(r, fs, ll[k], ZYPEROS_SCREEN_W / 2, ui_cap_y(fs, bb.y + 32 - (n - 1 - k) * 38), 0,
 			        p->line_warn ? warn : UI_TEXT_DIM);
 	}
 
 	/* The buttons, glyph and word, centered as a row on every screen's foot (720; 714 until 1.0.6) */
 	{
-		int gs = 48, gap = 12, between = 40, total = 0, cx;
+		int gs = UP_KEY_H, gap = 12, between = 40, total = 0, cx, cy = kb.y + kb.h / 2;
 		for (i = 0; i < p->nkeys; i++)
 			total += ui_button_width(p->keys[i].button, gs) + gap + ui_text_width(fs, p->keys[i].label);
 		total += between * (p->nkeys > 1 ? p->nkeys - 1 : 0);
 		cx = (ZYPEROS_SCREEN_W - total) / 2;
 		for (i = 0; i < p->nkeys; i++) {
 			int bw = ui_button_width(p->keys[i].button, gs);
-			ui_button(r, p->keys[i].button, cx + bw / 2, DS_FOOT_Y, gs, UI_BUTTON_PLAIN);
+			ui_button(r, p->keys[i].button, cx + bw / 2, cy, gs, UI_BUTTON_PLAIN);
 			cx += bw + gap;
-			cx += ui_text(r, fs, p->keys[i].label, cx, ui_cap_y(fs, DS_FOOT_Y), -1, UI_TEXT_SOFT) + between;
+			cx += ui_text(r, fs, p->keys[i].label, cx, ui_cap_y(fs, cy), -1, UI_TEXT_SOFT) + between;
 		}
 	}
 }

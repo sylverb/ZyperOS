@@ -2068,6 +2068,23 @@ MENU > **Developer Mode** (on or off, between Show Tutorial and System
 Update) is a development image's only: on, the link is always up and nothing
 is asked.
 
+On a release image, the row opens **Developer (SSH)**, a menu panel (11.3):
+two switches, **SSH over Wi-Fi** (Off as it ships) and **Developer Mode**
+(On), each turned over by A, Left or Right; a rule; then up to three
+full-width **text-dim** lines, left-aligned: what to type (`ssh root@<address>`,
+the address first as Wi-Fi File Transfer has it, then over Wi-Fi
+`ssh root@zyperos.local`, or on the cable "Password: x7k4mq2d"), the keys
+SSH takes, the Developer folder's and ssh-copy-id's alike ("1 key on the
+card"; with none, where one goes: "No key in the Developer folder"), and,
+only while nothing listens, why ("SSH not with Wi-Fi", "SSH needs a key",
+"SSH locked"); then "A change  B close". The cursor rests on SSH over Wi-Fi
+and Developer Mode is under it, since turning it off is not one press to
+undo (the hold on About); off, the page closes back to MENU. SSH over Wi-Fi
+turned on says once, as a message with "B close", that over Wi-Fi only a key
+signs in, never the password, and how the first key gets on. Turning
+Developer Mode off turns it off too. *(My pick, 2026-11-15: the switch on
+the page, not in MENU.)*
+
 The same tiles ask File Transfer's questions while files move (11.23), with
 a **meta** **text-dim** line under the rule saying what moves and a **meta**
 **text-soft** line under the tiles saying what the focused one does.

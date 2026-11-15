@@ -1,19 +1,27 @@
 #!/bin/bash
 # A ZyperOS release, from this Mac.
 #
-#   tools/release.sh            build the GKD Pixel 2's card image from this
-#                               commit and check it; nothing leaves this
-#                               computer (out/release/v<VERSION>/)
+#   tools/release.sh            build the card image of every device in
+#                               config/devices from this commit and check
+#                               them; nothing leaves this computer
+#                               (out/release/v<VERSION>/)
 #   tools/release.sh --publish  the same, then a draft GitHub release
-#                               v<VERSION> with the image, its sources, the
-#                               System Update pack and signed list, and
-#                               SHA256SUMS, and the tag pushed
+#                               v<VERSION> with each device's image, its
+#                               sources, its System Update packs and signed
+#                               lists, and SHA256SUMS, and the tag pushed
 #   tools/release.sh --publish-built
 #                               publish what the first form built, without
 #                               building again: the files tested on a device
 #                               are the files released. Refused unless they
-#                               were built from main as GitHub has it now and
-#                               still match their SHA256SUMS
+#                               were built from main as GitHub has it now (or
+#                               from a commit before it that only lacked the
+#                               notes' Tested on lines) and still match their
+#                               SHA256SUMS
+#
+# Both --publish forms refuse a release whose notes lack a "Tested on <id>:"
+# line for any device in config/devices (tools/release-devices.sh tested,
+# docs/releases/README.md): every device a release carries has passed its
+# device test for that version first.
 #
 # Both --publish forms end by waiting for GitHub to publish the release, then
 # post its notes in the Discord's #releases channel (tools/discord-release.py,
@@ -32,12 +40,16 @@
 # The image is built here, not on GitHub, because its inputs are here: the
 # cores in the main checkout's vendor/ (ZYPEROS_VENDOR), which
 # mk/fetch-vendor.sh can no longer fetch exactly as they are, and plastron's
-# Docker volume. plastron's release build (make release-pixel2) starts from an
-# empty output folder of its own, so it builds everything again, with the
-# shared download cache: it takes a while, and this holds
-# /tmp/plastron-build-lock all the time it runs. The TrimUI Brick's image
-# needs its GPU files (BRICK_GPU in plastron), which this Mac doesn't have, so
-# a release is the Pixel 2's until it does.
+# Docker volume. plastron's release build of a device (make release-<id>)
+# starts from an empty output folder of its own, so it builds everything
+# again, with the shared download cache: it takes a while, and this holds
+# /tmp/plastron-build-lock all the time it runs.
+#
+# The devices are config/devices: a device joins it with its first release
+# and stays, as System Update and the installer read releases/latest. The
+# TrimUI Brick is not in it yet; its release-brick also needs plastron's
+# brick-inputs and brick-kernel first (plastron's make release runs them), and
+# its GPU files (BRICK_GPU), which this Mac doesn't have.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 ROOT=$PWD
@@ -50,18 +62,23 @@ TAG=v$VERSION
 OUT=$ROOT/out/release/$TAG
 NOTES=docs/releases/$TAG.md
 LOCK=/tmp/plastron-build-lock
-IMAGE=ZyperOS-$TAG-pixel2.img.xz
-SOURCES=ZyperOS-$TAG-pixel2-sources.tar
+# Every released device, in config/devices' order
+DEVICES=$(sh tools/release-devices.sh list) || exit 1
+DEVICES=$(echo $DEVICES)
+# A device's files, as plastron's scripts/release.sh names them
+image() { echo "ZyperOS-$TAG-$1.img.xz"; }
+sources() { echo "ZyperOS-$TAG-$1-sources.tar"; }
 # System Update (docs/updates.md): plastron packs the image's own ZyperOS
 # folder and writes the list unsigned; it is signed here, on the Mac that
 # holds the key (tools/update-key.sh), never in the container or on GitHub.
 # The list's name has no version, so releases/latest/download/ finds it.
-UPDATE_PACK=ZyperOS-$TAG-pixel2-update.zpk
-UPDATE_LIST=ZyperOS-pixel2-update.txt
-# And the system's (root, kernel, device tree) for a card with two system
-# slots (docs/updates.md, layer 2), signed the same way
-SYSTEM_PACK=ZyperOS-$TAG-pixel2-system.zpk
-SYSTEM_LIST=ZyperOS-pixel2-system.txt
+# Then the system's (root, kernel, device tree) for a card with two system
+# slots (docs/updates.md, layer 2), signed the same way: pack, list, pack,
+# list
+update_files() { echo "ZyperOS-$TAG-$1-update.zpk ZyperOS-$1-update.txt ZyperOS-$TAG-$1-system.zpk ZyperOS-$1-system.txt"; }
+# Every device's image and sources, for the release
+RELEASE_FILES=
+for d in $DEVICES; do RELEASE_FILES="$RELEASE_FILES $(image $d) $(sources $d)"; done
 UPDATE_KEY=${ZYPEROS_UPDATE_KEY:-$HOME/.config/zyperos/update-signing-key.pem}
 
 PUBLISH=0
@@ -83,7 +100,7 @@ publish() {
 	# to this release and publishes it, and refuses a tag with no draft waiting
 	[ $UPDATES = 0 ] || [ -n "$UPDATE_FILES" ] || stop "the update list is not signed"
 	gh release create "$TAG" --repo $REPO --draft $PRERELEASE --target "$HEAD" --title "ZyperOS $VERSION" \
-		--notes-file "$ROOT/$NOTES" "$IMAGE" "$SOURCES" $UPDATE_FILES SHA256SUMS
+		--notes-file "$ROOT/$NOTES" $RELEASE_FILES $UPDATE_FILES SHA256SUMS
 	cd "$ROOT"
 	git tag -a "$TAG" -m "ZyperOS $VERSION" "$HEAD"
 	git -c credential.helper= -c "credential.helper=!gh auth git-credential" push origin "refs/tags/$TAG"
@@ -112,6 +129,9 @@ if [ $PUBLISH = 1 ]; then
 	[ "$HEAD" = "$(git rev-parse origin/main)" ] ||
 		stop "a release is made from main as GitHub has it: this is $(git rev-parse --short HEAD), origin/main is $(git rev-parse --short origin/main)"
 	[ -f "$NOTES" ] || stop "write the release notes in $NOTES and commit them first"
+	# Each device passed its device test for this version: its Tested on line
+	sh tools/release-devices.sh tested "$NOTES" ||
+		stop "$NOTES needs a \"Tested on <id>: <who, on what>\" line for each of $DEVICES (docs/releases/README.md)"
 	gh auth status >/dev/null 2>&1 || stop "gh isn't signed in"
 	! git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1 || stop "$TAG is already tagged on GitHub"
 	! gh release view "$TAG" --repo $REPO >/dev/null 2>&1 || stop "$REPO already has a $TAG release (a draft counts)"
@@ -138,22 +158,40 @@ if [ $UPDATES = 1 ]; then
 else
 	echo "release.sh: no key in res/update/keys: System Update is off in this image, and the release has no update files"
 fi
-echo "ZyperOS $VERSION from $(git rev-parse --short HEAD), plastron/ with it"
+echo "ZyperOS $VERSION from $(git rev-parse --short HEAD), plastron/ with it, for $DEVICES"
 
 # --publish-built: the files of an earlier build, as they are
 if [ $BUILT = 1 ]; then
 	[ -f "$OUT/BUILT-FROM" ] || stop "nothing built in $OUT: run tools/release.sh first"
-	grep -q "($HEAD)" "$OUT/BUILT-FROM" || stop "$OUT is from another commit: $(cat "$OUT/BUILT-FROM")"
+	BUILT_HEAD=$(sed -n 's/^ZyperOS .* (\([0-9a-f]*\)), plastron.*/\1/p' "$OUT/BUILT-FROM")
+	[ -n "$BUILT_HEAD" ] || stop "$OUT/BUILT-FROM names no commit: $(cat "$OUT/BUILT-FROM")"
+	if [ "$BUILT_HEAD" != "$HEAD" ]; then
+		# The device tests come after the build, so their Tested on lines
+		# may land after it: main may be the built commit and one that adds
+		# them, and nothing else. The image and the update lists are the
+		# same then (the lists' What's New comes from the notes' points,
+		# which a Tested on line is not)
+		untested() { git show "$1:$NOTES" 2>/dev/null | grep -v -e '^Tested on ' -e '^## Tested$' -e '^[[:space:]]*$' || true; }
+		git merge-base --is-ancestor "$BUILT_HEAD" "$HEAD" 2>/dev/null &&
+			[ "$(git diff --name-only "$BUILT_HEAD" "$HEAD")" = "$NOTES" ] &&
+			[ "$(untested "$BUILT_HEAD")" = "$(untested "$HEAD")" ] ||
+			stop "$OUT is from another commit: $(cat "$OUT/BUILT-FROM"); since then more changed than $NOTES's Tested on lines, so build again"
+		echo "release.sh: built from $(git rev-parse --short "$BUILT_HEAD"); main since has only $NOTES's Tested on lines"
+	fi
 	cd "$OUT"
 	shasum -a 256 -c SHA256SUMS > /dev/null || stop "a file in $OUT no longer matches SHA256SUMS"
 	UPDATE_FILES=
-	if [ $UPDATES = 1 ]; then
-		for f in "$UPDATE_PACK" "$UPDATE_LIST" "$SYSTEM_PACK" "$SYSTEM_LIST"; do
+	for d in $DEVICES; do
+		for f in $(image $d) $(sources $d); do
+			awk -v f="$f" '$2 == f { found = 1 } END { exit !found }' SHA256SUMS || stop "$OUT's SHA256SUMS has no $f"
+		done
+		xz -t "$(image $d)"
+		[ $UPDATES = 1 ] || continue
+		for f in $(update_files $d); do
 			[ -s "$f" ] || stop "$OUT has no signed $f"
 			UPDATE_FILES="$UPDATE_FILES $f"
 		done
-	fi
-	xz -t "$IMAGE"
+	done
 	publish
 	exit 0
 fi
@@ -178,27 +216,32 @@ done
 HAVE_LOCK=1
 echo "ZyperOS release $TAG (tools/release.sh)" > $LOCK/owner
 
-say "The GKD Pixel 2's image: plastron's release build (everything, from empty; this takes a while)"
-date
 make -C "$PLASTRON" builder volume
 docker run --rm -v plastron-work:/work --user root plastron-builder rm -rf /work/release
-make -C "$PLASTRON" release-pixel2 VERSION="$VERSION" ZYPEROS_SRC="$SRC" ZYPEROS_VENDOR="$VENDOR"
+# What comes out of the container: each device's image and sources, and its
+# packs with their lists unsigned
+GET=
+for d in $DEVICES; do
+	say "The $d image: plastron's release build (everything, from empty; this takes a while)"
+	date
+	make -C "$PLASTRON" "release-$d" VERSION="$VERSION" ZYPEROS_SRC="$SRC" ZYPEROS_VENDOR="$VENDOR"
+	GET="$GET $(image $d) $(sources $d)"
+	if [ $UPDATES = 1 ]; then
+		set -- $(update_files $d)
+		GET="$GET $1 $2.unsigned $3 $4.unsigned"
+	fi
+done
 rm -rf "$OUT"
 mkdir -p "$OUT"
 docker run --rm -v plastron-work:/work -v "$OUT":/out --user root plastron-builder \
-	sh -c "cp /work/release/$IMAGE /work/release/$SOURCES /out/ &&
-	       { [ $UPDATES = 0 ] || cp /work/release/$UPDATE_PACK /work/release/$UPDATE_LIST.unsigned \
-	                               /work/release/$SYSTEM_PACK /work/release/$SYSTEM_LIST.unsigned /out/; } &&
-	       chown -R $(id -u):$(id -g) /out"
+	sh -c "cd /work/release && cp $GET /out/ && chown -R $(id -u):$(id -g) /out"
 rm -rf $LOCK
 HAVE_LOCK=0
 echo "release.sh: $LOCK released"
 date
 
-say "Checking the image"
+say "Checking the images"
 cd "$OUT"
-[ -s "$IMAGE" ] && [ -s "$SOURCES" ] || stop "plastron's release didn't make $IMAGE and $SOURCES"
-xz -t "$IMAGE"
 UPDATE_FILES=
 # A pack and its list: the list describes this pack and this version, and is
 # signed here with the release key
@@ -214,11 +257,16 @@ sign_list() { # sign_list PACK LIST
 		UPDATE_FILES="$UPDATE_FILES $1 $2"
 	fi
 }
-if [ $UPDATES = 1 ]; then
-	sign_list "$UPDATE_PACK" "$UPDATE_LIST"
-	sign_list "$SYSTEM_PACK" "$SYSTEM_LIST"
-fi
-shasum -a 256 "$IMAGE" "$SOURCES" $UPDATE_FILES > SHA256SUMS
+for d in $DEVICES; do
+	[ -s "$(image $d)" ] && [ -s "$(sources $d)" ] || stop "plastron's release didn't make $(image $d) and $(sources $d)"
+	xz -t "$(image $d)"
+	if [ $UPDATES = 1 ]; then
+		set -- $(update_files $d)
+		sign_list "$1" "$2"
+		sign_list "$3" "$4"
+	fi
+done
+shasum -a 256 $RELEASE_FILES $UPDATE_FILES > SHA256SUMS
 printf 'ZyperOS %s (%s), plastron/ included\n' "$VERSION" "$HEAD" > BUILT-FROM
 cat SHA256SUMS
 ls -l

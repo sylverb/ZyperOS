@@ -273,6 +273,10 @@ typedef enum {
 	 * length, in `count`) and `at` (how far it has got, in `index`); `on` =
 	 * 0 when it ends, `done` = 1 when it ended done. No answer. */
 	DIATOM_MSG_SETPOWERHOLD,
+	/* On-Screen Stats (ZyperOS's src/hud.h): the line over the game, `on`
+	 * and its style's words in `hud`, for every game until said again. No
+	 * answer. */
+	DIATOM_MSG_SETHUD,
 	/* The launcher went away - or was displaced by a newer one, which means
 	 * the same thing. The game keeps running. */
 	DIATOM_MSG_HANGUP
@@ -334,6 +338,9 @@ typedef struct {
 	int  on;
 	int  blink;            /* SETLOWBATTERY: the disc blinks */
 	int  done;             /* SETPOWERHOLD on=0: the hold was done */
+	/* SETHUD: what On-Screen Stats shows and how, as the launcher keeps
+	 * the words (diatom_port_hud_style reads them), and its clock */
+	diatom_hud_words hud;
 	/* SETPLAYER2 on=1: what the system gives a guest, from the launcher's
 	 * system table: its RetroPad bits (`buttons=`, hex 0x... or decimal) and
 	 * how many play at once (`players=`). 0 when not said, which player2.h

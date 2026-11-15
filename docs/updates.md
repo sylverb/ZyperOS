@@ -18,7 +18,8 @@ with the same signed lists.
 ### What a release carries
 
 Next to the card image, the installers and `SHA256SUMS`, every release from
-`make release` has two more files (Pixel 2 only for now):
+`make release` has two more files for each device in `config/devices` (the
+Pixel 2's are shown; docs/releases/README.md):
 
 | File | What it is |
 |---|---|
@@ -48,10 +49,11 @@ sign <key id> <base64 Ed25519 signature>
   system; never a dot folder such as `.media`, which whatever puts the first
   cover there makes), which the switch adds to and never removes from, as the
   image's first copy does.
-- `min-system` is the oldest system image the folder runs on
-  (`res/update/min-system`). Raise it in the commit that makes the folder
-  need something new from the image (a library, a kernel driver); a device
-  with an older image is then told to use the installer.
+- `min-system` is the oldest system image the folder runs on, one a device
+  (`res/update/min-system-<id>`, which `tools/update-pack.py` reads for the
+  device it packs). Raise a device's in the commit that makes its folder need
+  something new from its image (a library, a kernel driver); a device with an
+  older image is then told to use the installer.
 - Unknown keywords before `end` are read past, so a later format can add a
   line. A change an old updater must not read past changes the first line.
 

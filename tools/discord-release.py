@@ -15,7 +15,8 @@ workflow publishes the release after it builds the installer, and the post
 links to the published release, so it waits for that.
 
 The message is docs/releases/<tag>.md as people read it in Discord: its first
-paragraph, then every section but Install and Thanks, which stay on GitHub
+paragraph, then every section but Install, Tested (the devices it passed its
+device test on, docs/releases/README.md) and Thanks, which stay on GitHub
 behind the link at the end. Headings become bold lines. Discord takes at most
 4096 characters in an embed and 6000 in a message, so the notes are cut
 between paragraphs and list items into embeds, and into more than one message
@@ -32,7 +33,7 @@ REPO = "tarikbc/ZyperOS"
 API = "https://discord.com/api/v10"
 TOKEN_FILE = os.path.expanduser("~/.config/zyperos/discord-bot.token")
 LIME = 0xBEF23C          # ZyperOS's lime, as the Developer role has it
-SKIP = ("Install", "Thanks")  # sections left on GitHub
+SKIP = ("Install", "Tested", "Thanks")  # sections left on GitHub
 EMBED_TEXT, MESSAGE_TEXT, EMBEDS = 4096, 6000, 10  # Discord's limits
 NEWS = 5                 # an announcement channel's type
 
@@ -154,8 +155,10 @@ def check():
         if release_url(tag) not in text:
             print(f"FAIL {tag}: the post must end with the release's link")
             bad += 1
-    # pieces() on a small example: headings bold, Install and Thanks left out
-    sample = "Intro line.\n\n## Install\n\n1. Step\n\n## What's new\n\n- **A:** one\n- **B:** two\n  more\n\n## Thanks\n\nPeople."
+    # pieces() on a small example: headings bold, Install, Tested and Thanks
+    # left out
+    sample = ("Intro line.\n\n## Install\n\n1. Step\n\n## What's new\n\n- **A:** one\n- **B:** two\n  more\n\n"
+              "## Tested\n\nTested on pixel2: Tarik, two Pixel 2s\n\n## Thanks\n\nPeople.")
     want = ["Intro line.", "**What's new**", "- **A:** one", "- **B:** two\n  more"]
     if pieces(sample) != want:
         print(f"FAIL pieces(): {pieces(sample)!r}, wanted {want!r}")

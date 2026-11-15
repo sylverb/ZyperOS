@@ -7,13 +7,14 @@
 # source stays "GitHub Actions".
 #
 # It also serves downloads.json there, the README's Downloads badge
-# (shields.io's endpoint format): the downloads of the card image alone,
-# ZyperOS-v*-pixel2.img.xz, summed over every release. GitHub's own total,
-# which shields.io's plain badge shows, counts every file - each handheld's
-# System Update check fetches the update list, and the installers, packs,
-# sources and SHA256SUMS add the rest - so it said 873 the day only 150 cards
-# had been written. The installer downloads the same image, so this counts
-# every card written either way. Read again every hour and at each release.
+# (shields.io's endpoint format): the downloads of the card images alone,
+# ZyperOS-v*-<id>.img.xz for each device in config/devices, summed over
+# every release. GitHub's own total, which shields.io's plain badge shows,
+# counts every file - each handheld's System Update check fetches the update
+# list, and the installers, packs, sources and SHA256SUMS add the rest - so
+# it said 873 the day only 150 cards had been written. The installer
+# downloads the same images, so this counts every card written either way.
+# Read again every hour and at each release.
 name: Pages
 
 on:
@@ -21,6 +22,7 @@ on:
     branches: [main]
     paths:
       - .github/workflows/pages.yml
+      - config/devices
   release:
     types: [published]
   schedule:
@@ -43,6 +45,14 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      # config/devices and its reader, for the badge. First: the checkout
+      # empties the folder it goes into
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            config/devices
+            tools/release-devices.sh
+          sparse-checkout-cone-mode: false
       - name: Forward to zyperos.com
         run: |
           mkdir -p _site
@@ -62,13 +72,16 @@ jobs:
           </html>
           EOF
           cp _site/index.html _site/404.html
-      - name: The card image's downloads, for the README's badge
+      - name: The card images' downloads, for the README's badge
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          n=$(gh api --paginate "repos/${{ github.repository }}/releases" \
-                --jq '.[].assets[] | select(.name | test("^ZyperOS-v.*-pixel2\\.img\\.xz$")) | .download_count' |
-              awk '{ s += $1 } END { print s + 0 }')
+          gh api --paginate "repos/${{ github.repository }}/releases" \
+            --jq '.[].assets[] | "\(.name) \(.download_count)"' > "$RUNNER_TEMP/assets"
+          # Each released device's images, every version
+          n=$(for d in $(sh tools/release-devices.sh list); do
+                awk -v d="$d" '$1 ~ ("^ZyperOS-v.*-" d "\\.img\\.xz$") { print $2 }' "$RUNNER_TEMP/assets"
+              done | awk '{ s += $1 } END { print s + 0 }')
           # shields.io's own short form: 1,234 as 1.2k
           msg=$(awk -v n="$n" 'BEGIN { if (n < 1000) print n; else if (n < 10000) printf "%.1fk\n", n / 1000; else printf "%dk\n", n / 1000 }')
           printf '{"schemaVersion":1,"label":"Downloads","message":"%s","color":"1a1c1a","cacheSeconds":3600}\n' "$msg" > _site/downloads.json

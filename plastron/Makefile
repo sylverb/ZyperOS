@@ -119,7 +119,8 @@ brick-bootloader: volume
 
 # The Brick panel probe (board/brick/probe): a card that shows and saves which
 # panel a Brick has, to hand to other Brick owners. Kernel and boot loader only,
-# none of Imagination's libraries, so it can be shared. In out/.
+# none of Imagination's libraries, so it can be shared. In out/. After make
+# brick-kernel, and make or make brick for its compiler and image tools.
 brick-probe: builder volume
 	docker run --rm -v $(CURDIR):/src:ro -v $(VOLUME):/work $(IMAGE) sh /src/scripts/build-brick-probe.sh
 	mkdir -p out

@@ -1,13 +1,17 @@
 /* Resolve official release assets without sending visitors through GitHub UI.
- * Verified links in the HTML remain useful without scripts or API access. */
+ * Verified links in the HTML remain useful without scripts or API access.
+ * Each device with a card image in the release, ZyperOS-v<version>-<id>.img.xz,
+ * gets its own card image button, made from the one in the HTML (the GKD
+ * Pixel 2's): a device with none in the release has none. */
 (() => {
   const panel = document.querySelector('[data-downloads]');
   if (!panel) return;
   const versionLabel = panel.querySelector('[data-download-version]');
   const status = panel.querySelector('[data-download-status]');
   const retry = panel.querySelector('[data-download-retry]');
-  const links = [...panel.querySelectorAll('[data-download]')];
   const endpoint = 'https://api.github.com/repos/tarikbc/ZyperOS/releases/latest';
+  // A device's name on its button; an id not here shows as it is
+  const deviceNames = { pixel2: 'GKD Pixel 2', brick: 'TrimUI Brick', brickpro: 'TrimUI Brick Pro' };
   let pending = false;
 
   function releaseFiles(release) {
@@ -19,9 +23,16 @@
       windows: `ZyperOS-Installer-${version}-Windows.exe`,
       deb: `ZyperOS-Installer-${version}-amd64.deb`,
       rpm: `ZyperOS-Installer-${version}-x86_64.rpm`,
-      image: `ZyperOS-v${version}-pixel2.img.xz`,
       checksums: 'SHA256SUMS'
     };
+    // Every device's card image in the release, keyed image-<id>
+    const imagePrefix = `ZyperOS-v${version}-`;
+    for (const asset of release.assets) {
+      const name = asset && typeof asset.name === 'string' ? asset.name : '';
+      if (!name.startsWith(imagePrefix) || !name.endsWith('.img.xz')) continue;
+      const id = name.slice(imagePrefix.length, -'.img.xz'.length);
+      if (/^[a-z0-9]+$/.test(id)) names[`image-${id}`] = name;
+    }
     const files = new Map();
     for (const [key, name] of Object.entries(names)) {
       const asset = release.assets.find(item => item.name === name);
@@ -35,9 +46,26 @@
     if (![...files.keys()].some(key => key !== 'checksums')) throw new Error('No recognized downloads');
     return files;
   }
+  // A button for each device's card image the release has and the page
+  // doesn't, after the last one
+  function addImageLinks(files) {
+    const images = () => [...panel.querySelectorAll('[data-download^="image-"]')];
+    const template = images()[0];
+    if (!template) return;
+    for (const key of [...files.keys()].sort()) {
+      if (!key.startsWith('image-') || panel.querySelector(`[data-download="${key}"]`)) continue;
+      const id = key.slice('image-'.length);
+      const link = template.cloneNode(true);
+      link.dataset.download = key;
+      link.querySelector('strong').textContent = `${deviceNames[id] || id} card image`;
+      const all = images();
+      all[all.length - 1].after(link);
+    }
+  }
   function applyRelease(release, files) {
+    addImageLinks(files);
     let missing = false;
-    for (const link of links) {
+    for (const link of panel.querySelectorAll('[data-download]')) {
       const file = files.get(link.dataset.download);
       const size = link.querySelector('[data-download-size]');
       link.classList.toggle('download-unavailable', !file);
