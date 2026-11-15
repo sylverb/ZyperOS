@@ -87,6 +87,9 @@ typedef struct device_profile {
 	const td_model *model;
 	bool bluetooth;
 	bool gpu_shaders;        /* Diatom's old screens are a GPU's pass here */
+	/* Diatom gives a core that asks for one a GPU to draw its frames on
+	 * (SET_HW_RENDER): the Dreamcast's, the N64's, the PSP's, Saturn's */
+	bool gpu_frames;
 	bool speaker_mono;       /* one built-in speaker */
 	bool player2;            /* NES Player 2 was built and tried on it */
 	bool usb_shared_port;    /* one port for the computer and accessories */
@@ -143,6 +146,10 @@ bool plat_has_bluetooth(void);
  * CRT, scanlines, the LCD grid; src/app.h SHADERS' gpu): on the Pixel 2,
  * whose pass is a GPU's; not on the Brick, whose is the CPU's */
 bool plat_gpu_shaders(void);
+/* Whether a game whose core draws with the GPU can run here (the profile's
+ * gpu_frames): the systems that need it (config/systems.cfg's needs lines)
+ * have no shelf where it cannot, and their games say why they do not start */
+bool plat_gpu_frames(void);
 /* Whether the built-in speaker is one speaker, as on the GKD Pixel 2, where
  * the Brick has two: Audio Channels' Auto is mono there and stereo on
  * everything else (src/audioout.h). */

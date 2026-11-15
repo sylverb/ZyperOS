@@ -51,6 +51,7 @@ const device_profile device_profile_pixel2 = {
 	.model = &td_model_pixel2,
 	.bluetooth = false,
 	.gpu_shaders = true,
+	.gpu_frames = true,
 	.speaker_mono = true,
 	.player2 = true,
 	.usb_shared_port = true,

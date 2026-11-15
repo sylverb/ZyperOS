@@ -31,6 +31,7 @@ const device_profile device_profile_desktop = {
 	.model = &td_model_pixel2,
 	.bluetooth = true,
 	.gpu_shaders = true,
+	.gpu_frames = true,
 	.speaker_mono = false,
 	.player2 = false,
 	.usb_shared_port = false,

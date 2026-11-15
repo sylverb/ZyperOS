@@ -23,6 +23,8 @@ const device_profile device_profile_brick = {
 	.model = NULL,
 	.bluetooth = true,
 	.gpu_shaders = false,
+	/* Off until a GPU core runs on its PowerVR (the spec's section 6) */
+	.gpu_frames = false,
 	.speaker_mono = false,
 	.player2 = false,
 	.usb_shared_port = false,
