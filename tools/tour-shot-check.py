@@ -272,6 +272,23 @@ def pixel2():
                    % (th, step, off))
 
 
+# --device (src/device/profile.h): the tutorial reads only a device's chords
+# and whether it has a drawing, so wearing the Pixel 2's profile draws its
+# lessons as --fn-volume does, and the Brick's as the host's own does
+def devices():
+    for step in ("move", "menu", "bright"):
+        pairs = (("pixel2", ("--device", "pixel2"), ("--fn-volume",)),
+                 ("brick", ("--device", "brick"), ()))
+        for name, worn, as_before in pairs:
+            a = shot("dev-%s-%s" % (name, step), "--theme", "light", *worn, "--tour", step, "2000")
+            b = shot("was-%s-%s" % (name, step), "--theme", "light", *as_before, "--tour", step, "2000")
+            if None in (a, b):
+                continue
+            off = sum(1 for y in range(0, 768, 2) for x in range(0, 1024, 2)
+                      if zc.px(a, x, y) != zc.px(b, x, y))
+            ck(off == 0, "--device %s %s: the lesson as before (%d pixels differ)" % (name, step, off))
+
+
 # The choices, as src/tourdraw.c lays them out: two 380 x 285 at y 96, 56
 # apart; three (Home Screen) 272 x 204, 32 apart, on the two's middle line;
 # or four 180 x 180 tiles at y 130, 32 apart; a name 48 under each.
@@ -424,6 +441,7 @@ def main():
     ck(first_start() == "shelf", "with tour.done set, the shelf comes first")
 
     pixel2()
+    devices()
     choices()
 
     if fails:

@@ -309,7 +309,9 @@ static void poll_fd(int fd, in_state *st)
 		if (dbg_input) fprintf(stderr, "[in] fd=%d code=%d val=%d\n", fd, ev.code, ev.value);
 		for (i = 0; i < sizeof keymap / sizeof keymap[0]; i++)
 			if (keymap[i].code == ev.code) {
-				plat_set_btn(st, keymap[i].b, ev.value == 1);
+				/* A repeat is no let-go of POWER (src/powerhold.h) */
+				if (keymap[i].b != IN_POWER || ev.value != 2)
+					plat_set_btn(st, keymap[i].b, ev.value == 1);
 				break;
 			}
 	}
@@ -357,6 +359,9 @@ void plat_input_wait(unsigned ms)
 	if (fd_pad >= 0)   p[n++] = (struct pollfd){ .fd = fd_pad,   .events = POLLIN };
 	if (fd_keys >= 0)  p[n++] = (struct pollfd){ .fd = fd_keys,  .events = POLLIN };
 	if (fd_power >= 0) p[n++] = (struct pollfd){ .fd = fd_power, .events = POLLIN };
+	/* POWER held in Hold mode: woken for the pill's next segment and the
+	 * hold's end, which no event marks */
+	ms = plat_power_wait(ms);
 	if (!n) { SDL_Delay(ms); return; }
 	/* A signal ends it early too, which is what a stop should do */
 	poll(p, n, (int)ms);
@@ -365,6 +370,7 @@ void plat_input_wait(unsigned ms)
 void plat_input_poll(in_state *st)
 {
 	memset(st->pressed, 0, sizeof st->pressed);
+	st->power_tap = false;
 	if (plat_terminating()) st->quit_requested = true;
 	/* The jack, checked here because this is the one thing every screen does
 	 * once a frame - and, more to the point, the one thing the launcher stops
@@ -394,6 +400,7 @@ void plat_input_poll(in_state *st)
 	poll_fd(fd_pad, st);
 	poll_fd(fd_keys, st);
 	poll_fd(fd_power, st);
+	plat_power_poll(st);
 }
 
 /* The launcher and Diatom take turns on one framebuffer here, so there is
@@ -411,10 +418,12 @@ bool device_power_pressed(void)
 	struct input_event ev;
 
 	while (fd_power >= 0 && read(fd_power, &ev, sizeof ev) == (ssize_t)sizeof ev)
-		if (ev.type == EV_KEY && ev.code == KEY_POWER && ev.value == 1)
+		if (ev.type == EV_KEY && ev.code == KEY_POWER && ev.value != 2 &&
+		    plat_power_event(ev.value == 1))
 			pressed = true;
 #endif
-	return pressed;
+	/* A hold done, as MENU > Power Button on Hold asks (src/powerhold.h) */
+	return plat_power_due() || pressed;
 }
 
 /* ---- volume and brightness, straight at the hardware ----------------------
@@ -1104,27 +1113,14 @@ void plat_brightness_set(int level)
 /* Both radios are on the Brick's board: the xradio chip carries Wi-Fi and
  * Bluetooth. */
 bool plat_has_wifi(void)      { return true; }
-bool plat_has_bluetooth(void) { return true; }
-/* Diatom scales on the CPU here (port/brick.c): Off and Sharp-Shimmerless.
- * A host build shot or checked (ZYPEROS_HEADLESS) stands for the Pixel 2's
- * menus, so it offers them all, and the fit check measures them. */
-bool plat_gpu_shaders(void)   { return getenv("ZYPEROS_HEADLESS") != NULL; }
-/* Two speakers, a few centimeters apart: Auto keeps them stereo */
-bool plat_speaker_mono(void) { return false; }
-
-/* F1 and F2, the front function keys. */
-bool plat_brightness_on_volume(void) { return false; }
+/* Bluetooth, CPU shaders (Off and Sharp-Shimmerless, port/brick.c), two
+ * speakers, F1 and F2 for brightness, no battery lights and no Player 2:
+ * its profile's (src/device/brick_profile.c), or on the host desktop's. */
 /* MENU is a button of its own, and in_state has it. */
 bool plat_menu_held(void) { return false; }
 /* L2 and R2 are buttons of their own too. */
 bool plat_tap_held(in_button b) { (void)b; return false; }
 
-/* No lights of its own for the battery. */
-bool plat_battery_lights(void) { return false; }
-
-/* Never tried here: its image may have no hostapd, and its cable no
- * network link (plat_usb_peer cannot tell it a computer) */
-bool plat_player2(void) { return false; }
 side_lights plat_side_lights(void) { return LIGHTS_ALL; }
 void plat_side_lights_set(side_lights on) { (void)on; }
 void plat_side_lights_say(const char *line) { (void)line; }

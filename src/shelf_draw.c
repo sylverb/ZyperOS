@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "shelf_draw.h"
+#include "homesys.h"
 
 #include "app.h"
 #include "artbadge.h"
@@ -956,8 +957,9 @@ static bool list_fav(void *ctx, int i)
 	app *a = ctx;
 	sysview *v = &a->view[a->sys_cursor];
 
+	/* By the game's own system: on Recents its owner's (src/homesys.h) */
 	return i >= 0 && i < v->list.count && !v->list.items[i].folder &&
-	       fav_is(a->sys.systems[a->sys_cursor].tag, v->list.items[i].file);
+	       fav_is(a->sys.systems[shelf_owner(a, a->sys_cursor, i)].tag, v->list.items[i].file);
 }
 
 /* The pixel folder the list's rows draw (src/folderart.h), in the shelf's
@@ -1037,7 +1039,7 @@ static void draw_games(app *a)
 				.heading = head, .count = v->list.count, .cursor = v->cursor,
 				.accent = s->accent, .accent_of = v->owner ? list_accent : NULL,
 				.title_of = list_title, .folder_of = list_folder,
-				.fav_of = v->owner || is_muse(s) ? NULL : list_fav,
+				.fav_of = !strcmp(s->tag, HOMESYS_FAV) || is_muse(s) ? NULL : list_fav,
 				.peek = grid_peek, .art_of = grid_art, .kept = v->grid_kept,
 				.played = g_game_page.valid ? g_game_page.played : "",
 				.origin = g && owner != a->sys_cursor ? a->sys.systems[owner].name : NULL,
@@ -1068,7 +1070,8 @@ static void draw_games(app *a)
 			.heading = head, .count = v->list.count, .cursor = v->cursor,
 			.accent = s->accent, .accent_of = v->owner ? list_accent : NULL,
 			.title_of = list_title, .folder_of = list_folder,
-			.fav_of = v->owner || is_muse(s) ? NULL : list_fav,
+			/* Not on Favorites, where every game is one; on Recents, yes */
+			.fav_of = !strcmp(s->tag, HOMESYS_FAV) || is_muse(s) ? NULL : list_fav,
 			.folder_icon = v->nfold ? folder_icon(a, s->accent) : NULL,
 			.played = g_game_page.valid ? g_game_page.played : "",
 			.origin = g && owner != a->sys_cursor ? a->sys.systems[owner].name : NULL,
@@ -1103,8 +1106,9 @@ static void draw_games(app *a)
 		.install = pm_is_offer(a, owner, g),
 		.origin = g && owner != a->sys_cursor ? a->sys.systems[owner].name : NULL,
 		.snap_of = game_has_snap,
-		/* The heart before the name, not on Favorites (2026-11-09) */
-		.favorite = g && !folder && owner == a->sys_cursor && !is_muse(s) &&
+		/* The heart before the name, not on Favorites (2026-11-09), and on
+		 * Recents by the game's own system */
+		.favorite = g && !folder && strcmp(s->tag, HOMESYS_FAV) && !is_muse(s) &&
 		            fav_is(a->sys.systems[owner].tag, g->file),
 		/* A folder of games (src/shelfdir.h): A opens it */
 		.folder = folder ? g->folder : 0,
@@ -1167,10 +1171,11 @@ static void eh_poll(bool force)
 		snprintf(s.cable_addr, sizeof s.cable_addr, "%s", s.shared_port ? "zyperos.local" : "10.55.0.2");
 		s.drive = s.shared_port;
 	} else {
-		/* A port the launcher asks about is the Pixel 2's, which the Wi-Fi
-		 * adapter takes too (usblink.h); the Brick's links on its own */
-		s.shared_port = plat_usb_peer() != USB_PEER_UNKNOWN;
-		s.builtin_wifi = !s.shared_port;
+		/* One port for the computer and the Wi-Fi adapter (the Pixel 2's,
+		 * usblink.h), or a port that links on its own beside Wi-Fi of the
+		 * device's own (the Brick's): the profile says which */
+		s.shared_port = plat_profile()->usb_shared_port;
+		s.builtin_wifi = plat_profile()->wifi == DEV_WIFI_BUILTIN;
 		s.ok[EH_USB] = plat_cable_link(addr, sizeof addr);
 		if (addr[0]) snprintf(last_addr, sizeof last_addr, "%s", addr);
 		/* The Pixel 2 answers zyperos.local on the cable (mdns.h), a name

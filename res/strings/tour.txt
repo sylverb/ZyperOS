@@ -283,6 +283,17 @@ de = Mit POWER speichern und ausschalten.
 ja = POWER でセーブして電源を切ります。
 it = Premi POWER per salvare e spegnere.
 
+[tour.power.line_hold]
+note = The tutorial's POWER step when MENU > Power Button is Hold: POWER held for 2 seconds saves and turns the handheld off.
+en = Hold POWER to save and turn off.
+zh-Hans = 按住 POWER 保存并关机。
+es = Mantén POWER para guardar y apagar.
+pt-BR = Segure POWER para salvar e desligar.
+fr = Maintenez POWER pour sauvegarder et éteindre.
+de = Halte POWER zum Speichern und Ausschalten.
+ja = POWER 長押しでセーブして電源を切ります。
+it = Tieni premuto POWER per salvare e spegnere.
+
 [tour.power.note]
 note = The tutorial keeps the handheld on when POWER is pressed in this step.
 en = This time it stays on.

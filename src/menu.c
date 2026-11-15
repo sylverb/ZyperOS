@@ -83,6 +83,20 @@ int menu_loop_first(const menu_row *rows, int n, int slot, int vis, int first)
 		top--;
 	}
 	if (top < first)            first = top;
+	/* And the caption under the cursor's row comes into view with it: body
+	 * lines right below it that say what the row does (Display Mode's,
+	 * 1.0.6), which no cursor can step onto to bring them in */
+	{
+		int bot = slot;
+
+		for (k = 0; k < vis - 1; k++) {
+			int r = menu_loop_row(n, bot + 1);
+
+			if (r < 0 || rows[r].live || !ROW_IS_BODY(rows[r])) break;
+			bot++;
+		}
+		if (bot > first + vis - 1) first = bot - vis + 1;
+	}
 	if (slot < first)           first = slot;
 	if (slot > first + vis - 1) first = slot - vis + 1;
 	return first;

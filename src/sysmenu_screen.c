@@ -11,6 +11,7 @@
 #include "clock.h"
 #include "clock_screen.h"
 #include "devmode.h"
+#include "homesys_screen.h"
 #include "hotspot.h"
 #include "linebreak.h"
 #include "look.h"
@@ -18,6 +19,7 @@
 #include "nowplaying_screen.h"
 #include "osdbar.h"
 #include "panel.h"
+#include "powerhold.h"
 #include "powerscreens.h"
 #include "rafetch.h"
 #include "saver.h"
@@ -36,6 +38,7 @@
 
 #include <stdio.h>
 #include <string.h>
+
 
 /* Developer (SSH) is offered on a development image (dropbear at boot) and
  * on a release image once the player has unlocked Developer Mode (devmode.h) */
@@ -162,6 +165,16 @@ int menu_build(app *a, screen_id screen, int sys,
 		 * entries would count a folder as one */
 		u.game_count = sys_games(&a->view[sys])->count;
 		u.dmode      = dmode_label(a->view[sys].dmode);
+		/* and what it does, under it: two lines at most, narrower than any
+		 * width the panel is measured to, so it never widens it */
+		{
+			static char note[2][CHV_WRAP_COLS];
+			int nl = wrap_text(ui_font(UI_F_MENU), dmode_note(a->view[sys].dmode),
+			                   SM_NOTE_W, note, 2);
+
+			u.dmode_note[0] = nl > 0 ? note[0] : NULL;
+			u.dmode_note[1] = nl > 1 ? note[1] : NULL;
+		}
 		u.shader     = shader_label(a->view[sys].shader);
 		u.strength   = strength_row_label(a, sys);
 		u.no_strength = !u.strength;
@@ -196,11 +209,17 @@ int menu_build(app *a, screen_id screen, int sys,
 		u.theme = look_accent_name();
 		u.home = home_name(a->home_layout);
 		u.order = g_order_release ? T(S_PANEL_ORDER_RELEASE) : T(S_PANEL_ORDER_AZ);
+		{
+			static char hs[24];
+
+			u.homesys = homesys_value(hs, sizeof hs);
+		}
 		u.battery = g_batt_mode == BATT_TIME ? T(S_PANEL_BATTERY_TIME)
 		          : g_batt_mode == BATT_PCT ? T(S_PANEL_BATTERY_PERCENTAGE) : T(S_PANEL_BATTERY_BARS);
 		u.ui_sounds  = uisound_setting_name(uisound_setting());
 		u.menu_music = bgm_menu_value(bgm_on(), bgm_count());
 		u.auto_off  = a->auto_off;
+		u.power_hold = powerhold_mode();
 		u.saver     = g_saver_s;
 		{
 			static char lv[16];
@@ -766,6 +785,15 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 		a->idle.since_ms = plat_now_ms();
 		return a->auto_off != was ? MENU_CHANGED : MENU_STAY;
 	}
+	/* Power Button, Press or Hold (src/powerhold.h): two choices, so A
+	 * switches it as Left and Right do. Saved as its word, which portkeys
+	 * reads from the same database as a port starts. */
+	if (sel == PM_POWER && (d || key == IN_ACCEPT)) {
+		powerhold_set_mode(!powerhold_mode());
+		db_set_str(db_dev(), POWERHOLD_KEY, powerhold_mode() ? "hold" : "press");
+		redraw_now();
+		return MENU_CHANGED;
+	}
 	/* Screensaver, on Auto Off's idiom: left and right step the delay, off
 	 * at one end; a step past either end changes nothing. */
 	if (d && sel == PM_SAVER) {
@@ -944,6 +972,8 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 		return MENU_DONE;
 	case PM_XFER:         xfer_screen(a); break;
 	case PM_LIGHTS:       lights_screen(a); break;
+	/* The shelves the home shows; the home built again as it closes */
+	case PM_HOMESYS:      homesys_screen(a); return MENU_CHANGED;
 	case PM_LANGUAGE:     language_screen(a); return MENU_CHANGED;
 	/* These three say how they went, which is Zyper's to answer */
 	case PM_SCRAPER:      return scraper_screen(a);
@@ -1028,4 +1058,14 @@ void zyperos_menu_for(app *a, int screen)
 void zyperos_menu(app *a)
 {
 	zyperos_menu_for(a, a->screen);
+}
+
+/* MENU > Power Button as saved: "hold" is Hold, anything else Press, the
+ * default (src/powerhold.h). Once, as the launcher starts. */
+void power_button_load(void)
+{
+	char v[8];
+
+	db_get_str(db_dev(), POWERHOLD_KEY, v, sizeof v, "press");
+	powerhold_set_mode(!strcmp(v, "hold"));
 }

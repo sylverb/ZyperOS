@@ -83,7 +83,7 @@ const char *home_label(const char *key, const char *canonical)
 {
     static const struct { const char *key, *name; } labels[] = {
         {"A2600","Atari 2600"}, {"GW","G&W"}, {"A5200","Atari 5200"},
-        {"VECTREX","Vectrex"}, {"NES","NES"}, {"MSX2","MSX2"},
+        {"VECTREX","Vectrex"}, {"SG1000","SG-1000"}, {"NES","NES"}, {"MSX2","MSX2"},
         {"A7800","Atari 7800"}, {"SMS","SMS"}, {"GB","Game Boy"},
         {"MD","Genesis"}, {"PCE","TG-16"}, {"LYNX","Lynx"},
         {"GG","Game Gear"}, {"NEOGEO","Neo Geo"}, {"SFC","SNES"},
@@ -98,6 +98,7 @@ const char *home_label(const char *key, const char *canonical)
     };
     /* Favorites is the launcher's own shelf and named in the language that is on */
     if (key && !strcmp(key, "FAV")) return T(S_HOME_FAVORITES);
+    if (key && !strcmp(key, "RECENT")) return T(S_HOME_RECENTS);
     for (unsigned i = 0; key && i < sizeof labels / sizeof *labels; i++)
         if (!strcmp(key, labels[i].key)) return labels[i].name;
     /* Unknown long names use their tag at the same readable size. */
@@ -146,6 +147,7 @@ int home_jump(int cursor, int count, int dir)
 unsigned char home_group_key(const char *tag, const char *core, const char *name)
 {
     if (!strcmp(tag, "FAV")) return 1;
+    if (!strcmp(tag, "RECENT")) return 3;
     if (!strcmp(core, "port")) return 2;
     for (const char *p = name; *p; p++) {
         unsigned char c = (unsigned char)*p;
@@ -196,6 +198,7 @@ static int asset_for(const char *key)
     else if (key && !strcmp(key,"MD")) key="GENESIS";
     else if (key && !strcmp(key,"PRT")) key="PORTS";
     else if (key && !strcmp(key,"FAV")) key="FAVORITES";
+    else if (key && !strcmp(key,"RECENT")) key="RECENTS";
     for (int i=0; i<(int)SA_ASSET_COUNT; i++)
         if (key && !strcmp(key,SA_ASSETS[i].key)) return i;
     return -1;
@@ -781,16 +784,16 @@ static uint32_t home_grid_draw(home *h, SDL_Renderer *r, const home_item *items,
         ui_text(r, meta, count_label ? count_label : "", HG_MARGIN, ui_cap_y(meta, fy2), -1, UI_TEXT_DIM);
     }
     /* The foot, as Spotlight's: MENU at the left, the place in the middle,
-     * SELECT at the right, on the shelf's foot (DS_SHELF_FOOT_Y, the shelf
+     * SELECT at the right, on the one foot (DS_FOOT_Y, the shelf
      * grid's) */
     {
         char index[32];
         int sw = page_hint_width("SELECT", "MP4", false);
 
         snprintf(index, sizeof index, "%d / %d", cursor + 1, count);
-        ui_text_tabular(r, page_font(PAGE_CHROME), index, 512, ui_cap_y(page_font(PAGE_CHROME), DS_SHELF_FOOT_Y), 0, UI_TEXT_DIM);
-        page_hint(r, "MENU", T(S_HOME_SETTINGS), HG_MARGIN, DS_SHELF_FOOT_Y, false, false);
-        page_hint(r, "SELECT", "MP4", 1024 - HG_MARGIN - sw, DS_SHELF_FOOT_Y, false, false);
+        ui_text_tabular(r, page_font(PAGE_CHROME), index, 512, ui_cap_y(page_font(PAGE_CHROME), DS_FOOT_Y), 0, UI_TEXT_DIM);
+        page_hint(r, "MENU", T(S_HOME_SETTINGS), HG_MARGIN, DS_FOOT_Y, false, false);
+        page_hint(r, "SELECT", "MP4", 1024 - HG_MARGIN - sw, DS_FOOT_Y, false, false);
     }
     return *wait;
 }
@@ -829,9 +832,9 @@ uint32_t home_draw(home *h,SDL_Renderer *r,home_layout layout,
     SDL_SetRenderDrawColor(r,accent.r,accent.g,accent.b,255);
     SDL_Rect underline={492,gallery?512:672,40,DS_BAR}; SDL_RenderFillRect(r,&underline);
     char index[32]; snprintf(index,sizeof index,"%d / %d",cursor+1,count);
-    ui_text(r,page_font(PAGE_CHROME),index,512,ui_cap_y(page_font(PAGE_CHROME),704),0,UI_TEXT_DIM);
-    page_hint(r,"MENU",T(S_HOME_SETTINGS),64,DS_PAGE_FOOT_Y,false,false);
-    if(!gallery) page_hint(r,"SELECT","MP4",784,DS_PAGE_FOOT_Y,false,false);
+    ui_text(r,page_font(PAGE_CHROME),index,512,ui_cap_y(page_font(PAGE_CHROME),DS_FOOT_Y),0,UI_TEXT_DIM);   /* on the hints' line */
+    page_hint(r,"MENU",T(S_HOME_SETTINGS),64,DS_FOOT_Y,false,false);
+    if(!gallery) page_hint(r,"SELECT","MP4",784,DS_FOOT_Y,false,false);
     /* The gallery's A hint starts at 768 and keeps there while it ends by 1000;
      * a longer label (the pseudo-locale's) slides left to end there instead of
      * running off the screen */
@@ -841,7 +844,7 @@ uint32_t home_draw(home *h,SDL_Renderer *r,home_layout layout,
         int total=ui_button_width("A",40)+12+ui_text_width(page_font(PAGE_ACTION),open);
         if(open_x+total>1000) open_x=1000-total;
     }
-    page_hint(r,"A",open,open_x,gallery?DS_PAGE_FOOT_Y:416,true,false);
+    page_hint(r,"A",open,open_x,gallery?DS_FOOT_Y:416,true,false);
     if(animate && row_moving(&h->motion,now)) wait=0;
     if(!animate) wait=UINT32_MAX;
     restore_state(r,saved);

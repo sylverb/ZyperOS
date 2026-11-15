@@ -25,6 +25,7 @@
 #include "musec.h"
 #include "notice.h"
 #include "nowplaying_screen.h"
+#include "homesys_screen.h"
 #include "osdbar.h"
 #include "panel.h"
 #include "player2_screen.h"
@@ -91,6 +92,7 @@ int shot_tab_from = -1, shot_tab_ms;
  * --look-page theme|hours [row]: Theme's page or Auto Hours' (DESIGN.md
  * 11.42), the cursor on `row` */
 const char *shot_look, *shot_look_page;
+int shot_homesys = -1;     /* --homesys-page ROW: MENU > Home Systems' page */
 int shot_look_row;
 int shot_kb, shot_kb_layer;
 static keyboard_transition shot_keyboard;
@@ -252,7 +254,7 @@ const char *shot_hare_move;                         /* --hare-move: the tiles' s
 const char *shot_steps_way, *shot_steps_state, *shot_steps_addr;
 bool shot_steps_noname;      /* ... noname: as when mDNS could not start */
 const char *shot_wait, *shot_wait_msg;   /* NULL: library.scanning's */
-int shot_osd_kind, shot_osd_val; /* --osd volume|brightness LEVEL */
+int shot_osd_kind, shot_osd_val; /* --osd volume|brightness|power LEVEL */
 /* --tour STEP [MS [DONE]]: one frame of the tutorial, src/tour.h's step by
  * its name (or "skip", the shelf with the message a skip leaves), MS into
  * it, its press landed DONE ms ago or not at all (-1). --tour-wrong KEY [MS]
@@ -266,6 +268,12 @@ int shot_tour_wrong = -1, shot_tour_wrong_ms = 300;
 int shot_tour_pick = -1, shot_tour_pick_ms = 5000;
 bool shot_tour_music;
 int shot_fn_volume;
+/* The chords a shot draws with: the profile's, or with --fn-volume the
+ * Pixel 2's brightness chord, MENU on release and Home over them */
+static dev_chords shot_chords(void)
+{
+	return shot_fn_volume ? dev_chords_fn_volume(plat_profile()->chords) : plat_profile()->chords;
+}
 /* --theme light|dark: the theme the shot is drawn in, whatever the saved
  * Appearance is; -1 for the saved one. */
 int shot_theme = -1;
@@ -502,7 +510,7 @@ static void shot_draw_ctltab(app *a, menu_tabs *tabs)
 		int pages, np, loop_at, width;
 
 		cg.no_buttons = true;
-		ctl_set_fn_volume(shot_fn_volume || plat_brightness_on_volume());
+		{ const dev_chords c = shot_chords(); ctl_set_chords(&c); }
 		pages = ctl_game_pages(&cg);
 		width = game_controls_width(a, &cg);
 		np = controls_page_rows(&cg, shot_gm_keys, width, &cb, &pr, &loop_at);
@@ -618,7 +626,7 @@ static void shot_draw_gamecontrols(app *a)
 			break;
 		}
 	g = game_controls_of(a);
-	ctl_set_fn_volume(shot_fn_volume || plat_brightness_on_volume());
+	{ const dev_chords c = shot_chords(); ctl_set_chords(&c); }
 	width = game_controls_width(a, &g);
 	n = controls_page_rows(&g, shot_gamecontrols, width, &b, &rows, &loop_at);
 	pages = ctl_game_pages(&g);
@@ -743,19 +751,26 @@ static void controls_fit_report(app *a)
 	menu_row rows[CTL_MAX_ROWS];
 	bool home = strcmp(shot_controls_fit, "game") != 0;
 	bool game = strcmp(shot_controls_fit, "home") != 0;
-	int dev, p, i, e, pages = 0, bad = 0;
+	const device_profile *pd;
+	int k, p, i, e, pages = 0, bad = 0;
 
 	snprintf(path, sizeof path, "%s/systems.cfg", P_ROOT);
 	if (!cfg_load_systems(path, &all)) all.count = 0;
-	for (dev = 0; dev < 2; dev++) {
-		ctl_set_fn_volume(dev == 1);
-		ctl_set_battery_lights(dev == 1);
+	/* Every handheld linked (each on the host, the device's own on a device),
+	 * each set of chords once: the host's desktop has the Brick's */
+	for (k = 0; (pd = plat_profile_at(k)); k++) {
+		bool seen = false;
+
+		for (int j = 0; j < k; j++)
+			if (!memcmp(&plat_profile_at(j)->chords, &pd->chords, sizeof pd->chords)) seen = true;
+		if (seen) continue;
+		ctl_set_chords(&pd->chords);
 		for (p = 0; home && p < CTL_PAGES; p++) {
 			int n = ctl_rows((ctl_page)p, rows);
 
 			snprintf(head, sizeof head, "Controls: %s", ctl_page_name((ctl_page)p));
 			snprintf(count, sizeof count, "%d / %d", p + 1, CTL_PAGES);
-			snprintf(where, sizeof where, "%s, the home's %s", dev ? "Pixel 2" : "Brick",
+			snprintf(where, sizeof where, "%s, the home's %s", pd->name,
 			         ctl_page_name((ctl_page)p));
 			bad += controls_fit_one(a, where, head, count, rows, n);
 			pages++;
@@ -780,7 +795,7 @@ static void controls_fit_report(app *a)
 					int n = ctl_game_rows(&g, p, rows, &b);
 
 					snprintf(where, sizeof where, "%s, %s%s%s page %d",
-					         dev ? "Pixel 2" : "Brick", s->tag, e ? " (fds)" : "",
+					         pd->name, s->tag, e ? " (fds)" : "",
 					         st == CTL_STICK_ON ? " (stick on)" : st == CTL_STICK_OFF ? " (stick off)" : "",
 					         p);
 					snprintf(count, sizeof count, "%d / %d", p + 1, np);
@@ -789,7 +804,7 @@ static void controls_fit_report(app *a)
 				}
 			}
 		}
-		if (game) bad += controls_fit_ports(a, dev ? "Pixel 2" : "Brick", &pages);
+		if (game) bad += controls_fit_ports(a, pd->name, &pages);
 	}
 	fprintf(stderr, "controls-fit: %d pages measured, %d do not fit\n", pages, bad);
 }
@@ -924,11 +939,10 @@ static void np_shot(app *a)
 	}
 	np_cover(a, shot_np);
 	if (shot_video >= 0) {
-		g_np_view = shot_video;
 		mp4v_test_picture(a->r, 640, 360);
 		mn.vw = 640;
 		mn.vh = 360;
-		np_draw_video(a, &mn, 1);
+		np_draw_video(a, &mn, (float)shot_video);
 	} else {
 		np_draw(a, &mn, next);
 	}
@@ -1196,6 +1210,7 @@ static void shot_compose(app *a)
 			zyperos_menu_draw(a, shot_menu_sel);
 	}
 	if (shot_look_page) shot_draw_look(a);
+	if (shot_homesys >= 0) homesys_shot_draw(a, shot_homesys);
 	if (shot_slots) shot_draw_slots(a);
 	if (shot_gamemenu && a->sys.count > 0) shot_draw_gamemenu(a);
 	else if (g_shot_p2 && a->sys.count > 0) shot_draw_player2(a);
@@ -1255,8 +1270,7 @@ static void shot_compose(app *a)
 		float k = 1.0f;
 		int n;
 
-		ctl_set_fn_volume(plat_brightness_on_volume());
-		ctl_set_battery_lights(plat_battery_lights());
+		ctl_set_chords(&plat_profile()->chords);
 		n = ctl_rows(p, rows);
 
 		snprintf(head, sizeof head, T(S_CONTROLS_HEADING), ctl_page_name(p));
@@ -1747,7 +1761,8 @@ static void shot_compose(app *a)
 	 * until it has slid all the way in. */
 	if (shot_osd_kind) {
 		plat_osd_show(shot_osd_kind, shot_osd_val,
-		              shot_osd_kind == 1 ? PLAT_BRIGHT_MAX : PLAT_VOL_MAX);
+		              shot_osd_kind == OSDBAR_BRIGHT ? PLAT_BRIGHT_MAX
+		              : shot_osd_kind == OSDBAR_POWER ? OSDBAR_POWER_STEPS : PLAT_VOL_MAX);
 		SDL_Delay(OSDBAR_IN_MS + 10);
 		plat_draw_osd(a->r);
 	}
@@ -2125,8 +2140,10 @@ static void shot_tour_draw(app *a)
 		             tour_ease(TC_OUT, (uint32_t)shot_tour_ms, 0, DS_MS_MOVE)
 		             * (1.0f - fminf(1.0f, fmaxf(0.0f, (ms - DS_MS_HOLD_SHORT) / DS_MS_FADE_OUT))));
 	} else {
+		const dev_chords c = shot_chords();
+
 		tour_pose(&t, (tour_step)shot_tour, now, shot_tour_ms, shot_tour_done,
-		          shot_fn_volume || plat_brightness_on_volume());
+		          &c, dev_tutorial_handheld(plat_profile(), &c));
 		tour_lang_from(&t, (int)i18n_lang());
 		tour_set_music(&t, shot_tour_music);
 		tour_settings(a, at);
@@ -2147,7 +2164,8 @@ static void shot_tour_draw(app *a)
 	}
 	if (shot_osd_kind) {
 		plat_osd_show(shot_osd_kind, shot_osd_val,
-		              shot_osd_kind == 1 ? PLAT_BRIGHT_MAX : PLAT_VOL_MAX);
+		              shot_osd_kind == OSDBAR_BRIGHT ? PLAT_BRIGHT_MAX
+		              : shot_osd_kind == OSDBAR_POWER ? OSDBAR_POWER_STEPS : PLAT_VOL_MAX);
 		SDL_Delay(OSDBAR_IN_MS + 10);
 		plat_draw_osd(a->r);
 	}

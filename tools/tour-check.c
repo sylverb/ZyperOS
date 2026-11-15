@@ -16,6 +16,10 @@
 #include "../src/design.h"
 #include "../src/tour.h"
 
+/* A device's chords and drawing, as the tutorial is told them: true is the
+ * Pixel 2 (MENU+VOL, MENU on release, its handheld), false the Brick */
+#define DEV(fn) ((fn) ? &device_profile_pixel2.chords : &device_profile_brick.chords), (fn)
+
 static int fails;
 
 static void ck(int cond, const char *what)
@@ -50,7 +54,7 @@ static void walk(bool fn, bool music)
 	printf("the whole tour, %s, %s:\n", fn ? "MENU+VOL brightness" : "F1/F2 brightness",
 	       music ? "menu music" : "no menu music");
 	/* From the welcome: the language step before it has a check of its own */
-	tour_pose(&t, TOUR_WELCOME, now, 0, -1, fn);
+	tour_pose(&t, TOUR_WELCOME, now, 0, -1, DEV(fn));
 	tour_set_music(&t, music);
 	ck(t.step == TOUR_WELCOME && !t.over, "it starts on the welcome");
 	now += 300;
@@ -123,11 +127,11 @@ static void choices(void)
 	   tour_choice_of(TOUR_THEME) == 0 && tour_choice_of(TOUR_MUSIC) == 3,
 	   "the four after the power step are the choices");
 
-	tour_pose(&t, TOUR_THEME, T0, 2000, -1, false);
+	tour_pose(&t, TOUR_THEME, T0, 2000, -1, DEV(false));
 	tour_choices_from(&t, at);
 	ck(t.pick[0] == 1 && t.kept[0] == 1, "a choice starts on the setting as it is");
 	ck(t.kept[3] == 0, "and one out of range is the first");
-	tour_pose(&t, TOUR_SOUNDS, T0, 2000, -1, false);
+	tour_pose(&t, TOUR_SOUNDS, T0, 2000, -1, DEV(false));
 	tour_choices_from(&t, at);
 	t.pick[2] = t.kept[2];
 	t.pos = 2;
@@ -147,31 +151,31 @@ static void choices(void)
 	   "A keeps the one looked at, rewarded");
 	ck(tour_seen(&t), "a tour in its choices is seen");
 
-	tour_pose(&t, TOUR_HOME, T0, 2000, -1, false);
+	tour_pose(&t, TOUR_HOME, T0, 2000, -1, DEV(false));
 	tour_choices_from(&t, at);
 	tour_press(&t, TK_RIGHT, T0);
 	ck(tour_press(&t, TK_START, T0 + 10) == DS_SOUND_BACK && t.over && t.skipped &&
 	   t.pick[1] == 1 && t.kept[1] == 0,
 	   "START skips with the one looked at not kept, for the caller to put back");
 
-	tour_start(&t, T0, false);
+	tour_start(&t, T0, DEV(false));
 	ck(tour_segments(&t) == TOUR_LESSONS + TOUR_CHOICES - 1 && tour_segment(&t) == -1,
 	   "no menu music: 13 segments, and the welcome has none");
 	tour_set_music(&t, true);
 	ck(tour_segments(&t) == TOUR_LESSONS + TOUR_CHOICES, "with it, 14");
 	for (c = TOUR_MOVE; c <= TOUR_MUSIC; c++) {
-		tour_pose(&t, (tour_step)c, T0, 2000, -1, false);
+		tour_pose(&t, (tour_step)c, T0, 2000, -1, DEV(false));
 		tour_set_music(&t, true);
 		ck(tour_segment(&t) == c - TOUR_MOVE, "a step's segment is its place after the welcome");
 	}
-	tour_pose(&t, TOUR_SOUNDS, T0, 2000, 0, false);
+	tour_pose(&t, TOUR_SOUNDS, T0, 2000, 0, DEV(false));
 	tour_set_music(&t, true);
 	tour_tick(&t, T0 + DS_MS_TOUR_REWARD);
 	ck(t.step == TOUR_MUSIC, "with menu music the Menu Music step follows Sounds");
-	tour_pose(&t, TOUR_SOUNDS, T0, 2000, 0, false);
+	tour_pose(&t, TOUR_SOUNDS, T0, 2000, 0, DEV(false));
 	tour_tick(&t, T0 + DS_MS_TOUR_REWARD);
 	ck(t.step == TOUR_FINISH, "without, the finish does");
-	tour_pose(&t, TOUR_THEME, T0, 2000, -1, false);
+	tour_pose(&t, TOUR_THEME, T0, 2000, -1, DEV(false));
 	tour_pose_pick(&t, 1, T0, 40);
 	ck(t.pick[0] == 1 && tour_focus_pos(&t, T0) > 0.0f && tour_focus_pos(&t, T0) < 1.0f,
 	   "a shot can put the focus on any choice, mid-slide");
@@ -187,7 +191,7 @@ static void language(void)
 	tour_zyper_at z;
 
 	printf("the language step:\n");
-	tour_start(&t, T0, false);
+	tour_start(&t, T0, DEV(false));
 	tour_lang_from(&t, 3);
 	ck(t.step == TOUR_LANG && tour_segment(&t) == -1, "the tutorial starts on it, with no segment");
 	ck(tour_lang_focus(&t, T0 + 999) == 3 && tour_lang_focus(&t, T0 + 1000) == 4,
@@ -210,16 +214,16 @@ static void language(void)
 	ck(z.hello && z.scale > 0.99f && t.say_at == T0 + 3100,
 	   "with Zyper already there, and only its words coming in");
 
-	tour_start(&t, T0, false);
+	tour_start(&t, T0, DEV(false));
 	tour_lang_from(&t, 2);
 	ck(tour_press(&t, TK_START, T0 + 4500) == DS_SOUND_BACK && t.over && tour_lang_kept(&t) == 2,
 	   "START after it went round alone keeps the one that was on");
-	tour_start(&t, T0, false);
+	tour_start(&t, T0, DEV(false));
 	tour_lang_from(&t, 2);
 	tour_press(&t, TK_DOWN, T0 + 300);
 	ck(tour_press(&t, TK_START, T0 + 400) == DS_SOUND_BACK && tour_lang_kept(&t) == 3,
 	   "START after a move keeps the one moved to");
-	tour_start(&t, T0, false);
+	tour_start(&t, T0, DEV(false));
 	tour_lang_from(&t, 99);
 	ck(tour_lang_focus(&t, T0) == 0, "a language out of range starts on the first");
 }
@@ -230,7 +234,7 @@ static void deaf(void)
 	tour_key k;
 
 	printf("a step's first quarter second:\n");
-	tour_pose(&t, TOUR_WELCOME, T0, 0, -1, false);
+	tour_pose(&t, TOUR_WELCOME, T0, 0, -1, DEV(false));
 	for (k = 0; k < TK_KEYS; k++)
 		ck(tour_press(&t, k, T0 + 249) == TOUR_QUIET, "every press is nothing until 250 ms");
 	ck(t.step == TOUR_WELCOME && !t.wrong && !t.over, "and changes nothing");
@@ -239,11 +243,11 @@ static void deaf(void)
 	   "and the new step is deaf from its own start");
 	ck(tour_press(&t, TK_RIGHT, T0 + 500) == DS_SOUND_MOVE && t.moves == 1, "then it hears");
 
-	tour_pose(&t, TOUR_VOL, T0, 249, -1, false);
+	tour_pose(&t, TOUR_VOL, T0, 249, -1, DEV(false));
 	ck(tour_press(&t, TK_VOL, T0) == TOUR_QUIET && !t.done,
 	   "the volume step's own key is deaf with the rest");
 	ck(tour_press(&t, TK_VOL, T0 + 1) == DS_SOUND_REWARD, "and heard at 250 ms");
-	tour_pose(&t, TOUR_BRIGHT, T0, 249, -1, true);
+	tour_pose(&t, TOUR_BRIGHT, T0, 249, -1, DEV(true));
 	ck(tour_press(&t, TK_BRIGHT, T0) == TOUR_QUIET && !t.done, "so is the brightness step's");
 	ck(tour_press(&t, TK_VOL, T0) == TOUR_QUIET && !t.wrong,
 	   "and a volume key there is not wrong while it is deaf");
@@ -257,14 +261,14 @@ static void start_skips(void)
 
 	printf("START:\n");
 	for (s = TOUR_WELCOME; s < TOUR_FINISH; s++) {
-		tour_pose(&t, s, T0, 249, -1, false);
+		tour_pose(&t, s, T0, 249, -1, DEV(false));
 		ck(tour_press(&t, TK_START, T0) == TOUR_QUIET && !t.over, "is deaf with the rest");
-		tour_pose(&t, s, T0, 2000, s == TOUR_WELCOME ? -1 : 300, false);
+		tour_pose(&t, s, T0, 2000, s == TOUR_WELCOME ? -1 : 300, DEV(false));
 		ck(tour_press(&t, TK_START, T0) == DS_SOUND_BACK, "skips from any step, the reward too");
 		ck(t.over && t.skipped, "and the tour is over, skipped");
 		ck(t.end_at == T0, "at the press");
 	}
-	tour_pose(&t, TOUR_FINISH, T0, 2000, -1, false);
+	tour_pose(&t, TOUR_FINISH, T0, 2000, -1, DEV(false));
 	tour_press(&t, TK_START, T0);
 	ck(t.over && !t.skipped, "START on the finish finishes it");
 }
@@ -274,12 +278,12 @@ static void wrong(void)
 	tour t;
 
 	printf("a wrong press:\n");
-	tour_pose(&t, TOUR_WELCOME, T0, 2000, -1, false);
+	tour_pose(&t, TOUR_WELCOME, T0, 2000, -1, DEV(false));
 	ck(tour_press(&t, TK_B, T0) == DS_SOUND_DENY, "on the welcome is deny");
 	ck(t.wrong && !strcmp(t.hint, "That's B. Try A."), "and says which to try");
 	ck(t.step == TOUR_WELCOME, "and stays");
 
-	tour_pose(&t, TOUR_Y, T0, 2000, -1, false);
+	tour_pose(&t, TOUR_Y, T0, 2000, -1, DEV(false));
 	ck(tour_press(&t, TK_X, T0) == DS_SOUND_DENY, "in a lesson is deny");
 	ck(!strcmp(t.hint, "That's X. Try Y."), "That's X. Try Y.");
 	ck(!t.done && t.step == TOUR_Y, "and the step still waits");
@@ -296,23 +300,23 @@ static void wrong(void)
 	ck(tour_press(&t, TK_Y, T0 + 10) == DS_SOUND_REWARD && !t.wrong,
 	   "the right press after it is rewarded and the answer goes");
 
-	tour_pose(&t, TOUR_MOVE, T0, 2000, -1, false);
+	tour_pose(&t, TOUR_MOVE, T0, 2000, -1, DEV(false));
 	tour_press(&t, TK_A, T0);
 	ck(!strcmp(t.hint, "That's A. Try the D-pad."), "the move step names the D-pad");
-	tour_pose(&t, TOUR_A, T0, 2000, -1, false);
+	tour_pose(&t, TOUR_A, T0, 2000, -1, DEV(false));
 	tour_press(&t, TK_L1, T0);
 	ck(!strcmp(t.hint, "That's L1. Try A."), "a shoulder is named");
-	tour_pose(&t, TOUR_A, T0, 2000, -1, false);
+	tour_pose(&t, TOUR_A, T0, 2000, -1, DEV(false));
 	tour_press(&t, TK_UP, T0);
 	ck(!strcmp(t.hint, "That's Up. Try A."), "a direction is named");
-	tour_pose(&t, TOUR_VOL, T0, 2000, -1, false);
+	tour_pose(&t, TOUR_VOL, T0, 2000, -1, DEV(false));
 	tour_press(&t, TK_SELECT, T0);
 	ck(!strcmp(t.hint, "That's SELECT. Try VOL+ or VOL-."), "the rocker is both keys");
-	tour_pose(&t, TOUR_BRIGHT, T0, 2000, -1, true);
+	tour_pose(&t, TOUR_BRIGHT, T0, 2000, -1, DEV(true));
 	tour_press(&t, TK_A, T0);
 	ck(!strcmp(t.hint, "That's A. Try MENU+VOL."),
 	   "the Pixel 2's chord is MENU+VOL, as MENU > Controls names it");
-	tour_pose(&t, TOUR_FINISH, T0, 2000, -1, false);
+	tour_pose(&t, TOUR_FINISH, T0, 2000, -1, DEV(false));
 	ck(tour_press(&t, TK_B, T0) == TOUR_QUIET && !t.wrong, "the finish has no wrong press");
 }
 
@@ -321,23 +325,23 @@ static void levels(void)
 	tour t;
 
 	printf("the volume and brightness keys:\n");
-	tour_pose(&t, TOUR_A, T0, 2000, -1, false);
+	tour_pose(&t, TOUR_A, T0, 2000, -1, DEV(false));
 	ck(tour_press(&t, TK_VOL, T0) == TOUR_QUIET && !t.wrong && !t.done,
 	   "VOL in another step is not the tour's and not wrong");
 	ck(tour_press(&t, TK_BRIGHT, T0) == TOUR_QUIET && !t.wrong, "nor is brightness");
-	tour_pose(&t, TOUR_VOL, T0, 2000, -1, false);
+	tour_pose(&t, TOUR_VOL, T0, 2000, -1, DEV(false));
 	ck(tour_press(&t, TK_BRIGHT, T0) == TOUR_QUIET && !t.wrong && !t.done,
 	   "brightness in the volume step is neither");
 	ck(tour_press(&t, TK_VOL, T0) == DS_SOUND_REWARD, "VOL answers the volume step");
 
-	tour_pose(&t, TOUR_BRIGHT, T0, 2000, -1, true);
+	tour_pose(&t, TOUR_BRIGHT, T0, 2000, -1, DEV(true));
 	ck(tour_press(&t, TK_VOL, T0) == DS_SOUND_DENY, "VOL alone in the brightness step is wrong");
 	ck(!strcmp(t.hint, "That's volume. Hold MENU too."), "and says to hold MENU too");
 	ck(tour_press(&t, TK_MENU, T0 + 10) == DS_SOUND_DENY, "and so is MENU alone");
 	ck(!strcmp(t.hint, "Hold MENU, then press VOL+."), "which says how the chord goes");
 	ck(tour_press(&t, TK_BRIGHT, T0 + 20) == DS_SOUND_REWARD, "the chord answers it");
 
-	tour_pose(&t, TOUR_BRIGHT, T0, 2000, -1, false);
+	tour_pose(&t, TOUR_BRIGHT, T0, 2000, -1, DEV(false));
 	tour_press(&t, TK_VOL, T0);
 	ck(!strcmp(t.hint, "That's volume. Try F1 or F2."), "on the Brick it names F1 and F2");
 	tour_press(&t, TK_MENU, T0 + 10);
@@ -354,13 +358,13 @@ static void power(void)
 
 	printf("POWER:\n");
 	for (s = TOUR_WELCOME; s <= TOUR_FINISH; s++) {
-		tour_pose(&t, s, T0, 2000, -1, false);
+		tour_pose(&t, s, T0, 2000, -1, DEV(false));
 		ck(tour_takes_power(&t) == (s == TOUR_POWER), "is the tour's only in its own step");
 		if (s != TOUR_POWER)
 			ck(tour_press(&t, TK_POWER, T0) == TOUR_QUIET && !t.done && !t.wrong,
 			   "and elsewhere the tour does nothing with it");
 	}
-	tour_pose(&t, TOUR_POWER, T0, 100, -1, false);
+	tour_pose(&t, TOUR_POWER, T0, 100, -1, DEV(false));
 	ck(tour_takes_power(&t), "kept from turning the handheld off while the step is deaf");
 	ck(tour_press(&t, TK_POWER, T0) == TOUR_QUIET && !t.done, "but not answered then");
 	ck(tour_press(&t, TK_POWER, T0 + 150) == DS_SOUND_REWARD, "and then it is");
@@ -374,32 +378,32 @@ static void moves(void)
 	tour t;
 
 	printf("the move step:\n");
-	tour_pose(&t, TOUR_MOVE, T0, 2000, -1, false);
+	tour_pose(&t, TOUR_MOVE, T0, 2000, -1, DEV(false));
 	ck(tour_press(&t, TK_LEFT, T0) == DS_SOUND_MOVE && t.pos == -1, "the shelf follows a move");
 	ck(near(tour_shelf_pos(&t, T0), 0.0f) && near(tour_shelf_pos(&t, T0 + DS_MS_MOVE), -1.0f),
 	   "in move, from where it was");
 	ck(tour_press(&t, TK_UP, T0 + 40) == DS_SOUND_REWARD && t.pos == -2,
 	   "any direction counts, and the second move ends it");
 	ck(t.pos_from > -1.0f && t.pos_from < 0.0f, "starting from wherever the shelf had got to");
-	tour_pose(&t, TOUR_MOVE, T0, 2000, -1, false);
+	tour_pose(&t, TOUR_MOVE, T0, 2000, -1, DEV(false));
 	t.pos = 2;
 	ck(tour_press(&t, TK_RIGHT, T0) == DS_SOUND_EDGE && t.pos == 2,
 	   "a move past the last card plays edge and goes nowhere");
 
 	/* L1/R1, which the step's note names, jump as on the home: 3 systems,
 	 * as far as the little shelf has cards */
-	tour_pose(&t, TOUR_MOVE, T0, 2000, -1, false);
+	tour_pose(&t, TOUR_MOVE, T0, 2000, -1, DEV(false));
 	ck(tour_press(&t, TK_R1, T0) == DS_SOUND_MOVE && t.pos == 2 && !t.wrong,
 	   "R1 counts as a move, and jumps to the little shelf's end");
 	ck(tour_press(&t, TK_L1, T0 + 40) == DS_SOUND_REWARD && t.pos == -1,
 	   "L1 jumps back 3, and ends the step as a second move");
-	tour_pose(&t, TOUR_MOVE, T0, 2000, -1, false);
+	tour_pose(&t, TOUR_MOVE, T0, 2000, -1, DEV(false));
 	t.pos = -2;
 	ck(tour_press(&t, TK_L1, T0) == DS_SOUND_EDGE && t.pos == -2,
 	   "a jump from the first card plays edge and goes nowhere");
 	ck(!strcmp(tour_step_info(TOUR_MOVE)->note, "L1/R1 jump 3 systems."),
 	   "its note names L1/R1, as MENU > Controls writes the pair");
-	tour_pose(&t, TOUR_A, T0, 2000, -1, false);
+	tour_pose(&t, TOUR_A, T0, 2000, -1, DEV(false));
 	ck(tour_press(&t, TK_R1, T0) == DS_SOUND_DENY && t.wrong,
 	   "anywhere else L1/R1 are a wrong press, as before");
 }
@@ -412,7 +416,7 @@ static void loops(void)
 	const tour_loop *lm = tour_step_info(TOUR_MENU)->loop;
 
 	printf("the loops:\n");
-	tour_pose(&t, TOUR_A, T0, 0, -1, false);
+	tour_pose(&t, TOUR_A, T0, 0, -1, DEV(false));
 	ck(tour_loop_time(&t, la->period, T0 + 499) == 0, "a loop starts half a second in");
 	L = tour_loop_now(&t, T0 + 500 + la->act - 1);
 	ck(L.a == 0.0f, "before its press acts, nothing");
@@ -430,29 +434,29 @@ static void loops(void)
 	ck(L.a == 0.0f && L.back == 0.0f, "and round it goes");
 
 	/* A press mid-loop goes on from where the loop was. */
-	tour_pose(&t, TOUR_A, T0, 0, -1, false);
+	tour_pose(&t, TOUR_A, T0, 0, -1, DEV(false));
 	tour_press(&t, TK_A, T0 + 500 + la->act + la->dur / 2);
 	ck(t.a0 > 0.0f && t.a0 < 1.0f, "a press mid-loop keeps where the loop was");
 	ck(near(tour_real_a(&t, t.done_at), t.a0), "and starts from there");
 	ck(near(tour_real_a(&t, t.done_at + la->dur), 1.0f), "to the end in the loop's time");
 
 	/* A shot of a press landed mid-loop shows it from there */
-	tour_pose(&t, TOUR_A, T0, 500 + la->act + la->dur / 2 + 50, 50, false);
+	tour_pose(&t, TOUR_A, T0, 500 + la->act + la->dur / 2 + 50, 50, DEV(false));
 	ck(t.a0 > 0.0f && t.a0 < 1.0f, "a posed press keeps where the loop was");
 
-	tour_pose(&t, TOUR_MENU, T0, 0, -1, false);
+	tour_pose(&t, TOUR_MENU, T0, 0, -1, DEV(false));
 	L = tour_loop_now(&t, T0 + 500 + 700);
 	ck(L.a > 0.0f, "on the Brick the menu opens at MENU's press");
-	tour_pose(&t, TOUR_MENU, T0, 0, -1, true);
+	tour_pose(&t, TOUR_MENU, T0, 0, -1, DEV(true));
 	L = tour_loop_now(&t, T0 + 500 + 700);
 	ck(L.a == 0.0f, "on the Pixel 2 at its release, as MENU comes there");
 	ck(tour_loop_now(&t, T0 + 500 + lm->release_at + lm->dur).a > 0.99f, "and is open then");
 
-	tour_pose(&t, TOUR_BRIGHT, T0, 0, -1, true);
+	tour_pose(&t, TOUR_BRIGHT, T0, 0, -1, DEV(true));
 	ck(tour_part_press(&t, TP_MENU, T0 + 500 + 800) > 0.99f &&
 	   tour_part_press(&t, TP_VOLUP, T0 + 500 + 700) > 0.99f,
 	   "the chord holds MENU over the volume key's presses");
-	tour_pose(&t, TOUR_BRIGHT, T0, 0, -1, false);
+	tour_pose(&t, TOUR_BRIGHT, T0, 0, -1, DEV(false));
 	ck(tour_part_press(&t, TP_F2, T0 + 500 + 700) > 0.99f &&
 	   tour_part_press(&t, TP_MENU, T0 + 500 + 800) == 0.0f, "the Brick presses F2");
 }
@@ -462,7 +466,7 @@ static void hand(void)
 	tour t;
 
 	printf("the player's hand:\n");
-	tour_pose(&t, TOUR_VOL, T0, 2000, 0, false);
+	tour_pose(&t, TOUR_VOL, T0, 2000, 0, DEV(false));
 	ck(tour_part_press(&t, TP_VOLDN, T0) == 0.0f, "nothing pressed is nothing");
 	tour_hand(&t, TP_VOLDN, true, T0);
 	ck(tour_part_press(&t, TP_VOLDN, T0 + DS_MS_PRESS) > 0.99f, "a held key is down in press");
@@ -538,7 +542,7 @@ static void buttons(void)
 	for (i = 0; i < sizeof want / sizeof want[0]; i++) {
 		char what[80];
 
-		tour_pose(&t, want[i].s, T0, 2000, -1, false);
+		tour_pose(&t, want[i].s, T0, 2000, -1, DEV(false));
 		memset(pressed, 0, sizeof pressed);
 		pressed[want[i].b] = true;
 		n = tour_buttons(&t, pressed, T0, snd);
@@ -546,12 +550,12 @@ static void buttons(void)
 		         tour_key_name(tour_key_of(want[i].b)), tour_step_info(want[i].s)->title);
 		ck(n == 1 && snd[0] == want[i].snd, what);
 	}
-	tour_pose(&t, TOUR_POWER, T0, 2000, -1, false);
+	tour_pose(&t, TOUR_POWER, T0, 2000, -1, DEV(false));
 	memset(pressed, 0, sizeof pressed);
 	pressed[IN_POWER] = true;
 	ck(tour_buttons(&t, pressed, T0, snd) == 0 && !t.done,
 	   "POWER is the caller's, not the frame's: tour_takes_power says");
-	tour_pose(&t, TOUR_A, T0, 2000, -1, false);
+	tour_pose(&t, TOUR_A, T0, 2000, -1, DEV(false));
 	memset(pressed, 0, sizeof pressed);
 	pressed[IN_START] = true;
 	pressed[IN_SELECT] = true;
@@ -571,7 +575,7 @@ static void buttons(void)
 			for (b2 = 0; b2 < 2; b2++) {
 				char what[96];
 
-				tour_pose(&t, lessons[s2], T0, 2000, -1, false);
+				tour_pose(&t, lessons[s2], T0, 2000, -1, DEV(false));
 				memset(pressed, 0, sizeof pressed);
 				pressed[shoulders[b2]] = true;
 				n = tour_buttons(&t, pressed, T0, snd);
@@ -582,7 +586,7 @@ static void buttons(void)
 				   strstr(t.hint, tour_key_name(tour_key_of(shoulders[b2]))), what);
 			}
 	}
-	tour_pose(&t, TOUR_SELECT, T0, 2000, -1, false);
+	tour_pose(&t, TOUR_SELECT, T0, 2000, -1, DEV(false));
 	memset(pressed, 0, sizeof pressed);
 	pressed[IN_L2] = true;
 	pressed[IN_R2] = true;
@@ -599,7 +603,7 @@ static void hands(void)
 	tour t;
 
 	printf("the hand, by device:\n");
-	tour_pose(&t, TOUR_VOL, T0, 2000, 0, true);
+	tour_pose(&t, TOUR_VOL, T0, 2000, 0, DEV(true));
 	memset(d, 0, sizeof d);
 	d[IN_X] = true;
 	tour_hands(&t, d, false, T0);
@@ -622,7 +626,7 @@ static void hands(void)
 	ck(tour_part_press(&t, TP_VOLDN, T0 + 800 + DS_MS_PRESS) > 0.99f,
 	   "and brightness down is VOL-");
 
-	tour_pose(&t, TOUR_VOL, T0, 2000, 0, false);
+	tour_pose(&t, TOUR_VOL, T0, 2000, 0, DEV(false));
 	memset(d, 0, sizeof d);
 	d[IN_BRIGHTUP] = true;
 	d[IN_BRIGHTDN] = true;
@@ -641,7 +645,7 @@ static void hands(void)
 	   "VOL- and POWER light their own");
 
 	/* The shoulders have no glyph; the handheld shows them pressed */
-	tour_pose(&t, TOUR_SELECT, T0, 2000, -1, true);
+	tour_pose(&t, TOUR_SELECT, T0, 2000, -1, DEV(true));
 	memset(d, 0, sizeof d);
 	d[IN_L1] = true;
 	d[IN_R2] = true;
@@ -661,10 +665,10 @@ static void zyper(void)
 	float before, after;
 
 	printf("Zyper:\n");
-	tour_pose(&t, TOUR_A, T0, 2000, -1, false);
+	tour_pose(&t, TOUR_A, T0, 2000, -1, DEV(false));
 	z = tour_zyper_now(&t, T0);
 	ck(!z.corner && !z.hello, "a step waiting for its press has no Zyper");
-	tour_pose(&t, TOUR_A, T0, 2000, 0, false);
+	tour_pose(&t, TOUR_A, T0, 2000, 0, DEV(false));
 	ck(tour_zyper_now(&t, T0).drop == 1.0f && tour_zyper_now(&t, T0 + 10).corner &&
 	   tour_zyper_now(&t, T0 + 10).drop > 0.5f,
 	   "the reward brings him from under the bottom edge");
@@ -682,19 +686,19 @@ static void zyper(void)
 
 	/* A wrong press, then the right one while he is on his way up: the
 	 * reward starts from where he is */
-	tour_pose(&t, TOUR_Y, T0, 2000, -1, false);
+	tour_pose(&t, TOUR_Y, T0, 2000, -1, DEV(false));
 	tour_press(&t, TK_X, T0);
 	tour_tick(&t, T0 + DS_MS_ZYPER_TILT);
 	z = tour_zyper_now(&t, T0 + DS_MS_ZYPER_TILT);
 	ck(z.corner && z.pose.tilt > 15.0f && z.pose.tongue < 0.1f,
 	   "a wrong press: up, his head cocked and his tongue in (the rig's failure)");
 	before = tour_zyper_now(&t, T0 + DS_MS_MOVE / 2).drop;
-	tour_pose(&t, TOUR_Y, T0, 2000, -1, false);
+	tour_pose(&t, TOUR_Y, T0, 2000, -1, DEV(false));
 	tour_press(&t, TK_X, T0);
 	tour_press(&t, TK_Y, T0 + DS_MS_MOVE / 2);
 	after = tour_zyper_now(&t, T0 + DS_MS_MOVE / 2).drop;
 	ck(before > 0.0f && near(before, after), "a reward replacing a wrong press does not snap him");
-	tour_pose(&t, TOUR_Y, T0, 2000, -1, false);
+	tour_pose(&t, TOUR_Y, T0, 2000, -1, DEV(false));
 	tour_press(&t, TK_X, T0);
 	tour_tick(&t, T0 + DS_MS_HOLD_ZYPER_FAIL + DS_MS_ZYPER_TILT + 10);
 	z = tour_zyper_now(&t, T0 + DS_MS_HOLD_ZYPER_FAIL + DS_MS_ZYPER_TILT + 10);
@@ -703,7 +707,7 @@ static void zyper(void)
 	ck(!tour_zyper_now(&t, T0 + DS_MS_HOLD_SHORT + DS_MS_EXIT).corner,
 	   "and goes down when the answer has held hold-short");
 
-	tour_pose(&t, TOUR_POWER, T0, 2000, -1, false);
+	tour_pose(&t, TOUR_POWER, T0, 2000, -1, DEV(false));
 	ck(!tour_zyper_now(&t, T0).corner, "the power step's Zyper is the stage's");
 	tour_press(&t, TK_A, T0);
 	ck(t.wrong && !tour_zyper_now(&t, T0 + DS_MS_MOVE).corner,
@@ -711,10 +715,10 @@ static void zyper(void)
 	tour_press(&t, TK_POWER, T0 + DS_MS_MOVE);
 	ck(near(tour_zyper_now(&t, T0 + DS_MS_MOVE).drop, 1.0f),
 	   "and its reward after that wrong press still comes up from under the edge");
-	tour_pose(&t, TOUR_POWER, T0, 2000, 300, false);
+	tour_pose(&t, TOUR_POWER, T0, 2000, 300, DEV(false));
 	ck(tour_zyper_now(&t, T0).corner, "until its press, when the corner's is the one");
 
-	tour_pose(&t, TOUR_WELCOME, T0, 0, -1, false);
+	tour_pose(&t, TOUR_WELCOME, T0, 0, -1, DEV(false));
 	ck(!tour_zyper_now(&t, T0 + DS_MS_QUICK).hello && !tour_zyper_now(&t, T0 + DS_MS_QUICK).corner,
 	   "the hello waits a quick, with no corner Zyper at the welcome");
 	z = tour_zyper_now(&t, T0 + DS_MS_QUICK + DS_MS_ZYPER_POP * 3 / 4);
@@ -725,7 +729,7 @@ static void zyper(void)
 	ck(z.pose.ears > 13.0f && z.pose.tongue > 0.99f, "then the tongue out and the ears up");
 	/* The last choice's reward hands over to the finish: the corner Zyper
 	 * goes down in exit, and only then does the big one pop in */
-	tour_pose(&t, TOUR_SOUNDS, T0, 3000, 0, false);
+	tour_pose(&t, TOUR_SOUNDS, T0, 3000, 0, DEV(false));
 	tour_tick(&t, T0 + DS_MS_TOUR_REWARD - 1);
 	ck(t.step == TOUR_SOUNDS && tour_zyper_now(&t, T0 + DS_MS_TOUR_REWARD - 1).corner,
 	   "the last choice's reward has him in the corner");
@@ -737,7 +741,7 @@ static void zyper(void)
 	ck(z.corner && !z.hello, "to the last moment of it");
 	z = tour_zyper_now(&t, T0 + DS_MS_TOUR_REWARD + DS_MS_EXIT + 1);
 	ck(!z.corner && z.hello, "and then the hello pops in, one Zyper at a time");
-	tour_pose(&t, TOUR_FINISH, T0, 0, -1, false);
+	tour_pose(&t, TOUR_FINISH, T0, 0, -1, DEV(false));
 	z = tour_zyper_now(&t, T0);
 	ck(t.had_reward && z.corner && !z.hello && near(z.drop, 0.0f),
 	   "a finish shot includes the last reward's corner Zyper at entry");
@@ -819,18 +823,18 @@ static void saved(void)
 	ck(tour_wanted(d), "a new handheld wants the tutorial");
 	ck(db_has(d, TOUR_DONE_KEY) && db_get_int(d, TOUR_DONE_KEY, 1) == 0,
 	   "seeded 0, so --set can change it");
-	tour_pose(&t, TOUR_X, T0, 2000, -1, false);
+	tour_pose(&t, TOUR_X, T0, 2000, -1, DEV(false));
 	tour_save(d, &t);
 	ck(tour_wanted(d), "a tour cut off by POWER is not remembered, and runs again");
-	tour_pose(&t, TOUR_POWER, T0, 2000, -1, false);
+	tour_pose(&t, TOUR_POWER, T0, 2000, -1, DEV(false));
 	tour_save(d, &t);
 	ck(tour_wanted(d) && !tour_seen(&t), "nor one cut off in the power step before its press");
-	tour_pose(&t, TOUR_POWER, T0, 2000, 300, false);
+	tour_pose(&t, TOUR_POWER, T0, 2000, 300, DEV(false));
 	ck(tour_seen(&t), "one past the power step's press is seen");
 	tour_save(d, &t);
 	ck(!tour_wanted(d), "and remembered, so its second POWER leaves it seen");
 	db_set_int(d, TOUR_DONE_KEY, 0);
-	tour_pose(&t, TOUR_X, T0, 2000, -1, false);
+	tour_pose(&t, TOUR_X, T0, 2000, -1, DEV(false));
 	tour_press(&t, TK_START, T0);
 	tour_save(d, &t);
 	ck(!tour_wanted(d), "a skipped one is");
@@ -840,7 +844,7 @@ static void saved(void)
 	if (d) {
 		db_set_int(d, TOUR_DONE_KEY, 0);
 		ck(tour_wanted(d), "--set tour.done=0 shows it again");
-		tour_pose(&t, TOUR_FINISH, T0, 2000, -1, false);
+		tour_pose(&t, TOUR_FINISH, T0, 2000, -1, DEV(false));
 		tour_press(&t, TK_A, T0);
 		tour_save(d, &t);
 		ck(!tour_wanted(d), "a finished one is remembered");

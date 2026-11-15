@@ -238,6 +238,17 @@ EXTRA = {
     "gamemenu-unchecked": ("demo", "PS1", ["--gamemenu", "0", "--cheevos-unchecked"]),
     "info-unchecked": ("demo", "PS1", ["--screen", "games", "--info", "--cheevos-unchecked"]),
     "gamemenu-display": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "1"]),
+    # Every display mode's name and its caption under the Display row (1.0.6)
+    "gamemenu-dmode-aspect": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "1", "--dmode", "aspect"]),
+    "gamemenu-dmode-integer": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "1", "--dmode", "integer"]),
+    "gamemenu-dmode-tall": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "1", "--dmode", "integer-vertical"]),
+    "gamemenu-dmode-overscale": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "1", "--dmode", "overscale"]),
+    "gamemenu-dmode-fill": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "1", "--dmode", "fill"]),
+    "gamemenu-dmode-native": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "1", "--dmode", "native"]),
+    "system-menu-dmode-fill": ("demo", "PS1", ["--screen", "games", "--menu", "Display", "--dmode", "fill"]),
+    # The menu over a port still starting, and its loading screen after a
+    # minute (1.0.6)
+    "gamemenu-port-waiting": ("demo", "PS1", ["--gamemenu", "0", "port", "--port-waiting"]),
     "gamemenu-controls": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "2"]),
     # ...and of a game the launcher has no hash for: a PSP game ("system"),
     # a PlayStation .chd ("file"), one in each screen; the Achievements row
@@ -262,13 +273,13 @@ EXTRA = {
     "synopsis": ("demo", "PS1", ["--screen", "games", "--info", "--synopsis"]),
     "keyboard": ("demo", "PS1", ["--keyboard"]),
     "video-controls": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--video", "controls"]),
-    "video-full": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--video", "full"]),
+    "video-full": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--video", "hidden"]),
     # MP4's lock screen, its panel with the bar a hold fills: over music, and
     # over a video, where the panel is the same and the picture is under it
     # MP4's menu on its shelf, which shows All (albums and videos mixed)
     "mp4-menu": ("media", "MUSE", ["--screen", "games", "--menu"]),
     "mp4-locked": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--locked"]),
-    "mp4-locked-video": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--video", "controls", "--locked"]),
+    "mp4-locked-video": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--video", "hidden", "--locked"]),
     "tour-lang": ("demo", "PS1", ["--tour", "lang", "3500"]),
     "tour-lang-ja": ("demo", "PS1", ["--tour", "lang", "3000", "--tour-pick", "6"]),
     "tour-welcome": ("demo", "PS1", ["--tour", "welcome", "3000"]),
@@ -538,6 +549,26 @@ SHOT_LIB = {"info-buttons": {_MGS: "1;b:y,y:b"},
             "gamemenu-controls-dc-mixed": {"map.DC." + _SONIC: "1;a:a"}}
 
 
+# MENU > Display > Home Systems (src/homesys.h, DESIGN.md 11.48): its row with
+# two systems off ("8 of 10"), its page at the top, and on the one-system card
+# with both its notes; and Recents, the games played last, on the home and as
+# a shelf, from play sessions put in the card's library for the shot alone
+_HS_OFF = {"home.hidden": "GB,DC"}
+_RECENT_LIB = {"sess.%d.%d.%s\t%s" % (1763000000 - 3600 * _i, 900 + _i, _t, _f): "600\tquit"
+               for _i, (_t, _f) in enumerate((("GBA", "The Legend of Zelda - The Minish Cap (USA).gba"),
+                                              ("SFC", "Super Metroid (USA).sfc"),
+                                              ("PS1", "Metal Gear Solid (USA).chd")))}
+EXTRA.setdefault("menu-homesys", ("demo", "PS1", ["--menu-tab", "1", "--menu", "Home Systems"]))
+SHOT_SETTINGS["menu-homesys"] = _HS_OFF
+EXTRA.setdefault("homesys-page", ("demo", "PS1", ["--homesys-page", "4"]))
+SHOT_SETTINGS["homesys-page"] = _HS_OFF
+EXTRA.setdefault("homesys-last", ("openbor", "OPENBOR", ["--homesys-page", "3"]))
+for _name, _flags in (("home-recents", []), ("shelf-recents", ["--screen", "games"])):
+    EXTRA.setdefault(_name, ("demo", "RECENT", _flags))
+    SHOT_LIB[_name] = _RECENT_LIB
+    CTL_FOCUS[_name] = "The Legend of Zelda - The Minish Cap (USA).gba"
+
+
 def set_lib(card, settings, on):
     """A shot's keys (SHOT_LIB) into the card's library, or out of it"""
     if not settings:
@@ -669,6 +700,19 @@ for _script, _pages in (("Star Farm.sh", 5), ("Lone Key.sh", 3), ("Odd Keys.sh",
         EXTRA.setdefault(_name, ("portdocs", "PRT", ["--screen", "games", "--gamecontrols", str(_page), "PRT"]))
         PORT_FOCUS[_name] = _script
 
+# MENU > Power Button on Hold (src/powerhold.h, DESIGN.md 11.47): its row,
+# the Controls pages that then say a hold (In a game, Anywhere, a port's In a
+# game) and the tutorial's POWER step, the setting on for each shot alone
+for _name, _shot in (("menu-power-hold", ("demo", "PS1", ["--menu-tab", "4", "--menu", "Power Button"])),
+                     ("controls-2-hold", ("demo", "PS1", ["--controls", "2"])),
+                     ("controls-5-hold", ("demo", "PS1", ["--controls", "5"])),
+                     ("tour-power-hold", ("demo", "PS1", ["--tour", "power", "1800"])),
+                     ("port-plain-0-hold", ("portdocs", "PRT", ["--screen", "games", "--gamecontrols", "0",
+                                                                "PRT"]))):
+    EXTRA.setdefault(_name, _shot)
+    SHOT_SETTINGS[_name] = {"power.button": "hold"}
+PORT_FOCUS["port-plain-0-hold"] = "Plain.sh"
+
 
 # The demonstration card with one game in each system that has none (a name
 # and its first extension, from config/systems.cfg), so that every system is
@@ -695,10 +739,9 @@ def all_systems_card(card):
 # began to check it (src/ui.c's ui_fit_mark, 1.0.6), each a layout to decide
 # on its own (DESIGN.md section 14): Storage's two-line caption, its accents
 # and ascenders under the sort key (es, pt-BR), the sort key filling the only
-# room between the list and the caption; and the video controls' keys, wrapped
-# to two rows in Japanese, under the times, the frame over them. Any other
-# screen whose words meet a key or a mark fails.
-KNOWN_KEYS = {"storage-music-rest", "storage-system-last", "video-controls", "mp4-locked-video"}
+# room between the list and the caption. Any other screen whose words meet a
+# key or a mark fails.
+KNOWN_KEYS = {"storage-music-rest", "storage-system-last"}
 
 
 def run_language(code, shots, binary, keep, theme="light"):

@@ -13,6 +13,7 @@
 #include "spawn.h"
 
 #include "osdbar.h" /* the volume and brightness bar, drawn here and elsewhere */
+#include "powerhold.h"
 #include "theme.h"  /* which theme the bar is drawn in */
 
 #include <errno.h>
@@ -198,9 +199,79 @@ void paths_init(void)
 
 unsigned plat_now_ms(void) { return SDL_GetTicks(); }
 
+/* ---- POWER: a press or a hold turns the handheld off (src/powerhold.h) ----
+ *
+ * One state for the one key, whichever loop reads its events: a screen's
+ * plat_input_poll (plat_set_btn below) or the watch over a game or a program
+ * (device_power_pressed). in.pressed[IN_POWER] is the turn-off - the press in
+ * Press mode, the hold done in Hold mode - which is what every screen asks
+ * it for; in.power_tap is the key going down, whatever the mode, for the
+ * charging screen, where a press starts the handheld as from off. The hold
+ * shows as the settings pill's power kind for as long as it is under way. */
+static powerhold g_power;
+static bool      g_power_pill;      /* the pill shows this hold */
+
+static void power_pill(void)
+{
+	int pm = powerhold_permille(&g_power, SDL_GetTicks());
+
+	if (pm >= 0) {
+		plat_osd_show(OSDBAR_POWER, pm * OSDBAR_POWER_STEPS / 1000, OSDBAR_POWER_STEPS);
+		g_power_pill = true;
+	} else if (g_power_pill) {
+		g_power_pill = false;
+		/* Done, it stays full for its hold and fades as the volume's does;
+		 * let go early, it goes at once */
+		if (g_power.fired) plat_osd_show(OSDBAR_POWER, OSDBAR_POWER_STEPS, OSDBAR_POWER_STEPS);
+		else plat_osd_fade();
+	}
+}
+
+bool plat_power_event(bool down)
+{
+	bool off = powerhold_key(&g_power, down, SDL_GetTicks());
+
+	power_pill();
+	return off;
+}
+
+bool plat_power_due(void)
+{
+	bool due = powerhold_due(&g_power, SDL_GetTicks());
+
+	power_pill();
+	return due;
+}
+
+int plat_power_hold(void) { return powerhold_permille(&g_power, SDL_GetTicks()); }
+void plat_power_consume(void) { powerhold_consume(&g_power); power_pill(); }
+
+void plat_power_poll(in_state *st)
+{
+	if (plat_power_due()) st->pressed[IN_POWER] = true;
+}
+
+unsigned plat_power_wait(unsigned ms)
+{
+	/* The pill's next segment, or the end of the hold */
+	int left = powerhold_next_ms(&g_power, SDL_GetTicks(), OSDBAR_POWER_STEPS);
+
+	return left >= 0 && (unsigned)left < ms ? (unsigned)left : ms;
+}
+
 void plat_set_btn(in_state *st, in_button b, bool down)
 {
 	if (b == IN_NONE) return;
+	if (b == IN_POWER) {
+		if (down && !st->down[b]) {
+			st->power_tap = true;
+			st->down_since[b] = SDL_GetTicks();
+			st->last_repeat[b] = 0;
+		}
+		st->down[b] = down;
+		if (plat_power_event(down)) st->pressed[b] = true;
+		return;
+	}
 	if (down && !st->down[b]) {
 		st->pressed[b] = true;
 		st->down_since[b] = SDL_GetTicks();
@@ -407,8 +478,21 @@ void plat_osd_show(int kind, int val, int max)
 	osd_changed_at = now;
 }
 
+/* Out at once, as if it had held its time already: POWER let go before its
+ * hold was done */
+void plat_osd_fade(void)
+{
+	Uint32 now = SDL_GetTicks();
+	float a, rise;
+
+	if (!osd_kind || !osdbar_envelope(now - osd_shown_at, now - osd_changed_at, &a, &rise))
+		return;
+	if (now - osd_changed_at < OSDBAR_HOLD_MS) osd_changed_at = now - OSDBAR_HOLD_MS;
+}
+
 /* The next tick the bar looks different: the coming frame while it slides or
- * fades, the start of the fade while it holds. */
+ * fades, the start of the fade while it holds, and POWER's next segment
+ * while a hold fills it. */
 Uint32 plat_osd_until(void)
 {
 	Uint32 now = SDL_GetTicks();
@@ -416,6 +500,12 @@ Uint32 plat_osd_until(void)
 
 	if (!osd_kind || !osdbar_envelope(now - osd_shown_at, now - osd_changed_at, &a, &rise))
 		return UINT32_MAX;
+	if (g_power_pill) {
+		Uint32 next = now + osdbar_next_change(now - osd_shown_at, now - osd_changed_at);
+		Uint32 step = now + plat_power_wait(OSDBAR_HOLD_MS);
+
+		return step < next ? step : next;
+	}
 	return now + osdbar_next_change(now - osd_shown_at, now - osd_changed_at);
 }
 

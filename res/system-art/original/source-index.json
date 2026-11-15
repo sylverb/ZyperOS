@@ -288,5 +288,10 @@
     "key": "MUSIC",
     "name": "Music",
     "file": "source/MUSIC.png"
+  },
+  {
+    "key": "SG1000",
+    "name": "SG-1000",
+    "file": "source/SG1000.png"
   }
 ]

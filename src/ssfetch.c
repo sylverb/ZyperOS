@@ -84,6 +84,9 @@ static const struct { const char *folder; int id; } SYS[] = {
 	{ "ColecoVision",        183 },
 	{ "Doom",                290 },
 	{ "TIC-80",              222 },
+	/* Read from ScreenScraper's own page for it, systemeinfos.php, on
+	 * 2026-11-15: 109 is "SG-1000" */
+	{ "SG-1000",             109 },
 };
 
 int ss_system_id(const char *folder)

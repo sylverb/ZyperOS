@@ -257,7 +257,7 @@ SHOTS={
     'topbar-still':('demo','PS1',['--home','spotlight','--song','Night Drive','--phase','0']),
     # The video with its controls, the foot's hints (Now Playing's own is above)
     'video-controls':('demo','MUSE',['--nowplaying','0','0','83','--video','controls']),
-    'video-full':('demo','MUSE',['--nowplaying','0','0','83','--video','full']),
+    'video-full':('demo','MUSE',['--nowplaying','0','0','83','--video','hidden']),
     # The quick slot and the hotkeys (2026-11-07): the in-game menu on its
     # Quick Slot row, a PlayStation game's buttons drawn as their shapes, and
     # its Hotkeys page, SELECT with a shoulder

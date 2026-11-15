@@ -213,6 +213,39 @@ de = %d s
 ja = %d 秒
 it = %d s
 
+[sysmenu.power_button]
+note = A MENU row on System, under Auto Off: what turns the handheld off, a press of POWER or POWER held for 2 seconds
+en = Power Button
+zh-Hans = 电源键
+es = Botón de encendido
+pt-BR = Botão liga/desliga
+fr = Bouton marche
+de = Ein/Aus-Taste
+ja = 電源ボタン
+it = Tasto accensione
+
+[sysmenu.power_press]
+note = Power Button's value: a press of POWER turns the handheld off (the default). Short, as Ask is.
+en = Press
+zh-Hans = 按一下
+es = Pulsar
+pt-BR = Apertar
+fr = Appuyer
+de = Drücken
+ja = 押す
+it = Premi
+
+[sysmenu.power_hold]
+note = Power Button's value: POWER held for 2 seconds turns the handheld off, and a press alone does not. Short, as Ask is.
+en = Hold
+zh-Hans = 长按
+es = Mantener
+pt-BR = Segurar
+fr = Maintenir
+de = Halten
+ja = 長押し
+it = Tieni premuto
+
 [sysmenu.auto_off_mins]
 note = Auto Off's value in minutes (2m). tight: 15 bytes at most
 en = %dm
@@ -300,6 +333,61 @@ fr = Date de sortie
 de = Erscheinungsdatum
 ja = 発売日
 it = Data di uscita
+
+[sysmenu.home_systems]
+note = A MENU row on Display, under System Order: which shelves the home shows, each system with games, Favorites and Recents; A opens the page of switches. Its heading too
+en = Home Systems
+zh-Hans = 主屏幕系统
+es = Sistemas en inicio
+pt-BR = Sistemas no início
+fr = Systèmes affichés
+de = Angezeigte Systeme
+ja = ホームのシステム
+it = Sistemi in Home
+
+[sysmenu.home_systems_all]
+note = Home Systems' value when every shelf is on the home. Short, as a value is
+en = All
+zh-Hans = 全部
+es = Todos
+pt-BR = Todos
+fr = Tous
+de = Alle
+ja = すべて
+it = Tutti
+
+[sysmenu.home_systems_some]
+note = Home Systems' value when some shelves are off: how many are on the home, of how many there are (12 of 15)
+en = %d of %d
+zh-Hans = %d / %d
+es = %d de %d
+pt-BR = %d de %d
+fr = %d sur %d
+de = %d von %d
+ja = %d / %d
+it = %d di %d
+
+[sysmenu.home_systems_note]
+note = Under Home Systems' switches: a system turned off leaves the home, Random Game and Search, and nothing of it is deleted: its games stay on the card. One line, as short as English's
+en = Games stay on the card.
+zh-Hans = 游戏仍保留在存储卡上。
+es = Los juegos siguen en la tarjeta.
+pt-BR = Os jogos ficam no cartão.
+fr = Les jeux restent sur la carte.
+de = Spiele bleiben auf der Karte.
+ja = ゲームはカードに残ります。
+it = I giochi restano sulla scheda.
+
+[sysmenu.home_systems_last]
+note = Under Home Systems' switches, when only one system is on the home: that one cannot be turned off, and this says why. One line, as short as English's
+en = One system stays on the home.
+zh-Hans = 主屏幕至少保留一个系统。
+es = Un sistema sigue en el inicio.
+pt-BR = Um sistema fica no início.
+fr = Un système reste à l'accueil.
+de = Ein System bleibt immer an.
+ja = システムは 1 つ残ります。
+it = Un sistema resta sulla Home.
 
 [sysmenu.battery_icon]
 note = A MENU row: how the status corner shows the battery
@@ -591,16 +679,6 @@ de = Sortieren nach
 ja = 並べ替え
 it = Ordina per
 
-[sysmenu.display_mode]
-note = A system menu row: how the system's games fill the screen (Stretch, Aspect...)
-en = Display Mode
-zh-Hans = 显示模式
-es = Modo de pantalla
-pt-BR = Modo de exibição
-fr = Mode d'affichage
-de = Anzeigemodus
-ja = 表示モード
-it = Modalità schermo
 
 [sysmenu.box_art]
 note = A system menu row: fetch covers for this system's games

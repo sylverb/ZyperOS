@@ -4,7 +4,8 @@
 BUILD := build
 # Every device shares src/*.c; DEVICE picks the one device file built with it.
 DEVICE ?= brick
-SRC := $(wildcard src/*.c) $(wildcard src/ds/*.c) src/device/$(DEVICE).c
+# and its profile (src/device/profile.h), the one the build is for
+SRC := $(wildcard src/*.c) $(wildcard src/ds/*.c) src/device/$(DEVICE).c src/device/$(DEVICE)_profile.c
 CC ?= aarch64-linux-gnu-gcc
 
 VERSION ?= 0.0
@@ -36,6 +37,8 @@ CREDS := $(BUILD)/ss_creds.h
 CFLAGS += -I$(BUILD)
 # src too, so a device file in src/device/ includes the shared headers by name
 CFLAGS += -Isrc
+# The device's profile is the one in force (src/profile.c)
+CFLAGS += -DZYPEROS_PROFILE=device_profile_$(DEVICE)
 
 .PHONY: creds
 creds:
@@ -95,10 +98,11 @@ $(BUILD)/p2d: $(P2D_SRC) $(wildcard src/p2d/*.h) src/httpd.h src/captive.h src/p
 # because those files name their rows' words through them; read-only data
 # with no relocations, so portkeys pays file size, not memory or start time.
 PORTKEYS_SRC := tools/portkeys.c tools/pkkeys.c tools/pkset.c src/audioout.c src/osdbar.c src/theme.c \
-                src/themefile.c src/look.c src/clock.c src/sidelights.c src/i18n.c src/i18n_tables.c src/heat.c
+                src/themefile.c src/look.c src/clock.c src/sidelights.c src/i18n.c src/i18n_tables.c src/heat.c \
+                src/powerhold.c
 $(BUILD)/portkeys: $(PORTKEYS_SRC) tools/pkkeys.h src/keyrepeat.h tools/pkset.h src/osdbar.h src/theme.h src/themefile.h \
                    src/clock.h src/design.h src/look.h src/audioout.h src/device/pixel2_levels.h src/sidelights.h \
-                   src/heat.h src/portmenu.h
+                   src/heat.h src/portmenu.h src/powerhold.h
 	mkdir -p $(BUILD)
 	$(CC) -O2 -mcpu=cortex-a53 -Wall -Wextra -std=gnu11 -Isrc -I$(SYSROOT)/usr/include \
 	      $(LDFLAGS) -o $@ $(PORTKEYS_SRC) -lsqlite3 -lm
