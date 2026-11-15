@@ -71,6 +71,10 @@
  * (net's one async slot) and never waits. The time is the caller's, so a
  * check can pass the minute a 429 asks for in a moment. */
 
+/* A set's path, Roms/<folder>/.cheevos/<name>.set (library.h's LIB_PATH
+ * twice and the rest) */
+#define RADL_SET_PATH (544 * 2 + 64)
+
 /* Between two requests to dorequest.php, at least */
 #define RADL_GAP_MS   600
 /* After a 429: the server's window is a minute */
@@ -150,7 +154,7 @@ typedef struct {
 	/* The set that arrived last, for a page that shows them coming in:
 	 * `set_seq` counts arrivals */
 	unsigned set_seq;
-	char set_path[1100];
+	char set_path[RADL_SET_PATH];
 	char set_title[128];
 	int  set_count;
 } radl_progress;

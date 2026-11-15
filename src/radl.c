@@ -36,6 +36,9 @@
  * written here again so the run needs no SDL, which rabadge.c's textures do */
 #define RADL_BADGE_URL "https://media.retroachievements.org/Badge/"
 
+/* radl.h cannot include library.h for it */
+_Static_assert(RADL_SET_PATH == LIB_PATH * 2 + 64, "RADL_SET_PATH is a set's path in library.h's terms");
+
 /* A ROM's path: Roms/<folder>/<file> */
 #define RADL_PATH (LIB_PATH + CFG_STR + LIB_PATH + 8)
 
@@ -163,7 +166,7 @@ int radl_plan(const systems_cfg *sys, const char *roms_dir, radl_sys *out, int m
 		snprintf(o->folder, sizeof o->folder, "%s", s->folder);
 		snprintf(o->tag, sizeof o->tag, "%s", s->tag);
 		for (k = 0; k < l.count; k++) {
-			char set[LIB_PATH * 2 + 64], none[LIB_PATH * 2 + 80];
+			char set[RADL_SET_PATH], none[RADL_SET_PATH + 16];
 
 			if (!game_asked(s, &l.items[k])) continue;
 			o->games++;
@@ -184,7 +187,7 @@ int radl_plan(const systems_cfg *sys, const char *roms_dir, radl_sys *out, int m
 typedef struct {
 	char file[LIB_PATH];      /* the launch path, under Roms/<folder> */
 	char name[LIB_NAME];      /* the set's name */
-	char set[LIB_PATH * 2 + 64];
+	char set[RADL_SET_PATH];
 	long long size;
 	long mtime;
 	char md5[33];             /* "" not made, "-" could not be */
@@ -251,7 +254,7 @@ static void hashes_load(const char *path, dl_game *games, int n)
 
 				if (gm->size != size || gm->mtime != mtime) break;  /* changed: again */
 				if (strlen(md5) == 32 || !strcmp(md5, "-"))
-					snprintf(gm->md5, sizeof gm->md5, "%s", md5);
+					snprintf(gm->md5, sizeof gm->md5, "%.32s", md5);
 				gm->checked = checked;
 				break;
 			}
@@ -352,7 +355,7 @@ typedef struct {
 	int  refs;
 	bool done;
 	int  got;
-	char set[LIB_PATH * 2 + 64];
+	char set[RADL_SET_PATH];
 } bjob;
 
 static void bjob_unref(bjob *j)
@@ -468,7 +471,7 @@ static struct {
 
 	/* badges */
 	bjob *bj;
-	char bq[BQ][LIB_PATH * 2 + 64];
+	char bq[BQ][RADL_SET_PATH];
 	int  bq_head, bq_n;
 } g;
 
@@ -1011,7 +1014,7 @@ static void game_patched(dl_game *d)
 	if (!prog_of(d->gid)) d->unlocked = -1;
 	g.p.set_seq++;
 	snprintf(g.p.set_path, sizeof g.p.set_path, "%s", d->set);
-	snprintf(g.p.set_title, sizeof g.p.set_title, "%s", d->name);
+	snprintf(g.p.set_title, sizeof g.p.set_title, "%.*s", (int)sizeof g.p.set_title - 1, d->name);
 	g.p.set_count = g.set_count;
 	snprintf(msg, sizeof msg, "%s: %d achievements (%s)", d->name, g.set_count,
 	         had ? "updated" : "new");
