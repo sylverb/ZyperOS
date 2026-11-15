@@ -92,8 +92,11 @@ profile, drawing it, and catching its drivers up, the layer is right.
   `usbdrive_screen.c` move out of main.c there). This work writes no launcher
   code until both are merged.
 - **The design system's round 3** brings a layout engine (Clay, Yoga or its
-  own) and resolution-independent tokens on a 4-unit grid. The seams with it
-  are agreed (2026-11-15) and go into its round 3 spec too:
+  own) and resolution-independent tokens: positions and distances between
+  parts on DESIGN.md's 8-unit grid (5 Pixel 2 pixels), 4-unit steps inside
+  a component. The seams with it are agreed (2026-11-15) and are in its
+  spec too (`docs/superpowers/specs/2026-11-15-design-system-round3-design.md`,
+  section 3, branch `design-system-3`):
   - **Screen.** The profile gives physical facts only: panel pixels, turn,
     active area in millimetres, insets in panel pixels, aspect, whether a
     panel still can be saved. The layout system computes the canvas from
