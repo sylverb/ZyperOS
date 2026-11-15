@@ -272,9 +272,8 @@ Lexend's time the first time it is drawn, then cached like any line.
 | **menu** | 49 (31 px on the Pixel 2) | Regular | menu rows, keys, a game's details |
 | **meta** | 37 (23 px on the Pixel 2) | Regular | menu captions and secondary text on detailed screens |
 | **chrome** | 24 (15 px on the Pixel 2) | Regular | home and games headers, status and footer legends |
-| **action** | 27 (17 px on the Pixel 2) | Regular | the primary home or game action beside its button glyph |
-| **support** | 29 (18 px on the Pixel 2) | Regular | home counts and compact game metadata |
-| **game-title** | 38 (24 px on the Pixel 2) | SemiBold | the full game name below its cover row |
+| **support** | 28 (18 px on the Pixel 2) | Regular | home counts, compact game metadata, and the action beside its button glyph (action 27 and support 29 until 1.0.6) |
+| **game-title** | 37 (23 px on the Pixel 2) | SemiBold | the full game name below its cover row: meta's size, title's weight; its lines 40 apart (38 and 44 until 1.0.6) |
 | **card** | 71 (44 px on the Pixel 2) | Regular | the title drawn into a generated card (512 px wide) |
 <!-- /generated:type -->
 
@@ -318,7 +317,7 @@ Lexend's time the first time it is drawn, then cached like any line.
 | **grid** | 8 | the step for anything new; 5 panel pixels |
 | **inset** | 24 | text and marks from every screen edge |
 | **panel-w** | 800 | the standard menu panel's width |
-| **bar** | 6 | the rail, a progress bar |
+| **bar** | 8 | the rail, a progress bar: on the grid (6 until 1.0.6) |
 | **rail-inset** | 23 | the rail from the bottom edge |
 | **rail-ends** | 90 | the rail's inset at both ends |
 | **rail-min** | 18 | the rail marker's least length |

@@ -79,16 +79,12 @@ window.ZYPER_TOKENS = {
       "px": 24,
       "weight": "Regular"
     },
-    "action": {
-      "px": 27,
-      "weight": "Regular"
-    },
     "support": {
-      "px": 29,
+      "px": 28,
       "weight": "Regular"
     },
     "game-title": {
-      "px": 38,
+      "px": 37,
       "weight": "SemiBold"
     },
     "card": {
@@ -100,7 +96,7 @@ window.ZYPER_TOKENS = {
     "grid": 8,
     "inset": 24,
     "panel-w": 800,
-    "bar": 6,
+    "bar": 8,
     "rail-inset": 23,
     "rail-ends": 90,
     "rail-min": 18

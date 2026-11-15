@@ -24,7 +24,7 @@ static TTF_Font *page_fonts_cjk[3][PAGE_FONTS];
 static bool page_cjk_tried[3];
 static void page_fonts_cjk_open(int set)
 {
-    static const int sizes[] = {DS_TYPE_CHROME,DS_TYPE_ACTION,DS_TYPE_SUPPORT,DS_TYPE_GAME_TITLE};
+    static const int sizes[] = {DS_TYPE_CHROME,DS_TYPE_SUPPORT,DS_TYPE_SUPPORT,DS_TYPE_GAME_TITLE};
     char menu[1024], title[1024];
     if(page_cjk_tried[set]) return;
     page_cjk_tried[set]=true;
@@ -37,7 +37,7 @@ static void page_fonts_cjk_open(int set)
 }
 bool page_fonts_init(const char *path)
 {
-    static const int sizes[] = {DS_TYPE_CHROME,DS_TYPE_ACTION,DS_TYPE_SUPPORT,DS_TYPE_GAME_TITLE};
+    static const int sizes[] = {DS_TYPE_CHROME,DS_TYPE_SUPPORT,DS_TYPE_SUPPORT,DS_TYPE_GAME_TITLE};
     char bold[2048];
     snprintf(bold,sizeof bold,"%s",path);
     char *slash=strrchr(bold,'/');

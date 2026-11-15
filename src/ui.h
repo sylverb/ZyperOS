@@ -52,7 +52,7 @@ static inline unsigned ui_rgb(ds_rgb c)
  * bottom and the Now Playing track are the same bar in two places, so they
  * are the same weight. (The settings line across the top was the third, until
  * it became src/osdbar.c's pill.) */
-#define UI_BAR_H 6
+#define UI_BAR_H DS_BAR   /* src/design.h: 8, on the grid */
 
 bool ui_init(SDL_Renderer *r, const char *font_path);
 void ui_quit(void);
