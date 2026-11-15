@@ -13,7 +13,7 @@
  * the page as the USB cable does: under the cable's name, USB File Transfer,
  * with SSH's line; without it the page is Wi-Fi File Transfer's. "update="
  * answers Settings' update over the cable with a stand-in for the launcher
- * and its update program (main.c's xfer_update): "off" as an image with no
+ * and its update program (src/xfer_screen.c's xfer_update): "off" as an image with no
  * release key, "on" as one that takes the files and installs them over a few
  * seconds, "ready" as one with an update staged; the files the page sends
  * land in CARD/.userdata/pixel2/update/cable and nothing is checked or
