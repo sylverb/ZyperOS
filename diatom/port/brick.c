@@ -2173,7 +2173,9 @@ void diatom_port_fast_clock(bool cpu, bool gpu)
 	}
 }
 
-/* The Brick's clocks are not measured per system: every game gets them all */
+/* The Brick's clocks are not measured per system: every game gets them all.
+ * Once they are, its steps are a diatom_power_profile (port_power.h), as
+ * the Pixel 2's are, and this writes them with diatom_power_set. */
 void diatom_port_power(int level) { (void)level; }
 
 /* No GPU frames: the Brick's display is a framebuffer, and its cores all draw
