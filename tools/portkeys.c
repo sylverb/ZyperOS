@@ -169,7 +169,7 @@ static char appearance_word[16];
 static bool appearance_read;
 
 /* The look and Auto's hours from the device's database, as the launcher reads
- * them (main.c, look_load): look.* words and auto.* minutes. The bar's colors
+ * them (src/sysmenu_screen.c, look_load): look.* words and auto.* minutes. The bar's colors
  * for both themes are then the look's (osdbar_colors), or the tokens' for the
  * look as it ships. */
 static void look_load_db(sqlite3 *d)
