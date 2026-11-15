@@ -162,6 +162,7 @@ static void card(void)
 	put("Saves/Game.srm", 131072);
 	put(".userdata/shared/.zyperos/Game Boy/Tetris.gb.1.state", 70000);
 	put(".userdata/shared/.zyperos/Game Boy/Tetris.gb.1.bmp", 30000);
+	put(".userdata/shared/.zyperos/Game Boy/Tetris.gb.undo.state", 60000);   /* Undo Load's */
 	put(".userdata/shared/.zyperos/Game Boy/Gone.gb.auto.state", 90000);
 	put(".userdata/shared/.zyperos/Game Boy/Gone.gb.auto.bmp", 20000);
 	age(".userdata/shared/.zyperos/Game Boy/Gone.gb.auto.state", 2L * 365 * 24 * 3600);
@@ -267,6 +268,7 @@ static void numbers(const char *when)
 	CHECK_EQ(gb->snaps, on("Roms/Game Boy/.media/Tetris.mp4") + on("Roms/Game Boy/.media/Old Game.mp4"));
 	CHECK_EQ(gb->states, on(".userdata/shared/.zyperos/Game Boy/Tetris.gb.1.state") +
 	                     on(".userdata/shared/.zyperos/Game Boy/Tetris.gb.1.bmp") +
+	                     on(".userdata/shared/.zyperos/Game Boy/Tetris.gb.undo.state") +
 	                     on(".userdata/shared/.zyperos/Game Boy/Gone.gb.auto.state") +
 	                     on(".userdata/shared/.zyperos/Game Boy/Gone.gb.auto.bmp"));
 	CHECK_EQ(gb->saves, on("Saves/Tetris.srm"));
@@ -293,7 +295,8 @@ static void numbers(const char *when)
 	CHECK_EQ(t.games, on("Roms/Game Boy/Tetris.gb") + on("Roms/Game Boy/.cheevos/Tetris.set"));
 	CHECK_EQ(t.saves, on("Saves/Tetris.srm"));
 	CHECK_EQ(t.states, on(".userdata/shared/.zyperos/Game Boy/Tetris.gb.1.state") +
-	                   on(".userdata/shared/.zyperos/Game Boy/Tetris.gb.1.bmp"));
+	                   on(".userdata/shared/.zyperos/Game Boy/Tetris.gb.1.bmp") +
+	                   on(".userdata/shared/.zyperos/Game Boy/Tetris.gb.undo.state"));
 	/* its cover, its video, and the cover Cover and Video put aside */
 	CHECK_EQ(t.art, on("Roms/Game Boy/.media/Tetris.png") + on("Roms/Game Boy/.media/Tetris.mp4") +
 	                on("Roms/Game Boy/.media/.before/Tetris.png"));
@@ -719,6 +722,7 @@ int main(void)
 		age(".userdata/shared/.zyperos/Game Boy/Tetris.gb.2.state", 2L * 365 * 24 * 3600);
 		age(".userdata/shared/.zyperos/Game Boy/Tetris.gb.1.state", 2L * 365 * 24 * 3600);
 		age(".userdata/shared/.zyperos/Game Boy/Tetris.gb.1.bmp", 2L * 365 * 24 * 3600);
+		age(".userdata/shared/.zyperos/Game Boy/Tetris.gb.undo.state", 2L * 365 * 24 * 3600);
 		GAMES[0].last_played = (long)time(NULL) - 30L * 24 * 3600;
 		given = st_delete_old_states(&pp, &s, GAMES, ngames, (long)time(NULL), &gone_games);
 		CHECK_EQ(given, 0);
@@ -728,6 +732,7 @@ int main(void)
 		given = st_delete_old_states(&pp, &s, GAMES, ngames, (long)time(NULL), &gone_games);
 		CHECK(given > 0);
 		CHECK(!there(".userdata/shared/.zyperos/Game Boy/Tetris.gb.2.state"));
+		CHECK(!there(".userdata/shared/.zyperos/Game Boy/Tetris.gb.undo.state"));
 		CHECK(there("Saves/Tetris.srm"));
 	}
 

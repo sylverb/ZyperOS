@@ -31,6 +31,11 @@
 #   fit fails the save before anything is written, and a load checks every
 #   size the state claims before restoring any of it.
 #
+# And one of ours, mk/patches/fake08-input-taps.patch (1.0.6): a 30 fps cart
+# lost short taps (btnp) begun on the frame its loop yields on, and a held
+# button's btnp repeat was mostly lost, as the buttons were read twice a
+# frame. The patch says how. SHA below is its build of the four, 2026-11-15.
+#
 # The pin is upstream master on 2026-11-03, unchanged since 2026-06-13 and
 # the commit ROCKNIX ships. z8lua is a submodule.
 #
@@ -47,7 +52,7 @@ set -e
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 SRC=${1:-/tmp/zyperos-fake08}
 PIN=814991a2571ad3970e386cef48f3b148aa1c27b9   # jtothebell/fake-08 master, 2026-06-13
-SHA=663747345933a1e87d2e8ad2af82b269f0988ef48e72589b5648662fd11b50da
+SHA=3ac703df87444d003876c652ea6c437697fa5cd9f313190b72778a216f978387
 
 command -v docker >/dev/null || { echo "need docker" >&2; exit 1; }
 docker build --platform linux/arm64 -q -f "$ROOT/mk/fake08.Dockerfile" -t zyperos-fake08 "$ROOT/mk" >/dev/null
@@ -62,6 +67,7 @@ git submodule update -q --init --recursive
 git apply "$ROOT/mk/patches/fake08-load.patch"
 git apply "$ROOT/mk/patches/fake08-states.patch"
 git apply "$ROOT/mk/patches/fake08-bound-lua.patch"
+git apply "$ROOT/mk/patches/fake08-input-taps.patch"
 EPOCH=$(git log -1 --format=%ct)
 
 # Flags through the environment: the Makefile appends to CFLAGS and CXXFLAGS.

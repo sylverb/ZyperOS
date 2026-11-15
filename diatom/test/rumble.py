@@ -9,6 +9,8 @@ motor that writes down each level the host tells it.
     the game before them started.
   - STOP, QUIT and SIGTERM (the power key) while it runs: the last word to
     the port is 0.
+  - RUN rumble=35 (a system's share, Doom's): every level at 35%, and the
+    next game with no share at full.
 
 What the port does with a level - the GKD Pixel 2's force feedback, whose
 stop never reached the motor on ZyperOS 1.0.4 - is test/rumble_test.c's.
@@ -160,6 +162,25 @@ for how in ("QUIT", "SIGTERM"):
     lv = r.levels()
     check(f"{how} while it runs: the motor was on, and the last word is 0 0",
           ON in lv and lv[-1] == OFF, lv)
+
+# ---- RUN rumble=: the system's share of what the core asks ---------------
+# PrBoom shakes on every shot, pickup and hit, at up to full: ZyperOS sends
+# rumble=35 for Doom (systems.cfg). The next game, sent no share, is as asked.
+r = Run("share", "20:on,40:off")
+r.pump(0.3)
+r.send(f"RUN\tcore={STUB}\trumble=35")
+lv = r.wait_level("22937 22937")
+check("RUN rumble=35: the core's full on reaches the port at 35%",
+      has_run(lv, ["0 22937", "22937 22937"]), lv)
+lv = r.wait_level(OFF, after=len(lv))
+check("and its off is still 0 0", lv[-1:] == [OFF], lv)
+r.send("STOP")
+r.wait_for("EXIT")
+n = len(r.levels())
+r.send(f"RUN\tcore={STUB}")
+lv = r.wait_level(ON, after=n)
+check("the next game, with no rumble=, is at full again", lv[-1:] == [ON], lv)
+r.end("QUIT")
 
 print("rumble end to end: %s" % ("all passed" if not fails else f"{len(fails)} FAILED"))
 sys.exit(1 if fails else 0)

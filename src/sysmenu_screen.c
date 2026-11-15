@@ -32,6 +32,7 @@
 #include "stats_screen.h"
 #include "storage_screen.h"
 #include "strength.h"
+#include "tour_screen.h"
 #include "ui.h"
 #include "uisound.h"
 #include "update_screen.h"

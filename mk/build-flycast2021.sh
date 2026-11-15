@@ -9,9 +9,11 @@
 #
 # The source is ROCKNIX's pin for its flycast2021-lr package, metallic77's
 # fork (GPL-2.0-or-later), which builds with newer compilers than
-# libretro/flycast at AmberELEC's 45bd2f4e does. One patch of ours,
-# mk/patches/flycast2021-postprocess-render.patch: the fork's GLES2 build does
-# not link without it (the patch says why).
+# libretro/flycast at AmberELEC's 45bd2f4e does. Two patches of ours:
+# mk/patches/flycast2021-postprocess-render.patch, as the fork's GLES2 build
+# does not link without it, and mk/patches/flycast2021-disk-paths.patch, as
+# the disc list outlived its game and a second Dreamcast game in one Diatom
+# started the first one again (1.0.5). Each says why.
 #
 # platform=arm64_cortex_a53_gles2, the fork's own target for a small ARM64
 # device on OpenGL ES 2: LOW_END, the arm64 dynarec. A Cortex-A35 runs what
@@ -31,7 +33,7 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 SRC=${1:-/tmp/zyperos-flycast2021}
 PIN=603814c9f73b773c455d9a497f389d2f93a257fd   # metallic77/flycast, ROCKNIX's flycast2021-lr pin
 TAR_SHA=8aa94bdd669bab05a10ff03c8a977eccd41a30063271da3f81a7a50b1a72f4ca
-SHA=fda9a598d6b3350f2ba4b226b20bebf521fb06cced0edfcaa7db0288e8a6e93a
+SHA=c68ea94ade5b4a3752973b0d20dba26aeb005a9326780baffa303bb3040ea798
 
 command -v docker >/dev/null || { echo "need docker" >&2; exit 1; }
 command -v curl   >/dev/null || { echo "need curl" >&2; exit 1; }
@@ -46,6 +48,7 @@ rm -rf "$SRC/flycast-$PIN"
 tar -xzf "$TAR" -C "$SRC"
 cd "$SRC/flycast-$PIN"
 patch -s -p1 < "$ROOT/mk/patches/flycast2021-postprocess-render.patch"
+patch -s -p1 < "$ROOT/mk/patches/flycast2021-disk-paths.patch"
 
 docker run --rm --platform linux/arm64 -v "$SRC/flycast-$PIN:/src" -w /src \
 	zyperos-flycast2021 bash -c '

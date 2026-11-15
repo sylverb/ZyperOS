@@ -1,0 +1,103 @@
+fake08 (jtothebell/fake-08 814991a), its libretro glue and the VM's button
+read, on top of fake08-load, -states and -bound-lua:
+
+- Taps lost. Since upstream 6f06d1b a 30 fps cart's loop yields on every
+  other retro_run and reads the buttons on the next, so a press that began
+  on the yield frame set a "pressed now" the VM never read, and the next
+  frame had the button as held only: btnp() missed short taps, and a long
+  press came 0.25 s late, by btnp's repeat. setInputState now keeps the
+  pressed-now bits until scanInput hands them to the VM.
+- btnp()'s repeat lost. A 30 fps cart's _update and its flip() both read
+  the buttons in one frame (a 60 fps cart's _update60 and flip() too), and
+  Input::SetState counted each held button once a read: the count went up
+  two a frame and the repeat landed on the flip()'s read, which the next
+  _update overwrote, so a held button repeated once at most (a one-second
+  hold: 1 press where PICO-8 gives 6). The VM now reads once a host frame:
+  the libretro host counts them (InputState_t.frame), and a host that does
+  not (0) reads as before.
+
+Measured with fake08 built for macOS under Diatom's desktop port, a 30 fps
+cart counting btnp(4): eight one- and two-frame taps on both frame parities
+gave 4 before and 8 after; a one-second hold, 1 before and 6 after.
+
+diff --git a/platform/libretro/libretrohost.cpp b/platform/libretro/libretrohost.cpp
+index 64c4a07..8e29455 100644
+--- a/platform/libretro/libretrohost.cpp
++++ b/platform/libretro/libretrohost.cpp
+@@ -26,8 +26,18 @@ static uint8_t stubMouseBtns;
+ 
+ std::string _currentCartDirectory;
+ 
++/* The host frame, counted by setInputState, and whether its buttons were
++ * read yet. A press is kept until the VM reads it: a 30 fps cart reads the
++ * buttons on every other retro_run, so a press that began on the one it
++ * yields on was a btnp the cart never saw, and the next frame's had it as
++ * held only (short taps lost; a long one came late, by btnp's repeat). */
++static uint32_t stubFrame;
++static bool stubRead = true;
++
+ void setInputState(uint8_t kDown, uint8_t kHeld, int16_t mouseX, int16_t mouseY, uint8_t mouseBtns) {
+-    stubCurrKDown = kDown;
++    stubCurrKDown = stubRead ? kDown : (uint8_t)(stubCurrKDown | kDown);
++    stubRead = false;
++    stubFrame = stubFrame + 1 ? stubFrame + 1 : 1;
+     stubCurrKHeld = kHeld;
+     stubMouseX = mouseX;
+     stubMouseY = mouseY;
+@@ -66,7 +76,8 @@ void Host::forceStretch(StretchOption newStretch) {
+ 
+ 
+ InputState_t Host::scanInput(){
+-    return InputState_t {stubCurrKDown, stubCurrKHeld, stubMouseX, stubMouseY, stubMouseBtns, stubCurrKBdown, stubCurrKBkey};
++    stubRead = true;
++    return InputState_t {stubCurrKDown, stubCurrKHeld, stubMouseX, stubMouseY, stubMouseBtns, stubCurrKBdown, stubCurrKBkey, stubFrame};
+ }
+ 
+ bool Host::shouldQuit() {
+diff --git a/source/hostVmShared.h b/source/hostVmShared.h
+index b0e1dc7..1c4ef05 100644
+--- a/source/hostVmShared.h
++++ b/source/hostVmShared.h
+@@ -77,6 +77,11 @@ struct InputState_t {
+ 	uint8_t mouseBtnState;
+ 	bool KBdown;
+ 	std::string KBkey;
++	/* Which host frame this is, counted from 1 by a host that counts them
++	 * (libretro); 0 from one that does not. The VM reads the buttons once a
++	 * host frame: a second read in the same frame (flip() after _update)
++	 * would count every held button twice toward btnp's repeat. */
++	uint32_t frame = 0;
+ };
+ 
+ enum PrintMode_t
+diff --git a/source/vm.cpp b/source/vm.cpp
+index f01df8b..35629ce 100644
+--- a/source/vm.cpp
++++ b/source/vm.cpp
+@@ -1193,6 +1193,14 @@ void Vm::api_srand(fix32 seed)
+ void Vm::update_buttons() {
+     //get button states from hardware
+     auto inputState = _host->scanInput();
++
++    // Once a host frame: a 30 fps cart's _update and its flip() both read,
++    // and counting a held button twice made btnp repeat at half the delay
++    // and twice the rate. A host that counts no frames (0) reads every time.
++    if (inputState.frame) {
++        if (inputState.frame == _inputFrame) return;
++        _inputFrame = inputState.frame;
++    }
+     
+     // If we just resumed from pause menu, clear input so the button press
+     // that closed the menu doesn't get passed to the cart.
+diff --git a/source/vm.h b/source/vm.h
+index c221d5e..4501538 100644
+--- a/source/vm.h
++++ b/source/vm.h
+@@ -41,6 +41,7 @@ class Vm {
+     bool _cartChangeQueued;
+     bool _pauseMenu;
+     bool _clearInputOnResume;
++    uint32_t _inputFrame = 0;   // the host frame the buttons were last read in
+     string _prevCartKey;
+     string _nextCartKey;
+     const unsigned char* _nextCartData;

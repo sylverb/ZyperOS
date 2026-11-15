@@ -352,6 +352,39 @@ static void gm_disc_row_only_with_discs(void)
 	ck(gm_row_at(&u, GT_DISPLAY, GM_DISC) == -1, "and not on the Display tab");
 }
 
+/* Undo Load (1.0.6): the state from before the last load, kept once. A row
+ * only while there is one, right under Load, never over a port and never on
+ * the Display tab; a plain row A acts on */
+static void gm_undo_row_only_with_undo(void)
+{
+	gm_ui u = { 0 };
+	gm_bufs b;
+	menu_row rows[GM_MAX_ROWS];
+	int n, at;
+
+	printf("in-game menu, Undo Load:\n");
+	u.dmode = "Native"; u.earned = 12; u.total = 40; u.quick = 2;
+	n = gm_rows(&u, GT_GAME, rows, &b);
+	ck(gm_row_at(&u, GT_GAME, GM_UNDO) == -1 && n == 7, "no Undo Load row with nothing to undo");
+	u.undo = true;
+	n = gm_rows(&u, GT_GAME, rows, &b);
+	at = gm_row_at(&u, GT_GAME, GM_UNDO);
+	ck(n == 8 && at == gm_row_at(&u, GT_GAME, GM_LOAD) + 1 &&
+	   at + 1 == gm_row_at(&u, GT_GAME, GM_QUICK), "with one: right under Load, before Quick Slot");
+	ck(at >= 0 && !strcmp(rows[at].label, "Undo Load") && !rows[at].value &&
+	   rows[at].live && !b.sound[at], "Undo Load is a plain row");
+	u.quick = 0;
+	ck(gm_row_at(&u, GT_GAME, GM_UNDO) == gm_row_at(&u, GT_GAME, GM_LOAD) + 1,
+	   "and with no Quick Slot, still under Load");
+	u.quick = 2;
+	u.port = true;
+	ck(gm_row_at(&u, GT_GAME, GM_UNDO) == -1, "none over a port");
+	u.port = false;
+	ck(gm_row_at(&u, GT_DISPLAY, GM_UNDO) == -1, "and not on the Display tab");
+	ck(SLOT_UNDO != SLOT_AUTO && (SLOT_UNDO < 1 || SLOT_UNDO > GM_SLOTS),
+	   "SLOT_UNDO is none of the player's slots, nor Auto");
+}
+
 static void disc_value_check(void)
 {
 	char out[64];
@@ -2975,6 +3008,7 @@ int main(void)
 	ctl_tab();
 	player2_row_on_nes_only();
 	gm_disc_row_only_with_discs();
+	gm_undo_row_only_with_undo();
 	disc_value_check();
 	audio_row();
 	channels_row();

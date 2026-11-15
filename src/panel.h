@@ -15,12 +15,14 @@
 #include "keyboard.h"
 #include "menu.h"
 #include "menumotion.h"
+#include "menusnap.h"
 #include "noticeq.h"
 #include "p2.h"
 #include "platform.h"
 #include "rahash.h"
 #include "sys_menu.h"
 #include "texload.h"
+#include "uisound.h"
 #include "wifi.h"
 
 #include <stdbool.h>
@@ -363,6 +365,94 @@ extern const menu_style *g_muse_over;
 extern void             *g_muse_over_ctx;
 extern bool              g_muse_gone;
 
+/* ---- main.c's, for src/menu_runner.c; each is described where it is defined ---- */
+extern menu_snap *g_snap_next;
+extern menu_snap *g_snap;
+extern uis_steps g_steps;
+void wifi_pref_save(bool on);
+void snap_record(menu_snap *s, int kind, const char *heading,
+                 const menu_row *rows, int n, int sel, int fixed_w,
+                 unsigned accent, const unsigned *vcolors,
+                 bool visits_all, int loop_at, const char *heading_note);
+void snap_draw(app *a, mm_pose pose);
+int snap_shown(void);
+int menu_step_heard(app *a, const menu_row *rows, int n, int sel,
+                    int dir, in_button b);
+int panel_settle(int lv);
+void panel_close_at(app *a, int lv, bool cut, unsigned now);
+
+/* ---- main.c's, for src/lights_screen.c; each is described where it is defined ---- */
+
+/* ---- main.c's, for src/gameinfo_screen.c; each is described where it is defined ---- */
+
+/* ---- main.c's, for src/scraper_screen.c; each is described where it is defined ---- */
+/* What the next panel drawn is to be, which panel_frame says and panel_show
+ * puts back at rest as it takes it: a panel drawn by anything else, a message
+ * or a shot, is drawn at rest. */
+#define PANEL_REST ((mm_frame){ { 1.0f, 0.0f }, { 1.0f, 1.0f }, 1.0f, false })
+extern const systems_cfg *g_snap_sys;
+bool es_art_cover(const char *dir, const char *file, const char *stem);
+bool es_art_video(const char *dir, const char *file, const char *stem);
+void tiles_panel(app *a, int kind, const char *heading, const menu_row *tiles,
+                 const int *marks, int n, int sel, mm_pose pose);
+
+/* ---- main.c's, for src/xfer_screen.c; each is described where it is defined ---- */
+bool up_running(void);
+unsigned pace_rows(const char *heading, const menu_row *rows, int n, int sel, float k,
+                   unsigned tint);
+bool pace_busy(const app *a);
+void ram_idle_set(bool idle);
+const char *tiles_hints(const char *b_word);
+
+/* ---- main.c's, for src/usbdrive_screen.c; each is described where it is defined ---- */
+extern bool g_usb_kept;
+extern bool g_usb_offer_due;
+extern bool g_tiles_hints;
+void usb_offer_count(void);
+void tiles_show(app *a, int kind, const char *heading, const menu_row *rows, int n,
+                const int *marks, int nmarks, int sel);
+bool confirm_rows_as(app *a, const char *heading, menu_row *rows, int nq,
+                     const char *yes_label, const char *no_label, int fixed_w, int lv,
+                     usbpower_guard *guard);
+const char *list_hints(const char *b_word);
+void ask_settle(app *a, usbpower_guard *g);
+void ask_guard_start(app *a, usbpower_guard *g);
+
+/* ---- main.c's, for src/about_screen.c; each is described where it is defined ---- */
+#ifndef ZYPEROS_VERSION
+#define ZYPEROS_VERSION "0.0"       /* set by the makefiles from Makefile's VERSION */
+#endif
+extern mm_frame g_pframe;
+
+/* ---- main.c's, for src/signin_screen.c; each is described where it is defined ---- */
+
+/* ---- main.c's, for src/devmode_screen.c; each is described where it is defined ---- */
+
+/* ---- main.c's, for src/tour_screen.c; each is described where it is defined ---- */
+void language_apply(app *a, lang l, bool keep);
+
+/* ---- main.c's, for src/player2_screen.c; each is described where it is defined ---- */
+/* Which drawer a copy is for. A question in tiles says its style by its kind
+ * (tiles_show): PANEL_TILES a row of tiles, PANEL_TILES_GRID two to a row
+ * (Computer Connected), PANEL_LIST rows the panel's width with a line under
+ * each name (What did you plug in?, the Scraper's Settings). They were read
+ * off the first tile's name before (tile_glyph), which cut "ScreenScraper". */
+enum { PANEL_MENU, PANEL_HOT, PANEL_TILES, PANEL_P2, PANEL_MOVE, PANEL_TILES_GRID, PANEL_LIST };
+typedef struct {
+	bool     run;            /* started for this plug: not again until the cable is out */
+	bool     up;             /* sshlink_start said yes */
+	char     pw[16], ip[64];
+	int      nkeys;
+	unsigned at, retry;
+} dv_state;
+extern dv_state g_dv;
+void notice_queue(nq_kind kind, int id, int ms, const char *head,
+                  const char *body, const char *badge, int value, int target);
+void panel_show(app *a, int kind, const char *heading,
+                const menu_row *rows, int n, int sel, int fixed_w,
+                unsigned accent, const unsigned *vcolors,
+                bool visits_all, int loop_at, const char *heading_note);
+
 /* ---- main.c's, for src/shelf_keys.c; each is described where it is defined ---- */
 void shelf_into(app *a, sysview *v);
 void shelf_up(app *a, sysview *v);
@@ -591,7 +681,6 @@ void language_screen(app *a);
 void lights_screen(app *a);
 void about_screen(app *a);
 void controls_screen(app *a);
-void tour_run(app *a, bool first);
 menu_style zyperos_menu_style(app *a, int screen);
 int sysmenu_build(void *ctx, menu_row *rows, int max,
                   const char **heading);

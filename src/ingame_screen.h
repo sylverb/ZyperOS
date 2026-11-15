@@ -50,6 +50,7 @@ typedef struct {
 void paused_backdrop(app *a, SDL_Texture *bg, float k);
 extern gm_disc_state g_gm_disc;
 extern int g_shot_discs;
+extern bool g_shot_undo;
 extern const char *g_shot_disc_label;
 extern gm_mem_state g_gm_mem;
 extern SDL_Renderer *g_badge_r;
