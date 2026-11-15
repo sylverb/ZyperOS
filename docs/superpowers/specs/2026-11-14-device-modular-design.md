@@ -383,7 +383,32 @@ device):
   charge limit until the driver has one.
 - **GPU**: PowerVR GE8300 through Imagination's closed GLES; GPU frames
   **off** until a GPU core runs on it (Diatom's fbdev EGL path is new work);
-  the old-screen shaders stay the CPU's Sharp map, as today.
+  the old-screen shaders stay the CPU's Sharp map, as today. A static read
+  of the exact DDK 1.11 files plastron pins (their SHA-256 match
+  `files.sha256`; read with REA and Ghidra, never run) found what that path
+  needs:
+  - EGL 1.4 ("1.4 build 1.11@5516664"), OpenGL ES only, with
+    `EGL_KHR_fence_sync`, `EGL_KHR_wait_sync`, `EGL_KHR_create_context`,
+    `EGL_KHR_surfaceless_context`, `EGL_KHR_no_config_context`,
+    `EGL_KHR_image_base`, `EGL_EXT_image_dma_buf_import` and
+    `EGL_EXT_buffer_age` in its one extension string. No platform-display
+    extension string was found, so the Brick's port opens
+    `EGL_DEFAULT_DISPLAY` on the null window system, where the Pixel 2's
+    opens a GBM display (`diatom/port/pixel2.c:1463`).
+  - OpenGL ES 3.2 and GLSL ES 3.20, renderer "PowerVR Rogue GE8300". Its
+    extension table names everything the GPU cores and Diatom use
+    (`GL_OES_EGL_sync`, `GL_OES_surfaceless_context`,
+    `GL_OES_packed_depth_stencil`, `GL_EXT_shader_framebuffer_fetch`,
+    `GL_EXT_color_buffer_float`, `GL_OES_EGL_image_external`), but it is the
+    driver's whole table (it also names ray tracing, which the GE8300 lacks),
+    so what this GPU exposes is read at run time.
+  - Diatom's GPU path already takes the KHR sync calls through
+    `eglGetProcAddress` and checks wait sync by name, which fits EGL 1.4.
+    The driver warns that `glFinish` stalls PowerVR's deferred rendering;
+    the Brick's present path uses fences, not the `glFinish` the Pixel 2's
+    has at `pixel2.c:1944`.
+  These are observations of the shipped files, not of a running Brick: the
+  first GPU-core test kit confirms them.
 - **Sound**: two front-firing speakers (stereo), a headphone jack at the
   bottom, the ladders already in `brick.c`, moved to `brick_levels.h`.
 - **Lights**: RGB lights in a bar on the top edge, in each of the four
@@ -608,7 +633,8 @@ driver. The XR829 firmware is a Wi-Fi MAC for an undocumented chip. Where
 reverse engineering pays is small and bounded: reading which EGL and GLES
 features DDK 1.11 offers (fence sync, surfaceless contexts, wait sync, the
 GLES version), the main unknown for Diatom's GPU frames on the Brick
-(section 6), before step 6, with no device. Any reverse engineering keeps
+(section 6), before step 6, with no device. That check is done (section 6,
+"GPU"): the API Diatom needs is there. Any reverse engineering keeps
 the clean-room rule: notes on behavior only, and nothing of the binaries
 in the repository.
 
