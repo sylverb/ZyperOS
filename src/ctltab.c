@@ -297,19 +297,30 @@ unsigned ct_lit(const ct_model *m, ct_row id)
 
 void ct_lean(const td_model *m, unsigned keys, float *yaw_deg, float *pitch_deg)
 {
-	bool l = false, r = false, front = false;
+	bool l = false, r = false, front = false, ledge = false;
 	int i;
 
-	/* Which side each key is on, and whether any is on the front of it */
+	/* Which side each key is on, whether any is on the front of it, and
+	 * whether any is on a back ledge */
 	for (i = 0; m && i < m->n_parts; i++) {
 		const td_part *p = &m->parts[i];
 		const bool face = p->face == TD_FACE_FRONT && (p->x < 0.0f ? -p->x : p->x) >= m->lean_centre;
 
-		if (!(keys >> p->key & 1u) || (!face && p->face != TD_FACE_TOP)) continue;
+		if (!(keys >> p->key & 1u)) continue;
+		ledge |= p->face == TD_FACE_LEDGE;
+		if (!face && p->face != TD_FACE_TOP) continue;
 		if (p->x < 0.0f) l = true; else r = true;
 		front |= face;
 	}
 	*yaw_deg = *pitch_deg = 0.0f;
+	/* Shoulders on a back ledge, either side, a centre key with them or
+	 * not: turned round to the back, where they show, whichever side they
+	 * are on, so a row to the next shoulder only moves the light */
+	if (ledge && !front) {
+		*yaw_deg = m->back.deg - m->tab.deg;
+		*pitch_deg = m->back.pitch;
+		return;
+	}
 	/* Keys on both sides, or on neither: the front pose */
 	if (l == r) return;
 	if (front) {
