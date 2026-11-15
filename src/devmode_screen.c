@@ -110,6 +110,10 @@ void dev_ssh_tick(void)
 	sshlink_facts f;
 	sshlink_mode want;
 
+	/* The in-game menu over a port is a second zyperos.elf for a moment:
+	 * Developer SSH is portkeys' then (tools/pkssh.c), and a start here
+	 * would end its sessions, as this menu's exit would end its own */
+	if (sshlink_owner_of(false, g_port_menu) != SSHLINK_BY_LAUNCHER) return;
 	if (usblink_dev_image() || !devmode_unlocked(db_dev())) {
 		/* Off. File Transfer over the cable may have SSH of its own with
 		 * its PIN, which took ours over: left to it. */
