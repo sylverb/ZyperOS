@@ -183,9 +183,8 @@ TYPE = [
     ("menu",  49, "Regular",  "menu rows, keys, a game's details"),
     ("meta",  37, "Regular",  "menu captions and secondary text on detailed screens"),
     ("chrome", 24, "Regular", "home and games headers, status and footer legends"),
-    ("action", 27, "Regular", "the primary home or game action beside its button glyph"),
-    ("support", 29, "Regular", "home counts and compact game metadata"),
-    ("game-title", 38, "SemiBold", "the full game name below its cover row"),
+    ("support", 28, "Regular", "home counts, compact game metadata, and the action beside its button glyph (action 27 and support 29 until 1.0.6)"),
+    ("game-title", 37, "SemiBold", "the full game name below its cover row: meta's size, title's weight; its lines 40 apart (38 and 44 until 1.0.6)"),
     ("card",  71, "Regular",  "the title drawn into a generated card (512 px wide)"),
 ]
 
@@ -195,7 +194,7 @@ SPACE = [
     ("grid",        8,   "the step for anything new; 5 panel pixels"),
     ("inset",       24,  "text and marks from every screen edge"),
     ("panel-w",     800, "the standard menu panel's width"),
-    ("bar",         6,   "the rail, a progress bar"),
+    ("bar",         8,   "the rail, a progress bar: on the grid (6 until 1.0.6)"),
     ("rail-inset",  23,  "the rail from the bottom edge"),
     ("rail-ends",   90,  "the rail's inset at both ends"),
     ("rail-min",    18,  "the rail marker's least length"),
