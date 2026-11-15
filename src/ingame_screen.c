@@ -475,7 +475,10 @@ void gm_gather(app *a, gm_ui *out)
 	gm_ui u;
 
 	memset(&u, 0, sizeof u);
-	u.dmode  = dmode_label(a->view[a->sys_cursor].dmode);
+	/* The owner's, as the shader's: the game's own system's, which launch
+	 * sent and the row sets (gm_cycle_display). The shelf's read Stretch
+	 * over every favorite until 1.0.6: nothing sets Favorites' own mode. */
+	u.dmode  = dmode_label(owner_view(a)->dmode);
 	/* The owner's, which is the one its row sets (gm_cycle_shader) */
 	u.shader = shader_label(owner_view(a)->shader);
 	u.strength = strength_row_label(a, (int)(owner_view(a) - a->view));
