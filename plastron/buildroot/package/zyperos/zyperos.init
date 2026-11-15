@@ -188,12 +188,14 @@ bright_keep() {
 		[ -f "$f" ] && read -r v < "$f" || continue
 		case $v in ''|0*|*[!0-9]*) continue ;; esac
 		if [ -x "$brick" ]; then
-			[ "$v" -le 255 ] && "$brick" "$v"
+			[ "$v" -le 255 ] && "$brick" "$v" &&
+				echo "zyperos: the backlight at $v, the player's" 2> /dev/null > /dev/kmsg
 			return
 		fi
 		for b in "$lights"/*; do
 			[ -f "$b/max_brightness" ] && read -r max < "$b/max_brightness" || continue
-			[ "$v" -le "$max" ] && echo "$v" > "$b/brightness"
+			[ "$v" -le "$max" ] && echo "$v" > "$b/brightness" &&
+				echo "zyperos: the backlight at $v, the player's" 2> /dev/null > /dev/kmsg
 		done
 		return
 	done
