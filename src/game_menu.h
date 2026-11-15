@@ -191,6 +191,9 @@ typedef enum {
 	GM_ROWS,
 	GM_SCREENS = GM_ROWS, GM_SWAP, GM_STYLUS, GM_PAK, GM_PLAYER2, GM_DISC,
 	GM_STRENGTH, GM_UNDO,
+	/* On-Screen Stats over the game (src/hud.h), on or off, and A opens
+	 * its page (src/hudmenu.h): the Display tab's last row */
+	GM_HUD,
 	/* The display mode's caption under the Display row, a line each
 	 * (dmode_note, wrapped by the caller): rows no cursor stops on */
 	GM_DNOTE1, GM_DNOTE2,
@@ -222,6 +225,8 @@ typedef struct {
 	const char *shader;   /* the shader's label; NULL reads Off */
 	/* Its strength, "50%", when it is an old screen; NULL: no Strength row */
 	const char *strength;
+	/* On-Screen Stats, the player's (HUD_KEY), whatever the game */
+	bool        hud;
 	int         earned;
 	int         total;    /* 0: this game has no achievement set */
 	/* ...because it was never played with a network: not asked yet */
@@ -290,6 +295,11 @@ int gm_disc_step(int disc, int discs, int d);
  * of its rows. A port's menu (u->port) has no tabs and is Continue, Controls
  * and Quit whichever tab is asked for. */
 typedef enum { GT_GAME, GT_DISPLAY, GT_CONTROLS, GT_ACHIEVEMENTS, GT_TABS } gm_tab;
+
+/* On-Screen Stats' switch in the device's database, kept per player and
+ * not per game: 1 draws the line over every game (src/hud.h, Diatom's
+ * SETHUD); what it shows and how are its page's (src/hudmenu.h) */
+#define HUD_KEY "hud"
 const char *gm_tab_name(int t);
 int gm_tab_rows(const gm_ui *u, gm_tab t, gm_row *ids);
 /* Where row `id` is in tab `t`'s list, or -1 when that tab has none */

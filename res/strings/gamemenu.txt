@@ -830,3 +830,317 @@ fr = Intensité
 de = Stärke
 ja = 強さ
 it = Intensità
+
+[gamemenu.hud]
+note = The last row of the in-game menu's Display tab, and the heading and first row of the page it opens: a small line in a corner of the screen, over the game, of what the player picked to see ("59.7 fps · 0.96x · 52°C": the frames a second, the speed against the game's own, the chip's temperature, and more). Its value is On or Off (menu.on_title, menu.off_title), and it holds for every game.
+en = On-Screen Stats
+zh-Hans = 屏幕信息
+es = Datos en pantalla
+pt-BR = Estatísticas na tela
+fr = Statistiques à l'écran
+de = Werte im Bild
+ja = 画面に情報を表示
+it = Statistiche a schermo
+
+[gamemenu.hud_shows]
+note = A row of the On-Screen Stats page: which items the line shows. Its value names them (gamemenu.hud_items when there are more than two), and A opens their list, each On or Off
+en = Shows
+zh-Hans = 显示内容
+es = Muestra
+pt-BR = Mostra
+fr = Affiche
+de = Zeigt
+ja = 表示する項目
+it = Mostra
+
+[gamemenu.hud_fps]
+note = An item of On-Screen Stats: the frames the game draws a second
+en = FPS
+zh-Hans = 帧率
+es = FPS
+pt-BR = FPS
+fr = FPS
+de = FPS
+ja = FPS
+it = FPS
+
+[gamemenu.hud_speed]
+note = An item of On-Screen Stats: how fast the game runs against its own speed ("0.5x")
+en = Speed
+zh-Hans = 速度
+es = Velocidad
+pt-BR = Velocidade
+fr = Vitesse
+de = Geschwindigkeit
+ja = 速度
+it = Velocità
+
+[gamemenu.hud_temp]
+note = An item of On-Screen Stats: how warm the handheld's chip is ("52°C")
+en = CPU Temperature
+zh-Hans = CPU 温度
+es = Temperatura CPU
+pt-BR = Temperatura da CPU
+fr = Température du CPU
+de = CPU-Temperatur
+ja = CPU温度
+it = Temperatura CPU
+
+[gamemenu.hud_cpu]
+note = An item of On-Screen Stats: how busy the chip is ("CPU 34%")
+en = CPU Load
+zh-Hans = CPU 占用
+es = Uso de CPU
+pt-BR = Uso da CPU
+fr = Charge du CPU
+de = CPU-Auslastung
+ja = CPU使用率
+it = Carico CPU
+
+[gamemenu.hud_clock]
+note = An item of On-Screen Stats: the chip's clock speed now ("1.3 GHz")
+en = CPU Clock
+zh-Hans = CPU 频率
+es = Frecuencia CPU
+pt-BR = Frequência da CPU
+fr = Fréquence du CPU
+de = CPU-Takt
+ja = CPUクロック
+it = Frequenza CPU
+
+[gamemenu.hud_battery]
+note = An item of On-Screen Stats: the battery's charge ("87%")
+en = Battery
+zh-Hans = 电池
+es = Batería
+pt-BR = Bateria
+fr = Batterie
+de = Akku
+ja = バッテリー
+it = Batteria
+
+[gamemenu.hud_time]
+note = An item of On-Screen Stats: the time of day
+en = Time
+zh-Hans = 时间
+es = Hora
+pt-BR = Hora
+fr = Heure
+de = Uhrzeit
+ja = 時刻
+it = Ora
+
+[gamemenu.hud_items]
+note = The Shows row's value when more than two items are on: how many
+en.one = %d Item
+en.other = %d Items
+zh-Hans = %d 项
+es.one = %d elemento
+es.other = %d elementos
+pt-BR.one = %d item
+pt-BR.other = %d itens
+fr.one = %d élément
+fr.other = %d éléments
+de.one = %d Wert
+de.other = %d Werte
+ja = %d 項目
+it.one = %d elemento
+it.other = %d elementi
+
+[gamemenu.hud_corner]
+note = A row of the On-Screen Stats page: which corner of the screen the stats line is in
+en = Corner
+zh-Hans = 位置
+es = Esquina
+pt-BR = Canto
+fr = Coin
+de = Ecke
+ja = 位置
+it = Angolo
+
+[gamemenu.hud_top_left]
+note = Corner's value
+en = Top Left
+zh-Hans = 左上
+es = Arriba a la izquierda
+pt-BR = Superior esquerdo
+fr = En haut à gauche
+de = Oben links
+ja = 左上
+it = In alto a sinistra
+
+[gamemenu.hud_top_right]
+note = Corner's value
+en = Top Right
+zh-Hans = 右上
+es = Arriba a la derecha
+pt-BR = Superior direito
+fr = En haut à droite
+de = Oben rechts
+ja = 右上
+it = In alto a destra
+
+[gamemenu.hud_bottom_left]
+note = Corner's value
+en = Bottom Left
+zh-Hans = 左下
+es = Abajo a la izquierda
+pt-BR = Inferior esquerdo
+fr = En bas à gauche
+de = Unten links
+ja = 左下
+it = In basso a sinistra
+
+[gamemenu.hud_bottom_right]
+note = Corner's value
+en = Bottom Right
+zh-Hans = 右下
+es = Abajo a la derecha
+pt-BR = Inferior direito
+fr = En bas à droite
+de = Unten rechts
+ja = 右下
+it = In basso a destra
+
+[gamemenu.hud_edge]
+note = A row of the On-Screen Stats page: how far the stats line is from the screen's edges
+en = Edge Distance
+zh-Hans = 边距
+es = Distancia al borde
+pt-BR = Distância da borda
+fr = Distance au bord
+de = Randabstand
+ja = 端からの距離
+it = Distanza dal bordo
+
+[gamemenu.hud_close]
+note = Edge Distance's value: near the edges
+en = Close
+zh-Hans = 近
+es = Cerca
+pt-BR = Perto
+fr = Proche
+de = Nah
+ja = 近い
+it = Vicina
+
+[gamemenu.hud_normal]
+note = Edge Distance's and Size's value: as it ships
+en = Normal
+zh-Hans = 标准
+es = Normal
+pt-BR = Normal
+fr = Normale
+de = Normal
+ja = 標準
+it = Normale
+
+[gamemenu.hud_far]
+note = Edge Distance's value: further in from the edges
+en = Far
+zh-Hans = 远
+es = Lejos
+pt-BR = Longe
+fr = Loin
+de = Weit
+ja = 遠い
+it = Lontana
+
+[gamemenu.hud_background]
+note = A row of the On-Screen Stats page: what is behind the stats line's text
+en = Background
+zh-Hans = 背景
+es = Fondo
+pt-BR = Fundo
+fr = Fond
+de = Hintergrund
+ja = 背景
+it = Sfondo
+
+[gamemenu.hud_pill]
+note = Background's value: a rounded box in the theme's colors (the other is Shadow)
+en = Pill
+zh-Hans = 胶囊
+es = Píldora
+pt-BR = Pílula
+fr = Pastille
+de = Kapsel
+ja = カプセル
+it = Pillola
+
+[gamemenu.hud_shadow]
+note = Background's value: a shadow around the text alone
+en = Shadow
+zh-Hans = 阴影
+es = Sombra
+pt-BR = Sombra
+fr = Ombre
+de = Schatten
+ja = 影
+it = Ombra
+
+[gamemenu.hud_opacity]
+note = A row of the On-Screen Stats page: how see-through the stats line is, 100%, 75% or 50%
+en = Opacity
+zh-Hans = 不透明度
+es = Opacidad
+pt-BR = Opacidade
+fr = Opacité
+de = Deckkraft
+ja = 不透明度
+it = Opacità
+
+[gamemenu.hud_color]
+note = A row of the On-Screen Stats page: the color of the stats line's text. Its values are Theme, White, Green and Yellow (look.accent_green, look.accent_yellow)
+en = Text Color
+zh-Hans = 文字颜色
+es = Color del texto
+pt-BR = Cor do texto
+fr = Couleur du texte
+de = Textfarbe
+ja = 文字の色
+it = Colore del testo
+
+[gamemenu.hud_theme]
+note = Text Color's value: the theme's own text color (as MENU's Theme row, sysmenu.theme)
+en = Theme
+zh-Hans = 主题
+es = Tema
+pt-BR = Tema
+fr = Thème
+de = Design
+ja = テーマ
+it = Tema
+
+[gamemenu.hud_white]
+note = Text Color's value
+en = White
+zh-Hans = 白色
+es = Blanco
+pt-BR = Branco
+fr = Blanc
+de = Weiß
+ja = ホワイト
+it = Bianco
+
+[gamemenu.hud_size]
+note = A row of the On-Screen Stats page: the size of the stats line's text
+en = Size
+zh-Hans = 大小
+es = Tamaño
+pt-BR = Tamanho
+fr = Taille
+de = Größe
+ja = サイズ
+it = Dimensione
+
+[gamemenu.hud_small]
+note = Size's value: smaller than Normal
+en = Small
+zh-Hans = 小
+es = Pequeño
+pt-BR = Pequeno
+fr = Petite
+de = Klein
+ja = 小
+it = Piccola

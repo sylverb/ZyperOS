@@ -1505,6 +1505,17 @@ static void level_set(const diatom_msg *m)
 		level_emit(k, idx, cnt);
 }
 
+/* On-Screen Stats (ZyperOS's src/hud.h): on while the launcher's in-game
+ * menu says so (SETHUD on=1), for every game until it says otherwise, as it
+ * keeps the setting per player. hud_turn measures and the port draws. */
+static bool g_hud_on;
+
+static void hud_set(const diatom_msg *m)
+{
+	g_hud_on = m->on != 0;
+	diatom_port_hud_style(&m->hud);
+}
+
 static void display_set(const diatom_msg *m)
 {
 	int mode = g_mode, i, strength = g_strength;
@@ -1544,6 +1555,44 @@ static void display_set(const diatom_msg *m)
 	 * for and neither side believes in. */
 	set_strength(strength);
 	apply_display(mode, filter);
+}
+
+/* Once a turn: the frames the core ran over the last half second
+ * (HUD_EVERY_MS) and that against the game's own rate, from the counters
+ * px2-perf reads in the now file (now.h: frames x 1e6 / fps / run_us), so the
+ * two say the same; to the port twice a second. Off, one test. A new game
+ * (its counters back under the window's start) starts a new window, and the
+ * last game's numbers go until it has one. */
+static void hud_turn(uint64_t now, long frames, uint64_t run_us, double game_fps)
+{
+	static uint64_t t0, run0;
+	static long f0;
+	static bool shown;
+
+	if (!g_hud_on) {
+		if (shown) diatom_port_hud(false, 0, -1);
+		shown = false;
+		t0 = 0;
+		return;
+	}
+	if (!t0 || frames < f0 || run_us < run0) {
+		if (shown) diatom_port_hud(false, 0, -1);
+		shown = false;
+		t0 = now;
+		run0 = run_us;
+		f0 = frames;
+		return;
+	}
+	if (now - t0 < 500000 || run_us <= run0) return;
+	{
+		const double fps = (double)(frames - f0) * 1e6 / (double)(run_us - run0);
+
+		diatom_port_hud(true, fps, game_fps > 0 ? fps / game_fps : -1);
+		shown = true;
+	}
+	t0 = now;
+	run0 = run_us;
+	f0 = frames;
 }
 
 /* ---- two screens ---------------------------------------------------------
@@ -1819,6 +1868,7 @@ static bool state_plane_msg(const diatom_msg *m)
 		apply_display(g_mode, g_filter);
 		return true;
 	case DIATOM_MSG_SETDISPLAY: display_set(m); return true;
+	case DIATOM_MSG_SETHUD:     hud_set(m); return true;
 	case DIATOM_MSG_OVERLAY:
 		/* Not on the state plane's query/write shape, because there is no
 		 * state to query: it is a thing that happens and then stops. The
@@ -2577,6 +2627,8 @@ static int run_session_inner(const diatom_session *sn)
 
 			diatom_now_turn(t, frames, t - t_start > paused_us ? t - t_start - paused_us : 0,
 			                speed_half() / 2.0, diatom_audio_dropped());
+			hud_turn(t, frames, t - t_start > paused_us ? t - t_start - paused_us : 0,
+			         av.timing.fps);
 		}
 
 		if (fast) {

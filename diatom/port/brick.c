@@ -621,6 +621,17 @@ void diatom_port_low_battery(bool on, bool blink)
 	g_lowbat_blink = blink;
 }
 
+/* On-Screen Stats (diatom_port.h): not drawn on the Brick yet */
+void diatom_port_hud(bool on, double fps, double speed)
+{
+	(void)on; (void)fps; (void)speed;
+}
+
+void diatom_port_hud_style(const diatom_hud_words *w)
+{
+	(void)w;
+}
+
 /* The picture under the notice, in ordinary memory.
  *
  * Blending needs what is underneath, and reading it back out of the page was

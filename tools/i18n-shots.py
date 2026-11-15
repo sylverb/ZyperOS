@@ -601,6 +601,19 @@ EXTRA.setdefault("system-menu-view-list", ("demo", "NES", ["--screen", "games", 
 # Home Screen's three (Spotlight, Gallery, Grid) over the Grid home
 EXTRA.setdefault("menu-home-list", ("demo", "PS1", ["--home", "grid", "--menu-tab", "1", "--menu", "Home Screen", "--press", "a"]))
 EXTRA.setdefault("gamemenu-display-list", ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "1", "--gm-choose"]))
+# On-Screen Stats' page (src/hudmenu_screen.h): its rows with three items
+# shown ("3 Items"), the Shows list (every item's name), and each row's list
+# of more than two (every corner, distance, opacity and color); Background
+# and Size, of two, are the page's own values and the Pill/Small shots
+EXTRA.setdefault("hud-page", ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "1", "--hud-page", "1",
+                                               "--hud-shows", "fps,speed,temp"]))
+EXTRA.setdefault("hud-page-two", ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "1", "--hud-page", "6"]))
+EXTRA.setdefault("hud-page-alt", ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "1", "--hud-page", "6", "--hud-alt"]))
+EXTRA.setdefault("hud-items", ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "1", "--hud-page", "0", "--hud-items"]))
+EXTRA.setdefault("hud-items-end", ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "1", "--hud-page", "6", "--hud-items"]))
+for _r, _n in ((2, "corner"), (3, "edge"), (5, "opacity"), (6, "color")):
+    EXTRA.setdefault("hud-pick-" + _n, ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "1", "--hud-page", str(_r),
+                                                       "--hud-pick", str(_r)]))
 # Display's Theme page (DESIGN.md 11.42) in each of the ten accents, the
 # tones going round in both themes and the corners turning over, so every
 # accent's, tone's and value's name is drawn; its foot, Zyper and Reset to

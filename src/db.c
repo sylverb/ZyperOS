@@ -36,6 +36,18 @@ static const db_default device_defaults[] = {
 	 * handheld, so it shows once - and once after the upgrade that brings
 	 * it, as nothing before set it - and `--set tour.done=1` can skip it */
 	{ "tour.done",  "0"  },
+	/* The in-game menu's On-Screen Stats (src/game_menu.h, HUD_KEY):
+	 * the line over every game, off until the player turns it on */
+	{ "hud", "0" },
+	/* ...and its page's (src/hudmenu.h): what it shows and how, each a
+	 * word, as the page keeps them */
+	{ "hud_items",      "fps,speed" },
+	{ "hud_corner",     "tl" },
+	{ "hud_edge",       "normal" },
+	{ "hud_background", "pill" },
+	{ "hud_opacity",    "100" },
+	{ "hud_color",      "theme" },
+	{ "hud_size",       "normal" },
 	/* MENU > Language (src/i18n.h): a language's code, English until the
 	 * first start's step or the menu says otherwise */
 	{ "language",   "en" },

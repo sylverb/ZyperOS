@@ -406,11 +406,11 @@ static void gm_display_caption(void)
 	printf("in-game menu, the display mode's caption:\n");
 	u.dmode = "Full Screen"; u.quick = 2;
 	n = gm_tab_rows(&u, GT_DISPLAY, ids);
-	ck(n == 2 && ids[1] == GM_SHADER, "no caption: Display, then Shader");
+	ck(n == 3 && ids[1] == GM_SHADER, "no caption: Display, then Shader");
 	u.dmode_note[0] = "Fills the screen.";
 	u.dmode_note[1] = "The picture's shape changes.";
 	n = gm_rows(&u, GT_DISPLAY, rows, &b);
-	ck(n == 4 && gm_row_at(&u, GT_DISPLAY, GM_DNOTE1) == 1 &&
+	ck(n == 5 && gm_row_at(&u, GT_DISPLAY, GM_DNOTE1) == 1 &&
 	   gm_row_at(&u, GT_DISPLAY, GM_DNOTE2) == 2 && gm_row_at(&u, GT_DISPLAY, GM_SHADER) == 3,
 	   "two lines right under Display, Shader after them");
 	ck(ROW_IS_BODY(rows[1]) && ROW_IS_BODY(rows[2]) && !rows[1].live && !rows[2].live &&
@@ -418,7 +418,7 @@ static void gm_display_caption(void)
 	ck(!strcmp(rows[1].label, "Fills the screen.") && !strcmp(rows[2].label, "The picture's shape changes."),
 	   "saying the lines given");
 	u.dmode_note[1] = NULL;
-	ck(gm_tab_rows(&u, GT_DISPLAY, ids) == 3 && ids[2] == GM_SHADER, "one line: one row");
+	ck(gm_tab_rows(&u, GT_DISPLAY, ids) == 4 && ids[2] == GM_SHADER, "one line: one row");
 	ck(gm_row_at(&u, GT_GAME, GM_DNOTE1) < 0, "and none on the Game tab");
 	u.port = true;
 	ck(gm_row_at(&u, GT_DISPLAY, GM_DNOTE1) < 0, "nor over a port");
@@ -1944,7 +1944,8 @@ static void ingame_rows(void)
 {
 	static const char *const game[] = { "Continue", "Save", "Load", "Quick Slot", "Player 2",
 	                                    "Achievements", "Reset", "Quit" };
-	static const char *const dsp[] = { "Display", "Shader", "Screens", "Swap Screens", "Stylus" };
+	static const char *const dsp[] = { "Display", "Shader", "Screens", "Swap Screens", "Stylus",
+	                                   "On-Screen Stats" };
 	gm_ui u = { 0 };
 	gm_bufs b;
 	menu_row rows[GM_MAX_ROWS];
@@ -2010,8 +2011,19 @@ static void ingame_rows(void)
 	/* Display: a DS game adds the screens' three, in this order */
 	n = gm_rows(&u, GT_DISPLAY, rows, &b);
 	printf("in-game menu, Display tab:\n");
-	ck(n == 2 && !strcmp(rows[0].label, "Display") && !strcmp(rows[1].label, "Shader"),
-	   "a game that is not a DS one: Display and Shader");
+	ck(n == 3 && !strcmp(rows[0].label, "Display") && !strcmp(rows[1].label, "Shader") &&
+	   !strcmp(rows[2].label, "On-Screen Stats"),
+	   "a game that is not a DS one: Display, Shader and On-Screen Stats");
+	/* On-Screen Stats, the tab's last row (src/hudmenu.h): On or Off, left
+	 * and right turn it over, A opens its page */
+	ck(!strcmp(val(&rows[2]), "Off") && rows[2].live && b.sound[2] == MENU_SND_RING &&
+	   gm_row_at(&u, GT_DISPLAY, GM_HUD) == 2 && gm_row_at(&u, GT_GAME, GM_HUD) < 0,
+	   "On-Screen Stats says Off, steps round, and is on the Display tab only");
+	u.hud = true;
+	n = gm_rows(&u, GT_DISPLAY, rows, &b);
+	ck(!strcmp(val(&rows[2]), "On"), "and On when it is on");
+	u.hud = false;
+	n = gm_rows(&u, GT_DISPLAY, rows, &b);
 	ck(!strcmp(val(&rows[0]), "Native") && b.sound[0] == MENU_SND_RING && b.sound[1] == MENU_SND_RING,
 	   "Display carries the mode, and both step round");
 	u.shader = "Sharp-Shimmerless";
@@ -2023,25 +2035,27 @@ static void ingame_rows(void)
 	/* Strength right under Shader while the shader is an old screen */
 	u.shader = "LCD Grid"; u.strength = "50%";
 	n = gm_rows(&u, GT_DISPLAY, rows, &b);
-	ck(n == 3 && !strcmp(rows[2].label, "Strength") && !strcmp(val(&rows[2]), "50%") &&
+	ck(n == 4 && !strcmp(rows[2].label, "Strength") && !strcmp(val(&rows[2]), "50%") &&
 	   rows[2].live && gm_row_at(&u, GT_DISPLAY, GM_STRENGTH) == 2,
 	   "an old screen: Strength under Shader, saying its percent");
 	ck(b.sound[2] == MENU_SND_NO_A, "left and right step it, A does nothing");
 	ck(gm_row_at(&u, GT_GAME, GM_STRENGTH) < 0, "and it is on no other tab");
 	u.screens = true;
 	n = gm_rows(&u, GT_DISPLAY, rows, &b);
-	ck(n == 6 && !strcmp(rows[2].label, "Strength") && !strcmp(rows[3].label, "Screens"),
-	   "a DS game's three come after it");
+	ck(n == 7 && !strcmp(rows[2].label, "Strength") && !strcmp(rows[3].label, "Screens") &&
+	   !strcmp(rows[6].label, "On-Screen Stats"),
+	   "a DS game's three come after it, On-Screen Stats last");
 	u.screens = false; u.shader = NULL; u.strength = NULL;
 	n = gm_rows(&u, GT_DISPLAY, rows, &b);
 	u.screens = true; u.layout = 1; u.swap = true; u.stylus = false;
 	n = gm_rows(&u, GT_DISPLAY, rows, &b);
-	ck(labels_are(rows, n, dsp, 5), "gm_tabs_display_ds: Display Shader Screens Swap Screens Stylus");
-	ck(gm_tab_rows(&u, GT_DISPLAY, ids) == 5 && ids[2] == GM_SCREENS && ids[3] == GM_SWAP &&
-	   ids[4] == GM_STYLUS, "and the ids");
+	ck(labels_are(rows, n, dsp, 6),
+	   "gm_tabs_display_ds: Display Shader Screens Swap Screens Stylus On-Screen Stats");
+	ck(gm_tab_rows(&u, GT_DISPLAY, ids) == 6 && ids[2] == GM_SCREENS && ids[3] == GM_SWAP &&
+	   ids[4] == GM_STYLUS && ids[5] == GM_HUD, "and the ids");
 	ck(!strcmp(val(&rows[2]), "Top Focus") && !strcmp(val(&rows[3]), "On") && !strcmp(val(&rows[4]), "Off"),
 	   "Screens says the layout, Swap Screens and Stylus say On or Off");
-	ck(reachable(rows, n, got, GM_MAX_ROWS) == 5, "every row is a stop");
+	ck(reachable(rows, n, got, GM_MAX_ROWS) == 6, "every row is a stop");
 	ck(gm_layout_index("single") == 2 && gm_layout_index("nonsense") == 0,
 	   "a layout name Diatom did not send reads as Stacked");
 	ck(!strcmp(gm_layout_names[GM_LAYOUT_DEFAULT], "single"),
@@ -3106,11 +3120,11 @@ static void row_sounds(void)
 		for (i = 0; i < n; i++) {
 			unsigned want = ids[i] == GM_DISPLAY || ids[i] == GM_SHADER || ids[i] == GM_QUICK ||
 			                ids[i] == GM_SCREENS || ids[i] == GM_SWAP || ids[i] == GM_STYLUS ||
-			                ids[i] == GM_PAK
+			                ids[i] == GM_PAK || ids[i] == GM_HUD
 			                ? MENU_SND_RING : 0;
 
 			ck(menu_sound_at(gb.sound, n, i) == want,
-			   "in-game: Display, Shader, Quick Slot and the screens' rows step round, on A too; the rest plain");
+			   "in-game: Display, Shader, Quick Slot, the screens' rows and On-Screen Stats step round; the rest plain");
 		}
 	}
 

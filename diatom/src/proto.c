@@ -213,6 +213,7 @@ static void parse_line(char *line, diatom_msg *out)
 	else if (!strcmp(field, "PLAYER2"))    out->kind = DIATOM_MSG_PLAYER2;
 	else if (!strcmp(field, "SETPLAYER2")) out->kind = DIATOM_MSG_SETPLAYER2;
 	else if (!strcmp(field, "SETPOWERHOLD")) out->kind = DIATOM_MSG_SETPOWERHOLD;
+	else if (!strcmp(field, "SETHUD"))       out->kind = DIATOM_MSG_SETHUD;
 	else {
 		log_(DIATOM_LOG_WARN, "proto: ignoring unknown verb '%s'", field);
 		out->kind = DIATOM_MSG_NONE;
@@ -298,6 +299,15 @@ static void parse_line(char *line, diatom_msg *out)
 		else if (!strcmp(field, "filter"))snprintf(out->dfilter,sizeof out->dfilter,"%s", v);
 		else if (!strcmp(field, "strength"))
 			snprintf(out->dstrength, sizeof out->dstrength, "%s", v);
+		/* SETHUD's style, its words as the launcher keeps them */
+		else if (!strcmp(field, "items"))   snprintf(out->hud.items, sizeof out->hud.items, "%s", v);
+		else if (!strcmp(field, "corner"))  snprintf(out->hud.corner, sizeof out->hud.corner, "%s", v);
+		else if (!strcmp(field, "edge"))    snprintf(out->hud.edge, sizeof out->hud.edge, "%s", v);
+		else if (!strcmp(field, "bg"))      snprintf(out->hud.bg, sizeof out->hud.bg, "%s", v);
+		else if (!strcmp(field, "opacity")) snprintf(out->hud.opacity, sizeof out->hud.opacity, "%s", v);
+		else if (!strcmp(field, "color"))   snprintf(out->hud.color, sizeof out->hud.color, "%s", v);
+		else if (!strcmp(field, "size"))    snprintf(out->hud.size, sizeof out->hud.size, "%s", v);
+		else if (!strcmp(field, "clock24")) out->hud.clock24 = strcmp(v, "1") == 0;
 		/* anything else: forward compatibility, ignore */
 	}
 }
@@ -457,6 +467,10 @@ diatom_msg_kind diatom_proto_poll(diatom_msg *out, int timeout_ms, bool running)
 		 * settings pill filling on its own clock (diatom_port_power_hold).
 		 * Additive, so proto stays 14: an old Diatom ignores the verb and
 		 * the hold still turns the handheld off, with nothing drawn. */
+		/* SETHUD on= items= corner= edge= bg= opacity= color= size=
+		 * clock24=: On-Screen Stats over every game until said again
+		 * (diatom_port_hud_style). Additive, so proto stays 14: an old
+		 * Diatom ignores the verb, and nothing is drawn. */
 		diatom_proto_send("READY\tproto=14\tstate=%s", running ? "running" : "idle");
 		/* A displaced launcher is a vanished one, and every loop already
 		 * knows what that means - the in-game menu resumes the game. Said

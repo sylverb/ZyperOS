@@ -119,7 +119,7 @@ it away.
 | **F1/F2** | brightness, everywhere, including in game |
 | **MENU** (on the systems row) | the ZyperOS menu - settings that are about the firmware |
 | **MENU** (inside a system) | that system's menu, below |
-| **MENU** (in game) | the in-game menu, in four tabs that L1 and R1 go round: **Game** (Continue, Save, Load, Undo Load after a load, Quick Slot, Disc in a game on more than one disc, Player 2 in an NES game on the Pixel 2, Achievements, Reset, Quit), **Display** (Display, Shader, Strength while the shader is an old screen, and a DS game's Screens, Swap Screens and Stylus), **Controls** (what each button does, Pak in a Nintendo 64 game) and **Achievements** (the game's list, A opening one, or why it has none; A on the Game tab's Achievements row turns to it). See **Changing a button** below and **Player 2**. It opens when you let go, so MENU can be held for brightness, and it opens on the tab and row you left while you play the same game |
+| **MENU** (in game) | the in-game menu, in four tabs that L1 and R1 go round: **Game** (Continue, Save, Load, Undo Load after a load, Quick Slot, Disc in a game on more than one disc, Player 2 in an NES game on the Pixel 2, Achievements, Reset, Quit), **Display** (Display, Shader, Strength while the shader is an old screen, a DS game's Screens, Swap Screens and Stylus, and On-Screen Stats), **Controls** (what each button does, Pak in a Nintendo 64 game) and **Achievements** (the game's list, A opening one, or why it has none; A on the Game tab's Achievements row turns to it). See **Changing a button** below and **Player 2**. It opens when you let go, so MENU can be held for brightness, and it opens on the tab and row you left while you play the same game |
 | **X** (in the in-game menu) | Quit, from any row of any tab: the game ends and the shelf comes back, as A on Quit does. The Quit row shows the X button to remind you |
 | **SELECT+R1** (in game) | quick save: a state into the Quick Slot |
 | **SELECT+L1** (in game) | quick load: the state in the Quick Slot |
@@ -620,6 +620,25 @@ written. Quick Slot is one of the six slots of Save and Load, slot 1 until you
 pick another, and each system remembers its own. A system whose emulator keeps
 no states (ScummVM, J2ME) has no Quick Slot, and there R1 and L1 under SELECT
 are the game's.
+
+**On-Screen Stats.** The last row of the in-game menu's Display tab draws a
+small line over the game, for every game until you turn it off. Left and
+right turn it on and off; A opens its page:
+
+| | |
+|---|---|
+| **On-Screen Stats** | `On` or `Off` |
+| **Shows** | A opens the list of items, each `On` or `Off`: FPS (the frames a second), Speed (only when the game is not at full speed, as `0.5x` or `2x`), CPU Temperature, CPU Load, CPU Clock, Battery and Time. One stays on. `FPS` and `Speed` to start with |
+| **Corner** | `Top Left`, `Top Right`, `Bottom Left` or `Bottom Right`. In a top corner it moves under the volume bar, or left of the low-battery dot, rather than meet them |
+| **Edge Distance** | `Close`, `Normal` or `Far` from the screen's edges |
+| **Background** | `Pill`, a rounded box in the theme's colors, or `Shadow` around the text alone |
+| **Opacity** | `100%`, `75%` or `50%` |
+| **Text Color** | `Theme`, `White`, `Green` or `Yellow`. White, green and yellow take the dark pill in the light theme, so they read |
+| **Size** | `Normal` or `Small` |
+
+A band at the top of the page shows the corner of your game at its real size,
+with the line in it as each row changes it. Diatom reads the temperature, load,
+clock and battery twice a second, and only for the items that are on.
 
 **Undo Load.** Every load you make, the in-game menu's Load or SELECT+L1,
 first keeps the game as it was a moment before. After a load the in-game
