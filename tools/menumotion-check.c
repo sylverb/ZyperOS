@@ -21,13 +21,14 @@
  *     screen under it back;
  *   - a held d-pad, a press every REPEAT_RATE_MS (src/keyrepeat.h's, read by
  *     the Makefile), puts the panel at rest once and starts nothing over;
- *   - and in src/main.c, read as text with its comments taken out: the
- *     in-game menu's close (panel_leave_run) reads input every frame, a press
- *     ends it before the frame is drawn, and power or Auto Off in it stop the
- *     game as in the menu; game_menu draws it, then drops what is left of it,
- *     then hands the pages back, then sends RESUME, and draws nothing after:
- *     Diatom owns the display from there. make check-menushots looks at the
- *     pictures of the motion itself.
+ *   - and in src/main.c and src/ingame_screen.c, read as text with their
+ *     comments taken out: the in-game menu's close (panel_leave_run) reads
+ *     input every frame, a press ends it before the frame is drawn, and
+ *     power or Auto Off in it stop the game as in the menu; game_menu draws
+ *     it, then drops what is left of it, then hands the pages back, then
+ *     sends RESUME, and draws nothing after: Diatom owns the display from
+ *     there. make check-menushots looks at the pictures of the motion
+ *     itself.
  *
  * Links src/menumotion.c alone, and NOT SDL.
  */
@@ -116,11 +117,11 @@ static void uncomment(char *src)
 	*w = '\0';
 }
 
-/* The body of the function of src/main.c that starts `head`, its comments
+/* The body of the function of `path` that starts `head`, its comments
  * taken out; NULL when there is none */
-static char *main_fn(const char *head)
+static char *main_fn(const char *path, const char *head)
 {
-	FILE *f = fopen("src/main.c", "rb");
+	FILE *f = fopen(path, "rb");
 	char *all, *at, *end, *out = NULL;
 	long n;
 
@@ -440,13 +441,13 @@ int main(void)
 	ck(ok, "a press every repeat through an open puts the panel at rest once and "
 	       "starts nothing over");
 
-	/* ---- the in-game menu, in src/main.c ---- */
+	/* ---- the in-game menu, in src/ingame_screen.c, and its leaving, in src/main.c ---- */
 	{
-		char *gm = main_fn("static void game_menu(app *a)\n{");
-		char *pl = main_fn("static leave_end panel_leave_run(");
+		char *gm = main_fn("src/ingame_screen.c", "void game_menu(app *a)\n{");
+		char *pl = main_fn("src/main.c", "leave_end panel_leave_run(");
 
-		ck(gm && pl, "src/main.c has game_menu and panel_leave_run (run from the top "
-		             "of the tree)");
+		ck(gm && pl, "src/ingame_screen.c has game_menu and src/main.c panel_leave_run "
+		             "(run from the top of the tree)");
 		if (pl) {
 			long poll = first(pl, "plat_input_poll(&a->in)");
 			long power = first(pl, "a->in.pressed[IN_POWER] || idle_due(a)");
