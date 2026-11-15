@@ -83,9 +83,9 @@ bool td_box_holds(const char *what, const td_pose *p, SDL_Rect box, SDL_FRect *r
 #define TOURDEV_X 138
 #define TOURDEV_Y 262
 
-/* Whether `t`'s lessons show the handheld: on the Pixel 2, whose brightness
- * is MENU+VOL (tour.fn_volume, from plat_brightness_on_volume), and in a
- * lesson. The Brick shows none and keeps its block in the middle. */
+/* Whether `t`'s lessons show the handheld: where tour_start was told the
+ * device has one (dev_tutorial_handheld: the Pixel 2), and in a lesson.
+ * Elsewhere none, and the block stays in the middle. */
 bool tourdev_shown(const tour *t);
 
 /* Draws the handheld for `t` at `now`, at `op`, into its kept texture if it

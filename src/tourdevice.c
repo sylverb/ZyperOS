@@ -144,7 +144,7 @@ static unsigned lit_of(tour_step s)
 
 bool tourdev_shown(const tour *t)
 {
-	return t && t->fn_volume && t->step >= TOUR_FIRST_LESSON &&
+	return t && t->handheld && t->step >= TOUR_FIRST_LESSON &&
 	       t->step < TOUR_FIRST_LESSON + TOUR_LESSONS;
 }
 
@@ -1332,7 +1332,9 @@ int tourdev_box_check(int *measured)
 	*measured = 0;
 	for (s = TOUR_FIRST_LESSON; s < TOUR_FIRST_LESSON + TOUR_LESSONS; s++) {
 		memset(&t, 0, sizeof t);
-		t.fn_volume = true;
+		t.handheld = true;
+		t.bright = DEV_BRIGHT_MENU_VOL;
+		t.menu_release = true;
 		t.step = (tour_step)s;
 		t.step_at = 1000;
 		/* Every frame of the turn into it from the last lesson, and at rest */

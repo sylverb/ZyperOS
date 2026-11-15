@@ -1,9 +1,9 @@
 # ZyperOS
 
-> ZyperOS is a fast, light custom firmware (operating system). I make it for the GKD Pixel 2 and named it after my dog, Zyper. It plays forty-four systems from a microSD card you can take out at any time, plus PortMaster ports, music, audiobooks and videos. The emulator stays running, so a game starts the moment you press A. Download ZyperOS Installer for macOS, Windows or Linux from the download page. Its buttons follow the latest published release. You can also write the card image with a disk image writer. The TrimUI Brick's image comes later. It is free and open source, under the GNU GPL version 3 (GPL-3.0-only), with the name ZyperOS and Zyper kept as trademarks.
+> ZyperOS is a fast, light custom firmware (operating system). I make it for the GKD Pixel 2 and named it after my dog, Zyper. It plays forty-five systems from a microSD card you can take out at any time, plus PortMaster ports, music, audiobooks and videos. The emulator stays running, so a game starts the moment you press A. Download ZyperOS Installer for macOS, Windows or Linux from the download page. Its buttons follow the latest published release. You can also write the card image with a disk image writer. The TrimUI Brick's image comes later. It is free and open source, under the GNU GPL version 3 (GPL-3.0-only), with the name ZyperOS and Zyper kept as trademarks.
 
 ## Pages
-- [ZyperOS home](https://zyperos.com/): what it does, the screens, the forty-four systems, how it compares with the stock firmware, ROGUE OS, TortOS, ROCKNIX and plumOS, and how to install it.
+- [ZyperOS home](https://zyperos.com/): what it does, the screens, the forty-five systems, how it compares with the stock firmware, ROGUE OS, TortOS, ROCKNIX and plumOS, and how to install it.
 - [Blog](https://zyperos.com/blog/): guides for the GKD Pixel 2 (installing custom firmware, Wi-Fi adapters, adding games, PortMaster, RetroAchievements, box art, Nintendo DS, BIOS files, battery care, music and video) and sourced comparisons of ZyperOS with the other systems for it. Every post is listed under Blog at the end of this file.
 - [Download ZyperOS](https://zyperos.com/download/): direct files from the latest release and checksums.
 - [Source code on GitHub](https://github.com/tarikbc/ZyperOS): the launcher, the card's scripts, the Diatom emulator frontend, ZyperOS Installer and the tools.

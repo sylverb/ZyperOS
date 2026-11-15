@@ -303,7 +303,7 @@ static float press_window(int tl, int t0, int t1)
  * release, at the press on the Brick. */
 static int loop_act(const tour *t, const tour_loop *L)
 {
-	return L->part == TP_MENU && !t->fn_volume ? L->press_at : L->act;
+	return L->part == TP_MENU && !t->menu_release ? L->press_at : L->act;
 }
 
 tour_loop_at tour_loop_now(const tour *t, uint32_t now)
@@ -376,7 +376,7 @@ static float demo_press(const tour *t, tour_part p, uint32_t now)
 		up = press_window(tl, 600, 720);
 		if (press_window(tl, 1000, 1120) > up) up = press_window(tl, 1000, 1120);
 		if (t->step == TOUR_VOL) return p == TP_VOLUP ? up : 0.0f;
-		if (!t->fn_volume) return p == TP_F2 ? up : 0.0f;
+		if (t->bright == DEV_BRIGHT_KEYS) return p == TP_F2 ? up : 0.0f;
 		/* MENU held over both steps of the volume key, as the chord is */
 		return p == TP_VOLUP ? up : p == TP_MENU ? press_window(tl, 450, 1300) : 0.0f;
 	}
@@ -397,7 +397,7 @@ void tour_hand(tour *t, tour_part p, bool down, uint32_t now)
 
 void tour_hands(tour *t, const bool d[IN_COUNT], bool menu_held, uint32_t now)
 {
-	const bool fn = t->fn_volume;
+	const bool fn = t->bright == DEV_BRIGHT_MENU_VOL;
 
 	tour_hand(t, TP_UP, d[IN_UP], now);
 	tour_hand(t, TP_DOWN, d[IN_DOWN], now);
@@ -629,10 +629,12 @@ int tour_segment(const tour *t)
 	return t->step - TOUR_FIRST_LESSON;
 }
 
-void tour_start(tour *t, uint32_t now, bool fn_volume)
+void tour_start(tour *t, uint32_t now, const dev_chords *c, bool handheld)
 {
 	memset(t, 0, sizeof *t);
-	t->fn_volume = fn_volume;
+	t->bright = c->bright;
+	t->menu_release = c->menu_on_release;
+	t->handheld = handheld;
 	zr_init(&t->zy, now, ZYPER_SEED);
 	t->rise = (tour_rise){ 1.0f, 1.0f, now, 0, TC_OUT };
 	enter(t, TOUR_LANG, now);
@@ -699,13 +701,14 @@ static int landed(tour *t, uint32_t now)
 static int missed(tour *t, tour_key k, uint32_t now)
 {
 	const tour_info *st = tour_step_info(t->step);
-	const char *want = t->fn_volume && st->want_fn ? st->want_fn : st->want;
+	const bool chord = t->bright == DEV_BRIGHT_MENU_VOL;
+	const char *want = chord && st->want_fn ? st->want_fn : st->want;
 
 	/* On the Brick a volume key there is "That's volume. Try F1 or F2.",
 	 * the answer every other wrong press gets */
-	if (t->step == TOUR_BRIGHT && k == TK_VOL && t->fn_volume)
+	if (t->step == TOUR_BRIGHT && k == TK_VOL && chord)
 		snprintf(t->hint, sizeof t->hint, "%s", T(S_TOUR_WRONG_HOLD_MENU));
-	else if (t->step == TOUR_BRIGHT && k == TK_MENU && t->fn_volume)
+	else if (t->step == TOUR_BRIGHT && k == TK_MENU && chord)
 		snprintf(t->hint, sizeof t->hint, "%s", T(S_TOUR_WRONG_CHORD));
 	else
 		snprintf(t->hint, sizeof t->hint, T(S_TOUR_WRONG), key_said(k), want);
@@ -859,7 +862,7 @@ bool tour_takes_power(const tour *t)
 /* ---- stills ----------------------------------------------------------------- */
 
 void tour_pose(tour *t, tour_step step, uint32_t now, int ms, int done_ms,
-               bool fn_volume)
+               const dev_chords *c, bool handheld)
 {
 	const uint32_t at = now - (uint32_t)ms;
 
@@ -869,12 +872,12 @@ void tour_pose(tour *t, tour_step step, uint32_t now, int ms, int done_ms,
 		 * entering the finish directly would start with an empty corner. */
 		const uint32_t reward_at = at - DS_MS_TOUR_REWARD;
 
-		tour_start(t, reward_at, fn_volume);
+		tour_start(t, reward_at, c, handheld);
 		enter(t, t->music ? TOUR_MUSIC : TOUR_SOUNDS, reward_at);
 		landed(t, reward_at);
 		tour_tick(t, at);
 	} else {
-		tour_start(t, at, fn_volume);
+		tour_start(t, at, c, handheld);
 		enter(t, step, at);
 	}
 	if (done_ms >= 0) {

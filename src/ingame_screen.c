@@ -397,6 +397,8 @@ static void gm_step_strength(app *a, int d)
  * and a Diatom too old to answer (it says nothing to DISC, so the wait below
  * runs out and the menu is what it was). A shot's (--gm-discs) stands in. */
 #define GM_PANEL_W 860
+/* The width the display mode's caption wraps to, a little inside the panel */
+#define GM_NOTE_W  800
 gm_disc_state g_gm_disc;
 int g_shot_discs;
 const char *g_shot_disc_label;
@@ -495,6 +497,15 @@ void gm_gather(app *a, gm_ui *out)
 	 * sent and the row sets (gm_cycle_display). The shelf's read Stretch
 	 * over every favorite until 1.0.6: nothing sets Favorites' own mode. */
 	u.dmode  = dmode_label(owner_view(a)->dmode);
+	/* What it does, under its row: two lines at most, inside the panel */
+	{
+		static char note[2][CHV_WRAP_COLS];
+		int nl = wrap_text(ui_font(UI_F_MENU), dmode_note(owner_view(a)->dmode),
+		                   GM_NOTE_W, note, 2);
+
+		u.dmode_note[0] = nl > 0 ? note[0] : NULL;
+		u.dmode_note[1] = nl > 1 ? note[1] : NULL;
+	}
 	/* The owner's, which is the one its row sets (gm_cycle_shader) */
 	u.shader = shader_label(owner_view(a)->shader);
 	u.strength = strength_row_label(a, (int)(owner_view(a) - a->view));
@@ -1192,7 +1203,7 @@ static void controls_pages(app *a, SDL_Texture *bg, const menu_style *over, void
 	float k;
 
 	g.no_buttons = over != NULL;
-	ctl_set_fn_volume(plat_brightness_on_volume());
+	ctl_set_chords(&plat_profile()->chords);
 	pages = ctl_game_pages(&g);
 	width = game_controls_width(a, &g);
 	n = controls_page_rows(&g, page, width, &b, &rows, &loop_at);

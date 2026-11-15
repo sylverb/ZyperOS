@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include "captive.h"
+#include "device/profile.h"   /* plat_system_has */
 #include "fileio.h"
 #include "hotspot.h"
 #include "monoclock.h"
@@ -61,7 +62,7 @@ static unsigned g_t0, g_next_ask;
 
 bool hotspot_available(void)
 {
-	return access("/sys/class/net/" WLAN, F_OK) == 0 && access(HOSTAPD, X_OK) == 0;
+	return access("/sys/class/net/" WLAN, F_OK) == 0 && plat_system_has("hostapd");
 }
 
 /* A program of the system's, as a child of this one, its output to `log`.

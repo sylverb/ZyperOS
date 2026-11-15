@@ -191,6 +191,9 @@ typedef enum {
 	GM_ROWS,
 	GM_SCREENS = GM_ROWS, GM_SWAP, GM_STYLUS, GM_PAK, GM_PLAYER2, GM_DISC,
 	GM_STRENGTH, GM_UNDO,
+	/* The display mode's caption under the Display row, a line each
+	 * (dmode_note, wrapped by the caller): rows no cursor stops on */
+	GM_DNOTE1, GM_DNOTE2,
 	GM_MAX_ROWS
 } gm_row;
 
@@ -213,6 +216,9 @@ int gm_layout_index(const char *name);                   /* 0 for one it does no
 /* What the in-game menu needs to know, gathered by the caller. */
 typedef struct {
 	const char *dmode;    /* the display mode's label */
+	/* What it does, the caption under the Display row, wrapped to the panel
+	 * a line each (1.0.6); NULL for no line */
+	const char *dmode_note[2];
 	const char *shader;   /* the shader's label; NULL reads Off */
 	/* Its strength, "50%", when it is an old screen; NULL: no Strength row */
 	const char *strength;

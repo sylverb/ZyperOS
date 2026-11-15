@@ -585,81 +585,158 @@ it = Singolo
 # ---- display modes (MENU > Display Mode, the in-game Display) ---------------
 
 [gamemenu.dmode_stretch]
-note = review: a display mode: the picture fills the screen, its shape changed
-en = Stretch
-zh-Hans = 拉伸
-es = Estirar
-pt-BR = Esticar
-fr = Étirer
-de = Strecken
-ja = 引き伸ばし
-it = Estendi
+note = a display mode: the picture fills the screen, its shape changed. Was Stretch until 1.0.6.
+en = Full Screen
+zh-Hans = 全屏
+es = Pantalla completa
+pt-BR = Tela cheia
+fr = Plein écran
+de = Vollbild
+ja = 全画面
+it = Schermo intero
+
+[gamemenu.dmode_stretch_note]
+note = Under the Display row: what Full Screen does. One short line.
+en = Fills the screen. The picture's shape changes.
+zh-Hans = 填满屏幕，画面比例会改变。
+es = Llena la pantalla. La forma cambia.
+pt-BR = Preenche a tela. O formato muda.
+fr = Remplit l'écran. La forme change.
+de = Füllt den Bildschirm. Die Form ändert sich.
+ja = 画面を埋めます。形は変わります。
+it = Riempie lo schermo. La forma cambia.
 
 [gamemenu.dmode_aspect]
-note = review: a display mode: as big as fits, its shape kept
-en = Aspect
-zh-Hans = 保持比例
-es = Proporción
-pt-BR = Proporção
-fr = Proportions
-de = Seitenverhältnis
-ja = 比率を維持
-it = Proporzioni
+note = a display mode: as big as fits, the game's own shape kept. Was Aspect until 1.0.6.
+en = Original Shape
+zh-Hans = 原始比例
+es = Forma original
+pt-BR = Formato original
+fr = Forme d'origine
+de = Originalform
+ja = 元の形
+it = Forma originale
+
+[gamemenu.dmode_aspect_note]
+note = Under the Display row: what Original Shape does. One short line.
+en = As big as fits, in the game's own shape.
+zh-Hans = 尽量放大，保持游戏原有比例。
+es = Lo más grande posible, con la forma del juego.
+pt-BR = O maior possível, no formato do jogo.
+fr = Aussi grand que possible, à la forme du jeu.
+de = So groß wie möglich, in der Form des Spiels.
+ja = 収まる最大サイズで、ゲーム本来の形。
+it = Il più grande possibile, nella forma del gioco.
 
 [gamemenu.dmode_integer]
-note = review: a display mode: scaled by whole numbers only, so every pixel is the same size
-en = Integer
-zh-Hans = 整数倍
-es = Entero
-pt-BR = Inteiro
-fr = Entier
-de = Ganzzahlig
-ja = 整数倍
-it = Intero
+note = a display mode: scaled by whole numbers only, so every pixel is the same size. Was Integer until 1.0.6.
+en = Sharp Pixels
+zh-Hans = 清晰像素
+es = Píxeles nítidos
+pt-BR = Pixels nítidos
+fr = Pixels nets
+de = Scharfe Pixel
+ja = くっきりピクセル
+it = Pixel nitidi
+
+[gamemenu.dmode_integer_note]
+note = Under the Display row: what Sharp Pixels does. One short line.
+en = Every pixel the same size. May leave borders.
+zh-Hans = 每个像素大小相同，可能留有黑边。
+es = Píxeles del mismo tamaño. Puede dejar bordes.
+pt-BR = Pixels do mesmo tamanho. Pode deixar bordas.
+fr = Pixels de même taille. Peut laisser des bords.
+de = Alle Pixel gleich groß. Ränder möglich.
+ja = ピクセルがすべて同じ大きさ。枠が残ることがあります。
+it = Pixel della stessa misura. Può lasciare bordi.
 
 [gamemenu.dmode_integer_tall]
-note = review: a display mode: whole numbers up and down only
-en = Integer tall
-zh-Hans = 纵向整数倍
-es = Entero vertical
-pt-BR = Inteiro vertical
-fr = Entier vertical
-de = Ganzzahlig vertikal
-ja = 縦のみ整数倍
-it = Intero verticale
+note = a display mode: whole numbers up and down only, the game's shape across. Was Integer tall until 1.0.6.
+en = Sharp Pixels, Tall
+zh-Hans = 清晰像素（纵向）
+es = Píxeles nítidos, vertical
+pt-BR = Pixels nítidos, vertical
+fr = Pixels nets, vertical
+de = Scharfe Pixel, vertikal
+ja = くっきりピクセル（縦）
+it = Pixel nitidi, verticale
+
+[gamemenu.dmode_integer_tall_note]
+note = Under the Display row: what Sharp Pixels, Tall does: the game's lines all the same height, the width in the game's shape. One short line.
+en = Even lines top to bottom, in the game's shape.
+zh-Hans = 上下方向清晰，横向保持游戏比例。
+es = Líneas iguales de arriba abajo, con la forma del juego.
+pt-BR = Linhas iguais de cima a baixo, no formato do jogo.
+fr = Lignes égales de haut en bas, à la forme du jeu.
+de = Gleiche Zeilen von oben nach unten, in Spielform.
+ja = 縦はくっきり、横はゲーム本来の形。
+it = Righe uguali dall'alto in basso, nella forma del gioco.
 
 [gamemenu.dmode_overscale]
-note = review: a display mode: one whole number bigger than fits, the edges cut
-en = Overscale
-zh-Hans = 超出放大
-es = Sobreescalar
-pt-BR = Sobre-escala
-fr = Surdimension
-de = Überskalieren
-ja = はみ出し拡大
-it = Sovrascala
+note = a display mode: one whole number bigger than fits, the edges cut. Was Overscale until 1.0.6.
+en = Sharp Pixels, Zoomed
+zh-Hans = 清晰像素（放大）
+es = Píxeles nítidos, zoom
+pt-BR = Pixels nítidos, zoom
+fr = Pixels nets, zoom
+de = Scharfe Pixel, Zoom
+ja = くっきりピクセル（拡大）
+it = Pixel nitidi, zoom
+
+[gamemenu.dmode_overscale_note]
+note = Under the Display row: what Sharp Pixels, Zoomed does. One short line.
+en = One size bigger. The edges are cut.
+zh-Hans = 放大一级，边缘会被裁掉。
+es = Un tamaño más grande. Se cortan los bordes.
+pt-BR = Um tamanho maior. As bordas são cortadas.
+fr = Une taille au-dessus. Les bords sont coupés.
+de = Eine Stufe größer. Die Ränder fallen weg.
+ja = 一段大きく。端は切れます。
+it = Una misura più grande. I bordi sono tagliati.
 
 [gamemenu.dmode_fill]
-note = review: a display mode: fills the screen, its shape kept, the edges cut
-en = Fill
-zh-Hans = 填充
-es = Llenar
-pt-BR = Preencher
-fr = Remplir
-de = Füllen
-ja = 画面いっぱい
-it = Riempi
+note = a display mode: fills the screen, its shape kept, the edges cut. Was Fill until 1.0.6.
+en = Fill, Edges Cut
+zh-Hans = 填满，裁边
+es = Llenar, bordes cortados
+pt-BR = Preencher, bordas cortadas
+fr = Remplir, bords coupés
+de = Füllen, Ränder ab
+ja = 画面いっぱい（端カット）
+it = Riempi, bordi tagliati
+
+[gamemenu.dmode_fill_note]
+note = Under the Display row: what Fill, Edges Cut does. One short line.
+en = Fills the screen in the game's shape. Edges are cut.
+zh-Hans = 保持比例填满屏幕，边缘会被裁掉。
+es = Llena la pantalla con la forma del juego. Corta los bordes.
+pt-BR = Preenche a tela no formato do jogo. Corta as bordas.
+fr = Remplit l'écran à la forme du jeu. Bords coupés.
+de = Füllt den Bildschirm in Spielform. Ränder fallen weg.
+ja = 形を保って画面を埋めます。端は切れます。
+it = Riempie lo schermo nella forma del gioco. Bordi tagliati.
 
 [gamemenu.dmode_native]
-note = a display mode: one pixel of the game to one of the screen
-en = Native 1:1
-zh-Hans = 原始 1:1
-es = Nativo 1:1
-pt-BR = Nativo 1:1
-fr = Natif 1:1
-de = Nativ 1:1
-ja = 等倍 1:1
-it = Nativo 1:1
+note = a display mode: one pixel of the game to one of the screen. Was Native 1:1 until 1.0.6.
+en = Actual Size
+zh-Hans = 实际大小
+es = Tamaño real
+pt-BR = Tamanho real
+fr = Taille réelle
+de = Originalgröße
+ja = 実寸
+it = Dimensione reale
+
+[gamemenu.dmode_native_note]
+note = Under the Display row: what Actual Size does. One short line.
+en = One game pixel to one screen pixel.
+zh-Hans = 游戏的一个像素对应屏幕的一个像素。
+es = Un píxel del juego por cada píxel de la pantalla.
+pt-BR = Um pixel do jogo para cada pixel da tela.
+fr = Un pixel du jeu pour un pixel de l'écran.
+de = Ein Spielpixel pro Bildschirmpixel.
+ja = ゲームの1ピクセルを画面の1ピクセルに。
+it = Un pixel del gioco per un pixel dello schermo.
 
 # ---- the shader -------------------------------------------------------------
 # How the game's picture is drawn onto the screen at its last step (src/app.h

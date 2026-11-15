@@ -255,7 +255,7 @@ int main(void)
 			"MSX2", "NAOMI", "Neo Geo", "Neo Geo CD", "Neo Geo Pocket",
 			"Neo Geo Pocket Color", "NES", "Nintendo 64", "Nintendo DS", "OpenBOR",
 			"PICO-8", "PlayStation", "Pokémon Mini", "PSP", "Saturn", "ScummVM", "Sega CD",
-			"SNES", "TIC-80", "TurboGrafx-16", "Vectrex", "Virtual Boy", "WonderSwan",
+			"SG-1000", "SNES", "TIC-80", "TurboGrafx-16", "Vectrex", "Virtual Boy", "WonderSwan",
 			"WonderSwan Color", "Ports",
 		};
 		int i, n = (int)(sizeof AZ / sizeof AZ[0]), same = 1;

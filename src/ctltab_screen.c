@@ -379,6 +379,9 @@ void ctlscr_side(app *a, const menu_side *at)
 		lights_to(target, at->now);
 	/* ...and a panel with the handheld at rest ends a page's hold */
 	if (at->live && at->stage == MENU_SIDE_REST) g_cs.steady = false;
+	/* A device with no drawing of its own shows none: never another
+	 * device's (the column stays empty until its own is drawn) */
+	if (!plat_profile()->handheld) return;
 	if (!draw || !pose_of(at, &p, &moving)) return;
 	if (moving) redraw_now();
 	g_cs.keep.box = keep_box(&p);

@@ -1054,7 +1054,7 @@ static void glyph(SDL_Renderer *r, const tour *t, tour_step s, float cx, float c
 		break;
 	case TG_CHORD:
 		/* The Pixel 2's MENU, a plus and the rocker; the Brick's F1 and F2 */
-		if (t->fn_volume) {
+		if (t->bright == DEV_BRIGHT_MENU_VOL) {
 			const float wm = (float)ui_button_width("MENU", 64), wp = 52.0f;
 			const float wr = (float)ui_rocker_width(64), w = wm + wp + wr;
 			const float x0 = cx - w / 2.0f;
@@ -1231,7 +1231,7 @@ static void lesson(SDL_Renderer *r, const tour *t, uint32_t now, const tour_hook
 	g_op = fade_in;
 	glyph(r, t, t->step, 512, GLYPH_Y, now, tour_wrong_pulse(t, now));
 	lesson_words(r, UI_F_TITLE, st->title, TITLE_Y, th->text);
-	lesson_words(r, UI_F_META, t->fn_volume && st->line_fn ? st->line_fn : st->line, LINE_Y,
+	lesson_words(r, UI_F_META, t->bright == DEV_BRIGHT_MENU_VOL && st->line_fn ? st->line_fn : st->line, LINE_Y,
 	             th->text_soft);
 	note = t->done && st->note_done ? st->note_done : st->note;
 	lesson_words(r, UI_F_META, note, NOTE_Y, th->text_dim);
