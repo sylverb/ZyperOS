@@ -1,3 +1,10 @@
+# The handheld this system is for (Config.in's BR2_PLASTRON_DEVICE) and its
+# build as ZyperOS states it, ZYDEV_*: its Diatom port, the helpers its
+# payload carries (ZyperOS's config/device/<id>.mk, from
+# src/device/<id>_build.c). Read once, here, before the packages that use it.
+PLASTRON_DEVICE = $(call qstrip,$(BR2_PLASTRON_DEVICE))
+-include /zyperos/config/device/$(PLASTRON_DEVICE).mk
+
 include $(sort $(wildcard $(BR2_EXTERNAL_PX2_PATH)/package/*/*.mk))
 
 # The Pixel 2 device tree comes from ROCKNIX (board/px2/dts), including its

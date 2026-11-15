@@ -7,8 +7,8 @@
 DIATOM_VERSION = local
 DIATOM_SITE = /zyperos/diatom
 DIATOM_SITE_METHOD = local
-# The Brick's system is the one with the Brick's GPU libraries
-DIATOM_PORT = $(if $(BR2_PACKAGE_PVR_GE8300),brick,pixel2)
+# The device's own port (ZYDEV_DIATOM_PORT, external.mk)
+DIATOM_PORT = $(ZYDEV_DIATOM_PORT)
 ifeq ($(DIATOM_PORT),brick)
 DIATOM_DEPENDENCIES = sdl2 zlib host-pkgconf
 else
