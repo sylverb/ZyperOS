@@ -8,9 +8,10 @@ foot is a row of button hints (src/home.c's home_header, src/nowplaying_screen.c
 The real launcher draws, in both themes where the README does: a long song
 name at two moments of its travel (the name's box changes, nothing else in the
 bar does), and a name that fits at two moments (the same picture: it stands
-still). Now Playing, and a video's two views, each draw their hints as the
-shelves' hints are, a glyph and a word, in a row between the margins 64 and
-960, and nothing in the foot is left over from the old line of keys."""
+still). Now Playing and a video with its controls up each draw their hints as
+the shelves' hints are, a glyph and a word, in a row between the margins 64 and
+960, and nothing in the foot is left over from the old line of keys; with the
+controls hidden, a video's foot is clear."""
 import subprocess
 import sys
 from pathlib import Path
@@ -52,8 +53,7 @@ def main():
     assert cols and max(cols) - min(cols) <= 256 + 24 + 12 + 4, 'the long name was not held to its room'
 
     for theme in ('light', 'dark'):
-        for name, rows in (('nowplaying', (702, 740)), ('video-controls', (710, 748)),
-                           ('video-full', (710, 748))):
+        for name, rows in (('nowplaying', (702, 740)), ('video-controls', (704, 740))):
             f = OUT / theme / f'{name}.png'
             if not f.is_file():
                 continue
@@ -62,7 +62,13 @@ def main():
             assert cols, f'{theme}/{name}: no hints at the foot'
             assert min(cols) >= 60 and max(cols) <= 964, f'{theme}/{name}: hints run {min(cols)}..{max(cols)}'
             assert min(cols) <= 80 and max(cols) >= 940, f'{theme}/{name}: the row does not span the margins'
-    print('ok: a long song name slides in the top bar, a short one stands; Now Playing and a video show their hints at the foot')
+        # The video with its controls hidden: the picture alone, nothing at
+        # the foot under it (src/nowplaying_screen.c, one view since 1.0.6)
+        f = OUT / theme / 'video-full.png'
+        if f.is_file():
+            im = Image.open(f).convert('RGB')
+            assert not ink_cols(im, (0, 680, 1024, 768), tol=40), f'{theme}/video-full: something left at the foot'
+    print('ok: a long song name slides in the top bar, a short one stands; Now Playing and a video show their hints at the foot, a hidden video\'s foot is clear')
 
 
 main()

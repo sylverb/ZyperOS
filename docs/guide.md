@@ -127,7 +127,7 @@ it away.
 | **SELECT+L2** (in game) | slower, a step a press, back to normal speed |
 | **MENU** (inside any menu) | closes the whole menu, however deep in it you are. B goes back one screen |
 | **SELECT** | MP4, the music, audiobook and video player, from anywhere but a running game - the in-game menu included. Again to close it |
-| **POWER** | powers off. In a game, the game is saved first, and the next start goes straight back into it. After a crash or a power cut, the next start is the home instead |
+| **POWER** | powers off. In a game, the game is saved first, and the next start goes straight back into it. After a crash or a power cut, the next start is the home instead. With **MENU > Power Button** on **Hold**, POWER has to be held for two seconds, and a press alone does nothing: a bar at the top of the screen fills while it is held, on the home, in a game and over a port |
 
 **On the Pixel 2:**
 
@@ -279,7 +279,8 @@ than any one console:
 | **Auto Off** | how long without a button before the device powers itself down. It waits while a long job runs (a scraper run, a System Update download, PortMaster's install, Storage measuring the card, files moving over File Transfer) and counts again from the start when the job ends. On the charger it does not power down; on the shelf the screen goes off instead, and any button (power too) lights it again. On USB File Transfer the screen goes off when nothing is moving, and only dims while files are on their way; a button, a browser coming to the page or files starting to move light it fully, and files keep moving while it is dark |
 | **Screensaver** | `off`, `30s`, `1m`, `2m`, `5m` or `10m` with nothing pressed on the shelf before the video snaps of random games play over the whole screen, each with its game's name and system. START boots the game on screen; any other button goes back. `1m` on a new device. It never starts in a game, a menu, MP4 or File Transfer, while music plays or a long job runs, or under 20% on battery; on battery it ends by itself after 10 minutes, and Auto Off still powers the device off at its own time. With no video snaps on the card it shows covers instead, and with neither, nothing - see **Screensaver** below |
 | **Side Lights** | the Pixel 2 only: a page of switches for what the side lights show on their own, `Charging Bar`, `Low Battery`, `Volume and Brightness`, `Files and Covers` and `Achievements`, each `On` or `Off`, and the row under the cursor plays its pattern on the lights; the row says how many are on. L2+R2 shows the level in all four. `All on` on a new device |
-| **System Order** | the home's systems `A to Z` by name, on a new device and after an upgrade, or by `Release Date`. Favorites stays first, and Ports and MP4 stay last |
+| **System Order** | the home's systems `A to Z` by name, on a new device and after an upgrade, or by `Release Date`. Favorites stays first, then Recents, and Ports and MP4 stay last |
+| **Home Systems** | which shelves the home shows: `All`, or how many are on. A opens a switch for Favorites, Recents (the ten games played last) and every system with games; Left, Right or A turns one on or off. A hidden system leaves the home, Random Game, Search, Favorites and Recents, and its games stay on the card. The last system on stays on |
 | **Appearance** | `Light`, `Dark` or `Auto`, which is light from 7:00 to 19:00 by the clock. `Light` on a new device and after an upgrade |
 | **Scraper** | box art, its sources and video snaps - see below. Its value is how many games have no cover, or `complete` |
 | **Achievements** | the RetroAchievements account, or `sign in` |
@@ -491,17 +492,17 @@ The system menu opens on a shelf of games and applies to that system alone:
 | **Game Language** | the Nintendo DS shelf's: left/right/A go round `Auto`, English, Español, Français, Deutsch, Italiano, 日本語 and 简体中文, saved the moment it changes. `Auto` is the language of MENU > Language where the DS has it and English where it does not, and the row says which. The next game started speaks it, whatever the language of the `firmware.bin` in `Bios/`. A game whose resume point was left in another language starts fresh in this one, with a note that says so, its battery save kept; a save state you load keeps its own language until Reset |
 | **Sort By** | left/right; `Name`, `Play Time`, `Last Played` or `Recently Added` |
 | **View** | left/right/A; `Covers`, the row of covers, or `List`, the games as a list of names with the focused one's cover beside it. START on the shelf turns it too, without the menu |
-| **Display Mode** | left/right cycles it; saved the moment it changes |
+| **Display** | how the picture fills the screen: Full Screen, Original Shape, Sharp Pixels, Sharp Pixels, Tall, Sharp Pixels, Zoomed, Fill, Edges Cut or Actual Size, with a line under it that says what the one shown does; left/right cycles it; saved the moment it changes |
 | **Shader** | `Off`, `Sharp-Shimmerless`, `CRT`, `CRT Curved`, `Scanlines` or `LCD Grid`, for this system alone: left, right or A steps it, saved the moment it changes. The next game started plays with it |
 | **Strength** | right under Shader while it is `CRT`, `CRT Curved`, `Scanlines` or `LCD Grid`: `10%` to `100%`, for this system alone. Left and right step it 10% at a time and stop at the ends |
 | **Box Art** | fetch what this system is missing, and nothing else |
 | **Rescan Folder** | read the card again, for ROMs that arrived since boot |
 
-On Favorites the menu is only Games, Random Game, Sort By and View. The rest is about one
-console, and a game there takes its console's Display Mode wherever it was
+On Favorites and Recents the menu is only Games, Random Game, Sort By and View. The rest is about one
+console, and a game there takes its console's Display wherever it was
 started from.
 
-Display Mode is per-system, because a Game Boy and a Genesis do not want the
+Display is per-system, because a Game Boy and a Genesis do not want the
 same answer. Set here it applies from the next launch; the same row in the
 in-game menu changes the running game as you press it, which is the one to use
 when you want to see the difference rather than guess at it. Either way it is
@@ -547,7 +548,7 @@ and some three, and a scrolling picture shimmers as they swap.
 screen pixel inside one of the game's pixels is that pixel exactly, and only
 one that falls across two of them mixes the two, by how much of it each
 covers. The picture stays as sharp as it can at that size and a scroll stays
-steady. At a whole number of times (Integer, Native 1:1) the two are the
+steady. At a whole number of times (Sharp Pixels, Actual Size) the two are the
 same.
 
 The other four draw an old screen. `CRT` is Timothy Lottes's CRT shader: a
@@ -558,7 +559,7 @@ and the corners round, and the picture's edges go into the curve.
 `Scanlines` is Sharp-Shimmerless with a dark band under each of the game's
 lines, and nothing more; `LCD Grid` has the band around each of its pixels,
 as on a Game Boy's screen. The CRT's lines are most even where the
-picture's height is a whole number of times the game's: Integer tall draws
+picture's height is a whole number of times the game's: Sharp Pixels, Tall draws
 a 224-line SNES game at twice its height. These four are the Pixel 2's,
 whose last step is its GPU's; the Brick draws them as Sharp-Shimmerless, and
 its rows step over them.
@@ -584,14 +585,14 @@ screen; this is the same thing by hand, for a card written some other way.
 the button repeatedly for you instead of you mashing it. It applies to a whole
 system rather than to one game.
 
-Nine of the eleven have it: **NES, Master System, TurboGrafx-16, Game Boy, Game
-Boy Color, Game Boy Advance, Game Gear, Neo Geo Pocket and Neo Geo Pocket
+Ten systems have it: **NES, SG-1000, Master System, TurboGrafx-16, Game Boy,
+Game Boy Color, Game Boy Advance, Game Gear, Neo Geo Pocket and Neo Geo Pocket
 Color**. Those consoles had two face buttons,
 so X and Y are spare and turbo can have them. Genesis and SNES are left out
 because their pads use X and Y for real buttons.
 
 Diatom does the pulsing, not the emulator core, which is why it works the same
-on all nine rather than only on the one core that happens to implement turbo.
+on all ten rather than only on the one core that happens to implement turbo.
 
 **On Game Boy Advance, L2 and R2 are turbo L and turbo R.** That one is the
 emulator's own turbo rather than ZyperOS's, so it is only there on Game Boy
@@ -1246,7 +1247,8 @@ Old saved layout and card-style values do not change this behavior.
 
 MENU > Home Screen selects Spotlight or Gallery. MENU > System Order puts the
 systems A to Z by name (3DO, 32X, Arcade, Atari 2600 ...) or by their release
-dates, as before. Favorites stays first, and Ports and MP4 stay last. Spotlight puts the system name
+dates, as before. Favorites stays first, then Recents, and Ports and MP4 stay last.
+MENU > Home Systems shows or hides each of them. Spotlight puts the system name
 beside its animated console sprite, with nearby systems below. Gallery puts the
 focused sprite between its neighbors and shows the full system name below.
 Spotlight uses short names, such as GBA and N64. These labels do not rename any

@@ -321,6 +321,35 @@ static void folding_by_system(void)
 	ck(stats_summarize(STATS_ALL, false, now) == 3, "by game it is three again");
 }
 
+/* Recents' rows (stats_recent): each game once, by its last start, newest
+ * first, at most as many as asked; and the newest kept when there are more
+ * games than that, not the first ones read */
+static void recent_games(void)
+{
+	stats_recent_row r[3];
+	long now = (long)time(NULL);
+	int n;
+
+	printf("the games played last:\n");
+	scrub();
+	ck(stats_recent(r, 3) == 0, "none played, none");
+	seed(now - 5000, "NES", "Contra.zip", 900, "quit");
+	seed(now - 4000, "SNES", "Metroid.zip", 60, "quit");
+	seed(now - 3000, "GB", "Tetris.zip", 30, "lost");
+	seed(now - 2000, "NES", "Contra.zip", 10, "quit");
+	seed(now - 1000, "GBA", "Golden Sun.zip", 20, "quit");
+	seed(now - 1500, "GBC", "Tetris.zip", 20, "quit");
+	n = stats_recent(r, 3);
+	ck(n == 3, "three asked, three given");
+	ck(n == 3 && !strcmp(r[0].tag, "GBA") && r[0].last == now - 1000, "the newest first");
+	ck(n == 3 && !strcmp(r[1].tag, "GBC") && !strcmp(r[1].file, "Tetris.zip"),
+	   "a file of the same name on another system is another game");
+	ck(n == 3 && !strcmp(r[2].tag, "NES") && r[2].last == now - 2000,
+	   "a game played twice is one row, at its last start");
+	ck(stats_recent(r, 0) == 0 && stats_recent(NULL, 3) == 0, "nothing asked, nothing given");
+	scrub();
+}
+
 static void the_extras(void)
 {
 	long now = (long)time(NULL), longest = 0, last = 0;
@@ -396,6 +425,7 @@ int main(void)
 	windows_cut_on_a_boundary();
 	folding_by_system();
 	the_extras();
+	recent_games();
 	formatting();
 	how_long_ago();
 	db_shutdown();

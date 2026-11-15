@@ -102,6 +102,8 @@ LIBRETRO = {
     "ColecoVision": ["Coleco - ColecoVision"],
     "Doom": ["DOOM"],
     "TIC-80": ["TIC-80"],
+    # The SG-1000, 2026-11-15.
+    "SG-1000": ["Sega - SG-1000"],
     # No "PICO-8": libretro has no collection for it (checked 2026-11-03).
 }
 

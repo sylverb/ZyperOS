@@ -95,6 +95,14 @@
  * where its tab's rows are, and into sys_menu_tab_of's switch, which the
  * compiler checks has every row (-Wswitch), and tools/menu-check.c that each
  * row is in a tab. */
+/* PM_POWER is Power Button, over Auto Off, the first of the rows about the
+ * handheld going off: Press, POWER pressed turns it off, as it always has;
+ * Hold, POWER held for two seconds (src/powerhold.h). Two choices, so A
+ * switches it, as Left and Right do (1.0.6, asked for on the Discord). */
+/* PM_HOMESYS is Home Systems, under System Order: which shelves the home
+ * shows, each system with games, Favorites and Recents (src/homesys.h). Its
+ * value "All", or how many of them are on; A opens the page of switches
+ * (sys_menu_homesys_rows). 1.0.6, asked for on the Discord. */
 /* PM_AUTOHOURS is Auto Hours, under Appearance: when Auto turns light and
  * when dark, by the half hour (src/theme.h), 7:00 and 19:00 as it ships.
  * PM_THEME is Theme, under it: the accent, a background tone for each theme,
@@ -103,14 +111,15 @@ typedef enum {
 	/* Games */
 	PM_SEARCH, PM_STATS, PM_RANDOM, PM_ACHIEVEMENTS, PM_SCRAPER,
 	/* Display */
-	PM_APPEARANCE, PM_AUTOHOURS, PM_THEME, PM_HOME, PM_ORDER, PM_BATTERY, PM_SAVER, PM_SHADER,
+	PM_APPEARANCE, PM_AUTOHOURS, PM_THEME, PM_HOME, PM_ORDER, PM_HOMESYS, PM_BATTERY, PM_SAVER,
+	PM_SHADER,
 	PM_STRENGTH,
 	/* Sound */
 	PM_AUDIO, PM_CHANNELS, PM_SOUNDS, PM_MUSIC,
 	/* Connections: USB Device first, while a plug waits for its answer */
 	PM_USB_WAIT, PM_WIFI, PM_BT, PM_XFER, PM_USB, PM_DEVELOPER,
 	/* System */
-	PM_CLOCK, PM_HOURS, PM_LANGUAGE, PM_SLEEP, PM_CHARGE, PM_LIGHTS,
+	PM_CLOCK, PM_HOURS, PM_LANGUAGE, PM_POWER, PM_SLEEP, PM_CHARGE, PM_LIGHTS,
 	PM_STORAGE, PM_UPDATE,
 	/* About */
 	PM_ABOUT, PM_CONTROLS, PM_TOUR,
@@ -133,9 +142,16 @@ typedef enum { PT_GAMES, PT_DISPLAY, PT_SOUND, PT_CONNECTIONS, PT_SYSTEM,
  * so these are hooks waiting to be wired, not wishes. */
 /* View, under Sort By (1.0.5, DESIGN.md 11.39): the shelf's covers in a
  * row, or its games as a list, this shelf's own choice as Sort By is. */
+/* The width Display's caption (SM_DNOTE1, SM_DNOTE2) wraps to, in pixels of
+ * the menu's font: the shelf menu's panel is measured with every mode's
+ * caption in it (main.c, menu_shelf_width), so it holds still as the mode
+ * changes */
+#define SM_NOTE_W 760
+
 typedef enum {
 	SM_GAMES, SM_RANDOM, SM_CORE, SM_DSLANG, SM_SORT, SM_VIEW,
-	SM_DISPLAY, SM_SHADER, SM_STRENGTH, /* SM_BUTTONS, */ SM_BOXART, SM_RESCAN, SM_ROWS
+	SM_DISPLAY, SM_DNOTE1, SM_DNOTE2, SM_SHADER, SM_STRENGTH, /* SM_BUTTONS, */ SM_BOXART,
+	SM_RESCAN, SM_ROWS
 } sm_row;
 
 /* What the Favorites shelf's menu is, which is two of those rows.
@@ -339,8 +355,11 @@ typedef struct {
 	/* System Order, under Home Screen: "A to Z" (default, NULL reads it) or
 	 * "Release Date", systems.cfg's order (2026-11-06) */
 	const char *order;
+	/* Home Systems' value: "All", or "12 of 15"; NULL reads All */
+	const char *homesys;
 	const char *battery;    /* the corner's battery: Bars (default), Percentage or Time Left */
 	int         auto_off;    /* seconds, 0 for off */
+	bool        power_hold;  /* Power Button is Hold; false, Press */
 	int         saver;       /* the screensaver's delay, seconds, 0 for off */
 	int         charge_limit;   /* percent, 0 for Off */
 	/* Side Lights: side_lights_value's, "All on", "3 on" or "Off". NULL
@@ -386,6 +405,9 @@ typedef struct {
 	const char *dslang;
 	int         game_count;
 	const char *dmode;
+	/* What it does, the caption under Display Mode (SM_DNOTE1, SM_DNOTE2),
+	 * wrapped a line each (1.0.6); NULL reads as an empty line */
+	const char *dmode_note[2];
 	/* This system's shader's label, after Display Mode; NULL reads Off */
 	const char *shader;
 	/* Its strength, "50%", when it is an old screen (no_strength says
@@ -472,6 +494,20 @@ void sys_menu_bytes(unsigned long long n, char *out, size_t outn);
 /* MENU > Side Lights' page (src/sidelights.h): a row for each part, On or
  * Off, stepped by Left, Right or A. `ids` gets each row's part. */
 int sys_menu_lights_rows(side_lights on, menu_row *out, side_light_part *ids);
+
+/* MENU > Display > Home Systems' page (src/homesys.h): Favorites and Recents,
+ * a rule, then every system the card has games for (`names` and `tags`, `n`
+ * of them, in the home's order), each On or Off as homesys_shown says,
+ * stepped by Left, Right or A; then the note. While one system alone is on,
+ * its row is dead and a second note says why. `ids` gets each row's tag, NULL
+ * for a rule or a note. Returns how many rows. */
+typedef struct {
+	const char *const *names;
+	const char *const *tags;
+	int n;
+} homesys_ui;
+#define HS_ROWS (CFG_MAX_SYSTEMS + 6)
+int sys_menu_homesys_rows(const homesys_ui *u, menu_row *out, const char **ids);
 
 /* Build whichever menu u->games calls for. Returns the row count, so the input
  * loop never needs to know which of the two it is driving. */

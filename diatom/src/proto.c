@@ -212,6 +212,7 @@ static void parse_line(char *line, diatom_msg *out)
 	else if (!strcmp(field, "SETSTICK"))   out->kind = DIATOM_MSG_SETSTICK;
 	else if (!strcmp(field, "PLAYER2"))    out->kind = DIATOM_MSG_PLAYER2;
 	else if (!strcmp(field, "SETPLAYER2")) out->kind = DIATOM_MSG_SETPLAYER2;
+	else if (!strcmp(field, "SETPOWERHOLD")) out->kind = DIATOM_MSG_SETPOWERHOLD;
 	else {
 		log_(DIATOM_LOG_WARN, "proto: ignoring unknown verb '%s'", field);
 		out->kind = DIATOM_MSG_NONE;
@@ -289,6 +290,10 @@ static void parse_line(char *line, diatom_msg *out)
 		 * only difference is which verb reads it would be two names for one
 		 * slot, which is how the launcher ends up setting the wrong one. */
 		else if (!strcmp(field, "ms"))    out->count = (int)strtol(v, NULL, 10);
+		/* SETPOWERHOLD's other number, how far the hold has got, into the
+		 * other integer slot, as ms is into count */
+		else if (!strcmp(field, "at"))    out->index = (int)strtol(v, NULL, 10);
+		else if (!strcmp(field, "done"))  out->done = (strcmp(v, "1") == 0);
 		else if (!strcmp(field, "mode"))  snprintf(out->dmode,  sizeof out->dmode,  "%s", v);
 		else if (!strcmp(field, "filter"))snprintf(out->dfilter,sizeof out->dfilter,"%s", v);
 		else if (!strcmp(field, "strength"))
@@ -447,6 +452,11 @@ diatom_msg_kind diatom_proto_poll(diatom_msg *out, int timeout_ms, bool running)
 		 * system's RetroPad bits) and players= (2 to 4, the guests ports 1
 		 * to players-1), the NES's 0x01FD and 2 when not said, and PLAYER2
 		 * says both while it is on. */
+		/* SETPOWERHOLD on=1 ms= at= | on=0 [done=1]: POWER held over a game,
+		 * with the launcher's Power Button on Hold; the port draws the
+		 * settings pill filling on its own clock (diatom_port_power_hold).
+		 * Additive, so proto stays 14: an old Diatom ignores the verb and
+		 * the hold still turns the handheld off, with nothing drawn. */
 		diatom_proto_send("READY\tproto=14\tstate=%s", running ? "running" : "idle");
 		/* A displaced launcher is a vanished one, and every loop already
 		 * knows what that means - the in-game menu resumes the game. Said

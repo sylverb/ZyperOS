@@ -121,14 +121,19 @@ static inline const game_list *sys_games_c(const sysview *v)
  * whose screen is the whole device: the alternative spends a fifth of a
  * 1024x768 panel on black bars for the Game Boys before anyone has been given
  * a reason to choose. The rest keep their order. */
-static const struct { const char *name, *label; str_id text; } DMODES[] = {
-	{ "stretch",          "Stretch",      S_GAMEMENU_DMODE_STRETCH       },
-	{ "aspect",           "Aspect",       S_GAMEMENU_DMODE_ASPECT        },
-	{ "integer",          "Integer",      S_GAMEMENU_DMODE_INTEGER       },
-	{ "integer-vertical", "Integer tall", S_GAMEMENU_DMODE_INTEGER_TALL  },
-	{ "overscale",        "Overscale",    S_GAMEMENU_DMODE_OVERSCALE     },
-	{ "fill",             "Fill",         S_GAMEMENU_DMODE_FILL          },
-	{ "native",           "Native 1:1",   S_GAMEMENU_DMODE_NATIVE        },
+/* The labels say what a mode does, not how (1.0.6: "Integer" read as
+ * nothing to a player; Stretch, Aspect, Integer, Integer tall, Overscale,
+ * Fill and Native 1:1 before it), and `note` is the line under the Display
+ * row that says it in a sentence. The names, which the card keeps
+ * (display.<TAG>), are unchanged. */
+static const struct { const char *name, *label; str_id text, note; } DMODES[] = {
+	{ "stretch",          "Full Screen",          S_GAMEMENU_DMODE_STRETCH,      S_GAMEMENU_DMODE_STRETCH_NOTE      },
+	{ "aspect",           "Original Shape",       S_GAMEMENU_DMODE_ASPECT,       S_GAMEMENU_DMODE_ASPECT_NOTE       },
+	{ "integer",          "Sharp Pixels",         S_GAMEMENU_DMODE_INTEGER,      S_GAMEMENU_DMODE_INTEGER_NOTE      },
+	{ "integer-vertical", "Sharp Pixels, Tall",   S_GAMEMENU_DMODE_INTEGER_TALL, S_GAMEMENU_DMODE_INTEGER_TALL_NOTE },
+	{ "overscale",        "Sharp Pixels, Zoomed", S_GAMEMENU_DMODE_OVERSCALE,    S_GAMEMENU_DMODE_OVERSCALE_NOTE    },
+	{ "fill",             "Fill, Edges Cut",      S_GAMEMENU_DMODE_FILL,         S_GAMEMENU_DMODE_FILL_NOTE         },
+	{ "native",           "Actual Size",          S_GAMEMENU_DMODE_NATIVE,       S_GAMEMENU_DMODE_NATIVE_NOTE       },
 };
 #define DMODE_COUNT ((int)(sizeof DMODES / sizeof DMODES[0]))
 
@@ -137,6 +142,12 @@ static const struct { const char *name, *label; str_id text; } DMODES[] = {
 static inline const char *dmode_label(int k)
 {
 	return T(DMODES[k >= 0 && k < DMODE_COUNT ? k : 0].text);
+}
+
+/* And its line under the Display row */
+static inline const char *dmode_note(int k)
+{
+	return T(DMODES[k >= 0 && k < DMODE_COUNT ? k : 0].note);
 }
 
 /* The shaders the Shader rows offer, in their order: Off first, and Off is

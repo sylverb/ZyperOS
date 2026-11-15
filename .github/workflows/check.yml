@@ -43,3 +43,22 @@ jobs:
         with:
           name: check-logs
           path: build-native/check-logs/
+
+  # The device files the macOS job never compiles: the launcher's for the
+  # GKD Pixel 2 and the TrimUI Brick with their profiles, and Diatom's ports,
+  # syntax only against Ubuntu's headers (make check-device-compile), so a
+  # device nobody is holding still fails here when it stops building.
+  devices:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Headers for SDL2, EGL, GLES, GBM, DRM, ALSA and SQLite
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev \
+            libegl-dev libgles-dev libgbm-dev libdrm-dev libasound2-dev libsqlite3-dev
+
+      - name: make check-device-compile
+        run: make check-device-compile

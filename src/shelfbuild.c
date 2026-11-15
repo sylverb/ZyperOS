@@ -6,10 +6,13 @@
 #include "esmedia.h"
 #include "favorites.h"
 #include "gamedel.h"
+#include "homesys.h"
 #include "musec.h"
 #include "pminstall.h"
 #include "savedlib.h"
 #include "shelfdir.h"
+#include "sort.h"
+#include "stats.h"
 #include "texload.h"
 #include "theme.h"
 #include "ui.h"
@@ -19,6 +22,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <time.h>
 #include <unistd.h>
 
 /* Drop systems with nothing in them.
@@ -36,12 +40,43 @@
  *
  * Textures are not freed here: this runs before prime_home, so there
  * are none yet. */
+/* The systems with games as the last scan found them, shown or not, in the
+ * home's order: MENU > Display > Home Systems's rows (shelf_have_list) */
+static shelf_have g_have[CFG_MAX_SYSTEMS];
+static int g_nhave;
+
+int shelf_have_list(const shelf_have **out)
+{
+	if (out) *out = g_have;
+	return g_nhave;
+}
+
+/* And a system with games turned off there (src/homesys.h) leaves the home
+ * the same way, its listing let go: it is read again, from the saved library,
+ * when it is turned on (shelves_reload). */
 static void hide_empty_systems(app *a)
 {
-	int i, n = 0;
+	int i, n = 0, off = 0;
 
+	g_nhave = 0;
 	for (i = 0; i < a->sys.count; i++) {
-		if (a->view[i].list.count <= 0) continue;
+		sysview *v = &a->view[i];
+
+		if (v->list.count <= 0) continue;
+		if (g_nhave < CFG_MAX_SYSTEMS) {
+			snprintf(g_have[g_nhave].tag, sizeof g_have[0].tag, "%s", a->sys.systems[i].tag);
+			snprintf(g_have[g_nhave].name, sizeof g_have[0].name, "%s", a->sys.systems[i].name);
+			g_nhave++;
+		}
+		if (!homesys_shown(a->sys.systems[i].tag)) {
+			free(v->tex); free(v->tw); free(v->th); free(v->cb);
+			free(v->album);
+			lib_free(&v->list);
+			shelf_dirs_free(v);
+			memset(v, 0, sizeof *v);
+			off++;
+			continue;
+		}
 		if (n != i) {
 			a->sys.systems[n] = a->sys.systems[i];
 			a->view[n] = a->view[i];
@@ -49,8 +84,10 @@ static void hide_empty_systems(app *a)
 		}
 		n++;
 	}
-	if (n != a->sys.count)
-		fprintf(stderr, "scan: %d of %d systems have games\n", n, a->sys.count);
+	if (n + off != a->sys.count)
+		fprintf(stderr, "scan: %d of %d systems have games\n", n + off, a->sys.count);
+	if (off)
+		fprintf(stderr, "scan: %d of them off the home (MENU > Home Systems)\n", off);
 	a->sys.count = n;
 	if (a->sys_cursor >= n) a->sys_cursor = n ? n - 1 : 0;
 }
@@ -129,6 +166,160 @@ bool shelf_show_dir(sysview *v, const char *dir)
 	return true;
 }
 
+/* ---- the groups: Favorites and Recents ----------------------------------
+ *
+ * Shelves of games from every other shelf, at the front of the home:
+ * Favorites first, then Recents. Each holds copies of its games and an owner
+ * map, the index of each game's own system, which moves when a shelf is put
+ * in or taken out in front of it: shelf_insert and shelf_remove move every
+ * group's owners with the shelves. */
+
+/* The group with `tag`, by its tag, or -1 */
+static int group_at(const app *a, const char *tag)
+{
+	for (int i = 0; i < a->sys.count; i++)
+		if (a->view[i].owner && !strcmp(a->sys.systems[i].tag, tag)) return i;
+	return -1;
+}
+
+/* A shelf put in at `at`, empty: those from there on up one, and every
+ * group's owners that named them with them */
+static void shelf_insert(app *a, int at)
+{
+	int i, k;
+
+	for (i = a->sys.count; i > at; i--) {
+		a->sys.systems[i] = a->sys.systems[i - 1];
+		a->view[i] = a->view[i - 1];
+	}
+	a->sys.count++;
+	memset(&a->sys.systems[at], 0, sizeof a->sys.systems[0]);
+	memset(&a->view[at], 0, sizeof a->view[0]);
+	for (i = 0; i < a->sys.count; i++)
+		for (k = 0; i != at && a->view[i].owner && k < a->view[i].list.count; k++)
+			if (a->view[i].owner[k] >= at) a->view[i].owner[k]++;
+}
+
+/* The shelf at `at` taken out, its memory already let go: the rest down one,
+ * every group's owners with them */
+static void shelf_remove(app *a, int at)
+{
+	int i, k;
+
+	for (i = at; i + 1 < a->sys.count; i++) {
+		a->sys.systems[i] = a->sys.systems[i + 1];
+		a->view[i] = a->view[i + 1];
+	}
+	a->sys.count--;
+	memset(&a->sys.systems[a->sys.count], 0, sizeof a->sys.systems[0]);
+	memset(&a->view[a->sys.count], 0, sizeof a->view[0]);
+	for (i = 0; i < a->sys.count; i++)
+		for (k = 0; a->view[i].owner && k < a->view[i].list.count; k++)
+			if (a->view[i].owner[k] > at) a->view[i].owner[k]--;
+}
+
+/* A group's shelf filled in at `at` (shelf_insert made room): its name, tag,
+ * card and lime, its games and their owners, and the arrays every shelf
+ * has. False with no memory, the shelf taken out again and nothing kept. */
+static bool group_fill(app *a, int at, const char *name, const char *tag, const char *card,
+                       game_entry *items, int *owner, int n)
+{
+	sysview *v = &a->view[at];
+
+	snprintf(a->sys.systems[at].name, CFG_STR, "%s", name);
+	snprintf(a->sys.systems[at].tag, sizeof a->sys.systems[at].tag, "%s", tag);
+	snprintf(a->sys.systems[at].card, CFG_STR, "%s", card);
+	/* ZyperOS's, not a console's: lime, as Muse is (see ZYPEROS_ACCENT) */
+	a->sys.systems[at].accent = ZYPEROS_ACCENT;
+	v->list.items = items;
+	v->list.count = n;
+	v->list.scanned = true;
+	v->owner = owner;
+	/* Its View, which it keeps as a console's shelf does (MENU > View) */
+	v->listed = view_listed(tag);
+	v->grid = !v->listed && view_grid(tag);
+	v->tex = calloc((size_t)n, sizeof *v->tex);
+	v->tw  = calloc((size_t)n, sizeof *v->tw);
+	v->th  = calloc((size_t)n, sizeof *v->th);
+	/* cb with the rest. The scan allocates these four together and this path
+	 * allocated three, so Favorites had a NULL where every other shelf had an
+	 * array - and game_get_tex writes to it on the first card it draws. */
+	v->cb  = calloc((size_t)n, sizeof *v->cb);
+	if (v->tex && v->tw && v->th && v->cb) return true;
+	free(v->tex); free(v->tw); free(v->th); free(v->cb);
+	v->owner = NULL;
+	v->list.count = 0;
+	shelf_remove(a, at);
+	free(items); free(owner);
+	return false;
+}
+
+/* A group's shelf taken off: its game list and owner map are this file's
+ * own allocations rather than lib_scan's, and the game_entry values in it are
+ * copies - the originals belong to the shelves they came from and must not
+ * be touched. */
+static void group_drop(app *a, const char *tag)
+{
+	int at = group_at(a, tag), i;
+	sysview *v;
+
+	if (at < 0) return;
+	v = &a->view[at];
+	for (i = 0; i < v->list.count; i++)
+		if (v->tex && v->tex[i]) SDL_DestroyTexture(v->tex[i]);
+	free(v->tex); free(v->tw); free(v->th); free(v->cb);
+	free(v->list.items);
+	free(v->owner);
+	v->owner = NULL;
+	v->list.count = 0;
+	shelf_remove(a, at);
+}
+
+/* Where a group's cursor and order were, by game rather than index, to be put
+ * back once it is built again (group_note, group_put_back) */
+typedef struct {
+	bool had;
+	int  sort, cursor;
+	char tag[16], file[LIB_PATH];
+} group_keep;
+
+static void group_note(const app *a, const char *gtag, group_keep *k)
+{
+	int at = group_at(a, gtag);
+	const sysview *v;
+
+	memset(k, 0, sizeof *k);
+	if (at < 0) return;
+	v = &a->view[at];
+	k->had = true;
+	k->sort = v->sort;
+	k->cursor = v->cursor;
+	if (v->cursor >= 0 && v->cursor < v->list.count) {
+		snprintf(k->tag, sizeof k->tag, "%s", a->sys.systems[v->owner[v->cursor]].tag);
+		snprintf(k->file, sizeof k->file, "%s", v->list.items[v->cursor].file);
+	}
+}
+
+/* Its order put back and the shelf sorted in it, and its cursor on the game
+ * it was on, or where it was when that game is gone */
+static void group_put_back(app *a, const char *gtag, const group_keep *k)
+{
+	int at = group_at(a, gtag), c = -1;
+	sysview *v;
+
+	if (at < 0) return;
+	v = &a->view[at];
+	if (k->had) v->sort = k->sort;
+	sort_shelf(a, at);
+	for (int i = 0; k->file[0] && i < v->list.count; i++)
+		if (!strcmp(v->list.items[i].file, k->file) &&
+		    !strcmp(a->sys.systems[v->owner[i]].tag, k->tag))
+			c = i;
+	if (c < 0 && k->had) c = k->cursor < v->list.count ? k->cursor : v->list.count - 1;
+	v->cursor = c > 0 ? c : 0;
+	cf_reset(&v->cf, v->cursor);
+}
+
 /* Build the Favorites shelf: one shelf whose games come from every other.
  *
  * Resolved against the shelves that actually scanned, so a favorite whose ROM
@@ -150,7 +341,7 @@ static void build_favorites_shelf(app *a)
 	int *owner;
 	int n = 0, i, k, si, real;
 
-	if (fav_count() <= 0 || a->sys.count <= 0) return;
+	if (fav_count() <= 0 || a->sys.count <= 0 || !homesys_shown(HOMESYS_FAV)) return;
 	if (a->sys.count >= CFG_MAX_SYSTEMS) {
 		fprintf(stderr, "scan: no room for a Favorites shelf\n");
 		return;
@@ -202,78 +393,83 @@ static void build_favorites_shelf(app *a)
 		owner[j + 1] = to;
 	}
 
-	for (i = a->sys.count; i > 0; i--) {
-		a->sys.systems[i] = a->sys.systems[i - 1];
-		a->view[i] = a->view[i - 1];
-	}
-	for (i = 0; i < n; i++) owner[i]++;          /* everything moved up one */
-
-	memset(&a->sys.systems[0], 0, sizeof a->sys.systems[0]);
-	snprintf(a->sys.systems[0].name, CFG_STR, "%s", T(S_LIBRARY_FAVORITES));
-	snprintf(a->sys.systems[0].tag, sizeof a->sys.systems[0].tag, "%s", "FAV");
-	snprintf(a->sys.systems[0].card, CFG_STR, "%s", "FAVORITES.png");
-	/* ZyperOS's, not a console's: lime, as Muse is (see ZYPEROS_ACCENT) */
-	a->sys.systems[0].accent = ZYPEROS_ACCENT;
-
-	memset(&a->view[0], 0, sizeof a->view[0]);
-	a->view[0].list.items = items;
-	a->view[0].list.count = n;
-	a->view[0].list.scanned = true;
-	a->view[0].owner = owner;
-	/* Its View, which it keeps as a console's shelf does (MENU > View) */
-	a->view[0].listed = view_listed("FAV");
-	a->view[0].grid = !a->view[0].listed && view_grid("FAV");
-	a->view[0].tex = calloc((size_t)n, sizeof *a->view[0].tex);
-	a->view[0].tw  = calloc((size_t)n, sizeof *a->view[0].tw);
-	a->view[0].th  = calloc((size_t)n, sizeof *a->view[0].th);
-	/* cb with the rest. The scan allocates these four together and this path
-	 * allocated three, so Favorites had a NULL where every other shelf had an
-	 * array - and game_get_tex writes to it on the first card it draws. */
-	a->view[0].cb  = calloc((size_t)n, sizeof *a->view[0].cb);
-	if (!a->view[0].tex || !a->view[0].tw || !a->view[0].th || !a->view[0].cb) {
-		free(a->view[0].tex); free(a->view[0].tw); free(a->view[0].th);
-		free(a->view[0].cb);
-		free(items); free(owner);
-		memset(&a->view[0], 0, sizeof a->view[0]);
-		for (i = 0; i < a->sys.count; i++) {
-			a->sys.systems[i] = a->sys.systems[i + 1];
-			a->view[i] = a->view[i + 1];
-		}
+	/* First on the home: every shelf moves up one, Recents with its owners */
+	shelf_insert(a, 0);
+	for (i = 0; i < n; i++) owner[i]++;
+	if (!group_fill(a, 0, T(S_LIBRARY_FAVORITES), HOMESYS_FAV, "FAVORITES.png", items, owner, n))
 		return;
-	}
-	a->sys.count++;
 	fprintf(stderr, "scan: %-16s %d game%s\n", "Favorites", n, n == 1 ? "" : "s");
 }
 
-static bool fav_shelf_present(app *a)
-{
-	return a->sys.count > 0 && strcmp(a->sys.systems[0].tag, "FAV") == 0;
-}
-
-/* Take the Favorites shelf back off. Its game list and owner map are this
- * file's own allocations rather than lib_scan's, and the game_entry values in
- * it are copies - the originals belong to the shelves they came from and must
- * not be touched. */
+/* Take the Favorites shelf back off (group_drop) */
 static void drop_favorites_shelf(app *a)
 {
-	int i;
+	group_drop(a, HOMESYS_FAV);
+}
 
-	if (!fav_shelf_present(a)) return;
+/* Build the Recents shelf: the HOMESYS_RECENTS games played last, newest
+ * first, from every system the home shows (MENU > Display > Home Systems; my
+ * pick, 2026-11-15). After Favorites, first when there is none. From the
+ * sessions the play time keeps (stats_recent), resolved against the shelves
+ * as favorites are: a game off the card, or on a system turned off, is not
+ * on it, and the next one is. No game played yet, no shelf: a card should
+ * lead somewhere, as an empty Favorites does not show.
+ *
+ * Its order is Last Played as it ships (src/sort.h), which keeps it newest
+ * first as games are played; MENU > Sort By sorts it otherwise, as it does
+ * Favorites, and is kept by its tag. Built again when a game ends
+ * (refresh_recents_shelf), so the game just played is first. */
+static void build_recents_shelf(app *a)
+{
+	enum { LOOK = HOMESYS_RECENTS * 6 };      /* rows to resolve the ten from */
+	stats_recent_row *rows;
+	game_entry *items;
+	int *owner;
+	int n = 0, i, k, si, nr, real, at;
 
-	for (i = 0; i < a->view[0].list.count; i++)
-		if (a->view[0].tex[i]) SDL_DestroyTexture(a->view[0].tex[i]);
-	free(a->view[0].tex);
-	free(a->view[0].tw);
-	free(a->view[0].th);
-	free(a->view[0].list.items);
-	free(a->view[0].owner);
-
-	for (i = 0; i + 1 < a->sys.count; i++) {
-		a->sys.systems[i] = a->sys.systems[i + 1];
-		a->view[i] = a->view[i + 1];
+	if (a->sys.count <= 0 || !homesys_shown(HOMESYS_RECENT)) return;
+	if (a->sys.count >= CFG_MAX_SYSTEMS) {
+		fprintf(stderr, "scan: no room for a Recents shelf\n");
+		return;
 	}
-	a->sys.count--;
-	memset(&a->view[a->sys.count], 0, sizeof a->view[0]);
+	rows = calloc(LOOK, sizeof *rows);
+	items = calloc(HOMESYS_RECENTS, sizeof *items);
+	owner = calloc(HOMESYS_RECENTS, sizeof *owner);
+	if (!rows || !items || !owner) { free(rows); free(items); free(owner); return; }
+
+	real = a->sys.count;
+	nr = stats_recent(rows, LOOK);
+	for (i = 0; i < nr && n < HOMESYS_RECENTS; i++)
+		for (si = 0; si < real; si++) {
+			const game_list *gl;
+
+			if (a->view[si].owner || strcmp(a->sys.systems[si].tag, rows[i].tag)) continue;
+			gl = sys_games(&a->view[si]);
+			for (k = 0; k < gl->count; k++)
+				if (!strcmp(gl->items[k].file, rows[i].file)) {
+					items[n] = gl->items[k];
+					items[n].last_played = rows[i].last;
+					owner[n++] = si;
+					break;
+				}
+			break;
+		}
+	free(rows);
+	if (n == 0) { free(items); free(owner); return; }
+
+	at = group_at(a, HOMESYS_FAV) + 1;           /* after Favorites, or first */
+	shelf_insert(a, at);
+	for (i = 0; i < n; i++)
+		if (owner[i] >= at) owner[i]++;
+	if (!group_fill(a, at, T(S_LIBRARY_RECENTS), HOMESYS_RECENT, "RECENTS.png", items, owner, n))
+		return;
+	a->view[at].sort = sort_index("recent");
+	fprintf(stderr, "scan: %-16s %d game%s\n", "Recents", n, n == 1 ? "" : "s");
+}
+
+static void drop_recents_shelf(app *a)
+{
+	group_drop(a, HOMESYS_RECENT);
 }
 
 /* Rebuild the Favorites shelf in place, for use the moment a favorite
@@ -299,8 +495,7 @@ void refresh_favorites_shelf(app *a)
 	if (a->sys.count <= 0) return;
 	snprintf(tag, sizeof tag, "%s", a->sys.systems[a->sys_cursor].tag);
 	cur = a->view[a->sys_cursor].cursor;
-	for (i = 0; i < a->sys.count; i++)
-		if (a->view[i].owner) { order = a->view[i].sort; break; }
+	if ((i = group_at(a, HOMESYS_FAV)) >= 0) order = a->view[i].sort;
 
 	drop_favorites_shelf(a);
 	build_favorites_shelf(a);
@@ -308,12 +503,10 @@ void refresh_favorites_shelf(app *a)
 	 * it is put back: without this, favoriting a game turned the shelf back
 	 * to Name, and the menu said Name, until the next boot read the setting
 	 * again. */
-	for (i = 0; i < a->sys.count; i++)
-		if (a->view[i].owner) {
-			a->view[i].sort = order;
-			sort_shelf(a, i);
-			break;
-		}
+	if ((i = group_at(a, HOMESYS_FAV)) >= 0) {
+		a->view[i].sort = order;
+		sort_shelf(a, i);
+	}
 
 	for (i = 0; i < a->sys.count; i++)
 		if (strcmp(a->sys.systems[i].tag, tag) == 0) break;
@@ -334,6 +527,50 @@ void refresh_favorites_shelf(app *a)
 		a->screen = SCREEN_SYSTEMS;
 	}
 	home_reset(&a->home, a->sys_cursor, a->sys.count, plat_now_ms());
+}
+
+/* Recents built again, after a game ended (src/launch_screen.c), was
+ * renamed or deleted: the game played last first. The shelf stood on is kept
+ * by its tag, as refresh_favorites_shelf keeps it, since Recents coming or
+ * going moves every index after it; on Recents itself the cursor stays on the
+ * game it was on, which is now where the play put it, and its order as it
+ * was. */
+void refresh_recents_shelf(app *a)
+{
+	char tag[sizeof a->sys.systems[0].tag];
+	group_keep k;
+	int i;
+
+	if (a->sys.count <= 0) return;
+	texload_bump();
+	snprintf(tag, sizeof tag, "%s", a->sys.systems[a->sys_cursor].tag);
+	group_note(a, HOMESYS_RECENT, &k);
+	drop_recents_shelf(a);
+	build_recents_shelf(a);
+	group_put_back(a, HOMESYS_RECENT, &k);
+	for (i = 0; i < a->sys.count; i++)
+		if (!strcmp(a->sys.systems[i].tag, tag)) break;
+	if (i < a->sys.count) {
+		a->sys_cursor = i;
+	} else {
+		/* Stood on Recents, and it went: no game resolves any more */
+		a->sys_cursor = 0;
+		a->screen = SCREEN_SYSTEMS;
+	}
+	if (a->sys.count > 0) a->tint = a->sys.systems[a->sys_cursor].accent;
+	home_reset(&a->home, a->sys_cursor, a->sys.count, plat_now_ms());
+}
+
+/* The names of the groups, Favorites and Recents, in the language that is on:
+ * they are words, where every other shelf's name is a system's */
+void shelf_groups_rename(app *a)
+{
+	int i;
+
+	if ((i = group_at(a, HOMESYS_FAV)) >= 0)
+		snprintf(a->sys.systems[i].name, sizeof a->sys.systems[i].name, "%s", T(S_LIBRARY_FAVORITES));
+	if ((i = group_at(a, HOMESYS_RECENT)) >= 0)
+		snprintf(a->sys.systems[i].name, sizeof a->sys.systems[i].name, "%s", T(S_LIBRARY_RECENTS));
 }
 
 /* Muse's shelf: a card per album, and which album each card is. Built in the
@@ -1087,6 +1324,7 @@ int scan_all_from(app *a, saved_lib *saved, bool save)
 	}
 	hide_empty_systems(a);
 	build_favorites_shelf(a);
+	build_recents_shelf(a);
 	build_muse_shelf(a);
 	pm_offer_refresh(a);
 	return from_saved;
@@ -1264,8 +1502,9 @@ static void rebuild(app *a, saved_lib *pre, bool keep_place)
 			snprintf(file, sizeof file, "%s", v->list.items[v->cursor].file);
 	}
 
-	/* First, and on its own: its list and owner map are this file's
-	 * allocations rather than lib_scan's, and its textures are its own. */
+	/* First, and on their own: their lists and owner maps are this file's
+	 * allocations rather than lib_scan's, and their textures are their own. */
+	drop_recents_shelf(a);
 	drop_favorites_shelf(a);
 
 	free_all_textures(a);
@@ -1342,6 +1581,24 @@ static void rebuild(app *a, saved_lib *pre, bool keep_place)
 	home_reset(&a->home, a->sys_cursor, a->sys.count, plat_now_ms());
 }
 
+/* Every shelf built again from the saved library, keeping the place: what
+ * MENU > Display > Home Systems asks when it closes on a change. No read of
+ * the card for a shelf the file has (a system turned on again comes from
+ * it); the card for one it has not. */
+void shelves_reload(app *a)
+{
+	saved_lib saved;
+	char path[LIB_PATH];
+
+	saved_path(path, sizeof path);
+	if (savedlib_load(path, ZYPEROS_VERSION, &saved)) {
+		rebuild(a, &saved, true);
+		savedlib_free(&saved);
+	} else {
+		rebuild(a, NULL, true);
+	}
+}
+
 void rescan_all(app *a)
 {
 	/* The card read again: EmulationStation's indexes with it, and the
@@ -1416,9 +1673,9 @@ static void drop_system(app *a, int si)
  * exFAT, that is most of a second (lib_scan_listing). */
 void shelf_drop_game(app *a, const char *tag, const char *file)
 {
-	char stand[sizeof a->sys.systems[0].tag], fav_tag[sizeof a->sys.systems[0].tag] = "";
-	char fav_file[LIB_PATH] = "", folder[CFG_STR] = "";
-	int was_sys, si, k, i, order = 0, fav_at_i = 0;
+	char stand[sizeof a->sys.systems[0].tag], folder[CFG_STR] = "";
+	group_keep fav, rec;
+	int was_sys, si, k, i;
 
 	if (a->sys.count <= 0) return;
 	snprintf(stand, sizeof stand, "%s", a->sys.systems[a->sys_cursor].tag);
@@ -1427,19 +1684,9 @@ void shelf_drop_game(app *a, const char *tag, const char *file)
 	free_all_textures(a);
 	SDL_AtomicIncRef(&g_lib_gen);       /* a check that read the card before is moot */
 
-	for (i = 0; i < a->sys.count; i++)
-		if (a->view[i].owner) {
-			const sysview *f = &a->view[i];
-
-			order = f->sort;
-			fav_at_i = f->cursor;
-			if (f->cursor >= 0 && f->cursor < f->list.count) {
-				snprintf(fav_tag, sizeof fav_tag, "%s",
-				         a->sys.systems[f->owner[f->cursor]].tag);
-				snprintf(fav_file, sizeof fav_file, "%s", f->list.items[f->cursor].file);
-			}
-			break;
-		}
+	group_note(a, HOMESYS_FAV, &fav);
+	group_note(a, HOMESYS_RECENT, &rec);
+	drop_recents_shelf(a);
 	drop_favorites_shelf(a);
 
 	for (si = 0; si < a->sys.count; si++)
@@ -1490,25 +1737,12 @@ void shelf_drop_game(app *a, const char *tag, const char *file)
 			drop_system(a, si);
 		}
 	}
+	/* The groups again, each on the game it was on, or where it was when
+	 * that was the game deleted */
 	build_favorites_shelf(a);
-	for (i = 0; i < a->sys.count; i++)
-		if (a->view[i].owner) {
-			sysview *f = &a->view[i];
-			int c = -1;
-
-			f->sort = order;
-			sort_shelf(a, i);
-			/* The game Favorites was on, or where it was when that was the
-			 * game deleted */
-			for (k = 0; fav_file[0] && k < f->list.count; k++)
-				if (!strcmp(f->list.items[k].file, fav_file) &&
-				    !strcmp(a->sys.systems[f->owner[k]].tag, fav_tag))
-					c = k;
-			if (c < 0) c = fav_at_i < f->list.count ? fav_at_i : f->list.count - 1;
-			f->cursor = c > 0 ? c : 0;
-			cf_reset(&f->cf, f->cursor);
-			break;
-		}
+	build_recents_shelf(a);
+	group_put_back(a, HOMESYS_FAV, &fav);
+	group_put_back(a, HOMESYS_RECENT, &rec);
 
 	/* Back where the player stood. On the game's own shelf its cursor was
 	 * the game, and moved above to the next one or the one before at the
@@ -1577,6 +1811,8 @@ bool shelf_rename_game(app *a, const char *tag, const char *file, const char *ne
 	fprintf(stderr, "rename: %s %s is %s on its shelf\n", tag, file, new_file);
 	saved_follow(a, folder);
 	refresh_favorites_shelf(a);
+	/* Its sessions moved with it (src/gamern.c), so Recents has it again */
+	refresh_recents_shelf(a);
 	return true;
 }
 

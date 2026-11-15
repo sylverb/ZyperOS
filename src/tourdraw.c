@@ -25,7 +25,7 @@
 #include "clamp.h"
 #include "config.h"      /* CFG_NO_COLOR */
 #include "design.h"
-#include "ds/layout.h"   /* DS_PAGE_FOOT_Y, DS_HINT_GLYPH, DS_MORE_* */
+#include "ds/layout.h"   /* DS_FOOT_Y, DS_HINT_GLYPH, DS_MORE_* */
 #include "i18n.h"
 #include "osdbar.h"
 #include "platform.h"    /* plat_draw_to_screen, the levels' ranges */
@@ -1054,7 +1054,7 @@ static void glyph(SDL_Renderer *r, const tour *t, tour_step s, float cx, float c
 		break;
 	case TG_CHORD:
 		/* The Pixel 2's MENU, a plus and the rocker; the Brick's F1 and F2 */
-		if (t->fn_volume) {
+		if (t->bright == DEV_BRIGHT_MENU_VOL) {
 			const float wm = (float)ui_button_width("MENU", 64), wp = 52.0f;
 			const float wr = (float)ui_rocker_width(64), w = wm + wp + wr;
 			const float x0 = cx - w / 2.0f;
@@ -1109,7 +1109,7 @@ static float legend_left(void)
 static void legend(SDL_Renderer *r)
 {
 	/* at a page's foot (src/ds/page.h; 724, the screen less 44, until 1.0.6) */
-	int x = (int)legend_left(), cy = DS_PAGE_FOOT_Y, bw = ui_button_width("START", DS_HINT_GLYPH);
+	int x = (int)legend_left(), cy = DS_FOOT_Y, bw = ui_button_width("START", DS_HINT_GLYPH);
 
 	if (g_hint) {
 		g_hint(r, "START", T(S_KEYHINT_SKIP), x, cy);
@@ -1231,7 +1231,7 @@ static void lesson(SDL_Renderer *r, const tour *t, uint32_t now, const tour_hook
 	g_op = fade_in;
 	glyph(r, t, t->step, 512, GLYPH_Y, now, tour_wrong_pulse(t, now));
 	lesson_words(r, UI_F_TITLE, st->title, TITLE_Y, th->text);
-	lesson_words(r, UI_F_META, t->fn_volume && st->line_fn ? st->line_fn : st->line, LINE_Y,
+	lesson_words(r, UI_F_META, t->bright == DEV_BRIGHT_MENU_VOL && st->line_fn ? st->line_fn : st->line, LINE_Y,
 	             th->text_soft);
 	note = t->done && st->note_done ? st->note_done : st->note;
 	lesson_words(r, UI_F_META, note, NOTE_Y, th->text_dim);

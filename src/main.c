@@ -55,6 +55,7 @@
 #include "hare.h"
 #include "xfer.h"
 #include "home.h"
+#include "homesys_screen.h"
 #include "games.h"
 #include "hareart.h"
 #include "hotspot.h"
@@ -214,6 +215,8 @@ static void on_sigterm(int sig) { (void)sig; want_quit = 1; plat_terminate(); }
  * started for it by portkeys while the port is stopped: the menu, its
  * Controls page and nothing else. */
 bool g_port_menu;
+/* ...over a program still starting, under its loading screen (PORT_MENU_WAITING) */
+bool g_port_waiting;
 
 /* Boot time is the one number a launcher cannot be careless about, so the
  * phases are timed and logged rather than guessed at. On the project this
@@ -4633,6 +4636,7 @@ static int menu_shelf_width(app *a)
 		bool own  = muse || a->view[i].owner;
 		int  srow = own ? 1 : sm_pos(a, i, SM_SORT), show = -1;
 		int  drow = own ? -1 : sm_pos(a, i, SM_DISPLAY);
+		int  nrow = own ? -1 : sm_pos(a, i, SM_DNOTE1);
 		int  hrow = own ? -1 : sm_pos(a, i, SM_SHADER);
 		int  crow = own ? -1 : sm_pos(a, i, SM_CORE);
 		int  lrow = own ? -1 : sm_pos(a, i, SM_DSLANG);
@@ -4661,6 +4665,15 @@ static int menu_shelf_width(app *a)
 		for (k = 0; drow >= 0 && k < DMODE_COUNT; k++) {
 			int mw;
 			rows[drow].value = dmode_label(k);
+			/* and its caption's two lines under it, as sysmenu_screen.c
+			 * wraps them */
+			if (nrow >= 0 && nrow + 1 < n) {
+				static char note[2][CHV_WRAP_COLS];
+				int nl = wrap_text(ui_font(UI_F_MENU), dmode_note(k), SM_NOTE_W, note, 2);
+
+				rows[nrow].label = nl > 0 ? note[0] : "";
+				rows[nrow + 1].label = nl > 1 ? note[1] : "";
+			}
 			mw = menu_measure(rows, n, heading);
 			if (mw > w) w = mw;
 		}
@@ -5017,6 +5030,7 @@ static int port_menu_main(int argc, char **argv)
 		return PORT_MENU_CONTINUE;
 	}
 	g_port_menu = true;
+	g_port_waiting = argc > 4 && !strcmp(argv[4], PORT_MENU_WAITING);
 	/* Its buttons when ZyperOS knows them (OpenBOR's); over the standalone
 	 * Flycast, In a game alone (port_menu_pads) */
 	g_port_ctl = (ctl_game){ port_menu_pads(s->tag) ? s->tag : "", s->name,
@@ -5080,6 +5094,10 @@ static int port_menu_main(int argc, char **argv)
 	return how;
 }
 
+/* --dmode NAME: every system shows that display mode (a shot of the row
+ * and its caption) */
+static const char *shot_dmode;
+
 int main(int argc, char *argv[])
 {
 	app a = { 0 };
@@ -5121,6 +5139,10 @@ int main(int argc, char *argv[])
 		 * move (DESIGN.md 11.3) */
 		else if (!strcmp(argv[i], "--look") && i + 1 < argc)
 			shot_look = argv[++i];
+		/* --homesys-page ROW: MENU > Display > Home Systems' page, the
+		 * cursor on ROW (src/homesys_screen.c) */
+		else if (!strcmp(argv[i], "--homesys-page") && i + 1 < argc)
+			shot_homesys = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--look-page") && i + 1 < argc) {
 			shot_look_page = argv[++i];
 			if (i + 1 < argc && argv[i + 1][0] >= '0' && argv[i + 1][0] <= '9')
@@ -5181,9 +5203,12 @@ int main(int argc, char *argv[])
 		else if (!strcmp(argv[i], "--paused")) shot_np_paused = 1;
 		else if (!strcmp(argv[i], "--locked")) shot_locked = 1;
 		else if (!strcmp(argv[i], "--video")) {
-			shot_video = NPV_FULL;
-			if (i + 1 < argc && !strcmp(argv[i + 1], "controls")) { shot_video = NPV_CONTROLS; i++; }
-			else if (i + 1 < argc && !strcmp(argv[i + 1], "full")) i++;
+			/* "controls": with the controls up; "hidden" ("full" before
+			 * the one view) or nothing: the picture alone, as it is 3 s
+			 * after the last press and under the lock */
+			shot_video = 0;
+			if (i + 1 < argc && !strcmp(argv[i + 1], "controls")) { shot_video = 1; i++; }
+			else if (i + 1 < argc && (!strcmp(argv[i + 1], "hidden") || !strcmp(argv[i + 1], "full"))) i++;
 		}
 		else if (!strcmp(argv[i], "--mode") && i + 1 < argc) shot_mode = argv[++i];
 		else if (!strcmp(argv[i], "--sysmove") && i + 1 < argc)
@@ -5207,10 +5232,12 @@ int main(int argc, char *argv[])
 		/* The game under the cursor deleted as Delete Game's yes deletes it,
 		 * then the shot: the shelf after, and what went on stderr */
 		else if (!strcmp(argv[i], "--delete-now")) shot_delete_now = 1;
-		/* --osd volume|brightness LEVEL: the settings bar at that level, on
-		 * top of the rest of the shot. */
+		/* --osd volume|brightness|power LEVEL: the settings bar at that
+		 * level, on top of the rest of the shot; power is POWER's hold, LEVEL
+		 * segments of OSDBAR_POWER_STEPS lit (MENU > Power Button on Hold). */
 		else if (!strcmp(argv[i], "--osd") && i + 2 < argc) {
-			shot_osd_kind = !strcmp(argv[i + 1], "brightness") ? 1 : 2;
+			shot_osd_kind = !strcmp(argv[i + 1], "brightness") ? OSDBAR_BRIGHT
+			              : !strcmp(argv[i + 1], "power") ? OSDBAR_POWER : OSDBAR_VOLUME;
 			shot_osd_val = atoi(argv[i + 2]);
 			i += 2;
 		}
@@ -5306,6 +5333,9 @@ int main(int argc, char *argv[])
 		}
 		/* --gm-tab N: the in-game menu's tab, 0 Game, 1 Display, 2 Controls */
 		else if (!strcmp(argv[i], "--gm-tab") && i + 1 < argc) shot_gamemenu_tab = atoi(argv[++i]);
+		/* --dmode NAME: every system's display mode, for a shot of its row
+		 * and its caption (display.<TAG>'s value: stretch, aspect, ...) */
+		else if (!strcmp(argv[i], "--dmode") && i + 1 < argc) shot_dmode = argv[++i];
 		/* The Controls tab's (shot_draw_ctltab) */
 		else if (!strcmp(argv[i], "--gm-all")) shot_gm_all = true;
 		else if (!strcmp(argv[i], "--gm-pick")) shot_gm_pick = true;
@@ -5367,12 +5397,29 @@ int main(int argc, char *argv[])
 				shot_tour_wrong_ms = atoi(argv[++i]);
 		}
 		else if (!strcmp(argv[i], "--fn-volume")) shot_fn_volume = 1;
+		/* --device ID: wear that handheld's profile (src/device/profile.h),
+		 * its buttons, chords and answers, for shots and checks on a computer;
+		 * a device build has its own alone */
+		else if (!strcmp(argv[i], "--device") && i + 1 < argc) {
+			if (!plat_profile_select(argv[++i])) {
+				char ids[96];
+
+				plat_profile_ids(ids, sizeof ids);
+				fprintf(stderr, "--device: no profile \"%s\" (%s)\n", argv[i], ids);
+				return 2;
+			}
+		}
 		else if (!strcmp(argv[i], "--tour-pick") && i + 1 < argc) {
 			shot_tour_pick = atoi(argv[++i]);
 			if (i + 1 < argc && argv[i + 1][0] >= '0' && argv[i + 1][0] <= '9')
 				shot_tour_pick_ms = atoi(argv[++i]);
 		}
 		else if (!strcmp(argv[i], "--tour-music")) shot_tour_music = true;
+		/* --port-waiting: with --gamemenu N port, the menu over a program
+		 * still starting (Keep Waiting) */
+		else if (!strcmp(argv[i], "--port-waiting")) g_port_waiting = true;
+		/* --portload-later: the still with the line after a minute */
+		else if (!strcmp(argv[i], "--portload-later")) g_port_loading_later = true;
 		else if (!strcmp(argv[i], "--portload") && i + 1 < argc)
 			shot_portload = argv[++i];
 		else if (!strcmp(argv[i], "--portmaster")) {
@@ -6214,6 +6261,8 @@ int main(int argc, char *argv[])
 	}
 	system_order_load();
 	system_order_apply(&a.sys);
+	power_button_load();
+	homesys_load();
 
 	/* Before the scan, because the scan builds the Favorites shelf out of
 	 * them and a shelf cannot be built from a list that has not been read. */
@@ -6460,6 +6509,12 @@ int main(int argc, char *argv[])
 	/* After the scan, because it indexes by system, and before anything can
 	 * launch, because the mode has to reach Diatom with the first RUN. */
 	display_load(&a);
+	if (shot_dmode) {
+		int k, v;
+
+		for (k = 0; k < DMODE_COUNT && strcmp(DMODES[k].name, shot_dmode); k++) ;
+		for (v = 0; k < DMODE_COUNT && v < a.sys.count; v++) a.view[v].dmode = k;
+	}
 	core_load(&a);
 	sort_load(&a);
 	view_load(&a);

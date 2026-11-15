@@ -302,7 +302,14 @@ static uint64_t g_osd_shown, g_osd_changed;
 static bool     g_osd_on;
 static int      g_osd_level;    /* what the bar shows - volume OR brightness */
 static int      g_osd_max = GAIN_LEVELS;   /* out of what: the two differ now */
-static int      g_osd_kind;     /* 0 volume, 1 brightness */
+static int      g_osd_kind;     /* 0 volume, 1 brightness, 2 POWER's hold */
+/* POWER held, with the launcher's Power Button on Hold (SETPOWERHOLD): the
+ * bar's power kind filling on this clock from g_hold_t0 over g_hold_ms;
+ * hold_tick turns it into the bar's level each frame. The frame loop's
+ * thread, as the rest of the bar. */
+static bool     g_hold_on;
+static uint64_t g_hold_t0;
+static unsigned g_hold_ms;
 static int      g_osd_theme;    /* DS_LIGHT or DS_DARK */
 /* The bar's colors in that theme, as the player's look has them (the theme
  * file's second line, themefile_read_bar); the gen moves when they do */
@@ -490,6 +497,25 @@ static void gain_apply(void)
 	 * SPEAKER_CTL both off the codec stops taking samples, and the audio
 	 * thread waits on it - a game froze switching to a headset until the
 	 * mute came off. */
+}
+
+/* The hold's segments by now: the bar kept up while they fill, then left to
+ * hold and fade as after a level step once all are lit */
+static void hold_tick(uint64_t now)
+{
+	uint64_t t;
+	int lit;
+
+	if (!g_hold_on) return;
+	t = (now - g_hold_t0) / 1000;
+	lit = t >= g_hold_ms ? OSDBAR_POWER_STEPS
+	                     : (int)(t * OSDBAR_POWER_STEPS / g_hold_ms);
+	g_osd_on = true;
+	g_osd_kind = 2;
+	g_osd_max = OSDBAR_POWER_STEPS;
+	g_osd_level = lit;
+	g_osd_changed = now;
+	if (lit >= OSDBAR_POWER_STEPS) g_hold_on = false;
 }
 
 static void osd_show(int kind, int level, int max)
@@ -769,6 +795,7 @@ static void bar_frame(void)
 	size_t i, n;
 
 	g_bar_live = false;
+	hold_tick(now);
 	if (!g_osd_on) return;
 	if (!osdbar_envelope((uint32_t)((now - g_osd_shown) / 1000),
 	                     (uint32_t)((now - g_osd_changed) / 1000), &alpha, &rise)) {
@@ -786,7 +813,7 @@ static void bar_frame(void)
 	    g_osd_max != drawn_max || g_osd_theme != drawn_theme || alpha != drawn_alpha) {
 		osdbar_size(s, &g_bar_w, &g_bar_h);
 		osdbar_render(g_bar_px, g_bar_w, g_bar_h, g_bar_w, s, g_osd_theme,
-		              g_osd_kind ? OSDBAR_BRIGHT : OSDBAR_VOLUME,
+		              g_osd_kind == 2 ? OSDBAR_POWER : g_osd_kind ? OSDBAR_BRIGHT : OSDBAR_VOLUME,
 		              g_osd_level, g_osd_max, alpha, true);
 		drawn_kind = g_osd_kind; drawn_level = g_osd_level; drawn_max = g_osd_max;
 		drawn_theme = g_osd_theme; drawn_alpha = alpha;
@@ -2028,6 +2055,40 @@ uint32_t diatom_port_level_keys(void)
 void diatom_port_level_shown(diatom_level_kind kind, int pos, int positions)
 {
 	osd_show(kind == DIATOM_LEVEL_BRIGHTNESS ? 1 : 0, pos, positions - 1);
+}
+
+void diatom_port_power_hold(bool on, unsigned ms, unsigned at, bool done)
+{
+	ds_theme colors;
+	int theme = themefile_read_bar(THEME_FILE, &colors);
+	uint64_t now = diatom_port_now_us();
+	float a, rise;
+
+	if (on) {
+		if (theme != g_osd_theme || memcmp(&colors.ground, &g_osd_colors.ground,
+		                                   sizeof colors.ground * 18)) {
+			g_osd_colors = colors;
+			g_osd_colors_gen++;
+		}
+		if (!g_osd_on || !osdbar_envelope((uint32_t)((now - g_osd_shown) / 1000),
+		                                  (uint32_t)((now - g_osd_changed) / 1000), &a, &rise))
+			g_osd_shown = now;
+		g_osd_theme = theme;
+		g_hold_ms = ms ? ms : 2000;
+		g_hold_t0 = now - (uint64_t)(at < g_hold_ms ? at : g_hold_ms) * 1000;
+		g_hold_on = true;
+		hold_tick(now);
+	} else {
+		g_hold_on = false;
+		if (g_osd_on && g_osd_kind == 2) {
+			if (done) {
+				g_osd_level = g_osd_max;
+				g_osd_changed = now;
+			} else if (now - g_osd_changed < (uint64_t)OSDBAR_HOLD_MS * 1000) {
+				g_osd_changed = now - (uint64_t)OSDBAR_HOLD_MS * 1000;
+			}
+		}
+	}
 }
 bool     diatom_port_should_quit(void) { return g_quit; }
 

@@ -1171,6 +1171,8 @@ void launch(app *a)
 	 * than a shutdown. Everything above leaves the marker standing, which is
 	 * what makes the next boot able to tell them apart. */
 	playing_clear();
+	/* The game just played first on Recents (src/homesys.h) */
+	refresh_recents_shelf(a);
 
 	tick_theme(a);
 	render(a);

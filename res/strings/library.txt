@@ -12,6 +12,17 @@ de = Favoriten
 ja = お気に入り
 it = Preferiti
 
+[library.recents]
+note = The name of the shelf of the 10 games played last, where a system's name goes on the home and over the shelf (beside Favorites)
+en = Recents
+zh-Hans = 最近
+es = Recientes
+pt-BR = Recentes
+fr = Récents
+de = Zuletzt
+ja = 最近
+it = Recenti
+
 [library.scanning]
 note = A wait panel under a system's name (or "MP4") while its folder is read again (Rescan Folder)
 en = Scanning...

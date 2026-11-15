@@ -50,7 +50,7 @@ enum { UA_CHARGE, UA_XFER, UA_DEV, UA_DRIVE };
 bool shot_usb_drive;
 bool usb_drive_offered(void)
 {
-	return shot_usb_drive || access("/usr/sbin/usbdrive", X_OK) == 0;
+	return shot_usb_drive || plat_system_has("usbdrive");
 }
 
 int usb_ask_tiles(menu_row tiles[4], int what[4], int marks[4], bool dev)
@@ -280,7 +280,7 @@ void ud_page_foot(SDL_Renderer *r, const char *k1, const char *l1, const char *k
 	const char *keys[2] = { k1, k2 }, *words[2] = { l1, l2 };
 	const ds_page_frame f = ds_page_frame_of(true);
 
-	ds_page_foot(r, &f, keys, words, k2 ? 2 : 1, DS_PAGE_FOOT_GAP_PAIR, DS_PAGE_FOOT_GAP_PAIR);
+	ds_page_foot(r, &f, keys, words, k2 ? 2 : 1, DS_PAGE_FOOT_GAP, DS_PAGE_FOOT_GAP_TIGHT);
 }
 #define ud_foot ud_page_foot
 
