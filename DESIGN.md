@@ -871,10 +871,11 @@ in **edge** (in a system's menu, in that system's color). Rows in **menu**:
 live rows **text-soft**, values **text-dim**, dead rows **text-dim** at both.
 The focused row is an **accent** fill, **radius.row**, its label and value in
 **on-accent**. More rows above or below: a small triangle in **text-dim**,
-24 by 12 (`ds_more`), as on every list. A list that ends in a footer (a
-rule and only notes under it) and does not fit keeps the footer still under
-its rows: the rows above the rule scroll in what room is left, as a card's
-body scrolls over its pinned footer.
+24 by 12 (`ds_more`), as on every list. An option's list (below) that
+ends in a footer (a rule and only notes under it) and does not fit keeps the
+footer still under its rows (`menu_style.pin_foot`): the rows above the rule
+scroll in what room is left, as a card's body scrolls over its pinned
+footer. Elsewhere a long list's footer goes round with its rows.
 Opens and closes as 8.2 says.
 
 **Option rows, one rule (1.0.6).** A row whose value is one of several

@@ -155,6 +155,7 @@ int    g_menu_header_h;
  * the panel being drawn is a copy (snap_draw), which the picture is told */
 void (*g_menu_side)(app *a, const menu_side *at);
 int    g_menu_side_w;
+bool   g_menu_pin_foot;   /* menu_style's pin_foot, set around its draw */
 bool   g_snap_drawing;
 
 #define MENU_ZYPER_H 64.0f
@@ -511,9 +512,9 @@ void menu_panel(app *a, const char *heading, const menu_row *rows,
 	const int margin = MENU_MARGIN;
 	int vis = n, first = 0;
 	/* The list's rows, and its footer's: a list with a cursor that ends in a
-	 * footer (a MENU_RULE and only notes past it) windows the rows above the
-	 * rule and keeps the footer under them, as a card pins its footer. A
-	 * list that does not end in one is all list (nl == n). */
+	 * footer (a MENU_RULE and only notes past it), drawn with pin_foot,
+	 * windows the rows above the rule and keeps the footer under them, as a
+	 * card pins its footer. Otherwise it is all list (nl == n). */
 	int nl = n, foot_h = 0, list_h = 0;
 	/* A list too long for its window goes round without end (menu_loop_*,
 	 * DESIGN.md 11.3): `first` and `vsel` are then slots, not rows */
@@ -587,11 +588,12 @@ void menu_panel(app *a, const char *heading, const menu_row *rows,
 		int avail = MENU_AVAIL_H - content_off - pad;
 
 		if (sel >= 0) {
-			/* A FOOTER STAYS. What it says is about the row under the
-			 * cursor (Display Mode's list says what the mode does), so it
-			 * is wanted while the rows move, not a lap of the list later:
-			 * the window is what is left above it. */
-			{
+			/* A FOOTER STAYS, where the menu asks (pin_foot). What an
+			 * option's list says under it is about the row under the
+			 * cursor (Display's says what the mode does), so it is wanted
+			 * while the rows move, not a lap of the list later: the window
+			 * is what is left above it. */
+			if (g_menu_pin_foot) {
 				int j, k = -1;
 
 				for (j = 0; j < n; j++)
@@ -1529,7 +1531,7 @@ int menu_pick(app *a, const menu_style *from, void *from_ctx, const char *headin
 	                           .on_power = from && from->on_power ? pick_power : NULL,
 	                           .fixed_w = from && from->fixed_w ? from->fixed_w : menu_std_width(a),
 	                           .sound = p.sound, .start_sel = cur >= 0 && cur < p.n ? cur : 0,
-	                           .sel_out = notes ? &p.sel : NULL },
+	                           .sel_out = notes ? &p.sel : NULL, .pin_foot = true },
 	         pick_build, pick_key, &p);
 	return p.powered ? MENU_PICK_POWER : p.picked;
 }

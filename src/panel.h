@@ -152,6 +152,12 @@ typedef struct {
 	 * beside it change. NULL: none. */
 	void   (*side)(app *a, const menu_side *at);
 	int      side_w;
+	/* A footer kept still under the rows (a MENU_RULE and only notes past
+	 * it) where they do not all fit: the rows above the rule scroll in what
+	 * room is left, as a card's body over its pinned footer. An option's
+	 * list sets it, so what the choice under the cursor does stays in view
+	 * (menu_pick); elsewhere a long list's footer goes round with it. */
+	bool     pin_foot;
 	/* Every row reachable by the cursor, dead ones too, where `live` says
 	 * how a row reads rather than whether it can be chosen: the
 	 * Achievements tab's list, whose unearned rows are quieter and still

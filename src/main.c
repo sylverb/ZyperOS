@@ -3357,6 +3357,7 @@ void snap_record(menu_snap *s, int kind, const char *heading,
 	s->header_h = g_menu_header_h;
 	s->side = (void *)g_menu_side;
 	s->side_w = g_menu_side_w;
+	s->pin_foot = g_menu_pin_foot;
 	if (panel_is_tiles(kind)) {
 		int i;
 
@@ -3404,12 +3405,14 @@ void snap_draw(app *a, mm_pose pose)
 		void (*head)(app *, const SDL_Rect *) = g_menu_header;
 		void (*side)(app *, const menu_side *) = g_menu_side;
 		int head_h = g_menu_header_h, side_w = g_menu_side_w;
+		bool pin = g_menu_pin_foot;
 
 		g_row_mark = (void (*)(app *, const menu_row *, int, int, float))s->row_mark;
 		g_menu_header = (void (*)(app *, const SDL_Rect *))s->header;
 		g_menu_header_h = s->header_h;
 		g_menu_side = (void (*)(app *, const menu_side *))s->side;
 		g_menu_side_w = s->side_w;
+		g_menu_pin_foot = s->pin_foot;
 		g_snap_drawing = true;
 		menu_panel(a, s->heading, s->rows, s->n, s->sel, s->fixed_w, s->accent,
 		           s->has_vcolors ? s->vcolors : NULL, s->visits_all, s->loop_at,
@@ -3420,6 +3423,7 @@ void snap_draw(app *a, mm_pose pose)
 		g_menu_header_h = head_h;
 		g_menu_side = side;
 		g_menu_side_w = side_w;
+		g_menu_pin_foot = pin;
 	}
 	g_menu_tabs = tabs;
 	g_menu_zyper = z;
@@ -3530,12 +3534,14 @@ void menu_draw_styled(app *a, const menu_style *st, const char *heading,
 	g_menu_header_h = st->header_h;
 	g_menu_side = st->side;
 	g_menu_side_w = st->side_w;
+	g_menu_pin_foot = st->pin_foot;
 	if (st->row_icon) g_row_icon = st->row_icon;
 	menu_draw_ex(a, heading, rows, n, sel, st->fixed_w,
 	             st->follow_tint ? a->tint : st->accent, st->vcolors, st->visits_all, 0);
 	if (st->row_icon) g_row_icon = NULL;
 	g_menu_side = NULL;
 	g_menu_side_w = 0;
+	g_menu_pin_foot = false;
 	g_menu_header = NULL;
 	g_row_mark = NULL;
 	g_menu_tabs = NULL;

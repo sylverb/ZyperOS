@@ -606,7 +606,9 @@ static void shot_draw_gamemenu(app *a)
 			g_menu_epoch++;
 			g_menu_tabs = NULL;   /* a list of its own: the row's name, no tabs */
 			g_menu_side = NULL;
+			g_menu_pin_foot = true;   /* as menu_pick's style asks */
 			menu_draw(a, rows[sel].label, pr, np, ch->cur, gm_width(a), a->tint);
+			g_menu_pin_foot = false;
 			if (bg) SDL_DestroyTexture(bg);
 			return;
 		}
@@ -1287,7 +1289,9 @@ static void shot_compose(app *a)
 			}
 			ui_scrim(a->r, 0);
 			g_menu_epoch++;   /* another menu: a list opens at rest on its choice, as menu_run marks it */
+			g_menu_pin_foot = true;   /* as menu_pick's style asks */
 			menu_draw(a, shot_pick_heading, pr, np, shot_pick.cur, menu_std_width(a), MENU_ZYPEROS);
+			g_menu_pin_foot = false;
 		}
 	}
 	if (shot_look_page) shot_draw_look(a);
