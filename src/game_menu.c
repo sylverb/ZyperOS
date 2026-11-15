@@ -303,6 +303,8 @@ int gm_rows(const gm_ui *u, gm_tab t, menu_row *out, gm_bufs *b)
 	/* The slot's number alone: the row says what it is */
 	snprintf(b->quick, sizeof b->quick, "%d", u->quick);
 	full[GM_QUICK].value = b->quick;
+	/* Over a program still starting, Continue goes on waiting for it */
+	if (u->port && u->waiting) full[GM_CONTINUE].label = T(S_PORTLOAD_KEEP_WAITING);
 
 	/* Most of a library has no set, and a row that says so plainly is better
 	 * than one that is missing: "none" answers the question the player opened

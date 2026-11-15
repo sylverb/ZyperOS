@@ -276,6 +276,17 @@ de = Speichern und aus
 ja = セーブして電源オフ
 it = Salva e spegni
 
+[controls.save_off_hold]
+note = What POWER does when MENU > Power Button is Hold: held for 2 seconds, it saves the game and turns the handheld off.
+en = Hold: save and turn off
+zh-Hans = 长按：保存并关机
+es = Mantén: guarda y apaga
+pt-BR = Segurar: salvar e desligar
+fr = Maintien : sauve et éteint
+de = Halten: speichern und aus
+ja = 長押し：セーブ・電源オフ
+it = Tieni: salva e spegni
+
 [controls.note_some]
 note = The footnote under the turbo row, the width of the panel: cut after about 30 characters.
 en = * for some systems
@@ -461,6 +472,17 @@ it = Spegni
 # In a game: a system's buttons as its core names them. A name printed on
 # the system's own pad (Start, Select, Mode, C, II) is not here and is never
 # translated; these are the words. A value is at most about 22 characters.
+
+[controls.turn_off_hold]
+note = What POWER does outside a game when MENU > Power Button is Hold: held for 2 seconds, it turns the handheld off.
+en = Hold: turn off
+zh-Hans = 长按：关机
+es = Mantén: apaga
+pt-BR = Segurar: desligar
+fr = Maintien : éteindre
+de = Halten: ausschalten
+ja = 長押し：電源オフ
+it = Tieni: spegni
 
 [controls.turbo]
 note = A button that repeats while held: %s is the button the game sees (A, Button 1). Two such rows are said as one when they share a word: "Turbo A/B".
@@ -1035,6 +1057,17 @@ fr = Quitter, éteindre
 de = Beenden und aus
 ja = 終了して電源オフ
 it = Esci e spegni
+
+[controls.quit_off_hold]
+note = What POWER does in OpenBOR or a port when MENU > Power Button is Hold: held for 2 seconds, the game ends and the handheld turns off.
+en = Hold: quit and turn off
+zh-Hans = 长按：退出并关机
+es = Mantén: sal y apaga
+pt-BR = Segurar: sair e desligar
+fr = Maintien : quitter, éteindre
+de = Halten: beenden und aus
+ja = 長押し：終了して電源オフ
+it = Tieni: esci e spegni
 
 [controls.c_buttons]
 note = Nintendo 64: the page of its C buttons, in "Controls: C buttons". tight: French's heading has room for "C" only

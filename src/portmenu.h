@@ -25,6 +25,9 @@
 #include <string.h>
 
 #define PORT_MENU_ARG      "--port-menu"
+/* After the tag and the game: the program has not drawn yet, its loading
+ * screen is what the menu is over, and Continue reads Keep Waiting (1.0.6) */
+#define PORT_MENU_WAITING  "--waiting"
 
 /* Which games get the menu, by the core that runs them: every game a shelf
  * hands to a program of its own. A "run:" script's: OpenBOR, which ZyperOS

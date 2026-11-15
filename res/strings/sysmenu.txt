@@ -213,6 +213,39 @@ de = %d s
 ja = %d 秒
 it = %d s
 
+[sysmenu.power_button]
+note = A MENU row on System, under Auto Off: what turns the handheld off, a press of POWER or POWER held for 2 seconds
+en = Power Button
+zh-Hans = 电源键
+es = Botón de encendido
+pt-BR = Botão liga/desliga
+fr = Bouton marche
+de = Ein/Aus-Taste
+ja = 電源ボタン
+it = Tasto accensione
+
+[sysmenu.power_press]
+note = Power Button's value: a press of POWER turns the handheld off (the default). Short, as Ask is.
+en = Press
+zh-Hans = 按一下
+es = Pulsar
+pt-BR = Apertar
+fr = Appuyer
+de = Drücken
+ja = 押す
+it = Premi
+
+[sysmenu.power_hold]
+note = Power Button's value: POWER held for 2 seconds turns the handheld off, and a press alone does not. Short, as Ask is.
+en = Hold
+zh-Hans = 长按
+es = Mantener
+pt-BR = Segurar
+fr = Maintenir
+de = Halten
+ja = 長押し
+it = Tieni premuto
+
 [sysmenu.auto_off_mins]
 note = Auto Off's value in minutes (2m). tight: 15 bytes at most
 en = %dm

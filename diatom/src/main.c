@@ -1788,6 +1788,10 @@ static bool state_plane_msg(const diatom_msg *m)
 	case DIATOM_MSG_SETQUIET: quiet_set(m);      return true;
 	case DIATOM_MSG_LOWBATTERY:    low_battery_emit(); return true;
 	case DIATOM_MSG_SETLOWBATTERY: low_battery_set(m); return true;
+	case DIATOM_MSG_SETPOWERHOLD:
+		diatom_port_power_hold(m->on != 0, m->count > 0 ? (unsigned)m->count : 0,
+		                       m->index > 0 ? (unsigned)m->index : 0, m->done != 0);
+		return true;
 	case DIATOM_MSG_CHANNELS:    channels_emit();  return true;
 	case DIATOM_MSG_SETCHANNELS: channels_set(m);  return true;
 	case DIATOM_MSG_DISC:    disc_emit();  return true;

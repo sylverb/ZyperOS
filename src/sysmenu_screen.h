@@ -26,6 +26,7 @@ int menu_build(app *a, screen_id screen, int sys,
                menu_row *out, menu_bufs *b, const char **heading);
 void look_bar_colors(void);
 void look_load(void);
+void power_button_load(void);
 int hours_build(void *ctx, menu_row *rows, int max, const char **heading);
 void look_row_mark(app *a, const menu_row *row, int right, int cy, float on_fill);
 void look_header(app *a, const SDL_Rect *q);

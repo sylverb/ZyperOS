@@ -95,6 +95,10 @@
  * where its tab's rows are, and into sys_menu_tab_of's switch, which the
  * compiler checks has every row (-Wswitch), and tools/menu-check.c that each
  * row is in a tab. */
+/* PM_POWER is Power Button, over Auto Off, the first of the rows about the
+ * handheld going off: Press, POWER pressed turns it off, as it always has;
+ * Hold, POWER held for two seconds (src/powerhold.h). Two choices, so A
+ * switches it, as Left and Right do (1.0.6, asked for on the Discord). */
 /* PM_AUTOHOURS is Auto Hours, under Appearance: when Auto turns light and
  * when dark, by the half hour (src/theme.h), 7:00 and 19:00 as it ships.
  * PM_THEME is Theme, under it: the accent, a background tone for each theme,
@@ -110,7 +114,7 @@ typedef enum {
 	/* Connections: USB Device first, while a plug waits for its answer */
 	PM_USB_WAIT, PM_WIFI, PM_BT, PM_XFER, PM_USB, PM_DEVELOPER,
 	/* System */
-	PM_CLOCK, PM_HOURS, PM_LANGUAGE, PM_SLEEP, PM_CHARGE, PM_LIGHTS,
+	PM_CLOCK, PM_HOURS, PM_LANGUAGE, PM_POWER, PM_SLEEP, PM_CHARGE, PM_LIGHTS,
 	PM_STORAGE, PM_UPDATE,
 	/* About */
 	PM_ABOUT, PM_CONTROLS, PM_TOUR,
@@ -345,6 +349,7 @@ typedef struct {
 	const char *order;
 	const char *battery;    /* the corner's battery: Bars (default), Percentage or Time Left */
 	int         auto_off;    /* seconds, 0 for off */
+	bool        power_hold;  /* Power Button is Hold; false, Press */
 	int         saver;       /* the screensaver's delay, seconds, 0 for off */
 	int         charge_limit;   /* percent, 0 for Off */
 	/* Side Lights: side_lights_value's, "All on", "3 on" or "Off". NULL

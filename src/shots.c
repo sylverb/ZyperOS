@@ -253,7 +253,7 @@ const char *shot_hare_move;                         /* --hare-move: the tiles' s
 const char *shot_steps_way, *shot_steps_state, *shot_steps_addr;
 bool shot_steps_noname;      /* ... noname: as when mDNS could not start */
 const char *shot_wait, *shot_wait_msg;   /* NULL: library.scanning's */
-int shot_osd_kind, shot_osd_val; /* --osd volume|brightness LEVEL */
+int shot_osd_kind, shot_osd_val; /* --osd volume|brightness|power LEVEL */
 /* --tour STEP [MS [DONE]]: one frame of the tutorial, src/tour.h's step by
  * its name (or "skip", the shelf with the message a skip leaves), MS into
  * it, its press landed DONE ms ago or not at all (-1). --tour-wrong KEY [MS]
@@ -951,11 +951,10 @@ static void np_shot(app *a)
 	}
 	np_cover(a, shot_np);
 	if (shot_video >= 0) {
-		g_np_view = shot_video;
 		mp4v_test_picture(a->r, 640, 360);
 		mn.vw = 640;
 		mn.vh = 360;
-		np_draw_video(a, &mn, 1);
+		np_draw_video(a, &mn, (float)shot_video);
 	} else {
 		np_draw(a, &mn, next);
 	}
@@ -1815,7 +1814,8 @@ static void shot_compose(app *a)
 	 * until it has slid all the way in. */
 	if (shot_osd_kind) {
 		plat_osd_show(shot_osd_kind, shot_osd_val,
-		              shot_osd_kind == 1 ? PLAT_BRIGHT_MAX : PLAT_VOL_MAX);
+		              shot_osd_kind == OSDBAR_BRIGHT ? PLAT_BRIGHT_MAX
+		              : shot_osd_kind == OSDBAR_POWER ? OSDBAR_POWER_STEPS : PLAT_VOL_MAX);
 		SDL_Delay(OSDBAR_IN_MS + 10);
 		plat_draw_osd(a->r);
 	}
@@ -2215,7 +2215,8 @@ static void shot_tour_draw(app *a)
 	}
 	if (shot_osd_kind) {
 		plat_osd_show(shot_osd_kind, shot_osd_val,
-		              shot_osd_kind == 1 ? PLAT_BRIGHT_MAX : PLAT_VOL_MAX);
+		              shot_osd_kind == OSDBAR_BRIGHT ? PLAT_BRIGHT_MAX
+		              : shot_osd_kind == OSDBAR_POWER ? OSDBAR_POWER_STEPS : PLAT_VOL_MAX);
 		SDL_Delay(OSDBAR_IN_MS + 10);
 		plat_draw_osd(a->r);
 	}

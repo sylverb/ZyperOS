@@ -279,6 +279,25 @@ LAYOUT = [
     ("hints-gap",       32,  "one hint to the next"),
     ("hints-gap-spread", 16, "the least between hints spread across a foot"),
     ("hints-row",       44,  "one row of hints to the next"),
+    # the system (DESIGN.md "The system", round 3): one 8-unit grid (5 panel
+    # pixels on the Pixel 2) for every position and every distance between
+    # parts, these roles for what a screen keeps everywhere, and each type's
+    # line as a box, all for the layout engine (src/ds/flex.h). Screens move
+    # onto them one by one, each through the pixel gate.
+    ("margin",          64,  "content from the screen's sides"),
+    ("header",          72,  "the top bar's band: the clock, a title, the marks; content starts a section under it"),
+    ("section",         24,  "between the parts of a screen"),
+    ("related",         8,   "between things that go together: a bar and its times"),
+    ("foot-inset",      32,  "the keys' foot from the screen's foot: one row's middle at 720"),
+    ("foot-gap",        24,  "content over the keys keeps at least this"),
+    ("caption-inset",   40,  "a caption at the foot: its last line's box from the screen's foot"),
+    ("list-row",        72,  "a list's row"),
+    ("line-title",      72,  "a title's line, as a box"),
+    ("line-label",      64,  "a label's line"),
+    ("line-menu",       56,  "a menu row's line"),
+    ("line-meta",       40,  "a meta line: times, a caption's line"),
+    ("line-support",    36,  "a support line"),
+    ("line-chrome",     32,  "a chrome line: a key's word, the header"),
 ]
 
 # ---- elevation -----------------------------------------------------------------
@@ -328,9 +347,9 @@ MOTION = [
     ("zyper-ears",  420,  "-",     "Zyper's ears swinging out and back as he says hello"),
     ("tour-reward", 1100, "-",     "a tutorial step's reward, before the next"),
     ("tour-pulse",  440,  "-",     "the right glyph's two pulses after a press of the wrong button"),
-    ("hold-unlock", 2000, "-",     "MP4's lock: SELECT and START held together this long unlock it"),
+    ("hold-unlock", 2000, "-",     "MP4's lock: SELECT and START held together this long unlock it; POWER held this long starts the charging screen's handheld, and turns it off with Power Button on Hold"),
     ("hold-lock-lit", 4000, "-",   "MP4's lock screen, lit as it locks"),
-    ("hold-controls", 3000, "-",   "MP4's video controls after the last press, full screen"),
+    ("hold-controls", 3000, "-",   "MP4's video controls after the last press"),
     ("hold-snap",   1000, "-",     "a game focused on the shelf before its cover turns into its video snap"),
     ("hold-low-battery", 6000, "-", "the low-battery start screen before the handheld powers off"),
     ("hold-heat",   4000, "-",     "\"Getting hot\", on the home and over a game"),

@@ -3,6 +3,7 @@
  * emulator. Nothing in it knows which device it runs on. */
 #include "device.h"
 #include "platform.h"
+#include "powerhold.h"
 
 #include <dirent.h>
 #include <fcntl.h>
@@ -833,13 +834,40 @@ static void d_apply_levels(void)
 	d_pend_vol = d_pend_bri = -1;
 }
 
+/* POWER held over a game, with MENU > Power Button on Hold (src/powerhold.h):
+ * Diatom draws the settings pill filling for as long as the hold is under
+ * way, from SETPOWERHOLD on=1 and how far it has got, ms and at, on its own
+ * clock; on=0 when it is let go early, which fades it at once, and done=1
+ * with it when the hold is done, which leaves it full to fade as the
+ * volume's does. Told only of a change; d_hold_told is whether the last word
+ * was on=1. Additive: an older Diatom ignores the verb and shows nothing. */
+static bool d_hold_told;
+
+static void d_power_hold(bool done)
+{
+	int pm = plat_power_hold();
+
+	if (pm >= 0 && !d_hold_told) {
+		if (dsend("SETPOWERHOLD\ton=1\tms=%u\tat=%u", (unsigned)POWERHOLD_MS,
+		          (unsigned)(pm * POWERHOLD_MS / 1000)))
+			d_hold_told = true;
+	} else if (pm < 0 && d_hold_told) {
+		dsend("SETPOWERHOLD\ton=0%s", done ? "\tdone=1" : "");
+		d_hold_told = false;
+	}
+}
+
 static int diatom_wait(void)
 {
 	int sent_stop = 0;
 	unsigned stop_at = 0, start = plat_now_ms();
 	int autostop_s = getenv("ZYPEROS_AUTOSTOP_S") ? atoi(getenv("ZYPEROS_AUTOSTOP_S")) : 0;
+	/* Stale presses drained; but a hold that comes due here is the hold, and
+	 * one under way goes on, so Diatom is told of it */
+	bool power = device_power_pressed() && powerhold_mode();
 
-	device_power_pressed();          /* drain stale presses */
+	d_hold_told = false;
+	d_power_hold(power);
 
 	for (;;) {
 		char *l;
@@ -967,12 +995,16 @@ static int diatom_wait(void)
 		 * see plat_resident_on_tick. */
 		if (d_on_tick) d_on_tick();
 
-		if (device_power_pressed() && !sent_stop) {
+		/* A press, or a hold done (MENU > Power Button) */
+		power = device_power_pressed() || power;
+		d_power_hold(power);
+		if (power && !sent_stop) {
 			plat_set_power_pressed(true);
 			sent_stop = 1;
 			stop_at = plat_now_ms();
 			dsend("STOP");
 		}
+		power = false;
 		/* The battery about to run out: as the power button, so the game
 		 * saves on its way out rather than the PMIC cutting it off. */
 		if (!sent_stop && d_battery_empty && d_battery_empty()) {
