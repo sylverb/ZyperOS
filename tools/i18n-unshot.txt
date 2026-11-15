@@ -406,6 +406,7 @@ ra.sign_in_no_token
 
 # scraper: no shot draws it yet
 scraper.complete
+scraper.names_n.one
 scraper.on
 scraper.key_refused
 scraper.ss_user
