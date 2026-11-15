@@ -251,6 +251,10 @@ _Static_assert(MENU_MAX_ROWS >= SM_ROWS, "MENU_MAX_ROWS < SM_ROWS");
 typedef struct {
 	char a[24], b[CFG_STR], c[16], d[40], e[8], ch[40], sv[16];
 	unsigned char sound[MENU_MAX_ROWS];
+	/* And each row's choices by place (menu.h's menu_choice), copied from
+	 * the ones the caller gave by row (sys_ui's pm_choice and the rest), so
+	 * the runner opens an option row's list on A */
+	menu_choice choice[MENU_MAX_ROWS];
 } menu_bufs;
 
 /* Everything either menu needs to know about the device, gathered by the
@@ -420,6 +424,11 @@ typedef struct {
 	/* The shelf shows a list rather than its covers (View, SM_VIEW) */
 	bool        listed;
 	bool        grid;       /* the shelf is a grid of covers (MENU > View) */
+	/* Each option row's choices, by its row (MENU's by pm_row, the system
+	 * menu's by sm_row, the Muse shelf's by sm_muse_row), which the screen
+	 * fills from what it knows and the build copies to its rows' places
+	 * (menu_bufs's choice). NULL: none. */
+	const menu_choice *pm_choice, *sm_choice, *smm_choice;
 } sys_ui;
 
 /* The ZyperOS menu's rows and the system menu's, in order, for what the device

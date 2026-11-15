@@ -4,6 +4,7 @@
  * and spawning children, the power-off request and the volume and brightness
  * line. The device itself is in src/device/<name>.c, chosen at build time,
  * and the Diatom transport is in resident.c. */
+#include "coreopts.h"   /* the defaults under the player's own */
 #include "db.h"
 #include "device.h"
 #include "dslang.h"
@@ -43,56 +44,35 @@
  * so a DMG cartridge comes out colorized and framed in a border, on a shelf
  * that says Game Boy. Pinning the model globally would force GBC titles into
  * DMG mode too, and a 0xC0 cartridge would refuse to boot. */
-#define COREOPT_MAX 48
-static struct { char tag[8]; char kv[192]; } coreopts[COREOPT_MAX];
+#define COREOPT_MAX 96
+static coreopt coreopts[COREOPT_MAX];
 static int  ncoreopts = -1;   /* -1 = not read yet */
 
+/* A row of the player's. Refused whole, not stored short: half a key=value
+ * pair is still a valid-looking one, and it would be sent to a core as
+ * though someone meant it. */
 static bool coreopt_row(const char *key, const char *value, void *ctx)
 {
-	const char *rest = key + strlen("coreopt.");
-	const char *dot = strchr(rest, '.');
-	char kv[192];
-
 	(void)ctx;
-	if (!dot || ncoreopts >= COREOPT_MAX) return ncoreopts < COREOPT_MAX;
-
-	/* Refused, not stored short. Half a key=value pair is still a
-	 * valid-looking one, and it would be sent to a core as though someone
-	 * meant it. */
-	if ((size_t)(dot - rest) >= sizeof coreopts[0].tag ||
-	    snprintf(kv, sizeof kv, "%s=%s", dot + 1, value) >= (int)sizeof kv) {
+	if (ncoreopts >= COREOPT_MAX) return false;
+	if (!coreopt_add(coreopts, &ncoreopts, COREOPT_MAX, key, value) && strchr(key + strlen("coreopt."), '.'))
 		fprintf(stderr, "coreopts: entry too long, ignoring: %.40s\n", key);
-		return true;
-	}
-	snprintf(coreopts[ncoreopts].tag, sizeof coreopts[0].tag, "%.*s",
-	         (int)(dot - rest), rest);
-	snprintf(coreopts[ncoreopts].kv, sizeof coreopts[0].kv, "%s", kv);
-	ncoreopts++;
 	return true;
 }
 
 /* Keys are "coreopt.<tag>.<option>", with an empty tag for a global - so
  * "coreopt..mgba_sgb_borders" is global and "coreopt.GB.mgba_gb_model" is not.
  * The empty segment looks odd and is the point: one prefix scan brings back
- * both kinds, and coreopt_nth below still decides precedence. */
+ * both kinds, and coreopt_nth still decides precedence. The player's rows
+ * first, then the defaults under them (src/coreopts.h): the device's, then
+ * every device's. */
 static void coreopts_load(void)
 {
+	const device_profile *p = plat_profile();
+
 	ncoreopts = 0;
 	db_each_prefix(db_lib(), "coreopt.", coreopt_row, NULL);
-}
-
-/* Global entries first, then this tag's, so a system can override a global. */
-static int coreopt_nth(const char *tag, int want, const char **out)
-{
-	int pass, i, seen = 0;
-	for (pass = 0; pass < 2; pass++)
-		for (i = 0; i < ncoreopts; i++) {
-			bool global = coreopts[i].tag[0] == '\0';
-			if (pass == 0 ? !global : global) continue;
-			if (pass == 1 && (!tag || strcmp(coreopts[i].tag, tag))) continue;
-			if (seen++ == want) { if (out) *out = coreopts[i].kv; return 1; }
-		}
-	return 0;
+	coreopt_defaults(coreopts, &ncoreopts, COREOPT_MAX, p->coreopts);
 }
 
 /* The one opinion that is not a stored setting: a Nintendo DS game's language
@@ -115,7 +95,7 @@ int plat_coreopt_count(const char *tag)
 {
 	int n = 0;
 	if (ncoreopts < 0) coreopts_load();
-	while (coreopt_nth(tag, n, NULL)) n++;
+	while (coreopt_nth(coreopts, ncoreopts, tag, n, NULL)) n++;
 	return n + (derived_coreopt(tag) ? 1 : 0);
 }
 
@@ -127,7 +107,7 @@ const char *plat_coreopt(const char *tag, int i)
 		if (i == 0) return own;
 		i--;
 	}
-	coreopt_nth(tag, i, &kv);
+	coreopt_nth(coreopts, ncoreopts, tag, i, &kv);
 	return kv;
 }
 

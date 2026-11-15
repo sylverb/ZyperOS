@@ -53,7 +53,7 @@ bool cfg_load_systems(const char *path, systems_cfg *out)
 	if (!f) return false;
 	char line[1024];
 	/* power|tag|level, map|tag|spec, controller|tag|n, stick|tag|dpad,
-	 * rumble|tag|percent and bios|tag|names and es|tag|names lines, applied
+	 * rumble|tag|percent, bios|tag|names, es|tag|names and needs|tag|what lines, applied
 	 * once every system is read, so they may sit anywhere in the file */
 	struct { char kind[12], tag[8], value[160]; } extra[CFG_MAX_SYSTEMS * 4];
 	int nextra = 0;
@@ -76,7 +76,7 @@ bool cfg_load_systems(const char *path, systems_cfg *out)
 		}
 		if (n == 3 && (!strcmp(fld[0], "power") || !strcmp(fld[0], "map") ||
 		               !strcmp(fld[0], "controller") || !strcmp(fld[0], "stick") ||
-		               !strcmp(fld[0], "rumble") ||
+		               !strcmp(fld[0], "rumble") || !strcmp(fld[0], "needs") ||
 	               !strcmp(fld[0], "bios") || !strcmp(fld[0], "es"))) {
 			if (nextra < (int)(sizeof extra / sizeof extra[0])) {
 				snprintf(extra[nextra].kind, sizeof extra[0].kind, "%s", fld[0]);
@@ -121,6 +121,10 @@ bool cfg_load_systems(const char *path, systems_cfg *out)
 			}
 			else if (!strcmp(extra[i].kind, "es"))
 				snprintf(s->es, sizeof s->es, "%s", extra[i].value);
+			else if (!strcmp(extra[i].kind, "needs")) {
+				/* only what the launcher knows to ask the device */
+				if (!strcmp(extra[i].value, "gpu-frames")) s->needs_gpu_frames = true;
+			}
 			else if (!strcmp(extra[i].kind, "rumble")) {
 				int pct = atoi(extra[i].value);
 

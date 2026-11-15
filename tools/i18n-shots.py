@@ -591,6 +591,14 @@ EXTRA.setdefault("menu-display-theme", ("demo", "PS1", ["--menu-tab", "1", "--me
 # Display's Screensaver at off: "off", a status's lowercase, now that the
 # switches say On and Off (menu.off, and scraper.off and ssh.off, its words)
 EXTRA.setdefault("menu-saver-off", ("demo", "PS1", ["--menu-tab", "1", "--menu", "Screensaver"]))
+# An option row's list (DESIGN.md 11.3), A on the row: Auto Off's every
+# value (its seconds and minutes); Display's, with what the mode under the
+# cursor does under it, from a system's menu and from the in-game menu
+EXTRA.setdefault("menu-autooff-list", ("demo", "PS1", ["--menu", "Auto Off", "--press", "a"]))
+EXTRA.setdefault("system-menu-display-list", ("demo", "PS1", ["--screen", "games", "--menu", "Display", "--press", "a"]))
+# View's three (Covers, Grid, List) over a shelf in the grid
+EXTRA.setdefault("system-menu-view-list", ("demo", "NES", ["--screen", "games", "--view", "grid", "--menu", "View", "--press", "a"]))
+EXTRA.setdefault("gamemenu-display-list", ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "1", "--gm-choose"]))
 # Display's Theme page (DESIGN.md 11.42) in each of the ten accents, the
 # tones going round in both themes and the corners turning over, so every
 # accent's, tone's and value's name is drawn; its foot, Zyper and Reset to

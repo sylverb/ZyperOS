@@ -315,8 +315,8 @@ no feature that fails on an older system, and no `min-system` raise.)*
 ### 3. The handheld as data
 
 `src/tourdevice.c`'s geometry moves into a `td_model`: the Pixel 2's numbers
-become `src/device/pixel2.model.c`, drawn exactly as today (pixel gate). The
-drawing code walks the model's faces and keys instead of naming the Pixel 2's.
+become `src/device/pixel2_model.c`, drawn exactly as today (pixel gate). The
+drawing code reads the model's keys instead of naming the Pixel 2's.
 `td_key` grows to the union of the devices' keys (F1 and F2 for the Brick's
 brightness keys). Which way the handheld turns for a key, in the tutorial,
 and which way it leans on the Controls tab (`ct_lean`), follow from the key's
@@ -333,8 +333,9 @@ their own copies for now; one source for all three is later work.
 - **`config/systems.cfg` gets a `needs|TAG|gpu-frames` line** for the systems
   whose cores ask for GPU frames (Dreamcast, NAOMI, Atomiswave, N64, PSP,
   Saturn). A device without them does not show those shelves and its payload
-  does not carry those cores; a game moved over from another card says why
-  it will not start, in the words other missing pieces use.
+  does not carry those cores; a game moved over from another card leaves
+  Favorites and Recent with its shelf, as a system turned off in Home
+  Systems does (step 3's call).
 - **The power steps move into the Diatom port's profile** (CPU, memory and
   GPU ceilings per step, the paths to set them); `systems.cfg` keeps the
   words `light` and `medium`, which each device maps to its own clocks.
@@ -772,13 +773,17 @@ done by then).
    `make check-devices`, the Brick files compiled in CI. Fixes on the way:
    Developer Mode's unlock, the Controls tab's handheld shown only with a
    model. Pixel gate clean.
-2. **The handheld as data.** `td_model`, the Pixel 2's model in
-   `pixel2.model.c`, turn and lean from the model, kept boxes per model.
-   Pixel gate clean.
-3. **Systems, cores and power by capability.** `needs|` lines, the payload's
-   cores per device, core option defaults per device, the power steps in the
-   Diatom port, `vendor/<arch>/`, `-mcpu` from the profile.
-4. **Build, card and release by device.** plastron's device symbol, one
+2. **The handheld as data** (built 2026-11-15). `td_model`, the Pixel 2's
+   model in `pixel2_model.c`, turn and lean from the model, kept boxes per
+   model, `dev_button_place`. Pixel gate clean.
+3. **Systems, cores and power by capability** (built 2026-11-15). `needs|`
+   lines and the profile's GPU frames, core option defaults per device at run
+   time, the power steps in the Diatom port. The payload's cores per device,
+   `vendor/<arch>/` and `-mcpu` from the profile moved to step 4.
+4. **Build, card and release by device.** The cores' architecture
+   (`vendor/<arch>/cores`, `-mcpu` from the profile) and the payload's cores
+   per device (no GPU-frame cores where there are no GPU frames), read from
+   the generated `<id>.mk`. plastron's device symbol, one
    card script with `device.sh`, System Update's device and slots and the
    `has` line in `/etc/zyperos/system`, `tools/release.sh` over a device
    list, the installer's devices from the release, dev tools with a device.
@@ -851,7 +856,7 @@ Made while building step 1 (2026-11-15; the plan,
   tutorial's handheld over the profile in force) until step 5 moves the
   shots to `--device pixel2` on a reviewed sheet.
 - The tutorial draws the handheld where the profile has one and brightness
-  is MENU+VOL (`dev_tutorial_handheld`); the second half exists only for the
+  is MENU+VOL (`dev_tutorial_model`); the second half exists only for the
   desktop profile and goes in step 5.
 - The capability `plat_*` functions stay as the read path, defined once in
   `src/profile.c` from the profile; their prototypes live in
@@ -863,6 +868,43 @@ Made while building step 1 (2026-11-15; the plan,
   they always were; the windowed Mac run now offers them too).
 - The in-game Controls tab keeps its column on a device with no drawing,
   empty, until that device's drawing comes (step 5 for the Brick).
+
+Made while building step 2 (2026-11-15; the plan,
+`docs/superpowers/plans/2026-11-15-device-profile-step2.md`):
+
+- The model holds what the logic reads: each key's face, place and size,
+  the five views, the kept boxes and which art draws it. The art itself
+  (the body, the glass, the tabs, the volume signs, the rocker, the lights,
+  the shoulders' plane) stays code, one art a device, reading its keys'
+  places from the model. A generic mesh would be a rewrite of hand-tuned
+  shapes for no gain; the Brick gets its own art in step 5.
+- A lesson's view follows from the faces of the keys it lights, the
+  Brightness tabs from keys on both side faces, and the Controls tab's lean
+  from each key's side of the middle (`lean_centre`, 8 mm on the Pixel 2).
+- `--handheld-box tour` measures every lesson with both brightness chords,
+  so a model is held to the poses any device could give it.
+- `td_model_<id>` names join the device lint: a device build links its own
+  model alone.
+
+Made while building step 3 (2026-11-15; the plan,
+`docs/superpowers/plans/2026-11-15-device-capabilities-step3.md`):
+
+- The cores' architecture, `-mcpu` from the profile and the payload's cores
+  per device move to step 4: their one reader of the device's architecture
+  is the generated `<id>.mk` step 1 moved there, and a renamed cores release
+  is a release of its own.
+- A system that needs GPU frames, on a handheld without them, leaves the
+  home the way Home Systems' Off does: with its Favorites, Recent and resume
+  at boot, and with no row on that page. So no game of it reaches a core
+  that cannot run it, and no launch message is needed for it. Saying on the
+  Brick which systems it cannot run is step 5's (its front end).
+- Every core option default leaves the seeded library, not only the
+  Panfrost ones: the ones every device takes in `src/coreopts.c`, the ones
+  measured on the Pixel 2 (its GPU, its RK3326, its motor) in its profile.
+  The Pixel 2's table is linked on every device, because the one-time
+  cleanup deletes what 1.0.5 seeded wherever a card moves.
+- The Brick declares no GPU frames, no core option defaults of its own and
+  no power steps until they are measured there.
 
 ## Decided
 

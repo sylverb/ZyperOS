@@ -25,6 +25,7 @@
 #include <stdint.h>
 
 #include "../inbutton.h"
+#include "td_model.h"   /* td_model: a handheld's 3D drawing */
 
 /* How brightness is changed: keys of its own (the Brick's F1 and F2), or
  * MENU with a volume key, on a device that has none (the Pixel 2) */
@@ -61,6 +62,10 @@ typedef struct {
 	uint32_t    cap_rgb;     /* 0xRRGGBB, 0 for the body's own dark */
 } dev_button;
 
+/* A setting's default a device gives, a library key and its value: a core
+ * option tuned on it ("coreopt.<tag>.<option>", src/coreopts.h) */
+typedef struct { const char *key, *value; } dev_default;
+
 typedef enum { DEV_WIFI_NONE, DEV_WIFI_ADAPTER, DEV_WIFI_BUILTIN } dev_wifi;
 
 typedef struct device_profile {
@@ -81,18 +86,32 @@ typedef struct device_profile {
 	dev_chords        chords;
 	const dev_button *buttons;
 	int               n_buttons;
-	bool handheld;           /* a 3D handheld to draw (the Pixel 2's for now) */
+	/* Its 3D drawing for the tutorial and the Controls tab (td_model.h),
+	 * NULL where it has none yet: never another device's */
+	const td_model *model;
 	bool bluetooth;
 	bool gpu_shaders;        /* Diatom's old screens are a GPU's pass here */
+	/* Diatom gives a core that asks for one a GPU to draw its frames on
+	 * (SET_HW_RENDER): the Dreamcast's, the N64's, the PSP's, Saturn's */
+	bool gpu_frames;
 	bool speaker_mono;       /* one built-in speaker */
 	bool player2;            /* NES Player 2 was built and tried on it */
 	bool usb_shared_port;    /* one port for the computer and accessories */
 	dev_wifi wifi;
+	/* The core options measured on this handheld, its GPU or its motor,
+	 * given at run time under the player's own (src/coreopts.h); ends in
+	 * { NULL, NULL }, or NULL for none */
+	const dev_default *coreopts;
 } device_profile;
 
 extern const device_profile device_profile_pixel2;
 extern const device_profile device_profile_brick;
 extern const device_profile device_profile_desktop;
+
+/* The Pixel 2's core options (src/device/pixel2_coreopts.c), linked on every
+ * device: they are what 1.0.5 seeded into every card's library, which the
+ * one-time cleanup (coreopts_migrate) takes out wherever the card is now */
+extern const dev_default dev_coreopts_pixel2[];
 
 /* The profile in force, never NULL: the build's own, or the one the host
  * build was told to wear */
@@ -108,16 +127,22 @@ const device_profile *plat_profile_at(int i);
 void plat_profile_ids(char *out, size_t n);
 /* `b` as `p` prints it, or NULL where `p` has no such control */
 const dev_button *dev_button_of(const device_profile *p, in_button b);
+/* Where `b` is on `p`'s handheld, as its model has it (td_model.h: the face
+ * in *face, (x, z) on it in *x and *z): the d-pad for its four directions,
+ * F1 and F2 for brightness down and up. False, and nothing set, where `p`
+ * has no model or its model has no such key. For the design system, which
+ * points at a key where it is. */
+bool dev_button_place(const device_profile *p, in_button b, td_face *face, float *x, float *z);
 /* `base` with the Pixel 2's brightness chord, MENU on release and Home: the
  * shots' --fn-volume, which shows those screens on the host as the Pixel 2
  * has them until the shots wear --device pixel2 (step 5 of the device spec) */
 dev_chords dev_chords_fn_volume(dev_chords base);
-/* Whether the tutorial draws `p`'s handheld beside its lessons, with chords
- * `c`: where there is one and brightness is MENU+VOL. The second half is for
- * the host's desktop profile alone, which borrows the Pixel 2's drawing for
- * the Controls tab but teaches the Brick's F1 and F2; it goes when the Brick
- * gets a drawing of its own (step 5). */
-bool dev_tutorial_handheld(const device_profile *p, const dev_chords *c);
+/* The handheld the tutorial draws beside its lessons for `p` with chords
+ * `c`, NULL for none: `p`'s model where brightness is MENU+VOL. The second
+ * half is for the host's desktop profile alone, which borrows the Pixel 2's
+ * drawing for the Controls tab but teaches the Brick's F1 and F2; it goes
+ * when the Brick gets a drawing of its own (step 5). */
+const td_model *dev_tutorial_model(const device_profile *p, const dev_chords *c);
 /* L2 and R2 both held this moment, for Developer Mode's unlock: as taps where
  * the chords say they are taps (`tap_l2`, `tap_r2`: plat_tap_held), as the
  * buttons' own state everywhere else (`down_l2`, `down_r2`: in_state) */
@@ -134,6 +159,10 @@ bool plat_has_bluetooth(void);
  * CRT, scanlines, the LCD grid; src/app.h SHADERS' gpu): on the Pixel 2,
  * whose pass is a GPU's; not on the Brick, whose is the CPU's */
 bool plat_gpu_shaders(void);
+/* Whether a game whose core draws with the GPU can run here (the profile's
+ * gpu_frames): the systems that need it (config/systems.cfg's needs lines)
+ * have no shelf where it cannot, and their games say why they do not start */
+bool plat_gpu_frames(void);
 /* Whether the built-in speaker is one speaker, as on the GKD Pixel 2, where
  * the Brick has two: Audio Channels' Auto is mono there and stereo on
  * everything else (src/audioout.h). */

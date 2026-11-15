@@ -51,29 +51,46 @@ int shelf_have_list(const shelf_have **out)
 	return g_nhave;
 }
 
+/* A shelf's listing let go, as it leaves the home */
+static void view_free(sysview *v)
+{
+	free(v->tex); free(v->tw); free(v->th); free(v->cb);
+	free(v->album);
+	lib_free(&v->list);
+	shelf_dirs_free(v);
+	memset(v, 0, sizeof *v);
+}
+
 /* And a system with games turned off there (src/homesys.h) leaves the home
  * the same way, its listing let go: it is read again, from the saved library,
- * when it is turned on (shelves_reload). */
+ * when it is turned on (shelves_reload).
+ *
+ * So does a system whose cores need GPU frames on a handheld without them
+ * (config/systems.cfg's needs lines, plat_gpu_frames: the Brick today), and
+ * it is no row of Home Systems either, as it could not be turned on. Its
+ * games leave Favorites, Recent and the resume at boot with it, as a system
+ * turned off does, so none reaches a core that cannot run it. */
 static void hide_empty_systems(app *a)
 {
-	int i, n = 0, off = 0;
+	int i, n = 0, off = 0, gpu = 0;
 
 	g_nhave = 0;
 	for (i = 0; i < a->sys.count; i++) {
 		sysview *v = &a->view[i];
 
 		if (v->list.count <= 0) continue;
+		if (a->sys.systems[i].needs_gpu_frames && !plat_gpu_frames()) {
+			view_free(v);
+			gpu++;
+			continue;
+		}
 		if (g_nhave < CFG_MAX_SYSTEMS) {
 			snprintf(g_have[g_nhave].tag, sizeof g_have[0].tag, "%s", a->sys.systems[i].tag);
 			snprintf(g_have[g_nhave].name, sizeof g_have[0].name, "%s", a->sys.systems[i].name);
 			g_nhave++;
 		}
 		if (!homesys_shown(a->sys.systems[i].tag)) {
-			free(v->tex); free(v->tw); free(v->th); free(v->cb);
-			free(v->album);
-			lib_free(&v->list);
-			shelf_dirs_free(v);
-			memset(v, 0, sizeof *v);
+			view_free(v);
 			off++;
 			continue;
 		}
@@ -84,10 +101,12 @@ static void hide_empty_systems(app *a)
 		}
 		n++;
 	}
-	if (n + off != a->sys.count)
-		fprintf(stderr, "scan: %d of %d systems have games\n", n + off, a->sys.count);
+	if (n + off + gpu != a->sys.count)
+		fprintf(stderr, "scan: %d of %d systems have games\n", n + off + gpu, a->sys.count);
 	if (off)
 		fprintf(stderr, "scan: %d of them off the home (MENU > Home Systems)\n", off);
+	if (gpu)
+		fprintf(stderr, "scan: %d of them need GPU frames, which this handheld has not\n", gpu);
 	a->sys.count = n;
 	if (a->sys_cursor >= n) a->sys_cursor = n ? n - 1 : 0;
 }

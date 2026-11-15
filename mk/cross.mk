@@ -5,7 +5,9 @@ BUILD := build
 # Every device shares src/*.c; DEVICE picks the one device file built with it.
 DEVICE ?= brick
 # and its profile (src/device/profile.h), the one the build is for
-SRC := $(wildcard src/*.c) $(wildcard src/ds/*.c) src/device/$(DEVICE).c src/device/$(DEVICE)_profile.c
+SRC := $(wildcard src/*.c) $(wildcard src/ds/*.c) src/device/$(DEVICE).c src/device/$(DEVICE)_profile.c \
+       src/device/td_model.c $(wildcard src/device/$(DEVICE)_model.c) \
+       src/device/pixel2_coreopts.c
 CC ?= aarch64-linux-gnu-gcc
 
 VERSION ?= 0.0

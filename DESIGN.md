@@ -877,8 +877,42 @@ in **edge** (in a system's menu, in that system's color). Rows in **menu**:
 live rows **text-soft**, values **text-dim**, dead rows **text-dim** at both.
 The focused row is an **accent** fill, **radius.row**, its label and value in
 **on-accent**. More rows above or below: a small triangle in **text-dim**,
-24 by 12 (`ds_more`), as on every list.
+24 by 12 (`ds_more`), as on every list. An option's list (below) that
+ends in a footer (a rule and only notes under it) and does not fit keeps the
+footer still under its rows (`menu_style.pin_foot`): the rows above the rule
+scroll in what room is left, as a card's body scrolls over its pinned
+footer. Elsewhere a long list's footer goes round with its rows.
 Opens and closes as 8.2 says.
+
+**Option rows, one rule (1.0.6).** A row whose value is one of several
+choices answers the same way on every page - MENU, a system's menu, the
+Muse shelf, the in-game menu's Game and Display tabs, Theme, Auto Hours,
+Video Snaps, Menu Music:
+
+- **More than two choices: A opens their list**, a panel of its own under
+  the row's name, the choice that is on ticked and the cursor on it; A
+  chooses one, B leaves it as it was. Its words begin with a capital, as a
+  list's rows do, where the row's value may be "never" or "stereo". A
+  shader or a strength each system has its own of ticks none. Where the
+  row says what its value does (Display: "Fills the screen..."), the list
+  says it too, for the choice under the cursor: two lines under a rule,
+  always two, so the panel holds its size as the cursor moves.
+- **Two: A turns it over.**
+- **Left and Right step every row**, as before, and show the change at
+  once, so a look before choosing is one press away. A scale (minutes,
+  percent, volume) stops at its ends; a set of names goes round.
+- Not option rows: a row that opens a page (Theme, Side Lights, Player 2),
+  Date & Time's year, month, day, hour and minute (digits of one value), and
+  rows with a list of their own (Language, Time Zone, a Controls button).
+
+It is one runner, not code on each row: a page's build gives each option
+row a table of its choices (`menu_choice`, src/menu.h) beside its rows, as it
+gives their sound classes, in the order its Left and Right go; the runner
+opens the list (src/menu_pick.c) and applies the choice by sending the row's
+own Left or Right as many times as it is away (`menu_choose`), so a screen
+needs no code to apply one. `check-menu-rows` fails on a row that steps with
+no table, unless it is a switch or a pair, and on a table that says
+something other than its row.
 
 **Lists go round.** Down on the last row that can be selected goes to the
 first, and Up on the first to the last, in every menu list - MENU, a
@@ -1220,7 +1254,7 @@ of the player's own goes on from wherever the loop was.
   an optional second line in **meta** **text-dim** on y 624. A step's stage,
   glyph and lines fade in over **move**.
 - **The handheld** (a device whose profile has a drawing, the GKD Pixel 2
-  today; src/device/profile.h, `dev_tutorial_handheld`): each lesson shows
+  today; src/device/profile.h, `dev_tutorial_model`): each lesson shows
   the handheld the tutorial is running on, in a column at the left, with the lesson's
   key lit, so a player who has never seen MENU, the volume keys or POWER -
   all on its sides - finds them. *(My pick in the tutorial-buttons lab,
@@ -1232,7 +1266,13 @@ of the player's own goes on from wherever the loop was.
   leaves keeps the **inset** from the right edge instead, ending where
   "START: skip" ends (Music's line, wider than the stage, sits a little
   left of the stage's middle). On a device with no drawing yet (the Brick)
-  nothing moves and there is no handheld. src/tourdevice.c draws it in code, no image files, into a
+  nothing moves and there is no handheld. src/tourdevice.c draws it in code, no image files,
+  from the device's model (src/device/td_model.h: where each key is and on
+  which face, the views it turns to and its kept textures' boxes; the Pixel
+  2's in src/device/pixel2_model.c). A lesson's view follows from the faces
+  of the keys it lights: a key on the top edge tilts it back, keys on both
+  sides face it front with their tabs out of the edges, one side's turn it
+  to that side, and the rest face front. It draws into a
   304 x 382 texture kept while it does not change (it changes only as it
   turns, a key lights or presses, and in the first lesson's fade-in): drawn
   every frame it cost the Pixel 2 a third of the lesson's frame rate, kept
@@ -1242,10 +1282,10 @@ of the player's own goes on from wherever the loop was.
   (`--handheld-box tour`), its words clear of the inset, and the block
   moved and otherwise the Brick's, in both themes.
   - **Shared with the Controls tab** (11.28, 11.45): the tutorial's handheld
-    and the in-game menu's Controls tab draw the same Pixel 2 through
-    `td_draw`, from a pose (centre, scale, turn, tilt, each key's light and
-    press) and the theme's colors, into the one kept texture, sized for its
-    caller. The tutorial's look is the Controls tab's: a change to the model
+    and the in-game menu's Controls tab draw the same device's model
+    through `td_draw`, from a pose (the model, centre, scale, turn, tilt,
+    each key's light and press) and the theme's colors, into the one kept
+    texture, sized for its caller (the model's box for each). The tutorial's look is the Controls tab's: a change to the model
     changes both. Both tilt it back the same 25 degrees for the shoulders
     (the Controls tab's shoulder rows, the tutorial's Move Around and
     Music), the top face showing with the shoulders standing on it; every
@@ -1786,6 +1826,41 @@ block. *(My picks in the File Transfer lab, 2026-11-05:
   folder, or one in BIOS or Saves, stays where the shelf and the cores look.
   A name already in the folder refuses the whole move, and the toast says
   which ("Contra.nes is already in Hacks").
+- **Picking several** (1.0.6, Discord: "tick several ROMs and move them to
+  another folder"): once a row is picked - **Select**, Ctrl or Cmd with a
+  press, or a finger held still for the lift's 450 ms and let go where it is -
+  the list is picking. A press on any row picks or unpicks it (Shift with a
+  press, the rows from the last one picked); a folder does not open. Each
+  row's ⋯ and › give way to a tick: a ring of **edge**, filled **accent** with
+  an **on-accent** check when picked. A bar on the **surface** with the small
+  lift is held to the foot of the window under the list (on a phone, fixed
+  where Upload is, which goes, in two lines): ✕, "3 selected · 328 KB" (the
+  size when only files are picked), Select all (gone once all are), **Move
+  to folder** in **accent** and a bin. Escape or ✕ puts them all down, as
+  another folder does; Ctrl or Cmd+A picks every row and Delete asks about
+  the picks. **Delete** asks once, with what the folders among them hold
+  (each counted by `/api/count`, the one-row rules: a console's folder stops
+  it, with why).
+- **Move to folder** (the bar, and a row's ⋯ for one): a dialog of one height
+  (600 px, 82% of a phone's height as a sheet) whatever it holds, so it does
+  not jump as folders are walked: the heading ("Move 3 items to"), crumbs,
+  the folders of the place shown as rows with their pixel art and ›, a note,
+  and New folder, Cancel and the yes, which names where ("Move to Game
+  Boy"). It opens at the folder above theirs, scrolled to their own, which
+  says "current folder"; ROMs itself, the folder they are in and any folder
+  inside one being moved are no place to go: the yes is off and the note
+  says why. A folder being moved is dimmed and cannot be walked into. New
+  folder asks for a name, makes it there and opens it. The moves are
+  `/api/move` one by one, as a drag's. After a move (a drag's too) the picks
+  go down and a toast says what went where ("Moved 3 items to Game Boy",
+  "Moved Contra.nes to Hacks") with **Undo** at its end (**text**, bold
+  and underlined: **accent-ink** misses 4.5:1 on **raised** in Beard),
+  held three times **hold-long** and not while the pointer is on it; Undo
+  moves each back to the folder it came from (a disc set's folder and a
+  `.cue` with its tracks go back as they went) and says "Moved back.". A
+  move that was refused says why instead, with no Undo. No copy: a copy is a second full copy
+  on the same card, and the page's server runs in the launcher's loop, so a
+  disc image would hold File Transfer for minutes.
 
 ### 11.16 Hotspot screen
 Wi-Fi File Transfer when the handheld is its own network (src/hotspot.h): a
@@ -2372,7 +2447,7 @@ lithium battery ages slower when it is not kept full.
 
 **Charge Limit** in MENU, directly under Auto Off and over Side Lights:
 **Off**, the default on every card, a full charge as before; **80%**,
-**85%**, **90%**. Left and right step it round, A steps it on, heard as a
+**85%**, **90%**. Left and right step it round, A opens its list (11.3), heard as a
 ring, as Side Lights is. Only where the charger can stop short: plastron's
 rk817 driver on the GKD Pixel 2 (`charge_control_end_threshold`), which at
 the limit lets the cable give only 80 mA, less than the handheld draws, so
@@ -3579,8 +3654,9 @@ Each shelf keeps its own, Favorites too, in the device's database by the
 system's tag (`view.<tag>`): the choice belongs with Sort By and Display
 Mode, which are per shelf, because it follows what a shelf holds - a
 shelf with good covers reads as a row, an Arcade or a long library as a
-list. Right and A step it on, Covers to Grid to List and round, and Left
-back; the shelf under the menu turns with it, on the same entry.
+list. Right steps it on, Covers to Grid to List and round, Left back,
+and A opens the three as a list (11.3's option rows); the shelf under the
+menu turns with it, on the same entry.
 
 **START** on the shelf steps it on too, Covers to Grid to List and round,
 with no menu *(2026-11-13: "make clicking start in a system change view
@@ -3724,7 +3800,7 @@ Host shots: `--info-delete` shows the row above Delete Game.
 **Theme** (MENU > Display) is a menu panel of six rows over the shelf:
 **Accent**, **Light Background**, **Dark Background**, **Corners**,
 **Zyper** and **Reset to Default** (3.5). Left and Right step a row round
-and apply it at once, saved; A steps forward, and on Reset to Default puts
+and apply it at once, saved; A opens a row's list (11.3), and on Reset to Default puts
 all four back as they ship. Between the heading's rule and the rows, both
 themes as the look has them, small, side by side, Light at the left
 whatever is on: each the home (its name and count, A, the art, the dock and
@@ -4114,7 +4190,10 @@ the lit one standing up out of it in the lit look; its upright edges stay
 upright. SELECT, START, keys on both sides and no keys bring it back to the
 front pose, level; a side key with a centre key leans to its side (the N64's
 d-pad and SELECT as the d-pad), and a face with a right shoulder as the face,
-level.
+level. Which side a key is on is where the device's model has it
+(`ct_lean`): on the front, left or right of the middle, SELECT and START
+within 8 mm of it being the centre; on the top edge, a shoulder left or
+right; a key on a side face is a centre key here.
 
 | What | Token and how |
 |---|---|
@@ -4554,7 +4633,12 @@ heard as a ring, as Side Lights' parts are. Under a rule, the note: "Games
 stay on the card." All of them On as they ship. A system turned off leaves
 the home, and with it Random Game, Search, Favorites and Recents; its games
 stay on the card and in File Transfer, and come back the moment it is on
-again. The last system on cannot be turned off, since a home with no system
+again. On a handheld without GPU frames (the Brick's profile today,
+`plat_gpu_frames`), a system whose cores need them (config/systems.cfg's
+`needs` lines: the Dreamcast, NAOMI, Atomiswave, the N64, the PSP and
+Saturn) leaves the home the same way, and is no row of this page, since it
+could not be turned on; its games stay on the card, in File Transfer and on
+the Storage page. The last system on cannot be turned off, since a home with no system
 is the empty home's, which says the card has no games: its row is dead, and a
 second note says why ("One system stays on the home."). The home is built
 again once, as the page closes on a change, from the saved library, keeping

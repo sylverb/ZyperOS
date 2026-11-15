@@ -9,7 +9,7 @@
  * every shot is; a windowed run offers them now too), and the 3D handheld
  * on the in-game Controls tab. The
  * tutorial shows that handheld only with --fn-volume, as before (src/
- * profile.c, dev_tutorial_handheld). Shots of a real handheld wear its own
+ * profile.c, dev_tutorial_model). Shots of a real handheld wear its own
  * profile: --device pixel2, --device brick. */
 #include "profile.h"
 #include "brick_buttons.h"
@@ -28,9 +28,11 @@ const device_profile device_profile_desktop = {
 	.chords = { .bright = DEV_BRIGHT_KEYS },
 	.buttons = brick_buttons,
 	.n_buttons = (int)(sizeof brick_buttons / sizeof brick_buttons[0]),
-	.handheld = true,
+	.model = &td_model_pixel2,
 	.bluetooth = true,
 	.gpu_shaders = true,
+	.gpu_frames = true,
+	.coreopts = dev_coreopts_pixel2,
 	.speaker_mono = false,
 	.player2 = false,
 	.usb_shared_port = false,
