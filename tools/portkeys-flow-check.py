@@ -25,6 +25,6 @@ with tempfile.TemporaryDirectory(prefix='portkeys-flow-') as tmp:
     command += shlex.split(os.environ.get('PK_FLOW_CFLAGS', '-O2 -Wall -Wextra -Werror'))
     command += ['-std=gnu11', '-I' + tmp, '-I' + str(root / 'src'),
                 '-I' + str(root / 'tools'), str(root / 'tools/portkeys-flow-check.c'),
-                str(root / 'tools/pkkeys.c'), '-lsqlite3', '-o', binary]
+                str(root / 'tools/pkkeys.c'), str(root / 'src/powerhold.c'), '-lsqlite3', '-o', binary]
     subprocess.run(command, check=True)
     subprocess.run([binary], check=True, timeout=15)

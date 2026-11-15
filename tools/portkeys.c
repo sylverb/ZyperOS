@@ -99,6 +99,7 @@
 #include "osdbar.h"
 #include "pkkeys.h"
 #include "pkset.h"
+#include "powerhold.h"
 #include "portmenu.h"
 #include "sidelights.h"
 #include "status.h"
@@ -634,6 +635,15 @@ static void bar_show(int kind, int level, int max)
 	B.max = max;
 	B.changed = now;
 	B.live = true;
+}
+
+/* Out at once rather than after its hold: POWER let go before its hold was
+ * done (pw_bar) */
+static void bar_fade(void)
+{
+	long now = now_ms();
+
+	if (B.live && now - B.changed < OSDBAR_HOLD_MS) B.changed = now - OSDBAR_HOLD_MS;
 }
 
 /* ---- "Getting hot" over a port ----------------------------------------------
@@ -1565,6 +1575,27 @@ static bool batt_empty(int pct, bool charging)
 	return batt_seen == 2;
 }
 
+/* A press, or with MENU > Power Button on Hold a hold of POWERHOLD_MS, as
+ * the launcher reads it (src/powerhold.h): PW is the key's state, and the
+ * bar shows the hold's power kind for as long as it is under way, full when
+ * it is done, gone at once when it is let go early (pw_bar). */
+static powerhold PW;
+static bool pw_shown;
+
+static void pw_bar(long now)
+{
+	int pm = powerhold_permille(&PW, (unsigned)now);
+
+	if (pm >= 0) {
+		bar_show(OSDBAR_POWER, pm * OSDBAR_POWER_STEPS / 1000, OSDBAR_POWER_STEPS);
+		pw_shown = true;
+	} else if (pw_shown) {
+		pw_shown = false;
+		if (PW.fired) bar_show(OSDBAR_POWER, OSDBAR_POWER_STEPS, OSDBAR_POWER_STEPS);
+		else bar_fade();
+	}
+}
+
 static void power_read(void)
 {
 	struct input_event ev[16];
@@ -1574,8 +1605,10 @@ static void power_read(void)
 		size_t k;
 
 		for (k = 0; k < (size_t)r / sizeof *ev; k++) {
-			if (ev[k].type != EV_KEY || ev[k].code != KEY_POWER || ev[k].value != 1)
+			/* A repeat is neither a press nor a let-go */
+			if (ev[k].type != EV_KEY || ev[k].code != KEY_POWER || ev[k].value == 2)
 				continue;
+			if (!powerhold_key(&PW, ev[k].value == 1, (unsigned)now_ms())) continue;
 			fprintf(stderr, "portkeys: POWER, the port ends\n");
 			end_port();
 		}
@@ -1583,7 +1616,21 @@ static void power_read(void)
 	if (r == 0 || (r < 0 && errno != EAGAIN && errno != EINTR)) {
 		close(powfd);
 		powfd = -1;
+		PW = (powerhold){ 0 };
 	}
+	pw_bar(now_ms());
+}
+
+/* Every pass: a hold of POWER done ends the port as a press does */
+static void power_due(void)
+{
+	long now = now_ms();
+
+	if (powerhold_due(&PW, (unsigned)now)) {
+		fprintf(stderr, "portkeys: POWER held, the port ends\n");
+		end_port();
+	}
+	pw_bar(now);
 }
 
 /* After the in-game menu (menu_show), which read POWER itself: what the power
@@ -1598,6 +1645,9 @@ static void power_drain(void)
 		close(powfd);
 		powfd = -1;
 	}
+	/* And a hold under way when the menu came up was the launcher's too */
+	PW = (powerhold){ 0 };
+	pw_bar(now_ms());
 }
 
 /* The clock the devices stamp their events with: CLOCK_MONOTONIC, set on
@@ -1796,6 +1846,13 @@ int main(int argc, char **argv)
 	 * port runs either: the bar's colors in both themes, and the hours the
 	 * clock turns it at (src/look.h, src/theme.h) */
 	if (appearance_read) look_load_db(db);
+	/* MENU > Power Button, a press or a hold, as the launcher saved it
+	 * (src/powerhold.h); nothing changes it while a port runs */
+	{
+		char pb[8];
+
+		if (pkset_text(db, POWERHOLD_KEY, pb, sizeof pb)) powerhold_set_mode(!strcmp(pb, "hold"));
+	}
 	pkset_zone_load(argc > 2 ? argv[2] : NULL);
 	/* The heat notice the launcher left, in both themes (heat_check) */
 	heat_init(&H);
@@ -1854,6 +1911,13 @@ int main(int argc, char **argv)
 		/* A held key's next repeat, or at once when events wait for this
 		 * pass (pkkeys_wait) */
 		if (rep >= 0 && (wait < 0 || rep < wait)) wait = rep;
+		/* POWER held in Hold mode: the bar's next segment, or the hold's
+		 * end, which no event marks */
+		{
+			int hw = powerhold_next_ms(&PW, (unsigned)now_ms(), OSDBAR_POWER_STEPS);
+
+			if (hw >= 0 && (wait < 0 || hw < wait)) wait = hw;
+		}
 		/* While the port's file is borrowed, look at it at least five times a
 		 * second. held() (kcmp, and whether this is still the master) is asked
 		 * in bar_tick, which runs when this returns, and the wait above is up
@@ -1893,6 +1957,7 @@ int main(int argc, char **argv)
 		if (poll(fds, (nfds_t)m, wait) < 0) continue;
 		if (pi >= 0 && (fds[pi].revents & (POLLIN | POLLHUP | POLLERR))) release(true);
 		if (pw >= 0 && fds[pw].revents) power_read();
+		power_due();
 
 		/* poll is only a wakeup hint. A key may arrive on an fd after poll
 		 * checked it but before another fd woke us. Read ALL open inputs,

@@ -772,7 +772,9 @@ static void key_event(in_state *st, const struct input_event *ev)
 		return;
 	}
 	if (ev->code == KEY_POWER) {
-		plat_set_btn(st, IN_POWER, ev->value == 1);
+		/* A press or a hold, as MENU > Power Button says (src/powerhold.h);
+		 * a repeat, which this key does not send, would be no let-go */
+		if (ev->value != 2) plat_set_btn(st, IN_POWER, ev->value == 1);
 		return;
 	}
 	if (ev->code == BTN_TL2 || ev->code == BTN_TR2) {
@@ -813,6 +815,9 @@ void plat_input_wait(unsigned ms)
 	if (fd_pad >= 0)   p[n++] = (struct pollfd){ .fd = fd_pad,   .events = POLLIN };
 	if (fd_keys >= 0)  p[n++] = (struct pollfd){ .fd = fd_keys,  .events = POLLIN };
 	if (fd_power >= 0) p[n++] = (struct pollfd){ .fd = fd_power, .events = POLLIN };
+	/* POWER held in Hold mode: woken for the pill's next segment and the
+	 * hold's end, which no event marks */
+	ms = plat_power_wait(ms);
 	if (!n) { SDL_Delay(ms); return; }
 	/* A signal ends it early too, which is what a stop should do */
 	poll(p, n, (int)ms);
@@ -823,6 +828,7 @@ void plat_input_poll(in_state *st)
 	SDL_Event e;
 
 	memset(st->pressed, 0, sizeof st->pressed);
+	st->power_tap = false;
 	if (plat_terminating()) st->quit_requested = true;
 	if (menu_release_next) {
 		plat_set_btn(st, IN_MENU, false);
@@ -837,17 +843,23 @@ void plat_input_poll(in_state *st)
 	poll_fd(fd_pad, st);
 	poll_fd(fd_keys, st);
 	poll_fd(fd_power, st);
+	plat_power_poll(st);
 }
 
+/* The turn-off from the power key's queue, while a game or a program owns the
+ * screen: a press, or a hold done, as MENU > Power Button says
+ * (src/powerhold.h), on the same state as the screens' input, so a hold
+ * begun on one side ends on the other */
 bool device_power_pressed(void)
 {
 	struct input_event ev;
 	bool pressed = false;
 
 	while (fd_power >= 0 && read(fd_power, &ev, sizeof ev) == (ssize_t)sizeof ev)
-		if (ev.type == EV_KEY && ev.code == KEY_POWER && ev.value == 1)
+		if (ev.type == EV_KEY && ev.code == KEY_POWER && ev.value != 2 &&
+		    plat_power_event(ev.value == 1))
 			pressed = true;
-	return pressed;
+	return plat_power_due() || pressed;
 }
 
 /* ---- volume and brightness ------------------------------------------------- */

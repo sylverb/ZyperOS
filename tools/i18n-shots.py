@@ -672,6 +672,19 @@ for _script, _pages in (("Star Farm.sh", 5), ("Lone Key.sh", 3), ("Odd Keys.sh",
         EXTRA.setdefault(_name, ("portdocs", "PRT", ["--screen", "games", "--gamecontrols", str(_page), "PRT"]))
         PORT_FOCUS[_name] = _script
 
+# MENU > Power Button on Hold (src/powerhold.h, DESIGN.md 11.47): its row,
+# the Controls pages that then say a hold (In a game, Anywhere, a port's In a
+# game) and the tutorial's POWER step, the setting on for each shot alone
+for _name, _shot in (("menu-power-hold", ("demo", "PS1", ["--menu-tab", "4", "--menu", "Power Button"])),
+                     ("controls-2-hold", ("demo", "PS1", ["--controls", "2"])),
+                     ("controls-5-hold", ("demo", "PS1", ["--controls", "5"])),
+                     ("tour-power-hold", ("demo", "PS1", ["--tour", "power", "1800"])),
+                     ("port-plain-0-hold", ("portdocs", "PRT", ["--screen", "games", "--gamecontrols", "0",
+                                                                "PRT"]))):
+    EXTRA.setdefault(_name, _shot)
+    SHOT_SETTINGS[_name] = {"power.button": "hold"}
+PORT_FOCUS["port-plain-0-hold"] = "Plain.sh"
+
 
 # The demonstration card with one game in each system that has none (a name
 # and its first extension, from config/systems.cfg), so that every system is
