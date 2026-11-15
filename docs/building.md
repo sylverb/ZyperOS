@@ -130,7 +130,7 @@ something once broke in a way nothing noticed:
 | `check-noticeq` | the pop-ups over a game, one after another (src/noticeq.h) |
 | `check-badges` | achievement badges (src/rabadge.h) through the real fetch with a stand-in for curl: kept beside the set; one curl for what is missing and nothing else; starting it and drawing 4,000 icons while it runs never wait for it; a badge that has not come is a plain one of the same 64 pixels, never a hole; a 404 page is never kept as a badge; then the plain badge and Zyper as pixels (src/noticeart.h), in both themes, his shadow on Beard only. No network (needs SDL2 and SDL2_image; skips without them) |
 | `check-badge-shots` | the unlock notice with Zyper at its right end and its badge, or the plain one where the card has none; a count's notice with the plain one and no Zyper; the set's arrival with neither; the achievements list with a badge in every row, plain until the art is there, and the rows' words not moving when it comes; in both themes (builds the host launcher; skips without SDL2) |
-| `check-sshlink` | USB File Transfer's SSH: what it counts in dropbear's log (sign-ins, wrong PINs, a port it cannot have), names that try to say otherwise, and the shadow it gives dropbear; Developer Mode's choice between the cable's SSH and SSH over Wi-Fi for every combination of cable, radio, choice and a spent plug (the password never with a radio), dropbear's words for each (`-s` and every address over Wi-Fi, the cable's address alone on the cable), and what counts as a key |
+| `check-sshlink` | USB File Transfer's SSH: what it counts in dropbear's log (sign-ins, wrong PINs, a port it cannot have), names that try to say otherwise, and the shadow it gives dropbear; Developer Mode's choice between the cable's SSH and SSH over Wi-Fi for every combination of cable, radio, choice and a spent plug (the password never with a radio), dropbear's words for each (`-s` and every address over Wi-Fi, the cable's address alone on the cable), and what counts as a key; over a port, portkeys' SSH keys only on every link and none in the in-game menu |
 | `check-usblink` | USB charges only until asked: a computer is asked about once per plug and a charger never, every choice ends with its screen or its cable, and Developer Mode keeps the link |
 | `check-devmode` | developer mode on a release image: the unlock hold (L2 and R2 for five seconds, a bar that only rises, and letting go early, another page or holding on starting again), the setting kept in the card's database (and SSH over Wi-Fi, only while Developer Mode is on and off with it), a random one-time password in its alphabet, and only public keys without options taken from the card's key file, once each |
 | `check-devices` | the device profiles (src/device/profile.h): each one whole (named, its folders, a 4:3 screen with its glass in millimetres, every control printed once), today's answers for the GKD Pixel 2, the TrimUI Brick and the host's desktop, and the choice of one by its id, as `--device` makes it |
@@ -473,6 +473,21 @@ ssh -i ~/.ssh/zyperos_pixel2 root@zyperos.local
 
 `tools/px2` takes `/tmp/px2-lock` for any device on port 22 whatever its
 address, so a session over Wi-Fi and one on the cable wait for each other.
+
+### SSH while a port runs
+
+A port (PortMaster, a port, a standalone emulator) runs from `launch.sh`
+after the launcher exits, and Developer SSH was the launcher's child, so
+every port cut the sessions off. Now portkeys, which runs for the whole port,
+keeps Developer SSH up meanwhile (`tools/pkssh.c`, `sshlink_want_port`):
+keys only on every link, since the password lives on the Developer page and
+no port shows it; on the cable's address while its link is up; over Wi-Fi
+with SSH over Wi-Fi on, as under the launcher; nothing with Developer Mode
+off. The in-game menu over a port (`zyperos.elf --port-menu`) leaves it
+alone. Sessions drop for about a second as a port starts and as it ends (a
+dropbear cannot change parents), and a key signs in again at once. Auto Off
+does not run over a port, so nothing there holds it.
+
 
 Big copies go over the cable (or Flash Drive), not Wi-Fi, until the radio is
 faster. The Pixel 2's Wi-Fi is a USB 802.11n adapter with one small antenna,

@@ -63,6 +63,19 @@
  * start; sshlink_status says why in the screen's words. */
 bool sshlink_start(const char *addr, const char *pin, const char *keydir);
 
+/* Start SSH on the cable's `addr` alone, keys only (over a port). False as
+ * sshlink_start_net is, with no key. */
+bool sshlink_start_cable_keys(const char *addr, const char *keydir);
+
+/* `ifname`'s IPv4 address into `addr` while the interface is up: the cable's
+ * usb0 with 10.42.0.1, as over a port, where portkeys has no USB code of its
+ * own. False when it is not there, down, or has none. */
+bool sshlink_if_addr(const char *ifname, char *addr, size_t n);
+
+/* dropbear's log, which sshlink_poll reads; -1 while nothing runs. A loop
+ * that sleeps in poll can wake on it. */
+int sshlink_log_fd(void);
+
 /* Start SSH on every address (port 22 on Wi-Fi's and the cable's), keys
  * only: no password is made or taken. False when it could not start, and
  * when `keydir`/authorized_keys has no key, since then nobody could sign in
@@ -94,6 +107,10 @@ bool sshlink_on(void);
 /* SSH over Wi-Fi's last start found no key to take (sshlink_start_net) */
 bool sshlink_needs_key(void);
 
+/* The last start found port 22 taken: a development image's dropbear, which
+ * runs for every interface from boot and is left as it is */
+bool sshlink_dev_image(void);
+
 /* The wrong PINs the page has had since the screen opened (hare_wrong_pins).
  * They count toward the same five: the PIN is one secret, and a page that
  * waits 30 seconds after five and then takes five more would otherwise let a
@@ -112,6 +129,8 @@ typedef enum {
 	SSHLINK_OFF,        /* nothing listens */
 	SSHLINK_CABLE,      /* the cable's address alone: the password or a key */
 	SSHLINK_NET,        /* every address, Wi-Fi's too: a key only */
+	SSHLINK_CABLE_KEYS, /* the cable's address alone, a key only: over a port,
+	                     * where nobody can read a password off the screen */
 } sshlink_mode;
 
 /* What Developer Mode's SSH is listening as now: SSHLINK_OFF unless it is
@@ -155,6 +174,34 @@ typedef struct {
  * caller's to set once a start works, and SSHLINK_OFF once it ends one.
  * A cable SSH that runs is never ended by its own plug. */
 sshlink_mode sshlink_step(sshlink_plan *p, const sshlink_facts *f, sshlink_mode running);
+
+/* ---- over a port (tools/pkssh.c) ---------------------------------------
+ *
+ * A port exits the launcher, and Developer SSH, its child, went with it:
+ * every port cut the sessions off, and a player debugging a port needed SSH
+ * most then. So portkeys, which runs for the whole port, takes SSH over
+ * while one runs, keys only on every link, and gives it back as the port
+ * ends; the in-game menu over a port (zyperos.elf --port-menu) touches none
+ * of it. Each hand-over is one stop and one start (a dropbear cannot change
+ * parents), and the namespace a process before it left (RUN_NS) is ended as
+ * the next one starts, so nothing of one owner outlives it. */
+
+/* Who runs Developer SSH: the launcher (the shelf, a game, File Transfer),
+ * portkeys while a port runs, and nobody in the in-game menu over a port,
+ * which is a second zyperos.elf for a moment and must not end portkeys'
+ * sessions as it opens or closes */
+typedef enum { SSHLINK_BY_LAUNCHER, SSHLINK_BY_PORTKEYS, SSHLINK_BY_NONE } sshlink_owner;
+sshlink_owner sshlink_owner_of(bool port_running, bool port_menu);
+
+/* Over a port, for these facts and whether Developer Mode is on:
+ *   Developer Mode off            SSHLINK_OFF
+ *   a radio, SSH over Wi-Fi on    SSHLINK_NET (keys only, every address)
+ *   a radio, SSH over Wi-Fi off   SSHLINK_OFF (not with Wi-Fi, as ever)
+ *   the cable's link up           SSHLINK_CABLE_KEYS (keys only, its address)
+ *   neither                       SSHLINK_OFF
+ * Never the password: it lives only on the Developer page, which no port
+ * shows, and with keys alone there is nothing to guess and nothing to lock. */
+sshlink_mode sshlink_want_port(const sshlink_facts *f, bool devmode);
 
 /* What dropbear is started with for `mode` (CABLE or NET) into `argv`, at
  * most SSHLINK_ARGV entries with its NULL: `listen` is the cable's

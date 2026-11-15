@@ -124,11 +124,27 @@ sshlink_mode sshlink_step(sshlink_plan *p, const sshlink_facts *f, sshlink_mode 
 	return want;
 }
 
+sshlink_owner sshlink_owner_of(bool port_running, bool port_menu)
+{
+	if (port_menu) return SSHLINK_BY_NONE;
+	return port_running ? SSHLINK_BY_PORTKEYS : SSHLINK_BY_LAUNCHER;
+}
+
+sshlink_mode sshlink_want_port(const sshlink_facts *f, bool devmode)
+{
+	if (!devmode) return SSHLINK_OFF;
+	if (f->radio) return f->over_wifi ? SSHLINK_NET : SSHLINK_OFF;
+	return f->cable ? SSHLINK_CABLE_KEYS : SSHLINK_OFF;
+}
+
 int sshlink_argv(sshlink_mode mode, const char *listen, const char *key, const char **argv)
 {
 	int n = 0;
 
-	if (mode != SSHLINK_CABLE && mode != SSHLINK_NET) { argv[0] = NULL; return 0; }
+	if (mode != SSHLINK_CABLE && mode != SSHLINK_NET && mode != SSHLINK_CABLE_KEYS) {
+		argv[0] = NULL;
+		return 0;
+	}
 	argv[n++] = "dropbear";
 	argv[n++] = "-F";                    /* in the foreground: the launcher's child */
 	argv[n++] = "-E";                    /* its log down the pipe sshlink_poll reads */
@@ -140,7 +156,8 @@ int sshlink_argv(sshlink_mode mode, const char *listen, const char *key, const c
 	argv[n++] = key;
 	argv[n++] = "-T";                    /* three tries a connection */
 	argv[n++] = "3";
-	if (mode == SSHLINK_NET) argv[n++] = "-s";   /* no password logins at all */
+	/* no password logins at all: over Wi-Fi, and over a port */
+	if (mode == SSHLINK_NET || mode == SSHLINK_CABLE_KEYS) argv[n++] = "-s";
 	argv[n] = NULL;
 	return n;
 }
@@ -489,7 +506,13 @@ static bool radio_named(char *ifname, size_t in)
 		if (access(p, F_OK) == 0) up = true;
 		snprintf(p, sizeof p, "/sys/class/net/%s/phy80211", e->d_name);
 		if (access(p, F_OK) == 0) up = true;
-		if (up && in) snprintf(ifname, in, "%s", e->d_name);
+		/* An interface's name is IFNAMSIZ (16) at most, whatever d_name's room */
+		if (up && in) {
+			size_t len = strnlen(e->d_name, in - 1);
+
+			memcpy(ifname, e->d_name, len);
+			ifname[len] = '\0';
+		}
 	}
 	closedir(d);
 	return up;
@@ -658,18 +681,19 @@ static bool start(sshlink_mode mode, const char *addr, const char *pin, const ch
 		return false;
 	}
 	/* Keys only, and none: nobody could sign in, so it does not listen */
-	if (mode == SSHLINK_NET && sshlink_keys(keydir) == 0) {
-		fprintf(stderr, "ssh: no key in %s/authorized_keys, so no SSH over Wi-Fi\n", keydir);
+	if (mode != SSHLINK_CABLE && sshlink_keys(keydir) == 0) {
+		fprintf(stderr, "ssh: no key in %s/authorized_keys, so no SSH (keys only)\n", keydir);
 		g_st = ST_NOKEY;
 		return false;
 	}
-	if (!prepare(mode == SSHLINK_NET ? NULL : pin, keydir, key, sizeof key) ||
+	if (!prepare(mode == SSHLINK_CABLE ? pin : NULL, keydir, key, sizeof key) ||
 	    pipe2(fds, O_CLOEXEC) != 0) {
 		clean_run();
 		g_st = ST_FAILED;
 		return false;
 	}
 	if (mode == SSHLINK_NET) snprintf(listen, sizeof listen, "22 (every address, keys only)");
+	else if (mode == SSHLINK_CABLE_KEYS) snprintf(listen, sizeof listen, "%s:22", addr);
 	else snprintf(listen, sizeof listen, "%s:22", addr);
 	g_pid = spawn(mode, listen, key, fds[1]);
 	close(fds[1]);
@@ -701,6 +725,30 @@ bool sshlink_start(const char *addr, const char *pin, const char *keydir)
 bool sshlink_start_net(const char *keydir)
 {
 	return start(SSHLINK_NET, NULL, NULL, keydir);
+}
+
+bool sshlink_start_cable_keys(const char *addr, const char *keydir)
+{
+	return start(SSHLINK_CABLE_KEYS, addr, NULL, keydir);
+}
+
+int sshlink_log_fd(void) { return g_st == ST_ON ? g_fd : -1; }
+
+bool sshlink_if_addr(const char *ifname, char *addr, size_t n)
+{
+	struct ifaddrs *all, *p;
+	bool got = false;
+
+	if (n) addr[0] = '\0';
+	if (!ifname || getifaddrs(&all) != 0) return false;
+	for (p = all; p && !got; p = p->ifa_next) {
+		if (!p->ifa_addr || p->ifa_addr->sa_family != AF_INET || strcmp(p->ifa_name, ifname)) continue;
+		if (!(p->ifa_flags & IFF_UP)) continue;
+		got = inet_ntop(AF_INET, &((struct sockaddr_in *)(void *)p->ifa_addr)->sin_addr, addr,
+		                (socklen_t)n) != NULL;
+	}
+	freeifaddrs(all);
+	return got;
 }
 
 void sshlink_poll(void)
@@ -791,6 +839,8 @@ sshlink_mode sshlink_running(void) { return g_st == ST_ON ? g_mode : SSHLINK_OFF
 
 bool sshlink_needs_key(void) { return g_st == ST_NOKEY; }
 
+bool sshlink_dev_image(void) { return g_st == ST_DEV; }
+
 void sshlink_note_web(int wrong) { g_web_bad = wrong; }
 
 const char *sshlink_status(void)
@@ -820,6 +870,18 @@ bool sshlink_start_net(const char *keydir)
 	(void)keydir;
 	return false;
 }
+bool sshlink_start_cable_keys(const char *addr, const char *keydir)
+{
+	(void)addr; (void)keydir;
+	return false;
+}
+int sshlink_log_fd(void) { return -1; }
+bool sshlink_if_addr(const char *ifname, char *addr, size_t n)
+{
+	(void)ifname;
+	if (n) addr[0] = '\0';
+	return false;
+}
 bool sshlink_radio(char *ifname, size_t in, char *addr, size_t an)
 {
 	if (in) ifname[0] = '\0';
@@ -831,6 +893,7 @@ void sshlink_stop(void) {}
 bool sshlink_on(void) { return false; }
 sshlink_mode sshlink_running(void) { return SSHLINK_OFF; }
 bool sshlink_needs_key(void) { return false; }
+bool sshlink_dev_image(void) { return false; }
 void sshlink_note_web(int wrong) { (void)wrong; }
 int sshlink_sessions(void) { return 0; }
 const char *sshlink_status(void) { return T(S_SSH_OFF); }
