@@ -12,8 +12,9 @@ import tempfile
 LAUNCHER = ("src/main.c", "src/aout_route.c", "src/bgm_screen.c", "src/bt_screen.c",
             "src/clock_screen.c", "src/ctl_channel.c", "src/ctltab_screen.c",
             "src/gamedel_screen.c", "src/gamern_screen.c", "src/ingame_screen.c",
-            "src/media_screen.c", "src/menu_panel.c", "src/nowplaying_screen.c",
-            "src/place.c", "src/portload.c", "src/powerscreens.c", "src/raqueue.c",
+            "src/launch_screen.c", "src/media_screen.c", "src/menu_panel.c",
+            "src/muse_screen.c", "src/nowplaying_screen.c", "src/place.c",
+            "src/portload.c", "src/powerscreens.c", "src/raqueue.c", "src/saver_screen.c",
             "src/search_screen.c", "src/shelfbuild.c", "src/stats_screen.c",
             "src/storage_screen.c", "src/sysmenu_screen.c", "src/update_screen.c",
             "src/zyperdraw.c")
@@ -29,9 +30,13 @@ print("ok: no stale result-delay literals")
 def function(name):
     # Braces inside strings and comments are not C block boundaries.
     tokens = re.compile(r'/\*.*?\*/|//[^\n]*|"(?:\\.|[^"\\])*"|\x27(?:\\.|[^\x27\\])*\x27|[{}]', re.S)
-    raw = Path("src/main.c").read_text()
-    # Static, or not: src/panel.h shares some with the screens split off
-    match = re.search(r'^(?:static )?[A-Za-z_][^;{(]*\b' + name + r'\([^;{]*\)\s*\{', raw, re.M)
+    # Static, or not: src/panel.h shares some with the screens split off; in
+    # main.c or the file it was split into
+    for path in LAUNCHER:
+        raw = Path(path).read_text()
+        match = re.search(r'^(?:static )?[A-Za-z_][^;{(]*\b' + name + r'\([^;{]*\)\s*\{', raw, re.M)
+        if match:
+            break
     if not match:
         raise AssertionError(f"missing function: {name}")
     depth = 0
