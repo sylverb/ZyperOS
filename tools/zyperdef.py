@@ -250,7 +250,7 @@ def triangulate(poly):
     return tris
 
 
-# Where the C moves the parts head() moves (src/main.c, draw_zyper): the line
+# Where the C moves the parts head() moves (src/zyperdraw.c, draw_zyper): the line
 # a blink shuts the eyes onto and how much of their height it takes, and the
 # fold the ear at the picture's left swings about, the other ear's being its
 # mirror. head() says the same in its own numbers; tools/checkmark.py moves

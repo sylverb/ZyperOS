@@ -278,6 +278,34 @@ ja = %d システム
 it.one = su %d sistema
 it.other = su %d sistemi
 
+[scraper.names_details]
+note = A row of the Scraper's Settings list: whether a run looks up the names, years and synopses of games that have a cover but no name; its value On or Off, and A switches it. Short.
+en = Names and Details
+zh-Hans = 名称和详情
+es = Nombres y detalles
+pt-BR = Nomes e detalhes
+fr = Noms et détails
+de = Namen und Details
+ja = 名前と詳細
+it = Nomi e dettagli
+
+[scraper.names_n]
+note = On the Scraper's plan, beside "656 MB to fetch": how many games a run looks up names and details for. Short: it shares the line.
+en.one = %d name
+en.other = %d names
+zh-Hans = %d 个名称
+es.one = %d nombre
+es.other = %d nombres
+pt-BR.one = %d nome
+pt-BR.other = %d nomes
+fr.one = %d nom
+fr.other = %d noms
+de.one = %d Name
+de.other = %d Namen
+ja = 名前 %d 件
+it.one = %d nome
+it.other = %d nomi
+
 [scraper.videos_off_all]
 note = Under "Off" on the videos tile: no system has videos on. Short, lowercase
 en = all off
