@@ -2,6 +2,7 @@
 #include "home.h"
 #include "design.h"
 #include "ds/layout.h"   /* DS_HINT_*: a hint's glyph and the gap to its word */
+#include "platform.h"    /* ZYPEROS_SCREEN_W: the stage's middle and right */
 #include "theme.h"
 #include "ui.h"
 #include "texload.h"
@@ -467,7 +468,40 @@ static void restore_state(SDL_Renderer *r,draw_state s)
 { SDL_SetRenderDrawColor(r,s.r,s.g,s.b,s.a); SDL_SetRenderDrawBlendMode(r,s.blend); }
 /* Spotlight's focused sprite, the one place on its home that changes by
  * itself: the atlas frames of the system's machine (home_draw_focus) */
-static const SDL_FRect FOCUS={536,112,448,448};
+/* THE HOME'S STAGE, placed from two anchors rather than typed: a stage of
+ * layers (the focused still, the row of the others, the words) is not a
+ * column of boxes, so its places are relations to the anchor's box.
+ *
+ * Spotlight: the focused system's still, HOME_STILL square, HOME_STILL_IN
+ * from the screen's right and HOME_STILL_DOWN under the content's top; its
+ * name, count and A's hint on the still's middle (the count there, the name
+ * HOME_LINE above it, A's hint HOME_A_DOWN under it), HOME_TEXT_IN in from
+ * the page's margin; the row's middle HOME_ROW_UNDER under the still.
+ *
+ * Gallery: the focused still HOME_GALLERY_STILL square, HOME_GALLERY_DOWN
+ * under the content's top, in the middle; its underline 8 under it and the
+ * name HOME_GALLERY_NAME under the underline's top. */
+#define HOME_MARGIN        64
+#define HOME_TOP           96     /* the content under the top bar: header 72 and a section */
+#define HOME_STILL         448
+#define HOME_STILL_IN      40
+#define HOME_STILL_DOWN    16
+#define HOME_TEXT_IN       12
+#define HOME_LINE          64     /* the name's middle above the count's */
+#define HOME_A_DOWN        80     /* A's hint's middle under the count's */
+#define HOME_ROW_UNDER     40
+#define HOME_ROW_PITCH     152    /* the row's sprites apart, and the gallery's */
+#define HOME_GALLERY_PITCH 328
+#define HOME_GALLERY_STILL 384    /* 1.5 times its 256 cell */
+#define HOME_GALLERY_DOWN  24
+#define HOME_GALLERY_NAME  50
+#define HOME_SELECT_X      784    /* SELECT's hint on the foot (Spotlight) */
+#define HOME_GALLERY_A_X   768    /* the gallery's A, kept there while it ends by the inset */
+static const SDL_FRect FOCUS={ZYPEROS_SCREEN_W-HOME_STILL_IN-HOME_STILL,HOME_TOP+HOME_STILL_DOWN,HOME_STILL,HOME_STILL};
+#define HOME_MID_X       (ZYPEROS_SCREEN_W/2)
+#define HOME_STILL_MID_Y ((int)(FOCUS.y+FOCUS.h/2))                       /* 336 */
+#define HOME_ROW_Y       ((int)(FOCUS.y+FOCUS.h)+HOME_ROW_UNDER)          /* 600 */
+#define HOME_GALLERY_Y   (HOME_TOP+HOME_GALLERY_DOWN+HOME_GALLERY_STILL/2) /* 312 */
 
 /* The row's sprites as home_draw draws them, in its order: the others, then
  * the cursor's over them */
@@ -484,11 +518,11 @@ static int row_draws(const home *h,bool gallery,int count,int cursor,uint32_t no
         if(fabsf(d)>4.5f) continue;
         float focus=fmaxf(0,1-fabsf(d));
         float size=gallery ? 208+176*focus : 112+16*focus;
-        float x=512+d*(gallery?328:152);
+        float x=HOME_MID_X+d*(gallery?HOME_GALLERY_PITCH:HOME_ROW_PITCH);
         /* Gallery's focused sprite is 384 (1.5x its 256 cell) at 120..504: its
          * underline sits 8 under it and the title 22 under that (review P2). */
-        float y=gallery?312:600-8*focus;
-        if(x+size/2<0 || x-size/2>1024) continue;
+        float y=gallery?HOME_GALLERY_Y:HOME_ROW_Y-8*focus;
+        if(x+size/2<0 || x-size/2>ZYPEROS_SCREEN_W) continue;
         out[n++]=(row_draw){ i, {roundf(x-size/2),roundf(y-size/2),size,size},
                              gallery && i==cursor, slots[k].alpha };
     }
@@ -598,8 +632,8 @@ uint32_t home_draw_focus(home *h,SDL_Renderer *r,const home_item *items,int coun
  * of at least HG_CELL fit between the margins, three rows, the grid in the
  * middle of its room. The band, the shelf grid's: the system's whole name,
  * its count, A. */
-#define HG_MARGIN   64
-#define HG_TOP      96
+#define HG_MARGIN   HOME_MARGIN
+#define HG_TOP      HOME_TOP
 #define HG_FOOT     568      /* the room's foot: the band's top less DS_GRID_BAND_GAP */
 #define HG_BAND_TOP 592
 #define HG_CELL     128      /* a cell at the least: a still and room either side */
@@ -626,7 +660,7 @@ static hg_geom hg_of(int sw)
     return g;
 }
 
-int home_grid_cols(void) { return hg_of(1024).cols; }
+int home_grid_cols(void) { return hg_of(ZYPEROS_SCREEN_W).cols; }
 
 static int hg_window(int cursor, int count, int cols, int top)
 {
@@ -689,7 +723,7 @@ static uint32_t home_grid_draw(home *h, SDL_Renderer *r, const home_item *items,
                                int cursor, const char *count_label, const char *open_label,
                                uint32_t now, uint32_t phase, uint32_t *wait)
 {
-    hg_geom g = hg_of(1024);
+    hg_geom g = hg_of(ZYPEROS_SCREEN_W);
     TTF_Font *label = page_font(PAGE_CHROME), *title = page_font(PAGE_GAME_TITLE);
     TTF_Font *meta = page_font(PAGE_META);
     int rows = (count + g.cols - 1) / g.cols, pitch = HG_CELL_H + g.gap;
@@ -705,7 +739,7 @@ static uint32_t home_grid_draw(home *h, SDL_Renderer *r, const home_item *items,
     /* The window of rows: from the top row's tile to the foot of the last
      * row's, so a row scrolling in or out is cut there and the next is not
      * seen. The tile and its lift get room round it for the lift's blur. */
-    clip = (SDL_Rect){ 0, g.y - HG_TILE_PAD, 1024,
+    clip = (SDL_Rect){ 0, g.y - HG_TILE_PAD, ZYPEROS_SCREEN_W,
                        (HOME_GRID_ROWS - 1) * pitch + HG_CELL_H + 4 + DS_BAR + 2 * HG_TILE_PAD };
     SDL_RenderSetClipRect(r, &(SDL_Rect){ clip.x, clip.y - g.gap, clip.w, clip.h + 2 * g.gap });
     /* The focus's tile (2026-11-15: in a grid of many systems a name and its
@@ -754,7 +788,7 @@ static uint32_t home_grid_draw(home *h, SDL_Renderer *r, const home_item *items,
     SDL_RenderSetClipRect(r, NULL);
     /* The rail, when the systems are more than the window */
     if (rows > HOME_GRID_ROWS) {
-        int x = 1024 - DS_RAIL_INSET - DS_BAR, hh = HOME_GRID_ROWS * HG_CELL_H + (HOME_GRID_ROWS - 1) * g.gap;
+        int x = ZYPEROS_SCREEN_W - DS_RAIL_INSET - DS_BAR, hh = HOME_GRID_ROWS * HG_CELL_H + (HOME_GRID_ROWS - 1) * g.gap;
         int mh = hh * HOME_GRID_ROWS / rows, my;
 
         if (mh < DS_RAIL_MIN) mh = DS_RAIL_MIN;
@@ -771,7 +805,7 @@ static uint32_t home_grid_draw(home *h, SDL_Renderer *r, const home_item *items,
                          : home_label(items[cursor].key, NULL);
         const char *open = open_label ? open_label : T(S_HOME_OPEN_GAMES);
         int aw = page_hint_width("A", open, true), ny = HG_BAND_TOP + 20, fy2 = HG_BAND_TOP + 40 + 8 + 18;
-        int room = 1024 - HG_MARGIN - aw - 32 - HG_MARGIN, tw = ui_text_width(title, full);
+        int room = ZYPEROS_SCREEN_W - HG_MARGIN - aw - 32 - HG_MARGIN, tw = ui_text_width(title, full);
 
         if (tw > room) {
             ui_text_marquee(r, title, full, HG_MARGIN, ui_cap_y(title, ny), room, phase, UI_TEXT);
@@ -780,7 +814,7 @@ static uint32_t home_grid_draw(home *h, SDL_Renderer *r, const home_item *items,
         } else {
             ui_text(r, title, full, HG_MARGIN, ui_cap_y(title, ny), -1, UI_TEXT);
         }
-        page_hint(r, "A", open, 1024 - HG_MARGIN - aw, ny, true, false);
+        page_hint(r, "A", open, ZYPEROS_SCREEN_W - HG_MARGIN - aw, ny, true, false);
         ui_text(r, meta, count_label ? count_label : "", HG_MARGIN, ui_cap_y(meta, fy2), -1, UI_TEXT_DIM);
     }
     /* The foot, as Spotlight's: MENU at the left, the place in the middle,
@@ -793,7 +827,7 @@ static uint32_t home_grid_draw(home *h, SDL_Renderer *r, const home_item *items,
         snprintf(index, sizeof index, "%d / %d", cursor + 1, count);
         ui_text_tabular(r, page_font(PAGE_CHROME), index, 512, ui_cap_y(page_font(PAGE_CHROME), DS_FOOT_Y), 0, UI_TEXT_DIM);
         page_hint(r, "MENU", T(S_HOME_SETTINGS), HG_MARGIN, DS_FOOT_Y, false, false);
-        page_hint(r, "SELECT", "MP4", 1024 - HG_MARGIN - sw, DS_FOOT_Y, false, false);
+        page_hint(r, "SELECT", "MP4", ZYPEROS_SCREEN_W - HG_MARGIN - sw, DS_FOOT_Y, false, false);
     }
     return *wait;
 }
@@ -822,29 +856,33 @@ uint32_t home_draw(home *h,SDL_Renderer *r,home_layout layout,
     const char *label=home_label(items[cursor].key,items[cursor].name);
     if(gallery && items[cursor].name && items[cursor].name[0] &&
        ui_text_width(ui_font(UI_F_TITLE),items[cursor].name)<=880) label=items[cursor].name;
-    int title_x=gallery?512:76, title_y=gallery?562:272;
+    /* the gallery's underline 8 under its focused still; the Spotlight's 16
+     * under the focused sprite in the row (its middle 8 up, 64 to its foot) */
+    const int under_y=gallery?HOME_GALLERY_Y+HOME_GALLERY_STILL/2+8:HOME_ROW_Y-8+64+16;
+    int title_x=gallery?HOME_MID_X:HOME_MARGIN+HOME_TEXT_IN,
+        title_y=gallery?under_y+HOME_GALLERY_NAME:HOME_STILL_MID_Y-HOME_LINE;
     /* Unknown tags are fitted only as a last resort; configured labels use title size. */
     char fitted[128]; ui_fit_text(ui_font(UI_F_TITLE),label,fitted,sizeof fitted,gallery?880:440);
     ui_text(r,ui_font(UI_F_TITLE),fitted,title_x,ui_cap_y(ui_font(UI_F_TITLE),title_y),gallery?0:-1,UI_TEXT);
     ui_text(r,page_font(PAGE_META),count_label?count_label:"",title_x,
-            ui_cap_y(page_font(PAGE_META),title_y+64),gallery?0:-1,UI_TEXT_DIM);
+            ui_cap_y(page_font(PAGE_META),title_y+HOME_LINE),gallery?0:-1,UI_TEXT_DIM);
     ds_rgb accent=theme()->accent_ink;
     SDL_SetRenderDrawColor(r,accent.r,accent.g,accent.b,255);
-    SDL_Rect underline={492,gallery?512:672,40,DS_BAR}; SDL_RenderFillRect(r,&underline);
+    SDL_Rect underline={HOME_MID_X-20,under_y,40,DS_BAR}; SDL_RenderFillRect(r,&underline);
     char index[32]; snprintf(index,sizeof index,"%d / %d",cursor+1,count);
-    ui_text(r,page_font(PAGE_CHROME),index,512,ui_cap_y(page_font(PAGE_CHROME),DS_FOOT_Y),0,UI_TEXT_DIM);   /* on the hints' line */
-    page_hint(r,"MENU",T(S_HOME_SETTINGS),64,DS_FOOT_Y,false,false);
-    if(!gallery) page_hint(r,"SELECT","MP4",784,DS_FOOT_Y,false,false);
+    ui_text(r,page_font(PAGE_CHROME),index,HOME_MID_X,ui_cap_y(page_font(PAGE_CHROME),DS_FOOT_Y),0,UI_TEXT_DIM);   /* on the hints' line */
+    page_hint(r,"MENU",T(S_HOME_SETTINGS),HOME_MARGIN,DS_FOOT_Y,false,false);
+    if(!gallery) page_hint(r,"SELECT","MP4",HOME_SELECT_X,DS_FOOT_Y,false,false);
     /* The gallery's A hint starts at 768 and keeps there while it ends by 1000;
      * a longer label (the pseudo-locale's) slides left to end there instead of
      * running off the screen */
     const char *open=open_label?open_label:T(S_HOME_OPEN_GAMES);
-    int open_x=gallery?768:76;
+    int open_x=gallery?HOME_GALLERY_A_X:HOME_MARGIN+HOME_TEXT_IN;
     if(gallery) {
         int total=ui_button_width("A",40)+12+ui_text_width(page_font(PAGE_ACTION),open);
-        if(open_x+total>1000) open_x=1000-total;
+        if(open_x+total>ZYPEROS_SCREEN_W-DS_INSET) open_x=ZYPEROS_SCREEN_W-DS_INSET-total;
     }
-    page_hint(r,"A",open,open_x,gallery?DS_FOOT_Y:416,true,false);
+    page_hint(r,"A",open,open_x,gallery?DS_FOOT_Y:HOME_STILL_MID_Y+HOME_A_DOWN,true,false);
     if(animate && row_moving(&h->motion,now)) wait=0;
     if(!animate) wait=UINT32_MAX;
     restore_state(r,saved);
