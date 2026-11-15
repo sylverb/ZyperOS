@@ -1190,7 +1190,7 @@ static void controls_pages(app *a, SDL_Texture *bg, const menu_style *over, void
 	float k;
 
 	g.no_buttons = over != NULL;
-	ctl_set_fn_volume(plat_brightness_on_volume());
+	ctl_set_chords(&plat_profile()->chords);
 	pages = ctl_game_pages(&g);
 	width = game_controls_width(a, &g);
 	n = controls_page_rows(&g, page, width, &b, &rows, &loop_at);

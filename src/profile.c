@@ -58,6 +58,19 @@ bool plat_system_has(const char *part)
 	return false;
 }
 
+dev_chords dev_chords_fn_volume(dev_chords base)
+{
+	base.bright = DEV_BRIGHT_MENU_VOL;
+	base.menu_on_release = true;
+	base.home_chord = true;
+	return base;
+}
+
+bool dev_tutorial_handheld(const device_profile *p, const dev_chords *c)
+{
+	return p->handheld && c->bright == DEV_BRIGHT_MENU_VOL;
+}
+
 const dev_button *dev_button_of(const device_profile *p, in_button b)
 {
 	int i;

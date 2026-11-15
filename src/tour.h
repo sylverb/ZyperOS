@@ -52,6 +52,7 @@
 #include <stdint.h>
 
 #include "db.h"
+#include "device/profile.h"   /* dev_chords: the device's MENU, brightness */
 #include "i18n_ids.h"   /* LANG_COUNT: the languages the first step offers */
 #include "inbutton.h"   /* the launcher's buttons, with no SDL */
 #include "zyperrig.h"   /* Zyper's moves, one copy for the menu and here */
@@ -229,7 +230,12 @@ typedef struct {
 	bool      over;          /* finished or skipped */
 	bool      skipped;
 	uint32_t  end_at;
-	bool      fn_volume;     /* brightness is MENU+VOL (the Pixel 2), not F1/F2 */
+	/* The device's chords and drawing (src/device/profile.h), from
+	 * tour_start: brightness on its own keys or MENU+VOL, MENU seen at its
+	 * release, and a handheld beside the lessons */
+	dev_bright bright;
+	bool      menu_release;
+	bool      handheld;
 	/* The choices: the one each step has focused, and the one saved, which
 	 * a step starts on and a skip goes back to (tour_choices_from). In a
 	 * choice step `pos`, `pos_from` and `moved_at` are its focus moving, as
@@ -256,8 +262,9 @@ int  tour_lang_focus(const tour *t, uint32_t now);
 /* The language to keep, once the step is left or the tutorial skipped */
 int  tour_lang_kept(const tour *t);
 
-/* From the welcome, at `now`. `fn_volume`: plat_brightness_on_volume. */
-void tour_start(tour *t, uint32_t now, bool fn_volume);
+/* From the welcome, at `now`, for a device with chords `c` (its profile's)
+ * and, when `handheld`, its drawing beside the lessons (dev_tutorial_handheld) */
+void tour_start(tour *t, uint32_t now, const dev_chords *c, bool handheld);
 
 /* One press. Returns the sound it plays (a ds_sound, src/design.h), or
  * TOUR_QUIET for none. VOL and BRIGHT are the levels' keys, which the caller
@@ -357,7 +364,7 @@ tour_zyper_at tour_zyper_now(const tour *t, uint32_t now);
  * not yet. The finish includes the preceding power reward, so its first
  * frames show the corner Zyper leaving before the large hello pops in. */
 void tour_pose(tour *t, tour_step step, uint32_t now, int ms, int done_ms,
-               bool fn_volume);
+               const dev_chords *c, bool handheld);
 /* And a wrong press of `k`, `ms` ago. */
 void tour_pose_wrong(tour *t, tour_key k, uint32_t now, int ms);
 /* And, in a choice step, the focus moved to `pick` `ms` ago from the one it

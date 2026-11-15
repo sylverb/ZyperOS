@@ -881,7 +881,7 @@ build-native/tour-check: tools/tour-check.c src/tour.c src/tour.h src/design.h \
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
 	      -o $@ tools/tour-check.c src/tour.c src/powerhold.c src/zyperrig.c src/config.c src/db.c \
-	      src/atomic.c $(I18N_SRC) -lsqlite3 -lm
+	      src/atomic.c $(I18N_SRC) $(DEVICE_PROFILES) -lsqlite3 -lm
 
 # A system's color as a mark (DESIGN.md 3.3): as systems.cfg has it on Salt &
 # Pepper and a quarter toward text on Beard, for every shipped system; no
@@ -1007,6 +1007,9 @@ strings:
 # strings and their tables (src/i18n.h). English, as the launcher is before
 # the setting is read, unless the check sets another.
 I18N_SRC := src/i18n.c src/i18n_tables.c
+# The device profiles' data (src/device/profile.h), for checks that pose a
+# device; src/profile.c is linked only where one is chosen (check-devices)
+DEVICE_PROFILES := src/device/pixel2_profile.c src/device/brick_profile.c src/device/desktop_profile.c
 # The RetroAchievements hasher and the disc readers under it (src/rahash.h,
 # src/discimg.h): every check that links one links them all, and liblzma
 # for a CHD's LZMA hunks (Homebrew's xz on a Mac; the device has the
@@ -1161,7 +1164,7 @@ build-native/controls-check: tools/controls-check.c tools/legend.h src/controls.
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
 	      -o $@ tools/controls-check.c src/controls.c src/powerhold.c src/remap.c src/config.c src/db.c src/atomic.c \
-	      $(I18N_SRC) -lsqlite3
+	      $(I18N_SRC) $(DEVICE_PROFILES) -lsqlite3
 
 build-native/menu-check: tools/menu-check.c tools/legend.h src/wifi_menu.c src/wifi.c \
                         src/sys_menu.c src/menu.c src/game_menu.c src/controls.c src/remap.c \
@@ -1234,7 +1237,6 @@ check-devices: build-native/devices-check
 	@./build-native/devices-check
 	@python3 tools/devices-lint.py
 
-DEVICE_PROFILES := src/device/pixel2_profile.c src/device/brick_profile.c src/device/desktop_profile.c
 build-native/devices-check: tools/devices-check.c src/profile.c src/device/profile.h src/device/brick_buttons.h src/inbutton.h $(DEVICE_PROFILES) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Isrc \
@@ -2052,7 +2054,7 @@ check-tour-colors:
 		  $$(pkg-config --cflags sdl2 SDL2_ttf SDL2_image) -Isrc \
 		  -o build-native/tour-colors-check tools/tour-colors-check.c src/ui.c src/ds/glyph.c src/folderart.c src/roundrect.c \
 		  src/theme.c src/themefile.c src/look.c src/linebreak.c src/blur.c src/cardgen.c \
-		  src/sysmark.c src/tour.c src/powerhold.c src/tourdraw.c src/tourdevice.c src/zyperrig.c src/osdbar.c src/db.c $(I18N_SRC) \
+		  src/sysmark.c src/tour.c src/powerhold.c src/tourdraw.c src/tourdevice.c src/zyperrig.c src/osdbar.c src/db.c $(I18N_SRC) $(DEVICE_PROFILES) \
 		  $$(pkg-config --libs sdl2 SDL2_ttf SDL2_image) -lsqlite3 -lm && \
 		ZYPEROS_HEADLESS=1 SDL_VIDEODRIVER=dummy SDL_RENDER_DRIVER=software \
 		  ./build-native/tour-colors-check; \

@@ -101,6 +101,16 @@ const device_profile *plat_profile(void);
 bool plat_profile_select(const char *id);
 /* `b` as `p` prints it, or NULL where `p` has no such control */
 const dev_button *dev_button_of(const device_profile *p, in_button b);
+/* `base` with the Pixel 2's brightness chord, MENU on release and Home: the
+ * shots' --fn-volume, which shows those screens on the host as the Pixel 2
+ * has them until the shots wear --device pixel2 (step 5 of the device spec) */
+dev_chords dev_chords_fn_volume(dev_chords base);
+/* Whether the tutorial draws `p`'s handheld beside its lessons, with chords
+ * `c`: where there is one and brightness is MENU+VOL. The second half is for
+ * the host's desktop profile alone, which borrows the Pixel 2's drawing for
+ * the Controls tab but teaches the Brick's F1 and F2; it goes when the Brick
+ * gets a drawing of its own (step 5). */
+bool dev_tutorial_handheld(const device_profile *p, const dev_chords *c);
 
 /* The questions the launcher asks the platform whose answers are facts about
  * the handheld, from the profile in force (src/profile.c). Live questions

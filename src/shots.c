@@ -266,6 +266,12 @@ int shot_tour_wrong = -1, shot_tour_wrong_ms = 300;
 int shot_tour_pick = -1, shot_tour_pick_ms = 5000;
 bool shot_tour_music;
 int shot_fn_volume;
+/* The chords a shot draws with: the profile's, or with --fn-volume the
+ * Pixel 2's brightness chord, MENU on release and Home over them */
+static dev_chords shot_chords(void)
+{
+	return shot_fn_volume ? dev_chords_fn_volume(plat_profile()->chords) : plat_profile()->chords;
+}
 /* --theme light|dark: the theme the shot is drawn in, whatever the saved
  * Appearance is; -1 for the saved one. */
 int shot_theme = -1;
@@ -502,7 +508,7 @@ static void shot_draw_ctltab(app *a, menu_tabs *tabs)
 		int pages, np, loop_at, width;
 
 		cg.no_buttons = true;
-		ctl_set_fn_volume(shot_fn_volume || plat_brightness_on_volume());
+		{ const dev_chords c = shot_chords(); ctl_set_chords(&c); }
 		pages = ctl_game_pages(&cg);
 		width = game_controls_width(a, &cg);
 		np = controls_page_rows(&cg, shot_gm_keys, width, &cb, &pr, &loop_at);
@@ -618,7 +624,7 @@ static void shot_draw_gamecontrols(app *a)
 			break;
 		}
 	g = game_controls_of(a);
-	ctl_set_fn_volume(shot_fn_volume || plat_brightness_on_volume());
+	{ const dev_chords c = shot_chords(); ctl_set_chords(&c); }
 	width = game_controls_width(a, &g);
 	n = controls_page_rows(&g, shot_gamecontrols, width, &b, &rows, &loop_at);
 	pages = ctl_game_pages(&g);
@@ -748,8 +754,7 @@ static void controls_fit_report(app *a)
 	snprintf(path, sizeof path, "%s/systems.cfg", P_ROOT);
 	if (!cfg_load_systems(path, &all)) all.count = 0;
 	for (dev = 0; dev < 2; dev++) {
-		ctl_set_fn_volume(dev == 1);
-		ctl_set_battery_lights(dev == 1);
+		ctl_set_chords(dev == 1 ? &device_profile_pixel2.chords : &device_profile_brick.chords);
 		for (p = 0; home && p < CTL_PAGES; p++) {
 			int n = ctl_rows((ctl_page)p, rows);
 
@@ -1253,8 +1258,7 @@ static void shot_compose(app *a)
 		float k = 1.0f;
 		int n;
 
-		ctl_set_fn_volume(plat_brightness_on_volume());
-		ctl_set_battery_lights(plat_battery_lights());
+		ctl_set_chords(&plat_profile()->chords);
 		n = ctl_rows(p, rows);
 
 		snprintf(head, sizeof head, T(S_CONTROLS_HEADING), ctl_page_name(p));
@@ -2124,8 +2128,10 @@ static void shot_tour_draw(app *a)
 		             tour_ease(TC_OUT, (uint32_t)shot_tour_ms, 0, DS_MS_MOVE)
 		             * (1.0f - fminf(1.0f, fmaxf(0.0f, (ms - DS_MS_HOLD_SHORT) / DS_MS_FADE_OUT))));
 	} else {
+		const dev_chords c = shot_chords();
+
 		tour_pose(&t, (tour_step)shot_tour, now, shot_tour_ms, shot_tour_done,
-		          shot_fn_volume || plat_brightness_on_volume());
+		          &c, dev_tutorial_handheld(plat_profile(), &c));
 		tour_lang_from(&t, (int)i18n_lang());
 		tour_set_music(&t, shot_tour_music);
 		tour_settings(a, at);

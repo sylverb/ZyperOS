@@ -305,8 +305,7 @@ void controls_screen(app *a)
 	int lv = panel_open();
 	float k;
 
-	ctl_set_fn_volume(plat_brightness_on_volume());
-	ctl_set_battery_lights(plat_battery_lights());
+	ctl_set_chords(&plat_profile()->chords);
 
 	while (!done && !want_quit && a->running) {
 		menu_row rows[CTL_MAX_ROWS];
