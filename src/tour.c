@@ -14,6 +14,7 @@
 #include "design.h"
 #include "i18n.h"
 #include "tour.h"
+#include "powerhold.h"
 
 /* ---- the clocks ----------------------------------------------------------- */
 
@@ -150,7 +151,12 @@ const tour_info *tour_step_info(tour_step s)
 
 	if (s < 0 || s >= TOUR_STEPS) s = TOUR_WELCOME;
 	d = &STEPS[s];
-	info[s] = (tour_info){ said(d->title), said(d->line), said(d->line_fn), said(d->note),
+	info[s] = (tour_info){ said(d->title),
+	                       /* POWER held, when MENU > Power Button is Hold
+	                        * (src/powerhold.h): the step lands on the hold */
+	                       s == TOUR_POWER && powerhold_mode() ? T(S_TOUR_POWER_LINE_HOLD)
+	                                                           : said(d->line),
+	                       said(d->line_fn), said(d->note),
 	                       said(d->note_done), d->glyph, d->label,
 	                       d->want == NO_TEXT ? d->want_key : T(d->want), d->want_fn, d->loop };
 	return &info[s];

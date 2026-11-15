@@ -328,7 +328,7 @@ MOTION = [
     ("zyper-ears",  420,  "-",     "Zyper's ears swinging out and back as he says hello"),
     ("tour-reward", 1100, "-",     "a tutorial step's reward, before the next"),
     ("tour-pulse",  440,  "-",     "the right glyph's two pulses after a press of the wrong button"),
-    ("hold-unlock", 2000, "-",     "MP4's lock: SELECT and START held together this long unlock it"),
+    ("hold-unlock", 2000, "-",     "MP4's lock: SELECT and START held together this long unlock it; POWER held this long starts the charging screen's handheld, and turns it off with Power Button on Hold"),
     ("hold-lock-lit", 4000, "-",   "MP4's lock screen, lit as it locks"),
     ("hold-controls", 3000, "-",   "MP4's video controls after the last press"),
     ("hold-snap",   1000, "-",     "a game focused on the shelf before its cover turns into its video snap"),
