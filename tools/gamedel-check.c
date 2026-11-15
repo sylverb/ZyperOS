@@ -468,6 +468,7 @@ static void make_card(void)
 	put("shared/.zyperos/Game Boy/Tetris (World).gb.auto.bmp", "bmp");
 	put("shared/.zyperos/Game Boy/Tetris (World).gb.1.state", "state");
 	put("shared/.zyperos/Game Boy/Tetris (World).gb.1.bmp", "bmp");
+	put("shared/.zyperos/Game Boy/Tetris (World).gb.undo.state", "state");   /* Undo Load's */
 
 	put("Roms/Game Boy/Tetris (World) (Rev 1).gb", "tetris 1.1");
 	put("Roms/Game Boy/.media/Tetris (World) (Rev 1).png", "png");
@@ -690,10 +691,11 @@ int main(void)
 			"shared/.zyperos/Game Boy/Tetris (World).gb.auto.bmp",
 			"shared/.zyperos/Game Boy/Tetris (World).gb.1.state",
 			"shared/.zyperos/Game Boy/Tetris (World).gb.1.bmp",
+			"shared/.zyperos/Game Boy/Tetris (World).gb.undo.state",
 			NULL
 		};
 		deleted("a cartridge: Tetris (World).gb, and not its Rev 1 beside it:",
-		        GB, "Tetris (World).gb", "Tetris (World)", gone, 11);
+		        GB, "Tetris (World).gb", "Tetris (World)", gone, 12);
 		rows_there("the cartridge's neighbour", GB, "Tetris (World) (Rev 1).gb", true);
 	}
 	{

@@ -292,6 +292,17 @@ de = Laden
 ja = ロード
 it = Carica
 
+[gamemenu.undo]
+note = The in-game menu: load the game back as it was just before the last state was loaded into it (a load made by mistake). Shown under Load only after a load. As gamemenu.load's word.
+en = Undo Load
+zh-Hans = 撤销读档
+es = Deshacer carga
+pt-BR = Desfazer carregar
+fr = Annuler le chargement
+de = Laden rückgängig
+ja = ロードを取り消す
+it = Annulla caricamento
+
 [gamemenu.quick]
 note = The in-game menu: the slot SELECT+R1 saves to and SELECT+L1 loads from; its value is the slot's number, 1 to 6. As slots.slot's word.
 en = Quick Slot
