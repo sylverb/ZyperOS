@@ -11,6 +11,7 @@
 
 /* What main.c uses of it; each is described where it is defined */
 extern int shot_scraper_page, shot_scraper_page_t;
+extern int g_scp_names;
 void scraper_page_shot(app *a);
 menu_result ss_page(app *a);
 menu_result snaps_screen(app *a);

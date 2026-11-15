@@ -22,6 +22,7 @@
 #include "rahash.h"
 #include "sys_menu.h"
 #include "texload.h"
+#include "tour.h"
 #include "uisound.h"
 #include "wifi.h"
 
@@ -365,7 +366,31 @@ extern const menu_style *g_muse_over;
 extern void             *g_muse_over_ctx;
 extern bool              g_muse_gone;
 
-/* ---- main.c's, for src/menu_runner.c; each is described where it is defined ---- */
+/* ---- what src/shots.c calls of the launcher's; each is described where it
+ * is defined ---- */
+/* What --shot-at presses at 0 in a --menu shot (shot_motion): a step onto
+ * its row; or with --open, --close and --swap, the top menu opening on the
+ * shelf, closing onto it, or giving way to MENU > Controls. `shot_lv` is the
+ * level the menu motion's frames are drawn at, 0 when there is none, and
+ * `shot_pressed` says the press has come. */
+enum { SHOT_STEP, SHOT_OPEN, SHOT_CLOSE, SHOT_SWAP };
+extern bool g_loads_held;
+extern bool g_full_shot;
+extern bool shot_usb_said;
+extern bool shot_usb_offer;
+extern SDL_Rect g_clock_box;
+extern int g_pct_natural;
+extern int shot_press;
+extern bool shot_pressed;
+extern unsigned shot_t0;
+extern const char *const TOUR_STEP_NAMES[TOUR_STEPS];
+unsigned notice_look(nq_kind kind);
+void menu_message(app *a, const char *heading, menu_row row,
+                  unsigned accent);
+void zyperos_menu_draw(app *a, int sel);
+
+/* ---- what src/menu_runner.c calls of the launcher's; each is described where it
+ * is defined ---- */
 extern menu_snap *g_snap_next;
 extern menu_snap *g_snap;
 extern uis_steps g_steps;
@@ -381,11 +406,8 @@ int menu_step_heard(app *a, const menu_row *rows, int n, int sel,
 int panel_settle(int lv);
 void panel_close_at(app *a, int lv, bool cut, unsigned now);
 
-/* ---- main.c's, for src/lights_screen.c; each is described where it is defined ---- */
-
-/* ---- main.c's, for src/gameinfo_screen.c; each is described where it is defined ---- */
-
-/* ---- main.c's, for src/scraper_screen.c; each is described where it is defined ---- */
+/* ---- what src/scraper_screen.c calls of the launcher's; each is described where it
+ * is defined ---- */
 /* What the next panel drawn is to be, which panel_frame says and panel_show
  * puts back at rest as it takes it: a panel drawn by anything else, a message
  * or a shot, is drawn at rest. */
@@ -396,7 +418,8 @@ bool es_art_video(const char *dir, const char *file, const char *stem);
 void tiles_panel(app *a, int kind, const char *heading, const menu_row *tiles,
                  const int *marks, int n, int sel, mm_pose pose);
 
-/* ---- main.c's, for src/xfer_screen.c; each is described where it is defined ---- */
+/* ---- what src/xfer_screen.c calls of the launcher's; each is described where it
+ * is defined ---- */
 bool up_running(void);
 unsigned pace_rows(const char *heading, const menu_row *rows, int n, int sel, float k,
                    unsigned tint);
@@ -404,7 +427,8 @@ bool pace_busy(const app *a);
 void ram_idle_set(bool idle);
 const char *tiles_hints(const char *b_word);
 
-/* ---- main.c's, for src/usbdrive_screen.c; each is described where it is defined ---- */
+/* ---- what src/usbdrive_screen.c calls of the launcher's; each is described where it
+ * is defined ---- */
 extern bool g_usb_kept;
 extern bool g_usb_offer_due;
 extern bool g_tiles_hints;
@@ -418,20 +442,19 @@ const char *list_hints(const char *b_word);
 void ask_settle(app *a, usbpower_guard *g);
 void ask_guard_start(app *a, usbpower_guard *g);
 
-/* ---- main.c's, for src/about_screen.c; each is described where it is defined ---- */
+/* ---- what src/about_screen.c calls of the launcher's; each is described where it
+ * is defined ---- */
 #ifndef ZYPEROS_VERSION
 #define ZYPEROS_VERSION "0.0"       /* set by the makefiles from Makefile's VERSION */
 #endif
 extern mm_frame g_pframe;
 
-/* ---- main.c's, for src/signin_screen.c; each is described where it is defined ---- */
-
-/* ---- main.c's, for src/devmode_screen.c; each is described where it is defined ---- */
-
-/* ---- main.c's, for src/tour_screen.c; each is described where it is defined ---- */
+/* ---- what src/tour_screen.c calls of the launcher's; each is described where it
+ * is defined ---- */
 void language_apply(app *a, lang l, bool keep);
 
-/* ---- main.c's, for src/player2_screen.c; each is described where it is defined ---- */
+/* ---- what src/player2_screen.c calls of the launcher's; each is described where it
+ * is defined ---- */
 /* Which drawer a copy is for. A question in tiles says its style by its kind
  * (tiles_show): PANEL_TILES a row of tiles, PANEL_TILES_GRID two to a row
  * (Computer Connected), PANEL_LIST rows the panel's width with a line under
@@ -453,12 +476,14 @@ void panel_show(app *a, int kind, const char *heading,
                 unsigned accent, const unsigned *vcolors,
                 bool visits_all, int loop_at, const char *heading_note);
 
-/* ---- main.c's, for src/shelf_keys.c; each is described where it is defined ---- */
+/* ---- what src/shelf_keys.c calls of the launcher's; each is described where it
+ * is defined ---- */
 void shelf_into(app *a, sysview *v);
 void shelf_up(app *a, sysview *v);
 void game_info_screen(app *a);
 
-/* ---- main.c's, for src/shelf_draw.c; each is described where it is defined ---- */
+/* ---- what src/shelf_draw.c calls of the launcher's; each is described where it
+ * is defined ---- */
 /* The battery's low and critical warnings, 10% and 5%, are src/status.h's
  * (STATUS_BATT_LOW, STATUS_BATT_CRITICAL), which the shelf's battery mark and
  * Diatom's disc over a game both go by. Critical blinks: the last minutes
@@ -487,7 +512,8 @@ void xs_tick_behind(app *a);
 void xs_end(void);
 void xfer_screen_way(app *a, int way);
 
-/* ---- main.c's, for src/muse_screen.c; each is described where it is defined ---- */
+/* ---- what src/muse_screen.c calls of the launcher's; each is described where it
+ * is defined ---- */
 #define TEX_KEEP_FAR    4   /* ...and around the cursor of a system you left  */
 extern app *g_logs_app;
 const char *b_legend(str_id word);
@@ -499,7 +525,8 @@ void evict_far(sysview *v, int keep);
 void panel_base_close(int lv);
 int shelf_letter_jump(sysview *v, int dir);
 
-/* ---- main.c's, for src/saver_screen.c; each is described where it is defined ---- */
+/* ---- what src/saver_screen.c calls of the launcher's; each is described where it
+ * is defined ---- */
 typedef struct {
 	char folder[CFG_STR];
 	time_t mtime;
@@ -561,7 +588,8 @@ extern const char *g_shot_saver_pic;
 int snap_name_cmp(const void *x, const void *y);
 const snap_names *snap_names_for(const char *folder);
 
-/* ---- main.c's, for src/launch_screen.c; each is described where it is defined ---- */
+/* ---- what src/launch_screen.c calls of the launcher's; each is described where it
+ * is defined ---- */
 #define HEAT_HEAD T(S_HEAT_HEAD)
 #define HEAT_BODY T(S_HEAT_SLOWING)
 extern unsigned t_back0;
@@ -599,7 +627,8 @@ bool up_read(const char *path, char *buf, size_t n);
 void up_first_line(const char *path, char *buf, size_t n);
 bool xs_before_game(app *a);
 
-/* ---- main.c's, for src/sysmenu_screen.c; each is described where it is defined ---- */
+/* ---- what src/sysmenu_screen.c calls of the launcher's; each is described where it
+ * is defined ---- */
 #define AUTO_OFF_COUNT ((int)(sizeof AUTO_OFF / sizeof AUTO_OFF[0]))
 #define CHARGE_LIMITS_COUNT ((int)(sizeof CHARGE_LIMITS / sizeof CHARGE_LIMITS[0]))
 /* MENU > Battery Icon: the corner's battery as the mark alone ("bars", the
@@ -686,7 +715,8 @@ int sysmenu_build(void *ctx, menu_row *rows, int max,
                   const char **heading);
 void album_art_screen(app *a);
 
-/* ---- main.c's, for src/ingame_screen.c; each is described where it is defined ---- */
+/* ---- what src/ingame_screen.c calls of the launcher's; each is described where it
+ * is defined ---- */
 /* How panel_leave_run ended: the panel gone, or a press that ended it at
  * once, which is the same to the caller; the power button or Auto Off; or a
  * quit. */

@@ -11,6 +11,8 @@
 #include "panel.h"
 #include "topbar.h"
 #include "ui.h"
+#include "ds/layout.h"   /* DS_SHELF_FOOT_Y */
+#include "ds/mark.h"     /* ds_bar_in */
 #include "uisound.h"
 #include "zyperdraw.h"
 
@@ -192,12 +194,9 @@ unsigned np_draw(app *a, const mu_now *mn, const char *next)
 	/* Where in the track. What is left rather than the whole length on the
 	 * right, because the question is usually how long until the next one. */
 	bar = NP_Y + NP_SIDE - 132;
-	ui_round_rect(r, &(SDL_Rect){ NP_TX, bar, NP_TW, UI_BAR_H }, UI_BAR_H / 2,
-	              ui_col(theme()->track, 255));
 	fill = (int)(NP_TW * (k < 0 ? 0 : k > 1 ? 1 : k) + 0.5);
-	if (fill > 0)
-		ui_round_rect(r, &(SDL_Rect){ NP_TX, bar, fill, UI_BAR_H }, UI_BAR_H / 2,
-		              state ? ui_fade(acc, 0.45f) : acc);
+	ds_bar_in(r, &(SDL_Rect){ NP_TX, bar, NP_TW, UI_BAR_H }, fill, ui_col(theme()->track, 255),
+	          state ? ui_fade(acc, 0.45f) : acc);
 	/* Tabular, so the clock ticking does not move what sits beside it. */
 	mmss(t0, sizeof t0, mn->at);
 	ty = ui_line_y(UI_F_META, bar + 16);
@@ -480,11 +479,8 @@ void lock_panel(app *a, const mp4lock *l)
 	y += 28;
 	/* The hold, as the one bar every hold in the system is (UI_BAR_H). */
 	{
-		SDL_Rect bar = { cx - 200, y, 400, UI_BAR_H };
-
-		ui_round_rect(r, &bar, UI_BAR_H / 2, ui_col(theme()->track, 255));
-		bar.w = (int)(400 * k + 0.5f);
-		if (bar.w > 0) ui_round_rect(r, &bar, UI_BAR_H / 2, ink);
+		ds_bar_in(r, &(SDL_Rect){ cx - 200, y, 400, UI_BAR_H }, (int)(400 * k + 0.5f), ui_col(theme()->track, 255),
+		          ink);
 	}
 }
 
@@ -698,14 +694,14 @@ static void np_view_toggle(void)
  * does not fit its language's words goes on to a second one above it, never
  * cut (DESIGN.md 12). `kind`: 0 music, 1 a book, 2 a video in full screen, 3
  * a video with its controls. `count` is a video's folder, `cy` the last
- * row's middle (0 for the standard 720), `alpha` how much of it shows. */
+ * row's middle (0 for a shelf's foot, DS_SHELF_FOOT_Y), `alpha` how much of it shows. */
 static void np_hints(SDL_Renderer *r, bool playing, int kind, int count, int cy,
                      bool video, Uint8 alpha)
 {
 	key_hint h[7];
 	int n = 0;
 
-	if (!cy) cy = 720;
+	if (!cy) cy = DS_SHELF_FOOT_Y;
 	h[n].key = "A";  h[n++].label = playing ? T(S_MUSE_HINT_PAUSE) : T(S_MUSE_HINT_PLAY);
 	h[n].key = "B";  h[n++].label = T(S_CONTROLS_BACK);
 	if (video) {
@@ -740,11 +736,8 @@ static void np_video_bar(SDL_Renderer *r, const mu_now *mn, int x, int y, int w,
 	int fill, ty, left, right;
 
 	soft.a = a;
-	ui_round_rect(r, &(SDL_Rect){ x, y, w, UI_BAR_H }, UI_BAR_H / 2, ui_col(theme()->track, a));
 	fill = (int)(w * (k < 0 ? 0 : k > 1 ? 1 : k) + 0.5);
-	if (fill > 0)
-		ui_round_rect(r, &(SDL_Rect){ x, y, fill, UI_BAR_H }, UI_BAR_H / 2,
-		              state ? ui_fade(acc, 0.45f) : acc);
+	ds_bar_in(r, &(SDL_Rect){ x, y, w, UI_BAR_H }, fill, ui_col(theme()->track, a), state ? ui_fade(acc, 0.45f) : acc);
 	if (!times) return;
 	mmss(t0, sizeof t0, mn->at);
 	ty = ui_line_y(UI_F_META, y + 16);

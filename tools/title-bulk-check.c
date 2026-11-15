@@ -154,6 +154,16 @@ int main(void)
 	check_covers();
 	p = run(); CHECK(requests == 0 && p.named == 0 && !p.problem[0]);
 
+	/* Names and Details off (MENU > Scraper > Settings, 1.0.6): the details
+	 * part asks nothing for covered games with no name, and names none;
+	 * back on, it asks them as before */
+	fresh_db(); art_names(false); p = run();
+	CHECK(requests == 0 && p.named == 0 && !p.problem[0]);
+	CHECK(!db_game_title(db_lib(), "NES", "Covered 2.zip", title, sizeof title));
+	check_covers();
+	art_names(true); p = run();
+	CHECK(requests == 3 && p.named == 3 && !p.problem[0]);
+
 	/* A reply without art is still successful metadata, not a cover miss. */
 	fresh_db(); no_cover_reply = true; p = run();
 	CHECK(requests == 3 && images == 0 && p.named == 3 && p.missing == 0 && !p.problem[0]);

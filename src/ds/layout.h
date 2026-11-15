@@ -24,6 +24,8 @@
 #define DS_PAGE_LINE_GAP        48
 #define DS_PAGE_LINE_GAP_TIGHT  24
 #define DS_PAGE_FOOT_Y          704
+#define DS_PAGE_FOOT_LOW        724
+#define DS_SHELF_FOOT_Y         720
 #define DS_PAGE_FOOT_GAP        40
 #define DS_PAGE_FOOT_GAP_TIGHT  20
 #define DS_PAGE_FOOT_GAP_PAIR   48
@@ -47,6 +49,8 @@
 #define DS_BADGE_RING           2
 #define DS_BADGE_INSET          12
 #define DS_BADGE_INSET_SMALL    9
+#define DS_MORE_W               24
+#define DS_MORE_H               12
 #define DS_MARK_LINE            36
 #define DS_MARK_LINE_PAD        14
 #define DS_MARK_STAT            44

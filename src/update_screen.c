@@ -9,6 +9,8 @@
 #include "place.h"
 #include "theme.h"
 #include "ui.h"
+#include "ds/layout.h"
+#include "ds/mark.h"      /* the more marks */
 #include "uisound.h"
 #include "zyperdraw.h"
 #include "zypermark.h"
@@ -53,15 +55,7 @@ int up_notes(char out[UP_NOTES][UP_NOTE_W])
  * **text-dim**, centered on x, its flat side at y */
 static void up_arrow_v(SDL_Renderer *r, int x, int y, bool up)
 {
-	SDL_Color c = UI_TEXT_DIM;
-	SDL_Vertex v[3];
-	int i, hw = 12, h = 10;
-
-	v[0].position = (SDL_FPoint){ (float)(x - hw), (float)(up ? y + h : y) };
-	v[1].position = (SDL_FPoint){ (float)(x + hw), (float)(up ? y + h : y) };
-	v[2].position = (SDL_FPoint){ (float)x, (float)(up ? y : y + h) };
-	for (i = 0; i < 3; i++) { v[i].color = c; v[i].tex_coord = (SDL_FPoint){ 0, 0 }; }
-	SDL_RenderGeometry(r, NULL, v, 3, NULL, 0);
+	ds_more(r, (float)x, (float)y, up, UI_TEXT_DIM);
 }
 
 /* The arrow between the versions, drawn: the faces have no U+2192. A shaft
@@ -279,11 +273,7 @@ void update_page_draw(app *a, const char *heading, const su_page *p,
 	if (p->bar) {
 		SDL_Rect tr = { UP_X, 572, UP_W, 18 };
 		w = (int)((float)UP_W * p->frac + 0.5f);
-		ui_round_rect(r, &tr, 9, ui_col(thm->track, 255));
-		if (w > 0) {
-			SDL_Rect fi = { UP_X, 572, w < 18 ? 18 : w, 18 };
-			ui_round_rect(r, &fi, 9, ui_col(thm->accent_ink, 255));
-		}
+		ds_bar_in(r, &tr, w, ui_col(thm->track, 255), ui_col(thm->accent_ink, 255));
 		ui_text(r, fs, p->bar_left, UP_X, ui_cap_y(fs, 626), -1, UI_TEXT_DIM);
 		ui_text(r, fs, p->bar_right, UP_X + UP_W, ui_cap_y(fs, 626), 1, UI_TEXT_DIM);
 	} else if (p->line[0]) {
@@ -295,7 +285,7 @@ void update_page_draw(app *a, const char *heading, const su_page *p,
 			        p->line_warn ? warn : UI_TEXT_DIM);
 	}
 
-	/* The buttons, glyph and word, centered as a row at the foot */
+	/* The buttons, glyph and word, centered as a row at a page's foot (704; 714 until 1.0.6) */
 	{
 		int gs = 48, gap = 12, between = 40, total = 0, cx;
 		for (i = 0; i < p->nkeys; i++)
@@ -304,9 +294,9 @@ void update_page_draw(app *a, const char *heading, const su_page *p,
 		cx = (ZYPEROS_SCREEN_W - total) / 2;
 		for (i = 0; i < p->nkeys; i++) {
 			int bw = ui_button_width(p->keys[i].button, gs);
-			ui_button(r, p->keys[i].button, cx + bw / 2, 714, gs, UI_BUTTON_PLAIN);
+			ui_button(r, p->keys[i].button, cx + bw / 2, DS_PAGE_FOOT_Y, gs, UI_BUTTON_PLAIN);
 			cx += bw + gap;
-			cx += ui_text(r, fs, p->keys[i].label, cx, ui_cap_y(fs, 714), -1, UI_TEXT_SOFT) + between;
+			cx += ui_text(r, fs, p->keys[i].label, cx, ui_cap_y(fs, DS_PAGE_FOOT_Y), -1, UI_TEXT_SOFT) + between;
 		}
 	}
 }

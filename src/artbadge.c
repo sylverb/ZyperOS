@@ -3,6 +3,7 @@
 #include "artbadge.h"
 
 #include "clamp.h"
+#include "ds/sdf.h"   /* the distances, shared with the other distance-field marks */
 #include "theme.h"
 
 #include <math.h>
@@ -39,49 +40,7 @@ ds_rgb ab_glyph_color(ab_kind kind, int theme)
 	return kind == AB_FAVORITE ? theme_at(theme)->favorite : theme_at(theme)->accent_ink;
 }
 
-/* ---- distances, in glyph units, negative inside ------------------------------ */
-
-static float sd_segment(float x, float y, float x0, float y0, float x1, float y1)
-{
-	float dx = x1 - x0, dy = y1 - y0;
-	float len2 = dx * dx + dy * dy;
-	float t = len2 > 0 ? clampf(((x - x0) * dx + (y - y0) * dy) / len2, 0, 1) : 0;
-	float ex = x - (x0 + dx * t), ey = y - (y0 + dy * t);
-
-	return sqrtf(ex * ex + ey * ey);
-}
-
-/* Inside by crossings, so a shape that is not convex (the heart's notch) is
- * still exact. */
-static float sd_poly(const float *p, int n, float x, float y)
-{
-	float d = 1e9f, sign = 1;
-	int i, j;
-
-	for (i = 0, j = n - 1; i < n; j = i, i++) {
-		float vx = p[i * 2], vy = p[i * 2 + 1];
-		float ex = p[j * 2] - vx, ey = p[j * 2 + 1] - vy;
-		float wx = x - vx, wy = y - vy;
-		float t = clampf((wx * ex + wy * ey) / (ex * ex + ey * ey), 0, 1);
-		float bx = wx - ex * t, by = wy - ey * t;
-		int up = y >= vy, down = y < vy + ey, left = ex * wy > ey * wx;
-
-		if (bx * bx + by * by < d) d = bx * bx + by * by;
-		if ((up && down && left) || (!up && !down && !left)) sign = -sign;
-	}
-	return sign * sqrtf(d);
-}
-
-static float sd_rbox(float x, float y, float x0, float y0, float x1, float y1, float r)
-{
-	float cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
-	float hx = (x1 - x0) / 2 - r, hy = (y1 - y0) / 2 - r;
-	float qx = fabsf(x - cx) - hx, qy = fabsf(y - cy) - hy;
-	float ox = qx > 0 ? qx : 0, oy = qy > 0 ? qy : 0;
-	float in = qx > qy ? qx : qy;
-
-	return sqrtf(ox * ox + oy * oy) + (in < 0 ? in : 0) - r;
-}
+/* ---- distances, in glyph units, negative inside: src/ds/sdf.h's --------------- */
 
 static float minf(float a, float b) { return a < b ? a : b; }
 
@@ -130,22 +89,22 @@ static float glyph_sd(ab_kind kind, float x, float y)
 {
 	switch (kind) {
 	case AB_FAVORITE:
-		return sd_poly(heart_pts, HEART_N, x, y);
+		return ds_sd_poly(heart_pts, HEART_N, x, y);
 	case AB_ALBUM: {
 		float d = sqrtf((x - 6.5f) * (x - 6.5f) + (y - 19.5f) * (y - 19.5f)) - 3.5f;
 
 		d = minf(d, sqrtf((x - 17.5f) * (x - 17.5f) + (y - 17) * (y - 17)) - 3.5f);
-		d = minf(d, sd_segment(x, y, 8.75f, 19, 8.75f, 6) - 1.25f);
-		d = minf(d, sd_segment(x, y, 19.75f, 16.5f, 19.75f, 3) - 1.25f);
-		return minf(d, sd_poly(NOTE_BEAM, 4, x, y));
+		d = minf(d, ds_sd_segment(x, y, 8.75f, 19, 8.75f, 6) - 1.25f);
+		d = minf(d, ds_sd_segment(x, y, 19.75f, 16.5f, 19.75f, 3) - 1.25f);
+		return minf(d, ds_sd_poly(NOTE_BEAM, 4, x, y));
 	}
 	case AB_BOOK:
-		return minf(sd_poly(BOOK_L, 4, x, y), sd_poly(BOOK_R, 4, x, y)) - 0.25f;
+		return minf(ds_sd_poly(BOOK_L, 4, x, y), ds_sd_poly(BOOK_R, 4, x, y)) - 0.25f;
 	case AB_VIDEO: {
 		/* The screen less the play mark grown a little, so the cut reads at
 		 * a side card's size */
-		float screen = sd_rbox(x, y, 2, 5, 22, 19, 3);
-		float play = sd_poly(PLAY, 3, x, y) - 0.25f;
+		float screen = ds_sd_rbox(x, y, 2, 5, 22, 19, 3);
+		float play = ds_sd_poly(PLAY, 3, x, y) - 0.25f;
 
 		return screen > -play ? screen : -play;
 	}
