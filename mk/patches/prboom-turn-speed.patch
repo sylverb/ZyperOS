@@ -1,0 +1,37 @@
+prboom (libretro/libretro-prboom 4849268): the d-pad's turning speed back to
+the original game's keyboard speed.
+
+G_ScaleMovementToFramerate sets the turn table to 320, 640 and 160 (walking,
+running, the first SLOWTURNTICS) and scales each by TICRATE / fps for the
+frames a tic spans. D_BuildNewTiccmds sums every frame's share into the
+tic's command, so a tic turns by exactly those values: half of the original
+game's 640, 1280 and 320 (angleturn's own initial values a few hundred lines
+up). Held right for 70 frames in Freedoom 2, the core turned 69.0 degrees;
+with this, 138.3: a full turn in 3.0 seconds walking, as Doom's keyboard
+turns, rather than 6.1. Running doubles it, as in the original. The analog
+stick's turn (analog_turn_speed) is not this table and does not change.
+
+--- a/src/g_game.c
++++ b/src/g_game.c
+@@ -2896,12 +2896,17 @@
+ 
+ // Since input is read on each frame, the speed of
+ // turns needs to be scaled. This is called whenever
+-// the framerate changes.
++// the framerate changes. Each frame's share of a tic's turn is summed into
++// the tic's command (D_BuildNewTiccmds), so a tic turns by the base below:
++// the original game's keyboard speeds, angleturn's own initial values,
++// 640 walking, 1280 running and 320 for the first SLOWTURNTICS. (The
++// halves this had, 320, 640 and 160, turned the d-pad at half the speed
++// of every other Doom, running or walking.)
+ void G_ScaleMovementToFramerate (void)
+ {
+-  angleturn[0] = (320  * TICRATE) / tic_vars.fps;
+-  angleturn[1] = (640 * TICRATE) / tic_vars.fps;
+-  angleturn[2] = (160  * TICRATE) / tic_vars.fps;
++  angleturn[0] = (640  * TICRATE) / tic_vars.fps;
++  angleturn[1] = (1280 * TICRATE) / tic_vars.fps;
++  angleturn[2] = (320  * TICRATE) / tic_vars.fps;
+ }
+ 
+ //
