@@ -280,7 +280,7 @@ void ud_page_foot(SDL_Renderer *r, const char *k1, const char *l1, const char *k
 	const char *keys[2] = { k1, k2 }, *words[2] = { l1, l2 };
 	const ds_page_frame f = ds_page_frame_of(true);
 
-	ds_page_foot(r, &f, keys, words, k2 ? 2 : 1, DS_PAGE_FOOT_GAP_PAIR, DS_PAGE_FOOT_GAP_PAIR);
+	ds_page_foot(r, &f, keys, words, k2 ? 2 : 1, DS_PAGE_FOOT_GAP, DS_PAGE_FOOT_GAP_TIGHT);
 }
 #define ud_foot ud_page_foot
 

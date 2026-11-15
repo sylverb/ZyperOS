@@ -395,7 +395,6 @@ its own says why beside it.
 | **shelf-foot-y** | 720 | a shelf's foot, under a game's name and its lines (the shelves, the list, Now Playing) |
 | **page-foot-gap** | 40 | between the hints at a page's foot |
 | **page-foot-gap-tight** | 20 | ...where they are wider than the page |
-| **page-foot-gap-pair** | 48 | between Flash Drive's two hints |
 | **page-tile-w** | 472 | a page's tile, two side by side from the insets |
 | **page-tile-h** | 280 | its height |
 | **page-tile-pad** | 32 | its words from its sides |
@@ -4193,12 +4192,15 @@ when its change lands.
   MP4 player at 724, `DS_PAGE_FOOT_LOW` (the big view's two caption lines stand over it, and at
   704 A's hint met the second), Now Playing over a video at 730 (under the
   video's controls), the charging screen's larger hints at 680; Storage has
-  no keys, its caption at 702. Flash Drive puts its two hints 48 apart where
-  a page puts them 40.
-- Two progress bars are still drawn by hand in `src/main.c`: File Transfer's
-  load header and Developer Mode's hold, which fills in **text** where every
-  other hold fills in **accent-ink**. The tutorial draws its bars and more
-  marks in its own layer, at `ds_bar`'s and `ds_more`'s sizes.
+  no keys, its caption at 702.
+- The tutorial draws its bars and more marks in its own layer, at `ds_bar`'s
+  and `ds_more`'s sizes. Every other bar goes through `ds_bar` or
+  `ds_bar_in` (File Transfer's load and Developer Mode's hold since 1.0.6,
+  the hold in **accent-ink** as every hold is).
+- Player 2's page draws its slab through `ds_panel_slab` inside
+  `p2panel_draw`; its moving path lifts and opens the pass itself
+  (`p2_panel`, src/player2_screen.c) rather than through `ds_panel_open`,
+  which would draw the slab a second time.
 - The keyboard copies the menu panel's padding formula (`menu_pad`).
 - Words whose ink comes within 3 units of a key or a more mark, found when
   the host began to check it (1.0.6): Storage's two-line caption under the
