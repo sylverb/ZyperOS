@@ -39,6 +39,11 @@ bool plat_profile_select(const char *id)
 	return false;
 }
 
+const device_profile *plat_profile_at(int i)
+{
+	return i >= 0 && (size_t)i < sizeof linked / sizeof linked[0] ? linked[i] : NULL;
+}
+
 void plat_profile_ids(char *out, size_t n)
 {
 	size_t i, at = 0;

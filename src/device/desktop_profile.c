@@ -6,7 +6,8 @@
  * buttons, Bluetooth, two speakers, Wi-Fi of its own. And two of the Pixel
  * 2's, which the host borrowed to show the Pixel 2's screens: the GPU's old
  * screens in Display's Shader row (they were offered when headless, which
- * every shot is), and the 3D handheld on the in-game Controls tab. The
+ * every shot is; a windowed run offers them now too), and the 3D handheld
+ * on the in-game Controls tab. The
  * tutorial shows that handheld only with --fn-volume, as before (src/
  * profile.c, dev_tutorial_handheld). Shots of a real handheld wear its own
  * profile: --device pixel2, --device brick. */

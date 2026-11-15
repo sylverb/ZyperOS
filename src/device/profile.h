@@ -100,6 +100,9 @@ const device_profile *plat_profile(void);
 /* Wear the linked profile named `id`; false, and nothing changed, when the
  * build has none by that name (a device build has its own alone) */
 bool plat_profile_select(const char *id);
+/* The `i`th linked profile, from 0, or NULL past the last: every handheld on
+ * the host, the device's own alone on a device */
+const device_profile *plat_profile_at(int i);
 /* The linked profiles' ids, ", " between them, into `out` (for --device's
  * error: "pixel2, brick, desktop" on the host, the device's own on a device) */
 void plat_profile_ids(char *out, size_t n);

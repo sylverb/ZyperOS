@@ -749,18 +749,26 @@ static void controls_fit_report(app *a)
 	menu_row rows[CTL_MAX_ROWS];
 	bool home = strcmp(shot_controls_fit, "game") != 0;
 	bool game = strcmp(shot_controls_fit, "home") != 0;
-	int dev, p, i, e, pages = 0, bad = 0;
+	const device_profile *pd;
+	int k, p, i, e, pages = 0, bad = 0;
 
 	snprintf(path, sizeof path, "%s/systems.cfg", P_ROOT);
 	if (!cfg_load_systems(path, &all)) all.count = 0;
-	for (dev = 0; dev < 2; dev++) {
-		ctl_set_chords(dev == 1 ? &device_profile_pixel2.chords : &device_profile_brick.chords);
+	/* Every handheld linked (each on the host, the device's own on a device),
+	 * each set of chords once: the host's desktop has the Brick's */
+	for (k = 0; (pd = plat_profile_at(k)); k++) {
+		bool seen = false;
+
+		for (int j = 0; j < k; j++)
+			if (!memcmp(&plat_profile_at(j)->chords, &pd->chords, sizeof pd->chords)) seen = true;
+		if (seen) continue;
+		ctl_set_chords(&pd->chords);
 		for (p = 0; home && p < CTL_PAGES; p++) {
 			int n = ctl_rows((ctl_page)p, rows);
 
 			snprintf(head, sizeof head, "Controls: %s", ctl_page_name((ctl_page)p));
 			snprintf(count, sizeof count, "%d / %d", p + 1, CTL_PAGES);
-			snprintf(where, sizeof where, "%s, the home's %s", dev ? "Pixel 2" : "Brick",
+			snprintf(where, sizeof where, "%s, the home's %s", pd->name,
 			         ctl_page_name((ctl_page)p));
 			bad += controls_fit_one(a, where, head, count, rows, n);
 			pages++;
@@ -785,7 +793,7 @@ static void controls_fit_report(app *a)
 					int n = ctl_game_rows(&g, p, rows, &b);
 
 					snprintf(where, sizeof where, "%s, %s%s%s page %d",
-					         dev ? "Pixel 2" : "Brick", s->tag, e ? " (fds)" : "",
+					         pd->name, s->tag, e ? " (fds)" : "",
 					         st == CTL_STICK_ON ? " (stick on)" : st == CTL_STICK_OFF ? " (stick off)" : "",
 					         p);
 					snprintf(count, sizeof count, "%d / %d", p + 1, np);
@@ -794,7 +802,7 @@ static void controls_fit_report(app *a)
 				}
 			}
 		}
-		if (game) bad += controls_fit_ports(a, dev ? "Pixel 2" : "Brick", &pages);
+		if (game) bad += controls_fit_ports(a, pd->name, &pages);
 	}
 	fprintf(stderr, "controls-fit: %d pages measured, %d do not fit\n", pages, bad);
 }

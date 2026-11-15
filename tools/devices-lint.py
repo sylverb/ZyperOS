@@ -8,7 +8,9 @@ In src/*.c and src/*.h, outside src/device/ and src/profile.c, it fails on:
   - access("/usr/sbin/...") - what the system has is plat_system_has()'s;
   - plat_usb_peer() compared with USB_PEER_UNKNOWN as a capability (a port
     that cannot tell what is plugged in is not a device's identity);
-  - the string literals "pixel2" and "brick" - a device by name.
+  - the string literals "pixel2" and "brick" - a device by name;
+  - device_profile_pixel2, _brick or _desktop - a device's profile by name,
+    which a device build does not even link (it has its own alone).
 src/usblink.c may still compare with USB_PEER_UNKNOWN: it acts on the peer
 it is told, not on which device it runs on.
 
@@ -26,6 +28,8 @@ RULES = [
     (re.compile(r'plat_usb_peer\(\)\s*[!=]=\s*USB_PEER_UNKNOWN|USB_PEER_UNKNOWN\s*[!=]=\s*plat_usb_peer\(\)'),
      'the USB peer as a device guess: use the profile (usb_shared_port, wifi)'),
     (re.compile(r'"(pixel2|brick)"'), 'a device by name: ask the profile'),
+    (re.compile(r'\bdevice_profile_(pixel2|brick|desktop)\b'),
+     'a device\'s profile by name (a device build links its own alone): use plat_profile() or plat_profile_at()'),
 ]
 # Files a rule does not apply to, each with its reason
 ALLOW = {
@@ -47,6 +51,13 @@ def strip_comments(text):
             j = n if j < 0 else j
             out.append(' ' * (j - i))
             i = j
+        elif text[i] == "'":
+            # a character literal, '"' among them, kept as it is
+            j = i + 1
+            while j < n and text[j] != "'":
+                j += 2 if text[j] == '\\' else 1
+            out.append(text[i:j + 1])
+            i = j + 1
         elif text[i] == '"':
             j = i + 1
             while j < n and text[j] != '"':
