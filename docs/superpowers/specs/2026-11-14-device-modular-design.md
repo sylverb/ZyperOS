@@ -65,17 +65,19 @@ profile, drawing it, and catching its drivers up, the layer is right.
 - **A Brick that offers what it cannot do.** No GPU shelf that fails to
   load, no Player 2 that never connects, no lesson for side lights it does
   not have, no System Update row that cannot update.
-- **Somebody else's art.** The Brick's handheld is drawn in code from my
-  own measurements of my own Brick, as the Pixel 2's was, never from other
-  people's renders, packs or photos.
+- **Somebody else's art.** The Brick's handheld is drawn in code, as the
+  Pixel 2's was, from measurements and reference photos that Brick owners
+  send for this, or from published dimensions; never traced from other
+  people's renders, icon packs or product shots.
 - **Closed files in git.** The Brick's GPU libraries and Wi-Fi firmware stay
   outside the repository, as today.
 
 ## Constraints
 
-- **No Brick at this desk today.** Everything up to the Brick's image is
-  built and checked on the Mac; the image, the drivers and the GPU cores need
-  the device.
+- **I have no Brick.** People on the ZyperOS Discord have one and offered
+  to help and test. Everything up to the Brick's image is built and checked
+  on the Mac with `--device brick`; the image, the drivers and the GPU cores
+  are tried by those remote testers (section 8).
 - **Closed inputs.** A Brick image needs Imagination's PowerVR DDK 1.11
   userspace for the GE8300 (`BRICK_GPU`) and XRadio's XR829 firmware
   (`BRICK_XR829`), neither in the repository nor on this Mac
@@ -360,16 +362,28 @@ device):
   the old-screen shaders stay the CPU's Sharp map, as today.
 - **Sound**: two speakers (stereo), the ladders already in `brick.c`, moved
   to `brick_levels.h`.
-- **Lights**: whatever the Brick has, once I look at mine; none until then.
-- **Card**: one card layout for every device, with A/B system slots, if the
-  Brick gets System Update in its first release (open question below).
+- **Lights**: whatever the Brick has, once a tester shows them; none until
+  then.
+- **Card**: A/B system slots and System Update from the Brick's first
+  release (decided), the same scheme as the Pixel 2: a boot partition with
+  `a/`, `b/` and `bootstate.txt`, two root slots, the games partition, and
+  a place outside the slots for the closed files if they are the player's
+  own copy (section 7). The Brick's U-Boot gains the bootstate logic and
+  FAT writes it lacks today.
+- **Variants**: the Brick has one of six panels (plastron's kernel patch
+  0012 picks it at boot), and TortOS's Brick image also serves the "Brick
+  Hammer". The profile is one `brick`; what differs between units is found
+  at boot, and the first tester kit is the panel probe card plastron
+  already has (`board/brick/probe`).
 
 The Brick's front end:
 
-- **Its handheld**, drawn in code like the Pixel 2's: a `td_model` from my
-  measurements and photos of my own Brick, its own colors from the theme's
-  roles, its keys on their faces (shoulders on top, F1/F2 and MENU on the
-  front). Original art only.
+- **Its handheld**, drawn in code like the Pixel 2's: a `td_model` from the
+  measurements and reference photos Brick owners send (a request I post on
+  Discord), its own colors from the theme's roles, its keys on their faces
+  (shoulders on top, F1/F2 and MENU on the front). Until those arrive, the
+  published outline (about 110 x 73 mm, 12 to 20 mm deep) gives a first
+  model marked as approximate in its file. Original art only.
 - **The tutorial** keeps its lessons; the Brightness lesson already teaches
   F1/F2, MENU already acts on press. With the model, the Brick's lessons
   shift right and show the handheld as the Pixel 2's do. Lessons the Brick
@@ -395,23 +409,133 @@ The Brick's back end and image:
 - Release artifacts: `ZyperOS-v<ver>-brick.img.xz`, its update lists when it
   has System Update, the installer's Brick entry, the site's Brick button.
 
-### 7. Order of work
+### 7. The Brick's closed files
+
+A Brick image needs two sets of closed binaries. I looked for where they
+come from, under what terms, and what the other Brick firmwares do.
+
+**Where they come from.**
+
+- **The GPU**: Imagination's PowerVR DDK userspace for the GE8300 (EGL,
+  GLES, the null window system that draws to the framebuffer) and the GPU's
+  firmware (`rgx.fw.22.102.54.38`). Allwinner ships them in its A133 SDKs to
+  the companies that build devices. Two versions are public:
+  - **DDK 1.11@5516664**, in Creality's Sonic Pad SDK on GitHub
+    (`CrealityTech/sonic_pad_os` at `7f37a7f`,
+    `package/libs/libgpu/ge8300/fbdev/glibc`). It matches the GPU kernel
+    driver in plastron's Brick kernel, which comes from the same SDK tree
+    (Imagination's kernel side is dual MIT/GPL, so that part is open).
+    plastron's `pvr-ge8300` package checks exactly these files
+    (`files.sha256`).
+  - **DDK 1.19**, in TrimUI's own firmware for the Brick, which TrimUI
+    publishes as zip files on GitHub (`trimui/firmware_brick`, newest
+    v1.1.1-20251126). Its kernel module is 1.19 too, so these libraries do
+    not load on plastron's 1.11 kernel driver.
+- **The Wi-Fi and Bluetooth**: XRadio's firmware for the XR829
+  (`boot_xr829.bin`, `fw_xr829.bin`, `sdd_xr829.bin`, `fw_xr829_bt.bin`, the
+  24 MHz ones), in the same Sonic Pad SDK
+  (`package/firmware/linux-firmware/xr829`) and in TrimUI's firmware.
+
+**Under what terms.** Neither set comes with a license file or any
+redistribution terms, in the Sonic Pad SDK, in TrimUI's releases or in the
+other projects below. Creality's repository is marked GPL-2.0, but that is
+its build system; it does not license Imagination's or XRadio's binaries.
+Imagination supports only the companies that license its driver kit. So
+there is no written permission to pass the files on, and none found that
+forbids it either.
+
+**What the other Brick firmwares do.**
+
+| Project | Which files | How they get to the player |
+|---|---|---|
+| TortOS (the same plastron Brick board as ZyperOS's) | DDK 1.11 and the XR829 firmware, from the Sonic Pad SDK | inside its public Brick image since 2.0.0 (2026-10-26); a `PROPRIETARY.txt` names them; left out of the sources tar |
+| Knulli | DDK 1.19 from TrimUI's stock libraries, over the Sonic Pad files; TrimUI's kernel and modules as binaries | its own public GitHub repository (`knulli-cfw/ge8300-drivers`), which its build downloads, and its public images |
+| Slot OS (a Brick frontend on its own card) | TrimUI firmware 1.1.1's kernel, modules, DDK 1.19 and XR829 firmware | inside its public image; its NOTICE names them as TrimUI's, "passed on unchanged" |
+| NextUI, MinUI | none | copied onto a card that the Brick's own system starts, so they use TrimUI's libraries in place |
+
+So every image-based Brick firmware I found ships the files in public, with
+a notice. The risk is a takedown request from Imagination, XRadio, Allwinner,
+Creality or TrimUI against the release files, not a license term that is
+broken knowingly; nobody has written permission.
+
+**The ways ZyperOS could do it.**
+
+1. **In the image, as TortOS does.** plastron already builds it this way:
+   the files go into the root, and `PROPRIETARY.txt` names them. The least
+   work. A takedown would hit the release's images and System Update packs.
+2. **The player's own copy.** ZyperOS's images and System Update packs
+   carry none of them. The installer, on the player's computer, downloads
+   the files from where their publisher put them (the Sonic Pad SDK at its
+   pinned commit), checks each against `files.sha256`, and writes them to a
+   folder on the card outside the system slots; the system loads them from
+   there at boot, and System Update leaves that folder alone. The same
+   pattern as Broadcom's `b43-fwcutter` or Asahi Linux taking Apple's
+   firmware from the owner's own macOS. Costs an installer step, that folder
+   in the Brick's card layout (decided before the layout is fixed, step 6),
+   and a dependency on Creality's repository staying up.
+3. **The player's own copy, from TrimUI.** As 2, but from TrimUI's firmware
+   zip, the device maker's own release. The GPU kernel driver must move to
+   DDK 1.19 first, and its source must be found (it is MIT/GPL, so a newer
+   Allwinner kernel tree may carry it). The most work; the source least
+   likely to disappear.
+
+**My recommendation:** 2 for the first public Brick release, with 3 as its
+fallback if the Sonic Pad files ever go away. It keeps ZyperOS's own release
+files clean of anything without a license, and it costs one installer step
+that testers exercise from the first test build. **This is a legal decision
+for me, not a technical one**: 1 is what TortOS and Knulli do and is the
+least work; 2 and 3 avoid passing the files on. A lawyer's look is worth it
+before the first public Brick release, whichever way.
+
+### 8. Testing on Bricks I do not have
+
+The Brick work is tried by Brick owners on the ZyperOS Discord.
+
+- **On the Mac first.** Every Brick screen is a host shot with
+  `--device brick`; each build's contact sheet shows what changed, so a
+  tester's time goes to what only the device can show.
+- **A kit per build**, posted as a release-like page outside the public
+  releases (a draft release or a test folder): the image for a fresh
+  install (later, a payload or a System Update pack for a quick update),
+  its SHA256SUMS, what changed, and a short numbered test list of 10 to 15
+  checks, each with what to look for and what to send.
+- **The first kit is the panel probe** (`plastron/buildroot/board/brick/probe`,
+  already in the tree): a card that only shows and saves which of the six
+  panels is in the Brick. It needs none of the closed files, and it tells us
+  the testers' units before anything else.
+- **Results come back as logs.** The tester opens File Transfer's page over
+  the Brick's Wi-Fi and presses Download logs; the log pack's `about.txt`
+  gains the device id, the build, and a short hardware report (panel, input
+  devices, GPU driver version, Wi-Fi chip up or not). Where Wi-Fi itself is
+  what fails, the tester takes the card out and sends the same files from
+  `.userdata/brick/logs` with a computer. Plus a photo where the screen is
+  the result. Testers post them in one Discord thread per kit; I bring them
+  back.
+- **The art**: a short request for measurements (width, height, depth at
+  the top and bottom, the place and size of each key) and straight-on
+  photos of the front, back, sides and top, with a ruler in frame, plus
+  each tester's exact model (TG3040 Brick or Brick Hammer) and color. I
+  post it on Discord myself.
+- **The pass**: a kit's test list done by at least one tester with no
+  failure left open is the `Tested on` line for that version (section 5).
+
+### 9. Order of work
 
 Each step is one PR to `main`, after `main-split-2` and `design-system-2`
 are merged. Steps 1 to 4 make ZyperOS ready for other devices and change
 nothing on the Pixel 2; they are 1.0.6. Steps 5 to 7 are the Brick: step 5 is
-host-only and can be in 1.0.6; steps 6 and 7 need the device and ship in the
-first release after the Brick passes its device test (1.0.6 if the device
-work is done by then).
+host-only and can be in 1.0.6; steps 6 and 7 need testers and ship in the
+first release after the Brick passes its test list (1.0.6 if that work is
+done by then).
 
 1. **The device profile.** `device_profile`, the `pixel2`, `brick` and
    `desktop` profiles, `plat_profile()`, the host `--device` flag,
    capabilities in place of `fn_volume` and of the side-effect guesses,
    `plat_system_has` (today's file checks behind it; the image's `has` line
-   comes in step 4), the
-   generated `<id>.mk`/`<id>.h`, `make check-devices`, the Brick files
-   compiled in `make check`. Fixes on the way: Developer Mode's unlock, the
-   Controls tab's handheld shown only with a model. Pixel gate clean.
+   comes in step 4), the generated `<id>.mk`/`<id>.h`,
+   `make check-devices`, the Brick files compiled in CI. Fixes on the way:
+   Developer Mode's unlock, the Controls tab's handheld shown only with a
+   model. Pixel gate clean.
 2. **The handheld as data.** `td_model`, the Pixel 2's model in
    `pixel2.model.c`, turn and lean from the model, kept boxes per model.
    Pixel gate clean.
@@ -420,21 +544,25 @@ work is done by then).
    Diatom port, `vendor/<arch>/`, `-mcpu` from the profile.
 4. **Build, card and release by device.** plastron's device symbol, one
    card script with `device.sh`, System Update's device and slots and the
-   `has` line in `/etc/zyperos/system`, `tools/release.sh` over a device list, the
-   installer's devices from the release, dev tools with a device. A Pixel 2
-   release built through the new path is byte-for-byte the same payload as
-   one built through the old. This step reads the card layout from the image
-   for every device; the Brick's own numbers are written in step 6, after
-   open question 3, so step 4 does not wait for it.
-5. **The Brick's front end.** Its profile, its handheld (after I measure
-   it), its MENU glyph and key hints, its tutorial and Controls tab, all on
-   the Mac; a contact sheet of every Brick screen for me to look at. The
-   README and i18n shots move to `--device pixel2` here, on their own sheet.
+   `has` line in `/etc/zyperos/system`, `tools/release.sh` over a device
+   list, the installer's devices from the release, dev tools with a device.
+   A Pixel 2 release built through the new path is byte-for-byte the same
+   payload as one built through the old. This step reads the card layout
+   from the image for every device; the Brick's own numbers are written in
+   step 6.
+5. **The Brick's front end.** Its profile, a first handheld from the
+   published outline and then from the testers' measurements, its MENU
+   glyph and key hints, its tutorial and Controls tab, all on the Mac; a
+   contact sheet of every Brick screen for me to look at. The README and
+   i18n shots move to `--device pixel2` here, on their own sheet. The panel
+   probe kit goes out to testers during this step.
 6. **The Brick's back end and image.** Drivers, Diatom port, card script,
-   plastron's Brick board; built with the closed inputs and tried on the
-   device with a spare card.
-7. **The Brick's release.** Release artifacts, installer, site, docs; only
-   after its device test passes and I say release.
+   plastron's Brick board with A/B slots, the bootstate logic in its U-Boot,
+   the closed files the way I choose (section 7), the log pack's hardware
+   report; test kits for the testers until a kit passes.
+7. **The Brick's release.** Release artifacts, installer (with the
+   player's-own-copy step if I choose 2), site, docs; only after a kit
+   passes and I say release.
 
 ## What is left to the builder
 
@@ -446,6 +574,8 @@ work is done by then).
 - The order of changes inside each PR, and how each PR proves the Pixel 2 is
   unchanged (the pixel gate, payload diffs, a device run on my test card
   where a PR changes the image).
+- Where on the Brick's card the closed files' folder sits, if I choose 2,
+  and how the system finds them at boot.
 
 ## Calls made in this design
 
@@ -464,20 +594,18 @@ Each is marked *(My call)* where it is written:
 - Every release carries every released device and waits for each one's
   `Tested on` line.
 
-## Open questions for me
+## Decided
 
-1. **Hardware.** Which Brick do I have (the TG3040, not the Brick Pro), and
-   a spare card for it? It decides when steps 5 to 7 can start: the art
-   needs measurements, every Brick step after 5 needs the device.
-2. **The closed files.** Where do the PowerVR libraries and the XR829
-   firmware come from, and may a public Brick image carry them? Without them
-   there is no Brick image; without the right to ship them there is no public
-   one.
-3. **System Update on the Brick from its first release.** A/B slots on the
-   Brick (the same card layout as the Pixel 2, more plastron and U-Boot work
-   first) or one root and installer-only updates at first? The layout is
-   fixed at install, so changing it later means every Brick card is
-   installed again.
+- **The design**: approved as written, with the calls above (2026-11-14).
+- **Hardware**: I have no Brick; Brick owners on Discord test (section 8).
+- **System Update on the Brick**: A/B slots and System Update from its first
+  release.
+
+## One decision left
+
+- **How the closed files reach the player** (section 7): in the image as
+  TortOS and Knulli do, or the player's own copy through the installer (my
+  recommendation). Needed before step 6 fixes the Brick's card layout.
 
 ## Appendix: the map
 
