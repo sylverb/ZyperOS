@@ -2773,9 +2773,14 @@ asks it.
   their folder pictures from the File Transfer page (Music's vinyl album,
   Videos' tape, Audiobooks' book with headphones, BIOS' chip), ZyperOS with Zyper's
   face, and Other with the small folder. The more-rows triangles of 11.3.
-- **Under the list**, at cap y 702, the focused row's facts in **meta**
-  **text-dim**, at most two balanced lines: "116 games · saves and states
-  1.3 GB · art 900 MB", "318 songs", what a recommendation is.
+- **Under the list**, the focused row's facts in **meta** **text-dim**, at
+  most two balanced lines 40 apart, the last at cap y 708 (the caption
+  inset): "116 games · saves and states 1.3 GB · art 900 MB", "318 songs",
+  what a recommendation is. Their room is the page's tallest caption, and
+  the list keeps the whole rows that fit over it, laid out by rules (src/ds/flex.h):
+  a page whose captions take two lines in a longer language shows a row
+  fewer, the same while the cursor moves, and the sort key never meets them.
+  A row's text stands on the 64 margin, its fill 16 outside it.
 
 **A system's page**: its name as the heading, its sprite at the left (x 56,
 y 92, 112 square) where System Update has Zyper, its size in **title** and its
@@ -4170,7 +4175,7 @@ when its change lands.
   MP4 player at 724, `DS_PAGE_FOOT_LOW` (the big view's two caption lines stand over it, and at
   704 A's hint met the second), Now Playing over a video at 730 (under the
   video's controls), the charging screen's larger hints at 680; Storage has
-  no keys, its caption at 702. Flash Drive puts its two hints 48 apart where
+  no keys, its caption's last line at 708 (1.0.6, on the grid; 702 before). Flash Drive puts its two hints 48 apart where
   a page puts them 40.
 - Two progress bars are still drawn by hand in `src/main.c`: File Transfer's
   load header and Developer Mode's hold, which fills in **text** where every
@@ -4178,14 +4183,12 @@ when its change lands.
   marks in its own layer, at `ds_bar`'s and `ds_more`'s sizes.
 - The keyboard copies the menu panel's padding formula (`menu_pad`).
 - Words whose ink comes within 3 units of a key or a more mark, found when
-  the host began to check it (1.0.6): Storage's two-line caption under the
-  sort key (X with the order), its accents and ascenders in Spanish and
-  Portuguese, and the video controls' keys, wrapped to two rows in Japanese,
-  under the times. The sort key sits in the only room between the list and
-  the caption, so moving it is a layout of its own; the video player's
-  controls get a new layout that keeps the picture at its full size in every
-  language. `check-i18n-shots` lists these screens as known (`KNOWN_KEYS`)
-  and fails on any other.
+  the host began to check it (1.0.6): the video controls' keys, wrapped to
+  two rows in Japanese, under the times, which the one-view player takes
+  off. `check-i18n-shots` lists these screens as known (`KNOWN_KEYS`) and
+  fails on any other. Storage's two-line caption under its sort key left the
+  list with the layout by rules: its list keeps whole rows in the room the
+  page's tallest caption leaves (`list_room`, src/storage_page.c).
 - A heart is drawn three ways: filled (`draw_heart`, `src/heart.c`, the
   favorites' mark), as a stroke mark (`UI_GLYPH_HEART`, the Favorites tile),
   and as a distance field for a cover badge that only its check draws
