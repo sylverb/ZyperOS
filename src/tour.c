@@ -629,12 +629,12 @@ int tour_segment(const tour *t)
 	return t->step - TOUR_FIRST_LESSON;
 }
 
-void tour_start(tour *t, uint32_t now, const dev_chords *c, bool handheld)
+void tour_start(tour *t, uint32_t now, const dev_chords *c, const td_model *model)
 {
 	memset(t, 0, sizeof *t);
 	t->bright = c->bright;
 	t->menu_release = c->menu_on_release;
-	t->handheld = handheld;
+	t->model = model;
 	zr_init(&t->zy, now, ZYPER_SEED);
 	t->rise = (tour_rise){ 1.0f, 1.0f, now, 0, TC_OUT };
 	enter(t, TOUR_LANG, now);
@@ -862,7 +862,7 @@ bool tour_takes_power(const tour *t)
 /* ---- stills ----------------------------------------------------------------- */
 
 void tour_pose(tour *t, tour_step step, uint32_t now, int ms, int done_ms,
-               const dev_chords *c, bool handheld)
+               const dev_chords *c, const td_model *model)
 {
 	const uint32_t at = now - (uint32_t)ms;
 
@@ -872,12 +872,12 @@ void tour_pose(tour *t, tour_step step, uint32_t now, int ms, int done_ms,
 		 * entering the finish directly would start with an empty corner. */
 		const uint32_t reward_at = at - DS_MS_TOUR_REWARD;
 
-		tour_start(t, reward_at, c, handheld);
+		tour_start(t, reward_at, c, model);
 		enter(t, t->music ? TOUR_MUSIC : TOUR_SOUNDS, reward_at);
 		landed(t, reward_at);
 		tour_tick(t, at);
 	} else {
-		tour_start(t, at, c, handheld);
+		tour_start(t, at, c, model);
 		enter(t, step, at);
 	}
 	if (done_ms >= 0) {

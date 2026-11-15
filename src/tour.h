@@ -232,10 +232,10 @@ typedef struct {
 	uint32_t  end_at;
 	/* The device's chords and drawing (src/device/profile.h), from
 	 * tour_start: brightness on its own keys or MENU+VOL, MENU seen at its
-	 * release, and a handheld beside the lessons */
+	 * release, and the handheld beside the lessons (NULL for none) */
 	dev_bright bright;
 	bool      menu_release;
-	bool      handheld;
+	const td_model *model;
 	/* The choices: the one each step has focused, and the one saved, which
 	 * a step starts on and a skip goes back to (tour_choices_from). In a
 	 * choice step `pos`, `pos_from` and `moved_at` are its focus moving, as
@@ -263,8 +263,9 @@ int  tour_lang_focus(const tour *t, uint32_t now);
 int  tour_lang_kept(const tour *t);
 
 /* From the welcome, at `now`, for a device with chords `c` (its profile's)
- * and, when `handheld`, its drawing beside the lessons (dev_tutorial_handheld) */
-void tour_start(tour *t, uint32_t now, const dev_chords *c, bool handheld);
+ * and its drawing `model` beside the lessons, NULL for none
+ * (dev_tutorial_model) */
+void tour_start(tour *t, uint32_t now, const dev_chords *c, const td_model *model);
 
 /* One press. Returns the sound it plays (a ds_sound, src/design.h), or
  * TOUR_QUIET for none. VOL and BRIGHT are the levels' keys, which the caller
@@ -364,7 +365,7 @@ tour_zyper_at tour_zyper_now(const tour *t, uint32_t now);
  * not yet. The finish includes the preceding power reward, so its first
  * frames show the corner Zyper leaving before the large hello pops in. */
 void tour_pose(tour *t, tour_step step, uint32_t now, int ms, int done_ms,
-               const dev_chords *c, bool handheld);
+               const dev_chords *c, const td_model *model);
 /* And a wrong press of `k`, `ms` ago. */
 void tour_pose_wrong(tour *t, tour_key k, uint32_t now, int ms);
 /* And, in a choice step, the focus moved to `pick` `ms` ago from the one it

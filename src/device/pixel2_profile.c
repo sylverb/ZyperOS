@@ -48,7 +48,7 @@ const device_profile device_profile_pixel2 = {
 	},
 	.buttons = pixel2_buttons,
 	.n_buttons = (int)(sizeof pixel2_buttons / sizeof pixel2_buttons[0]),
-	.handheld = true,
+	.model = &td_model_pixel2,
 	.bluetooth = false,
 	.gpu_shaders = true,
 	.speaker_mono = true,

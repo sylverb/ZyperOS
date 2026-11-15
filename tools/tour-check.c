@@ -18,7 +18,8 @@
 
 /* A device's chords and drawing, as the tutorial is told them: true is the
  * Pixel 2 (MENU+VOL, MENU on release, its handheld), false the Brick */
-#define DEV(fn) ((fn) ? &device_profile_pixel2.chords : &device_profile_brick.chords), (fn)
+#define DEV(fn) ((fn) ? &device_profile_pixel2.chords : &device_profile_brick.chords), \
+                ((fn) ? &td_model_pixel2 : NULL)
 
 static int fails;
 

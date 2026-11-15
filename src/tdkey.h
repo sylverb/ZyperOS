@@ -6,7 +6,10 @@
  * own and with no SDL, so a pure part (src/ctltab.c, which says which keys a
  * row of the Controls tab is about) can name them as bits, 1u << TD_A. */
 typedef enum { TD_DPAD, TD_A, TD_B, TD_X, TD_Y, TD_SELECT, TD_START, TD_MENU, TD_VOLUP,
-               TD_VOLDN, TD_POWER, TD_L1, TD_R1, TD_L2, TD_R2, TD_KEYS } td_key;
+               TD_VOLDN, TD_POWER, TD_L1, TD_R1, TD_L2, TD_R2,
+               /* The brightness keys of a device that has them (the Brick's F1
+                * and F2); none on the Pixel 2 */
+               TD_F1, TD_F2, TD_KEYS } td_key;
 
 /* How far the handheld tilts back, degrees, so its top shows with the
  * shoulders standing on it: for the shoulders, in the tutorial's lessons

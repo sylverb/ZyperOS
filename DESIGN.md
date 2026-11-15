@@ -1214,7 +1214,7 @@ of the player's own goes on from wherever the loop was.
   an optional second line in **meta** **text-dim** on y 624. A step's stage,
   glyph and lines fade in over **move**.
 - **The handheld** (a device whose profile has a drawing, the GKD Pixel 2
-  today; src/device/profile.h, `dev_tutorial_handheld`): each lesson shows
+  today; src/device/profile.h, `dev_tutorial_model`): each lesson shows
   the handheld the tutorial is running on, in a column at the left, with the lesson's
   key lit, so a player who has never seen MENU, the volume keys or POWER -
   all on its sides - finds them. *(My pick in the tutorial-buttons lab,
@@ -1226,7 +1226,13 @@ of the player's own goes on from wherever the loop was.
   leaves keeps the **inset** from the right edge instead, ending where
   "START: skip" ends (Music's line, wider than the stage, sits a little
   left of the stage's middle). On a device with no drawing yet (the Brick)
-  nothing moves and there is no handheld. src/tourdevice.c draws it in code, no image files, into a
+  nothing moves and there is no handheld. src/tourdevice.c draws it in code, no image files,
+  from the device's model (src/device/td_model.h: where each key is and on
+  which face, the views it turns to and its kept textures' boxes; the Pixel
+  2's in src/device/pixel2_model.c). A lesson's view follows from the faces
+  of the keys it lights: a key on the top edge tilts it back, keys on both
+  sides face it front with their tabs out of the edges, one side's turn it
+  to that side, and the rest face front. It draws into a
   304 x 382 texture kept while it does not change (it changes only as it
   turns, a key lights or presses, and in the first lesson's fade-in): drawn
   every frame it cost the Pixel 2 a third of the lesson's frame rate, kept
@@ -1236,10 +1242,10 @@ of the player's own goes on from wherever the loop was.
   (`--handheld-box tour`), its words clear of the inset, and the block
   moved and otherwise the Brick's, in both themes.
   - **Shared with the Controls tab** (11.28, 11.45): the tutorial's handheld
-    and the in-game menu's Controls tab draw the same Pixel 2 through
-    `td_draw`, from a pose (centre, scale, turn, tilt, each key's light and
-    press) and the theme's colors, into the one kept texture, sized for its
-    caller. The tutorial's look is the Controls tab's: a change to the model
+    and the in-game menu's Controls tab draw the same device's model
+    through `td_draw`, from a pose (the model, centre, scale, turn, tilt,
+    each key's light and press) and the theme's colors, into the one kept
+    texture, sized for its caller (the model's box for each). The tutorial's look is the Controls tab's: a change to the model
     changes both. Both tilt it back the same 25 degrees for the shoulders
     (the Controls tab's shoulder rows, the tutorial's Move Around and
     Music), the top face showing with the shoulders standing on it; every
@@ -4105,7 +4111,10 @@ the lit one standing up out of it in the lit look; its upright edges stay
 upright. SELECT, START, keys on both sides and no keys bring it back to the
 front pose, level; a side key with a centre key leans to its side (the N64's
 d-pad and SELECT as the d-pad), and a face with a right shoulder as the face,
-level.
+level. Which side a key is on is where the device's model has it
+(`ct_lean`): on the front, left or right of the middle, SELECT and START
+within 8 mm of it being the centre; on the top edge, a shoulder left or
+right; a key on a side face is a centre key here.
 
 | What | Token and how |
 |---|---|
