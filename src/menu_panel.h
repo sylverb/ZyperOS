@@ -49,6 +49,7 @@ extern void (*g_menu_header)(app *a, const SDL_Rect *r);
 extern int    g_menu_header_h;
 extern void (*g_menu_side)(app *a, const menu_side *at);
 extern int    g_menu_side_w;
+extern bool   g_menu_pin_foot;
 extern bool   g_snap_drawing;
 extern SDL_Texture *(*g_row_icon)(int row);
 extern int g_menu_scroll_hold;

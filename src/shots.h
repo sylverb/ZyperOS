@@ -144,6 +144,8 @@ extern const char *shot_gamecontrols_tag;
 extern const char *shot_handheld_box;
 extern const char *shot_controls_fit;
 extern int shot_key;
+extern int shot_gm_choose;     /* --gm-choose */
+extern int shot_rows_report;   /* --rows-report */
 extern const char *shot_menu_label;
 bool shot_status_parse(const char *spec);
 void shot_motion(app *a);

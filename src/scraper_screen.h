@@ -16,4 +16,7 @@ void scraper_page_shot(app *a);
 menu_result ss_page(app *a);
 menu_result snaps_screen(app *a);
 
+/* --rows-report: Video Snaps' rows (menu_rows_print) */
+void snaps_rows_report(app *a);
+
 #endif
