@@ -43,7 +43,9 @@ char *hj_done(hj *o, size_t *len, char *why, size_t wn);
  */
 
 /* Start and stop with the screen. Generates the PIN, clears any session, and
- * sweeps part-files left by a transfer that died.
+ * sweeps part-files left by a transfer that died - but not a part the page
+ * may still go on with (hare_paused): an upload kept that way outlives a
+ * File Transfer closed and opened again, never the launcher.
  *
  * The three directories are arguments rather than the P_ globals so this whole
  * subsystem - routes, transport, path safety - links into a check without SDL
@@ -192,7 +194,36 @@ void hare_set_after_write(void (*fn)(const char *abs));
  * file, deleted with its connection, never a broken game on the shelf. */
 void hare_close_after(void);
 bool hare_closing(void);
-int  hare_inflight(void);          /* uploads and downloads on their way */
+/* Uploads and downloads on their way, and the uploads paused that the page
+ * may still go on with (hare_paused): the screen treats one as a file still
+ * moving, so B asks, Auto Off waits and "after the file on its way" waits
+ * for it */
+int  hare_inflight(void);
+
+/* Uploads that go on from where they broke (src/hare.c, "uploads that go on
+ * from where they broke"). The page sends a file's whole size and its time
+ * with it, and a part-file whose connection breaks is kept:
+ *
+ *   GET    /api/upload?p=P&size=N&mod=M   {"have":H,"size":N,"busy":B,"done":D}:
+ *          how much of that file the handheld holds, whether a broken
+ *          request is still writing it, whether it is in place already
+ *   PUT    /api/file?p=P&size=N&mod=M&from=H[&trailer=16]   bytes H to N
+ *          (and the trailer, by the tail's length): 409 with X-Upload-Have
+ *          when H is not what it holds; a broken writer is ended and this
+ *          one goes on
+ *   DELETE /api/upload?p=P&size=N&mod=M   the part goes
+ *
+ * A PUT without them is stored as it always was, its part gone with a broken
+ * connection. A part nobody goes on with goes HARE_KEEP_MS after its last
+ * byte. The page gives up after HARE_PAUSE_MS without an answer, and for that
+ * long the screen counts a paused upload as one on its way. */
+#define HARE_KEEP_MS  (30u * 60u * 1000u)
+#define HARE_PAUSE_MS (10u * 60u * 1000u)
+int  hare_paused(void);            /* paused uploads younger than HARE_PAUSE_MS */
+/* Every paused upload's part, gone: File Transfer's Cancel now */
+void hare_drop_paused(void);
+/* The clock the kept parts age by, for the checks; NULL is the real one */
+void hare_set_clock(unsigned (*now)(void));
 
 /* Milliseconds since a signed-in browser last asked anything (a request
  * without a session, a PIN tried included, does not count): a File Transfer
@@ -246,8 +277,10 @@ typedef struct {
 	int           sends;        /* downloads in flight */
 	char          last[128];    /* the most recent thing that happened */
 	char          file[128];    /* the upload on its way, or the last one */
-	long long     up_got, up_total;  /* the uploads on their way: bytes in, and of */
+	long long     up_got, up_total;  /* the uploads on their way: bytes in, and of;
+	                                  * with none, the paused one's kept bytes */
 	unsigned long requests;     /* every request since hare_start: one is a browser */
+	int           paused;       /* uploads paused, kept to go on with (hare_paused) */
 } hare_stats;
 
 void hare_status(hare_stats *out);

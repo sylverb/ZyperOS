@@ -104,6 +104,28 @@ de = Fehler: %s
 ja = 失敗：%s
 it = non riuscito: %s
 
+[hare.paused]
+note = An upload whose connection broke, its part kept on the card for the page to go on from when it can reach the handheld again
+en = paused: %s
+zh-Hans = 已暂停：%s
+es = en pausa: %s
+pt-BR = pausado: %s
+fr = en pause\u00a0: %s
+de = pausiert: %s
+ja = 一時停止中：%s
+it = in pausa: %s
+
+[hare.have]
+note = The answer to an upload that asked to go on from a byte the handheld does not have: how many it has (a number of bytes), for the page to go on from there
+en = the handheld has %s bytes of this file
+zh-Hans = 掌机上已有此文件的 %s 字节
+es = la consola tiene %s bytes de este archivo
+pt-BR = o console tem %s bytes deste arquivo
+fr = la console a %s octets de ce fichier
+de = die Konsole hat %s Bytes dieser Datei
+ja = 本体にはこのファイルの %s バイトがあります
+it = la console ha %s byte di questo file
+
 [hare.made]
 note = A new folder
 en = made %s
