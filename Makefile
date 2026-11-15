@@ -35,7 +35,7 @@ CHECKS = check-cheevos check-hare check-portal check-httpd check-idle check-task
          check-clock check-autozone check-status check-battery check-battery-eta check-dslang check-dsresume check-corestate check-core-stamp check-core-room check-px2-perf check-px2-snap check-px2 check-lowbatt check-heat check-charging check-corner check-dsv check-sidelights check-osdbar check-themefile check-pkkeys check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-kbnav check-randgame check-shelfdir check-look \
          check-tween check-menumotion check-menusnap check-cardgen check-blur check-roundrect check-rowmacro check-emptyhome check-zyperrig check-sysmark check-flip check-menushots check-design \
          check-systemart check-linebreak check-portload check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-messages \
-         check-tour check-tour-shots check-tour-previews check-textfade check-glyphs check-ds check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pmhelper check-pmart check-portdoc check-boottheme check-panelgamma check-displayback check-px2-push check-wifi-watch check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr \
+         check-tour check-tour-shots check-tour-previews check-textfade check-glyphs check-ds check-flex check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pmhelper check-pmart check-portdoc check-boottheme check-panelgamma check-displayback check-px2-push check-wifi-watch check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr \
          check-home check-home-shots check-games check-cardpaint check-putpace check-favorites-shots check-np-footer check-layout-shots check-artbadge check-artbadge-shots checkmark \
          check-installer check-from-rogue check-importers check-diatom check-simulator check-px2sim check-building-doc check-blog check-discord-release \
          check-strings check-i18n-shots
@@ -1981,6 +1981,16 @@ check-textfade:
 .PHONY: check-ds
 check-ds:
 	@python3 tools/ds-check.py
+
+# The layout engine's rules (src/ds/flex.c), a thousand random trees that
+# stay in their parents the same way every time, and its time per screen
+.PHONY: check-flex
+check-flex: build-native/flex-check
+	@./build-native/flex-check
+
+build-native/flex-check: tools/flex-check.c src/ds/flex.c src/ds/flex.h
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -O2 -Isrc $$(pkg-config --cflags sdl2) -o $@ tools/flex-check.c src/ds/flex.c
 
 # The marks drawn from strokes (src/ds/glyph.c): every one within its strokes
 # and arrowheads, none dropped, and the cache giving the same pixels when full.

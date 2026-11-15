@@ -56,5 +56,19 @@
 #define DS_HINTS_GAP            32
 #define DS_HINTS_GAP_SPREAD     16
 #define DS_HINTS_ROW            44
+#define DS_MARGIN               64
+#define DS_HEADER               72
+#define DS_SECTION              24
+#define DS_RELATED              8
+#define DS_FOOT_INSET           32
+#define DS_FOOT_GAP             24
+#define DS_CAPTION_INSET        40
+#define DS_LIST_ROW             72
+#define DS_LINE_TITLE           72
+#define DS_LINE_LABEL           64
+#define DS_LINE_MENU            56
+#define DS_LINE_META            40
+#define DS_LINE_SUPPORT         36
+#define DS_LINE_CHROME          32
 
 #endif
