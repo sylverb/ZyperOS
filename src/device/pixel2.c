@@ -35,6 +35,7 @@
 #include <linux/input.h>
 #include <signal.h>
 #include <stdio.h>
+#include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
@@ -1686,14 +1687,73 @@ void plat_side_lights_say(const char *line) { side_lights_say_to(SIDE_LIGHTS_FIF
  * use on another, 2026-11-15), and not in a game held at one rate. Off by
  * default: a still shelf drew 17 mA more from the battery at 1056 MHz
  * (2026-11-15), as 69 mW did in 2026-11-04's measure. */
+/* The write on a thread of its own. plastron's DMC driver switches the DDR
+ * in the display's vertical blank (9-px2-px30-dmc-vblank.patch), so a write
+ * waits for it, up to a frame (16.6 ms each, measured 2026-11-15, where a
+ * switch took 1.5 ms), and the press that wakes a still shelf would wait
+ * with it. The latest wish wins; one waiting is all there is. At exit the
+ * last one is waited for (ram_settle, up to 200 ms): the launcher's own
+ * last word is the full rate (main.c), and a port that runs after it must
+ * not start at 328 MHz. */
+#define DMC_MAX "/sys/class/devfreq/dmc/max_freq"
+static pthread_mutex_t ram_mx = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t  ram_cv = PTHREAD_COND_INITIALIZER;
+static const char     *ram_want, *ram_done;
+static bool            ram_thread_up;
+
+static void *ram_writer(void *unused)
+{
+	(void)unused;
+	pthread_mutex_lock(&ram_mx);
+	for (;;) {
+		const char *v;
+
+		while (ram_want == ram_done) pthread_cond_wait(&ram_cv, &ram_mx);
+		v = ram_want;
+		pthread_mutex_unlock(&ram_mx);
+		write_file(DMC_MAX, v);
+		pthread_mutex_lock(&ram_mx);
+		ram_done = v;
+		pthread_cond_broadcast(&ram_cv);
+	}
+	return NULL;
+}
+
+static void ram_settle(void)
+{
+	struct timespec until;
+
+	clock_gettime(CLOCK_REALTIME, &until);
+	until.tv_nsec += 200 * 1000000L;
+	if (until.tv_nsec >= 1000000000L) { until.tv_sec++; until.tv_nsec -= 1000000000L; }
+	pthread_mutex_lock(&ram_mx);
+	while (ram_want != ram_done)
+		if (pthread_cond_timedwait(&ram_cv, &ram_mx, &until)) break;
+	pthread_mutex_unlock(&ram_mx);
+}
+
 void plat_ram_idle(bool idle)
 {
 	char steady[512];
+	const char *v;
+	pthread_t t;
 
 	snprintf(steady, sizeof steady, "%s/steady-memory", P_USERDATA);
-	write_file("/sys/class/devfreq/dmc/max_freq",
-	           idle && access(steady, F_OK) != 0 &&
-	           access("/run/zyperos-steady-memory", F_OK) != 0 ? "328000000" : "0");
+	v = idle && access(steady, F_OK) != 0 &&
+	    access("/run/zyperos-steady-memory", F_OK) != 0 ? "328000000" : "0";
+	pthread_mutex_lock(&ram_mx);
+	if (!ram_thread_up && pthread_create(&t, NULL, ram_writer, NULL) == 0) {
+		pthread_detach(t);
+		ram_thread_up = true;
+		atexit(ram_settle);
+	}
+	if (ram_thread_up) {
+		ram_want = v;
+		pthread_cond_broadcast(&ram_cv);
+	}
+	pthread_mutex_unlock(&ram_mx);
+	/* No thread: the write here, as before */
+	if (!ram_thread_up) write_file(DMC_MAX, v);
 }
 
 /* ---- the chip's temperature ---- */
