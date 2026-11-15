@@ -1228,10 +1228,10 @@ build-native/search-check: tools/search-check.c src/search.c src/search.h FORCE
 check-sshlink: build-native/sshlink-check
 	@./build-native/sshlink-check
 
-build-native/sshlink-check: tools/sshlink-check.c src/sshlink.c src/sshlink.h $(I18N_SRC) FORCE
+build-native/sshlink-check: tools/sshlink-check.c src/sshlink.c src/sshlink.h src/rmtree.c src/rmtree.h $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
-	      -o $@ tools/sshlink-check.c src/sshlink.c $(I18N_SRC)
+	      -o $@ tools/sshlink-check.c src/sshlink.c src/rmtree.c $(I18N_SRC)
 
 # USB charges only until asked (src/usblink.h): a computer is asked about once
 # per plug and a charger never, every choice ends with its screen or its cable,
