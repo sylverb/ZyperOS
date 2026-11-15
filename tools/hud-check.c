@@ -286,12 +286,6 @@ int main(int argc, char **argv)
 		ck(A(p) == 255 && is_rgb(p, DS_THEME[DS_DARK].surface),
 		   "white text on Beard: Salt & Pepper's pill");
 
-		st.color = HUD_ACCENT;
-		hud_render(px, w, h, w, 1.0f, t, &st, &DS_THEME[DS_LIGHT], false);
-		p = px[(h / 2) * w + (w - 6)];
-		ck(A(p) == 255 && is_rgb(p, DS_THEME[DS_LIGHT].surface),
-		   "the accent on Beard: its ink, on Beard's pill");
-
 		st = hud_default;
 		st.opacity = 2;
 		hud_render(px, w, h, w, 1.0f, t, &st, &DS_THEME[DS_DARK], false);
@@ -299,16 +293,7 @@ int main(int argc, char **argv)
 		ck(A(p) == 128, "at 50%, the pill half there");
 
 		st = hud_default;
-		st.background = HUD_BARE;
 		hud_size(t, 1.0f, &st, &w, &h);
-		hud_render(px, w, h, w, 1.0f, t, &st, &DS_THEME[DS_DARK], false);
-		{
-			int any = 0, clear_edge = 1, k;
-
-			for (k = 0; k < w * h; k++) any |= A(px[k]) != 0;
-			for (k = 0; k < w; k++) clear_edge &= A(px[k]) == 0;
-			ck(any && clear_edge, "with none, the text alone");
-		}
 		st.background = HUD_SHADOW;
 		hud_render(px, w, h, w, 1.0f, t, &st, &DS_THEME[DS_DARK], false);
 		{
@@ -324,7 +309,7 @@ int main(int argc, char **argv)
 			int any = 0, k, xx, yy;
 
 			st = hud_default;
-			st.background = HUD_BARE;
+			st.background = HUD_SHADOW;
 			hud_size(bt, 1.0f, &st, &w, &h);
 			hud_render(px, w, h, w, 1.0f, bt, &st, &DS_THEME[DS_DARK], false);
 			for (yy = h / 3; yy < 2 * h / 3; yy++)

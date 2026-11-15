@@ -835,7 +835,7 @@ it = Intensità
 note = The last row of the in-game menu's Display tab, and the heading and first row of the page it opens: a small line in a corner of the screen, over the game, of what the player picked to see ("59.7 fps · 0.96x · 52°C": the frames a second, the speed against the game's own, the chip's temperature, and more). Its value is On or Off (menu.on_title, menu.off_title), and it holds for every game.
 en = On-Screen Stats
 zh-Hans = 屏幕信息
-es = Estadísticas en pantalla
+es = Datos en pantalla
 pt-BR = Estatísticas na tela
 fr = Statistiques à l'écran
 de = Werte im Bild
@@ -879,7 +879,7 @@ it = Velocità
 note = An item of On-Screen Stats: how warm the handheld's chip is ("52°C")
 en = CPU Temperature
 zh-Hans = CPU 温度
-es = Temperatura de la CPU
+es = Temperatura CPU
 pt-BR = Temperatura da CPU
 fr = Température du CPU
 de = CPU-Temperatur
@@ -890,7 +890,7 @@ it = Temperatura CPU
 note = An item of On-Screen Stats: how busy the chip is ("CPU 34%")
 en = CPU Load
 zh-Hans = CPU 占用
-es = Uso de la CPU
+es = Uso de CPU
 pt-BR = Uso da CPU
 fr = Charge du CPU
 de = CPU-Auslastung
@@ -901,7 +901,7 @@ it = Carico CPU
 note = An item of On-Screen Stats: the chip's clock speed now ("1.3 GHz")
 en = CPU Clock
 zh-Hans = CPU 频率
-es = Frecuencia de la CPU
+es = Frecuencia CPU
 pt-BR = Frequência da CPU
 fr = Fréquence du CPU
 de = CPU-Takt
@@ -1058,7 +1058,7 @@ ja = 背景
 it = Sfondo
 
 [gamemenu.hud_pill]
-note = Background's value: a rounded box in the theme's colors
+note = Background's value: a rounded box in the theme's colors (the other is Shadow)
 en = Pill
 zh-Hans = 胶囊
 es = Píldora
@@ -1079,17 +1079,6 @@ de = Schatten
 ja = 影
 it = Ombra
 
-[gamemenu.hud_none]
-note = Background's value: the text alone
-en = None
-zh-Hans = 无
-es = Ninguno
-pt-BR = Nenhum
-fr = Aucun
-de = Keiner
-ja = なし
-it = Nessuno
-
 [gamemenu.hud_opacity]
 note = A row of the On-Screen Stats page: how see-through the stats line is, 100%, 75% or 50%
 en = Opacity
@@ -1102,7 +1091,7 @@ ja = 不透明度
 it = Opacità
 
 [gamemenu.hud_color]
-note = A row of the On-Screen Stats page: the color of the stats line's text. Its values are Theme, White, Accent (look.accent), Green and Yellow (look.accent_green, look.accent_yellow)
+note = A row of the On-Screen Stats page: the color of the stats line's text. Its values are Theme, White, Green and Yellow (look.accent_green, look.accent_yellow)
 en = Text Color
 zh-Hans = 文字颜色
 es = Color del texto

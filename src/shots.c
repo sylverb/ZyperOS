@@ -548,7 +548,7 @@ static void shot_draw_gamemenu(app *a)
 	}
 	/* The On-Screen Stats page, which A on the Display tab's row opens */
 	if (shot_hud_page >= 0 && !u.port) {
-		hud_page_shot(a, bg, shot_hud_page, shot_hud_items);
+		hud_page_shot(a, bg, shot_hud_page, shot_hud_items, shot_hud_pick, shot_hud_shows);
 		if (bg) SDL_DestroyTexture(bg);
 		return;
 	}
@@ -863,6 +863,9 @@ static const char *shot_pick_heading;
 int shot_gm_choose;     /* --gm-choose: an option row's list, A pressed on it */
 int shot_hud_page = -1; /* --hud-page ROW: the On-Screen Stats page */
 bool shot_hud_items;    /* --hud-items: its Shows list */
+int  shot_hud_pick = -1; /* --hud-pick ROW: that row's list of choices */
+const char *shot_hud_shows; /* --hud-shows WORDS: the items it shows */
+bool shot_hud_alt;      /* --hud-alt: Shadow and Small, the two-choice rows' other values */
 int shot_rows_report;   /* --rows-report: every option page's rows (tools/menu-rows-check.py) */
 /* --menu's row by its label, found when the menu is built */
 const char *shot_menu_label;

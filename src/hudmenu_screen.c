@@ -10,7 +10,10 @@
 #include "ingame_screen.h"
 #include "panel.h"
 #include "platform.h"
+#include "shots.h"
 #include "theme.h"
+#include "menu_panel.h"
+#include "menu_pick.h"
 #include "ui.h"
 #include "uisound.h"
 
@@ -298,7 +301,7 @@ void hud_page(app *a, SDL_Texture *bg)
 	g_hm_bg = NULL;
 }
 
-void hud_page_shot(app *a, SDL_Texture *bg, int sel, bool items)
+void hud_page_shot(app *a, SDL_Texture *bg, int sel, bool items, int pick, const char *shows)
 {
 	menu_row rows[HM_MAX];
 	menu_style st;
@@ -307,9 +310,30 @@ void hud_page_shot(app *a, SDL_Texture *bg, int sel, bool items)
 
 	g_hm_bg = bg;
 	hm_load(&g_hm);
+	if (shows) g_hm.st.items = hud_items_parse(shows);
+	if (shot_hud_alt) {   /* the two-choice rows' other values */
+		g_hm.st.background = HUD_SHADOW;
+		g_hm.st.size = HUD_SMALL;
+	}
 	hm_style(a, &st);
 	n = items ? items_build(NULL, rows, HUD_ITEMS, &heading) : hm_build(NULL, rows, HM_ROWS, &heading);
 	hm_backdrop(a, NULL, 1.0f);
-	menu_draw_styled(a, &st, heading, rows, n, sel >= 0 && sel < n ? sel : 0);
+	if (!items && pick >= 0 && pick < n && g_hm_choice[pick].n > 2) {
+		/* A on an option row of more than two: its list, as menu_pick
+		 * draws it over the paused game, the one on ticked */
+		const menu_choice *ch = &g_hm_choice[pick];
+		static char pw[HUD_COLORS > HUD_CORNERS ? HUD_COLORS : HUD_CORNERS][64];
+		menu_row pr[8];
+		int k;
+
+		for (k = 0; k < ch->n && k < 8; k++) {
+			menu_pick_word(ch->labels[k], pw[k], (int)sizeof pw[k]);
+			pr[k] = (menu_row){ pw[k], k == ch->cur ? MENU_TICK : NULL, true };
+		}
+		g_menu_epoch++;
+		menu_draw(a, rows[pick].label, pr, k, ch->cur, gm_width(a), a->tint);
+	} else {
+		menu_draw_styled(a, &st, heading, rows, n, sel >= 0 && sel < n ? sel : 0);
+	}
 	g_hm_bg = NULL;
 }

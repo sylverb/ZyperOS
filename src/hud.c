@@ -10,8 +10,8 @@
 
 const char *const hud_item_id[HUD_ITEMS] = { "fps", "speed", "temp", "cpu", "clock", "battery", "time" };
 const char *const hud_corner_id[HUD_CORNERS] = { "tl", "tr", "bl", "br" };
-const char *const hud_background_id[HUD_BACKGROUNDS] = { "pill", "shadow", "none" };
-const char *const hud_color_id[HUD_COLORS] = { "theme", "white", "accent", "green", "yellow" };
+const char *const hud_background_id[HUD_BACKGROUNDS] = { "pill", "shadow" };
+const char *const hud_color_id[HUD_COLORS] = { "theme", "white", "green", "yellow" };
 const char *const hud_size_id[HUD_SIZES] = { "normal", "small" };
 const int hud_edge_units[HUD_EDGES] = { 8, 24, 48 };
 const int hud_opacity_pct[HUD_OPACITIES] = { 100, 75, 50 };
@@ -477,12 +477,9 @@ void hud_render(uint32_t *px, int w, int h, int stride, float scale, const char 
 	pads(sty, scale, &padx, &pady);
 
 	/* The text's color; a light one takes Salt & Pepper's pill when the
-	 * theme's is light, so it always reads. The accent is the look's
-	 * accent-ink, which is the accent on a dark ground and its dark ink on a
-	 * light one (DESIGN.md 3.5). */
+	 * theme's is light, so it always reads */
 	switch (sty->color) {
 	case HUD_WHITE:  ink = (ds_rgb){ 255, 255, 255 }; break;
-	case HUD_ACCENT: ink = th->accent_ink; break;
 	case HUD_GREEN:  ink = DS_ACCENT[1]; break;
 	case HUD_YELLOW: ink = DS_ACCENT[8]; break;
 	default:         ink = th->text; break;

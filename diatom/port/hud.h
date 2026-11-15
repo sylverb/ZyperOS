@@ -33,11 +33,13 @@
  *
  * The player's style (hud_style), kept per player: the items, the corner,
  * how far from its edges, the background (a pill in the theme's surface with
- * an edge rim, a shadow around the text alone, or nothing), the opacity of
- * the whole, the text's color (the theme's text, white, the look's accent,
- * or the design's green or yellow, which read on bright games), and its
- * size (the support type, or the chrome type). A light text color takes
- * Salt & Pepper's pill whatever the theme, so it always reads.
+ * an edge rim, or a shadow around the text alone), the opacity of the whole,
+ * the text's color (the theme's text, white, or the design's green or
+ * yellow, which read on bright games), and its size (the support type, or
+ * the chrome type). A light text color takes Salt & Pepper's pill whatever
+ * the theme, so it always reads. No background at all and the look's accent
+ * were tried and left out: white text vanished on a bright game, and lime
+ * on Beard's pill read weakly.
  *
  * It never lands under the level bar or the low-battery disc: in a top
  * corner, a line that would meet the bar's span drops below it, and in the
@@ -71,8 +73,8 @@
 
 enum { HUD_FPS, HUD_SPEED, HUD_TEMP, HUD_CPU, HUD_CLOCK, HUD_BATTERY, HUD_TIME, HUD_ITEMS };
 enum { HUD_TOP_LEFT, HUD_TOP_RIGHT, HUD_BOTTOM_LEFT, HUD_BOTTOM_RIGHT, HUD_CORNERS };
-enum { HUD_PILL, HUD_SHADOW, HUD_BARE, HUD_BACKGROUNDS };
-enum { HUD_THEME, HUD_WHITE, HUD_ACCENT, HUD_GREEN, HUD_YELLOW, HUD_COLORS };
+enum { HUD_PILL, HUD_SHADOW, HUD_BACKGROUNDS };
+enum { HUD_THEME, HUD_WHITE, HUD_GREEN, HUD_YELLOW, HUD_COLORS };
 enum { HUD_NORMAL, HUD_SMALL, HUD_SIZES };
 #define HUD_EDGES     3   /* Close, Normal, Far */
 #define HUD_OPACITIES 3   /* 100%, 75%, 50% */
@@ -81,8 +83,8 @@ enum { HUD_NORMAL, HUD_SMALL, HUD_SIZES };
  * (SETHUD), the edge's distance in units and the opacity in percent */
 extern const char *const hud_item_id[HUD_ITEMS];   /* fps speed temp cpu clock battery time */
 extern const char *const hud_corner_id[HUD_CORNERS];          /* tl tr bl br */
-extern const char *const hud_background_id[HUD_BACKGROUNDS];  /* pill shadow none */
-extern const char *const hud_color_id[HUD_COLORS];  /* theme white accent green yellow */
+extern const char *const hud_background_id[HUD_BACKGROUNDS];  /* pill shadow */
+extern const char *const hud_color_id[HUD_COLORS];            /* theme white green yellow */
 extern const char *const hud_size_id[HUD_SIZES];              /* normal small */
 extern const int hud_edge_units[HUD_EDGES];                   /* 8 24 48 */
 extern const int hud_opacity_pct[HUD_OPACITIES];              /* 100 75 50 */

@@ -28,7 +28,9 @@ void hm_send(const hm_state *s);
 void hud_page(app *a, SDL_Texture *bg);
 
 /* --hud-page ROW: the page as it draws, the cursor on ROW, over `bg`, for
- * a shot; with `items`, the items' list instead */
-void hud_page_shot(app *a, SDL_Texture *bg, int sel, bool items);
+ * a shot; with `items`, the items' list instead; with `pick` (a row, -1
+ * none), that row's list of choices, as A opens it; `shows` (NULL: the
+ * kept ones) the items, "fps,speed,temp" */
+void hud_page_shot(app *a, SDL_Texture *bg, int sel, bool items, int pick, const char *shows);
 
 #endif

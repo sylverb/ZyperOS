@@ -9,9 +9,9 @@
  *                    CPU Load, CPU Clock, Battery, Time
  *   Corner           Top Left, Top Right, Bottom Left, Bottom Right
  *   Edge Distance    Close, Normal, Far          (8, 24, 48 units)
- *   Background       Pill, Shadow, None
+ *   Background       Pill, Shadow
  *   Opacity          100%, 75%, 50%
- *   Text Color       Theme, White, Accent, Green, Yellow
+ *   Text Color       Theme, White, Green, Yellow
  *   Size             Normal, Small
  *
  * under a band at the page's top that is the screen's strip where the line
