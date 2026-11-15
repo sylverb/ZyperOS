@@ -695,10 +695,13 @@ static void np_view_toggle(void)
  * cut (DESIGN.md 12). `kind`: 0 music, 1 a book, 2 a video in full screen, 3
  * a video with its controls. `count` is a video's folder, `cy` the last
  * row's middle (0 for a shelf's foot, DS_SHELF_FOOT_Y), `alpha` how much of it shows. */
-static int np_hint_list(key_hint *h, bool playing, int kind, int count, bool video)
+static void np_hints(SDL_Renderer *r, bool playing, int kind, int count, int cy,
+                     bool video, Uint8 alpha)
 {
+	key_hint h[7];
 	int n = 0;
 
+	if (!cy) cy = DS_SHELF_FOOT_Y;
 	h[n].key = "A";  h[n++].label = playing ? T(S_MUSE_HINT_PAUSE) : T(S_MUSE_HINT_PLAY);
 	h[n].key = "B";  h[n++].label = T(S_CONTROLS_BACK);
 	if (video) {
@@ -713,30 +716,9 @@ static int np_hint_list(key_hint *h, bool playing, int kind, int count, bool vid
 		                                                         : T(S_MUSE_HINT_FILE);
 	}
 	h[n].key = KEYHINT_LEFT_RIGHT; h[n++].label = T(S_MUSE_HINT_SEEK);
-	return n;
-}
-
-static void np_hints(SDL_Renderer *r, bool playing, int kind, int count, int cy,
-                     bool video, Uint8 alpha)
-{
-	key_hint h[KEYHINTS_MAX];
-	int n = np_hint_list(h, playing, kind, count, video);
-
-	if (!cy) cy = DS_SHELF_FOOT_Y;
 	/* The button hints' component (keyhints.h), spread from x 64 to 960,
 	 * the last row on its line and any more above it */
 	keyhints_draw(r, h, n, 64, ZYPEROS_SCREEN_W - 64, cy, KEYHINTS_SPREAD, true, alpha);
-}
-
-/* The rows np_hints spreads its keys in: more than one in a language whose
- * words do not fit the row (Japanese) */
-static int np_hint_rows(bool playing, int kind, int count)
-{
-	key_hint h[KEYHINTS_MAX];
-	int start[KEYHINTS_MAX + 1];
-	int n = np_hint_list(h, playing, kind, count, true);
-
-	return keyhints_rows(h, n, ZYPEROS_SCREEN_W - 128, KEYHINTS_GAP_SPREAD, keyhints_width, start);
 }
 
 /* The bar, and with `times` the times under it - "1:26", what is left, and
@@ -779,25 +761,12 @@ void np_draw_video(app *a, const mu_now *mn, float k)
 	bool full = np_view() == NPV_FULL;
 	SDL_Rect box = full ? (SDL_Rect){ 0, 0, ZYPEROS_SCREEN_W, ZYPEROS_SCREEN_H }
 	                    : (SDL_Rect){ NPV_X, NPV_Y, NPV_W, NPV_H };
-	SDL_Rect pic;
+	SDL_Rect pic = mp4v_fit(box);
 	ds_rgb g = full ? DS_THEME[DS_DARK].ink : theme()->ground;
 	char fit[200];
 	Uint8 al;
 
-	if (!full) {
-		/* Keys that take two rows would come under the times: the frame
-		 * gives up each row more, still 16:9 and centered, and the bar, the
-		 * times and the keys keep their distances (Japanese) */
-		int more = np_hint_rows(mn->state == MU_PLAYING, 3, mn->count) - 1;
-
-		if (more > 0) {
-			box.h -= more * KEYHINTS_ROW;
-			box.w = box.h * 16 / 9;
-			box.x = (ZYPEROS_SCREEN_W - box.w) / 2;
-		}
-		k = 1;
-	}
-	pic = mp4v_fit(box);
+	if (!full) k = 1;
 	al = (Uint8)(255 * (k < 0 ? 0 : k > 1 ? 1 : k) + 0.5f);
 	plat_video_under(tex, &pic, (SDL_Color){ g.r, g.g, g.b, 255 });
 	ui_fit_frame();   /* the picture covers what was drawn (the host's fit check) */
@@ -857,7 +826,7 @@ void np_draw_video(app *a, const mu_now *mn, float k)
 
 		ui_round_rect(r, &box, 0, ink);
 	}
-	np_video_bar(r, mn, NPV_X, box.y + box.h + 24, NPV_W, 255, true);
+	np_video_bar(r, mn, NPV_X, NPV_Y + NPV_H + 24, NPV_W, 255, true);
 	np_hints(r, mn->state == MU_PLAYING, 3, mn->count, 730, true, 255);
 }
 
