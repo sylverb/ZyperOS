@@ -383,8 +383,6 @@ start_resident
        -o -name 'desktop.ini' \) -type f -exec rm -f {} \;
 ) > /dev/null 2>&1 &
 
-# The launcher, restarted if it exits on its own; five fast failures in a row
-# and the device powers off rather than looping on a broken build.
 # Five fast failures in a row: something ZyperOS reads at its start is broken,
 # often by a power cut, and then by the card check after it (plastron's
 # datapart), which takes a damaged file away. Before the power-off, launch.sh
@@ -407,6 +405,8 @@ start_failed() {
 	mv -f "$ZYPEROS_DIR/launch.sh" "$ZYPEROS_DIR/launch.sh.failed"
 }
 
+# The launcher, restarted if it exits on its own; five fast failures in a row
+# and the device powers off rather than looping on a broken build.
 cd "$ZYPEROS_DIR"
 FAILS=0
 while : ; do
