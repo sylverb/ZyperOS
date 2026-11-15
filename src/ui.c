@@ -908,7 +908,7 @@ static int fit_lines;
  * that meets it (fit_quiet). */
 static SDL_Rect fit_mark[FIT_RECTS];
 static int fit_marks;
-static struct { SDL_Rect r; char text[32]; } fit_ink[FIT_RECTS];
+static struct { SDL_Rect r, dst; TTF_Font *f; char s[256]; char text[32]; } fit_ink[FIT_RECTS];
 static int fit_inks, fit_quiet;
 
 void ui_fit_frame(void) { fit_n = 0; fit_lines = 0; fit_marks = 0; fit_inks = 0; }
@@ -960,44 +960,79 @@ void ui_fit_drawn(const char *s)
 	if (s && *s) fit_say("drawn", "", s);
 }
 
+/* Where the rough boxes come close, the string's own ink: rendered as
+ * ui_text draws it (dst is where it was drawn), the rows of it with a pixel
+ * of ink within `m` of `mark`. A line of lowercase under a key keeps its
+ * x-height's air, which its capitals' box does not (Storage's caption under
+ * the sort key, 14 units clear, read as touching). */
+static int fit_ink_rows(TTF_Font *f, const char *s, const SDL_Rect *dst, const SDL_Rect *mark, int m)
+{
+	SDL_Rect q = { mark->x - m, mark->y - m, mark->w + 2 * m, mark->h + 2 * m }, hit;
+	SDL_Surface *surf;
+	int x, y, rows = 0;
+
+	if (!SDL_IntersectRect(dst, &q, &hit)) return 0;
+	if (!(surf = ui_text_surface(f, s, (SDL_Color){ 255, 255, 255, 255 }))) return 1;
+	SDL_LockSurface(surf);
+	for (y = hit.y; y < hit.y + hit.h; y++) {
+		int sy = y - dst->y;
+		bool any = false;
+
+		if (sy < 0 || sy >= surf->h) continue;
+		for (x = hit.x; x < hit.x + hit.w && !any; x++) {
+			int sx = x - dst->x;
+			Uint8 cr, cg, cb, ca;
+			Uint32 px;
+
+			if (sx < 0 || sx >= surf->w) continue;
+			px = ((Uint32 *)((Uint8 *)surf->pixels + (size_t)sy * surf->pitch))[sx];
+			SDL_GetRGBA(px, surf->format, &cr, &cg, &cb, &ca);
+			any = ca > 64;
+		}
+		rows += any;
+	}
+	SDL_UnlockSurface(surf);
+	SDL_FreeSurface(surf);
+	return rows;
+}
+
 void ui_fit_mark(const SDL_Rect *q)
 {
-#ifdef I18N_PSEUDO
 	char head[96];
-	int i, px;
+	int i, px, rows;
 
 	for (i = 0; i < fit_inks; i++)
-		if (fit_meet(&fit_ink[i].r, q, FIT_MARGIN, &px)) {
-			snprintf(head, sizeof head, "%d|keys %d..%d|", px, q->x, q->x + q->w);
+		if (fit_meet(&fit_ink[i].r, q, FIT_MARGIN, &px) &&
+		    (rows = fit_ink_rows(fit_ink[i].f, fit_ink[i].s, &fit_ink[i].dst, q, FIT_MARGIN)) > 0) {
+			snprintf(head, sizeof head, "%d|keys %d..%d|", rows, q->x, q->x + q->w);
 			fit_say("overflow", head, fit_ink[i].text);
 		}
 	if (fit_marks < FIT_RECTS) fit_mark[fit_marks++] = *q;
-#else
-	(void)q;
-#endif
 }
 
-#ifdef I18N_PSEUDO
 /* A string's ink against the keys and marks drawn before it, then kept for
  * the ones after */
-static void fit_ink_check(const char *s, const SDL_Rect *ink)
+static void fit_ink_check(TTF_Font *f, const char *s, const SDL_Rect *dst, const SDL_Rect *ink)
 {
 	char head[96];
-	int i, px;
+	int i, px, rows;
 
 	for (i = 0; i < fit_marks; i++)
-		if (fit_meet(ink, &fit_mark[i], FIT_MARGIN, &px)) {
-			snprintf(head, sizeof head, "%d|keys %d..%d|", px, fit_mark[i].x, fit_mark[i].x + fit_mark[i].w);
+		if (fit_meet(ink, &fit_mark[i], FIT_MARGIN, &px) &&
+		    (rows = fit_ink_rows(f, s, dst, &fit_mark[i], FIT_MARGIN)) > 0) {
+			snprintf(head, sizeof head, "%d|keys %d..%d|", rows, fit_mark[i].x, fit_mark[i].x + fit_mark[i].w);
 			fit_say("overflow", head, s);
 		}
 	if (fit_inks < FIT_RECTS) {
 		fit_ink[fit_inks].r = *ink;
+		fit_ink[fit_inks].dst = *dst;
+		fit_ink[fit_inks].f = f;
+		snprintf(fit_ink[fit_inks].s, sizeof fit_ink[fit_inks].s, "%s", s);
 		snprintf(fit_ink[fit_inks].text, sizeof fit_ink[fit_inks].text, "%.30s", s);
 		for (char *c = fit_ink[fit_inks].text; *c; c++) if (*c == '\n' || *c == '|') *c = ' ';
 		fit_inks++;
 	}
 }
-#endif
 
 /* `dst` is where `s` is drawn, at anchor x `ax` */
 static void fit_check(SDL_Renderer *r, const char *s, const SDL_Rect *dst, int ax)
@@ -1076,6 +1111,7 @@ static void i18n_fit_seen(const char *src, const char *dst)
 void ui_fit_frame(void) {}
 void ui_fit_tight(const char *s, int w, int room, int row_w) { (void)s; (void)w; (void)room; (void)row_w; }
 void ui_fit_drawn(const char *s) { (void)s; }
+void ui_fit_mark(const SDL_Rect *q) { (void)q; }
 #endif
 
 static struct text_entry *text_get(SDL_Renderer *r, TTF_Font *f, const char *s,
@@ -1137,7 +1173,7 @@ int ui_text(SDL_Renderer *r, TTF_Font *f, const char *s, int x, int y,
 		int asc = TTF_FontAscent(f), cap = ui_cap_height(f);
 		SDL_Rect ink = { dst.x, y + asc - cap, dst.w, cap };
 
-		fit_ink_check(s, &ink);
+		fit_ink_check(f, s, &dst, &ink);
 	}
 #endif
 	SDL_SetTextureAlphaMod(e->tex, col.a);
@@ -2448,10 +2484,14 @@ void ui_button(SDL_Renderer *r, const char *label, int cx, int cy, int size,
 	/* Centered on the capitals: every label is capitals and digits, and the
 	 * em box would hang a descender's depth of nothing under them and sit
 	 * them high in the glyph. */
+#ifdef I18N_PSEUDO
 	fit_quiet++;
+#endif
 	if (button_menu(label)) menu_key_dots(r, f, (float)cx, (float)cy, 1.0f, ink);
 	else ui_text(r, f, label, cx, ui_cap_y(f, cy), 0, ink);
+#ifdef I18N_PSEUDO
 	fit_quiet--;
+#endif
 	ui_fit_mark(&q);
 }
 

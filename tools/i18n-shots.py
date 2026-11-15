@@ -690,11 +690,13 @@ def all_systems_card(card):
 
 # Each language's own run of every shot, on its own cards
 # Screens whose words came within the margin of a key or a mark when the host
-# began to check it (src/ui.c's ui_fit_mark, 1.0.6), each to be fixed on its
-# own (DESIGN.md section 14): Storage's two-line caption under the sort key
-# (es, pt-BR, it, ja), and the video controls' wrapped keys under the times
-# (ja). Any other screen whose words meet a key or a mark fails.
-KNOWN_KEYS = {"storage-snaps", "storage-music-rest", "storage-system-last", "video-controls", "mp4-locked-video"}
+# began to check it (src/ui.c's ui_fit_mark, 1.0.6), each a layout to decide
+# on its own (DESIGN.md section 14): Storage's two-line caption, its accents
+# and ascenders under the sort key (es, pt-BR), the sort key filling the only
+# room between the list and the caption; and the video controls' keys, wrapped
+# to two rows in Japanese, under the times, the frame over them. Any other
+# screen whose words meet a key or a mark fails.
+KNOWN_KEYS = {"storage-music-rest", "storage-system-last", "video-controls", "mp4-locked-video"}
 
 
 def run_language(code, shots, binary, keep, theme="light"):

@@ -4118,12 +4118,13 @@ when its change lands.
   other hold fills in **accent-ink**. The tutorial draws its bars and more
   marks in its own layer, at `ds_bar`'s and `ds_more`'s sizes.
 - The keyboard copies the menu panel's padding formula (`menu_pad`).
-- Words that come within 3 units of a key or a more mark, found when the host
-  began to check it (1.0.6): Storage's two-line caption under the sort key
-  (X with the order) in Spanish, Portuguese, Italian and Japanese, and the
-  video controls' keys, wrapped to two rows in Japanese, under the times.
-  `check-i18n-shots` lists the five screens as known (`KNOWN_KEYS`) and fails
-  on any other.
+- Words whose ink comes within 3 units of a key or a more mark, found when
+  the host began to check it (1.0.6): Storage's two-line caption under the
+  sort key (X with the order), its accents and ascenders in Spanish and
+  Portuguese, and the video controls' keys, wrapped to two rows in Japanese,
+  under the times. The sort key sits in the only room between the list and
+  the caption, so moving it is a layout of its own. `check-i18n-shots` lists
+  these screens as known (`KNOWN_KEYS`) and fails on any other.
 - A heart is drawn three ways: filled (`draw_heart`, `src/heart.c`, the
   favorites' mark), as a stroke mark (`UI_GLYPH_HEART`, the Favorites tile),
   and as a distance field for a cover badge that only its check draws
