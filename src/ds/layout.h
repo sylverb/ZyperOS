@@ -18,9 +18,9 @@
 #define DS_PAGE_SUB_Y           208
 #define DS_PAGE_SUB_MARK        32
 #define DS_PAGE_BODY_Y          256
-#define DS_PAGE_NEWS_Y          592
-#define DS_PAGE_NEWS2_Y         640
-#define DS_PAGE_LINE_Y          648
+#define DS_PAGE_NEWS_DROP       56
+#define DS_PAGE_NEWS_STEP       48
+#define DS_PAGE_LINE_OVER       40
 #define DS_PAGE_LINE_GAP        48
 #define DS_PAGE_LINE_GAP_TIGHT  24
 #define DS_FOOT_Y               720

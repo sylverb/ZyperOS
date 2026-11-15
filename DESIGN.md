@@ -385,10 +385,10 @@ its own says why beside it.
 | **page-title-y** | 150 | a heading with a smaller line under it: the heading's middle |
 | **page-sub-y** | 208 | that smaller line's middle |
 | **page-sub-mark** | 32 | a mark before the smaller line |
-| **page-body-y** | 256 | where a page's content starts |
-| **page-news-y** | 592 | the first line of words under a page's two tiles |
-| **page-news2-y** | 640 | the second |
-| **page-line-y** | 648 | the line of marks and words over the keys |
+| **page-body-y** | 256 | where a page's content starts: the heading's band, Zyper in it, is this tall |
+| **page-news-drop** | 56 | the first line of words under a page's two tiles: its middle this far under their foot (592) |
+| **page-news-step** | 48 | a second line of other words: its middle this far under the first's (File Transfer's Browsers, 640); a sentence on two lines keeps meta's line, 40 |
+| **page-line-over** | 40 | the line of marks and words over the keys: its box, a glyph tall, this far over theirs (its middle at 648) |
 | **page-line-gap** | 48 | between the line's marks and words |
 | **page-line-gap-tight** | 24 | ...where they are wider than the page |
 | **foot-y** | 720 | every screen's keys: the last row's middle, 32 from the screen's foot to the glyph's (one foot since 1.0.6; pages had 704, Cover and Video 724) |
@@ -2124,7 +2124,8 @@ Its frame is Flash Drive's page's, the page frame of `src/ds/page.h`
 (section 15): the sides at **DS_INSET** (24 and 1000), the heading at 168,
 or at 150 with a second line in **meta** **text-soft** at 208
 (DS_HEAD_SUB), what the page holds from 256 (DS_PAGE_BODY_Y), one line over
-the keys at 648 (DS_PAGE_LINE_Y), and the keys at 704. Every state keeps to it, the
+the keys at 648 (its box DS_PAGE_LINE_OVER over theirs), and the keys on every
+screen's foot, 720. Every state keeps to it, the
 Systems grid's focus ring and the run's lit cover inside the sides
 (2026-11-14, on the Pixel 2: "Systems is not respecting the window
 padding ... Review the whole interface margin and spacing").
@@ -3315,7 +3316,7 @@ tile's bottom, the tile's padding in from each side) on **track**, filled in
 (592), **Now** and what happened ("receiving Tobu Tobu Girl.gb", the file's
 name), the label **text-dim** and the value **text-soft** in **meta**; at
 640 **Browsers** and, over the cable, **SSH** on one line, a dot between
-them; and B's hint at the foot (704) as Flash Drive's: "close", "keep going
+them; and B's hint at the foot (720) as Flash Drive's: "close", "keep going
 or stop" while files move, "hide" while it closes after the file on its
 way. Either line slides where it is too long. The In / out row is gone: the
 tiles say it. Play after this file's wait (11.23) is the same page, its
@@ -4563,7 +4564,7 @@ the tiles' style is read off a name.
 | Primitives | `src/ui.c`, `src/ui.h` | text and its faces, the rounded rect, the panel's slab (`ui_panel`), lift, scrim, the rail, button glyphs (`ui_button`, 11.9), the generated cards |
 | Layout engine | `src/ds/flex.c`, `flex.h` | boxes laid out by rules (section 5, The system): `ds_flex_begin`, `ds_flex_add`, `ds_flex_solve`, `ds_flex_rect`; `check-flex` holds its rules |
 | Stroke marks | `src/ds/glyph.c`, `glyph.h` | the 25 `ui_glyph` marks and their cache; `check-glyphs` holds each to 32 strokes and 4 arrowheads |
-| Page frame | `src/ds/page.c`, `page.h` | `ds_page_frame_of`; the heading (`ds_page_head`: `DS_HEAD_BALANCED`, `DS_HEAD_TWO`, `DS_HEAD_SUB`); the line of marks over the keys (`ds_page_line`, its tones `DS_TONE_*`); a line of words under the tiles (`ds_page_meta`); the foot (`ds_page_foot`). `page_top` in `src/main.c` draws the ground and Zyper and hands back the frame. |
+| Page frame | `src/ds/page.c`, `page.h` | `ds_page_frame_of`, one column of boxes on the layout engine (the heading's band **page-body-y** tall, the body with two tiles and a line of words **page-news-drop** under them, the line of marks **page-line-over** over the keys, the keys on the foot inset); the heading (`ds_page_head`: `DS_HEAD_BALANCED`, `DS_HEAD_TWO`, `DS_HEAD_SUB`); the line of marks over the keys (`ds_page_line`, its tones `DS_TONE_*`); a line of words under the tiles (`ds_page_meta`); the foot (`ds_page_foot`). `page_top` (`src/usbdrive_screen.c`) draws the ground and Zyper and hands back the frame. |
 | Tiles and the list | `src/ds/tiles.c`, `tiles.h` | `ds_tiles_draw`: `DS_TILES_ROW`, `DS_TILES_GRID`, `DS_TILES_LIST`. In `src/main.c`, `tiles_show` takes the style as the panel's kind (`PANEL_TILES`, `PANEL_TILES_GRID`, `PANEL_LIST`) and each tile's mark. |
 | The grid | `src/gamegrid.c`, `gamegrid.h`; the rule `src/gridrule.c`, `gridrule.h` | 11.47: the shape from the art, the cells, the covers in them, the band; `check-gridrule` |
 | Panel | `src/ds/panel.c`, `panel.h` | `ds_panel_open` / `ds_panel_close` (the slab and its lift, at rest or posed through the caller's `ds_pass`), `ds_panel_slab`, `ds_panel_rule`, `ds_panel_legend`: the menus, the tiles, the list, Player 2's panel, the hotspot |
