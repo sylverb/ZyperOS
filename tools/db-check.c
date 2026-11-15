@@ -460,7 +460,7 @@ static void shader_strength(void)
 static void a_broken_database_is_set_aside(void)
 {
 	static const char junk[] = "this is not a database, it is what a power cut left";
-	char broken[sizeof DEV + sizeof ".broken"], wal[sizeof DEV + sizeof "-wal"];
+	char broken[sizeof DEV + sizeof ".broken-wal"], wal[sizeof DEV + sizeof "-wal"];
 	char page[4096];
 	db *d;
 	FILE *f;
@@ -487,11 +487,17 @@ static void a_broken_database_is_set_aside(void)
 
 		/* The language the launcher keeps beside it (src/i18n.h, LANG_FILE) */
 		{
-			char lang[sizeof test_dir + sizeof "/language"];
+			char lang[sizeof test_dir + sizeof "/boot-theme"];
 			FILE *l;
 
 			snprintf(lang, sizeof lang, "%s/language", test_dir);
 			if ((l = fopen(lang, "w"))) { fputs(pass ? "x\n" : "pt-BR\n", l); fclose(l); }
+			/* and the Appearance it notes for the boot screen (boottheme.h) */
+			snprintf(lang, sizeof lang, "%s/boot-theme", test_dir);
+			if ((l = fopen(lang, "w"))) {
+				fputs(pass ? "zytheme=darkish zyzone=-\n" : "zytheme=dark zyzone=Europe/Berlin zylang=pt-BR\n", l);
+				fclose(l);
+			}
 		}
 
 		d = db_open(DEV, DB_DEVICE);
@@ -502,6 +508,10 @@ static void a_broken_database_is_set_aside(void)
 		db_get_str(d, "language", page, sizeof page, "");
 		ck(!strcmp(page, pass ? "en" : "pt-BR"),
 		   pass ? "a language file that says no code leaves English" : "and the language kept on the card beside it");
+		db_get_str(d, "appearance", page, sizeof page, "");
+		ck(pass ? !db_has(d, "appearance") : !strcmp(page, "dark"),
+		   pass ? "a boot-theme note that says no Appearance leaves the default"
+		        : "and the Appearance the boot-theme note keeps");
 		ck(db_set_int(d, "volume", 11), "and takes a setting");
 		db_close(d);
 		d = db_open(DEV, DB_DEVICE);
@@ -512,6 +522,8 @@ static void a_broken_database_is_set_aside(void)
 	snprintf(broken, sizeof broken, "%s.broken-wal", DEV);
 	unlink(broken);
 	snprintf(broken, sizeof broken, "%s/language", test_dir);
+	unlink(broken);
+	snprintf(broken, sizeof broken, "%s/boot-theme", test_dir);
 	unlink(broken);
 
 	/* A library database too: its own scope, its own schema */

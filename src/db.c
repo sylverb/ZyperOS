@@ -190,30 +190,50 @@ static void set_aside(const char *path)
 	}
 }
 
-/* What a set-aside device database still says, though it cannot be read:
- * that this handheld was in use, so the tutorial is not shown again, and its
- * language, which the launcher keeps beside it on the card too (src/i18n.h,
- * LANG_FILE: "language", its code and a line end), so the start after is in
- * it and not in English. The rest is back to the shipped defaults. */
-static void carry_over(db *d, const char *path)
+/* The first line of the file NAME beside the database at PATH, its line end
+ * taken off; empty when there is none */
+static void beside(const char *path, const char *name, char *out, size_t n)
 {
 	const char *slash = strrchr(path, '/');
-	char lang[1100], code[32] = "";
-	size_t i, n;
+	char file[1100];
 	FILE *f;
 
-	db_set_str(d, "tour.done", "1");
-	if (slash) snprintf(lang, sizeof lang, "%.*s/language", (int)(slash - path), path);
-	else snprintf(lang, sizeof lang, "language");
-	if (!(f = fopen(lang, "r"))) return;
-	if (!fgets(code, sizeof code, f)) code[0] = '\0';
+	out[0] = '\0';
+	if (slash) snprintf(file, sizeof file, "%.*s/%s", (int)(slash - path), path, name);
+	else snprintf(file, sizeof file, "%s", name);
+	if (!(f = fopen(file, "r"))) return;
+	if (!fgets(out, (int)n, f)) out[0] = '\0';
 	fclose(f);
-	code[strcspn(code, "\r\n")] = '\0';
+	out[strcspn(out, "\r\n")] = '\0';
+}
+
+/* What a set-aside device database still says, though it cannot be read:
+ * that this handheld was in use, so the tutorial is not shown again; its
+ * language, which the launcher keeps beside it on the card too (src/i18n.h,
+ * LANG_FILE: "language", its code and a line end), so the start after is in
+ * it and not in English; and its Appearance, which the launcher notes beside
+ * it for the boot screen ("boot-theme", src/boottheme.h's line:
+ * zytheme=light|dark|auto first). The rest is back to the shipped defaults. */
+static void carry_over(db *d, const char *path)
+{
+	char code[32], line[160];
+	const char *t;
+	size_t i, n;
+
+	db_set_str(d, "tour.done", "1");
+	beside(path, "language", code, sizeof code);
 	n = strlen(code);
 	for (i = 0; i < n; i++)
 		if (!((code[i] >= 'a' && code[i] <= 'z') || (code[i] >= 'A' && code[i] <= 'Z') || code[i] == '-'))
-			return;
-	if (n >= 2) db_set_str(d, "language", code);
+			break;
+	if (n >= 2 && i == n) db_set_str(d, "language", code);
+	beside(path, "boot-theme", line, sizeof line);
+	if (strncmp(line, "zytheme=", 8)) return;
+	t = line + 8;
+	n = strcspn(t, " ");
+	if ((n == 5 && !strncmp(t, "light", 5)) || (n == 4 && !strncmp(t, "dark", 4)) ||
+	    (n == 4 && !strncmp(t, "auto", 4)))
+		db_set_str(d, "appearance", n == 5 ? "light" : !strncmp(t, "dark", 4) ? "dark" : "auto");
 }
 
 static db *open_once(const char *path, db_scope scope, int *code);
