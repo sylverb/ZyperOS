@@ -11,6 +11,7 @@
 #include "clock.h"
 #include "clock_screen.h"
 #include "devmode.h"
+#include "homesys_screen.h"
 #include "hotspot.h"
 #include "linebreak.h"
 #include "look.h"
@@ -196,6 +197,11 @@ int menu_build(app *a, screen_id screen, int sys,
 		u.theme = look_accent_name();
 		u.home = home_name(a->home_layout);
 		u.order = g_order_release ? T(S_PANEL_ORDER_RELEASE) : T(S_PANEL_ORDER_AZ);
+		{
+			static char hs[24];
+
+			u.homesys = homesys_value(hs, sizeof hs);
+		}
 		u.battery = g_batt_mode == BATT_TIME ? T(S_PANEL_BATTERY_TIME)
 		          : g_batt_mode == BATT_PCT ? T(S_PANEL_BATTERY_PERCENTAGE) : T(S_PANEL_BATTERY_BARS);
 		u.ui_sounds  = uisound_setting_name(uisound_setting());
@@ -952,6 +958,8 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 		return MENU_DONE;
 	case PM_XFER:         xfer_screen(a); break;
 	case PM_LIGHTS:       lights_screen(a); break;
+	/* The shelves the home shows; the home built again as it closes */
+	case PM_HOMESYS:      homesys_screen(a); return MENU_CHANGED;
 	case PM_LANGUAGE:     language_screen(a); return MENU_CHANGED;
 	/* These three say how they went, which is Zyper's to answer */
 	case PM_SCRAPER:      return scraper_screen(a);

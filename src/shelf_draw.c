@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "shelf_draw.h"
+#include "homesys.h"
 
 #include "app.h"
 #include "artbadge.h"
@@ -956,8 +957,9 @@ static bool list_fav(void *ctx, int i)
 	app *a = ctx;
 	sysview *v = &a->view[a->sys_cursor];
 
+	/* By the game's own system: on Recents its owner's (src/homesys.h) */
 	return i >= 0 && i < v->list.count && !v->list.items[i].folder &&
-	       fav_is(a->sys.systems[a->sys_cursor].tag, v->list.items[i].file);
+	       fav_is(a->sys.systems[shelf_owner(a, a->sys_cursor, i)].tag, v->list.items[i].file);
 }
 
 /* The pixel folder the list's rows draw (src/folderart.h), in the shelf's
@@ -1006,7 +1008,8 @@ static void draw_games(app *a)
 			.heading = head, .count = v->list.count, .cursor = v->cursor,
 			.accent = s->accent, .accent_of = v->owner ? list_accent : NULL,
 			.title_of = list_title, .folder_of = list_folder,
-			.fav_of = v->owner || is_muse(s) ? NULL : list_fav,
+			/* Not on Favorites, where every game is one; on Recents, yes */
+			.fav_of = !strcmp(s->tag, HOMESYS_FAV) || is_muse(s) ? NULL : list_fav,
 			.folder_icon = v->nfold ? folder_icon(a, s->accent) : NULL,
 			.played = g_game_page.valid ? g_game_page.played : "",
 			.origin = g && owner != a->sys_cursor ? a->sys.systems[owner].name : NULL,
@@ -1041,8 +1044,9 @@ static void draw_games(app *a)
 		.install = pm_is_offer(a, owner, g),
 		.origin = g && owner != a->sys_cursor ? a->sys.systems[owner].name : NULL,
 		.snap_of = game_has_snap,
-		/* The heart before the name, not on Favorites (2026-11-09) */
-		.favorite = g && !folder && owner == a->sys_cursor && !is_muse(s) &&
+		/* The heart before the name, not on Favorites (2026-11-09), and on
+		 * Recents by the game's own system */
+		.favorite = g && !folder && strcmp(s->tag, HOMESYS_FAV) && !is_muse(s) &&
 		            fav_is(a->sys.systems[owner].tag, g->file),
 		/* A folder of games (src/shelfdir.h): A opens it */
 		.folder = folder ? g->folder : 0,

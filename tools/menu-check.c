@@ -11,6 +11,7 @@
  */
 #include "../src/wifi_menu.h"
 #include "../src/sys_menu.h"
+#include "../src/homesys.h"
 #include "../src/game_menu.h"
 #include "../src/controls.h"
 #include "../src/ctltab.h"
@@ -1471,13 +1472,14 @@ static void menu_tabs(void)
 	}
 	ck(ok && at == n_all, "the tabs, one after another, are every row the device has");
 	m = sys_menu_tab_rows(&u, PT_DISPLAY, tab);
-	ck(m == 9 && tab[0] == PM_APPEARANCE && tab[1] == PM_AUTOHOURS && tab[2] == PM_THEME &&
-	   tab[3] == PM_HOME && tab[4] == PM_ORDER && tab[5] == PM_BATTERY &&
-	   tab[6] == PM_SAVER && tab[7] == PM_SHADER && tab[8] == PM_STRENGTH,
-	   "Display: Appearance, Auto Hours, Theme, Home Screen, System Order, Battery Icon, Screensaver, Shader, Strength");
+	ck(m == 10 && tab[0] == PM_APPEARANCE && tab[1] == PM_AUTOHOURS && tab[2] == PM_THEME &&
+	   tab[3] == PM_HOME && tab[4] == PM_ORDER && tab[5] == PM_HOMESYS && tab[6] == PM_BATTERY &&
+	   tab[7] == PM_SAVER && tab[8] == PM_SHADER && tab[9] == PM_STRENGTH,
+	   "Display: Appearance, Auto Hours, Theme, Home Screen, System Order, Home Systems, Battery Icon, "
+	   "Screensaver, Shader, Strength");
 	u.no_strength = true;
 	m = sys_menu_tab_rows(&u, PT_DISPLAY, tab);
-	ck(m == 8 && tab[7] == PM_SHADER, "and no Strength while no system draws an old screen");
+	ck(m == 9 && tab[8] == PM_SHADER, "and no Strength while no system draws an old screen");
 	u.no_strength = false;
 	m = sys_menu_tab_rows(&u, PT_GAMES, tab);
 	ck(m == 5 && tab[0] == PM_SEARCH, "Games opens on Search Games");
@@ -1494,7 +1496,7 @@ static void menu_tabs(void)
 	u.auto_hours = "7:00 AM to 7:00 PM";
 	u.theme = "Lime";
 	n = (sys_menu_build)(&u, rows, &b, &heading);
-	ck(n == 9 && !strcmp(rows[1].label, "Auto Hours") && !strcmp(val(&rows[1]), "7:00 AM to 7:00 PM") &&
+	ck(n == 10 && !strcmp(rows[1].label, "Auto Hours") && !strcmp(val(&rows[1]), "7:00 AM to 7:00 PM") &&
 	   !strcmp(rows[2].label, "Theme") && !strcmp(val(&rows[2]), "Lime"),
 	   "Auto Hours says its hours, Theme its accent");
 	ck(!strcmp(sys_menu_tab_name(PT_CONNECTIONS), "Connections") &&
@@ -2782,6 +2784,56 @@ static void power_row(void)
 	   "on System's page between Language and Auto Off");
 }
 
+/* Home Systems (1.0.6, src/homesys.h): on Display under System Order, All
+ * when every shelf is on, and its page: Favorites and Recents, a rule, every
+ * system with games On or Off, the note; the last system on cannot go, and a
+ * second note says so */
+static void homesys_rows(void)
+{
+	static const char *const names[3] = { "PlayStation", "Ports", "Game Boy" };
+	static const char *const tags[3] = { "PS1", "PRT", "GB" };
+	homesys_ui hu = { names, tags, 3 };
+	menu_row rows[HS_ROWS], all[MENU_MAX_ROWS];
+	const char *ids[HS_ROWS];
+	menu_bufs b;
+	const char *heading;
+	sys_ui u;
+	int n;
+
+	printf("the Home Systems row and its page:\n");
+	ck(sys_menu_tab_of(PM_HOMESYS) == PT_DISPLAY && PM_HOMESYS == PM_ORDER + 1,
+	   "Home Systems is on Display, under System Order");
+	memset(&u, 0, sizeof u);
+	u.tab = PT_TABS;
+	sys_menu_build(&u, all, &b, &heading);
+	ck(!strcmp(all[PM_HOMESYS].label, "Home Systems") && !strcmp(val(&all[PM_HOMESYS]), "All") &&
+	   all[PM_HOMESYS].live, "Home Systems reads All when nothing is said");
+	u.homesys = "4 of 5";
+	sys_menu_build(&u, all, &b, &heading);
+	ck(!strcmp(val(&all[PM_HOMESYS]), "4 of 5"), "and what it is given");
+
+	homesys_parse("");
+	n = sys_menu_homesys_rows(&hu, rows, ids);
+	ck(n == 8 && !strcmp(rows[0].label, "Favorites") && !strcmp(rows[1].label, "Recents") &&
+	   !rows[2].label && !strcmp(rows[3].label, "PlayStation") && !strcmp(rows[5].label, "Game Boy") &&
+	   !rows[6].label && ROW_IS_NOTE(rows[7]),
+	   "Favorites, Recents, a rule, the three systems, a rule, the note");
+	ck(!strcmp(ids[0], "FAV") && !strcmp(ids[1], "RECENT") && !ids[2] && !strcmp(ids[4], "PRT") && !ids[6] &&
+	   !ids[7],
+	   "each switch names its tag; the rule and the note none");
+	ck(!strcmp(val(&rows[0]), "On") && !strcmp(val(&rows[4]), "On") && rows[4].live,
+	   "all On as they ship");
+	homesys_parse("PRT,RECENT");
+	n = sys_menu_homesys_rows(&hu, rows, ids);
+	ck(!strcmp(val(&rows[1]), "Off") && !strcmp(val(&rows[4]), "Off") && !strcmp(val(&rows[3]), "On"),
+	   "Ports and Recents Off, as the word says");
+	homesys_parse("PRT,GB");
+	n = sys_menu_homesys_rows(&hu, rows, ids);
+	ck(n == 9 && !rows[3].live && rows[4].live && ROW_IS_NOTE(rows[8]),
+	   "one system left on: its row is dead, and a second note says why");
+	homesys_parse("");
+}
+
 static void lights_row(void)
 {
 	sys_ui u;
@@ -3013,6 +3065,7 @@ int main(void)
 	sounds_row();
 	charge_row();
 	power_row();
+	homesys_rows();
 	lights_row();
 	row_sounds();
 	if (fails) { printf("\n%d menu check(s) failed\n", fails); return 1; }

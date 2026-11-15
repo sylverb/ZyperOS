@@ -25,6 +25,7 @@
 #include "musec.h"
 #include "notice.h"
 #include "nowplaying_screen.h"
+#include "homesys_screen.h"
 #include "osdbar.h"
 #include "panel.h"
 #include "player2_screen.h"
@@ -91,6 +92,7 @@ int shot_tab_from = -1, shot_tab_ms;
  * --look-page theme|hours [row]: Theme's page or Auto Hours' (DESIGN.md
  * 11.42), the cursor on `row` */
 const char *shot_look, *shot_look_page;
+int shot_homesys = -1;     /* --homesys-page ROW: MENU > Home Systems' page */
 int shot_look_row;
 int shot_kb, shot_kb_layer;
 static keyboard_transition shot_keyboard;
@@ -1194,6 +1196,7 @@ static void shot_compose(app *a)
 			zyperos_menu_draw(a, shot_menu_sel);
 	}
 	if (shot_look_page) shot_draw_look(a);
+	if (shot_homesys >= 0) homesys_shot_draw(a, shot_homesys);
 	if (shot_slots) shot_draw_slots(a);
 	if (shot_gamemenu && a->sys.count > 0) shot_draw_gamemenu(a);
 	else if (g_shot_p2 && a->sys.count > 0) shot_draw_player2(a);

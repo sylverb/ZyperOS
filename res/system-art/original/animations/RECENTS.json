@@ -1,0 +1,48 @@
+{
+  "key": "RECENTS",
+  "name": "Recents",
+  "description": "Clock's minute hand moves (a placeholder drawn by script)",
+  "cell": 256,
+  "cols": 2,
+  "rows": 1,
+  "unique": 2,
+  "duration_ms": 800,
+  "kind": "system",
+  "static": false,
+  "placeholder": true,
+  "expected_poses": 2,
+  "motion_bounds": [
+    120,
+    80,
+    32,
+    40
+  ],
+  "frames": [
+    {
+      "tile": 0,
+      "ms": 400
+    },
+    {
+      "tile": 1,
+      "ms": 400
+    }
+  ],
+  "still_time_ms": 0,
+  "decoded_atlas_bytes": 524288,
+  "inputs": [
+    "placeholders/recents.py"
+  ],
+  "renderers": [
+    "placeholders/recents.py"
+  ],
+  "input_sha256": {
+    "placeholders/recents.py": "f68d60a7d9900828b3284bd2e8100f9a6fe949a6c52a875e0ab10cd0366a3e14"
+  },
+  "renderer_sha256": {
+    "placeholders/recents.py": "f68d60a7d9900828b3284bd2e8100f9a6fe949a6c52a875e0ab10cd0366a3e14"
+  },
+  "atlas": "RECENTS.png",
+  "still": "RECENTS-still.png",
+  "atlas_sha256": "6da64df05ec47eea8ee1bbaa9d435f07e7e3990649f00641ccf901a05fa5b58f",
+  "still_sha256": "28837e50d1d6157e301be4bba4a1b8ad13d4c54d8038bebc799baec7a584247b"
+}
