@@ -79,7 +79,7 @@ for layout in ('spotlight','gallery'):
     moved=shot(env,f'{layout}-moving','--home',layout,'--theme','light','--sysmove','0.25')
     assert not same(moved,Image.open(OUT/f'{layout}-light.png').convert('RGBA'))
     shot(env,f'{layout}-animated','--home',layout,'--theme','dark','--phase','1000')
-# A focus frame (main.c, focus_draw): the focused machine's square alone,
+# A focus frame (src/shelf_draw.c, focus_draw): the focused machine's square alone,
 # drawn over the whole frame of an earlier moment, is the whole frame of its
 # own moment byte for byte, the music header up or not; and its atlas frames
 # change nothing outside that square (home_focus_rect, 536,112 448x448).
@@ -97,7 +97,7 @@ for theme,extra in (('light',()),('dark',('--song','Posters'))):
             assert box[0]>=536 and box[1]>=112 and box[2]<=984 and box[3]<=560, \
                 f'{theme}: the frame at {ph} changed {box}, outside the focus square'
     assert moved, f'{theme}: no atlas frame changed between 0 and 1200 ms'
-# The replug message up (main.c, replug_draw_at; DESIGN.md 11.36): over the
+# The replug message up (src/usbdrive_screen.c, replug_draw_at; DESIGN.md 11.36): over the
 # focused machine, which a focus frame would draw over it (2026-11-10, on the
 # device). A frame with the message is a whole frame, so the part asked for
 # is the whole one, the message on top.

@@ -1692,6 +1692,11 @@ static bool (*g_covers_on)(const char *folder);
 
 void art_covers_rule(bool (*on)(const char *folder)) { g_covers_on = on; }
 
+/* Names in the details part (art_names): on until the page says */
+static bool g_names_on = true;
+
+void art_names(bool on) { g_names_on = on; }
+
 static bool covers_on(const char *folder)
 {
 	return g_only[0] || !g_covers_on || g_covers_on(folder);
@@ -1808,7 +1813,7 @@ static int details_count(const char *dir, const char *folder, const char *exts)
 
 		if ((cov && !cover) || db_titles_find(&miss, g->file)) continue;
 		t = db_titles_find(&titles, g->file);
-		if ((cov && (!t || !*t)) || snap_missing(dir, folder, g->file, g->name)) n++;
+		if ((cov && g_names_on && (!t || !*t)) || snap_missing(dir, folder, g->file, g->name)) n++;
 	}
 	for (i = 0; i < nhave; i++) free(have[i]);
 	free(have);
@@ -1966,8 +1971,9 @@ int art_step(void)
 			/* A system with covers off: its videos only, cover or not */
 			if (art_paths(dir, game->name, media, sizeof media, dest, sizeof dest) &&
 			    (!cov || art_is_cover(dest) || (g_es_cover && g_es_cover(dir, game->file, game->name)))) {
-				g_meta_untitled = cov && !db_game_title(db_lib(), g_sys[g_si].folder, game->file,
-				                                        title, sizeof title);
+				g_meta_untitled = cov && g_names_on &&
+				                  !db_game_title(db_lib(), g_sys[g_si].folder, game->file,
+				                                 title, sizeof title);
 				/* ScreenScraper said lately it does not know it */
 				if ((g_meta_untitled ||
 				     snap_missing(dir, g_sys[g_si].folder, game->file, game->name)) &&

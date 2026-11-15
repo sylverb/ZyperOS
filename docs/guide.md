@@ -311,13 +311,14 @@ page for that console alone.
 | **Covers** | the covers a run will look for, the room they will add (`+131 MB`), and on how many systems |
 | **Videos** | the video snaps it will get, the room they will add (`+525 MB`) and on how many systems; `all off` to start, `needs ScreenScraper` with no account |
 | under the heading | about how long the run will take (`about 35 min`), or `needs Wi-Fi` |
-| over the keys | the room: what the run will add and what the card has (`656 MB to fetch · 11.2 GB free`). In red when the run would leave less than 200 MB free; then **A** does not start it, and says `Not enough room on the card` |
+| over the keys | the names a run will look up for games that have a cover but no name (`199 names`, gone with **Names and Details** off), then the room: what the run will add and what the card has (`656 MB to fetch · 11.2 GB free`). In red when the run would leave less than 200 MB free; then **A** does not start it, and says `Not enough room on the card` |
 | **A** Fetch | runs it over Wi-Fi: the game it is asking about, its system, the source it asks and how many games it has looked at (`31 / 142`). Each cover found lands big, beside the six before it, and the time left is beside a clock. **B** stops, and so does a card down to its last 100 MB. Then **All done**: the covers found, how many came, how many are still missing, and the room the videos take |
 | **Y** Systems | a tile for each system with two marks, covers and videos, and under them the focused system's covers missing and videos to fetch. **A** turns the system's covers on or off (on to start), **X** its videos (off to start: a snap is a megabyte or three), and **Y** picks **Videos for**: **All Games**, **Favorites** or **Played**, for every system with videos on, each with how many videos and how much to fetch |
-| **START** Settings | **ScreenScraper**, **SteamGridDB** and **Videos**, below |
+| **START** Settings | **ScreenScraper**, **SteamGridDB**, **Videos** and **Names and Details**, below |
 
 A run gets every system's covers first, then the names, years and synopses
-of games that already have a cover. It asks ScreenScraper first when it is
+of games that already have a cover but no name, unless **Names and Details**
+is off: then a run fetches only what is missing, the covers and the videos. It asks ScreenScraper first when it is
 linked, libretro right after each game ScreenScraper does not have, and
 SteamGridDB last. A game ScreenScraper does not know is not asked about
 again for 30 days.
@@ -327,6 +328,7 @@ again for 30 days.
 | **ScreenScraper** | `linked as` its account, `link`, or `not in this build`. Its page links the account (user, then password, checked once), says how many requests are left today, and unlinks it. It brings covers with each game's year, genre and synopsis, and the video snaps. A build needs ScreenScraper's developer pair for any of it |
 | **SteamGridDB** | the API key as its last four characters (`••••1a2b`), `key refused`, or `link`. Its page types a key in, checks it once, and unlinks it; the File Transfer page takes one pasted. Covers the other two do not have |
 | **Videos** | the Video Snaps page, below |
+| **Names and Details** | `on` to start: a run also looks up the names, years and synopses of games that have a cover and no name, one ScreenScraper request each. Covers that came by File Transfer or from libretro have none, so on a card full of them that is the long part of a run. `off` skips it; **A** switches it |
 
 libretro needs no account: covers by file name, and for zipped games by
 checksum.
