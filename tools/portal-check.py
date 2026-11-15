@@ -32,6 +32,11 @@ protocol. What it holds, each a thing I asked for on 2026-11-06:
     card, the rows picked with it too (Shift, Ctrl or Cmd with a press), by
     mouse or by a finger held still a moment, a disc set's folder whole; a
     name already there is refused and said (2026-11-13)
+  - picking several (1.0.6): a finger held still picks a row, a press then
+    picks or unpicks (a folder too, without opening it), Select all, Ctrl+A
+    and Escape; Move to folder walks from the folder above, off for ROMs
+    itself and for where they are, New folder makes one and opens it, and
+    the move lands; Delete asks once for all of them
   - the page named after its link, as the handheld's screen is: USB File
     Transfer over the cable and Wi-Fi File Transfer over Wi-Fi, in its tab,
     on the PIN screen and over the folders, and never a name the browser
@@ -431,7 +436,125 @@ def main():
             page.dt.call('Input.dispatchTouchEvent', type='touchEnd', touchPoints=[])
             check(page.until(f"!{row('Set')}") and (card / 'Roms/Set/Set.m3u').is_file(),
                   "a finger held on a folder moved it whole onto a crumb above")
+            page.until("!document.querySelector('#list li.sel')")
+            # A finger held still on a row picks it, and the list is picking
+            (x0, y0) = at(row('A Twice.nes'))
+            page.dt.call('Input.dispatchTouchEvent', type='touchStart', touchPoints=[{'x': x0, 'y': y0}])
+            time.sleep(0.7)
+            page.dt.call('Input.dispatchTouchEvent', type='touchEnd', touchPoints=[])
+            check(page.until(f"{row('A Twice.nes')}.classList.contains('sel') && !document.getElementById('selbar').hidden"),
+                  'a finger held still on a row picks it, and the bar comes up')
             page.dt.call('Emulation.setTouchEmulationEnabled', enabled=False)
+            server.stop()
+
+            print('picking several, Move to folder and delete-many (1.0.6):')
+            for n in ('A Panel.nes', 'A Del 1.nes', 'A Del 2.nes'):
+                (nes / n).write_bytes(b'x')
+            server = Server(card, web, 'usb', 'update=off')
+            check(signed_in(page, server, 'roms/NES'), 'the page came up on NES')
+            page.js("go('roms/NES', 'none')")
+            page.until(f"cwd === 'roms/NES' && !!{row('A Panel.nes')}")
+            page.js("scrollTo(0, 0)")
+
+            def click(sel, mods=0):
+                x, y = at(sel)
+                page.dt.call('Input.dispatchMouseEvent', type='mouseMoved', x=x, y=y)
+                page.dt.call('Input.dispatchMouseEvent', type='mousePressed', x=x, y=y, button='left', clickCount=1, modifiers=mods)
+                page.dt.call('Input.dispatchMouseEvent', type='mouseReleased', x=x, y=y, button='left', clickCount=1, modifiers=mods)
+
+            def key(k, mods=0):
+                page.dt.call('Input.dispatchKeyEvent', type='keyDown', key=k, modifiers=mods,
+                             windowsVirtualKeyCode={'Escape': 27, 'a': 65, 'Delete': 46}[k])
+                page.dt.call('Input.dispatchKeyEvent', type='keyUp', key=k, modifiers=mods)
+
+            picked = "document.querySelectorAll('#list li.sel').length"
+            click(row('A Panel.nes'), 4)
+            check(page.js(picked) == 1 and page.js("document.getElementById('list').classList.contains('picking')"),
+                  'Cmd and a press pick a row (Ctrl is a right-click on a Mac); the list is picking')
+            # Picking, a press on a folder picks it rather than opening it
+            click(row('Hacks'))
+            check(page.until(f"{picked} === 2") and page.js("cwd") == 'roms/NES',
+                  'a press on a folder picks it and does not open it')
+            check(page.js("document.getElementById('selcount').textContent") == '2 selected',
+                  'the bar says how many: ' + str(page.js("document.getElementById('selcount').textContent")))
+            click(row('Hacks'))
+            check(page.until(f"{picked} === 1"), 'and a second press puts it down')
+            click("document.getElementById('selall')")
+            check(page.until(f"{picked} === entries.length") and page.js("document.getElementById('selall').hidden"),
+                  'Select all picks every row and goes')
+            key('Escape')
+            check(page.until(f"{picked} === 0 && document.getElementById('selbar').hidden"), 'Escape puts them all down')
+            key('a', 4)
+            check(page.until(f"{picked} === entries.length"), 'Cmd+A picks every row')
+            key('Escape')
+            page.until(f"{picked} === 0")
+
+            # Move to folder: the panel opens at ROMs, which is off; NES is
+            # where they are, off too; Hacks is a place to go
+            click(row('A Panel.nes'), 4)
+            click("document.getElementById('selmove')")
+            check(page.until("!document.getElementById('movedlg').hidden && mv && mv.at === 'roms'"),
+                  'Move to folder opens at the folder above, ROMs')
+            check(page.js("document.getElementById('moveyes').disabled") and
+                  page.js("document.getElementById('movenote').textContent") == "Games go in a console's folder.",
+                  'ROMs itself is off, and says why')
+            folder = lambda n: f"[...document.querySelectorAll('#movelist button')].find((b) => b.querySelector('.name').textContent === {json.dumps(n)})"
+            check(page.js(f"{folder('NES')}.querySelector('.tag').textContent") == 'current folder',
+                  'the folder they are in is marked')
+            click(folder('NES'))
+            check(page.until("mv.at === 'roms/NES'") and page.js("document.getElementById('moveyes').disabled"),
+                  'in the folder they are in, the button is off')
+            click(folder('Hacks'))
+            check(page.until("mv.at === 'roms/NES/Hacks'") and
+                  page.js("document.getElementById('moveyes').textContent") == 'Move to Hacks' and
+                  not page.js("document.getElementById('moveyes').disabled"), 'a folder in it: Move to Hacks')
+            click("document.querySelector('#movecrumbs button:last-of-type')")
+            check(page.until("mv.at === 'roms/NES'"), 'a crumb goes back up')
+            # New folder, made where the panel is and opened
+            click("document.getElementById('movenew')")
+            page.until("!document.getElementById('dialog').hidden")
+            page.js("document.getElementById('dlgfield').value = 'Made'; document.getElementById('dlgform').requestSubmit()")
+            check(page.until("mv && mv.at === 'roms/NES/Made' && !document.getElementById('movedlg').hidden") and
+                  (nes / 'Made').is_dir(), 'New folder makes it there and opens it')
+            click("document.getElementById('moveyes')")
+            check(page.until(f"!{row('A Panel.nes')}") and (nes / 'Made/A Panel.nes').is_file() and
+                  page.js("document.getElementById('movedlg').hidden"), 'Move to Made moved it there')
+            check(page.until("document.getElementById('selbar').hidden"), 'and nothing is picked after')
+            toast = "document.getElementById('toast')"
+            check(page.until(f"{toast}.classList.contains('show') && {toast}.firstChild.textContent === 'Moved A Panel.nes to Made'")
+                  and page.js(f"{toast}.querySelector('.act').textContent") == 'Undo',
+                  'a notice says what moved where, with Undo: ' + str(page.js(f"{toast}.textContent")))
+            click(f"{toast}.querySelector('.act')")
+            check(page.until(f"!!{row('A Panel.nes')}") and (nes / 'A Panel.nes').is_file() and
+                  not (nes / 'Made/A Panel.nes').exists() and
+                  page.until(f"{toast}.textContent === 'Moved back.'"), 'Undo moved it back where it was')
+            # Several: the notice counts them, and Undo takes each back
+            click(row('A Del 1.nes'), 4)
+            click(row('A Del 2.nes'), 4)
+            click("document.getElementById('selmove')")
+            page.until("mv && mv.at === 'roms'")
+            click(folder('NES'))
+            page.until("mv.at === 'roms/NES'")
+            click(folder('Hacks'))
+            page.until("mv.at === 'roms/NES/Hacks'")
+            click("document.getElementById('moveyes')")
+            check(page.until(f"{toast}.firstChild.textContent === 'Moved 2 items to Hacks'") and
+                  (nes / 'Hacks/A Del 1.nes').is_file() and (nes / 'Hacks/A Del 2.nes').is_file(),
+                  'two moved together: ' + str(page.js(f"{toast}.firstChild.textContent")))
+            click(f"{toast}.querySelector('.act')")
+            check(page.until(f"!!{row('A Del 1.nes')} && !!{row('A Del 2.nes')}") and
+                  (nes / 'A Del 1.nes').is_file() and (nes / 'A Del 2.nes').is_file(), 'and Undo took both back')
+
+            # Delete several: one question, then both go
+            click(row('A Del 1.nes'), 4)
+            click(row('A Del 2.nes'), 4)
+            click("document.getElementById('seldel')")
+            check(page.until("!document.getElementById('dialog').hidden") and
+                  page.js("document.getElementById('dlghead').textContent") == 'Delete 2 items?',
+                  'Delete asks once for the two: ' + str(page.js("document.getElementById('dlghead').textContent")))
+            click("document.getElementById('dlgyes')")
+            check(page.until(f"!{row('A Del 1.nes')} && !{row('A Del 2.nes')}") and
+                  not (nes / 'A Del 1.nes').exists() and not (nes / 'A Del 2.nes').exists(), 'and both are gone')
             server.stop()
 
             print("the page in the handheld's language:")

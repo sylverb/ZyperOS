@@ -728,6 +728,83 @@ a.btn { text-decoration: none; }
          padding: 8px 14px; border-radius: 8px; background: var(--accent); color: var(--on-accent);
          font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
          box-shadow: 0 6px 18px rgba(17, 19, 16, .24); }
+.i-x { --i: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round'%3E%3Cpath d='M6 6l12 12M18 6 6 18'/%3E%3C/svg%3E"); }
+.i-moveto { --i: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 18V6a1 1 0 0 1 1-1h5l2 2h8a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z'/%3E%3Cpath d='M9 13h7M13 10l3 3-3 3'/%3E%3C/svg%3E"); }
+/* Picking (app.js, "picking"): a tick where each row's ⋯ was, a ring that
+ * fills lime with the row; a press anywhere on a row picks it, so a folder's
+ * › goes too. */
+.row .tick { display: none; }
+.list.picking .row > .iconbtn, .list.picking .row > .chev { display: none; }
+.list.picking .row > .tick {
+	display: grid;
+	place-items: center;
+	flex: none;
+	width: 24px;
+	height: 24px;
+	margin: 0 8px;
+	border-radius: 50%;
+	border: 2px solid var(--edge);
+	cursor: pointer;
+}
+.list.picking .row.sel > .tick { border-color: var(--accent); background: var(--accent); }
+.list.picking .row.sel > .tick::after {
+	content: "";
+	width: 14px;
+	height: 14px;
+	color: var(--on-accent);
+	background: currentColor;
+	-webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12 5 5 9-10'/%3E%3C/svg%3E") center / contain no-repeat;
+	mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12 5 5 9-10'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+.list.picking .row { cursor: pointer; }
+/* The bar: held to the foot of the window under the list, how many on the
+ * left and what goes for all of them on the right */
+.selbar:not([hidden]) {
+	position: sticky;
+	bottom: 20px;
+	z-index: 15;
+	align-self: center;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	max-width: 100%;
+	padding: 8px;
+	border-radius: var(--radius-card);
+	background: var(--surface);
+	border: 1px solid var(--edge);
+	box-shadow: var(--small-lift);
+	animation: rise var(--t-move) var(--ease-out);
+}
+.selbar .count { flex: 1; min-width: 0; padding: 0 12px 0 2px; font-weight: 600; white-space: nowrap;
+                 overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.selbar .iconbtn { width: 40px; height: 40px; color: var(--text-soft); }
+.selbar .iconbtn:hover { color: var(--text); background: var(--raised); }
+.selbar .iconbtn.i-bin:hover { color: var(--warning); }
+/* Move to folder's panel: the crumbs, the folders as rows, and the button
+ * that says where they go */
+/* One height whatever the folder holds, so it does not jump while walked */
+.dialog .panel.picker { max-width: 520px; height: min(600px, 86dvh); grid-template-rows: auto auto minmax(0, 1fr) auto auto; }
+.picker .crumbs .here { font-size: var(--fs-label); }
+.picker .folders {
+	min-height: 120px;
+	overflow-y: auto;
+	margin: 0 -8px;
+	padding: 4px;
+	border-top: 1px solid var(--edge);
+	border-bottom: 1px solid var(--edge);
+	list-style: none;
+}
+.picker .folders .row { width: 100%; text-align: left; color: var(--text); }
+.picker .folders .row:disabled { opacity: .4; cursor: default; }
+.picker .folders .row:disabled:hover { background: none; }
+.picker .folders .row .name { flex: 1; min-width: 0; }
+.picker .folders .tag { color: var(--text-dim); font-size: var(--fs-meta); white-space: nowrap; }
+.picker .folders .chev { padding-right: 10px; }
+.picker .folders .none { padding: 24px 8px; color: var(--text-dim); text-align: center; }
+.picker .note { color: var(--text-dim); font-size: var(--fs-meta); }
+.picker .note:empty { display: none; }
+.picker .acts { margin-top: 0; align-items: center; }
+.picker .acts .gap { flex: 1; }
 .i-check { --i: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4' y='4' width='16' height='16' rx='3'/%3E%3Cpath d='m8 12 3 3 5-6'/%3E%3C/svg%3E"); }
 
 .empty { color: var(--text-dim); text-align: center; padding: 40px 16px; }
@@ -874,6 +951,14 @@ a.btn { text-decoration: none; }
 	transition: opacity var(--t-quick) var(--ease-out), transform var(--t-move) var(--ease-out);
 }
 .toast.bad { background: var(--surface); border-color: var(--warning); color: var(--warning); }
+/* A toast with something to press (Undo, after a move): reachable, the
+ * button at the end in text, bold and underlined (accent-ink misses 4.5:1
+ * on raised in Beard) */
+.toast.acts.show { pointer-events: auto; display: flex; align-items: center; gap: 14px; padding-right: 8px;
+                   width: max-content; }   /* its own width, not half the window's (left: 50%) */
+.toast .act { flex: none; padding: 6px 10px; border-radius: 8px; color: var(--text); font-weight: 700;
+              text-decoration: underline; text-underline-offset: 3px; }
+.toast .act:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: 1px; }
 
 @keyframes fade-in { from { opacity: 0; } }
 @keyframes open { from { opacity: 0; transform: scale(.96); } }
@@ -938,6 +1023,26 @@ a.btn { text-decoration: none; }
 		transition: bottom var(--t-move) var(--ease-out);
 	}
 	.app.docked .fab { bottom: calc(92px + env(safe-area-inset-bottom)); }
+	/* While rows are picked, the bar is where Upload was, over the uploads'
+	 * line when there are any */
+	.app.picking .fab { display: none; }
+	/* Two lines on a phone: how many and Select all, then Move to folder
+	 * across under the thumb, and Delete */
+	.selbar:not([hidden]) {
+		position: fixed;
+		left: 12px;
+		right: 12px;
+		bottom: calc(12px + env(safe-area-inset-bottom));
+		display: grid;
+		grid-template-columns: auto minmax(0, 1fr) auto;
+		row-gap: 8px;
+	}
+	.selbar #selmove { grid-column: 1 / 3; justify-content: center; }
+	.dialog .panel.picker { height: 82dvh; }
+	.picker .acts { display: grid; grid-template-columns: auto 1fr auto; row-gap: 10px; }
+	.picker #moveyes { grid-column: 1 / -1; }
+	.app.docked .selbar { bottom: calc(92px + env(safe-area-inset-bottom)); }
+	.list.picking .row > .tick { margin: 0 6px; }
 	.dock:not([hidden]) {
 		display: grid;
 		gap: 8px;
