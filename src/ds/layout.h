@@ -26,7 +26,6 @@
 #define DS_FOOT_Y               720
 #define DS_PAGE_FOOT_GAP        40
 #define DS_PAGE_FOOT_GAP_TIGHT  20
-#define DS_PAGE_FOOT_GAP_PAIR   48
 #define DS_PAGE_TILE_W          472
 #define DS_PAGE_TILE_H          280
 #define DS_PAGE_TILE_PAD        32

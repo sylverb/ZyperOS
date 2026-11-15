@@ -135,7 +135,6 @@ window.ZYPER_TOKENS = {
     "foot-y": 720,
     "page-foot-gap": 40,
     "page-foot-gap-tight": 20,
-    "page-foot-gap-pair": 48,
     "page-tile-w": 472,
     "page-tile-h": 280,
     "page-tile-pad": 32,

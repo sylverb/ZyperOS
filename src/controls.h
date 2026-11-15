@@ -5,6 +5,7 @@
 #include "menu.h"
 #include "portdoc.h"
 #include "remap.h"
+#include "device/profile.h"   /* dev_chords */
 
 /* Every button, and what it does where: the one place ON THE DEVICE that says
  * so. Eric's, 2026-09-18.
@@ -48,16 +49,13 @@ const char *ctl_page_name(ctl_page p);
  * track in Muse. */
 int ctl_rows(ctl_page p, menu_row *out);
 
-/* Whether brightness is FUNCTION with the volume keys, on a device with no
- * brightness keys of its own (the Pixel 2, plat_brightness_on_volume): the
- * pages then name those where the Brick's say F1/F2, and Muse's lock is
- * FUNCTION with both. The Brick's names until it is set. */
-void ctl_set_fn_volume(bool on);
-
-/* Whether the device shows the battery on lights of its own and L2+R2 flashes
- * the level there (the Pixel 2, plat_battery_lights): the shelf's page then
- * says so. Not shown until it is set. */
-void ctl_set_battery_lights(bool on);
+/* The device's chords (its profile's, src/device/profile.h): brightness as
+ * FUNCTION with the volume keys on a device with no brightness keys of its
+ * own (the Pixel 2), where the Brick's pages say F1/F2 and Muse's lock is
+ * FUNCTION with both; MENU+START for Home where zyhome runs; and L2+R2
+ * flashing the battery on lights of the device's own, which the shelf's
+ * page then says. The Brick's until it is set. */
+void ctl_set_chords(const dev_chords *c);
 
 /* ---------- in a game: the in-game menu's Controls row ---------------------
  *

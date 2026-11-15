@@ -7,6 +7,7 @@
 #include <time.h>
 
 #include "sidelights.h"
+#include "device/profile.h"   /* what the handheld is, and the answers it gives */
 
 /* Everything that knows which device it is running on sits behind this file:
  * the display, the buttons, the panel backlight, the codec, the battery, and
@@ -494,19 +495,9 @@ void plat_charge_limit_set(int pct);
  * is on. A radio that is off is the player's to turn on; a device without one
  * hides everything that needs it (src/sys_menu.h). */
 bool plat_has_wifi(void);
-bool plat_has_bluetooth(void);
-/* Whether Diatom draws its old screens here, the shaders a GPU draws (the
- * CRT, scanlines, the LCD grid; src/app.h SHADERS' gpu): on the Pixel 2,
- * whose pass is a GPU's; not on the Brick, whose is the CPU's */
-bool plat_gpu_shaders(void);
-/* Whether the built-in speaker is one speaker, as on the GKD Pixel 2, where
- * the Brick has two: Audio Channels' Auto is mono there and stereo on
- * everything else (src/audioout.h). */
-bool plat_speaker_mono(void);
-
-/* Whether brightness is FUNCTION with the volume keys, the device having no
- * brightness keys of its own. What MENU > Controls calls them (controls.h). */
-bool plat_brightness_on_volume(void);
+/* plat_has_bluetooth, plat_gpu_shaders, plat_speaker_mono,
+ * plat_brightness_on_volume, plat_battery_lights and plat_player2: facts
+ * about the handheld, answered from its profile (src/device/profile.h). */
 /* Whether MENU is held down this moment where the button itself cannot say:
  * on the Pixel 2 MENU is FUNCTION, reported as IN_MENU only on its release
  * (src/device/pixel2.c), so in_state never sees it held. The tutorial lights
@@ -519,17 +510,6 @@ bool plat_menu_held(void);
  * them pressed from this. False for any other button, and where their own
  * `down` says it, as on the Brick. */
 bool plat_tap_held(in_button b);
-
-/* Whether the device shows the battery on lights of its own, L2 with R2
- * flashing the level there outside a game (the Pixel 2's four side lights,
- * which plastron's gauge drives). What MENU > Controls says. */
-bool plat_battery_lights(void);
-
-/* Whether NES Player 2 (src/p2.h) is offered here: a device whose own
- * hotspot (a USB Wi-Fi adapter, hostapd) and cable link (the USB network
- * gadget) it was built and tried on, the Pixel 2. Nothing in a game's menu
- * says it elsewhere. */
-bool plat_player2(void);
 
 /* MENU > Side Lights (src/sidelights.h), where plat_battery_lights says there
  * are lights: the parts that are on, read from where the device keeps them,

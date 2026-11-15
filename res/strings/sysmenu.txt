@@ -679,16 +679,6 @@ de = Sortieren nach
 ja = 並べ替え
 it = Ordina per
 
-[sysmenu.display_mode]
-note = A system menu row: how the system's games fill the screen (Stretch, Aspect...)
-en = Display Mode
-zh-Hans = 显示模式
-es = Modo de pantalla
-pt-BR = Modo de exibição
-fr = Mode d'affichage
-de = Anzeigemodus
-ja = 表示モード
-it = Modalità schermo
 
 [sysmenu.box_art]
 note = A system menu row: fetch covers for this system's games

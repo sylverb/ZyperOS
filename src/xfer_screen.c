@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "xfer_screen.h"
+#include "ds/mark.h"   /* ds_bar_in */
 
 #include "aout_route.h"
 #include "app.h"
@@ -276,10 +277,7 @@ static void xs_load_header(app *a, const SDL_Rect *q)
 		ui_text(a->r, fl, say, cx, ui_cap_y(fl, y + 160), 0, UI_TEXT);
 	else
 		ui_text_marquee(a->r, fl, say, q->x, ui_cap_y(fl, y + 160), q->w, plat_now_ms(), UI_TEXT);
-	ui_round_rect(a->r, &bar, UI_BAR_H / 2, ui_col(t->track, 255));
-	if (fill > 0)
-		ui_round_rect(a->r, &(SDL_Rect){ bar.x, bar.y, fill, UI_BAR_H }, UI_BAR_H / 2,
-		              ui_col(t->accent_ink, 255));
+	ds_bar_in(a->r, &bar, fill, ui_col(t->track, 255), ui_col(t->accent_ink, 255));
 }
 
 /* One frame of the loading view: the way in's panel, rows and all, with

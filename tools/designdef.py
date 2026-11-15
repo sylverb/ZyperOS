@@ -242,7 +242,6 @@ LAYOUT = [
     ("foot-y",          720, "every screen's keys: the last row's middle, 32 from the screen's foot to the glyph's (one foot since 1.0.6; pages had 704, Cover and Video 724)"),
     ("page-foot-gap",   40,  "between the hints at a page's foot"),
     ("page-foot-gap-tight", 20, "...where they are wider than the page"),
-    ("page-foot-gap-pair", 48, "between Flash Drive's two hints"),
     ("page-tile-w",     472, "a page's tile, two side by side from the insets"),
     ("page-tile-h",     280, "its height"),
     ("page-tile-pad",   32,  "its words from its sides"),

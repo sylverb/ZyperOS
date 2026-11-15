@@ -4557,6 +4557,7 @@ static int menu_shelf_width(app *a)
 		bool own  = muse || a->view[i].owner;
 		int  srow = own ? 1 : sm_pos(a, i, SM_SORT), show = -1;
 		int  drow = own ? -1 : sm_pos(a, i, SM_DISPLAY);
+		int  nrow = own ? -1 : sm_pos(a, i, SM_DNOTE1);
 		int  hrow = own ? -1 : sm_pos(a, i, SM_SHADER);
 		int  crow = own ? -1 : sm_pos(a, i, SM_CORE);
 		int  lrow = own ? -1 : sm_pos(a, i, SM_DSLANG);
@@ -4585,6 +4586,15 @@ static int menu_shelf_width(app *a)
 		for (k = 0; drow >= 0 && k < DMODE_COUNT; k++) {
 			int mw;
 			rows[drow].value = dmode_label(k);
+			/* and its caption's two lines under it, as sysmenu_screen.c
+			 * wraps them */
+			if (nrow >= 0 && nrow + 1 < n) {
+				static char note[2][CHV_WRAP_COLS];
+				int nl = wrap_text(ui_font(UI_F_MENU), dmode_note(k), SM_NOTE_W, note, 2);
+
+				rows[nrow].label = nl > 0 ? note[0] : "";
+				rows[nrow + 1].label = nl > 1 ? note[1] : "";
+			}
 			mw = menu_measure(rows, n, heading);
 			if (mw > w) w = mw;
 		}
@@ -5003,6 +5013,10 @@ static int port_menu_main(int argc, char **argv)
 	return how;
 }
 
+/* --dmode NAME: every system shows that display mode (a shot of the row
+ * and its caption) */
+static const char *shot_dmode;
+
 int main(int argc, char *argv[])
 {
 	app a = { 0 };
@@ -5238,6 +5252,9 @@ int main(int argc, char *argv[])
 		}
 		/* --gm-tab N: the in-game menu's tab, 0 Game, 1 Display, 2 Controls */
 		else if (!strcmp(argv[i], "--gm-tab") && i + 1 < argc) shot_gamemenu_tab = atoi(argv[++i]);
+		/* --dmode NAME: every system's display mode, for a shot of its row
+		 * and its caption (display.<TAG>'s value: stretch, aspect, ...) */
+		else if (!strcmp(argv[i], "--dmode") && i + 1 < argc) shot_dmode = argv[++i];
 		/* The Controls tab's (shot_draw_ctltab) */
 		else if (!strcmp(argv[i], "--gm-all")) shot_gm_all = true;
 		else if (!strcmp(argv[i], "--gm-pick")) shot_gm_pick = true;
@@ -5299,6 +5316,18 @@ int main(int argc, char *argv[])
 				shot_tour_wrong_ms = atoi(argv[++i]);
 		}
 		else if (!strcmp(argv[i], "--fn-volume")) shot_fn_volume = 1;
+		/* --device ID: wear that handheld's profile (src/device/profile.h),
+		 * its buttons, chords and answers, for shots and checks on a computer;
+		 * a device build has its own alone */
+		else if (!strcmp(argv[i], "--device") && i + 1 < argc) {
+			if (!plat_profile_select(argv[++i])) {
+				char ids[96];
+
+				plat_profile_ids(ids, sizeof ids);
+				fprintf(stderr, "--device: no profile \"%s\" (%s)\n", argv[i], ids);
+				return 2;
+			}
+		}
 		else if (!strcmp(argv[i], "--tour-pick") && i + 1 < argc) {
 			shot_tour_pick = atoi(argv[++i]);
 			if (i + 1 < argc && argv[i + 1][0] >= '0' && argv[i + 1][0] <= '9')
@@ -6399,6 +6428,12 @@ int main(int argc, char *argv[])
 	/* After the scan, because it indexes by system, and before anything can
 	 * launch, because the mode has to reach Diatom with the first RUN. */
 	display_load(&a);
+	if (shot_dmode) {
+		int k, v;
+
+		for (k = 0; k < DMODE_COUNT && strcmp(DMODES[k].name, shot_dmode); k++) ;
+		for (v = 0; k < DMODE_COUNT && v < a.sys.count; v++) a.view[v].dmode = k;
+	}
 	core_load(&a);
 	sort_load(&a);
 	view_load(&a);

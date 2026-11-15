@@ -393,7 +393,6 @@ its own says why beside it.
 | **foot-y** | 720 | every screen's keys: the last row's middle, 32 from the screen's foot to the glyph's (one foot since 1.0.6; pages had 704, Cover and Video 724) |
 | **page-foot-gap** | 40 | between the hints at a page's foot |
 | **page-foot-gap-tight** | 20 | ...where they are wider than the page |
-| **page-foot-gap-pair** | 48 | between Flash Drive's two hints |
 | **page-tile-w** | 472 | a page's tile, two side by side from the insets |
 | **page-tile-h** | 280 | its height |
 | **page-tile-pad** | 32 | its words from its sides |
@@ -675,7 +674,7 @@ audio rows.)*
   plays **move** when it changed and **edge** when it did not.
 - A plays **accept**, and so does a menu opening (MENU, X's game page, the
   in-game menu); A on a row that does nothing with it (Auto Off, Sort By, a
-  system's Display Mode) plays **deny**. B plays **back**, and so does MENU
+  system's Display) plays **deny**. B plays **back**, and so does MENU
   closing a menu.
   A menu the launcher opens itself, or a game it starts with nobody
   pressing (a resume at boot), plays nothing.
@@ -1214,8 +1213,9 @@ of the player's own goes on from wherever the loop was.
 - Title in **title** **text** on y 516, line in **meta** **text-soft** on y 578,
   an optional second line in **meta** **text-dim** on y 624. A step's stage,
   glyph and lines fade in over **move**.
-- **The handheld** (the GKD Pixel 2 only): each lesson shows the handheld
-  the tutorial is running on, in a column at the left, with the lesson's
+- **The handheld** (a device whose profile has a drawing, the GKD Pixel 2
+  today; src/device/profile.h, `dev_tutorial_handheld`): each lesson shows
+  the handheld the tutorial is running on, in a column at the left, with the lesson's
   key lit, so a player who has never seen MENU, the volume keys or POWER -
   all on its sides - finds them. *(My pick in the tutorial-buttons lab,
   2026-11-05: "Turns to the key", over a figure that faces front with the
@@ -1225,8 +1225,8 @@ of the player's own goes on from wherever the loop was.
   bubble and "START: skip" stay. A title, line or note wider than that
   leaves keeps the **inset** from the right edge instead, ending where
   "START: skip" ends (Music's line, wider than the stage, sits a little
-  left of the stage's middle). On the Brick nothing moves and there is no
-  handheld. src/tourdevice.c draws it in code, no image files, into a
+  left of the stage's middle). On a device with no drawing yet (the Brick)
+  nothing moves and there is no handheld. src/tourdevice.c draws it in code, no image files, into a
   304 x 382 texture kept while it does not change (it changes only as it
   turns, a key lights or presses, and in the first lesson's fade-in): drawn
   every frame it cost the Pixel 2 a third of the lesson's frame rate, kept
@@ -2511,6 +2511,17 @@ plain Undo Load row right under Load, and A on it loads it and resumes. One
 is kept, for each game: Undo Load itself writes none, so A on it twice goes
 back to the same moment, and the next load replaces it. Delete Game, Rename
 and Storage count it with the game's slots.
+
+**Display's names and caption** (1.0.6). The modes say what they do: Full
+Screen, Original Shape, Sharp Pixels, Sharp Pixels, Tall, Sharp Pixels,
+Zoomed, Fill, Edges Cut and Actual Size (the card keeps display.<TAG>'s old
+names: stretch, aspect, integer, integer-vertical, overscale, fill, native).
+Under the Display row, on the Display tab and in the shelf's menu, two
+caption lines say in a sentence what the one shown does: body rows, left
+aligned, wrapped to the panel (800 in game, 760 on the shelf), never a stop.
+The shelf's menu window brings a caption under the cursor's row into view
+with it (src/menu.c), and its row is named Display, as in game: "Display
+Mode" beside the longest names fitted in no Latin-letter language.
 
 **Where it opens.** The first MENU of a game opens on Game, on Continue.
 After that it opens on the tab and the row it was left on, until the game
@@ -4188,12 +4199,15 @@ when its change lands.
   (720: the last row's middle, 32 from the screen's foot to the glyph's),
   where a page had 704, Cover and Video and the MP4 player 724 and the
   shelves 720. Left apart: the charging screen's larger hints at 680, and
-  Storage, which has no keys and its caption at 702. Flash Drive puts its
-  two hints 48 apart where a page puts them 40.
-- Two progress bars are still drawn by hand in `src/main.c`: File Transfer's
-  load header and Developer Mode's hold, which fills in **text** where every
-  other hold fills in **accent-ink**. The tutorial draws its bars and more
-  marks in its own layer, at `ds_bar`'s and `ds_more`'s sizes.
+  Storage, which has no keys and its caption at 702.
+- The tutorial draws its bars and more marks in its own layer, at `ds_bar`'s
+  and `ds_more`'s sizes. Every other bar goes through `ds_bar` or
+  `ds_bar_in` (File Transfer's load and Developer Mode's hold since 1.0.6,
+  the hold in **accent-ink** as every hold is).
+- Player 2's page draws its slab through `ds_panel_slab` inside
+  `p2panel_draw`; its moving path lifts and opens the pass itself
+  (`p2_panel`, src/player2_screen.c) rather than through `ds_panel_open`,
+  which would draw the slab a second time.
 - The keyboard copies the menu panel's padding formula (`menu_pad`).
 - Words whose ink comes within 3 units of a key or a more mark, found when
   the host began to check it (1.0.6): Storage's two-line caption under the

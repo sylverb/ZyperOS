@@ -73,7 +73,7 @@ const char *home_label(const char *key, const char *canonical)
 {
     static const struct { const char *key, *name; } labels[] = {
         {"A2600","Atari 2600"}, {"GW","G&W"}, {"A5200","Atari 5200"},
-        {"VECTREX","Vectrex"}, {"NES","NES"}, {"MSX2","MSX2"},
+        {"VECTREX","Vectrex"}, {"SG1000","SG-1000"}, {"NES","NES"}, {"MSX2","MSX2"},
         {"A7800","Atari 7800"}, {"SMS","SMS"}, {"GB","Game Boy"},
         {"MD","Genesis"}, {"PCE","TG-16"}, {"LYNX","Lynx"},
         {"GG","Game Gear"}, {"NEOGEO","Neo Geo"}, {"SFC","SNES"},

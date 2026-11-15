@@ -1629,22 +1629,11 @@ void plat_brightness_set(int level)
  * in: plastron loads its driver then (usbrole), and wlan0 is the sign. Asked
  * as menus are built, and one access() is all it costs. No Bluetooth. */
 bool plat_has_wifi(void)      { return access("/sys/class/net/wlan0", F_OK) == 0; }
-bool plat_has_bluetooth(void) { return false; }
-/* Diatom's last pass is the GPU's here (port/pixel2.c): every shader */
-bool plat_gpu_shaders(void)   { return true; }
-/* One speaker: Audio Channels' Auto plays it mono (src/audioout.h) */
-bool plat_speaker_mono(void) { return true; }
-
-/* FUNCTION with volume up or down (key_event). */
-bool plat_brightness_on_volume(void) { return true; }
+/* Bluetooth, the GPU's shaders, one speaker, brightness on FUNCTION with a
+ * volume key (key_event), the side lights and Player 2: its profile's
+ * (src/device/pixel2_profile.c). */
 bool plat_menu_held(void) { return fn_down; }
 bool plat_tap_held(in_button b) { return b == IN_L2 ? l2_down : b == IN_R2 ? r2_down : false; }
-
-/* The side lights, and L2+R2 asking gauge for the level (key_event). */
-bool plat_battery_lights(void) { return true; }
-
-/* Its hotspot by a USB Wi-Fi adapter, and its cable's network link */
-bool plat_player2(void) { return true; }
 
 /* MENU > Side Lights: one line on the card, in the file plastron's gauge reads
  * at boot and again on SIGHUP (package/gauge/src/gauge.c; the line's words,
