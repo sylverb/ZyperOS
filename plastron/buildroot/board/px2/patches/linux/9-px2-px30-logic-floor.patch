@@ -1,0 +1,201 @@
+From: plastron
+Subject: [PATCH] soc: rockchip: px30: vdd_logic floor while the CPU runs fast
+
+A driver of its own, px30-logic-floor, that holds the logic supply
+(vdd_logic: the DDR controller, the buses and the GPU) at 1.0 V or more
+while the CPU runs above 1008 MHz, as Rockchip's own firmware for the PX30
+and RK3326 does (the GKD Pixel 2's stock device tree: rockchip,px30-bus,
+its "clkfreq" policy on PLL_APLL). Mainline has nothing that does it, so
+vdd_logic was only what the DDR and the GPU asked for, 0.95 V under a CPU
+at its top clock with the GPU idle. One GKD Pixel 2 hung in its menus and
+in a long card copy, and not with the CPU capped at 1008 MHz (2026-11-13
+to 15).
+
+Its request is made before the CPU goes above the threshold (a cpufreq
+transition notifier's PRECHANGE) and let go after it comes back to it or
+under (POSTCHANGE), and at probe when cpufreq started first. The regulator
+core keeps the highest of the consumers' floors, so the GPU's and the
+DDR's own steps above 1.0 V still win; the GPU's must ask for a range,
+which the board's device tree gives it.
+---
+diff --git a/drivers/soc/rockchip/Kconfig b/drivers/soc/rockchip/Kconfig
+index a9e9828..43a558e 100644
+--- a/drivers/soc/rockchip/Kconfig
++++ b/drivers/soc/rockchip/Kconfig
+@@ -32,6 +32,16 @@ config ROCKCHIP_IODOMAIN
+ 	  necessary for the io domain setting of the SoC to match the
+ 	  voltage supplied by the regulators.
+ 
++config ROCKCHIP_PX30_LOGIC_FLOOR
++	bool "PX30 vdd_logic floor while the CPU runs fast"
++	depends on OF && CPU_FREQ && REGULATOR
++	help
++	  Holds the logic supply (vdd_logic: the DDR controller, the buses
++	  and the GPU) at a floor while the CPU runs above a clock, as
++	  Rockchip's own firmware for the PX30 and RK3326 does: 1.0 V or more
++	  above 1008 MHz. Without it vdd_logic is only what the DDR and the
++	  GPU ask for, as low as 0.95 V under a CPU at its top clock.
++
+ config ROCKCHIP_DTPM
+ 	tristate "Rockchip DTPM hierarchy"
+ 	depends on DTPM && m
+diff --git a/drivers/soc/rockchip/Makefile b/drivers/soc/rockchip/Makefile
+index 1e41f67..781de76 100644
+--- a/drivers/soc/rockchip/Makefile
++++ b/drivers/soc/rockchip/Makefile
+@@ -6,3 +6,4 @@ obj-$(CONFIG_ROCKCHIP_GRF) += grf.o
+ obj-$(CONFIG_ROCKCHIP_CPUINFO) += rockchip-cpuinfo.o
+ obj-$(CONFIG_ROCKCHIP_IODOMAIN) += io-domain.o
+ obj-$(CONFIG_ROCKCHIP_DTPM) += dtpm.o
++obj-$(CONFIG_ROCKCHIP_PX30_LOGIC_FLOOR) += px30-logic-floor.o
+diff --git a/drivers/soc/rockchip/px30-logic-floor.c b/drivers/soc/rockchip/px30-logic-floor.c
+new file mode 100644
+index 0000000..13ec8a5
+--- /dev/null
++++ b/drivers/soc/rockchip/px30-logic-floor.c
+@@ -0,0 +1,145 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * PX30 and RK3326: the logic supply held at a floor while the CPU runs fast.
++ *
++ * Rockchip's own firmware for these chips (the GKD Pixel 2's stock device
++ * tree, under bus-apll: its rockchip,px30-bus "clkfreq" policy on PLL_APLL)
++ * raises vdd_logic, the supply of the DDR controller, the buses and the GPU,
++ * to 1.0 V whenever the CPU's PLL runs above 1008 MHz, and lets it down to
++ * 0.95 V only at 1008 or below. Mainline has nothing that does it: there
++ * vdd_logic is only what the DDR controller and the GPU ask for, which with
++ * the GPU idle is 0.95 V under a CPU at its top clock. One GKD Pixel 2 hung
++ * there, in its menus and in a long card copy, and not with the CPU capped
++ * at 1008 MHz.
++ *
++ * So: a request of its own on the logic supply, the floor or more, made
++ * before the CPU goes above the threshold and let go after it comes back to
++ * it or under. The regulator core keeps the highest of every consumer's
++ * floors, so the GPU's and the DDR's steps above it still win; they have to
++ * ask for a range, not one exact voltage, or the two cannot both hold (the
++ * device tree's GPU table gives each step a ceiling).
++ *
++ *	logic-floor {
++ *		compatible = "zyperos,px30-logic-floor";
++ *		logic-supply = <&vdd_logic>;
++ *		cpu-threshold-khz = <1008000>;	(default)
++ *		logic-floor-microvolt = <1000000>;	(default)
++ *	};
++ */
++#include <linux/cpufreq.h>
++#include <linux/limits.h>
++#include <linux/module.h>
++#include <linux/mutex.h>
++#include <linux/of.h>
++#include <linux/platform_device.h>
++#include <linux/regulator/consumer.h>
++
++struct logic_floor {
++	struct device *dev;
++	struct regulator *logic;
++	struct notifier_block nb;
++	struct mutex lock;	/* held, and the requests that change it */
++	unsigned int threshold;	/* kHz */
++	int floor_uv;
++	bool held;
++};
++
++/* The request on or off; nothing when it already is. Off asks for nothing at
++ * all, so the others' requests alone decide again. */
++static void logic_floor_hold(struct logic_floor *lf, bool hold)
++{
++	int ret;
++
++	if (hold == lf->held)
++		return;
++	ret = regulator_set_voltage(lf->logic, hold ? lf->floor_uv : 0, INT_MAX);
++	if (ret) {
++		dev_warn_ratelimited(lf->dev, "could not %s the floor: %d\n",
++				     hold ? "set" : "let go of", ret);
++		return;
++	}
++	lf->held = hold;
++}
++
++/* Up before the CPU goes above the threshold, down after it is back. The
++ * notifiers run in the governor's work, where the regulator may sleep. */
++static int logic_floor_notify(struct notifier_block *nb, unsigned long event,
++			      void *data)
++{
++	struct logic_floor *lf = container_of(nb, struct logic_floor, nb);
++	struct cpufreq_freqs *freqs = data;
++
++	mutex_lock(&lf->lock);
++	if (event == CPUFREQ_PRECHANGE && freqs->new > lf->threshold)
++		logic_floor_hold(lf, true);
++	else if (event == CPUFREQ_POSTCHANGE && freqs->new <= lf->threshold)
++		logic_floor_hold(lf, false);
++	mutex_unlock(&lf->lock);
++	return NOTIFY_OK;
++}
++
++static int logic_floor_probe(struct platform_device *pdev)
++{
++	struct device *dev = &pdev->dev;
++	struct logic_floor *lf;
++	u32 v;
++	int ret;
++
++	lf = devm_kzalloc(dev, sizeof(*lf), GFP_KERNEL);
++	if (!lf)
++		return -ENOMEM;
++	lf->dev = dev;
++	lf->logic = devm_regulator_get(dev, "logic");
++	if (IS_ERR(lf->logic))
++		return dev_err_probe(dev, PTR_ERR(lf->logic), "no logic supply\n");
++	lf->threshold = 1008000;
++	of_property_read_u32(dev->of_node, "cpu-threshold-khz", &lf->threshold);
++	v = 1000000;
++	of_property_read_u32(dev->of_node, "logic-floor-microvolt", &v);
++	lf->floor_uv = v;
++	mutex_init(&lf->lock);
++	platform_set_drvdata(pdev, lf);
++
++	lf->nb.notifier_call = logic_floor_notify;
++	ret = cpufreq_register_notifier(&lf->nb, CPUFREQ_TRANSITION_NOTIFIER);
++	if (ret)
++		return ret;
++	/* cpufreq may have started first, the CPU at its top clock already
++	 * (the kernel's performance governor, until init's own) */
++	mutex_lock(&lf->lock);
++	if (cpufreq_quick_get(0) > lf->threshold)
++		logic_floor_hold(lf, true);
++	mutex_unlock(&lf->lock);
++	dev_info(dev, "logic supply at %d uV or more above %u kHz%s\n",
++		 lf->floor_uv, lf->threshold, lf->held ? ", now" : "");
++	return 0;
++}
++
++static void logic_floor_remove(struct platform_device *pdev)
++{
++	struct logic_floor *lf = platform_get_drvdata(pdev);
++
++	cpufreq_unregister_notifier(&lf->nb, CPUFREQ_TRANSITION_NOTIFIER);
++	mutex_lock(&lf->lock);
++	logic_floor_hold(lf, false);
++	mutex_unlock(&lf->lock);
++}
++
++static const struct of_device_id logic_floor_of_match[] = {
++	{ .compatible = "zyperos,px30-logic-floor" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, logic_floor_of_match);
++
++static struct platform_driver logic_floor_driver = {
++	.probe = logic_floor_probe,
++	.remove = logic_floor_remove,
++	.driver = {
++		.name = "px30-logic-floor",
++		.of_match_table = logic_floor_of_match,
++	},
++};
++module_platform_driver(logic_floor_driver);
++
++MODULE_DESCRIPTION("PX30 vdd_logic floor while the CPU runs fast");
++MODULE_LICENSE("GPL");

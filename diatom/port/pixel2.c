@@ -2700,6 +2700,27 @@ static const diatom_power_profile PX2_POWER = {
 	.gpu_floor_top = "520000000",
 };
 
+/* The same with the DDR at its full rate at every level, for a card with the
+ * file steady-memory in .userdata/pixel2, or steady-memory.txt on PX2BOOT
+ * (/run/zyperos-steady-memory, plastron's zyperos.init): the light level's
+ * 328 MHz and the
+ * lifts from it (the in-game menu, Fast Forward, a late frame) each switched
+ * the DDR while the display read it, at any moment of its scan. ZyperOS's
+ * src/device/pixel2.c (plat_ram_idle) says why it is there, and off. */
+#define PX2_STEADY_MEMORY "/mnt/SDCARD/.userdata/pixel2/steady-memory"
+#define PX2_STEADY_MEMORY_BOOT "/run/zyperos-steady-memory"
+static const diatom_power_profile PX2_POWER_STEADY = {
+	.clock = {
+		{ DIATOM_CPUFREQ "scaling_max_freq", { NULL, "1008000", "816000" },
+		  DIATOM_CPUFREQ "cpuinfo_max_freq" },
+		{ "/sys/class/devfreq/dmc/max_freq", { "0", "0", "0" }, NULL },
+		{ "/sys/class/devfreq/ff400000.gpu/max_freq", { "0", "300000000", "200000000" }, NULL },
+	},
+	.n = 3,
+	.gpu_floor = "/sys/class/devfreq/ff400000.gpu/min_freq",
+	.gpu_floor_top = "520000000",
+};
+
 void diatom_port_fast_clock(bool cpu, bool gpu)
 {
 	static bool said;
@@ -2727,7 +2748,8 @@ void diatom_port_power(int level)
 
 	if (level < DIATOM_POWER_FULL || level > DIATOM_POWER_LIGHT || level == now) return;
 	now = level;
-	if (!diatom_power_set(&PX2_POWER, level))
+	if (!diatom_power_set(access(PX2_STEADY_MEMORY, F_OK) == 0 || access(PX2_STEADY_MEMORY_BOOT, F_OK) == 0
+	                      ? &PX2_POWER_STEADY : &PX2_POWER, level))
 		diatom_port_log(DIATOM_LOG_WARN, "pixel2: could not set every clock ceiling");
 }
 

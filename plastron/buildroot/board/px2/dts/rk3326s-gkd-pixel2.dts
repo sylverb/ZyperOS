@@ -428,28 +428,35 @@
 		};
 	};
 
+	/*
+	 * Each step's voltage as a range, its own up to the top step's: the
+	 * same voltage as the vendor's table while nothing else asks for more,
+	 * and room for the logic floor below (logic-floor), which with one
+	 * exact voltage per step the regulator could not meet together
+	 * (-EINVAL, 2026-11-13)
+	 */
 	gkd_pixel2_gpu_opp_table: gkd-pixel2-gpu-opp-table {
 		compatible = "operating-points-v2";
 
 		opp-200000000 {
 			opp-hz = /bits/ 64 <200000000>;
-			opp-microvolt = <950000>;
+			opp-microvolt = <950000 950000 1175000>;
 		};
 		opp-300000000 {
 			opp-hz = /bits/ 64 <300000000>;
-			opp-microvolt = <975000>;
+			opp-microvolt = <975000 975000 1175000>;
 		};
 		opp-400000000 {
 			opp-hz = /bits/ 64 <400000000>;
-			opp-microvolt = <1050000>;
+			opp-microvolt = <1050000 1050000 1175000>;
 		};
 		opp-480000000 {
 			opp-hz = /bits/ 64 <480000000>;
-			opp-microvolt = <1125000>;
+			opp-microvolt = <1125000 1125000 1175000>;
 		};
 		opp-520000000 {
 			opp-hz = /bits/ 64 <520000000>;
-			opp-microvolt = <1175000>;
+			opp-microvolt = <1175000 1175000 1175000>;
 		};
 	};
 };
@@ -460,14 +467,15 @@
 	 * LPDDR4): 194, 328 and 1056 MHz. BL31 moves only between those; asked
 	 * for 666 it went to 328. At one voltage for all, as Rockchip's PX30S
 	 * table (px30.dtsi, develop-5.10) has them.
+	 *
+	 * Not 194: the GKD Pixel 2's own firmware goes there only asleep (its
+	 * dmc's auto-min-freq is 328 MHz, 194 for SYS_STATUS_SUSPEND alone),
+	 * and this system never sleeps. Here it was the driver's to pick under
+	 * simple_ondemand, from its probe until init set the performance
+	 * governor (datapart), and a rate one Pixel 2 hung at (2026-11-13).
 	 */
 	px30s_dmc_opp_table: opp-table-dmc-px30s {
 		compatible = "operating-points-v2";
-
-		opp-194000000 {
-			opp-hz = /bits/ 64 <194000000>;
-			opp-microvolt = <950000>;
-		};
 
 		opp-328000000 {
 			opp-hz = /bits/ 64 <328000000>;
@@ -478,6 +486,23 @@
 			opp-hz = /bits/ 64 <1056000000>;
 			opp-microvolt = <950000>;
 		};
+	};
+};
+
+/ {
+	/*
+	 * vdd_logic at 1.0 V or more while the CPU runs above 1008 MHz, as the
+	 * GKD Pixel 2's own firmware has it (its bus-apll, rockchip,px30-bus,
+	 * the "clkfreq" policy on PLL_APLL): the driver is plastron's
+	 * 9-px2-px30-logic-floor.patch. Without it vdd_logic was only what the
+	 * DDR and the GPU asked for, 0.95 V under a CPU at 1296 MHz with the
+	 * GPU idle, and one Pixel 2 hung there (2026-11-13 to 15).
+	 */
+	logic-floor {
+		compatible = "zyperos,px30-logic-floor";
+		logic-supply = <&vdd_logic>;
+		cpu-threshold-khz = <1008000>;
+		logic-floor-microvolt = <1000000>;
 	};
 };
 
