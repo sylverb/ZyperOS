@@ -222,6 +222,7 @@ static void build_favorites_shelf(app *a)
 	a->view[0].owner = owner;
 	/* Its View, which it keeps as a console's shelf does (MENU > View) */
 	a->view[0].listed = view_listed("FAV");
+	a->view[0].grid = !a->view[0].listed && view_grid("FAV");
 	a->view[0].tex = calloc((size_t)n, sizeof *a->view[0].tex);
 	a->view[0].tw  = calloc((size_t)n, sizeof *a->view[0].tw);
 	a->view[0].th  = calloc((size_t)n, sizeof *a->view[0].th);

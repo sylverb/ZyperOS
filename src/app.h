@@ -9,6 +9,7 @@
 #include "coverflow.h"
 #include "games.h"
 #include "gamelist.h"
+#include "gamegrid.h"
 #include "home.h"
 #include "i18n.h"
 #include "idle.h"
@@ -79,9 +80,19 @@ typedef struct {
 	/* The list view's place and motion (src/gamelist.h); unset places it
 	 * again on the cursor */
 	gl_motion lm;
-	/* MENU's View for this shelf: its covers in a row (false), as it always
-	 * was, or a list of names (DESIGN.md 11.39) */
+	/* MENU's View for this shelf: its covers in a row (both false), as it
+	 * always was, a list of names (DESIGN.md 11.39) or a grid of covers
+	 * (11.47); never both */
 	bool listed;
+	bool grid;
+	/* The grid's place and motion, what it knows of each cover beyond its
+	 * texture (src/gamegrid.h), and the shape kept for this shelf in the
+	 * device's database (grid_shape_load), read when the grid opens it, and
+	 * whether this opening has written what its covers measured */
+	gg_motion gm;
+	gg_arts gart;
+	float grid_kept;
+	bool grid_saved;
 } sysview;
 
 /* Every game of a system, at every depth of its folders: Favorites, search,
@@ -310,6 +321,7 @@ void sort_load(app *a);
 /* MENU > View, each shelf's: its covers or a list (DESIGN.md 11.39) */
 void view_load(app *a);
 bool view_listed(const char *tag);
+bool view_grid(const char *tag);
 void sort_shelf(app *a, int sys);
 void sort_all(app *a);
 /* Every texture of the renderer the launcher holds, let go */

@@ -165,6 +165,7 @@ int menu_build(app *a, screen_id screen, int sys,
 		u.strength   = strength_row_label(a, sys);
 		u.no_strength = !u.strength;
 		u.listed     = a->view[sys].listed;
+		u.grid       = a->view[sys].grid;
 		u.muse_books = u.muse && muse_books_shown();
 		u.muse_videos = u.muse && muse_kind_shown() == ML_VIDEOS;
 		u.muse_all   = u.muse && muse_kind_shown() == ML_ALL;
@@ -630,11 +631,12 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 		}
 		/* Display mode, saved the moment it changes because there is no
 		 * confirm step to hang the write off. */
-		/* View: the covers or a list, this shelf's (DESIGN.md 11.39). Left,
-		 * Right and A turn it over, as a choice of two does; the shelf under
-		 * the menu turns with it, on the game it was on. */
+		/* View: the covers, the grid or a list, this shelf's (DESIGN.md
+		 * 11.39, 11.47). Right and A step it forward, Left back, round the
+		 * three; the shelf under the menu turns with it, on the game it was
+		 * on. */
 		if ((d || key == IN_ACCEPT) && sel == SM_VIEW) {
-			view_turn(a, a->sys_cursor);
+			view_turn(a, a->sys_cursor, d < 0 ? -1 : 1);
 			return MENU_STAY;
 		}
 		if (d && sel == SM_DISPLAY) {

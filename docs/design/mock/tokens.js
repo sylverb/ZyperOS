@@ -164,7 +164,12 @@ window.ZYPER_TOKENS = {
     "hint-gap": 12,
     "hints-gap": 32,
     "hints-gap-spread": 16,
-    "hints-row": 44
+    "hints-row": 44,
+    "grid-gap": 24,
+    "grid-band-gap": 24,
+    "focus-ring": 4,
+    "focus-gap": 4,
+    "radius-cell": 14
   },
   "motion": {
     "press": {

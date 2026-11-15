@@ -397,6 +397,7 @@ typedef struct {
 	const char *sort;
 	/* The shelf shows a list rather than its covers (View, SM_VIEW) */
 	bool        listed;
+	bool        grid;       /* the shelf is a grid of covers (MENU > View) */
 } sys_ui;
 
 /* The ZyperOS menu's rows and the system menu's, in order, for what the device

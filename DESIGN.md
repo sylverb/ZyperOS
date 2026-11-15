@@ -386,6 +386,11 @@ its own says why beside it.
 | **hints-gap** | 32 | one hint to the next |
 | **hints-gap-spread** | 16 | the least between hints spread across a foot |
 | **hints-row** | 44 | one row of hints to the next |
+| **grid-gap** | 24 | between a grid's cells |
+| **grid-band-gap** | 24 | a grid's foot to the band under it: the name and its facts |
+| **focus-ring** | 4 | the ring round a focused cell |
+| **focus-gap** | 4 | the ground between that ring and the cell |
+| **radius-cell** | 14 | a grid cell's corners; its ring's are radius-card (14 + 4 + 4) |
 <!-- /generated:layout -->
 
 ---

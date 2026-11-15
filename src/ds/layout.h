@@ -56,5 +56,10 @@
 #define DS_HINTS_GAP            32
 #define DS_HINTS_GAP_SPREAD     16
 #define DS_HINTS_ROW            44
+#define DS_GRID_GAP             24
+#define DS_GRID_BAND_GAP        24
+#define DS_FOCUS_RING           4
+#define DS_FOCUS_GAP            4
+#define DS_RADIUS_CELL          14
 
 #endif

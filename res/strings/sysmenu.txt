@@ -1192,6 +1192,17 @@ de = Cover
 ja = パッケージ画像
 it = Copertine
 
+[sysmenu.view_grid]
+note = View's value: the shelf shows its games' covers in a grid, two rows of them. A named choice.
+en = Grid
+zh-Hans = 网格
+es = Cuadrícula
+pt-BR = Grade
+fr = Grille
+de = Raster
+ja = グリッド
+it = Griglia
+
 [sysmenu.view_list]
 note = View's value: the shelf shows its games as a list of names, a small cover beside each. A named choice.
 en = List
