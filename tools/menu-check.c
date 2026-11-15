@@ -817,6 +817,7 @@ static void zyperos_menu_online(void)
 	   "and a release image has none");
 	u.no_developer = false;
 	u.developer = false;
+
 }
 
 /* Connecting and idle are not the same as off, and the row must not flatten

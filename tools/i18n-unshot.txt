@@ -693,6 +693,7 @@ keyhint.pair
 keyhint.rescan
 keyhint.forget
 keyhint.go
+keyhint.turn_off  # Bluetooth's toggle row legend (src/bt_menu.c), and no shot draws Bluetooth with an adapter; it was counted before only because Developer Mode's old legend had the same English words
 keyhint.by_game
 keyhint.window
 keyhint.by_system

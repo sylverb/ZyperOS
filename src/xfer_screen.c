@@ -693,11 +693,13 @@ static const char *xfer_folder_icon(const char *folder)
 }
 
 /* The server, and over the cable SSH with it: both end with the screen, and
- * the cable goes back to charging only unless Developer Mode keeps it. */
+ * the cable goes back to charging only unless Developer Mode keeps it. Off
+ * the cable this screen runs no SSH, and Developer Mode's over Wi-Fi, which
+ * runs through it, goes on (dev_ssh_tick takes the name back). */
 static void xfer_stop(bool cable)
 {
 	mdns_stop();
-	sshlink_stop();
+	if (cable) sshlink_stop();
 	hare_set_ssh(NULL);
 	hare_stop();
 	hotspot_stop();     /* nothing when the screen was not the hotspot */

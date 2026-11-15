@@ -130,9 +130,9 @@ something once broke in a way nothing noticed:
 | `check-noticeq` | the pop-ups over a game, one after another (src/noticeq.h) |
 | `check-badges` | achievement badges (src/rabadge.h) through the real fetch with a stand-in for curl: kept beside the set; one curl for what is missing and nothing else; starting it and drawing 4,000 icons while it runs never wait for it; a badge that has not come is a plain one of the same 64 pixels, never a hole; a 404 page is never kept as a badge; then the plain badge and Zyper as pixels (src/noticeart.h), in both themes, his shadow on Beard only. No network (needs SDL2 and SDL2_image; skips without them) |
 | `check-badge-shots` | the unlock notice with Zyper at its right end and its badge, or the plain one where the card has none; a count's notice with the plain one and no Zyper; the set's arrival with neither; the achievements list with a badge in every row, plain until the art is there, and the rows' words not moving when it comes; in both themes (builds the host launcher; skips without SDL2) |
-| `check-sshlink` | USB File Transfer's SSH: what it counts in dropbear's log (sign-ins, wrong PINs, a port it cannot have), names that try to say otherwise, and the shadow it gives dropbear |
+| `check-sshlink` | USB File Transfer's SSH: what it counts in dropbear's log (sign-ins, wrong PINs, a port it cannot have), names that try to say otherwise, and the shadow it gives dropbear; Developer Mode's choice between the cable's SSH and SSH over Wi-Fi for every combination of cable, radio, choice and a spent plug (the password never with a radio), dropbear's words for each (`-s` and every address over Wi-Fi, the cable's address alone on the cable), and what counts as a key |
 | `check-usblink` | USB charges only until asked: a computer is asked about once per plug and a charger never, every choice ends with its screen or its cable, and Developer Mode keeps the link |
-| `check-devmode` | developer mode on a release image: the unlock hold (L2 and R2 for five seconds, a bar that only rises, and letting go early, another page or holding on starting again), the setting kept in the card's database, a random one-time password in its alphabet, and only public keys without options taken from the card's key file, once each |
+| `check-devmode` | developer mode on a release image: the unlock hold (L2 and R2 for five seconds, a bar that only rises, and letting go early, another page or holding on starting again), the setting kept in the card's database (and SSH over Wi-Fi, only while Developer Mode is on and off with it), a random one-time password in its alphabet, and only public keys without options taken from the card's key file, once each |
 | `check-devices` | the device profiles (src/device/profile.h): each one whole (named, its folders, a 4:3 screen with its glass in millimetres, every control printed once), today's answers for the GKD Pixel 2, the TrimUI Brick and the host's desktop, and the choice of one by its id, as `--device` makes it |
 | `check-devicegen` | `config/device/<id>.mk` and `<id>.system`, which the cross build, the payload and plastron read, are what each device's `src/device/<id>_build.c` says (`make device-files` writes them) |
 | `check-model` | the handhelds' 3D models (src/device/td_model.h): every key once, and the GKD Pixel 2's key places, views and kept boxes as the drawing had them before they were data |
@@ -409,8 +409,15 @@ A change to ZyperOS goes onto a Pixel 2 as a payload, without a new image:
 ```sh
 make px2-payload                                   # -> build/px2/payload/ZyperOS
 tools/px2-deploy.sh build/px2/payload/ZyperOS      # the device on the USB cable
+PX2_HOST=192.168.1.23 tools/px2-deploy.sh build/px2/payload/ZyperOS   # or over Wi-Fi
 tools/qemu-run.sh deploy -n mine build/px2/payload/ZyperOS   # or a VM (docs/qemu.md)
 ```
+
+Every tool that reaches the device (`tools/px2-deploy.sh`, `tools/px2` and
+plastron's `scripts/px2-push.sh`) takes its address from `PX2_HOST`, 10.42.0.1 (the USB cable) when it is
+not set, its port from `PX2_PORT` (22) and its key from `PX2_KEY`
+(`~/.ssh/zyperos_pixel2`). Over Wi-Fi, `PX2_HOST` is the address Developer
+Mode's page shows with SSH over Wi-Fi on (below), or `zyperos.local`.
 
 `make px2-payload` (`tools/px2-payload.sh`) builds the launcher, Muse,
 portkeys, System Update's program, p2d (NES Player 2's server) and Diatom
@@ -436,6 +443,48 @@ Brick and `ssh root@10.42.0.1` the Pixel 2. Copy files with `scp -O`, since no
 SFTP server runs, and into `/tmp` first; check that the checksums match on
 both sides before you move a file into `/mnt/SDCARD/ZyperOS/`. Release builds
 carry no key and run no SSH server until Developer Mode is on (MENU > About).
+
+### SSH over Wi-Fi
+
+With Developer Mode on, its page (MENU > Connections > Developer Mode) has
+an **SSH over Wi-Fi** switch, Off as it ships (`src/sshlink.h`,
+`sshlink_want`). On, SSH
+keeps running while Wi-Fi is up: dropbear listens on port 22 of every address
+(Wi-Fi's, the hotspot's and the cable's) and takes **keys only**. It runs with
+`-s`, so no password is offered at all, and root's password in its namespace
+is `*`; the Developer page's password, made for each plug, signs in only over
+the cable and only while no Wi-Fi interface exists. That is the whole guard:
+Linux answers for every one of its addresses on every interface and the
+kernel has no netfilter, so the password must never be up while a radio is
+there, whichever address it was meant for. Off, Wi-Fi stops SSH as it always
+has. Turning Developer Mode off turns SSH over Wi-Fi off too.
+
+So the key goes on first, over the cable (`ssh-copy-id` with the Developer
+page's password) or as a `.pub` file in the card's `Developer` folder; with
+none, the page says "SSH needs a key". The page then gives the commands,
+`ssh root@<address>` and `ssh root@zyperos.local` (the name is probed for on
+the Wi-Fi network first, as Wi-Fi File Transfer's is). A
+signed-in session holds Auto Off as a File Transfer browser does; sleep ends
+it as before. Wi-Fi File Transfer leaves it running.
+
+```sh
+PX2_HOST=192.168.1.23 tools/px2 status
+ssh -i ~/.ssh/zyperos_pixel2 root@zyperos.local
+```
+
+`tools/px2` takes `/tmp/px2-lock` for any device on port 22 whatever its
+address, so a session over Wi-Fi and one on the cable wait for each other.
+
+Big copies go over the cable (or Flash Drive), not Wi-Fi, until the radio is
+faster. The Pixel 2's Wi-Fi is a USB 802.11n adapter with one small antenna,
+and SSH goes only as fast as its link: on 2026-11-15, at -73 dBm (72 Mbps
+link), pings lost 30 to 55% and took up to 2 s, and an `scp` moved 14 MB in
+12 minutes, about 20 KB/s. That is the radio, not a setting: the image
+already keeps the adapter's power saving off (`rtw_power_mgnt=0
+rtw_enusbss=0` in `modprobe.d/rtl8188eu.conf`), and `wifi-watch` only logs
+the signal. A payload deploy (a few MB that changed) is fine over Wi-Fi; a
+PSP or PS1 game is not. A sign-in on such a link can time out before
+dropbear's banner arrives; it works on the next try.
 
 Every image has `px2-shot`, `px2-input`, `px2-open`, `px2-perf` and
 `px2-snap` in `/usr/bin`, so over SSH a screenshot is `px2-shot /tmp/s.ppm`,
@@ -563,9 +612,11 @@ card (249737216) or any other only with `--real-card`. A wrong use of a
 command is refused before either.
 
 The device is `PX2_HOST` and `PX2_PORT`, as for `tools/px2-deploy.sh`
-(10.42.0.1 on the USB cable), with `PX2_KEY` and `PX2_DEVICE` (the device's id, `pixel2`, for its `.userdata` folder and log); `--vm NAME` is a QEMU VM of
-`tools/qemu-run.sh`'s, with a lock of its own (`/tmp/px2-lock-HOST-PORT`, as
-for any device but the Pixel 2 at 10.42.0.1:22, or `PX2_LOCK`). On an image
+(10.42.0.1 on the USB cable, or the Wi-Fi address with SSH over Wi-Fi on),
+with `PX2_KEY` and `PX2_DEVICE` (the device's id, `pixel2`, for its
+`.userdata` folder and log); `--vm NAME` is a QEMU VM of `tools/qemu-run.sh`'s,
+with a lock of its own (`/tmp/px2-lock-HOST-PORT`, as for anything on this
+computer or on another port, or `PX2_LOCK`). On an image
 from before px2-perf and px2-snap, `tools/px2` copies them to `/tmp/px2-bin` on
 the device first: px2-snap from `tools/px2-snap.sh`, px2-perf from
 `build/px2/px2-perf`, which `make px2-payload` builds beside the payload.

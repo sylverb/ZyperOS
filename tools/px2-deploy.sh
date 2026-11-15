@@ -7,8 +7,10 @@
 #                                         mk/payload.sh lays it out, or
 #                                         plastron's /usr/share/zyperos/card/ZyperOS)
 #
-# Needs a development build of plastron (its SSH key on the card) and the
-# device at 10.42.0.1 (PX2_HOST), on SSH's port 22 (PX2_PORT: a QEMU VM's
+# Needs a development build of plastron (its SSH key on the card), or
+# Developer Mode with a key, and the device at 10.42.0.1 (PX2_HOST: its
+# Wi-Fi address with SSH over Wi-Fi on, docs/building.md), on SSH's port 22
+# (PX2_PORT: a QEMU VM's
 # forwarded port, tools/qemu-run.sh). Each file goes to /tmp on the device first
 # and is moved into place only once its checksum matches, so a cable pulled
 # halfway leaves the old file, not half a new one. plastron's own
