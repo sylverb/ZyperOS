@@ -41,7 +41,9 @@ SUFFIX = r"(?:X|Y|W|H|TOP|GAP|PAD|CX|CY|X0|X1|Y0|Y1|ROW|STEP|INSET|MARGIN|LEFT|R
 # value naming another token or a place is a rule, not a typed number
 DEFINE = re.compile(r"^\s*#\s*define\s+[A-Z][A-Z0-9_]*_" + SUFFIX + r"\s+(?=[\d\s()+\-*/.f]*\d{2,})[\d\s()+\-*/.f]+$")
 CAP_Y = re.compile(r"\bui_cap_y\s*\(\s*[^,()]+(?:\([^()]*\))?\s*,\s*-?\d{2,}\s*\)")
-RECT = re.compile(r"\(\s*SDL_F?Rect\s*\)\s*\{\s*(-?[\w.+\-*/ ]+?)\s*,\s*(-?[\w.+\-*/ ]+?)\s*,")
+# A rectangle typed in place: a compound literal, or one declared with its
+# numbers ("static const SDL_FRect FOCUS={536,112,448,448}")
+RECT = re.compile(r"(?:\(\s*SDL_F?Rect\s*\)|\bSDL_F?Rect\s+\w+\s*=)\s*\{\s*([^,{}]+?)\s*,\s*([^,{}]+?)\s*,")
 NUM = re.compile(r"^-?\d{2,}(?:\.\d*)?f?$")
 
 

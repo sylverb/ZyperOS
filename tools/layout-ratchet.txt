@@ -14,9 +14,9 @@
 17 gamelist.c
 7 games.c
 2 games.h
-4 home.c
+6 home.c
 1 hudmenu_screen.h
-2 ingame_screen.c
+3 ingame_screen.c
 2 kbnav.h
 5 keyboard.c
 17 mediapage.c
@@ -38,7 +38,7 @@
 13 shelf_draw.c
 2 shots.c
 4 status.h
-19 storage_page.c
+20 storage_page.c
 1 strength.h
 1 sys_menu.h
 1 theme.h
