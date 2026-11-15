@@ -1,13 +1,14 @@
 # Original ZyperOS system art
 
-The review set contains 58 designs: 47 systems and shelves, PortMaster, two generic folders, and eight card folders.
+The set contains 59 designs: 48 systems and shelves, PortMaster, two generic folders, and eight card folders.
+One of them, Recents, is a placeholder drawn by a script (see Placeholders).
 Every animated design has a 256 × 256 atlas and a separate still image.
 The folders also have standalone PNGs for their actual display sizes.
 
 ## View
 
 Open `gallery.html` through a local HTTP server to view the exported animations.
-The gallery includes all 58 designs, pause, and a dark background.
+The gallery includes all 59 designs, pause, and a dark background.
 It starts paused when the system requests reduced motion.
 
 ```sh
@@ -88,11 +89,21 @@ Run `check.js` through the Playwright `browser_run_code` tool against `index.htm
 The browser check covers every system, fixed case pixels, moving regions, clipping, loop return, controls, narrow layout, and reduced motion.
 The PNG check covers full catalogue coverage, every unique pose, alpha, source hashes, renderer hashes, dimensions, and frame budgets.
 
-The PNG check covers all 58 designs.
+The PNG check covers all 59 designs.
 The independent visual review has no remaining material findings.
 The review corrected controller colors, cable plugs, screen proportions, and the TurboGrafx-16 regional model.
 PICO-8 and TIC-80 use isolated symbols and whole-pixel motion.
 Their pixel regression check protects nearby lettering and the symbols' colors.
+
+## Placeholders
+
+A placeholder holds a shelf's place until it has a design made like the others.
+Recents (`RECENTS`), the home's shelf of the games played last, is one.
+`placeholders/recents.py` draws it with Python and Pillow on a 32-cell grid, each cell 8 pixels, from simple shapes.
+It uses no image generation, no other artist's work, and no photograph.
+It is a clock with ZyperOS's lime rim; its two poses, 400 ms each as Favorites' heart, move the minute hand from twelve to one.
+The catalogue records the script as its input and renderer, with its hash, and marks the design `placeholder`.
+Change the script, and run it into `animations/` again before the PNG check: the check compares the script's hash.
 
 ## Utility files
 

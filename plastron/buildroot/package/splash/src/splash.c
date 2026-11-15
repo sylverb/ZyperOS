@@ -38,11 +38,19 @@
  * display until the port draws its first frame, so a port that loads for a
  * minute shows what it is doing rather than a black panel. launch.sh starts
  * it and kills it when the port ends.
+ *
+ * With SPLASH_LATER=FILE2 in its environment it writes FILE2, the same
+ * screen with the line after a minute ("Still starting. Hold MENU and START
+ * to go back."), into its own buffer SPLASH_LATER_S seconds later (60). Its
+ * own buffer only: a port that has taken the display by then, through DRM or
+ * the fbdev console, shows its own picture, and the write is seen by nobody.
+ * An older splash ignores the variable and keeps the first picture.
  */
 #define _GNU_SOURCE             /* nftw */
 #include <errno.h>
 #include <fcntl.h>
 #include <signal.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -626,6 +634,49 @@ static int still(const char *path)
 	if (drmModeSetCrtc(fd, crtc, b.fb, 0, 0, &conn->connector_id, 1, &mode)) return 1;
 	drmDropMaster(fd);
 	log_to_kernel("splash: holding a port's loading screen\n");
+	/* After a minute, the same screen saying how to leave, when launch.sh
+	 * gave one (see the top of the file): read whole first, so a short file
+	 * changes nothing */
+	{
+		const char *later = getenv("SPLASH_LATER");
+		const char *secs = getenv("SPLASH_LATER_S");
+		unsigned wait = secs && atoi(secs) > 0 ? (unsigned)atoi(secs) : 60;
+		size_t row = (size_t)mode.hdisplay * 4;
+		uint8_t *pic = later && *later ? malloc(row * mode.vdisplay) : NULL;
+
+		if (pic && (f = fopen(later, "rb"))) {
+			bool whole = fread(pic, row, mode.vdisplay, f) == mode.vdisplay;
+
+			fclose(f);
+			if (whole) {
+				drmModeCrtc *c;
+				bool ours;
+
+				while (wait) wait = sleep(wait);
+				/* Into this buffer whether or not the panel shows it: the
+				 * in-game menu over a port still starting covers it for a
+				 * while, and portkeys puts this buffer back after it */
+				for (unsigned y = 0; y < mode.vdisplay; y++)
+					memcpy((uint8_t *)b.map + (size_t)y * pitch, pic + (size_t)y * row, row);
+				/* A display that keeps its own copy of the buffer
+				 * (virtio-gpu in QEMU) shows new pixels only once told; the
+				 * Pixel's VOP reads the buffer itself. Told only while the
+				 * panel shows this buffer, which takes master, back for that
+				 * one call and dropped at once; never while a port or the
+				 * menu holds it (SetMaster fails then) */
+				c = drmModeGetCrtc(fd, crtc);
+				ours = c && c->buffer_id == b.fb;
+				drmModeFreeCrtc(c);
+				if (ours && drmSetMaster(fd) == 0) {
+					drmModeDirtyFB(fd, b.fb, NULL, 0);
+					drmDropMaster(fd);
+				}
+				log_to_kernel(ours ? "splash: a minute in, the loading screen says how to leave\n"
+				                   : "splash: a minute in; the next loading screen shown says how to leave\n");
+			}
+		}
+		free(pic);
+	}
 	/* The picture lasts as long as the buffer: stay until launch.sh says */
 	for (;;)
 		pause();

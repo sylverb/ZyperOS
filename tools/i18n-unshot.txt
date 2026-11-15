@@ -385,6 +385,9 @@ playtime.hint_by_game
 portload.starting_a_minute
 portload.starting
 portload.a_minute
+portload.still_go_back
+portload.still
+portload.go_back
 
 # portmaster: no shot draws it yet
 portmaster.err_internal

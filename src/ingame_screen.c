@@ -519,6 +519,7 @@ void gm_gather(app *a, gm_ui *out)
 	               chv_state_of(g_game_set, ra_signed_in()) == CHV_UNCHECKED);
 	u.screens = g_game_dual;
 	u.port   = g_port_menu;
+	u.waiting = g_port_waiting;
 	/* The game's own system, on Favorites too (shelf_owner); none where its
 	 * core keeps no states, and none over a program of its own (a "run:"
 	 * one, src/portmenu.h), which has no states and no Pak */

@@ -88,6 +88,7 @@ const char *home_label(const char *key, const char *canonical)
     };
     /* Favorites is the launcher's own shelf and named in the language that is on */
     if (key && !strcmp(key, "FAV")) return T(S_HOME_FAVORITES);
+    if (key && !strcmp(key, "RECENT")) return T(S_HOME_RECENTS);
     for (unsigned i = 0; key && i < sizeof labels / sizeof *labels; i++)
         if (!strcmp(key, labels[i].key)) return labels[i].name;
     /* Unknown long names use their tag at the same readable size. */
@@ -135,6 +136,7 @@ int home_jump(int cursor, int count, int dir)
 unsigned char home_group_key(const char *tag, const char *core, const char *name)
 {
     if (!strcmp(tag, "FAV")) return 1;
+    if (!strcmp(tag, "RECENT")) return 3;
     if (!strcmp(core, "port")) return 2;
     for (const char *p = name; *p; p++) {
         unsigned char c = (unsigned char)*p;
@@ -185,6 +187,7 @@ static int asset_for(const char *key)
     else if (key && !strcmp(key,"MD")) key="GENESIS";
     else if (key && !strcmp(key,"PRT")) key="PORTS";
     else if (key && !strcmp(key,"FAV")) key="FAVORITES";
+    else if (key && !strcmp(key,"RECENT")) key="RECENTS";
     for (int i=0; i<(int)SA_ASSET_COUNT; i++)
         if (key && !strcmp(key,SA_ASSETS[i].key)) return i;
     return -1;

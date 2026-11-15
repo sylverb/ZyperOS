@@ -237,6 +237,8 @@ typedef struct {
 	 * (src/portmenu.h). Paused by stopping it, so there is nothing to save,
 	 * load, reset or show differently, and no achievements. */
 	bool        port;
+	/* ...that has not drawn yet: Continue reads Keep Waiting (1.0.6) */
+	bool        waiting;
 	/* The quick slot, 1 to GM_SLOTS; 0 where the system keeps no states */
 	int         quick;
 	/* The game has a state from before its last load (SLOT_UNDO): the Undo
