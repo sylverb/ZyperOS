@@ -1,0 +1,16 @@
+# The handhelds a ZyperOS release carries, one device id a line, as
+# src/device/<id>_profile.c names it. tools/release-devices.sh reads it.
+#
+# tools/release.sh builds, names, signs and checks each one, and publishes
+# nothing until the release notes (docs/releases/v<version>.md) have a
+# "Tested on <id>: <who, on what>" line for every one. The release workflow
+# checks each one's image is in the release's SHA256SUMS, and the Pages
+# workflow counts each one's downloads. ZyperOS Installer and zyperos.com
+# offer the devices the newest release has an image for.
+#
+# A device is added here with its first release, never before, and stays:
+# System Update and the installer read releases/latest, so a later release
+# without it would leave that device with nothing to find. Each device here
+# has its profile and its res/update/min-system-<id> (make
+# check-release-devices).
+pixel2

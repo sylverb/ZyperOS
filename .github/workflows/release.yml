@@ -1,10 +1,11 @@
 # The second half of a ZyperOS release. tools/release.sh --publish, on the
-# Mac, builds the GKD Pixel 2's card image, makes a draft release v<VERSION>
-# with the image, its sources and SHA256SUMS, and pushes the tag; the tag
-# starts this. It builds ZyperOS Installer for macOS (one app for Apple
-# Silicon and Intel), Windows (a portable exe) and Linux (.deb and .rpm),
-# adds the files to the same release, puts them in its SHA256SUMS, and
-# publishes it. A tag with no draft waiting is refused: the image comes first.
+# Mac, builds the card image of every device in config/devices, makes a
+# draft release v<VERSION> with the images, their sources and SHA256SUMS,
+# and pushes the tag; the tag starts this. It builds ZyperOS Installer for
+# macOS (one app for Apple Silicon and Intel), Windows (a portable exe) and
+# Linux (.deb and .rpm), adds the files to the same release, puts them in its
+# SHA256SUMS, and publishes it. A tag with no draft waiting is refused: the
+# images come first.
 #
 # The installer updates itself on macOS and Windows (installer/src-tauri/src/
 # selfupdate.rs): the release also carries the macOS app as an update file,
@@ -247,7 +248,14 @@ jobs:
           # The draft's checksums (the image and its sources), with the
           # installer's added: one SHA256SUMS for everything in the release
           gh release download "$TAG" --pattern SHA256SUMS --dir sums
-          grep -q "ZyperOS-$TAG-pixel2.img.xz" sums/SHA256SUMS || { echo "the draft has no image in its SHA256SUMS" >&2; exit 1; }
+          # Every released device's image (config/devices; this runs in
+          # dist/): System Update and the installer read the latest release,
+          # so one without a device's image would leave that device with
+          # nothing to find
+          for d in $(sh ../tools/release-devices.sh list); do
+            awk -v f="ZyperOS-$TAG-$d.img.xz" '$2 == f { found = 1 } END { exit !found }' sums/SHA256SUMS ||
+              { echo "the draft has no ZyperOS-$TAG-$d.img.xz in its SHA256SUMS" >&2; exit 1; }
+          done
           grep -v ' ZyperOS-Installer-' sums/SHA256SUMS > SHA256SUMS
           sha256sum ZyperOS-Installer-* >> SHA256SUMS
           cat SHA256SUMS

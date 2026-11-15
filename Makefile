@@ -13,7 +13,7 @@
         check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-messages check-tour check-tour-shots check-textfade check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pmhelper check-portdoc check-boottheme check-splashbright check-bootbright check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr check-autozone \
         check-home check-home-shots check-games check-cardpaint check-putpace landbench check-favorites-shots check-np-footer check-menu-rows check-layout-shots check-artbadge check-artbadge-shots design sounds strings cjk-font check-strings check-i18n-shots \
         check-tour-previews tour-previews check-prep check-diatom check-simulator check-px2sim check-building-doc check-blog check-discord-release \
-        check-installer release
+        check-release-devices check-installer release
 
 all: check
 
@@ -38,7 +38,7 @@ CHECKS = check-cheevos check-hare check-portal check-httpd check-idle check-task
          check-tour check-tour-shots check-tour-previews check-textfade check-glyphs check-ds check-flex check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pmhelper check-pmart check-portdoc check-boottheme check-splashbright check-bootbright check-panelgamma check-displayback check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr \
          check-home check-home-shots check-games check-cardpaint check-putpace check-favorites-shots check-np-footer check-menu-rows check-layout-shots check-artbadge check-artbadge-shots checkmark \
          check-installer check-from-rogue check-importers check-diatom check-simulator check-px2sim check-building-doc check-blog check-discord-release \
-         check-strings check-i18n-shots
+         check-release-devices check-strings check-i18n-shots
 
 # All of them at once, as many at a time as there are cores (CHECK_JOBS=1 for
 # one after another), each into build-native/check-logs/: tools/check-run.py
@@ -88,6 +88,13 @@ check-blog:
 check-discord-release:
 	@python3 tools/discord-release.py --check
 
+# The devices a release carries (config/devices) and the release notes'
+# "Tested on <id>:" lines tools/release.sh publishes nothing without: the
+# reader on sample notes and lists, then each listed device's profile and
+# res/update/min-system-<id>, which tools/update-pack.py reads
+check-release-devices:
+	@sh tools/release-devices.sh check
+
 # docs/building.md's table names every check in CHECKS and nothing else:
 # the table had 32 of 91 rows (2026-11-06) and said nothing of the rest.
 check-building-doc:
@@ -117,10 +124,11 @@ check-px2sim:
 # tools/set-version.sh, which sets the installer's with it.
 VERSION ?= 1.0.5
 
-# A release, from this Mac (tools/release.sh): the Pixel 2's card image built
-# clean by plastron from this commit; PUBLISH=1 then makes the draft GitHub
-# release and pushes the tag, and GitHub adds ZyperOS Installer for macOS,
-# Windows and Linux and publishes it (.github/workflows/release.yml).
+# A release, from this Mac (tools/release.sh): the card image of each device
+# in config/devices built clean by plastron from this commit; PUBLISH=1 then
+# makes the draft GitHub release and pushes the tag, and GitHub adds ZyperOS
+# Installer for macOS, Windows and Linux and publishes it
+# (.github/workflows/release.yml).
 release:
 	@bash tools/release.sh $(if $(PUBLISH),--publish)
 
