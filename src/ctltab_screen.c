@@ -37,16 +37,11 @@
  * out with the old tab's name, 96 the press's way (menu_tabs_draw's) */
 #define DEV_IN_DX  64.0f
 #define DEV_OUT_DX 96.0f
-/* The kept texture's box about the handheld's middle: what a lit shoulder's
- * halo, the d-pad's ring and the faces' halos reach in every pose here and
- * every frame between, the tilted ones too (their far top corner and a lit
- * shoulder's halo higher, their near bottom corner lower): x -124 to 124, y
- * -174 to 154, the tab coming in on R2 at 52 degrees the lowest.
- * --handheld-box measures it (ctlscr_box_check). */
-#define KEEP_L 128
-#define KEEP_T 176
-#define KEEP_W 256
-#define KEEP_H 332
+/* The kept texture's box about the handheld's middle is its model's
+ * keep_tab: what a lit shoulder's halo, the d-pad's ring and the faces'
+ * halos reach in every pose here and every frame between (the Pixel 2's:
+ * x -124 to 124, y -174 to 154, the tab coming in on R2 at 52 degrees the
+ * lowest). --handheld-box measures it (ctlscr_box_check). */
 
 /* Which screen sets the handheld's lights: the tab, or a button's choices */
 typedef enum { CS_TAB, CS_PICK } cs_mode;
@@ -260,7 +255,7 @@ static void lean_toward(unsigned target, unsigned now)
 {
 	cs_lean to;
 
-	ct_lean(target, &to.yaw, &to.pitch);
+	ct_lean(plat_profile()->model, target, &to.yaw, &to.pitch);
 	if (g_cs.snap) {
 		g_cs.lean_from = g_cs.lean_to = to;
 		g_cs.lean_t0 = 0;
@@ -344,6 +339,7 @@ static bool pose_of(const menu_side *at, td_pose *p, bool *moving)
 	if (g_cs.lean_t0 && at->now - g_cs.lean_t0 < DS_MS_TURN) *moving = true;
 	/* Cleared whole, padding too, so two poses compare as bytes */
 	memset(p, 0, sizeof *p);
+	p->model = plat_profile()->model;
 	p->cx = (float)at->content_x + DEV_DX + dx;
 	p->cy = DEV_CY;
 	p->scale = DEV_SCALE;
@@ -360,10 +356,12 @@ static bool pose_of(const menu_side *at, td_pose *p, bool *moving)
 	return true;
 }
 
-/* The kept texture's box for pose `p` */
+/* The kept texture's box for pose `p`, its model's */
 static SDL_Rect keep_box(const td_pose *p)
 {
-	return (SDL_Rect){ (int)floorf(p->cx) - KEEP_L, (int)p->cy - KEEP_T, KEEP_W, KEEP_H };
+	const td_box b = p->model->keep_tab;
+
+	return (SDL_Rect){ (int)floorf(p->cx) - b.l, (int)p->cy - b.t, b.w, b.h };
 }
 
 void ctlscr_side(app *a, const menu_side *at)
@@ -381,7 +379,7 @@ void ctlscr_side(app *a, const menu_side *at)
 	if (at->live && at->stage == MENU_SIDE_REST) g_cs.steady = false;
 	/* A device with no drawing of its own shows none: never another
 	 * device's (the column stays empty until its own is drawn) */
-	if (!plat_profile()->handheld) return;
+	if (!plat_profile()->model) return;
 	if (!draw || !pose_of(at, &p, &moving)) return;
 	if (moving) redraw_now();
 	g_cs.keep.box = keep_box(&p);
@@ -408,6 +406,7 @@ int ctlscr_box_check(int *measured)
 		K(TD_L1) | K(TD_R1), K(TD_A) | K(TD_L1), 0 };
 #undef K
 	const int n = (int)(sizeof LIT / sizeof LIT[0]);
+	const td_model *m = plat_profile()->model;
 	SDL_FRect reach = { 0.0f, 0.0f, -1.0f, -1.0f };
 	menu_side at;
 	td_pose p;
@@ -416,6 +415,7 @@ int ctlscr_box_check(int *measured)
 	int a, b, ms, dir, bad = 0;
 
 	*measured = 0;
+	if (!m) return 0;
 	memset(&at, 0, sizeof at);
 	at.tab_at = GT_CONTROLS;
 	at.content_x = 80;
@@ -452,7 +452,7 @@ int ctlscr_box_check(int *measured)
 		}
 	ctlscr_open();
 	fprintf(stderr, "handheld-box: the Controls tab's reaches x %.1f to %.1f, y %.1f to %.1f of its %d x %d box\n",
-	        reach.x, reach.x + reach.w, reach.y, reach.y + reach.h, KEEP_W, KEEP_H);
+	        reach.x, reach.x + reach.w, reach.y, reach.y + reach.h, m->keep_tab.w, m->keep_tab.h);
 	return bad;
 }
 

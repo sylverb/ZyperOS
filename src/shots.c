@@ -651,7 +651,7 @@ static void handheld_box_report(void)
 	int tab = 0, tour = 0, bad = 0;
 
 	if (strcmp(shot_handheld_box, "tour")) bad += ctlscr_box_check(&tab);
-	if (strcmp(shot_handheld_box, "tab")) bad += tourdev_box_check(&tour);
+	if (strcmp(shot_handheld_box, "tab")) bad += tourdev_box_check(plat_profile()->model, &tour);
 	fprintf(stderr, "handheld-box: %d poses of the Controls tab and %d of the tutorial measured, "
 	        "%d out of their box\n", tab, tour, bad);
 }
@@ -2141,7 +2141,7 @@ static void shot_tour_draw(app *a)
 		const dev_chords c = shot_chords();
 
 		tour_pose(&t, (tour_step)shot_tour, now, shot_tour_ms, shot_tour_done,
-		          &c, dev_tutorial_handheld(plat_profile(), &c));
+		          &c, dev_tutorial_model(plat_profile(), &c));
 		tour_lang_from(&t, (int)i18n_lang());
 		tour_set_music(&t, shot_tour_music);
 		tour_settings(a, at);

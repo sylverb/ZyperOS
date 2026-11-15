@@ -17,18 +17,20 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "device/td_model.h"   /* td_model: the handheld drawn, its keys' places */
 #include "tdkey.h"   /* td_key: the keys of the handheld a pose can light */
 #include "tour.h"
 
-/* The handheld as anyone can draw it: where (the middle, in screen units),
- * how big (screen units a millimetre), how far turned (degrees, 0 front, 52
- * the side), how far tilted back (degrees, 0 level, more than 0 shows its
- * top: the view from a little above), at `op` of its opacity, with each key
- * lit `on` and pressed `press` from 0 to 1, the d-pad's arms pressed (up,
- * down, left, right), whether the side's tabs stand out of the edge, and
- * their ring. Clear it whole before filling it, so two poses compare as
- * bytes. */
+/* The handheld as anyone can draw it: which (`model`, NULL draws nothing),
+ * where (the middle, in screen units), how big (screen units a millimetre),
+ * how far turned (degrees, 0 front, 52 the side), how far tilted back
+ * (degrees, 0 level, more than 0 shows its top: the view from a little
+ * above), at `op` of its opacity, with each key lit `on` and pressed `press`
+ * from 0 to 1, the d-pad's arms pressed (up, down, left, right), whether the
+ * side's tabs stand out of the edge, and their ring. Clear it whole before
+ * filling it, so two poses compare as bytes. */
 typedef struct {
+	const td_model *model;
 	float cx, cy, scale, deg, pitch, op;
 	float on[TD_KEYS], press[TD_KEYS];
 	float arm[4];
@@ -83,8 +85,8 @@ bool td_box_holds(const char *what, const td_pose *p, SDL_Rect box, SDL_FRect *r
 #define TOURDEV_X 138
 #define TOURDEV_Y 262
 
-/* Whether `t`'s lessons show the handheld: where tour_start was told the
- * device has one (dev_tutorial_handheld: the Pixel 2), and in a lesson.
+/* Whether `t`'s lessons show the handheld: where tour_start was given the
+ * device's model (dev_tutorial_model: the Pixel 2's), and in a lesson.
  * Elsewhere none, and the block stays in the middle. */
 bool tourdev_shown(const tour *t);
 
@@ -101,9 +103,10 @@ void tourdev_draw(SDL_Renderer *r, const tour *t, uint32_t now, float op);
 /* Lets the kept texture go, with the tutorial's (tour_draw_free) */
 void tourdev_free(void);
 
-/* Measures the tutorial's handheld in every lesson and every frame of the
- * turn into it against its kept texture's box (td_box_holds): the count
- * out of it, and in *measured how many were measured. For --handheld-box. */
-int tourdev_box_check(int *measured);
+/* Measures model `m`'s handheld in every lesson of the tutorial and every
+ * frame of the turn into it, with either brightness chord, against its kept
+ * texture's box (td_box_holds): the count out of it, and in *measured how
+ * many were measured (none for no model). For --handheld-box. */
+int tourdev_box_check(const td_model *m, int *measured);
 
 #endif

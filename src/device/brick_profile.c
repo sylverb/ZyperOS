@@ -20,7 +20,7 @@ const device_profile device_profile_brick = {
 	.chords = { .bright = DEV_BRIGHT_KEYS },
 	.buttons = brick_buttons,
 	.n_buttons = (int)(sizeof brick_buttons / sizeof brick_buttons[0]),
-	.handheld = false,
+	.model = NULL,
 	.bluetooth = true,
 	.gpu_shaders = false,
 	.speaker_mono = false,

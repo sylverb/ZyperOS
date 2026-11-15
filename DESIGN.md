@@ -1216,7 +1216,7 @@ of the player's own goes on from wherever the loop was.
   an optional second line in **meta** **text-dim** on y 624. A step's stage,
   glyph and lines fade in over **move**.
 - **The handheld** (a device whose profile has a drawing, the GKD Pixel 2
-  today; src/device/profile.h, `dev_tutorial_handheld`): each lesson shows
+  today; src/device/profile.h, `dev_tutorial_model`): each lesson shows
   the handheld the tutorial is running on, in a column at the left, with the lesson's
   key lit, so a player who has never seen MENU, the volume keys or POWER -
   all on its sides - finds them. *(My pick in the tutorial-buttons lab,

@@ -1019,7 +1019,8 @@ strings:
 I18N_SRC := src/i18n.c src/i18n_tables.c
 # The device profiles' data (src/device/profile.h), for checks that pose a
 # device; src/profile.c is linked only where one is chosen (check-devices)
-DEVICE_PROFILES := src/device/pixel2_profile.c src/device/brick_profile.c src/device/desktop_profile.c
+DEVICE_PROFILES := src/device/pixel2_profile.c src/device/brick_profile.c src/device/desktop_profile.c \
+                   src/device/td_model.c src/device/pixel2_model.c
 # The RetroAchievements hasher and the disc readers under it (src/rahash.h,
 # src/discimg.h): every check that links one links them all, and liblzma
 # for a CHD's LZMA hunks (Homebrew's xz on a Mac; the device has the
@@ -1179,6 +1180,7 @@ build-native/controls-check: tools/controls-check.c tools/legend.h src/controls.
 build-native/menu-check: tools/menu-check.c tools/legend.h src/wifi_menu.c src/wifi.c \
                         src/sys_menu.c src/homesys.c src/homesys.h src/menu.c src/game_menu.c src/controls.c src/remap.c \
                         src/ctltab.c src/ctltab.h src/tdkey.h src/padglyph.h \
+                        src/device/td_model.h src/device/td_model.c src/device/pixel2_model.c \
                         src/audioout.c src/sidelights.c src/wifi_menu.h src/sys_menu.h \
                         src/game_menu.h src/menu.h src/audioout.h src/sidelights.h \
                         src/controls.h src/spawn.c src/spawn.h $(I18N_SRC) FORCE
@@ -1186,7 +1188,7 @@ build-native/menu-check: tools/menu-check.c tools/legend.h src/wifi_menu.c src/w
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -o $@ \
 	      tools/menu-check.c src/wifi_menu.c src/wifi.c src/sys_menu.c src/homesys.c \
 	      src/menu.c src/game_menu.c src/controls.c src/powerhold.c src/remap.c src/ctltab.c src/audioout.c \
-	      src/sidelights.c src/keyhints.c src/spawn.c $(I18N_SRC)
+	      src/sidelights.c src/keyhints.c src/spawn.c src/device/td_model.c src/device/pixel2_model.c $(I18N_SRC)
 
 # What the launcher tells the side lights' gauge (src/sidelights.h): the lines
 # as plastron's gauge reads them, the FIFO writer that never waits and never

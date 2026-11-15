@@ -10,7 +10,9 @@ In src/*.c and src/*.h, outside src/device/ and src/profile.c, it fails on:
     that cannot tell what is plugged in is not a device's identity);
   - the string literals "pixel2" and "brick" - a device by name;
   - device_profile_pixel2, _brick or _desktop - a device's profile by name,
-    which a device build does not even link (it has its own alone).
+    which a device build does not even link (it has its own alone);
+  - td_model_pixel2 and the like - a handheld's drawing by name, for the
+    same reason (plat_profile()->model is the one in force).
 src/usblink.c may still compare with USB_PEER_UNKNOWN: it acts on the peer
 it is told, not on which device it runs on.
 
@@ -30,6 +32,8 @@ RULES = [
     (re.compile(r'"(pixel2|brick)"'), 'a device by name: ask the profile'),
     (re.compile(r'\bdevice_profile_(pixel2|brick|desktop)\b'),
      'a device\'s profile by name (a device build links its own alone): use plat_profile() or plat_profile_at()'),
+    (re.compile(r'\btd_model_(pixel2|brick|desktop)\b'),
+     'a handheld\'s model by name (a device build links its own alone): use plat_profile()->model'),
 ]
 # Files a rule does not apply to, each with its reason
 ALLOW = {

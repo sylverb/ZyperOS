@@ -86,9 +86,9 @@ dev_chords dev_chords_fn_volume(dev_chords base)
 	return base;
 }
 
-bool dev_tutorial_handheld(const device_profile *p, const dev_chords *c)
+const td_model *dev_tutorial_model(const device_profile *p, const dev_chords *c)
 {
-	return p->handheld && c->bright == DEV_BRIGHT_MENU_VOL;
+	return c->bright == DEV_BRIGHT_MENU_VOL ? p->model : NULL;
 }
 
 bool dev_l2r2_held(const dev_chords *c, bool tap_l2, bool tap_r2, bool down_l2, bool down_r2)

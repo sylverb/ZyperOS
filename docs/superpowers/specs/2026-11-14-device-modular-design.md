@@ -851,7 +851,7 @@ Made while building step 1 (2026-11-15; the plan,
   tutorial's handheld over the profile in force) until step 5 moves the
   shots to `--device pixel2` on a reviewed sheet.
 - The tutorial draws the handheld where the profile has one and brightness
-  is MENU+VOL (`dev_tutorial_handheld`); the second half exists only for the
+  is MENU+VOL (`dev_tutorial_model`); the second half exists only for the
   desktop profile and goes in step 5.
 - The capability `plat_*` functions stay as the read path, defined once in
   `src/profile.c` from the profile; their prototypes live in
