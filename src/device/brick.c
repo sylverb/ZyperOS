@@ -1078,7 +1078,13 @@ void device_levels_forget(void)
 
 int plat_volume_get(void)     { return cur_vol; }
 int plat_brightness_get(void) { return cur_bright; }
+#ifdef __linux__
+/* The display engine's own value at a rung (DISP_LCD_SET_BRIGHTNESS), for the
+ * boot screens (src/boottheme.h); the host has no ladder to give */
+int plat_brightness_raw(int level) { return level >= 0 && level <= BRIGHT_MAX ? bright_ladder[level] : -1; }
+#else
 int plat_brightness_raw(int level) { (void)level; return -1; }
+#endif
 
 void plat_volume_nudge(int delta)
 {

@@ -47,6 +47,7 @@
  * An older splash ignores the variable and keeps the first picture.
  */
 #define _GNU_SOURCE             /* nftw */
+#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <signal.h>
@@ -64,6 +65,8 @@
 #include <xf86drm.h>
 #include <xf86drmMode.h>
 #include <zlib.h>
+
+#include "bright.h"
 
 #define FRAMES     "/usr/share/splash/frames.bin"
 #define FIRST      "/usr/share/splash/first-start.bin"
@@ -409,6 +412,42 @@ static int theme_light(char *why, size_t n)
 	return tm.tm_hour >= 7 && tm.tm_hour < 19;
 }
 
+/* The backlight at the player's brightness before the panel lights (zybright,
+ * bright.h): every backlight the kernel has, each within its own
+ * max_brightness. None kept, or a boot.scr from before zybright: the
+ * kernel's own level, as before. */
+static void bright_apply(void)
+{
+	const char *w = getenv("zybright");
+	char path[300], line[96];
+	struct dirent *e;
+	DIR *d;
+	int set = -1;
+
+	if (!w || !strcmp(w, "-")) return;
+	if (!(d = opendir("/sys/class/backlight"))) return;
+	while ((e = readdir(d))) {
+		FILE *f;
+		int max = 0, v;
+
+		if (e->d_name[0] == '.') continue;
+		snprintf(path, sizeof path, "/sys/class/backlight/%s/max_brightness", e->d_name);
+		if (!(f = fopen(path, "r"))) continue;
+		if (fscanf(f, "%d", &max) != 1) max = 0;
+		fclose(f);
+		if ((v = splash_bright_value(w, max)) < 0) continue;
+		snprintf(path, sizeof path, "/sys/class/backlight/%s/brightness", e->d_name);
+		if ((f = fopen(path, "w"))) {
+			fprintf(f, "%d\n", v);
+			if (fclose(f) == 0) set = v;
+		}
+	}
+	closedir(d);
+	if (set > 0) snprintf(line, sizeof line, "splash: the backlight at %d, the player's\n", set);
+	else snprintf(line, sizeof line, "splash: no backlight takes zybright=%.16s\n", w);
+	log_to_kernel(line);
+}
+
 int main(int argc, char **argv)
 {
 	struct sigaction sa = { .sa_handler = on_stop };
@@ -491,6 +530,8 @@ int main(int argc, char **argv)
 	}
 	memcpy(buf[0].map, pixels, size);
 
+	/* The player's brightness before the first light */
+	bright_apply();
 	double started = since_boot();
 	if (drmModeSetCrtc(fd, crtc, buf[0].fb, 0, 0, &conn->connector_id, 1, &mode)) {
 		perror("splash: set mode");
