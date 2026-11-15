@@ -34,6 +34,7 @@
 
 #include "../src/hare.h"
 #include "../src/i18n.h"
+#include "../src/monoclock.h"
 #include "../src/xfer.h"
 
 static int failures;
@@ -440,6 +441,110 @@ static void rmtree(const char *dir)
 	}
 	closedir(d);
 	rmdir(dir);
+}
+
+/* ---- uploads that go on from where they broke ---------------------------- */
+
+/* The kept parts' clock, ahead of the real one by as much as a check says */
+static volatile unsigned g_clock_add;
+static unsigned fake_clock(void) { return now_ms32() + g_clock_add; }
+
+/* A socket to the server, or -1 */
+static int dial(void)
+{
+	struct sockaddr_in a;
+	struct timeval tv = { 3, 0 };
+	int fd = socket(AF_INET, SOCK_STREAM, 0);
+
+	memset(&a, 0, sizeof a);
+	a.sin_family = AF_INET;
+	a.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+	a.sin_port = htons((unsigned short)hare_port());
+	if (connect(fd, (struct sockaddr *)&a, sizeof a) != 0) { close(fd); return -1; }
+	setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof tv);
+	setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof tv);
+	return fd;
+}
+
+static bool put_all(int fd, const void *p, size_t n)
+{
+	size_t sent = 0;
+
+	while (sent < n) {
+		ssize_t w = write(fd, (const char *)p + sent, n - sent);
+		if (w <= 0) return false;
+		sent += (size_t)w;
+	}
+	return true;
+}
+
+/* A PUT that breaks: its head saying `len` bytes, and only the first `n` of
+ * them sent. Then the socket is closed - or, `keep`, left open and handed
+ * back: a client whose hang-up the network lost, as the server sees one
+ * until its idle time. */
+static int put_cut(const char *path, const void *body, size_t len, size_t n, bool keep)
+{
+	char head[1024];
+	int fd = dial(), k;
+
+	if (fd < 0) return -1;
+	k = snprintf(head, sizeof head, "PUT %s HTTP/1.1\r\nHost: x\r\nCookie: hare=%s\r\n"
+	             "Content-Length: %zu\r\n\r\n", path, g_cookie, len);
+	put_all(fd, head, (size_t)k);
+	put_all(fd, body, n);
+	if (keep) return fd;
+	close(fd);
+	return -1;
+}
+
+/* GET /api/upload's answer for `key` (p=...&size=...&mod=...): have, or -1 */
+static long long upload_have(const char *key, bool *busy, bool *done)
+{
+	char url[512], b[256];
+	const char *h;
+
+	snprintf(url, sizeof url, "/api/upload?%s", key);
+	if (req("GET", url, g_cookie, NULL, 0, b, sizeof b) != 200 || !json_ok(b) || !(h = strstr(b, "\"have\":")))
+		return -1;
+	if (busy) *busy = strstr(b, "\"busy\":true") != NULL;
+	if (done) *done = strstr(b, "\"done\":true") != NULL;
+	return strtoll(h + 7, NULL, 10);
+}
+
+/* Until the handheld holds `want` bytes of it, written by a request or not
+ * as `busy` says: the server's thread takes a moment to see a hang-up */
+static bool wait_have(const char *key, long long want, bool busy)
+{
+	int i;
+
+	for (i = 0; i < 300; i++) {
+		bool b = !busy;
+		long long have = upload_have(key, &b, NULL);
+
+		if (have == want && b == busy) return true;
+		usleep(10000);
+	}
+	return false;
+}
+
+/* Until `path` is gone, or two seconds */
+static bool wait_gone(const char *path)
+{
+	int i;
+
+	for (i = 0; i < 200 && exists(path); i++) usleep(10000);
+	return !exists(path);
+}
+
+/* A PUT's whole answer, head and all, with no body sent: what a refusal
+ * before the body says */
+static long put_head(const char *path, size_t len, char *resp, size_t n)
+{
+	char q[1024];
+
+	snprintf(q, sizeof q, "PUT %s HTTP/1.1\r\nHost: x\r\nCookie: hare=%s\r\nContent-Length: %zu\r\n\r\n",
+	         path, g_cookie, len);
+	return raw(q, resp, n);
 }
 
 int main(void)
@@ -1241,6 +1346,196 @@ int main(void)
 		hare_set_update(NULL);
 	}
 
+	/* The page sends a file's size and its time with it (size=, mod=), and
+	 * the part of one whose connection breaks is kept for the next PUT of
+	 * the same file to go on from (from=): src/hare.c, "uploads that go on
+	 * from where they broke". */
+	printf("  uploads that go on from where they broke:\n");
+	{
+		static char data[600000], other[600000], back[700000];
+		static const char trailer[] = "--zyperos-pad--\n";
+		char key[300], url[400], dest[300], part[310], resp[2048], b[512], stray[300];
+		const char *K = "p=roms/NES/Disc.bin&size=600000&mod=1731500000000";
+		bool busy = false, done = false;
+		size_t i;
+		long n;
+		int fd;
+
+		for (i = 0; i < sizeof data; i++) { data[i] = (char)(i * 13 % 251); other[i] = (char)(i * 7 % 253); }
+		snprintf(dest, sizeof dest, "%s/NES/Disc.bin", g_roms);
+		snprintf(part, sizeof part, "%s.part", dest);
+		hare_set_clock(fake_clock);
+
+		/* As it always was: a PUT that does not say which file it is loses
+		 * its part with its connection */
+		put_cut("/api/file?p=roms/NES/Plain.bin", data, 1000, 300, false);
+		snprintf(stray, sizeof stray, "%s/NES/Plain.bin.part", g_roms);
+		CHECK(wait_gone(stray), "a plain PUT cut halfway left its part");
+		CHECK(upload_have("p=roms/NES/Plain.bin&size=1000&mod=1", NULL, NULL) == 0,
+		      "a plain PUT cut halfway is said to be kept");
+
+		/* Cut, then on from where it broke: the file to the byte */
+		snprintf(url, sizeof url, "/api/file?%s&from=0", K);
+		put_cut(url, data, sizeof data, 250000, false);
+		CHECK(wait_have(K, 250000, false), "a cut upload's part is not said to be kept: %lld",
+		      upload_have(K, NULL, NULL));
+		CHECK(exists(part) && !exists(dest), "the cut upload is not a part only");
+		CHECK(hare_paused() == 1 && hare_inflight() == 1, "a paused upload is not counted: %d paused, %d in flight",
+		      hare_paused(), hare_inflight());
+		CHECK(req("GET", "/api/state", g_cookie, NULL, 0, b, sizeof b) == 200 &&
+		      strstr(b, "\"paused\":1") && strstr(b, "\"kept\":250000"), "the room does not count the part: %s", b);
+		{
+			hare_stats st;
+
+			hare_status(&st);
+			CHECK(st.paused == 1 && st.up_got == 250000 && st.up_total == 600000,
+			      "the screen's bar is not where the file stopped: %d, %lld of %lld",
+			      st.paused, st.up_got, st.up_total);
+		}
+
+		/* From where it is not: 409, and how much is here */
+		snprintf(url, sizeof url, "/api/file?%s&from=100", K);
+		put_head(url, sizeof data - 100, resp, sizeof resp);
+		CHECK(!strncmp(resp, "HTTP/1.1 409", 12) && strstr(resp, "X-Upload-Have: 250000\r\n") &&
+		      strstr(resp, "250000 bytes"), "a wrong offset: %.300s", resp);
+		/* From the start while a part is kept: a browser resending a PUT
+		 * that broke, by itself; refused as well, the part as it was */
+		snprintf(url, sizeof url, "/api/file?%s&from=0", K);
+		put_head(url, sizeof data, resp, sizeof resp);
+		CHECK(!strncmp(resp, "HTTP/1.1 409", 12) && strstr(resp, "X-Upload-Have: 250000\r\n"),
+		      "a PUT from the start took a kept part back to nothing: %.200s", resp);
+		/* A body that is not the rest of the file: refused */
+		snprintf(url, sizeof url, "/api/file?%s&from=250000", K);
+		put_head(url, 1000, resp, sizeof resp);
+		CHECK(!strncmp(resp, "HTTP/1.1 400", 12), "a tail of the wrong length: %.80s", resp);
+		/* Half a key: refused */
+		put_head("/api/file?p=roms/NES/Disc.bin&size=600000&from=0", sizeof data, resp, sizeof resp);
+		CHECK(!strncmp(resp, "HTTP/1.1 400", 12), "a PUT with no time: %.80s", resp);
+		CHECK(exists(part) && wait_have(K, 250000, false), "a refusal cost the part");
+
+		CHECK(req("PUT", url, g_cookie, data + 250000, sizeof data - 250000, b, sizeof b) == 200,
+		      "the rest was refused: %s", b);
+		n = file_bytes(dest, back, sizeof back);
+		CHECK(n == (long)sizeof data && !memcmp(back, data, sizeof data), "the file went on as %ld bytes", n);
+		CHECK(!exists(part), "the whole file left its part");
+		CHECK(upload_have(K, &busy, &done) == 600000 && done, "a file in place is not said to be done");
+		CHECK(hare_paused() == 0 && hare_inflight() == 0, "the file in place is still paused");
+
+		/* Another file under the same name: not the kept one's to go on from */
+		snprintf(url, sizeof url, "/api/file?%s&from=0", K);
+		remove(dest);
+		CHECK(upload_have(K, NULL, &done) == 0 && !done, "a file in place, gone since, is still done");
+		put_cut(url, data, sizeof data, 250000, false);
+		CHECK(wait_have(K, 250000, false), "the second cut is not kept");
+		snprintf(key, sizeof key, "p=roms/NES/Disc.bin&size=600000&mod=1731500099999");
+		CHECK(upload_have(key, NULL, NULL) == 0, "another file's time took the part");
+		snprintf(url, sizeof url, "/api/file?%s&from=250000", key);
+		put_head(url, sizeof data - 250000, resp, sizeof resp);
+		CHECK(!strncmp(resp, "HTTP/1.1 409", 12) && strstr(resp, "X-Upload-Have: 0\r\n"),
+		      "another file went on from the kept part: %.200s", resp);
+		snprintf(url, sizeof url, "/api/file?%s&from=0", key);
+		CHECK(req("PUT", url, g_cookie, other, sizeof other, b, sizeof b) == 200, "the other file was refused");
+		n = file_bytes(dest, back, sizeof back);
+		CHECK(n == (long)sizeof other && !memcmp(back, other, sizeof other), "the other file is %ld bytes", n);
+		CHECK(upload_have(K, NULL, NULL) == 0, "the first file's part outlived the other");
+		remove(dest);
+
+		/* A broken writer still connected: the next PUT ends it and goes on */
+		snprintf(url, sizeof url, "/api/file?%s&from=0", K);
+		fd = put_cut(url, data, sizeof data, 200000, true);
+		CHECK(fd >= 0 && wait_have(K, 200000, true), "a writer still connected is not said to be busy");
+		snprintf(url, sizeof url, "/api/file?%s&from=200000", K);
+		CHECK(req("PUT", url, g_cookie, data + 200000, sizeof data - 200000, b, sizeof b) == 200,
+		      "the PUT after a broken writer was refused: %s", b);
+		n = file_bytes(dest, back, sizeof back);
+		CHECK(n == (long)sizeof data && !memcmp(back, data, sizeof data), "taken over, the file is %ld bytes", n);
+		if (fd >= 0) {
+			char c;
+
+			CHECK(read(fd, &c, 1) <= 0, "the broken writer's connection is still open");
+			close(fd);
+		}
+		CHECK(hare_inflight() == 0, "the broken writer is still counted: %d", hare_inflight());
+		remove(dest);
+
+		/* The trailer on a tail of an exact multiple of 128 KiB */
+		{
+			const char *T3 = "p=roms/NES/Even.bin&size=393216&mod=5";
+			static char tail[262144 + 16];
+
+			snprintf(url, sizeof url, "/api/file?%s&from=0", T3);
+			put_cut(url, data, 393216, 131072, false);
+			CHECK(wait_have(T3, 131072, false), "the 128 KiB cut is not kept");
+			memcpy(tail, data + 131072, 262144);
+			memcpy(tail + 262144, trailer, 16);
+			snprintf(url, sizeof url, "/api/file?%s&from=131072&trailer=16", T3);
+			CHECK(req("PUT", url, g_cookie, tail, sizeof tail, b, sizeof b) == 200,
+			      "a tail of 256 KiB with the trailer was refused: %s", b);
+			snprintf(dest, sizeof dest, "%s/NES/Even.bin", g_roms);
+			n = file_bytes(dest, back, sizeof back);
+			CHECK(n == 393216 && !memcmp(back, data, 393216), "with its trailer off, the file is %ld bytes", n);
+			remove(dest);
+		}
+		/* A tail that is only the trailer: every byte of the file was in,
+		 * and part of the trailer, when it broke */
+		{
+			const char *T4 = "p=roms/NES/Whole.bin&size=200000&mod=6";
+			static char first[200016];
+
+			memcpy(first, data, 200000);
+			memcpy(first + 200000, trailer, 16);
+			snprintf(url, sizeof url, "/api/file?%s&from=0&trailer=16", T4);
+			put_cut(url, first, sizeof first, 200005, false);
+			CHECK(wait_have(T4, 200000, false), "every byte in, the part is not said to be the whole file: %lld",
+			      upload_have(T4, NULL, NULL));
+			snprintf(url, sizeof url, "/api/file?%s&from=200000&trailer=16", T4);
+			CHECK(req("PUT", url, g_cookie, trailer, 16, b, sizeof b) == 200,
+			      "the trailer alone was refused: %s", b);
+			snprintf(dest, sizeof dest, "%s/NES/Whole.bin", g_roms);
+			n = file_bytes(dest, back, sizeof back);
+			CHECK(n == 200000 && !memcmp(back, data, 200000), "after the trailer alone, the file is %ld bytes", n);
+			remove(dest);
+		}
+		snprintf(dest, sizeof dest, "%s/NES/Disc.bin", g_roms);
+
+		/* DELETE: the part goes */
+		snprintf(url, sizeof url, "/api/file?%s&from=0", K);
+		put_cut(url, data, sizeof data, 100000, false);
+		CHECK(wait_have(K, 100000, false), "the cut before the DELETE is not kept");
+		snprintf(url, sizeof url, "/api/upload?%s", K);
+		CHECK(req("DELETE", url, g_cookie, NULL, 0, b, sizeof b) == 200, "the DELETE was refused: %s", b);
+		CHECK(!exists(part) && upload_have(K, NULL, NULL) == 0 && hare_paused() == 0,
+		      "the DELETE left the part");
+		CHECK(get(url, NULL) == 401 && req("DELETE", url, NULL, NULL, 0, NULL, 0) == 401,
+		      "asking about a kept upload needed no PIN");
+
+		/* File Transfer closed and opened again keeps it; a part of a
+		 * transfer that died is swept as ever */
+		snprintf(url, sizeof url, "/api/file?%s&from=0", K);
+		put_cut(url, data, sizeof data, 300000, false);
+		CHECK(wait_have(K, 300000, false), "the cut before closing is not kept");
+		mkfile(stray, "LEFT OVER");
+		serve_down();
+		CHECK(serve_up(g_web), "the server did not start again");
+		g_cookie[0] = '\0';
+		snprintf(b, sizeof b, "%s", hare_pin());
+		CHECK(req("POST", "/api/auth", NULL, b, 4, NULL, 0) == 200 && g_cookie[0], "no session after opening again");
+		CHECK(!exists(stray), "a dead transfer's part outlived opening again");
+		CHECK(exists(part) && upload_have(K, NULL, NULL) == 300000,
+		      "the kept part did not outlive closing and opening again");
+
+		/* Past the page's ten minutes no longer one on its way; past the
+		 * half hour, gone */
+		g_clock_add = HARE_PAUSE_MS + 1000;
+		CHECK(hare_paused() == 0 && hare_inflight() == 0, "an upload paused past the page's wait still counts");
+		CHECK(exists(part), "the part went with the page's wait");
+		g_clock_add = HARE_KEEP_MS + 1000;
+		CHECK(wait_gone(part), "a part kept past HARE_KEEP_MS is still there");
+		CHECK(upload_have(K, NULL, NULL) == 0, "an expired part is still said to be kept");
+		g_clock_add = 0;
+		hare_set_clock(NULL);
+	}
+
 	printf("  stopping after the files on their way:\n");
 	{
 		char b[512];
@@ -1250,6 +1545,12 @@ int main(void)
 		CHECK(hare_closing(), "close_after did not close");
 		CHECK(req("PUT", "/api/file?p=roms/NES/Late.nes", g_cookie, "X", 1, b, sizeof b) == 503,
 		      "an upload started while closing");
+		{
+			char resp[1024];
+
+			put_head("/api/file?p=roms/NES/Late.nes", 1, resp, sizeof resp);
+			CHECK(!strncmp(resp, "HTTP/1.1 503 Service Unavailable\r\n", 34), "the closing reply's status: %.60s", resp);
+		}
 		CHECK(get("/api/file?p=roms/NES/Contra.nes", g_cookie) == 503, "a download started while closing");
 		CHECK(req("GET", "/api/state", g_cookie, NULL, 0, b, sizeof b) == 200 && strstr(b, "\"closing\":true"),
 		      "the page is not told it is closing: %s", b);

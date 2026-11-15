@@ -39,6 +39,7 @@ if not (os.path.exists(BIN) and os.path.exists(STUB)):
 TMP = tempfile.mkdtemp(prefix="diatom-hotkeys-")
 SOCK, LOG = f"{TMP}/d.sock", f"{TMP}/input.log"
 STATE, PIC = f"{TMP}/Game.1.state", f"{TMP}/Game.1.bmp"
+UNDO = f"{TMP}/Game.undo.state"
 
 # The pad, a poll at a time (a poll is a frame at 1x). Each step holds its
 # buttons from that poll on.
@@ -92,7 +93,9 @@ def pump(seconds):
             if l == "HOTKEY\tkey=save":
                 s.sendall(f"SAVE\tpath={STATE}\tpreview={PIC}\n".encode())
             elif l == "HOTKEY\tkey=load":
-                s.sendall(f"LOAD\tpath={STATE}\n".encode())
+                # As the launcher does (on_quick): the game as it is, for
+                # Undo Load, then the slot over it, back to back
+                s.sendall(f"SAVE\tpath={UNDO}\nLOAD\tpath={STATE}\n".encode())
             elif l == "PAUSED":          # MENU let go opens the menu: close it
                 s.sendall(b"RESUME\n")
 
@@ -128,6 +131,9 @@ check("and its picture is written beside the state",
       os.path.exists(STATE) and os.path.exists(PIC) and open(PIC, "rb").read(2) == b"BM",
       os.listdir(TMP))
 check("a LOAD of it while the game runs is answered LOADED", f"LOADED\tpath={STATE}" in got, got)
+check("Undo Load's SAVE sent just before it is written and answered first",
+      os.path.exists(UNDO) and f"SAVED\tpath={UNDO}" in got and
+      got.index(f"SAVED\tpath={UNDO}") < got.index(f"LOADED\tpath={STATE}"), got)
 speeds = [l.split("=", 1)[1] for l in got if l.startswith("SPEED\tx=")]
 check("SELECT+R2, R2, L2, L2, L2 step 1.5x, 2x, 1.5x, 1x and answer 1x at the end",
       speeds == ["1.5", "2", "1.5", "1", "1"], speeds)

@@ -226,6 +226,8 @@ EXTRA = {
     # A game on more than one disc: the Disc row with the core's name for
     # the disc (it fits), and with one too long, which reads "Disc 2 of 3"
     "gamemenu-disc": ("demo", "PS1", ["--gamemenu", "4", "--gm-discs", "3", "FFIX (Disc 2)"]),
+    # Undo Load, under Load after a load (1.0.6)
+    "gamemenu-undo": ("demo", "PS1", ["--gamemenu", "3", "--gm-undo"]),
     "gamemenu-disc-long": ("demo", "PS1", ["--gamemenu", "4", "--gm-discs", "3",
                                            "Final Fantasy IX (USA) (Rev 1) (Disc 2)"]),
     # Achievements offline: the list with unlocks waiting, Zyper saying they
@@ -398,7 +400,7 @@ for _scroll in ("0.5", "1"):
 EXTRA.setdefault("hare-cable", ("demo", "PS1", ["--hare", "10.42.0.1", "1 signed in", "Tobu Tobu Girl.gb"]))
 # File Transfer's news on Flash Drive's page (DESIGN.md 11.23): the tiles in
 # each state, over Wi-Fi and over the cable (SSH beside the browsers)
-for _move in ("idle", "in", "out", "both", "closing", "finish", "gone"):
+for _move in ("idle", "in", "out", "both", "closing", "finish", "gone", "paused"):
     EXTRA.setdefault("hare-move-" + _move, ("demo", "PS1", ["--hare", "http://192.168.1.42", "1 connected",
                                                            "Tobu Tobu Girl.gb", "--hare-move", _move]))
     EXTRA.setdefault("hare-cable-move-" + _move, ("demo", "PS1", ["--hare", "10.42.0.1", "1 connected",

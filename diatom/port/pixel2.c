@@ -333,7 +333,8 @@ struct dm_ctl_elem_value {
  *
  * Set by ear on 2026-10-02 with a game playing, the way the Brick's were; the
  * steps taken are in ZyperOS's src/device/pixel2.c. Speaker: level 20 on raw
- * 255, level 1 on raw 172, about 31 dB. Headphones (Apple EarPods): level 20
+ * 255, level 1 on raw 163, about 34 dB (172 and 31 dB until 1.0.6, too loud
+ * at night for players). Headphones (Apple EarPods): level 20
  * on raw 244, level 1 on raw 76, about 63 dB. The windows below are the ones
  * that land levels 1 and 20 exactly there with the rounding both sides share.
  *
@@ -348,7 +349,7 @@ struct dm_ctl_elem_value {
  * Change one, change the other. */
 #define GAIN_RAW_MAX    255
 #define SPK_ATT_TOP     0
-#define SPK_ATT_BOTTOM  87
+#define SPK_ATT_BOTTOM  97   /* 87 until 1.0.6: two old steps under the old floor */
 #define HP_ATT_TOP      11
 #define HP_ATT_BOTTOM   188
 

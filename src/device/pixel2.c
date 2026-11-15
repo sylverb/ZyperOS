@@ -18,6 +18,7 @@
 #include "clamp.h"
 #include "db.h"
 #include "device.h"
+#include "displayback.h"
 #include "fileio.h"
 #include "panelgamma.h"
 #include "phonelink.h"
@@ -28,6 +29,7 @@
 #include <SDL_syswm.h>
 
 #include <dirent.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <poll.h>
 #include <linux/input.h>
@@ -104,6 +106,12 @@ static int           panel_w, panel_h; /* the panel as it is, portrait */
  * qemu_defconfig, docs/qemu.md), where the same picture goes on unturned. */
 static double        panel_turn = -90;
 static int           drm_fd = -1;      /* SDL's, for passing the display to Diatom */
+/* The panel's CRTC as SDL found it, for lighting it again after a game that
+ * crashed (src/displayback.h); and whether the display is still not ours
+ * after one, with when that began */
+static displayback_panel px_panel;
+static bool          display_lost;
+static Uint32        display_lost_at;
 
 SDL_Renderer *plat_renderer(void) { return ren; }
 
@@ -178,6 +186,30 @@ static void take_from_splash(void)
 			close(fd);
 		}
 	}
+}
+
+/* The display back after a game: master, asked for for up to max_ms, then a
+ * picture on the panel's CRTC for the next flip to replace. A game that
+ * crashed holds master until the kernel closes its DRM file, and takes its
+ * picture off the panel as that closes (src/displayback.h). Says what it
+ * did; false while master is still someone else's, *err the refusal. */
+static bool take_back(unsigned max_ms, int *err)
+{
+	int waited = displayback_master(drm_fd, max_ms, err), lit;
+
+	if (waited < 0) return false;
+	if (waited > 0)
+		fprintf(stderr, "video: the display was free %d ms after the game; took it back\n",
+		        waited);
+	/* With no panel found (said once, at the start), nothing to light */
+	lit = px_panel.crtc ? displayback_relight(drm_fd, &px_panel) : 0;
+	if (lit > 0)
+		fprintf(stderr, "video: the game took its picture off the panel; "
+		        "put black up for the next frame to replace\n");
+	else if (lit < 0)
+		fprintf(stderr, "video: could not put a picture back on the panel: %s\n",
+		        strerror(errno));
+	return true;
 }
 
 /* A video under this frame: plat_video_under. One frame's worth, cleared by
@@ -274,7 +306,12 @@ static void show_screen(void)
  *
  * Then the splash is ended. Its logo is off the screen by then, so nothing
  * shows; and gone, it leaves SDL nothing to restore when ZyperOS exits, which
- * had put the logo back up at power-off. */
+ * had put the logo back up at power-off.
+ *
+ * With the display not ours after a game (device_display_take gave up on its
+ * bound), master is asked for once a frame, and the frame is held back until
+ * it comes: SDL's flip would only be refused (EACCES), once a frame, in the
+ * log. The frame stays in screen_tex and goes up the moment master does. */
 void plat_present(void)
 {
 	static bool shown;
@@ -288,6 +325,15 @@ void plat_present(void)
 		show_screen();
 		signal_splash(SIGTERM);
 		shown = true;
+	} else if (display_lost) {
+		int err = 0;
+
+		if (take_back(0, &err)) {
+			display_lost = false;
+			fprintf(stderr, "video: took the display back at a frame, %u ms after the game\n",
+			        (unsigned)(SDL_GetTicks() - display_lost_at));
+			show_screen();
+		}
 	} else {
 		show_screen();
 	}
@@ -453,6 +499,11 @@ bool plat_video_init(void)
 		drm_fd = info.info.kmsdrm.drm_fd;
 	else
 		fprintf(stderr, "video: no DRM handle; games cannot take the display\n");
+	/* The panel's CRTC, while the splash still shows on it: the one SDL
+	 * picked, for lighting it again after a game that crashed */
+	if (drm_fd >= 0 && displayback_find(drm_fd, &px_panel) != 0)
+		fprintf(stderr, "video: found no connected panel; after a game that crashes "
+		        "the screen may stay dark\n");
 
 	if (SDL_GetRendererInfo(ren, &ri) == 0)
 		fprintf(stderr, "renderer: %s, driver: %s, vsync %s, panel %dx%d\n",
@@ -469,6 +520,10 @@ void plat_video_quit(void)
 	if (ren) { SDL_DestroyRenderer(ren); ren = NULL; }
 	if (win) { SDL_DestroyWindow(win); win = NULL; }
 	drm_fd = -1;
+	/* The black picture was made on SDL's DRM file, which closes here and
+	 * takes it with it */
+	memset(&px_panel, 0, sizeof px_panel);
+	display_lost = false;
 	SDL_QuitSubSystem(SDL_INIT_VIDEO);
 }
 
@@ -478,12 +533,30 @@ void device_display_release(void)
 	if (drm_fd >= 0) ioctl(drm_fd, PX_DRM_IOCTL_DROP_MASTER, 0);
 }
 
-/* Diatom has given the display back (it drops master before PAUSED and EXIT).
- * The next plat_present flips onto the CRTC Diatom left lit. */
+/* Diatom has given the display back (it drops master before PAUSED and EXIT),
+ * and the next plat_present flips onto the CRTC Diatom left lit. Or the game
+ * crashed: Diatom said EXIT from its signal handler and holds master until it
+ * has died, and its picture goes off the panel as it does (src/displayback.h).
+ * Asked for for a second, which a dying process needs only a few ms of; past
+ * that, at each frame (plat_present).
+ *
+ * Asked for only once, as it first was, a crash's refusal stood: every flip
+ * after it was refused, and the shelf never reached the panel until the
+ * launcher was started again (LocoRoco in PPSSPP, 2026-11-13). */
+#define TAKE_BACK_MS 1000
+
 void device_display_take(void)
 {
-	if (drm_fd >= 0 && ioctl(drm_fd, PX_DRM_IOCTL_SET_MASTER, 0) != 0)
-		fprintf(stderr, "video: could not take the display back\n");
+	Uint32 t0 = SDL_GetTicks();
+	int err = 0;
+
+	if (drm_fd < 0) return;
+	display_lost = !take_back(TAKE_BACK_MS, &err);
+	if (display_lost) {
+		display_lost_at = t0;
+		fprintf(stderr, "video: could not take the display back in %d ms (%s); "
+		        "trying again at each frame\n", TAKE_BACK_MS, strerror(err));
+	}
 }
 
 /* ---- input ----------------------------------------------------------------- */

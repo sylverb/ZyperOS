@@ -9,15 +9,19 @@ import sys
 import tempfile
 
 # src/main.c and the files split from it
-LAUNCHER = ("src/main.c", "src/aout_route.c", "src/bgm_screen.c", "src/bt_screen.c",
-            "src/clock_screen.c", "src/ctl_channel.c", "src/ctltab_screen.c",
-            "src/gamedel_screen.c", "src/gamern_screen.c", "src/ingame_screen.c",
-            "src/launch_screen.c", "src/media_screen.c", "src/menu_panel.c",
-            "src/muse_screen.c", "src/nowplaying_screen.c", "src/place.c",
+LAUNCHER = ("src/main.c", "src/about_screen.c", "src/aout_route.c", "src/bgm_screen.c",
+            "src/bt_screen.c", "src/clock_screen.c", "src/ctl_channel.c",
+            "src/ctltab_screen.c", "src/devmode_screen.c", "src/gamedel_screen.c",
+            "src/gameinfo_screen.c", "src/gamern_screen.c", "src/ingame_screen.c",
+            "src/launch_screen.c", "src/lights_screen.c", "src/media_screen.c",
+            "src/menu_panel.c", "src/menu_runner.c", "src/muse_screen.c",
+            "src/nowplaying_screen.c", "src/place.c", "src/player2_screen.c",
             "src/portload.c", "src/powerscreens.c", "src/raqueue.c", "src/saver_screen.c",
-            "src/search_screen.c", "src/shelf_draw.c", "src/shelf_keys.c",
-            "src/shelfbuild.c", "src/stats_screen.c", "src/storage_screen.c",
-            "src/sysmenu_screen.c", "src/update_screen.c", "src/zyperdraw.c")
+            "src/scraper_screen.c", "src/search_screen.c", "src/shelf_draw.c",
+            "src/shelf_keys.c", "src/shelfbuild.c", "src/signin_screen.c",
+            "src/stats_screen.c", "src/storage_screen.c", "src/sysmenu_screen.c",
+            "src/tour_screen.c", "src/update_screen.c", "src/usbdrive_screen.c",
+            "src/xfer_screen.c", "src/zyperdraw.c")
 source = "\n".join(Path(p).read_text() for p in LAUNCHER)
 source = re.sub(r'/\*.*?\*/|//[^\n]*', '', source, flags=re.S)
 stale = list(re.finditer(r'\bSDL_Delay\s*\(\s*(900|1400|1600|1800|2200)\s*\)', source))

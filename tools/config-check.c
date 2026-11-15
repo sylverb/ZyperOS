@@ -145,6 +145,7 @@ int main(void)
 	      "sys|Late|late|core|LAT|L.png|C4443A|gb\n"
 	      "power|LAT|light\n"
 	      "controller|LAT|517\n"
+	      "rumble|LAT|35\n"
 	      "es|NAM|famicom, fds\n", f);
 	fclose(f);
 
@@ -200,10 +201,14 @@ int main(void)
 		ck(!strcmp(keys, ""), "no RUN keys for a plain system");
 		cfg_run_keys(find(&c, "Lower"), false, keys, (int)sizeof keys);
 		ck(!strcmp(keys, "controller=517"), "controller= alone");
+		s = find(&c, "Late");
+		ck(s && s->rumble == 35, "rumble| gives the motor's share, in percent");
+		s = find(&c, "Lower");
+		ck(s && s->rumble == 0, "and none is 0, the core's own");
 		cfg_run_keys(find(&c, "Late"), false, keys, (int)sizeof keys);
-		ck(!strcmp(keys, "power=light\tcontroller=517"), "power= then controller=");
+		ck(!strcmp(keys, "power=light\tcontroller=517\trumble=35"), "power=, controller=, rumble=");
 		cfg_run_keys(find(&c, "Late"), true, keys, (int)sizeof keys);
-		ck(!strcmp(keys, "screens=2\tframeskip=late\tpower=light\tcontroller=517"),
+		ck(!strcmp(keys, "screens=2\tframeskip=late\tpower=light\tcontroller=517\trumble=35"),
 		   "two screens first, all tab separated");
 		cfg_run_keys(find(&c, "Black"), true, keys, (int)sizeof keys);
 		ck(!strcmp(keys, "screens=2\tframeskip=late"), "two screens alone");

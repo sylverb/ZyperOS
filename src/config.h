@@ -66,6 +66,11 @@ typedef struct {
 	 * with RUN, which steps a game back up at the first frame it can't keep.
 	 * Ports and the standalone emulators always run at full. */
 	char power[8];
+	/* How hard the motor runs for its games, in percent of what the core
+	 * asks: 1 to 99 for a core that shakes harder than the handheld wants
+	 * (PrBoom, on every shot), 0 for the core's own. From a
+	 * `rumble|tag|percent` line; sent to Diatom with RUN. */
+	int  rumble;
 	/* The buttons, where this system's core reads the pad its own way: a
 	 * Diatom map (`a:b,b:a`, the SETMAP form), applied after RUN and
 	 * joined with the system's turbo. Empty is the pad as it is. From a

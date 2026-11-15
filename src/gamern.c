@@ -204,7 +204,7 @@ static bool shares_file(const gd_other *o, int n, const char *folder, const char
 bool gr_plan_make(const gd_card *card, const gd_game *g, const gd_other *others, int nothers,
                   const char *typed, gr_plan *p)
 {
-	static const char *const SLOTS[] = { "auto", "1", "2", "3", "4", "5", "6" };
+	static const char *const SLOTS[] = { "auto", "1", "2", "3", "4", "5", "6", "undo" };
 	static const char *const MEDIA[] = { "png", "mp4" };
 	char to[LIB_NAME], romdir[GD_PATH], stem[LIB_NAME], ob[LIB_PATH], nb[LIB_PATH], a[GD_PATH], b[GD_PATH];
 	char pre[LIB_PATH];
@@ -302,7 +302,7 @@ bool gr_plan_make(const gd_card *card, const gd_game *g, const gd_other *others,
 		}
 	}
 
-	/* 3. Its states and their pictures, the six slots and Auto, and the
+	/* 3. Its states and their pictures, the six slots, Auto and Undo Load's, and the
 	 * language a DS game's Auto was left in: by the launch file's base, or
 	 * a hooked shelf's folder name (gd_state_base) */
 	snprintf(ob, sizeof ob, "%s", gd_state_base(g->file, g->name, hooked));

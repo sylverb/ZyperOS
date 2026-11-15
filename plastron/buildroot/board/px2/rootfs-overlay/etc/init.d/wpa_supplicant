@@ -15,10 +15,29 @@
 # DISCONNECTED ... reason=N locally_generated=1), and nothing at debug level.
 # Over a quarter of a megabyte when the radio starts, it becomes wifi.log.1.
 # File Transfer's Download logs packs both, network names masked (logpack.h).
+#
+# Beside the supplicant runs /usr/lib/zyperos/wifi-watch: the signal into the
+# same log while joined, and a drop that cut a handshake not taken for a wrong
+# password (its own comment says how). It goes when the supplicant goes.
 DATA=${USERDATA_PATH:-/mnt/SDCARD/.userdata/pixel2}
 CONF=$DATA/wifi/wpa_supplicant.conf
 LOG=$DATA/logs/wifi.log
 PID=/var/run/wpa_supplicant.pid
+WATCH=/usr/lib/zyperos/wifi-watch
+WATCH_PID=/var/run/wifi-watch.pid
+
+watch_start() {
+	[ -x "$WATCH" ] || return 0
+	watch_stop
+	WIFI_LOG="$LOG" "$WATCH" < /dev/null > /dev/null 2>&1 &
+	echo $! > $WATCH_PID
+}
+
+watch_stop() {
+	p=$(cat $WATCH_PID 2> /dev/null)
+	[ -n "$p" ] && kill "$p" 2> /dev/null
+	rm -f $WATCH_PID
+}
 
 start() {
 	# Just plugged in, its driver may still be loading
@@ -30,15 +49,21 @@ start() {
 	mkdir -p "${CONF%/*}"
 	[ -f "$CONF" ] ||
 		printf 'ctrl_interface=/var/run/wpa_supplicant\nupdate_config=1\n' > "$CONF"
-	wpa_cli -i wlan0 ping > /dev/null 2>&1 && return 0
+	if wpa_cli -i wlan0 ping > /dev/null 2>&1; then
+		# Already up: its watcher too
+		[ -s $WATCH_PID ] && [ -d "/proc/$(cat $WATCH_PID)" ] || watch_start
+		return 0
+	fi
 	mkdir -p "${LOG%/*}"
 	size=0
 	[ -f "$LOG" ] && size=$(wc -c < "$LOG" | tr -d ' ')
 	[ "${size:-0}" -gt 262144 ] && mv -f "$LOG" "$LOG.1"
-	wpa_supplicant -B -i wlan0 -D nl80211 -c "$CONF" -P $PID -t -f "$LOG"
+	wpa_supplicant -B -i wlan0 -D nl80211 -c "$CONF" -P $PID -t -f "$LOG" || return 1
+	watch_start
 }
 
 stop() {
+	watch_stop
 	p=$(cat $PID 2> /dev/null)
 	if [ -n "$p" ]; then
 		kill "$p" 2> /dev/null

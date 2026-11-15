@@ -24,6 +24,20 @@ int spawn_capture(char *const argv[], char *out, size_t cap, int timeout_s);
  * first. Returns its pid, or -1 if it could not be started. */
 long spawn_child(char *const argv[]);
 
+/* Start argv[0] with argv, and with envp when one is given (this process's
+ * environment otherwise), as a process of its own that outlives this one and
+ * leaves no zombie: forked twice, the middle child reaped here and the
+ * program inherited by init, in a session of its own, in workdir when one is
+ * given. Never a shell. Its stdin, stdout and stderr are this process's;
+ * nothing else of this process's is open in it.
+ *
+ * Returns the program's pid once its exec is done, or -1 when it could not
+ * be started (errno the exec's, when that is what failed), so a caller can
+ * write the pid down as the program's: the resident Diatom the launcher
+ * starts again after a crash (src/launch_screen.c), whose pid launch.sh and
+ * src/resident.c find in /tmp/diatom.pid. */
+long spawn_detached(char *const argv[], char *const envp[], const char *workdir);
+
 /* Whether the child `pid` has ended, reaped if so, with its exit status in
  * `*status` (-1 for one a signal ended). Never waits. */
 bool spawn_ended(long pid, int *status);

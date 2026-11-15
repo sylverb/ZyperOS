@@ -2434,10 +2434,18 @@ and R1 go round them, and the panel is the same size on every tab:
 
 | Tab | Rows |
 |---|---|
-| **Game** | Continue, Save, Load, Quick Slot, Disc (a game on more than one disc), Player 2 (an NES game, 11.43), Achievements, Reset, Quit |
+| **Game** | Continue, Save, Load, Undo Load (after a load, below), Quick Slot, Disc (a game on more than one disc), Player 2 (an NES game, 11.43), Achievements, Reset, Quit |
 | **Display** | Display, Shader; a DS game's Screens, Swap Screens, Stylus |
 | **Controls** | Applies To, D-pad as Stick, Pak, Face Buttons, one row a button, Reset Buttons, Hotkeys (11.45) |
 | **Achievements** | the game's achievements, or the sentence that says why it has none (11.46) |
+
+**Undo Load** (1.0.6). Every load the player makes, Load's slot strip or
+SELECT+L1, first saves the game as it is to `<game>.undo.state` (SLOT_UNDO),
+then loads the slot over it. While that file is there the Game tab has a
+plain Undo Load row right under Load, and A on it loads it and resumes. One
+is kept, for each game: Undo Load itself writes none, so A on it twice goes
+back to the same moment, and the next load replaces it. Delete Game, Rename
+and Storage count it with the game's slots.
 
 **Where it opens.** The first MENU of a game opens on Game, on Continue.
 After that it opens on the tab and the row it was left on, until the game
@@ -4203,8 +4211,18 @@ File Transfer 2 lab, `docs/design/mock/transfer2-lab.html`)*:
   "receiving", "sending" or "closing"; A on it opens the screen again with the
   same PIN. The shelf reads the card again once arrived files have been still
   3 seconds. It closes by itself once the file the question let finish is in,
-  when the hotspot stops or the cable has been out 10 seconds, and after half
-  an hour with no browser asking anything.
+  when the hotspot stops or the cable has been out 10 seconds (with an upload
+  paused, the link gone 10 minutes), and after half an hour with no browser
+  asking anything.
+- **An upload whose connection breaks** *(a Wi-Fi drop that lost a 517 MB
+  disc whole, 2026-11-14)* is paused, not lost: its part stays on the card
+  for the page to go on from (`GET /api/upload`, `src/hare.c`), the Now row
+  says "paused: NAME" and the Download tile keeps its bar where the file
+  stopped. For the 10 minutes the page waits for the handheld it counts as a
+  file still moving (B asks, Auto Off waits); Cancel now drops it, and a part
+  nobody goes on with goes after 30 minutes. The page says **Waiting for the
+  handheld** with what is kept and **Stop sending**, then "Connection back.
+  Going on from 58%.", or after 10 minutes with no answer **Try again**.
 - **A game** while files move asks first, in the same tiles: **Not now**
   (back to the shelf), **Play after this file** (a wait on the news's page,
   11.35, "Finishing Tobu Tobu Girl.gb...", then the game) or **Cancel and

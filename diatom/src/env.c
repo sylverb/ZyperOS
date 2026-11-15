@@ -58,6 +58,19 @@ static uint32_t          g_hook_hide, g_hook_give;
 static struct retro_game_info_ext g_ext;
 static bool              g_ext_on;
 
+/* RETRO_ENVIRONMENT_SHUTDOWN since the game started: see env_cb */
+static bool g_core_quit;
+
+bool diatom_env_core_quit(void)
+{
+	return g_core_quit;
+}
+
+void diatom_env_core_quit_reset(void)
+{
+	g_core_quit = false;
+}
+
 void diatom_env_suppress(uint32_t mask)
 {
 	g_suppress = mask;
@@ -91,11 +104,26 @@ void diatom_env_pointer(bool down, int16_t x, int16_t y)
 static pthread_mutex_t g_rumble_mx = PTHREAD_MUTEX_INITIALIZER;
 static uint16_t        g_rumble[2];          /* [RETRO_RUMBLE_STRONG], [WEAK] */
 static bool            g_rumble_held;
+/* The system's share of what its core asks, in percent (RUN rumble=) */
+static int             g_rumble_pct = 100;
+
+static uint16_t rumble_scaled(uint16_t v)
+{
+	return (uint16_t)(((uint32_t)v * (uint32_t)g_rumble_pct + 50) / 100);
+}
 
 static void rumble_apply(void)
 {
 	if (g_rumble_held) diatom_port_rumble(0, 0);
-	else diatom_port_rumble(g_rumble[RETRO_RUMBLE_STRONG], g_rumble[RETRO_RUMBLE_WEAK]);
+	else diatom_port_rumble(rumble_scaled(g_rumble[RETRO_RUMBLE_STRONG]),
+	                        rumble_scaled(g_rumble[RETRO_RUMBLE_WEAK]));
+}
+
+void diatom_env_rumble_scale(int pct)
+{
+	pthread_mutex_lock(&g_rumble_mx);
+	g_rumble_pct = pct >= 1 && pct <= 99 ? pct : 100;
+	pthread_mutex_unlock(&g_rumble_mx);
 }
 
 static bool RETRO_CALLCONV cb_rumble(unsigned port, enum retro_rumble_effect effect,
@@ -632,6 +660,18 @@ static bool env_cb(unsigned cmd, void *data)
 		r->set_rumble_state = cb_rumble;
 		return true;
 	}
+
+	/* ---- the game's own end ---------------------------------------------- */
+	/* The core ending its game itself: PrBoom's Quit Game, ScummVM's Quit.
+	 * Taken as the player quitting (main.c ends the session at the end of
+	 * this frame, its state on exit written, EXIT reason=user), since the
+	 * player chose it in the game. Declined until 1.0.6, which left PrBoom
+	 * running no frames on the last picture for good: a hang, to the player.
+	 * A core that asks before RUNNING asks of a game that never ran, and the
+	 * flag is cleared at each start. */
+	case MASK(RETRO_ENVIRONMENT_SHUTDOWN):
+		g_core_quit = true;
+		return true;
 
 	/* ---- declined, and said so ------------------------------------------ */
 	case MASK(RETRO_ENVIRONMENT_GET_MICROPHONE_INTERFACE):
