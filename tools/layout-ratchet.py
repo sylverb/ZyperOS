@@ -35,6 +35,9 @@ BASE = os.path.join(ROOT, "tools", "layout-ratchet.txt")
 # Generated, or the engine itself: never typed by a screen
 SKIP = {"design.h", "ds/layout.h", "ds/flex.c", "ds/flex.h", "hudglyphs.h", "i18n_tables.c", "i18n_ids.h"}
 SKIP_RE = re.compile(r"(_data\.h|_glyphs?\.h|^i18n_)")
+# Drawings: their numbers are the shape of a picture (a handheld in
+# millimeters, Zyper's face), not places on a screen, and no token holds them
+ART = {"tourdevice.c", "zypermark.h"}
 
 SUFFIX = r"(?:X|Y|W|H|TOP|GAP|PAD|CX|CY|X0|X1|Y0|Y1|ROW|STEP|INSET|MARGIN|LEFT|RIGHT|DX|DY)"
 # A value of numbers alone, an arithmetic of them included ("(800-40)"): a
@@ -100,7 +103,7 @@ def sources():
             if not name.endswith((".c", ".h")):
                 continue
             rel = os.path.relpath(os.path.join(dirpath, name), SRC)
-            if rel in SKIP or SKIP_RE.search(name):
+            if rel in SKIP or rel in ART or SKIP_RE.search(name):
                 continue
             yield rel
 

@@ -43,7 +43,6 @@
 1 sys_menu.h
 1 theme.h
 3 topbar.h
-3 tourdevice.c
 2 tourdevice.h
 41 tourdraw.c
 7 ui.c
@@ -51,4 +50,3 @@
 1 update_screen.h
 9 usbdrive_screen.c
 4 xfer_screen.c
-9 zypermark.h
