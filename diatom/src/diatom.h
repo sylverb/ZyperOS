@@ -135,6 +135,13 @@ bool diatom_env_new_geometry(int *w, int *h, double *aspect);   /* consumes the 
  * Diatom owns MENU outright (it never appears in the retropad map); this is
  * for keys that are normally the core's but are currently part of a host
  * chord. */
+/* The core asked to end its game (RETRO_ENVIRONMENT_SHUTDOWN) since the
+ * last reset, which main.c makes at each start */
+bool diatom_env_core_quit(void);
+/* The motor at `pct` percent of every level the core asks for, from the next
+ * one; 100 (or anything outside 1 to 99) is as asked. Per game: RUN sets it. */
+void diatom_env_rumble_scale(int pct);
+void diatom_env_core_quit_reset(void);
 void diatom_env_suppress(uint32_t mask);
 /* Called at every poll the core makes, with the pad just read, before the
  * core reads a button of it: returns what to hide from the core, and sets
@@ -294,6 +301,11 @@ typedef struct {
 	/* RUN: "medium" or "light" caps the clocks for a system that keeps its
 	 * speed under them; empty or anything else is full. See diatom_port_power. */
 	char power[16];
+	/* RUN: how hard the motor runs, in percent of what the core asks, 1 to
+	 * 99 (a system whose core shakes harder than the handheld wants:
+	 * PrBoom's every shot); 0, 100 or absent is as asked. See
+	 * diatom_env_rumble_scale. */
+	int  rumble;
 	/* RUN: the libretro controller type for port 0 (pcsx_rearmed's DualShock
 	 * is 517); 0 or absent is the plain joypad. */
 	unsigned controller;
