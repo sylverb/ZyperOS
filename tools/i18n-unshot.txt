@@ -209,12 +209,6 @@ gamemenu.rename_failed
 gamemenu.rename_partly
 gamemenu.layout_stacked
 gamemenu.layout_focus
-gamemenu.dmode_aspect
-gamemenu.dmode_integer
-gamemenu.dmode_integer_tall
-gamemenu.dmode_overscale
-gamemenu.dmode_fill
-gamemenu.dmode_native
 
 # games: no shot draws it yet
 games.no_games
@@ -705,3 +699,16 @@ keyhint.change
 keyhint.keep_going_or_stop
 keyhint.hide
 keyhint.back_to_shelf
+
+# gamemenu: each display mode's caption under the Display row is drawn wrapped
+# to the panel, two lines (src/ingame_screen.c, src/sysmenu_screen.c), and a
+# wrapped line is no string's whole text; every one of them, in every
+# language, fits in two lines at the shelf menu's 760 (measured with the
+# menu's three faces, 2026-11-15), and the shots gamemenu-dmode-* draw them
+gamemenu.dmode_stretch_note
+gamemenu.dmode_aspect_note
+gamemenu.dmode_integer_note
+gamemenu.dmode_integer_tall_note
+gamemenu.dmode_overscale_note
+gamemenu.dmode_fill_note
+gamemenu.dmode_native_note

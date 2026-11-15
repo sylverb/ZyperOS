@@ -676,7 +676,7 @@ audio rows.)*
   plays **move** when it changed and **edge** when it did not.
 - A plays **accept**, and so does a menu opening (MENU, X's game page, the
   in-game menu); A on a row that does nothing with it (Auto Off, Sort By, a
-  system's Display Mode) plays **deny**. B plays **back**, and so does MENU
+  system's Display) plays **deny**. B plays **back**, and so does MENU
   closing a menu.
   A menu the launcher opens itself, or a game it starts with nobody
   pressing (a resume at boot), plays nothing.
@@ -2513,6 +2513,17 @@ plain Undo Load row right under Load, and A on it loads it and resumes. One
 is kept, for each game: Undo Load itself writes none, so A on it twice goes
 back to the same moment, and the next load replaces it. Delete Game, Rename
 and Storage count it with the game's slots.
+
+**Display's names and caption** (1.0.6). The modes say what they do: Full
+Screen, Original Shape, Sharp Pixels, Sharp Pixels, Tall, Sharp Pixels,
+Zoomed, Fill, Edges Cut and Actual Size (the card keeps display.<TAG>'s old
+names: stretch, aspect, integer, integer-vertical, overscale, fill, native).
+Under the Display row, on the Display tab and in the shelf's menu, two
+caption lines say in a sentence what the one shown does: body rows, left
+aligned, wrapped to the panel (800 in game, 760 on the shelf), never a stop.
+The shelf's menu window brings a caption under the cursor's row into view
+with it (src/menu.c), and its row is named Display, as in game: "Display
+Mode" beside the longest names fitted in no Latin-letter language.
 
 **Where it opens.** The first MENU of a game opens on Game, on Continue.
 After that it opens on the tab and the row it was left on, until the game

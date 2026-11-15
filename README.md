@@ -310,7 +310,7 @@ ZyperOS has two themes, Beard in light and Salt & Pepper in dark. **MENU > Displ
 
 </div>
 
-The CRT's lines are most even where the picture's height is a whole number of times the game's, as with **Display** on `Integer tall`. The CRT, Scanlines and LCD Grid are drawn by the Pixel 2's GPU. Sharp-Shimmerless is zadpos's, and so are the scanlines and the grid; the CRT is Timothy Lottes's. Each is in the public domain ([Credits](#credits)).
+The CRT's lines are most even where the picture's height is a whole number of times the game's, as with **Display** on `Sharp Pixels, Tall`. The CRT, Scanlines and LCD Grid are drawn by the Pixel 2's GPU. Sharp-Shimmerless is zadpos's, and so are the scanlines and the grid; the CRT is Timothy Lottes's. Each is in the public domain ([Credits](#credits)).
 
 ## Supported systems
 
