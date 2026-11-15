@@ -221,6 +221,21 @@ profile by a host tool, so a value is stated once.
 | **Card and updates** | the partition table (MBR, GPT), boot, root slots and games partition numbers, slot size, whether System Update can switch slots, the boot screen's theme |
 | **Payload** | which helpers ship (p2d, zyhome, portkeys, btplayer, usbdrive), whether ports and `run:` programs run (PortMaster, OpenBOR), the PortMaster device block |
 
+**Buttons differ from device to device** (Tarik, 2026-11-14), so the
+profile's buttons part is a table, one row per physical control: its
+`in_button` id (or a new one: HOME, L3, R3, the sticks), whether this
+device has it, the label printed on it ("A", "MENU", "F1", a shape), its
+cap's shape (round, pill, the Pixel 2's round MENU with three dots, the
+Brick's round keys with icons, a stick), its cap color for the handheld
+drawing (the Brick Pro's maroon A B X Y), its place on the handheld model,
+and its roles in chords (MENU or FN with the volume keys, HOME, MENU with
+START, SELECT with the shoulders for Diatom's hotkeys). Every key hint,
+tutorial lesson, Controls row, chord help line and wrong-press answer reads
+a button from this table and draws it through one glyph component; none
+names a Pixel 2 key. Which glyph family a device's buttons use (letters in
+circles, shapes, words) is the design system's to draw, from the profile's
+facts; the seam is agreed with that work as the screen's is.
+
 `plat_*` functions that were capability questions (`plat_has_wifi`,
 `plat_gpu_shaders`, `plat_speaker_mono`, `plat_brightness_on_volume`,
 `plat_battery_lights`, `plat_player2`, `plat_charge_limit_supported`) become
@@ -638,18 +653,34 @@ GLES version), the main unknown for Diatom's GPU frames on the Brick
 the clean-room rule: notes on behavior only, and nothing of the binaries
 in the repository.
 
-**My recommendation:** measure before choosing. Option 4's one unknown is
-the launcher's speed on the CPU, and the Pixel 2 gives a cheap lower bound
-(its CPU is slower than the Brick's): the launcher with SDL's software
-renderer on my 32 GB test card, menus and the tutorial measured with
-`px2-shot --fps`. If it holds 60 fps where it matters, the Brick's base
-image carries no closed files (4), and the installer offers the GPU
-systems and built-in Wi-Fi and Bluetooth as the player's own copy (2). If
-not, 2 for the first public Brick release, with 3 as its fallback if the
-Sonic Pad files ever go away. **This is a legal decision for me, not a
-technical one**: 1 is what TortOS and Knulli do and is the least work; 2, 3
-and 4 avoid passing the files on. A lawyer's look is worth it before the
-first public Brick release, whichever way.
+**Measured: drawing the launcher with the CPU is not good enough.** On
+2026-11-14 a test build of the launcher (scratch branch `swdraw-spike`,
+never merged) ran on my 32 GB Pixel 2 test card in two modes: as shipped
+(GLES2), and with SDL's software renderer drawing every frame into a
+1024x768 picture that the GPU only copied to the panel. Frames that reached
+the panel, counted by `px2-shot --fps` over 4 s with the same key presses:
+
+| Scene | GPU, as shipped | CPU drawing |
+|---|---|---|
+| Home shelf, moving left and right | 48.0 fps | 24.2 fps |
+| MENU, stepping down and up its list | 34.8 fps | 3.8 fps |
+| Tutorial, the first lesson (3D handheld) | 42.5 fps | 7.8 fps |
+
+The Pixel 2's CPU (4 x A35 at 1.3 GHz) is slower than the Brick's (4 x A53
+at 1.8 GHz), so the Brick would do better, but not by the 8 to 9 times MENU
+and the tutorial need: the blurred backdrops, the panels' alpha and the 3D
+handheld are GPU work. Option 4 would mean redrawing the launcher for a
+CPU, against performance first. **So option 4 is out**, and the GPU files
+are needed for the launcher itself, not only for the GPU games.
+
+**My recommendation:** 2 for the first public Brick release (the
+installer fetches the files as the player's own copy), with 3 as its
+fallback if the Sonic Pad files ever go away. It keeps ZyperOS's own
+release files clean of anything without a license, and it costs one
+installer step that testers exercise from the first test build. **This is a
+legal decision for me, not a technical one**: 1 is what TortOS and Knulli
+do and is the least work; 2 and 3 avoid passing the files on. A lawyer's
+look is worth it before the first public Brick release, whichever way.
 
 ### 8. Testing on Bricks I do not have
 
@@ -732,8 +763,8 @@ done by then).
    for Brick Pro owners.
 9. **The Brick Pro's release.** As step 7, for `brickpro`.
 
-Before step 6, the CPU-drawing measurement on the Pixel 2 test card
-(section 7) settles whether option 4 is real.
+The CPU-drawing measurement (section 7) ruled out a Brick with no GPU
+files.
 
 ## What is left to the builder
 
@@ -778,11 +809,10 @@ Each is marked *(My call)* where it is written:
 ## One decision left
 
 - **How the closed files reach the player** (section 7): in the image as
-  TortOS and Knulli do; the player's own copy through the installer; or no
-  closed files in the image at all, with the own copy as an option (my
-  recommendation, if the CPU-drawing measurement on the Pixel 2 test card
-  holds). Needed before step 6 fixes the Brick's card layout. The
-  measurement needs my OK for the test card.
+  TortOS and Knulli do, or the player's own copy through the installer (my
+  recommendation). A Brick with none of them is out: the launcher drew 4 to
+  8 fps on the CPU in MENU and the tutorial (measured on the Pixel 2).
+  Needed before step 6 fixes the Brick's card layout.
 
 ## Appendix: measurements
 
