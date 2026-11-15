@@ -1,3 +1,13 @@
+config BR2_PLASTRON_DEVICE
+	string "ZyperOS device"
+	default "pixel2"
+	help
+	  The handheld this system is for, by ZyperOS's device id
+	  ("pixel2", "brick"): its build as ZyperOS states it, in
+	  config/device/<id>.mk (from src/device/<id>_build.c), which the
+	  packages read for the device's Diatom port, splash, payload and
+	  /etc/zyperos/system. QEMU's system is the Pixel 2's.
+
 source "$BR2_EXTERNAL_PX2_PATH/package/splash/Config.in"
 source "$BR2_EXTERNAL_PX2_PATH/package/mesa3d-px2/Config.in"
 source "$BR2_EXTERNAL_PX2_PATH/package/powerkey/Config.in"

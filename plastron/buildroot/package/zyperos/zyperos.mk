@@ -11,8 +11,8 @@ ZYPEROS_SITE_METHOD = local
 ZYPEROS_DEPENDENCIES = sdl2 sdl2_image sdl2_ttf ffmpeg sqlite alsa-lib zlib xz diatom
 # System Update's program (zyperos-update): its download, its signature check
 ZYPEROS_DEPENDENCIES += libcurl openssl
-# libdbus for btplayer, built only for the Brick (below)
-ZYPEROS_DEPENDENCIES += $(if $(BR2_PACKAGE_PVR_GE8300),dbus)
+# libdbus for btplayer, where the device's payload carries it (below)
+ZYPEROS_DEPENDENCIES += $(if $(filter btplayer,$(ZYDEV_HELPERS)),dbus)
 ZYPEROS_LICENSE = GPL-3.0+
 ZYPEROS_LICENSE_FILES = LICENSE THIRD-PARTY-LICENSES.md
 # Its source is public (github.com/tarikbc/ZyperOS), so legal-info names
@@ -40,9 +40,9 @@ ZYPEROS_OVERRIDE_SRCDIR_RSYNC_EXCLUSIONS = \
 # now (above), and a directory of its own makes sure of it.
 ZYPEROS_BUILD_DIR = build-$(ZYPEROS_DEVICE)
 #
-# The Brick's system is the one with the Brick's GPU libraries: ZyperOS's
-# Brick device file (src/device/brick.c) then, into build-brick/.
-ZYPEROS_DEVICE = $(if $(BR2_PACKAGE_PVR_GE8300),brick,pixel2)
+# The device this system is for (BR2_PLASTRON_DEVICE, external.mk): ZyperOS's
+# device file for it (src/device/<id>.c), into build-<id>/
+ZYPEROS_DEVICE = $(PLASTRON_DEVICE)
 #
 # The ScreenScraper pair comes from the file the Makefile mounts, read here
 # in the shell so neither value is written into a command line make prints.
@@ -58,26 +58,24 @@ define ZYPEROS_BUILD_CMDS
 	$(TARGET_MAKE_ENV) $(MAKE) -C $(@D) -f mk/cross.mk \
 		CC="$(TARGET_CC)" SYSROOT="$(STAGING_DIR)" DEVICE=$(ZYPEROS_DEVICE) \
 		BUILD=$(ZYPEROS_BUILD_DIR) VERSION="$(ZYPEROS_VERSION_NUMBER)" \
-		$(ZYPEROS_BUILD_DIR)/zyperos.elf $(ZYPEROS_BUILD_DIR)/muse $(ZYPEROS_EXTRA)
+		device-programs
 endef
 #
-# And on the Brick, the one with Bluetooth, btplayer (tools/btplayer.c): a
-# headset's play, pause, next and previous for Muse, and its own volume,
-# run from the card by /etc/init.d/bluetooth
-ZYPEROS_EXTRA = $(if $(filter brick,$(ZYPEROS_DEVICE)),$(ZYPEROS_BUILD_DIR)/btplayer,$(ZYPEROS_BUILD_DIR)/portkeys)
-# and on the Pixel 2, System Update (ZyperOS's update/, docs/updates.md)
-ZYPEROS_EXTRA += $(if $(filter pixel2,$(ZYPEROS_DEVICE)),$(ZYPEROS_BUILD_DIR)/zyperos-update)
-# and MENU+START's way back to the home (tools/zyhome.c)
-ZYPEROS_EXTRA += $(if $(filter pixel2,$(ZYPEROS_DEVICE)),$(ZYPEROS_BUILD_DIR)/zyhome)
-# and p2d, NES Player 2's server (ZyperOS's src/p2d/): the launcher starts it
-# from the card, beside itself, for a friend's browser to play a game. The
-# Pixel 2 only, the one device that offers Player 2 (its plat_player2);
-# zlib, which it links, is in the dependencies above
-ZYPEROS_EXTRA += $(if $(filter pixel2,$(ZYPEROS_DEVICE)),$(ZYPEROS_BUILD_DIR)/p2d)
+# device-programs is the launcher, Muse and the device's helpers
+# (mk/cross.mk, config/device/<id>.mk's ZYDEV_HELPERS): on the Brick btplayer
+# (tools/btplayer.c, a headset's keys and volume for Muse); on the Pixel 2
+# portkeys, System Update (update/), zyhome (MENU+START home) and p2d (NES
+# Player 2's server, src/p2d/; zlib, which it links, is in the dependencies
+# above). Each helper's program goes into the payload the same way:
+ZYPEROS_HELPER_ENV_portkeys = PORTKEYS_ELF=$(@D)/$(ZYPEROS_BUILD_DIR)/portkeys
+ZYPEROS_HELPER_ENV_zyhome = ZYHOME_ELF=$(@D)/$(ZYPEROS_BUILD_DIR)/zyhome
+ZYPEROS_HELPER_ENV_update = UPDATE_ELF=$(@D)/$(ZYPEROS_BUILD_DIR)/zyperos-update
+ZYPEROS_HELPER_ENV_p2d = P2D_ELF=$(@D)/$(ZYPEROS_BUILD_DIR)/p2d
+ZYPEROS_HELPER_ENV_btplayer = BTPLAYER_ELF=$(@D)/$(ZYPEROS_BUILD_DIR)/btplayer
 
 # ZyperOS runs from the card's games partition, as on the Brick, so it can be
 # updated by copying files onto the card. What goes there is ZyperOS's own
-# payload (mk/payload.sh, DEVICE=pixel2): the launcher, Muse, diatom, the
+# payload (mk/payload.sh, for the device): the launcher, Muse, diatom, the
 # cores, cards and fonts, and the empty Roms, Music, Audiobooks, Bios, Saves
 # and Menu Music folders. The
 # image keeps a copy in /usr/share/zyperos/card, laid out as on the card, and
@@ -85,39 +83,40 @@ ZYPEROS_EXTRA += $(if $(filter pixel2,$(ZYPEROS_DEVICE)),$(ZYPEROS_BUILD_DIR)/p2
 # one: the version goes in as ZyperOS/VERSION, which the payload writes only
 # when it is given one (it was never passed before 2026-10-06).
 ZYPEROS_CARD = $(TARGET_DIR)/usr/share/zyperos/card
-ifeq ($(ZYPEROS_DEVICE),brick)
-# The Brick's: ZyperOS's payload for it, which /etc/init.d/zyperos copies onto
-# the card
+# The device's payload (mk/payload.sh), with its helpers' programs, and the
+# image's /etc/zyperos/system; System Update's part where the device has it
 define ZYPEROS_INSTALL_TARGET_CMDS
-	DEVICE=brick OUT=$(ZYPEROS_CARD) VERSION="$(ZYPEROS_VERSION_NUMBER)" \
+	DEVICE=$(ZYPEROS_DEVICE) OUT=$(ZYPEROS_CARD) VERSION="$(ZYPEROS_VERSION_NUMBER)" \
 		ZYPEROS_ELF=$(@D)/$(ZYPEROS_BUILD_DIR)/zyperos.elf \
 		MUSE_ELF=$(@D)/$(ZYPEROS_BUILD_DIR)/muse \
-		BTPLAYER_ELF=$(@D)/$(ZYPEROS_BUILD_DIR)/btplayer \
-		DIATOM_ELF=$(DIATOM_DIR)/build/brick/diatom \
+		$(foreach h,$(ZYDEV_HELPERS),$(ZYPEROS_HELPER_ENV_$(h))) \
+		DIATOM_ELF=$(DIATOM_DIR)/build/$(ZYDEV_DIATOM_PORT)/diatom \
 		VENDOR_DIR=/zyperos-vendor \
 		sh $(@D)/mk/payload.sh
+	$(ZYPEROS_INSTALL_SYSTEM)
+	$(if $(filter update,$(ZYDEV_HELPERS)),$(ZYPEROS_INSTALL_UPDATE))
 endef
-else
-define ZYPEROS_INSTALL_TARGET_CMDS
-	DEVICE=pixel2 OUT=$(ZYPEROS_CARD) VERSION="$(ZYPEROS_VERSION_NUMBER)" \
-		ZYPEROS_ELF=$(@D)/$(ZYPEROS_BUILD_DIR)/zyperos.elf \
-		MUSE_ELF=$(@D)/$(ZYPEROS_BUILD_DIR)/muse \
-		PORTKEYS_ELF=$(@D)/$(ZYPEROS_BUILD_DIR)/portkeys \
-		ZYHOME_ELF=$(@D)/$(ZYPEROS_BUILD_DIR)/zyhome \
-		UPDATE_ELF=$(@D)/$(ZYPEROS_BUILD_DIR)/zyperos-update \
-		P2D_ELF=$(@D)/$(ZYPEROS_BUILD_DIR)/p2d \
-		DIATOM_ELF=$(DIATOM_DIR)/build/pixel2/diatom \
-		VENDOR_DIR=/zyperos-vendor \
-		sh $(@D)/mk/payload.sh
-	$(ZYPEROS_INSTALL_UPDATE)
+
+# Which system this is (/etc/zyperos/system), for System Update, the crash
+# log and the launcher: its version, whether System Update is on it, its
+# device, then its card as ZyperOS states it (config/device/<id>.system: the
+# partition table and the partitions by number) and what the image has of
+# the programs the launcher asks about (plat_system_has).
+define ZYPEROS_INSTALL_SYSTEM
+	mkdir -p $(TARGET_DIR)/etc/zyperos
+	printf 'version %s\nupdate %s\ndevice %s\n' "$(ZYPEROS_VERSION_NUMBER)" \
+		"$(if $(filter update,$(ZYDEV_HELPERS)),1,0)" "$(ZYPEROS_DEVICE)" \
+		> $(TARGET_DIR)/etc/zyperos/system
+	cat $(@D)/config/device/$(ZYPEROS_DEVICE).system >> $(TARGET_DIR)/etc/zyperos/system
+	printf 'has%s\n' "$(if $(BR2_PACKAGE_USBDRIVE), usbdrive)$(if $(BR2_PACKAGE_HOSTAPD), hostapd)" \
+		>> $(TARGET_DIR)/etc/zyperos/system
 endef
-endif
 
 # System Update (ZyperOS's update/ and docs/updates.md). The image holds what
 # the card must not be able to change: the public keys a release list must be
-# signed with (ZyperOS's res/update/keys), the switch that runs at every start
-# before anything from the card (update/apply.sh, called by zyperos.init), and
-# which system this is, for a release that needs a newer one. An image built
+# signed with (ZyperOS's res/update/keys) and the switch that runs at every
+# start before anything from the card (update/apply.sh, called by
+# zyperos.init); which system this is is ZYPEROS_INSTALL_SYSTEM's, above. An image built
 # from a ZyperOS with no keys has System Update switched off: the program
 # says to use the installer.
 define ZYPEROS_INSTALL_UPDATE
@@ -127,8 +126,6 @@ define ZYPEROS_INSTALL_UPDATE
 		[ -f "$$k" ] || continue; \
 		$(INSTALL) -m 0644 "$$k" $(TARGET_DIR)/etc/zyperos/update-keys/ || exit 1; \
 	done
-	printf 'version %s\nupdate 1\ndevice %s\n' "$(ZYPEROS_VERSION_NUMBER)" "$(ZYPEROS_DEVICE)" \
-		> $(TARGET_DIR)/etc/zyperos/system
 	$(INSTALL) -D -m 0755 $(@D)/update/apply.sh $(TARGET_DIR)/usr/lib/zyperos/update-apply.sh
 endef
 
