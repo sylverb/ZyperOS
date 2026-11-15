@@ -743,11 +743,11 @@ def all_systems_card(card):
 # Each language's own run of every shot, on its own cards
 # Screens whose words came within the margin of a key or a mark when the host
 # began to check it (src/ui.c's ui_fit_mark, 1.0.6), each a layout to decide
-# on its own (DESIGN.md section 14): Storage's two-line caption, its accents
-# and ascenders under the sort key (es, pt-BR), the sort key filling the only
-# room between the list and the caption. Any other screen whose words meet a
-# key or a mark fails.
-KNOWN_KEYS = {"storage-music-rest", "storage-system-last"}
+# on its own (DESIGN.md section 14). None is left: Storage's caption under its
+# sort key left with the layout by rules, the video controls' keys with the
+# one-view player (both 1.0.6). Any screen whose words meet a key or a mark
+# fails.
+KNOWN_KEYS = set()
 
 
 def run_language(code, shots, binary, keep, theme="light"):
@@ -881,10 +881,16 @@ def main():
             # como t..." beside ScreenScraper)
             results[code] = (notes, failures, data, drawn)
     english = results["en"][2] if "en" in results else None
+
+    def texts(said):
+        # the data each line names, whether it was cut or slides: a name
+        # cut on a row and sliding in a panel's heading is one name
+        return {line.split(": ", 1)[-1] for line in said}
+
     for code in langs:
         if english is None or code == "en": continue
         for name, said in sorted(results[code][2].items()):
-            if len(said) > len(english.get(name, [])):
+            if len(texts(said)) > len(texts(english.get(name, []))):
                 results[code][0].extend("%s/%s: %s (English: %d)" % (code, name, d, len(english.get(name, [])))
                                         for d in said)
     # Every string a shot draws, or says why it is none of the shots'
