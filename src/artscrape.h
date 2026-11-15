@@ -131,6 +131,11 @@ void art_status(art_progress *out);
  * its videos, if it wants them, still come (ss_run_videos). A replace (one
  * game, art_begin's `only`) wants its cover whatever the rule says. */
 void art_covers_rule(bool (*on)(const char *folder));
+/* Whether the details part asks names (and years, synopses) for covered
+ * games with none: MENU > Scraper > Settings > Names and Details, on unless
+ * the player turned it off (1.0.6). Off, the part asks only for the videos
+ * a system with videos on is missing. For the runs that follow. */
+void art_names(bool on);
 
 /* How many games on these shelves have no cover yet: what MENU > Scraper
  * says it would fetch. One directory read and a stat per game, so for when a

@@ -21,7 +21,7 @@ and write the file back without the footer, and a game DSperate's save list
 does not name would have its chip sized from the file, footer included. The
 footer comes off here instead, and goes back on for the other way.
 
-ZyperOS does the .dsv to .srm step by itself (src/main.c, dsv_import) the
+ZyperOS does the .dsv to .srm step by itself (src/dsv.c, dsv_import) the
 first time a DS game runs on DSperate with a .dsv and no .srm beside it in
 Saves/, so this script is for doing it by hand, for going back to DraStic,
 and for checking a file:
