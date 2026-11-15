@@ -85,6 +85,32 @@ const char *httpd_body(const httpd_req *r, size_t *len);  /* HTTPD_BODY_MEM */
 /* Deciding what to do with the body. Call at most once, on the first call. */
 void httpd_want_body(httpd_req *r, httpd_body_mode mode, const char *sink_path);
 
+/* An upload that goes on from where a broken one stopped (src/hare.c,
+ * GET /api/upload): the body into `sink_path` from byte `at` on. The file is
+ * cut to its first `at` bytes and opened here, before a byte of the body
+ * arrives; false, with nothing changed but the file's end, when it cannot
+ * be. And it stays when the request breaks - a hang-up, a dropped network,
+ * the idle time, httpd_drop, httpd_stop - where HTTPD_BODY_FILE's goes: what
+ * arrived is on the card for the next request to go on from. In place of
+ * httpd_want_body. */
+bool httpd_want_body_at(httpd_req *r, const char *sink_path, long long at);
+
+/* Bytes of the body that arrived so far: those handed to the sink */
+long httpd_body_got(const httpd_req *r);
+
+/* How long this request's connection may say nothing before it is gone, in
+ * place of the twenty seconds every other has: a kept upload's waits out a
+ * short Wi-Fi drop, which TCP can carry it over. Reset with the request. */
+void httpd_set_idle(httpd_req *r, unsigned ms);
+
+/* Another request, ended now: its connection closed and its sink kept as
+ * httpd_want_body_at's (or removed as HTTPD_BODY_FILE's), with no httpd_end
+ * for it - the caller is the one ending it. For an upload that goes on from
+ * where a broken one stopped while the broken one's connection is still
+ * open, as it is until its idle time when the network took the client's
+ * hang-up with it. Not for the request being handled. */
+void httpd_drop(httpd_req *r);
+
 /* Setting the response. Exactly one of these, on the last call.
  *
  * httpd_reply copies `body`, so the caller keeps ownership of whatever it
@@ -164,8 +190,9 @@ const char *httpd_peer(const httpd_req *r);
 int  httpd_peers(const char **out, int max);
 
 /* The bodies arriving into files now (HTTPD_BODY_FILE: uploads), summed:
- * bytes in so far and bytes they will be. False when none is arriving. For
- * the ring round File Transfer's mark in the corner. */
+ * bytes in so far and bytes they will be, an upload that goes on from byte
+ * `at` (httpd_want_body_at) counted from its file's start. False when none
+ * is arriving. For the ring round File Transfer's mark in the corner. */
 bool httpd_body_progress(long long *got, long long *total);
 
 #endif

@@ -25,10 +25,15 @@
  * question does:
  * "after" (once the files on their way are in) or "now"; "usb" and "wifi"
  * on it change the link the page is named after, as a handheld opened over
- * the other would, with the same server and the browser's cache. Like the
+ * the other would, with the same server and the browser's cache; and a
+ * Wi-Fi drop: "away" stops answering anything, as a handheld off the
+ * network, "cut" ends every browser's connection as a network that went
+ * does (the browser hears an error, the server a hang-up), and "back"
+ * answers again. Like the
  * device it listens on every address (port 8080 or 8081 here, 80 needing
  * root), so use a scratch card. No SDL, no device. */
 #include <poll.h>
+#include <sys/socket.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -167,8 +172,22 @@ static char *update_hook(int op, const char *name, char *path, size_t pn,
 	return dup_len(json, len);
 }
 
+/* Every connection a browser has open, ended as a network that went ends
+ * it: this process's connected sockets, the listener and stdin aside */
+static void cut_all(void)
+{
+	for (int fd = 3; fd < 1024; fd++) {
+		struct sockaddr_storage a;
+		socklen_t n = sizeof a;
+
+		if (fd != httpd_fd() && getpeername(fd, (struct sockaddr *)&a, &n) == 0)
+			shutdown(fd, SHUT_RDWR);
+	}
+}
+
 int main(int argc, char **argv)
 {
+	bool away = false;
 	char roms[1024], shared[1024], icons[1024];
 	struct pollfd in = { .fd = 0, .events = POLLIN };
 
@@ -212,9 +231,10 @@ int main(int argc, char **argv)
 	fflush(stdout);
 	/* A line on stdin is the handheld's stop question, for tools/portal-check.py:
 	 * "after" closes after the files on their way, "now" cancels them; or the
-	 * link the page is named after, "usb" or "wifi" */
+	 * link the page is named after, "usb" or "wifi"; or "away", "cut" and
+	 * "back", a Wi-Fi drop */
 	for (;;) {
-		hare_poll();
+		if (!away) hare_poll();
 		if (poll(&in, 1, 4) > 0) {
 			char b[64];
 			ssize_t n = read(0, b, sizeof b - 1);
@@ -225,6 +245,9 @@ int main(int argc, char **argv)
 			if (strstr(b, "wifi")) hare_set_cable(false);
 			if (strstr(b, "after")) hare_close_after();
 			if (strstr(b, "now")) { hare_stop(); return 0; }
+			if (strstr(b, "away")) away = true;
+			if (strstr(b, "cut")) cut_all();
+			if (strstr(b, "back")) away = false;
 		}
 		if (hare_closing() && hare_inflight() == 0) { hare_stop(); return 0; }
 	}

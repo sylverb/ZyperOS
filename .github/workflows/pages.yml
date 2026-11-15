@@ -5,6 +5,15 @@
 # that names zyperos.com as its canonical address and moves to it at once,
 # which search engines read as a permanent move. The repository's Pages
 # source stays "GitHub Actions".
+#
+# It also serves downloads.json there, the README's Downloads badge
+# (shields.io's endpoint format): the downloads of the card image alone,
+# ZyperOS-v*-pixel2.img.xz, summed over every release. GitHub's own total,
+# which shields.io's plain badge shows, counts every file - each handheld's
+# System Update check fetches the update list, and the installers, packs,
+# sources and SHA256SUMS add the rest - so it said 873 the day only 150 cards
+# had been written. The installer downloads the same image, so this counts
+# every card written either way. Read again every hour and at each release.
 name: Pages
 
 on:
@@ -12,6 +21,10 @@ on:
     branches: [main]
     paths:
       - .github/workflows/pages.yml
+  release:
+    types: [published]
+  schedule:
+    - cron: "17 * * * *"
   workflow_dispatch:
 
 permissions:
@@ -49,6 +62,17 @@ jobs:
           </html>
           EOF
           cp _site/index.html _site/404.html
+      - name: The card image's downloads, for the README's badge
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          n=$(gh api --paginate "repos/${{ github.repository }}/releases" \
+                --jq '.[].assets[] | select(.name | test("^ZyperOS-v.*-pixel2\\.img\\.xz$")) | .download_count' |
+              awk '{ s += $1 } END { print s + 0 }')
+          # shields.io's own short form: 1,234 as 1.2k
+          msg=$(awk -v n="$n" 'BEGIN { if (n < 1000) print n; else if (n < 10000) printf "%.1fk\n", n / 1000; else printf "%dk\n", n / 1000 }')
+          printf '{"schemaVersion":1,"label":"Downloads","message":"%s","color":"1a1c1a","cacheSeconds":3600}\n' "$msg" > _site/downloads.json
+          cat _site/downloads.json
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5
         with:

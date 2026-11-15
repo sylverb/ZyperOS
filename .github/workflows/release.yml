@@ -6,8 +6,16 @@
 # adds the files to the same release, puts them in its SHA256SUMS, and
 # publishes it. A tag with no draft waiting is refused: the image comes first.
 #
-# A pull request that changes this file builds the apps the same way and
-# stops before the release, to try it.
+# The installer updates itself on macOS and Windows (installer/src-tauri/src/
+# selfupdate.rs): the release also carries the macOS app as an update file,
+# a signature for it and for the Windows exe, and latest.json, which names
+# them. They are signed with the updater key, from the INSTALLER_UPDATER_KEY
+# secret, which only a tag's build reads; the signatures are checked against
+# the public key in tauri.conf.json before anything is uploaded.
+#
+# A pull request that changes this file builds the apps the same way, signs
+# them with a throwaway key made in the run, and stops before the release, to
+# try it.
 #
 # dtolnay/rust-toolchain is a third-party action and runs with the job's
 # token, so it is pinned to a commit of its stable branch, not to the branch
@@ -29,8 +37,18 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.v.outputs.version }}
+      throwaway_key: ${{ steps.throwaway.outputs.private }}
+      throwaway_pub: ${{ steps.throwaway.outputs.public }}
     steps:
       - uses: actions/checkout@v4
+      # Signed like a release's, with a key that is thrown away after the run
+      - name: A throwaway update key, for a pull request
+        id: throwaway
+        if: github.ref_type != 'tag'
+        run: |
+          npx --yes @tauri-apps/cli@2 signer generate --ci -p "" -w "$RUNNER_TEMP/throwaway.key" > /dev/null
+          echo "private=$(cat "$RUNNER_TEMP/throwaway.key")" >> "$GITHUB_OUTPUT"
+          echo "public=$(cat "$RUNNER_TEMP/throwaway.key.pub")" >> "$GITHUB_OUTPUT"
       - name: One version everywhere, and the tag's
         id: v
         env:
@@ -59,16 +77,25 @@ jobs:
           targets: aarch64-apple-darwin,x86_64-apple-darwin
       - name: Tests
         run: cargo test --locked
-      - name: App, for Apple Silicon and Intel
-        run: npx --yes @tauri-apps/cli@2 build --target universal-apple-darwin --bundles app
+      - name: App, for Apple Silicon and Intel, and its signed update file
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ github.ref_type == 'tag' && secrets.INSTALLER_UPDATER_KEY || needs.version.outputs.throwaway_key }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
+        run: |
+          test -n "$TAURI_SIGNING_PRIVATE_KEY" || { echo "no updater key: set the INSTALLER_UPDATER_KEY secret (installer/README.md)" >&2; exit 1; }
+          # The update file is the same app in a .tar.gz, with its .sig
+          npx --yes @tauri-apps/cli@2 build --target universal-apple-darwin --bundles app \
+            --config '{"bundle":{"createUpdaterArtifacts":true}}'
       - name: Zip
         env:
           V: ${{ needs.version.outputs.version }}
         run: |
           mkdir -p ../../dist
+          B=target/universal-apple-darwin/release/bundle/macos
           # ditto keeps the app's links and permissions, as Finder's own zip does
-          ditto -c -k --keepParent "target/universal-apple-darwin/release/bundle/macos/ZyperOS Installer.app" \
-            "../../dist/ZyperOS-Installer-$V-macOS.zip"
+          ditto -c -k --keepParent "$B/ZyperOS Installer.app" "../../dist/ZyperOS-Installer-$V-macOS.zip"
+          cp "$B/ZyperOS Installer.app.tar.gz" "../../dist/ZyperOS-Installer-$V-macOS-update.tar.gz"
+          cp "$B/ZyperOS Installer.app.tar.gz.sig" "../../dist/ZyperOS-Installer-$V-macOS-update.tar.gz.sig"
       - uses: actions/upload-artifact@v4
         with:
           name: installer-macos
@@ -102,6 +129,17 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force ..\..\dist | Out-Null
           Copy-Item target\release\zyperos-installer.exe "..\..\dist\ZyperOS-Installer-$env:V-Windows.exe"
+      # The exe itself is the update file: the installer swaps it in place
+      - name: Its signature, for the installer's own updates
+        shell: bash
+        env:
+          V: ${{ needs.version.outputs.version }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ github.ref_type == 'tag' && secrets.INSTALLER_UPDATER_KEY || needs.version.outputs.throwaway_key }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
+        run: |
+          test -n "$TAURI_SIGNING_PRIVATE_KEY" || { echo "no updater key: set the INSTALLER_UPDATER_KEY secret (installer/README.md)" >&2; exit 1; }
+          npx --yes @tauri-apps/cli@2 signer sign --app-version "$V" "../../dist/ZyperOS-Installer-$V-Windows.exe"
+          test -s "../../dist/ZyperOS-Installer-$V-Windows.exe.sig"
       - uses: actions/upload-artifact@v4
         with:
           name: installer-windows
@@ -158,18 +196,45 @@ jobs:
       V: ${{ needs.version.outputs.version }}
       TAG: v${{ needs.version.outputs.version }}
     steps:
+      # For tauri.conf.json's public key and installer/tools/latest-json.py
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           path: dist
           merge-multiple: true
-      - name: The four installer files
+      - name: The four installer files, and the updates' files
         run: |
           cd dist
           for f in "ZyperOS-Installer-$V-macOS.zip" "ZyperOS-Installer-$V-Windows.exe" \
-                   "ZyperOS-Installer-$V-amd64.deb" "ZyperOS-Installer-$V-x86_64.rpm"; do
+                   "ZyperOS-Installer-$V-amd64.deb" "ZyperOS-Installer-$V-x86_64.rpm" \
+                   "ZyperOS-Installer-$V-macOS-update.tar.gz" "ZyperOS-Installer-$V-macOS-update.tar.gz.sig" \
+                   "ZyperOS-Installer-$V-Windows.exe.sig"; do
             test -s "$f" || { echo "missing $f" >&2; exit 1; }
           done
           ls -l
+      # What an installer out there will check them against: the public key
+      # it carries (a pull request's throwaway one). A secret holding another
+      # key stops the release here, before anything is uploaded
+      - name: The updates' signatures, against the updater's public key
+        env:
+          THROWAWAY_PUB: ${{ needs.version.outputs.throwaway_pub }}
+        run: |
+          sudo apt-get install -y --no-install-recommends minisign > /dev/null
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            pub=$(jq -r .plugins.updater.pubkey installer/src-tauri/tauri.conf.json)
+          else
+            pub=$THROWAWAY_PUB
+          fi
+          echo "$pub" | base64 -d > "$RUNNER_TEMP/updater.pub"
+          for f in "ZyperOS-Installer-$V-macOS-update.tar.gz" "ZyperOS-Installer-$V-Windows.exe"; do
+            base64 -d < "dist/$f.sig" > "$RUNNER_TEMP/file.minisig"
+            out=$(minisign -V -p "$RUNNER_TEMP/updater.pub" -m "dist/$f" -x "$RUNNER_TEMP/file.minisig")
+            echo "$f: $out"
+            # Signed for this version: the installer refuses any other
+            printf '%s\n' "$out" | grep -q "version:$V\$" || { echo "$f isn't signed for $V" >&2; exit 1; }
+          done
+      - name: latest.json, which names them
+        run: python3 installer/tools/latest-json.py --version "$V" --dir dist --output dist/latest.json
       - name: Add them to the draft release and publish it
         if: github.ref_type == 'tag'
         run: |
@@ -186,6 +251,6 @@ jobs:
           grep -v ' ZyperOS-Installer-' sums/SHA256SUMS > SHA256SUMS
           sha256sum ZyperOS-Installer-* >> SHA256SUMS
           cat SHA256SUMS
-          gh release upload "$TAG" ZyperOS-Installer-* SHA256SUMS --clobber
+          gh release upload "$TAG" ZyperOS-Installer-* SHA256SUMS latest.json --clobber
           gh release edit "$TAG" --draft=false
           gh release view "$TAG" --json url,isDraft,isPrerelease,assets --jq '{url, isDraft, isPrerelease, assets: [.assets[].name]}'

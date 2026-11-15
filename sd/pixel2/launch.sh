@@ -269,7 +269,10 @@ port_quit() {
 }
 run_port() {
 	local pid i rc
-	if [ -f /tmp/diatom.pid ] && read pid < /tmp/diatom.pid; then
+	# Only a pid that is still a Diatom's: the file names the one that
+	# crashed until something starts another, and its number may be
+	# another process's by then
+	if diatom_running && read pid < /tmp/diatom.pid; then
 		kill "$pid" 2> /dev/null
 		i=0
 		while [ $i -lt 30 ] && diatom_running; do
