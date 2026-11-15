@@ -2291,6 +2291,25 @@ static bool button_menu(const char *label)
 	return label && !strcmp(label, "MENU");
 }
 
+/* The d-pad's hint (keyhints.h): "< >" its left and right, "^ v" its up and
+ * down. Drawn as the d-pad itself (dpad_key), the arms it means lit, not as a
+ * pill with the signs on it (1.0.6: Tarik, "fix the arrow buttons hint design.
+ * Check the pixel 2 3d model for reference on how they look"). Which arms:
+ * 1 left and right, 2 up and down, 0 for any other label. */
+static int button_dpad(const char *label)
+{
+	if (!label) return 0;
+	if (!strcmp(label, "< >")) return 1;
+	if (!strcmp(label, "^ v")) return 2;
+	return 0;
+}
+
+static void dpad_key(SDL_Renderer *r, float cx, float cy, float size, int arms, SDL_Color edge,
+                     SDL_Color face, SDL_Color arm, SDL_Color ink);
+/* A d-pad's key is this much a button glyph's size: a cross has less ink
+ * than a face's disc, and at the same size it read small beside them */
+#define DPAD_KEY_K 1.25f
+
 /* A face: A, B, X and Y, and MENU, which is round on the Pixel 2 and drawn as
  * its three dots rather than a word (menu_key_dots). */
 static bool button_round(const char *label)
@@ -2359,6 +2378,7 @@ int ui_button_width(const char *label, int size)
 	bool round = button_round(label);
 
 	if (round) return size;
+	if (button_dpad(label)) return (int)((float)size * DPAD_KEY_K + 0.5f);
 	return ui_text_width(button_letter(round, size), label)
 	       + button_pad(size) * 2;
 }
@@ -2379,6 +2399,27 @@ void ui_button(SDL_Renderer *r, const char *label, int cx, int cy, int size,
 	SDL_Rect q, in;
 
 	if (!label || size <= 0) return;
+	if (button_dpad(label)) {
+		const float ds = (float)size * DPAD_KEY_K;
+		const int dw = (int)(ds + 0.5f);
+
+		if (style == UI_BUTTON_ON_ACCENT) {
+			unsigned face = ui_mix(ui_rgb(t->accent), ui_rgb(t->on_accent), BUTTON_ON_ACCENT_TINT);
+			unsigned arm = ui_mix(face, ui_rgb(t->on_accent), 0.25f);
+
+			dpad_key(r, (float)cx, (float)cy, ds, button_dpad(label), ui_col(t->on_accent, 255),
+			         (SDL_Color){ (Uint8)(face >> 16), (Uint8)(face >> 8), (Uint8)face, 255 },
+			         (SDL_Color){ (Uint8)(arm >> 16), (Uint8)(arm >> 8), (Uint8)arm, 255 },
+			         ui_col(t->on_accent, 255));
+		} else {
+			unsigned arm = ui_mix(ui_rgb(t->raised), ui_rgb(t->text_dim), 0.35f);
+
+			dpad_key(r, (float)cx, (float)cy, ds, button_dpad(label), ui_col(t->edge, 255), ui_col(t->raised, 255),
+			         (SDL_Color){ (Uint8)(arm >> 16), (Uint8)(arm >> 8), (Uint8)arm, 255 }, ui_col(t->text, 255));
+		}
+		ui_fit_mark(&(SDL_Rect){ cx - dw / 2, cy - dw / 2, dw, dw });
+		return;
+	}
 	f = button_letter(round, size);
 	w = round ? size : ui_text_width(f, label) + button_pad(size) * 2;
 	ring = button_ring(round, size);
@@ -2667,6 +2708,28 @@ void ui_button_pressed(SDL_Renderer *r, const char *label, int cx, int cy, int s
 	glyph_op = op01(op);
 	f = button_letter(round, size);
 	k = glyph_k(style == UI_BUTTON_ON_ACCENT ? 0.0f : press, scale);
+	if (button_dpad(label)) {
+		/* the d-pad's key, faded, pressed or pulsing as any glyph is */
+		const float ds = (float)size * DPAD_KEY_K * k;
+
+		if (style == UI_BUTTON_ON_ACCENT) {
+			unsigned m = ui_mix(ui_rgb(t->accent), ui_rgb(t->on_accent), BUTTON_ON_ACCENT_TINT);
+			unsigned a = ui_mix(m, ui_rgb(t->on_accent), 0.25f);
+			ds_rgb face = { (Uint8)(m >> 16), (Uint8)(m >> 8), (Uint8)m };
+			ds_rgb arm = { (Uint8)(a >> 16), (Uint8)(a >> 8), (Uint8)a };
+
+			dpad_key(r, (float)cx, (float)cy, ds, button_dpad(label), gcol(t->on_accent), gcol(face), gcol(arm),
+			         gcol(t->on_accent));
+		} else {
+			unsigned a = ui_mix(ui_rgb(t->raised), ui_rgb(t->text_dim), 0.35f);
+			ds_rgb arm = { (Uint8)(a >> 16), (Uint8)(a >> 8), (Uint8)a };
+
+			dpad_key(r, (float)cx, (float)cy, ds, button_dpad(label), col_toward(t->edge, t->accent, press),
+			         gcol(t->raised), gcol(arm), gcol(t->text));
+		}
+		glyph_op = 1.0f;
+		return;
+	}
 	w = (float)(round ? size : ui_text_width(f, label) + button_pad(size) * 2) * k;
 	h = (float)size * k;
 	ring = (float)button_ring(round, size) * k;
@@ -2703,6 +2766,40 @@ static void dpad_rect(SDL_Renderer *r, float cx, float cy, float k, float x, flo
 {
 	rrect_f(r, cx + (x - DPAD_U / 2) * k, cy + (y - DPAD_U / 2) * k, w * k, h * k,
 	        rad * k, c);
+}
+
+/* The d-pad as a key's hint: the tutorial's d-pad below (the lab's cross, as
+ * the handheld's in src/tourdevice.c is), `size` across - DPAD_KEY_K of a
+ * button glyph's, as a cross has less ink than a face - its ring in `edge`
+ * and its face in `face`; the arms it means a step darker (`arm`), as the
+ * handheld lights a pressed arm, each with its arrow in `ink`, as a face's
+ * letter is; the others plain; and the edge's dot at its middle. */
+static void dpad_key(SDL_Renderer *r, float cx, float cy, float size, int arms, SDL_Color edge,
+                     SDL_Color face, SDL_Color arm, SDL_Color ink)
+{
+	static const float A[UI_DPAD_ARMS][4] = {
+		{ 44, 4, 32, 36 }, { 44, 80, 32, 36 }, { 4, 44, 36, 32 }, { 80, 44, 36, 32 } };
+	static const float P[UI_DPAD_ARMS][6] = {
+		{ 60, 13, 50, 27, 70, 27 }, { 60, 107, 70, 93, 50, 93 },
+		{ 13, 60, 27, 70, 27, 50 }, { 107, 60, 93, 50, 93, 70 } };
+	const float k = size / DPAD_U;
+	int i, j;
+
+	dpad_rect(r, cx, cy, k, 40, 0, 40, 120, 10, edge);
+	dpad_rect(r, cx, cy, k, 0, 40, 120, 40, 10, edge);
+	dpad_rect(r, cx, cy, k, 44, 4, 32, 112, 7, face);
+	dpad_rect(r, cx, cy, k, 4, 44, 112, 32, 7, face);
+	for (i = 0; i < UI_DPAD_ARMS; i++) {
+		SDL_FPoint q[3];
+
+		/* up and down are arms 0 and 1, left and right 2 and 3 */
+		if (!(arms & (i < 2 ? 2 : 1))) continue;
+		dpad_rect(r, cx, cy, k, A[i][0], A[i][1], A[i][2], A[i][3], 7, arm);
+		for (j = 0; j < 3; j++)
+			q[j] = (SDL_FPoint){ cx + (P[i][j * 2] - DPAD_U / 2) * k, cy + (P[i][j * 2 + 1] - DPAD_U / 2) * k };
+		fan(r, q, 3, ink);
+	}
+	disc_f(r, cx, cy, 7 * k, edge);
 }
 
 void ui_dpad(SDL_Renderer *r, int cx, int cy, int size, const float arm[UI_DPAD_ARMS],

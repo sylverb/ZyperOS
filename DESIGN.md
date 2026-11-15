@@ -919,7 +919,9 @@ shelves' feet have always drawn them. One component lays them out: a list
 of {button, word} in order, as many in a row as fit, rows 44 apart, never
 a hint cut or split, centered under a panel's tiles or spread across a
 screen's foot (Now Playing's grows upward from its line). The d-pad's
-Left/Right is the "< >" pill, as seek's. Words are res/strings' keyhint.*
+Left/Right ("< >", `KEYHINT_LEFT_RIGHT`) is the d-pad itself, the tutorial's
+cross a quarter larger than a face's glyph, its left and right arms a step
+darker with their arrows (since 1.0.6; a pill with the signs before). Words are res/strings' keyhint.*
 or a screen's own, a hint's capitals (Title Case in English). Under every
 question in tiles (11.18, 11.23, 11.36) and Now Playing's foot. *(I asked
 for one component to use across the UI.)*
