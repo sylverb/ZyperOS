@@ -394,8 +394,9 @@ The Brick's front end:
   own colors from the theme's roles and its keys on their faces (shoulders
   on top, F1/F2 and MENU on the front). The numbers come from published
   measurements: 73.2 mm wide, 109.9 mm tall, 19.9 mm deep at its thick part
-  and 11.79 mm at its thin part (TrimUI's store page; the store's own
-  "10.99 mm" height is a slip for 109.9). No source publishes the keys'
+  and 11.79 mm at its thin part (TrimUI's store page for the width and
+  depths, RetroHandhelds for the height; the store's own "10.99 mm" height
+  is a slip for 109.9). No source publishes the keys'
   places, so they are measured in millimetres from the maker's published
   front, back and side views, scaled to that outline, and the model file
   says which numbers are measured that way. A case maker notes a later
