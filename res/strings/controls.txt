@@ -1454,16 +1454,16 @@ de = Seitwärts
 ja = 横移動
 it = Passo laterale
 
-[controls.run]
-note = Doom: held, the player runs. The value column.
-en = Run
-zh-Hans = 奔跑
-es = Correr
-pt-BR = Correr
-fr = Courir
-de = Rennen
-ja = ダッシュ
-it = Corri
+[controls.walk]
+note = Doom: held, the player walks. ZyperOS runs all the time (prboom.cfg's autorun, 1.0.6), and this button walks while held. The value column.
+en = Walk
+zh-Hans = 行走
+es = Caminar
+pt-BR = Andar
+fr = Marcher
+de = Gehen
+ja = 歩く
+it = Cammina
 
 [controls.strafe_left]
 note = Doom: a step sideways to the left. The value column.

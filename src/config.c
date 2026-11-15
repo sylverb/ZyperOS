@@ -52,9 +52,9 @@ bool cfg_load_systems(const char *path, systems_cfg *out)
 	FILE *f = fopen(path, "r");
 	if (!f) return false;
 	char line[1024];
-	/* power|tag|level, map|tag|spec, controller|tag|n, stick|tag|dpad and
-	 * bios|tag|names and es|tag|names lines, applied once every system is
-	 * read, so they may sit anywhere in the file */
+	/* power|tag|level, map|tag|spec, controller|tag|n, stick|tag|dpad,
+	 * rumble|tag|percent and bios|tag|names and es|tag|names lines, applied
+	 * once every system is read, so they may sit anywhere in the file */
 	struct { char kind[12], tag[8], value[160]; } extra[CFG_MAX_SYSTEMS * 4];
 	int nextra = 0;
 	while (fgets(line, sizeof line, f) && out->count < CFG_MAX_SYSTEMS) {
@@ -76,6 +76,7 @@ bool cfg_load_systems(const char *path, systems_cfg *out)
 		}
 		if (n == 3 && (!strcmp(fld[0], "power") || !strcmp(fld[0], "map") ||
 		               !strcmp(fld[0], "controller") || !strcmp(fld[0], "stick") ||
+		               !strcmp(fld[0], "rumble") ||
 	               !strcmp(fld[0], "bios") || !strcmp(fld[0], "es"))) {
 			if (nextra < (int)(sizeof extra / sizeof extra[0])) {
 				snprintf(extra[nextra].kind, sizeof extra[0].kind, "%s", fld[0]);
@@ -120,6 +121,11 @@ bool cfg_load_systems(const char *path, systems_cfg *out)
 			}
 			else if (!strcmp(extra[i].kind, "es"))
 				snprintf(s->es, sizeof s->es, "%s", extra[i].value);
+			else if (!strcmp(extra[i].kind, "rumble")) {
+				int pct = atoi(extra[i].value);
+
+				s->rumble = pct >= 1 && pct <= 99 ? pct : 0;
+			}
 			else
 				s->controller = (unsigned)strtoul(extra[i].value, NULL, 10);
 		}
@@ -137,6 +143,8 @@ void cfg_run_keys(const system_cfg *s, bool dual, char *out, int cap)
 		n += snprintf(out + n, (size_t)(cap - n), "%spower=%s", n ? "\t" : "", s->power);
 	if (s->controller && n < cap)
 		n += snprintf(out + n, (size_t)(cap - n), "%scontroller=%u", n ? "\t" : "", s->controller);
+	if (s->rumble && n < cap)
+		n += snprintf(out + n, (size_t)(cap - n), "%srumble=%d", n ? "\t" : "", s->rumble);
 	/* The stick is not here: whether a game has it on is its own
 	 * (rms_run_stick), added by the launch */
 }

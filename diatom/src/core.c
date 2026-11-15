@@ -530,6 +530,12 @@ bool diatom_core_start(diatom_core *c, const char *rom_path)
  * Kart 64 three times in a row). Unloaded, each game starts on a fresh
  * library, as under RetroArch; dlopen takes about 2 ms.
  *
+ * And PrBoom, whose menus and episodes are statics its next game does not
+ * reset: M_Init turns Read This! into a second Quit Game for Doom II and
+ * never turns it back, so The Ultimate Doom after Doom II had two Quit Game
+ * rows, and a mod's episodes stayed in the next game's menu (1.0.5, Discord;
+ * the first seen on a Mac with the pinned core and Freedoom).
+ *
  * By name, because nothing a core declares says so. */
 static bool one_game_per_load(diatom_core *c)
 {
@@ -540,7 +546,8 @@ static bool one_game_per_load(diatom_core *c)
 	return si.library_name && (!strcmp(si.library_name, "ScummVM") ||
 	                           !strcmp(si.library_name, "FreeJ2ME-Plus") ||
 	                           !strcmp(si.library_name, "ParaLLEl N64") ||
-	                           !strcmp(si.library_name, "Mupen64Plus-Next"));
+	                           !strcmp(si.library_name, "Mupen64Plus-Next") ||
+	                           !strcmp(si.library_name, "PrBoom"));
 }
 
 /* Stops the GAME, not the core. The core stays initialized and stays mapped -
