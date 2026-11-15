@@ -625,6 +625,16 @@ static int ask_drive(unsigned now)
 	rc = net_async_poll();
 	if (rc == 0) return 0;
 	http = net_async_http();
+	/* One line a request, for "why was it slow" on a card read afterwards:
+	 * what was asked, the answer, how long it took */
+	{
+		static const char *KIND[] = { "hashlibrary", "allprogress", "gameid", "patch", "unlocks" };
+		int what = g.ask.kind >= RQ_GAMEID && g.games ? g.games[g.ask.arg].gid : g.ask.arg;
+
+		fprintf(stderr, "radl: %s %d: HTTP %d, %d ms\n",
+		        g.ask.kind >= 0 && g.ask.kind <= RQ_UNLOCKS ? KIND[g.ask.kind] : "?", what, http,
+		        net_async_ms());
+	}
 	if (rc == 1 && (http == 0 || (http >= 200 && http < 300))) {
 		g.ask.body = file_read(g.tmp, LONG_MAX, &g.ask.len);
 		unlink(g.tmp);
