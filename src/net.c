@@ -482,7 +482,14 @@ static char  g_async_cfg[sizeof NET_TMP + 96];
 static long  g_async_t0;
 static int   g_async_ms, g_async_exit;
 
-bool net_post_async(const net_field *f, int n, const char *path, int timeout_s)
+/* A POST's reply file that ends with the status curl wrote after the body,
+ * for net_async_poll to take off it (net_post_async_status). Empty for one
+ * that does not. */
+static char g_async_post[512];
+static int  g_async_http;
+
+static bool post_async(const net_field *f, int n, const char *path, int timeout_s,
+                       bool status)
 {
 	const char *bin = curl_bin();
 	int fd;
@@ -492,16 +499,69 @@ bool net_post_async(const net_field *f, int n, const char *path, int timeout_s)
 
 	snprintf(g_async_cfg, sizeof g_async_cfg, NET_TMP "/zyperos-ra-async-%ld.curl",
 	         (long)getpid());
-	if (!write_config(g_async_cfg, RA_URL, false, f, n, timeout_s, NULL, false)) return false;
+	if (!write_config(g_async_cfg, RA_URL, false, f, n, timeout_s, NULL, status)) return false;
 
 	fd = open_new(path, O_WRONLY, 0644);
 	if (fd < 0) { unlink(g_async_cfg); return false; }
 
 	g_async_t0 = now_ms();
+	g_async_http = 0;
+	g_async_post[0] = '\0';
+	if (status && snprintf(g_async_post, sizeof g_async_post, "%s", path)
+	              >= (int)sizeof g_async_post) {
+		close(fd);
+		unlink(g_async_cfg);
+		g_async_post[0] = '\0';
+		return false;
+	}
 	g_async = spawn_curl(bin, g_async_cfg, fd);
-	if (g_async < 0) { close(fd); unlink(g_async_cfg); g_async = -1; return false; }
+	if (g_async < 0) {
+		close(fd);
+		unlink(g_async_cfg);
+		g_async = -1;
+		g_async_post[0] = '\0';
+		return false;
+	}
 	close(fd);
 	return true;
+}
+
+bool net_post_async(const net_field *f, int n, const char *path, int timeout_s)
+{
+	return post_async(f, n, path, timeout_s, false);
+}
+
+bool net_post_async_status(const net_field *f, int n, const char *path, int timeout_s)
+{
+	return post_async(f, n, path, timeout_s, true);
+}
+
+/* The status off the end of a POST's reply file: "<body>\n<code>", or
+ * "\n<code>" alone for a refusal under `fail`. The file is cut back to the
+ * body; 0 when there is no code to read (curl never got an answer). */
+static int take_post_status(const char *path)
+{
+	char tail[24];
+	FILE *f = fopen(path, "r+b");
+	long size, from;
+	size_t got;
+	int code = 0;
+	char *nl;
+
+	if (!f) return 0;
+	if (fseek(f, 0, SEEK_END) != 0 || (size = ftell(f)) <= 0) { fclose(f); return 0; }
+	from = size > (long)sizeof tail - 1 ? size - (long)sizeof tail + 1 : 0;
+	if (fseek(f, from, SEEK_SET) != 0) { fclose(f); return 0; }
+	got = fread(tail, 1, sizeof tail - 1, f);
+	tail[got] = '\0';
+	fclose(f);
+	nl = strrchr(tail, '\n');
+	if (!nl) return 0;
+	code = atoi(nl + 1);
+	if (code < 100 || code > 599) code = 0;
+	/* The body alone stays: what callers of the plain POST read */
+	if (truncate(path, from + (long)(nl - tail)) != 0) return code;
+	return code;
 }
 
 /* Where an async GET is being written, so the poll can put it in place. Empty
@@ -512,7 +572,6 @@ static char g_async_part[520];
  * the body so that a caller can ask what happened even when there is no body
  * to read - which is every refusal, since curl runs with `fail`. */
 static char g_async_st[560];
-static int  g_async_http;
 
 void net_async_abort(void)
 {
@@ -524,6 +583,7 @@ void net_async_abort(void)
 	if (g_async_cfg[0]) unlink(g_async_cfg);
 	if (g_async_part[0]) unlink(g_async_part);
 	if (g_async_st[0]) { unlink(g_async_st); g_async_st[0] = '\0'; }
+	g_async_post[0] = '\0';
 	g_async_dest[0] = '\0';
 	g_async_part[0] = '\0';
 }
@@ -607,6 +667,10 @@ int net_async_poll(void)
 	g_async_exit = (r > 0 && WIFEXITED(st)) ? WEXITSTATUS(st) : -1;
 
 	g_async_http = 0;
+	if (g_async_post[0]) {
+		g_async_http = take_post_status(g_async_post);
+		g_async_post[0] = '\0';
+	}
 	if (g_async_st[0]) {
 		FILE *h = fopen(g_async_st, "r");
 

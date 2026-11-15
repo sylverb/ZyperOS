@@ -28,7 +28,7 @@ NATIVE_J = $(if $(filter -j%,$(MAKEFLAGS))$(findstring j,$(filter-out -%,$(first
 # had to be remembered by name, which is a suite in the same sense that a list
 # of good intentions is a plan. A check nobody runs is a check that does not
 # exist, and check-menus was about to join eight others in that state.
-CHECKS = check-cheevos check-hare check-portal check-httpd check-idle check-taskhold check-saver check-rahash check-flacdec check-achtab check-rasubmit check-raoffline check-signin check-noticeq check-badges check-badge-shots \
+CHECKS = check-cheevos check-hare check-portal check-httpd check-idle check-taskhold check-saver check-rahash check-flacdec check-achtab check-rasubmit check-raoffline check-radl check-signin check-noticeq check-badges check-badge-shots \
          check-raset check-xfer check-sshlink check-usblink check-devmode check-devices check-devicegen check-model check-ctl check-menus check-artscrape check-artrun check-sgdb check-snapshelf check-snaps check-audioout \
          check-db check-coreopts check-gamedel check-gamern check-esmedia check-media check-snapsize check-corepins check-targets check-storage check-stats check-sort check-bt check-ss check-titles check-savedlib check-search \
          check-muselib check-musequeue check-museart check-mp4lock check-mp4frame check-p2share check-webtheme check-p2ws check-p2codec check-p2d check-play check-p2 check-resident check-spawn check-controls check-remap check-controls-shots check-logpack \
@@ -1589,7 +1589,7 @@ build-native/rahash-check: tools/rahash-check.c $(RAHASH_SRC) src/rahashjob.c sr
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g $(LZMA_CFLAGS) \
 	      -o $@ tools/rahash-check.c $(RAHASH_SRC) src/rahashjob.c -lz $(LZMA_LIBS) -lpthread
 
-.PHONY: check-noticeq check-badges check-badge-shots check-rasubmit check-lowbatt check-powerhold check-homesys check-heat check-charging
+.PHONY: check-noticeq check-badges check-badge-shots check-radl check-rasubmit check-lowbatt check-powerhold check-homesys check-heat check-charging
 
 # The pop-ups over a game, one after another (src/noticeq.h)
 check-noticeq: build-native/noticeq-check
@@ -1673,6 +1673,23 @@ check-raoffline:
 		  $(I18N_SRC) $(LZMA_CFLAGS) $$(pkg-config --libs sdl2) -lsqlite3 -lz $(LZMA_LIBS) -lpthread && \
 		./build-native/raoffline-check; \
 	else echo "skipped: no SDL2 for the offline achievements check"; fi
+
+# MENU > Achievements' Download (src/radl.h): a whole card's run against a
+# RetroAchievements of the check's own - this check is its curl, net.c read in
+# whole - on a mixed card: sets right and out of date, new, unknown, empty, a
+# marker RetroAchievements has news for, a 429, the network gone mid-run, a
+# run stopped and finished by the next, libraries that never come, an account
+# refused. The time is the check's. No network.
+check-radl: build-native/radl-check
+	@./build-native/radl-check
+
+build-native/radl-check: tools/radl-check.c src/radl.c src/radl.h src/net.c src/net.h src/rafetch.c src/rajson.c src/cheevos.c src/library.c $(RAHASH_SRC) src/atomic.c src/db.c $(I18N_SRC) FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -DZYPEROS_VERSION='"check"' \
+	      -DNET_TMP='"$(CURDIR)/build-native/radl-check-tmp"' \
+	      -DRADL_TMP='"$(CURDIR)/build-native"' \
+	      $(LZMA_CFLAGS) -o $@ tools/radl-check.c src/radl.c src/rafetch.c src/rajson.c src/cheevos.c \
+	      src/library.c $(RAHASH_SRC) src/atomic.c src/db.c $(I18N_SRC) -lsqlite3 -lz $(LZMA_LIBS) -lpthread
 
 # The two set converters - one C on the device, one Python in the bulk tool -
 # over real RetroAchievements responses. Needs credentials and a network;
