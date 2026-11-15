@@ -3938,7 +3938,7 @@ Square, and both rows show it. Turbo and Nothing never swap (Y can be Turbo
 Cross while B stays Cross), and a swap never lands on a quiet row: it keeps
 what it gives. SELECT keeps the hotkeys' rule whatever it gives: Diatom's
 chord gives a lone SELECT to the game as it is let go, or once held 400 ms,
-and never under a shoulder.
+and never under a shoulder (pressed after it, or up to 100 ms before it).
 
 **The warning row.** A game button that no button gives now (Nothing on the
 only button that gave it, and no turbo of it either) gets a quiet row,
@@ -4171,8 +4171,18 @@ File Transfer 2 lab, `docs/design/mock/transfer2-lab.html`)*:
   "receiving", "sending" or "closing"; A on it opens the screen again with the
   same PIN. The shelf reads the card again once arrived files have been still
   3 seconds. It closes by itself once the file the question let finish is in,
-  when the hotspot stops or the cable has been out 10 seconds, and after half
-  an hour with no browser asking anything.
+  when the hotspot stops or the cable has been out 10 seconds (with an upload
+  paused, the link gone 10 minutes), and after half an hour with no browser
+  asking anything.
+- **An upload whose connection breaks** *(a Wi-Fi drop that lost a 517 MB
+  disc whole, 2026-11-14)* is paused, not lost: its part stays on the card
+  for the page to go on from (`GET /api/upload`, `src/hare.c`), the Now row
+  says "paused: NAME" and the Download tile keeps its bar where the file
+  stopped. For the 10 minutes the page waits for the handheld it counts as a
+  file still moving (B asks, Auto Off waits); Cancel now drops it, and a part
+  nobody goes on with goes after 30 minutes. The page says **Waiting for the
+  handheld** with what is kept and **Stop sending**, then "Connection back.
+  Going on from 58%.", or after 10 minutes with no answer **Try again**.
 - **A game** while files move asks first, in the same tiles: **Not now**
   (back to the shelf), **Play after this file** (a wait on the news's page,
   11.35, "Finishing Tobu Tobu Girl.gb...", then the game) or **Cancel and

@@ -1588,7 +1588,9 @@ void xs_tick(app *a)
 		bool guessed = hare_wrong_pins() >= XS_WRONG_MAX;
 
 		if ((hare_closing() && hare_inflight() == 0) || g_xs.hot_failed || guessed ||
-		    (g_xs.link_lost_at && now - g_xs.link_lost_at > XS_LINK_MS) ||
+		    /* the link gone, or with an upload paused (hare_paused) as long
+		     * as the page waits for it to come back */
+		    (g_xs.link_lost_at && now - g_xs.link_lost_at > (hare_paused() ? HARE_PAUSE_MS : XS_LINK_MS)) ||
 		    (quiet && hare_quiet_ms() > XS_QUIET_MS)) {
 			fprintf(stderr, "xfer: closed behind the shelf (%s)\n",
 			        hare_closing() ? "after the files" : g_xs.hot_failed ? "the hotspot stopped"
@@ -1640,7 +1642,7 @@ const char *xs_row_value(void)
 {
 	if (!g_xs.on) return NULL;
 	if (hare_closing()) return T(S_XFER_ROW_CLOSING);
-	if (g_xs.st.uploads > 0) return T(S_XFER_ROW_RECEIVING);
+	if (g_xs.st.uploads > 0 || g_xs.st.paused > 0) return T(S_XFER_ROW_RECEIVING);
 	if (g_xs.st.sends > 0) return T(S_XFER_ROW_SENDING);
 	return T(S_XFER_ROW_ON);
 }
@@ -1707,8 +1709,10 @@ void xs_end(void)
 /* The tiles (g_move) from the session as it is now */
 static void xs_move_now(void)
 {
-	xs_move_set(g_xs.flow, g_xs.st.uploads > 0 ? g_xs.st.up_got : 0,
-	            g_xs.st.uploads > 0 ? g_xs.st.up_total : 0);
+	/* a paused upload's bar where it stopped (hare_status) */
+	bool up = g_xs.st.uploads > 0 || g_xs.st.paused > 0;
+
+	xs_move_set(g_xs.flow, up ? g_xs.st.up_got : 0, up ? g_xs.st.up_total : 0);
 }
 
 /* Play after this file's wait (xs_before_game), on the page: its line,
@@ -1796,10 +1800,12 @@ static int xs_ask(app *a, const char *heading, const char *const *labels, const 
 		for (i = 0; i < n; i++) rows[i] = (menu_row){ labels[i], NULL, true };
 		if (g_xs.st.file[0])
 			snprintf(sub, sizeof sub,
-			         T(g_xs.st.uploads > 0 ? S_XFER_RECEIVING : S_XFER_SENDING), g_xs.st.file);
+			         T(g_xs.st.uploads > 0 || g_xs.st.paused > 0 ? S_XFER_RECEIVING : S_XFER_SENDING),
+			         g_xs.st.file);
 		else
 			snprintf(sub, sizeof sub, "%s",
-			         T(g_xs.st.uploads > 0 ? S_XFER_RECEIVING_A_FILE : S_XFER_SENDING_A_FILE));
+			         T(g_xs.st.uploads > 0 || g_xs.st.paused > 0 ? S_XFER_RECEIVING_A_FILE
+			                                                         : S_XFER_SENDING_A_FILE));
 		snprintf(line, sizeof line, what[sel],
 		         g_xs.st.file[0] ? g_xs.st.file : T(S_XFER_THE_FILE));
 		rows[n]     = MENU_NOTE(sub);
@@ -1874,6 +1880,7 @@ bool xs_before_game(app *a)
 	}
 	/* Cancel and play (2), or nothing was moving (-2): closed for the game,
 	 * the shelf read again after it if anything arrived */
+	if (c == 2) hare_drop_paused();
 	xs_stop(a, false);
 	if (c == -2) {
 		menu_row row = { T(S_XFER_CLOSED_FOR_GAME), NULL, false };
@@ -2086,7 +2093,11 @@ void xfer_screen_way(app *a, int way)
 
 				if (!a->running || !g_xs.on) return;
 				if (c == 1) { hare_close_after(); done = false; }  /* the screen closes it */
-				else if (c == 2 || c == -2) stop = true;
+				else if (c == 2 || c == -2) {
+					/* Cancel now: a paused upload's part with the rest */
+					if (c == 2) hare_drop_paused();
+					stop = true;
+				}
 				/* 0 or B: keep going, hidden */
 			}
 		}

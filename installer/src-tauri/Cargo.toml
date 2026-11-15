@@ -27,6 +27,13 @@ sha2 = "0.11"
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 
+# The installer's own updates, on the systems where it replaces itself
+# (selfupdate.rs): Tauri's updater checks, downloads and checks the signature.
+# Linux's packages are the package manager's, so not there
+[target.'cfg(any(target_os = "macos", windows))'.dependencies]
+tauri-plugin-updater = "2"
+semver = "1"
+
 [target.'cfg(target_os = "macos")'.dependencies]
 plist = "1"
 
@@ -36,6 +43,8 @@ windows = { version = "0.58", features = ["Win32_Foundation", "Win32_Security", 
 [dev-dependencies]
 # The tests make their own .xz images
 lzma-rust2 = { version = "0.20", default-features = false, features = ["std", "xz", "encoder"] }
+# selfupdate.rs's version rule, tested on every system
+semver = "1"
 
 [profile.release]
 opt-level = "s"

@@ -186,6 +186,42 @@ for th in light dark; do
 	other "$th: the Controls tab is not the Display tab" "gamemenu-controls-$th" "gamemenu-display-$th"
 done
 
+echo "the in-game Display row says the mode the game plays in, on Favorites too"
+# A Game Boy game played from Favorites, the Game Boy set to Integer: the row
+# is the game's system's mode, the one launch sent and Left and Right change
+# (gm_cycle_display), never the Favorites shelf's own, which nothing sets.
+# Before 1.0.6 it read Stretch there whatever the mode. A card of its own,
+# so Favorites is not on every other shot here; sqlite3 plants the rows.
+if command -v sqlite3 >/dev/null; then
+	F="$D/fav"
+	mkdir -p "$F/root" "$F/userdata" "$F/shared" "$F/Roms/Game Boy" || exit 1
+	cp config/systems.cfg "$F/root/systems.cfg" || exit 1
+	: >"$F/Roms/Game Boy/Tetris.gb" || exit 1
+	frun() {
+		ZYPEROS_HEADLESS=1 SDL_VIDEODRIVER=dummy SDL_RENDER_DRIVER=software \
+		SDL_AUDIODRIVER=dummy \
+		ZYPEROS_ROOT="$F/root" ZYPEROS_CARD="$F" ZYPEROS_ROMS="$F/Roms" \
+		ZYPEROS_USERDATA="$F/userdata" ZYPEROS_SHARED="$F/shared" ZYPEROS_WEB="$F" \
+		ZYPEROS_FONT=res/fonts/menu.ttf "$BIN" "$@" --status "20:41 24h wifi=3 batt=80"
+	}
+	frun --shot "$F/first.png" --theme light >"$F/one.log" 2>&1
+	TAB=$(printf '\t')
+	sqlite3 "$F/shared/.zyperos/library.db" \
+		"INSERT OR REPLACE INTO settings(key,value) VALUES ('fav.GB${TAB}Tetris.gb','1')" &&
+	sqlite3 "$F/userdata/zyperos.db" \
+		"INSERT OR REPLACE INTO settings(key,value) VALUES ('display.GB','integer')" ||
+		fail "could not plant the favorite and the Game Boy's mode"
+	frun --shot "$F/gm-fav.png" --theme light --screen games --gamemenu 0 --gm-tab 1 >"$F/one.log" 2>&1
+	cat "$F/one.log" >>"$D/log"
+	grep -q "^scan: Favorites" "$F/one.log" || fail "the favorite's card has no Favorites shelf (see $D/log)"
+	grep -q "^fit: drawn: Integer$" "$F/one.log" ||
+		fail "over a favorite, Display does not say the Game Boy's Integer ($F/gm-fav.png)"
+	grep -q "^fit: drawn: Stretch$" "$F/one.log" &&
+		fail "over a favorite, Display says Favorites' Stretch ($F/gm-fav.png)"
+else
+	echo "  (no sqlite3: the Display row over a favorite not judged)"
+fi
+
 echo "the Controls tab: its rows beside the handheld, in both themes, still"
 # The PlayStation's game (the shelf on it, ZyperOS/.last): the tab at rest
 # and later the same picture; the cursor on D-pad as Stick lights the

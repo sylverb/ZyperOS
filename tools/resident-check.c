@@ -7,7 +7,8 @@
  * for and notes the picture on the way; and a game that ended meanwhile (an
  * EXIT before the answer: px2-open's quit, a crash) is not eaten, but left
  * for the wait loop, whose plat_resident_wait then says the game is over.
- * No SDL window: SDL_GetTicks only. */
+ * And the pid file a resident the launcher started again is written to
+ * (plat_resident_note_pid). No SDL window: SDL_GetTicks only. */
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -177,6 +178,33 @@ int main(void)
 	kill(pid, SIGTERM);
 	waitpid(pid, NULL, 0);
 	unlink(path);
+
+	/* The pid file a resident the launcher started again goes in, where
+	 * launch.sh looks before it starts one of its own */
+	printf("The pid file, for a resident started again:\n");
+	{
+		char pf[96], tmp[112], got[32] = "";
+		FILE *f;
+
+		CHECK(!strcmp((unsetenv("ZYPEROS_DIATOM_PIDFILE"), plat_resident_pidfile()), "/tmp/diatom.pid"),
+		      "launch.sh's own file, /tmp/diatom.pid, unless a check names another");
+		snprintf(pf, sizeof pf, "/tmp/zyperos-resident-check-%d.pid", (int)getpid());
+		snprintf(tmp, sizeof tmp, "%s.new", pf);
+		setenv("ZYPEROS_DIATOM_PIDFILE", pf, 1);
+		if ((f = fopen(pf, "w"))) { fputs("853\n", f); fclose(f); }   /* the one that crashed */
+		CHECK(plat_resident_note_pid(1907), "the new pid written");
+		if ((f = fopen(pf, "r"))) { if (!fgets(got, sizeof got, f)) got[0] = '\0'; fclose(f); }
+		CHECK(!strcmp(got, "1907\n"), "  ...over the crashed one's, as launch.sh writes its own (\"1907\\n\")");
+		CHECK(access(tmp, F_OK) != 0, "  ...through a file renamed over it, none left behind");
+		CHECK(!plat_resident_note_pid(0) && !plat_resident_note_pid(-1), "no pid, nothing written");
+		if ((f = fopen(pf, "r"))) { if (!fgets(got, sizeof got, f)) got[0] = '\0'; fclose(f); }
+		CHECK(!strcmp(got, "1907\n"), "  ...the file as it was");
+		setenv("ZYPEROS_DIATOM_PIDFILE", "/nonexistent-dir/diatom.pid", 1);
+		CHECK(!plat_resident_note_pid(1907), "a folder that is not there: false, for the log to say");
+		unsetenv("ZYPEROS_DIATOM_PIDFILE");
+		unlink(pf);
+	}
+
 	if (failures) { printf("%d resident check(s) failed\n", failures); return 1; }
 	printf("ok: the resident's answers\n");
 	return 0;

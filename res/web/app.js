@@ -133,7 +133,7 @@ function pix(key, color, fallback) {
  * answer in plain text precisely so this can show them without a schema. */
 async function api(method, path, body) {
 	const r = await fetch(path, { method, body, credentials: 'same-origin' });
-	if (r.status === 401) { showGate(t('gate.session_ended')); throw new Error('unauthorized'); }
+	if (r.status === 401) { showGate(endedWords()); throw new Error('unauthorized'); }
 	if (!r.ok) throw new Error((await r.text()).split('\n')[1] || r.statusText);
 	return r;
 }
@@ -192,6 +192,13 @@ function showGate(msg) {
 	checking = false;
 	boxes[0].focus();
 	blinkSoon();
+}
+
+/* What the PIN screen says when the handheld forgot this browser: and that a
+ * file waiting to go on goes on after the PIN (resuming, below) */
+function endedWords() {
+	return queue.some((j) => j.state === 'paused') ? t('gate.session_ended_sending')
+	     : t('gate.session_ended');
 }
 
 function gateSay(msg, ok) {
@@ -289,6 +296,7 @@ async function sendPin(pin) {
 		$('gate').hidden = true;
 		$('app').hidden = false;
 		try { await start(); } catch (err) { /* the gate is back up */ }
+		if ($('gate').hidden) resumeWaiting();
 	}, still.matches ? 0 : ms('zyper-hop'));
 }
 
@@ -1098,7 +1106,7 @@ let room = null;          /* { free, total, reserve } as the device last said */
 
 async function state() {
 	const r = await fetch('/api/state', { credentials: 'same-origin', cache: 'no-store' });
-	if (r.status === 401) { showGate(t('gate.session_ended')); throw new Error('unauthorized'); }
+	if (r.status === 401) { showGate(endedWords()); throw new Error('unauthorized'); }
 	if (!r.ok) throw new Error('HTTP ' + r.status);
 	return r.json();
 }
@@ -1119,7 +1127,7 @@ async function drawRoom() {
 
 /* Bytes the queue has still to send */
 const pending = () => queue.reduce((n, j) => n + (j.state === 'waiting' ? j.file.size
-	: j.state === 'sending' ? j.file.size - (j.loaded || 0) : 0), 0);
+	: j.state === 'sending' || j.state === 'paused' ? j.file.size - (j.loaded || 0) : 0), 0);
 
 /* The files that fit, in their order, or all of them; null when the player
  * said no. Asked before anything of a batch is queued or made. */
@@ -1260,7 +1268,7 @@ function dropped(dt, dest) {
  * dropped into an artist's folder reuses it. */
 async function makeDir(path) {
 	const r = await fetch('/api/mkdir?p=' + enc(path), { method: 'POST', credentials: 'same-origin' });
-	if (r.status === 401) { showGate(t('gate.session_ended')); throw new Error('unauthorized'); }
+	if (r.status === 401) { showGate(endedWords()); throw new Error('unauthorized'); }
 	if (!r.ok && r.status !== 409) throw new Error((await r.text()).split('\n')[1] || r.statusText);
 }
 
@@ -1303,12 +1311,23 @@ function watch(on) {
 	clearInterval(watchTimer);
 	if (!on) return;
 	watchTimer = setInterval(async () => {
+		/* Not while the PIN screen is up: each answer would put it up again,
+		 * the digits typed so far gone */
+		if (!$('gate').hidden) return;
+		/* A file that has not moved for a while: a drop the browser has not
+		 * noticed yet, which TCP may yet carry over. It waits, asking. */
+		const job = queue.find((j) => j.state === 'sending' && j.xhr);
+		if (job && canResume && performance.now() - job.moved > RESUME.stall) pause(job);
 		try {
 			const st = await state();
 			room = st;
 			if (st.closing) hold(t('queue.closing'));
 		} catch (e) {
-			if (e.message !== 'unauthorized') hold(t('queue.closed'), true);
+			/* Not there: a Wi-Fi drop as often as File Transfer closed, and
+			 * the file on its way waits for it either way (resuming). A
+			 * handheld that cannot go on with a file stops the queue, as
+			 * before. */
+			if (!canResume && e.message !== 'unauthorized') hold(t('queue.closed'), true);
 		}
 	}, 2000);
 }
@@ -1342,48 +1361,307 @@ function next() {
 	if (!sending) watch(true);
 	sending = true;
 	job.state = 'sending';
-	job.loaded = 0;
+	job.loaded = job.loaded || 0;
 	sample(true);
 	drawQueue();
+	begin(job);
+}
 
+/* ---- going on from where it broke -------------------------------------
+ *
+ * 2026-11-14: a player's adapter lost the router for a few seconds in the
+ * middle of a 517 MB PlayStation disc, every few minutes on his network, and
+ * the whole file went each time. Now each file goes with its size and its
+ * time (size= and mod=: which file it is), and the handheld keeps what
+ * arrived of one whose connection breaks (src/hare.c). The file waits rather
+ * than failing: the page asks the handheld every two seconds how much it has
+ * (GET /api/upload) and goes on from there with the rest of the file (from=,
+ * File.slice), and gives up only after ten minutes with no answer, or when
+ * Stop sending says so. The handheld's count is the one that counts, never
+ * the page's: what the browser handed the network is ahead of what reached
+ * the card by whatever the network held, so a row can step back, 60% to 58%.
+ *
+ * A file of a few megabytes starts from nothing without asking - a drop costs
+ * it little, and an album is a hundred of them. A bigger one asks first, so a
+ * page loaded again, or opened at the handheld's new address, with the same
+ * file picked again goes on from what the handheld kept. */
+const RESUME = {
+	ask: 2000,               /* a waiting file asks this often */
+	wait: 4000,              /* and waits this long for an answer */
+	stall: 10000,            /* no progress this long is a drop too */
+	giveUp: 600000,          /* asks that failed this long, while the page runs */
+	check: 30000,            /* then the address to check */
+	back: 4000,              /* "Connection back" this long */
+	min: 8 * 1024 * 1024,    /* smaller files start from nothing */
+	stuck: 5,                /* tries in a row that move nothing: it fails */
+};
+let canResume = true;      /* false once the handheld says it cannot: an older one */
+
+const keyOf = (job) => 'p=' + enc(job.dir + '/' + job.file.name) + '&size=' + job.file.size +
+	'&mod=' + (Math.trunc(job.file.lastModified) || 0);
+/* How much of a waiting file the handheld keeps, as far as the page can say
+ * while it cannot ask: what went, which the next answer corrects */
+const kept = (job) => job.loaded || 0;
+const keptPct = (job) => Math.floor(kept(job) / (job.file.size || 1) * 100);
+const pausedJob = () => queue.find((j) => j.state === 'paused');
+const backJob = () => queue.find((j) => j.state === 'sending' && j.back &&
+	performance.now() - j.back < RESUME.back);
+
+/* What the handheld has of the file: { have, done }; or an Error -
+ * 'unauthorized' (it forgot this browser), 'old' (a handheld that cannot go
+ * on with a file), one with a status for a refusal in its words, and any
+ * other for no answer at all */
+async function askHandheld(job) {
+	const stop = new AbortController();
+	const timer = setTimeout(() => stop.abort(), RESUME.wait);
+	try {
+		const r = await fetch('/api/upload?' + keyOf(job), { credentials: 'same-origin',
+			cache: 'no-store', signal: stop.signal });
+		if (r.status === 401) throw new Error('unauthorized');
+		if (r.status === 404) throw new Error('old');
+		if (!r.ok) throw Object.assign(new Error((await r.text()).split('\n')[1] || r.statusText),
+		                               { status: r.status });
+		return await r.json();
+	} finally {
+		clearTimeout(timer);
+	}
+}
+
+function finish(job) {
+	clearTimeout(job.askTimer);
+	job.state = 'done';
+	job.why = '';
+	job.pct = 100;
+	job.loaded = job.file.size;
+	drawQueue();
+	next();
+}
+
+function fail(job, why) {
+	clearTimeout(job.askTimer);
+	job.state = 'failed';
+	job.why = why;
+	drawQueue();
+	next();
+}
+
+/* A file's first try, or one again: from what the handheld has of it */
+async function begin(job) {
+	if (!canResume || (job.file.size < RESUME.min && !job.tried)) return send(job, 0);
+	let st;
+	try {
+		st = await askHandheld(job);
+	} catch (e) {
+		if (e.message === 'old') { canResume = false; return send(job, 0); }
+		if (e.status) return fail(job, e.message);
+		pause(job);
+		if (e.message === 'unauthorized') showGate(endedWords());
+		return;
+	}
+	if (st.done) return finish(job);
+	send(job, st.have);
+}
+
+/* The rest of the file, from byte `from` on, as one PUT */
+function send(job, from) {
+	clearTimeout(job.askTimer);
+	let body;
+	try {
+		body = job.file.slice(from);
+	} catch (e) {
+		return fail(job, t('job.changed'));
+	}
+	job.state = 'sending';
+	job.tried = true;
+	job.from = from;
+	job.loaded = from;
+	job.pct = Math.round(from / (job.file.size || 1) * 100);
+	job.moved = performance.now();
+	job.tries = (job.tries || 0) + 1;
 	const xhr = new XMLHttpRequest();
-	const put = trailed('/api/file?p=' + enc(job.dir + '/' + job.file.name), job.file);
+	const put = trailed('/api/file?' + keyOf(job) + '&from=' + from, body);
+	job.xhr = xhr;
 	xhr.open('PUT', put.url);
 	xhr.upload.onprogress = (ev) => {
-		if (!ev.lengthComputable) return;
-		/* The file's bytes, not a trailer's after them */
-		const at = Math.min(ev.loaded, job.file.size);
-		sent += Math.max(0, at - (job.loaded || 0));
+		/* Waiting since it stalled: what this try still hands the network
+		 * may be going nowhere, and the handheld's answer decides */
+		if (job.xhr !== xhr || job.state !== 'sending' || !ev.lengthComputable) return;
+		/* The file's bytes, not a trailer's after them; never fewer than
+		 * before, though a browser that sends a broken PUT again by itself
+		 * counts that one from its start */
+		const at = Math.min(from + ev.loaded, job.file.size);
+		if (at <= job.loaded) return;
+		sent += at - job.loaded;
+		job.moved = performance.now();
+		job.tries = 0;
 		job.loaded = at;
-		job.pct = Math.round(ev.loaded / ev.total * 100);
+		job.pct = Math.round(at / (job.file.size || 1) * 100);
 		sample(false);
 		drawQueue();
 	};
 	xhr.onload = () => {
+		if (job.xhr !== xhr) return;
+		job.xhr = null;
 		const why = (xhr.responseText || '').split('\n')[1] || ('HTTP ' + xhr.status);
-		if (xhr.status === 200) { job.state = 'done'; job.pct = 100; }
-		else if (xhr.status === 503) {
+		if (xhr.status === 200) return finish(job);
+		/* Not from where the handheld is: asked again, and from there */
+		if (xhr.status === 409) return again(job, why);
+		if (xhr.status === 401) { pause(job); showGate(endedWords()); return; }
+		if (xhr.status === 503) {
 			/* Refused before a byte went: the handheld is closing */
 			job.state = 'waiting';
 			hold(t('queue.closing_now'));
-		} else {
-			job.state = 'failed';
-			job.why = why;
+			drawQueue();
+			return next();
 		}
-		drawQueue();
-		next();
+		fail(job, why);
 	};
 	xhr.onerror = () => {
+		if (job.xhr !== xhr) return;
+		job.xhr = null;
+		if (canResume) return again(job, t('queue.lost'));
+		/* A handheld that cannot go on with it: failed, and gone rather than
+		 * a hiccup, nothing more is tried */
 		job.state = 'failed';
 		job.why = t('queue.lost');
 		drawQueue();
-		/* Gone, rather than a hiccup: nothing more is tried */
 		state().then(() => next(), (e) => {
 			if (e.message !== 'unauthorized') hold(t('queue.closed'), true);
 			next();
 		});
 	};
 	xhr.send(put.body);
+}
+
+/* A try that ended without the file: it waits and asks, unless try after try
+ * moved nothing, when it fails with what the last one said */
+function again(job, why) {
+	if (job.tries >= RESUME.stuck) return fail(job, why);
+	pause(job);
+}
+
+/* Waiting for the handheld: asked at once, then every RESUME.ask */
+function pause(job) {
+	if (job.state !== 'paused') {
+		job.state = 'paused';
+		job.failedFor = 0;
+		job.askedAt = performance.now();
+	}
+	clearTimeout(job.askTimer);
+	job.askTimer = setTimeout(() => askAgain(job), 0);
+	drawQueue();
+}
+
+async function askAgain(job) {
+	if (job.state !== 'paused' || !queue.includes(job)) return;
+	const now = performance.now();
+	/* A phone's locked screen or a hidden tab holds the page still: such a
+	 * wait counts a minute at most, so it does not give up the moment the
+	 * page runs again */
+	job.failedFor += Math.min(now - job.askedAt, 60000);
+	job.askedAt = now;
+	let st;
+	try {
+		st = await askHandheld(job);
+	} catch (e) {
+		if (job.state !== 'paused') return;
+		/* Forgotten: the PIN screen, and asked again after it (resumeWaiting) */
+		if (e.message === 'unauthorized') { showGate(endedWords()); return; }
+		if (e.message === 'old') { canResume = false; return fail(job, t('queue.lost')); }
+		if (e.status) return fail(job, e.message);
+		if (job.failedFor >= RESUME.giveUp) return giveUp(job);
+		job.askTimer = setTimeout(() => askAgain(job), RESUME.ask);
+		drawQueue();
+		return;
+	}
+	if (job.state !== 'paused') return;
+	if (st.done) return finish(job);
+	/* The try that stalled, if it is still open: ended, and this goes on */
+	if (job.xhr) {
+		const x = job.xhr;
+		job.xhr = null;
+		x.abort();
+	}
+	job.back = performance.now();
+	send(job, st.have);
+}
+
+/* Ten minutes with no answer: it failed, the rest stay on this computer, and
+ * Try again goes on from what the handheld kept, which it keeps for half an
+ * hour */
+function giveUp(job) {
+	clearTimeout(job.askTimer);
+	if (job.xhr) {
+		const x = job.xhr;
+		job.xhr = null;
+		x.abort();
+	}
+	job.state = 'failed';
+	job.why = t('queue.lost');
+	job.gaveUp = true;
+	hold(kept(job) > 0 ? t('queue.gave_up', pct(keptPct(job))) : t('queue.gave_up_none'), true);
+	next();
+}
+
+/* After the PIN: the file that waited for it asks again */
+function resumeWaiting() {
+	for (const j of queue) {
+		if (j.state !== 'paused') continue;
+		clearTimeout(j.askTimer);
+		j.askedAt = performance.now();
+		askAgain(j);
+	}
+}
+
+/* Stop sending: the waiting file and the rest stay on this computer, and the
+ * handheld lets go of what it kept */
+function stopSending() {
+	for (const j of queue) {
+		if (j.state === 'paused') {
+			clearTimeout(j.askTimer);
+			if (j.xhr) {
+				const x = j.xhr;
+				j.xhr = null;
+				x.abort();
+			}
+			j.state = 'held';
+			letGo(j, 5);
+		} else if (j.state === 'waiting') {
+			j.state = 'held';
+		}
+	}
+	next();
+}
+
+/* The handheld told to let go of a file's part (DELETE /api/upload): asked
+ * again a few times when it cannot be reached, Stop sending pressed in the
+ * middle of a drop, for as long as the file stays here not sent. A part it
+ * never hears about goes by itself after half an hour. */
+function letGo(job, tries) {
+	const stop = new AbortController();
+	const timer = setTimeout(() => stop.abort(), RESUME.wait);
+	fetch('/api/upload?' + keyOf(job), { method: 'DELETE', credentials: 'same-origin', signal: stop.signal })
+		.then((r) => { if (!r.ok && r.status !== 401) throw new Error(r.statusText); })
+		.catch(() => {
+			if (tries > 1) setTimeout(() => {
+				if (job.state === 'held' && queue.includes(job)) letGo(job, tries - 1);
+			}, 2000);
+		})
+		.finally(() => clearTimeout(timer));
+}
+
+/* Try again: what gave up and what stayed, back in the queue */
+function retryAll() {
+	for (const j of queue) {
+		if (!j.gaveUp && j.state !== 'held') continue;
+		j.state = 'waiting';
+		j.gaveUp = false;
+		j.tries = 0;
+	}
+	held = '';
+	heldGone = false;
+	drawQueue();
+	if (!sending) next();
 }
 
 /* ---- the time left -----------------------------------------------------
@@ -1427,6 +1705,7 @@ function eta(left) {
 const count = (state) => queue.filter((j) => j.state === state).length;
 
 function queueHead() {
+	if (pausedJob()) return t('queue.waiting_head');
 	const done = count('done'), failed = count('failed'), kept = count('held');
 	const going = queue.some((j) => j.state === 'sending' || j.state === 'waiting');
 	if (held && going) return heldGone ? t('queue.stopped') : t('queue.stopping');
@@ -1440,6 +1719,11 @@ function queueHead() {
 /* What is left, in size and time, while they go */
 function queueLeft() {
 	if (!sending) return '';
+	/* Waiting for the handheld: how much it keeps, and that the rest goes by
+	 * itself; for a moment once it answers, where it goes on from */
+	const p = pausedJob(), b = backJob();
+	if (p) return t('queue.waiting_kept', human(kept(p)), human(p.file.size));
+	if (b) return t('queue.back', pct(Math.floor(b.from / (b.file.size || 1) * 100)));
 	const left = pending();
 	const when = held ? '' : eta(left);
 	return t('queue.left', human(left)) + (when ? ' · ' + when : '');
@@ -1451,7 +1735,8 @@ function queuePct() {
 	for (const j of queue) {
 		if (j.state === 'held') continue;
 		all += j.file.size;
-		done += j.state === 'done' ? j.file.size : j.state === 'sending' ? (j.loaded || 0) : 0;
+		done += j.state === 'done' ? j.file.size
+		      : j.state === 'sending' || j.state === 'paused' ? (j.loaded || 0) : 0;
 	}
 	return all ? Math.round(done / all * 100) : 100;
 }
@@ -1480,13 +1765,16 @@ function jobList() {
 		              : j.state === 'done' ? t('job.done')
 		              : j.state === 'waiting' ? t('job.waiting')
 		              : j.state === 'held' ? t('job.not_sent')
+		              : j.state === 'paused' ? t('job.paused', pct(keptPct(j)))
 		              : pct(j.pct);
 		li.append(n, p);
 		if (j.state !== 'done' && j.state !== 'held') {
 			const bar = document.createElement('div');
 			bar.className = 'bar';
 			const fill = document.createElement('span');
-			fill.style.width = (j.state === 'failed' ? 100 : j.pct) + '%';
+			/* A file waiting, or one that gave up, at what the handheld keeps */
+			fill.style.width = (j.state === 'paused' || j.gaveUp ? keptPct(j)
+			                    : j.state === 'failed' ? 100 : j.pct) + '%';
 			bar.append(fill);
 			li.append(bar);
 		}
@@ -1505,23 +1793,35 @@ function drawQueue() {
 		return;
 	}
 	const head = queueHead(), left = queueLeft(), all = queuePct();
+	const paused = pausedJob(), back = backJob();
 	$('queuehead').textContent = head;
 	/* What is left and the time, one bar for them all; or, stopped by the
-	 * handheld, why the rest stay here */
+	 * handheld or waiting for it, why the rest stay here */
 	$('queueleft').textContent = held || left;
 	$('queueleft').hidden = !(held || left);
-	$('queueleft').classList.toggle('stopping', !!held);
+	$('queueleft').classList.toggle('stopping', !!held || !!paused);
 	$('queuetotal').hidden = !sending;
 	$('queuebar').style.width = all + '%';
+	$('queue').classList.toggle('paused', !!paused);
+	$('dock').classList.toggle('paused', !!paused);
 	$('queuelist').replaceChildren(...jobList().childNodes);
+	/* Under the list: the address to check after a while with no answer, and
+	 * Stop sending while it waits, or Try again once it gave up */
+	$('queuecheck').textContent = checkWords();
+	$('queuecheck').hidden = !checkWords();
+	$('queuestop').hidden = !paused;
+	$('queueretry').hidden = !gaveUp();
+	$('queueacts').hidden = !paused && !gaveUp();
 
 	const top = document.createElement('div');
 	top.className = 'top';
 	const h = document.createElement('span');
 	/* A phone's one line: how far, and the time left */
 	const when = sending && !held ? eta(pending()) : '';
-	h.textContent = sending && !held
-		? t('queue.n_of', count('done') + count('failed') + 1, queue.length) + (when ? ' · ' + when : '')
+	const nOf = t('queue.n_of', count('done') + count('failed') + 1, queue.length);
+	h.textContent = paused ? head
+		: sending && !held && back ? t('queue.back_dock') + ' · ' + nOf
+		: sending && !held ? nOf + (when ? ' · ' + when : '')
 		: head;
 	const p = document.createElement('span');
 	p.className = 'p';
@@ -1540,7 +1840,27 @@ function drawQueue() {
 	if (open) {
 		open.replaceWith(jobList());
 		$('menu').querySelector('.who').textContent = head + (held || left ? ' · ' + (held || left) : '');
+		$('menu').querySelector('.qx').replaceWith(sheetActs());
 	}
+}
+
+/* The address line, once a file has waited RESUME.check with no answer */
+function checkWords() {
+	const p = pausedJob();
+	return p && p.failedFor >= RESUME.check ? t('queue.waiting_check', location.host) : '';
+}
+const gaveUp = () => !sending && queue.some((j) => j.gaveUp);
+
+/* The sheet's own of the panel's line and buttons, under its list */
+function sheetActs() {
+	const box = el('div', 'qx');
+	const words = checkWords();
+	if (words) box.append(el('p', '', words));
+	const acts = el('div', 'qacts');
+	if (pausedJob()) acts.append(btn(t('queue.stop'), '', stopSending));
+	if (gaveUp()) acts.append(btn(t('queue.retry'), 'pri', retryAll));
+	if (acts.childNodes.length) box.append(acts);
+	return box;
 }
 
 $('dock').addEventListener('click', () => {
@@ -1548,8 +1868,10 @@ $('dock').addEventListener('click', () => {
 	who.className = 'who';
 	const left = held || queueLeft();
 	who.textContent = queueHead() + (left ? ' · ' + left : '');
-	openMenu([who, jobList()], $('dock'));
+	openMenu([who, jobList(), sheetActs()], $('dock'));
 });
+$('queuestop').onclick = stopSending;
+$('queueretry').onclick = retryAll;
 
 $('picker').onchange = (e) => { const f = [...e.target.files]; e.target.value = ''; enqueue(f); };
 $('folderpicker').onchange = (e) => {

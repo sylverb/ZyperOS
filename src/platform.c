@@ -10,6 +10,7 @@
 #include "i18n.h"
 #include "keyrepeat.h" /* hold-to-repeat's 300 ms and 90 ms, which portkeys repeats on too */
 #include "platform.h"
+#include "spawn.h"
 
 #include "osdbar.h" /* the volume and brightness bar, drawn here and elsewhere */
 #include "theme.h"  /* which theme the bar is drawn in */
@@ -336,53 +337,25 @@ int plat_run(char *const argv[], const char *const envkv[], const char *workdir)
 	return WIFEXITED(status) ? WEXITSTATUS(status) : -1;
 }
 
-/* Start a child that outlives this process. Double-forked, so the middle
- * child is reaped here and the grandchild is inherited by init rather than
- * becoming a zombie nobody waits for. */
+/* Start a child that outlives this process, and leaves no zombie: double-
+ * forked, so the middle child is reaped here and the program is inherited by
+ * init (src/spawn.h, spawn_detached). */
+long plat_spawn_detached_pid(char *const argv[], const char *const envkv[],
+                             const char *workdir)
+{
+	char **env = child_environ(envkv);
+	long pid;
+
+	if (!env) return -1;
+	pid = spawn_detached(argv, env, workdir);
+	free(env);
+	return pid;
+}
+
 bool plat_spawn_detached(char *const argv[], const char *const envkv[],
                          const char *workdir)
 {
-	char **env = child_environ(envkv);
-	struct rlimit rl;
-	int top = 1024, fd;
-	pid_t pid;
-
-	/* EVERYTHING ABOVE STDERR IS CLOSED IN THE CHILD, before it becomes the
-	 * program asked for.
-	 *
-	 * Fork hands a child every descriptor this process has open: the resident
-	 * emulator's socket, Muse's, the display, the GPU, four input devices,
-	 * the font. A short-lived child drops them when it exits. A DAEMON keeps
-	 * them for as long as it lives, and Muse is meant to outlive the launcher.
-	 * That froze the Brick on 2026-09-18: Muse held a dead launcher's end of
-	 * Diatom's socket, so Diatom never saw it close, and the restarted
-	 * launcher blocked in connect before its first frame. Diatom's half is
-	 * that the newest connection wins; this is ours.
-	 *
-	 * By number up to the limit, not by listing /proc/self/fd: listing
-	 * allocates, and after fork in a threaded process only async-signal-safe
-	 * calls are safe - close is one. The limit is read here, before fork, for
-	 * the same reason. 1024 on the Brick, with about thirty open. stdout and
-	 * stderr stay: they are the log, and a daemon's lines belong in it. */
-	if (getrlimit(RLIMIT_NOFILE, &rl) == 0 && rl.rlim_cur != RLIM_INFINITY)
-		top = rl.rlim_cur < 65536 ? (int)rl.rlim_cur : 65536;
-
-	if (!env) return false;
-	pid = fork();
-	if (pid < 0) { free(env); return false; }
-	if (pid == 0) {
-		if (fork() == 0) {
-			setsid();
-			for (fd = 3; fd < top; fd++) close(fd);
-			if (workdir) { if (chdir(workdir) != 0) { /* still try */ } }
-			execve(argv[0], argv, env);
-			_exit(127);
-		}
-		_exit(0);
-	}
-	free(env);
-	waitpid(pid, NULL, 0);
-	return true;
+	return plat_spawn_detached_pid(argv, envkv, workdir) > 0;
 }
 
 void plat_request_poweroff(void)

@@ -45,7 +45,7 @@ The page is set in the fonts in `ui/fonts`. Their names, versions and copyrights
 
 Every Rust crate compiled into the apps, one row for each name and version: what cargo resolves as normal dependencies for each app's targets, procedural macros and what they use among them (they write code into the apps as they build). Crates only build scripts or tests use are not in it, nor is the installer's own crate. The targets: the macOS app is one universal build of `aarch64-apple-darwin` (Apple Silicon) and `x86_64-apple-darwin` (Intel); the Windows app is `x86_64-pc-windows-msvc`; the Linux app is `x86_64-unknown-linux-gnu`.
 
-**317 crates in all**: 231 in the macOS app (231 for Apple Silicon and 231 for Intel, the same set), 242 in the Windows app and 269 in the Linux app.
+**358 crates in all**: 275 in the macOS app (275 for Apple Silicon and 275 for Intel, the same set), 277 in the Windows app and 269 in the Linux app.
 
 | Crate | Version | License | Repository | macOS | Windows | Linux |
 |---|---|---|---|:-:|:-:|:-:|
@@ -56,6 +56,7 @@ Every Rust crate compiled into the apps, one row for each name and version: what
 | `anyhow` | 1.0.104 | MIT OR Apache-2.0 | <https://github.com/dtolnay/anyhow> | ✓ | ✓ | ✓ |
 | `atk` | 0.18.2 | MIT | <https://github.com/gtk-rs/gtk3-rs> |  |  | ✓ |
 | `atk-sys` | 0.18.2 | MIT | <https://github.com/gtk-rs/gtk3-rs> |  |  | ✓ |
+| `atomic-waker` | 1.1.2 | Apache-2.0 OR MIT | <https://github.com/smol-rs/atomic-waker> | ✓ | ✓ |  |
 | `base64` | 0.21.7 | MIT OR Apache-2.0 | <https://github.com/marshallpierce/rust-base64> | ✓ | ✓ | ✓ |
 | `base64` | 0.22.1 | MIT OR Apache-2.0 | <https://github.com/marshallpierce/rust-base64> | ✓ | ✓ | ✓ |
 | `base64` | 0.23.1 | MIT OR Apache-2.0 | <https://github.com/marshallpierce/rust-base64> | ✓ | ✓ | ✓ |
@@ -78,7 +79,9 @@ Every Rust crate compiled into the apps, one row for each name and version: what
 | `cfb` | 0.14.0 | MIT | <https://github.com/mdsteele/rust-cfb> | ✓ | ✓ | ✓ |
 | `cfg-if` | 1.0.5 | MIT OR Apache-2.0 | <https://github.com/rust-lang/cfg-if> | ✓ | ✓ | ✓ |
 | `const-oid` | 0.10.2 | Apache-2.0 OR MIT | <https://github.com/RustCrypto/formats> | ✓ | ✓ | ✓ |
+| `constant_time_eq` | 0.6.1 | CC0-1.0 OR MIT-0 OR Apache-2.0 | <https://codeberg.org/cesarb/constant_time_eq> |  | ✓ |  |
 | `cookie` | 0.18.2 | MIT OR Apache-2.0 | <https://github.com/SergioBenitez/cookie-rs> | ✓ | ✓ | ✓ |
+| `core-foundation` | 0.9.4 | MIT OR Apache-2.0 | <https://github.com/servo/core-foundation-rs> | ✓ |  |  |
 | `core-foundation` | 0.10.1 | MIT OR Apache-2.0 | <https://github.com/servo/core-foundation-rs> | ✓ |  |  |
 | `core-foundation-sys` | 0.8.7 | MIT OR Apache-2.0 | <https://github.com/servo/core-foundation-rs> | ✓ |  |  |
 | `core-graphics` | 0.25.0 | MIT OR Apache-2.0 | <https://github.com/servo/core-foundation-rs> | ✓ |  |  |
@@ -117,9 +120,11 @@ Every Rust crate compiled into the apps, one row for each name and version: what
 | `embed_plist` | 1.2.2 | MIT OR Apache-2.0 | <https://github.com/nvzqz/embed-plist-rs> | ✓ |  |  |
 | `equivalent` | 1.0.2 | Apache-2.0 OR MIT | <https://github.com/indexmap-rs/equivalent> | ✓ | ✓ | ✓ |
 | `erased-serde` | 0.4.10 | MIT OR Apache-2.0 | <https://github.com/dtolnay/erased-serde> | ✓ | ✓ | ✓ |
+| `errno` | 0.3.15 | MIT OR Apache-2.0 | <https://github.com/lambda-fairy/rust-errno> | ✓ |  |  |
 | `fastrand` | 2.5.0 | Apache-2.0 OR MIT | <https://github.com/smol-rs/fastrand> | ✓ | ✓ | ✓ |
 | `fdeflate` | 0.3.7 | MIT OR Apache-2.0 | <https://github.com/image-rs/fdeflate> | ✓ | ✓ | ✓ |
 | `field-offset` | 0.3.6 | MIT OR Apache-2.0 | <https://github.com/Diggsey/rust-field-offset> |  |  | ✓ |
+| `filetime` | 0.2.29 | MIT/Apache-2.0 | <https://github.com/alexcrichton/filetime> | ✓ |  |  |
 | `flate2` | 1.1.10 | MIT OR Apache-2.0 | <https://github.com/rust-lang/flate2-rs> | ✓ | ✓ | ✓ |
 | `fnv` | 1.0.7 | Apache-2.0 / MIT | <https://github.com/servo/rust-fnv> | ✓ | ✓ | ✓ |
 | `foldhash` | 0.2.0 | Zlib | <https://github.com/orlp/foldhash> | ✓ | ✓ | ✓ |
@@ -127,13 +132,14 @@ Every Rust crate compiled into the apps, one row for each name and version: what
 | `foreign-types-macros` | 0.2.4 | MIT/Apache-2.0 | <https://github.com/sfackler/foreign-types> | ✓ |  |  |
 | `foreign-types-shared` | 0.3.1 | MIT/Apache-2.0 | <https://github.com/sfackler/foreign-types> | ✓ |  |  |
 | `form_urlencoded` | 1.2.2 | MIT OR Apache-2.0 | <https://github.com/servo/rust-url> | ✓ | ✓ | ✓ |
-| `futures-channel` | 0.3.34 | MIT OR Apache-2.0 | <https://github.com/rust-lang/futures-rs> |  |  | ✓ |
-| `futures-core` | 0.3.34 | MIT OR Apache-2.0 | <https://github.com/rust-lang/futures-rs> |  |  | ✓ |
+| `futures-channel` | 0.3.34 | MIT OR Apache-2.0 | <https://github.com/rust-lang/futures-rs> | ✓ | ✓ | ✓ |
+| `futures-core` | 0.3.34 | MIT OR Apache-2.0 | <https://github.com/rust-lang/futures-rs> | ✓ | ✓ | ✓ |
 | `futures-executor` | 0.3.34 | MIT OR Apache-2.0 | <https://github.com/rust-lang/futures-rs> |  |  | ✓ |
 | `futures-io` | 0.3.34 | MIT OR Apache-2.0 | <https://github.com/rust-lang/futures-rs> |  |  | ✓ |
-| `futures-macro` | 0.3.34 | MIT OR Apache-2.0 | <https://github.com/rust-lang/futures-rs> |  |  | ✓ |
-| `futures-task` | 0.3.34 | MIT OR Apache-2.0 | <https://github.com/rust-lang/futures-rs> |  |  | ✓ |
-| `futures-util` | 0.3.34 | MIT OR Apache-2.0 | <https://github.com/rust-lang/futures-rs> |  |  | ✓ |
+| `futures-macro` | 0.3.34 | MIT OR Apache-2.0 | <https://github.com/rust-lang/futures-rs> | ✓ | ✓ | ✓ |
+| `futures-sink` | 0.3.34 | MIT OR Apache-2.0 | <https://github.com/rust-lang/futures-rs> | ✓ | ✓ |  |
+| `futures-task` | 0.3.34 | MIT OR Apache-2.0 | <https://github.com/rust-lang/futures-rs> | ✓ | ✓ | ✓ |
+| `futures-util` | 0.3.34 | MIT OR Apache-2.0 | <https://github.com/rust-lang/futures-rs> | ✓ | ✓ | ✓ |
 | `gdk` | 0.18.2 | MIT | <https://github.com/gtk-rs/gtk3-rs> |  |  | ✓ |
 | `gdk-pixbuf` | 0.18.5 | MIT | <https://github.com/gtk-rs/gtk-rs-core> |  |  | ✓ |
 | `gdk-pixbuf-sys` | 0.18.0 | MIT | <https://github.com/gtk-rs/gtk-rs-core> |  |  | ✓ |
@@ -161,8 +167,13 @@ Every Rust crate compiled into the apps, one row for each name and version: what
 | `heck` | 0.5.0 | MIT OR Apache-2.0 | <https://github.com/withoutboats/heck> | ✓ | ✓ | ✓ |
 | `html5ever` | 0.39.0 | MIT OR Apache-2.0 | <https://github.com/servo/html5ever> | ✓ | ✓ | ✓ |
 | `http` | 1.5.0 | MIT OR Apache-2.0 | <https://github.com/hyperium/http> | ✓ | ✓ | ✓ |
+| `http-body` | 1.1.0 | MIT | <https://github.com/hyperium/http-body> | ✓ | ✓ |  |
+| `http-body-util` | 0.1.5 | MIT | <https://github.com/hyperium/http-body> | ✓ | ✓ |  |
 | `httparse` | 1.10.1 | MIT OR Apache-2.0 | <https://github.com/seanmonstar/httparse> | ✓ | ✓ | ✓ |
 | `hybrid-array` | 0.4.15 | MIT OR Apache-2.0 | <https://github.com/RustCrypto/hybrid-array> | ✓ | ✓ | ✓ |
+| `hyper` | 1.12.0 | MIT | <https://github.com/hyperium/hyper> | ✓ | ✓ |  |
+| `hyper-rustls` | 0.27.10 | Apache-2.0 OR ISC OR MIT | <https://github.com/rustls/hyper-rustls> | ✓ | ✓ |  |
+| `hyper-util` | 0.1.21 | MIT | <https://github.com/hyperium/hyper-util> | ✓ | ✓ |  |
 | `ico` | 0.5.0 | MIT | <https://github.com/mdsteele/rust-ico> | ✓ | ✓ | ✓ |
 | `icu_collections` | 2.3.0 | Unicode-3.0 | <https://github.com/unicode-org/icu4x> | ✓ | ✓ | ✓ |
 | `icu_locale_core` | 2.3.0 | Unicode-3.0 | <https://github.com/unicode-org/icu4x> | ✓ | ✓ | ✓ |
@@ -177,6 +188,7 @@ Every Rust crate compiled into the apps, one row for each name and version: what
 | `indexmap` | 1.9.3 | Apache-2.0 OR MIT | <https://github.com/bluss/indexmap> | ✓ | ✓ | ✓ |
 | `indexmap` | 2.14.2 | Apache-2.0 OR MIT | <https://github.com/indexmap-rs/indexmap> | ✓ | ✓ | ✓ |
 | `infer` | 0.22.0 | MIT | <https://github.com/bojand/infer> | ✓ | ✓ | ✓ |
+| `ipnet` | 2.12.2 | MIT OR Apache-2.0 | <https://github.com/krisprice/ipnet> | ✓ | ✓ |  |
 | `itoa` | 1.0.18 | MIT OR Apache-2.0 | <https://github.com/dtolnay/itoa> | ✓ | ✓ | ✓ |
 | `javascriptcore-rs` | 1.1.2 | MIT | <https://github.com/tauri-apps/javascriptcore-rs> |  |  | ✓ |
 | `javascriptcore-rs-sys` | 1.1.1 | MIT | <https://github.com/tauri-apps/javascriptcore-rs> |  |  | ✓ |
@@ -193,8 +205,10 @@ Every Rust crate compiled into the apps, one row for each name and version: what
 | `memchr` | 2.8.3 | Unlicense OR MIT | <https://github.com/BurntSushi/memchr> | ✓ | ✓ | ✓ |
 | `memoffset` | 0.9.1 | MIT | <https://github.com/Gilnaa/memoffset> |  |  | ✓ |
 | `mime` | 0.3.17 | MIT OR Apache-2.0 | <https://github.com/hyperium/mime> | ✓ | ✓ | ✓ |
+| `minisign-verify` | 0.3.0 | MIT | <https://github.com/jedisct1/rust-minisign-verify> | ✓ | ✓ |  |
 | `miniz_oxide` | 0.8.9 | MIT OR Zlib OR Apache-2.0 | <https://github.com/Frommi/miniz_oxide/tree/master/miniz_oxide> | ✓ | ✓ | ✓ |
 | `miniz_oxide` | 0.9.1 | MIT OR Zlib OR Apache-2.0 | <https://github.com/Frommi/miniz_oxide/tree/master/miniz_oxide> | ✓ | ✓ | ✓ |
+| `mio` | 1.2.4 | MIT | <https://github.com/tokio-rs/mio> | ✓ | ✓ |  |
 | `muda` | 0.20.0 | Apache-2.0 OR MIT | <https://github.com/tauri-apps/muda> | ✓ | ✓ | ✓ |
 | `new_debug_unreachable` | 1.0.6 | MIT | <https://github.com/mbrubeck/rust-debug-unreachable> | ✓ | ✓ | ✓ |
 | `num-conv` | 0.2.2 | MIT OR Apache-2.0 | <https://github.com/jhpratt/num-conv> | ✓ | ✓ | ✓ |
@@ -204,10 +218,12 @@ Every Rust crate compiled into the apps, one row for each name and version: what
 | `objc2-encode` | 4.1.0 | MIT | <https://github.com/madsmtm/objc2> | ✓ |  |  |
 | `objc2-exception-helper` | 0.1.1 | Zlib OR Apache-2.0 OR MIT | <https://github.com/madsmtm/objc2> | ✓ |  |  |
 | `objc2-foundation` | 0.3.2 | MIT | <https://github.com/madsmtm/objc2> | ✓ |  |  |
+| `objc2-osa-kit` | 0.3.2 | Zlib OR Apache-2.0 OR MIT | <https://github.com/madsmtm/objc2> | ✓ |  |  |
 | `objc2-quartz-core` | 0.3.2 | Zlib OR Apache-2.0 OR MIT | <https://github.com/madsmtm/objc2> | ✓ |  |  |
 | `objc2-web-kit` | 0.3.2 | Zlib OR Apache-2.0 OR MIT | <https://github.com/madsmtm/objc2> | ✓ |  |  |
 | `once_cell` | 1.21.4 | MIT OR Apache-2.0 | <https://github.com/matklad/once_cell> | ✓ | ✓ | ✓ |
 | `option-ext` | 0.2.0 | MPL-2.0 | <https://github.com/soc/option-ext.git> | ✓ | ✓ | ✓ |
+| `osakit` | 0.3.1 | MIT OR Apache-2.0 | <https://github.com/mdevils/rust-osakit> | ✓ |  |  |
 | `pango` | 0.18.3 | MIT | <https://github.com/gtk-rs/gtk-rs-core> |  |  | ✓ |
 | `pango-sys` | 0.18.0 | MIT | <https://github.com/gtk-rs/gtk-rs-core> |  |  | ✓ |
 | `parking_lot` | 0.12.5 | MIT OR Apache-2.0 | <https://github.com/Amanieu/parking_lot> | ✓ | ✓ | ✓ |
@@ -235,16 +251,21 @@ Every Rust crate compiled into the apps, one row for each name and version: what
 | `regex` | 1.13.1 | MIT OR Apache-2.0 | <https://github.com/rust-lang/regex> | ✓ | ✓ | ✓ |
 | `regex-automata` | 0.4.18 | MIT OR Apache-2.0 | <https://github.com/rust-lang/regex> | ✓ | ✓ | ✓ |
 | `regex-syntax` | 0.8.11 | MIT OR Apache-2.0 | <https://github.com/rust-lang/regex> | ✓ | ✓ | ✓ |
+| `reqwest` | 0.13.5 | MIT OR Apache-2.0 | <https://github.com/seanmonstar/reqwest> | ✓ | ✓ |  |
 | `rfd` | 0.17.2 | MIT | <https://github.com/PolyMeilex/rfd> | ✓ | ✓ | ✓ |
 | `ring` | 0.17.14 | Apache-2.0 AND ISC | <https://github.com/briansmith/ring> | ✓ | ✓ | ✓ |
 | `rustc-hash` | 2.1.3 | Apache-2.0 OR MIT | <https://github.com/rust-lang/rustc-hash> | ✓ | ✓ | ✓ |
+| `rustix` | 1.1.6 | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT | <https://github.com/bytecodealliance/rustix> | ✓ |  |  |
 | `rustls` | 0.23.46 | Apache-2.0 OR ISC OR MIT | <https://github.com/rustls/rustls> | ✓ | ✓ | ✓ |
 | `rustls-pki-types` | 1.15.1 | MIT OR Apache-2.0 | <https://github.com/rustls/pki-types> | ✓ | ✓ | ✓ |
+| `rustls-platform-verifier` | 0.7.1 | MIT OR Apache-2.0 | <https://github.com/rustls/rustls-platform-verifier> | ✓ | ✓ |  |
 | `rustls-webpki` | 0.103.15 | ISC | <https://github.com/rustls/webpki> | ✓ | ✓ | ✓ |
 | `same-file` | 1.0.6 | Unlicense/MIT | <https://github.com/BurntSushi/same-file> | ✓ | ✓ | ✓ |
 | `schemars` | 0.8.22 | MIT | <https://github.com/GREsau/schemars> | ✓ | ✓ | ✓ |
 | `schemars_derive` | 0.8.22 | MIT | <https://github.com/GREsau/schemars> | ✓ | ✓ | ✓ |
 | `scopeguard` | 1.2.0 | MIT OR Apache-2.0 | <https://github.com/bluss/scopeguard> | ✓ | ✓ | ✓ |
+| `security-framework` | 3.7.0 | MIT OR Apache-2.0 | <https://github.com/kornelski/rust-security-framework> | ✓ |  |  |
+| `security-framework-sys` | 2.17.0 | MIT OR Apache-2.0 | <https://github.com/kornelski/rust-security-framework> | ✓ |  |  |
 | `selectors` | 0.38.0 | MPL-2.0 | <https://github.com/servo/stylo> | ✓ | ✓ | ✓ |
 | `semver` | 1.0.28 | MIT OR Apache-2.0 | <https://github.com/dtolnay/semver> | ✓ | ✓ | ✓ |
 | `serde` | 1.0.229 | MIT OR Apache-2.0 | <https://github.com/serde-rs/serde> | ✓ | ✓ | ✓ |
@@ -265,8 +286,9 @@ Every Rust crate compiled into the apps, one row for each name and version: what
 | `sha2` | 0.11.0 | MIT OR Apache-2.0 | <https://github.com/RustCrypto/hashes> | ✓ | ✓ | ✓ |
 | `simd-adler32` | 0.3.10 | MIT | <https://github.com/mcountryman/simd-adler32> | ✓ | ✓ | ✓ |
 | `siphasher` | 1.0.4 | MIT OR Apache-2.0 | <https://github.com/jedisct1/rust-siphash> | ✓ | ✓ | ✓ |
-| `slab` | 0.4.12 | MIT | <https://github.com/tokio-rs/slab> |  |  | ✓ |
+| `slab` | 0.4.12 | MIT | <https://github.com/tokio-rs/slab> | ✓ | ✓ | ✓ |
 | `smallvec` | 1.16.2 | MIT OR Apache-2.0 | <https://github.com/servo/rust-smallvec> | ✓ | ✓ | ✓ |
+| `socket2` | 0.6.5 | MIT OR Apache-2.0 | <https://github.com/rust-lang/socket2> | ✓ | ✓ |  |
 | `softbuffer` | 0.4.8 | MIT OR Apache-2.0 | <https://github.com/rust-windowing/softbuffer> |  | ✓ |  |
 | `soup3` | 0.5.0 | MIT | <https://gitlab.gnome.org/World/Rust/soup3-rs> |  |  | ✓ |
 | `soup3-sys` | 0.5.0 | MIT | <https://gitlab.gnome.org/World/Rust/soup3-rs> |  |  | ✓ |
@@ -278,16 +300,22 @@ Every Rust crate compiled into the apps, one row for each name and version: what
 | `syn` | 1.0.109 | MIT OR Apache-2.0 | <https://github.com/dtolnay/syn> |  |  | ✓ |
 | `syn` | 2.0.119 | MIT OR Apache-2.0 | <https://github.com/dtolnay/syn> | ✓ | ✓ | ✓ |
 | `syn` | 3.0.6 | MIT OR Apache-2.0 | <https://github.com/dtolnay/syn> | ✓ | ✓ | ✓ |
+| `sync_wrapper` | 1.0.2 | Apache-2.0 | <https://github.com/Actyx/sync_wrapper> | ✓ | ✓ |  |
 | `synstructure` | 0.14.0 | MIT | <https://github.com/mystor/synstructure> | ✓ | ✓ | ✓ |
+| `system-configuration` | 0.7.0 | MIT OR Apache-2.0 | <https://github.com/mullvad/system-configuration-rs> | ✓ |  |  |
+| `system-configuration-sys` | 0.6.0 | MIT OR Apache-2.0 | <https://github.com/mullvad/system-configuration-rs> | ✓ |  |  |
 | `tao` | 0.37.1 | Apache-2.0 | <https://github.com/tauri-apps/tao> | ✓ | ✓ | ✓ |
+| `tar` | 0.4.46 | MIT OR Apache-2.0 | <https://github.com/composefs/tar-rs> | ✓ |  |  |
 | `tauri` | 2.12.1 | Apache-2.0 OR MIT | <https://github.com/tauri-apps/tauri> | ✓ | ✓ | ✓ |
 | `tauri-codegen` | 2.7.1 | Apache-2.0 OR MIT | <https://github.com/tauri-apps/tauri> | ✓ | ✓ | ✓ |
 | `tauri-macros` | 2.7.1 | Apache-2.0 OR MIT | <https://github.com/tauri-apps/tauri> | ✓ | ✓ | ✓ |
 | `tauri-plugin-dialog` | 2.8.4 | Apache-2.0 OR MIT | <https://github.com/tauri-apps/plugins-workspace> | ✓ | ✓ | ✓ |
 | `tauri-plugin-fs` | 2.7.1 | Apache-2.0 OR MIT | <https://github.com/tauri-apps/plugins-workspace> | ✓ | ✓ | ✓ |
+| `tauri-plugin-updater` | 2.14.1 | Apache-2.0 OR MIT | <https://github.com/tauri-apps/plugins-workspace> | ✓ | ✓ |  |
 | `tauri-runtime` | 2.12.1 | Apache-2.0 OR MIT | <https://github.com/tauri-apps/tauri> | ✓ | ✓ | ✓ |
 | `tauri-runtime-wry` | 2.12.1 | Apache-2.0 OR MIT | <https://github.com/tauri-apps/tauri> | ✓ | ✓ | ✓ |
 | `tauri-utils` | 2.10.2 | Apache-2.0 OR MIT | <https://github.com/tauri-apps/tauri> | ✓ | ✓ | ✓ |
+| `tempfile` | 3.27.0 | MIT OR Apache-2.0 | <https://github.com/Stebalien/tempfile> | ✓ | ✓ |  |
 | `tendril` | 0.5.1 | MIT OR Apache-2.0 | <https://github.com/servo/html5ever> | ✓ | ✓ | ✓ |
 | `thiserror` | 1.0.69 | MIT OR Apache-2.0 | <https://github.com/dtolnay/thiserror> |  |  | ✓ |
 | `thiserror` | 2.0.21 | MIT OR Apache-2.0 | <https://github.com/dtolnay/thiserror> | ✓ | ✓ | ✓ |
@@ -298,6 +326,8 @@ Every Rust crate compiled into the apps, one row for each name and version: what
 | `time-macros` | 0.2.32 | MIT OR Apache-2.0 | <https://github.com/time-rs/time> | ✓ | ✓ | ✓ |
 | `tinystr` | 0.8.4 | Unicode-3.0 | <https://github.com/unicode-org/icu4x> | ✓ | ✓ | ✓ |
 | `tokio` | 1.53.2 | MIT | <https://github.com/tokio-rs/tokio> | ✓ | ✓ | ✓ |
+| `tokio-rustls` | 0.26.6 | MIT OR Apache-2.0 | <https://github.com/rustls/tokio-rustls> | ✓ | ✓ |  |
+| `tokio-util` | 0.7.19 | MIT | <https://github.com/tokio-rs/tokio> | ✓ | ✓ |  |
 | `toml` | 1.1.6+spec-1.1.0 | MIT OR Apache-2.0 | <https://github.com/toml-rs/toml> | ✓ | ✓ | ✓ |
 | `toml_datetime` | 0.6.3 | MIT OR Apache-2.0 | <https://github.com/toml-rs/toml> |  |  | ✓ |
 | `toml_datetime` | 1.1.1+spec-1.1.0 | MIT OR Apache-2.0 | <https://github.com/toml-rs/toml> | ✓ | ✓ | ✓ |
@@ -305,8 +335,14 @@ Every Rust crate compiled into the apps, one row for each name and version: what
 | `toml_edit` | 0.20.2 | MIT OR Apache-2.0 | <https://github.com/toml-rs/toml> |  |  | ✓ |
 | `toml_parser` | 1.1.3+spec-1.1.0 | MIT OR Apache-2.0 | <https://github.com/toml-rs/toml> | ✓ | ✓ | ✓ |
 | `toml_writer` | 1.1.2+spec-1.1.0 | MIT OR Apache-2.0 | <https://github.com/toml-rs/toml> | ✓ | ✓ | ✓ |
-| `tracing` | 0.1.44 | MIT | <https://github.com/tokio-rs/tracing> |  | ✓ |  |
-| `tracing-core` | 0.1.36 | MIT | <https://github.com/tokio-rs/tracing> |  | ✓ |  |
+| `tower` | 0.5.3 | MIT | <https://github.com/tower-rs/tower> | ✓ | ✓ |  |
+| `tower-http` | 0.6.11 | MIT | <https://github.com/tower-rs/tower-http> | ✓ | ✓ |  |
+| `tower-layer` | 0.3.3 | MIT | <https://github.com/tower-rs/tower> | ✓ | ✓ |  |
+| `tower-service` | 0.3.3 | MIT | <https://github.com/tower-rs/tower> | ✓ | ✓ |  |
+| `tracing` | 0.1.44 | MIT | <https://github.com/tokio-rs/tracing> | ✓ | ✓ |  |
+| `tracing-core` | 0.1.36 | MIT | <https://github.com/tokio-rs/tracing> | ✓ | ✓ |  |
+| `try-lock` | 0.2.5 | MIT | <https://github.com/seanmonstar/try-lock> | ✓ | ✓ |  |
+| `typed-path` | 0.13.0 | MIT OR Apache-2.0 | <https://github.com/chipsenkbeil/typed-path> |  | ✓ |  |
 | `typeid` | 1.0.3 | MIT OR Apache-2.0 | <https://github.com/dtolnay/typeid> | ✓ | ✓ | ✓ |
 | `typenum` | 1.20.1 | MIT OR Apache-2.0 | <https://github.com/paholg/typenum> | ✓ | ✓ | ✓ |
 | `unicode-ident` | 1.0.26 | (MIT OR Apache-2.0) AND Unicode-3.0 | <https://github.com/dtolnay/unicode-ident> | ✓ | ✓ | ✓ |
@@ -320,6 +356,7 @@ Every Rust crate compiled into the apps, one row for each name and version: what
 | `utf8_iter` | 1.0.4 | Apache-2.0 OR MIT | <https://github.com/hsivonen/utf8_iter> | ✓ | ✓ | ✓ |
 | `uuid` | 1.27.0 | Apache-2.0 OR MIT | <https://github.com/uuid-rs/uuid> | ✓ | ✓ | ✓ |
 | `walkdir` | 2.5.0 | Unlicense/MIT | <https://github.com/BurntSushi/walkdir> | ✓ | ✓ | ✓ |
+| `want` | 0.3.2 | MIT | <https://github.com/seanmonstar/want> | ✓ | ✓ |  |
 | `web-time` | 1.1.0 | MIT OR Apache-2.0 | <https://github.com/daxpedda/web-time> | ✓ | ✓ | ✓ |
 | `web_atoms` | 0.2.6 | MIT OR Apache-2.0 | <https://github.com/servo/html5ever> | ✓ | ✓ | ✓ |
 | `webkit2gtk` | 2.0.2 | MIT | <https://github.com/tauri-apps/webkit2gtk-rs> |  |  | ✓ |
@@ -342,6 +379,7 @@ Every Rust crate compiled into the apps, one row for each name and version: what
 | `windows-interface` | 0.59.3 | MIT OR Apache-2.0 | <https://github.com/microsoft/windows-rs> |  | ✓ |  |
 | `windows-link` | 0.2.1 | MIT OR Apache-2.0 | <https://github.com/microsoft/windows-rs> |  | ✓ |  |
 | `windows-numerics` | 0.3.1 | MIT OR Apache-2.0 | <https://github.com/microsoft/windows-rs> |  | ✓ |  |
+| `windows-registry` | 0.6.1 | MIT OR Apache-2.0 | <https://github.com/microsoft/windows-rs> |  | ✓ |  |
 | `windows-result` | 0.2.0 | MIT OR Apache-2.0 | <https://github.com/microsoft/windows-rs> |  | ✓ |  |
 | `windows-result` | 0.4.1 | MIT OR Apache-2.0 | <https://github.com/microsoft/windows-rs> |  | ✓ |  |
 | `windows-strings` | 0.1.0 | MIT OR Apache-2.0 | <https://github.com/microsoft/windows-rs> |  | ✓ |  |
@@ -357,12 +395,15 @@ Every Rust crate compiled into the apps, one row for each name and version: what
 | `wry` | 0.57.0 | Apache-2.0 OR MIT | <https://github.com/tauri-apps/wry> | ✓ | ✓ | ✓ |
 | `x11` | 2.21.0 | MIT | <https://github.com/AltF02/x11-rs.git> |  |  | ✓ |
 | `x11-dl` | 2.21.0 | MIT | <https://github.com/AltF02/x11-rs.git> |  |  | ✓ |
+| `xattr` | 1.7.0 | MIT OR Apache-2.0 | <https://github.com/Stebalien/xattr> | ✓ |  |  |
 | `yoke` | 0.8.3 | Unicode-3.0 | <https://github.com/unicode-org/icu4x> | ✓ | ✓ | ✓ |
 | `yoke-derive` | 0.8.4 | Unicode-3.0 | <https://github.com/unicode-org/icu4x> | ✓ | ✓ | ✓ |
 | `zerofrom` | 0.1.8 | Unicode-3.0 | <https://github.com/unicode-org/icu4x> | ✓ | ✓ | ✓ |
 | `zerofrom-derive` | 0.1.8 | Unicode-3.0 | <https://github.com/unicode-org/icu4x> | ✓ | ✓ | ✓ |
 | `zeroize` | 1.9.1 | Apache-2.0 OR MIT | <https://github.com/RustCrypto/utils> | ✓ | ✓ | ✓ |
+| `zeroize_derive` | 1.5.0 | Apache-2.0 OR MIT | <https://github.com/RustCrypto/utils> |  | ✓ |  |
 | `zerotrie` | 0.2.5 | Unicode-3.0 | <https://github.com/unicode-org/icu4x> | ✓ | ✓ | ✓ |
 | `zerovec` | 0.11.8 | Unicode-3.0 | <https://github.com/unicode-org/icu4x> | ✓ | ✓ | ✓ |
 | `zerovec-derive` | 0.11.6 | Unicode-3.0 | <https://github.com/unicode-org/icu4x> | ✓ | ✓ | ✓ |
+| `zip` | 9.5.1 | MIT | <https://github.com/zip-rs/zip2> |  | ✓ |  |
 | `zmij` | 1.0.23 | MIT | <https://github.com/dtolnay/zmij> | ✓ | ✓ | ✓ |

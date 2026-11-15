@@ -25,7 +25,12 @@
  * Speaker: full volume is comfortable and does not distort, so position 20 is
  * raw 255. The floor was walked up from the old guess (raw 140, too quiet):
  * 148 and 156 too quiet, 164 too quiet beside 172, and 172 called right for
- * position 1. About 31 dB, so about 1.6 dB a press.
+ * position 1. About 31 dB, so about 1.6 dB a press. Players found 172 too
+ * loud at night (1.0.5, Discord: "one or two steps between mute and the
+ * lowest"), so since 1.0.6 the floor is two of those steps lower: position 1
+ * is raw 163 and 2 is 168, both under the old lowest, 3 is about it (173),
+ * and the top is as it was. About 34 dB, 1.8 dB a press, and the twenty
+ * positions, their bar and the levels kept on the card all as they were.
  *
  * Headphones (Apple EarPods): walked up from quiet to the most wanted - full
  * volume was a step too far, raw 244 is the top. The floor was walked down
@@ -34,8 +39,8 @@
  * a different floor, as on the Brick.
  *
  * The constants are the windows that put positions 1 and 20 exactly on those
- * raw values with aout_level_to_raw's rounding: speaker 0-87, headphones
- * 11-188, in attenuation.
+ * raw values with aout_level_to_raw's rounding: speaker 0-97, headphones
+ * 11-188, in attenuation (the speaker's 0-87 until 1.0.6).
  *
  * Kept as ATTENUATION from 255, so the shared aout_level_to_raw - written for
  * the Brick's inverted register, loud end low - lays the positions out with
@@ -45,7 +50,7 @@
 #define GAIN_CTL      "Master Playback Volume"
 #define GAIN_RAW_MAX  255
 #define SPK_ATT_TOP   0      /* attenuation at position 20 */
-#define SPK_ATT_BOTTOM 87    /* and at position 0, which the cut replaces */
+#define SPK_ATT_BOTTOM 97    /* and at position 0, which the cut replaces */
 #define HP_ATT_TOP    11
 #define HP_ATT_BOTTOM 188
 #define VOL_MAX       20     /* PLAT_VOL_MAX: 21 positions, 0..20 */
