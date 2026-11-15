@@ -532,6 +532,60 @@ static void shot_draw_ctltab(app *a, menu_tabs *tabs)
 	menu_draw_styled(a, &st, gm_tab_name(tabs->at), rows, n, sel);
 }
 
+/* --pick-at K: the list's cursor on choice K, not on the one that is on */
+int shot_pick_at = -1;
+
+/* An option row's list as menu_pick draws it: its choices, the one on
+ * ticked, and what the one under the cursor does - in a picture column
+ * beside them with its preview (menu_pick_preview), or under them */
+static const menu_choice *g_shot_list;
+static int g_shot_list_at, g_shot_list_side;
+
+static void shot_list_side(app *a, const menu_side *at)
+{
+	const menu_choice *c = g_shot_list;
+
+	if (!c || at->stage == MENU_SIDE_OVER) return;
+	menu_pick_side_draw(a, at->content_x, at->content_y, g_shot_list_side,
+	                    menu_pick_note_room(c->notes, c->n, g_shot_list_side), c->notes ? c->notes[g_shot_list_at] : NULL, c->preview, g_shot_list_at);
+}
+
+static void shot_list_draw(app *a, const char *heading, const menu_choice *ch, int width,
+                           unsigned accent)
+{
+	menu_row pr[MENU_CHOICES_MAX + 3];
+	static char pw[MENU_CHOICES_MAX][64];
+	static char pn[2][CHV_WRAP_COLS];
+	const int at = shot_pick_at >= 0 && shot_pick_at < ch->n ? shot_pick_at : ch->cur;
+	int k, np = ch->n;
+
+	for (k = 0; k < ch->n; k++) {
+		menu_pick_word(ch->labels[k], pw[k], (int)sizeof pw[k]);
+		pr[k] = (menu_row){ pw[k], !ch->none && k == ch->cur ? MENU_TICK : NULL, true };
+	}
+	if (ch->notes && !ch->preview) {   /* what the choice under the cursor does */
+		int nl = menu_pick_note(ch->notes[at], pn);
+
+		pr[np++] = MENU_RULE;
+		pr[np++] = MENU_BODY(nl > 0 ? pn[0] : "");
+		pr[np++] = MENU_BODY(nl > 1 ? pn[1] : "");
+	}
+	g_menu_epoch++;   /* another menu: a list opens at rest on its choice, as menu_run marks it */
+	g_menu_tabs = NULL;   /* a list of its own: the row's name, no tabs */
+	g_shot_list = ch;
+	g_shot_list_at = at;
+	g_menu_side = ch->preview ? shot_list_side : NULL;
+	width = menu_pick_width(a, width, ch->labels, ch->n, ch->none ? -1 : ch->cur, ch->preview != NULL,
+	                        &g_shot_list_side);
+	g_menu_side_w = g_shot_list_side;
+	g_menu_pin_foot = !ch->preview;   /* as menu_pick's style asks */
+	menu_draw(a, heading, pr, np, at, width, accent);
+	g_menu_pin_foot = false;
+	g_menu_side = NULL;
+	g_menu_side_w = 0;
+	g_shot_list = NULL;
+}
+
 static void shot_draw_gamemenu(app *a)
 {
 	menu_row rows[GM_MAX_ROWS];
@@ -557,6 +611,7 @@ static void shot_draw_gamemenu(app *a)
 		return;
 	}
 	gm_backdrop(a, &(gm_ctx){ .a = a, .bg = bg }, 1.0f);
+	gm_preview_frame(bg);
 	if (!u.port && tabs.at == GT_CONTROLS) {
 		shot_draw_ctltab(a, &tabs);
 		if (bg) SDL_DestroyTexture(bg);
@@ -596,30 +651,7 @@ static void shot_draw_gamemenu(app *a)
 		const menu_choice *ch = sel >= 0 && sel < ni ? &gm_choices(a, &u)[ids[sel]] : NULL;
 
 		if (ch && ch->n > 2) {
-			menu_row pr[MENU_CHOICES_MAX + 3];
-			static char pw[MENU_CHOICES_MAX][64];
-			int k;
-
-			static char pn[2][CHV_WRAP_COLS];
-			int np = ch->n;
-
-			for (k = 0; k < ch->n; k++) {
-				menu_pick_word(ch->labels[k], pw[k], (int)sizeof pw[k]);
-				pr[k] = (menu_row){ pw[k], k == ch->cur ? MENU_TICK : NULL, true };
-			}
-			if (ch->notes) {   /* and what the choice under the cursor does */
-				int nl = menu_pick_note(ch->notes[ch->cur], pn);
-
-				pr[np++] = MENU_RULE;
-				pr[np++] = MENU_BODY(nl > 0 ? pn[0] : "");
-				pr[np++] = MENU_BODY(nl > 1 ? pn[1] : "");
-			}
-			g_menu_epoch++;
-			g_menu_tabs = NULL;   /* a list of its own: the row's name, no tabs */
-			g_menu_side = NULL;
-			g_menu_pin_foot = true;   /* as menu_pick's style asks */
-			menu_draw(a, rows[sel].label, pr, np, ch->cur, gm_width(a), a->tint);
-			g_menu_pin_foot = false;
+			shot_list_draw(a, rows[sel].label, ch, gm_width(a), a->tint);
 			if (bg) SDL_DestroyTexture(bg);
 			return;
 		}
@@ -1287,29 +1319,8 @@ static void shot_compose(app *a)
 		/* --press a on an option row of more than two: its list, which
 		 * opens over the shelf as MENU > Language does (menu_pick) */
 		if (shot_pick.n) {
-			menu_row pr[MENU_CHOICES_MAX + 3];
-			static char pw[MENU_CHOICES_MAX][64];
-			int k;
-
-			static char pn[2][CHV_WRAP_COLS];
-			int np = shot_pick.n;
-
-			for (k = 0; k < shot_pick.n; k++) {
-				menu_pick_word(shot_pick.labels[k], pw[k], (int)sizeof pw[k]);
-				pr[k] = (menu_row){ pw[k], !shot_pick.none && k == shot_pick.cur ? MENU_TICK : NULL, true };
-			}
-			if (shot_pick.notes) {   /* and what the choice under the cursor does */
-				int nl = menu_pick_note(shot_pick.notes[shot_pick.cur], pn);
-
-				pr[np++] = MENU_RULE;
-				pr[np++] = MENU_BODY(nl > 0 ? pn[0] : "");
-				pr[np++] = MENU_BODY(nl > 1 ? pn[1] : "");
-			}
 			ui_scrim(a->r, 0);
-			g_menu_epoch++;   /* another menu: a list opens at rest on its choice, as menu_run marks it */
-			g_menu_pin_foot = true;   /* as menu_pick's style asks */
-			menu_draw(a, shot_pick_heading, pr, np, shot_pick.cur, menu_std_width(a), MENU_ZYPEROS);
-			g_menu_pin_foot = false;
+			shot_list_draw(a, shot_pick_heading, &shot_pick, menu_std_width(a), MENU_ZYPEROS);
 		}
 	}
 	if (shot_look_page) shot_draw_look(a);

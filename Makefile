@@ -8,7 +8,7 @@
 .PHONY: all clean native px2-payload vendor boot system-art checkmark \
         check check-cheevos check-hare check-portal check-httpd check-idle check-taskhold check-saver check-rahash check-flacdec check-achtab check-signin check-search \
         check-raset check-xfer check-sshlink check-usblink check-devmode check-devices check-devicegen check-model check-ctl check-menus check-status check-battery check-corner check-artscrape check-artrun check-sgdb check-snapshelf check-snaps check-audioout \
-        check-db check-coreopts check-gpuframes check-gamedel check-gamern check-esmedia check-corepins check-targets yuvtarget check-storage check-stats check-sort check-bt check-ss check-titles check-dsv check-sidelights check-osdbar check-hud check-themefile check-pkkeys check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-kbnav check-tween check-menumotion check-menusnap check-cardgen check-blur check-gridrule check-roundrect check-rowmacro check-emptyhome check-zyperrig check-randgame check-shelfdir \
+        check-db check-coreopts check-gpuframes check-gamedel check-gamern check-esmedia check-corepins check-targets yuvtarget check-storage check-stats check-sort check-bt check-ss check-titles check-dsv check-sidelights check-osdbar check-hud check-dmodefit check-themefile check-pkkeys check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-kbnav check-tween check-menumotion check-menusnap check-cardgen check-blur check-gridrule check-roundrect check-rowmacro check-emptyhome check-zyperrig check-randgame check-shelfdir \
         check-sysmark check-flip check-menushots check-controls-shots check-design check-systemart check-linebreak check-portload \
         check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-messages check-tour check-tour-shots check-textfade check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pmhelper check-portdoc check-boottheme check-splashbright check-bootbright check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr check-autozone \
         check-home check-home-shots check-games check-cardpaint check-putpace landbench check-favorites-shots check-np-footer check-menu-rows check-layout-shots check-artbadge check-artbadge-shots design sounds strings cjk-font check-strings check-i18n-shots \
@@ -32,7 +32,7 @@ CHECKS = check-cheevos check-hare check-portal check-httpd check-idle check-task
          check-raset check-xfer check-sshlink check-usblink check-devmode check-devices check-devicegen check-model check-ctl check-menus check-artscrape check-artrun check-sgdb check-snapshelf check-snaps check-audioout \
          check-db check-coreopts check-gamedel check-gamern check-esmedia check-media check-snapsize check-corepins check-targets check-storage check-stats check-sort check-bt check-ss check-titles check-savedlib check-search \
          check-muselib check-musequeue check-museart check-mp4lock check-mp4frame check-p2share check-webtheme check-p2ws check-p2codec check-p2d check-play check-p2 check-resident check-spawn check-controls check-remap check-controls-shots check-logpack \
-         check-clock check-autozone check-status check-battery check-battery-eta check-dslang check-gpuframes check-dsresume check-corestate check-core-stamp check-core-room check-px2-perf check-px2-snap check-px2 check-lowbatt check-powerhold check-homesys check-heat check-charging check-corner check-dsv check-sidelights check-osdbar check-hud check-themefile check-pkkeys check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-kbnav check-randgame check-shelfdir check-look \
+         check-clock check-autozone check-status check-battery check-battery-eta check-dslang check-gpuframes check-dsresume check-corestate check-core-stamp check-core-room check-px2-perf check-px2-snap check-px2 check-lowbatt check-powerhold check-homesys check-heat check-charging check-corner check-dsv check-sidelights check-osdbar check-hud check-dmodefit check-themefile check-pkkeys check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-kbnav check-randgame check-shelfdir check-look \
          check-tween check-menumotion check-menusnap check-cardgen check-blur check-gridrule check-roundrect check-rowmacro check-emptyhome check-zyperrig check-sysmark check-flip check-menushots check-design \
          check-systemart check-linebreak check-portload check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-messages \
          check-tour check-tour-shots check-tour-previews check-textfade check-glyphs check-ds check-flex check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pmhelper check-pmart check-portdoc check-boottheme check-splashbright check-bootbright check-panelgamma check-displayback check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr \
@@ -247,6 +247,16 @@ build-native/audioout-check: tools/audioout-check.c src/audioout.c \
 # its in, hold and out at the moments the three ask about.
 check-osdbar: build-native/osdbar-check
 	@./build-native/osdbar-check
+
+# The Display list's previews (src/dmodefit.h): each mode's rect as the
+# launcher works it out, against Diatom's own arithmetic (diatom/src/scale.c)
+check-dmodefit: build-native/dmodefit-check
+	@./build-native/dmodefit-check
+
+build-native/dmodefit-check: tools/dmodefit-check.c src/dmodefit.c src/dmodefit.h diatom/src/scale.c FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Idiatom/src -Idiatom/include \
+	      -o $@ tools/dmodefit-check.c src/dmodefit.c diatom/src/scale.c
 
 # MENU > Power Button's rule (src/powerhold.h): a press turns the handheld off
 # in Press mode and a hold of two seconds in Hold mode, once per time down;

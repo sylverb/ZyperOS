@@ -656,7 +656,8 @@ static void d_note_cheevo(const char *l)
 	if (d_on_unlock) d_on_unlock(atoi(i + 3));
 }
 
-/* "DISPLAY\tmode=native\tfilter=nearest\trect=256x224+384+272\tsurface=1024x768"
+/* "DISPLAY\tmode=native\tfilter=nearest\trect=256x224+384+272\tsurface=1024x768
+ *  \tsource=256x224\taspect=1.33333"
  *
  * The rect is in Diatom's surface, which need not be the size ZyperOS draws at:
  * on the GKD Pixel 2 it is 640x480, and the paused frame behind the in-game
@@ -665,6 +666,9 @@ static void d_note_cheevo(const char *l)
  * to be drawing at ZyperOS's size, which every one before the field was. The
  * edges are scaled rather than the size, so a rect that fills the surface
  * fills the screen exactly. */
+static int    d_src_w, d_src_h, d_surf_w, d_surf_h;
+static double d_aspect;
+
 static void d_note_display(const char *l)
 {
 	const char *r = strstr(l, "rect=");
@@ -679,6 +683,37 @@ static void d_note_display(const char *l)
 	d_rect.w = (x + w) * ZYPEROS_SCREEN_W / sw - d_rect.x;
 	d_rect.h = (y + h) * ZYPEROS_SCREEN_H / sh - d_rect.y;
 	d_rect_known = true;
+	d_surf_w = sw;
+	d_surf_h = sh;
+	/* The picture the core makes and its shape, for the Display list's
+	 * previews; a Diatom before them says neither */
+	{
+		const char *src = strstr(l, "\tsource="), *asp = strstr(l, "\taspect=");
+		int qw, qh;
+
+		if (src && sscanf(src + 8, "%dx%d", &qw, &qh) == 2 && qw > 0 && qh > 0) {
+			d_src_w = qw;
+			d_src_h = qh;
+			d_aspect = asp ? atof(asp + 8) : 0.0;
+		}
+	}
+}
+
+bool plat_resident_source_surface(int *w, int *h)
+{
+	if (!d_rect_known || d_surf_w <= 0 || d_surf_h <= 0) return false;
+	*w = d_surf_w;
+	*h = d_surf_h;
+	return true;
+}
+
+bool plat_resident_source(int *w, int *h, double *aspect)
+{
+	if (d_src_w <= 0 || d_src_h <= 0) return false;
+	*w = d_src_w;
+	*h = d_src_h;
+	*aspect = d_aspect;
+	return true;
 }
 
 void plat_resident_run_keys(const char *keys)

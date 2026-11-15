@@ -238,7 +238,8 @@ EXTRA = {
     "gamemenu-unchecked": ("demo", "PS1", ["--gamemenu", "0", "--cheevos-unchecked"]),
     "info-unchecked": ("demo", "PS1", ["--screen", "games", "--info", "--cheevos-unchecked"]),
     "gamemenu-display": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "1"]),
-    # Every display mode's name and its caption under the Display row (1.0.6)
+    # Every display mode's name on the Display row (1.0.6; what each does is
+    # in its list, beside its picture: gamemenu-display-list-*)
     "gamemenu-dmode-aspect": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "1", "--dmode", "aspect"]),
     "gamemenu-dmode-integer": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "1", "--dmode", "integer"]),
     "gamemenu-dmode-tall": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "1", "--dmode", "integer-vertical"]),
@@ -622,6 +623,11 @@ EXTRA.setdefault("hud-items-end", ("demo", "PS1", ["--gamemenu", "0", "--gm-tab"
 for _r, _n in ((2, "corner"), (3, "edge"), (5, "opacity"), (6, "color")):
     EXTRA.setdefault("hud-pick-" + _n, ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "1", "--hud-page", str(_r),
                                                        "--hud-pick", str(_r)]))
+# Each mode under the list's cursor, its picture and its note beside the
+# list (src/ds/preview.h): every note in its room in every language
+for _k, _m in enumerate(["stretch", "aspect", "integer", "integer-vertical", "overscale", "fill", "native"]):
+    EXTRA.setdefault("gamemenu-display-list-" + _m,
+                     ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "1", "--gm-choose", "--pick-at", str(_k)]))
 # Display's Theme page (DESIGN.md 11.42) in each of the ten accents, the
 # tones going round in both themes and the corners turning over, so every
 # accent's, tone's and value's name is drawn; its foot, Zyper and Reset to

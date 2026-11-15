@@ -18,6 +18,30 @@
 int menu_pick(app *a, const menu_style *from, void *from_ctx, const char *heading,
               const char *const *labels, const char *const *notes, int n, int ticked, int at);
 
+/* The same with a picture column (menu_choice's preview): the choice under
+ * the cursor drawn by `preview` in a 4:3 box at the column's top, and its
+ * note wrapped under it, so the list holds every choice and the note never
+ * pushes it into a scroll. The column is src/ds/preview.h's. */
+int menu_pick_preview(app *a, const menu_style *from, void *from_ctx, const char *heading,
+                      const char *const *labels, const char *const *notes,
+                      void (*preview)(void *app, int k, int x, int y, int w, int h),
+                      int n, int ticked, int at);
+/* The list's width: `base`, the menu it opens from's, or wider with a
+ * picture column, to hold the column and the longest choice beside it
+ * (`ticked` with its tick); and the column's width into `side_w` (0
+ * without one), ds_preview_col_w's */
+int menu_pick_width(app *a, int base, const char *const *labels, int n, int ticked,
+                    bool preview, int *side_w);
+
+/* Where the picture column's box and its note's lines go, for `side_x` and
+ * `top` the column's left and the rows' top: what menu_pick_preview draws
+ * and the shots draw */
+void menu_pick_side_draw(app *a, int side_x, int top, int side_w, int note_lines, const char *note,
+                         void (*preview)(void *app, int k, int x, int y, int w, int h), int k);
+/* The note's room for a set of `notes` in a column `side_w` wide: the
+ * tallest's lines (ds_preview_note_lines) */
+int menu_pick_note_room(const char *const *notes, int n, int side_w);
+
 /* What a choice does, wrapped to the list's two lines under it (`notes`),
  * as the Display row's own line is; the lines it took. The shots draw it
  * too. */

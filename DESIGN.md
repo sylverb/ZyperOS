@@ -444,6 +444,10 @@ its own says why beside it.
 | **focus-ring** | 4 | the ring round a focused cell |
 | **focus-gap** | 4 | the ground between that ring and the cell |
 | **radius-cell** | 14 | a grid cell's corners; its ring's are radius-card (14 + 4 + 4) |
+| **preview-col-w** | 336 | the picture column at an option list's left: the screen in small and its note |
+| **preview-col-min** | 200 | ...narrower where the list's choices run long, to this |
+| **preview-gap** | 32 | the column to the list's rows |
+| **preview-note-gap** | 16 | the small screen's foot to its note's first line |
 <!-- /generated:layout -->
 
 ---
@@ -918,10 +922,28 @@ Video Snaps, Menu Music:
   the row's name, the choice that is on ticked and the cursor on it; A
   chooses one, B leaves it as it was. Its words begin with a capital, as a
   list's rows do, where the row's value may be "never" or "stereo". A
-  shader or a strength each system has its own of ticks none. Where the
-  row says what its value does (Display: "Fills the screen..."), the list
-  says it too, for the choice under the cursor: two lines under a rule,
-  always two, so the panel holds its size as the cursor moves.
+  shader or a strength each system has its own of ticks none. Where a
+  choice needs saying what it does, the list says it, for the choice under
+  the cursor: two lines under a rule, always two, so the panel holds its
+  size as the cursor moves - the row itself says only its value.
+- **A choice with a picture** (Display's modes, 1.0.6; `src/ds/preview.h`,
+  section 15): the list has a column at its left, as the Controls tab's
+  handheld has, **preview-gap** (32) from its rows, and in it the
+  handheld's screen in small (4:3, **ink** where the picture is not, framed
+  in **edge**'s `DS_FRAME` line, its corners the focus fill's,
+  `DS_RADIUS_ROW`) with what the choice under the cursor does to the game,
+  and its sentence under that in **type.meta**, **text-soft**, left, lines
+  40 apart, up to six (four in the widest column), in a room as tall as the
+  set's tallest, so nothing moves as the cursor does. The column is at the
+  list's left, where the Controls tab's handheld is, so the two pictures
+  beside a list sit in one place (the sheet approved for 1.0.6); the rows
+  keep their right edge and their values. In a game, the paused frame at the size and shape Diatom
+  said, placed as Diatom would (src/dmodefit.h, held to Diatom's own
+  arithmetic by make check-dmodefit); on a shelf, the game under the
+  cursor's last frame, or a drawn scene for one never played. The column
+  is **preview-col-w** (336) units, narrower where the choices run long, to
+  **preview-col-min** (200), so every choice keeps its words; the list is as wide as the column and its
+  longest choice need (`menu_pick_preview`, src/menu_pick.h).
 - **Two: A turns it over.**
 - **Left and Right step every row**, as before, and show the change at
   once, so a look before choosing is one press away. A scale (minutes,
@@ -2652,16 +2674,21 @@ is kept, for each game: Undo Load itself writes none, so A on it twice goes
 back to the same moment, and the next load replaces it. Delete Game, Rename
 and Storage count it with the game's slots.
 
-**Display's names and caption** (1.0.6). The modes say what they do: Full
+**Display's names and picture** (1.0.6). The modes say what they do: Full
 Screen, Original Shape, Sharp Pixels, Sharp Pixels, Tall, Sharp Pixels,
 Zoomed, Fill, Edges Cut and Actual Size (the card keeps display.<TAG>'s old
 names: stretch, aspect, integer, integer-vertical, overscale, fill, native).
-Under the Display row, on the Display tab and in the shelf's menu, two
-caption lines say in a sentence what the one shown does: body rows, left
-aligned, wrapped to the panel (800 in game, 760 on the shelf), never a stop.
-The shelf's menu window brings a caption under the cursor's row into view
-with it (src/menu.c), and its row is named Display, as in game: "Display
-Mode" beside the longest names fitted in no Latin-letter language.
+The Display row, on the Display tab and in the shelf's menu, says only the
+mode; A opens their list, and beside it a picture of what the mode under the
+cursor does with its sentence under it (11.3, a choice with a picture). In
+a game the picture is the paused frame, at the size and shape Diatom says
+(DISPLAY's `source=` and `aspect=`), placed as Diatom would; on a shelf, the
+game under the cursor's last frame with the shape its system's games last
+said, or a drawn scene for a game never played. Two lines under the row said
+it until the list did (1.0.6's first builds): they pushed Shader down, and
+said the mode in words where a picture shows it. The row is named Display, as
+in game: "Display Mode" beside the longest names fitted in no Latin-letter
+language.
 
 **Where it opens.** The first MENU of a game opens on Game, on Continue.
 After that it opens on the tab and the row it was left on, until the game
@@ -4603,6 +4630,7 @@ the tiles' style is read off a name.
 | Distances | `src/ds/sdf.h` | the segment, polygon and rounded-box distances the distance-field marks share: the status corner, the cover badges |
 | Button hints | `src/keyhints.c`, `src/keyhints_draw.c`; `page_hint` in `src/home.c` | 11.4 |
 | Menu panel | `src/menu_panel.c` (its slab `ds_panel_open`, its more marks `ds_more`) | 11.3 |
+| A choice's picture | `src/ds/preview.c`, `preview.h` | 11.3: the column at an option list's left (`menu_pick_preview`): `ds_preview_layout` on the layout engine (the small screen a 4:3 leaf, **preview-note-gap**, the note's room in meta lines, the set's tallest), `ds_preview_screen_begin` / `ds_preview_screen_end` (the screen's ink, its **edge** frame of `DS_FRAME` and its corners `DS_RADIUS_ROW`, the focus fill's beside it), `ds_preview_note`; the column **preview-col-w**, to **preview-col-min** where the choices run long (`ds_preview_col_w`), **preview-gap** from the rows. The Display list's picture is `src/dmodepreview.c`, each mode placed as Diatom places it (`src/dmodefit.c`, `check-dmodefit`). |
 | Status corner | `src/status.c` | 11.12. Its marks keep drawings of their own, by decision (2026-11-14, round 2 of the design system): at 24 units, 15 pixels on the panel, each shows a state - a signal's lit arcs, a charge, a sweep - and is drawn for that size as a distance field, where `ui_glyph`'s are 56 to 72-unit marks for a choice. They share their distances (`src/ds/sdf.h`), not their shapes. |
 | Zyper | `tools/zyperdef.py` → `src/zypermark.h`; `src/zyperdraw.c` | section 10 |
 | Art | `res/` | the table below |

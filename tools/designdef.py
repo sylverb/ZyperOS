@@ -301,6 +301,11 @@ LAYOUT = [
     ("focus-ring",      4,   "the ring round a focused cell"),
     ("focus-gap",       4,   "the ground between that ring and the cell"),
     ("radius-cell",     14,  "a grid cell's corners; its ring's are radius-card (14 + 4 + 4)"),
+    # a choice's picture beside its list (src/ds/preview.h)
+    ("preview-col-w",   336, "the picture column at an option list's left: the screen in small and its note"),
+    ("preview-col-min", 200, "...narrower where the list's choices run long, to this"),
+    ("preview-gap",     32,  "the column to the list's rows"),
+    ("preview-note-gap", 16, "the small screen's foot to its note's first line"),
 ]
 
 # ---- elevation -----------------------------------------------------------------
