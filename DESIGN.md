@@ -1993,6 +1993,12 @@ was the focus's alone, with its videos on the card added in.)
   **Unlink** (which asks first, 11.8's question), and two notes under a
   rule on where an account or a key comes from; SteamGridDB's tile says
   "key refused" when it is. libretro needs nothing and has no tile.
+  **Names and Details** (1.0.6) is the fourth row, the open book its mark,
+  `on` or `off` under it: a choice of two, so A switches it where it is and
+  the list stays open. Off, a run asks no names for covered games with none
+  (artscrape.c, art_names) and fetches only what is missing; on, the plan's
+  line over the keys starts with the names a run will look up ("199 names"),
+  the book its mark, before the room.
 - **The run**: the game it is asking about is the heading, cut to the
   screen; under it its system's icon, the mark of the source being asked
   (a cloud for ScreenScraper, a book for libretro, a grid for SteamGridDB),

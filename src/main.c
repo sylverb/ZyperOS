@@ -7687,6 +7687,8 @@ int main(int argc, char *argv[])
 			if (i + 1 < argc && argv[i + 1][0] >= '3' && argv[i + 1][0] <= '4')
 				shot_scraper = atoi(argv[++i]);
 		}
+		/* --scraper-names-off: Names and Details off, as if switched */
+		else if (!strcmp(argv[i], "--scraper-names-off")) g_scp_names = 0;
 		else if (!strcmp(argv[i], "--scraper-page") && i + 1 < argc) {
 			shot_scraper_page = atoi(argv[++i]);
 			if (i + 1 < argc && argv[i + 1][0] >= '0' && argv[i + 1][0] <= '9')
