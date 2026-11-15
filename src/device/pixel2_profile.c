@@ -52,6 +52,7 @@ const device_profile device_profile_pixel2 = {
 	.bluetooth = false,
 	.gpu_shaders = true,
 	.gpu_frames = true,
+	.coreopts = dev_coreopts_pixel2,
 	.speaker_mono = true,
 	.player2 = true,
 	.usb_shared_port = true,

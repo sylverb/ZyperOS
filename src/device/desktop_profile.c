@@ -32,6 +32,7 @@ const device_profile device_profile_desktop = {
 	.bluetooth = true,
 	.gpu_shaders = true,
 	.gpu_frames = true,
+	.coreopts = dev_coreopts_pixel2,
 	.speaker_mono = false,
 	.player2 = false,
 	.usb_shared_port = false,

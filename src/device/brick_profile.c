@@ -25,6 +25,8 @@ const device_profile device_profile_brick = {
 	.gpu_shaders = false,
 	/* Off until a GPU core runs on its PowerVR (the spec's section 6) */
 	.gpu_frames = false,
+	/* None measured on it yet: every device's alone */
+	.coreopts = NULL,
 	.speaker_mono = false,
 	.player2 = false,
 	.usb_shared_port = false,

@@ -62,6 +62,10 @@ typedef struct {
 	uint32_t    cap_rgb;     /* 0xRRGGBB, 0 for the body's own dark */
 } dev_button;
 
+/* A setting's default a device gives, a library key and its value: a core
+ * option tuned on it ("coreopt.<tag>.<option>", src/coreopts.h) */
+typedef struct { const char *key, *value; } dev_default;
+
 typedef enum { DEV_WIFI_NONE, DEV_WIFI_ADAPTER, DEV_WIFI_BUILTIN } dev_wifi;
 
 typedef struct device_profile {
@@ -94,11 +98,20 @@ typedef struct device_profile {
 	bool player2;            /* NES Player 2 was built and tried on it */
 	bool usb_shared_port;    /* one port for the computer and accessories */
 	dev_wifi wifi;
+	/* The core options measured on this handheld, its GPU or its motor,
+	 * given at run time under the player's own (src/coreopts.h); ends in
+	 * { NULL, NULL }, or NULL for none */
+	const dev_default *coreopts;
 } device_profile;
 
 extern const device_profile device_profile_pixel2;
 extern const device_profile device_profile_brick;
 extern const device_profile device_profile_desktop;
+
+/* The Pixel 2's core options (src/device/pixel2_coreopts.c), linked on every
+ * device: they are what 1.0.5 seeded into every card's library, which the
+ * one-time cleanup (coreopts_migrate) takes out wherever the card is now */
+extern const dev_default dev_coreopts_pixel2[];
 
 /* The profile in force, never NULL: the build's own, or the one the host
  * build was told to wear */
