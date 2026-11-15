@@ -11,6 +11,7 @@
 #include "panel.h"
 #include "topbar.h"
 #include "ui.h"
+#include "ds/flex.h"     /* the band, laid out by rules */
 #include "ds/layout.h"   /* DS_FOOT_Y */
 #include "ds/mark.h"     /* ds_bar_in */
 #include "uisound.h"
@@ -732,8 +733,8 @@ static void np_video_bar(SDL_Renderer *r, const mu_now *mn, int x, int y, int w,
 	          mn->state != MU_PLAYING ? ui_fade(acc, 0.45f) : acc);
 }
 
-/* Where the player's parts go, by rule from the canvas and what it holds:
- * no y is typed, so round 3's layout engine can take it over as it is. */
+/* Where the player's parts go, laid out by rules from the canvas and what
+ * it holds (np_player_layout): no y is typed. */
 typedef struct {
 	SDL_Rect pic;      /* the picture's 16:9 box */
 	SDL_Rect band;     /* the controls' surface, from the bar's row to the screen's foot */
@@ -744,27 +745,39 @@ typedef struct {
 
 static void np_player_layout(np_player *L, const key_hint *h, int n, const char *t0, const char *t1)
 {
+	static ds_flex F;
 	TTF_Font *fs = ui_font(UI_F_META);
-	int start[KEYHINTS_MAX + 1], rows, keys_top, row_y, w0, w1, x0, x1;
+	int root, band, row, keys, bar, c0, c1 = -1, i;
 
-	/* The picture: the canvas's width at 16:9, under the header's band */
+	/* The picture: the canvas's width at 16:9, under the header's band. It
+	 * stands apart: the band floats over its foot and never moves it. */
 	L->pic = (SDL_Rect){ 0, NPV_Y, ZYPEROS_SCREEN_W, ZYPEROS_SCREEN_W * 9 / 16 };
-	/* The keys on the shelf's foot, as many rows as their words take,
-	 * spread as keyhints_draw spreads them */
-	rows = keyhints_rows(h, n, ZYPEROS_SCREEN_W - 2 * NPV_X, KEYHINTS_GAP_SPREAD, keyhints_width, start);
-	if (rows < 1) rows = 1;
-	L->keys_cy = DS_FOOT_Y;
-	keys_top = L->keys_cy - DS_HINT_GLYPH / 2 - (rows - 1) * KEYHINTS_ROW;
-	/* The bar's row over them, and the band from its top to the foot */
-	row_y = keys_top - NPV_BAR_GAP - NPV_BAR_ROW;
-	L->band = (SDL_Rect){ 0, row_y - NPV_BAND_PAD, ZYPEROS_SCREEN_W, ZYPEROS_SCREEN_H - (row_y - NPV_BAND_PAD) };
-	w0 = ui_text_tabular_width(fs, t0);
-	w1 = t1[0] ? ui_text_tabular_width(fs, t1) : 0;
-	L->t0 = (SDL_Rect){ NPV_X, row_y, w0, NPV_BAR_ROW };
-	L->t1 = (SDL_Rect){ ZYPEROS_SCREEN_W - NPV_X - w1, row_y, w1, NPV_BAR_ROW };
-	x0 = NPV_X + w0 + NPV_BAR_GAP;
-	x1 = ZYPEROS_SCREEN_W - NPV_X - (w1 ? w1 + NPV_BAR_GAP : 0);
-	L->bar = (SDL_Rect){ x0, row_y + (NPV_BAR_ROW - UI_BAR_H) / 2, x1 - x0, UI_BAR_H };
+	/* The band, laid out by rules (src/ds/flex.h) from the screen's foot up:
+	 * the keys on every screen's foot, as many rows as their words take,
+	 * spread as keyhints_draw spreads them; the bar's row over them, the
+	 * time played and the time left at its two ends and the bar between;
+	 * and the band as tall as they need, which only grows over the picture */
+	root = ds_flex_begin(&F, ZYPEROS_SCREEN_W, ZYPEROS_SCREEN_H,
+	                     &(ds_box){ .dir = DS_COL, .justify = DS_J_END });
+	band = ds_flex_add(&F, root, &(ds_box){ .dir = DS_COL, .gap = NPV_BAR_GAP,
+	                                        .pad = { NPV_X, NPV_BAND_PAD, NPV_X, DS_FOOT_INSET } });
+	row = ds_flex_add(&F, band, &(ds_box){ .dir = DS_ROW, .h = NPV_BAR_ROW, .gap = NPV_BAR_GAP,
+	                                       .align = DS_A_CENTER });
+	c0 = ds_flex_add(&F, row, &(ds_box){ .w = ui_text_tabular_width(fs, t0), .h = NPV_BAR_ROW });
+	bar = ds_flex_add(&F, row, &(ds_box){ .h = UI_BAR_H, .grow = 1 });
+	if (t1[0]) c1 = ds_flex_add(&F, row, &(ds_box){ .w = ui_text_tabular_width(fs, t1), .h = NPV_BAR_ROW });
+	keys = ds_flex_add(&F, band, &(ds_box){ .dir = DS_ROW, .wrap = true, .gap = KEYHINTS_GAP_SPREAD,
+	                                        .line_gap = KEYHINTS_ROW - DS_HINT_GLYPH });
+	for (i = 0; i < n; i++)
+		ds_flex_add(&F, keys, &(ds_box){ .w = keyhints_width(h[i].key, h[i].label), .h = DS_HINT_GLYPH });
+	if (n == 0) ds_flex_add(&F, keys, &(ds_box){ .h = DS_HINT_GLYPH });
+	ds_flex_solve(&F);
+	L->band = ds_flex_rect(&F, band);
+	L->t0 = ds_flex_rect(&F, c0);
+	L->bar = ds_flex_rect(&F, bar);
+	L->t1 = c1 >= 0 ? ds_flex_rect(&F, c1)
+	                : (SDL_Rect){ ZYPEROS_SCREEN_W - NPV_X, L->t0.y, 0, NPV_BAR_ROW };
+	L->keys_cy = ds_flex_rect(&F, keys).y + ds_flex_rect(&F, keys).h - DS_HINT_GLYPH / 2;
 }
 
 /* One frame of the video, the controls at `k` (0 hidden, 1 shown). The run
