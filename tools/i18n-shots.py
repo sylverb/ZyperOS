@@ -7,6 +7,10 @@
                                                 not fit (make check-i18n-shots)
     python3 tools/i18n-shots.py --keep DIR      and keeps the frames in DIR/<code>/
     python3 tools/i18n-shots.py --lang fr menu  one language, some screens
+    python3 tools/i18n-shots.py --device brick --keep DIR
+                                                every screen as that handheld
+                                                (src/device/profile.h), for
+                                                review; the check is the host's
 
 A layout drawn for English meets words up to half again as long in French or
 Portuguese, and Chinese's taller face. The launcher, built for the host, says
@@ -43,6 +47,9 @@ import i18n  # noqa: E402
 _spec = importlib.util.spec_from_file_location("readme_shots", ROOT / "tools" / "readme-shots.py")
 R = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(R)
+
+# --device ID's flags, given to every shot (empty: the host's own profile)
+DEVICE = []
 
 # The string IDs of a text the launcher drew: src/ui.c says the text, not the
 # ID (a label is copied into a row's buffer, or formatted around a name, and
@@ -827,7 +834,7 @@ def run_language(code, shots, binary, keep, theme="light"):
                 ["--status", "10:08 24h wifi=off batt=82"]
             command = [str(binary), "--shot", str(target), "--theme", theme, "--lang", code,
                        "--screen", "systems", "--phase", "3200", *status, "--fn-volume",
-                       *[f.replace("{card}", str(card)) for f in flags]]
+                       *DEVICE, *[f.replace("{card}", str(card)) for f in flags]]
             # errors=replace: a log line may end mid-character (a cut name)
             env = R.pm_env(R.env_for(card), name, tmp)
             if name in PM_STATES:
@@ -881,6 +888,8 @@ def main():
                     help="the theme the shots are drawn in (light; tools/pixel-gate.py takes both)")
     ap.add_argument("--binary", type=Path, help="this launcher, not build-native/zyperos (tools/pixel-gate.py's base)")
     ap.add_argument("--jobs", type=int, help="languages shot at once (all of them)")
+    ap.add_argument("--device", help="as this handheld (--device pixel2, brick): its own keys, "
+                    "handheld and words, to look at; the host's are what the check holds")
     ap.add_argument("only", nargs="*", help="shot names (default: all)")
     args = ap.parse_args()
     if subprocess.call(["pkg-config", "--exists", "sdl2", "SDL2_image", "SDL2_ttf"],
@@ -888,6 +897,8 @@ def main():
         print("skipped: no SDL2 here to build the launcher with")
         return 0
     binary = args.binary.resolve() if args.binary else ROOT / "build-native" / "zyperos"
+    if args.device:
+        DEVICE[:] = ["--device", args.device]
     if not binary.is_file():
         print("FAIL no build-native/zyperos: make native first", file=sys.stderr)
         return 1
