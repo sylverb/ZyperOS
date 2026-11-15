@@ -31,7 +31,7 @@
 
 1. A card 1.0.5 seeded, moved to a Brick: no Pixel 2 tuning left in its rows, the player's own changes kept. (Task 4's migration test.)
 2. A player who chose a value equal to the old default: the migration deletes the row, and the device's default (the same value on the Pixel 2) comes back. (Task 4.)
-3. A Dreamcast game in Favorites, Recent or resumed at boot on a device without GPU frames: refused under its name with the reason, never sent to Diatom. (Task 3.)
+3. A Dreamcast game in Favorites, Recent or resumed at boot on a device without GPU frames: not offered (it leaves with its shelf, as a system turned off in Home Systems does), never sent to Diatom. (Task 3.)
 4. More default and player rows than the merged set holds: the player's rows are kept first and a default that does not fit is dropped with a log line, never half a pair. (Task 4.)
 5. A `needs` line for a tag no `sys` line has, or a need the launcher does not know: ignored, the shelf shown. (Task 2.)
 
