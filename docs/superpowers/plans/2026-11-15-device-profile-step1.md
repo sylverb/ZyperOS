@@ -195,7 +195,7 @@ Today's `fn_volume` uses map as: MENU acts on release (`tour.c` lesson press tim
 ### Task 7: The record, and the PR
 
 **Files:**
-- Modify: `docs/superpowers/specs/2026-11-14-device-modular-design.md` ("Calls made in this design": the plan's six calls; step 1 marked done), `DESIGN.md` only where a section names `fn_volume` or "the Pixel 2 only" for the tutorial handheld (now "a device with a handheld")
+- Modify: `docs/superpowers/specs/2026-11-14-device-modular-design.md` ("Calls made in this design": the plan's calls; step 1 marked done), `DESIGN.md` only where a section names `fn_volume` or "the Pixel 2 only" for the tutorial handheld (now "a device with a handheld")
 
 - [ ] **Step 1: Update the spec and DESIGN.md** as listed.
 - [ ] **Step 2: Run** `make check` and both pixel gate runs once more. Expected: all pass, 0 changed.
