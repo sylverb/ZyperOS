@@ -9,6 +9,7 @@
 #include "place.h"
 #include "theme.h"
 #include "ui.h"
+#include "ds/layout.h"
 #include "ds/mark.h"      /* the more marks */
 #include "uisound.h"
 #include "zyperdraw.h"
@@ -288,7 +289,7 @@ void update_page_draw(app *a, const char *heading, const su_page *p,
 			        p->line_warn ? warn : UI_TEXT_DIM);
 	}
 
-	/* The buttons, glyph and word, centered as a row at the foot */
+	/* The buttons, glyph and word, centered as a row at a page's foot (704; 714 until 1.0.6) */
 	{
 		int gs = 48, gap = 12, between = 40, total = 0, cx;
 		for (i = 0; i < p->nkeys; i++)
@@ -297,9 +298,9 @@ void update_page_draw(app *a, const char *heading, const su_page *p,
 		cx = (ZYPEROS_SCREEN_W - total) / 2;
 		for (i = 0; i < p->nkeys; i++) {
 			int bw = ui_button_width(p->keys[i].button, gs);
-			ui_button(r, p->keys[i].button, cx + bw / 2, 714, gs, UI_BUTTON_PLAIN);
+			ui_button(r, p->keys[i].button, cx + bw / 2, DS_PAGE_FOOT_Y, gs, UI_BUTTON_PLAIN);
 			cx += bw + gap;
-			cx += ui_text(r, fs, p->keys[i].label, cx, ui_cap_y(fs, 714), -1, UI_TEXT_SOFT) + between;
+			cx += ui_text(r, fs, p->keys[i].label, cx, ui_cap_y(fs, DS_PAGE_FOOT_Y), -1, UI_TEXT_SOFT) + between;
 		}
 	}
 }
