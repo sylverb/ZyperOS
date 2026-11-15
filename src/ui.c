@@ -476,9 +476,19 @@ static bool word_char(char c)
 	       (c >= '0' && c <= '9') || c == '_';
 }
 
-/* The next whole word MENU at or after p (s is the string's start), or NULL */
+/* Whether MENU is drawn as the Pixel 2's key, three dots in a ring
+ * (ui_set_menu_dots): on a device whose MENU is printed as a word on its
+ * key (the Brick), MENU stays a word in running text, and its key is a
+ * worded one, as SELECT's is */
+static bool g_menu_dots = true;
+
+void ui_set_menu_dots(bool dots) { g_menu_dots = dots; }
+
+/* The next whole word MENU at or after p (s is the string's start), or NULL;
+ * always NULL where MENU is a word (g_menu_dots) */
 static const char *menu_word(const char *s, const char *p)
 {
+	if (!g_menu_dots) return NULL;
 	for (; (p = strstr(p, "MENU")); p += 4)
 		if ((p == s || !word_char(p[-1])) && !word_char(p[4])) return p;
 	return NULL;
@@ -2324,7 +2334,7 @@ static void button_fonts_free(void)
 /* The face buttons, which are circles. */
 static bool button_menu(const char *label)
 {
-	return label && !strcmp(label, "MENU");
+	return g_menu_dots && label && !strcmp(label, "MENU");
 }
 
 /* The d-pad's hint (keyhints.h): "< >" its left and right, "^ v" its up and
