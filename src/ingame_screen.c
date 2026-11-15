@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "ingame_screen.h"
 #include "hudmenu_screen.h"
+#include "dmodepreview.h"
 #include "menu_pick.h"
 
 #include "achtab_screen.h"
@@ -398,8 +399,6 @@ static void gm_step_strength(app *a, int d)
  * and a Diatom too old to answer (it says nothing to DISC, so the wait below
  * runs out and the menu is what it was). A shot's (--gm-discs) stands in. */
 #define GM_PANEL_W 860
-/* The width the display mode's caption wraps to, a little inside the panel */
-#define GM_NOTE_W  800
 gm_disc_state g_gm_disc;
 int g_shot_discs;
 const char *g_shot_disc_label;
@@ -498,15 +497,6 @@ void gm_gather(app *a, gm_ui *out)
 	 * sent and the row sets (gm_cycle_display). The shelf's read Stretch
 	 * over every favorite until 1.0.6: nothing sets Favorites' own mode. */
 	u.dmode  = dmode_label(owner_view(a)->dmode);
-	/* What it does, under its row: two lines at most, inside the panel */
-	{
-		static char note[2][CHV_WRAP_COLS];
-		int nl = wrap_text(ui_font(UI_F_MENU), dmode_note(owner_view(a)->dmode),
-		                   GM_NOTE_W, note, 2);
-
-		u.dmode_note[0] = nl > 0 ? note[0] : NULL;
-		u.dmode_note[1] = nl > 1 ? note[1] : NULL;
-	}
 	/* The owner's, which is the one its row sets (gm_cycle_shader) */
 	u.shader = shader_label(owner_view(a)->shader);
 	u.strength = strength_row_label(a, (int)(owner_view(a) - a->view));
@@ -1432,6 +1422,41 @@ static int gm_ids(app *a, gm_ctx *c, const gm_ui *u, int tab, int *ids, int max)
 static menu_choice g_gm_choice[GM_MAX_ROWS];
 #define GM_CH_MAX 32   /* an in-game row's most: Display's modes, the discs */
 
+/* The paused frame the in-game menu is over, for the Display list's picture
+ * (game_menu sets it; a shot too, gm_preview_frame) */
+static SDL_Texture *g_gm_frame;
+
+void gm_preview_frame(SDL_Texture *bg)
+{
+	g_gm_frame = bg;
+}
+
+/* --gm-source WxH[@ASPECT]: the core's picture a shot's frame stands for */
+int    shot_gm_src_w, shot_gm_src_h;
+double shot_gm_aspect;
+
+/* The Display list's picture (menu_choice's preview): the paused game as
+ * mode `k` would draw it, at the size and shape Diatom said */
+static void gm_dmode_preview(void *app_, int k, int x, int y, int w, int h)
+{
+	app *a = app_;
+	int sw = 0, sh = 0, fw, fh;
+	double aspect = 0.0;
+
+	if (shot_path && shot_gm_src_w > 0) {
+		sw = shot_gm_src_w;
+		sh = shot_gm_src_h;
+		aspect = shot_gm_aspect;
+	} else if (!plat_resident_source(&sw, &sh, &aspect)) {
+		/* A Diatom that does not say: the frame's own size, a console's
+		 * shape */
+		sw = sh = 0;
+		aspect = 4.0 / 3.0;
+	}
+	dmode_surface(&fw, &fh);
+	dmode_preview_draw(a, g_gm_frame, sw, sh, aspect, fw, fh, k, x, y, w, h);
+}
+
 const menu_choice *gm_choices(app *a, const gm_ui *u)
 {
 	static const char *lab[6][GM_CH_MAX];
@@ -1448,7 +1473,8 @@ const menu_choice *gm_choices(app *a, const gm_ui *u)
 			notes[i] = dmode_note(i);
 		}
 		g_gm_choice[GM_DISPLAY] = (menu_choice){ .n = (unsigned char)DMODE_COUNT, .cur = (unsigned char)v->dmode,
-		                                         .labels = lab[0], .notes = notes };
+		                                         .labels = lab[0], .notes = notes,
+		                                         .preview = gm_dmode_preview };
 	}
 	for (i = 0, n = 0, cur = 0; i < SHADER_COUNT && n < GM_CH_MAX; i++) {
 		if (SHADERS[i].gpu && !plat_gpu_shaders()) continue;
@@ -1846,6 +1872,10 @@ void game_menu(app *a)
 			SDL_FreeSurface(sf);
 		}
 	}
+	gm_preview_frame(c.bg);
+	/* The shape this game's picture has, kept for its system: the shelf's
+	 * Display list draws its games with it */
+	dmode_note_shape(a->sys.systems[shelf_owner(a, a->sys_cursor, a->view[a->sys_cursor].cursor)].tag);
 	/* Measured across every mode label, so cycling Display does not resize
 	 * the panel underneath the cursor. */
 	c.st.fixed_w     = gm_width(a);
@@ -1918,6 +1948,7 @@ void game_menu(app *a)
 	ctlscr_close();
 	achtab_close();
 
+	gm_preview_frame(NULL);
 	if (c.bg) SDL_DestroyTexture(c.bg);
 
 	/* Asked to quit with the menu open. Leaving here without saying anything

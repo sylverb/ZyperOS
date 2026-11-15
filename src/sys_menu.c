@@ -424,11 +424,6 @@ int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
 		 * longest of the modes' names fitted the panel in no language with
 		 * Latin letters (1.0.6) */
 		full[SM_DISPLAY] = (menu_row){ T(S_GAMEMENU_DISPLAY), u->dmode, true  };
-		/* What the mode does, two lines under it, left-aligned as a
-		 * paragraph is; always two, so every row after it keeps its place
-		 * whatever the mode says (sm_pos, the key handler) */
-		full[SM_DNOTE1]  = MENU_BODY(u->dmode_note[0] ? u->dmode_note[0] : "");
-		full[SM_DNOTE2]  = MENU_BODY(u->dmode_note[1] ? u->dmode_note[1] : "");
 		/* How the picture is drawn at its last step, Off or a shader: this
 		 * system's, as Display Mode is (src/app.h SHADERS) */
 		full[SM_SHADER]  = (menu_row){ T(S_GAMEMENU_SHADER),

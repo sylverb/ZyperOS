@@ -865,13 +865,18 @@ static void apply_display(int mode, diatom_filter filter)
 	 * `surface=` says what the rect is measured in. A launcher that draws at
 	 * another size scales the rect to its own: on the GKD Pixel 2 the surface
 	 * is 640x480 under ZyperOS's 1024x768, and the in-game menu drew the paused
-	 * frame in the top-left 640x480 of the screen until it was said. */
+	 * frame in the top-left 640x480 of the screen until it was said.
+	 *
+	 * `source=` and `aspect=` are the picture the core makes and the shape it
+	 * asks for (0 for square pixels), so a launcher can show what each mode
+	 * would do with it before one is chosen (ZyperOS's Display list). */
 	if (diatom_proto_connected())
 		diatom_proto_send("DISPLAY\tmode=%s\tfilter=%s\trect=%dx%d+%d+%d\tsurface=%dx%d"
-		                  "\tstrength=%d",
+		                  "\tsource=%dx%d\taspect=%.5f\tstrength=%d",
 		                  diatom_modes[mode].name, filter_name(filter),
 		                  shown.w, shown.h, shown.x, shown.y,
-		                  g_caps.surface_w, g_caps.surface_h, g_strength);
+		                  g_caps.surface_w, g_caps.surface_h,
+		                  g_base_w, g_base_h, g_base_aspect > 0 ? g_base_aspect : 0.0, g_strength);
 }
 
 /* The in-game menu handover.

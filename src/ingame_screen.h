@@ -78,6 +78,11 @@ void gm_at_facts(at_facts *f);
 at_source gm_at_source(void);
 void gm_ctl_game(app *a, gm_ctx *c, ctlscr_game *g);
 void gm_backdrop(app *a, void *ctx, float k);
+/* The paused frame the Display list's picture draws (NULL: the stand-in),
+ * and a shot's --gm-source */
+void gm_preview_frame(SDL_Texture *bg);
+extern int    shot_gm_src_w, shot_gm_src_h;
+extern double shot_gm_aspect;
 void game_menu(app *a);
 int port_menu(app *a);
 
