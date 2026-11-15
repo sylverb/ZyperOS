@@ -102,4 +102,32 @@ bool plat_profile_select(const char *id);
 /* `b` as `p` prints it, or NULL where `p` has no such control */
 const dev_button *dev_button_of(const device_profile *p, in_button b);
 
+/* The questions the launcher asks the platform whose answers are facts about
+ * the handheld, from the profile in force (src/profile.c). Live questions
+ * (plat_has_wifi: an adapter plugged in; plat_menu_held, plat_tap_held) stay
+ * in src/platform.h and the device files. */
+/* Bluetooth at all, not whether it is on: a device without it hides
+ * everything that needs it (src/sys_menu.h) */
+bool plat_has_bluetooth(void);
+/* Whether Diatom draws its old screens here, the shaders a GPU draws (the
+ * CRT, scanlines, the LCD grid; src/app.h SHADERS' gpu): on the Pixel 2,
+ * whose pass is a GPU's; not on the Brick, whose is the CPU's */
+bool plat_gpu_shaders(void);
+/* Whether the built-in speaker is one speaker, as on the GKD Pixel 2, where
+ * the Brick has two: Audio Channels' Auto is mono there and stereo on
+ * everything else (src/audioout.h). */
+bool plat_speaker_mono(void);
+/* Whether brightness is FUNCTION with the volume keys, the device having no
+ * brightness keys of its own. What MENU > Controls calls them (controls.h). */
+bool plat_brightness_on_volume(void);
+/* Whether the device shows the battery on lights of its own, L2 with R2
+ * flashing the level there outside a game (the Pixel 2's four side lights,
+ * which plastron's gauge drives). What MENU > Controls says. */
+bool plat_battery_lights(void);
+/* Whether NES Player 2 (src/p2.h) is offered here: a device whose own
+ * hotspot (a USB Wi-Fi adapter, hostapd) and cable link (the USB network
+ * gadget) it was built and tried on, the Pixel 2. Nothing in a game's menu
+ * says it elsewhere. */
+bool plat_player2(void);
+
 #endif

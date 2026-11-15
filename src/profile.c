@@ -37,6 +37,13 @@ bool plat_profile_select(const char *id)
 	return false;
 }
 
+bool plat_has_bluetooth(void)        { return active->bluetooth; }
+bool plat_gpu_shaders(void)          { return active->gpu_shaders; }
+bool plat_speaker_mono(void)         { return active->speaker_mono; }
+bool plat_brightness_on_volume(void) { return active->chords.bright == DEV_BRIGHT_MENU_VOL; }
+bool plat_battery_lights(void)       { return active->chords.battery_chord; }
+bool plat_player2(void)              { return active->player2; }
+
 const dev_button *dev_button_of(const device_profile *p, in_button b)
 {
 	int i;

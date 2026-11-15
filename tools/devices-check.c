@@ -118,6 +118,28 @@ static void desktop(void)
 	   "desktop: today's host answers (the Pixel 2's art and shaders, the Brick's rest)");
 }
 
+/* The constant questions the launcher asks the platform, answered from the
+ * profile in force */
+static void answers(void)
+{
+	static const char *const ids[] = { "pixel2", "brick", "desktop" };
+	char what[96];
+	size_t i;
+
+	for (i = 0; i < sizeof ids / sizeof ids[0]; i++) {
+		const device_profile *p;
+
+		ck(plat_profile_select(ids[i]), "a profile to answer from");
+		p = plat_profile();
+		snprintf(what, sizeof what, "%s: the platform answers from its profile", ids[i]);
+		ck(plat_has_bluetooth() == p->bluetooth && plat_gpu_shaders() == p->gpu_shaders &&
+		   plat_speaker_mono() == p->speaker_mono && plat_player2() == p->player2 &&
+		   plat_brightness_on_volume() == (p->chords.bright == DEV_BRIGHT_MENU_VOL) &&
+		   plat_battery_lights() == p->chords.battery_chord, what);
+	}
+	plat_profile_select("desktop");
+}
+
 static void choosing(void)
 {
 	ck(plat_profile() == &device_profile_desktop, "the host starts as desktop");
@@ -139,6 +161,7 @@ int main(void)
 	pixel2();
 	brick();
 	desktop();
+	answers();
 	choosing();
 	if (fails) {
 		printf("devices: %d of %d checks failed\n", fails, checks);
