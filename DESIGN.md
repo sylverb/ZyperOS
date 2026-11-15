@@ -390,9 +390,7 @@ its own says why beside it.
 | **page-line-y** | 648 | the line of marks and words over the keys |
 | **page-line-gap** | 48 | between the line's marks and words |
 | **page-line-gap-tight** | 24 | ...where they are wider than the page |
-| **page-foot-y** | 704 | the keys' middle at a page's foot |
-| **page-foot-low** | 724 | a page whose content stands over a page's foot: Cover and Video, the MP4 player |
-| **shelf-foot-y** | 720 | a shelf's foot, under a game's name and its lines (the shelves, the list, Now Playing) |
+| **foot-y** | 720 | every screen's keys: the last row's middle, 32 from the screen's foot to the glyph's (one foot since 1.0.6; pages had 704, Cover and Video 724) |
 | **page-foot-gap** | 40 | between the hints at a page's foot |
 | **page-foot-gap-tight** | 20 | ...where they are wider than the page |
 | **page-tile-w** | 472 | a page's tile, two side by side from the insets |
@@ -976,8 +974,8 @@ or a screen's own, a hint's capitals (Title Case in English). Under every
 question in tiles (11.18, 11.23, 11.36) and Now Playing's foot. *(I asked
 for one component to use across the UI.)*
 
-The game shelves' feet are one too since 2026-11-13, at a shelf's foot
-(720, `DS_SHELF_FOOT_Y`), spread from x 64 to
+The game shelves' feet are one too since 2026-11-13, on every screen's foot
+(720, `DS_FOOT_Y`, every screen's), spread from x 64 to
 960: B, START (List or Covers), Y when the game resumes, X. They were at
 fixed places (B 64, Y 432, X 832), with no room kept for a fourth.
 
@@ -1614,7 +1612,7 @@ Muse, so a card's saved places and modes still read.
   16:9 under the header's band (the clock, the title in its row, the marks)
   on **ground**, the same size in every language; over its foot, on
   **surface** at 92%, the bar with the time played and the time left at its
-  two ends on one row, and the keys under it on the shelf's foot. The band
+  two ends on one row, and the keys under it on every screen's foot. The band
   is as tall as the keys need: a language whose words take a second row
   makes it taller, never the picture smaller. The controls come up on any
   key, which also does what it does (the first press too, as a remote's
@@ -1798,8 +1796,8 @@ the column at 584 and 632, two **meta** lines, the name **text-soft** and the
 value right-aligned **text-dim** at 976: Phones (`waiting`, `1 joined`) and
 Now, the transfer's news, which scrolls when it is too wide (principle 8).
 The key legend "B: close" is centered at the foot (11.4), at a page's foot
-height (704, DS_PAGE_FOOT_Y, as File Transfer's page that follows it; 718
-until 2026-11-14), "B: keep going or stop" while files move (11.23). No status corner, no Zyper. src/hotpanel.c draws it; tools/qr-check.c reads its code back.
+height (720, DS_FOOT_Y, every screen's foot; 718 until 2026-11-14, 704
+until one foot, 1.0.6), "B: keep going or stop" while files move (11.23). No status corner, no Zyper. src/hotpanel.c draws it; tools/qr-check.c reads its code back.
 
 - **The code.** One module is 12 units, half again the grid step, so the
   code is 444 units with its quiet zone of four modules: 5.5 cm on the Pixel
@@ -4197,14 +4195,11 @@ when its change lands.
 
 - A page's two-line heading is laid out three ways (`DS_HEAD_BALANCED`,
   `DS_HEAD_TWO`, `DS_HEAD_SUB`).
-- The keys at a screen's foot stand at a page's 704 (`DS_PAGE_FOOT_Y`)
-  since 1.0.6, except where a screen needs its own: the shelves, the list
-  and Now Playing at a shelf's 720, `DS_SHELF_FOOT_Y` (at 704 a two-line
-  name's system line stood 14 units over the keys, where it has 30); Cover and Video and the
-  MP4 player at 724, `DS_PAGE_FOOT_LOW` (the big view's two caption lines stand over it, and at
-  704 A's hint met the second), Now Playing over a video at 730 (under the
-  video's controls), the charging screen's larger hints at 680; Storage has
-  no keys, its caption at 702.
+- The keys on every screen stand on one foot since 1.0.6, `DS_FOOT_Y`
+  (720: the last row's middle, 32 from the screen's foot to the glyph's),
+  where a page had 704, Cover and Video and the MP4 player 724 and the
+  shelves 720. Left apart: the charging screen's larger hints at 680, and
+  Storage, which has no keys and its caption at 702.
 - The tutorial draws its bars and more marks in its own layer, at `ds_bar`'s
   and `ds_more`'s sizes. Every other bar goes through `ds_bar` or
   `ds_bar_in` (File Transfer's load and Developer Mode's hold since 1.0.6,

@@ -23,9 +23,7 @@
 #define DS_PAGE_LINE_Y          648
 #define DS_PAGE_LINE_GAP        48
 #define DS_PAGE_LINE_GAP_TIGHT  24
-#define DS_PAGE_FOOT_Y          704
-#define DS_PAGE_FOOT_LOW        724
-#define DS_SHELF_FOOT_Y         720
+#define DS_FOOT_Y               720
 #define DS_PAGE_FOOT_GAP        40
 #define DS_PAGE_FOOT_GAP_TIGHT  20
 #define DS_PAGE_TILE_W          472
