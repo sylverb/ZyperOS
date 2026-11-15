@@ -391,6 +391,8 @@ its own says why beside it.
 | **page-line-gap** | 48 | between the line's marks and words |
 | **page-line-gap-tight** | 24 | ...where they are wider than the page |
 | **page-foot-y** | 704 | the keys' middle at a page's foot |
+| **page-foot-low** | 724 | a page whose content stands over a page's foot: Cover and Video, the MP4 player |
+| **shelf-foot-y** | 720 | a shelf's foot, under a game's name and its lines (the shelves, the list, Now Playing) |
 | **page-foot-gap** | 40 | between the hints at a page's foot |
 | **page-foot-gap-tight** | 20 | ...where they are wider than the page |
 | **page-foot-gap-pair** | 48 | between Flash Drive's two hints |
@@ -414,6 +416,8 @@ its own says why beside it.
 | **badge-ring** | 2 | the edge round a badge, and a switch mark's ring |
 | **badge-inset** | 12 | a badge from its cover's corner |
 | **badge-inset-small** | 9 | the same on a small cover |
+| **more-w** | 24 | the more-above or more-below triangle's width |
+| **more-h** | 12 | its height |
 | **mark-line** | 36 | a mark beside its words over the keys |
 | **mark-line-pad** | 14 | that mark to its words |
 | **mark-stat** | 44 | a count's mark |
@@ -869,7 +873,8 @@ window. Heading in **label**, **text-soft**, over a 2-unit rule
 in **edge** (in a system's menu, in that system's color). Rows in **menu**:
 live rows **text-soft**, values **text-dim**, dead rows **text-dim** at both.
 The focused row is an **accent** fill, **radius.row**, its label and value in
-**on-accent**. More rows above or below: a small triangle in **text-dim**.
+**on-accent**. More rows above or below: a small triangle in **text-dim**,
+24 by 12 (`ds_more`), as on every list.
 Opens and closes as 8.2 says.
 
 **Lists go round.** Down on the last row that can be selected goes to the
@@ -965,12 +970,15 @@ shelves' feet have always drawn them. One component lays them out: a list
 of {button, word} in order, as many in a row as fit, rows 44 apart, never
 a hint cut or split, centered under a panel's tiles or spread across a
 screen's foot (Now Playing's grows upward from its line). The d-pad's
-Left/Right is the "< >" pill, as seek's. Words are res/strings' keyhint.*
+Left/Right ("< >", `KEYHINT_LEFT_RIGHT`) is the d-pad itself, the tutorial's
+cross a quarter larger than a face's glyph, its left and right arms a step
+darker with their arrows (since 1.0.6; a pill with the signs before). Words are res/strings' keyhint.*
 or a screen's own, a hint's capitals (Title Case in English). Under every
 question in tiles (11.18, 11.23, 11.36) and Now Playing's foot. *(I asked
 for one component to use across the UI.)*
 
-The game shelves' feet are one too since 2026-11-13, spread from x 64 to
+The game shelves' feet are one too since 2026-11-13, at a shelf's foot
+(720, `DS_SHELF_FOOT_Y`), spread from x 64 to
 960: B, START (List or Covers), Y when the game resumes, X. They were at
 fixed places (B 64, Y 432, X 832), with no room kept for a fourth.
 
@@ -1602,7 +1610,7 @@ Muse, so a card's saved places and modes still read.
   Their keys are hints as the shelves draw them (`page_hint`: a glyph and a word,
   **chrome** type, **text-soft**), from x 64 to 960 with the room shared out, and
   on a second row above where a language's words need it, never cut: Now
-  Playing's too (A, B, X, Y, L1/R1, the d-pad's sides as a `< >` pill).
+  Playing's too (A, B, X, Y, L1/R1, the d-pad with its sides lit, 11.4).
   The picture is drawn under the screen at the panel's own resolution
   (plat_video_under), so nothing scales it twice. A video keeps its place
   as a book does, per file; none is kept in its first or last minute.
@@ -4131,6 +4139,8 @@ says; MENU, the volume keys and POWER cannot be remapped.
 - [ ] A style or a mark is the caller's word, never read off a label or the
       first row's mark.
 - [ ] `make pixel-gate` lists only the frames it means to change.
+- [ ] No word comes within 3 units of a key or a more mark (`check-i18n-shots`
+      says where), in any language: a foot moved closer to a caption met it.
 - [ ] It works in both themes.
 - [ ] Every press on it does something visible and audible in the next frame.
 - [ ] Its motion starts from where things are, can be interrupted, and tells
@@ -4151,19 +4161,35 @@ says; MENU, the volume keys and POWER cannot be remapped.
 What this document describes and the code does not do yet. Each line goes
 when its change lands.
 
-- The design system (section 15) holds the pages, the tiles, the marks and
-  the hints, but not yet: the menu panel (`menu_panel`, whose padding
-  formula the keyboard copies), Player 2's panel and the hotspot screen, each
-  of which builds its slab, heading, rule and legend by hand; the status
-  corner's marks (`src/status.c`), drawn by an engine of their own, with a
-  Wi-Fi, a bolt, headphones and arrows that are `ui_glyph`'s in another
-  hand; six scroll triangles; three hearts.
 - A page's two-line heading is laid out three ways (`DS_HEAD_BALANCED`,
-  `DS_HEAD_TWO`, `DS_HEAD_SUB`). The keys at a screen's foot stand at six
-  heights (680, 702, 704, 714, 720, 724), and a page's foot puts its
-  hints 40 apart, Flash Drive's pair 48.
-- A progress bar is drawn in 19 places with six rules for its smallest
-  fill; `ds_bar` is the one the pages, the shelf and the list share.
+  `DS_HEAD_TWO`, `DS_HEAD_SUB`).
+- The keys at a screen's foot stand at a page's 704 (`DS_PAGE_FOOT_Y`)
+  since 1.0.6, except where a screen needs its own: the shelves, the list
+  and Now Playing at a shelf's 720, `DS_SHELF_FOOT_Y` (at 704 a two-line
+  name's system line stood 14 units over the keys, where it has 30); Cover and Video and the
+  MP4 player at 724, `DS_PAGE_FOOT_LOW` (the big view's two caption lines stand over it, and at
+  704 A's hint met the second), Now Playing over a video at 730 (under the
+  video's controls), the charging screen's larger hints at 680; Storage has
+  no keys, its caption at 702. Flash Drive puts its two hints 48 apart where
+  a page puts them 40.
+- Two progress bars are still drawn by hand in `src/main.c`: File Transfer's
+  load header and Developer Mode's hold, which fills in **text** where every
+  other hold fills in **accent-ink**. The tutorial draws its bars and more
+  marks in its own layer, at `ds_bar`'s and `ds_more`'s sizes.
+- The keyboard copies the menu panel's padding formula (`menu_pad`).
+- Words whose ink comes within 3 units of a key or a more mark, found when
+  the host began to check it (1.0.6): Storage's two-line caption under the
+  sort key (X with the order), its accents and ascenders in Spanish and
+  Portuguese, and the video controls' keys, wrapped to two rows in Japanese,
+  under the times. The sort key sits in the only room between the list and
+  the caption, so moving it is a layout of its own; the video player's
+  controls get a new layout that keeps the picture at its full size in every
+  language. `check-i18n-shots` lists these screens as known (`KNOWN_KEYS`)
+  and fails on any other.
+- A heart is drawn three ways: filled (`draw_heart`, `src/heart.c`, the
+  favorites' mark), as a stroke mark (`UI_GLYPH_HEART`, the Favorites tile),
+  and as a distance field for a cover badge that only its check draws
+  (`AB_FAVORITE`, `src/artbadge.c`).
 
 - Menus opening and closing; the snappy durations. Both are new with this
   document.
@@ -4261,8 +4287,8 @@ xfer=on'` or `xfer=62` for the corner's mark.
 A new screen is built from these parts by name and copies none of their
 numbers. A part it needs that is not here goes into `src/ds/` first, with
 its line in this table. `check-ds` (`tools/ds-check.py`) holds what the compiler
-cannot: `src/ds/` includes nothing of `src/main.c`, and outside it no page's
-foot is typed as 704, no Zyper at a page's (123, 168), and no tile's mark or
+cannot: `src/ds/` includes nothing of `src/main.c`, and outside it no
+foot is typed as a number (704, or the old 714, 720, 724), no Zyper at a page's (123, 168), and no tile's mark or
 the tiles' style is read off a name.
 
 | Part | Where | What it holds |
@@ -4274,10 +4300,12 @@ the tiles' style is read off a name.
 | Stroke marks | `src/ds/glyph.c`, `glyph.h` | the 25 `ui_glyph` marks and their cache; `check-glyphs` holds each to 32 strokes and 4 arrowheads |
 | Page frame | `src/ds/page.c`, `page.h` | `ds_page_frame_of`; the heading (`ds_page_head`: `DS_HEAD_BALANCED`, `DS_HEAD_TWO`, `DS_HEAD_SUB`); the line of marks over the keys (`ds_page_line`, its tones `DS_TONE_*`); a line of words under the tiles (`ds_page_meta`); the foot (`ds_page_foot`). `page_top` in `src/main.c` draws the ground and Zyper and hands back the frame. |
 | Tiles and the list | `src/ds/tiles.c`, `tiles.h` | `ds_tiles_draw`: `DS_TILES_ROW`, `DS_TILES_GRID`, `DS_TILES_LIST`. In `src/main.c`, `tiles_show` takes the style as the panel's kind (`PANEL_TILES`, `PANEL_TILES_GRID`, `PANEL_LIST`) and each tile's mark. |
-| Marks | `src/ds/mark.c`, `mark.h` | `ds_badge`, `ds_switch` (a switch as a mark), `ds_play_disc` (a cover's video snap), `ds_bar` |
+| Panel | `src/ds/panel.c`, `panel.h` | `ds_panel_open` / `ds_panel_close` (the slab and its lift, at rest or posed through the caller's `ds_pass`), `ds_panel_slab`, `ds_panel_rule`, `ds_panel_legend`: the menus, the tiles, the list, Player 2's panel, the hotspot |
+| Marks | `src/ds/mark.c`, `mark.h` | `ds_badge`, `ds_switch` (a switch as a mark), `ds_play_disc` (a cover's video snap), `ds_more` (more rows above or below, `DS_MORE_W` by `DS_MORE_H`, 24 by 12), `ds_bar` and `ds_bar_in` (a bar of any size and colors; one rule for a small fill: never shorter than its own round end) |
+| Distances | `src/ds/sdf.h` | the segment, polygon and rounded-box distances the distance-field marks share: the status corner, the cover badges |
 | Button hints | `src/keyhints.c`, `src/keyhints_draw.c`; `page_hint` in `src/home.c` | 11.4 |
-| Menu panel | `menu_panel` (with the main.c split, a file of its own) | 11.3 |
-| Status corner | `src/status.c` | 11.12 |
+| Menu panel | `src/menu_panel.c` (its slab `ds_panel_open`, its more marks `ds_more`) | 11.3 |
+| Status corner | `src/status.c` | 11.12. Its marks keep drawings of their own, by decision (2026-11-14, round 2 of the design system): at 24 units, 15 pixels on the panel, each shows a state - a signal's lit arcs, a charge, a sweep - and is drawn for that size as a distance field, where `ui_glyph`'s are 56 to 72-unit marks for a choice. They share their distances (`src/ds/sdf.h`), not their shapes. |
 | Zyper | `tools/zyperdef.py` → `src/zypermark.h`; `src/zyperdraw.c` | section 10 |
 | Art | `res/` | the table below |
 

@@ -36,9 +36,28 @@ void ds_play_disc(SDL_Renderer *r, int x, int y, int d, Uint8 al)
 	ui_glyph_draw(r, UI_GLYPH_PLAY, x + d / 2 + d / 16, y + d / 2, d / 2, ui_col(theme()->on_accent, al));
 }
 
+void ds_more(SDL_Renderer *r, float cx, float top, bool up, SDL_Color c)
+{
+	const float hw = DS_MORE_W / 2.0f, h = DS_MORE_H;
+	SDL_Vertex v[3] = {
+		{ { cx - hw, up ? top + h : top }, c, { 0, 0 } },
+		{ { cx + hw, up ? top + h : top }, c, { 0, 0 } },
+		{ { cx, up ? top : top + h }, c, { 0, 0 } },
+	};
+
+	SDL_RenderGeometry(r, NULL, v, 3, NULL, 0);
+	ui_fit_mark(&(SDL_Rect){ (int)(cx - hw), (int)top, DS_MORE_W, DS_MORE_H });
+}
+
+void ds_bar_in(SDL_Renderer *r, const SDL_Rect *track, int fill, SDL_Color track_c, SDL_Color fill_c)
+{
+	ui_round_rect(r, track, track->h / 2, track_c);
+	if (fill > 0 && fill < track->h) fill = track->h;
+	if (fill > 0)
+		ui_round_rect(r, &(SDL_Rect){ track->x, track->y, fill, track->h }, track->h / 2, fill_c);
+}
+
 void ds_bar(SDL_Renderer *r, int x, int y, int w, int fill, Uint8 al)
 {
-	ui_round_rect(r, &(SDL_Rect){ x, y, w, UI_BAR_H }, UI_BAR_H / 2, ui_col(theme()->track, al));
-	if (fill > 0)
-		ui_round_rect(r, &(SDL_Rect){ x, y, fill, UI_BAR_H }, UI_BAR_H / 2, ui_col(theme()->accent_ink, al));
+	ds_bar_in(r, &(SDL_Rect){ x, y, w, UI_BAR_H }, fill, ui_col(theme()->track, al), ui_col(theme()->accent_ink, al));
 }

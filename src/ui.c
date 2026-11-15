@@ -900,8 +900,31 @@ static SDL_Rect fit_rect[FIT_RECTS];
 static int fit_n;
 static struct { SDL_Rect r; unsigned h; char text[32]; } fit_line[FIT_RECTS];
 static int fit_lines;
+/* The keys and the marks: every button glyph and more mark drawn, and every
+ * string's ink (its capitals' top to its baseline: a descender is one
+ * letter's, and taken across the whole string it met a key under the "an"
+ * of "Japan"), so that a string meeting a key or a mark
+ * is said, whichever is drawn first. A button's own letter is not a string
+ * that meets it (fit_quiet). */
+static SDL_Rect fit_mark[FIT_RECTS];
+static int fit_marks;
+static struct { SDL_Rect r, dst; TTF_Font *f; char s[256]; char text[32]; } fit_ink[FIT_RECTS];
+static int fit_inks, fit_quiet;
 
-void ui_fit_frame(void) { fit_n = 0; fit_lines = 0; }
+void ui_fit_frame(void) { fit_n = 0; fit_lines = 0; fit_marks = 0; fit_inks = 0; }
+
+/* Do `a` and `b` come within `m` of each other? How far, top to bottom */
+static bool fit_meet(const SDL_Rect *a, const SDL_Rect *b, int m, int *px)
+{
+	int top = a->y > b->y - m ? a->y : b->y - m;
+	int bot = a->y + a->h < b->y + b->h + m ? a->y + a->h : b->y + b->h + m;
+	int left = a->x > b->x - m ? a->x : b->x - m;
+	int right = a->x + a->w < b->x + b->w + m ? a->x + a->w : b->x + b->w + m;
+
+	if (bot <= top || right <= left) return false;
+	*px = bot - top;
+	return true;
+}
 
 static void fit_box(const SDL_Rect *q)
 {
@@ -935,6 +958,80 @@ static void fit_say(const char *what, const char *head, const char *s)
 void ui_fit_drawn(const char *s)
 {
 	if (s && *s) fit_say("drawn", "", s);
+}
+
+/* Where the rough boxes come close, the string's own ink: rendered as
+ * ui_text draws it (dst is where it was drawn), the rows of it with a pixel
+ * of ink within `m` of `mark`. A line of lowercase under a key keeps its
+ * x-height's air, which its capitals' box does not (Storage's caption under
+ * the sort key, 14 units clear, read as touching). */
+static int fit_ink_rows(TTF_Font *f, const char *s, const SDL_Rect *dst, const SDL_Rect *mark, int m)
+{
+	SDL_Rect q = { mark->x - m, mark->y - m, mark->w + 2 * m, mark->h + 2 * m }, hit;
+	SDL_Surface *surf;
+	int x, y, rows = 0;
+
+	if (!SDL_IntersectRect(dst, &q, &hit)) return 0;
+	if (!(surf = ui_text_surface(f, s, (SDL_Color){ 255, 255, 255, 255 }))) return 1;
+	SDL_LockSurface(surf);
+	for (y = hit.y; y < hit.y + hit.h; y++) {
+		int sy = y - dst->y;
+		bool any = false;
+
+		if (sy < 0 || sy >= surf->h) continue;
+		for (x = hit.x; x < hit.x + hit.w && !any; x++) {
+			int sx = x - dst->x;
+			Uint8 cr, cg, cb, ca;
+			Uint32 px;
+
+			if (sx < 0 || sx >= surf->w) continue;
+			px = ((Uint32 *)((Uint8 *)surf->pixels + (size_t)sy * surf->pitch))[sx];
+			SDL_GetRGBA(px, surf->format, &cr, &cg, &cb, &ca);
+			any = ca > 64;
+		}
+		rows += any;
+	}
+	SDL_UnlockSurface(surf);
+	SDL_FreeSurface(surf);
+	return rows;
+}
+
+void ui_fit_mark(const SDL_Rect *q)
+{
+	char head[96];
+	int i, px, rows;
+
+	for (i = 0; i < fit_inks; i++)
+		if (fit_meet(&fit_ink[i].r, q, FIT_MARGIN, &px) &&
+		    (rows = fit_ink_rows(fit_ink[i].f, fit_ink[i].s, &fit_ink[i].dst, q, FIT_MARGIN)) > 0) {
+			snprintf(head, sizeof head, "%d|keys %d..%d|", rows, q->x, q->x + q->w);
+			fit_say("overflow", head, fit_ink[i].text);
+		}
+	if (fit_marks < FIT_RECTS) fit_mark[fit_marks++] = *q;
+}
+
+/* A string's ink against the keys and marks drawn before it, then kept for
+ * the ones after */
+static void fit_ink_check(TTF_Font *f, const char *s, const SDL_Rect *dst, const SDL_Rect *ink)
+{
+	char head[96];
+	int i, px, rows;
+
+	for (i = 0; i < fit_marks; i++)
+		if (fit_meet(ink, &fit_mark[i], FIT_MARGIN, &px) &&
+		    (rows = fit_ink_rows(f, s, dst, &fit_mark[i], FIT_MARGIN)) > 0) {
+			snprintf(head, sizeof head, "%d|keys %d..%d|", rows, fit_mark[i].x, fit_mark[i].x + fit_mark[i].w);
+			fit_say("overflow", head, s);
+		}
+	if (fit_inks < FIT_RECTS) {
+		fit_ink[fit_inks].r = *ink;
+		fit_ink[fit_inks].dst = *dst;
+		fit_ink[fit_inks].f = f;
+		snprintf(fit_ink[fit_inks].s, sizeof fit_ink[fit_inks].s, "%s", s);
+		snprintf(fit_ink[fit_inks].text, sizeof fit_ink[fit_inks].text, "%.30s", s);
+		for (char *c = fit_ink[fit_inks].text; *c; c++) if (*c == '\n' || *c == '|') *c = ' ';
+		fit_inks++;
+	}
 }
 
 /* `dst` is where `s` is drawn, at anchor x `ax` */
@@ -1014,6 +1111,7 @@ static void i18n_fit_seen(const char *src, const char *dst)
 void ui_fit_frame(void) {}
 void ui_fit_tight(const char *s, int w, int room, int row_w) { (void)s; (void)w; (void)room; (void)row_w; }
 void ui_fit_drawn(const char *s) { (void)s; }
+void ui_fit_mark(const SDL_Rect *q) { (void)q; }
 #endif
 
 static struct text_entry *text_get(SDL_Renderer *r, TTF_Font *f, const char *s,
@@ -1071,6 +1169,12 @@ int ui_text(SDL_Renderer *r, TTF_Font *f, const char *s, int x, int y,
 	dst.y = y + e->dy;
 #ifdef I18N_PSEUDO
 	fit_check(r, s, &dst, x);
+	if (!fit_quiet && !SDL_RenderIsClipEnabled(r)) {
+		int asc = TTF_FontAscent(f), cap = ui_cap_height(f);
+		SDL_Rect ink = { dst.x, y + asc - cap, dst.w, cap };
+
+		fit_ink_check(f, s, &dst, &ink);
+	}
 #endif
 	SDL_SetTextureAlphaMod(e->tex, col.a);
 	SDL_RenderCopy(r, e->tex, NULL, &dst);
@@ -2223,6 +2327,25 @@ static bool button_menu(const char *label)
 	return label && !strcmp(label, "MENU");
 }
 
+/* The d-pad's hint (keyhints.h): "< >" its left and right, "^ v" its up and
+ * down. Drawn as the d-pad itself (dpad_key), the arms it means lit, not as a
+ * pill with the signs on it (1.0.6: Tarik, "fix the arrow buttons hint design.
+ * Check the pixel 2 3d model for reference on how they look"). Which arms:
+ * 1 left and right, 2 up and down, 0 for any other label. */
+static int button_dpad(const char *label)
+{
+	if (!label) return 0;
+	if (!strcmp(label, "< >")) return 1;
+	if (!strcmp(label, "^ v")) return 2;
+	return 0;
+}
+
+static void dpad_key(SDL_Renderer *r, float cx, float cy, float size, int arms, SDL_Color edge,
+                     SDL_Color face, SDL_Color arm, SDL_Color ink);
+/* A d-pad's key is this much a button glyph's size: a cross has less ink
+ * than a face's disc, and at the same size it read small beside them */
+#define DPAD_KEY_K 1.25f
+
 /* A face: A, B, X and Y, and MENU, which is round on the Pixel 2 and drawn as
  * its three dots rather than a word (menu_key_dots). */
 static bool button_round(const char *label)
@@ -2291,6 +2414,7 @@ int ui_button_width(const char *label, int size)
 	bool round = button_round(label);
 
 	if (round) return size;
+	if (button_dpad(label)) return (int)((float)size * DPAD_KEY_K + 0.5f);
 	return ui_text_width(button_letter(round, size), label)
 	       + button_pad(size) * 2;
 }
@@ -2311,6 +2435,27 @@ void ui_button(SDL_Renderer *r, const char *label, int cx, int cy, int size,
 	SDL_Rect q, in;
 
 	if (!label || size <= 0) return;
+	if (button_dpad(label)) {
+		const float ds = (float)size * DPAD_KEY_K;
+		const int dw = (int)(ds + 0.5f);
+
+		if (style == UI_BUTTON_ON_ACCENT) {
+			unsigned face = ui_mix(ui_rgb(t->accent), ui_rgb(t->on_accent), BUTTON_ON_ACCENT_TINT);
+			unsigned arm = ui_mix(face, ui_rgb(t->on_accent), 0.25f);
+
+			dpad_key(r, (float)cx, (float)cy, ds, button_dpad(label), ui_col(t->on_accent, 255),
+			         (SDL_Color){ (Uint8)(face >> 16), (Uint8)(face >> 8), (Uint8)face, 255 },
+			         (SDL_Color){ (Uint8)(arm >> 16), (Uint8)(arm >> 8), (Uint8)arm, 255 },
+			         ui_col(t->on_accent, 255));
+		} else {
+			unsigned arm = ui_mix(ui_rgb(t->raised), ui_rgb(t->text_dim), 0.35f);
+
+			dpad_key(r, (float)cx, (float)cy, ds, button_dpad(label), ui_col(t->edge, 255), ui_col(t->raised, 255),
+			         (SDL_Color){ (Uint8)(arm >> 16), (Uint8)(arm >> 8), (Uint8)arm, 255 }, ui_col(t->text, 255));
+		}
+		ui_fit_mark(&(SDL_Rect){ cx - dw / 2, cy - dw / 2, dw, dw });
+		return;
+	}
 	f = button_letter(round, size);
 	w = round ? size : ui_text_width(f, label) + button_pad(size) * 2;
 	ring = button_ring(round, size);
@@ -2339,8 +2484,15 @@ void ui_button(SDL_Renderer *r, const char *label, int cx, int cy, int size,
 	/* Centered on the capitals: every label is capitals and digits, and the
 	 * em box would hang a descender's depth of nothing under them and sit
 	 * them high in the glyph. */
+#ifdef I18N_PSEUDO
+	fit_quiet++;
+#endif
 	if (button_menu(label)) menu_key_dots(r, f, (float)cx, (float)cy, 1.0f, ink);
 	else ui_text(r, f, label, cx, ui_cap_y(f, cy), 0, ink);
+#ifdef I18N_PSEUDO
+	fit_quiet--;
+#endif
+	ui_fit_mark(&q);
 }
 
 /* ---- the glyph pressed, and the glyphs that are no letter -------------------
@@ -2596,6 +2748,28 @@ void ui_button_pressed(SDL_Renderer *r, const char *label, int cx, int cy, int s
 	glyph_op = op01(op);
 	f = button_letter(round, size);
 	k = glyph_k(style == UI_BUTTON_ON_ACCENT ? 0.0f : press, scale);
+	if (button_dpad(label)) {
+		/* the d-pad's key, faded, pressed or pulsing as any glyph is */
+		const float ds = (float)size * DPAD_KEY_K * k;
+
+		if (style == UI_BUTTON_ON_ACCENT) {
+			unsigned m = ui_mix(ui_rgb(t->accent), ui_rgb(t->on_accent), BUTTON_ON_ACCENT_TINT);
+			unsigned a = ui_mix(m, ui_rgb(t->on_accent), 0.25f);
+			ds_rgb face = { (Uint8)(m >> 16), (Uint8)(m >> 8), (Uint8)m };
+			ds_rgb arm = { (Uint8)(a >> 16), (Uint8)(a >> 8), (Uint8)a };
+
+			dpad_key(r, (float)cx, (float)cy, ds, button_dpad(label), gcol(t->on_accent), gcol(face), gcol(arm),
+			         gcol(t->on_accent));
+		} else {
+			unsigned a = ui_mix(ui_rgb(t->raised), ui_rgb(t->text_dim), 0.35f);
+			ds_rgb arm = { (Uint8)(a >> 16), (Uint8)(a >> 8), (Uint8)a };
+
+			dpad_key(r, (float)cx, (float)cy, ds, button_dpad(label), col_toward(t->edge, t->accent, press),
+			         gcol(t->raised), gcol(arm), gcol(t->text));
+		}
+		glyph_op = 1.0f;
+		return;
+	}
 	w = (float)(round ? size : ui_text_width(f, label) + button_pad(size) * 2) * k;
 	h = (float)size * k;
 	ring = (float)button_ring(round, size) * k;
@@ -2632,6 +2806,40 @@ static void dpad_rect(SDL_Renderer *r, float cx, float cy, float k, float x, flo
 {
 	rrect_f(r, cx + (x - DPAD_U / 2) * k, cy + (y - DPAD_U / 2) * k, w * k, h * k,
 	        rad * k, c);
+}
+
+/* The d-pad as a key's hint: the tutorial's d-pad below (the lab's cross, as
+ * the handheld's in src/tourdevice.c is), `size` across - DPAD_KEY_K of a
+ * button glyph's, as a cross has less ink than a face - its ring in `edge`
+ * and its face in `face`; the arms it means a step darker (`arm`), as the
+ * handheld lights a pressed arm, each with its arrow in `ink`, as a face's
+ * letter is; the others plain; and the edge's dot at its middle. */
+static void dpad_key(SDL_Renderer *r, float cx, float cy, float size, int arms, SDL_Color edge,
+                     SDL_Color face, SDL_Color arm, SDL_Color ink)
+{
+	static const float A[UI_DPAD_ARMS][4] = {
+		{ 44, 4, 32, 36 }, { 44, 80, 32, 36 }, { 4, 44, 36, 32 }, { 80, 44, 36, 32 } };
+	static const float P[UI_DPAD_ARMS][6] = {
+		{ 60, 13, 50, 27, 70, 27 }, { 60, 107, 70, 93, 50, 93 },
+		{ 13, 60, 27, 70, 27, 50 }, { 107, 60, 93, 50, 93, 70 } };
+	const float k = size / DPAD_U;
+	int i, j;
+
+	dpad_rect(r, cx, cy, k, 40, 0, 40, 120, 10, edge);
+	dpad_rect(r, cx, cy, k, 0, 40, 120, 40, 10, edge);
+	dpad_rect(r, cx, cy, k, 44, 4, 32, 112, 7, face);
+	dpad_rect(r, cx, cy, k, 4, 44, 112, 32, 7, face);
+	for (i = 0; i < UI_DPAD_ARMS; i++) {
+		SDL_FPoint q[3];
+
+		/* up and down are arms 0 and 1, left and right 2 and 3 */
+		if (!(arms & (i < 2 ? 2 : 1))) continue;
+		dpad_rect(r, cx, cy, k, A[i][0], A[i][1], A[i][2], A[i][3], 7, arm);
+		for (j = 0; j < 3; j++)
+			q[j] = (SDL_FPoint){ cx + (P[i][j * 2] - DPAD_U / 2) * k, cy + (P[i][j * 2 + 1] - DPAD_U / 2) * k };
+		fan(r, q, 3, ink);
+	}
+	disc_f(r, cx, cy, 7 * k, edge);
 }
 
 void ui_dpad(SDL_Renderer *r, int cx, int cy, int size, const float arm[UI_DPAD_ARMS],
