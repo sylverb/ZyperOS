@@ -5,6 +5,7 @@
 #include "aout_route.h"
 #include "app.h"
 #include "artscrape.h"
+#include "ds/flex.h"     /* the pages' bodies, laid out by rules */
 #include "ds/layout.h"
 #include "ds/mark.h"
 #include "ds/page.h"
@@ -79,12 +80,22 @@
 #define SCP_ROWS  3       /* the Systems grid's rows on the screen */
 #define SCP_MB_PER_VIDEO 2.5   /* a ScreenScraper snap, until the card's own say */
 #define SCP_MB_PER_COVER 0.25  /* a cover, until the card's own say */
-/* The page's frame, as Flash Drive's pages (DESIGN.md 11.18): the sides at
- * DS_INSET, what the page holds from under the heading and Zyper, a line
- * over the keys (the frame's line_y), and the keys on every screen's foot */
-#define SCP_X0    DS_INSET                        /* 24 */
-#define SCP_X1    (ZYPEROS_SCREEN_W - DS_INSET)   /* 1000 */
-#define SCP_TOP   DS_PAGE_BODY_Y                  /* 256 */
+/* The page's frame, as Flash Drive's pages (DESIGN.md 11.18, src/ds/page.h):
+ * what the page holds in the frame's body, laid out by rules in it
+ * (scp_body), a line over the keys (the frame's line_y), and the keys on
+ * every screen's foot */
+/* A tree for a page's body (src/ds/flex.h): its root the screen, what it
+ * holds inside the frame's body, `pad` in from it, laid out as `dir` with
+ * `gap` between */
+static int scp_body(ds_flex *F, const ds_page_frame *pf, ds_dir dir, int gap, int pad)
+{
+	return ds_flex_begin(F, ZYPEROS_SCREEN_W, ZYPEROS_SCREEN_H,
+	                     &(ds_box){ .dir = dir, .gap = gap,
+	                                .pad = { pf->body.x + pad, pf->body.y + pad,
+	                                         ZYPEROS_SCREEN_W - pf->body.x - pf->body.w + pad,
+	                                         ZYPEROS_SCREEN_H - pf->body.y - pf->body.h + pad } });
+}
+
 /* What a run leaves free on the card, and when one stops for room */
 #define SCP_RESERVE (200ULL * 1000 * 1000)
 #define SCP_FLOOR   (100ULL * 1000 * 1000)
@@ -495,6 +506,13 @@ static const char *scp_title(const scp_view *v)
 	return v->only[0] && v->n ? v->s[0].name : T(S_SCRAPER_HEADING);
 }
 
+/* The plan's body: a slot a system, the two marks' width (their middles 17
+ * either side of the icon's, 28 across), an icon's band over its marks', and
+ * the two tiles' height */
+#define SCP_SLOT_W       62
+#define SCP_BAND         56
+#define SCP_PLAN_TILE_H  220
+
 /* The plan: what a run will do, before it starts. Each system's icon over
  * its two marks; Covers and Videos as Flash Drive's two tiles, each with
  * what it will add to the card; and over the keys about how long it takes
@@ -505,11 +523,9 @@ static void scp_plan_draw(scp_view *v)
 	const ds_theme *t = theme();
 	TTF_Font *ft = ui_font(UI_F_TITLE), *fm = ui_font(UI_F_MENU), *fs = ui_font(UI_F_META);
 	ds_page_frame pf = page_top(a, 1.0f);
-	int i, ncov, covers, nvid, videos, shown, more;
-	/* nine across, the first's marks at the page's left side (31: half
-	 * the two marks' width) and the ninth's at its right */
-	const int cell = (SCP_X1 - SCP_X0 - 62) / 8, x1 = SCP_X0 + 31;
-	const int iy = SCP_TOP + 28, my = SCP_TOP + 84, ty = 376, th = 220;
+	int i, ncov, covers, nvid, videos, shown, more, slot0, tile0;
+	static ds_flex F;
+	SDL_Rect sr[9];
 	char cb[16], cl[96], vb[24], vl[128], cplus[48] = "", vplus[48] = "", sz[32], fr[32], eta[48], room[128];
 	const char *K[4] = { "A", "Y", "START", "B" };
 	const char *L[4] = { T(S_SCRAPER_KEY_FETCH), T(S_SCRAPER_SYSTEMS), T(S_HOME_SETTINGS), T(S_SCRAPER_KEY_CLOSE) };
@@ -526,12 +542,35 @@ static void scp_plan_draw(scp_view *v)
 	} else {
 		ds_page_head(a->r, &pf, DS_HEAD_SUB, scp_title(v), NULL, UI_GLYPH_COUNT, 0);
 	}
+	/* The body, laid out by rules (src/ds/flex.h): nine slots across, the
+	 * first's marks at the page's left side and the ninth's at its right
+	 * (SCP_SLOT_W, the two marks' width), each an icon's band over its
+	 * marks' (SCP_BAND); and the two tiles under them, 8 apart */
+	{
+		const int root = scp_body(&F, &pf, DS_COL, 0, 0);
+		const int cell = (pf.body.w - SCP_SLOT_W) / 8;
+		const int slots = ds_flex_add(&F, root, &(ds_box){ .dir = DS_ROW, .gap = cell - SCP_SLOT_W,
+		                                                   .h = 2 * SCP_BAND });
+		int tiles;
+
+		for (i = 0; i < 9; i++) {
+			int id = ds_flex_add(&F, slots, &(ds_box){ .w = SCP_SLOT_W, .h = 2 * SCP_BAND });
+
+			if (!i) slot0 = id;
+		}
+		tiles = ds_flex_add(&F, root, &(ds_box){ .dir = DS_ROW, .justify = DS_J_BETWEEN,
+		                                         .pad = { 0, 8, 0, 0 }, .h = 8 + SCP_PLAN_TILE_H });
+		tile0 = ds_flex_add(&F, tiles, &(ds_box){ .w = DS_PAGE_TILE_W, .h = SCP_PLAN_TILE_H });
+		ds_flex_add(&F, tiles, &(ds_box){ .w = DS_PAGE_TILE_W, .h = SCP_PLAN_TILE_H });
+		ds_flex_solve(&F);
+		for (i = 0; i < 9; i++) sr[i] = ds_flex_rect(&F, slot0 + i);
+	}
 	/* The systems, as icons with their two marks: nine at most, and how
 	 * many more, from the page's left side */
 	shown = v->n > 9 ? 8 : v->n;
 	more = v->n - shown;
 	for (i = 0; i < shown; i++) {
-		int cx = x1 + i * cell;
+		int cx = sr[i].x + SCP_SLOT_W / 2, iy = sr[i].y + SCP_BAND / 2, my = iy + SCP_BAND;
 
 		scp_icon_draw(v, i, cx, iy, 60, v->s[i].cov || v->s[i].vid ? 255 : 110);
 		ds_switch(a->r, cx - 17, my, 28, UI_GLYPH_COVER, v->s[i].cov);
@@ -541,7 +580,7 @@ static void scp_plan_draw(scp_view *v)
 		char m[16];
 
 		snprintf(m, sizeof m, "+%d", more);
-		ui_text(a->r, fm, m, x1 + 8 * cell, ui_cap_y(fm, iy), 0, UI_TEXT_SOFT);
+		ui_text(a->r, fm, m, sr[8].x + SCP_SLOT_W / 2, ui_cap_y(fm, sr[8].y + SCP_BAND / 2), 0, UI_TEXT_SOFT);
 	}
 	snprintf(cb, sizeof cb, "%d", covers);
 	snprintf(cl, sizeof cl, TN(S_SCRAPER_ON_N_SYSTEMS, ncov), ncov);
@@ -570,7 +609,7 @@ static void scp_plan_draw(scp_view *v)
 		};
 
 		for (i = 0; i < 2; i++) {
-			SDL_Rect q = { pf.tile[i].x, ty, pf.tile[i].w, th };
+			SDL_Rect q = ds_flex_rect(&F, tile0 + i);
 
 			ui_round_rect(a->r, &q, DS_RADIUS_CARD, ui_col(t->raised, 255));
 			ui_glyph_draw(a->r, TL[i].g, q.x + UD_PAD + 28, q.y + 50, 56,
@@ -630,15 +669,16 @@ static void scp_plan_draw(scp_view *v)
 #define SCP_GRID_GAP  24
 #define SCP_GRID_ROWG 18
 #define SCP_GRID_H    100
-#define SCP_GRID_W    ((SCP_X1 - SCP_X0 - 2 * SCP_GRID_RING - 2 * SCP_GRID_GAP) / SCP_COLS)   /* 305 */
 
 static void scp_systems_draw(scp_view *v)
 {
 	app *a = v->a;
 	const ds_theme *t = theme();
 	ds_page_frame pf = page_top(a, 1.0f);
-	int i, top;
-	const int w = SCP_GRID_W, h = SCP_GRID_H, x0 = SCP_X0 + SCP_GRID_RING, y0 = SCP_TOP + SCP_GRID_RING;
+	int i, top, slot0 = 0;
+	static ds_flex F;
+	/* three across in the body, the ring inside its sides */
+	const int w = (pf.body.w - 2 * SCP_GRID_RING - (SCP_COLS - 1) * SCP_GRID_GAP) / SCP_COLS, h = SCP_GRID_H;
 	char cov[64], vid[64], sz[32];
 	const char *K[4] = { "A", "X", "Y", "B" };
 	const char *L[4] = { T(S_SCRAPER_PAGE_COVERS), T(S_SCRAPER_PAGE_VIDEOS), T(S_SCRAPER_VIDEOS_FOR), T(S_SCRAPER_DONE) };
@@ -653,13 +693,26 @@ static void scp_systems_draw(scp_view *v)
 	}
 	f = &v->s[v->focus];
 	ds_page_head(a->r, &pf, DS_HEAD_SUB, T(S_SCRAPER_SYSTEMS), f->name, UI_GLYPH_COUNT, 0);
+	/* The grid, laid out by rules (src/ds/flex.h): SCP_ROWS rows of three
+	 * tiles, the ring's width in from the body's sides */
+	{
+		const int root = scp_body(&F, &pf, DS_COL, 0, SCP_GRID_RING);
+		const int grid = ds_flex_add(&F, root, &(ds_box){ .dir = DS_ROW, .wrap = true, .gap = SCP_GRID_GAP,
+		                                                  .line_gap = SCP_GRID_ROWG });
+
+		for (i = 0; i < SCP_ROWS * SCP_COLS; i++) {
+			int id = ds_flex_add(&F, grid, &(ds_box){ .w = w, .h = h });
+
+			if (!i) slot0 = id;
+		}
+		ds_flex_solve(&F);
+	}
 	/* Three rows on the screen, the focus's among them */
 	top = v->focus / SCP_COLS - (SCP_ROWS - 1);
 	if (top < 0) top = 0;
 	if (top > v->focus / SCP_COLS) top = v->focus / SCP_COLS;
 	for (i = top * SCP_COLS; i < v->n && i < (top + SCP_ROWS) * SCP_COLS; i++) {
-		int r = i / SCP_COLS - top;
-		SDL_Rect q = { x0 + (i % SCP_COLS) * (w + SCP_GRID_GAP), y0 + r * (h + SCP_GRID_ROWG), w, h };
+		SDL_Rect q = ds_flex_rect(&F, slot0 + i - top * SCP_COLS);
 		bool any = v->s[i].cov || v->s[i].vid;
 
 		if (i == v->focus)
@@ -720,18 +773,18 @@ static double scp_eta(scp_view *v, unsigned now, int looked, int total)
  * the keys */
 #define SCP_BIG   360   /* the newest's square, from the page's left side */
 #define SCP_CELL  168   /* the six before it, three by two to the right side */
+#define SCP_CELL_GAP 24 /* the square to the six, and their rows */
 
 static void scp_run_draw(scp_view *v, unsigned now)
 {
 	app *a = v->a;
 	TTF_Font *ft = ui_font(UI_F_TITLE), *fs = ui_font(UI_F_META);
 	ds_page_frame pf = page_top(a, 1.0f);
-	int hx = pf.head_x, m, looked, total, si;
+	int hx = pf.head_x, m, looked, total, si, sq, cell0 = 0;
 	float e = v->nring && v->ring[0].tex ? scp_ease((float)(now - v->land_at) / SCP_LAND) : 1.0f;
 	char fit[160], cnt[48], eta[48];
-	/* the newest inside its square by its lit frame's width */
-	const SDL_FRect big = { SCP_X0 + 8, SCP_TOP + 8, SCP_BIG - 16, SCP_BIG - 16 };
-	const float gx = SCP_X0 + SCP_BIG + 24, sx = (SCP_X1 - gx - SCP_CELL) / 2, sy = SCP_CELL + 24;
+	static ds_flex F;
+	SDL_FRect cell[6], big;
 	const char *K[1] = { "B" }, *L[1] = { T(S_SCRAPER_KEY_STOP) };
 
 	/* Which part: covers (the plan's count), then the details of games
@@ -746,26 +799,53 @@ static void scp_run_draw(scp_view *v, unsigned now)
 		for (total = 0, i = 0; i < v->n; i++) if (v->s[i].cov || v->only[0]) total += v->s[i].miss;
 	}
 	if (total < looked) total = looked;
-	ui_fit_text(ft, v->p.now, fit, sizeof fit, SCP_X1 - hx);
+	/* The body, laid out by rules (src/ds/flex.h): the newest's square at
+	 * the page's left side, and the six before it three by two in what is
+	 * left, spread to its right side */
+	{
+		const int root = scp_body(&F, &pf, DS_ROW, SCP_CELL_GAP, 0);
+		const int grid_w = pf.body.w - SCP_BIG - SCP_CELL_GAP;
+		int grid, k;
+
+		sq = ds_flex_add(&F, root, &(ds_box){ .w = SCP_BIG, .h = SCP_BIG });
+		grid = ds_flex_add(&F, root, &(ds_box){ .dir = DS_ROW, .wrap = true, .w = grid_w,
+		                                        .gap = (grid_w - 3 * SCP_CELL) / 2, .line_gap = SCP_CELL_GAP });
+		for (k = 0; k < 6; k++) {
+			int id = ds_flex_add(&F, grid, &(ds_box){ .w = SCP_CELL, .h = SCP_CELL });
+
+			if (!k) cell0 = id;
+		}
+		ds_flex_solve(&F);
+		for (k = 0; k < 6; k++) {
+			SDL_Rect q = ds_flex_rect(&F, cell0 + k);
+
+			cell[k] = (SDL_FRect){ (float)q.x, (float)q.y, (float)q.w, (float)q.h };
+		}
+		{   /* the newest inside its square by its lit frame's width */
+			SDL_Rect q = ds_flex_rect(&F, sq);
+
+			big = (SDL_FRect){ (float)(q.x + 8), (float)(q.y + 8), (float)(q.w - 16), (float)(q.h - 16) };
+		}
+	}
+	ui_fit_text(ft, v->p.now, fit, sizeof fit, pf.x1 - hx);
 	ui_text(a->r, ft, fit, hx, ui_cap_y(ft, DS_PAGE_TITLE_Y), -1, UI_TEXT);
 	si = scp_find(v, v->p.folder_now);
 	scp_icon_draw(v, si, hx + 26, DS_PAGE_SUB_Y, 52, 255);
 	if (v->p.src != ART_SRC_NONE) ds_badge(a->r, hx + 80, DS_PAGE_SUB_Y, DS_BADGE, scp_src_glyph(v->p.src), false, 255);
 	snprintf(cnt, sizeof cnt, "%d / %d", looked, total);
 	{
-		int w = SCP_X1 - hx - 120 - ui_text_width(fs, cnt) - 24;
+		int w = pf.x1 - hx - 120 - ui_text_width(fs, cnt) - 24;
 
 		ds_bar(a->r, hx + 120, DS_PAGE_SUB_Y - UI_BAR_H / 2, w,
 		       total > 0 ? (int)((long long)w * (looked > total ? total : looked) / total) : 0, 255);
 	}
-	ui_text(a->r, fs, cnt, SCP_X1, ui_cap_y(fs, DS_PAGE_SUB_Y), 1, UI_TEXT_DIM);
+	ui_text(a->r, fs, cnt, pf.x1, ui_cap_y(fs, DS_PAGE_SUB_Y), 1, UI_TEXT_DIM);
 	/* The six before the newest, three by two; the one that was big comes
 	 * in first */
 	for (m = 6; m >= 0; m--) {
 		int k = m + 1;
-		SDL_FRect to = { gx + (m % 3) * sx, SCP_TOP + (m / 3) * sy, SCP_CELL, SCP_CELL };
-		SDL_FRect from = m == 0 ? big
-		               : (SDL_FRect){ gx + ((m - 1) % 3) * sx, SCP_TOP + ((m - 1) / 3) * sy, SCP_CELL, SCP_CELL };
+		SDL_FRect to = cell[m < 6 ? m : 5];
+		SDL_FRect from = m == 0 ? big : cell[m - 1];
 
 		if (k >= v->nring) continue;
 		if (m == 6) scp_cover_draw(a, &v->ring[k], from, (Uint8)(255 * (1.0f - e)), false, true);
@@ -784,26 +864,43 @@ static void scp_run_draw(scp_view *v, unsigned now)
 
 /* Done: what came, as a wall across the page; the counts as marks; the room
  * said plainly over the keys */
+#define SCP_WALL_H   140   /* a cover's height in the wall */
+#define SCP_WALL_GAP 20    /* between them, and the wall to the counts */
 static void scp_done_draw(scp_view *v)
 {
 	app *a = v->a;
 	TTF_Font *fs = ui_font(UI_F_META);
 	ds_page_frame pf = page_top(a, 1.0f);
-	int m, i, nv = 0, n;
+	int m, i, nv = 0, n, wall, said;
 	unsigned long long room = 0;
 	char line[160], sz[32];
-	const float gap = 20, cw = (SCP_X1 - SCP_X0 - 6 * gap) / 7, ch = 140;
+	static ds_flex F;
+	SDL_Rect wr, sr;
+	float gap = SCP_WALL_GAP, cw, ch = SCP_WALL_H;
 	const char *K[2] = { "A", "B" }, *L[2] = { T(S_SCRAPER_KEY_AGAIN), T(S_SCRAPER_KEY_CLOSE) };
 
 	ds_page_head(a->r, &pf, DS_HEAD_SUB, T(S_SCRAPER_ALL_DONE), v->problem, UI_GLYPH_COUNT, 0);
+	/* The body, laid out by rules (src/ds/flex.h): the wall, two rows of
+	 * seven, and the counts' line under it; the covers in the wall share
+	 * its width (in fractions of a unit, as they always have) */
+	{
+		const int root = scp_body(&F, &pf, DS_COL, SCP_WALL_GAP, 0);
+
+		wall = ds_flex_add(&F, root, &(ds_box){ .h = 2 * SCP_WALL_H + SCP_WALL_GAP });
+		said = ds_flex_add(&F, root, &(ds_box){ .h = DS_LINE_META });
+		ds_flex_solve(&F);
+		wr = ds_flex_rect(&F, wall);
+		sr = ds_flex_rect(&F, said);
+		cw = (wr.w - 6 * gap) / 7;
+	}
 	n = v->nring > 14 ? 14 : v->nring;
 	for (m = 0; m < n; m++) {
 		int k = n - 1 - m;     /* oldest first */
 
-		scp_cover_draw(a, &v->ring[k], (SDL_FRect){ SCP_X0 + (m % 7) * (cw + gap), SCP_TOP + (m / 7) * (ch + gap),
+		scp_cover_draw(a, &v->ring[k], (SDL_FRect){ wr.x + (m % 7) * (cw + gap), wr.y + (m / 7) * (ch + gap),
 		                                            cw, ch }, 255, false, false);
 	}
-	scp_stats(a, ZYPEROS_SCREEN_W / 2, 596, v->done_found, v->done_videos, v->done_missing, NULL);
+	scp_stats(a, ZYPEROS_SCREEN_W / 2, sr.y + sr.h / 2, v->done_found, v->done_videos, v->done_missing, NULL);
 	for (i = 0; i < v->n; i++) if (v->s[i].vid) { nv++; room += v->s[i].vroom; }
 	if (nv) {
 		/* no account: no video came, so say why instead of "0 KB" */
