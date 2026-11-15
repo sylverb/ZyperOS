@@ -108,6 +108,11 @@ typedef struct {
 	 * rows by their ids and the runner reads by place (menu_sound_at). NULL:
 	 * every row plain, as on a screen whose rows are named by their owners. */
 	const unsigned char *sound;
+	/* Each row's choices by place (menu.h's menu_choice): more than two
+	 * and A opens their list, two and A turns it over, the runner sending
+	 * the row's own Left and Right to apply it. Read every frame through
+	 * the pointer, so the build may write it. NULL: no option rows. */
+	const struct menu_choice *choices;
 	/* Zyper beside the heading (DESIGN.md 10): the top ZyperOS menu, the one
 	 * MENU opens on the systems row, and no other. MENU_ZYPEROS is Wi-Fi,
 	 * About and the sign-ins too, so the accent cannot say it. */
@@ -147,6 +152,12 @@ typedef struct {
 	 * beside it change. NULL: none. */
 	void   (*side)(app *a, const menu_side *at);
 	int      side_w;
+	/* A footer kept still under the rows (a MENU_RULE and only notes past
+	 * it) where they do not all fit: the rows above the rule scroll in what
+	 * room is left, as a card's body over its pinned footer. An option's
+	 * list sets it, so what the choice under the cursor does stays in view
+	 * (menu_pick); elsewhere a long list's footer goes round with it. */
+	bool     pin_foot;
 	/* Every row reachable by the cursor, dead ones too, where `live` says
 	 * how a row reads rather than whether it can be chosen: the
 	 * Achievements tab's list, whose unearned rows are quieter and still

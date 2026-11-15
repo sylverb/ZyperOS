@@ -21,6 +21,12 @@
 #   prboom       Doom (libretro-prboom), the commit ROCKNIX's prboom-lr pins,
 #                with prboom.wad, the engine's own data, compiled into the core
 #                (src/d_main.c at the pin), so no file of it goes in Bios/.
+#                Patched: prboom-turn-speed.patch, the d-pad's turn at the
+#                original game's keyboard speed rather than half of it.
+#
+# A core's patches are mk/patches/<core>-*.patch, applied in name order to the
+# unpacked source; a core built with any gets its stamp (mk/core-stamp.sh), so
+# mk/payload.sh refuses one built before a patch changed.
 #
 # Each from a pinned commit of its libretro repository, in the image
 # mk/build-flycast2021.sh builds the Dreamcast core in (Debian bullseye's GCC
@@ -42,7 +48,7 @@ CORES='
 mednafen_vb|libretro/beetle-vb-libretro|d5ae54c8e23b573a3b34e888b2d48a588027e92c|ccbed557d3f316c9123f81d1ca5357c5f12100bad6aea3326caefca2a1c08189|959ec69963a6c82dc0b5d4764756e89a161703bcaeeff84ed5c215378ad916c6|.|HAVE_OPENGL=0 HAVE_GLES=0 GIT_VERSION=d5ae54c
 vecx|libretro/libretro-vecx|dccff5402a16d1ea7c112095a8e42632bf149506|684808db7e9d3a81647e25e8a7e34df3e0f62ed317df578143055c6536d23a32|cc8dfcab7c79929414f46a2f067729f42d7fbe88ed079c4bf95dfedbedf3b0fa|.|HAS_GPU=0 GIT_VERSION=dccff54 -f Makefile.libretro
 gearcoleco|drhelius/Gearcoleco|063fa52151581b356f466905c74a79f9df8d19d7|00c6e98f504141961aec63bb26c3e8f21533b65f5c91eb489e8565d5856a8baa|4028827a2c9160fbbc5589badc3e4a1acd95dbe60b61a9802a410072b23b5699|platforms/libretro|GIT_VERSION=063fa52
-prboom|libretro/libretro-prboom|4849268e7342494193f2bbf2d0128a751cf58da7|36a069cf09053388d719e2694a509cb8d2d152137b66adbef8fccba8373f8879|4fcd552d60f1f3655dd82dcb92a4aedb6f3242c9c1b51b2d918d19acbb70dbf2|.|GIT_VERSION=4849268
+prboom|libretro/libretro-prboom|4849268e7342494193f2bbf2d0128a751cf58da7|36a069cf09053388d719e2694a509cb8d2d152137b66adbef8fccba8373f8879|5acac01568c15e18ce4d590838c20bb86acf5f5bf03f28a394a324b87fe09e74|.|GIT_VERSION=4849268
 '
 
 command -v docker >/dev/null || { echo "need docker" >&2; exit 1; }
@@ -60,6 +66,12 @@ echo "$CORES" | while IFS='|' read -r name repo pin tar_sha sha dir args; do
 	[ "$got" = "$tar_sha" ] || { echo "!! $name source sha256 $got, expected $tar_sha" >&2; exit 1; }
 	rm -rf "$WORK/$base-$pin"
 	tar -xzf "$tar" -C "$WORK"
+	patched=
+	for p in "$ROOT/mk/patches/$name-"*.patch; do
+		[ -f "$p" ] || continue
+		patch -s -p1 -d "$WORK/$base-$pin" < "$p"
+		patched=1
+	done
 
 	docker run --rm --platform linux/arm64 -v "$WORK/$base-$pin:/src" -w "/src/$dir" \
 		-e ARGS="$args" -e SO="${name}_libretro.so" zyperos-flycast2021 bash -c '
@@ -81,4 +93,6 @@ strip --strip-unneeded $SO
 	fi
 	cp "$so" "$ROOT/vendor/cores/${name}_libretro.so"
 	echo "  built  $name ($pin)"
+	# Which patches are in it, for mk/payload.sh to hold it to
+	if [ -n "$patched" ]; then sh "$ROOT/mk/core-stamp.sh" write "$name"; fi
 done

@@ -146,6 +146,9 @@ int main(void)
 	      "power|LAT|light\n"
 	      "controller|LAT|517\n"
 	      "rumble|LAT|35\n"
+	      "needs|NAM|gpu-frames\n"
+	      "needs|LOW|teleporter\n"
+	      "needs|NOPE|gpu-frames\n"
 	      "es|NAM|famicom, fds\n", f);
 	fclose(f);
 
@@ -196,6 +199,16 @@ int main(void)
 		s = find(&c, "Black");
 		ck(s && !s->map[0] && !s->power[0] && !s->controller,
 		   "a system nobody names gets none, and a tag nobody has is dropped");
+
+		s = find(&c, "Named");
+		ck(s && s->needs_gpu_frames, "needs| gives its system the need");
+		s = find(&c, "Lower");
+		ck(s && !s->needs_gpu_frames && s->controller == 517,
+		   "a need the launcher does not know is none, and changes nothing else");
+		s = find(&c, "Late");
+		ck(s && !s->needs_gpu_frames, "a system with no needs line needs nothing");
+		cfg_run_keys(find(&c, "Named"), false, keys, (int)sizeof keys);
+		ck(!strcmp(keys, "power=medium"), "a need is no RUN key");
 
 		cfg_run_keys(find(&c, "Black"), false, keys, (int)sizeof keys);
 		ck(!strcmp(keys, ""), "no RUN keys for a plain system");
@@ -269,6 +282,17 @@ int main(void)
 				same = 0;
 			}
 		ck(same, "the shipped systems in A to Z, Ports last");
+		{
+			char gpu[128] = "";
+
+			for (i = 0; i < c.count; i++)
+				if (c.systems[i].needs_gpu_frames) {
+					strcat(gpu, c.systems[i].tag);
+					strcat(gpu, " ");
+				}
+			ck(!strcmp(gpu, "AW DC NAOMI N64 PSP SATURN "),
+			   "GPU frames for the Atomiswave, Dreamcast, NAOMI, N64, PSP and Saturn, no other");
+		}
 		/* and the tags, which settings hang off, went with their names */
 		ck(!strcmp(c.systems[0].tag, "3DO") && !strcmp(c.systems[n - 1].tag, "PRT"),
 		   "each line moves whole");

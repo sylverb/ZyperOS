@@ -60,6 +60,7 @@ void plat_profile_ids(char *out, size_t n)
 
 bool plat_has_bluetooth(void)        { return active->bluetooth; }
 bool plat_gpu_shaders(void)          { return active->gpu_shaders; }
+bool plat_gpu_frames(void)           { return active->gpu_frames; }
 bool plat_speaker_mono(void)         { return active->speaker_mono; }
 bool plat_brightness_on_volume(void) { return active->chords.bright == DEV_BRIGHT_MENU_VOL; }
 bool plat_battery_lights(void)       { return active->chords.battery_chord; }
@@ -86,9 +87,9 @@ dev_chords dev_chords_fn_volume(dev_chords base)
 	return base;
 }
 
-bool dev_tutorial_handheld(const device_profile *p, const dev_chords *c)
+const td_model *dev_tutorial_model(const device_profile *p, const dev_chords *c)
 {
-	return p->handheld && c->bright == DEV_BRIGHT_MENU_VOL;
+	return c->bright == DEV_BRIGHT_MENU_VOL ? p->model : NULL;
 }
 
 bool dev_l2r2_held(const dev_chords *c, bool tap_l2, bool tap_r2, bool down_l2, bool down_r2)
@@ -103,4 +104,25 @@ const dev_button *dev_button_of(const device_profile *p, in_button b)
 	for (i = 0; p && i < p->n_buttons; i++)
 		if (p->buttons[i].id == b) return &p->buttons[i];
 	return NULL;
+}
+
+bool dev_button_place(const device_profile *p, in_button b, td_face *face, float *x, float *z)
+{
+	/* The key of the handheld each button is */
+	static const td_key KEY[IN_COUNT] = {
+		[IN_LEFT] = TD_DPAD, [IN_RIGHT] = TD_DPAD, [IN_UP] = TD_DPAD, [IN_DOWN] = TD_DPAD,
+		[IN_ACCEPT] = TD_A, [IN_BACK] = TD_B, [IN_X] = TD_X, [IN_Y] = TD_Y,
+		[IN_L1] = TD_L1, [IN_R1] = TD_R1, [IN_START] = TD_START, [IN_SELECT] = TD_SELECT,
+		[IN_MENU] = TD_MENU, [IN_VOLUP] = TD_VOLUP, [IN_VOLDN] = TD_VOLDN,
+		[IN_BRIGHTUP] = TD_F2, [IN_BRIGHTDN] = TD_F1, [IN_POWER] = TD_POWER,
+		[IN_L2] = TD_L2, [IN_R2] = TD_R2 };
+	const td_part *part;
+
+	if (!p || !p->model || b < 0 || b >= IN_COUNT) return false;
+	part = td_part_of(p->model, KEY[b]);
+	if (!part) return false;
+	*face = part->face;
+	*x = part->x;
+	*z = part->z;
+	return true;
 }

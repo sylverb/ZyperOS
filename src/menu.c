@@ -144,3 +144,20 @@ unsigned menu_sound_at(const unsigned char *sound, int n, int sel)
 {
 	return sound && sel >= 0 && sel < n ? sound[sel] : 0;
 }
+
+const menu_choice *menu_choice_at(const menu_choice *choices, int n, int sel)
+{
+	return choices && sel >= 0 && sel < n && choices[sel].n ? &choices[sel] : (const menu_choice *)0;
+}
+
+int menu_choice_steps(const menu_choice *c, int to, bool *right)
+{
+	int k;
+
+	*right = true;
+	if (!c || to < 0 || to >= c->n) return 0;
+	k = to - c->cur;
+	if (k == 0) return c->none && c->n > 1 ? 2 : 0;
+	*right = k > 0;
+	return k < 0 ? -k : k;
+}

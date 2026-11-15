@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "bgm_screen.h"
+#include "menu_pick.h"
 
 #include "app.h"
 #include "panel.h"
@@ -24,6 +25,9 @@ void bgm_scan_now(bgm_list *l)
 	bgm_scan_all(&(bgm_sources){ dir, builtin, bgm_builtin() }, l);
 }
 
+/* Menu Music's rows' choices by place (bgm_build) */
+static menu_choice g_bgm_choice[BGM_ROWS + 3];
+
 int bgm_build(void *ctx, menu_row *rows, int max, const char **heading)
 {
 	bgm_view *v = ctx;
@@ -47,7 +51,34 @@ int bgm_build(void *ctx, menu_row *rows, int max, const char **heading)
 	u = (bgm_ui){ bgm_on(), bgm_volume(),
 	              bgm_find(&v->list, bgm_track()) >= 0 ? bgm_track() : "",
 	              v->now, v->list.n, v->list.own, bgm_builtin(), g_song_popup, v->now_name };
-	return bgm_menu_build(&u, rows, max, &v->b, heading);
+	{
+		int n = bgm_menu_build(&u, rows, max, &v->b, heading), i, k;
+		static const char *vol[BGM_VOLUME_MAX], *trk[MENU_CHOICES_MAX];
+		static char vb[BGM_VOLUME_MAX][8], tb[MENU_CHOICES_MAX][96];
+
+		/* Volume's ten and the tracks (Shuffle, then each), as bgm_key
+		 * steps them, so A opens their list (menu.h's menu_choice) */
+		memset(g_bgm_choice, 0, sizeof g_bgm_choice);
+		for (k = BGM_VOLUME_MIN; k <= BGM_VOLUME_MAX; k++) {
+			bgm_volume_label(k, vb[k - BGM_VOLUME_MIN], sizeof vb[0]);
+			vol[k - BGM_VOLUME_MIN] = vb[k - BGM_VOLUME_MIN];
+		}
+		trk[0] = T(S_MUSIC_SHUFFLE);
+		for (k = 0; k < v->list.n && k + 1 < MENU_CHOICES_MAX; k++) {
+			bgm_title(v->list.names[k], tb[k + 1], sizeof tb[0]);
+			trk[k + 1] = tb[k + 1];
+		}
+		for (i = 0; i < n && i < (int)sizeof v->b.id; i++) {
+			if (v->b.id[i] == BGM_ROW_VOLUME)
+				g_bgm_choice[i] = (menu_choice){ .n = BGM_VOLUME_MAX - BGM_VOLUME_MIN + 1,
+				                                 .cur = (unsigned char)(bgm_volume() - BGM_VOLUME_MIN), .labels = vol };
+			else if (v->b.id[i] == BGM_ROW_TRACK && v->list.n > 0 && v->list.n + 1 <= MENU_CHOICES_MAX)
+				g_bgm_choice[i] = (menu_choice){ .n = (unsigned char)(v->list.n + 1),
+				                                 .cur = (unsigned char)(bgm_find(&v->list, bgm_track()) + 1),
+				                                 .labels = trk };
+		}
+		return n;
+	}
 }
 
 static menu_result bgm_key(app *a, void *ctx, in_button key, int sel)
@@ -100,6 +131,22 @@ void bgm_screen(app *a)
 	bgm_scan_now(&v.list);
 	bgm_rescan();
 	st.sound = v.b.sound;
+	st.choices = g_bgm_choice;
 	menu_run(a, &st, bgm_build, bgm_key, &v);
+	bgm_free(&v.list);
+}
+
+void bgm_rows_report(app *a)
+{
+	menu_row rows[BGM_ROWS + 3];
+	bgm_view v;
+	const char *h;
+	int n;
+
+	(void)a;
+	memset(&v, 0, sizeof v);
+	bgm_scan_now(&v.list);
+	n = bgm_build(&v, rows, BGM_ROWS + 3, &h);
+	menu_rows_print("music", rows, n, v.b.sound, g_bgm_choice);
 	bgm_free(&v.list);
 }

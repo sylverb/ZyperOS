@@ -120,7 +120,7 @@ ifeq ($(PORT),pixel2)
   LDFLAGS += $(shell $(PKG_CONFIG) --libs $(PIXEL2_PKGS)) -lm -ldl -lpthread
 endif
 
-.PHONY: all clean check check-seam check-proto check-port \
+.PHONY: all clean check check-seam check-proto check-port check-power \
         check-corefacts check-cheevos check-screens check-chord check-stick check-bounds check-copies \
         check-rumble check-rumble-e2e check-statefile stub run-stub
 
@@ -154,7 +154,7 @@ $(BUILD)/%.o: %.c
 # backend exists. Cheap to check, so check it.
 # Mechanical checks, each guarding a rule that decays the moment nothing fails
 # when it is broken: check-seam has held since day one for exactly that reason.
-check: check-seam check-copies check-corefacts check-rates check-cheevos check-screens check-chord check-stick check-bounds check-rumble check-statefile check-proto check-port check-stateplane check-resident check-hotkeys check-coreend check-now check-rumble-e2e check-player2 check-states
+check: check-seam check-copies check-corefacts check-rates check-cheevos check-screens check-chord check-stick check-bounds check-rumble check-statefile check-proto check-port check-power check-stateplane check-resident check-hotkeys check-coreend check-now check-rumble-e2e check-player2 check-states
 
 # Does a RetroAchievements address reach the byte it names? Offline, needs no
 # core and no ROM, and links only cheevos.c plus the vendored runtime - so it
@@ -389,6 +389,18 @@ $(PORT_TEST): test/port_test.c port/desktop.c port/port_clock.h include/diatom_p
 	$(CC) -std=gnu11 -Wall -Wextra -Wno-unused-parameter -O1 -g \
 	      -Iinclude -Isrc -Iport -o $@ test/port_test.c port/desktop.c \
 	      $(SDL_CFLAGS) $(SDL_LIBS)
+
+# A port's power steps as data (port/port_power.h), written into a scratch
+# folder: no device, no SDL.
+POWER_TEST := $(BUILD)/power-test
+
+check-power: $(POWER_TEST)
+	@./$(POWER_TEST)
+
+$(POWER_TEST): test/power_test.c port/port_power.h port/port_cpufreq.h include/diatom_port.h
+	@mkdir -p $(BUILD)
+	$(CC) -std=gnu11 -Wall -Wextra -Wno-unused-parameter -O1 -g \
+	      -Iinclude -Isrc -Iport -o $@ test/power_test.c
 
 # Does core-facts.md still describe the cores we ship? It was measured on the
 # device, which needs the hardware and the user's ROMs; this is the half that

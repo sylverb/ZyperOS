@@ -50,6 +50,44 @@ extern const char MENU_KEY_Y_OFF[];
  * plain, and so is a place past the rows. Pure. */
 unsigned menu_sound_at(const unsigned char *sound, int n, int sel);
 
+/* An option row's choices (DESIGN.md 9, 1.0.6). One rule for every option
+ * row: more than two choices and A opens their list, the one that is on
+ * ticked and the cursor on it, A choosing and B leaving it as it was; two
+ * and A turns it over; Left and Right step it on every row, as its screen
+ * has them do. Set by a build beside its rows, by place, as the sound
+ * classes are; a row with `n` 0 is no option row and its screen has A.
+ *
+ * The runner applies a choice by sending the row's own Left or Right as
+ * many times as it is away (menu_choice_steps), so a screen states its
+ * choices in the order its Left and Right go and needs no code to apply
+ * one. `own`: the row opens a list of its own on A (Language, Time Zone, a
+ * Controls button), which the check counts and the runner leaves to its
+ * screen. `none`: no choice is on as a whole (a shader or a strength each
+ * system has its own of): nothing ticked, `cur` still where Left and Right
+ * go on from, and a choice of that one applied all the same. */
+#define MENU_CHOICES_MAX 255   /* a list's most (Menu Music's tracks) */
+typedef struct menu_choice {
+	unsigned char n;             /* how many; 0 none */
+	unsigned char cur;           /* the one that is on, or that steps go on from */
+	bool own;                    /* opens its own list on A */
+	bool none;                   /* none of them is on as a whole */
+	const char *const *labels;   /* their words, n of them (NULL with own) */
+	const char *const *notes;    /* what each one does, shown under the list for the one under
+	                              * the cursor (Display Mode's); NULL for none */
+} menu_choice;
+
+/* Row `sel`'s choices from a build's table, or NULL: no table, a place past
+ * the rows, or a row that is no option row. Pure. */
+const menu_choice *menu_choice_at(const menu_choice *choices, int n, int sel);
+
+/* How the runner gets from row `c`'s choice to choice `to`: the key to send
+ * (Right when `right`, else Left) and how many times, straight there and
+ * never round past an end, so a row that stops at its ends gets there as
+ * surely as one that goes round. 0: it is on already, except with `none`,
+ * where Right and back (2, the runner sending Left the second time) applies
+ * it to all. Pure. */
+int menu_choice_steps(const menu_choice *c, int to, bool *right);
+
 /* A row that is only a rule, separating a list from a footer that is not part
  * of it. Drawn with the same bar the heading uses, so the two cannot drift
  * apart - which is why it belongs to the menu code and not to a screen painting

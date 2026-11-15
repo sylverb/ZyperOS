@@ -52,7 +52,7 @@ int main(void)
 			tour t;
 			Uint32 at;
 
-			tour_pose(&t, (tour_step)step, end, 2000, -1, &device_profile_pixel2.chords, true);
+			tour_pose(&t, (tour_step)step, end, 2000, -1, &device_profile_pixel2.chords, &td_model_pixel2);
 			if (!open_ui(th) || !read_frame(&t, end, expected)) return 1;
 			close_ui();
 			if (!open_ui(th)) return 1;

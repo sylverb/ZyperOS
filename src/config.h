@@ -71,6 +71,10 @@ typedef struct {
 	 * (PrBoom, on every shot), 0 for the core's own. From a
 	 * `rumble|tag|percent` line; sent to Diatom with RUN. */
 	int  rumble;
+	/* Its cores draw with the GPU: no shelf on a device without GPU frames
+	 * (plat_gpu_frames), and its games refused there with the reason. From
+	 * a `needs|tag|gpu-frames` line. */
+	bool needs_gpu_frames;
 	/* The buttons, where this system's core reads the pad its own way: a
 	 * Diatom map (`a:b,b:a`, the SETMAP form), applied after RUN and
 	 * joined with the system's turbo. Empty is the pad as it is. From a
