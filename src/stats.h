@@ -125,6 +125,18 @@ bool stats_extra(int i, long *longest, long *last, int *lost);
 bool stats_lookup(const char *tag, const char *file,
                   long *seconds, long *last);
 
+/* The games started last, newest first: each game once, by when it was last
+ * started, up to `max` of them into `out`. Walks the session rows themselves
+ * rather than a summary, so a card with more than STATS_MAX games played
+ * still has its newest ones. For the home's Recents (src/shelfbuild.c).
+ * Returns how many. */
+typedef struct {
+	char tag[STATS_TAG_MAX];
+	char file[STATS_FILE_MAX];
+	long last;          /* unix time it was last started */
+} stats_recent_row;
+int stats_recent(stats_recent_row *out, int max);
+
 long stats_total_seconds(void);
 int  stats_total_launches(void);
 

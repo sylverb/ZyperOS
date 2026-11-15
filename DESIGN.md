@@ -934,7 +934,7 @@ where it was.)*
 | Tab | Rows |
 |---|---|
 | **Games** | Search Games, Play Time, Random Game, Achievements, Scraper |
-| **Display** | Appearance, Auto Hours, Theme, Home Screen, System Order, Battery Icon |
+| **Display** | Appearance, Auto Hours, Theme, Home Screen, System Order, Home Systems, Battery Icon |
 | **Sound** | Audio Output, Audio Channels, UI Sounds, Menu Music |
 | **Connections** | USB Device (while a plug waits), Wi-Fi, Bluetooth, File Transfer, USB Accessories, Developer Mode |
 | **System** | Date & Time, Clock, Language, Power Button, Auto Off, Charge Limit, Side Lights, Storage, System Update |
@@ -4393,4 +4393,40 @@ POWER about 10 s is still the power chip's own cut, for a handheld that does
 not answer. With Hold on, Controls says "Hold: save and turn off" ("Hold:
 turn off", "Hold: quit and turn off" over a port), and the tutorial's POWER
 step says "Hold POWER to save and turn off." and lands on the hold.
+
+### 11.48 Home Systems and Recents
+*(Asked for on the Discord, 2026-11-15: "can we have the option to hide/reveal
+ROM sections on the main menu? I'd like to hide the Ports menu". My picks: a
+page of switches in MENU, and a new group, Recents, beside Favorites.)*
+
+**Recents** is a group like Favorites: the ten games played last, from the
+play time's sessions (src/stats.h, `stats_recent`), newest first, from every
+system the home shows. It sits right after Favorites, first when there is
+none, and is named **Recents** in the language that is on. Its card is a
+placeholder until a real design comes: a pixel-art clock with ZyperOS's lime
+rim, its minute hand stepping between twelve and one in two poses of 400 ms,
+as Favorites' heart beats (res/system-art/original/placeholders/recents.py).
+Its shelf's order is **Last Played** as it ships, so the game just played is
+first; it is built again when a game ends, and MENU > Sort By sorts it
+otherwise, kept by its tag as Favorites' is. Its MENU is Favorites': Games,
+Random Game, Sort By, View. With nothing played yet there is no Recents card,
+as an empty Favorites shows none: a card should lead somewhere.
+
+**Home Systems** in MENU's Display tab, under System Order: its value
+**All**, or how many of them are on ("8 of 10"); A opens its page. The page
+lists Favorites and Recents, a rule, then every system the card has games
+for, in the home's order (a system with none is not on the home, so not on
+the page either), each **On** or **Off**, Left, Right or A turning it over,
+heard as a ring, as Side Lights' parts are. Under a rule, the note: "Games
+stay on the card." All of them On as they ship. A system turned off leaves
+the home, and with it Random Game, Search, Favorites and Recents; its games
+stay on the card and in File Transfer, and come back the moment it is on
+again. The last system on cannot be turned off, since a home with no system
+is the empty home's, which says the card has no games: its row is dead, and a
+second note says why ("One system stays on the home."). The home is built
+again once, as the page closes on a change, from the saved library, keeping
+the player's place (`shelves_reload`). The setting is one word in the device
+database, `home.hidden`: the tags that are off ("PRT,RECENT"), so a new
+system is On without anyone saying so (src/homesys.h). Host shots:
+`--homesys-page ROW`.
 

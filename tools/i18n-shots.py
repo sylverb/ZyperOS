@@ -541,6 +541,26 @@ SHOT_LIB = {"info-buttons": {_MGS: "1;b:y,y:b"},
             "gamemenu-controls-dc-mixed": {"map.DC." + _SONIC: "1;a:a"}}
 
 
+# MENU > Display > Home Systems (src/homesys.h, DESIGN.md 11.48): its row with
+# two systems off ("8 of 10"), its page at the top, and on the one-system card
+# with both its notes; and Recents, the games played last, on the home and as
+# a shelf, from play sessions put in the card's library for the shot alone
+_HS_OFF = {"home.hidden": "GB,DC"}
+_RECENT_LIB = {"sess.%d.%d.%s\t%s" % (1763000000 - 3600 * _i, 900 + _i, _t, _f): "600\tquit"
+               for _i, (_t, _f) in enumerate((("GBA", "The Legend of Zelda - The Minish Cap (USA).gba"),
+                                              ("SFC", "Super Metroid (USA).sfc"),
+                                              ("PS1", "Metal Gear Solid (USA).chd")))}
+EXTRA.setdefault("menu-homesys", ("demo", "PS1", ["--menu-tab", "1", "--menu", "Home Systems"]))
+SHOT_SETTINGS["menu-homesys"] = _HS_OFF
+EXTRA.setdefault("homesys-page", ("demo", "PS1", ["--homesys-page", "4"]))
+SHOT_SETTINGS["homesys-page"] = _HS_OFF
+EXTRA.setdefault("homesys-last", ("openbor", "OPENBOR", ["--homesys-page", "3"]))
+for _name, _flags in (("home-recents", []), ("shelf-recents", ["--screen", "games"])):
+    EXTRA.setdefault(_name, ("demo", "RECENT", _flags))
+    SHOT_LIB[_name] = _RECENT_LIB
+    CTL_FOCUS[_name] = "The Legend of Zelda - The Minish Cap (USA).gba"
+
+
 def set_lib(card, settings, on):
     """A shot's keys (SHOT_LIB) into the card's library, or out of it"""
     if not settings:

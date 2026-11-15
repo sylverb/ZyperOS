@@ -97,6 +97,21 @@ void shelf_dirs_free(sysview *v);
 bool shelf_show_dir(sysview *v, const char *dir);
 /* The Favorites shelf rebuilt after a favorite changed */
 void refresh_favorites_shelf(app *a);
+/* Recents, the games played last (src/homesys.h), built again after a game
+ * ended, keeping the shelf stood on */
+void refresh_recents_shelf(app *a);
+/* The two groups' names, Favorites and Recents, in the language that is on */
+void shelf_groups_rename(app *a);
+/* Every shelf built again from the saved library, keeping the place: MENU >
+ * Display > Home Systems, after a change */
+void shelves_reload(app *a);
+/* The systems the last scan found games for, shown or not, in the home's
+ * order: Home Systems's rows. Returns how many; *out the list. */
+typedef struct {
+	char tag[16];
+	char name[CFG_STR];
+} shelf_have;
+int shelf_have_list(const shelf_have **out);
 /* A game deleted from the card (src/gamedel.h): off its shelf and Favorites,
  * in place, the shelf stood on moved to the next game or the home */
 void shelf_drop_game(app *a, const char *tag, const char *file);
