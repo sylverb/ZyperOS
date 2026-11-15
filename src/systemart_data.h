@@ -303,6 +303,10 @@ static const sa_frame SA_FRAMES_SEGACD[] = {
     { 21, 94 }, { 22, 93 }, { 23, 94 },
 };
 
+static const sa_frame SA_FRAMES_SG1000[] = {
+    { 0, 1400 }, { 1, 300 }, { 0, 200 }, { 2, 300 },
+};
+
 static const sa_frame SA_FRAMES_SMS[] = {
     { 20, 94 }, { 21, 94 }, { 22, 93 }, { 23, 94 }, { 24, 94 }, { 25, 94 }, { 0, 1218 }, { 0, 844 },
     { 1, 94 }, { 2, 94 }, { 3, 93 }, { 4, 94 }, { 5, 94 }, { 6, 94 }, { 7, 93 }, { 8, 94 },
@@ -408,6 +412,7 @@ static const sa_asset SA_ASSETS[] = {
     { "SAVES", "system-icons/SAVES.png", "system-icons/SAVES-still.png", 256, 0, 0, 1, 0, 0, 0, 0, 0, SA_FRAMES_SAVES },
     { "SCUMMVM", "system-icons/SCUMMVM.png", "system-icons/SCUMMVM-still.png", 256, 2, 1, 2, 46, 163, 31, 42, 800, SA_FRAMES_SCUMMVM },
     { "SEGACD", "system-icons/SEGACD.png", "system-icons/SEGACD-still.png", 256, 2, 17, 35, 26, 150, 111, 40, 6000, SA_FRAMES_SEGACD },
+    { "SG1000", "system-icons/SG1000.png", "system-icons/SG1000-still.png", 256, 3, 1, 4, 30, 158, 82, 48, 2200, SA_FRAMES_SG1000 },
     { "SMS", "system-icons/SMS.png", "system-icons/SMS-still.png", 256, 4, 7, 27, 141, 24, 62, 74, 6000, SA_FRAMES_SMS },
     { "SNES", "system-icons/SNES.png", "system-icons/SNES-still.png", 256, 3, 9, 28, 112, 23, 82, 94, 6000, SA_FRAMES_SNES },
     { "STATES", "system-icons/STATES.png", "system-icons/STATES-still.png", 256, 0, 0, 1, 0, 0, 0, 0, 0, SA_FRAMES_STATES },

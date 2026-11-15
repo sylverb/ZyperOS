@@ -5932,6 +5932,62 @@
       "still_sha256": "7feb386ceee3233d8967698cfc99331c308739c97cf03c5dacf71a5bdfcefb97"
     },
     {
+      "key": "SG1000",
+      "name": "SG-1000",
+      "description": "Placeholder drawn by script: dark angular console with a red stripe and a cartridge in the top slot; its joystick rocks and its buttons press",
+      "cell": 256,
+      "cols": 3,
+      "rows": 1,
+      "unique": 3,
+      "duration_ms": 2200,
+      "kind": "system",
+      "static": false,
+      "placeholder": true,
+      "expected_poses": 3,
+      "motion_bounds": [
+        26,
+        154,
+        90,
+        56
+      ],
+      "frames": [
+        {
+          "tile": 0,
+          "ms": 1400
+        },
+        {
+          "tile": 1,
+          "ms": 300
+        },
+        {
+          "tile": 0,
+          "ms": 200
+        },
+        {
+          "tile": 2,
+          "ms": 300
+        }
+      ],
+      "still_time_ms": 0,
+      "decoded_atlas_bytes": 786432,
+      "inputs": [
+        "source/SG1000.png"
+      ],
+      "renderers": [
+        "placeholders/sg1000.py"
+      ],
+      "input_sha256": {
+        "source/SG1000.png": "3353b0c784bdc2c5f7b0d15d00cf7f248dad01d2c28ada9a92b8194336469782"
+      },
+      "renderer_sha256": {
+        "placeholders/sg1000.py": "7647a5cd7b1dede484fde1efb5dc9067987f0251346b9cb4d207472f6a747266"
+      },
+      "atlas": "SG1000.png",
+      "still": "SG1000-still.png",
+      "atlas_sha256": "f738af7cd55e0d051fb5e8c471f6372ae1ac313319a082a0cee68cc4f577498f",
+      "still_sha256": "a10646458526b1ec419a89e640278efffff48771552f5cab3d104c2a722fe5e6"
+    },
+    {
       "key": "SMS",
       "name": "Sega Master System",
       "description": "Cartridge lowers into the top slot",
@@ -7131,6 +7187,6 @@
       "still_sha256": "720489e430bf46129b472b4c817508a0dfd1ec120f4e623ab9df1e0a8771aa07"
     }
   ],
-  "total_png_bytes": 20867474,
+  "total_png_bytes": 20873176,
   "largest_decoded_atlas_bytes": 12582912
 }
