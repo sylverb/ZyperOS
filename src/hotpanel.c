@@ -163,7 +163,7 @@ void hotpanel_draw(SDL_Renderer *r, const hotpanel *p, unsigned now_ms)
 		/* at a page's foot (src/ds/page.h), as File Transfer's page has them once
 		 * someone comes in (it was 718, a line of **meta** over the inset and a
 		 * grid step) */
-		int cy = DS_PAGE_FOOT_Y;
+		int cy = DS_FOOT_Y;
 
 		ds_panel_legend(r, leg, DS_INSET, ZYPEROS_SCREEN_W - DS_INSET, cy);
 	}

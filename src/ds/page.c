@@ -23,7 +23,7 @@ ds_page_frame ds_page_frame_of(bool zyper)
 		.head_x = zyper ? DS_PAGE_HEAD_X : DS_INSET,
 		.body_y = DS_PAGE_BODY_Y,
 		.line_y = DS_PAGE_LINE_Y,
-		.foot_y = DS_PAGE_FOOT_Y,
+		.foot_y = DS_FOOT_Y,
 	};
 }
 

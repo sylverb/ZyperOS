@@ -25,7 +25,7 @@
 #include "clamp.h"
 #include "config.h"      /* CFG_NO_COLOR */
 #include "design.h"
-#include "ds/layout.h"   /* DS_PAGE_FOOT_Y, DS_HINT_GLYPH, DS_MORE_* */
+#include "ds/layout.h"   /* DS_FOOT_Y, DS_HINT_GLYPH, DS_MORE_* */
 #include "i18n.h"
 #include "osdbar.h"
 #include "platform.h"    /* plat_draw_to_screen, the levels' ranges */
@@ -1109,7 +1109,7 @@ static float legend_left(void)
 static void legend(SDL_Renderer *r)
 {
 	/* at a page's foot (src/ds/page.h; 724, the screen less 44, until 1.0.6) */
-	int x = (int)legend_left(), cy = DS_PAGE_FOOT_Y, bw = ui_button_width("START", DS_HINT_GLYPH);
+	int x = (int)legend_left(), cy = DS_FOOT_Y, bw = ui_button_width("START", DS_HINT_GLYPH);
 
 	if (g_hint) {
 		g_hint(r, "START", T(S_KEYHINT_SKIP), x, cy);
