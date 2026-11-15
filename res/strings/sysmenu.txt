@@ -203,8 +203,8 @@ ja = しない
 it = mai
 
 [sysmenu.auto_off_secs]
-note = Auto Off's value in seconds (30s). tight: 15 bytes at most
-en = %ds
+note = Auto Off's value in seconds (30 s). tight: 15 bytes at most
+en = %d s
 zh-Hans = %d 秒
 es = %d s
 pt-BR = %d s
@@ -247,8 +247,8 @@ ja = 長押し
 it = Tieni premuto
 
 [sysmenu.auto_off_mins]
-note = Auto Off's value in minutes (2m). tight: 15 bytes at most
-en = %dm
+note = Auto Off's value in minutes (2 min). tight: 15 bytes at most
+en = %d min
 zh-Hans = %d 分钟
 es = %d min
 pt-BR = %d min

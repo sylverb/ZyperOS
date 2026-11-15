@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "scraper_screen.h"
+#include "menu_pick.h"
 
 #include "aout_route.h"
 #include "app.h"
@@ -1585,6 +1586,7 @@ typedef struct {
 	int           nc;
 	unsigned long long total;
 	unsigned char sound[SN_ROWS];      /* each row's sound class, by place */
+	menu_choice   choice[SN_ROWS];     /* and its choices: Sound's three (menu.h) */
 	menu_result   said;
 } snaps_ctx;
 
@@ -1626,10 +1628,36 @@ static int snaps_build(void *ctx, menu_row *rows, int max, const char **heading)
 	(void)max;
 	*heading = T(S_SNAPS_HEADING);
 	n = snaps_rows_now(s, rows, ids, con);
-	/* Every switch steps round with Left and Right, and is heard so */
-	for (i = 0; i < n; i++)
+	/* Every switch steps round with Left and Right, and is heard so; Sound,
+	 * three of them, opens its list on A (menu_choose) */
+	for (i = 0; i < n; i++) {
+		static const char *sound_lab[3];
+
 		s->sound[i] = ids[i] == SN_DELETE || ids[i] == SN_NONE ? 0 : MENU_SND_RING;
+		s->choice[i] = (menu_choice){ 0 };
+		if (ids[i] == SN_SOUND) {
+			sound_lab[0] = T(S_SYSMENU_SN_MUTED);
+			sound_lab[1] = T(S_SYSMENU_SN_QUIET);
+			sound_lab[2] = T(S_SYSMENU_SN_FULL);
+			s->choice[i] = (menu_choice){ .n = 3, .cur = (unsigned char)(snaps_sound() % 3), .labels = sound_lab };
+		}
+	}
 	return n;
+}
+
+/* --rows-report: Video Snaps' rows (menu_rows_print) */
+void snaps_rows_report(app *a)
+{
+	static snaps_ctx s;
+	menu_row rows[SN_ROWS];
+	const char *h;
+	int n;
+
+	memset(&s, 0, sizeof s);
+	s.a = a;
+	snaps_read(&s);
+	n = snaps_build(&s, rows, SN_ROWS, &h);
+	menu_rows_print("snaps", rows, n, s.sound, s.choice);
 }
 
 static menu_result snaps_key(app *a, void *ctx, in_button key, int sel)
@@ -1682,7 +1710,7 @@ menu_result snaps_screen(app *a)
 	s.said = MENU_STAY;
 	snaps_read(&s);
 	menu_run(a, &(menu_style){ .accent = MENU_ZYPEROS, .fixed_w = menu_std_width(a),
-	                           .sound = s.sound },
+	                           .sound = s.sound, .choices = s.choice },
 	         snaps_build, snaps_key, &s);
 	return s.said;
 }

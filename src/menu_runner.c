@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "menu_runner.h"
+#include "menu_pick.h"
 
 #include "aout_route.h"
 #include "app.h"
@@ -147,6 +148,43 @@ static menu_result menu_side_key(app *a, zr_rig *z, menu_build_fn build,
 	uisound_cue(uisound_step(&g_steps,
 	                         sel >= n || strcmp(was, now[sel].value && !ROW_IS_NOTE(now[sel])
 	                                                 ? now[sel].value : ""), !a->in.pressed[b]));
+	return r;
+}
+
+/* An option row's A (menu.h's menu_choice, DESIGN.md 9): more than two
+ * choices and their list opens (menu_pick, src/menu_panel.c); two and the
+ * other one. The choice is applied by sending the row's own Left or Right
+ * as many times as it is away, so the screen's handler does what it always
+ * did and a screen needs no code of its own to apply one; only the last
+ * step goes through menu_send, so Zyper answers once. */
+static menu_result menu_choose(app *a, zr_rig *z, const menu_style *st, menu_key_fn on_key,
+                               void *ctx, const char *heading, const menu_choice *c, int sel)
+{
+	menu_result r = MENU_STAY;
+	bool right;
+	int to, steps;
+
+	uisound_play(DS_SOUND_ACCEPT);
+	if (c->n > 2) {
+		to = menu_pick(a, st, ctx, heading, c->labels, c->notes, c->n, c->none ? -1 : c->cur, c->cur);
+		if (to == MENU_PICK_POWER) return MENU_DONE;   /* as POWER on the menu itself */
+		if (to < 0 || !a->running || want_quit || g_message_stopped || g_menu_closing) return MENU_STAY;
+	} else {
+		to = c->cur == 0 ? 1 : 0;
+	}
+	steps = menu_choice_steps(c, to, &right);
+	/* None on as a whole and that one chosen: Right and back, which sets
+	 * it for all (menu_choice_steps) */
+	if (to == c->cur && steps == 2) {
+		if (c->cur + 1 >= c->n) right = false;
+		r = on_key(a, ctx, right ? IN_RIGHT : IN_LEFT, sel);
+		return r == MENU_DONE ? r : menu_send(a, z, on_key, ctx, right ? IN_LEFT : IN_RIGHT, sel);
+	}
+	while (steps > 0 && r != MENU_DONE && a->running) {
+		in_button b = right ? IN_RIGHT : IN_LEFT;
+
+		r = --steps ? on_key(a, ctx, b, sel) : menu_send(a, z, on_key, ctx, b, sel);
+	}
 	return r;
 }
 
@@ -350,6 +388,20 @@ static menu_exit menu_run_body(app *a, const menu_style *st,
 			if (b == IN_UP || b == IN_DOWN || b == IN_BACK || b == IN_MENU
 			    || b == IN_POWER || b == IN_VOLUP || b == IN_VOLDN
 			    || b == IN_BRIGHTUP || b == IN_BRIGHTDN) continue;
+			/* A on an option row: its list, or the other of two, applied
+			 * through the row's Left and Right (menu_choose); its screen
+			 * does not get this A */
+			if (b == IN_ACCEPT && on_key && rows[sel].live) {
+				const menu_choice *c = menu_choice_at(st->choices, n, sel);
+
+				if (c && !c->own && c->n >= 2) {
+					if (menu_choose(a, z, st, on_key, ctx, rows[sel].label, c, sel) == MENU_DONE)
+						return MENU_LEFT_SCREEN;
+					if (!a->running || want_quit || g_message_stopped) return MENU_LEFT_GONE;
+					if (g_menu_closing) return MENU_LEFT_BACK;
+					continue;
+				}
+			}
 			/* A, answered before the screen has it, since what it opens
 			 * runs its own loop: accept, or deny on a row that can do
 			 * nothing, or nothing with A; a row that plays its own is

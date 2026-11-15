@@ -268,7 +268,7 @@ static void zyperos_menu_offline(void)
 	   "Scraper is live offline: its Video Snaps and sources need no network");
 	ck(!strcmp(val(&rows[PM_ACHIEVEMENTS]), "sign in"), "Achievements invites a sign in");
 	ck(rows[PM_ACHIEVEMENTS].live, "Achievements is reachable signed out");
-	ck(!strcmp(val(&rows[PM_SLEEP]), "2m"), "120s reads as 2m");
+	ck(!strcmp(val(&rows[PM_SLEEP]), "2 min"), "120 s reads as 2 min");
 	ck(!strcmp(rows[PM_CLOCK].label, "Date & Time") &&
 	   !strcmp(val(&rows[PM_CLOCK]), "Oct 3, 6:12 AM"), "Date & Time reads the time");
 	ck(rows[PM_CLOCK].live, "and opens with no network: it is how the Pixel gets one");
@@ -1102,8 +1102,8 @@ static void auto_off_words(void)
 {
 	char s[16];
 	struct { int sec; const char *want; } t[] = {
-		{ 0, "never" }, { 30, "30s" }, { 60, "1m" },
-		{ 120, "2m" }, { 300, "5m" }, { 600, "10m" },
+		{ 0, "never" }, { 30, "30 s" }, { 60, "1 min" },
+		{ 120, "2 min" }, { 300, "5 min" }, { 600, "10 min" },
 	};
 	size_t i;
 
@@ -2817,7 +2817,7 @@ static void saver_row(void)
 	const char *heading;
 	char s[16];
 	struct { int sec; const char *want; } t[] = {
-		{ 0, "off" }, { 30, "30s" }, { 60, "1m" }, { 120, "2m" }, { 300, "5m" }, { 600, "10m" },
+		{ 0, "off" }, { 30, "30 s" }, { 60, "1 min" }, { 120, "2 min" }, { 300, "5 min" }, { 600, "10 min" },
 	};
 	int n, k, i, found = 0;
 	size_t j;
@@ -2840,7 +2840,7 @@ static void saver_row(void)
 		if (rows[i].label && !strcmp(rows[i].label, "Screensaver")) {
 			found++;
 			ck(rows[i].live, "is live");
-			ck(!strcmp(val(&rows[i]), "1m"), "reads its delay");
+			ck(!strcmp(val(&rows[i]), "1 min"), "reads its delay");
 			ck(menu_sound_at(b.sound, n, i) == MENU_SND_NO_A,
 			   "steps with left and right and is heard after, as Auto Off is");
 		}
@@ -3130,8 +3130,42 @@ static void row_sounds(void)
 	   "and play as any network does: the Wi-Fi screen has no classes to read");
 }
 
+/* An option row's choice is reached by its own Left and Right, straight
+ * there and never round past an end (menu_choice_steps), and a build's
+ * table is copied to its rows' places (sys_menu_build) */
+static void option_choices(void)
+{
+	static const char *const lab[4] = { "A", "B", "C", "D" };
+	menu_choice c = { .n = 4, .cur = 1, .labels = lab }, t[3] = { { 0 } };
+	menu_choice pm[PM_ROWS];
+	menu_bufs b;
+	menu_row out[MENU_MAX_ROWS];
+	const char *heading;
+	sys_ui u = { 0 };
+	bool right;
+	int i, n, found = 0;
+
+	ck(menu_choice_steps(&c, 3, &right) == 2 && right, "two to the right, straight there");
+	ck(menu_choice_steps(&c, 0, &right) == 1 && !right, "one to the left, never round past the end");
+	ck(menu_choice_steps(&c, 1, &right) == 0, "the one that is on: nothing to send");
+	c.none = true;
+	ck(menu_choice_steps(&c, 1, &right) == 2, "none on as a whole: right and back sets it for all");
+	ck(menu_choice_steps(&c, 9, &right) == 0, "a choice past the end: nothing");
+	t[1] = c;
+	ck(menu_choice_at(t, 3, 1) == &t[1] && !menu_choice_at(t, 3, 0) && !menu_choice_at(t, 3, 5) &&
+	   !menu_choice_at(NULL, 3, 1), "a row's choices by place, none for a row with no table");
+	memset(pm, 0, sizeof pm);
+	pm[PM_SAVER] = (menu_choice){ .n = 4, .cur = 2, .labels = lab };
+	u.pm_choice = pm;
+	n = sys_menu_build(&u, out, &b, &heading);
+	for (i = 0; i < n; i++)
+		if (b.choice[i].n == 4 && b.choice[i].cur == 2) found = !strcmp(out[i].label, T(S_SYSMENU_SCREENSAVER));
+	ck(found, "MENU's table reaches the Screensaver row's place");
+}
+
 int main(void)
 {
+	option_choices();
 	off_state();
 	scanning_state();
 	scanned_state();

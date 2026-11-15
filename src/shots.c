@@ -19,6 +19,7 @@
 #include "lights_screen.h"
 #include "media_screen.h"
 #include "menu_panel.h"
+#include "menu_pick.h"
 #include "menu_runner.h"
 #include "mp4lock.h"
 #include "mp4video.h"
@@ -576,6 +577,42 @@ static void shot_draw_gamemenu(app *a)
 	g_menu_tabs = u.port ? NULL : &tabs;
 	/* The handheld leaving with the Controls tab's name */
 	g_menu_side = u.port ? NULL : ctlscr_side;
+	/* --gm-choose: A on the row, as the runner answers an option row of
+	 * more than two (menu_choose): its list over the paused game */
+	if (shot_gm_choose && !u.port) {
+		gm_row ids[GM_MAX_ROWS];
+		int ni = gm_tab_rows(&u, (gm_tab)tabs.at, ids), sel = shot_gamemenu_sel < n ? shot_gamemenu_sel : n - 1;
+		const menu_choice *ch = sel >= 0 && sel < ni ? &gm_choices(a, &u)[ids[sel]] : NULL;
+
+		if (ch && ch->n > 2) {
+			menu_row pr[MENU_CHOICES_MAX + 3];
+			static char pw[MENU_CHOICES_MAX][64];
+			int k;
+
+			static char pn[2][CHV_WRAP_COLS];
+			int np = ch->n;
+
+			for (k = 0; k < ch->n; k++) {
+				menu_pick_word(ch->labels[k], pw[k], (int)sizeof pw[k]);
+				pr[k] = (menu_row){ pw[k], k == ch->cur ? MENU_TICK : NULL, true };
+			}
+			if (ch->notes) {   /* and what the choice under the cursor does */
+				int nl = menu_pick_note(ch->notes[ch->cur], pn);
+
+				pr[np++] = MENU_RULE;
+				pr[np++] = MENU_BODY(nl > 0 ? pn[0] : "");
+				pr[np++] = MENU_BODY(nl > 1 ? pn[1] : "");
+			}
+			g_menu_epoch++;
+			g_menu_tabs = NULL;   /* a list of its own: the row's name, no tabs */
+			g_menu_side = NULL;
+			g_menu_pin_foot = true;   /* as menu_pick's style asks */
+			menu_draw(a, rows[sel].label, pr, np, ch->cur, gm_width(a), a->tint);
+			g_menu_pin_foot = false;
+			if (bg) SDL_DestroyTexture(bg);
+			return;
+		}
+	}
 	menu_draw(a, u.port ? NULL : gm_tab_name(tabs.at), rows, n,
 	          shot_gamemenu_sel < n ? shot_gamemenu_sel : n - 1,
 	          gm_width(a), a->tint);
@@ -814,6 +851,10 @@ static void controls_fit_report(app *a)
  * that changes a setting (Clock, Appearance, Auto Off), not one that opens a
  * screen. The setting is saved as it would be, in the card the shot runs on. */
 int shot_key = -1;   /* not shot_press, which is --shot-at's */
+static menu_choice shot_pick;          /* --press a on an option row: its list */
+static const char *shot_pick_heading;
+int shot_gm_choose;     /* --gm-choose: an option row's list, A pressed on it */
+int shot_rows_report;   /* --rows-report: every option page's rows (tools/menu-rows-check.py) */
 /* --menu's row by its label, found when the menu is built */
 const char *shot_menu_label;
 
@@ -1063,11 +1104,29 @@ static void shot_compose(app *a)
 	}
 	if (shot_menu && shot_key >= 0) {
 		sysmenu_ctx c;
+		const menu_choice *ch = NULL;
 
 		memset(&c, 0, sizeof c);
 		c.a = a;
 		c.screen = a->screen;
-		sysmenu_key(a, &c, (in_button)shot_key, shot_menu_sel);
+		/* A on an option row, as the runner answers it (menu_choose): its
+		 * list over the shelf for more than two, the other one for two */
+		if (shot_key == IN_ACCEPT) {
+			static menu_row mr[MENU_MAX_ROWS];
+			const char *mh;
+			int mn = menu_build(a, a->screen, a->sys_cursor, mr, &c.bufs, &mh);
+
+			ch = menu_choice_at(c.bufs.choice, mn, shot_menu_sel);
+			if (ch && !ch->own && ch->n > 2) {
+				shot_pick = *ch;
+				shot_pick_heading = mr[shot_menu_sel].label;
+			} else if (ch && !ch->own && ch->n == 2) {
+				sysmenu_key(a, &c, ch->cur == 0 ? IN_RIGHT : IN_LEFT, shot_menu_sel);
+			} else {
+				ch = NULL;
+			}
+		}
+		if (!ch) sysmenu_key(a, &c, (in_button)shot_key, shot_menu_sel);
 		shot_key = -1;   /* once: --flip composes the shot more than once */
 		/* L1 or R1 moved MENU's tab and its cursor, as the runner would;
 		 * the shot is the tab at rest */
@@ -1204,8 +1263,36 @@ static void shot_compose(app *a)
 	 * after --swap's it has given way to the page below */
 	if (shot_menu) {
 		if (shot_pressed && shot_press == SHOT_CLOSE) panel_leave_draw(a, 0);
-		else if (!shot_pressed || shot_press != SHOT_SWAP)
-			zyperos_menu_draw(a, shot_menu_sel);
+		else if (!shot_pressed || shot_press != SHOT_SWAP) {
+			if (!shot_pick.n) zyperos_menu_draw(a, shot_menu_sel);
+		}
+		/* --press a on an option row of more than two: its list, which
+		 * opens over the shelf as MENU > Language does (menu_pick) */
+		if (shot_pick.n) {
+			menu_row pr[MENU_CHOICES_MAX + 3];
+			static char pw[MENU_CHOICES_MAX][64];
+			int k;
+
+			static char pn[2][CHV_WRAP_COLS];
+			int np = shot_pick.n;
+
+			for (k = 0; k < shot_pick.n; k++) {
+				menu_pick_word(shot_pick.labels[k], pw[k], (int)sizeof pw[k]);
+				pr[k] = (menu_row){ pw[k], !shot_pick.none && k == shot_pick.cur ? MENU_TICK : NULL, true };
+			}
+			if (shot_pick.notes) {   /* and what the choice under the cursor does */
+				int nl = menu_pick_note(shot_pick.notes[shot_pick.cur], pn);
+
+				pr[np++] = MENU_RULE;
+				pr[np++] = MENU_BODY(nl > 0 ? pn[0] : "");
+				pr[np++] = MENU_BODY(nl > 1 ? pn[1] : "");
+			}
+			ui_scrim(a->r, 0);
+			g_menu_epoch++;   /* another menu: a list opens at rest on its choice, as menu_run marks it */
+			g_menu_pin_foot = true;   /* as menu_pick's style asks */
+			menu_draw(a, shot_pick_heading, pr, np, shot_pick.cur, menu_std_width(a), MENU_ZYPEROS);
+			g_menu_pin_foot = false;
+		}
 	}
 	if (shot_look_page) shot_draw_look(a);
 	if (shot_homesys >= 0) homesys_shot_draw(a, shot_homesys);
@@ -1214,6 +1301,13 @@ static void shot_compose(app *a)
 	else if (g_shot_p2 && a->sys.count > 0) shot_draw_player2(a);
 	if (shot_gamecontrols >= 0 && a->sys.count > 0) shot_draw_gamecontrols(a);
 	if (shot_controls_fit) controls_fit_report(a);
+	if (shot_rows_report) {
+		sysmenu_rows_report(a);
+		gm_rows_report(a);
+		snaps_rows_report(a);
+		bgm_rows_report(a);
+		shot_rows_report = 0;   /* once: --flip composes the shot twice */
+	}
 	if (shot_handheld_box) handheld_box_report();
 	/* Over **scrim.menu**, as the screens they picture are: kb_prompt's
 	 * backdrop, wait_panel and the achievement list opened over the shelf. */
