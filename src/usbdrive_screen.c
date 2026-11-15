@@ -91,7 +91,7 @@ static void usb_drive(app *a);
 /* The pages' geometry, in the launcher's 1024 x 768. The saved pictures are
  * 640 x 480 (5/8 of it), so every edge a slot or a glyph's cell starts on is
  * a multiple of 8 and lands on a whole pixel there. */
-#define UD_TILE_Y    DS_PAGE_BODY_Y                             /* 256: the page's body (src/ds/page.h) */
+#define UD_TILE_Y    DS_PAGE_BODY_Y                             /* 256: the page frame's tiles' top (src/ds/page.h) */
 #define UD_TILE_H    DS_PAGE_TILE_H                             /* 280 */
 #define UD_MARK      64          /* the mark's slot, square */
 #define UD_MARK_CY   312
@@ -270,7 +270,7 @@ void ud_tile(SDL_Renderer *r, const SDL_Rect *q, const ud_rows *at, bool in, boo
 /* Flash Drive's page's tile for a way */
 SDL_Rect ud_page_tile(bool in)
 {
-	return (SDL_Rect){ in ? UD_TILE_X0 : UD_TILE_X1, UD_TILE_Y, UD_TILE_W, UD_TILE_H };
+	return ds_page_frame_of(true).tile[in ? 0 : 1];
 }
 
 /* Two button hints at the foot (ds_page_foot), the shelves' size, centered as
@@ -323,14 +323,14 @@ void usb_drive_draw(app *a, int which)
 	ds_page_head(a->r, &pf, DS_HEAD_BALANCED, T(HEAD[which]), NULL, UI_GLYPH_COUNT, 0);
 	if (which != UD_CONNECTED) {
 		/* The words in one tile, balanced, in the middle of it */
-		SDL_Rect q = { UD_TILE_X0, UD_TILE_Y, UD_TILE_X1 + UD_TILE_W - UD_TILE_X0, UD_TILE_H };
+		SDL_Rect q = { pf.tile[0].x, pf.tile[0].y, pf.tile[1].x + pf.tile[1].w - pf.tile[0].x, pf.tile[0].h };
 
 		ui_round_rect(a->r, &q, DS_RADIUS_CARD, ui_col(t->raised, 255));
 		n = ui_balance_lines(fm, T(BODY[which]), q.w - 2 * UD_PAD, 3, lines);
 		if (n > 1) ui_fit_drawn(T(BODY[which]));
 		for (k = 0; k < n; k++)
 			ui_text(a->r, fm, lines[k], ZYPEROS_SCREEN_W / 2,
-			        ui_cap_y(fm, UD_TILE_Y + UD_TILE_H / 2 + (2 * k - (n - 1)) * 26), 0, UI_TEXT_SOFT);
+			        ui_cap_y(fm, q.y + q.h / 2 + (2 * k - (n - 1)) * 26), 0, UI_TEXT_SOFT);
 		if (which == UD_CONFIRM)
 			ud_foot(a->r, "A", T(S_USBDRIVE_EJECT_KEY), "B", T(S_USBDRIVE_KEEP));
 		return;
@@ -361,7 +361,7 @@ void usb_drive_draw(app *a, int which)
 	n = ui_balance_lines(fs, T(S_USBDRIVE_EJECT), ZYPEROS_SCREEN_W - 2 * DS_INSET, 2, lines);
 	if (n > 1) ui_fit_drawn(T(S_USBDRIVE_EJECT));
 	for (k = 0; k < n; k++)
-		ui_text(a->r, fs, lines[k], ZYPEROS_SCREEN_W / 2, ui_cap_y(fs, DS_PAGE_NEWS_Y + k * 40), 0, UI_TEXT_SOFT);
+		ui_text(a->r, fs, lines[k], ZYPEROS_SCREEN_W / 2, ui_cap_y(fs, pf.news_y + k * DS_LINE_META), 0, UI_TEXT_SOFT);
 	ud_foot(a->r, "B", T(S_USBDRIVE_EJECT_KEY), "POWER", T(S_USBDRIVE_STOP));
 	/* A shot of FUNCTION and volume on the page (--usb-drive 0 bright): the
 	 * bar usbdrive shows, at a rung, where it shows it */
