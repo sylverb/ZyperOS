@@ -26,6 +26,7 @@
 #include "panel.h"
 #include "powerhold.h"
 #include "powerscreens.h"
+#include "radl_screen.h"
 #include "rafetch.h"
 #include "saver.h"
 #include "search_screen.h"
@@ -1236,7 +1237,8 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 	case PM_LANGUAGE:     language_screen(a); return MENU_CHANGED;
 	/* These three say how they went, which is Zyper's to answer */
 	case PM_SCRAPER:      return scraper_screen(a);
-	case PM_ACHIEVEMENTS: return ra_signin_screen(a);
+	/* The download page (src/radl_screen.h); signing in is behind it */
+	case PM_ACHIEVEMENTS: return radl_screen(a);
 	case PM_BT:           bt_screen(a); break;
 	case PM_CLOCK:        clock_screen(a); break;
 	case PM_MUSIC:        bgm_screen(a); break;

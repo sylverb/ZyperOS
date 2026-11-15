@@ -1,0 +1,270 @@
+# MENU > Achievements (src/radl_screen.c): the page that downloads every
+# game's RetroAchievements set ahead of time, so achievements work offline
+# without a first play with Wi-Fi (src/radl.h). Its plan, its run and what
+# it did. The glossary's words: Achievements, RetroAchievements.
+
+[radl.ready]
+note = MENU > Achievements' page: the first tile's name, over how many games have their achievements on the card, so they work with no network
+en = Ready Offline
+zh-Hans = 可离线使用
+es = Sin conexión
+pt-BR = Offline
+fr = Hors ligne
+de = Offline bereit
+ja = オフライン可
+it = Pronti offline
+
+[radl.to_download]
+note = The second tile's name, over how many games were never asked about: a download would ask RetroAchievements for them
+en = To Download
+zh-Hans = 待下载
+es = Por descargar
+pt-BR = A baixar
+fr = À télécharger
+de = Zu laden
+ja = 取得予定
+it = Da scaricare
+
+[radl.never_checked]
+note = The second tile's small line under its number: those games were never asked about. Lowercase; it stands for the games (plural).
+en = never checked
+zh-Hans = 从未查询
+es = nunca consultados
+pt-BR = nunca verificados
+fr = jamais vérifiés
+de = noch nie geprüft
+ja = 未確認
+it = mai verificati
+
+[radl.all_checked]
+note = The same line when there is nothing to download: every game was asked about. Lowercase.
+en = all checked
+zh-Hans = 已全部查询
+es = todo consultado
+pt-BR = tudo verificado
+fr = tout est vérifié
+de = alles geprüft
+ja = すべて確認済み
+it = tutto verificato
+
+[radl.have_none]
+note = A fact on the line over the keys: how many games RetroAchievements has no achievements for (it does not know the copy, or the game has none)
+en.one = %d game has none
+en.other = %d games have none
+zh-Hans = %d 个游戏没有成就
+es.one = %d juego sin logros
+es.other = %d juegos sin logros
+pt-BR.one = %d jogo sem conquistas
+pt-BR.other = %d jogos sem conquistas
+fr.one = %d jeu sans succès
+fr.other = %d jeux sans succès
+de.one = %d Spiel ohne Erfolge
+de.other = %d Spiele ohne Erfolge
+ja = 実績なし %d 本
+it.one = %d gioco senza obiettivi
+it.other = %d giochi senza obiettivi
+
+[radl.sign_in_first]
+note = The line under the page's heading when nobody is signed in to RetroAchievements: signing in comes first
+en = Sign in to download
+zh-Hans = 登录后即可下载
+es = Inicia sesión para descargar
+pt-BR = Entre para baixar
+fr = Connectez-vous pour télécharger
+de = Zum Laden anmelden
+ja = ダウンロードにはサインイン
+it = Accedi per scaricare
+
+[radl.every_checked]
+note = The line under the heading when there is nothing to download: every game on the card was asked about
+en = Every game checked
+zh-Hans = 所有游戏都已查询
+es = Todos los juegos consultados
+pt-BR = Todos os jogos verificados
+fr = Tous les jeux vérifiés
+de = Alle Spiele geprüft
+ja = 全ゲーム確認済み
+it = Tutti i giochi verificati
+
+[radl.key_download]
+note = The word beside A on the page: start the download
+en = Download
+zh-Hans = 下载
+es = Descargar
+pt-BR = Baixar
+fr = Télécharger
+de = Laden
+ja = ダウンロード
+it = Scarica
+
+[radl.key_sign_in]
+note = The word beside A when nobody is signed in: sign in to RetroAchievements
+en = Sign In
+zh-Hans = 登录
+es = Iniciar sesión
+pt-BR = Entrar
+fr = Se connecter
+de = Anmelden
+ja = サインイン
+it = Accedi
+
+[radl.key_account]
+note = The word beside Y: sign in again, or as somebody else
+en = Account
+zh-Hans = 账户
+es = Cuenta
+pt-BR = Conta
+fr = Compte
+de = Konto
+ja = アカウント
+it = Account
+
+[radl.waiting_wifi]
+note = The line over the keys during a download when the network went: it goes on by itself when Wi-Fi is back
+en = Waiting for Wi-Fi
+zh-Hans = 正在等待 Wi-Fi
+es = Esperando el Wi-Fi
+pt-BR = Aguardando o Wi-Fi
+fr = En attente du Wi-Fi
+de = Warte auf WLAN
+ja = Wi-Fi を待っています
+it = In attesa del Wi-Fi
+
+[radl.paused]
+note = The same line when RetroAchievements asked the handheld to slow down (too many requests); %s is the time left, like 0:42
+en = RetroAchievements asked for a pause · %s
+zh-Hans = RetroAchievements 要求暂停 · %s
+es = RetroAchievements pidió una pausa · %s
+pt-BR = A RetroAchievements pediu uma pausa · %s
+fr = RetroAchievements demande une pause · %s
+de = RetroAchievements bittet um eine Pause · %s
+ja = RetroAchievements の要請で一時停止 · %s
+it = RetroAchievements ha chiesto una pausa · %s
+
+[radl.retrying]
+note = The same line when a request got no answer: it is asked again; %s is the time left, like 0:12
+en = No answer · trying again in %s
+zh-Hans = 无响应 · %s 后重试
+es = Sin respuesta · reintento en %s
+pt-BR = Sem resposta · nova tentativa em %s
+fr = Pas de réponse · nouvel essai dans %s
+de = Keine Antwort · neuer Versuch in %s
+ja = 応答なし · %s 後に再試行
+it = Nessuna risposta · nuovo tentativo tra %s
+
+[radl.identifying]
+note = The same line while the games new to the card are read to tell which games they are (their RetroAchievements fingerprints): done of all
+en = Identifying games · %d / %d
+zh-Hans = 正在识别游戏 · %d / %d
+es = Identificando juegos · %d / %d
+pt-BR = Identificando jogos · %d / %d
+fr = Identification des jeux · %d / %d
+de = Spiele werden erkannt · %d / %d
+ja = ゲームを識別中 · %d / %d
+it = Identificazione dei giochi · %d / %d
+
+[radl.n_achievements]
+note = Under the set that arrived last, during a download: how many achievements it has
+en.one = %d achievement
+en.other = %d achievements
+zh-Hans = %d 个成就
+es.one = %d logro
+es.other = %d logros
+pt-BR.one = %d conquista
+pt-BR.other = %d conquistas
+fr.one = %d succès
+fr.other = %d succès
+de.one = %d Erfolg
+de.other = %d Erfolge
+ja = 実績 %d 個
+it.one = %d obiettivo
+it.other = %d obiettivi
+
+[radl.sign_in_again]
+note = The heading after a download that stopped because RetroAchievements refused the account (its sign-in ran out): sign in again. A then signs in.
+en = Sign in again
+zh-Hans = 请重新登录
+es = Vuelve a iniciar sesión
+pt-BR = Entre de novo
+fr = Reconnectez-vous
+de = Bitte neu anmelden
+ja = 再サインイン
+it = Accedi di nuovo
+
+[radl.no_answer]
+note = Under the heading "Stopped" (radl.stopped) when the download stopped because RetroAchievements stopped answering
+en = RetroAchievements is not answering
+zh-Hans = RetroAchievements 没有响应
+es = RetroAchievements no responde
+pt-BR = A RetroAchievements não responde
+fr = RetroAchievements ne répond pas
+de = RetroAchievements antwortet nicht
+ja = RetroAchievements が応答しません
+it = RetroAchievements non risponde
+
+[radl.ready_n]
+note = The line over the keys when the download is over: how many games have their achievements on the card now
+en.one = %d game ready offline
+en.other = %d games ready offline
+zh-Hans = %d 个游戏可离线使用
+es.one = %d listo sin conexión
+es.other = %d listos sin conexión
+pt-BR.one = %d jogo pronto offline
+pt-BR.other = %d jogos prontos offline
+fr.one = %d jeu prêt hors ligne
+fr.other = %d jeux prêts hors ligne
+de.one = %d Spiel offline bereit
+de.other = %d Spiele offline bereit
+ja = オフライン可 %d 本
+it.one = %d gioco pronto offline
+it.other = %d giochi pronti offline
+
+[radl.unlocks_n]
+note = The same line's second fact: how many achievements already earned on the RetroAchievements account came to the card, so they show as earned offline too
+en.one = %d earned on your account
+en.other = %d earned on your account
+zh-Hans = 账户中已解锁 %d 个
+es.one = %d conseguido en tu cuenta
+es.other = %d conseguidos en tu cuenta
+pt-BR.one = %d feita na sua conta
+pt-BR.other = %d feitas na sua conta
+fr.one = %d obtenu sur votre compte
+fr.other = %d obtenus sur votre compte
+de.one = %d auf deinem Konto erhalten
+de.other = %d auf deinem Konto erhalten
+ja = アカウントで解除済み %d 個
+it.one = %d ottenuto sul tuo account
+it.other = %d ottenuti sul tuo account
+
+[radl.just_added]
+note = During a download, the line over the badges: the set that arrived last, while the heading already names the next game being asked about. %s is the game's name and its count ("Mega Man 2 · 82 achievements").
+en = Just added: %s
+zh-Hans = 刚刚添加：%s
+es = Recién añadido: %s
+pt-BR = Acabou de chegar: %s
+fr = Ajouté à l’instant : %s
+de = Gerade hinzugefügt: %s
+ja = 追加しました：%s
+it = Appena aggiunto: %s
+
+[radl.stopped]
+note = The heading after a download that did not end on its own: B stopped it, or RetroAchievements stopped answering, or the card filled up (the reason is under it)
+en = Stopped
+zh-Hans = 已停止
+es = Detenido
+pt-BR = Parado
+fr = Arrêté
+de = Gestoppt
+ja = 停止しました
+it = Interrotto
+
+[radl.refused]
+note = Under the heading "Sign in again" (radl.sign_in_again) after a download that stopped because RetroAchievements refused the account: why
+en = RetroAchievements refused the account
+zh-Hans = RetroAchievements 拒绝了此账户
+es = RetroAchievements rechazó la cuenta
+pt-BR = A RetroAchievements recusou a conta
+fr = RetroAchievements a refusé le compte
+de = Das Konto wurde abgelehnt
+ja = アカウントが拒否されました
+it = RetroAchievements ha rifiutato l’account

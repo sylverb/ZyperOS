@@ -178,6 +178,7 @@
 #include "about_screen.h"
 #include "usbdrive_screen.h"
 #include "xfer_screen.h"
+#include "radl_screen.h"
 #include "scraper_screen.h"
 #include "gameinfo_screen.h"
 #include "lights_screen.h"
@@ -5648,6 +5649,9 @@ int main(int argc, char *argv[])
 		}
 		/* --scraper-names-off: Names and Details off, as if switched */
 		else if (!strcmp(argv[i], "--scraper-names-off")) g_scp_names = 0;
+		/* --radl-page STATE: MENU > Achievements' page (radl_page_shot) */
+		else if (!strcmp(argv[i], "--radl-page") && i + 1 < argc)
+			shot_radl_page = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--scraper-page") && i + 1 < argc) {
 			shot_scraper_page = atoi(argv[++i]);
 			if (i + 1 < argc && argv[i + 1][0] >= '0' && argv[i + 1][0] <= '9')

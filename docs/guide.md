@@ -283,7 +283,7 @@ than any one console:
 | **Home Systems** | which shelves the home shows: `All`, or how many are on. A opens a switch for Favorites, Recents (the ten games played last) and every system with games; Left, Right or A turns one on or off. A hidden system leaves the home, Random Game, Search, Favorites and Recents, and its games stay on the card. The last system on stays on |
 | **Appearance** | `Light`, `Dark` or `Auto`, which is light from 7:00 to 19:00 by the clock. `Light` on a new device and after an upgrade |
 | **Scraper** | box art, its sources and video snaps - see below. Its value is how many games have no cover, or `complete` |
-| **Achievements** | the RetroAchievements account, or `sign in` |
+| **Achievements** | the RetroAchievements account, or `sign in`. **A** opens its page, which downloads every game's achievements for offline play - see **Achievements** below |
 | **Shader** | `Off`, `Sharp-Shimmerless`, `CRT`, `CRT Curved`, `Scanlines` or `LCD Grid`, for every system at once: each system's own choice goes. It says `per system` when a system has chosen another in its own menu or in a game. `Off` on a new device and after an upgrade - see **Shaders** below |
 | **Strength** | right under Shader while a system draws an old screen: `10%` to `100%`, how dark its lines and grid are, for every system at once, each system's own going. Left and right step it 10% at a time and stop at the ends. It says `per system` when a system has its own. `100%` on a new device and after an upgrade |
 | **Controls** | every button and what it does, a page per place |
@@ -354,6 +354,36 @@ scrape overnight is not cut short; the count starts again, whole, when the run
 ends. The power button still powers the device off, and so does the battery
 running flat. System Update's download, PortMaster's install, Storage
 measuring the card and files moving over File Transfer wait the same way.
+
+### Achievements
+
+A game's RetroAchievements come by themselves the first time you play it
+with Wi-Fi, and then work offline: an unlock shows at once, waits on the card,
+and goes to your account once the handheld is on Wi-Fi again. MENU >
+**Achievements** gets them for every game at once, ahead of time, so a game
+you first play on a plane has its achievements too.
+
+| On the page | What it is |
+|---|---|
+| the systems | each system's icon over a tick, lit when every game of it has been checked |
+| **Ready Offline** | the games whose achievements are on the card, and on how many systems |
+| **To Download** | the games never checked, and about how much they will add to the card (`+14 MB`); `all checked` when there are none |
+| under the heading | about how long a download takes (`about 3 min`), `Every game checked`, `Sign in to download`, or `needs Wi-Fi` |
+| over the keys | what a download will add (with the card's room when it has less than 2 GB free) and how many games RetroAchievements has nothing for (`23 games have none`: a hack, a copy it does not know, or a game with no achievements) |
+| **A** Download | asks RetroAchievements about every game: the game it is asking about, its system and how many games it has looked at (`214 / 553`). Each set that arrives shows with its badges (`Just added: ...`). **B** stops. Then **All done**: the games ready offline and the achievements your account already had for them; or **Stopped**, with why; or **Sign in again** when RetroAchievements refused the account, and **A** signs in |
+| **Y** Account | signs in again, or as somebody else. Signed out, **A** signs in |
+
+A download asks only what is missing. A game whose achievements are already
+on the card is checked against RetroAchievements' count, and fetched again
+only when its set changed there; the achievements your account already has
+come along, so a game shows them as earned offline too. The first download
+reads each new game once to tell which game it is (a big PSP `.pbp` takes a
+while); later ones read only files that are new or changed. It keeps to
+RetroAchievements' pace, one request at a time; if RetroAchievements asks for
+a pause, the page says so and counts it down. If Wi-Fi drops, the page says
+`Waiting for Wi-Fi` and goes on by itself when it is back; stopped any other
+way, the next download picks up where it left off. Auto Off waits for it, as
+for a Scraper run.
 
 ### Screensaver
 
