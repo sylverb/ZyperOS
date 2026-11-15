@@ -170,6 +170,30 @@ static void tutorial(void)
 	ck(dev_tutorial_model(dk, &fn) == &td_model_pixel2, "desktop: the Pixel 2's with --fn-volume");
 }
 
+/* Where a button is, for the design system: the Pixel 2's model's places;
+ * none for a key it has not, nor on the Brick until it has a model */
+static void places(void)
+{
+	const device_profile *px = &device_profile_pixel2, *br = &device_profile_brick;
+	td_face f = TD_FACE_TOP;
+	float x = 0.0f, z = 0.0f;
+
+	ck(dev_button_place(px, IN_ACCEPT, &f, &x, &z) && f == TD_FACE_FRONT && x == 23.6f && z == -21.5f,
+	   "pixel2: A on the front at (23.6, -21.5)");
+	ck(dev_button_place(px, IN_MENU, &f, &x, &z) && f == TD_FACE_RIGHT && x == -1.54f && z == 17.13f,
+	   "pixel2: MENU on the right side at (-1.54, 17.13)");
+	ck(dev_button_place(px, IN_UP, &f, &x, &z) && f == TD_FACE_FRONT && x == -16.9f && z == -21.0f,
+	   "pixel2: up is the d-pad's place");
+	ck(dev_button_place(px, IN_L2, &f, &x, &z) && f == TD_FACE_TOP && x == -12.6f,
+	   "pixel2: L2 on the top edge, left of the middle");
+	f = TD_FACE_TOP; x = z = 7.0f;
+	ck(!dev_button_place(px, IN_BRIGHTUP, &f, &x, &z) && f == TD_FACE_TOP && x == 7.0f && z == 7.0f,
+	   "pixel2: no brightness key, and nothing set");
+	ck(!dev_button_place(px, IN_NONE, &f, &x, &z) && !dev_button_place(px, IN_COUNT, &f, &x, &z),
+	   "no place for no button");
+	ck(!dev_button_place(br, IN_ACCEPT, &f, &x, &z), "brick: no places until it has a model");
+}
+
 static void choosing(void)
 {
 	ck(plat_profile() == &device_profile_desktop, "the host starts as desktop");
@@ -204,6 +228,7 @@ int main(void)
 	answers();
 	unlock();
 	tutorial();
+	places();
 	choosing();
 	if (fails) {
 		printf("devices: %d of %d checks failed\n", fails, checks);

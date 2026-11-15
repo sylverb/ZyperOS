@@ -315,8 +315,8 @@ no feature that fails on an older system, and no `min-system` raise.)*
 ### 3. The handheld as data
 
 `src/tourdevice.c`'s geometry moves into a `td_model`: the Pixel 2's numbers
-become `src/device/pixel2.model.c`, drawn exactly as today (pixel gate). The
-drawing code walks the model's faces and keys instead of naming the Pixel 2's.
+become `src/device/pixel2_model.c`, drawn exactly as today (pixel gate). The
+drawing code reads the model's keys instead of naming the Pixel 2's.
 `td_key` grows to the union of the devices' keys (F1 and F2 for the Brick's
 brightness keys). Which way the handheld turns for a key, in the tutorial,
 and which way it leans on the Controls tab (`ct_lean`), follow from the key's
@@ -772,9 +772,9 @@ done by then).
    `make check-devices`, the Brick files compiled in CI. Fixes on the way:
    Developer Mode's unlock, the Controls tab's handheld shown only with a
    model. Pixel gate clean.
-2. **The handheld as data.** `td_model`, the Pixel 2's model in
-   `pixel2.model.c`, turn and lean from the model, kept boxes per model.
-   Pixel gate clean.
+2. **The handheld as data** (built 2026-11-15). `td_model`, the Pixel 2's
+   model in `pixel2_model.c`, turn and lean from the model, kept boxes per
+   model, `dev_button_place`. Pixel gate clean.
 3. **Systems, cores and power by capability.** `needs|` lines, the payload's
    cores per device, core option defaults per device, the power steps in the
    Diatom port, `vendor/<arch>/`, `-mcpu` from the profile.
@@ -863,6 +863,23 @@ Made while building step 1 (2026-11-15; the plan,
   they always were; the windowed Mac run now offers them too).
 - The in-game Controls tab keeps its column on a device with no drawing,
   empty, until that device's drawing comes (step 5 for the Brick).
+
+Made while building step 2 (2026-11-15; the plan,
+`docs/superpowers/plans/2026-11-15-device-profile-step2.md`):
+
+- The model holds what the logic reads: each key's face, place and size,
+  the five views, the kept boxes and which art draws it. The art itself
+  (the body, the glass, the tabs, the volume signs, the rocker, the lights,
+  the shoulders' plane) stays code, one art a device, reading its keys'
+  places from the model. A generic mesh would be a rewrite of hand-tuned
+  shapes for no gain; the Brick gets its own art in step 5.
+- A lesson's view follows from the faces of the keys it lights, the
+  Brightness tabs from keys on both side faces, and the Controls tab's lean
+  from each key's side of the middle (`lean_centre`, 8 mm on the Pixel 2).
+- `--handheld-box tour` measures every lesson with both brightness chords,
+  so a model is held to the poses any device could give it.
+- `td_model_<id>` names join the device lint: a device build links its own
+  model alone.
 
 ## Decided
 

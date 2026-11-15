@@ -3,10 +3,10 @@
 #define ZYPEROS_TOURDEVICE_H
 
 /* The handheld beside each lesson of the tutorial (DESIGN.md 11.10, "The
- * handheld"): the GKD Pixel 2 the tutorial is running on, drawn from the
- * landing page's model (tools/build-pixel2-model.py's millimetres), turned
- * to the side its lesson's key is on, with that key lit and pressing with
- * the glyph. Drawn in code from the theme's roles, from the tutorial's
+ * handheld"): the handheld the tutorial is running on, drawn from its
+ * model (src/device/td_model.h; the GKD Pixel 2's has the landing page's
+ * millimetres, tools/build-pixel2-model.py's), turned to the side its
+ * lesson's key is on, with that key lit and pressing with the glyph. Drawn in code from the theme's roles, from the tutorial's
  * state and the clock alone, into a small texture kept while it does not
  * change (tourdev_make), where the renderer can.
  *

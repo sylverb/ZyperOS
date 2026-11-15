@@ -21,7 +21,7 @@
 
 ## Calls this plan makes
 
-- **Shape kinds stay code.** A fully generic mesh would be a rewrite with no gain: the Pixel 2's tabs, signs and hugging shoulders are tuned by hand. The model selects and places kinds; step 5 adds the Brick's (stepped body, back-ledge shoulders, front pills, round keys with an icon, separate side keys, slider).
+- **Shape kinds stay code.** A fully generic mesh would be a rewrite with no gain: the Pixel 2's tabs, signs and hugging shoulders are tuned by hand. The model selects and places kinds; step 5 adds the Brick's (stepped body, back-ledge shoulders, front pills, round keys with an icon, separate side keys, slider). *Built:* the model holds the keys' faces, places and sizes, the views, the boxes and an `art` id; the body, glass, tabs, signs, rocker and lights stay the Pixel 2 art's own constants, which read the keys from the model (the spec's "Made while building step 2").
 - **`td_key` grows F1 and F2 now** (the Brick's brightness keys), so lit-key logic is per device from this step; HOME, L3, R3 and the sticks come with the Brick Pro.
 - **Button places come from the model**, not a second copy in the profile's button table: `dev_button_place()` reads the model.
 - **The site's 3D model, the Blender script and the Mac simulator keep their own copies** (spec section 3).

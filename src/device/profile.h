@@ -111,6 +111,12 @@ const device_profile *plat_profile_at(int i);
 void plat_profile_ids(char *out, size_t n);
 /* `b` as `p` prints it, or NULL where `p` has no such control */
 const dev_button *dev_button_of(const device_profile *p, in_button b);
+/* Where `b` is on `p`'s handheld, as its model has it (td_model.h: the face
+ * in *face, (x, z) on it in *x and *z): the d-pad for its four directions,
+ * F1 and F2 for brightness down and up. False, and nothing set, where `p`
+ * has no model or its model has no such key. For the design system, which
+ * points at a key where it is. */
+bool dev_button_place(const device_profile *p, in_button b, td_face *face, float *x, float *z);
 /* `base` with the Pixel 2's brightness chord, MENU on release and Home: the
  * shots' --fn-volume, which shows those screens on the host as the Pixel 2
  * has them until the shots wear --device pixel2 (step 5 of the device spec) */

@@ -1257,7 +1257,7 @@ build-native/devices-check: tools/devices-check.c src/profile.c src/device/profi
 
 # Every device file compiled, the Linux halves the Mac's build never sees (CI
 # job "devices", .github/workflows/check.yml): the launcher's device files,
-# src/profile.c with each device's profile, and Diatom's two ports. Syntax
+# src/profile.c with each device's profile and model, and Diatom's two ports. Syntax
 # only, so it needs the headers and no device. Elsewhere it says it skipped,
 # so it is not in CHECKS (the macOS job would only ever skip it).
 .PHONY: check-device-compile
@@ -1268,8 +1268,9 @@ check-device-compile:
 	for d in pixel2 brick; do \
 		echo "  launcher: src/device/$$d.c"; \
 		$(CC) $$F -Isrc $$S src/device/$$d.c; \
-		echo "  launcher: src/profile.c with src/device/$${d}_profile.c"; \
-		$(CC) $$F -Isrc -DZYPEROS_PROFILE=device_profile_$$d src/profile.c src/device/$${d}_profile.c; \
+		echo "  launcher: src/profile.c with src/device/$${d}_profile.c and its model"; \
+		$(CC) $$F -Isrc -DZYPEROS_PROFILE=device_profile_$$d src/profile.c src/device/$${d}_profile.c \
+			src/device/td_model.c $$(ls src/device/$${d}_model.c 2>/dev/null); \
 	done; \
 	D="-Idiatom/include -Idiatom/src -Idiatom/vendor/rcheevos/include -Idiatom/vendor/lz4"; \
 	echo "  diatom: port/brick.c"; \

@@ -37,11 +37,6 @@
  * out with the old tab's name, 96 the press's way (menu_tabs_draw's) */
 #define DEV_IN_DX  64.0f
 #define DEV_OUT_DX 96.0f
-/* The kept texture's box about the handheld's middle is its model's
- * keep_tab: what a lit shoulder's halo, the d-pad's ring and the faces'
- * halos reach in every pose here and every frame between (the Pixel 2's:
- * x -124 to 124, y -174 to 154, the tab coming in on R2 at 52 degrees the
- * lowest). --handheld-box measures it (ctlscr_box_check). */
 
 /* Which screen sets the handheld's lights: the tab, or a button's choices */
 typedef enum { CS_TAB, CS_PICK } cs_mode;
@@ -356,7 +351,11 @@ static bool pose_of(const menu_side *at, td_pose *p, bool *moving)
 	return true;
 }
 
-/* The kept texture's box for pose `p`, its model's */
+/* The kept texture's box for pose `p`: its model's keep_tab about the
+ * handheld's middle, what a lit shoulder's halo, the d-pad's ring and the
+ * faces' halos reach in every pose here and every frame between (the Pixel
+ * 2's: x -124 to 124, y -174 to 154, the tab coming in on R2 at 52 degrees
+ * the lowest). --handheld-box measures it (ctlscr_box_check). */
 static SDL_Rect keep_box(const td_pose *p)
 {
 	const td_box b = p->model->keep_tab;

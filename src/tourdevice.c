@@ -2,8 +2,9 @@
 /* The handheld beside each lesson: DESIGN.md 11.10, "The handheld". See
  * src/tourdevice.h.
  *
- * The GKD Pixel 2 in millimetres, as tools/build-pixel2-model.py builds the
- * landing page's model from its dimensioned drawing: x right, z up, y deep
+ * The GKD Pixel 2's art, in millimetres as tools/build-pixel2-model.py builds
+ * the landing page's model from its dimensioned drawing, its keys where its
+ * td_model has them (src/device/pixel2_model.c): x right, z up, y deep
  * (the front at -8.5, the back at 8.5), the body's middle at 0. A pose turns
  * it by `phi` about its upright axis - more than 0 shows the right side -
  * tilts it back by its pitch - more than 0 shows the top, as seen from a
