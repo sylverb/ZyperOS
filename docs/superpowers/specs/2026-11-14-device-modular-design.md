@@ -91,6 +91,17 @@ profile, drawing it, and catching its drivers up, the layer is right.
   panels and the tutorial's screen code (`tour_screen.c`, `xfer_screen.c`,
   `usbdrive_screen.c` move out of main.c there). This work writes no launcher
   code until both are merged.
+- **The design system's round 3** brings a layout engine (Clay, Yoga or its
+  own) and resolution-independent tokens on a 4-unit grid. The seam between
+  them and the profile is agreed with that work before step 1 fixes how
+  screen geometry reaches the UI. My proposal to it: the profile gives
+  physical facts only (panel pixels, turn, active area in millimetres,
+  insets, aspect, whether a panel still can be saved), read once at start;
+  the layout system owns the logical canvas, the grid, the tokens and any
+  density-based type; the platform layer stays the only code that knows the
+  turn. The same 1024x768 canvas is 0.048 mm a unit on the Pixel 2, 0.063 mm
+  on the Brick and 0.078 mm on the Brick Pro, which that work may want for
+  type sizes.
 - **Performance first** (the Pixel 2's frame budget): a profile is constant
   data read at start; nothing is looked up per frame that was a literal.
 - **The license.** ZyperOS is GPL-3.0-only; the Brick code from the TortOS
