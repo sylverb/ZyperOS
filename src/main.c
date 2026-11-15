@@ -161,6 +161,8 @@
 #include "esmedia.h"
 #include "gamern.h"
 #include "stats_screen.h"
+#include "ingame_screen.h"
+#include "sysmenu_screen.h"
 #include "zyperdraw.h"
 #include "zypermark.h"
 
@@ -202,9 +204,6 @@ _Static_assert(TEX_KEEP_NEAR >= CF_WARM_CARDS,
  * which live down with the shelf code. */
 static void muse_shelf_screen(app *a, bool now);
 static int  shelf_letter_jump(sysview *v, int dir);
-static bool is_port(const system_cfg *s);
-/* Muse's menu opens it, and the menu is up here. */
-static void album_art_screen(app *a);
 /* Same reason: Wi-Fi File Transfer is a screen up here. */
 static void xfer_screen_way(app *a, int way);
 
@@ -214,7 +213,7 @@ static void on_sigterm(int sig) { (void)sig; want_quit = 1; plat_terminate(); }
 /* This process is the in-game menu over a port (src/portmenu.h, --port-menu),
  * started for it by portkeys while the port is stopped: the menu, its
  * Controls page and nothing else. */
-static bool g_port_menu;
+bool g_port_menu;
 
 /* Boot time is the one number a launcher cannot be careless about, so the
  * phases are timed and logged rather than guessed at. On the project this
@@ -256,7 +255,7 @@ static void tour_hint(SDL_Renderer *r, const char *key, const char *label, int x
 unsigned g_frame_no;
 
 /* One present of nothing but `c`, over the whole screen. */
-static void present_clear(app *a, ds_rgb c)
+void present_clear(app *a, ds_rgb c)
 {
 	g_frame_no++;
 	SDL_SetRenderDrawBlendMode(a->r, SDL_BLENDMODE_NONE);
@@ -291,12 +290,12 @@ static void present_ground(app *a)
  * black in both themes - the game is content, not part of the theme (DESIGN.md
  * 3.4). What resuming a game presents has to be the same black, or the border
  * would change color as Diatom cycles its pages (see where this is called). */
-static const ds_rgb DIATOM_PAGE = { 0, 0, 0 };
+const ds_rgb DIATOM_PAGE = { 0, 0, 0 };
 
 /* ---------- per-system display mode --------------------------------------- */
 
 /* MENU's shader, every system's that has not chosen its own (SHADERS) */
-static int g_shader_all;
+int g_shader_all;
 
 /* A shader by Diatom's name for it (SHADERS), or -1 */
 static int shader_index(const char *name)
@@ -317,7 +316,7 @@ static bool shader_offered(int k)
 
 /* The shader a step `d` comes to from k, round the ones this device offers:
  * each Shader row steps with it */
-static int shader_step(int k, int d)
+int shader_step(int k, int d)
 {
 	int i;
 
@@ -366,7 +365,7 @@ void display_load(app *a)
  *
  * A row write cannot touch another row, so that whole pass is gone rather than
  * ported. It is the clearest thing the database bought. */
-static void display_save(app *a)
+void display_save(app *a)
 {
 	char key[CFG_STR + 16];
 	int i;
@@ -381,7 +380,7 @@ static void display_save(app *a)
 
 /* System `sys`'s own shader, kept the moment it changes, as its display mode
  * is: the system menu's row and the in-game menu's. */
-static void shader_save(app *a, int sys)
+void shader_save(app *a, int sys)
 {
 	char key[CFG_STR + 16];
 
@@ -406,7 +405,7 @@ static bool shader_key_note(const char *key, const char *value, void *ctx)
 /* MENU's row: shader `k` for every system, those whose games are off the card
  * now too, so each system's own choice goes and the next game of any of them
  * plays with it. */
-static void shader_set_all(app *a, int k)
+void shader_set_all(app *a, int k)
 {
 	static shader_keys keys;
 	int i;
@@ -421,7 +420,7 @@ static void shader_set_all(app *a, int k)
 
 /* What MENU's row says: the shader every system has, or "per system" when one
  * of them chose another in its own menu or in a game */
-static const char *shader_all_label(const app *a)
+const char *shader_all_label(const app *a)
 {
 	int i;
 
@@ -432,7 +431,7 @@ static const char *shader_all_label(const app *a)
 
 /* The Strength rows (src/strength.h). MENU has one while any system draws an
  * old screen; a system's menu and the in-game menu while that system does. */
-static bool strength_all_shown(const app *a)
+bool strength_all_shown(const app *a)
 {
 	int i;
 
@@ -443,7 +442,7 @@ static bool strength_all_shown(const app *a)
 
 /* MENU's row's value: every system's strength, or "per system" when one
  * chose another */
-static const char *strength_all_label(const app *a)
+const char *strength_all_label(const app *a)
 {
 	static char buf[16];
 	int i, all = strength_read_all(db_dev());
@@ -455,7 +454,7 @@ static const char *strength_all_label(const app *a)
 }
 
 /* System `sys`'s row's value, NULL when it has no row */
-static const char *strength_row_label(const app *a, int sys)
+const char *strength_row_label(const app *a, int sys)
 {
 	static char buf[16];
 
@@ -499,7 +498,7 @@ bool core_present(const char *core)
 /* What the Core row says: a libretro core by its short name, as every other
  * shelf's row always has, and a script by its own name - "Flycast" for
  * run:Emulators/Flycast/Flycast.sh - since the path is the card's business. */
-static const char *core_label(const char *core, char *buf, size_t n)
+const char *core_label(const char *core, char *buf, size_t n)
 {
 	const char *b, *dot;
 
@@ -539,7 +538,7 @@ void core_load(app *a)
 }
 
 /* The next core in the shelf's list, or the previous one. */
-static void core_step(app *a, int sys, int d)
+void core_step(app *a, int sys, int d)
 {
 	system_cfg *s = &a->sys.systems[sys];
 	char key[CFG_STR + 16], alt[CFG_STR];
@@ -564,7 +563,7 @@ static void core_step(app *a, int sys, int d)
  * ds_language the moment it changes; the next game started runs in it
  * (src/platform.c sends it as the core's dsperate_language), and so does the
  * next Reset of the one running (mk/patches/dsperate-lr-language.patch). */
-static dsl_choice dslang_load(void)
+dsl_choice dslang_load(void)
 {
 	char v[16];
 
@@ -572,7 +571,7 @@ static dsl_choice dslang_load(void)
 	return dslang_parse(v);
 }
 
-static bool dslang_row_shown(const app *a, int sys)
+bool dslang_row_shown(const app *a, int sys)
 {
 	const system_cfg *s = &a->sys.systems[sys];
 
@@ -582,7 +581,7 @@ static bool dslang_row_shown(const app *a, int sys)
 /* What the row says for choice `c`: a language by its own name, and Auto by
  * the language it comes to - "Auto (English)" for a handheld in Português
  * (Brasil) - since a row that reads only "Auto" makes the player guess. */
-static const char *dslang_label(dsl_choice c, char *buf, size_t n)
+const char *dslang_label(dsl_choice c, char *buf, size_t n)
 {
 	if (c == DSL_AUTO) {
 		dsl_choice to = dslang_parse(dslang_value(i18n_lang()));
@@ -671,7 +670,7 @@ static void ds_resume_record(const char *st, const char *lang, const struct stat
  * game's, from the top screen and off: L2 and R2 change them in the game
  * (Diatom's screens.h), and the in-game menu reads them back from Diatom. */
 /* The game running now is one: set at launch, read by the in-game menu. */
-static bool g_game_dual;
+bool g_game_dual;
 
 static bool two_screens(const system_cfg *s)
 {
@@ -679,7 +678,7 @@ static bool two_screens(const system_cfg *s)
 	       strcmp(s->core, "port") != 0;
 }
 
-static void screens_get(const char *tag, int *layout, bool *swap)
+void screens_get(const char *tag, int *layout, bool *swap)
 {
 	char key[32], v[32];
 
@@ -689,7 +688,7 @@ static void screens_get(const char *tag, int *layout, bool *swap)
 	*swap = false;
 }
 
-static void screens_put(const char *tag, int layout, bool swap)
+void screens_put(const char *tag, int layout, bool swap)
 {
 	char key[32];
 
@@ -709,7 +708,7 @@ static void screens_put(const char *tag, int layout, bool swap)
  * Written only through quick_slot_put, which keeps it. */
 static struct { char tag[CFG_STR]; int slot; } quick_seen;
 
-static int quick_slot_get(const char *tag)
+int quick_slot_get(const char *tag)
 {
 	char key[48], v[8];
 
@@ -720,7 +719,7 @@ static int quick_slot_get(const char *tag)
 	return quick_seen.slot;
 }
 
-static void quick_slot_put(const char *tag, int slot)
+void quick_slot_put(const char *tag, int slot)
 {
 	char key[48], v[8];
 
@@ -763,7 +762,7 @@ static struct {
  * there and then, so the row works while the game runs, and the Controller
  * Pak's contents live in the game's own save RAM, its .srm, whichever is in.
  * The choice is the game's, not the core's: it holds on either. */
-static bool pak_system(const system_cfg *s)
+bool pak_system(const system_cfg *s)
 {
 	return s && gm_pak_option(s->core) != NULL;
 }
@@ -784,7 +783,7 @@ static const char *pak_default(const system_cfg *s)
 	return gm_pak_value(NULL);
 }
 
-static const char *pak_get(const system_cfg *s, const char *file)
+const char *pak_get(const system_cfg *s, const char *file)
 {
 	char key[CFG_STR + LIB_PATH + 8], v[16];
 
@@ -792,7 +791,7 @@ static const char *pak_get(const system_cfg *s, const char *file)
 	return db_get_str(db_lib(), key, v, sizeof v, NULL) ? gm_pak_value(v) : pak_default(s);
 }
 
-static void pak_put(const char *tag, const char *file, const char *value)
+void pak_put(const char *tag, const char *file, const char *value)
 {
 	char key[CFG_STR + LIB_PATH + 8];
 
@@ -860,7 +859,7 @@ static void view_save(app *a, int sys)
 
 /* View turned over on shelf `sys`: covers to the list or back, saved, the
  * shelf on the same entry. MENU's View row and START on the shelf both. */
-static void view_turn(app *a, int sys)
+void view_turn(app *a, int sys)
 {
 	sysview *v = &a->view[sys];
 
@@ -871,7 +870,7 @@ static void view_turn(app *a, int sys)
 	games_reset(&v->row, v->cursor, v->list.count, plat_now_ms());
 }
 
-static void sort_save(app *a)
+void sort_save(app *a)
 {
 	char key[CFG_STR + 16];
 	int i;
@@ -1034,8 +1033,6 @@ int g_muse_kind = ML_ALL;
  * and A on it starts it over. Eric's, 2026-09-27. */
 bool *g_book_done;
 
-static int muse_kinds(void);
-
 /* The kind the shelf really shows: the one chosen, unless there is none of it
  * - then the first kind there is some of. All, on a card with one kind, is
  * that kind: the shelf and its menu say Albums, not All, when albums are all
@@ -1052,12 +1049,12 @@ ml_kind muse_kind_shown(void)
 	return ML_MUSIC;
 }
 
-static bool muse_books_shown(void) { return muse_kind_shown() == ML_BOOKS; }
+bool muse_books_shown(void) { return muse_kind_shown() == ML_BOOKS; }
 
 /* The kind MP4's menu has the rows of (sys_menu_muse_rows): the shelf's,
  * but All on a card with no songs has the videos' - no Shuffle All, no Album
  * Art - as sys_menu_build makes of the same facts */
-static int muse_rows_kind(void)
+int muse_rows_kind(void)
 {
 	ml_kind k = muse_kind_shown();
 
@@ -1066,7 +1063,7 @@ static int muse_rows_kind(void)
 
 /* How many kinds the card has: Show is in the menu only when it is two or
  * more. */
-static int muse_kinds(void)
+int muse_kinds(void)
 {
 	int k, n = 0;
 
@@ -1445,16 +1442,16 @@ static void pause_preview_path(char *out, size_t n)
  * is not one of them and calling it 9 only meant something to someone who knew
  * which emulator picked that number. Each slot is a state and a preview named
  * alike, so a slot that has a picture has a game behind it. */
-static void slot_state_path(app *a, int s, const game_entry *g, int slot,
-                            char *out, size_t n)
+void slot_state_path(app *a, int s, const game_entry *g, int slot,
+                     char *out, size_t n)
 {
 	snprintf(out, n, "%s/.zyperos/%s/%s.%s.state",
 	         P_SHARED, a->sys.systems[s].folder, persist_base(a, s, g),
 	         slot_name(slot));
 }
 
-static void slot_preview_path(app *a, int s, const game_entry *g, int slot,
-                              char *out, size_t n)
+void slot_preview_path(app *a, int s, const game_entry *g, int slot,
+                       char *out, size_t n)
 {
 	snprintf(out, n, "%s/.zyperos/%s/%s.%s.bmp",
 	         P_SHARED, a->sys.systems[s].folder, persist_base(a, s, g),
@@ -1543,7 +1540,7 @@ int shelf_owner(app *a, int sysidx, int item)
  * every system reads stretch and all the answers agree. Named as a function
  * rather than repeated at each site so the next per-system setting has one
  * obvious thing to call. */
-static sysview *owner_view(app *a)
+sysview *owner_view(app *a)
 {
 	sysview *v = &a->view[a->sys_cursor];
 
@@ -1901,7 +1898,7 @@ static void prime_toward(app *a, int s, int center)
 }
 
 
-static void free_view_textures(sysview *v)
+void free_view_textures(sysview *v)
 {
 	int k;
 
@@ -1977,7 +1974,7 @@ static void shelf_up(app *a, sysview *v)
  * kind's, since every card is about to be a different album. */
 static const char *const MUSE_SHOW[ML_KINDS + 1] = { "music", "books", "videos", "all" };
 
-static void muse_show(sysview *v, ml_kind kind)
+void muse_show(sysview *v, ml_kind kind)
 {
 	g_muse_kind = kind;
 	db_set_str(db_dev(), "muse.show", MUSE_SHOW[kind >= 0 && kind <= ML_ALL ? kind : ML_ALL]);
@@ -2043,8 +2040,7 @@ static void chv_active_path(char *out, size_t n)
  * trade only because resume-into-game exists: powering off costs about two
  * seconds and puts you back in the same game with the menu up. Without that
  * it would be hostile. */
-static const int AUTO_OFF[] = { 0, 30, 60, 120, 300, 600 };
-#define AUTO_OFF_COUNT ((int)(sizeof AUTO_OFF / sizeof AUTO_OFF[0]))
+const int AUTO_OFF[] = { 0, 30, 60, 120, 300, 600 };
 
 static int auto_off_load(void)
 {
@@ -2052,7 +2048,7 @@ static int auto_off_load(void)
 	return v >= 0 ? v : 120;                  /* the default: two minutes */
 }
 
-static void auto_off_save(int seconds)
+void auto_off_save(int seconds)
 {
 	db_set_int(db_dev(), "autooff", seconds);
 }
@@ -2060,7 +2056,7 @@ static void auto_off_save(int seconds)
 /* MENU > Screensaver (src/saver.h): the seconds with nothing pressed on the
  * shelf before the video snaps play, 0 for never. Stepped round on Auto Off's
  * ladder (saver_step); a minute to start with. */
-static int g_saver_s = SAVER_DEFAULT_S;
+int g_saver_s = SAVER_DEFAULT_S;
 
 static int saver_load(void)
 {
@@ -2069,7 +2065,7 @@ static int saver_load(void)
 	return v >= 0 ? v : SAVER_DEFAULT_S;
 }
 
-static void saver_save(int seconds)
+void saver_save(int seconds)
 {
 	db_set_int(db_dev(), "saver", seconds);
 }
@@ -2080,13 +2076,12 @@ static void saver_save(int seconds)
  * stop short (plat_charge_limit_supported): plastron's rk817 driver turns it
  * off at the limit and on again 2 points under, so 80% holds between 78 and
  * 80%. The kernel forgets it at a power-off, so it is set at every start. */
-static const int CHARGE_LIMITS[] = { 0, 80, 85, 90 };
-#define CHARGE_LIMITS_COUNT ((int)(sizeof CHARGE_LIMITS / sizeof CHARGE_LIMITS[0]))
+const int CHARGE_LIMITS[] = { 0, 80, 85, 90 };
 /* "Hold A for a full charge" on the charging screen: this charge goes to
  * 100%, and the limit is back when the cable comes out (charge_full_end).
  * In /tmp, so a power-off ends it too. */
 #define CHG_FULL_ONCE "/tmp/zyperos_charge_full"
-static int g_charge_limit;
+int g_charge_limit;
 
 static int charge_limit_load(void)
 {
@@ -2104,7 +2099,7 @@ int charge_limit_now(void)
 	return g_charge_limit;
 }
 
-static void charge_limit_apply(void)
+void charge_limit_apply(void)
 {
 	int l = charge_limit_now();
 
@@ -2218,7 +2213,7 @@ void sync_abandon(void)
  * Its one job is the first play of a game. The set is being found behind the
  * game rather than in front of it, and when it lands the player is told the
  * only way anyone can be told during a game - over Diatom's overlay. */
-static char g_pending_set[LIB_PATH * 2];
+char g_pending_set[LIB_PATH * 2];
 static char g_pending_active[LIB_PATH * 2];
 /* ...whose hash is still being made, on its own thread (src/rahashjob.h) */
 static bool g_pending_hashing;
@@ -2237,10 +2232,10 @@ static unsigned g_watch_ms;
 static char     g_watch_active[LIB_PATH * 2];
 /* The set path of the game actually running, so a fetch that lands during a
  * DIFFERENT game can be recognized and dropped. Written at every launch. */
-static char g_game_set[LIB_PATH * 2];
+char g_game_set[LIB_PATH * 2];
 /* And whether the launcher has a hash for it at all (ra_hash_support), for
  * the in-game menu's Achievements row. Written beside it. */
-static ra_hash_kind g_game_no_hash;
+ra_hash_kind g_game_no_hash;
 
 /* Auto Off while a game runs. Diatom holds the clock, because it owns the pad
  * and this process is blocked in plat_resident_wait; the launcher's part is
@@ -2706,7 +2701,6 @@ static void on_quick(int what, const char *path)
 	}
 }
 
-static wifi_state menu_wifi(char *ssid, int cap);   /* with the menus, below */
 static unsigned g_wifi_asked_at;   /* when menu_wifi last forked, plat_now_ms */
 
 /* ---------- the status corner ---------------------------------------------- */
@@ -2724,7 +2718,7 @@ static void clock24_load(void)
 	g_clock24 = !strcmp(v, "24h");
 }
 
-static void clock24_save(bool on)
+void clock24_save(bool on)
 {
 	g_clock24 = on;
 	db_set_str(db_dev(), "clock", on ? "24h" : "12h");
@@ -2734,13 +2728,13 @@ static void clock24_save(bool on)
  * saved as "ask" or "auto" under `usb_accessories` and told to usbrole
  * (plat_usb_power_mode, src/usbpower.h) as the launcher starts and as it
  * changes */
-static bool g_usb_auto;
+bool g_usb_auto;
 /* A plug that waits for an answer now (it may be asked about, usbrole
  * powers nothing by itself): the corner's USB mark and MENU > USB Device,
  * which asks again for it. 0 none. */
-static unsigned g_usb_wait;
+unsigned g_usb_wait;
 /* --usb-menu: MENU's USB rows on a host shot, which has no usbrole */
-static bool shot_usb_menu;
+bool shot_usb_menu;
 static bool shot_usb_said;     /* --usb-menu said: Automatic's message */
 static bool shot_usb_offer;    /* --usb-offer: Zyper's offer of Automatic */
 
@@ -2806,7 +2800,7 @@ static void usb_kept_save(void)
 	}
 }
 
-static void usb_auto_save(bool on)
+void usb_auto_save(bool on)
 {
 	g_usb_auto = on;
 	db_set_str(db_dev(), "usb_accessories", on ? "auto" : "ask");
@@ -2828,21 +2822,8 @@ static void usb_offer_count(void)
 	if (n != was) db_set_int(db_dev(), "usb_accessory_answers", (int)n);
 }
 
-/* MENU > Battery Icon: the corner's battery as the mark alone ("bars", the
- * default), with its charge written beside it ("percentage"), my ask of
- * 2026-11-05, or with the time left written there ("time"), my ask of
- * 2026-11-07. Read with the clock's setting; draw_topbar writes the text.
- * The time left is the estimate in src/battery_eta.h off the cable and the
- * time to full (or to the charge limit) on it, from the gauge's charge and
- * current at the first read. Where there is none yet but one is coming it
- * writes three dots filling in turn (2026-11-08, from a first try on the Pixel
- * 2 that kept the percentage for minutes); held at the charge limit, "On
- * hold"; full on the cable, "Charged"; and where none can come - a gauge
- * that cannot say its current on the cable - the percentage, so the corner
- * is never empty. */
-enum { BATT_BARS, BATT_PCT, BATT_TIME, BATT_MODES };
-static const char *const BATT_IDS[BATT_MODES] = { "bars", "percentage", "time" };
-static int g_batt_mode;
+const char *const BATT_IDS[BATT_MODES] = { "bars", "percentage", "time" };
+int g_batt_mode;
 
 static void batt_icon_load(void)
 {
@@ -2878,7 +2859,7 @@ static int      g_marks_w;   /* the marks' width as status_marks_width gave it *
 static int      g_pct_natural;
 
 /* The screen was cleared: nothing recorded above is on it any more. */
-static void drawn_forget(void)
+void drawn_forget(void)
 {
 	g_corner_box = g_clock_box = g_menu_panel = g_title_caps = (SDL_Rect){ 0 };
 	g_marks_w = 0;
@@ -3095,7 +3076,7 @@ static void status_gather(status_marks *m, bool moving)
  * a shot with no time to show - no --status, or one with no time - which
  * then shows none, since the host's would change the shot every minute. Not
  * a shot: *t as it is, and true. */
-static bool shot_time(time_t *t)
+bool shot_time(time_t *t)
 {
 	struct tm tm;
 
@@ -5518,10 +5499,10 @@ void menu_draw_ex(app *a, const char *heading, const menu_row *rows,
 /* A panel with a caption at the heading's right, `heading_note` - About's
  * page count - and otherwise menu_draw_ex's: it opens, closes and is kept
  * for the next screen to draw leaving as every menu's panel is. */
-static void menu_draw_caption(app *a, const char *heading, const menu_row *rows,
-                              int n, int sel, int fixed_w, unsigned accent,
-                              const unsigned *vcolors, bool visits_all, int loop_at,
-                              const char *heading_note)
+void menu_draw_caption(app *a, const char *heading, const menu_row *rows,
+                       int n, int sel, int fixed_w, unsigned accent,
+                       const unsigned *vcolors, bool visits_all, int loop_at,
+                       const char *heading_note)
 {
 	panel_show(a, PANEL_MENU, heading, rows, n, sel, fixed_w, accent, vcolors,
 	           visits_all, loop_at, heading_note);
@@ -5591,7 +5572,7 @@ static bool snap_wanted(const char *folder, const char *file)
 
 /* MENU > Scraper's value, from the last count of missing covers: taken as
  * its page closes (scraper_page), never per frame */
-static char g_scraper_val[32];
+char g_scraper_val[32];
 
 /* The two menus behind MENU, their row indices and their buffers: src/sys_menu.h */
 
@@ -5609,7 +5590,7 @@ static char g_scraper_val[32];
  * The cache existed and said why; the two rows below it defeated it. So the
  * cache moves out here where it covers all of them, and nothing calls
  * wifi_status directly from a per-frame path again. */
-static wifi_state menu_wifi(char *ssid, int cap)
+wifi_state menu_wifi(char *ssid, int cap)
 {
 	static unsigned   next;
 	static wifi_state st = WIFI_OFF;
@@ -5656,7 +5637,7 @@ bool net_internet(bool *metered)
 /* USB File Transfer has a link without Wi-Fi: the cable to a computer, or a
  * phone's tethering that has its address (only looked at: phone_link_due
  * set it up). MENU's build and the lists that name its rows ask the same. */
-static bool xfer_link_up(void)
+bool xfer_link_up(void)
 {
 	char pip[64];
 
@@ -5684,7 +5665,7 @@ void up_path(char *buf, size_t n, const char *name)
 }
 
 /* The card has the program: a card from before System Update has no row */
-static bool up_have(void)
+bool up_have(void)
 {
 	char p[512];
 	snprintf(p, sizeof p, "%s/zyperos-update", P_ROOT);
@@ -5917,229 +5898,6 @@ static void tick_update_daily(bool in_game)
 	}
 }
 
-/* Developer (SSH) is offered on a development image (dropbear at boot) and
- * on a release image once the player has unlocked Developer Mode (devmode.h) */
-static bool dev_offered(void)
-{
-	return usblink_dev_image() || devmode_unlocked(db_dev());
-}
-
-/* MENU's Developer Mode row: on a development image the link-always-bound
- * setting (usblink.h); on a release image, where the row is there only once
- * Developer Mode is unlocked, that it is on (the row opens its page) */
-static bool dev_row_on(void)
-{
-	return usblink_dev_image() ? usblink_developer(db_dev()) : devmode_unlocked(db_dev());
-}
-
-/* MENU's File Transfer row while it runs behind the shelf (xs_*) */
-static const char *xs_row_value(void);
-static bool xs_row_cable(void);
-
-/* MENU's USB rows: on a device where usbrole decides (or a shot that
- * says so), and USB Device while a plug waits */
-static bool usb_power_offered(void)
-{
-	usb_power p;
-
-	return shot_usb_menu || plat_usb_power(&p);
-}
-
-static bool usb_wait_row(void) { return shot_usb_menu || g_usb_wait != 0; }
-
-static void usb_power_ask(app *a, unsigned plug);
-
-/* Automatic's message, as it is chosen: what it does and its one risk, on
- * up to four balanced lines, a line more than result_message's, since the
- * risk is said whole rather than cut */
-static int usb_auto_lines(app *a, char lines[4][LB_LINE], menu_row rows[4])
-{
-	int w = menu_std_width(a), i;
-	int n = ui_balance_lines(ui_font(UI_F_MENU), T(S_SYSMENU_USB_AUTO_SAID), w, 4, lines);
-
-	ui_fit_drawn(T(S_SYSMENU_USB_AUTO_SAID));
-	for (i = 0; i < n; i++) rows[i] = (menu_row){ lines[i], NULL, false };
-	return n;
-}
-
-/* --cheevos-unchecked, for a shot: the Achievements rows as a game never
- * played with a network has them, whatever the card holds */
-static bool g_shot_unchecked;
-/* --cheevos-no-hash file|system, the same for a game the launcher has no
- * hash for: its file's kind, or every kind its system takes (a PSP game) */
-static ra_hash_kind g_shot_no_hash;
-
-/* A on an Achievements row that says "not checked yet": how a game gets its
- * set - one play with a network - and that it then works offline */
-static void cheevos_unchecked_message(app *a)
-{
-	char lines[4][LB_LINE];
-	menu_row rows[4];
-	int w = menu_std_width(a), i;
-	int n = ui_balance_lines(ui_font(UI_F_MENU), T(S_CHEEVOS_UNCHECKED_SAID), w, 4, lines);
-
-	ui_fit_drawn(T(S_CHEEVOS_UNCHECKED_SAID));
-	for (i = 0; i < n; i++) rows[i] = (menu_row){ lines[i], NULL, false };
-	timed_message(a, T(S_SYSMENU_CHEEVOS), rows, n, w, MENU_ZYPEROS);
-}
-
-static void usb_auto_message(app *a)
-{
-	char lines[4][LB_LINE];
-	menu_row rows[4];
-	int n = usb_auto_lines(a, lines, rows);
-
-	timed_message(a, T(S_SYSMENU_USB_ACCESSORIES), rows, n, menu_std_width(a), MENU_ZYPEROS);
-}
-
-static const char *look_accent_name(void);   /* with the Theme page */
-static const char *auto_hours_value(void);
-
-static int menu_build(app *a, screen_id screen, int sys,
-                      menu_row *out, menu_bufs *b, const char **heading)
-{
-	char ss[WIFI_SSID_MAX];
-	sys_ui u = { 0 };
-
-	/* Asked once. The cache is why - see menu_wifi - and three rows used to
-	 * ask separately, which is how it got expensive in the first place. */
-	u.wifi  = menu_wifi(ss, sizeof ss);
-	u.ssid  = ss;
-	u.games = screen == SCREEN_GAMES;
-	u.no_wifi = !plat_has_wifi();
-	u.no_bt   = !plat_has_bluetooth();
-	/* USB File Transfer over the cable, or over a phone's tethering */
-	u.cable_xfer = xfer_link_up();
-	/* A way out to the internet with no radio: a phone's tethering */
-	u.online = net_internet(NULL);
-	u.no_developer = !dev_offered();
-	u.developer  = dev_row_on();
-	u.hotspot = hotspot_available();     /* two stats, no fork */
-	/* File Transfer behind the shelf: its row says so, under its name */
-	u.xfer = xs_row_value();
-	u.xfer_cable = xs_row_cable();
-	u.no_lights = !plat_battery_lights();
-	u.no_charge_limit = !plat_charge_limit_supported();
-	u.charge_limit = g_charge_limit;
-	u.no_usb_power = !usb_power_offered();
-	u.usb_auto = g_usb_auto;
-	u.no_usb_wait = !usb_wait_row();
-	u.tab = g_tabs.at;
-
-	if (u.games) {
-		const system_cfg *sc = &a->sys.systems[sys];
-
-		static char corebuf[CFG_STR];
-
-		u.sys_name   = sc->name;
-		u.sys_core   = core_label(sc->core, corebuf, sizeof corebuf);
-		u.core_choice = cfg_core_count(sc) > 1;
-		{
-			static char dslbuf[64];
-
-			u.dslang = dslang_row_shown(a, sys) ? dslang_label(dslang_load(), dslbuf, sizeof dslbuf) : NULL;
-		}
-		/* By what it HAS, not by its name or its position: a shelf with no
-		 * core and no folder is the built one, and a check can hand that
-		 * over without inventing a flag day. */
-		u.muse       = is_muse(sc);
-		u.fav        = !u.muse && sc->core[0] == '\0' && sc->folder[0] == '\0';
-		/* Every game of the system, in its folders too: the shelf's own
-		 * entries would count a folder as one */
-		u.game_count = sys_games(&a->view[sys])->count;
-		u.dmode      = dmode_label(a->view[sys].dmode);
-		u.shader     = shader_label(a->view[sys].shader);
-		u.strength   = strength_row_label(a, sys);
-		u.no_strength = !u.strength;
-		u.listed     = a->view[sys].listed;
-		u.muse_books = u.muse && muse_books_shown();
-		u.muse_videos = u.muse && muse_kind_shown() == ML_VIDEOS;
-		u.muse_all   = u.muse && muse_kind_shown() == ML_ALL;
-		u.muse_songs = u.muse && ml_count_kind(&g_muse, ML_MUSIC) > 0;
-		u.muse_both  = u.muse && muse_kinds() > 1;
-		u.muse_playing = u.muse && lock_allowed();
-		u.sort       = u.muse ? ml_order_label_kind((ml_order)a->view[sys].sort, muse_kind_shown())
-		                      : sort_label(a->view[sys].sort);
-	} else {
-		aout_state ao = aout_now();
-
-		u.ra_in     = ra_signed_in();
-		u.ra_name   = u.ra_in ? ra_user() : NULL;
-		/* A check the page started may have ended after it closed */
-		sgdb_try_poll();
-		u.scraper   = g_scraper_val[0] ? g_scraper_val : NULL;
-		{
-			static char upv[48];
-			u.update = up_have() ? su_menu_value(up_view(false), upv, sizeof upv) : NULL;
-		}
-		u.storage = storage_menu_value();
-		u.appearance = appearance_name(theme_appearance());
-		u.shader_all = shader_all_label(a);
-		u.strength_all = strength_all_label(a);
-		u.no_strength = !strength_all_shown(a);
-		u.auto_hours = auto_hours_value();
-		u.theme = look_accent_name();
-		u.home = home_name(a->home_layout);
-		u.order = g_order_release ? T(S_PANEL_ORDER_RELEASE) : T(S_PANEL_ORDER_AZ);
-		u.battery = g_batt_mode == BATT_TIME ? T(S_PANEL_BATTERY_TIME)
-		          : g_batt_mode == BATT_PCT ? T(S_PANEL_BATTERY_PERCENTAGE) : T(S_PANEL_BATTERY_BARS);
-		u.ui_sounds  = uisound_setting_name(uisound_setting());
-		u.menu_music = bgm_menu_value(bgm_on(), bgm_count());
-		u.auto_off  = a->auto_off;
-		u.saver     = g_saver_s;
-		{
-			static char lv[16];
-			u.lights = u.no_lights ? NULL : side_lights_value(plat_side_lights(), lv, sizeof lv);
-		}
-		{
-			static char clk[32];
-			time_t t = time(NULL);
-
-			/* In a shot, --status's time or none, as the corner's */
-			if (shot_time(&t)) clock_label(t, g_clock24, clk, sizeof clk);
-			else               clk[0] = '\0';
-			u.clock = clk[0] ? clk : NULL;
-		}
-		u.clock_24h = g_clock24;
-		u.audio_policy = ao.policy;
-		u.audio_dest   = aout_actual(&ao);
-		u.audio_channels = g_channels;
-		u.audio_mix    = aout_channels_for(g_channels, u.audio_dest, plat_speaker_mono());
-
-		/* The connected headset's name.
-		 *
-		 * Cached for two seconds, the same way the Wi-Fi row is and for the
-		 * same reason: this is rebuilt every menu frame and the answer costs
-		 * a fork. The first version read /tmp/zyperos_btsink to avoid that,
-		 * which is what made this row say "not connected" while the Bluetooth
-		 * screen said the opposite - launch.sh writes that file on a
-		 * twenty-second poll. One source for both now. */
-		{
-			static char btname[BT_NAME_MAX];
-			static unsigned next_bt;
-			unsigned now = plat_now_ms();
-
-			if (next_bt == 0 || now >= next_bt) {
-				bt_device bd[BT_MAX];
-				int nb = bt_bonded(bd, BT_MAX), i;
-
-				next_bt = now + 2000;
-				btname[0] = '\0';
-				if (nb > 0 && bt_status() == BT_READY) {
-					bt_mark_connected_now(bd, nb);
-					for (i = 0; i < nb; i++)
-						if (bd[i].connected) {
-							snprintf(btname, sizeof btname, "%s", bd[i].name);
-							break;
-						}
-				}
-			}
-			u.bt_name = btname[0] ? btname : NULL;
-		}
-	}
-	return sys_menu_build(&u, out, b, heading);
-}
-
 
 /* ---------- MENU > Random Game -------------------------------------------- */
 
@@ -6147,7 +5905,7 @@ static int menu_build(app *a, screen_id screen, int sys,
  * menu, from the shelf's own games in a system's menu. False, with deny
  * heard, when there is none to pick. The menu closes on a pick and
  * pick_launch shows it and starts it. */
-static bool random_pick(app *a, bool all, int *shelf, int *game)
+bool random_pick(app *a, bool all, int *shelf, int *game)
 {
 	/* The game picked last time, so the next is another */
 	static int last_shelf = -1, last_game = -1;
@@ -6216,7 +5974,7 @@ void wait_panel(app *a, const char *heading, const char *msg)
 bool g_menu_closing;
 /* The in-game menu is up, over a paused game (game_menu): nothing may close
  * it from outside, as a plugged-in computer closes the others */
-static bool g_in_game_menu;
+bool g_in_game_menu;
 
 /* ---- the interface sounds' hooks (DESIGN.md 9, src/uisound.h) ----------
  *
@@ -6399,11 +6157,6 @@ bool panel_leave_draw(app *a, int game)
 	return true;
 }
 
-/* How panel_leave_run ended: the panel gone, or a press that ended it at
- * once, which is the same to the caller; the power button or Auto Off; or a
- * quit. */
-typedef enum { LEAVE_GONE, LEAVE_POWER, LEAVE_QUIT } leave_end;
-
 /* The same over a base with no loop of its own to draw it in: the paused
  * game, once the in-game menu has closed and before the game is handed back
  * (game_menu). `backdrop` draws what is under it at a scrim's strength.
@@ -6415,8 +6168,8 @@ typedef enum { LEAVE_GONE, LEAVE_POWER, LEAVE_QUIT } leave_end;
  * mean over a paused game (gm_power): once the game is resumed the wait loop
  * drains the power key's queue as stale, and a press read here and not acted
  * on would be lost. */
-static leave_end panel_leave_run(app *a, void (*backdrop)(app *, void *, float),
-                                 void *ctx)
+leave_end panel_leave_run(app *a, void (*backdrop)(app *, void *, float),
+                          void *ctx)
 {
 	leave_end how = LEAVE_GONE;
 	mm_frame f;
@@ -7307,7 +7060,7 @@ static menu_result wifi_key(app *a, void *ctx, in_button key, int sel)
 	return MENU_STAY;
 }
 
-static void wifi_screen(app *a)
+void wifi_screen(app *a)
 {
 	wifi_ui w = { 0 };
 
@@ -7343,7 +7096,7 @@ static void wifi_screen(app *a)
  * Says how it went, for Zyper in the top menu: MENU_CHANGED signed in,
  * MENU_FAILED refused or with no network, MENU_STAY when it was left at a
  * prompt. */
-static menu_result ra_signin_screen(app *a)
+menu_result ra_signin_screen(app *a)
 {
 	char user[RA_USER_MAX] = "", pass[96] = "", err[160] = "";
 	menu_row row;
@@ -8234,7 +7987,6 @@ static void xfer_stop(bool cable)
 	if (cable) usblink_after_transfer(db_dev());
 }
 
-static void xfer_screen(app *a);
 static void xfer_screen_way(app *a, int way);
 
 /* The button hints under a question's tiles (keyhints.h), packed into one
@@ -8322,9 +8074,7 @@ static void tiles_panel(app *a, int kind, const char *heading, const menu_row *t
 		.legend = tiles_hints_charge_only(), .hints = g_tiles_hints }, pose, &pass);
 }
 
-static void dev_screen(app *a);
 static void dev_ssh_tick(void);
-static int menu_measure(const menu_row *rows, int n, const char *heading);
 
 /* A computer on the cable, asked once per plug over the shelf (usblink.h):
  * Charge Only, File Transfer, or on a development image Developer (SSH), as
@@ -9166,7 +8916,7 @@ static void ulog_note(const char *what)
 	ulog_save(true);
 }
 
-static void usb_power_ask(app *a, unsigned plug)
+void usb_power_ask(app *a, unsigned plug)
 {
 	menu_row rows[UP_TILES + 1];
 	int n = usb_power_rows(rows), sel = UP_COMPUTER, choice = -1, lv;
@@ -10449,7 +10199,7 @@ static int dev_rows(menu_row rows[6], char *cmd, size_t cn, char *keys, size_t k
  * (made when SSH started for this plug), where the keys go and how many were
  * read, and SSH's own status. A turns Developer Mode off (and ends SSH), B
  * closes the page and leaves everything running. */
-static void dev_screen(app *a)
+void dev_screen(app *a)
 {
 	char cmd[96], keys[48];
 	menu_row rows[6];
@@ -10526,7 +10276,7 @@ static bool xs_shelf_due(void)
 	return false;
 }
 
-static bool xs_row_cable(void) { return g_xs.cable || g_xs.phone; }
+bool xs_row_cable(void) { return g_xs.cable || g_xs.phone; }
 
 /* The corner's mark: on behind the shelf, and the ring as far as the
  * upload on its way (status.h). Not while its own screen is up. */
@@ -10539,7 +10289,7 @@ static void xs_mark(status_marks *m)
 }
 
 /* MENU's row while it runs: what it is doing */
-static const char *xs_row_value(void)
+const char *xs_row_value(void)
 {
 	if (!g_xs.on) return NULL;
 	if (hare_closing()) return T(S_XFER_ROW_CLOSING);
@@ -10809,7 +10559,7 @@ static bool xs_steps_shown(void)
 
 /* The way the device has now: over the cable when it links, else over the
  * air, as MENU's row says - or the one already open */
-static void xfer_screen(app *a)
+void xfer_screen(app *a)
 {
 	xfer_screen_way(a, -1);
 }
@@ -12444,7 +12194,7 @@ static void scp_page(app *a, const char *only)
  * shelves' names from the library at once, with no restart (the run may
  * have named games). tools/title-refresh-check.c runs this as it is, with
  * the page stubbed. */
-static void scraper_page(app *a, const char *only)
+void scraper_page(app *a, const char *only)
 {
 	scp_page(a, only);
 	refresh_game_titles(a);
@@ -12453,7 +12203,7 @@ static void scraper_page(app *a, const char *only)
 	snapshelf_media_changed();
 }
 
-static menu_result scraper_screen(app *a)
+menu_result scraper_screen(app *a)
 {
 	scraper_page(a, NULL);
 	return MENU_STAY;
@@ -12883,7 +12633,7 @@ static menu_result language_key(app *a, void *ctx, in_button key, int sel)
 	return MENU_DONE;
 }
 
-static void language_screen(app *a)
+void language_screen(app *a)
 {
 	static unsigned char sound[LANG_COUNT];
 
@@ -12892,7 +12642,7 @@ static void language_screen(app *a)
 	         language_build, language_key, sound);
 }
 
-static void lights_screen(app *a)
+void lights_screen(app *a)
 {
 	lights_page pg = { .sel = 0 };
 	char line[48];
@@ -12945,18 +12695,6 @@ static int info_build(void *ctx, menu_row *rows, int max, const char **heading)
 	n = gi_rows(rows, &c->gi, net_internet(NULL));
 	return n > max ? max : n;
 }
-
-/* Defined with the achievement card, which is where wrap_text lives and which
- * this is the same gesture as: a row that opens into something to read. */
-static void synopsis_screen(app *a, const char *title, const char *text,
-                            unsigned accent);
-
-/* The achievement list, which the in-game menu opens over a paused frame and
- * this screen opens over the shelf. `over_shelf` says which, rather than the
- * absence of a frame saying it: in-game, a capture that failed also leaves no
- * frame, and drawing the shelf under a paused game would be a lie about where
- * the player is. */
-static void cheevos_screen(app *a, SDL_Texture *bg, bool over_shelf);
 
 static void fav_toggle_heard(const char *tag, const char *file);
 
@@ -13165,16 +12903,7 @@ static void info_buttons_preview(app *a, bool pick)
 
 /* The approved Details layout: system information, then storage and the
  * battery controller's capacity estimate. The same rows serve --about shots. */
-static int menu_measure(const menu_row *rows, int n, const char *heading);
-
-/* wrap_text, syn_layout and their sizes are further down, with the synopsis */
-#define SYN_WRAP_LINES 80
-/* The blank lines and the rule between the two copies of a synopsis */
-#define SYN_LOOP_GAP 5
-#define SYN_ROWS (SYN_WRAP_LINES * 2 + SYN_LOOP_GAP)
-static int syn_layout(const char *text, int fixed,
-                      char (*lines)[CHV_WRAP_COLS], menu_row *rows,
-                      int *loop_at);
+int menu_measure(const menu_row *rows, int n, const char *heading);
 
 /* Six pages: the system, its details, the name, and three of thanks (
  * 2026-11-06: "another page ... telling the story of the name that it's a
@@ -13380,7 +13109,7 @@ static void about_draw(app *a, const about_view *v, int page)
 	}
 }
 
-static void about_screen(app *a)
+void about_screen(app *a)
 {
 	about_view v = { 0 };
 	int page = 0;
@@ -13467,7 +13196,7 @@ static void about_screen(app *a)
 /* MENU > Controls: what every button does, a page per place. Read-only like
  * About, and paged with left and right the way Play Time changes its window -
  * the whole list at once is thirty rows nobody reads. */
-static void controls_screen(app *a)
+void controls_screen(app *a)
 {
 	ctl_page page = CTL_SHELF;
 	bool done = false;
@@ -13647,7 +13376,7 @@ static void tour_apply(app *a, int c, int v, bool save)
 	}
 }
 
-static void tour_run(app *a, bool first)
+void tour_run(app *a, bool first)
 {
 	const tour_hooks hk = { tour_zyper_draw, tour_poweroff_draw, a, P_ROOT };
 	tour t;
@@ -13773,7 +13502,7 @@ static void tour_run(app *a, bool first)
 }
 
 /* The widest row of one built menu. */
-static int menu_measure(const menu_row *rows, int n, const char *heading)
+int menu_measure(const menu_row *rows, int n, const char *heading)
 {
 	TTF_Font *fm = ui_font(UI_F_MENU), *fh = ui_font(UI_F_LABEL);
 	int gap = menu_row_h(), w = 0, i;
@@ -14066,9 +13795,7 @@ static unsigned shot_zyper_ms(void)
  * row, the top one, which is the one Zyper is in, and a system's on a game
  * list, which is where it gains rows that belong to that system. The menu
  * and its --menu shot both take it from here. */
-static void look_row_mark(app *a, const menu_row *row, int right, int cy, float on_fill);
-
-static menu_style zyperos_menu_style(app *a, int screen)
+menu_style zyperos_menu_style(app *a, int screen)
 {
 	return (menu_style){
 		/* Measured across every system and every display mode, so the panel
@@ -14121,23 +13848,8 @@ static void zyperos_menu_draw(app *a, int sel)
 	g_menu_zyper = NULL;
 }
 
-/* The system menu's context. It holds the app rather than a copy of what was
- * on screen when it opened, so `a->screen` and `a->sys_cursor` are read live
- * exactly as the hand-written loop read them. Neither can change while the
- * menu is up; reading them is simply one fewer thing that could drift. */
-typedef struct {
-	app      *a;
-	menu_bufs bufs;   /* the built rows point into this, so it outlives them */
-	/* Which of the two menus to build. Normally the screen you are on, but
-	 * Both has no screens to be on: there MENU means the firmware and B
-	 * means this system, and neither can be inferred from where you are. */
-	int       screen;
-	/* MENU's cursor as the runner last had it (menu_style's sel_out) */
-	int       seen;
-} sysmenu_ctx;
-
-static int sysmenu_build(void *ctx, menu_row *rows, int max,
-                         const char **heading)
+int sysmenu_build(void *ctx, menu_row *rows, int max,
+                  const char **heading)
 {
 	sysmenu_ctx *c = ctx;
 	int n = menu_build(c->a, c->screen, c->a->sys_cursor, rows, &c->bufs,
@@ -14198,856 +13910,6 @@ void pick_launch(app *a)
 	launch(a);
 }
 
-/* ---------- MENU > Display: Auto Hours and Theme (DESIGN.md 3.5, 11.42) ---- */
-
-/* The volume and brightness bar the launcher draws (src/osdbar.c) in the
- * look's colors, or the tokens' for the look as it ships */
-static void look_bar_colors(void)
-{
-	int t;
-
-	for (t = 0; t < DS_THEMES; t++)
-		osdbar_colors(t, look_is_default(look_now()) ? NULL : theme_at(t));
-}
-
-/* The look and Auto's hours as the database keeps them (src/look.h,
- * src/theme.h): read at start before theme_init, and written as a row
- * changes. Words for the look, minutes for the hours. */
-static void look_load(void)
-{
-	char ac[16], li[16], dk[16], co[16], zy[8];
-	look l;
-
-	db_get_str(db_dev(), "look.accent", ac, sizeof ac, DS_ACCENT_ID[0]);
-	db_get_str(db_dev(), "look.light", li, sizeof li, DS_TONE_ID[DS_LIGHT][0]);
-	db_get_str(db_dev(), "look.dark", dk, sizeof dk, DS_TONE_ID[DS_DARK][0]);
-	db_get_str(db_dev(), "look.corners", co, sizeof co, "rounded");
-	db_get_str(db_dev(), "look.zyper", zy, sizeof zy, "on");
-	l = look_parse(ac, li, dk, co, zy);
-	look_set(&l);
-	look_bar_colors();
-	theme_set_hours(db_get_int(db_dev(), "auto.light", THEME_LIGHT_FROM),
-	                db_get_int(db_dev(), "auto.dark", THEME_DARK_FROM));
-}
-
-/* A new look: on, kept, and every screen told. The bar's other programs read
- * it from the theme file theme_init writes (themefile.h), so that is written
- * again too; cards and marks drawn in the old colors are drawn again. */
-static void look_change(app *a, const look *l)
-{
-	look_set(l);
-	look_bar_colors();
-	db_set_str(db_dev(), "look.accent", DS_ACCENT_ID[l->accent]);
-	db_set_str(db_dev(), "look.light", DS_TONE_ID[DS_LIGHT][l->tone[DS_LIGHT]]);
-	db_set_str(db_dev(), "look.dark", DS_TONE_ID[DS_DARK][l->tone[DS_DARK]]);
-	db_set_str(db_dev(), "look.corners", l->square ? "square" : "rounded");
-	db_set_str(db_dev(), "look.zyper", l->zyper_off ? "off" : "on");
-	theme_init(theme_appearance());
-	theme_changed(a);
-}
-
-/* A time of day, `m` minutes in, as MENU > Clock writes one: "7:00 AM",
- * or "07:00" in 24-hour */
-static void time_of_day(int m, char *out, size_t n)
-{
-	int h = m / 60, mi = m % 60;
-
-	if (g_clock24) snprintf(out, n, "%02d:%02d", h, mi);
-	else snprintf(out, n, T(S_LOOK_TIME_12H), h % 12 ? h % 12 : 12, mi,
-	              T(h < 12 ? S_CLOCK_AM : S_CLOCK_PM));
-}
-
-/* Auto Hours' value in MENU: "7:00 AM to 7:00 PM" */
-static const char *auto_hours_value(void)
-{
-	static char v[64];
-	char l[24], d[24];
-	int lm, dm;
-
-	theme_hours(&lm, &dm);
-	time_of_day(lm, l, sizeof l);
-	time_of_day(dm, d, sizeof d);
-	snprintf(v, sizeof v, T(S_LOOK_HOURS), l, d);
-	return v;
-}
-
-/* MENU > Display > Auto Hours: Light From and Dark From, by the half hour,
- * Left and Right round the day, A forward; applied at once, so a theme that
- * turns on the change turns on screen */
-typedef struct { app *a; char l[24], d[24]; } hours_view;
-static const unsigned char HOURS_SOUND[2] = { MENU_SND_RING, MENU_SND_RING };
-
-static int hours_build(void *ctx, menu_row *rows, int max, const char **heading)
-{
-	hours_view *v = ctx;
-	int lm, dm;
-
-	(void)max;
-	theme_hours(&lm, &dm);
-	time_of_day(lm, v->l, sizeof v->l);
-	time_of_day(dm, v->d, sizeof v->d);
-	*heading = T(S_SYSMENU_AUTO_HOURS);
-	rows[0] = (menu_row){ T(S_LOOK_LIGHT_FROM), v->l, true };
-	rows[1] = (menu_row){ T(S_LOOK_DARK_FROM), v->d, true };
-	return 2;
-}
-
-static menu_result hours_key(app *a, void *ctx, in_button key, int sel)
-{
-	int d = key == IN_RIGHT || key == IN_ACCEPT ? 1 : key == IN_LEFT ? -1 : 0;
-	int lm, dm, *m, was = theme_index();
-	const int day = 24 * 60;
-
-	(void)ctx;
-	if (!d || sel < 0 || sel > 1) return MENU_STAY;
-	theme_hours(&lm, &dm);
-	m = sel == 0 ? &lm : &dm;
-	*m = ((*m + d * THEME_HOURS_STEP) % day + day) % day;
-	theme_set_hours(lm, dm);
-	db_set_int(db_dev(), "auto.light", lm);
-	db_set_int(db_dev(), "auto.dark", dm);
-	theme_init(theme_appearance());
-	if (theme_index() != was) theme_changed(a);
-	return MENU_CHANGED;
-}
-
-static void auto_hours_screen(app *a)
-{
-	hours_view v = { .a = a };
-	menu_style st = { .fixed_w = menu_std_width(a), .accent = MENU_ZYPEROS,
-	                  .sound = HOURS_SOUND };
-
-	menu_run(a, &st, hours_build, hours_key, &v);
-}
-
-/* A theme's chip, 64 by 36: its ground in its edge, its accent on it, so
- * the row says what the theme is now (DESIGN.md 11.42) */
-static void look_chip(app *a, const ds_theme *t, int x, int cy)
-{
-	SDL_Rect c = { x, cy - 18, 64, 36 };
-
-	ui_round_rect(a->r, &c, DS_RADIUS_CHIP + 1, ui_col(t->edge, 255));
-	ui_round_rect(a->r, &(SDL_Rect){ c.x + 3, c.y + 3, c.w - 6, c.h - 6 }, DS_RADIUS_CHIP - 2,
-	              ui_col(t->ground, 255));
-	ui_round_rect(a->r, &(SDL_Rect){ c.x + 12, cy - 6, 40, 12 }, 6, ui_col(t->accent, 255));
-}
-
-/* The marks before Theme's values: the accent's dot on Accent, each theme's
- * chip on its background's row, and both on MENU's Theme row */
-static void look_row_mark(app *a, const menu_row *row, int right, int cy, float on_fill)
-{
-	const char *l = row->label;
-
-	(void)on_fill;
-	if (l == T(S_LOOK_BG_LIGHT)) look_chip(a, theme_at(DS_LIGHT), right - 64, cy);
-	else if (l == T(S_LOOK_BG_DARK)) look_chip(a, theme_at(DS_DARK), right - 64, cy);
-	else if (l == T(S_SYSMENU_THEME)) {
-		look_chip(a, theme_at(DS_DARK), right - 64, cy);
-		look_chip(a, theme_at(DS_LIGHT), right - 64 - DS_GRID - 64, cy);
-	} else if (l == T(S_LOOK_ACCENT)) {
-		const ds_rgb ac = DS_ACCENT[look_now()->accent];
-
-		ui_round_rect(a->r, &(SDL_Rect){ right - 34, cy - 17, 34, 34 }, 17,
-		              ui_col(theme()->edge, 255));
-		ui_round_rect(a->r, &(SDL_Rect){ right - 32, cy - 15, 30, 30 }, 15,
-		              ui_col(theme()->surface, 255));
-		ui_round_rect(a->r, &(SDL_Rect){ right - 28, cy - 11, 22, 22 }, 11,
-		              (SDL_Color){ ac.r, ac.g, ac.b, 255 });
-	}
-}
-
-/* One theme, small: the home with a menu over it, drawn from shapes (text is
- * never under 37 units), in that theme as the look has it now. */
-static void look_thumb(app *a, const ds_theme *t, const SDL_Rect *q)
-{
-	SDL_Renderer *r = a->r;
-	const int rad = 16;
-	int mx = q->x + q->w * 48 / 100, my = q->y + 12, mw = q->w * 48 / 100, mh = q->h - 24;
-	int bx = q->x + 16, i;
-#define BAR(x, y, w, h, c) ui_round_rect(r, &(SDL_Rect){ (x), (y), (w), (h) }, (h) / 2, ui_col((c), 255))
-
-	ui_round_rect(r, q, rad, ui_col(t->edge, 255));
-	ui_round_rect(r, &(SDL_Rect){ q->x + 2, q->y + 2, q->w - 4, q->h - 4 }, rad - 2,
-	              ui_col(t->ground, 255));
-	/* the home: the system's name and count, A, the art, the dock and its
-	 * mark under the one in focus */
-	BAR(bx, q->y + 22, q->w * 22 / 100, 13, t->text);
-	BAR(bx, q->y + 44, q->w * 13 / 100, 8, t->text_dim);
-	ui_round_rect(r, &(SDL_Rect){ bx, q->y + 60, 16, 16 }, 8, ui_col(t->accent, 255));
-	BAR(bx + 22, q->y + 64, q->w * 11 / 100, 8, t->text_soft);
-	ui_round_rect(r, &(SDL_Rect){ q->x + q->w * 27 / 100, q->y + 14, q->w * 16 / 100, q->w * 12 / 100 },
-	              6, ui_col(t->raised, 255));
-	for (i = 0; i < 4; i++)
-		ui_round_rect(r, &(SDL_Rect){ bx + i * (q->w / 10), q->y + q->h - 46, q->w / 14, q->w / 14 },
-		              4, ui_col(i == 2 ? t->text_soft : t->text_dim, 255));
-	BAR(bx + 2 * (q->w / 10), q->y + q->h - 14, q->w / 14, 4, t->accent_ink);
-	/* a menu over it: its heading, rule and bar, three rows, one in focus */
-	ui_round_rect(r, &(SDL_Rect){ mx, my, mw, mh }, 12, ui_col(t->edge, 255));
-	ui_round_rect(r, &(SDL_Rect){ mx + 2, my + 2, mw - 4, mh - 4 }, 10, ui_col(t->surface, 255));
-	BAR(mx + mw / 2 - mw / 6, my + 12, mw / 3, 8, t->text_soft);
-	ui_round_rect(r, &(SDL_Rect){ mx + 10, my + 28, mw - 20, 2 }, 0, ui_col(t->edge, 255));
-	BAR(mx + mw / 2 - mw / 6, my + 27, mw / 3, 4, t->accent_ink);
-	BAR(mx + 14, my + 40, mw * 35 / 100, 8, t->text_soft);
-	BAR(mx + mw - 14 - mw / 5, my + 40, mw / 5, 8, t->text_dim);
-	ui_round_rect(r, &(SDL_Rect){ mx + 6, my + 56, mw - 12, 22 }, 6, ui_col(t->accent, 255));
-	BAR(mx + 14, my + 63, mw * 40 / 100, 8, t->on_accent);
-	BAR(mx + 14, my + mh - 18, mw * 30 / 100, 8, t->text_soft);
-	BAR(mx + mw - 14 - mw / 4, my + mh - 18, mw / 4, 8, t->text_dim);
-	/* Zyper in its corner, a dot at this size, while he is on */
-	if (!look_zyper_off())
-		ui_round_rect(r, &(SDL_Rect){ mx + mw - 22, my + 7, 12, 12 }, 6, ui_col(t->text_dim, 255));
-#undef BAR
-}
-
-/* Theme's picture: Beard and Salt & Pepper as the look has them, side by
- * side, Light at the left whatever is on */
-static void look_header(app *a, const SDL_Rect *q)
-{
-	int gap = DS_GRID * 3, w = (q->w - gap) / 2;
-
-	look_thumb(a, theme_at(DS_LIGHT), &(SDL_Rect){ q->x, q->y, w, q->h });
-	look_thumb(a, theme_at(DS_DARK), &(SDL_Rect){ q->x + w + gap, q->y, w, q->h });
-}
-
-/* MENU > Display > Theme: Accent, Light Background, Dark Background,
- * Corners, Zyper and Reset to Default. Left and Right step a row round and
- * apply it at once; A steps forward, and on Reset puts all four back. */
-enum { LK_ACCENT, LK_LIGHT, LK_DARK, LK_CORNERS, LK_ZYPER, LK_RESET, LK_ROWS };
-static const unsigned char LOOK_SOUND[LK_ROWS] = {
-	MENU_SND_RING, MENU_SND_RING, MENU_SND_RING, MENU_SND_RING, MENU_SND_RING, 0 };
-static const int ACCENT_NAME[DS_ACCENTS] = {
-	S_LOOK_ACCENT_LIME, S_LOOK_ACCENT_GREEN, S_LOOK_ACCENT_TEAL, S_LOOK_ACCENT_BLUE,
-	S_LOOK_ACCENT_PURPLE, S_LOOK_ACCENT_PINK, S_LOOK_ACCENT_RED, S_LOOK_ACCENT_ORANGE,
-	S_LOOK_ACCENT_YELLOW, S_LOOK_ACCENT_SILVER };
-static const int TONE_NAME[DS_THEMES][DS_TONES] = {
-	{ S_LOOK_TONE_WARM, S_LOOK_TONE_NEUTRAL, S_LOOK_TONE_COOL },
-	{ S_LOOK_TONE_BLACK, S_LOOK_TONE_DEEPBLUE, S_LOOK_TONE_DARKGREY } };
-
-static const char *look_accent_name(void)
-{
-	return T(ACCENT_NAME[look_now()->accent]);
-}
-
-static int look_build(void *ctx, menu_row *rows, int max, const char **heading)
-{
-	const look *l = look_now();
-
-	(void)ctx; (void)max;
-	*heading = T(S_SYSMENU_THEME);
-	rows[LK_ACCENT]  = (menu_row){ T(S_LOOK_ACCENT), T(ACCENT_NAME[l->accent]), true };
-	rows[LK_LIGHT]   = (menu_row){ T(S_LOOK_BG_LIGHT), T(TONE_NAME[DS_LIGHT][l->tone[DS_LIGHT]]), true };
-	rows[LK_DARK]    = (menu_row){ T(S_LOOK_BG_DARK), T(TONE_NAME[DS_DARK][l->tone[DS_DARK]]), true };
-	rows[LK_CORNERS] = (menu_row){ T(S_LOOK_CORNERS), T(l->square ? S_LOOK_SQUARE : S_LOOK_ROUNDED), true };
-	rows[LK_ZYPER]   = (menu_row){ T(S_LOOK_ZYPER), T(l->zyper_off ? S_MENU_OFF_TITLE : S_MENU_ON_TITLE), true };
-	rows[LK_RESET]   = (menu_row){ T(S_LOOK_RESET), NULL, true };
-	return LK_ROWS;
-}
-
-static menu_result look_key(app *a, void *ctx, in_button key, int sel)
-{
-	int d = key == IN_RIGHT || key == IN_ACCEPT ? 1 : key == IN_LEFT ? -1 : 0;
-	look l = *look_now();
-
-	(void)ctx;
-	if (!d || sel < 0 || sel >= LK_ROWS) return MENU_STAY;
-	switch (sel) {
-	case LK_ACCENT:  l.accent = (l.accent + d + DS_ACCENTS) % DS_ACCENTS; break;
-	case LK_LIGHT:   l.tone[DS_LIGHT] = (l.tone[DS_LIGHT] + d + DS_TONES) % DS_TONES; break;
-	case LK_DARK:    l.tone[DS_DARK] = (l.tone[DS_DARK] + d + DS_TONES) % DS_TONES; break;
-	case LK_CORNERS: l.square = !l.square; break;
-	case LK_ZYPER:   l.zyper_off = !l.zyper_off; break;
-	case LK_RESET:
-		if (key != IN_ACCEPT) return MENU_STAY;
-		l = LOOK_DEFAULT;
-		break;
-	}
-	look_change(a, &l);
-	return MENU_CHANGED;
-}
-
-static void look_screen(app *a)
-{
-	menu_style st = { .fixed_w = menu_std_width(a), .accent = MENU_ZYPEROS,
-	                  .sound = LOOK_SOUND, .row_mark = look_row_mark,
-	                  .header = look_header, .header_h = 150 };
-
-	menu_run(a, &st, look_build, look_key, NULL);
-}
-
-static menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
-{
-	int d = key == IN_RIGHT ? 1 : key == IN_LEFT ? -1 : 0;
-
-	(void)ctx;
-
-	if (a->screen == SCREEN_GAMES) {
-		/* Muse's menu is its own rows - see SM_MUSE_ROWS - and which is
-		 * where depends on what its shelf shows, so the enum's row numbers
-		 * below mean nothing on it: sys_menu_muse_rows says. Sort By goes on
-		 * to the Sort By below like any shelf's. Album Art is a dead row off
-		 * the network, and the runner does not land on dead rows. */
-		if (is_muse(&a->sys.systems[a->sys_cursor])) {
-			sm_muse_row ids[SM_MUSE_ROWS];
-			int n = sys_menu_muse_rows(muse_rows_kind(), muse_kinds() > 1,
-			                           !plat_has_wifi() && !net_internet(NULL), ids);
-			sm_muse_row id = sel >= 0 && sel < n ? ids[sel] : SMM_COUNT;
-
-			if (id == SMM_SORT) {
-				sel = SM_SORT;
-			} else if (id == SMM_LOCK) {
-				/* Closes the menu; the screen underneath locks. */
-				if (key != IN_ACCEPT) return MENU_STAY;
-				muse_ask_lock();
-				return MENU_DONE;
-			} else if (id == SMM_SHUFFLE) {
-				/* Closes the menu; Now Playing opens on the first song. */
-				if (key != IN_ACCEPT) return MENU_STAY;
-				muse_ask_shuffle();
-				return MENU_DONE;
-			} else if (id == SMM_SHOW) {
-				/* All, then the kinds the card has, round in either
-				 * direction; A goes forward, as right does. ML_ALL is the
-				 * number after the three, so the round is All, Music,
-				 * Audiobooks, Videos. */
-				if (d || key == IN_ACCEPT) {
-					int k = muse_kind_shown(), step = d < 0 ? ML_ALL : 1, t;
-
-					for (t = 0; t <= ML_ALL; t++) {
-						k = (k + step) % (ML_ALL + 1);
-						if (ml_count_kind(&g_muse, (ml_kind)k)) break;
-					}
-					muse_show(&a->view[a->sys_cursor], (ml_kind)k);
-				}
-				return MENU_STAY;
-			} else {
-				if (key != IN_ACCEPT) return MENU_STAY;
-				if (id == SMM_ART) { album_art_screen(a); return MENU_STAY; }
-				if (id != SMM_RESCAN) return MENU_STAY;
-				wait_panel(a, "MP4", T(S_LIBRARY_SCANNING));
-				rescan_all(a);
-				return MENU_DONE;
-			}
-		}
-		/* Favorites' menu is its own rows too, Games and Sort By - see
-		 * SM_FAV_ROWS - so its Sort By is row 1 and not SM_SORT. Nothing here
-		 * knew that from the day the menu was cut to two rows, and left and
-		 * right on Favorites' Sort By did nothing at all. */
-		if (a->view[a->sys_cursor].owner)
-			sel = sel == 1 ? SM_RANDOM : sel == 2 ? SM_SORT : sel == 3 ? SM_VIEW : SM_GAMES;
-		/* And a console's rows lose Box Art on a device with no radio, which
-		 * moves Rescan Folder up one: which row is which comes from the same
-		 * list the build used. */
-		else if (!is_muse(&a->sys.systems[a->sys_cursor])) {
-			sys_ui dev = { .no_wifi = !plat_has_wifi(), .online = net_internet(NULL),
-			               .dslang = dslang_row_shown(a, a->sys_cursor) ? "" : NULL,
-			               .no_strength = !shader_has_strength(a->view[a->sys_cursor].shader) };
-			sm_row ids[SM_ROWS];
-			int n = sys_menu_system_rows(&dev, ids);
-
-			sel = sel >= 0 && sel < n ? (int)ids[sel] : SM_ROWS;
-		}
-		/* The core, on a shelf that lists more than one: left, right or A
-		 * steps to the next, saved at once like the display mode. The next
-		 * game launched from here runs on it. */
-		if ((d || key == IN_ACCEPT) && sel == SM_CORE &&
-		    cfg_core_count(&a->sys.systems[a->sys_cursor]) > 1) {
-			core_step(a, a->sys_cursor, d ? d : 1);
-			return MENU_STAY;
-		}
-		/* The Nintendo DS's game language, stepped round the eight the same
-		 * way, saved at once: the next game started runs in it. */
-		if ((d || key == IN_ACCEPT) && sel == SM_DSLANG) {
-			dsl_choice c = dslang_step(dslang_load(), d ? d : 1);
-
-			db_set_str(db_dev(), DSLANG_SETTING, dslang_id(c));
-			return MENU_STAY;
-		}
-		/* The shader, stepped round on left, right and A and kept at once,
-		 * for this system alone: its next game plays with it. MENU's row
-		 * sets every system's. */
-		if ((d || key == IN_ACCEPT) && sel == SM_SHADER) {
-			sysview *v = &a->view[a->sys_cursor];
-
-			v->shader = shader_step(v->shader, d ? d : 1);
-			shader_save(a, a->sys_cursor);
-			return MENU_STAY;
-		}
-		/* Its strength, on left and right, stopping at the ends, kept at
-		 * once for this system alone (src/strength.h) */
-		if (d && sel == SM_STRENGTH) {
-			sysview *v = &a->view[a->sys_cursor];
-
-			v->strength = strength_step(v->strength, d);
-			strength_write(db_dev(), a->sys.systems[a->sys_cursor].tag, v->strength);
-			return MENU_STAY;
-		}
-		/* Display mode, saved the moment it changes because there is no
-		 * confirm step to hang the write off. */
-		/* View: the covers or a list, this shelf's (DESIGN.md 11.39). Left,
-		 * Right and A turn it over, as a choice of two does; the shelf under
-		 * the menu turns with it, on the game it was on. */
-		if ((d || key == IN_ACCEPT) && sel == SM_VIEW) {
-			view_turn(a, a->sys_cursor);
-			return MENU_STAY;
-		}
-		if (d && sel == SM_DISPLAY) {
-			sysview *v = &a->view[a->sys_cursor];
-
-			v->dmode = (v->dmode + d + DMODE_COUNT) % DMODE_COUNT;
-			display_save(a);
-			return MENU_STAY;
-		}
-		/* Sort order, on the same left/right idiom.
-		 *
-		 * The cursor follows the GAME, not its index. Re-sorting under a
-		 * cursor left where it sat means closing the menu onto a different
-		 * game than the one that was selected when it opened - the shelf
-		 * would appear to have jumped on its own. Which game you were
-		 * looking at is the thing that survives a reorder; where it happened
-		 * to sit in the old order is not. On Muse's shelf the same goes for
-		 * the album, whose folder is its `file`. */
-		if (d && sel == SM_SORT) {
-			sysview *v = &a->view[a->sys_cursor];
-			char keep[LIB_PATH];
-			int i, keep_owner = -1;
-
-			keep[0] = '\0';
-			if (v->cursor >= 0 && v->cursor < v->list.count) {
-				snprintf(keep, sizeof keep, "%s",
-				         v->list.items[v->cursor].file);
-				/* On Favorites a file name is not enough: the same one can
-				 * be on the shelf twice, from two systems. */
-				if (v->owner) keep_owner = v->owner[v->cursor];
-			}
-
-			v->sort = is_muse(&a->sys.systems[a->sys_cursor])
-			        ? (v->sort + d + ML_ORDERS) % ML_ORDERS
-			        : sort_step(v->sort, d);
-			sort_shelf(a, a->sys_cursor);
-			sort_save(a);
-
-			/* The textures are indexed by position, so they moved with
-			 * nothing. Dropping them lets the next frame fetch each card's
-			 * art for where it now sits. */
-			free_view_textures(v);
-
-			v->cursor = 0;
-			for (i = 0; i < v->list.count; i++)
-				if (!strcmp(v->list.items[i].file, keep) &&
-				    (!v->owner || v->owner[i] == keep_owner)) {
-					v->cursor = i;
-					break;
-				}
-			cf_reset(&v->cf, v->cursor);
-	games_reset(&v->row, v->cursor, v->list.count, plat_now_ms());
-			return MENU_STAY;
-		}
-		if (key != IN_ACCEPT) return MENU_STAY;
-		/* One of this shelf's games: the menu closes and it starts */
-		if (sel == SM_RANDOM) {
-			if (!random_pick(a, false, &g_pick.shelf, &g_pick.game)) return MENU_STAY;
-			g_pick.hold_ms = 700;
-			return MENU_DONE;
-		}
-		/* The system's own color, not the menu's. This acts on the shelf you
-		 * are looking at, and menu_draw already follows that rule everywhere
-		 * else. */
-		if (sel == SM_BOXART)
-			scraper_page(a, a->sys.systems[a->sys_cursor].folder);
-		if (sel == SM_RESCAN) {
-			wait_panel(a, a->sys.systems[a->sys_cursor].name, T(S_LIBRARY_SCANNING));
-			rescan_all(a);
-			/* Close, rather than redraw this menu over a shelf that may have
-			 * just lost the system it was built for. Acting and closing is
-			 * also what pressing it means. */
-			return MENU_DONE;
-		}
-		return MENU_STAY;
-	}
-
-	/* The row's identity rather than its position: a device with no radio has
-	 * fewer of them, and the same list the build used says which is which. */
-	{
-		sys_ui dev = { .no_wifi = !plat_has_wifi(), .no_bt = !plat_has_bluetooth(),
-		               .cable_xfer = xfer_link_up(), .online = net_internet(NULL),
-		               .no_developer = !dev_offered(),
-		               .no_lights = !plat_battery_lights(),
-		               .no_charge_limit = !plat_charge_limit_supported(),
-		               .no_usb_power = !usb_power_offered(),
-		               .no_usb_wait = !usb_wait_row(),
-		               /* the same rule as the build's (menu_build): a card with
-		                * the update program has the row */
-		               .update = up_have() ? "" : NULL,
-		               .no_strength = !strength_all_shown(a) };
-		pm_row ids[PM_ROWS];
-		int n = sys_menu_tab_rows(&dev, (pm_tab)g_tabs.at, ids);
-
-		/* L1 and R1 go round the tabs (DESIGN.md 11.3): the row each tab
-		 * is on is kept, and the cursor lands on the next tab's own */
-		if (key == IN_L1 || key == IN_R1) {
-			int dir = key == IN_R1 ? +1 : -1, k;
-
-			if (sel >= 0 && sel < n) g_tab_row[g_tabs.at] = ids[sel];
-			tabs_turn(&g_tabs, dir);
-			n = sys_menu_tab_rows(&dev, (pm_tab)g_tabs.at, ids);
-			for (k = 0; k < n && ids[k] != g_tab_row[g_tabs.at]; k++) ;
-			g_menu_sel_to = k < n ? k : 0;
-			moved_sound(a, key);
-			redraw_now();
-			return MENU_STAY;
-		}
-		sel = sel >= 0 && sel < n ? (int)ids[sel] : PM_ROWS;
-	}
-
-	/* Auto Off, on the left/right idiom Display mode uses. A step past either
-	 * end changes nothing, and Zyper is told only of a change. */
-	if (d && sel == PM_SLEEP) {
-		int k, at = 0, was = a->auto_off;
-
-		for (k = 0; k < AUTO_OFF_COUNT; k++)
-			if (AUTO_OFF[k] == a->auto_off) { at = k; break; }
-		at += d;
-		if (at < 0) at = 0;
-		if (at >= AUTO_OFF_COUNT) at = AUTO_OFF_COUNT - 1;
-		a->auto_off = AUTO_OFF[at];
-		auto_off_save(a->auto_off);
-		/* From now, not from whenever the last countdown began: choosing 30s
-		 * should not inherit two minutes of an old one already spent. */
-		a->idle.since_ms = plat_now_ms();
-		return a->auto_off != was ? MENU_CHANGED : MENU_STAY;
-	}
-	/* Screensaver, on Auto Off's idiom: left and right step the delay, off
-	 * at one end; a step past either end changes nothing. */
-	if (d && sel == PM_SAVER) {
-		int was = g_saver_s;
-
-		g_saver_s = saver_step(g_saver_s, d);
-		saver_save(g_saver_s);
-		return g_saver_s != was ? MENU_CHANGED : MENU_STAY;
-	}
-	/* System Order: the shelves read again in the other order, the cursor
-	 * kept on its system by tag (rescan_all), as File Transfer reads them
-	 * when it closes. Once per press, never per frame. */
-	if (sel == PM_ORDER && (d || key == IN_ACCEPT)) {
-		g_order_release = !g_order_release;
-		db_set_str(db_dev(), "systems.order", g_order_release ? "release" : "az");
-		rescan_all(a);
-		redraw_now();
-		return MENU_CHANGED;
-	}
-	/* The home layout is independent of Appearance and the selected system. */
-	if (sel == PM_HOME && (d || key == IN_ACCEPT)) {
-		a->home_layout = a->home_layout == HOME_SPOTLIGHT ? HOME_GALLERY : HOME_SPOTLIGHT;
-		db_set_str(db_dev(), "home", home_id(a->home_layout));
-		home_reset(&a->home, a->sys_cursor, a->sys.count, plat_now_ms());
-		redraw_now();
-		return MENU_CHANGED;
-	}
-	/* Charge Limit, round Off, 80%, 85% and 90% as Side Lights goes round its
-	 * four, A going forward: saved, and the kernel told at once, so the
-	 * charger stops or goes on by its next reading */
-	if (sel == PM_CHARGE && (d || key == IN_ACCEPT)) {
-		int k, at = 0;
-
-		for (k = 0; k < CHARGE_LIMITS_COUNT; k++)
-			if (CHARGE_LIMITS[k] == g_charge_limit) at = k;
-		at = (at + (d ? d : 1) + CHARGE_LIMITS_COUNT) % CHARGE_LIMITS_COUNT;
-		g_charge_limit = CHARGE_LIMITS[at];
-		db_set_int(db_dev(), "chargelimit", g_charge_limit);
-		charge_limit_apply();
-		redraw_now();
-		return MENU_CHANGED;
-	}
-	/* Light, Dark, Auto, stepped either way with A going forward, like the
-	 * choices, and applied the moment it changes: the theme is resolved
-	 * again here, saved as its word, and the theme file the bar's other
-	 * programs read is rewritten by theme_init - so the next frame is drawn
-	 * from the new theme(), and the next bar over a game or a port is drawn
-	 * in it. Saved even when the theme it comes to is the one already on:
-	 * Auto at noon is Beard and so is Light, and they are still two
-	 * settings. */
-	if (sel == PM_APPEARANCE && (d || key == IN_ACCEPT)) {
-		appearance k = appearance_step(theme_appearance(), d ? d : 1);
-		int was = theme_index();
-
-		theme_init(k);
-		db_set_str(db_dev(), "appearance", appearance_id(k));
-		boot_theme_changed();
-		if (theme_index() != was) theme_changed(a);
-		return MENU_CHANGED;
-	}
-
-	/* The shader for every system, stepped round with A going forward:
-	 * kept as MENU's, and each system's own choice goes with it
-	 * (shader_set_all). From "per system" a step goes on from MENU's last. */
-	if (sel == PM_SHADER && (d || key == IN_ACCEPT)) {
-		shader_set_all(a, shader_step(g_shader_all, d ? d : 1));
-		return MENU_CHANGED;
-	}
-	/* Strength for every system, on Auto Off's idiom: left and right, a
-	 * step past either end changing nothing; kept as MENU's, and each
-	 * system's own goes with it. From "per system" a step goes on from
-	 * MENU's last (src/strength.h). */
-	if (d && sel == PM_STRENGTH) {
-		int was = strength_read_all(db_dev()), k = strength_step(was, d), i;
-		bool moved = k != was;
-
-		for (i = 0; i < a->sys.count; i++) {
-			if (strength_clamp(a->view[i].strength) != k) moved = true;
-			a->view[i].strength = k;
-		}
-		strength_write_all(db_dev(), k);
-		return moved ? MENU_CHANGED : MENU_STAY;
-	}
-
-	/* On or off, so left, right and A all turn it over. Off lets the link
-	 * go at once unless something holds it, and the next computer is asked
-	 * (src/usblink.h); the card's file says so for the next boot too. */
-	if (sel == PM_DEVELOPER && (d || key == IN_ACCEPT)) {
-		if (usblink_dev_image()) {
-			usblink_set_developer(db_dev(), P_USERDATA, !usblink_developer(db_dev()));
-		} else {
-			/* A release image: the row is there only while Developer Mode is
-			 * on, and opens its page, where A turns it off. Unlocking again
-			 * is the hold on About. */
-			dev_screen(a);
-		}
-		return MENU_CHANGED;
-	}
-
-	/* Ask or Automatic, so left, right and A all turn it over; Automatic
-	 * says what it does and its one risk as it is chosen */
-	if (sel == PM_USB && (d || key == IN_ACCEPT)) {
-		usb_auto_save(!g_usb_auto);
-		if (g_usb_auto) usb_auto_message(a);
-		return MENU_CHANGED;
-	}
-	/* A plug waiting: the question again, for that plug */
-	if (sel == PM_USB_WAIT && key == IN_ACCEPT) {
-		if (g_usb_wait) usb_power_ask(a, g_usb_wait);
-		return MENU_CHANGED;
-	}
-
-	/* 12-hour or 24-hour, two positions, so left, right and A all turn it
-	 * over. The shelf's corner and the row above it read g_clock24 as they
-	 * are drawn, so the next frame is in the new one. */
-	if (sel == PM_HOURS && (d || key == IN_ACCEPT)) {
-		clock24_save(!g_clock24);
-		return MENU_CHANGED;
-	}
-	/* Bars, Percentage or Time Left: three positions round, as Charge Limit
-	 * goes, Right and A forward and Left back, saved as its word */
-	if (sel == PM_BATTERY && (d || key == IN_ACCEPT)) {
-		g_batt_mode = (g_batt_mode + (d < 0 ? BATT_MODES - 1 : 1)) % BATT_MODES;
-		db_set_str(db_dev(), "battery_icon", BATT_IDS[g_batt_mode]);
-		redraw_now();
-		return MENU_CHANGED;
-	}
-
-	/* Two positions, so left and right and A all do the same thing: there is
-	 * nothing to step through, only something to turn off and on. */
-	if (sel == PM_AUDIO && (d || key == IN_ACCEPT)) {
-		g_aout_policy = g_aout_policy == AOUT_AUTO ? AOUT_SPEAKER : AOUT_AUTO;
-		aout_save(g_aout_policy);
-		/* Forced: the resolved DEVICE may not have changed - pinning Speaker
-		 * with a cable in is still the codec - but the setting did, and the
-		 * next unplug must act on the new policy rather than on a cached
-		 * device string that happens to match. */
-		aout_apply(true);
-		return MENU_CHANGED;
-	}
-
-	/* Five positions, Auto after mono right and before stereo, stepped either
-	 * way like the card sets, A going forward.
-	 * Applied at once, to Muse and to Diatom if they are there to be told, so
-	 * a player trying them over music hears each as it is chosen. */
-	if (sel == PM_CHANNELS && (d || key == IN_ACCEPT)) {
-		g_channels = (aout_channels)((g_channels + (d ? d : 1) + AOUT_CHANNELS_COUNT)
-		                             % AOUT_CHANNELS_COUNT);
-		channels_save(g_channels);
-		aout_apply(false);
-		return MENU_CHANGED;
-	}
-
-	/* Wood, Glass, Bubble, Off, stepped either way like Audio Channels, A
-	 * going forward, and heard as each is chosen: the row is MENU_SND_OWN, so
-	 * the runner plays nothing for it and its press is played here, in the
-	 * voice it comes to, before the setting is written. Off is silent. */
-	if (sel == PM_SOUNDS && (d || key == IN_ACCEPT)) {
-		int k = uisound_setting_step(uisound_setting(), d ? d : 1);
-
-		uisound_set(k);
-		if (d) moved_sound(a, key);
-		else   uisound_play(DS_SOUND_ACCEPT);
-		db_set_str(db_dev(), "uisounds", uisound_setting_id(k));
-		return MENU_STAY;
-	}
-
-	if (key != IN_ACCEPT) return MENU_STAY;
-	switch (sel) {
-	case PM_WIFI:         wifi_screen(a); break;
-	/* A game from every system: the menu closes and it starts */
-	case PM_RANDOM:
-		if (!random_pick(a, true, &g_pick.shelf, &g_pick.game)) break;
-		g_pick.hold_ms = 700;
-		return MENU_DONE;
-	case PM_XFER:         xfer_screen(a); break;
-	case PM_LIGHTS:       lights_screen(a); break;
-	case PM_LANGUAGE:     language_screen(a); return MENU_CHANGED;
-	/* These three say how they went, which is Zyper's to answer */
-	case PM_SCRAPER:      return scraper_screen(a);
-	case PM_ACHIEVEMENTS: return ra_signin_screen(a);
-	case PM_BT:           bt_screen(a); break;
-	case PM_CLOCK:        clock_screen(a); break;
-	case PM_MUSIC:        bgm_screen(a); break;
-	case PM_STATS:        if (stats_screen(a)) return MENU_DONE; break;
-	case PM_CONTROLS:     controls_screen(a); break;
-	/* Closes the menu: the tutorial ends on the shelf, where its finish
-	 * says to start playing. */
-	case PM_TOUR:         tour_run(a, false); return MENU_DONE;
-	case PM_STORAGE:      storage_screen(a); break;
-	case PM_AUTOHOURS:    auto_hours_screen(a); return MENU_CHANGED;
-	case PM_THEME:        look_screen(a); return MENU_CHANGED;
-	case PM_UPDATE:       update_screen(a); break;
-	case PM_ABOUT:        about_screen(a); break;
-	/* A game by its name: the menu closes once one is picked, and it starts */
-	case PM_SEARCH:
-		if (!search_screen(a, &g_pick.shelf, &g_pick.game)) break;
-		g_pick.hold_ms = 0;
-		return MENU_DONE;
-	default: break;
-	}
-	return MENU_STAY;
-}
-
-void zyperos_menu_for(app *a, int screen)
-{
-	sysmenu_ctx c;
-
-	uisound_play(DS_SOUND_ACCEPT);                /* a menu opening */
-	memset(&c, 0, sizeof c);
-	c.a = a;
-	c.screen = screen;
-	menu_style st = zyperos_menu_style(a, screen);
-	/* Each row's sound class, which the build sets beside the rows */
-	st.sound = c.bufs.sound;
-
-	if (st.tabs) {
-		sys_ui dev = { .no_wifi = !plat_has_wifi(), .no_bt = !plat_has_bluetooth(),
-		               .cable_xfer = xfer_link_up(), .online = net_internet(NULL),
-		               .no_developer = !dev_offered(),
-		               .no_lights = !plat_battery_lights(),
-		               .no_charge_limit = !plat_charge_limit_supported(),
-		               .no_usb_power = !usb_power_offered(),
-		               .no_usb_wait = !usb_wait_row(),
-		               .update = up_have() ? "" : NULL,
-		               .no_strength = !strength_all_shown(a) };
-		pm_row ids[PM_ROWS];
-		int n, k;
-
-		/* A plug waiting for its answer: Connections, on USB Device */
-		if (!dev.no_usb_wait && !dev.no_usb_power) {
-			g_tabs.at = PT_CONNECTIONS;
-			g_tab_row[PT_CONNECTIONS] = PM_USB_WAIT;
-		}
-		g_tabs.from = g_tabs.at;
-		g_tabs.t0 = 0;
-		g_menu_epoch++;
-		n = sys_menu_tab_rows(&dev, (pm_tab)g_tabs.at, ids);
-		for (k = 0; k < n && ids[k] != g_tab_row[g_tabs.at]; k++) ;
-		st.start_sel = k < n ? k : 0;
-		c.seen = st.start_sel;
-		st.sel_out = &c.seen;
-		g_pick.shelf = -1;
-		menu_run(a, &st, sysmenu_build, sysmenu_key, &c);
-		/* where it was closed, for the next time it opens; Strength may
-		 * have come or gone with a Shader step */
-		dev.no_strength = !strength_all_shown(a);
-		n = sys_menu_tab_rows(&dev, (pm_tab)g_tabs.at, ids);
-		if (c.seen >= 0 && c.seen < n) g_tab_row[g_tabs.at] = ids[c.seen];
-	} else {
-		g_pick.shelf = -1;
-		menu_run(a, &st, sysmenu_build, sysmenu_key, &c);
-	}
-	/* A game Random Game or Search Games picked, once the menu has gone */
-	if (g_pick.shelf >= 0 && a->running && !want_quit) pick_launch(a);
-	g_pick.shelf = -1;
-}
-
-static void zyperos_menu(app *a)
-{
-	zyperos_menu_for(a, a->screen);
-}
-
-/* ---------- launching ----------------------------------------------------- */
-
-/* The in-game menu - the launcher's, over Diatom's pause.
- *
- * MENU in a game makes Diatom write a preview of the frame, stop presenting,
- * and say PAUSED. From that word the display is ours: the menu is that frame
- * dimmed, with the rows a player expects - Continue, Save, Load, Reset, Quit
- * - drawn with the launcher's own font and glow. The menu is the launcher's,
- * not something patched into the emulator.
- *
- * Every row acts through one protocol line. Save and Load use the same autosave
- * paths the launch handed over, so the autosave funnel stays one thing. */
-/* Display sits with the things you do to the game rather than the things you do
- * to a save, because it is the one row whose effect you judge by looking at the
- * game behind the menu. */
-/* gm_row, gm_ui and gm_rows: src/game_menu.h */
-
-/* The paused frame, drawn where the game actually is.
- *
- * Diatom reports its rect with every DISPLAY message (put there so a launcher
- * need not recompute it from geometry it does not have), and the preview it
- * writes is the CORE'S frame - 256x224 for an NES, no display mode applied.
- * Stretching that to the panel, which is what this used to do, showed a game
- * that looked nothing like the one paused underneath at any mode that does
- * not fill the screen, and made the picture jump size the moment MENU was
- * pressed.
- *
- * Falls back to filling the panel when Diatom has not said - the standalone
- * path, and the first moments of a launch. */
-static void draw_paused_frame(app *a, SDL_Texture *bg)
-{
-	SDL_Rect r;
-
-	if (!bg) return;
-	if (plat_resident_rect(&r)) SDL_RenderCopy(a->r, bg, NULL, &r);
-	else                        SDL_RenderCopy(a->r, bg, NULL, NULL);
-}
-
-/* What every screen over a paused game sits on - the in-game menu, the save
- * slots, the achievements: the frame where the game is, on **ink** where it
- * is not, under **scrim.game**, which is as heavy in Beard as in Salt &
- * Pepper because the game is content and not part of the theme (DESIGN.md
- * 3.4). The in-game menu had the shelf's lighter scrim, and the slots and
- * achievements beside it the heavy one, over the same paused game. The
- * scrim at `k` of its strength, which is 1 but while the in-game menu opens
- * or closes (panel_frame).
- *
- * And the status corner over it all, as on the shelf (DESIGN.md 11.12): this
- * process draws these screens, so it draws the corner (in the game, Diatom
- * draws its disc). In Salt & Pepper, as scrim.game is dark in both themes,
- * with the clock in **text**, since a white frame under the scrim leaves
- * text-soft at 4.4:1. Each of these screens' loops draws every frame, so the
- * blink needs nothing more. */
-static void paused_backdrop(app *a, SDL_Texture *bg, float k)
-{
-	const ds_rgb ink = theme()->ink;
-
-	g_frame_no++;
-	SDL_SetRenderDrawColor(a->r, ink.r, ink.g, ink.b, 255);
-	SDL_RenderClear(a->r);
-	drawn_forget();
-	draw_paused_frame(a, bg);
-	ui_scrim_k(a->r, 1, k);
-	/* The top bar (src/topbar.h): the clock at the top left and the marks
-	 * with the battery's text at the top right, as on the home, so they match
-	 * and a long Time Left text never meets the clock. */
-	draw_topbar(a->r, DS_DARK, ui_col(theme_at(DS_DARK)->text, 255), frames_wanted());
-}
-
 /* ---------- NES Player 2 ---------------------------------------------------
  *
  * The in-game menu's Player 2 row on an NES game opens this page over the
@@ -15078,11 +13940,11 @@ typedef struct {
 
 /* --player2 KIND: the page as a shot draws it, and the row's value with
  * --gamemenu (shot_draw_player2) */
-static bool    g_shot_p2;
+bool    g_shot_p2;
 static p2_view g_shot_p2_view;
 
 /* The state the in-game menu's row says */
-static p2_state p2_row_state(void)
+p2_state p2_row_state(void)
 {
 	return g_shot_p2 ? g_shot_p2_view.st : p2_state_now();
 }
@@ -15235,7 +14097,7 @@ static void p2_page_frame(app *a, SDL_Texture *bg, const system_cfg *q, p2_link 
 }
 
 /* The page, from the in-game menu's row, over the paused game `bg` */
-static void player2_page(app *a, SDL_Texture *bg)
+void player2_page(app *a, SDL_Texture *bg)
 {
 	const system_cfg *q = &a->sys.systems[shelf_owner(a, a->sys_cursor,
 	                                      a->view[a->sys_cursor].cursor)];
@@ -15425,787 +14287,6 @@ void copy_file(const char *from, const char *to)
 	while ((n = fread(buf, 1, sizeof buf, a)) > 0) fwrite(buf, 1, n, b);
 	fclose(a);
 	fclose(b);
-}
-
-/* The slot carousel: Auto plus the manual slots for Load, the manual slots for
- * Save. One slot at a
- * time, large - the paused frame at a size you can actually read - with the
- * save's own timestamp under it and a dot rail for where you are. Left and
- * right cycle; Load skips slots with nothing behind them, Save cannot aim at
- * Auto, which belongs to the exit funnel alone. */
-typedef struct {
-	SDL_Texture *thumb[GM_SLOTS + 1];   /* [0]=Auto, [1..GM_SLOTS] */
-	int have[GM_SLOTS + 1];
-	char when[GM_SLOTS + 1][40];
-	/* Every slot of one game holds the same machine's frame, so one aspect
-	 * describes them all and the picture can be framed exactly rather than
-	 * dropped into a fixed box with bars down its sides. 4:3 until a slot
-	 * with a picture in it says otherwise. */
-	float aspect;
-	int saving;
-} slot_view;
-
-/* A save's moment as the strip shows it, "Aug 23 9:21:05 AM": the month's
- * short name and the order of the parts are the language's (slots.when) */
-static void slot_when(char *out, size_t n, const struct tm *tm)
-{
-	static const str_id MON[12] = {
-		S_SLOTS_JAN, S_SLOTS_FEB, S_SLOTS_MAR, S_SLOTS_APR, S_SLOTS_MAY, S_SLOTS_JUN,
-		S_SLOTS_JUL, S_SLOTS_AUG, S_SLOTS_SEP, S_SLOTS_OCT, S_SLOTS_NOV, S_SLOTS_DEC,
-	};
-	int h12 = tm->tm_hour % 12;
-	const char *mon = T(MON[tm->tm_mon >= 0 && tm->tm_mon < 12 ? tm->tm_mon : 0]);
-
-	/* In the clock MENU > Clock chose, as the status corner is */
-	if (g_clock24) {
-		snprintf(out, n, T(S_SLOTS_WHEN_24), mon, tm->tm_mday, tm->tm_hour, tm->tm_min, tm->tm_sec);
-		return;
-	}
-	if (!h12) h12 = 12;
-	snprintf(out, n, T(S_SLOTS_WHEN), mon, tm->tm_mday, h12, tm->tm_min, tm->tm_sec,
-	         T(tm->tm_hour < 12 ? S_SLOTS_AM : S_SLOTS_PM));
-}
-
-/* Drawing only, so one frame of it can be rendered by --shot without a game
- * running or a device in hand.
- *
- * IN SALT & PEPPER'S ROLES, WHATEVER THEME IS ON. There is no panel here: the
- * heading, the picture, its name and time and the dots sit straight on
- * **scrim.game**, which is ink at 73% over a paused game in both themes, so
- * the ground they are read against is dark in Beard too. Beard's charcoal on
- * it had nothing to stand out from. The in-game menu beside it is a panel,
- * which brings its own surface and needs none of this. */
-static void slot_draw(app *a, const slot_view *sv, int sel)
-{
-	const ds_theme *dk = theme_at(DS_DARK);
-	/* `area` is the layout slot the picture is fitted into; nothing is ever
-	 * drawn to it. The border is the picture's own edge - a 240x160 GBA frame
-	 * and a 256x224 NES frame are different shapes, and neither should be
-	 * padded out into the same rectangle. */
-	const SDL_Rect area = { (ZYPEROS_SCREEN_W - 700) / 2, 129, 700, 451 };
-	const int bw = UI_PANEL_BORDER;
-	SDL_Rect img = area, frame;
-	char slotname[64];
-	int line_menu = ui_font_line(UI_F_MENU), line_meta = ui_font_line(UI_F_META);
-	int i;
-
-	/* The heading sits close to the top edge so the picture gets the middle of
-	 * the screen. Everything below hangs off the IMAGE rather than off `area`,
-	 * so a frame shorter than the layout slot pulls its own caption up with it
-	 * instead of leaving a gap.
-	 *
-	 * The margins are mirrored: the heading's top sits as far from the top of
-	 * the screen as the marker rail's bottom sits from the bottom of it, and
-	 * the heading is centered in the gap above the frame. That fixes every
-	 * number here to one another rather than to taste, so changing the image
-	 * size moves the rest to match instead of drifting into something.
-	 *
-	 * **text-soft**, as every heading is (DESIGN.md 11.3); it was the one
-	 * heading in **text-dim**. */
-	ui_text(a->r, ui_font(UI_F_LABEL), sv->saving ? T(S_SLOTS_SAVE_TO) : T(S_SLOTS_LOAD_FROM),
-	        ZYPEROS_SCREEN_W / 2, ui_line_y(UI_F_LABEL, 39), 0,
-	        ui_col(dk->text_soft, 255));
-
-	if ((float)area.w / sv->aspect <= (float)area.h) {
-		img.w = area.w;
-		img.h = (int)(area.w / sv->aspect + 0.5f);
-	} else {
-		img.h = area.h;
-		img.w = (int)(area.h * sv->aspect + 0.5f);
-	}
-	img.x = area.x + (area.w - img.w) / 2;
-	img.y = area.y + (area.h - img.h) / 2;
-	frame = (SDL_Rect){ img.x - bw, img.y - bw, img.w + bw * 2, img.h + bw * 2 };
-
-	/* A thumbnail's lift, DESIGN.md 7 (focus-small), in the system's color:
-	 * Salt & Pepper's, a glow, on this ground in both themes - Beard's ink
-	 * shadow on ink at 73% lifts nothing. */
-	ui_lift_in(a->r, &frame, a->tint, UI_LIFT_FOCUS_SMALL, DS_DARK);
-	SDL_SetRenderDrawBlendMode(a->r, SDL_BLENDMODE_BLEND);
-	/* Opaque, matching the menu panel's border: DESIGN.md's frame, 3 units of
-	 * **edge**. It was 12 of the system's color when the panel's was, and a
-	 * system's color for decoration is what DESIGN.md 3.3 says it never is;
-	 * the dot under the picture says whose game it is. The thumbnail itself
-	 * is drawn at full brightness below - it never was darkened, only the
-	 * frame around it.
-	 *
-	 * Rounded outside, square inside: the corner radius belongs to the chrome,
-	 * and rounding the image would mean clipping the game's own pixels. */
-	ui_round_rect(a->r, &frame, bw, ui_col(dk->edge, 255));
-	if (sv->thumb[sel]) {
-		SDL_SetTextureColorMod(sv->thumb[sel], 255, 255, 255);
-		SDL_RenderCopy(a->r, sv->thumb[sel], NULL, &img);
-	} else {
-		/* An empty slot is the same frame with nothing in it, so the strip
-		 * does not change shape as you cycle past one. */
-		SDL_SetRenderDrawColor(a->r, dk->ground.r, dk->ground.g, dk->ground.b,
-		                       238);
-		SDL_RenderFillRect(a->r, &img);
-		ui_text(a->r, ui_font(UI_F_MENU), T(S_SLOTS_EMPTY), img.x + img.w / 2,
-		        ui_cap_y(ui_font(UI_F_MENU), img.y + img.h / 2), 0,
-		        ui_col(dk->text_dim, 255));
-	}
-
-	if (sel == 0) snprintf(slotname, sizeof slotname, "%s", T(S_SLOTS_AUTO));
-	else          snprintf(slotname, sizeof slotname, T(S_SLOTS_SLOT), sel);
-	ui_text(a->r, ui_font(UI_F_MENU), slotname, ZYPEROS_SCREEN_W / 2,
-	        ui_line_y(UI_F_MENU, img.y + img.h + 36), 0, ui_col(dk->text, 255));
-	ui_text(a->r, ui_font(UI_F_META),
-	        sv->have[sel] ? sv->when[sel] : (sv->saving ? "\xE2\x80\x94" : ""),
-	        ZYPEROS_SCREEN_W / 2,
-	        ui_line_y(UI_F_META, img.y + img.h + 42 + line_menu), 0,
-	        ui_col(dk->text_dim, 255));
-
-	/* The dot rail: where you are among the slots, without showing every
-	 * picture. The one you are on in the system's color as a mark - Salt &
-	 * Pepper's mark, on this ground - a slot you can land on in **text-dim**,
-	 * held back so it never matches the mark of a system with no color, and
-	 * one you cannot in faint **track**. Three steps that stay apart over a
-	 * dark game and a bright one, which the scrim leaves at ink to mid grey. */
-	{
-		int dots = GM_SLOTS + 1, dw = 36;
-		int x0 = (ZYPEROS_SCREEN_W - dots * dw) / 2 + dw / 2;
-		unsigned m = ui_sys_mark_in(a->tint, DS_DARK);
-		ds_rgb here = { (Uint8)(m >> 16), (Uint8)(m >> 8), (Uint8)m };
-		int y  = img.y + img.h + 62 + line_menu + line_meta;
-
-		/* One size for every marker. Sizing the selected one larger meant the
-		 * rail changed shape as you cycled, and color already says which slot
-		 * you are on - two signals for one fact, one of them moving. */
-		for (i = 0; i < dots; i++) {
-			int can = sv->saving ? i >= 1 : sv->have[i];
-			int r2  = 12;
-			SDL_Rect d = { x0 + i * dw - r2, y - r2, r2 * 2, r2 * 2 };
-			SDL_Color c = i == sel ? ui_col(here, 255)
-			            : can      ? ui_col(dk->text_dim, 150)
-			                       : ui_col(dk->track, 90);
-			ui_round_rect(a->r, &d, r2 / 2, c);
-		}
-	}
-}
-
-/* Returns the chosen slot (SLOT_AUTO, or 1..GM_SLOTS) or 0 for backed out. */
-static int slot_strip(app *a, SDL_Texture *bg, int saving)
-{
-	slot_view sv = { .aspect = 4.0f / 3.0f, .saving = saving };
-	sysview *v = &a->view[a->sys_cursor];
-	game_entry *g = &v->list.items[v->cursor];
-	/* The game's own system, not the shelf: from Favorites the shelf is
-	 * Favorites, which has no folder, and the slots came out loose in .zyperos/
-	 * - a second set the system's shelf never saw. Reported 2026-09-24. */
-	int o = shelf_owner(a, a->sys_cursor, v->cursor);
-	int i, sel = -1, chosen = 0, done = 0;
-	bool   have_b[GM_SLOTS + 1] = { false };
-	char pth[LIB_PATH * 2];
-
-	for (i = 0; i <= GM_SLOTS; i++) {
-		int slot = gm_slot_at(i);
-		struct stat st;
-
-		slot_state_path(a, o, g, slot, pth, sizeof pth);
-		sv.have[i] = (stat(pth, &st) == 0 && st.st_size > 0);
-		if (sv.have[i]) {
-			have_b[i] = true;
-			/* The state's own mtime: when this moment was captured. The
-			 * device clock is only as good as the device clock, and showing
-			 * what the filesystem says beats pretending to know better. */
-			struct tm *tm = localtime(&st.st_mtime);
-			if (tm) {
-				/* "Aug 23 9:21:05 AM". Built from the fields rather than with
-				 * strftime's "%-I", which drops the leading zero but is a GNU
-				 * extension and does nothing on the BSD libc the host build
-				 * links against - it would have read right on the device and
-				 * wrong in every screenshot. The month is the language's, as
-				 * the menu's words are, not the C library's locale. */
-				slot_when(sv.when[i], sizeof sv.when[i], tm);
-			}
-
-			slot_preview_path(a, o, g, slot, pth, sizeof pth);
-			SDL_Surface *sf = IMG_Load(pth);
-			if (sf) {
-				sv.thumb[i] = SDL_CreateTextureFromSurface(a->r, sf);
-				SDL_FreeSurface(sf);
-			}
-		}
-		/* Loading starts on the newest thing there is to load, which is
-		 * almost always Auto. Saving is decided after the loop, below,
-		 * because it needs to know about every slot before it can choose. */
-		if (sel < 0 && !saving && sv.have[i]) sel = i;
-	}
-
-	/* Save lands on the first empty slot, or the last one when there is none -
-	 * the rule and its reasoning are in game_menu.h, where a check can reach
-	 * them. */
-	if (saving) sel = gm_save_slot(have_b);
-
-	for (i = 0; i <= GM_SLOTS; i++) {
-		int tw = 0, th = 0;
-		if (!sv.thumb[i]) continue;
-		SDL_QueryTexture(sv.thumb[i], NULL, NULL, &tw, &th);
-		if (tw > 0 && th > 0) { sv.aspect = (float)tw / (float)th; break; }
-	}
-	if (sel < 0) sel = saving ? 1 : -1;
-	if (sel < 0) done = -1;                     /* nothing to load at all */
-
-	plat_input_flush();
-	memset(&a->in, 0, sizeof a->in);
-
-	while (!done && !want_quit) {
-		plat_input_poll(&a->in);
-		ui_sounds_follow();
-
-		if (in_repeat(&a->in, IN_LEFT) || in_repeat(&a->in, IN_RIGHT)) {
-			int dir = in_repeat(&a->in, IN_RIGHT) ? 1 : -1, next = sel;
-			do {
-				next = (next + dir + GM_SLOTS + 1) % (GM_SLOTS + 1);
-			} while ((saving ? next == 0 : !sv.have[next]) && next != sel);
-			step_sound(a, dir > 0 ? IN_RIGHT : IN_LEFT, sel, next);
-			sel = next;
-		}
-		if (menu_leaving(a)) done = -1;
-		/* SLOT_AUTO, not 9. Commit 4208619 renamed the resume slot from
-		 * MinUI's number to `auto` and replaced it everywhere the constant
-		 * was used - but here the old number was written out rather than
-		 * referenced, so it survived the rename. Loading Auto from the menu
-		 * has asked for a `.9.state` that has not existed since 2026-08-27,
-		 * and every one of those was a state_rejected. */
-		if (a->in.pressed[IN_ACCEPT]) {
-			uisound_play(DS_SOUND_ACCEPT);
-			chosen = gm_slot_at(sel);
-			done = 1;
-		}
-		/* This screen used to ignore the power button outright - the one
-		 * screen in the launcher that did. Stop the game and close with
-		 * nothing chosen; game_menu sees the flag and closes behind us. */
-		if (a->in.pressed[IN_POWER] || idle_due(a)) {
-			plat_note_power_pressed();
-			plat_resident_line("STOP");
-			done = -1;
-		}
-
-		tick_theme(a);
-		paused_backdrop(a, bg, 1.0f);
-		slot_draw(a, &sv, sel);
-		plat_present();
-		ui_frame_rest(8);
-	}
-
-	for (i = 0; i <= GM_SLOTS; i++)
-		if (sv.thumb[i]) SDL_DestroyTexture(sv.thumb[i]);
-	return done == 1 ? chosen : 0;
-}
-
-/* Change the mode, keep it, tell the running game, and take back the rect so
- * the backdrop behind the menu redraws where the game is about to be. */
-static void gm_cycle_display(app *a, int d)
-{
-	/* The OWNER's, so a mode chosen while playing a favorite is set for the
-	 * system that game belongs to - which is what a per-system mode means.
-	 * Set on the Favorites shelf it would have been filed under FAV and worn
-	 * by every game launched from there, whatever machine it came from. */
-	sysview *v = owner_view(a);
-
-	v->dmode = (v->dmode + d + DMODE_COUNT) % DMODE_COUNT;
-	display_save(a);
-	plat_resident_line("SETDISPLAY\tmode=%s", DMODES[v->dmode].name);
-	plat_resident_sync_rect(150);
-}
-
-/* The shader the same way, the owner's too: kept for the system and sent to
- * the game, which draws with it from the frame after Continue. The paused
- * picture under the menu is the core's frame, drawn by this process, so it
- * does not change; Diatom's DISPLAY answer is read off as Display's is. */
-static void gm_cycle_shader(app *a, int d)
-{
-	sysview *v = owner_view(a);
-
-	v->shader = shader_step(v->shader, d);
-	shader_save(a, (int)(v - a->view));
-	plat_resident_line("SETDISPLAY\tfilter=%s", SHADERS[v->shader].name);
-	plat_resident_sync_rect(150);
-}
-
-/* Its strength the same way (src/strength.h), stopping at the ends */
-static void gm_step_strength(app *a, int d)
-{
-	sysview *v = owner_view(a);
-	int k = strength_step(v->strength, d);
-
-	if (k == strength_clamp(v->strength)) return;
-	v->strength = k;
-	strength_write(db_dev(), a->sys.systems[v - a->view].tag, k);
-	plat_resident_line("SETDISPLAY\tstrength=%d", k);
-	plat_resident_sync_rect(150);
-}
-
-/* The discs of the game running (issue #102), as Diatom's DISC answers say:
- * asked when the in-game menu opens and after each SETDISC, and kept, because
- * gm_gather runs on every key and a paused Diatom is not asked that often.
- * count under 2 is no row: a game on one disc, one whose core has no tray,
- * and a Diatom too old to answer (it says nothing to DISC, so the wait below
- * runs out and the menu is what it was). A shot's (--gm-discs) stands in. */
-#define GM_PANEL_W 860
-static struct {
-	int  count;
-	int  index;
-	char label[128];
-} g_gm_disc;
-static int g_shot_discs;
-static const char *g_shot_disc_label;
-
-/* "DISC\tindex=1\tcount=3\tejected=0\tlabel=..." into g_gm_disc. The label is
- * the last field and may hold spaces; Diatom made its tabs spaces. */
-static void gm_disc_note(const char *l)
-{
-	const char *p;
-
-	g_gm_disc.count = 0;
-	g_gm_disc.index = 0;
-	g_gm_disc.label[0] = '\0';
-	if ((p = strstr(l, "\tcount="))) g_gm_disc.count = atoi(p + 7);
-	if ((p = strstr(l, "\tindex="))) g_gm_disc.index = atoi(p + 7);
-	if ((p = strstr(l, "\tlabel="))) snprintf(g_gm_disc.label, sizeof g_gm_disc.label, "%s", p + 7);
-}
-
-/* Ask for the tray as the menu opens: the same short wait as the other
- * answers it reads while paused (plat_resident_sync_screens, 300 ms) */
-static void gm_disc_ask(void)
-{
-	char l[256];
-
-	memset(&g_gm_disc, 0, sizeof g_gm_disc);
-	if (g_shot_discs || g_port_menu) return;
-	if (!plat_resident_line("DISC")) return;
-	if (plat_resident_sync_line("DISC\t", l, sizeof l, 300)) gm_disc_note(l);
-}
-
-/* Disc `d` steps from the one in the tray, sent as one SETDISC (Diatom opens
- * the tray, changes the disc and closes it, as a console's lid did); its DISC
- * answer says which disc is in, so the row follows the answer, not the press.
- * A refused index answers ERROR and then DISC with the disc as it was. */
-static void gm_disc_step_to(int d)
-{
-	char l[256];
-	int to = gm_disc_step(g_gm_disc.index, g_gm_disc.count, d);
-
-	if (g_shot_discs) {
-		g_gm_disc.index = to;
-		return;
-	}
-	if (!plat_resident_line("SETDISC\tindex=%d", to)) return;
-	if (plat_resident_sync_line("DISC\t", l, sizeof l, 300)) gm_disc_note(l);
-}
-
-/* Whether the core's name for a disc fits the Disc row's value: the panel's
- * width less its two pads, the widest label of the Game tab and the gap
- * between the columns, in the menu's own font. A device's fonts may measure
- * a little wider than the host's, so the same half-row of air as the menu's
- * own fit (fit_gap) is kept back. */
-static bool gm_disc_fits(const char *label)
-{
-	TTF_Font *fm = ui_font(UI_F_MENU);
-	gm_ui u;
-	menu_row rows[GM_MAX_ROWS];
-	gm_bufs b;
-	int n, i, wl = 0, room;
-
-	memset(&u, 0, sizeof u);
-	u.discs = 2;
-	u.quick = 1;
-	n = gm_rows(&u, GT_GAME, rows, &b);
-	for (i = 0; i < n; i++)
-		if (rows[i].label && ui_text_width(fm, rows[i].label) > wl)
-			wl = ui_text_width(fm, rows[i].label);
-	room = GM_PANEL_W - 2 * menu_pad() - wl - menu_row_h() - menu_row_h() / 2;
-	return ui_text_width(fm, label) <= room;
-}
-
-/* What the in-game menu needs from the app, handed to gm_rows to become rows.
- * Same split as everywhere else. */
-/* What the in-game menu shows, gathered: for its rows, and for where each
- * row is (gm_row_at), which the quick slot's row moves */
-static void gm_gather(app *a, gm_ui *out)
-{
-	gm_ui u;
-
-	memset(&u, 0, sizeof u);
-	u.dmode  = dmode_label(a->view[a->sys_cursor].dmode);
-	/* The owner's, which is the one its row sets (gm_cycle_shader) */
-	u.shader = shader_label(owner_view(a)->shader);
-	u.strength = strength_row_label(a, (int)(owner_view(a) - a->view));
-	u.earned = chv_earned();
-	u.total  = chv_count();
-	/* g_game_set is the game running's, written at every launch, and
-	 * g_game_no_hash beside it: a game with no hash here says so instead */
-	u.no_hash = u.total > 0 || g_port_menu || g_shot_unchecked ? RA_HASH_OK
-	            : g_shot_no_hash != RA_HASH_OK ? g_shot_no_hash : g_game_no_hash;
-	u.unchecked = u.total == 0 && !g_port_menu && u.no_hash == RA_HASH_OK &&
-	              (g_shot_unchecked ||
-	               chv_state_of(g_game_set, ra_signed_in()) == CHV_UNCHECKED);
-	u.screens = g_game_dual;
-	u.port   = g_port_menu;
-	/* The game's own system, on Favorites too (shelf_owner); none where its
-	 * core keeps no states, and none over a program of its own (a "run:"
-	 * one, src/portmenu.h), which has no states and no Pak */
-	if (!u.port) {
-		const system_cfg *q = &a->sys.systems[shelf_owner(a, a->sys_cursor,
-		                                      a->view[a->sys_cursor].cursor)];
-
-		u.quick = ctl_has_states(q->tag) ? quick_slot_get(q->tag) : 0;
-		/* An N64 game's Pak, on either N64 core */
-		if (pak_system(q) && a->view[a->sys_cursor].list.count > 0)
-			u.pak = gm_pak_name(pak_get(q, a->view[a->sys_cursor].list
-			                                     .items[a->view[a->sys_cursor].cursor].file));
-		/* NES Player 2, on the cores the system table offers it on and on
-		 * a device that has it (a shot draws it on the host) */
-		if (p2_offered(q->core, plat_player2() || g_shot_p2)) {
-			u.player2 = true;
-			u.player2_value = gm_player2_value(p2_row_state());
-		}
-	}
-	if (!u.port) {
-		if (g_shot_discs) {
-			u.discs = g_shot_discs;
-			u.disc  = g_gm_disc.index;
-			u.disc_label = g_shot_disc_label;
-		} else {
-			u.discs = g_gm_disc.count;
-			u.disc  = g_gm_disc.index;
-			u.disc_label = g_gm_disc.label;
-		}
-		u.disc_fits = gm_disc_fits;
-	}
-	if (u.screens) {
-		const system_cfg *s = &a->sys.systems[shelf_owner(a, a->sys_cursor,
-		                                      a->view[a->sys_cursor].cursor)];
-
-		screens_get(s->tag, &u.layout, &u.swap);
-		/* The swap and the stylus as Diatom last said: L2 and R2 in the
-		 * game turn them, so this process only knows them from SCREENS
-		 * swap= and STYLUS on=. */
-		u.swap   = plat_resident_swap();
-		u.stylus = plat_resident_stylus();
-	}
-	*out = u;
-}
-
-/* What the in-game menu remembers of the game running: the tab it was on,
- * the row each tab was left on (by identity; GM_MAX_ROWS is none, the tab's
- * first) and, for the Controls tab's Applies To, whether a change is for
- * every game of the system (Task 7 reads and writes it). Reset when a game
- * starts (launch) and kept across MENU presses until it ends, so MENU opens
- * where it was closed. */
-static struct {
-	int  tab;
-	int  row[GT_TABS];
-	bool scope_all;
-} g_gm_mem;
-
-static void gm_mem_reset(void)
-{
-	int t;
-
-	g_gm_mem.tab = GT_GAME;
-	for (t = 0; t < GT_TABS; t++) g_gm_mem.row[t] = GM_MAX_ROWS;
-	g_gm_mem.scope_all = false;
-}
-
-static const char *gm_tab_name_i(int i) { return gm_tab_name(i); }
-
-/* The panel's one width on every tab and every value, so it holds still as
- * the tabs go round; a port's menu has no tabs and sizes itself */
-
-/* The list itself, over the paused frame. menu_draw already windows a list
- * longer than the screen, which a set of 166 certainly is.
- *
- * Earned rows are drawn live and unearned quiet - the same distinction
- * menu_draw makes for a placeholder, and it reads correctly here: what you
- * have is bright, what is still ahead of you is not. */
-/* 255 characters at ~30 to a line is nine, and a line of capitals is half
- * that. Twelve is past the worst real description with room over; the card
- * scrolls when the lines outrun the panel, so depth costs height rather
- * than text. */
-#define CHV_WRAP_LINES 12
-
-/* The code point that starts at p, and its bytes in *len */
-static unsigned wrap_cp(const char *p, int *len)
-{
-	const unsigned char *u = (const unsigned char *)p;
-
-	*len = 1;
-	if (u[0] < 0xC0) return u[0];
-	if (u[0] < 0xE0 && (u[1] & 0xC0) == 0x80) { *len = 2; return (u[0] & 0x1Fu) << 6 | (u[1] & 0x3F); }
-	if (u[0] < 0xF0 && (u[1] & 0xC0) == 0x80 && (u[2] & 0xC0) == 0x80) {
-		*len = 3;
-		return (u[0] & 0x0Fu) << 12 | (u[1] & 0x3Fu) << 6 | (u[2] & 0x3F);
-	}
-	return u[0];
-}
-
-/* Whether a line may end at byte `i` of `s` inside a run with no spaces:
- * src/linebreak.c's rule for Chinese, which has none - between two
- * characters when either is Chinese, but not before a mark that closes
- * (，。！…) nor after one that opens (（「“). `i` is where a character
- * starts. */
-static bool wrap_cjk_break(const char *s, int i)
-{
-	static const unsigned closes[] = { 0x3001, 0x3002, 0xFF0C, 0xFF0E, 0xFF01, 0xFF1F, 0xFF1A,
-	                                   0xFF1B, 0xFF09, 0x300D, 0x300F, 0x300B, 0x3009, 0x3011,
-	                                   0x201D, 0x2019, 0x2026, 0x30FC, 0x00B7 };
-	static const unsigned opens[] = { 0xFF08, 0x300C, 0x300E, 0x300A, 0x3008, 0x3010,
-	                                  0x201C, 0x2018 };
-	unsigned prev, next;
-	int j = i - 1, len;
-	size_t k;
-
-	if (i <= 0 || !s[i]) return false;
-	while (j > 0 && ((unsigned char)s[j] & 0xC0) == 0x80) j--;
-	prev = wrap_cp(s + j, &len);
-	next = wrap_cp(s + i, &len);
-#define WRAP_CJK(c) (((c) >= 0x2E80 && (c) <= 0x9FFF) || ((c) >= 0xF900 && (c) <= 0xFAFF) || \
-                     ((c) >= 0xFF00 && (c) <= 0xFFEF))
-	if (!WRAP_CJK(prev) && !WRAP_CJK(next)) return false;
-#undef WRAP_CJK
-	for (k = 0; k < sizeof closes / sizeof closes[0]; k++) if (next == closes[k]) return false;
-	for (k = 0; k < sizeof opens / sizeof opens[0]; k++) if (prev == opens[k]) return false;
-	return true;
-}
-
-/* Break `src` into lines no wider than `w`, at whitespace, and in Chinese,
- * which has none, between its characters (wrap_cjk_break). Returns how many.
- *
- * menu_draw marquees a note that does not fit, which is right for a footer
- * carrying four facts and wrong for a sentence: the reader has to wait for the
- * text to come back around to re-read a clause. Three still lines beat one
- * moving one, so a description is wrapped here rather than handed over long.
- *
- * A word wider than the panel is cut instead of hunted for a space, because
- * the alternative is a line that overflows and there is nowhere else for it to
- * go. Measuring per prefix is quadratic in the line, which nobody will notice
- * at 191 characters, once, when the card opens.
- *
- * LINE BREAKS IN THE SOURCE ARE PARAGRAPHS, and this used to walk straight past
- * them: only ' ' broke a line and only ' ' was skipped, so a '\n' rode into the
- * middle of a line and SDL_ttf drew it as nothing - a hole two characters wide
- * after "Gunstar-9!!" with the next paragraph running on behind it. Of the 78
- * ScreenScraper synopses on this card 47 carry a break and 42 carry a blank
- * line; splitting at every break gives 191 pieces with a median of 276
- * characters, which is paragraphs rather than a source that hard-wraps. So any
- * run of whitespace containing a break ends the paragraph and gets one empty
- * row, however many blank lines the run actually held. Never at the top, where
- * it would only push the first line down off the rule. */
-int wrap_text(TTF_Font *f, const char *src, int w,
-              char out[][CHV_WRAP_COLS], int max)
-{
-	int n = 0;
-
-	while (n < max) {
-		char buf[CHV_WRAP_COLS];
-		int take = 0, fit = 0, i, len;
-		bool para = false;
-
-		while (*src == ' ' || *src == '\n' || *src == '\r' || *src == '\t') {
-			if (*src == '\n' || *src == '\r') para = true;
-			src++;
-		}
-		if (!*src) break;
-		if (para && n > 0) {
-			out[n++][0] = '\0';
-			if (n >= max) break;
-		}
-		for (i = 1; src[i - 1] && src[i - 1] != '\n' && src[i - 1] != '\r' &&
-		            src[i - 1] != '\t'; i++) {
-			if (i >= (int)sizeof buf) break;
-			/* Inside a character's bytes: measured, and cut, only at its
-			 * end, so no line ends in half a character */
-			if (((unsigned char)src[i] & 0xC0) == 0x80) continue;
-			memcpy(buf, src, (size_t)i);
-			buf[i] = '\0';
-			if (ui_text_width(f, buf) > w) break;
-			fit = i;
-			if (src[i] == ' ' || src[i] == '\n' || src[i] == '\r' ||
-			    src[i] == '\t' || src[i] == '\0' || wrap_cjk_break(src, i)) take = i;
-		}
-		if (!take) {                    /* one word longer than the panel */
-			wrap_cp(src, &len);
-			take = fit > 0 ? fit : len;
-			if (take >= (int)sizeof buf) take = sizeof buf - 1;
-		}
-		memcpy(out[n], src, (size_t)take);
-		out[n][take] = '\0';
-		n++;
-		src += take;
-	}
-	return n;
-}
-
-/* One achievement, opened with A from the list.
- *
- * The list has room for a title and a number, and a title is a NAME RATHER
- * THAN AN INSTRUCTION - it says which achievement, not what to do for it. The
- * description that says has been in memory the whole time, parsed beside the
- * title by src/cheevos.c (parse_meta) and shown nowhere.
- *
- * Drawn with sel = -1, so nothing highlights. This is a card rather than a
- * list: there is nothing here to choose between, and a cursor would invite
- * pressing A on a row that does not answer.
- *
- * Returns true if the caller should close too, which is what MENU and power
- * mean anywhere else in the launcher. */
-/* What the two achievement screens sit on.
- *
- * In a game that is the paused frame under a heavy dim, which is what makes a
- * menu read as being over something that has stopped. On the shelf it is the
- * shelf under the SAME lighter dim the game details screen uses, so opening
- * Cheevos from that screen does not darken the room on the way. The scrim at
- * `k` of its strength (panel_frame). */
-static void chv_backdrop(app *a, SDL_Texture *bg, bool over_shelf, float k)
-{
-	if (!over_shelf) { paused_backdrop(a, bg, k); return; }
-	draw_shelf(a);
-	ui_scrim_k(a->r, 0, k);
-}
-
-static bool cheevo_detail_screen(app *a, SDL_Texture *bg, bool over_shelf,
-                                 const cheevo *c)
-{
-	char lines[CHV_WRAP_LINES][CHV_WRAP_COLS];
-	menu_row rows[CHV_WRAP_LINES + 3];
-	unsigned vcols[CHV_WRAP_LINES + 3] = { 0 };
-	char pts[24];
-	bool got = c->earned || c->earned_now;
-	int fixed = menu_std_width(a);
-	int n = 0, nl, i, done = 0, lv;
-	bool close_all = false;
-	float k;
-
-	nl = wrap_text(ui_font(UI_F_MENU),
-	               c->desc[0] ? c->desc : T(S_CHEEVOLIST_NO_DESCRIPTION),
-	               fixed, lines, CHV_WRAP_LINES);
-	/* Live, unlike an ordinary note. A caption under a setting is a caption;
-	 * here the description IS the content, and UI_TEXT_DIM is too quiet to be
-	 * the only thing on the card worth reading. */
-	for (i = 0; i < nl; i++)
-		rows[n++] = (menu_row){ lines[i], MENU_NOTE_MARK, true };
-	rows[n++] = MENU_RULE;
-	snprintf(pts, sizeof pts, "%d", c->points);
-	rows[n++] = (menu_row){ T(S_CHEEVOLIST_POINTS), pts, true };
-	/* Earned and not on the account yet - earned offline - says so */
-	rows[n]   = (menu_row){ T(S_CHEEVOLIST_STATUS),
-	                        !got ? T(S_CHEEVOLIST_NOT_EARNED)
-	                        : chv_is_pending(c->id) ? T(S_CHEEVOLIST_EARNED_WAITING)
-	                        : T(S_CHEEVOLIST_EARNED), true };
-	vcols[n]  = got ? VCOL_EARNED : 0u;
-	n++;
-
-	plat_input_flush();
-	memset(&a->in, 0, sizeof a->in);
-	lv = panel_open();
-
-	while (!done && !want_quit) {
-		plat_input_poll(&a->in);
-		ui_sounds_follow();
-
-		if (a->in.pressed[IN_BACK] || a->in.pressed[IN_ACCEPT]) {
-			uisound_play(DS_SOUND_BACK);
-			done = 1;
-		}
-		if (a->in.pressed[IN_MENU]) {
-			uisound_play(DS_SOUND_BACK);
-			done = 1; close_all = true; g_menu_closing = true;
-		}
-		/* Only over the shelf. Over a game this card is the in-game menu's,
-		 * and Muse would need that menu's power rule, which this screen does
-		 * not have to give it. SELECT from the in-game menu itself works. */
-		if (over_shelf && a->in.pressed[IN_SELECT]) muse_open(a, NULL, NULL);
-		/* Same reasoning as the list below: this screen is not inside
-		 * plat_resident_wait, so nothing else is watching power for it. Over
-		 * the shelf there is no game to stop, and stopping one is not what
-		 * power means there. */
-		if (a->in.pressed[IN_POWER] || idle_due(a)) {
-			if (over_shelf) { power_off(a); break; }
-			plat_note_power_pressed();
-			plat_resident_line("STOP");
-			done = 1;
-			close_all = true;
-		}
-
-		if (!panel_frame(a, lv, &k)) continue;
-		tick_theme(a);
-		chv_backdrop(a, bg, over_shelf, k);
-		menu_draw_ex(a, c->title, rows, n, -1, fixed, a->tint, vcols, false, 0);
-		plat_present();
-		ui_frame_rest(8);
-	}
-
-	panel_close(a, lv, false);
-	plat_input_flush();
-	memset(&a->in, 0, sizeof a->in);
-	return close_all;
-}
-
-/* The synopsis, opened with A from the game info screen.
- *
- * The same shape as the achievement card above and for the same reason: there
- * is nothing here to choose between, so it is drawn with no cursor and scrolls
- * itself. A synopsis averages 670 characters and the longest on the test card
- * is 2,221, so most of them fit and the long ones walk.
- *
- * Over the shelf rather than a paused frame: this is reached from the shelf,
- * where the info screen already dims the same way. */
-/* Room for the text twice over, plus the four blanks and the rule between the
- * copies. The rows are the wrapped lines POINTED AT twice, not wrapped twice,
- * so the line buffer stays SYN_WRAP_LINES - this is the only array that has to
- * grow, and 165 menu_rows is four kilobytes. */
-
-/* The rows a synopsis is drawn as, and where they start repeating.
- *
- * Shared by the screen and by --synopsis, which used to build its own: the
- * harness then drew a card the device does not draw, which is the one thing a
- * harness must never do. Returns the row count; `rows` must hold SYN_ROWS. */
-static int syn_layout(const char *text, int fixed,
-                      char (*lines)[CHV_WRAP_COLS], menu_row *rows,
-                      int *loop_at)
-{
-	int n, i, k;
-
-	*loop_at = 0;
-	n = wrap_text(ui_font(UI_F_MENU), text, fixed, lines, SYN_WRAP_LINES);
-	for (i = 0; i < n; i++)
-		rows[i] = (menu_row){ lines[i], MENU_BODY_MARK, true };
-
-	/* A SYNOPSIS TOO TALL FOR THE PANEL IS LAID OUT TWICE, with two blank
-	 * lines, a rule and two blank lines between the copies, and menu_draw is
-	 * told where the repeat starts.
-	 *
-	 * Both spacings were looked at on the device 2026-09-17. The rule carries
-	 * air of its own - it is the bar the heading uses, with the heading's gap
-	 * under it - and on its own it reads as a line ruled THROUGH the prose,
-	 * with the last sentence and the first pressed against it. The blank lines
-	 * are what make it the end of something.
-	 *
-	 * That is what turns the scroll from a ping-pong into a scroll-through.
-	 * Running backwards is fine for a row of text too wide for its column,
-	 * where the rewind is obviously a rewind; over fifteen lines of prose it
-	 * means reading the end in reverse to get back to the beginning. Coming
-	 * round instead needs somewhere to come round FROM, which is the rule: it
-	 * says the text ended and is starting again, rather than leaving a reader
-	 * to work out that the sentence they are on is one they have read.
-	 *
-	 * Only when it does not fit. A short synopsis sits still, and doubling it
-	 * would make a page that fits scroll for no reason. */
-	if (n <= menu_notes_fit()) return n;
-
-	k = n;
-	rows[k++] = MENU_BODY("");
-	rows[k++] = MENU_BODY("");
-	rows[k++] = MENU_HR;
-	rows[k++] = MENU_BODY("");
-	rows[k++] = MENU_BODY("");
-	*loop_at = k;
-	for (i = 0; i < n && k < SYN_ROWS; i++)
-		rows[k++] = (menu_row){ lines[i], MENU_BODY_MARK, true };
-	return k;
 }
 
 /* ---- Muse: covers --------------------------------------------------------- */
@@ -17144,7 +15225,7 @@ static void xfer_after_write(const char *abs)
 /* Album Art, from Muse's menu: MusicBrainz and the Cover Art Archive, for the
  * albums museart_jobs chooses. The covers change on the shelf behind the panel
  * as they arrive. B stops. */
-static void album_art_screen(app *a)
+void album_art_screen(app *a)
 {
 	museart_job *jobs;
 	museart_status st;
@@ -17235,1058 +15316,6 @@ static void album_art_screen(app *a)
 	memset(&a->in, 0, sizeof a->in);
 }
 
-static void synopsis_screen(app *a, const char *title, const char *text,
-                            unsigned accent)
-{
-	char (*lines)[CHV_WRAP_COLS];
-	menu_row *rows;
-	int fixed = menu_std_width(a);
-	int n, done = 0, loop_at = 0, lv;
-	float k;
-
-	if (!text || !*text) return;
-	lines = calloc(SYN_WRAP_LINES, sizeof *lines);
-	rows  = calloc(SYN_ROWS, sizeof *rows);
-	if (!lines || !rows) { free(lines); free(rows); return; }
-
-	n = syn_layout(text, fixed, lines, rows, &loop_at);
-
-	/* Opened, so its scroll starts at the top. Without this, closing a long
-	 * synopsis and opening it again resumed halfway down: the clock's keys -
-	 * the row count and the panel height - are identical on the way back in,
-	 * so nothing told it a reader had arrived. */
-	mq_reset(MQ_VSCROLL);
-	plat_input_flush();
-	memset(&a->in, 0, sizeof a->in);
-	lv = panel_open();
-
-	while (!done && !want_quit && a->running) {
-		plat_input_poll(&a->in);
-		ui_sounds_follow();
-		if (a->in.quit_requested) break;
-		if (a->in.pressed[IN_ACCEPT] || a->in.pressed[IN_X]) uisound_play(DS_SOUND_BACK);
-		if (menu_leaving(a) || a->in.pressed[IN_ACCEPT] || a->in.pressed[IN_X]) done = 1;
-		if (a->in.pressed[IN_SELECT]) muse_open(a, NULL, NULL);
-		/* Nothing else watches power for this screen, the same as every other
-		 * loop the launcher runs outside plat_resident_wait. */
-		if (a->in.pressed[IN_POWER] || idle_due(a)) { power_off(a); break; }
-
-		if (!panel_frame(a, lv, &k)) continue;
-		tick_theme(a);
-		draw_shelf(a);
-		ui_scrim_k(a->r, 0, k);
-		menu_draw_ex(a, title, rows, n, -1, fixed, accent, NULL, false, loop_at);
-		plat_present();
-		ui_frame_rest(8);
-	}
-
-	panel_close(a, lv, !a->running);
-	plat_input_flush();
-	memset(&a->in, 0, sizeof a->in);
-	free(lines);
-	free(rows);
-}
-
-/* The list's icon for row `row`: chv_at(row)'s badge, greyed until earned,
- * or the plain one where the card has none yet (src/rabadge.h). menu_panel's
- * g_row_icon while the list is drawn. Every row has one, so nothing moves
- * when a fetch lands the art: the next frame reads the file. */
-static SDL_Renderer *g_badge_r;
-
-static SDL_Texture *cheevo_row_badge(int row)
-{
-	const cheevo *c = chv_at(row);
-
-	return c ? rb_icon(g_badge_r, chv_source(), c->badge,
-	                   !(c->earned || c->earned_now), theme()) : NULL;
-}
-
-static void cheevos_screen(app *a, SDL_Texture *bg, bool over_shelf)
-{
-	int n = chv_count(), sel = 0, i, done = 0, lv;
-	float k;
-	menu_row *rows;
-	unsigned *vcols;
-	char (*vals)[32];
-	char heading[192];
-
-	if (n <= 0) return;
-	rows  = calloc((size_t)n, sizeof *rows);
-	vals  = calloc((size_t)n, sizeof *vals);
-	vcols = calloc((size_t)n, sizeof *vcols);
-	if (!rows || !vals || !vcols) { free(rows); free(vals); free(vcols); return; }
-
-	/* Each row as the in-game menu's Achievements tab makes it
-	 * (src/achtab.h): the title, the points or the count moving, earned in
-	 * the earned color, so the two lists cannot disagree */
-	for (i = 0; i < n; i++)
-		at_row(chv_at(i), &rows[i], &vcols[i], vals[i], sizeof vals[i]);
-	/* Two lines: the game on one, the counts on the other.
-	 *
-	 * On one line this was "Hagane: The Final Conflict   0/36   0/415 points",
-	 * 1031 pixels against a 778 pixel panel - and menu_draw centers a heading,
-	 * so it lost BOTH ends: the H and the word "points". Dropping the title
-	 * fixed the clipping and threw away something worth keeping. Eric's
-	 * suggestion, and it is better than either.
-	 *
-	 * The counts as DESIGN.md 12 writes them, "3 / 36 · 25 / 415 points".
-	 * With "cheevos" after the first it was 818 wide in Lexend, more than
-	 * the panel's content, and the line scrolled; at 585 it fits with room
-	 * for a set of hundreds, and the list under it says what it counts. */
-	/* And how many of this game's wait to be sent, earned offline, when any
-	 * do: in the points' place, since the line with both was wider than the
-	 * panel and scrolled its count off the left. Each row has its points. */
-	if (chv_pending_for(chv_game()) > 0)
-		snprintf(heading, sizeof heading,
-		         TN(S_CHEEVOLIST_HEADING_WAITING, chv_pending_for(chv_game())),
-		         chv_game_title(), chv_earned(), n, chv_pending_for(chv_game()));
-	else
-		snprintf(heading, sizeof heading, T(S_CHEEVOLIST_HEADING),
-		         chv_game_title(), chv_earned(), n,
-		         chv_points_earned(), chv_points_total());
-
-	plat_input_flush();
-	memset(&a->in, 0, sizeof a->in);
-	lv = panel_open();
-
-	while (!done && !want_quit) {
-		plat_input_poll(&a->in);
-		ui_sounds_follow();
-
-		if (in_repeat(&a->in, IN_UP))   sel = list_step_heard(a, IN_UP, n, sel);
-		if (in_repeat(&a->in, IN_DOWN)) sel = list_step_heard(a, IN_DOWN, n, sel);
-		/* A set runs to well over a hundred entries, so the shoulder buttons
-		 * page it the same way they page a shelf. */
-		if (in_repeat(&a->in, IN_L1)) {
-			step_sound(a, IN_L1, sel, sel > 8 ? sel - 8 : 0);
-			sel = sel > 8 ? sel - 8 : 0;
-		}
-		if (in_repeat(&a->in, IN_R1)) {
-			step_sound(a, IN_R1, sel, sel < n - 9 ? sel + 8 : n - 1);
-			sel = sel < n - 9 ? sel + 8 : n - 1;
-		}
-		if (menu_leaving(a)) done = 1;
-		if (over_shelf && a->in.pressed[IN_SELECT]) muse_open(a, NULL, NULL);
-		/* A used to close this screen. It opens the achievement instead,
-		 * which is the only thing on it there was ever anything more to say
-		 * about; BACK and MENU still close, so nothing lost a way out. */
-		if (a->in.pressed[IN_ACCEPT]) uisound_play(DS_SOUND_ACCEPT);
-		if (a->in.pressed[IN_ACCEPT] && cheevo_detail_screen(a, bg, over_shelf, chv_at(sel)))
-			done = 1;
-		/* Power still stops the game from in here. Not trapping it would
-		 * make this screen the one place in the launcher that ignores it.
-		 *
-		 * The note is what was missing: stopping the game is not the same as
-		 * powering off, and only the evdev watchdog inside plat_resident_wait
-		 * sets that flag - a loop which is not running while this screen is
-		 * up. So power here stopped the game and then went back to the shelf,
-		 * with the menu still drawn over it until something was pressed.
-		 *
-		 * Opened from the game details screen there is no game to stop, and
-		 * power means what it means everywhere else on the shelf. */
-		if (a->in.pressed[IN_POWER] || idle_due(a)) {
-			if (over_shelf) { power_off(a); break; }
-			plat_note_power_pressed();
-			plat_resident_line("STOP");
-			done = 1;
-		}
-
-		if (!panel_frame(a, lv, &k)) continue;
-		tick_theme(a);
-		chv_backdrop(a, bg, over_shelf, k);
-		/* visits_all: every achievement can be opened, earned or not, so
-		 * `live` here is about color and not about reach. Each row with its
-		 * badge, or the plain one until the card has it (g_row_icon); the
-		 * count of badges that landed is read so it does not pile up, and
-		 * the frame after a landing reads the files. */
-		rb_landed();
-		g_badge_r = a->r;
-		g_row_icon = cheevo_row_badge;
-		menu_draw_ex(a, heading, rows, n, sel, menu_std_width(a), a->tint,
-		             vcols, true, 0);
-		g_row_icon = NULL;
-		plat_present();
-		ui_frame_rest(8);
-	}
-
-	panel_close(a, lv, false);
-	rb_textures_free();
-	free(rows);
-	free(vals);
-	free(vcols);
-	plat_input_flush();
-	memset(&a->in, 0, sizeof a->in);
-}
-
-/* What the in-game Controls page needs to know about the game on the
- * shelf's cursor, which is the one running: its system (through Favorites
- * too, shelf_owner), that system's map and turbo, and the file's extension
- * (an .fds game turns its disk on L1 and R1). */
-/* A Controls heading fits centered between two page counts' room, as
- * panel_show keeps it (DESIGN.md 11.3) */
-static bool ctl_head_fits(void *ctx, const char *head)
-{
-	app *a = ctx;
-	int inset = ui_text_width(ui_font(UI_F_META), "4 / 4") + 2 * DS_GRID;
-
-	return ui_text_width(ui_font(UI_F_LABEL), head) <= menu_std_width(a) - 2 * inset;
-}
-
-/* The port's system and game, for its Controls page (port_menu_main) */
-static ctl_game g_port_ctl;
-static bool is_port(const system_cfg *s);     /* with launch_port, below */
-
-static ctl_game game_controls_of(app *a)
-{
-	if (g_port_menu) return g_port_ctl;
-	sysview *sv = &a->view[a->sys_cursor];
-	int o = shelf_owner(a, a->sys_cursor, sv->cursor);
-	const system_cfg *s = &a->sys.systems[o];
-	const char *file = sv->list.count > 0 ? sv->list.items[sv->cursor].file : "";
-	const char *dot = strrchr(file, '.');
-
-	/* The map in force for this game, whole: ZyperOS's, the system's and the
-	 * game's pairs over it (rms_game) */
-	static char map[CFG_STR + 200];
-	rm_table mt;
-	ctl_game g;
-
-	if (sv->list.count > 0) rms_game(s, file, &mt);
-	else rms_system(s, &mt);
-	rm_format(&mt, map, sizeof map);
-	g = (ctl_game){ s->tag, s->name, home_label(s->tag, s->name), map,
-	                NULL, dot ? dot + 1 : "", ctl_head_fits, a, is_port(s), NULL, NULL, false,
-	                CTL_STICK_TABLE };
-
-	/* What the N64's C buttons page says is in the controller */
-	if (pak_system(s) && sv->list.count > 0) g.accessory = gm_pak_name(pak_get(s, file));
-	/* ...and what the d-pad is, as this game's D-pad as Stick has it; the
-	 * PSP's R2 turns it in the game, and its page says so */
-	if (rms_stick_offered(s) && strcmp(s->stick, "toggle") && sv->list.count > 0)
-		g.stick = rms_stick_get(s, file) ? CTL_STICK_ON : CTL_STICK_OFF;
-	/* A port's pages are what its own files say (src/portdoc.h), read for
-	 * the script on the cursor as port_menu_main reads them over it: for a
-	 * --gamecontrols shot, as a port never runs under this menu */
-	if (!strcmp(s->core, "port") && sv->list.count > 0) {
-		static port_doc doc;
-		char path[LIB_PATH * 2];
-
-		snprintf(path, sizeof path, "%s/%s/%s", P_ROMS, s->folder, file);
-		port_doc_read(path, &doc);
-		g.doc = &doc;
-	}
-	return g;
-}
-
-/* A Controls page as it is drawn: ctl_game_rows', or for a port's About
- * (ctl_game_prose) its paragraphs wrapped to the panel, `width`, and laid
- * out as a synopsis is (syn_layout), to scroll through when they outrun it.
- * The rows point into `b` and the port's doc, the caller's, and into this
- * function's own lines, which the next call replaces. */
-static int controls_page_rows(const ctl_game *g, int page, int width, ctl_buf *b,
-                              const menu_row **out, int *loop_at)
-{
-	static menu_row rows[SYN_ROWS];
-	static char lines[SYN_WRAP_LINES][CHV_WRAP_COLS];
-	static char text[2 * PD_TEXT + 4];
-	menu_row made[CTL_MAX_ROWS];
-	int n = ctl_game_rows(g, page, made, b), i;
-
-	*loop_at = 0;
-	*out = rows;
-	if (!ctl_game_prose(g, page)) {
-		memcpy(rows, made, (size_t)n * sizeof *rows);
-		return n;
-	}
-	text[0] = '\0';
-	for (i = 0; i < n; i++) {
-		size_t at = strlen(text);
-
-		snprintf(text + at, sizeof text - at, "%s%s", i ? "\n\n" : "", made[i].label);
-	}
-	return syn_layout(text, width, lines, rows, loop_at);
-}
-
-/* The panel of a game's Controls: the standard one, or wider where a page's
- * button and what it does do not fit side by side in it. Chinese has the
- * shelf menus' narrowest panel, and Atari 7800's START/SELECT beside
- * Pause/Select (in Latin letters in every language) slid in it, as the
- * host's fit check found once every system was a shelf in it (2026-11-08).
- * Measured across every page of the game, so turning a page does not resize
- * the panel, and never past the width menu_draw can make one. A note under
- * the rows is no part of it: a long one scrolls. */
-static int game_controls_width(app *a, const ctl_game *g)
-{
-	int w = menu_std_width(a), p, pages = ctl_game_pages(g);
-	int most = ZYPEROS_SCREEN_W - MENU_MARGIN * 2 - menu_pad() * 2;
-
-	for (p = 0; p < pages; p++) {
-		menu_row rows[CTL_MAX_ROWS], kept[CTL_MAX_ROWS];
-		ctl_buf b;
-		int i, n = ctl_game_rows(g, p, rows, &b), k = 0, m;
-
-		for (i = 0; i < n; i++)
-			if (!ROW_IS_NOTE(rows[i])) kept[k++] = rows[i];
-		m = menu_measure(kept, k, NULL);
-		if (m > w) w = m;
-	}
-	return w < most ? w : most;
-}
-
-/* The in-game menu's Controls (DESIGN.md 11.28): every control this game
- * has, a page at a time over the paused game, Left/Right to turn them, as
- * MENU > Controls is on the home. Read-only. The rows are made when a page
- * turns, never per frame and never while the game runs.
- *
- * Over `bg`, the port's menu's Controls row; or opened by the Controls tab's
- * Hotkeys row (game_controls_pages), over `over`'s backdrop with its power
- * rule, less the system's buttons, which the tab shows (ctl_game.no_buttons).
- * At their own width either way, with no handheld beside them. */
-static void controls_pages(app *a, SDL_Texture *bg, const menu_style *over, void *ctx)
-{
-	ctl_game g = game_controls_of(a);
-	const menu_row *rows;
-	ctl_buf b;
-	char count[16] = "";
-	int page = 0, pages, n, lv, done = 0, width, loop_at;
-	float k;
-
-	g.no_buttons = over != NULL;
-	ctl_set_fn_volume(plat_brightness_on_volume());
-	pages = ctl_game_pages(&g);
-	width = game_controls_width(a, &g);
-	n = controls_page_rows(&g, page, width, &b, &rows, &loop_at);
-	mq_reset(MQ_VSCROLL);
-
-	plat_input_flush();
-	memset(&a->in, 0, sizeof a->in);
-	lv = panel_open();
-
-	while (!done && !want_quit) {
-		int to = page;
-
-		plat_input_poll(&a->in);
-		ui_sounds_follow();
-		if (menu_leaving(a)) done = 1;
-		if (in_repeat(&a->in, IN_RIGHT)) {
-			to = (page + 1) % pages;
-			step_sound(a, IN_RIGHT, page, to);
-		}
-		if (in_repeat(&a->in, IN_LEFT)) {
-			to = (page + pages - 1) % pages;
-			step_sound(a, IN_LEFT, page, to);
-		}
-		if (to != page) {
-			page = to;
-			n = controls_page_rows(&g, page, width, &b, &rows, &loop_at);
-			/* a port's About scrolls from its top */
-			mq_reset(MQ_VSCROLL);
-		}
-		/* which page of how many, at the heading's right (DESIGN.md 11.3) */
-		if (pages > 1) snprintf(count, sizeof count, "%d / %d", page + 1, pages);
-		if (in_repeat(&a->in, IN_VOLUP))    plat_volume_nudge(+1);
-		if (in_repeat(&a->in, IN_VOLDN))    plat_volume_nudge(-1);
-		if (in_repeat(&a->in, IN_BRIGHTUP)) plat_brightness_nudge(+1);
-		if (in_repeat(&a->in, IN_BRIGHTDN)) plat_brightness_nudge(-1);
-		/* Power stops the game from here, as from the achievements */
-		if (a->in.pressed[IN_POWER] || idle_due(a)) {
-			if (over && over->on_power) {
-				over->on_power(a, ctx);
-			} else {
-				plat_note_power_pressed();
-				plat_resident_line("STOP");
-			}
-			done = 1;
-		}
-
-		if (!panel_frame(a, lv, &k)) continue;
-		tick_theme(a);
-		if (over && over->backdrop) over->backdrop(a, ctx, k);
-		else paused_backdrop(a, bg, k);
-		menu_draw_caption(a, b.head, rows, n, -1, width, a->tint, NULL,
-		                  false, loop_at, count[0] ? count : NULL);
-		plat_present();
-		ui_frame_rest(8);
-	}
-
-	panel_close(a, lv, false);
-	plat_input_flush();
-	memset(&a->in, 0, sizeof a->in);
-}
-
-static void game_controls_screen(app *a, SDL_Texture *bg)
-{
-	controls_pages(a, bg, NULL, NULL);
-}
-
-void game_controls_pages(app *a, const menu_style *over, void *ctx)
-{
-	controls_pages(a, NULL, over, ctx);
-}
-
-/* One width on every tab (GM_PANEL_W), so cycling a value or turning a tab
- * does not resize the panel under the cursor. A port's menu, which has no
- * tabs and no values to cycle, is as wide as its rows. */
-static int gm_width(app *a)
-{
-	(void)a;
-	return g_port_menu ? 0 : GM_PANEL_W;
-}
-
-/* The DS rows: the layout steps through the three, the swap and the stylus
- * turn over, each sent to the game at once. The layout is kept for the
- * system; the swap and the stylus belong to this game. Diatom answers with the
- * new rect and a new paused picture for it (plat_resident_sync_screens), so
- * the backdrop behind the menu is the layout just chosen. Returns whether it
- * heard back, which is when the picture is worth loading again. */
-static bool gm_screens(app *a, gm_row id, int d)
-{
-	const system_cfg *s = &a->sys.systems[shelf_owner(a, a->sys_cursor,
-	                                      a->view[a->sys_cursor].cursor)];
-	int lay;
-	bool sw;
-
-	screens_get(s->tag, &lay, &sw);
-	sw = plat_resident_swap();
-	if (id == GM_SCREENS)   screens_put(s->tag, (lay + d + GM_LAYOUTS) % GM_LAYOUTS, sw);
-	else if (id == GM_SWAP) screens_put(s->tag, lay, !sw);
-	else if (id == GM_STYLUS) {
-		bool on = !plat_resident_stylus();
-
-		plat_resident_line("SETSTYLUS\ton=%d", on ? 1 : 0);
-		plat_resident_note_stylus(on);
-	}
-	return plat_resident_sync_screens(300);
-}
-
-/* The in-game menu's context. `resume` is what the epilogue turns on: whether
- * the player is going back to the game or the game is over. */
-typedef struct {
-	app         *a;
-	SDL_Texture *bg;       /* the paused frame, as Diatom last wrote it */
-	gm_bufs      bufs;
-	menu_style   st;
-	bool         resume;
-	menu_tabs    tabs;     /* Game, Display, Controls; none over a port */
-	int          seen;     /* the runner's cursor (menu_style.sel_out) */
-	/* The Controls tab's rows' value colors and sound classes, which are
-	 * more than gm_bufs holds (src/ctltab_screen.h) */
-	unsigned      ct_vcol[CT_MAX_ROWS];
-	unsigned char ct_sound[CT_MAX_ROWS];
-	/* The Achievements tab's rows' values, colors and sounds
-	 * (src/achtab_screen.h) */
-	achtab_bufs   ach;
-} gm_ctx;
-
-static const char *shot_path;   /* --shot, with main's other shot flags */
-
-/* A row of any tab by identity: gm_row, ct_row, or an achievement, which is
- * AT_ID0 and its place in the set - apart from GM_MAX_ROWS, the kept row's
- * "none" (g_gm_mem) */
-#define AT_ID0 1000
-#define GM_IDS_MAX (CHV_MAX > CT_MAX_ROWS ? CHV_MAX : CT_MAX_ROWS)
-
-static int shot_cheevos_waiting;  /* --cheevos-waiting, with the other shot flags */
-static int shot_achtab = -1;      /* --achtab STATE: the tab's state in a shot */
-
-/* What the Achievements tab needs to know about the game running
- * (src/achtab.h): its set, the account, the fetch behind it, its hash. A
- * shot says it with --achtab. */
-static void gm_at_facts(at_facts *f)
-{
-	memset(f, 0, sizeof *f);
-	if (shot_path && shot_achtab >= 0) {
-		f->signed_in = shot_achtab != AT_SIGNED_OUT;
-		f->set = shot_achtab == AT_UNCHECKED ? CHV_UNCHECKED : CHV_NONE;
-		f->fetching = shot_achtab == AT_WAITING;
-		f->no_hash = shot_achtab == AT_NOT_SYSTEM ? RA_HASH_NO_SYSTEM
-		             : shot_achtab == AT_NOT_FILE ? RA_HASH_NO_FILE : RA_HASH_OK;
-		if (shot_achtab == AT_LIST || shot_achtab == AT_STATES) {
-			int i;
-
-			/* AT_STATES stands for every one earned (--achtab all) */
-			achtab_shot_earned(shot_achtab == AT_STATES ? 8 : 3);
-			f->count = achtab_shot_count();
-			for (i = 0; i < f->count; i++) {
-				const cheevo *c = achtab_shot_at(i);
-
-				f->points_total += c->points;
-				if (c->earned) { f->earned++; f->points += c->points; }
-			}
-			f->pending = shot_cheevos_waiting;
-		}
-		return;
-	}
-	f->count = chv_count();
-	f->earned = chv_earned();
-	f->points = chv_points_earned();
-	f->points_total = chv_points_total();
-	f->pending = f->count > 0 ? chv_pending_for(chv_game()) : 0;
-	f->signed_in = ra_signed_in();
-	f->fetching = g_pending_set[0] && !strcmp(g_pending_set, g_game_set);
-	f->set = chv_state_of(g_game_set, f->signed_in);
-	f->no_hash = g_port_menu ? RA_HASH_OK : g_game_no_hash;
-}
-
-static at_source gm_at_source(void)
-{
-	return shot_path && shot_achtab >= 0 ? achtab_shot_at : chv_at;
-}
-
-
-/* The game the Controls tab is about (src/ctltab_screen.h): the one on the
- * shelf's cursor, which is the one running, its own system (Favorites too),
- * its Pak, and Applies To kept with the menu's memory. `c` may be NULL (a
- * shot), with nothing to draw its pages over. */
-static void gm_ctl_game(app *a, gm_ctx *c, ctlscr_game *g)
-{
-	sysview *sv = &a->view[a->sys_cursor];
-	const system_cfg *s = &a->sys.systems[shelf_owner(a, a->sys_cursor, sv->cursor)];
-	const game_entry *e = sv->list.count > 0 ? &sv->list.items[sv->cursor] : NULL;
-
-	memset(g, 0, sizeof *g);
-	g->s = s;
-	g->file = e ? e->file : "";
-	g->title = e ? e->title : "";
-	g->pak = pak_system(s) && e ? gm_pak_name(pak_get(s, e->file)) : NULL;
-	g->scope_all = &g_gm_mem.scope_all;
-	/* A shot sends nothing: there is no game */
-	g->running = !shot_path;
-	g->over = c ? &c->st : NULL;
-	g->ctx = c;
-}
-
-/* A tab's rows by identity, each tab's own kind: gm_row for Game and
- * Display, ct_row for Controls, AT_ID0 and a place for Achievements; at
- * most `max` (GM_IDS_MAX holds any tab's). The count. */
-static int gm_ids(app *a, gm_ctx *c, const gm_ui *u, int tab, int *ids, int max)
-{
-	gm_row r[GM_MAX_ROWS];
-	int n, i;
-
-	if (!u->port && tab == GT_CONTROLS) {
-		ctlscr_game g;
-		menu_row rows[CT_MAX_ROWS];
-		unsigned vcol[CT_MAX_ROWS];
-		int ct[CT_MAX_ROWS];
-
-		gm_ctl_game(a, c, &g);
-		n = ctlscr_rows(a, &g, rows, vcol, NULL, ct);
-		if (n > max) n = max;
-		for (i = 0; i < n; i++) ids[i] = ct[i];
-		return n;
-	}
-	/* The Achievements tab: an achievement's place, or the one row of a
-	 * sentence, which the cursor cannot leave. A set can be CHV_MAX long,
-	 * far more than any other tab's rows */
-	if (!u->port && tab == GT_ACHIEVEMENTS) {
-		at_facts f;
-
-		gm_at_facts(&f);
-		n = at_state_of(&f) == AT_LIST ? (f.count < CHV_MAX ? f.count : CHV_MAX) : 1;
-		if (n > max) n = max;
-		for (i = 0; i < n; i++) ids[i] = AT_ID0 + i;
-		return n;
-	}
-	n = gm_tab_rows(u, (gm_tab)tab, r);
-	if (n > max) n = max;
-	for (i = 0; i < n; i++) ids[i] = (int)r[i];
-	return n;
-}
-
-static int gm_menu_build(void *ctx, menu_row *rows, int max,
-                         const char **heading)
-{
-	gm_ctx *c = ctx;
-	gm_ui u;
-	int n;
-
-	gm_gather(c->a, &u);
-	/* A game's menu names its tab in the heading's place (menu_draw draws the
-	 * tab row there, which MENU's does the same); a port's has no title: the
-	 * game behind it is the title */
-	*heading = u.port ? NULL : gm_tab_name(c->tabs.at);
-	/* The Controls tab's rows are src/ctltab.c's, beside the handheld, a
-	 * changed value in accent-ink; the other tabs' gm_rows', in the whole
-	 * width */
-	if (!u.port && c->tabs.at == GT_CONTROLS) {
-		ctlscr_game g;
-
-		gm_ctl_game(c->a, c, &g);
-		n = ctlscr_rows(c->a, &g, rows, c->ct_vcol, c->ct_sound, NULL);
-		c->st.sound = c->ct_sound;
-		c->st.vcolors = c->ct_vcol;
-		c->st.side_w = CTLSCR_SIDE_W;
-		c->st.header = NULL;
-		c->st.header_h = 0;
-		c->st.row_icon = NULL;
-		c->st.visits_all = false;
-		return n;
-	}
-	/* The Achievements tab's: the game's list, or why it has none
-	 * (src/achtab_screen.h), which sets the style its rows want */
-	if (!u.port && c->tabs.at == GT_ACHIEVEMENTS) {
-		at_facts f;
-
-		gm_at_facts(&f);
-		return achtab_rows(c->a, &f, gm_at_source(), &c->ach, rows, max,
-		                   c->st.fixed_w, &c->st);
-	}
-	c->st.header = NULL;
-	c->st.header_h = 0;
-	c->st.row_icon = NULL;
-	c->st.visits_all = false;
-	c->st.sound = c->bufs.sound;
-	c->st.vcolors = NULL;
-	c->st.side_w = 0;
-	n = gm_rows(&u, (gm_tab)c->tabs.at, rows, &c->bufs);
-	/* A tab with no rows: one empty note, with no cursor on it, because the
-	 * runner leaves a menu that has none */
-	if (n == 0) {
-		rows[0] = MENU_NOTE("");
-		c->bufs.sound[0] = 0;
-		n = 1;
-	}
-	return n;
-}
-
-/* The paused game, not the shelf. Diatom reports its rect with every DISPLAY
- * message, so the preview lands where the game actually is. */
-static void gm_backdrop(app *a, void *ctx, float k)
-{
-	gm_ctx *c = ctx;
-
-	/* the corner with it (paused_backdrop) */
-	paused_backdrop(a, c->bg, k);
-}
-
-/* Power here stops the GAME. The device is not going anywhere, and the wait
- * loop under this menu has to be told or it goes straight back to waiting on
- * a game nobody is running. */
-static menu_result gm_power(app *a, void *ctx)
-{
-	(void)a; (void)ctx;
-	plat_note_power_pressed();
-	plat_resident_line("STOP");
-	return MENU_DONE;
-}
-
-/* Quit, the in-game menu's row and px2-open's quit (ctl_poll): the wait loop
- * carries on until EXIT arrives; quitting is asking, not tearing down. */
-void gm_quit(void)
-{
-	plat_resident_line("STOP");
-}
-
-static menu_result gm_key(app *a, void *ctx, in_button key, int sel)
-{
-	gm_ctx *c = ctx;
-
-	/* A row's place to its id: the tab on says which rows there are, and the
-	 * same list the build used says which is which. */
-	{
-		gm_ui u;
-		int ids[GM_IDS_MAX];
-		int n;
-
-		gm_gather(a, &u);
-		n = gm_ids(a, c, &u, c->tabs.at, ids, GM_IDS_MAX);
-		/* The row this tab is on is kept, for MENU's next press */
-		if (!u.port && sel >= 0 && sel < n) g_gm_mem.row[c->tabs.at] = ids[sel];
-		/* L1 and R1 go round the tabs, as MENU's do: the row each tab was
-		 * on is kept and the cursor lands on the next tab's own */
-		if (!u.port && (key == IN_L1 || key == IN_R1)) {
-			int k;
-
-			tabs_turn(&c->tabs, key == IN_R1 ? +1 : -1);
-			g_gm_mem.tab = c->tabs.at;
-			if (c->tabs.at == GT_CONTROLS) ctlscr_enter();
-			n = gm_ids(a, c, &u, c->tabs.at, ids, GM_IDS_MAX);
-			for (k = 0; k < n && ids[k] != g_gm_mem.row[c->tabs.at]; k++) ;
-			g_menu_sel_to = k < n ? k : 0;
-			moved_sound(a, key);
-			redraw_now();
-			return MENU_STAY;
-		}
-		/* The Achievements tab: A on an achievement opens it, as the list
-		 * over the shelf does; nothing else but X, which quits from any tab */
-		if (!u.port && c->tabs.at == GT_ACHIEVEMENTS && key != IN_X) {
-			const cheevo *ch = key == IN_ACCEPT ? achtab_pick(&c->ach, gm_at_source(), sel)
-			                                    : NULL;
-
-			if (ch) cheevo_detail_screen(a, c->bg, false, ch);
-			return plat_run_power_pressed() ? MENU_DONE : MENU_STAY;
-		}
-		/* The Controls tab's rows, but X, which quits from any tab, and the
-		 * Pak, below as before */
-		if (!u.port && c->tabs.at == GT_CONTROLS && key != IN_X) {
-			ctlscr_game g;
-			int id = sel >= 0 && sel < n ? ids[sel] : -1;
-
-			if (id == CT_PAK) {
-				sel = GM_PAK;
-			} else {
-				gm_ctl_game(a, c, &g);
-				ctlscr_key(a, &g, key, id);
-				/* A page it opened took the power press: the game stops */
-				return plat_run_power_pressed() ? MENU_DONE : MENU_STAY;
-			}
-		} else {
-			sel = sel >= 0 && sel < n ? ids[sel] : GM_MAX_ROWS;
-		}
-	}
-	/* X, wherever the cursor is: what A on its row does (gm_x_row), heard
-	 * as A there is, since the runner plays accept for A alone */
-	if (key == IN_X) {
-		uisound_play(DS_SOUND_ACCEPT);
-		sel = gm_x_row();
-		key = IN_ACCEPT;
-	}
-	if ((sel == GM_SCREENS || sel == GM_SWAP || sel == GM_STYLUS) &&
-	    (key == IN_LEFT || key == IN_RIGHT || key == IN_ACCEPT)) {
-		if (gm_screens(a, (gm_row)sel, key == IN_LEFT ? -1 : 1)) {
-			const char *pv = plat_resident_last_preview();
-			SDL_Surface *sf = pv && *pv ? IMG_Load(pv) : NULL;
-
-			if (sf) {
-				if (c->bg) SDL_DestroyTexture(c->bg);
-				c->bg = SDL_CreateTextureFromSurface(a->r, sf);
-				SDL_FreeSurface(sf);
-			}
-		}
-		return MENU_STAY;
-	}
-
-	/* Applied to the running game at once, not on resume: the whole point of
-	 * this row being here rather than on the shelf is judging the mode against
-	 * the game it is being applied to. Diatom takes SETDISPLAY while paused,
-	 * answers with the new rect, and the backdrop behind this menu redraws
-	 * into it. */
-	if (sel == GM_DISPLAY && (key == IN_LEFT || key == IN_RIGHT)) {
-		gm_cycle_display(a, key == IN_RIGHT ? 1 : -1);
-		return MENU_STAY;
-	}
-	/* The shader, on left, right and A, sent to the game the same way */
-	if (sel == GM_SHADER && (key == IN_LEFT || key == IN_RIGHT || key == IN_ACCEPT)) {
-		gm_cycle_shader(a, key == IN_LEFT ? -1 : 1);
-		return MENU_STAY;
-	}
-	/* Its strength, on left and right alone */
-	if (sel == GM_STRENGTH && (key == IN_LEFT || key == IN_RIGHT)) {
-		gm_step_strength(a, key == IN_LEFT ? -1 : 1);
-		return MENU_STAY;
-	}
-	/* The quick slot steps round 1 to 6 on left, right and A, kept for the
-	 * game's system at once: SELECT+R1 and SELECT+L1 use it from the next
-	 * press, in this game and every other on the system */
-	/* The Pak turns between the two on left, right and A, kept for this game
-	 * and put in the controller at once: Diatom takes SETOPT while paused,
-	 * and the core swaps the pak on its next frame */
-	if (sel == GM_PAK && (key == IN_LEFT || key == IN_RIGHT || key == IN_ACCEPT)) {
-		sysview *sv = &a->view[a->sys_cursor];
-		const system_cfg *q = &a->sys.systems[shelf_owner(a, a->sys_cursor, sv->cursor)];
-
-		if (sv->list.count > 0) {
-			const char *file = sv->list.items[sv->cursor].file;
-			const char *to = gm_pak_other(pak_get(q, file));
-
-			pak_put(q->tag, file, to);
-			if (gm_pak_option(q->core))
-				plat_resident_line("SETOPT\tkey=%s\tvalue=%s", gm_pak_option(q->core), to);
-			ctlscr_changed();
-		}
-		return MENU_STAY;
-	}
-	/* The disc steps round on left, right and A, at once: the game sees the
-	 * tray open, a new disc and the tray close (gm_disc_step_to) */
-	if (sel == GM_DISC && (key == IN_LEFT || key == IN_RIGHT || key == IN_ACCEPT)) {
-		gm_disc_step_to(key == IN_LEFT ? -1 : 1);
-		return MENU_STAY;
-	}
-	if (sel == GM_QUICK && (key == IN_LEFT || key == IN_RIGHT || key == IN_ACCEPT)) {
-		const system_cfg *q = &a->sys.systems[shelf_owner(a, a->sys_cursor,
-		                                      a->view[a->sys_cursor].cursor)];
-		int d = key == IN_LEFT ? -1 : 1;
-
-		quick_slot_put(q->tag, gm_quick_step(quick_slot_get(q->tag), d));
-		return MENU_STAY;
-	}
-	if (key != IN_ACCEPT) return MENU_STAY;
-
-	switch ((gm_row)sel) {
-	case GM_CONTINUE:
-		c->resume = true;
-		return MENU_DONE;
-	case GM_SAVE:
-	case GM_LOAD: {
-		int slot = slot_strip(a, c->bg, sel == GM_SAVE);
-
-		if (slot) {
-			sysview *sv = &a->view[a->sys_cursor];
-			int o = shelf_owner(a, a->sys_cursor, sv->cursor);   /* see slot_strip */
-			char sp[LIB_PATH * 2], pp[LIB_PATH * 2];
-
-			slot_state_path(a, o, &sv->list.items[sv->cursor],
-			                slot, sp, sizeof sp);
-			if (sel == GM_SAVE) {
-				plat_resident_line("SAVE\tpath=%s", sp);
-				/* The paused frame is what the save holds, and Diatom already
-				 * wrote it as the pause preview: copy it beside the state so
-				 * the strip can show what is inside the slot. */
-				slot_preview_path(a, o, &sv->list.items[sv->cursor],
-				                  slot, pp, sizeof pp);
-				copy_file(plat_resident_last_preview(), pp);
-			} else {
-				plat_resident_line("LOAD\tpath=%s", sp);
-			}
-			c->resume = true;
-			return MENU_DONE;
-		}
-		/* Backed out: fall through to the menu, still paused. */
-		plat_input_flush();
-		memset(&a->in, 0, sizeof a->in);
-		break;
-	}
-	/* A cycles it forward as well as left and right. Every other row in this
-	 * menu is something A does, so a row that only answered to left and right
-	 * was a row that looked broken. */
-	case GM_DISPLAY:
-		gm_cycle_display(a, +1);
-		break;
-	case GM_CONTROLS:
-		game_controls_screen(a, c->bg);
-		break;
-	case GM_PLAYER2:
-		player2_page(a, c->bg);
-		break;
-	/* The Achievements tab, one L1 away: the row turns to it, the list
-		 * or the sentence that says why there is none (1.0.5). It opened the
-		 * list as a screen of its own before the tab. */
-	case GM_CHEEVOS: {
-		gm_ui u;
-		int ids[GM_IDS_MAX], n, k;
-
-		gm_gather(a, &u);
-		tabs_turn(&c->tabs, -1);
-		g_gm_mem.tab = c->tabs.at;
-		n = gm_ids(a, c, &u, c->tabs.at, ids, GM_IDS_MAX);
-		for (k = 0; k < n && ids[k] != g_gm_mem.row[c->tabs.at]; k++) ;
-		g_menu_sel_to = k < n ? k : 0;
-		redraw_now();
-		return MENU_STAY;
-	}
-	case GM_RESET:
-		plat_resident_line("RESET");
-		c->resume = true;
-		return MENU_DONE;
-	case GM_QUIT:
-		gm_quit();
-		return MENU_DONE;
-	default: break;
-	}
-
-	/* A nested screen may have been the one that took the power press or ran
-	 * the clock out - the slot strip and the achievements list both stop the
-	 * game and close themselves, which would leave this menu drawn over a game
-	 * that had already been told to stop. Only those two set the flag, and
-	 * both are reached from right here, so this is where it is asked. */
-	if (plat_run_power_pressed()) return MENU_DONE;
-	return MENU_STAY;
-}
-
-/* The next in-game menu was asked for by the launcher, not by a press: the
- * PAUSE a game resumed from a shutdown is sent with (launch). */
-static bool g_menu_unasked;
-
-static void game_menu(app *a)
-{
-	gm_ctx c = { 0 };
-	const char *pv = plat_resident_last_preview();
-
-	/* The menu opening over the paused game: MENU was pressed in it - unless
-	 * the launcher asked for it, at a resume from a shutdown. */
-	if (!g_menu_unasked) uisound_play(DS_SOUND_ACCEPT);
-	g_menu_unasked = false;
-	c.a = a;
-	if (pv && *pv) {
-		SDL_Surface *sf = IMG_Load(pv);
-
-		if (sf) {
-			c.bg = SDL_CreateTextureFromSurface(a->r, sf);
-			SDL_FreeSurface(sf);
-		}
-	}
-	/* Measured across every mode label, so cycling Display does not resize
-	 * the panel underneath the cursor. */
-	c.st.fixed_w     = gm_width(a);
-	c.st.sound       = c.bufs.sound;
-	c.st.follow_tint = true;
-	c.st.backdrop    = gm_backdrop;
-	c.st.on_power    = gm_power;
-	gm_disc_ask();
-	/* MENU's tab row, opened where this game's menu was last closed */
-	c.tabs = (menu_tabs){ .count = GT_TABS, .name = gm_tab_name_i };
-	c.tabs.at = c.tabs.from = g_gm_mem.tab;
-	if (!g_port_menu) {
-		gm_ui u;
-		int ids[GM_IDS_MAX];
-		int n, k;
-
-		c.st.tabs = &c.tabs;
-		c.st.sel_out = &c.seen;
-		/* The handheld beside the Controls tab's rows, and as it leaves */
-		c.st.side = ctlscr_side;
-		ctlscr_open();
-		gm_gather(a, &u);
-		n = gm_ids(a, &c, &u, c.tabs.at, ids, GM_IDS_MAX);
-		for (k = 0; k < n && ids[k] != g_gm_mem.row[c.tabs.at]; k++) ;
-		c.st.start_sel = k < n ? k : 0;
-		g_menu_epoch++;
-	}
-
-	/* B and MENU are the runner's, and both mean Continue here. The runner has
-	 * to be the one to say so: it flushes the input on its way out, so asking
-	 * a->in afterwards would always say no button was pressed. MENU from a
-	 * screen this menu opened - the save slots, Achievements - comes back as
-	 * MENU_LEFT_BACK too, so it is Continue from there as well. */
-	g_menu_closing = false;
-	g_in_game_menu = true;
-	if (menu_run(a, &c.st, gm_menu_build, gm_key, &c) == MENU_LEFT_BACK)
-		c.resume = true;
-	g_in_game_menu = false;
-	g_menu_closing = false;
-	/* Where it was closed, for the next MENU press in this game: the cursor
-	 * moves without asking gm_key, so it is read from the runner here */
-	if (c.st.tabs) {
-		gm_ui u;
-		int ids[GM_IDS_MAX];
-		int n;
-
-		gm_gather(a, &u);
-		n = gm_ids(a, &c, &u, c.tabs.at, ids, GM_IDS_MAX);
-		g_gm_mem.tab = c.tabs.at;
-		if (c.seen >= 0 && c.seen < n) g_gm_mem.row[c.tabs.at] = ids[c.seen];
-	}
-	/* Closed by px2-open's quit, which said STOP as Quit does: no Continue */
-	if (g_ctl_close_menu) c.resume = false;
-	g_ctl_close_menu = false;
-
-	/* Its close, over the paused game, while the display is still this
-	 * process's: before the pages are handed back below, and never after
-	 * RESUME, when Diatom is drawing. Ending the game instead leaves nothing
-	 * to see go, and nothing for the shelf to draw later. */
-	if (c.resume) {
-		leave_end how = panel_leave_run(a, gm_backdrop, &c);
-
-		/* Power or Auto Off as it closed: what they mean in the menu */
-		if (how == LEAVE_POWER) gm_power(a, &c);
-		if (how != LEAVE_GONE) c.resume = false;
-	}
-	mm_leaving_cut();
-	/* The handheld's kept texture, which the game has no use for, and the
-	 * Achievements tab's badges */
-	ctlscr_close();
-	achtab_close();
-
-	if (c.bg) SDL_DestroyTexture(c.bg);
-
-	/* Asked to quit with the menu open. Leaving here without saying anything
-	 * strands the game: it is paused, waiting on this socket, and the wait
-	 * loop below would go straight back to waiting on IT. Each on the other,
-	 * and neither reachable by a signal. Seen on the device 2026-08-29.
-	 *
-	 * STOP rather than RESUME - the process is going away, and a game that
-	 * ends writes its state on the way out. */
-	if ((want_quit || !a->running) && !c.resume) plat_resident_line("STOP");
-
-	if (c.resume) {
-		/* Hand the pages back the way Diatom expects to find them.
-		 *
-		 * Diatom does not repaint the area outside its picture every frame -
-		 * its pages start opaque black and it writes only the rect - which is
-		 * sound while it owns the framebuffer and false the moment this
-		 * process has drawn a full-screen menu into the same pages. At any
-		 * display mode that does not fill the panel, resuming showed the game
-		 * correctly sized with this menu still surrounding it, and flickering:
-		 * Diatom cycles three pages and only the two this process presents
-		 * into had been dirtied, so the border alternated menu, menu, black at
-		 * the refresh rate.
-		 *
-		 * Twice because this process alternates two pages and one present only
-		 * clears the one it lands on. Before RESUME and never after:
-		 * afterwards Diatom is drawing, and this would be a second presenter. */
-		present_clear(a, DIATOM_PAGE);
-		present_clear(a, DIATOM_PAGE);
-		/* SELECT in this menu opens Muse, so the music may have started or
-		 * stopped while the game was paused. Said before the game moves, not
-		 * a tick after it. */
-		plat_resident_quiet(musec_playing());
-		/* And the volume and the mute switch, both of which this menu had.
-		 *
-		 * On RESUME Diatom forgets its volume and reads it back from the
-		 * codec. With the switch down in this menu that read finds the gain
-		 * this side wrote for the cut and takes it for level 0, so putting
-		 * the switch back up in the game brought the sound back at 0: silent
-		 * until a volume key. Sending the level after RESUME, as every RUN
-		 * does, leaves Diatom nothing to guess. The mute goes first, or the
-		 * level would turn the sound back on with the switch still down. */
-		plat_resident_line("SETMUTE\ton=%d", plat_muted() ? 1 : 0);
-		/* Continue's back is the last interface sound until the menu
-		 * opens again: the output is let go the moment it ends. */
-		uisound_release();
-		plat_resident_line("RESUME");
-		{
-			int vol = plat_volume_get();
-
-			if (vol >= 0)
-				plat_resident_line("SETLEVEL\tkind=volume\tindex=%d\tcount=%d",
-				                   vol, PLAT_VOL_MAX + 1);
-		}
-	}
-	/* Nothing presents from here: the next frame on screen is the game's. */
-}
-
-/* The in-game menu over a port (src/portmenu.h): this process started by
- * portkeys for it alone, with the port stopped and its last frame saved. The
- * same menu as over a Diatom game, over that frame, with the rows a stopped
- * program can answer to (gm_tab_rows): Continue, Controls - the port's system's
- * page and In a game's - and Quit. Its exit status says which: Continue, and
- * B or MENU, go back to the game; Quit ends it and the shelf comes back;
- * POWER, here or on the Controls page, or the battery run flat, end it and
- * turn the handheld off. The opening and the closing are the in-game menu's
- * own, so the close lands on the frame the game goes on from. */
-static int port_menu(app *a)
-{
-	gm_ctx c = { 0 };
-
-	uisound_play(DS_SOUND_ACCEPT);
-	c.a = a;
-	c.bg = plat_load_screen(PORT_MENU_STILL);
-	c.st.fixed_w     = gm_width(a);
-	c.st.sound       = c.bufs.sound;
-	c.st.follow_tint = true;
-	c.st.backdrop    = gm_backdrop;
-	c.st.on_power    = gm_power;
-
-	g_menu_closing = false;
-	g_in_game_menu = true;
-	if (menu_run(a, &c.st, gm_menu_build, gm_key, &c) == MENU_LEFT_BACK)
-		c.resume = true;
-	g_in_game_menu = false;
-	g_menu_closing = false;
-	if (c.resume) {
-		leave_end how = panel_leave_run(a, gm_backdrop, &c);
-
-		if (how == LEAVE_POWER) gm_power(a, &c);
-		if (how == LEAVE_QUIT) c.resume = true;      /* asked to stop: the game goes on */
-	}
-	mm_leaving_cut();
-	if (c.bg) SDL_DestroyTexture(c.bg);
-	if (plat_run_power_pressed()) return PORT_MENU_POWER;
-	/* A TERM to this process is not the player's Quit: the game goes on, or
-	 * ends with the system that sent it */
-	return c.resume || want_quit ? PORT_MENU_CONTINUE : PORT_MENU_QUIT;
-}
 
 /* Bring the resident emulator back.
  *
@@ -18357,7 +15386,7 @@ static void respawn_resident(app *a)
  * middle of a port starts on the shelf, as every boot does. */
 #define PORT_RETURN  "/tmp/zyperos_port_return"
 
-static bool is_port(const system_cfg *s)
+bool is_port(const system_cfg *s)
 {
 	return !strcmp(s->core, PORT_CORE) ||
 	       !strncmp(s->core, RUN_PREFIX, strlen(RUN_PREFIX));
@@ -19717,7 +16746,7 @@ static void update_games(app *a)
 /* --shot <file.png> [--screen games|systems] draws one frame, writes it out
  * and exits. This is how the shelf gets looked at without a device in hand:
  * the host build renders exactly what the handheld renders. */
-static const char *shot_path;
+const char *shot_path;
 static int shot_screen = -1;
 /* --folder DIR: the shelf on that folder of its games (src/shelfdir.h);
  * --game FILE: its cursor on that game or folder, opening the folder it is
@@ -19775,7 +16804,7 @@ static int shot_heatpop = -1;
 /* --ranews N: Zyper's bubble saying N achievements earned offline went */
 static int shot_ranews;
 /* --cheevos-waiting N: the list's heading with N of its unlocks waiting */
-static int shot_cheevos_waiting;
+int shot_cheevos_waiting;
 /* --upnews available|ready: his bubble with System Update's news instead */
 static const char *shot_upnews;
 /* --charging MS [hold|unplugged|off|pending|kept|limit|keptfull|soon]: the
