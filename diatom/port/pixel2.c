@@ -87,7 +87,14 @@ static int                 g_crtc_pipe;     /* index in the resources, for vblan
 static drmModeModeInfo     g_mode;
 static bool                g_crtc_lit;      /* something already scans out on the CRTC */
 static bool                g_have_master;
-static bool                g_gamma_checked; /* take_display has emptied the gamma table */
+/* The backlight's value whose gamma table belongs on the display
+ * (port/panelgamma.h): a brightness step stores it from any thread, and the
+ * present thread loads the table between flips (show_frame), where none is
+ * pending. -1 until a step: the value in sysfs, read once. g_gamma_have is
+ * the present thread's own: what it last put there, -2 for not known, as
+ * after another program had the display. */
+static int                 g_gamma_want = -1;
+static int                 g_gamma_have = -2;
 
 static EGLDisplay g_egl_display = EGL_NO_DISPLAY;
 static EGLContext g_egl_context = EGL_NO_CONTEXT;
@@ -388,15 +395,16 @@ static int  g_mixer_fd = -1;
 static int  g_level = -1;           /* the position last read or written; -1 none */
 
 /* Backlight, /sys/class/backlight/backlight, 0-255, 0 is off. The same rungs
- * as ZyperOS's src/device/pixel2.c, which says how they were found: the device
- * tree's brightness-levels table sends 1 to 17 all to the same output, so the
- * Brick's rungs (2, 4, 8, 16) were four steps of one brightness. 17 is the
- * floor, and the panel went black below it (checked by eye 2026-10-02 on the
- * PWM directly); the rungs are equal ratios from there to 255, since
- * brightness is perceived in ratios (spike 2026-08-26). */
+ * as ZyperOS's src/device/pixel2_levels.h, which says how they were found:
+ * the device tree's brightness-levels table sends 1 to 17 all to the same
+ * output, and 17 is the backlight's floor, the panel black below it. The two
+ * rungs under it, 9 and 13, keep the backlight at the floor, and the
+ * display's gamma table takes the light to 9/17 and 13/17 of it
+ * (port/panelgamma.h; display_gamma sets it). The rungs are equal ratios from
+ * 9 to 255, since brightness is perceived in ratios (spike 2026-08-26). */
 #define BACKLIGHT "/sys/class/backlight/backlight/brightness"
 static const unsigned char bright_ladder[] = {
-	17, 22, 28, 36, 46, 58, 74, 95, 122, 156, 199, 255
+	9, 13, 17, 23, 31, 42, 57, 77, 103, 140, 189, 255
 };
 #define BRIGHT_LEVELS ((int)(sizeof bright_ladder / sizeof bright_ladder[0]) - 1)
 
@@ -1418,21 +1426,13 @@ static bool take_display(void)
 	crtc = drmModeGetCrtc(g_drm_fd, g_crtc_id);
 	g_crtc_lit = crtc && crtc->mode_valid && crtc->buffer_id;
 	drmModeFreeCrtc(crtc);
-	/* The gamma table an older system image's splash filled, emptied before
-	 * the first frame goes up, once: with a game resumed at boot this is
-	 * the first program on the display after the splash. A table left
-	 * there darkens the game (port/panelgamma.h). */
-	if (!g_gamma_checked) {
-		int n = panelgamma_clear(g_drm_fd);
-
-		g_gamma_checked = true;
-		if (n > 0)
-			diatom_port_log(DIATOM_LOG_INFO, "pixel2: emptied the display's gamma "
-			                "table, which an older system's splash had filled");
-		else if (n < 0)
-			diatom_port_log(DIATOM_LOG_WARN, "pixel2: could not read or empty the "
-			                "display's gamma table");
-	}
+	/* The table on the display is the last program's, and the brightness
+	 * may have moved on the shelf since this process last set one:
+	 * show_frame reads the backlight again and puts its table there before
+	 * this frame goes up (with a game resumed at boot, over the table an
+	 * older system image's splash filled) */
+	g_gamma_have = -2;
+	__atomic_store_n(&g_gamma_want, -1, __ATOMIC_RELAXED);
 	return true;
 }
 
@@ -1509,6 +1509,33 @@ static int put_on_glass(uint32_t fb, bool *done)
 	return flip_err;
 }
 
+/* The gamma table the backlight's value asks for (port/panelgamma.h): the
+ * dimming one at 9 and 13, none from 17 up. Present thread, before a flip,
+ * with no flip pending: loading it is an atomic commit, which waits a
+ * refresh or two, at a brightness step or when the display comes back. */
+static void display_gamma(void)
+{
+	int want = __atomic_load_n(&g_gamma_want, __ATOMIC_RELAXED), n;
+
+	if (want < 0) {
+		int unset = -1, now = backlight_read();
+
+		if (now < 0) return;
+		/* Unless a step stored its own meanwhile, which is newer */
+		want = __atomic_compare_exchange_n(&g_gamma_want, &unset, now, false,
+		                                   __ATOMIC_RELAXED, __ATOMIC_RELAXED) ? now : unset;
+	}
+	if (want == g_gamma_have) return;
+	n = panelgamma_apply(g_drm_fd, want);
+	if (n > 0)
+		port_logf(DIATOM_LOG_INFO, "pixel2: the display's gamma table set for brightness %d",
+		          want);
+	else if (n < 0)
+		port_logf(DIATOM_LOG_WARN, "pixel2: could not set the display's gamma table for "
+		          "brightness %d", want);
+	g_gamma_have = want;               /* once, even refused: not at every frame */
+}
+
 /* Put what was just swapped on glass, and wait until it is. */
 static void show_frame(void)
 {
@@ -1525,6 +1552,7 @@ static void show_frame(void)
 		gbm_surface_release_buffer(g_gbm_surface, bo);
 		return;
 	}
+	display_gamma();
 
 	ret = put_on_glass(fb, &done);
 	/* Refused even by a mode-set: a display with no ARGB8888 at all, QEMU's
@@ -2693,6 +2721,7 @@ void diatom_port_level_write(diatom_level_kind kind, int pos)
 		if (pos < 0)             pos = 0;
 		if (pos > BRIGHT_LEVELS) pos = BRIGHT_LEVELS;
 		backlight_write(bright_ladder[pos]);
+		__atomic_store_n(&g_gamma_want, bright_ladder[pos], __ATOMIC_RELAXED);
 		break;
 	default:
 		break;

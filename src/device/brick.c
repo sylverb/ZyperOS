@@ -915,6 +915,9 @@ void plat_backlight_dim(bool dim)
 	ioctl(disp_fd, DISP_LCD_SET_BRIGHTNESS, a);
 }
 
+/* No gamma table here: the Brick's backlight goes as low as its rungs need */
+void plat_display_plain(void) { }
+
 #else   /* not __linux__ */
 
 /* The host build exists to look at the shelf while changing how it looks
@@ -957,6 +960,7 @@ static void jack_forget(void) { }
 static void mute_forget(void) { }
 void plat_backlight(bool on) { (void)on; }
 void plat_backlight_dim(bool dim) { (void)dim; }
+void plat_display_plain(void) { }
 
 /* No settings database on the host, so the config defaults are all there is.
  * Taken anyway rather than ignored: a shelf rendered by --shot should show the
