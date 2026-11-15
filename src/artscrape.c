@@ -155,6 +155,8 @@ static const struct { const char *folder, *remote, *remote2; } MAP[] = {
 	{ "ColecoVision",         "Coleco - ColecoVision", NULL },
 	{ "Doom",                 "DOOM", NULL },
 	{ "TIC-80",               "TIC-80", NULL },
+	/* The SG-1000, 2026-11-15, its repository checked that day */
+	{ "SG-1000",              "Sega - SG-1000", NULL },
 	/* PICO-8 is not here: the thumbnail server has no collection for it
 	 * (checked 2026-11-03), so its misses are reported as an unmapped
 	 * folder. Covers come from ROGUE's images (tools/from-rogue.sh

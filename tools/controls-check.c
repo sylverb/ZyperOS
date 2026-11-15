@@ -545,6 +545,13 @@ static void in_a_game(void)
 			{ "COLECO", "", "col", "A", "Right button" },
 			{ "COLECO", "", "col", "X/Y", "Keypad 2/1" },
 			{ "TIC80", "", "tic", "B", "Button A" },
+			/* The SG-1000 on the Master System's pad: buttons 1 and 2,
+			 * their turbo on X and Y (turbo.SG1000), and START the PAUSE
+			 * button on the console */
+			{ "SG1000", "", "sg", "A", "Button 2" },
+			{ "SG1000", "", "sg", "B", "Button 1" },
+			{ "SG1000", "", "sg", "X", "Turbo Button 2" },
+			{ "SG1000", "", "sg", "START", "Pause" },
 		};
 		size_t k;
 

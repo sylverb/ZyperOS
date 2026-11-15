@@ -2,7 +2,7 @@
   "schema": 1,
   "date": "2026-11-13",
   "status": "complete-review-set",
-  "system_count": 47,
+  "system_count": 49,
   "preview_cell": 256,
   "runtime_integrated": true,
   "method": "Built-in image generation; fixed hardware layers; reconstructed startup graphics; bounded PNG atlases",
@@ -86,7 +86,8 @@
     "SAVES": "source/SAVES.png",
     "STATES": "source/STATES.png",
     "BGM": "source/BGM.png",
-    "MUSIC": "source/MUSIC.png"
+    "MUSIC": "source/MUSIC.png",
+    "SG1000": "source/SG1000.png"
   },
   "animation_catalogue": "animations/catalogue.json",
   "prompt_records": [
@@ -551,6 +552,12 @@
       "bytes": 996398
     },
     {
+      "file": "source/SG1000.png",
+      "selected": true,
+      "sha256": "5f8c7e264228c9d252c186956b29d6307cc575e63ff6b40cb2bec7aef9f67de4",
+      "bytes": 1648
+    },
+    {
       "file": "source/SMS-cartridge.png",
       "selected": true,
       "sha256": "63f0c2de91c37a4c2c87cdbf79a62a151ce58181dbef23ee1884169f12a65c2d",
@@ -624,14 +631,14 @@
     }
   ],
   "verification": {
-    "systems": 47,
+    "systems": 49,
     "fixed_pixels": true,
     "motion_bounds": true,
     "alpha_and_clipping": true,
     "loop_return": true,
     "source_and_renderer_hashes": true,
     "independent_perspective_review": "No remaining material findings.",
-    "designs": 58,
+    "designs": 60,
     "two_pose_symbols": 10,
     "utility_files": 9,
     "mechanical_loading_added": 19,
@@ -642,5 +649,12 @@
       40
     ]
   },
-  "design_count": 58
+  "design_count": 60,
+  "placeholders": {
+    "SG1000": {
+      "name": "SG-1000",
+      "renderer": "placeholders/sg1000.py",
+      "method": "Drawn by script on a 128-pixel grid from simple shapes, every pixel doubled for the 256-pixel cell; one pose; no image generation, no other artist's work, no photograph"
+    }
+  }
 }
