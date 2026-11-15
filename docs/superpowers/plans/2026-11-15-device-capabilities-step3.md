@@ -68,7 +68,16 @@
 
 ### Task 3: No GPU-frame shelves where there are none
 
-(Filled in from the map of every place a system is listed: see below.)
+The home's system list (`a->sys`) is compacted in place by `hide_empty_systems` (`src/shelfbuild.c`), which already drops a system with no games and one turned off in Home Systems; Favorites, Recent, the resume at boot, Search, Random Game, the screensaver, the scraper's grid and the web page's art list all resolve against that list. So a GPU-frame system leaves there, before Home Systems' rows are listed, and everything that hangs off the home follows, as it does for a system turned off. No game of it reaches `launch()`, so no launch message is needed (the spec's "says why" becomes "is not offered", recorded as a call). The Storage page and File Transfer read their own copy of systems.cfg and keep showing its files, which is right: they are on the card.
+
+**Files:**
+- Modify: `src/shelfbuild.c` (`hide_empty_systems`: a system with `needs_gpu_frames` on a device where `!plat_gpu_frames()` is let go and not listed in `shelf_have_list`; a log line "scan: N of them need GPU frames, which this handheld has not"; the listing's freeing as `view_free`)
+- Create: `tools/gpuframes-check.sh` (`make check-gpuframes`, in `CHECKS`; its row in `docs/building.md`)
+
+- [x] **Step 1: Write the check:** a scratch card with an NES, a Dreamcast and an N64 game; `--device brick --shot` logs "3 of 46 systems have games" and "2 of them need GPU frames"; `--device pixel2` logs no such line.
+- [x] **Step 2: Implement** the drop in `hide_empty_systems`.
+- [x] **Step 3: Run** `make check-gpuframes`; shoot the sheet (home and Home Systems, both devices, both themes). Expected: the Brick shows the NES alone, the Pixel 2 all three.
+- [x] **Step 4: Commit** "Home: no GPU-frame shelves on a handheld without GPU frames".
 
 ### Task 4: Core option defaults per device, at run time
 
@@ -85,7 +94,8 @@ Every-device table (`coreopts.c`), as `src/db.c` has them today: `coreopt..mgba_
   - `void coreopt_defaults(coreopt *set, int *n, int max, const dev_default *dev, int n_dev);` — the device's, then every device's, each only where `set` has none; then `set` sorted by its full key
   - `int coreopt_nth(const coreopt *set, int n, const char *tag, int want, const char **out);` — today's precedence (globals, then `tag`'s), moved from `platform.c`
   - `bool coreopts_migrate(db *lib);` — once (`coreopts.runtime_106` set to "1"; outside the `coreopt.` prefix): deletes each `coreopt.` row whose value equals the every-device table's or `dev_coreopts_pixel2`'s for that key; true on the run that did it
-  - `const dev_default *coreopt_shared(int *n);` — the every-device table, for the checks
+  - `const dev_default *coreopt_shared(void);` — the every-device table, for the checks
+  - *Built:* the tables end in `{ NULL, NULL }` instead of carrying a count (a count in another file is no constant for a profile's initializer), so `coreopt_defaults` takes the device's table alone and the profile has no `n_coreopts`.
 
 - [ ] **Step 1: Record today's output** with `main`'s build: for every tag in `config/systems.cfg`, `--coreopts TAG` on a fresh scratch card, into `build-native/coreopts-main/<tag>.txt` (the scratch card as `tools/dslang-check.sh` makes one).
 - [ ] **Step 2: Write `tools/coreopts-check.c`:** on the Pixel 2's defaults, a player's `coreopt..mgba_frameskip=disabled` wins over the default; `coreopt.GB.mgba_gb_model` is sent for GB and not for GBC; a device default overrides an every-device one of the same key; the merged set is sorted by key; an over-long key and a tag of 8 characters are refused whole; a full set keeps the player's rows and drops a default; the frameskip and PSP cases `db-check` had (keys and values written out); with a scratch library seeded as 1.0.5 seeded (every key of both tables at its value, plus `coreopt..mgba_frameskip=disabled` and `coreopt.N64.parallel-n64-pak1=memory`), `coreopts_migrate` deletes every row equal to a default, keeps the two changed ones, sets `coreopts.runtime_106`, and a second call changes nothing and returns false; the Brick's profile has no defaults of its own and still gets the every-device ones.
@@ -105,6 +115,7 @@ Every-device table (`coreopts.c`), as `src/db.c` has them today: `coreopt..mgba_
   - `typedef struct { const char *path; const char *at[3]; const char *top; } diatom_clock;` — a ceiling file and its value at FULL, MEDIUM and LIGHT (`DIATOM_POWER_*`), NULL to copy `top`'s file (the CPU's `cpuinfo_max_freq`) into it
   - `typedef struct { diatom_clock clock[4]; int n; const char *gpu_floor, *gpu_floor_top; } diatom_power_profile;`
   - `static inline bool diatom_power_set(const diatom_power_profile *p, int level);` — writes each clock in order, true when every write took
+  - `static inline bool diatom_power_hold_gpu(const diatom_power_profile *p, bool on);` — the GPU floor at `gpu_floor_top`, or "0"; true with no floor
   - The Pixel 2's profile, in `pixel2.c`: CPU `DIATOM_CPUFREQ "scaling_max_freq"` {NULL, "1008000", "816000"} from `cpuinfo_max_freq`; `/sys/class/devfreq/dmc/max_freq` {"0", "0", "328000000"}; `/sys/class/devfreq/ff400000.gpu/max_freq` {"0", "300000000", "200000000"}; GPU floor `/sys/class/devfreq/ff400000.gpu/min_freq`, top "520000000"
 
 - [ ] **Step 1: Write the test:** a profile of three clocks in a scratch folder; LIGHT writes each file's LIGHT value; FULL copies the `top` file into the first and writes the others' FULL values; a missing file makes it return false and still writes the rest.
