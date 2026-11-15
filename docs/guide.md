@@ -642,10 +642,13 @@ the beginning, says so as it starts, and keeps its battery save.
 **SELECT stays a game button.** Most systems have a SELECT of their own, so a
 press of SELECT is either the game's or the hotkeys', decided by what comes
 next. SELECT and then a shoulder (R1, L1, R2, L2) is a hotkey, and the game
-never sees that SELECT. SELECT and then any other button goes to the game at
-once, with that button, so A+B+START+SELECT still resets a game. SELECT
-pressed alone reaches the game as you let go of it, for as long as you held
-it, and SELECT held alone for longer than 0.4 seconds is the game's, held.
+never sees that SELECT. Pressed together, either may come first: a shoulder
+up to a tenth of a second before SELECT is a hotkey too. SELECT and then any
+other button goes to the game at once, with that button, so A+B+START+SELECT
+still resets a game. SELECT pressed alone reaches the game as you let go of
+it, for as long as you held it, and SELECT held alone for longer than 0.4
+seconds is the game's, held; a shoulder pressed after that is still a hotkey,
+until you press another button under that SELECT.
 
 Volume and brightness show the same bar at the top of the screen in the
 launcher, in a game, in the in-game menu and over a port: a pill with a mark
