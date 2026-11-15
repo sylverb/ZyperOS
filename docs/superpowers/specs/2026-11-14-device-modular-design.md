@@ -437,8 +437,8 @@ device):
 - **Card**: A/B system slots and System Update from the Brick's first
   release (decided), the same scheme as the Pixel 2: a boot partition with
   `a/`, `b/` and `bootstate.txt`, two root slots, the games partition, and
-  a place outside the slots for the closed files if they are the player's
-  own copy (section 7). The Brick's U-Boot gains the bootstate logic and
+  a folder outside the slots for the closed files, the player's own copy
+  (section 7). The Brick's U-Boot gains the bootstate logic and
   FAT writes it lacks today.
 - **Variants**: the Brick has one of six panels (plastron's kernel patch
   0012 picks it at boot), and TortOS's Brick image also serves the "Brick
@@ -673,9 +673,26 @@ handheld are GPU work. Option 4 would mean redrawing the launcher for a
 CPU, against performance first. **So option 4 is out**, and the GPU files
 are needed for the launcher itself, not only for the GPU games.
 
-**My recommendation:** 2 for the first public Brick release (the
-installer fetches the files as the player's own copy), with 3 as its
-fallback if the Sonic Pad files ever go away. It keeps ZyperOS's own
+**Decided (2026-11-14): 2, the player's own copy**, with 3 as its
+fallback if the Sonic Pad files ever go away. How it works:
+
+- ZyperOS's Brick and Brick Pro images, System Update packs and test kits
+  carry none of the closed files.
+- The installer, on the player's computer, downloads them from the Sonic
+  Pad SDK at its pinned commit, checks each against plastron's
+  `files.sha256`, and writes them to the card's folder for them, outside the
+  system slots. It does this on a fresh install and on an installer Update
+  whose card lacks them; it never sends them anywhere else.
+- At boot the system takes the GPU libraries, the GPU firmware and the
+  XR829 firmware from that folder (the builder picks how: links, a bind, or
+  a library path). System Update never touches the folder.
+- A card without the files says so on its first screen, in words a player
+  can act on ("Run the ZyperOS Installer's Update on a computer"), rather
+  than a black screen.
+- If the download fails, the installer says why and installs nothing; a
+  later version may take the files from a folder the player picks.
+
+This was my recommendation: It keeps ZyperOS's own
 release files clean of anything without a license, and it costs one
 installer step that testers exercise from the first test build. **This is a
 legal decision for me, not a technical one**: 1 is what TortOS and Knulli
@@ -752,11 +769,13 @@ done by then).
    probe kit goes out to testers during this step.
 6. **The Brick's back end and image.** Drivers, Diatom port, card script,
    plastron's Brick board with A/B slots, the bootstate logic in its U-Boot,
-   the closed files the way I choose (section 7), the log pack's hardware
-   report; test kits for the testers until a kit passes.
-7. **The Brick's release.** Release artifacts, installer (with the
-   player's-own-copy step if I choose 2), site, docs; only after a kit
-   passes and I say release.
+   the closed files as the player's own copy (the installer's step and the
+   boot's folder, section 7), the log pack's hardware report; test kits for
+   the testers until a kit passes (testers install through the installer
+   from the first kit that needs the GPU).
+7. **The Brick's release.** Release artifacts, installer with the
+   player's-own-copy step, site, docs; only after a kit passes and I say
+   release.
 8. **The Brick Pro.** Its profile and handheld (host, can come with step
    5), its device tree from TrimUI's firmware, analog sticks in the
    launcher, Diatom, the Controls tab and the tutorial, its image; test kits
@@ -776,8 +795,8 @@ files.
 - The order of changes inside each PR, and how each PR proves the Pixel 2 is
   unchanged (the pixel gate, payload diffs, a device run on my test card
   where a PR changes the image).
-- Where on the Brick's card the closed files' folder sits, if I choose 2,
-  and how the system finds them at boot.
+- Where on the Brick's card the closed files' folder sits, and how the
+  system finds them at boot.
 
 ## Calls made in this design
 
@@ -805,14 +824,13 @@ Each is marked *(My call)* where it is written:
 - **The Brick Pro**: added as the third device, from TrimUI's reference
   views (section 6b); the Brick's measurements may come from online
   sources.
+- **The closed files**: the player's own copy, fetched by the installer
+  (section 7). A Brick with none of them is out (measured).
 
-## One decision left
+## Decisions left
 
-- **How the closed files reach the player** (section 7): in the image as
-  TortOS and Knulli do, or the player's own copy through the installer (my
-  recommendation). A Brick with none of them is out: the launcher drew 4 to
-  8 fps on the CPU in MENU and the tutorial (measured on the Pixel 2).
-  Needed before step 6 fixes the Brick's card layout.
+None for the plan. Later questions belong to the steps that meet them
+(the lights' uses, the Brick Pro's sticks in each system).
 
 ## Appendix: measurements
 
