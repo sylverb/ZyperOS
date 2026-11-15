@@ -118,7 +118,7 @@ typedef struct {
 
 enum { SCP_PLAN, SCP_SYSTEMS, SCP_RUN, SCP_DONE };
 
-typedef struct {
+typedef struct scp_view_ {
 	app *a;
 	bool fixture;                    /* a shot's: nothing read, nothing run */
 	char only[CFG_STR];              /* a system's Box Art: that system alone */
@@ -145,9 +145,36 @@ typedef struct {
 	bool pace_det;
 	unsigned pace_t0, room_at;
 	int pace_n0;
+	/* A row of an ask (scp_ask) that A switches in place, the panel kept
+	 * open: its place, -1 for none, and what switches it */
+	int ask_switch;
+	void (*ask_switch_fn)(struct scp_view_ *v, menu_row *tiles);
 } scp_view;
 
 static scp_view *g_scp;                /* the page open, for the run's rule */
+
+/* Names and Details (Settings, 1.0.6): whether a run asks names, years and
+ * synopses for covered games with none (artscrape.c, art_names). On unless
+ * the player turned it off; kept in the device's database as scraper.names.
+ * A shot turns it off with --scraper-names-off (main.c). */
+int g_scp_names = -1;
+
+static bool scp_names_on(void)
+{
+	if (g_scp_names < 0) {
+		char v[8];
+
+		g_scp_names = !(db_get_str(db_dev(), "scraper.names", v, sizeof v, NULL) &&
+		                !strcmp(v, "off"));
+	}
+	return g_scp_names != 0;
+}
+
+static void scp_names_set(bool on)
+{
+	g_scp_names = on;
+	db_set_str(db_dev(), "scraper.names", on ? "on" : "off");
+}
 
 /* A run's covers, by the Systems switch; the system of a Box Art always */
 static bool scp_rule(const char *folder)
@@ -335,6 +362,7 @@ static void scp_nbsp(char *s, size_t n)
  * room's check and the run's time left all read this. */
 typedef struct {
 	int covers, videos, looks;
+	int names;          /* of the looks, names for covered games (Names and Details) */
 	double bytes, secs;
 } scp_need;
 
@@ -349,7 +377,12 @@ static void scp_needs(const scp_view *v, scp_need *o)
 
 		if (s->cov) o->covers += s->miss;
 		if (vid) o->videos += s->vneed[k];
-		if (v->ss_in) o->looks += (s->cov ? s->names : 0) + (vid ? s->vneed[k] - (s->cov ? s->both[k] : 0) : 0);
+		if (v->ss_in) {
+			int nm = s->cov && scp_names_on() ? s->names : 0;
+
+			o->names += nm;
+			o->looks += nm + (vid ? s->vneed[k] - (nm ? s->both[k] : 0) : 0);
+		}
 	}
 	o->bytes = (o->covers * v->mb_cover + o->videos * v->mb_video) * 1e6;
 	o->secs = o->covers * (v->ss_in ? SCP_S_SS : SCP_S_LR) + o->looks * SCP_S_SS + o->videos * SCP_S_VIDEO;
@@ -553,8 +586,8 @@ static void scp_plan_draw(scp_view *v)
 	}
 	/* The room: the two tiles' figures added up, and the card's */
 	if (need.covers + need.videos + need.looks > 0) {
-		ds_line_item it[1];
-		char tf[64];
+		ds_line_item it[2];
+		char tf[64], nmb[64];
 
 		sys_menu_bytes((unsigned long long)need.bytes, sz, sizeof sz);
 		snprintf(tf, sizeof tf, T(S_SCRAPER_TO_FETCH), sz);
@@ -568,7 +601,17 @@ static void scp_plan_draw(scp_view *v)
 			snprintf(room, sizeof room, "%s", tf);
 		}
 		it[0] = (ds_line_item){ UI_GLYPH_TO_CARD, room, scp_fits(v, &need) ? DS_TONE_INFO : DS_TONE_WARN };
-		ds_page_line(a->r, &pf, it, 1);
+		/* The names and details a run asks, apart from the covers: the long
+		 * part on a card whose covers came from elsewhere (1.0.6), before
+		 * the room it takes */
+		if (need.names) {
+			snprintf(nmb, sizeof nmb, TN(S_SCRAPER_NAMES_N, need.names), need.names);
+			it[1] = it[0];
+			it[0] = (ds_line_item){ UI_GLYPH_BOOK, nmb, DS_TONE_INFO };
+			ds_page_line(a->r, &pf, it, 2);
+		} else {
+			ds_page_line(a->r, &pf, it, 1);
+		}
 	}
 	if (v->only[0]) {
 		const char *K1[3] = { "A", "START", "B" };
@@ -836,7 +879,12 @@ static int scp_ask(scp_view *v, int kind, const char *heading, const char *sub, 
 				sel = (sel + (back ? -1 : 1) + n) % n;
 			}
 		}
-		if (a->in.pressed[IN_ACCEPT]) { uisound_play(DS_SOUND_ACCEPT); choice = sel; }
+		if (a->in.pressed[IN_ACCEPT] && v->ask_switch >= 0 && sel == v->ask_switch &&
+		    v->ask_switch_fn) {
+			/* A choice of two switches where it is: the panel stays */
+			moved_sound(a, IN_RIGHT);
+			v->ask_switch_fn(v, tiles);
+		} else if (a->in.pressed[IN_ACCEPT]) { uisound_play(DS_SOUND_ACCEPT); choice = sel; }
 		if (!panel_frame(a, lv, &k)) continue;
 		tick_tint(a);
 		tick_theme(a);
@@ -887,7 +935,7 @@ static void scp_for_rows(const scp_view *v, menu_row *tiles, char *sub, size_t s
  * the two sources by their own marks, never their logos - a cloud for
  * ScreenScraper, a grid for SteamGridDB - and the videos' screen */
 static const int SCP_FOR_MARKS[SNAPS_FOR_COUNT] = { UI_GLYPH_FILM, UI_GLYPH_HEART, UI_GLYPH_PLAY };
-static const int SCP_SETTINGS_MARKS[3] = { UI_GLYPH_CLOUD, UI_GLYPH_GRID, UI_GLYPH_FILM };
+static const int SCP_SETTINGS_MARKS[4] = { UI_GLYPH_CLOUD, UI_GLYPH_GRID, UI_GLYPH_FILM, UI_GLYPH_BOOK };
 
 /* Which games get videos */
 static void scp_videos_for(scp_view *v)
@@ -901,14 +949,24 @@ static void scp_videos_for(scp_view *v)
 	if (c >= 0) snaps_set_for(c);
 }
 
-/* Settings: the two accounts and Video Snaps, each its page as before */
+/* Names and Details' row, switched by A where it is (scp_ask) */
+static void scp_names_switch(scp_view *v, menu_row *tiles)
+{
+	scp_names_set(!scp_names_on());
+	tiles[3].value = scp_names_on() ? T(S_SCRAPER_ON) : T(S_SCRAPER_OFF);
+	scp_count(v);
+}
+
+/* Settings: the two accounts and Video Snaps, each its page as before, and
+ * Names and Details, a choice of two that A switches in place (1.0.6) */
 static void scp_settings(scp_view *v)
 {
 	static char ss[64], sg[32], vs[48];
-	menu_row tiles[4] = {
+	menu_row tiles[5] = {
 		{ "ScreenScraper", ss, true },
 		{ "SteamGridDB", sg, true },
 		{ T(S_SCRAPER_PAGE_VIDEOS), vs, true },
+		{ T(S_SCRAPER_NAMES_DETAILS), scp_names_on() ? T(S_SCRAPER_ON) : T(S_SCRAPER_OFF), true },
 	};
 	char sz[24];
 	unsigned long long room = 0;
@@ -923,7 +981,10 @@ static void scp_settings(scp_view *v)
 	for (i = 0; i < v->n; i++) room += v->s[i].vroom;
 	sys_menu_bytes(room, sz, sizeof sz);
 	snprintf(vs, sizeof vs, "%s \xc2\xb7 %s", snaps_play() ? T(S_SCRAPER_ON) : T(S_SCRAPER_OFF), sz);
-	c = scp_ask(v, PANEL_LIST, T(S_HOME_SETTINGS), NULL, tiles, SCP_SETTINGS_MARKS, 3, 0);
+	v->ask_switch = 3;
+	v->ask_switch_fn = scp_names_switch;
+	c = scp_ask(v, PANEL_LIST, T(S_HOME_SETTINGS), NULL, tiles, SCP_SETTINGS_MARKS, 4, 0);
+	v->ask_switch = -1;
 	if (c == 0) ss_page(v->a);
 	else if (c == 1) sgdb_screen(v->a);
 	else if (c == 2) snaps_screen(v->a);
@@ -970,6 +1031,7 @@ static void scp_start(scp_view *v)
 	g_scp = v;
 	g_snap_sys = &v->cfg;
 	art_covers_rule(scp_rule);
+	art_names(scp_names_on());
 	/* The one async slot, which an account answer may still hold */
 	sync_abandon();
 	art_begin(&v->cfg, P_ROMS, NULL);
@@ -1440,20 +1502,21 @@ void scraper_page_shot(app *a)
 	} else if (st == 6) {
 		/* As scp_settings words them: a linked account, a key, videos on */
 		static char ss[64], vs[48];
-		menu_row tiles[4] = {
+		menu_row tiles[5] = {
 			{ "ScreenScraper", ss, true },
 			{ "SteamGridDB", "\xe2\x80\xa2\xe2\x80\xa2\xe2\x80\xa2\xe2\x80\xa2" "1a2b", true },
 			{ T(S_SCRAPER_PAGE_VIDEOS), vs, true },
+			{ T(S_SCRAPER_NAMES_DETAILS), scp_names_on() ? T(S_SCRAPER_ON) : T(S_SCRAPER_OFF), true },
 		};
 		char sz[24];
 
 		snprintf(ss, sizeof ss, T(S_SYSMENU_SC_LINKED_AS), "tarik");
 		sys_menu_bytes(1400000000ull, sz, sizeof sz);
 		snprintf(vs, sizeof vs, "%s \xc2\xb7 %s", T(S_SCRAPER_ON), sz);
-		tiles[3] = MENU_NOTE(list_hints(T(S_KEYHINT_CLOSE)));
+		tiles[4] = MENU_NOTE(list_hints(T(S_KEYHINT_CLOSE)));
 		scp_draw(&v, v.shot_now);
 		ui_scrim(a->r, 0);
-		tiles_panel(a, PANEL_LIST, T(S_HOME_SETTINGS), tiles, SCP_SETTINGS_MARKS, 4, 0, PANEL_REST.panel);
+		tiles_panel(a, PANEL_LIST, T(S_HOME_SETTINGS), tiles, SCP_SETTINGS_MARKS, 5, 0, PANEL_REST.panel);
 	} else {
 		scp_draw(&v, v.shot_now);
 	}
