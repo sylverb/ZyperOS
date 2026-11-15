@@ -151,6 +151,8 @@ static void choosing(void)
 	   "--device brick takes the Brick's");
 	ck(plat_profile_select("desktop") && plat_profile() == &device_profile_desktop, "and back");
 	ck(!dev_button_of(plat_profile(), IN_NONE), "no button for IN_NONE");
+	ck(!plat_system_has("teleporter") && !plat_system_has(NULL),
+	   "a part the system cannot have is never had");
 }
 
 int main(void)

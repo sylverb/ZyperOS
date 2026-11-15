@@ -8,6 +8,7 @@
 
 #include <stddef.h>
 #include <string.h>
+#include <unistd.h>
 
 #ifndef ZYPEROS_PROFILE
 #error "ZYPEROS_PROFILE names the build's device profile (mk/cross.mk, mk/native.mk)"
@@ -43,6 +44,19 @@ bool plat_speaker_mono(void)         { return active->speaker_mono; }
 bool plat_brightness_on_volume(void) { return active->chords.bright == DEV_BRIGHT_MENU_VOL; }
 bool plat_battery_lights(void)       { return active->chords.battery_chord; }
 bool plat_player2(void)              { return active->player2; }
+
+bool plat_system_has(const char *part)
+{
+	static const struct { const char *part, *path; } parts[] = {
+		{ "usbdrive", "/usr/sbin/usbdrive" },
+		{ "hostapd",  "/usr/sbin/hostapd" },
+	};
+	size_t i;
+
+	for (i = 0; part && i < sizeof parts / sizeof parts[0]; i++)
+		if (!strcmp(parts[i].part, part)) return access(parts[i].path, X_OK) == 0;
+	return false;
+}
 
 const dev_button *dev_button_of(const device_profile *p, in_button b)
 {

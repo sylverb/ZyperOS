@@ -1105,10 +1105,11 @@ static void eh_poll(bool force)
 		snprintf(s.cable_addr, sizeof s.cable_addr, "%s", s.shared_port ? "zyperos.local" : "10.55.0.2");
 		s.drive = s.shared_port;
 	} else {
-		/* A port the launcher asks about is the Pixel 2's, which the Wi-Fi
-		 * adapter takes too (usblink.h); the Brick's links on its own */
-		s.shared_port = plat_usb_peer() != USB_PEER_UNKNOWN;
-		s.builtin_wifi = !s.shared_port;
+		/* One port for the computer and the Wi-Fi adapter (the Pixel 2's,
+		 * usblink.h), or a port that links on its own beside Wi-Fi of the
+		 * device's own (the Brick's): the profile says which */
+		s.shared_port = plat_profile()->usb_shared_port;
+		s.builtin_wifi = plat_profile()->wifi == DEV_WIFI_BUILTIN;
 		s.ok[EH_USB] = plat_cable_link(addr, sizeof addr);
 		if (addr[0]) snprintf(last_addr, sizeof last_addr, "%s", addr);
 		/* The Pixel 2 answers zyperos.local on the cable (mdns.h), a name

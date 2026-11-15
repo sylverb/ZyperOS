@@ -1228,9 +1228,11 @@ build-native/usblink-check: tools/usblink-check.c src/usblink.c src/usblink.h sr
 
 # The device profiles (src/device/profile.h): each one whole, today's answers
 # for the Pixel 2, the Brick and the host's desktop, and the choice of one by
-# its id (--device). Built with all three, as the host build is. No SDL.
+# its id (--device). Built with all three, as the host build is. No SDL. Then
+# no device guessed in src/ (tools/devices-lint.py).
 check-devices: build-native/devices-check
 	@./build-native/devices-check
+	@python3 tools/devices-lint.py
 
 DEVICE_PROFILES := src/device/pixel2_profile.c src/device/brick_profile.c src/device/desktop_profile.c
 build-native/devices-check: tools/devices-check.c src/profile.c src/device/profile.h src/device/brick_buttons.h src/inbutton.h $(DEVICE_PROFILES) FORCE
@@ -1238,6 +1240,30 @@ build-native/devices-check: tools/devices-check.c src/profile.c src/device/profi
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Isrc \
 	      -DZYPEROS_PROFILE=device_profile_desktop -DZYPEROS_PROFILES_ALL \
 	      -o $@ tools/devices-check.c src/profile.c $(DEVICE_PROFILES)
+
+# Every device file compiled, the Linux halves the Mac's build never sees (CI
+# job "devices", .github/workflows/check.yml): the launcher's device files,
+# src/profile.c with each device's profile, and Diatom's two ports. Syntax
+# only, so it needs the headers and no device. Elsewhere it says it skipped,
+# so it is not in CHECKS (the macOS job would only ever skip it).
+.PHONY: check-device-compile
+check-device-compile:
+	@if [ "$$(uname -s)" != Linux ]; then echo "skipped: device files compile on Linux (CI job devices)"; exit 0; fi; \
+	set -e; F="-std=gnu11 -D_GNU_SOURCE -fsyntax-only -Wall -Wextra -Wno-unused-parameter"; \
+	S="$$(pkg-config --cflags sdl2)"; \
+	for d in pixel2 brick; do \
+		echo "  launcher: src/device/$$d.c"; \
+		$(CC) $$F -Isrc $$S src/device/$$d.c; \
+		echo "  launcher: src/profile.c with src/device/$${d}_profile.c"; \
+		$(CC) $$F -Isrc -DZYPEROS_PROFILE=device_profile_$$d src/profile.c src/device/$${d}_profile.c; \
+	done; \
+	D="-Idiatom/include -Idiatom/src -Idiatom/vendor/rcheevos/include -Idiatom/vendor/lz4"; \
+	echo "  diatom: port/brick.c"; \
+	$(CC) $$F $$D $$S diatom/port/brick.c diatom/port/osdbar.c diatom/port/themefile.c; \
+	echo "  diatom: port/pixel2.c"; \
+	$(CC) $$F $$D $$(pkg-config --cflags sdl2 egl glesv2 gbm libdrm) \
+		diatom/port/pixel2.c diatom/port/rumble_evdev.c diatom/port/panelgamma.c; \
+	echo "ok: every device file compiles"
 
 # Developer mode (src/devmode.h): the unlock hold on a clock moved by hand,
 # the setting in a real database, the one-time password and the keys the

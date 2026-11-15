@@ -130,4 +130,12 @@ bool plat_battery_lights(void);
  * says it elsewhere. */
 bool plat_player2(void);
 
+/* What the system on this card has, a second fact beside the profile's: a
+ * card can hold a newer ZyperOS folder on an older system (Flash Drive came
+ * with 1.0.4's), so a feature shows when the handheld can do it AND the
+ * system has its part. "usbdrive" (Flash Drive's program), "hostapd" (the
+ * hotspot's); any other part false. Read from the system's files for now;
+ * the image will say it in /etc/zyperos/system (step 4 of the device spec). */
+bool plat_system_has(const char *part);
+
 #endif
