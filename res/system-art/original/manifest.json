@@ -554,8 +554,8 @@
     {
       "file": "source/SG1000.png",
       "selected": true,
-      "sha256": "5f8c7e264228c9d252c186956b29d6307cc575e63ff6b40cb2bec7aef9f67de4",
-      "bytes": 1648
+      "sha256": "3353b0c784bdc2c5f7b0d15d00cf7f248dad01d2c28ada9a92b8194336469782",
+      "bytes": 2518
     },
     {
       "file": "source/SMS-cartridge.png",
@@ -654,7 +654,7 @@
     "SG1000": {
       "name": "SG-1000",
       "renderer": "placeholders/sg1000.py",
-      "method": "Drawn by script on a 128-pixel grid from simple shapes, every pixel doubled for the 256-pixel cell; one pose; no image generation, no other artist's work, no photograph"
+      "method": "Drawn by script on a 128-pixel grid from simple shapes, every pixel doubled for the 256-pixel cell; three poses; no image generation, no other artist's work, no photograph"
     }
   }
 }

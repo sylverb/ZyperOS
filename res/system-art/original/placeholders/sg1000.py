@@ -7,16 +7,18 @@ from nothing but simple shapes. No pixel of another artist's work or of a
 photograph went into it. A dark, angular console with a red stripe along its
 front and a cartridge standing in the slot on its top, and its joystick
 controller in front of it, wired to it, the way the other consoles stand.
-One pose: it does not move.
+Three poses: at rest, then the joystick rocks left with button 1 pressed and
+right with button 2 pressed, and rests again.
 
     python3 res/system-art/original/placeholders/sg1000.py
     python3 res/system-art/original/placeholders/sg1000.py --preview out.png
 
 The first writes, under res/system-art/original:
 
-  source/SG1000.png             the drawing, 128 square
-  animations/SG1000.png         the drawing at the 256-pixel cell, every
-  animations/SG1000-still.png   pixel doubled: its one-pose atlas and its still
+  source/SG1000.png             the drawing, its three poses side by side,
+                                128 square each
+  animations/SG1000.png         the poses at the 256-pixel cell, every pixel
+  animations/SG1000-still.png   doubled: its atlas, and the rest pose its still
   animations/SG1000.json        its frame table, as the others' are
   animations/catalogue.json     every design again, with SG1000's
   manifest.json, source-index.json  the source recorded beside the others'
@@ -30,39 +32,44 @@ import io
 import json
 from pathlib import Path
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageChops, ImageDraw
 
 HERE = Path(__file__).resolve().parent
 ART = HERE.parent
 KEY, NAME = "SG1000", "SG-1000"
 GRID, CELL = 128, 256
+# The loop: each pose and how long it shows, rest first (the still)
+# pose: (stick's lean in grid pixels, the button held down or None)
+POSES = [(0, None), (-3, 1), (3, 2)]
+FRAMES = [(0, 1400), (1, 300), (0, 200), (2, 300)]
 
-# The palette: the console's near-black plastic in three faces, its red, the
+# The palette: the console's dark plastic in three faces, a blue-grey as the
+# other consoles' is so it reads on Salt & Pepper's ground too, its red, the
 # cartridge's grey, the white of its lettering
-OUTLINE = (17, 15, 24, 255)
-EDGE = (24, 22, 31, 255)           # an inner fold between two faces
-TOP = (58, 56, 68, 255)
-TOP_LIGHT = (84, 82, 96, 255)
-TOP_DARK = (44, 42, 53, 255)
-TOP_LIGHT_BAND = (66, 64, 77, 255)
-FRONT = (38, 36, 46, 255)
-FRONT_DARK = (30, 28, 37, 255)
+OUTLINE = (14, 14, 24, 255)
+EDGE = (26, 25, 37, 255)           # an inner fold between two faces
+TOP = (64, 63, 82, 255)
+TOP_LIGHT = (96, 95, 116, 255)
+TOP_DARK = (48, 47, 64, 255)
+TOP_LIGHT_BAND = (73, 72, 92, 255)
+FRONT = (50, 49, 66, 255)
+FRONT_DARK = (37, 36, 50, 255)
 RED = (208, 38, 48, 255)
 RED_LIGHT = (238, 92, 92, 255)
 RED_DARK = (146, 24, 34, 255)
 WHITE = (234, 234, 238, 255)
 GREY = (150, 150, 162, 255)
 GREY_DARK = (96, 96, 108, 255)
-CART = (70, 70, 82, 255)
-CART_LIGHT = (100, 100, 114, 255)
-CART_DARK = (50, 50, 60, 255)
+CART = (78, 78, 96, 255)
+CART_LIGHT = (108, 108, 128, 255)
+CART_DARK = (56, 56, 72, 255)
 LABEL = (236, 230, 214, 255)
 SKY = (70, 120, 196, 255)
 HILLS = (60, 150, 84, 255)
 SUN = (246, 206, 70, 255)
-CABLE = (64, 62, 74, 255)
-KNOB = (40, 38, 48, 255)
-KNOB_LIGHT = (110, 108, 124, 255)
+CABLE = (70, 69, 88, 255)
+KNOB = (44, 43, 58, 255)
+KNOB_LIGHT = (116, 115, 136, 255)
 
 # A 3x5 face for the little lettering
 GLYPHS = {
@@ -178,7 +185,7 @@ def cartridge():
     return img
 
 
-def controller():
+def controller(held=None):
     img, d = layer()
     # The joystick's base: a box, its top lit, its front in shadow
     d.polygon([(12, 96), (60, 96), (64, 104), (8, 104)], fill=TOP)
@@ -189,23 +196,30 @@ def controller():
     d.rectangle([10, 113, 62, 115], fill=FRONT_DARK)
     # its two buttons, 1 and 2, on the right of the top
     for cx, label in ((42, "1"), (52, "2")):
-        d.ellipse([cx - 3, 97, cx + 3, 102], fill=RED)
-        d.line([(cx - 1, 98), (cx + 1, 98)], fill=RED_LIGHT)
-        d.line([(cx - 2, 102), (cx + 2, 102)], fill=RED_DARK)
+        if held == int(label):
+            # pressed: sunk a pixel, in shadow, no light on it
+            d.ellipse([cx - 3, 98, cx + 3, 102], fill=RED_DARK)
+            d.line([(cx - 1, 98), (cx + 1, 98)], fill=OUTLINE)
+        else:
+            d.ellipse([cx - 3, 97, cx + 3, 102], fill=RED)
+            d.line([(cx - 1, 98), (cx + 1, 98)], fill=RED_LIGHT)
+            d.line([(cx - 2, 102), (cx + 2, 102)], fill=RED_DARK)
         text(img, cx - 1, 107, label, WHITE)
     # the stick's collar on the left of the top
     d.ellipse([18, 97, 30, 103], fill=TOP_DARK)
     return outlined(img)
 
 
-def stick():
+def stick(lean=0):
     img, d = layer()
-    # the shaft, then the ball on it
-    d.rectangle([23, 88, 25, 100], fill=KNOB)
-    d.line([(23, 88), (23, 100)], fill=KNOB_LIGHT)
-    d.ellipse([19, 80, 29, 90], fill=KNOB)
-    d.ellipse([21, 82, 24, 85], fill=KNOB_LIGHT)
-    d.point((22, 83), fill=WHITE)
+    # the shaft from its collar, its top leaning `lean` pixels, then the
+    # ball on it, a pixel lower when it leans
+    drop = 1 if lean else 0
+    d.line([(24, 100), (24 + lean, 88 + drop)], fill=KNOB, width=3)
+    d.line([(23, 100), (23 + lean, 88 + drop)], fill=KNOB_LIGHT)
+    d.ellipse([19 + lean, 80 + drop, 29 + lean, 90 + drop], fill=KNOB)
+    d.ellipse([21 + lean, 82 + drop, 24 + lean, 85 + drop], fill=KNOB_LIGHT)
+    d.point((22 + lean, 83 + drop), fill=WHITE)
     return outlined(img)
 
 
@@ -217,10 +231,11 @@ def cable():
     return outlined(img)
 
 
-def draw():
-    """The design, 128 square, transparent round it"""
+def draw(pose=0):
+    """A pose of the design, 128 square, transparent round it"""
+    lean, held = POSES[pose]
     image = Image.new("RGBA", (GRID, GRID))
-    for part in (console(), cartridge(), cable(), controller(), stick()):
+    for part in (console(), cartridge(), cable(), controller(held), stick(lean)):
         image.alpha_composite(part)
     return image
 
@@ -235,31 +250,52 @@ def sha(data):
     return hashlib.sha256(data).hexdigest()
 
 
-def write_records(source, cell):
+def motion_bounds(cells):
+    """Where any pose differs from the rest pose, four pixels wider each way"""
+    box = None
+    for cell in cells[1:]:
+        diff = ImageChops.difference(cell, cells[0]).getbbox(alpha_only=False)
+        if diff:
+            box = diff if box is None else (min(box[0], diff[0]), min(box[1], diff[1]),
+                                            max(box[2], diff[2]), max(box[3], diff[3]))
+    x0, y0 = max(0, box[0] - 4), max(0, box[1] - 4)
+    x1, y1 = min(CELL, box[2] + 4), min(CELL, box[3] + 4)
+    return [x0, y0, x1 - x0, y1 - y0]
+
+
+def write_records(poses):
     animations = ART / "animations"
     source_name = f"source/{KEY}.png"
     renderer_name = f"placeholders/{Path(__file__).name}"
+    strip = Image.new("RGBA", (GRID * len(poses), GRID))
+    for i, pose in enumerate(poses):
+        strip.paste(pose, (i * GRID, 0))
+    cells = [pose.resize((CELL, CELL), Image.Resampling.NEAREST) for pose in poses]
+    atlas = Image.new("RGBA", (CELL * len(cells), CELL))
+    for i, cell in enumerate(cells):
+        atlas.paste(cell, (i * CELL, 0))
+    source, atlas_png, still_png = png(strip), png(atlas), png(cells[0])
     (ART / source_name).write_bytes(source)
-    (animations / f"{KEY}.png").write_bytes(cell)
-    (animations / f"{KEY}-still.png").write_bytes(cell)
-    # The frame table, in the order tools/systemart-original-pack.py writes
-    # one, for a design of one pose shown for good
+    (animations / f"{KEY}.png").write_bytes(atlas_png)
+    (animations / f"{KEY}-still.png").write_bytes(still_png)
+    # The frame table, in the order tools/systemart-original-pack.py writes one
     meta = {
         "key": KEY, "name": NAME,
-        "description": "Placeholder drawn by script: dark angular console with a red stripe, "
-                       "a cartridge in the top slot and its joystick controller",
-        "cell": CELL, "cols": 1, "rows": 1, "unique": 1, "duration_ms": 1000,
-        "kind": "system", "static": True, "placeholder": True, "expected_poses": 1,
-        "motion_bounds": [0, 0, CELL, CELL],
-        "frames": [{"tile": 0, "ms": 1000}],
+        "description": "Placeholder drawn by script: dark angular console with a red stripe and a "
+                       "cartridge in the top slot; its joystick rocks and its buttons press",
+        "cell": CELL, "cols": len(cells), "rows": 1, "unique": len(cells),
+        "duration_ms": sum(ms for _, ms in FRAMES),
+        "kind": "system", "static": False, "placeholder": True, "expected_poses": len(cells),
+        "motion_bounds": motion_bounds(cells),
+        "frames": [{"tile": t, "ms": ms} for t, ms in FRAMES],
         "still_time_ms": 0,
-        "decoded_atlas_bytes": CELL * CELL * 4,
+        "decoded_atlas_bytes": atlas.width * atlas.height * 4,
         "inputs": [source_name],
         "renderers": [renderer_name],
         "input_sha256": {source_name: sha(source)},
         "renderer_sha256": {renderer_name: sha(Path(__file__).read_bytes())},
         "atlas": f"{KEY}.png", "still": f"{KEY}-still.png",
-        "atlas_sha256": sha(cell), "still_sha256": sha(cell),
+        "atlas_sha256": sha(atlas_png), "still_sha256": sha(still_png),
     }
     (animations / f"{KEY}.json").write_text(json.dumps(meta, indent=2) + "\n")
     # The catalogue again, the way the pack writes it
@@ -278,7 +314,7 @@ def write_records(source, cell):
     manifest.setdefault("placeholders", {})[KEY] = {
         "name": NAME, "renderer": renderer_name,
         "method": "Drawn by script on a 128-pixel grid from simple shapes, every pixel doubled "
-                  "for the 256-pixel cell; one pose; no image generation, no other artist's "
+                  "for the 256-pixel cell; three poses; no image generation, no other artist's "
                   "work, no photograph",
     }
     shelves = sum(1 for a in assets if a["kind"] == "system")    # Favorites and MP4 too
@@ -293,14 +329,16 @@ def write_records(source, cell):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--preview", type=Path, help="write only a 4x enlargement here")
+    parser.add_argument("--preview", type=Path, help="write only a 4x enlargement of the poses here")
     args = parser.parse_args()
-    image = draw()
+    poses = [draw(i) for i in range(len(POSES))]
     if args.preview:
-        image.resize((GRID * 4, GRID * 4), Image.Resampling.NEAREST).save(args.preview)
+        strip = Image.new("RGBA", (GRID * len(poses), GRID))
+        for i, pose in enumerate(poses):
+            strip.paste(pose, (i * GRID, 0))
+        strip.resize((strip.width * 4, GRID * 4), Image.Resampling.NEAREST).save(args.preview)
         return 0
-    cell = image.resize((CELL, CELL), Image.Resampling.NEAREST)
-    write_records(png(image), png(cell))
+    write_records(poses)
     print(f"{KEY}: drawn; source, atlas, still and records written")
     return 0
 

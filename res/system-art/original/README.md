@@ -109,7 +109,8 @@ The SG-1000 (`SG1000`) is the other.
 `placeholders/sg1000.py` draws it with Python and Pillow, pixel by pixel on a 128-pixel grid, from simple shapes.
 It uses no image generation, no other artist's work, and no photograph.
 The drawing shows a dark angular console with a red stripe, a cartridge in its top slot, and its joystick controller.
-It has one pose and does not move.
+It has three poses in a 2200 ms loop: at rest, then the joystick leans left with button 1 pressed and right with button 2 pressed.
+The console's colors are the same blue-grey as the other consoles, so it shows on the dark theme too.
 
 Run the script to draw it again:
 
@@ -118,7 +119,7 @@ Run the script to draw it again:
 /usr/bin/python3 tools/systemart.py
 ```
 
-The script writes `source/SG1000.png` at 128 pixels and its 256-pixel atlas and still, with every pixel doubled.
+The script writes `source/SG1000.png`, the three poses at 128 pixels, and the 256-pixel atlas and still, with every pixel doubled.
 It also writes `animations/SG1000.json` and adds the design to `animations/catalogue.json`, `manifest.json`, and `source-index.json`.
 The catalogue records the script as the renderer, with its hash, and marks the design `placeholder`.
 `manifest.json` lists it under `placeholders`.

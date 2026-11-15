@@ -1,30 +1,42 @@
 {
   "key": "SG1000",
   "name": "SG-1000",
-  "description": "Placeholder drawn by script: dark angular console with a red stripe, a cartridge in the top slot and its joystick controller",
+  "description": "Placeholder drawn by script: dark angular console with a red stripe and a cartridge in the top slot; its joystick rocks and its buttons press",
   "cell": 256,
-  "cols": 1,
+  "cols": 3,
   "rows": 1,
-  "unique": 1,
-  "duration_ms": 1000,
+  "unique": 3,
+  "duration_ms": 2200,
   "kind": "system",
-  "static": true,
+  "static": false,
   "placeholder": true,
-  "expected_poses": 1,
+  "expected_poses": 3,
   "motion_bounds": [
-    0,
-    0,
-    256,
-    256
+    26,
+    154,
+    90,
+    56
   ],
   "frames": [
     {
       "tile": 0,
-      "ms": 1000
+      "ms": 1400
+    },
+    {
+      "tile": 1,
+      "ms": 300
+    },
+    {
+      "tile": 0,
+      "ms": 200
+    },
+    {
+      "tile": 2,
+      "ms": 300
     }
   ],
   "still_time_ms": 0,
-  "decoded_atlas_bytes": 262144,
+  "decoded_atlas_bytes": 786432,
   "inputs": [
     "source/SG1000.png"
   ],
@@ -32,13 +44,13 @@
     "placeholders/sg1000.py"
   ],
   "input_sha256": {
-    "source/SG1000.png": "5f8c7e264228c9d252c186956b29d6307cc575e63ff6b40cb2bec7aef9f67de4"
+    "source/SG1000.png": "3353b0c784bdc2c5f7b0d15d00cf7f248dad01d2c28ada9a92b8194336469782"
   },
   "renderer_sha256": {
-    "placeholders/sg1000.py": "c28529bafaa8d3369c156fddd7e195f1c12c0efd04b476eeb7c346258910062e"
+    "placeholders/sg1000.py": "7647a5cd7b1dede484fde1efb5dc9067987f0251346b9cb4d207472f6a747266"
   },
   "atlas": "SG1000.png",
   "still": "SG1000-still.png",
-  "atlas_sha256": "18200501cac9ead78c6dc0eac6544905d380184d05346bb74e9bbfd8d12b0509",
-  "still_sha256": "18200501cac9ead78c6dc0eac6544905d380184d05346bb74e9bbfd8d12b0509"
+  "atlas_sha256": "f738af7cd55e0d051fb5e8c471f6372ae1ac313319a082a0cee68cc4f577498f",
+  "still_sha256": "a10646458526b1ec419a89e640278efffff48771552f5cab3d104c2a722fe5e6"
 }
