@@ -3,6 +3,7 @@
 #include "status.h"
 
 #include "clamp.h"
+#include "ds/sdf.h"   /* the distances, shared with the other distance-field marks */
 #include "theme.h"
 
 #include <math.h>
@@ -71,45 +72,16 @@ typedef struct {
 	float p[12];
 } shape;
 
+/* The distances themselves are src/ds/sdf.h's, which the cover badges
+ * share */
 static float sd_box(const shape *s, float x, float y)
 {
-	float cx = (s->a + s->c) / 2, cy = (s->b + s->d) / 2;
-	float hx = (s->c - s->a) / 2 - s->r, hy = (s->d - s->b) / 2 - s->r;
-	float qx = fabsf(x - cx) - hx, qy = fabsf(y - cy) - hy;
-	float ox = qx > 0 ? qx : 0, oy = qy > 0 ? qy : 0;
-	float in = qx > qy ? qx : qy;
-
-	return sqrtf(ox * ox + oy * oy) + (in < 0 ? in : 0) - s->r;
+	return ds_sd_rbox(x, y, s->a, s->b, s->c, s->d, s->r);
 }
 
-static float sd_segment(float x, float y, float x0, float y0, float x1, float y1)
-{
-	float dx = x1 - x0, dy = y1 - y0;
-	float len2 = dx * dx + dy * dy;
-	float t = len2 > 0 ? clampf(((x - x0) * dx + (y - y0) * dy) / len2, 0, 1) : 0;
-	float ex = x - (x0 + dx * t), ey = y - (y0 + dy * t);
-
-	return sqrtf(ex * ex + ey * ey);
-}
-
-/* Inside by crossings, so a polygon that is not convex is still exact. */
 static float sd_poly(const shape *s, float x, float y)
 {
-	float d = 1e9f, sign = 1;
-	int i, j;
-
-	for (i = 0, j = s->n - 1; i < s->n; j = i, i++) {
-		float vx = s->p[i * 2], vy = s->p[i * 2 + 1];
-		float ex = s->p[j * 2] - vx, ey = s->p[j * 2 + 1] - vy;
-		float wx = x - vx, wy = y - vy;
-		float t = clampf((wx * ex + wy * ey) / (ex * ex + ey * ey), 0, 1);
-		float bx = wx - ex * t, by = wy - ey * t;
-		bool up = y >= vy, down = y < vy + ey, left = ex * wy > ey * wx;
-
-		if (bx * bx + by * by < d) d = bx * bx + by * by;
-		if ((up && down && left) || (!up && !down && !left)) sign = -sign;
-	}
-	return sign * sqrtf(d);
+	return ds_sd_poly(s->p, s->n, x, y);
 }
 
 static float sd(const shape *s, float x, float y)
@@ -125,7 +97,7 @@ static float sd(const shape *s, float x, float y)
 
 		/* Round where the lines meet, as a stroke's round join is. */
 		for (i = 0; i + 1 < s->n; i++) {
-			float e = sd_segment(x, y, s->p[i * 2], s->p[i * 2 + 1],
+			float e = ds_sd_segment(x, y, s->p[i * 2], s->p[i * 2 + 1],
 			                     s->p[i * 2 + 2], s->p[i * 2 + 3]);
 			if (e < m) m = e;
 		}

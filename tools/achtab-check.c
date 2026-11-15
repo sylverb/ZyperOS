@@ -6,7 +6,7 @@
  *
  *     make check-achtab
  *
- * No SDL, no card: the facts are made up here, the way main.c's gm_at_facts
+ * No SDL, no card: the facts are made up here, the way src/ingame_screen.c's gm_at_facts
  * gathers them on a device. */
 #include <stdio.h>
 #include <string.h>

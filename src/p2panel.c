@@ -7,6 +7,7 @@
 #include <string.h>
 
 #include "design.h"
+#include "ds/panel.h"
 #include "hotpanel.h"
 #include "keyhints.h"
 #include "keyhints_draw.h"
@@ -138,13 +139,11 @@ void p2panel_draw(SDL_Renderer *r, const p2panel *p, bool lift)
 	x0 = g.panel.x + P2P_PAD;
 	w = g.panel.w - 2 * P2P_PAD;
 	/* DESIGN.md 11.3: **surface** in an **edge** frame, lifted off the game */
-	if (lift) ui_lift(r, &g.panel, p->accent, UI_LIFT_PANEL);
-	ui_panel(r, &g.panel, DS_RADIUS_PANEL);
+	ds_panel_slab(r, &g.panel, p->accent, lift);
 	ui_text(r, ui_font(UI_F_LABEL), p->heading ? p->heading : "", g.panel.x + g.panel.w / 2,
 	        ui_line_y(UI_F_LABEL, g.head_y), 0, UI_TEXT_SOFT);
 	/* The heading's rule in the system's color, as its menu's */
-	SDL_SetRenderDrawColor(r, rule.r, rule.g, rule.b, 255);
-	SDL_RenderFillRect(r, &(SDL_Rect){ x0, g.rule_y, w, DS_RULE });
+	ds_panel_rule(r, x0, g.rule_y, w, rule);
 
 	/* The line: what the page is for, under the heading as the hot panel's
 	 * is, its whole for the overflow check when it is drawn in pieces */
@@ -168,12 +167,7 @@ void p2panel_draw(SDL_Renderer *r, const p2panel *p, bool lift)
 		ui_text(r, f, p->who[i] ? p->who[i] : "", g.col_x, y, -1, UI_TEXT_SOFT);
 		ui_text(r, f, p->state[i] ? p->state[i] : "", x0 + w, y, 1, UI_TEXT_DIM);
 	}
-	SDL_SetRenderDrawColor(r, rule.r, rule.g, rule.b, 255);
-	SDL_RenderFillRect(r, &(SDL_Rect){ x0, g.rule2_y, w, DS_RULE });
+	ds_panel_rule(r, x0, g.rule2_y, w, rule);
 	/* The button hints (DESIGN.md 11.4, keyhints.h), centered at the foot */
-	if (p->legend && keyhints_is(p->legend))
-		keyhints_draw_packed(r, p->legend, x0, x0 + w, g.legend_cy, 255);
-	else if (p->legend)
-		ui_text(r, ui_font(UI_F_META), p->legend, g.panel.x + g.panel.w / 2,
-		        ui_cap_y(ui_font(UI_F_META), g.legend_cy), 0, UI_TEXT_DIM);
+	ds_panel_legend(r, p->legend, x0, x0 + w, g.legend_cy);
 }

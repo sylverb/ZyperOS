@@ -8,6 +8,8 @@
 #include "platform.h"
 #include "theme.h"
 #include "ui.h"
+#include "ds/layout.h"
+#include "ds/mark.h"
 #include "zypermark.h"
 
 #include <math.h>
@@ -37,7 +39,6 @@
 #define SP_NAME_X    112                    /* a row's name after its icon */
 #define SP_CAP_Y     702                    /* the focused row's facts, one line */
 #define SP_CAP_LINE  36                     /* ...two, from SP_CAP_Y - 10 */
-#define SP_MORE      14                     /* the more-rows triangle */
 
 static float row_h(void)
 {
@@ -376,17 +377,10 @@ static void row_draw(SDL_Renderer *r, const sp_page *p, int i, float y, bool sel
 	                vr - (vw ? vw + SP_PAD : 0) - x, sel ? phase : 0, name);
 }
 
+/* The list's more marks (ds_more), their top at y */
 static void more_mark(SDL_Renderer *r, int y, bool up, SDL_Color c)
 {
-	SDL_Vertex v[3];
-	int i;
-	float cx = ZYPEROS_SCREEN_W / 2.0f, h = up ? 10.0f : SP_MORE;
-
-	v[0].position = (SDL_FPoint){ cx - h, up ? y + h : y };
-	v[1].position = (SDL_FPoint){ cx + h, up ? y + h : y };
-	v[2].position = (SDL_FPoint){ cx, up ? y : y + h };
-	for (i = 0; i < 3; i++) { v[i].color = c; v[i].tex_coord = (SDL_FPoint){ 0, 0 }; }
-	SDL_RenderGeometry(r, NULL, v, 3, NULL, 0);
+	ds_more(r, ZYPEROS_SCREEN_W / 2.0f, (float)y, up, c);
 }
 
 static void caption_draw(SDL_Renderer *r, const char *text, int y)

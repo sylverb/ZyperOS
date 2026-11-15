@@ -201,23 +201,13 @@ static void choice_list_panel(SDL_Renderer *r, const ds_pass *pass, const char *
 	          (nh ? keyhints_height(hints, nh, inner) : ls) + 32;
 	panel.x = (ZYPEROS_SCREEN_W - panel.w) / 2;
 	panel.y = (ZYPEROS_SCREEN_H - panel.h) / 2;
-	if (posed) {
-		SDL_FRect fr = pass->scaled(&panel, pose.scale);
-		SDL_Rect q = { (int)(fr.x + 0.5f), (int)(fr.y + 0.5f), (int)(fr.w + 0.5f), (int)(fr.h + 0.5f) };
-
-		ui_lift_k(r, &q, CFG_NO_COLOR, UI_LIFT_PANEL, pose.alpha);
-		posed = pass->begin(pass->ctx);
-	} else {
-		ui_lift(r, &panel, CFG_NO_COLOR, UI_LIFT_PANEL);
-	}
-	ui_panel(r, &panel, DS_RADIUS_PANEL);
+	posed = ds_panel_open(r, &panel, CFG_NO_COLOR, pose, pass);
 	SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
 	y = panel.y + 32;
 	for (k = 0; k < nhead; k++)
 		ui_text(r, fh, head[k], panel.x + panel.w / 2, ui_line_y(UI_F_LABEL, y + k * lh), 0, UI_TEXT_SOFT);
 	rule = (SDL_Rect){ panel.x + pad, y + nhead * lh + 24, inner, DS_RULE };
-	SDL_SetRenderDrawColor(r, thm->edge.r, thm->edge.g, thm->edge.b, 255);
-	SDL_RenderFillRect(r, &rule);
+	ds_panel_rule(r, rule.x, rule.y, rule.w, ui_col(thm->edge, 255));
 	y = rule.y + DS_RULE + 32;
 	for (i = 0; i < n; i++) {
 		SDL_Rect t = { panel.x + pad, y, inner, rh[i] };
@@ -245,7 +235,7 @@ static void choice_list_panel(SDL_Renderer *r, const ds_pass *pass, const char *
 		              KEYHINTS_CENTER, false, 255);
 	else if (!nh)
 		ui_text(r, fs, legend, panel.x + panel.w / 2, ui_line_y(UI_F_META, y), 0, UI_TEXT_DIM);
-	if (posed) pass->end(pass->ctx, &panel, pose);
+	ds_panel_close(&panel, pose, posed, pass);
 }
 
 static void tiles_panel(SDL_Renderer *r, const ds_pass *pass, ds_tiles_style kind,
@@ -332,17 +322,7 @@ static void tiles_panel(SDL_Renderer *r, const ds_pass *pass, ds_tiles_style kin
 	          (nh ? keyhints_height(hints, nh, inner) : nleg.n * ls) + 32;
 	panel.x = (ZYPEROS_SCREEN_W - panel.w) / 2;
 	panel.y = (ZYPEROS_SCREEN_H - panel.h) / 2;
-	if (posed) {
-		SDL_FRect fr = pass->scaled(&panel, pose.scale);
-		SDL_Rect q = { (int)(fr.x + 0.5f), (int)(fr.y + 0.5f),
-		               (int)(fr.w + 0.5f), (int)(fr.h + 0.5f) };
-
-		ui_lift_k(r, &q, CFG_NO_COLOR, UI_LIFT_PANEL, pose.alpha);
-		posed = pass->begin(pass->ctx);
-	} else {
-		ui_lift(r, &panel, CFG_NO_COLOR, UI_LIFT_PANEL);
-	}
-	ui_panel(r, &panel, DS_RADIUS_PANEL);
+	posed = ds_panel_open(r, &panel, CFG_NO_COLOR, pose, pass);
 	SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
 
 	top = panel.y + 32;
@@ -351,8 +331,7 @@ static void tiles_panel(SDL_Renderer *r, const ds_pass *pass, ds_tiles_style kin
 		        UI_TEXT_SOFT);
 	rule = (SDL_Rect){ panel.x + tile_pad, top + (nhead > 1 ? nhead : 1) * lh + 24,
 	                   panel.w - 2 * tile_pad, DS_RULE };
-	SDL_SetRenderDrawColor(r, thm->edge.r, thm->edge.g, thm->edge.b, 255);
-	SDL_RenderFillRect(r, &rule);
+	ds_panel_rule(r, rule.x, rule.y, rule.w, ui_col(thm->edge, 255));
 	tiles_y = rule.y + DS_RULE;
 	/* What moves, in **meta** **text-dim** under the rule */
 	if (sub) {
@@ -487,7 +466,7 @@ static void tiles_panel(SDL_Renderer *r, const ds_pass *pass, ds_tiles_style kin
 		for (k = 0; k < nleg.n; k++)
 			ui_text(r, fs, nleg.l[k], panel.x + panel.w / 2,
 			        ui_line_y(UI_F_META, tiles_y + k * ls), 0, UI_TEXT_DIM);
-	if (posed) pass->end(pass->ctx, &panel, pose);
+	ds_panel_close(&panel, pose, posed, pass);
 }
 
 void ds_tiles_draw(SDL_Renderer *r, const ds_tiles *t, mm_pose pose, const ds_pass *pass)
