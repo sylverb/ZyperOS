@@ -277,14 +277,14 @@ static void boot_env_says_what_the_shell_needs(void)
 	ck(seen_bt,     "bluetooth is the stored value, from the device scope");
 
 	/* The format is a contract with a reader written in another language:
-	 * launch.sh's boot_env reads it (each device's, sd/DEVICE/launch.sh). A
+	 * launch.sh's boot_env reads it (sd/zyperos/launch.sh, every device's). A
 	 * quoting change here would break the boot, so it is exercised rather
 	 * than eyeballed: the function as launch.sh has it, run by sh. And what a
 	 * power cut can leave in the file instead (2026-11-15) - half a line,
 	 * another file's old bytes, zeros - reads as off, and the script goes
 	 * on: sourced, a syntax error in it ended launch.sh before ZyperOS. */
 	{
-		static const char *const scripts[] = { "sd/pixel2/launch.sh", "sd/brick/launch.sh" };
+		static const char *const scripts[] = { "sd/zyperos/launch.sh" };
 		static const char *const junk[] = {
 			"WIFI='1\nBLUET", "\x01\x02)(\xff'\"`\n\x7f", "\0\0\0\0\0\0\0\0",
 		};

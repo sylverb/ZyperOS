@@ -1,10 +1,10 @@
 #!/bin/sh
 # One named ALSA PCM per bonded headset: bt_pcm_name and bt_write_asoundrc.
 #
-# Sourced, never run. launch.sh sources it at boot and calls bt_write_asoundrc
-# before the emulator starts; the launcher sources it into a shell of its own
-# after a pair or a forget (bt_asoundrc in src/bt.c) and calls the same
-# function.
+# Sourced, never run. The Brick's device.sh sources it at boot, and launch.sh
+# calls bt_write_asoundrc before the emulator starts (device_resident); the
+# launcher sources it into a shell of its own after a pair or a forget
+# (bt_asoundrc in src/bt.c) and calls the same function.
 #
 # ONE COPY. This used to live in launch.sh with a second implementation in C,
 # held together by a check that compared the names and nothing else - not the

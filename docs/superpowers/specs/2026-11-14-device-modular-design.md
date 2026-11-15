@@ -928,6 +928,14 @@ Made while building step 4 (2026-11-15; the plan,
 - `/etc/zyperos/system` is written on every device now (the Brick's too,
   `update 0`), its three lines as before, then the card's table and
   partitions and a `has` line (usbdrive, hostapd) for `plat_system_has`.
+- 4c: one card script, `sd/zyperos/launch.sh`, with `sd/<id>/device.sh`
+  for the device's environment, backlight, radios and `HAS_*` flags. The
+  Brick gains the VMU, PrBoom and PPSSPP copies and the reboot and restart
+  flags; its ports and `run:` programs stay off for now, as port scripts
+  run under `/bin/bash` and the Brick's image has none (step 6 adds bash to
+  its image and turns `HAS_PORTS` on). A card without `device.sh` sets
+  `launch.sh` aside and powers off, as five fast failures do, so the next
+  start copies ZyperOS again.
 
 ## Decided
 

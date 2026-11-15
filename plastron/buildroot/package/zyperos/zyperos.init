@@ -83,7 +83,9 @@ setup_end() {
 # was playing), and the Roms, Bios and Saves folders may already hold the
 # player's files, so nothing on the card is removed but the one retired file
 # below, and nothing is replaced but ZyperOS's own files. launch.sh goes last, after a sync, so a copy cut
-# short leaves no launch.sh and the next boot starts it over.
+# short leaves no launch.sh and the next boot starts it over; and device.sh,
+# which launch.sh sources, is copied with the rest before it, so a card with
+# launch.sh has its device.sh too.
 seed() {
 	splash_copy "${1:-setup}"
 	mkdir -p "$CARD/ZyperOS" || return 1

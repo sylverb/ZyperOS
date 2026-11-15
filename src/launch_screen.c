@@ -107,7 +107,7 @@ static void respawn_resident(app *a)
  * and the resident Diatom are holding. So it does not run under the launcher
  * at all: the launcher names the script in PORT_REQUEST and exits, and
  * launch.sh stops Diatom, runs the script, and starts both again
- * (sd/pixel2/launch.sh). Coming back costs a cold start, which a port's own
+ * (sd/zyperos/launch.sh). Coming back costs a cold start, which a port's own
  * start dwarfs.
  *
  * A shelf whose core is "run:<script>" is the same handoff for a standalone

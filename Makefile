@@ -558,9 +558,10 @@ check-px2-push:
 check-wifi-watch:
 	@sh tools/wifi-watch-check.sh
 
-# launch.sh's start on a card a power cut broke (sd/DEVICE/launch.sh): a junk
-# boot.env read as off, not sourced, and five fast stops of the launcher set
-# launch.sh aside once, so the next start copies ZyperOS again
+# launch.sh's start on a card a power cut broke (sd/zyperos/launch.sh with each
+# device's sd/DEVICE/device.sh): a junk boot.env read as off, not sourced, and
+# five fast stops of the launcher, or no device.sh, set launch.sh aside once,
+# so the next start copies ZyperOS again
 check-launch-start:
 	@sh tools/launch-start-check.sh
 
