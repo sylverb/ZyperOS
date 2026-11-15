@@ -140,6 +140,21 @@ static void answers(void)
 	plat_profile_select("desktop");
 }
 
+/* Developer Mode's unlock: L2 and R2 held together, as taps where they are
+ * taps (the Pixel 2, whose in_state never sees them held) and as buttons
+ * where they are buttons; never one alone, never the other kind */
+static void unlock(void)
+{
+	const dev_chords *px = &device_profile_pixel2.chords, *br = &device_profile_brick.chords;
+
+	ck(dev_l2r2_held(px, true, true, false, false), "pixel2: both taps held unlock");
+	ck(!dev_l2r2_held(px, true, false, false, false), "pixel2: one tap alone does not");
+	ck(!dev_l2r2_held(px, false, false, true, true), "pixel2: the buttons' own state is not its");
+	ck(dev_l2r2_held(br, false, false, true, true), "brick: both buttons held unlock");
+	ck(!dev_l2r2_held(br, false, false, true, false), "brick: one button alone does not");
+	ck(!dev_l2r2_held(br, true, true, false, false), "brick: taps it has none of do not");
+}
+
 static void choosing(void)
 {
 	ck(plat_profile() == &device_profile_desktop, "the host starts as desktop");
@@ -153,6 +168,14 @@ static void choosing(void)
 	ck(!dev_button_of(plat_profile(), IN_NONE), "no button for IN_NONE");
 	ck(!plat_system_has("teleporter") && !plat_system_has(NULL),
 	   "a part the system cannot have is never had");
+	{
+		char ids[64];
+
+		plat_profile_ids(ids, sizeof ids);
+		ck(!strcmp(ids, "pixel2, brick, desktop"), "the linked ids, for --device's error");
+		plat_profile_ids(ids, 9);
+		ck(!strcmp(ids, "pixel2, "), "and cut to the room there is");
+	}
 }
 
 int main(void)
@@ -164,6 +187,7 @@ int main(void)
 	brick();
 	desktop();
 	answers();
+	unlock();
 	choosing();
 	if (fails) {
 		printf("devices: %d of %d checks failed\n", fails, checks);

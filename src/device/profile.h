@@ -21,6 +21,7 @@
  * can be looked at on a computer. */
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #include "../inbutton.h"
@@ -99,6 +100,9 @@ const device_profile *plat_profile(void);
 /* Wear the linked profile named `id`; false, and nothing changed, when the
  * build has none by that name (a device build has its own alone) */
 bool plat_profile_select(const char *id);
+/* The linked profiles' ids, ", " between them, into `out` (for --device's
+ * error: "pixel2, brick, desktop" on the host, the device's own on a device) */
+void plat_profile_ids(char *out, size_t n);
 /* `b` as `p` prints it, or NULL where `p` has no such control */
 const dev_button *dev_button_of(const device_profile *p, in_button b);
 /* `base` with the Pixel 2's brightness chord, MENU on release and Home: the
@@ -111,6 +115,10 @@ dev_chords dev_chords_fn_volume(dev_chords base);
  * the Controls tab but teaches the Brick's F1 and F2; it goes when the Brick
  * gets a drawing of its own (step 5). */
 bool dev_tutorial_handheld(const device_profile *p, const dev_chords *c);
+/* L2 and R2 both held this moment, for Developer Mode's unlock: as taps where
+ * the chords say they are taps (`tap_l2`, `tap_r2`: plat_tap_held), as the
+ * buttons' own state everywhere else (`down_l2`, `down_r2`: in_state) */
+bool dev_l2r2_held(const dev_chords *c, bool tap_l2, bool tap_r2, bool down_l2, bool down_r2);
 
 /* The questions the launcher asks the platform whose answers are facts about
  * the handheld, from the profile in force (src/profile.c). Live questions

@@ -7,6 +7,7 @@
 #include "device/profile.h"
 
 #include <stddef.h>
+#include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -36,6 +37,20 @@ bool plat_profile_select(const char *id)
 			return true;
 		}
 	return false;
+}
+
+void plat_profile_ids(char *out, size_t n)
+{
+	size_t i, at = 0;
+
+	if (!n) return;
+	out[0] = 0;
+	for (i = 0; i < sizeof linked / sizeof linked[0] && at < n; i++) {
+		int w = snprintf(out + at, n - at, "%s%s", i ? ", " : "", linked[i]->id);
+
+		if (w < 0) break;
+		at += (size_t)w;
+	}
 }
 
 bool plat_has_bluetooth(void)        { return active->bluetooth; }
@@ -69,6 +84,11 @@ dev_chords dev_chords_fn_volume(dev_chords base)
 bool dev_tutorial_handheld(const device_profile *p, const dev_chords *c)
 {
 	return p->handheld && c->bright == DEV_BRIGHT_MENU_VOL;
+}
+
+bool dev_l2r2_held(const dev_chords *c, bool tap_l2, bool tap_r2, bool down_l2, bool down_r2)
+{
+	return c->lr2_taps ? tap_l2 && tap_r2 : down_l2 && down_r2;
 }
 
 const dev_button *dev_button_of(const device_profile *p, in_button b)

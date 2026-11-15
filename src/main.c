@@ -5288,6 +5288,18 @@ int main(int argc, char *argv[])
 				shot_tour_wrong_ms = atoi(argv[++i]);
 		}
 		else if (!strcmp(argv[i], "--fn-volume")) shot_fn_volume = 1;
+		/* --device ID: wear that handheld's profile (src/device/profile.h),
+		 * its buttons, chords and answers, for shots and checks on a computer;
+		 * a device build has its own alone */
+		else if (!strcmp(argv[i], "--device") && i + 1 < argc) {
+			if (!plat_profile_select(argv[++i])) {
+				char ids[96];
+
+				plat_profile_ids(ids, sizeof ids);
+				fprintf(stderr, "--device: no profile \"%s\" (%s)\n", argv[i], ids);
+				return 2;
+			}
+		}
 		else if (!strcmp(argv[i], "--tour-pick") && i + 1 < argc) {
 			shot_tour_pick = atoi(argv[++i]);
 			if (i + 1 < argc && argv[i + 1][0] >= '0' && argv[i + 1][0] <= '9')
