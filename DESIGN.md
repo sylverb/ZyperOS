@@ -1555,11 +1555,13 @@ Muse, so a card's saved places and modes still read.
   one - and **with
   controls** - the picture in a 16:9 frame 896 wide on **ground**, the
   header above it with the title in its row, and the bar and legend below,
-  always there.
+  always there. Where the keys take two rows (German, Spanish, French,
+  Italian, Japanese, Portuguese), the frame gives up that row's 44, still
+  16:9 and centered, so the times keep their distance from the keys.
   Their keys are hints as the shelves draw them (`page_hint`: a glyph and a word,
   **chrome** type, **text-soft**), from x 64 to 960 with the room shared out, and
   on a second row above where a language's words need it, never cut: Now
-  Playing's too (A, B, X, Y, L1/R1, the d-pad's sides as a `< >` pill).
+  Playing's too (A, B, X, Y, L1/R1, the d-pad with its sides lit, 11.4).
   The picture is drawn under the screen at the panel's own resolution
   (plat_video_under), so nothing scales it twice. A video keeps its place
   as a book does, per file; none is kept in its first or last minute.
@@ -4121,10 +4123,11 @@ when its change lands.
 - Words whose ink comes within 3 units of a key or a more mark, found when
   the host began to check it (1.0.6): Storage's two-line caption under the
   sort key (X with the order), its accents and ascenders in Spanish and
-  Portuguese, and the video controls' keys, wrapped to two rows in Japanese,
-  under the times. The sort key sits in the only room between the list and
-  the caption, so moving it is a layout of its own. `check-i18n-shots` lists
-  these screens as known (`KNOWN_KEYS`) and fails on any other.
+  Portuguese. The sort key sits in the only room between the list and the
+  caption, so moving it is a layout of its own. `check-i18n-shots` lists
+  these screens as known (`KNOWN_KEYS`) and fails on any other. (The video
+  controls' keys, in two rows under the times, were the other; the frame
+  gives up the row now.)
 - A heart is drawn three ways: filled (`draw_heart`, `src/heart.c`, the
   favorites' mark), as a stroke mark (`UI_GLYPH_HEART`, the Favorites tile),
   and as a distance field for a cover badge that only its check draws
