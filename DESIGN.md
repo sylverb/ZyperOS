@@ -730,9 +730,15 @@ lower body clear.
 **Grid** *(2026-11-15, the dense layout, with the shelves' Grid, 11.47)*: the
 systems in a grid, more of them at once - 18 on the 1024-wide canvas, six
 across and three rows - each its still (104 units) with its concise name
-under it in **chrome**, **text-soft**, the focus in **text** with the
-**accent-ink** underline (40 x DS_BAR) a grid step under its name, gliding from
-cell to cell in **ms.quick**, the window of rows in **ms.move**. Only the
+under it in **chrome**, **text-soft**; the focus on a **surface** tile, 8
+round its cell and its underline, corners radius.card (square with Square
+corners), with a thumbnail's lift as the shelf grid's focused cover has
+(UI_LIFT_FOCUS_SMALL, in the system's color in Salt & Pepper), its name in
+**text** with the **accent-ink** underline (40 x DS_BAR) a grid step under it;
+tile and underline glide from cell to cell in **ms.quick**, the window of
+rows in **ms.move**. *(2026-11-15: a name and its underline alone were hard to
+find at arm's length among 21 systems; the tile makes the home's focus read as
+the shelf grid's.)* Only the
 focused system's sprite moves, as on the others. The grid's room and band are
 the shelf grid's: from the top bar's band and a section (96) to 568, the cells
 DS_GRID_GAP apart, as many across as cells of at least 128 fit between the

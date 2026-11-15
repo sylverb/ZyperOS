@@ -587,8 +587,9 @@ uint32_t home_draw_focus(home *h,SDL_Renderer *r,const home_item *items,int coun
 /* ---- Grid (DESIGN.md 11.1) ---------------------------------------------- */
 
 /* The systems in a grid: each its still and its short name under it, the
- * focus its moving sprite, its name in **text** with the accent's underline
- * under it, the others in **text-soft**. The grid's room is the shelf grid's
+ * focus its moving sprite on a **surface** tile with a thumbnail's lift, its
+ * name in **text** with the accent's underline under it, the others in
+ * **text-soft**. The grid's room is the shelf grid's
  * (src/gamegrid.c): from the top bar's band and a section (96) to where the
  * band under it starts; its cells DS_GRID_GAP apart, as many across as cells
  * of at least HG_CELL fit between the margins, three rows, the grid in the
@@ -603,6 +604,7 @@ uint32_t home_draw_focus(home *h,SDL_Renderer *r,const home_item *items,int coun
 #define HG_LABEL_GAP 8       /* the still to its name (related) */
 #define HG_LABEL_BOX 28      /* the name's line box, chrome type */
 #define HG_CELL_H   (HG_SPRITE + HG_LABEL_GAP + HG_LABEL_BOX)
+#define HG_TILE_PAD 8        /* the focus's tile round its cell and its underline */
 
 typedef struct { int x, y, cols, cw, gap; } hg_geom;
 
@@ -697,10 +699,30 @@ static uint32_t home_grid_draw(home *h, SDL_Renderer *r, const home_item *items,
     fy = hg_eased(h->grid_fy, (float)(cursor / g.cols), now - h->grid_moved, DS_MS_QUICK);
     if (now - h->grid_moved < DS_MS_MOVE) *wait = 0;
 
-    /* The window of rows, room above for nothing and below for the names'
-     * underline */
-    clip = (SDL_Rect){ 0, g.y - g.gap / 2, 1024, HOME_GRID_ROWS * pitch };
-    SDL_RenderSetClipRect(r, &clip);
+    /* The window of rows: from the top row's tile to the foot of the last
+     * row's, so a row scrolling in or out is cut there and the next is not
+     * seen. The tile and its lift get room round it for the lift's blur. */
+    clip = (SDL_Rect){ 0, g.y - HG_TILE_PAD, 1024,
+                       (HOME_GRID_ROWS - 1) * pitch + HG_CELL_H + 4 + DS_BAR + 2 * HG_TILE_PAD };
+    SDL_RenderSetClipRect(r, &(SDL_Rect){ clip.x, clip.y - g.gap, clip.w, clip.h + 2 * g.gap });
+    /* The focus's tile (2026-11-15: in a grid of many systems a name and its
+     * underline alone are hard to find at arm's length): **surface** behind
+     * the focused cell, the still and its name, corners radius.card (square
+     * with Square corners, as every panel), with a thumbnail's lift as the
+     * shelf grid's focused cover has (UI_LIFT_FOCUS_SMALL, in the system's
+     * color in Salt & Pepper), gliding from cell to cell with the underline */
+    {
+        SDL_Rect tile = {
+            (int)lroundf(g.x + fx * (g.cw + g.gap)) - HG_TILE_PAD,
+            (int)lroundf(g.y + (fy - top) * pitch) - HG_TILE_PAD,
+            g.cw + 2 * HG_TILE_PAD,
+            HG_CELL_H + 4 + DS_BAR + 2 * HG_TILE_PAD,
+        };
+
+        ui_lift_k(r, &tile, items[cursor].accent, UI_LIFT_FOCUS_SMALL, 1);
+        SDL_RenderSetClipRect(r, &clip);
+        ui_round_rect(r, &tile, DS_RADIUS_CARD, ui_col(theme()->surface, 255));
+    }
     for (int i = (int)floorf(top) * g.cols; i < count && i < ((int)floorf(top) + HOME_GRID_ROWS + 1) * g.cols; i++) {
         float cx = g.x + (i % g.cols) * (g.cw + g.gap) + g.cw / 2.0f;
         float y = g.y + (i / g.cols - top) * pitch;

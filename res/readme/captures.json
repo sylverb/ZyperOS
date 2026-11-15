@@ -2125,8 +2125,8 @@
         "--home",
         "grid"
       ],
-      "sha256": "a9e213d3c7d82f4b5154c9ba85e44ff1ec18c200cda202ec238bd859070e475b",
-      "source_commit": "d8038bc0342a45bcc6de7904738ead618a631851"
+      "sha256": "1c6f47cb69b071f03a7772f863f415a66714bbe4e113fa46209e3fff8b7e62fe",
+      "source_commit": "afddb4ecea000672a0cb6fe7ca22f919ebd15e3e"
     },
     {
       "file": "light/tour-home.png",
@@ -2146,8 +2146,8 @@
         "--tour-pick",
         "1"
       ],
-      "sha256": "f6ccaa5096c8d4dfae83262b93c367ce720bce263a72690c2b3e388b91c41526",
-      "source_commit": "d8038bc0342a45bcc6de7904738ead618a631851"
+      "sha256": "e6f69a73fba110902ed289874b26cbfe3aea0566fd65cd59f5952213681243e0",
+      "source_commit": "afddb4ecea000672a0cb6fe7ca22f919ebd15e3e"
     },
     {
       "file": "dark/home-grid.png",
@@ -2165,8 +2165,8 @@
         "--home",
         "grid"
       ],
-      "sha256": "4d348d844fb1565481330653a68bcd5fb55364e5aad6decc540677ca83f5ae41",
-      "source_commit": "d8038bc0342a45bcc6de7904738ead618a631851"
+      "sha256": "e446079edf45915b915305f3199c413b574f9296ab5565fb68e93ade6c814d68",
+      "source_commit": "afddb4ecea000672a0cb6fe7ca22f919ebd15e3e"
     }
   ],
   "capture_note": "Screenshots refreshed separately record their own source_commit; other screenshots use the top-level source_commit."

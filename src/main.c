@@ -1385,7 +1385,7 @@ bool g_loads_held;
 void home_items(const app *a, home_item *items)
 {
 	for (int i = 0; i < a->sys.count; i++)
-		items[i] = (home_item){ a->sys.systems[i].tag, a->sys.systems[i].name };
+		items[i] = (home_item){ a->sys.systems[i].tag, a->sys.systems[i].name, a->sys.systems[i].accent };
 }
 void prime_home(app *a)
 {

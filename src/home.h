@@ -19,7 +19,9 @@
 #define HOME_LOADER_STILL (-4)
 typedef enum { HOME_SPOTLIGHT, HOME_GALLERY, HOME_GRID } home_layout;
 #define HOME_LAYOUTS 3
-typedef struct { const char *key, *name; } home_item;
+/* A system on the home: its art's key, its name, and its color (systems.cfg's,
+ * or CFG_NO_COLOR), for the Grid's focus lift */
+typedef struct { const char *key, *name; unsigned accent; } home_item;
 typedef struct { bool active, paused; char title[128]; } home_song;
 /* `content`: the opaque texels of every pose of an atlas together, in the
  * cell's coordinates (w 0: none, the design does not move, or not an
