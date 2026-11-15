@@ -244,7 +244,6 @@ LAYOUT = [
     ("shelf-foot-y",    720, "a shelf's foot, under a game's name and its lines (the shelves, the list, Now Playing)"),
     ("page-foot-gap",   40,  "between the hints at a page's foot"),
     ("page-foot-gap-tight", 20, "...where they are wider than the page"),
-    ("page-foot-gap-pair", 48, "between Flash Drive's two hints"),
     ("page-tile-w",     472, "a page's tile, two side by side from the insets"),
     ("page-tile-h",     280, "its height"),
     ("page-tile-pad",   32,  "its words from its sides"),
