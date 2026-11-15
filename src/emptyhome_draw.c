@@ -66,8 +66,8 @@ void eh_draw(SDL_Renderer *r, const eh_state *s, eh_zyper_fn zyper)
 	card(r, s, EH_WIFI, EH_CARD_X1);
 	ui_text(r, fs, T(S_EMPTYHOME_BIOS), 512, ui_cap_y(fs, EH_BIOS_CY), 0,
 	        UI_TEXT_DIM);
-	page_hint(r, "MENU", T(S_EMPTYHOME_SETTINGS), 64, DS_PAGE_FOOT_Y, false, false);
-	if (s->music) page_hint(r, "SELECT", "MP4", 784, DS_PAGE_FOOT_Y, false, false);
+	page_hint(r, "MENU", T(S_EMPTYHOME_SETTINGS), 64, DS_FOOT_Y, false, false);
+	if (s->music) page_hint(r, "SELECT", "MP4", 784, DS_FOOT_Y, false, false);
 }
 
 /* The cheer's times, on DESIGN.md's tokens: in on **move**, the tutorial's

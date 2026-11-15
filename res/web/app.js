@@ -430,6 +430,8 @@ async function go(path, hist) {
 	 * to somebody looking for a game. */
 	entries = data.entries.sort((a, b) =>
 		(b.dir - a.dir) || a.name.localeCompare(b.name, undefined, { numeric: true }));
+	/* A pick that is no longer here (moved, deleted, renamed) is put down */
+	for (const p of selected) if (!entries.some((e) => e.path === p)) selected.delete(p);
 	draw();
 	$('tidy').hidden = !canTidy(cwd);
 	$('tidypanel').hidden = true;
@@ -546,12 +548,16 @@ function draw() {
 		li.className = 'row' + (e.dir ? ' dir' : '') + (selected.has(e.path) ? ' sel' : '');
 		li.dataset.path = e.path;
 		if (selected.size) li.setAttribute('aria-selected', selected.has(e.path) ? 'true' : 'false');
-		/* Ctrl, Cmd or Shift with a press picks the row, to drag several */
+		/* Ctrl or Cmd with a press picks the row, Shift the rows from the
+		 * last one picked; while any is picked, a press on a row is a pick */
 		li.addEventListener('click', (ev) => {
-			if (!(ev.ctrlKey || ev.metaKey || ev.shiftKey) || ev.target.closest('.iconbtn')) return;
+			const mod = ev.ctrlKey || ev.metaKey || ev.shiftKey;
+			if (!mod && !selected.size) return;
+			if (!selected.size && ev.target.closest('.iconbtn')) return;
 			ev.preventDefault();
 			ev.stopPropagation();
-			pick(e, li);
+			if (ev.shiftKey && lastPicked) pickRange(e);
+			else pick(e, li);
 		}, true);
 		li.addEventListener('pointerdown', (ev) => dragDown(ev, e, li));
 
@@ -602,6 +608,11 @@ function draw() {
 		more.setAttribute('aria-haspopup', 'menu');
 		more.onclick = () => openRowMenu(e, more, li);
 		li.append(more);
+		/* Where the ⋯ is while rows are picked: picked or not (app.css) */
+		const tick = document.createElement('span');
+		tick.className = 'tick';
+		tick.setAttribute('aria-hidden', 'true');
+		li.append(tick);
 		if (e.dir) {
 			const chev = document.createElement('span');
 			chev.className = 'chev';
@@ -640,6 +651,7 @@ function draw() {
 		}
 		ul.append(li);
 	}
+	drawPicked();
 }
 
 /* ---- menus ------------------------------------------------------------- *
@@ -740,8 +752,11 @@ function openRowMenu(e, at, row) {
 	if (e.dir) nodes.push(item(t('act.open'), 'folder', () => open(e.path)));
 	else nodes.push(item(t('act.download'), 'down', '/api/file?p=' + enc(e.path)));
 	nodes.push(item(t('act.rename'), 'pen', () => rename(e)));
-	/* Picked rows go together when one of them is dragged: on a phone, this
-	 * is how several are picked (a mouse has Ctrl or Cmd) */
+	/* A folder of the same place, walked to (moveTo): the way to move one
+	 * where a drag cannot reach, a folder that is not on the screen */
+	nodes.push(item(t('act.move_to'), 'moveto', () => moveTo([e.path])));
+	/* Picked rows go together when one of them is dragged, and the bar at
+	 * the foot moves or deletes them all (picking) */
 	nodes.push(item(selected.has(e.path) ? t('act.deselect') : t('act.select'), 'check', () => pick(e, row)));
 	nodes.push(item(t('act.delete'), 'bin', () => del(e), 'danger'));
 	openMenu(nodes, at, row);
@@ -760,19 +775,90 @@ let drag = null;            /* the press that may become a drag */
 let swallowClick = false;   /* the click a drop ends in is not a press */
 const LIFT_MS = 450;        /* a finger held this long lifts the row */
 
+/* ---- picking several (1.0.6) ------------------------------------------
+ *
+ * "tick several ROMs in the browser page and move them to another folder"
+ * (Discord, metior): once a row is picked - its menu's Select, Ctrl or Cmd
+ * with a click, a finger held on it - the list is picking. A press on a row
+ * picks or unpicks it (Shift with a click, the rows from the last one
+ * picked), each row shows a tick where its ⋯ was, and the bar at the foot
+ * says how many and holds what goes for all of them: Select all, Move to
+ * folder, Delete. Its ✕ or Escape puts them all down; so does another
+ * folder. On a computer, Ctrl or Cmd+A picks every row and Delete asks
+ * about the ones picked. */
+let lastPicked = null;
+
 function pick(e, li, on) {
 	if (on === undefined) on = !selected.has(e.path);
 	if (on) selected.add(e.path); else selected.delete(e.path);
+	lastPicked = on ? e.path : null;
+	drawPicked();
+}
+
+function pickRange(e) {
+	const from = entries.findIndex((x) => x.path === lastPicked);
+	const to = entries.findIndex((x) => x.path === e.path);
+	if (from < 0 || to < 0) return pick(e);
+	for (let i = Math.min(from, to); i <= Math.max(from, to); i++) selected.add(entries[i].path);
+	lastPicked = e.path;
+	drawPicked();
+}
+
+function pickAll() {
+	for (const e of entries) selected.add(e.path);
+	drawPicked();
+}
+
+function pickNone() {
+	selected.clear();
+	lastPicked = null;
+	drawPicked();
+}
+
+function drawPicked() {
+	const on = selected.size > 0 && !inSettings;
+	$('list').classList.toggle('picking', on);
+	$('app').classList.toggle('picking', on);
 	for (const row of document.querySelectorAll('#list li.row')) {
-		row.classList.toggle('sel', selected.has(row.dataset.path));
-		if (selected.size) row.setAttribute('aria-selected', selected.has(row.dataset.path) ? 'true' : 'false');
+		const s = selected.has(row.dataset.path);
+		row.classList.toggle('sel', s);
+		if (on) row.setAttribute('aria-selected', s ? 'true' : 'false');
 		else row.removeAttribute('aria-selected');
 	}
+	$('selbar').hidden = !on;
+	if (!on) return;
+	/* How many, and the room the files take when only files are picked */
+	const picked = entries.filter((e) => selected.has(e.path));
+	const bytes = picked.some((e) => e.dir) ? 0 : picked.reduce((n, e) => n + (e.size || 0), 0);
+	$('selcount').textContent = tn('sel.count', selected.size) + (bytes ? ' · ' + human(bytes) : '');
+	$('selall').hidden = selected.size >= entries.length;
 }
+
+$('selclear').onclick = pickNone;
+$('selall').onclick = pickAll;
+$('selmove').onclick = () => moveTo([...selected]);
+$('seldel').onclick = () => delMany([...selected]);
+
+addEventListener('keydown', (ev) => {
+	if (ev.defaultPrevented || drag || inSettings || !$('dialog').hidden || !$('movedlg').hidden ||
+	    !$('menu').hidden || !$('app').offsetParent) return;
+	if (ev.target.closest && ev.target.closest('input, textarea, select')) return;
+	const mod = ev.ctrlKey || ev.metaKey;
+	if (ev.key === 'Escape' && selected.size) {
+		ev.preventDefault();
+		pickNone();
+	} else if (mod && ev.key.toLowerCase() === 'a' && entries.length) {
+		ev.preventDefault();
+		pickAll();
+	} else if ((ev.key === 'Delete' || (ev.key === 'Backspace' && ev.metaKey)) && selected.size) {
+		ev.preventDefault();
+		delMany([...selected]);
+	}
+});
 
 function dragDown(ev, e, li) {
 	if (ev.button !== 0 || ev.target.closest('.iconbtn') || drag) return;
-	drag = { paths: selected.has(e.path) ? [...selected] : [e.path], name: e.name,
+	drag = { paths: selected.has(e.path) ? [...selected] : [e.path], name: e.name, entry: e,
 	         id: ev.pointerId, x0: ev.clientX, y0: ev.clientY, x: ev.clientX, y: ev.clientY,
 	         touch: ev.pointerType !== 'mouse', on: false, over: null, ghost: null, timer: 0 };
 	if (drag.touch) drag.timer = setTimeout(dragLift, LIFT_MS);
@@ -782,6 +868,13 @@ function dragDown(ev, e, li) {
 function dragLift() {
 	if (!drag || drag.on) return;
 	drag.on = true;
+	/* A finger held on a row picks it, as a phone's lists do: let go where
+	 * it is and it stays picked, the list picking; move and it is carried,
+	 * with the others picked */
+	if (drag.touch && !selected.has(drag.entry.path)) {
+		pick(drag.entry, null, true);
+		drag.paths = [...selected];
+	}
 	const g = document.createElement('div');
 	g.className = 'ghost';
 	g.textContent = drag.paths.length > 1 ? tn('move.count', drag.paths.length, drag.paths.length) : drag.name;
@@ -854,24 +947,189 @@ addEventListener('click', (ev) => {
 	swallowClick = false;
 }, true);
 
-/* Each into folder `to`, one at a time; what went is said, and what did not,
- * with the handheld's reason ("Contra.nes is already in Hacks") */
+/* Each into folder `to`, one at a time; what went is said, with Undo, and
+ * what did not, with the handheld's reason ("Contra.nes is already in
+ * Hacks"). The picks are put down either way. Undo moves each back to the
+ * folder it came from, by the name it has there now: the device moves a
+ * disc set's folder whole and a .cue with its tracks, back as it went. */
 async function moveAll(paths, to) {
-	let moved = 0, why = '';
+	let why = '';
+	const done = [];
 	for (const p of paths) {
 		try {
 			await api('POST', '/api/move?p=' + enc(p) + '&to=' + enc(to));
-			moved++;
-			selected.delete(p);
+			done.push({ back: p.slice(0, p.lastIndexOf('/')), at: to + '/' + nameOf(p), name: nameOf(p) });
 		} catch (err) {
 			if (err.message === 'unauthorized') return;
 			why = err.message;
 		}
 	}
-	if (moved) toast(t('move.done', nameOf(to)));
+	selected.clear();
+	lastPicked = null;
 	if (why) toast(why, true);
+	else if (done.length)
+		toast(done.length === 1 ? t('move.done_named', done[0].name, nameOf(to))
+		      : tn('move.done_n', done.length, done.length, nameOf(to)),
+		      false, { label: t('act.undo'), fn: () => moveBack(done) });
 	await go(cwd, 'none');
 }
+
+async function moveBack(done) {
+	let why = '';
+	for (const d of done) {
+		try {
+			await api('POST', '/api/move?p=' + enc(d.at) + '&to=' + enc(d.back));
+		} catch (err) {
+			if (err.message === 'unauthorized') return;
+			why = err.message;
+		}
+	}
+	toast(why || t('move.undone'), !!why);
+	await go(cwd, 'none');
+}
+
+/* ---- Move to folder (1.0.6) ---------------------------------------------
+ *
+ * The rows given, into a folder walked to in a panel of its own: the
+ * folders of the place they are in (ROMs, Music...), from the folder above
+ * theirs, so another console's folder is one press away; a folder opens,
+ * the crumbs go back up, New folder makes one there and opens it, and the
+ * button says where they go. Not into the folder they are in already, nor
+ * into one of the folders being moved. The device moves each as a drag does
+ * (/api/move: a disc set whole, a .cue with its tracks). */
+let mv = null;        /* { paths, from, at } while the panel is up */
+
+function moveTo(paths) {
+	if (!paths.length) return;
+	closeMenu(true);
+	const one = entries.find((e) => e.path === paths[0]);
+	mv = { paths, from: cwd, at: null };
+	$('movehead').textContent = paths.length > 1 ? tn('moveto.head_n', paths.length)
+		: t('moveto.head', one ? one.name : nameOf(paths[0]));
+	$('movedlg').hidden = false;
+	document.body.classList.add('held');
+	moveShow(cwd.includes('/') ? cwd.slice(0, cwd.lastIndexOf('/')) : cwd);
+}
+
+function moveClose() {
+	if (!mv) return;
+	mv = null;
+	$('movedlg').hidden = true;
+	document.body.classList.remove('held');
+	const back = $('selbar').hidden ? null : $('selmove');
+	if (back) back.focus({ preventScroll: true });
+}
+
+const inMoving = (path) => mv.paths.some((p) => path === p || path.startsWith(p + '/'));
+
+async function moveShow(path) {
+	let data;
+	try {
+		data = await (await api('GET', '/api/list?p=' + enc(path) + (showHidden ? '&hidden=1' : ''))).json();
+	} catch (err) {
+		if (err.message !== 'unauthorized') toast(err.message, true);
+		return;
+	}
+	if (!mv) return;
+	mv.at = data.path;
+	const nav = $('movecrumbs');
+	nav.textContent = '';
+	const parts = data.path.split('/');
+	parts.forEach((p, i) => {
+		const to = parts.slice(0, i + 1).join('/');
+		const label = i === 0 ? (rootOf(p) || { name: p }).name : p;
+		if (i === parts.length - 1) {
+			const h = document.createElement('span');
+			h.className = 'here';
+			h.textContent = label;
+			nav.append(h);
+			return;
+		}
+		const b = document.createElement('button');
+		b.type = 'button';
+		b.textContent = label;
+		b.onclick = () => moveShow(to);
+		const sep = document.createElement('span');
+		sep.className = 'sep';
+		sep.textContent = '›';
+		nav.append(b, sep);
+	});
+	const ul = $('movelist');
+	ul.textContent = '';
+	const dirs = data.entries.filter((e) => e.dir)
+		.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+	for (const e of dirs) {
+		const li = document.createElement('li');
+		const b = document.createElement('button');
+		b.type = 'button';
+		b.className = 'row dir';
+		/* A folder being moved is neither a place to go nor a way through */
+		b.disabled = inMoving(e.path);
+		b.append(pix(e.icon || 'FOLDER', e.color));
+		const n = document.createElement('span');
+		n.className = 'name';
+		n.textContent = e.name;
+		b.append(n);
+		if (e.path === mv.from) {
+			const tag = document.createElement('span');
+			tag.className = 'tag';
+			tag.textContent = t('moveto.this_folder');
+			b.append(tag);
+		}
+		const chev = document.createElement('span');
+		chev.className = 'chev';
+		chev.setAttribute('aria-hidden', 'true');
+		chev.textContent = '›';
+		b.append(chev);
+		b.onclick = () => moveShow(e.path);
+		li.append(b);
+		ul.append(li);
+	}
+	/* From the top of each folder; the first one, from the folder they are
+	 * in, which is where anyone looks first and the consoles beside it */
+	ul.scrollTop = 0;
+	const cur = ul.querySelector('.tag');
+	if (cur && !mv.shown) cur.closest('li').scrollIntoView({ block: 'center' });
+	mv.shown = true;
+	if (!dirs.length) {
+		const li = document.createElement('li');
+		li.className = 'none';
+		li.textContent = t('moveto.no_folders');
+		ul.append(li);
+	}
+	/* ROMs itself is no console's: a game there is on no shelf */
+	const here = mv.at === mv.from, inside = inMoving(mv.at), top = mv.at === 'roms';
+	$('movenote').textContent = here ? t('moveto.already') : inside ? t('moveto.inside')
+		: top ? t('moveto.pick_console') : '';
+	const yes = $('moveyes');
+	yes.disabled = here || inside || top;
+	yes.textContent = t('moveto.go', nameOf(mv.at));
+}
+
+$('moveno').onclick = moveClose;
+$('movedlg').addEventListener('click', (e) => { if (e.target === $('movedlg')) moveClose(); });
+$('movedlg').addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); moveClose(); } });
+$('moveyes').onclick = () => {
+	if (!mv || !mv.at) return;
+	const { paths, at } = mv;
+	moveClose();
+	moveAll(paths, at);
+};
+/* A folder made where the panel is, and opened: what is moved goes into it */
+$('movenew').onclick = async () => {
+	if (!mv || !mv.at) return;
+	const at = mv.at;
+	$('movedlg').hidden = true;
+	const name = await ask({ title: t('newfolder.head', nameOf(at)), field: '', yes: t('newfolder.make') });
+	if (!mv) return;
+	$('movedlg').hidden = false;
+	document.body.classList.add('held');
+	if (!name) return;
+	try {
+		await api('POST', '/api/mkdir?p=' + enc(at + '/' + name));
+		await moveShow(at + '/' + name);
+	} catch (err) { toast(err.message, true); }
+};
 
 /* A phone's ⋯: everything the sidebar holds but the folders. */
 $('more').addEventListener('click', () => {
@@ -995,6 +1253,48 @@ async function removeEntry(e, all) {
 		drawRoom();
 		await go(cwd, 'none');
 	} catch (err) { toast(err.message, true); }
+}
+
+/* The rows picked, deleted after one question: by name for one (del), and
+ * for several, how many and what the folders among them hold, which the
+ * device counts first. A folder that may not go whole (a console's) stops
+ * it before anything is asked, with the device's reason, as for one. */
+async function delMany(paths) {
+	const picked = entries.filter((e) => paths.includes(e.path));
+	if (!picked.length) return;
+	if (picked.length === 1) return del(picked[0]);
+	let inner = 0;
+	const full = new Set();
+	for (const e of picked) {
+		if (!e.dir) continue;
+		let c;
+		try {
+			c = await (await api('GET', '/api/count?p=' + enc(e.path))).json();
+		} catch (err) { toast(err.message, true); return; }
+		if (c.files + c.folders === 0) continue;
+		if (c.rule !== 'all') { toast(t('del.why', e.name, c.why), true); return; }
+		if (c.too_many) { toast(t('del.too_much', e.name), true); return; }
+		inner += c.files;
+		full.add(e.path);
+	}
+	const text = (full.size ? t('del.many_in', tn('del.files', inner)) + ' ' : '') + t('del.undone');
+	if (!await ask({ title: tn('del.many_head', picked.length), text, yes: t('act.delete'), danger: true }))
+		return;
+	let gone = 0, why = '';
+	for (const e of picked) {
+		try {
+			await api('POST', '/api/delete?p=' + enc(e.path) + (full.has(e.path) ? '&all=1' : ''));
+			gone++;
+			selected.delete(e.path);
+		} catch (err) {
+			if (err.message === 'unauthorized') return;
+			why = err.message;
+		}
+	}
+	if (gone) toast(t('ops.deleted'));
+	if (why) toast(why, true);
+	drawRoom();
+	await go(cwd, 'none');
 }
 
 async function newFolder() {
@@ -2597,15 +2897,37 @@ async function upRestart() {
 /* ---- toast ------------------------------------------------------------- */
 
 let toastTimer = 0;
-function toast(msg, bad) {
+/* `action`, { label, fn }: a button after the words (Undo, after a move),
+ * held three times hold-long so it can be reached, and not while the
+ * pointer is on it */
+function toast(msg, bad, action) {
 	const box = $('toast');
 	box.textContent = msg;
 	box.classList.toggle('bad', !!bad);
+	box.classList.toggle('acts', !!action);
+	if (action) {
+		const b = document.createElement('button');
+		b.type = 'button';
+		b.className = 'act';
+		b.textContent = action.label;
+		b.onclick = () => {
+			clearTimeout(toastTimer);
+			box.classList.remove('show', 'acts');
+			action.fn();
+		};
+		box.append(b);
+	}
 	box.classList.add('show');
 	clearTimeout(toastTimer);
 	/* DESIGN.md 8.2's holds: a short message, or a long one for longer */
-	toastTimer = setTimeout(() => box.classList.remove('show'),
-	                        ms(msg.length > 48 ? 'hold-long' : 'hold-short'));
+	const hold = action ? 3 * ms('hold-long') : ms(msg.length > 48 ? 'hold-long' : 'hold-short');
+	const end = () => {
+		toastTimer = setTimeout(() => {
+			if (box.matches(':hover') || box.contains(document.activeElement)) return end();
+			box.classList.remove('show', 'acts');
+		}, hold);
+	};
+	end();
 }
 
 /* A reload should not always mean re-entering the PIN: the cookie may still be

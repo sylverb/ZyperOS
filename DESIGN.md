@@ -390,9 +390,7 @@ its own says why beside it.
 | **page-line-y** | 648 | the line of marks and words over the keys |
 | **page-line-gap** | 48 | between the line's marks and words |
 | **page-line-gap-tight** | 24 | ...where they are wider than the page |
-| **page-foot-y** | 704 | the keys' middle at a page's foot |
-| **page-foot-low** | 724 | a page whose content stands over a page's foot: Cover and Video, the MP4 player |
-| **shelf-foot-y** | 720 | a shelf's foot, under a game's name and its lines (the shelves, the list, Now Playing) |
+| **foot-y** | 720 | every screen's keys: the last row's middle, 32 from the screen's foot to the glyph's (one foot since 1.0.6; pages had 704, Cover and Video 724) |
 | **page-foot-gap** | 40 | between the hints at a page's foot |
 | **page-foot-gap-tight** | 20 | ...where they are wider than the page |
 | **page-tile-w** | 472 | a page's tile, two side by side from the insets |
@@ -1003,8 +1001,8 @@ or a screen's own, a hint's capitals (Title Case in English). Under every
 question in tiles (11.18, 11.23, 11.36) and Now Playing's foot. *(I asked
 for one component to use across the UI.)*
 
-The game shelves' feet are one too since 2026-11-13, at a shelf's foot
-(720, `DS_SHELF_FOOT_Y`), spread from x 64 to
+The game shelves' feet are one too since 2026-11-13, on every screen's foot
+(720, `DS_FOOT_Y`, every screen's), spread from x 64 to
 960: B, START (List or Covers), Y when the game resumes, X. They were at
 fixed places (B 64, Y 432, X 832), with no room kept for a fourth.
 
@@ -1243,7 +1241,7 @@ of the player's own goes on from wherever the loop was.
   an optional second line in **meta** **text-dim** on y 624. A step's stage,
   glyph and lines fade in over **move**.
 - **The handheld** (a device whose profile has a drawing, the GKD Pixel 2
-  today; src/device/profile.h, `dev_tutorial_handheld`): each lesson shows
+  today; src/device/profile.h, `dev_tutorial_model`): each lesson shows
   the handheld the tutorial is running on, in a column at the left, with the lesson's
   key lit, so a player who has never seen MENU, the volume keys or POWER -
   all on its sides - finds them. *(My pick in the tutorial-buttons lab,
@@ -1255,7 +1253,13 @@ of the player's own goes on from wherever the loop was.
   leaves keeps the **inset** from the right edge instead, ending where
   "START: skip" ends (Music's line, wider than the stage, sits a little
   left of the stage's middle). On a device with no drawing yet (the Brick)
-  nothing moves and there is no handheld. src/tourdevice.c draws it in code, no image files, into a
+  nothing moves and there is no handheld. src/tourdevice.c draws it in code, no image files,
+  from the device's model (src/device/td_model.h: where each key is and on
+  which face, the views it turns to and its kept textures' boxes; the Pixel
+  2's in src/device/pixel2_model.c). A lesson's view follows from the faces
+  of the keys it lights: a key on the top edge tilts it back, keys on both
+  sides face it front with their tabs out of the edges, one side's turn it
+  to that side, and the rest face front. It draws into a
   304 x 382 texture kept while it does not change (it changes only as it
   turns, a key lights or presses, and in the first lesson's fade-in): drawn
   every frame it cost the Pixel 2 a third of the lesson's frame rate, kept
@@ -1265,10 +1269,10 @@ of the player's own goes on from wherever the loop was.
   (`--handheld-box tour`), its words clear of the inset, and the block
   moved and otherwise the Brick's, in both themes.
   - **Shared with the Controls tab** (11.28, 11.45): the tutorial's handheld
-    and the in-game menu's Controls tab draw the same Pixel 2 through
-    `td_draw`, from a pose (centre, scale, turn, tilt, each key's light and
-    press) and the theme's colors, into the one kept texture, sized for its
-    caller. The tutorial's look is the Controls tab's: a change to the model
+    and the in-game menu's Controls tab draw the same device's model
+    through `td_draw`, from a pose (the model, centre, scale, turn, tilt,
+    each key's light and press) and the theme's colors, into the one kept
+    texture, sized for its caller (the model's box for each). The tutorial's look is the Controls tab's: a change to the model
     changes both. Both tilt it back the same 25 degrees for the shoulders
     (the Controls tab's shoulder rows, the tutorial's Move Around and
     Music), the top face showing with the shoulders standing on it; every
@@ -1641,7 +1645,7 @@ Muse, so a card's saved places and modes still read.
   16:9 under the header's band (the clock, the title in its row, the marks)
   on **ground**, the same size in every language; over its foot, on
   **surface** at 92%, the bar with the time played and the time left at its
-  two ends on one row, and the keys under it on the shelf's foot. The band
+  two ends on one row, and the keys under it on every screen's foot. The band
   is as tall as the keys need: a language whose words take a second row
   makes it taller, never the picture smaller. The controls come up on any
   key, which also does what it does (the first press too, as a remote's
@@ -1809,6 +1813,41 @@ block. *(My picks in the File Transfer lab, 2026-11-05:
   folder, or one in BIOS or Saves, stays where the shelf and the cores look.
   A name already in the folder refuses the whole move, and the toast says
   which ("Contra.nes is already in Hacks").
+- **Picking several** (1.0.6, Discord: "tick several ROMs and move them to
+  another folder"): once a row is picked - **Select**, Ctrl or Cmd with a
+  press, or a finger held still for the lift's 450 ms and let go where it is -
+  the list is picking. A press on any row picks or unpicks it (Shift with a
+  press, the rows from the last one picked); a folder does not open. Each
+  row's ⋯ and › give way to a tick: a ring of **edge**, filled **accent** with
+  an **on-accent** check when picked. A bar on the **surface** with the small
+  lift is held to the foot of the window under the list (on a phone, fixed
+  where Upload is, which goes, in two lines): ✕, "3 selected · 328 KB" (the
+  size when only files are picked), Select all (gone once all are), **Move
+  to folder** in **accent** and a bin. Escape or ✕ puts them all down, as
+  another folder does; Ctrl or Cmd+A picks every row and Delete asks about
+  the picks. **Delete** asks once, with what the folders among them hold
+  (each counted by `/api/count`, the one-row rules: a console's folder stops
+  it, with why).
+- **Move to folder** (the bar, and a row's ⋯ for one): a dialog of one height
+  (600 px, 82% of a phone's height as a sheet) whatever it holds, so it does
+  not jump as folders are walked: the heading ("Move 3 items to"), crumbs,
+  the folders of the place shown as rows with their pixel art and ›, a note,
+  and New folder, Cancel and the yes, which names where ("Move to Game
+  Boy"). It opens at the folder above theirs, scrolled to their own, which
+  says "current folder"; ROMs itself, the folder they are in and any folder
+  inside one being moved are no place to go: the yes is off and the note
+  says why. A folder being moved is dimmed and cannot be walked into. New
+  folder asks for a name, makes it there and opens it. The moves are
+  `/api/move` one by one, as a drag's. After a move (a drag's too) the picks
+  go down and a toast says what went where ("Moved 3 items to Game Boy",
+  "Moved Contra.nes to Hacks") with **Undo** at its end (**text**, bold
+  and underlined: **accent-ink** misses 4.5:1 on **raised** in Beard),
+  held three times **hold-long** and not while the pointer is on it; Undo
+  moves each back to the folder it came from (a disc set's folder and a
+  `.cue` with its tracks go back as they went) and says "Moved back.". A
+  move that was refused says why instead, with no Undo. No copy: a copy is a second full copy
+  on the same card, and the page's server runs in the launcher's loop, so a
+  disc image would hold File Transfer for minutes.
 
 ### 11.16 Hotspot screen
 Wi-Fi File Transfer when the handheld is its own network (src/hotspot.h): a
@@ -1825,8 +1864,8 @@ the column at 584 and 632, two **meta** lines, the name **text-soft** and the
 value right-aligned **text-dim** at 976: Phones (`waiting`, `1 joined`) and
 Now, the transfer's news, which scrolls when it is too wide (principle 8).
 The key legend "B: close" is centered at the foot (11.4), at a page's foot
-height (704, DS_PAGE_FOOT_Y, as File Transfer's page that follows it; 718
-until 2026-11-14), "B: keep going or stop" while files move (11.23). No status corner, no Zyper. src/hotpanel.c draws it; tools/qr-check.c reads its code back.
+height (720, DS_FOOT_Y, every screen's foot; 718 until 2026-11-14, 704
+until one foot, 1.0.6), "B: keep going or stop" while files move (11.23). No status corner, no Zyper. src/hotpanel.c draws it; tools/qr-check.c reads its code back.
 
 - **The code.** One module is 12 units, half again the grid step, so the
   code is 444 units with its quiet zone of four modules: 5.5 cm on the Pixel
@@ -4134,7 +4173,10 @@ the lit one standing up out of it in the lit look; its upright edges stay
 upright. SELECT, START, keys on both sides and no keys bring it back to the
 front pose, level; a side key with a centre key leans to its side (the N64's
 d-pad and SELECT as the d-pad), and a face with a right shoulder as the face,
-level.
+level. Which side a key is on is where the device's model has it
+(`ct_lean`): on the front, left or right of the middle, SELECT and START
+within 8 mm of it being the centre; on the top edge, a shoulder left or
+right; a key on a side face is a centre key here.
 
 | What | Token and how |
 |---|---|
@@ -4224,14 +4266,11 @@ when its change lands.
 
 - A page's two-line heading is laid out three ways (`DS_HEAD_BALANCED`,
   `DS_HEAD_TWO`, `DS_HEAD_SUB`).
-- The keys at a screen's foot stand at a page's 704 (`DS_PAGE_FOOT_Y`)
-  since 1.0.6, except where a screen needs its own: the shelves, the list
-  and Now Playing at a shelf's 720, `DS_SHELF_FOOT_Y` (at 704 a two-line
-  name's system line stood 14 units over the keys, where it has 30); Cover and Video and the
-  MP4 player at 724, `DS_PAGE_FOOT_LOW` (the big view's two caption lines stand over it, and at
-  704 A's hint met the second), Now Playing over a video at 730 (under the
-  video's controls), the charging screen's larger hints at 680; Storage has
-  no keys, its caption at 702.
+- The keys on every screen stand on one foot since 1.0.6, `DS_FOOT_Y`
+  (720: the last row's middle, 32 from the screen's foot to the glyph's),
+  where a page had 704, Cover and Video and the MP4 player 724 and the
+  shelves 720. Left apart: the charging screen's larger hints at 680, and
+  Storage, which has no keys and its caption at 702.
 - The tutorial draws its bars and more marks in its own layer, at `ds_bar`'s
   and `ds_more`'s sizes. Every other bar goes through `ds_bar` or
   `ds_bar_in` (File Transfer's load and Developer Mode's hold since 1.0.6,

@@ -2130,7 +2130,7 @@ static bool lean_is(unsigned keys, float yaw, float pitch)
 {
 	float y = -99.0f, p = -99.0f;
 
-	ct_lean(keys, &y, &p);
+	ct_lean(&td_model_pixel2, keys, &y, &p);
 	return y == yaw && p == pitch;
 }
 
@@ -2425,6 +2425,14 @@ static void ctl_tab(void)
 	   "ct_lean: Applies To and Hotkeys, front");
 	ck(lean_is(1u << TD_START, 0.0f, 0.0f) && lean_is(0, 0.0f, 0.0f), "ct_lean: START alone and no keys, front");
 	ck(lean_is(1u << TD_L1 | 1u << TD_R1, 0.0f, 0.0f), "ct_lean: both sides' shoulders, front");
+	ck(lean_is(1u << TD_MENU, 0.0f, 0.0f) && lean_is(1u << TD_F1 | 1u << TD_F2, 0.0f, 0.0f),
+	   "ct_lean: a side face's key, and keys the Pixel 2 has not, front");
+	{
+		float y = -99.0f, p = -99.0f;
+
+		ct_lean(NULL, 1u << TD_A, &y, &p);
+		ck(y == 0.0f && p == 0.0f, "ct_lean: no model, front");
+	}
 	ck(lean_is(1u << TD_L1 | 1u << TD_SELECT, -CT_LEAN_DEG, CT_PITCH_DEG),
 	   "ct_lean: a shoulder with a centre key leans to its side and shows the top");
 	ck(lean_is(1u << TD_A | 1u << TD_R2, CT_LEAN_DEG, 0.0f), "ct_lean: a face with a right shoulder, no pitch");

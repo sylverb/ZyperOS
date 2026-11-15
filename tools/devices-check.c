@@ -72,9 +72,9 @@ static void pixel2(void)
 	ck(p->chords.bright == DEV_BRIGHT_MENU_VOL && p->chords.menu_on_release &&
 	   p->chords.lr2_taps && p->chords.home_chord && p->chords.battery_chord,
 	   "pixel2: brightness on MENU+VOL, MENU on release, L2/R2 taps, Home, battery");
-	ck(p->handheld && !p->bluetooth && p->gpu_shaders && p->speaker_mono && p->player2 &&
+	ck(p->model == &td_model_pixel2 && !p->bluetooth && p->gpu_shaders && p->speaker_mono && p->player2 &&
 	   p->usb_shared_port && p->wifi == DEV_WIFI_ADAPTER,
-	   "pixel2: handheld, no Bluetooth, GPU shaders, one speaker, Player 2, a shared port, adapter Wi-Fi");
+	   "pixel2: its own model, no Bluetooth, GPU shaders, one speaker, Player 2, a shared port, adapter Wi-Fi");
 	ck(menu && !strcmp(menu->label, "MENU") && menu->cap == DEV_CAP_ROUND && menu->icon == DEV_ICON_DOTS,
 	   "pixel2: MENU is the round key with three dots");
 	ck(!dev_button_of(p, IN_BRIGHTUP) && !dev_button_of(p, IN_BRIGHTDN),
@@ -97,9 +97,9 @@ static void brick(void)
 	ck(p->chords.bright == DEV_BRIGHT_KEYS && !p->chords.menu_on_release &&
 	   !p->chords.lr2_taps && !p->chords.home_chord && !p->chords.battery_chord,
 	   "brick: brightness on its own keys, no chords of the Pixel 2's");
-	ck(!p->handheld && p->bluetooth && !p->gpu_shaders && !p->speaker_mono && !p->player2 &&
+	ck(!p->model && p->bluetooth && !p->gpu_shaders && !p->speaker_mono && !p->player2 &&
 	   !p->usb_shared_port && p->wifi == DEV_WIFI_BUILTIN,
-	   "brick: no handheld yet, Bluetooth, CPU shaders, two speakers, no Player 2, built-in Wi-Fi");
+	   "brick: no model yet, Bluetooth, CPU shaders, two speakers, no Player 2, built-in Wi-Fi");
 	ck(menu && !strcmp(menu->label, "MENU") && menu->icon == DEV_ICON_NONE,
 	   "brick: MENU is the word (no vendor mark as an icon)");
 	ck(label_is(p, IN_BRIGHTDN, "F1") && label_is(p, IN_BRIGHTUP, "F2"),
@@ -113,7 +113,7 @@ static void desktop(void)
 	ck(!strcmp(p->id, "desktop") && !strcmp(p->userdata, "brick"),
 	   "desktop: its id, and the Brick's folder the host has always used");
 	ck(!memcmp(&p->chords, &b->chords, sizeof p->chords), "desktop: the Brick's chords");
-	ck(p->handheld && p->bluetooth && p->gpu_shaders && !p->speaker_mono && !p->player2 &&
+	ck(p->model == &td_model_pixel2 && p->bluetooth && p->gpu_shaders && !p->speaker_mono && !p->player2 &&
 	   !p->usb_shared_port && p->wifi == DEV_WIFI_BUILTIN,
 	   "desktop: today's host answers (the Pixel 2's art and shaders, the Brick's rest)");
 }
@@ -155,6 +155,45 @@ static void unlock(void)
 	ck(!dev_l2r2_held(br, true, true, false, false), "brick: taps it has none of do not");
 }
 
+/* The tutorial's handheld: the Pixel 2's own beside its lessons; the
+ * desktop's only with the Pixel 2's chords (--fn-volume), not with the
+ * Brick's F1 and F2 it teaches; none on the Brick yet */
+static void tutorial(void)
+{
+	const device_profile *px = &device_profile_pixel2, *br = &device_profile_brick;
+	const device_profile *dk = &device_profile_desktop;
+	const dev_chords fn = dev_chords_fn_volume(dk->chords);
+
+	ck(dev_tutorial_model(px, &px->chords) == &td_model_pixel2, "pixel2: the tutorial draws its model");
+	ck(!dev_tutorial_model(br, &br->chords) && !dev_tutorial_model(br, &fn), "brick: no model to draw yet");
+	ck(!dev_tutorial_model(dk, &dk->chords), "desktop: none beside F1 and F2");
+	ck(dev_tutorial_model(dk, &fn) == &td_model_pixel2, "desktop: the Pixel 2's with --fn-volume");
+}
+
+/* Where a button is, for the design system: the Pixel 2's model's places;
+ * none for a key it has not, nor on the Brick until it has a model */
+static void places(void)
+{
+	const device_profile *px = &device_profile_pixel2, *br = &device_profile_brick;
+	td_face f = TD_FACE_TOP;
+	float x = 0.0f, z = 0.0f;
+
+	ck(dev_button_place(px, IN_ACCEPT, &f, &x, &z) && f == TD_FACE_FRONT && x == 23.6f && z == -21.5f,
+	   "pixel2: A on the front at (23.6, -21.5)");
+	ck(dev_button_place(px, IN_MENU, &f, &x, &z) && f == TD_FACE_RIGHT && x == -1.54f && z == 17.13f,
+	   "pixel2: MENU on the right side at (-1.54, 17.13)");
+	ck(dev_button_place(px, IN_UP, &f, &x, &z) && f == TD_FACE_FRONT && x == -16.9f && z == -21.0f,
+	   "pixel2: up is the d-pad's place");
+	ck(dev_button_place(px, IN_L2, &f, &x, &z) && f == TD_FACE_TOP && x == -12.6f,
+	   "pixel2: L2 on the top edge, left of the middle");
+	f = TD_FACE_TOP; x = z = 7.0f;
+	ck(!dev_button_place(px, IN_BRIGHTUP, &f, &x, &z) && f == TD_FACE_TOP && x == 7.0f && z == 7.0f,
+	   "pixel2: no brightness key, and nothing set");
+	ck(!dev_button_place(px, IN_NONE, &f, &x, &z) && !dev_button_place(px, IN_COUNT, &f, &x, &z),
+	   "no place for no button");
+	ck(!dev_button_place(br, IN_ACCEPT, &f, &x, &z), "brick: no places until it has a model");
+}
+
 static void choosing(void)
 {
 	ck(plat_profile() == &device_profile_desktop, "the host starts as desktop");
@@ -188,6 +227,8 @@ int main(void)
 	desktop();
 	answers();
 	unlock();
+	tutorial();
+	places();
 	choosing();
 	if (fails) {
 		printf("devices: %d of %d checks failed\n", fails, checks);

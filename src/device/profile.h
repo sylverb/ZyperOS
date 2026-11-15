@@ -25,6 +25,7 @@
 #include <stdint.h>
 
 #include "../inbutton.h"
+#include "td_model.h"   /* td_model: a handheld's 3D drawing */
 
 /* How brightness is changed: keys of its own (the Brick's F1 and F2), or
  * MENU with a volume key, on a device that has none (the Pixel 2) */
@@ -81,7 +82,9 @@ typedef struct device_profile {
 	dev_chords        chords;
 	const dev_button *buttons;
 	int               n_buttons;
-	bool handheld;           /* a 3D handheld to draw (the Pixel 2's for now) */
+	/* Its 3D drawing for the tutorial and the Controls tab (td_model.h),
+	 * NULL where it has none yet: never another device's */
+	const td_model *model;
 	bool bluetooth;
 	bool gpu_shaders;        /* Diatom's old screens are a GPU's pass here */
 	bool speaker_mono;       /* one built-in speaker */
@@ -108,16 +111,22 @@ const device_profile *plat_profile_at(int i);
 void plat_profile_ids(char *out, size_t n);
 /* `b` as `p` prints it, or NULL where `p` has no such control */
 const dev_button *dev_button_of(const device_profile *p, in_button b);
+/* Where `b` is on `p`'s handheld, as its model has it (td_model.h: the face
+ * in *face, (x, z) on it in *x and *z): the d-pad for its four directions,
+ * F1 and F2 for brightness down and up. False, and nothing set, where `p`
+ * has no model or its model has no such key. For the design system, which
+ * points at a key where it is. */
+bool dev_button_place(const device_profile *p, in_button b, td_face *face, float *x, float *z);
 /* `base` with the Pixel 2's brightness chord, MENU on release and Home: the
  * shots' --fn-volume, which shows those screens on the host as the Pixel 2
  * has them until the shots wear --device pixel2 (step 5 of the device spec) */
 dev_chords dev_chords_fn_volume(dev_chords base);
-/* Whether the tutorial draws `p`'s handheld beside its lessons, with chords
- * `c`: where there is one and brightness is MENU+VOL. The second half is for
- * the host's desktop profile alone, which borrows the Pixel 2's drawing for
- * the Controls tab but teaches the Brick's F1 and F2; it goes when the Brick
- * gets a drawing of its own (step 5). */
-bool dev_tutorial_handheld(const device_profile *p, const dev_chords *c);
+/* The handheld the tutorial draws beside its lessons for `p` with chords
+ * `c`, NULL for none: `p`'s model where brightness is MENU+VOL. The second
+ * half is for the host's desktop profile alone, which borrows the Pixel 2's
+ * drawing for the Controls tab but teaches the Brick's F1 and F2; it goes
+ * when the Brick gets a drawing of its own (step 5). */
+const td_model *dev_tutorial_model(const device_profile *p, const dev_chords *c);
 /* L2 and R2 both held this moment, for Developer Mode's unlock: as taps where
  * the chords say they are taps (`tap_l2`, `tap_r2`: plat_tap_held), as the
  * buttons' own state everywhere else (`down_l2`, `down_r2`: in_state) */

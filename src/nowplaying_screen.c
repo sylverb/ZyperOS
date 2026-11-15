@@ -11,7 +11,7 @@
 #include "panel.h"
 #include "topbar.h"
 #include "ui.h"
-#include "ds/layout.h"   /* DS_SHELF_FOOT_Y */
+#include "ds/layout.h"   /* DS_FOOT_Y */
 #include "ds/mark.h"     /* ds_bar_in */
 #include "uisound.h"
 #include "zyperdraw.h"
@@ -709,14 +709,14 @@ static int np_hint_list(key_hint *h, bool playing, int kind, int count, bool vid
  * (page_hint: a glyph and a word), spread from x 64 to 960, a row that does
  * not fit its language's words going on to a second one above it, never cut
  * (DESIGN.md 12). `cy` is the last row's middle (0 for a shelf's foot,
- * DS_SHELF_FOOT_Y), `alpha` how much of it shows. */
+ * DS_FOOT_Y, every screen's), `alpha` how much of it shows. */
 static void np_hints(SDL_Renderer *r, bool playing, int kind, int count, int cy,
                      bool video, Uint8 alpha)
 {
 	key_hint h[KEYHINTS_MAX];
 	int n = np_hint_list(h, playing, kind, count, video);
 
-	if (!cy) cy = DS_SHELF_FOOT_Y;
+	if (!cy) cy = DS_FOOT_Y;
 	keyhints_draw(r, h, n, NPV_X, ZYPEROS_SCREEN_W - NPV_X, cy, KEYHINTS_SPREAD, true, alpha);
 }
 
@@ -753,7 +753,7 @@ static void np_player_layout(np_player *L, const key_hint *h, int n, const char 
 	 * spread as keyhints_draw spreads them */
 	rows = keyhints_rows(h, n, ZYPEROS_SCREEN_W - 2 * NPV_X, KEYHINTS_GAP_SPREAD, keyhints_width, start);
 	if (rows < 1) rows = 1;
-	L->keys_cy = DS_SHELF_FOOT_Y;
+	L->keys_cy = DS_FOOT_Y;
 	keys_top = L->keys_cy - DS_HINT_GLYPH / 2 - (rows - 1) * KEYHINTS_ROW;
 	/* The bar's row over them, and the band from its top to the foot */
 	row_y = keys_top - NPV_BAR_GAP - NPV_BAR_ROW;
