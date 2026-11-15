@@ -473,6 +473,20 @@ button {
 	transition: width var(--t-quick) linear;
 }
 .job.failed .bar span { background: var(--warning); }
+/* A file waiting for the handheld (app.js, resuming): its bar, and the whole
+ * queue's, in text-dim - kept, not moving - fading slowly while motion is
+ * on; and under the list, what to do about it */
+.xfer.paused .bar span, .job.paused .bar span, .dock.paused .bar span { background: var(--text-dim); }
+.job.paused .p { color: var(--text-soft); }
+.qacts { display: flex; gap: 8px; }
+.qacts .btn { min-height: 36px; padding: 0 14px; font-size: var(--fs-meta); }
+.menu .qx { display: grid; gap: 10px; padding: 0 12px 10px; }
+.menu .qx:empty { display: none; }
+.menu .qx p { color: var(--text-soft); font-size: var(--fs-meta); }
+@media (prefers-reduced-motion: no-preference) {
+	.job.paused .bar span { animation: kept var(--t-zyper-breathe) var(--ease-turn) infinite alternate; }
+}
+@keyframes kept { from { opacity: 1; } to { opacity: .55; } }
 
 .ssh { display: grid; gap: 8px; padding: 0 10px; }
 .ssh p { color: var(--text-dim); font-size: var(--fs-meta); }

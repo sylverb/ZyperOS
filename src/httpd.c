@@ -61,6 +61,10 @@ struct httpd_req {
 	httpd_body_mode mode;
 	char  sink[XFER_PATH_MAX];
 	FILE *sink_f;
+	/* httpd_want_body_at: where the body starts in the sink, and the sink
+	 * kept when the request breaks */
+	long long sink_at;
+	bool  sink_keep;
 	char *mem;                  /* HTTPD_BODY_MEM, malloc'd */
 	size_t mem_len;
 	long  body_got;
@@ -79,6 +83,7 @@ struct httpd_req {
 
 	/* --- bookkeeping --------------------------------------------------- */
 	int    tag;                 /* the handler's own, see httpd_set_tag */
+	unsigned idle_ms;           /* httpd_set_idle, or 0: IDLE_MS */
 	bool   seen;                /* the handler has been called for it */
 	bool   ended;               /* httpd_end has been told */
 };
@@ -142,6 +147,7 @@ static const char *status_text(int s)
 	case 413: return "Payload Too Large";
 	case 429: return "Too Many Requests";
 	case 500: return "Internal Server Error";
+	case 503: return "Service Unavailable";
 	case 507: return "Insufficient Storage";
 	default:  return "Error";
 	}
@@ -214,6 +220,32 @@ void httpd_want_body(httpd_req *r, httpd_body_mode mode, const char *sink_path)
 	if (mode == HTTPD_BODY_FILE && sink_path)
 		snprintf(r->sink, sizeof r->sink, "%s", sink_path);
 }
+
+bool httpd_want_body_at(httpd_req *r, const char *sink_path, long long at)
+{
+	int fd;
+
+	if (at < 0 || snprintf(r->sink, sizeof r->sink, "%s", sink_path) >= (int)sizeof r->sink)
+		return false;
+	/* Opened now, not at the first byte as HTTPD_BODY_FILE's is: the end
+	 * past `at` goes whether or not a byte follows (a trailer of a broken
+	 * try, say), and a file that cannot be opened is refused before the
+	 * body, not with it. No O_TRUNC: the first `at` bytes are the point. */
+	fd = open(r->sink, O_WRONLY | O_CREAT | O_CLOEXEC, 0666);
+	if (fd < 0) return false;
+	if (ftruncate(fd, (off_t)at) != 0 || lseek(fd, (off_t)at, SEEK_SET) != (off_t)at ||
+	    !(r->sink_f = fdopen(fd, "wb"))) {
+		close(fd);
+		return false;
+	}
+	r->mode = HTTPD_BODY_FILE;
+	r->sink_at = at;
+	r->sink_keep = true;
+	return true;
+}
+
+long httpd_body_got(const httpd_req *r) { return r->body_got; }
+void httpd_set_idle(httpd_req *r, unsigned ms) { r->idle_ms = ms; }
 
 /* ---- writing a response --------------------------------------------- */
 
@@ -509,8 +541,12 @@ static void req_reset(httpd_req *r)
 		 * name in the interface for the thing standing in the way. The route
 		 * renames the part-file into place on success, so by the time a
 		 * completed request gets here this path is already gone and the
-		 * remove is a no-op. */
-		remove(r->sink);
+		 * remove is a no-op.
+		 *
+		 * Unless it is kept for the next request to go on from
+		 * (httpd_want_body_at): then the route that keeps it is the one that
+		 * removes it, when nobody goes on (src/hare.c). */
+		if (!r->sink_keep) remove(r->sink);
 	}
 	if (r->resp_f)   fclose(r->resp_f);
 	free(r->mem);
@@ -546,6 +582,22 @@ static void hand_over(conn *c)
 	c->fd = -1;
 	c->st = C_FREE;
 	fn(fd, ctx);
+}
+
+/* Another request, ended now (httpd.h): marked ended first, so no httpd_end
+ * is said for it, then closed as any connection is */
+void httpd_drop(httpd_req *r)
+{
+	int i;
+
+	for (i = 0; i < MAX_CONN; i++) {
+		conn *c = &g_conn[i];
+
+		if (c->fd < 0 || &c->r != r) continue;
+		r->ended = true;
+		conn_close(c);
+		return;
+	}
 }
 
 /* Split the header block in place into NUL-separated lines, and pull out what
@@ -974,8 +1026,8 @@ bool httpd_body_progress(long long *got, long long *total)
 		const conn *c = &g_conn[i];
 
 		if (c->fd < 0 || c->st != C_BODY || c->r.mode != HTTPD_BODY_FILE) continue;
-		*got += c->r.body_got;
-		*total += c->r.content_len;
+		*got += c->r.sink_at + c->r.body_got;
+		*total += c->r.sink_at + c->r.content_len;
 	}
 	return *total > 0;
 }
@@ -1084,7 +1136,7 @@ int httpd_poll(httpd_handler fn, httpd_end end, void *ctx)
 		 * which is exactly the shape that gets blamed on the test harness -
 		 * and was, twice, before the server was traced instead of reasoned
 		 * about. */
-		if (now_ms32() - c->last_ms > IDLE_MS) {
+		if (now_ms32() - c->last_ms > (c->r.idle_ms ? c->r.idle_ms : IDLE_MS)) {
 			end_request(c, false, end, ctx);
 			conn_close(c);
 		}

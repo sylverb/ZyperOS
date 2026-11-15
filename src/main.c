@@ -8015,7 +8015,9 @@ static void xs_tick(app *a)
 		bool guessed = hare_wrong_pins() >= XS_WRONG_MAX;
 
 		if ((hare_closing() && hare_inflight() == 0) || g_xs.hot_failed || guessed ||
-		    (g_xs.link_lost_at && now - g_xs.link_lost_at > XS_LINK_MS) ||
+		    /* the link gone, or with an upload paused (hare_paused) as long
+		     * as the page waits for it to come back */
+		    (g_xs.link_lost_at && now - g_xs.link_lost_at > (hare_paused() ? HARE_PAUSE_MS : XS_LINK_MS)) ||
 		    (quiet && hare_quiet_ms() > XS_QUIET_MS)) {
 			fprintf(stderr, "xfer: closed behind the shelf (%s)\n",
 			        hare_closing() ? "after the files" : g_xs.hot_failed ? "the hotspot stopped"
@@ -8245,7 +8247,7 @@ const char *xs_row_value(void)
 {
 	if (!g_xs.on) return NULL;
 	if (hare_closing()) return T(S_XFER_ROW_CLOSING);
-	if (g_xs.st.uploads > 0) return T(S_XFER_ROW_RECEIVING);
+	if (g_xs.st.uploads > 0 || g_xs.st.paused > 0) return T(S_XFER_ROW_RECEIVING);
 	if (g_xs.st.sends > 0) return T(S_XFER_ROW_SENDING);
 	return T(S_XFER_ROW_ON);
 }
@@ -8312,8 +8314,10 @@ void xs_end(void)
 /* The tiles (g_move) from the session as it is now */
 static void xs_move_now(void)
 {
-	xs_move_set(g_xs.flow, g_xs.st.uploads > 0 ? g_xs.st.up_got : 0,
-	            g_xs.st.uploads > 0 ? g_xs.st.up_total : 0);
+	/* a paused upload's bar where it stopped (hare_status) */
+	bool up = g_xs.st.uploads > 0 || g_xs.st.paused > 0;
+
+	xs_move_set(g_xs.flow, up ? g_xs.st.up_got : 0, up ? g_xs.st.up_total : 0);
 }
 
 /* Play after this file's wait (xs_before_game), on the page: its line,
@@ -8410,10 +8414,12 @@ static int xs_ask(app *a, const char *heading, const char *const *labels, const 
 		for (i = 0; i < n; i++) rows[i] = (menu_row){ labels[i], NULL, true };
 		if (g_xs.st.file[0])
 			snprintf(sub, sizeof sub,
-			         T(g_xs.st.uploads > 0 ? S_XFER_RECEIVING : S_XFER_SENDING), g_xs.st.file);
+			         T(g_xs.st.uploads > 0 || g_xs.st.paused > 0 ? S_XFER_RECEIVING : S_XFER_SENDING),
+			         g_xs.st.file);
 		else
 			snprintf(sub, sizeof sub, "%s",
-			         T(g_xs.st.uploads > 0 ? S_XFER_RECEIVING_A_FILE : S_XFER_SENDING_A_FILE));
+			         T(g_xs.st.uploads > 0 || g_xs.st.paused > 0 ? S_XFER_RECEIVING_A_FILE
+			                                                         : S_XFER_SENDING_A_FILE));
 		snprintf(line, sizeof line, what[sel],
 		         g_xs.st.file[0] ? g_xs.st.file : T(S_XFER_THE_FILE));
 		rows[n]     = MENU_NOTE(sub);
@@ -8488,6 +8494,7 @@ bool xs_before_game(app *a)
 	}
 	/* Cancel and play (2), or nothing was moving (-2): closed for the game,
 	 * the shelf read again after it if anything arrived */
+	if (c == 2) hare_drop_paused();
 	xs_stop(a, false);
 	if (c == -2) {
 		menu_row row = { T(S_XFER_CLOSED_FOR_GAME), NULL, false };
@@ -8700,7 +8707,11 @@ void xfer_screen_way(app *a, int way)
 
 				if (!a->running || !g_xs.on) return;
 				if (c == 1) { hare_close_after(); done = false; }  /* the screen closes it */
-				else if (c == 2 || c == -2) stop = true;
+				else if (c == 2 || c == -2) {
+					/* Cancel now: a paused upload's part with the rest */
+					if (c == 2) hare_drop_paused();
+					stop = true;
+				}
 				/* 0 or B: keep going, hidden */
 			}
 		}
@@ -13675,8 +13686,10 @@ static void shot_compose(app *a)
 		 * session's numbers over Wi-Fi (--hare-move): nothing moving after
 		 * a file came in, a file coming in (its bar at 62%), one going
 		 * out, both, closing after the one coming in, Play after this
-		 * file's wait, and Wi-Fi gone with the totals kept. `now` is the
-		 * Now row's words for the file (shot_hare_head). */
+		 * file's wait, Wi-Fi gone with the totals kept, and Wi-Fi gone in
+		 * the middle of a file, paused with its part kept (its bar at 58%,
+		 * hare_paused). `now` is the Now row's words for the file
+		 * (shot_hare_head). */
 		static const struct {
 			const char *state;
 			bool on[2];
@@ -13691,6 +13704,7 @@ static void shot_compose(app *a)
 			{ "closing", { true, false },  { 2400000ull, 0 },          840, S_XFER_CLOSING_AFTER },
 			{ "finish",  { true, false },  { 2400000ull, 0 },          840, S_XFER_FINISHING },
 			{ "gone",    { false, false }, { 0, 0 },                   -1,  S_HARE_RECEIVED },
+			{ "paused",  { false, false }, { 0, 0 },                   580, S_HARE_PAUSED },
 		};
 		int m = 1, k;
 		xs_flow flow[2] = { { 186000000ull, 0, 0, 0, false }, { 41000000ull, 0, 0, 0, false } };
@@ -13723,14 +13737,15 @@ static void shot_compose(app *a)
 			ui_scrim(a->r, 0);
 			xs_page_show(a, XFER_NAME_WIFI, rows, xs_finish_rows(rows, now, sizeof now, shot_hare_head));
 		} else {
-			const bool gone = m == 6;
+			const bool gone = m == 6 || m == 7;
 
 			hare_preview(a, gone ? "" : "zyperos.local", gone ? T(S_XFER_WIFI_GONE) : shot_hare_addr,
 			             "4071", shot_hare_who,
 			             /* the cable's address is USB File Transfer, with SSH */
 			             !strcmp(shot_hare_addr, "10.42.0.1") ? "1 signed in" : NULL, now,
 			             m == 4 ? S_KEYHINT_HIDE
-			             : MV[m].on[0] || MV[m].on[1] ? S_KEYHINT_KEEP_GOING_OR_STOP : S_KEYHINT_CLOSE);
+			             : MV[m].on[0] || MV[m].on[1] || m == 7 ? S_KEYHINT_KEEP_GOING_OR_STOP
+			             : S_KEYHINT_CLOSE);
 		}
 	} else if (shot_hot)
 		hot_preview(a, shot_hot_ssid, shot_hot_pass, shot_hot_phones, shot_hot_now);

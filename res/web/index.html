@@ -61,6 +61,14 @@
       <p id="queueleft" class="eta" hidden></p>
       <div id="queuetotal" class="bar total" hidden><span id="queuebar"></span></div>
       <ul id="queuelist"></ul>
+      <!-- A file waiting for the handheld (app.js, resuming): the address to
+           check after a while with no answer, and Stop sending; once it gave
+           up, Try again. -->
+      <p id="queuecheck" class="eta stopping" hidden></p>
+      <div id="queueacts" class="qacts" hidden>
+        <button id="queuestop" type="button" class="btn" data-t="queue.stop" hidden></button>
+        <button id="queueretry" type="button" class="btn pri" data-t="queue.retry" hidden></button>
+      </div>
     </section>
     <!-- USB File Transfer only: SSH over the same cable, with the PIN. -->
     <section id="ssh" class="ssh" hidden>

@@ -457,7 +457,16 @@ On a network, that driver's power saving is off: with it on, this chip is
 known to drop off some routers over and over. Each join and each drop, with
 the reason the network or the adapter gave, goes in
 `.userdata/pixel2/logs/wifi.log`, which File Transfer's **Download logs**
-packs with the other logs.
+packs with the other logs. While joined, the signal goes there too: its
+strength, speed and channel every minute and when it changes a lot, and at
+each drop the last one seen, so a log says whether the adapter was on a weak
+signal when it lost the network.
+
+A drop in the middle of joining used to count as a wrong password: the
+network then stayed off for 10 seconds, and longer each time it happened
+again. A network that already joined with its password now tries again at
+once instead, one time for each join, so a password that really changed
+still waits as before.
 
 On the Play Time screen, **left and right** change the window - all time, this
 year, this month, this week, today - and **Y** switches between one row per
