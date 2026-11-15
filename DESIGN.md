@@ -355,6 +355,7 @@ its own says why beside it.
 | **page-line-gap-tight** | 24 | ...where they are wider than the page |
 | **page-foot-y** | 704 | the keys' middle at a page's foot |
 | **page-foot-low** | 724 | a page whose content stands over a page's foot: Cover and Video, the MP4 player |
+| **shelf-foot-y** | 720 | a shelf's foot, under a game's name and its lines (the shelves, the list, Now Playing) |
 | **page-foot-gap** | 40 | between the hints at a page's foot |
 | **page-foot-gap-tight** | 20 | ...where they are wider than the page |
 | **page-foot-gap-pair** | 48 | between Flash Drive's two hints |
@@ -923,8 +924,8 @@ or a screen's own, a hint's capitals (Title Case in English). Under every
 question in tiles (11.18, 11.23, 11.36) and Now Playing's foot. *(I asked
 for one component to use across the UI.)*
 
-The game shelves' feet are one too since 2026-11-13, at a page's foot (704
-since 1.0.6, 720 before), spread from x 64 to
+The game shelves' feet are one too since 2026-11-13, at a shelf's foot
+(720, `DS_SHELF_FOOT_Y`), spread from x 64 to
 960: B, START (List or Covers), Y when the game resumes, X. They were at
 fixed places (B 64, Y 432, X 832), with no room kept for a fourth.
 
@@ -4102,7 +4103,9 @@ when its change lands.
 - A page's two-line heading is laid out three ways (`DS_HEAD_BALANCED`,
   `DS_HEAD_TWO`, `DS_HEAD_SUB`).
 - The keys at a screen's foot stand at a page's 704 (`DS_PAGE_FOOT_Y`)
-  since 1.0.6, except where a screen needs its own: Cover and Video and the
+  since 1.0.6, except where a screen needs its own: the shelves, the list
+  and Now Playing at a shelf's 720, `DS_SHELF_FOOT_Y` (at 704 a two-line
+  name's system line stood 14 units over the keys, where it has 30); Cover and Video and the
   MP4 player at 724, `DS_PAGE_FOOT_LOW` (the big view's two caption lines stand over it, and at
   704 A's hint met the second), Now Playing over a video at 730 (under the
   video's controls), the charging screen's larger hints at 680; Storage has

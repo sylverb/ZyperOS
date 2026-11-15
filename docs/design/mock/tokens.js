@@ -134,6 +134,7 @@ window.ZYPER_TOKENS = {
     "page-line-gap-tight": 24,
     "page-foot-y": 704,
     "page-foot-low": 724,
+    "shelf-foot-y": 720,
     "page-foot-gap": 40,
     "page-foot-gap-tight": 20,
     "page-foot-gap-pair": 48,
