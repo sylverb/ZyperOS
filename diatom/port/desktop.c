@@ -603,6 +603,10 @@ void diatom_port_level_invalidate(void) { }
 /* No device UI drawn over the game on a desktop: the window is for iteration,
  * and the host half of the low-battery state is tested through its answers. */
 void diatom_port_low_battery(bool on, bool blink) { (void)on; (void)blink; }
+void diatom_port_power_hold(bool on, unsigned ms, unsigned at, bool done)
+{
+	(void)on; (void)ms; (void)at; (void)done;
+}
 
 /* Nothing to drain: this port presents synchronously inside
  * diatom_port_present - SDL_RenderPresent has returned by the time it does,

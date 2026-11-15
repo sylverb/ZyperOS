@@ -5126,10 +5126,12 @@ int main(int argc, char *argv[])
 		/* The game under the cursor deleted as Delete Game's yes deletes it,
 		 * then the shot: the shelf after, and what went on stderr */
 		else if (!strcmp(argv[i], "--delete-now")) shot_delete_now = 1;
-		/* --osd volume|brightness LEVEL: the settings bar at that level, on
-		 * top of the rest of the shot. */
+		/* --osd volume|brightness|power LEVEL: the settings bar at that
+		 * level, on top of the rest of the shot; power is POWER's hold, LEVEL
+		 * segments of OSDBAR_POWER_STEPS lit (MENU > Power Button on Hold). */
 		else if (!strcmp(argv[i], "--osd") && i + 2 < argc) {
-			shot_osd_kind = !strcmp(argv[i + 1], "brightness") ? 1 : 2;
+			shot_osd_kind = !strcmp(argv[i + 1], "brightness") ? OSDBAR_BRIGHT
+			              : !strcmp(argv[i + 1], "power") ? OSDBAR_POWER : OSDBAR_VOLUME;
 			shot_osd_val = atoi(argv[i + 2]);
 			i += 2;
 		}
@@ -6133,6 +6135,7 @@ int main(int argc, char *argv[])
 	}
 	system_order_load();
 	system_order_apply(&a.sys);
+	power_button_load();
 
 	/* Before the scan, because the scan builds the Favorites shelf out of
 	 * them and a shelf cannot be built from a list that has not been read. */
