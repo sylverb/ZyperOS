@@ -551,6 +551,8 @@ beside a cubic one. One function each, in `src/design.h`.)*
 | **move** | 160 | out | a card step, a panel opening |
 | **exit** | 140 | in | a panel closing |
 | **turn** | 300 | turn | the tutorial details panel |
+| **spin** | 900 | turn | the 3D handheld turning from its front to its back or back again, where the keys lit are on both |
+| **hold-spin** | 1800 | - | the 3D handheld held on its front or its back before it turns to the other |
 | **launch** | 190 | in | a card zooming into its game |
 | **fade-out** | 200 | fade | the bar, a notice going away |
 | **hold-bar** | 1500 | - | the bar after the last press |
@@ -1329,7 +1331,11 @@ of the player's own goes on from wherever the loop was.
   2's in src/device/pixel2_model.c, the Brick's in src/device/
   brick_model.c). A lesson's view follows from the faces
   of the keys it lights: a key on a back ledge turns it round to its back,
-  a key on the top edge tilts it back, keys on both
+  and with keys off the ledge too (the Brick's d-pad with L1 and R1, SELECT
+  with L2 and R2) it shows their view first and then turns round to the
+  back and back again, held **hold-spin** on each and turned in **spin** on
+  the turn curve, both sets lit all the while (td_swing), as no one view
+  shows both; a key on the top edge tilts it back, keys on both
   sides face it front with their tabs out of the edges, one side's turn it
   to that side, and the rest face front. It draws into a texture of its
   model's size (the Pixel 2's 304 x 382, the Brick's 256 x 334)
@@ -4325,11 +4331,13 @@ level. Which side a key is on is where the device's model has it
 within 8 mm of it being the centre (11 mm on the Brick, where MENU, F1 and
 F2 are the middle too); on the top edge, a shoulder left or right; a key on
 a side face is a centre key here. The Brick's shoulders are on its back
-ledge, which no front pose shows: a row lighting any of them, alone, with
-another shoulder or with a centre key, turns it round to its back view (160
-degrees, tilted back 20), the same for all four, so a step from one
-shoulder's row to the next only moves the light; with a front key it leans
-as that key does. The pose's size and turn are the model's (the Pixel 2 at
+ledge, which no front pose shows: a row lighting any of them, alone or
+with another shoulder, turns it round to its back view (160 degrees, tilted
+back 20), the same for all four, so a step from one shoulder's row to the
+next only moves the light. With a front key, a centre key too, it leans as
+that key does and then turns round to the back view and back again, as the
+tutorial's lessons do (`ct_spin`, **hold-spin** and **spin**), so both keys
+show; a step to another such row with the same lean keeps the turn going. The pose's size and turn are the model's (the Pixel 2 at
 3.15 units a millimetre, the Brick as tall at 2.3, both turned 10), and so
 is the kept texture's box.
 

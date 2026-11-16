@@ -9,9 +9,12 @@
  * 2026-11-15-brick-front-step5.md): its outline, its keys on their faces at
  * their places and sizes, the shoulders on the back ledge, and the back
  * view that shows them. No SDL. */
+#include <math.h>
+#include <stdbool.h>
 #include <stdio.h>
 
 #include "../src/device/td_model.h"
+#include "../src/design.h"
 
 static int fails, checks;
 
@@ -127,6 +130,37 @@ static void brick(void)
 	   "brick: its kept boxes (--handheld-box holds them)");
 }
 
+/* td_swing: held on the front, turned round, held on the back, turned
+ * back, and again; td_spins only with keys on the back ledge and off it */
+static void spin(void)
+{
+	const int h = DS_MS_HOLD_SPIN, s = DS_MS_SPIN;
+	float last = 0.0f;
+	bool steps = true;
+	int ms;
+
+	ck(td_swing(-50) == 0.0f && td_swing(0) == 0.0f && td_swing(h) == 0.0f,
+	   "td_swing: on the front, before and through its first hold");
+	ck(td_swing(h + s / 2) == 0.5f && td_swing(h + s) == 1.0f && td_swing(2 * h + s) == 1.0f,
+	   "td_swing: half way round at half the turn, on the back through its hold");
+	ck(td_swing(2 * h + s + s / 2) == 0.5f && td_swing(2 * (h + s)) == 0.0f &&
+	   td_swing(2 * (h + s) + h + s) == 1.0f, "td_swing: back again, and the same round after");
+	/* No jump anywhere: a few milliseconds never move it more than a turn's step */
+	for (ms = 0; ms <= 4 * (h + s); ms += 5) {
+		const float k = td_swing(ms);
+
+		if (k < 0.0f || k > 1.0f || fabsf(k - last) > 0.02f) steps = false;
+		last = k;
+	}
+	ck(steps, "td_swing: between 0 and 1, and smooth, every 5 ms of two rounds");
+	ck(td_spins(&td_model_brick, 1u << TD_DPAD | 1u << TD_L1) &&
+	   td_spins(&td_model_brick, 1u << TD_SELECT | 1u << TD_R2), "td_spins: the Brick's front keys with a shoulder");
+	ck(!td_spins(&td_model_brick, 1u << TD_L1 | 1u << TD_R1) && !td_spins(&td_model_brick, 1u << TD_DPAD) &&
+	   !td_spins(&td_model_brick, 0), "td_spins: shoulders alone, front keys alone, or nothing");
+	ck(!td_spins(&td_model_pixel2, 1u << TD_DPAD | 1u << TD_L1) && !td_spins(NULL, 1u << TD_L1),
+	   "td_spins: the Pixel 2's shoulders are on its top, no model is none");
+}
+
 int main(void)
 {
 	const td_model *m = &td_model_pixel2;
@@ -164,6 +198,7 @@ int main(void)
 		   "pixel2: no key on a ledge, its back view the front");
 	}
 	brick();
+	spin();
 	if (fails) {
 		printf("model: %d of %d checks failed\n", fails, checks);
 		return 1;

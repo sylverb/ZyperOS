@@ -2446,12 +2446,14 @@ static void ctl_tab(void)
 	m.face_offered = ctl_letter_layout("DC", &m.letters);
 	ck(lean_is(ct_lit(&m, CT_FACE), CT_LEAN_DEG, 0.0f), "ct_lean: Face Buttons lean right, no pitch");
 
-	/* ct_lean on the Brick: its front's keys as the Pixel 2's; its shoulders,
-	 * on the back ledge no front pose shows, turn it round to its back view
-	 * (off the tab's front pose), whichever side they are on */
+	/* ct_lean on the Brick: its front's keys as the Pixel 2's; its shoulders
+	 * alone, on the back ledge no front pose shows, turn it round to its back
+	 * view (off the tab's front pose), whichever side they are on; with other
+	 * keys, the others' lean, turning to the back and back again (ct_spin) */
 	{
 		const td_model *b = &td_model_brick;
 		const float back = b->back.deg - b->tab.deg, tilt = b->back.pitch;
+		float sy = 0.0f, sp = 0.0f;
 
 		ck(back > 140.0f && tilt > 0.0f, "ct_lean: the Brick's back view is turned round and tilted");
 		ck(brick_lean_is(1u << TD_DPAD, -CT_LEAN_DPAD_DEG, 0.0f) && brick_lean_is(1u << TD_Y, CT_LEAN_DEG, 0.0f) &&
@@ -2461,12 +2463,20 @@ static void ctl_tab(void)
 		ck(brick_lean_is(1u << TD_L1, back, tilt) && brick_lean_is(1u << TD_L2, back, tilt) &&
 		   brick_lean_is(1u << TD_R2, back, tilt) && brick_lean_is(1u << TD_R1, back, tilt),
 		   "ct_lean: each of the Brick's shoulders, the back view");
-		ck(brick_lean_is(1u << TD_L1 | 1u << TD_R1, back, tilt) && brick_lean_is(1u << TD_L2 | 1u << TD_SELECT, back, tilt),
-		   "ct_lean: the Brick's shoulders on both sides, or with a centre key, the back view");
+		ck(brick_lean_is(1u << TD_L1 | 1u << TD_R1, back, tilt),
+		   "ct_lean: the Brick's shoulders on both sides, the back view");
+		ck(!ct_spin(b, 1u << TD_L1 | 1u << TD_R1, &sy, &sp) && !ct_spin(b, 1u << TD_A, &sy, &sp),
+		   "ct_spin: shoulders alone, or front keys alone, do not spin");
+		ck(brick_lean_is(1u << TD_L2 | 1u << TD_SELECT, 0.0f, 0.0f) &&
+		   ct_spin(b, 1u << TD_L2 | 1u << TD_SELECT, &sy, &sp) && sy == back && sp == tilt,
+		   "ct_lean: a shoulder with a centre key, the front, spinning round to the back");
 		ck(brick_lean_is(1u << TD_A | 1u << TD_R2, CT_LEAN_DEG, 0.0f) &&
 		   brick_lean_is(1u << TD_DPAD | 1u << TD_L1, -CT_LEAN_DPAD_DEG, 0.0f) &&
-		   brick_lean_is(1u << TD_B | 1u << TD_L1, CT_LEAN_DEG, 0.0f),
-		   "ct_lean: a front key with the Brick's shoulders leans as the front key, level");
+		   brick_lean_is(1u << TD_B | 1u << TD_L1, CT_LEAN_DEG, 0.0f) &&
+		   ct_spin(b, 1u << TD_A | 1u << TD_R2, &sy, &sp) && ct_spin(b, 1u << TD_DPAD | 1u << TD_L1, &sy, &sp),
+		   "ct_lean: a front key with the Brick's shoulders leans as the front key, level, and spins");
+		ck(!ct_spin(&td_model_pixel2, 1u << TD_A | 1u << TD_R2, &sy, &sp),
+		   "ct_spin: the Pixel 2's shoulders show from the front: no spin");
 	}
 
 	/* The steps, round the choices, and Nothing */

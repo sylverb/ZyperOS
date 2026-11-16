@@ -207,6 +207,14 @@ window.ZYPER_TOKENS = {
       "ms": 300,
       "curve": "turn"
     },
+    "spin": {
+      "ms": 900,
+      "curve": "turn"
+    },
+    "hold-spin": {
+      "ms": 1800,
+      "curve": "-"
+    },
     "launch": {
       "ms": 190,
       "curve": "in"

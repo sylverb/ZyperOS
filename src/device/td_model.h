@@ -73,6 +73,20 @@ typedef struct td_model {
 /* `k` on `m`, or NULL where `m` has no such key */
 const td_part *td_part_of(const td_model *m, td_key k);
 
+/* Whether the keys `lit` (1u << td_key) of `m` are on its back ledge and
+ * off it: no one view shows both, so the handheld turns between the view
+ * of the others and its back, front first (td_swing) */
+bool td_spins(const td_model *m, unsigned lit);
+
+/* How far round from the front view to the back, 0 to 1, `ms` after the
+ * handheld came to rest on its front (0 before): held there for
+ * **hold-spin**, turned in **spin** on the turn curve, held on its back,
+ * turned back, and again, for as long as the keys stay lit */
+float td_swing(int ms);
+
+/* `a` to `b`, `k` of the way: the turn, the size and the tilt together */
+td_view td_view_mix(td_view a, td_view b, float k);
+
 extern const td_model td_model_pixel2;
 extern const td_model td_model_brick;
 
