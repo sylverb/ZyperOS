@@ -46,7 +46,6 @@ art.sg_no_answer
 audio.wired
 audio.bluetooth
 audio.usb
-audio.mono
 audio.mono_left
 audio.mono_right
 
@@ -71,7 +70,6 @@ bt.forgotten
 bt.not_unpaired
 
 # btlink: no shot draws it yet
-btlink.connected
 btlink.paired
 btlink.in_range
 btlink.pair_refused
@@ -82,14 +80,7 @@ btlink.not_address
 
 # btmenu: no shot draws it yet
 btmenu.no_adapter
-btmenu.turn_on_boot
-btmenu.turn_on
 btmenu.searching
-btmenu.search
-btmenu.turn_off_search
-btmenu.disconnect
-btmenu.connect
-btmenu.pair
 
 # charging: no shot draws it yet
 charging.wall
@@ -118,10 +109,8 @@ cheevos.to_earn
 cheevos.all_earned
 cheevos.unlocked_points.one
 cheevos.unlocked
-cheevos.mastered
 cheevos.progress
 cheevos.ra_user
-cheevos.unchecked_said
 
 # clock: no shot draws it yet
 clock.month_jan
@@ -149,10 +138,8 @@ clock.short_nov
 clock.short_dec
 clock.am
 clock.pm
-clock.label_12h
 
 # controls: no shot draws it yet
-controls.battery
 controls.show_keypad
 controls.disk_side
 controls.eject_disk
@@ -165,7 +152,6 @@ controls.y_right
 controls.y_down
 controls.y_up
 controls.return
-controls.c_buttons
 controls.two_screens
 controls.strafe_left
 controls.strafe_right
@@ -174,7 +160,6 @@ controls.next_weapon
 controls.map
 
 # corner: no shot draws it yet
-corner.time_min
 corner.time_h
 corner.time_h_min
 corner.held
@@ -222,12 +207,8 @@ hare.waiting
 hare.signed_in
 hare.wrong_pin
 hare.locked
-hare.receiving
-hare.received
-hare.sending
 hare.sent
 hare.failed
-hare.paused
 hare.have
 hare.made
 hare.renamed
@@ -284,8 +265,6 @@ hare.match_first
 heat.head
 
 # home: no shot draws it yet
-home.favorites
-home.system
 home.audio
 home.no_artwork
 
@@ -297,7 +276,6 @@ launch.needs_bios
 launch.couldnt_start
 
 # library: no shot draws it yet
-library.favorites
 library.scanning
 
 # lights: no shot draws it yet
@@ -305,7 +283,6 @@ lights.bar
 lights.low
 lights.level
 lights.done
-lights.all_on
 
 # lowbatt: no shot draws it yet
 lowbatt.charging
@@ -345,14 +322,10 @@ muse.hint_chapter
 muse.row_playing
 muse.row_paused
 muse.paused_note
-muse.art_starting
 muse.art_all_crisp
-muse.art_done
 muse.art_albums
-muse.art_covers
 muse.art_counts
 muse.art_counts_failed
-muse.art_stop
 
 # musiclib: no shot draws it yet
 musiclib.sort_artist
@@ -365,11 +338,9 @@ musiclib.art_no_network
 panel.order_release
 panel.battery_percentage
 panel.battery_time
-panel.side_lights
 panel.signing_in
 panel.signed_in_as
 panel.sign_in_failed
-panel.b_stop
 
 # playtime: no shot draws it yet
 playtime.total.one
@@ -379,8 +350,6 @@ playtime.detail.one
 playtime.detail.other
 playtime.lost.one
 playtime.lost.other
-playtime.hint_by_system
-playtime.hint_by_game
 
 # portload: no shot draws it yet
 portload.starting_a_minute
@@ -405,7 +374,6 @@ ra.sign_in_no_token
 # scraper: no shot draws it yet
 scraper.complete
 scraper.names_n.one
-scraper.on
 scraper.key_refused
 scraper.ss_user
 scraper.ss_no_key
@@ -443,7 +411,6 @@ shelf.list_sep
 # slots: no shot draws it yet
 slots.save_to
 slots.empty
-slots.when
 slots.am
 slots.pm
 slots.jan
@@ -482,7 +449,6 @@ ss.sign_in_not_saved
 # ssh: no shot draws it yet
 ssh.dev_image
 ssh.locked
-ssh.not_with_wifi
 
 # stats: no shot draws it yet
 stats.all_time
@@ -491,7 +457,6 @@ stats.this_month
 stats.this_week
 stats.today_window
 stats.never
-stats.mins_secs
 stats.today
 stats.yesterday
 stats.days_ago
@@ -525,12 +490,10 @@ sysmenu.hotspot
 sysmenu.clock_12h
 sysmenu.auto_off_never
 sysmenu.charge_limit
-sysmenu.side_lights
 sysmenu.order_release
 sysmenu.battery_percent
 sysmenu.battery_time
 sysmenu.dslang
-sysmenu.dslang_auto
 sysmenu.muse_books
 sysmenu.muse_albums
 sysmenu.muse_author
@@ -552,7 +515,6 @@ sysmenu.sg_key
 sysmenu.sg_not_checked
 sysmenu.sg_note_get
 sysmenu.sg_note_paste
-sysmenu.size_kb
 
 # sysupdate: no shot draws it yet
 sysupdate.no_program
@@ -566,7 +528,6 @@ sysupdate.send_files_first
 sysupdate.none_ready
 
 # tour: no shot draws it yet
-tour.bright.line
 tour.power.note_done
 tour.finish.lines
 tour.finish.go
@@ -575,7 +536,6 @@ tour.cheer.woof
 tour.cheer.perfect
 tour.cheer.good_one
 tour.cheer.saved
-tour.wrong
 tour.wrong.hold_menu
 tour.wrong.chord
 tour.key.volume
@@ -650,18 +610,13 @@ wifimenu.saved
 wifimenu.turn_on
 wifimenu.none_found
 wifimenu.scanning
-wifimenu.legend_forget
-wifimenu.legend
 
 # xfer: no shot draws it yet
 xfer.dev_link_on
 xfer.hotspot_failed
 xfer.could_not_start
 xfer.closing_after_this_file
-xfer.legend_moving
-xfer.legend_hide
 xfer.cable_unplugged
-xfer.row_on
 xfer.row_receiving
 xfer.row_sending
 xfer.row_closing
@@ -672,16 +627,13 @@ xfer.stop_after_says
 xfer.half_deleted
 xfer.the_file
 xfer.play_after_says
-xfer.finishing
 xfer.finishing_the_file
-xfer.b_back_to_shelf
 xfer.closed_for_game
 xfer.hotspot_stopped
 xfer.scanning
 xfer.key_removed
 xfer.err_memory
 xfer.err_could_not_say
-controls.home
 # keyhint: the words of button hints that were text legends listed here (Bluetooth, Wi-Fi, Play Time,
 # Date & Time, Album Art, File Transfer while files move); no shot draws those screens yet
 keyhint.turn_on_boot
@@ -697,10 +649,6 @@ keyhint.turn_off  # Bluetooth's toggle row legend (src/bt_menu.c), and no shot d
 keyhint.by_game
 keyhint.window
 keyhint.by_system
-keyhint.change
-keyhint.keep_going_or_stop
-keyhint.hide
-keyhint.back_to_shelf
 
 # gamemenu: each display mode's caption under the Display row is drawn wrapped
 # to the panel, two lines (src/ingame_screen.c, src/sysmenu_screen.c), and a

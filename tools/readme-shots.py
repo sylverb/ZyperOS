@@ -53,6 +53,9 @@ import urllib.request
 import zlib
 
 ROOT=Path(__file__).resolve().parents[1]
+# The handheld the README shows, as its own profile draws it (src/device/
+# pixel2_profile.c): its keys, rows and words, the Pixel 2's and no other's
+DEVICE='pixel2'
 # The demonstration library: well-known games on the systems the home shows,
 # as empty files, each with the libretro-thumbnails name its art is filed
 # under (--art). folder: [(the file on the card, libretro's name)]
@@ -947,7 +950,7 @@ def main():
                 status=[] if name.startswith('tour-') else ['--status',STATUS.get(name,'10:08 24h wifi=off batt=82')]
                 # {card} is where this run's temporary card is; the manifest keeps the word
                 command=[str(binary),'--shot',str(target),'--theme',theme,
-                         '--screen','systems','--phase','3200',*status,'--fn-volume',*[f.replace('{card}',str(card)).replace('{art}',str(args.art_cache)) for f in flags]]
+                         '--screen','systems','--phase','3200',*status,'--device',DEVICE,*[f.replace('{card}',str(card)).replace('{art}',str(args.art_cache)) for f in flags]]
                 if backdrop and name in BACKDROP: command+=['--backdrop',str(backdrop)]
                 set_favs(card,SHOT_FAVS.get(name,[]),True)
                 set_settings(card,SHOT_SETTINGS.get(name),True)
