@@ -544,8 +544,8 @@ EXTRA.setdefault("system-menu-strength", ("demo", "PS1", ["--screen", "games", "
 SHOT_SETTINGS["system-menu-strength"] = {"shader.PS1": "scanlines", "shader_strength.PS1": "20"}
 EXTRA.setdefault("menu-strength", ("demo", "PS1", ["--menu", "Strength"]))
 SHOT_SETTINGS["menu-strength"] = {"shader": "crt", "shader_strength.PS1": "60"}
-SHOT_SETTINGS["screen-colors-vivid"] = {"screen_contrast": "1", "screen_vivid": "1"}
-SHOT_SETTINGS["screen-colors-custom"] = {"screen_night": "3", "screen_contrast": "2"}
+SHOT_SETTINGS["screen-colors-vivid"] = {"screen_contrast": "1", "screen_vivid": "1", "screen_saturation": "1"}
+SHOT_SETTINGS["screen-colors-custom"] = {"screen_night": "3", "screen_contrast": "2", "screen_saturation": "2"}
 
 # The in-game menu's Controls tab (src/ctltab.c), beside the handheld: its
 # end (Reset Buttons, Hotkeys), a button's choices, the system over a game

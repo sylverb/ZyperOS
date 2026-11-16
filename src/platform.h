@@ -408,14 +408,19 @@ void plat_backlight_dim(bool dim);
  * Nothing where there is no such table. */
 void plat_display_plain(void);
 /* The player's Screen Colors (MENU > Display > Screen Colors,
- * src/panelgamma.h): Night Light 0 to 5, Contrast 0 to 2, and Vivid's
- * deeper shadows. The Pixel 2 puts them in the display's gamma table now
- * (one frame's blink, as every table change) and leaves them in
- * PANELGAMMA_COLOR_FILE, where Diatom and portkeys read them for the tables
- * they write. plat_settings_init reads the saved ones (the settings
- * "screen_night", "screen_contrast", "screen_vivid"). Nothing where the
- * profile has no table. */
-void plat_screen_colors(int night, int contrast, bool vivid);
+ * src/panelgamma.h): Night Light 0 to 5, Contrast 0 to 2, Vivid's deeper
+ * shadows, and Saturation 0 to 2. The Pixel 2 puts the first three in the
+ * display's gamma table now (one frame's blink, as every table change) and
+ * leaves them in PANELGAMMA_COLOR_FILE, where Diatom and portkeys read them
+ * for the tables they write; Saturation goes to the display controller's
+ * BCSH block (plastron's kernel patch, SCREEN_SATURATION_FILE), which
+ * keeps it for every program. plat_settings_init reads the saved ones (the
+ * settings "screen_night", "screen_contrast", "screen_vivid",
+ * "screen_saturation"). Nothing where the profile has no table. */
+void plat_screen_colors(int night, int contrast, bool vivid, int saturation);
+/* Whether the kernel has the Saturation knob: the Saturation row shows only
+ * then (a system image without plastron's BCSH patch has none) */
+bool plat_screen_saturation_here(void);
 /* Headphones and the speaker want different volume ladders - the jack covers
  * 61 dB where the speaker covers 45 - so the level has to be re-applied when a
  * plug goes in or comes out, not merely at the next volume press. Call from a

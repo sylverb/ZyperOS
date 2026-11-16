@@ -15,7 +15,7 @@ ja = 画面の色
 it = Colori dello schermo
 
 [screen.look]
-note = A row of the Screen Colors page: a ready-made set of Contrast (and, later, Saturation), Standard or Vivid; Custom when a row was changed by hand
+note = A row of the Screen Colors page: a ready-made set of Contrast and Saturation, Standard or Vivid; Custom when a row was changed by hand
 en = Look
 zh-Hans = 风格
 es = Estilo
@@ -37,7 +37,7 @@ ja = 標準
 it = Standard
 
 [screen.vivid]
-note = The look with more contrast and deeper shadows, for a punchier picture
+note = The look with more contrast, stronger colors and deeper shadows, for a punchier picture
 en = Vivid
 zh-Hans = 鲜艳
 es = Vívido
@@ -48,7 +48,7 @@ ja = 鮮やか
 it = Vivace
 
 [screen.custom]
-note = The look's value when the player changed Contrast by hand, so it is neither Standard nor Vivid
+note = The look's value when the player changed Contrast or Saturation by hand, so it is neither Standard nor Vivid
 en = Custom
 zh-Hans = 自定义
 es = Personalizado
@@ -90,3 +90,14 @@ fr = Normal
 de = Normal
 ja = 標準
 it = Normale
+
+[screen.saturation]
+note = A row of the Screen Colors page: how strong the colors are. Its value is screen.normal, +1 or +2. Shown only where the system has the display's saturation control
+en = Saturation
+zh-Hans = 饱和度
+es = Saturación
+pt-BR = Saturação
+fr = Saturation
+de = Sättigung
+ja = 彩度
+it = Saturazione

@@ -641,16 +641,19 @@ static void auto_hours_screen(app *a)
 }
 
 /* ---- Screen Colors (src/panelgamma.h) -----------------------------------
- * The whole screen's colors, in the display's own table: Night Light apart,
- * and the look - Standard (nothing changed, as it ships), Vivid (Contrast +1
- * and deeper shadows), or Custom once Contrast is moved by hand. Each step
+ * The whole screen's colors, in the display's own table and its BCSH block
+ * (Saturation): Night Light apart, and the look - Standard (nothing changed,
+ * as it ships), Vivid (Contrast +1, Saturation +1 and deeper shadows), or
+ * Custom once Contrast or Saturation is moved by hand. Each step
  * is applied at once, so the page itself shows it (one frame's blink, as
  * every table change); screenshots never do, being taken before the table.
  * Kept in the device's database (the four "screen_" settings), which
  * plat_settings_init reads at every start. */
 typedef enum { SC_STANDARD, SC_VIVID, SC_CUSTOM } sc_look;
-typedef struct { int night, contrast, vivid; } sc_state;
-enum { SC_LOOK, SC_NIGHT, SC_CONTRAST, SC_ROWS };
+typedef struct { int night, contrast, vivid, saturation; } sc_state;
+/* Saturation last, and only where the kernel has its knob */
+enum { SC_LOOK, SC_NIGHT, SC_CONTRAST, SC_SAT, SC_ROWS };
+#define SC_SAT_MAX 2
 
 static sc_state sc_load(void)
 {
@@ -659,6 +662,8 @@ static sc_state sc_load(void)
 	s.night = db_get_int(db_dev(), "screen_night", 0);
 	s.contrast = db_get_int(db_dev(), "screen_contrast", 0);
 	s.vivid = db_get_int(db_dev(), "screen_vivid", 0) ? 1 : 0;
+	s.saturation = db_get_int(db_dev(), "screen_saturation", 0);
+	if (s.saturation < 0 || s.saturation > SC_SAT_MAX) s.saturation = 0;
 	if (s.night < 0 || s.night > PANELGAMMA_NIGHT_MAX) s.night = 0;
 	if (s.contrast < 0 || s.contrast > PANELGAMMA_CONTRAST_MAX) s.contrast = 0;
 	return s;
@@ -666,8 +671,8 @@ static sc_state sc_load(void)
 
 static sc_look sc_look_of(const sc_state *s)
 {
-	if (!s->contrast && !s->vivid) return SC_STANDARD;
-	if (s->contrast == 1 && s->vivid) return SC_VIVID;
+	if (!s->contrast && !s->vivid && !s->saturation) return SC_STANDARD;
+	if (s->contrast == 1 && s->vivid && s->saturation == 1) return SC_VIVID;
 	return SC_CUSTOM;
 }
 
@@ -686,10 +691,11 @@ static void sc_save(const sc_state *s)
 	db_set_int(db_dev(), "screen_night", s->night);
 	db_set_int(db_dev(), "screen_contrast", s->contrast);
 	db_set_int(db_dev(), "screen_vivid", s->vivid);
-	plat_screen_colors(s->night, s->contrast, s->vivid);
+	db_set_int(db_dev(), "screen_saturation", s->saturation);
+	plat_screen_colors(s->night, s->contrast, s->vivid, s->saturation);
 }
 
-static const unsigned char SC_SOUND[SC_ROWS] = { MENU_SND_RING, MENU_SND_RING, MENU_SND_RING };
+static const unsigned char SC_SOUND[SC_ROWS] = { MENU_SND_RING, MENU_SND_RING, MENU_SND_RING, MENU_SND_RING };
 static menu_choice g_sc_choice[SC_ROWS];
 
 int sc_build(void *ctx, menu_row *rows, int max, const char **heading)
@@ -720,10 +726,14 @@ int sc_build(void *ctx, menu_row *rows, int max, const char **heading)
 	                                       .labels = nights };
 	g_sc_choice[SC_CONTRAST] = (menu_choice){ .n = PANELGAMMA_CONTRAST_MAX + 1,
 	                                          .cur = (unsigned char)s.contrast, .labels = cons };
+	g_sc_choice[SC_SAT] = (menu_choice){ .n = SC_SAT_MAX + 1, .cur = (unsigned char)s.saturation,
+	                                     .labels = cons };
 	*heading = T(S_SCREEN_TITLE);
 	rows[SC_LOOK]     = (menu_row){ T(S_SCREEN_LOOK), looks[l], true };
 	rows[SC_NIGHT]    = (menu_row){ T(S_SCREEN_NIGHT_LIGHT), nights[s.night], true };
 	rows[SC_CONTRAST] = (menu_row){ T(S_SCREEN_CONTRAST), cons[s.contrast], true };
+	if (!plat_screen_saturation_here()) return SC_SAT;
+	rows[SC_SAT]      = (menu_row){ T(S_SCREEN_SATURATION), cons[s.saturation], true };
 	return SC_ROWS;
 }
 
@@ -744,6 +754,7 @@ static menu_result sc_key(app *a, void *ctx, in_button key, int sel)
 		else l = l == SC_STANDARD ? SC_VIVID : SC_STANDARD;
 		s.contrast = l == SC_VIVID;
 		s.vivid = l == SC_VIVID;
+		s.saturation = l == SC_VIVID;
 		break;
 	}
 	case SC_NIGHT:
@@ -753,6 +764,10 @@ static menu_result sc_key(app *a, void *ctx, in_button key, int sel)
 		/* By hand: Vivid's shadows go with it, and the look reads what
 		 * the row now makes */
 		s.contrast = (s.contrast + d + PANELGAMMA_CONTRAST_MAX + 1) % (PANELGAMMA_CONTRAST_MAX + 1);
+		s.vivid = 0;
+		break;
+	case SC_SAT:
+		s.saturation = (s.saturation + d + SC_SAT_MAX + 1) % (SC_SAT_MAX + 1);
 		s.vivid = 0;
 		break;
 	}

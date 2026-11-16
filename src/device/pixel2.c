@@ -1080,7 +1080,30 @@ static void screen_colors_share(void)
 		fprintf(stderr, "settings: could not write %s\n", PANELGAMMA_COLOR_FILE);
 }
 
-void plat_screen_colors(int night, int contrast, bool vivid)
+/* Saturation: the BCSH block's knob on each of the PX30's two display
+ * controllers (plastron's kernel patch 9-px2-px30-vop-bcsh-saturation),
+ * 256 the picture as drawn. The panel's is the VOP-B; the VOP-L takes the
+ * same value in its own units. Kept by the kernel for every program after. */
+#define SCREEN_SATURATION_FILE "/sys/devices/platform/ff460000.vop/saturation"
+#define SCREEN_SATURATION_LIT  "/sys/devices/platform/ff470000.vop/saturation"
+static const int screen_saturation_step[3] = { 256, 294, 333 };   /* 1.0, 1.15, 1.30 */
+
+bool plat_screen_saturation_here(void)
+{
+	return access(SCREEN_SATURATION_FILE, W_OK) == 0;
+}
+
+static void screen_saturation_apply(int level)
+{
+	char text[8];
+
+	snprintf(text, sizeof text, "%d\n", screen_saturation_step[clampi(level, 0, 2)]);
+	if (access(SCREEN_SATURATION_FILE, W_OK) != 0) return;
+	write_file(SCREEN_SATURATION_FILE, text);
+	write_file(SCREEN_SATURATION_LIT, text);
+}
+
+void plat_screen_colors(int night, int contrast, bool vivid, int saturation)
 {
 	screen_color.night = night;
 	screen_color.contrast = contrast;
@@ -1088,6 +1111,7 @@ void plat_screen_colors(int night, int contrast, bool vivid)
 	panelgamma_color_clamp(&screen_color);
 	screen_colors_share();
 	display_gamma("Screen Colors");
+	screen_saturation_apply(saturation);
 }
 
 static void apply_brightness(int b)
@@ -1151,6 +1175,7 @@ void plat_settings_init(void)
 	screen_color.vivid = db_get_int(db_dev(), "screen_vivid", 0);
 	panelgamma_color_clamp(&screen_color);
 	screen_colors_share();
+	screen_saturation_apply(db_get_int(db_dev(), "screen_saturation", 0));
 	usb_volume_create();
 	if (cur_vol >= 0) apply_volume(cur_vol);
 	apply_brightness(cur_bright);
@@ -1185,6 +1210,8 @@ void plat_display_plain(void)
 	int n;
 
 	if (drm_fd < 0 || !display_held) return;
+	/* Saturation too: the program after this one sees the panel plain */
+	screen_saturation_apply(0);
 	n = panelgamma_clear(drm_fd);
 	if (n > 0)
 		fprintf(stderr, "video: the display's gamma table emptied for the program after this one\n");

@@ -4058,23 +4058,25 @@ in Display says "7:00 AM to 7:00 PM". A theme the change turns turns at
 once. *(My pick, 2026-11-12.)*
 
 **Screen Colors** (MENU > Display, its last row; the Pixel 2 only,
-`plat_screen_colors_here`) is a page of three rows under a picture of a grey
+`plat_screen_colors_here`) is a page of four rows under a picture of a grey
 ramp in sixteen steps and a hue ramp: **Look** (Standard, Vivid, and Custom
-while a row below was moved by hand), **Night Light** (Off, 1 to 5) and
-**Contrast** (Normal, +1, +2). The row in Display says the look. The colors
+while a row below was moved by hand), **Night Light** (Off, 1 to 5),
+**Contrast** (Normal, +1, +2) and **Saturation** (Normal, +1, +2: 115% and
+130%). The row in Display says the look. The colors
 are the whole screen's, the shelf's and every game's and port's, made by the
 display's gamma table (src/panelgamma.h) over the dimming of the two bottom
 brightness rungs (11.6): Night Light takes green and blue down in light
 (level 3: white is 255, 241, 213), Contrast is an S about the middle (white,
-black and mid grey kept), and Vivid is Contrast +1 with the shadows a little
-deeper. Standard changes nothing and puts no table on the display at all, as
+black and mid grey kept), Saturation is the display controller's BCSH block
+(plastron's kernel patch 9-px2-px30-vop-bcsh-saturation; no row on a system
+image without it), and Vivid is Contrast +1 and Saturation +1 with the
+shadows a little deeper. Standard changes nothing and puts no table on the display at all, as
 before: colors change only when the player asks, because the one change
 ZyperOS made for everyone (1.0.4's correction) took the warmth out of every
 game. Each step is applied at once, with the one-frame blink of a table load.
 Screenshots and the pictures of save states never show it, being taken
 before the table; nor do the boot splash's first second and USB Drive's
-screen. Night Light is apart from the look: a look keeps it. Saturation is
-next, by the display's BCSH block through a kernel patch. *(Asked for on the
+screen. Night Light is apart from the look: a look keeps it. *(Asked for on the
 Discord; the page approved by Tarik, 2026-11-16: "All approved.")*
 
 ### 11.43 Player 2
