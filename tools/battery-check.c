@@ -5,8 +5,11 @@
  * result wastes draws at every poll. Reading capacity on each charger poll
  * wastes gauge reads. Exercise the production cache against those failures.
  * This models published kernel readings, not hardware propagation or SDL
- * presentation time. No device, SDL, radio commands or real-time sleeps. */
+ * presentation time. No device, SDL, radio commands or real-time sleeps.
+ * Then the rule both devices read the charger by (src/charging_rule.h): the
+ * cable's online decides, the battery's status only where there is none. */
 #include "../src/battery_poll.h"
+#include "../src/charging_rule.h"
 
 #include <stdio.h>
 
@@ -125,8 +128,32 @@ static void capacity_and_errors(void)
 	CHECK(b.valid && b.pct == 2, "capacity did not recover");
 }
 
+/* The charger-online rule. Online 0 is off the charger whatever the status
+ * says; online 1 is on it whatever the status says, as rk817 says
+ * Discharging on the cable with a full battery (the Pixel 2's 2026-11-04);
+ * with no online answer, Charging or Full is on it and anything else is not. */
+static void charger_rule(void)
+{
+	CHECK(!charging_from(0, "Charging\n"), "online 0 but Charging: on the charger");
+	CHECK(!charging_from(0, "Full\n"), "online 0 but Full: on the charger");
+	CHECK(!charging_from(0, NULL), "online 0, no status: on the charger");
+	CHECK(charging_from(1, "Discharging\n"), "online 1 but Discharging: off the charger");
+	CHECK(charging_from(1, "Full\n"), "online 1 and Full: off the charger");
+	CHECK(charging_from(1, NULL), "online 1, no status: off the charger");
+	CHECK(charging_from(-1, "Charging\n"), "no online, Charging: off the charger");
+	CHECK(charging_from(-1, "Full"), "no online, Full: off the charger");
+	CHECK(!charging_from(-1, "Discharging\n"), "no online, Discharging: on the charger");
+	CHECK(!charging_from(-1, "Not charging\n"), "no online, Not charging: on the charger");
+	CHECK(!charging_from(-1, ""), "no online, an empty status: on the charger");
+	CHECK(!charging_from(-1, NULL), "no online, no status: on the charger");
+	CHECK(charging_from(2, "Charging\n") && !charging_from(2, "Unknown\n"),
+	      "online neither 0 nor 1: the status speaks, as with none");
+}
+
 int main(void)
 {
+	puts("battery: the charger's online decides, the status only without it");
+	charger_rule();
 	puts("battery: plug/unplug deadlines at 8 ms and 16 ms, including clock wrap");
 	deadlines(8, 0);
 	deadlines(16, 0);

@@ -4,11 +4,13 @@
  * and where things live on its card. Everything here is what makes a Brick a
  * Brick; the rest of ZyperOS reaches it through platform.h and device.h. */
 #include "charging.h"
+#include "charging_rule.h"
 #include "atomic.h"
 #include "audioout.h"
 #include "clamp.h"
 #include "db.h"
 #include "device.h"
+#include "fileio.h"
 #include "platform.h"
 
 #include <dirent.h>
@@ -1190,13 +1192,28 @@ bool plat_charge_read(ch_reading *r)
 
 /* ---- battery ---- */
 
+/* The AXP2202's power supplies, as plastron's kernel names them (its patch
+ * 0016): the battery's gauge and the USB input */
+#define AXP_BATTERY    "/sys/class/power_supply/axp2202-battery"
+#define AXP_USB_ONLINE "/sys/class/power_supply/axp2202-usb/online"
+
+#ifdef __linux__
+/* A sysfs number, or -1 for no file or nothing in it */
+static int read_int(const char *path)
+{
+	char buf[16];
+
+	return file_head(path, buf, sizeof buf) > 0 ? atoi(buf) : -1;
+}
+#endif
+
 /* A level written to /tmp/zyperos_fake_batt stands in for the gauge, off the
  * charger, for testing the low and empty battery: written from a shell, so it
  * can change while a game runs, and gone at power-off. */
 const char *plat_battery_info_path(void)
 {
 #ifdef __linux__
-	return "/sys/class/power_supply/axp2202-battery";
+	return AXP_BATTERY;
 #else
 	return NULL;
 #endif
@@ -1217,7 +1234,7 @@ bool plat_battery(int *pct, bool *charging)
 	}
 #ifdef __linux__
 	if (pct) {
-		FILE *f = fopen("/sys/class/power_supply/axp2202-battery/capacity", "r");
+		FILE *f = fopen(AXP_BATTERY "/capacity", "r");
 		if (!f) return false;
 		int v = -1;
 		if (fscanf(f, "%d", &v) != 1) v = -1;
@@ -1226,12 +1243,21 @@ bool plat_battery(int *pct, bool *charging)
 		*pct = v;
 	}
 	if (charging) {
-		FILE *s = fopen("/sys/class/power_supply/axp2202-battery/status", "r");
-		if (s) {
+		/* The cable, not the battery's status, as on the Pixel 2
+		 * (src/charging_rule.h): the USB input's online, which
+		 * plat_cable_link reads too. The status is read only where online
+		 * gives no answer. */
+		int v = read_int(AXP_USB_ONLINE);
+		FILE *s;
+
+		if (v == 0 || v == 1) {
+			*charging = charging_from(v, NULL);
+			return true;
+		}
+		if ((s = fopen(AXP_BATTERY "/status", "r"))) {
 			char st[32] = { 0 };
 			bool read = fgets(st, sizeof st, s) != NULL;
-			if (read)
-				*charging = strncmp(st, "Charging", 8) == 0 || strncmp(st, "Full", 4) == 0;
+			if (read) *charging = charging_from(v, st);
 			fclose(s);
 			if (read) return true;
 		}

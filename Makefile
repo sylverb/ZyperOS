@@ -318,14 +318,17 @@ build-native/status-check: tools/status-check.c src/status.c src/status.h \
 
 # Charger changes reach the shared battery cache within 250 ms at the shelf's
 # 16 ms poll rate. Stable samples request no redraw; capacity stays at 5 s.
-# Plain C only: this does not prove the kernel's hardware propagation time.
+# And the charger-online rule both devices read the cable by
+# (src/charging_rule.h). Plain C only: this does not prove the kernel's
+# hardware propagation time.
 check-battery: build-native/battery-check
 	@./build-native/battery-check
 
-build-native/battery-check: tools/battery-check.c src/battery_poll.c src/battery_poll.h FORCE
+build-native/battery-check: tools/battery-check.c src/battery_poll.c src/battery_poll.h \
+                            src/charging_rule.c src/charging_rule.h FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -Werror -O1 -g \
-	      -o $@ tools/battery-check.c src/battery_poll.c
+	      -o $@ tools/battery-check.c src/battery_poll.c src/charging_rule.c
 
 # The time left on the battery (src/battery_eta.h): the estimate from how long
 # a percent takes to fall, against a simulated gauge at several loads, across

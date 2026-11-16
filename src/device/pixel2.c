@@ -14,6 +14,7 @@
  * launcher has the screen back. */
 #include "atomic.h"
 #include "charging.h"
+#include "charging_rule.h"
 #include "audioout.h"
 #include "clamp.h"
 #include "db.h"
@@ -1932,22 +1933,20 @@ bool plat_battery(int *pct, bool *charging)
 		*pct = v;
 	}
 	if (charging) {
-		/* The cable, not the battery's status: rk817_charger says
-		 * Discharging whenever the battery's current is below zero, cable
-		 * in or not, and a full battery on the cable sits a few mA below
-		 * zero for hours. That read as off the charger, and Auto Off
-		 * powered a plugged-in device down, twice on 2026-11-04. */
+		/* The cable, not the battery's status (src/charging_rule.h):
+		 * rk817_charger says Discharging on the cable with a full battery,
+		 * and Auto Off powered a plugged-in device down, twice on
+		 * 2026-11-04. */
 		v = read_int("/sys/class/power_supply/rk817-charger/online");
 		if (v == 0 || v == 1) {
-			*charging = v == 1;
+			*charging = charging_from(v, NULL);
 			return true;
 		}
-		/* Only fall back when online is unavailable. An explicit zero
-		 * wins over a status value that still says Charging or Full. */
+		/* The status is read only where online gives no answer: an
+		 * explicit zero wins over one that still says Charging or Full. */
 		if ((s = fopen("/sys/class/power_supply/battery/status", "r"))) {
 			bool read = fgets(st, sizeof st, s) != NULL;
-			if (read)
-				*charging = strncmp(st, "Charging", 8) == 0 || strncmp(st, "Full", 4) == 0;
+			if (read) *charging = charging_from(v, st);
 			fclose(s);
 			if (read) return true;
 		}
