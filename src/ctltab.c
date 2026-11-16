@@ -295,11 +295,32 @@ unsigned ct_lit(const ct_model *m, ct_row id)
 	}
 }
 
+/* The keys of `keys` on `m`'s back ledge */
+static unsigned ledge_keys(const td_model *m, unsigned keys)
+{
+	unsigned k = 0;
+	int i;
+
+	for (i = 0; m && i < m->n_parts; i++)
+		if (m->parts[i].face == TD_FACE_LEDGE) k |= 1u << m->parts[i].key;
+	return keys & k;
+}
+
+bool ct_spin(const td_model *m, unsigned keys, float *yaw_deg, float *pitch_deg)
+{
+	*yaw_deg = m ? m->back.deg - m->tab.deg : 0.0f;
+	*pitch_deg = m ? m->back.pitch : 0.0f;
+	return td_spins(m, keys);
+}
+
 void ct_lean(const td_model *m, unsigned keys, float *yaw_deg, float *pitch_deg)
 {
 	bool l = false, r = false, front = false, ledge = false;
 	int i;
 
+	/* Shoulders on a back ledge with other keys: the others' lean, which
+	 * the handheld turns from to its back and back again (ct_spin) */
+	if (td_spins(m, keys)) keys &= ~ledge_keys(m, keys);
 	/* Which side each key is on, whether any is on the front of it, and
 	 * whether any is on a back ledge */
 	for (i = 0; m && i < m->n_parts; i++) {
@@ -313,9 +334,9 @@ void ct_lean(const td_model *m, unsigned keys, float *yaw_deg, float *pitch_deg)
 		front |= face;
 	}
 	*yaw_deg = *pitch_deg = 0.0f;
-	/* Shoulders on a back ledge, either side, a centre key with them or
-	 * not: turned round to the back, where they show, whichever side they
-	 * are on, so a row to the next shoulder only moves the light */
+	/* Shoulders on a back ledge alone, either side: turned round to the
+	 * back, where they show, whichever side they are on, so a row to the
+	 * next shoulder only moves the light */
 	if (ledge && !front) {
 		*yaw_deg = m->back.deg - m->tab.deg;
 		*pitch_deg = m->back.pitch;

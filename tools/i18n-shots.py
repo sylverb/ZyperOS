@@ -9,8 +9,13 @@
     python3 tools/i18n-shots.py --lang fr menu  one language, some screens
     python3 tools/i18n-shots.py --device brick --keep DIR
                                                 every screen as that handheld
-                                                (src/device/profile.h), for
-                                                review; the check is the host's
+                                                alone (src/device/profile.h)
+
+Every screen is shot as each handheld ZyperOS runs on (DEVICES: the Pixel 2,
+the README's, first, then the Brick), with its own keys, rows and words: the
+Brick's MENU is the word on its key, wider than the Pixel 2's three dots, and
+it has rows the Pixel 2 has not (Bluetooth) and the other way round (Side
+Lights). A string must fit on each, and is drawn if either draws it.
 
 A layout drawn for English meets words up to half again as long in French or
 Portuguese, and Chinese's taller face. The launcher, built for the host, says
@@ -48,8 +53,10 @@ _spec = importlib.util.spec_from_file_location("readme_shots", ROOT / "tools" / 
 R = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(R)
 
-# --device ID's flags, given to every shot (empty: the host's own profile)
-DEVICE = []
+# The handhelds every screen is shot as: the README's first, whose every row
+# a shot finds (a missing one is a renamed row), then the rest, which may lack
+# one (the Brick's Strength row, with no GPU shaders)
+DEVICES = ["pixel2", "brick"]
 
 # The string IDs of a text the launcher drew: src/ui.c says the text, not the
 # ID (a label is copied into a row's buffer, or formatted around a name, and
@@ -788,7 +795,7 @@ def all_systems_card(card):
 KNOWN_KEYS = set()
 
 
-def run_language(code, shots, binary, keep, theme="light"):
+def run_language(code, shots, binary, keep, theme="light", device="pixel2", first=True):
     notes, failures, data, drawn = [], [], {}, set()
     with tempfile.TemporaryDirectory(prefix="zyperos-i18n-%s-" % code) as tmp:
         cards = {"demo": Path(tmp) / "demo", "empty": Path(tmp) / "empty", "scummvm": Path(tmp) / "scummvm",
@@ -812,7 +819,7 @@ def run_language(code, shots, binary, keep, theme="light"):
         R.openbor_card(cards["openbor"])
         R.psp_card(cards["psp"])
         R.card_dirs(cards["empty"])
-        out = (keep / code) if keep else Path(tmp) / "out"
+        out = keep if keep else Path(tmp) / "out"
         out.mkdir(parents=True, exist_ok=True)
         for name, (card_name, tag, flags) in shots.items():
             card = cards[card_name]
@@ -838,12 +845,9 @@ def run_language(code, shots, binary, keep, theme="light"):
             # The tutorial and the battery's screens draw no status corner
             status = [] if name.startswith(("tour-", "lowbatt", "charging-")) else \
                 ["--status", "10:08 24h wifi=off batt=82"]
-            # --fn-volume: the host's profile with the Pixel 2's MENU+VOL
-            # brightness, as the README's shots were taken; a --device
-            # handheld keeps its own keys
             command = [str(binary), "--shot", str(target), "--theme", theme, "--lang", code,
                        "--screen", "systems", "--phase", "3200", *status,
-                       *(DEVICE or ["--fn-volume"]), *[f.replace("{card}", str(card)) for f in flags]]
+                       "--device", device, *[f.replace("{card}", str(card)) for f in flags]]
             # errors=replace: a log line may end mid-character (a cut name)
             env = R.pm_env(R.env_for(card), name, tmp)
             if name in PM_STATES:
@@ -880,21 +884,22 @@ def run_language(code, shots, binary, keep, theme="light"):
                     notes.append("%s/%s: %s" % (code, name, line[6:]))
             ok_anyway = name in R.CORNER_OWN and R.CORNER_OWN[name] in r.stdout
             # A row this handheld has not (the Strength row where there are no
-            # GPU shaders): said, not failed, under --device; on the host's
-            # own profile a missing row is a renamed one, and fails
+            # GPU shaders): said, not failed; on the first handheld a missing
+            # row is a renamed one, and fails
             row = re.search(r"--menu: no row called (.*)", r.stdout)
-            if DEVICE and r.returncode and row:
-                print("not on %s: %s/%s: no row %s" % (DEVICE[1], code, name, row.group(1).strip()))
+            if not first and r.returncode and row:
+                print("not on %s: %s/%s: no row %s" % (device, code, name, row.group(1).strip()))
                 continue
             if (r.returncode and not ok_anyway) or not target.is_file():
                 tail = " | ".join(r.stdout.strip().splitlines()[-3:])
                 failures.append("%s/%s: the shot failed (exit %d): %s" % (code, name, r.returncode, tail))
-    return code, notes, failures, data, drawn
+    return device, code, notes, failures, data, drawn
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--keep", type=Path, help="keep the frames in DIR/<code>/")
+    ap.add_argument("--keep", type=Path, help="keep the frames in DIR/<code>/, or DIR/<device>/<code>/ "
+                    "for more than one handheld")
     ap.add_argument("--lang", action="append", help="this language only (more than once for more)")
     ap.add_argument("--strict", action="store_true", help="fail on the pseudo-locale's too")
     ap.add_argument("--coverage", action="store_true", help="list the strings no shot draws")
@@ -903,9 +908,9 @@ def main():
     ap.add_argument("--theme", choices=["light", "dark"], default="light",
                     help="the theme the shots are drawn in (light; tools/pixel-gate.py takes both)")
     ap.add_argument("--binary", type=Path, help="this launcher, not build-native/zyperos (tools/pixel-gate.py's base)")
-    ap.add_argument("--jobs", type=int, help="languages shot at once (all of them)")
-    ap.add_argument("--device", help="as this handheld (--device pixel2, brick): its own keys, "
-                    "handheld and words, to look at; the host's are what the check holds")
+    ap.add_argument("--jobs", type=int, help="launchers at once (one a language a handheld)")
+    ap.add_argument("--device", action="append",
+                    help="as this handheld only (more than once for more; all of DEVICES by default)")
     ap.add_argument("only", nargs="*", help="shot names (default: all)")
     args = ap.parse_args()
     if subprocess.call(["pkg-config", "--exists", "sdl2", "SDL2_image", "SDL2_ttf"],
@@ -913,8 +918,7 @@ def main():
         print("skipped: no SDL2 here to build the launcher with")
         return 0
     binary = args.binary.resolve() if args.binary else ROOT / "build-native" / "zyperos"
-    if args.device:
-        DEVICE[:] = ["--device", args.device]
+    devices = args.device or DEVICES
     if not binary.is_file():
         print("FAIL no build-native/zyperos: make native first", file=sys.stderr)
         return 1
@@ -925,36 +929,45 @@ def main():
         shots = {k: v for k, v in shots.items() if k in args.only}
     langs = args.lang or (i18n.CODES + [i18n.PSEUDO])
     keep = args.keep.resolve() if args.keep else None
+    runs = [(d, c) for d in devices for c in langs]
+
+    def run(dc):
+        d, c = dc
+        out = None if not keep else keep / c if len(devices) == 1 else keep / d / c
+        return run_language(c, shots, binary, out, args.theme, d, d == devices[0])
+
     results = {}
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, min(args.jobs or len(langs), len(langs)))) as pool:
-        for code, notes, failures, data, drawn in pool.map(lambda c: run_language(c, shots, binary, keep, args.theme),
-                                                           langs):
-            # Data (a game's name, a formatted line) may be cut or slide in
-            # English too; a screen where a language cuts more of it than
-            # English does has a translation that made the cut ("vinculado
-            # como t..." beside ScreenScraper)
-            results[code] = (notes, failures, data, drawn)
-    english = results["en"][2] if "en" in results else None
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, min(args.jobs or len(runs), len(runs)))) as pool:
+        for device, code, notes, failures, data, drawn in pool.map(run, runs):
+            results[(device, code)] = (notes, failures, data, drawn)
 
     def texts(said):
         # the data each line names, whether it was cut or slides: a name
         # cut on a row and sliding in a panel's heading is one name
         return {line.split(": ", 1)[-1] for line in said}
 
-    for code in langs:
+    # Data (a game's name, a formatted line) may be cut or slide in English
+    # too; a screen where a language cuts more of it than English does on the
+    # same handheld has a translation that made the cut ("vinculado como
+    # t..." beside ScreenScraper)
+    for device, code in runs:
+        english = results[(device, "en")][2] if (device, "en") in results else None
         if english is None or code == "en": continue
-        for name, said in sorted(results[code][2].items()):
+        for name, said in sorted(results[(device, code)][2].items()):
             if len(texts(said)) > len(texts(english.get(name, []))):
-                results[code][0].extend("%s/%s: %s (English: %d)" % (code, name, d, len(english.get(name, [])))
-                                        for d in said)
-    # Every string a shot draws, or says why it is none of the shots'
-    full = not args.only and not args.lang and "en" in results and not DEVICE
+                results[(device, code)][0].extend("%s/%s: %s (English: %d)" % (
+                    code, name, d, len(english.get(name, []))) for d in said)
+    # Every string a shot draws on any handheld, or says why it is none of
+    # the shots'
+    english_runs = [results[(d, "en")] for d in devices if (d, "en") in results]
+    full = not args.only and not args.lang and english_runs and sorted(devices) == sorted(DEVICES)
     gone = []
-    if "en" in results:
+    if english_runs:
         st = strings_of("en")
         seen = set()
-        for text in results["en"][3]:
-            seen.update(st.ids(text))
+        for run_en in english_runs:
+            for text in run_en[3]:
+                seen.update(st.ids(text))
         gone = [n for n in st.names if n not in seen]
     if args.coverage:
         for name in gone:
@@ -974,11 +987,15 @@ def main():
             print("note %s is in tools/i18n-unshot.txt but is drawn (or gone): "
                   "python3 tools/i18n-shots.py --write-unshot" % n)
     bad = 0
-    for code in langs:
-        notes, failures = results[code][:2]
+    for device, code in runs:
+        notes, failures = results[(device, code)][:2]
+        # Which handheld, where there is more than one
+        on = device + ":" if len(devices) > 1 else ""
+        notes, failures = [on + n for n in notes], [on + f for f in failures]
         # A screen whose words met a key or a mark before the check was there:
         # said, not failed, until its own fix (DESIGN.md section 14)
-        known = [n for n in notes if " into a key or a more mark " in n and n.split(": ")[0].split("/")[-1] in KNOWN_KEYS]
+        known = [n for n in notes if " into a key or a more mark " in n and
+                 n.split(": ")[0].split(":")[-1].split("/")[-1] in KNOWN_KEYS]
         for n in known:
             print("known " + n)
         notes = [n for n in notes if n not in known]
@@ -995,13 +1012,14 @@ def main():
     for n in unshot_bad:
         print("FAIL " + n)
         bad += 1
-    pseudo = len(results.get(i18n.PSEUDO, ([], [], {}, set()))[0])
-    said = "check-i18n-shots" + (" --device " + DEVICE[1] if DEVICE else "")
+    pseudo = sum(len(results.get((d, i18n.PSEUDO), ([], [], {}, set()))[0]) for d in devices)
+    said = "check-i18n-shots"
     if bad:
-        print("%s: %d problems in %d screens x %d languages" % (said, bad, len(shots), len(langs)))
+        print("%s: %d problems in %d screens x %d languages as %s" % (
+            said, bad, len(shots), len(langs), ", ".join(devices)))
         return 1
-    print("%s: %d screens in %s, everything fits%s" % (
-        said, len(shots), ", ".join(langs),
+    print("%s: %d screens in %s as %s, everything fits%s" % (
+        said, len(shots), ", ".join(langs), " and ".join(devices),
         "; the pseudo-locale cut or overflowed %d strings (notes above)" % pseudo if pseudo else ""))
     return 0
 
