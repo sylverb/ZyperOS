@@ -252,10 +252,21 @@ Where each fact comes from on the Brick: the panel from the kernel log's `brick 
 
 ## PR 6e: Kit 2
 
+### Task 6e.0: Kit builds of the installer
+
+The release's installers carry only the updater's signature: macOS asks for *Open Anyway* and Windows for *Run anyway* the first time (installer/README.md). A kit's installers are built the same way, so testers meet the same first open, and nothing new is needed from Tarik but his OK to publish the kit.
+
+**Files:**
+- Modify: `.github/workflows/release.yml` (also on tags `kit-*`: the same three builds, signed with the run's throwaway key, no `latest.json`; the draft published with `--prerelease --latest=false`)
+- Modify: `tools/release.sh` (`--kit NAME`: the draft `kit-<name>` with the kit's images, SHA256SUMS and its test list as notes; the installer's version `<next>-kit.<n>`, below the next release, so a kit installer updates itself to that release when it is out)
+
+- [ ] **Step 1:** A pull request that changes `release.yml` builds the apps (as today) and a dry run of the kit path stops before any upload.
+- [ ] **Step 2:** Commit; the kit tag is pushed only in Task 6e.1, on Tarik's OK.
+
 ### Task 6e.1: The image and its page
 
 - [ ] **Step 1:** Build `release-brick` from main once 6a to 6d are merged; record the image's sha256.
-- [ ] **Step 2:** Update `brick-kit-2-test-list.md` (step 11: the Brick stays off on the charger; the installer's image-file step if the installer takes the kit's image from a file).
+- [ ] **Step 2:** Update `brick-kit-2-test-list.md` (step 1: the kit's installer, its first open as installer/README.md says, and "Use an image file").
 - [ ] **Step 3:** Ask the coordinator: the kit's page (a draft or pre-release named `brick-kit-2`, the image, SHA256SUMS, what changed, the list) is published only on Tarik's OK.
 
 ---
