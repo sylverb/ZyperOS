@@ -81,7 +81,7 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 WORK=${1:-/tmp/zyperos-ppsspp}
 PIN=fa50bb1976065c4f8b1b47af227d367fe9771555   # hrydgard/ppsspp v1.20.4
 EPOCH=1778934711                               # v1.20.4's commit time
-SHA=d42c5d8d62765c3af998921217ed994315e1296aa180d702c70647697f9c2e7f
+SHA=f18dc279a5b1a890e1d1f5236c722f7cd9d6221c5e4e0f8003fc11ebdaa0f469
 DATA_SHA=28710ec72df453e824376c055b49d33197bb91bf4245c7c2fda6b59b287f4b30
 # What the libretro core builds from (OpenXR's SDK and miniupnp for their
 # headers alone: Common/VR and Core/Util/PortManager.h include them on every
