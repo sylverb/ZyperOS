@@ -74,8 +74,3 @@ ds_key ds_key_of(const char *name)
 	if (b->label[0] && !b->label[1]) return (ds_key){ DS_KEY_FACE, DS_KEY_MARK_NONE, b->label };
 	return (ds_key){ DS_KEY_PILL, DS_KEY_MARK_NONE, b->label };
 }
-
-bool ds_key_menu_dots(void)
-{
-	return ds_key_of("MENU").mark == DS_KEY_MARK_DOTS;
-}

@@ -1255,9 +1255,13 @@ capital tall and a little right of its box's middle, so it looks centred),
 in the letter's color. A round key with a word (the Brick's
 MENU, whose TrimUI mark is no glyph, and its POWER) and every other cap (a
 pill, a shoulder, the rocker) is a pill with its word. A stick's cap (L3,
-R3) is a face with its top's ring inside, 0.7 across, under its word. MENU
-in running text is the three-dot key only where the handheld's MENU is one;
-elsewhere it stays a word. The host's desktop has the Brick's keys drawn as
+R3) is a face with its top's ring inside, 0.7 across, under its word.
+Running text that names a key whose cap carries a mark and no word draws
+the key inline, as MENU's three dots always were: on the Brick, "Press
+SELECT" shows its square key and "START" its play key (TrimUI's manual calls
+them SELECT and START; the caps show only the marks), so the words and the
+glyph tell the same story. A key printed as its word (the Pixel 2's SELECT,
+the Brick's MENU) stays a word. The host's desktop has the Brick's keys drawn as
 the Pixel 2's, as its shots always showed; a name no table has is a pill
 with that name. A chord is named by what it does (`dev_role_keys`:
 brightness, home, battery), so a page says each handheld's own: MENU+VOL on
