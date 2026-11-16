@@ -67,7 +67,9 @@
  * frameskip (SET_AUDIO_BUFFER_STATUS_CALLBACK), as dsperate-lr does, so
  * Diatom runs some frames unshown. An unshown frame costs as much as a shown
  * one, as a DS game's does: its drawing is on threads of its own
- * (test/fastforward.py).
+ * (test/fastforward.py). STUBCORE_FRAME_US_AT=frame:us,... changes the
+ * cost from those frames on, and STUBCORE_SHOWN_LOG=path writes which frames
+ * the frontend had drawn, a 1 or a 0 each (test/lateskip.py).
  *
  * Test fixture. Not part of Diatom's runtime.
  */
@@ -336,17 +338,31 @@ static void report_load(const struct retro_game_info *game)
 		fprintf(stderr, "stubcore: ext none\n");
 }
 
-/* STUBCORE_FRAME_US and STUBCORE_SKIPPABLE: the frame's cost, shown or not */
+/* STUBCORE_FRAME_US and STUBCORE_SKIPPABLE: the frame's cost, shown or not.
+ * STUBCORE_SHOWN_LOG=path: a character a frame, 1 drawn and 0 left undrawn
+ * as the frontend said through the status callback, written at unload
+ * (test/lateskip.py) */
 static long frame_cost_us;
+static bool frame_unshown;
+static char shown_log[1 << 16];
+static size_t shown_n;
 static void frame_status(bool active, unsigned occupancy, bool underrun_likely)
 {
-	(void)active; (void)occupancy; (void)underrun_likely;
+	(void)active; (void)occupancy;
+	frame_unshown = underrun_likely;
 }
+
+/* STUBCORE_FRAME_US_AT=frame:us,frame:us,...: the cost from each frame on,
+ * in place of STUBCORE_FRAME_US, so a game is slow for a stretch */
+static long cost_at_frame[8], cost_at_us[8];
+static int cost_at_n;
 
 static void frame_cost(void)
 {
 	struct timespec d;
 
+	for (int i = 0; i < cost_at_n; i++)
+		if ((long)frame >= cost_at_frame[i]) frame_cost_us = cost_at_us[i];
 	if (frame_cost_us <= 0) return;
 	/* Slept, not spent: the frontend's pacing sees only the time a frame
 	 * takes, and a sleep takes it however busy the machine is (make check
@@ -393,6 +409,15 @@ bool retro_load_game(const struct retro_game_info *game)
 	{
 		const char *e = getenv("STUBCORE_FRAME_US");
 		frame_cost_us = e && *e ? strtol(e, NULL, 10) : 0;
+		e = getenv("STUBCORE_FRAME_US_AT");
+		cost_at_n = 0;
+		while (e && *e && cost_at_n < 8) {
+			char *end;
+			cost_at_frame[cost_at_n] = strtol(e, &end, 10);
+			if (*end != ':') break;
+			cost_at_us[cost_at_n++] = strtol(end + 1, &end, 10);
+			e = *end == ',' ? end + 1 : NULL;
+		}
 	}
 	if (getenv("STUBCORE_SKIPPABLE") && env) {
 		struct retro_audio_buffer_status_callback cb = { frame_status };
@@ -402,7 +427,18 @@ bool retro_load_game(const struct retro_game_info *game)
 }
 bool retro_load_game_special(unsigned t, const struct retro_game_info *i, size_t n)
 { (void)t; (void)i; (void)n; return false; }
-void retro_unload_game(void) { }
+void retro_unload_game(void)
+{
+	const char *e = getenv("STUBCORE_SHOWN_LOG");
+	FILE *f = e ? fopen(e, "w") : NULL;
+
+	if (f) {
+		fwrite(shown_log, 1, shown_n, f);
+		fclose(f);
+	}
+	shown_n = 0;
+	frame_unshown = false;
+}
 unsigned retro_get_region(void) { return RETRO_REGION_PAL; }
 
 /* STUBCORE_STATE_PAD=n: n bytes more in each state after the frame, laid
@@ -586,6 +622,7 @@ void retro_run(void)
 	 * would land during the warmup and prove less. */
 	if (crash_mode[0] && frame == crash_at) die(crash_mode);
 	frame_cost();
+	if (shown_n < sizeof shown_log) shown_log[shown_n++] = frame_unshown ? '0' : '1';
 
 	/* One frame's worth of audio, with the fraction carried.
 	 *
