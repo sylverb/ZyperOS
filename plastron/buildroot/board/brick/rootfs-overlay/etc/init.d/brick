@@ -8,8 +8,32 @@
 # /tmp/boot-times.
 
 L=/usr/lib/brick
+# The closed files' lists (package/pvr-ge8300, xr829-firmware: size and name
+# a line) and their folder on the boot partition, or a check's own
+# (ZyperOS's tools/closedcheck-check.sh, which sources this with
+# BRICK_INIT_TEST)
+CLOSED_LISTS=${CLOSED_LISTS:-/usr/share/zyperos/closed}
+CLOSED_DIR=${CLOSED_DIR:-/boot/closed}
 
 mark() { echo "$(cut -d' ' -f1 /proc/uptime) $1" >> /tmp/boot-times; }
+
+# The Brick's closed files on the card, each the size its list says: the
+# PowerVR driver and the XR829 firmware, the player's own copy, which the
+# ZyperOS Installer puts in the boot partition's closed/ and the system links
+# to. Says the first that isn't, and fails; quiet when all are there.
+closed_check() {
+	found=0
+	for list in "$CLOSED_LISTS"/*.list; do
+		[ -f "$list" ] || continue
+		found=1
+		while read -r size name; do
+			[ -n "$name" ] || continue
+			have=$(wc -c 2>/dev/null < "$CLOSED_DIR/$name" | tr -d ' ')
+			[ "$have" = "$size" ] || { echo "$name"; return 1; }
+		done < "$list"
+	done
+	[ "$found" = 1 ] || { echo "(no list of them)"; return 1; }
+}
 
 start() {
 	# The card read ahead 2 MB at a time rather than 128 KB, first, before
@@ -27,6 +51,21 @@ start() {
 	echo 1 > /sys/kernel/rcu_expedited
 	watchdog -t 4 /dev/watchdog 2>/dev/null
 	mark init
+
+	# The boot partition, read-only at /boot, before anything loads from it:
+	# the GPU's driver its firmware, ZyperOS's libraries the rest. System
+	# Update remounts it to write a slot's files (ZyperOS's update/slots.c).
+	# A card without the closed files can't start ZyperOS: the splash says so
+	# instead, until POWER turns the Brick off, and nothing else starts
+	mount -t vfat -o ro,noatime,nosuid,nodev /dev/mmcblk0p1 /boot
+	if ! missing=$(closed_check); then
+		echo "brick: the closed files are not all on the card ($missing missing): ZyperOS can't start" > /dev/kmsg
+		echo "$missing" > /tmp/zyperos-no-start
+		kill $(pidof splash) 2>/dev/null
+		splash missing &
+		return
+	fi
+	mark closed
 
 	# The boot at full speed: the performance governor until ZyperOS has
 	# drawn its first frame, then ondemand, which otherwise starts at 408 MHz
@@ -83,7 +122,7 @@ start() {
 	echo in > /sys/class/gpio/gpio243/direction
 }
 
-case "$1" in
+[ -n "$BRICK_INIT_TEST" ] || case "$1" in
 start) start ;;
 *) echo "usage: $0 start" >&2; exit 1 ;;
 esac
