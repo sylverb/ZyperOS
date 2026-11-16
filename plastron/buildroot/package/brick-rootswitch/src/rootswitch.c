@@ -1,18 +1,20 @@
 /* rootswitch: the TrimUI Brick's whole initramfs.
  *
- * The boot script (board/brick/boot.cmd) loads brick/boot/initramfs.cpio.gz
- * and runs /rdinit; this is that /rdinit. It finds the card's GPT partition
- * named plastron-root, mounts it (squashfs, read-only) and hands over to its
- * /sbin/init, which runs plastron's Brick system from there. No shell and no
- * BusyBox: built static (package/brick-rootswitch), packed by
+ * The boot script (board/brick/boot-slot.cmd) loads the slot's
+ * initramfs.cpio.gz and runs /rdinit; this is that /rdinit. It mounts the
+ * root partition the boot script names for the slot it boots
+ * (zyperos.root=/dev/mmcblk0p2 or p4), or, on a line without it, the card's
+ * GPT partition named plastron-root, squashfs, read-only, and hands over to
+ * its /sbin/init, which runs plastron's Brick system from there. No shell and
+ * no BusyBox: built static (package/brick-rootswitch), packed by
  * board/brick/post-image.sh.
  *
  * A new root comes the same way: put on the games partition as
  * .dev/root-update.squashfs, with a file named root-update on the boot
  * partition for the boot script to see, which then adds rootupdate=1 to the
- * kernel's command line. This writes it over the root partition first, checks
- * it, and removes both. A write cut short leaves both, to start over at the
- * next boot.
+ * kernel's command line, when slot a boots. This writes it over the root
+ * partition first, checks it, and removes both. A write cut short leaves
+ * both, to start over at the next boot.
  */
 #include <dirent.h>
 #include <fcntl.h>
@@ -25,6 +27,8 @@
 #include <sys/mount.h>
 #include <sys/stat.h>
 #include <unistd.h>
+
+#include "cmdline.h"
 
 #define ROOT_LABEL "plastron-root"
 #define GAMES_LABEL "zyperos"
@@ -182,32 +186,32 @@ static void root_update(const char *device)
 	sync();
 }
 
-/* rootupdate=1 on the kernel's command line, from the boot script */
-static int update_asked(void)
+/* The kernel's command line into line, "" when it can't be read */
+static void read_cmdline(char *line, size_t size)
 {
-	char cmdline[1024];
 	ssize_t n = -1;
 	int fd;
 
+	line[0] = 0;
 	mkdir("/proc", 0755);
 	if (mount("proc", "/proc", "proc", 0, NULL) != 0)
-		return 0;
+		return;
 	fd = open("/proc/cmdline", O_RDONLY);
 	if (fd >= 0) {
-		n = read(fd, cmdline, sizeof cmdline - 1);
+		n = read(fd, line, size - 1);
 		close(fd);
 	}
 	umount("/proc");
-	if (n <= 0)
-		return 0;
-	cmdline[n] = 0;
-	return strstr(cmdline, " rootupdate=1") != NULL;
+	if (n > 0)
+		line[n] = 0;
 }
 
 int main(void)
 {
+	static char cmdline[2048];
 	char device[300];
-	int i, fd;
+	struct stat info;
+	int i, fd, named;
 
 	mkdir("/dev", 0755);
 	mkdir("/sys", 0755);
@@ -223,15 +227,20 @@ int main(void)
 			close(fd);
 	}
 
+	read_cmdline(cmdline, sizeof cmdline);
+	named = root_from_cmdline(cmdline, device, sizeof device);
 	/* The card is probed alongside the rest of the boot: up to 3 s */
-	for (i = 0; i < 600 && !find_partition(ROOT_LABEL, device, sizeof device); i++)
+	for (i = 0; i < 600; i++) {
+		if (named ? stat(device, &info) == 0 : find_partition(ROOT_LABEL, device, sizeof device))
+			break;
 		usleep(5000);
+	}
 	if (i == 600) {
-		say("no partition named " ROOT_LABEL);
+		say(named ? "no root partition where the boot script says" : "no partition named " ROOT_LABEL);
 		for (;;)
 			pause();
 	}
-	if (update_asked())
+	if (update_from_cmdline(cmdline))
 		root_update(device);
 	umount("/sys");
 	/* squashfs, read-only: half the bytes to read, the boot's files packed

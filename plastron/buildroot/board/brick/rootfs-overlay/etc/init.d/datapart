@@ -7,6 +7,9 @@
 # /tmp/boot-times.
 
 SDCARD=/mnt/SDCARD
+# Where the kernel's partitions are, /sys, or a check's own tree
+# (ZyperOS's tools/datapart-check.sh, which sources this with DATAPART_TEST)
+SYS=${SYS:-/sys}
 # When this system was built, in seconds: set by board/brick/post-build.sh
 BUILT=0
 
@@ -37,16 +40,32 @@ repair() {
 
 # A card partition's device, by its GPT name
 part() {
-	for p in /sys/class/block/mmcblk0p*; do
+	for p in $SYS/class/block/mmcblk0p*; do
 		grep -q "^PARTNAME=$1$" $p/uevent 2>/dev/null && echo /dev/${p##*/}
 	done
 }
 
-# The card image holds the boot, root and state partitions; on its first boot
-# the rest of the card becomes the games partition, as the Pixel 2's datapart
-# does: right after the image's last partition (the state one), on a 4 MiB
-# boundary (the card's erase blocks), exFAT, labeled ZYPEROS, named zyperos in
-# the GPT, numbered after the others. 32 KB clusters: Linux reads a folder a
+# Where the games partition goes: "start number", right after the image's
+# last partition, root B (plastron-root-b, partition 4), on a 4 MiB boundary
+# (the card's erase blocks), numbered after it. Nothing, and why on the
+# kernel's log, on a card without root B: its layout is not this image's, and
+# a partition made after something else could be made over what the card
+# holds
+games_place() {
+	last=$(part plastron-root-b)
+	[ -n "$last" ] || {
+		echo "datapart: no root B (plastron-root-b), so no games partition" > ${KMSG:-/dev/kmsg}
+		return
+	}
+	last=$SYS/class/block/${last##*/}
+	start=$(( $(cat $last/start) + $(cat $last/size) ))
+	echo "$(( (start + 8191) / 8192 * 8192 )) $(( $(cat $last/partition) + 1 ))"
+}
+
+# The card image holds the boot, root A, state and root B partitions; on its
+# first boot the rest of the card becomes the games partition, as the Pixel
+# 2's datapart does: where games_place says, partition 5, exFAT, labeled
+# ZYPEROS, named zyperos in the GPT. 32 KB clusters: Linux reads a folder a
 # whole cluster at a time, and mkfs.exfat's own choice, 128 KB on a 64 GB card,
 # made every folder ZyperOS reads at boot cost 128 KB of card. The image's
 # backup GPT sits at the end of the image, not the card, so it moves to the
@@ -54,15 +73,10 @@ part() {
 games_create() {
 	card=/dev/mmcblk0
 	echo "datapart: first boot, adding the games partition" > /dev/kmsg
-	last=$(part plastron-state)
-	[ -n "$last" ] || {
-		echo "datapart: no state partition, so no games partition" > /dev/kmsg
-		return
-	}
-	last=/sys/class/block/${last##*/}
-	start=$(( $(cat $last/start) + $(cat $last/size) ))
-	start=$(( (start + 8191) / 8192 * 8192 ))
-	nr=$(( $(cat $last/partition) + 1 ))
+	place=$(games_place)
+	[ -n "$place" ] || return
+	start=${place% *}
+	nr=${place#* }
 	sfdisk --quiet --relocate gpt-bak-std $card &&
 	echo "start=$start, type=EBD0A0A2-B9E5-4433-87C0-68B6B72699C7, name=zyperos" |
 		sfdisk --quiet --append --no-reread $card &&
@@ -124,7 +138,7 @@ stop() {
 	done
 }
 
-case "$1" in
+[ -n "$DATAPART_TEST" ] || case "$1" in
 start) start ;;
 stop) stop ;;
 *) echo "usage: $0 start|stop" >&2; exit 1 ;;

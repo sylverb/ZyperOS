@@ -125,6 +125,11 @@ bool up_slots_init(void)
 	boot = system_part(sys, "part-boot", 1);
 	root_a = system_part(sys, "part-root-a", 2);
 	root_b = system_part(sys, "part-root-b", 4);
+	/* An image that names its partitions but no root B has one root, and
+	 * no slots: its partition 4 is something else (the Brick's games, before
+	 * its own A/B), never a place for a new system */
+	if (system_part(sys, "part-root-a", 0) && !system_part(sys, "part-root-b", 0))
+		return false;
 	if (!part_name(card, boot, g_bootdev, sizeof g_bootdev) ||
 	    !part_name(card, root_a, g_part[0], sizeof g_part[0]) ||
 	    !part_name(card, root_b, g_part[1], sizeof g_part[1]))

@@ -30,7 +30,7 @@ PLASTRON_COMMIT := $(shell git describe --always --dirty --abbrev=12 2>/dev/null
 STAMP := -e PLASTRON_COMMIT=$(PLASTRON_COMMIT) -e "PLASTRON_WHO=$(USER) with plastron $(PLASTRON_COMMIT)"
 DOCKER_RUN := docker run --rm -t $(STAMP) -v $(CURDIR):/src:ro $(SOURCES) -v $(VOLUME):/work $(IMAGE)
 
-.PHONY: gauge-check charge-limit-check push all builder volume image base qemu sdk brick brick-inputs brick-kernel brick-bootloader brick-probe bootloader shell linux-rebuild copy-out clean-output release release-pixel2 release-brick third-party
+.PHONY: gauge-check charge-limit-check push all builder volume image base qemu sdk brick brick-fetch brick-inputs brick-kernel brick-bootloader brick-probe bootloader shell linux-rebuild copy-out clean-output release release-pixel2 release-brick third-party
 
 all: image
 
@@ -74,15 +74,21 @@ BRICK_GPU ?= $(HOME)/brick-runtime/gpu-ddk-1.11
 # And XRadio's firmware for its XR829 Wi-Fi and Bluetooth chip, closed the same
 # way: from BRICK_XR829, mounted at /brick-xr829 (package/xr829-firmware)
 BRICK_XR829 ?= $(HOME)/brick-runtime/xr829
+# The builder's own copy of them, fetched from their publisher and checked
+# (scripts/fetch-brick-inputs.sh): once, before the first make brick
+brick-fetch:
+	BRICK_GPU=$(BRICK_GPU) BRICK_XR829=$(BRICK_XR829) sh scripts/fetch-brick-inputs.sh
+
 # The closed parts the Brick's build needs, there before it starts
 brick-inputs:
 	@[ -d "$(BRICK_GPU)/lib64" ] || { echo "no GPU libraries in $(BRICK_GPU): the Brick needs" \
 		"Imagination's PowerVR DDK 1.11@5516664 userspace libraries for the GE8300," \
 		"which plastron doesn't include (buildroot/package/pvr-ge8300/Config.in" \
-		"says which files and where they go)" >&2; exit 1; }
+		"says which files and where they go; make brick-fetch fetches them)" >&2; exit 1; }
 	@[ -f "$(BRICK_XR829)/fw_xr829.bin" ] || { echo "no XR829 firmware in $(BRICK_XR829): the" \
 		"Brick's Wi-Fi needs XRadio's firmware files, which plastron doesn't include" \
-		"(buildroot/package/xr829-firmware/Config.in says which and where from)" >&2; exit 1; }
+		"(buildroot/package/xr829-firmware/Config.in says which and where from; make brick-fetch" \
+		"fetches them)" >&2; exit 1; }
 BRICK_RUN := docker run --rm -t $(STAMP) -v $(CURDIR):/src:ro $(SOURCES) \
 	-v $(BRICK_GPU):/brick-gpu:ro -v $(BRICK_XR829):/brick-xr829:ro -v $(VOLUME):/work $(IMAGE)
 # Its kernel and modules come from make brick-kernel, in this volume.
@@ -180,7 +186,9 @@ release-pixel2:
 	$(DOCKER_RUN) sh /src/scripts/release.sh $(VERSION) pixel2 > out/release-pixel2.log 2>&1 || \
 		{ tail -30 out/release-pixel2.log; exit 1; }
 
-release-brick:
+# The Brick's closed files there first, as release has them (its kernel from
+# make brick-kernel: board/brick/post-image.sh stops without it)
+release-brick: brick-inputs
 	@mkdir -p out
 	$(BRICK_RUN) sh /src/scripts/release.sh $(VERSION) brick > out/release-brick.log 2>&1 || \
 		{ tail -30 out/release-brick.log; exit 1; }

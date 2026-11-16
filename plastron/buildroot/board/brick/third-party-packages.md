@@ -48,3 +48,4 @@ the boot loader and the closed parts.
 | util-linux | 2.41.4 | GPL-2.0+, BSD-4-Clause, LGPL-2.1+ (libblkid, libfdisk, libmount), BSD-3-Clause (libuuid), BSD-2-Clause (xxhash), ISC (rfkill), MIT (hardlink, flock) | https://cdn.kernel.org/pub/linux/utils/util-linux/v2.41 |
 | wpa_supplicant | 2.11 | BSD-3-Clause | http://w1.fi/releases |
 | xr829-firmware | sonic-pad-7f37a7f | PROPRIETARY | XRadio: closed, not distributed on its own (see THIRD-PARTY.md) |
+| xz | 5.8.3 | Public Domain, BSD-0-Clause, GPL-2.0+, GPL-3.0+, LGPL-2.1+ | https://github.com/tukaani-project/xz/releases/download/v5.8.3 |

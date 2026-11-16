@@ -1,17 +1,24 @@
 #!/bin/sh
 # The A/B card (ZyperOS's docs/updates.md, layer 2), for every board's
-# post-image.sh: boot.scr from the board's prelude and boot-slots.cmd, the
-# first bootstate.txt (slot a, the image's system version), then genimage,
-# then root B moved to partition 4.
+# post-image.sh: boot.scr from the board's prelude, bootstate.cmd (which slot
+# boots, the same on every board) and the board's own load and boot (TAIL,
+# boot-slots.cmd's by default: the Pixel 2's and QEMU's), the first
+# bootstate.txt (slot a, the image's system version), then genimage, then on
+# an MBR table root B moved to partition 4.
 #
-#   post-image-slots.sh BOARD_DIR
+#   post-image-slots.sh BOARD_DIR [TAIL [ROOT]]
 #
-# genimage numbers partitions in the order they are written, so root B, the
-# third it writes, is moved to the table's fourth entry afterwards: the games
-# partition the first boot adds (/etc/init.d/datapart) stays partition 3, as
-# every card before the slots has it, and starts after root B.
+# ROOT is genimage.cfg's name for root A's partition (rootfs), whose size is
+# the slot's. On MBR, genimage numbers partitions in the order they are
+# written, so root B, the third it writes, is moved to the table's fourth
+# entry afterwards: the games partition the first boot adds
+# (/etc/init.d/datapart) stays partition 3, as every card before the slots has
+# it, and starts after root B. A GPT board (the Brick) writes root B fourth,
+# after its state partition, and leaves the games partition the fifth.
 set -eu
 BOARD_DIR=$1
+TAIL=${2:-$(dirname "$0")/boot-slots.cmd}
+ROOT=${3:-rootfs}
 COMMON=$(dirname "$0")
 
 # Made here on every build, never kept from an earlier one: the output folder
@@ -19,7 +26,7 @@ COMMON=$(dirname "$0")
 # a build without slots, or the other way round) boots nothing (2026-11-06:
 # a Pixel hung at boot on exactly that)
 rm -f "$BINARIES_DIR/boot.cmd" "$BINARIES_DIR/boot.scr"
-cat "$BOARD_DIR/boot-prelude.cmd" "$COMMON/boot-slots.cmd" > "$BINARIES_DIR/boot.cmd"
+cat "$BOARD_DIR/boot-prelude.cmd" "$COMMON/bootstate.cmd" "$TAIL" > "$BINARIES_DIR/boot.cmd"
 "$HOST_DIR/bin/mkimage" -A arm64 -O linux -T script -C none -n "ZyperOS A/B" \
 	-d "$BINARIES_DIR/boot.cmd" "$BINARIES_DIR/boot.scr" > /dev/null
 
@@ -27,11 +34,11 @@ cat "$BOARD_DIR/boot-prelude.cmd" "$COMMON/boot-slots.cmd" > "$BINARIES_DIR/boot
 # genimage.cfg's for the rootfs partition, and a card keeps the size it was
 # laid out with, so a root that outgrows it needs a decision (a bigger slot
 # means a fresh install), not a build that fails deep in genimage
-SLOT=$(awk '/partition rootfs[ \t]*\{/ { in_root = 1 } in_root && /size *=/ { print $3; exit }' \
+SLOT=$(awk -v p="$ROOT" '$1 == "partition" && $2 == p { in_root = 1 } in_root && /size *=/ { print $3; exit }' \
 	"$BOARD_DIR/genimage.cfg")
 case $SLOT in
 *M) SLOT_BYTES=$(( ${SLOT%M} * 1048576 )) ;;
-*) echo "post-image-slots: no size for the rootfs partition in $BOARD_DIR/genimage.cfg" >&2; exit 1 ;;
+*) echo "post-image-slots: no size for the $ROOT partition in $BOARD_DIR/genimage.cfg" >&2; exit 1 ;;
 esac
 ROOT_BYTES=$(stat -c %s "$BINARIES_DIR/rootfs.squashfs")
 if [ "$ROOT_BYTES" -gt "$SLOT_BYTES" ]; then
@@ -60,6 +67,10 @@ tail -c +65 "$BINARIES_DIR/boot.scr" | grep -aq 'load .*/${slot}/Image' || fail 
 "$HOST_DIR/bin/mdir" -i "$BINARIES_DIR/boot.vfat" ::bootstate.txt > /dev/null 2>&1 || fail "has no bootstate.txt"
 echo "post-image-slots: boot.vfat holds this build's boot.scr, a/Image and bootstate.txt"
 
+if grep -q 'partition-table-type *= *"gpt"' "$BOARD_DIR/genimage.cfg"; then
+	echo "post-image-slots: GPT, root B written as partition 4"
+	exit 0
+fi
 python3 - "$BINARIES_DIR/sdcard.img" <<'PY'
 import struct, sys
 p = sys.argv[1]

@@ -309,6 +309,11 @@ slots_env() {
 }
 bootstate() { sed -n "s/^$1=//p" "$SL/boot/bootstate.txt"; }
 slots_env
+# The boot partition's closed/ (the Brick's GPU and Wi-Fi files, the
+# player's own copy) is never System Update's to touch
+mkdir -p "$SL/boot/closed"
+noise 7000 "$SL/boot/closed/libEGL.so.1"
+cp "$SL/boot/closed/libEGL.so.1" "$SL/closed.keep"
 newcard
 run check --source "file://$T/rel2/"
 expect "slots: a newer system comes first" "$?:$(state):$(field kind):$(field version):$(field slot)" "0:available:system:0.2.0:a"
@@ -366,6 +371,26 @@ run check --source "file://$T/rel2/"
 expect "  ...check: the staged system is still to install, not ready" "$?:$(state):$(field kind)" "0:available:system"
 run download --source "file://$T/rel2/"
 expect "  ...Download again finishes" "$?:$(state):$(bootstate slot):$(bootstate b):$(bootstate trial)" "0:ready:b:0.2.0:1"
+cmp -s "$SL/boot/closed/libEGL.so.1" "$SL/closed.keep" && ok "  ...the boot partition's closed/ as it was" ||
+	bad "  ...closed/ on the boot partition changed"
+
+# A boot partition short of room for the slot's kernel and device tree stops
+# before anything is written: root B and /b as they were
+printf 'slot=a\ntrial=0\ntry=0\nfell=-\na=0.1.0\nb=-\n' > "$SL/boot/bootstate.txt"
+head -c 3000000 /dev/zero > "$SL/p4"
+cp "$SL/p4" "$SL/p4.before"
+newcard
+run check --source "file://$T/rel2/" > /dev/null
+(export ZYPEROS_UPDATE_BOOT_FREE=100000; run download --source "file://$T/rel2/")
+expect "slots: no room on the boot partition stops it" "$(state)" "error"
+grep -q "not enough room on the boot partition" "$CARD/.userdata/pixel2/update/status" &&
+	ok "  ...saying why" || bad "  ...not said: $(field message)"
+cmp -s "$SL/p4" "$SL/p4.before" && ok "  ...root B untouched" || bad "  ...root B was written"
+rm -f "$SL/p4.before"
+printf 'slot=a\ntrial=0\ntry=0\nfell=-\na=0.1.0\nb=-\n' > "$SL/boot/bootstate.txt"
+newcard
+run check --source "file://$T/rel2/" > /dev/null
+run download --source "file://$T/rel2/" > /dev/null
 
 # A system bigger than the card's slots (a card laid out with smaller ones)
 # is said before anything is fetched, and the folder's check stays out of it
@@ -462,6 +487,23 @@ run download --source "file://$T/rel2/"
 expect "parts: the system goes into the partition the image names for root B" "$?:$(state)" "0:ready"
 head -c 2000000 "$SL/card7" | cmp -s - "$SL/sys2/root.squashfs" && ok "  ...partition 7 holds the new root" || bad "  ...partition 7 does not hold the new root"
 head -c 2000000 "$SL/card6" | cmp -s - "$SL/sys2/root.squashfs" && bad "  ...partition 6, the running root, was written" || ok "  ...partition 6, the running root, untouched"
+unset ZYPEROS_UPDATE_CMDLINE ZYPEROS_UPDATE_BOOT ZYPEROS_UPDATE_CARD
+
+# An image that names its partitions and no root B has one root, no slots:
+# the system never goes into partition 4, which on such a card is something
+# else (the Brick's games partition, before its own A/B)
+head -c 3000000 /dev/zero > "$SL/card2"
+head -c 3000000 /dev/zero > "$SL/card4"
+printf 'slot=a\ntrial=0\ntry=0\nfell=-\na=0.1.0\nb=-\n' > "$SL/boot/bootstate.txt"
+echo "zyperos.slot=a zyperos.trial=0" > "$SL/cmdline"
+printf 'version 0.1.0\nupdate 1\ndevice pixel2\ntable gpt\npart-boot 1\npart-root-a 2\npart-games 4\n' > "$T/system"
+export ZYPEROS_UPDATE_CMDLINE=$SL/cmdline ZYPEROS_UPDATE_BOOT=$SL/boot ZYPEROS_UPDATE_CARD=$SL/card
+newcard
+run check --source "file://$T/rel2/" > /dev/null
+run download --source "file://$T/rel2/" > /dev/null
+head -c 3000000 /dev/zero > "$SL/zero4"
+cmp -s "$SL/card4" "$SL/zero4" && ok "parts: no root B named, no slots: partition 4 untouched" ||
+	bad "parts: no root B named, and partition 4 was written"
 unset ZYPEROS_UPDATE_CMDLINE ZYPEROS_UPDATE_BOOT ZYPEROS_UPDATE_CARD
 
 # --- the device, as the image names it ----------------------------------------

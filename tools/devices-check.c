@@ -348,11 +348,12 @@ static void builds(void)
 	ck(!strcmp(px->diatom_port, "pixel2") && !strcmp(br->diatom_port, "brick"), "each its own Diatom port");
 	ck(!strcmp(px->table, "mbr") && px->part_boot == 1 && px->part_root_a == 2 && px->part_root_b == 4 &&
 	   px->part_games == 3, "pixel2: MBR, boot 1, roots 2 and 4, games 3");
-	ck(!strcmp(br->table, "gpt") && br->part_boot == 1 && br->part_root_a == 2 && br->part_root_b == 0 &&
-	   br->part_games == 4, "brick: GPT, boot 1, one root at 2, games 4");
+	ck(!strcmp(br->table, "gpt") && br->part_boot == 1 && br->part_root_a == 2 && br->part_root_b == 4 &&
+	   br->part_games == 5, "brick: GPT, boot 1, roots 2 and 4 (the Pixel 2's numbers), state 3, games 5");
 	ck(px->helpers == (DEV_HELPER_PORTKEYS | DEV_HELPER_ZYHOME | DEV_HELPER_UPDATE | DEV_HELPER_P2D |
 	                   DEV_HELPER_PORTS), "pixel2: portkeys, zyhome, System Update, Player 2, ports");
-	ck(br->helpers == (DEV_HELPER_BTPLAYER | DEV_HELPER_BTALSA), "brick: btplayer and Bluetooth sound");
+	ck(br->helpers == (DEV_HELPER_UPDATE | DEV_HELPER_BTPLAYER | DEV_HELPER_BTALSA),
+	   "brick: System Update, btplayer and Bluetooth sound");
 }
 
 /* MENU's look: the Pixel 2's three dots on its own MENU and on the host's
