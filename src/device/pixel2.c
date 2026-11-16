@@ -1082,8 +1082,9 @@ static void screen_colors_share(void)
 
 /* Saturation: the BCSH block's knob on each of the PX30's two display
  * controllers (plastron's kernel patch 9-px2-px30-vop-bcsh-saturation),
- * 256 the picture as drawn. The panel's is the VOP-B; the VOP-L takes the
- * same value in its own units. Kept by the kernel for every program after. */
+ * 256 the picture as drawn. The panel's is the VOP-B; the VOP-L, where it
+ * is bound (not on the Pixel 2, seen 2026-11-16), takes the same value in
+ * its own units. Kept by the kernel for every program after. */
 #define SCREEN_SATURATION_FILE "/sys/devices/platform/ff460000.vop/saturation"
 #define SCREEN_SATURATION_LIT  "/sys/devices/platform/ff470000.vop/saturation"
 static const int screen_saturation_step[3] = { 256, 294, 333 };   /* 1.0, 1.15, 1.30 */
