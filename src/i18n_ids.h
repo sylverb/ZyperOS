@@ -648,6 +648,10 @@ typedef enum {
 	S_TOUR_LANG_HELLO,
 	/* res/strings/launch.txt */
 	S_LAUNCH_NEEDS_BIOS,
+	S_LAUNCH_BIOS_SIZE,
+	S_LAUNCH_BIOS_HIDES,
+	S_LAUNCH_BIOS_BYTES,
+	S_LAUNCH_BIOS_BYTES__OTHER,
 	S_LAUNCH_COULDNT_START,
 	/* res/strings/library.txt */
 	S_LIBRARY_FAVORITES,

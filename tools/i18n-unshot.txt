@@ -274,6 +274,10 @@ tour.lang.hello
 # launch: no shot draws it yet
 launch.needs_bios
 launch.couldnt_start
+launch.bios_size   # wrapped onto balanced lines (result_message), so no drawn line is the string
+launch.bios_hides  # wrapped onto balanced lines, as launch.bios_size
+launch.bios_bytes.one    # a piece of launch.bios_size's line
+launch.bios_bytes.other  # a piece of launch.bios_size's line
 
 # library: no shot draws it yet
 library.scanning

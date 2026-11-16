@@ -544,13 +544,14 @@ refused, a link that leads out of it too.
   `px2-open --wait-running 20` waits for whatever is opened.
 
 Its errors say a code and why: `bad-path`, `no-file`, `unknown-system`,
-`not-a-game`, `unknown-core`, `needs-bios`, `not-running`, `busy`,
-`bad-command`. It exits 0 when done, 1 for a refusal, 2 when no launcher
-answers or a wait runs out. The launcher reads the channel on the shelf, on
-every screen that runs a loop, and ten times a second in a game; a game
-started without the resident emulator (its fallback) has no launcher to
-answer until it ends. A game copied onto the card after the launcher read the
-shelves is found all the same: an open from the shelf reads them again.
+`not-a-game`, `unknown-core`, `needs-bios`, `bad-bios` (a BIOS file of the
+wrong size), `not-running`, `busy`, `bad-command`. It exits 0 when done, 1
+for a refusal, 2 when no launcher answers or a wait runs out. The launcher
+reads the channel on the shelf, on every screen that runs a loop, and ten
+times a second in a game; a game started without the resident emulator (its
+fallback) has no launcher to answer until it ends. A game copied onto the
+card after the launcher read the shelves is found all the same: an open from
+the shelf reads them again.
 
 For the Pixel 2 with nobody holding it, `tools/` has more small programs to build
 with plastron's toolchain (`aarch64-buildroot-linux-gnu-gcc -O2`, `-pthread`
