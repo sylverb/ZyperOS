@@ -32,6 +32,7 @@
 #include <string.h>
 
 #include "config.h"   /* CFG_NO_COLOR: the keyboard is no system's */
+#include "ds/layout.h"   /* DS_MENU_PAD */
 #include "kbnav.h"
 #include "keyboard.h"
 #include "platform.h"   /* PLAT_TARGET_FORMAT */
@@ -186,7 +187,7 @@ static kb_geo kb_geometry(void)
 	kb_geo g;
 	int line_top, h;
 
-	g.pad = ui_font_line(UI_F_MENU) * 3 / 2 * 3 / 4;
+	g.pad = DS_MENU_PAD;   /* the menu panel's padding (menu_pad), on the grid */
 	g.head = ui_font_line(UI_F_LABEL) + g.pad;
 	h = g.head + g.pad / 2 + FIELD_H + KB_KEY_GAP
 	  + KB_ROWS * (KB_KEY_H + KB_KEY_GAP) + KB_KEY_H

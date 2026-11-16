@@ -245,6 +245,9 @@ LAYOUT = [
     ("page-tile-h",     280, "its height"),
     ("page-tile-pad",   32,  "its words from its sides"),
     # a panel of tiles, or a list (src/ds/tiles.h)
+    # a menu panel (src/menu_panel.c)
+    ("menu-row",        72,  "a menu's row: on the grid, 45 whole pixels on the Pixel 2 (1.5 menu lines, 73, until 1.0.6)"),
+    ("menu-pad",        56,  "a menu panel's padding: 35 whole pixels on the Pixel 2 (3/4 of a row, 54, until 1.0.6)"),
     ("tile-w",          272, "a tile, three in a row"),
     ("tile-w-wide",     408, "a tile, two in a row or the grid's"),
     ("tile-h",          232, "a tile's height: the mark, a name on two lines"),

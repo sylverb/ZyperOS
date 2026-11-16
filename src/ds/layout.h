@@ -29,6 +29,8 @@
 #define DS_PAGE_TILE_W          472
 #define DS_PAGE_TILE_H          280
 #define DS_PAGE_TILE_PAD        32
+#define DS_MENU_ROW             72
+#define DS_MENU_PAD             56
 #define DS_TILE_W               272
 #define DS_TILE_W_WIDE          408
 #define DS_TILE_H               232

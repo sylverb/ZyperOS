@@ -44,15 +44,15 @@ static SDL_Color col_mix(SDL_Color a, SDL_Color b, float t)
 	                    (Uint8)(a.a + (b.a - a.a) * t) };
 }
 
-/* DESIGN.md 5's one number, 1.5 menu lines. The line is the menu's em, 49
- * (ui_font_line): Lexend's line skip, 62, would make it 93 where the mock
- * kit's row is 77 and the panel two rows shorter than the rows it was drawn
- * with. */
-int menu_row_h(void) { return ui_font_line(UI_F_MENU) * 3 / 2; }
-/* The air between the panel edge and its content, on each side. menu_draw
- * draws it and menu_std_width subtracts it, and a panel width means nothing
- * unless both use the same number. */
-int menu_pad(void)   { return menu_row_h() * 3 / 4; }
+/* A menu's row, the menu-row token (DESIGN.md 5): 72, on the 8 grid and 45
+ * whole pixels on the Pixel 2. It was 1.5 menu lines (the menu's em, 49:
+ * 73, 45.6 px) until 1.0.6. */
+int menu_row_h(void) { return DS_MENU_ROW; }   /* 72: on the grid, 45 px on the Pixel 2 */
+/* The air between the panel edge and its content, on each side, the
+ * menu-pad token: 56, 35 whole pixels (3/4 of a row, 54, until 1.0.6).
+ * menu_draw draws it and menu_std_width subtracts it, and a panel width
+ * means nothing unless both use the same number. */
+int menu_pad(void)   { return DS_MENU_PAD; }   /* 56: on the grid, 35 px on the Pixel 2 */
 
 /* The menus' panel pass as src/ds/panel.h asks for it */
 static bool menu_pass_begin(void *ctx) { return panel_pass_begin(ctx); }
