@@ -3444,14 +3444,15 @@ static void name_line(SDL_Surface *s, card_faces *k, int lang_set, int size, con
 
 	if (!f || !latin) return;
 	top = cap_top - (TTF_FontAscent(latin) - name_cap(k, size));
-	if ((t = render_in(f, line, (SDL_Color){ 0, 0, 0, 255 }))) {
+	/* rendered once, in white, and put down twice through its color: the
+	 * shadow black at 110, then the line in its ink */
+	if ((t = render_in(f, line, (SDL_Color){ 255, 255, 255, 255 }))) {
 		SDL_SetSurfaceBlendMode(t, SDL_BLENDMODE_BLEND);
+		SDL_SetSurfaceColorMod(t, 0, 0, 0);
 		SDL_SetSurfaceAlphaMod(t, 110);
 		SDL_BlitSurface(t, NULL, s, &(SDL_Rect){ CA_NAME_X, top + 3, 0, 0 });
-		SDL_FreeSurface(t);
-	}
-	if ((t = render_in(f, line, col))) {
-		SDL_SetSurfaceBlendMode(t, SDL_BLENDMODE_BLEND);
+		SDL_SetSurfaceColorMod(t, col.r, col.g, col.b);
+		SDL_SetSurfaceAlphaMod(t, col.a);
 		SDL_BlitSurface(t, NULL, s, &(SDL_Rect){ CA_NAME_X, top, 0, 0 });
 		SDL_FreeSurface(t);
 	}
@@ -3527,13 +3528,14 @@ void ui_card_free(SDL_Surface *s)
 	if (s) SDL_FreeSurface(s);
 }
 
-static void keep_ground(SDL_Surface *s)
+/* `from`: the ground as painted, the card's own or its half-size paint */
+static void keep_ground(SDL_Surface *s, SDL_Surface *from)
 {
 	SDL_Surface *g = SDL_CreateRGBSurfaceWithFormat(0, s->w / 4, s->h / 4, 32, SDL_PIXELFORMAT_ARGB8888);
 
 	if (!g) return;
-	SDL_SetSurfaceBlendMode(s, SDL_BLENDMODE_NONE);
-	if (SDL_SoftStretchLinear(s, NULL, g, NULL)) {
+	SDL_SetSurfaceBlendMode(from, SDL_BLENDMODE_NONE);
+	if (SDL_SoftStretchLinear(from, NULL, g, NULL)) {
 		SDL_FreeSurface(g);
 		return;
 	}
@@ -3581,12 +3583,27 @@ static SDL_Surface *game_art_card(card_faces *k, const ui_card_order *o)
 		SDL_FreeSurface(f);
 	}
 	if (!played) {
+		/* painted at half the size and stretched: on the Pixel 2 a whole
+		 * one took 134 ms on the worker, and shown at a third of its size
+		 * nothing of it is lost */
+		SDL_Surface *half = SDL_CreateRGBSurfaceWithFormat(0, CARD_W / 2, CARD_H / 2, 32,
+		                                                   SDL_PIXELFORMAT_ARGB8888);
 		ca_ground g;
 
 		cardart_ground(rgb, cardart_hash(o->title), &g);
-		cardart_paint_ground(s, rgb, cardart_texture(o->tag), &g, card_art(k, o->art));
+		if (half) {
+			cardart_paint_ground(half, rgb, cardart_texture(o->tag), &g, card_art(k, o->art));
+			SDL_SetSurfaceBlendMode(half, SDL_BLENDMODE_NONE);
+			SDL_BlitScaled(half, NULL, s, NULL);
+			keep_ground(s, half);
+			SDL_FreeSurface(half);
+		} else {
+			cardart_paint_ground(s, rgb, cardart_texture(o->tag), &g, card_art(k, o->art));
+			keep_ground(s, s);
+		}
+	} else {
+		keep_ground(s, s);
 	}
-	keep_ground(s);
 	card_name(s, k, o);
 	round_corners(s, CARD_RADIUS);
 	card_cost(played, t0);

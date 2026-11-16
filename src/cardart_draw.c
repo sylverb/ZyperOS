@@ -75,6 +75,28 @@ static void tri(SDL_Surface *s, const float *a, const float *b, const float *c, 
 /* The ground's light and vignette at (x, y), from the separable tables */
 static rgbf lit(rgbf c, rgbf glow, float gl, float vig) { return scale(mix(c, glow, .22f * gl), vig); }
 
+/* The hash's shape over `c` at (x, y), light, so the name still reads over
+ * it: a broad band, a disc (on the CRT's era a sunset, its lower half cut by
+ * lines that thicken toward its foot), or two stripes */
+static rgbf shaped(rgbf c, int shape, ca_texture tex, rgbf lite, int x, int y, float cx, float cy,
+                   float cs, float sn, float rad, float sw, int W, int scan)
+{
+	float v = -(x - cx) * sn + (y - cy) * cs, a = 0;
+
+	if (shape == 0) {
+		a = fabsf(v) < W * .16f ? .26f : 0;
+	} else if (shape == 1) {
+		float dx = x - cx, dy = y - cy;
+
+		a = dx * dx + dy * dy < rad * rad ? .30f : 0;
+		if (a > 0 && tex == CA_SCAN && dy > 0 &&
+		    ((int)dy % (scan * 3)) > scan * 2 - (int)(dy / rad * scan * 4 / 3)) a = 0;
+	} else {
+		a = (fabsf(v - sw * 1.4f) < sw * .5f || fabsf(v + sw * 1.4f) < sw * .5f) ? .34f : 0;
+	}
+	return a > 0 ? mix(c, lite, a) : c;
+}
+
 void cardart_paint_ground(SDL_Surface *s, unsigned sys_rgb, ca_texture tex,
                           const ca_ground *g, SDL_Surface *art)
 {
@@ -84,6 +106,10 @@ void cardart_paint_ground(SDL_Surface *s, unsigned sys_rgb, ca_texture tex,
 	float *gx = malloc(sizeof(float) * (size_t)W), *gy = malloc(sizeof(float) * (size_t)H);
 	float *vx = malloc(sizeof(float) * (size_t)W), *vy = malloc(sizeof(float) * (size_t)H);
 	const float sig = W * .45f, sa = sinf(g->angle), ca = cosf(g->angle);
+	/* the textures' sizes are the width's, so a ground painted at half size
+	 * (src/ui.c) and stretched is the one painted whole: 8 of 512 a dither
+	 * cell and an LCD dot's pitch, 6 a scanline's period */
+	const int cell = W / 64 > 2 ? W / 64 : 2, scan = W * 6 / 512 > 3 ? W * 6 / 512 : 3;
 
 	if (!gx || !gy || !vx || !vy || SDL_LockSurface(s)) {
 		free(gx); free(gy); free(vx); free(vy);
@@ -101,6 +127,10 @@ void cardart_paint_ground(SDL_Surface *s, unsigned sys_rgb, ca_texture tex,
 		gy[y] = expf(-d * d / (2 * sig * sig));
 		vy[y] = .5f * v * v;
 	}
+	const float scs = cosf(g->shape_angle), ssn = sinf(g->shape_angle);
+	const float scx = g->shape_x * W, scy = g->shape_y * H, srad = g->shape_r * W, ssw = W * .045f;
+	const rgbf lite = of(g->shape_rgb);
+
 	for (int y = 0; y < H; y++) {
 		Uint32 *row = row_of(s, y);
 
@@ -109,8 +139,9 @@ void cardart_paint_ground(SDL_Surface *s, unsigned sys_rgb, ca_texture tex,
 
 			if (tex == CA_DITHER) {
 				/* four steps of the gradient, Bayer-dithered on 8-pixel cells */
-				int cx = x / 8, cy = y / 8;
-				float lv = along(sa, ca, W, H, cx * 8 + 4.f, cy * 8 + 4.f) * 3, fr = lv - floorf(lv);
+				int cx = x / cell, cy = y / cell;
+				float lv = along(sa, ca, W, H, cx * cell + cell / 2.f, cy * cell + cell / 2.f) * 3,
+				      fr = lv - floorf(lv);
 				int pick = (int)floorf(lv) + (fr * 16 > bayer[cy & 3][cx & 3] + .5f ? 1 : 0);
 
 				c = mix(c0, c1, pick / 3.f);
@@ -118,8 +149,9 @@ void cardart_paint_ground(SDL_Surface *s, unsigned sys_rgb, ca_texture tex,
 				c = mix(c0, c1, along(sa, ca, W, H, (float)x, (float)y));
 			}
 			c = lit(c, glow, gx[x] * gy[y], 1 - vx[x] - vy[y]);
-			if (tex == CA_SCAN && (y % 6) >= 4) c = scale(c, .72f);
-			if (tex == CA_LCD) c = scale(c, (x % 8 < 7 && y % 8 < 7) ? 1.06f : .74f);
+			if (tex == CA_SCAN && (y % scan) >= scan * 2 / 3) c = scale(c, .72f);
+			if (tex == CA_LCD) c = scale(c, (x % cell < cell - 1 && y % cell < cell - 1) ? 1.06f : .74f);
+			if (tex != CA_SHARDS) c = shaped(c, g->shape, tex, lite, x, y, scx, scy, scs, ssn, srad, ssw, W, scan);
 			row[x] = px(c);
 		}
 	}
@@ -157,34 +189,17 @@ void cardart_paint_ground(SDL_Surface *s, unsigned sys_rgb, ca_texture tex,
 				}
 			}
 	}
-	/* the hash's shape, light, so the name still reads over it */
-	{
-		float cs = cosf(g->shape_angle), sn = sinf(g->shape_angle);
-		float cx = g->shape_x * W, cy = g->shape_y * H, rad = g->shape_r * W, sw = W * .045f;
-		rgbf lite = of(g->shape_rgb);
-
+	/* on the shards, drawn over the ground above, the shape is laid after */
+	if (tex == CA_SHARDS)
 		for (int y = 0; y < H; y++) {
 			Uint32 *row = row_of(s, y);
 
 			for (int x = 0; x < W; x++) {
-				float v = -(x - cx) * sn + (y - cy) * cs, a = 0;
+				rgbf c = of_px(row[x]), d = shaped(c, g->shape, tex, lite, x, y, scx, scy, scs, ssn, srad, ssw, W, scan);
 
-				if (g->shape == 0) {
-					a = fabsf(v) < W * .16f ? .26f : 0;
-				} else if (g->shape == 1) {
-					float dx = x - cx, dy = y - cy;
-
-					a = dx * dx + dy * dy < rad * rad ? .30f : 0;
-					/* on the CRT's era, a sunset: the disc's lower half cut by
-					 * lines that thicken toward its foot */
-					if (a > 0 && tex == CA_SCAN && dy > 0 && ((int)dy % 18) > 12 - (int)(dy / rad * 8)) a = 0;
-				} else {
-					a = (fabsf(v - sw * 1.4f) < sw * .5f || fabsf(v + sw * 1.4f) < sw * .5f) ? .34f : 0;
-				}
-				if (a > 0) row[x] = px(mix(of_px(row[x]), lite, a));
+				if (d.r != c.r || d.g != c.g || d.b != c.b) row[x] = px(d);
 			}
 		}
-	}
 	/* the system's own art, faint, bled off a corner */
 	if (art && art->format->format == SDL_PIXELFORMAT_ARGB8888 && !SDL_LockSurface(art)) {
 		int size = W * 300 / 512;
@@ -285,6 +300,15 @@ bool cardart_paint_frame(SDL_Surface *s, SDL_Surface *frame, unsigned sys_rgb)
 	SDL_FreeSurface(fr);
 	if (!SDL_LockSurface(small)) {
 		blur((Uint32 *)small->pixels, SW, SH, 2);
+		/* dimmed toward the system's color, darker toward the foot: here,
+		 * on a sixteenth of the pixels, before the stretch */
+		for (int y = 0; y < SH; y++) {
+			Uint32 *row = row_of(small, y);
+			float foot = clamp1((y - SH * .45f) / (SH * .55f)), dark = 1 - .45f * foot * foot;
+
+			for (int x = 0; x < SW; x++)
+				row[x] = px(scale(mix(scale(of_px(row[x]), .52f), tint, .28f), dark));
+		}
 		SDL_UnlockSurface(small);
 	}
 	SDL_SetSurfaceBlendMode(small, SDL_BLENDMODE_NONE);
@@ -293,15 +317,6 @@ bool cardart_paint_frame(SDL_Surface *s, SDL_Surface *frame, unsigned sys_rgb)
 		return false;
 	}
 	SDL_FreeSurface(small);
-	if (SDL_LockSurface(s)) return true;
-	for (int y = 0; y < s->h; y++) {
-		Uint32 *row = row_of(s, y);
-		float foot = clamp1((y - s->h * .45f) / (s->h * .55f)), dark = 1 - .45f * foot * foot;
-
-		for (int x = 0; x < s->w; x++)
-			row[x] = px(scale(mix(scale(of_px(row[x]), .52f), tint, .28f), dark));
-	}
-	SDL_UnlockSurface(s);
 	return true;
 }
 
@@ -309,15 +324,21 @@ void cardart_paint_band(SDL_Surface *s, int y0, int y1, int feather)
 {
 	if (SDL_LockSurface(s)) return;
 	for (int y = y0 - feather; y < y1 + feather; y++) {
-		float in, k;
+		int in, k;
 		Uint32 *row;
 
 		if (y < 0 || y >= s->h) continue;
-		in = fminf((float)(y - (y0 - feather)), (float)((y1 + feather) - y)) / (float)(feather > 0 ? feather : 1);
-		k = 1 - .52f * clamp1(in);
+		in = y - (y0 - feather) < (y1 + feather) - y ? y - (y0 - feather) : (y1 + feather) - y;
+		if (in > feather) in = feather;
+		/* 256 at the edge of the feather, 123 (0.48) inside */
+		k = 256 - 133 * in / (feather > 0 ? feather : 1);
 		row = row_of(s, y);
-		for (int x = 0; x < s->w; x++)
-			row[x] = (row[x] & 0xFF000000u) | (px(scale(of_px(row[x]), k)) & 0xFFFFFF);
+		for (int x = 0; x < s->w; x++) {
+			Uint32 p = row[x];
+
+			row[x] = (p & 0xFF000000u) | ((((p >> 16) & 255) * (Uint32)k >> 8) << 16) |
+			         ((((p >> 8) & 255) * (Uint32)k >> 8) << 8) | ((p & 255) * (Uint32)k >> 8);
+		}
 	}
 	SDL_UnlockSurface(s);
 }
