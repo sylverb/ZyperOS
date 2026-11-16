@@ -1236,6 +1236,14 @@ with that name. A chord is named by what it does (`dev_role_keys`:
 brightness, home, battery), so a page says each handheld's own: MENU+VOL on
 the Pixel 2, F1/F2 on the Brick.
 
+**A chord as glyphs** (1.0.6). A hint that names two buttons or more ("L1/R1"
+in Now Playing's and the keyboard's, "SELECT+START") draws each button's own
+glyph with the sign between them, "/" for either and "+" for together, in
+**meta** **text-dim**, 4 units either side at the hints' sizes and 8 at the
+tutorial's 64, so the chord reads as one hint. It was one pill with the
+whole name in it. A sign with nothing on one side is part of a name (VOL+).
+MENU > Controls's rows write a chord as words ("L1/R1", src/controls.c), as they did.
+
 **In a menu row**, a glyph says a button does the row's job from anywhere on
 the page: the row's value is `MENU_KEY_X` (src/menu.h), and the glyph is
 drawn at 40, the keyboard's action keys' size, where the value's right edge
