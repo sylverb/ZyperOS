@@ -13,6 +13,9 @@
 #include "emptyhome.h"
 #include "esmedia.h"
 #include "favorites.h"
+#include "focusfx.h"
+#include "gridrule.h"
+#include "texload.h"
 #include "look.h"
 #include "mp4video.h"
 #include "musec.h"
@@ -770,11 +773,14 @@ bool snap_new_picture(void)
 	return g_snap_asked[0] && snapv_pending();
 }
 
+static void fx_off(void);
+
 void snap_off(void)
 {
 	memset(&g_snap_shelf, 0, sizeof g_snap_shelf);
 	g_snap_focus.sys = -1;
 	snap_ask("", false);
+	fx_off();
 }
 
 static void shelf_snap(app *a, sysview *v, const game_entry *g, int owner, bool settled,
@@ -854,6 +860,107 @@ static void shelf_snap(app *a, sysview *v, const game_entry *g, int owner, bool 
 	info->snap_w = w;
 	info->snap_h = h;
 	info->snap_k = info->snap ? k : 0;
+}
+
+/* ---- the focused card with no art: one sheen, and its sharp frame ---------
+ *
+ * src/focusfx.h's timeline, on the cover row: the light once across the
+ * card as the row stops on it, and for a played game the card with its frame
+ * of play sharp, asked of the art workers then (SHELF_SHARP_SYS) and drawn
+ * over the blurred one as it comes. One sharp card at a time, the focused
+ * one's, dropped as the focus moves. */
+static focusfx g_fx = { -1, -1, false, 0, 0 };
+static SDL_Texture *g_fx_sharp;
+static int g_fx_sharp_sys = -1, g_fx_sharp_idx = -1;
+static int g_fx_seen_sys = -1, g_fx_seen_idx = -1;
+static bool g_fx_played;
+float g_shot_sheen = -1;     /* --sheen T, for a shot */
+float g_shot_sharp = -1;     /* --sharp K, for a shot */
+
+static void fx_drop_sharp(void)
+{
+	if (g_fx_sharp) SDL_DestroyTexture(g_fx_sharp);
+	g_fx_sharp = NULL;
+	g_fx_sharp_sys = g_fx_sharp_idx = -1;
+}
+
+static void fx_off(void)
+{
+	focusfx_reset(&g_fx);
+	fx_drop_sharp();
+	g_fx_seen_sys = g_fx_seen_idx = -1;
+}
+
+void shelf_focus_sharp_put(app *a, int sys, int idx, SDL_Surface *s, bool card, int theme_ix)
+{
+	if (s && card && sys == g_fx.sys && idx == g_fx.idx && g_fx.settled) {
+		fx_drop_sharp();
+		if ((g_fx_sharp = ui_card_upload(a->r, s, theme_ix))) {
+			g_fx_sharp_sys = sys;
+			g_fx_sharp_idx = idx;
+			redraw_now();
+		}
+	}
+	if (s) ui_card_free(s);
+}
+
+static void shelf_focusfx(app *a, sysview *v, const game_entry *g, int owner, bool settled,
+                          unsigned now, games_info *info)
+{
+	int s = g ? a->sys_cursor : -1, i = g ? v->cursor : -1;
+	const gg_art *e = g && v->tex[i] ? gg_art_of(&v->gart, i, v->tex[i], gg_key(g->file)) : NULL;
+	bool generated = e && e->generated;
+	focusfx_out o;
+
+	/* Whether the card shows a frame of play, read once a focus */
+	if (s != g_fx_seen_sys || i != g_fx_seen_idx) {
+		char p[LIB_PATH * 2];
+		struct stat st;
+
+		g_fx_seen_sys = s;
+		g_fx_seen_idx = i;
+		g_fx_played = false;
+		if (g) {
+			card_frame_path(a, owner, g, p, sizeof p);
+			g_fx_played = stat(p, &st) == 0 && st.st_size > 0;
+			if (!g_fx_played) {
+				preview_path(a, owner, g, p, sizeof p);
+				g_fx_played = stat(p, &st) == 0 && st.st_size > 0;
+			}
+		}
+	}
+	if (g_fx_sharp && (g_fx_sharp_sys != s || g_fx_sharp_idx != i)) fx_drop_sharp();
+	/* In front only when it is the shelf's own loop drawing, as the snap is:
+	 * not behind a menu opened over the shelf, and in a shot only where
+	 * --sheen or --sharp says (shelf_snap) */
+	settled = settled && g_home_live;
+	focusfx_step(&g_fx, s, i, generated, g_fx_played, settled, g_fx_sharp != NULL, now, &o);
+	if ((settled || g_shot_sharp >= 0) && generated && g_fx_played && !g_fx_sharp) {
+		/* Asked while it is not in hand: an ask in flight is ignored */
+		ui_card_order card;
+
+		ui_card_order_set(&card, g->title, a->sys.systems[owner].accent, false);
+		game_card_order(a, owner, g, &card);
+		card.sharp = true;
+		if (!texload_want_or_draw(SHELF_SHARP_SYS(s), i, NULL, NULL, &card)) {
+			/* No worker (a shot): made here */
+			int w, h;
+
+			if ((g_fx_sharp = ui_make_card_for(a->r, &card, &w, &h, NULL))) {
+				g_fx_sharp_sys = s;
+				g_fx_sharp_idx = i;
+			}
+		}
+	}
+	if (o.moving) redraw_now();
+	info->sheen = o.sheen;
+	info->sharp = g_fx_sharp && o.sharp > 0 ? g_fx_sharp : NULL;
+	info->sharp_k = o.sharp;
+	if (g_shot_sheen >= 0 && generated) info->sheen = g_shot_sheen;
+	if (g_shot_sharp >= 0 && generated && g_fx_sharp) {
+		info->sharp = g_fx_sharp;
+		info->sharp_k = g_shot_sharp;
+	}
 }
 
 /* The snaps a folder holds, by stem and sorted, for the mark on its covers
@@ -1179,6 +1286,7 @@ static void draw_games(app *a)
 		.inside = v->dir[0] != '\0'
 	};
 	shelf_snap(a, v, folder ? NULL : g, owner, !games_moving(&v->row, now), &info);
+	shelf_focusfx(a, v, folder ? NULL : g, owner, !games_moving(&v->row, now), now, &info);
 	unsigned wait = games_draw(&v->row, a->r, &info, game_get_tex, a, now, title_phase(a));
 	if (wait != UINT32_MAX) redraw_at(plat_now_ms() + wait);
 	evict_far(v, TEX_KEEP_NEAR);

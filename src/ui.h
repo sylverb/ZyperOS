@@ -465,6 +465,9 @@ typedef struct {
 	char     tag[8];
 	char     art[UI_CARD_PATH];
 	char     frame[UI_CARD_FRAMES][UI_CARD_PATH];
+	/* Its frame of play sharp, not blurred: the card the cover row turns
+	 * to once it stops on it (src/focusfx.h) */
+	bool     sharp;
 } ui_card_order;
 
 /* An order for a card in the theme and language that are on: on the frame. */

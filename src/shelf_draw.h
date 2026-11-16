@@ -44,6 +44,16 @@ extern game_page_state g_game_page;
 extern int g_games_phase;
 extern float g_shot_snap_k;
 extern float g_shot_snap_wait;
+extern float g_shot_sheen;
+extern float g_shot_sharp;
+/* The focused card's sharp one (src/focusfx.h) is asked of the art workers
+ * as shelf `s`'s SHELF_SHARP_SYS(s), apart from its covers; its result is
+ * handed here */
+#define SHELF_SHARP_SYS(s) (-10 - (s))
+void shelf_focus_sharp_put(app *a, int sys, int idx, SDL_Surface *s, bool card, int theme_ix);
+/* A game's card order's system and frames of play (src/cardart.h), for
+ * game `g` of system `o`, on an order ui_card_order_set began (src/main.c) */
+void game_card_order(app *a, int o, const game_entry *g, ui_card_order *card);
 extern int g_eh_shot;
 extern songpop g_songpop;
 extern zr_rig g_songpop_zyper;

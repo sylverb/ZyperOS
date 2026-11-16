@@ -44,6 +44,12 @@ typedef struct {
      * under the focused cover (DESIGN.md 11.19). 0 or less draws none, so a
      * shelf that never asks about snaps leaves it out by saying nothing. */
     float snap_wait;
+    /* The focused card with no art as the row stops on it (src/focusfx.h):
+     * the light's way across it, 0 to 1 (0 or less none), and its sharp
+     * card over it, `sharp_k` of the way in (NULL none) */
+    float sheen;
+    SDL_Texture *sharp;
+    float sharp_k;
     /* Whether item `i` has a video snap, for the mark on its cover; NULL for
      * none at all. Asked with games_draw's ctx. */
     bool (*snap_of)(void *ctx,int i);
