@@ -378,14 +378,15 @@ static void menu_look(void)
 	                     *dt = &device_profile_desktop;
 
 	ck(key_is(px, "MENU", DS_KEY_FACE, DS_KEY_MARK_DOTS, "MENU"), "pixel2: MENU is its three-dot key");
-	ck(key_is(px, "SELECT", DS_KEY_PILL, DS_KEY_MARK_NONE, "SELECT") &&
-	   key_is(px, "START", DS_KEY_PILL, DS_KEY_MARK_NONE, "START"), "pixel2: SELECT and START are pills");
+	ck(key_is(px, "SELECT", DS_KEY_FACE, DS_KEY_MARK_NONE, "SE") &&
+	   key_is(px, "START", DS_KEY_FACE, DS_KEY_MARK_NONE, "ST"),
+	   "pixel2: SELECT and START are round keys printed SE and ST (tools/build-pixel2-model.py)");
 	ck(key_is(px, "A", DS_KEY_FACE, DS_KEY_MARK_NONE, "A") && key_is(px, "L1", DS_KEY_PILL, DS_KEY_MARK_NONE, "L1"),
 	   "pixel2: A is a face, L1 a pill");
 	ck(key_is(dt, "MENU", DS_KEY_FACE, DS_KEY_MARK_DOTS, "MENU") &&
-	   key_is(dt, "SELECT", DS_KEY_PILL, DS_KEY_MARK_NONE, "SELECT") &&
-	   key_is(dt, "START", DS_KEY_PILL, DS_KEY_MARK_NONE, "START"),
-	   "desktop: the Pixel 2's MENU, SELECT and START, as its shots always showed");
+	   key_is(dt, "SELECT", DS_KEY_FACE, DS_KEY_MARK_NONE, "SE") &&
+	   key_is(dt, "START", DS_KEY_FACE, DS_KEY_MARK_NONE, "ST"),
+	   "desktop: the Pixel 2's MENU, SELECT and START");
 	ck(key_is(dt, "F1", DS_KEY_PILL, DS_KEY_MARK_NONE, "F1"), "desktop: the Brick's F1, a pill");
 	ck(key_is(br, "MENU", DS_KEY_PILL, DS_KEY_MARK_NONE, "MENU"), "brick: MENU is the word on its key");
 	ck(key_is(br, "SELECT", DS_KEY_FACE, DS_KEY_MARK_SQUARE, "SELECT"), "brick: SELECT is round, a square on it");
