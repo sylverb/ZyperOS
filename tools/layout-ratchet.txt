@@ -11,10 +11,10 @@
 1 folderart.c
 4 folderart.h
 2 gamegrid.c
-17 gamelist.c
-7 games.c
+8 gamelist.c
+4 games.c
 2 games.h
-6 home.c
+4 home.c
 1 hudmenu_screen.h
 2 ingame_screen.c
 2 kbnav.h
