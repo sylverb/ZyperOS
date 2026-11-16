@@ -14,6 +14,8 @@
 #include <SDL.h>
 #include <stdbool.h>
 
+#include "layout.h"   /* DS_SCALE_*: the bar's sizes */
+
 typedef enum {
 	DS_SCALE_TEMPERATURE,   /* cool blue, white, warm orange */
 	DS_SCALE_TINT,          /* green, white, magenta */
@@ -33,8 +35,7 @@ bool ds_scale_parse(const char *value, ds_scale_kind *kind, int *v, int *range);
 
 /* The number's room after the bar: "+10" and "-10" in the menu's face */
 int ds_scale_num_w(void);
-/* The least a bar is, so a scale row is never a sliver */
-#define DS_SCALE_MIN_W 192
+/* The least a bar is (DS_SCALE_MIN_W), so a scale row is never a sliver */
 
 /* The scale in `box` (units): the track across it less the number's room,
  * centered on its height. `on_fill`: drawn over the focus fill (the row under

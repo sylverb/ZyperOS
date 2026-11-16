@@ -70,7 +70,7 @@ int main(void)
 		if (!ui_init(r, "res/fonts/menu.ttf")) return 1;
 		const ds_theme *t = theme();
 		const SDL_Rect box = { 8, 12, W - 16, 72 };
-		const int cy = box.y + box.h / 2, tx = box.x + 16, tw = box.w - ds_scale_num_w() - 32;
+		const int cy = box.y + box.h / 2, tx = box.x + DS_SCALE_KNOB / 2, tw = box.w - ds_scale_num_w() - DS_SCALE_KNOB;
 		const int ends[3] = { -10, 0, 10 };
 
 		ck(ds_scale_num_w() > 0, "the number has room");
@@ -82,7 +82,8 @@ int main(void)
 			ds_scale_draw(r, &box, DS_SCALE_TEMPERATURE, ends[e], 10, false);
 			SDL_RenderReadPixels(r, NULL, SDL_PIXELFORMAT_ARGB8888, px, W * 4);
 			ck(at(kx, cy) == rgb(t->raised), "the knob's face is where the value is");
-			ck(at(kx - 14, cy) == rgb(t->text) || at(kx + 14, cy) == rgb(t->text), "the knob's ring round it");
+			ck(at(kx - (DS_SCALE_KNOB / 2 - 2), cy) == rgb(t->text) || at(kx + (DS_SCALE_KNOB / 2 - 2), cy) == rgb(t->text),
+			   "the knob's ring round it");
 			if (ends[e] != 0)
 				ck(at(tx + (tw - 1) / 2, cy) == rgb(t->text), "zero's mark through the track, away from the knob");
 		}

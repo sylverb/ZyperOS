@@ -37,13 +37,14 @@ bool ds_scale_parse(const char *value, ds_scale_kind *kind, int *v, int *range)
 	return true;
 }
 
-/* The track's height and a knob's, the marks' under it; on the 4-unit grid */
-#define TRACK_H 16
+/* The track's height and a knob's, the marks' under it (the scale-* tokens);
+ * the track's ring a stroke, its width its own */
+#define TRACK_H DS_SCALE_TRACK
 #define TRACK_RING 2
-#define KNOB_D 32
-#define MARK_H 8
-#define ZERO_H 12
-#define NUM_GAP DS_GRID * 2
+#define KNOB_D DS_SCALE_KNOB
+#define MARK_H DS_SCALE_MARK
+#define ZERO_H DS_SCALE_ZERO
+#define NUM_GAP (DS_GRID * 2)
 
 int ds_scale_num_w(void)
 {
