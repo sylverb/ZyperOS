@@ -11,6 +11,7 @@
  * Wi-Fi, Bluetooth audio and play time - each one row in one menu, and none of
  * it in the way of starting a game.
  */
+#include "hwreport.h"
 #include "atomic.h"
 #include "autozone.h"
 #include "coreopts.h"   /* coreopts_migrate: 1.0.6's defaults at run time */
@@ -6547,6 +6548,9 @@ int main(int argc, char *argv[])
 	/* MENU as this handheld prints it, before anything is drawn */
 	ui_set_menu_dots(dev_menu_dots(plat_profile()));
 	if (!ui_init(a.r, P_FONT)) fprintf(stderr, "font init failed\n");
+	/* The GL renderer and version, for the log pack's hardware report
+	 * (src/hwreport.h): read once, while the renderer's context is current */
+	hw_note_gl();
 	/* The language's faces: Lexend's, opened above, or 简体中文's, opened now */
 	ui_fonts_for(i18n_lang());
 	page_fonts_init(P_FONT);

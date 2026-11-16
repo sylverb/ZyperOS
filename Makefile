@@ -11,7 +11,7 @@
         check-db check-coreopts check-gpuframes check-gamedel check-gamern check-esmedia check-corepins check-targets yuvtarget check-storage check-stats check-sort check-bt check-ss check-titles check-dsv check-sidelights check-osdbar check-hud check-dmodefit check-themefile check-pkkeys check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-kbnav check-tween check-menumotion check-menusnap check-cardgen check-blur check-gridrule check-roundrect check-rowmacro check-emptyhome check-zyperrig check-randgame check-shelfdir \
         check-sysmark check-flip check-menushots check-controls-shots check-design check-systemart check-linebreak check-portload \
         check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-messages check-tour check-tour-shots check-textfade check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pmhelper check-portdoc check-boottheme check-splashbright check-bootbright check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr check-autozone \
-        check-home check-home-shots check-games check-cardpaint check-putpace landbench check-favorites-shots check-np-footer check-menu-rows check-layout-shots check-artbadge check-artbadge-shots design sounds strings cjk-font check-strings check-i18n-shots check-rootswitch check-datapart check-brick-closed \
+        check-home check-home-shots check-games check-cardpaint check-putpace landbench check-favorites-shots check-np-footer check-menu-rows check-layout-shots check-artbadge check-artbadge-shots design sounds strings cjk-font check-strings check-i18n-shots check-rootswitch check-datapart check-brick-closed check-hwreport \
         check-tour-previews tour-previews check-prep check-diatom check-simulator check-px2sim check-building-doc check-blog check-discord-release \
         check-release-devices check-installer release
 
@@ -38,7 +38,7 @@ CHECKS = check-cheevos check-hare check-portal check-httpd check-idle check-task
          check-tour check-tour-shots check-tour-previews check-textfade check-glyphs check-ds check-layout-ratchet check-flex check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pmhelper check-pmart check-portdoc check-boottheme check-splashbright check-bootbright check-panelgamma check-displayback check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr \
          check-home check-home-shots check-games check-cardpaint check-putpace check-favorites-shots check-np-footer check-menu-rows check-layout-shots check-artbadge check-artbadge-shots checkmark \
          check-installer check-from-rogue check-importers check-diatom check-simulator check-px2sim check-building-doc check-blog check-discord-release \
-         check-release-devices check-strings check-i18n-shots check-rootswitch check-datapart check-brick-closed
+         check-release-devices check-strings check-i18n-shots check-rootswitch check-datapart check-brick-closed check-hwreport
 
 # All of them at once, as many at a time as there are cores (CHECK_JOBS=1 for
 # one after another), each into build-native/check-logs/: tools/check-run.py
@@ -1140,6 +1140,13 @@ check-datapart:
 check-brick-closed:
 	@sh tools/closedcheck-check.sh
 
+# The log pack's hardware report (src/hwreport.c): its lines from a device's
+# facts, and the readers of the kernel's text they come from
+check-hwreport:
+	@mkdir -p build-native
+	@$(CC) -std=gnu11 -Wall -Wextra -O1 -g -o build-native/hwreport-check tools/hwreport-check.c src/hwreport.c
+	@./build-native/hwreport-check
+
 # The same pixels, proved (tools/pixel-gate.py): every shot of check-i18n-shots
 # in every language and both themes, at BASE (origin/main) and here, compared
 # as decoded pixels, with sheets of what changed. Not in CHECKS: it builds the
@@ -1399,8 +1406,8 @@ check-device-compile:
 	set -e; F="-std=gnu11 -D_GNU_SOURCE -fsyntax-only -Wall -Wextra -Wno-unused-parameter"; \
 	S="$$(pkg-config --cflags sdl2)"; \
 	for d in pixel2 brick; do \
-		echo "  launcher: src/device/$$d.c"; \
-		$(CC) $$F -Isrc $$S src/device/$$d.c; \
+		echo "  launcher: src/device/$$d.c and its hardware report"; \
+		$(CC) $$F -Isrc $$S src/device/$$d.c $$(ls src/device/$${d}_hw.c 2>/dev/null); \
 		echo "  launcher: src/profile.c with src/device/$${d}_profile.c and its model"; \
 		$(CC) $$F -Isrc -DZYPEROS_PROFILE=device_profile_$$d src/profile.c src/device/$${d}_profile.c \
 			src/device/td_model.c $$(ls src/device/$${d}_model.c 2>/dev/null); \
