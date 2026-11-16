@@ -100,11 +100,17 @@ def run(tag, frame_us, presses, seconds=4.0, skippable=False):
     step, clock, dropped = reps[-1]
     return float(step), float(clock), int(dropped), sum(costs) / len(costs)
 
-# A core that reaches every step: held to it, never over
+# A core that reaches every step: held to it, never over. On a machine too
+# busy for it (a CI runner stretched the 1 ms sleep to 7.8 ms), flat out
+def flat_of(r):
+    return 1000.0 / r[3] / 59.7275
+
 for presses, want in ((1, 1.5), (3, 3.0)):
     r = run(f"fast{presses}", 1000, presses)
-    check(f"a 1 ms core at {want}x runs at {want}x, not over it",
-          r is not None and r[0] == want and want * 0.92 <= r[1] <= want * 1.03, r)
+    check(f"a 1 ms core at {want}x runs at {want}x (or flat out short of it), not over it",
+          r is not None and r[0] == want and
+          min(want, flat_of(r)) * 0.88 <= r[1] <= want * 1.03,
+          r and (r, round(flat_of(r), 2)))
 
 # A slow core, flat out short of the step. The old pacing ran whole frames in
 # a two-refresh turn and slept the rest, so its speed came in steps: at 9 ms
@@ -112,8 +118,6 @@ for presses, want in ((1, 1.5), (3, 3.0)):
 # Black on the Pixel 2, 11 to 12 ms, went 1.0x). Flat out is what the frame
 # cost allows, 1.86x at 9 ms; judged against the cost this run measured, since
 # a sleep runs over on a busy machine.
-def flat_of(r):
-    return 1000.0 / r[3] / 59.7275
 
 for tag, skippable in (("slow", True), ("slow-noskip", False)):
     r = run(tag, 9000, 3, skippable=skippable)
