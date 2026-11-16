@@ -2953,17 +2953,19 @@ void diatom_port_fast_clock(bool cpu, bool gpu)
 	}
 }
 
-/* The ceilings for a power level (PX2_POWER above) */
+/* The ceilings for a power level (PX2_POWER above), written when the level
+ * changes or after a handover (port_power.h, diatom_power_memo) */
+static diatom_power_memo g_power_memo = { -1 };
+
 void diatom_port_power(int level)
 {
-	static int now = -1;
-
-	if (level < DIATOM_POWER_FULL || level > DIATOM_POWER_LIGHT || level == now) return;
-	now = level;
-	if (!diatom_power_set(access(PX2_STEADY_MEMORY, F_OK) == 0 || access(PX2_STEADY_MEMORY_BOOT, F_OK) == 0
+	if (!diatom_power_say(&g_power_memo,
+	                      access(PX2_STEADY_MEMORY, F_OK) == 0 || access(PX2_STEADY_MEMORY_BOOT, F_OK) == 0
 	                      ? &PX2_POWER_STEADY : &PX2_POWER, level))
 		diatom_port_log(DIATOM_LOG_WARN, "pixel2: could not set every clock ceiling");
 }
+
+void diatom_port_power_invalidate(void) { diatom_power_forget(&g_power_memo); }
 
 /* ---------- lifecycle ------------------------------------------------------- */
 
