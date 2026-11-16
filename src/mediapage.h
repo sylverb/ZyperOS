@@ -14,15 +14,22 @@
 #include <SDL.h>
 #include <stdbool.h>
 
+#include "ds/layout.h"
+
 #define MPG_TILES 16
 #define MPG_ROWS  3
 
-/* Sizes, in the launcher's 1024x768 units: DESIGN.md 11.34 */
-#define MPG_BOX_W   264        /* Now's box, and the focused tile's */
-#define MPG_BOX_H   232
-#define MPG_FLOOR   384        /* what every picture stands on */
-#define MPG_STRIP_X 352        /* the strip, from */
-#define MPG_GAP     24
+/* Sizes, in the launcher's 1024x768 units: DESIGN.md 11.34, from the
+ * tokens and each other. The content starts a section under the header; a
+ * meta line holds the headings; the boxes hang MPG_HEAD_GAP under it and
+ * stand on the floor. */
+#define MPG_BOX_W    264        /* Now's box, and the focused tile's */
+#define MPG_BOX_H    DS_TILE_H  /* 232: a tile's height */
+#define MPG_TOP      (DS_HEADER + DS_SECTION)   /* 96: the content's top */
+#define MPG_HEAD_GAP 16         /* the boxes under the headings' line */
+#define MPG_FLOOR    (MPG_TOP + DS_LINE_META + MPG_HEAD_GAP + MPG_BOX_H)   /* 384: what every picture stands on */
+#define MPG_GAP      DS_TILE_GAP   /* 24: between the boxes */
+#define MPG_STRIP_X  (DS_MARGIN + MPG_BOX_W + MPG_GAP)   /* 352: the strip, from Now's box */
 
 typedef struct {
 	SDL_Texture *tex;          /* NULL: not here yet */
