@@ -47,6 +47,31 @@ UA = "ZyperOS/1.0 (+achievement id check)"
 #   N64    the big-endian (.z64) order whatever the file's: 0x37 first is
 #          byte-swapped (.v64), 0x40 little-endian words (.n64); any other
 #          first byte is not an N64 ROM, and None (rc_hash_n64)
+#   NDS    not the whole file: the header's first 0x160 bytes, the ARM9 and
+#          ARM7 code and 0xA00 bytes of icon and titles, where the header
+#          puts each, past a SuperCard's own 512-byte header; zeros past the
+#          file's end; None when the codes pass 16 MB (rc_hash_nintendo_ds)
+def nds_body(d):
+    if len(d) < 512:
+        return None
+    off = 0
+    if d[0:4] == b"\x2e\x00\x00\xea" and d[0xB0:0xB4] == b"\x44\x46\x96\x00":
+        off = 512
+    h = d[off:off + 512]
+    h += bytes(512 - len(h))
+    u32 = lambda o: int.from_bytes(h[o:o + 4], "little")
+    arm9_addr, arm9_size = u32(0x20), u32(0x2C)
+    arm7_addr, arm7_size = u32(0x30), u32(0x3C)
+    icon_addr = u32(0x68)
+    if arm9_size + arm7_size > 16 * 1024 * 1024:
+        return None
+
+    def part(at, size):
+        b = d[off + at:off + at + size]
+        return b + bytes(size - len(b))
+    return h[:0x160] + part(arm9_addr, arm9_size) + part(arm7_addr, arm7_size) + part(icon_addr, 0xA00)
+
+
 def ra_body(tag, d):
     if tag == "NES":
         return d[16:] if d[:4] in (b"NES\x1a", b"FDS\x1a") else d
@@ -54,6 +79,8 @@ def ra_body(tag, d):
         return d[128:] if d[1:10] == b"ATARI7800" else d
     if tag == "LYNX":
         return d[64:] if d[:5] == b"LYNX\0" else d
+    if tag == "NDS":
+        return nds_body(d)
     if tag == "N64":
         if not d:
             return None
