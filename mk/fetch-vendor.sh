@@ -33,7 +33,7 @@ set -e
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 VENDOR=$ROOT/vendor
 DL=${1:-/tmp/zyperos-vendor}
-CORES_TAG=cores-2026-11-11
+CORES_TAG=cores-2026-11-16
 FROM=${ZYPEROS_CORES_URL:-https://github.com/tarikbc/ZyperOS/releases/download/$CORES_TAG}
 
 command -v curl   > /dev/null || { echo "need curl" >&2; exit 1; }
@@ -68,23 +68,42 @@ fetch_core() { # name sha256
 	echo "  fetched $1"
 }
 
-# The first five's pins were written from libretro's buildbot zips, but the
-# files every release has shipped (1.0.0 to 1.0.3, by their update manifests)
-# are other builds, each without the .comment section the buildbot's has:
-# the versions THIRD-PARTY-LICENSES.md names, read from the files with
+# These three pins were written from libretro's buildbot zips, but the files
+# every release has shipped (1.0.0 to 1.0.3, by their update manifests) are
+# other builds, each without the .comment section the buildbot's has: the
+# versions THIRD-PARTY-LICENSES.md names, read from the files with
 # retro_get_system_info. The pins are those files now.
 #
 #   fceumm             FCEUmm (SVN) 236ccdf
-#   snes9x2010         Snes9x 2010 1.52.4 7db129b
-#   genesis_plus_gx    Genesis Plus GX v1.7.4 b7e79b3
 #   mednafen_pce_fast  Beetle PCE Fast v1.31.0.0 (no commit in the binary)
 #   mednafen_ngp       Beetle NeoPop v1.29.0.0 a50d5ac
+#
+# Snes9x 2010 and Genesis Plus GX were two more of them (7db129b and b7e79b3)
+# until 2026-11-16, when both moved to the buildbot's build of that day, each
+# file as its zip holds it, for fixes upstream had made since:
+#
+#   snes9x2010       Snes9x 2010 1.52.4 fe690dd    a9a50ce: the NEON additive
+#                    colour math was not capped at the master brightness, so
+#                    fades went too bright (Axelay's sky band). This tree also
+#                    has a PPU render thread (snes9x_2010_threaded_ppu), off by
+#                    default; ZyperOS sets nothing, so it stays off.
+#   genesis_plus_gx  Genesis Plus GX v1.7.4 b9c2316   29ba0a8: the 68k's VRAM
+#                    reads in Mode 4 (Master System, Game Gear, SG-1000)
+#                    regressed; f726723: 68k delays on Z80 accesses to its
+#                    bus, reverted (Soldiers of Fortune's title screen,
+#                    Animaniacs' intro).
+#
+# Both write the same states the builds before them wrote: neither changed the
+# save side (Snes9x 2010's snapshot.c fields, Genesis Plus GX's state.c and
+# every *_context_save), so Diatom takes an old build's states for them
+# (STATE_TWINS in diatom/src/save.c).
 fetch_core fceumm            94203b0be9c3a28acb32f2086415a01f20ab0e3b035a8fce5f079e64048d7123
-fetch_core snes9x2010        95abe14c494ee0bddeeacd8a372737ec14f9fbf052feccc9728c95fc08e9e7a8
+fetch_core snes9x2010        bdd5af86a9f7cc6191a929e2eb70625fc710aa918239f57dfd3dcd52857c1c55
 # mgba IS NOT FETCHED: it is built, like the other cores the comments below
 # name. Run
 # mk/build-mgba-bridge.sh instead; it builds this exact commit plus upstream's
-# own fix for a crash the buildbot core still has.
+# own fix for a crash the buildbot core still has, and two more of upstream's
+# fixes (the GBA's FIFO DMA sound, a save state's RTC data).
 #
 #   fetch_core mgba            abde7a0764f08fa0cc2c7d3d9a29b9d1245a9f3b7df0e7a594b74df642ee53c6
 #
@@ -98,7 +117,7 @@ fetch_core snes9x2010        95abe14c494ee0bddeeacd8a372737ec14f9fbf052feccc9728
 # the buildbot's file in a new cores release (mk/release-cores.sh). The
 # official binary will contain exactly the change we are carrying.
 # mk/build-mgba-bridge.sh says what to re-verify when swapping back.
-fetch_core genesis_plus_gx   33b694f2240068565057f0f96fd1b7aaba05f5a5252e5d2e4f9804fb9f3cf73d
+fetch_core genesis_plus_gx   88e03c9f590bbfbf70808c136922a3d4518f7d1df78dca8fe9b640fc2c48c70c
 # Unlike the other binaries, Beetle PCE Fast's carries no commit. Its source is
 # beetle-pce-fast-libretro bebe2b13a840fbfd45cb501f5cd0efe01bdb1735: built from
 # that commit with the buildbot's setup (Ubuntu 20.04, GCC
