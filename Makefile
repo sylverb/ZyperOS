@@ -1673,7 +1673,7 @@ build-native/rahash-check: tools/rahash-check.c $(RAHASH_SRC) src/rahashjob.c sr
                           src/discimg.h src/chd.h src/flacdec.h FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g $(LZMA_CFLAGS) \
-	      -o $@ tools/rahash-check.c $(RAHASH_SRC) src/rahashjob.c -lz $(LZMA_LIBS) -lpthread
+	      -o $@ tools/rahash-check.c $(RAHASH_SRC) -lz $(LZMA_LIBS) -lpthread
 
 .PHONY: check-noticeq check-badges check-badge-shots check-radl check-rasubmit check-lowbatt check-powerhold check-homesys check-heat check-charging
 
