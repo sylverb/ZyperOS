@@ -111,9 +111,10 @@ class Strings:
 
 
 # The strings that are drawn as a part of another's text: a page's name in a
-# heading, and a mix's in Audio Channels' "auto (mono)" or a place's in Audio
-# Output's "auto (speaker)"
-COMPOSED = ("controls.page.", "audio.")
+# heading, a mix's in Audio Channels' "auto (mono)" or a place's in Audio
+# Output's "auto (speaker)", and the reason a scraper's run passed a system
+# over in "NES: no such folder" (art.problem)
+COMPOSED = ("controls.page.", "audio.", "art.why_")
 
 STRINGS = {}
 
@@ -459,6 +460,14 @@ for _page in (3, 4, 5):
 for _scroll in ("0.5", "1"):
     EXTRA.setdefault("about-2-scroll-" + _scroll, ("demo", "PS1", ["--about", "2", "--about-scroll", _scroll]))
     EXTRA.setdefault("about-3-scroll-" + _scroll, ("demo", "PS1", ["--about", "3", "--about-scroll", _scroll]))
+# The Scraper page's run saying what it is doing past a game's name (the
+# catalog, a game with no art, the checksums), and done with the reason it
+# passed a system over or stopped a source (art_status's lines)
+for _k, _w in enumerate(("catalog", "no-art", "checksums")):
+    EXTRA.setdefault("scraper-page-run-" + _w, ("demo", "PS1", ["--scraper-page", "17", str(_k)]))
+for _k, _w in enumerate(("no-folder", "not-in-table", "no-curl", "index-failed", "index-bad", "ss-quota",
+                         "ss-too-many", "ss-busy", "ss-no-answer", "sg-refused", "sg-busy", "sg-no-answer")):
+    EXTRA.setdefault("scraper-page-done-" + _w, ("demo", "PS1", ["--scraper-page", "16", str(_k)]))
 EXTRA.setdefault("hare-cable", ("demo", "PS1", ["--hare", "10.42.0.1", "1 signed in", "Tobu Tobu Girl.gb"]))
 # File Transfer's news on Flash Drive's page (DESIGN.md 11.23): the tiles in
 # each state, over Wi-Fi and over the cable (SSH beside the browsers)

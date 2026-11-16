@@ -13,23 +13,6 @@ about.battery_charging
 about.health_estimate
 about.thanks_handhelds  # About > Thanks: the heading over the people who help with other handhelds, drawn only once src/about_screen.c's ABOUT_HANDHELD_THANKS has a row; none yet
 
-# art: no shot draws it yet
-art.now_catalog
-art.now_no_art
-art.now_checksums
-art.why_no_folder
-art.why_not_in_table
-art.why_no_curl
-art.why_index_failed
-art.why_index_bad
-art.ss_quota
-art.ss_too_many
-art.ss_busy
-art.ss_no_answer
-art.sg_refused
-art.sg_busy
-art.sg_no_answer
-
 # audio: no shot draws it yet
 audio.wired
 audio.bluetooth
