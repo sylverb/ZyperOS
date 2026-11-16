@@ -559,6 +559,43 @@ static void sys_tick(uint64_t done, uint64_t total)
 	if (time(NULL) != last) { last = time(NULL); up_status_write(&S); }
 }
 
+/* Whether the boot partition (mounted at boot) has room for the system's
+ * boot files in slot `slot`'s folder: what they need, the largest once more
+ * for its copy beside the old file, against what is free and what that
+ * folder's files of the same names give back. ZYPEROS_UPDATE_BOOT_FREE stands
+ * for the free bytes in the checks (tools/update-check.sh). False with why
+ * in err. */
+static bool boot_room(const char *boot, char slot, const up_manifest *m, char *err, size_t errn)
+{
+	uint64_t need = 0, largest = 0, have = 0;
+	struct statvfs vfs;
+	struct stat sb;
+	char p[PATH_MAX];
+	const char *s;
+	int i;
+
+	for (i = 0; i < m->nfiles; i++) {
+		const up_file *f = &m->files[i];
+
+		if (strncmp(f->path, "boot/", 5) || strchr(f->path + 5, '/')) continue;
+		need += f->size;
+		if (f->size > largest) largest = f->size;
+		snprintf(p, sizeof p, "%s/%c/%s", boot, slot, f->path + 5);
+		if (!stat(p, &sb)) have += (uint64_t)sb.st_size;
+	}
+	if ((s = getenv("ZYPEROS_UPDATE_BOOT_FREE")))
+		have += strtoull(s, NULL, 10);
+	else if (!statvfs(boot, &vfs))
+		have += (uint64_t)vfs.f_bavail * vfs.f_frsize;
+	else
+		return true;   /* nothing to go by: the copy itself says if it fails */
+	if (need + largest <= have) return true;
+	snprintf(err, errn, "not enough room on the boot partition for slot %c's files "
+	         "(%llu KB, %llu KB free)", slot, (unsigned long long)((need + largest) / 1024),
+	         (unsigned long long)(have / 1024));
+	return false;
+}
+
 /* The staged, checked system into the slot that is not running: the root
  * written over its partition and read back, the kernel and the device tree
  * into the boot partition's folder for that slot, and bootstate.txt told to
@@ -583,6 +620,10 @@ static int install_system(const up_manifest *m)
 	 * off). The folder that came with that system, kept in ZyperOS.prev, goes
 	 * with it. Found on the device, 2026-11-06. */
 	if (!(boot = up_boot_open(err, sizeof err))) { say("error", "%s", err); return 2; }
+	/* Room for the slot's kernel and device tree (and the Brick's
+	 * initramfs) first: short of it, nothing is written, the other slot's
+	 * system included */
+	if (!boot_room(boot, other, m, err, sizeof err)) { up_boot_close(); say("error", "%s", err); return 2; }
 	up_bootstate_read(boot, &bs);
 	snprintf(old, sizeof old, "%s", up_bootstate_version(&bs, other));
 	up_bootstate_set_version(&bs, other, "-");

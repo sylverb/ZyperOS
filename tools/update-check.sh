@@ -309,6 +309,11 @@ slots_env() {
 }
 bootstate() { sed -n "s/^$1=//p" "$SL/boot/bootstate.txt"; }
 slots_env
+# The boot partition's closed/ (the Brick's GPU and Wi-Fi files, the
+# player's own copy) is never System Update's to touch
+mkdir -p "$SL/boot/closed"
+noise 7000 "$SL/boot/closed/libEGL.so.1"
+cp "$SL/boot/closed/libEGL.so.1" "$SL/closed.keep"
 newcard
 run check --source "file://$T/rel2/"
 expect "slots: a newer system comes first" "$?:$(state):$(field kind):$(field version):$(field slot)" "0:available:system:0.2.0:a"
@@ -366,6 +371,26 @@ run check --source "file://$T/rel2/"
 expect "  ...check: the staged system is still to install, not ready" "$?:$(state):$(field kind)" "0:available:system"
 run download --source "file://$T/rel2/"
 expect "  ...Download again finishes" "$?:$(state):$(bootstate slot):$(bootstate b):$(bootstate trial)" "0:ready:b:0.2.0:1"
+cmp -s "$SL/boot/closed/libEGL.so.1" "$SL/closed.keep" && ok "  ...the boot partition's closed/ as it was" ||
+	bad "  ...closed/ on the boot partition changed"
+
+# A boot partition short of room for the slot's kernel and device tree stops
+# before anything is written: root B and /b as they were
+printf 'slot=a\ntrial=0\ntry=0\nfell=-\na=0.1.0\nb=-\n' > "$SL/boot/bootstate.txt"
+head -c 3000000 /dev/zero > "$SL/p4"
+cp "$SL/p4" "$SL/p4.before"
+newcard
+run check --source "file://$T/rel2/" > /dev/null
+(export ZYPEROS_UPDATE_BOOT_FREE=100000; run download --source "file://$T/rel2/")
+expect "slots: no room on the boot partition stops it" "$(state)" "error"
+grep -q "not enough room on the boot partition" "$CARD/.userdata/pixel2/update/status" &&
+	ok "  ...saying why" || bad "  ...not said: $(field message)"
+cmp -s "$SL/p4" "$SL/p4.before" && ok "  ...root B untouched" || bad "  ...root B was written"
+rm -f "$SL/p4.before"
+printf 'slot=a\ntrial=0\ntry=0\nfell=-\na=0.1.0\nb=-\n' > "$SL/boot/bootstate.txt"
+newcard
+run check --source "file://$T/rel2/" > /dev/null
+run download --source "file://$T/rel2/" > /dev/null
 
 # A system bigger than the card's slots (a card laid out with smaller ones)
 # is said before anything is fetched, and the folder's check stays out of it

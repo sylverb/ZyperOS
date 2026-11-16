@@ -184,6 +184,11 @@ if [ -f /zyperos/tools/update-pack.py ] && [ -f "$CARDDIR/ZyperOS/zyperos-update
 	cp "$OUTPUT/images/rootfs.squashfs" "$SYS/root.squashfs"
 	cp "$OUTPUT/images/Image" "$SYS/boot/"
 	for dtb in "$OUTPUT/images/"*.dtb; do cp "$dtb" "$SYS/boot/"; done
+	# The Brick's boot.scr boots the LZ4 kernel and its initramfs, rootswitch
+	# (board/brick/boot-slot.cmd); Image stays for U-Boot's own fallback
+	if [ "$DEVICE" = brick ]; then
+		cp "$OUTPUT/images/Image.lz4" "$OUTPUT/images/initramfs.cpio.gz" "$SYS/boot/"
+	fi
 	rm -f "$RELEASE/$NAME-system.zpk" "$RELEASE/ZyperOS-$DEVICE-system.txt.unsigned"
 	python3 /zyperos/tools/update-pack.py --kind system --payload "$SYS" \
 		--version "$VERSION" --device "$DEVICE" --out "$RELEASE" \
