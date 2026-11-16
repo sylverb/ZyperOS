@@ -560,6 +560,30 @@ What it needs beyond the Brick:
 - **Its handheld**: a `td_model` from its six-view images, the same way as
   the Brick's (appendix, "Measurements").
 
+### 6c. The TrimUI Smart Pro
+
+A tester on the Discord has a TrimUI Smart Pro (TG5040; not the Smart Pro
+S, which is an A523), and I want him to test too. It is the Brick's chip in
+a horizontal body: Allwinner A133P and PowerVR GE8300, so the same kernel
+family, the same closed files and installer step (section 7), and the same
+Diatom port; a 4.96-inch 1280x720 panel (16:9, a portrait panel turned), two
+Hall-effect sticks behind a small serial controller, and the shoulders on
+its top edge. TrimUI has not published its U-Boot or kernel source.
+
+- **Its own image** (`smartpro`): the boot loader's first stage sets up the
+  memory before anything can tell the boards apart, and its memory setup
+  differs from the Brick's, so one card cannot start both. Everything after
+  it is the Brick's: the kernel and its patches, the card script, A/B
+  slots, System Update, the log pack and kit 2's test list.
+- **New work**: a static read of TrimUI's Smart Pro firmware (its device
+  tree, boot0's memory values, the panel, the Wi-Fi chip, the sticks'
+  serial protocol); its first boot stage, device tree, panel and buttons;
+  the launcher on 16:9, first as the 4:3 canvas with side bars and later
+  with wide layouts; the sticks (shared with the Brick Pro, section 6b); its
+  handheld, with its shoulders on the top edge.
+- **When**: right after kit 2's image exists, as kit 2b: kit 2's list plus
+  the sticks and the picture, the same one install and one log pack.
+
 ### 7. The Brick's closed files
 
 A Brick image needs two sets of closed binaries. I looked for where they
@@ -800,14 +824,18 @@ done by then).
    published outline and then from the testers' measurements, its MENU
    glyph and key hints, its tutorial and Controls tab, all on the Mac; a
    contact sheet of every Brick screen for me to look at. The README and
-   i18n shots move to `--device pixel2` here, on their own sheet. The panel
-   probe kit goes out to testers during this step.
+   i18n shots move to `--device pixel2` here, on their own sheet. No panel
+   probe kit goes out (2026-11-15: "go straight to kit 2. We gotta do as few
+   requests to the testers as possible"): kit 2 shows and saves the panel.
 6. **The Brick's back end and image.** Drivers, Diatom port, card script,
    plastron's Brick board with A/B slots, the bootstate logic in its U-Boot,
    the closed files as the player's own copy (the installer's step and the
    boot's folder, section 7), the log pack's hardware report; test kits for
    the testers until a kit passes (testers install through the installer
-   from the first kit that needs the GPU).
+   from the first kit that needs the GPU). Right after kit 2's image exists,
+   the TrimUI Smart Pro's own kit follows (kit 2b, section 6c), for the
+   tester who has one (2026-11-15: "Yes, after kit 2"); it never delays the
+   Brick's kits.
 7. **The Brick's release.** Release artifacts, installer with the
    player's-own-copy step, site, docs; only after a kit passes and I say
    release.
