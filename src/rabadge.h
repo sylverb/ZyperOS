@@ -60,5 +60,8 @@ void rb_fetch_loaded(void);
 /* How many landed since the last call - a screen showing badges asks, to
  * draw again. Main thread. */
 int  rb_landed(void);
+/* Badges landed by another fetch (MENU > Achievements' download, src/radl.h):
+ * the textures look again for the ones they found missing */
+void rb_note_landed(void);
 
 #endif
