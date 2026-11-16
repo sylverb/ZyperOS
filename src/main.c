@@ -5948,6 +5948,13 @@ int main(int argc, char *argv[])
 			if (i + 1 < argc && argv[i + 1][0] >= '0' && argv[i + 1][0] <= '9')
 				shot_slot_aspect = (float)atof(argv[++i]);
 		}
+		else if (!strcmp(argv[i], "--slot-when") && i + 2 < argc) {
+			shot_slot_mon = atoi(argv[++i]);
+			shot_slot_hour = atoi(argv[++i]);
+			if (shot_slot_mon < 1 || shot_slot_mon > 12 || shot_slot_hour < 0 || shot_slot_hour > 23)
+				shot_slot_mon = 0;
+		}
+		else if (!strcmp(argv[i], "--slot-save")) shot_slot_save = 1;
 	}
 	/* --status is for a shot, as --theme is: a launcher started
 	 * with it and no --shot draws the device's own corner. And a shot draws

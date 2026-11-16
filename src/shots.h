@@ -129,6 +129,7 @@ extern int shot_video;
 extern float shot_np_at;
 extern const char *shot_mode;
 extern float shot_slot_aspect;
+extern int shot_slot_mon, shot_slot_hour, shot_slot_save;
 extern int shot_gamemenu_tab;
 extern int shot_gamemenu_sel;
 extern int shot_gamemenu;

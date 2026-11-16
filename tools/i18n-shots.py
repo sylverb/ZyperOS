@@ -114,8 +114,11 @@ class Strings:
 # heading, a mix's in Audio Channels' "auto (mono)" or a place's in Audio
 # Output's "auto (speaker)", and the reason a scraper's run passed a system
 # over in "NES: no such folder" (art.problem), and a month's short name and
-# AM or PM in MENU's Date & Time row ("Jan 15, 10:08", clock.label_24h)
-COMPOSED = ("controls.page.", "audio.", "art.why_", "clock.short_", "clock.am", "clock.pm")
+# AM or PM in MENU's Date & Time row ("Jan 15, 10:08", clock.label_24h) and
+# in a save slot's moment ("Aug 20 1:00:00 PM", slots.when)
+COMPOSED = ("controls.page.", "audio.", "art.why_", "clock.short_", "clock.am", "clock.pm", "slots.jan",
+            "slots.feb", "slots.mar", "slots.apr", "slots.may", "slots.jun", "slots.jul", "slots.aug",
+            "slots.sep", "slots.oct", "slots.nov", "slots.dec", "slots.am", "slots.pm")
 
 STRINGS = {}
 
@@ -480,6 +483,17 @@ for _k, _m in enumerate(_MONTHS):
     _st = "%s %s wifi=off batt=82 date=2026-%02d-15" % ("18:05" if _m == "dec" else "10:08",
                                                        "12h" if _m in ("jul", "dec") else "24h", _k + 1)
     EXTRA.setdefault("menu-clock-" + _m, ("demo", "PS1", ["--menu", "Language", "--status", _st]))
+# The save slots: the slot in view saved in each other month (August is the
+# slots shot's), in 12 hours in January (AM) and February (PM); an empty
+# slot; and the strip as Save asks where to
+for _k, _m in enumerate(_MONTHS):
+    if _m != "aug":
+        _f = ["--slots", "1", "--slot-when", str(_k + 1), "9" if _m == "jan" else "15"]
+        if _m in ("jan", "feb"):
+            _f += ["--status", "10:08 12h wifi=off batt=82"]
+        EXTRA.setdefault("slots-" + _m, ("demo", "PS1", _f))
+EXTRA.setdefault("slots-empty", ("demo", "PS1", ["--slots", "5"]))
+EXTRA.setdefault("slots-save", ("demo", "PS1", ["--slots", "1", "--slot-save"]))
 EXTRA.setdefault("hare-cable", ("demo", "PS1", ["--hare", "10.42.0.1", "1 signed in", "Tobu Tobu Girl.gb"]))
 # File Transfer's news on Flash Drive's page (DESIGN.md 11.23): the tiles in
 # each state, over Wi-Fi and over the cable (SSH beside the browsers)

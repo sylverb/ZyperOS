@@ -344,24 +344,6 @@ shelf.albums.one
 shelf.books.one
 shelf.list_sep
 
-# slots: no shot draws it yet
-slots.save_to
-slots.empty
-slots.am
-slots.pm
-slots.jan
-slots.feb
-slots.mar
-slots.apr
-slots.may
-slots.jun
-slots.jul
-slots.aug
-slots.sep
-slots.oct
-slots.nov
-slots.dec
-
 # snaps: no shot draws it yet
 snaps.delete_ask
 snaps.given_back

@@ -405,6 +405,10 @@ float shot_np_at = 83.0f;
  * the track count is drawn from it. */
 const char *shot_mode;
 float shot_slot_aspect = 4.0f / 3.0f;
+/* --slot-when MONTH HOUR: the slot in view saved in that month (1 to 12) at
+ * that hour, not August's afternoon; --slot-save: the strip as Save asks
+ * where to ("Save to") */
+int shot_slot_mon, shot_slot_hour, shot_slot_save;
 
 /* A stand-in for a paused game frame, at whatever shape was asked for: the
  * slot carousel frames the picture to its own aspect, so looking at that
@@ -434,7 +438,7 @@ static SDL_Texture *fake_frame(SDL_Renderer *r, float aspect)
 
 static void shot_draw_slots(app *a)
 {
-	slot_view sv = { .aspect = shot_slot_aspect, .saving = 0 };
+	slot_view sv = { .aspect = shot_slot_aspect, .saving = shot_slot_save };
 	int i;
 
 	for (i = 0; i <= GM_SLOTS; i++) {
@@ -442,6 +446,7 @@ static void shot_draw_slots(app *a)
 		struct tm tm = { .tm_mon = 7, .tm_mday = 20 + i, .tm_hour = 13 + i,
 		                 .tm_min = i * 7, .tm_sec = i * 9 };
 
+		if (i == shot_slot_sel && shot_slot_mon) tm.tm_mon = shot_slot_mon - 1, tm.tm_hour = shot_slot_hour;
 		/* Slot 5 left empty, so the empty state is in the picture too. */
 		if (i == 5) continue;
 		sv.have[i] = 1;
