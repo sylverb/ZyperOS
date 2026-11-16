@@ -1,0 +1,52 @@
+ZyperOS: on Mesa's Panfrost, framebuffer copies are blits, not
+glCopyImageSubData, so they stay on the GPU.
+
+PPSSPP copies a framebuffer with glCopyImageSubData when the driver has the
+copy-image extension, and with glBlitFramebuffer when it has not
+(FramebufferManagerCommon::BlitFramebuffer). Mesa's Panfrost (the Pixel 2's
+Mali-G31) has the extension but no GPU path behind it: its
+resource_copy_region is util_resource_copy_region, which maps both images,
+waiting for the GPU to finish rendering the source (PANFROST_WAIT_BO), and
+copies the tiled pixels on the CPU. A blit is a GPU job that waits for
+nothing on the CPU.
+
+God of War: Chains of Olympus's main menu textures from its own render target
+six times a frame (PPSSPP's self-texture copies). On a GKD Pixel 2 those six
+copies held the GL thread for 25 ms of every frame, most of it in
+PANFROST_WAIT_BO.
+
+With this patch, on the same screen: 20.1 to 31.3 frames a second (median
+frame 49.9 to 33.3 ms), PANFROST_WAIT_BO in 61 of 600 samples of the GL
+thread instead of 147. Daxter, which makes no such copies, 30.0 before and
+after. The pictures match.
+
+The blit is the same size and NEAREST, so the same pixels; it is the path
+PPSSPP takes on every OpenGL ES 3 driver without the copy-image extension.
+Only Mesa's Panfrost (GL_VENDOR "Mesa", GL_RENDERER "... (Panfrost)") is
+changed.
+
+Upstream: the same holds for any Panfrost device running PPSSPP's OpenGL
+backend.
+
+diff --git a/Common/GPU/OpenGL/thin3d_gl.cpp b/Common/GPU/OpenGL/thin3d_gl.cpp
+index 046ab99..3b4b83e 100644
+--- a/Common/GPU/OpenGL/thin3d_gl.cpp
++++ b/Common/GPU/OpenGL/thin3d_gl.cpp
+@@ -1,4 +1,5 @@
+ #include <cstdio>
++#include <cstring>
+ #include <vector>
+ #include <string>
+ #include <map>
+@@ -585,6 +586,11 @@ OpenGLContext::OpenGLContext(bool canChangeSwapInterval) : renderManager_(frameT
+ 	caps_.dualSourceBlend = gl_extensions.ARB_blend_func_extended || gl_extensions.EXT_blend_func_extended;
+ 	caps_.anisoSupported = gl_extensions.EXT_texture_filter_anisotropic;
+ 	caps_.framebufferCopySupported = gl_extensions.OES_copy_image || gl_extensions.NV_copy_image || gl_extensions.EXT_copy_image || gl_extensions.ARB_copy_image;
++	// Mesa's Panfrost has no GPU path for glCopyImageSubData: it maps both images (waiting for the GPU
++	// to finish the source) and copies them on the CPU. A same-size blit is the same pixels, on the GPU.
++	if (gl_extensions.gpuVendor == GPU_VENDOR_MESA && strstr(gl_extensions.model, "(Panfrost)")) {
++		caps_.framebufferCopySupported = false;
++	}
+ 	caps_.framebufferBlitSupported = gl_extensions.NV_framebuffer_blit || gl_extensions.ARB_framebuffer_object || gl_extensions.GLES3;
+ 	caps_.framebufferDepthBlitSupported = caps_.framebufferBlitSupported;
+ 	caps_.framebufferStencilBlitSupported = caps_.framebufferBlitSupported;
