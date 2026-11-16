@@ -155,7 +155,7 @@ $(BUILD)/%.o: %.c
 # backend exists. Cheap to check, so check it.
 # Mechanical checks, each guarding a rule that decays the moment nothing fails
 # when it is broken: check-seam has held since day one for exactly that reason.
-check: check-seam check-copies check-corefacts check-rates check-cheevos check-screens check-chord check-stick check-bounds check-rumble check-statefile check-proto check-port check-power check-power-e2e check-stateplane check-resident check-hotkeys check-coreend check-cardframe check-now check-rumble-e2e check-player2 check-states
+check: check-seam check-copies check-corefacts check-rates check-cheevos check-screens check-chord check-stick check-bounds check-rumble check-statefile check-proto check-port check-power check-power-e2e check-fastforward check-stateplane check-resident check-hotkeys check-coreend check-cardframe check-now check-rumble-e2e check-player2 check-states
 
 # Does a RetroAchievements address reach the byte it names? Offline, needs no
 # core and no ROM, and links only cheevos.c plus the vendored runtime - so it
@@ -419,6 +419,15 @@ check-power-e2e:
 	$(FRESH_IF_BUILT)
 	@python3 test/power.py
 .PHONY: check-power-e2e
+
+# Fast forward's speed, end to end: the stub core as slow as a DS game on the
+# Pixel 2 (STUBCORE_FRAME_US) runs flat out at a step it cannot reach, and a
+# fast one at its step, never over it. On check-stateplane's terms: the stub
+# core, about half a minute, skipped unbuilt.
+check-fastforward:
+	$(FRESH_IF_BUILT)
+	@python3 test/fastforward.py
+.PHONY: check-fastforward
 
 # Does core-facts.md still describe the cores we ship? It was measured on the
 # device, which needs the hardware and the user's ROMs; this is the half that
