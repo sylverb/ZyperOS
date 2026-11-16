@@ -2,10 +2,13 @@
 /* The display controller's gamma table, empty or dimming. See src/panelgamma.h. */
 #include "panelgamma.h"
 
+#include <fcntl.h>
 #include <math.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <string.h>
 #include <sys/ioctl.h>
+#include <unistd.h>
 
 /* Linux's _IOWR('d', nr, type): read and write, the structure's size, DRM's
  * letter. Written out because a Mac's _IOWR packs the size differently. */
@@ -81,6 +84,7 @@ panelgamma_ioctl_fn panelgamma_ioctl = sys_ioctl;
 #define PG_MAX 8                       /* CRTCs; the Pixel 2 has 2 */
 #define PG_MAX_PROPS 64                /* a CRTC's properties; the VOP's have 9 */
 #define PG_LUT 256                     /* the VOP's table, and the only size made */
+#define PG_PI 3.14159265358979323846
 
 int panelgamma_out(int raw, int in)
 {
@@ -90,17 +94,120 @@ int panelgamma_out(int raw, int in)
 	return (int)lround(in * pow((double)raw / PANELGAMMA_FLOOR, 1 / 2.2));
 }
 
-/* The table for raw, as the kernel reads it: 16 bits an entry, of which the
- * VOP keeps the top 8 (drm_color_lut_extract rounds there), so each output
- * is put in the top byte and comes back out exactly. */
-static void fill(struct pg_color_lut *lut, int raw)
+int panelgamma_color_standard(const panelgamma_color *c)
+{
+	return !c || (c->night <= 0 && c->contrast <= 0 && !c->vivid);
+}
+
+void panelgamma_color_clamp(panelgamma_color *c)
+{
+	if (c->night < 0) c->night = 0;
+	if (c->night > PANELGAMMA_NIGHT_MAX) c->night = PANELGAMMA_NIGHT_MAX;
+	if (c->contrast < 0) c->contrast = 0;
+	if (c->contrast > PANELGAMMA_CONTRAST_MAX) c->contrast = PANELGAMMA_CONTRAST_MAX;
+	c->vivid = c->vivid ? 1 : 0;
+}
+
+int panelgamma_color_read(const char *path, panelgamma_color *c)
+{
+	char line[128], *p, *save = NULL;
+	ssize_t n;
+	int fd;
+
+	memset(c, 0, sizeof *c);
+	/* As src/themefile.c reads its word: O_NONBLOCK, so a FIFO left at this
+	 * name answers at once with nothing (Standard) rather than holding the
+	 * display's next frame; one read, and a file this long is not ours */
+	if (!path || (fd = open(path, O_RDONLY | O_CLOEXEC | O_NONBLOCK)) < 0) return 0;
+	n = read(fd, line, sizeof line - 1);
+	close(fd);
+	if (n < 0) return 0;
+	line[n] = '\0';
+	for (p = strtok_r(line, " \t\r\n", &save); p; p = strtok_r(NULL, " \t\r\n", &save)) {
+		int v;
+
+		if (sscanf(p, "night=%d", &v) == 1) c->night = v;
+		else if (sscanf(p, "contrast=%d", &v) == 1) c->contrast = v;
+		else if (sscanf(p, "vivid=%d", &v) == 1) c->vivid = v;
+	}
+	panelgamma_color_clamp(c);
+	return 1;
+}
+
+int panelgamma_color_write(const char *path, const panelgamma_color *c)
+{
+	panelgamma_color v = *c;
+	char tmp[256], text[64];
+	int fd, len, ok;
+
+	panelgamma_color_clamp(&v);
+	if (!path || snprintf(tmp, sizeof tmp, "%s.tmp", path) >= (int)sizeof tmp) return -1;
+	len = snprintf(text, sizeof text, "night=%d contrast=%d vivid=%d\n", v.night, v.contrast, v.vivid);
+	/* A new temporary each time, as src/themefile.c makes its own: a link
+	 * left at this name in /tmp is not followed (O_EXCL after the unlink),
+	 * and a race lost there fails the write, which the caller logs */
+	unlink(tmp);
+	fd = open(tmp, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0644);
+	if (fd < 0) return -1;
+	ok = write(fd, text, (size_t)len) == len;
+	ok = close(fd) == 0 && ok;
+	if (!ok || rename(tmp, path) != 0) {
+		unlink(tmp);
+		return -1;
+	}
+	return 0;
+}
+
+/* Night Light's gain a channel, in light: green a little down, blue more,
+ * red as it is, so white goes toward a candle's and greys stay greys of it
+ * (level 3 is green 88%, blue 67%; level 5 green 80%, blue 45%) */
+static double night_gain(int night, int ch)
+{
+	if (ch == 1) return 1 - 0.04 * night;
+	if (ch == 2) return 1 - 0.11 * night;
+	return 1;
+}
+
+int panelgamma_color_out(int raw, const panelgamma_color *c, int ch, int in)
+{
+	panelgamma_color v;
+	double x, g;
+
+	if (panelgamma_color_standard(c)) return panelgamma_out(raw, in);
+	if (in <= 0) return 0;
+	if (in > 255) in = 255;
+	v = *c;
+	panelgamma_color_clamp(&v);
+	x = in / 255.0;
+	/* Contrast: an S about the middle, steeper there and flatter at the
+	 * ends, 0 and 255 kept; 12% of the slope a step */
+	if (v.contrast > 0) {
+		double s = 0.12 * v.contrast;
+
+		x -= s * sin(2 * PG_PI * x) / (2 * PG_PI);
+	}
+	if (x < 0) x = 0;
+	if (x > 1) x = 1;
+	/* Vivid's shadows: a little deeper, the top as it is */
+	if (v.vivid) x = pow(x, 1.08);
+	g = night_gain(v.night, ch);
+	if (raw > 0 && raw < PANELGAMMA_FLOOR) g *= (double)raw / PANELGAMMA_FLOOR;
+	x = pow(x, 2.2) * g;
+	if (x > 1) x = 1;
+	return (int)lround(255 * pow(x, 1 / 2.2));
+}
+
+/* The table for raw and c, as the kernel reads it: 16 bits an entry, of
+ * which the VOP keeps the top 8 (drm_color_lut_extract rounds there), so
+ * each output is put in the top byte and comes back out exactly. */
+static void fill(struct pg_color_lut *lut, int raw, const panelgamma_color *c)
 {
 	int i;
 
 	for (i = 0; i < PG_LUT; i++) {
-		uint16_t v = (uint16_t)(panelgamma_out(raw, i) << 8);
-
-		lut[i].red = lut[i].green = lut[i].blue = v;
+		lut[i].red = (uint16_t)(panelgamma_color_out(raw, c, 0, i) << 8);
+		lut[i].green = (uint16_t)(panelgamma_color_out(raw, c, 1, i) << 8);
+		lut[i].blue = (uint16_t)(panelgamma_color_out(raw, c, 2, i) << 8);
 		lut[i].reserved = 0;
 	}
 }
@@ -131,9 +238,9 @@ static int set_lut(int fd, uint32_t crtc, uint32_t prop, uint64_t value)
 	return panelgamma_ioctl(fd, PG_OBJ_SETPROP, &set);
 }
 
-/* CRTC crtc's GAMMA_LUT as raw wants it: 1 changed, 0 nothing to change,
- * -1 failed. */
-static int apply_one(int fd, uint32_t crtc, int raw)
+/* CRTC crtc's GAMMA_LUT as raw and c want it: 1 changed, 0 nothing to
+ * change, -1 failed. */
+static int apply_one(int fd, uint32_t crtc, int raw, const panelgamma_color *c)
 {
 	uint32_t ids[PG_MAX_PROPS], lut_prop = 0;
 	uint64_t values[PG_MAX_PROPS], lut_now = 0, lut_size = 0;
@@ -170,12 +277,12 @@ static int apply_one(int fd, uint32_t crtc, int raw)
 	}
 	if (!lut_prop) return 0;           /* no GAMMA_LUT on this kernel */
 
-	if (raw <= 0 || raw >= PANELGAMMA_FLOOR) {
+	if ((raw <= 0 || raw >= PANELGAMMA_FLOOR) && panelgamma_color_standard(c)) {
 		if (lut_now == 0) return 0;    /* empty already */
 		return set_lut(fd, crtc, lut_prop, 0) == 0 ? 1 : -1;
 	}
 
-	/* A dimming table: only on a controller showing a picture (the Pixel 2's
+	/* A table: only on a controller showing a picture (the Pixel 2's
 	 * second VOP drives nothing), and whose table is the VOP's size */
 	{
 		struct pg_crtc c;
@@ -186,7 +293,7 @@ static int apply_one(int fd, uint32_t crtc, int raw)
 		if (!c.mode_valid) return 0;
 	}
 	if (lut_size != PG_LUT) return -1;
-	fill(want, raw);
+	fill(want, raw, c);
 	if (lut_now != 0 && holds(fd, (uint32_t)lut_now, want)) return 0;
 
 	memset(&cb, 0, sizeof cb);
@@ -203,6 +310,11 @@ static int apply_one(int fd, uint32_t crtc, int raw)
 
 int panelgamma_apply(int fd, int raw)
 {
+	return panelgamma_apply_color(fd, raw, NULL);
+}
+
+int panelgamma_apply_color(int fd, int raw, const panelgamma_color *c)
+{
 	uint32_t crtcs[PG_MAX];
 	struct pg_card_res res;
 	uint32_t i;
@@ -218,7 +330,7 @@ int panelgamma_apply(int fd, int raw)
 	if (res.count_crtcs > PG_MAX) res.count_crtcs = PG_MAX;
 
 	for (i = 0; i < res.count_crtcs; i++) {
-		int r = apply_one(fd, crtcs[i], raw);
+		int r = apply_one(fd, crtcs[i], raw, c);
 
 		if (r > 0) changed++;
 		else if (r < 0) failed = 1;

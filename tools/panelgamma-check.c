@@ -20,7 +20,10 @@
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <sys/stat.h>
+#include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 /* include/uapi/drm/drm.h's numbers on Linux, as the kernel's headers give
  * them: DRM_IOWR(nr, struct ...) */
@@ -342,6 +345,107 @@ int main(void)
 	n = panelgamma_apply(3, 9);
 	CHECK(n == -1 && crtcs[0].values[5] == 0 && destroys == creates,
 	      "without DRM master: -1, no table, no blob kept");
+
+	/* Screen Colors */
+	{
+		const panelgamma_color std = { 0, 0, 0 }, night3 = { 3, 0, 0 }, night5 = { 5, 0, 0 },
+		                       con2 = { 0, 2, 0 }, vivid = { 0, 1, 1 }, all = { 5, 2, 1 };
+		const panelgamma_color *every[] = { &night3, &night5, &con2, &vivid, &all };
+		int same = 1, mono = 1, ends = 1, warm = 1;
+
+		for (int raw = 0; raw <= 255; raw++)
+			for (int ch = 0; ch < 3; ch++)
+				for (int i = 0; i < 256; i++)
+					same &= panelgamma_color_out(raw, &std, ch, i) == panelgamma_out(raw, i) &&
+					        panelgamma_color_out(raw, NULL, ch, i) == panelgamma_out(raw, i);
+		CHECK(same && panelgamma_color_standard(&std) && panelgamma_color_standard(NULL),
+		      "Standard (all 0, or none): the table exactly as without Screen Colors, every step");
+		for (unsigned k = 0; k < sizeof every / sizeof every[0]; k++)
+			for (int ch = 0; ch < 3; ch++) {
+				ends &= panelgamma_color_out(122, every[k], ch, 0) == 0;
+				for (int i = 1; i < 256; i++)
+					mono &= panelgamma_color_out(122, every[k], ch, i) >=
+					        panelgamma_color_out(122, every[k], ch, i - 1);
+			}
+		CHECK(mono && ends, "every setting's table rises with its input (no band turns over) and keeps black black");
+		CHECK(panelgamma_color_out(122, &night3, 0, 255) == 255 && panelgamma_color_out(122, &night3, 1, 255) == 241 &&
+		      panelgamma_color_out(122, &night3, 2, 255) == 213,
+		      "Night Light 3: white 255,241,213 (green's light 88%, blue's 67%)");
+		for (int i = 1; i < 256; i++)
+			warm &= panelgamma_color_out(122, &night5, 0, i) >= panelgamma_color_out(122, &night5, 1, i) &&
+			        panelgamma_color_out(122, &night5, 1, i) >= panelgamma_color_out(122, &night5, 2, i);
+		CHECK(warm && panelgamma_color_out(122, &night5, 2, 255) < panelgamma_color_out(122, &night3, 2, 255),
+		      "  ...every grey warmer (red >= green >= blue), and 5 warmer than 3");
+		CHECK(panelgamma_color_out(122, &con2, 0, 255) == 255 && panelgamma_color_out(122, &con2, 0, 128) == 128 &&
+		      panelgamma_color_out(122, &con2, 0, 64) < 64 && panelgamma_color_out(122, &con2, 0, 192) > 192 &&
+		      panelgamma_color_out(122, &con2, 2, 64) == panelgamma_color_out(122, &con2, 0, 64),
+		      "Contrast +2: white and the middle kept, shadows darker, highlights brighter, every channel alike");
+		CHECK(panelgamma_color_out(122, &vivid, 0, 255) == 255 &&
+		      panelgamma_color_out(122, &vivid, 0, 48) < panelgamma_color_out(122, &(panelgamma_color){ 0, 1, 0 }, 0, 48),
+		      "Vivid: deeper shadows than its Contrast +1 alone, white kept");
+		CHECK(panelgamma_color_out(13, &night3, 0, 255) == 226 && panelgamma_color_out(9, &night3, 0, 255) == 191 &&
+		      panelgamma_color_out(13, &night3, 2, 255) < panelgamma_color_out(122, &night3, 2, 255),
+		      "  ...and under the floor each on top of the dimming: red 255 -> 226 at 13 as before, blue lower still");
+
+		pixel2(0, 1);
+		n = panelgamma_apply_color(3, 122, &night3);
+		CHECK(n == 1 && crtcs[0].values[5] == 100 && crtcs[1].values[5] == 0,
+		      "Night Light 3 above the floor: a table on the lit CRTC (the backlight alone made no table before)");
+		{
+			int b = blob_of(100);
+
+			CHECK(b >= 0 && blobs[b].lut[255].red == 255 << 8 && blobs[b].lut[255].green == 241 << 8 &&
+			      blobs[b].lut[255].blue == 213 << 8, "  ...its channels apart: red, green, blue each its own");
+		}
+		n = panelgamma_apply_color(3, 122, &night3);
+		CHECK(n == 0 && creates == 1, "  ...asked again: nothing loaded, no blink");
+		n = panelgamma_apply_color(3, 13, &night3);
+		CHECK(n == 1 && blobs[blob_of(101)].lut[255].red == 226 << 8, "  ...a step under the floor: both in one table");
+		n = panelgamma_apply_color(3, 122, &std);
+		CHECK(n == 1 && crtcs[0].values[5] == 0, "back to Standard above the floor: no table, as before");
+	}
+
+	/* The file the launcher leaves for Diatom and portkeys */
+	{
+		char dir[] = "/tmp/zyperos-pg-XXXXXX", path[64];
+		panelgamma_color c = { 9, 9, 9 }, w = { 2, 1, 1 };
+
+		if (!mkdtemp(dir)) { perror("mkdtemp"); return 1; }
+		snprintf(path, sizeof path, "%s/screen", dir);
+		CHECK(panelgamma_color_read(path, &c) == 0 && panelgamma_color_standard(&c),
+		      "no file (a cold boot before the launcher): Standard");
+		CHECK(panelgamma_color_write(path, &w) == 0 && panelgamma_color_read(path, &c) == 1 &&
+		      c.night == 2 && c.contrast == 1 && c.vivid == 1, "written and read back");
+		{
+			FILE *f = fopen(path, "w");
+
+			fputs("night=9 contrast=-4 bogus vivid=7\n", f);
+			fclose(f);
+		}
+		CHECK(panelgamma_color_read(path, &c) == 1 && c.night == PANELGAMMA_NIGHT_MAX && c.contrast == 0 &&
+		      c.vivid == 1, "a line out of range: each value put in range, a word it does not know passed over");
+		{
+			FILE *f = fopen(path, "w");
+
+			fclose(f);
+		}
+		CHECK(panelgamma_color_read(path, &c) == 1 && panelgamma_color_standard(&c), "an empty file: Standard");
+		remove(path);
+		CHECK(mkfifo(path, 0644) == 0 && panelgamma_color_read(path, &c) == 1 && panelgamma_color_standard(&c),
+		      "a FIFO at the name: Standard at once, no wait for a writer");
+		CHECK(panelgamma_color_write(path, &w) == 0 && panelgamma_color_read(path, &c) == 1 && c.night == 2,
+		      "  ...and a write puts a file in its place");
+		{
+			char tmp[80];
+
+			snprintf(tmp, sizeof tmp, "%s.tmp", path);
+			CHECK(symlink("/nonexistent-zyperos-pg-target", tmp) == 0 && panelgamma_color_write(path, &w) == 0 &&
+			      access("/nonexistent-zyperos-pg-target", F_OK) != 0 && access(tmp, F_OK) != 0,
+			      "a link left at the temporary's name: not followed, the write made all the same");
+		}
+		remove(path);
+		rmdir(dir);
+	}
 
 	if (fails) {
 		printf("check-panelgamma: %d failed\n", fails);
