@@ -273,11 +273,11 @@ tour.lang.hello
 
 # launch: no shot draws it yet
 launch.needs_bios
-launch.couldnt_start
-launch.bios_size   # wrapped onto balanced lines (result_message), so no drawn line is the string
+launch.bios_size  # wrapped onto balanced lines (result_message), so no drawn line is the string
 launch.bios_hides  # wrapped onto balanced lines, as launch.bios_size
-launch.bios_bytes.one    # a piece of launch.bios_size's line
+launch.bios_bytes.one  # a piece of launch.bios_size's line
 launch.bios_bytes.other  # a piece of launch.bios_size's line
+launch.couldnt_start
 
 # library: no shot draws it yet
 library.scanning
@@ -316,9 +316,6 @@ musiclib.sort_title
 musiclib.art_no_network
 
 # panel: no shot draws it yet
-panel.order_release
-panel.battery_percentage
-panel.battery_time
 panel.signing_in
 panel.signed_in_as
 panel.sign_in_failed
@@ -437,7 +434,6 @@ stats.this_year
 stats.this_month
 stats.this_week
 stats.today_window
-stats.never
 stats.today
 stats.yesterday
 stats.days_ago
@@ -460,12 +456,7 @@ storage.files.one
 # sysmenu: no shot draws it yet
 sysmenu.wifi_connecting
 sysmenu.hotspot
-sysmenu.clock_12h
-sysmenu.auto_off_never
 sysmenu.charge_limit
-sysmenu.order_release
-sysmenu.battery_percent
-sysmenu.battery_time
 sysmenu.dslang
 sysmenu.dsslow
 sysmenu.dsslow_keep
