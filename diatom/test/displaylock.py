@@ -14,9 +14,10 @@ gives the frames and the time.
   - --pace smooth, a 50 Hz display, more than 1% from the core: not locked
 
 A busy machine can run a loop late, and late frames make any rate lower, so
-a rate is judged with room: locked within 1% of 60, and at least 0.15 fps
-over the core's own rate from the same run's conditions; not locked within 1%
-of 59.7275 and under 60.
+a rate is judged with room, and only when the run without the lock kept
+within 1% of its own 59.7275: then locked within 1% of 60, and at least
+0.15 fps over the core's own rate. On a machine that cannot keep up the
+rates are said, not judged; the rest is judged everywhere.
 
 Needs build/desktop (diatom and stubcore.so) and SKIPS without it, as
 check-now does. SDL's dummy drivers: no window, no sound.
@@ -60,12 +61,18 @@ SMOOTH = ("--pace", "smooth")
 out, fps, target = run(60, SMOOTH)
 check("Smooth on a 60 Hz display: locked, and says so", "locked to the display, 60.000 Hz" in out, out[-600:])
 check("  ...its frames' target the display's 60", abs(target - 60.0) < 0.001, target)
-check("  ...and run at it, within 1%", abs(fps - 60.0) / 60.0 < 0.01, fps)
 out_c, fps_c, target_c = run(60)
 check("no --pace (Exact): not locked, and nothing said", "locked to the display" not in out_c and
       "not the display's" not in out_c, out_c[-600:])
 check("  ...the core's own 59.7275", abs(target_c - 59.7275) < 0.001, target_c)
-check("  ...and slower than locked, by the 0.46%", fps - fps_c >= 0.15 and fps_c < 60.0, (fps, fps_c))
+# The rates themselves only where this machine kept up: a busy runner starts
+# frames late, and late frames make both runs slower alike (a CI runner gave
+# 56.14 to both, 2026-11-16), which says nothing about the lock
+if abs(fps_c - 59.7275) / 59.7275 < 0.01:
+    check("  ...and run at it, within 1%", abs(fps - 60.0) / 60.0 < 0.01, fps)
+    check("  ...and slower than locked, by the 0.46%", fps - fps_c >= 0.15 and fps_c < 60.0, (fps, fps_c))
+else:
+    print(f"  not judged: the rates, this machine started frames late ({fps:.2f} and {fps_c:.2f} fps)")
 out_e, fps_e, target_e = run(60, ("--pace", "exact"))
 check("--pace exact: not locked either", "locked to the display" not in out_e and abs(target_e - 59.7275) < 0.001,
       (target_e, out_e[-300:]))
