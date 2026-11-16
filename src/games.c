@@ -59,11 +59,11 @@ int games_slots(const games_row *r,uint32_t now,games_slot out[GAMES_WINDOW])
 /* THE SHELF, LAID OUT BY RULES (src/ds/flex.h): one column between the
  * page's margins (64), from the system's line to the keys on every screen's
  * foot. Each part's box: */
-#define SHELF_MARGIN    64    /* the page's sides */
+#define SHELF_MARGIN    DS_MARGIN      /* the page's sides (64) */
 #define SHELF_SYS_TOP   132   /* the system's line, its box's top (its middle at 152) */
-#define SHELF_SYS_H     40    /* that line: meta's */
+#define SHELF_SYS_H     DS_LINE_META   /* that line: meta's (40) */
 #define SHELF_COVER_GAP 40    /* the covers' band under it */
-#define SHELF_TITLE_GAP 24    /* the name's first line under the covers' band */
+#define SHELF_TITLE_GAP DS_SECTION     /* the name's first line under the covers' band (24) */
 shelf_frame games_frame(void)
 {
     static ds_flex F;
@@ -111,7 +111,7 @@ SDL_FRect games_cover_rect(int width,int height,float offset)
 /* The name's lines: the first's middle, and the game title's line, 40 (44
  * until 1.0.6) */
 #define GAMES_TITLE_Y    (games_frame().title.y+GAMES_TITLE_STEP/2)   /* 584 */
-#define GAMES_TITLE_STEP 40
+#define GAMES_TITLE_STEP DS_LINE_META   /* the game title is meta's size: its line is meta's (40) */
 /* Where the line under the name sits: a title of one line leaves the second
  * line's place (a title line down) to it, whether it names the system
  * (Favorites) or gives the play time (a shelf). Both read this, so they cannot

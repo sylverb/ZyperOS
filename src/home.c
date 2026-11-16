@@ -481,8 +481,8 @@ static void restore_state(SDL_Renderer *r,draw_state s)
  * Gallery: the focused still HOME_GALLERY_STILL square, HOME_GALLERY_DOWN
  * under the content's top, in the middle; its underline 8 under it and the
  * name HOME_GALLERY_NAME under the underline's top. */
-#define HOME_MARGIN        64
-#define HOME_TOP           96     /* the content under the top bar: header 72 and a section */
+#define HOME_MARGIN        DS_MARGIN                  /* 64 */
+#define HOME_TOP           (DS_HEADER + DS_SECTION)   /* the content under the top bar (96) */
 #define HOME_STILL         448
 #define HOME_STILL_IN      40
 #define HOME_STILL_DOWN    16
