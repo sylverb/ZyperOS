@@ -133,7 +133,9 @@ def notes_of(tag):
 
 def check():
     d = os.path.join(ROOT, "docs", "releases")
-    names = sorted(n for n in os.listdir(d) if re.fullmatch(r"v\d.*\.md", n))
+    # A test kit's notes (v1.0.6-kit.2.md) are never posted here: its
+    # testers get it in its own thread (tools/release.sh --kit)
+    names = sorted(n for n in os.listdir(d) if re.fullmatch(r"v\d[^-]*\.md", n))
     bad = 0
     for n in names:
         tag = n[:-3]
