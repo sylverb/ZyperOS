@@ -14,9 +14,8 @@
 #include "profile.h"
 
 /* The Brick's controls (brick_buttons.h: F1 and F2 for brightness), drawn as
- * the borrowed handheld prints them, the Pixel 2's, as the host's shots
- * always showed: SELECT and START pills with their words, MENU round with
- * three dots (src/ds/button.h) */
+ * the borrowed handheld prints them, the Pixel 2's: SELECT and START round
+ * keys printed SE and ST, MENU round with three dots (src/ds/button.h) */
 static const dev_button desktop_buttons[] = {
 	{ IN_UP,       "UP",     DEV_CAP_DPAD,     DEV_ICON_NONE, 0 },
 	{ IN_DOWN,     "DOWN",   DEV_CAP_DPAD,     DEV_ICON_NONE, 0 },
@@ -30,8 +29,8 @@ static const dev_button desktop_buttons[] = {
 	{ IN_R1,       "R1",     DEV_CAP_SHOULDER, DEV_ICON_NONE, 0 },
 	{ IN_L2,       "L2",     DEV_CAP_SHOULDER, DEV_ICON_NONE, 0 },
 	{ IN_R2,       "R2",     DEV_CAP_SHOULDER, DEV_ICON_NONE, 0 },
-	{ IN_SELECT,   "SELECT", DEV_CAP_PILL,     DEV_ICON_NONE, 0 },
-	{ IN_START,    "START",  DEV_CAP_PILL,     DEV_ICON_NONE, 0 },
+	{ IN_SELECT,   "SE",     DEV_CAP_ROUND,    DEV_ICON_NONE, 0 },
+	{ IN_START,    "ST",     DEV_CAP_ROUND,    DEV_ICON_NONE, 0 },
 	{ IN_MENU,     "MENU",   DEV_CAP_ROUND,    DEV_ICON_DOTS, 0 },
 	{ IN_BRIGHTDN, "F1",     DEV_CAP_PILL,     DEV_ICON_NONE, 0 },
 	{ IN_BRIGHTUP, "F2",     DEV_CAP_PILL,     DEV_ICON_NONE, 0 },

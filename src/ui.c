@@ -2436,6 +2436,16 @@ static TTF_Font *button_letter(bool round, int size)
 	return button_font(button_pt(round, size), button_semibold(round, size));
 }
 
+/* A face's letters: one at the face's size; two (the Pixel 2's SE and ST,
+ * a stick's L3) at 5/8 of it, as the model engraves them (1.75 mm to a face
+ * letter's 2.8, tools/build-pixel2-model.py) */
+static TTF_Font *key_letters(ds_key k, bool round, int size)
+{
+	if (round && k.mark == DS_KEY_MARK_NONE && k.text && k.text[0] && k.text[1])
+		return button_font((button_pt(true, size) * 5 + 4) / 8, true);
+	return button_letter(round, size);
+}
+
 /* The ring: 11.9's 4 at either glyph's full height, rounded for a face and
  * cut down for a pill, which keeps the keyboard's 40 and 44 at the 2 the
  * keyboard lab draws them with (a pill rounded would be 3 there). */
@@ -2605,7 +2615,7 @@ void ui_button(SDL_Renderer *r, const char *label, int cx, int cy, int size,
 		ui_fit_mark(&(SDL_Rect){ cx - dw / 2, cy - dw / 2, dw, dw });
 		return;
 	}
-	f = button_letter(round, size);
+	f = key_letters(k, round, size);
 	w = round ? size : ui_text_width(f, k.text) + button_pad(size) * 2;
 	ring = button_ring(round, size);
 
@@ -2950,7 +2960,7 @@ void ui_button_pressed(SDL_Renderer *r, const char *label, int cx, int cy, int s
 		return;
 	}
 	glyph_op = op01(op);
-	f = button_letter(round, size);
+	f = key_letters(g, round, size);
 	k = glyph_k(style == UI_BUTTON_ON_ACCENT ? 0.0f : press, scale);
 	if (key_dpad(g)) {
 		/* the d-pad's key, faded, pressed or pulsing as any glyph is */

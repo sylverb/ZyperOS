@@ -1224,8 +1224,13 @@ Progress before a synchronous operation is one presented frame, without a hold.
 For the tutorial and anywhere a button is drawn rather than named
 (`ui_button`, `ui_dpad`, `ui_rocker`, `ui_power` in src/ui.c). Face buttons
 are circles, 96 units, **raised**, a 4-unit **edge** ring, the letter in
-**title**. SELECT and START are pills 64 high, the word Regular at half the
-title, 30 units at each end. MENU is a face, as the key is on the Pixel 2: a
+**title**. A key printed with a word (POWER; the Brick's MENU) is a pill 64
+high, the word Regular at half the title, 30 units at each end. The Pixel
+2's SELECT and START are faces: round keys nearly as big as A B X Y with
+SE and ST engraved on them (tools/build-pixel2-model.py), their two letters
+at 5/8 of a face's letter, as the model engraves them (1.75 mm to 2.8); they
+were pills with the words until 1.0.6 (2026-11-16: "the pixel select button
+is actually a circle"). MENU is a face, as the key is on the Pixel 2: a
 round key with three dimples down the device's height
 (tools/build-pixel2-model.py), so its glyph is the face circle with three
 **text** dots in a vertical line, each 0.15 of the face letter's cap height
@@ -1247,7 +1252,7 @@ a stroke of 6 with round ends, and a stroke down into it.
 id's name (A, SELECT, L1, F1, the d-pad's "< >" and "^ v"), never by what one
 handheld prints, and the glyph is the one this handheld prints, from its
 profile's table (`dev_button`, src/device/profile.h). A round key with one
-letter is a face. A round key with a mark is a face with the mark: the Pixel
+or two letters is a face with them (A; the Pixel 2's SE and ST). A round key with a mark is a face with the mark: the Pixel
 2's MENU, its three dots; the Brick's SELECT, a square, and START, a play
 triangle, as its model draws them (the square 0.72 of a capital across, as a
 solid square carries more ink than a letter's strokes; the triangle about a
@@ -1260,9 +1265,9 @@ Running text that names a key whose cap carries a mark and no word draws
 the key inline, as MENU's three dots always were: on the Brick, "Press
 SELECT" shows its square key and "START" its play key (TrimUI's manual calls
 them SELECT and START; the caps show only the marks), so the words and the
-glyph tell the same story. A key printed as its word (the Pixel 2's SELECT,
-the Brick's MENU) stays a word. The host's desktop has the Brick's keys drawn as
-the Pixel 2's, as its shots always showed; a name no table has is a pill
+glyph tell the same story. A key printed with letters (the Pixel 2's SE and
+ST, the Brick's MENU word) stays a word in running text. The host's desktop
+has the Brick's keys drawn as the Pixel 2's; a name no table has is a pill
 with that name. A chord is named by what it does (`dev_role_keys`:
 brightness, home, battery), so a page says each handheld's own: MENU+VOL on
 the Pixel 2, F1/F2 on the Brick.
