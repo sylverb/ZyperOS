@@ -68,6 +68,13 @@ static void menu_pass_end(void *ctx, const SDL_Rect *panel, mm_pose pose) { pane
 /* Between On/Off and Y's glyph after it (MENU_KEY_Y_ON, MENU_KEY_Y_OFF) */
 #define MENU_KEY_GAP 16
 
+/* A row whose value is a scale's (src/ds/scale.h): a note's, a body's and a
+ * rule's value is a mark, not text */
+static bool row_is_scale(menu_row r)
+{
+	return !ROW_IS_NOTE(r) && r.value != MENU_HR_MARK && ds_scale_is(r.value);
+}
+
 /* What a row's value takes at the right of the rows, for the measures:
  * its text, a tick (MENU_TICK) or X's glyph (MENU_KEY_X) */
 int menu_value_w(TTF_Font *fm, const char *v)
@@ -1073,7 +1080,7 @@ void menu_panel(app *a, const char *heading, const menu_row *rows,
 	int scale_x = 0;
 
 	for (i = 0; i < n; i++)
-		if (ds_scale_is(rows[i].value) && content_x + ui_text_width(fm, rows[i].label) + DS_GRID * 4 > scale_x)
+		if (row_is_scale(rows[i]) && content_x + ui_text_width(fm, rows[i].label) + DS_GRID * 4 > scale_x)
 			scale_x = content_x + ui_text_width(fm, rows[i].label) + DS_GRID * 4;
 	if (scale_x > content_x + content_w - DS_SCALE_MIN_W - ds_scale_num_w())
 		scale_x = content_x + content_w - DS_SCALE_MIN_W - ds_scale_num_w();
@@ -1277,7 +1284,7 @@ void menu_panel(app *a, const char *heading, const menu_row *rows,
 			/* X's glyph where the value goes, on the fill as a selected
 			 * key's (UI_BUTTON_ON_ACCENT) once the plate is mostly there,
 			 * and the label given what is left */
-			if (ds_scale_is(rows[i].value)) {
+			if (row_is_scale(rows[i])) {
 				/* A scale: its label, then its bar in the scales' column */
 				ds_scale_kind sk;
 				int sv, sr;
