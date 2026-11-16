@@ -364,7 +364,7 @@ document.addEventListener("keydown", (e) => {
 // ---- the write -----------------------------------------------------------
 
 const STEPS = ["get", "write", "check", "eject"];
-const STEP_OF = { downloading: "get", verifying: "get", writing: "write", checking: "check", ejecting: "eject" };
+const STEP_OF = { fetching: "get", downloading: "get", verifying: "get", writing: "write", checking: "check", ejecting: "eject" };
 
 function step(now) {
 	const at = STEPS.indexOf(now);
@@ -415,6 +415,8 @@ function eta(seconds) {
 }
 
 const WORDS = {
+	fetching: ["Getting the Brick's graphics and Wi-Fi files",
+		"From Creality's Sonic Pad SDK on GitHub, each one checked, then put on this card only. ZyperOS can't include them itself."],
 	downloading: ["Downloading", "From GitHub, then checked against the release's SHA256SUMS."],
 	verifying: ["Checking the image", "Against the SHA256SUMS beside it, before anything is written."],
 	writing: ["Writing", null],

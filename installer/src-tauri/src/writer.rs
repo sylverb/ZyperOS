@@ -294,6 +294,9 @@ pub enum Progress {
     Checking { done: u64, total: u64 },
     /// A local image read once, against the SHA256SUMS beside it
     Verifying { done: u64, total: u64 },
+    /// The Brick's closed files coming from their publisher, by count,
+    /// before anything is written (closed.rs)
+    Fetching { done: u64, total: u64 },
 }
 
 /// The image, from its first byte, as many times as asked.
@@ -433,7 +436,7 @@ pub fn fresh(
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use std::io::Cursor;
 
@@ -728,6 +731,14 @@ mod tests {
             }
         }
         h
+    }
+
+    /// A GPT's first sectors with partitions at (start, sectors), for
+    /// closed.rs's tests
+    pub(crate) fn gpt_with(parts: &[(u64, u64)]) -> Vec<u8> {
+        let p: Vec<Option<Partition>> =
+            parts.iter().map(|&(start, sectors)| Some(Partition { kind: 0, start, sectors })).collect();
+        gpt(&p)
     }
 
     fn gpt_image(seed: u8) -> Vec<u8> {

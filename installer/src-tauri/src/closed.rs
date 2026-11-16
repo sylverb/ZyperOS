@@ -1,0 +1,341 @@
+// The TrimUI Brick's closed files, the player's own copy (ZyperOS's spec,
+// section 7): Imagination's PowerVR libraries and GPU firmware, and XRadio's
+// Wi-Fi and Bluetooth firmware. ZyperOS's images carry none of them. For a
+// Brick card, the installer fetches them from where their publisher put them,
+// Creality's Sonic Pad SDK at 7f37a7f, checks each against plastron's own
+// sums, and puts them in closed/ on the card's boot partition, outside the
+// system slots, where the Brick's system links to them and System Update
+// leaves them alone. They are fetched before anything is written, so a failed
+// download writes nothing; and they go into the boot partition of the image
+// in memory, on its way to the card, so no card is ever mounted to do it.
+
+use std::io::{self, Cursor, Read};
+use std::path::{Path, PathBuf};
+
+use sha2::{Digest, Sha256};
+
+/// A closed file: its name on the card, its path in the Sonic Pad SDK, and
+/// its sum
+pub struct ClosedFile {
+    pub name: &'static str,
+    pub path: &'static str,
+    pub sha256: &'static str,
+}
+
+// LIST, made by build.rs from plastron's package/pvr-ge8300/files.sha256 and
+// package/xr829-firmware/files.sha256
+include!(concat!(env!("OUT_DIR"), "/closed_list.rs"));
+
+/// Where the files are: the Sonic Pad SDK at its pinned commit
+pub const SDK: &str = "https://raw.githubusercontent.com/CrealityTech/sonic_pad_os/7f37a7fbf4ad59907034715e3d967b9177de1cd4/";
+
+/// Their folder on the boot partition
+pub const FOLDER: &str = "closed";
+
+/// The biggest a closed file can be: the GPU's compiler is under 2 MB
+const MAX_BYTES: u64 = 16 << 20;
+
+fn hex(bytes: &[u8]) -> String {
+    bytes.iter().map(|b| format!("{b:02x}")).collect()
+}
+
+fn sum_of(bytes: &[u8]) -> String {
+    hex(&Sha256::digest(bytes))
+}
+
+/// A URL's bytes, from the network
+pub fn http_get(url: &str) -> Result<Vec<u8>, String> {
+    let agent: ureq::Agent = ureq::Agent::config_builder()
+        .user_agent(concat!("zyperos-installer/", env!("CARGO_PKG_VERSION")))
+        .timeout_connect(Some(std::time::Duration::from_secs(15)))
+        .build()
+        .into();
+    let mut response = agent.get(url).call().map_err(|e| e.to_string())?;
+    response
+        .body_mut()
+        .with_config()
+        .limit(MAX_BYTES)
+        .read_to_vec()
+        .map_err(|e| e.to_string())
+}
+
+/// The files of `list` in `cache`, by their names: one already there with
+/// its sum is kept, the rest got with `get` from `base` and checked. An error
+/// names the file and says what went wrong; then nothing is to be written.
+pub fn fetch(
+    list: &[ClosedFile],
+    cache: &Path,
+    base: &str,
+    get: &dyn Fn(&str) -> Result<Vec<u8>, String>,
+    progress: &mut dyn FnMut(u64, u64),
+    cancelled: &dyn Fn() -> bool,
+) -> Result<Vec<PathBuf>, String> {
+    std::fs::create_dir_all(cache).map_err(|e| format!("Making a folder for the Brick's files: {e}"))?;
+    let total = list.len() as u64;
+    let mut out = Vec::with_capacity(list.len());
+    for (i, f) in list.iter().enumerate() {
+        if cancelled() {
+            return Err("cancelled".into());
+        }
+        progress(i as u64, total);
+        let path = cache.join(f.name);
+        let kept = std::fs::read(&path).map(|b| sum_of(&b) == f.sha256).unwrap_or(false);
+        if !kept {
+            let bytes = get(&format!("{base}{}", f.path)).map_err(|e| {
+                format!("Couldn't get the Brick's file {} from GitHub: {e}. Nothing was written.", f.name)
+            })?;
+            if sum_of(&bytes) != f.sha256 {
+                return Err(format!(
+                    "The Brick's file {} from GitHub isn't the one ZyperOS expects (its checksum differs). Nothing was written.",
+                    f.name
+                ));
+            }
+            let part = cache.join(format!("{}.part", f.name));
+            std::fs::write(&part, &bytes)
+                .and_then(|_| std::fs::rename(&part, &path))
+                .map_err(|e| format!("Keeping the Brick's file {}: {e}", f.name))?;
+        }
+        out.push(path);
+    }
+    progress(total, total);
+    Ok(out)
+}
+
+/// A boot partition's FAT (its whole bytes) with `files` in closed/, each
+/// under its own name: the folder made if it isn't there, a file there
+/// already written over, everything else left as it was.
+pub fn into_boot(boot: Vec<u8>, files: &[PathBuf]) -> Result<Vec<u8>, String> {
+    let mut disk = Cursor::new(boot);
+    {
+        let fs = fatfs::FileSystem::new(&mut disk, fatfs::FsOptions::new())
+            .map_err(|e| format!("Reading the image's boot partition: {e}"))?;
+        {
+            let root = fs.root_dir();
+            let dir = match root.open_dir(FOLDER) {
+                Ok(d) => d,
+                Err(_) => root.create_dir(FOLDER).map_err(|e| format!("Making closed/ on the boot partition: {e}"))?,
+            };
+            for path in files {
+                let name = path.file_name().and_then(|n| n.to_str()).ok_or("A closed file has no name")?;
+                let bytes = std::fs::read(path).map_err(|e| format!("Reading {name}: {e}"))?;
+                let mut file = dir.create_file(name).map_err(|e| format!("Putting {name} on the boot partition: {e}"))?;
+                file.truncate().map_err(|e| format!("Putting {name} on the boot partition: {e}"))?;
+                io::Write::write_all(&mut file, &bytes).map_err(|e| {
+                    format!("Putting {name} on the boot partition: {e} (is the image's boot partition full?)")
+                })?;
+                io::Write::flush(&mut file).map_err(|e| format!("Putting {name} on the boot partition: {e}"))?;
+            }
+        }
+        fs.unmount().map_err(|e| format!("Finishing the boot partition: {e}"))?;
+    }
+    Ok(disk.into_inner())
+}
+
+/// An image read with other bytes over part of it: `data` in place of the
+/// image's own from byte `at`. The writer reads the image twice (writing,
+/// then checking the card), so both see the same.
+pub struct Overlay<R: Read> {
+    inner: R,
+    pos: u64,
+    at: u64,
+    data: std::sync::Arc<Vec<u8>>,
+}
+
+impl<R: Read> Overlay<R> {
+    pub fn new(inner: R, at: u64, data: std::sync::Arc<Vec<u8>>) -> Self {
+        Overlay { inner, pos: 0, at, data }
+    }
+}
+
+impl<R: Read> Read for Overlay<R> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        let n = self.inner.read(buf)?;
+        let (start, end) = (self.pos, self.pos + n as u64);
+        let (over_start, over_end) = (self.at, self.at + self.data.len() as u64);
+        let (from, to) = (start.max(over_start), end.min(over_end));
+        if from < to {
+            let dst = (from - start) as usize..(to - start) as usize;
+            let src = (from - over_start) as usize..(to - over_start) as usize;
+            buf[dst].copy_from_slice(&self.data[src]);
+        }
+        self.pos = end;
+        Ok(n)
+    }
+}
+
+/// The image's first partition (its boot partition): where it starts and
+/// how many bytes it is, from the image's own table. Reads only the head.
+pub fn boot_span(image: &mut dyn Read) -> Result<(u64, u64), String> {
+    use crate::writer::{table_of, HEAD, SECTOR};
+    let mut head = vec![0u8; HEAD];
+    image.read_exact(&mut head).map_err(|e| format!("Reading the image: {e}"))?;
+    let table = table_of(&head).ok_or("The image has no partition table")?;
+    let boot = table.first().copied().flatten().ok_or("The image has no boot partition")?;
+    Ok((boot.start * SECTOR, boot.sectors * SECTOR))
+}
+
+/// The image's boot partition, read from its start, with the closed files
+/// in: what goes over the image's own at its offset (Overlay)
+pub fn boot_with(open: &dyn Fn() -> io::Result<Box<dyn Read + Send>>, files: &[PathBuf]) -> Result<(u64, Vec<u8>), String> {
+    let (at, len) = boot_span(&mut *open().map_err(|e| format!("Opening the image: {e}"))?)?;
+    let mut image = open().map_err(|e| format!("Opening the image: {e}"))?;
+    io::copy(&mut (&mut image).take(at), &mut io::sink()).map_err(|e| format!("Reading the image: {e}"))?;
+    let mut boot = vec![0u8; len as usize];
+    image.read_exact(&mut boot).map_err(|e| format!("Reading the image's boot partition: {e}"))?;
+    Ok((at, into_boot(boot, files)?))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::{Seek, SeekFrom, Write};
+
+    fn temp(name: &str) -> PathBuf {
+        let d = std::env::temp_dir().join(format!("zyperos-closed-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        d
+    }
+
+    // A boot partition as the Brick's image has it: FAT, a/ with its kernel,
+    // bootstate.txt
+    fn boot_fat() -> Vec<u8> {
+        let mut disk = Cursor::new(vec![0u8; 8 << 20]);
+        fatfs::format_volume(&mut disk, fatfs::FormatVolumeOptions::new().volume_label(*b"BRICKBOOT  ")).unwrap();
+        {
+            let fs = fatfs::FileSystem::new(&mut disk, fatfs::FsOptions::new()).unwrap();
+            {
+                let a = fs.root_dir().create_dir("a").unwrap();
+                a.create_file("Image.lz4").unwrap().write_all(b"kernel").unwrap();
+                fs.root_dir().create_file("bootstate.txt").unwrap().write_all(b"slot=a\n").unwrap();
+            }
+            fs.unmount().unwrap();
+        }
+        disk.into_inner()
+    }
+
+    fn read_in(boot: &[u8], path: &str) -> Option<Vec<u8>> {
+        let mut disk = Cursor::new(boot.to_vec());
+        let fs = fatfs::FileSystem::new(&mut disk, fatfs::FsOptions::new()).unwrap();
+        let mut f = fs.root_dir().open_file(path).ok()?;
+        let mut v = Vec::new();
+        f.read_to_end(&mut v).unwrap();
+        Some(v)
+    }
+
+    #[test]
+    fn the_list_is_plastrons() {
+        assert_eq!(LIST.len(), 13);
+        let names: Vec<_> = LIST.iter().map(|f| f.name).collect();
+        for n in ["libEGL.so", "libGLESv2.so", "libpvrNULL_WSEGL.so", "rgx.fw.22.102.54.38", "fw_xr829.bin", "fw_xr829_bt.bin"] {
+            assert!(names.contains(&n), "{n} in the list");
+        }
+        assert!(LIST.iter().any(|f| f.path == "package/libs/libgpu/ge8300/fbdev/glibc/lib64/firmware/rgx.fw.22.102.54.38"));
+        assert!(LIST.iter().any(|f| f.path == "package/firmware/linux-firmware/xr829/boot_xr829.bin"));
+        assert!(LIST.iter().all(|f| f.sha256.len() == 64));
+    }
+
+    fn fixture_list(bytes: &[(&'static str, &[u8])]) -> Vec<ClosedFile> {
+        bytes
+            .iter()
+            .map(|(name, b)| ClosedFile { name, path: name, sha256: Box::leak(sum_of(b).into_boxed_str()) })
+            .collect()
+    }
+
+    #[test]
+    fn fetches_checks_and_keeps() {
+        let cache = temp("fetch");
+        let list = fixture_list(&[("libEGL.so", b"egl"), ("fw_xr829.bin", b"wifi")]);
+        let asked = std::cell::RefCell::new(Vec::new());
+        let get = |url: &str| {
+            asked.borrow_mut().push(url.to_string());
+            Ok(match url { "base/libEGL.so" => b"egl".to_vec(), _ => b"wifi".to_vec() })
+        };
+        let files = fetch(&list, &cache, "base/", &get, &mut |_, _| {}, &|| false).unwrap();
+        assert_eq!(files.len(), 2);
+        assert_eq!(std::fs::read(cache.join("libEGL.so")).unwrap(), b"egl");
+        // A second time, the cache has them: nothing fetched
+        asked.borrow_mut().clear();
+        fetch(&list, &cache, "base/", &get, &mut |_, _| {}, &|| false).unwrap();
+        assert!(asked.borrow().is_empty());
+        // A cached file that changed is fetched again
+        std::fs::write(cache.join("fw_xr829.bin"), b"broken").unwrap();
+        fetch(&list, &cache, "base/", &get, &mut |_, _| {}, &|| false).unwrap();
+        assert_eq!(asked.borrow().as_slice(), ["base/fw_xr829.bin"]);
+    }
+
+    #[test]
+    fn a_wrong_sum_or_no_network_names_the_file() {
+        let cache = temp("wrong");
+        let list = fixture_list(&[("libEGL.so", b"egl")]);
+        let e = fetch(&list, &cache, "", &|_: &str| Ok(b"other".to_vec()), &mut |_, _| {}, &|| false).unwrap_err();
+        assert!(e.contains("libEGL.so") && e.contains("checksum") && e.contains("Nothing was written"), "{e}");
+        assert!(!cache.join("libEGL.so").exists());
+        let e = fetch(&list, &cache, "", &|_: &str| Err("offline".into()), &mut |_, _| {}, &|| false).unwrap_err();
+        assert!(e.contains("libEGL.so") && e.contains("offline") && e.contains("Nothing was written"), "{e}");
+    }
+
+    #[test]
+    fn into_the_boot_partition_and_nothing_else() {
+        let dir = temp("into");
+        std::fs::write(dir.join("libGLESv2.so"), b"gles").unwrap();
+        std::fs::write(dir.join("rgx.fw.22.102.54.38"), b"firmware").unwrap();
+        let files = vec![dir.join("libGLESv2.so"), dir.join("rgx.fw.22.102.54.38")];
+        let boot = into_boot(boot_fat(), &files).unwrap();
+        assert_eq!(read_in(&boot, "closed/libGLESv2.so").unwrap(), b"gles");
+        assert_eq!(read_in(&boot, "closed/rgx.fw.22.102.54.38").unwrap(), b"firmware");
+        assert_eq!(read_in(&boot, "a/Image.lz4").unwrap(), b"kernel");
+        assert_eq!(read_in(&boot, "bootstate.txt").unwrap(), b"slot=a\n");
+        // A folder from before, one file cut short: written over whole
+        std::fs::write(dir.join("libGLESv2.so"), b"gles, all of it").unwrap();
+        let again = into_boot(boot, &files[..1]).unwrap();
+        assert_eq!(read_in(&again, "closed/libGLESv2.so").unwrap(), b"gles, all of it");
+        assert_eq!(read_in(&again, "closed/rgx.fw.22.102.54.38").unwrap(), b"firmware");
+    }
+
+    #[test]
+    fn the_overlay_puts_its_bytes_in_place() {
+        let image: Vec<u8> = (0..100u8).collect();
+        let data = std::sync::Arc::new(vec![0xEEu8; 10]);
+        // Read in odd pieces, across the overlay's edges
+        let mut r = Overlay::new(Cursor::new(image.clone()), 37, data);
+        let mut out = Vec::new();
+        let mut buf = [0u8; 7];
+        loop {
+            let n = r.read(&mut buf).unwrap();
+            if n == 0 {
+                break;
+            }
+            out.extend_from_slice(&buf[..n]);
+        }
+        let mut want = image;
+        want[37..47].fill(0xEE);
+        assert_eq!(out, want);
+    }
+
+    #[test]
+    fn the_boot_partition_from_a_gpt_image() {
+        // A GPT image whose first partition is a FAT at 1 MiB: boot_with
+        // reads it, puts the files in, and says where it goes
+        let fat = boot_fat();
+        let mut image = vec![0u8; (1 << 20) + fat.len() + (1 << 20)];
+        image[(1 << 20)..(1 << 20) + fat.len()].copy_from_slice(&fat);
+        let table = crate::writer::tests::gpt_with(&[(2048, (fat.len() as u64) / 512)]);
+        image[..table.len()].copy_from_slice(&table);
+        let path = temp("gpt").join("brick.img");
+        std::fs::write(&path, &image).unwrap();
+        let dir = temp("gptfiles");
+        std::fs::write(dir.join("fw_xr829.bin"), b"wifi").unwrap();
+        let open = || crate::image::open(&path);
+        let (at, boot) = boot_with(&open, &[dir.join("fw_xr829.bin")]).unwrap();
+        assert_eq!(at, 1 << 20);
+        assert_eq!(boot.len(), fat.len());
+        assert_eq!(read_in(&boot, "closed/fw_xr829.bin").unwrap(), b"wifi");
+        // The image file itself is not changed
+        let mut f = std::fs::File::open(&path).unwrap();
+        f.seek(SeekFrom::Start(1 << 20)).unwrap();
+        let mut first = vec![0u8; 512];
+        f.read_exact(&mut first).unwrap();
+        assert_eq!(first, fat[..512]);
+    }
+}
