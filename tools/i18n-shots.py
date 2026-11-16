@@ -604,6 +604,11 @@ SHOT_SETTINGS["system-menu-strength"] = {"shader.PS1": "scanlines", "shader_stre
 EXTRA.setdefault("menu-strength", ("demo", "PS1", ["--menu", "Strength"]))
 SHOT_SETTINGS["menu-strength"] = {"shader": "crt", "shader_strength.PS1": "60"}
 
+# Timing (src/pacing.h) on the GBA's system menu, at its other value, Exact:
+# Smooth, the default, is drawn in every GBA system menu shot
+EXTRA.setdefault("system-menu-timing-exact", ("demo", "GBA", ["--screen", "games", "--menu", "Timing"]))
+SHOT_SETTINGS["system-menu-timing-exact"] = {"pace.GBA": "exact"}
+
 # The in-game menu's Controls tab (src/ctltab.c), beside the handheld: its
 # end (Reset Buttons, Hotkeys), a button's choices, the system over a game
 # with buttons of its own and the note under it, a game button left with
