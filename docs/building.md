@@ -184,6 +184,7 @@ something once broke in a way nothing noticed:
 | `check-theme` | which theme is on: MENU > Appearance's three settings, Auto's seven to seven and the hours MENU > Display > Auto Hours sets (round midnight too), the minute it may be late by, and the file the bar's other programs read after every kind of change |
 | `check-look` | the player's look (MENU > Display > Theme): every accent with every background tone, in both themes, held to the contrast each color is owed; the look as it ships is the tokens to the byte, and its words read back |
 | `check-config` | systems.cfg's accent field: six hex digits are that color, anything else is no color at all (CFG_NO_COLOR); and the systems in A to Z order |
+| `check-bios` | a shelf's BIOS as its core judges it: every disc bios name in systems.cfg has a size, and a 0-byte, short or long file in Bios/ is refused and named in the core's order (with the one delete that fixes it when a good later name is there), while a right-size one starts |
 | `check-kbnav` | the on-screen keyboard's d-pad: onto and off the action row, the wraps at every edge, and the action keys' labels on each layer |
 | `check-randgame` | Random Game's pick: every game as likely as every other, nothing off a shelf, never the last pick again |
 | `check-shelfdir` | Folders on a shelf: what a folder shows, its folders first by name with their games counted at every depth, then its games; a disc set in a folder a game there |
@@ -545,13 +546,14 @@ refused, a link that leads out of it too.
   `px2-open --wait-running 20` waits for whatever is opened.
 
 Its errors say a code and why: `bad-path`, `no-file`, `unknown-system`,
-`not-a-game`, `unknown-core`, `needs-bios`, `not-running`, `busy`,
-`bad-command`. It exits 0 when done, 1 for a refusal, 2 when no launcher
-answers or a wait runs out. The launcher reads the channel on the shelf, on
-every screen that runs a loop, and ten times a second in a game; a game
-started without the resident emulator (its fallback) has no launcher to
-answer until it ends. A game copied onto the card after the launcher read the
-shelves is found all the same: an open from the shelf reads them again.
+`not-a-game`, `unknown-core`, `needs-bios`, `bad-bios` (a BIOS file of the
+wrong size), `not-running`, `busy`, `bad-command`. It exits 0 when done, 1
+for a refusal, 2 when no launcher answers or a wait runs out. The launcher
+reads the channel on the shelf, on every screen that runs a loop, and ten
+times a second in a game; a game started without the resident emulator (its
+fallback) has no launcher to answer until it ends. A game copied onto the
+card after the launcher read the shelves is found all the same: an open from
+the shelf reads them again.
 
 For the Pixel 2 with nobody holding it, `tools/` has more small programs to build
 with plastron's toolchain (`aarch64-buildroot-linux-gnu-gcc -O2`, `-pthread`

@@ -18,6 +18,10 @@
  * rows, 39 with Favorites and Muse. 48 again leaves room. */
 #define CFG_MAX_SYSTEMS 48
 #define CFG_STR 256
+/* A shelf's disc bios names (the Saturn's and the ColecoVision's are three)
+ * and the sizes a good copy of one may be */
+#define CFG_BIOS_NAMES 4
+#define CFG_BIOS_SIZES 2
 
 /* A system's color when its line names none, or names something that is not
  * one: no color at all, rather than one picked for it. It was cyan, which
@@ -60,6 +64,12 @@ typedef struct {
 	 * the console's BIOS. From a `bios|tag|names` line, which also sets
 	 * disc_bios. */
 	bool bios_every;
+	/* The size a good copy of each disc_bios name is, in that field's order:
+	 * up to CFG_BIOS_SIZES byte counts a name may come in (a PC Engine
+	 * System Card with its 512-byte header or without), 0 when no
+	 * `firmware|name|bytes` line names it. src/biosfile.h says a file of
+	 * another size is not one the core can start. */
+	unsigned bios_bytes[CFG_BIOS_NAMES][CFG_BIOS_SIZES];
 	/* How much clock its games get: "light" or "medium" caps the CPU, the
 	 * memory and the GPU for a system measured to keep its speed under that
 	 * ceiling, empty is full. From a `power|tag|level` line; sent to Diatom

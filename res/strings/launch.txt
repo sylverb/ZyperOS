@@ -12,6 +12,45 @@ de = braucht Bios/%.*s
 ja = Bios/%.*s が必要
 it = richiede Bios/%.*s
 
+[launch.bios_size]
+note = A message under the game's name when its firmware file is in Bios/ but is not the size a good copy is (an empty or cut-short file, which would start the game to a black screen): the file's name, the size it is ("0 bytes", "10 bytes", "256 KB", from launch.bios_bytes or sysmenu.size_kb / size_mb) and the size it should be ("512 KB"). Bios/ is the folder on the card (never translated). Drawn on up to three lines
+en = Bios/%s is %s; it should be %s
+zh-Hans = Bios/%s 的大小是 %s，应为 %s
+es = Bios/%s ocupa %s; debería ocupar %s
+pt-BR = Bios/%s tem %s; deveria ter %s
+fr = Bios/%s fait %s au lieu de %s
+de = Bios/%s ist %s groß, sollte %s sein
+ja = Bios/%s は %s です（正しくは %s）
+it = Bios/%s è di %s; dovrebbe essere di %s
+
+[launch.bios_hides]
+note = launch.bios_size's message when a later name of the same firmware is there and the right size: the core uses the first name it finds, so deleting the bad file is the whole fix. The bad file's name, its size (as in launch.bios_size), and the good file's name (beside it in Bios/). Drawn on up to three lines: keep it short
+en = Bios/%s is %s; delete it to use %s
+zh-Hans = Bios/%s 的大小是 %s；删除它即可使用 %s
+es = Bios/%s ocupa %s; bórralo para usar %s
+pt-BR = Bios/%s tem %s; apague-o para usar %s
+fr = Bios/%s fait %s : supprimez-le pour utiliser %s
+de = Bios/%s hat %s; lösche sie, um %s zu nutzen
+ja = Bios/%s（%s）を削除すると %s が使われます
+it = Bios/%s è di %s; eliminalo per usare %s
+
+[launch.bios_bytes]
+note = A size under 1 KB in launch.bios_size: how many bytes a firmware file has ("0 bytes", "10 bytes"). French writes octets
+en.one = %llu byte
+en.other = %llu bytes
+zh-Hans = %llu 字节
+es.one = %llu byte
+es.other = %llu bytes
+pt-BR.one = %llu byte
+pt-BR.other = %llu bytes
+fr.one = %llu octet
+fr.other = %llu octets
+de.one = %llu Byte
+de.other = %llu Bytes
+ja = %llu バイト
+it.one = %llu byte
+it.other = %llu byte
+
 [launch.couldnt_start]
 note = A message under a port's name when it could not be handed to the system to start
 en = couldn't start it

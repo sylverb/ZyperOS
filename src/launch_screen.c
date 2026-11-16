@@ -4,6 +4,7 @@
 #include "aout_route.h"
 #include "app.h"
 #include "bgm.h"
+#include "biosfile.h"
 #include "ctl.h"
 #include "ctl_channel.h"
 #include "dsv.h"
@@ -562,25 +563,6 @@ void pm_after_run(app *a)
 	pm_install_screen(a, s, true, why, true);
 }
 
-/* A shelf's disc bios in Bios/: any one of its names, which config/systems.cfg
- * lists with commas (the Saturn core takes any of three). The first is the
- * one a refusal names. */
-bool disc_bios_found(const char *bios, const char *names)
-{
-	const char *p = names;
-
-	while (*p) {
-		size_t n = strcspn(p, ",");
-		char fw[CFG_STR * 3];
-
-		snprintf(fw, sizeof fw, "%s/%.*s", bios, (int)n, p);
-		if (n && access(fw, R_OK) == 0) return true;
-		p += n;
-		if (*p) p++;
-	}
-	return false;
-}
-
 void launch(app *a)
 {
 	/* The game has the screen, and the CPU: no snap under it */
@@ -690,13 +672,22 @@ void launch(app *a)
 	 * cartridge on the shelf because a CD would have needed one is a worse
 	 * failure than the one being fixed. Every game where the shelf's whole
 	 * library needs it (bios_every, a `bios|tag|names` line: the
-	 * ColecoVision's). */
+	 * ColecoVision's).
+	 *
+	 * And a file of the wrong size as well as no file: the core would start
+	 * a 0-byte saturn_bios.bin to a black screen with no sound. Looked at in
+	 * the core's order, so a bad first name is said even beside a good later
+	 * one the core never reaches (src/biosfile.h). */
 	if (s->disc_bios[0] && (s->bios_every || lib_is_disc(v->list.items[v->cursor].file))) {
-		if (!disc_bios_found(bios, s->disc_bios)) {
-			char msg[CFG_STR + 96];
+		bios_result br;
 
-			snprintf(msg, sizeof msg, T(S_LAUNCH_NEEDS_BIOS),
-				 (int)strcspn(s->disc_bios, ","), s->disc_bios);
+		if (bios_check(s, bios, &br) != BIOS_OK) {
+			char msg[CFG_STR + 160];
+
+			bios_message(&br, msg, sizeof msg);
+			if (br.state == BIOS_WRONG_SIZE)
+				fprintf(stderr, "launch: %s refused: Bios/%s is %llu bytes, not %u\n", s->name,
+				        br.name, br.have, br.want);
 			if (a->in.pressed[IN_ACCEPT]) uisound_play(DS_SOUND_DENY);
 			result_message(a, v->list.items[v->cursor].title, msg);
 			return;
