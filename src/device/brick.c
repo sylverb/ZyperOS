@@ -917,6 +917,7 @@ void plat_backlight_dim(bool dim)
 
 /* No gamma table here: the Brick's backlight goes as low as its rungs need */
 void plat_display_plain(void) { }
+void plat_screen_colors(int night, int contrast, bool vivid) { (void)night; (void)contrast; (void)vivid; }
 
 #else   /* not __linux__ */
 
@@ -961,6 +962,7 @@ static void mute_forget(void) { }
 void plat_backlight(bool on) { (void)on; }
 void plat_backlight_dim(bool dim) { (void)dim; }
 void plat_display_plain(void) { }
+void plat_screen_colors(int night, int contrast, bool vivid) { (void)night; (void)contrast; (void)vivid; }
 
 /* No settings database on the host, so the config defaults are all there is.
  * Taken anyway rather than ignored: a shelf rendered by --shot should show the

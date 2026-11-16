@@ -95,6 +95,10 @@ static bool                g_have_master;
  * after another program had the display. */
 static int                 g_gamma_want = -1;
 static int                 g_gamma_have = -2;
+/* The player's Screen Colors, as the launcher left them in
+ * PANELGAMMA_COLOR_FILE: read again each time the display comes back
+ * (g_gamma_have -2), since they change only in the launcher's MENU */
+static panelgamma_color    g_gamma_color;
 
 static EGLDisplay g_egl_display = EGL_NO_DISPLAY;
 static EGLContext g_egl_context = EGL_NO_CONTEXT;
@@ -1509,8 +1513,9 @@ static int put_on_glass(uint32_t fb, bool *done)
 	return flip_err;
 }
 
-/* The gamma table the backlight's value asks for (port/panelgamma.h): the
- * dimming one at 9 and 13, none from 17 up. Present thread, before a flip,
+/* The gamma table the backlight's value and the Screen Colors ask for
+ * (port/panelgamma.h): the dimming one at 9 and 13, none from 17 up in
+ * Standard. Present thread, before a flip,
  * with no flip pending: loading it is an atomic commit, which waits a
  * refresh or two, at a brightness step or when the display comes back. */
 static void display_gamma(void)
@@ -1525,8 +1530,9 @@ static void display_gamma(void)
 		want = __atomic_compare_exchange_n(&g_gamma_want, &unset, now, false,
 		                                   __ATOMIC_RELAXED, __ATOMIC_RELAXED) ? now : unset;
 	}
+	if (g_gamma_have == -2) panelgamma_color_read(PANELGAMMA_COLOR_FILE, &g_gamma_color);
 	if (want == g_gamma_have) return;
-	n = panelgamma_apply(g_drm_fd, want);
+	n = panelgamma_apply_color(g_drm_fd, want, &g_gamma_color);
 	if (n > 0)
 		port_logf(DIATOM_LOG_INFO, "pixel2: the display's gamma table set for brightness %d",
 		          want);

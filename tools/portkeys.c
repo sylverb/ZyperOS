@@ -913,21 +913,25 @@ static int bar_tick(void)
 
 /* ---- the keys ---------------------------------------------------------------- */
 
-/* The display's gamma table for the rung (src/panelgamma.h): the two under
- * the backlight's floor are the table's, 9/17 and 13/17 of the floor's light.
+/* The display's gamma table for the rung and the Screen Colors
+ * (src/panelgamma.h): the two under the backlight's floor are the table's,
+ * 9/17 and 13/17 of the floor's light.
  * Set on the port's display, borrowed for the bar just shown - a master's
  * ioctl, as the bar's are. The launcher set it before the port started and
  * sets it again when it comes back; this is for the steps in between. */
 static void port_gamma(void)
 {
 	int raw = bright_ladder[L.bright], n;
+	panelgamma_color c;
 
 	if (!held()) {
 		fprintf(stderr, "portkeys: no display borrowed; the gamma table for brightness %d "
 		        "waits for the launcher\n", raw);
 		return;
 	}
-	n = panelgamma_apply(G.fd, raw);
+	/* With the player's Screen Colors, as the launcher left them */
+	panelgamma_color_read(PANELGAMMA_COLOR_FILE, &c);
+	n = panelgamma_apply_color(G.fd, raw, &c);
 	if (n > 0)
 		fprintf(stderr, "portkeys: the display's gamma table set for brightness %d\n", raw);
 	else if (n < 0)

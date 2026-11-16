@@ -1050,21 +1050,44 @@ static void usb_volume_create(void)
 	ctl_write(USB_CTL, px2_usb_raw(VOL_MAX / 2));
 }
 
-/* The table for the backlight's value now (panelgamma.h): the dimming one
- * at 9 and 13, none from 17 up. Only while this process holds the display -
- * at the start the splash still does, and take_from_splash sets it then. */
+/* MENU > Display > Screen Colors as the table carries them (panelgamma.h),
+ * Standard until plat_settings_init reads the saved ones */
+static panelgamma_color screen_color;
+
+/* The table for the backlight's value now and the Screen Colors
+ * (panelgamma.h): the dimming one at 9 and 13, none from 17 up in Standard.
+ * Only while this process holds the display - at the start the splash still
+ * does, and take_from_splash sets it then. */
 static void display_gamma(const char *when)
 {
 	int raw, n;
 
 	if (drm_fd < 0 || !display_held || (raw = read_int(BACKLIGHT)) < 0) return;
-	n = panelgamma_apply(drm_fd, raw);
+	n = panelgamma_apply_color(drm_fd, raw, &screen_color);
 	if (n > 0)
 		fprintf(stderr, "video: the display's gamma table set for brightness %d, %s\n",
 		        raw, when);
 	else if (n < 0)
 		fprintf(stderr, "video: could not set the display's gamma table for brightness %d, "
 		        "%s\n", raw, when);
+}
+
+/* The colors for the other two writers, Diatom and portkeys, which read the
+ * file each time they take the display (panelgamma.h) */
+static void screen_colors_share(void)
+{
+	if (panelgamma_color_write(PANELGAMMA_COLOR_FILE, &screen_color) != 0)
+		fprintf(stderr, "settings: could not write %s\n", PANELGAMMA_COLOR_FILE);
+}
+
+void plat_screen_colors(int night, int contrast, bool vivid)
+{
+	screen_color.night = night;
+	screen_color.contrast = contrast;
+	screen_color.vivid = vivid;
+	panelgamma_color_clamp(&screen_color);
+	screen_colors_share();
+	display_gamma("Screen Colors");
 }
 
 static void apply_brightness(int b)
@@ -1120,6 +1143,14 @@ void plat_settings_init(void)
 	}
 	cur_vol    = v >= 0 ? clampi(v, 0, VOL_MAX)    : -1;
 	cur_bright = b >= 0 ? clampi(b, 0, BRIGHT_MAX) : BRIGHT_MAX / 2;
+	/* Screen Colors before the first table: written to the file even when
+	 * Standard, so a launcher started again in the same boot leaves no
+	 * older line for Diatom to read */
+	screen_color.night = db_get_int(db_dev(), "screen_night", 0);
+	screen_color.contrast = db_get_int(db_dev(), "screen_contrast", 0);
+	screen_color.vivid = db_get_int(db_dev(), "screen_vivid", 0);
+	panelgamma_color_clamp(&screen_color);
+	screen_colors_share();
 	usb_volume_create();
 	if (cur_vol >= 0) apply_volume(cur_vol);
 	apply_brightness(cur_bright);

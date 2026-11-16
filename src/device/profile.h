@@ -104,6 +104,9 @@ typedef struct device_profile {
 	bool speaker_mono;       /* one built-in speaker */
 	bool player2;            /* NES Player 2 was built and tried on it */
 	bool usb_shared_port;    /* one port for the computer and accessories */
+	/* A gamma table between the frame and the panel, per channel, that
+	 * MENU > Display > Screen Colors sets (src/panelgamma.h): the Pixel 2's VOP */
+	bool screen_colors;
 	dev_wifi wifi;
 	/* The chip's thermal zones by their type, as its device tree names
 	 * them, the hottest of them its temperature (src/thermal.h);
@@ -212,6 +215,9 @@ bool plat_battery_lights(void);
  * gadget) it was built and tried on, the Pixel 2. Nothing in a game's menu
  * says it elsewhere. */
 bool plat_player2(void);
+/* Whether MENU > Display offers Screen Colors (the profile's screen_colors):
+ * Night Light, Contrast and the looks, made by the display's own gamma table */
+bool plat_screen_colors_here(void);
 
 /* What the system on this card has, a second fact beside the profile's: a
  * card can hold a newer ZyperOS folder on an older system (Flash Drive came
