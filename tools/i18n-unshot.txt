@@ -278,6 +278,8 @@ launch.bios_hides  # wrapped onto balanced lines, as launch.bios_size
 launch.bios_bytes.one  # a piece of launch.bios_size's line
 launch.bios_bytes.other  # a piece of launch.bios_size's line
 launch.couldnt_start
+launch.game_empty  # wrapped onto balanced lines, as launch.bios_size
+launch.game_short  # wrapped onto balanced lines, as launch.bios_size
 
 # library: no shot draws it yet
 library.scanning
