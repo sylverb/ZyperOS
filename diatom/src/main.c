@@ -25,6 +25,7 @@
 #include "diatom.h"
 #include "levels.h"
 #include "now.h"
+#include "pace.h"
 #include "player2.h"
 #include "screens.h"
 
@@ -2251,6 +2252,8 @@ static int run_session_inner(const diatom_session *sn)
 	audio_forget();
 	diatom_levels_invalidate();
 	long frames = 0, geom_changes = 0, resyncs = 0;
+	long caught_up = 0;   /* debts cut to the sound queue's depth (pace.h) */
+	int  audio_cap = 0;   /* the sound queue's capacity this session; 0 without a device */
 	bool card_due = sn->card != NULL;   /* the card's frame, not taken yet */
 	bool card_later = false;            /* a GPU game's, at the next pause or the quit */
 	const uint64_t card_after = card_frame_after();
@@ -2410,6 +2413,8 @@ static int run_session_inner(const diatom_session *sn)
 		       "not the %.0f Hz announced\n", audio_rate, av.timing.sample_rate);
 	{
 		int cap = diatom_port_audio_start() ? g_caps.audio_buffer_frames : 0;
+
+		audio_cap = cap;
 
 		diatom_audio_configure(audio_rate, g_caps.audio_rate, cap);
 		g_foreign_high = (size_t)cap * 3 / 4;
@@ -3167,17 +3172,35 @@ static int run_session_inner(const diatom_session *sn)
 			 * runs flat out and never sprints past the step later to repay
 			 * a slow stretch. */
 			if ((double)now - next_us > frame_us * periods) next_us = (double)now - frame_us * periods;
-		} else if ((double)now - next_us > frame_us * 4.0) {
-			/* More than four frames behind. Something stalled - the scheduler,
-			 * a page fault, a slow core - and trying to catch up would just run
-			 * fast for a while, which looks worse than dropping the debt.
-			 * Counted, because a loop that resyncs often is a loop that is
-			 * lying about its frame rate. */
-			next_us = (double)now;
-			resyncs++;
-			if (g_speed_ix == 0) power_trouble("a stall", now);
+		} else {
+			/* Behind at 1x (pace.h). The debt is kept and the next turns
+			 * repay it, unless it is more than four frames: something stalled
+			 * - the scheduler, a page fault, a slow core - and trying to catch
+			 * up would just run fast for a while, which looks worse than
+			 * dropping the debt. And only as deep as the sound queue: the
+			 * rest is time the device already played silence for, and
+			 * repaying it overfilled the queue, the newest sound refused.
+			 * Both counted, because a loop that resyncs often is a loop that
+			 * is lying about its frame rate. */
+			const double depth_us = audio_cap > 0 && g_caps.audio_rate > 0
+			                      ? pace_depth_frames(audio_cap) * 1e6 / g_caps.audio_rate
+			                      : 0.0;
+			double keep_us;
+
+			switch (pace_when_late((double)now - next_us, frame_us, depth_us, &keep_us)) {
+			case PACE_RESYNC:
+				next_us = (double)now;
+				resyncs++;
+				if (g_speed_ix == 0) power_trouble("a stall", now);
+				break;
+			case PACE_CAUGHT_UP:
+				next_us = (double)now - keep_us;
+				caught_up++;
+				break;
+			case PACE_KEEP:
+				break;
+			}
 		}
-		/* Otherwise keep the debt and let the next short sleep repay it. */
 		{
 			const double turn_us = (double)(diatom_port_now_us() - batch_t0);
 
@@ -3276,6 +3299,7 @@ static int run_session_inner(const diatom_session *sn)
 		printf("diatom: %ld geometry change(s), last rect %dx%d at %d,%d\n",
 		       geom_changes, g_dst.w, g_dst.h, g_dst.x, g_dst.y);
 		printf("diatom: %ld resync(s)\n", resyncs);
+		printf("diatom: %ld debt(s) cut to the sound queue's depth\n", caught_up);
 		if (g_present_frames)
 			printf("diatom: present avg %.2f ms over %ld frames\n",
 			       (double)g_present_us / (double)g_present_frames / 1000.0,
