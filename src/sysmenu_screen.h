@@ -8,6 +8,7 @@
 #include "app.h"
 #include "linebreak.h"
 #include "panel.h"
+#include "ds/layout.h"
 
 /* MENU > Display > Auto Hours: Light From and Dark From, by the half hour,
  * Left and Right round the day, A forward; applied at once, so a theme that
@@ -31,10 +32,13 @@ int hours_build(void *ctx, menu_row *rows, int max, const char **heading);
 void look_row_mark(app *a, const menu_row *row, int right, int cy, float on_fill);
 void look_header(app *a, const SDL_Rect *q);
 int look_build(void *ctx, menu_row *rows, int max, const char **heading);
-/* Screen Colors' page, for a shot as for the menu: its rows, and its picture
- * (a grey ramp and a hue ramp) */
+/* Screen Colors' page, for a shot as for the menu: its rows, its column (a
+ * color chart, a grey ramp and a hue band, SC_SIDE_W wide), and its Look's
+ * list with the chart as the list's picture */
+#define SC_SIDE_W DS_SC_SIDE
 int sc_build(void *ctx, menu_row *rows, int max, const char **heading);
-void sc_header(app *a, const SDL_Rect *q);
+void sc_side(app *a, const menu_side *at);
+void sc_look_choice(menu_choice *out);
 menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel);
 void zyperos_menu(app *a);
 

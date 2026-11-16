@@ -13,6 +13,7 @@
 #include "bgm_screen.h"
 #include "bt.h"
 #include "bt_screen.h"
+#include "clamp.h"
 #include "clock.h"
 #include "clock_screen.h"
 #include "devmode.h"
@@ -646,151 +647,132 @@ static void auto_hours_screen(app *a)
 
 /* ---- Screen Colors (src/panelgamma.h) -----------------------------------
  * The whole screen's colors, in the display's own table and its BCSH block
- * (Saturation): Night Light apart, and the look - Standard (nothing changed,
- * as it ships), Vivid (Contrast +1, Saturation +1 and deeper shadows), or
- * Custom once Contrast or Saturation is moved by hand. Each step
- * is applied at once, so the page itself shows it (one frame's blink, as
- * every table change); screenshots never do, being taken before the table.
- * Kept in the device's database (the four "screen_" settings), which
- * plat_settings_init reads at every start. */
-typedef enum { SC_STANDARD, SC_VIVID, SC_CUSTOM } sc_look;
-typedef struct { int night, contrast, vivid, saturation; } sc_state;
-/* Saturation last, and only where the kernel has its knob */
-enum { SC_LOOK, SC_NIGHT, SC_CONTRAST, SC_SAT, SC_ROWS };
-#define SC_SAT_MAX 2
+ * (Saturation): five rows, each SCREEN_COLORS_RANGE either way of 0, the
+ * frame as drawn, and the look, a ready-made set of all five (Custom once a
+ * row is moved by hand). A row's step is applied and kept at once, so the
+ * page itself shows it: one frame's blink, as every table change, and at
+ * most one every SCREEN_COLORS_GAP_MS while a key repeats (platform.h). The
+ * Look's list shows the look under its cursor on the whole screen as the
+ * cursor moves, A keeps it and B puts back what was set. Screenshots never
+ * show it, being taken before the table. Kept in the device's database (the
+ * five "screen_" settings), which plat_settings_init reads at every start. */
+enum { SC_LOOK, SC_TEMP, SC_TINT, SC_CONTRAST, SC_SAT, SC_GAMMA, SC_ROWS };
 
-static sc_state sc_load(void)
+/* The looks, by their place in the list and on Left and Right; the values in
+ * platform.h's order: temp, tint, contrast, saturation, gamma (the ranges
+ * sheet Tarik approved, 2026-11-16) */
+typedef struct { int name, note; screen_colors c; } sc_look_def;
+static const sc_look_def SC_LOOKS[] = {
+	{ S_SCREEN_STANDARD, S_SCREEN_STANDARD_NOTE, {  0, 0,  0,  0,  0 } },
+	{ S_SCREEN_VIVID,    S_SCREEN_VIVID_NOTE,    {  0, 0,  3,  3, -2 } },
+	{ S_SCREEN_INTENSE,  S_SCREEN_INTENSE_NOTE,  {  0, 0,  6,  6, -3 } },
+	{ S_SCREEN_WARM,     S_SCREEN_WARM_NOTE,     {  3, 0,  0,  1,  0 } },
+	{ S_SCREEN_COOL,     S_SCREEN_COOL_NOTE,     { -3, 0,  1,  0,  0 } },
+	{ S_SCREEN_MUTED,    S_SCREEN_MUTED_NOTE,    {  0, 0, -2, -4,  1 } },
+	{ S_SCREEN_NIGHT,    S_SCREEN_NIGHT_NOTE,    {  8, 0,  0, -1,  0 } },
+};
+#define SC_LOOKS_N ((int)(sizeof SC_LOOKS / sizeof SC_LOOKS[0]))
+#define SC_CUSTOM SC_LOOKS_N   /* not a look: what the rows make that none is */
+
+static screen_colors sc_load(void)
 {
-	sc_state s;
+	const int r = SCREEN_COLORS_RANGE;
+	screen_colors c;
 
-	s.night = db_get_int(db_dev(), "screen_night", 0);
-	s.contrast = db_get_int(db_dev(), "screen_contrast", 0);
-	s.vivid = db_get_int(db_dev(), "screen_vivid", 0) ? 1 : 0;
-	s.saturation = db_get_int(db_dev(), "screen_saturation", 0);
-	if (s.saturation < 0 || s.saturation > SC_SAT_MAX) s.saturation = 0;
-	if (s.night < 0 || s.night > PANELGAMMA_NIGHT_MAX) s.night = 0;
-	if (s.contrast < 0 || s.contrast > PANELGAMMA_CONTRAST_MAX) s.contrast = 0;
-	return s;
+	c.temp = clampi(db_get_int(db_dev(), "screen_temp", 0), -r, r);
+	c.tint = clampi(db_get_int(db_dev(), "screen_tint", 0), -r, r);
+	c.contrast = clampi(db_get_int(db_dev(), "screen_contrast", 0), -r, r);
+	c.saturation = clampi(db_get_int(db_dev(), "screen_saturation", 0), -r, r);
+	c.gamma = clampi(db_get_int(db_dev(), "screen_gamma", 0), -r, r);
+	return c;
 }
 
-static sc_look sc_look_of(const sc_state *s)
+static int sc_look_of(const screen_colors *c)
 {
-	if (!s->contrast && !s->vivid && !s->saturation) return SC_STANDARD;
-	if (s->contrast == 1 && s->vivid && s->saturation == 1) return SC_VIVID;
+	int k;
+
+	for (k = 0; k < SC_LOOKS_N; k++)
+		if (!memcmp(&SC_LOOKS[k].c, c, sizeof *c)) return k;
 	return SC_CUSTOM;
 }
-
-static const int SC_LOOK_NAME[3] = { S_SCREEN_STANDARD, S_SCREEN_VIVID, S_SCREEN_CUSTOM };
 
 /* MENU > Display's value for the row: the look */
 static const char *screen_colors_value(void)
 {
-	sc_state s = sc_load();
+	screen_colors c = sc_load();
+	int k = sc_look_of(&c);
 
-	return T(SC_LOOK_NAME[sc_look_of(&s)]);
+	return T(k == SC_CUSTOM ? S_SCREEN_CUSTOM : SC_LOOKS[k].name);
 }
 
-static void sc_save(const sc_state *s)
+/* The Look list's cursor on the display: its look, not the kept one, until
+ * the list is left (sc_side puts the kept one back) or one is kept */
+static bool g_sc_previewing;
+static int g_sc_preview_k = -1;
+
+static void sc_keep(const screen_colors *c)
 {
-	db_set_int(db_dev(), "screen_night", s->night);
-	db_set_int(db_dev(), "screen_contrast", s->contrast);
-	db_set_int(db_dev(), "screen_vivid", s->vivid);
-	db_set_int(db_dev(), "screen_saturation", s->saturation);
-	plat_screen_colors(s->night, s->contrast, s->vivid, s->saturation);
+	db_set_int(db_dev(), "screen_temp", c->temp);
+	db_set_int(db_dev(), "screen_tint", c->tint);
+	db_set_int(db_dev(), "screen_contrast", c->contrast);
+	db_set_int(db_dev(), "screen_saturation", c->saturation);
+	db_set_int(db_dev(), "screen_gamma", c->gamma);
+	g_sc_previewing = false;
+	g_sc_preview_k = -1;
+	plat_screen_colors(c, true);
 }
 
-static const unsigned char SC_SOUND[SC_ROWS] = { MENU_SND_RING, MENU_SND_RING, MENU_SND_RING, MENU_SND_RING };
-static menu_choice g_sc_choice[SC_ROWS];
-
-int sc_build(void *ctx, menu_row *rows, int max, const char **heading)
+/* The kept colors back on the display after a preview */
+static void sc_preview_end(void)
 {
-	static const char *looks[3], *nights[PANELGAMMA_NIGHT_MAX + 1], *cons[PANELGAMMA_CONTRAST_MAX + 1];
-	static char num[PANELGAMMA_NIGHT_MAX + 1][4], plus[PANELGAMMA_CONTRAST_MAX + 1][4];
-	sc_state s = sc_load();
-	sc_look l = sc_look_of(&s);
-	int i;
+	screen_colors c;
 
-	(void)ctx; (void)max;
-	for (i = 0; i < 3; i++) looks[i] = T(SC_LOOK_NAME[i]);
-	nights[0] = T(S_MENU_OFF_TITLE);
-	for (i = 1; i <= PANELGAMMA_NIGHT_MAX; i++) {
-		snprintf(num[i], sizeof num[i], "%d", i);
-		nights[i] = num[i];
-	}
-	cons[0] = T(S_SCREEN_NORMAL);
-	for (i = 1; i <= PANELGAMMA_CONTRAST_MAX; i++) {
-		snprintf(plus[i], sizeof plus[i], "+%d", i);
-		cons[i] = plus[i];
-	}
-	/* Custom is in the look's list only while it is the look: it is what
-	 * the rows below made, not a set of its own to pick */
-	g_sc_choice[SC_LOOK] = (menu_choice){ .n = (unsigned char)(l == SC_CUSTOM ? 3 : 2),
-	                                      .cur = (unsigned char)l, .labels = looks };
-	g_sc_choice[SC_NIGHT] = (menu_choice){ .n = PANELGAMMA_NIGHT_MAX + 1, .cur = (unsigned char)s.night,
-	                                       .labels = nights };
-	g_sc_choice[SC_CONTRAST] = (menu_choice){ .n = PANELGAMMA_CONTRAST_MAX + 1,
-	                                          .cur = (unsigned char)s.contrast, .labels = cons };
-	g_sc_choice[SC_SAT] = (menu_choice){ .n = SC_SAT_MAX + 1, .cur = (unsigned char)s.saturation,
-	                                     .labels = cons };
-	*heading = T(S_SCREEN_TITLE);
-	rows[SC_LOOK]     = (menu_row){ T(S_SCREEN_LOOK), looks[l], true };
-	rows[SC_NIGHT]    = (menu_row){ T(S_SCREEN_NIGHT_LIGHT), nights[s.night], true };
-	rows[SC_CONTRAST] = (menu_row){ T(S_SCREEN_CONTRAST), cons[s.contrast], true };
-	if (!plat_screen_saturation_here()) return SC_SAT;
-	rows[SC_SAT]      = (menu_row){ T(S_SCREEN_SATURATION), cons[s.saturation], true };
-	return SC_ROWS;
+	if (!g_sc_previewing) return;
+	c = sc_load();
+	g_sc_previewing = false;
+	g_sc_preview_k = -1;
+	plat_screen_colors(&c, false);
 }
 
-static menu_result sc_key(app *a, void *ctx, in_button key, int sel)
+/* A row's value: its number, signed, with a minus sign rather than a hyphen */
+static void sc_number(int v, char *out, size_t n)
 {
-	int d = key == IN_RIGHT || key == IN_ACCEPT ? 1 : key == IN_LEFT ? -1 : 0;
-	sc_state s = sc_load();
-
-	(void)a; (void)ctx;
-	if (!d || sel < 0 || sel >= SC_ROWS) return MENU_STAY;
-	switch (sel) {
-	case SC_LOOK: {
-		sc_look l = sc_look_of(&s);
-
-		/* Standard and Vivid each step to the other; Custom, the list's
-		 * third, steps to Standard on the right and Vivid on the left */
-		if (l == SC_CUSTOM) l = d > 0 ? SC_STANDARD : SC_VIVID;
-		else l = l == SC_STANDARD ? SC_VIVID : SC_STANDARD;
-		s.contrast = l == SC_VIVID;
-		s.vivid = l == SC_VIVID;
-		s.saturation = l == SC_VIVID;
-		break;
-	}
-	case SC_NIGHT:
-		s.night = (s.night + d + PANELGAMMA_NIGHT_MAX + 1) % (PANELGAMMA_NIGHT_MAX + 1);
-		break;
-	case SC_CONTRAST:
-		/* By hand: Vivid's shadows go with it, and the look reads what
-		 * the row now makes */
-		s.contrast = (s.contrast + d + PANELGAMMA_CONTRAST_MAX + 1) % (PANELGAMMA_CONTRAST_MAX + 1);
-		s.vivid = 0;
-		break;
-	case SC_SAT:
-		s.saturation = (s.saturation + d + SC_SAT_MAX + 1) % (SC_SAT_MAX + 1);
-		s.vivid = 0;
-		break;
-	}
-	sc_save(&s);
-	return MENU_CHANGED;
+	if (v < 0) snprintf(out, n, "\xe2\x88\x92%d", -v);
+	else if (v > 0) snprintf(out, n, "+%d", v);
+	else snprintf(out, n, "0");
 }
 
-/* The page's picture, so a change shows on something known: a grey ramp in
- * sixteen steps and a hue ramp under it, the whole width of the rows */
-void sc_header(app *a, const SDL_Rect *q)
+/* Something known to see the colors on, the whole column: a color chart
+ * (the 24 patches of a camera's), a grey ramp in sixteen steps and a hue
+ * band. Drawn by the page's column and the Look list's picture alike. */
+static void sc_chart(SDL_Renderer *r, const SDL_Rect *q)
 {
-	SDL_Renderer *r = a->r;
-	int gh = q->h / 2 - DS_GRID, i, x;
+	static const unsigned char PATCH[24][3] = {
+		{ 115, 82, 68 },  { 194, 150, 130 }, { 98, 122, 157 }, { 87, 108, 67 },
+		{ 133, 128, 177 }, { 103, 189, 170 }, { 214, 126, 44 }, { 80, 91, 166 },
+		{ 193, 90, 99 },  { 94, 60, 108 },   { 157, 188, 64 }, { 224, 163, 46 },
+		{ 56, 61, 150 },  { 70, 148, 73 },   { 175, 54, 60 },  { 231, 199, 31 },
+		{ 187, 86, 149 }, { 8, 133, 161 },   { 243, 243, 242 }, { 200, 200, 200 },
+		{ 160, 160, 160 }, { 122, 122, 121 }, { 85, 85, 85 },  { 52, 52, 52 },
+	};
+	const int across = q->w >= q->h ? 6 : 4, down = 24 / across;
+	const int band = q->h / 8 > DS_GRID ? q->h / 8 : DS_GRID;
+	const int chart_h = q->h - band * 2 - DS_GRID * 2;
+	int i, x;
 
+	for (i = 0; i < 24; i++) {
+		int cx = i % across, cy = i / across;
+		int x0 = q->x + q->w * cx / across, x1 = q->x + q->w * (cx + 1) / across;
+		int y0 = q->y + chart_h * cy / down, y1 = q->y + chart_h * (cy + 1) / down;
+
+		SDL_SetRenderDrawColor(r, PATCH[i][0], PATCH[i][1], PATCH[i][2], 255);
+		SDL_RenderFillRect(r, &(SDL_Rect){ x0 + 1, y0 + 1, x1 - x0 - 2, y1 - y0 - 2 });
+	}
 	for (i = 0; i < 16; i++) {
 		int v = i * 255 / 15, x0 = q->x + q->w * i / 16, x1 = q->x + q->w * (i + 1) / 16;
 
 		SDL_SetRenderDrawColor(r, (Uint8)v, (Uint8)v, (Uint8)v, 255);
-		SDL_RenderFillRect(r, &(SDL_Rect){ x0, q->y, x1 - x0, gh });
+		SDL_RenderFillRect(r, &(SDL_Rect){ x0, q->y + chart_h + DS_GRID, x1 - x0, band });
 	}
 	for (x = 0; x < q->w; x++) {
 		double h = (double)x / q->w * 6;
@@ -803,17 +785,163 @@ void sc_header(app *a, const SDL_Rect *q)
 			c[k] = (int)(255 * (v < 0 ? 0 : v > 1 ? 1 : v) + 0.5);
 		}
 		SDL_SetRenderDrawColor(r, (Uint8)c[0], (Uint8)c[1], (Uint8)c[2], 255);
-		SDL_RenderFillRect(r, &(SDL_Rect){ q->x + x, q->y + gh + DS_GRID * 2, 1, q->h - gh - DS_GRID * 2 });
+		SDL_RenderFillRect(r, &(SDL_Rect){ q->x + x, q->y + chart_h + DS_GRID * 2 + band, 1, band });
 	}
+}
+
+/* The Look list's picture: the chart, and on the whole screen the look under
+ * the cursor, once a move (the list draws this every frame) */
+static void sc_look_preview(void *app_, int k, int x, int y, int w, int h)
+{
+	app *a = app_;
+
+	if (k != g_sc_preview_k) {
+		screen_colors c = k >= 0 && k < SC_LOOKS_N ? SC_LOOKS[k].c : sc_load();
+
+		g_sc_preview_k = k;
+		g_sc_previewing = true;
+		plat_screen_colors(&c, false);
+	}
+	plat_screen_colors_tick(false);
+	sc_chart(a->r, &(SDL_Rect){ x, y, w, h });
+}
+
+/* The Look's list as the page opens it and the shots draw it: every look,
+ * Custom last while it is the one on, with what each does */
+void sc_look_choice(menu_choice *out)
+{
+	static const char *labels[SC_LOOKS_N + 1], *notes[SC_LOOKS_N + 1];
+	screen_colors c = sc_load();
+	int cur = sc_look_of(&c), k;
+
+	for (k = 0; k < SC_LOOKS_N; k++) {
+		labels[k] = T(SC_LOOKS[k].name);
+		notes[k] = T(SC_LOOKS[k].note);
+	}
+	labels[SC_CUSTOM] = T(S_SCREEN_CUSTOM);
+	notes[SC_CUSTOM] = T(S_SCREEN_CUSTOM_NOTE);
+	*out = (menu_choice){ .n = (unsigned char)(SC_LOOKS_N + (cur == SC_CUSTOM)), .cur = (unsigned char)cur,
+	                      .labels = labels, .notes = notes, .preview = sc_look_preview };
+}
+
+/* The rows by place: Saturation only where the kernel has its knob */
+static unsigned char g_sc_row[SC_ROWS];
+static int g_sc_n;
+static const unsigned char SC_SOUND[SC_ROWS] = {
+	MENU_SND_RING, MENU_SND_NO_A, MENU_SND_NO_A, MENU_SND_NO_A, MENU_SND_NO_A, MENU_SND_NO_A,
+};
+static menu_choice g_sc_choice[SC_ROWS];
+static menu_style g_sc_style;
+
+int sc_build(void *ctx, menu_row *rows, int max, const char **heading)
+{
+	static char val[SC_ROWS][8];
+	const int row_name[SC_ROWS] = { S_SCREEN_LOOK, S_SCREEN_TEMPERATURE, S_SCREEN_TINT,
+	                                S_SCREEN_CONTRAST, S_SCREEN_SATURATION, S_SCREEN_GAMMA };
+	screen_colors c = sc_load();
+	const int v[SC_ROWS] = { 0, c.temp, c.tint, c.contrast, c.saturation, c.gamma };
+	int look = sc_look_of(&c), id, n = 0;
+
+	(void)ctx; (void)max;
+	*heading = T(S_SCREEN_TITLE);
+	for (id = 0; id < SC_ROWS; id++) {
+		const char *value;
+
+		if (id == SC_SAT && !plat_screen_saturation_here()) continue;
+		if (id == SC_LOOK) {
+			value = T(look == SC_CUSTOM ? S_SCREEN_CUSTOM : SC_LOOKS[look].name);
+			/* A list of its own on A: the page opens it, with the whole
+			 * screen's preview (sc_look_list) */
+			g_sc_choice[n] = (menu_choice){ .n = (unsigned char)(SC_LOOKS_N + (look == SC_CUSTOM)),
+			                                .cur = (unsigned char)look, .own = true };
+		} else {
+			sc_number(v[id], val[id], sizeof val[id]);
+			value = val[id];
+			g_sc_choice[n] = (menu_choice){ 0 };
+		}
+		g_sc_row[n] = (unsigned char)id;
+		rows[n++] = (menu_row){ T(row_name[id]), value, true };
+	}
+	g_sc_n = n;
+	return n;
+}
+
+/* A on the Look row: its list, the whole screen showing the look under the
+ * cursor; A keeps it, B (or the menu closing) puts back what was set */
+static menu_result sc_look_list(app *a)
+{
+	menu_choice ch;
+	int k;
+
+	sc_look_choice(&ch);
+	g_sc_preview_k = ch.cur;   /* what the display shows already */
+	k = menu_pick_preview(a, &g_sc_style, NULL, T(S_SCREEN_LOOK), ch.labels, ch.notes, ch.preview,
+	                      ch.n, ch.cur, ch.cur);
+	if (k >= 0 && k < SC_LOOKS_N) {
+		sc_keep(&SC_LOOKS[k].c);
+	} else {
+		g_sc_previewing = true;
+		sc_preview_end();
+	}
+	return k == MENU_PICK_POWER ? MENU_DONE : MENU_CHANGED;
+}
+
+static menu_result sc_key(app *a, void *ctx, in_button key, int sel)
+{
+	const int r = SCREEN_COLORS_RANGE;
+	int d = key == IN_RIGHT ? 1 : key == IN_LEFT ? -1 : 0;
+	int id = sel >= 0 && sel < g_sc_n ? g_sc_row[sel] : -1;
+	screen_colors c = sc_load(), was = c;
+
+	(void)ctx;
+	if (id == SC_LOOK && key == IN_ACCEPT) return sc_look_list(a);
+	if (!d || id < 0) return MENU_STAY;
+	switch (id) {
+	case SC_LOOK: {
+		int k = sc_look_of(&c);
+
+		/* Round the looks; from Custom, Right to the first and Left to the
+		 * last */
+		k = k == SC_CUSTOM ? (d > 0 ? 0 : SC_LOOKS_N - 1) : (k + d + SC_LOOKS_N) % SC_LOOKS_N;
+		c = SC_LOOKS[k].c;
+		break;
+	}
+	/* The rows stop at their ends */
+	case SC_TEMP:     c.temp = clampi(c.temp + d, -r, r); break;
+	case SC_TINT:     c.tint = clampi(c.tint + d, -r, r); break;
+	case SC_CONTRAST: c.contrast = clampi(c.contrast + d, -r, r); break;
+	case SC_SAT:      c.saturation = clampi(c.saturation + d, -r, r); break;
+	case SC_GAMMA:    c.gamma = clampi(c.gamma + d, -r, r); break;
+	}
+	if (!memcmp(&c, &was, sizeof c)) return MENU_STAY;
+	sc_keep(&c);
+	return MENU_CHANGED;
+}
+
+/* The page's column: the chart, the whole height of the rows. Every frame,
+ * so a table load held back for the gap is made here, and a preview left
+ * by a list that closed is put back. */
+void sc_side(app *a, const menu_side *at)
+{
+	const int row_h = menu_row_h();
+
+	sc_preview_end();
+	plat_screen_colors_tick(false);
+	if (at->stage == MENU_SIDE_OVER) return;
+	sc_chart(a->r, &(SDL_Rect){ at->content_x, at->content_y + row_h / 4,
+	                            SC_SIDE_W - DS_GRID * 3, row_h * (at->n > 0 ? at->n : SC_ROWS) - row_h / 2 });
 }
 
 static void screen_colors_screen(app *a)
 {
-	menu_style st = { .fixed_w = menu_std_width(a), .accent = MENU_ZYPEROS,
-	                  .sound = SC_SOUND, .choices = g_sc_choice,
-	                  .header = sc_header, .header_h = 120 };
-
-	menu_run(a, &st, sc_build, sc_key, NULL);
+	g_sc_style = (menu_style){ .fixed_w = menu_most_w(), .accent = MENU_ZYPEROS,
+	                           .sound = SC_SOUND, .choices = g_sc_choice,
+	                           .side = sc_side, .side_w = SC_SIDE_W };
+	menu_run(a, &g_sc_style, sc_build, sc_key, NULL);
+	/* Out of the page: a preview gone and a load held back made, so what
+	 * the display shows is what is kept */
+	sc_preview_end();
+	plat_screen_colors_tick(true);
 }
 
 /* A theme's chip, 64 by 36: its ground in its edge, its accent on it, so

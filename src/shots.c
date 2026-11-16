@@ -1078,18 +1078,28 @@ static void shot_draw_look(app *a)
 	      : screen ? sc_build(NULL, rows, LK_ROWS, &heading) : look_build(NULL, rows, LK_ROWS, &heading);
 
 	ui_scrim(a->r, 0);
+	if (!strcmp(shot_look_page, "screen-looks")) {
+		/* The Look's list, its picture beside it (--pick-at for the cursor) */
+		menu_choice ch;
+
+		sc_look_choice(&ch);
+		shot_list_draw(a, T(S_SCREEN_LOOK), &ch, menu_most_w(), MENU_ZYPEROS);
+		return;
+	}
 	if (screen) {
-		g_menu_header = sc_header;
-		g_menu_header_h = 120;
+		g_menu_side = sc_side;
+		g_menu_side_w = SC_SIDE_W;
 	} else if (!hours) {
 		g_row_mark = look_row_mark;
 		g_menu_header = look_header;
 		g_menu_header_h = 150;
 	}
 	menu_draw(a, heading, rows, n, shot_look_row < n ? shot_look_row : 0,
-	          menu_std_width(a), MENU_ZYPEROS);
+	          screen ? menu_most_w() : menu_std_width(a), MENU_ZYPEROS);
 	g_row_mark = NULL;
 	g_menu_header = NULL;
+	g_menu_side = NULL;
+	g_menu_side_w = 0;
 }
 
 /* Everything a shot draws, in the theme that is on. */

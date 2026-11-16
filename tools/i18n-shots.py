@@ -555,8 +555,10 @@ EXTRA.setdefault("system-menu-strength", ("demo", "PS1", ["--screen", "games", "
 SHOT_SETTINGS["system-menu-strength"] = {"shader.PS1": "scanlines", "shader_strength.PS1": "20"}
 EXTRA.setdefault("menu-strength", ("demo", "PS1", ["--menu", "Strength"]))
 SHOT_SETTINGS["menu-strength"] = {"shader": "crt", "shader_strength.PS1": "60"}
-SHOT_SETTINGS["screen-colors-vivid"] = {"screen_contrast": "1", "screen_vivid": "1", "screen_saturation": "1"}
-SHOT_SETTINGS["screen-colors-custom"] = {"screen_night": "3", "screen_contrast": "2", "screen_saturation": "2"}
+SHOT_SETTINGS["screen-colors-vivid"] = {"screen_contrast": "3", "screen_saturation": "3", "screen_gamma": "-2"}
+SHOT_SETTINGS["screen-colors-custom"] = {"screen_temp": "4", "screen_tint": "-1", "screen_contrast": "3",
+                                         "screen_saturation": "5", "screen_gamma": "-2"}
+SHOT_SETTINGS["screen-colors-look-custom"] = dict(SHOT_SETTINGS["screen-colors-custom"])
 
 # The in-game menu's Controls tab (src/ctltab.c), beside the handheld: its
 # end (Reset Buttons, Hotkeys), a button's choices, the system over a game
@@ -685,12 +687,18 @@ for _i, _acc in enumerate(("lime", "green", "teal", "blue", "purple", "pink", "r
         "--look-page", "theme", "0"]))
 EXTRA.setdefault("theme-foot-on", ("demo", "PS1", ["--look-page", "theme", "5"]))
 # MENU > Display > Screen Colors (src/panelgamma.h): its row, and its page
-# Standard as it ships, Vivid, and Custom with Night Light on (the values
-# from the database, as the page reads them)
+# Standard as it ships, Vivid, and Custom with every row moved (the values
+# from the database, as the page reads them); and the Look's list with each
+# look under the cursor, its note in the picture column, and Custom's
 EXTRA.setdefault("menu-screen", ("demo", "PS1", ["--menu", "Screen Colors"]))
 EXTRA.setdefault("screen-colors", ("demo", "PS1", ["--look-page", "screen", "0"]))
 EXTRA.setdefault("screen-colors-vivid", ("demo", "PS1", ["--look-page", "screen", "0"]))
-EXTRA.setdefault("screen-colors-custom", ("demo", "PS1", ["--look-page", "screen", "2"]))
+EXTRA.setdefault("screen-colors-custom", ("demo", "PS1", ["--look-page", "screen", "1"]))
+for _k, _l in enumerate(["standard", "vivid", "intense", "warm", "cool", "muted", "night"]):
+    EXTRA.setdefault("screen-colors-look-" + _l,
+                     ("demo", "PS1", ["--look-page", "screen-looks", "0", "--pick-at", str(_k)]))
+EXTRA.setdefault("screen-colors-look-custom",
+                 ("demo", "PS1", ["--look-page", "screen-looks", "0", "--pick-at", "7"]))
 EXTRA.setdefault("theme-foot-off", ("demo", "PS1", ["--look", "lime,warm,black,square,off",
                                                     "--look-page", "theme", "5"]))
 EXTRA.setdefault("auto-hours", ("demo", "PS1", ["--look-page", "hours", "0"]))

@@ -1073,46 +1073,71 @@ static void display_gamma(const char *when)
 }
 
 /* The colors for the other two writers, Diatom and portkeys, which read the
- * file each time they take the display (panelgamma.h) */
-static void screen_colors_share(void)
+ * file each time they take the display (panelgamma.h): the kept ones only,
+ * never a preview */
+static void screen_colors_share(const panelgamma_color *c)
 {
-	if (panelgamma_color_write(PANELGAMMA_COLOR_FILE, &screen_color) != 0)
+	if (panelgamma_color_write(PANELGAMMA_COLOR_FILE, c) != 0)
 		fprintf(stderr, "settings: could not write %s\n", PANELGAMMA_COLOR_FILE);
 }
 
 /* Saturation: the BCSH block's knob on each of the PX30's two display
  * controllers (plastron's kernel patch 9-px2-px30-vop-bcsh-saturation),
- * 256 the picture as drawn. The panel's is the VOP-B; the VOP-L, where it
- * is bound (not on the Pixel 2, seen 2026-11-16), takes the same value in
- * its own units. Kept by the kernel for every program after. */
+ * 256 the picture as drawn: 5% a step, 128 (half) at -10 to 384 (one and a
+ * half) at +10. The panel's is the VOP-B; the VOP-L, where it is bound (not
+ * on the Pixel 2, seen 2026-11-16), takes the same value in its own units.
+ * Kept by the kernel for every program after. A register write: no blink. */
 #define SCREEN_SATURATION_FILE "/sys/devices/platform/ff460000.vop/saturation"
 #define SCREEN_SATURATION_LIT  "/sys/devices/platform/ff470000.vop/saturation"
-static const int screen_saturation_step[3] = { 256, 294, 333 };   /* 1.0, 1.15, 1.30 */
+static int screen_saturation_on = 0;   /* the step on the knob now */
 
 bool plat_screen_saturation_here(void)
 {
 	return access(SCREEN_SATURATION_FILE, W_OK) == 0;
 }
 
-static void screen_saturation_apply(int level)
+static void screen_saturation_apply(int step)
 {
 	char text[8];
 
-	snprintf(text, sizeof text, "%d\n", screen_saturation_step[clampi(level, 0, 2)]);
-	if (access(SCREEN_SATURATION_FILE, W_OK) != 0) return;
+	step = clampi(step, -SCREEN_COLORS_RANGE, SCREEN_COLORS_RANGE);
+	if (step == screen_saturation_on || access(SCREEN_SATURATION_FILE, W_OK) != 0) return;
+	snprintf(text, sizeof text, "%d\n", 256 + 256 * 5 * step / 100);
 	write_file(SCREEN_SATURATION_FILE, text);
 	write_file(SCREEN_SATURATION_LIT, text);
+	screen_saturation_on = step;
 }
 
-void plat_screen_colors(int night, int contrast, bool vivid, int saturation)
+/* The table wanted, and when one was last loaded: a load waits out
+ * SCREEN_COLORS_GAP_MS after the last (platform.h) */
+static panelgamma_color screen_want;
+static bool screen_held;
+static Uint32 screen_loaded_at;
+
+static void screen_colors_load(void)
 {
-	screen_color.night = night;
-	screen_color.contrast = contrast;
-	screen_color.vivid = vivid;
-	panelgamma_color_clamp(&screen_color);
-	screen_colors_share();
+	screen_color = screen_want;
+	screen_held = false;
+	screen_loaded_at = SDL_GetTicks();
 	display_gamma("Screen Colors");
-	screen_saturation_apply(saturation);
+}
+
+void plat_screen_colors_tick(bool now)
+{
+	if (screen_held && (now || SDL_GetTicks() - screen_loaded_at >= SCREEN_COLORS_GAP_MS))
+		screen_colors_load();
+}
+
+void plat_screen_colors(const screen_colors *c, bool keep)
+{
+	panelgamma_color want = { c->temp, c->tint, c->contrast, c->gamma };
+
+	panelgamma_color_clamp(&want);
+	if (keep) screen_colors_share(&want);
+	screen_saturation_apply(c->saturation);
+	screen_want = want;
+	screen_held = memcmp(&want, &screen_color, sizeof want) != 0;
+	plat_screen_colors_tick(false);
 }
 
 static void apply_brightness(int b)
@@ -1171,11 +1196,16 @@ void plat_settings_init(void)
 	/* Screen Colors before the first table: written to the file even when
 	 * Standard, so a launcher started again in the same boot leaves no
 	 * older line for Diatom to read */
-	screen_color.night = db_get_int(db_dev(), "screen_night", 0);
+	screen_color.temp = db_get_int(db_dev(), "screen_temp", 0);
+	screen_color.tint = db_get_int(db_dev(), "screen_tint", 0);
 	screen_color.contrast = db_get_int(db_dev(), "screen_contrast", 0);
-	screen_color.vivid = db_get_int(db_dev(), "screen_vivid", 0);
+	screen_color.gamma = db_get_int(db_dev(), "screen_gamma", 0);
 	panelgamma_color_clamp(&screen_color);
-	screen_colors_share();
+	screen_want = screen_color;
+	screen_colors_share(&screen_color);
+	/* Written whatever the knob holds: a launcher started again keeps
+	 * nothing of the last one's (screen_saturation_on starts at 0) */
+	screen_saturation_on = SCREEN_COLORS_RANGE + 1;
 	screen_saturation_apply(db_get_int(db_dev(), "screen_saturation", 0));
 	usb_volume_create();
 	if (cur_vol >= 0) apply_volume(cur_vol);

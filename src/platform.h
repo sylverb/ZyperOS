@@ -408,16 +408,28 @@ void plat_backlight_dim(bool dim);
  * Nothing where there is no such table. */
 void plat_display_plain(void);
 /* The player's Screen Colors (MENU > Display > Screen Colors,
- * src/panelgamma.h): Night Light 0 to 5, Contrast 0 to 2, Vivid's deeper
- * shadows, and Saturation 0 to 2. The Pixel 2 puts the first three in the
- * display's gamma table now (one frame's blink, as every table change) and
- * leaves them in PANELGAMMA_COLOR_FILE, where Diatom and portkeys read them
- * for the tables they write; Saturation goes to the display controller's
- * BCSH block (plastron's kernel patch, SCREEN_SATURATION_FILE), which
- * keeps it for every program. plat_settings_init reads the saved ones (the
- * settings "screen_night", "screen_contrast", "screen_vivid",
- * "screen_saturation"). Nothing where the profile has no table. */
-void plat_screen_colors(int night, int contrast, bool vivid, int saturation);
+ * src/panelgamma.h), each SCREEN_COLORS_RANGE either way of 0, the frame as
+ * drawn. The Pixel 2 puts Temperature, Tint, Contrast and Gamma in the
+ * display's gamma table and Saturation in the display controller's BCSH
+ * block (plastron's kernel patch, SCREEN_SATURATION_FILE), which keeps it for
+ * every program. A table load blinks one frame, so loads come at most every
+ * SCREEN_COLORS_GAP_MS while a key repeats or a list's cursor runs: the one
+ * held back is made by plat_screen_colors_tick, and the last asked for is
+ * always the one left on. Saturation never blinks and goes at once.
+ * `keep`: the player's setting, left in PANELGAMMA_COLOR_FILE for Diatom and
+ * portkeys, which write the table too; not kept, a preview on this display
+ * alone (the Look list's cursor), which those two never see. The launcher
+ * keeps the settings in its database ("screen_temp", "screen_tint",
+ * "screen_contrast", "screen_saturation", "screen_gamma"), and
+ * plat_settings_init reads them. Nothing where the profile has no table. */
+#define SCREEN_COLORS_RANGE 10
+#define SCREEN_COLORS_GAP_MS 120
+typedef struct { int temp, tint, contrast, saturation, gamma; } screen_colors;
+void plat_screen_colors(const screen_colors *c, bool keep);
+/* A table load held back for the gap, made once the gap is over (or at once
+ * with `now`, as the page closes): called by the Screen Colors page's every
+ * frame. Nothing when none is held back. */
+void plat_screen_colors_tick(bool now);
 /* Whether the kernel has the Saturation knob: the Saturation row shows only
  * then (a system image without plastron's BCSH patch has none) */
 bool plat_screen_saturation_here(void);

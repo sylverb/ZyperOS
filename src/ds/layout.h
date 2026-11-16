@@ -34,6 +34,7 @@
 #define DS_TAB_MOVE_NAME        96
 #define DS_TAB_MOVE_IN          64
 #define DS_CTL_SIDE             280
+#define DS_SC_SIDE              192
 #define DS_CTL_DEVICE_X         99
 #define DS_CTL_DEVICE_Y         458
 #define DS_HUD_BAND             152

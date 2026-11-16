@@ -346,12 +346,13 @@ int main(void)
 	CHECK(n == -1 && crtcs[0].values[5] == 0 && destroys == creates,
 	      "without DRM master: -1, no table, no blob kept");
 
-	/* Screen Colors */
+	/* Screen Colors: { temp, tint, contrast, gamma }, each -10..+10 */
 	{
-		const panelgamma_color std = { 0, 0, 0 }, night3 = { 3, 0, 0 }, night5 = { 5, 0, 0 },
-		                       con2 = { 0, 2, 0 }, vivid = { 0, 1, 1 }, all = { 5, 2, 1 };
-		const panelgamma_color *every[] = { &night3, &night5, &con2, &vivid, &all };
-		int same = 1, mono = 1, ends = 1, warm = 1;
+		const panelgamma_color std = { 0, 0, 0, 0 }, warm6 = { 6, 0, 0, 0 }, warm10 = { 10, 0, 0, 0 },
+		                       cool10 = { -10, 0, 0, 0 }, mag10 = { 0, 10, 0, 0 }, green10 = { 0, -10, 0, 0 },
+		                       con5 = { 0, 0, 5, 0 }, flat10 = { 0, 0, -10, 0 }, con3 = { 0, 0, 3, 0 },
+		                       vivid = { 0, 0, 3, -2 }, light10 = { 0, 0, 0, 10 }, dark10 = { 0, 0, 0, -10 };
+		int same = 1, mono = 1, ends = 1, warm = 1, cool = 1;
 
 		for (int raw = 0; raw <= 255; raw++)
 			for (int ch = 0; ch < 3; ch++)
@@ -360,46 +361,75 @@ int main(void)
 					        panelgamma_color_out(raw, NULL, ch, i) == panelgamma_out(raw, i);
 		CHECK(same && panelgamma_color_standard(&std) && panelgamma_color_standard(NULL),
 		      "Standard (all 0, or none): the table exactly as without Screen Colors, every step");
-		for (unsigned k = 0; k < sizeof every / sizeof every[0]; k++)
-			for (int ch = 0; ch < 3; ch++) {
-				ends &= panelgamma_color_out(122, every[k], ch, 0) == 0;
-				for (int i = 1; i < 256; i++)
-					mono &= panelgamma_color_out(122, every[k], ch, i) >=
-					        panelgamma_color_out(122, every[k], ch, i - 1);
-			}
-		CHECK(mono && ends, "every setting's table rises with its input (no band turns over) and keeps black black");
-		CHECK(panelgamma_color_out(122, &night3, 0, 255) == 255 && panelgamma_color_out(122, &night3, 1, 255) == 241 &&
-		      panelgamma_color_out(122, &night3, 2, 255) == 213,
-		      "Night Light 3: white 255,241,213 (green's light 88%, blue's 67%)");
-		for (int i = 1; i < 256; i++)
-			warm &= panelgamma_color_out(122, &night5, 0, i) >= panelgamma_color_out(122, &night5, 1, i) &&
-			        panelgamma_color_out(122, &night5, 1, i) >= panelgamma_color_out(122, &night5, 2, i);
-		CHECK(warm && panelgamma_color_out(122, &night5, 2, 255) < panelgamma_color_out(122, &night3, 2, 255),
-		      "  ...every grey warmer (red >= green >= blue), and 5 warmer than 3");
-		CHECK(panelgamma_color_out(122, &con2, 0, 255) == 255 && panelgamma_color_out(122, &con2, 0, 128) == 128 &&
-		      panelgamma_color_out(122, &con2, 0, 64) < 64 && panelgamma_color_out(122, &con2, 0, 192) > 192 &&
-		      panelgamma_color_out(122, &con2, 2, 64) == panelgamma_color_out(122, &con2, 0, 64),
-		      "Contrast +2: white and the middle kept, shadows darker, highlights brighter, every channel alike");
+		/* Every row at every value, alone and with the others at their ends */
+		for (int row = 0; row < 4; row++)
+			for (int v = -PANELGAMMA_RANGE; v <= PANELGAMMA_RANGE; v++)
+				for (int others = -1; others <= 1; others++) {
+					panelgamma_color c;
+					int *f = &c.temp;
+
+					c.temp = c.tint = c.contrast = c.gamma = others * PANELGAMMA_RANGE;
+					f[row] = v;
+					for (int ch = 0; ch < 3; ch++) {
+						ends &= panelgamma_color_out(122, &c, ch, 0) == 0;
+						for (int i = 1; i < 256; i++)
+							mono &= panelgamma_color_out(122, &c, ch, i) >=
+							        panelgamma_color_out(122, &c, ch, i - 1);
+					}
+				}
+		CHECK(mono && ends, "every value of every row, alone and with the rest at either end: the table rises "
+		      "with its input (no band turns over) and keeps black black");
+		CHECK(panelgamma_color_out(122, &warm6, 0, 255) == 255 && panelgamma_color_out(122, &warm6, 1, 255) == 241 &&
+		      panelgamma_color_out(122, &warm6, 2, 255) == 213,
+		      "Temperature +6: white 255,241,213 (green's light 88%, blue's 67%)");
+		CHECK(panelgamma_color_out(122, &warm10, 0, 255) == 255 && panelgamma_color_out(122, &warm10, 1, 255) == 230 &&
+		      panelgamma_color_out(122, &warm10, 2, 255) == 177,
+		      "Temperature +10: white 255,230,177 (green's light 80%, blue's 45%)");
+		for (int i = 1; i < 256; i++) {
+			warm &= panelgamma_color_out(122, &warm10, 0, i) >= panelgamma_color_out(122, &warm10, 1, i) &&
+			        panelgamma_color_out(122, &warm10, 1, i) >= panelgamma_color_out(122, &warm10, 2, i);
+			cool &= panelgamma_color_out(122, &cool10, 2, i) >= panelgamma_color_out(122, &cool10, 1, i) &&
+			        panelgamma_color_out(122, &cool10, 1, i) >= panelgamma_color_out(122, &cool10, 0, i);
+		}
+		CHECK(warm && cool, "  ...every grey warmer at +10 (red >= green >= blue), cooler at -10 (blue >= green >= red)");
+		CHECK(panelgamma_color_out(122, &cool10, 0, 255) == 230 && panelgamma_color_out(122, &cool10, 1, 255) == 241 &&
+		      panelgamma_color_out(122, &cool10, 2, 255) == 255,
+		      "Temperature -10: white 230,241,255 (red's light 80%, green's 88%)");
+		CHECK(panelgamma_color_out(122, &mag10, 1, 255) == 230 && panelgamma_color_out(122, &mag10, 0, 255) == 255 &&
+		      panelgamma_color_out(122, &green10, 0, 255) == 230 && panelgamma_color_out(122, &green10, 2, 255) == 230 &&
+		      panelgamma_color_out(122, &green10, 1, 255) == 255,
+		      "Tint +10: green's light 80% (magenta); -10: red's and blue's (green)");
+		CHECK(panelgamma_color_out(122, &con5, 0, 255) == 255 && panelgamma_color_out(122, &con5, 0, 128) == 128 &&
+		      panelgamma_color_out(122, &con5, 0, 64) < 64 && panelgamma_color_out(122, &con5, 0, 192) > 192 &&
+		      panelgamma_color_out(122, &con5, 2, 64) == panelgamma_color_out(122, &con5, 0, 64),
+		      "Contrast +5: white and the middle kept, shadows darker, highlights brighter, every channel alike");
+		CHECK(panelgamma_color_out(122, &flat10, 0, 255) == 255 && panelgamma_color_out(122, &flat10, 0, 128) == 128 &&
+		      panelgamma_color_out(122, &flat10, 0, 64) > 64 && panelgamma_color_out(122, &flat10, 0, 192) < 192 &&
+		      panelgamma_color_out(122, &flat10, 0, 0) == 0,
+		      "Contrast -10: flatter (shadows lighter, highlights darker), black, the middle and white kept");
+		CHECK(panelgamma_color_out(122, &light10, 0, 128) == 169 && panelgamma_color_out(122, &dark10, 0, 128) == 97 &&
+		      panelgamma_color_out(122, &light10, 0, 255) == 255 && panelgamma_color_out(122, &dark10, 0, 255) == 255,
+		      "Gamma +10: mid grey 128 -> 169; -10: 97; white kept");
 		CHECK(panelgamma_color_out(122, &vivid, 0, 255) == 255 &&
-		      panelgamma_color_out(122, &vivid, 0, 48) < panelgamma_color_out(122, &(panelgamma_color){ 0, 1, 0 }, 0, 48),
-		      "Vivid: deeper shadows than its Contrast +1 alone, white kept");
-		CHECK(panelgamma_color_out(13, &night3, 0, 255) == 226 && panelgamma_color_out(9, &night3, 0, 255) == 191 &&
-		      panelgamma_color_out(13, &night3, 2, 255) < panelgamma_color_out(122, &night3, 2, 255),
+		      panelgamma_color_out(122, &vivid, 0, 48) < panelgamma_color_out(122, &con3, 0, 48),
+		      "Vivid (Contrast +3, Gamma -2): deeper shadows than its Contrast +3 alone, white kept");
+		CHECK(panelgamma_color_out(13, &warm6, 0, 255) == 226 && panelgamma_color_out(9, &warm6, 0, 255) == 191 &&
+		      panelgamma_color_out(13, &warm6, 2, 255) < panelgamma_color_out(122, &warm6, 2, 255),
 		      "  ...and under the floor each on top of the dimming: red 255 -> 226 at 13 as before, blue lower still");
 
 		pixel2(0, 1);
-		n = panelgamma_apply_color(3, 122, &night3);
+		n = panelgamma_apply_color(3, 122, &warm6);
 		CHECK(n == 1 && crtcs[0].values[5] == 100 && crtcs[1].values[5] == 0,
-		      "Night Light 3 above the floor: a table on the lit CRTC (the backlight alone made no table before)");
+		      "Temperature +6 above the floor: a table on the lit CRTC (the backlight alone made no table before)");
 		{
 			int b = blob_of(100);
 
 			CHECK(b >= 0 && blobs[b].lut[255].red == 255 << 8 && blobs[b].lut[255].green == 241 << 8 &&
 			      blobs[b].lut[255].blue == 213 << 8, "  ...its channels apart: red, green, blue each its own");
 		}
-		n = panelgamma_apply_color(3, 122, &night3);
+		n = panelgamma_apply_color(3, 122, &warm6);
 		CHECK(n == 0 && creates == 1, "  ...asked again: nothing loaded, no blink");
-		n = panelgamma_apply_color(3, 13, &night3);
+		n = panelgamma_apply_color(3, 13, &warm6);
 		CHECK(n == 1 && blobs[blob_of(101)].lut[255].red == 226 << 8, "  ...a step under the floor: both in one table");
 		n = panelgamma_apply_color(3, 122, &std);
 		CHECK(n == 1 && crtcs[0].values[5] == 0, "back to Standard above the floor: no table, as before");
@@ -408,22 +438,23 @@ int main(void)
 	/* The file the launcher leaves for Diatom and portkeys */
 	{
 		char dir[] = "/tmp/zyperos-pg-XXXXXX", path[64];
-		panelgamma_color c = { 9, 9, 9 }, w = { 2, 1, 1 };
+		panelgamma_color c = { 9, 9, 9, 9 }, w = { 4, -3, 2, -1 };
 
 		if (!mkdtemp(dir)) { perror("mkdtemp"); return 1; }
 		snprintf(path, sizeof path, "%s/screen", dir);
 		CHECK(panelgamma_color_read(path, &c) == 0 && panelgamma_color_standard(&c),
 		      "no file (a cold boot before the launcher): Standard");
 		CHECK(panelgamma_color_write(path, &w) == 0 && panelgamma_color_read(path, &c) == 1 &&
-		      c.night == 2 && c.contrast == 1 && c.vivid == 1, "written and read back");
+		      c.temp == 4 && c.tint == -3 && c.contrast == 2 && c.gamma == -1, "written and read back, signs too");
 		{
 			FILE *f = fopen(path, "w");
 
-			fputs("night=9 contrast=-4 bogus vivid=7\n", f);
+			fputs("temp=99 tint=-40 bogus night=3 contrast=3 gamma=x\n", f);
 			fclose(f);
 		}
-		CHECK(panelgamma_color_read(path, &c) == 1 && c.night == PANELGAMMA_NIGHT_MAX && c.contrast == 0 &&
-		      c.vivid == 1, "a line out of range: each value put in range, a word it does not know passed over");
+		CHECK(panelgamma_color_read(path, &c) == 1 && c.temp == PANELGAMMA_RANGE && c.tint == -PANELGAMMA_RANGE &&
+		      c.contrast == 3 && c.gamma == 0,
+		      "a line out of range: each value put in range, a word it does not know passed over");
 		{
 			FILE *f = fopen(path, "w");
 
@@ -433,7 +464,7 @@ int main(void)
 		remove(path);
 		CHECK(mkfifo(path, 0644) == 0 && panelgamma_color_read(path, &c) == 1 && panelgamma_color_standard(&c),
 		      "a FIFO at the name: Standard at once, no wait for a writer");
-		CHECK(panelgamma_color_write(path, &w) == 0 && panelgamma_color_read(path, &c) == 1 && c.night == 2,
+		CHECK(panelgamma_color_write(path, &w) == 0 && panelgamma_color_read(path, &c) == 1 && c.temp == 4,
 		      "  ...and a write puts a file in its place");
 		{
 			char tmp[80];

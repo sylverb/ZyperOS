@@ -411,6 +411,7 @@ its own says why beside it.
 | **tab-move-name** | 96 | a tab's turn (L1, R1): the tab names move this far the press's way |
 | **tab-move-in** | 64 | ...and the new tab's rows come in from this far, the Controls tab's handheld with them |
 | **ctl-side** | 280 | the Controls tab's handheld column: its rows and their focus fill start this far in from the content's left |
+| **sc-side** | 192 | Screen Colors' color chart column: its six rows and their focus fill start this far in from the content's left (the design session's mock, 2026-11-16) |
 | **ctl-device-x** | 99 | the handheld's middle from the content's left: half the Pixel 2's drawing at its tab pose, so its left edge is on the heading rule's left end |
 | **ctl-device-y** | 458 | the handheld's middle on the screen: one place on every tab and page that has it, as their panel is as tall as the screen allows (the mock's, 2026-11-13) |
 | **hud-band** | 152 | On-Screen Stats' band: the screen's strip where the line goes, the line at Far (48) under the level bar (94 + 49) and at the foot; on the grid, 95 whole pixels on the Pixel 2 (150 until 1.0.6) |
@@ -4058,26 +4059,37 @@ in Display says "7:00 AM to 7:00 PM". A theme the change turns turns at
 once. *(My pick, 2026-11-12.)*
 
 **Screen Colors** (MENU > Display, its last row; the Pixel 2 only,
-`plat_screen_colors_here`) is a page of four rows under a picture of a grey
-ramp in sixteen steps and a hue ramp: **Look** (Standard, Vivid, and Custom
-while a row below was moved by hand), **Night Light** (Off, 1 to 5),
-**Contrast** (Normal, +1, +2) and **Saturation** (Normal, +1, +2: 115% and
-130%). The row in Display says the look. The colors
-are the whole screen's, the shelf's and every game's and port's, made by the
-display's gamma table (src/panelgamma.h) over the dimming of the two bottom
-brightness rungs (11.6): Night Light takes green and blue down in light
-(level 3: white is 255, 241, 213), Contrast is an S about the middle (white,
-black and mid grey kept), Saturation is the display controller's BCSH block
-(plastron's kernel patch 9-px2-px30-vop-bcsh-saturation; no row on a system
-image without it), and Vivid is Contrast +1 and Saturation +1 with the
-shadows a little deeper. Standard changes nothing and puts no table on the display at all, as
-before: colors change only when the player asks, because the one change
-ZyperOS made for everyone (1.0.4's correction) took the warmth out of every
-game. Each step is applied at once, with the one-frame blink of a table load.
-Screenshots and the pictures of save states never show it, being taken
-before the table; nor do the boot splash's first second and USB Drive's
-screen. Night Light is apart from the look: a look keeps it. *(Asked for on the
-Discord; the page approved by Tarik, 2026-11-16: "All approved.")*
+`plat_screen_colors_here`) is a page of six rows beside a color chart (the
+24 patches of a camera's, a grey ramp in sixteen steps and a hue band):
+**Look**, then **Temperature** (cool to warm), **Tint** (green to magenta),
+**Contrast**, **Saturation** and **Gamma**, each -10 to +10 with 0 the frame
+as drawn and the number signed. The Look is a ready-made set of all five:
+Standard, Vivid, Intense, Warm, Cool, Muted and Night, and Custom while a
+row was moved by hand; the row in Display says it. The colors are the whole
+screen's, the shelf's and every game's and port's, made by the display's
+gamma table (src/panelgamma.h) over the dimming of the two bottom brightness
+rungs (11.6): Temperature and Tint are gains in light, every one 1 or under
+so white keeps its brightest channel (+10 warm: white 255, 230, 177; -10
+cool: 230, 241, 255), Contrast an S about the middle and Gamma a power
+(black, white and mid grey kept, and every table rising at every value),
+and Saturation the display controller's BCSH block, 5% a step (plastron's
+kernel patch 9-px2-px30-vop-bcsh-saturation; no row on a system image
+without it). No Hue, which turns every color round the wheel together,
+and no brightness offset, which lifts black: the backlight is the
+brightness. Standard changes nothing and puts no table on the display at
+all, as before: colors change only when the player asks, because the one
+change ZyperOS made for everyone (1.0.4's correction) took the warmth out
+of every game. A row's step is applied and kept at once, with the
+one-frame blink of a table load, at most one every 120 ms while a key
+repeats (Saturation never blinks). The Look's list shows the look under
+its cursor on the whole screen as the cursor moves, with what it does
+under the chart; A keeps it, B puts back what was set, and a look under
+the cursor never reaches Diatom or portkeys. Screenshots and the pictures
+of save states never show the colors, being taken before the table; nor do
+the boot splash's first second and USB Drive's screen. *(Asked for on the
+Discord; the first page approved by Tarik, 2026-11-16, "All approved"; the
+second, with "more options and granularity", negative numbers and a
+preview on hover, approved the same day.)*
 
 ### 11.43 Player 2
 A friend plays an NES game's second controller in a browser, with nothing

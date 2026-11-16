@@ -96,16 +96,20 @@ int panelgamma_out(int raw, int in)
 
 int panelgamma_color_standard(const panelgamma_color *c)
 {
-	return !c || (c->night <= 0 && c->contrast <= 0 && !c->vivid);
+	return !c || (!c->temp && !c->tint && !c->contrast && !c->gamma);
+}
+
+static int pg_clamp(int v)
+{
+	return v < -PANELGAMMA_RANGE ? -PANELGAMMA_RANGE : v > PANELGAMMA_RANGE ? PANELGAMMA_RANGE : v;
 }
 
 void panelgamma_color_clamp(panelgamma_color *c)
 {
-	if (c->night < 0) c->night = 0;
-	if (c->night > PANELGAMMA_NIGHT_MAX) c->night = PANELGAMMA_NIGHT_MAX;
-	if (c->contrast < 0) c->contrast = 0;
-	if (c->contrast > PANELGAMMA_CONTRAST_MAX) c->contrast = PANELGAMMA_CONTRAST_MAX;
-	c->vivid = c->vivid ? 1 : 0;
+	c->temp = pg_clamp(c->temp);
+	c->tint = pg_clamp(c->tint);
+	c->contrast = pg_clamp(c->contrast);
+	c->gamma = pg_clamp(c->gamma);
 }
 
 int panelgamma_color_read(const char *path, panelgamma_color *c)
@@ -126,9 +130,10 @@ int panelgamma_color_read(const char *path, panelgamma_color *c)
 	for (p = strtok_r(line, " \t\r\n", &save); p; p = strtok_r(NULL, " \t\r\n", &save)) {
 		int v;
 
-		if (sscanf(p, "night=%d", &v) == 1) c->night = v;
+		if (sscanf(p, "temp=%d", &v) == 1) c->temp = v;
+		else if (sscanf(p, "tint=%d", &v) == 1) c->tint = v;
 		else if (sscanf(p, "contrast=%d", &v) == 1) c->contrast = v;
-		else if (sscanf(p, "vivid=%d", &v) == 1) c->vivid = v;
+		else if (sscanf(p, "gamma=%d", &v) == 1) c->gamma = v;
 	}
 	panelgamma_color_clamp(c);
 	return 1;
@@ -137,12 +142,13 @@ int panelgamma_color_read(const char *path, panelgamma_color *c)
 int panelgamma_color_write(const char *path, const panelgamma_color *c)
 {
 	panelgamma_color v = *c;
-	char tmp[256], text[64];
+	char tmp[256], text[80];
 	int fd, len, ok;
 
 	panelgamma_color_clamp(&v);
 	if (!path || snprintf(tmp, sizeof tmp, "%s.tmp", path) >= (int)sizeof tmp) return -1;
-	len = snprintf(text, sizeof text, "night=%d contrast=%d vivid=%d\n", v.night, v.contrast, v.vivid);
+	len = snprintf(text, sizeof text, "temp=%d tint=%d contrast=%d gamma=%d\n",
+	               v.temp, v.tint, v.contrast, v.gamma);
 	/* A new temporary each time, as src/themefile.c makes its own: a link
 	 * left at this name in /tmp is not followed (O_EXCL after the unlink),
 	 * and a race lost there fails the write, which the caller logs */
@@ -158,14 +164,28 @@ int panelgamma_color_write(const char *path, const panelgamma_color *c)
 	return 0;
 }
 
-/* Night Light's gain a channel, in light: green a little down, blue more,
- * red as it is, so white goes toward a candle's and greys stay greys of it
- * (level 3 is green 88%, blue 67%; level 5 green 80%, blue 45%) */
-static double night_gain(int night, int ch)
+/* A channel's gain in light for Temperature and Tint, every gain 1 or under
+ * so white's brightest channel stays 255. Warm takes green a little down and
+ * blue more, toward a candle's white (+10: green 80%, blue 45%); cool takes
+ * red down and green a little (-10: red 80%, green 88%). Magenta takes green
+ * down, green red and blue (+-10: 80%). */
+static double color_gain(const panelgamma_color *v, int ch)
 {
-	if (ch == 1) return 1 - 0.04 * night;
-	if (ch == 2) return 1 - 0.11 * night;
-	return 1;
+	double g = 1;
+
+	if (v->temp > 0) {
+		if (ch == 1) g *= 1 - 0.02 * v->temp;
+		if (ch == 2) g *= 1 - 0.055 * v->temp;
+	} else if (v->temp < 0) {
+		if (ch == 0) g *= 1 + 0.02 * v->temp;
+		if (ch == 1) g *= 1 + 0.012 * v->temp;
+	}
+	if (v->tint > 0) {
+		if (ch == 1) g *= 1 - 0.02 * v->tint;
+	} else if (v->tint < 0) {
+		if (ch != 1) g *= 1 + 0.02 * v->tint;
+	}
+	return g;
 }
 
 int panelgamma_color_out(int raw, const panelgamma_color *c, int ch, int in)
@@ -179,18 +199,16 @@ int panelgamma_color_out(int raw, const panelgamma_color *c, int ch, int in)
 	v = *c;
 	panelgamma_color_clamp(&v);
 	x = in / 255.0;
-	/* Contrast: an S about the middle, steeper there and flatter at the
-	 * ends, 0 and 255 kept; 12% of the slope a step */
-	if (v.contrast > 0) {
-		double s = 0.12 * v.contrast;
-
-		x -= s * sin(2 * PG_PI * x) / (2 * PG_PI);
-	}
+	/* Gamma: the mid-tones lighter or darker, black and white kept
+	 * (x^0.6 at +10, x^1.4 at -10) */
+	if (v.gamma) x = pow(x, 1 - 0.04 * v.gamma);
+	/* Contrast: an S about the middle, steeper there and flatter at the ends
+	 * (an inverse S below 0), 0, 128 and 255 kept; 5% of the slope a step,
+	 * so the curve always rises */
+	if (v.contrast) x -= 0.05 * v.contrast * sin(2 * PG_PI * x) / (2 * PG_PI);
 	if (x < 0) x = 0;
 	if (x > 1) x = 1;
-	/* Vivid's shadows: a little deeper, the top as it is */
-	if (v.vivid) x = pow(x, 1.08);
-	g = night_gain(v.night, ch);
+	g = color_gain(&v, ch);
 	if (raw > 0 && raw < PANELGAMMA_FLOOR) g *= (double)raw / PANELGAMMA_FLOOR;
 	x = pow(x, 2.2) * g;
 	if (x > 1) x = 1;

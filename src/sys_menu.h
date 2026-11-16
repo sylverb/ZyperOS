@@ -107,8 +107,9 @@
  * when dark, by the half hour (src/theme.h), 7:00 and 19:00 as it ships.
  * PM_THEME is Theme, under it: the accent, a background tone for each theme,
  * the corners and Zyper (src/look.h, DESIGN.md 3.5). My picks 2026-11-12. */
-/* PM_SCREEN is Screen Colors, Display's last row: Night Light, Contrast and
- * the looks for the whole screen, in the display's own table
+/* PM_SCREEN is Screen Colors, Display's last row: Temperature, Tint,
+ * Contrast, Saturation, Gamma and the looks for the whole screen, in the
+ * display's own table
  * (src/panelgamma.h); only where the device has one (no_screen_colors).
  * 1.0.6, asked for on the Discord; the page approved 2026-11-16. */
 typedef enum {
