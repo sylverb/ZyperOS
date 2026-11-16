@@ -387,6 +387,7 @@ typedef struct {
 	int          calc;         /* the calculating dots, this many filled, -1 for none */
 	bool         full;         /* on the cable and charged */
 	int          icon;         /* BATT_BARS.., -1 for the saved setting */
+	int          year, mon, mday;  /* date=YYYY-MM-DD, the day the shot shows; 0 for today */
 	status_marks m;
 } shot_status;
 extern shot_status shot_st;
