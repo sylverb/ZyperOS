@@ -546,6 +546,19 @@ for _s in ("shimmerless", "crt", "crt-curved", "scanlines", "lcd"):
     EXTRA.setdefault("gamemenu-shader-" + _s, ("demo", "PS1", ["--screen", "games", "--gamemenu", "1", "--gm-tab", "1"]))
     SHOT_SETTINGS["gamemenu-shader-" + _s] = {"shader.PS1": _s}
 
+# The Shader list, each shader under its cursor beside its picture and its
+# note (src/shaderdemo.h); the Strength list beside its picture; MENU's
+# Shader list (the Pixel 2 offers all six; the Brick Off and
+# Sharp-Shimmerless, its list's last row standing in past them)
+for _k, _s in enumerate(["off", "shimmerless", "crt", "crt-curved", "scanlines", "lcd"]):
+    EXTRA.setdefault("gamemenu-shader-list-" + _s,
+                     ("demo", "PS1", ["--gamemenu", "1", "--gm-tab", "1", "--gm-choose", "--pick-at", str(_k)]))
+EXTRA.setdefault("gamemenu-strength-list", ("demo", "PS1", ["--gamemenu", "2", "--gm-tab", "1", "--gm-choose",
+                                                           "--pick-at", "4"]))
+SHOT_SETTINGS["gamemenu-strength-list"] = {"shader.PS1": "crt", "shader_strength.PS1": "50"}
+EXTRA.setdefault("menu-shader-list", ("demo", "PS1", ["--menu", "Shader", "--press", "a"]))
+SHOT_SETTINGS["menu-shader-list"] = {"shader": "scanlines"}
+
 # The Strength row under each Shader row while the shader is an old screen
 # (src/strength.h): in the game on it, in the system menu, and MENU's saying
 # "per system" when one system has its own
