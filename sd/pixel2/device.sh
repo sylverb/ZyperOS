@@ -52,3 +52,12 @@ wifi_follow() {
 	done
 }
 device_radios() { wifi_follow; }
+
+# The battery's level at this start, and what it came from: plastron's
+# kernel says it in one line as the gauge starts (its
+# 9-px2-rk817-start-soc.patch). The line is copied into this start's log
+# while the kernel's log, 16 KiB, still has it, so a report of a level that
+# jumped after a power-off shows why. In the background: nothing waits on it.
+device_log() {
+	dmesg 2> /dev/null | sed -n 's/.*\(battery at start: .*\)/kernel: \1/p' >> "$LOG" &
+}
