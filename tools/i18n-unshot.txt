@@ -162,7 +162,6 @@ emptyhome.cheer.one
 emptyhome.cheer.other
 
 # gamemenu: no shot draws it yet
-gamemenu.delete_ask
 gamemenu.delete_ask_this
 gamemenu.delete_ask_port
 gamemenu.delete_ask_port_this
@@ -180,13 +179,6 @@ gamemenu.rename_partly
 gamemenu.own_buttons  # wrapped to the Controls tab's column a line a row, as a paragraph is, so no drawn line is the string; gamemenu-controls-all draws it
 gamemenu.layout_stacked
 gamemenu.layout_focus
-gamemenu.dmode_stretch_note
-gamemenu.dmode_aspect_note
-gamemenu.dmode_integer_note
-gamemenu.dmode_integer_tall_note
-gamemenu.dmode_overscale_note
-gamemenu.dmode_fill_note
-gamemenu.dmode_native_note
 gamemenu.hud_items.one  # Shows names one or two items and counts only three or more, so its singular is never drawn; hud-page draws .other
 
 # games: no shot draws it yet
@@ -306,7 +298,6 @@ mp4.hold_unlock
 muse.chapter_of
 muse.chapter
 muse.paused
-muse.stopped
 muse.finished
 muse.hint_chapter
 muse.row_playing
@@ -455,20 +446,16 @@ stats.months_ago
 
 # storage: drawn wrapped to their lines, in pieces of a line (the used number as a title, a part of the line under the list), with tabular digits, or a plural's one form the stand-in card has none of (src/storage_page.c, src/main.c's storage_shot)
 storage.used
-storage.unused_caption
 storage.old_caption.one
-storage.old_caption.other
 storage.old_ask.one
 storage.saves_part
 storage.art_part
 storage.songs.one
-storage.snaps_caption
 storage.last_played
 storage.progress
 storage.orphan_caption
 storage.orphan_ask
 storage.files.one
-storage.media_rest_caption
 
 # sysmenu: no shot draws it yet
 sysmenu.wifi_connecting
@@ -480,13 +467,15 @@ sysmenu.order_release
 sysmenu.battery_percent
 sysmenu.battery_time
 sysmenu.dslang
+sysmenu.dsslow
+sysmenu.dsslow_keep
+sysmenu.dsslow_steady
 sysmenu.muse_books
 sysmenu.muse_albums
 sysmenu.muse_author
 sysmenu.muse_artist
 sysmenu.not_in_build
 sysmenu.sc_link
-sysmenu.ss_account
 sysmenu.status
 sysmenu.ss_linked
 sysmenu.unlink
@@ -547,7 +536,6 @@ update.value_restart_update
 update.value_restart_back
 update.value_downloading
 update.value_available
-update.unsupported_how
 update.not_looked
 update.look
 update.looking
@@ -561,7 +549,6 @@ update.preparing
 update.files_of
 update.installing
 update.checking_files
-update.stopped
 update.downloaded_checked
 update.going_back_to
 update.goes_back_next_start

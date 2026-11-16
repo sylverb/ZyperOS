@@ -184,13 +184,14 @@ bool cfg_load_systems(const char *path, systems_cfg *out)
 	return out->count > 0;
 }
 
-void cfg_run_keys(const system_cfg *s, bool dual, char *out, int cap)
+void cfg_run_keys(const system_cfg *s, bool dual, const char *frameskip, char *out, int cap)
 {
 	int n = 0;
 
 	out[0] = '\0';
 	if (dual)
-		n += snprintf(out + n, (size_t)(cap - n), "screens=2\tframeskip=late");
+		n += snprintf(out + n, (size_t)(cap - n), "screens=2\tframeskip=%s",
+		              frameskip && frameskip[0] ? frameskip : "late");
 	if (s->power[0] && n < cap)
 		n += snprintf(out + n, (size_t)(cap - n), "%spower=%s", n ? "\t" : "", s->power);
 	if (s->controller && n < cap)

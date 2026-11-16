@@ -420,7 +420,7 @@ static void say_bubble(SDL_Renderer *r, const char *s, float x, float top, float
 	 * stays where it points at him and the lines under it stay clear */
 	const float room = SCR_W - DS_INSET - x - 80.0f;
 	char line[2][LB_LINE];
-	int rows = ui_balance_lines(ui_font(UI_F_TITLE), s, (int)room, 2, line);
+	int rows = (ui_fit_drawn(s), ui_balance_lines(ui_font(UI_F_TITLE), s, (int)room, 2, line));
 	const float lh = (float)ui_font_line(UI_F_TITLE), grow = rows > 1 ? lh : 0.0f;
 	float lw = 0.0f;
 	int i;

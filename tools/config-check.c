@@ -207,24 +207,28 @@ int main(void)
 		   "a need the launcher does not know is none, and changes nothing else");
 		s = find(&c, "Late");
 		ck(s && !s->needs_gpu_frames, "a system with no needs line needs nothing");
-		cfg_run_keys(find(&c, "Named"), false, keys, (int)sizeof keys);
+		cfg_run_keys(find(&c, "Named"), false, NULL, keys, (int)sizeof keys);
 		ck(!strcmp(keys, "power=medium"), "a need is no RUN key");
 
-		cfg_run_keys(find(&c, "Black"), false, keys, (int)sizeof keys);
+		cfg_run_keys(find(&c, "Black"), false, NULL, keys, (int)sizeof keys);
 		ck(!strcmp(keys, ""), "no RUN keys for a plain system");
-		cfg_run_keys(find(&c, "Lower"), false, keys, (int)sizeof keys);
+		cfg_run_keys(find(&c, "Lower"), false, NULL, keys, (int)sizeof keys);
 		ck(!strcmp(keys, "controller=517"), "controller= alone");
 		s = find(&c, "Late");
 		ck(s && s->rumble == 35, "rumble| gives the motor's share, in percent");
 		s = find(&c, "Lower");
 		ck(s && s->rumble == 0, "and none is 0, the core's own");
-		cfg_run_keys(find(&c, "Late"), false, keys, (int)sizeof keys);
+		cfg_run_keys(find(&c, "Late"), false, NULL, keys, (int)sizeof keys);
 		ck(!strcmp(keys, "power=light\tcontroller=517\trumble=35"), "power=, controller=, rumble=");
-		cfg_run_keys(find(&c, "Late"), true, keys, (int)sizeof keys);
+		cfg_run_keys(find(&c, "Late"), true, NULL, keys, (int)sizeof keys);
 		ck(!strcmp(keys, "screens=2\tframeskip=late\tpower=light\tcontroller=517\trumble=35"),
 		   "two screens first, all tab separated");
-		cfg_run_keys(find(&c, "Black"), true, keys, (int)sizeof keys);
+		cfg_run_keys(find(&c, "Black"), true, NULL, keys, (int)sizeof keys);
 		ck(!strcmp(keys, "screens=2\tframeskip=late"), "two screens alone");
+		cfg_run_keys(find(&c, "Black"), true, "steady", keys, (int)sizeof keys);
+		ck(!strcmp(keys, "screens=2\tframeskip=steady"), "When Slow's Steady 30 is frameskip=steady");
+		cfg_run_keys(find(&c, "Black"), false, "steady", keys, (int)sizeof keys);
+		ck(!strcmp(keys, ""), "and one screen sends no frameskip at all");
 	}
 
 	printf("EmulationStation's folder names:\n");

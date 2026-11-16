@@ -962,6 +962,7 @@ void media_shot(app *a)
 		rows[0] = (menu_row){ text, NULL, false };
 		if (ui_text_width(ui_font(UI_F_MENU), text) > w) {
 			n = ui_balance_lines(ui_font(UI_F_MENU), text, w, 3, lines);
+			ui_fit_drawn(text);    /* drawn in lines */
 			for (i = 0; i < n; i++) rows[i] = (menu_row){ lines[i], NULL, false };
 		}
 		ui_scrim(a->r, 0);
