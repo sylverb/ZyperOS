@@ -259,9 +259,11 @@ The release's installers carry only the updater's signature: macOS asks for *Ope
 **Files:**
 - Modify: `.github/workflows/release.yml` (also on tags `kit-*`: the same three builds, signed with the run's throwaway key, no `latest.json`; the draft published with `--prerelease --latest=false`)
 - Modify: `tools/release.sh` (`--kit NAME`: the draft `kit-<name>` with the kit's images, SHA256SUMS and its test list as notes; the installer's version `<next>-kit.<n>`, below the next release, so a kit installer updates itself to that release when it is out)
+- Modify: `installer/src-tauri/src/release.rs` (a kit build reads its own kit's release, the tag set at build time by `ZYPEROS_KIT_TAG`, where a release build reads the latest: a tester downloads only the installer, and the image comes as a release's does)
 
-- [ ] **Step 1:** A pull request that changes `release.yml` builds the apps (as today) and a dry run of the kit path stops before any upload.
-- [ ] **Step 2:** Commit; the kit tag is pushed only in Task 6e.1, on Tarik's OK.
+- [ ] **Step 1:** Failing test in `release.rs`: with a kit tag set, the release asked for is that tag's, prereleases included; without one, the latest as now.
+- [ ] **Step 2:** A pull request that changes `release.yml` builds the apps (as today) and a dry run of the kit path stops before any upload.
+- [ ] **Step 3:** Commit; the kit tag is pushed only in Task 6e.1, on Tarik's OK.
 
 ### Task 6e.1: The image and its page
 
