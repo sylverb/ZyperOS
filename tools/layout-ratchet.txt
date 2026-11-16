@@ -2,6 +2,7 @@
 # Only ever lowered: a screen on the layout engine or the tokens has none.
 3 about_screen.c
 1 artbadge.h
+3 cardart.h
 3 device/pixel2_levels.h
 1 ds/glyph.c
 4 emptyhome.h
@@ -42,7 +43,7 @@
 3 topbar.h
 2 tourdevice.h
 41 tourdraw.c
-7 ui.c
+6 ui.c
 7 update_screen.c
 1 update_screen.h
 9 usbdrive_screen.c

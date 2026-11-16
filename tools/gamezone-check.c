@@ -129,8 +129,8 @@ static int said(const char *needle)
 static void game(const char *zone)
 {
 	if (zone) plat_clock_zone(zone);
-	CHECK(plat_resident_send("GBA", "/nonexistent/core.so", "/nonexistent/game.gba",
-	                         NULL, NULL, NULL, 0, NULL),
+	CHECK(plat_resident_send(&(plat_game_run){ .tag = "GBA", .core = "/nonexistent/core.so",
+	                                      .rom = "/nonexistent/game.gba" }),
 	      "RUN sent (%s)", zone ? zone : "the zone as it was");
 	usleep(400000);
 }

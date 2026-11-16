@@ -450,6 +450,8 @@ int ui_card_theme(SDL_Texture *t);
  * the system's color, the shape, and the theme and the language's faces that
  * were on when it was asked for. */
 #define UI_CARD_TITLE 256
+#define UI_CARD_PATH 512
+#define UI_CARD_FRAMES 2
 typedef struct {
 	char     title[UI_CARD_TITLE];
 	unsigned rgb;        /* the system's color, or CFG_NO_COLOR */
@@ -457,11 +459,32 @@ typedef struct {
 	int      theme_ix;   /* DS_LIGHT or DS_DARK: the theme it is drawn in */
 	int      lang_set;   /* whose faces a Chinese or Japanese title is in */
 	int      folder;     /* a folder's card, holding this many games; 0 a game's */
+	/* A game's card (src/cardart.h): its system's tag, whose era its ground
+	 * has; the system's still art, faint in a corner; and the frames of play
+	 * to try in its place, first to last (src/playframe.h). "" for none. */
+	char     tag[8];
+	char     art[UI_CARD_PATH];
+	char     frame[UI_CARD_FRAMES][UI_CARD_PATH];
 } ui_card_order;
 
 /* An order for a card in the theme and language that are on: on the frame. */
 void ui_card_order_set(ui_card_order *o, const char *title, unsigned rgb,
                        bool album);
+/* A game's order's system and frames of play (src/cardart.h): its tag, its
+ * still art's path and up to UI_CARD_FRAMES frames, any of them NULL */
+void ui_card_order_game(ui_card_order *o, const char *tag, const char *art,
+                        const char *const frames[UI_CARD_FRAMES]);
+/* The card an order describes (a game's, with its system and frames of play:
+ * ui_card_order_game), made on the frame; its ground in `ground` (or NULL)
+ * for the Grid, the caller's to free */
+SDL_Texture *ui_make_card_for(SDL_Renderer *r, const ui_card_order *o, int *w, int *h,
+                              SDL_Surface **ground);
+/* A game's card's ground without its name, a quarter of its size, for the
+ * Grid to set the name on at its own size: taken off the card surface (the
+ * caller frees it), or NULL. ui_card_free frees a card and any ground still
+ * on it; every surface a worker hands back goes that way. */
+SDL_Surface *ui_card_ground_take(SDL_Surface *card);
+void ui_card_free(SDL_Surface *s);
 /* The same for a folder holding `games` games (ui_make_folder_card) */
 void ui_card_order_folder(ui_card_order *o, const char *title, unsigned rgb,
                           int games);

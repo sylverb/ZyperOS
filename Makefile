@@ -8,10 +8,10 @@
 .PHONY: all clean native px2-payload vendor boot system-art checkmark \
         check check-cheevos check-hare check-portal check-httpd check-idle check-taskhold check-saver check-rahash check-flacdec check-achtab check-signin check-search \
         check-raset check-xfer check-sshlink check-usblink check-devmode check-devices check-devicegen check-model check-ctl check-menus check-status check-battery check-corner check-artscrape check-artrun check-sgdb check-snapshelf check-snaps check-audioout \
-        check-db check-coreopts check-gpuframes check-gamedel check-gamern check-esmedia check-corepins check-targets yuvtarget check-storage check-stats check-sort check-bt check-ss check-titles check-dsv check-sidelights check-osdbar check-hud check-dmodefit check-themefile check-pkkeys check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-kbnav check-tween check-menumotion check-menusnap check-cardgen check-blur check-gridrule check-roundrect check-rowmacro check-emptyhome check-zyperrig check-randgame check-shelfdir \
+        check-db check-coreopts check-gpuframes check-gamedel check-gamern check-esmedia check-corepins check-targets yuvtarget check-storage check-stats check-sort check-bt check-ss check-titles check-dsv check-sidelights check-osdbar check-hud check-dmodefit check-themefile check-pkkeys check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-kbnav check-tween check-menumotion check-menusnap check-cardgen check-cardart check-blur check-gridrule check-roundrect check-rowmacro check-emptyhome check-zyperrig check-randgame check-shelfdir \
         check-sysmark check-flip check-menushots check-controls-shots check-design check-systemart check-linebreak check-portload \
         check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-messages check-tour check-tour-shots check-textfade check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pmhelper check-portdoc check-boottheme check-splashbright check-bootbright check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr check-autozone \
-        check-home check-home-shots check-games check-cardpaint check-putpace landbench check-favorites-shots check-np-footer check-menu-rows check-layout-shots check-artbadge check-artbadge-shots design sounds strings cjk-font check-strings check-i18n-shots check-rootswitch check-datapart check-brick-closed check-hwreport \
+        check-home check-home-shots check-games check-cardpaint check-putpace landbench check-favorites-shots check-np-footer check-menu-rows check-layout-shots check-artbadge check-artbadge-shots check-cardart-shots design sounds strings cjk-font check-strings check-i18n-shots check-rootswitch check-datapart check-brick-closed check-hwreport \
         check-tour-previews tour-previews check-prep check-diatom check-simulator check-px2sim check-building-doc check-blog check-discord-release \
         check-release-devices check-installer release
 
@@ -33,10 +33,10 @@ CHECKS = check-cheevos check-hare check-portal check-httpd check-idle check-task
          check-db check-coreopts check-gamedel check-gamern check-esmedia check-media check-snapsize check-corepins check-targets check-storage check-stats check-sort check-bt check-ss check-titles check-savedlib check-search \
          check-muselib check-musequeue check-museart check-mp4lock check-mp4frame check-p2share check-webtheme check-p2ws check-p2codec check-p2d check-play check-p2 check-resident check-spawn check-controls check-remap check-controls-shots check-logpack \
          check-clock check-autozone check-status check-battery check-battery-eta check-dslang check-gpuframes check-dsresume check-corestate check-core-stamp check-core-room check-px2-perf check-px2-snap check-px2 check-lowbatt check-powerhold check-homesys check-heat check-charging check-corner check-dsv check-sidelights check-osdbar check-hud check-dmodefit check-themefile check-pkkeys check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-kbnav check-randgame check-shelfdir check-look \
-         check-tween check-menumotion check-menusnap check-cardgen check-blur check-gridrule check-roundrect check-rowmacro check-emptyhome check-zyperrig check-sysmark check-flip check-menushots check-design \
+         check-tween check-menumotion check-menusnap check-cardgen check-cardart check-blur check-gridrule check-roundrect check-rowmacro check-emptyhome check-zyperrig check-sysmark check-flip check-menushots check-design \
          check-systemart check-linebreak check-portload check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-messages \
          check-tour check-tour-shots check-tour-previews check-textfade check-glyphs check-ds check-layout-ratchet check-flex check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pmhelper check-pmart check-portdoc check-boottheme check-splashbright check-bootbright check-panelgamma check-displayback check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr \
-         check-home check-home-shots check-games check-cardpaint check-putpace check-favorites-shots check-np-footer check-menu-rows check-layout-shots check-artbadge check-artbadge-shots checkmark \
+         check-home check-home-shots check-games check-cardpaint check-putpace check-favorites-shots check-np-footer check-menu-rows check-layout-shots check-artbadge check-artbadge-shots check-cardart-shots checkmark \
          check-installer check-from-rogue check-importers check-diatom check-simulator check-px2sim check-building-doc check-blog check-discord-release \
          check-release-devices check-strings check-i18n-shots check-rootswitch check-datapart check-brick-closed check-hwreport
 
@@ -742,6 +742,14 @@ build-native/menusnap-check: tools/menusnap-check.c src/menusnap.c src/menusnap.
 # The card drawn where there is no art, in each theme: its title reads on
 # every row of its slab in Beard and in Salt & Pepper, and a card made for one
 # theme is never shown in the other. No SDL.
+check-cardart: build-native/cardart-check
+	@./build-native/cardart-check
+
+build-native/cardart-check: tools/cardart-check.c src/cardart.c src/cardart.h config/systems.cfg FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
+	      -o $@ tools/cardart-check.c src/cardart.c -lm
+
 check-cardgen: build-native/cardgen-check
 	@./build-native/cardgen-check
 
@@ -2229,7 +2237,7 @@ check-textfade:
 		$(CC) -std=gnu11 -D_GNU_SOURCE -O1 -g -Wall -Wextra \
 		  $$(pkg-config --cflags sdl2 SDL2_ttf SDL2_image) -Isrc \
 		  -o build-native/textfade-check tools/textfade-check.c src/ui.c src/ds/glyph.c src/ds/button.c src/folderart.c src/roundrect.c src/theme.c src/look.c \
-		  src/themefile.c src/linebreak.c src/blur.c src/cardgen.c src/sysmark.c $(I18N_SRC) \
+		  src/themefile.c src/linebreak.c src/blur.c src/cardgen.c src/cardart.c src/cardart_draw.c src/sysmark.c $(I18N_SRC) \
 		  $$(pkg-config --libs sdl2 SDL2_ttf SDL2_image) -lm && \
 		ZYPEROS_HEADLESS=1 SDL_VIDEODRIVER=dummy SDL_RENDER_DRIVER=software \
 		  ./build-native/textfade-check; \
@@ -2279,7 +2287,7 @@ check-tour-colors:
 		$(CC) -std=gnu11 -D_GNU_SOURCE -O1 -g -Wall -Wextra \
 		  $$(pkg-config --cflags sdl2 SDL2_ttf SDL2_image) -Isrc \
 		  -o build-native/tour-colors-check tools/tour-colors-check.c src/ui.c src/ds/glyph.c src/ds/button.c src/folderart.c src/roundrect.c \
-		  src/theme.c src/themefile.c src/look.c src/linebreak.c src/blur.c src/cardgen.c \
+		  src/theme.c src/themefile.c src/look.c src/linebreak.c src/blur.c src/cardgen.c src/cardart.c src/cardart_draw.c \
 		  src/sysmark.c src/tour.c src/powerhold.c src/tourdraw.c src/tourdevice.c src/zyperrig.c src/osdbar.c src/db.c $(I18N_SRC) $(DEVICE_PROFILES) \
 		  $$(pkg-config --libs sdl2 SDL2_ttf SDL2_image) -lsqlite3 -lm && \
 		ZYPEROS_HEADLESS=1 SDL_VIDEODRIVER=dummy SDL_RENDER_DRIVER=software \
@@ -2374,6 +2382,13 @@ check-artbadge-shots: native
 .PHONY: check-layout-shots
 check-layout-shots: native
 	@'$(PYIMG)' tools/layout-shot-check.py
+
+# The card of a game with no art (src/cardart.h) on the launcher's own shots:
+# a card for each system, the frame of play once played (the card frame over
+# the Auto picture), the same card in both themes, one reading line on the
+# Grid. Builds the host launcher; needs Pillow.
+check-cardart-shots: native
+	@'$(PYIMG)' tools/cardart-shot-check.py
 
 # The tutorial's Theme and Home Screen previews, res/tour/home-LAYOUT-THEME.png
 # (DESIGN.md 11.10, "The choices"): the launcher's own home screen of a card

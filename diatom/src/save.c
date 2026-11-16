@@ -114,6 +114,11 @@ static bool write_atomic(const char *path, const void *data, size_t n)
 	return true;
 }
 
+bool diatom_write_atomic(const char *path, const void *data, size_t n)
+{
+	return write_atomic(path, data, n);
+}
+
 static void *writer(void *arg)
 {
 	pthread_mutex_lock(&g_mx);

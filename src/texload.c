@@ -238,7 +238,7 @@ static int worker(void *arg)
 			r->card = drawn;
 			g_rs_n++;
 		} else if (s) {
-			SDL_FreeSurface(s);
+			ui_card_free(s);
 		}
 		SDL_UnlockMutex(g_lock);
 	}
@@ -318,7 +318,7 @@ void texload_bump(void)
 	g_rq_n = g_rq_head = 0;
 	for (k = 0; k < g_rs_n; k++) {
 		res *r = &g_rs[(g_rs_head + k) % QN];
-		if (r->surf) SDL_FreeSurface(r->surf);
+		if (r->surf) ui_card_free(r->surf);
 	}
 	g_rs_n = g_rs_head = 0;
 	SDL_CondBroadcast(g_room);
@@ -446,7 +446,7 @@ static bool hand(texload_got *g, int theme_on,
                  void (*put)(void *ctx, texload_got *g), void *ctx)
 {
 	if ((g->card || g->theme >= 0) && !cardgen_kept(g->theme, theme_on)) {
-		SDL_FreeSurface(g->surf);
+		ui_card_free(g->surf);
 		return false;
 	}
 	put(ctx, g);

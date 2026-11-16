@@ -1453,6 +1453,16 @@ static const char *persist_base(app *a, int s, const game_entry *g)
 	return base ? base + 1 : g->file;
 }
 
+/* The frame a game's card shows once it has been played (src/cardart.h):
+ * the one Diatom keeps for it, <rom>.card.bmp, written once a minute into
+ * its first play and never again (diatom/src/main.c, card_frame), beside
+ * its other pictures */
+void card_frame_path(app *a, int s, const game_entry *g, char *out, size_t n)
+{
+	snprintf(out, n, "%s/.zyperos/%s/%s.card.bmp",
+	         P_SHARED, a->sys.systems[s].folder, persist_base(a, s, g));
+}
+
 void preview_path(app *a, int s, const game_entry *g, char *out, size_t n)
 {
 	snprintf(out, n, "%s/.zyperos/%s/%s.%s.bmp",
@@ -1724,6 +1734,24 @@ static SDL_Texture *load_cover(app *a, int s, int i, const char *path)
 	return t;
 }
 
+/* A game's card's system and frames of play (src/cardart.h): system `o`'s
+ * tag and still art, and the frames to try, Diatom's card frame first and
+ * the Auto slot's picture until there is one. Paths only: the worker that
+ * paints the card opens them, so nothing here touches the card. */
+static void game_card_order(app *a, int o, const game_entry *g, ui_card_order *card)
+{
+	const system_cfg *sc = &a->sys.systems[o];
+	char art[UI_CARD_PATH], frame[UI_CARD_FRAMES][UI_CARD_PATH];
+	const char *frames[UI_CARD_FRAMES] = { frame[0], frame[1] };
+	const char *key = home_art_key(sc->tag);
+
+	art[0] = '\0';
+	if (key && key[0]) snprintf(art, sizeof art, "%s/system-icons/%s-still.png", P_ROOT, key);
+	card_frame_path(a, o, g, frame[0], sizeof frame[0]);
+	preview_path(a, o, g, frame[1], sizeof frame[1]);
+	ui_card_order_game(card, sc->tag, art, frames);
+}
+
 SDL_Texture *game_get_tex(void *ctx, int i, int *w, int *h, float *cb)
 {
 	app *a = ctx;
@@ -1786,6 +1814,7 @@ SDL_Texture *game_get_tex(void *ctx, int i, int *w, int *h, float *cb)
 		 * there is no box art, so that is the worker's to draw as well. */
 		ui_card_order_set(&card, v->list.items[i].title,
 		                  a->sys.systems[o].accent, false);
+		game_card_order(a, o, &v->list.items[i], &card);
 		bool asked = texload_want_or_draw(s, i, art, es, &card);
 
 		if (!asked && !g_loads_held) {
@@ -1796,10 +1825,11 @@ SDL_Texture *game_get_tex(void *ctx, int i, int *w, int *h, float *cb)
 			if (!v->tex[i] && es_cover_late(es + 1, es, sizeof es))
 				v->tex[i] = load_cover(a, s, i, es);
 			if (!v->tex[i]) {
-				v->tex[i] = ui_make_card(a->r, v->list.items[i].title,
-				                         a->sys.systems[o].accent,
-				                         &v->tw[i], &v->th[i]);
-				grid_note(a, s, i, NULL, true);
+				SDL_Surface *ground;
+
+				v->tex[i] = ui_make_card_for(a->r, &card, &v->tw[i], &v->th[i], &ground);
+				grid_note(a, s, i, ground, true);
+				if (ground) SDL_FreeSurface(ground);
 			}
 		}
 	}
@@ -1826,16 +1856,16 @@ void shelf_put(void *ctx, texload_got *g)
 	sysview *v;
 
 	if (home_accept(&a->home, a->r, s, i, surf)) {
-		if (surf) SDL_FreeSurface(surf);
+		if (surf) ui_card_free(surf);
 		return;
 	}
-	if (s < 0 || s >= a->sys.count) { if (surf) SDL_FreeSurface(surf); return; }
+	if (s < 0 || s >= a->sys.count) { if (surf) ui_card_free(surf); return; }
 	v = &a->view[s];
 	/* The shelf may have moved on, or something else may have filled this
 	 * slot while the decode was in the air. A slot holding a generated
 	 * card of the theme that was is not filled: it is waiting for this. */
 	if (i < 0 || i >= v->list.count || !game_card_wanted(v, i)) {
-		if (surf) SDL_FreeSurface(surf);
+		if (surf) ui_card_free(surf);
 		return;
 	}
 	/* The card of the theme that was, drawn until now, goes as this one
@@ -1847,10 +1877,13 @@ void shelf_put(void *ctx, texload_got *g)
 	if (surf && g->card) {
 		/* The generated card, drawn on the worker: only its texture is
 		 * made here, marked with its theme as one made here would be. */
+		SDL_Surface *ground = ui_card_ground_take(surf);
+
 		v->tex[i] = ui_card_upload(a->r, surf, g->theme);
 		if (v->tex[i]) { v->tw[i] = surf->w; v->th[i] = surf->h; }
 		v->cb[i] = 1.0f;
-		grid_note(a, s, i, NULL, true);
+		grid_note(a, s, i, ground, true);
+		if (ground) SDL_FreeSurface(ground);
 		SDL_FreeSurface(surf);
 		surf = NULL;
 	}
@@ -1872,6 +1905,11 @@ void shelf_put(void *ctx, texload_got *g)
 		/* No file could be read and no card came with it - the worker could
 		 * not have the faces: the generated card, made here. */
 		int o = shelf_owner(a, s, i);
+		ui_card_order card;
+		SDL_Surface *ground = NULL;
+
+		ui_card_order_set(&card, v->list.items[i].title, a->sys.systems[o].accent, false);
+		game_card_order(a, o, &v->list.items[i], &card);
 		v->tex[i] = is_muse(&a->sys.systems[s])
 		          ? ui_make_cover(a->r, v->list.items[i].title,
 		                          a->sys.systems[o].accent, &v->tw[i], &v->th[i])
@@ -1879,11 +1917,10 @@ void shelf_put(void *ctx, texload_got *g)
 		          ? ui_make_folder_card(a->r, v->list.items[i].title,
 		                                a->sys.systems[o].accent, v->list.items[i].folder,
 		                                &v->tw[i], &v->th[i])
-		          : ui_make_card(a->r, v->list.items[i].title,
-		                         a->sys.systems[o].accent,
-		                         &v->tw[i], &v->th[i]);
+		          : ui_make_card_for(a->r, &card, &v->tw[i], &v->th[i], &ground);
 		v->cb[i] = 1.0f;
-		grid_note(a, s, i, NULL, !v->list.items[i].folder);
+		grid_note(a, s, i, ground, !v->list.items[i].folder);
+		if (ground) SDL_FreeSurface(ground);
 	}
 }
 

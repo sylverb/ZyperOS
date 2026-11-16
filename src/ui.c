@@ -5,6 +5,8 @@
 
 #include "blur.h"     /* a shadow's blur and its nine pieces */
 #include "cardgen.h"  /* the generated card's colors in each theme */
+#include "cardart.h"  /* a game's card: its ground and where its name breaks */
+#include "cardart_draw.h"
 #include "sysmark.h"  /* a system's color as a mark */
 #include "config.h"   /* CFG_NO_COLOR: a system with no color of its own */
 #include "linebreak.h" /* where a name too wide for its box breaks or is cut */
@@ -13,6 +15,7 @@
 #include "ds/button.h"  /* which glyph a button name draws on this handheld */
 #include "folderart.h" /* a folder's card and row, in pixel art */  /* the PlayStation's shapes, drawn in running text */
 
+#include <SDL_image.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -92,14 +95,24 @@ static SDL_mutex *face_lock;
  * card: two workers drawing at once take turns, a card being a fraction of
  * what a decode is. `away_up` is from ui_init to ui_quit, the stretch the
  * font library is up in: outside it nothing opens them and nothing draws. */
+#define NAME_FACES (CA_SIZES * 2)   /* a game card's name: its sizes, then its rest's */
 typedef struct {
 	TTF_Font *title[SETS];      /* UI_F_CARD's face in each set */
 	bool      title_tried[SETS];
 	TTF_Font *mark;             /* the watermark's letter */
 	bool      mark_tried;
+	/* A game's card (src/cardart.h): the title face at the name's sizes in
+	 * each set, and the last system art it read, kept for the next card */
+	TTF_Font *name[SETS][NAME_FACES];
+	bool      name_tried[SETS][NAME_FACES];
+	char      art_path[UI_CARD_PATH];
+	SDL_Surface *art;
 } card_faces;
 static SDL_mutex *away_lock;
 static card_faces away_faces;
+/* The frame thread's own copies of a game card's name faces and art (the
+ * rest of a frame card is font_sets' and f_mark, as it always was) */
+static card_faces frame_faces;
 static bool away_up;
 static void card_faces_close(card_faces *k);
 static SDL_Texture *glow_tex;
@@ -354,6 +367,7 @@ void ui_quit(void)
 	away_up = false;
 	card_faces_close(&away_faces);
 	if (away_lock) SDL_UnlockMutex(away_lock);
+	card_faces_close(&frame_faces);
 	memo_clear();
 	ds_glyphs_free();
 	digits_free();
@@ -3148,7 +3162,7 @@ void ui_power(SDL_Renderer *r, int cx, int cy, int size, float press, float scal
 
 /* ---- the generated card ------------------------------------------------- */
 
-#define CARD_W 512
+#define CARD_W CA_CARD_W   /* src/cardart.h: the card's width, its name's places are in */
 #define CARD_H 656
 #define CARD_RADIUS 22
 #define WATERMARK_PT 560   /* the title's first letter, enormous and faint */
@@ -3224,6 +3238,15 @@ static void card_faces_close(card_faces *k)
 	ui_face_close(k->mark);
 	k->mark = NULL;
 	k->mark_tried = false;
+	for (int i = 0; i < SETS; i++)
+		for (int j = 0; j < NAME_FACES; j++) {
+			ui_face_close(k->name[i][j]);
+			k->name[i][j] = NULL;
+			k->name_tried[i][j] = false;
+		}
+	if (k->art) SDL_FreeSurface(k->art);
+	k->art = NULL;
+	k->art_path[0] = '\0';
 }
 
 /* face_for for a line of a card, `f` its Latin face: the same choice, made
@@ -3431,10 +3454,264 @@ SDL_Texture *ui_make_folder_icon(SDL_Renderer *r, unsigned rgb, int *w, int *h)
 	return t;
 }
 
-/* The card at any size: a game's 512 x 656 and an album's 512 square. One
- * recipe, so an album with no art reads as the same kind of thing as a game
- * with none - except the corners, which an album's does not round: it stands
- * among square sleeves, where a game's stands among cards.
+/* ---- a game's card (src/cardart.h, DESIGN.md 11.1) ----
+ *
+ * Its own box, the same in both themes: a frame of play when the game has
+ * one, or else a ground of the system's era, and across it the name, set the
+ * same way on every card so a shelf, the Grid and the list are read alike:
+ * the title face, hard left at CA_NAME_X, the first line's capitals at
+ * CA_NAME_TOP% of the card, at cardart_name's one size, near-white on a dark
+ * band, and the system's rule under it. */
+#define NAME_INK  ((SDL_Color){ 0xF6, 0xF5, 0xF1, 255 })   /* tools/cardart-check.c's NAME_INK */
+#define NAME_INK2 ((SDL_Color){ 0xE2, 0xE0, 0xDA, 255 })   /* the part after " - " */
+
+/* A name size (one of CA_SIZE_STEPS, or 6/10 of one) as its place among a
+ * card_faces' name faces */
+static int name_ix(int size)
+{
+	for (int i = 0; i < CA_SIZES; i++) {
+		if (size == CA_SIZE_STEPS[i]) return i;
+		if (size == CA_SIZE_STEPS[i] * 6 / 10) return CA_SIZES + i;
+	}
+	return 0;
+}
+
+/* The title face of set `set` at `size`, opened the first time it is wanted */
+static TTF_Font *name_face(card_faces *k, int set, int size)
+{
+	int i = name_ix(size);
+	char path[512];
+
+	if (!k->name_tried[set][i]) {
+		k->name_tried[set][i] = true;
+		if (set != SET_LATIN) set_path(set, true, path, sizeof path);
+		else snprintf(path, sizeof path, "%s", title_path_kept[0] ? title_path_kept : font_path_kept);
+		k->name[set][i] = path[0] ? ui_face_open(path, size) : NULL;
+	}
+	return k->name[set][i];
+}
+
+/* card_face_for, among the name's faces */
+static TTF_Font *name_face_for(card_faces *k, int lang_set, int size, const char *s)
+{
+	TTF_Font *f = name_face(k, SET_LATIN, size);
+	int order[3];
+
+	if (!f || !has_cjk(s) || covers(f, s)) return f;
+	order[0] = lang_set;
+	order[1] = has_kana(s) || !strcmp(s, lang_name(LANG_JA)) ? SET_JP : SET_SC;
+	order[2] = order[1] == SET_JP ? SET_SC : SET_JP;
+	for (int n = 0; n < 3; n++) {
+		TTF_Font *g;
+
+		if (order[n] == SET_LATIN) continue;
+		g = name_face(k, order[n], size);
+		if (g && covers(g, s)) return g;
+	}
+	return f;
+}
+
+typedef struct { card_faces *k; int lang_set; } name_pen;
+
+static int name_width(void *ctx, int size, const char *s)
+{
+	name_pen *p = ctx;
+	TTF_Font *f = name_face_for(p->k, p->lang_set, size, s);
+	int w = 0;
+
+	if (f) TTF_SizeUTF8(f, s, &w, NULL);
+	return w;
+}
+
+/* The Latin face's capital height at `size` */
+static int name_cap(card_faces *k, int size)
+{
+	TTF_Font *f = name_face(k, SET_LATIN, size);
+	int minx, maxx, miny, maxy, adv;
+
+	if (!f || TTF_GlyphMetrics(f, 'H', &minx, &maxx, &miny, &maxy, &adv)) return size * 7 / 10;
+	return maxy;
+}
+
+/* One line, its capitals' top at `cap_top`, over a soft shadow 3 below */
+static void name_line(SDL_Surface *s, card_faces *k, int lang_set, int size, const char *line,
+                      int cap_top, SDL_Color col)
+{
+	TTF_Font *f = name_face_for(k, lang_set, size, line), *latin = name_face(k, SET_LATIN, size);
+	SDL_Surface *t;
+	int top;
+
+	if (!f || !latin) return;
+	top = cap_top - (TTF_FontAscent(latin) - name_cap(k, size));
+	/* rendered once, in white, and put down twice through its color: the
+	 * shadow black at 110, then the line in its ink */
+	if ((t = render_in(f, line, (SDL_Color){ 255, 255, 255, 255 }))) {
+		SDL_SetSurfaceBlendMode(t, SDL_BLENDMODE_BLEND);
+		SDL_SetSurfaceColorMod(t, 0, 0, 0);
+		SDL_SetSurfaceAlphaMod(t, 110);
+		SDL_BlitSurface(t, NULL, s, &(SDL_Rect){ CA_NAME_X, top + 3, 0, 0 });
+		SDL_SetSurfaceColorMod(t, col.r, col.g, col.b);
+		SDL_SetSurfaceAlphaMod(t, col.a);
+		SDL_BlitSurface(t, NULL, s, &(SDL_Rect){ CA_NAME_X, top, 0, 0 });
+		SDL_FreeSurface(t);
+	}
+}
+
+/* The name on its band, and the system's rule under it */
+static void card_name(SDL_Surface *s, card_faces *k, const ui_card_order *o)
+{
+	name_pen pen = { k, o->lang_set };
+	unsigned rule = ui_sys_mark_in(o->rgb, DS_DARK);
+	int y0 = s->h * CA_NAME_TOP / 100, y, cap, capg = 0, foot;
+	ca_name n;
+
+	if (!cardart_name(o->title, s->w - 2 * CA_NAME_X, CA_LINES, name_width, &pen, &n)) return;
+	cap = name_cap(k, n.size);
+	if (n.sub_n) capg = name_cap(k, n.sub_size);
+	/* the foot of the block: its last capitals, then the rule 18 under */
+	foot = y0 + n.n * cap + (n.n - 1) * (cap * 6 / 10);
+	if (n.sub_n) foot += cap / 2 + n.sub_n * capg + (n.sub_n - 1) * (capg * 6 / 10);
+	cardart_paint_band(s, y0 - 30, foot + 18 + 4 + 30, 22);
+	y = y0;
+	for (int i = 0; i < n.n; i++, y += cap + cap * 6 / 10)
+		name_line(s, k, o->lang_set, n.size, n.line[i], y, NAME_INK);
+	y -= cap * 6 / 10;
+	if (n.sub_n) {
+		y += cap / 2;
+		for (int i = 0; i < n.sub_n; i++, y += capg + capg * 6 / 10)
+			name_line(s, k, o->lang_set, n.sub_size, n.sub[i], y, NAME_INK2);
+		y -= capg * 6 / 10;
+	}
+	SDL_FillRect(s, &(SDL_Rect){ CA_NAME_X, y + 18, 72, 4 },
+	             SDL_MapRGBA(s->format, (Uint8)(rule >> 16), (Uint8)(rule >> 8), (Uint8)rule, 255));
+}
+
+/* The system's still art at `path`, kept for the next card: a shelf asks
+ * for one system's cards together */
+static SDL_Surface *card_art(card_faces *k, const char *path)
+{
+	SDL_Surface *raw;
+
+	if (!path || !path[0]) return NULL;
+	if (k->art && !strcmp(k->art_path, path)) return k->art;
+	if (k->art) SDL_FreeSurface(k->art);
+	k->art = NULL;
+	snprintf(k->art_path, sizeof k->art_path, "%s", path);
+	if ((raw = IMG_Load(path))) {
+		k->art = SDL_ConvertSurfaceFormat(raw, SDL_PIXELFORMAT_ARGB8888, 0);
+		SDL_FreeSurface(raw);
+	}
+	return k->art;
+}
+
+/* The ground a game's card keeps for the Grid, a quarter of its size, with
+ * no name: on the card's userdata, marked as one by its own userdata, until
+ * ui_card_ground_take takes it (or ui_card_free frees it with the card) */
+static char ground_mark;
+
+SDL_Surface *ui_card_ground_take(SDL_Surface *card)
+{
+	SDL_Surface *g = card ? card->userdata : NULL;
+
+	if (!g || g->userdata != &ground_mark) return NULL;
+	card->userdata = NULL;
+	g->userdata = NULL;
+	return g;
+}
+
+void ui_card_free(SDL_Surface *s)
+{
+	SDL_Surface *g = ui_card_ground_take(s);
+
+	if (g) SDL_FreeSurface(g);
+	if (s) SDL_FreeSurface(s);
+}
+
+/* `from`: the ground as painted, the card's own or its half-size paint */
+static void keep_ground(SDL_Surface *s, SDL_Surface *from)
+{
+	SDL_Surface *g = SDL_CreateRGBSurfaceWithFormat(0, s->w / 4, s->h / 4, 32, SDL_PIXELFORMAT_ARGB8888);
+
+	if (!g) return;
+	SDL_SetSurfaceBlendMode(from, SDL_BLENDMODE_NONE);
+	if (SDL_SoftStretchLinear(from, NULL, g, NULL)) {
+		SDL_FreeSurface(g);
+		return;
+	}
+	g->userdata = &ground_mark;
+	s->userdata = g;
+}
+
+/* What a card costs to paint, said in the log at the 1st, 2nd, 4th... 64th
+ * card: grounds and frames apart, mean and worst, in ms. From any thread,
+ * so counted under its own lock. */
+static void card_cost(bool frame, Uint64 t0)
+{
+	static SDL_SpinLock lock;
+	static int n[2];
+	static double sum[2], worst[2];
+	double ms = (double)(SDL_GetPerformanceCounter() - t0) * 1000.0 / (double)SDL_GetPerformanceFrequency();
+	int all;
+
+	SDL_AtomicLock(&lock);
+	n[frame]++;
+	sum[frame] += ms;
+	if (ms > worst[frame]) worst[frame] = ms;
+	all = n[0] + n[1];
+	if (all <= 64 && !(all & (all - 1)))
+		fprintf(stderr, "cardart: %d cards painted: %d grounds %.1f ms (worst %.1f), %d frames of play %.1f ms (worst %.1f)\n",
+		       all, n[0], n[0] ? sum[0] / n[0] : 0, worst[0], n[1], n[1] ? sum[1] / n[1] : 0, worst[1]);
+	SDL_AtomicUnlock(&lock);
+}
+
+static SDL_Surface *game_art_card(card_faces *k, const ui_card_order *o)
+{
+	Uint64 t0 = SDL_GetPerformanceCounter();
+	SDL_Surface *s = SDL_CreateRGBSurfaceWithFormat(0, CARD_W, CARD_H, 32, SDL_PIXELFORMAT_ARGB8888);
+	/* a system with no color: its marks' text-dim, of the dark theme the
+	 * card always is */
+	unsigned rgb = o->rgb == CFG_NO_COLOR ? ui_rgb(theme_at(DS_DARK)->text_dim) : o->rgb;
+	bool played = false;
+
+	if (!s) return NULL;
+	for (int i = 0; i < UI_CARD_FRAMES && !played; i++) {
+		SDL_Surface *f;
+
+		if (!o->frame[i][0] || !(f = IMG_Load(o->frame[i]))) continue;
+		played = cardart_paint_frame(s, f, rgb);
+		SDL_FreeSurface(f);
+	}
+	if (!played) {
+		/* painted at half the size and stretched: on the Pixel 2 a whole
+		 * one took 134 ms on the worker, and shown at a third of its size
+		 * nothing of it is lost */
+		SDL_Surface *half = SDL_CreateRGBSurfaceWithFormat(0, CARD_W / 2, CARD_H / 2, 32,
+		                                                   SDL_PIXELFORMAT_ARGB8888);
+		ca_ground g;
+
+		cardart_ground(rgb, cardart_hash(o->title), &g);
+		if (half) {
+			cardart_paint_ground(half, rgb, cardart_texture(o->tag), &g, card_art(k, o->art));
+			SDL_SetSurfaceBlendMode(half, SDL_BLENDMODE_NONE);
+			SDL_BlitScaled(half, NULL, s, NULL);
+			keep_ground(s, half);
+			SDL_FreeSurface(half);
+		} else {
+			cardart_paint_ground(s, rgb, cardart_texture(o->tag), &g, card_art(k, o->art));
+			keep_ground(s, s);
+		}
+	} else {
+		keep_ground(s, s);
+	}
+	card_name(s, k, o);
+	round_corners(s, CARD_RADIUS);
+	card_cost(played, t0);
+	return s;
+}
+
+/* An album's card with no cover, 512 square (a game's is game_art_card's
+ * since 2026-11-15; this drew it at 512 x 656 before, and still can). Its
+ * corners square: it stands among square sleeves.
  *
  * For the order's theme, DS_LIGHT or DS_DARK, and only from it: DESIGN.md
  * 11.1 draws a card for each theme, a light **surface** slab with a charcoal
@@ -3507,7 +3784,9 @@ static SDL_Surface *game_card_surface(card_faces *k, const ui_card_order *o)
  * or an album's */
 static SDL_Surface *card_surface(card_faces *k, const ui_card_order *o)
 {
-	return o->folder > 0 ? folder_card_surface(k, o) : game_card_surface(k, o);
+	if (o->folder > 0) return folder_card_surface(k, o);
+	/* a game's is its own (game_art_card); an album's is today's */
+	return o->album ? game_card_surface(k, o) : game_art_card(k ? k : &frame_faces, o);
 }
 
 void ui_card_order_set(ui_card_order *o, const char *title, unsigned rgb,
@@ -3519,6 +3798,17 @@ void ui_card_order_set(ui_card_order *o, const char *title, unsigned rgb,
 	o->theme_ix = theme_index();
 	o->lang_set = set_on;
 	o->folder = 0;
+	o->tag[0] = o->art[0] = '\0';
+	for (int i = 0; i < UI_CARD_FRAMES; i++) o->frame[i][0] = '\0';
+}
+
+void ui_card_order_game(ui_card_order *o, const char *tag, const char *art,
+                        const char *const frames[UI_CARD_FRAMES])
+{
+	snprintf(o->tag, sizeof o->tag, "%s", tag ? tag : "");
+	snprintf(o->art, sizeof o->art, "%s", art ? art : "");
+	for (int i = 0; i < UI_CARD_FRAMES; i++)
+		snprintf(o->frame[i], sizeof o->frame[i], "%s", frames && frames[i] ? frames[i] : "");
 }
 
 void ui_card_order_folder(ui_card_order *o, const char *title, unsigned rgb,
@@ -3586,7 +3876,7 @@ static SDL_Texture *make_card(SDL_Renderer *r, const char *title, unsigned rgb,
 		return NULL;
 	t = ui_card_upload(r, s, o.theme_ix);
 	if (t) { *w = s->w; *h = s->h; }
-	SDL_FreeSurface(s);
+	ui_card_free(s);
 	return t;
 }
 
@@ -3602,6 +3892,22 @@ int ui_card_theme(SDL_Texture *t)
 			if (p == &card_made_for[i][g])
 				return g == (int)(look_gen() % CARD_LOOKS) ? i : (i == DS_DARK ? DS_LIGHT : DS_DARK);
 	return -1;
+}
+
+SDL_Texture *ui_make_card_for(SDL_Renderer *r, const ui_card_order *o, int *w, int *h,
+                              SDL_Surface **ground)
+{
+	SDL_Surface *s;
+	SDL_Texture *t;
+
+	if (ground) *ground = NULL;
+	if (!(s = ui_card_paint(o, true)) && !(s = card_surface(NULL, o)))
+		return NULL;
+	t = ui_card_upload(r, s, o->theme_ix);
+	if (t) { *w = s->w; *h = s->h; }
+	if (ground) *ground = ui_card_ground_take(s);
+	ui_card_free(s);
+	return t;
 }
 
 SDL_Texture *ui_make_card(SDL_Renderer *r, const char *title, unsigned rgb,
