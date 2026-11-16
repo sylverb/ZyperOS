@@ -19,29 +19,36 @@
 #include <stdio.h>
 #include <string.h>
 
-#define X0          64                 /* the page's left, Now's box */
-#define X1          960                /* ...and right */
-#define HEAD_Y      116                /* the headings' capitals */
-#define CAP1_Y      420                /* the focused tile's kind */
-#define CAP2_Y      462                /* ...and its source */
+/* The page's places (DESIGN.md 11.34), each from what it hangs off: the
+ * screen's margins, the header (MPG_TOP), the boxes' floor (MPG_FLOOR), the
+ * rule. The distances that are the page's own are named; the rest are
+ * tokens. */
+#define X0          DS_MARGIN                         /* 64: the page's left, Now's box */
+#define X1          (ZYPEROS_SCREEN_W - DS_MARGIN)    /* 960: ...and right */
+#define HEAD_Y      (MPG_TOP + DS_LINE_META / 2)      /* 116: the headings' capitals, a meta line */
+#define CAP1_Y      (MPG_FLOOR + DS_RELATED + DS_LINE_MENU / 2)   /* 420: the focused tile's kind, a menu line under the floor */
+#define CAP_STEP    42                                /* a caption line to the one under it */
+#define CAP2_Y      (CAP1_Y + CAP_STEP)               /* 462: ...and its source */
 #define SMALL       0.75f              /* a tile without the cursor */
 #define RING        7                  /* the focus fill round the focused tile */
 #define RULE_Y      488
-#define VHEAD_Y     524
-#define VTILE_X     64
-#define VTILE_Y     552
+#define VIDEO_GAP   16                                /* the video's rows and heading under the rule */
+#define ROWS_Y      (RULE_Y + VIDEO_GAP)              /* 504 */
+#define VHEAD_Y     (ROWS_Y + DS_LINE_META / 2)       /* 524: the video's heading, a meta line */
+#define VTILE_X     X0
+#define VTILE_Y     (ROWS_Y + DS_LINE_META + DS_RELATED)   /* 552: the picture under the heading */
 #define VTILE_W     256
-#define VTILE_H     192
-#define ROWS_X      344
-#define ROWS_Y      504
-#define ROW_PAD     28
+#define VTILE_H     (VTILE_W * 3 / 4)                 /* 192: a video's 4:3 */
+#define ROWS_X      (VTILE_X + VTILE_W + DS_TILE_GAP) /* 344: the rows a tile's gap right of it */
+#define ROW_PAD     (DS_MENU_PAD / 2)                 /* 28: a row's words in from its fill, as a menu's */
 #define MSG_Y       210                /* where the strip would be: a message */
-#define BIG_X       368                /* Look Closer's picture */
-#define BIG_Y       104
-#define BIG_W       592
+#define BIG_GAP     40                                /* Look Closer's picture right of Now's box: room for the arrow */
+#define BIG_X       (X0 + MPG_BOX_W + BIG_GAP)        /* 368 */
+#define BIG_Y       (MPG_TOP + DS_RELATED)            /* 104 */
+#define BIG_W       (X1 - BIG_X)                      /* 592: to the page's right */
 #define BIG_H       488
 #define BIG_CAP1    640
-#define BIG_CAP2    682
+#define BIG_CAP2    (BIG_CAP1 + CAP_STEP)             /* 682 */
 #define FOOT_Y      DS_FOOT_Y   /* every screen's keys (720): the big view's two caption lines (640, 682) sit over it, clear */
 
 static SDL_Color col(ds_rgb c) { return ui_col(c, 255); }
@@ -173,6 +180,8 @@ static void message_draw(SDL_Renderer *r, const mpg_page *p, unsigned now)
 		char first[2][LB_LINE];
 		int nf = ui_text_width(fm, p->msg) <= room ? 0 : ui_balance_lines(fm, p->msg, room, 2, first);
 
+		if (nf > 1) ui_fit_drawn(p->msg);    /* drawn in lines, said whole to the host's check */
+
 		if (nf == 0) {
 			ui_text(r, fm, p->msg, x, ui_cap_y(fm, y), -1, UI_TEXT_SOFT);
 			y += 58;
@@ -182,6 +191,8 @@ static void message_draw(SDL_Renderer *r, const mpg_page *p, unsigned now)
 	}
 	if (p->msg_wrap) {
 		int n = ui_balance_lines(fs, p->msg_wrap, room - 120, 3, lines);
+
+		ui_fit_drawn(p->msg_wrap);    /* drawn in lines, so said whole to the host's check */
 
 		for (k = 0; k < n; k++, y += 42) ui_text(r, fs, lines[k], x, ui_cap_y(fs, y), -1, UI_TEXT_DIM);
 	}
@@ -256,6 +267,7 @@ static void video_draw(SDL_Renderer *r, const mpg_page *p)
 		ui_round_rect(r, &t, DS_RADIUS_CHIP * 2, col(th->raised));
 		if (p->vid_status) {
 			n = ui_balance_lines(fs, p->vid_status, VTILE_W - 32, 2, lines);
+			ui_fit_drawn(p->vid_status);
 			for (k = 0; k < n; k++)
 				ui_text(r, fs, lines[k], t.x + t.w / 2,
 				        ui_cap_y(fs, t.y + t.h / 2 + (k * 2 - (n - 1)) * 21), 0, UI_TEXT_DIM);
@@ -270,6 +282,8 @@ static void video_draw(SDL_Renderer *r, const mpg_page *p)
 		TTF_Font *fm = ui_font(UI_F_META);
 		char lines[3][LB_LINE];
 		int n = ui_balance_lines(fm, p->vid_note, X1 - ROWS_X - ROW_PAD, 3, lines), k;
+
+		ui_fit_drawn(p->vid_note);
 
 		for (k = 0; k < n; k++)
 			ui_text(r, fm, lines[k], ROWS_X, ui_cap_y(fm, VTILE_Y + 24 + k * 42), -1, UI_TEXT_DIM);

@@ -155,7 +155,7 @@ $(BUILD)/%.o: %.c
 # backend exists. Cheap to check, so check it.
 # Mechanical checks, each guarding a rule that decays the moment nothing fails
 # when it is broken: check-seam has held since day one for exactly that reason.
-check: check-seam check-copies check-corefacts check-rates check-cheevos check-screens check-chord check-stick check-bounds check-rumble check-statefile check-proto check-port check-power check-power-e2e check-fastforward check-stateplane check-resident check-hotkeys check-coreend check-cardframe check-now check-rumble-e2e check-player2 check-states
+check: check-seam check-copies check-corefacts check-rates check-cheevos check-screens check-chord check-stick check-bounds check-rumble check-statefile check-proto check-port check-power check-power-e2e check-fastforward check-lateskip check-stateplane check-resident check-hotkeys check-coreend check-cardframe check-now check-rumble-e2e check-player2 check-states
 
 # Does a RetroAchievements address reach the byte it names? Offline, needs no
 # core and no ROM, and links only cheevos.c plus the vendored runtime - so it
@@ -428,6 +428,18 @@ check-fastforward:
 	$(FRESH_IF_BUILT)
 	@python3 test/fastforward.py
 .PHONY: check-fastforward
+
+# frameskip=late and frameskip=steady at 1x, end to end: the stub core slow
+# for a stretch (STUBCORE_FRAME_US_AT) writes which frames Diatom had drawn
+# (STUBCORE_SHOWN_LOG); late leaves out up to two in a row, steady exactly
+# every second one, and both draw every frame on time, judged only where the
+# stub's frame times show this machine started them on time. On
+# check-stateplane's terms: the stub core, about twenty seconds, skipped
+# unbuilt.
+check-lateskip:
+	$(FRESH_IF_BUILT)
+	@python3 test/lateskip.py
+.PHONY: check-lateskip
 
 # Does core-facts.md still describe the cores we ship? It was measured on the
 # device, which needs the hardware and the user's ROMs; this is the half that

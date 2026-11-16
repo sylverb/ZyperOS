@@ -518,7 +518,6 @@ void menu_panel(app *a, const char *heading, const menu_row *rows,
 	 * gain rows - so the panel is capped to the screen and the rows window
 	 * around the selection when they do not all fit. A menu that runs off the
 	 * top is worse than one that scrolls. */
-	const int margin = MENU_MARGIN;
 	int vis = n, first = 0;
 	/* The list's rows, and its footer's: a list with a cursor that ends in a
 	 * footer (a MENU_RULE and only notes past it), drawn with pin_foot,
@@ -1479,6 +1478,7 @@ static int pick_build(void *ctx, menu_row *rows, int max, const char **heading)
 		int s = p->sel >= 0 && p->sel < p->n ? p->sel : 0, nl;
 
 		nl = menu_pick_note(p->notes[s], p->note);
+		if (nl > 1) ui_fit_drawn(p->notes[s]);    /* drawn in lines, said whole to the host's check */
 		rows[i] = MENU_RULE;
 		p->sound[i++] = 0;
 		rows[i] = MENU_BODY(nl > 0 ? p->note[0] : "");

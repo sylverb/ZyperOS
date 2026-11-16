@@ -459,6 +459,7 @@ static void caption_draw(SDL_Renderer *r, const char *text, int y)
 	for (k = 0; k < n; k++)
 		ui_text(r, fs, lines[k], ZYPEROS_SCREEN_W / 2,
 		        ui_cap_y(fs, y - (n - 1 - k) * SP_CAP_LINE), 0, UI_TEXT_DIM);
+	if (n > 1) ui_fit_drawn(text);    /* drawn in lines, said whole to the host's check */
 }
 
 /* ---- the page ------------------------------------------------------------- */

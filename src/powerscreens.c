@@ -391,8 +391,13 @@ static int chg_rows(TTF_Font *f, const char *text, char row[2][LB_LINE])
 			snprintf(row[1], LB_LINE, "%s", y);
 		}
 	}
-	if (found) return 2;
+	/* drawn in two rows, so said whole to the host's check */
+	if (found) {
+		ui_fit_drawn(text);
+		return 2;
+	}
 	n = ui_balance_lines(f, text, maxw, 2, row);
+	if (n > 1) ui_fit_drawn(text);
 	return n < 1 ? 1 : n;
 }
 

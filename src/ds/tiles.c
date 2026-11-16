@@ -211,6 +211,8 @@ static void choice_list_panel(SDL_Renderer *r, const ds_pass *pass, const char *
 	y = panel.y + 32;
 	for (k = 0; k < nhead; k++)
 		ui_text(r, fh, head[k], panel.x + panel.w / 2, ui_line_y(UI_F_LABEL, y + k * lh), 0, UI_TEXT_SOFT);
+	/* drawn in lines, so said whole to the host's check */
+	if (nhead > 1) ui_fit_drawn(heading);
 	rule = (SDL_Rect){ panel.x + pad, y + nhead * lh + 24, inner, DS_RULE };
 	ds_panel_rule(r, rule.x, rule.y, rule.w, ui_col(thm->edge, 255));
 	y = rule.y + DS_RULE + 32;
@@ -334,6 +336,8 @@ static void tiles_panel(SDL_Renderer *r, const ds_pass *pass, ds_tiles_style kin
 	for (k = 0; k < nhead; k++)
 		ui_text(r, fh, head[k], panel.x + panel.w / 2, ui_line_y(UI_F_LABEL, top + k * lh), 0,
 		        UI_TEXT_SOFT);
+	/* drawn in lines, so said whole to the host's check, as the notes below */
+	if (nhead > 1) ui_fit_drawn(heading);
 	rule = (SDL_Rect){ panel.x + tile_pad, top + (nhead > 1 ? nhead : 1) * lh + 24,
 	                   panel.w - 2 * tile_pad, DS_RULE };
 	ds_panel_rule(r, rule.x, rule.y, rule.w, ui_col(thm->edge, 255));
@@ -344,6 +348,7 @@ static void tiles_panel(SDL_Renderer *r, const ds_pass *pass, ds_tiles_style kin
 		for (k = 0; k < nsub.n; k++)
 			ui_text(r, fs, nsub.l[k], panel.x + panel.w / 2,
 			        ui_line_y(UI_F_META, tiles_y + k * ls), 0, UI_TEXT_DIM);
+		if (nsub.n > 1) ui_fit_drawn(sub);
 		tiles_y += nsub.n * ls;
 	}
 	tiles_y += 32;
@@ -459,6 +464,7 @@ static void tiles_panel(SDL_Renderer *r, const ds_pass *pass, ds_tiles_style kin
 		for (k = 0; k < nwhat.n; k++)
 			ui_text(r, fs, nwhat.l[k], panel.x + panel.w / 2,
 			        ui_line_y(UI_F_META, tiles_y + k * ls), 0, UI_TEXT_SOFT);
+		if (nwhat.n > 1) ui_fit_drawn(what);
 		tiles_y += nwhat.n * ls;
 	}
 	tiles_y += 24;
@@ -467,10 +473,12 @@ static void tiles_panel(SDL_Renderer *r, const ds_pass *pass, ds_tiles_style kin
 	if (nh && hints_on)
 		keyhints_draw(r, hints, nh, panel.x + tile_pad, panel.x + panel.w - tile_pad,
 		              tiles_y + KEYHINTS_ROW / 2, KEYHINTS_CENTER, false, 255);
-	else
+	else {
 		for (k = 0; k < nleg.n; k++)
 			ui_text(r, fs, nleg.l[k], panel.x + panel.w / 2,
 			        ui_line_y(UI_F_META, tiles_y + k * ls), 0, UI_TEXT_DIM);
+		if (nleg.n > 1) ui_fit_drawn(legend);
+	}
 	ds_panel_close(&panel, pose, posed, pass);
 }
 

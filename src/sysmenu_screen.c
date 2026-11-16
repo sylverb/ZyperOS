@@ -6,6 +6,7 @@
 #include "muselib.h"
 #include "audioout.h"
 #include "dslang.h"
+#include "dsslow.h"
 #include "app.h"
 #include "bgm.h"
 #include "bgm_menu.h"
@@ -209,7 +210,7 @@ static void menu_choices(app *a, int sys, bool games)
 {
 	/* A system's menu and MENU each their own words: the shelf under MENU
 	 * builds a system's rows too, and must not write over MENU's */
-	static ch_pool PS[9], PM[10];
+	static ch_pool PS[10], PM[10];
 	ch_pool *P = games ? PS : PM;
 	int i, n, cur;
 
@@ -248,6 +249,8 @@ static void menu_choices(app *a, int sys, bool games)
 		if (n > 1) g_sm_choice[SM_CORE] = ch_make(&P[2], n, cur, false);
 		for (i = 0; i < DSL_CHOICES; i++) P[3].lab[i] = dslang_label((dsl_choice)i, P[3].buf[i], sizeof P[3].buf[i]);
 		g_sm_choice[SM_DSLANG] = ch_make(&P[3], DSL_CHOICES, dslang_load(), false);
+		for (i = 0; i < DSS_CHOICES; i++) P[9].lab[i] = T(dsslow_label_id((dss_choice)i));
+		g_sm_choice[SM_DSSLOW] = ch_make(&P[9], DSS_CHOICES, dsslow_load(), false);
 		for (i = 0; i < SORT_COUNT; i++) P[4].lab[i] = sort_label(i);
 		g_sm_choice[SM_SORT] = ch_make(&P[4], SORT_COUNT, v->sort, false);
 		{
@@ -395,6 +398,7 @@ int menu_build(app *a, screen_id screen, int sys,
 			static char dslbuf[64];
 
 			u.dslang = dslang_row_shown(a, sys) ? dslang_label(dslang_load(), dslbuf, sizeof dslbuf) : NULL;
+			u.dsslow = dslang_row_shown(a, sys) ? T(dsslow_label_id(dsslow_load())) : NULL;
 		}
 		/* By what it HAS, not by its name or its position: a shelf with no
 		 * core and no folder is the built one, and a check can hand that
@@ -1043,6 +1047,7 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 		else if (!is_muse(&a->sys.systems[a->sys_cursor])) {
 			sys_ui dev = { .no_wifi = !plat_has_wifi(), .online = net_internet(NULL),
 			               .dslang = dslang_row_shown(a, a->sys_cursor) ? "" : NULL,
+			               .dsslow = dslang_row_shown(a, a->sys_cursor) ? "" : NULL,
 			               .no_strength = !shader_has_strength(a->view[a->sys_cursor].shader) };
 			sm_row ids[SM_ROWS];
 			int n = sys_menu_system_rows(&dev, ids);
@@ -1063,6 +1068,12 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 			dsl_choice c = dslang_step(dslang_load(), d ? d : 1);
 
 			db_set_str(db_dev(), DSLANG_SETTING, dslang_id(c));
+			return MENU_STAY;
+		}
+		/* When Slow, Keep Speed or Steady 30, the same way: the next game
+		 * started draws its late frames so (src/dsslow.h) */
+		if ((d || key == IN_ACCEPT) && sel == SM_DSSLOW) {
+			db_set_str(db_dev(), DSSLOW_SETTING, dsslow_id(dsslow_step(dsslow_load(), d ? d : 1)));
 			return MENU_STAY;
 		}
 		/* The shader, stepped round on left, right and A and kept at once,

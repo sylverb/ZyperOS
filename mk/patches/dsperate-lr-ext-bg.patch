@@ -1,0 +1,109 @@
+diff --git a/patches/0003-ext-bg-run.patch b/patches/0003-ext-bg-run.patch
+new file mode 100644
+index 0000000..a83b1e8
+--- /dev/null
++++ b/patches/0003-ext-bg-run.patch
+@@ -0,0 +1,83 @@
++diff --git a/src/core/gpu/engine2d.cpp b/src/core/gpu/engine2d.cpp
++index 9bd0b785..e3ff8ff7 100644
++--- a/src/core/gpu/engine2d.cpp
+++++ b/src/core/gpu/engine2d.cpp
++@@ -463,6 +463,10 @@ void Engine2D::draw_bg_extended(u32 line, int bg) {
++     const bool direct = cnt & (1 << 2);
++     if (direct) plane.table = kern::direct_table();
++     if (!mosaic && dx == 0x100 && dy == 0) { bitmap_row_degenerate(plane, base, xmask, ymask, yshift, ofx == 0, direct, rx, ry); return; }
+++    // The whole bitmap as one host range when its banks allow (vram_run):
+++    // then a pixel is one load, not a block lookup. Rows times the row length.
+++    const u32 texels = ((ymask >> 8) + 1) << yshift;
+++    const u8* run = vram_run(vv, base, direct ? texels * 2 : texels);
++     u32 mosaic_phase = 0;
++     s32 mosaic_rx = rx, mosaic_ry = ry;
++     for (u32 i = 0; i < 256; ++i, rx += dx, ry += dy,
++@@ -472,11 +476,12 @@ void Engine2D::draw_bg_extended(u32 line, int bg) {
++       if ((fx & ofx) || (fy & ofy)) continue;
++       const u32 off = (((fy & ymask) >> 8) << yshift) + ((fx & xmask) >> 8);
++       if (direct) {
++-        const u16 c = vram_fetch16(vm, vv, base + (off << 1));
+++        u16 c;
+++        if (run) std::memcpy(&c, run + (off << 1), 2); else c = vram_fetch16(vm, vv, base + (off << 1));
++         if (!(c & 0x8000)) continue;
++         plane.v()[i] = c;
++       } else {
++-        const u8 idx = vram_fetch8(vm, vv, base + off);
+++        const u8 idx = run ? run[off] : vram_fetch8(vm, vv, base + off);
++         if (!idx) continue;
++         plane.v()[i] = LV_OPAQUE | idx;
++       }
++@@ -490,6 +495,10 @@ void Engine2D::draw_bg_extended(u32 line, int bg) {
++     if (!num_) { tileset += (cur_.dispcnt & 0x07000000) >> 8; tilemap += (cur_.dispcnt & 0x38000000) >> 11; }
++     if (!mosaic && dx == 0x100 && dy == 0) { tile_row_degenerate(plane, tilemap, tileset, coordmask, yshift, overflow == 0, true, extpal, bg, rx, ry); if (extpal) plane.table = extpal18_.data() + bg * 4096; return; }
++     u32 palmask = 0;
+++    // The map (2 bytes an entry, 1 << yshift entries a side) and the tileset
+++    // (1024 tiles of 64 bytes) as host ranges when their banks allow.
+++    const u8* map_run = vram_run(vv, tilemap, 2u << (2 * yshift));
+++    const u8* set_run = vram_run(vv, tileset, 1024u * 64u);
++     u32 mosaic_phase = 0;
++     s32 mosaic_rx = rx, mosaic_ry = ry;
++     for (u32 i = 0; i < 256; ++i, rx += dx, ry += dy,
++@@ -497,11 +506,14 @@ void Engine2D::draw_bg_extended(u32 line, int bg) {
++       if (mosaic && mosaic_phase == 0) { mosaic_rx = rx; mosaic_ry = ry; }
++       const s32 fx = mosaic ? mosaic_rx : rx, fy = mosaic ? mosaic_ry : ry;
++       if ((fx | fy) & overflow) continue;
++-      const u16 tile = vram_fetch16(vm, vv, tilemap + ((((fy & coordmask) >> 11) << yshift) + ((fx & coordmask) >> 11)) * 2);
+++      const u32 moff = ((((fy & coordmask) >> 11) << yshift) + ((fx & coordmask) >> 11)) * 2;
+++      u16 tile;
+++      if (map_run) std::memcpy(&tile, map_run + moff, 2); else tile = vram_fetch16(vm, vv, tilemap + moff);
++       u32 tx = (fx >> 8) & 7, ty = (fy >> 8) & 7;
++       if (tile & (1 << 10)) tx = 7 - tx;
++       if (tile & (1 << 11)) ty = 7 - ty;
++-      const u8 idx = vram_fetch8(vm, vv, tileset + ((tile & 0x3FF) << 6) + (ty << 3) + tx);
+++      const u32 soff = ((tile & 0x3FF) << 6) + (ty << 3) + tx;
+++      const u8 idx = set_run ? set_run[soff] : vram_fetch8(vm, vv, tileset + soff);
++       if (!idx) continue;
++       plane.v()[i] = static_cast<u16>(LV_OPAQUE | (extpal ? ((tile >> 12) << 8) : 0) | idx); plane.any = true;
++       palmask |= 1u << (tile >> 12);
++diff --git a/src/core/gpu/vram_map.h b/src/core/gpu/vram_map.h
++index b9fc8d59..82552d8d 100644
++--- a/src/core/gpu/vram_map.h
+++++ b/src/core/gpu/vram_map.h
++@@ -79,4 +79,20 @@ inline u16 vram_fetch16(const VramMap& vm, const VramView& v, u32 a) {
++   u16 r; std::memcpy(&r, p + (a & (VramView::BLOCK - 1)), 2); return r;
++ }
++ 
+++// The `len` bytes at `addr` as one host range, for a renderer that indexes a
+++// whole bitmap, map or tileset per pixel: when every block they cover is
+++// backed by exactly one bank and those blocks lie back to back in host memory
+++// (one bank's blocks always do), the range starts here; else nullptr, and the
+++// caller fetches per pixel. The range lies inside the view, so the view's
+++// wrap never applies to it.
+++inline const u8* vram_run(const VramView& v, u32 addr, u32 len) {
+++  if (len == 0 || addr >= v.size || len > v.size - addr) return nullptr;
+++  const u32 b0 = addr / VramView::BLOCK, b1 = (addr + len - 1) / VramView::BLOCK;
+++  const u8* p0 = v.ptr[b0];
+++  if (!p0) return nullptr;
+++  for (u32 b = b0 + 1; b <= b1; ++b)
+++    if (v.ptr[b] != p0 + (b - b0) * VramView::BLOCK) return nullptr;
+++  return p0 + (addr & (VramView::BLOCK - 1));
+++}
+++
++ } // namespace ds::gpu
+diff --git a/patches/README.md b/patches/README.md
+index 94e8ccb..745c504 100644
+--- a/patches/README.md
++++ b/patches/README.md
+@@ -18,3 +18,15 @@ how it was checked. Drop a patch once the submodule moves past its fix.
+   empty `tune=`), so a device's `-mcpu` build still uses the profile. `-mcpu`
+   changes code generation, not the control flow GCC matches profiles on;
+   `build.sh`'s "functions without their profile" count shows any that lost it.
++- `0003-ext-bg-run.patch` - a rotated or scaled extended background (a
++  bitmap, or a 16-bit tile map) fetched each pixel through the VRAM view's
++  per-block lookup. When every 16 KB block of the bitmap, or of the map and
++  the tileset, is backed by exactly one bank and the blocks lie back to back
++  in host memory (`vram_run`, from the view's own block pointers), each pixel
++  is one load from that range; otherwise the per-pixel fetch, unchanged.
++  Mario Kart DS's lower screen in a race: engine B's worker thread 28% less
++  CPU, and the emulation thread's wait for it at line 0 from 2.3 to 0.5 ms a
++  frame (Pixel 2, 2026-11-16). Checked frame for frame against the core
++  without it: ZyperOS's mk/dsperate-extbg-check.sh (96 frames of bitmaps,
++  direct colour and tile maps in four bank layouts) and Pokemon Black frames
++  from a saved state.

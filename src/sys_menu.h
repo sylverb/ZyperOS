@@ -152,7 +152,7 @@ typedef enum { PT_GAMES, PT_DISPLAY, PT_SOUND, PT_CONNECTIONS, PT_SYSTEM,
 #define SM_NOTE_W 760
 
 typedef enum {
-	SM_GAMES, SM_RANDOM, SM_CORE, SM_DSLANG, SM_SORT, SM_VIEW,
+	SM_GAMES, SM_RANDOM, SM_CORE, SM_DSLANG, SM_DSSLOW, SM_SORT, SM_VIEW,
 	SM_DISPLAY, SM_SHADER, SM_STRENGTH, /* SM_BUTTONS, */ SM_BOXART,
 	SM_RESCAN, SM_ROWS
 } sm_row;
@@ -414,6 +414,9 @@ typedef struct {
 	 * the row's value, "Auto (English)" or a language's name. NULL: the
 	 * shelf has no such row, and every other shelf's menu is as it was. */
 	const char *dslang;
+	/* When Slow, under Game Language, on the same shelf (src/dsslow.h):
+	 * "Keep Speed" or "Steady 30". NULL: no such row. */
+	const char *dsslow;
 	int         game_count;
 	const char *dmode;
 	/* This system's shader's label, after Display Mode; NULL reads Off */

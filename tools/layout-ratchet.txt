@@ -17,8 +17,8 @@
 1 ingame_screen.c
 2 kbnav.h
 5 keyboard.c
-17 mediapage.c
-4 mediapage.h
+7 mediapage.c
+2 mediapage.h
 2 menu_panel.c
 2 mp4frame.h
 2 muse/snap.c
