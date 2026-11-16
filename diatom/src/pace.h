@@ -35,6 +35,8 @@
 #ifndef DIATOM_PACE_H
 #define DIATOM_PACE_H
 
+#include <stddef.h>
+
 typedef enum {
 	PACE_KEEP,       /* keep the whole debt; the next turns repay it */
 	PACE_RESYNC,     /* more than four frames behind: drop it all */
@@ -43,6 +45,11 @@ typedef enum {
 
 /* The queue's depth in frames, for a queue of `capacity`: half its target */
 static inline double pace_depth_frames(int capacity) { return capacity / 4.0; }
+
+/* How long until `n` more frames fit in a queue of `capacity` that holds
+ * `queued`, at `rate` frames a second taken by the device: 0 when they fit
+ * now. audio.c's HOLD waits this long for room (in steps). */
+double pace_room_us(size_t queued, size_t n, int capacity, double rate);
 
 /* `late_us`, how far past its deadline the turn ended (0 or more), at 1x;
  * `depth_us`, the queue's depth as time (0 when there is no sound device:

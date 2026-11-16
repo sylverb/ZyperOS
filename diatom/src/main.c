@@ -2633,6 +2633,7 @@ static int run_session_inner(const diatom_session *sn)
 		power_fast = fast;
 		power_drops = diatom_audio_dropped();
 		const uint64_t batch_t0 = diatom_port_now_us();
+		const uint64_t held0 = diatom_audio_held_pushes();
 		const double budget = periods * frame_us - FAST_MARGIN_US -
 		                      (g_present_frames ? (double)g_present_us /
 		                                          (double)g_present_frames
@@ -2641,6 +2642,10 @@ static int run_session_inner(const diatom_session *sn)
 
 		g_frame_fresh = false;
 		g_audio_fast = fast;
+		/* A core paced by its sound has its pushes wait for room rather
+		 * than be refused (audio.c, HOLD), at 1x: fast forward's own
+		 * silence is the loop's, and never waits */
+		diatom_audio_hold(sound_paced && !fast);
 		/* Only the last frame of a turn is drawn on the panel, so fast, a core
 		 * with a frameskip runs the frames before it unshown and skips their
 		 * drawing (env.c, diatom_env_frame_shown). A frame runs unshown while
@@ -3140,6 +3145,17 @@ static int run_session_inner(const diatom_session *sn)
 			double us = (double)g_turn_sound * 1000000.0 / audio_rate;
 
 			next_us += us < frame_us * 4.0 ? us : frame_us * 4.0;
+			/* A turn whose sound waited for room (audio.c, HOLD) left the
+			 * queue full: the next one waits until it is back at its
+			 * target, so the sound is no later than before the burst, where
+			 * rate control alone would take seconds to bring it down */
+			if (diatom_audio_held_pushes() != held0 && audio_cap > 0 && g_caps.audio_rate > 0) {
+				const double q = (double)diatom_port_audio_queued(), target = audio_cap / 2.0;
+				const double back = (double)diatom_port_now_us() +
+				                    (q > target ? (q - target) * 1e6 / g_caps.audio_rate : 0);
+
+				if (next_us < back) next_us = back;
+			}
 		} else if (fast) {
 			/* The time the turn's frames stand for at the step, not the two
 			 * refreshes the turn is drawn in: a core that ran the step's
@@ -3223,6 +3239,7 @@ static int run_session_inner(const diatom_session *sn)
 	 * game this way and the device powers off after them (the core's stop
 	 * resets the hold). */
 	diatom_rumble_hold(true);
+	diatom_audio_hold(false);
 	diatom_port_fast_clock(false, false);
 	diatom_port_power(DIATOM_POWER_FULL);
 	/* And player 2's file goes now, before EXIT, so it is gone by the time
@@ -3306,6 +3323,9 @@ static int run_session_inner(const diatom_session *sn)
 			       g_present_frames);
 		printf("diatom: audio dropped %llu frame(s)\n",
 		       (unsigned long long)diatom_audio_dropped());
+		if (diatom_audio_held_pushes())
+			printf("diatom: audio waited %.1f s for room, over %llu push(es)\n",
+			       diatom_audio_held_us() / 1e6, (unsigned long long)diatom_audio_held_pushes());
 		printf("diatom: audio IN  peak %d rms %.0f, %llu of %llu non-zero\n",
 		       diatom_audio_in_peak(), diatom_audio_in_rms(),
 		       (unsigned long long)diatom_audio_in_nonzero(),

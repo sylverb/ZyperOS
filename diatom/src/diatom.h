@@ -516,6 +516,12 @@ double diatom_audio_ratio_drift(void);     /* current DRC correction, for report
 /* Frames the port refused, this session. Nonzero means rate control is not
  * keeping up - the buffer is hitting a wall rather than being steered. */
 uint64_t diatom_audio_dropped(void);
+/* A push that does not fit waits for room instead of being refused (audio.c,
+ * HOLD), for a core paced by its sound; and how long it waited this session,
+ * over how many pushes */
+void     diatom_audio_hold(bool on);
+uint64_t diatom_audio_held_us(void);
+uint64_t diatom_audio_held_pushes(void);
 
 /* Peak absolute sample, and how many of the samples written were non-zero.
  * The first thing to check when nothing is audible. */
