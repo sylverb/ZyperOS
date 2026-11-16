@@ -1110,18 +1110,31 @@ static double sound_rate(const struct retro_system_info *si,
  * And against the clock: the frames a second the game really ran, over the
  * time the step was held less the menu's, as a share of its own rate. The
  * turns alone said 1.00x for Super Mario 64 at 1x while the game ran at 56%
- * of its speed (2026-11-08): a turn that runs late still counts one period. */
+ * of its speed (2026-11-08): a turn that runs late still counts one period.
+ *
+ * And how long the loop slept in the step, and how much of that after a
+ * fast turn short of the step's frames (one that stopped because the next
+ * frame would not fit its two refreshes): such a turn is behind, and the
+ * next should start at once, so its sleep is the pacing's fault, whatever
+ * the machine (until 2026-11-16 a slow core slept there a fifth of the
+ * time). The turns short of the step say whether the machine could keep the
+ * step at all. test/fastforward.py judges by these on any machine. */
+struct step_sleep { double us, short_us; long turns, short_turns; };
+
 static void step_report(int half, long frames, double turns_us, uint64_t held_us,
-                        uint64_t paused, double frame_us, uint64_t dropped)
+                        uint64_t paused, double frame_us, uint64_t dropped,
+                        const struct step_sleep *sl)
 {
 	double ran_us = held_us > paused ? (double)(held_us - paused) : 0.0;
 
 	printf("diatom: speed %.1fx held %.1fs, reached %.2fx (%.2fx of the clock), "
-	       "%llu audio frame(s) dropped\n",
+	       "%llu audio frame(s) dropped, slept %.2fs (%.2fs after %ld of %ld turns short "
+	       "of the step)\n",
 	       half / 2.0, held_us / 1000000.0,
 	       turns_us > 0.0 ? (double)frames * frame_us / turns_us : 0.0,
 	       ran_us > 0.0 ? (double)frames * frame_us / ran_us : 0.0,
-	       (unsigned long long)dropped);
+	       (unsigned long long)dropped, sl->us / 1000000.0, sl->short_us / 1000000.0,
+	       sl->short_turns, sl->turns);
 	fflush(stdout);
 }
 
@@ -2193,6 +2206,8 @@ static int run_session_inner(const diatom_session *sn)
 	 * any audio dropped while it was - logged when it changes and at exit. */
 	long     step_frames = 0;
 	double   step_us = 0.0;        /* the wall clock's time in this step's turns */
+	struct step_sleep step_sleep = { 0 };   /* ... and how the loop slept in it */
+	bool     turn_short = false;   /* the last fast turn ran short of the step's frames */
 	uint64_t step_t0 = 0, step_drop0 = 0, step_pause0 = 0;
 	/* Sound dropped at 1x so far, and whether the last turn ran fast, for
 	 * the power ceiling (power_trouble) */
@@ -2702,6 +2717,9 @@ static int run_session_inner(const diatom_session *sn)
 			}
 		}
 		step_frames += ran;
+		turn_short = fast && ran < speed_half();
+		if (fast) step_sleep.turns++;
+		if (turn_short) step_sleep.short_turns++;
 		{
 			const uint64_t t = diatom_port_now_us();
 
@@ -2866,12 +2884,13 @@ static int run_session_inner(const diatom_session *sn)
 					step_report(speed_half(), step_frames, step_us,
 					            diatom_port_now_us() - step_t0,
 					            paused_us - step_pause0, frame_us,
-					            diatom_audio_dropped() - step_drop0);
+					            diatom_audio_dropped() - step_drop0, &step_sleep);
 					g_speed_ix = to;
 					printf("diatom: speed %.1fx\n", speed_half() / 2.0);
 					fflush(stdout);
 					step_frames = 0;
 					step_us = 0.0;
+					memset(&step_sleep, 0, sizeof step_sleep);
 					step_t0 = diatom_port_now_us();
 					step_pause0 = paused_us;
 					step_drop0 = diatom_audio_dropped();
@@ -3106,6 +3125,8 @@ static int run_session_inner(const diatom_session *sn)
 			ts.tv_sec  = (time_t)(d / 1000000.0);
 			ts.tv_nsec = (long)(fmod(d, 1000000.0) * 1000.0);
 			nanosleep(&ts, NULL);
+			step_sleep.us += d;
+			if (turn_short) step_sleep.short_us += d;
 		} else if (fast) {
 			/* Behind, fast. One turn of debt is kept, so a turn that ran
 			 * over (a busy moment) is repaid by the next and a core that
@@ -3174,7 +3195,7 @@ static int run_session_inner(const diatom_session *sn)
 		step_report(speed_half(), step_frames, step_us,
 		            diatom_port_now_us() - step_t0,
 		            paused_us - step_pause0, frame_us,
-		            diatom_audio_dropped() - step_drop0);
+		            diatom_audio_dropped() - step_drop0, &step_sleep);
 
 	{
 		uint64_t t_end = diatom_port_now_us();
