@@ -482,6 +482,9 @@ sysmenu.order_release
 sysmenu.battery_percent
 sysmenu.battery_time
 sysmenu.dslang
+sysmenu.dsslow
+sysmenu.dsslow_keep
+sysmenu.dsslow_steady
 sysmenu.muse_books
 sysmenu.muse_albums
 sysmenu.muse_author

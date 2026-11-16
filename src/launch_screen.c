@@ -658,7 +658,7 @@ void launch(app *a)
 		char map[320];
 		bool stick_on = rms_stick_get(s, romfile);
 
-		cfg_run_keys(s, g_game_dual, keys, (int)sizeof keys);
+		cfg_run_keys(s, g_game_dual, dsslow_frameskip(dsslow_load()), keys, (int)sizeof keys);
 		/* The d-pad as the stick, a game's own (rms_stick_get): the PSP's
 		 * stick=toggle-stick when it was left on the stick */
 		rms_run_stick(s, stick_on, stick, sizeof stick);
@@ -1105,7 +1105,8 @@ void launch(app *a)
 
 			screens_get(s->tag, &lay, &sw);
 			argv[n++] = (char *)"--screens";   argv[n++] = (char *)"2";
-			argv[n++] = (char *)"--frameskip"; argv[n++] = (char *)"late";
+			argv[n++] = (char *)"--frameskip";
+			argv[n++] = (char *)dsslow_frameskip(dsslow_load());
 			argv[n++] = (char *)"--layout";    argv[n++] = (char *)gm_layout_names[lay];
 			if (sw) argv[n++] = (char *)"--swap";
 		}
