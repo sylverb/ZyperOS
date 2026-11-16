@@ -190,6 +190,8 @@ static void message_draw(SDL_Renderer *r, const mpg_page *p, unsigned now)
 	if (p->msg_wrap) {
 		int n = ui_balance_lines(fs, p->msg_wrap, room - 120, 3, lines);
 
+		ui_fit_drawn(p->msg_wrap);    /* drawn in lines, so said whole to the host's check */
+
 		for (k = 0; k < n; k++, y += 42) ui_text(r, fs, lines[k], x, ui_cap_y(fs, y), -1, UI_TEXT_DIM);
 	}
 	for (k = 0; k < p->nmsg_lines; k++, y += 42)
@@ -263,6 +265,7 @@ static void video_draw(SDL_Renderer *r, const mpg_page *p)
 		ui_round_rect(r, &t, DS_RADIUS_CHIP * 2, col(th->raised));
 		if (p->vid_status) {
 			n = ui_balance_lines(fs, p->vid_status, VTILE_W - 32, 2, lines);
+			ui_fit_drawn(p->vid_status);
 			for (k = 0; k < n; k++)
 				ui_text(r, fs, lines[k], t.x + t.w / 2,
 				        ui_cap_y(fs, t.y + t.h / 2 + (k * 2 - (n - 1)) * 21), 0, UI_TEXT_DIM);
@@ -277,6 +280,8 @@ static void video_draw(SDL_Renderer *r, const mpg_page *p)
 		TTF_Font *fm = ui_font(UI_F_META);
 		char lines[3][LB_LINE];
 		int n = ui_balance_lines(fm, p->vid_note, X1 - ROWS_X - ROW_PAD, 3, lines), k;
+
+		ui_fit_drawn(p->vid_note);
 
 		for (k = 0; k < n; k++)
 			ui_text(r, fm, lines[k], ROWS_X, ui_cap_y(fm, VTILE_Y + 24 + k * 42), -1, UI_TEXT_DIM);

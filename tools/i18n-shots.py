@@ -133,10 +133,6 @@ def unescape(text):
 UNSHOT = ROOT / "tools" / "i18n-unshot.txt"
 UNSHOT_WHY = {
     "hare": "answers sent to the File Transfer page, which draws them, not the launcher",
-    "media": "drawn composed with another word (\"Box Front · USA\", \"libretro · no match\") or "
-             "wrapped onto balanced lines (the question, the line under \"Connect to Wi-Fi first.\", "
-             "the video's tile), so no drawn line is the string; the media-* shots draw every one "
-             "and fail on any cut (src/mediapage.c, src/media_screen.c's media_shot)",
     "storage": "drawn wrapped to their lines, in pieces of a line (the used number as a title, "
                "a part of the line under the list), with tabular digits, or a plural's one form "
                "the stand-in card has none of (src/storage_page.c, src/main.c's storage_shot)",
@@ -153,7 +149,19 @@ def read_unshot():
     return ids
 
 
+def read_unshot_why():
+    """Each listed string's own reason, the words after its ID's #"""
+    why = {}
+    for line in UNSHOT.read_text(encoding="utf-8").splitlines() if UNSHOT.is_file() else []:
+        name, sep, reason = line.partition("#")
+        if sep and name.strip():
+            why[name.strip()] = reason.strip()
+    return why
+
+
 def write_unshot(ids):
+    # A string's own reason stays with it, as the header says
+    kept = read_unshot_why()
     out = ["# Strings of res/strings that no shot of tools/i18n-shots.py draws, so that",
            "# check-i18n-shots cannot say whether they fit where they are drawn.",
            "#",
@@ -169,7 +177,7 @@ def write_unshot(ids):
             out.append("")
             out.append("# " + group + ": " + UNSHOT_WHY.get(group, UNSHOT_DEFAULT))
             last = group
-        out.append(name)
+        out.append(name + ("  # " + kept[name] if kept.get(name) else ""))
     UNSHOT.write_text("\n".join(out) + "\n", encoding="utf-8")
 
 
@@ -385,6 +393,9 @@ EXTRA = {
     "media-novideo": ("demo", "PS1", ["--screen", "games", "--media", "novideo", "--media-art", "{card}/media-art"]),
     "media-tile-1": ("demo", "PS1", ["--screen", "games", "--media", "page", "1", "--media-art", "{card}/media-art"]),
     "media-tile-2": ("demo", "PS1", ["--screen", "games", "--media", "page", "2", "--media-art", "{card}/media-art"]),
+    # Nothing found with ScreenScraper not linked; offline with no video
+    "media-nothing-off": ("demo", "PS1", ["--screen", "games", "--media", "nothing-off", "--media-art", "{card}/media-art"]),
+    "media-offline-novideo": ("demo", "PS1", ["--screen", "games", "--media", "offline-novideo", "--media-art", "{card}/media-art"]),
     "media-tile-3": ("demo", "PS1", ["--screen", "games", "--media", "page", "3", "--media-art", "{card}/media-art"]),
     "media-tile-4": ("demo", "PS1", ["--screen", "games", "--media", "page", "4", "--media-art", "{card}/media-art"]),
     "media-tile-5": ("demo", "PS1", ["--screen", "games", "--media", "page", "5", "--media-art", "{card}/media-art"]),
