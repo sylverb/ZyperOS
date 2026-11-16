@@ -61,10 +61,13 @@ impl Release {
     }
 
     /// Whether it is a published version: tagged v and a number, neither a
-    /// draft nor a pre-release
+    /// draft nor a pre-release. A version with a hyphen (a test kit,
+    /// 1.0.6-kit.2) is a pre-release even if its release lost the flag
     fn published(&self) -> bool {
         let rest = self.tag_name.strip_prefix('v');
-        !self.draft && !self.prerelease && rest.is_some_and(|r| r.starts_with(|c: char| c.is_ascii_digit()))
+        !self.draft
+            && !self.prerelease
+            && rest.is_some_and(|r| r.starts_with(|c: char| c.is_ascii_digit()) && !r.contains('-'))
     }
 
     /// Whether it carries the installer's apps
@@ -339,6 +342,7 @@ mod tests {
         assert!(!beta.published() && !draft.published(), "never a pre-release or a draft");
         assert!(!release("vNext", &[]).published(), "a version, not any tag starting with v");
         assert!(!release("installer-v1.0.0", &[]).published(), "the old installer tags are not versions");
+        assert!(!release("v1.0.6-kit.2", &[]).published(), "a kit, even without the pre-release flag");
         assert!(!release("v0.1.0", &["ZyperOS-v0.1.0-pixel2.img.xz"]).has_installer());
     }
 

@@ -175,18 +175,27 @@ git fetch -q origin
 HEAD=$(git rev-parse HEAD)
 # A kit: main as GitHub has it at some commit, with only its version and its
 # notes changed. Each version file's change is its version line alone
+# version_blank FILE REV: FILE at REV with ZyperOS's version line blanked, as
+# tools/set-version.sh finds it: the Makefile's VERSION, the installer's
+# package version, and its entry's in Cargo.lock (not a dependency's)
+version_blank() {
+	git show "$2:$1" | case $1 in
+	Makefile) sed 's/^VERSION ?= .*/VERSION ?= -/' ;;
+	installer/src-tauri/Cargo.toml) awk '!done && /^version = "/ { $0 = "version = -"; done = 1 } { print }' ;;
+	*) awk 'prev == "name = \"zyperos-installer\"" && /^version = "/ { $0 = "version = -" } { print; prev = $0 }' ;;
+	esac
+}
 kit_change() {
 	BASE=$(git merge-base HEAD origin/main) || stop "$(git rev-parse --short HEAD) shares no commit with origin/main"
-	for f in $(git diff --name-only "$BASE" HEAD); do
+	CHANGED=$(git diff --name-only "$BASE" HEAD) || stop "git can't compare $(git rev-parse --short HEAD) with main"
+	for f in $CHANGED; do
 		case $f in
-		Makefile) pat='^[+-]VERSION [?]= ' ;;
-		installer/src-tauri/Cargo.toml | installer/src-tauri/Cargo.lock) pat='^[+-]version = "' ;;
-		"$NOTES") continue ;;
+		Makefile | installer/src-tauri/Cargo.toml | installer/src-tauri/Cargo.lock)
+			[ "$(version_blank "$f" "$BASE")" = "$(version_blank "$f" HEAD)" ] ||
+				stop "a kit changes only the version line of $f; this commit changes more of it" ;;
+		"$NOTES") ;;
 		*) stop "a kit changes only the version and $NOTES from main; this commit changes $f too (main at $(git rev-parse --short "$BASE"))" ;;
 		esac
-		# Read whole, so no early exit breaks the pipe
-		other=$(git diff -U0 "$BASE" HEAD -- "$f" | sed -e '/^+++ /d' -e '/^--- /d' -e '/^[+-]/!d' | grep -v "$pat" || true)
-		[ -z "$other" ] || stop "a kit changes only the version line of $f; this commit changes more of it:" $other
 	done
 	echo "release.sh: a kit of main at $(git rev-parse --short "$BASE"), with its version and notes"
 }
