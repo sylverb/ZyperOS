@@ -136,8 +136,10 @@ itself to the next release once there is one.
 2. `make release KIT=brick` (`tools/release.sh --kit brick`) builds those
    devices' images from it as step 3 does, into `out/release/v<version>/`,
    with no System Update files: System Update only reads the latest.
-3. `tools/release.sh --kit brick --publish-built` publishes those files, or
-   `make release KIT=brick PUBLISH=1` builds them again first. Both refuse a
+3. `tools/release.sh --kit brick --publish-built` publishes those files,
+   also after a change to only the notes, the installer, the workflows or
+   the docs, none of which goes into the image; or `make release KIT=brick
+   PUBLISH=1` builds them again first. Both refuse a
    version with no hyphen and a commit that changes more than the version
    and the notes from main; neither needs `Tested on` lines (the kit is the
    test) or posts in #releases (a kit's testers get it in its own thread).
