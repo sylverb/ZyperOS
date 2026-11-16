@@ -8,7 +8,7 @@
 # pins DSperate as a submodule, so one commit of the wrapper pins both. This is
 # the wrapper plorpOS ships on its GKD and RG Rotate builds
 # (thwonp/plorpOS mk/build-dsperate.sh, MIT), at the same commit, built the same
-# way, plus five patches of ours (below).
+# way, plus six patches of ours (below).
 #
 # PGO: DSperate commits a GCC profile with each release, made with GCC 13.3 on
 # Ubuntu 24.04 (its CI), and the wrapper's build.sh applies it. A profile only
@@ -109,6 +109,17 @@
 # mk/dsperate-extbg-check.sh holds the built core's frames to the ones before
 # the patch (below).
 #
+# The sixth, mk/patches/dsperate-lr-frame-direct.patch: the wrapper copied
+# both screens into a frame of its own every retro_run (393 KB) and handed
+# that to the frontend, which copies it again (Diatom, into the frame it
+# presents). DSperate keeps the two screens as one array of two, the bottom
+# one where the top one ends, which is the stacked frame already; the patch
+# hands that over, and copies only if they ever stop being back to back. A
+# frontend copies the frame within the call, and nothing draws into those
+# buffers again until the next run_frame, whose drawing starts after its
+# line-0 join. Only libretro.cpp changes. mk/dsperate-extbg-check.sh hashes
+# the frames the core hands over, so it holds them to the same pixels.
+#
 # The result is checked before it is installed: no unversioned undefined
 # symbol (it would not dlopen), and nothing newer than plastron's glibc 2.42
 # and libstdc++ 6.0.34 (GLIBCXX_3.4.34). It needs GLIBC_2.38 and GLIBCXX_3.4.30
@@ -129,7 +140,7 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 SRC=${SRC:-/tmp/zyperos-dsperate-lr}
 REPO=${DSPERATE_LR:-https://github.com/thwonp/dsperate-lr.git}
 LR=093d50fcbd10531273e0cc22a23c6644a26b9b71   # DSperate v3.0.5 (ddf2910), plorpOS's pin
-SHA=2ada9d237277b43fdb57d62998c06a40ffb18a94087e5326c528dcdcbb5539ee
+SHA=9aac2ecb2c5e169bb2c00c0a7d45c93bf1e2535904dd13456d38ff44223efe32
 IMAGE=dsperate-lr-cross
 PLAT=linux/amd64
 
@@ -146,6 +157,7 @@ git -C "$SRC" apply "$ROOT/mk/patches/dsperate-lr-threads.patch"
 git -C "$SRC" apply "$ROOT/mk/patches/dsperate-lr-language.patch"
 git -C "$SRC" apply "$ROOT/mk/patches/dsperate-lr-rtc.patch"
 git -C "$SRC" apply "$ROOT/mk/patches/dsperate-lr-ext-bg.patch"
+git -C "$SRC" apply "$ROOT/mk/patches/dsperate-lr-frame-direct.patch"
 docker image inspect $IMAGE >/dev/null 2>&1 ||
 	docker build --platform $PLAT -q -t $IMAGE "$SRC" >/dev/null
 
@@ -177,7 +189,7 @@ if [ "$GOT" != "$SHA" ]; then
 fi
 mkdir -p "$ROOT/vendor/cores"
 cp "$SO" "$ROOT/vendor/cores/"
-echo "  built  dsperate (dsperate-lr ${LR%${LR#???????}}, DSperate v3.0.5) + PGO + frameskip + thread layout + language + clock + extended BG runs, untuned ARMv8.0"
+echo "  built  dsperate (dsperate-lr ${LR%${LR#???????}}, DSperate v3.0.5) + PGO + frameskip + thread layout + language + clock + extended BG runs + direct frames, untuned ARMv8.0"
 echo "  sha256 $GOT"
 # Which patches are in it, for mk/payload.sh to hold it to: the 1.0.1 images
 # shipped a core built before the language patch (mk/core-stamp.sh)

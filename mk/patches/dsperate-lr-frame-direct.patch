@@ -1,0 +1,29 @@
+diff --git a/src/libretro.cpp b/src/libretro.cpp
+index 84ecc89..9b17f20 100644
+--- a/src/libretro.cpp
++++ b/src/libretro.cpp
+@@ -473,9 +473,21 @@ RETRO_API void retro_run(void) {
+   rtc_follow();
+   nds->run_frame();
+ 
+-  std::memcpy(frame, nds->gpu.framebuffer(0), W * H * 4);
+-  std::memcpy(frame + W * H, nds->gpu.framebuffer(1), W * H * 4);
+-  video_cb(frame, W, H * 2, W * 4);
++  // The two screens straight from DSperate's framebuffers when they lie back
++  // to back, the bottom one where the top one ends, as one array of the two
++  // always does: that is the stacked frame already, and copying it here cost
++  // 393 KB a frame. A frontend copies the frame within this call (libretro's
++  // rule; Diatom does), and nothing draws into them again until the next
++  // run_frame, which starts drawing only after its line-0 join. Copied as
++  // before if they ever stop being back to back.
++  const ds::u32* top = nds->gpu.framebuffer(0);
++  if (nds->gpu.framebuffer(1) == top + W * H) {
++    video_cb(top, W, H * 2, W * 4);
++  } else {
++    std::memcpy(frame, top, W * H * 4);
++    std::memcpy(frame + W * H, nds->gpu.framebuffer(1), W * H * 4);
++    video_cb(frame, W, H * 2, W * 4);
++  }
+   for (size_t n; (n = nds->spu.take(audio, 4096)) != 0;) audio_batch_cb(audio, n);
+ }
+ 

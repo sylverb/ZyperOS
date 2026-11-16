@@ -25,6 +25,7 @@
 #include "diatom.h"
 #include "levels.h"
 #include "now.h"
+#include "pace.h"
 #include "player2.h"
 #include "screens.h"
 
@@ -2251,6 +2252,8 @@ static int run_session_inner(const diatom_session *sn)
 	audio_forget();
 	diatom_levels_invalidate();
 	long frames = 0, geom_changes = 0, resyncs = 0;
+	long caught_up = 0;   /* debts cut to the sound queue's depth (pace.h) */
+	int  audio_cap = 0;   /* the sound queue's capacity this session; 0 without a device */
 	bool card_due = sn->card != NULL;   /* the card's frame, not taken yet */
 	bool card_later = false;            /* a GPU game's, at the next pause or the quit */
 	const uint64_t card_after = card_frame_after();
@@ -2410,6 +2413,8 @@ static int run_session_inner(const diatom_session *sn)
 		       "not the %.0f Hz announced\n", audio_rate, av.timing.sample_rate);
 	{
 		int cap = diatom_port_audio_start() ? g_caps.audio_buffer_frames : 0;
+
+		audio_cap = cap;
 
 		diatom_audio_configure(audio_rate, g_caps.audio_rate, cap);
 		g_foreign_high = (size_t)cap * 3 / 4;
@@ -2628,6 +2633,7 @@ static int run_session_inner(const diatom_session *sn)
 		power_fast = fast;
 		power_drops = diatom_audio_dropped();
 		const uint64_t batch_t0 = diatom_port_now_us();
+		const uint64_t held0 = diatom_audio_held_pushes();
 		const double budget = periods * frame_us - FAST_MARGIN_US -
 		                      (g_present_frames ? (double)g_present_us /
 		                                          (double)g_present_frames
@@ -2636,6 +2642,10 @@ static int run_session_inner(const diatom_session *sn)
 
 		g_frame_fresh = false;
 		g_audio_fast = fast;
+		/* A core paced by its sound has its pushes wait for room rather
+		 * than be refused (audio.c, HOLD), at 1x: fast forward's own
+		 * silence is the loop's, and never waits */
+		diatom_audio_hold(sound_paced && !fast);
 		/* Only the last frame of a turn is drawn on the panel, so fast, a core
 		 * with a frameskip runs the frames before it unshown and skips their
 		 * drawing (env.c, diatom_env_frame_shown). A frame runs unshown while
@@ -3135,6 +3145,17 @@ static int run_session_inner(const diatom_session *sn)
 			double us = (double)g_turn_sound * 1000000.0 / audio_rate;
 
 			next_us += us < frame_us * 4.0 ? us : frame_us * 4.0;
+			/* A turn whose sound waited for room (audio.c, HOLD) left the
+			 * queue full: the next one waits until it is back at its
+			 * target, so the sound is no later than before the burst, where
+			 * rate control alone would take seconds to bring it down */
+			if (diatom_audio_held_pushes() != held0 && audio_cap > 0 && g_caps.audio_rate > 0) {
+				const double q = (double)diatom_port_audio_queued(), target = audio_cap / 2.0;
+				const double back = (double)diatom_port_now_us() +
+				                    (q > target ? (q - target) * 1e6 / g_caps.audio_rate : 0);
+
+				if (next_us < back) next_us = back;
+			}
 		} else if (fast) {
 			/* The time the turn's frames stand for at the step, not the two
 			 * refreshes the turn is drawn in: a core that ran the step's
@@ -3167,17 +3188,35 @@ static int run_session_inner(const diatom_session *sn)
 			 * runs flat out and never sprints past the step later to repay
 			 * a slow stretch. */
 			if ((double)now - next_us > frame_us * periods) next_us = (double)now - frame_us * periods;
-		} else if ((double)now - next_us > frame_us * 4.0) {
-			/* More than four frames behind. Something stalled - the scheduler,
-			 * a page fault, a slow core - and trying to catch up would just run
-			 * fast for a while, which looks worse than dropping the debt.
-			 * Counted, because a loop that resyncs often is a loop that is
-			 * lying about its frame rate. */
-			next_us = (double)now;
-			resyncs++;
-			if (g_speed_ix == 0) power_trouble("a stall", now);
+		} else {
+			/* Behind at 1x (pace.h). The debt is kept and the next turns
+			 * repay it, unless it is more than four frames: something stalled
+			 * - the scheduler, a page fault, a slow core - and trying to catch
+			 * up would just run fast for a while, which looks worse than
+			 * dropping the debt. And only as deep as the sound queue: the
+			 * rest is time the device already played silence for, and
+			 * repaying it overfilled the queue, the newest sound refused.
+			 * Both counted, because a loop that resyncs often is a loop that
+			 * is lying about its frame rate. */
+			const double depth_us = audio_cap > 0 && g_caps.audio_rate > 0
+			                      ? pace_depth_frames(audio_cap) * 1e6 / g_caps.audio_rate
+			                      : 0.0;
+			double keep_us;
+
+			switch (pace_when_late((double)now - next_us, frame_us, depth_us, &keep_us)) {
+			case PACE_RESYNC:
+				next_us = (double)now;
+				resyncs++;
+				if (g_speed_ix == 0) power_trouble("a stall", now);
+				break;
+			case PACE_CAUGHT_UP:
+				next_us = (double)now - keep_us;
+				caught_up++;
+				break;
+			case PACE_KEEP:
+				break;
+			}
 		}
-		/* Otherwise keep the debt and let the next short sleep repay it. */
 		{
 			const double turn_us = (double)(diatom_port_now_us() - batch_t0);
 
@@ -3200,6 +3239,7 @@ static int run_session_inner(const diatom_session *sn)
 	 * game this way and the device powers off after them (the core's stop
 	 * resets the hold). */
 	diatom_rumble_hold(true);
+	diatom_audio_hold(false);
 	diatom_port_fast_clock(false, false);
 	diatom_port_power(DIATOM_POWER_FULL);
 	/* And player 2's file goes now, before EXIT, so it is gone by the time
@@ -3276,12 +3316,16 @@ static int run_session_inner(const diatom_session *sn)
 		printf("diatom: %ld geometry change(s), last rect %dx%d at %d,%d\n",
 		       geom_changes, g_dst.w, g_dst.h, g_dst.x, g_dst.y);
 		printf("diatom: %ld resync(s)\n", resyncs);
+		printf("diatom: %ld debt(s) cut to the sound queue's depth\n", caught_up);
 		if (g_present_frames)
 			printf("diatom: present avg %.2f ms over %ld frames\n",
 			       (double)g_present_us / (double)g_present_frames / 1000.0,
 			       g_present_frames);
 		printf("diatom: audio dropped %llu frame(s)\n",
 		       (unsigned long long)diatom_audio_dropped());
+		if (diatom_audio_held_pushes())
+			printf("diatom: audio waited %.1f s for room, over %llu push(es)\n",
+			       diatom_audio_held_us() / 1e6, (unsigned long long)diatom_audio_held_pushes());
 		printf("diatom: audio IN  peak %d rms %.0f, %llu of %llu non-zero\n",
 		       diatom_audio_in_peak(), diatom_audio_in_rms(),
 		       (unsigned long long)diatom_audio_in_nonzero(),
