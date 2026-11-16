@@ -27,6 +27,7 @@
 - **The Brick's card, GPT:** p1 `BRICKBOOT` (FAT, 64 MiB, folders `a/`, `b/`, `closed/`, `bootstate.txt`), p2 root A (`plastron-root`, 512 MiB squashfs), p3 state (`plastron-state`, 16 MiB ext4), p4 root B (`plastron-root-b`, 512 MiB, empty), p5 games (`ZYPEROS`, exFAT, made by `datapart` at the first start after p4). Root B at p4 matches the Pixel 2, so the shared bootstate script's `zy_part` (2 or 4) holds for both. No ZyperOS Brick card exists yet, so there is no old layout to carry.
 - **Boot script:** `board/zyperos/boot-slots.cmd` splits into `bootstate.cmd` (its lines up to `zy_part`) and `boot-slots.cmd` (the Pixel's load and boot), so the Pixel's `boot.scr` is the same text. The Brick's `boot.scr` is `board/brick/boot-prelude.cmd` (the PLL pokes, `devtype mmc`, `devnum 0`, `distro_bootpart 1`, `zy_charge 0`) + `bootstate.cmd` + `board/brick/boot-slot.cmd` (loads `/${slot}/Image.lz4`, unlz4, `/${slot}/initramfs.cpio.gz`, `/${slot}/brick.dtb`, the fdt fixups, and `zyperos.root=/dev/mmcblk0p${zy_part} zyperos.slot=${slot} zyperos.trial=${trial} ${zy_theme}`).
 - **U-Boot's own fallback** boots slot A's files (`/a/Image`, `/a/initramfs.cpio.gz`, `/a/brick.dtb`): a new U-Boot patch, and the committed boot loader rebuilt.
+- **Built, and found while building:** System Update mounts the boot partition itself (`update/slots.c`, `/run/zyperos-boot`), so 6a needs no `/boot` mount; 6b mounts p1 at `/boot` early for the closed files, and `slots.c` then uses that mount, as one device mounted twice with other flags is refused. `crashlog` needs pstore's ramoops, which the Pixel 2's device tree and kernel have and the Brick's have not, so crash reports on the Brick wait for that.
 - **The closed files' folder:** `closed/` on p1, the 13 files of the two `files.sha256` under their file names. p1 is FAT, which the installer can write without mounting; the games partition does not exist until the first start. The image ships symbolic links at the files' usual places (`/usr/lib/...`, `/lib/firmware/...`) pointing into `/boot/closed/`, and mounts p1 at `/boot` before the GPU driver loads.
 - **The installer** carries the list (name, path at `CrealityTech/sonic_pad_os@7f37a7f`, sha256) generated at build time from plastron's two `files.sha256`, fetches from `raw.githubusercontent.com`, keeps them in its cache, and writes them into p1 with the `fatfs` crate over the raw device after the image. It fetches before it writes anything.
 - **Kit 2 changes:** step 11 says the Brick stays off on the charger (U-Boot patch 0009, by design), not that a charging screen shows. Bluetooth, ports, PortMaster, zyhome (and its MENU code from the profile), portkeys, the boot theme, saved stills, side lights, GPU-frame cores and Diatom's Brick stubs (On-Screen Stats, the DS's second screen, rumble, power steps) stay out of kit 2: each is its own later task, and none is on kit 2's list.
@@ -82,7 +83,6 @@
 - Modify: `plastron/buildroot/board/brick/genimage.cfg` (the Decisions' layout; `boot.vfat` holds `a/` and `bootstate.txt`)
 - Modify: `plastron/buildroot/board/brick/post-image.sh` (the slot size check as `post-image-slots.sh` does it, `bootstate.txt`)
 - Modify: `plastron/buildroot/board/brick/rootfs-overlay/etc/init.d/datapart` (the games partition as p5, after the last partition; only when no p5 exists)
-- Modify: `plastron/buildroot/board/brick/rootfs-overlay/etc/fstab` or the init script that mounts (p1 at `/boot`, vfat, before `init.d/brick`)
 
 - [ ] **Step 1:** Build the image (`make brick` in plastron, under the build lock as the scripts take it). Check with `sgdisk -p` on the `.img`: five entries as the Decisions say once `datapart`'s step is simulated, four in the image, names and sizes as listed.
 - [ ] **Step 2:** A host test for `datapart`'s choice (a shell function that reads `sfdisk --json`, factored so a test feeds it fixtures): it makes p5 on a four-partition card, does nothing on a card with p5, and refuses (logs, no change) on a card whose p4 is not `plastron-root-b`.
@@ -117,8 +117,7 @@
 **Files:**
 - Modify: `plastron/buildroot/board/brick/third-party-packages.md` (the xz row)
 - Modify: `plastron/buildroot/package/zyperos/zyperos.mk:141-150` (px2-shot, px2-input, px2-perf for the Pixel 2 only)
-- Modify: `plastron/Makefile` (`release-brick` needs `brick-inputs` and `brick-kernel`, as `release` does)
-- Modify: `plastron/buildroot/board/brick/rootfs-overlay/etc/inittab` (the shared `crashlog` step, so a panic or a reset before a start leaves `crash-*.txt` in the logs, which the log pack carries)
+- Modify: `plastron/Makefile` (`release-brick` needs `brick-inputs`, as `release` does; `make release` would build the kernel twice if it also needed `brick-kernel`, and the Brick's post-image stops without one)
 - Create: `plastron/buildroot/board/brick/u-boot/patches/0011-trimui-brick-fallback-slot-a.patch`; rebuild `board/brick/bootloader/u-boot-sunxi-with-spl.bin` with `scripts/build-brick-bootloader.sh`
 
 - [ ] **Step 1:** `release-brick` builds to the end; `plastron/scripts/release.sh brick`'s package compare passes.
