@@ -36,7 +36,7 @@
 #define DS_CTL_SIDE             280
 #define DS_CTL_DEVICE_X         99
 #define DS_CTL_DEVICE_Y         458
-#define DS_HUD_BAND             150
+#define DS_HUD_BAND             152
 #define DS_TILE_W               272
 #define DS_TILE_W_WIDE          408
 #define DS_TILE_H               232

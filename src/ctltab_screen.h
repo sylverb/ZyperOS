@@ -23,8 +23,6 @@
  * far in from the content's left edge (the ctl-side token, the mock's,
  * 2026-11-13) */
 #define CTLSCR_SIDE_W DS_CTL_SIDE
-/* The page's panel, as wide as the in-game menu's */
-#define CTLSCR_PAGE_W 860
 
 /* What the tab is about: the game the menu is over, and where its choices
  * are kept and sent */

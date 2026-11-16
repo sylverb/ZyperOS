@@ -141,7 +141,7 @@ window.ZYPER_TOKENS = {
     "ctl-side": 280,
     "ctl-device-x": 99,
     "ctl-device-y": 458,
-    "hud-band": 150,
+    "hud-band": 152,
     "tile-w": 272,
     "tile-w-wide": 408,
     "tile-h": 232,

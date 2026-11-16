@@ -89,7 +89,7 @@ static struct {
 /* The rows' column: the in-game menu's content, less the handheld's */
 static int column_w(const ctlscr_game *g)
 {
-	return (g->over && g->over->fixed_w > 0 ? g->over->fixed_w : CTLSCR_PAGE_W) - CTLSCR_SIDE_W;
+	return (g->over && g->over->fixed_w > 0 ? g->over->fixed_w : menu_most_w()) - CTLSCR_SIDE_W;
 }
 
 /* Applies To's value for every game of the system: its name, or its home
@@ -899,7 +899,7 @@ static void page_game(cs_page *p, const system_cfg *owner, const char *file,
 {
 	memset(p, 0, sizeof *p);
 	p->title = title;
-	p->over.fixed_w = CTLSCR_PAGE_W;
+	p->over.fixed_w = menu_most_w();
 	p->over.accent = accent;
 	p->over.backdrop = page_backdrop;
 	p->over.on_power = page_power;
@@ -941,7 +941,7 @@ void ctlscr_page(app *a, const system_cfg *owner, const char *file,
 	page_game(&p, owner, file, title, accent);
 	p.a = a;
 	memset(&st, 0, sizeof st);
-	st.fixed_w = CTLSCR_PAGE_W;
+	st.fixed_w = menu_most_w();
 	st.accent = accent;
 	st.sound = p.sound;
 	st.vcolors = p.vcol;
@@ -974,7 +974,7 @@ void ctlscr_page_shot(app *a, const system_cfg *owner, const char *file,
 	page_game(&p, owner, file, title, accent);
 	p.a = a;
 	memset(&st, 0, sizeof st);
-	st.fixed_w = CTLSCR_PAGE_W;
+	st.fixed_w = menu_most_w();
 	st.accent = accent;
 	st.side = ctlscr_side;
 	st.side_w = CTLSCR_SIDE_W;
