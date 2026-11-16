@@ -1764,7 +1764,7 @@ the corner and for Date & Time's own row and Hour.
 ---
 
 ### 11.13 About ZyperOS
-Six read-only pages, Left/Right to change them, round from the last to the
+Four read-only pages, Left/Right to change them, round from the last to the
 first. The first keeps Version, Address, Battery and Awake for. The second
 shows Storage used, Storage free, Storage total, Battery health, Full charge
 and Design charge. The third, headed **The name**, is the README's story of
@@ -1774,17 +1774,23 @@ scroll it a line at a time (held, they repeat) and it stops at the top and at
 the bottom, with the same soft edge a scrolling card has wherever more text
 is hidden, so the top has none and the bottom has one until the end (11's
 synopsis rule is for a synopsis, which still walks by itself). **Left**/**Right**
-still turn the page. The last three, headed **Thanks**, are the README's
-Credits as rows, who on the left and what of theirs on the right, short
-enough that none scrolls: six, six, then four with a rule and the note "All
-licenses are in Licenses/". Every page uses the standard menu panel and one
-measured width. The **meta** **text-dim** page count, "1 / 6" to "6 / 6",
+still turn the page. The last, headed **Thanks**, is one page walked by hand
+as The name is (**Up**/**Down** a line at a time, held they repeat, stopping
+at the top and the bottom, the same soft edges): the README's Credits as
+rows, who on the left and what of theirs on the right, short enough that no
+row scrolls sideways, Eric Reinsmidt first; then, under a rule and the
+heading **Help with other handhelds**, the people who help with the other
+handhelds ZyperOS runs on, a name and the handheld each (src/about_screen.c's
+`ABOUT_HANDHELD_THANKS`, shown only while it has a row: none yet); and held at the
+foot, under the footer's rule, the note "All licenses are in Licenses/".
+Every page uses the standard menu panel and one measured width. The **meta**
+**text-dim** page count, "1 / 4" to "4 / 4",
 sits at the right of the panel's heading, with space reserved around the
 centered title. No page text floats over the shelf. No row changes a
-setting. Host shots: `--about 0` to `5`, and `--about-scroll F` (0 to 1) for the name's page scrolled F of the way down. *(I picked Details, then asked
+setting. Host shots: `--about 0` to `3`, and `--about-scroll F` (0 to 1) for the name's page or the thanks scrolled F of the way down. *(I picked Details, then asked
 to put its page information inside the panel, 2026-11-04. On 2026-11-06 he
 asked for the page on the name, a tribute to his dog, and a thank-you page to
-the open-source work ZyperOS is built on. On 2026-11-07 I asked for it to stop scrolling by itself, so I can scroll it.)*
+the open-source work ZyperOS is built on. On 2026-11-07 I asked for it to stop scrolling by itself, so I can scroll it. On 2026-11-16 I asked for the thanks to be one page that scrolls, like the name's, so I can thank those who help me with other handhelds there.)*
 
 Storage is the mounted card's filesystem in decimal GB. Free is the available
 space; used excludes reserved blocks. Capacity comes from the battery

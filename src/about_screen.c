@@ -40,42 +40,57 @@
 #define ABOUT_PHOTO_W 300
 #define ABOUT_PHOTO_H 400
 #define ABOUT_PHOTO_GAP 40
-#define ABOUT_THANKS_LAST 4
-/* The README's Credits, a page at a time: who, and what of theirs ZyperOS
- * runs on, short enough that no row has to scroll. The last page has four
- * and the note that every license itself is in Licenses/ on the card. A
- * name is the same in every language and is written here; a word is an ID,
- * its name NULL, read through T() as About opens (about_pages). */
+/* The README's Credits, one row each: who, and what of theirs ZyperOS runs
+ * on, short enough that no row has to scroll; then the people who help with
+ * the other handhelds, and the note that every license itself is in
+ * Licenses/ on the card. A name is the same in every language and is written
+ * here; a word is an ID, its name NULL, read through T() as About opens
+ * (about_pages). */
 typedef struct {
 	const char *who;
 	str_id      who_s;
 	const char *what;
 	str_id      what_s;
 } about_thanks;
-static const about_thanks ABOUT_THANKS[ABOUT_THANKS_PAGES][ABOUT_THANKS_ROWS] = {
-	{ { "Eric Reinsmidt", 0, "TortOS, Diatom", 0 },
-	  { "plastron", 0, NULL, S_ABOUT_THANKS_PLASTRON },
-	  { NULL, 0, NULL, S_ABOUT_THANKS_KERNEL },   /* the handheld's (about_pages) */
-	  { "Buildroot", 0, NULL, S_ABOUT_THANKS_BUILDROOT },
-	  { "libretro", 0, NULL, S_ABOUT_THANKS_LIBRETRO },
-	  { "PortMaster", 0, NULL, S_ABOUT_THANKS_PORTMASTER } },
-	{ { "plorpOS", 0, "DSperate, FAKE-08", 0 },
-	  { "OpenBOR Team", 0, "OpenBOR", 0 },
-	  { NULL, S_ABOUT_THANKS_MENU_MUSIC, "OpenGameArt", 0 },
-	  { "Lexend", 0, NULL, S_ABOUT_THANKS_LEXEND },
-	  { "SDL, Mesa", 0, NULL, S_ABOUT_THANKS_SDL } },
-	{ { "FFmpeg, SQLite", 0, NULL, S_ABOUT_THANKS_FFMPEG },
-	  { "minimp3, stb_vorbis", 0, NULL, S_ABOUT_THANKS_MINIMP3 },
-	  { "Linux, U-Boot", 0, NULL, S_ABOUT_THANKS_LINUX },
-	  { "Temurin, DejaVu", 0, NULL, S_ABOUT_THANKS_TEMURIN } },
+static const about_thanks ABOUT_THANKS[] = {
+	{ "Eric Reinsmidt", 0, "TortOS, Diatom", 0 },
+	{ "plastron", 0, NULL, S_ABOUT_THANKS_PLASTRON },
+	{ NULL, 0, NULL, S_ABOUT_THANKS_KERNEL },   /* the handheld's (about_pages) */
+	{ "Buildroot", 0, NULL, S_ABOUT_THANKS_BUILDROOT },
+	{ "libretro", 0, NULL, S_ABOUT_THANKS_LIBRETRO },
+	{ "PortMaster", 0, NULL, S_ABOUT_THANKS_PORTMASTER },
+	{ "plorpOS", 0, "DSperate, FAKE-08", 0 },
+	{ "OpenBOR Team", 0, "OpenBOR", 0 },
+	{ NULL, S_ABOUT_THANKS_MENU_MUSIC, "OpenGameArt", 0 },
+	{ "Lexend", 0, NULL, S_ABOUT_THANKS_LEXEND },
+	{ "SDL, Mesa", 0, NULL, S_ABOUT_THANKS_SDL },
+	{ "FFmpeg, SQLite", 0, NULL, S_ABOUT_THANKS_FFMPEG },
+	{ "minimp3, stb_vorbis", 0, NULL, S_ABOUT_THANKS_MINIMP3 },
+	{ "Linux, U-Boot", 0, NULL, S_ABOUT_THANKS_LINUX },
+	{ "Temurin, DejaVu", 0, NULL, S_ABOUT_THANKS_TEMURIN },
 };
 
-/* The story laid out for the panel, and the thanks pages, the last with its
- * note; once, when About opens: neither changes while it is open */
+/* The people who help with the other handhelds ZyperOS runs on: a name and
+ * the handheld, both written as they are in every language. One row a
+ * person, in the order they are thanked, above the { NULL, NULL } that ends
+ * it, as
+ *
+ *	{ "Their name", "TrimUI Brick" },
+ *
+ * Under its own heading, Help with other handhelds, which is there only
+ * while this has a row: none yet. */
+static const struct { const char *who, *handheld; } ABOUT_HANDHELD_THANKS[] = {
+	{ NULL, NULL }
+};
+
+#define ARRAY_N(x) ((int)(sizeof (x) / sizeof (x)[0]))
+
+/* The story laid out for the panel, and the thanks with their note; once,
+ * when About opens: neither changes while it is open */
 void about_pages(app *a, about_view *v)
 {
 	char path[CFG_STR * 2];
-	int i, p, wrap = menu_std_width(a);
+	int i, n = 0, wrap = menu_std_width(a);
 
 	/* No photo (a host shot's card, say) is the story at the full width */
 	snprintf(path, sizeof path, "%s/zyper.png", P_ROOT);
@@ -86,40 +101,45 @@ void about_pages(app *a, about_view *v)
 	v->nstory = syn_layout(T(S_ABOUT_STORY), wrap, v->story_lines, v->story, &v->story_loop);
 	if (v->story_loop > 0) v->nstory = v->story_loop - SYN_LOOP_GAP;
 	v->story_loop = 0;
-	for (p = 0; p < ABOUT_THANKS_PAGES; p++) {
-		int rows = p < ABOUT_THANKS_PAGES - 1 ? ABOUT_THANKS_ROWS : ABOUT_THANKS_LAST;
+	for (i = 0; i < ARRAY_N(ABOUT_THANKS); i++) {
+		const about_thanks *t = &ABOUT_THANKS[i];
 
-		for (i = 0; i < rows; i++) {
-			const about_thanks *t = &ABOUT_THANKS[p][i];
+		/* Its kernel is the handheld's: ROCKNIX's for the Pixel 2,
+		 * Allwinner's for the Brick (the profile's `kernel`) */
+		if (t->what_s == S_ABOUT_THANKS_KERNEL) {
+			const device_profile *d = plat_profile();
 
-			/* Its kernel is the handheld's: ROCKNIX's for the Pixel 2,
-			 * Allwinner's for the Brick (the profile's `kernel`) */
-			if (t->what_s == S_ABOUT_THANKS_KERNEL) {
-				const device_profile *d = plat_profile();
-
-				snprintf(v->kernel, sizeof v->kernel, T(S_ABOUT_THANKS_KERNEL), d->kernel.of);
-				v->thanks[p][i] = (menu_row){ d->kernel.by, v->kernel, false };
-				continue;
-			}
-			v->thanks[p][i] = (menu_row){ t->who ? t->who : T(t->who_s),
-			                              t->what ? t->what : T(t->what_s), false };
+			snprintf(v->kernel, sizeof v->kernel, T(S_ABOUT_THANKS_KERNEL), d->kernel.of);
+			v->thanks[n++] = (menu_row){ d->kernel.by, v->kernel, false };
+			continue;
 		}
+		v->thanks[n++] = (menu_row){ t->who ? t->who : T(t->who_s),
+		                             t->what ? t->what : T(t->what_s), false };
 	}
-	i = ABOUT_THANKS_LAST;
-	v->thanks[2][i++] = MENU_RULE;
-	v->thanks[2][i] = MENU_NOTE(T(S_ABOUT_LICENSES));
+	/* The people who help with the other handhelds, under a heading of
+	 * their own (2026-11-16: "I'll thank those who help me with other
+	 * devices in that page") */
+	if (ABOUT_HANDHELD_THANKS[0].who) {
+		v->thanks[n++] = MENU_HR;
+		v->thanks[n++] = MENU_NOTE(T(S_ABOUT_THANKS_HANDHELDS));
+		for (i = 0; ABOUT_HANDHELD_THANKS[i].who && n < ABOUT_THANKS_ROWS - 2; i++)
+			v->thanks[n++] = (menu_row){ ABOUT_HANDHELD_THANKS[i].who,
+			                             ABOUT_HANDHELD_THANKS[i].handheld, false };
+	}
+	/* Under the rule, held at the foot while the rest is walked */
+	v->thanks[n++] = MENU_RULE;
+	v->thanks[n++] = MENU_NOTE(T(S_ABOUT_LICENSES));
+	v->nthanks = n;
 }
 
 /* One width for every page, grown only if a value needs it */
 int about_width(app *a, const about_view *v)
 {
-	int w = menu_std_width(a), m, i;
+	int w = menu_std_width(a), m;
 
 	if ((m = menu_measure(v->details, ABOUT_DETAIL_ROWS, T(S_ABOUT_HEADING))) > w) w = m;
 	if ((m = menu_measure(v->system, v->nsystem, T(S_ABOUT_HEADING))) > w) w = m;
-	for (i = 0; i < ABOUT_THANKS_PAGES - 1; i++)
-		if ((m = menu_measure(v->thanks[i], ABOUT_THANKS_ROWS, T(S_ABOUT_THANKS))) > w) w = m;
-	if ((m = menu_measure(v->thanks[2], ABOUT_THANKS_LAST, T(S_ABOUT_THANKS))) > w) w = m;
+	if ((m = menu_measure(v->thanks, v->nthanks, T(S_ABOUT_THANKS))) > w) w = m;
 	return w;
 }
 
@@ -178,18 +198,16 @@ void about_draw(app *a, const about_view *v, int page)
 		rows = v->story; n = v->nstory; loop_at = v->story_loop;
 		heading = T(S_ABOUT_THE_NAME);
 		break;
-	case 3: rows = v->thanks[0]; n = ABOUT_THANKS_ROWS; heading = T(S_ABOUT_THANKS); break;
-	case 4: rows = v->thanks[1]; n = ABOUT_THANKS_ROWS; heading = T(S_ABOUT_THANKS); break;
-	case 5: rows = v->thanks[2]; n = ABOUT_THANKS_LAST + 2; heading = T(S_ABOUT_THANKS); break;
+	case 3: rows = v->thanks; n = v->nthanks; heading = T(S_ABOUT_THANKS); break;
 	}
 	/* The panel draws posed into a pass of its own while it opens; the
 	 * photo comes once it is at rest, rather than unscaled over it */
 	bool rest = g_pframe.panel.scale == 1.0f && g_pframe.panel.alpha == 1.0f;
 
 	snprintf(count, sizeof count, "%d / %d", page + 1, ABOUT_PAGES);
-	/* The story holds still where Up and Down have put it */
-	g_menu_scroll_hold = page == 2 ? v->story_scroll : -1;
-	if (page != 2) g_menu_scroll_span = 0;
+	/* The story and the thanks hold still where Up and Down have put them */
+	g_menu_scroll_hold = page == 2 ? v->story_scroll : page == 3 ? v->thanks_scroll : -1;
+	if (page != 2 && page != 3) g_menu_scroll_span = 0;
 	menu_draw_caption(a, heading, rows, n, -1, v->width, MENU_ZYPEROS, NULL, false, loop_at,
 	                  count);
 	g_menu_scroll_hold = -1;
@@ -225,7 +243,7 @@ void about_draw(app *a, const about_view *v, int page)
 void about_screen(app *a)
 {
 	about_view v = { 0 };
-	int page = 0;
+	int page = 0, drawn = -1;   /* the page the scroll's span was last measured on */
 	bool done = false;
 	int lv = panel_open();
 	float k;
@@ -277,19 +295,22 @@ void about_screen(app *a)
 			timed_message(a, T(S_SYSMENU_DEVELOPER), said, 2, 0, MENU_ZYPEROS);
 			v.refreshed = 0;                  /* the row, at once */
 		}
-		/* The story: Up and Down walk it a line at a time, held they repeat,
-		 * and it stops at the top and at the bottom. It never moves by itself. */
-		if (page == 2 && g_menu_scroll_line > 0) {
-			int was = v.story_scroll, lim = g_menu_scroll_span;
+		/* The story and the thanks: Up and Down walk them a line at a time,
+		 * held they repeat, and they stop at the top and at the bottom. They
+		 * never move by themselves. The span is the page's own, from its
+		 * last draw, so a page just turned to is walked from its next. */
+		if ((page == 2 || page == 3) && drawn == page && g_menu_scroll_line > 0) {
+			int *sc = page == 2 ? &v.story_scroll : &v.thanks_scroll;
+			int was = *sc, lim = g_menu_scroll_span;
 
 			if (in_repeat(&a->in, IN_UP)) {
-				v.story_scroll = was > g_menu_scroll_line ? was - g_menu_scroll_line : 0;
-				step_sound(a, IN_UP, was, v.story_scroll);
+				*sc = was > g_menu_scroll_line ? was - g_menu_scroll_line : 0;
+				step_sound(a, IN_UP, was, *sc);
 			}
 			if (in_repeat(&a->in, IN_DOWN)) {
-				was = v.story_scroll;
-				v.story_scroll = was + g_menu_scroll_line < lim ? was + g_menu_scroll_line : lim;
-				step_sound(a, IN_DOWN, was, v.story_scroll);
+				was = *sc;
+				*sc = was + g_menu_scroll_line < lim ? was + g_menu_scroll_line : lim;
+				step_sound(a, IN_DOWN, was, *sc);
 			}
 		}
 		if (in_repeat(&a->in, IN_VOLUP))    plat_volume_nudge(+1);
@@ -303,6 +324,7 @@ void about_screen(app *a)
 		draw_shelf(a);
 		ui_scrim_k(a->r, 0, k);
 		about_draw(a, &v, page);
+		drawn = page;
 		plat_draw_osd(a->r);
 		plat_present();
 		ui_frame_rest(8);
