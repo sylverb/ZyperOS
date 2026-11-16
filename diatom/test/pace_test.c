@@ -238,6 +238,46 @@ static paced_result paced_game(const burst_at *bursts, int nb, long n, bool hold
 	return r;
 }
 
+/* ---- a game locked to the display, or not ----
+ * The panel refreshes every `refresh_us`; a turn starts on the loop's
+ * schedule (a millisecond or so of scheduling noise, the same series every
+ * run), runs the core for `cost_us`, and hands its frame over; the frame is
+ * flipped at the first refresh at least `draw_us` after that. Two frames at
+ * one refresh: the first is replaced unseen. A refresh with no new frame:
+ * the last one shown again. Locked: the schedule at the refresh period and
+ * each turn's start steered to `target` after a refresh (pace_phase_step). */
+typedef struct { long shown, lost, repeats; double secs; } shown_result;
+
+static shown_result shown_game(double core_fps, double refresh_us, bool lock, long n)
+{
+	const double cost_us = 7600, draw_us = 2000;
+	double frame_us = lock ? refresh_us : 1e6 / core_fps, next = 1000, t = 0;
+	long last_slot = -1, f;
+	unsigned seed = 12345;
+	shown_result r;
+
+	memset(&r, 0, sizeof r);
+	for (f = 0; f < n; f++) {
+		double start, ready, jitter;
+		long slot;
+
+		seed = seed * 1103515245u + 12345u;
+		jitter = ((seed >> 8) % 2001) - 1000.0;   /* -1 to +1 ms */
+		start = (next > t ? next : t) + (jitter > 0 ? jitter : 0) * 0.6;
+		ready = start + cost_us + draw_us;
+		slot = (long)ceil(ready / refresh_us);
+		if (slot == last_slot) r.lost++;
+		else if (last_slot >= 0) r.repeats += slot - last_slot - 1;
+		if (slot != last_slot) r.shown++;
+		last_slot = slot;
+		t = start + cost_us;
+		next += frame_us;
+		if (lock) next += pace_phase_step(start, 0, refresh_us, 1500, 0.1, refresh_us / 16);
+	}
+	r.secs = t / 1e6;
+	return r;
+}
+
 int main(void)
 {
 	const double F = 1e6 / FPS;
@@ -354,6 +394,36 @@ int main(void)
 		ck(fabs((h.secs - h0.secs) - extra_s) < 0.1, "  ...the game held back by the bursts' extra sound, no more");
 		ck(h.silence <= h0.silence + PERIOD, "  ...no more silence than with no burst");
 		ck(h.q_after_burst <= CAP / 2 + RATE / FPS + PERIOD, "  ...the queue back near its target after each");
+	}
+
+	/* ---- display lock ---- */
+	ck(fabs(pace_lock_ratio(60.08, 59.7275) - 1.005902) < 0.00001, "lock: a GBA on the Pixel 2's 60.08 Hz, 0.59% fast");
+	ck(fabs(pace_lock_ratio(60.08, 59.8261) - 1.004245) < 0.00001, "lock: a DS, 0.42%");
+	ck(fabs(pace_lock_ratio(60.08, 60.0988) - 0.999687) < 0.00001, "lock: an NES, a hair slow");
+	ck(pace_lock_ratio(60.08, 50.0070) == 0, "lock: a PAL game, 50 Hz: not locked");
+	ck(pace_lock_ratio(0, 59.7275) == 0 && pace_lock_ratio(60.08, 0) == 0, "lock: no refresh or no core rate: not locked");
+	{
+		const double P = 1e6 / 60.08;
+		double s1 = pace_phase_step(1500, 0, P, 1500, 0.1, P / 16);
+		double s2 = pace_phase_step(9000, 0, P, 1500, 0.1, P / 16);
+		double s3 = pace_phase_step(P - 500, 0, P, 1500, 0.1, P / 16);
+		double s4 = pace_phase_step(10 * P + 1600, 3 * P, P, 1500, 0.1, P / 16);
+
+		ck(fabs(s1) < 0.001, "phase: on target, no step");
+		ck(s2 < 0 && s2 >= -P / 16, "phase: late in the refresh, the next start moves earlier, at most a sixteenth");
+		ck(fabs(s3 - 200) < 0.01, "phase: just before a refresh, the short way round: 2 ms behind target, 0.2 ms later");
+		ck(fabs(s4 + 10) < 0.01, "phase: any refresh as the reference, ten refreshes on");
+	}
+	{
+		const double P = 1e6 / 60.08;
+		shown_result free_ = shown_game(59.7275, P, false, 3584), locked = shown_game(59.7275, P, true, 3584);
+
+		printf("  a GBA on a 60.08 Hz panel, a minute: core-paced %ld new frames shown, %ld lost, %ld refreshes "
+		       "repeated; locked %ld, %ld, %ld\n", free_.shown, free_.lost, free_.repeats, locked.shown,
+		       locked.lost, locked.repeats);
+		ck(free_.lost > 10 && free_.repeats > 10, "core-paced: frames lost and refreshes repeated (the model sees the judder)");
+		ck(locked.lost == 0 && locked.repeats == 0, "locked: one new frame every refresh, none lost or repeated");
+		ck(fabs(locked.secs - 3584 * P / 1e6) < 0.05, "locked: at the panel's rate");
 	}
 
 	/* A game slow all the time (17.2 ms a frame against 16.7): the same speed */

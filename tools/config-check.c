@@ -144,6 +144,8 @@ int main(void)
 	      "map|NOPE|a:b\n"
 	      "sys|Late|late|core|LAT|L.png|C4443A|gb\n"
 	      "power|LAT|light\n"
+	      "pace|LOW|core\n"
+	      "pace|BLK|display\n"
 	      "controller|LAT|517\n"
 	      "rumble|LAT|35\n"
 	      "needs|NAM|gpu-frames\n"
@@ -212,8 +214,12 @@ int main(void)
 
 		cfg_run_keys(find(&c, "Black"), false, NULL, keys, (int)sizeof keys);
 		ck(!strcmp(keys, ""), "no RUN keys for a plain system");
+		s = find(&c, "Lower");
+		ck(s && s->pace_core, "pace|tag|core keeps a system at its core's own rate");
+		s = find(&c, "Black");
+		ck(s && !s->pace_core, "and any other word is the display's, as no line is");
 		cfg_run_keys(find(&c, "Lower"), false, NULL, keys, (int)sizeof keys);
-		ck(!strcmp(keys, "controller=517"), "controller= alone");
+		ck(!strcmp(keys, "controller=517\tpace=core"), "controller=, then pace=core");
 		s = find(&c, "Late");
 		ck(s && s->rumble == 35, "rumble| gives the motor's share, in percent");
 		s = find(&c, "Lower");

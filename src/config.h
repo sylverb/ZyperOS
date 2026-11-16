@@ -76,6 +76,11 @@ typedef struct {
 	 * with RUN, which steps a game back up at the first frame it can't keep.
 	 * Ports and the standalone emulators always run at full. */
 	char power[8];
+	/* The core's own rate, never the display's: a `pace|tag|core` line, for a
+	 * system whose games need its exact timing; sent to Diatom with RUN as
+	 * pace=core. Without one, a core within 1% of the panel's rate runs at
+	 * the panel's, one frame a refresh (diatom/src/pace.h, DISPLAY LOCK). */
+	bool pace_core;
 	/* How hard the motor runs for its games, in percent of what the core
 	 * asks: 1 to 99 for a core that shakes harder than the handheld wants
 	 * (PrBoom, on every shot), 0 for the core's own. From a

@@ -58,4 +58,28 @@ double pace_room_us(size_t queued, size_t n, int capacity, double rate);
 pace_late pace_when_late(double late_us, double frame_us, double depth_us,
                          double *keep_us);
 
+/* DISPLAY LOCK: a core whose rate is within PACE_LOCK_MAX of the panel's
+ * runs at the panel's, one frame a refresh, as RetroArch's vsync runs it,
+ * its sound resampled to match. The GKD Pixel 2's panel is 60.08 Hz (25 MHz
+ * over 570 x 730) and a GBA 59.7275: paced at the core's own rate, its frames
+ * drifted a tenth of a millisecond a refresh against the panel, and near the
+ * boundary a millisecond's scheduling noise put them alternately before and
+ * after it, a refresh shown twice and the next frame replaced unseen. Metroid
+ * Fusion showed 58.2 to 58.9 new frames a second of the 59.73 it made, in
+ * bursts every 2.9 s (2026-11-16): "mGBA has timing issues", a player said,
+ * beside TwigUI's RetroArch. Locked, it runs 0.59% fast and even. */
+#define PACE_LOCK_MAX 0.01
+
+/* The panel's rate over the core's, when within PACE_LOCK_MAX of 1 (the game
+ * runs that much faster, or slower, locked); 0 when not: no refresh known, no
+ * core rate, or too far apart (a PAL game, 50 Hz) */
+double pace_lock_ratio(double refresh_hz, double core_fps);
+
+/* How far to move the next turn's start so turns start `target_us` after a
+ * refresh: `start_us` the turn's start, `vblank_us` any refresh's time,
+ * `period_us` the refresh period. A part `gain` of the error, at most
+ * `max_us` either way, the error taken the short way round the period. */
+double pace_phase_step(double start_us, double vblank_us, double period_us,
+                       double target_us, double gain, double max_us);
+
 #endif
