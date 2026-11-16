@@ -62,6 +62,13 @@
  * device the frontend gives a port, a line each, "port device", so
  * test/player2.py can see the guests' ports given a joypad.
  *
+ * And a core as slow as a DS game on the Pixel 2: STUBCORE_FRAME_US=N takes
+ * N microseconds in each retro_run (a sleep), and STUBCORE_SKIPPABLE=1 offers a
+ * frameskip (SET_AUDIO_BUFFER_STATUS_CALLBACK), as dsperate-lr does, so
+ * Diatom runs some frames unshown. An unshown frame costs as much as a shown
+ * one, as a DS game's does: its drawing is on threads of its own
+ * (test/fastforward.py).
+ *
  * Test fixture. Not part of Diatom's runtime.
  */
 #include <stdint.h>
@@ -69,6 +76,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <time.h>
 
 #include "libretro.h"
 
@@ -328,6 +336,26 @@ static void report_load(const struct retro_game_info *game)
 		fprintf(stderr, "stubcore: ext none\n");
 }
 
+/* STUBCORE_FRAME_US and STUBCORE_SKIPPABLE: the frame's cost, shown or not */
+static long frame_cost_us;
+static void frame_status(bool active, unsigned occupancy, bool underrun_likely)
+{
+	(void)active; (void)occupancy; (void)underrun_likely;
+}
+
+static void frame_cost(void)
+{
+	struct timespec d;
+
+	if (frame_cost_us <= 0) return;
+	/* Slept, not spent: the frontend's pacing sees only the time a frame
+	 * takes, and a sleep takes it however busy the machine is (make check
+	 * runs many at once), where a busy wait took longer on a busy one */
+	d.tv_sec = frame_cost_us / 1000000L;
+	d.tv_nsec = (frame_cost_us % 1000000L) * 1000L;
+	nanosleep(&d, NULL);
+}
+
 bool retro_load_game(const struct retro_game_info *game)
 {
 	enum retro_pixel_format fmt = RETRO_PIXEL_FORMAT_RGB565;
@@ -362,6 +390,14 @@ bool retro_load_game(const struct retro_game_info *game)
 	/* Before RUNNING has gone out, so the frontend owes the launcher an ERROR
 	 * and must keep its hands off the display. */
 	if (!strcmp(crash_mode, "load")) *null_ptr = 1;
+	{
+		const char *e = getenv("STUBCORE_FRAME_US");
+		frame_cost_us = e && *e ? strtol(e, NULL, 10) : 0;
+	}
+	if (getenv("STUBCORE_SKIPPABLE") && env) {
+		struct retro_audio_buffer_status_callback cb = { frame_status };
+		env(RETRO_ENVIRONMENT_SET_AUDIO_BUFFER_STATUS_CALLBACK, &cb);
+	}
 	return env && env(RETRO_ENVIRONMENT_SET_PIXEL_FORMAT, &fmt);
 }
 bool retro_load_game_special(unsigned t, const struct retro_game_info *i, size_t n)
@@ -549,6 +585,7 @@ void retro_run(void)
 	 * gone out and the frontend is in its steady loop. Doing it on frame 0
 	 * would land during the warmup and prove less. */
 	if (crash_mode[0] && frame == crash_at) die(crash_mode);
+	frame_cost();
 
 	/* One frame's worth of audio, with the fraction carried.
 	 *
