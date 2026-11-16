@@ -1222,9 +1222,10 @@ handheld prints, and the glyph is the one this handheld prints, from its
 profile's table (`dev_button`, src/device/profile.h). A round key with one
 letter is a face. A round key with a mark is a face with the mark: the Pixel
 2's MENU, its three dots; the Brick's SELECT, a square, and START, a play
-triangle, as its model draws them (the square 0.84 of a capital across, the
-triangle about a capital tall and a little right of its box's middle, so it
-looks centred), in the letter's color. A round key with a word (the Brick's
+triangle, as its model draws them (the square 0.72 of a capital across, as a
+solid square carries more ink than a letter's strokes; the triangle about a
+capital tall and a little right of its box's middle, so it looks centred),
+in the letter's color. A round key with a word (the Brick's
 MENU, whose TrimUI mark is no glyph, and its POWER) and every other cap (a
 pill, a shoulder, the rocker) is a pill with its word. A stick's cap (L3,
 R3) is a face with its top's ring inside, 0.7 across, under its word. MENU

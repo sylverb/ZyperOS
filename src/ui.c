@@ -2688,14 +2688,16 @@ static void menu_key_dots(SDL_Renderer *r, TTF_Font *f, float cx, float cy,
  * them (tourdevice.c, bk_icon), sized from the letter's capitals as MENU's
  * dots are, so a mark weighs what a face's letter does: the triangle a
  * capital tall and a little right of its box's middle, so it looks centred,
- * the square a little smaller; in the word's color, as the dots are */
+ * the square 0.72 of a capital across, as a solid square carries more ink
+ * than a letter's strokes; in the word's color, as the dots are */
 static void key_mark(SDL_Renderer *r, TTF_Font *f, float cx, float cy, float k, ds_key_mark m,
                      SDL_Color col)
 {
 	const float q = (float)ui_cap_height(f) * k * 0.42f;
 
 	if (m == DS_KEY_MARK_SQUARE) {
-		const SDL_FPoint p[4] = { { cx - q, cy - q }, { cx + q, cy - q }, { cx + q, cy + q }, { cx - q, cy + q } };
+		const float s = q * (0.36f / 0.42f);
+		const SDL_FPoint p[4] = { { cx - s, cy - s }, { cx + s, cy - s }, { cx + s, cy + s }, { cx - s, cy + s } };
 
 		fan(r, p, 4, col);
 	} else if (m == DS_KEY_MARK_PLAY) {
