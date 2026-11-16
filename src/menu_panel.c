@@ -8,6 +8,7 @@
 #include "ds/panel.h"     /* the slab, its lift and the pass */
 #include "ds/layout.h"
 #include "ds/mark.h"      /* the more marks */
+#include "ds/preview.h"   /* an option list's picture column */
 #include "look.h"
 #include "panel.h"
 #include "sys_menu.h"   /* SM_NOTE_W: a choice's line, as the Display row's */
@@ -17,6 +18,7 @@
 #include "zypermark.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 /* ---------- menus --------------------------------------------------------- */
@@ -1441,6 +1443,11 @@ typedef struct {
 	const char *const *labels;
 	int n, cur, picked;
 	const char *const *notes;  /* what each choice does (NULL: none) */
+	/* The picture column's drawer (menu_pick_preview), the note going
+	 * there; NULL: the note under the list */
+	void (*preview)(void *app, int k, int x, int y, int w, int h);
+	int side_w;                /* its column's width (menu_pick_width) */
+	int note_lines;            /* its note's room: the set's tallest */
 	int sel;                   /* the cursor, as the runner leaves it (sel_out) */
 	unsigned char sound[MENU_CHOICES_MAX + 3];
 	char word[MENU_CHOICES_MAX][64];
@@ -1461,7 +1468,7 @@ static int pick_build(void *ctx, menu_row *rows, int max, const char **heading)
 	/* What the choice under the cursor does, under a rule: two lines,
 	 * always two, so the panel holds its size as the cursor moves, left
 	 * as a paragraph is, as the Display row's own (DESIGN.md 11.3) */
-	if (p->notes && i + 3 <= max) {
+	if (p->notes && !p->preview && i + 3 <= max) {
 		int s = p->sel >= 0 && p->sel < p->n ? p->sel : 0, nl;
 
 		nl = menu_pick_note(p->notes[s], p->note);
@@ -1508,30 +1515,117 @@ static menu_result pick_power(app *a, void *ctx)
 	return r;
 }
 
-int menu_pick(app *a, const menu_style *from, void *from_ctx, const char *heading,
-              const char *const *labels, const char *const *notes, int n, int ticked, int at)
-{
-	static pick_ctx p;
+static pick_ctx g_pick_list;
 
-	memset(&p, 0, sizeof p);
-	p.heading = heading;
-	p.labels = labels;
-	p.n = n > MENU_CHOICES_MAX ? MENU_CHOICES_MAX : n;
-	p.cur = ticked;
-	p.picked = -1;
-	p.over = from;
-	p.over_ctx = from_ctx;
-	p.notes = notes;
-	p.sel = at;
+int menu_pick_width(app *a, int base, const char *const *labels, int n, int ticked,
+                    bool preview, int *side_w)
+{
+	TTF_Font *f = ui_font(UI_F_MENU);
+	const int most = ZYPEROS_SCREEN_W - MENU_MARGIN * 2 - menu_pad() * 2;
+	const int room = base > most ? base : most;
+	int longest = 0, need, i;
+
+	(void)a;
+	if (side_w) *side_w = 0;
+	if (!preview) return base;
+	/* The longest choice, and the one ticked with the gap menu_measure
+	 * leaves before a value and its tick */
+	for (i = 0; labels && i < n; i++) {
+		char w[64];
+		int tw;
+
+		menu_pick_word(labels[i], w, (int)sizeof w);
+		tw = ui_text_width(f, w);
+		if (i == ticked) tw += menu_row_h() + ui_cap_height(f) * 6 / 5;
+		if (tw > longest) longest = tw;
+	}
+	/* The column as wide as it may be beside them (src/ds/preview.h) */
+	need = longest + DS_PREVIEW_COL_W;
+	if (need > room) need = room;
+	if (need < base) need = base;
+	if (side_w) *side_w = ds_preview_col_w(need, longest);
+	return need;
+}
+
+void menu_pick_side_draw(app *a, int side_x, int top, int side_w, int note_lines, const char *note,
+                         void (*preview)(void *app, int k, int x, int y, int w, int h), int k)
+{
+	const ds_preview_frame f = ds_preview_layout(side_x, top, side_w > 0 ? side_w : DS_PREVIEW_COL_W,
+	                                             note_lines);
+
+	if (preview) preview(a, k, f.screen.x, f.screen.y, f.screen.w, f.screen.h);
+	ds_preview_note(a->r, &f.note, note);
+}
+
+int menu_pick_note_room(const char *const *notes, int n, int side_w)
+{
+	int most = 0, i;
+
+	for (i = 0; notes && i < n; i++) {
+		int l = ds_preview_note_lines(notes[i], (side_w > 0 ? side_w : DS_PREVIEW_COL_W) - DS_PREVIEW_GAP);
+		if (l > most) most = l;
+	}
+	return most;
+}
+
+/* The picture column beside the list, the choice under the cursor's: drawn
+ * at rest and in the pass that moves the panel, so it goes with it */
+static void pick_side(app *a, const menu_side *at)
+{
+	const pick_ctx *p = &g_pick_list;
+	int k = at->sel >= 0 && at->sel < p->n ? at->sel : (p->sel >= 0 && p->sel < p->n ? p->sel : 0);
+
+	if (at->stage == MENU_SIDE_OVER) return;
+	menu_pick_side_draw(a, at->content_x, at->content_y, p->side_w, p->note_lines,
+	                    p->notes ? p->notes[k] : NULL, p->preview, k);
+}
+
+static int pick_run(app *a, const menu_style *from, void *from_ctx, const char *heading,
+                    const char *const *labels, const char *const *notes,
+                    void (*preview)(void *app, int k, int x, int y, int w, int h),
+                    int n, int ticked, int at)
+{
+	pick_ctx *const q = &g_pick_list;
+
+	memset(q, 0, sizeof *q);
+	q->preview = preview;
+	q->heading = heading;
+	q->labels = labels;
+	q->n = n > MENU_CHOICES_MAX ? MENU_CHOICES_MAX : n;
+	q->cur = ticked;
+	q->picked = -1;
+	q->over = from;
+	q->over_ctx = from_ctx;
+	q->notes = notes;
+	q->sel = at;
 	int cur = at;
+	const int width = menu_pick_width(a, from && from->fixed_w ? from->fixed_w : menu_std_width(a),
+	                                  labels, q->n, ticked, preview != NULL, &q->side_w);
+	q->note_lines = preview ? menu_pick_note_room(notes, q->n, q->side_w) : 0;
 
 	menu_run(a, &(menu_style){ .accent = from ? from->accent : MENU_ZYPEROS,
 	                           .follow_tint = from && from->follow_tint,
 	                           .backdrop = from && from->backdrop ? pick_backdrop : NULL,
 	                           .on_power = from && from->on_power ? pick_power : NULL,
-	                           .fixed_w = from && from->fixed_w ? from->fixed_w : menu_std_width(a),
-	                           .sound = p.sound, .start_sel = cur >= 0 && cur < p.n ? cur : 0,
-	                           .sel_out = notes ? &p.sel : NULL, .pin_foot = true },
-	         pick_build, pick_key, &p);
-	return p.powered ? MENU_PICK_POWER : p.picked;
+	                           .fixed_w = width,
+	                           .sound = q->sound, .start_sel = cur >= 0 && cur < q->n ? cur : 0,
+	                           .sel_out = notes ? &q->sel : NULL, .pin_foot = !preview,
+	                           .side = preview ? pick_side : NULL,
+	                           .side_w = q->side_w },
+	         pick_build, pick_key, q);
+	return q->powered ? MENU_PICK_POWER : q->picked;
+}
+
+int menu_pick(app *a, const menu_style *from, void *from_ctx, const char *heading,
+              const char *const *labels, const char *const *notes, int n, int ticked, int at)
+{
+	return pick_run(a, from, from_ctx, heading, labels, notes, NULL, n, ticked, at);
+}
+
+int menu_pick_preview(app *a, const menu_style *from, void *from_ctx, const char *heading,
+                      const char *const *labels, const char *const *notes,
+                      void (*preview)(void *app, int k, int x, int y, int w, int h),
+                      int n, int ticked, int at)
+{
+	return pick_run(a, from, from_ctx, heading, labels, notes, preview, n, ticked, at);
 }

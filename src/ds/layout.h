@@ -76,5 +76,9 @@
 #define DS_FOCUS_RING           4
 #define DS_FOCUS_GAP            4
 #define DS_RADIUS_CELL          14
+#define DS_PREVIEW_COL_W        336
+#define DS_PREVIEW_COL_MIN      200
+#define DS_PREVIEW_GAP          32
+#define DS_PREVIEW_NOTE_GAP     16
 
 #endif

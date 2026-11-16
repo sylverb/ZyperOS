@@ -300,6 +300,12 @@ const char *plat_turbo_map(const char *tag);
  * its mode or rect can change, settling included, so the last one heard is
  * current. */
 bool plat_resident_rect(SDL_Rect *out);
+/* The picture the game's core makes and the shape it asks for (width over
+ * height; 0 for square pixels), as Diatom's last DISPLAY said: the Display
+ * list's previews (src/dmodefit.h). False before one said it. */
+bool plat_resident_source(int *w, int *h, double *aspect);
+/* And the surface Diatom draws on (its DISPLAY's surface=), in pixels */
+bool plat_resident_source_surface(int *w, int *h);
 /* Read replies for up to timeout_ms, stopping as soon as a DISPLAY arrives.
  * For changing the mode from the in-game menu: Diatom answers a SETDISPLAY with
  * the new rect, and the menu wants it now so its backdrop can redraw where the

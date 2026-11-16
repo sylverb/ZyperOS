@@ -70,12 +70,16 @@ SDL_FRect games_cover_rect(int width,int height,float offset)
 #define GAMES_META_RIGHT (1024-64)
 /* The system's line beside A's hint (page_hint at x 800): 40 short of it */
 #define GAMES_ORIGIN_RIGHT 760
+/* The name's lines: the first's middle, and the game title's line, 40 (44
+ * until 1.0.6) */
+#define GAMES_TITLE_Y    584
+#define GAMES_TITLE_STEP 40
 /* Where the line under the name sits: a title of one line leaves the second
- * line's place (44 down) to it, whether it names the system (Favorites) or
- * gives the play time (a shelf). Both read this, so they cannot drift apart. A
- * title of two lines leaves the slot below instead. */
-#define GAMES_SUBLINE_Y 628
-#define GAMES_SUBLINE_Y_LOW 664
+ * line's place (a title line down) to it, whether it names the system
+ * (Favorites) or gives the play time (a shelf). Both read this, so they cannot
+ * drift apart. A title of two lines leaves the slot below instead. */
+#define GAMES_SUBLINE_Y     (GAMES_TITLE_Y + GAMES_TITLE_STEP)
+#define GAMES_SUBLINE_Y_LOW (GAMES_TITLE_Y + 2 * GAMES_TITLE_STEP)
 static int meta_part(SDL_Renderer *r,TTF_Font *f,const char *s,int x,int y)
 {
     if(x<0) return -1;
@@ -183,16 +187,16 @@ uint32_t games_draw(games_row *row,SDL_Renderer *r,const games_info *info,
     if(info->favorite&&info->count) {
         int cap=ui_cap_height(title);
         float hr=cap*.55f;
-        draw_heart(r,64+hr,584,hr,ui_col(theme()->favorite,255));
+        draw_heart(r,64+hr,GAMES_TITLE_Y,hr,ui_col(theme()->favorite,255));
         tx=64+(int)lroundf(hr*2)+16; tw=656-(tx-64);
     }
     char lines[2][LB_LINE];
     int nlines=ui_balance_lines(title,name,tw,2,lines);
     bool whole=complete_title(name,lines,nlines);
     if(whole) {
-        for(int i=0;i<nlines;i++) ui_text(r,title,lines[i],tx,ui_cap_y(title,584+i*44),-1,UI_TEXT);
+        for(int i=0;i<nlines;i++) ui_text(r,title,lines[i],tx,ui_cap_y(title,GAMES_TITLE_Y+i*GAMES_TITLE_STEP),-1,UI_TEXT);
     } else {
-        ui_text_marquee(r,title,name,tx,ui_cap_y(title,584),tw,phase,UI_TEXT);
+        ui_text_marquee(r,title,name,tx,ui_cap_y(title,GAMES_TITLE_Y),tw,phase,UI_TEXT);
         unsigned next=ui_pingpong_wait(ui_text_width(title,name)-tw,phase); if(next<wait) wait=next;
     }
     /* The game's own system on Favorites, right under its name (

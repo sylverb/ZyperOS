@@ -150,6 +150,7 @@ extern bool shot_hud_items;    /* --hud-items */
 extern int  shot_hud_pick;     /* --hud-pick ROW */
 extern const char *shot_hud_shows; /* --hud-shows WORDS */
 extern bool shot_hud_alt;      /* --hud-alt */
+extern int shot_pick_at;       /* --pick-at K */
 extern int shot_rows_report;   /* --rows-report */
 extern const char *shot_menu_label;
 bool shot_status_parse(const char *spec);

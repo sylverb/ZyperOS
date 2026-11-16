@@ -4644,7 +4644,6 @@ static int menu_shelf_width(app *a)
 		bool own  = muse || a->view[i].owner;
 		int  srow = own ? 1 : sm_pos(a, i, SM_SORT), show = -1;
 		int  drow = own ? -1 : sm_pos(a, i, SM_DISPLAY);
-		int  nrow = own ? -1 : sm_pos(a, i, SM_DNOTE1);
 		int  hrow = own ? -1 : sm_pos(a, i, SM_SHADER);
 		int  crow = own ? -1 : sm_pos(a, i, SM_CORE);
 		int  lrow = own ? -1 : sm_pos(a, i, SM_DSLANG);
@@ -4673,15 +4672,6 @@ static int menu_shelf_width(app *a)
 		for (k = 0; drow >= 0 && k < DMODE_COUNT; k++) {
 			int mw;
 			rows[drow].value = dmode_label(k);
-			/* and its caption's two lines under it, as sysmenu_screen.c
-			 * wraps them */
-			if (nrow >= 0 && nrow + 1 < n) {
-				static char note[2][CHV_WRAP_COLS];
-				int nl = wrap_text(ui_font(UI_F_MENU), dmode_note(k), SM_NOTE_W, note, 2);
-
-				rows[nrow].label = nl > 0 ? note[0] : "";
-				rows[nrow + 1].label = nl > 1 ? note[1] : "";
-			}
 			mw = menu_measure(rows, n, heading);
 			if (mw > w) w = mw;
 		}
@@ -5371,6 +5361,16 @@ int main(int argc, char *argv[])
 		else if (!strcmp(argv[i], "--hud-pick") && i + 1 < argc) shot_hud_pick = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--hud-shows") && i + 1 < argc) shot_hud_shows = argv[++i];
 		else if (!strcmp(argv[i], "--hud-alt")) shot_hud_alt = true;
+		/* --pick-at K: an option list's cursor on choice K; --gm-source
+		 * WxH[@ASPECT]: the core's picture the in-game menu's frame stands
+		 * for, which the Display list's picture draws with */
+		else if (!strcmp(argv[i], "--pick-at") && i + 1 < argc) shot_pick_at = atoi(argv[++i]);
+		else if (!strcmp(argv[i], "--gm-source") && i + 1 < argc) {
+			const char *v = argv[++i], *at = strchr(v, '@');
+
+			if (sscanf(v, "%dx%d", &shot_gm_src_w, &shot_gm_src_h) != 2) shot_gm_src_w = shot_gm_src_h = 0;
+			shot_gm_aspect = at ? atof(at + 1) : 4.0 / 3.0;
+		}
 		else if (!strcmp(argv[i], "--rows-report")) shot_rows_report = 1;
 		else if (!strcmp(argv[i], "--backdrop") && i + 1 < argc) shot_backdrop = argv[++i];
 		else if (!strcmp(argv[i], "--press") && i + 1 < argc) {
