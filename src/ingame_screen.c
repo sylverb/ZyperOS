@@ -754,6 +754,7 @@ static bool cheevo_detail_screen(app *a, SDL_Texture *bg, bool over_shelf,
 	nl = wrap_text(ui_font(UI_F_MENU),
 	               c->desc[0] ? c->desc : T(S_CHEEVOLIST_NO_DESCRIPTION),
 	               fixed, lines, CHV_WRAP_LINES);
+	if (!c->desc[0]) ui_fit_drawn(T(S_CHEEVOLIST_NO_DESCRIPTION));    /* drawn in lines */
 	/* Live, unlike an ordinary note. A caption under a setting is a caption;
 	 * here the description IS the content, and UI_TEXT_DIM is too quiet to be
 	 * the only thing on the card worth reading. */

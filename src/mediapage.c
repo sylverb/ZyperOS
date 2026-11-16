@@ -180,6 +180,8 @@ static void message_draw(SDL_Renderer *r, const mpg_page *p, unsigned now)
 		char first[2][LB_LINE];
 		int nf = ui_text_width(fm, p->msg) <= room ? 0 : ui_balance_lines(fm, p->msg, room, 2, first);
 
+		if (nf > 1) ui_fit_drawn(p->msg);    /* drawn in lines, said whole to the host's check */
+
 		if (nf == 0) {
 			ui_text(r, fm, p->msg, x, ui_cap_y(fm, y), -1, UI_TEXT_SOFT);
 			y += 58;

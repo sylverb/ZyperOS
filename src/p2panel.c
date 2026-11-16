@@ -57,6 +57,7 @@ static void geom(const p2panel *p, p2p_geom *g)
 	g->nhow = p->how && *p->how
 	        ? ui_balance_lines(ui_font(g->role), p->how, inner, g->code ? 2 : P2P_HOW_LINES, g->how)
 	        : 0;
+	if (g->nhow > 1) ui_fit_drawn(p->how);    /* drawn in lines, said whole to the host's check */
 	g->who_step = line * 3 / 2;
 
 	/* Offsets from the panel's top first */
