@@ -3,8 +3,8 @@
 #define ZYPEROS_BRICK_BUTTONS_H
 
 /* The TrimUI Brick's controls as printed (src/device/profile.h), for its
- * profile and for the host's desktop, which has always answered as a Brick.
- * The three round keys along the bottom: MENU shows TrimUI's mark, so it is
+ * profile (the host's desktop has the same keys, drawn as the Pixel 2's:
+ * desktop_profile.c). The three round keys along the bottom: MENU shows TrimUI's mark, so it is
  * its word here (no vendor's logo is a glyph), SELECT a square, START a play
  * triangle. F1 and F2, the two lit keys above the face buttons, are
  * brightness (src/device/brick.c's keymap: BTN_THUMBL and BTN_THUMBR). */

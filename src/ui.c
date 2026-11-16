@@ -10,6 +10,7 @@
 #include "linebreak.h" /* where a name too wide for its box breaks or is cut */
 #include "look.h"      /* Corners: Square */
 #include "padglyph.h"
+#include "ds/button.h"  /* which glyph a button name draws on this handheld */
 #include "folderart.h" /* a folder's card and row, in pixel art */  /* the PlayStation's shapes, drawn in running text */
 
 #include <math.h>
@@ -476,19 +477,12 @@ static bool word_char(char c)
 	       (c >= '0' && c <= '9') || c == '_';
 }
 
-/* Whether MENU is drawn as the Pixel 2's key, three dots in a ring
- * (ui_set_menu_dots): on a device whose MENU is printed as a word on its
- * key (the Brick), MENU stays a word in running text, and its key is a
- * worded one, as SELECT's is */
-static bool g_menu_dots = true;
-
-void ui_set_menu_dots(bool dots) { g_menu_dots = dots; }
-
 /* The next whole word MENU at or after p (s is the string's start), or NULL;
- * always NULL where MENU is a word (g_menu_dots) */
+ * always NULL where this handheld's MENU is a word (ds_key_menu_dots: the
+ * Brick's), so MENU stays a word in running text there */
 static const char *menu_word(const char *s, const char *p)
 {
-	if (!g_menu_dots) return NULL;
+	if (!ds_key_menu_dots()) return NULL;
 	for (; (p = strstr(p, "MENU")); p += 4)
 		if ((p == s || !word_char(p[-1])) && !word_char(p[4])) return p;
 	return NULL;
@@ -2331,23 +2325,14 @@ static void button_fonts_free(void)
 #define BUTTON_PILL_PAD 30
 #define BUTTON_KEY_H    44
 
-/* The face buttons, which are circles. */
-static bool button_menu(const char *label)
-{
-	return g_menu_dots && label && !strcmp(label, "MENU");
-}
-
 /* The d-pad's hint (keyhints.h): "< >" its left and right, "^ v" its up and
  * down. Drawn as the d-pad itself (dpad_key), the arms it means lit, not as a
  * pill with the signs on it (1.0.6: Tarik, "fix the arrow buttons hint design.
  * Check the pixel 2 3d model for reference on how they look"). Which arms:
- * 1 left and right, 2 up and down, 0 for any other label. */
-static int button_dpad(const char *label)
+ * 1 left and right, 2 up and down, 0 for any other glyph. */
+static int key_dpad(ds_key k)
 {
-	if (!label) return 0;
-	if (!strcmp(label, "< >")) return 1;
-	if (!strcmp(label, "^ v")) return 2;
-	return 0;
+	return k.shape == DS_KEY_DPAD_LR ? 1 : k.shape == DS_KEY_DPAD_UD ? 2 : 0;
 }
 
 static void dpad_key(SDL_Renderer *r, float cx, float cy, float size, int arms, SDL_Color edge,
@@ -2356,16 +2341,19 @@ static void dpad_key(SDL_Renderer *r, float cx, float cy, float size, int arms, 
  * than a face's disc, and at the same size it read small beside them */
 #define DPAD_KEY_K 1.25f
 
-/* A face: A, B, X and Y, and MENU, which is round on the Pixel 2 and drawn as
- * its three dots rather than a word (menu_key_dots). */
-static bool button_round(const char *label)
+/* Round: a face (A, B, X and Y; the Pixel 2's MENU, drawn as its three dots
+ * rather than a word, menu_key_dots; the Brick's SELECT and START, their
+ * square and play triangle, key_mark) or a stick's cap. Which glyph a name
+ * is comes from the handheld's table (src/ds/button.h). */
+static bool key_round(ds_key k)
 {
-	return (label && label[0] && !label[1] && strchr("ABXY", label[0])) ||
-	       button_menu(label);
+	return k.shape == DS_KEY_FACE || k.shape == DS_KEY_STICK;
 }
 
 static void menu_key_dots(SDL_Renderer *r, TTF_Font *f, float cx, float cy,
                           float k, SDL_Color col);
+static void key_mark(SDL_Renderer *r, TTF_Font *f, float cx, float cy, float k, ds_key_mark m,
+                     SDL_Color col);
 
 /* The letter's point size, rounded: a face's is the title's at 96 units, a
  * pill's half that at 64. See ui.h. */
@@ -2421,11 +2409,12 @@ static int button_pad(int size)
 
 int ui_button_width(const char *label, int size)
 {
-	bool round = button_round(label);
+	const ds_key k = ds_key_of(label);
+	bool round = key_round(k);
 
 	if (round) return size;
-	if (button_dpad(label)) return (int)((float)size * DPAD_KEY_K + 0.5f);
-	return ui_text_width(button_letter(round, size), label)
+	if (key_dpad(k)) return (int)((float)size * DPAD_KEY_K + 0.5f);
+	return ui_text_width(button_letter(round, size), k.text)
 	       + button_pad(size) * 2;
 }
 
@@ -2438,14 +2427,15 @@ void ui_button(SDL_Renderer *r, const char *label, int cx, int cy, int size,
                int style)
 {
 	const ds_theme *t = theme();
-	bool round = button_round(label);
+	const ds_key k = ds_key_of(label);
+	bool round = key_round(k);
 	TTF_Font *f;
 	int w, ring;
 	SDL_Color edge, fill, ink;
 	SDL_Rect q, in;
 
 	if (!label || size <= 0) return;
-	if (button_dpad(label)) {
+	if (key_dpad(k)) {
 		const float ds = (float)size * DPAD_KEY_K;
 		const int dw = (int)(ds + 0.5f);
 
@@ -2453,21 +2443,21 @@ void ui_button(SDL_Renderer *r, const char *label, int cx, int cy, int size,
 			unsigned face = ui_mix(ui_rgb(t->accent), ui_rgb(t->on_accent), BUTTON_ON_ACCENT_TINT);
 			unsigned arm = ui_mix(face, ui_rgb(t->on_accent), 0.25f);
 
-			dpad_key(r, (float)cx, (float)cy, ds, button_dpad(label), ui_col(t->on_accent, 255),
+			dpad_key(r, (float)cx, (float)cy, ds, key_dpad(k), ui_col(t->on_accent, 255),
 			         (SDL_Color){ (Uint8)(face >> 16), (Uint8)(face >> 8), (Uint8)face, 255 },
 			         (SDL_Color){ (Uint8)(arm >> 16), (Uint8)(arm >> 8), (Uint8)arm, 255 },
 			         ui_col(t->on_accent, 255));
 		} else {
 			unsigned arm = ui_mix(ui_rgb(t->raised), ui_rgb(t->text_dim), 0.35f);
 
-			dpad_key(r, (float)cx, (float)cy, ds, button_dpad(label), ui_col(t->edge, 255), ui_col(t->raised, 255),
+			dpad_key(r, (float)cx, (float)cy, ds, key_dpad(k), ui_col(t->edge, 255), ui_col(t->raised, 255),
 			         (SDL_Color){ (Uint8)(arm >> 16), (Uint8)(arm >> 8), (Uint8)arm, 255 }, ui_col(t->text, 255));
 		}
 		ui_fit_mark(&(SDL_Rect){ cx - dw / 2, cy - dw / 2, dw, dw });
 		return;
 	}
 	f = button_letter(round, size);
-	w = round ? size : ui_text_width(f, label) + button_pad(size) * 2;
+	w = round ? size : ui_text_width(f, k.text) + button_pad(size) * 2;
 	ring = button_ring(round, size);
 
 	if (style == UI_BUTTON_ON_ACCENT) {
@@ -2490,6 +2480,15 @@ void ui_button(SDL_Renderer *r, const char *label, int cx, int cy, int size,
 	in = (SDL_Rect){ q.x + ring, q.y + ring, q.w - ring * 2, q.h - ring * 2 };
 	ui_round_rect(r, &q, size / 2, edge);
 	ui_round_rect(r, &in, size / 2 - ring, fill);
+	/* A stick's cap: its top's ring inside, under the word */
+	if (k.shape == DS_KEY_STICK) {
+		const int sd = size * 7 / 10;
+		SDL_Rect s = { cx - sd / 2, cy - sd / 2, sd, sd };
+		SDL_Rect si = { s.x + ring, s.y + ring, sd - ring * 2, sd - ring * 2 };
+
+		ui_round_rect(r, &s, sd / 2, edge);
+		ui_round_rect(r, &si, sd / 2 - ring, fill);
+	}
 
 	/* Centered on the capitals: every label is capitals and digits, and the
 	 * em box would hang a descender's depth of nothing under them and sit
@@ -2497,8 +2496,9 @@ void ui_button(SDL_Renderer *r, const char *label, int cx, int cy, int size,
 #ifdef I18N_PSEUDO
 	fit_quiet++;
 #endif
-	if (button_menu(label)) menu_key_dots(r, f, (float)cx, (float)cy, 1.0f, ink);
-	else ui_text(r, f, label, cx, ui_cap_y(f, cy), 0, ink);
+	if (k.mark == DS_KEY_MARK_DOTS) menu_key_dots(r, f, (float)cx, (float)cy, 1.0f, ink);
+	else if (k.mark != DS_KEY_MARK_NONE) key_mark(r, f, (float)cx, (float)cy, 1.0f, k.mark, ink);
+	else ui_text(r, f, k.text, cx, ui_cap_y(f, cy), 0, ink);
 #ifdef I18N_PSEUDO
 	fit_quiet--;
 #endif
@@ -2684,6 +2684,39 @@ static void menu_key_dots(SDL_Renderer *r, TTF_Font *f, float cx, float cy,
 	for (int i = -1; i <= 1; i++) disc_f(r, cx, cy + (float)i * gap, rad, col);
 }
 
+/* The Brick's SELECT square and START play triangle, as its handheld draws
+ * them (tourdevice.c, bk_icon), sized from the letter's capitals as MENU's
+ * dots are, so a mark weighs what a face's letter does: the triangle a
+ * capital tall and a little right of its box's middle, so it looks centred,
+ * the square a little smaller; in the word's color, as the dots are */
+static void key_mark(SDL_Renderer *r, TTF_Font *f, float cx, float cy, float k, ds_key_mark m,
+                     SDL_Color col)
+{
+	const float q = (float)ui_cap_height(f) * k * 0.42f;
+
+	if (m == DS_KEY_MARK_SQUARE) {
+		const SDL_FPoint p[4] = { { cx - q, cy - q }, { cx + q, cy - q }, { cx + q, cy + q }, { cx - q, cy + q } };
+
+		fan(r, p, 4, col);
+	} else if (m == DS_KEY_MARK_PLAY) {
+		const SDL_FPoint p[3] = { { cx - 0.8f * q, cy - 1.1f * q }, { cx + 1.2f * q, cy },
+		                          { cx - 0.8f * q, cy + 1.1f * q } };
+
+		fan(r, p, 3, col);
+	}
+}
+
+/* A stick's cap's top: a ring 0.7 of the cap across, inside it */
+static void stick_ring(SDL_Renderer *r, float cx, float cy, float h, float ring, SDL_Color edge,
+                       SDL_Color face)
+{
+	const float sd = h * 0.7f;
+
+	rrect_f(r, cx - sd / 2.0f, cy - sd / 2.0f, sd, sd, sd / 2.0f, edge);
+	rrect_f(r, cx - sd / 2.0f + ring, cy - sd / 2.0f + ring, sd - ring * 2.0f, sd - ring * 2.0f,
+	        sd / 2.0f - ring, face);
+}
+
 static SDL_Color gcol(ds_rgb c)
 {
 	return ui_col(c, (Uint8)(255.0f * glyph_op + 0.5f));
@@ -2702,18 +2735,20 @@ static float op01(float op)
 	return op < 0.0f ? 0.0f : (op > 1.0f ? 1.0f : op);
 }
 
-/* A label `k` times its size, its capitals' middle on `cy`, centered on cx,
- * at `a` of its opacity. */
-static void label_k(SDL_Renderer *r, TTF_Font *f, const char *s, float cx, float cy,
+/* A glyph's word or mark `k` times its size, its capitals' middle on `cy`,
+ * centered on cx, at `a` of its opacity. */
+static void label_k(SDL_Renderer *r, TTF_Font *f, ds_key g, float cx, float cy,
                     float k, SDL_Color col, float a)
 {
+	const char *s = g.text;
 	struct text_entry *e;
 	float top;
 
 	if (a <= 0.004f) return;
-	if (button_menu(s)) {
+	if (g.mark != DS_KEY_MARK_NONE) {
 		col.a = (Uint8)(col.a * glyph_op * (a > 1.0f ? 1.0f : a) + 0.5f);
-		menu_key_dots(r, f, cx, cy, k, col);
+		if (g.mark == DS_KEY_MARK_DOTS) menu_key_dots(r, f, cx, cy, k, col);
+		else key_mark(r, f, cx, cy, k, g.mark, col);
 		return;
 	}
 	if (!(e = text_get(r, f, s, col))) return;
@@ -2730,9 +2765,10 @@ static void label_turn(SDL_Renderer *r, TTF_Font *f, const char *s, float cx, fl
                        float k, float q)
 {
 	const ds_theme *t = theme();
+	const ds_key w = { DS_KEY_PILL, DS_KEY_MARK_NONE, s };
 
-	label_k(r, f, s, cx, cy, k, ui_col(t->text, 255), 1.0f - q);
-	label_k(r, f, s, cx, cy, k, ui_col(t->on_accent, 255), q);
+	label_k(r, f, w, cx, cy, k, ui_col(t->text, 255), 1.0f - q);
+	label_k(r, f, w, cx, cy, k, ui_col(t->on_accent, 255), q);
 }
 
 static float glyph_k(float press, float scale)
@@ -2746,7 +2782,8 @@ void ui_button_pressed(SDL_Renderer *r, const char *label, int cx, int cy, int s
                        int style, float press, float scale, float op)
 {
 	const ds_theme *t = theme();
-	bool round = button_round(label);
+	const ds_key g = ds_key_of(label);
+	bool round = key_round(g);
 	TTF_Font *f;
 	float k, w, h, ring;
 
@@ -2758,7 +2795,7 @@ void ui_button_pressed(SDL_Renderer *r, const char *label, int cx, int cy, int s
 	glyph_op = op01(op);
 	f = button_letter(round, size);
 	k = glyph_k(style == UI_BUTTON_ON_ACCENT ? 0.0f : press, scale);
-	if (button_dpad(label)) {
+	if (key_dpad(g)) {
 		/* the d-pad's key, faded, pressed or pulsing as any glyph is */
 		const float ds = (float)size * DPAD_KEY_K * k;
 
@@ -2768,19 +2805,19 @@ void ui_button_pressed(SDL_Renderer *r, const char *label, int cx, int cy, int s
 			ds_rgb face = { (Uint8)(m >> 16), (Uint8)(m >> 8), (Uint8)m };
 			ds_rgb arm = { (Uint8)(a >> 16), (Uint8)(a >> 8), (Uint8)a };
 
-			dpad_key(r, (float)cx, (float)cy, ds, button_dpad(label), gcol(t->on_accent), gcol(face), gcol(arm),
+			dpad_key(r, (float)cx, (float)cy, ds, key_dpad(g), gcol(t->on_accent), gcol(face), gcol(arm),
 			         gcol(t->on_accent));
 		} else {
 			unsigned a = ui_mix(ui_rgb(t->raised), ui_rgb(t->text_dim), 0.35f);
 			ds_rgb arm = { (Uint8)(a >> 16), (Uint8)(a >> 8), (Uint8)a };
 
-			dpad_key(r, (float)cx, (float)cy, ds, button_dpad(label), col_toward(t->edge, t->accent, press),
+			dpad_key(r, (float)cx, (float)cy, ds, key_dpad(g), col_toward(t->edge, t->accent, press),
 			         gcol(t->raised), gcol(arm), gcol(t->text));
 		}
 		glyph_op = 1.0f;
 		return;
 	}
-	w = (float)(round ? size : ui_text_width(f, label) + button_pad(size) * 2) * k;
+	w = (float)(round ? size : ui_text_width(f, g.text) + button_pad(size) * 2) * k;
 	h = (float)size * k;
 	ring = (float)button_ring(round, size) * k;
 
@@ -2793,14 +2830,17 @@ void ui_button_pressed(SDL_Renderer *r, const char *label, int cx, int cy, int s
 		rrect_f(r, cx - w / 2.0f, cy - h / 2.0f, w, h, h / 2.0f, gcol(t->on_accent));
 		rrect_f(r, cx - w / 2.0f + ring, cy - h / 2.0f + ring, w - ring * 2.0f,
 		        h - ring * 2.0f, h / 2.0f - ring, gcol(fill));
-		label_k(r, f, label, (float)cx, (float)cy, k, ui_col(t->on_accent, 255), 1.0f);
+		if (g.shape == DS_KEY_STICK) stick_ring(r, (float)cx, (float)cy, h, ring, gcol(t->on_accent), gcol(fill));
+		label_k(r, f, g, (float)cx, (float)cy, k, ui_col(t->on_accent, 255), 1.0f);
 	} else {
 		halo_draw(r, round ? HALO_FACE : HALO_PILL, cx - w / 2.0f, cy - h / 2.0f, w, h, press);
 		rrect_f(r, cx - w / 2.0f, cy - h / 2.0f, w, h, h / 2.0f,
 		        col_toward(t->edge, t->accent, press));
 		rrect_f(r, cx - w / 2.0f + ring, cy - h / 2.0f + ring, w - ring * 2.0f,
 		        h - ring * 2.0f, h / 2.0f - ring, gcol(t->raised));
-		label_k(r, f, label, (float)cx, (float)cy, k, ui_col(t->text, 255), 1.0f);
+		if (g.shape == DS_KEY_STICK)
+			stick_ring(r, (float)cx, (float)cy, h, ring, col_toward(t->edge, t->accent, press), gcol(t->raised));
+		label_k(r, f, g, (float)cx, (float)cy, k, ui_col(t->text, 255), 1.0f);
 	}
 	glyph_op = 1.0f;
 }

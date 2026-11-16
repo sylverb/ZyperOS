@@ -10,15 +10,12 @@
 #include "i18n.h"
 #include "padglyph.h"
 
-static bool fn_volume;        /* brightness is MENU+VOL: ctl_set_chords */
-static bool home_chord;       /* MENU+START goes Home */
-static bool battery_lights;   /* L2+R2 shows the battery on the lights */
+/* The handheld's chords, by what they do (dev_role_keys): ctl_set_chords */
+static dev_chords chords;
 
 void ctl_set_chords(const dev_chords *c)
 {
-	fn_volume = c->bright == DEV_BRIGHT_MENU_VOL;
-	home_chord = c->home_chord;
-	battery_lights = c->battery_chord;
+	chords = *c;
 }
 
 /* The rows the home's pages and a game's In a game page both say, written
@@ -40,14 +37,12 @@ static menu_row row_volume(void)
 {
 	return (menu_row){ T(S_CONTROLS_KEY_VOLUME), T(S_CONTROLS_SOUND), false };
 }
-/* The Pixel 2's chord by the names its glyphs carry, MENU and VOL, as the
- * tutorial teaches it (DESIGN.md 12: chords with a plus) */
-/* MENU+START, held a second (tools/zyhome.c): the Pixel 2's alone, which is
- * also the one device with MENU+VOL, so the same test says both */
-static menu_row row_home(void)  { return (menu_row){ "MENU+START", T(S_CONTROLS_HOME), false }; }
+/* MENU+START, held a second (tools/zyhome.c), and brightness, as this
+ * handheld does them (src/profile.c, dev_role_keys) */
+static menu_row row_home(void)  { return (menu_row){ dev_role_keys(&chords, DEV_ROLE_HOME), T(S_CONTROLS_HOME), false }; }
 static menu_row row_brightness(void)
 {
-	return (menu_row){ fn_volume ? "MENU+VOL" : "F1/F2", T(S_CONTROLS_BRIGHTNESS), false };
+	return (menu_row){ dev_role_keys(&chords, DEV_ROLE_BRIGHTNESS), T(S_CONTROLS_BRIGHTNESS), false };
 }
 
 static const str_id NAMES[CTL_PAGES] = {
@@ -109,8 +104,8 @@ static int shelf(menu_row *out)
 	out[n++] = (menu_row){ "START", T(S_CONTROLS_VIEW), false };
 	/* Here rather than on Anywhere, which is full: it works outside a game,
 	 * and in one L2 and R2 are the game's */
-	if (battery_lights)
-		out[n++] = (menu_row){ "L2+R2", T(S_CONTROLS_BATTERY), false };
+	if (dev_role_keys(&chords, DEV_ROLE_BATTERY))
+		out[n++] = (menu_row){ dev_role_keys(&chords, DEV_ROLE_BATTERY), T(S_CONTROLS_BATTERY), false };
 	return n;
 }
 
@@ -206,7 +201,7 @@ static int anywhere(menu_row *out)
 	out[n++] = (menu_row){ "MENU",   T(S_CONTROLS_SETTINGS), false };
 	out[n++] = row_volume();
 	out[n++] = row_brightness();
-	if (home_chord) out[n++] = row_home();
+	if (dev_role_keys(&chords, DEV_ROLE_HOME)) out[n++] = row_home();
 	out[n++] = (menu_row){ "POWER",  T(powerhold_mode() ? S_CONTROLS_TURN_OFF_HOLD
 	                                                    : S_CONTROLS_TURN_OFF), false };
 	return n;
@@ -1034,7 +1029,7 @@ static int in_a_game(menu_row *out)
 	out[n++] = row_quit();
 	out[n++] = row_volume();
 	out[n++] = row_brightness();
-	if (home_chord) out[n++] = row_home();
+	if (dev_role_keys(&chords, DEV_ROLE_HOME)) out[n++] = row_home();
 	out[n++] = row_save_off();
 	return n;
 }

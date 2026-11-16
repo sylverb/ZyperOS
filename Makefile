@@ -1377,11 +1377,11 @@ check-devicegen: build-native/devicegen
 	[ $$bad = 0 ] && echo "ok: config/device holds each device's build as its _build.c says"
 
 build-native/devices-check: tools/devices-check.c src/profile.c src/device/profile.h src/device/build.h src/device/brick_buttons.h src/inbutton.h \
-                            src/thermal.c src/thermal.h $(DEVICE_PROFILES) $(DEVICE_BUILDS) FORCE
+                            src/thermal.c src/thermal.h src/ds/button.c src/ds/button.h $(DEVICE_PROFILES) $(DEVICE_BUILDS) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Isrc \
 	      -DZYPEROS_PROFILE=device_profile_desktop -DZYPEROS_PROFILES_ALL \
-	      -o $@ tools/devices-check.c src/profile.c src/thermal.c $(DEVICE_PROFILES) $(DEVICE_BUILDS)
+	      -o $@ tools/devices-check.c src/profile.c src/thermal.c src/ds/button.c $(DEVICE_PROFILES) $(DEVICE_BUILDS)
 
 # Every device file compiled, the Linux halves the Mac's build never sees (CI
 # job "devices", .github/workflows/check.yml): the launcher's device files,
@@ -2209,7 +2209,7 @@ check-textfade:
 		mkdir -p build-native; \
 		$(CC) -std=gnu11 -D_GNU_SOURCE -O1 -g -Wall -Wextra \
 		  $$(pkg-config --cflags sdl2 SDL2_ttf SDL2_image) -Isrc \
-		  -o build-native/textfade-check tools/textfade-check.c src/ui.c src/ds/glyph.c src/folderart.c src/roundrect.c src/theme.c src/look.c \
+		  -o build-native/textfade-check tools/textfade-check.c src/ui.c src/ds/glyph.c src/ds/button.c src/folderart.c src/roundrect.c src/theme.c src/look.c \
 		  src/themefile.c src/linebreak.c src/blur.c src/cardgen.c src/sysmark.c $(I18N_SRC) \
 		  $$(pkg-config --libs sdl2 SDL2_ttf SDL2_image) -lm && \
 		ZYPEROS_HEADLESS=1 SDL_VIDEODRIVER=dummy SDL_RENDER_DRIVER=software \
@@ -2259,7 +2259,7 @@ check-tour-colors:
 		mkdir -p build-native; \
 		$(CC) -std=gnu11 -D_GNU_SOURCE -O1 -g -Wall -Wextra \
 		  $$(pkg-config --cflags sdl2 SDL2_ttf SDL2_image) -Isrc \
-		  -o build-native/tour-colors-check tools/tour-colors-check.c src/ui.c src/ds/glyph.c src/folderart.c src/roundrect.c \
+		  -o build-native/tour-colors-check tools/tour-colors-check.c src/ui.c src/ds/glyph.c src/ds/button.c src/folderart.c src/roundrect.c \
 		  src/theme.c src/themefile.c src/look.c src/linebreak.c src/blur.c src/cardgen.c \
 		  src/sysmark.c src/tour.c src/powerhold.c src/tourdraw.c src/tourdevice.c src/zyperrig.c src/osdbar.c src/db.c $(I18N_SRC) $(DEVICE_PROFILES) \
 		  $$(pkg-config --libs sdl2 SDL2_ttf SDL2_image) -lsqlite3 -lm && \

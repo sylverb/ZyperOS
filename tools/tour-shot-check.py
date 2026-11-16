@@ -343,7 +343,7 @@ def brick():
                    "pixels)" % (step, BRICK_BACK_MS, glass))
         # The block moved as for the Pixel 2: the host's own (no handheld)
         # moved TOURDEV_SHIFT right. MENU's lesson is not: its key is the
-        # Brick's, the word on it (src/profile.c, dev_menu_dots), where the
+        # Brick's, the word on it (src/ds/button.h, from its profile's table), where the
         # host draws the Pixel 2's three dots, so there it must differ
         for step in ("menu", "power"):
             host = shot("brick-%s-%s" % (step, th), "--theme", th, "--tour", step, "2000")
