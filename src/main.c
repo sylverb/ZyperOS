@@ -3053,9 +3053,9 @@ typedef struct {
  * charging screen's (src/charging.h: CC then CV, after its 30 s settle) as it
  * settles. Off the cable, the gauge's charge over its current from the first
  * read, blended into the falls' as that earns trust (battery_minutes_left).
- * A gauge with no current file (the Brick, a simulator) gives the gauge's
- * half nothing, and the falls carry on alone; on the cable it gives the
- * percentage, since nothing can ever come. */
+ * A gauge with no current file (a simulator's, or a driver's with none)
+ * gives the gauge's half nothing, and the falls carry on alone; on the cable
+ * it gives the percentage, since nothing can ever come. */
 static corner_view corner_view_now(const status_marks *m)
 {
 	static unsigned at, cable_since, calc_since;

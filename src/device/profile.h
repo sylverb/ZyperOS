@@ -105,6 +105,10 @@ typedef struct device_profile {
 	bool player2;            /* NES Player 2 was built and tried on it */
 	bool usb_shared_port;    /* one port for the computer and accessories */
 	dev_wifi wifi;
+	/* The chip's thermal zones by their type, as its device tree names
+	 * them, the hottest of them its temperature (src/thermal.h);
+	 * NULL-ended, or NULL where none is read */
+	const char *const *thermal_zones;
 	/* The core options measured on this handheld, its GPU or its motor,
 	 * given at run time under the player's own (src/coreopts.h); ends in
 	 * { NULL, NULL }, or NULL for none */

@@ -28,6 +28,10 @@ static const dev_button pixel2_buttons[] = {
 	{ IN_POWER,  "POWER",  DEV_CAP_PILL,     DEV_ICON_NONE, 0 },
 };
 
+/* The RK3326's two sensors as px30.dtsi names their zones: the CPU's and the
+ * GPU's. Both slow their part at 70 and 85 C (src/heat.h). */
+static const char *const pixel2_zones[] = { "soc-thermal", "gpu-thermal", NULL };
+
 const device_profile device_profile_pixel2 = {
 	.id = "pixel2",
 	.name = "GKD Pixel 2",
@@ -59,4 +63,5 @@ const device_profile device_profile_pixel2 = {
 	.player2 = true,
 	.usb_shared_port = true,
 	.wifi = DEV_WIFI_ADAPTER,
+	.thermal_zones = pixel2_zones,
 };

@@ -318,14 +318,17 @@ build-native/status-check: tools/status-check.c src/status.c src/status.h \
 
 # Charger changes reach the shared battery cache within 250 ms at the shelf's
 # 16 ms poll rate. Stable samples request no redraw; capacity stays at 5 s.
-# Plain C only: this does not prove the kernel's hardware propagation time.
+# And the charger-online rule both devices read the cable by
+# (src/charging_rule.h). Plain C only: this does not prove the kernel's
+# hardware propagation time.
 check-battery: build-native/battery-check
 	@./build-native/battery-check
 
-build-native/battery-check: tools/battery-check.c src/battery_poll.c src/battery_poll.h FORCE
+build-native/battery-check: tools/battery-check.c src/battery_poll.c src/battery_poll.h \
+                            src/charging_rule.c src/charging_rule.h FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -Werror -O1 -g \
-	      -o $@ tools/battery-check.c src/battery_poll.c
+	      -o $@ tools/battery-check.c src/battery_poll.c src/charging_rule.c
 
 # The time left on the battery (src/battery_eta.h): the estimate from how long
 # a percent takes to fall, against a simulated gauge at several loads, across
@@ -1324,8 +1327,10 @@ build-native/usblink-check: tools/usblink-check.c src/usblink.c src/usblink.h sr
 
 # The device profiles (src/device/profile.h): each one whole, today's answers
 # for the Pixel 2, the Brick and the host's desktop, and the choice of one by
-# its id (--device). Built with all three, as the host build is. No SDL. Then
-# no device guessed in src/ (tools/devices-lint.py).
+# its id (--device). Built with all three, as the host build is. No SDL. The
+# chip's temperature from the zones a profile names (src/thermal.h), on a
+# sysfs made in a scratch folder. Then no device guessed in src/
+# (tools/devices-lint.py).
 check-devices: build-native/devices-check
 	@./build-native/devices-check
 	@python3 tools/devices-lint.py
@@ -1358,11 +1363,12 @@ check-devicegen: build-native/devicegen
 	done; done; \
 	[ $$bad = 0 ] && echo "ok: config/device holds each device's build as its _build.c says"
 
-build-native/devices-check: tools/devices-check.c src/profile.c src/device/profile.h src/device/build.h src/device/brick_buttons.h src/inbutton.h $(DEVICE_PROFILES) $(DEVICE_BUILDS) FORCE
+build-native/devices-check: tools/devices-check.c src/profile.c src/device/profile.h src/device/build.h src/device/brick_buttons.h src/inbutton.h \
+                            src/thermal.c src/thermal.h $(DEVICE_PROFILES) $(DEVICE_BUILDS) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Isrc \
 	      -DZYPEROS_PROFILE=device_profile_desktop -DZYPEROS_PROFILES_ALL \
-	      -o $@ tools/devices-check.c src/profile.c $(DEVICE_PROFILES) $(DEVICE_BUILDS)
+	      -o $@ tools/devices-check.c src/profile.c src/thermal.c $(DEVICE_PROFILES) $(DEVICE_BUILDS)
 
 # Every device file compiled, the Linux halves the Mac's build never sees (CI
 # job "devices", .github/workflows/check.yml): the launcher's device files,

@@ -485,11 +485,12 @@ bool plat_battery(int *pct, bool *charging);
  * on a host. About treats absent capacity files as unknown. */
 const char *plat_battery_info_path(void);
 
-/* The chip's temperature in mC, the hotter of its thermal zones, for "Getting
- * hot" (src/heat.h): false with no reading. A number in /tmp/zyperos_fake_temp
- * stands in for the sensors, in C or mC (90 or 90000), for testing the
- * warning from a shell: written while a game runs, and gone at power-off.
- * Two small sysfs reads; asked every few seconds. */
+/* The chip's temperature in mC, the hottest of the thermal zones its profile
+ * names (src/thermal.h), for "Getting hot" (src/heat.h): false with no
+ * reading. A number in /tmp/zyperos_fake_temp stands in for the sensors, in C
+ * or mC (90 or 90000), for testing the warning from a shell: written while a
+ * game runs, and gone at power-off. A few small sysfs reads; asked every few
+ * seconds. */
 bool plat_chip_temp(int *mc);
 
 /* What the charging screen shows (src/charging.h): the charge, the current and

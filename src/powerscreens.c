@@ -749,8 +749,7 @@ bool charge_boot_gate(app *a)
  * ZyperOS is off: the music too. POWER held starts it afresh, as from off:
  * this process ends and launch.sh starts a new one at once (CHG_RESTART),
  * which goes back into a game as any start does. Unplugged, off. False off
- * the charger, or with no gauge to read (the Brick), for the power-off as
- * ever. */
+ * the charger, or with no gauge to read, for the power-off as ever. */
 bool charge_instead(app *a)
 {
 	ch_reading r;
