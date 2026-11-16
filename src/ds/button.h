@@ -53,8 +53,4 @@ ds_key ds_key_of(const char *name);
 /* `name`'s button id ("A" IN_ACCEPT, "F1" IN_BRIGHTDN), IN_NONE for none */
 in_button ds_key_id(const char *name);
 
-/* Whether MENU in running text ("Press MENU.") is drawn as its key's three
- * dots: where this handheld's MENU carries them */
-bool ds_key_menu_dots(void);
-
 #endif
