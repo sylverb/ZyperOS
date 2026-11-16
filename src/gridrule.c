@@ -70,6 +70,56 @@ int gg_page(int cursor, int n, int page, int dir)
 	return cursor;
 }
 
+static int round_row(int row, int nrows)
+{
+	return (row % nrows + nrows) % nrows;
+}
+
+/* How far round the ends the rows are kept, before the window and after it:
+ * GG_AHEAD, and one more round an end the window is at, since only there a
+ * press comes round, and its glide in shows a sliver of the row past the
+ * page it lands on */
+static void reach(int top, int nrows, int *before, int *after)
+{
+	*before = GG_AHEAD + (top <= 0);
+	*after = GG_AHEAD + (top + GG_ROWS >= nrows);
+}
+
+bool gg_row_kept(int row, int top, int nrows)
+{
+	int after, before, rb, ra;
+
+	if (nrows <= 0 || row < 0 || row >= nrows) return false;
+	if (row >= top && row < top + GG_ROWS) return true;
+	reach(top, nrows, &rb, &ra);
+	after = round_row(row - (top + GG_ROWS - 1), nrows);
+	before = round_row(top - row, nrows);
+	return (after >= 1 && after <= ra) || (before >= 1 && before <= rb);
+}
+
+int gg_rows_ahead(int top, int nrows, int *rows, int max)
+{
+	int near[2 * (GG_AHEAD + 1)], n = 0, rb, ra;
+
+	if (nrows <= GG_ROWS || max <= 0) return 0;
+	reach(top, nrows, &rb, &ra);
+	/* nearest first, the row under the window before the one over it */
+	for (int d = 1; d <= GG_AHEAD + 1; d++) {
+		int cand[2] = { round_row(top + GG_ROWS - 1 + d, nrows), round_row(top - d, nrows) };
+		bool in[2] = { d <= ra, d <= rb };
+
+		for (int k = 0; k < 2; k++) {
+			bool seen = !in[k] || (cand[k] >= top && cand[k] < top + GG_ROWS);
+
+			for (int j = 0; j < n && !seen; j++) seen = near[j] == cand[k];
+			if (!seen) near[n++] = cand[k];
+		}
+	}
+	if (n > max) n = max;
+	for (int j = 0; j < n; j++) rows[j] = near[n - 1 - j];
+	return n;
+}
+
 unsigned gg_key(const char *file)
 {
 	unsigned h = 2166136261u;

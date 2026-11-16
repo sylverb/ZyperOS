@@ -619,6 +619,9 @@ void launch(app *a)
 	/* Not beside File Transfer: the game takes the loop that moves the files
 	 * (2026-11-06). Closed for it, or the player says when. */
 	if (!xs_before_game(a)) return;
+	/* The grid's rows ahead let go: the game gets their memory
+	 * (DESIGN.md 11.47) */
+	if (v->grid && v->gm.set) evict_grid(v, gg_cols(&v->gm), true);
 
 	snprintf(core, sizeof core, "%s/cores/%s_libretro.so", P_ROOT, s->core);
 	snprintf(elf, sizeof elf, "%s/diatom", P_ROOT);

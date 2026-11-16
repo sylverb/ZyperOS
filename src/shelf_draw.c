@@ -1043,6 +1043,31 @@ static const gg_art *grid_art(void *ctx, int i)
 	return gg_art_of(&v->gart, i, v->tex[i], gg_key(v->list.items[i].file));
 }
 
+/* The grid's rows ahead (DESIGN.md 11.47): the covers of the rows a press
+ * can slide in next - a row, a page, the other end - asked for once every
+ * cover in sight is in, so they never wait behind them, and the nearest
+ * first when there are more than the loader's queue takes. Asked farthest
+ * first: the loader decodes the newest ask first. Not in a shot, which reads
+ * each cover on the frame and has no next press. */
+#define GRID_ASKS_AHEAD 16
+static void grid_ask_ahead(app *a, sysview *v)
+{
+	int cols = gg_cols(&v->gm), rows[2 * (GG_AHEAD + 1)], nrows, n, idx[GRID_ASKS_AHEAD], k = 0;
+
+	if (cols <= 0 || !v->tex || v->gm.holes || !texload_running()) return;
+	nrows = (v->list.count + cols - 1) / cols;
+	n = gg_rows_ahead((int)lroundf(v->gm.top_to), nrows, rows, 2 * (GG_AHEAD + 1));
+	/* nearest row first into idx, then asked from its end */
+	for (int r = n - 1; r >= 0 && k < GRID_ASKS_AHEAD; r--)
+		for (int i = rows[r] * cols; i < (rows[r] + 1) * cols && i < v->list.count && k < GRID_ASKS_AHEAD; i++)
+			if (!v->tex[i]) idx[k++] = i;
+	while (k-- > 0) {
+		int w, h;
+
+		game_get_tex(a, idx[k], &w, &h, NULL);
+	}
+}
+
 static void draw_games(app *a)
 {
 	sysview *v = &a->view[a->sys_cursor];
@@ -1098,9 +1123,10 @@ static void draw_games(app *a)
 				v->grid_saved = true;
 			}
 			if (wait != UINT32_MAX) redraw_at(plat_now_ms() + wait);
-			/* three rows of covers either way stay: the two in sight and
-			 * the next one, as the row keeps its window */
-			evict_far(v, gg_cols(&v->gm) * (GG_ROWS + 1));
+			/* the rows that can slide in next, asked and kept; the rows a
+			 * glide still shows kept until it ends */
+			grid_ask_ahead(a, v);
+			evict_grid(v, gg_cols(&v->gm), false);
 			g_title_caps = (SDL_Rect){ 0, 0, 0, 0 };
 			return;
 		}

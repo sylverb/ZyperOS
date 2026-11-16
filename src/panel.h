@@ -533,6 +533,8 @@ double book_speed(int al);
 void muse_play_videos(const char *const *paths, int n, int start,
                       const char *artist, const char *album);
 void evict_far(sysview *v, int keep);
+/* The grid's: by rows round its window, or the rows in sight alone (main.c) */
+void evict_grid(sysview *v, int cols, bool in_sight);
 void panel_base_close(int lv);
 int shelf_letter_jump(sysview *v, int dir);
 
