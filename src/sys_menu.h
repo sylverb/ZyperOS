@@ -107,6 +107,10 @@
  * when dark, by the half hour (src/theme.h), 7:00 and 19:00 as it ships.
  * PM_THEME is Theme, under it: the accent, a background tone for each theme,
  * the corners and Zyper (src/look.h, DESIGN.md 3.5). My picks 2026-11-12. */
+/* PM_SCREEN is Screen Colors, Display's last row: Night Light, Contrast and
+ * the looks for the whole screen, in the display's own table
+ * (src/panelgamma.h); only where the device has one (no_screen_colors).
+ * 1.0.6, asked for on the Discord; the page approved 2026-11-16. */
 typedef enum {
 	/* Games */
 	PM_SEARCH, PM_STATS, PM_RANDOM, PM_ACHIEVEMENTS, PM_SCRAPER,
@@ -114,6 +118,7 @@ typedef enum {
 	PM_APPEARANCE, PM_AUTOHOURS, PM_THEME, PM_HOME, PM_ORDER, PM_HOMESYS, PM_BATTERY, PM_SAVER,
 	PM_SHADER,
 	PM_STRENGTH,
+	PM_SCREEN,
 	/* Sound */
 	PM_AUDIO, PM_CHANNELS, PM_SOUNDS, PM_MUSIC,
 	/* Connections: USB Device first, while a plug waits for its answer */
@@ -327,6 +332,10 @@ typedef struct {
 	const char *auto_hours;
 	/* Theme's value: the accent's name (src/look.h); NULL reads Lime */
 	const char *theme;
+	/* No gamma table for Screen Colors here (plat_screen_colors_here): no
+	 * row. Its value otherwise, the look's name; NULL reads Standard. */
+	bool        no_screen_colors;
+	const char *screen_colors;
 	bool        ra_in;
 	const char *ra_name;     /* only read when ra_in */
 	/* The Scraper row's value: "142 missing", "complete", or NULL until a

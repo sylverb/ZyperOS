@@ -31,6 +31,10 @@ int hours_build(void *ctx, menu_row *rows, int max, const char **heading);
 void look_row_mark(app *a, const menu_row *row, int right, int cy, float on_fill);
 void look_header(app *a, const SDL_Rect *q);
 int look_build(void *ctx, menu_row *rows, int max, const char **heading);
+/* Screen Colors' page, for a shot as for the menu: its rows, and its picture
+ * (a grey ramp and a hue ramp) */
+int sc_build(void *ctx, menu_row *rows, int max, const char **heading);
+void sc_header(app *a, const SDL_Rect *q);
 menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel);
 void zyperos_menu(app *a);
 

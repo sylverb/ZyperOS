@@ -1536,15 +1536,20 @@ static void menu_tabs(void)
 	}
 	ck(ok && at == n_all, "the tabs, one after another, are every row the device has");
 	m = sys_menu_tab_rows(&u, PT_DISPLAY, tab);
-	ck(m == 10 && tab[0] == PM_APPEARANCE && tab[1] == PM_AUTOHOURS && tab[2] == PM_THEME &&
+	ck(m == 11 && tab[0] == PM_APPEARANCE && tab[1] == PM_AUTOHOURS && tab[2] == PM_THEME &&
 	   tab[3] == PM_HOME && tab[4] == PM_ORDER && tab[5] == PM_HOMESYS && tab[6] == PM_BATTERY &&
-	   tab[7] == PM_SAVER && tab[8] == PM_SHADER && tab[9] == PM_STRENGTH,
+	   tab[7] == PM_SAVER && tab[8] == PM_SHADER && tab[9] == PM_STRENGTH && tab[10] == PM_SCREEN,
 	   "Display: Appearance, Auto Hours, Theme, Home Screen, System Order, Home Systems, Battery Icon, "
-	   "Screensaver, Shader, Strength");
+	   "Screensaver, Shader, Strength, Screen Colors");
 	u.no_strength = true;
 	m = sys_menu_tab_rows(&u, PT_DISPLAY, tab);
-	ck(m == 9 && tab[8] == PM_SHADER, "and no Strength while no system draws an old screen");
+	ck(m == 10 && tab[8] == PM_SHADER && tab[9] == PM_SCREEN,
+	   "and no Strength while no system draws an old screen");
 	u.no_strength = false;
+	u.no_screen_colors = true;
+	m = sys_menu_tab_rows(&u, PT_DISPLAY, tab);
+	ck(m == 10 && tab[9] == PM_STRENGTH, "and no Screen Colors where the display has no table (the Brick)");
+	u.no_screen_colors = false;
 	m = sys_menu_tab_rows(&u, PT_GAMES, tab);
 	ck(m == 5 && tab[0] == PM_SEARCH, "Games opens on Search Games");
 	m = sys_menu_tab_rows(&u, PT_CONNECTIONS, tab);
@@ -1560,9 +1565,10 @@ static void menu_tabs(void)
 	u.auto_hours = "7:00 AM to 7:00 PM";
 	u.theme = "Lime";
 	n = (sys_menu_build)(&u, rows, &b, &heading);
-	ck(n == 10 && !strcmp(rows[1].label, "Auto Hours") && !strcmp(val(&rows[1]), "7:00 AM to 7:00 PM") &&
-	   !strcmp(rows[2].label, "Theme") && !strcmp(val(&rows[2]), "Lime"),
-	   "Auto Hours says its hours, Theme its accent");
+	ck(n == 11 && !strcmp(rows[1].label, "Auto Hours") && !strcmp(val(&rows[1]), "7:00 AM to 7:00 PM") &&
+	   !strcmp(rows[2].label, "Theme") && !strcmp(val(&rows[2]), "Lime") &&
+	   !strcmp(rows[10].label, "Screen Colors") && !strcmp(val(&rows[10]), "Standard"),
+	   "Auto Hours says its hours, Theme its accent, Screen Colors its look (Standard when none is said)");
 	ck(!strcmp(sys_menu_tab_name(PT_CONNECTIONS), "Connections") &&
 	   !strcmp(sys_menu_tab_name(PT_ABOUT), "About"), "the tabs' names");
 }

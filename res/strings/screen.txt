@@ -1,0 +1,92 @@
+# MENU > Display > Screen Colors (src/panelgamma.h, DESIGN.md 11.6): colors
+# for the whole screen, games and the shelf alike, made by the display's own
+# table. Opt-in: Standard changes nothing. The looks and values are named
+# choices: capitals as each language writes a choice (GLOSSARY.md).
+
+[screen.title]
+note = A MENU row on Display, its last, and the heading of its page: Night Light, Contrast and the looks for the whole screen. Its value is the look (screen.standard, screen.vivid, screen.custom). Title Case in English
+en = Screen Colors
+zh-Hans = 屏幕色彩
+es = Colores de pantalla
+pt-BR = Cores da tela
+fr = Couleurs de l'écran
+de = Bildschirmfarben
+ja = 画面の色
+it = Colori dello schermo
+
+[screen.look]
+note = A row of the Screen Colors page: a ready-made set of Contrast (and, later, Saturation), Standard or Vivid; Custom when a row was changed by hand
+en = Look
+zh-Hans = 风格
+es = Estilo
+pt-BR = Estilo
+fr = Style
+de = Stil
+ja = スタイル
+it = Stile
+
+[screen.standard]
+note = The look that changes nothing: the colors as the game or the shelf draws them (the default)
+en = Standard
+zh-Hans = 标准
+es = Estándar
+pt-BR = Padrão
+fr = Standard
+de = Standard
+ja = 標準
+it = Standard
+
+[screen.vivid]
+note = The look with more contrast and deeper shadows, for a punchier picture
+en = Vivid
+zh-Hans = 鲜艳
+es = Vívido
+pt-BR = Vívido
+fr = Vif
+de = Lebendig
+ja = 鮮やか
+it = Vivace
+
+[screen.custom]
+note = The look's value when the player changed Contrast by hand, so it is neither Standard nor Vivid
+en = Custom
+zh-Hans = 自定义
+es = Personalizado
+pt-BR = Personalizado
+fr = Personnalisé
+de = Eigene
+ja = カスタム
+it = Personalizzato
+
+[screen.night_light]
+note = A row of the Screen Colors page: a warmer screen with less blue, for the evening. Its value is Off or 1 to 5 (warmest). Title Case in English, the name phones give it
+en = Night Light
+zh-Hans = 夜间模式
+es = Luz nocturna
+pt-BR = Luz noturna
+fr = Éclairage nocturne
+de = Nachtlicht
+ja = 夜間モード
+it = Luce notturna
+
+[screen.contrast]
+note = A row of the Screen Colors page: darker shadows and brighter highlights. Its value is screen.normal, +1 or +2
+en = Contrast
+zh-Hans = 对比度
+es = Contraste
+pt-BR = Contraste
+fr = Contraste
+de = Kontrast
+ja = コントラスト
+it = Contrasto
+
+[screen.normal]
+note = Contrast's value when it is not raised: as the game draws it
+en = Normal
+zh-Hans = 正常
+es = Normal
+pt-BR = Normal
+fr = Normal
+de = Normal
+ja = 標準
+it = Normale

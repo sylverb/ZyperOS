@@ -62,6 +62,7 @@ int sys_menu_zyperos_rows(const sys_ui *u, pm_row *out)
 		if ((u->no_usb_power || u->no_usb_wait) && r == PM_USB_WAIT) continue;
 		/* Strength only while a system draws an old screen */
 		if (u->no_strength && r == PM_STRENGTH) continue;
+		if (u->no_screen_colors && r == PM_SCREEN) continue;
 		out[n++] = (pm_row)r;
 	}
 	return n;
@@ -76,7 +77,7 @@ pm_tab sys_menu_tab_of(pm_row r)
 		return PT_GAMES;
 	case PM_APPEARANCE: case PM_AUTOHOURS: case PM_THEME: case PM_HOME:
 	case PM_ORDER: case PM_HOMESYS: case PM_BATTERY: case PM_SAVER: case PM_SHADER:
-	case PM_STRENGTH:
+	case PM_STRENGTH: case PM_SCREEN:
 		return PT_DISPLAY;
 	case PM_AUDIO: case PM_CHANNELS: case PM_SOUNDS: case PM_MUSIC:
 		return PT_SOUND;
@@ -627,6 +628,10 @@ int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
 	full[PM_AUTOHOURS]    = (menu_row){ T(S_SYSMENU_AUTO_HOURS), u->auto_hours, true };
 	/* The look: its value the accent's name, both themes' chips before it
 	 * (main.c draws them); A opens the page */
+	/* The whole screen's colors (src/panelgamma.h): its value the look;
+	 * A opens the page */
+	full[PM_SCREEN]       = (menu_row){ T(S_SCREEN_TITLE),
+	                                   u->screen_colors ? u->screen_colors : T(S_SCREEN_STANDARD), true };
 	full[PM_THEME]        = (menu_row){ T(S_SYSMENU_THEME),
 	                                   u->theme ? u->theme : T(S_LOOK_ACCENT_LIME), true };
 	{

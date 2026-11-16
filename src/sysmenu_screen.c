@@ -24,6 +24,7 @@
 #include "nowplaying_screen.h"
 #include "osdbar.h"
 #include "panel.h"
+#include "panelgamma.h"
 #include "powerhold.h"
 #include "powerscreens.h"
 #include "radl_screen.h"
@@ -42,6 +43,7 @@
 #include "update_screen.h"
 #include "usblink.h"
 
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -116,6 +118,7 @@ static void usb_auto_message(app *a)
 }
 
 static const char *look_accent_name(void);   /* with the Theme page */
+static const char *screen_colors_value(void); /* with the Screen Colors page */
 static const char *auto_hours_value(void);
 
 /* ---------- option rows' choices (menu.h's menu_choice, DESIGN.md 9) ------ */
@@ -372,6 +375,7 @@ int menu_build(app *a, screen_id screen, int sys,
 	u.xfer = xs_row_value();
 	u.xfer_cable = xs_row_cable();
 	u.no_lights = !plat_battery_lights();
+	u.no_screen_colors = !plat_screen_colors_here();
 	u.no_charge_limit = !plat_charge_limit_supported();
 	u.charge_limit = g_charge_limit;
 	u.no_usb_power = !usb_power_offered();
@@ -433,6 +437,7 @@ int menu_build(app *a, screen_id screen, int sys,
 		u.no_strength = !strength_all_shown(a);
 		u.auto_hours = auto_hours_value();
 		u.theme = look_accent_name();
+		u.screen_colors = screen_colors_value();
 		u.home = home_name(a->home_layout);
 		u.order = g_order_release ? T(S_PANEL_ORDER_RELEASE) : T(S_PANEL_ORDER_AZ);
 		{
@@ -633,6 +638,163 @@ static void auto_hours_screen(app *a)
 	                  .sound = HOURS_SOUND, .choices = g_hours_choice };
 
 	menu_run(a, &st, hours_build, hours_key, &v);
+}
+
+/* ---- Screen Colors (src/panelgamma.h) -----------------------------------
+ * The whole screen's colors, in the display's own table: Night Light apart,
+ * and the look - Standard (nothing changed, as it ships), Vivid (Contrast +1
+ * and deeper shadows), or Custom once Contrast is moved by hand. Each step
+ * is applied at once, so the page itself shows it (one frame's blink, as
+ * every table change); screenshots never do, being taken before the table.
+ * Kept in the device's database (the four "screen_" settings), which
+ * plat_settings_init reads at every start. */
+typedef enum { SC_STANDARD, SC_VIVID, SC_CUSTOM } sc_look;
+typedef struct { int night, contrast, vivid; } sc_state;
+enum { SC_LOOK, SC_NIGHT, SC_CONTRAST, SC_ROWS };
+
+static sc_state sc_load(void)
+{
+	sc_state s;
+
+	s.night = db_get_int(db_dev(), "screen_night", 0);
+	s.contrast = db_get_int(db_dev(), "screen_contrast", 0);
+	s.vivid = db_get_int(db_dev(), "screen_vivid", 0) ? 1 : 0;
+	if (s.night < 0 || s.night > PANELGAMMA_NIGHT_MAX) s.night = 0;
+	if (s.contrast < 0 || s.contrast > PANELGAMMA_CONTRAST_MAX) s.contrast = 0;
+	return s;
+}
+
+static sc_look sc_look_of(const sc_state *s)
+{
+	if (!s->contrast && !s->vivid) return SC_STANDARD;
+	if (s->contrast == 1 && s->vivid) return SC_VIVID;
+	return SC_CUSTOM;
+}
+
+static const int SC_LOOK_NAME[3] = { S_SCREEN_STANDARD, S_SCREEN_VIVID, S_SCREEN_CUSTOM };
+
+/* MENU > Display's value for the row: the look */
+static const char *screen_colors_value(void)
+{
+	sc_state s = sc_load();
+
+	return T(SC_LOOK_NAME[sc_look_of(&s)]);
+}
+
+static void sc_save(const sc_state *s)
+{
+	db_set_int(db_dev(), "screen_night", s->night);
+	db_set_int(db_dev(), "screen_contrast", s->contrast);
+	db_set_int(db_dev(), "screen_vivid", s->vivid);
+	plat_screen_colors(s->night, s->contrast, s->vivid);
+}
+
+static const unsigned char SC_SOUND[SC_ROWS] = { MENU_SND_RING, MENU_SND_RING, MENU_SND_RING };
+static menu_choice g_sc_choice[SC_ROWS];
+
+int sc_build(void *ctx, menu_row *rows, int max, const char **heading)
+{
+	static const char *looks[3], *nights[PANELGAMMA_NIGHT_MAX + 1], *cons[PANELGAMMA_CONTRAST_MAX + 1];
+	static char num[PANELGAMMA_NIGHT_MAX + 1][4], plus[PANELGAMMA_CONTRAST_MAX + 1][4];
+	sc_state s = sc_load();
+	sc_look l = sc_look_of(&s);
+	int i;
+
+	(void)ctx; (void)max;
+	for (i = 0; i < 3; i++) looks[i] = T(SC_LOOK_NAME[i]);
+	nights[0] = T(S_MENU_OFF_TITLE);
+	for (i = 1; i <= PANELGAMMA_NIGHT_MAX; i++) {
+		snprintf(num[i], sizeof num[i], "%d", i);
+		nights[i] = num[i];
+	}
+	cons[0] = T(S_SCREEN_NORMAL);
+	for (i = 1; i <= PANELGAMMA_CONTRAST_MAX; i++) {
+		snprintf(plus[i], sizeof plus[i], "+%d", i);
+		cons[i] = plus[i];
+	}
+	/* Custom is in the look's list only while it is the look: it is what
+	 * the rows below made, not a set of its own to pick */
+	g_sc_choice[SC_LOOK] = (menu_choice){ .n = (unsigned char)(l == SC_CUSTOM ? 3 : 2),
+	                                      .cur = (unsigned char)l, .labels = looks };
+	g_sc_choice[SC_NIGHT] = (menu_choice){ .n = PANELGAMMA_NIGHT_MAX + 1, .cur = (unsigned char)s.night,
+	                                       .labels = nights };
+	g_sc_choice[SC_CONTRAST] = (menu_choice){ .n = PANELGAMMA_CONTRAST_MAX + 1,
+	                                          .cur = (unsigned char)s.contrast, .labels = cons };
+	*heading = T(S_SCREEN_TITLE);
+	rows[SC_LOOK]     = (menu_row){ T(S_SCREEN_LOOK), looks[l], true };
+	rows[SC_NIGHT]    = (menu_row){ T(S_SCREEN_NIGHT_LIGHT), nights[s.night], true };
+	rows[SC_CONTRAST] = (menu_row){ T(S_SCREEN_CONTRAST), cons[s.contrast], true };
+	return SC_ROWS;
+}
+
+static menu_result sc_key(app *a, void *ctx, in_button key, int sel)
+{
+	int d = key == IN_RIGHT || key == IN_ACCEPT ? 1 : key == IN_LEFT ? -1 : 0;
+	sc_state s = sc_load();
+
+	(void)a; (void)ctx;
+	if (!d || sel < 0 || sel >= SC_ROWS) return MENU_STAY;
+	switch (sel) {
+	case SC_LOOK: {
+		sc_look l = sc_look_of(&s);
+
+		/* Standard and Vivid each step to the other; Custom, the list's
+		 * third, steps to Standard on the right and Vivid on the left */
+		if (l == SC_CUSTOM) l = d > 0 ? SC_STANDARD : SC_VIVID;
+		else l = l == SC_STANDARD ? SC_VIVID : SC_STANDARD;
+		s.contrast = l == SC_VIVID;
+		s.vivid = l == SC_VIVID;
+		break;
+	}
+	case SC_NIGHT:
+		s.night = (s.night + d + PANELGAMMA_NIGHT_MAX + 1) % (PANELGAMMA_NIGHT_MAX + 1);
+		break;
+	case SC_CONTRAST:
+		/* By hand: Vivid's shadows go with it, and the look reads what
+		 * the row now makes */
+		s.contrast = (s.contrast + d + PANELGAMMA_CONTRAST_MAX + 1) % (PANELGAMMA_CONTRAST_MAX + 1);
+		s.vivid = 0;
+		break;
+	}
+	sc_save(&s);
+	return MENU_CHANGED;
+}
+
+/* The page's picture, so a change shows on something known: a grey ramp in
+ * sixteen steps and a hue ramp under it, the whole width of the rows */
+void sc_header(app *a, const SDL_Rect *q)
+{
+	SDL_Renderer *r = a->r;
+	int gh = q->h / 2 - DS_GRID, i, x;
+
+	for (i = 0; i < 16; i++) {
+		int v = i * 255 / 15, x0 = q->x + q->w * i / 16, x1 = q->x + q->w * (i + 1) / 16;
+
+		SDL_SetRenderDrawColor(r, (Uint8)v, (Uint8)v, (Uint8)v, 255);
+		SDL_RenderFillRect(r, &(SDL_Rect){ x0, q->y, x1 - x0, gh });
+	}
+	for (x = 0; x < q->w; x++) {
+		double h = (double)x / q->w * 6;
+		int k, c[3];
+
+		for (k = 0; k < 3; k++) {
+			double e = h + (k == 0 ? 0 : k == 1 ? 4 : 2);
+			double v = fabs(fmod(e, 6) - 3) - 1;
+
+			c[k] = (int)(255 * (v < 0 ? 0 : v > 1 ? 1 : v) + 0.5);
+		}
+		SDL_SetRenderDrawColor(r, (Uint8)c[0], (Uint8)c[1], (Uint8)c[2], 255);
+		SDL_RenderFillRect(r, &(SDL_Rect){ q->x + x, q->y + gh + DS_GRID * 2, 1, q->h - gh - DS_GRID * 2 });
+	}
+}
+
+static void screen_colors_screen(app *a)
+{
+	menu_style st = { .fixed_w = menu_std_width(a), .accent = MENU_ZYPEROS,
+	                  .sound = SC_SOUND, .choices = g_sc_choice,
+	                  .header = sc_header, .header_h = 120 };
+
+	menu_run(a, &st, sc_build, sc_key, NULL);
 }
 
 /* A theme's chip, 64 by 36: its ground in its edge, its accent on it, so
@@ -1000,6 +1162,7 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 		               .cable_xfer = xfer_link_up(), .online = net_internet(NULL),
 		               .no_developer = !dev_offered(),
 		               .no_lights = !plat_battery_lights(),
+		               .no_screen_colors = !plat_screen_colors_here(),
 		               .no_charge_limit = !plat_charge_limit_supported(),
 		               .no_usb_power = !usb_power_offered(),
 		               .no_usb_wait = !usb_wait_row(),
@@ -1250,6 +1413,7 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 	case PM_STORAGE:      storage_screen(a); break;
 	case PM_AUTOHOURS:    auto_hours_screen(a); return MENU_CHANGED;
 	case PM_THEME:        look_screen(a); return MENU_CHANGED;
+	case PM_SCREEN:       screen_colors_screen(a); return MENU_CHANGED;
 	case PM_UPDATE:       update_screen(a); break;
 	case PM_ABOUT:        about_screen(a); break;
 	/* A game by its name: the menu closes once one is picked, and it starts */
@@ -1281,6 +1445,7 @@ void zyperos_menu_for(app *a, int screen)
 		               .cable_xfer = xfer_link_up(), .online = net_internet(NULL),
 		               .no_developer = !dev_offered(),
 		               .no_lights = !plat_battery_lights(),
+		               .no_screen_colors = !plat_screen_colors_here(),
 		               .no_charge_limit = !plat_charge_limit_supported(),
 		               .no_usb_power = !usb_power_offered(),
 		               .no_usb_wait = !usb_wait_row(),

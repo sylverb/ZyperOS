@@ -1066,18 +1066,22 @@ static void muse_covers_settle(void)
 	}
 }
 
-/* --look-page: Theme's page or Auto Hours', over the shelf, as menu_run
- * draws them, the cursor on --look-page's row */
+/* --look-page: Theme's page, Auto Hours' or Screen Colors', over the shelf,
+ * as menu_run draws them, the cursor on --look-page's row */
 static void shot_draw_look(app *a)
 {
 	menu_row rows[LK_ROWS];
 	const char *heading;
 	hours_view hv = { .a = a };
-	bool hours = !strcmp(shot_look_page, "hours");
-	int n = hours ? hours_build(&hv, rows, 2, &heading) : look_build(NULL, rows, LK_ROWS, &heading);
+	bool hours = !strcmp(shot_look_page, "hours"), screen = !strcmp(shot_look_page, "screen");
+	int n = hours ? hours_build(&hv, rows, 2, &heading)
+	      : screen ? sc_build(NULL, rows, LK_ROWS, &heading) : look_build(NULL, rows, LK_ROWS, &heading);
 
 	ui_scrim(a->r, 0);
-	if (!hours) {
+	if (screen) {
+		g_menu_header = sc_header;
+		g_menu_header_h = 120;
+	} else if (!hours) {
 		g_row_mark = look_row_mark;
 		g_menu_header = look_header;
 		g_menu_header_h = 150;
