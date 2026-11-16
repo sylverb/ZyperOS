@@ -30,7 +30,7 @@ PLASTRON_COMMIT := $(shell git describe --always --dirty --abbrev=12 2>/dev/null
 STAMP := -e PLASTRON_COMMIT=$(PLASTRON_COMMIT) -e "PLASTRON_WHO=$(USER) with plastron $(PLASTRON_COMMIT)"
 DOCKER_RUN := docker run --rm -t $(STAMP) -v $(CURDIR):/src:ro $(SOURCES) -v $(VOLUME):/work $(IMAGE)
 
-.PHONY: gauge-check charge-limit-check push all builder volume image base qemu sdk brick brick-fetch brick-inputs brick-kernel smartpro-kernel brick-bootloader smartpro-bootloader brick-probe bootloader shell linux-rebuild copy-out clean-output release release-pixel2 release-brick third-party
+.PHONY: gauge-check charge-limit-check push all builder volume image base qemu sdk brick brick-fetch brick-inputs brick-kernel smartpro smartpro-kernel brick-bootloader smartpro-bootloader brick-probe bootloader shell linux-rebuild copy-out clean-output release release-pixel2 release-brick release-smartpro third-party third-party-smartpro
 
 all: image
 
@@ -97,6 +97,15 @@ brick: builder volume brick-inputs
 		{ echo "no Brick kernel modules yet: make brick-kernel first" >&2; exit 1; }
 	$(BRICK_RUN) env FLAVOR=brick sh /src/scripts/build.sh $(BRICK_TARGET)
 	$(if $(BRICK_TARGET),,$(MAKE) copy-out OUTPUT=output-brick CARD=brick-sdcard.img)
+
+# The TrimUI Smart Pro's system (configs/smartpro_defconfig: the Brick's with
+# its own device), in output-smartpro, with the Brick's closed files. Its
+# kernel and modules come from make smartpro-kernel, in this volume.
+smartpro: builder volume brick-inputs
+	@docker run --rm -v $(VOLUME):/work $(IMAGE) test -f /work/smartpro-kernel/images/pvrsrvkm.ko || \
+		{ echo "no Smart Pro kernel modules yet: make smartpro-kernel first" >&2; exit 1; }
+	$(BRICK_RUN) env FLAVOR=smartpro sh /src/scripts/build.sh $(SMARTPRO_TARGET)
+	$(if $(SMARTPRO_TARGET),,$(MAKE) copy-out OUTPUT=output-smartpro CARD=smartpro-sdcard.img)
 
 # The TrimUI Brick's kernel and the modules it loads: Allwinner's Linux 4.9
 # with board/brick/linux/patches, built by scripts/build-brick-kernel.sh in
@@ -202,6 +211,11 @@ third-party:
 	docker run --rm -v $(VOLUME):/work -v $(CURDIR):/src:ro $(IMAGE) python3 /src/scripts/third-party.py \
 		/work/release-output-brick/legal-info/manifest.csv brick > buildroot/board/brick/third-party-packages.md
 
+# The Smart Pro's, from its release build (make release-smartpro), on its own
+third-party-smartpro:
+	docker run --rm -v $(VOLUME):/work -v $(CURDIR):/src:ro $(IMAGE) python3 /src/scripts/third-party.py \
+		/work/release-output-smartpro/legal-info/manifest.csv smartpro > buildroot/board/smartpro/third-party-packages.md
+
 release-pixel2:
 	@mkdir -p out
 	$(DOCKER_RUN) sh /src/scripts/release.sh $(VERSION) pixel2 > out/release-pixel2.log 2>&1 || \
@@ -213,6 +227,13 @@ release-brick: brick-inputs
 	@mkdir -p out
 	$(BRICK_RUN) sh /src/scripts/release.sh $(VERSION) brick > out/release-brick.log 2>&1 || \
 		{ tail -30 out/release-brick.log; exit 1; }
+
+# The TrimUI Smart Pro's, for its test kits (ZyperOS's tools/release.sh --kit
+# smartpro): make smartpro-kernel first, as release-brick needs brick-kernel
+release-smartpro: brick-inputs
+	@mkdir -p out
+	$(BRICK_RUN) sh /src/scripts/release.sh $(VERSION) smartpro > out/release-smartpro.log 2>&1 || \
+		{ tail -30 out/release-smartpro.log; exit 1; }
 
 OUTPUT ?= output
 CARD ?= sdcard.img

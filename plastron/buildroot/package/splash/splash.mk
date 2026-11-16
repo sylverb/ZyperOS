@@ -10,8 +10,10 @@ SPLASH_SITE_METHOD = local
 SPLASH_LICENSE = GPL-3.0+
 SPLASH_LICENSE_FILES = LICENSE
 # The TrimUI Brick's display is a framebuffer, not DRM: splash-fb.c there,
-# with the frames at its panel's 1024x768
-ifeq ($(PLASTRON_DEVICE),brick)
+# with the frames at its panel's 1024x768. The Smart Pro's is the Brick's
+# display driver too; its framebuffer is 1280x720, where splash-fb.c shows
+# its background alone until frames of that size exist
+ifneq ($(filter brick smartpro,$(PLASTRON_DEVICE)),)
 SPLASH_DEPENDENCIES = zlib
 SPLASH_SOURCE_C = splash-fb.c
 SPLASH_FRAMES = frames-brick.bin
