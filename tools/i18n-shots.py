@@ -7,6 +7,10 @@
                                                 not fit (make check-i18n-shots)
     python3 tools/i18n-shots.py --keep DIR      and keeps the frames in DIR/<code>/
     python3 tools/i18n-shots.py --lang fr menu  one language, some screens
+    python3 tools/i18n-shots.py --device brick --keep DIR
+                                                every screen as that handheld
+                                                (src/device/profile.h), for
+                                                review; the check is the host's
 
 A layout drawn for English meets words up to half again as long in French or
 Portuguese, and Chinese's taller face. The launcher, built for the host, says
@@ -43,6 +47,9 @@ import i18n  # noqa: E402
 _spec = importlib.util.spec_from_file_location("readme_shots", ROOT / "tools" / "readme-shots.py")
 R = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(R)
+
+# --device ID's flags, given to every shot (empty: the host's own profile)
+DEVICE = []
 
 # The string IDs of a text the launcher drew: src/ui.c says the text, not the
 # ID (a label is copied into a row's buffer, or formatted around a name, and
@@ -831,9 +838,12 @@ def run_language(code, shots, binary, keep, theme="light"):
             # The tutorial and the battery's screens draw no status corner
             status = [] if name.startswith(("tour-", "lowbatt", "charging-")) else \
                 ["--status", "10:08 24h wifi=off batt=82"]
+            # --fn-volume: the host's profile with the Pixel 2's MENU+VOL
+            # brightness, as the README's shots were taken; a --device
+            # handheld keeps its own keys
             command = [str(binary), "--shot", str(target), "--theme", theme, "--lang", code,
-                       "--screen", "systems", "--phase", "3200", *status, "--fn-volume",
-                       *[f.replace("{card}", str(card)) for f in flags]]
+                       "--screen", "systems", "--phase", "3200", *status,
+                       *(DEVICE or ["--fn-volume"]), *[f.replace("{card}", str(card)) for f in flags]]
             # errors=replace: a log line may end mid-character (a cut name)
             env = R.pm_env(R.env_for(card), name, tmp)
             if name in PM_STATES:
@@ -869,6 +879,13 @@ def run_language(code, shots, binary, keep, theme="light"):
                 elif line.startswith("i18n: "):
                     notes.append("%s/%s: %s" % (code, name, line[6:]))
             ok_anyway = name in R.CORNER_OWN and R.CORNER_OWN[name] in r.stdout
+            # A row this handheld has not (the Strength row where there are no
+            # GPU shaders): said, not failed, under --device; on the host's
+            # own profile a missing row is a renamed one, and fails
+            row = re.search(r"--menu: no row called (.*)", r.stdout)
+            if DEVICE and r.returncode and row:
+                print("not on %s: %s/%s: no row %s" % (DEVICE[1], code, name, row.group(1).strip()))
+                continue
             if (r.returncode and not ok_anyway) or not target.is_file():
                 tail = " | ".join(r.stdout.strip().splitlines()[-3:])
                 failures.append("%s/%s: the shot failed (exit %d): %s" % (code, name, r.returncode, tail))
@@ -887,6 +904,8 @@ def main():
                     help="the theme the shots are drawn in (light; tools/pixel-gate.py takes both)")
     ap.add_argument("--binary", type=Path, help="this launcher, not build-native/zyperos (tools/pixel-gate.py's base)")
     ap.add_argument("--jobs", type=int, help="languages shot at once (all of them)")
+    ap.add_argument("--device", help="as this handheld (--device pixel2, brick): its own keys, "
+                    "handheld and words, to look at; the host's are what the check holds")
     ap.add_argument("only", nargs="*", help="shot names (default: all)")
     args = ap.parse_args()
     if subprocess.call(["pkg-config", "--exists", "sdl2", "SDL2_image", "SDL2_ttf"],
@@ -894,6 +913,8 @@ def main():
         print("skipped: no SDL2 here to build the launcher with")
         return 0
     binary = args.binary.resolve() if args.binary else ROOT / "build-native" / "zyperos"
+    if args.device:
+        DEVICE[:] = ["--device", args.device]
     if not binary.is_file():
         print("FAIL no build-native/zyperos: make native first", file=sys.stderr)
         return 1
@@ -927,7 +948,7 @@ def main():
                 results[code][0].extend("%s/%s: %s (English: %d)" % (code, name, d, len(english.get(name, [])))
                                         for d in said)
     # Every string a shot draws, or says why it is none of the shots'
-    full = not args.only and not args.lang and "en" in results
+    full = not args.only and not args.lang and "en" in results and not DEVICE
     gone = []
     if "en" in results:
         st = strings_of("en")
@@ -975,11 +996,12 @@ def main():
         print("FAIL " + n)
         bad += 1
     pseudo = len(results.get(i18n.PSEUDO, ([], [], {}, set()))[0])
+    said = "check-i18n-shots" + (" --device " + DEVICE[1] if DEVICE else "")
     if bad:
-        print("check-i18n-shots: %d problems in %d screens x %d languages" % (bad, len(shots), len(langs)))
+        print("%s: %d problems in %d screens x %d languages" % (said, bad, len(shots), len(langs)))
         return 1
-    print("check-i18n-shots: %d screens in %s, everything fits%s" % (
-        len(shots), ", ".join(langs),
+    print("%s: %d screens in %s, everything fits%s" % (
+        said, len(shots), ", ".join(langs),
         "; the pseudo-locale cut or overflowed %d strings (notes above)" % pseudo if pseudo else ""))
     return 0
 

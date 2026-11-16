@@ -71,6 +71,9 @@ typedef enum { DEV_WIFI_NONE, DEV_WIFI_ADAPTER, DEV_WIFI_BUILTIN } dev_wifi;
 typedef struct device_profile {
 	const char *id;          /* "pixel2": --device, the build's DEVICE */
 	const char *name;        /* "GKD Pixel 2", as people call it */
+	/* About's thanks for its kernel: who made it ("ROCKNIX"), and the short
+	 * name it is "the %s kernel" of ("Pixel 2"), in the thanks' own words */
+	struct { const char *by, *of; } kernel;
 	const char *userdata;    /* the card's .userdata/<this> folder */
 	const char *boot_label;  /* the boot partition's FAT label */
 	/* The glass and its pixels: physical facts only. The layout system
@@ -131,6 +134,10 @@ const device_profile *plat_profile_at(int i);
 void plat_profile_ids(char *out, size_t n);
 /* `b` as `p` prints it, or NULL where `p` has no such control */
 const dev_button *dev_button_of(const device_profile *p, in_button b);
+/* Whether `p` draws MENU as the Pixel 2's three-dot key: where its MENU is
+ * printed so (DEV_ICON_DOTS), and on a profile that borrows the Pixel 2's
+ * drawing (model_borrowed, the host's), as its shots always showed */
+bool dev_menu_dots(const device_profile *p);
 /* Where `b` is on `p`'s handheld, as its model has it (td_model.h: the face
  * in *face, (x, z) on it in *x and *z): the d-pad for its four directions,
  * F1 and F2 for brightness down and up. False, and nothing set, where `p`
