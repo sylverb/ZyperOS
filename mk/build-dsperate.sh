@@ -8,7 +8,7 @@
 # pins DSperate as a submodule, so one commit of the wrapper pins both. This is
 # the wrapper plorpOS ships on its GKD and RG Rotate builds
 # (thwonp/plorpOS mk/build-dsperate.sh, MIT), at the same commit, built the same
-# way, plus four patches of ours (below).
+# way, plus five patches of ours (below).
 #
 # PGO: DSperate commits a GCC profile with each release, made with GCC 13.3 on
 # Ubuntu 24.04 (its CI), and the wrapper's build.sh applies it. A profile only
@@ -93,13 +93,31 @@
 # libretro.cpp changes, so the profile applies in full. mk/dsperate-rtc-check.sh
 # reads the clock out of the built core's states (below).
 #
+# The fifth, mk/patches/dsperate-lr-ext-bg.patch: engine B's worker drew a
+# rotated or scaled extended background (a bitmap, or a 16-bit tile map) with
+# a lookup through the VRAM view's 16 KB blocks for every pixel, and in a
+# Mario Kart DS race (its lower screen's map) that was most of the worker's
+# time, while the emulation thread waited for it at line 0: 2.3 ms a frame on
+# my Pixel 2 (2026-11-16, its threads sampled by their CPU time). The patch
+# adds patches/0003-ext-bg-run.patch to the wrapper's own folder of DSperate
+# fixes, which its build.sh applies: when every block of the bitmap, or of the
+# map and the tileset, is backed by exactly one bank and the blocks lie back to
+# back in host memory, each pixel is one load from that range; otherwise the
+# lookup, as before. The wait went from 2.3 to 0.5 ms a frame, and the race's
+# panel from 55 to 59 frames a second. It changes engine2d.cpp and
+# vram_map.h, so one function loses its profile (the build log counts it).
+# mk/dsperate-extbg-check.sh holds the built core's frames to the ones before
+# the patch (below).
+#
 # The result is checked before it is installed: no unversioned undefined
 # symbol (it would not dlopen), and nothing newer than plastron's glibc 2.42
 # and libstdc++ 6.0.34 (GLIBCXX_3.4.34). It needs GLIBC_2.38 and GLIBCXX_3.4.30
 # at most, and links libstdc++, libm, libgcc_s, libc and ld-linux, all in
 # plastron's /usr/lib. Then mk/dsperate-rtc-check.sh runs it: the clock it
 # keeps is the host's local time at a game's start, while it runs faster
-# than real time, after a pause, a state load and a reset.
+# than real time, after a pause, a state load and a reset. And
+# mk/dsperate-extbg-check.sh: 96 frames of extended backgrounds, each as the
+# core drew it before the fifth patch.
 #
 #   mk/build-dsperate.sh          build, install to vendor/cores
 #
@@ -111,7 +129,7 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 SRC=${SRC:-/tmp/zyperos-dsperate-lr}
 REPO=${DSPERATE_LR:-https://github.com/thwonp/dsperate-lr.git}
 LR=093d50fcbd10531273e0cc22a23c6644a26b9b71   # DSperate v3.0.5 (ddf2910), plorpOS's pin
-SHA=35d65a0d01bd114fae6807528705def4854e6e274407a1bf275a3540911c36b7
+SHA=2ada9d237277b43fdb57d62998c06a40ffb18a94087e5326c528dcdcbb5539ee
 IMAGE=dsperate-lr-cross
 PLAT=linux/amd64
 
@@ -127,6 +145,7 @@ git -C "$SRC" apply "$ROOT/mk/patches/dsperate-lr-frameskip.patch"
 git -C "$SRC" apply "$ROOT/mk/patches/dsperate-lr-threads.patch"
 git -C "$SRC" apply "$ROOT/mk/patches/dsperate-lr-language.patch"
 git -C "$SRC" apply "$ROOT/mk/patches/dsperate-lr-rtc.patch"
+git -C "$SRC" apply "$ROOT/mk/patches/dsperate-lr-ext-bg.patch"
 docker image inspect $IMAGE >/dev/null 2>&1 ||
 	docker build --platform $PLAT -q -t $IMAGE "$SRC" >/dev/null
 
@@ -147,6 +166,8 @@ SO=$SRC/build/dsperate_libretro.so
 [ -f "$SO" ] || { echo "!! build failed (see $SRC/build/*.log)" >&2; exit 1; }
 # The clock a game reads, in the core just built (the fourth patch)
 sh "$ROOT/mk/dsperate-rtc-check.sh" "$SO"
+# Extended backgrounds drawn as before (the fifth)
+sh "$ROOT/mk/dsperate-extbg-check.sh" "$SO"
 GOT=$(shasum -a 256 "$SO" | cut -d' ' -f1)
 if [ "$GOT" != "$SHA" ]; then
 	echo "!! dsperate sha256 $GOT, expected $SHA" >&2
@@ -156,7 +177,7 @@ if [ "$GOT" != "$SHA" ]; then
 fi
 mkdir -p "$ROOT/vendor/cores"
 cp "$SO" "$ROOT/vendor/cores/"
-echo "  built  dsperate (dsperate-lr ${LR%${LR#???????}}, DSperate v3.0.5) + PGO + frameskip + thread layout + language + clock, untuned ARMv8.0"
+echo "  built  dsperate (dsperate-lr ${LR%${LR#???????}}, DSperate v3.0.5) + PGO + frameskip + thread layout + language + clock + extended BG runs, untuned ARMv8.0"
 echo "  sha256 $GOT"
 # Which patches are in it, for mk/payload.sh to hold it to: the 1.0.1 images
 # shipped a core built before the language patch (mk/core-stamp.sh)
