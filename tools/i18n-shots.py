@@ -659,6 +659,19 @@ EXTRA.setdefault("menu-saver-off", ("demo", "PS1", ["--menu-tab", "1", "--menu",
 # value (its seconds and minutes); Display's, with what the mode under the
 # cursor does under it, from a system's menu and from the in-game menu
 EXTRA.setdefault("menu-autooff-list", ("demo", "PS1", ["--menu", "Auto Off", "--press", "a"]))
+# MENU's values off their defaults, each on its row: the clock in 12 hours
+# and the battery's icon as a percentage and as time left (the shot's own
+# --status, SHOT_STATUS), Auto Off off, and the systems in release order
+SHOT_STATUS = {}
+EXTRA.setdefault("menu-hours-12h", ("demo", "PS1", ["--menu", "Language"]))
+SHOT_STATUS["menu-hours-12h"] = "10:08 12h wifi=off batt=82"
+for _icon in ("percentage", "time"):
+    EXTRA.setdefault("menu-battery-" + _icon, ("demo", "PS1", ["--menu-tab", "1", "--menu", "Battery Icon"]))
+    SHOT_STATUS["menu-battery-" + _icon] = "10:08 24h wifi=off batt=82 eta=95 icon=" + _icon
+EXTRA.setdefault("menu-autooff-never", ("demo", "PS1", ["--menu", "Auto Off"]))
+SHOT_SETTINGS["menu-autooff-never"] = {"autooff": "0"}
+EXTRA.setdefault("menu-order-release", ("demo", "PS1", ["--menu-tab", "1", "--menu", "System Order"]))
+SHOT_SETTINGS["menu-order-release"] = {"systems.order": "release"}
 EXTRA.setdefault("system-menu-display-list", ("demo", "PS1", ["--screen", "games", "--menu", "Display", "--press", "a"]))
 # View's three (Covers, Grid, List) over a shelf in the grid
 EXTRA.setdefault("system-menu-view-list", ("demo", "NES", ["--screen", "games", "--view", "grid", "--menu", "View", "--press", "a"]))
@@ -885,7 +898,7 @@ def run_language(code, shots, binary, keep, theme="light", device="pixel2", firs
             target = out / (name + ".png")
             # The tutorial and the battery's screens draw no status corner
             status = [] if name.startswith(("tour-", "lowbatt", "charging-")) else \
-                ["--status", "10:08 24h wifi=off batt=82"]
+                ["--status", SHOT_STATUS.get(name, "10:08 24h wifi=off batt=82")]
             command = [str(binary), "--shot", str(target), "--theme", theme, "--lang", code,
                        "--screen", "systems", "--phase", "3200", *status,
                        "--device", device, *[f.replace("{card}", str(card)) for f in flags]]
