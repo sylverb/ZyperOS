@@ -35,7 +35,7 @@ the boot loader and the closed parts.
 | linux-headers | 4.9.337 | GPL-2.0 | https://cdn.kernel.org/pub/linux/kernel/v4.x |
 | ncurses | 6.6-20251231 | MIT with advertising clause | https://github.com/ThomasDickey/ncurses-snapshots/archive/v6_6_20251231 |
 | pcre2 | 10.47 | BSD-3-Clause | https://github.com/PCRE2Project/pcre2/releases/download/pcre2-10.47 |
-| pvr-ge8300 | 1.11.5516664 | PROPRIETARY | Imagination Technologies: closed, not distributed on its own (see THIRD-PARTY.md) |
+| pvr-ge8300 | 1.11.5516664 | PROPRIETARY | Imagination Technologies: closed, not in the image or its release; ZyperOS Installer gets each player's own copy (see THIRD-PARTY.md) |
 | readline | 8.3 | GPL-3.0+ | https://ftpmirror.gnu.org/readline |
 | sbc | 2.1 | LGPL-2.1+ (library) | https://cdn.kernel.org/pub/linux/bluetooth |
 | sdl2 | 2.32.10 | Zlib | http://www.libsdl.org/release |
@@ -47,5 +47,5 @@ the boot loader and the closed parts.
 | tzdata | 2026b | Public domain | https://www.iana.org/time-zones/repository/releases |
 | util-linux | 2.41.4 | GPL-2.0+, BSD-4-Clause, LGPL-2.1+ (libblkid, libfdisk, libmount), BSD-3-Clause (libuuid), BSD-2-Clause (xxhash), ISC (rfkill), MIT (hardlink, flock) | https://cdn.kernel.org/pub/linux/utils/util-linux/v2.41 |
 | wpa_supplicant | 2.11 | BSD-3-Clause | http://w1.fi/releases |
-| xr829-firmware | sonic-pad-7f37a7f | PROPRIETARY | XRadio: closed, not distributed on its own (see THIRD-PARTY.md) |
+| xr829-firmware | sonic-pad-7f37a7f | PROPRIETARY | XRadio: closed, not in the image or its release; ZyperOS Installer gets each player's own copy (see THIRD-PARTY.md) |
 | xz | 5.8.3 | Public Domain, BSD-0-Clause, GPL-2.0+, GPL-3.0+, LGPL-2.1+ | https://github.com/tukaani-project/xz/releases/download/v5.8.3 |
