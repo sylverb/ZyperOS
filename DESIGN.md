@@ -604,8 +604,9 @@ beside a cubic one. One function each, in `src/design.h`.)*
   60 Hz and ran the Pixel 2's chip at 51 to 55 C; paced, see the PR's
   tables).
 - **USB File Transfer left alone on the cable** goes off after Auto Off's
-  time when nothing is moving, and only dims (the brightness ladder's
-  lowest rung) while files are on their way, so a transfer can still be
+  time when nothing is moving, and only dims (the backlight's floor, or
+  the player's rung if it is under the floor already) while files are on
+  their way, so a transfer can still be
   watched. A press, a browser arriving or files starting light it fully;
   a press that lights it does nothing else, POWER's too. *(Tarik,
   2026-11-10.)*
@@ -1165,6 +1166,16 @@ the launcher has exited for, reads Appearance from the launcher's database
 and resolves Auto by the launcher's rule in the zone Date & Time saved, and
 reads the file only when the database cannot be read, so a hand edit of the
 file changes the bar over a port only then.
+
+On the Pixel 2 brightness has twelve rungs, equal ratios from 9 to 255
+(src/device/pixel2_levels.h). The backlight itself goes no lower than 17, so
+the two bottom rungs keep it there and the display's gamma table takes the
+light to 13/17 and 9/17 of it (src/panelgamma.h): the launcher, Diatom and
+portkeys each set the table from the value in sysfs, which is the rung's
+name. Moving between those two rungs blinks one frame at the floor: the
+PX30 loads its table with the table off. A rung kept before 1.0.6 moved once
+to the new rung nearest its light. *(Discord, 1.0.6: "one or two dimmer
+steps"; Tarik, 2026-11-15, after a 20 kHz backlight went black under 17.)*
 
 **POWER held** (MENU > Power Button on **Hold**, 11.47) is the same pill with
 the power mark - a ring open at the top and the line down into it, as every

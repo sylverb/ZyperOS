@@ -97,6 +97,7 @@
 #include "look.h"
 #include "theme.h"
 #include "osdbar.h"
+#include "panelgamma.h"
 #include "pkkeys.h"
 #include "pkset.h"
 #include "pkssh.h"
@@ -912,6 +913,28 @@ static int bar_tick(void)
 
 /* ---- the keys ---------------------------------------------------------------- */
 
+/* The display's gamma table for the rung (src/panelgamma.h): the two under
+ * the backlight's floor are the table's, 9/17 and 13/17 of the floor's light.
+ * Set on the port's display, borrowed for the bar just shown - a master's
+ * ioctl, as the bar's are. The launcher set it before the port started and
+ * sets it again when it comes back; this is for the steps in between. */
+static void port_gamma(void)
+{
+	int raw = bright_ladder[L.bright], n;
+
+	if (!held()) {
+		fprintf(stderr, "portkeys: no display borrowed; the gamma table for brightness %d "
+		        "waits for the launcher\n", raw);
+		return;
+	}
+	n = panelgamma_apply(G.fd, raw);
+	if (n > 0)
+		fprintf(stderr, "portkeys: the display's gamma table set for brightness %d\n", raw);
+	else if (n < 0)
+		fprintf(stderr, "portkeys: could not set the display's gamma table for brightness %d\n",
+		        raw);
+}
+
 /* One step from tools/pkkeys.c: the level, saved when it moved, its line in
  * the log, the hardware and the bar. A press writes the hardware even at an
  * end of the scale, as it always has, which puts the level back if the port
@@ -927,6 +950,7 @@ static void press(const pk_step *s)
 	if (!vol) {
 		if (moved || !s->held) apply_brightness();
 		bar_show(OSDBAR_BRIGHT, L.bright, BRIGHT_MAX);
+		if (moved || !s->held) port_gamma();
 	} else {
 		if (moved || !s->held) apply_volume();
 		bar_show(OSDBAR_VOLUME, L.vol, VOL_MAX);
