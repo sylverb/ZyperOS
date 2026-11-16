@@ -72,6 +72,12 @@
  * the frontend had drawn, a 1 or a 0 each, and when each started
  * (test/lateskip.py).
  *
+ * And a picture of its own in place of the pattern: STUBCORE_IMAGE=path, a
+ * BASE_W x BASE_H RGB565 frame in the host's byte order (what
+ * tools/shaderdemo.c --rgb565 writes), drawn on every frame with the
+ * geometry held at the base, so a filter's output on a device can be set
+ * beside what the launcher's Shader pictures say it is (tools/shaderdemo-device.sh).
+ *
  * Test fixture. Not part of Diatom's runtime.
  */
 #include <stdint.h>
@@ -108,6 +114,8 @@ static int      box_x = 96, box_y = 80;
 static double   phase;
 static double   audio_accum;
 static void     rumble_configure(void);   /* STUBCORE_RUMBLE, below */
+static uint16_t image[BASE_W * BASE_H];  /* STUBCORE_IMAGE's frame */
+static bool     image_on;
 
 static struct retro_core_option_v2_definition probe_defs[] = {
 	{ "stubcore_probe", "Probe", NULL, "Read back as each game loads", NULL, NULL,
@@ -182,7 +190,9 @@ static struct retro_disk_control_ext_callback tray = {
  * STUBCORE_INIT_LOG at each load: 1 every time for a core Diatom opens afresh
  * for each game (core.c, one_game_per_load), counting up for one it keeps
  * open, as a static a real core forgets to reset carries over. STUBCORE_NAME
- * names the library as a real core does, which is what that rule goes by. */
+ * names the library as a real core does, which is what that rule goes by;
+ * STUBCORE_VERSION gives it a version, which a save state is checked
+ * against (save.c, test/statereads.py). */
 static int loads;
 
 void retro_init(void)
@@ -202,7 +212,7 @@ void retro_get_system_info(struct retro_system_info *info)
 {
 	memset(info, 0, sizeof *info);
 	info->library_name     = getenv("STUBCORE_NAME") ? getenv("STUBCORE_NAME") : "diatom-stub";
-	info->library_version  = "1";
+	info->library_version  = getenv("STUBCORE_VERSION") ? getenv("STUBCORE_VERSION") : "1";
 	info->valid_extensions = "stub";
 	info->need_fullpath    = getenv("STUBCORE_FULLPATH") != NULL;
 	info->block_extract    = !getenv("STUBCORE_EXTRACT");
@@ -407,6 +417,15 @@ bool retro_load_game(const struct retro_game_info *game)
 		late_at = e && *e ? strtol(e, NULL, 10) : -1;
 	}
 	rumble_configure();
+	{
+		const char *e = getenv("STUBCORE_IMAGE");
+		FILE *f = e && *e ? fopen(e, "rb") : NULL;
+
+		image_on = f && fread(image, sizeof image, 1, f) == 1;
+		if (e && *e && !image_on) fprintf(stderr, "stubcore: STUBCORE_IMAGE %s: not a %dx%d RGB565 frame\n", e, BASE_W, BASE_H);
+		if (f) fclose(f);
+		if (image_on) cur_w = BASE_W;
+	}
 	/* Offered by every real core and discarded by Diatom until the state
 	 * plane. The port-1 entry is here so the "port 0 only" filter has
 	 * something to exclude rather than being untested. */
@@ -689,7 +708,7 @@ void retro_run(void)
 	 * when a game opens a menu. This is the path 3 of 6 measured cores take and
 	 * the one most likely to be broken by an implementation that computes the
 	 * destination rect once at load. */
-	if (frame && frame % 300 == 0) {
+	if (frame && frame % 300 == 0 && !image_on) {
 		struct retro_game_geometry g;
 		cur_w = (cur_w == BASE_W) ? WIDE_W : BASE_W;
 		memset(&g, 0, sizeof g);
@@ -743,6 +762,7 @@ void retro_run(void)
 		for (x = box_x * xs; x < (box_x + 32) * xs && x < cur_w; x++)
 			fb[y * cur_w + x] = rgb565(220, 90, 40);
 
+	if (image_on) memcpy(fb, image, sizeof image);
 	video_cb(fb, (unsigned)cur_w, (unsigned)cur_h, (size_t)cur_w * sizeof(uint16_t));
 
 	for (i = 0; i < n; i++) {

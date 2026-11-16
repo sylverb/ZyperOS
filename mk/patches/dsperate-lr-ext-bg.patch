@@ -1,17 +1,17 @@
 diff --git a/patches/0003-ext-bg-run.patch b/patches/0003-ext-bg-run.patch
 new file mode 100644
-index 0000000..a83b1e8
+index 0000000..97c0a3c
 --- /dev/null
 +++ b/patches/0003-ext-bg-run.patch
 @@ -0,0 +1,83 @@
 +diff --git a/src/core/gpu/engine2d.cpp b/src/core/gpu/engine2d.cpp
-+index 9bd0b785..e3ff8ff7 100644
++index 6dd281af..758f303b 100644
 +--- a/src/core/gpu/engine2d.cpp
 ++++ b/src/core/gpu/engine2d.cpp
-+@@ -463,6 +463,10 @@ void Engine2D::draw_bg_extended(u32 line, int bg) {
++@@ -518,6 +518,10 @@ void Engine2D::draw_bg_extended(u32 line, int bg) {
 +     const bool direct = cnt & (1 << 2);
 +     if (direct) plane.table = kern::direct_table();
-+     if (!mosaic && dx == 0x100 && dy == 0) { bitmap_row_degenerate(plane, base, xmask, ymask, yshift, ofx == 0, direct, rx, ry); return; }
++     if (!mosaic && dx == 0x100 && dy == 0) { bitmap_row_degenerate(bg, plane, base, xmask, ymask, yshift, ofx == 0, direct, rx, ry); return; }
 ++    // The whole bitmap as one host range when its banks allow (vram_run):
 ++    // then a pixel is one load, not a block lookup. Rows times the row length.
 ++    const u32 texels = ((ymask >> 8) + 1) << yshift;
@@ -19,7 +19,7 @@ index 0000000..a83b1e8
 +     u32 mosaic_phase = 0;
 +     s32 mosaic_rx = rx, mosaic_ry = ry;
 +     for (u32 i = 0; i < 256; ++i, rx += dx, ry += dy,
-+@@ -472,11 +476,12 @@ void Engine2D::draw_bg_extended(u32 line, int bg) {
++@@ -527,11 +531,12 @@ void Engine2D::draw_bg_extended(u32 line, int bg) {
 +       if ((fx & ofx) || (fy & ofy)) continue;
 +       const u32 off = (((fy & ymask) >> 8) << yshift) + ((fx & xmask) >> 8);
 +       if (direct) {
@@ -34,7 +34,7 @@ index 0000000..a83b1e8
 +         if (!idx) continue;
 +         plane.v()[i] = LV_OPAQUE | idx;
 +       }
-+@@ -490,6 +495,10 @@ void Engine2D::draw_bg_extended(u32 line, int bg) {
++@@ -545,6 +550,10 @@ void Engine2D::draw_bg_extended(u32 line, int bg) {
 +     if (!num_) { tileset += (cur_.dispcnt & 0x07000000) >> 8; tilemap += (cur_.dispcnt & 0x38000000) >> 11; }
 +     if (!mosaic && dx == 0x100 && dy == 0) { tile_row_degenerate(plane, tilemap, tileset, coordmask, yshift, overflow == 0, true, extpal, bg, rx, ry); if (extpal) plane.table = extpal18_.data() + bg * 4096; return; }
 +     u32 palmask = 0;
@@ -45,7 +45,7 @@ index 0000000..a83b1e8
 +     u32 mosaic_phase = 0;
 +     s32 mosaic_rx = rx, mosaic_ry = ry;
 +     for (u32 i = 0; i < 256; ++i, rx += dx, ry += dy,
-+@@ -497,11 +506,14 @@ void Engine2D::draw_bg_extended(u32 line, int bg) {
++@@ -552,11 +561,14 @@ void Engine2D::draw_bg_extended(u32 line, int bg) {
 +       if (mosaic && mosaic_phase == 0) { mosaic_rx = rx; mosaic_ry = ry; }
 +       const s32 fx = mosaic ? mosaic_rx : rx, fy = mosaic ? mosaic_ry : ry;
 +       if ((fx | fy) & overflow) continue;
@@ -88,10 +88,10 @@ index 0000000..a83b1e8
 ++
 + } // namespace ds::gpu
 diff --git a/patches/README.md b/patches/README.md
-index 94e8ccb..745c504 100644
+index c3311a2..32216e1 100644
 --- a/patches/README.md
 +++ b/patches/README.md
-@@ -18,3 +18,15 @@ how it was checked. Drop a patch once the submodule moves past its fix.
+@@ -9,3 +9,15 @@ how it was checked. Drop a patch once the submodule moves past its fix.
    empty `tune=`), so a device's `-mcpu` build still uses the profile. `-mcpu`
    changes code generation, not the control flow GCC matches profiles on;
    `build.sh`'s "functions without their profile" count shows any that lost it.

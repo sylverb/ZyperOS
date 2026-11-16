@@ -16,10 +16,10 @@ it = Dalla A alla Z
 note = MENU > System Order's value: systems sorted by the year they came out. A named choice.
 en = Release Date
 zh-Hans = 发行日期
-es = Fecha de lanzamiento
-pt-BR = Data de lançamento
+es = Lanzamiento
+pt-BR = Lançamento
 fr = Date de sortie
-de = Erscheinungsdatum
+de = Jahr
 ja = 発売日
 it = Data di uscita
 
@@ -54,7 +54,7 @@ pt-BR = Tempo restante
 fr = Temps restant
 de = Restzeit
 ja = 残り時間
-it = Tempo rimasto
+it = Tempo
 
 [panel.side_lights]
 note = The heading of MENU > Side Lights, the lights on the handheld's sides.

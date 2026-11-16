@@ -230,7 +230,7 @@ int shot_usb = -1;   /* --usb-ask [N]: the question, tile N focused */
  * zone of the list (3), or Auto's message as it is chosen (4); Time Zone's
  * list open on its first zone (5), on its longest city in the middle (6), on
  * Auto with the zone it found (7), and with a long city (8) */
-int shot_datetime = -1;
+int shot_datetime = -1, shot_datetime_mon = 10;
 int shot_dev = -1;   /* --dev-page [N]: Developer Mode's page on the cable with 1, 12 or no keys (0..2), or the message that
                       * says it is on (3); over Wi-Fi with one key signed in (4); SSH over Wi-Fi's message as it is turned
                       * on (5); over Wi-Fi with no key (6); Wi-Fi up with SSH over Wi-Fi off (7); the cursor on
@@ -318,6 +318,15 @@ bool shot_status_parse(const char *spec)
 		else if (!strncmp(w, "wifi=", 5) && w[5] >= '1' && w[5] <= '3' && !w[6])
 			shot_st.m.wifi = w[5] - '0';
 		else if (!strcmp(w, "bt")) shot_st.m.bt = true;
+		/* the day it shows (MENU's Date & Time row), date=2026-01-15; today
+		 * without it */
+		else if (!strncmp(w, "date=", 5)) {
+			int y, mo, d;
+
+			if (sscanf(w + 5, "%d-%d-%d", &y, &mo, &d) != 3 || y < 1971 || mo < 1 || mo > 12 || d < 1 || d > 31)
+				return false;
+			shot_st.year = y, shot_st.mon = mo, shot_st.mday = d;
+		}
 		else if (!strncmp(w, "batt=", 5)) shot_st.m.batt = atoi(w + 5);
 		else if (!strcmp(w, "chg")) shot_st.m.charging = true;
 		/* on the cable, held at the charge limit: the plug */
@@ -396,6 +405,10 @@ float shot_np_at = 83.0f;
  * the track count is drawn from it. */
 const char *shot_mode;
 float shot_slot_aspect = 4.0f / 3.0f;
+/* --slot-when MONTH HOUR: the slot in view saved in that month (1 to 12) at
+ * that hour, not August's afternoon; --slot-save: the strip as Save asks
+ * where to ("Save to") */
+int shot_slot_mon, shot_slot_hour, shot_slot_save;
 
 /* A stand-in for a paused game frame, at whatever shape was asked for: the
  * slot carousel frames the picture to its own aspect, so looking at that
@@ -425,7 +438,7 @@ static SDL_Texture *fake_frame(SDL_Renderer *r, float aspect)
 
 static void shot_draw_slots(app *a)
 {
-	slot_view sv = { .aspect = shot_slot_aspect, .saving = 0 };
+	slot_view sv = { .aspect = shot_slot_aspect, .saving = shot_slot_save };
 	int i;
 
 	for (i = 0; i <= GM_SLOTS; i++) {
@@ -433,6 +446,7 @@ static void shot_draw_slots(app *a)
 		struct tm tm = { .tm_mon = 7, .tm_mday = 20 + i, .tm_hour = 13 + i,
 		                 .tm_min = i * 7, .tm_sec = i * 9 };
 
+		if (i == shot_slot_sel && shot_slot_mon) tm.tm_mon = shot_slot_mon - 1, tm.tm_hour = shot_slot_hour;
 		/* Slot 5 left empty, so the empty state is in the picture too. */
 		if (i == 5) continue;
 		sv.have[i] = 1;
@@ -1515,7 +1529,7 @@ static void shot_compose(app *a)
 		 * in the language that is on */
 		static const char *const ids[4] = { "America/New_York", "America/Sao_Paulo",
 		                                     "America/Bahia_Banderas", "America/New_York" };
-		struct tm tm = { .tm_year = 2026 - 1900, .tm_mon = 9, .tm_mday = 3,
+		struct tm tm = { .tm_year = 2026 - 1900, .tm_mon = shot_datetime_mon - 1, .tm_mday = 3,
 		                 .tm_hour = 18, .tm_min = 5, .tm_isdst = -1 };
 		menu_row rows[CLOCK_ZONE_LIST_MAX];
 		clock_ui c;

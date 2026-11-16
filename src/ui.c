@@ -1717,6 +1717,24 @@ void ui_fit_text(TTF_Font *f, const char *src, char *dst, size_t dstn,
 	memcpy(e->out[0], dst, dstn);
 }
 
+#ifdef I18N_PSEUDO
+/* A balanced text cut: every line full and the last cut (the text is longer
+ * than its box), or a word longer than a line cut where it stands, in any
+ * line ("Röhrenfernseh..." in a narrow note, which the last line's dots
+ * alone did not say) */
+static void balance_cut_note(const char *text, char lines[][LB_LINE], int n)
+{
+	int k;
+
+	if (strstr(text, "...")) return;
+	for (k = 0; k < n; k++)
+		if (strstr(lines[k], "...")) {
+			i18n_note(i18n_watched(text) ? "cut" : "cut data", text);
+			return;
+		}
+}
+#endif
+
 int ui_balance_lines(TTF_Font *f, const char *text, int maxw, int cap,
                      char lines[][LB_LINE])
 {
@@ -1727,8 +1745,7 @@ int ui_balance_lines(TTF_Font *f, const char *text, int maxw, int cap,
 	if (cap < 1 || cap > MEMO_LINES || !memo_usable(text)) {
 		n = lb_balance(text, maxw, cap, ttf_width, f, lines);
 #ifdef I18N_PSEUDO
-		if (n > 0 && strstr(lines[n - 1], "...") && !strstr(text, "..."))
-			i18n_note(i18n_watched(text) ? "cut" : "cut data", text);
+		balance_cut_note(text, lines, n);
 #endif
 		return n;
 	}
@@ -1738,9 +1755,7 @@ int ui_balance_lines(TTF_Font *f, const char *text, int maxw, int cap,
 	}
 	n = lb_balance(text, maxw, cap, ttf_width, f, lines);
 #ifdef I18N_PSEUDO
-	/* Every line full and the last cut: the text is longer than its box */
-	if (n > 0 && strstr(lines[n - 1], "...") && !strstr(text, "..."))
-		i18n_note(i18n_watched(text) ? "cut" : "cut data", text);
+	balance_cut_note(text, lines, n);
 #endif
 	if (n < 0 || n > cap) return n;
 	e = memo_slot(MEMO_BALANCE, f, text, maxw, cap, 0);

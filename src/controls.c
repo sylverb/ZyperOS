@@ -319,7 +319,7 @@ static const ctl_pad PADS[] = {
 	                    [P_SELECT] = SAYS_ON(S_CONTROLS_KEYPAD, "#") } },
 	/* Genesis Plus GX's two-button pad, as the Master System's: the
 	 * SG-1000's buttons 1 and 2, START the PAUSE button on the console
-	 * (core/system.c at v1.7.4 b7e79b3: START is the NMI on every system
+	 * (core/system.c at v1.7.4 b9c2316: START is the NMI on every system
 	 * but the Game Gear) */
 	{ "SG1000", NULL, { [P_A] = SAYS_ON(S_CONTROLS_BUTTON, "2"),
 	                    [P_B] = SAYS_ON(S_CONTROLS_BUTTON, "1"), [P_START] = BTN("Pause") } },

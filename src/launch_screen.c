@@ -5,6 +5,7 @@
 #include "app.h"
 #include "bgm.h"
 #include "biosfile.h"
+#include "gamefile.h"
 #include "ctl.h"
 #include "ctl_channel.h"
 #include "dsv.h"
@@ -623,6 +624,25 @@ void launch(app *a)
 	snprintf(rom, sizeof rom, "%s/%s/%s", P_ROMS, s->folder, romfile);
 	snprintf(save, sizeof save, "%s/Saves", P_CARD);
 	snprintf(bios, sizeof bios, "%s/Bios", P_CARD);
+
+	/* The game's own file, before anything is sent or started for it: an
+	 * empty one, or one too short to be its kind, is said here (gamefile.h).
+	 * A 0-byte PSP .iso crashed Diatom inside PPSSPP and came back to the
+	 * shelf with nothing said (2026-11-16). */
+	{
+		unsigned long long have;
+		gamefile_state gs = gamefile_check(rom, &have);
+
+		if (gs != GAMEFILE_OK) {
+			char msg[160];
+
+			gamefile_message(gs, have, msg, sizeof msg);
+			fprintf(stderr, "launch: %s refused: %s is %llu bytes\n", s->name, romfile, have);
+			if (a->in.pressed[IN_ACCEPT]) uisound_play(DS_SOUND_DENY);
+			result_message(a, v->list.items[v->cursor].title, msg);
+			return;
+		}
+	}
 
 	/* A DS game: two screens in one frame, a DraStic save (ROGUE OS's) to
 	 * take over the first time, and frames left undrawn when they run late -
