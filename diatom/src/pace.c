@@ -1,5 +1,14 @@
-/* The frame loop's rule for a late turn at 1x: see pace.h. */
+/* The frame loop's rule for a late turn at 1x, and how long a push waits
+ * for room: see pace.h. */
 #include "pace.h"
+
+double pace_room_us(size_t queued, size_t n, int capacity, double rate)
+{
+	double over = (double)queued + (double)n - (double)capacity;
+
+	if (capacity <= 0 || rate <= 0 || over <= 0) return 0;
+	return over * 1e6 / rate;
+}
 
 pace_late pace_when_late(double late_us, double frame_us, double depth_us,
                          double *keep_us)

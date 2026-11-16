@@ -16,6 +16,7 @@
  *
  * Offline and instant: it links src/pace.c and nothing else. */
 #include <math.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -160,6 +161,83 @@ static void show(const char *what, result b, result a)
 	       a.refused, a.silence, a.resyncs, a.caught_up, a.dropped_us / 1000.0, a.secs, b.q_max, a.q_max);
 }
 
+
+/* ---- a core paced by its sound, handing it over in bursts (audio.c, HOLD) ----
+ * PPSSPP's retro_run hands over all the sound its emulation thread made since
+ * the last, and that thread runs on ahead while no picture comes: a turn of a
+ * frame brings `times` frames of sound. The loop paces each turn by its sound,
+ * four frames at most (main.c). With `hold`, a push that does not fit waits
+ * for room, a step at a time (pace_room_us, 5 ms at most a step), and a turn
+ * that waited makes the next wait until the queue is back at its target. */
+typedef struct { long frame, times; } burst_at;
+typedef struct {
+	double refused, silence, secs, held_us, q_after_burst;
+	long held;
+} paced_result;
+
+static paced_result paced_game(const burst_at *bursts, int nb, long n, bool hold)
+{
+	port p;
+	paced_result r;
+	double frame_us = 1e6 / FPS, next = 0.0, carry = 0.0;
+	long f;
+
+	memset(&p, 0, sizeof p);
+	memset(&r, 0, sizeof r);
+	p.q = CAP / 2;
+	p.dev = DEV_BUF;
+	for (f = 0; f < n; f++) {
+		long times = 1, i;
+		double sound, turn_us;
+		bool held = false;
+
+		for (i = 0; i < nb; i++)
+			if (bursts[i].frame == f) times = bursts[i].times;
+		play_to(&p, p.t + 3000.0);   /* the core's retro_run: 3 ms */
+		carry += RATE / FPS * (double)times;
+		sound = floor(carry);
+		carry -= sound;
+		turn_us = sound * 1e6 / RATE;
+		while (sound > 0) {
+			double room = CAP - p.q, now = sound < room ? sound : room;
+
+			p.q += now;
+			sound -= now;
+			if (sound <= 0) break;
+			if (!hold) {
+				p.refused += sound;
+				break;
+			}
+			{
+				double us = pace_room_us((size_t)p.q, (size_t)sound, CAP, RATE);
+
+				if (us < 1000) us = 1000;
+				if (us > 5000) us = 5000;
+				play_to(&p, p.t + us);
+				r.held_us += us;
+				held = true;
+			}
+		}
+		if (held) r.held++;
+		next += turn_us < frame_us * 4.0 ? turn_us : frame_us * 4.0;
+		if (held) {
+			double back = p.t + (p.q > CAP / 2.0 ? (p.q - CAP / 2.0) * 1e6 / RATE : 0);
+
+			if (next < back) next = back;
+		}
+		if (next > p.t) {
+			play_to(&p, next);
+			if (times > 1) r.q_after_burst = p.q > r.q_after_burst ? p.q : r.q_after_burst;
+		} else if (p.t - next > frame_us * 4.0) {
+			next = p.t;
+		}
+	}
+	r.refused = p.refused;
+	r.silence = p.silence;
+	r.secs = p.t / 1e6;
+	return r;
+}
+
 int main(void)
 {
 	const double F = 1e6 / FPS;
@@ -250,6 +328,32 @@ int main(void)
 		ck(a.q_max < CAP, "a DS opening: after, the queue never full");
 		ck(a.dropped_us <= (a.silence + 3 * PERIOD) * 1e6 / RATE,
 		   "a DS opening: lets go of no more than the silence heard");
+	}
+
+	/* ---- a core paced by its sound, in bursts ---- */
+	ck(pace_room_us(1000, 1000, CAP, RATE) == 0.0, "room: fits, no wait");
+	ck(fabs(pace_room_us(3072, 2048, CAP, RATE) - 1024 * 1e6 / RATE) < 0.01,
+	   "room: 1024 frames over, 21.3 ms at 48 kHz");
+	ck(pace_room_us(4096, 2048, 0, RATE) == 0.0, "room: no queue, no wait");
+	{
+		static const burst_at none[] = { { -1, 1 } };
+		static const burst_at bursts[] = { { 200, 5 }, { 400, 3 }, { 600, 10 }, { 800, 20 } };
+		paced_result b0 = paced_game(none, 1, 1100, false), h0 = paced_game(none, 1, 1100, true);
+		paced_result b = paced_game(bursts, 4, 1100, false), h = paced_game(bursts, 4, 1100, true);
+		/* the sound the bursts bring past a frame's each: 4 + 2 + 9 + 19 frames */
+		const double extra_s = 34 / FPS;
+
+		printf("  sound-paced, no burst: refused %.0f/%.0f, %.2f/%.2f s\n", b0.refused, h0.refused, b0.secs, h0.secs);
+		printf("  sound-paced, bursts of 5, 3, 10 and 20 frames: refused %.0f, %.2f s; held: refused %.0f, "
+		       "%ld pushes waited %.0f ms, %.2f s, silent %.0f, the queue after a burst %.0f at most\n",
+		       b.refused, b.secs, h.refused, h.held, h.held_us / 1000, h.secs, h.silence, h.q_after_burst);
+		ck(b0.refused == 0 && h0.refused == 0 && h0.held == 0, "no burst: nothing refused, nothing waits");
+		ck(b.refused > 0, "bursts, no hold: sound refused (the model sees the fault)");
+		ck(h.refused == 0, "bursts, held: nothing refused");
+		ck(h.held <= 4, "  ...only the bursts' turns wait");
+		ck(fabs((h.secs - h0.secs) - extra_s) < 0.1, "  ...the game held back by the bursts' extra sound, no more");
+		ck(h.silence <= h0.silence + PERIOD, "  ...no more silence than with no burst");
+		ck(h.q_after_burst <= CAP / 2 + RATE / FPS + PERIOD, "  ...the queue back near its target after each");
 	}
 
 	/* A game slow all the time (17.2 ms a frame against 16.7): the same speed */

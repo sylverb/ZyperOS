@@ -359,6 +359,12 @@ static void frame_status(bool active, unsigned occupancy, bool underrun_likely)
 static long cost_at_frame[8], cost_at_us[8];
 static int cost_at_n;
 
+/* STUBCORE_SOUND_BURST=frame:times,...: that frame's retro_run hands over
+ * `times` frames of sound at once, as PPSSPP does when its emulation thread
+ * has run on ahead while no picture came (diatom/src/audio.c, HOLD) */
+static long burst_frame[8], burst_times[8];
+static int burst_n;
+
 static void frame_cost(void)
 {
 	struct timespec d;
@@ -411,6 +417,15 @@ bool retro_load_game(const struct retro_game_info *game)
 	{
 		const char *e = getenv("STUBCORE_FRAME_US");
 		frame_cost_us = e && *e ? strtol(e, NULL, 10) : 0;
+		e = getenv("STUBCORE_SOUND_BURST");
+		burst_n = 0;
+		while (e && *e && burst_n < 8) {
+			char *end;
+			burst_frame[burst_n] = strtol(e, &end, 10);
+			if (*end != ':') break;
+			burst_times[burst_n++] = strtol(end + 1, &end, 10);
+			e = *end == ',' ? end + 1 : NULL;
+		}
 		e = getenv("STUBCORE_FRAME_US_AT");
 		cost_at_n = 0;
 		while (e && *e && cost_at_n < 8) {
@@ -736,7 +751,14 @@ void retro_run(void)
 		phase += 2.0 * M_PI * 440.0 / RATE;
 		if (phase > 2.0 * M_PI) phase -= 2.0 * M_PI;
 	}
-	audio_cb(audio, n);
+	{
+		long times = 1;
+		int b;
+
+		for (b = 0; b < burst_n; b++)
+			if ((long)frame == burst_frame[b]) times = burst_times[b];
+		while (times-- > 0) audio_cb(audio, n);
+	}
 
 	frame++;
 }
