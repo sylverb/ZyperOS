@@ -93,7 +93,12 @@ static const struct { int code; in_button b; } keymap[] = {
 const char *P_ROOT = "/mnt/SDCARD/ZyperOS";
 const char *P_CARD = "/mnt/SDCARD";
 const char *P_ROMS = "/mnt/SDCARD/Roms";
-const char *P_USERDATA = "/mnt/SDCARD/.userdata/brick";
+/* The card folder of the device built for: the Brick's own, or the Smart
+ * Pro's, which runs this platform layer too (mk/cross.mk) */
+#ifndef ZYPEROS_DEVICE_ID
+#define ZYPEROS_DEVICE_ID "brick"
+#endif
+const char *P_USERDATA = "/mnt/SDCARD/.userdata/" ZYPEROS_DEVICE_ID;
 
 /* The Brick's boot screen is drawn before anything could say a theme to it */
 int plat_boot_theme(const char *text) { (void)text; return 0; }

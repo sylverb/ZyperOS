@@ -394,6 +394,26 @@ static void builds(void)
 	                   DEV_HELPER_PORTS), "pixel2: portkeys, zyhome, System Update, Player 2, ports");
 	ck(br->helpers == (DEV_HELPER_UPDATE | DEV_HELPER_BTPLAYER | DEV_HELPER_BTALSA),
 	   "brick: System Update, btplayer and Bluetooth sound");
+	ck(!strcmp(px->backend, "pixel2") && !strcmp(br->backend, "brick"), "pixel2 and brick: each its own platform layer");
+
+	/* The Smart Pro: the Brick's chip, platform layer, Diatom port and card
+	 * layout, and sppad for its serial halves */
+	const dev_build *sp = &device_build_smartpro;
+	ck(!strcmp(sp->id, device_profile_smartpro.id), "smartpro: the build is its profile's device");
+	ck(!strcmp(sp->arch, "aarch64") && !strcmp(sp->mcpu, "cortex-a53") && !strcmp(sp->cpu, "cortex-a53"),
+	   "smartpro: aarch64, the A53 baseline, an A53 inside");
+	ck(!strcmp(sp->backend, "brick") && !strcmp(sp->diatom_port, "brick"),
+	   "smartpro: the Brick's platform layer and Diatom port");
+	ck(!strcmp(sp->table, "gpt") && sp->part_boot == 1 && sp->part_root_a == 2 && sp->part_root_b == 4 &&
+	   sp->part_games == 5, "smartpro: the Brick's card layout");
+	ck(sp->helpers == (DEV_HELPER_UPDATE | DEV_HELPER_BTPLAYER | DEV_HELPER_BTALSA | DEV_HELPER_SPPAD),
+	   "smartpro: the Brick's helpers, and sppad");
+
+	/* A device's card folder is its id: mk/cross.mk names the build's
+	 * .userdata folder by it (ZYPEROS_DEVICE_ID) for a platform layer two
+	 * devices share */
+	ck(!strcmp(device_profile_pixel2.userdata, px->id) && !strcmp(device_profile_brick.userdata, br->id) &&
+	   !strcmp(device_profile_smartpro.userdata, sp->id), "each device's .userdata folder is its id");
 }
 
 /* A button as `p` prints it (src/ds/button.h): its glyph's shape, mark and

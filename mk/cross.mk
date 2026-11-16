@@ -2,15 +2,17 @@
 # cross-compiler, and SYSROOT its staging directory, which holds the same SDL2
 # and FFmpeg the device's system is built with, so what links is what runs.
 BUILD := build
-# Every device shares src/*.c; DEVICE picks the one device file built with it.
+# Every device shares src/*.c; DEVICE picks the device built for.
 DEVICE ?= brick
 # The device's build (config/device/<id>.mk, from src/device/<id>_build.c):
-# the baseline its code is built for, and the helpers its payload carries
+# the baseline its code is built for, the platform layer it runs (its
+# backend: its own, or the one whose board it shares, the Brick's for the
+# Smart Pro) and the helpers its payload carries
 include config/device/$(DEVICE).mk
 MCPU := -mcpu=$(ZYDEV_MCPU)
 # and its profile (src/device/profile.h), the one the build is for
-SRC := $(wildcard src/*.c) $(wildcard src/ds/*.c) src/device/$(DEVICE).c src/device/$(DEVICE)_profile.c \
-       $(wildcard src/device/$(DEVICE)_hw.c) \
+SRC := $(wildcard src/*.c) $(wildcard src/ds/*.c) src/device/$(ZYDEV_BACKEND).c src/device/$(DEVICE)_profile.c \
+       $(wildcard src/device/$(ZYDEV_BACKEND)_hw.c) \
        src/device/td_model.c $(wildcard src/device/$(DEVICE)_model.c) \
        src/device/pixel2_coreopts.c
 CC ?= aarch64-linux-gnu-gcc
@@ -44,8 +46,10 @@ CREDS := $(BUILD)/ss_creds.h
 CFLAGS += -I$(BUILD)
 # src too, so a device file in src/device/ includes the shared headers by name
 CFLAGS += -Isrc
-# The device's profile is the one in force (src/profile.c)
-CFLAGS += -DZYPEROS_PROFILE=device_profile_$(DEVICE)
+# The device's profile is the one in force (src/profile.c), and its id
+# names its card folder (.userdata/<id>), for a platform layer two devices
+# share (tools/devices-check.c holds each profile's folder to its id)
+CFLAGS += -DZYPEROS_PROFILE=device_profile_$(DEVICE) -DZYPEROS_DEVICE_ID='"$(DEVICE)"'
 
 .PHONY: creds
 creds:
@@ -123,6 +127,13 @@ $(BUILD)/zyhome: tools/zyhome.c tools/zychord.h src/ctl.c src/ctl.h
 	mkdir -p $(BUILD)
 	$(CC) -O2 $(MCPU) -Wall -Wextra -std=gnu11 -Isrc $(LDFLAGS) -o $@ tools/zyhome.c src/ctl.c
 
+# The Smart Pro's two serial halves as one gamepad (tools/sppad.c), which
+# the system's start script runs before ZyperOS (plastron's package/zyperos)
+SPPAD_SRC := tools/sppad.c tools/sppad_frame.c
+$(BUILD)/sppad: $(SPPAD_SRC) tools/sppad.h
+	mkdir -p $(BUILD)
+	$(CC) -O2 $(MCPU) -Wall -Wextra -Werror -std=gnu11 -D_GNU_SOURCE $(LDFLAGS) -o $@ $(SPPAD_SRC)
+
 $(BUILD)/btplayer: tools/btplayer.c
 	mkdir -p $(BUILD)
 	$(CC) -O2 $(MCPU) -Wall -Wextra -std=gnu11 \
@@ -150,5 +161,6 @@ HELPER_ELF_zyhome := $(BUILD)/zyhome
 HELPER_ELF_update := $(BUILD)/zyperos-update
 HELPER_ELF_p2d := $(BUILD)/p2d
 HELPER_ELF_btplayer := $(BUILD)/btplayer
+HELPER_ELF_sppad := $(BUILD)/sppad
 .PHONY: device-programs
 device-programs: $(BUILD)/zyperos.elf $(BUILD)/muse $(foreach h,$(ZYDEV_HELPERS),$(HELPER_ELF_$(h)))

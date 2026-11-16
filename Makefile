@@ -1134,7 +1134,7 @@ DEVICE_PROFILES := src/device/pixel2_profile.c src/device/brick_profile.c src/de
                    src/device/pixel2_coreopts.c
 # Each device's build and card (src/device/build.h): the generator and the
 # checks link them; the launcher never does
-DEVICE_BUILDS := src/device/pixel2_build.c src/device/brick_build.c
+DEVICE_BUILDS := src/device/pixel2_build.c src/device/brick_build.c src/device/smartpro_build.c
 # The RetroAchievements hasher and the disc readers under it (src/rahash.h,
 # src/discimg.h): every check that links one links them all, and liblzma
 # for a CHD's LZMA hunks (Homebrew's xz on a Mac; the device has the
