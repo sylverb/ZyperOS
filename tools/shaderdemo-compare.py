@@ -9,17 +9,19 @@ of the same scene through Diatom's filters (px2-shot's PPMs), by the same names.
 For each it says how far the two are apart in 8-bit levels (each channel of
 each pixel), and writes DIR/sheet-<name>.png: the top left of the panel, what
 the Shader list shows of it, at 2x, the picture, the shot and the difference
-eight times over. They are one picture when the mean is under 1.5 levels and
-99.5% of the values are within 6 (the GPU's float and the scanout's own
-rounding; a filter ported wrong is off by tens across whole rows).
+eight times over. They are one picture when the mean is at most 1 level and
+99.5% of the values are within 3: the GPU's float and the scanout's own
+rounding. A Pixel 2 on 1.0.5 (2026-11-16) gave a mean of 0.28 to 0.36 and
+99.5% within 1 for all ten; a picture one pixel off, or two levels off
+everywhere, fails.
 """
 import sys
 from pathlib import Path
 
 from PIL import Image, ImageChops, ImageDraw
 
-MEAN_MAX = 1.5
-P995_MAX = 6
+MEAN_MAX = 1.0
+P995_MAX = 3
 CROP = (0, 0, 190, 142)
 
 
