@@ -4818,7 +4818,7 @@ int menu_std_width(app *a)
 	int floor   = menu_shelf_width(a);
 	/* No wider than menu_draw makes a panel: a language whose rows run long
 	 * (German) measured past it, and About's story, wrapped at that, slid */
-	int most    = ZYPEROS_SCREEN_W - MENU_MARGIN * 2 - menu_pad() * 2;
+	int most    = menu_most_w();
 	int w       = floor > content ? floor : content;
 
 	return w < most ? w : most;

@@ -21,22 +21,20 @@
 
 /* ---- the handheld's place and motion (the mock, 2026-11-13) ----------------
  *
- * Centered 99 units in from the content's left edge, at y 458 of the 1024 x
- * 768 screen, as big and turned as its model's tab pose says (td_model.h):
+ * Centered ctl-device-x (99) units in from the content's left edge, at
+ * ctl-device-y (458) of the 1024 x 768 screen, as big and turned as its
+ * model's tab pose says (td_model.h):
  * the Pixel 2's 3.15 units a millimetre, turned 10 degrees (the tutorial's
  * front pose), its left edge on the heading rule's left end and its halos
  * and rings ending at x 302 of the 335 where the focus fill starts; the
  * Brick as tall, so narrower. The panel is as tall as the screen allows on
  * every tab and page that has it (menu_style's side), so it stands at the
  * same place on all of them. */
-#define DEV_DX    99.0f
-#define DEV_CY    458.0f
 /* Turned this far as the tab comes in, to the tab pose's turn in **turn** */
 #define DEV_DEG_IN 40.0f
-/* How far a tab's move takes it: in with the rows, 64 units the press's way;
- * out with the old tab's name, 96 the press's way (menu_tabs_draw's) */
-#define DEV_IN_DX  64.0f
-#define DEV_OUT_DX 96.0f
+/* How far a tab's move takes it, the tab row's own (menu_tabs_draw's): in
+ * with the rows, tab-move-in the press's way; out with the old tab's name,
+ * tab-move-name the press's way */
 
 /* Which screen sets the handheld's lights: the tab, or a button's choices */
 typedef enum { CS_TAB, CS_PICK } cs_mode;
@@ -91,7 +89,7 @@ static struct {
 /* The rows' column: the in-game menu's content, less the handheld's */
 static int column_w(const ctlscr_game *g)
 {
-	return (g->over && g->over->fixed_w > 0 ? g->over->fixed_w : 860) - CTLSCR_SIDE_W;
+	return (g->over && g->over->fixed_w > 0 ? g->over->fixed_w : menu_most_w()) - CTLSCR_SIDE_W;
 }
 
 /* Applies To's value for every game of the system: its name, or its home
@@ -340,7 +338,7 @@ static bool pose_of(const menu_side *at, td_pose *p, bool *moving)
 
 		if (at->tab_at == GT_CONTROLS) {
 			/* In with the rows, faded up, and turning to face front */
-			dx = at->tab_dir * DEV_IN_DX * (1.0f - mv);
+			dx = at->tab_dir * (float)DS_TAB_MOVE_IN * (1.0f - mv);
 			op = mv;
 			if (at->tab_t0 && at->tab_from != GT_CONTROLS && el < DS_MS_TURN) {
 				deg = DEV_DEG_IN + (m->tab.deg - DEV_DEG_IN) * ds_turn((float)el / DS_MS_TURN);
@@ -348,7 +346,7 @@ static bool pose_of(const menu_side *at, td_pose *p, bool *moving)
 			}
 		} else if (at->tab_from == GT_CONTROLS && mv < 1.0f) {
 			/* Out with the old tab's name, gone in two fifths of the move */
-			dx = -at->tab_dir * DEV_OUT_DX * mv;
+			dx = -at->tab_dir * (float)DS_TAB_MOVE_NAME * mv;
 			op = fmaxf(0.0f, 1.0f - 2.5f * mv);
 		} else {
 			return false;
@@ -364,8 +362,8 @@ static bool pose_of(const menu_side *at, td_pose *p, bool *moving)
 	/* Cleared whole, padding too, so two poses compare as bytes */
 	memset(p, 0, sizeof *p);
 	p->model = m;
-	p->cx = (float)at->content_x + DEV_DX + dx;
-	p->cy = DEV_CY;
+	p->cx = (float)(at->content_x + DS_CTL_DEVICE_X) + dx;
+	p->cy = (float)DS_CTL_DEVICE_Y;
 	p->scale = m->tab.s;
 	p->deg = deg;
 	p->pitch = ln.pitch;
@@ -901,7 +899,7 @@ static void page_game(cs_page *p, const system_cfg *owner, const char *file,
 {
 	memset(p, 0, sizeof *p);
 	p->title = title;
-	p->over.fixed_w = CTLSCR_PAGE_W;
+	p->over.fixed_w = menu_most_w();
 	p->over.accent = accent;
 	p->over.backdrop = page_backdrop;
 	p->over.on_power = page_power;
@@ -943,7 +941,7 @@ void ctlscr_page(app *a, const system_cfg *owner, const char *file,
 	page_game(&p, owner, file, title, accent);
 	p.a = a;
 	memset(&st, 0, sizeof st);
-	st.fixed_w = CTLSCR_PAGE_W;
+	st.fixed_w = menu_most_w();
 	st.accent = accent;
 	st.sound = p.sound;
 	st.vcolors = p.vcol;
@@ -976,7 +974,7 @@ void ctlscr_page_shot(app *a, const system_cfg *owner, const char *file,
 	page_game(&p, owner, file, title, accent);
 	p.a = a;
 	memset(&st, 0, sizeof st);
-	st.fixed_w = CTLSCR_PAGE_W;
+	st.fixed_w = menu_most_w();
 	st.accent = accent;
 	st.side = ctlscr_side;
 	st.side_w = CTLSCR_SIDE_W;

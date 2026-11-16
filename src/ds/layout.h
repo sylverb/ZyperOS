@@ -31,6 +31,12 @@
 #define DS_PAGE_TILE_PAD        32
 #define DS_MENU_ROW             72
 #define DS_MENU_PAD             56
+#define DS_TAB_MOVE_NAME        96
+#define DS_TAB_MOVE_IN          64
+#define DS_CTL_SIDE             280
+#define DS_CTL_DEVICE_X         99
+#define DS_CTL_DEVICE_Y         458
+#define DS_HUD_BAND             152
 #define DS_TILE_W               272
 #define DS_TILE_W_WIDE          408
 #define DS_TILE_H               232

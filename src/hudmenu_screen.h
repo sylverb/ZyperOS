@@ -13,11 +13,12 @@
 
 #include "app.h"
 #include "hudmenu.h"
+#include "ds/layout.h"
 
-/* The band's height in units: the top strip of the screen holds the line
- * at Far (48) dropped under the level bar (94 + 49), and the bottom one at
- * Far */
-#define HM_BAND_H 150
+/* The band's height in units, the hud-band token: the top strip of the
+ * screen holds the line at Far (48) dropped under the level bar (94 + 49),
+ * and the bottom one at Far */
+#define HM_BAND_H DS_HUD_BAND
 
 /* The player's On-Screen Stats, from the device's database */
 void hm_load(hm_state *s);
