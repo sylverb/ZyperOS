@@ -866,7 +866,34 @@ to List and round (11.39, 11.47), Y starts the game from the start, and X opens 
 last row is Delete Game (11.31). The foot spreads their hints from B at the
 left to X at the right (11.4).
 Long titles wrap or fit within their region, clear of the action and footer.
-Missing box art uses the theme's existing generated text fallback.
+**A game with no art** gets a card of its own (src/cardart.h, drawn by
+src/ui.c's game_art_card on the art workers), the same in both themes, as a
+box is:
+
+- **Its ground** says the system without anyone's trade dress: a gradient
+  in the system's color, the texture of its era (Bayer dither for the 8-bit
+  systems, scanlines for 16-bit and arcade, low-poly shards for the 3D
+  systems, LCD dots for handhelds), a shape (a band, a disc - a sunset on
+  the scanline era - or two stripes) and a second color picked by a hash of
+  the name, and the system's own art (res/system-icons, ours) faint in a
+  corner. A grey system's hash mixes a hue in. The same name, the same card,
+  always; a shelf of games with no art is varied.
+- **Once played** the ground is the game's own frame of play, blurred,
+  dimmed and turned a little toward the system's color: Diatom keeps one
+  frame a minute into a game's first play, <rom>.card.bmp, and never writes
+  it again; until then, the Auto slot's picture.
+- **The name** is one treatment on every card, every system, played or not,
+  so a shelf, the Grid and the list are read the same way: the title face
+  (Lexend SemiBold), as the shelf writes the name; hard left at 44 of 512;
+  its first line's capitals at 38% of the card; at 60 on every card, smaller
+  (50, then 42) only for a word wider than the card or a name past four
+  lines; what follows " - " under it at 36 in up to two; balanced lines,
+  never a word of three letters or fewer alone at the end; near-white on a
+  dark band across the card, feathered; the system's rule under it. The era
+  is in the ground, never in the letters. At least 5:1 on the band over the
+  brightest ground any system can make (tools/cardart-check.c).
+
+An album with no cover keeps the theme's generated text card.
 
 **Art badge** (src/artbadge.h): a small mark on a card's art that says one
 thing about it, at the art's top left - the corner opposite the video snap's
@@ -4454,13 +4481,13 @@ table.
 - A **cut-out** - a quarter of its edge clear, or a sixth of all of it: a
   logo, a box in 3D on nothing - sits whole on a plain **surface** card,
   12% of the cell's width round it.
-- A game with **no art** gets the generated card drawn at the cell's shape:
-  the slab falling toward the ground (cardgen_slab), the system's color as a
-  band across the top inside the corners, the name a fifth of the way down
-  in the largest of **support**, **action** and **chrome** in which its
-  words fit whole and its lines fit the card (in 36, 32 and 28 line boxes), a
-  rule of the system's mark color under it. Never cut: in **chrome** a word
-  longer than a line goes in pieces with a hyphen, the last resort.
+- A game with **no art** gets its card (11.1) at the cell's shape: the
+  card's ground, kept a quarter of its size with no name on it, and the name
+  set at the cell's own size by the card's rules - hard left at 44/512 of the
+  cell, its first line at 38%, on the dark band, the rule under it - in
+  **chrome**, one size in every cell: a cell is 160 wide, and in **support**
+  or **action** a word as plain as "Castlevania" is wider than that. So the
+  names of a Grid sit on one reading line.
 - A **folder** is its pixel folder (11.39), whole, on the ground.
 - A cover still coming is its cell in **raised**.
 

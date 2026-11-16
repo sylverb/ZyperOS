@@ -43,6 +43,8 @@ static bool        g_frame_fresh;
 typedef struct diatom_session {
 	const char   *core, *rom, *shot, *state_load, *state_exit;
 	const char   *preview;    /* BMP of the frame, written on pause and exit */
+	const char   *card;       /* BMP for the game's card: one frame, a minute
+	                           * into play, if there is none there yet */
 	const char   *firmware;   /* what the launcher says this content needs */
 	const char   *cheevos;    /* an achievement set to watch */
 	int           console;    /* which console's address space it is written against */
@@ -266,6 +268,60 @@ static uint8_t *preview_encode(size_t *len)
 		if (b) return b;
 	}
 	return bmp_encode(g_frame, g_frame_w, g_frame_h, g_frame_pitch, len);
+}
+
+/* ---- the card's frame ----
+ *
+ * The launcher's card for a game with no box art shows a frame of its play
+ * once there is one (src/cardart.h there). The frame at quit (the preview)
+ * changes every session and is often a death or a black fade; this one is
+ * taken once, CARD_FRAME_US of unpaused play into the game (the in-game
+ * menu stops that clock), when the game is well under way, and is never
+ * written again: the card keeps its look. Encoded here, between frames, as a
+ * quick save's picture is; written on a thread of its own, so the frame loop
+ * never waits on the card. A GPU core's frame is on the GPU, and reading it
+ * back mid-game would cost a frame, so a GPU game's is taken at the next
+ * pause or at the quit instead, where its frame is read back anyway. */
+#define CARD_FRAME_US (60ull * 1000000ull)
+
+/* DIATOM_CARD_FRAME_MS: a check's shorter minute (test/cardframe.py) */
+static uint64_t card_frame_after(void)
+{
+	const char *e = getenv("DIATOM_CARD_FRAME_MS");
+
+	return e && *e ? (uint64_t)strtoull(e, NULL, 10) * 1000ull : CARD_FRAME_US;
+}
+
+typedef struct { char path[1024]; uint8_t *bmp; size_t n; } card_job;
+
+static void *card_write(void *arg)
+{
+	card_job *j = arg;
+
+	if (diatom_write_atomic(j->path, j->bmp, j->n))
+		printf("diatom: card frame %s (%zu bytes)\n", j->path, j->n);
+	free(j->bmp);
+	free(j);
+	return NULL;
+}
+
+/* `now`: on this thread (at the quit: a Diatom started for one game exits
+ * right after, and a thread of its own would go with it) */
+static void card_frame(const char *path, bool now)
+{
+	card_job *j;
+	pthread_t th;
+
+	if (!path || access(path, F_OK) == 0) return;   /* never over one already there */
+	if (!(j = calloc(1, sizeof *j))) return;
+	snprintf(j->path, sizeof j->path, "%s", path);
+	if (!(j->bmp = preview_encode(&j->n))) { free(j); return; }
+	if (now || pthread_create(&th, NULL, card_write, j) != 0) {
+		/* no thread: on this one, once */
+		card_write(j);
+		return;
+	}
+	pthread_detach(th);
 }
 
 static bool write_preview(const char *path)
@@ -785,6 +841,7 @@ static void usage(void)
 		"              [--load-state <file>] [--state-on-exit <file>]\n"
 		"              [--firmware <name>]  required in --system, checked first\n"
 		"              [--frames <n>] [--shot <file.bmp>] [--preview-on-exit <file.bmp>]\n"
+		"              [--card-frame <file.bmp>]\n"
 		"              [--socket <path>]   launcher protocol\n"
 		"              [--cores <dir>]     map every core there before listening\n"
 		"              [--core-option key=value] ...   repeatable\n"
@@ -2159,6 +2216,9 @@ static int run_session_inner(const diatom_session *sn)
 	audio_forget();
 	diatom_levels_invalidate();
 	long frames = 0, geom_changes = 0, resyncs = 0;
+	bool card_due = sn->card != NULL;   /* the card's frame, not taken yet */
+	bool card_later = false;            /* a GPU game's, at the next pause or the quit */
+	const uint64_t card_after = card_frame_after();
 	size_t q_min = (size_t)-1, q_max = 0;
 	bool stop = false;
 
@@ -2632,6 +2692,11 @@ static int run_session_inner(const diatom_session *sn)
 
 			diatom_now_turn(t, frames, t - t_start > paused_us ? t - t_start - paused_us : 0,
 			                speed_half() / 2.0, diatom_audio_dropped());
+			if (card_due && t - t_start > paused_us && t - t_start - paused_us >= card_after) {
+				card_due = false;
+				if (diatom_hw_active()) card_later = true;
+				else card_frame(sn->card, false);
+			}
 			hud_turn(t, frames, t - t_start > paused_us ? t - t_start - paused_us : 0,
 			         av.timing.fps);
 		}
@@ -2899,6 +2964,10 @@ static int run_session_inner(const diatom_session *sn)
 				 * its next turn, and a game at 1x its ceiling here. */
 				diatom_port_fast_clock(false, false);
 				diatom_port_power(DIATOM_POWER_FULL);
+				if (card_later) {
+					card_later = false;
+					card_frame(sn->card, false);
+				}
 				resumed = menu_pause(sn);
 				diatom_port_power(power_fast ? DIATOM_POWER_FULL : g_power_level);
 				g_power_calm_us = diatom_port_now_us() + 1000000;
@@ -3043,6 +3112,7 @@ static int run_session_inner(const diatom_session *sn)
 	 * it is a defect, then the state, which is a convenience. */
 	diatom_save_shutdown();
 	if (sn->state_exit) diatom_state_save(g_core, sn->state_exit);
+	if (card_later) card_frame(sn->card, true);
 
 	/* The frame the player was looking at, for the launcher's card - written
 	 * with the exit state so a card that shows a preview always has a state
@@ -3197,7 +3267,7 @@ int main(int argc, char **argv)
 	 * and is the only thing that has made this loop miss a frame. */
 	const char *display = "stretch", *filter = "nearest";
 	const char *state_load = NULL, *state_exit = NULL, *firmware = NULL, *tap = NULL;
-	const char *preview_path = NULL, *cheevos_path = NULL;
+	const char *preview_path = NULL, *cheevos_path = NULL, *card_path = NULL;
 	const char *sock = getenv("DIATOM_SOCKET");
 	const char *cores_dir = NULL;
 	const char *channels = "stereo";
@@ -3237,6 +3307,7 @@ int main(int argc, char **argv)
 		else if (!strcmp(argv[i], "--load-state") && i + 1 < argc) state_load = argv[++i];
 		else if (!strcmp(argv[i], "--state-on-exit") && i + 1 < argc) state_exit = argv[++i];
 		else if (!strcmp(argv[i], "--preview-on-exit") && i + 1 < argc) preview_path = argv[++i];
+		else if (!strcmp(argv[i], "--card-frame") && i + 1 < argc) card_path = argv[++i];
 		else if (!strcmp(argv[i], "--firmware") && i + 1 < argc) firmware = argv[++i];
 		/* Present on the command line as well as the protocol so a set can be
 		 * exercised on the desktop with no launcher at all, which is how
@@ -3426,6 +3497,7 @@ int main(int argc, char **argv)
 			sn.state_load = m.resume[0]     ? m.resume     : NULL;
 			sn.state_exit = m.exit_state[0] ? m.exit_state : NULL;
 			sn.preview    = m.preview[0]    ? m.preview    : NULL;
+			sn.card       = m.card[0]       ? m.card       : NULL;
 			sn.cheevos    = m.cheevos[0]    ? m.cheevos    : NULL;
 			sn.console    = m.console;
 			sn.screens    = m.screens;
@@ -3458,7 +3530,7 @@ int main(int argc, char **argv)
 		diatom_session sn = {
 			.core = core_path, .rom = rom_path, .shot = shot_path,
 			.state_load = state_load, .state_exit = state_exit,
-			.preview = preview_path, .firmware = firmware,
+			.preview = preview_path, .card = card_path, .firmware = firmware,
 			.cheevos = cheevos_path, .console = console,
 			.limit = limit, .mode = start_mode, .filter = start_filter,
 			.strength = start_strength,

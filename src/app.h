@@ -297,6 +297,7 @@ SDL_Texture *load_image(SDL_Renderer *r, const char *path, int *w, int *h,
                         float *cb);
 bool tex_stale(SDL_Texture *t);
 void preview_path(app *a, int s, const game_entry *g, char *out, size_t n);
+void card_frame_path(app *a, int s, const game_entry *g, char *out, size_t n);
 void state_path(app *a, int s, const game_entry *g, char *out, size_t n);
 int  shelf_owner(app *a, int sysidx, int item);
 void box_art_path(const char *folder, const char *name, char *out, size_t n);

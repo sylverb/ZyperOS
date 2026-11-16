@@ -366,11 +366,13 @@ bool plat_resident_started(void)
 	return d_got_running != 0;
 }
 
-bool plat_resident_send(const char *tag, const char *core, const char *rom,
-                        const char *resume, const char *exit_state,
-                        const char *preview,
-                        int console, const char *cheevos)
+bool plat_resident_send(const plat_game_run *run)
 {
+	const char *tag = run->tag, *core = run->core, *rom = run->rom;
+	const char *resume = run->resume, *exit_state = run->exit_state, *preview = run->preview;
+	const char *card = run->card, *cheevos = run->cheevos;
+	int console = run->console;
+
 	plat_set_power_pressed(false);
 	/* A new game has not reported RUNNING yet. Cleared HERE rather than in
 	 * diatom_wait, because the launcher re-enters that after every in-game
@@ -445,12 +447,14 @@ bool plat_resident_send(const char *tag, const char *core, const char *rom,
 		 * zone reaches the next game. Ignored by an older Diatom. */
 		const char *zone = getenv("TZ");
 
+		/* card=, the frame the game's card shows (src/cardart.h): ignored
+		 * by an older Diatom, as its protocol promises unknown keys are */
 		if (!dsend("RUN\tcore=%s\trom=%s\ttag=%s"
-		           "\tresume=%s\texit_state=%s\tpreview=%s"
+		           "\tresume=%s\texit_state=%s\tpreview=%s\tcard=%s"
 		           "\tconsole=%d\tcheevos=%s\ttz=%s%s%s",
 		           core, rom, tag,
 		           resume ? resume : "", exit_state ? exit_state : "",
-		           preview ? preview : "",
+		           preview ? preview : "", card ? card : "",
 		           console, cheevos ? cheevos : "", zone ? zone : "",
 		           d_run_keys[0] ? "\t" : "", d_run_keys)) {
 			d_run_keys[0] = '\0';

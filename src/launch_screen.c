@@ -592,7 +592,7 @@ void launch(app *a)
 	int o = shelf_owner(a, a->sys_cursor, v->cursor);
 	const system_cfg *s = &a->sys.systems[o];
 	char core[CFG_STR * 2], elf[CFG_STR * 2], rom[LIB_PATH * 2];
-	char st[LIB_PATH * 2], pv[LIB_PATH * 2], apv[LIB_PATH * 2];
+	char st[LIB_PATH * 2], pv[LIB_PATH * 2], apv[LIB_PATH * 2], cf[LIB_PATH * 2];
 	char save[CFG_STR * 2], bios[CFG_STR * 2];
 	char active[LIB_PATH * 2] = "";
 	char set[LIB_PATH * 2];
@@ -603,7 +603,7 @@ void launch(app *a)
 	 * option. Sized off the loader's own cap so the two cannot drift apart:
 	 * the previous 20 was already 18 full, and a silent bound check would
 	 * have dropped every option rather than failing loudly. */
-	char *argv[31 + 2 * 32];
+	char *argv[33 + 2 * 32];
 	bool resident = false, want_menu;
 	/* A DS game's resume by its language (ds_resume_fresh): what it will
 	 * run in, whether it starts fresh, and its auto state as it was */
@@ -722,6 +722,8 @@ void launch(app *a)
 	/* The scratch, not the Auto card - see pause_preview_path. The card is
 	 * written from this only when the game actually ends, below. */
 	pause_preview_path(pv, sizeof pv);
+	/* and the frame its card will show once played (src/cardart.h) */
+	card_frame_path(a, o, &v->list.items[v->cursor], cf, sizeof cf);
 	persist_dir_ensure(a, o);
 
 	/* Achievements, if this game has any. Most of a library does not, and that
@@ -854,8 +856,11 @@ void launch(app *a)
 		 * the in-game menu, which is drawn HERE now, over the frame the
 		 * emulator hands us on the way into its pause. */
 		aout_before_launch();
-		if (plat_resident_send(s->tag, core, rom, ds_fresh || core_fresh || g_ctl_fresh ? "" : st, st, pv,
-		                       console, active[0] ? active : NULL)) {
+		if (plat_resident_send(&(plat_game_run){
+		        .tag = s->tag, .core = core, .rom = rom,
+		        .resume = ds_fresh || core_fresh || g_ctl_fresh ? "" : st,
+		        .exit_state = st, .preview = pv, .card = cf,
+		        .console = console, .cheevos = active[0] ? active : NULL })) {
 			int r;
 
 			/* What px2-open's status says from here to the wait's end */
@@ -1111,6 +1116,7 @@ void launch(app *a)
 		 * because a pause writes the preview too; this one does not. */
 		preview_path(a, o, &v->list.items[v->cursor], apv, sizeof apv);
 		argv[n++] = (char *)"--preview-on-exit"; argv[n++] = apv;
+		argv[n++] = (char *)"--card-frame";      argv[n++] = cf;
 		/* Same opinions as the resident path gets over SETOPT, so a game plays
 		 * the same whether the resident was up or the fallback ran it. */
 		{

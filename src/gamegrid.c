@@ -2,6 +2,7 @@
 /* A shelf as a grid of covers: see gamegrid.h, DESIGN.md 11.47 */
 #include "gamegrid.h"
 
+#include "cardart.h"
 #include "cardgen.h"
 #include "config.h"
 #include "design.h"
@@ -133,7 +134,17 @@ void gg_note(gg_arts *t, SDL_Renderer *r, int count, int i, SDL_Texture *of,
 	e = &t->a[i];
 	if (e->blur) SDL_DestroyTexture(e->blur);
 	*e = (gg_art){ .of = of, .key = key, .generated = generated };
-	if (!s || generated) return;
+	if (!s) return;
+	if (generated) {
+		/* A game's card's ground, without its name (src/ui.c's
+		 * ui_card_ground_take), for the cell to set the name on at its
+		 * own size */
+		if ((e->blur = SDL_CreateTextureFromSurface(r, s))) {
+			SDL_SetTextureScaleMode(e->blur, SDL_ScaleModeLinear);
+			SDL_SetTextureBlendMode(e->blur, SDL_BLENDMODE_NONE);
+		}
+		return;
+	}
 	e->cutout = gg_cutout(s);
 	if (!e->cutout) {
 		SDL_Surface *b = blur_small(s);
@@ -417,6 +428,94 @@ static int card_lines(const char *title, int w, int h, char lines[][LB_LINE],
 	return n;
 }
 
+/* ---- a game's card in a cell (src/cardart.h) ----
+ *
+ * The card's ground at the cell's shape, and its name set here at the cell's
+ * own size by the card's rules: hard left at CA_NAME_X of CA_CARD_W of the
+ * cell, the first line at CA_NAME_TOP% of it, near-white on a dark band, the system's rule under it.
+ * One size in every cell, chrome type: a cell is 160 wide (100 on the Pixel
+ * 2), and in support or action type a word as plain as "Castlevania" is
+ * wider than that, so the names of a Grid would be in three sizes. */
+static const page_font_role GG_NAME_ROLE[CA_SIZES] = { PAGE_CHROME, PAGE_CHROME, PAGE_CHROME };
+static const int GG_CARD_BOX[CA_SIZES] = { 28, 28, 28 };
+
+/* cardart_name's sizes as the grid's faces: CA_SIZE_STEPS[k] is role k; the
+ * part after " - " (6/10 of one) is chrome */
+static int gg_size_ix(int size)
+{
+	for (int k = 0; k < CA_SIZES; k++)
+		if (size == CA_SIZE_STEPS[k]) return k;
+	return CA_SIZES - 1;
+}
+
+static int gg_name_width(void *ctx, int size, const char *s)
+{
+	(void)ctx;
+	return ui_text_width(page_font(GG_NAME_ROLE[gg_size_ix(size)]), s);
+}
+
+static void gg_band(SDL_Renderer *r, SDL_Rect q, int y0, int y1, int feather)
+{
+	SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
+	for (int y = y0 - feather; y < y1 + feather; y++) {
+		int in = y < y0 ? y - (y0 - feather) : y >= y1 ? (y1 + feather) - y : feather;
+
+		if (y < q.y + DS_RADIUS_CELL || y >= q.y + q.h - DS_RADIUS_CELL) continue;
+		SDL_SetRenderDrawColor(r, 0, 0, 0, (Uint8)(133 * in / (feather > 0 ? feather : 1)));
+		SDL_RenderFillRect(r, &(SDL_Rect){ q.x, y, q.w, 1 });
+	}
+}
+
+static void grid_named(SDL_Renderer *r, SDL_FRect c, const char *title, unsigned rgb,
+                       SDL_Texture *ground)
+{
+	SDL_Rect q = whole(c);
+	int gw = 0, gh = 0, pad = (int)lroundf(c.w * CA_NAME_X / CA_CARD_W), y0, y, box, sbox = GG_CARD_BOX[CA_SIZES - 1];
+	int room;
+	unsigned rule = ui_sys_mark_in(rgb, DS_DARK);
+	const SDL_Color ink = { 0xF6, 0xF5, 0xF1, 255 }, ink2 = { 0xE2, 0xE0, 0xDA, 255 }, shade = { 0, 0, 0, 110 };
+	TTF_Font *f, *g = page_font(GG_NAME_ROLE[CA_SIZES - 1]);
+	ca_name n;
+
+	/* the ground, its middle at the cell's shape */
+	SDL_QueryTexture(ground, NULL, NULL, &gw, &gh);
+	{
+		float ca = c.w / c.h;
+		SDL_FRect src = { 0, 0, (float)gw, (float)gh };
+
+		if ((float)gw / gh > ca) { src.w = gh * ca; src.x = (gw - src.w) / 2; }
+		else { src.h = gw / ca; src.y = (gh - src.h) / 2; }
+		tex_round(r, ground, gw, gh, src, c, DS_RADIUS_CELL, 255);
+	}
+	y0 = q.y + (int)lroundf(c.h * CA_NAME_TOP / 100);
+	/* what the cell holds below the first line, at the largest box, with
+	 * the rule and its margin */
+	room = (q.y + q.h - pad - 16 - y0) / GG_CARD_BOX[0];
+	/* the name may run nearer the right edge than the left: nothing is
+	 * there, and "Hedgehog 2" then fits whole beside its 2 */
+	if (!cardart_name(title && *title ? title : "?", q.w - pad - pad / 4, room < 1 ? 1 : room,
+	                  gg_name_width, NULL, &n))
+		return;
+	f = page_font(GG_NAME_ROLE[gg_size_ix(n.size)]);
+	box = GG_CARD_BOX[gg_size_ix(n.size)];
+	y = y0 + n.n * box + (n.sub_n ? 4 + n.sub_n * sbox : 0);
+	gg_band(r, q, y0 - 8, y + 8 + DS_RULE + 8, 6);
+	y = y0;
+	for (int k = 0; k < n.n; k++, y += box) {
+		ui_text(r, f, n.line[k], q.x + pad, ui_cap_y(f, y + box / 2) + 2, -1, shade);
+		ui_text(r, f, n.line[k], q.x + pad, ui_cap_y(f, y + box / 2), -1, ink);
+	}
+	if (n.sub_n) {
+		y += 4;
+		for (int k = 0; k < n.sub_n; k++, y += sbox) {
+			ui_text(r, g, n.sub[k], q.x + pad, ui_cap_y(g, y + sbox / 2) + 2, -1, shade);
+			ui_text(r, g, n.sub[k], q.x + pad, ui_cap_y(g, y + sbox / 2), -1, ink2);
+		}
+	}
+	SDL_SetRenderDrawColor(r, (Uint8)(rule >> 16), (Uint8)(rule >> 8), (Uint8)rule, 255);
+	SDL_RenderFillRect(r, &(SDL_Rect){ q.x + pad, y + 8, (int)lroundf(c.w * .14f), DS_RULE });
+}
+
 /* A game with no art: the generated card, drawn here at the cell's shape -
  * the theme's slab falling toward its ground, the system's color as a band
  * across the top, the name in support type a fifth of the way down, a rule
@@ -486,7 +585,21 @@ static SDL_FRect cover(SDL_Renderer *r, const gg_info *in, void *ctx, int i,
 		SDL_RenderCopyF(r, t, &(SDL_Rect){ 0, 0, tw, (int)ah }, &in_);
 		return in_;
 	}
+	if (e && e->generated && e->blur) {
+		/* a game's card: its ground, and its name at the cell's size */
+		grid_named(r, cell, in->title_of(ctx, i), in->accent_of ? in->accent_of(ctx, i) : in->accent,
+		           e->blur);
+		return cell;
+	}
 	if ((e && e->generated) || (!e && ui_card_theme(t) >= 0)) {
+		if (tw > 0 && th > 0 && tw != th) {
+			/* a game's card with no ground at hand: the card itself, its
+			 * name with it, at the cell's shape */
+			if (rel > 1) { src.w = ah * ca; src.x = (tw - src.w) / 2; }
+			else { src.h = tw / ca; src.y = (ah - src.h) / 2; }
+			tex_round(r, t, tw, th, src, cell, DS_RADIUS_CELL, 255);
+			return cell;
+		}
 		grid_card(r, cell, in->title_of(ctx, i), in->accent_of ? in->accent_of(ctx, i) : in->accent);
 		return cell;
 	}

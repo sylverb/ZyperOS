@@ -295,6 +295,7 @@ typedef struct {
 	char resume[1024];     /* RUN: state to load at start, if it exists */
 	char exit_state[1024]; /* RUN: state written on every way out */
 	char preview[1024];    /* RUN: BMP of the frame, on pause and on exit */
+	char card[1024];       /* RUN: BMP of a frame for the game's card, once */
 	/* Achievements. `console` is a RetroAchievements console id and is not
 	 * optional for them: an RA address is an offset into a per-console space,
 	 * so 0x06f3 means nothing until the launcher says which console. */
@@ -444,6 +445,9 @@ bool diatom_state_load(diatom_core *c, const char *path);
  * the core first when `apply`; with `wait` it waits for one in flight. The
  * two above wait for one too, so nothing reads a state half written. */
 typedef enum { DIATOM_BG_NONE, DIATOM_BG_SAVE, DIATOM_BG_LOAD } diatom_bg_kind;
+/* A file written whole or not at all: write, fsync, rename (save.c). From
+ * any thread. */
+bool diatom_write_atomic(const char *path, const void *data, size_t n);
 bool diatom_state_save_bg(diatom_core *c, const char *path, const char *pic_path,
                           uint8_t *pic, size_t pic_n);
 bool diatom_state_load_bg(diatom_core *c, const char *path);
