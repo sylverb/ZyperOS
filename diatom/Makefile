@@ -26,7 +26,7 @@ LDFLAGS += -lz
 # Objects live under build/$(PORT)/ so host and cross builds cannot collide:
 # a leftover x86 main.o in a device link fails late and confusingly.
 BUILD := build/$(PORT)
-SRC   := src/main.c src/cheevos.c src/core.c src/env.c src/scale.c src/audio.c src/save.c src/proto.c src/options.c src/zip.c src/levels.c src/screens.c src/chord.c src/stick.c src/hw.c src/now.c src/player2.c src/statefile.c port/$(PORT).c
+SRC   := src/main.c src/cheevos.c src/core.c src/env.c src/scale.c src/audio.c src/save.c src/proto.c src/options.c src/zip.c src/levels.c src/screens.c src/chord.c src/stick.c src/hw.c src/now.c src/player2.c src/statefile.c src/pace.c port/$(PORT).c
 # Expanded where it is used, not here: a port's block below adds its own files
 # to SRC (the Pixel 2's bar, port/osdbar.c), and := took the list before they
 # were in it, so they were never built and the link failed.
@@ -155,7 +155,7 @@ $(BUILD)/%.o: %.c
 # backend exists. Cheap to check, so check it.
 # Mechanical checks, each guarding a rule that decays the moment nothing fails
 # when it is broken: check-seam has held since day one for exactly that reason.
-check: check-seam check-copies check-corefacts check-rates check-cheevos check-screens check-chord check-stick check-bounds check-rumble check-statefile check-proto check-port check-power check-power-e2e check-fastforward check-stateplane check-resident check-hotkeys check-coreend check-cardframe check-now check-rumble-e2e check-player2 check-states
+check: check-seam check-copies check-corefacts check-rates check-cheevos check-screens check-chord check-pace check-stick check-bounds check-rumble check-statefile check-proto check-port check-power check-power-e2e check-fastforward check-lateskip check-stateplane check-resident check-hotkeys check-coreend check-cardframe check-now check-rumble-e2e check-player2 check-states check-statereads
 
 # Does a RetroAchievements address reach the byte it names? Offline, needs no
 # core and no ROM, and links only cheevos.c plus the vendored runtime - so it
@@ -201,6 +201,23 @@ $(CHORD_TEST): test/chord_test.c src/chord.c src/chord.h include/diatom_port.h
 	@mkdir -p $(BUILD)
 	$(CC) -std=gnu11 -Wall -Wextra -Wno-unused-parameter -O2 \
 	      -Iinclude -Isrc -o $@ test/chord_test.c src/chord.c
+
+# The frame loop's rule for a late turn at 1x (src/pace.h): a debt kept, a
+# stall's dropped, and the rest of one dropped once the sound queue is back at
+# its target. Then a minute of a game against a model of the port's queue (a
+# device playing 48 kHz out of 85 ms, padding silence when it is empty,
+# refusing what does not fit): a frame of 50 to 78 ms dropped sound before
+# the rule and drops none with it, and the game's speed is the same.
+# Offline: src/pace.c alone.
+PACE_TEST := $(BUILD)/pace-test
+
+check-pace: $(PACE_TEST)
+	@./$(PACE_TEST)
+
+$(PACE_TEST): test/pace_test.c src/pace.c src/pace.h
+	@mkdir -p $(BUILD)
+	$(CC) -std=gnu11 -Wall -Wextra -Wno-unused-parameter -O2 \
+	      -Isrc -o $@ test/pace_test.c src/pace.c
 
 # The d-pad as the left analog stick (src/stick.h), for the N64: each
 # direction's axes, a diagonal as long as a straight push, and the SELECT rule
@@ -347,6 +364,16 @@ check-states:
 	@python3 test/states.py
 .PHONY: check-states
 
+# States a newer build of a core reads from an older one (src/save.c,
+# STATE_READS), end to end: the stub core as DSperate v3.4.1 resumes a
+# v3.0.5 state and refuses another version's, v3.0.5 refuses a v3.4.1 state,
+# and another core with the same versions refuses it. On check-stateplane's
+# terms: a few seconds, skipped unbuilt.
+check-statereads:
+	$(FRESH_IF_BUILT)
+	@python3 test/statereads.py
+.PHONY: check-statereads
+
 # SELECT's hotkeys end to end (src/chord.h): the pad by script, what the stub
 # core read written down, the quick slot's SAVE and LOAD answered while the
 # game runs. On check-stateplane's terms: about eight seconds, skipped unbuilt.
@@ -428,6 +455,18 @@ check-fastforward:
 	$(FRESH_IF_BUILT)
 	@python3 test/fastforward.py
 .PHONY: check-fastforward
+
+# frameskip=late and frameskip=steady at 1x, end to end: the stub core slow
+# for a stretch (STUBCORE_FRAME_US_AT) writes which frames Diatom had drawn
+# (STUBCORE_SHOWN_LOG); late leaves out up to two in a row, steady exactly
+# every second one, and both draw every frame on time, judged only where the
+# stub's frame times show this machine started them on time. On
+# check-stateplane's terms: the stub core, about twenty seconds, skipped
+# unbuilt.
+check-lateskip:
+	$(FRESH_IF_BUILT)
+	@python3 test/lateskip.py
+.PHONY: check-lateskip
 
 # Does core-facts.md still describe the cores we ship? It was measured on the
 # device, which needs the hardware and the user's ROMs; this is the half that

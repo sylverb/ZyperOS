@@ -67,7 +67,16 @@
  * frameskip (SET_AUDIO_BUFFER_STATUS_CALLBACK), as dsperate-lr does, so
  * Diatom runs some frames unshown. An unshown frame costs as much as a shown
  * one, as a DS game's does: its drawing is on threads of its own
- * (test/fastforward.py).
+ * (test/fastforward.py). STUBCORE_FRAME_US_AT=frame:us,... changes the
+ * cost from those frames on, and STUBCORE_SHOWN_LOG=path writes which frames
+ * the frontend had drawn, a 1 or a 0 each, and when each started
+ * (test/lateskip.py).
+ *
+ * And a picture of its own in place of the pattern: STUBCORE_IMAGE=path, a
+ * BASE_W x BASE_H RGB565 frame in the host's byte order (what
+ * tools/shaderdemo.c --rgb565 writes), drawn on every frame with the
+ * geometry held at the base, so a filter's output on a device can be set
+ * beside what the launcher's Shader pictures say it is (tools/shaderdemo-device.sh).
  *
  * Test fixture. Not part of Diatom's runtime.
  */
@@ -105,6 +114,8 @@ static int      box_x = 96, box_y = 80;
 static double   phase;
 static double   audio_accum;
 static void     rumble_configure(void);   /* STUBCORE_RUMBLE, below */
+static uint16_t image[BASE_W * BASE_H];  /* STUBCORE_IMAGE's frame */
+static bool     image_on;
 
 static struct retro_core_option_v2_definition probe_defs[] = {
 	{ "stubcore_probe", "Probe", NULL, "Read back as each game loads", NULL, NULL,
@@ -179,7 +190,9 @@ static struct retro_disk_control_ext_callback tray = {
  * STUBCORE_INIT_LOG at each load: 1 every time for a core Diatom opens afresh
  * for each game (core.c, one_game_per_load), counting up for one it keeps
  * open, as a static a real core forgets to reset carries over. STUBCORE_NAME
- * names the library as a real core does, which is what that rule goes by. */
+ * names the library as a real core does, which is what that rule goes by;
+ * STUBCORE_VERSION gives it a version, which a save state is checked
+ * against (save.c, test/statereads.py). */
 static int loads;
 
 void retro_init(void)
@@ -199,7 +212,7 @@ void retro_get_system_info(struct retro_system_info *info)
 {
 	memset(info, 0, sizeof *info);
 	info->library_name     = getenv("STUBCORE_NAME") ? getenv("STUBCORE_NAME") : "diatom-stub";
-	info->library_version  = "1";
+	info->library_version  = getenv("STUBCORE_VERSION") ? getenv("STUBCORE_VERSION") : "1";
 	info->valid_extensions = "stub";
 	info->need_fullpath    = getenv("STUBCORE_FULLPATH") != NULL;
 	info->block_extract    = !getenv("STUBCORE_EXTRACT");
@@ -336,17 +349,38 @@ static void report_load(const struct retro_game_info *game)
 		fprintf(stderr, "stubcore: ext none\n");
 }
 
-/* STUBCORE_FRAME_US and STUBCORE_SKIPPABLE: the frame's cost, shown or not */
+/* STUBCORE_FRAME_US and STUBCORE_SKIPPABLE: the frame's cost, shown or not.
+ * STUBCORE_SHOWN_LOG=path: a line a frame, as it runs: 1 drawn or 0 left
+ * undrawn, as the frontend said through the status callback, and when the
+ * frame started (CLOCK_MONOTONIC, microseconds), so a check can tell a
+ * frame the frontend left out from one this machine was too busy to start
+ * on time (test/lateskip.py) */
 static long frame_cost_us;
+static bool frame_unshown;
+static FILE *shown_log;
 static void frame_status(bool active, unsigned occupancy, bool underrun_likely)
 {
-	(void)active; (void)occupancy; (void)underrun_likely;
+	(void)active; (void)occupancy;
+	frame_unshown = underrun_likely;
 }
+
+/* STUBCORE_FRAME_US_AT=frame:us,frame:us,...: the cost from each frame on,
+ * in place of STUBCORE_FRAME_US, so a game is slow for a stretch */
+static long cost_at_frame[8], cost_at_us[8];
+static int cost_at_n;
+
+/* STUBCORE_SOUND_BURST=frame:times,...: that frame's retro_run hands over
+ * `times` frames of sound at once, as PPSSPP does when its emulation thread
+ * has run on ahead while no picture came (diatom/src/audio.c, HOLD) */
+static long burst_frame[8], burst_times[8];
+static int burst_n;
 
 static void frame_cost(void)
 {
 	struct timespec d;
 
+	for (int i = 0; i < cost_at_n; i++)
+		if ((long)frame >= cost_at_frame[i]) frame_cost_us = cost_at_us[i];
 	if (frame_cost_us <= 0) return;
 	/* Slept, not spent: the frontend's pacing sees only the time a frame
 	 * takes, and a sleep takes it however busy the machine is (make check
@@ -383,6 +417,15 @@ bool retro_load_game(const struct retro_game_info *game)
 		late_at = e && *e ? strtol(e, NULL, 10) : -1;
 	}
 	rumble_configure();
+	{
+		const char *e = getenv("STUBCORE_IMAGE");
+		FILE *f = e && *e ? fopen(e, "rb") : NULL;
+
+		image_on = f && fread(image, sizeof image, 1, f) == 1;
+		if (e && *e && !image_on) fprintf(stderr, "stubcore: STUBCORE_IMAGE %s: not a %dx%d RGB565 frame\n", e, BASE_W, BASE_H);
+		if (f) fclose(f);
+		if (image_on) cur_w = BASE_W;
+	}
 	/* Offered by every real core and discarded by Diatom until the state
 	 * plane. The port-1 entry is here so the "port 0 only" filter has
 	 * something to exclude rather than being untested. */
@@ -393,6 +436,29 @@ bool retro_load_game(const struct retro_game_info *game)
 	{
 		const char *e = getenv("STUBCORE_FRAME_US");
 		frame_cost_us = e && *e ? strtol(e, NULL, 10) : 0;
+		e = getenv("STUBCORE_SOUND_BURST");
+		burst_n = 0;
+		while (e && *e && burst_n < 8) {
+			char *end;
+			burst_frame[burst_n] = strtol(e, &end, 10);
+			if (*end != ':') break;
+			burst_times[burst_n++] = strtol(end + 1, &end, 10);
+			e = *end == ',' ? end + 1 : NULL;
+		}
+		e = getenv("STUBCORE_FRAME_US_AT");
+		cost_at_n = 0;
+		while (e && *e && cost_at_n < 8) {
+			char *end;
+			cost_at_frame[cost_at_n] = strtol(e, &end, 10);
+			if (*end != ':') break;
+			cost_at_us[cost_at_n++] = strtol(end + 1, &end, 10);
+			e = *end == ',' ? end + 1 : NULL;
+		}
+	}
+	{
+		const char *e = getenv("STUBCORE_SHOWN_LOG");
+		if (shown_log) fclose(shown_log);
+		shown_log = e && *e ? fopen(e, "w") : NULL;
 	}
 	if (getenv("STUBCORE_SKIPPABLE") && env) {
 		struct retro_audio_buffer_status_callback cb = { frame_status };
@@ -402,7 +468,12 @@ bool retro_load_game(const struct retro_game_info *game)
 }
 bool retro_load_game_special(unsigned t, const struct retro_game_info *i, size_t n)
 { (void)t; (void)i; (void)n; return false; }
-void retro_unload_game(void) { }
+void retro_unload_game(void)
+{
+	if (shown_log) fclose(shown_log);
+	shown_log = NULL;
+	frame_unshown = false;
+}
 unsigned retro_get_region(void) { return RETRO_REGION_PAL; }
 
 /* STUBCORE_STATE_PAD=n: n bytes more in each state after the frame, laid
@@ -585,6 +656,14 @@ void retro_run(void)
 	 * gone out and the frontend is in its steady loop. Doing it on frame 0
 	 * would land during the warmup and prove less. */
 	if (crash_mode[0] && frame == crash_at) die(crash_mode);
+	if (shown_log) {
+		struct timespec now;
+
+		clock_gettime(CLOCK_MONOTONIC, &now);
+		fprintf(shown_log, "%d %lld\n", frame_unshown ? 0 : 1,
+		        (long long)now.tv_sec * 1000000LL + now.tv_nsec / 1000);
+		fflush(shown_log);
+	}
 	frame_cost();
 
 	/* One frame's worth of audio, with the fraction carried.
@@ -629,7 +708,7 @@ void retro_run(void)
 	 * when a game opens a menu. This is the path 3 of 6 measured cores take and
 	 * the one most likely to be broken by an implementation that computes the
 	 * destination rect once at load. */
-	if (frame && frame % 300 == 0) {
+	if (frame && frame % 300 == 0 && !image_on) {
 		struct retro_game_geometry g;
 		cur_w = (cur_w == BASE_W) ? WIDE_W : BASE_W;
 		memset(&g, 0, sizeof g);
@@ -683,6 +762,7 @@ void retro_run(void)
 		for (x = box_x * xs; x < (box_x + 32) * xs && x < cur_w; x++)
 			fb[y * cur_w + x] = rgb565(220, 90, 40);
 
+	if (image_on) memcpy(fb, image, sizeof image);
 	video_cb(fb, (unsigned)cur_w, (unsigned)cur_h, (size_t)cur_w * sizeof(uint16_t));
 
 	for (i = 0; i < n; i++) {
@@ -691,7 +771,14 @@ void retro_run(void)
 		phase += 2.0 * M_PI * 440.0 / RATE;
 		if (phase > 2.0 * M_PI) phase -= 2.0 * M_PI;
 	}
-	audio_cb(audio, n);
+	{
+		long times = 1;
+		int b;
+
+		for (b = 0; b < burst_n; b++)
+			if ((long)frame == burst_frame[b]) times = burst_times[b];
+		while (times-- > 0) audio_cb(audio, n);
+	}
 
 	frame++;
 }

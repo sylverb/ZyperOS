@@ -414,6 +414,11 @@ its own says why beside it.
 | **ctl-device-x** | 99 | the handheld's middle from the content's left: half the Pixel 2's drawing at its tab pose, so its left edge is on the heading rule's left end |
 | **ctl-device-y** | 458 | the handheld's middle on the screen: one place on every tab and page that has it, as their panel is as tall as the screen allows (the mock's, 2026-11-13) |
 | **hud-band** | 152 | On-Screen Stats' band: the screen's strip where the line goes, the line at Far (48) under the level bar (94 + 49) and at the foot; on the grid, 95 whole pixels on the Pixel 2 (150 until 1.0.6) |
+| **scale-track** | 16 | the bar's track, its colors the scale's |
+| **scale-knob** | 32 | the value's knob, across |
+| **scale-mark** | 8 | a mark under the track at an end or a half |
+| **scale-zero** | 12 | zero's mark, through the track and this much past it |
+| **scale-min-w** | 192 | the least a bar is, so the words beside it stay at most about 313 units |
 | **tile-w** | 272 | a tile, three in a row |
 | **tile-w-wide** | 408 | a tile, two in a row or the grid's |
 | **tile-h** | 232 | a tile's height: the mark, a name on two lines |
@@ -1001,6 +1006,26 @@ Video Snaps, Menu Music:
   is **preview-col-w** (336) units, narrower where the choices run long, to
   **preview-col-min** (200), so every choice keeps its words; the list is as wide as the column and its
   longest choice need (`menu_pick_preview`, src/menu_pick.h).
+- **A row with a scale** (Screen Colors, 1.0.6; `src/ds/scale.h`, section
+  15): a value from -range to +range, zero in the middle, is a graded bar
+  where its value would be, its row's words at the left as any row's. The
+  track, 16 high in an **edge** ring, says in its colors what the scale
+  does: cool blue to warm orange, green to magenta, one grey parting to
+  black and white, a color's grey to the color at its fullest, darker to
+  lighter mid-tones. Marks under it at the ends and halves and zero's
+  through it, the tallest; the value a knob 32 across, a ring in **text**
+  round the panel's **raised**; the number after it, signed, its digits
+  tabular ("−3" with a minus sign, "0", "+5"). The bars of a page start
+  together, past the widest of their rows' words, and are never under 192
+  units, so a row's words stay at most about 313 units in every language.
+  On the focus fill its marks, ring and number are **on-accent**. A row
+  carries it as its value (`ds_scale_value`); the panel draws it.
+- **A color chart** (Screen Colors; `src/ds/colorref.h`): what a color
+  setting is judged on, the 24-patch chart photographers use (skin, sky,
+  foliage, the primaries and their mixes, six greys), a sixteen-step grey
+  ramp and the hues in a band; four across in a column beside the rows,
+  six across in a list's picture. The setting changes the whole screen, so
+  the chart shows it as the panel makes it.
 - **Two: A turns it over.**
 - **Left and Right step every row**, as before, and show the change at
   once, so a look before choosing is one press away. A scale (minutes,
@@ -4794,6 +4819,8 @@ the tiles' style is read off a name.
 | Button hints | `src/keyhints.c`, `src/keyhints_draw.c`; `page_hint` in `src/home.c` | 11.4 |
 | Menu panel | `src/menu_panel.c` (its slab `ds_panel_open`, its more marks `ds_more`) | 11.3 |
 | A choice's picture | `src/ds/preview.c`, `preview.h` | 11.3: the column at an option list's left (`menu_pick_preview`): `ds_preview_layout` on the layout engine (the small screen a 4:3 leaf, **preview-note-gap**, the note's room in meta lines, the set's tallest), `ds_preview_screen_begin` / `ds_preview_screen_end` (the screen's ink, its **edge** frame of `DS_FRAME` and its corners `DS_RADIUS_ROW`, the focus fill's beside it), `ds_preview_note`; the column **preview-col-w**, to **preview-col-min** where the choices run long (`ds_preview_col_w`), **preview-gap** from the rows. The Display list's picture is `src/dmodepreview.c`, each mode placed as Diatom places it (`src/dmodefit.c`, `check-dmodefit`). |
+| A row's scale | `src/ds/scale.c`, `scale.h` | 11.3: the graded bar a row carries as its value (`ds_scale_value`, `ds_scale_parse`), drawn by `menu_draw` in the page's scales' column (`ds_scale_draw`, `DS_SCALE_MIN_W`, `ds_scale_num_w`); `check-scale` holds the value's round trip and range and the knob's place in both themes. |
+| A color chart | `src/ds/colorref.c`, `colorref.h` | 11.3: `ds_color_ref_draw`, the 24-patch chart, a grey ramp and the hues, tall in a column or wide in a list's picture. |
 | Status corner | `src/status.c` | 11.12. Its marks keep drawings of their own, by decision (2026-11-14, round 2 of the design system): at 24 units, 15 pixels on the panel, each shows a state - a signal's lit arcs, a charge, a sweep - and is drawn for that size as a distance field, where `ui_glyph`'s are 56 to 72-unit marks for a choice. They share their distances (`src/ds/sdf.h`), not their shapes. |
 | Zyper | `tools/zyperdef.py` → `src/zypermark.h`; `src/zyperdraw.c` | section 10 |
 | Art | `res/` | the table below |

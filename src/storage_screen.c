@@ -929,6 +929,7 @@ int store_ask_rows(app *a, const char *q, char (*lines)[CHV_WRAP_COLS], menu_row
 	int fit = delete_ask_fit(&rule), n, i;
 
 	n = wrap_text(ui_font(UI_F_MENU), q, menu_std_width(a), lines, DEL_ASK_LINES);
+	ui_fit_drawn(q);    /* drawn in lines, so said whole to the host's check */
 	if (n > fit) n = fit;
 	for (i = 0; i < n; i++) rows[i] = (menu_row){ lines[i], MENU_NOTE_MARK, false };
 	if (n < fit || rule) rows[n++] = MENU_HR;

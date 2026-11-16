@@ -487,6 +487,8 @@ def demo_card(card,art,manifest):
     # The tutorial's Menu Music step shows only on a card with tracks
     shutil.copytree(ROOT/'res/bgm',card/'ZyperOS/res/bgm',ignore=shutil.ignore_patterns('*.json'))
     shutil.copytree(ROOT/'res/tour',card/'ZyperOS/res/tour')
+    # The Shader list's pictures (src/shaderdemo.h), each panel's
+    shutil.copytree(ROOT/'res/shaderdemo',card/'ZyperOS/res/shaderdemo')
     up=card/'userdata/update';up.mkdir(parents=True)
     (up/'status').write_text(UPDATE_STATUS)
     # What's New as a release's list carries it: 1.0.3's points, whole, as

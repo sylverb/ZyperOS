@@ -24,8 +24,10 @@
 #include <string.h>
 #include <math.h>
 #include <stdio.h>
+#include <time.h>
 
 #include "diatom.h"
+#include "pace.h"
 
 #define OUT_CHUNK 2048
 
@@ -79,6 +81,25 @@ static double   g_pos;              /* read position within g_buf */
 static double   g_base_ratio = 1.0; /* src frames per dst frame, nominal */
 static double   g_ratio      = 1.0; /* nominal, adjusted by rate control */
 static int      g_capacity;
+static int      g_dst_rate;         /* the device's frames a second */
+
+/* HOLD: a push that does not fit waits for room rather than being refused,
+ * for a core paced by its sound (main.c's paced_by_sound: PPSSPP). Its
+ * emulation thread runs on while the game shows no new picture - a load, a
+ * menu fading in - and its retro_run hands all that sound over at once, as
+ * soon as a picture comes: 67 to 334 ms in one call of 2 to 7 ms on the
+ * Pixel 2 (Burnout Legends and Ratchet & Clank from a fresh start,
+ * 2026-11-16), ahead of the clock - the eleven turns before each refusal
+ * brought 367 to 817 ms of sound in 287 to 441 ms. The queue holds 85 ms, so
+ * most of it was refused: 5,079 and 13,805 frames in 53 s. Waiting holds the
+ * game back to its sound, as RetroArch's audio sync does: its write waits
+ * for room, so the core's retro_run and its emulation thread wait with it.
+ * Never longer than the push's own sound and HOLD_MARGIN_US, so a sink that
+ * stopped taking sound cannot stop the game; what is left then is refused,
+ * as before. */
+#define HOLD_MARGIN_US 100000
+static bool     g_hold;
+static uint64_t g_held_us, g_held_pushes;
 static double   g_integral;
 static uint64_t g_dropped;      /* frames the port would not take */
 
@@ -231,8 +252,33 @@ static void push(const int16_t *f, size_t n)
 
 	if (g_tap_out) fwrite(f, sizeof(int16_t) * 2, n, g_tap_out);
 	took = diatom_port_audio_write(f, n);
+	if (took < n && g_hold && g_capacity > 0 && g_dst_rate > 0) {
+		const double most = (double)(n - took) * 1e6 / g_dst_rate + HOLD_MARGIN_US;
+		double waited = 0;
+
+		g_held_pushes++;
+		while (took < n && waited < most) {
+			/* Until the rest fits, in steps of at most 5 ms: the device
+			 * takes sound a period at a time, so the room comes in jumps */
+			double us = pace_room_us(diatom_port_audio_queued(), n - took, g_capacity, g_dst_rate);
+			struct timespec ts;
+
+			if (us < 1000) us = 1000;
+			if (us > 5000) us = 5000;
+			ts.tv_sec = 0;
+			ts.tv_nsec = (long)(us * 1000);
+			nanosleep(&ts, NULL);
+			waited += us;
+			took += diatom_port_audio_write(f + took * 2, n - took);
+		}
+		g_held_us += (uint64_t)waited;
+	}
 	if (took < n) g_dropped += (uint64_t)(n - took);
 }
+
+void diatom_audio_hold(bool on) { g_hold = on; }
+uint64_t diatom_audio_held_us(void) { return g_held_us; }
+uint64_t diatom_audio_held_pushes(void) { return g_held_pushes; }
 
 /* The same measurement on the INPUT side, before any resampling, so a silent
  * output can be attributed to the core or to us without guessing. */
@@ -291,6 +337,9 @@ static void configure(double src_rate, int dst_rate, int capacity_frames)
 	g_base_ratio = src_rate / (double)dst_rate;
 	g_ratio      = g_base_ratio;
 	g_capacity   = capacity_frames;
+	g_dst_rate   = dst_rate;
+	g_held_us    = 0;
+	g_held_pushes = 0;
 
 	build_kernel();
 	/* Start with a window's worth of silence so the first real sample is

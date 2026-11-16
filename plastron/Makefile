@@ -30,7 +30,7 @@ PLASTRON_COMMIT := $(shell git describe --always --dirty --abbrev=12 2>/dev/null
 STAMP := -e PLASTRON_COMMIT=$(PLASTRON_COMMIT) -e "PLASTRON_WHO=$(USER) with plastron $(PLASTRON_COMMIT)"
 DOCKER_RUN := docker run --rm -t $(STAMP) -v $(CURDIR):/src:ro $(SOURCES) -v $(VOLUME):/work $(IMAGE)
 
-.PHONY: gauge-check charge-limit-check push all builder volume image base qemu sdk brick brick-fetch brick-inputs brick-kernel smartpro smartpro-kernel brick-bootloader smartpro-bootloader brick-probe bootloader shell linux-rebuild copy-out clean-output release release-pixel2 release-brick release-smartpro third-party third-party-smartpro
+.PHONY: gauge-check charge-limit-check start-soc-check push all builder volume image base qemu sdk brick brick-fetch brick-inputs brick-kernel smartpro smartpro-kernel brick-bootloader smartpro-bootloader brick-probe bootloader shell linux-rebuild copy-out clean-output release release-pixel2 release-brick release-smartpro third-party third-party-smartpro
 
 all: image
 
@@ -304,3 +304,28 @@ charge-limit-check:
 		cc -std=c11 -Wall -Wextra -Werror -O1 -I$(CHARGE_LIMIT_OUT) -o $(CHARGE_LIMIT_OUT)/check \
 			buildroot/board/px2/charge-limit-check.c && \
 		$(CHARGE_LIMIT_OUT)/check
+
+# The Pixel 2's battery level at a start (board/px2/start-soc-check.c): the
+# voltage at rest and where a start's level comes from, taken out of its
+# kernel patch as they stand (rk817_rest_uv, rk817_start_from and
+# RK817_START_CHARGING_UA), and the OCV table and internal resistance out of
+# its device tree. No Docker, no kernel, no device. Into out/.
+START_SOC_PATCH := buildroot/board/px2/patches/linux/9-px2-rk817-start-soc.patch
+START_SOC_DTS := buildroot/board/px2/dts/rk3326s-gkd-pixel2.dts
+START_SOC_OUT := out/start-soc-check
+start-soc-check:
+	@mkdir -p $(START_SOC_OUT) && \
+		{ sed -n 's/^+\(#define RK817_START_CHARGING_UA\)/\1/p' $(START_SOC_PATCH) && \
+		  sed -n '/^+enum rk817_start_from {/,/^+};/s/^+//p' $(START_SOC_PATCH) && \
+		  sed -n '/^+static int rk817_rest_uv(/,/^+}/s/^+//p' $(START_SOC_PATCH) && \
+		  sed -n '/^+static enum rk817_start_from rk817_start_from(/,/^+}/s/^+//p' $(START_SOC_PATCH); \
+		} > $(START_SOC_OUT)/rule.c && \
+		{ sed -n 's/.*factory-internal-resistance-micro-ohms = <\([0-9]*\)>;.*/#define PX2_R_UOHM \1/p' $(START_SOC_DTS) && \
+		  echo 'static const int PX2_OCV[][2] = {' && \
+		  sed -n '/ocv-capacity-table-0/,/;/p' $(START_SOC_DTS) | grep -o '<[0-9]* [0-9]*>' | \
+			sed 's/<\([0-9]*\) \([0-9]*\)>/	{ \1, \2 },/' && \
+		  echo '};'; \
+		} > $(START_SOC_OUT)/battery.h && \
+		cc -std=c11 -Wall -Wextra -Werror -O1 -I$(START_SOC_OUT) -o $(START_SOC_OUT)/check \
+			buildroot/board/px2/start-soc-check.c && \
+		$(START_SOC_OUT)/check

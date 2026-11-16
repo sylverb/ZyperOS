@@ -25,6 +25,7 @@
 #include "diatom.h"
 #include "levels.h"
 #include "now.h"
+#include "pace.h"
 #include "player2.h"
 #include "screens.h"
 
@@ -59,6 +60,9 @@ typedef struct diatom_session {
 	/* RUN frameskip=late: at 1x too, a frame that starts late is run with
 	 * its drawing left out, when the core can do that. See the frame loop. */
 	bool          late_skip;
+	/* RUN frameskip=steady: as late, but while frames run late exactly
+	 * every second one is drawn (MENU's When Slow, Steady 30) */
+	bool          late_steady;
 	bool          stylus;     /* --stylus: start with stylus mode on (tests) */
 	/* RUN power=: the clock ceiling the system keeps its speed under, a
 	 * DIATOM_POWER_ level. See diatom_port_power and power_trouble. */
@@ -848,7 +852,8 @@ static void usage(void)
 		"              [--list-options]    what this core offers, then exit\n"
 		"              [--screens 2]       the frame is two screens, top over bottom (DS)\n"
 		"              [--layout stacked|focus|single] [--swap] [--stylus]\n"
-		"              [--frameskip late]  leave a late frame undrawn, at 1x too\n"
+		"              [--frameskip late|steady]  leave a late frame undrawn, at 1x too;\n"
+		"                                  steady: every second one while late\n"
 		"              [--power light|medium]  run under that clock ceiling\n"
 		"              [--controller <n>]  libretro controller type for port 0\n"
 		"              [--stick dpad]      the d-pad as the left analog stick (N64)\n"
@@ -1023,6 +1028,10 @@ static void idle_note_input(bool any)
  * MENU+R1 stepped 2x, 3x, 4x and off until 2026-11-07. */
 static const int SPEED_HALVES[] = { 2, 3, 4, 6 };
 #define SPEED_STEPS ((int)(sizeof SPEED_HALVES / sizeof SPEED_HALVES[0]))
+/* frameskip=steady: how many frames after the last that started late it
+ * keeps drawing every second one, half a second, so a game that is slow by
+ * moments does not change between 60 and 30 at every frame */
+#define STEADY_HOLD 30
 /* What a fast turn leaves spare, for the save tick, the socket and the pad. */
 #define FAST_MARGIN_US 1500.0
 /* Presenting's cost before the first present of a game has measured it: the
@@ -1110,18 +1119,31 @@ static double sound_rate(const struct retro_system_info *si,
  * And against the clock: the frames a second the game really ran, over the
  * time the step was held less the menu's, as a share of its own rate. The
  * turns alone said 1.00x for Super Mario 64 at 1x while the game ran at 56%
- * of its speed (2026-11-08): a turn that runs late still counts one period. */
+ * of its speed (2026-11-08): a turn that runs late still counts one period.
+ *
+ * And how long the loop slept in the step, and how much of that after a
+ * fast turn short of the step's frames (one that stopped because the next
+ * frame would not fit its two refreshes): such a turn is behind, and the
+ * next should start at once, so its sleep is the pacing's fault, whatever
+ * the machine (until 2026-11-16 a slow core slept there a fifth of the
+ * time). The turns short of the step say whether the machine could keep the
+ * step at all. test/fastforward.py judges by these on any machine. */
+struct step_sleep { double us, short_us; long turns, short_turns; };
+
 static void step_report(int half, long frames, double turns_us, uint64_t held_us,
-                        uint64_t paused, double frame_us, uint64_t dropped)
+                        uint64_t paused, double frame_us, uint64_t dropped,
+                        const struct step_sleep *sl)
 {
 	double ran_us = held_us > paused ? (double)(held_us - paused) : 0.0;
 
 	printf("diatom: speed %.1fx held %.1fs, reached %.2fx (%.2fx of the clock), "
-	       "%llu audio frame(s) dropped\n",
+	       "%llu audio frame(s) dropped, slept %.2fs (%.2fs after %ld of %ld turns short "
+	       "of the step)\n",
 	       half / 2.0, held_us / 1000000.0,
 	       turns_us > 0.0 ? (double)frames * frame_us / turns_us : 0.0,
 	       ran_us > 0.0 ? (double)frames * frame_us / ran_us : 0.0,
-	       (unsigned long long)dropped);
+	       (unsigned long long)dropped, sl->us / 1000000.0, sl->short_us / 1000000.0,
+	       sl->short_turns, sl->turns);
 	fflush(stdout);
 }
 
@@ -2179,6 +2201,9 @@ static int run_session_inner(const diatom_session *sn)
 	 * row the last of them was. */
 	long     late_unshown = 0;
 	int      late_row = 0;
+	/* frameskip=steady: frames still to go at every second one drawn, from
+	 * the last that started late */
+	int      steady_left = 0;
 	bool     last_shown = true;
 	/* What retro_run cost in all, drawn and undrawn apart, for the summary:
 	 * the paced rate says only that the loop kept up, this says by how much -
@@ -2193,6 +2218,8 @@ static int run_session_inner(const diatom_session *sn)
 	 * any audio dropped while it was - logged when it changes and at exit. */
 	long     step_frames = 0;
 	double   step_us = 0.0;        /* the wall clock's time in this step's turns */
+	struct step_sleep step_sleep = { 0 };   /* ... and how the loop slept in it */
+	bool     turn_short = false;   /* the last fast turn ran short of the step's frames */
 	uint64_t step_t0 = 0, step_drop0 = 0, step_pause0 = 0;
 	/* Sound dropped at 1x so far, and whether the last turn ran fast, for
 	 * the power ceiling (power_trouble) */
@@ -2225,6 +2252,8 @@ static int run_session_inner(const diatom_session *sn)
 	audio_forget();
 	diatom_levels_invalidate();
 	long frames = 0, geom_changes = 0, resyncs = 0;
+	long caught_up = 0;   /* debts cut to the sound queue's depth (pace.h) */
+	int  audio_cap = 0;   /* the sound queue's capacity this session; 0 without a device */
 	bool card_due = sn->card != NULL;   /* the card's frame, not taken yet */
 	bool card_later = false;            /* a GPU game's, at the next pause or the quit */
 	const uint64_t card_after = card_frame_after();
@@ -2384,6 +2413,8 @@ static int run_session_inner(const diatom_session *sn)
 		       "not the %.0f Hz announced\n", audio_rate, av.timing.sample_rate);
 	{
 		int cap = diatom_port_audio_start() ? g_caps.audio_buffer_frames : 0;
+
+		audio_cap = cap;
 
 		diatom_audio_configure(audio_rate, g_caps.audio_rate, cap);
 		g_foreign_high = (size_t)cap * 3 / 4;
@@ -2602,6 +2633,7 @@ static int run_session_inner(const diatom_session *sn)
 		power_fast = fast;
 		power_drops = diatom_audio_dropped();
 		const uint64_t batch_t0 = diatom_port_now_us();
+		const uint64_t held0 = diatom_audio_held_pushes();
 		const double budget = periods * frame_us - FAST_MARGIN_US -
 		                      (g_present_frames ? (double)g_present_us /
 		                                          (double)g_present_frames
@@ -2610,6 +2642,10 @@ static int run_session_inner(const diatom_session *sn)
 
 		g_frame_fresh = false;
 		g_audio_fast = fast;
+		/* A core paced by its sound has its pushes wait for room rather
+		 * than be refused (audio.c, HOLD), at 1x: fast forward's own
+		 * silence is the loop's, and never waits */
+		diatom_audio_hold(sound_paced && !fast);
 		/* Only the last frame of a turn is drawn on the panel, so fast, a core
 		 * with a frameskip runs the frames before it unshown and skips their
 		 * drawing (env.c, diatom_env_frame_shown). A frame runs unshown while
@@ -2653,10 +2689,32 @@ static int run_session_inner(const diatom_session *sn)
 			 * debt rule below still drops a stall of four frames. The idea,
 			 * at 1x and from libretro's audio buffer status callback, is
 			 * nelynes's slotPlus, as plorpOS's Diatom has it too. */
+			/* frameskip=steady, the player's When Slow: Steady 30 on the
+			 * system's menu: once a frame starts late, exactly every second
+			 * frame is drawn, until frames have started on time for half a
+			 * second (STEADY_HOLD). The panel then changes at an even 30 a
+			 * second while the game is slow, where late draws whatever the
+			 * schedule allows, 16.7 and 33.3 ms apart in turn: Mario Kart DS
+			 * at a median 41 fps on the Pixel 2, uneven (2026-11-16). The
+			 * game's speed is the same either way when, as a DS game's, a
+			 * frame left undrawn costs the emulation thread as much as a
+			 * drawn one; it can only fall below late's where one undrawn in
+			 * two is not enough and late would leave out two. */
 			else if (!fast && sn->late_skip && diatom_env_frame_skippable()) {
-				shown = !((double)s0 > next_us + frame_us * 0.5 && late_row < 2);
-				if (shown) late_row = 0;
-				else { late_row++; late_unshown++; }
+				const bool behind = (double)s0 > next_us + frame_us * 0.5;
+
+				if (sn->late_steady) {
+					if (behind) steady_left = STEADY_HOLD;
+					if (steady_left > 0) {
+						steady_left--;
+						shown = !last_shown;
+					}
+					if (!shown) late_unshown++;
+				} else {
+					shown = !(behind && late_row < 2);
+					if (shown) late_row = 0;
+					else { late_row++; late_unshown++; }
+				}
 			}
 			diatom_env_frame_shown(shown);
 			last_shown = shown;
@@ -2702,6 +2760,9 @@ static int run_session_inner(const diatom_session *sn)
 			}
 		}
 		step_frames += ran;
+		turn_short = fast && ran < speed_half();
+		if (fast) step_sleep.turns++;
+		if (turn_short) step_sleep.short_turns++;
 		{
 			const uint64_t t = diatom_port_now_us();
 
@@ -2866,12 +2927,13 @@ static int run_session_inner(const diatom_session *sn)
 					step_report(speed_half(), step_frames, step_us,
 					            diatom_port_now_us() - step_t0,
 					            paused_us - step_pause0, frame_us,
-					            diatom_audio_dropped() - step_drop0);
+					            diatom_audio_dropped() - step_drop0, &step_sleep);
 					g_speed_ix = to;
 					printf("diatom: speed %.1fx\n", speed_half() / 2.0);
 					fflush(stdout);
 					step_frames = 0;
 					step_us = 0.0;
+					memset(&step_sleep, 0, sizeof step_sleep);
 					step_t0 = diatom_port_now_us();
 					step_pause0 = paused_us;
 					step_drop0 = diatom_audio_dropped();
@@ -3083,6 +3145,17 @@ static int run_session_inner(const diatom_session *sn)
 			double us = (double)g_turn_sound * 1000000.0 / audio_rate;
 
 			next_us += us < frame_us * 4.0 ? us : frame_us * 4.0;
+			/* A turn whose sound waited for room (audio.c, HOLD) left the
+			 * queue full: the next one waits until it is back at its
+			 * target, so the sound is no later than before the burst, where
+			 * rate control alone would take seconds to bring it down */
+			if (diatom_audio_held_pushes() != held0 && audio_cap > 0 && g_caps.audio_rate > 0) {
+				const double q = (double)diatom_port_audio_queued(), target = audio_cap / 2.0;
+				const double back = (double)diatom_port_now_us() +
+				                    (q > target ? (q - target) * 1e6 / g_caps.audio_rate : 0);
+
+				if (next_us < back) next_us = back;
+			}
 		} else if (fast) {
 			/* The time the turn's frames stand for at the step, not the two
 			 * refreshes the turn is drawn in: a core that ran the step's
@@ -3106,6 +3179,8 @@ static int run_session_inner(const diatom_session *sn)
 			ts.tv_sec  = (time_t)(d / 1000000.0);
 			ts.tv_nsec = (long)(fmod(d, 1000000.0) * 1000.0);
 			nanosleep(&ts, NULL);
+			step_sleep.us += d;
+			if (turn_short) step_sleep.short_us += d;
 		} else if (fast) {
 			/* Behind, fast. One turn of debt is kept, so a turn that ran
 			 * over (a busy moment) is repaid by the next and a core that
@@ -3113,17 +3188,35 @@ static int run_session_inner(const diatom_session *sn)
 			 * runs flat out and never sprints past the step later to repay
 			 * a slow stretch. */
 			if ((double)now - next_us > frame_us * periods) next_us = (double)now - frame_us * periods;
-		} else if ((double)now - next_us > frame_us * 4.0) {
-			/* More than four frames behind. Something stalled - the scheduler,
-			 * a page fault, a slow core - and trying to catch up would just run
-			 * fast for a while, which looks worse than dropping the debt.
-			 * Counted, because a loop that resyncs often is a loop that is
-			 * lying about its frame rate. */
-			next_us = (double)now;
-			resyncs++;
-			if (g_speed_ix == 0) power_trouble("a stall", now);
+		} else {
+			/* Behind at 1x (pace.h). The debt is kept and the next turns
+			 * repay it, unless it is more than four frames: something stalled
+			 * - the scheduler, a page fault, a slow core - and trying to catch
+			 * up would just run fast for a while, which looks worse than
+			 * dropping the debt. And only as deep as the sound queue: the
+			 * rest is time the device already played silence for, and
+			 * repaying it overfilled the queue, the newest sound refused.
+			 * Both counted, because a loop that resyncs often is a loop that
+			 * is lying about its frame rate. */
+			const double depth_us = audio_cap > 0 && g_caps.audio_rate > 0
+			                      ? pace_depth_frames(audio_cap) * 1e6 / g_caps.audio_rate
+			                      : 0.0;
+			double keep_us;
+
+			switch (pace_when_late((double)now - next_us, frame_us, depth_us, &keep_us)) {
+			case PACE_RESYNC:
+				next_us = (double)now;
+				resyncs++;
+				if (g_speed_ix == 0) power_trouble("a stall", now);
+				break;
+			case PACE_CAUGHT_UP:
+				next_us = (double)now - keep_us;
+				caught_up++;
+				break;
+			case PACE_KEEP:
+				break;
+			}
 		}
-		/* Otherwise keep the debt and let the next short sleep repay it. */
 		{
 			const double turn_us = (double)(diatom_port_now_us() - batch_t0);
 
@@ -3146,6 +3239,7 @@ static int run_session_inner(const diatom_session *sn)
 	 * game this way and the device powers off after them (the core's stop
 	 * resets the hold). */
 	diatom_rumble_hold(true);
+	diatom_audio_hold(false);
 	diatom_port_fast_clock(false, false);
 	diatom_port_power(DIATOM_POWER_FULL);
 	/* And player 2's file goes now, before EXIT, so it is gone by the time
@@ -3174,7 +3268,7 @@ static int run_session_inner(const diatom_session *sn)
 		step_report(speed_half(), step_frames, step_us,
 		            diatom_port_now_us() - step_t0,
 		            paused_us - step_pause0, frame_us,
-		            diatom_audio_dropped() - step_drop0);
+		            diatom_audio_dropped() - step_drop0, &step_sleep);
 
 	{
 		uint64_t t_end = diatom_port_now_us();
@@ -3207,7 +3301,8 @@ static int run_session_inner(const diatom_session *sn)
 			       run_us_unshown / run_n_unshown / 1000.0, run_n_unshown);
 		if (late_unshown)
 			printf("diatom: %ld frame(s) ran late at 1x and were left undrawn "
-			       "(frameskip=late), %.1f%% of them\n", late_unshown,
+			       "(frameskip=%s), %.1f%% of them\n", late_unshown,
+			       sn->late_steady ? "steady" : "late",
 			       paced ? late_unshown * 100.0 / paced : 0.0);
 		if (fast_unshown)
 			printf("diatom: %ld of them run unshown, the core told to skip drawing them; "
@@ -3221,12 +3316,16 @@ static int run_session_inner(const diatom_session *sn)
 		printf("diatom: %ld geometry change(s), last rect %dx%d at %d,%d\n",
 		       geom_changes, g_dst.w, g_dst.h, g_dst.x, g_dst.y);
 		printf("diatom: %ld resync(s)\n", resyncs);
+		printf("diatom: %ld debt(s) cut to the sound queue's depth\n", caught_up);
 		if (g_present_frames)
 			printf("diatom: present avg %.2f ms over %ld frames\n",
 			       (double)g_present_us / (double)g_present_frames / 1000.0,
 			       g_present_frames);
 		printf("diatom: audio dropped %llu frame(s)\n",
 		       (unsigned long long)diatom_audio_dropped());
+		if (diatom_audio_held_pushes())
+			printf("diatom: audio waited %.1f s for room, over %llu push(es)\n",
+			       diatom_audio_held_us() / 1e6, (unsigned long long)diatom_audio_held_pushes());
 		printf("diatom: audio IN  peak %d rms %.0f, %llu of %llu non-zero\n",
 		       diatom_audio_in_peak(), diatom_audio_in_rms(),
 		       (unsigned long long)diatom_audio_in_nonzero(),
@@ -3550,7 +3649,8 @@ int main(int argc, char **argv)
 			sn.cheevos    = m.cheevos[0]    ? m.cheevos    : NULL;
 			sn.console    = m.console;
 			sn.screens    = m.screens;
-			sn.late_skip  = !strcmp(m.frameskip, "late");
+			sn.late_skip  = !strcmp(m.frameskip, "late") || !strcmp(m.frameskip, "steady");
+			sn.late_steady = !strcmp(m.frameskip, "steady");
 			sn.power      = !strcmp(m.power, "light")  ? DIATOM_POWER_LIGHT
 			              : !strcmp(m.power, "medium") ? DIATOM_POWER_MEDIUM
 			              : DIATOM_POWER_FULL;
@@ -3584,7 +3684,8 @@ int main(int argc, char **argv)
 			.limit = limit, .mode = start_mode, .filter = start_filter,
 			.strength = start_strength,
 			.list_only = list_options, .screens = screens,
-			.late_skip = !strcmp(frameskip, "late"), .stylus = stylus,
+			.late_skip = !strcmp(frameskip, "late") || !strcmp(frameskip, "steady"),
+			.late_steady = !strcmp(frameskip, "steady"), .stylus = stylus,
 			.power = !strcmp(power, "light")  ? DIATOM_POWER_LIGHT
 			       : !strcmp(power, "medium") ? DIATOM_POWER_MEDIUM
 			       : DIATOM_POWER_FULL,

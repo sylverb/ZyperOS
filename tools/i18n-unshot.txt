@@ -8,10 +8,10 @@
 
 
 # about: no shot draws it yet
-about.thanks_handhelds  # About > Thanks: the heading over the people who help with other handhelds, drawn only once src/about_screen.c's ABOUT_HANDHELD_THANKS has a row; none yet
 about.no_address_yet
 about.battery_charging
 about.health_estimate
+about.thanks_handhelds  # About > Thanks: the heading over the people who help with other handhelds, drawn only once src/about_screen.c's ABOUT_HANDHELD_THANKS has a row; none yet
 
 # art: no shot draws it yet
 art.now_catalog
@@ -162,11 +162,6 @@ emptyhome.cheer.one
 emptyhome.cheer.other
 
 # gamemenu: no shot draws it yet
-gamemenu.own_buttons  # wrapped to the Controls tab's column a line a row, as a paragraph is, so no drawn line is the string; gamemenu-controls-all draws it
-gamemenu.reset_buttons_game  # wrapped to its question's lines as Delete Game's is; gamemenu-controls-ask draws it
-gamemenu.reset_buttons_all  # wrapped to its question's lines as Delete Game's is; gamemenu-controls-ask-all draws it
-gamemenu.hud_items.one  # Shows names one or two items and counts only three or more, so its singular is never drawn; hud-page draws .other
-gamemenu.delete_ask
 gamemenu.delete_ask_this
 gamemenu.delete_ask_port
 gamemenu.delete_ask_port_this
@@ -181,8 +176,10 @@ gamemenu.rename_invalid
 gamemenu.rename_taken
 gamemenu.rename_failed
 gamemenu.rename_partly
+gamemenu.own_buttons  # wrapped to the Controls tab's column a line a row, as a paragraph is, so no drawn line is the string; gamemenu-controls-all draws it
 gamemenu.layout_stacked
 gamemenu.layout_focus
+gamemenu.hud_items.one  # Shows names one or two items and counts only three or more, so its singular is never drawn; hud-page draws .other
 
 # games: no shot draws it yet
 games.no_games
@@ -200,10 +197,6 @@ hare.failed
 hare.have
 hare.made
 hare.renamed
-hare.moved
-hare.cannot_move
-hare.move_into_itself
-hare.move_exists
 hare.tidied.one
 hare.tidied.other
 hare.deleted
@@ -248,6 +241,10 @@ hare.partly_deleted
 hare.no_shelves
 hare.no_shelf
 hare.match_first
+hare.moved
+hare.cannot_move
+hare.move_into_itself
+hare.move_exists
 
 # heat: no shot draws it yet
 heat.head
@@ -256,12 +253,33 @@ heat.head
 home.audio
 home.no_artwork
 
+# keyhint: no shot draws it yet
+keyhint.turn_on_boot
+keyhint.search
+keyhint.turn_off  # Bluetooth's toggle row legend (src/bt_menu.c), and no shot draws Bluetooth with an adapter; it was counted before only because Developer Mode's old legend had the same English words
+keyhint.disconnect
+keyhint.unpair
+keyhint.connect
+keyhint.pair
+keyhint.rescan
+keyhint.forget
+keyhint.go
+keyhint.by_game
+keyhint.window
+keyhint.by_system
+
 # tour: no shot draws it yet
 tour.lang.hello
 
 # launch: no shot draws it yet
 launch.needs_bios
+launch.bios_size  # wrapped onto balanced lines (result_message), so no drawn line is the string
+launch.bios_hides  # wrapped onto balanced lines, as launch.bios_size
+launch.bios_bytes.one  # a piece of launch.bios_size's line
+launch.bios_bytes.other  # a piece of launch.bios_size's line
 launch.couldnt_start
+launch.game_empty  # wrapped onto balanced lines, as launch.bios_size
+launch.game_short  # wrapped onto balanced lines, as launch.bios_size
 
 # library: no shot draws it yet
 library.scanning
@@ -275,28 +293,6 @@ lights.done
 # lowbatt: no shot draws it yet
 lowbatt.charging
 
-# media: drawn composed with another word ("Box Front · USA", "libretro · no match") or wrapped onto balanced lines (the question, the line under "Connect to Wi-Fi first.", the video's tile), so no drawn line is the string; the media-* shots draw every one and fail on any cut (src/mediapage.c, src/main.c's media_shot)
-media.kind_box3d
-media.region_us
-media.region_eu
-media.region_jp
-media.region_wor
-media.region_br
-media.region_kr
-media.region_au
-media.looking
-media.or_pc
-media.src_unknown
-media.src_no_match
-media.src_not_linked
-media.src_no_answer
-media.delete_ask
-media.vnote_offline
-media.vnote_link
-media.vnote_none
-
-# menu: no shot draws it yet
-
 # mp4: no shot draws it yet
 mp4.hold_unlock
 
@@ -304,7 +300,6 @@ mp4.hold_unlock
 muse.chapter_of
 muse.chapter
 muse.paused
-muse.stopped
 muse.finished
 muse.hint_chapter
 muse.row_playing
@@ -323,9 +318,6 @@ musiclib.sort_title
 musiclib.art_no_network
 
 # panel: no shot draws it yet
-panel.order_release
-panel.battery_percentage
-panel.battery_time
 panel.signing_in
 panel.signed_in_as
 panel.sign_in_failed
@@ -361,7 +353,6 @@ ra.sign_in_no_token
 
 # scraper: no shot draws it yet
 scraper.complete
-scraper.names_n.one
 scraper.key_refused
 scraper.ss_user
 scraper.ss_no_key
@@ -376,6 +367,7 @@ scraper.sgdb_works
 scraper.sgdb_refused
 scraper.sgdb_not_checked
 scraper.unlink_key_ask
+scraper.names_n.one
 
 # search: no shot draws it yet
 search.heading
@@ -444,7 +436,6 @@ stats.this_year
 stats.this_month
 stats.this_week
 stats.today_window
-stats.never
 stats.today
 stats.yesterday
 stats.days_ago
@@ -453,42 +444,31 @@ stats.months_ago
 
 # storage: drawn wrapped to their lines, in pieces of a line (the used number as a title, a part of the line under the list), with tabular digits, or a plural's one form the stand-in card has none of (src/storage_page.c, src/main.c's storage_shot)
 storage.used
-storage.unused_caption
 storage.old_caption.one
-storage.old_caption.other
-storage.unused_ask
 storage.old_ask.one
-storage.old_ask.other
 storage.saves_part
 storage.art_part
 storage.songs.one
-storage.snaps_caption
 storage.last_played
 storage.progress
 storage.orphan_caption
 storage.orphan_ask
 storage.files.one
-storage.media_ask_folder
-storage.media_ask_file
-storage.media_rest_caption
 
 # sysmenu: no shot draws it yet
 sysmenu.wifi_connecting
 sysmenu.hotspot
-sysmenu.clock_12h
-sysmenu.auto_off_never
 sysmenu.charge_limit
-sysmenu.order_release
-sysmenu.battery_percent
-sysmenu.battery_time
 sysmenu.dslang
+sysmenu.dsslow
+sysmenu.dsslow_keep
+sysmenu.dsslow_steady
 sysmenu.muse_books
 sysmenu.muse_albums
 sysmenu.muse_author
 sysmenu.muse_artist
 sysmenu.not_in_build
 sysmenu.sc_link
-sysmenu.ss_account
 sysmenu.status
 sysmenu.ss_linked
 sysmenu.unlink
@@ -549,7 +529,6 @@ update.value_restart_update
 update.value_restart_back
 update.value_downloading
 update.value_available
-update.unsupported_how
 update.not_looked
 update.look
 update.looking
@@ -563,7 +542,6 @@ update.preparing
 update.files_of
 update.installing
 update.checking_files
-update.stopped
 update.downloaded_checked
 update.going_back_to
 update.goes_back_next_start
@@ -622,31 +600,3 @@ xfer.scanning
 xfer.key_removed
 xfer.err_memory
 xfer.err_could_not_say
-# keyhint: the words of button hints that were text legends listed here (Bluetooth, Wi-Fi, Play Time,
-# Date & Time, Album Art, File Transfer while files move); no shot draws those screens yet
-keyhint.turn_on_boot
-keyhint.search
-keyhint.disconnect
-keyhint.unpair
-keyhint.connect
-keyhint.pair
-keyhint.rescan
-keyhint.forget
-keyhint.go
-keyhint.turn_off  # Bluetooth's toggle row legend (src/bt_menu.c), and no shot draws Bluetooth with an adapter; it was counted before only because Developer Mode's old legend had the same English words
-keyhint.by_game
-keyhint.window
-keyhint.by_system
-
-# gamemenu: each display mode's caption under the Display row is drawn wrapped
-# to the panel, two lines (src/ingame_screen.c, src/sysmenu_screen.c), and a
-# wrapped line is no string's whole text; every one of them, in every
-# language, fits in two lines at the shelf menu's 760 (measured with the
-# menu's three faces, 2026-11-15), and the shots gamemenu-dmode-* draw them
-gamemenu.dmode_stretch_note
-gamemenu.dmode_aspect_note
-gamemenu.dmode_integer_note
-gamemenu.dmode_integer_tall_note
-gamemenu.dmode_overscale_note
-gamemenu.dmode_fill_note
-gamemenu.dmode_native_note

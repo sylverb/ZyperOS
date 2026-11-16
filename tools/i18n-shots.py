@@ -133,10 +133,6 @@ def unescape(text):
 UNSHOT = ROOT / "tools" / "i18n-unshot.txt"
 UNSHOT_WHY = {
     "hare": "answers sent to the File Transfer page, which draws them, not the launcher",
-    "media": "drawn composed with another word (\"Box Front · USA\", \"libretro · no match\") or "
-             "wrapped onto balanced lines (the question, the line under \"Connect to Wi-Fi first.\", "
-             "the video's tile), so no drawn line is the string; the media-* shots draw every one "
-             "and fail on any cut (src/mediapage.c, src/media_screen.c's media_shot)",
     "storage": "drawn wrapped to their lines, in pieces of a line (the used number as a title, "
                "a part of the line under the list), with tabular digits, or a plural's one form "
                "the stand-in card has none of (src/storage_page.c, src/main.c's storage_shot)",
@@ -153,7 +149,19 @@ def read_unshot():
     return ids
 
 
+def read_unshot_why():
+    """Each listed string's own reason, the words after its ID's #"""
+    why = {}
+    for line in UNSHOT.read_text(encoding="utf-8").splitlines() if UNSHOT.is_file() else []:
+        name, sep, reason = line.partition("#")
+        if sep and name.strip():
+            why[name.strip()] = reason.strip()
+    return why
+
+
 def write_unshot(ids):
+    # A string's own reason stays with it, as the header says
+    kept = read_unshot_why()
     out = ["# Strings of res/strings that no shot of tools/i18n-shots.py draws, so that",
            "# check-i18n-shots cannot say whether they fit where they are drawn.",
            "#",
@@ -169,7 +177,7 @@ def write_unshot(ids):
             out.append("")
             out.append("# " + group + ": " + UNSHOT_WHY.get(group, UNSHOT_DEFAULT))
             last = group
-        out.append(name)
+        out.append(name + ("  # " + kept[name] if kept.get(name) else ""))
     UNSHOT.write_text("\n".join(out) + "\n", encoding="utf-8")
 
 
@@ -400,6 +408,9 @@ EXTRA = {
     "media-novideo": ("demo", "PS1", ["--screen", "games", "--media", "novideo", "--media-art", "{card}/media-art"]),
     "media-tile-1": ("demo", "PS1", ["--screen", "games", "--media", "page", "1", "--media-art", "{card}/media-art"]),
     "media-tile-2": ("demo", "PS1", ["--screen", "games", "--media", "page", "2", "--media-art", "{card}/media-art"]),
+    # Nothing found with ScreenScraper not linked; offline with no video
+    "media-nothing-off": ("demo", "PS1", ["--screen", "games", "--media", "nothing-off", "--media-art", "{card}/media-art"]),
+    "media-offline-novideo": ("demo", "PS1", ["--screen", "games", "--media", "offline-novideo", "--media-art", "{card}/media-art"]),
     "media-tile-3": ("demo", "PS1", ["--screen", "games", "--media", "page", "3", "--media-art", "{card}/media-art"]),
     "media-tile-4": ("demo", "PS1", ["--screen", "games", "--media", "page", "4", "--media-art", "{card}/media-art"]),
     "media-tile-5": ("demo", "PS1", ["--screen", "games", "--media", "page", "5", "--media-art", "{card}/media-art"]),
@@ -535,6 +546,19 @@ for _s in ("shimmerless", "crt", "crt-curved", "scanlines", "lcd"):
     EXTRA.setdefault("gamemenu-shader-" + _s, ("demo", "PS1", ["--screen", "games", "--gamemenu", "1", "--gm-tab", "1"]))
     SHOT_SETTINGS["gamemenu-shader-" + _s] = {"shader.PS1": _s}
 
+# The Shader list, each shader under its cursor beside its picture and its
+# note (src/shaderdemo.h); the Strength list beside its picture; MENU's
+# Shader list (the Pixel 2 offers all six; the Brick Off and
+# Sharp-Shimmerless, its list's last row standing in past them)
+for _k, _s in enumerate(["off", "shimmerless", "crt", "crt-curved", "scanlines", "lcd"]):
+    EXTRA.setdefault("gamemenu-shader-list-" + _s,
+                     ("demo", "PS1", ["--gamemenu", "1", "--gm-tab", "1", "--gm-choose", "--pick-at", str(_k)]))
+EXTRA.setdefault("gamemenu-strength-list", ("demo", "PS1", ["--gamemenu", "2", "--gm-tab", "1", "--gm-choose",
+                                                           "--pick-at", "4"]))
+SHOT_SETTINGS["gamemenu-strength-list"] = {"shader.PS1": "crt", "shader_strength.PS1": "50"}
+EXTRA.setdefault("menu-shader-list", ("demo", "PS1", ["--menu", "Shader", "--press", "a"]))
+SHOT_SETTINGS["menu-shader-list"] = {"shader": "scanlines"}
+
 # The Strength row under each Shader row while the shader is an old screen
 # (src/strength.h): in the game on it, in the system menu, and MENU's saying
 # "per system" when one system has its own
@@ -635,6 +659,19 @@ EXTRA.setdefault("menu-saver-off", ("demo", "PS1", ["--menu-tab", "1", "--menu",
 # value (its seconds and minutes); Display's, with what the mode under the
 # cursor does under it, from a system's menu and from the in-game menu
 EXTRA.setdefault("menu-autooff-list", ("demo", "PS1", ["--menu", "Auto Off", "--press", "a"]))
+# MENU's values off their defaults, each on its row: the clock in 12 hours
+# and the battery's icon as a percentage and as time left (the shot's own
+# --status, SHOT_STATUS), Auto Off off, and the systems in release order
+SHOT_STATUS = {}
+EXTRA.setdefault("menu-hours-12h", ("demo", "PS1", ["--menu", "Language"]))
+SHOT_STATUS["menu-hours-12h"] = "10:08 12h wifi=off batt=82"
+for _icon in ("percentage", "time"):
+    EXTRA.setdefault("menu-battery-" + _icon, ("demo", "PS1", ["--menu-tab", "1", "--menu", "Battery Icon"]))
+    SHOT_STATUS["menu-battery-" + _icon] = "10:08 24h wifi=off batt=82 eta=95 icon=" + _icon
+EXTRA.setdefault("menu-autooff-never", ("demo", "PS1", ["--menu", "Auto Off"]))
+SHOT_SETTINGS["menu-autooff-never"] = {"autooff": "0"}
+EXTRA.setdefault("menu-order-release", ("demo", "PS1", ["--menu-tab", "1", "--menu", "System Order"]))
+SHOT_SETTINGS["menu-order-release"] = {"systems.order": "release"}
 EXTRA.setdefault("system-menu-display-list", ("demo", "PS1", ["--screen", "games", "--menu", "Display", "--press", "a"]))
 # View's three (Covers, Grid, List) over a shelf in the grid
 EXTRA.setdefault("system-menu-view-list", ("demo", "NES", ["--screen", "games", "--view", "grid", "--menu", "View", "--press", "a"]))
@@ -861,7 +898,7 @@ def run_language(code, shots, binary, keep, theme="light", device="pixel2", firs
             target = out / (name + ".png")
             # The tutorial and the battery's screens draw no status corner
             status = [] if name.startswith(("tour-", "lowbatt", "charging-")) else \
-                ["--status", "10:08 24h wifi=off batt=82"]
+                ["--status", SHOT_STATUS.get(name, "10:08 24h wifi=off batt=82")]
             command = [str(binary), "--shot", str(target), "--theme", theme, "--lang", code,
                        "--screen", "systems", "--phase", "3200", *status,
                        "--device", device, *[f.replace("{card}", str(card)) for f in flags]]

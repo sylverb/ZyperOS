@@ -70,6 +70,9 @@ static int delete_ask_rows_for(app *a, const char *title, bool port, char (*line
 		n = wrap_text(f, T(port ? S_GAMEMENU_DELETE_ASK_PORT_THIS : S_GAMEMENU_DELETE_ASK_THIS), w,
 		              lines, DEL_ASK_LINES);
 		*heading = title;
+		ui_fit_drawn(T(port ? S_GAMEMENU_DELETE_ASK_PORT_THIS : S_GAMEMENU_DELETE_ASK_THIS));
+	} else {
+		ui_fit_drawn(q);    /* drawn in lines, said whole to the host's check */
 	}
 	for (i = 0; i < n; i++)
 		rows[i] = (menu_row){ lines[i], MENU_NOTE_MARK, false };
