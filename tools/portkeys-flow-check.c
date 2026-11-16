@@ -113,6 +113,11 @@ static bool batt_now(int *pct, bool *charging)
  * asked for, what it answers, and the power key's file read after it */
 static int menu_shows, menu_answer;
 static int menu_show(void) { menu_shows++; return menu_answer; }
+/* Developer SSH over the port (tools/pkssh.c, outside the extracted code):
+ * nothing to look at, and the TERM flag never set */
+static volatile sig_atomic_t g_term;
+static int pkssh_tick(long now) { (void)now; return -1; }
+static void pkssh_stop(void) {}
 static pid_t mock_getppid(void) { return parent_pid; }
 static int mock_kill(pid_t pid, int sig) { kills++; kill_pid = pid; kill_sig = sig; return 0; }
 static ssize_t mock_read(int fd, void *out, size_t count)

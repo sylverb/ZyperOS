@@ -173,6 +173,15 @@ if grep -q '^HANDHELD-BOX:' "$D/one.log"; then
 fi
 measured=$(sed -n 's/^handheld-box: \([0-9]*\) poses of the Controls tab.*/\1/p' "$D/one.log")
 [ "${measured:-0}" -gt 10000 ] || fail "the box check measured ${measured:-no} poses of the Controls tab"
+# ...and the Brick's, in its own box, its shoulders turning it round to its back
+run --shot "$D/box.png" --theme light --device brick --handheld-box tab >"$D/one.log" 2>&1
+cat "$D/one.log" >>"$D/log"
+if grep -q '^HANDHELD-BOX:' "$D/one.log"; then
+	grep '^HANDHELD-BOX:' "$D/one.log" | head -5 | sed 's/^/  FAIL (brick) /'
+	fails=$((fails + 1))
+fi
+measured=$(sed -n 's/^handheld-box: \([0-9]*\) poses of the Controls tab.*/\1/p' "$D/one.log")
+[ "${measured:-0}" -gt 10000 ] || fail "the box check measured ${measured:-no} poses of the Brick's Controls tab"
 
 echo "the home's Controls pages, each its own"
 for th in light dark; do
@@ -268,18 +277,24 @@ for th in light dark; do
 	other "$th: L1 (tilted) is not SELECT (front)" "ctltab-l1-$th" "ctltab-select-$th"
 	other "$th: R2 (tilted) is not SELECT (front)" "ctltab-r2-$th" "ctltab-select-$th"
 	same "$th: the tilted handheld sits still" "ctltab-r2-$th" "ctltab-r2-later-$th"
-	# A device with no drawing of its own shows none (src/ctltab_screen.c),
-	# never the Pixel 2's: the Brick's profile, the d-pad's row lit
-	if [ "$th" = light ]; then
-		shot "ctltab-stick-brick" --theme light --screen games --gamemenu 1 --gm-tab 2 --device brick
-		lit=$(lime "ctltab-stick-$th")
-		none=$(lime "ctltab-stick-brick")
-		if [ "$lit" = -1 ]; then
-			echo "  (no Python with Pillow: the Brick's empty column not judged)"
-		else
-			[ "$lit" -gt 50 ] || fail "the host's Controls tab lights the handheld's d-pad ($lit lime pixels)"
-			[ "$none" -eq 0 ] || fail "the Brick's Controls tab draws no handheld ($none lime pixels in its column)"
-		fi
+	# Each device draws its own (src/ctltab_screen.c): the Brick's profile
+	# its own handheld, the d-pad's row lighting its d-pad, its shoulder rows
+	# turning it round to its back, where its ledge is
+	shot "ctltab-stick-brick-$th" --theme "$th" --screen games --gamemenu 1 --gm-tab 2 --device brick
+	shot "ctltab-l1-brick-$th" --theme "$th" --screen games --gamemenu 6 --gm-tab 2 --device brick
+	shot "ctltab-r2-brick-$th" --theme "$th" --screen games --gamemenu 9 --gm-tab 2 --device brick
+	other "$th: the Brick's handheld is not the Pixel 2's" "ctltab-stick-brick-$th" "ctltab-stick-$th"
+	other "$th: the Brick's L1 (its back) is not its d-pad's row (its front)" "ctltab-l1-brick-$th" "ctltab-stick-brick-$th"
+	other "$th: the Brick's L1 is not its R2" "ctltab-l1-brick-$th" "ctltab-r2-brick-$th"
+	lit=$(lime "ctltab-stick-$th")
+	if [ "$lit" = -1 ]; then
+		echo "  (no Python with Pillow: the handhelds' lit keys not judged)"
+	else
+		[ "$lit" -gt 50 ] || fail "$th: the host's Controls tab lights the handheld's d-pad ($lit lime pixels)"
+		for row in stick l1 r2; do
+			n=$(lime "ctltab-$row-brick-$th")
+			[ "$n" -gt 50 ] || fail "$th: the Brick's $row row lights its own handheld's key ($n lime pixels)"
+		done
 	fi
 	# The swap is kept in the library, so on a library of its own: the
 	# shots after it show the card's own table

@@ -392,36 +392,19 @@ static void gm_undo_row_only_with_undo(void)
 	   "SLOT_UNDO is none of the player's slots, nor Auto");
 }
 
-/* The display mode's caption on the in-game Display tab (1.0.6): the lines
- * the caller wrapped, right under Display, body rows no cursor stops on;
- * none when there is none, and never on another tab */
+/* The in-game Display tab: Display, then Shader, no caption between them
+ * (what a mode does is said in its list, beside a picture of it) */
 static void gm_display_caption(void)
 {
 	gm_ui u = { 0 };
-	gm_bufs b;
-	menu_row rows[GM_MAX_ROWS];
 	gm_row ids[GM_MAX_ROWS];
 	int n;
 
-	printf("in-game menu, the display mode's caption:\n");
+	printf("in-game menu, the Display tab:\n");
 	u.dmode = "Full Screen"; u.quick = 2;
 	n = gm_tab_rows(&u, GT_DISPLAY, ids);
-	ck(n == 3 && ids[1] == GM_SHADER, "no caption: Display, then Shader");
-	u.dmode_note[0] = "Fills the screen.";
-	u.dmode_note[1] = "The picture's shape changes.";
-	n = gm_rows(&u, GT_DISPLAY, rows, &b);
-	ck(n == 5 && gm_row_at(&u, GT_DISPLAY, GM_DNOTE1) == 1 &&
-	   gm_row_at(&u, GT_DISPLAY, GM_DNOTE2) == 2 && gm_row_at(&u, GT_DISPLAY, GM_SHADER) == 3,
-	   "two lines right under Display, Shader after them");
-	ck(ROW_IS_BODY(rows[1]) && ROW_IS_BODY(rows[2]) && !rows[1].live && !rows[2].live &&
-	   !b.sound[1] && !b.sound[2], "body rows, no stop, no sound");
-	ck(!strcmp(rows[1].label, "Fills the screen.") && !strcmp(rows[2].label, "The picture's shape changes."),
-	   "saying the lines given");
-	u.dmode_note[1] = NULL;
-	ck(gm_tab_rows(&u, GT_DISPLAY, ids) == 4 && ids[2] == GM_SHADER, "one line: one row");
-	ck(gm_row_at(&u, GT_GAME, GM_DNOTE1) < 0, "and none on the Game tab");
-	u.port = true;
-	ck(gm_row_at(&u, GT_DISPLAY, GM_DNOTE1) < 0, "nor over a port");
+	ck(n == 3 && ids[0] == GM_DISPLAY && ids[1] == GM_SHADER && ids[2] == GM_HUD,
+	   "Display, Shader, then On-Screen Stats");
 }
 
 /* Over a program still starting (PORT_MENU_WAITING, 1.0.6): the port's
@@ -873,32 +856,12 @@ static void system_menu(void)
 	ck(!strcmp(val(&rows[sm_at(&u, SM_GAMES)]), "412"), "the count is the real one");
 	ck(!strcmp(val(&rows[sm_at(&u, SM_CORE)]), "gambatte"), "the core is the real one");
 	ck(!strcmp(val(&rows[sm_at(&u, SM_DISPLAY)]), "Sharp"), "display mode is passed through");
-	/* What the mode does, two caption lines right under it (1.0.6): body
-	 * rows, never a stop, and two whatever the mode says, so no row after
-	 * them moves when it changes */
-	ck(sm_at(&u, SM_DNOTE1) == sm_at(&u, SM_DISPLAY) + 1 &&
-	   sm_at(&u, SM_DNOTE2) == sm_at(&u, SM_DISPLAY) + 2 &&
-	   ROW_IS_BODY(rows[sm_at(&u, SM_DNOTE1)]) && ROW_IS_BODY(rows[sm_at(&u, SM_DNOTE2)]) &&
-	   !rows[sm_at(&u, SM_DNOTE1)].live && !rows[sm_at(&u, SM_DNOTE2)].live,
-	   "Display Mode's caption: two body lines under it, no stop");
-	ck(!strcmp(rows[sm_at(&u, SM_DNOTE1)].label, "") && !strcmp(rows[sm_at(&u, SM_DNOTE2)].label, ""),
-	   "empty when nothing is said");
-	u.dmode_note[0] = "Fills the screen.";
-	u.dmode_note[1] = "The picture's shape changes.";
-	sys_menu_build(&u, rows, &b, &heading);
-	ck(!strcmp(rows[sm_at(&u, SM_DNOTE1)].label, "Fills the screen.") &&
-	   !strcmp(rows[sm_at(&u, SM_DNOTE2)].label, "The picture's shape changes."),
-	   "and the caption's two lines when it is");
-	u.dmode_note[1] = NULL;
-	n = sys_menu_build(&u, rows, &b, &heading);
-	ck(n == SM_ROWS - 1 && !strcmp(rows[sm_at(&u, SM_DNOTE2)].label, ""),
-	   "a caption of one line keeps its second, empty, and every row its place");
-	u.dmode_note[0] = NULL;
-	n = sys_menu_build(&u, rows, &b, &heading);
-	ck(sm_at(&u, SM_SHADER) == sm_at(&u, SM_DISPLAY) + 3 &&
+	/* Shader right under Display, no caption between (what a mode does is
+	 * said in its list, beside a picture of it) */
+	ck(sm_at(&u, SM_SHADER) == sm_at(&u, SM_DISPLAY) + 1 &&
 	   !strcmp(rows[sm_at(&u, SM_SHADER)].label, "Shader") &&
 	   !strcmp(val(&rows[sm_at(&u, SM_SHADER)]), "Off") && rows[sm_at(&u, SM_SHADER)].live,
-	   "Shader right after Display Mode's caption, Off when nothing is said, a stop");
+	   "Shader right after Display, Off when nothing is said, a stop");
 	ck(b.sound[sm_at(&u, SM_SHADER)] == MENU_SND_RING, "and it steps round, on A too");
 	u.shader = "Sharp-Shimmerless";
 	sys_menu_build(&u, rows, &b, &heading);
@@ -2149,6 +2112,15 @@ static bool lean_is(unsigned keys, float yaw, float pitch)
 	return y == yaw && p == pitch;
 }
 
+/* ...on the Brick, whose shoulders are on its back ledge */
+static bool brick_lean_is(unsigned keys, float yaw, float pitch)
+{
+	float y = -99.0f, p = -99.0f;
+
+	ct_lean(&td_model_brick, keys, &y, &p);
+	return y == yaw && p == pitch;
+}
+
 /* Where row `id` is, -1 for nowhere */
 static int ct_at(const ct_row *ids, int n, ct_row id)
 {
@@ -2473,6 +2445,29 @@ static void ctl_tab(void)
 	m.cur = m.base = m.zdef = m.def;
 	m.face_offered = ctl_letter_layout("DC", &m.letters);
 	ck(lean_is(ct_lit(&m, CT_FACE), CT_LEAN_DEG, 0.0f), "ct_lean: Face Buttons lean right, no pitch");
+
+	/* ct_lean on the Brick: its front's keys as the Pixel 2's; its shoulders,
+	 * on the back ledge no front pose shows, turn it round to its back view
+	 * (off the tab's front pose), whichever side they are on */
+	{
+		const td_model *b = &td_model_brick;
+		const float back = b->back.deg - b->tab.deg, tilt = b->back.pitch;
+
+		ck(back > 140.0f && tilt > 0.0f, "ct_lean: the Brick's back view is turned round and tilted");
+		ck(brick_lean_is(1u << TD_DPAD, -CT_LEAN_DPAD_DEG, 0.0f) && brick_lean_is(1u << TD_Y, CT_LEAN_DEG, 0.0f) &&
+		   brick_lean_is(1u << TD_A, CT_LEAN_DEG, 0.0f), "ct_lean: the Brick's d-pad left, Y and A right, level");
+		ck(brick_lean_is(1u << TD_SELECT, 0.0f, 0.0f) && brick_lean_is(1u << TD_START, 0.0f, 0.0f) &&
+		   brick_lean_is(1u << TD_MENU, 0.0f, 0.0f), "ct_lean: the Brick's SELECT, START and MENU, front");
+		ck(brick_lean_is(1u << TD_L1, back, tilt) && brick_lean_is(1u << TD_L2, back, tilt) &&
+		   brick_lean_is(1u << TD_R2, back, tilt) && brick_lean_is(1u << TD_R1, back, tilt),
+		   "ct_lean: each of the Brick's shoulders, the back view");
+		ck(brick_lean_is(1u << TD_L1 | 1u << TD_R1, back, tilt) && brick_lean_is(1u << TD_L2 | 1u << TD_SELECT, back, tilt),
+		   "ct_lean: the Brick's shoulders on both sides, or with a centre key, the back view");
+		ck(brick_lean_is(1u << TD_A | 1u << TD_R2, CT_LEAN_DEG, 0.0f) &&
+		   brick_lean_is(1u << TD_DPAD | 1u << TD_L1, -CT_LEAN_DPAD_DEG, 0.0f) &&
+		   brick_lean_is(1u << TD_B | 1u << TD_L1, CT_LEAN_DEG, 0.0f),
+		   "ct_lean: a front key with the Brick's shoulders leans as the front key, level");
+	}
 
 	/* The steps, round the choices, and Nothing */
 	ct_ps1(&m);

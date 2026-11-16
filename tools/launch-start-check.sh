@@ -1,8 +1,9 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-3.0-only
 # launch.sh's start on a card a power cut broke, on both devices: a copy of
-# each launch.sh with the card's paths and /tmp moved under a scratch folder
-# and the device's commands stubbed (poweroff, reboot, pidof), run by sh.
+# the card script (sd/zyperos/launch.sh) and of each device's device.sh beside
+# it, with the card's paths and /tmp moved under a scratch folder and the
+# device's commands stubbed (poweroff, reboot, pidof), run by sh.
 #
 #   1. boot.env is junk (what a power cut can leave): read, not sourced, so
 #      the script goes on to the launcher, where a syntax error in a sourced
@@ -13,27 +14,35 @@
 #   3. it does again after that copy: left as it is, and off.
 #   4. a power-off asked for (the launcher's /tmp/zyperos_poweroff) takes the
 #      marker away.
+#   5. launch.sh with no device.sh beside it (a file the card check took
+#      away): launch.sh is set aside as in 2, and the handheld goes off,
+#      where `.` on the missing file would have ended the script before
+#      ZyperOS.
 D=${TMPDIR:-/tmp}/zyperos-launch-check.$$
 trap 'rm -rf "$D"' EXIT
 fails=0
 fail() { echo "FAIL $dev: $*"; fails=$((fails + 1)); }
 
-# The copy of launch.sh, and a check that each edit found its line: an edit
-# that finds nothing would test the device's paths instead
+# The copies of launch.sh and device.sh, and a check that each edit found its
+# line in launch.sh: an edit that finds nothing would test the device's paths
+# instead. device.sh names the card only through launch.sh's SDCARD.
+edit() {
+	sed -e "s#/mnt/SDCARD#$D/card#g" -e "s#/usr/share/zyperos/card#$D/seed#g" \
+	    -e "s#/tmp/#$D/tmp/#g" -e "s#/dev/kmsg#$D/kmsg#g" -e 's#( sleep 8$#( exit#' "$1"
+}
 prepare() {
 	rm -rf "$D"
 	mkdir -p "$D/card/ZyperOS" "$D/card/.userdata/$dev" "$D/seed/ZyperOS" "$D/bin" "$D/tmp"
-	# The Pixel 2's Wi-Fi follower loops for good in the background; the
-	# Brick's radios start only with boot.env saying so, which junk does not
-	follow='^wifi_follow &$'
-	[ "$dev" = brick ] && follow='/mnt/SDCARD'
-	for p in '/mnt/SDCARD' '/usr/share/zyperos/card' "$follow" '( sleep 8$'; do
-		grep -q -- "$p" "sd/$dev/launch.sh" || { fail "launch.sh no longer has '$p'"; return 1; }
+	for p in '/mnt/SDCARD' '/usr/share/zyperos/card' '( sleep 8$' '/dev/kmsg' \
+	         '^device_radios &$'; do
+		grep -q -- "$p" sd/zyperos/launch.sh || { fail "launch.sh no longer has '$p'"; return 1; }
 	done
-	sed -e "s#/mnt/SDCARD#$D/card#g" -e "s#/usr/share/zyperos/card#$D/seed#g" \
-	    -e "s#/tmp/#$D/tmp/#g" -e 's#^wifi_follow &$#: no wifi_follow#' \
-	    -e 's#( sleep 8$#( exit#' "sd/$dev/launch.sh" > "$D/card/ZyperOS/launch.sh"
-	cp "$D/card/ZyperOS/launch.sh" "$D/seed/ZyperOS/launch.sh"
+	edit sd/zyperos/launch.sh > "$D/card/ZyperOS/launch.sh"
+	# The radios: none here. The Pixel 2's Wi-Fi follower loops for good in
+	# the background; the Brick's radios start only with boot.env saying so,
+	# which junk does not
+	{ edit "sd/$dev/device.sh"; echo 'device_radios() { :; }'; } > "$D/card/ZyperOS/device.sh"
+	cp "$D/card/ZyperOS/launch.sh" "$D/card/ZyperOS/device.sh" "$D/seed/ZyperOS/"
 	for c in poweroff reboot; do
 		printf '#!/bin/sh\necho %s >> "%s/calls"\n' "$c" "$D" > "$D/bin/$c"
 	done
@@ -85,6 +94,19 @@ for dev in pixel2 brick; do
 	launcher off
 	run
 	[ ! -f "$U/start-failed" ] || fail "a power-off asked for left the marker"
-	[ "$fails" = 0 ] && echo "ok $dev: a junk boot.env read as off, five fast stops set launch.sh aside once"
+
+	# device.sh gone: launch.sh set aside for the next start's copy, and off,
+	# with the launcher never started
+	rm -f "$D/card/ZyperOS/device.sh" "$D/card/ZyperOS/launch.sh.failed" "$LOG"
+	launcher stop
+	run
+	[ ! -f "$D/card/ZyperOS/launch.sh" ] && [ -f "$D/card/ZyperOS/launch.sh.failed" ] ||
+		fail "launch.sh was not set aside with no device.sh: $(tail -n 3 "$D/out")"
+	grep -q 'the next start copies ZyperOS' "$D/kmsg" 2> /dev/null ||
+		fail "the kernel's log does not say a copy comes with no device.sh"
+	grep -q poweroff "$D/calls" 2>/dev/null || fail "no power-off with no device.sh"
+	! grep -q 'the launcher stops' "$LOG" 2>/dev/null ||
+		fail "the launcher ran with no device.sh"
+	[ "$fails" = 0 ] && echo "ok $dev: a junk boot.env read as off, five fast stops or no device.sh set launch.sh aside once"
 done
 [ "$fails" = 0 ] || exit 1

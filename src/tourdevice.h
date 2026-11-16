@@ -5,7 +5,8 @@
 /* The handheld beside each lesson of the tutorial (DESIGN.md 11.10, "The
  * handheld"): the handheld the tutorial is running on, drawn from its
  * model (src/device/td_model.h; the GKD Pixel 2's has the landing page's
- * millimetres, tools/build-pixel2-model.py's), turned to the side its
+ * millimetres, tools/build-pixel2-model.py's, the TrimUI Brick's its
+ * published outline's), turned to the side its
  * lesson's key is on, with that key lit and pressing with the glyph. Drawn in code from the theme's roles, from the tutorial's
  * state and the clock alone, into a small texture kept while it does not
  * change (tourdev_make), where the renderer can.
@@ -86,7 +87,8 @@ bool td_box_holds(const char *what, const td_pose *p, SDL_Rect box, SDL_FRect *r
 #define TOURDEV_Y 262
 
 /* Whether `t`'s lessons show the handheld: where tour_start was given the
- * device's model (dev_tutorial_model: the Pixel 2's), and in a lesson.
+ * device's model (dev_tutorial_model: the Pixel 2's, the Brick's), and in
+ * a lesson.
  * Elsewhere none, and the block stays in the middle. */
 bool tourdev_shown(const tour *t);
 
