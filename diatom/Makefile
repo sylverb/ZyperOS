@@ -155,7 +155,7 @@ $(BUILD)/%.o: %.c
 # backend exists. Cheap to check, so check it.
 # Mechanical checks, each guarding a rule that decays the moment nothing fails
 # when it is broken: check-seam has held since day one for exactly that reason.
-check: check-seam check-copies check-corefacts check-rates check-cheevos check-screens check-chord check-pace check-stick check-bounds check-rumble check-statefile check-proto check-port check-power check-power-e2e check-fastforward check-lateskip check-stateplane check-resident check-hotkeys check-coreend check-cardframe check-now check-rumble-e2e check-player2 check-states check-statereads
+check: check-seam check-copies check-corefacts check-rates check-cheevos check-screens check-chord check-pace check-stick check-bounds check-rumble check-statefile check-proto check-port check-power check-power-e2e check-fastforward check-lateskip check-stateplane check-resident check-hotkeys check-coreend check-cardframe check-now check-displaylock check-rumble-e2e check-player2 check-states check-statereads
 
 # Does a RetroAchievements address reach the byte it names? Offline, needs no
 # core and no ROM, and links only cheevos.c plus the vendored runtime - so it
@@ -217,7 +217,7 @@ check-pace: $(PACE_TEST)
 $(PACE_TEST): test/pace_test.c src/pace.c src/pace.h
 	@mkdir -p $(BUILD)
 	$(CC) -std=gnu11 -Wall -Wextra -Wno-unused-parameter -O2 \
-	      -Isrc -o $@ test/pace_test.c src/pace.c
+	      -Isrc -o $@ test/pace_test.c src/pace.c -lm
 
 # The d-pad as the left analog stick (src/stick.h), for the N64: each
 # direction's axes, a diagonal as long as a straight push, and the SELECT rule
@@ -345,6 +345,14 @@ check-now:
 	$(FRESH_IF_BUILT)
 	@python3 test/now.py
 .PHONY: check-now
+
+# The display lock end to end (src/pace.h): the stub at a GBA's 59.7275 fps
+# with a 60 Hz display runs at 60 and says so; pace=core, no display rate or
+# a 50 Hz one keep the core's own rate
+check-displaylock:
+	$(FRESH_IF_BUILT)
+	@python3 test/displaylock.py
+.PHONY: check-displaylock
 
 # The motor end to end, against the stub core asking as an N64 Rumble Pak
 # game does (STUBCORE_RUMBLE) and a pretend motor in the desktop port

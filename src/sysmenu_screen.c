@@ -10,6 +10,7 @@
 #include "audioout.h"
 #include "dslang.h"
 #include "dsslow.h"
+#include "pacing.h"
 #include "app.h"
 #include "bgm.h"
 #include "bgm_menu.h"
@@ -240,7 +241,7 @@ static void menu_choices(app *a, int sys, bool games)
 {
 	/* A system's menu and MENU each their own words: the shelf under MENU
 	 * builds a system's rows too, and must not write over MENU's */
-	static ch_pool PS[10], PM[10];
+	static ch_pool PS[11], PM[11];
 	ch_pool *P = games ? PS : PM;
 	int i, n, cur;
 
@@ -281,6 +282,8 @@ static void menu_choices(app *a, int sys, bool games)
 		g_sm_choice[SM_DSLANG] = ch_make(&P[3], DSL_CHOICES, dslang_load(), false);
 		for (i = 0; i < DSS_CHOICES; i++) P[9].lab[i] = T(dsslow_label_id((dss_choice)i));
 		g_sm_choice[SM_DSSLOW] = ch_make(&P[9], DSS_CHOICES, dsslow_load(), false);
+		for (i = 0; i < PACING_CHOICES; i++) P[10].lab[i] = T(pacing_label_id((pacing_choice)i));
+		g_sm_choice[SM_PACE] = ch_make(&P[10], PACING_CHOICES, pacing_load(sc), false);
 		for (i = 0; i < SORT_COUNT; i++) P[4].lab[i] = sort_label(i);
 		g_sm_choice[SM_SORT] = ch_make(&P[4], SORT_COUNT, v->sort, false);
 		{
@@ -450,6 +453,7 @@ int menu_build(app *a, screen_id screen, int sys,
 
 			u.dslang = dslang_row_shown(a, sys) ? dslang_label(dslang_load(), dslbuf, sizeof dslbuf) : NULL;
 			u.dsslow = dslang_row_shown(a, sys) ? T(dsslow_label_id(dsslow_load())) : NULL;
+			u.pace = pacing_row_shown(a, sys) ? T(pacing_label_id(pacing_load(sc))) : NULL;
 		}
 		/* By what it HAS, not by its name or its position: a shelf with no
 		 * core and no folder is the built one, and a check can hand that
@@ -1177,6 +1181,7 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 			sys_ui dev = { .no_wifi = !plat_has_wifi(), .online = net_internet(NULL),
 			               .dslang = dslang_row_shown(a, a->sys_cursor) ? "" : NULL,
 			               .dsslow = dslang_row_shown(a, a->sys_cursor) ? "" : NULL,
+			               .pace = pacing_row_shown(a, a->sys_cursor) ? "" : NULL,
 			               .no_strength = !shader_has_strength(a->view[a->sys_cursor].shader) };
 			sm_row ids[SM_ROWS];
 			int n = sys_menu_system_rows(&dev, ids);
@@ -1203,6 +1208,16 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 		 * started draws its late frames so (src/dsslow.h) */
 		if ((d || key == IN_ACCEPT) && sel == SM_DSSLOW) {
 			db_set_str(db_dev(), DSSLOW_SETTING, dsslow_id(dsslow_step(dsslow_load(), d ? d : 1)));
+			return MENU_STAY;
+		}
+		/* Timing, Smooth or Exact, this system's own, the same way: its
+		 * next game is paced so (src/pacing.h) */
+		if ((d || key == IN_ACCEPT) && sel == SM_PACE) {
+			const system_cfg *sc = &a->sys.systems[a->sys_cursor];
+			char pkey[32];
+
+			pacing_key(sc->tag, pkey, sizeof pkey);
+			db_set_str(db_dev(), pkey, pacing_id(pacing_step(pacing_load(sc), d ? d : 1)));
 			return MENU_STAY;
 		}
 		/* The shader, stepped round on left, right and A and kept at once,

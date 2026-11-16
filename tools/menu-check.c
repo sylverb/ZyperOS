@@ -851,7 +851,7 @@ static void system_menu(void)
 	n = sys_menu_build(&u, rows, &b, &heading);
 
 	printf("system menu:\n");
-	ck(n == SM_ROWS - 2, "every row is filled, but Game Language and When Slow, which only the Nintendo DS has");
+	ck(n == SM_ROWS - 3, "every row is filled, but Game Language and When Slow, which only the Nintendo DS has, and Timing");
 	ck(!strcmp(heading, "Game Boy"), "heading is the system, not ZyperOS");
 	ck(!strcmp(val(&rows[sm_at(&u, SM_GAMES)]), "412"), "the count is the real one");
 	ck(!strcmp(val(&rows[sm_at(&u, SM_CORE)]), "gambatte"), "the core is the real one");
@@ -1106,14 +1106,15 @@ static void dslang_row(void)
 	printf("system menu, Game Language:\n");
 	ck(!has_label(plain, np, "Game Language"), "no Game Language row unless the shelf says so");
 	ck(!has_label(plain, np, "When Slow"), "nor When Slow");
-	ck(np == SM_ROWS - 2, "and every other row is there");
+	ck(!has_label(plain, np, "Timing"), "nor Timing");
+	ck(np == SM_ROWS - 3, "and every other row is there");
 	ck(!plain[sm_at(&u, SM_CORE)].live && !strcmp(val(&plain[sm_at(&u, SM_CORE)]), "dsperate"),
 	   "one core: the DS's Core row names DSperate and is no row to press");
 
 	u.dslang = "Auto (English)";
 	n = sys_menu_build(&u, rows, &b, &heading);
 	at = sm_at(&u, SM_DSLANG);
-	ck(n == np + 1 && n == SM_ROWS - 1, "one row more");
+	ck(n == np + 1 && n == SM_ROWS - 2, "one row more");
 	ck(at == sm_at(&u, SM_CORE) + 1, "right under Core");
 	ck(!strcmp(rows[at].label, "Game Language"), "named Game Language");
 	ck(!strcmp(val(&rows[at]), "Auto (English)"), "saying what it is set to");
@@ -1140,7 +1141,7 @@ static void dslang_row(void)
 	{
 		int ws = sm_at(&u, SM_DSSLOW);
 
-		ck(n == SM_ROWS, "one row more again, every row");
+		ck(n == SM_ROWS - 1, "one row more again, every row but Timing");
 		ck(ws == at + 1, "right under Game Language");
 		ck(!strcmp(rows[ws].label, "When Slow"), "named When Slow");
 		ck(!strcmp(val(&rows[ws]), "Keep Speed"), "saying what it is set to");
@@ -1153,6 +1154,41 @@ static void dslang_row(void)
 		sys_menu_build(&u, rows, &b, &heading);
 		ck(!strcmp(val(&rows[ws]), "Steady 30"), "and Steady 30");
 	}
+
+	/* Timing (src/pacing.h): under When Slow on the DS's shelf, under Core
+	 * on a shelf with neither DS row (the GBA's) */
+	printf("system menu, Timing:\n");
+	u.pace = "Smooth";
+	n = sys_menu_build(&u, rows, &b, &heading);
+	{
+		int ws = sm_at(&u, SM_DSSLOW), tr = sm_at(&u, SM_PACE);
+
+		ck(n == SM_ROWS, "with Timing too, every row");
+		ck(tr == ws + 1, "right under When Slow");
+		ck(!strcmp(rows[tr].label, "Timing"), "named Timing");
+		ck(!strcmp(val(&rows[tr]), "Smooth"), "saying what it is set to");
+		ck(rows[tr].live, "a row to press");
+		ck(menu_sound_at(b.sound, n, tr) == MENU_SND_RING, "that steps round, on A too");
+		ck(sys_menu_system_rows(&u, sm) == n && sm[tr] == SM_PACE, "the build and the list agree");
+		ck(!strcmp(rows[ws].label, "When Slow") && !strcmp(rows[tr + 1].label, plain[at].label),
+		   "and the rows round it are as they were");
+		u.pace = "Exact";
+		sys_menu_build(&u, rows, &b, &heading);
+		ck(!strcmp(val(&rows[tr]), "Exact"), "and Exact");
+	}
+	u.dslang = NULL;
+	u.dsslow = NULL;
+	u.sys_name = "Game Boy Advance"; u.sys_core = "mgba";
+	u.pace = "Smooth";
+	n = sys_menu_build(&u, rows, &b, &heading);
+	{
+		int tr = sm_at(&u, SM_PACE);
+
+		ck(n == SM_ROWS - 2, "on a shelf without the DS's rows, one row more than its own");
+		ck(tr == sm_at(&u, SM_CORE) + 1 && !strcmp(rows[tr].label, "Timing"), "Timing right under Core");
+		ck(!has_label(rows, n, "Game Language") && !has_label(rows, n, "When Slow"), "and no DS row with it");
+	}
+	u.pace = NULL;
 	u.dsslow = NULL;
 }
 
@@ -1304,8 +1340,8 @@ static void radio_less(void)
 	for (i = 0, ok = true; i < k; i++) if (pm[i] != (pm_row)i) ok = false;
 	ck(k == PM_ROWS && ok, "every ZyperOS row, in the enum's order");
 	k = sys_menu_system_rows(&u, sm);
-	for (i = 0, ok = true; i < k; i++) if (sm[i] != (sm_row)(i + (i >= SM_DSLANG ? 2 : 0))) ok = false;
-	ck(k == SM_ROWS - 2 && ok, "every system row but Game Language and When Slow, in the enum's order");
+	for (i = 0, ok = true; i < k; i++) if (sm[i] != (sm_row)(i + (i >= SM_DSLANG ? 3 : 0))) ok = false;
+	ck(k == SM_ROWS - 3 && ok, "every system row but Game Language, When Slow and Timing, in the enum's order");
 
 	u.no_wifi = true;
 	u.no_bt = true;
@@ -1402,7 +1438,7 @@ static void radio_less(void)
 	n = sys_menu_build(&u, rows, &b, &heading);
 	k = sys_menu_system_rows(&u, sm);
 	printf("system menu, no radio at all:\n");
-	ck(n == k && n == SM_ROWS - 3, "Box Art goes and nothing else");
+	ck(n == k && n == SM_ROWS - 4, "Box Art goes and nothing else");
 	ck(!has_label(rows, n, "Box Art"), "no Box Art");
 	ck(sm[n - 1] == SM_RESCAN && !strcmp(rows[n - 1].label, "Rescan Folder"),
 	   "Rescan Folder moves up into its place");
