@@ -14,6 +14,7 @@
 #include "sys_menu.h"   /* SM_NOTE_W: a choice's line, as the Display row's */
 #include "tween.h"
 #include "ui.h"
+#include "ds/scale.h"
 #include "zyperdraw.h"
 #include "zypermark.h"
 
@@ -67,12 +68,20 @@ static void menu_pass_end(void *ctx, const SDL_Rect *panel, mm_pose pose) { pane
 /* Between On/Off and Y's glyph after it (MENU_KEY_Y_ON, MENU_KEY_Y_OFF) */
 #define MENU_KEY_GAP 16
 
+/* A row whose value is a scale's (src/ds/scale.h): a note's, a body's and a
+ * rule's value is a mark, not text */
+static bool row_is_scale(menu_row r)
+{
+	return !ROW_IS_NOTE(r) && r.value != MENU_HR_MARK && ds_scale_is(r.value);
+}
+
 /* What a row's value takes at the right of the rows, for the measures:
  * its text, a tick (MENU_TICK) or X's glyph (MENU_KEY_X) */
 int menu_value_w(TTF_Font *fm, const char *v)
 {
 	if (v == MENU_TICK) return ui_cap_height(fm) * 6 / 5;
 	if (v == MENU_KEY_X) return ui_button_width("X", MENU_KEY_SIZE);
+	if (ds_scale_is(v)) return DS_SCALE_MIN_W + ds_scale_num_w();
 	if (v == MENU_KEY_Y_ON || v == MENU_KEY_Y_OFF)
 		return ui_text_width(fm, T(v == MENU_KEY_Y_ON ? S_MENU_ON_TITLE : S_MENU_OFF_TITLE)) + MENU_KEY_GAP
 		       + ui_button_width("Y", MENU_KEY_SIZE);
@@ -1066,6 +1075,15 @@ void menu_panel(app *a, const char *heading, const menu_row *rows,
 	content_w -= side_w;
 	cap_w -= side_w;
 	row_cx = side_w ? content_x + content_w / 2 : cx;
+	/* The scales' column (src/ds/scale.h): a page's bars start together,
+	 * past the widest of their rows' labels, and are never a sliver */
+	int scale_x = 0;
+
+	for (i = 0; i < n; i++)
+		if (row_is_scale(rows[i]) && content_x + ui_text_width(fm, rows[i].label) + DS_GRID * 4 > scale_x)
+			scale_x = content_x + ui_text_width(fm, rows[i].label) + DS_GRID * 4;
+	if (scale_x > content_x + content_w - DS_SCALE_MIN_W - ds_scale_num_w())
+		scale_x = content_x + content_w - DS_SCALE_MIN_W - ds_scale_num_w();
 	/* `v` walks the slots on screen and `i` is the row each holds: one and
 	 * the same unless the list goes round */
 	int fk = -1;   /* the footer's row being drawn, once the list's are */
@@ -1266,7 +1284,17 @@ void menu_panel(app *a, const char *heading, const menu_row *rows,
 			/* X's glyph where the value goes, on the fill as a selected
 			 * key's (UI_BUTTON_ON_ACCENT) once the plate is mostly there,
 			 * and the label given what is left */
-			if (rows[i].value == MENU_KEY_Y_ON || rows[i].value == MENU_KEY_Y_OFF) {
+			if (row_is_scale(rows[i])) {
+				/* A scale: its label, then its bar in the scales' column */
+				ds_scale_kind sk;
+				int sv, sr;
+
+				ui_fit_text(fm, rows[i].label, lbl, sizeof lbl, scale_x - content_x - DS_GRID * 4);
+				ui_text(a->r, fm, lbl, content_x, ty, -1, lc);
+				if (ds_scale_parse(rows[i].value, &sk, &sv, &sr))
+					ds_scale_draw(a->r, &(SDL_Rect){ scale_x, y, content_x + content_w - scale_x, ROW_H(rows[i]) },
+					              sk, sv, sr, sel_w >= 0.5f);
+			} else if (rows[i].value == MENU_KEY_Y_ON || rows[i].value == MENU_KEY_Y_OFF) {
 				/* Y's glyph at the right, as X's is, and the state before it */
 				int bw = ui_button_width("Y", MENU_KEY_SIZE);
 

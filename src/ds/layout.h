@@ -38,6 +38,11 @@
 #define DS_CTL_DEVICE_X         99
 #define DS_CTL_DEVICE_Y         458
 #define DS_HUD_BAND             152
+#define DS_SCALE_TRACK          16
+#define DS_SCALE_KNOB           32
+#define DS_SCALE_MARK           8
+#define DS_SCALE_ZERO           12
+#define DS_SCALE_MIN_W          192
 #define DS_TILE_W               272
 #define DS_TILE_W_WIDE          408
 #define DS_TILE_H               232

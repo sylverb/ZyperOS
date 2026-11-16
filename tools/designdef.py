@@ -255,6 +255,12 @@ LAYOUT = [
     ("ctl-device-x",    99,  "the handheld's middle from the content's left: half the Pixel 2's drawing at its tab pose, so its left edge is on the heading rule's left end"),
     ("ctl-device-y",    458, "the handheld's middle on the screen: one place on every tab and page that has it, as their panel is as tall as the screen allows (the mock's, 2026-11-13)"),
     ("hud-band",        152, "On-Screen Stats' band: the screen's strip where the line goes, the line at Far (48) under the level bar (94 + 49) and at the foot; on the grid, 95 whole pixels on the Pixel 2 (150 until 1.0.6)"),
+    # a row's scale, the graded bar (src/ds/scale.h)
+    ("scale-track",     16,  "the bar's track, its colors the scale's"),
+    ("scale-knob",      32,  "the value's knob, across"),
+    ("scale-mark",      8,   "a mark under the track at an end or a half"),
+    ("scale-zero",      12,  "zero's mark, through the track and this much past it"),
+    ("scale-min-w",     192, "the least a bar is, so the words beside it stay at most about 313 units"),
     # a panel of tiles, or a list (src/ds/tiles.h)
     ("tile-w",          272, "a tile, three in a row"),
     ("tile-w-wide",     408, "a tile, two in a row or the grid's"),
