@@ -75,19 +75,22 @@ tar -xzf "$WORK/libretro-common-$COMMON_PIN.tar.gz" -C "$DEPS"
 mv "$DEPS/libretro-deps-$DEPS_PIN" "$DEPS/libretro-deps"
 mv "$DEPS/libretro-common-$COMMON_PIN" "$DEPS/libretro-common"
 
-# The source goes in read-only and is built in a copy inside the container,
-# and only the core and its data zip come out, to $WORK/out. Built where it
-# was mounted, configure_engines.sh's sed -i.bak failed on Docker Desktop's
-# shared folders: sed makes its temporary file beside the target, and there
-# that open is refused ("couldn't open temporary file ./sedXXXXXX: Permission
-# denied", 2026-11-16) although plain writes work.
+# The source is mounted read-only at /src-ro and copied to /src inside the
+# container; only the core and its data zip come out, to $WORK/out.
+# Built where it was mounted, configure_engines.sh's sed -i.bak failed on
+# Docker Desktop's shared folders: sed makes its temporary file beside the
+# target, and there that open is refused ("couldn't open temporary file
+# ./sedXXXXXX: Permission denied", 2026-11-16) although plain writes work.
+# The copy must live at /src, not /build: the core embeds ~2,400 source paths
+# (…/backends/platform/libretro/../../../common/array.h and the like), and
+# the pin's sha256 was produced with those under /src.
 rm -rf "$WORK/out"
 mkdir -p "$WORK/out"
-docker run --rm --platform linux/arm64 -v "$SRC:/src:ro" -v "$WORK/out:/out" \
+docker run --rm --platform linux/arm64 -v "$SRC:/src-ro:ro" -v "$WORK/out:/out" \
 	zyperos-scummvm bash -c '
 set -e
-cp -a /src /build
-cd /build/backends/platform/libretro
+cp -a /src-ro /src
+cd /src/backends/platform/libretro
 ARGS="platform=unix FORCE_OPENGLNONE=1 DEPS_SUBMODULES="
 make -j6 $ARGS > build.log 2>&1 || { tail -40 build.log >&2; exit 1; }
 make $ARGS datafiles > data.log 2>&1 || { tail -20 data.log >&2; exit 1; }
