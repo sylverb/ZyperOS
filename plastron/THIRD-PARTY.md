@@ -96,8 +96,11 @@ Diatom's.
   (`buildroot/board/brick/u-boot/patches`).
 - **Trusted Firmware-A** at 5103554 (BSD-3-Clause),
   https://www.trustedfirmware.org: its BL31.
-- **Two closed parts**, in the image and nowhere else, not distributed on
-  their own, and not covered by plastron's license:
+- **Two closed parts**, not covered by plastron's license, and neither in
+  the image nor in its release: the image only links to them in the
+  card's boot partition (`closed/`), where ZyperOS Installer puts each
+  player's own copy, fetched from where they are published and checked
+  against the sums plastron's build checks:
   - **Imagination Technologies'** PowerVR DDK 1.11@5516664 userspace
     libraries and firmware for the GE8300 GPU (OpenGL ES, EGL), under
     Imagination's terms, as Allwinner ships them for the A133.
