@@ -7,7 +7,9 @@
  * critical trip, 115 C; the chip's own tsadc cuts it at 120 C, outside Linux.
  * ZyperOS said none of it: a game simply got slower. Now, at 85 C, the
  * second trip, where the slow-down is one a player sees, Zyper says so on
- * the home and a notice says so over a game.
+ * the home and a notice says so over a game. The Brick's device tree has
+ * its passive trips sooner, at 58 and 63 C, and its critical trip at 90 C,
+ * so there the same 85 C says it a little before the power-off.
  *
  * Read every HEAT_POLL_MS from the thermal zones (plat_chip_temp), the hotter
  * zone counting. Two readings in a row at or over HEAT_WARN_MC before it is

@@ -3,15 +3,18 @@
  * control it has printed with something, no control twice, and today's
  * answers for the GKD Pixel 2, the TrimUI Brick and the host's `desktop`,
  * which the launcher's pixels depend on (docs/superpowers/specs/
- * 2026-11-14-device-modular-design.md, section 1). Then the choice of a
- * profile by its id, as --device makes it on the host. Built with all three
- * profiles, as the host build is. No SDL. */
+ * 2026-11-14-device-modular-design.md, section 1). The chip's temperature
+ * from the zones a profile names, on a sysfs made in a scratch folder. Then
+ * the choice of a profile by its id, as --device makes it on the host. Built
+ * with all three profiles, as the host build is. No SDL. */
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 
 #include "../src/device/profile.h"
+#include "../src/thermal.h"
 #include "device/build.h"
 
 static int fails, checks;
@@ -236,6 +239,100 @@ static void system_has(void)
 	rmdir(dir);
 }
 
+/* Whether `z` is the two zone types `a` and `b`, in that order, and no more */
+static bool zones_are(const char *const *z, const char *a, const char *b)
+{
+	return z && z[0] && !strcmp(z[0], a) && z[1] && !strcmp(z[1], b) && !z[2];
+}
+
+/* One thermal zone under `root`, as the kernel shows it: its folder, its
+ * type and, unless NULL, its temperature in mC. Each path made is kept in
+ * `made`, so the scratch folder goes again in the reverse order. */
+static char made[48][128];
+static int nmade;
+
+static void made_dir(const char *path)
+{
+	if (nmade < (int)(sizeof made / sizeof made[0]) && mkdir(path, 0700) == 0)
+		snprintf(made[nmade++], sizeof made[0], "%s", path);
+}
+
+static void made_file(const char *path, const char *text)
+{
+	FILE *f = fopen(path, "w");
+
+	if (!f) return;
+	fputs(text, f);
+	fclose(f);
+	if (nmade < (int)(sizeof made / sizeof made[0]))
+		snprintf(made[nmade++], sizeof made[0], "%s", path);
+}
+
+static void zone(const char *root, int i, const char *type, const char *temp)
+{
+	char path[128];
+
+	snprintf(path, sizeof path, "%s/sys", root);
+	made_dir(path);
+	snprintf(path, sizeof path, "%s/sys/class", root);
+	made_dir(path);
+	snprintf(path, sizeof path, "%s/sys/class/thermal", root);
+	made_dir(path);
+	snprintf(path, sizeof path, "%s/sys/class/thermal/thermal_zone%d", root, i);
+	made_dir(path);
+	snprintf(path, sizeof path, "%s/sys/class/thermal/thermal_zone%d/type", root, i);
+	made_file(path, type);
+	if (!temp) return;
+	snprintf(path, sizeof path, "%s/sys/class/thermal/thermal_zone%d/temp", root, i);
+	made_file(path, temp);
+}
+
+/* The chip's temperature (src/thermal.h): the zones a profile names, found by
+ * their type wherever the kernel numbered them, the hottest of them in whole
+ * degrees; a zone of another type, or with no reading, left out; -1 for none */
+static void thermal(void)
+{
+	static const char *const battery[] = { "battery", NULL };
+	static const char *const unknown[] = { "tsadc", "cpu-thermal", NULL };
+	static const char *const none[] = { NULL };
+	const char *const *px = device_profile_pixel2.thermal_zones;
+	const char *const *br = device_profile_brick.thermal_zones;
+	char root[] = "/tmp/zyperos-thermal-XXXXXX", other[] = "/tmp/zyperos-thermal-XXXXXX";
+
+	ck(zones_are(px, "soc-thermal", "gpu-thermal"),
+	   "pixel2: its chip's zones, px30.dtsi's soc-thermal and gpu-thermal");
+	ck(zones_are(br, "cpu_thermal_zone", "gpu_thermal_zone"),
+	   "brick: its chip's zones, its device tree's cpu_thermal_zone and gpu_thermal_zone");
+	ck(!device_profile_desktop.thermal_zones, "desktop: no zones, the computer's chip is not watched");
+	if (!mkdtemp(root) || !mkdtemp(other)) { ck(0, "two scratch folders"); return; }
+
+	/* Both devices' zones on one sysfs, numbered with a gap, a hotter zone
+	 * of a type neither names among them */
+	zone(root, 0, "soc-thermal\n", "61500\n");
+	zone(root, 1, "gpu-thermal\n", "72900\n");
+	zone(root, 2, "battery\n", "99000\n");
+	zone(root, 4, "cpu_thermal_zone\n", "48000\n");
+	zone(root, 5, "gpu_thermal_zone\n", "51999\n");
+	zone(root, 6, "ddr_thermal_zone\n", "90000\n");
+	ck(thermal_max_c(px, root) == 72, "pixel2: the hotter of its two zones, in whole degrees");
+	ck(thermal_max_c(br, root) == 51, "brick: the hotter of its two, past a gap in the numbers, not the DDR's");
+	ck(thermal_max_c(battery, root) == 99, "a zone by its type alone");
+	ck(thermal_max_c(unknown, root) == -1, "types no zone has: -1");
+	ck(thermal_max_c(none, root) == -1 && thermal_max_c(NULL, root) == -1, "no types: -1");
+
+	/* A zone with no temperature, and one under 0 C, are no reading */
+	zone(other, 0, "soc-thermal\n", NULL);
+	zone(other, 1, "gpu-thermal\n", "40000\n");
+	zone(other, 2, "cpu_thermal_zone\n", "-5000\n");
+	ck(thermal_max_c(px, other) == 40, "pixel2: a zone with no reading left out");
+	ck(thermal_max_c(br, other) == -1, "brick: one zone under 0 C and the other not there: -1");
+
+	while (nmade > 0) remove(made[--nmade]);
+	rmdir(other);
+	rmdir(root);
+	ck(thermal_max_c(px, root) == -1, "no thermal zones at all: -1");
+}
+
 /* Each device's build and card (src/device/build.h): its own id, the
  * shared aarch64 baseline, its Diatom port, its partitions and helpers */
 static void builds(void)
@@ -311,6 +408,7 @@ int main(void)
 	tutorial();
 	places();
 	system_has();
+	thermal();
 	builds();
 	menu_look();
 	choosing();

@@ -26,6 +26,7 @@
 #include "platform.h"
 #include "portmenu.h"
 #include "spawn.h"
+#include "thermal.h"
 
 #include <SDL_syswm.h>
 
@@ -1759,44 +1760,24 @@ void plat_ram_idle(bool idle)
 
 /* ---- the chip's temperature ---- */
 
-/* The RK3326's two sensors as the kernel names their zones (px30.dtsi):
- * soc-thermal, the CPU's, and gpu-thermal. Both slow their part at 70 and
+/* The RK3326's two sensors, the zones its profile names (px30.dtsi's
+ * soc-thermal, the CPU's, and gpu-thermal). Both slow their part at 70 and
  * 85 C and power the handheld off at 115 C (critical, an orderly power-off:
- * see src/heat.h). Found once by type, so a kernel that numbers its zones
- * differently is still read right; a zone not there is left out. */
+ * see src/heat.h). Found by type, so a kernel that numbers its zones
+ * differently is still read right; a zone not there is left out
+ * (src/thermal.h). */
 #define FAKE_TEMP "/tmp/zyperos_fake_temp"
 
 bool plat_chip_temp(int *mc)
 {
-	static char zone[2][48];
-	static int  nzones = -1;
-	int v = read_int(FAKE_TEMP), best = -1, i;
+	int v = read_int(FAKE_TEMP);
 
 	if (v >= 0) {
 		*mc = v < 1000 ? v * 1000 : v;
 		return true;
 	}
-	if (nzones < 0) {
-		nzones = 0;
-		for (i = 0; i < 8 && nzones < 2; i++) {
-			char path[64], type[32] = "";
-			int fd;
-			ssize_t n;
-
-			snprintf(path, sizeof path, "/sys/class/thermal/thermal_zone%d/type", i);
-			if ((fd = open(path, O_RDONLY | O_CLOEXEC)) < 0) continue;
-			n = read(fd, type, sizeof type - 1);
-			close(fd);
-			type[n > 0 ? n : 0] = '\0';
-			if (strncmp(type, "soc-thermal", 11) && strncmp(type, "gpu-thermal", 11)) continue;
-			snprintf(zone[nzones++], sizeof zone[0],
-			         "/sys/class/thermal/thermal_zone%d/temp", i);
-		}
-	}
-	for (i = 0; i < nzones; i++)
-		if ((v = read_int(zone[i])) > best) best = v;
-	if (best < 0) return false;
-	*mc = best;
+	if ((v = thermal_max_c(plat_profile()->thermal_zones, NULL)) < 0) return false;
+	*mc = v * 1000;
 	return true;
 }
 

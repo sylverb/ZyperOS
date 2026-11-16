@@ -12,6 +12,7 @@
 #include "device.h"
 #include "fileio.h"
 #include "platform.h"
+#include "thermal.h"
 
 #include <dirent.h>
 #include <fcntl.h>
@@ -491,120 +492,19 @@ struct pl_ctl_elem_value {
 #define PL_CTL_ELEM_READ   _IOWR('U', 0x12, struct pl_ctl_elem_value)
 #define PL_CTL_ELEM_WRITE  _IOWR('U', 0x13, struct pl_ctl_elem_value)
 
-#define GAIN_CTL     "digital volume"
-#define GAIN_RAW_MAX 63          /* 0 is loudest, 63 quietest */
-
-/* Only the top of that register is worth spending on the volume keys. The
- * control is 1.16 dB per step, so using all 63 puts 73 dB across 21 positions -
- * 3.65 dB a press, which made 60% of the scale -29 dB and the bottom two thirds
- * inaudible. That is not a curve shape problem: dB is already the perceptually
- * even axis, the same reason the brightness ladder below is geometric. It is a
- * RANGE problem, and 73 dB is simply more than a handheld speaker has.
- *
- * Measured on the device 2026-08-28 with a 440 Hz tone at -1.4 dBFS captured on
- * its own microphone. Coarse sweep, room baseline ~40 rms:
- *
- *   raw 0   10034 rms   201x room      raw 31    114 rms   2.3x room
- *   raw 16   1485 rms    30x room      raw 47     34 rms   inaudible
- *
- * The floor was first set at 34 by reading that table, and Eric reported the
- * bottom of the scale as dead. A finer sweep says why - room baseline 33:
- *
- *   raw 18  1091 rms  32.7x      raw 30    85 rms   2.5x
- *   raw 22   404 rms  12.1x      raw 34    55 rms   1.6x
- *   raw 26   173 rms   5.2x
- *
- * 34 is 1.6x room noise, so the last few positions were all sitting in the
- * noise and were indistinguishable from each other. 26 is 5.2x: quiet, and
- * unmistakably present. That is the floor, ~1.5 dB a press across the 21
- * positions.
- *
- * Those rms numbers were captured with HP_CTL already at 0 - the sweep script
- * sets it before measuring - so they describe the chain as it behaves now, and
- * the 18 dB that mixer_defaults() restored was never inside them. A note here
- * briefly claimed the opposite. That was inferred rather than read off the
- * script which produced the table, and the script was on disk the whole time.
- * The 18 dB gap was between the SWEEP and gameplay, not inside the sweep, which
- * is exactly why the table looked sane while the device sounded quiet.
- *
- * What is weak here is the instrument, not the conditions. Those readings came
- * from a microphone across the room, where raw 26 is 5.2x the room and raw 34
- * is indistinguishable from it. A handheld at arm's length is a different
- * question: what reads as silence over there is plainly audible in your hands.
- * That is why the bottom of the scale was still reported as too loud once the
- * chain was fixed, and why the floor below is now set by ear rather than by
- * that table.
- *
- * That session had ONE WORKING SPEAKER, which nobody knew at the time. The
- * quiet channel turned out on 2026-09-02 to be a loose connection on the PCB;
- * it was resoldered and both now play evenly. So 39 was originally judged
- * against roughly half this device's output.
- *
- * It stood anyway. Re-heard on the repaired hardware the same day - the quiet
- * end, the balance and the general sound - and called right, so the constant
- * now has two independent confirmations rather than one lucky derivation. Do
- * not weaken it back to a guess on the strength of the history above.
- *
- * 39, chosen on the device on 2026-08-31 with a game playing, stepping the
- * register down until Eric called it: raw 37 is barely audible and is where he
- * wanted position 1. 39 is the constant that puts position 1 on 37 in this
- * ladder AND in Diatom's, which round differently; 26 put it on 25. Position 20
- * still lands on raw 0, so nothing about maximum changes.
- *
- * It costs resolution. Twenty positions across 39 is about 2.3 dB a press
- * rather than 1.5, bought with a range of 45 dB rather than 30. That is the
- * trade worth making: 30 dB down is not quiet in a room that is quiet, which
- * a microphone across the room could not tell us and an ear could. */
-#define GAIN_RAW_USABLE 39
-
-/* Headphones need a different window, not the same one moved.
- *
- * Set by ear on 2026-09-02 with a game playing and a plug in the jack, the same
- * method that produced 39. The ceiling first: above raw 8 it is uncomfortable,
- * so 8 is where position 20 belongs. Then the floor, stepping down - 37, 45,
- * 49, 53 and 57 were each still too loud to be a minimum, and 61 was called
- * right.
- *
- * So the jack spends 53 register steps where the speaker spends 39, and an
- * offset cannot express that. An offset from the measured ceiling would have
- * put position 1 on 47, which was rejected on the way past. That is physically
- * unsurprising: headphones are far more efficient than this speaker, so the
- * same twenty presses have to cover more ground.
- *
- * The cost is resolution. 53 steps across 20 positions is about 3.1 dB a press
- * against the speaker's 2.3. Giving the jack its own number of positions would
- * fix that and is not worth it - 21 positions are shared verbatim with Diatom
- * and launch.sh so a level crossing the socket needs no conversion, and that
- * property is worth more than 0.8 dB of granularity.
- *
- * Both pairs are tied to one game's mix, exactly as 39 was. A quieter game sits
- * under this floor. Consistent with what was already here, not worse. */
-#define SPK_RAW_TOP     0
-#define SPK_RAW_BOTTOM  GAIN_RAW_USABLE
-#define HP_RAW_TOP      8
-#define HP_RAW_BOTTOM   61
-
-#define SPEAKER_CTL  "HpSpeaker Switch"   /* the speaker's only true mute */
-#define HP_CTL       "Headphone Volume"   /* 0-7, 6 dB a step, INVERTED */
-#define HP_CTL_QUIET 7                    /* its quiet end, for the cut */
-#define SWAP_CTL     "DAC Swap"           /* 1 crosses left and right */
-#define HPSW_CTL     "Headphone Switch"   /* the headphone stage, which the speaker runs off */
-#define VOL_MAX      PLAT_VOL_MAX         /* 21 positions, 0..20 - Diatom's scale */
+/* The codec's controls, the speakers' and the jack's windows and the
+ * display engine's rungs - and why each is what it is: src/device/
+ * brick_levels.h, as the Pixel 2's are in pixel2_levels.h. */
+#include "brick_levels.h"
+_Static_assert(VOL_MAX == PLAT_VOL_MAX, "brick_levels.h vs PLAT_VOL_MAX");
 
 #define DISP_LCD_SET_BRIGHTNESS 0x102
 #define DISP_LCD_GET_BRIGHTNESS 0x103
 
-/* Perceived brightness is proportional, not linear, so the rungs are
- * geometric. The first is the panel's measured floor: 0 and 1 are black on
- * this display and the driver clamps neither. Identical to Diatom's ladder,
- * which is what makes the level handoff exact. */
-static const unsigned char bright_ladder[] = {
-	2, 4, 8, 16, 32, 48, 72, 96, 128, 160, 192, 255
-};
-#define BRIGHT_MAX ((int)(sizeof bright_ladder / sizeof bright_ladder[0]) - 1)
-/* The table is the definition; the header only publishes its extent. If they
- * ever disagree this stops the build rather than shipping a rescale that is
- * quietly off by a rung, which is the bug that put the maximum in a header. */
+/* The table (brick_levels.h) is the definition; platform.h only publishes its
+ * extent. If they ever disagree this stops the build rather than shipping a
+ * rescale that is quietly off by a rung, which is the bug that put the
+ * maximum in a header. */
 _Static_assert(BRIGHT_MAX == PLAT_BRIGHT_MAX, "bright_ladder vs PLAT_BRIGHT_MAX");
 
 static int mixer_fd = -1, disp_fd = -1;
@@ -1119,7 +1019,10 @@ void plat_brightness_set(int level)
 }
 
 /* Both radios are on the Brick's board: the xradio chip carries Wi-Fi and
- * Bluetooth. */
+ * Bluetooth. Not asked of wlan0, as the Pixel 2's adapter is: Wi-Fi Off
+ * takes the chip's driver out (plastron's init.d/wpa_supplicant stop), and
+ * wlan0 goes with it, so here no wlan0 is only the radio off - and MENU >
+ * Wi-Fi, where the player turns it on, shows only where there is Wi-Fi. */
 bool plat_has_wifi(void)      { return true; }
 /* Bluetooth, CPU shaders (Off and Sharp-Shimmerless, port/brick.c), two
  * speakers, F1 and F2 for brightness, no battery lights and no Player 2:
@@ -1138,24 +1041,60 @@ void plat_ram_idle(bool idle) { (void)idle; }
 
 /* ---- the chip's temperature ---- */
 
-/* The Brick's A133 has thermal zones too, but where its kernel slows it is
- * not measured here, so "Getting hot" (src/heat.h) says nothing on it: only
- * the test file speaks, as on the Pixel 2 (src/device/pixel2.c), so a host
- * shot or a check can ask for the warning. */
+/* The A133's CPU and GPU sensors, the zones its profile names. Its device
+ * tree's passive trips, where the kernel slows the CPU, are at 58 and 63 C,
+ * and its critical trip, a power-off, at 90 C, so "Getting hot" (src/heat.h)
+ * at 85 C comes a little before that. A number in the test file comes
+ * first, as on the Pixel 2 (src/device/pixel2.c), so a host shot or a check
+ * can ask for the warning; the host has no zones. */
 bool plat_chip_temp(int *mc)
 {
 	FILE *f = fopen("/tmp/zyperos_fake_temp", "r");
 	int v = -1;
 
-	if (!f) return false;
-	if (fscanf(f, "%d", &v) != 1) v = -1;
-	fclose(f);
-	if (v < 0) return false;
-	*mc = v < 1000 ? v * 1000 : v;
+	if (f) {
+		if (fscanf(f, "%d", &v) != 1) v = -1;
+		fclose(f);
+		if (v >= 0) {
+			*mc = v < 1000 ? v * 1000 : v;
+			return true;
+		}
+	}
+#ifdef __linux__
+	if ((v = thermal_max_c(plat_profile()->thermal_zones, NULL)) < 0) return false;
+	*mc = v * 1000;
 	return true;
+#else
+	return false;
+#endif
 }
 
 /* ---- charging ---- */
+
+/* The AXP2202's power supplies, as plastron's kernel names them (its patch
+ * 0016): the battery's gauge and the USB input */
+#define AXP_BATTERY    "/sys/class/power_supply/axp2202-battery"
+#define AXP_USB_ONLINE "/sys/class/power_supply/axp2202-usb/online"
+
+#ifdef __linux__
+/* A sysfs number, or -1 for no file or nothing in it */
+static int read_int(const char *path)
+{
+	char buf[16];
+
+	return file_head(path, buf, sizeof buf) > 0 ? atoi(buf) : -1;
+}
+
+/* The averaged reading where the driver gives one, as rk817's does, else the
+ * one of the moment: which of the two the AXP2202's driver has is not
+ * measured yet */
+static int read_avg_or_now(const char *avg, const char *now)
+{
+	int v = read_int(avg);
+
+	return v != -1 ? v : read_int(now);
+}
+#endif
 
 /* No charge limit on the Brick's charger, but the fake gauge has one, for a
  * host shot of MENU > Charge Limit */
@@ -1175,37 +1114,60 @@ void plat_charge_limit_set(int pct)
 	}
 }
 
-/* No charging screen on the Brick (src/charging.h): its charger and how it
- * starts on one are the Pixel 2's question only. The test file speaks, as on
- * the Pixel 2, so a host shot or a check can draw the screen. */
+/* The gauge for the charging screen and the corner's time left
+ * (src/charging.h), read as the Pixel 2 reads rk817's: the charge, the
+ * battery's current and voltage, its charge in mAh where the driver says,
+ * the cable, and Full. A charger plugged in leaves the Brick off (its
+ * U-Boot's patch 0009), so the screen comes only with POWER or Auto Off on
+ * the cable (charge_instead, src/powerscreens.c). The test file comes
+ * first, as on the Pixel 2, so a host shot or a check can draw the screen;
+ * the host has no gauge. */
 bool plat_charge_read(ch_reading *r)
 {
 	FILE *f = fopen("/tmp/zyperos_fake_charge", "r");
 	char line[64] = "";
-	bool ok;
 
-	if (!f) return false;
-	ok = fgets(line, sizeof line, f) != NULL && ch_fake_parse(line, r);
-	fclose(f);
-	return ok;
+	if (f) {
+		bool ok = fgets(line, sizeof line, f) != NULL && ch_fake_parse(line, r);
+
+		fclose(f);
+		if (ok) return true;
+	}
+#ifdef __linux__
+	{
+		char st[16] = "";
+		int v;
+
+		memset(r, 0, sizeof *r);
+		if ((v = read_int(AXP_BATTERY "/capacity")) < 0) return false;
+		r->pct = v;
+		/* In uA and uV, into the battery positive, as the power_supply
+		 * class has them; -1 uA is read_int's no answer, and none either */
+		v = read_avg_or_now(AXP_BATTERY "/current_avg", AXP_BATTERY "/current_now");
+		r->ma_known = v != -1;
+		r->ma = r->ma_known ? v / 1000 : 0;
+		r->mv = read_avg_or_now(AXP_BATTERY "/voltage_avg", AXP_BATTERY "/voltage_now") / 1000;
+		v = read_int(AXP_BATTERY "/charge_now");
+		r->now_mah = v >= 0 ? v / 1000 : -1;
+		v = read_int(AXP_BATTERY "/charge_full");
+		r->full_mah = v > 0 ? v / 1000 : -1;
+		r->online = read_int(AXP_USB_ONLINE) == 1;
+		if (file_head(AXP_BATTERY "/status", st, sizeof st) > 0) r->full = !strncmp(st, "Full", 4);
+		/* Never held: the Brick has no charge limit, so a "Not charging"
+		 * on the cable is not one holding it */
+		r->held = false;
+		/* Not told: the port's BC1.2 answer is "dedicated charger" for a
+		 * computer's USB-A port too (kernel patch 0029), so the screen
+		 * says "charger" */
+		r->kind = CH_UNKNOWN;
+		return true;
+	}
+#else
+	return false;
+#endif
 }
 
 /* ---- battery ---- */
-
-/* The AXP2202's power supplies, as plastron's kernel names them (its patch
- * 0016): the battery's gauge and the USB input */
-#define AXP_BATTERY    "/sys/class/power_supply/axp2202-battery"
-#define AXP_USB_ONLINE "/sys/class/power_supply/axp2202-usb/online"
-
-#ifdef __linux__
-/* A sysfs number, or -1 for no file or nothing in it */
-static int read_int(const char *path)
-{
-	char buf[16];
-
-	return file_head(path, buf, sizeof buf) > 0 ? atoi(buf) : -1;
-}
-#endif
 
 /* A level written to /tmp/zyperos_fake_batt stands in for the gauge, off the
  * charger, for testing the low and empty battery: written from a shell, so it

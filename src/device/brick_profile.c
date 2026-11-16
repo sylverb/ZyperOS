@@ -5,6 +5,13 @@
 #include "profile.h"
 #include "brick_buttons.h"
 
+/* The A133's sensors as its device tree names their zones
+ * (plastron/buildroot/board/brick/dts/sun50iw10p1-trimui-brick.dts): the
+ * CPU's, whose trips slow the CPU at 58 and 63 C and power the Brick off at
+ * 90 C, and the GPU's. Its third, the DDR's, is the memory's, not the chip's
+ * to warn of. */
+static const char *const brick_zones[] = { "cpu_thermal_zone", "gpu_thermal_zone", NULL };
+
 const device_profile device_profile_brick = {
 	.id = "brick",
 	.name = "TrimUI Brick",
@@ -32,4 +39,5 @@ const device_profile device_profile_brick = {
 	.player2 = false,
 	.usb_shared_port = false,
 	.wifi = DEV_WIFI_BUILTIN,
+	.thermal_zones = brick_zones,
 };
