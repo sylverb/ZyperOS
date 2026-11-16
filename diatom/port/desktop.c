@@ -236,6 +236,10 @@ bool diatom_port_init(diatom_port_caps *out)
 	 * was asked for: the resampler still needs a target to convert into,
 	 * and a zero here would divide. */
 	out->audio_rate         = AUDIO_RATE;
+	/* No panel rate of its own here: the display lock is off, as the
+	 * desktop window has no flips to time. DIATOM_REFRESH_HZ gives one, for
+	 * the lock's own check (test/displaylock.py). */
+	out->refresh_hz         = getenv("DIATOM_REFRESH_HZ") ? atof(getenv("DIATOM_REFRESH_HZ")) : 0;
 	out->audio_buffer_frames = AUDIO_BUFFER_FRAMES;   /* open or not yet */
 	out->present_blocks     = false;
 	out->gpu                = false;
@@ -595,6 +599,12 @@ bool diatom_port_capture(const char *path)
 		SDL_FreeSurface(rgb);
 	}
 	return ok;
+}
+
+bool diatom_port_vblank(uint64_t *at_us, double *period_us)
+{
+	(void)at_us; (void)period_us;
+	return false;
 }
 
 uint64_t diatom_port_now_us(void)

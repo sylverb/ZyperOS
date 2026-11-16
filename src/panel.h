@@ -9,6 +9,7 @@
 #include "app.h"
 #include "dslang.h"
 #include "dsslow.h"
+#include "pacing.h"
 #include "game_menu.h"
 #include "hare.h"
 #include "heat.h"
@@ -696,6 +697,8 @@ const char *core_label(const char *core, char *buf, size_t n);
 void core_step(app *a, int sys, int d);
 dsl_choice dslang_load(void);
 dss_choice dsslow_load(void);
+pacing_choice pacing_load(const system_cfg *s);
+bool pacing_row_shown(const app *a, int sys);
 bool dslang_row_shown(const app *a, int sys);
 const char *dslang_label(dsl_choice c, char *buf, size_t n);
 void view_turn(app *a, int sys, int dir);

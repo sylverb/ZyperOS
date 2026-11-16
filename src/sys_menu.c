@@ -126,6 +126,7 @@ int sys_menu_system_rows(const sys_ui *u, sm_row *out)
 		if (u->no_wifi && !u->online && r == SM_BOXART) continue;
 		if (!u->dslang && r == SM_DSLANG) continue;
 		if (!u->dsslow && r == SM_DSSLOW) continue;
+		if (!u->pace && r == SM_PACE) continue;
 		if (u->no_strength && r == SM_STRENGTH) continue;
 		out[n++] = (sm_row)r;
 	}
@@ -313,12 +314,13 @@ static const unsigned char PM_SOUND[PM_ROWS] = {
 	/* A pick is heard as reward, or deny with nothing to pick */
 	[PM_RANDOM]     = MENU_SND_OWN,
 };
-/* Core, Game Language, When Slow, View and Shader step on A as well; Sort By,
+/* Core, Game Language, When Slow, Timing, View and Shader step on A as well; Sort By,
  * Display Mode and Strength do nothing with it. */
 static const unsigned char SM_SOUND[SM_ROWS] = {
 	[SM_CORE]    = MENU_SND_RING,
 	[SM_DSLANG]  = MENU_SND_RING,
 	[SM_DSSLOW]  = MENU_SND_RING,
+	[SM_PACE]    = MENU_SND_RING,
 	[SM_SORT]    = MENU_SND_RING | MENU_SND_NO_A,
 	[SM_VIEW]    = MENU_SND_RING,
 	[SM_DISPLAY] = MENU_SND_RING | MENU_SND_NO_A,
@@ -419,6 +421,8 @@ int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
 		full[SM_DSLANG]  = (menu_row){ T(S_SYSMENU_DSLANG), u->dslang, u->dslang != NULL };
 		/* What its frames do when the game is slow (src/dsslow.h) */
 		full[SM_DSSLOW]  = (menu_row){ T(S_SYSMENU_DSSLOW), u->dsslow, u->dsslow != NULL };
+		/* Smooth or Exact, how its games meet the screen (src/pacing.h) */
+		full[SM_PACE]    = (menu_row){ T(S_SYSMENU_PACE), u->pace, u->pace != NULL };
 		full[SM_SORT]    = (menu_row){ T(S_SYSMENU_SORT_BY),
 		                              u->sort ? u->sort : T(S_SORT_NAME), true  };
 		/* The covers in a row, or a list of names (DESIGN.md 11.39) */

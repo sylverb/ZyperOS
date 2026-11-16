@@ -85,6 +85,10 @@ typedef struct {
 	bool present_blocks;        /* does present() wait for vblank? */
 	bool gpu;                   /* can draw a core's GPU frames (diatom_port_gpu_begin) */
 	bool rumble;                /* has a motor diatom_port_rumble can run */
+	/* The panel's refresh rate from its mode, Hz; 0 where the port does not
+	 * know it. A core within 1% of it runs at it, one frame a refresh (the
+	 * frame loop's display lock, src/pace.h). */
+	double refresh_hz;
 } diatom_port_caps;
 
 /* Canonical Diatom buttons. Digital only, no analog axes anywhere.
@@ -559,6 +563,12 @@ bool diatom_port_should_quit(void);
 bool diatom_port_capture(const char *path);
 
 uint64_t diatom_port_now_us(void);
+
+/* The last refresh a frame was flipped at, in diatom_port_now_us's time, and
+ * the refresh period measured from the flips, for the display lock to keep
+ * its frames half a refresh from the boundary. False where the port has no
+ * flips to time (the loop then runs at refresh_hz alone). */
+bool diatom_port_vblank(uint64_t *at_us, double *period_us);
 void     diatom_port_log(diatom_log_level lvl, const char *msg);
 
 #endif /* DIATOM_PORT_H */

@@ -701,6 +701,39 @@ de = Stabile 30
 ja = 安定30
 it = 30 stabili
 
+[sysmenu.pace]
+note = A system menu row, on the GBA, Game Boy, Game Boy Color, Nintendo DS and Genesis shelves: how the games are paced against the screen (sysmenu.pace_smooth or sysmenu.pace_exact). Short: the value column beside it holds "Smooth" or "Exact"
+en = Timing
+zh-Hans = 节奏
+es = Ritmo
+pt-BR = Ritmo
+fr = Cadence
+de = Timing
+ja = タイミング
+it = Cadenza
+
+[sysmenu.pace_smooth]
+note = Timing's value, the default on these shelves: one game frame each screen refresh, so motion is even, and the game runs up to 0.6% faster than the console
+en = Smooth
+zh-Hans = 流畅
+es = Fluido
+pt-BR = Fluido
+fr = Fluide
+de = Flüssig
+ja = なめらか
+it = Fluida
+
+[sysmenu.pace_exact]
+note = Timing's other value: the game at the console's own speed, for timers and rhythm, with a frame shown twice about every 3 seconds
+en = Exact
+zh-Hans = 精确
+es = Exacto
+pt-BR = Exato
+fr = Exacte
+de = Exakt
+ja = 正確
+it = Esatta
+
 [sysmenu.sort_by]
 note = A system menu row: the shelf's order
 en = Sort By

@@ -2143,6 +2143,13 @@ bool diatom_port_capture(const char *path)
 	return ok;
 }
 
+/* No display lock on the Brick yet: its panel's rate is not read */
+bool diatom_port_vblank(uint64_t *at_us, double *period_us)
+{
+	(void)at_us; (void)period_us;
+	return false;
+}
+
 uint64_t diatom_port_now_us(void)
 {
 	return diatom_ticks_to_us(SDL_GetPerformanceCounter(),
