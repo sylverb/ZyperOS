@@ -69,7 +69,8 @@
  * one, as a DS game's does: its drawing is on threads of its own
  * (test/fastforward.py). STUBCORE_FRAME_US_AT=frame:us,... changes the
  * cost from those frames on, and STUBCORE_SHOWN_LOG=path writes which frames
- * the frontend had drawn, a 1 or a 0 each (test/lateskip.py).
+ * the frontend had drawn, a 1 or a 0 each, and when each started
+ * (test/lateskip.py).
  *
  * Test fixture. Not part of Diatom's runtime.
  */
@@ -339,13 +340,14 @@ static void report_load(const struct retro_game_info *game)
 }
 
 /* STUBCORE_FRAME_US and STUBCORE_SKIPPABLE: the frame's cost, shown or not.
- * STUBCORE_SHOWN_LOG=path: a character a frame, 1 drawn and 0 left undrawn
- * as the frontend said through the status callback, written at unload
- * (test/lateskip.py) */
+ * STUBCORE_SHOWN_LOG=path: a line a frame, as it runs: 1 drawn or 0 left
+ * undrawn, as the frontend said through the status callback, and when the
+ * frame started (CLOCK_MONOTONIC, microseconds), so a check can tell a
+ * frame the frontend left out from one this machine was too busy to start
+ * on time (test/lateskip.py) */
 static long frame_cost_us;
 static bool frame_unshown;
-static char shown_log[1 << 16];
-static size_t shown_n;
+static FILE *shown_log;
 static void frame_status(bool active, unsigned occupancy, bool underrun_likely)
 {
 	(void)active; (void)occupancy;
@@ -419,6 +421,11 @@ bool retro_load_game(const struct retro_game_info *game)
 			e = *end == ',' ? end + 1 : NULL;
 		}
 	}
+	{
+		const char *e = getenv("STUBCORE_SHOWN_LOG");
+		if (shown_log) fclose(shown_log);
+		shown_log = e && *e ? fopen(e, "w") : NULL;
+	}
 	if (getenv("STUBCORE_SKIPPABLE") && env) {
 		struct retro_audio_buffer_status_callback cb = { frame_status };
 		env(RETRO_ENVIRONMENT_SET_AUDIO_BUFFER_STATUS_CALLBACK, &cb);
@@ -429,14 +436,8 @@ bool retro_load_game_special(unsigned t, const struct retro_game_info *i, size_t
 { (void)t; (void)i; (void)n; return false; }
 void retro_unload_game(void)
 {
-	const char *e = getenv("STUBCORE_SHOWN_LOG");
-	FILE *f = e ? fopen(e, "w") : NULL;
-
-	if (f) {
-		fwrite(shown_log, 1, shown_n, f);
-		fclose(f);
-	}
-	shown_n = 0;
+	if (shown_log) fclose(shown_log);
+	shown_log = NULL;
 	frame_unshown = false;
 }
 unsigned retro_get_region(void) { return RETRO_REGION_PAL; }
@@ -621,8 +622,15 @@ void retro_run(void)
 	 * gone out and the frontend is in its steady loop. Doing it on frame 0
 	 * would land during the warmup and prove less. */
 	if (crash_mode[0] && frame == crash_at) die(crash_mode);
+	if (shown_log) {
+		struct timespec now;
+
+		clock_gettime(CLOCK_MONOTONIC, &now);
+		fprintf(shown_log, "%d %lld\n", frame_unshown ? 0 : 1,
+		        (long long)now.tv_sec * 1000000LL + now.tv_nsec / 1000);
+		fflush(shown_log);
+	}
 	frame_cost();
-	if (shown_n < sizeof shown_log) shown_log[shown_n++] = frame_unshown ? '0' : '1';
 
 	/* One frame's worth of audio, with the fraction carried.
 	 *

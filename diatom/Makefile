@@ -432,8 +432,10 @@ check-fastforward:
 # frameskip=late and frameskip=steady at 1x, end to end: the stub core slow
 # for a stretch (STUBCORE_FRAME_US_AT) writes which frames Diatom had drawn
 # (STUBCORE_SHOWN_LOG); late leaves out up to two in a row, steady exactly
-# every second one, and both draw every frame on time. On check-stateplane's
-# terms: the stub core, about twenty seconds, skipped unbuilt.
+# every second one, and both draw every frame on time, judged only where the
+# stub's frame times show this machine started them on time. On
+# check-stateplane's terms: the stub core, about twenty seconds, skipped
+# unbuilt.
 check-lateskip:
 	$(FRESH_IF_BUILT)
 	@python3 test/lateskip.py
