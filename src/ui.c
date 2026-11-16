@@ -474,7 +474,7 @@ int ui_line_y(ui_font_role role, int top)
 	return f ? ui_cap_y(f, top + ui_font_line(role) * 2 / 5) : top;
 }
 
-/* ---- the MENU key in running text -----------------------------------------
+/* ---- a marked key in running text ------------------------------------------
  *
  * The Pixel 2's MENU is a round graphite key with three dimples in a line
  * down the device's height (tools/build-pixel2-model.py: radius 2.65 mm, the
@@ -483,23 +483,42 @@ int ui_line_y(ui_font_role role, int top)
  * or before +, >, a space or a stop, is drawn as a ring in the text's own
  * color around three dots, centered on the capitals ("Show Tutorial is in
  * MENU.", "MENU+VOL", "MENU > Controls"); "Menu" and "menus" stay words.
- * ui_text_width measures it the same way, so fitting, breaking and
- * centering all see the glyph. A key on its own is ui_button's round face. */
+ * The same for any key whose cap carries a mark and no word (src/ds/button.h):
+ * the Brick's SELECT, a square, and START, a play triangle, which TrimUI's
+ * manual calls SELECT and START, so "Press SELECT" there shows the key the
+ * player sees (1.0.6). A key printed as its word (the Pixel 2's SELECT, the
+ * Brick's MENU) stays a word. ui_text_width measures it the same way, so
+ * fitting, breaking and centering all see the glyph. A key on its own is
+ * ui_button's round face. */
 static bool word_char(char c)
 {
 	return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
 	       (c >= '0' && c <= '9') || c == '_';
 }
 
-/* The next whole word MENU at or after p (s is the string's start), or NULL;
- * always NULL where this handheld's MENU is a word (ds_key_menu_dots: the
- * Brick's), so MENU stays a word in running text there */
-static const char *menu_word(const char *s, const char *p)
+/* The next whole word MENU, SELECT or START at or after p (s is the string's
+ * start) whose key carries a mark on this handheld, or NULL: its bytes into
+ * *len and its mark into *mark */
+static const char *key_word(const char *s, const char *p, int *len, ds_key_mark *mark)
 {
-	if (!ds_key_menu_dots()) return NULL;
-	for (; (p = strstr(p, "MENU")); p += 4)
-		if ((p == s || !word_char(p[-1])) && !word_char(p[4])) return p;
-	return NULL;
+	static const char *const NAME[3] = { "MENU", "SELECT", "START" };
+	const char *best = NULL;
+
+	for (int i = 0; i < 3; i++) {
+		const ds_key_mark m = ds_key_of(NAME[i]).mark;
+		const size_t n = strlen(NAME[i]);
+		const char *q = p;
+
+		if (m == DS_KEY_MARK_NONE) continue;
+		for (; (q = strstr(q, NAME[i])) && (!best || q < best); q += n)
+			if ((q == s || !word_char(q[-1])) && !word_char(q[n])) {
+				best = q;
+				*len = (int)n;
+				*mark = m;
+				break;
+			}
+	}
+	return best;
 }
 
 typedef struct {
@@ -621,7 +640,9 @@ static void shape_put(SDL_Surface *dst, int x, shape_mark m, int k, SDL_Color co
  * when there is none. */
 static const char *mark_next(const char *s, const char *p, int *len, int *kind)
 {
-	const char *m = menu_word(s, p), *g = strchr(p, '\xEE');
+	int klen = 0;
+	ds_key_mark km = DS_KEY_MARK_NONE;
+	const char *m = key_word(s, p, &klen, &km), *g = strchr(p, '\xEE');
 
 	while (g && pad_glyph_at(g) < 0) g = strchr(g + 1, '\xEE');
 	if (g && (!m || g < m)) {
@@ -629,8 +650,9 @@ static const char *mark_next(const char *s, const char *p, int *len, int *kind)
 		*kind = pad_glyph_at(g);
 		return g;
 	}
-	*len = 4;
-	*kind = -1;
+	/* A key: -1 MENU's dots, -2 a square, -3 a play triangle */
+	*len = klen;
+	*kind = km == DS_KEY_MARK_SQUARE ? -2 : km == DS_KEY_MARK_PLAY ? -3 : -1;
 	return m;
 }
 
@@ -770,7 +792,32 @@ int ui_text_width(TTF_Font *f, const char *s)
 
 /* The ring and its dots into an ARGB8888 surface at x, by 4 x 4 samples a
  * pixel, so the small sizes keep their round edge. */
-static void menu_mark_put(SDL_Surface *dst, int x, menu_mark m, SDL_Color col)
+/* Whether (fx, fy), from the key's middle, is in its mark: kind -1 MENU's
+ * three dots, -2 a square, -3 a play triangle, in the proportions
+ * ui_button's face gives them (the square 0.38 of the key across, the
+ * triangle 0.49 of it tall, a little right of its box's middle) */
+static bool key_mark_in(int kind, float fx, float fy, menu_mark m)
+{
+	if (kind == -2) {
+		const float h = 0.19f * m.d;
+
+		return fabsf(fx) <= h && fabsf(fy) <= h;
+	}
+	if (kind == -3) {
+		const float q = 0.22f * m.d, x0 = -0.8f * q, x1 = 1.2f * q, hy = 1.1f * q;
+
+		/* left edge x0; the two slopes meet at (x1, 0) */
+		return fx >= x0 && fx <= x1 && fabsf(fy) <= hy * (x1 - fx) / (x1 - x0);
+	}
+	for (int k = -1; k <= 1; k++) {
+		float gy = fy - (float)k * m.gap;
+
+		if (fx * fx + gy * gy <= m.dot * m.dot) return true;
+	}
+	return false;
+}
+
+static void menu_mark_put(SDL_Surface *dst, int x, menu_mark m, int kind, SDL_Color col)
 {
 	const float R = m.d / 2.0f, cx = (float)x + (float)m.side + R, cy = m.cy;
 	int y0 = (int)floorf(cy - R - 1.0f), y1 = (int)ceilf(cy + R + 1.0f);
@@ -788,13 +835,8 @@ static void menu_mark_put(SDL_Surface *dst, int x, menu_mark m, SDL_Color col)
 					float fx = (float)px + ((float)sx + 0.5f) / 4.0f - cx;
 					float fy = (float)py + ((float)sy + 0.5f) / 4.0f - cy;
 					float d = sqrtf(fx * fx + fy * fy);
-					bool in = d <= R && d >= R - m.ring;
+					bool in = (d <= R && d >= R - m.ring) || key_mark_in(kind, fx, fy, m);
 
-					for (int k = -1; k <= 1 && !in; k++) {
-						float gy = fy - (float)k * m.gap;
-
-						in = fx * fx + gy * gy <= m.dot * m.dot;
-					}
 					hit += in;
 				}
 			if (hit) row[px] = SDL_MapRGBA(dst->format, col.r, col.g, col.b,
@@ -836,7 +878,7 @@ static SDL_Surface *render_in(TTF_Font *f, const char *s, SDL_Color col)
 		}
 		if (!m) break;
 		if (SDL_LockSurface(out) == 0) {
-			if (kind < 0) menu_mark_put(out, x, menu_mark_of(f), col);
+			if (kind < 0) menu_mark_put(out, x, menu_mark_of(f), kind, col);
 			else          shape_put(out, x, shape_mark_of(f), kind, col);
 			SDL_UnlockSurface(out);
 		}

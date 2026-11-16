@@ -233,6 +233,7 @@ EXTRA = {
     "about-0": ("demo", "PS1", ["--about", "0"]),
     "about-1": ("demo", "PS1", ["--about", "1"]),
     "about-2": ("demo", "PS1", ["--about", "2"]),
+    "about-3": ("demo", "PS1", ["--about", "3"]),
     "controls-0": ("demo", "PS1", ["--controls", "0"]),
     "controls-1": ("demo", "PS1", ["--controls", "1"]),
     "controls-2": ("demo", "PS1", ["--controls", "2"]),
@@ -446,6 +447,7 @@ for _page in (3, 4, 5):
     EXTRA.setdefault("controls-%d" % _page, ("demo", "PS1", ["--controls", str(_page)]))
 for _scroll in ("0.5", "1"):
     EXTRA.setdefault("about-2-scroll-" + _scroll, ("demo", "PS1", ["--about", "2", "--about-scroll", _scroll]))
+    EXTRA.setdefault("about-3-scroll-" + _scroll, ("demo", "PS1", ["--about", "3", "--about-scroll", _scroll]))
 EXTRA.setdefault("hare-cable", ("demo", "PS1", ["--hare", "10.42.0.1", "1 signed in", "Tobu Tobu Girl.gb"]))
 # File Transfer's news on Flash Drive's page (DESIGN.md 11.23): the tiles in
 # each state, over Wi-Fi and over the cable (SSH beside the browsers)

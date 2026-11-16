@@ -498,9 +498,20 @@ void diatom_port_fast_clock(bool cpu, bool gpu);
  * The host steps a game back up at the first frame it could not keep, says
  * FULL while a game runs fast or sits in the menu, at the end of a session
  * and once at start, and may say the same level again; the port acts on a
- * change. A port with no clocks of its own implements this as a no-op. */
+ * change, or on the first level after diatom_port_power_invalidate. A port
+ * with no clocks of its own implements this as a no-op. */
 enum { DIATOM_POWER_FULL, DIATOM_POWER_MEDIUM, DIATOM_POWER_LIGHT };
 void diatom_port_power(int level);
+
+/* Forget the level written last, so the next one is written whatever it is.
+ * The clock files are the launcher's whenever Diatom is not running a game:
+ * between games and while its menu is up. ZyperOS on the Pixel 2 puts the
+ * DDR's ceiling down on a screen left still (plat_ram_idle), and a resident
+ * Diatom that remembered FULL across that ran a game started with no press
+ * under it. Called
+ * at the same handovers as diatom_port_level_invalidate: a game's start and a
+ * RESUME. */
+void diatom_port_power_invalidate(void);
 
 /* Forget everything the port remembers about the output state.
  *

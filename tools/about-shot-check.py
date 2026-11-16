@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""About keeps page information inside its panel, in both themes, on all six pages.
+"""About keeps page information inside its panel, in both themes, on all four pages.
 
 The page count belongs to the heading. The shelf below the panels must
 contain no undimmed page text. Panel shadows may differ there between the
@@ -28,9 +28,9 @@ shutil.copy(os.path.join(ROOT, "config", "systems.cfg"), os.path.join(t.D, "root
 shutil.copy(os.path.join(ROOT, "res", "zyper.png"), os.path.join(t.D, "root"))
 open(os.path.join(t.D, "Roms/Game Boy/Tetris.gb"), "w").close()
 for theme in ("light", "dark"):
-    # The six pages: the system, its details, the name and three of thanks
+    # The four pages: the system, its details, the name and the thanks
     pages = [t.shot("about-%d-%s" % (p, theme), "--theme", theme, "--about", str(p),
-                    "--status", "10:08 wifi=off batt=100 chg") for p in range(6)]
+                    "--status", "10:08 wifi=off batt=100 chg") for p in range(4)]
     if None in pages:
         continue
     for p, img in enumerate(pages):
@@ -54,6 +54,19 @@ for theme in ("light", "dark"):
     t.ck(half[0] == half[1] == half[2], "%s story: scrolled halfway it stays where it is" % theme)
     t.ck(half[0] != top[0], "%s story: scrolling moves the text" % theme)
     t.ck(end != half[0] and end != top[0], "%s story: the bottom is not the middle or the top" % theme)
+    # The thanks, one page walked by hand as the story is: still at the top
+    # and halfway whatever the clock says, and three different pictures
+    thanks = ("--theme", theme, "--about", "3", "--status", "10:08 wifi=off batt=100 chg")
+    ttop = [t.shot("thanks-top-%d-%s" % (ph, theme), *thanks, "--phase", str(ph)) for ph in (0, 4000, 31000)]
+    thalf = [t.shot("thanks-half-%d-%s" % (ph, theme), *thanks, "--about-scroll", "0.5", "--phase", str(ph))
+             for ph in (0, 4000, 31000)]
+    tend = t.shot("thanks-end-%s" % theme, *thanks, "--about-scroll", "1")
+    if None in ttop + thalf + [tend]:
+        continue
+    t.ck(ttop[0] == ttop[1] == ttop[2], "%s thanks: it does not scroll by itself from the top" % theme)
+    t.ck(thalf[0] == thalf[1] == thalf[2], "%s thanks: scrolled halfway it stays where it is" % theme)
+    t.ck(thalf[0] != ttop[0] and tend != thalf[0] and tend != ttop[0],
+         "%s thanks: the top, the middle and the end are three pictures" % theme)
 if not t.fails:
     print("ok: About page information stays inside its panel in both themes")
 sys.exit(1 if t.fails else 0)

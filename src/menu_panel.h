@@ -54,6 +54,7 @@ extern bool   g_snap_drawing;
 extern SDL_Texture *(*g_row_icon)(int row);
 extern int g_menu_scroll_hold;
 extern int g_menu_scroll_span, g_menu_scroll_line;
+extern float g_menu_scroll_frac;
 extern unsigned g_menu_epoch;
 
 /* What a row's value takes at the right of the rows, for the measures */

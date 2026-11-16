@@ -256,6 +256,10 @@ SDL_Texture *(*g_row_icon)(int row);
  * stops at the ends and steps by a line without measuring anything. */
 int g_menu_scroll_hold = -1;
 int g_menu_scroll_span, g_menu_scroll_line;
+/* The same, as a share of how far it can go, 0 to 1, for a shot that does
+ * not know its span before it draws (About's thanks, --about-scroll); -1
+ * everywhere else */
+float g_menu_scroll_frac = -1;
 
 /* A row's height in a panel: a rule's, a note's, or a row's (ROW_H) */
 static int panel_row_h(menu_row r, int rule_h, int note_h, int row_h)
@@ -678,7 +682,9 @@ void menu_panel(app *a, const char *heading, const menu_row *rows,
 			g_menu_scroll_line = note_h;
 			/* Walked by hand: nothing travels, so nothing asks for a frame.
 			 * The soft edges below say which way there is more. */
-			if (g_menu_scroll_hold >= 0) {
+			if (g_menu_scroll_frac >= 0) {
+				scroll = (int)lroundf((g_menu_scroll_frac > 1 ? 1 : g_menu_scroll_frac) * scroll_span);
+			} else if (g_menu_scroll_hold >= 0) {
 				scroll = g_menu_scroll_hold < scroll_span ? g_menu_scroll_hold : scroll_span;
 			} else {
 			/* Moving while it travels, for the status corner's forks

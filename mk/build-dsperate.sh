@@ -8,7 +8,7 @@
 # pins DSperate as a submodule, so one commit of the wrapper pins both. This is
 # the wrapper plorpOS ships on its GKD and RG Rotate builds
 # (thwonp/plorpOS mk/build-dsperate.sh, MIT), at the same commit, built the same
-# way, plus three patches of ours (below).
+# way, plus four patches of ours (below).
 #
 # PGO: DSperate commits a GCC profile with each release, made with GCC 13.3 on
 # Ubuntu 24.04 (its CI), and the wrapper's build.sh applies it. A profile only
@@ -77,22 +77,41 @@
 # never does), and nothing of the game's save or of the other settings is
 # touched. Again only libretro.cpp changes, so the profile applies in full.
 #
+# The fourth, mk/patches/dsperate-lr-rtc.patch: the DS clock. DSperate keeps
+# its RTC stopped unless the frontend starts it (Io::start_rtc_clock, "for
+# determinism"), and the wrapper never did, so the clock stayed at
+# 2000-01-01 00:00:00 and every game that shows the time showed 0:00
+# (Pokemon Black, on my Pixel 2). The patch starts it at each game's boot,
+# from the host's local time (localtime, so the zone Diatom sets from the
+# launcher's before the game loads, as the GBA cores read it), and sets it to
+# the host's time again after a state loads (a state brings back the time it
+# was saved at), after a reset, and whenever it drifts a second or more from
+# the host's, looked at before every frame: it counts emulated seconds, which
+# stand still in the in-game menu and in sleep, run slow when frames run late
+# and fast in fast forward. A real DS's clock keeps the time while no game runs, and
+# DSperate's own frontend sets it again as the lid opens. Again only
+# libretro.cpp changes, so the profile applies in full. mk/dsperate-rtc-check.sh
+# reads the clock out of the built core's states (below).
+#
 # The result is checked before it is installed: no unversioned undefined
 # symbol (it would not dlopen), and nothing newer than plastron's glibc 2.42
 # and libstdc++ 6.0.34 (GLIBCXX_3.4.34). It needs GLIBC_2.38 and GLIBCXX_3.4.30
 # at most, and links libstdc++, libm, libgcc_s, libc and ld-linux, all in
-# plastron's /usr/lib.
+# plastron's /usr/lib. Then mk/dsperate-rtc-check.sh runs it: the clock it
+# keeps is the host's local time at a game's start, while it runs faster
+# than real time, after a pause, a state load and a reset.
 #
 #   mk/build-dsperate.sh          build, install to vendor/cores
 #
-# Needs: docker with linux/amd64 emulation, network for the first clone. About
-# four minutes on an M-series Mac.
+# Needs: docker with linux/amd64 emulation and arm64 (the clock check runs
+# the core in ubuntu:24.04), network for the first clone. About four minutes
+# on an M-series Mac.
 set -e
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 SRC=${SRC:-/tmp/zyperos-dsperate-lr}
 REPO=${DSPERATE_LR:-https://github.com/thwonp/dsperate-lr.git}
 LR=093d50fcbd10531273e0cc22a23c6644a26b9b71   # DSperate v3.0.5 (ddf2910), plorpOS's pin
-SHA=f00dafcde14422194cd89d58acc815b9946c52fd48fde3cece59019b60f63f11
+SHA=35d65a0d01bd114fae6807528705def4854e6e274407a1bf275a3540911c36b7
 IMAGE=dsperate-lr-cross
 PLAT=linux/amd64
 
@@ -107,6 +126,7 @@ git -C "$SRC/DSperate" clean -qfdx
 git -C "$SRC" apply "$ROOT/mk/patches/dsperate-lr-frameskip.patch"
 git -C "$SRC" apply "$ROOT/mk/patches/dsperate-lr-threads.patch"
 git -C "$SRC" apply "$ROOT/mk/patches/dsperate-lr-language.patch"
+git -C "$SRC" apply "$ROOT/mk/patches/dsperate-lr-rtc.patch"
 docker image inspect $IMAGE >/dev/null 2>&1 ||
 	docker build --platform $PLAT -q -t $IMAGE "$SRC" >/dev/null
 
@@ -125,6 +145,8 @@ echo "  needs  $g, $x"
 
 SO=$SRC/build/dsperate_libretro.so
 [ -f "$SO" ] || { echo "!! build failed (see $SRC/build/*.log)" >&2; exit 1; }
+# The clock a game reads, in the core just built (the fourth patch)
+sh "$ROOT/mk/dsperate-rtc-check.sh" "$SO"
 GOT=$(shasum -a 256 "$SO" | cut -d' ' -f1)
 if [ "$GOT" != "$SHA" ]; then
 	echo "!! dsperate sha256 $GOT, expected $SHA" >&2
@@ -134,7 +156,7 @@ if [ "$GOT" != "$SHA" ]; then
 fi
 mkdir -p "$ROOT/vendor/cores"
 cp "$SO" "$ROOT/vendor/cores/"
-echo "  built  dsperate (dsperate-lr ${LR%${LR#???????}}, DSperate v3.0.5) + PGO + frameskip + thread layout + language, untuned ARMv8.0"
+echo "  built  dsperate (dsperate-lr ${LR%${LR#???????}}, DSperate v3.0.5) + PGO + frameskip + thread layout + language + clock, untuned ARMv8.0"
 echo "  sha256 $GOT"
 # Which patches are in it, for mk/payload.sh to hold it to: the 1.0.1 images
 # shipped a core built before the language patch (mk/core-stamp.sh)

@@ -1278,7 +1278,11 @@ static void shot_compose(app *a)
 			}
 		}
 		ui_scrim(a->r, 0);
+		/* The thanks, --about-scroll of the way down: as a share of their
+		 * span, which is the panel's to measure */
+		if (shot_about == 3 && shot_about_scroll >= 0) g_menu_scroll_frac = shot_about_scroll;
 		about_draw(a, &v, shot_about);
+		g_menu_scroll_frac = -1;
 		return;
 	}
 	if (shot_menu && shot_tab_from >= 0) {

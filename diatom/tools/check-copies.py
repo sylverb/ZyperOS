@@ -7,7 +7,7 @@ panelgamma.h, and src/p2share.h (the shared file of the NES player 2 feature),
 are ZyperOS's src/ files of the same names, which is where they are changed: the
 launcher, the Pixel 2's and the Brick's ports and portkeys draw the volume bar
 and read the theme from the same code, and the launcher and the Pixel 2's port
-empty the display's gamma table with the same code. They are copies rather
+set the display's gamma table with the same code. They are copies rather
 than an include of ../src because plastron's Buildroot takes only diatom/ to
 build Diatom.
 

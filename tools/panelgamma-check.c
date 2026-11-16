@@ -7,10 +7,17 @@
  * The cases: a table an older splash filled (emptied, on that CRTC alone,
  * GAMMA_LUT_SIZE beside it untouched); a table already empty (nothing done:
  * emptying makes the controller wait a refresh); a kernel with no GAMMA_LUT
- * (QEMU's display); no DRM master (the kernel refuses: -1); no display. */
+ * (QEMU's display); no DRM master (the kernel refuses: -1); no display.
+ * And the two steps under the backlight's floor (1.0.6): the table's
+ * numbers; a dimming table loaded on the lit CRTC alone, as one blob the
+ * kernel holds and this program lets go of; the same step again (nothing:
+ * loading makes the controller show a frame with no table); the other step;
+ * an older splash's table replaced; back at the floor, emptied; a table of
+ * another size refused. */
 #include "../src/panelgamma.h"
 
 #include <errno.h>
+#include <math.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -21,6 +28,10 @@
 #define LINUX_GETPROPERTY  0xC04064AAul
 #define LINUX_OBJ_GETPROPS 0xC02064B9ul
 #define LINUX_OBJ_SETPROP  0xC01864BAul
+#define LINUX_GETCRTC      0xC06864A1ul
+#define LINUX_GETPROPBLOB  0xC01064ACul
+#define LINUX_CREATEBLOB   0xC01064BDul
+#define LINUX_DESTROYBLOB  0xC00464BEul
 #define OBJECT_CRTC        0xccccccccu
 
 struct card_res {
@@ -42,6 +53,29 @@ struct set_prop {
 	uint64_t value;
 	uint32_t prop_id, obj_id, obj_type;
 };
+
+struct crtc_info {
+	uint64_t set_connectors_ptr;
+	uint32_t count_connectors, crtc_id, fb_id, x, y, gamma_size, mode_valid;
+	uint8_t  mode[68];
+};
+struct get_blob { uint32_t blob_id, length; uint64_t data; };
+struct create_blob { uint64_t data; uint32_t length, blob_id; };
+struct color_lut { uint16_t red, green, blue, reserved; };
+
+/* The kernel's blobs: 47 the older splash's table (red and green as in^1.5),
+ * the rest made by panelgamma_apply; `held` while a program has it */
+#define NBLOBS 16
+static struct { uint32_t id; int live, held; struct color_lut lut[256]; } blobs[NBLOBS];
+static int nblobs, creates, destroys;
+static uint32_t next_id;
+
+static int blob_of(uint32_t id)
+{
+	for (int i = 0; i < nblobs; i++)
+		if (blobs[i].id == id && blobs[i].live) return i;
+	return -1;
+}
 
 /* The stand-in: CRTCs with their properties' values, and the property names */
 struct fake_prop { uint32_t id; const char *name; };
@@ -107,6 +141,46 @@ static int fake_ioctl(int fd, unsigned long request, void *arg)
 		snprintf(p->name, sizeof p->name, "%s", n);
 		return 0;
 	}
+	case LINUX_GETCRTC: {
+		struct crtc_info *ci = arg;
+		struct fake_crtc *c = crtc_of(ci->crtc_id);
+
+		if (!c) { errno = ENOENT; return -1; }
+		ci->mode_valid = c->values[0] != 0;   /* lit as ACTIVE says */
+		ci->gamma_size = 256;
+		return 0;
+	}
+	case LINUX_GETPROPBLOB: {
+		struct get_blob *g = arg;
+		int b = blob_of(g->blob_id);
+
+		if (b < 0) { errno = ENOENT; return -1; }
+		if (g->length >= sizeof blobs[b].lut && g->data)
+			memcpy((void *)(uintptr_t)g->data, blobs[b].lut, sizeof blobs[b].lut);
+		g->length = sizeof blobs[b].lut;
+		return 0;
+	}
+	case LINUX_CREATEBLOB: {
+		struct create_blob *cb = arg;
+
+		if (cb->length != sizeof blobs[0].lut || nblobs == NBLOBS) { errno = EINVAL; return -1; }
+		blobs[nblobs].id = next_id++;
+		blobs[nblobs].live = blobs[nblobs].held = 1;
+		memcpy(blobs[nblobs].lut, (const void *)(uintptr_t)cb->data, cb->length);
+		cb->blob_id = blobs[nblobs].id;
+		nblobs++;
+		creates++;
+		return 0;
+	}
+	case LINUX_DESTROYBLOB: {
+		uint32_t id = *(uint32_t *)arg;
+		int b = blob_of(id);
+
+		if (b < 0 || !blobs[b].held) { errno = EPERM; return -1; }
+		blobs[b].held = 0;
+		destroys++;
+		return 0;
+	}
 	case LINUX_OBJ_SETPROP: {
 		struct set_prop *s = arg;
 		struct fake_crtc *c = crtc_of(s->obj_id);
@@ -152,6 +226,17 @@ static void pixel2(int table, int has_lut)
 		if (has_lut) crtcs[c].values[4] = 256;        /* GAMMA_LUT_SIZE */
 	}
 	if (table && has_lut) crtcs[0].values[5] = 47;
+	memset(blobs, 0, sizeof blobs);
+	blobs[0].id = 47;
+	blobs[0].live = 1;
+	for (int i = 0; i < 256; i++) {
+		uint16_t rg = (uint16_t)(65535.0 * pow(i / 255.0, 1.5) + 0.5);
+
+		blobs[0].lut[i] = (struct color_lut){ rg, rg, (uint16_t)(i * 257), 0 };
+	}
+	nblobs = 1;
+	next_id = 100;
+	creates = destroys = 0;
 	master = 1;
 	broken = 0;
 	unknown = 0;
@@ -203,6 +288,60 @@ int main(void)
 	CHECK(panelgamma_clear(3) == -1, "not a display (the ioctls refused): -1");
 	broken = 0;
 	CHECK(panelgamma_clear(-1) == -1 && sets == 0, "no display at all (fd -1): -1, nothing asked");
+
+	/* Under the floor */
+	CHECK(panelgamma_out(13, 255) == 226 && panelgamma_out(9, 255) == 191 &&
+	      panelgamma_out(13, 128) == 113 && panelgamma_out(9, 0) == 0,
+	      "the table under the floor: 255 -> 226 at 13 and 191 at 9 (light 76% and 53%), 0 stays 0");
+	{
+		int same = 1;
+
+		for (int i = 0; i < 256; i++)
+			same &= panelgamma_out(17, i) == i && panelgamma_out(255, i) == i &&
+			        panelgamma_out(0, i) == i;
+		CHECK(same, "  ...and from the floor up, and with the light off, each value itself");
+	}
+
+	pixel2(0, 1);
+	n = panelgamma_apply(3, 13);
+	CHECK(n == 1 && sets == 1 && last_set.obj_id == 49 && last_set.prop_id == 25 &&
+	      last_set.value == 100 && crtcs[1].values[5] == 0,
+	      "13: a dimming table on the lit CRTC alone, as one new blob");
+	{
+		int b = blob_of(100), ok = b >= 0;
+
+		for (int i = 0; ok && i < 256; i++)
+			ok = blobs[b].lut[i].red == (uint16_t)(panelgamma_out(13, i) << 8) &&
+			     blobs[b].lut[i].green == blobs[b].lut[i].red &&
+			     blobs[b].lut[i].blue == blobs[b].lut[i].red && !blobs[b].lut[i].reserved;
+		CHECK(ok, "  ...its entries the table's values in the top byte, all three channels alike");
+	}
+	CHECK(destroys == 1 && !blobs[blob_of(100)].held, "  ...and this program's hold on the blob let go");
+	CHECK(unknown == 0, "  ...every request a number Linux knows");
+	n = panelgamma_apply(3, 13);
+	CHECK(n == 0 && sets == 1 && creates == 1, "13 again: the table already there, nothing loaded");
+	n = panelgamma_apply(3, 9);
+	CHECK(n == 1 && sets == 2 && crtcs[0].values[5] == 101 &&
+	      blobs[blob_of(101)].lut[255].red == 191 << 8, "9: the other step's table");
+	n = panelgamma_apply(3, 17);
+	CHECK(n == 1 && crtcs[0].values[5] == 0, "back at the floor: emptied");
+	n = panelgamma_apply(3, 122);
+	CHECK(n == 0 && sets == 3, "  ...and above it, nothing more");
+
+	pixel2(1, 1);
+	n = panelgamma_apply(3, 9);
+	CHECK(n == 1 && crtcs[0].values[5] == 100, "9 over an older splash's table: replaced");
+
+	pixel2(0, 1);
+	crtcs[0].values[4] = 1024;
+	n = panelgamma_apply(3, 9);
+	CHECK(n == -1 && sets == 0 && creates == 0, "a table of another size than the VOP's: refused, nothing set");
+
+	pixel2(0, 1);
+	master = 0;
+	n = panelgamma_apply(3, 9);
+	CHECK(n == -1 && crtcs[0].values[5] == 0 && destroys == creates,
+	      "without DRM master: -1, no table, no blob kept");
 
 	if (fails) {
 		printf("check-panelgamma: %d failed\n", fails);
