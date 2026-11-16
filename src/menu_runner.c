@@ -631,6 +631,7 @@ bool result_message(app *a, const char *heading, const char *text)
 		menu_row rows[3];
 		int n = ui_balance_lines(ui_font(UI_F_MENU), text, w, 3, lines), i;
 
+		if (n > 1) ui_fit_drawn(text);    /* drawn in lines, said whole to the host's check */
 		for (i = 0; i < n; i++) rows[i] = (menu_row){ lines[i], NULL, false };
 		if (n > 1) return timed_message(a, heading, rows, n, w, MENU_ZYPEROS);
 	}

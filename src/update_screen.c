@@ -311,6 +311,8 @@ void update_page_draw(app *a, const char *heading, const su_page *p,
 		/* Up to three lines, centered, the last where the one line stood */
 		char ll[3][LB_LINE];
 		int n = ui_balance_lines(fs, p->line, UP_W, 3, ll), k;
+
+		if (n > 1) ui_fit_drawn(p->line);    /* drawn in lines, said whole to the host's check */
 		for (k = 0; k < n; k++)
 			ui_text(r, fs, ll[k], ZYPEROS_SCREEN_W / 2, ui_cap_y(fs, bb.y + 32 - (n - 1 - k) * 38), 0,
 			        p->line_warn ? warn : UI_TEXT_DIM);

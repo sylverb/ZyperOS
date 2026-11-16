@@ -957,6 +957,7 @@ static int replug_lines(int w, char lines[LB_MAX_LINES][LB_LINE], bool *small)
 	int n;
 
 	*small = false;
+	ui_fit_drawn(text);    /* drawn in lines, said whole to the host's check */
 	if (!phone) {
 		n = ui_balance_lines(ui_font(UI_F_MENU), text, w, 4, lines);
 	} else {

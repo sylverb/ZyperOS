@@ -326,6 +326,7 @@ static void load_layout_make(load_layout *L, const system_cfg *s, const char *ti
 		ui_fit_text(meta, LOAD_SAY_A, L->line[LOAD_SAY][0], LB_LINE, LOAD_COL_W);
 		nb = ui_balance_lines(meta, LOAD_SAY_B, LOAD_COL_W, LOAD_NAME_LINES - 1,
 		                      &L->line[LOAD_SAY][1]);
+		if (nb > 1) ui_fit_drawn(LOAD_SAY_B);    /* drawn in lines, said whole to the host's check */
 		if (nb < 1) {
 			ui_fit_text(meta, LOAD_SAY_B, L->line[LOAD_SAY][1], LB_LINE, LOAD_COL_W);
 			nb = 1;
