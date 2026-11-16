@@ -302,6 +302,61 @@ static v3 shade(filt f, int dx, int dy, v2 scale, float strength)
 	}
 }
 
+/* The Brick's Sharp-Shimmerless, its CPU path (diatom/port/brick.c, its
+ * column and row maps and BLIT_ROW_BLEND): on each axis a source pixel and
+ * a weight in 256ths, mixed across, then down, in whole numbers */
+typedef struct { int idx, w; } tap;
+
+static void cpu_map(tap *m, int dst, int src)
+{
+	const double scale = (double)dst / (double)src;
+	int i;
+
+	for (i = 0; i < dst; i++) {
+		int l = (int)floor((double)i / scale), r = (int)floor((double)(i + 1) / scale), p = r > l ? r - 1 : l;
+		double fr = r > l ? 1.0 - (scale * (double)r - (double)i) : 0.0;
+
+		if (fr < 0.0) fr = 0.0;
+		if (fr > 1.0) fr = 1.0;
+		if (p >= src - 1) { p = src - 1; fr = 0.0; }
+		if (p < 0) p = 0;
+		m[i].idx = p;
+		m[i].w = (int)(fr * 256.0 + 0.5);
+	}
+	/* A map whose every weight is 0 or 256 is the plain copy */
+	for (i = 0; i < dst; i++)
+		if (m[i].w != 0 && m[i].w != 256) return;
+	for (i = 0; i < dst; i++)
+		if (m[i].w == 256) { m[i].idx++; m[i].w = 0; }
+}
+
+static int cpu_mix(int a, int b, int w)
+{
+	return a + (((b - a) * w) >> 8);
+}
+
+static v3 shimmerless_cpu(const tap *cx, const tap *cy, int dx, int dy)
+{
+	const tap tx = cx[dx], ty = cy[dy];
+	int out[3];
+
+	for (int k = 0; k < 3; k++) {
+		int a = scene[ty.idx][tx.idx][k], b;
+
+		if (tx.w) a = cpu_mix(a, scene[ty.idx][tx.idx + 1][k], tx.w);
+		if (ty.w) {
+			b = scene[ty.idx + 1][tx.idx][k];
+			if (tx.w) b = cpu_mix(b, scene[ty.idx + 1][tx.idx + 1][k], tx.w);
+			a = cpu_mix(a, b, ty.w);
+		}
+		out[k] = a;
+	}
+	return (v3){ out[0] / 255.0f, out[1] / 255.0f, out[2] / 255.0f };
+}
+
+static tap g_cx[2048], g_cy[2048];
+static bool g_cpu;   /* the device draws Sharp-Shimmerless on its CPU (the Brick) */
+
 static int save(const char *dir, const char *dev, filt f, int strength, v2 scale, int cw, int ch)
 {
 	char path[512];
@@ -312,7 +367,8 @@ static int save(const char *dir, const char *dev, filt f, int strength, v2 scale
 		unsigned char *row = (unsigned char *)s->pixels + (size_t)y * s->pitch;
 
 		for (int x = 0; x < cw; x++) {
-			v3 c = shade(f, x, y, scale, (float)strength / 100.0f);
+			v3 c = f == F_SHIMMERLESS && g_cpu ? shimmerless_cpu(g_cx, g_cy, x, y)
+			                                    : shade(f, x, y, scale, (float)strength / 100.0f);
 
 			row[3 * x + 0] = (unsigned char)lroundf(clampf(c.r, 0, 1) * 255.0f);
 			row[3 * x + 1] = (unsigned char)lroundf(clampf(c.g, 0, 1) * 255.0f);
@@ -333,9 +389,10 @@ int main(int argc, char **argv)
 	 * the Pixel 2, 1024x768 on the Brick), the close-up its preview's screen
 	 * holds at its own pixels (304 x 228 units), and the filters it offers
 	 * (the old screens where the GPU draws them) */
-	static const struct { const char *id; int pw, ph, cw, ch; bool gpu; } DEV[] = {
-		{ "640x480",   640, 480, 190, 142, true },   /* the Pixel 2 */
-		{ "1024x768", 1024, 768, 304, 228, true },   /* the Brick, and the host's shots */
+	static const struct { const char *id; int pw, ph, cw, ch; bool gpu, cpu; } DEV[] = {
+		{ "640x480",   640, 480, 190, 142, true, false },  /* the Pixel 2: every filter a GLSL pass */
+		{ "1024x768", 1024, 768, 304, 228, true, true },   /* the Brick (Sharp-Shimmerless on its CPU),
+		                                                    * and the host's shots (the old screens) */
 	};
 	int bad = 0;
 
@@ -347,6 +404,10 @@ int main(int argc, char **argv)
 	for (size_t d = 0; d < sizeof DEV / sizeof DEV[0]; d++) {
 		char dir[512];
 		const v2 scale = { (float)DEV[d].pw / SW, (float)DEV[d].ph / SH };
+
+		g_cpu = DEV[d].cpu;
+		cpu_map(g_cx, DEV[d].pw, SW);
+		cpu_map(g_cy, DEV[d].ph, SH);
 
 		snprintf(dir, sizeof dir, "%s/%s", argv[1], DEV[d].id);
 		mkdir(argv[1], 0755);
