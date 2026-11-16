@@ -7,6 +7,7 @@
  * for and notes the picture on the way; and a game that ended meanwhile (an
  * EXIT before the answer: px2-open's quit, a crash) is not eaten, but left
  * for the wait loop, whose plat_resident_wait then says the game is over.
+ * A crash's EXIT lets the socket go, so the launcher starts a new resident.
  * And the pid file a resident the launcher started again is written to
  * (plat_resident_note_pid). No SDL window: SDL_GetTicks only. */
 #include <signal.h>
@@ -90,6 +91,9 @@ static const char *const ANSWERS[] = {
 	 * R2's turn */
 	"STICK\ton=0\n",
 	"STICK\ton=1\nPAUSED\n",
+	/* RESUME, and the core crashes as the game ends: the EXIT comes from
+	 * the signal handler, and the socket stays open while it finishes */
+	"EXIT\treason=crash\tsignal=SIGSEGV\n",
 };
 
 static void fake_diatom(int listener)
@@ -176,6 +180,13 @@ int main(void)
 	CHECK(plat_resident_wait() == RES_PAUSED, "paused again");
 	CHECK(stick_calls == 2 && stick_last, "and still R2's turn alone is heard");
 	plat_resident_on_stick(NULL);
+
+	printf("a game whose emulator crashed on the way out:\n");
+	CHECK(plat_resident_line("RESUME"), "RESUME");
+	CHECK(plat_resident_wait() == RES_EXIT, "its EXIT ends the game");
+	CHECK(plat_resident_crashed(), "and says it crashed");
+	CHECK(!plat_resident_ready(),
+	      "its socket, still open, is not a resident that answers (respawn_resident starts one)");
 
 	kill(pid, SIGTERM);
 	waitpid(pid, NULL, 0);

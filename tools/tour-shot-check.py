@@ -295,15 +295,21 @@ def devices():
 # the side of the column it shows on - the shoulders, on its back ledge,
 # from the back, turned round, where L1 and L2 are at the right - and the
 # glass only from the front. Its F1 and F2 one ring, MENU the bottom row's.
-BRICK_LIT_SIDE = {"move": "lr", "a": "r", "b": "r", "y": "r", "x": "r", "menu": "l",
-                  "select": "lr", "vol": "l", "bright": "lr", "power": "r"}
-BRICK_BACK = ("move", "select")
+BRICK_LIT_SIDE = {"move": "l", "a": "r", "b": "r", "y": "r", "x": "r", "menu": "l",
+                  "select": "c", "vol": "l", "bright": "lr", "power": "r"}
+# The lessons whose keys are on the back ledge and the front (the d-pad with
+# L1/R1, SELECT with L2/R2): front first, held there at 2000 ms, then round to
+# the back (td_swing: the turn in, hold-spin, spin), held on it at 4000 ms
+# with both shoulders lit
+BRICK_SPIN = ("move", "select")
+BRICK_BACK_MS = "4000"
 GLASS = (17, 19, 16)            # **ink**, Beard's glass
 
 
 def brick():
     print("on the Brick: its own handheld beside each lesson, its key lit where it is, "
-          "the shoulders from the back, the block moved as the Pixel 2's")
+          "the front first and the shoulders from the back where a lesson has both, the block "
+          "moved as the Pixel 2's")
     handheld_box("--device", "brick")
     for th in ("light", "dark"):
         own = {}
@@ -313,14 +319,28 @@ def brick():
             if img is None:
                 continue
             left, right = count(img, ACCENT, COLUMN_L), count(img, ACCENT, COLUMN_R)
-            ck(("l" in side) == (left > 30) and ("r" in side) == (right > 30),
+            # "c": a centre key (SELECT, on the middle line), lit on either half
+            ck(left + right > 30 if side == "c" else
+               ("l" in side) == (left > 30) and ("r" in side) == (right > 30),
                "brick %s %s: the lit key is on the %s of the handheld (lit pixels left %d, right %d)"
-               % (th, step, {"l": "left", "r": "right", "lr": "both sides"}[side], left, right))
+               % (th, step, {"l": "left", "r": "right", "lr": "both sides", "c": "middle"}[side],
+                  left, right))
             if th == "light":
                 glass = count(img, GLASS, (0, 82, 276, 442))
-                ck((glass < 400) == (step in BRICK_BACK),
-                   "brick %s: %s (%d glass pixels)" % (step, "turned round to its back, no glass"
-                   if step in BRICK_BACK else "facing front or a side, the glass showing", glass))
+                ck(glass >= 400, "brick %s: facing front or a side, the glass showing (%d glass "
+                   "pixels)" % (step, glass))
+        for step in BRICK_SPIN:
+            img = shot("brick-back-%s-%s" % (step, th), "--theme", th, "--device", "brick",
+                       "--tour", step, BRICK_BACK_MS)
+            if img is None:
+                continue
+            left, right = count(img, ACCENT, COLUMN_L), count(img, ACCENT, COLUMN_R)
+            ck(left > 30 and right > 30, "brick %s %s at %s ms: turned to its back, both shoulders "
+               "lit (lit pixels left %d, right %d)" % (th, step, BRICK_BACK_MS, left, right))
+            if th == "light":
+                glass = count(img, GLASS, (0, 82, 276, 442))
+                ck(glass < 400, "brick %s at %s ms: turned round to its back, no glass (%d glass "
+                   "pixels)" % (step, BRICK_BACK_MS, glass))
         # The block moved as for the Pixel 2: the host's own (no handheld)
         # moved TOURDEV_SHIFT right. MENU's lesson is not: its key is the
         # Brick's, the word on it (src/profile.c, dev_menu_dots), where the

@@ -571,6 +571,7 @@ static void enter(tour *t, tour_step s, uint32_t now)
 	else if (s == TOUR_LANG || s == TOUR_WELCOME || s == TOUR_FINISH) hello(t, s == TOUR_FINISH, now);
 	t->from_lang = false;
 	t->step = s;
+	t->prev_at = t->step_at;
 	t->step_at = now;
 	t->done = false;
 	t->done_at = 0;

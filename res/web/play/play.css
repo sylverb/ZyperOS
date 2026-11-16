@@ -109,6 +109,8 @@
 	--t-move: 160ms;
 	--t-exit: 140ms;
 	--t-turn: 300ms;
+	--t-spin: 900ms;
+	--t-hold-spin: 1800ms;
 	--t-launch: 190ms;
 	--t-fade-out: 200ms;
 	--t-hold-bar: 1500ms;

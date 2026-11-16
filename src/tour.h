@@ -205,6 +205,8 @@ const char *tour_cheer(int i);
 typedef struct {
 	tour_step step;
 	uint32_t  step_at;       /* when this step came on */
+	uint32_t  prev_at;       /* when the step before it did, 0 if none:
+	                          * where a handheld spinning for it was */
 	bool      done;          /* its press landed */
 	uint32_t  done_at;
 	float     a0;            /* where its loop was when the press landed */

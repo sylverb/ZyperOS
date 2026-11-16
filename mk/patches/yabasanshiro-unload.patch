@@ -1,0 +1,20 @@
+yabasanshiro-unload.patch, ours (1.0.6): why it is needed is in
+mk/build-yabasanshiro.sh. git apply skips this preamble.
+
+diff --git a/yabause/src/libretro/libretro.c b/yabause/src/libretro/libretro.c
+index c75e71b..d22957c 100644
+--- a/yabause/src/libretro/libretro.c
++++ b/yabause/src/libretro/libretro.c
+@@ -1314,6 +1314,12 @@ void retro_unload_game(void)
+    if (!renderer_running)
+       VIDCore->Init();
+    YabauseDeInit();
++   /* YabauseDeInit took the renderer down: context_destroy must not call
++    * VIDCore->DeInit again (VIDCore is NULL now), and the next game's
++    * context_reset sets the emulator up again, in a frontend that keeps the
++    * core loaded between games */
++   renderer_running = false;
++   first_ctx_reset = 1;
+ }
+ 
+ unsigned retro_get_region(void)

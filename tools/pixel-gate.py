@@ -6,6 +6,9 @@
     python3 tools/pixel-gate.py --base REF  against REF
     python3 tools/pixel-gate.py --lang en --theme light menu usb-ask
                                             one language, one theme, some shots
+    python3 tools/pixel-gate.py --device brick
+                                            as the Brick (the Pixel 2 by default,
+                                            the README's handheld)
 
 A change that moves code and means to change nothing on the screen (a part
 moved into src/ds/, a number that became a token) is held to it: the
@@ -71,12 +74,12 @@ def build(tree, jobs):
     return binary
 
 
-def shoot(binary, out, langs, themes, only, jobs):
+def shoot(binary, out, langs, themes, only, jobs, device):
     """Every shot into out/<theme>/<lang>/<name>.png, with this tree's
     i18n-shots (its list, its cards), whatever the binary is"""
     for theme in themes:
         cmd = [sys.executable, str(ROOT / "tools" / "i18n-shots.py"), "--binary", str(binary),
-               "--theme", theme, "--jobs", str(jobs), "--keep", str(out / theme)]
+               "--theme", theme, "--jobs", str(jobs), "--keep", str(out / theme), "--device", device]
         for code in langs:
             cmd += ["--lang", code]
         cmd += only
@@ -151,6 +154,7 @@ def main():
     ap.add_argument("--lang", action="append", help="this language only (more than once for more)")
     ap.add_argument("--theme", action="append", choices=["light", "dark"], help="this theme only")
     ap.add_argument("--jobs", type=int, default=3, help="launchers at once (3)")
+    ap.add_argument("--device", default="pixel2", help="the handheld the shots are taken as (pixel2)")
     ap.add_argument("--allow-changes", action="store_true", help="exit 0 with changes: a change meant")
     ap.add_argument("--fresh", action="store_true", help="shoot the base again even if kept")
     ap.add_argument("only", nargs="*", help="shot names (default: all)")
@@ -164,8 +168,9 @@ def main():
     OUT.mkdir(parents=True, exist_ok=True)
     # The base's frames are kept by commit and by what was asked: a run of
     # some shots or languages keeps its own
-    asked = "themes %s; languages %s; shots %s" % (" ".join(themes), " ".join(langs),
-                                                    " ".join(sorted(args.only)) or "all")
+    asked = "themes %s; languages %s; shots %s; device %s" % (" ".join(themes), " ".join(langs),
+                                                              " ".join(sorted(args.only)) or "all",
+                                                              args.device)
     base_out = OUT / ("base-%s-%s" % (sha[:12], hashlib.sha1(asked.encode()).hexdigest()[:10]))
     here_out = OUT / "here"
 
@@ -178,7 +183,7 @@ def main():
                 print("pixel gate: building the base, %s" % sha[:12], flush=True)
                 binary = build(tree, args.jobs)
                 print("pixel gate: the base's shots", flush=True)
-                shoot(binary, base_out, langs, themes, args.only, args.jobs)
+                shoot(binary, base_out, langs, themes, args.only, args.jobs, args.device)
                 (base_out / "asked.txt").write_text("base %s\n%s\n" % (sha, asked))
                 # kept for the second look at what changed (below)
                 shutil.copy2(binary, base_out / "zyperos")
@@ -191,7 +196,7 @@ def main():
     binary = build(ROOT, args.jobs)
     shutil.rmtree(here_out, ignore_errors=True)
     print("pixel gate: this tree's shots", flush=True)
-    shoot(binary, here_out, langs, themes, args.only, args.jobs)
+    shoot(binary, here_out, langs, themes, args.only, args.jobs, args.device)
 
     base, here = frames(base_out), frames(here_out)
     both = sorted(set(base) & set(here))
@@ -212,7 +217,7 @@ def main():
                 again_out = OUT / ("again-%s-%d" % (side, look))
                 shutil.rmtree(again_out, ignore_errors=True)
                 shoot(bin_, again_out, sorted({l for _, l, _ in parts}), sorted({t for t, _, _ in parts}),
-                      sorted({s for _, _, s in parts}), args.jobs)
+                      sorted({s for _, _, s in parts}), args.jobs, args.device)
                 again = frames(again_out)
                 unsteady += [n for n in changed
                              if n not in unsteady and n in again and not same(first[n], again[n])]

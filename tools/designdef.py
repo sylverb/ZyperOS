@@ -339,6 +339,8 @@ MOTION = [
     ("move",        160,  "out",   "a card step, a panel opening"),
     ("exit",        140,  "in",    "a panel closing"),
     ("turn",        300,  "turn",  "the tutorial details panel"),
+    ("spin",        900,  "turn",  "the 3D handheld turning from its front to its back or back again, where the keys lit are on both"),
+    ("hold-spin",   1800, "-",     "the 3D handheld held on its front or its back before it turns to the other"),
     ("launch",      190,  "in",    "a card zooming into its game"),
     ("fade-out",    200,  "fade",  "the bar, a notice going away"),
     ("hold-bar",    1500, "-",     "the bar after the last press"),

@@ -70,6 +70,10 @@ static struct {
 	 * and the tilt together, retargeted at each new row, never queued */
 	cs_lean     lean_from, lean_to;
 	unsigned    lean_t0;
+	/* Keys on the back ledge and off it: lean_to's lean turns round to
+	 * this, the back, and back again, from when the lean got there */
+	bool        spin;
+	cs_lean     lean_back;
 	bool        snap;
 	float       press_from[TD_KEYS];
 	unsigned    press_t0[TD_KEYS];
@@ -232,11 +236,23 @@ static void press(int k)
 	g_cs.press_t0[k] = now ? now : 1;
 }
 
+/* Where the lean rests at `now`: lean_to, or for keys on the back ledge
+ * and off it, lean_to turning to the back and back again (td_swing) */
+static cs_lean lean_rest(unsigned now)
+{
+	float k;
+
+	if (!g_cs.spin) return g_cs.lean_to;
+	k = td_swing((int)(now - g_cs.lean_t0) - DS_MS_TURN);
+	return (cs_lean){ g_cs.lean_to.yaw + (g_cs.lean_back.yaw - g_cs.lean_to.yaw) * k,
+	                  g_cs.lean_to.pitch + (g_cs.lean_back.pitch - g_cs.lean_to.pitch) * k };
+}
+
 /* The lean at `now`: the turn and the tilt eased together in **turn** */
 static cs_lean lean_at(unsigned now)
 {
 	const unsigned el = now - g_cs.lean_t0;
-	const cs_lean a = g_cs.lean_from, b = g_cs.lean_to;
+	const cs_lean a = g_cs.lean_from, b = lean_rest(now);
 	float k;
 
 	if (!g_cs.lean_t0 || el >= DS_MS_TURN) return b;
@@ -248,15 +264,23 @@ static cs_lean lean_at(unsigned now)
  * there at once, the first time */
 static void lean_toward(unsigned target, unsigned now)
 {
-	cs_lean to;
+	const td_model *m = plat_profile()->model;
+	cs_lean to, back;
+	bool spin;
 
-	ct_lean(plat_profile()->model, target, &to.yaw, &to.pitch);
+	ct_lean(m, target, &to.yaw, &to.pitch);
+	spin = ct_spin(m, target, &back.yaw, &back.pitch);
 	if (g_cs.snap) {
 		g_cs.lean_from = g_cs.lean_to = to;
-		g_cs.lean_t0 = 0;
-	} else if (to.yaw != g_cs.lean_to.yaw || to.pitch != g_cs.lean_to.pitch) {
+		g_cs.spin = spin;
+		g_cs.lean_back = back;
+		/* A spin counts its turns from here; still, nothing to turn */
+		g_cs.lean_t0 = spin ? (now ? now : 1) : 0;
+	} else if (to.yaw != g_cs.lean_to.yaw || to.pitch != g_cs.lean_to.pitch || spin != g_cs.spin) {
 		g_cs.lean_from = lean_at(now);
 		g_cs.lean_to = to;
+		g_cs.spin = spin;
+		g_cs.lean_back = back;
 		g_cs.lean_t0 = now ? now : 1;
 	}
 }
@@ -334,7 +358,9 @@ static bool pose_of(const menu_side *at, td_pose *p, bool *moving)
 	if (op <= 0.004f) return false;
 	ln = lean_at(at->now);
 	deg += ln.yaw;
-	if (g_cs.lean_t0 && at->now - g_cs.lean_t0 < DS_MS_TURN) *moving = true;
+	/* A spin turns on its own, held or not: drawn each frame, where a held
+	 * pose is the kept texture again */
+	if ((g_cs.lean_t0 && at->now - g_cs.lean_t0 < DS_MS_TURN) || g_cs.spin) *moving = true;
 	/* Cleared whole, padding too, so two poses compare as bytes */
 	memset(p, 0, sizeof *p);
 	p->model = m;
@@ -410,11 +436,17 @@ int ctlscr_box_check(int *measured)
 	const int n = (int)(sizeof LIT / sizeof LIT[0]);
 	const td_model *m = plat_profile()->model;
 	SDL_FRect reach = { 0.0f, 0.0f, -1.0f, -1.0f };
+	/* Where a spinning row can be as the next is focused: still, half way
+	 * round, on its back, half way back */
+	static const int PHASE[4] = { 0, DS_MS_HOLD_SPIN + DS_MS_SPIN / 2,
+	                              DS_MS_HOLD_SPIN + DS_MS_SPIN + DS_MS_HOLD_SPIN / 2,
+	                              2 * DS_MS_HOLD_SPIN + DS_MS_SPIN + DS_MS_SPIN / 2 };
 	menu_side at;
 	td_pose p;
 	bool moving;
-	char what[96];
-	int a, b, ms, dir, bad = 0;
+	char what[112];
+	float yaw, pitch;
+	int a, b, ph, ms, dir, bad = 0;
 
 	*measured = 0;
 	if (!m) return 0;
@@ -422,20 +454,38 @@ int ctlscr_box_check(int *measured)
 	at.tab_at = GT_CONTROLS;
 	at.content_x = 80;
 	/* From each row's pose to each other's, every frame of the turn, the
-	 * old keys going out and the new coming in as they do */
+	 * old keys going out and the new coming in as they do; from a row
+	 * whose keys spin (ct_spin), from wherever it was in its turns */
 	for (a = 0; a < n; a++)
-		for (b = 0; b < n; b++) {
-			ctlscr_open();
-			lights_to(LIT[a], 1000);
-			lights_to(LIT[b], 2000);
-			for (ms = 0; ms <= DS_MS_TURN; ms += 10) {
-				at.now = 2000u + (unsigned)ms;
-				if (!pose_of(&at, &p, &moving)) continue;
-				snprintf(what, sizeof what, "the Controls tab, keys %#x to %#x at %d ms", LIT[a], LIT[b], ms);
-				bad += !td_box_holds(what, &p, keep_box(&p), &reach);
-				(*measured)++;
+		for (b = 0; b < n; b++)
+			for (ph = 0; ph < (ct_spin(m, LIT[a], &yaw, &pitch) ? 4 : 1); ph++) {
+				const unsigned t1 = 1000u + DS_MS_TURN + (unsigned)PHASE[ph];
+
+				ctlscr_open();
+				lights_to(LIT[a], 1000);
+				lights_to(LIT[b], t1);
+				for (ms = 0; ms <= DS_MS_TURN; ms += 10) {
+					at.now = t1 + (unsigned)ms;
+					if (!pose_of(&at, &p, &moving)) continue;
+					snprintf(what, sizeof what, "the Controls tab, keys %#x (phase %d) to %#x at %d ms",
+					         LIT[a], ph, LIT[b], ms);
+					bad += !td_box_holds(what, &p, keep_box(&p), &reach);
+					(*measured)++;
+				}
 			}
+	/* A whole round of each row's spin */
+	for (a = 0; a < n; a++) {
+		if (!ct_spin(m, LIT[a], &yaw, &pitch)) continue;
+		ctlscr_open();
+		lights_to(LIT[a], 1000);
+		for (ms = 0; ms <= DS_MS_TURN + 2 * (DS_MS_HOLD_SPIN + DS_MS_SPIN); ms += 20) {
+			at.now = 1000u + (unsigned)ms;
+			if (!pose_of(&at, &p, &moving)) continue;
+			snprintf(what, sizeof what, "the Controls tab, keys %#x spinning at %d ms", LIT[a], ms);
+			bad += !td_box_holds(what, &p, keep_box(&p), &reach);
+			(*measured)++;
 		}
+	}
 	/* Coming in with the rows, either way, on each */
 	for (a = 0; a < n; a++)
 		for (dir = -1; dir <= 1; dir += 2) {
@@ -472,6 +522,7 @@ void ctlscr_open(void)
 	g_cs.steady = false;
 	g_cs.lean_from = g_cs.lean_to = (cs_lean){ 0.0f, 0.0f };
 	g_cs.lean_t0 = 0;
+	g_cs.spin = false;
 	for (k = 0; k < TD_KEYS; k++) g_cs.press_t0[k] = 0;
 }
 

@@ -176,6 +176,8 @@ static const char *const DS_TONE_ID[DS_THEMES][DS_TONES] = {
 #define DS_MS_MOVE 160
 #define DS_MS_EXIT 140
 #define DS_MS_TURN 300
+#define DS_MS_SPIN 900
+#define DS_MS_HOLD_SPIN 1800
 #define DS_MS_LAUNCH 190
 #define DS_MS_FADE_OUT 200
 #define DS_MS_HOLD_BAR 1500

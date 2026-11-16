@@ -155,6 +155,17 @@ static td_view view_for(const td_model *m, unsigned faces)
 	return m->front;
 }
 
+/* The view of `m` for a lesson lighting `lit`, `ms` after its turn into
+ * the lesson ended: view_for's, or for keys on the back ledge and off it,
+ * from the others' view round to the back and back again (td_swing) */
+static td_view lesson_view(const td_model *m, unsigned lit, int ms)
+{
+	const unsigned f = faces_of(m, lit);
+
+	if (!td_spins(m, lit)) return view_for(m, f);
+	return td_view_mix(view_for(m, f & ~(1u << TD_FACE_LEDGE)), m->back, td_swing(ms));
+}
+
 bool tourdev_shown(const tour *t)
 {
 	return t && t->model && t->step >= TOUR_FIRST_LESSON &&
@@ -909,13 +920,17 @@ static bool tour_has(const tour *t, float op)
 }
 
 /* The tutorial's pose for `t` at `now`, at `op`: `t`'s model turned to the
- * view its lesson's keys ask for (view_for) */
+ * view its lesson's keys ask for (lesson_view) */
 static void tourdev_pose(const tour *t, uint32_t now, float op, td_pose *out)
 {
 	const td_model *m = t->model;
 	const tour_step prev = t->step > TOUR_FIRST_LESSON ? (tour_step)(t->step - 1) : t->step;
 	const unsigned f0 = faces_of(m, lit_of(t, prev)), f1 = faces_of(m, lit_of(t, t->step));
-	const td_view p0 = view_for(m, f0), p1 = view_for(m, f1);
+	/* From where the last lesson's was as this one came on, a spinning one
+	 * anywhere in its turns, to this one's, which turns once it is there */
+	const int ago = t->prev_at ? (int)(int32_t)(t->step_at - t->prev_at) : 0;
+	const td_view p0 = lesson_view(m, lit_of(t, prev), ago - DS_MS_TURN);
+	const td_view p1 = lesson_view(m, lit_of(t, t->step), (int)(int32_t)(now - t->step_at) - DS_MS_TURN);
 	/* It turns from the last lesson's pose as the step comes on */
 	const float k = prev == t->step ? 1.0f : ds_turn(clampf((float)(int32_t)(now - t->step_at)
 	                                                       / DS_MS_TURN, 0.0f, 1.0f));
@@ -2007,11 +2022,16 @@ int tourdev_box_check(const td_model *m, int *measured)
 {
 	static const dev_bright BRIGHT[2] = { DEV_BRIGHT_MENU_VOL, DEV_BRIGHT_KEYS };
 	SDL_FRect reach = { 0.0f, 0.0f, -1.0f, -1.0f };
+	/* Where a spinning last lesson can be as the next comes on: still, half
+	 * way round, on its back, half way back */
+	static const int PHASE[4] = { 0, DS_MS_HOLD_SPIN + DS_MS_SPIN / 2,
+	                              DS_MS_HOLD_SPIN + DS_MS_SPIN + DS_MS_HOLD_SPIN / 2,
+	                              2 * DS_MS_HOLD_SPIN + DS_MS_SPIN + DS_MS_SPIN / 2 };
 	SDL_Rect box;
 	tour t;
 	td_pose p;
-	char what[80];
-	int b, s, ms, bad = 0;
+	char what[96];
+	int b, s, ph, ms, bad = 0;
 
 	*measured = 0;
 	if (!m) return 0;
@@ -2024,10 +2044,22 @@ int tourdev_box_check(const td_model *m, int *measured)
 			t.bright = BRIGHT[b];
 			t.menu_release = BRIGHT[b] == DEV_BRIGHT_MENU_VOL;
 			t.step = (tour_step)s;
-			t.step_at = 1000;
-			/* Every frame of the turn into it from the last lesson, and at rest */
-			for (ms = 0; ms <= DS_MS_TURN + 100; ms += 10) {
-				tourdev_pose(&t, 1000u + (uint32_t)ms, 1.0f, &p);
+			t.step_at = 5000;
+			/* Every frame of the turn into it from the last lesson, from
+			 * wherever a spinning last one was in its turns */
+			for (ph = 0; ph < 4; ph++) {
+				t.prev_at = 5000u - (uint32_t)(DS_MS_TURN + PHASE[ph]);
+				for (ms = 0; ms <= DS_MS_TURN + 100; ms += 10) {
+					tourdev_pose(&t, 5000u + (uint32_t)ms, 1.0f, &p);
+					snprintf(what, sizeof what, "the tutorial's lesson %d at %d ms from phase %d%s",
+					         s - TOUR_FIRST_LESSON + 1, ms, ph, b ? " (brightness keys)" : "");
+					bad += !td_box_holds(what, &p, box, &reach);
+					(*measured)++;
+				}
+			}
+			/* ...and at rest, or a whole round of its spin */
+			for (ms = DS_MS_TURN + 100; ms <= DS_MS_TURN + 2 * (DS_MS_HOLD_SPIN + DS_MS_SPIN); ms += 20) {
+				tourdev_pose(&t, 5000u + (uint32_t)ms, 1.0f, &p);
 				snprintf(what, sizeof what, "the tutorial's lesson %d at %d ms%s",
 				         s - TOUR_FIRST_LESSON + 1, ms, b ? " (brightness keys)" : "");
 				bad += !td_box_holds(what, &p, box, &reach);
