@@ -67,9 +67,9 @@ that rebuilds it to the same bytes.
 | `mednafen_pce_fast_libretro.so` | TurboGrafx-16 and CD | GPL-2.0 (Mednafen-derived) | https://github.com/libretro/beetle-pce-fast-libretro at bebe2b1 (no commit in the binary; this one rebuilds the buildbot's bytes, and the file shipped is that build without its .comment section, `mk/fetch-vendor.sh`) |
 | `mednafen_ngp_libretro.so` | Neo Geo Pocket and Color | GPL-2.0 (Mednafen-derived) | https://github.com/libretro/beetle-ngp-libretro at a50d5ac |
 | `pcsx_rearmed_libretro.so` | PlayStation | GPL-2.0 | https://github.com/libretro/pcsx_rearmed at 7b0e8f8 |
-| `mgba_libretro.so` | Game Boy, Color and Advance | MPL-2.0 | https://github.com/libretro/mgba at e31759b plus mGBA's fix 543a197 (https://github.com/mgba-emu/mgba); `mk/build-mgba-bridge.sh` builds it |
-| `snes9x2010_libretro.so` | SNES | **Non-commercial** | https://github.com/libretro/snes9x2010 at 7db129b |
-| `genesis_plus_gx_libretro.so` | Genesis, Master System, Game Gear | **Non-commercial** | https://github.com/libretro/Genesis-Plus-GX at b7e79b3 |
+| `mgba_libretro.so` | Game Boy, Color and Advance | MPL-2.0 | https://github.com/libretro/mgba at e31759b plus mGBA's fixes 543a197, 685023e and 8485192 (https://github.com/mgba-emu/mgba); `mk/build-mgba-bridge.sh` builds it |
+| `snes9x2010_libretro.so` | SNES | **Non-commercial** | https://github.com/libretro/snes9x2010 at fe690dd |
+| `genesis_plus_gx_libretro.so` | Genesis, Master System, Game Gear | **Non-commercial** | https://github.com/libretro/Genesis-Plus-GX at b9c2316 |
 | `stella2014_libretro.so` | Atari 2600 | GPL-2.0 | https://github.com/libretro/stella2014-libretro at 7d1361e |
 | `prosystem_libretro.so` | Atari 7800 | GPL-2.0 | https://github.com/libretro/prosystem-libretro at 8a88014 |
 | `gw_libretro.so` | Game & Watch | zlib | https://github.com/libretro/gw-libretro at dddc9d5 (the hash the binary reports as its own) |

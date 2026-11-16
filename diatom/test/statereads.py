@@ -10,6 +10,8 @@ DSperate (STUBCORE_NAME, STUBCORE_VERSION):
   - one way only: DSperate v3.0.5 refuses a state v3.4.1 wrote
   - those two versions only: DSperate v3.3.0 refuses a v3.0.5 state
   - that core only: another core with the same two versions refuses it
+  - Snes9x 2010 fe690dd and Genesis Plus GX b9c2316 resume the states
+    7db129b and b7e79b3 wrote, one way only, as named and versioned there
 
 The states are version 1 files written here (a 112-byte header, then the
 core's bytes as they are), as test/states.py writes one.
@@ -163,6 +165,33 @@ try:
     finally:
         d.close()
 
+    # The two rows after DSperate's, each core under its own name: the newer
+    # build resumes the older one's state, the older refuses the newer's
+    frame = 10000
+    for core, older, newer in (("Snes9x 2010", "1.52.4 7db129b", "1.52.4 fe690dd"),
+                               ("Genesis Plus GX", "v1.7.4 b7e79b3", "v1.7.4 b9c2316")):
+        d = Diatom(core, newer)
+        try:
+            old = state(core, older, frame)
+            first = d.resume(old)
+            check(f"{core} {newer} resumes a state {older} wrote, from its frame {frame}",
+                  first is not None and frame <= first <= frame + 2
+                  and f"state: {old} was written by {core} {older}, which {newer} reads" in d.log(),
+                  (first, lines(d, old)))
+        finally:
+            d.close()
+        d = Diatom(core, older)
+        try:
+            new = state(core, newer, frame + 500)
+            first = d.resume(new)
+            check(f"one way only: {core} {older} refuses a state {newer} wrote",
+                  first is not None and first <= 2
+                  and f"state: {new} was written by {core} {newer}, this is {core} {older}" in d.log(),
+                  (first, lines(d, new)))
+        finally:
+            d.close()
+        frame += 1000
+
     d = Diatom("Another", "v3.4.1")
     try:
         another = state("Another", "v3.0.5", 9000)
@@ -179,4 +208,5 @@ finally:
 if fails:
     print(f"statereads: {len(fails)} failed")
     sys.exit(1)
-print("ok: DSperate v3.4.1 reads v3.0.5 states, one way, that core only")
+print("ok: DSperate v3.4.1 reads v3.0.5 states, and Snes9x 2010 and Genesis Plus GX their older"
+      " builds' states, one way, that core only")

@@ -111,9 +111,14 @@ class Strings:
 
 
 # The strings that are drawn as a part of another's text: a page's name in a
-# heading, and a mix's in Audio Channels' "auto (mono)" or a place's in Audio
-# Output's "auto (speaker)"
-COMPOSED = ("controls.page.", "audio.")
+# heading, a mix's in Audio Channels' "auto (mono)" or a place's in Audio
+# Output's "auto (speaker)", and the reason a scraper's run passed a system
+# over in "NES: no such folder" (art.problem), and a month's short name and
+# AM or PM in MENU's Date & Time row ("Jan 15, 10:08", clock.label_24h) and
+# in a save slot's moment ("Aug 20 1:00:00 PM", slots.when)
+COMPOSED = ("controls.page.", "audio.", "art.why_", "clock.short_", "clock.am", "clock.pm", "slots.jan",
+            "slots.feb", "slots.mar", "slots.apr", "slots.may", "slots.jun", "slots.jul", "slots.aug",
+            "slots.sep", "slots.oct", "slots.nov", "slots.dec", "slots.am", "slots.pm")
 
 STRINGS = {}
 
@@ -459,6 +464,36 @@ for _page in (3, 4, 5):
 for _scroll in ("0.5", "1"):
     EXTRA.setdefault("about-2-scroll-" + _scroll, ("demo", "PS1", ["--about", "2", "--about-scroll", _scroll]))
     EXTRA.setdefault("about-3-scroll-" + _scroll, ("demo", "PS1", ["--about", "3", "--about-scroll", _scroll]))
+# The Scraper page's run saying what it is doing past a game's name (the
+# catalog, a game with no art, the checksums), and done with the reason it
+# passed a system over or stopped a source (art_status's lines)
+for _k, _w in enumerate(("catalog", "no-art", "checksums")):
+    EXTRA.setdefault("scraper-page-run-" + _w, ("demo", "PS1", ["--scraper-page", "17", str(_k)]))
+for _k, _w in enumerate(("no-folder", "not-in-table", "no-curl", "index-failed", "index-bad", "ss-quota",
+                         "ss-too-many", "ss-busy", "ss-no-answer", "sg-refused", "sg-busy", "sg-no-answer")):
+    EXTRA.setdefault("scraper-page-done-" + _w, ("demo", "PS1", ["--scraper-page", "16", str(_k)]))
+# Every month: Date & Time's page on the 3rd of each (its name in full), and
+# MENU's Date & Time row on the 15th (its short name, --status's date=), in
+# 12 hours in July (AM) and December (PM)
+_MONTHS = ("jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec")
+for _k, _m in enumerate(_MONTHS):
+    if _m != "oct":
+        EXTRA.setdefault("datetime-" + _m, ("demo", "PS1", ["--datetime", "3", str(_k + 1)]))
+    # its own --status after the shots' one, which it takes the place of
+    _st = "%s %s wifi=off batt=82 date=2026-%02d-15" % ("18:05" if _m == "dec" else "10:08",
+                                                       "12h" if _m in ("jul", "dec") else "24h", _k + 1)
+    EXTRA.setdefault("menu-clock-" + _m, ("demo", "PS1", ["--menu", "Language", "--status", _st]))
+# The save slots: the slot in view saved in each other month (August is the
+# slots shot's), in 12 hours in January (AM) and February (PM); an empty
+# slot; and the strip as Save asks where to
+for _k, _m in enumerate(_MONTHS):
+    if _m != "aug":
+        _f = ["--slots", "1", "--slot-when", str(_k + 1), "9" if _m == "jan" else "15"]
+        if _m in ("jan", "feb"):
+            _f += ["--status", "10:08 12h wifi=off batt=82"]
+        EXTRA.setdefault("slots-" + _m, ("demo", "PS1", _f))
+EXTRA.setdefault("slots-empty", ("demo", "PS1", ["--slots", "5"]))
+EXTRA.setdefault("slots-save", ("demo", "PS1", ["--slots", "1", "--slot-save"]))
 EXTRA.setdefault("hare-cable", ("demo", "PS1", ["--hare", "10.42.0.1", "1 signed in", "Tobu Tobu Girl.gb"]))
 # File Transfer's news on Flash Drive's page (DESIGN.md 11.23): the tiles in
 # each state, over Wi-Fi and over the cable (SSH beside the browsers)
@@ -545,6 +580,19 @@ def set_files(card, files, on):
 for _s in ("shimmerless", "crt", "crt-curved", "scanlines", "lcd"):
     EXTRA.setdefault("gamemenu-shader-" + _s, ("demo", "PS1", ["--screen", "games", "--gamemenu", "1", "--gm-tab", "1"]))
     SHOT_SETTINGS["gamemenu-shader-" + _s] = {"shader.PS1": _s}
+
+# The Shader list, each shader under its cursor beside its picture and its
+# note (src/shaderdemo.h); the Strength list beside its picture; MENU's
+# Shader list (the Pixel 2 offers all six; the Brick Off and
+# Sharp-Shimmerless, its list's last row standing in past them)
+for _k, _s in enumerate(["off", "shimmerless", "crt", "crt-curved", "scanlines", "lcd"]):
+    EXTRA.setdefault("gamemenu-shader-list-" + _s,
+                     ("demo", "PS1", ["--gamemenu", "1", "--gm-tab", "1", "--gm-choose", "--pick-at", str(_k)]))
+EXTRA.setdefault("gamemenu-strength-list", ("demo", "PS1", ["--gamemenu", "2", "--gm-tab", "1", "--gm-choose",
+                                                           "--pick-at", "4"]))
+SHOT_SETTINGS["gamemenu-strength-list"] = {"shader.PS1": "crt", "shader_strength.PS1": "50"}
+EXTRA.setdefault("menu-shader-list", ("demo", "PS1", ["--menu", "Shader", "--press", "a"]))
+SHOT_SETTINGS["menu-shader-list"] = {"shader": "scanlines"}
 
 # The Strength row under each Shader row while the shader is an old screen
 # (src/strength.h): in the game on it, in the system menu, and MENU's saying
@@ -650,6 +698,19 @@ EXTRA.setdefault("menu-saver-off", ("demo", "PS1", ["--menu-tab", "1", "--menu",
 # value (its seconds and minutes); Display's, with what the mode under the
 # cursor does under it, from a system's menu and from the in-game menu
 EXTRA.setdefault("menu-autooff-list", ("demo", "PS1", ["--menu", "Auto Off", "--press", "a"]))
+# MENU's values off their defaults, each on its row: the clock in 12 hours
+# and the battery's icon as a percentage and as time left (the shot's own
+# --status, SHOT_STATUS), Auto Off off, and the systems in release order
+SHOT_STATUS = {}
+EXTRA.setdefault("menu-hours-12h", ("demo", "PS1", ["--menu", "Language"]))
+SHOT_STATUS["menu-hours-12h"] = "10:08 12h wifi=off batt=82"
+for _icon in ("percentage", "time"):
+    EXTRA.setdefault("menu-battery-" + _icon, ("demo", "PS1", ["--menu-tab", "1", "--menu", "Battery Icon"]))
+    SHOT_STATUS["menu-battery-" + _icon] = "10:08 24h wifi=off batt=82 eta=95 icon=" + _icon
+EXTRA.setdefault("menu-autooff-never", ("demo", "PS1", ["--menu", "Auto Off"]))
+SHOT_SETTINGS["menu-autooff-never"] = {"autooff": "0"}
+EXTRA.setdefault("menu-order-release", ("demo", "PS1", ["--menu-tab", "1", "--menu", "System Order"]))
+SHOT_SETTINGS["menu-order-release"] = {"systems.order": "release"}
 EXTRA.setdefault("system-menu-display-list", ("demo", "PS1", ["--screen", "games", "--menu", "Display", "--press", "a"]))
 # View's three (Covers, Grid, List) over a shelf in the grid
 EXTRA.setdefault("system-menu-view-list", ("demo", "NES", ["--screen", "games", "--view", "grid", "--menu", "View", "--press", "a"]))
@@ -889,7 +950,7 @@ def run_language(code, shots, binary, keep, theme="light", device="pixel2", firs
             target = out / (name + ".png")
             # The tutorial and the battery's screens draw no status corner
             status = [] if name.startswith(("tour-", "lowbatt", "charging-")) else \
-                ["--status", "10:08 24h wifi=off batt=82"]
+                ["--status", SHOT_STATUS.get(name, "10:08 24h wifi=off batt=82")]
             command = [str(binary), "--shot", str(target), "--theme", theme, "--lang", code,
                        "--screen", "systems", "--phase", "3200", *status,
                        "--device", device, *[f.replace("{card}", str(card)) for f in flags]]

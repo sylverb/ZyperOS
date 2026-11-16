@@ -109,6 +109,12 @@ cp "$ROOT/res/bgm/"*.mp3 "$P/res/bgm/"
 # without them.
 mkdir -p "$P/res/tour"
 cp "$ROOT/res/tour/"*.png "$P/res/tour/"
+# The Shader and Strength lists' pictures (src/shaderdemo.h), made by
+# tools/shaderdemo.c for each panel: the device's own panel's alone. The
+# Pixel 2's 640x480, the Brick's 1024x768.
+if [ "$DEVICE" = pixel2 ]; then DEMO=640x480; else DEMO=1024x768; fi
+mkdir -p "$P/res/shaderdemo/$DEMO"
+cp "$ROOT/res/shaderdemo/$DEMO/"*.png "$P/res/shaderdemo/$DEMO/"
 # Wi-Fi File Transfer's page. The launcher serves these off the card at P_WEB, so a
 # payload without them is a card whose transfer screen starts a server and then
 # answers its own page with a 404, which only shows on a built card - the

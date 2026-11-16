@@ -13,23 +13,6 @@ about.battery_charging
 about.health_estimate
 about.thanks_handhelds  # About > Thanks: the heading over the people who help with other handhelds, drawn only once src/about_screen.c's ABOUT_HANDHELD_THANKS has a row; none yet
 
-# art: no shot draws it yet
-art.now_catalog
-art.now_no_art
-art.now_checksums
-art.why_no_folder
-art.why_not_in_table
-art.why_no_curl
-art.why_index_failed
-art.why_index_bad
-art.ss_quota
-art.ss_too_many
-art.ss_busy
-art.ss_no_answer
-art.sg_refused
-art.sg_busy
-art.sg_no_answer
-
 # audio: no shot draws it yet
 audio.wired
 audio.bluetooth
@@ -99,33 +82,6 @@ cheevos.unlocked_points.one
 cheevos.unlocked
 cheevos.progress
 cheevos.ra_user
-
-# clock: no shot draws it yet
-clock.month_jan
-clock.month_feb
-clock.month_mar
-clock.month_apr
-clock.month_may
-clock.month_jun
-clock.month_jul
-clock.month_aug
-clock.month_sep
-clock.month_nov
-clock.month_dec
-clock.short_jan
-clock.short_feb
-clock.short_mar
-clock.short_apr
-clock.short_may
-clock.short_jun
-clock.short_jul
-clock.short_aug
-clock.short_sep
-clock.short_oct
-clock.short_nov
-clock.short_dec
-clock.am
-clock.pm
 
 # controls: no shot draws it yet
 controls.show_keypad
@@ -273,11 +229,11 @@ tour.lang.hello
 
 # launch: no shot draws it yet
 launch.needs_bios
-launch.couldnt_start
-launch.bios_size   # wrapped onto balanced lines (result_message), so no drawn line is the string
+launch.bios_size  # wrapped onto balanced lines (result_message), so no drawn line is the string
 launch.bios_hides  # wrapped onto balanced lines, as launch.bios_size
-launch.bios_bytes.one    # a piece of launch.bios_size's line
+launch.bios_bytes.one  # a piece of launch.bios_size's line
 launch.bios_bytes.other  # a piece of launch.bios_size's line
+launch.couldnt_start
 launch.game_empty  # wrapped onto balanced lines, as launch.bios_size
 launch.game_short  # wrapped onto balanced lines, as launch.bios_size
 
@@ -318,9 +274,6 @@ musiclib.sort_title
 musiclib.art_no_network
 
 # panel: no shot draws it yet
-panel.order_release
-panel.battery_percentage
-panel.battery_time
 panel.signing_in
 panel.signed_in_as
 panel.sign_in_failed
@@ -391,24 +344,6 @@ shelf.albums.one
 shelf.books.one
 shelf.list_sep
 
-# slots: no shot draws it yet
-slots.save_to
-slots.empty
-slots.am
-slots.pm
-slots.jan
-slots.feb
-slots.mar
-slots.apr
-slots.may
-slots.jun
-slots.jul
-slots.aug
-slots.sep
-slots.oct
-slots.nov
-slots.dec
-
 # snaps: no shot draws it yet
 snaps.delete_ask
 snaps.given_back
@@ -439,7 +374,6 @@ stats.this_year
 stats.this_month
 stats.this_week
 stats.today_window
-stats.never
 stats.today
 stats.yesterday
 stats.days_ago
@@ -462,12 +396,7 @@ storage.files.one
 # sysmenu: no shot draws it yet
 sysmenu.wifi_connecting
 sysmenu.hotspot
-sysmenu.clock_12h
-sysmenu.auto_off_never
 sysmenu.charge_limit
-sysmenu.order_release
-sysmenu.battery_percent
-sysmenu.battery_time
 sysmenu.dslang
 sysmenu.dsslow
 sysmenu.dsslow_keep
