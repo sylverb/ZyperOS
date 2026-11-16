@@ -1,0 +1,249 @@
+From: plastron
+Subject: [PATCH] power: supply: rk817: the level at a start, its current taken out
+
+The level a start begins from is made from one sample the PMIC takes as it
+powers on (PWRON_VOL), after 30 minutes or more off. That sample was read as
+the battery's voltage at rest, though the current at that moment (PWRON_CUR)
+moves it: a start from POWER samples while the SoC begins to draw, under the
+rest, and a charger's start samples while the charger pushes current in,
+above it. On a GKD Pixel 2 the OCV table is flat under 50% (3 to 4 mV a
+point), so a few tens of mV are several points.
+
+Now:
+
+- The sample has its current's drop taken out (the device tree's internal
+  resistance, 111 mOhm on a GKD Pixel 2) before the OCV table reads it.
+- A charger's start (over 100 mA into the battery at the sample) keeps the
+  coulomb counter, as a start after a short time off does. A level made from
+  that sample was too high, charging counted up from it, and the next start
+  from rest seemed to lose tens of points while off (a report on ZyperOS
+  1.0.5: 85% when turned off, 49% two hours later).
+- One line for each start: the level, where it came from, the time off, the
+  start's source (ON_SOURCE), the sample, the voltage at rest and its level,
+  and the counter's level. ZyperOS copies it into that start's own log.
+
+A start after less than 30 minutes off, and a battery new to the gauge, are
+as before, apart from the drop taken out of the new battery's sample.
+---
+ drivers/power/supply/rk817_charger.c | 175 ++++++++++++++++++++------
+ 1 file changed, 136 insertions(+), 39 deletions(-)
+
+diff --git a/drivers/power/supply/rk817_charger.c b/drivers/power/supply/rk817_charger.c
+index 7838832..42b8eab 100644
+--- a/drivers/power/supply/rk817_charger.c
++++ b/drivers/power/supply/rk817_charger.c
+@@ -932,14 +932,93 @@ static int rk817_read_battery_nvram_values(struct rk817_charger *charger)
+ 	return 0;
+ }
+ 
++/*
++ * A start's level is made from the sample the PMIC takes as it powers on:
++ * the battery's voltage then (PWRON_VOL) and its current (PWRON_CUR, + into
++ * the battery, as BAT_CUR is). The OCV table gives the level of a battery at
++ * rest. One taking current stands above its rest by its internal
++ * resistance's drop, and one giving current stands under it, so the drop is
++ * taken out of the sample before the table reads it. Without a resistance in
++ * the device tree, the sample is read as it is.
++ *
++ * On a GKD Pixel 2 (111 mOhm in its device tree), 300 mA is 33 mV: about 4
++ * points at 60%, and 8 to 11 under 50%, where the table is flatter (3 to 4
++ * mV a point from 50 to 25%).
++ */
++static int rk817_rest_uv(int boot_uv, int boot_ua, int r_uohm)
++{
++	if (r_uohm <= 0)
++		return boot_uv;
++	return boot_uv - (int)div_s64((s64)boot_ua * r_uohm, 1000000);
++}
++
++/*
++ * Over this current into the battery, a start's sample is not used for the
++ * level, even with its drop taken out: this is a charger's start. The RK817
++ * powers a handheld on when a cable comes in, and it takes its sample while
++ * the charger already pushes current into the battery. That drop is large,
++ * and it is more than the device tree's resistance says (the board's path
++ * adds to the cell's own). A level made from such a sample is too high.
++ * Charging then counts up from the wrong level, and the next start from
++ * rest, after 30 minutes or more off, finds the truth. The level seems to
++ * fall by tens of points over the time off, with no charge lost (a report
++ * on ZyperOS 1.0.5: 85% when turned off, 49% two hours later). So a
++ * charger's start keeps the counter, as a start after a short time off
++ * does. A drift in the counter is set right at the next start from rest or
++ * at the next full charge.
++ *
++ * The rule is only for current into the battery. A start from POWER takes
++ * its sample while the SoC begins to draw current, and the resistance
++ * corrects that drop. A limit for that direction could stop every start
++ * from making the level again from the voltage. Besides a full charge, that
++ * is the only correction the counter gets.
++ */
++#define RK817_START_CHARGING_UA	100000
++
++/* Where a start's level comes from */
++enum rk817_start_from {
++	RK817_START_VOLTAGE,	/* off 30 min or more: the sample, at rest */
++	RK817_START_COUNTER,	/* off less: the counter, kept */
++	RK817_START_CHARGER,	/* a charger's start: the counter, kept */
++	RK817_START_NEW,	/* a battery new to the gauge: the sample */
++};
++
++/*
++ * off_min: the minutes OFF_CNT counted before this start (it counts tens of
++ * minutes, and stops at 2550). After 30 minutes or more off, the level is
++ * made again from the sample, as before: the driver's first author found
++ * that the counter drifts down when the RK817 is off for long. A battery
++ * new to the gauge has no counter to keep.
++ */
++static enum rk817_start_from rk817_start_from(bool new_battery, int off_min,
++					      int boot_ua)
++{
++	if (new_battery)
++		return RK817_START_NEW;
++	if (off_min < 30)
++		return RK817_START_COUNTER;
++	if (boot_ua > RK817_START_CHARGING_UA)
++		return RK817_START_CHARGER;
++	return RK817_START_VOLTAGE;
++}
++
+ static int
+ rk817_read_or_set_full_charge_on_boot(struct rk817_charger *charger,
+ 				struct power_supply_battery_info *bat_info)
+ {
++	static const char *const from_text[] = {
++		[RK817_START_VOLTAGE] = "the voltage",
++		[RK817_START_COUNTER] = "the counter, off under 30 min",
++		[RK817_START_CHARGER] = "the counter, a charger's start",
++		[RK817_START_NEW] = "the voltage, a battery new to the gauge",
++	};
+ 	struct rk808 *rk808 = charger->rk808;
+ 	u8 bulk_reg[4];
+ 	u32 boot_voltage, boot_charge_mah;
+-	int ret, reg, off_time, tmp;
++	int ret, reg, off_time = 0, tmp, on_source = 0;
++	int boot_ua, rest_uv, voltage_soc, counter_soc = -1;
++	enum rk817_start_from from;
++	char counter[16] = "none";
+ 	bool first_boot;
+ 
+ 	/*
+@@ -950,27 +1029,38 @@ rk817_read_or_set_full_charge_on_boot(struct rk817_charger *charger,
+ 	if (ret < 0)
+ 		return ret;
+ 	first_boot = reg & RK817_BAT_CON;
++
+ 	/*
+-	 * If the battery is uninitialized, use the poweron voltage and an ocv
+-	 * lookup to guess our charge. The number won't be very accurate until
+-	 * we hit either our minimum voltage (0%) or full charge (100%).
++	 * The sample the PMIC took as it powered on, with the drop of its
++	 * current taken out (rk817_rest_uv), and the level the OCV table gives
++	 * for it. Since only implementation has no working thermistor, assume
++	 * 20C for OCV lookup.
+ 	 */
++	regmap_bulk_read(rk808->regmap, RK817_GAS_GAUGE_PWRON_VOL_H,
++			 bulk_reg, 2);
++	tmp = get_unaligned_be16(bulk_reg);
++	boot_voltage = (charger->voltage_k * tmp) + 1000 * charger->voltage_b;
++	/* A signed 16 bit value, as BAT_CUR is */
++	regmap_bulk_read(rk808->regmap, RK817_GAS_GAUGE_PWRON_CUR_H,
++			 bulk_reg, 2);
++	tmp = (short int)get_unaligned_be16(bulk_reg);
++	boot_ua = ADC_TO_CURRENT(tmp, charger->res_div);
++	rest_uv = rk817_rest_uv(boot_voltage, boot_ua,
++				bat_info->factory_internal_resistance_uohm);
++	voltage_soc = power_supply_batinfo_ocv2cap(bat_info, rest_uv, 20) * 1000;
++	if (voltage_soc < 0)
++		voltage_soc = 0;
++	/* Only for the line below: POWER, a cable, a restart */
++	regmap_read(rk808->regmap, RK817_ON_SOURCE_REG, &on_source);
++
+ 	if (first_boot) {
+-		regmap_bulk_read(rk808->regmap, RK817_GAS_GAUGE_PWRON_VOL_H,
+-				 bulk_reg, 2);
+-		tmp = get_unaligned_be16(bulk_reg);
+-		boot_voltage = (charger->voltage_k * tmp) +
+-				1000 * charger->voltage_b;
+ 		/*
+-		 * Since only implementation has no working thermistor, assume
+-		 * 20C for OCV lookup. If lookup fails, report error with OCV
+-		 * table.
++		 * If the battery is uninitialized, use the poweron voltage and
++		 * an ocv lookup to guess our charge. The number won't be very
++		 * accurate until we hit either our minimum voltage (0%) or full
++		 * charge (100%).
+ 		 */
+-		charger->soc = power_supply_batinfo_ocv2cap(bat_info,
+-							    boot_voltage,
+-							    20) * 1000;
+-		if (charger->soc < 0)
+-			charger->soc = 0;
++		charger->soc = voltage_soc;
+ 
+ 		/* Guess that full charge capacity is the design capacity */
+ 		charger->fcc_mah = charger->bat_charge_full_design_uah / 1000;
+@@ -996,35 +1086,42 @@ rk817_read_or_set_full_charge_on_boot(struct rk817_charger *charger,
+ 			tmp = 0;
+ 		boot_charge_mah = ADC_TO_CHARGE_UAH(tmp,
+ 						    charger->res_div) / 1000;
++		counter_soc = boot_charge_mah * 1000 * 100 / charger->fcc_mah;
+ 		/*
+ 		 * Check if the columb counter has been off for more than 30
+ 		 * minutes as it tends to drift downward. If so, re-init soc
+-		 * with the boot voltage instead. Note the unit values for the
+-		 * OFF_CNT register appear to be in decaminutes and stops
+-		 * counting at 2550 (0xFF) minutes. BSP kernel used OCV, but
+-		 * for me occasionally that would show invalid values. Boot
+-		 * voltage is only accurate for me on first poweron (not
+-		 * reboots), but we shouldn't ever encounter an OFF_CNT more
+-		 * than 0 on a reboot anyway.
++		 * with the boot voltage instead (rk817_start_from). Note the
++		 * unit values for the OFF_CNT register appear to be in
++		 * decaminutes and stops counting at 2550 (0xFF) minutes. BSP
++		 * kernel used OCV, but for me occasionally that would show
++		 * invalid values. Boot voltage is only accurate for me on first
++		 * poweron (not reboots), but we shouldn't ever encounter an
++		 * OFF_CNT more than 0 on a reboot anyway.
+ 		 */
+ 		regmap_read(rk808->regmap, RK817_GAS_GAUGE_OFF_CNT, &off_time);
+-		if (off_time >= 3) {
+-			regmap_bulk_read(rk808->regmap,
+-					 RK817_GAS_GAUGE_PWRON_VOL_H,
+-					 bulk_reg, 2);
+-			tmp = get_unaligned_be16(bulk_reg);
+-			boot_voltage = (charger->voltage_k * tmp) +
+-					1000 * charger->voltage_b;
+-			charger->soc =
+-				power_supply_batinfo_ocv2cap(bat_info,
+-							     boot_voltage,
+-							     20) * 1000;
+-		} else {
+-			charger->soc = (boot_charge_mah * 1000 * 100 /
+-					charger->fcc_mah);
+-		}
+ 	}
+ 
++	from = rk817_start_from(first_boot, off_time * 10, boot_ua);
++	if (!first_boot)
++		charger->soc = from == RK817_START_VOLTAGE ? voltage_soc :
++							     counter_soc;
++
++	/*
++	 * One line for each start, with all that the level came from: ZyperOS
++	 * copies it into the start's own log, so a report of a level that
++	 * jumped shows why (the kernel's log is too small to keep it until
++	 * the logs are downloaded)
++	 */
++	if (counter_soc >= 0)
++		snprintf(counter, sizeof(counter), "%d%%",
++			 (counter_soc + 500) / 1000);
++	dev_info(charger->dev,
++		 "battery at start: %d%% from %s; off %d%s min, on 0x%02x, sampled %d mV at %d mA, at rest %d mV (%d%%), counter %s\n",
++		 (charger->soc + 500) / 1000, from_text[from], off_time * 10,
++		 off_time >= 0xff ? "+" : "", on_source,
++		 (int)boot_voltage / 1000, boot_ua / 1000, rest_uv / 1000,
++		 (voltage_soc + 500) / 1000, counter);
++
+ 	/*
+ 	 * Now we have our full charge capacity and soc, init the columb
+ 	 * counter.

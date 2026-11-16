@@ -35,7 +35,7 @@ CHECKS = check-cheevos check-hare check-portal check-httpd check-idle check-task
          check-clock check-autozone check-status check-battery check-battery-eta check-dslang check-gpuframes check-dsresume check-corestate check-core-stamp check-core-room check-px2-perf check-px2-snap check-px2 check-lowbatt check-powerhold check-homesys check-heat check-charging check-corner check-dsv check-sidelights check-osdbar check-hud check-dmodefit check-themefile check-pkkeys check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-kbnav check-randgame check-shelfdir check-look \
          check-tween check-menumotion check-menusnap check-cardgen check-cardart check-focusfx check-blur check-gridrule check-roundrect check-rowmacro check-emptyhome check-zyperrig check-sysmark check-flip check-menushots check-design \
          check-systemart check-linebreak check-portload check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-messages \
-         check-tour check-tour-shots check-tour-previews check-textfade check-glyphs check-ds check-layout-ratchet check-flex check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pmhelper check-pmart check-portdoc check-boottheme check-splashbright check-bootbright check-panelgamma check-displayback check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr \
+         check-tour check-tour-shots check-tour-previews check-textfade check-glyphs check-ds check-layout-ratchet check-flex check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pmhelper check-pmart check-portdoc check-boottheme check-splashbright check-bootbright check-panelgamma check-displayback check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-start-soc check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr \
          check-home check-home-shots check-games check-cardpaint check-putpace check-favorites-shots check-np-footer check-menu-rows check-layout-shots check-artbadge check-artbadge-shots check-cardart-shots checkmark \
          check-installer check-from-rogue check-importers check-diatom check-simulator check-px2sim check-building-doc check-blog check-discord-release \
          check-release-devices check-strings check-i18n-shots check-rootswitch check-datapart check-brick-closed check-hwreport
@@ -575,7 +575,8 @@ check-wifi-watch:
 # launch.sh's start on a card a power cut broke (sd/zyperos/launch.sh with each
 # device's sd/DEVICE/device.sh): a junk boot.env read as off, not sourced, and
 # five fast stops of the launcher, or no device.sh, set launch.sh aside once,
-# so the next start copies ZyperOS again
+# so the next start copies ZyperOS again; and on the Pixel 2, the kernel's
+# line about the battery at the start copied into the start's log
 check-launch-start:
 	@sh tools/launch-start-check.sh
 
@@ -878,6 +879,14 @@ check-gauge:
 	@mkdir -p build-native && $(CC) -std=c11 -D_DEFAULT_SOURCE -Wall -Wextra -Werror -O1 \
 		-o build-native/gauge-check plastron/buildroot/package/gauge/src/check.c \
 		plastron/buildroot/package/gauge/src/lights.c && build-native/gauge-check
+
+# The GKD Pixel 2's battery level at a start (plastron's kernel patch
+# 9-px2-rk817-start-soc.patch): the voltage at rest, with the current's drop
+# taken out, and where a start's level comes from, as plastron's own `make
+# start-soc-check` holds them against the Pixel 2's device tree. Host
+# compiler only, no device.
+check-start-soc:
+	@$(MAKE) --no-print-directory -C plastron start-soc-check
 
 # When the Pixel 2's USB port may be a host (plastron's usbrole, its
 # src/rule.c): the nine plugs of a Mac traced on 2026-11-10 never host, and a
