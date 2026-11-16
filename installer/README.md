@@ -59,6 +59,17 @@ The first time it opens:
      settings stay.
    - **Fresh install** on any card: it is erased, and ZyperOS goes on.
 
+**The Brick's graphics and Wi-Fi files.** The Brick needs closed files for
+its graphics and its Wi-Fi and Bluetooth: Imagination's PowerVR driver and
+GPU firmware, and XRadio's firmware, which come with its chip and which
+ZyperOS does not pass on. For a Brick card, Install and Update first get
+them from where they are published, Creality's Sonic Pad SDK on GitHub (at
+commit 7f37a7f), check each against the sums plastron's build checks, and
+put them only on that card, in `closed/` on its boot partition, where System
+Update never touches them. They are fetched before anything is written:
+when one can't be had, the installer says which and why, and writes nothing.
+A copy is kept on the computer, so the next Brick card needs no download.
+
 Before anything is written, a sheet names the card, its reader, its disk and
 its size; a fresh install also asks you to tick that you want that card
 erased. Everything written is read back and compared. When it's done, the

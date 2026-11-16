@@ -11,7 +11,7 @@
         check-db check-coreopts check-gpuframes check-gamedel check-gamern check-esmedia check-corepins check-targets yuvtarget check-storage check-stats check-sort check-bt check-ss check-titles check-dsv check-sidelights check-osdbar check-hud check-dmodefit check-themefile check-pkkeys check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-kbnav check-tween check-menumotion check-menusnap check-cardgen check-blur check-gridrule check-roundrect check-rowmacro check-emptyhome check-zyperrig check-randgame check-shelfdir \
         check-sysmark check-flip check-menushots check-controls-shots check-design check-systemart check-linebreak check-portload \
         check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-messages check-tour check-tour-shots check-textfade check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pmhelper check-portdoc check-boottheme check-splashbright check-bootbright check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr check-autozone \
-        check-home check-home-shots check-games check-cardpaint check-putpace landbench check-favorites-shots check-np-footer check-menu-rows check-layout-shots check-artbadge check-artbadge-shots design sounds strings cjk-font check-strings check-i18n-shots check-rootswitch check-datapart \
+        check-home check-home-shots check-games check-cardpaint check-putpace landbench check-favorites-shots check-np-footer check-menu-rows check-layout-shots check-artbadge check-artbadge-shots design sounds strings cjk-font check-strings check-i18n-shots check-rootswitch check-datapart check-brick-closed \
         check-tour-previews tour-previews check-prep check-diatom check-simulator check-px2sim check-building-doc check-blog check-discord-release \
         check-release-devices check-installer release
 
@@ -38,7 +38,7 @@ CHECKS = check-cheevos check-hare check-portal check-httpd check-idle check-task
          check-tour check-tour-shots check-tour-previews check-textfade check-glyphs check-ds check-layout-ratchet check-flex check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pmhelper check-pmart check-portdoc check-boottheme check-splashbright check-bootbright check-panelgamma check-displayback check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr \
          check-home check-home-shots check-games check-cardpaint check-putpace check-favorites-shots check-np-footer check-menu-rows check-layout-shots check-artbadge check-artbadge-shots checkmark \
          check-installer check-from-rogue check-importers check-diatom check-simulator check-px2sim check-building-doc check-blog check-discord-release \
-         check-release-devices check-strings check-i18n-shots check-rootswitch check-datapart
+         check-release-devices check-strings check-i18n-shots check-rootswitch check-datapart check-brick-closed
 
 # All of them at once, as many at a time as there are cores (CHECK_JOBS=1 for
 # one after another), each into build-native/check-logs/: tools/check-run.py
@@ -1135,6 +1135,11 @@ check-rootswitch:
 check-datapart:
 	@sh tools/datapart-check.sh
 
+# The Brick's start checking its closed files against its image's lists: a
+# card without them all can't start ZyperOS, and the splash says so
+check-brick-closed:
+	@sh tools/closedcheck-check.sh
+
 # The same pixels, proved (tools/pixel-gate.py): every shot of check-i18n-shots
 # in every language and both themes, at BASE (origin/main) and here, compared
 # as decoded pixels, with sheets of what changed. Not in CHECKS: it builds the
@@ -1827,7 +1832,7 @@ boot:
 # folder and compared, a PNG by its pixels (tools/gendrift.py). Both draw the
 # same bytes run after run; the first start's line is text, and these pictures
 # are what a Pillow with Raqm draws, the one PYIMG picks first. Not in CHECKS.
-.PHONY: check-genloading check-genfirststart check-genhudglyphs
+.PHONY: check-genloading check-genfirststart check-genhudglyphs check-genclosed
 # The FPS readout's glyphs (src/hudglyphs.h and Diatom's copy) as
 # tools/genhudglyphs.py draws them, with the Pillow they were drawn with
 check-genhudglyphs:
@@ -1841,6 +1846,12 @@ check-genloading:
 check-genfirststart:
 	@py='$(PYIMG)'; [ -n "$$py" ] || { echo "check-genfirststart: needs Pillow; set PYIMG" >&2; exit 1; }; \
 	"$$py" -B tools/genfirststart.py --check
+
+# The TrimUI Brick's screen for a card without its closed files, plastron's
+# splash's closed-missing*.bin, as tools/genclosed.py draws it
+check-genclosed:
+	@py='$(PYIMG)'; [ -n "$$py" ] || { echo "check-genclosed: needs Pillow; set PYIMG" >&2; exit 1; }; \
+	"$$py" -B tools/genclosed.py --check
 
 # Fourteen config files became two databases, so properties that used to be
 # obvious from looking at a text file now need asserting - chiefly that a

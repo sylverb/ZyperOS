@@ -23,6 +23,10 @@ lzma-rust2 = { version = "0.20", default-features = false, features = ["std", "x
 # to install alongside on Linux
 ureq = { version = "3", default-features = false, features = ["rustls"] }
 sha2 = "0.11"
+# The Brick's closed files into its boot partition's FAT (closed.rs), in
+# memory before the image is written: no card is mounted, on any system.
+# Long names (alloc), no clock (a fixed date)
+fatfs = { version = "0.3", default-features = false, features = ["std", "alloc"] }
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

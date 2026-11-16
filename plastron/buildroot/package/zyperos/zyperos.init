@@ -204,6 +204,13 @@ bright_keep() {
 }
 
 start() {
+	# A device's own start said ZyperOS can't run on this card (the Brick's
+	# init.d/brick, when its closed files are missing, the player's own copy
+	# the ZyperOS Installer adds): its splash says so, and nothing starts
+	if [ -f /tmp/zyperos-no-start ]; then
+		echo "zyperos: not started, $(cat /tmp/zyperos-no-start) is missing" > /dev/kmsg
+		return 0
+	fi
 	bright_keep
 	# A card from before ZyperOS had its own name keeps everything in TortOS/.
 	# Moved once, less the launcher and the launch.sh that knows the old

@@ -34,9 +34,20 @@
  *
  * Started first thing, by inittab's first line; the framebuffer is there long
  * before the panel lights, so the first frame is waiting when it does.
+ *
+ * `splash missing` is the start that can't go on: the card lacks the Brick's
+ * closed files (the PowerVR driver and the XR829 firmware, the player's own
+ * copy, which the ZyperOS Installer puts in the boot partition's closed/), so
+ * init.d/brick stops the animation and starts this instead. It shows
+ * ZyperOS's picture saying so (its tools/genclosed.py), in the language the
+ * boot screen has (zylang, as the Pixel 2's splash reads it; English
+ * without), and when POWER is pressed it powers the Brick off.
  */
+#include <dirent.h>
 #include <fcntl.h>
 #include <linux/fb.h>
+#include <linux/input.h>
+#include <poll.h>
 #include <signal.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -50,6 +61,7 @@
 #include <zlib.h>
 
 #define FRAMES     "/usr/share/splash/frames.bin"
+#define MISSING    "/usr/share/splash/closed-missing"
 #define BACKGROUND 0xff111310   /* the Brick's boot screen, if there are no frames */
 
 /* Seconds since the kernel started, as the kernel log counts them */
@@ -76,10 +88,10 @@ static const uint8_t *frames;
 static size_t frames_size;
 static unsigned frame_count, fps, frame_w, frame_h;
 
-static int frames_open(void)
+static int frames_open(const char *path)
 {
 	struct stat st;
-	int fd = open(FRAMES, O_RDONLY | O_CLOEXEC);
+	int fd = open(path, O_RDONLY | O_CLOEXEC);
 
 	if (fd < 0 || fstat(fd, &st) < 0 || st.st_size < 12) return -1;
 	frames = mmap(NULL, st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
@@ -176,8 +188,65 @@ static int still_ours(int fd, uint32_t yoffset, int *took_back)
 	return ioctl(fd, FBIOPAN_DISPLAY, &var) == 0;
 }
 
-int main(void)
+/* The missing-files picture for the boot screen's language, or English's */
+static const char *missing_path(void)
 {
+	static char path[96];
+	const char *lang = getenv("zylang");
+
+	if (lang && *lang && strcmp(lang, "-") && strcmp(lang, "en") && !strchr(lang, '/')) {
+		snprintf(path, sizeof path, MISSING "-%s.bin", lang);
+		if (access(path, R_OK) == 0) return path;
+	}
+	return MISSING ".bin";
+}
+
+/* Until POWER is pressed on any input device that has it: the pad's, the
+ * PMIC's power key */
+static void wait_for_power(void)
+{
+	struct pollfd fds[16];
+	int n = 0;
+	DIR *dir = opendir("/dev/input");
+	struct dirent *e;
+
+	while (dir && n < 16 && (e = readdir(dir))) {
+		char path[300];
+		unsigned long keys[KEY_MAX / (8 * sizeof(long)) + 1] = { 0 };
+
+		if (strncmp(e->d_name, "event", 5)) continue;
+		snprintf(path, sizeof path, "/dev/input/%s", e->d_name);
+		int fd = open(path, O_RDONLY | O_CLOEXEC);
+		if (fd < 0) continue;
+		if (ioctl(fd, EVIOCGBIT(EV_KEY, sizeof keys), keys) >= 0 &&
+		    keys[KEY_POWER / (8 * sizeof(long))] >> (KEY_POWER % (8 * sizeof(long))) & 1) {
+			fds[n].fd = fd;
+			fds[n++].events = POLLIN;
+		} else {
+			close(fd);
+		}
+	}
+	if (dir) closedir(dir);
+	if (!n) {
+		/* No power key to wait for: the picture stays */
+		for (;;) pause();
+	}
+	for (;;) {
+		if (poll(fds, n, -1) <= 0) continue;
+		for (int i = 0; i < n; i++) {
+			struct input_event ev;
+
+			if (!(fds[i].revents & POLLIN)) continue;
+			while (read(fds[i].fd, &ev, sizeof ev) == sizeof ev)
+				if (ev.type == EV_KEY && ev.code == KEY_POWER && ev.value == 1) return;
+		}
+	}
+}
+
+int main(int argc, char **argv)
+{
+	int missing = argc > 1 && !strcmp(argv[1], "missing");
+
 	/* First: SIGUSR1 left at its default would end this */
 	struct sigaction on = { .sa_handler = on_zyperos };
 	sigemptyset(&on.sa_mask);
@@ -213,7 +282,8 @@ int main(void)
 	}
 
 	unsigned first_row, rows;
-	int animated = frames_open() == 0 && frame_w == var.xres && frame_h == var.yres &&
+	int animated = frames_open(missing ? missing_path() : FRAMES) == 0 &&
+		       frame_w == var.xres && frame_h == var.yres &&
 		       fix.line_length == frame_w * 4 &&
 		       frame_decode(0, (uint8_t *)pixels, &first_row, &rows) == 0;
 	if (!animated) {
@@ -231,6 +301,13 @@ int main(void)
 	char line[256];
 	snprintf(line, sizeof(line), "splash: first frame at %.3f s\n", first);
 	log_to_kernel(line);
+	if (missing) {
+		log_to_kernel("splash: the Brick's closed files are missing; POWER powers it off\n");
+		wait_for_power();
+		log_to_kernel("splash: POWER pressed, powering off\n");
+		execl("/sbin/poweroff", "poweroff", (char *)NULL);
+		return 1;
+	}
 
 	/*
 	 * The rest at the video's rate, each on its own deadline from the first.

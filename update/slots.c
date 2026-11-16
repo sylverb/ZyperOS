@@ -33,7 +33,7 @@
 #define BOOT_MOUNT "/run/zyperos-boot"
 
 static char g_part[2][512], g_bootdev[512], g_bootdir[256], g_slot;
-static bool g_mounted, g_trial;
+static bool g_mounted, g_remounted, g_trial;
 
 static bool read_line_file(const char *path, char *out, size_t n)
 {
@@ -145,6 +145,28 @@ bool up_slot_trial(void) { return g_trial; }
 char up_slot_other(void) { return g_slot == 'b' ? 'a' : 'b'; }
 const char *up_slot_part(char slot) { return g_part[slot == 'b' ? 1 : 0]; }
 
+#ifdef __linux__
+/* Where the boot partition is mounted already, into out: the Brick's start
+ * mounts it read-only at /boot (plastron's init.d/brick), for the closed
+ * files the system links to, and the same device mounted again with other
+ * flags is refused. False when it isn't mounted. */
+static bool boot_mounted_at(char *out, size_t n)
+{
+	char line[1024], dev[512], dir[256];
+	FILE *f = fopen("/proc/mounts", "r");
+	bool found = false;
+
+	if (!f) return false;
+	while (!found && fgets(line, sizeof line, f))
+		if (sscanf(line, "%511s %255s", dev, dir) == 2 && !strcmp(dev, g_bootdev)) {
+			snprintf(out, n, "%s", dir);
+			found = true;
+		}
+	fclose(f);
+	return found;
+}
+#endif
+
 const char *up_boot_open(char *err, size_t errn)
 {
 	const char *dir = getenv("ZYPEROS_UPDATE_BOOT");
@@ -154,6 +176,16 @@ const char *up_boot_open(char *err, size_t errn)
 		return g_bootdir;
 	}
 #ifdef __linux__
+	/* Mounted already (the Brick's /boot, read-only): made writable for
+	 * this, and read-only again when it is closed */
+	if (boot_mounted_at(g_bootdir, sizeof g_bootdir)) {
+		if (mount(g_bootdev, g_bootdir, "vfat", MS_REMOUNT | MS_NOATIME | MS_NOSUID | MS_NODEV, "")) {
+			snprintf(err, errn, "cannot make %s writable: %s", g_bootdir, strerror(errno));
+			return NULL;
+		}
+		g_remounted = true;
+		return g_bootdir;
+	}
 	mkdir(BOOT_MOUNT, 0700);
 	if (mount(g_bootdev, BOOT_MOUNT, "vfat", MS_NOATIME | MS_NOSUID | MS_NODEV, "")) {
 		snprintf(err, errn, "cannot mount %s: %s", g_bootdev, strerror(errno));
@@ -173,6 +205,9 @@ void up_boot_close(void)
 	sync();
 #ifdef __linux__
 	if (g_mounted) umount(BOOT_MOUNT);
+	if (g_remounted)
+		mount(g_bootdev, g_bootdir, "vfat", MS_REMOUNT | MS_RDONLY | MS_NOATIME | MS_NOSUID | MS_NODEV, "");
+	g_remounted = false;
 #endif
 	g_mounted = false;
 }

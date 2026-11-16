@@ -24,3 +24,32 @@ fr = Mise à jour de ZyperOS sur cette carte
 de = ZyperOS wird auf dieser Karte aktualisiert
 ja = このカードの ZyperOS を更新中
 it = Aggiornamento di ZyperOS su questa scheda
+
+# The TrimUI Brick's start when its closed files are missing from the card
+# (the PowerVR driver and the XR829 firmware, the player's own copy, which
+# the ZyperOS Installer puts in the boot partition's closed/): drawn into
+# pictures by tools/genclosed.py, which the Brick's splash shows instead of
+# starting ZyperOS. Two lines on the boot screen's ground, centered.
+
+[boot.closed_missing]
+note = The heading: the Brick can't start, as files the installer adds are not on its card. At most 900 of the Brick's 1024 pixels.
+en = This card is missing the Brick's graphics and Wi-Fi files
+zh-Hans = 此存储卡缺少 Brick 的图形和 Wi-Fi 文件
+es = A esta tarjeta le faltan los archivos de gráficos y Wi-Fi del Brick
+pt-BR = Faltam neste cartão os arquivos de gráficos e Wi-Fi do Brick
+fr = Il manque sur cette carte les fichiers graphiques et Wi-Fi du Brick
+de = Auf dieser Karte fehlen die Grafik- und WLAN-Dateien des Brick
+ja = このカードには Brick のグラフィックと Wi-Fi のファイルがありません
+it = In questa scheda mancano i file grafici e Wi-Fi del Brick
+
+[boot.closed_missing_do]
+note = Under the heading: what to do. POWER is the button. At most 900 of the Brick's 1024 pixels.
+en = Run the ZyperOS Installer's Update on a computer. POWER turns the Brick off.
+zh-Hans = 请在电脑上运行 ZyperOS 安装程序的“更新”。按 POWER 关闭 Brick。
+es = Ejecuta Actualizar del Instalador de ZyperOS en un ordenador. POWER apaga el Brick.
+pt-BR = Use Atualizar do Instalador do ZyperOS em um computador. POWER desliga o Brick.
+fr = Lancez la mise à jour de l'Installateur ZyperOS sur un ordinateur. POWER éteint le Brick.
+de = Führe das Update im ZyperOS-Installer an einem Computer aus. POWER schaltet den Brick aus.
+ja = パソコンで ZyperOS インストーラーの「アップデート」を実行してください。POWER で Brick の電源が切れます。
+it = Esegui Aggiorna dell'Installer di ZyperOS su un computer. POWER spegne il Brick.
+
