@@ -30,7 +30,7 @@ PLASTRON_COMMIT := $(shell git describe --always --dirty --abbrev=12 2>/dev/null
 STAMP := -e PLASTRON_COMMIT=$(PLASTRON_COMMIT) -e "PLASTRON_WHO=$(USER) with plastron $(PLASTRON_COMMIT)"
 DOCKER_RUN := docker run --rm -t $(STAMP) -v $(CURDIR):/src:ro $(SOURCES) -v $(VOLUME):/work $(IMAGE)
 
-.PHONY: gauge-check charge-limit-check push all builder volume image base qemu sdk brick brick-fetch brick-inputs brick-kernel brick-bootloader smartpro-bootloader brick-probe bootloader shell linux-rebuild copy-out clean-output release release-pixel2 release-brick third-party
+.PHONY: gauge-check charge-limit-check push all builder volume image base qemu sdk brick brick-fetch brick-inputs brick-kernel smartpro-kernel brick-bootloader smartpro-bootloader brick-probe bootloader shell linux-rebuild copy-out clean-output release release-pixel2 release-brick third-party
 
 all: image
 
@@ -107,6 +107,14 @@ brick-kernel: volume
 	docker build -q -t $(BRICK_KERNEL_IMAGE) docker/brick-kernel
 	docker run --rm -v $(CURDIR):/src:ro -v $(VOLUME):/work $(BRICK_KERNEL_IMAGE) \
 		sh /src/scripts/build-brick-kernel.sh
+
+# The TrimUI Smart Pro's, the same way: the Brick's patches, then
+# board/smartpro/linux/patches (smartpro_defconfig, its panels) and its
+# device tree, into the volume's smartpro-kernel/images
+smartpro-kernel: volume
+	docker build -q -t $(BRICK_KERNEL_IMAGE) docker/brick-kernel
+	docker run --rm -v $(CURDIR):/src:ro -v $(VOLUME):/work $(BRICK_KERNEL_IMAGE) \
+		sh /src/scripts/build-brick-kernel.sh smartpro
 
 # The TrimUI Brick's boot loader: TF-A's BL31 and U-Boot, built by
 # scripts/build-brick-bootloader.sh in docker/brick-boot (the GCC 14 it was
