@@ -11,6 +11,7 @@
  * Wi-Fi, Bluetooth audio and play time - each one row in one menu, and none of
  * it in the way of starting a game.
  */
+#include "hwreport.h"
 #include "atomic.h"
 #include "autozone.h"
 #include "coreopts.h"   /* coreopts_migrate: 1.0.6's defaults at run time */
@@ -4819,7 +4820,7 @@ int menu_std_width(app *a)
 	int floor   = menu_shelf_width(a);
 	/* No wider than menu_draw makes a panel: a language whose rows run long
 	 * (German) measured past it, and About's story, wrapped at that, slid */
-	int most    = ZYPEROS_SCREEN_W - MENU_MARGIN * 2 - menu_pad() * 2;
+	int most    = menu_most_w();
 	int w       = floor > content ? floor : content;
 
 	return w < most ? w : most;
@@ -6548,6 +6549,9 @@ int main(int argc, char *argv[])
 	/* The buttons as this handheld prints them, before anything is drawn */
 	ds_keys_set(plat_profile()->buttons, plat_profile()->n_buttons);
 	if (!ui_init(a.r, P_FONT)) fprintf(stderr, "font init failed\n");
+	/* The GL renderer and version, for the log pack's hardware report
+	 * (src/hwreport.h): read once, while the renderer's context is current */
+	hw_note_gl();
 	/* The language's faces: Lexend's, opened above, or 简体中文's, opened now */
 	ui_fonts_for(i18n_lang());
 	page_fonts_init(P_FONT);

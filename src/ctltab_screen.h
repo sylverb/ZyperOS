@@ -16,13 +16,13 @@
 #include "app.h"
 #include "config.h"
 #include "ctltab.h"
+#include "ds/layout.h"
 #include "panel.h"
 
 /* The column the handheld stands in: the rows and the focus fill start this
- * far in from the content's left edge (the mock's, 2026-11-13) */
-#define CTLSCR_SIDE_W 280
-/* The page's panel, as wide as the in-game menu's */
-#define CTLSCR_PAGE_W 860
+ * far in from the content's left edge (the ctl-side token, the mock's,
+ * 2026-11-13) */
+#define CTLSCR_SIDE_W DS_CTL_SIDE
 
 /* What the tab is about: the game the menu is over, and where its choices
  * are kept and sent */

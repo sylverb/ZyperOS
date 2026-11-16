@@ -53,6 +53,9 @@ int menu_row_h(void) { return DS_MENU_ROW; }   /* 72: on the grid, 45 px on the 
  * menu_draw draws it and menu_std_width subtracts it, and a panel width
  * means nothing unless both use the same number. */
 int menu_pad(void)   { return DS_MENU_PAD; }   /* 56: on the grid, 35 px on the Pixel 2 */
+/* 864: a measured panel never grows past it, and the in-game menu is this
+ * wide on every tab, so its panel stands MENU_MARGIN from the sides */
+int menu_most_w(void) { return ZYPEROS_SCREEN_W - MENU_MARGIN * 2 - menu_pad() * 2; }
 
 /* The menus' panel pass as src/ds/panel.h asks for it */
 static bool menu_pass_begin(void *ctx) { return panel_pass_begin(ctx); }
@@ -358,11 +361,11 @@ static int menu_tabs_draw(app *a, const menu_tabs *t, int cx, int cy,
 		/* the old one gone in the first two fifths, as its rows are */
 		float op = 1.0f - p * 2.5f;
 		int ow = op > 0.0f ? menu_tab_row(a, t, t->from, cx, cy, lo, hi,
-		                                  (int)(-t->dir * 96 * p), op)
+		                                  (int)(-t->dir * DS_TAB_MOVE_NAME * p), op)
 		                   : ui_text_width(ui_font(UI_F_LABEL),
 		                                   t->name(t->from));
 
-		aw = menu_tab_row(a, t, t->at, cx, cy, lo, hi, (int)(t->dir * 96 * (1.0f - p)), p);
+		aw = menu_tab_row(a, t, t->at, cx, cy, lo, hi, (int)(t->dir * DS_TAB_MOVE_NAME * (1.0f - p)), p);
 		w = (int)(ow + (aw - ow) * p + 0.5f);
 	} else {
 		w = aw = menu_tab_row(a, t, t->at, cx, cy, lo, hi, 0, 1.0f);
@@ -528,7 +531,7 @@ void menu_panel(app *a, const char *heading, const menu_row *rows,
 	int tab_bar_w = 0;
 	float tab_p = g_menu_tabs ? menu_tabs_p(g_menu_tabs) : 1.0f;
 	bool tab_moving = tab_p < 1.0f;
-	int tab_dx = tab_moving ? (int)(g_menu_tabs->dir * 64 * (1.0f - tab_p)) : 0;
+	int tab_dx = tab_moving ? (int)(g_menu_tabs->dir * DS_TAB_MOVE_IN * (1.0f - tab_p)) : 0;
 	/* menu_style's picture at the rows' left: the rows and the focus fill
 	 * start `side_w` in from the content's left edge, the heading and its
 	 * rule do not */
@@ -573,13 +576,11 @@ void menu_panel(app *a, const char *heading, const menu_row *rows,
 	}
 	if (fixed_w > 0) content_w = fixed_w;
 	else content_w += side_w;
-	if (content_w > ZYPEROS_SCREEN_W - margin * 2 - pad * 2)
-		content_w = ZYPEROS_SCREEN_W - margin * 2 - pad * 2;
+	if (content_w > menu_most_w()) content_w = menu_most_w();
 	/* The most a row can have: the fixed width, or the screen's. A row
 	 * that sizes a free panel is as wide as the panel by its own measure,
 	 * so only this cap says a row is near being cut (ui_fit_tight) */
-	int cap_w = fixed_w > 0 && fixed_w < ZYPEROS_SCREEN_W - margin * 2 - pad * 2
-	          ? fixed_w : ZYPEROS_SCREEN_W - margin * 2 - pad * 2;
+	int cap_w = fixed_w > 0 && fixed_w < menu_most_w() ? fixed_w : menu_most_w();
 
 	{
 		int sum = 0;
@@ -1521,7 +1522,7 @@ int menu_pick_width(app *a, int base, const char *const *labels, int n, int tick
                     bool preview, int *side_w)
 {
 	TTF_Font *f = ui_font(UI_F_MENU);
-	const int most = ZYPEROS_SCREEN_W - MENU_MARGIN * 2 - menu_pad() * 2;
+	const int most = menu_most_w();
 	const int room = base > most ? base : most;
 	int longest = 0, need, i;
 

@@ -49,12 +49,16 @@ const ROOT: usize = 2;
 
 /// The write itself, with the card opened here. What the helper runs, and
 /// what macOS and Windows run in the window's process. `source` is the card
-/// image; `card_bytes` the card's size, which a GPT is fitted to.
+/// image; `card_bytes` the card's size, which a GPT is fitted to; `closed`
+/// the Brick's closed files (closed.rs), fetched and checked already, which
+/// go into the image's boot partition on its way to the card (none for the
+/// Pixel 2).
 pub fn write_here(
     card_id: &str,
     action: Action,
     source: &Path,
     card_bytes: u64,
+    closed: &[PathBuf],
     progress: &mut dyn FnMut(Progress),
     cancel: &AtomicBool,
 ) -> Result<(), String> {
@@ -63,7 +67,23 @@ pub fn write_here(
         return Err("That card isn't there anymore, or it changed. Choose it again.".into());
     }
     let len = crate::image::size(source).map_err(|e| format!("Reading the image: {e}"))?;
-    let open = || crate::image::open(source);
+    let plain = || crate::image::open(source);
+    let over = if closed.is_empty() {
+        None
+    } else {
+        // Checked again here, which is root on Linux: exactly these bytes go
+        // on the card
+        let checked = crate::closed::load_checked(crate::closed::LIST, closed)?;
+        let (at, boot) = crate::closed::boot_with(&plain, &checked)?;
+        Some((at, std::sync::Arc::new(boot)))
+    };
+    let open = || -> std::io::Result<Box<dyn std::io::Read + Send>> {
+        let image = crate::image::open(source)?;
+        Ok(match &over {
+            Some((at, boot)) => Box::new(crate::closed::Overlay::new(image, *at, boot.clone())),
+            None => image,
+        })
+    };
     let mut card = crate::device::open(card_id)?;
     let result = match action {
         Action::Update => crate::writer::update(&mut card, &open, len, PIXEL_SKIP, ROOT, progress, &cancelled).map(|_| ()),
@@ -80,13 +100,14 @@ pub fn run(
     action: Action,
     source: &Path,
     card_bytes: u64,
+    closed: &[PathBuf],
     progress: &mut dyn FnMut(Progress),
     cancel: &AtomicBool,
 ) -> Result<(), String> {
     #[cfg(target_os = "linux")]
-    return run_helper(card_id, action, source, card_bytes, progress, cancel);
+    return run_helper(card_id, action, source, card_bytes, closed, progress, cancel);
     #[cfg(not(target_os = "linux"))]
-    return write_here(card_id, action, source, card_bytes, progress, cancel);
+    return write_here(card_id, action, source, card_bytes, closed, progress, cancel);
 }
 
 /// Linux: pkexec runs this program again as root with `--write`, which asks
@@ -97,6 +118,7 @@ fn run_helper(
     action: Action,
     source: &Path,
     card_bytes: u64,
+    closed: &[PathBuf],
     progress: &mut dyn FnMut(Progress),
     cancel: &AtomicBool,
 ) -> Result<(), String> {
@@ -108,6 +130,7 @@ fn run_helper(
         .args(["--write", action.word(), card_id])
         .arg(source)
         .arg(card_bytes.to_string())
+        .args(closed)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
@@ -165,8 +188,9 @@ fn parse_line(line: &str) -> Option<Line> {
     }
 }
 
-/// The helper: `--write update|brick-update|fresh CARD SOURCE CARD_BYTES`, run
-/// as root on Linux.
+/// The helper: `--write update|brick-update|fresh CARD SOURCE CARD_BYTES
+/// [CLOSED...]`, run as root on Linux; CLOSED the Brick's closed files the
+/// window fetched and checked.
 /// Prints progress at most every few hundred milliseconds.
 pub fn helper(args: &[String]) -> i32 {
     let (Some(action), Some(card), Some(source), Some(card_bytes)) = (
@@ -175,15 +199,16 @@ pub fn helper(args: &[String]) -> i32 {
         args.get(2).map(PathBuf::from),
         args.get(3).and_then(|n| n.parse::<u64>().ok()),
     ) else {
-        eprintln!("usage: zyperos-installer --write update|brick-update|fresh CARD SOURCE CARD_BYTES");
+        eprintln!("usage: zyperos-installer --write update|brick-update|fresh CARD SOURCE CARD_BYTES [CLOSED...]");
         return 2;
     };
+    let closed: Vec<PathBuf> = args.iter().skip(4).map(PathBuf::from).collect();
     let mut last = std::time::Instant::now();
     let mut last_word = "";
     let mut progress = |p: Progress| {
         let (word, done, total) = match p {
             // The window downloads, and checks a local image, before the helper starts
-            Progress::Downloading { .. } | Progress::Verifying { .. } => return,
+            Progress::Downloading { .. } | Progress::Verifying { .. } | Progress::Fetching { .. } => return,
             Progress::Writing { done, total } => ("writing", done, total),
             Progress::Checking { done, total } => ("checking", done, total),
         };
@@ -194,7 +219,7 @@ pub fn helper(args: &[String]) -> i32 {
         }
     };
     let never = AtomicBool::new(false);
-    match write_here(card, action, &source, card_bytes, &mut progress, &never) {
+    match write_here(card, action, &source, card_bytes, &closed, &mut progress, &never) {
         Ok(()) => {
             println!("ok");
             0

@@ -36,6 +36,11 @@ grep "^BUILT=" "$DATAPART"
 # Finder leaves .DS_Store files in the overlay folders on a Mac
 find "$TARGET_DIR" -name .DS_Store -delete
 
+# The boot partition's mount point (init.d/brick mounts it read-only before
+# the GPU's driver loads): the closed files the system links to are in its
+# closed/, and the squashfs root can't make a folder at boot
+mkdir -p "$TARGET_DIR/boot"
+
 # The games partition's mount point, made here rather than at boot: on a
 # squashfs root nothing can be made at boot, and datapart's mkdir would
 # fail, leaving the card unmounted and ZyperOS with nowhere to start from

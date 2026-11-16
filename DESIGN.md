@@ -408,6 +408,12 @@ its own says why beside it.
 | **page-tile-pad** | 32 | its words from its sides |
 | **menu-row** | 72 | a menu's row: on the grid, 45 whole pixels on the Pixel 2 (1.5 menu lines, 73, until 1.0.6) |
 | **menu-pad** | 56 | a menu panel's padding: 35 whole pixels on the Pixel 2 (3/4 of a row, 54, until 1.0.6) |
+| **tab-move-name** | 96 | a tab's turn (L1, R1): the tab names move this far the press's way |
+| **tab-move-in** | 64 | ...and the new tab's rows come in from this far, the Controls tab's handheld with them |
+| **ctl-side** | 280 | the Controls tab's handheld column: its rows and their focus fill start this far in from the content's left |
+| **ctl-device-x** | 99 | the handheld's middle from the content's left: half the Pixel 2's drawing at its tab pose, so its left edge is on the heading rule's left end |
+| **ctl-device-y** | 458 | the handheld's middle on the screen: one place on every tab and page that has it, as their panel is as tall as the screen allows (the mock's, 2026-11-13) |
+| **hud-band** | 152 | On-Screen Stats' band: the screen's strip where the line goes, the line at Far (48) under the level bar (94 + 49) and at the foot; on the grid, 95 whole pixels on the Pixel 2 (150 until 1.0.6) |
 | **tile-w** | 272 | a tile, three in a row |
 | **tile-w-wide** | 408 | a tile, two in a row or the grid's |
 | **tile-h** | 232 | a tile's height: the mark, a name on two lines |
@@ -2760,7 +2766,8 @@ After that it opens on the tab and the row it was left on, until the game
 ends (Quit, POWER, or another game), so tuning a button is change, MENU, try,
 MENU, with the cursor where it was. Applies To keeps its value with them. The
 panel stands 24 units from the screen's sides, the most 11.3 allows, to make
-room for the handheld on the Controls tab: its content is 860 units wide.
+room for the handheld on the Controls tab: its content is 864 units wide
+(`menu_most_w`; 860, 26 from the sides, off the grid, until 1.0.6).
 Over a port (OpenBOR, PortMaster) the menu is as it was, Continue, Controls
 and Quit with no tabs, and there Controls is the read-only pages below.
 

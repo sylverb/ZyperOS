@@ -398,7 +398,6 @@ static void gm_step_strength(app *a, int d)
  * count under 2 is no row: a game on one disc, one whose core has no tray,
  * and a Diatom too old to answer (it says nothing to DISC, so the wait below
  * runs out and the menu is what it was). A shot's (--gm-discs) stands in. */
-#define GM_PANEL_W 860
 gm_disc_state g_gm_disc;
 int g_shot_discs;
 const char *g_shot_disc_label;
@@ -460,9 +459,10 @@ static void gm_disc_step_to(int d)
 	if (plat_resident_sync_line("DISC\t", l, sizeof l, 300)) gm_disc_note(l);
 }
 
-/* Whether the core's name for a disc fits the Disc row's value: the panel's
- * width less its two pads, the widest label of the Game tab and the gap
- * between the columns, in the menu's own font. A device's fonts may measure
+/* Whether the core's name for a disc fits the Disc row's value: the menu's
+ * content (menu_most_w, gm_width's; the pads are outside it, and this took
+ * them off it again until 1.0.6) less the widest label of the Game tab and
+ * the gap between the columns, in the menu's own font. A device's fonts may measure
  * a little wider than the host's, so the same half-row of air as the menu's
  * own fit (fit_gap) is kept back. */
 static bool gm_disc_fits(const char *label)
@@ -480,7 +480,7 @@ static bool gm_disc_fits(const char *label)
 	for (i = 0; i < n; i++)
 		if (rows[i].label && ui_text_width(fm, rows[i].label) > wl)
 			wl = ui_text_width(fm, rows[i].label);
-	room = GM_PANEL_W - 2 * menu_pad() - wl - menu_row_h() - menu_row_h() / 2;
+	room = menu_most_w() - wl - menu_row_h() - menu_row_h() / 2;
 	return ui_text_width(fm, label) <= room;
 }
 
@@ -1161,7 +1161,7 @@ int controls_page_rows(const ctl_game *g, int page, int width, ctl_buf *b,
 int game_controls_width(app *a, const ctl_game *g)
 {
 	int w = menu_std_width(a), p, pages = ctl_game_pages(g);
-	int most = ZYPEROS_SCREEN_W - MENU_MARGIN * 2 - menu_pad() * 2;
+	int most = menu_most_w();
 
 	for (p = 0; p < pages; p++) {
 		menu_row rows[CTL_MAX_ROWS], kept[CTL_MAX_ROWS];
@@ -1267,13 +1267,15 @@ void game_controls_pages(app *a, const menu_style *over, void *ctx)
 	controls_pages(a, NULL, over, ctx);
 }
 
-/* One width on every tab (GM_PANEL_W), so cycling a value or turning a tab
+/* One width on every tab, the widest a panel is (menu_most_w: 864, the
+ * panel MENU_MARGIN from the sides, 860 until 1.0.6), to make room for the
+ * Controls tab's handheld, and so cycling a value or turning a tab
  * does not resize the panel under the cursor. A port's menu, which has no
  * tabs and no values to cycle, is as wide as its rows. */
 int gm_width(app *a)
 {
 	(void)a;
-	return g_port_menu ? 0 : GM_PANEL_W;
+	return g_port_menu ? 0 : menu_most_w();
 }
 
 /* The DS rows: the layout steps through the three, the swap and the stylus

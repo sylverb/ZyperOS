@@ -34,9 +34,26 @@
  *
  * Started first thing, by inittab's first line; the framebuffer is there long
  * before the panel lights, so the first frame is waiting when it does.
+ *
+ * A line under the animation, when the start has one to say: which panel
+ * the kernel found (init.d/brick puts it in /tmp/splash-say), looked for
+ * every 100 ms and drawn over every frame from then on, in the letters of
+ * ZyperOS's tools/genclosed.py (glyphs.bin), so a tester sees it with no
+ * computer.
+ *
+ * `splash missing` is the start that can't go on: the card lacks the Brick's
+ * closed files (the PowerVR driver and the XR829 firmware, the player's own
+ * copy, which the ZyperOS Installer puts in the boot partition's closed/), so
+ * init.d/brick stops the animation and starts this instead. It shows
+ * ZyperOS's picture saying so (its tools/genclosed.py), in the language the
+ * boot screen has (zylang, as the Pixel 2's splash reads it; English
+ * without), and when POWER is pressed it powers the Brick off.
  */
+#include <dirent.h>
 #include <fcntl.h>
 #include <linux/fb.h>
+#include <linux/input.h>
+#include <poll.h>
 #include <signal.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -50,6 +67,10 @@
 #include <zlib.h>
 
 #define FRAMES     "/usr/share/splash/frames.bin"
+#define MISSING    "/usr/share/splash/closed-missing"
+#define GLYPHS     "/usr/share/splash/glyphs.bin"
+#define SAY        "/tmp/splash-say"
+#define SAY_COLOR  0xc3c3ba         /* text-soft on the boot screen's ground */
 #define BACKGROUND 0xff111310   /* the Brick's boot screen, if there are no frames */
 
 /* Seconds since the kernel started, as the kernel log counts them */
@@ -76,10 +97,10 @@ static const uint8_t *frames;
 static size_t frames_size;
 static unsigned frame_count, fps, frame_w, frame_h;
 
-static int frames_open(void)
+static int frames_open(const char *path)
 {
 	struct stat st;
-	int fd = open(FRAMES, O_RDONLY | O_CLOEXEC);
+	int fd = open(path, O_RDONLY | O_CLOEXEC);
 
 	if (fd < 0 || fstat(fd, &st) < 0 || st.st_size < 12) return -1;
 	frames = mmap(NULL, st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
@@ -176,8 +197,156 @@ static int still_ours(int fd, uint32_t yoffset, int *took_back)
 	return ioctl(fd, FBIOPAN_DISPLAY, &var) == 0;
 }
 
-int main(void)
+/* The line's letters (glyphs.bin): "TSPG", height, baseline, first, count,
+ * then each letter's advance and its advance x height coverage */
+static const uint8_t *glyphs;
+static size_t glyphs_size;
+static const uint8_t *glyph_at[128];
+static unsigned glyph_h;
+
+static void glyphs_open(void)
 {
+	struct stat st;
+	int fd = open(GLYPHS, O_RDONLY | O_CLOEXEC);
+
+	if (fd < 0 || fstat(fd, &st) < 0 || st.st_size < 12) {
+		if (fd >= 0) close(fd);
+		return;
+	}
+	glyphs = mmap(NULL, st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
+	close(fd);
+	if (glyphs == MAP_FAILED || memcmp(glyphs, "TSPG", 4)) {
+		glyphs = NULL;
+		return;
+	}
+	glyphs_size = st.st_size;
+	glyph_h = glyphs[4] | glyphs[5] << 8;
+	unsigned first = glyphs[8] | glyphs[9] << 8, count = glyphs[10] | glyphs[11] << 8;
+	size_t at = 12;
+	for (unsigned c = first; c < first + count && c < 128; c++) {
+		if (at >= glyphs_size || at + 1 + (size_t)glyphs[at] * glyph_h > glyphs_size) break;
+		glyph_at[c] = glyphs + at;
+		at += 1 + (size_t)glyphs[at] * glyph_h;
+	}
+}
+
+/* The start's line, "" for none: what /tmp/splash-say says, its first line */
+static char say[96];
+
+/* Whether /tmp/splash-say changed it */
+static int say_read(void)
+{
+	char text[sizeof say] = "";
+	int fd = open(SAY, O_RDONLY | O_CLOEXEC);
+
+	if (fd >= 0) {
+		ssize_t n = read(fd, text, sizeof text - 1);
+
+		close(fd);
+		text[n > 0 ? n : 0] = 0;
+		text[strcspn(text, "\n")] = 0;
+	}
+	if (!strcmp(text, say)) return 0;
+	strcpy(say, text);
+	return 1;
+}
+
+/* The line over `pixels` (a whole frame, w x h), centered 48 rows above its
+ * foot: each letter's coverage blended in SAY_COLOR. Rows it covers in *top
+ * and *rows. */
+static void say_draw(uint32_t *pixels, unsigned w, unsigned h, unsigned *top, unsigned *rows)
+{
+	unsigned width = 0, x, y0;
+	const char *c;
+
+	*rows = 0;
+	if (!glyphs || !say[0] || glyph_h + 48 > h) return;
+	for (c = say; *c; c++)
+		if ((unsigned char)*c < 128 && glyph_at[(unsigned char)*c]) width += glyph_at[(unsigned char)*c][0];
+	if (!width || width > w) return;
+	x = (w - width) / 2;
+	y0 = h - 48 - glyph_h;
+	for (c = say; *c; c++) {
+		const uint8_t *g = (unsigned char)*c < 128 ? glyph_at[(unsigned char)*c] : NULL;
+
+		if (!g) continue;
+		unsigned adv = g[0];
+		for (unsigned y = 0; y < glyph_h; y++)
+			for (unsigned i = 0; i < adv; i++) {
+				unsigned a = g[1 + y * adv + i];
+				uint32_t *p = &pixels[(size_t)(y0 + y) * w + x + i], d = *p;
+
+				if (!a) continue;
+				uint32_t r = ((d >> 16 & 0xff) * (255 - a) + (SAY_COLOR >> 16 & 0xff) * a) / 255;
+				uint32_t gg = ((d >> 8 & 0xff) * (255 - a) + (SAY_COLOR >> 8 & 0xff) * a) / 255;
+				uint32_t b = ((d & 0xff) * (255 - a) + (SAY_COLOR & 0xff) * a) / 255;
+				*p = 0xff000000u | r << 16 | gg << 8 | b;
+			}
+		x += adv;
+	}
+	*top = y0;
+	*rows = glyph_h;
+}
+
+/* The missing-files picture for the boot screen's language, or English's */
+static const char *missing_path(void)
+{
+	static char path[96];
+	const char *lang = getenv("zylang");
+
+	if (lang && *lang && strcmp(lang, "-") && strcmp(lang, "en") && !strchr(lang, '/')) {
+		snprintf(path, sizeof path, MISSING "-%s.bin", lang);
+		if (access(path, R_OK) == 0) return path;
+	}
+	return MISSING ".bin";
+}
+
+/* Until POWER is pressed on any input device that has it: the pad's, the
+ * PMIC's power key */
+static void wait_for_power(void)
+{
+	struct pollfd fds[16];
+	int n = 0;
+	DIR *dir = opendir("/dev/input");
+	struct dirent *e;
+
+	while (dir && n < 16 && (e = readdir(dir))) {
+		char path[300];
+		unsigned long keys[KEY_MAX / (8 * sizeof(long)) + 1] = { 0 };
+
+		if (strncmp(e->d_name, "event", 5)) continue;
+		snprintf(path, sizeof path, "/dev/input/%s", e->d_name);
+		int fd = open(path, O_RDONLY | O_CLOEXEC);
+		if (fd < 0) continue;
+		if (ioctl(fd, EVIOCGBIT(EV_KEY, sizeof keys), keys) >= 0 &&
+		    keys[KEY_POWER / (8 * sizeof(long))] >> (KEY_POWER % (8 * sizeof(long))) & 1) {
+			fds[n].fd = fd;
+			fds[n++].events = POLLIN;
+		} else {
+			close(fd);
+		}
+	}
+	if (dir) closedir(dir);
+	if (!n) {
+		/* No power key to wait for: the picture stays */
+		for (;;) pause();
+	}
+	for (;;) {
+		if (poll(fds, n, -1) <= 0) continue;
+		for (int i = 0; i < n; i++) {
+			struct input_event ev;
+
+			if (!(fds[i].revents & POLLIN)) continue;
+			while (read(fds[i].fd, &ev, sizeof ev) == sizeof ev)
+				if (ev.type == EV_KEY && ev.code == KEY_POWER && ev.value == 1) return;
+		}
+	}
+}
+
+int main(int argc, char **argv)
+{
+	int missing = argc > 1 && !strcmp(argv[1], "missing");
+
 	/* First: SIGUSR1 left at its default would end this */
 	struct sigaction on = { .sa_handler = on_zyperos };
 	sigemptyset(&on.sa_mask);
@@ -213,12 +382,22 @@ int main(void)
 	}
 
 	unsigned first_row, rows;
-	int animated = frames_open() == 0 && frame_w == var.xres && frame_h == var.yres &&
+	int animated = frames_open(missing ? missing_path() : FRAMES) == 0 &&
+		       frame_w == var.xres && frame_h == var.yres &&
 		       fix.line_length == frame_w * 4 &&
 		       frame_decode(0, (uint8_t *)pixels, &first_row, &rows) == 0;
 	if (!animated) {
 		for (size_t i = 0; i < size / 4; i++) pixels[i] = BACKGROUND;
 		frame_count = 1;
+	}
+	/* The start's line over each frame (not over the missing-files picture,
+	 * which says all there is to say) */
+	unsigned say_top = 0, say_rows = 0;
+	double say_looked = 0;
+	if (!missing) {
+		glyphs_open();
+		say_read();
+		say_draw(pixels, fix.line_length / 4, var.yres, &say_top, &say_rows);
 	}
 	memcpy(page, pixels, size);
 	var.xoffset = 0;
@@ -231,6 +410,13 @@ int main(void)
 	char line[256];
 	snprintf(line, sizeof(line), "splash: first frame at %.3f s\n", first);
 	log_to_kernel(line);
+	if (missing) {
+		log_to_kernel("splash: the Brick's closed files are missing; POWER powers it off\n");
+		wait_for_power();
+		log_to_kernel("splash: POWER pressed, powering off\n");
+		execl("/sbin/poweroff", "poweroff", (char *)NULL);
+		return 1;
+	}
 
 	/*
 	 * The rest at the video's rate, each on its own deadline from the first.
@@ -247,6 +433,19 @@ int main(void)
 
 		if (frame_decode(n, (uint8_t *)pixels, &first_row, &rows))
 			break;
+		if (since_boot() - say_looked >= 0.1) {
+			say_looked = since_boot();
+			say_read();
+		}
+		say_draw(pixels, fix.line_length / 4, var.yres, &say_top, &say_rows);
+		/* The band to copy grows to the line's rows */
+		if (say_rows) {
+			unsigned last = rows ? first_row + rows : say_top + say_rows;
+
+			if (!rows || say_top < first_row) first_row = say_top;
+			if (say_top + say_rows > last) last = say_top + say_rows;
+			rows = last - first_row;
+		}
 		for (;;) {
 			if (!still_ours(fd, yoffset, &took_back)) {
 				stopped = 1;
@@ -282,6 +481,13 @@ int main(void)
 		if (!still_ours(fd, yoffset, &took_back)) {
 			stopped = 1;
 			break;
+		}
+		if (since_boot() - say_looked >= 0.1) {
+			say_looked = since_boot();
+			if (say_read()) {
+				say_draw(pixels, fix.line_length / 4, var.yres, &say_top, &say_rows);
+				memcpy(page, pixels, size);
+			}
 		}
 		if (!page_intact((uint32_t *)page, pixels, size / 4)) {
 			memcpy(page, pixels, size);

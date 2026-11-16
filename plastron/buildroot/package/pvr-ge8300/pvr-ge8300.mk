@@ -9,7 +9,10 @@ PVR_GE8300_SITE = /brick-gpu
 PVR_GE8300_SITE_METHOD = local
 PVR_GE8300_LICENSE = PROPRIETARY
 # Closed, and no license came with them: legal-info lists them, and packs
-# nothing
+# nothing. The image carries none of them either (ZyperOS's spec, section 7:
+# the player's own copy): the build links against them, and the system has
+# links where they go, into the boot partition's closed/, which the ZyperOS
+# Installer fills from Creality's Sonic Pad SDK
 PVR_GE8300_REDISTRIBUTE = NO
 PVR_GE8300_INSTALL_STAGING = YES
 PVR_GE8300_PROVIDES = libegl libgles
@@ -45,14 +48,26 @@ define PVR_GE8300_INSTALL_STAGING_CMDS
 		$(STAGING_DIR)/usr/lib/pkgconfig/glesv1_cm.pc
 endef
 
-# The firmware, which the kernel driver loads on first use, and the window
-# system setting the libraries read
+# On the card, not in the image: each library and the firmware, which the
+# kernel driver loads on first use, a link into /boot/closed (the boot
+# partition, which init.d/brick mounts before the driver loads); the
+# versioned names programs link against, links to those; the window system
+# setting the libraries read, ours; and the list of the files with their
+# sizes, which init.d/brick checks the card against at every start
+PVR_GE8300_FIRMWARE = rgx.fw.22.102.54.38
 define PVR_GE8300_INSTALL_TARGET_CMDS
-	$(call PVR_GE8300_INSTALL_LIBS,$(TARGET_DIR))
-	$(INSTALL) -D -m 0644 $(@D)/lib64/firmware/rgx.fw.22.102.54.38 \
-		$(TARGET_DIR)/lib/firmware/rgx.fw.22.102.54.38
+	$(foreach lib,$(PVR_GE8300_LIBS),
+		ln -sfn /boot/closed/$(lib) $(TARGET_DIR)/usr/lib/$(lib))
+	ln -sf libEGL.so $(TARGET_DIR)/usr/lib/libEGL.so.1
+	ln -sf libGLESv2.so $(TARGET_DIR)/usr/lib/libGLESv2.so.2
+	ln -sf libGLES_CM.so $(TARGET_DIR)/usr/lib/libGLES_CM.so.1
+	mkdir -p $(TARGET_DIR)/lib/firmware $(TARGET_DIR)/usr/share/zyperos/closed
+	ln -sfn /boot/closed/$(PVR_GE8300_FIRMWARE) $(TARGET_DIR)/lib/firmware/$(PVR_GE8300_FIRMWARE)
 	$(INSTALL) -D -m 0644 $(PVR_GE8300_PKGDIR)/powervr.ini \
 		$(TARGET_DIR)/etc/powervr.ini
+	cd $(@D)/lib64 && for f in $(PVR_GE8300_LIBS) firmware/$(PVR_GE8300_FIRMWARE); do \
+		echo "$$(stat -c %s $$f) $${f##*/}"; \
+	done > $(TARGET_DIR)/usr/share/zyperos/closed/pvr-ge8300.list
 endef
 
 # Only DDK 1.11@5516664 matches the kernel's GPU driver: every file is

@@ -7,6 +7,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod cards;
+mod closed;
 mod device;
 mod image;
 mod install;
@@ -433,14 +434,17 @@ fn device_name(d: cards::Device) -> &'static str {
 
 /// The write, once the card is found again: it must still be there, the
 /// size the player confirmed, and an update must be onto that device's
-/// system. The image comes first; a download is removed after, with its
-/// folder.
+/// system. For the Brick its closed files come first (closed.rs), into
+/// `cache`, so a failed download writes nothing; then the image; a download
+/// is removed after, with its folder.
+#[allow(clippy::too_many_arguments)]
 fn write(
     card_id: &str,
     card_size: u64,
     device: cards::Device,
     action: install::Action,
     local: Option<PathBuf>,
+    cache: Option<&Path>,
     progress: &mut dyn FnMut(writer::Progress),
     cancel: &AtomicBool,
 ) -> Result<(), String> {
@@ -448,6 +452,20 @@ fn write(
     if action == install::Action::Update && card.device != Some(device) {
         return Err(format!("This card doesn't have ZyperOS for {} on it to update.", device_name(device)));
     }
+    let closed = if device == cards::Device::Brick {
+        let cancelled = || cancel.load(Ordering::Relaxed);
+        let cache = cache.ok_or("This computer has no folder for the installer's own files. Nothing was written.")?;
+        closed::fetch(
+            closed::LIST,
+            &cache.join("brick-closed"),
+            closed::SDK,
+            &closed::http_get,
+            &mut |done, total| progress(writer::Progress::Fetching { done, total }),
+            &cancelled,
+        )?
+    } else {
+        Vec::new()
+    };
     let (path, folder) = source(device, local, progress, cancel)?;
     // Found again after the download, which can take minutes: still there,
     // still the same card
@@ -456,7 +474,7 @@ fn write(
             install::Action::Update if device == cards::Device::Brick => install::Action::BrickUpdate,
             a => a,
         };
-        install::run(card_id, action, &path, card_size, progress, cancel)
+        install::run(card_id, action, &path, card_size, &closed, progress, cancel)
     });
     if let Some(dir) = folder {
         let _ = std::fs::remove_dir_all(dir);
@@ -496,6 +514,7 @@ fn start(app: AppHandle, running: State<Running>, card: String, size: u64, devic
             let (phase, done, total) = match p {
                 writer::Progress::Downloading { done, total } => ("downloading", done, total),
                 writer::Progress::Verifying { done, total } => ("verifying", done, total),
+                writer::Progress::Fetching { done, total } => ("fetching", done, total),
                 writer::Progress::Writing { done, total } => ("writing", done, total),
                 writer::Progress::Checking { done, total } => ("checking", done, total),
             };
@@ -509,7 +528,11 @@ fn start(app: AppHandle, running: State<Running>, card: String, size: u64, devic
         };
         #[cfg(windows)]
         autoplay::HOLD.store(true, Ordering::Relaxed);
-        let result = write(&card, size, device, action, local, &mut progress, &cancel);
+        // The Brick's closed files are kept between installs in the app's
+        // own cache folder, so a second card needs no download; never a
+        // shared one
+        let cache = app.path().app_cache_dir().ok();
+        let result = write(&card, size, device, action, local, cache.as_deref(), &mut progress, &cancel);
         // A card that finished well is ejected, ready to take out; one that
         // didn't stays, to be written again
         let eject = result.is_ok().then(|| {
