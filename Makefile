@@ -1112,7 +1112,8 @@ strings:
 I18N_SRC := src/i18n.c src/i18n_tables.c
 # The device profiles' data (src/device/profile.h), for checks that pose a
 # device; src/profile.c is linked only where one is chosen (check-devices)
-DEVICE_PROFILES := src/device/pixel2_profile.c src/device/brick_profile.c src/device/desktop_profile.c \
+DEVICE_PROFILES := src/device/pixel2_profile.c src/device/brick_profile.c src/device/smartpro_profile.c \
+                   src/device/desktop_profile.c \
                    src/device/td_model.c src/device/pixel2_model.c src/device/brick_model.c \
                    src/device/pixel2_coreopts.c
 # Each device's build and card (src/device/build.h): the generator and the

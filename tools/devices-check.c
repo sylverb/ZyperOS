@@ -39,8 +39,15 @@ static void whole(const device_profile *p)
 	snprintf(what, sizeof what, "%s: About thanks who made its kernel, and for which handheld", p->id);
 	ck(p->kernel.by && *p->kernel.by && p->kernel.of && *p->kernel.of &&
 	   strlen(p->kernel.of) < 24, what);
-	snprintf(what, sizeof what, "%s: a 4:3 screen", p->id);
-	ck(p->screen.aspect_w * 3 == p->screen.aspect_h * 4, what);
+	/* The picture is 4:3 everywhere; a 16:9 panel shows it scaled to its
+	 * height, bars at each side (src/device/brick.c) */
+	snprintf(what, sizeof what, "%s: a 4:3 screen, or a 16:9 one with side bars", p->id);
+	ck(p->screen.aspect_w * 3 == p->screen.aspect_h * 4 || p->screen.aspect_w * 9 == p->screen.aspect_h * 16,
+	   what);
+	snprintf(what, sizeof what, "%s: the panel's own pixels are its aspect", p->id);
+	ck((p->screen.turn % 180 ? p->screen.panel_h * p->screen.aspect_h == p->screen.panel_w * p->screen.aspect_w
+	                         : p->screen.panel_w * p->screen.aspect_h == p->screen.panel_h * p->screen.aspect_w),
+	   what);
 	snprintf(what, sizeof what, "%s: a panel and a turn of 0, 90, 180 or 270", p->id);
 	ck(p->screen.panel_w > 0 && p->screen.panel_h > 0 && p->screen.turn % 90 == 0 &&
 	   p->screen.turn >= 0 && p->screen.turn < 360, what);
@@ -116,6 +123,36 @@ static void brick(void)
 	   "brick: F1 and F2 are the brightness keys");
 }
 
+/* The Smart Pro, for its test kit: the Brick's board with a 16:9 panel and
+ * brightness on MENU+VOL; no drawing of its own yet */
+static void smartpro(void)
+{
+	const device_profile *p = &device_profile_smartpro;
+	const dev_button *menu = dev_button_of(p, IN_MENU);
+
+	ck(!strcmp(p->id, "smartpro") && !strcmp(p->userdata, "smartpro") &&
+	   !strcmp(p->boot_label, "SMARTBOOT") && strlen(p->boot_label) <= 11,
+	   "smartpro: its id, folder and boot label (a FAT label, 11 at most)");
+	ck(p->screen.panel_w == 720 && p->screen.panel_h == 1280 && p->screen.turn % 180 == 90 &&
+	   p->screen.aspect_w == 16 && p->screen.aspect_h == 9,
+	   "smartpro: a 720x1280 panel, turned a quarter, 16:9");
+	ck(near(p->screen.active_w_mm, 109.8f) && near(p->screen.active_h_mm, 61.8f),
+	   "smartpro: 109.8 x 61.8 mm of glass");
+	ck(p->chords.bright == DEV_BRIGHT_MENU_VOL && p->chords.menu_on_release &&
+	   !p->chords.lr2_taps && !p->chords.home_chord && !p->chords.battery_chord,
+	   "smartpro: brightness on MENU+VOL, MENU on release, no taps, Home or battery lights");
+	ck(!p->model && !p->model_borrowed && p->bluetooth && !p->gpu_shaders && !p->gpu_frames &&
+	   !p->speaker_mono && !p->player2 && !p->usb_shared_port && p->wifi == DEV_WIFI_BUILTIN,
+	   "smartpro: no drawing yet (never another's), the Brick's board's answers");
+	ck(menu && !strcmp(menu->label, "MENU") && menu->icon == DEV_ICON_NONE,
+	   "smartpro: MENU is the word (no vendor mark as an icon)");
+	ck(!dev_button_of(p, IN_BRIGHTUP) && !dev_button_of(p, IN_BRIGHTDN),
+	   "smartpro: no brightness keys of its own");
+	ck(label_is(p, IN_ACCEPT, "A") && label_is(p, IN_VOLDN, "VOL-") && label_is(p, IN_R2, "R2") &&
+	   label_is(p, IN_SELECT, "SELECT") && label_is(p, IN_START, "START"),
+	   "smartpro: A, VOL-, R2, SELECT and START as printed");
+}
+
 static void desktop(void)
 {
 	const device_profile *p = &device_profile_desktop, *b = &device_profile_brick;
@@ -132,7 +169,7 @@ static void desktop(void)
  * profile in force */
 static void answers(void)
 {
-	static const char *const ids[] = { "pixel2", "brick", "desktop" };
+	static const char *const ids[] = { "pixel2", "brick", "smartpro", "desktop" };
 	char what[96];
 	size_t i;
 
@@ -179,6 +216,8 @@ static void tutorial(void)
 	ck(dev_tutorial_model(br, &br->chords) == &td_model_brick && dev_tutorial_model(br, &fn) == &td_model_brick,
 	   "brick: the tutorial draws its own model, with its chords or the Pixel 2's");
 	ck(!dev_tutorial_model(dk, &dk->chords), "desktop: none beside F1 and F2");
+	ck(!dev_tutorial_model(&device_profile_smartpro, &device_profile_smartpro.chords),
+	   "smartpro: none until its own, though its chords are the Pixel 2's");
 	ck(dev_tutorial_model(dk, &fn) == &td_model_pixel2, "desktop: the Pixel 2's with --fn-volume");
 }
 
@@ -393,6 +432,10 @@ static void menu_look(void)
 	ck(key_is(br, "START", DS_KEY_FACE, DS_KEY_MARK_PLAY, "START"), "brick: START is round, a play triangle on it");
 	ck(key_is(br, "POWER", DS_KEY_PILL, DS_KEY_MARK_NONE, "POWER"), "brick: POWER's word in a pill");
 	ck(key_is(br, "F2", DS_KEY_PILL, DS_KEY_MARK_NONE, "F2"), "brick: F2 a pill");
+	ck(key_is(&device_profile_smartpro, "MENU", DS_KEY_PILL, DS_KEY_MARK_NONE, "MENU") &&
+	   key_is(&device_profile_smartpro, "SELECT", DS_KEY_PILL, DS_KEY_MARK_NONE, "SELECT") &&
+	   key_is(&device_profile_smartpro, "A", DS_KEY_FACE, DS_KEY_MARK_NONE, "A"),
+	   "smartpro: MENU and SELECT their words in pills, A a face");
 	ck(key_is(NULL, "MENU", DS_KEY_FACE, DS_KEY_MARK_DOTS, "MENU") &&
 	   key_is(NULL, "SELECT", DS_KEY_PILL, DS_KEY_MARK_NONE, "SELECT") &&
 	   key_is(NULL, "Y", DS_KEY_FACE, DS_KEY_MARK_NONE, "Y"), "no table: the glyphs the launcher always drew");
@@ -423,8 +466,12 @@ static void menu_look(void)
 	/* A chord by what it does: each handheld's own buttons */
 	ck(!strcmp(dev_role_keys(&device_profile_pixel2.chords, DEV_ROLE_BRIGHTNESS), "MENU+VOL") &&
 	   !strcmp(dev_role_keys(&device_profile_brick.chords, DEV_ROLE_BRIGHTNESS), "F1/F2") &&
-	   !strcmp(dev_role_keys(&device_profile_desktop.chords, DEV_ROLE_BRIGHTNESS), "F1/F2"),
-	   "brightness: MENU+VOL on the Pixel 2, F1/F2 on the Brick and the host");
+	   !strcmp(dev_role_keys(&device_profile_desktop.chords, DEV_ROLE_BRIGHTNESS), "F1/F2") &&
+	   !strcmp(dev_role_keys(&device_profile_smartpro.chords, DEV_ROLE_BRIGHTNESS), "MENU+VOL"),
+	   "brightness: MENU+VOL on the Pixel 2 and the Smart Pro, F1/F2 on the Brick and the host");
+	ck(!dev_role_keys(&device_profile_smartpro.chords, DEV_ROLE_HOME) &&
+	   !dev_role_keys(&device_profile_smartpro.chords, DEV_ROLE_BATTERY),
+	   "smartpro: no Home chord (no zyhome on its board) and no battery lights");
 	ck(!strcmp(dev_role_keys(&device_profile_pixel2.chords, DEV_ROLE_HOME), "MENU+START") &&
 	   !dev_role_keys(&device_profile_brick.chords, DEV_ROLE_HOME), "home: MENU+START on the Pixel 2 alone");
 	ck(!strcmp(dev_role_keys(&device_profile_pixel2.chords, DEV_ROLE_BATTERY), "L2+R2") &&
@@ -437,6 +484,8 @@ static void menu_look(void)
 	ck(!strcmp(device_profile_desktop.kernel.by, "ROCKNIX"), "desktop: the Pixel 2's kernel thanks");
 	ck(!strcmp(device_profile_brick.kernel.by, "Allwinner") &&
 	   !strcmp(device_profile_brick.kernel.of, "Brick"), "brick: Allwinner's kernel");
+	ck(!strcmp(device_profile_smartpro.kernel.by, "Allwinner") &&
+	   !strcmp(device_profile_smartpro.kernel.of, "Smart Pro"), "smartpro: Allwinner's kernel");
 }
 
 static void choosing(void)
@@ -448,6 +497,8 @@ static void choosing(void)
 	   "an unknown id is refused and changes nothing");
 	ck(plat_profile_select("brick") && plat_profile() == &device_profile_brick,
 	   "--device brick takes the Brick's");
+	ck(plat_profile_select("smartpro") && plat_profile() == &device_profile_smartpro,
+	   "--device smartpro takes the Smart Pro's");
 	ck(plat_profile_select("desktop") && plat_profile() == &device_profile_desktop, "and back");
 	ck(!dev_button_of(plat_profile(), IN_NONE), "no button for IN_NONE");
 	ck(!plat_system_has("teleporter") && !plat_system_has(NULL),
@@ -456,7 +507,7 @@ static void choosing(void)
 		char ids[64];
 
 		plat_profile_ids(ids, sizeof ids);
-		ck(!strcmp(ids, "pixel2, brick, desktop"), "the linked ids, for --device's error");
+		ck(!strcmp(ids, "pixel2, brick, smartpro, desktop"), "the linked ids, for --device's error");
 		plat_profile_ids(ids, 9);
 		ck(!strcmp(ids, "pixel2, "), "and cut to the room there is");
 	}
@@ -466,9 +517,11 @@ int main(void)
 {
 	whole(&device_profile_pixel2);
 	whole(&device_profile_brick);
+	whole(&device_profile_smartpro);
 	whole(&device_profile_desktop);
 	pixel2();
 	brick();
+	smartpro();
 	desktop();
 	answers();
 	unlock();

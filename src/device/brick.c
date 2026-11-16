@@ -30,6 +30,17 @@
 
 static SDL_Window *win;
 static SDL_Renderer *ren;
+/* A panel of another shape than the picture (the Smart Pro's 16:9,
+ * src/device/smartpro_profile.c): the picture is drawn into screen_tex, at
+ * its own 1024x768, and plat_present scales it to the panel's height into
+ * screen_dst, in the middle, black at each side. NULL where the panel is the
+ * picture's shape (the Brick's, the host's desktop): the window is the
+ * screen, as it always was. */
+static SDL_Texture *screen_tex;
+static SDL_Rect     screen_dst;
+/* A video picture under the screen for the next present (plat_video_under),
+ * where the screen is screen_tex */
+static struct { bool on; SDL_Texture *tex; SDL_Rect dst; SDL_Color bg; } under;
 
 #define BITS_PER_LONG   (8 * (int)sizeof(long))
 #define NLONGS(max)     (((max) + BITS_PER_LONG) / BITS_PER_LONG)
@@ -107,13 +118,49 @@ static void signal_splash(int sig)
 	if (proc) closedir(proc);
 }
 
+/* The picture onto a panel of another shape: black, the video under it if
+ * there is one (at the panel's own resolution, its rectangle scaled as the
+ * picture is), then the picture. Over a video the picture went into a clear
+ * texture, which SDL's blend premultiplied, so it goes over with ONE; with
+ * none it is copied as it is, alpha ignored, as the Brick's window shows it. */
+static void show_scaled(void)
+{
+	SDL_SetRenderTarget(ren, NULL);
+	SDL_SetRenderDrawColor(ren, 0, 0, 0, 255);
+	SDL_RenderClear(ren);
+	if (under.on) {
+		static SDL_BlendMode premul;
+		float s = (float)screen_dst.w / ZYPEROS_SCREEN_W;
+		SDL_FRect r = { screen_dst.x + under.dst.x * s, screen_dst.y + under.dst.y * s,
+		                under.dst.w * s, under.dst.h * s };
+		SDL_Rect bg = screen_dst;
+
+		if (!premul)
+			premul = SDL_ComposeCustomBlendMode(
+				SDL_BLENDFACTOR_ONE, SDL_BLENDFACTOR_ONE_MINUS_SRC_ALPHA, SDL_BLENDOPERATION_ADD,
+				SDL_BLENDFACTOR_ONE, SDL_BLENDFACTOR_ONE_MINUS_SRC_ALPHA, SDL_BLENDOPERATION_ADD);
+		SDL_SetRenderDrawColor(ren, under.bg.r, under.bg.g, under.bg.b, 255);
+		SDL_RenderFillRect(ren, &bg);
+		if (under.tex) SDL_RenderCopyF(ren, under.tex, NULL, &r);
+		SDL_SetTextureBlendMode(screen_tex, premul);
+		under.on = false;
+	} else {
+		SDL_SetTextureBlendMode(screen_tex, SDL_BLENDMODE_NONE);
+	}
+	SDL_RenderCopy(ren, screen_tex, NULL, &screen_dst);
+	SDL_RenderPresent(ren);
+	SDL_SetRenderTarget(ren, screen_tex);
+}
+
 /* The Brick's panel is the screen, so drawing to the screen is drawing to the
- * window. The first present tells the splash first, and goes on the kernel's
- * clock beside the splash's own lines, so the boot from power to shelf reads
- * off one log, as on the Pixel 2. */
+ * window (on a panel of another shape, show_scaled). The first present tells
+ * the splash first, and goes on the kernel's clock beside the splash's own
+ * lines, so the boot from power to shelf reads off one log, as on the
+ * Pixel 2. The draw color is put back, as ZyperOS expects it to stay. */
 void plat_present(void)
 {
 	static bool shown;
+	Uint8 r, g, b, a;
 
 	plat_overlay_present(ren);
 	if (!shown) {
@@ -133,17 +180,42 @@ void plat_present(void)
 #endif
 		shown = true;
 	}
-	SDL_RenderPresent(ren);
+	if (!screen_tex) {
+		SDL_RenderPresent(ren);
+		return;
+	}
+	SDL_GetRenderDrawColor(ren, &r, &g, &b, &a);
+	show_scaled();
+	SDL_SetRenderDrawColor(ren, r, g, b, a);
 }
-void plat_draw_to_screen(void) { SDL_SetRenderTarget(ren, NULL); }
+/* The window, or screen_tex on a panel of another shape */
+void plat_draw_to_screen(void) { SDL_SetRenderTarget(ren, screen_tex); }
 
 /* The Brick's screen is its panel: the picture goes straight into the frame,
- * and what is drawn after it lands on top of it. */
+ * and what is drawn after it lands on top of it. On a panel of another shape
+ * the picture waits for the present (show_scaled), and the screen is
+ * cleared to nothing, so it shows through wherever this frame draws
+ * nothing. */
 void plat_video_under(SDL_Texture *tex, const SDL_Rect *dst, SDL_Color bg)
 {
-	SDL_SetRenderDrawColor(ren, bg.r, bg.g, bg.b, 255);
+	SDL_BlendMode mode;
+
+	if (!screen_tex) {
+		SDL_SetRenderDrawColor(ren, bg.r, bg.g, bg.b, 255);
+		SDL_RenderClear(ren);
+		if (tex) SDL_RenderCopy(ren, tex, NULL, dst);
+		return;
+	}
+	under.on = true;
+	under.tex = tex;
+	under.dst = dst ? *dst : (SDL_Rect){ 0, 0, 0, 0 };
+	under.bg = bg;
+	SDL_SetRenderTarget(ren, screen_tex);
+	SDL_GetRenderDrawBlendMode(ren, &mode);
+	SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_NONE);
+	SDL_SetRenderDrawColor(ren, 0, 0, 0, 0);
 	SDL_RenderClear(ren);
-	if (tex) SDL_RenderCopy(ren, tex, NULL, dst);
+	SDL_SetRenderDrawBlendMode(ren, mode);
 }
 
 /* No ports on the Brick, and no splash --still to hold a picture */
@@ -182,8 +254,16 @@ bool plat_video_init(void)
 	 * every window OpenGL by default and fails without an EGL library; dummy
 	 * has no GL at all. The checks draw in software anyway. */
 	bool headless = getenv("ZYPEROS_HEADLESS") != NULL;
-	win = SDL_CreateWindow("ZyperOS", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-	                       ZYPEROS_SCREEN_W, ZYPEROS_SCREEN_H,
+	/* The panel as it is seen, landscape: the screen itself where it is
+	 * the picture's shape; a wider one (the Smart Pro's 1280x720) gets the
+	 * picture scaled to its height, in the middle (show_scaled). Only on
+	 * the host for now: the Smart Pro's own display comes with its board. */
+	const device_profile *p = plat_profile();
+	bool wide = p->screen.aspect_w * 3 != p->screen.aspect_h * 4;
+	int ww = wide ? (p->screen.turn % 180 ? p->screen.panel_h : p->screen.panel_w) : ZYPEROS_SCREEN_W;
+	int wh = wide ? (p->screen.turn % 180 ? p->screen.panel_w : p->screen.panel_h) : ZYPEROS_SCREEN_H;
+
+	win = SDL_CreateWindow("ZyperOS", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, ww, wh,
 	                       headless ? SDL_WINDOW_HIDDEN : SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
 	if (!win) {
 		fprintf(stderr, "window: %s\n", SDL_GetError());
@@ -196,6 +276,21 @@ bool plat_video_init(void)
 		return false;
 	}
 	SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_BLEND);
+	if (wide) {
+		screen_tex = SDL_CreateTexture(ren, PLAT_TARGET_FORMAT, SDL_TEXTUREACCESS_TARGET,
+		                               ZYPEROS_SCREEN_W, ZYPEROS_SCREEN_H);
+		if (!screen_tex) {
+			fprintf(stderr, "screen texture: %s\n", SDL_GetError());
+			return false;
+		}
+		screen_dst.h = wh;
+		screen_dst.w = ZYPEROS_SCREEN_W * wh / ZYPEROS_SCREEN_H;
+		screen_dst.x = (ww - screen_dst.w) / 2;
+		screen_dst.y = 0;
+		SDL_SetRenderTarget(ren, screen_tex);
+		fprintf(stderr, "video: a %dx%d panel, the screen scaled to %dx%d in its middle\n",
+		        ww, wh, screen_dst.w, screen_dst.h);
+	}
 	/* Whether vsync was GRANTED, not whether it was asked for. PRESENTVSYNC
 	 * is a request the driver may decline in silence, and the shelf loop has
 	 * no delay in it - so a declined request is not a slower animation, it is
@@ -220,6 +315,8 @@ bool plat_video_init(void)
 void plat_video_quit(void)
 {
 	plat_osd_forget();
+	if (screen_tex) { SDL_DestroyTexture(screen_tex); screen_tex = NULL; }
+	under.on = false;
 	if (ren) { SDL_DestroyRenderer(ren); ren = NULL; }
 	if (win) { SDL_DestroyWindow(win); win = NULL; }
 	SDL_QuitSubSystem(SDL_INIT_VIDEO);
