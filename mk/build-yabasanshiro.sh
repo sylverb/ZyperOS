@@ -56,9 +56,19 @@ patch -d "$SRC/yabause-$PIN" -p1 --forward --quiet < "$ROOT/mk/patches/yabasansh
 grep -q "first_ctx_reset = 1;" "$SRC/yabause-$PIN/yabause/src/libretro/libretro.c" \
   || { echo "!! yabasanshiro-unload.patch did not apply" >&2; exit 1; }
 
-docker run --rm --platform linux/arm64 -v "$SRC/yabause-$PIN:/src" -w /src/yabause/src/libretro \
+# The source goes in read-only and is built in a copy inside the container,
+# and only the core comes out, to $SRC/out. Built where it was mounted, the
+# sed -i below failed on Docker Desktop's shared folders: sed makes its
+# temporary file beside the Makefile, and there that open is refused
+# ("couldn't open temporary file ./sedXXXXXX: Permission denied", 2026-11-15)
+# although plain writes work. The copy builds the same core, byte for byte.
+rm -rf "$SRC/out"
+mkdir -p "$SRC/out"
+docker run --rm --platform linux/arm64 -v "$SRC/yabause-$PIN:/src:ro" -v "$SRC/out:/out" \
 	zyperos-flycast2021 bash -c '
 set -e
+cp -a /src /build
+cd /build/yabause/src/libretro
 sed -i "s/-O[23]/-Ofast -ffast-math/" Makefile
 export CFLAGS="-flto -fipa-pta -mno-outline-atomics"
 export CXXFLAGS="$CFLAGS" LDFLAGS="-flto -fipa-pta"
@@ -70,8 +80,9 @@ strip --strip-unneeded $so
        echo "!! undefined symbols - the core will not dlopen" >&2; exit 1; }
 ! readelf -d $so | grep -q "libGL\." \
   || { echo "!! $so links desktop OpenGL" >&2; exit 1; }
+cp $so /out/
 '
-SO="$SRC/yabause-$PIN/yabause/src/libretro/yabasanshiro_libretro.so"
+SO="$SRC/out/yabasanshiro_libretro.so"
 GOT=$(shasum -a 256 "$SO" | cut -d' ' -f1)
 if [ "$GOT" != "$SHA" ]; then
 	echo "!! yabasanshiro sha256 $GOT, expected $SHA" >&2
