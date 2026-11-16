@@ -23,6 +23,7 @@ extern bool g_ctl_close_menu;
  * its wait loop, its in-game menu up or not, asked to stop by the channel */
 typedef struct {
 	bool on, paused, stopping;
+	bool fallback;   /* run the slow way, by plat_run: no resident to tell */
 	char tag[8], name[CFG_STR], core[CFG_STR], path[LIB_PATH * 2];
 	long since;
 } ctl_game_state;
