@@ -143,7 +143,7 @@ zh-Hans = 日期和时间
 es = Fecha y hora
 pt-BR = Data e hora
 fr = Date et heure
-de = Datum und Uhrzeit
+de = Datum & Uhrzeit
 ja = 日付と時刻
 it = Data e ora
 

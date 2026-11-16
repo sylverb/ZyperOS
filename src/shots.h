@@ -70,7 +70,7 @@ extern int shot_music_steps;
 extern int shot_update;
 extern int shot_hare;
 extern int shot_usb;
-extern int shot_datetime;
+extern int shot_datetime, shot_datetime_mon;
 extern int shot_dev;
 extern bool shot_usb_dev;
 extern int shot_power;

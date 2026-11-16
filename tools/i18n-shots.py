@@ -113,8 +113,9 @@ class Strings:
 # The strings that are drawn as a part of another's text: a page's name in a
 # heading, a mix's in Audio Channels' "auto (mono)" or a place's in Audio
 # Output's "auto (speaker)", and the reason a scraper's run passed a system
-# over in "NES: no such folder" (art.problem)
-COMPOSED = ("controls.page.", "audio.", "art.why_")
+# over in "NES: no such folder" (art.problem), and a month's short name and
+# AM or PM in MENU's Date & Time row ("Jan 15, 10:08", clock.label_24h)
+COMPOSED = ("controls.page.", "audio.", "art.why_", "clock.short_", "clock.am", "clock.pm")
 
 STRINGS = {}
 
@@ -468,6 +469,17 @@ for _k, _w in enumerate(("catalog", "no-art", "checksums")):
 for _k, _w in enumerate(("no-folder", "not-in-table", "no-curl", "index-failed", "index-bad", "ss-quota",
                          "ss-too-many", "ss-busy", "ss-no-answer", "sg-refused", "sg-busy", "sg-no-answer")):
     EXTRA.setdefault("scraper-page-done-" + _w, ("demo", "PS1", ["--scraper-page", "16", str(_k)]))
+# Every month: Date & Time's page on the 3rd of each (its name in full), and
+# MENU's Date & Time row on the 15th (its short name, --status's date=), in
+# 12 hours in July (AM) and December (PM)
+_MONTHS = ("jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec")
+for _k, _m in enumerate(_MONTHS):
+    if _m != "oct":
+        EXTRA.setdefault("datetime-" + _m, ("demo", "PS1", ["--datetime", "3", str(_k + 1)]))
+    # its own --status after the shots' one, which it takes the place of
+    _st = "%s %s wifi=off batt=82 date=2026-%02d-15" % ("18:05" if _m == "dec" else "10:08",
+                                                       "12h" if _m in ("jul", "dec") else "24h", _k + 1)
+    EXTRA.setdefault("menu-clock-" + _m, ("demo", "PS1", ["--menu", "Language", "--status", _st]))
 EXTRA.setdefault("hare-cable", ("demo", "PS1", ["--hare", "10.42.0.1", "1 signed in", "Tobu Tobu Girl.gb"]))
 # File Transfer's news on Flash Drive's page (DESIGN.md 11.23): the tiles in
 # each state, over Wi-Fi and over the cable (SSH beside the browsers)

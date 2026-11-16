@@ -230,7 +230,7 @@ int shot_usb = -1;   /* --usb-ask [N]: the question, tile N focused */
  * zone of the list (3), or Auto's message as it is chosen (4); Time Zone's
  * list open on its first zone (5), on its longest city in the middle (6), on
  * Auto with the zone it found (7), and with a long city (8) */
-int shot_datetime = -1;
+int shot_datetime = -1, shot_datetime_mon = 10;
 int shot_dev = -1;   /* --dev-page [N]: Developer Mode's page on the cable with 1, 12 or no keys (0..2), or the message that
                       * says it is on (3); over Wi-Fi with one key signed in (4); SSH over Wi-Fi's message as it is turned
                       * on (5); over Wi-Fi with no key (6); Wi-Fi up with SSH over Wi-Fi off (7); the cursor on
@@ -318,6 +318,15 @@ bool shot_status_parse(const char *spec)
 		else if (!strncmp(w, "wifi=", 5) && w[5] >= '1' && w[5] <= '3' && !w[6])
 			shot_st.m.wifi = w[5] - '0';
 		else if (!strcmp(w, "bt")) shot_st.m.bt = true;
+		/* the day it shows (MENU's Date & Time row), date=2026-01-15; today
+		 * without it */
+		else if (!strncmp(w, "date=", 5)) {
+			int y, mo, d;
+
+			if (sscanf(w + 5, "%d-%d-%d", &y, &mo, &d) != 3 || y < 1971 || mo < 1 || mo > 12 || d < 1 || d > 31)
+				return false;
+			shot_st.year = y, shot_st.mon = mo, shot_st.mday = d;
+		}
 		else if (!strncmp(w, "batt=", 5)) shot_st.m.batt = atoi(w + 5);
 		else if (!strcmp(w, "chg")) shot_st.m.charging = true;
 		/* on the cable, held at the charge limit: the plug */
@@ -1515,7 +1524,7 @@ static void shot_compose(app *a)
 		 * in the language that is on */
 		static const char *const ids[4] = { "America/New_York", "America/Sao_Paulo",
 		                                     "America/Bahia_Banderas", "America/New_York" };
-		struct tm tm = { .tm_year = 2026 - 1900, .tm_mon = 9, .tm_mday = 3,
+		struct tm tm = { .tm_year = 2026 - 1900, .tm_mon = shot_datetime_mon - 1, .tm_mday = 3,
 		                 .tm_hour = 18, .tm_min = 5, .tm_isdst = -1 };
 		menu_row rows[CLOCK_ZONE_LIST_MAX];
 		clock_ui c;

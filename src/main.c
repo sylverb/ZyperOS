@@ -3230,7 +3230,7 @@ static void status_gather(status_marks *m, bool moving)
 	}
 }
 
-/* The time a shot shows: today at --status's time of day, into *t. False for
+/* The time a shot shows: today (or --status's date=) at its time of day, into *t. False for
  * a shot with no time to show - no --status, or one with no time - which
  * then shows none, since the host's would change the shot every minute. Not
  * a shot: *t as it is, and true. */
@@ -3241,6 +3241,11 @@ bool shot_time(time_t *t)
 	if (!shot_st.shot) return true;
 	if (!shot_st.set || shot_st.minutes < 0) return false;
 	localtime_r(t, &tm);
+	if (shot_st.year) {
+		tm.tm_year = shot_st.year - 1900;
+		tm.tm_mon = shot_st.mon - 1;
+		tm.tm_mday = shot_st.mday;
+	}
 	tm.tm_hour = shot_st.minutes / 60;
 	tm.tm_min = shot_st.minutes % 60;
 	tm.tm_sec = 0;
@@ -5387,7 +5392,8 @@ int main(int argc, char *argv[])
 		 * wifi=off|idle|1|2|3, bt, batt=PCT, chg, and blinkoff for a
 		 * critical battery caught in its second off, eta=MIN for what
 		 * MENU > Battery Icon > Time Left writes, icon=bars|percentage|time
-		 * for the setting itself. */
+		 * for the setting itself, date=YYYY-MM-DD for the day (today
+		 * without it). */
 		else if (!strcmp(argv[i], "--status") && i + 1 < argc) {
 			if (!shot_status_parse(argv[++i])) {
 				fprintf(stderr, "--status: cannot read \"%s\"\n", argv[i]);
@@ -5795,10 +5801,16 @@ int main(int argc, char *argv[])
 			else if (i + 1 < argc && argv[i + 1][0] >= '0' && argv[i + 1][0] <= '2')
 				shot_power = atoi(argv[++i]);
 		}
+		/* --datetime [K [MONTH]]: Date & Time's page K, on the 3rd of MONTH
+		 * (1 to 12; October without it) */
 		else if (!strcmp(argv[i], "--datetime")) {
 			shot_datetime = 0;
 			if (i + 1 < argc && argv[i + 1][0] >= '0' && argv[i + 1][0] <= '9')
 				shot_datetime = atoi(argv[++i]);
+			if (i + 1 < argc && argv[i + 1][0] >= '0' && argv[i + 1][0] <= '9') {
+				shot_datetime_mon = atoi(argv[++i]);
+				if (shot_datetime_mon < 1 || shot_datetime_mon > 12) shot_datetime_mon = 10;
+			}
 		}
 		else if (!strcmp(argv[i], "--dev-page")) {
 			shot_dev = 0;

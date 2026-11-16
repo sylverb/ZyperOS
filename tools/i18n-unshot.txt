@@ -83,33 +83,6 @@ cheevos.unlocked
 cheevos.progress
 cheevos.ra_user
 
-# clock: no shot draws it yet
-clock.month_jan
-clock.month_feb
-clock.month_mar
-clock.month_apr
-clock.month_may
-clock.month_jun
-clock.month_jul
-clock.month_aug
-clock.month_sep
-clock.month_nov
-clock.month_dec
-clock.short_jan
-clock.short_feb
-clock.short_mar
-clock.short_apr
-clock.short_may
-clock.short_jun
-clock.short_jul
-clock.short_aug
-clock.short_sep
-clock.short_oct
-clock.short_nov
-clock.short_dec
-clock.am
-clock.pm
-
 # controls: no shot draws it yet
 controls.show_keypad
 controls.disk_side
