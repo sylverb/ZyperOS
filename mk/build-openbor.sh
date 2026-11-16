@@ -20,6 +20,11 @@
 # library plastron lacks, and asks for no glibc newer than 2.29, as the cores
 # ask. Then against the sha256 here.
 #
+# OpenBOR embeds __DATE__ in the binary ("Compile Date: …"), so the sha256
+# would change every day. SOURCE_DATE_EPOCH freezes that to the day the pin
+# below was first produced (Nov 6 2026 UTC): GCC expands __DATE__ to
+# "Nov  6 2026", and rebuilds match the pin.
+#
 # Usage: mk/build-openbor.sh [work dir]
 set -e
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
@@ -27,6 +32,7 @@ WORK=${1:-/tmp/zyperos-openbor}
 PIN=b8303cce992a0db93c3a465df3c943942fe322f8   # DCurrent/openbor, ROCKNIX's openbor pin
 TAR_SHA=8a21e40b31bf04fd5212d1bb86452f1843fcd0e8a54d073e474e51f4fc130973
 BUILD_NO=7144
+SOURCE_DATE_EPOCH=1793923200   # 2026-11-06T00:00:00Z; __DATE__ "Nov  6 2026"
 SHA=eead6978c04354419aefeadff3e36678b0ba7d7b04a5a7983836a5b308d18603
 
 command -v docker >/dev/null || { echo "need docker" >&2; exit 1; }
@@ -42,9 +48,20 @@ SRC="$WORK/openbor-$PIN"
 rm -rf "$SRC"
 tar -xzf "$TAR" -C "$WORK"
 
-docker run --rm --platform linux/arm64 -v "$SRC:/src" -w /src/engine \
-	-e BUILD_NO="$BUILD_NO" -e COMMIT="$(echo $PIN | cut -c1-7)" zyperos-openbor bash -c '
+# The source goes in read-only and is built in a copy inside the container,
+# and only the binary (and libvpx's notice) come out, to $WORK/out. Built
+# where it was mounted, the sed -i below failed on Docker Desktop's shared
+# folders: sed makes its temporary file beside the Makefile, and there that
+# open is refused ("couldn't open temporary file ./sedXXXXXX: Permission
+# denied", 2026-11-16) although plain writes work.
+rm -rf "$WORK/out"
+mkdir -p "$WORK/out"
+docker run --rm --platform linux/arm64 -v "$SRC:/src:ro" -v "$WORK/out:/out" \
+	-e BUILD_NO="$BUILD_NO" -e COMMIT="$(echo $PIN | cut -c1-7)" \
+	-e SOURCE_DATE_EPOCH="$SOURCE_DATE_EPOCH" zyperos-openbor bash -c '
 set -e
+cp -a /src /build
+cd /build/engine
 sed -i "s|-Werror||g" Makefile
 printf "%s\n%s\n" "$BUILD_NO" "$COMMIT" | LC_ALL=C bash version.sh > /dev/null 2>&1
 mkdir -p /static && ln -sf /usr/lib/aarch64-linux-gnu/libvpx.a /static/libvpx.a
@@ -62,8 +79,9 @@ cp /usr/share/doc/libvpx-dev/copyright LICENSE.libvpx
 newest=$(nm -D -u OpenBOR | grep -o "GLIBC_[0-9.]*" | sort -V | tail -1)
 [ "$(printf "%s\nGLIBC_2.29\n" "$newest" | sort -V | tail -1)" = GLIBC_2.29 ] \
   || { echo "!! OpenBOR asks for $newest" >&2; exit 1; }
+cp OpenBOR LICENSE.libvpx /out/
 '
-BIN="$SRC/engine/OpenBOR"
+BIN="$WORK/out/OpenBOR"
 GOT=$(shasum -a 256 "$BIN" | cut -d' ' -f1)
 if [ "$GOT" != "$SHA" ]; then
 	echo "!! OpenBOR sha256 $GOT, expected $SHA" >&2
@@ -74,6 +92,6 @@ fi
 mkdir -p "$ROOT/vendor/openbor"
 cp "$BIN" "$ROOT/vendor/openbor/OpenBOR"
 cp "$SRC/LICENSE" "$ROOT/vendor/openbor/LICENSE"
-cp "$SRC/engine/LICENSE.libvpx" "$ROOT/vendor/openbor/LICENSE.libvpx"
+cp "$WORK/out/LICENSE.libvpx" "$ROOT/vendor/openbor/LICENSE.libvpx"
 echo "  built  OpenBOR ($PIN, build $BUILD_NO)"
 echo "  sha256 $GOT"
