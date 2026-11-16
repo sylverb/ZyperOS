@@ -14,7 +14,10 @@
  * panel's rows (a menu_row's label, which a panel's snapshot copies as text):
  * keyhints_pack writes it into one string and keyhints_unpack reads it back.
  *
- * Buttons are named as printed (A, B, X, Y, L1/R1, MENU, SELECT, START); the
+ * Buttons are named by their ids' names (A, B, X, Y, L1, MENU, SELECT, START,
+ * src/ds/button.h), and each is drawn as this handheld prints it; a chord is
+ * names with "/" for either and "+" for together ("L1/R1", "SELECT+START"),
+ * drawn as its glyphs with the sign between them; the
  * d-pad's two directions are KEYHINT_LEFT_RIGHT, "< >", which ui_button draws
  * as the d-pad itself, its left and right arms lit with their arrows (1.0.6,
  * the tutorial's and the handheld's cross); "^ v" its up and down. Words

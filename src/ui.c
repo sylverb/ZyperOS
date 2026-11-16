@@ -2407,15 +2407,102 @@ static int button_pad(int size)
 	                 / (BUTTON_PILL_H - BUTTON_KEY_H);
 }
 
+/* A chord: buttons named with "/" between them for either (L1/R1) and "+"
+ * for together (SELECT+START), each its own glyph with the sign between
+ * them (DESIGN.md 11.9), as the device-modular spec's seam says. A sign with
+ * nothing on one side is part of a name (VOL+). Up to CHORD_MAX names; the
+ * pieces into `part`, the signs into `sign`; the count, 1 for no chord. */
+#define CHORD_MAX  4
+#define CHORD_NAME 16
+static int chord_split(const char *label, char part[CHORD_MAX][CHORD_NAME], char sign[CHORD_MAX])
+{
+	int n = 0, len = 0;
+	const char *p;
+
+	if (!label) return 0;
+	for (p = label; *p; p++) {
+		if ((*p == '/' || *p == '+') && len > 0 && p[1] && p[1] != '/' && p[1] != '+' && n < CHORD_MAX - 1) {
+			part[n][len] = '\0';
+			sign[n++] = *p;
+			len = 0;
+			continue;
+		}
+		if (len >= CHORD_NAME - 1) return 1;
+		part[n][len++] = *p;
+	}
+	part[n][len] = '\0';
+	return n + 1;
+}
+
+/* The air either side of a chord's sign, on the 4-unit grid: 4 at the
+ * hints' 32 to the keyboard's 44, 8 at the tutorial's 64, so a chord reads
+ * as one hint and not two */
+static int chord_gap(int size)
+{
+	return (size + 16) / 32 * 4;
+}
+
+/* The sign in the hints' words, **text-dim** */
+static TTF_Font *chord_font(void)
+{
+	return ui_font(UI_F_META);
+}
+
+static int chord_width(char part[CHORD_MAX][CHORD_NAME], const char sign[CHORD_MAX], int n, int size)
+{
+	int w = 0, i;
+
+	for (i = 0; i < n; i++) {
+		w += ui_button_width(part[i], size);
+		if (i + 1 < n) {
+			const char s[2] = { sign[i], '\0' };
+
+			w += chord_gap(size) * 2 + ui_text_width(chord_font(), s);
+		}
+	}
+	return w;
+}
+
 int ui_button_width(const char *label, int size)
 {
+	char part[CHORD_MAX][CHORD_NAME], sign[CHORD_MAX];
+	const int n = chord_split(label, part, sign);
 	const ds_key k = ds_key_of(label);
 	bool round = key_round(k);
 
+	if (n > 1) return chord_width(part, sign, n, size);
 	if (round) return size;
 	if (key_dpad(k)) return (int)((float)size * DPAD_KEY_K + 0.5f);
 	return ui_text_width(button_letter(round, size), k.text)
 	       + button_pad(size) * 2;
+}
+
+/* Each of a chord's glyphs, left to right from its whole width's left edge,
+ * its signs between them; `pressed` draws each as ui_button_pressed would */
+static void chord_draw(SDL_Renderer *r, char part[CHORD_MAX][CHORD_NAME], const char sign[CHORD_MAX],
+                       int n, int cx, int cy, int size, int style, bool pressed, float press,
+                       float scale, float op)
+{
+	int x = cx - chord_width(part, sign, n, size) / 2, i;
+
+	for (i = 0; i < n; i++) {
+		const int w = ui_button_width(part[i], size);
+
+		if (pressed) ui_button_pressed(r, part[i], x + w / 2, cy, size, style, press, scale, op);
+		else ui_button(r, part[i], x + w / 2, cy, size, style);
+		x += w;
+		if (i + 1 < n) {
+			const char s[2] = { sign[i], '\0' };
+			TTF_Font *f = chord_font();
+			SDL_Color c = style == UI_BUTTON_ON_ACCENT ? ui_col(theme()->on_accent, 255)
+			                                          : ui_col(theme()->text_dim, 255);
+
+			if (pressed) c.a = (Uint8)(255.0f * (op < 0.0f ? 0.0f : op > 1.0f ? 1.0f : op) + 0.5f);
+			x += chord_gap(size);
+			ui_text(r, f, s, x + ui_text_width(f, s) / 2, ui_cap_y(f, cy), 0, c);
+			x += ui_text_width(f, s) + chord_gap(size);
+		}
+	}
 }
 
 /* On the accent fill, the glyph's own face is the fill with this much
@@ -2433,8 +2520,14 @@ void ui_button(SDL_Renderer *r, const char *label, int cx, int cy, int size,
 	int w, ring;
 	SDL_Color edge, fill, ink;
 	SDL_Rect q, in;
+	char part[CHORD_MAX][CHORD_NAME], sign[CHORD_MAX];
+	int parts;
 
 	if (!label || size <= 0) return;
+	if ((parts = chord_split(label, part, sign)) > 1) {
+		chord_draw(r, part, sign, parts, cx, cy, size, style, false, 0.0f, 1.0f, 1.0f);
+		return;
+	}
 	if (key_dpad(k)) {
 		const float ds = (float)size * DPAD_KEY_K;
 		const int dw = (int)(ds + 0.5f);
@@ -2788,8 +2881,14 @@ void ui_button_pressed(SDL_Renderer *r, const char *label, int cx, int cy, int s
 	bool round = key_round(g);
 	TTF_Font *f;
 	float k, w, h, ring;
+	char part[CHORD_MAX][CHORD_NAME], sign[CHORD_MAX];
+	int parts;
 
 	if (!label || size <= 0 || op <= 0.0f) return;
+	if ((parts = chord_split(label, part, sign)) > 1) {
+		chord_draw(r, part, sign, parts, cx, cy, size, style, true, press, scale, op);
+		return;
+	}
 	if (press <= 0.0f && (scale == 1.0f || scale <= 0.0f) && op >= 1.0f) {
 		ui_button(r, label, cx, cy, size, style);
 		return;
