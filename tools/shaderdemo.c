@@ -12,11 +12,19 @@
  *
  * writes OUT_DIR/<panel>/<filter>.png (at 100%) and <filter>-<strength>.png
  * (10 to 90): a panel's pictures, which src/shaderdemo.c reads by the
- * panel's size (dmode_surface). */
+ * panel's size (dmode_surface).
+ *
+ *     build-native/shaderdemo --rgb565 OUT_DIR
+ *
+ * is for setting them beside a device's (tools/shaderdemo-device.sh): the
+ * scene as a core hands it over, in RGB565 (OUT_DIR/scene.rgb565, the stub
+ * core's STUBCORE_IMAGE), and what each filter makes of that, the whole
+ * 640x480 panel at 100% and 50% (OUT_DIR/<filter>[-50].png). */
 #include <SDL.h>
 #include <SDL_image.h>
 #include <math.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -383,6 +391,41 @@ static int save(const char *dir, const char *dev, filt f, int strength, v2 scale
 	return bad;
 }
 
+/* --rgb565: the scene a core hands over (5-6-5 bits, each widened back to 8
+ * as a GPU reads them), and what the Pixel 2's filters make of it, whole */
+static int device_set(const char *dir)
+{
+	static uint16_t frame[SH * SW];
+	const v2 scale = { 640.0f / SW, 480.0f / SH };
+	char path[512];
+	FILE *f;
+	int bad = 0;
+
+	draw_scene();
+	for (int y = 0; y < SH; y++)
+		for (int x = 0; x < SW; x++) {
+			unsigned char *c = scene[y][x];
+			const unsigned r = c[0] >> 3, g = c[1] >> 2, b = c[2] >> 3;
+
+			frame[y * SW + x] = (uint16_t)(r << 11 | g << 5 | b);
+			c[0] = (unsigned char)(r << 3 | r >> 2);
+			c[1] = (unsigned char)(g << 2 | g >> 4);
+			c[2] = (unsigned char)(b << 3 | b >> 2);
+		}
+	mkdir(dir, 0755);
+	snprintf(path, sizeof path, "%s/scene.rgb565", dir);
+	f = fopen(path, "wb");
+	if (!f || fwrite(frame, sizeof frame, 1, f) != 1) bad = 1;
+	if (f) fclose(f);
+	g_cpu = false;
+	for (int i = 0; i < F_COUNT; i++) {   /* save() writes DIR/DEV/NAME.png: DEV is "." */
+		bad |= save(dir, ".", (filt)i, 100, scale, 640, 480);
+		if (i >= F_CRT) bad |= save(dir, ".", (filt)i, 50, scale, 640, 480);
+	}
+	if (bad) fprintf(stderr, "shaderdemo: %s: could not write the device set\n", dir);
+	return bad;
+}
+
 int main(int argc, char **argv)
 {
 	/* Each handheld: its panel, which the 4:3 picture fills (640x480 on
@@ -396,8 +439,9 @@ int main(int argc, char **argv)
 	};
 	int bad = 0;
 
+	if (argc == 3 && !strcmp(argv[1], "--rgb565")) return device_set(argv[2]);
 	if (argc != 2) {
-		fprintf(stderr, "usage: shaderdemo OUT_DIR\n");
+		fprintf(stderr, "usage: shaderdemo OUT_DIR | --rgb565 OUT_DIR\n");
 		return 2;
 	}
 	draw_scene();

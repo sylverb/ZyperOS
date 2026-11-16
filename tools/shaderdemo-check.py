@@ -14,8 +14,9 @@ This fails when:
   - Diatom's filters changed since the pictures were made: its GLSL
     (diatom/port/pixel2.c, Sharp-Shimmerless's pass through the CRT's) or the
     Brick's Sharp-Shimmerless on its CPU (diatom/port/brick.c). Port the change
-    into tools/shaderdemo.c, run make shaderdemo, look at the pictures, and
-    record them (--write).
+    into tools/shaderdemo.c, run make shaderdemo, look at the pictures, set
+    them beside a Pixel 2's (tools/shaderdemo-device.sh), and record them
+    (--write).
 """
 import hashlib
 import re
@@ -82,7 +83,8 @@ def main():
     for k, h in sources().items():
         if kept.get(k) != h:
             bad.append("%s changed since res/shaderdemo was made: port it into tools/shaderdemo.c, "
-                       "make shaderdemo, look, and record it (tools/shaderdemo-check.py --write)" % k)
+                       "make shaderdemo, look, compare on a Pixel 2 (tools/shaderdemo-device.sh), and record it "
+                       "(tools/shaderdemo-check.py --write)" % k)
     # Every offered filter's pictures
     for panel in PANELS:
         for name, gpu in offered():
