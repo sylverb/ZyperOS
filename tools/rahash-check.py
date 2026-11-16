@@ -67,14 +67,18 @@ def lzma_flags():
     return out.stdout.split() if out.returncode == 0 else ["-llzma"]
 
 
-HASH_SRC = ("rahash.c", "discimg.c", "chd.c", "flacdec.c", "rahashjob.c")
+HASH_SRC = ("rahash.c", "discimg.c", "chd.c", "flacdec.c")
+# rahash-check.c builds rahashjob.c in itself (its job held until the second
+# is asked), so it is a source to rebuild for, not one to link
+HASH_DEPS = HASH_SRC + ("rahashjob.c", "rahashjob.h", "rahash.h")
 
 
 def asan_build(out):
     """The C hasher under AddressSanitizer, once: the crafted images run
     there, so a read past a buffer fails here rather than on a card"""
     if os.path.exists(out) and os.path.getmtime(out) >= max(
-            os.path.getmtime(os.path.join(ROOT, "src", f)) for f in HASH_SRC):
+            [os.path.getmtime(os.path.join(ROOT, "src", f)) for f in HASH_DEPS]
+            + [os.path.getmtime(os.path.join(ROOT, "tools", "rahash-check.c"))]):
         return True
     cc = os.environ.get("CC", "cc")
     return subprocess.run([cc, "-std=gnu11", "-D_GNU_SOURCE", "-O1", "-g",

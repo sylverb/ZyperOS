@@ -18,11 +18,43 @@
  * thread (src/rahashjob.h), polled until it lands; and a second job asked
  * for while the first runs must be refused.
  */
+#include <pthread.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 #include "../src/rahash.h"
-#include "../src/rahashjob.h"
+
+/* "While the first runs" has to be true when the second is asked: a short
+ * hash on a busy machine could land before it, and the second job then
+ * rightly starts (exit 4, on a loaded `make check`). So the job's thread
+ * waits at its start until the second has been asked. rahashjob.c is built
+ * in here, its call to ra_hash_rom pointed at held_hash; the hold is this
+ * tool's alone, and the job's code is otherwise the launcher's. */
+static pthread_mutex_t hold_lock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t hold_cond = PTHREAD_COND_INITIALIZER;
+static bool held;
+
+static bool held_hash(const char *path, const char *tag, char *out);
+#define ra_hash_rom held_hash
+#include "../src/rahashjob.c"
+#undef ra_hash_rom
+
+static bool held_hash(const char *path, const char *tag, char *out)
+{
+	pthread_mutex_lock(&hold_lock);
+	while (held) pthread_cond_wait(&hold_cond, &hold_lock);
+	pthread_mutex_unlock(&hold_lock);
+	return ra_hash_rom(path, tag, out);
+}
+
+static void hold(bool on)
+{
+	pthread_mutex_lock(&hold_lock);
+	held = on;
+	pthread_cond_broadcast(&hold_cond);
+	pthread_mutex_unlock(&hold_lock);
+}
 
 int main(int argc, char **argv)
 {
@@ -39,8 +71,10 @@ int main(int argc, char **argv)
 		char h[33], set[2048];
 		int r, waited = 0;
 
+		hold(true);
 		if (!rhj_begin(argv[3], argv[2], argv[4])) return 3;
 		if (rhj_begin(argv[3], argv[2], "second")) return 4;
+		hold(false);
 		while ((r = rhj_poll(h, set, sizeof set)) == 0 && waited++ < 3000) usleep(10000);
 		if (r != 1 && r != -1) return 5;
 		if (rhj_poll(h, set, sizeof set) != -2) return 6;
