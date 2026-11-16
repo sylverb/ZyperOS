@@ -18,6 +18,7 @@
 
 #include "diatom_port.h"
 #include "port_clock.h"
+#include "port_power.h"
 
 #define WINDOW_W 960
 #define WINDOW_H 720
@@ -624,7 +625,42 @@ static bool g_muted;
 void diatom_port_mute_set(bool on) { g_muted = on; }
 bool diatom_port_mute_get(void) { return g_muted; }
 void diatom_port_fast_clock(bool cpu, bool gpu) { (void)cpu; (void)gpu; }
-void diatom_port_power(int level) { (void)level; }
+
+/* No clocks on a desktop. For test/power.py, DIATOM_POWER_DIR names a folder
+ * whose two files stand for the Pixel 2's DDR and GPU ceilings (PX2_POWER's
+ * rows), written through the same memo as the Pixel 2's (port_power.h), so
+ * the host's handovers are checked end to end with no device: a second game
+ * in one resident process, and a game back from the menu, each lift a
+ * ceiling the launcher put down in between. */
+static diatom_power_memo g_power_memo = { -1 };
+static diatom_power_profile g_power_test;
+static char g_power_ram[512], g_power_gpu[512];
+
+static const diatom_power_profile *power_test(void)
+{
+	static int known = -1;
+	const char *dir;
+
+	if (known < 0) {
+		dir = getenv("DIATOM_POWER_DIR");
+		known = dir && dir[0] &&
+		        snprintf(g_power_ram, sizeof g_power_ram, "%s/ram_max_freq", dir) < (int)sizeof g_power_ram &&
+		        snprintf(g_power_gpu, sizeof g_power_gpu, "%s/gpu_max_freq", dir) < (int)sizeof g_power_gpu;
+		g_power_test.clock[0] = (diatom_clock){ g_power_ram, { "0", "0", "328000000" }, NULL };
+		g_power_test.clock[1] = (diatom_clock){ g_power_gpu, { "0", "300000000", "200000000" }, NULL };
+		g_power_test.n = 2;
+	}
+	return known ? &g_power_test : NULL;
+}
+
+void diatom_port_power(int level)
+{
+	const diatom_power_profile *p = power_test();
+
+	if (p) diatom_power_say(&g_power_memo, p, level);
+}
+
+void diatom_port_power_invalidate(void) { diatom_power_forget(&g_power_memo); }
 
 /* No GPU frames on the desktop yet: its window is an SDL renderer's, and a
  * core that asks for the GPU is refused (see diatom_port.h). */

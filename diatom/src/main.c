@@ -1190,6 +1190,9 @@ static bool menu_pause_inner(const diatom_session *sn)
 			 * than step from a cached value nobody is at. */
 			diatom_levels_invalidate();
 			levels_forget();
+			/* The clocks too: the caller says the game's level next, and it
+			 * is written, whatever the launcher left the ceilings at */
+			diatom_port_power_invalidate();
 			/* And whatever was pressed in it is the launcher's, already
 			 * acted on: dropped here, not read back on the next poll. */
 			diatom_port_input_reset();
@@ -2498,8 +2501,15 @@ static int run_session_inner(const diatom_session *sn)
 	sel_reset(prev_buttons);
 
 	/* The system's clock ceiling, before the warmup, so its frames already
-	 * run under it */
+	 * run under it. Written even when it is the level the last game ended
+	 * at: between games the ceilings were the launcher's, and ZyperOS on the
+	 * Pixel 2 puts the DDR's down to 328 MHz on a shelf left still for 2 s.
+	 * A press lifts it, but a game started with none (px2-open) found it
+	 * there; remembered from Diatom's start, FULL wrote nothing here, and the
+	 * game ran under that ceiling: Mario Kart DS at 20 to 28 fps instead of
+	 * 59.8 (2026-11-16). */
 	g_power_level = sn->power;
+	diatom_port_power_invalidate();
 	diatom_port_power(g_power_level);
 	g_power_calm_us = diatom_port_now_us() + 2000000;
 	if (g_power_level != DIATOM_POWER_FULL)
