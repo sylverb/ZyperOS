@@ -5,4 +5,4 @@ ZYDEV_ARCH = aarch64
 ZYDEV_MCPU = cortex-a53
 ZYDEV_CPU = cortex-a53
 ZYDEV_DIATOM_PORT = brick
-ZYDEV_HELPERS = btplayer btalsa
+ZYDEV_HELPERS = update btplayer btalsa

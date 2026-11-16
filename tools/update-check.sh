@@ -464,6 +464,23 @@ head -c 2000000 "$SL/card7" | cmp -s - "$SL/sys2/root.squashfs" && ok "  ...part
 head -c 2000000 "$SL/card6" | cmp -s - "$SL/sys2/root.squashfs" && bad "  ...partition 6, the running root, was written" || ok "  ...partition 6, the running root, untouched"
 unset ZYPEROS_UPDATE_CMDLINE ZYPEROS_UPDATE_BOOT ZYPEROS_UPDATE_CARD
 
+# An image that names its partitions and no root B has one root, no slots:
+# the system never goes into partition 4, which on such a card is something
+# else (the Brick's games partition, before its own A/B)
+head -c 3000000 /dev/zero > "$SL/card2"
+head -c 3000000 /dev/zero > "$SL/card4"
+printf 'slot=a\ntrial=0\ntry=0\nfell=-\na=0.1.0\nb=-\n' > "$SL/boot/bootstate.txt"
+echo "zyperos.slot=a zyperos.trial=0" > "$SL/cmdline"
+printf 'version 0.1.0\nupdate 1\ndevice pixel2\ntable gpt\npart-boot 1\npart-root-a 2\npart-games 4\n' > "$T/system"
+export ZYPEROS_UPDATE_CMDLINE=$SL/cmdline ZYPEROS_UPDATE_BOOT=$SL/boot ZYPEROS_UPDATE_CARD=$SL/card
+newcard
+run check --source "file://$T/rel2/" > /dev/null
+run download --source "file://$T/rel2/" > /dev/null
+head -c 3000000 /dev/zero > "$SL/zero4"
+cmp -s "$SL/card4" "$SL/zero4" && ok "parts: no root B named, no slots: partition 4 untouched" ||
+	bad "parts: no root B named, and partition 4 was written"
+unset ZYPEROS_UPDATE_CMDLINE ZYPEROS_UPDATE_BOOT ZYPEROS_UPDATE_CARD
+
 # --- the device, as the image names it ----------------------------------------
 # No --device: the system file's device line, and pixel2 where it has none
 printf 'version 0.1.0\nupdate 1\ndevice brick\n' > "$T/system"
