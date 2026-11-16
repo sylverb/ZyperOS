@@ -15,7 +15,7 @@ the boot loader and the closed parts.
 | brick-tools | 1.0 | GPL-3.0+ | plastron, https://github.com/ericreinsmidt/plastron |
 | busybox | 1.37.0 | GPL-2.0, bzip2-1.0.4 | https://www.busybox.net/downloads |
 | dbus | 1.14.10 | AFL-2.1 or GPL-2.0+ (library, tools), GPL-2.0+ (tools) | https://dbus.freedesktop.org/releases/dbus |
-| diatom | from ZyperOS's diatom/ folder | MPL-2.0 | Diatom, https://github.com/tarikbc/ZyperOS (diatom/) |
+| diatom | from its repository | MPL-2.0 | Diatom, https://github.com/tarikbc/ZyperOS (diatom/) |
 | dropbear | 2026.91 | MIT, BSD-2-Clause, Public domain, Unlicense, WTFPL | https://matt.ucc.asn.au/dropbear/releases |
 | exfatprogs | 1.2.9 | GPL-2.0+ | https://github.com/exfatprogs/exfatprogs/releases/download/1.2.9 |
 | expat | 2.8.1 | MIT | https://github.com/libexpat/libexpat/releases/download/R_2_8_1 |
@@ -35,7 +35,7 @@ the boot loader and the closed parts.
 | linux-headers | 4.9.337 | GPL-2.0 | https://cdn.kernel.org/pub/linux/kernel/v4.x |
 | ncurses | 6.6-20251231 | MIT with advertising clause | https://github.com/ThomasDickey/ncurses-snapshots/archive/v6_6_20251231 |
 | pcre2 | 10.47 | BSD-3-Clause | https://github.com/PCRE2Project/pcre2/releases/download/pcre2-10.47 |
-| pvr-ge8300 | 1.11.5516664 | PROPRIETARY | Imagination Technologies: closed, not distributed on its own (see THIRD-PARTY.md) |
+| pvr-ge8300 | 1.11.5516664 | PROPRIETARY | Imagination Technologies: closed, not in the image or its release; ZyperOS Installer gets each player's own copy (see THIRD-PARTY.md) |
 | readline | 8.3 | GPL-3.0+ | https://ftpmirror.gnu.org/readline |
 | sbc | 2.1 | LGPL-2.1+ (library) | https://cdn.kernel.org/pub/linux/bluetooth |
 | sdl2 | 2.32.10 | Zlib | http://www.libsdl.org/release |
@@ -43,9 +43,9 @@ the boot loader and the closed parts.
 | sdl2_ttf | 2.24.0 | Zlib | http://www.libsdl.org/projects/SDL_ttf/release |
 | splash | 1.0 | GPL-3.0+ | plastron, https://github.com/ericreinsmidt/plastron |
 | sqlite | 3.51.3 | blessing | https://www.sqlite.org/2026 |
-| zyperos | from its repository | GPL-3.0+ | ZyperOS, https://github.com/tarikbc/ZyperOS |
 | tzdata | 2026b | Public domain | https://www.iana.org/time-zones/repository/releases |
 | util-linux | 2.41.4 | GPL-2.0+, BSD-4-Clause, LGPL-2.1+ (libblkid, libfdisk, libmount), BSD-3-Clause (libuuid), BSD-2-Clause (xxhash), ISC (rfkill), MIT (hardlink, flock) | https://cdn.kernel.org/pub/linux/utils/util-linux/v2.41 |
 | wpa_supplicant | 2.11 | BSD-3-Clause | http://w1.fi/releases |
-| xr829-firmware | sonic-pad-7f37a7f | PROPRIETARY | XRadio: closed, not distributed on its own (see THIRD-PARTY.md) |
+| xr829-firmware | sonic-pad-7f37a7f | PROPRIETARY | XRadio: closed, not in the image or its release; ZyperOS Installer gets each player's own copy (see THIRD-PARTY.md) |
 | xz | 5.8.3 | Public Domain, BSD-0-Clause, GPL-2.0+, GPL-3.0+, LGPL-2.1+ | https://github.com/tukaani-project/xz/releases/download/v5.8.3 |
+| zyperos | from its repository | GPL-3.0+ | ZyperOS, https://github.com/tarikbc/ZyperOS |

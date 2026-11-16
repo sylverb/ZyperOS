@@ -128,9 +128,10 @@ VERSION ?= 1.0.5
 # in config/devices built clean by plastron from this commit; PUBLISH=1 then
 # makes the draft GitHub release and pushes the tag, and GitHub adds ZyperOS
 # Installer for macOS, Windows and Linux and publishes it
-# (.github/workflows/release.yml).
+# (.github/workflows/release.yml). KIT=brick makes a test kit of those
+# devices instead, at a pre-release version (tools/release.sh --kit).
 release:
-	@bash tools/release.sh $(if $(PUBLISH),--publish)
+	@bash tools/release.sh $(if $(KIT),--kit "$(KIT)") $(if $(PUBLISH),--publish)
 
 # ZyperOS Installer (installer/): its version is ZyperOS's, and its page
 # wears this repository's colors, fonts and Zyper. Its Rust tests run in CI

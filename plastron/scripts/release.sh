@@ -103,11 +103,15 @@ else
 	cp "/work/dl/u-boot-$UBOOT_COMMIT.tar.gz" "/work/dl/tf-a-$TFA_COMMIT.tar.gz" "$BOOT/"
 	cp -R /src/buildroot/board/brick/u-boot/. "$BOOT/plastron/"
 	cp /src/scripts/build-brick-bootloader.sh /src/docker/brick-boot/Dockerfile "$BOOT/plastron/"
-	# The closed parts are in the image and nowhere else: their packages are
-	# marked not to be redistributed, so legal-info leaves their files out
+	# The closed parts are in neither the image nor these sources: the image
+	# links to them on the card's boot partition, where ZyperOS Installer
+	# puts each player's own copy. Their packages are marked not to be
+	# redistributed, so legal-info leaves their files out
 	cat > "$OUTPUT/legal-info/PROPRIETARY.txt" <<-EOF
-	The TrimUI Brick's image carries two closed parts that are not ours, are
-	not in these sources, and are not distributed on their own:
+	The TrimUI Brick needs two closed parts that are not ours. They are in
+	neither its image nor these sources: the image only links to them in
+	the card's boot partition (closed/), where ZyperOS Installer puts each
+	player's own copy, fetched from where they are published:
 
 	- Imagination Technologies' PowerVR DDK 1.11@5516664 userspace libraries
 	  and firmware for the GE8300 GPU (OpenGL ES, EGL, the null window
@@ -118,7 +122,8 @@ else
 	  license stated. Package xr829-firmware.
 
 	Both as Creality's Sonic Pad SDK has them (github.com/CrealityTech/
-	sonic_pad_os at 7f37a7f).
+	sonic_pad_os at 7f37a7f), each checked against the sum plastron's build
+	checks.
 	EOF
 fi
 # Copied from a working tree on a Mac, so Finder's files come too

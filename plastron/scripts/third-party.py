@@ -18,8 +18,8 @@ LOCAL = {
     # the longer prefix first: matched in this order
     "/zyperos/diatom": "Diatom, https://github.com/tarikbc/ZyperOS (diatom/)",
     "/zyperos": "ZyperOS, https://github.com/tarikbc/ZyperOS",
-    "/brick-gpu": "Imagination Technologies: closed, not distributed on its own (see THIRD-PARTY.md)",
-    "/brick-xr829": "XRadio: closed, not distributed on its own (see THIRD-PARTY.md)",
+    "/brick-gpu": "Imagination Technologies: closed, not in the image or its release; ZyperOS Installer gets each player's own copy (see THIRD-PARTY.md)",
+    "/brick-xr829": "XRadio: closed, not in the image or its release; ZyperOS Installer gets each player's own copy (see THIRD-PARTY.md)",
     "/work/brick-kernel/images": "plastron's build of the Brick's kernel (see THIRD-PARTY.md)",
 }
 

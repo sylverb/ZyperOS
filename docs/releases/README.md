@@ -28,7 +28,8 @@ and once for the release:
 
 The installer has ZyperOS's version and downloads the newest published
 release's image, checked against its `SHA256SUMS`. A draft or a pre-release
-(a version with a hyphen, `0.2.0-beta.1`) is never offered.
+(a version with a hyphen, `0.2.0-beta.1`) is never offered, but to a test
+kit's own installer (Test kits, below).
 
 ## The devices
 
@@ -51,9 +52,7 @@ check-release-devices` checks both). From the list:
 - The Pages workflow counts every listed device's image downloads for the
   README's badge.
 
-The TrimUI Brick is not listed yet: its image needs the Brick's GPU files
-(`BRICK_GPU` in plastron), which the Mac that makes releases doesn't have,
-and its test kits have to pass first.
+The TrimUI Brick is not listed yet: its test kits have to pass first.
 
 ## Tested on
 
@@ -121,6 +120,33 @@ out, as it does Install and Thanks.
    `~/.config/zyperos/discord-bot.token`): the first paragraph, What's new,
    Updating and Good to know, with the release's link for the rest. If the
    wait was stopped, `tools/discord-release.py v<version>` posts them.
+
+## Test kits
+
+A test kit is how a device is tested before it joins `config/devices`: a
+GitHub **pre-release** with a version like `1.0.6-kit.2`, for the devices
+it names. GitHub never makes a pre-release the latest, so System Update,
+zyperos.com and every installer pass it by; the kit's own installer
+(version `1.0.6-kit.2`) offers that kit and nothing else, and updates
+itself to the next release once there is one.
+
+1. On a branch of its own off main: `tools/set-version.sh 1.0.6-kit.2`, and
+   the kit's notes in `docs/releases/v1.0.6-kit.2.md`. Nothing else
+   changes, and the branch is never merged: the tag keeps it.
+2. `make release KIT=brick` (`tools/release.sh --kit brick`) builds those
+   devices' images from it as step 3 does, into `out/release/v<version>/`,
+   with no System Update files: System Update only reads the latest.
+3. `tools/release.sh --kit brick --publish-built` publishes those files,
+   also after a change to only the notes, the installer, the workflows or
+   the docs, none of which goes into the image; or `make release KIT=brick
+   PUBLISH=1` builds them again first. Both refuse a
+   version with no hyphen and a commit that changes more than the version
+   and the notes from main; neither needs `Tested on` lines (the kit is the
+   test) or posts in #releases (a kit's testers get it in its own thread).
+   The Release workflow builds its installer as for a release, but for an
+   `.rpm` (Tauri CLI 2.12 hands the version to the rpm crate as it is, and
+   RPM versions can't have a hyphen), and checks that the draft has an image
+   of at least one device.
 
 Why the image is built on the Mac and the installer on GitHub: the image's
 inputs are on the Mac (the cores in `vendor/`, part fetched by
