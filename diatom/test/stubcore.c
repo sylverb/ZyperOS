@@ -182,7 +182,9 @@ static struct retro_disk_control_ext_callback tray = {
  * STUBCORE_INIT_LOG at each load: 1 every time for a core Diatom opens afresh
  * for each game (core.c, one_game_per_load), counting up for one it keeps
  * open, as a static a real core forgets to reset carries over. STUBCORE_NAME
- * names the library as a real core does, which is what that rule goes by. */
+ * names the library as a real core does, which is what that rule goes by;
+ * STUBCORE_VERSION gives it a version, which a save state is checked
+ * against (save.c, test/statereads.py). */
 static int loads;
 
 void retro_init(void)
@@ -202,7 +204,7 @@ void retro_get_system_info(struct retro_system_info *info)
 {
 	memset(info, 0, sizeof *info);
 	info->library_name     = getenv("STUBCORE_NAME") ? getenv("STUBCORE_NAME") : "diatom-stub";
-	info->library_version  = "1";
+	info->library_version  = getenv("STUBCORE_VERSION") ? getenv("STUBCORE_VERSION") : "1";
 	info->valid_extensions = "stub";
 	info->need_fullpath    = getenv("STUBCORE_FULLPATH") != NULL;
 	info->block_extract    = !getenv("STUBCORE_EXTRACT");

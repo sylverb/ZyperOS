@@ -155,7 +155,7 @@ $(BUILD)/%.o: %.c
 # backend exists. Cheap to check, so check it.
 # Mechanical checks, each guarding a rule that decays the moment nothing fails
 # when it is broken: check-seam has held since day one for exactly that reason.
-check: check-seam check-copies check-corefacts check-rates check-cheevos check-screens check-chord check-pace check-stick check-bounds check-rumble check-statefile check-proto check-port check-power check-power-e2e check-fastforward check-lateskip check-stateplane check-resident check-hotkeys check-coreend check-cardframe check-now check-rumble-e2e check-player2 check-states
+check: check-seam check-copies check-corefacts check-rates check-cheevos check-screens check-chord check-pace check-stick check-bounds check-rumble check-statefile check-proto check-port check-power check-power-e2e check-fastforward check-lateskip check-stateplane check-resident check-hotkeys check-coreend check-cardframe check-now check-rumble-e2e check-player2 check-states check-statereads
 
 # Does a RetroAchievements address reach the byte it names? Offline, needs no
 # core and no ROM, and links only cheevos.c plus the vendored runtime - so it
@@ -363,6 +363,16 @@ check-states:
 	$(FRESH_IF_BUILT)
 	@python3 test/states.py
 .PHONY: check-states
+
+# States a newer build of a core reads from an older one (src/save.c,
+# STATE_READS), end to end: the stub core as DSperate v3.4.1 resumes a
+# v3.0.5 state and refuses another version's, v3.0.5 refuses a v3.4.1 state,
+# and another core with the same versions refuses it. On check-stateplane's
+# terms: a few seconds, skipped unbuilt.
+check-statereads:
+	$(FRESH_IF_BUILT)
+	@python3 test/statereads.py
+.PHONY: check-statereads
 
 # SELECT's hotkeys end to end (src/chord.h): the pad by script, what the stub
 # core read written down, the quick slot's SAVE and LOAD answered while the
