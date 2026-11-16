@@ -128,6 +128,13 @@ bool dev_l2r2_held(const dev_chords *c, bool tap_l2, bool tap_r2, bool down_l2, 
 	return c->lr2_taps ? tap_l2 && tap_r2 : down_l2 && down_r2;
 }
 
+bool dev_menu_dots(const device_profile *p)
+{
+	const dev_button *m = dev_button_of(p, IN_MENU);
+
+	return p && (p->model_borrowed || (m && m->icon == DEV_ICON_DOTS));
+}
+
 const dev_button *dev_button_of(const device_profile *p, in_button b)
 {
 	int i;

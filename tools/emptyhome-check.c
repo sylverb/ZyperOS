@@ -44,7 +44,7 @@ int main(void)
 			eh_words(&s, EH_WIFI, &t, buf, sizeof buf);
 			CHECK(!strcmp(t.step[0], dev ? "Connect to Wi-Fi" : "Plug in the Wi-Fi adapter"));
 			if (!s.ok[EH_WIFI])
-				CHECK(!strcmp(t.why, dev ? "Connect to Wi-Fi in MENU first." : "Plug in the Wi-Fi adapter first."));
+				CHECK(!strcmp(t.why, dev ? "Connect to Wi-Fi in MENU." : "Plug in the Wi-Fi adapter first."));
 		}
 	/* No address known: nothing invented */
 	{

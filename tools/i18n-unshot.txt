@@ -13,7 +13,7 @@ about.battery_charging
 about.health_estimate
 about.thanks
 about.thanks_plastron
-about.thanks_rocknix
+about.thanks_kernel
 about.thanks_buildroot
 about.thanks_libretro
 about.thanks_portmaster

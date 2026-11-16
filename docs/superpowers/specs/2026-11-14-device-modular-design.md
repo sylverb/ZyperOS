@@ -725,6 +725,11 @@ legal decision for me, not a technical one**: 1 is what TortOS and Knulli
 do and is the least work; 2 and 3 avoid passing the files on. A lawyer's
 look is worth it before the first public Brick release, whichever way.
 
+**Decided (2026-11-15): no lawyer's look.** With the player's own copy,
+the player's installer downloads the files and ZyperOS passes none on, so I
+go ahead without one ("it's all right. if they are downloading it it's all
+good").
+
 ### 8. Testing on Bricks I do not have
 
 The Brick work is tried by Brick owners on the ZyperOS Discord.

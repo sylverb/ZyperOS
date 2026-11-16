@@ -55,7 +55,7 @@ typedef struct {
 static const about_thanks ABOUT_THANKS[ABOUT_THANKS_PAGES][ABOUT_THANKS_ROWS] = {
 	{ { "Eric Reinsmidt", 0, "TortOS, Diatom", 0 },
 	  { "plastron", 0, NULL, S_ABOUT_THANKS_PLASTRON },
-	  { "ROCKNIX", 0, NULL, S_ABOUT_THANKS_ROCKNIX },
+	  { NULL, 0, NULL, S_ABOUT_THANKS_KERNEL },   /* the handheld's (about_pages) */
 	  { "Buildroot", 0, NULL, S_ABOUT_THANKS_BUILDROOT },
 	  { "libretro", 0, NULL, S_ABOUT_THANKS_LIBRETRO },
 	  { "PortMaster", 0, NULL, S_ABOUT_THANKS_PORTMASTER } },
@@ -92,6 +92,15 @@ void about_pages(app *a, about_view *v)
 		for (i = 0; i < rows; i++) {
 			const about_thanks *t = &ABOUT_THANKS[p][i];
 
+			/* Its kernel is the handheld's: ROCKNIX's for the Pixel 2,
+			 * Allwinner's for the Brick (the profile's `kernel`) */
+			if (t->what_s == S_ABOUT_THANKS_KERNEL) {
+				const device_profile *d = plat_profile();
+
+				snprintf(v->kernel, sizeof v->kernel, T(S_ABOUT_THANKS_KERNEL), d->kernel.of);
+				v->thanks[p][i] = (menu_row){ d->kernel.by, v->kernel, false };
+				continue;
+			}
 			v->thanks[p][i] = (menu_row){ t->who ? t->who : T(t->who_s),
 			                              t->what ? t->what : T(t->what_s), false };
 		}

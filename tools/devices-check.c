@@ -32,6 +32,9 @@ static void whole(const device_profile *p)
 	snprintf(what, sizeof what, "%s: named, its folders and its controls", p->id ? p->id : "?");
 	ck(p->id && *p->id && p->name && *p->name && p->userdata && *p->userdata &&
 	   p->boot_label && *p->boot_label && p->buttons && p->n_buttons > 0, what);
+	snprintf(what, sizeof what, "%s: About thanks who made its kernel, and for which handheld", p->id);
+	ck(p->kernel.by && *p->kernel.by && p->kernel.of && *p->kernel.of &&
+	   strlen(p->kernel.of) < 24, what);
 	snprintf(what, sizeof what, "%s: a 4:3 screen", p->id);
 	ck(p->screen.aspect_w * 3 == p->screen.aspect_h * 4, what);
 	snprintf(what, sizeof what, "%s: a panel and a turn of 0, 90, 180 or 270", p->id);
@@ -255,6 +258,23 @@ static void builds(void)
 	ck(br->helpers == (DEV_HELPER_BTPLAYER | DEV_HELPER_BTALSA), "brick: btplayer and Bluetooth sound");
 }
 
+/* MENU's look: the Pixel 2's three dots on its own MENU and on the host's
+ * borrowed drawing; the Brick's word */
+static void menu_look(void)
+{
+	ck(dev_menu_dots(&device_profile_pixel2), "pixel2: MENU is its three-dot key");
+	ck(dev_menu_dots(&device_profile_desktop), "desktop: the Pixel 2's MENU, as its shots always showed");
+	ck(!dev_menu_dots(&device_profile_brick), "brick: MENU is the word on its key");
+	ck(!dev_menu_dots(NULL), "no profile: no dots");
+	/* About's kernel thanks: ROCKNIX's on the Pixel 2 and on the host's shots,
+	 * Allwinner's on the Brick */
+	ck(!strcmp(device_profile_pixel2.kernel.by, "ROCKNIX") &&
+	   !strcmp(device_profile_pixel2.kernel.of, "Pixel 2"), "pixel2: ROCKNIX's kernel");
+	ck(!strcmp(device_profile_desktop.kernel.by, "ROCKNIX"), "desktop: the Pixel 2's kernel thanks");
+	ck(!strcmp(device_profile_brick.kernel.by, "Allwinner") &&
+	   !strcmp(device_profile_brick.kernel.of, "Brick"), "brick: Allwinner's kernel");
+}
+
 static void choosing(void)
 {
 	ck(plat_profile() == &device_profile_desktop, "the host starts as desktop");
@@ -292,6 +312,7 @@ int main(void)
 	places();
 	system_has();
 	builds();
+	menu_look();
 	choosing();
 	if (fails) {
 		printf("devices: %d of %d checks failed\n", fails, checks);

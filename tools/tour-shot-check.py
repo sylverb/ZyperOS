@@ -322,14 +322,20 @@ def brick():
                    "brick %s: %s (%d glass pixels)" % (step, "turned round to its back, no glass"
                    if step in BRICK_BACK else "facing front or a side, the glass showing", glass))
         # The block moved as for the Pixel 2: the host's own (no handheld)
-        # moved TOURDEV_SHIFT right
+        # moved TOURDEV_SHIFT right. MENU's lesson is not: its key is the
+        # Brick's, the word on it (src/profile.c, dev_menu_dots), where the
+        # host draws the Pixel 2's three dots, so there it must differ
         for step in ("menu", "power"):
             host = shot("brick-%s-%s" % (step, th), "--theme", th, "--tour", step, "2000")
             if None in (own[step], host):
                 continue
             off = shifted_same(own[step], host, (STAGE[0], 20, STAGE[2] - 4, 660))
-            ck(off == 0, "brick %s %s: the lesson block is the host's moved %d right (%d pixels "
-               "differ)" % (th, step, SHIFT, off))
+            if step == "menu":
+                ck(off > 0, "brick %s menu: MENU is the word on the Brick's key, not the host's "
+                   "three dots (%d pixels differ)" % (th, off))
+            else:
+                ck(off == 0, "brick %s %s: the lesson block is the host's moved %d right (%d pixels "
+                   "differ)" % (th, step, SHIFT, off))
 
 
 # The choices, as src/tourdraw.c lays them out: two 380 x 285 at y 96, 56
