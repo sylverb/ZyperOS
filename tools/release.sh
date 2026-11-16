@@ -23,6 +23,24 @@
 # docs/releases/README.md): every device a release carries has passed its
 # device test for that version first.
 #
+#   tools/release.sh --kit IDS [--publish | --publish-built]
+#                               a test kit instead: the same, for the devices
+#                               IDS only ("brick", or "brick pixel2"), at a
+#                               pre-release version like 1.0.6-kit.2. GitHub
+#                               never makes a pre-release the latest, so
+#                               System Update, zyperos.com and every
+#                               installer but the kit's own pass it by: the
+#                               kit's installer offers its own kit
+#                               (installer/src-tauri/src/release.rs). A kit is
+#                               the device test, so its notes need no Tested
+#                               on lines; it is made from a commit whose only
+#                               change from main is the version (tools/
+#                               set-version.sh) and its notes, and it carries
+#                               no System Update files, as System Update
+#                               only reads the latest. Nothing goes to
+#                               Discord's #releases: a kit's testers get it
+#                               in its own thread.
+#
 # Both --publish forms end by waiting for GitHub to publish the release, then
 # post its notes in the Discord's #releases channel (tools/discord-release.py,
 # with Zyper's token from ~/.config/zyperos/discord-bot.token). Ctrl-C stops
@@ -47,9 +65,11 @@
 #
 # The devices are config/devices: a device joins it with its first release
 # and stays, as System Update and the installer read releases/latest. The
-# TrimUI Brick is not in it yet; its release-brick also needs plastron's
-# brick-inputs and brick-kernel first (plastron's make release runs them), and
-# its GPU files (BRICK_GPU), which this Mac doesn't have.
+# TrimUI Brick is not in it yet; its test kits carry it (--kit brick). Its
+# release-brick builds its kernel and modules first (plastron's make
+# brick-kernel), and needs the builder's own copy of its closed files
+# (plastron's make brick-fetch, into ~/brick-runtime), which build it and are
+# never released: each player's installer gets them (installer/README.md).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 ROOT=$PWD
@@ -83,12 +103,30 @@ UPDATE_KEY=${ZYPEROS_UPDATE_KEY:-$HOME/.config/zyperos/update-signing-key.pem}
 
 PUBLISH=0
 BUILT=0
-case "${1:-}" in
---publish) PUBLISH=1 ;;
---publish-built) PUBLISH=1; BUILT=1 ;;
-"") ;;
-*) echo "usage: tools/release.sh [--publish | --publish-built]" >&2; exit 2 ;;
-esac
+KIT=
+usage() { echo "usage: tools/release.sh [--kit IDS] [--publish | --publish-built]" >&2; exit 2; }
+while [ $# -gt 0 ]; do
+	case $1 in
+	--publish) PUBLISH=1 ;;
+	--publish-built) PUBLISH=1; BUILT=1 ;;
+	--kit) [ $# -ge 2 ] && [ -n "$2" ] || usage; KIT=$2; shift ;;
+	*) usage ;;
+	esac
+	shift
+done
+if [ -n "$KIT" ]; then
+	# The kit's devices, checked as config/devices is: each one id, once
+	KIT_LIST=$(mktemp)
+	echo "$KIT" | tr ' ' '\n' > "$KIT_LIST"
+	DEVICES=$(sh tools/release-devices.sh list "$KIT_LIST") || { rm -f "$KIT_LIST"; exit 1; }
+	rm -f "$KIT_LIST"
+	DEVICES=$(echo $DEVICES)
+	for d in $DEVICES; do
+		[ -f "src/device/${d}_profile.c" ] || { echo "release.sh: no device $d (src/device/${d}_profile.c)" >&2; exit 1; }
+	done
+	RELEASE_FILES=
+	for d in $DEVICES; do RELEASE_FILES="$RELEASE_FILES $(image $d) $(sources $d)"; done
+fi
 
 say() { printf '\n== %s\n' "$*"; }
 stop() { echo "release.sh: $*" >&2; exit 1; }
@@ -99,7 +137,11 @@ publish() {
 	# A draft first, with the image on it: the tag's workflow adds the installer
 	# to this release and publishes it, and refuses a tag with no draft waiting
 	[ $UPDATES = 0 ] || [ -n "$UPDATE_FILES" ] || stop "the update list is not signed"
-	gh release create "$TAG" --repo $REPO --draft $PRERELEASE --target "$HEAD" --title "ZyperOS $VERSION" \
+	# A kit's commit is on no branch GitHub has: the draft names main, and
+	# the tag, pushed before the workflow publishes it, is what it is made from
+	TARGET=$HEAD
+	[ -z "$KIT" ] || TARGET=main
+	gh release create "$TAG" --repo $REPO --draft $PRERELEASE --target "$TARGET" --title "ZyperOS $VERSION" \
 		--notes-file "$ROOT/$NOTES" $RELEASE_FILES $UPDATE_FILES SHA256SUMS
 	cd "$ROOT"
 	git tag -a "$TAG" -m "ZyperOS $VERSION" "$HEAD"
@@ -107,6 +149,10 @@ publish() {
 	echo
 	echo "The draft is up and $TAG is pushed. GitHub now builds ZyperOS Installer and publishes the release:"
 	echo "  https://github.com/$REPO/actions/workflows/release.yml"
+	if [ -n "$KIT" ]; then
+		echo "A test kit: nothing goes to #releases. Its page, for the kit's thread: https://github.com/$REPO/releases/tag/$TAG"
+		return 0
+	fi
 	say "Discord"
 	if [ -f "$HOME/.config/zyperos/discord-bot.token" ]; then
 		echo "Waiting for GitHub to publish $TAG; then its notes go to #releases (Ctrl-C stops the wait)"
@@ -122,15 +168,39 @@ sh tools/check-version.sh
 # A version with a hyphen (0.2.0-beta.1) is a pre-release, which the
 # installer never offers
 case $VERSION in *-*) PRERELEASE=--prerelease ;; *) PRERELEASE= ;; esac
+[ -z "$KIT" ] || [ -n "$PRERELEASE" ] ||
+	stop "a kit's version is a pre-release, like 1.0.6-kit.2, not $VERSION: tools/set-version.sh sets it, on a branch of its own"
 [ -z "$(git status --porcelain)" ] || stop "the working tree has changes: commit them first"
 git fetch -q origin
 HEAD=$(git rev-parse HEAD)
+# A kit: main as GitHub has it at some commit, with only its version and its
+# notes changed. Each version file's change is its version line alone
+kit_change() {
+	BASE=$(git merge-base HEAD origin/main) || stop "$(git rev-parse --short HEAD) shares no commit with origin/main"
+	for f in $(git diff --name-only "$BASE" HEAD); do
+		case $f in
+		Makefile) pat='^[+-]VERSION [?]= ' ;;
+		installer/src-tauri/Cargo.toml | installer/src-tauri/Cargo.lock) pat='^[+-]version = "' ;;
+		"$NOTES") continue ;;
+		*) stop "a kit changes only the version and $NOTES from main; this commit changes $f too (main at $(git rev-parse --short "$BASE"))" ;;
+		esac
+		# Read whole, so no early exit breaks the pipe
+		other=$(git diff -U0 "$BASE" HEAD -- "$f" | sed -e '/^+++ /d' -e '/^--- /d' -e '/^[+-]/!d' | grep -v "$pat" || true)
+		[ -z "$other" ] || stop "a kit changes only the version line of $f; this commit changes more of it:" $other
+	done
+	echo "release.sh: a kit of main at $(git rev-parse --short "$BASE"), with its version and notes"
+}
 if [ $PUBLISH = 1 ]; then
-	[ "$HEAD" = "$(git rev-parse origin/main)" ] ||
-		stop "a release is made from main as GitHub has it: this is $(git rev-parse --short HEAD), origin/main is $(git rev-parse --short origin/main)"
+	if [ -n "$KIT" ]; then
+		kit_change
+	else
+		[ "$HEAD" = "$(git rev-parse origin/main)" ] ||
+			stop "a release is made from main as GitHub has it: this is $(git rev-parse --short HEAD), origin/main is $(git rev-parse --short origin/main)"
+	fi
 	[ -f "$NOTES" ] || stop "write the release notes in $NOTES and commit them first"
-	# Each device passed its device test for this version: its Tested on line
-	sh tools/release-devices.sh tested "$NOTES" ||
+	# Each device passed its device test for this version: its Tested on line.
+	# A kit is that test
+	[ -n "$KIT" ] || sh tools/release-devices.sh tested "$NOTES" ||
 		stop "$NOTES needs a \"Tested on <id>: <who, on what>\" line for each of $DEVICES (docs/releases/README.md)"
 	gh auth status >/dev/null 2>&1 || stop "gh isn't signed in"
 	! git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1 || stop "$TAG is already tagged on GitHub"
@@ -145,6 +215,8 @@ sh mk/core-stamp.sh check "$VENDOR" || stop "a patched core in $VENDOR is stale 
 # signed list: the private key is checked for now, before the long build.
 UPDATES=0
 ls res/update/keys/*.pem > /dev/null 2>&1 && UPDATES=1
+# A kit carries none: System Update only reads the latest release
+[ -z "$KIT" ] || UPDATES=0
 if [ $UPDATES = 1 ]; then
 	if [ -f "$UPDATE_KEY" ]; then
 		KEY_ID=$(sh tools/update-key.sh id "$UPDATE_KEY")
@@ -155,16 +227,20 @@ if [ $UPDATES = 1 ]; then
 	else
 		echo "release.sh: no signing key at $UPDATE_KEY; the update list stays unsigned (not publishable)"
 	fi
+elif [ -n "$KIT" ]; then
+	echo "release.sh: a kit has no System Update files"
 else
 	echo "release.sh: no key in res/update/keys: System Update is off in this image, and the release has no update files"
 fi
-echo "ZyperOS $VERSION from $(git rev-parse --short HEAD), plastron/ with it, for $DEVICES"
+echo "ZyperOS $VERSION from $(git rev-parse --short HEAD), plastron/ with it, for $DEVICES${KIT:+ (a test kit)}"
 
 # --publish-built: the files of an earlier build, as they are
 if [ $BUILT = 1 ]; then
 	[ -f "$OUT/BUILT-FROM" ] || stop "nothing built in $OUT: run tools/release.sh first"
 	BUILT_HEAD=$(sed -n 's/^ZyperOS .* (\([0-9a-f]*\)), plastron.*/\1/p' "$OUT/BUILT-FROM")
 	[ -n "$BUILT_HEAD" ] || stop "$OUT/BUILT-FROM names no commit: $(cat "$OUT/BUILT-FROM")"
+	[ -z "$KIT" ] || [ "$BUILT_HEAD" = "$HEAD" ] ||
+		stop "$OUT is from another commit: $(cat "$OUT/BUILT-FROM"); a kit is published from the commit it was built from"
 	if [ "$BUILT_HEAD" != "$HEAD" ]; then
 		# The device tests come after the build, so their Tested on lines
 		# may land after it: main may be the built commit and one that adds
@@ -222,6 +298,13 @@ docker run --rm -v plastron-work:/work --user root plastron-builder rm -rf /work
 # packs with their lists unsigned
 GET=
 for d in $DEVICES; do
+	if [ "$d" = brick ]; then
+		# Its kernel and modules first, from this commit's patches, as
+		# plastron's make release builds them (board/brick/post-image.sh
+		# stops without them)
+		say "The Brick's kernel and modules"
+		make -C "$PLASTRON" brick-kernel
+	fi
 	say "The $d image: plastron's release build (everything, from empty; this takes a while)"
 	date
 	make -C "$PLASTRON" "release-$d" VERSION="$VERSION" ZYPEROS_SRC="$SRC" ZYPEROS_VENDOR="$VENDOR"
@@ -273,7 +356,7 @@ ls -l
 
 if [ $PUBLISH = 0 ]; then
 	echo
-	echo "Built in $OUT. Nothing was published: tools/release.sh --publish does that."
+	echo "Built in $OUT. Nothing was published: tools/release.sh ${KIT:+--kit \"$KIT\" }--publish does that."
 	exit 0
 fi
 publish

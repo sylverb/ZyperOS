@@ -18,6 +18,12 @@
 # them with a throwaway key made in the run, and stops before the release, to
 # try it.
 #
+# A test kit (tools/release.sh --kit, a version like 1.0.6-kit.2) goes the
+# same way: its tag is a pre-release's, which GitHub never makes the latest,
+# and it carries the devices its draft has an image for, not config/devices'.
+# Its installer offers that kit and nothing else (installer/src-tauri/src/
+# release.rs).
+#
 # dtolnay/rust-toolchain is a third-party action and runs with the job's
 # token, so it is pinned to a commit of its stable branch, not to the branch
 # name: a moved branch cannot change what runs here. Move the SHA on purpose.
@@ -251,14 +257,29 @@ jobs:
           # Every released device's image (config/devices; this runs in
           # dist/): System Update and the installer read the latest release,
           # so one without a device's image would leave that device with
-          # nothing to find
-          for d in $(sh ../tools/release-devices.sh list); do
-            awk -v f="ZyperOS-$TAG-$d.img.xz" '$2 == f { found = 1 } END { exit !found }' sums/SHA256SUMS ||
-              { echo "the draft has no ZyperOS-$TAG-$d.img.xz in its SHA256SUMS" >&2; exit 1; }
-          done
+          # nothing to find. A test kit is never the latest: it carries the
+          # devices it has an image for, one at least
+          case $V in
+          *-*)
+            kit=$(awk -v p="ZyperOS-$TAG-" -v s=".img.xz" \
+              'index($2, p) == 1 && substr($2, length($2) - length(s) + 1) == s { print $2 }' sums/SHA256SUMS)
+            test -n "$kit" || { echo "the kit's draft has no ZyperOS-$TAG-<device>.img.xz in its SHA256SUMS" >&2; exit 1; }
+            echo "a test kit, with: $kit"
+            ;;
+          *)
+            for d in $(sh ../tools/release-devices.sh list); do
+              awk -v f="ZyperOS-$TAG-$d.img.xz" '$2 == f { found = 1 } END { exit !found }' sums/SHA256SUMS ||
+                { echo "the draft has no ZyperOS-$TAG-$d.img.xz in its SHA256SUMS" >&2; exit 1; }
+            done
+            ;;
+          esac
           grep -v ' ZyperOS-Installer-' sums/SHA256SUMS > SHA256SUMS
           sha256sum ZyperOS-Installer-* >> SHA256SUMS
           cat SHA256SUMS
           gh release upload "$TAG" ZyperOS-Installer-* SHA256SUMS latest.json --clobber
-          gh release edit "$TAG" --draft=false
+          # A pre-release stays one, and never the latest
+          case $V in
+          *-*) gh release edit "$TAG" --draft=false --prerelease --latest=false ;;
+          *) gh release edit "$TAG" --draft=false ;;
+          esac
           gh release view "$TAG" --json url,isDraft,isPrerelease,assets --jq '{url, isDraft, isPrerelease, assets: [.assets[].name]}'

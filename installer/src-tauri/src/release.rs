@@ -114,8 +114,8 @@ fn api() -> String {
 }
 
 /// The repository's published releases, newest first.
-fn published() -> Result<Vec<Release>, ureq::Error> {
-    let mut response = get(&format!("{}/repos/{REPO}/releases?per_page=50", api()))?;
+fn published(api: &str) -> Result<Vec<Release>, ureq::Error> {
+    let mut response = get(&format!("{api}/repos/{REPO}/releases?per_page=50"))?;
     let text = response.body_mut().read_to_string()?;
     let all: Vec<Release> = serde_json::from_str(&text).map_err(|e| ureq::Error::Io(std::io::Error::other(e)))?;
     Ok(all.into_iter().filter(Release::published).collect())
@@ -135,15 +135,36 @@ fn unreachable(e: ureq::Error) -> String {
     }
 }
 
-/// ZyperOS's latest release.
+/// The release a test kit's installer reads: its own, tagged with its own
+/// version, when that is a pre-release (1.0.6-kit.2). None for a release's
+/// installer, which reads the latest. A kit is a GitHub pre-release, which
+/// GitHub never makes the latest, so System Update and every other
+/// installer pass it by
+fn kit_tag(version: &str) -> Option<String> {
+    version.contains('-').then(|| format!("v{version}"))
+}
+
+/// ZyperOS's latest release, or for a test kit's installer its own kit.
 pub fn latest() -> Result<Release, String> {
-    published().map_err(unreachable)?.into_iter().next().ok_or_else(|| NO_RELEASE.to_string())
+    release_for(&api(), env!("CARGO_PKG_VERSION"))
+}
+
+/// The release an installer of `version` offers, from the API at `api`
+fn release_for(api: &str, version: &str) -> Result<Release, String> {
+    if let Some(tag) = kit_tag(version) {
+        // GitHub answers 404 for a kit not out yet, and for a draft
+        let mut response = get(&format!("{api}/repos/{REPO}/releases/tags/{tag}")).map_err(unreachable)?;
+        let text = response.body_mut().read_to_string().map_err(unreachable)?;
+        let kit: Release = serde_json::from_str(&text).map_err(|e| format!("Reading GitHub's answer: {e}"))?;
+        return if kit.draft { Err(NO_RELEASE.to_string()) } else { Ok(kit) };
+    }
+    published(api).map_err(unreachable)?.into_iter().next().ok_or_else(|| NO_RELEASE.to_string())
 }
 
 /// A newer installer's version, if one is out. Says nothing when GitHub
 /// can't be asked: this is only ever a notice.
 pub fn newer_installer() -> Option<String> {
-    let release = published().ok()?.into_iter().find(Release::has_installer)?;
+    let release = published(&api()).ok()?.into_iter().find(Release::has_installer)?;
     // Only a release of this repository counts, by its page's address, as
     // GitHub answers a renamed repository's old name too. Its names ignore
     // case, so the comparison does as well
@@ -156,17 +177,21 @@ pub fn newer_installer() -> Option<String> {
 }
 
 /// Whether version `a` is after `b`: numbers compared part by part, so 1.10
-/// is after 1.9
+/// is after 1.9. A test kit (1.0.6-kit.2) comes after the release before it
+/// (1.0.5) and before its own (1.0.6)
 fn newer(a: &str, b: &str) -> bool {
-    let parts = |v: &str| -> Vec<u64> { v.split('.').map(|p| p.parse().unwrap_or(0)).collect() };
-    let (a, b) = (parts(a), parts(b));
+    let split = |v: &str| -> (Vec<u64>, bool) {
+        let (base, kit) = v.split_once('-').map_or((v, false), |(base, _)| (base, true));
+        (base.split('.').map(|p| p.parse().unwrap_or(0)).collect(), kit)
+    };
+    let ((a, a_kit), (b, b_kit)) = (split(a), split(b));
     for i in 0..a.len().max(b.len()) {
         let (x, y) = (a.get(i).copied().unwrap_or(0), b.get(i).copied().unwrap_or(0));
         if x != y {
             return x > y;
         }
     }
-    false
+    b_kit && !a_kit
 }
 
 /// The checksum SHA256SUMS gives for `name`
@@ -369,6 +394,20 @@ mod tests {
         assert!(newer("1.0.1", "1.0"));
         assert!(!newer("1.0.0", "1.0.0"));
         assert!(!newer("0.9", "1.0.0"));
+        // A test kit's installer (1.0.6-kit.2): the release before it is not
+        // newer, its own release and any after are
+        assert!(!newer("1.0.5", "1.0.6-kit.2"));
+        assert!(newer("1.0.6", "1.0.6-kit.2"));
+        assert!(newer("1.0.7", "1.0.6-kit.2"));
+        assert!(!newer("1.0.6-kit.2", "1.0.6"));
+        assert!(newer("1.0.6-kit.2", "1.0.5"));
+        assert!(!newer("1.0.6-kit.2", "1.0.6-kit.2"));
+    }
+
+    #[test]
+    fn a_kits_installer_reads_its_own_kit() {
+        assert_eq!(kit_tag("1.0.6-kit.2").as_deref(), Some("v1.0.6-kit.2"));
+        assert_eq!(kit_tag("1.0.5"), None);
     }
 
     #[test]
@@ -431,7 +470,20 @@ mod tests {
                     sums.len(),
                     image.len()
                 );
+                // A test kit, by its tag only: one out, as a pre-release,
+                // and one still a draft
+                let kit = format!(
+                    r#"{{"tag_name":"v0.2.0-kit.1","prerelease":true,"html_url":"",
+                        "assets":[{{"name":"SHA256SUMS","size":{},"browser_download_url":"{api}/dl/SHA256SUMS"}},
+                                  {{"name":"ZyperOS-v0.2.0-kit.1-brick.img.xz","size":{},"browser_download_url":"{api}/dl/img"}}]}}"#,
+                    sums.len(),
+                    image.len()
+                );
                 let (status, body): (&str, Vec<u8>) = match path.as_str() {
+                    "/repos/tarikbc/ZyperOS/releases/tags/v0.2.0-kit.1" => ("200 OK", kit.into_bytes()),
+                    "/repos/tarikbc/ZyperOS/releases/tags/v0.2.0-kit.2" => {
+                        ("200 OK", br#"{"tag_name":"v0.2.0-kit.2","draft":true,"prerelease":true,"assets":[]}"#.to_vec())
+                    }
                     "/repos/tarikbc/ZyperOS/releases?per_page=50" if !image.is_empty() => ("200 OK", json.into_bytes()),
                     "/repos/tarikbc/ZyperOS/releases?per_page=50" => ("200 OK", b"[]".to_vec()),
                     "/dl/SHA256SUMS" => ("200 OK", sums.clone().into_bytes()),
@@ -448,7 +500,7 @@ mod tests {
 
     /// The download path end to end, against fake_github: the release found,
     /// the image downloaded and checked, and a damaged one refused and
-    /// removed. Uses ZYPEROS_INSTALLER_API, which only debug builds read.
+    /// removed.
     #[test]
     fn downloads_and_checks_a_release() {
         let image = b"a card image, as far as this test cares".to_vec();
@@ -456,8 +508,7 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("zyperos-installer-dl-{}", std::process::id()));
 
         let base = fake_github(image.clone(), format!("{good}  ZyperOS-v0.1.0-pixel2.img.xz\n"), 3);
-        std::env::set_var("ZYPEROS_INSTALLER_API", &base);
-        let r = latest().unwrap();
+        let r = release_for(&base, "1.0.5").unwrap();
         assert_eq!(r.version(), "0.1.0");
         let mut last = None;
         let path = download(&r, r.asset(Device::Pixel2).unwrap(), &dir, &mut |p| last = Some(p), &|| false).unwrap();
@@ -468,20 +519,36 @@ mod tests {
 
         // The same release with a checksum that doesn't match
         let base = fake_github(image.clone(), format!("{}  ZyperOS-v0.1.0-pixel2.img.xz\n", "0".repeat(64)), 3);
-        std::env::set_var("ZYPEROS_INSTALLER_API", &base);
-        let r = latest().unwrap();
+        let r = release_for(&base, "1.0.5").unwrap();
         let e = download(&r, r.asset(Device::Pixel2).unwrap(), &dir, &mut |_| {}, &|| false).unwrap_err();
         assert!(e.contains("didn't match its checksum"), "{e}");
         assert!(!dir.join("ZyperOS-v0.1.0-pixel2.img.xz").exists(), "a bad download is removed");
 
         // No release at all yet, and a repository that isn't there
         let base = fake_github(Vec::new(), String::new(), 1);
-        std::env::set_var("ZYPEROS_INSTALLER_API", &base);
-        assert_eq!(latest().unwrap_err(), NO_RELEASE);
+        assert_eq!(release_for(&base, "1.0.5").unwrap_err(), NO_RELEASE);
         let base = fake_github(Vec::new(), String::new(), 1);
-        std::env::set_var("ZYPEROS_INSTALLER_API", base + "/nothing");
-        assert_eq!(latest().unwrap_err(), NO_RELEASE);
-        std::env::remove_var("ZYPEROS_INSTALLER_API");
+        assert_eq!(release_for(&(base + "/nothing"), "1.0.5").unwrap_err(), NO_RELEASE);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// A test kit's installer, against fake_github: it offers its own kit,
+    /// a pre-release no other installer offers, and downloads and checks
+    /// its image. A kit not out yet, or still a draft, is no release
+    #[test]
+    fn a_kits_installer_downloads_its_own_kit() {
+        let image = b"a kit's card image".to_vec();
+        let good = hex(&Sha256::digest(&image));
+        let dir = std::env::temp_dir().join(format!("zyperos-installer-kit-{}", std::process::id()));
+        let base = fake_github(image.clone(), format!("{good}  ZyperOS-v0.2.0-kit.1-brick.img.xz\n"), 5);
+        let r = release_for(&base, "0.2.0-kit.1").unwrap();
+        assert_eq!(r.version(), "0.2.0-kit.1");
+        assert!(!r.published(), "a kit is never a published release");
+        assert_eq!(r.devices(), vec![Device::Brick]);
+        let path = download(&r, r.asset(Device::Brick).unwrap(), &dir, &mut |_| {}, &|| false).unwrap();
+        assert_eq!(std::fs::read(&path).unwrap(), image);
+        assert_eq!(release_for(&base, "0.2.0-kit.2").unwrap_err(), NO_RELEASE, "a draft");
+        assert_eq!(release_for(&base, "0.2.0-kit.3").unwrap_err(), NO_RELEASE, "not out");
         let _ = std::fs::remove_dir_all(&dir);
     }
 
