@@ -414,9 +414,9 @@ bool diatom_state_save(diatom_core *c, const char *path)
  * DELETE THIS THE DAY LIBRETRO SYNCS ITS mGBA FORK.
  * ============================================================================
  *
- * Two builds that write interchangeable states. This is the ONLY thing in
- * Diatom that knows a particular core by name and version, and it is here
- * against its own scope on purpose and temporarily.
+ * Two builds that write interchangeable states. This and STATE_READS below
+ * are the only things in Diatom that know a particular core by version, and
+ * they are here against its own scope on purpose and temporarily.
  *
  * WHY IT EXISTS. libretro's mGBA segfaults on every MBC2 Game Boy cartridge -
  * a regression in mgba a1b2b23, reported as mgba-emu/mgba#3859 and fixed
@@ -462,6 +462,37 @@ static bool version_twins(const char *have, const char *want)
 	return false;
 }
 
+/* States a newer build of a core reads from an older one: ONE WAY, for that
+ * core only, for those two versions only. An entry is a claim about the
+ * core's own serializer, checked by reading it and by loading such a state,
+ * never a guess that "minor versions are compatible". The other way, a newer
+ * state into the older build, stays refused.
+ *
+ * DSperate v3.0.5 -> v3.4.1: ZyperOS moved its DS core between them. Both
+ * write DSperate's save state format 4, and v3.4.1 reads back every field
+ * v3.0.5 writes, in the same place. What it added, it appended at the end
+ * of a chunk (GXSTAT's swap timing, the sleep state), where an older state
+ * leaves them at their defaults, or put in chunks it reads only when they
+ * are there (slot 2, the cheat journal). ZyperOS's mk/dsperate-state-check.sh
+ * loads a v3.0.5 state into each core it builds and runs it on. Without the
+ * entry, the update lost every DS player's resume point (the .srm saves were
+ * never at risk). Drop it when DSperate moves again: a new pair is a new
+ * claim, to check the same way. */
+static const struct { const char *core, *from, *to; } STATE_READS[] = {
+	{ "DSperate", "v3.0.5", "v3.4.1" },
+};
+
+static bool state_reads(const char *core, const char *have, const char *want)
+{
+	size_t i;
+
+	for (i = 0; i < sizeof STATE_READS / sizeof STATE_READS[0]; i++)
+		if (strcmp(core, STATE_READS[i].core) == 0 &&
+		    strcmp(have, STATE_READS[i].from) == 0 && strcmp(want, STATE_READS[i].to) == 0)
+			return true;
+	return false;
+}
+
 /* A state read back (sf_unpack), handed to the core: on the frame thread, as a
  * load always was. False, said, when the file was no state for it. */
 static bool state_apply(diatom_core *c, const char *path, sf_error e, const sf_state *st,
@@ -479,16 +510,23 @@ static bool state_apply(diatom_core *c, const char *path, sf_error e, const sf_s
 	/* A state is only meaningful to the exact core that wrote it. Refusing is
 	 * the whole point of the header: the caller falls back to starting the
 	 * game normally, which is right, where handing a core a foreign state is
-	 * undefined behavior. */
+	 * undefined behavior. A state an older build wrote is handed to a newer
+	 * one only where STATE_READS says that build reads it. */
 	c->get_system_info(&si);
-	if (strcmp(st->core_name, si.library_name ? si.library_name : "?") != 0 ||
-	    !version_twins(st->core_version,
-	                   si.library_version ? si.library_version : "?")) {
-		logf_(DIATOM_LOG_WARN, "state: %s was written by %s %s, this is %s %s",
-		      path, st->core_name, st->core_version,
-		      si.library_name ? si.library_name : "?",
-		      si.library_version ? si.library_version : "?");
-		return false;
+	{
+		const char *name = si.library_name ? si.library_name : "?";
+		const char *ver  = si.library_version ? si.library_version : "?";
+
+		if (strcmp(st->core_name, name) != 0 ||
+		    (!version_twins(st->core_version, ver) &&
+		     !state_reads(name, st->core_version, ver))) {
+			logf_(DIATOM_LOG_WARN, "state: %s was written by %s %s, this is %s %s",
+			      path, st->core_name, st->core_version, name, ver);
+			return false;
+		}
+		if (strcmp(st->core_version, ver) != 0)
+			logf_(DIATOM_LOG_INFO, "state: %s was written by %s %s, which %s reads",
+			      path, st->core_name, st->core_version, ver);
 	}
 
 	/* The core gets the bytes it serialized, every one: a state that was

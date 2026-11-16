@@ -1,7 +1,8 @@
 diff --git a/src/libretro.cpp b/src/libretro.cpp
+index 768a516..f381f7e 100644
 --- a/src/libretro.cpp
 +++ b/src/libretro.cpp
-@@ -44,6 +44,14 @@ bool jit_on = true;
+@@ -52,6 +52,14 @@ retro_log_printf_t         log_cb;
  std::unique_ptr<ds::NDS> nds;
  std::string rom_path;
  bool jit_on = true;
@@ -16,7 +17,7 @@ diff --git a/src/libretro.cpp b/src/libretro.cpp
  uint32_t frame[W * H * 2];
  ds::s16 audio[4096 * 2];
  size_t state_size;   // fixed for the session: libretro states are a fixed size
-@@ -75,9 +83,24 @@ std::string dir(unsigned cmd) {
+@@ -92,9 +100,24 @@ std::string dir(unsigned cmd) {
    return env_cb(cmd, &d) && d ? d : "";
  }
  
@@ -41,12 +42,10 @@ diff --git a/src/libretro.cpp b/src/libretro.cpp
  }
  
  // Battery saves are the frontend's (RETRO_MEMORY_SAVE_RAM, a raw chip image,
-@@ -221,6 +244,41 @@ void layout_end() {
-     closedir(d);
-   }
+@@ -240,6 +263,41 @@ void layout_end() {
    ds::set_thread_layout(false);
-+}
-+
+ }
+ 
 +// The language, in this run's copy of the firmware: the user settings a game
 +// is given at direct boot (setup_direct_boot) are copied from it. At the start
 +// (boot, just after load_bios), and again before every reset's direct boot
@@ -80,10 +79,12 @@ diff --git a/src/libretro.cpp b/src/libretro.cpp
 +    log(RETRO_LOG_INFO, same ? "dsperate: reset, language %s\n"
 +                             : "dsperate: reset, language %s again (the firmware copy had %s)\n",
 +        kLanguages[want], now.language < 7 ? kLanguages[now.language] : "none");
- }
- 
++}
++
  bool boot() {
-@@ -237,6 +295,7 @@ bool boot() {
+   const std::string sys = dir(RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY);
+   auto in_sys = [&](const char* name) {
+@@ -254,6 +312,7 @@ bool boot() {
      log(RETRO_LOG_ERROR, "dsperate: bios: %s\n", err.c_str());
      return false;
    }
@@ -91,15 +92,15 @@ diff --git a/src/libretro.cpp b/src/libretro.cpp
    nds->reset();
    if (!nds->load_rom(rom_path)) {
      log(RETRO_LOG_ERROR, "dsperate: %s: %s\n", rom_path.c_str(), nds->rom_error.c_str());
-@@ -256,6 +315,7 @@ RETRO_API void retro_set_environment(retro_environment
-   env_cb = cb;
-   static const retro_variable vars[] = {
+@@ -325,6 +384,7 @@ void declare_options() {
+   for (const std::string& n : analog_names) analog_decl += "|" + n;
+   const retro_variable vars[] = {
      {"dsperate_jit", "JIT recompiler (restart); enabled|disabled"},
 +    {"dsperate_language", "Game language (start and reset); firmware|japanese|english|french|german|italian|spanish|chinese"},
-     {nullptr, nullptr},
-   };
-   cb(RETRO_ENVIRONMENT_SET_VARIABLES, const_cast<retro_variable*>(vars));
-@@ -313,6 +373,10 @@ RETRO_API void retro_reset(void) {
+     {"dsperate_frameskip", "Frameskip, when the frontend asks for it (restart); auto|slotplus|disabled"},
+     {"dsperate_slot2", "Slot 2 without a GBA game (restart); empty|rumble pak"},
+     {"dsperate_gba_game", gba_decl.c_str()},
+@@ -495,6 +555,10 @@ RETRO_API void retro_reset(void) {
  #if DSPERATE_JIT
    if (jit_on) ds::jit::flush_all();
  #endif
@@ -110,3 +111,11 @@ diff --git a/src/libretro.cpp b/src/libretro.cpp
    // The cart resets in place: the frontend holds a pointer into its save RAM.
    nds->reset();
    nds->setup_direct_boot();
+@@ -682,6 +746,7 @@ RETRO_API bool retro_load_game(const retro_game_info* game) {
+   // listed (a stored choice is only accepted if it is offered).
+   rumble_if = {};
+   have_rumble = env_cb(RETRO_ENVIRONMENT_GET_RUMBLE_INTERFACE, &rumble_if) && rumble_if.set_rumble_state;
++  read_language();   // boot() puts it in the firmware's settings; read_options() comes after
+   if (!boot()) { nds.reset(); layout_end(); return false; }
+   scan_gba();
+   scan_analog();

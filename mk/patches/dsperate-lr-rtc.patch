@@ -1,8 +1,8 @@
 diff --git a/src/libretro.cpp b/src/libretro.cpp
-index 552ae2a..84ecc89 100644
+index f381f7e..fcc4fae 100644
 --- a/src/libretro.cpp
 +++ b/src/libretro.cpp
-@@ -281,6 +281,47 @@ void apply_language(bool start) {
+@@ -298,6 +298,47 @@ void apply_language(bool start) {
          kLanguages[want], now.language < 7 ? kLanguages[now.language] : "none");
  }
  
@@ -50,7 +50,7 @@ index 552ae2a..84ecc89 100644
  bool boot() {
    const std::string sys = dir(RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY);
    auto in_sys = [&](const char* name) {
-@@ -302,6 +343,15 @@ bool boot() {
+@@ -319,6 +360,15 @@ bool boot() {
      return false;
    }
    nds->setup_direct_boot();
@@ -66,7 +66,7 @@ index 552ae2a..84ecc89 100644
    return true;
  }
  
-@@ -380,6 +430,7 @@ RETRO_API void retro_reset(void) {
+@@ -562,6 +612,7 @@ RETRO_API void retro_reset(void) {
    // The cart resets in place: the frontend holds a pointer into its save RAM.
    nds->reset();
    nds->setup_direct_boot();
@@ -74,15 +74,15 @@ index 552ae2a..84ecc89 100644
  }
  
  RETRO_API void retro_run(void) {
-@@ -419,6 +470,7 @@ RETRO_API void retro_run(void) {
+@@ -627,6 +678,7 @@ RETRO_API void retro_run(void) {
+   }
  
    layout_frame();
-   nds->gpu.set_frame_skip(skip_req);
 +  rtc_follow();
-   nds->run_frame();
- 
-   std::memcpy(frame, nds->gpu.framebuffer(0), W * H * 4);
-@@ -458,7 +510,10 @@ RETRO_API bool retro_unserialize(const void* data, size_t size) {
+   if (fs_mode == Skip::Period) {
+     if (fs_left == 0) {   // a block ended: pick the next one
+       const bool skip = fs_behind && fs_blocks < FS_LIMIT;
+@@ -703,7 +755,10 @@ RETRO_API bool retro_unserialize(const void* data, size_t size) {
    if (4 + size_t(n) > size) return false;
    ds::state::Reader r(static_cast<const ds::u8*>(data) + 4, n);
    std::string err;
