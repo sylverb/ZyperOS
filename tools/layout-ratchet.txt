@@ -16,7 +16,7 @@
 2 games.h
 6 home.c
 1 hudmenu_screen.h
-3 ingame_screen.c
+2 ingame_screen.c
 2 kbnav.h
 5 keyboard.c
 17 mediapage.c
