@@ -1242,7 +1242,7 @@ glyph with the sign between them, "/" for either and "+" for together, in
 **meta** **text-dim**, 4 units either side at the hints' sizes and 8 at the
 tutorial's 64, so the chord reads as one hint. It was one pill with the
 whole name in it. A sign with nothing on one side is part of a name (VOL+).
-MENU > Controls's rows write a chord as words ("L1/R1", src/controls.c), as they did.
+The rows of MENU > Controls write a chord as words ("L1/R1", src/controls.c), as they did.
 
 **In a menu row**, a glyph says a button does the row's job from anywhere on
 the page: the row's value is `MENU_KEY_X` (src/menu.h), and the glyph is
