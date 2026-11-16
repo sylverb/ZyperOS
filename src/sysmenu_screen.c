@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "sysmenu_screen.h"
 #include "dmodepreview.h"
+#include "ds/preview.h"
+#include "ds/colorref.h"
+#include "ds/scale.h"
 
 #include "aout_route.h"
 #include "muselib.h"
@@ -734,66 +737,14 @@ static void sc_preview_end(void)
 	plat_screen_colors(&c, false);
 }
 
-/* A row's value: its number, signed, with a minus sign rather than a hyphen */
-static void sc_number(int v, char *out, size_t n)
-{
-	if (v < 0) snprintf(out, n, "\xe2\x88\x92%d", -v);
-	else if (v > 0) snprintf(out, n, "+%d", v);
-	else snprintf(out, n, "0");
-}
-
-/* Something known to see the colors on, the whole column: a color chart
- * (the 24 patches of a camera's), a grey ramp in sixteen steps and a hue
- * band. Drawn by the page's column and the Look list's picture alike. */
-static void sc_chart(SDL_Renderer *r, const SDL_Rect *q)
-{
-	static const unsigned char PATCH[24][3] = {
-		{ 115, 82, 68 },  { 194, 150, 130 }, { 98, 122, 157 }, { 87, 108, 67 },
-		{ 133, 128, 177 }, { 103, 189, 170 }, { 214, 126, 44 }, { 80, 91, 166 },
-		{ 193, 90, 99 },  { 94, 60, 108 },   { 157, 188, 64 }, { 224, 163, 46 },
-		{ 56, 61, 150 },  { 70, 148, 73 },   { 175, 54, 60 },  { 231, 199, 31 },
-		{ 187, 86, 149 }, { 8, 133, 161 },   { 243, 243, 242 }, { 200, 200, 200 },
-		{ 160, 160, 160 }, { 122, 122, 121 }, { 85, 85, 85 },  { 52, 52, 52 },
-	};
-	const int across = q->w >= q->h ? 6 : 4, down = 24 / across;
-	const int band = q->h / 8 > DS_GRID ? q->h / 8 : DS_GRID;
-	const int chart_h = q->h - band * 2 - DS_GRID * 2;
-	int i, x;
-
-	for (i = 0; i < 24; i++) {
-		int cx = i % across, cy = i / across;
-		int x0 = q->x + q->w * cx / across, x1 = q->x + q->w * (cx + 1) / across;
-		int y0 = q->y + chart_h * cy / down, y1 = q->y + chart_h * (cy + 1) / down;
-
-		SDL_SetRenderDrawColor(r, PATCH[i][0], PATCH[i][1], PATCH[i][2], 255);
-		SDL_RenderFillRect(r, &(SDL_Rect){ x0 + 1, y0 + 1, x1 - x0 - 2, y1 - y0 - 2 });
-	}
-	for (i = 0; i < 16; i++) {
-		int v = i * 255 / 15, x0 = q->x + q->w * i / 16, x1 = q->x + q->w * (i + 1) / 16;
-
-		SDL_SetRenderDrawColor(r, (Uint8)v, (Uint8)v, (Uint8)v, 255);
-		SDL_RenderFillRect(r, &(SDL_Rect){ x0, q->y + chart_h + DS_GRID, x1 - x0, band });
-	}
-	for (x = 0; x < q->w; x++) {
-		double h = (double)x / q->w * 6;
-		int k, c[3];
-
-		for (k = 0; k < 3; k++) {
-			double e = h + (k == 0 ? 0 : k == 1 ? 4 : 2);
-			double v = fabs(fmod(e, 6) - 3) - 1;
-
-			c[k] = (int)(255 * (v < 0 ? 0 : v > 1 ? 1 : v) + 0.5);
-		}
-		SDL_SetRenderDrawColor(r, (Uint8)c[0], (Uint8)c[1], (Uint8)c[2], 255);
-		SDL_RenderFillRect(r, &(SDL_Rect){ q->x + x, q->y + chart_h + DS_GRID * 2 + band, 1, band });
-	}
-}
-
-/* The Look list's picture: the chart, and on the whole screen the look under
- * the cursor, once a move (the list draws this every frame) */
+/* The Look list's picture: the color chart in a screen (src/ds/colorref.h),
+ * and on the whole screen the look under the cursor, once a move (the list
+ * draws this every frame), so the chart shows it as the panel makes it */
 static void sc_look_preview(void *app_, int k, int x, int y, int w, int h)
 {
 	app *a = app_;
+	const SDL_Rect screen = { x, y, w, h };
+	SDL_Rect in;
 
 	if (k != g_sc_preview_k) {
 		screen_colors c = k >= 0 && k < SC_LOOKS_N ? SC_LOOKS[k].c : sc_load();
@@ -803,7 +754,9 @@ static void sc_look_preview(void *app_, int k, int x, int y, int w, int h)
 		plat_screen_colors(&c, false);
 	}
 	plat_screen_colors_tick(false);
-	sc_chart(a->r, &(SDL_Rect){ x, y, w, h });
+	in = ds_preview_screen_begin(a->r, &screen);
+	ds_color_ref_draw(a->r, &(SDL_Rect){ in.x + DS_GRID, in.y + DS_GRID, in.w - 2 * DS_GRID, in.h - 2 * DS_GRID });
+	ds_preview_screen_end(a->r, &screen);
 }
 
 /* The Look's list as the page opens it and the shots draw it: every look,
@@ -835,7 +788,9 @@ static menu_style g_sc_style;
 
 int sc_build(void *ctx, menu_row *rows, int max, const char **heading)
 {
-	static char val[SC_ROWS][8];
+	static char val[SC_ROWS][DS_SCALE_VALUE];
+	static const ds_scale_kind KIND[SC_ROWS] = { DS_SCALE_KINDS, DS_SCALE_TEMPERATURE, DS_SCALE_TINT,
+	                                             DS_SCALE_CONTRAST, DS_SCALE_SATURATION, DS_SCALE_GAMMA };
 	const int row_name[SC_ROWS] = { S_SCREEN_LOOK, S_SCREEN_TEMPERATURE, S_SCREEN_TINT,
 	                                S_SCREEN_CONTRAST, S_SCREEN_SATURATION, S_SCREEN_GAMMA };
 	screen_colors c = sc_load();
@@ -855,8 +810,8 @@ int sc_build(void *ctx, menu_row *rows, int max, const char **heading)
 			g_sc_choice[n] = (menu_choice){ .n = (unsigned char)(SC_LOOKS_N + (look == SC_CUSTOM)),
 			                                .cur = (unsigned char)look, .own = true };
 		} else {
-			sc_number(v[id], val[id], sizeof val[id]);
-			value = val[id];
+			/* A graded bar with its signed number (src/ds/scale.h) */
+			value = ds_scale_value(val[id], KIND[id], v[id], SCREEN_COLORS_RANGE);
 			g_sc_choice[n] = (menu_choice){ 0 };
 		}
 		g_sc_row[n] = (unsigned char)id;
@@ -918,18 +873,17 @@ static menu_result sc_key(app *a, void *ctx, in_button key, int sel)
 	return MENU_CHANGED;
 }
 
-/* The page's column: the chart, the whole height of the rows. Every frame,
- * so a table load held back for the gap is made here, and a preview left
- * by a list that closed is put back. */
+/* The page's column: the color chart (src/ds/colorref.h) down to the panel's
+ * foot. Every frame, so a table load held back for the gap is made here, and
+ * a preview left by a list that closed is put back. */
 void sc_side(app *a, const menu_side *at)
 {
-	const int row_h = menu_row_h();
+	const int h = at->panel.y + at->panel.h - menu_pad() - at->content_y;
 
 	sc_preview_end();
 	plat_screen_colors_tick(false);
 	if (at->stage == MENU_SIDE_OVER) return;
-	sc_chart(a->r, &(SDL_Rect){ at->content_x, at->content_y + row_h / 4,
-	                            SC_SIDE_W - DS_GRID * 3, row_h * (at->n > 0 ? at->n : SC_ROWS) - row_h / 2 });
+	ds_color_ref_draw(a->r, &(SDL_Rect){ at->content_x, at->content_y, SC_SIDE_W - DS_GRID * 4, h });
 }
 
 static void screen_colors_screen(app *a)
