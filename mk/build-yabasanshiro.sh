@@ -27,7 +27,7 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 SRC=${1:-/tmp/zyperos-yabasanshiro}
 PIN=39535a6abcad5abf9f71c8b2a7975f005ee12ed6   # libretro/yabause, ROCKNIX's yabasanshiro-lr pin
 TAR_SHA=56aa4dc17f1c9e61e60274a66c71b33371786688df001ac0ca56569d94cc8b3b
-SHA=94fb651ee18711d862d58e26c6403bd6106f0223932a2a30e7229f7142326f71
+SHA=f747f8fa46f150edd65fd5496237358bcb4a444a435d93d34cfd6bf642594cf5
 
 command -v docker >/dev/null || { echo "need docker" >&2; exit 1; }
 command -v curl   >/dev/null || { echo "need curl" >&2; exit 1; }
@@ -40,6 +40,21 @@ GOT=$(shasum -a 256 "$TAR" | cut -d' ' -f1)
 [ "$GOT" = "$TAR_SHA" ] || { echo "!! source sha256 $GOT, expected $TAR_SHA" >&2; exit 1; }
 rm -rf "$SRC/yabause-$PIN"
 tar -xzf "$TAR" -C "$SRC"
+# And one of ours, mk/patches/yabasanshiro-unload.patch (1.0.6). The core's
+# retro_unload_game takes its renderer down (YabauseDeInit, VIDCore NULL)
+# but leaves renderer_running set, so the context_destroy a frontend calls
+# after it ran VIDCore->DeInit through NULL: every Saturn quit crashed the
+# resident Diatom (SIGSEGV at 0x18, the Pixel 2, 2026-11-15), after the auto
+# state was written, and the next game ran without its in-game menu. And the
+# core set its emulator up only on the first context_reset of the library
+# (first_ctx_reset), so a second Saturn game in one resident Diatom would
+# have started on an emulator the last unload took down. The unload now says
+# both: the renderer is down, and the next context_reset starts afresh.
+# patch, not git apply: git apply in a work dir inside a repository skips
+# what is outside its folder and says nothing
+patch -d "$SRC/yabause-$PIN" -p1 --forward --quiet < "$ROOT/mk/patches/yabasanshiro-unload.patch"
+grep -q "first_ctx_reset = 1;" "$SRC/yabause-$PIN/yabause/src/libretro/libretro.c" \
+  || { echo "!! yabasanshiro-unload.patch did not apply" >&2; exit 1; }
 
 docker run --rm --platform linux/arm64 -v "$SRC/yabause-$PIN:/src" -w /src/yabause/src/libretro \
 	zyperos-flycast2021 bash -c '
@@ -68,3 +83,5 @@ mkdir -p "$ROOT/vendor/cores"
 cp "$SO" "$ROOT/vendor/cores/yabasanshiro_libretro.so"
 echo "  built  yabasanshiro ($PIN)"
 echo "  sha256 $GOT"
+# Which patch is in it, for mk/payload.sh to hold it to (mk/core-stamp.sh)
+sh "$ROOT/mk/core-stamp.sh" write yabasanshiro

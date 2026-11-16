@@ -52,7 +52,7 @@ static inline unsigned ui_rgb(ds_rgb c)
  * bottom and the Now Playing track are the same bar in two places, so they
  * are the same weight. (The settings line across the top was the third, until
  * it became src/osdbar.c's pill.) */
-#define UI_BAR_H 6
+#define UI_BAR_H DS_BAR   /* src/design.h: 8, on the grid */
 
 bool ui_init(SDL_Renderer *r, const char *font_path);
 void ui_quit(void);
@@ -546,5 +546,10 @@ void ui_power(SDL_Renderer *r, int cx, int cy, int size, float press, float scal
 
 /* rgb interpolation, for easing the background tint between systems */
 unsigned ui_mix(unsigned a, unsigned b, float t);
+
+/* MENU as the handheld prints it: the Pixel 2's three-dot key (true, the
+ * default), or the word on its key (false: the Brick's). Set once at start
+ * from the profile (dev_menu_dots), before anything is drawn. */
+void ui_set_menu_dots(bool dots);
 
 #endif

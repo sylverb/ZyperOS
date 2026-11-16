@@ -176,7 +176,10 @@ static void ctl_open_now(app *a, const ctl_target *t, bool fresh)
  * menu, the menu closes too (menu_run_body) */
 static void ctl_stop_game(void)
 {
-	if (!g_ctl_game.stopping) gm_quit();
+	if (!g_ctl_game.stopping) {
+		if (g_ctl_game.fallback) plat_run_stop();
+		else gm_quit();
+	}
 	g_ctl_game.stopping = true;
 	if (g_ctl_game.paused) g_ctl_close_menu = true;
 }
@@ -188,13 +191,16 @@ static void ctl_status(app *a, int at, int cfd)
 
 	if (g_ctl_next_on) snprintf(next, sizeof next, "\tnext=%s", g_ctl_next.path);
 	if (g_ctl_game.on) {
+		/* A game run the slow way is running from the start: there is no
+		 * resident to say its first frame */
 		const char *state = g_ctl_game.stopping ? "stopping"
 		                  : g_ctl_game.paused   ? "paused"
-		                  : plat_resident_started() ? "running" : "starting";
+		                  : g_ctl_game.fallback || plat_resident_started() ? "running" : "starting";
 
-		ctl_answer(cfd, "ok\tstate=%s\tsystem=%s\tname=%s\tpath=%s\tcore=%s\tsince=%ld\tup=%ld%s",
+		ctl_answer(cfd, "ok\tstate=%s\tsystem=%s\tname=%s\tpath=%s\tcore=%s\tsince=%ld\tup=%ld%s%s",
 		           state, g_ctl_game.tag, g_ctl_game.name, g_ctl_game.path, g_ctl_game.core,
-		           g_ctl_game.since, now - g_ctl_game.since, next);
+		           g_ctl_game.since, now - g_ctl_game.since, g_ctl_game.fallback ? "\tfallback=1" : "",
+		           next);
 	} else if (at == CTL_AT_SHELF && a->sys.count > 0) {
 		const sysview *v = &a->view[a->sys_cursor];
 		const system_cfg *s = &a->sys.systems[a->sys_cursor];

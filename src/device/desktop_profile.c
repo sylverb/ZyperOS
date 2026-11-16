@@ -17,6 +17,8 @@
 const device_profile device_profile_desktop = {
 	.id = "desktop",
 	.name = "Desktop",
+	/* The Pixel 2's, as the host's About shots always showed */
+	.kernel = { "ROCKNIX", "Pixel 2" },
 	.userdata = "brick",
 	.boot_label = "BRICKBOOT",
 	.screen = {

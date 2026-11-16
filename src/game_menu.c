@@ -232,9 +232,6 @@ int gm_tab_rows(const gm_ui *u, gm_tab t, gm_row *ids)
 		ids[n++] = GM_QUIT;
 	} else if (t == GT_DISPLAY) {
 		ids[n++] = GM_DISPLAY;
-		/* What the mode does, right under it */
-		if (u->dmode_note[0]) ids[n++] = GM_DNOTE1;
-		if (u->dmode_note[1]) ids[n++] = GM_DNOTE2;
 		ids[n++] = GM_SHADER;
 		/* Under its shader, and only while that is an old screen */
 		if (u->strength) ids[n++] = GM_STRENGTH;
@@ -297,7 +294,6 @@ int gm_rows(const gm_ui *u, gm_tab t, menu_row *out, gm_bufs *b)
 		S_GAMEMENU_QUIT, S_GAMEMENU_SCREENS, S_GAMEMENU_SWAP, S_GAMEMENU_STYLUS,
 		S_GAMEMENU_PAK, S_PLAYER2_ROW, S_GAMEMENU_DISC, S_GAMEMENU_STRENGTH,
 		S_GAMEMENU_UNDO, S_GAMEMENU_HUD,
-		S_GAMEMENU_DISPLAY, S_GAMEMENU_DISPLAY   /* the caption's, replaced below */
 	};
 	menu_row full[GM_MAX_ROWS];
 	gm_row ids[GM_MAX_ROWS];
@@ -309,8 +305,6 @@ int gm_rows(const gm_ui *u, gm_tab t, menu_row *out, gm_bufs *b)
 	full[GM_STRENGTH].value = u->strength;
 	full[GM_HUD].value = T(u->hud ? S_MENU_ON_TITLE : S_MENU_OFF_TITLE);
 	/* A caption, left-aligned under its row as a paragraph's lines are */
-	full[GM_DNOTE1] = MENU_BODY(u->dmode_note[0] ? u->dmode_note[0] : "");
-	full[GM_DNOTE2] = MENU_BODY(u->dmode_note[1] ? u->dmode_note[1] : "");
 	/* The slot's number alone: the row says what it is */
 	snprintf(b->quick, sizeof b->quick, "%d", u->quick);
 	full[GM_QUICK].value = b->quick;

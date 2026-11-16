@@ -74,6 +74,11 @@ typedef struct menu_choice {
 	const char *const *labels;   /* their words, n of them (NULL with own) */
 	const char *const *notes;    /* what each one does, shown under the list for the one under
 	                              * the cursor (Display Mode's); NULL for none */
+	/* A picture of what choice `k` does, drawn by its screen in the box
+	 * x, y, w x h (units) at the top of a column at the list's left, its
+	 * note under it in place of under the list (the Display list's mini
+	 * screen: menu_pick, DESIGN.md 11.3). `app` is the app. NULL: none. */
+	void (*preview)(void *app, int k, int x, int y, int w, int h);
 } menu_choice;
 
 /* Row `sel`'s choices from a build's table, or NULL: no table, a place past

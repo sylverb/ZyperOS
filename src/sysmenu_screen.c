@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "sysmenu_screen.h"
+#include "dmodepreview.h"
 
 #include "aout_route.h"
 #include "muselib.h"
@@ -167,6 +168,38 @@ static int ch_strengths(ch_pool *p, int on, int *cur)
 	}
 	return n;
 }
+/* The shelf's Display list's picture (menu_choice's preview): the game
+ * under the cursor's last frame, its Auto picture, as mode `k` would draw
+ * it, with the shape its system's games last said (dmode_note_shape); a
+ * game never played has no frame, and the stand-in shows the mode */
+static void sm_dmode_preview(void *app_, int k, int x, int y, int w, int h)
+{
+	static SDL_Texture *t;
+	static char made[LIB_PATH * 2];
+	static int tw, th;
+	app *a = app_;
+	sysview *v = &a->view[a->sys_cursor];
+	char path[LIB_PATH * 2] = "";
+	double aspect = 0.0;
+	bool known = false;
+	int fw, fh, o;
+
+	if (v->cursor >= 0 && v->cursor < v->list.count) {
+		o = shelf_owner(a, a->sys_cursor, v->cursor);
+		preview_path(a, o, &v->list.items[v->cursor], path, sizeof path);
+		aspect = dmode_shape_of(a->sys.systems[o].tag, &known);
+	}
+	if (strcmp(path, made)) {
+		if (t) SDL_DestroyTexture(t);
+		t = path[0] ? load_image(a->r, path, &tw, &th, NULL) : NULL;
+		snprintf(made, sizeof made, "%s", path);
+	}
+	/* Kept shape unknown: a console's */
+	if (!known) aspect = 4.0 / 3.0;
+	dmode_surface(&fw, &fh);
+	dmode_preview_draw(a, t, t ? tw : 0, t ? th : 0, aspect, fw, fh, k, x, y, w, h);
+}
+
 
 static void menu_choices(app *a, int sys, bool games)
 {
@@ -222,6 +255,7 @@ static void menu_choices(app *a, int sys, bool games)
 			}
 			g_sm_choice[SM_DISPLAY] = ch_make(&P[5], DMODE_COUNT, v->dmode, false);
 			g_sm_choice[SM_DISPLAY].notes = notes;
+			g_sm_choice[SM_DISPLAY].preview = sm_dmode_preview;
 		}
 		n = ch_shaders(&P[6], v->shader, &cur);
 		g_sm_choice[SM_SHADER] = ch_make(&P[6], n, cur, false);
@@ -366,16 +400,6 @@ int menu_build(app *a, screen_id screen, int sys,
 		 * entries would count a folder as one */
 		u.game_count = sys_games(&a->view[sys])->count;
 		u.dmode      = dmode_label(a->view[sys].dmode);
-		/* and what it does, under it: two lines at most, narrower than any
-		 * width the panel is measured to, so it never widens it */
-		{
-			static char note[2][CHV_WRAP_COLS];
-			int nl = wrap_text(ui_font(UI_F_MENU), dmode_note(a->view[sys].dmode),
-			                   SM_NOTE_W, note, 2);
-
-			u.dmode_note[0] = nl > 0 ? note[0] : NULL;
-			u.dmode_note[1] = nl > 1 ? note[1] : NULL;
-		}
 		u.shader     = shader_label(a->view[sys].shader);
 		u.strength   = strength_row_label(a, sys);
 		u.no_strength = !u.strength;

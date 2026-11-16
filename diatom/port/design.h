@@ -119,9 +119,8 @@ static const char *const DS_TONE_ID[DS_THEMES][DS_TONES] = {
 #define DS_TYPE_MENU 49
 #define DS_TYPE_META 37
 #define DS_TYPE_CHROME 24
-#define DS_TYPE_ACTION 27
-#define DS_TYPE_SUPPORT 29
-#define DS_TYPE_GAME_TITLE 38
+#define DS_TYPE_SUPPORT 28
+#define DS_TYPE_GAME_TITLE 37
 #define DS_TYPE_CARD 71
 #define DS_FONT_REGULAR "menu.ttf"
 #define DS_FONT_SEMIBOLD "title.ttf"
@@ -134,7 +133,7 @@ static const char *const DS_TONE_ID[DS_THEMES][DS_TONES] = {
 #define DS_GRID 8
 #define DS_INSET 24
 #define DS_PANEL_W 800
-#define DS_BAR 6
+#define DS_BAR 8
 #define DS_RAIL_INSET 23
 #define DS_RAIL_ENDS 90
 #define DS_RAIL_MIN 18

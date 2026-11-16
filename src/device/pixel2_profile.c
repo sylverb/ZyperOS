@@ -31,6 +31,8 @@ static const dev_button pixel2_buttons[] = {
 const device_profile device_profile_pixel2 = {
 	.id = "pixel2",
 	.name = "GKD Pixel 2",
+	/* ROCKNIX's RK3326 patches, its Pixel 2 device tree */
+	.kernel = { "ROCKNIX", "Pixel 2" },
 	.userdata = "pixel2",
 	.boot_label = "PX2BOOT",
 	.screen = {

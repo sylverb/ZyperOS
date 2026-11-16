@@ -64,6 +64,12 @@ float games_position(const games_row *row,uint32_t now);
 bool games_moving(const games_row *row,uint32_t now);
 int games_slots(const games_row *row,uint32_t now,games_slot slots[GAMES_WINDOW]);
 SDL_FRect games_cover_rect(int width,int height,float offset);
+/* The shelf's page, laid out by rules (src/ds/flex.h): the system's line,
+ * the covers' band, the name's block and the keys on every screen's foot,
+ * between the page's margins. The list and the grid share its line and its
+ * keys, so turning View over moves nothing but the middle. */
+typedef struct { SDL_Rect sys, covers, title, keys; } shelf_frame;
+shelf_frame games_frame(void);
 /* No I/O: the caller supplies cached facts and its existing worker-backed textures. */
 uint32_t games_draw(games_row *row,SDL_Renderer *r,const games_info *info,
                     cf_tex_fn texture,void *ctx,uint32_t now,uint32_t title_phase);
