@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Guard the 16 result sites against the old blocking holds."""
+"""Guard the 17 result sites against the old blocking holds."""
 from pathlib import Path
 import os
 import re
@@ -53,7 +53,7 @@ def function(name):
                 return raw[match.start():token.end()]
     raise AssertionError(f"unclosed function: {name}")
 
-# The planned source guard holds coverage of all 16 sites. The C harness below
+# The planned source guard holds coverage of all 17 sites. The C harness below
 # then executes the actual loop, with the real timer, motion and snapshots.
 sites = {
     "wifi_key": (0, 3), "ra_signin_screen": (2, 0), "ss_signin_screen": (2, 0),
@@ -63,7 +63,9 @@ sites = {
     "xs_open": (2, 0), "xs_stop": (1, 0), "xs_before_game": (1, 0),
     # MENU > Scraper's page: A with no network, and A with too little room
     "scp_page": (0, 2), "album_art_screen": (1, 0),
-    "launch_port": (0, 1), "launch": (0, 1),
+    # A port that could not start; a game whose own file is empty or cut short
+    # (src/gamefile.h) and a disc whose firmware is missing or the wrong size
+    "launch_port": (0, 1), "launch": (0, 2),
 }
 for name, counts in sites.items():
     body = function(name)
