@@ -71,5 +71,11 @@ grep -q '/usr/lib/zyperos/sppad' "$T/sp" && grep -q 'gpio107' "$T/sp" && ! grep 
 	ok "the start script: on a Smart Pro, GPIO 107 and sppad, no brick-pad" ||
 	bad "the start script's Smart Pro branch does not start sppad alone"
 
+# 6. Its part of the card script: the Brick's, which takes its folder from the
+# system's device line (tools/launch-start-check.sh runs it as the Smart Pro)
+cmp -s sd/brick/device.sh sd/smartpro/device.sh && grep -q '^smartpro) DEVICE_ID=smartpro ;;$' sd/brick/device.sh &&
+	ok "the card script's device.sh is the Brick's, with the Smart Pro's own folder" ||
+	bad "sd/smartpro/device.sh is not the Brick's, or the Brick's does not know the Smart Pro"
+
 echo "smartpro-board: $fails failed"
 [ "$fails" = 0 ]

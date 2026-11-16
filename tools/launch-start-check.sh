@@ -1,9 +1,12 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-3.0-only
-# launch.sh's start on a card a power cut broke, on both devices: a copy of
+# launch.sh's start on a card a power cut broke, on each device: a copy of
 # the card script (sd/zyperos/launch.sh) and of each device's device.sh beside
-# it, with the card's paths and /tmp moved under a scratch folder and the
-# device's commands stubbed (poweroff, reboot, pidof), run by sh.
+# it, with the card's paths, /tmp and the system's own file (/etc/zyperos/
+# system, its device line: the Brick's device.sh is the Smart Pro's too) moved
+# under a scratch folder and the device's commands stubbed (poweroff, reboot,
+# pidof), run by sh. Each device's log is looked for in its own folder
+# (.userdata/<id>), so a device.sh that names another's fails here.
 #
 #   1. boot.env is junk (what a power cut can leave): read, not sourced, so
 #      the script goes on to the launcher, where a syntax error in a sourced
@@ -28,11 +31,13 @@ fail() { echo "FAIL $dev: $*"; fails=$((fails + 1)); }
 # instead. device.sh names the card only through launch.sh's SDCARD.
 edit() {
 	sed -e "s#/mnt/SDCARD#$D/card#g" -e "s#/usr/share/zyperos/card#$D/seed#g" \
-	    -e "s#/tmp/#$D/tmp/#g" -e "s#/dev/kmsg#$D/kmsg#g" -e 's#( sleep 8$#( exit#' "$1"
+	    -e "s#/tmp/#$D/tmp/#g" -e "s#/dev/kmsg#$D/kmsg#g" -e 's#( sleep 8$#( exit#' \
+	    -e "s#/etc/zyperos/system#$D/system#g" "$1"
 }
 prepare() {
 	rm -rf "$D"
 	mkdir -p "$D/card/ZyperOS" "$D/card/.userdata/$dev" "$D/seed/ZyperOS" "$D/bin" "$D/tmp"
+	printf 'version 1.0.6\ndevice %s\n' "$dev" > "$D/system"
 	for p in '/mnt/SDCARD' '/usr/share/zyperos/card' '( sleep 8$' '/dev/kmsg' \
 	         '^device_radios &$'; do
 		grep -q -- "$p" sd/zyperos/launch.sh || { fail "launch.sh no longer has '$p'"; return 1; }
@@ -68,7 +73,7 @@ run() {
 	LOG=$D/card/.userdata/$dev/logs/zyperos.log
 }
 
-for dev in pixel2 brick; do
+for dev in pixel2 brick smartpro; do
 	prepare || continue
 	U=$D/card/.userdata/$dev
 	printf "WIFI='1\nBLU\001\377'\"\`)(" > "$U/boot.env"
