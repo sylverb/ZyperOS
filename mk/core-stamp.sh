@@ -47,7 +47,8 @@ mupen64plus_next mupen64plus-next- build-mupen64plus-next.sh
 parallel_n64 parallel-n64- build-parallel-n64.sh
 ppsspp ppsspp- build-ppsspp.sh
 prboom prboom- build-small-cores.sh
-tic80 tic80- build-tic80.sh'
+tic80 tic80- build-tic80.sh
+yabasanshiro yabasanshiro- build-yabasanshiro.sh'
 
 die() { echo "core-stamp: $*" >&2; exit 1; }
 
