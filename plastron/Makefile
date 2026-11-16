@@ -30,7 +30,7 @@ PLASTRON_COMMIT := $(shell git describe --always --dirty --abbrev=12 2>/dev/null
 STAMP := -e PLASTRON_COMMIT=$(PLASTRON_COMMIT) -e "PLASTRON_WHO=$(USER) with plastron $(PLASTRON_COMMIT)"
 DOCKER_RUN := docker run --rm -t $(STAMP) -v $(CURDIR):/src:ro $(SOURCES) -v $(VOLUME):/work $(IMAGE)
 
-.PHONY: gauge-check charge-limit-check push all builder volume image base qemu sdk brick brick-fetch brick-inputs brick-kernel brick-bootloader brick-probe bootloader shell linux-rebuild copy-out clean-output release release-pixel2 release-brick third-party
+.PHONY: gauge-check charge-limit-check push all builder volume image base qemu sdk brick brick-fetch brick-inputs brick-kernel brick-bootloader smartpro-bootloader brick-probe bootloader shell linux-rebuild copy-out clean-output release release-pixel2 release-brick third-party
 
 all: image
 
@@ -122,6 +122,19 @@ brick-bootloader: volume
 		--user root $(BRICK_BOOT_IMAGE) sh -c 'cp /work/brick-boot/u-boot-sunxi-with-spl.bin /out/ && \
 		chown $(shell id -u):$(shell id -g) /out/u-boot-sunxi-with-spl.bin'
 	@ls -l buildroot/board/brick/bootloader/u-boot-sunxi-with-spl.bin
+
+# The TrimUI Smart Pro's, the same way: the Brick's U-Boot patches, then
+# board/smartpro/u-boot/patches (its LPDDR4), into
+# buildroot/board/smartpro/bootloader/u-boot-sunxi-with-spl.bin. Committed too.
+smartpro-bootloader: volume
+	docker build -q -t $(BRICK_BOOT_IMAGE) docker/brick-boot
+	docker run --rm -v $(CURDIR):/src:ro -v $(VOLUME):/work $(BRICK_BOOT_IMAGE) \
+		sh /src/scripts/build-brick-bootloader.sh smartpro
+	mkdir -p buildroot/board/smartpro/bootloader
+	docker run --rm -v $(VOLUME):/work -v $(CURDIR)/buildroot/board/smartpro/bootloader:/out \
+		--user root $(BRICK_BOOT_IMAGE) sh -c 'cp /work/smartpro-boot/u-boot-sunxi-with-spl.bin /out/ && \
+		chown $(shell id -u):$(shell id -g) /out/u-boot-sunxi-with-spl.bin'
+	@ls -l buildroot/board/smartpro/bootloader/u-boot-sunxi-with-spl.bin
 
 # The Brick panel probe (board/brick/probe): a card that shows and saves which
 # panel a Brick has, to hand to other Brick owners. Kernel and boot loader only,
