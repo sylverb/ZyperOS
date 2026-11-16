@@ -2508,7 +2508,8 @@ check-games:
 # than on the frame: the frame's pixels byte for byte, every kind of title,
 # both themes, a game's and an album's; a card of the theme that was never
 # handed to the shelf after a turn; the fonts closed and opened again around
-# a fallback game while cards are asked for. On the launcher's own objects.
+# a fallback game while cards are asked for; two cards drawn at once by the
+# two workers, as two covers are decoded. On the launcher's own objects.
 .PHONY: check-cardpaint
 check-cardpaint:
 	@$(MAKE) --no-print-directory $(NATIVE_J) -f mk/native.mk VERSION=$(VERSION) build-native/cardpaint-check

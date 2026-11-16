@@ -88,13 +88,18 @@ static char title_path_kept[512];
 /* See ui_face_open. Made by the first ui_init and kept for the life of the
  * process, never destroyed by ui_quit: a worker can be waiting on one then. */
 static SDL_mutex *face_lock;
-/* The generated card's faces on the art workers (ui_card_paint's `away`): a
- * set of their own, so a face of the frame thread's is only ever the frame
- * thread's. Opened the first time a worker draws a card and closed by
- * ui_quit, both under away_lock, which a worker holds for the whole of a
- * card: two workers drawing at once take turns, a card being a fraction of
- * what a decode is. `away_up` is from ui_init to ui_quit, the stretch the
- * font library is up in: outside it nothing opens them and nothing draws. */
+/* The generated card's faces on the art workers (ui_card_paint's `away`):
+ * sets of their own, so a face of the frame thread's is only ever the frame
+ * thread's. One set for each of texload's two workers, so they draw two
+ * cards at once as they decode two covers at once: a game's card (src/
+ * cardart.h) is 40-50 ms on the Pixel 2, as much as a decode, and with one
+ * set for both, a Grid of games with no art filled at half the rate of one
+ * with art, and the rows a press brought into sight slid in empty. A set is
+ * opened the first time a card is drawn in it and closed by ui_quit, both
+ * under its own away_lock, which is held for the whole of a card.
+ * `away_up` is from ui_init to ui_quit, the stretch the font library is up
+ * in: outside it nothing opens them and nothing draws. */
+#define AWAY_SETS 2                 /* src/texload.c's NWORKERS */
 #define NAME_FACES (CA_SIZES * 2)   /* a game card's name: its sizes, then its rest's */
 typedef struct {
 	TTF_Font *title[SETS];      /* UI_F_CARD's face in each set */
@@ -108,11 +113,21 @@ typedef struct {
 	char      art_path[UI_CARD_PATH];
 	SDL_Surface *art;
 } card_faces;
-static SDL_mutex *away_lock;
-static card_faces away_faces;
+static SDL_mutex *away_lock[AWAY_SETS];
+static card_faces away_faces[AWAY_SETS];
 /* The frame thread's own copies of a game card's name faces and art (the
  * rest of a frame card is font_sets' and f_mark, as it always was) */
 static card_faces frame_faces;
+/* Every away_lock, in order, or let go of: ui_init and ui_quit change what
+ * all the sets stand on, and wait out a card being drawn in any of them */
+static void away_hold(bool hold)
+{
+	for (int i = 0; i < AWAY_SETS; i++) {
+		if (!away_lock[i]) continue;
+		if (hold) SDL_LockMutex(away_lock[i]);
+		else SDL_UnlockMutex(away_lock[i]);
+	}
+}
 static bool away_up;
 static void card_faces_close(card_faces *k);
 static SDL_Texture *glow_tex;
@@ -285,7 +300,8 @@ bool ui_init(SDL_Renderer *r, const char *font_path)
 	/* Granted, not asked for: a driver may decline PRESENTVSYNC in silence */
 	vsync_on = SDL_GetRendererInfo(r, &ri) == 0 && (ri.flags & SDL_RENDERER_PRESENTVSYNC);
 	if (!face_lock) face_lock = SDL_CreateMutex();
-	if (!away_lock) away_lock = SDL_CreateMutex();
+	for (i = 0; i < AWAY_SETS; i++)
+		if (!away_lock[i]) away_lock[i] = SDL_CreateMutex();
 
 	/* No worker is in the library here: away_up is down until the end */
 	if (TTF_Init() != 0) {
@@ -326,9 +342,9 @@ bool ui_init(SDL_Renderer *r, const char *font_path)
 	}
 	/* Up for the workers' card faces too, which open from font_path_kept,
 	 * set above: the lock is what makes it theirs to read */
-	if (away_lock) SDL_LockMutex(away_lock);
+	away_hold(true);
 	away_up = true;
-	if (away_lock) SDL_UnlockMutex(away_lock);
+	away_hold(false);
 	/* The title is a file of its own, so it opening says nothing of the
 	 * others: menu.ttf missing, with title.ttf there, is a launcher with no
 	 * menus, labels or counts. */
@@ -363,10 +379,10 @@ void ui_quit(void)
 	 * the card is done, so this waits out that card, and the next one finds
 	 * away_up false and leaves the card to the frame. Nothing draws text
 	 * from here to the next ui_init, and nothing is left holding a face. */
-	if (away_lock) SDL_LockMutex(away_lock);
+	away_hold(true);
 	away_up = false;
-	card_faces_close(&away_faces);
-	if (away_lock) SDL_UnlockMutex(away_lock);
+	for (int i = 0; i < AWAY_SETS; i++) card_faces_close(&away_faces[i]);
+	away_hold(false);
 	card_faces_close(&frame_faces);
 	memo_clear();
 	ds_glyphs_free();
@@ -3880,18 +3896,25 @@ void ui_card_order_folder(ui_card_order *o, const char *title, unsigned rgb,
 SDL_Surface *ui_card_paint(const ui_card_order *o, bool away)
 {
 	SDL_Surface *s = NULL;
+	card_faces *k;
+	int i;
 
 	if (!away) return card_surface(NULL, o);
-	if (!away_lock) return NULL;
-	SDL_LockMutex(away_lock);
+	for (i = 0; i < AWAY_SETS; i++)
+		if (!away_lock[i]) return NULL;
+	/* A set no one is drawing in, or, with both in use (the frame's card
+	 * beside two workers'), the first, when it is done */
+	for (i = 0; i < AWAY_SETS && SDL_TryLockMutex(away_lock[i]) != 0; i++)
+		;
+	if (i == AWAY_SETS) SDL_LockMutex(away_lock[i = 0]);
+	k = &away_faces[i];
 	/* Both faces open before a pixel is drawn, or none of it: a card drawn
 	 * here without a face the frame would have drawn it with would be
 	 * another card, so a face that will not open leaves every card to the
 	 * frame, which draws it as it always did, with or without. */
-	if (away_up && card_title_face(&away_faces, SET_LATIN) &&
-	    card_mark_face(&away_faces))
-		s = card_surface(&away_faces, o);
-	SDL_UnlockMutex(away_lock);
+	if (away_up && card_title_face(k, SET_LATIN) && card_mark_face(k))
+		s = card_surface(k, o);
+	SDL_UnlockMutex(away_lock[i]);
 	return s;
 }
 
