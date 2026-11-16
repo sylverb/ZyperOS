@@ -134,12 +134,18 @@ unsigned ct_lit(const ct_model *m, ct_row id);
  * the front of the right turn it CT_LEAN_DEG right and of the left
  * CT_LEAN_DPAD_DEG left (the d-pad), level, with their side's shoulders or
  * not; shoulders alone on one side turn it CT_LEAN_DEG their way and tilt it
- * CT_PITCH_DEG. Shoulders on a back ledge (the Brick's), with centre keys or
- * not and on either side, turn it round to its back view (m->back's turn
- * and tilt), which no front pose shows them from. Centre keys alone, no
- * keys, keys on both sides, or no model: the front pose, level. A centre key
- * with side keys changes nothing. */
+ * CT_PITCH_DEG. Shoulders on a back ledge (the Brick's) alone, on either
+ * side, turn it round to its back view (m->back's turn and tilt), which no
+ * front pose shows them from; with other keys, the lean is the others' and
+ * the handheld turns from it round to the back and back again (ct_spin).
+ * Centre keys alone, no keys, keys on both sides, or no model: the front
+ * pose, level. A centre key with side keys changes nothing. */
 void ct_lean(const td_model *m, unsigned keys, float *yaw_deg, float *pitch_deg);
+
+/* Whether `keys` are on `m`'s back ledge and off it (td_spins), so the
+ * handheld turns between ct_lean's lean and its back, in td_swing's turns;
+ * the back's offsets from the front pose in *yaw_deg and *pitch_deg */
+bool ct_spin(const td_model *m, unsigned keys, float *yaw_deg, float *pitch_deg);
 
 /* The button a button row is about (RM_*), -1 for another row */
 int ct_button_of(ct_row id);
