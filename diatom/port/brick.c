@@ -90,6 +90,11 @@ static SDL_AudioDeviceID g_audio;
 static int               g_pad_fd = -1;  /* "Brick Gamepad": every button */
 static bool              g_quit;
 static uint32_t          g_buttons;
+/* The pad's sticks, where it has them (the Smart Pro's, ABS_X and ABS_Y,
+ * ABS_RX and ABS_RY from tools/sppad.c): the Brick's has none. g_axis_max is
+ * ABS_X's end, 0 for no sticks. */
+static int16_t           g_axes[4];
+static int               g_axis_max;
 static bool              g_input_debug;
 static bool              g_present_debug;
 
@@ -351,7 +356,13 @@ static void input_scan(void)
 		memset(sw, 0, sizeof sw);
 		ioctl(fd, EVIOCGBIT(EV_KEY, sizeof keys), keys);
 		ioctl(fd, EVIOCGBIT(EV_SW, sizeof sw), sw);
-		if      (g_pad_fd < 0  && BIT_IS_SET(keys, BTN_SOUTH))          g_pad_fd = fd;
+		if (g_pad_fd < 0 && BIT_IS_SET(keys, BTN_SOUTH)) {
+			struct input_absinfo ax;
+
+			g_pad_fd = fd;
+			if (ioctl(fd, EVIOCGABS(ABS_X), &ax) == 0 && ax.maximum > 0)
+				g_axis_max = ax.maximum;
+		}
 		else if (g_jack_fd < 0 && BIT_IS_SET(sw, SW_HEADPHONE_INSERT))  g_jack_fd = fd;
 		else kept = false;
 		if (!kept) close(fd);
@@ -1946,6 +1957,16 @@ void diatom_port_input_poll(void)
 				pad_resync();
 				continue;
 			}
+			/* A stick: to libretro's range from the pad's own */
+			if (ev[i].type == EV_ABS && g_axis_max > 0) {
+				int k2 = ev[i].code == ABS_X ? 0 : ev[i].code == ABS_Y ? 1 :
+				         ev[i].code == ABS_RX ? 2 : ev[i].code == ABS_RY ? 3 : -1;
+				long v = (long)ev[i].value * 0x7fff / g_axis_max;
+
+				if (k2 >= 0)
+					g_axes[k2] = (int16_t)(v > 0x7fff ? 0x7fff : v < -0x7fff ? -0x7fff : v);
+				continue;
+			}
 			if (ev[i].type != EV_KEY || ev[i].value == 2) continue;
 			if (g_input_debug) {
 				char msg[48];
@@ -1965,6 +1986,13 @@ void diatom_port_input_poll(void)
 }
 
 uint32_t diatom_port_input_state(void) { return g_buttons; }
+
+bool diatom_port_input_axes(int16_t axes[4])
+{
+	if (g_axis_max <= 0) return false;
+	memcpy(axes, g_axes, sizeof g_axes);
+	return true;
+}
 
 /* No motor. */
 bool diatom_port_rumble(uint16_t strong, uint16_t weak)

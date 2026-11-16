@@ -12,6 +12,7 @@
 #include "device.h"
 #include "fileio.h"
 #include "platform.h"
+#include "stickpad.h"
 #include "thermal.h"
 
 #include <dirent.h>
@@ -54,6 +55,19 @@ static int jack_fd = -1;    /* "audiocodec sunxi Audio Jack": the jack switch, f
 /* ZYPEROS_INPUT_DEBUG=1 logs raw evdev codes, so one press tells you exactly
  * which device a control arrives on. */
 static int dbg_input;
+
+#ifdef __linux__
+/* The left stick as the d-pad on the launcher's screens (src/stickpad.h),
+ * where the pad has one: the Smart Pro's, from tools/sppad.c, as ABS_X and
+ * ABS_Y. A direction is held while its key or the stick holds it. The Brick's
+ * pad has no axis, so stick_max stays 0 and nothing changes there. */
+_Static_assert((int)IN_LEFT == (int)STICK_LEFT && (int)IN_RIGHT == (int)STICK_RIGHT &&
+               (int)IN_UP == (int)STICK_UP && (int)IN_DOWN == (int)STICK_DOWN,
+               "stickpad's directions are the d-pad's buttons");
+static stickpad stick;
+static int      stick_x, stick_y, stick_max;
+static bool     dpad_key[STICK_DIRS];
+#endif
 
 #ifdef __linux__
 /* Every button by its key code, as the Pixel 2 reads its own. brick-pad sends
@@ -342,8 +356,13 @@ static void input_scan(void)
 		memset(sw, 0, sizeof sw);
 		ioctl(fd, EVIOCGBIT(EV_KEY, sizeof keys), keys);
 		ioctl(fd, EVIOCGBIT(EV_SW, sizeof sw), sw);
-		if      (fd_pad < 0   && BIT_IS_SET(keys, BTN_SOUTH))           fd_pad = fd;
-		else if (fd_keys < 0  && BIT_IS_SET(keys, KEY_VOLUMEUP))        fd_keys = fd;
+		if (fd_pad < 0 && BIT_IS_SET(keys, BTN_SOUTH)) {
+			struct input_absinfo ax;
+
+			fd_pad = fd;
+			if (ioctl(fd, EVIOCGABS(ABS_X), &ax) == 0 && ax.maximum > 0)
+				stick_max = ax.maximum;
+		} else if (fd_keys < 0  && BIT_IS_SET(keys, KEY_VOLUMEUP))        fd_keys = fd;
 		else if (fd_power < 0 && BIT_IS_SET(keys, KEY_POWER))           fd_power = fd;
 		else if (jack_fd < 0  && BIT_IS_SET(sw, SW_HEADPHONE_INSERT))   jack_fd = fd;
 		else kept = false;
@@ -398,23 +417,60 @@ void plat_input_settle(in_state *st)
 /* The descriptors stay open: they are display-independent. */
 void plat_input_quit(void) { }
 
+#ifdef __linux__
+/* The stick where the last report left it: each direction it holds or lets
+ * go, with the d-pad's key for that direction */
+static void stick_apply(in_state *st)
+{
+	bool was[STICK_DIRS];
+	int d;
+
+	memcpy(was, stick.held, sizeof was);
+	stickpad_update(&stick, stick_x, stick_y, stick_max);
+	for (d = 0; d < STICK_DIRS; d++)
+		if (stick.held[d] != was[d])
+			plat_set_btn(st, (in_button)d, stick.held[d] || dpad_key[d]);
+}
+#endif
+
 static void poll_fd(int fd, in_state *st)
 {
 #ifdef __linux__
 	struct input_event ev;
 	size_t i;
+	bool moved = false;
 
 	while (fd >= 0 && read(fd, &ev, sizeof ev) == (ssize_t)sizeof ev) {
+		/* The stick, taken as a whole at each report */
+		if (ev.type == EV_ABS && fd == fd_pad && (ev.code == ABS_X || ev.code == ABS_Y)) {
+			if (ev.code == ABS_X) stick_x = ev.value;
+			else stick_y = ev.value;
+			moved = true;
+			continue;
+		}
+		if (ev.type == EV_SYN && ev.code == SYN_REPORT && moved) {
+			stick_apply(st);
+			moved = false;
+			continue;
+		}
 		if (ev.type != EV_KEY || ev.value == 2) continue;
 		if (dbg_input) fprintf(stderr, "[in] fd=%d code=%d val=%d\n", fd, ev.code, ev.value);
 		for (i = 0; i < sizeof keymap / sizeof keymap[0]; i++)
 			if (keymap[i].code == ev.code) {
+				in_button b = keymap[i].b;
+
+				/* A d-pad key: held while it or the stick holds it */
+				if (b <= IN_DOWN) {
+					dpad_key[b] = ev.value == 1;
+					plat_set_btn(st, b, dpad_key[b] || stick.held[b]);
 				/* A repeat is no let-go of POWER (src/powerhold.h) */
-				if (keymap[i].b != IN_POWER || ev.value != 2)
-					plat_set_btn(st, keymap[i].b, ev.value == 1);
+				} else if (b != IN_POWER || ev.value != 2) {
+					plat_set_btn(st, b, ev.value == 1);
+				}
 				break;
 			}
 	}
+	if (moved) stick_apply(st);
 #else
 	(void)fd; (void)st;
 #endif

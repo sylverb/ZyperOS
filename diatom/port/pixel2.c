@@ -2647,6 +2647,9 @@ void diatom_port_input_poll(void)
 
 uint32_t diatom_port_input_state(void) { return g_buttons; }
 
+/* No sticks on the GKD Pixel 2 */
+bool diatom_port_input_axes(int16_t axes[4]) { (void)axes; return false; }
+
 bool diatom_port_rumble(uint16_t strong, uint16_t weak)
 {
 	return evdev_rumble_set(strong, weak);
