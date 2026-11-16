@@ -42,6 +42,7 @@
 #include "uisound.h"
 #include "update_screen.h"
 #include "usblink.h"
+#include "shaderdemo.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -203,6 +204,31 @@ static void sm_dmode_preview(void *app_, int k, int x, int y, int w, int h)
 }
 
 
+/* The Shader and Strength lists' picture (src/shaderdemo.h): a system's
+ * menu with its own shader and strength, MENU with every system's, as the
+ * lists were made */
+static int g_sm_demo_shader, g_sm_demo_strength, g_pm_demo_shader, g_pm_demo_strength;
+
+static void sm_shader_preview(void *app_, int k, int x, int y, int w, int h)
+{
+	shader_demo_draw(app_, shader_offered(k), g_sm_demo_strength, x, y, w, h);
+}
+
+static void sm_strength_preview(void *app_, int k, int x, int y, int w, int h)
+{
+	shader_demo_draw(app_, g_sm_demo_shader, STRENGTH_MIN + k * STRENGTH_STEP, x, y, w, h);
+}
+
+static void pm_shader_preview(void *app_, int k, int x, int y, int w, int h)
+{
+	shader_demo_draw(app_, shader_offered(k), g_pm_demo_strength, x, y, w, h);
+}
+
+static void pm_strength_preview(void *app_, int k, int x, int y, int w, int h)
+{
+	shader_demo_draw(app_, g_pm_demo_shader, STRENGTH_MIN + k * STRENGTH_STEP, x, y, w, h);
+}
+
 static void menu_choices(app *a, int sys, bool games)
 {
 	/* A system's menu and MENU each their own words: the shelf under MENU
@@ -261,10 +287,22 @@ static void menu_choices(app *a, int sys, bool games)
 			g_sm_choice[SM_DISPLAY].notes = notes;
 			g_sm_choice[SM_DISPLAY].preview = sm_dmode_preview;
 		}
-		n = ch_shaders(&P[6], v->shader, &cur);
-		g_sm_choice[SM_SHADER] = ch_make(&P[6], n, cur, false);
-		n = ch_strengths(&P[7], strength_clamp(v->strength), &cur);
-		g_sm_choice[SM_STRENGTH] = ch_make(&P[7], n, cur, false);
+		{
+			static const char *snotes[CH_MAX], *tnotes[CH_MAX];
+
+			g_sm_demo_shader = v->shader;
+			g_sm_demo_strength = strength_clamp(v->strength);
+			n = ch_shaders(&P[6], v->shader, &cur);
+			g_sm_choice[SM_SHADER] = ch_make(&P[6], n, cur, false);
+			shader_demo_notes(snotes, n);
+			g_sm_choice[SM_SHADER].notes = snotes;
+			g_sm_choice[SM_SHADER].preview = sm_shader_preview;
+			n = ch_strengths(&P[7], strength_clamp(v->strength), &cur);
+			g_sm_choice[SM_STRENGTH] = ch_make(&P[7], n, cur, false);
+			shader_demo_strength_notes(tnotes, n);
+			g_sm_choice[SM_STRENGTH].notes = tnotes;
+			g_sm_choice[SM_STRENGTH].preview = sm_strength_preview;
+		}
 		/* View: in the order Right steps it (view_turn) */
 		P[8].lab[0] = T(S_SYSMENU_VIEW_COVERS);
 		P[8].lab[1] = T(S_SYSMENU_VIEW_GRID);
@@ -289,8 +327,13 @@ static void menu_choices(app *a, int sys, bool games)
 		bool mixed = false;
 
 		for (i = 0; i < a->sys.count; i++) if (a->view[i].shader != g_shader_all) mixed = true;
+		static const char *snotes[CH_MAX], *tnotes[CH_MAX];
 		n = ch_shaders(&P[3], g_shader_all, &cur);
 		g_pm_choice[PM_SHADER] = ch_make(&P[3], n, cur, mixed);
+		shader_demo_notes(snotes, n);
+		g_pm_choice[PM_SHADER].notes = snotes;
+		g_pm_choice[PM_SHADER].preview = pm_shader_preview;
+		g_pm_demo_shader = g_shader_all;
 		mixed = false;
 		{
 			int all = strength_read_all(db_dev());
@@ -299,6 +342,10 @@ static void menu_choices(app *a, int sys, bool games)
 				if (strength_clamp(a->view[i].strength) != strength_clamp(all)) mixed = true;
 			n = ch_strengths(&P[4], strength_clamp(all), &cur);
 			g_pm_choice[PM_STRENGTH] = ch_make(&P[4], n, cur, mixed);
+			shader_demo_strength_notes(tnotes, n);
+			g_pm_choice[PM_STRENGTH].notes = tnotes;
+			g_pm_choice[PM_STRENGTH].preview = pm_strength_preview;
+			g_pm_demo_strength = strength_clamp(all);
 		}
 	}
 	{
