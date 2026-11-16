@@ -134,6 +134,8 @@ window.ZYPER_TOKENS = {
     "page-tile-w": 472,
     "page-tile-h": 280,
     "page-tile-pad": 32,
+    "menu-row": 72,
+    "menu-pad": 56,
     "tile-w": 272,
     "tile-w-wide": 408,
     "tile-h": 232,
