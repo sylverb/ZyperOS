@@ -24,6 +24,7 @@
 
 typedef struct {
 	char ver[48], addr[80], batt[32], up[48];
+	char kernel[64];         /* "the Pixel 2 kernel": the handheld's own */
 	menu_row system[5], details[ABOUT_DETAIL_ROWS];
 	int nsystem;             /* 4, or 5 with the Developer Mode row (devmode.h) */
 	devmode_hold hold;       /* L2 + R2, five seconds: Developer Mode's unlock */

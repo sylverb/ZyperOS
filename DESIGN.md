@@ -361,6 +361,14 @@ a third of a microsecond on a Mac).
 
 Screens move onto the engine and these roles one at a time, each first with
 its pixels unchanged and then with its spacing on a sheet (section 14).
+`check-layout-ratchet` (`tools/layout-ratchet.py`) holds the way to one
+direction: each source's typed layout numbers (a layout `#define` set to a
+number, words at a typed height, a rectangle typed in place) are held to
+`tools/layout-ratchet.txt`, which only goes down. A file over its line
+fails: its new places come from the engine or a token, or, where a number is
+the screen's own with a reason beside it, its line is raised in the same
+change, where the review sees it. A file under its line fails until the line
+is lowered, so a number taken out cannot come back unseen.
 
 ### Layout
 

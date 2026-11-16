@@ -233,16 +233,16 @@ de = Erics Linux-Basis
 ja = Eric の Linux ベース
 it = la base Linux di Eric
 
-[about.thanks_rocknix]
-note = Thanks: beside "ROCKNIX".
-en = the Pixel 2 kernel
-zh-Hans = Pixel 2 内核
-es = el kernel del Pixel 2
-pt-BR = o kernel do Pixel 2
-fr = le noyau du Pixel 2
-de = der Kernel für den Pixel 2
-ja = Pixel 2 のカーネル
-it = il kernel del Pixel 2
+[about.thanks_kernel]
+note = Thanks: beside who made the handheld's kernel ("ROCKNIX", "Allwinner"). %s is the handheld's short name, the same in every language ("Pixel 2", "Brick").
+en = the %s kernel
+zh-Hans = %s 内核
+es = el kernel del %s
+pt-BR = o kernel do %s
+fr = le noyau du %s
+de = der Kernel für den %s
+ja = %s のカーネル
+it = il kernel del %s
 
 [about.thanks_buildroot]
 note = Thanks: beside "Buildroot", the tool that builds the system.

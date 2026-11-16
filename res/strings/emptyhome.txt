@@ -134,12 +134,12 @@ ja = Y を押す
 it = Premi Y
 
 [emptyhome.connect_wifi_first]
-note = Under Wi-Fi's steps when there is no network and no way to make one; MENU is the button. tight.
-en = Connect to Wi-Fi in MENU first.
+note = Under Wi-Fi's steps when there is no network and no way to make one; MENU is the button. tight: about 420 units with MENU as a word, as the Brick draws it.
+en = Connect to Wi-Fi in MENU.
 zh-Hans = 请先在 MENU 中连接 Wi-Fi。
 es = Conéctate al Wi-Fi en MENU.
-pt-BR = Conecte-se ao Wi-Fi no MENU.
-fr = Connectez le Wi-Fi dans MENU.
+pt-BR = Conecte ao Wi-Fi no MENU.
+fr = Connectez le Wi-Fi via MENU.
 de = WLAN im MENU verbinden.
 ja = 先に MENU で Wi-Fi に接続
 it = Connettiti al Wi-Fi in MENU.
