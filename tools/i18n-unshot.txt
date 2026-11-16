@@ -8,22 +8,10 @@
 
 
 # about: no shot draws it yet
+about.thanks_handhelds  # About > Thanks: the heading over the people who help with other handhelds, drawn only once src/about_screen.c's ABOUT_HANDHELD_THANKS has a row; none yet
 about.no_address_yet
 about.battery_charging
 about.health_estimate
-about.thanks
-about.thanks_plastron
-about.thanks_kernel
-about.thanks_buildroot
-about.thanks_libretro
-about.thanks_portmaster
-about.thanks_lexend
-about.thanks_sdl
-about.thanks_ffmpeg
-about.thanks_minimp3
-about.thanks_linux
-about.thanks_temurin
-about.licenses
 
 # art: no shot draws it yet
 art.now_catalog

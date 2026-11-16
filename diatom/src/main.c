@@ -1101,22 +1101,25 @@ static double sound_rate(const struct retro_system_info *si,
 	return av->timing.sample_rate;
 }
 
-/* One step's measurement: frames run against the pacing periods that passed,
- * so a step that hit the budget says how far short it fell. Wall time
- * includes the menu; the speed does not.
+/* One step's measurement: frames run against the wall clock's time in the
+ * step's turns, as the game's time, so a step the core could not reach says
+ * how far short it fell. Wall time includes the menu; the speed does not.
+ * Until 2026-11-16 it was against the turns' periods, two a fast turn, which
+ * said 1.0x for a core that ran flat out in shorter turns.
  *
  * And against the clock: the frames a second the game really ran, over the
  * time the step was held less the menu's, as a share of its own rate. The
  * turns alone said 1.00x for Super Mario 64 at 1x while the game ran at 56%
  * of its speed (2026-11-08): a turn that runs late still counts one period. */
-static void step_report(int half, long frames, long periods, uint64_t held_us,
+static void step_report(int half, long frames, double turns_us, uint64_t held_us,
                         uint64_t paused, double frame_us, uint64_t dropped)
 {
 	double ran_us = held_us > paused ? (double)(held_us - paused) : 0.0;
 
 	printf("diatom: speed %.1fx held %.1fs, reached %.2fx (%.2fx of the clock), "
 	       "%llu audio frame(s) dropped\n",
-	       half / 2.0, held_us / 1000000.0, periods ? (double)frames / (double)periods : 0.0,
+	       half / 2.0, held_us / 1000000.0,
+	       turns_us > 0.0 ? (double)frames * frame_us / turns_us : 0.0,
 	       ran_us > 0.0 ? (double)frames * frame_us / ran_us : 0.0,
 	       (unsigned long long)dropped);
 	fflush(stdout);
@@ -1190,6 +1193,9 @@ static bool menu_pause_inner(const diatom_session *sn)
 			 * than step from a cached value nobody is at. */
 			diatom_levels_invalidate();
 			levels_forget();
+			/* The clocks too: the caller says the game's level next, and it
+			 * is written, whatever the launcher left the ceilings at */
+			diatom_port_power_invalidate();
 			/* And whatever was pressed in it is the launcher's, already
 			 * acted on: dropped here, not read back on the next poll. */
 			diatom_port_input_reset();
@@ -2166,7 +2172,9 @@ static int run_session_inner(const diatom_session *sn)
 	uint32_t sel_took = 0;      /* shoulders SELECT's chords took this turn */
 	uint32_t sty_wait = 0;      /* d-pad and A held as the stylus came on */
 	bool     menu_armed = false, menu_chorded = false;
-	long     fast_frames = 0, fast_turns = 0, fast_unshown = 0;
+	long     fast_frames = 0, fast_unshown = 0;
+	double   fast_us = 0.0;        /* the wall clock's time in fast turns */
+	uint64_t fast_sound_t = 0;     /* when fast forward's silence was last pushed, 0 at 1x */
 	/* frameskip=late: frames run late and left undrawn, and how many in a
 	 * row the last of them was. */
 	long     late_unshown = 0;
@@ -2183,7 +2191,8 @@ static int run_session_inner(const diatom_session *sn)
 	double   shown_us = 0.0, unshown_us = 0.0;
 	/* The step in force, measured: what it reached, how long it was held, and
 	 * any audio dropped while it was - logged when it changes and at exit. */
-	long     step_frames = 0, step_periods = 0;
+	long     step_frames = 0;
+	double   step_us = 0.0;        /* the wall clock's time in this step's turns */
 	uint64_t step_t0 = 0, step_drop0 = 0, step_pause0 = 0;
 	/* Sound dropped at 1x so far, and whether the last turn ran fast, for
 	 * the power ceiling (power_trouble) */
@@ -2498,8 +2507,15 @@ static int run_session_inner(const diatom_session *sn)
 	sel_reset(prev_buttons);
 
 	/* The system's clock ceiling, before the warmup, so its frames already
-	 * run under it */
+	 * run under it. Written even when it is the level the last game ended
+	 * at: between games the ceilings were the launcher's, and ZyperOS on the
+	 * Pixel 2 puts the DDR's down to 328 MHz on a shelf left still for 2 s.
+	 * A press lifts it, but a game started with none (px2-open) found it
+	 * there; remembered from Diatom's start, FULL wrote nothing here, and the
+	 * game ran under that ceiling: Mario Kart DS at 20 to 28 fps instead of
+	 * 59.8 (2026-11-16). */
 	g_power_level = sn->power;
+	diatom_port_power_invalidate();
 	diatom_port_power(g_power_level);
 	g_power_calm_us = diatom_port_now_us() + 2000000;
 	if (g_power_level != DIATOM_POWER_FULL)
@@ -2686,7 +2702,6 @@ static int run_session_inner(const diatom_session *sn)
 			}
 		}
 		step_frames += ran;
-		step_periods += periods;
 		{
 			const uint64_t t = diatom_port_now_us();
 
@@ -2702,17 +2717,26 @@ static int run_session_inner(const diatom_session *sn)
 		}
 
 		if (fast) {
-			/* Silence for the time this turn stands for, so the queue holds
-			 * its target and the rate control never sees fast forward. At the
+			/* Silence for the time since the last, on the wall clock, so the
+			 * queue holds its target and the rate control never sees fast
+			 * forward: a turn is two refreshes when the step is reached, less
+			 * when the core runs flat out under it (the pacing below). At the
 			 * rate the resampler is using, which is not always the announced
-			 * one. */
+			 * one. The first fast turn, and one after a long gap (the menu),
+			 * stand for the two refreshes. */
 			static const int16_t quiet[2 * 4096];
-			size_t n = (size_t)(periods * audio_rate / av.timing.fps);
+			const uint64_t t = diatom_port_now_us();
+			double us = fast_sound_t ? (double)(t - fast_sound_t) : periods * frame_us;
+			size_t n;
 
+			if (us > periods * frame_us * 2.0) us = periods * frame_us;
+			n = (size_t)(us * audio_rate / 1000000.0);
 			if (n > 4096) n = 4096;
+			fast_sound_t = t;
 			diatom_audio_push(quiet, n);
 			fast_frames += ran;
-			fast_turns++;
+		} else {
+			fast_sound_t = 0;
 		}
 
 		/* The rect was locked at load and never moved. That is right when the
@@ -2839,14 +2863,15 @@ static int run_session_inner(const diatom_session *sn)
 				if (to < 0) to = 0;
 				if (to >= SPEED_STEPS) to = SPEED_STEPS - 1;
 				if (to != g_speed_ix) {
-					step_report(speed_half(), step_frames, step_periods,
+					step_report(speed_half(), step_frames, step_us,
 					            diatom_port_now_us() - step_t0,
 					            paused_us - step_pause0, frame_us,
 					            diatom_audio_dropped() - step_drop0);
 					g_speed_ix = to;
 					printf("diatom: speed %.1fx\n", speed_half() / 2.0);
 					fflush(stdout);
-					step_frames = step_periods = 0;
+					step_frames = 0;
+					step_us = 0.0;
 					step_t0 = diatom_port_now_us();
 					step_pause0 = paused_us;
 					step_drop0 = diatom_audio_dropped();
@@ -3058,6 +3083,17 @@ static int run_session_inner(const diatom_session *sn)
 			double us = (double)g_turn_sound * 1000000.0 / audio_rate;
 
 			next_us += us < frame_us * 4.0 ? us : frame_us * 4.0;
+		} else if (fast) {
+			/* The time the turn's frames stand for at the step, not the two
+			 * refreshes the turn is drawn in: a core that ran the step's
+			 * frames sleeps to the turn's end as before, and one that could
+			 * not runs its next turn at once, flat out, where it slept
+			 * before. Pokemon Black on the Pixel 2, at 11 to 12 ms a frame,
+			 * fitted 2 frames in a turn and went 1.0x at every step past
+			 * 1.5x, the emulation thread idle a fifth of the time
+			 * (2026-11-16); flat out it is 1/12 ms, 1.39x. Never over the
+			 * step for long: one turn of debt at most (below). */
+			next_us += frame_us * 2.0 * ran / speed_half();
 		} else {
 			next_us += frame_us * periods;
 		}
@@ -3070,6 +3106,13 @@ static int run_session_inner(const diatom_session *sn)
 			ts.tv_sec  = (time_t)(d / 1000000.0);
 			ts.tv_nsec = (long)(fmod(d, 1000000.0) * 1000.0);
 			nanosleep(&ts, NULL);
+		} else if (fast) {
+			/* Behind, fast. One turn of debt is kept, so a turn that ran
+			 * over (a busy moment) is repaid by the next and a core that
+			 * reaches the step holds it; no more, so a core short of the step
+			 * runs flat out and never sprints past the step later to repay
+			 * a slow stretch. */
+			if ((double)now - next_us > frame_us * periods) next_us = (double)now - frame_us * periods;
 		} else if ((double)now - next_us > frame_us * 4.0) {
 			/* More than four frames behind. Something stalled - the scheduler,
 			 * a page fault, a slow core - and trying to catch up would just run
@@ -3081,6 +3124,12 @@ static int run_session_inner(const diatom_session *sn)
 			if (g_speed_ix == 0) power_trouble("a stall", now);
 		}
 		/* Otherwise keep the debt and let the next short sleep repay it. */
+		{
+			const double turn_us = (double)(diatom_port_now_us() - batch_t0);
+
+			step_us += turn_us;
+			if (fast) fast_us += turn_us;
+		}
 	}
 
 	/* Read the clock before the capture: converting and writing a full-screen
@@ -3122,7 +3171,7 @@ static int run_session_inner(const diatom_session *sn)
 		diatom_proto_send("PREVIEW\tpath=%s", sn->preview);
 
 	if (fast_frames)
-		step_report(speed_half(), step_frames, step_periods,
+		step_report(speed_half(), step_frames, step_us,
 		            diatom_port_now_us() - step_t0,
 		            paused_us - step_pause0, frame_us,
 		            diatom_audio_dropped() - step_drop0);
@@ -3135,7 +3184,7 @@ static int run_session_inner(const diatom_session *sn)
 			       diatom_port_capture(sn->shot) ? "ok" : "FAILED");
 
 		uint64_t span = t_end - t_start;
-		double fast_secs = fast_turns * 2.0 * frame_us / 1000000.0;
+		double fast_secs = fast_us / 1000000.0;
 		double secs = (span > paused_us ? span - paused_us : 0) / 1000000.0 - fast_secs;
 		long   paced = frames - fast_frames;
 

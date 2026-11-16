@@ -32,6 +32,7 @@
 2 platform.h
 12 portload.c
 14 powerscreens.c
+2 radl_screen.c
 7 scraper_screen.c
 13 shelf_draw.c
 2 shots.c

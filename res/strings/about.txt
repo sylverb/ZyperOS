@@ -212,7 +212,7 @@ ja = ZyperOS の名前は、亡くなった私の愛犬 Zyper からとりまし
 it = ZyperOS prende il nome da Zyper, il mio cane, che non c'è più. Era veloce, agile e pieno di energia, ed è proprio ciò che questo sistema cerca di essere.\n\nIl nome unisce anche due parole inglesi: zippy (scattante) e hyper (pieno di energia). I giochi partono appena premi A, e i menu non ti fanno mai aspettare.\n\nTarik
 
 [about.thanks]
-note = The heading of About's last three pages: the projects ZyperOS is built on, a row each, the name and what of theirs it runs.
+note = The heading of About's last page, which scrolls: the projects ZyperOS is built on, a row each, the name and what of theirs it runs; then the people who help with other handhelds.
 en = Thanks
 zh-Hans = 致谢
 es = Agradecimientos
@@ -221,6 +221,17 @@ fr = Remerciements
 de = Danke
 ja = 謝辞
 it = Ringraziamenti
+
+[about.thanks_handhelds]
+note = Thanks: a small heading over the people who help with the other handhelds ZyperOS runs on (testing it on them), each a name and the handheld. Short, one line, centered. "Handhelds" as in portmaster.point_store.
+en = Help with other handhelds
+zh-Hans = 其他掌机上的协助
+es = Ayuda con otras portátiles
+pt-BR = Ajuda com outros portáteis
+fr = Aide sur d'autres consoles portables
+de = Hilfe mit anderen Handhelds
+ja = ほかの携帯ゲーム機での協力
+it = Aiuto con altre console portatili
 
 [about.thanks_plastron]
 note = Thanks: beside "plastron", Eric Reinsmidt's system ZyperOS builds on.
@@ -240,7 +251,7 @@ zh-Hans = %s 内核
 es = el kernel del %s
 pt-BR = o kernel do %s
 fr = le noyau du %s
-de = der Kernel für den %s
+de = Kernel des %s
 ja = %s のカーネル
 it = il kernel del %s
 
@@ -316,7 +327,7 @@ en = video, library
 zh-Hans = 视频、游戏库
 es = video, biblioteca
 pt-BR = vídeo, biblioteca
-fr = vidéo, bibliothèque
+fr = vidéo, ludothèque
 de = Video, Bibliothek
 ja = 動画、ライブラリ
 it = video, libreria
@@ -362,5 +373,5 @@ es = Las licencias están en Licenses/
 pt-BR = As licenças estão em Licenses/
 fr = Les licences sont dans Licenses/
 de = Alle Lizenzen liegen in Licenses/
-ja = すべてのライセンスは Licenses/ にあります
+ja = ライセンス全文：Licenses/
 it = Tutte le licenze sono in Licenses/

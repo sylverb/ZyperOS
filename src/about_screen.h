@@ -11,16 +11,18 @@
 #include "devmode.h"
 #include "panel.h"
 
-/* Six pages: the system, its details, the name, and three of thanks (
+/* Four pages: the system, its details, the name, and the thanks (
  * 2026-11-06: "another page ... telling the story of the name that it's a
  * tribute to my dog that passed away, and a thank you page to the Open
  * source repos we got stuff"). The story is the README's own words, laid
- * out as a synopsis is (syn_layout): taller than the panel, it walks. */
-#define ABOUT_PAGES 6
+ * out as a synopsis is (syn_layout): taller than the panel, it walks. The
+ * thanks were three pages until 2026-11-16 ("so it scrolls instead of being
+ * multiple pages, like the one that explains the name"): one page now,
+ * walked by hand as the story is. */
+#define ABOUT_PAGES 4
 
-#define ABOUT_THANKS_PAGES 3
-
-#define ABOUT_THANKS_ROWS 6
+/* the credits, the handhelds' heading and names, and the footer */
+#define ABOUT_THANKS_ROWS 32
 
 typedef struct {
 	char ver[48], addr[80], batt[32], up[48];
@@ -29,9 +31,10 @@ typedef struct {
 	int nsystem;             /* 4, or 5 with the Developer Mode row (devmode.h) */
 	devmode_hold hold;       /* L2 + R2, five seconds: Developer Mode's unlock */
 	char story_lines[SYN_WRAP_LINES][CHV_WRAP_COLS];
-	menu_row story[SYN_ROWS], thanks[ABOUT_THANKS_PAGES][ABOUT_THANKS_ROWS + 2];
-	int nstory, story_loop;
+	menu_row story[SYN_ROWS], thanks[ABOUT_THANKS_ROWS];
+	int nstory, story_loop, nthanks;
 	int story_scroll;        /* pixels the story is scrolled by, by hand */
+	int thanks_scroll;       /* and the thanks */
 	SDL_Texture *photo;
 	about_info info;
 	about_values values;

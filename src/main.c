@@ -178,6 +178,7 @@
 #include "about_screen.h"
 #include "usbdrive_screen.h"
 #include "xfer_screen.h"
+#include "radl_screen.h"
 #include "scraper_screen.h"
 #include "gameinfo_screen.h"
 #include "lights_screen.h"
@@ -1738,7 +1739,7 @@ static SDL_Texture *load_cover(app *a, int s, int i, const char *path)
  * tag and still art, and the frames to try, Diatom's card frame first and
  * the Auto slot's picture until there is one. Paths only: the worker that
  * paints the card opens them, so nothing here touches the card. */
-static void game_card_order(app *a, int o, const game_entry *g, ui_card_order *card)
+void game_card_order(app *a, int o, const game_entry *g, ui_card_order *card)
 {
 	const system_cfg *sc = &a->sys.systems[o];
 	char art[UI_CARD_PATH], frame[UI_CARD_FRAMES][UI_CARD_PATH];
@@ -1854,6 +1855,12 @@ void shelf_put(void *ctx, texload_got *g)
 	SDL_Surface *surf = g->surf;
 	int s = g->sys, i = g->idx;
 	sysview *v;
+
+	/* The focused card's sharp one (src/focusfx.h), asked for apart */
+	if (s <= SHELF_SHARP_SYS(0)) {
+		shelf_focus_sharp_put(a, SHELF_SHARP_SYS(0) - s, i, surf, g->card, g->theme);
+		return;
+	}
 
 	if (home_accept(&a->home, a->r, s, i, surf)) {
 		if (surf) ui_card_free(surf);
@@ -5634,6 +5641,15 @@ int main(int argc, char *argv[])
 		else if (!strcmp(argv[i], "--saver-alpha") && i + 1 < argc) {
 			g_shot_saver_alpha = (float)atof(argv[++i]);
 		}
+		/* --sheen T: the games shelf with the light T of the way across its
+		 * focused card with no art; --sharp K its frame of play K of the
+		 * way from blurred to sharp (src/focusfx.h), 0 to 1 */
+		else if (!strcmp(argv[i], "--sheen") && i + 1 < argc) {
+			g_shot_sheen = fminf(1, fmaxf(0, (float)atof(argv[++i])));
+		}
+		else if (!strcmp(argv[i], "--sharp") && i + 1 < argc) {
+			g_shot_sharp = fminf(1, fmaxf(0, (float)atof(argv[++i])));
+		}
 		/* --snap-wait F: the games shelf with the bar under its focused
 		 * cover F of the way through the wait for its snap, 0 to 1 */
 		else if (!strcmp(argv[i], "--snap-wait") && i + 1 < argc) {
@@ -5648,6 +5664,9 @@ int main(int argc, char *argv[])
 		}
 		/* --scraper-names-off: Names and Details off, as if switched */
 		else if (!strcmp(argv[i], "--scraper-names-off")) g_scp_names = 0;
+		/* --radl-page STATE: MENU > Achievements' page (radl_page_shot) */
+		else if (!strcmp(argv[i], "--radl-page") && i + 1 < argc)
+			shot_radl_page = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--scraper-page") && i + 1 < argc) {
 			shot_scraper_page = atoi(argv[++i]);
 			if (i + 1 < argc && argv[i + 1][0] >= '0' && argv[i + 1][0] <= '9')

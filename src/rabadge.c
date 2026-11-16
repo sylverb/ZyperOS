@@ -293,3 +293,8 @@ int rb_landed(void)
 	SDL_UnlockMutex(g.lock);
 	return k;
 }
+
+void rb_note_landed(void)
+{
+	SDL_AtomicAdd(&g_landings, 1);
+}
