@@ -367,7 +367,8 @@ check-states:
 # States a newer build of a core reads from an older one (src/save.c,
 # STATE_READS), end to end: the stub core as DSperate v3.4.1 resumes a
 # v3.0.5 state and refuses another version's, v3.0.5 refuses a v3.4.1 state,
-# and another core with the same versions refuses it. On check-stateplane's
+# and another core with the same versions refuses it; Snes9x 2010 and Genesis
+# Plus GX the same for their builds before 2026-11-16. On check-stateplane's
 # terms: a few seconds, skipped unbuilt.
 check-statereads:
 	$(FRESH_IF_BUILT)
