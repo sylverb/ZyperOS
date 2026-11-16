@@ -239,9 +239,19 @@ if [ $BUILT = 1 ]; then
 	[ -f "$OUT/BUILT-FROM" ] || stop "nothing built in $OUT: run tools/release.sh first"
 	BUILT_HEAD=$(sed -n 's/^ZyperOS .* (\([0-9a-f]*\)), plastron.*/\1/p' "$OUT/BUILT-FROM")
 	[ -n "$BUILT_HEAD" ] || stop "$OUT/BUILT-FROM names no commit: $(cat "$OUT/BUILT-FROM")"
-	[ -z "$KIT" ] || [ "$BUILT_HEAD" = "$HEAD" ] ||
-		stop "$OUT is from another commit: $(cat "$OUT/BUILT-FROM"); a kit is published from the commit it was built from"
-	if [ "$BUILT_HEAD" != "$HEAD" ]; then
+	if [ -n "$KIT" ] && [ "$BUILT_HEAD" != "$HEAD" ]; then
+		# A kit carries no System Update files, so its notes are in none of
+		# its files, and plastron builds no image from the installer, the
+		# workflows or the docs: what else changed since it was built (its
+		# notes, a fix to the installer) leaves the image as it is
+		for f in $(git diff --name-only "$BUILT_HEAD" HEAD 2>/dev/null || echo unreadable); do
+			case $f in
+			installer/* | .github/* | docs/* | tools/release.sh) ;;
+			*) stop "$OUT is from $(cat "$OUT/BUILT-FROM"); since then $f changed, which goes into the image, so build again" ;;
+			esac
+		done
+		echo "release.sh: built from $(git rev-parse --short "$BUILT_HEAD"); since then only the installer, the workflows, the docs or this script changed"
+	elif [ "$BUILT_HEAD" != "$HEAD" ]; then
 		# The device tests come after the build, so their Tested on lines
 		# may land after it: main may be the built commit and one that adds
 		# them, and nothing else. The image and the update lists are the
