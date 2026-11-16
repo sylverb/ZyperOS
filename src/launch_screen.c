@@ -13,6 +13,7 @@
 #include "musec.h"
 #include "net.h"
 #include "notice.h"
+#include "pacing.h"
 #include "panel.h"
 #include "place.h"
 #include "pminstall.h"
@@ -581,11 +582,11 @@ void launch(app *a)
 	int  console = 0;
 	bool first_play = false;
 	/* 22 fixed entries (the shader's two and its strength's since 1.0.5)
-	 * plus NULL, seven more for a DS game's two screens, then two per core
-	 * option. Sized off the loader's own cap so the two cannot drift apart:
+	 * plus NULL, seven more for a DS game's two screens, two for Timing's
+	 * --pace (1.0.6), then two per core option. Sized off the loader's own cap so the two cannot drift apart:
 	 * the previous 20 was already 18 full, and a silent bound check would
 	 * have dropped every option rather than failing loudly. */
-	char *argv[33 + 2 * 32];
+	char *argv[35 + 2 * 32];
 	bool resident = false, want_menu;
 	/* A DS game's resume by its language (ds_resume_fresh): what it will
 	 * run in, whether it starts fresh, and its auto state as it was */
@@ -640,7 +641,8 @@ void launch(app *a)
 		char map[320];
 		bool stick_on = rms_stick_get(s, romfile);
 
-		cfg_run_keys(s, g_game_dual, dsslow_frameskip(dsslow_load()), keys, (int)sizeof keys);
+		cfg_run_keys(s, g_game_dual, dsslow_frameskip(dsslow_load()), pacing_id(pacing_load(s)),
+		             keys, (int)sizeof keys);
 		/* The d-pad as the stick, a game's own (rms_stick_get): the PSP's
 		 * stick=toggle-stick when it was left on the stick */
 		rms_run_stick(s, stick_on, stick, sizeof stick);
@@ -1100,6 +1102,11 @@ void launch(app *a)
 			argv[n++] = (char *)dsslow_frameskip(dsslow_load());
 			argv[n++] = (char *)"--layout";    argv[n++] = (char *)gm_layout_names[lay];
 			if (sw) argv[n++] = (char *)"--swap";
+		}
+		/* Timing, as RUN's pace= gives it to the resident one (src/pacing.h) */
+		if (s->pace[0]) {
+			argv[n++] = (char *)"--pace";
+			argv[n++] = (char *)pacing_id(pacing_load(s));
 		}
 		/* The Auto card's own path here, not the scratch the resident mode
 		 * uses. Standalone has no in-game menu - the launcher is torn down -

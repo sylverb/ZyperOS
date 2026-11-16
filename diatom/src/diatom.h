@@ -313,8 +313,9 @@ typedef struct {
 	/* RUN: "medium" or "light" caps the clocks for a system that keeps its
 	 * speed under them; empty or anything else is full. See diatom_port_power. */
 	char power[16];
-	/* RUN: "core" keeps a game at its core's own rate, never locked to the
-	 * display's (src/pace.h); empty or anything else, locked where close */
+	/* RUN: "smooth" locks a game to the display's rate where the two are
+	 * close (src/pace.h, DISPLAY LOCK); empty or anything else ("exact"),
+	 * the core's own rate, as before */
 	char pace[8];
 	/* RUN: how hard the motor runs, in percent of what the core asks, 1 to
 	 * 99 (a system whose core shakes harder than the handheld wants:

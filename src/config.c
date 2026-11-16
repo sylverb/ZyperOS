@@ -154,8 +154,10 @@ bool cfg_load_systems(const char *path, systems_cfg *out)
 			if (strcmp(s->tag, extra[i].tag)) continue;
 			if (!strcmp(extra[i].kind, "power"))
 				snprintf(s->power, sizeof s->power, "%s", extra[i].value);
-			else if (!strcmp(extra[i].kind, "pace"))
-				s->pace_core = !strcmp(extra[i].value, "core");
+			else if (!strcmp(extra[i].kind, "pace")) {
+				if (!strcmp(extra[i].value, "smooth") || !strcmp(extra[i].value, "exact"))
+					snprintf(s->pace, sizeof s->pace, "%s", extra[i].value);
+			}
 			else if (!strcmp(extra[i].kind, "map"))
 				snprintf(s->map, sizeof s->map, "%s", extra[i].value);
 			else if (!strcmp(extra[i].kind, "stick"))
@@ -186,7 +188,8 @@ bool cfg_load_systems(const char *path, systems_cfg *out)
 	return out->count > 0;
 }
 
-void cfg_run_keys(const system_cfg *s, bool dual, const char *frameskip, char *out, int cap)
+void cfg_run_keys(const system_cfg *s, bool dual, const char *frameskip, const char *pace,
+                  char *out, int cap)
 {
 	int n = 0;
 
@@ -200,8 +203,10 @@ void cfg_run_keys(const system_cfg *s, bool dual, const char *frameskip, char *o
 		n += snprintf(out + n, (size_t)(cap - n), "%scontroller=%u", n ? "\t" : "", s->controller);
 	if (s->rumble && n < cap)
 		n += snprintf(out + n, (size_t)(cap - n), "%srumble=%d", n ? "\t" : "", s->rumble);
-	if (s->pace_core && n < cap)
-		n += snprintf(out + n, (size_t)(cap - n), "%space=core", n ? "\t" : "");
+	if (s->pace[0] && n < cap) {
+		if (!pace || (strcmp(pace, "smooth") && strcmp(pace, "exact"))) pace = s->pace;
+		n += snprintf(out + n, (size_t)(cap - n), "%space=%s", n ? "\t" : "", pace);
+	}
 	/* The stick is not here: whether a game has it on is its own
 	 * (rms_run_stick), added by the launch */
 }

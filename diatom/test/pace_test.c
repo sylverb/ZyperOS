@@ -272,7 +272,8 @@ static shown_result shown_game(double core_fps, double refresh_us, bool lock, lo
 		last_slot = slot;
 		t = start + cost_us;
 		next += frame_us;
-		if (lock) next += pace_phase_step(start, 0, refresh_us, 1500, 0.1, refresh_us / 16);
+		if (lock) next += pace_phase_step(start, 0, refresh_us, 1500, PACE_PHASE_GAIN,
+		                                  refresh_us * PACE_PHASE_MAX_FRAC);
 	}
 	r.secs = t / 1e6;
 	return r;

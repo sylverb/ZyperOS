@@ -1,15 +1,17 @@
 """The display lock (src/pace.h), end to end against the stub core.
 
-The stub runs at 59.7275 fps, a GBA's rate. With a display rate within 1% of
+The stub runs at 59.7275 fps, a GBA's rate. With --pace smooth (RUN
+pace=smooth, the launcher's Timing: Smooth) and a display rate within 1% of
 it (DIATOM_REFRESH_HZ, the desktop port's stand-in for a panel's mode), the
-game runs at the display's, one frame a refresh, and says so; with --pace core,
-or no display rate, at its own, as before. Diatom's summary gives the frames
-and the time.
+game runs at the display's, one frame a refresh, and says so; without it
+(Exact), or with no display rate, at its own, as before. Diatom's summary
+gives the frames and the time.
 
-  - DIATOM_REFRESH_HZ=60: "locked to the display", the frames at 60 a second
-  - the same with --pace core: not locked, the stub's 59.73
-  - no display rate: not locked, 59.73
-  - a 50 Hz display, more than 1% from the core: not locked
+  - --pace smooth, DIATOM_REFRESH_HZ=60: "locked to the display", 60 a second
+  - the same with no --pace (Exact): not locked, the stub's 59.73
+  - --pace exact: not locked either
+  - --pace smooth, no display rate: not locked, 59.73
+  - --pace smooth, a 50 Hz display, more than 1% from the core: not locked
 
 A busy machine can run a loop late, and late frames make any rate lower, so
 a rate is judged with room: locked within 1% of 60, and at least 0.15 fps
@@ -54,22 +56,27 @@ def run(refresh=None, extra=()):
     target = float(m.group(4)) if m else 0.0
     return out, fps, target
 
-out, fps, target = run(60)
-check("a 60 Hz display: locked, and says so", "locked to the display, 60.000 Hz" in out, out[-600:])
+SMOOTH = ("--pace", "smooth")
+out, fps, target = run(60, SMOOTH)
+check("Smooth on a 60 Hz display: locked, and says so", "locked to the display, 60.000 Hz" in out, out[-600:])
 check("  ...its frames' target the display's 60", abs(target - 60.0) < 0.001, target)
 check("  ...and run at it, within 1%", abs(fps - 60.0) / 60.0 < 0.01, fps)
-out_c, fps_c, target_c = run(60, ("--pace", "core"))
-check("--pace core: not locked", "locked to the display," not in out_c and "pace=core" in out_c, out_c[-600:])
+out_c, fps_c, target_c = run(60)
+check("no --pace (Exact): not locked, and nothing said", "locked to the display" not in out_c and
+      "not the display's" not in out_c, out_c[-600:])
 check("  ...the core's own 59.7275", abs(target_c - 59.7275) < 0.001, target_c)
 check("  ...and slower than locked, by the 0.46%", fps - fps_c >= 0.15 and fps_c < 60.0, (fps, fps_c))
-out_n, fps_n, target_n = run(None)
-check("no display rate: not locked, as before", "locked to the display" not in out_n and abs(target_n - 59.7275) < 0.001,
+out_e, fps_e, target_e = run(60, ("--pace", "exact"))
+check("--pace exact: not locked either", "locked to the display" not in out_e and abs(target_e - 59.7275) < 0.001,
+      (target_e, out_e[-300:]))
+out_n, fps_n, target_n = run(None, SMOOTH)
+check("Smooth, no display rate: not locked, as before", "locked to the display" not in out_n and abs(target_n - 59.7275) < 0.001,
       (target_n, out_n[-300:]))
-out_p, fps_p, target_p = run(50)
-check("a 50 Hz display, 16% from the core: not locked", "more than 1% apart" in out_p and abs(target_p - 59.7275) < 0.001,
+out_p, fps_p, target_p = run(50, SMOOTH)
+check("Smooth on a 50 Hz display, 16% from the core: not locked", "more than 1% apart" in out_p and abs(target_p - 59.7275) < 0.001,
       (target_p, out_p[-300:]))
 
 if fails:
     print(f"displaylock: {len(fails)} FAILED")
     sys.exit(1)
-print("ok: a core within 1% of the display's rate runs at it and says so; pace=core, no rate or a far one keep its own")
+print("ok: with pace=smooth a core within 1% of the display's rate runs at it and says so; without it, no rate or a far one, its own")
