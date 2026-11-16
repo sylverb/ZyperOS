@@ -585,6 +585,8 @@ beside a cubic one. One function each, in `src/design.h`.)*
 | **hold-lock-lit** | 4000 | - | MP4's lock screen, lit as it locks |
 | **hold-controls** | 3000 | - | MP4's video controls after the last press |
 | **hold-snap** | 1000 | - | a game focused on the shelf before its cover turns into its video snap |
+| **sheen** | 480 | turn | one light crossing a game's card with no art, once, as the cover row stops on it |
+| **sharpen** | 200 | fade | a played game's card with no art turning from its blurred frame of play to the sharp one, as the cover row stops on it |
 | **hold-low-battery** | 6000 | - | the low-battery start screen before the handheld powers off |
 | **hold-heat** | 4000 | - | "Getting hot", on the home and over a game |
 | **hold-charge-lit** | 10000 | - | the charging screen lit after the last button, before it goes dark |
@@ -892,6 +894,14 @@ box is:
   dark band across the card, feathered; the system's rule under it. The era
   is in the ground, never in the letters. At least 5:1 on the band over the
   brightest ground any system can make (tools/cardart-check.c).
+
+- **As the cover row stops on it** (src/focusfx.h): one light crosses the
+  card, once, over **sheen** on the turn curve - a soft band leaning across
+  it, kept inside its round corners - and a played game's blurred frame
+  turns sharp over **sharpen**, the sharp card asked of the art workers for
+  the focused card alone. Nothing loops: a still shelf draws nothing, and a
+  press stops both at once. Not on the Grid or the list. ZyperOS has no
+  Reduce Motion setting yet; the sheen is the one to honor it when it comes.
 
 An album with no cover keeps the theme's generated text card.
 

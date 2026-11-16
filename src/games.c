@@ -138,6 +138,35 @@ static bool complete_title(const char *title,char lines[][LB_LINE],int n)
     while(*p==' ') p++;
     return !*p;
 }
+/* One light across a card (src/focusfx.h): a band leaning as the card's name
+ * does not, white at its middle and clear at both edges, `t` of the way from
+ * off its left to off its right. Clipped to the card's sides; from one of its
+ * corners' radii in from its top to one in from its foot, faded in and out
+ * over two more, so it ends softly and its round corners are never lit. */
+static void sheen(SDL_Renderer *r,SDL_FRect c,float t,Uint8 alpha)
+{
+    const float lean=.45f, half=c.w*.27f, rad=c.w*DS_RADIUS_CARD/512.f;
+    const float cx=c.x-.35f*c.w+t*1.7f*c.w, mid=c.y+c.h*.5f;
+    const float ys[4]={c.y+rad,c.y+3*rad,c.y+c.h-3*rad,c.y+c.h-rad}, on[4]={0,1,1,0};
+    const Uint8 peak=(Uint8)lroundf(alpha*.30f);
+    SDL_Vertex v[12];
+    int idx[36],n=0;
+    for(int row=0;row<4;row++) {
+        float sx=(ys[row]-mid)*lean;
+        for(int col=0;col<3;col++) {
+            Uint8 al=col==1?(Uint8)lroundf(peak*on[row]):0;
+            v[row*3+col]=(SDL_Vertex){{cx+(col-1)*half+sx,ys[row]},{255,255,255,al},{0,0}};
+        }
+    }
+    for(int row=0;row<3;row++) for(int col=0;col<2;col++) {
+        int a=row*3+col,b=a+1,c2=a+3,d=a+4;
+        idx[n++]=a; idx[n++]=b; idx[n++]=d; idx[n++]=a; idx[n++]=d; idx[n++]=c2;
+    }
+    SDL_Rect clip={(int)ceilf(c.x),(int)ceilf(c.y),(int)floorf(c.w),(int)floorf(c.h)};
+    SDL_RenderSetClipRect(r,&clip);
+    SDL_RenderGeometry(r,NULL,v,12,idx,n);
+    SDL_RenderSetClipRect(r,NULL);
+}
 uint32_t games_draw(games_row *row,SDL_Renderer *r,const games_info *info,
                     cf_tex_fn texture,void *ctx,uint32_t now,uint32_t phase)
 {
@@ -176,6 +205,18 @@ uint32_t games_draw(games_row *row,SDL_Renderer *r,const games_info *info,
         SDL_SetTextureAlphaMod(t,(Uint8)lroundf(a*(1-k)));
         if(k<1) SDL_RenderCopyF(r,t,NULL,&dst);
         SDL_SetTextureAlphaMod(t,was); SDL_SetTextureBlendMode(t,texblend);
+        /* The focused card with no art as the row stops on it (src/focusfx.h):
+         * its frame of play turning sharp over the blurred one, and the one
+         * light across it. Both under a snap that takes its place. */
+        bool here=slots[i].item==info->cursor && fabsf(slots[i].offset)<.001f;
+        if(here && k<1 && info->sharp && info->sharp_k>0) {
+            Uint8 sw; SDL_GetTextureAlphaMod(info->sharp,&sw);
+            SDL_SetTextureBlendMode(info->sharp,SDL_BLENDMODE_BLEND);
+            SDL_SetTextureAlphaMod(info->sharp,(Uint8)lroundf(a*(1-k)*fminf(info->sharp_k,1)));
+            SDL_RenderCopyF(r,info->sharp,NULL,&dst);
+            SDL_SetTextureAlphaMod(info->sharp,sw);
+        }
+        if(here && k<1 && info->sheen>0 && info->sheen<1) sheen(r,dst,info->sheen,(Uint8)lroundf(a*(1-k)));
         if(k>0) {
             /* The cover turns wide (My pick in the Scraper lab): the
              * snap, whole and at its own shape in the cover's box, shown

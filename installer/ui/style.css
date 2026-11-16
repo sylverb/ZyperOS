@@ -110,6 +110,8 @@
 	--t-hold-lock-lit: 4000ms;
 	--t-hold-controls: 3000ms;
 	--t-hold-snap: 1000ms;
+	--t-sheen: 480ms;
+	--t-sharpen: 200ms;
 	--t-hold-low-battery: 6000ms;
 	--t-hold-heat: 4000ms;
 	--t-hold-charge-lit: 10000ms;

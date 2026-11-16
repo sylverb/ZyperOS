@@ -3678,7 +3678,7 @@ static SDL_Surface *game_art_card(card_faces *k, const ui_card_order *o)
 		SDL_Surface *f;
 
 		if (!o->frame[i][0] || !(f = IMG_Load(o->frame[i]))) continue;
-		played = cardart_paint_frame(s, f, rgb);
+		played = cardart_paint_frame(s, f, rgb, o->sharp);
 		SDL_FreeSurface(f);
 	}
 	if (!played) {
@@ -3700,7 +3700,8 @@ static SDL_Surface *game_art_card(card_faces *k, const ui_card_order *o)
 			cardart_paint_ground(s, rgb, cardart_texture(o->tag), &g, card_art(k, o->art));
 			keep_ground(s, s);
 		}
-	} else {
+	} else if (!o->sharp) {
+		/* the Grid's ground; the sharp card is the cover row's alone */
 		keep_ground(s, s);
 	}
 	card_name(s, k, o);
@@ -3800,6 +3801,7 @@ void ui_card_order_set(ui_card_order *o, const char *title, unsigned rgb,
 	o->folder = 0;
 	o->tag[0] = o->art[0] = '\0';
 	for (int i = 0; i < UI_CARD_FRAMES; i++) o->frame[i][0] = '\0';
+	o->sharp = false;
 }
 
 void ui_card_order_game(ui_card_order *o, const char *tag, const char *art,
