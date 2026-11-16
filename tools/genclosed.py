@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""The TrimUI Brick's screen for a card without its closed files.
+"""The TrimUI Brick's splash's words: the screen for a card without its
+closed files, and the letters of the line its start says.
 
     python3 tools/genclosed.py               the splash's pictures, in plastron
     python3 tools/genclosed.py --check       whether they are what this draws
@@ -15,6 +16,14 @@ says so instead of leaving the screen black: plastron's init.d/brick finds
 one missing and its splash shows this, the two lines of res/strings'
 boot.closed_missing and boot.closed_missing_do, until POWER turns the Brick
 off.
+
+The start's line (glyphs.bin): which panel the kernel found, said under the
+boot animation as the start reads it from the kernel's log (plastron's
+init.d/brick, /tmp/splash-say), so a tester sees it without a computer. The
+printable ASCII letters in Lexend at 22 px, each an 8-bit coverage block the
+splash lays over its frames: "TSPG", u16 height, u16 baseline, u16 first
+letter, u16 count, then each letter's u8 advance and its advance x height
+bytes.
 
 One picture a language, at the Brick's 1024x768, on the boot screen's ground
 (tools/zyperdef.BG), written as the Brick's splash reads its frames (plastron's
@@ -134,10 +143,31 @@ def name_of(code):
     return "closed-missing.bin" if code == "en" else "closed-missing-%s.bin" % code
 
 
+GLYPH_SIZE = 22
+GLYPH_FIRST, GLYPH_COUNT = 32, 95
+
+
+def glyphs():
+    """The splash's letters: "TSPG" and each printable ASCII letter's
+    coverage, its advance wide"""
+    font = ImageFont.truetype(os.path.join(ROOT, "res", "fonts", "menu.ttf"), GLYPH_SIZE)
+    ascent, descent = font.getmetrics()
+    height = ascent + descent
+    out = bytearray(struct.pack("<4sHHHH", b"TSPG", height, ascent, GLYPH_FIRST, GLYPH_COUNT))
+    for c in range(GLYPH_FIRST, GLYPH_FIRST + GLYPH_COUNT):
+        adv = max(1, int(round(font.getlength(chr(c)))))
+        im = Image.new("L", (adv, height), 0)
+        ImageDraw.Draw(im).text((0, ascent), chr(c), font=font, fill=255, anchor="ls")
+        out += struct.pack("<B", adv) + im.tobytes()
+    return bytes(out)
+
+
 def write(out):
     for code in i18n.CODES:
         with open(os.path.join(out, name_of(code)), "wb") as f:
             f.write(encode(draw(code)))
+    with open(os.path.join(out, "glyphs.bin"), "wb") as f:
+        f.write(glyphs())
 
 
 def main():
@@ -147,16 +177,16 @@ def main():
     if len(sys.argv) > 1 and sys.argv[1] == "--check":
         with tempfile.TemporaryDirectory() as tmp:
             write(tmp)
-            bad = [name_of(c) for c in i18n.CODES
-                   if not os.path.isfile(os.path.join(OUT, name_of(c))) or
-                   open(os.path.join(tmp, name_of(c)), "rb").read() != open(os.path.join(OUT, name_of(c)), "rb").read()]
+            bad = [n for n in [name_of(c) for c in i18n.CODES] + ["glyphs.bin"]
+                   if not os.path.isfile(os.path.join(OUT, n)) or
+                   open(os.path.join(tmp, n), "rb").read() != open(os.path.join(OUT, n), "rb").read()]
         if bad:
             print("check-genclosed: not what tools/genclosed.py draws: %s (run it)" % ", ".join(bad))
             return 1
-        print("check-genclosed: the Brick's missing-files screen in %d languages, as drawn" % len(i18n.CODES))
+        print("check-genclosed: the Brick's missing-files screen in %d languages and its start's letters, as drawn" % len(i18n.CODES))
         return 0
     write(OUT)
-    print("genclosed: %d pictures in %s" % (len(i18n.CODES), os.path.relpath(OUT, ROOT)))
+    print("genclosed: %d pictures and glyphs.bin in %s" % (len(i18n.CODES), os.path.relpath(OUT, ROOT)))
     return 0
 
 

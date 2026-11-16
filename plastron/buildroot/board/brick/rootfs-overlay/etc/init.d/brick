@@ -52,6 +52,16 @@ start() {
 	watchdog -t 4 /dev/watchdog 2>/dev/null
 	mark init
 
+	# Which of its six panels the kernel found (kernel patch 0012 says it in
+	# its log, the name after the id's bytes): said under the boot animation
+	# (the splash's line, /tmp/splash-say), so a tester sees it with no
+	# computer, and kept with the start's marks, which the log pack carries
+	panel=$(dmesg | sed -n 's/.*brick panel: //p' | grep -v '^0x' | tail -1)
+	if [ -n "$panel" ]; then
+		echo "panel: $panel" > /tmp/splash-say
+		mark "panel: $panel"
+	fi
+
 	# The boot partition, read-only at /boot, before anything loads from it:
 	# the GPU's driver its firmware, ZyperOS's libraries the rest. System
 	# Update remounts it to write a slot's files (ZyperOS's update/slots.c).

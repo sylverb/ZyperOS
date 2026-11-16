@@ -17,10 +17,12 @@ SPLASH_SOURCE_C = splash-fb.c
 SPLASH_FRAMES = frames-brick.bin
 SPLASH_LIBS = -lz
 # The picture for a card without the Brick's closed files (splash-fb.c's
-# missing), one a language, from ZyperOS's tools/genclosed.py
+# missing), one a language, and the letters of the start's line, from
+# ZyperOS's tools/genclosed.py
 define SPLASH_INSTALL_FIRST_START
 	$(INSTALL) -d $(TARGET_DIR)/usr/share/splash
-	$(INSTALL) -m 0644 $(SPLASH_PKGDIR)/closed-missing*.bin $(TARGET_DIR)/usr/share/splash/
+	$(INSTALL) -m 0644 $(SPLASH_PKGDIR)/closed-missing*.bin $(SPLASH_PKGDIR)/glyphs.bin \
+		$(TARGET_DIR)/usr/share/splash/
 endef
 else
 SPLASH_DEPENDENCIES = libdrm zlib host-pkgconf
