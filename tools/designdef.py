@@ -370,6 +370,8 @@ MOTION = [
     ("hold-lock-lit", 4000, "-",   "MP4's lock screen, lit as it locks"),
     ("hold-controls", 3000, "-",   "MP4's video controls after the last press"),
     ("hold-snap",   1000, "-",     "a game focused on the shelf before its cover turns into its video snap"),
+    ("sheen",       480,  "turn",  "one light crossing a game's card with no art, once, as the cover row stops on it"),
+    ("sharpen",     200,  "fade",  "a played game's card with no art turning from its blurred frame of play to the sharp one, as the cover row stops on it"),
     ("hold-low-battery", 6000, "-", "the low-battery start screen before the handheld powers off"),
     ("hold-heat",   4000, "-",     "\"Getting hot\", on the home and over a game"),
     ("hold-charge-lit", 10000, "-", "the charging screen lit after the last button, before it goes dark"),

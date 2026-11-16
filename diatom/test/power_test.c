@@ -80,6 +80,30 @@ int main(void)
 	   "the CPU at its own top, the others with no ceiling");
 	ck(!diatom_power_set(&p, 3) && !diatom_power_set(&p, -1), "no level past the three");
 
+	/* The memo, as a resident Diatom and the launcher take turns with the
+	 * files (the launcher's 328 MHz on a still shelf, between two games).
+	 * Emptied before each say, so what is in a file after it is what the say
+	 * wrote, as the sets above check. */
+	printf("power said again, and after a handover:\n");
+	{
+		diatom_power_memo m = { -1 };
+
+		fresh(p_cpu); fresh(p_ram); fresh(p_gpu);
+		ck(diatom_power_say(&m, &p, DIATOM_POWER_FULL) && is(p_ram, "0"),
+		   "the first level is written");
+		fresh(p_cpu); fresh(p_ram); fresh(p_gpu);
+		ck(diatom_power_say(&m, &p, DIATOM_POWER_FULL) && is(p_ram, ""),
+		   "the same level said again writes nothing");
+		diatom_power_forget(&m);
+		ck(diatom_power_say(&m, &p, DIATOM_POWER_FULL) && is(p_ram, "0") && is(p_gpu, "0"),
+		   "after a handover the same level is written again, over the launcher's ceiling");
+		fresh(p_cpu); fresh(p_ram); fresh(p_gpu);
+		ck(diatom_power_say(&m, &p, DIATOM_POWER_LIGHT) && is(p_ram, "328000000"),
+		   "a new level is written");
+		ck(diatom_power_say(&m, &p, 3) && diatom_power_say(&m, &p, -1) && m.level == DIATOM_POWER_LIGHT,
+		   "a level past the three is nothing, and forgets nothing");
+	}
+
 	unlink(p_ram);
 	fresh(p_cpu); fresh(p_gpu);
 	ck(!diatom_power_set(&p, DIATOM_POWER_LIGHT), "a ceiling that cannot be written fails the set");

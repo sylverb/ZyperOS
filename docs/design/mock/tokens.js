@@ -311,6 +311,14 @@ window.ZYPER_TOKENS = {
       "ms": 1000,
       "curve": "-"
     },
+    "sheen": {
+      "ms": 480,
+      "curve": "turn"
+    },
+    "sharpen": {
+      "ms": 200,
+      "curve": "fade"
+    },
     "hold-low-battery": {
       "ms": 6000,
       "curve": "-"

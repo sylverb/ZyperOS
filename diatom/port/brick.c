@@ -2188,6 +2188,7 @@ void diatom_port_fast_clock(bool cpu, bool gpu)
  * Once they are, its steps are a diatom_power_profile (port_power.h), as
  * the Pixel 2's are, and this writes them with diatom_power_set. */
 void diatom_port_power(int level) { (void)level; }
+void diatom_port_power_invalidate(void) { }
 
 /* No GPU frames: the Brick's display is a framebuffer, and its cores all draw
  * in software. A core that asks for the GPU is refused (see diatom_port.h). */

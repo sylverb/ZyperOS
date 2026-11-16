@@ -538,6 +538,10 @@ static void usb_drive(app *a)
 	book_keep(true);
 	if (!(f = fopen(USB_DRIVE_ASK, "w"))) return;
 	fclose(f);
+	/* usbdrive steps the backlight on these rungs but sets no gamma table:
+	 * the light at the two under the floor is the floor's there, and the
+	 * others are right only with no table on */
+	plat_display_plain();
 	fprintf(stderr, "usb: USB Drive: ZyperOS leaves the card to the computer\n");
 	usb_drive_draw(a, UD_FINISHING);
 	plat_present();

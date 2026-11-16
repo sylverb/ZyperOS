@@ -1,0 +1,96 @@
+diff --git a/src/libretro.cpp b/src/libretro.cpp
+index 552ae2a..84ecc89 100644
+--- a/src/libretro.cpp
++++ b/src/libretro.cpp
+@@ -281,6 +281,47 @@ void apply_language(bool start) {
+         kLanguages[want], now.language < 7 ? kLanguages[now.language] : "none");
+ }
+ 
++// The DS clock (its RTC), at the handheld's local time. DSperate leaves it
++// off unless the frontend starts it (Io::start_rtc_clock), for determinism,
++// and this wrapper never started it: off, it stays at 2000-01-01 00:00:00
++// and never ticks, so a game that shows the time showed 0:00 for ever
++// (Pokemon Black on my Pixel 2). Started, it is set from the host's local
++// time (localtime, so TZ, which Diatom sets from the launcher's zone before
++// the game loads) and counts emulated seconds from there. Emulated time is
++// not the host's: it stands still while the frontend pauses (its menu) or the
++// handheld sleeps, runs slow when frames run late and fast in fast forward,
++// and a state brings back the time it was saved at. So the clock is set to
++// the host's again after a state loads and after a reset, and whenever
++// emulated time since it was set is a second or more off the host's, looked
++// at before every frame: a real DS's clock keeps the time while no game runs,
++// and DSperate's own frontend sets it again as the lid opens
++// (Io::resync_rtc_clock). It then reads at most two seconds behind the host's
++// time (it counts whole seconds from a time it floors) and one ahead.
++double rtc_host;   // the host's time when the clock was last set, in seconds
++ds::u64 rtc_emu;   // the emulated time then, in ARM9 cycles
++
++double host_time() {
++  timespec ts;
++  clock_gettime(CLOCK_REALTIME, &ts);
++  return double(ts.tv_sec) + ts.tv_nsec / 1e9;
++}
++
++void rtc_mark() {
++  rtc_host = host_time();
++  rtc_emu = nds->sched.now();
++}
++
++void rtc_set() {
++  nds->io.resync_rtc_clock();
++  rtc_mark();
++}
++
++void rtc_follow() {
++  const double emu = double(static_cast<long long>(nds->sched.now() - rtc_emu)) / ds::ARM9_CLOCK_HZ;
++  const double off = host_time() - rtc_host - emu;
++  if (off >= 1.0 || off <= -1.0) rtc_set();
++}
++
+ bool boot() {
+   const std::string sys = dir(RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY);
+   auto in_sys = [&](const char* name) {
+@@ -302,6 +343,15 @@ bool boot() {
+     return false;
+   }
+   nds->setup_direct_boot();
++  nds->io.start_rtc_clock();
++  rtc_mark();
++  {
++    tm lt{};
++    const time_t now = time(nullptr);
++    if (localtime_r(&now, &lt))
++      log(RETRO_LOG_INFO, "dsperate: clock %04d-%02d-%02d %02d:%02d:%02d, the host's local time\n", lt.tm_year + 1900,
++          lt.tm_mon + 1, lt.tm_mday, lt.tm_hour, lt.tm_min, lt.tm_sec);
++  }
+   return true;
+ }
+ 
+@@ -380,6 +430,7 @@ RETRO_API void retro_reset(void) {
+   // The cart resets in place: the frontend holds a pointer into its save RAM.
+   nds->reset();
+   nds->setup_direct_boot();
++  rtc_set();
+ }
+ 
+ RETRO_API void retro_run(void) {
+@@ -419,6 +470,7 @@ RETRO_API void retro_run(void) {
+ 
+   layout_frame();
+   nds->gpu.set_frame_skip(skip_req);
++  rtc_follow();
+   nds->run_frame();
+ 
+   std::memcpy(frame, nds->gpu.framebuffer(0), W * H * 4);
+@@ -458,7 +510,10 @@ RETRO_API bool retro_unserialize(const void* data, size_t size) {
+   if (4 + size_t(n) > size) return false;
+   ds::state::Reader r(static_cast<const ds::u8*>(data) + 4, n);
+   std::string err;
+-  if (nds->load_state(r, err)) return true;
++  if (nds->load_state(r, err)) {
++    rtc_set();   // the host's time, not the time the state was saved at
++    return true;
++  }
+   // A failed load leaves the machine unusable: start the game over.
+   log(RETRO_LOG_ERROR, "dsperate: state refused: %s\n", err.c_str());
+   retro_reset();

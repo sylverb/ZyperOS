@@ -12,6 +12,10 @@ shots:
 3. The card is the same in both themes, as a box is.
 4. The names of a Grid sit on one reading line: every card's first line at
    the same height in its cell.
+5. As the cover row stops on such a card (src/focusfx.h): one light across
+   it that lights nothing round it, and a played game's frame turning sharp;
+   neither on a cover with art, and nothing of either on a still shelf
+   (--sheen, --sharp: the shelf at a point of them).
 
 The frames are flat colors, so what the card shows is told by its hue: green
 for the frame of play, against Genesis's blue ground and NES's red one.
@@ -30,7 +34,7 @@ OUT = Path(os.environ.get('CARDART_SHOTS_OUT', ROOT / 'build-native/cardart-shot
 BIN = ROOT / 'build-native/zyperos'
 STATUS = '10:08 24h wifi=off batt=82'
 GAMES = {'Genesis': ['Zeta Run (Homebrew).md', 'Altered Beast (USA, Europe).md',
-                     'Sonic The Hedgehog 2 (USA).md'],
+                     'Sonic The Hedgehog 2 (USA).md', 'Comix Zone (USA).md'],
          'NES': ['DuckTales (USA).nes', 'Mega Man 2 (USA).nes'],
          'PlayStation': ['Castlevania - Symphony of the Night (USA).chd']}
 GREEN, MAGENTA = (40, 230, 60), (230, 40, 220)
@@ -59,6 +63,9 @@ def fixture():
             if l.startswith('sys|') and l.split('|')[4] in ('MD', 'NES', 'PS1')]
     (base / 'root/systems.cfg').write_text('\n'.join(rows) + '\n')
     (base / 'root/system-icons').symlink_to(ROOT / 'res/system-icons', target_is_directory=True)
+    # one game with box art, a plain red box, for what art never gets
+    (base / 'Roms/Genesis/.media').mkdir()
+    Image.new('RGB', (300, 420), (200, 40, 40)).save(base / 'Roms/Genesis/.media/Comix Zone (USA).png')
     # played: Sonic 2 has both pictures, the card frame green; Mega Man 2 only
     # the Auto slot's, green too
     for folder, rom, kind, color in (('Genesis', 'Sonic The Hedgehog 2 (USA).md', 'card', GREEN),
@@ -66,7 +73,13 @@ def fixture():
                                      ('NES', 'Mega Man 2 (USA).nes', 'auto', GREEN)):
         d = base / 'shared/.zyperos' / folder
         d.mkdir(parents=True, exist_ok=True)
-        Image.new('RGB', (320, 224), color).save(d / f'{rom}.{kind}.bmp')
+        # in stripes of its color and a darker one, so blurred and sharp
+        # differ, and its hue stays its color
+        im = Image.new('RGB', (320, 224), color)
+        dark = tuple(c // 2 for c in color)
+        for x in range(0, 320, 16):
+            im.paste(dark, (x, 0, x + 8, 224))
+        im.save(d / f'{rom}.{kind}.bmp')
     env = os.environ | {'ZYPEROS_HEADLESS': '1', 'SDL_VIDEODRIVER': 'dummy',
                         'SDL_RENDER_DRIVER': 'software', 'SDL_AUDIODRIVER': 'dummy',
                         'ZYPEROS_ROOT': str(base / 'root'), 'ZYPEROS_CARD': str(base),
@@ -136,6 +149,39 @@ for theme in ('dark', 'light'):
     need(len(lines) >= 3, f'{theme}: the Grid shows its three names {lines}')
     need(lines and max(lines) - min(lines) <= 2, f'{theme}: the Grid\'s names on one reading line {lines}')
 
+# 5. The row stopped on the card: the light, and the frame turning sharp
+def stat(im, box):
+    px = list(im.crop(box).getdata())
+    lum = [.3 * p[0] + .59 * p[1] + .11 * p[2] for p in px]
+    m = sum(lum) / len(lum)
+    return m, sum((v - m) ** 2 for v in lum) / len(lum)
+
+def edges(im, box):
+    g = im.crop(box).convert('L')
+    w, h = g.size
+    p = g.load()
+    return sum(abs(p[x + 1, y] - p[x, y]) for y in range(h) for x in range(w - 1)) / (w * h)
+
+CARD_MID = (430, 250, 590, 520)      # inside the focused card
+# Round the card (384-639 x 212-539 on the 1024 x 768 shot): just outside
+# its rect at its four corners, and inside the rect where its round corners
+# leave the shelf showing
+ROUND = [(370, 198, 384, 212), (640, 198, 654, 212), (370, 540, 384, 554), (640, 540, 654, 554),
+         (384, 212, 388, 215), (636, 212, 640, 215), (384, 537, 388, 540), (636, 537, 640, 540)]
+still = shot(base, env, 'fx-still', 'MD', 'Zeta Run (Homebrew).md', 'dark')
+lit = shot(base, env, 'fx-sheen', 'MD', 'Zeta Run (Homebrew).md', 'dark', '--sheen', '0.5')
+need(stat(lit, CARD_MID)[0] > stat(still, CARD_MID)[0] + 2, 'the sheen lights the card')
+for b in ROUND:
+    need(abs(stat(lit, b)[0] - stat(still, b)[0]) < 1.5, f'the sheen lights nothing round the card {b}')
+blurred = shot(base, env, 'fx-sharp0', 'MD', 'Sonic The Hedgehog 2 (USA).md', 'dark', '--sharp', '0')
+sharp = shot(base, env, 'fx-sharp1', 'MD', 'Sonic The Hedgehog 2 (USA).md', 'dark', '--sharp', '1')
+need(edges(sharp, CARD_MID) > edges(blurred, CARD_MID) * 1.2, 'a played card turns sharp')
+art = shot(base, env, 'fx-art', 'MD', 'Comix Zone (USA).md', 'dark')
+art_fx = shot(base, env, 'fx-art-sheen', 'MD', 'Comix Zone (USA).md', 'dark', '--sheen', '0.5', '--sharp', '1')
+need(list(art.crop(CARD_MID).getdata()) == list(art_fx.crop(CARD_MID).getdata()), 'a cover with art gets neither')
+again = shot(base, env, 'fx-still2', 'MD', 'Zeta Run (Homebrew).md', 'dark')
+need(list(still.getdata()) == list(again.getdata()), 'a still shelf: nothing of either, the same frame twice')
+
 # The same card in both themes, as a box is
 for name in ('zeta', 'sonic2', 'ducktales', 'castlevania'):
     a = Image.open(OUT / f'{name}-dark.png').convert('RGB').crop((420, 240, 600, 520))
@@ -145,4 +191,4 @@ for name in ('zeta', 'sonic2', 'ducktales', 'castlevania'):
 
 if FAILED:
     raise SystemExit(f'cardart-shots: {len(FAILED)} FAILED')
-print('cardart-shots: ok (no-art cards per system, frames of play, both themes, one reading line)')
+print('cardart-shots: ok (no-art cards per system, frames of play, both themes, one reading line, the sheen and the sharp frame)')

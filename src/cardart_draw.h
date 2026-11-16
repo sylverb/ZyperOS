@@ -21,8 +21,9 @@ void cardart_paint_ground(SDL_Surface *s, unsigned sys_rgb, ca_texture tex,
 
 /* A frame of play over all of `s`: its middle at the card's shape, blurred,
  * dimmed and turned a little toward the system's color, darker toward the
- * foot. False, and `s` untouched, for a frame it cannot use. */
-bool cardart_paint_frame(SDL_Surface *s, SDL_Surface *frame, unsigned sys_rgb);
+ * foot. `sharp`: not blurred, and dimmed less - the focused card's
+ * (src/focusfx.h). False, and `s` untouched, for a frame it cannot use. */
+bool cardart_paint_frame(SDL_Surface *s, SDL_Surface *frame, unsigned sys_rgb, bool sharp);
 
 /* The name's band: rows `y0` to `y1` darkened to a little under half,
  * feathered `feather` rows above and below */

@@ -80,15 +80,50 @@
  * above that, so the Brick's ladder (2, 4, 8, 16, ...) spent its bottom four
  * rungs on one brightness - reported 2026-10-02 as the bottom of the scale
  * sitting still. Driving the PWM directly the same day, 1000 ns was black, so
- * 17 is the floor and stays: Eric wanted dimmer, but not black. The rungs are
- * equal ratios from 17 to 255, about 28% a step, since brightness reads in
- * ratios. Diatom's port holds the same rungs; change one, change the other. */
+ * 17 is the backlight's floor: Eric wanted dimmer, but not black.
+ *
+ * Players wanted dimmer still at night (1.0.6, Discord), and the backlight
+ * cannot give it: a test system image with a 50 us period and the table
+ * one-to-one down to 6 lit 17 and went black at 13, 10, 8 and 6 (Tarik,
+ * 2026-11-15). So the two bottom rungs, 9 and 13, keep the backlight at its
+ * floor - 1 to 16 light it as 17 does - and the display's gamma table takes
+ * the light to 9/17 and 13/17 of it (src/panelgamma.h, which the launcher,
+ * Diatom and portkeys each set from the value in sysfs). The rungs are equal
+ * ratios from 9 to 255, about 35% a step, since brightness reads in ratios;
+ * twelve of them, as before, and the top where it was.
+ *
+ * Diatom's port holds the same rungs; change one, change the other. */
 #define BACKLIGHT       "/sys/class/backlight/backlight/brightness"
 #define BACKLIGHT_POWER "/sys/class/backlight/backlight/bl_power"
 static const unsigned char bright_ladder[] __attribute__((unused)) = {
+	9, 13, 17, 23, 31, 42, 57, 77, 103, 140, 189, 255
+};
+/* The rungs up to 1.0.5, 17 at the bottom: the positions kept on the card
+ * before 1.0.6 are on these (px2_bright_from_105) */
+static const unsigned char bright_ladder_105[] __attribute__((unused)) = {
 	17, 22, 28, 36, 46, 58, 74, 95, 122, 156, 199, 255
 };
 #define BRIGHT_MAX ((int)(sizeof bright_ladder / sizeof bright_ladder[0]) - 1)
+
+/* A position kept before 1.0.6 (on bright_ladder_105) as the position on
+ * this ladder nearest its light, in ratio: at most half a step away (36 goes
+ * to 31, 122 to 140), and the old bottom, 17, is the floor here: no one
+ * starts 1.0.6 under the floor, on the gamma table, without choosing it. */
+static inline int px2_bright_from_105(int old)
+{
+	int i, best = 0;
+	double want, d, bestd = 1e9;
+
+	if (old < 0) return old;
+	if (old >= (int)sizeof bright_ladder_105) old = (int)sizeof bright_ladder_105 - 1;
+	want = (double)bright_ladder_105[old];
+	for (i = 0; i <= BRIGHT_MAX; i++) {
+		d = want / bright_ladder[i];
+		if (d < 1) d = 1 / d;
+		if (d < bestd) { bestd = d; best = i; }
+	}
+	return best;
+}
 
 /* The codec's raw gain for position v, by the window of the output in use. */
 static inline long px2_gain_raw(int v, int headphones)

@@ -585,6 +585,8 @@ beside a cubic one. One function each, in `src/design.h`.)*
 | **hold-lock-lit** | 4000 | - | MP4's lock screen, lit as it locks |
 | **hold-controls** | 3000 | - | MP4's video controls after the last press |
 | **hold-snap** | 1000 | - | a game focused on the shelf before its cover turns into its video snap |
+| **sheen** | 480 | turn | one light crossing a game's card with no art, once, as the cover row stops on it |
+| **sharpen** | 200 | fade | a played game's card with no art turning from its blurred frame of play to the sharp one, as the cover row stops on it |
 | **hold-low-battery** | 6000 | - | the low-battery start screen before the handheld powers off |
 | **hold-heat** | 4000 | - | "Getting hot", on the home and over a game |
 | **hold-charge-lit** | 10000 | - | the charging screen lit after the last button, before it goes dark |
@@ -604,8 +606,9 @@ beside a cubic one. One function each, in `src/design.h`.)*
   60 Hz and ran the Pixel 2's chip at 51 to 55 C; paced, see the PR's
   tables).
 - **USB File Transfer left alone on the cable** goes off after Auto Off's
-  time when nothing is moving, and only dims (the brightness ladder's
-  lowest rung) while files are on their way, so a transfer can still be
+  time when nothing is moving, and only dims (the backlight's floor, or
+  the player's rung if it is under the floor already) while files are on
+  their way, so a transfer can still be
   watched. A press, a browser arriving or files starting light it fully;
   a press that lights it does nothing else, POWER's too. *(Tarik,
   2026-11-10.)*
@@ -893,6 +896,14 @@ box is:
   is in the ground, never in the letters. At least 5:1 on the band over the
   brightest ground any system can make (tools/cardart-check.c).
 
+- **As the cover row stops on it** (src/focusfx.h): one light crosses the
+  card, once, over **sheen** on the turn curve - a soft band leaning across
+  it, kept inside its round corners - and a played game's blurred frame
+  turns sharp over **sharpen**, the sharp card asked of the art workers for
+  the focused card alone. Nothing loops: a still shelf draws nothing, and a
+  press stops both at once. Not on the Grid or the list. ZyperOS has no
+  Reduce Motion setting yet; the sheen is the one to honor it when it comes.
+
 An album with no cover keeps the theme's generated text card.
 
 **Art badge** (src/artbadge.h): a small mark on a card's art that says one
@@ -1165,6 +1176,16 @@ the launcher has exited for, reads Appearance from the launcher's database
 and resolves Auto by the launcher's rule in the zone Date & Time saved, and
 reads the file only when the database cannot be read, so a hand edit of the
 file changes the bar over a port only then.
+
+On the Pixel 2 brightness has twelve rungs, equal ratios from 9 to 255
+(src/device/pixel2_levels.h). The backlight itself goes no lower than 17, so
+the two bottom rungs keep it there and the display's gamma table takes the
+light to 13/17 and 9/17 of it (src/panelgamma.h): the launcher, Diatom and
+portkeys each set the table from the value in sysfs, which is the rung's
+name. Moving between those two rungs blinks one frame at the floor: the
+PX30 loads its table with the table off. A rung kept before 1.0.6 moved once
+to the new rung nearest its light. *(Discord, 1.0.6: "one or two dimmer
+steps"; Tarik, 2026-11-15, after a 20 kHz backlight went black under 17.)*
 
 **POWER held** (MENU > Power Button on **Hold**, 11.47) is the same pill with
 the power mark - a ring open at the top and the line down into it, as every
@@ -1769,7 +1790,7 @@ the corner and for Date & Time's own row and Hour.
 ---
 
 ### 11.13 About ZyperOS
-Six read-only pages, Left/Right to change them, round from the last to the
+Four read-only pages, Left/Right to change them, round from the last to the
 first. The first keeps Version, Address, Battery and Awake for. The second
 shows Storage used, Storage free, Storage total, Battery health, Full charge
 and Design charge. The third, headed **The name**, is the README's story of
@@ -1779,17 +1800,23 @@ scroll it a line at a time (held, they repeat) and it stops at the top and at
 the bottom, with the same soft edge a scrolling card has wherever more text
 is hidden, so the top has none and the bottom has one until the end (11's
 synopsis rule is for a synopsis, which still walks by itself). **Left**/**Right**
-still turn the page. The last three, headed **Thanks**, are the README's
-Credits as rows, who on the left and what of theirs on the right, short
-enough that none scrolls: six, six, then four with a rule and the note "All
-licenses are in Licenses/". Every page uses the standard menu panel and one
-measured width. The **meta** **text-dim** page count, "1 / 6" to "6 / 6",
+still turn the page. The last, headed **Thanks**, is one page walked by hand
+as The name is (**Up**/**Down** a line at a time, held they repeat, stopping
+at the top and the bottom, the same soft edges): the README's Credits as
+rows, who on the left and what of theirs on the right, short enough that no
+row scrolls sideways, Eric Reinsmidt first; then, under a rule and the
+heading **Help with other handhelds**, the people who help with the other
+handhelds ZyperOS runs on, a name and the handheld each (src/about_screen.c's
+`ABOUT_HANDHELD_THANKS`, shown only while it has a row: none yet); and held at the
+foot, under the footer's rule, the note "All licenses are in Licenses/".
+Every page uses the standard menu panel and one measured width. The **meta**
+**text-dim** page count, "1 / 4" to "4 / 4",
 sits at the right of the panel's heading, with space reserved around the
 centered title. No page text floats over the shelf. No row changes a
-setting. Host shots: `--about 0` to `5`, and `--about-scroll F` (0 to 1) for the name's page scrolled F of the way down. *(I picked Details, then asked
+setting. Host shots: `--about 0` to `3`, and `--about-scroll F` (0 to 1) for the name's page or the thanks scrolled F of the way down. *(I picked Details, then asked
 to put its page information inside the panel, 2026-11-04. On 2026-11-06 he
 asked for the page on the name, a tribute to his dog, and a thank-you page to
-the open-source work ZyperOS is built on. On 2026-11-07 I asked for it to stop scrolling by itself, so I can scroll it.)*
+the open-source work ZyperOS is built on. On 2026-11-07 I asked for it to stop scrolling by itself, so I can scroll it. On 2026-11-16 I asked for the thanks to be one page that scrolls, like the name's, so I can thank those who help me with other handhelds there.)*
 
 Storage is the mounted card's filesystem in decimal GB. Free is the available
 space; used excludes reserved blocks. Capacity comes from the battery

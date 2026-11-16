@@ -3695,24 +3695,29 @@ static void keep_ground(SDL_Surface *s, SDL_Surface *from)
 }
 
 /* What a card costs to paint, said in the log at the 1st, 2nd, 4th... 64th
- * card: grounds and frames apart, mean and worst, in ms. From any thread,
- * so counted under its own lock. */
-static void card_cost(bool frame, Uint64 t0)
+ * card, and at the 1st, 2nd, 4th... 64th sharp one (src/focusfx.h): grounds,
+ * blurred frames of play and sharp ones apart, mean and worst, in ms. From
+ * any thread, so counted under its own lock. */
+enum { COST_GROUND, COST_FRAME, COST_SHARP, COSTS };
+static void card_cost(int kind, Uint64 t0)
 {
 	static SDL_SpinLock lock;
-	static int n[2];
-	static double sum[2], worst[2];
+	static int n[COSTS];
+	static double sum[COSTS], worst[COSTS];
 	double ms = (double)(SDL_GetPerformanceCounter() - t0) * 1000.0 / (double)SDL_GetPerformanceFrequency();
 	int all;
 
 	SDL_AtomicLock(&lock);
-	n[frame]++;
-	sum[frame] += ms;
-	if (ms > worst[frame]) worst[frame] = ms;
-	all = n[0] + n[1];
-	if (all <= 64 && !(all & (all - 1)))
-		fprintf(stderr, "cardart: %d cards painted: %d grounds %.1f ms (worst %.1f), %d frames of play %.1f ms (worst %.1f)\n",
-		       all, n[0], n[0] ? sum[0] / n[0] : 0, worst[0], n[1], n[1] ? sum[1] / n[1] : 0, worst[1]);
+	n[kind]++;
+	sum[kind] += ms;
+	if (ms > worst[kind]) worst[kind] = ms;
+	all = n[COST_GROUND] + n[COST_FRAME];
+	if ((kind != COST_SHARP && all <= 64 && !(all & (all - 1))) ||
+	    (kind == COST_SHARP && n[kind] <= 64 && !(n[kind] & (n[kind] - 1))))
+		fprintf(stderr, "cardart: %d cards painted: %d grounds %.1f ms (worst %.1f), %d frames of play %.1f ms "
+		        "(worst %.1f); %d sharp %.1f ms (worst %.1f)\n",
+		        all, n[0], n[0] ? sum[0] / n[0] : 0, worst[0], n[1], n[1] ? sum[1] / n[1] : 0, worst[1],
+		        n[2], n[2] ? sum[2] / n[2] : 0, worst[2]);
 	SDL_AtomicUnlock(&lock);
 }
 
@@ -3730,7 +3735,7 @@ static SDL_Surface *game_art_card(card_faces *k, const ui_card_order *o)
 		SDL_Surface *f;
 
 		if (!o->frame[i][0] || !(f = IMG_Load(o->frame[i]))) continue;
-		played = cardart_paint_frame(s, f, rgb);
+		played = cardart_paint_frame(s, f, rgb, o->sharp);
 		SDL_FreeSurface(f);
 	}
 	if (!played) {
@@ -3752,12 +3757,13 @@ static SDL_Surface *game_art_card(card_faces *k, const ui_card_order *o)
 			cardart_paint_ground(s, rgb, cardart_texture(o->tag), &g, card_art(k, o->art));
 			keep_ground(s, s);
 		}
-	} else {
+	} else if (!o->sharp) {
+		/* the Grid's ground; the sharp card is the cover row's alone */
 		keep_ground(s, s);
 	}
 	card_name(s, k, o);
 	round_corners(s, CARD_RADIUS);
-	card_cost(played, t0);
+	card_cost(!played ? COST_GROUND : o->sharp ? COST_SHARP : COST_FRAME, t0);
 	return s;
 }
 
@@ -3852,6 +3858,7 @@ void ui_card_order_set(ui_card_order *o, const char *title, unsigned rgb,
 	o->folder = 0;
 	o->tag[0] = o->art[0] = '\0';
 	for (int i = 0; i < UI_CARD_FRAMES; i++) o->frame[i][0] = '\0';
+	o->sharp = false;
 }
 
 void ui_card_order_game(ui_card_order *o, const char *tag, const char *art,

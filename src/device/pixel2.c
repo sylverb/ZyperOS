@@ -157,6 +157,14 @@ static void signal_splash(int sig)
  * Only the boot animation is a splash to stop and end. */
 extern bool g_port_menu;
 
+/* The display's gamma table as the backlight's value asks, while this
+ * process holds the display (below, after the levels) */
+static bool display_held;
+static void display_gamma(const char *when);
+/* The first frame is up and the splash ended (plat_present): a video init
+ * after it is the launcher's own again, after a game in its own process */
+static bool video_shown;
+
 static void take_from_splash(void)
 {
 	Uint32 t0 = SDL_GetTicks();
@@ -167,19 +175,14 @@ static void take_from_splash(void)
 		SDL_Delay(1);
 	fprintf(stderr, "video: took the display from the splash in %u ms\n",
 	        (unsigned)(SDL_GetTicks() - t0));
-	/* Before the first frame: the gamma table a splash from a system image
-	 * up to 1.0.4 filled, which darkens everything shown (panelgamma.h).
-	 * Nothing in ZyperOS fills it again. With no table, a few ioctls; with
-	 * one, a refresh's wait while the controller turns it off, once. */
-	{
-		int n = panelgamma_clear(drm_fd);
-
-		if (n > 0)
-			fprintf(stderr, "video: emptied the display's gamma table, which "
-			        "an older system's splash had filled\n");
-		else if (n < 0)
-			fprintf(stderr, "video: could not read or empty the display's gamma table\n");
-	}
+	/* Before the first frame: the gamma table as the backlight's value asks
+	 * (panelgamma.h) - the dimming one at the two rungs under the floor,
+	 * else none, which also empties the table a splash from a system image
+	 * up to 1.0.4 filled. The value is the player's, set by the splash from
+	 * zybright or by plat_settings_init. With the table already right, a
+	 * few ioctls; else a refresh's wait while the controller loads it. */
+	display_held = true;
+	display_gamma("taking the display from the splash");
 	/* On the kernel's clock, beside the splash's "panel lit", so the boot
 	 * from power to shelf reads off one log. */
 	{
@@ -210,6 +213,10 @@ static bool take_back(unsigned max_ms, int *err)
 	if (waited > 0)
 		fprintf(stderr, "video: the display was free %d ms after the game; took it back\n",
 		        waited);
+	/* Diatom set the table for its own steps; this is the backlight's value
+	 * now, which a game that crashed mid-step may have left untabled */
+	display_held = true;
+	display_gamma("taking the display back");
 	/* With no panel found (said once, at the start), nothing to light */
 	lit = px_panel.crtc ? displayback_relight(drm_fd, &px_panel) : 0;
 	if (lit > 0)
@@ -323,17 +330,16 @@ static void show_screen(void)
  * log. The frame stays in screen_tex and goes up the moment master does. */
 void plat_present(void)
 {
-	static bool shown;
 	Uint8 r, g, b, a;
 
 	SDL_GetRenderDrawColor(ren, &r, &g, &b, &a);
 	plat_overlay_present(ren);
-	if (!shown) {
+	if (!video_shown) {
 		take_from_splash();
 		show_screen();
 		show_screen();
 		if (!g_port_menu) signal_splash(SIGTERM);
-		shown = true;
+		video_shown = true;
 	} else if (display_lost) {
 		int err = 0;
 
@@ -513,6 +519,16 @@ bool plat_video_init(void)
 	if (drm_fd >= 0 && displayback_find(drm_fd, &px_panel) != 0)
 		fprintf(stderr, "video: found no connected panel; after a game that crashes "
 		        "the screen may stay dark\n");
+	/* Again after a game in its own process (src/launch_screen.c's fallback,
+	 * when the resident refused the game or died in it): no splash holds the
+	 * display now, so it is this process's at once, with the table the
+	 * backlight's value asks for - which that game's Diatom may have left
+	 * at another rung's. Without this the launcher's steps set no table
+	 * until the next game in the resident. */
+	if (video_shown && drm_fd >= 0 && ioctl(drm_fd, PX_DRM_IOCTL_SET_MASTER, 0) == 0) {
+		display_held = true;
+		display_gamma("taking the display back after a game in its own process");
+	}
 
 	if (SDL_GetRendererInfo(ren, &ri) == 0)
 		fprintf(stderr, "renderer: %s, driver: %s, vsync %s, panel %dx%d\n",
@@ -529,6 +545,7 @@ void plat_video_quit(void)
 	if (ren) { SDL_DestroyRenderer(ren); ren = NULL; }
 	if (win) { SDL_DestroyWindow(win); win = NULL; }
 	drm_fd = -1;
+	display_held = false;
 	/* The black picture was made on SDL's DRM file, which closes here and
 	 * takes it with it */
 	memset(&px_panel, 0, sizeof px_panel);
@@ -540,6 +557,7 @@ void plat_video_quit(void)
 void device_display_release(void)
 {
 	if (drm_fd >= 0) ioctl(drm_fd, PX_DRM_IOCTL_DROP_MASTER, 0);
+	display_held = false;
 }
 
 /* Diatom has given the display back (it drops master before PAUSED and EXIT),
@@ -1032,6 +1050,23 @@ static void usb_volume_create(void)
 	ctl_write(USB_CTL, px2_usb_raw(VOL_MAX / 2));
 }
 
+/* The table for the backlight's value now (panelgamma.h): the dimming one
+ * at 9 and 13, none from 17 up. Only while this process holds the display -
+ * at the start the splash still does, and take_from_splash sets it then. */
+static void display_gamma(const char *when)
+{
+	int raw, n;
+
+	if (drm_fd < 0 || !display_held || (raw = read_int(BACKLIGHT)) < 0) return;
+	n = panelgamma_apply(drm_fd, raw);
+	if (n > 0)
+		fprintf(stderr, "video: the display's gamma table set for brightness %d, %s\n",
+		        raw, when);
+	else if (n < 0)
+		fprintf(stderr, "video: could not set the display's gamma table for brightness %d, "
+		        "%s\n", raw, when);
+}
+
 static void apply_brightness(int b)
 {
 	char text[8];
@@ -1039,6 +1074,7 @@ static void apply_brightness(int b)
 	cur_bright = b;
 	snprintf(text, sizeof text, "%d\n", bright_ladder[b]);
 	write_file(BACKLIGHT, text);
+	display_gamma("a brightness step");
 }
 
 static void levels_save(void)
@@ -1059,6 +1095,22 @@ void plat_settings_init(void)
 	 * the panel is already at, to the nearest rung. */
 	v = db_get_int(db_dev(), "volume", -1);
 	b = db_get_int(db_dev(), "brightness", -1);
+	/* A position kept before 1.0.6 is on the old ladder, 17 at the bottom:
+	 * moved once to the new rung nearest its light, or every player would
+	 * start 1.0.6 two rungs darker, under the floor. "brightness_ladder" says
+	 * the kept position is on this one, so it moves only the once. */
+	if (db_get_int(db_dev(), "brightness_ladder", 0) < 2) {
+		if (b >= 0) {
+			int to = px2_bright_from_105(b);
+
+			fprintf(stderr, "settings: brightness kept as rung %d of 1.0.5's ladder (%d); "
+			        "now rung %d (%d)\n", b, bright_ladder_105[clampi(b, 0, BRIGHT_MAX)],
+			        to, bright_ladder[to]);
+			b = to;
+			db_set_int(db_dev(), "brightness", b);
+		}
+		db_set_int(db_dev(), "brightness_ladder", 2);
+	}
 	if (b < 0 && (raw = read_int(BACKLIGHT)) >= 0) {
 		int i;
 
@@ -1089,8 +1141,24 @@ void plat_backlight_dim(bool dim)
 	char text[8];
 
 	if (cur_bright < 0) return;
-	snprintf(text, sizeof text, "%d\n", bright_ladder[dim ? 0 : cur_bright]);
+	/* Dim is the backlight's floor, and a rung under it stays as it is: its
+	 * table is already on the display, and the floor would be brighter */
+	snprintf(text, sizeof text, "%d\n",
+	         dim && bright_ladder[cur_bright] > PANELGAMMA_FLOOR ? PANELGAMMA_FLOOR
+	                                                             : bright_ladder[cur_bright]);
 	write_file(BACKLIGHT, text);
+}
+
+void plat_display_plain(void)
+{
+	int n;
+
+	if (drm_fd < 0 || !display_held) return;
+	n = panelgamma_clear(drm_fd);
+	if (n > 0)
+		fprintf(stderr, "video: the display's gamma table emptied for the program after this one\n");
+	else if (n < 0)
+		fprintf(stderr, "video: could not empty the display's gamma table\n");
 }
 
 /* The windows differ by jack, so the level is re-applied when a plug goes in

@@ -272,11 +272,12 @@ static void blur(Uint32 *p, int W, int H, int r)
 	free(t);
 }
 
-bool cardart_paint_frame(SDL_Surface *s, SDL_Surface *frame, unsigned sys_rgb)
+bool cardart_paint_frame(SDL_Surface *s, SDL_Surface *frame, unsigned sys_rgb, bool sharp)
 {
 	/* blurred at a quarter of the card's size and stretched back: the same
-	 * blur, a sixteenth of the work */
-	const int SW = s->w / 4, SH = s->h / 4;
+	 * blur, a sixteenth of the work; sharp, at the card's own size */
+	const int SW = sharp ? s->w : s->w / 4, SH = sharp ? s->h : s->h / 4;
+	const float keep = sharp ? .78f : .52f, toward = sharp ? .12f : .28f;
 	SDL_Surface *fr, *small;
 	rgbf tint = scale(of(sys_rgb), .22f);
 	float k;
@@ -299,7 +300,7 @@ bool cardart_paint_frame(SDL_Surface *s, SDL_Surface *frame, unsigned sys_rgb)
 	}
 	SDL_FreeSurface(fr);
 	if (!SDL_LockSurface(small)) {
-		blur((Uint32 *)small->pixels, SW, SH, 2);
+		if (!sharp) blur((Uint32 *)small->pixels, SW, SH, 2);
 		/* dimmed toward the system's color, darker toward the foot: here,
 		 * on a sixteenth of the pixels, before the stretch */
 		for (int y = 0; y < SH; y++) {
@@ -307,7 +308,7 @@ bool cardart_paint_frame(SDL_Surface *s, SDL_Surface *frame, unsigned sys_rgb)
 			float foot = clamp1((y - SH * .45f) / (SH * .55f)), dark = 1 - .45f * foot * foot;
 
 			for (int x = 0; x < SW; x++)
-				row[x] = px(scale(mix(scale(of_px(row[x]), .52f), tint, .28f), dark));
+				row[x] = px(scale(mix(scale(of_px(row[x]), keep), tint, toward), dark));
 		}
 		SDL_UnlockSurface(small);
 	}
