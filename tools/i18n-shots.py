@@ -541,6 +541,10 @@ EXTRA.setdefault("gamemenu-dual", ("demo", "PS1", ["--gamemenu", "0", "dual"]))
 # ...and its Display tab, where the screens' three rows are, on the Stylus row
 EXTRA.setdefault("gamemenu-dual-display", ("demo", "PS1", ["--gamemenu", "0", "dual", "--gm-tab", "1"]))
 EXTRA.setdefault("gamemenu-dual-stylus", ("demo", "PS1", ["--gamemenu", "4", "dual", "--gm-tab", "1"]))
+# Rename's refusal of a name, the longest of its and Delete Game's messages
+# (src/shots.c's GM_SAID): four lines in English, German, French and
+# Portuguese, which three cut ("* ?...")
+EXTRA.setdefault("gm-said-7", ("demo", "PS1", ["--screen", "games", "--gm-said", "7"]))
 # MENU's Shader when a system has its own (SHOT_SETTINGS below): "per system"
 EXTRA.setdefault("menu-shader", ("demo", "PS1", ["--menu", "Shader"]))
 

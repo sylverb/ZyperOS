@@ -618,24 +618,53 @@ bool timed_message(app *a, const char *heading, const menu_row *rows,
 	return !g_message_stopped && !g_menu_closing;
 }
 
+/* A result's rows, for result_message and its shot: the text as one row
+ * (`*w` 0, the row's own width), or, wider than the panel, onto lines,
+ * balanced, rather than sliding where a word is cut ("neogeo is a BIOS other
+ * games need. It stays.", "PortMaster runs every port. It stays." in
+ * French), the panel at the shared width. Up to RESULT_LINES: three cut
+ * Rename's refusal of a name in English, its last line ending "* ?..."
+ * where the characters a name cannot have were the point. */
+#define RESULT_LINES 5
+static int result_rows(app *a, const char *text, char (*lines)[LB_LINE], menu_row *rows, int *w)
+{
+	int n, i;
+
+	*w = menu_std_width(a);
+	if (ui_text_width(ui_font(UI_F_MENU), text) > *w) {
+		n = ui_balance_lines(ui_font(UI_F_MENU), text, *w, RESULT_LINES, lines);
+		if (n > 1) {
+			ui_fit_drawn(text);    /* drawn in lines, said whole to the host's check */
+			for (i = 0; i < n; i++) rows[i] = (menu_row){ lines[i], NULL, false };
+			return n;
+		}
+	}
+	*w = 0;
+	rows[0] = (menu_row){ text, NULL, false };
+	return 1;
+}
+
 bool result_message(app *a, const char *heading, const char *text)
 {
-	menu_row row = { text, NULL, false };
-	int w = menu_std_width(a);
+	char lines[RESULT_LINES][LB_LINE];
+	menu_row rows[RESULT_LINES];
+	int w, n = result_rows(a, text, lines, rows, &w);
 
-	/* A message wider than the panel goes onto lines, balanced, rather than
-	 * sliding where a word is cut ("neogeo is a BIOS other games need. It
-	 * stays.", "PortMaster runs every port. It stays." in French) */
-	if (ui_text_width(ui_font(UI_F_MENU), text) > w) {
-		char lines[3][LB_LINE];
-		menu_row rows[3];
-		int n = ui_balance_lines(ui_font(UI_F_MENU), text, w, 3, lines), i;
+	return timed_message(a, heading, rows, n, w, MENU_ZYPEROS);
+}
 
-		if (n > 1) ui_fit_drawn(text);    /* drawn in lines, said whole to the host's check */
-		for (i = 0; i < n; i++) rows[i] = (menu_row){ lines[i], NULL, false };
-		if (n > 1) return timed_message(a, heading, rows, n, w, MENU_ZYPEROS);
-	}
-	return timed_message(a, heading, &row, 1, 0, MENU_ZYPEROS);
+/* One frame of it once it has arrived, over the shelf, for a shot: what
+ * timed_message draws, as menu_message does for one row */
+void result_preview(app *a, const char *heading, const char *text)
+{
+	static const unsigned msg[1] = { VCOL_MESSAGE };
+	char lines[RESULT_LINES][LB_LINE];
+	menu_row rows[RESULT_LINES];
+	int w, n = result_rows(a, text, lines, rows, &w);
+
+	draw_shelf(a);
+	ui_scrim(a->r, 0);
+	menu_draw_ex(a, heading, rows, n, -1, w, MENU_ZYPEROS, n == 1 ? msg : NULL, false, 0);
 }
 
 kb_pose keyboard_panel(void *ctx, kb_stage stage, bool pressed)

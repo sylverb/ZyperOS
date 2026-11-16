@@ -365,7 +365,10 @@ now, and say which flag has it.
 
 `--info` draws a game's details over the shelf, `--info-delete` the same with
 the cursor on Delete Game, and `--delete-ask` Delete Game's question, the
-cursor on Cancel (DESIGN.md 11.31). `--delete-now` deletes the game under the
+cursor on Cancel (DESIGN.md 11.31). `--gm-said K` draws one of Delete Game's
+and Rename's messages over the shelf, as it shows once it has arrived
+(src/shots.c's GM_SAID: 0 the frame a delete runs under, 1-6 Delete Game's,
+7-10 Rename's). `--delete-now` deletes the game under the
 cursor as Delete Game's yes does, on the card the shot is given, and the shot
 is the shelf after it; stderr lists every path that went.
 

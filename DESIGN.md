@@ -1265,6 +1265,9 @@ A menu panel over **scrim.menu**. One row holds for **hold.short**;
 two rows hold for **hold.long**. The hold starts after the panel opens.
 The panel fades in and out with the menu motion. B dismisses it early.
 Progress before a synchronous operation is one presented frame, without a hold.
+A result wider than the panel goes onto balanced lines at the menus' shared
+width, up to five, and is never cut: three cut Rename's refusal of a name in
+English, at the very characters it names (1.0.6).
 
 ### 11.9 Button glyphs
 For the tutorial and anywhere a button is drawn rather than named
@@ -3090,7 +3093,8 @@ folder refuses the whole delete, with nothing touched. Earned achievements
 stay: they are the player's.
 
 Host shots: `--info-delete` (the details, the cursor on Delete Game),
-`--delete-ask` (the question), `--delete-now` (the shelf after the yes).
+`--delete-ask` (the question), `--gm-said K` (its messages and Rename's),
+`--delete-now` (the shelf after the yes).
 
 ### 11.32 Storage
 
