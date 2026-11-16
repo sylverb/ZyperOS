@@ -138,10 +138,29 @@ const device_profile *plat_profile_at(int i);
 void plat_profile_ids(char *out, size_t n);
 /* `b` as `p` prints it, or NULL where `p` has no such control */
 const dev_button *dev_button_of(const device_profile *p, in_button b);
-/* Whether `p` draws MENU as the Pixel 2's three-dot key: where its MENU is
- * printed so (DEV_ICON_DOTS), and on a profile that borrows the Pixel 2's
- * drawing (model_borrowed, the host's), as its shots always showed */
-bool dev_menu_dots(const device_profile *p);
+/* What a chord does, named rather than spelled: screens ask for the role and
+ * get the buttons this handheld does it with */
+typedef enum {
+	DEV_ROLE_BRIGHTNESS,  /* MENU+VOL on the Pixel 2, F1/F2 where they are keys */
+	DEV_ROLE_HOME,        /* MENU+START held, where zyhome runs */
+	DEV_ROLE_BATTERY      /* L2+R2, the battery's level on lights of its own */
+} dev_role;
+/* The buttons `c` does `role` with, as ids' names with "+" for together and
+ * "/" for either ("MENU+VOL", "F1/F2", src/ds/button.h); NULL where the
+ * handheld has no such chord. Inline, so a check that links the Controls
+ * pages needs no profile. */
+static inline const char *dev_role_keys(const dev_chords *c, dev_role role)
+{
+	if (!c) return (const char *)0;
+	switch (role) {
+	/* The Pixel 2's by the names its glyphs carry, MENU and VOL, as the
+	 * tutorial teaches it (DESIGN.md 12: chords with a plus) */
+	case DEV_ROLE_BRIGHTNESS: return c->bright == DEV_BRIGHT_MENU_VOL ? "MENU+VOL" : "F1/F2";
+	case DEV_ROLE_HOME:       return c->home_chord ? "MENU+START" : (const char *)0;
+	case DEV_ROLE_BATTERY:    return c->battery_chord ? "L2+R2" : (const char *)0;
+	}
+	return (const char *)0;
+}
 /* Where `b` is on `p`'s handheld, as its model has it (td_model.h: the face
  * in *face, (x, z) on it in *x and *z): the d-pad for its four directions,
  * F1 and F2 for brightness down and up. False, and nothing set, where `p`

@@ -14,6 +14,7 @@
 #include <sys/stat.h>
 
 #include "../src/device/profile.h"
+#include "../src/ds/button.h"
 #include "../src/thermal.h"
 #include "device/build.h"
 
@@ -356,14 +357,78 @@ static void builds(void)
 	   "brick: System Update, btplayer and Bluetooth sound");
 }
 
-/* MENU's look: the Pixel 2's three dots on its own MENU and on the host's
- * borrowed drawing; the Brick's word */
+/* A button as `p` prints it (src/ds/button.h): its glyph's shape, mark and
+ * word */
+static bool key_is(const device_profile *p, const char *name, ds_key_shape shape, ds_key_mark mark,
+                   const char *text)
+{
+	ds_key k;
+
+	ds_keys_set(p ? p->buttons : NULL, p ? p->n_buttons : 0);
+	k = ds_key_of(name);
+	ds_keys_set(NULL, 0);
+	return k.shape == shape && k.mark == mark && !strcmp(k.text, text);
+}
+
+/* The buttons' look: the Pixel 2's as its keys are printed, the host's as
+ * the Pixel 2's (its shots always showed them), the Brick's own */
 static void menu_look(void)
 {
-	ck(dev_menu_dots(&device_profile_pixel2), "pixel2: MENU is its three-dot key");
-	ck(dev_menu_dots(&device_profile_desktop), "desktop: the Pixel 2's MENU, as its shots always showed");
-	ck(!dev_menu_dots(&device_profile_brick), "brick: MENU is the word on its key");
-	ck(!dev_menu_dots(NULL), "no profile: no dots");
+	const device_profile *px = &device_profile_pixel2, *br = &device_profile_brick,
+	                     *dt = &device_profile_desktop;
+
+	ck(key_is(px, "MENU", DS_KEY_FACE, DS_KEY_MARK_DOTS, "MENU"), "pixel2: MENU is its three-dot key");
+	ck(key_is(px, "SELECT", DS_KEY_PILL, DS_KEY_MARK_NONE, "SELECT") &&
+	   key_is(px, "START", DS_KEY_PILL, DS_KEY_MARK_NONE, "START"), "pixel2: SELECT and START are pills");
+	ck(key_is(px, "A", DS_KEY_FACE, DS_KEY_MARK_NONE, "A") && key_is(px, "L1", DS_KEY_PILL, DS_KEY_MARK_NONE, "L1"),
+	   "pixel2: A is a face, L1 a pill");
+	ck(key_is(dt, "MENU", DS_KEY_FACE, DS_KEY_MARK_DOTS, "MENU") &&
+	   key_is(dt, "SELECT", DS_KEY_PILL, DS_KEY_MARK_NONE, "SELECT") &&
+	   key_is(dt, "START", DS_KEY_PILL, DS_KEY_MARK_NONE, "START"),
+	   "desktop: the Pixel 2's MENU, SELECT and START, as its shots always showed");
+	ck(key_is(dt, "F1", DS_KEY_PILL, DS_KEY_MARK_NONE, "F1"), "desktop: the Brick's F1, a pill");
+	ck(key_is(br, "MENU", DS_KEY_PILL, DS_KEY_MARK_NONE, "MENU"), "brick: MENU is the word on its key");
+	ck(key_is(br, "SELECT", DS_KEY_FACE, DS_KEY_MARK_SQUARE, "SELECT"), "brick: SELECT is round, a square on it");
+	ck(key_is(br, "START", DS_KEY_FACE, DS_KEY_MARK_PLAY, "START"), "brick: START is round, a play triangle on it");
+	ck(key_is(br, "POWER", DS_KEY_PILL, DS_KEY_MARK_NONE, "POWER"), "brick: POWER's word in a pill");
+	ck(key_is(br, "F2", DS_KEY_PILL, DS_KEY_MARK_NONE, "F2"), "brick: F2 a pill");
+	ck(key_is(NULL, "MENU", DS_KEY_FACE, DS_KEY_MARK_DOTS, "MENU") &&
+	   key_is(NULL, "SELECT", DS_KEY_PILL, DS_KEY_MARK_NONE, "SELECT") &&
+	   key_is(NULL, "Y", DS_KEY_FACE, DS_KEY_MARK_NONE, "Y"), "no table: the glyphs the launcher always drew");
+	ck(key_is(br, "< >", DS_KEY_DPAD_LR, DS_KEY_MARK_NONE, "< >") &&
+	   key_is(px, "^ v", DS_KEY_DPAD_UD, DS_KEY_MARK_NONE, "^ v"), "the d-pad's hints are the d-pad");
+	ck(key_is(br, "PIN", DS_KEY_PILL, DS_KEY_MARK_NONE, "PIN"), "a name no button has: a pill with its word");
+	{
+		/* A stick's cap, for the handhelds that have them (the Smart Pro's
+		 * and the Brick Pro's L3 and R3), and a round key with a word */
+		static const dev_button sticks[] = {
+			{ IN_L1, "L3", DEV_CAP_STICK, DEV_ICON_NONE, 0 },
+			{ IN_R1, "R3", DEV_CAP_ROUND, DEV_ICON_STICK, 0 },
+			{ IN_START, "HOME", DEV_CAP_ROUND, DEV_ICON_NONE, 0 },
+		};
+		ds_key k;
+
+		ds_keys_set(sticks, 3);
+		k = ds_key_of("L1");
+		ck(k.shape == DS_KEY_STICK && !strcmp(k.text, "L3"), "a stick's cap is the stick, its word on it");
+		k = ds_key_of("R1");
+		ck(k.shape == DS_KEY_STICK && !strcmp(k.text, "R3"), "a stick mark makes the stick too");
+		k = ds_key_of("START");
+		ck(k.shape == DS_KEY_PILL && !strcmp(k.text, "HOME"), "a round key with a word is a pill");
+		ds_keys_set(NULL, 0);
+	}
+	ck(ds_key_id("F1") == IN_BRIGHTDN && ds_key_id("F2") == IN_BRIGHTUP && ds_key_id("PIN") == IN_NONE,
+	   "the ids' names");
+	/* A chord by what it does: each handheld's own buttons */
+	ck(!strcmp(dev_role_keys(&device_profile_pixel2.chords, DEV_ROLE_BRIGHTNESS), "MENU+VOL") &&
+	   !strcmp(dev_role_keys(&device_profile_brick.chords, DEV_ROLE_BRIGHTNESS), "F1/F2") &&
+	   !strcmp(dev_role_keys(&device_profile_desktop.chords, DEV_ROLE_BRIGHTNESS), "F1/F2"),
+	   "brightness: MENU+VOL on the Pixel 2, F1/F2 on the Brick and the host");
+	ck(!strcmp(dev_role_keys(&device_profile_pixel2.chords, DEV_ROLE_HOME), "MENU+START") &&
+	   !dev_role_keys(&device_profile_brick.chords, DEV_ROLE_HOME), "home: MENU+START on the Pixel 2 alone");
+	ck(!strcmp(dev_role_keys(&device_profile_pixel2.chords, DEV_ROLE_BATTERY), "L2+R2") &&
+	   !dev_role_keys(&device_profile_brick.chords, DEV_ROLE_BATTERY), "battery: L2+R2 where it has lights");
+	ck(!dev_role_keys(NULL, DEV_ROLE_BRIGHTNESS), "no chords: no buttons");
 	/* About's kernel thanks: ROCKNIX's on the Pixel 2 and on the host's shots,
 	 * Allwinner's on the Brick */
 	ck(!strcmp(device_profile_pixel2.kernel.by, "ROCKNIX") &&

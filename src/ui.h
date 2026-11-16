@@ -547,9 +547,5 @@ void ui_power(SDL_Renderer *r, int cx, int cy, int size, float press, float scal
 /* rgb interpolation, for easing the background tint between systems */
 unsigned ui_mix(unsigned a, unsigned b, float t);
 
-/* MENU as the handheld prints it: the Pixel 2's three-dot key (true, the
- * default), or the word on its key (false: the Brick's). Set once at start
- * from the profile (dev_menu_dots), before anything is drawn. */
-void ui_set_menu_dots(bool dots);
 
 #endif

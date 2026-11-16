@@ -145,6 +145,7 @@
 #include "ds/mark.h"    /* badges, switch marks, the progress bar */
 #include "ds/page.h"    /* a page: its frame, heading, line over the keys, foot */
 #include "ds/tiles.h"   /* a question in tiles, or a list */
+#include "ds/button.h"  /* the buttons as this handheld prints them */
 #include "wifi_menu.h"
 #include "zyperrig.h"
 #include "songpop.h"
@@ -6545,8 +6546,8 @@ int main(int argc, char *argv[])
 	/* The size the player chose beats the shipped default, the same way a
 	 * saved brightness does. Read before ui_init, which is when the scale is
 	 * applied. */
-	/* MENU as this handheld prints it, before anything is drawn */
-	ui_set_menu_dots(dev_menu_dots(plat_profile()));
+	/* The buttons as this handheld prints them, before anything is drawn */
+	ds_keys_set(plat_profile()->buttons, plat_profile()->n_buttons);
 	if (!ui_init(a.r, P_FONT)) fprintf(stderr, "font init failed\n");
 	/* The GL renderer and version, for the log pack's hardware report
 	 * (src/hwreport.h): read once, while the renderer's context is current */

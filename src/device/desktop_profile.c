@@ -12,7 +12,33 @@
  * dev_tutorial_model). Shots of a real handheld wear its own profile:
  * --device pixel2, --device brick. */
 #include "profile.h"
-#include "brick_buttons.h"
+
+/* The Brick's controls (brick_buttons.h: F1 and F2 for brightness), drawn as
+ * the borrowed handheld prints them, the Pixel 2's, as the host's shots
+ * always showed: SELECT and START pills with their words, MENU round with
+ * three dots (src/ds/button.h) */
+static const dev_button desktop_buttons[] = {
+	{ IN_UP,       "UP",     DEV_CAP_DPAD,     DEV_ICON_NONE, 0 },
+	{ IN_DOWN,     "DOWN",   DEV_CAP_DPAD,     DEV_ICON_NONE, 0 },
+	{ IN_LEFT,     "LEFT",   DEV_CAP_DPAD,     DEV_ICON_NONE, 0 },
+	{ IN_RIGHT,    "RIGHT",  DEV_CAP_DPAD,     DEV_ICON_NONE, 0 },
+	{ IN_ACCEPT,   "A",      DEV_CAP_ROUND,    DEV_ICON_NONE, 0 },
+	{ IN_BACK,     "B",      DEV_CAP_ROUND,    DEV_ICON_NONE, 0 },
+	{ IN_X,        "X",      DEV_CAP_ROUND,    DEV_ICON_NONE, 0 },
+	{ IN_Y,        "Y",      DEV_CAP_ROUND,    DEV_ICON_NONE, 0 },
+	{ IN_L1,       "L1",     DEV_CAP_SHOULDER, DEV_ICON_NONE, 0 },
+	{ IN_R1,       "R1",     DEV_CAP_SHOULDER, DEV_ICON_NONE, 0 },
+	{ IN_L2,       "L2",     DEV_CAP_SHOULDER, DEV_ICON_NONE, 0 },
+	{ IN_R2,       "R2",     DEV_CAP_SHOULDER, DEV_ICON_NONE, 0 },
+	{ IN_SELECT,   "SELECT", DEV_CAP_PILL,     DEV_ICON_NONE, 0 },
+	{ IN_START,    "START",  DEV_CAP_PILL,     DEV_ICON_NONE, 0 },
+	{ IN_MENU,     "MENU",   DEV_CAP_ROUND,    DEV_ICON_DOTS, 0 },
+	{ IN_BRIGHTDN, "F1",     DEV_CAP_PILL,     DEV_ICON_NONE, 0 },
+	{ IN_BRIGHTUP, "F2",     DEV_CAP_PILL,     DEV_ICON_NONE, 0 },
+	{ IN_VOLUP,    "VOL+",   DEV_CAP_PILL,     DEV_ICON_NONE, 0 },
+	{ IN_VOLDN,    "VOL-",   DEV_CAP_PILL,     DEV_ICON_NONE, 0 },
+	{ IN_POWER,    "POWER",  DEV_CAP_ROUND,    DEV_ICON_NONE, 0 },
+};
 
 const device_profile device_profile_desktop = {
 	.id = "desktop",
@@ -28,8 +54,8 @@ const device_profile device_profile_desktop = {
 		.still = false,
 	},
 	.chords = { .bright = DEV_BRIGHT_KEYS },
-	.buttons = brick_buttons,
-	.n_buttons = (int)(sizeof brick_buttons / sizeof brick_buttons[0]),
+	.buttons = desktop_buttons,
+	.n_buttons = (int)(sizeof desktop_buttons / sizeof desktop_buttons[0]),
 	.model = &td_model_pixel2,
 	.model_borrowed = true,
 	.bluetooth = true,

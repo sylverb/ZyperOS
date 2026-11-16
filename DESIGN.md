@@ -1216,6 +1216,26 @@ of each half's word, and a 2-unit **edge** line between them. POWER is a
 96-unit circle with the power mark in **text**: a ring of 20 open at the top,
 a stroke of 6 with round ends, and a stroke down into it.
 
+**By device** (1.0.6, `src/ds/button.h`). A screen names a button by its
+id's name (A, SELECT, L1, F1, the d-pad's "< >" and "^ v"), never by what one
+handheld prints, and the glyph is the one this handheld prints, from its
+profile's table (`dev_button`, src/device/profile.h). A round key with one
+letter is a face. A round key with a mark is a face with the mark: the Pixel
+2's MENU, its three dots; the Brick's SELECT, a square, and START, a play
+triangle, as its model draws them (the square 0.72 of a capital across, as a
+solid square carries more ink than a letter's strokes; the triangle about a
+capital tall and a little right of its box's middle, so it looks centred),
+in the letter's color. A round key with a word (the Brick's
+MENU, whose TrimUI mark is no glyph, and its POWER) and every other cap (a
+pill, a shoulder, the rocker) is a pill with its word. A stick's cap (L3,
+R3) is a face with its top's ring inside, 0.7 across, under its word. MENU
+in running text is the three-dot key only where the handheld's MENU is one;
+elsewhere it stays a word. The host's desktop has the Brick's keys drawn as
+the Pixel 2's, as its shots always showed; a name no table has is a pill
+with that name. A chord is named by what it does (`dev_role_keys`:
+brightness, home, battery), so a page says each handheld's own: MENU+VOL on
+the Pixel 2, F1/F2 on the Brick.
+
 **In a menu row**, a glyph says a button does the row's job from anywhere on
 the page: the row's value is `MENU_KEY_X` (src/menu.h), and the glyph is
 drawn at 40, the keyboard's action keys' size, where the value's right edge
