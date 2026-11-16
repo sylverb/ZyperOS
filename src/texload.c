@@ -245,6 +245,11 @@ static int worker(void *arg)
 	return 0;
 }
 
+bool texload_running(void)
+{
+	return g_running && g_thread[0];
+}
+
 bool texload_start(void)
 {
 	int k;

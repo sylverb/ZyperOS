@@ -1909,6 +1909,29 @@ void evict_far(sysview *v, int keep)
 	}
 }
 
+/* The grid's eviction (DESIGN.md 11.47), by rows rather than by distance
+ * from the cursor: what gg_row_kept keeps round the window the grid is
+ * heading for, and every row the last frame drew, so a glide never loses a
+ * cover it still shows and the rows asked ahead stay in hand. */
+void evict_grid(sysview *v, int cols)
+{
+	int nrows, top, drawn;
+
+	if (cols <= 0 || !v->tex) return;
+	nrows = (v->list.count + cols - 1) / cols;
+	top = (int)lroundf(v->gm.top_to);
+	drawn = (int)floorf(v->gm.top_drawn);
+	for (int i = 0; i < v->list.count; i++) {
+		int row = i / cols;
+
+		if (!v->tex[i] || gg_row_kept(row, top, nrows) || (row >= drawn && row <= drawn + GG_ROWS))
+			continue;
+		SDL_DestroyTexture(v->tex[i]);
+		v->tex[i] = NULL;
+		gg_drop(&v->gart, i);
+	}
+}
+
 #define PRIME_HALF_MAX (CF_HALF_WINDOW + 2)
 
 /* Ask for the cards on shelf `s` around `center`, out to `half` either side.

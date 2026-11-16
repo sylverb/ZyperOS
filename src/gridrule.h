@@ -46,6 +46,21 @@ gg_geom gg_layout(int left, int top, int w, int h, float shape, int gap, int lea
  * gets first and last, never a jump of the page modulo its length. Pure. */
 int gg_page(int cursor, int n, int page, int dir);
 
+/* The rows whose covers the grid keeps decoded: its window (GG_ROWS rows
+ * from `top`) and GG_AHEAD rows either side, counted round the ends, since
+ * Left from the first cover, Right from the last and L1/R1 at the ends come
+ * round; at an end, one row more round it, which the glide into the other
+ * end's page shows a sliver of. So whatever one press brings into sight - a
+ * row, a page, the other end - is in hand before it slides in. Pure. */
+#define GG_AHEAD GG_ROWS
+bool gg_row_kept(int row, int top, int nrows);
+
+/* The rows outside the window to ask for ahead, at most `max`, the nearest
+ * kept when there are more: farthest first, since the loader decodes the
+ * newest ask first, and the row under the window asked last of its
+ * distance. How many. Pure. */
+int gg_rows_ahead(int top, int nrows, int *rows, int max);
+
 /* The key gg_note and gg_art_of take: a file name's hash */
 unsigned gg_key(const char *file);
 

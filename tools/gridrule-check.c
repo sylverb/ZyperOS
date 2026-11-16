@@ -161,6 +161,34 @@ int main(void)
 	NEED(gg_page(4, 12, 18, -1) == 0 && gg_page(0, 12, 18, -1) == 11, "a grid on one screen: L1 first, then last");
 	NEED(gg_page(0, 1, 10, +1) == 0 && gg_page(0, 0, 10, +1) == 0, "one cover, or none, stays put");
 
+	/* The rows kept and asked ahead: the window and two rows either side,
+	 * round the ends, so a row, a page or a step round an end lands on
+	 * covers decoded already (a shelf of 13 rows, its window from row 5) */
+	NEED(gg_row_kept(3, 5, 13) && gg_row_kept(8, 5, 13), "two rows either side are kept");
+	NEED(!gg_row_kept(2, 5, 13) && !gg_row_kept(9, 5, 13), "a third row away is not");
+	NEED(gg_row_kept(10, 0, 13) && gg_row_kept(11, 0, 13) && gg_row_kept(12, 0, 13) && !gg_row_kept(9, 0, 13),
+	     "at the top, the last three rows: L1 and Left come round, gliding in past the third");
+	NEED(gg_row_kept(0, 11, 13) && gg_row_kept(1, 11, 13) && gg_row_kept(2, 11, 13) && !gg_row_kept(3, 11, 13),
+	     "at the foot, the first three rows: R1 and Right come round");
+	NEED(!gg_row_kept(10, 1, 13) && !gg_row_kept(2, 10, 13), "a window off the ends reaches two round them");
+	NEED(gg_row_kept(4, 0, 5) && gg_row_kept(2, 0, 5), "a short grid keeps every row");
+	{
+		int rows[8], n;
+
+		n = gg_rows_ahead(5, 13, rows, 8);
+		NEED(n == 4 && rows[0] == 3 && rows[1] == 8 && rows[2] == 4 && rows[3] == 7,
+		     "ahead: the farthest first, the row under the window asked last (decoded first)");
+		n = gg_rows_ahead(0, 13, rows, 8);
+		NEED(n == 5 && rows[0] == 10 && rows[1] == 11 && rows[2] == 3 && rows[3] == 12 && rows[4] == 2,
+		     "ahead at the top: three round the end for the rows before it");
+		n = gg_rows_ahead(0, 3, rows, 8);
+		NEED(n == 1 && rows[0] == 2, "ahead on three rows: the one outside the window, once");
+		n = gg_rows_ahead(0, 2, rows, 8);
+		NEED(n == 0, "ahead on two rows: nothing outside the window");
+		n = gg_rows_ahead(5, 13, rows, 2);
+		NEED(n == 2 && rows[0] == 4 && rows[1] == 7, "ahead, capped: the nearest rows kept");
+	}
+
 	if (failed) { printf("gridrule: %d failed\n", failed); return 1; }
 	printf("gridrule: every shape, mix and cell as DESIGN.md 11.47 says\n");
 	return 0;
