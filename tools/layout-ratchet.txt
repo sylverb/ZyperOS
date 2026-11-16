@@ -2,8 +2,7 @@
 # Only ever lowered: a screen on the layout engine or the tokens has none.
 3 about_screen.c
 1 artbadge.h
-4 ctltab_screen.c
-2 ctltab_screen.h
+1 ctltab_screen.h
 3 device/pixel2_levels.h
 1 ds/glyph.c
 4 emptyhome.h
@@ -15,7 +14,6 @@
 4 games.c
 2 games.h
 4 home.c
-1 hudmenu_screen.h
 2 ingame_screen.c
 2 kbnav.h
 5 keyboard.c

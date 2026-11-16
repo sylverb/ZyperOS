@@ -1161,7 +1161,7 @@ int controls_page_rows(const ctl_game *g, int page, int width, ctl_buf *b,
 int game_controls_width(app *a, const ctl_game *g)
 {
 	int w = menu_std_width(a), p, pages = ctl_game_pages(g);
-	int most = ZYPEROS_SCREEN_W - MENU_MARGIN * 2 - menu_pad() * 2;
+	int most = menu_most_w();
 
 	for (p = 0; p < pages; p++) {
 		menu_row rows[CTL_MAX_ROWS], kept[CTL_MAX_ROWS];

@@ -244,10 +244,17 @@ LAYOUT = [
     ("page-tile-w",     472, "a page's tile, two side by side from the insets"),
     ("page-tile-h",     280, "its height"),
     ("page-tile-pad",   32,  "its words from its sides"),
-    # a panel of tiles, or a list (src/ds/tiles.h)
     # a menu panel (src/menu_panel.c)
     ("menu-row",        72,  "a menu's row: on the grid, 45 whole pixels on the Pixel 2 (1.5 menu lines, 73, until 1.0.6)"),
     ("menu-pad",        56,  "a menu panel's padding: 35 whole pixels on the Pixel 2 (3/4 of a row, 54, until 1.0.6)"),
+    # a tab row's turn (src/menu_panel.c) and the in-game menu's Controls tab (src/ctltab_screen.c)
+    ("tab-move-name",   96,  "a tab's turn (L1, R1): the tab names move this far the press's way"),
+    ("tab-move-in",     64,  "...and the new tab's rows come in from this far, the Controls tab's handheld with them"),
+    ("ctl-side",        280, "the Controls tab's handheld column: its rows and their focus fill start this far in from the content's left"),
+    ("ctl-device-x",    99,  "the handheld's middle from the content's left: half the Pixel 2's drawing at its tab pose, so its left edge is on the heading rule's left end"),
+    ("ctl-device-y",    458, "the handheld's middle on the screen: one place on every tab and page that has it, as their panel is as tall as the screen allows (the mock's, 2026-11-13)"),
+    ("hud-band",        150, "On-Screen Stats' band: the screen's strip where the line goes, the line at Far (48) under the level bar (94 + 49) and at the foot"),
+    # a panel of tiles, or a list (src/ds/tiles.h)
     ("tile-w",          272, "a tile, three in a row"),
     ("tile-w-wide",     408, "a tile, two in a row or the grid's"),
     ("tile-h",          232, "a tile's height: the mark, a name on two lines"),

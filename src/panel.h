@@ -268,6 +268,9 @@ extern bool g_menu_closing;
  * around it and its top */
 int menu_row_h(void);
 int menu_pad(void);
+/* The widest content a panel can have (11.3): the screen less the margin
+ * and the padding on both sides */
+int menu_most_w(void);
 /* The air between the panel and the screen edge, on every side. */
 #define MENU_MARGIN 24
 /* ...but the top, where the status corner stands (DESIGN.md 11.12) on every
