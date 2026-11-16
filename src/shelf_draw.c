@@ -1126,7 +1126,7 @@ static void draw_games(app *a)
 			/* the rows that can slide in next, asked and kept; the rows a
 			 * glide still shows kept until it ends */
 			grid_ask_ahead(a, v);
-			evict_grid(v, gg_cols(&v->gm));
+			evict_grid(v, gg_cols(&v->gm), false);
 			g_title_caps = (SDL_Rect){ 0, 0, 0, 0 };
 			return;
 		}

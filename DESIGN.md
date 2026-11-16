@@ -4478,7 +4478,9 @@ for once every cover in sight is in, the nearest first, so a row, a page or
 the other end slides in whole, never cover by cover *(2026-11-15: "when we go
 down a page, the arts flicker while the animation is scrolling down")*. A row
 a glide still shows stays until it ends. Held, the steps can outrun the
-decoding; then the covers in sight come first. The row keeps eight.
+decoding; then the covers in sight come first. Before a game starts the grid
+lets go of all but the rows in sight, so the game has that memory; the rows
+ahead are asked for again when the grid is back. The row keeps eight.
 
 ## 12. Copy
 
