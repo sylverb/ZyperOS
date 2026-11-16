@@ -2173,6 +2173,9 @@ void diatom_port_mute_set(bool on)
 bool diatom_port_mute_get(void) { return g_muted; }
 
 /* The Brick has no GPU clock to hold: the CPU alone */
+/* Its display is SDL's, which says nothing of when a frame was shown */
+unsigned diatom_port_refreshes_missed(void) { return 0; }
+
 void diatom_port_fast_clock(bool cpu, bool gpu)
 {
 	static bool said;

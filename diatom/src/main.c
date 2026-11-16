@@ -26,6 +26,7 @@
 #include "levels.h"
 #include "now.h"
 #include "pace.h"
+#include "flipwatch.h"
 #include "player2.h"
 #include "screens.h"
 
@@ -2225,6 +2226,12 @@ static int run_session_inner(const diatom_session *sn)
 	 * the power ceiling (power_trouble) */
 	uint64_t power_drops = 0;
 	bool     power_fast = false;
+	/* Refreshes missed with the frame ready (src/flipwatch.h): the watch,
+	 * the clocks it holds at their tops for the rest of the game, and the
+	 * port's count at the game's start, for the summary */
+	flipwatch fw;
+	bool     hold_gpu = false, hold_cpu = false;
+	unsigned missed0 = 0;
 	long     locked_at = 0;     /* frame the current rect was computed on */
 	/* The sound rate the resampler uses: the announced one, or what the core
 	 * really sends where that is known to differ (sound_rate). */
@@ -2593,6 +2600,8 @@ static int run_session_inner(const diatom_session *sn)
 	t_start = diatom_port_now_us();
 	next_us = (double)t_start;
 	step_t0 = t_start;
+	missed0 = diatom_port_refreshes_missed();
+	flipwatch_begin(&fw, missed0, t_start);
 	step_drop0 = diatom_audio_dropped();
 	/* What runs, for a tool on the device (now.h): from here until
 	 * run_session's end, paused or not */
@@ -2618,11 +2627,38 @@ static int run_session_inner(const diatom_session *sn)
 		/* A core that draws with the GPU is held at the top at 1x too, when
 		 * nothing caps its clocks, and so is the CPU under a game that leaves
 		 * its late frames undrawn (a DS game): see diatom_port_fast_clock. */
+		/* And held so, the GPU then the CPU, after refreshes went on being
+		 * missed at full power with the frames ready (src/flipwatch.h); a
+		 * miss below full lifts the power level first, as a late frame
+		 * does. Fast forward draws one frame in two periods and is not
+		 * judged. */
+		if (fast) {
+			fw.seen = diatom_port_refreshes_missed();
+		} else {
+			uint64_t t = diatom_port_now_us();
+
+			switch (flipwatch_turn(&fw, diatom_port_refreshes_missed(),
+			                       g_power_level == DIATOM_POWER_FULL, t)) {
+			case FLIPWATCH_LEVEL_UP:
+				power_trouble("a refresh missed with the frame ready", t);
+				break;
+			case FLIPWATCH_HOLD_GPU:
+				hold_gpu = true;
+				printf("diatom: the GPU held at its top clock after a refresh missed at full power\n");
+				break;
+			case FLIPWATCH_HOLD_ALL:
+				hold_cpu = true;
+				printf("diatom: the CPU held at its top clock too, refreshes still missed\n");
+				break;
+			case FLIPWATCH_NONE:
+				break;
+			}
+		}
 		{
 			const bool full = g_power_level == DIATOM_POWER_FULL;
-			const bool gpu_top = fast || (diatom_hw_active() && full);
+			const bool gpu_top = fast || (diatom_hw_active() && full) || (hold_gpu && full);
 
-			diatom_port_fast_clock(gpu_top || (sn->late_skip && full), gpu_top);
+			diatom_port_fast_clock(gpu_top || (sn->late_skip && full) || (hold_cpu && full), gpu_top);
 		}
 		if (!fast && power_fast) {
 			diatom_port_power(g_power_level);
@@ -3059,6 +3095,8 @@ static int run_session_inner(const diatom_session *sn)
 				diatom_port_power(power_fast ? DIATOM_POWER_FULL : g_power_level);
 				g_power_calm_us = diatom_port_now_us() + 1000000;
 				power_drops = diatom_audio_dropped();
+				/* The menu's own frames are not the game's */
+				fw.seen = diatom_port_refreshes_missed();
 				g_paused_preview = NULL;
 
 				/* The summary line divides frames by wall clock, and an open
@@ -3316,6 +3354,11 @@ static int run_session_inner(const diatom_session *sn)
 		printf("diatom: %ld geometry change(s), last rect %dx%d at %d,%d\n",
 		       geom_changes, g_dst.w, g_dst.h, g_dst.x, g_dst.y);
 		printf("diatom: %ld resync(s)\n", resyncs);
+		if (diatom_port_refreshes_missed() != missed0 || hold_gpu)
+			printf("diatom: %u refresh(es) missed with the frame ready%s\n",
+			       diatom_port_refreshes_missed() - missed0,
+			       hold_cpu ? "; the CPU and the GPU held at their tops"
+			       : hold_gpu ? "; the GPU held at its top" : "");
 		printf("diatom: %ld debt(s) cut to the sound queue's depth\n", caught_up);
 		if (g_present_frames)
 			printf("diatom: present avg %.2f ms over %ld frames\n",

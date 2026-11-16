@@ -355,12 +355,34 @@ void diatom_port_planes(const diatom_plane *planes, int n)
  * effect here to weaken */
 void diatom_port_strength(int percent) { (void)percent; }
 
+/* No flip to watch on a desktop: SDL presents and says nothing of when. For
+ * test/flipwatch.py, DIATOM_TEST_MISSED=N counts every frame presented after
+ * the N-th as a refresh missed with the frame ready, as a shader on a capped
+ * GPU makes them on the Pixel 2 (src/flipwatch.h). */
+static unsigned g_presents, g_refreshes_missed;
+
+unsigned diatom_port_refreshes_missed(void) { return g_refreshes_missed; }
+
+static void count_missed(void)
+{
+	static long after = -2;
+
+	if (after == -2) {
+		const char *e = getenv("DIATOM_TEST_MISSED");
+
+		after = e && e[0] ? strtol(e, NULL, 10) : -1;
+	}
+	if (after >= 0 && ++g_presents > (unsigned long)after) g_refreshes_missed++;
+}
+
 void diatom_port_present(const void *src, int w, int h, size_t pitch,
                          diatom_pixfmt fmt, diatom_rect dst,
                          diatom_filter filter)
 {
 	SDL_Rect r, sr;
 	int i;
+
+	count_missed();
 
 	if (w > 0 && h > 0 && !ensure_texture(w, h, fmt, filter)) return;
 	if (src && g_texture) SDL_UpdateTexture(g_texture, NULL, src, (int)pitch);
@@ -624,7 +646,31 @@ void diatom_port_present_stop(diatom_park park) { (void)park; }
 static bool g_muted;
 void diatom_port_mute_set(bool on) { g_muted = on; }
 bool diatom_port_mute_get(void) { return g_muted; }
-void diatom_port_fast_clock(bool cpu, bool gpu) { (void)cpu; (void)gpu; }
+/* No clocks to hold either. For test/flipwatch.py, the holds are written as
+ * "1" or "0" to cpu_hold and gpu_hold in DIATOM_POWER_DIR (below), where
+ * the Pixel 2 writes its CPU's and GPU's lowest clocks. */
+static void hold_say(const char *name, bool on)
+{
+	const char *dir = getenv("DIATOM_POWER_DIR");
+	char path[512];
+	FILE *f;
+
+	if (!dir || !dir[0] || snprintf(path, sizeof path, "%s/%s", dir, name) >= (int)sizeof path) return;
+	if ((f = fopen(path, "w"))) {
+		fputs(on ? "1" : "0", f);
+		fclose(f);
+	}
+}
+
+void diatom_port_fast_clock(bool cpu, bool gpu)
+{
+	static int cpu_was = -1, gpu_was = -1;
+
+	if ((int)cpu != cpu_was) hold_say("cpu_hold", cpu);
+	if ((int)gpu != gpu_was) hold_say("gpu_hold", gpu);
+	cpu_was = cpu;
+	gpu_was = gpu;
+}
 
 /* No clocks on a desktop. For test/power.py, DIATOM_POWER_DIR names a folder
  * whose two files stand for the Pixel 2's DDR and GPU ceilings (PX2_POWER's
