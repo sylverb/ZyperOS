@@ -11,7 +11,8 @@ DEVICE ?= brick
 # src/ds/: the design system's components and marks (DESIGN.md, "Where each part lives")
 # Every device's profile (src/device/profile.h), so --device can wear any;
 # the host's own is desktop's
-SRC := $(wildcard src/*.c) $(wildcard src/ds/*.c) src/device/$(DEVICE).c $(wildcard src/device/*_profile.c) \
+SRC := $(wildcard src/*.c) $(wildcard src/ds/*.c) src/device/$(DEVICE).c $(wildcard src/device/$(DEVICE)_hw.c) \
+       $(wildcard src/device/*_profile.c) \
        src/device/td_model.c $(filter-out src/device/td_model.c,$(wildcard src/device/*_model.c)) \
        src/device/pixel2_coreopts.c
 # src/main.c and the files split from it, which call into one another: the

@@ -193,6 +193,7 @@ static bool run(char *const argv[])
 static bool packed(const char *name)
 {
 	return !strncmp(name, "zyperos.log", 10) || !strcmp(name, "usb.log") ||
+	       !strcmp(name, "kernel.log") ||
 	       !strcmp(name, "wifi.log") || !strcmp(name, "wifi.log.1") ||
 	       !strcmp(name, "card-check.txt") ||
 	       /* and the reports of a panic or a reset before a start

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "xfer_screen.h"
+#include "hwreport.h"
 #include "ds/mark.h"   /* ds_bar_in */
 
 #include "aout_route.h"
@@ -437,7 +438,8 @@ static bool pack_logs(char *path, size_t pn, char *name, size_t nn)
 	bt_device  bt[BT_MAX];
 	const char *secrets[WIFI_MAX_NETS + BT_MAX + 5];
 	char       now_ssid[WIFI_SSID_MAX] = "", ip[64], logs[CFG_STR * 2];
-	char       folder[64], about[4096], err[128], stamp[32];
+	char       folder[64], about[8192], err[128], stamp[32], sysver[64] = "-", hw[3072];
+	hw_facts   facts;
 	int        n = 0, saved, nb, i;
 	size_t     at = 0;
 	time_t     t = time(NULL);
@@ -467,7 +469,17 @@ static bool pack_logs(char *path, size_t pn, char *name, size_t nn)
 		int k_ = snprintf(about + at, sizeof about - at, __VA_ARGS__); \
 		if (k_ > 0 && (size_t)k_ < sizeof about - at) at += (size_t)k_; \
 	} while (0)
+	/* The system image's own version (its slot's), beside the launcher's */
+	if ((f = fopen("/etc/zyperos/system", "r"))) {
+		char l[128];
+
+		while (fgets(l, sizeof l, f))
+			if (!strncmp(l, "version ", 8)) snprintf(sysver, sizeof sysver, "%.*s", (int)strcspn(l + 8, "\n"), l + 8);
+		fclose(f);
+	}
 	ABOUT("ZyperOS %s\n", ZYPEROS_VERSION);
+	ABOUT("Device: %s (%s)\n", plat_profile()->name, plat_profile()->id);
+	ABOUT("System: %s\n", sysver);
 	ABOUT("Packed %s, up %.0f minutes\n", stamp, up / 60);
 	if (statvfs(P_CARD, &vf) == 0)
 		ABOUT("Card: %.1f GB free of %.1f GB\n",
@@ -475,6 +487,11 @@ static bool pack_logs(char *path, size_t pn, char *name, size_t nn)
 	ABOUT("Auto Off: %d s\n", g_logs_app ? g_logs_app->auto_off : -1);
 	ABOUT("Wi-Fi: %s\n", now_ssid[0] ? now_ssid : "not connected");
 	ABOUT("Paired headsets: %d\n", nb);
+	/* What the handheld has (src/hwreport.h): its panel, inputs, GPU, Wi-Fi
+	 * chip, closed files, and the start's marks */
+	plat_hw_facts(&facts);
+	hwreport_build(&facts, hw, sizeof hw);
+	ABOUT("\n%s", hw);
 	ABOUT("\nShelves:\n");
 	for (i = 0; g_logs_app && i < g_logs_app->sys.count; i++) {
 		const system_cfg *sc = &g_logs_app->sys.systems[i];
@@ -488,6 +505,19 @@ static bool pack_logs(char *path, size_t pn, char *name, size_t nn)
 #undef ABOUT
 
 	snprintf(logs, sizeof logs, "%s/logs", P_USERDATA);
+	/* The kernel's log as it is now, into the pack too (masked as the rest):
+	 * the panel, the GPU's and the Wi-Fi chip's own lines in full */
+	{
+		static char klog[1 << 18];
+		char kpath[CFG_STR * 2 + 16];
+
+		hw_klog_text(klog, sizeof klog);
+		snprintf(kpath, sizeof kpath, "%s/kernel.log", logs);
+		if (klog[0] && (f = fopen(kpath, "w"))) {
+			fputs(klog, f);
+			fclose(f);
+		}
+	}
 	snprintf(name, nn, "%s.tar.gz", folder);
 	snprintf(path, pn, "/tmp/%s", name);
 	if (!logpack_build(logs, about, secrets, n, folder, path, err, sizeof err)) {

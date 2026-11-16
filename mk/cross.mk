@@ -10,6 +10,7 @@ include config/device/$(DEVICE).mk
 MCPU := -mcpu=$(ZYDEV_MCPU)
 # and its profile (src/device/profile.h), the one the build is for
 SRC := $(wildcard src/*.c) $(wildcard src/ds/*.c) src/device/$(DEVICE).c src/device/$(DEVICE)_profile.c \
+       $(wildcard src/device/$(DEVICE)_hw.c) \
        src/device/td_model.c $(wildcard src/device/$(DEVICE)_model.c) \
        src/device/pixel2_coreopts.c
 CC ?= aarch64-linux-gnu-gcc

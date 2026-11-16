@@ -107,6 +107,10 @@ static void pack(void)
 	if ((f = fopen(p, "w"))) { fputs("status 1, from 1.2s to 3.4s after the kernel started\n", f); fclose(f); }
 	snprintf(p, sizeof p, "%s/logs/crash-20261115-093000.txt", dir);
 	if ((f = fopen(p, "w"))) { fputs("Kernel panic - not syncing: softlockup: hung tasks\n", f); fclose(f); }
+	/* The kernel's log, written just before the pack (src/xfer_screen.c),
+	 * masked as the rest */
+	snprintf(p, sizeof p, "%s/logs/kernel.log", dir);
+	if ((f = fopen(p, "w"))) { fputs("<6>[ 9.1] xr829: joined ReinFi\n", f); fclose(f); }
 	snprintf(p, sizeof p, "%s/logs/crash-notes.md", dir);
 	if ((f = fopen(p, "w"))) { fputs("not a report\n", f); fclose(f); }
 	snprintf(p, sizeof p, "%s/logs/other.txt", dir);
@@ -131,7 +135,8 @@ static void pack(void)
 		}
 		pclose(f);
 	}
-	CHECK(files == 6, "three logs (wifi.log among them), the card checks, a crash report and about.txt, not the other files: %d", files);
+	CHECK(files == 7, "three logs (wifi.log among them), the kernel's log, the card checks, a crash report and about.txt, "
+	      "not the other files: %d", files);
 	CHECK(found_net && found_mac && found_about,
 	      "each masked, in the logs and in about.txt: %d %d %d",
 	      found_net, found_mac, found_about);
