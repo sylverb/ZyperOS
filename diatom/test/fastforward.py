@@ -13,6 +13,16 @@ with STUBCORE_SKIPPABLE offers a frameskip, as the DS core does. The speed is
 Diatom's own figure at STOP (step_report), "of the clock": frames run, as the
 game's time, over the wall clock's.
 
+How fast a machine can run the stub is not known here: on a CI runner busy
+with other checks, Diatom's own drawing took more than the core, and a 1 ms
+core at 1.5x reached 1.31x. So the pacing is judged by what step_report says
+of its turns. A fast turn either runs the step's frames or stops short,
+when the next frame would not fit its two refreshes; a short turn is behind,
+so the loop must not sleep after it (the old pacing slept there a fifth of
+the time), and that is judged on any machine. Whether a core reaches its
+step is judged only in a run with no short turn, where the machine kept up;
+otherwise the check says it could not tell. Never over the step, on any.
+
 Sound is not judged here: SDL's dummy driver drains its queue slower than
 the clock, and drops at 1x too. The silence fast forward pushes (one turn's
 wall-clock time) is checked on a device, where step_report's count is real.
@@ -39,8 +49,9 @@ def check(name, ok, got=None):
 
 def run(tag, frame_us, presses, seconds=4.0, skippable=False):
     """One game: SELECT+R2 `presses` times from poll 30, then `seconds` at that
-    step, STOP. Returns (step, of the clock, audio frames dropped) from the
-    step's report, or None."""
+    step, STOP. Returns (step, of the clock, audio frames dropped, a frame's
+    cost in ms, seconds held, seconds slept after short turns, short turns,
+    turns) from the step's report, or None."""
     steps = ["30:select"]
     poll = 33
     for _ in range(presses):
@@ -90,50 +101,71 @@ def run(tag, frame_us, presses, seconds=4.0, skippable=False):
     try: p.wait(5)
     except subprocess.TimeoutExpired: p.kill()
     text = open(out, errors="replace").read()
-    reps = re.findall(r"diatom: speed ([\d.]+)x held [\d.]+s, reached [\d.]+x "
-                      r"\(([\d.]+)x of the clock\), (\d+) audio frame", text)
+    reps = re.findall(r"diatom: speed ([\d.]+)x held ([\d.]+)s, reached [\d.]+x "
+                      r"\(([\d.]+)x of the clock\), (\d+) audio frame\(s\) dropped, "
+                      r"slept [\d.]+s \(([\d.]+)s after (\d+) of (\d+) turns short", text)
     # What a frame really cost in this run, drawn or not: on a busy machine
     # (make check runs many at once) more than the stub spends
     costs = [float(c) for c in re.findall(r"diatom: the core took ([\d.]+) ms a drawn frame", text)]
     costs += [float(c) for c in re.findall(r"diatom: and ([\d.]+) ms a frame run undrawn", text)]
     if not reps or not costs: return None
-    step, clock, dropped = reps[-1]
-    return float(step), float(clock), int(dropped), sum(costs) / len(costs)
+    step, held, clock, dropped, short_s, short_n, turns = reps[-1]
+    return (float(step), float(clock), int(dropped), sum(costs) / len(costs),
+            float(held), float(short_s), int(short_n), int(turns))
 
-# A core that reaches every step: held to it, never over. On a machine too
-# busy for it (a CI runner stretched the 1 ms sleep to 7.8 ms), flat out
+# What the core's own cost allows, flat out: never more than this
 def flat_of(r):
     return 1000.0 / r[3] / 59.7275
 
+def flat_out(r):
+    """Behind, flat out: no more than a twentieth of the step slept after
+    turns short of the step's frames"""
+    return r is not None and r[5] <= r[4] / 20
+
+def short_of(r):
+    return f"{r[6]} of {r[7]} turns short of the step, {r[5]:.2f}s slept after them"
+
+def judged(name, r, want):
+    """At the step, in a run with no turn short of it; else not judged"""
+    if r is not None and r[6] == 0:
+        check(name, r[1] >= want * 0.88, (r, short_of(r)))
+    elif r is not None:
+        print(f"  --   {name}: not judged, this machine could not keep the step ({short_of(r)})")
+
+# A core that reaches every step: held to it, never over; on a machine too
+# busy for it, flat out
 for presses, want in ((1, 1.5), (3, 3.0)):
     r = run(f"fast{presses}", 1000, presses)
-    check(f"a 1 ms core at {want}x runs at {want}x (or flat out short of it), not over it",
-          r is not None and r[0] == want and
-          min(want, flat_of(r)) * 0.88 <= r[1] <= want * 1.03,
-          r and (r, round(flat_of(r), 2)))
+    check(f"a 1 ms core at {want}x is never over the step, and flat out when short of it",
+          r is not None and r[0] == want and r[1] <= want * 1.03 and flat_out(r),
+          r and (r, short_of(r)))
+    judged(f"a 1 ms core at {want}x reaches it", r, want)
+    if r: print(f"       {r[1]:.2f}x, {short_of(r)}")
 
 # A slow core, flat out short of the step. The old pacing ran whole frames in
 # a two-refresh turn and slept the rest, so its speed came in steps: at 9 ms
 # a frame 3 a turn, 1.5x; a little over 10.5 ms, 2 a turn, 1.0x (Pokemon
-# Black on the Pixel 2, 11 to 12 ms, went 1.0x). Flat out is what the frame
-# cost allows, 1.86x at 9 ms; judged against the cost this run measured, since
-# a sleep runs over on a busy machine.
+# Black on the Pixel 2, 11 to 12 ms, went 1.0x): every turn short, and a
+# sleep after each. Flat out, with no sleep after a short turn, it is what the
+# frame cost allows, 1.86x at 9 ms, and never more than the cost this run
+# measured allows, since a sleep runs over on a busy machine.
 
 for tag, skippable in (("slow", True), ("slow-noskip", False)):
     r = run(tag, 9000, 3, skippable=skippable)
-    say = "with a frameskip" if skippable else "with no frameskip"
-    check(f"a 9 ms core {say} at 3x runs flat out, not whole frames a turn",
-          r is not None and r[0] == 3.0 and flat_of(r) * 0.88 <= r[1] <= flat_of(r) * 1.05,
-          r and (r, round(flat_of(r), 2)))
-    if r: print(f"       {r[1]:.2f}x, flat out {flat_of(r):.2f}x at {r[3]:.2f} ms a frame")
+    how = "with a frameskip" if skippable else "with no frameskip"
+    check(f"a 9 ms core {how} at 3x runs flat out, not whole frames a turn",
+          r is not None and r[0] == 3.0 and r[1] <= flat_of(r) * 1.05 and flat_out(r),
+          r and (r, short_of(r), round(flat_of(r), 2)))
+    if r: print(f"       {r[1]:.2f}x, flat out {flat_of(r):.2f}x at {r[3]:.2f} ms a frame, {short_of(r)}")
 
 # At a step it can reach it is held to the step; on a machine busy enough
 # that it cannot, flat out
 r = run("slow15", 9000, 1, skippable=True)
-check("the 9 ms core at 1.5x runs at 1.5x (or flat out short of it), not over it",
-      r is not None and r[0] == 1.5 and
-      min(1.5, flat_of(r)) * 0.88 <= r[1] <= 1.5 * 1.03,
-      r and (r, round(flat_of(r), 2)))
+check("the 9 ms core at 1.5x is never over the step, and flat out when short of it",
+      r is not None and r[0] == 1.5 and r[1] <= 1.5 * 1.03 and flat_out(r),
+      r and (r, short_of(r)))
+judged("the 9 ms core at 1.5x reaches it", r, 1.5)
+if r: print(f"       {r[1]:.2f}x, {short_of(r)}")
 
 shutil.rmtree(TMP, ignore_errors=True)
 if fails:
