@@ -143,8 +143,10 @@ itself to the next release once there is one.
    version with no hyphen and a commit that changes more than the version
    and the notes from main; neither needs `Tested on` lines (the kit is the
    test) or posts in #releases (a kit's testers get it in its own thread).
-   The Release workflow builds its installer as for a release, and checks
-   that the draft has an image of at least one device.
+   The Release workflow builds its installer as for a release, but for an
+   `.rpm` (Tauri CLI 2.12 hands the version to the rpm crate as it is, and
+   RPM versions can't have a hyphen), and checks that the draft has an image
+   of at least one device.
 
 Why the image is built on the Mac and the installer on GitHub: the image's
 inputs are on the Mac (the cores in `vendor/`, part fetched by
