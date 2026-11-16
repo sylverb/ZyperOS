@@ -147,7 +147,11 @@ define ZYPEROS_BUILD_SSH_TOOLS
 	$(TARGET_CC) $(TARGET_CFLAGS) $(TARGET_LDFLAGS) -Wall -Wextra \
 		-o $(@D)/$(ZYPEROS_BUILD_DIR)/px2-open $(@D)/tools/px2-open.c $(@D)/src/ctl.c
 endef
+# The Pixel 2's only: they read its DRM display (GETFB2, Linux 5.7 and
+# later), which the Brick's 4.9 kernel and framebuffer have not
+ifeq ($(ZYPEROS_DEVICE),pixel2)
 ZYPEROS_POST_BUILD_HOOKS += ZYPEROS_BUILD_SSH_TOOLS
+endif
 define ZYPEROS_INSTALL_SSH_TOOLS
 	for t in $(ZYPEROS_SSH_TOOLS); do \
 		$(INSTALL) -D -m 0755 $(@D)/$(ZYPEROS_BUILD_DIR)/$$t $(TARGET_DIR)/usr/bin/$$t || exit 1; \
@@ -155,7 +159,9 @@ define ZYPEROS_INSTALL_SSH_TOOLS
 	$(INSTALL) -D -m 0755 $(@D)/tools/px2-snap.sh $(TARGET_DIR)/usr/bin/px2-snap
 	$(INSTALL) -D -m 0755 $(@D)/$(ZYPEROS_BUILD_DIR)/px2-open $(TARGET_DIR)/usr/bin/px2-open
 endef
+ifeq ($(ZYPEROS_DEVICE),pixel2)
 ZYPEROS_POST_INSTALL_TARGET_HOOKS += ZYPEROS_INSTALL_SSH_TOOLS
+endif
 
 # Its start and stop, the same on both devices: copied onto the card from the
 # image when the card has no ZyperOS or an older one, launch.sh run, and at
