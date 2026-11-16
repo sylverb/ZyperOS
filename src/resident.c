@@ -1014,6 +1014,12 @@ static int diatom_wait(void)
 					fprintf(stderr, "diatom: %s\n", l);
 				d_crashed = strstr(l, "reason=crash") != NULL;
 				d_apply_levels();
+				/* The crashed one is on its way out, and its socket stays
+				 * open until it is gone. Kept, it is a resident that
+				 * answers plat_resident_ready, so respawn_resident started
+				 * none: the next game ran the fallback all the same (seen
+				 * on the Pixel 2, 2026-11-15). */
+				if (d_crashed) dclose();
 				return RES_EXIT;
 			}
 			else if (strncmp(l, "ERROR", 5) == 0) {
