@@ -147,7 +147,10 @@
 # keeps is the host's local time at a game's start, while it runs faster
 # than real time, after a pause, a state load and a reset. And
 # mk/dsperate-extbg-check.sh: 96 frames of extended backgrounds, each as the
-# core drew it before the fifth patch.
+# core drew it before the fifth patch. And mk/dsperate-state-check.sh: a save
+# state the v3.0.5 core made (tools/dsperate-state-v305.state.gz) is taken,
+# and the game runs on from it, which Diatom's STATE_READS rests on: the
+# DS players' resume points made before the move to v3.4.1 still load.
 #
 #   mk/build-dsperate.sh          build, install to vendor/cores
 #
@@ -204,6 +207,7 @@ SO=$SRC/build/dsperate_libretro.so
 sh "$ROOT/mk/dsperate-rtc-check.sh" "$SO"
 # Extended backgrounds drawn as before (the fifth)
 sh "$ROOT/mk/dsperate-extbg-check.sh" "$SO"
+sh "$ROOT/mk/dsperate-state-check.sh" "$SO"
 GOT=$(shasum -a 256 "$SO" | cut -d' ' -f1)
 if [ "$GOT" != "$SHA" ]; then
 	echo "!! dsperate sha256 $GOT, expected $SHA" >&2
