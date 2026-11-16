@@ -25,7 +25,7 @@
 # The source is PPSSPP's git tree at the release's commit with its
 # submodules, at the commits the tree records: git checks every object by its
 # hash, so the commit names all of it. The build itself reads nothing from
-# the network. Eight patches of ours, and mk/core-stamp.sh holds the core to
+# the network. Nine patches of ours, and mk/core-stamp.sh holds the core to
 # them (each patch says why):
 #   mk/patches/ppsspp-serialize-size.patch  the emulation thread runs again
 #                                           after the core measures a state
@@ -35,6 +35,9 @@
 #   mk/patches/ppsspp-context-null.patch    no ContextDestroy on the context
 #                                           retro_unload_game deleted (every
 #                                           PSP quit crashed Diatom)
+#   mk/patches/ppsspp-gl-draw-range.patch   indexed draws give OpenGL their
+#                                           index range, so Panfrost does not
+#                                           read every draw's indices back
 # and four of Deadstation Portable's CPU speedups (the ARM64 code only: its
 # Vulkan, its GE thread and its Brick panel code have no place in a libretro
 # core on OpenGL ES), each the same results as before:
@@ -72,7 +75,7 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 WORK=${1:-/tmp/zyperos-ppsspp}
 PIN=fa50bb1976065c4f8b1b47af227d367fe9771555   # hrydgard/ppsspp v1.20.4
 EPOCH=1778934711                               # v1.20.4's commit time
-SHA=60fea31e25e30b5b23b514442a25ad53cb5bf2d16cd1155c19be373333cc4537
+SHA=8abc3671f28c46eb1a7e3102d16c0769064afd6f395b5de5c51a6ead1e2c47f0
 DATA_SHA=28710ec72df453e824376c055b49d33197bb91bf4245c7c2fda6b59b287f4b30
 # What the libretro core builds from (OpenXR's SDK and miniupnp for their
 # headers alone: Common/VR and Core/Util/PortManager.h include them on every
@@ -98,6 +101,7 @@ git -C "$SRC" submodule update -q --init --force --depth 1 --recursive -- $SUBMO
 git -C "$SRC" apply "$ROOT/mk/patches/ppsspp-serialize-size.patch"
 git -C "$SRC" apply "$ROOT/mk/patches/ppsspp-audio-thread.patch"
 git -C "$SRC" apply "$ROOT/mk/patches/ppsspp-context-null.patch"
+git -C "$SRC" apply "$ROOT/mk/patches/ppsspp-gl-draw-range.patch"
 git -C "$SRC" apply "$ROOT/mk/patches/ppsspp-vertex-pairs.patch"
 git -C "$SRC" apply "$ROOT/mk/patches/ppsspp-vfpu-jit.patch"
 git -C "$SRC" apply "$ROOT/mk/patches/ppsspp-vfpu-dot.patch"
