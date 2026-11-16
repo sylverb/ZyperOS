@@ -734,6 +734,8 @@ uint32_t gg_draw(gg_motion *m, SDL_Renderer *r, const gg_info *in,
 		ring(r, f, 255);
 	}
 	first = (int)floorf(top) * g.cols;
+	m->top_drawn = top;
+	m->holes = 0;
 	for (int i = first < 0 ? 0 : first; i < first + (GG_ROWS + 1) * g.cols && i < in->count; i++) {
 		SDL_FRect c = cell_rect(&g, (float)(i % g.cols), (float)(i / g.cols), top);
 		int w = 0, h = 0;
@@ -745,6 +747,8 @@ uint32_t gg_draw(gg_motion *m, SDL_Renderer *r, const gg_info *in,
 		if (!t || w <= 0 || h <= 0) {
 			/* still coming: the cell's place, quietly */
 			SDL_Rect q = whole(c);
+
+			m->holes++;
 			ui_round_rect(r, &q, DS_RADIUS_CELL, ui_col(theme()->raised, 255));
 			continue;
 		}

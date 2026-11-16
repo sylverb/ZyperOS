@@ -76,6 +76,11 @@ typedef struct {
 	float    shape, measured;
 	uint32_t opened;
 	bool     settled;
+	/* What the last gg_draw drew: the first row in sight then, and how many
+	 * cells in sight had no cover yet, for the caller's asks ahead and its
+	 * eviction (gg_row_kept) */
+	float    top_drawn;
+	int      holes;
 } gg_motion;
 
 /* How long a shelf opened with no shape kept may take it from its covers */

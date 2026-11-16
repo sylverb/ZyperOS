@@ -35,6 +35,9 @@
 
 bool texload_start(void);
 void texload_stop(void);
+/* Whether workers decode: false before texload_start, after texload_stop,
+ * and in a shot, where every card is read on the frame */
+bool texload_running(void);
 
 /* Everything in flight is stale from here on: the shelf it was for has been
  * rebuilt and its indices no longer mean what they meant. Results already

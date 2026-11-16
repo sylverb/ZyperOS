@@ -4480,8 +4480,18 @@ last cover; L1 and R1 a screenful in the same column, or to the last (first)
 cover where less is left, and from the last round to the first, so a grid
 that fits on one screen gets its two ends (`gg_page`). The four directions are
 the grid's, so it has no letter jump. A, B, X, Y, START as on the cover row.
-Three rows of covers either way stay decoded (the two in sight and the next),
-where the row keeps eight.
+The covers a press can slide into sight are decoded before it comes: the two
+rows in sight and two rows either side of them stay, counted round the ends
+(Left from the first cover, Right from the last and L1/R1 at the ends come
+round), and one more round an end the window is at, which the glide into the
+other end's page shows a sliver of (`gg_row_kept`). The rows ahead are asked
+for once every cover in sight is in, the nearest first, so a row, a page or
+the other end slides in whole, never cover by cover *(2026-11-15: "when we go
+down a page, the arts flicker while the animation is scrolling down")*. A row
+a glide still shows stays until it ends. Held, the steps can outrun the
+decoding; then the covers in sight come first. Before a game starts the grid
+lets go of all but the rows in sight, so the game has that memory; the rows
+ahead are asked for again when the grid is back. The row keeps eight.
 
 ## 12. Copy
 

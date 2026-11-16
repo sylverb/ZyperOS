@@ -1,0 +1,101 @@
+ZyperOS: indexed draws give OpenGL their index range (glDrawRangeElements),
+so the driver does not read every draw's indices back to find it.
+
+PPSSPP's OpenGL backend draws each flush with glDrawElements from its index
+push buffer. Mesa's Panfrost (the Pixel 2's Mali-G31) needs the lowest and
+highest index of every indexed draw to size its vertex job; without a range
+from the program it looks the draw up in a small per-buffer cache, which every
+write to the buffer clears, and PPSSPP writes fresh indices at a new offset
+for every draw. So every draw missed it, and Panfrost mapped the index buffer
+and scanned it on the CPU, from uncached GPU memory
+(u_vbuf_get_minmax_index_mapped, panfrost_get_index_buffer_bounded in
+pan_helpers.c). Sampled on the GL thread on a GKD Pixel 2: 52% of it in
+Daxter's 3D title screen, 21% in God of War: Chains of Olympus's main menu.
+
+The hardware-transform path already knows the range: its indices point into
+the vertices DecodeVerts just decoded, numDecodedVerts_ of them, which
+DecodeIndsAndGetData returns as maxIndex. DrawIndexed now takes the highest
+index (-1, the default, for a caller that does not know it) and the queue
+runner draws with glDrawRangeElements(mode, 0, maxIndex, ...) when it is known,
+on desktop OpenGL or OpenGL ES 3. The software-transform path and thin3d's
+draws are unchanged. The same pixels: the range only says where the indices
+already are.
+
+On the Pixel 2, the same screens, the core before and after (px2-perf, 20 s):
+Daxter's title 23.5 to 30.0 frames a second (its own 30; the GL thread from
+108% of a core to 58%), God of War's main menu 16.6 to 20.4 (its GPU is now
+89% busy; the GL thread waits on the GPU, PANFROST_WAIT_BO, a fifth of its
+time). No GPU fault in the kernel's log.
+
+Upstream: any Mesa driver that needs the range pays the same scan for
+PPSSPP's streamed indices; Panfrost is one.
+
+diff --git a/Common/GPU/OpenGL/GLQueueRunner.cpp b/Common/GPU/OpenGL/GLQueueRunner.cpp
+index f2f9ba9..a46d9db 100644
+--- a/Common/GPU/OpenGL/GLQueueRunner.cpp
++++ b/Common/GPU/OpenGL/GLQueueRunner.cpp
+@@ -1233,7 +1233,11 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
+ 					glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buf);
+ 					curElemArrayBuffer = buf;
+ 				}
+-				if (c.draw.instances == 1) {
++				if (c.draw.instances == 1 && c.draw.maxIndex >= 0 && (!gl_extensions.IsGLES || gl_extensions.GLES3)) {
++					// The range given, so the driver need not work it out. Mesa's Panfrost does that by
++					// reading every draw's indices back on the CPU from the buffer the GPU reads them from.
++					glDrawRangeElements(c.draw.mode, 0, c.draw.maxIndex, c.draw.count, c.draw.indexType, (void *)(intptr_t)c.draw.indexOffset);
++				} else if (c.draw.instances == 1) {
+ 					glDrawElements(c.draw.mode, c.draw.count, c.draw.indexType, (void *)(intptr_t)c.draw.indexOffset);
+ 				} else {
+ 					glDrawElementsInstanced(c.draw.mode, c.draw.count, c.draw.indexType, (void *)(intptr_t)c.draw.indexOffset, c.draw.instances);
+diff --git a/Common/GPU/OpenGL/GLQueueRunner.h b/Common/GPU/OpenGL/GLQueueRunner.h
+index 6c36f24..f07e1d3 100644
+--- a/Common/GPU/OpenGL/GLQueueRunner.h
++++ b/Common/GPU/OpenGL/GLQueueRunner.h
+@@ -116,6 +116,7 @@ struct GLRRenderData {
+ 			GLint count;
+ 			GLint indexType;
+ 			GLint instances;
++			GLint maxIndex;  // indexed: the highest index the draw uses, or -1 if not known
+ 		} draw;
+ 		struct {
+ 			const char *name;  // if null, use loc
+diff --git a/Common/GPU/OpenGL/GLRenderManager.h b/Common/GPU/OpenGL/GLRenderManager.h
+index 6c97169..1ca337d 100644
+--- a/Common/GPU/OpenGL/GLRenderManager.h
++++ b/Common/GPU/OpenGL/GLRenderManager.h
+@@ -766,7 +766,9 @@ public:
+ 	}
+ 
+ 	// Would really love to have a basevertex parameter, but impossible in unextended GLES, without glDrawElementsBaseVertex, unfortunately.
+-	void DrawIndexed(GLRInputLayout *inputLayout, GLRBuffer *vertexBuffer, uint32_t vertexOffset, GLRBuffer *indexBuffer, uint32_t indexOffset, GLenum mode, int count, GLenum indexType, int instances = 1) {
++	// maxIndex: the highest index in the draw, if the caller knows it (-1 if not). With it, the
++	// driver need not find the range itself by reading the indices back.
++	void DrawIndexed(GLRInputLayout *inputLayout, GLRBuffer *vertexBuffer, uint32_t vertexOffset, GLRBuffer *indexBuffer, uint32_t indexOffset, GLenum mode, int count, GLenum indexType, int instances = 1, int maxIndex = -1) {
+ 		_dbg_assert_(vertexBuffer && indexBuffer && curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+ 		GLRRenderData &data = curRenderStep_->commands.push_uninitialized();
+ 		data.cmd = GLRRenderCommand::DRAW;
+@@ -779,6 +781,7 @@ public:
+ 		data.draw.count = count;
+ 		data.draw.indexType = indexType;
+ 		data.draw.instances = instances;
++		data.draw.maxIndex = maxIndex;
+ 	}
+ 
+ 	enum { MAX_INFLIGHT_FRAMES = 3 };
+diff --git a/GPU/GLES/DrawEngineGLES.cpp b/GPU/GLES/DrawEngineGLES.cpp
+index 7a5c760..6b49cb0 100644
+--- a/GPU/GLES/DrawEngineGLES.cpp
++++ b/GPU/GLES/DrawEngineGLES.cpp
+@@ -306,10 +306,11 @@ void DrawEngineGLES::Flush() {
+ 		LinkedShader *program = shaderManager_->ApplyFragmentShader(vsid, vshader, pipelineState_, framebufferManager_->UseBufferedRendering());
+ 		GLRInputLayout *inputLayout = SetupDecFmtForDraw(dec_->GetDecVtxFmt());
+ 		if (useElements) {
++			// The indices point into the vertices just decoded, numDecodedVerts_ of them (maxIndex).
+ 			render_->DrawIndexed(inputLayout,
+ 				vertexBuffer, vertexBufferOffset,
+ 				indexBuffer, indexBufferOffset,
+-				glprim[prim], vertexCount, GL_UNSIGNED_SHORT);
++				glprim[prim], vertexCount, GL_UNSIGNED_SHORT, 1, maxIndex - 1);
+ 		} else {
+ 			render_->Draw(
+ 				inputLayout, vertexBuffer, vertexBufferOffset,
