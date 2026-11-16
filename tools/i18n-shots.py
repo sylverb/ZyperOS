@@ -361,6 +361,21 @@ EXTRA = {
     # for three systems and for one (the plurals' one), Systems with a long
     # name in focus too, Videos for, Settings, the run, done (and with one
     # system's videos), offline, and a system's own Box Art
+    "radl-page-plan": ("demo", "PS1", ["--radl-page", "0"]),
+    "radl-page-plan-checked": ("demo", "PS1", ["--radl-page", "1"]),
+    "radl-page-signed-out": ("demo", "PS1", ["--radl-page", "2"]),
+    "radl-page-no-wifi": ("demo", "PS1", ["--radl-page", "3"]),
+    "radl-page-run": ("demo", "PS1", ["--radl-page", "4"]),
+    "radl-page-run-no-wifi": ("demo", "PS1", ["--radl-page", "5"]),
+    "radl-page-run-paused": ("demo", "PS1", ["--radl-page", "6"]),
+    "radl-page-run-identifying": ("demo", "PS1", ["--radl-page", "7"]),
+    "radl-page-done": ("demo", "PS1", ["--radl-page", "8"]),
+    "radl-page-done-sign-in": ("demo", "PS1", ["--radl-page", "9"]),
+    "radl-page-stopped": ("demo", "PS1", ["--radl-page", "10"]),
+    "radl-page-stopped-no-answer": ("demo", "PS1", ["--radl-page", "11"]),
+    "radl-page-run-retrying": ("demo", "PS1", ["--radl-page", "12"]),
+    "radl-page-plan-one": ("demo", "PS1", ["--radl-page", "13"]),
+    "radl-page-done-one": ("demo", "PS1", ["--radl-page", "14"]),
     "scraper-page-plan-off": ("demo", "PS1", ["--scraper-page", "0"]),
     "scraper-page-plan": ("demo", "PS1", ["--scraper-page", "1"]),
     "scraper-page-plan-one": ("demo", "PS1", ["--scraper-page", "2"]),

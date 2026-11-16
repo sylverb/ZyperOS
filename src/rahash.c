@@ -770,6 +770,77 @@ ra_hash_kind ra_hash_support(const char *tag, const char *path, const char *exts
 	return exts && *exts ? RA_HASH_NO_SYSTEM : RA_HASH_NO_FILE;
 }
 
+/* A DS game, rcheevos's rc_hash_nintendo_ds: not the whole file, but what
+ * the cartridge runs - the header's first 0x160 bytes, the ARM9 code, the
+ * ARM7 code and the 0xA00 bytes of icon and titles, each where the header
+ * puts it. Hashed whole, a DS game had a hash RetroAchievements has never
+ * seen, so none ever found its set (found 2026-11-16 by MENU > Achievements'
+ * Download: six real DS games, all "none"). A SuperCard's own 512-byte
+ * header comes first on some dumps and is passed over. Codes past 16 MB
+ * between them are no DS ROM (rcheevos's own test), and a part the file
+ * ends inside is filled out with zeros, as rcheevos fills a short icon. */
+#define NDS_HEAD     0x160
+#define NDS_ICON     0xA00
+#define NDS_CODE_MAX (16u * 1024 * 1024)
+
+static uint32_t nds_u32(const unsigned char *p)
+{
+	return (uint32_t)p[0] | (uint32_t)p[1] << 8 | (uint32_t)p[2] << 16 | (uint32_t)p[3] << 24;
+}
+
+/* `size` bytes of the image from `at`, zeros past its end */
+static void nds_part(md5_ctx *m, const unsigned char *d, size_t len, uint64_t at, uint32_t size)
+{
+	static const unsigned char zero[4096];
+
+	while (size) {
+		uint32_t n;
+
+		if (at < len) {
+			n = (uint32_t)((uint64_t)len - at < size ? (uint64_t)len - at : size);
+			md5_update(m, d + at, n);
+		} else {
+			n = size < sizeof zero ? size : (uint32_t)sizeof zero;
+			md5_update(m, zero, n);
+		}
+		at += n;
+		size -= n;
+	}
+}
+
+static bool ra_hash_nds(const unsigned char *d, size_t len, char *out)
+{
+	const unsigned char *h = d;
+	uint64_t off = 0;
+	uint32_t arm9_addr, arm9_size, arm7_addr, arm7_size, icon_addr;
+	unsigned char sc[512];
+	md5_ctx m;
+
+	if (len < 512) return false;
+	if (d[0] == 0x2E && d[1] == 0x00 && d[2] == 0x00 && d[3] == 0xEA &&
+	    d[0xB0] == 0x44 && d[0xB1] == 0x46 && d[0xB2] == 0x96 && d[0xB3] == 0x00) {
+		/* the SuperCard's header: the cartridge's own is the next 512 */
+		off = 512;
+		memset(sc, 0, sizeof sc);
+		memcpy(sc, d + 512, len - 512 < sizeof sc ? len - 512 : sizeof sc);
+		h = sc;
+	}
+	arm9_addr = nds_u32(h + 0x20);
+	arm9_size = nds_u32(h + 0x2C);
+	arm7_addr = nds_u32(h + 0x30);
+	arm7_size = nds_u32(h + 0x3C);
+	icon_addr = nds_u32(h + 0x68);
+	if ((uint64_t)arm9_size + arm7_size > NDS_CODE_MAX) return false;
+
+	md5_init(&m);
+	md5_update(&m, h, NDS_HEAD);
+	nds_part(&m, d, len, off + arm9_addr, arm9_size);
+	nds_part(&m, d, len, off + arm7_addr, arm7_size);
+	nds_part(&m, d, len, off + icon_addr, NDS_ICON);
+	md5_hex(&m, out);
+	return true;
+}
+
 bool ra_hash_rom(const char *path, const char *tag, char *out)
 {
 	unsigned char *data = NULL;
@@ -826,6 +897,12 @@ bool ra_hash_rom(const char *path, const char *tag, char *out)
 		len = (size_t)sz;
 	}
 
+	if (!strcmp(tag, "NDS")) {
+		bool ok = ra_hash_nds(data, len, out);
+
+		free(data);
+		return ok;
+	}
 	if (!strcmp(tag, "N64") && !n64_to_z64(data, len)) { free(data); return false; }
 	skip = ra_skip(tag, data, len);
 	if (skip >= len) { free(data); return false; }

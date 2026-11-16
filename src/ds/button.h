@@ -5,8 +5,8 @@
  *
  * Screens name a button by its id's name - "A", "SELECT", "L1", "F1", the
  * d-pad's "< >" and "^ v" - never by what one device prints on it. This says
- * what the device does print: the Pixel 2's SELECT is a pill with its word,
- * the Brick's a round key with a square on it; the Pixel 2's MENU is a round
+ * what the device does print: the Pixel 2's SELECT is a round key with SE on
+ * it, the Brick's a round key with a square on it; the Pixel 2's MENU is a round
  * key with three dots, the Brick's shows TrimUI's mark, so it is its word
  * (a vendor's logo is never a mark). src/ui.c draws the answer
  * (ui_button, ui_button_pressed, ui_button_width) in the theme's colors.

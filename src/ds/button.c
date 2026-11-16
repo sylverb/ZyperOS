@@ -69,8 +69,10 @@ ds_key ds_key_of(const char *name)
 	case DEV_ICON_PLAY:   return (ds_key){ DS_KEY_FACE, DS_KEY_MARK_PLAY, b->label };
 	default: break;
 	}
-	/* A round key with a word on it (the Brick's MENU and POWER): the word
-	 * needs a pill's room, as a key's word always had */
-	if (b->label[0] && !b->label[1]) return (ds_key){ DS_KEY_FACE, DS_KEY_MARK_NONE, b->label };
+	/* A round key with one or two letters is a face with them (A; the Pixel
+	 * 2's SE and ST); with a word (the Brick's MENU and POWER), the word needs
+	 * a pill's room, as a key's word always had */
+	if (b->label[0] && (!b->label[1] || !b->label[2]))
+		return (ds_key){ DS_KEY_FACE, DS_KEY_MARK_NONE, b->label };
 	return (ds_key){ DS_KEY_PILL, DS_KEY_MARK_NONE, b->label };
 }

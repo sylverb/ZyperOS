@@ -20,8 +20,10 @@ static const dev_button pixel2_buttons[] = {
 	{ IN_R1,     "R1",     DEV_CAP_SHOULDER, DEV_ICON_NONE, 0 },
 	{ IN_L2,     "L2",     DEV_CAP_SHOULDER, DEV_ICON_NONE, 0 },
 	{ IN_R2,     "R2",     DEV_CAP_SHOULDER, DEV_ICON_NONE, 0 },
-	{ IN_SELECT, "SELECT", DEV_CAP_PILL,     DEV_ICON_NONE, 0 },
-	{ IN_START,  "START",  DEV_CAP_PILL,     DEV_ICON_NONE, 0 },
+	/* Round keys nearly as big as A B X Y, SE and ST engraved on them
+	 * (tools/build-pixel2-model.py) */
+	{ IN_SELECT, "SE",     DEV_CAP_ROUND,    DEV_ICON_NONE, 0 },
+	{ IN_START,  "ST",     DEV_CAP_ROUND,    DEV_ICON_NONE, 0 },
 	{ IN_MENU,   "MENU",   DEV_CAP_ROUND,    DEV_ICON_DOTS, 0 },
 	{ IN_VOLUP,  "VOL+",   DEV_CAP_ROCKER,   DEV_ICON_NONE, 0 },
 	{ IN_VOLDN,  "VOL-",   DEV_CAP_ROCKER,   DEV_ICON_NONE, 0 },

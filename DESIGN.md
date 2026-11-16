@@ -1245,8 +1245,13 @@ Progress before a synchronous operation is one presented frame, without a hold.
 For the tutorial and anywhere a button is drawn rather than named
 (`ui_button`, `ui_dpad`, `ui_rocker`, `ui_power` in src/ui.c). Face buttons
 are circles, 96 units, **raised**, a 4-unit **edge** ring, the letter in
-**title**. SELECT and START are pills 64 high, the word Regular at half the
-title, 30 units at each end. MENU is a face, as the key is on the Pixel 2: a
+**title**. A key printed with a word (POWER; the Brick's MENU) is a pill 64
+high, the word Regular at half the title, 30 units at each end. The Pixel
+2's SELECT and START are faces: round keys nearly as big as A B X Y with
+SE and ST engraved on them (tools/build-pixel2-model.py), their two letters
+at 5/8 of a face's letter, as the model engraves them (1.75 mm to 2.8); they
+were pills with the words until 1.0.6 (2026-11-16: "the pixel select button
+is actually a circle"). MENU is a face, as the key is on the Pixel 2: a
 round key with three dimples down the device's height
 (tools/build-pixel2-model.py), so its glyph is the face circle with three
 **text** dots in a vertical line, each 0.15 of the face letter's cap height
@@ -1268,7 +1273,7 @@ a stroke of 6 with round ends, and a stroke down into it.
 id's name (A, SELECT, L1, F1, the d-pad's "< >" and "^ v"), never by what one
 handheld prints, and the glyph is the one this handheld prints, from its
 profile's table (`dev_button`, src/device/profile.h). A round key with one
-letter is a face. A round key with a mark is a face with the mark: the Pixel
+or two letters is a face with them (A; the Pixel 2's SE and ST). A round key with a mark is a face with the mark: the Pixel
 2's MENU, its three dots; the Brick's SELECT, a square, and START, a play
 triangle, as its model draws them (the square 0.72 of a capital across, as a
 solid square carries more ink than a letter's strokes; the triangle about a
@@ -1281,9 +1286,9 @@ Running text that names a key whose cap carries a mark and no word draws
 the key inline, as MENU's three dots always were: on the Brick, "Press
 SELECT" shows its square key and "START" its play key (TrimUI's manual calls
 them SELECT and START; the caps show only the marks), so the words and the
-glyph tell the same story. A key printed as its word (the Pixel 2's SELECT,
-the Brick's MENU) stays a word. The host's desktop has the Brick's keys drawn as
-the Pixel 2's, as its shots always showed; a name no table has is a pill
+glyph tell the same story. A key printed with letters (the Pixel 2's SE and
+ST, the Brick's MENU word) stays a word in running text. The host's desktop
+has the Brick's keys drawn as the Pixel 2's; a name no table has is a pill
 with that name. A chord is named by what it does (`dev_role_keys`:
 brightness, home, battery), so a page says each handheld's own: MENU+VOL on
 the Pixel 2, F1/F2 on the Brick.
@@ -4902,3 +4907,52 @@ database, `home.hidden`: the tags that are off ("PRT,RECENT"), so a new
 system is On without anyone saying so (src/homesys.h). Host shots:
 `--homesys-page ROW`.
 
+
+### 11.49 Achievements for offline
+*(Asked for on the Discord, 2026-11-15: "being able to cache achievements in
+advance vs having to load the game while on WiFi would greatly enhance RA
+offline feature. Think of it like a scraper for achievements." So the page is
+the Scraper's (11.19), in its look.)*
+
+MENU > **Achievements** opens a page where A once went straight to the
+sign-in keyboard; the sign-in is now behind **Y** (**A** while nobody is
+signed in). Three states, as the Scraper's page:
+
+**The plan.** The heading **Achievements**, under it about how long a
+download takes (`about 3 min`), `Every game checked`, `Sign in to download`
+or `needs Wi-Fi`. Each system with games RetroAchievements could know (a
+console id in src/radl.c's table) is its icon over one tick, lit when every
+game of it was asked about. Two tiles, Flash Drive's: **Ready Offline** (a
+tick) with the games whose set is on the card and on how many systems, and
+**To Download** (an arrow into a tray) with the games never asked and what
+they will add to the card (`+14 MB`, 0.12 MB a game: a set and its badges for
+the seven in ten RetroAchievements knows), `all checked` at none. Over the
+keys the size to fetch (the card's room beside it only under 2 GB free) and
+the games RetroAchievements has nothing for. Keys: A Download, Y Account, B
+Close.
+
+**The run** (src/radl.c, a step a frame). The game being asked about beside
+Zyper; its system's icon and the bar, `214 / 553` games looked at. The body
+is the set that came last, `Just added: Mega Man 2 · 82 achievements` (the
+heading has moved on to the next game by then), its first twelve
+badges in two rows of six, each landing 45 ms after the one before (420 ms,
+from 80% and 24 px low). Over the keys the counts as marks (ready, new,
+none) and the time left at the run's own pace; or, in **warning**, why it
+waits: `Waiting for Wi-Fi`, `RetroAchievements asked for a pause · 0:42`
+(a 429, counted down), `No answer · trying again in 0:12`; or
+`Identifying games · 12 / 31` while a system's new files are hashed. B
+stops; the next download starts from what is missing.
+
+**Done.** Titled by what happened: **All done** when the run ended on its
+own; **Stopped** when B stopped it, the card filled or RetroAchievements
+stopped answering, the reason under it (`Not enough room on the card`,
+`RetroAchievements is not answering`); **Sign in again** when it refused the
+account (`RetroAchievements refused the account`), and then A signs in and
+goes back to the plan. A wall of the first badge of each set that came, two
+rows of seven; the counts as marks; over the keys `393 games ready offline ·
+57 earned on your account`. A Again, B Close. The side lights' **done** at a
+run that ended well.
+
+The "not checked yet" message (A on a game's Achievements row) names it:
+"...or with Download in MENU > Achievements." Host shots: `--radl-page
+STATE`, 0 to 14 (src/radl_screen.c).

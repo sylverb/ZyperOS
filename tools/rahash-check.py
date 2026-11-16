@@ -179,12 +179,55 @@ def named_and_refused(rac):
     return bad
 
 
+def nds_cases(md5):
+    """DS images made here, with what rcheevos's rc_hash_nintendo_ds hashes
+    put together from their parts rather than by either hasher: the header's
+    first 0x160 bytes, the ARM9 and ARM7 code and 0xA00 bytes of icon, where
+    the header says; past a SuperCard's 512-byte header; a short icon filled
+    with zeros; no hash for codes past 16 MB or a file under a header; and
+    the image zipped beside a smaller file, hashed on the image."""
+    import io
+    import zipfile
+
+    def image(icon_at=0x8000, size=0xA000, arm9_size=0x1000, arm7_size=0x800):
+        # No period: a fill that repeats every 256 bytes reads the same past a
+        # SuperCard's 512, and a hasher that forgot to skip it would pass
+        import random
+        d = bytearray(random.Random(1459).randbytes(size))
+        for off, v in ((0x20, 0x4000), (0x2C, arm9_size), (0x30, 0x6000), (0x3C, arm7_size), (0x68, icon_at)):
+            d[off:off + 4] = v.to_bytes(4, "little")
+        return bytes(d)
+
+    def parts(d, icon_at=0x8000):
+        icon = d[icon_at:icon_at + 0xA00]
+        return d[:0x160] + d[0x4000:0x5000] + d[0x6000:0x6800] + icon + bytes(0xA00 - len(icon))
+
+    plain = image()
+    sc = bytearray(512)
+    sc[0:4] = b"\x2e\x00\x00\xea"
+    sc[0xB0:0xB4] = b"\x44\x46\x96\x00"
+    short = image(icon_at=0x9F00)
+    zipped = io.BytesIO()
+    with zipfile.ZipFile(zipped, "w") as z:
+        z.writestr("readme.txt", b"a smaller file first")
+        z.writestr("Plain.nds", plain)
+    return (
+        ("NDS", "Plain.nds", plain, md5(parts(plain))),
+        ("NDS", "SuperCard.nds", bytes(sc) + plain, md5(parts(plain))),
+        ("NDS", "Short Icon.nds", short, md5(parts(short, 0x9F00))),
+        ("NDS", "Too Big.nds", image(arm9_size=0x1000000, arm7_size=1), None),
+        ("NDS", "Tiny.nds", b"not a DS game", None),
+        ("NDS", "Zipped.zip", zipped.getvalue(), md5(parts(plain))),
+    )
+
+
 def headers_and_orders(rac):
     """The container rules, on files made here: an A78 header, a Lynx header
     and an FDS header are not hashed; an N64 ROM is hashed in its .z64 order
     whichever of the three it is in, and a file that is none of them gets no
-    hash; a MAME set hashes as its name. Each case's hash is known without
-    either hasher (rcheevos's rc_hash_7800, _lynx, _nes, _n64, _arcade)."""
+    hash; a MAME set hashes as its name; a DS game as its header, code and
+    icon (nds_cases). Each case's hash is known without either hasher
+    (rcheevos's rc_hash_7800, _lynx, _nes, _n64, _arcade, _nintendo_ds)."""
     import tempfile
     bad = 0
     tmp = tempfile.mkdtemp(prefix="rahash-")
@@ -206,7 +249,7 @@ def headers_and_orders(rac):
         ("N64", "Mario Kart 64.n64", bytes(n64), md5(z64)),
         ("N64", "Not a ROM.n64", b"\x00" + body, None),
         ("MAME", "mslug.zip", b"not read", md5(b"mslug")),
-    )
+    ) + nds_cases(md5)
     for tag, name, data, want in cases:
         p = os.path.join(tmp, name)
         with open(p, "wb") as f:

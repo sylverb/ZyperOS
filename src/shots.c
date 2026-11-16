@@ -37,6 +37,7 @@
 #include "rabadge.h"
 #include "remapstore.h"
 #include "saver_screen.h"
+#include "radl_screen.h"
 #include "scraper_screen.h"
 #include "shelf_draw.h"
 #include "storage_screen.h"
@@ -1453,6 +1454,11 @@ static void shot_compose(app *a)
 	}
 	if (shot_scraper_page >= 0) {
 		scraper_page_shot(a);
+		return;
+	}
+	/* MENU > Achievements' page (--radl-page STATE) */
+	if (shot_radl_page >= 0) {
+		radl_page_shot(a);
 		return;
 	}
 	if (shot_usbdrive >= 0 && shot_usbdrive < UD_FRAMES) {
