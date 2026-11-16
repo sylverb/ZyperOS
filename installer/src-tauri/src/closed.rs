@@ -43,6 +43,47 @@ fn sum_of(bytes: &[u8]) -> String {
     hex(&Sha256::digest(bytes))
 }
 
+/// `dir`, made if it isn't there, private to whoever runs this: 0700 and
+/// theirs, so no one else can put a file or a link where the closed files
+/// are kept
+fn private_dir(dir: &Path) -> Result<(), String> {
+    std::fs::create_dir_all(dir).map_err(|e| format!("Making a folder for the Brick's files: {e}"))?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::{MetadataExt, PermissionsExt};
+        let meta = std::fs::symlink_metadata(dir).map_err(|e| format!("The Brick's files' folder: {e}"))?;
+        // SAFETY: geteuid has no preconditions and cannot fail
+        if !meta.is_dir() || meta.uid() != unsafe { libc::geteuid() } {
+            return Err("The folder for the Brick's files isn't this user's own.".into());
+        }
+        std::fs::set_permissions(dir, std::fs::Permissions::from_mode(0o700))
+            .map_err(|e| format!("The Brick's files' folder: {e}"))?;
+    }
+    Ok(())
+}
+
+/// A file's bytes, opened without following a link at its name
+fn read_no_follow(path: &Path) -> std::io::Result<Vec<u8>> {
+    let mut opts = std::fs::OpenOptions::new();
+    opts.read(true);
+    #[cfg(unix)]
+    std::os::unix::fs::OpenOptionsExt::custom_flags(&mut opts, libc::O_NOFOLLOW);
+    let mut v = Vec::new();
+    opts.open(path)?.read_to_end(&mut v)?;
+    Ok(v)
+}
+
+/// `bytes` into a new file at `path`: never over one there, never through a
+/// link
+fn write_new(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
+    let _ = std::fs::remove_file(path);
+    let mut opts = std::fs::OpenOptions::new();
+    opts.write(true).create_new(true);
+    #[cfg(unix)]
+    std::os::unix::fs::OpenOptionsExt::custom_flags(&mut opts, libc::O_NOFOLLOW);
+    io::Write::write_all(&mut opts.open(path)?, bytes)
+}
+
 /// A URL's bytes, from the network
 pub fn http_get(url: &str) -> Result<Vec<u8>, String> {
     let agent: ureq::Agent = ureq::Agent::config_builder()
@@ -70,7 +111,7 @@ pub fn fetch(
     progress: &mut dyn FnMut(u64, u64),
     cancelled: &dyn Fn() -> bool,
 ) -> Result<Vec<PathBuf>, String> {
-    std::fs::create_dir_all(cache).map_err(|e| format!("Making a folder for the Brick's files: {e}"))?;
+    private_dir(cache)?;
     let total = list.len() as u64;
     let mut out = Vec::with_capacity(list.len());
     for (i, f) in list.iter().enumerate() {
@@ -79,7 +120,7 @@ pub fn fetch(
         }
         progress(i as u64, total);
         let path = cache.join(f.name);
-        let kept = std::fs::read(&path).map(|b| sum_of(&b) == f.sha256).unwrap_or(false);
+        let kept = read_no_follow(&path).map(|b| sum_of(&b) == f.sha256).unwrap_or(false);
         if !kept {
             let bytes = get(&format!("{base}{}", f.path)).map_err(|e| {
                 format!("Couldn't get the Brick's file {} from GitHub: {e}. Nothing was written.", f.name)
@@ -91,7 +132,7 @@ pub fn fetch(
                 ));
             }
             let part = cache.join(format!("{}.part", f.name));
-            std::fs::write(&part, &bytes)
+            write_new(&part, &bytes)
                 .and_then(|_| std::fs::rename(&part, &path))
                 .map_err(|e| format!("Keeping the Brick's file {}: {e}", f.name))?;
         }
@@ -101,10 +142,33 @@ pub fn fetch(
     Ok(out)
 }
 
-/// A boot partition's FAT (its whole bytes) with `files` in closed/, each
-/// under its own name: the folder made if it isn't there, a file there
-/// already written over, everything else left as it was.
-pub fn into_boot(boot: Vec<u8>, files: &[PathBuf]) -> Result<Vec<u8>, String> {
+/// The closed files at `files`, each checked again here against `list`: its
+/// name one of the list's, opened without following a link, its bytes the
+/// sum the list has. What goes on the card is exactly these bytes. The
+/// installer's helper runs this as root on Linux, from paths the window
+/// gave it, so it trusts nothing about them.
+pub fn load_checked(list: &[ClosedFile], files: &[PathBuf]) -> Result<Vec<(String, Vec<u8>)>, String> {
+    files
+        .iter()
+        .map(|path| {
+            let name = path.file_name().and_then(|n| n.to_str()).ok_or("A closed file has no name")?;
+            let want = list
+                .iter()
+                .find(|f| f.name == name)
+                .ok_or_else(|| format!("{name} isn't one of the Brick's files."))?;
+            let bytes = read_no_follow(path).map_err(|e| format!("Reading the Brick's file {name}: {e}"))?;
+            if sum_of(&bytes) != want.sha256 {
+                return Err(format!("The Brick's file {name} changed after it was checked. Nothing was written."));
+            }
+            Ok((name.to_string(), bytes))
+        })
+        .collect()
+}
+
+/// A boot partition's FAT (its whole bytes) with `files` (name, bytes) in
+/// closed/: the folder made if it isn't there, a file there already written
+/// over, everything else left as it was.
+pub fn into_boot(boot: Vec<u8>, files: &[(String, Vec<u8>)]) -> Result<Vec<u8>, String> {
     let mut disk = Cursor::new(boot);
     {
         let fs = fatfs::FileSystem::new(&mut disk, fatfs::FsOptions::new())
@@ -115,12 +179,11 @@ pub fn into_boot(boot: Vec<u8>, files: &[PathBuf]) -> Result<Vec<u8>, String> {
                 Ok(d) => d,
                 Err(_) => root.create_dir(FOLDER).map_err(|e| format!("Making closed/ on the boot partition: {e}"))?,
             };
-            for path in files {
-                let name = path.file_name().and_then(|n| n.to_str()).ok_or("A closed file has no name")?;
-                let bytes = std::fs::read(path).map_err(|e| format!("Reading {name}: {e}"))?;
+            for (name, bytes) in files {
+                let name = name.as_str();
                 let mut file = dir.create_file(name).map_err(|e| format!("Putting {name} on the boot partition: {e}"))?;
                 file.truncate().map_err(|e| format!("Putting {name} on the boot partition: {e}"))?;
-                io::Write::write_all(&mut file, &bytes).map_err(|e| {
+                io::Write::write_all(&mut file, bytes).map_err(|e| {
                     format!("Putting {name} on the boot partition: {e} (is the image's boot partition full?)")
                 })?;
                 io::Write::flush(&mut file).map_err(|e| format!("Putting {name} on the boot partition: {e}"))?;
@@ -176,7 +239,10 @@ pub fn boot_span(image: &mut dyn Read) -> Result<(u64, u64), String> {
 
 /// The image's boot partition, read from its start, with the closed files
 /// in: what goes over the image's own at its offset (Overlay)
-pub fn boot_with(open: &dyn Fn() -> io::Result<Box<dyn Read + Send>>, files: &[PathBuf]) -> Result<(u64, Vec<u8>), String> {
+pub fn boot_with(
+    open: &dyn Fn() -> io::Result<Box<dyn Read + Send>>,
+    files: &[(String, Vec<u8>)],
+) -> Result<(u64, Vec<u8>), String> {
     let (at, len) = boot_span(&mut *open().map_err(|e| format!("Opening the image: {e}"))?)?;
     let mut image = open().map_err(|e| format!("Opening the image: {e}"))?;
     io::copy(&mut (&mut image).take(at), &mut io::sink()).map_err(|e| format!("Reading the image: {e}"))?;
@@ -277,20 +343,52 @@ mod tests {
 
     #[test]
     fn into_the_boot_partition_and_nothing_else() {
-        let dir = temp("into");
-        std::fs::write(dir.join("libGLESv2.so"), b"gles").unwrap();
-        std::fs::write(dir.join("rgx.fw.22.102.54.38"), b"firmware").unwrap();
-        let files = vec![dir.join("libGLESv2.so"), dir.join("rgx.fw.22.102.54.38")];
+        let files = vec![
+            ("libGLESv2.so".to_string(), b"gles".to_vec()),
+            ("rgx.fw.22.102.54.38".to_string(), b"firmware".to_vec()),
+        ];
         let boot = into_boot(boot_fat(), &files).unwrap();
         assert_eq!(read_in(&boot, "closed/libGLESv2.so").unwrap(), b"gles");
         assert_eq!(read_in(&boot, "closed/rgx.fw.22.102.54.38").unwrap(), b"firmware");
         assert_eq!(read_in(&boot, "a/Image.lz4").unwrap(), b"kernel");
         assert_eq!(read_in(&boot, "bootstate.txt").unwrap(), b"slot=a\n");
         // A folder from before, one file cut short: written over whole
-        std::fs::write(dir.join("libGLESv2.so"), b"gles, all of it").unwrap();
-        let again = into_boot(boot, &files[..1]).unwrap();
+        let again = into_boot(boot, &[("libGLESv2.so".to_string(), b"gles, all of it".to_vec())]).unwrap();
         assert_eq!(read_in(&again, "closed/libGLESv2.so").unwrap(), b"gles, all of it");
         assert_eq!(read_in(&again, "closed/rgx.fw.22.102.54.38").unwrap(), b"firmware");
+    }
+
+    #[test]
+    fn the_helper_checks_each_file_again() {
+        let dir = temp("checked");
+        let list = fixture_list(&[("libEGL.so", b"egl")]);
+        std::fs::write(dir.join("libEGL.so"), b"egl").unwrap();
+        let ok = load_checked(&list, &[dir.join("libEGL.so")]).unwrap();
+        assert_eq!(ok, vec![("libEGL.so".to_string(), b"egl".to_vec())]);
+        // Changed after the window checked it
+        std::fs::write(dir.join("libEGL.so"), b"not egl").unwrap();
+        assert!(load_checked(&list, &[dir.join("libEGL.so")]).unwrap_err().contains("changed"));
+        // A name that isn't the list's
+        std::fs::write(dir.join("other.so"), b"egl").unwrap();
+        assert!(load_checked(&list, &[dir.join("other.so")]).unwrap_err().contains("isn't one of"));
+        // A link where the file should be is not followed
+        #[cfg(unix)]
+        {
+            std::fs::write(dir.join("real"), b"egl").unwrap();
+            let link = temp("link").join("libEGL.so");
+            std::os::unix::fs::symlink(dir.join("real"), &link).unwrap();
+            assert!(load_checked(&list, &[link]).is_err());
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn the_cache_is_private() {
+        use std::os::unix::fs::PermissionsExt;
+        let cache = temp("private").join("brick-closed");
+        let list = fixture_list(&[("libEGL.so", b"egl")]);
+        fetch(&list, &cache, "", &|_: &str| Ok(b"egl".to_vec()), &mut |_, _| {}, &|| false).unwrap();
+        assert_eq!(std::fs::metadata(&cache).unwrap().permissions().mode() & 0o777, 0o700);
     }
 
     #[test]
@@ -324,10 +422,8 @@ mod tests {
         image[..table.len()].copy_from_slice(&table);
         let path = temp("gpt").join("brick.img");
         std::fs::write(&path, &image).unwrap();
-        let dir = temp("gptfiles");
-        std::fs::write(dir.join("fw_xr829.bin"), b"wifi").unwrap();
         let open = || crate::image::open(&path);
-        let (at, boot) = boot_with(&open, &[dir.join("fw_xr829.bin")]).unwrap();
+        let (at, boot) = boot_with(&open, &[("fw_xr829.bin".to_string(), b"wifi".to_vec())]).unwrap();
         assert_eq!(at, 1 << 20);
         assert_eq!(boot.len(), fat.len());
         assert_eq!(read_in(&boot, "closed/fw_xr829.bin").unwrap(), b"wifi");

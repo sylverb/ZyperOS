@@ -71,7 +71,10 @@ pub fn write_here(
     let over = if closed.is_empty() {
         None
     } else {
-        let (at, boot) = crate::closed::boot_with(&plain, closed)?;
+        // Checked again here, which is root on Linux: exactly these bytes go
+        // on the card
+        let checked = crate::closed::load_checked(crate::closed::LIST, closed)?;
+        let (at, boot) = crate::closed::boot_with(&plain, &checked)?;
         Some((at, std::sync::Arc::new(boot)))
     };
     let open = || -> std::io::Result<Box<dyn std::io::Read + Send>> {

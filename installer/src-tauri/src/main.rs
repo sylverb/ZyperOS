@@ -444,7 +444,7 @@ fn write(
     device: cards::Device,
     action: install::Action,
     local: Option<PathBuf>,
-    cache: &Path,
+    cache: Option<&Path>,
     progress: &mut dyn FnMut(writer::Progress),
     cancel: &AtomicBool,
 ) -> Result<(), String> {
@@ -454,6 +454,7 @@ fn write(
     }
     let closed = if device == cards::Device::Brick {
         let cancelled = || cancel.load(Ordering::Relaxed);
+        let cache = cache.ok_or("This computer has no folder for the installer's own files. Nothing was written.")?;
         closed::fetch(
             closed::LIST,
             &cache.join("brick-closed"),
@@ -528,9 +529,10 @@ fn start(app: AppHandle, running: State<Running>, card: String, size: u64, devic
         #[cfg(windows)]
         autoplay::HOLD.store(true, Ordering::Relaxed);
         // The Brick's closed files are kept between installs in the app's
-        // own cache folder, so a second card needs no download
-        let cache = app.path().app_cache_dir().unwrap_or_else(|_| std::env::temp_dir().join("zyperos-installer"));
-        let result = write(&card, size, device, action, local, &cache, &mut progress, &cancel);
+        // own cache folder, so a second card needs no download; never a
+        // shared one
+        let cache = app.path().app_cache_dir().ok();
+        let result = write(&card, size, device, action, local, cache.as_deref(), &mut progress, &cancel);
         // A card that finished well is ejected, ready to take out; one that
         // didn't stays, to be written again
         let eject = result.is_ok().then(|| {
