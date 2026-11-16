@@ -207,21 +207,30 @@ static void axes(void)
 	CHECK(a.learned && a.centre >= 2040 && a.centre <= 2056, "the centre, learned from %d readings (%d)",
 	      SP_CENTRE_READS, a.centre);
 	CHECK(sp_axis_value(&a, a.centre) == 0, "at the centre: 0");
-	v = a.centre * 3 / 4 * SP_DEAD_PCT / 100;
+	v = SP_FIRST_REACH(a.centre) * SP_DEAD_PCT / 100;
 	CHECK(sp_axis_value(&a, a.centre + v) == 0 && sp_axis_value(&a, a.centre - v) == 0,
 	      "inside the dead zone either way: 0");
-	v = sp_axis_value(&a, a.centre - a.centre * 3 / 4);
-	CHECK(v == SP_AXIS_MAX, "a reading three quarters of the centre under it: the end, turned to + (%d)", v);
-	v = sp_axis_value(&a, a.centre + a.centre * 3 / 4);
+	v = sp_axis_value(&a, a.centre - SP_FIRST_REACH(a.centre));
+	CHECK(v == SP_AXIS_MAX, "a reading a third of the centre under it: the end, turned to + (%d)", v);
+	v = sp_axis_value(&a, a.centre + SP_FIRST_REACH(a.centre));
 	CHECK(v == -SP_AXIS_MAX, "and over it: the other end (%d)", v);
-	v = sp_axis_value(&a, a.centre - a.centre * 3 / 8);
+	v = sp_axis_value(&a, a.centre - SP_FIRST_REACH(a.centre) / 2);
 	CHECK(v > SP_AXIS_MAX / 3 && v < SP_AXIS_MAX * 2 / 3, "half way: about half (%d)", v);
 	/* A stick that goes further than first taken: the end moves out to it */
 	v = sp_axis_value(&a, 50);
 	CHECK(v == SP_AXIS_MAX && a.lo == 50, "further than taken: the end, and the end is there now (%d)", a.lo);
-	v = sp_axis_value(&a, a.centre - a.centre * 3 / 4);
+	v = sp_axis_value(&a, a.centre - SP_FIRST_REACH(a.centre));
 	CHECK(v < SP_AXIS_MAX, "so where the end was is short of it now (%d)", v);
 	CHECK(sp_axis_value(&a, a.centre + 100000) == -SP_AXIS_MAX, "never past the end");
+
+	/* TrimUI's own reader's factory travel when a stick has no calibration
+	 * of its own: at rest 2150, from 1050 to 2900 (trimui_inputd, firmware
+	 * 1.1.1). A stick like that reaches both ends at its first push, so the
+	 * first reach must be inside the shorter side */
+	sp_axis_init(&a);
+	for (i = 0; i < SP_CENTRE_READS; i++) sp_axis_value(&a, 2150);
+	CHECK(sp_axis_value(&a, 2900) == -SP_AXIS_MAX && sp_axis_value(&a, 1050) == SP_AXIS_MAX,
+	      "TrimUI's factory travel (1050, 2150, 2900): both ends at the first push");
 
 	/* A half that reads 0 at rest (a broken stick): no division by nothing */
 	sp_axis_init(&a);

@@ -103,8 +103,8 @@ int sp_axis_value(sp_axis *a, int raw)
 		a->sum += raw;
 		if (++a->reads < SP_CENTRE_READS) return 0;
 		a->centre = a->sum / a->reads;
-		a->lo = a->centre - a->centre * 3 / 4;
-		a->hi = a->centre + a->centre * 3 / 4;
+		a->lo = a->centre - SP_FIRST_REACH(a->centre);
+		a->hi = a->centre + SP_FIRST_REACH(a->centre);
 		a->learned = true;
 	}
 	if (raw < a->lo) a->lo = raw;

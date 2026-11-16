@@ -95,13 +95,16 @@ int sp_key_changes(sp_half half, uint8_t was, uint8_t now, int *codes, int *valu
  *
  * The centre is learned from the first readings, the stick at rest as the
  * handheld starts. How far it goes each way is not known before a stick has
- * gone there: until then it is taken as three quarters of the centre's own
- * value (a stick at rest reads about half of what its converter can), and
- * it grows to the furthest reading seen, so a push to the end is always the
- * end. */
+ * gone there: until then it is taken as a third of the centre's own value,
+ * and it grows to the furthest reading seen, so a push to the end is always
+ * the end. A third is inside the shorter side of TrimUI's own reader's
+ * factory travel (at rest 2150, from 1050 to 2900, in trimui_inputd of
+ * firmware 1.1.1, for a stick with no calibration of its own): a first reach
+ * further out than the stick goes would leave its end out of reach. */
 #define SP_AXIS_MAX     32767
 #define SP_CENTRE_READS 8      /* readings averaged for the centre */
 #define SP_DEAD_PCT     10     /* the dead zone, percent of the way to the end */
+#define SP_FIRST_REACH(centre) ((centre) / 3)   /* each way, raw, until seen */
 
 typedef struct {
 	int  sum, reads;     /* the centre, while it is learned */

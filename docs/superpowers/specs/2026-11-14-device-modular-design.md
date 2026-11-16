@@ -1019,6 +1019,73 @@ centers; good to about half a millimetre.
 | Top edge | a light bar 37.9 wide, centered, at the back | a light bar, centered |
 | Bottom edge, left to right | microSD, a small hole, USB-C (center), a pinhole, 3.5 mm jack | the same |
 
+## Appendix: the Smart Pro's firmware
+
+What I read from TrimUI's Smart Pro firmware 1.1.1
+(`trimui_tg5040_20251128_v1.1.1.zip`, SHA-256 `43950ed5...4d182d18`), on the
+Mac only, never run and not shipped: boot0's header, `sys_config.fex`, the
+device tree, U-Boot 2018.05 (Thumb-2), the 4.9.191 kernel and its embedded
+config, the start script and `trimui_inputd`. Facts only; the image and its
+files stay in my own private folder.
+
+- **Memory**: LPDDR4 (`dram_type` 8) at 792 MHz, not the Brick's LPDDR3, so
+  mainline's `SUNXI_DRAM_A133_LPDDR4` path. boot0's header and
+  `sys_config.fex` agree: `dx_odt` 0x07070707, `dx_dri` 0x0d0d0d0d, `ca_dri`
+  0x0e0e, `para0` 0x0d0a050c, `para1` 0x30ea, `para2` 0x1000, MR1 0x34, MR2
+  0x1b, MR3 0x33, MR4 0x3, MR11 0x04, MR12 0x72, MR14 0x7, MR22 0x26, `tpr0`
+  0x06060606, `tpr1` 0x04040404, `tpr6` 0x48010101, `tpr10` 0x00273333,
+  `tpr11` 0x241f1923, `tpr12` 0x14151313, `tpr13` 0x00081d20, `tpr14`
+  0x2023211f. The device tree's memory node says 512 MB, which U-Boot
+  replaces; the Smart Pro has 1 GB.
+- **The device tree** is the Brick's in nearly every node: the AXP2202 PMIC
+  and its regulators, the TCS4838 CPU supply, the XR829 Wi-Fi and Bluetooth
+  pins, the same thermal zone names. It differs in: the panel mode (below),
+  fb0 at 1280x720, the battery (5000 mAh, its own OCV table), USB-C
+  detection off (`pmu_usb_typec_used` 0), the CPU trip points (70, 80 and
+  110 C, the Brick's 58, 63 and 90), and the headphone detect case (0).
+- **The panel** is named `otm1289a` as the Brick's is: MIPI DSI, 4 lanes,
+  720x1280 at 69 MHz (`ht` 880, `hbp` 88, `hspw` 4, `vt` 1320, `vbp` 9,
+  `vspw` 4, about 59.4 Hz), CLDO1 and CLDO4, reset on PD22, backlight enable
+  PH18 and PWM0 at 50 kHz. TrimUI's kernel turns the 1280x720 framebuffer
+  by 3 (270 degrees) onto it.
+- **Which panel**: U-Boot reads DCS 0x04 and 0xda to 0xdc and picks a
+  table, as on the Brick: gc9702c (00 97 02), otm1289a (61 00), er68576 (e8
+  85 76), st7703 (38 21 1f), nv3052 (30 52 03), and two the Brick's U-Boot
+  does not have: axs1832 (0xda to 0xdc 18 32 41) and ft8756 (40, 40 00 00).
+  Anything else gets the otm1289a table as "default". It has no jd9168. Of
+  the five it shares with the Brick, otm1289a, er68576 and st7703 are the
+  same bytes as plastron's Brick panel driver has; gc9702c is the same with
+  the two odd 0xfe writes that driver turns into waits; nv3052 has the same
+  commands with other waits (250 ms after sleep-out and after display-on,
+  the Brick's 220 and 120), so TrimUI tuned that one for each. The Smart
+  Pro's firmware came first and its device tree names the panel
+  `otm1289a`, so the shared ones are likely Smart Pro panels first, and the
+  jd9168 the Brick's own; the Brick's panel probe says which a Brick has.
+  The kernel picks by the `lcd=` name U-Boot passes, and has no ft8756
+  table.
+- **Pins**: PD11 (GPIO 107) high for VCC-5V; PD14 and PD18 (110 and 114)
+  power the left and right halves; PD15 and PD19 are their UARTs' only pins
+  (RX, `uart3` and `uart4`); PH3 (227) is the rumble motor; PH19 (243) is
+  the DIP switch. The halves' frames and bits are as Jpe230's reader has
+  them.
+- **Volume and POWER**: no TrimUI program reads a pin for volume, so the
+  volume keys are the LRADC keyboard's (`allwinner,keyboard_1350mv`:
+  VOLUMEUP at 646 mV, VOLUMEDOWN at 900 mV), which never reports on the
+  Brick. POWER is the AXP2202's key, as on the Brick.
+- **TrimUI's gamepad** (`trimui_inputd`): "TRIMUI Player1", as an Xbox 360
+  pad (USB, 045e:028e, version 0x0114). Keys SOUTH, EAST, NORTH, WEST, TL,
+  TR, SELECT, START, MODE, THUMBL and THUMBR, by label (A is SOUTH); the
+  d-pad as HAT0X and HAT0Y; L2 and R2 as ABS_Z and ABS_RZ, 0 or 255; the
+  sticks as ABS_X, ABS_Y, ABS_RX and ABS_RY, -32767 to 32767, both turned;
+  the DIP switch as SW_TABLET_MODE. A stick with no calibration of its own
+  rests at 2150 and runs from 1050 to 2900; the dead zone is round, 4095 of
+  32760.
+- **Closed files**: the XR829's `boot_xr829.bin` and `sdd_xr829.bin` are
+  the same bytes as the Sonic Pad's that the Brick uses; TrimUI's
+  `fw_xr829.bin` and `fw_xr829_bt.bin` are newer. The GPU is DDK 1.19
+  (`rgx.fw.22.102.54.38`). So the Brick's closed files serve the Smart Pro
+  as they are.
+
 ## Appendix: the map
 
 Status words: **present** (there and plausible), **stub** (answers false,

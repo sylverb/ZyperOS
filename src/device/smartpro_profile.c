@@ -7,9 +7,12 @@
  * and scaled to 960x720 in the middle of the panel, black bars at each side
  * (src/device/brick.c); wide layouts are later work.
  *
- * Not yet read from its firmware (the plan's Task 1), so kept to what the
- * Brick's board does until then: which way the panel is turned (90 here),
- * its thermal zones' names (the Brick's). Its own handheld drawing comes
+ * From a static read of TrimUI's firmware 1.1.1 (the plan's Task 1): the
+ * panel is turned a quarter, 270 as on the Pixel 2 (TrimUI's kernel turns
+ * its 1280x720 framebuffer by 3, 270 degrees, onto the panel), and its
+ * thermal zones are the Brick's (the same device tree nodes). Which way a
+ * quarter turn goes is still to see on a Smart Pro; only that it is a
+ * quarter is used yet (src/device/brick.c). Its own handheld drawing comes
  * later (Task 5): none until then, never another's.
  *
  * Its controls: every button and both sticks come through two small
@@ -55,7 +58,7 @@ const device_profile device_profile_smartpro = {
 	.userdata = "smartpro",
 	.boot_label = "SMARTBOOT",
 	.screen = {
-		.panel_w = 720, .panel_h = 1280, .turn = 90,
+		.panel_w = 720, .panel_h = 1280, .turn = 270,
 		.active_w_mm = 109.8f, .active_h_mm = 61.8f,
 		.aspect_w = 16, .aspect_h = 9,
 		.still = false,
