@@ -782,23 +782,26 @@ EXTRA.setdefault("screen-colors-look-custom",
 EXTRA.setdefault("theme-foot-off", ("demo", "PS1", ["--look", "lime,warm,black,square,off",
                                                     "--look-page", "theme", "5"]))
 # MENU > Display > Night Mode (DESIGN.md 11.42), only where the display has a
-# table (not the Brick): By Hours with its three rows, the cursor on Night
-# Hours; On with Night Warmth and no Night Hours; Night Mode's list and Night
-# Warmth's; and Night Hours' page, Night From and Until
-EXTRA.setdefault("menu-night", ("demo", "PS1", ["--menu", "Night Hours"]))
-SHOT_SETTINGS["menu-night"] = {"night.mode": "hours", "night.from": "1260", "night.until": "420"}
-# ...and on the 12-hour clock, its longest form (10:30 PM to 11:30 AM)
-EXTRA.setdefault("menu-night-12h", ("demo", "PS1", ["--menu", "Night Hours"]))
-SHOT_SETTINGS["menu-night-12h"] = {"night.mode": "hours", "night.from": "1350", "night.until": "690"}
-SHOT_STATUS["menu-night-12h"] = "10:08 12h wifi=off batt=82"
-EXTRA.setdefault("menu-night-on", ("demo", "PS1", ["--menu", "Night Warmth"]))
-SHOT_SETTINGS["menu-night-on"] = {"night.mode": "on", "night.warmth": "10"}
-EXTRA.setdefault("menu-night-list", ("demo", "PS1", ["--menu", "Night Mode", "--press", "a"]))
-SHOT_SETTINGS["menu-night-list"] = {"night.mode": "hours"}
-EXTRA.setdefault("menu-night-warmth-list", ("demo", "PS1", ["--menu", "Night Warmth", "--press", "a"]))
-SHOT_SETTINGS["menu-night-warmth-list"] = {"night.mode": "on"}
-EXTRA.setdefault("night-hours", ("demo", "PS1", ["--look-page", "hours", "0"]))
-SHOT_SETTINGS["night-hours"] = {"night.from": "1290", "night.until": "450"}
+# table (not the Brick): its one row, By Hours; and its page, A on the row:
+# By Hours with every row live, Off and On with the rows they do not use
+# quiet, the hours on the 12-hour clock at their longest (10:30 PM, 11:30
+# AM), and the lists of Night Mode, Night Warmth and Night From
+EXTRA.setdefault("menu-night", ("demo", "PS1", ["--menu", "Night Mode"]))
+SHOT_SETTINGS["menu-night"] = {"night.mode": "hours"}
+EXTRA.setdefault("night-page", ("demo", "PS1", ["--look-page", "night", "0"]))
+SHOT_SETTINGS["night-page"] = {"night.mode": "hours", "night.from": "1260", "night.until": "420"}
+EXTRA.setdefault("night-page-off", ("demo", "PS1", ["--look-page", "night", "0"]))
+EXTRA.setdefault("night-page-on", ("demo", "PS1", ["--look-page", "night", "1"]))
+SHOT_SETTINGS["night-page-on"] = {"night.mode": "on", "night.warmth": "10"}
+EXTRA.setdefault("night-page-12h", ("demo", "PS1", ["--look-page", "night", "2"]))
+SHOT_SETTINGS["night-page-12h"] = {"night.mode": "hours", "night.from": "1350", "night.until": "690"}
+SHOT_STATUS["night-page-12h"] = "10:08 12h wifi=off batt=82"
+EXTRA.setdefault("night-mode-list", ("demo", "PS1", ["--look-page", "night-list", "0"]))
+SHOT_SETTINGS["night-mode-list"] = {"night.mode": "hours"}
+EXTRA.setdefault("night-warmth-list", ("demo", "PS1", ["--look-page", "night-list", "1"]))
+SHOT_SETTINGS["night-warmth-list"] = {"night.mode": "on"}
+EXTRA.setdefault("night-from-list", ("demo", "PS1", ["--look-page", "night-list", "2"]))
+SHOT_SETTINGS["night-from-list"] = {"night.mode": "hours", "night.from": "1260"}
 
 # The pop-ups the SELECT hotkeys put over a game (src/main.c, on_quick and
 # on_speed), each as it says: the slot saved, loaded, empty or failed, a game

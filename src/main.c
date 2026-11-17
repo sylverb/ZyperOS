@@ -4742,12 +4742,12 @@ static int menu_shelf_width(app *a)
 					if (mw > w) w = mw;
 				}
 			}
-			/* And Night Mode's three rows, the tab's last, there or not,
-			 * at their widest (night_rows_widest) */
+			/* And Night Mode's row, the tab's last, at its longest mode
+			 * (night_row_widest) */
 			for (k = 0; k < n; k++)
 				if (rows[k].label == T(S_SYSMENU_NIGHT_MODE)) break;
-			if (k < n && k + 3 <= MENU_MAX_ROWS && night_rows_widest(rows + k)) {
-				mw = menu_measure(rows, k + 3, heading);
+			if (k < n && night_row_widest(rows + k)) {
+				mw = menu_measure(rows, k + 1, heading);
 				if (mw > w) w = mw;
 			}
 		}

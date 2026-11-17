@@ -129,13 +129,12 @@ static void usb_auto_message(app *a)
 
 static const char *look_accent_name(void);   /* with the Theme page */
 static const char *screen_colors_value(void); /* with the Screen Colors page */
-static const char *night_hours_value(void);
-/* Night Mode, with its page (below Screen Colors): Night Warmth 1 to 10 */
+/* Night Mode and its page (below Screen Colors): Night Warmth 1 to 10 */
 #define NM_MODES NIGHT_MODES
 #define NM_WARMTH_MIN 1
 #define NM_WARMTH_MAX PANELGAMMA_NIGHT_MAX
 static int nm_mode(void);
-static int nm_warmth(void);
+static const char *nm_mode_name(int m);
 static void nm_keep(void);
 static void nm_warmth_focus(void *app, int k);
 
@@ -336,18 +335,6 @@ static void menu_choices(app *a, int sys, bool games)
 	P[0].lab[0] = appearance_name(APPEAR_LIGHT);
 	P[0].lab[1] = appearance_name(APPEAR_DARK);
 	g_pm_choice[PM_APPEARANCE] = ch_make(&P[0], 2, theme_appearance() == APPEAR_DARK, false);
-	/* Night Mode's three, in night_mode's order; Night Warmth's 1 to 10,
-	 * its list showing the warmth under its cursor on the whole screen */
-	P[11].lab[NIGHT_OFF] = T(S_MENU_OFF_TITLE);
-	P[11].lab[NIGHT_ON] = T(S_MENU_ON_TITLE);
-	P[11].lab[NIGHT_HOURS] = T(S_SYSMENU_NIGHT_BY_HOURS);
-	g_pm_choice[PM_NIGHT] = ch_make(&P[11], NM_MODES, nm_mode(), false);
-	for (i = 0; i < NM_WARMTH_MAX; i++) {
-		snprintf(P[12].buf[i], sizeof P[12].buf[i], "%d", i + 1);
-		P[12].lab[i] = P[12].buf[i];
-	}
-	g_pm_choice[PM_NIGHT_WARMTH] = ch_make(&P[12], NM_WARMTH_MAX, nm_warmth() - NM_WARMTH_MIN, false);
-	g_pm_choice[PM_NIGHT_WARMTH].focus = nm_warmth_focus;
 	P[1].lab[BATT_BARS] = T(S_PANEL_BATTERY_BARS);
 	P[1].lab[BATT_PCT] = T(S_PANEL_BATTERY_PERCENTAGE);
 	P[1].lab[BATT_TIME] = T(S_PANEL_BATTERY_TIME);
@@ -520,17 +507,8 @@ int menu_build(app *a, screen_id screen, int sys,
 		u.strength_all = strength_all_label(a);
 		u.no_strength = !strength_all_shown(a);
 		{
-			static char warm[4];
-			const int m = nm_mode();
-
 			u.no_night = !plat_night_here();
-			u.night = m == NIGHT_ON ? T(S_MENU_ON_TITLE) : m == NIGHT_HOURS ? T(S_SYSMENU_NIGHT_BY_HOURS)
-			        : T(S_MENU_OFF_TITLE);
-			snprintf(warm, sizeof warm, "%d", nm_warmth());
-			u.night_warmth = warm;
-			u.night_hours = night_hours_value();
-			u.no_night_warmth = m == NIGHT_OFF;
-			u.no_night_hours = m != NIGHT_HOURS;
+			u.night = nm_mode_name(nm_mode());
 			/* A table load a key's repeat held back (platform.h), made
 			 * once its gap is over: this build runs every pass */
 			plat_screen_colors_tick(false);
@@ -698,11 +676,6 @@ static int nm_mode(void)
 	return (int)nm_cfg()->mode;
 }
 
-static int nm_warmth(void)
-{
-	return nm_cfg()->warmth;
-}
-
 /* A row's change: kept, and on the display at once */
 static void nm_keep(void)
 {
@@ -727,97 +700,129 @@ static void nm_warmth_focus(void *app_, int k)
 	plat_screen_colors_tick(false);
 }
 
-/* The three Night rows as MENU's width measures them (main.c's
- * menu_shelf_width), into out[0..2], shown or not: Night Mode at its
- * longest choice, Night Warmth at 10 and Night Hours at the hours set, as
- * Auto Hours was. So the panel holds its width as Night Mode turns its rows
- * on and off; a change of the hours measures MENU again (hours_key). 0
- * where there is no Night Mode (the Brick). */
-int night_rows_widest(menu_row *out)
+/* Night Mode's words for a mode: Off, On or By Hours */
+static const char *nm_mode_name(int m)
 {
-	static char warm[4];
+	return m == NIGHT_ON ? T(S_MENU_ON_TITLE) : m == NIGHT_HOURS ? T(S_SYSMENU_NIGHT_BY_HOURS)
+	     : T(S_MENU_OFF_TITLE);
+}
+
+/* MENU > Display's Night Mode row as MENU's width measures it (main.c's
+ * menu_shelf_width), into out[0]: at its longest mode, so the panel holds
+ * its width as the mode changes. 0 where there is no Night Mode (the
+ * Brick). */
+int night_row_widest(menu_row *out)
+{
 	TTF_Font *f = ui_font(UI_F_MENU);
-	const char *mode[NM_MODES] = { T(S_MENU_OFF_TITLE), T(S_MENU_ON_TITLE), T(S_SYSMENU_NIGHT_BY_HOURS) };
 	int i, w, best = -1, at = 0;
 
 	if (!plat_night_here()) return 0;
 	for (i = 0; i < NM_MODES; i++)
-		if ((w = ui_text_width(f, mode[i])) > best) best = w, at = i;
-	snprintf(warm, sizeof warm, "%d", NM_WARMTH_MAX);
-	out[0] = (menu_row){ T(S_SYSMENU_NIGHT_MODE), mode[at], true };
-	out[1] = (menu_row){ T(S_SYSMENU_NIGHT_WARMTH), warm, true };
-	out[2] = (menu_row){ T(S_SYSMENU_NIGHT_HOURS), night_hours_value(), true };
-	return 3;
+		if ((w = ui_text_width(f, nm_mode_name(i))) > best) best = w, at = i;
+	out[0] = (menu_row){ T(S_SYSMENU_NIGHT_MODE), nm_mode_name(at), true };
+	return 1;
 }
 
-/* Night Hours' value in MENU: "9:00 PM to 7:00 AM", from then until */
-static const char *night_hours_value(void)
+/* MENU > Display > Night Mode's page (DESIGN.md 11.42; Tarik's for 1.0.6,
+ * "the night mode settings all in the night mode row"): Night Mode, Night
+ * Warmth, Night From and Until on one page, as Screen Colors has its own.
+ * Each is an option row (DESIGN.md 9): A opens its list, Left and Right
+ * step it, and a change is kept and on the display at once. Night Warmth's
+ * list shows the warmth under its cursor on the whole screen. A row the
+ * mode does not use is quiet, its value still read - Night Warmth and the
+ * hours while Off, the hours while On - so the page holds its shape and
+ * says what On or By Hours would use. */
+static const unsigned char NIGHT_SOUND[NP_ROWS] = {
+	[NP_MODE] = MENU_SND_RING,
+	/* Stops at 1 and 10, as Strength */
+	[NP_WARMTH] = MENU_SND_NO_A,
+	[NP_FROM] = MENU_SND_RING, [NP_UNTIL] = MENU_SND_RING,
+};
+
+/* The rows' choices (menu.h's menu_choice), as night_page_key steps them,
+ * so A opens their list: the modes, the warmths, the day's half hours */
+static menu_choice g_np_choice[NP_ROWS];
+
+int night_page_build(void *ctx, menu_row *rows, int max, const char **heading)
 {
-	static char v[64];
-	char f[24], u[24];
-
-	time_of_day(nm_cfg()->from, f, sizeof f);
-	time_of_day(nm_cfg()->until, u, sizeof u);
-	snprintf(v, sizeof v, T(S_LOOK_HOURS), f, u);
-	return v;
-}
-
-static const unsigned char HOURS_SOUND[2] = { MENU_SND_RING, MENU_SND_RING };
-
-/* Night Hours' two rows' choices (menu.h's menu_choice): the day's half
- * hours from midnight, as hours_key steps them, so A opens their list */
-static menu_choice g_hours_choice[2];
-
-int hours_build(void *ctx, menu_row *rows, int max, const char **heading)
-{
-	static const char *lab[24 * 60 / NM_STEP];
-	static char buf[24 * 60 / NM_STEP][24];
-	_Static_assert(24 * 60 / NM_STEP <= MENU_CHOICES_MAX, "Night Hours' list");
-	hours_view *v = ctx;
+	static const char *mode[NM_MODES], *warm_lab[NM_WARMTH_MAX], *hour_lab[24 * 60 / NM_STEP];
+	static char warm_buf[NM_WARMTH_MAX][4], hour_buf[24 * 60 / NM_STEP][24];
+	_Static_assert(24 * 60 / NM_STEP <= MENU_CHOICES_MAX, "Night From's list");
+	night_view *v = ctx;
 	const night_cfg *c = nm_cfg();
-	int i, n = 24 * 60 / NM_STEP;
+	const int m = nm_mode(), hours = 24 * 60 / NM_STEP;
+	int i;
 
 	(void)max;
 	plat_screen_colors_tick(false);   /* a held-back load (platform.h): this runs every pass */
+	for (i = 0; i < NM_MODES; i++) mode[i] = nm_mode_name(i);
+	for (i = 0; i < NM_WARMTH_MAX; i++) {
+		snprintf(warm_buf[i], sizeof warm_buf[i], "%d", NM_WARMTH_MIN + i);
+		warm_lab[i] = warm_buf[i];
+	}
+	for (i = 0; i < hours; i++) {
+		time_of_day(i * NM_STEP, hour_buf[i], sizeof hour_buf[i]);
+		hour_lab[i] = hour_buf[i];
+	}
+	snprintf(v->warmth, sizeof v->warmth, "%d", c->warmth);
 	time_of_day(c->from, v->from, sizeof v->from);
 	time_of_day(c->until, v->until, sizeof v->until);
-	*heading = T(S_SYSMENU_NIGHT_HOURS);
-	rows[0] = (menu_row){ T(S_LOOK_NIGHT_FROM), v->from, true };
-	rows[1] = (menu_row){ T(S_LOOK_NIGHT_UNTIL), v->until, true };
-	for (i = 0; i < n; i++) {
-		time_of_day(i * NM_STEP, buf[i], sizeof buf[i]);
-		lab[i] = buf[i];
-	}
-	g_hours_choice[0] = (menu_choice){ .n = (unsigned char)n, .cur = (unsigned char)(c->from / NM_STEP), .labels = lab };
-	g_hours_choice[1] = (menu_choice){ .n = (unsigned char)n, .cur = (unsigned char)(c->until / NM_STEP), .labels = lab };
-	return 2;
+	*heading = T(S_SYSMENU_NIGHT_MODE);
+	rows[NP_MODE]   = (menu_row){ T(S_SYSMENU_NIGHT_MODE), mode[m], true };
+	rows[NP_WARMTH] = (menu_row){ T(S_SYSMENU_NIGHT_WARMTH), v->warmth, m != NIGHT_OFF };
+	rows[NP_FROM]   = (menu_row){ T(S_LOOK_NIGHT_FROM), v->from, m == NIGHT_HOURS };
+	rows[NP_UNTIL]  = (menu_row){ T(S_LOOK_NIGHT_UNTIL), v->until, m == NIGHT_HOURS };
+	g_np_choice[NP_MODE] = (menu_choice){ .n = NM_MODES, .cur = (unsigned char)m, .labels = mode };
+	g_np_choice[NP_WARMTH] = (menu_choice){ .n = NM_WARMTH_MAX, .cur = (unsigned char)(c->warmth - NM_WARMTH_MIN),
+	                                        .labels = warm_lab, .focus = nm_warmth_focus };
+	g_np_choice[NP_FROM] = (menu_choice){ .n = (unsigned char)hours, .cur = (unsigned char)(c->from / NM_STEP),
+	                                      .labels = hour_lab };
+	g_np_choice[NP_UNTIL] = (menu_choice){ .n = (unsigned char)hours, .cur = (unsigned char)(c->until / NM_STEP),
+	                                       .labels = hour_lab };
+	return NP_ROWS;
 }
 
-/* Left and Right round the day by the half hour, A forward: kept, and the
- * display told at once, so an hour that turns Night Mode on or off shows */
-static menu_result hours_key(app *a, void *ctx, in_button key, int sel)
+const menu_choice *night_page_choices(void)
 {
-	int d = key == IN_RIGHT || key == IN_ACCEPT ? 1 : key == IN_LEFT ? -1 : 0;
+	return g_np_choice;
+}
+
+/* Night Mode round Off, On and By Hours; Night Warmth on Strength's idiom,
+ * a step past either end changing nothing; the hours round the day by the
+ * half hour. Kept, and on the display at once, so a mode or an hour that
+ * turns the warmth on or off shows. */
+static menu_result night_page_key(app *a, void *ctx, in_button key, int sel)
+{
+	int d = key == IN_RIGHT ? 1 : key == IN_LEFT ? -1 : 0;
 	night_cfg *c = nm_cfg();
-	int *m;
 	const int day = 24 * 60;
 
-	(void)ctx;
-	if (!d || sel < 0 || sel > 1) return MENU_STAY;
-	m = sel == 0 ? &c->from : &c->until;
-	*m = ((*m + d * NM_STEP) % day + day) % day;
+	(void)a; (void)ctx;
+	if (sel == NP_MODE && (d || key == IN_ACCEPT)) {
+		c->mode = (night_mode)((nm_mode() + (d ? d : 1) + NM_MODES) % NM_MODES);
+	} else if (sel == NP_WARMTH && d) {
+		int k = clampi(c->warmth + d, NM_WARMTH_MIN, NM_WARMTH_MAX);
+
+		if (k == c->warmth) return MENU_STAY;
+		c->warmth = k;
+	} else if ((sel == NP_FROM || sel == NP_UNTIL) && (d || key == IN_ACCEPT)) {
+		int *t = sel == NP_FROM ? &c->from : &c->until;
+
+		*t = ((*t + (d ? d : 1) * NM_STEP) % day + day) % day;
+	} else {
+		return MENU_STAY;
+	}
 	nm_keep();
-	a->menu_w = 0;   /* MENU measured again with the new hours (night_rows_widest) */
 	return MENU_CHANGED;
 }
 
-static void night_hours_screen(app *a)
+static void night_page(app *a)
 {
-	hours_view v = { .a = a };
+	night_view v = { .a = a };
 	menu_style st = { .fixed_w = menu_std_width(a), .accent = MENU_ZYPEROS,
-	                  .sound = HOURS_SOUND, .choices = g_hours_choice };
+	                  .sound = NIGHT_SOUND, .choices = g_np_choice };
 
-	menu_run(a, &st, hours_build, hours_key, &v);
+	menu_run(a, &st, night_page_build, night_page_key, &v);
 }
 
 /* ---- Screen Colors (src/panelgamma.h) -----------------------------------
@@ -1624,23 +1629,6 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 		return MENU_CHANGED;
 	}
 
-	/* Night Mode, round Off, On and By Hours (A opens their list): kept,
-	 * and on the display at once. Night Warmth on Strength's idiom: a step
-	 * past either end changes nothing. */
-	if (sel == PM_NIGHT && (d || key == IN_ACCEPT)) {
-		nm_cfg()->mode = (night_mode)((nm_mode() + (d ? d : 1) + NM_MODES) % NM_MODES);
-		nm_keep();
-		return MENU_CHANGED;
-	}
-	if (d && sel == PM_NIGHT_WARMTH) {
-		int was = nm_warmth(), k = clampi(was + d, NM_WARMTH_MIN, NM_WARMTH_MAX);
-
-		if (k == was) return MENU_STAY;
-		nm_cfg()->warmth = k;
-		nm_keep();
-		return MENU_CHANGED;
-	}
-
 	/* The shader for every system, stepped round (A opens the list):
 	 * kept as MENU's, and each system's own choice goes with it
 	 * (shader_set_all). From "per system" a step goes on from MENU's last. */
@@ -1773,7 +1761,7 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 	 * says to start playing. */
 	case PM_TOUR:         tour_run(a, false); return MENU_DONE;
 	case PM_STORAGE:      storage_screen(a); break;
-	case PM_NIGHT_HOURS:  night_hours_screen(a); return MENU_CHANGED;
+	case PM_NIGHT:        night_page(a); return MENU_CHANGED;
 	case PM_THEME:        look_screen(a); return MENU_CHANGED;
 	case PM_SCREEN:       screen_colors_screen(a); return MENU_CHANGED;
 	case PM_UPDATE:       update_screen(a); break;
@@ -1869,7 +1857,7 @@ void sysmenu_rows_report(app *a)
 {
 	static menu_row rows[MENU_MAX_ROWS];
 	static menu_bufs b;
-	hours_view hv = { .a = a };
+	night_view nv = { .a = a };
 	const char *h;
 	int n, was = g_tabs.at;
 
@@ -1881,8 +1869,8 @@ void sysmenu_rows_report(app *a)
 	menu_rows_print("system", rows, n, b.sound, b.choice);
 	n = look_build(NULL, rows, MENU_MAX_ROWS, &h);
 	menu_rows_print("theme", rows, n, LOOK_SOUND, g_lk_choice);
-	n = hours_build(&hv, rows, MENU_MAX_ROWS, &h);
-	menu_rows_print("hours", rows, n, HOURS_SOUND, g_hours_choice);
+	n = night_page_build(&nv, rows, MENU_MAX_ROWS, &h);
+	menu_rows_print("night", rows, n, NIGHT_SOUND, g_np_choice);
 }
 
 /* MENU > Power Button as saved: "hold" is Hold, anything else Press, the
