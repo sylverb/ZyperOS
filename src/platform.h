@@ -407,6 +407,61 @@ void plat_backlight_dim(bool dim);
  * itself is kept; the launcher puts its table back when it starts again.
  * Nothing where there is no such table. */
 void plat_display_plain(void);
+/* The player's Screen Colors (MENU > Display > Screen Colors,
+ * src/panelgamma.h), each SCREEN_COLORS_RANGE either way of 0, the frame as
+ * drawn. The Pixel 2 puts Temperature, Tint, Contrast and Gamma in the
+ * display's gamma table and Saturation in the display controller's BCSH
+ * block (plastron's kernel patch, SCREEN_SATURATION_FILE), which keeps it for
+ * every program. A table load blinks one frame, so loads come at most every
+ * SCREEN_COLORS_GAP_MS while a key repeats or a list's cursor runs: the one
+ * held back is made by plat_screen_colors_tick, and the last asked for is
+ * always the one left on. Saturation never blinks and goes at once.
+ * `keep`: the player's setting, left in PANELGAMMA_COLOR_FILE for Diatom and
+ * portkeys, which write the table too; not kept, a preview on this display
+ * alone (the Look list's cursor), which those two never see. The launcher
+ * keeps the settings in its database ("screen_temp", "screen_tint",
+ * "screen_contrast", "screen_saturation", "screen_gamma"), and
+ * plat_settings_init reads them. Nothing where the profile has no table. */
+#define SCREEN_COLORS_RANGE 10
+#define SCREEN_COLORS_GAP_MS 120
+typedef struct { int temp, tint, contrast, saturation, gamma; } screen_colors;
+void plat_screen_colors(const screen_colors *c, bool keep);
+/* A table load held back for the gap, made once the gap is over (or at once
+ * with `now`, as the page closes): called by the Screen Colors page's every
+ * frame. Nothing when none is held back. */
+void plat_screen_colors_tick(bool now);
+/* Whether the kernel has the Saturation knob: the Saturation row shows only
+ * then (a system image without plastron's BCSH patch has none) */
+bool plat_screen_saturation_here(void);
+/* Night Mode (src/nightmode.h, MENU > Display): the whole screen warmer,
+ * always or by the Night Hours, in the same table as the Screen Colors.
+ * Only where the profile has that table (plat_night_here, as
+ * plat_screen_colors_here): not on the Brick.
+ *
+ * plat_night: the kept settings (src/nightkeep.c's night_keep calls it, and
+ * plat_settings_init reads them at the start): the table now, at once, and
+ * the warmth and the next nights in PANELGAMMA_COLOR_FILE for Diatom and
+ * portkeys, which turn it on and off at the hour themselves over a game or
+ * a port.
+ *
+ * plat_night_preview: Night Warmth's list, `warmth` (1..10) on the whole
+ * screen now and kept nowhere, as the Look list previews; 0 puts the kept
+ * Night Mode back. Loads after the gap as plat_screen_colors' preview does,
+ * so the list calls plat_screen_colors_tick every frame, as the Look list's
+ * picture does.
+ *
+ * plat_night_tick: the hour's change, once a second at most, from every
+ * screen's loop (tick_theme) and a game's (on_game_tick): the table loaded
+ * at once when the warmth due now is not the one on (one blink, no fade),
+ * and the nights worked out again each minute and the file written when they
+ * change (the zone, the clock, a night that ended). True when it turned on
+ * or off. Over a game it only remembers, and the table the launcher loads
+ * when it has the display back is right. */
+struct night_cfg;
+void plat_night(const struct night_cfg *n);
+void plat_night_preview(int warmth);
+bool plat_night_tick(void);
+bool plat_night_here(void);
 /* Headphones and the speaker want different volume ladders - the jack covers
  * 61 dB where the speaker covers 45 - so the level has to be re-applied when a
  * plug goes in or comes out, not merely at the next volume press. Call from a

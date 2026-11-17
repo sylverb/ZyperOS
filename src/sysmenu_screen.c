@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "sysmenu_screen.h"
 #include "dmodepreview.h"
+#include "ds/preview.h"
+#include "ds/colorref.h"
+#include "ds/scale.h"
 
 #include "aout_route.h"
 #include "muselib.h"
@@ -14,6 +17,7 @@
 #include "bgm_screen.h"
 #include "bt.h"
 #include "bt_screen.h"
+#include "clamp.h"
 #include "clock.h"
 #include "clock_screen.h"
 #include "devmode.h"
@@ -26,6 +30,8 @@
 #include "nowplaying_screen.h"
 #include "osdbar.h"
 #include "panel.h"
+#include "nightkeep.h"
+#include "panelgamma.h"
 #include "powerhold.h"
 #include "powerscreens.h"
 #include "radl_screen.h"
@@ -45,6 +51,7 @@
 #include "usblink.h"
 #include "shaderdemo.h"
 
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -119,7 +126,16 @@ static void usb_auto_message(app *a)
 }
 
 static const char *look_accent_name(void);   /* with the Theme page */
-static const char *auto_hours_value(void);
+static const char *screen_colors_value(void); /* with the Screen Colors page */
+static const char *night_hours_value(void);
+/* Night Mode, with its page (below Screen Colors): Night Warmth 1 to 10 */
+#define NM_MODES NIGHT_MODES
+#define NM_WARMTH_MIN 1
+#define NM_WARMTH_MAX PANELGAMMA_NIGHT_MAX
+static int nm_mode(void);
+static int nm_warmth(void);
+static void nm_keep(void);
+static void nm_warmth_focus(void *app, int k);
 
 /* ---------- option rows' choices (menu.h's menu_choice, DESIGN.md 9) ------ */
 
@@ -128,7 +144,7 @@ static const char *auto_hours_value(void);
  * key handlers step them: in the order Left and Right go, so the runner
  * applies a choice by sending them. The words live here until the next
  * build. */
-#define CH_MAX 48   /* a MENU row's most: Auto Hours' 48 half hours */
+#define CH_MAX 48   /* a MENU row's most: Night Hours' 48 half hours */
 typedef struct {
 	const char *lab[CH_MAX];
 	char buf[CH_MAX][48];
@@ -234,7 +250,7 @@ static void menu_choices(app *a, int sys, bool games)
 {
 	/* A system's menu and MENU each their own words: the shelf under MENU
 	 * builds a system's rows too, and must not write over MENU's */
-	static ch_pool PS[11], PM[11];
+	static ch_pool PS[13], PM[13];
 	ch_pool *P = games ? PS : PM;
 	int i, n, cur;
 
@@ -314,8 +330,22 @@ static void menu_choices(app *a, int sys, bool games)
 		return;
 	}
 	/* MENU */
-	for (i = 0; i < 3; i++) P[0].lab[i] = appearance_name((appearance)i);
-	g_pm_choice[PM_APPEARANCE] = ch_make(&P[0], 3, (int)theme_appearance(), false);
+	/* Light and Dark: two, so A turns it over (1.0.6, Auto went) */
+	P[0].lab[0] = appearance_name(APPEAR_LIGHT);
+	P[0].lab[1] = appearance_name(APPEAR_DARK);
+	g_pm_choice[PM_APPEARANCE] = ch_make(&P[0], 2, theme_appearance() == APPEAR_DARK, false);
+	/* Night Mode's three, in night_mode's order; Night Warmth's 1 to 10,
+	 * its list showing the warmth under its cursor on the whole screen */
+	P[11].lab[NIGHT_OFF] = T(S_MENU_OFF_TITLE);
+	P[11].lab[NIGHT_ON] = T(S_MENU_ON_TITLE);
+	P[11].lab[NIGHT_HOURS] = T(S_SYSMENU_NIGHT_BY_HOURS);
+	g_pm_choice[PM_NIGHT] = ch_make(&P[11], NM_MODES, nm_mode(), false);
+	for (i = 0; i < NM_WARMTH_MAX; i++) {
+		snprintf(P[12].buf[i], sizeof P[12].buf[i], "%d", i + 1);
+		P[12].lab[i] = P[12].buf[i];
+	}
+	g_pm_choice[PM_NIGHT_WARMTH] = ch_make(&P[12], NM_WARMTH_MAX, nm_warmth() - NM_WARMTH_MIN, false);
+	g_pm_choice[PM_NIGHT_WARMTH].focus = nm_warmth_focus;
 	P[1].lab[BATT_BARS] = T(S_PANEL_BATTERY_BARS);
 	P[1].lab[BATT_PCT] = T(S_PANEL_BATTERY_PERCENTAGE);
 	P[1].lab[BATT_TIME] = T(S_PANEL_BATTERY_TIME);
@@ -425,6 +455,7 @@ int menu_build(app *a, screen_id screen, int sys,
 	u.xfer = xs_row_value();
 	u.xfer_cable = xs_row_cable();
 	u.no_lights = !plat_battery_lights();
+	u.no_screen_colors = !plat_screen_colors_here();
 	u.no_charge_limit = !plat_charge_limit_supported();
 	u.charge_limit = g_charge_limit;
 	u.no_usb_power = !usb_power_offered();
@@ -486,8 +517,24 @@ int menu_build(app *a, screen_id screen, int sys,
 		u.shader_all = shader_all_label(a);
 		u.strength_all = strength_all_label(a);
 		u.no_strength = !strength_all_shown(a);
-		u.auto_hours = auto_hours_value();
+		{
+			static char warm[4];
+			const int m = nm_mode();
+
+			u.no_night = !plat_night_here();
+			u.night = m == NIGHT_ON ? T(S_MENU_ON_TITLE) : m == NIGHT_HOURS ? T(S_SYSMENU_NIGHT_BY_HOURS)
+			        : T(S_MENU_OFF_TITLE);
+			snprintf(warm, sizeof warm, "%d", nm_warmth());
+			u.night_warmth = warm;
+			u.night_hours = night_hours_value();
+			u.no_night_warmth = m == NIGHT_OFF;
+			u.no_night_hours = m != NIGHT_HOURS;
+			/* A table load a key's repeat held back (platform.h), made
+			 * once its gap is over: this build runs every pass */
+			plat_screen_colors_tick(false);
+		}
 		u.theme = look_accent_name();
+		u.screen_colors = screen_colors_value();
 		u.home = home_name(a->home_layout);
 		u.order = g_order_release ? T(S_PANEL_ORDER_RELEASE) : T(S_PANEL_ORDER_AZ);
 		{
@@ -559,7 +606,7 @@ int menu_build(app *a, screen_id screen, int sys,
 	return sys_menu_build(&u, out, b, heading);
 }
 
-/* ---------- MENU > Display: Auto Hours and Theme (DESIGN.md 3.5, 11.42) ---- */
+/* ---------- MENU > Display: Theme (DESIGN.md 3.5, 11.42) ------------------ */
 
 /* The volume and brightness bar the launcher draws (src/osdbar.c) in the
  * look's colors, or the tokens' for the look as it ships */
@@ -618,76 +665,416 @@ static void time_of_day(int m, char *out, size_t n)
 	              T(h < 12 ? S_CLOCK_AM : S_CLOCK_PM));
 }
 
-/* Auto Hours' value in MENU: "7:00 AM to 7:00 PM" */
-static const char *auto_hours_value(void)
+/* ---- Night Mode (src/nightmode.h, DESIGN.md 11.42) ----------------------
+ * Warmer colors for the night, over the player's Screen Colors: Off, On or
+ * By Hours (MENU > Display > Night Mode), how much (Night Warmth, 1 to 10)
+ * and when (Night Hours: Night From and Until, by the half hour), where the
+ * display has a table (plat_night_here). night_keep saves a change and puts
+ * it on the display at once, with one frame's blink as every table change;
+ * Night Warmth's list shows the warmth under its cursor on the whole screen,
+ * as the Look list does, and B puts back what was set. Tarik's move,
+ * approved on the sheet 2026-11-16. */
+#define NM_STEP NIGHT_HOURS_STEP
+
+/* The settings, read once, as Screen Colors' are (90e438b): MENU's build
+ * asks for them every pass of its loop, and only these rows change them
+ * while the launcher runs */
+static night_cfg g_nm;
+static bool g_nm_have;
+
+static night_cfg *nm_cfg(void)
+{
+	if (!g_nm_have) {
+		g_nm = night_load();   /* put right (night_cfg_clamp) */
+		g_nm_have = true;
+	}
+	return &g_nm;
+}
+
+static int nm_mode(void)
+{
+	return (int)nm_cfg()->mode;
+}
+
+static int nm_warmth(void)
+{
+	return nm_cfg()->warmth;
+}
+
+/* A row's change: kept, and on the display at once */
+static void nm_keep(void)
+{
+	night_keep(nm_cfg());
+}
+
+/* Night Warmth's list: the warmth under the cursor on the display alone,
+ * loaded once a move (a list's build runs every pass), and the load a
+ * key's repeat held back made once its gap is over; the list closed, what
+ * is kept back on it */
+static int g_nm_shown;
+
+static void nm_warmth_focus(void *app_, int k)
+{
+	const int w = k < 0 ? 0 : NM_WARMTH_MIN + k;
+
+	(void)app_;
+	if (w != g_nm_shown) {
+		g_nm_shown = w;
+		plat_night_preview(w);
+	}
+	plat_screen_colors_tick(false);
+}
+
+/* The three Night rows as MENU's width measures them (main.c's
+ * menu_shelf_width), into out[0..2], shown or not: Night Mode at its
+ * longest choice, Night Warmth at 10 and Night Hours at the hours set, as
+ * Auto Hours was. So the panel holds its width as Night Mode turns its rows
+ * on and off; a change of the hours measures MENU again (hours_key). 0
+ * where there is no Night Mode (the Brick). */
+int night_rows_widest(menu_row *out)
+{
+	static char warm[4];
+	TTF_Font *f = ui_font(UI_F_MENU);
+	const char *mode[NM_MODES] = { T(S_MENU_OFF_TITLE), T(S_MENU_ON_TITLE), T(S_SYSMENU_NIGHT_BY_HOURS) };
+	int i, w, best = -1, at = 0;
+
+	if (!plat_night_here()) return 0;
+	for (i = 0; i < NM_MODES; i++)
+		if ((w = ui_text_width(f, mode[i])) > best) best = w, at = i;
+	snprintf(warm, sizeof warm, "%d", NM_WARMTH_MAX);
+	out[0] = (menu_row){ T(S_SYSMENU_NIGHT_MODE), mode[at], true };
+	out[1] = (menu_row){ T(S_SYSMENU_NIGHT_WARMTH), warm, true };
+	out[2] = (menu_row){ T(S_SYSMENU_NIGHT_HOURS), night_hours_value(), true };
+	return 3;
+}
+
+/* Night Hours' value in MENU: "9:00 PM to 7:00 AM", from then until */
+static const char *night_hours_value(void)
 {
 	static char v[64];
-	char l[24], d[24];
-	int lm, dm;
+	char f[24], u[24];
 
-	theme_hours(&lm, &dm);
-	time_of_day(lm, l, sizeof l);
-	time_of_day(dm, d, sizeof d);
-	snprintf(v, sizeof v, T(S_LOOK_HOURS), l, d);
+	time_of_day(nm_cfg()->from, f, sizeof f);
+	time_of_day(nm_cfg()->until, u, sizeof u);
+	snprintf(v, sizeof v, T(S_LOOK_HOURS), f, u);
 	return v;
 }
 
 static const unsigned char HOURS_SOUND[2] = { MENU_SND_RING, MENU_SND_RING };
 
-/* Auto Hours' two rows' choices (menu.h's menu_choice): the day's half
+/* Night Hours' two rows' choices (menu.h's menu_choice): the day's half
  * hours from midnight, as hours_key steps them, so A opens their list */
 static menu_choice g_hours_choice[2];
 
 int hours_build(void *ctx, menu_row *rows, int max, const char **heading)
 {
-	static const char *lab[24 * 60 / THEME_HOURS_STEP];
-	static char buf[24 * 60 / THEME_HOURS_STEP][24];
-	_Static_assert(24 * 60 / THEME_HOURS_STEP <= MENU_CHOICES_MAX, "Auto Hours' list");
+	static const char *lab[24 * 60 / NM_STEP];
+	static char buf[24 * 60 / NM_STEP][24];
+	_Static_assert(24 * 60 / NM_STEP <= MENU_CHOICES_MAX, "Night Hours' list");
 	hours_view *v = ctx;
-	int lm, dm, i, n = 24 * 60 / THEME_HOURS_STEP;
+	const night_cfg *c = nm_cfg();
+	int i, n = 24 * 60 / NM_STEP;
 
 	(void)max;
-	theme_hours(&lm, &dm);
-	time_of_day(lm, v->l, sizeof v->l);
-	time_of_day(dm, v->d, sizeof v->d);
-	*heading = T(S_SYSMENU_AUTO_HOURS);
-	rows[0] = (menu_row){ T(S_LOOK_LIGHT_FROM), v->l, true };
-	rows[1] = (menu_row){ T(S_LOOK_DARK_FROM), v->d, true };
+	plat_screen_colors_tick(false);   /* a held-back load (platform.h): this runs every pass */
+	time_of_day(c->from, v->from, sizeof v->from);
+	time_of_day(c->until, v->until, sizeof v->until);
+	*heading = T(S_SYSMENU_NIGHT_HOURS);
+	rows[0] = (menu_row){ T(S_LOOK_NIGHT_FROM), v->from, true };
+	rows[1] = (menu_row){ T(S_LOOK_NIGHT_UNTIL), v->until, true };
 	for (i = 0; i < n; i++) {
-		time_of_day(i * THEME_HOURS_STEP, buf[i], sizeof buf[i]);
+		time_of_day(i * NM_STEP, buf[i], sizeof buf[i]);
 		lab[i] = buf[i];
 	}
-	g_hours_choice[0] = (menu_choice){ .n = (unsigned char)n, .cur = (unsigned char)(lm / THEME_HOURS_STEP), .labels = lab };
-	g_hours_choice[1] = (menu_choice){ .n = (unsigned char)n, .cur = (unsigned char)(dm / THEME_HOURS_STEP), .labels = lab };
+	g_hours_choice[0] = (menu_choice){ .n = (unsigned char)n, .cur = (unsigned char)(c->from / NM_STEP), .labels = lab };
+	g_hours_choice[1] = (menu_choice){ .n = (unsigned char)n, .cur = (unsigned char)(c->until / NM_STEP), .labels = lab };
 	return 2;
 }
 
+/* Left and Right round the day by the half hour, A forward: kept, and the
+ * display told at once, so an hour that turns Night Mode on or off shows */
 static menu_result hours_key(app *a, void *ctx, in_button key, int sel)
 {
 	int d = key == IN_RIGHT || key == IN_ACCEPT ? 1 : key == IN_LEFT ? -1 : 0;
-	int lm, dm, *m, was = theme_index();
+	night_cfg *c = nm_cfg();
+	int *m;
 	const int day = 24 * 60;
 
 	(void)ctx;
 	if (!d || sel < 0 || sel > 1) return MENU_STAY;
-	theme_hours(&lm, &dm);
-	m = sel == 0 ? &lm : &dm;
-	*m = ((*m + d * THEME_HOURS_STEP) % day + day) % day;
-	theme_set_hours(lm, dm);
-	db_set_int(db_dev(), "auto.light", lm);
-	db_set_int(db_dev(), "auto.dark", dm);
-	theme_init(theme_appearance());
-	if (theme_index() != was) theme_changed(a);
+	m = sel == 0 ? &c->from : &c->until;
+	*m = ((*m + d * NM_STEP) % day + day) % day;
+	nm_keep();
+	a->menu_w = 0;   /* MENU measured again with the new hours (night_rows_widest) */
 	return MENU_CHANGED;
 }
 
-static void auto_hours_screen(app *a)
+static void night_hours_screen(app *a)
 {
 	hours_view v = { .a = a };
 	menu_style st = { .fixed_w = menu_std_width(a), .accent = MENU_ZYPEROS,
 	                  .sound = HOURS_SOUND, .choices = g_hours_choice };
 
 	menu_run(a, &st, hours_build, hours_key, &v);
+}
+
+/* ---- Screen Colors (src/panelgamma.h) -----------------------------------
+ * The whole screen's colors, in the display's own table and its BCSH block
+ * (Saturation): five rows, each SCREEN_COLORS_RANGE either way of 0, the
+ * frame as drawn, and the look, a ready-made set of all five (Custom once a
+ * row is moved by hand). A row's step is applied and kept at once, so the
+ * page itself shows it: one frame's blink, as every table change, and at
+ * most one every SCREEN_COLORS_GAP_MS while a key repeats (platform.h). The
+ * Look's list shows the look under its cursor on the whole screen as the
+ * cursor moves, A keeps it and B puts back what was set. Screenshots never
+ * show it, being taken before the table. Kept in the device's database (the
+ * five "screen_" settings), which plat_settings_init reads at every start. */
+enum { SC_LOOK, SC_TEMP, SC_TINT, SC_CONTRAST, SC_SAT, SC_GAMMA, SC_ROWS };
+
+/* The looks, by their place in the list and on Left and Right; the values in
+ * platform.h's order: temp, tint, contrast, saturation, gamma (the ranges
+ * sheet Tarik approved, 2026-11-16) */
+typedef struct { int name, note; screen_colors c; } sc_look_def;
+static const sc_look_def SC_LOOKS[] = {
+	{ S_SCREEN_STANDARD, S_SCREEN_STANDARD_NOTE, {  0, 0,  0,  0,  0 } },
+	{ S_SCREEN_VIVID,    S_SCREEN_VIVID_NOTE,    {  0, 0,  3,  3, -2 } },
+	{ S_SCREEN_INTENSE,  S_SCREEN_INTENSE_NOTE,  {  0, 0,  6,  6, -3 } },
+	{ S_SCREEN_WARM,     S_SCREEN_WARM_NOTE,     {  3, 0,  0,  1,  0 } },
+	{ S_SCREEN_COOL,     S_SCREEN_COOL_NOTE,     { -3, 0,  1,  0,  0 } },
+	{ S_SCREEN_MUTED,    S_SCREEN_MUTED_NOTE,    {  0, 0, -2, -4,  1 } },
+};
+#define SC_LOOKS_N ((int)(sizeof SC_LOOKS / sizeof SC_LOOKS[0]))
+#define SC_CUSTOM SC_LOOKS_N   /* not a look: what the rows make that none is */
+
+/* The kept colors, read from the database once: the page's build asks for
+ * them every pass of its loop, and MENU > Display's row every pass of
+ * MENU's, and only sc_keep changes them while the launcher runs */
+static screen_colors g_sc_kept;
+static bool g_sc_have;
+
+static screen_colors sc_load(void)
+{
+	const int r = SCREEN_COLORS_RANGE;
+
+	if (!g_sc_have) {
+		g_sc_kept.temp = clampi(db_get_int(db_dev(), "screen_temp", 0), -r, r);
+		g_sc_kept.tint = clampi(db_get_int(db_dev(), "screen_tint", 0), -r, r);
+		g_sc_kept.contrast = clampi(db_get_int(db_dev(), "screen_contrast", 0), -r, r);
+		g_sc_kept.saturation = clampi(db_get_int(db_dev(), "screen_saturation", 0), -r, r);
+		g_sc_kept.gamma = clampi(db_get_int(db_dev(), "screen_gamma", 0), -r, r);
+		g_sc_have = true;
+	}
+	return g_sc_kept;
+}
+
+static int sc_look_of(const screen_colors *c)
+{
+	int k;
+
+	for (k = 0; k < SC_LOOKS_N; k++)
+		if (!memcmp(&SC_LOOKS[k].c, c, sizeof *c)) return k;
+	return SC_CUSTOM;
+}
+
+/* MENU > Display's value for the row: the look */
+static const char *screen_colors_value(void)
+{
+	screen_colors c = sc_load();
+	int k = sc_look_of(&c);
+
+	return T(k == SC_CUSTOM ? S_SCREEN_CUSTOM : SC_LOOKS[k].name);
+}
+
+/* The Look list's cursor on the display: its look, not the kept one, until
+ * the list is left (sc_side puts the kept one back) or one is kept */
+static bool g_sc_previewing;
+static int g_sc_preview_k = -1;
+
+static void sc_keep(const screen_colors *c)
+{
+	db_set_int(db_dev(), "screen_temp", c->temp);
+	db_set_int(db_dev(), "screen_tint", c->tint);
+	db_set_int(db_dev(), "screen_contrast", c->contrast);
+	db_set_int(db_dev(), "screen_saturation", c->saturation);
+	db_set_int(db_dev(), "screen_gamma", c->gamma);
+	g_sc_kept = *c;
+	g_sc_have = true;
+	g_sc_previewing = false;
+	g_sc_preview_k = -1;
+	plat_screen_colors(c, true);
+}
+
+/* The kept colors back on the display after a preview */
+static void sc_preview_end(void)
+{
+	screen_colors c;
+
+	if (!g_sc_previewing) return;
+	c = sc_load();
+	g_sc_previewing = false;
+	g_sc_preview_k = -1;
+	plat_screen_colors(&c, false);
+}
+
+/* The Look list's picture: the color chart in a screen (src/ds/colorref.h),
+ * and on the whole screen the look under the cursor, once a move (the list
+ * draws this every frame), so the chart shows it as the panel makes it */
+static void sc_look_preview(void *app_, int k, int x, int y, int w, int h)
+{
+	app *a = app_;
+	const SDL_Rect screen = { x, y, w, h };
+	SDL_Rect in;
+
+	if (k != g_sc_preview_k) {
+		screen_colors c = k >= 0 && k < SC_LOOKS_N ? SC_LOOKS[k].c : sc_load();
+
+		g_sc_preview_k = k;
+		g_sc_previewing = true;
+		plat_screen_colors(&c, false);
+	}
+	plat_screen_colors_tick(false);
+	in = ds_preview_screen_begin(a->r, &screen);
+	ds_color_ref_draw(a->r, &(SDL_Rect){ in.x + DS_GRID, in.y + DS_GRID, in.w - 2 * DS_GRID, in.h - 2 * DS_GRID });
+	ds_preview_screen_end(a->r, &screen);
+}
+
+/* The Look's list as the page opens it and the shots draw it: every look,
+ * Custom last while it is the one on, with what each does */
+void sc_look_choice(menu_choice *out)
+{
+	static const char *labels[SC_LOOKS_N + 1], *notes[SC_LOOKS_N + 1];
+	screen_colors c = sc_load();
+	int cur = sc_look_of(&c), k;
+
+	for (k = 0; k < SC_LOOKS_N; k++) {
+		labels[k] = T(SC_LOOKS[k].name);
+		notes[k] = T(SC_LOOKS[k].note);
+	}
+	labels[SC_CUSTOM] = T(S_SCREEN_CUSTOM);
+	notes[SC_CUSTOM] = T(S_SCREEN_CUSTOM_NOTE);
+	*out = (menu_choice){ .n = (unsigned char)(SC_LOOKS_N + (cur == SC_CUSTOM)), .cur = (unsigned char)cur,
+	                      .labels = labels, .notes = notes, .preview = sc_look_preview };
+}
+
+/* The rows by place: Saturation only where the kernel has its knob */
+static unsigned char g_sc_row[SC_ROWS];
+static int g_sc_n;
+static const unsigned char SC_SOUND[SC_ROWS] = {
+	MENU_SND_RING, MENU_SND_NO_A, MENU_SND_NO_A, MENU_SND_NO_A, MENU_SND_NO_A, MENU_SND_NO_A,
+};
+static menu_choice g_sc_choice[SC_ROWS];
+static menu_style g_sc_style;
+
+int sc_build(void *ctx, menu_row *rows, int max, const char **heading)
+{
+	static char val[SC_ROWS][DS_SCALE_VALUE];
+	static const ds_scale_kind KIND[SC_ROWS] = { DS_SCALE_KINDS, DS_SCALE_TEMPERATURE, DS_SCALE_TINT,
+	                                             DS_SCALE_CONTRAST, DS_SCALE_SATURATION, DS_SCALE_GAMMA };
+	const int row_name[SC_ROWS] = { S_SCREEN_LOOK, S_SCREEN_TEMPERATURE, S_SCREEN_TINT,
+	                                S_SCREEN_CONTRAST, S_SCREEN_SATURATION, S_SCREEN_GAMMA };
+	screen_colors c = sc_load();
+	const int v[SC_ROWS] = { 0, c.temp, c.tint, c.contrast, c.saturation, c.gamma };
+	int look = sc_look_of(&c), id, n = 0;
+
+	(void)ctx; (void)max;
+	*heading = T(S_SCREEN_TITLE);
+	for (id = 0; id < SC_ROWS; id++) {
+		const char *value;
+
+		if (id == SC_SAT && !plat_screen_saturation_here()) continue;
+		if (id == SC_LOOK) {
+			value = T(look == SC_CUSTOM ? S_SCREEN_CUSTOM : SC_LOOKS[look].name);
+			/* A list of its own on A: the page opens it, with the whole
+			 * screen's preview (sc_look_list) */
+			g_sc_choice[n] = (menu_choice){ .n = (unsigned char)(SC_LOOKS_N + (look == SC_CUSTOM)),
+			                                .cur = (unsigned char)look, .own = true };
+		} else {
+			/* A graded bar with its signed number (src/ds/scale.h) */
+			value = ds_scale_value(val[id], KIND[id], v[id], SCREEN_COLORS_RANGE);
+			g_sc_choice[n] = (menu_choice){ 0 };
+		}
+		g_sc_row[n] = (unsigned char)id;
+		rows[n++] = (menu_row){ T(row_name[id]), value, true };
+	}
+	g_sc_n = n;
+	return n;
+}
+
+/* A on the Look row: its list, the whole screen showing the look under the
+ * cursor; A keeps it, B (or the menu closing) puts back what was set */
+static menu_result sc_look_list(app *a)
+{
+	menu_choice ch;
+	int k;
+
+	sc_look_choice(&ch);
+	g_sc_preview_k = ch.cur;   /* what the display shows already */
+	k = menu_pick_preview(a, &g_sc_style, NULL, T(S_SCREEN_LOOK), ch.labels, ch.notes, ch.preview,
+	                      ch.n, ch.cur, ch.cur);
+	if (k >= 0 && k < SC_LOOKS_N) {
+		sc_keep(&SC_LOOKS[k].c);
+	} else {
+		g_sc_previewing = true;
+		sc_preview_end();
+	}
+	return k == MENU_PICK_POWER ? MENU_DONE : MENU_CHANGED;
+}
+
+static menu_result sc_key(app *a, void *ctx, in_button key, int sel)
+{
+	const int r = SCREEN_COLORS_RANGE;
+	int d = key == IN_RIGHT ? 1 : key == IN_LEFT ? -1 : 0;
+	int id = sel >= 0 && sel < g_sc_n ? g_sc_row[sel] : -1;
+	screen_colors c = sc_load(), was = c;
+
+	(void)ctx;
+	if (id == SC_LOOK && key == IN_ACCEPT) return sc_look_list(a);
+	if (!d || id < 0) return MENU_STAY;
+	switch (id) {
+	case SC_LOOK: {
+		int k = sc_look_of(&c);
+
+		/* Round the looks; from Custom, Right to the first and Left to the
+		 * last */
+		k = k == SC_CUSTOM ? (d > 0 ? 0 : SC_LOOKS_N - 1) : (k + d + SC_LOOKS_N) % SC_LOOKS_N;
+		c = SC_LOOKS[k].c;
+		break;
+	}
+	/* The rows stop at their ends */
+	case SC_TEMP:     c.temp = clampi(c.temp + d, -r, r); break;
+	case SC_TINT:     c.tint = clampi(c.tint + d, -r, r); break;
+	case SC_CONTRAST: c.contrast = clampi(c.contrast + d, -r, r); break;
+	case SC_SAT:      c.saturation = clampi(c.saturation + d, -r, r); break;
+	case SC_GAMMA:    c.gamma = clampi(c.gamma + d, -r, r); break;
+	}
+	if (!memcmp(&c, &was, sizeof c)) return MENU_STAY;
+	sc_keep(&c);
+	return MENU_CHANGED;
+}
+
+/* The page's column: the color chart (src/ds/colorref.h) down to the panel's
+ * foot. Every frame, so a table load held back for the gap is made here, and
+ * a preview left by a list that closed is put back. */
+void sc_side(app *a, const menu_side *at)
+{
+	const int h = at->panel.y + at->panel.h - menu_pad() - at->content_y;
+
+	sc_preview_end();
+	plat_screen_colors_tick(false);
+	if (at->stage == MENU_SIDE_OVER) return;
+	ds_color_ref_draw(a->r, &(SDL_Rect){ at->content_x, at->content_y, SC_SIDE_W - DS_GRID * 4, h });
+}
+
+static void screen_colors_screen(app *a)
+{
+	g_sc_style = (menu_style){ .fixed_w = menu_most_w(), .accent = MENU_ZYPEROS,
+	                           .sound = SC_SOUND, .choices = g_sc_choice,
+	                           .side = sc_side, .side_w = SC_SIDE_W };
+	menu_run(a, &g_sc_style, sc_build, sc_key, NULL);
+	/* Out of the page: a preview gone and a load held back made, so what
+	 * the display shows is what is kept */
+	sc_preview_end();
+	plat_screen_colors_tick(true);
 }
 
 /* A theme's chip, 64 by 36: its ground in its edge, its accent on it, so
@@ -1073,6 +1460,7 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 		               .cable_xfer = xfer_link_up(), .online = net_internet(NULL),
 		               .no_developer = !dev_offered(),
 		               .no_lights = !plat_battery_lights(),
+		               .no_screen_colors = !plat_screen_colors_here(),
 		               .no_charge_limit = !plat_charge_limit_supported(),
 		               .no_usb_power = !usb_power_offered(),
 		               .no_usb_wait = !usb_wait_row(),
@@ -1170,22 +1558,36 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 		redraw_now();
 		return MENU_CHANGED;
 	}
-	/* Light, Dark, Auto, stepped either way (A opens their list), like the
-	 * choices, and applied the moment it changes: the theme is resolved
-	 * again here, saved as its word, and the theme file the bar's other
-	 * programs read is rewritten by theme_init - so the next frame is drawn
-	 * from the new theme(), and the next bar over a game or a port is drawn
-	 * in it. Saved even when the theme it comes to is the one already on:
-	 * Auto at noon is Beard and so is Light, and they are still two
-	 * settings. */
+	/* Light or Dark, so left, right and A all turn it over, applied the
+	 * moment it changes: saved as its word, and the theme file the bar's
+	 * other programs read is rewritten by theme_init - so the next frame is
+	 * drawn from the new theme(), and the next bar over a game or a port is
+	 * drawn in it */
 	if (sel == PM_APPEARANCE && (d || key == IN_ACCEPT)) {
-		appearance k = appearance_step(theme_appearance(), d ? d : 1);
+		appearance k = theme_appearance() == APPEAR_DARK ? APPEAR_LIGHT : APPEAR_DARK;
 		int was = theme_index();
 
 		theme_init(k);
 		db_set_str(db_dev(), "appearance", appearance_id(k));
 		boot_theme_changed();
 		if (theme_index() != was) theme_changed(a);
+		return MENU_CHANGED;
+	}
+
+	/* Night Mode, round Off, On and By Hours (A opens their list): kept,
+	 * and on the display at once. Night Warmth on Strength's idiom: a step
+	 * past either end changes nothing. */
+	if (sel == PM_NIGHT && (d || key == IN_ACCEPT)) {
+		nm_cfg()->mode = (night_mode)((nm_mode() + (d ? d : 1) + NM_MODES) % NM_MODES);
+		nm_keep();
+		return MENU_CHANGED;
+	}
+	if (d && sel == PM_NIGHT_WARMTH) {
+		int was = nm_warmth(), k = clampi(was + d, NM_WARMTH_MIN, NM_WARMTH_MAX);
+
+		if (k == was) return MENU_STAY;
+		nm_cfg()->warmth = k;
+		nm_keep();
 		return MENU_CHANGED;
 	}
 
@@ -1321,8 +1723,9 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 	 * says to start playing. */
 	case PM_TOUR:         tour_run(a, false); return MENU_DONE;
 	case PM_STORAGE:      storage_screen(a); break;
-	case PM_AUTOHOURS:    auto_hours_screen(a); return MENU_CHANGED;
+	case PM_NIGHT_HOURS:  night_hours_screen(a); return MENU_CHANGED;
 	case PM_THEME:        look_screen(a); return MENU_CHANGED;
+	case PM_SCREEN:       screen_colors_screen(a); return MENU_CHANGED;
 	case PM_UPDATE:       update_screen(a); break;
 	case PM_ABOUT:        about_screen(a); break;
 	/* A game by its name: the menu closes once one is picked, and it starts */
@@ -1354,6 +1757,7 @@ void zyperos_menu_for(app *a, int screen)
 		               .cable_xfer = xfer_link_up(), .online = net_internet(NULL),
 		               .no_developer = !dev_offered(),
 		               .no_lights = !plat_battery_lights(),
+		               .no_screen_colors = !plat_screen_colors_here(),
 		               .no_charge_limit = !plat_charge_limit_supported(),
 		               .no_usb_power = !usb_power_offered(),
 		               .no_usb_wait = !usb_wait_row(),

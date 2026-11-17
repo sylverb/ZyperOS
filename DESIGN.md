@@ -411,6 +411,7 @@ its own says why beside it.
 | **tab-move-name** | 96 | a tab's turn (L1, R1): the tab names move this far the press's way |
 | **tab-move-in** | 64 | ...and the new tab's rows come in from this far, the Controls tab's handheld with them |
 | **ctl-side** | 280 | the Controls tab's handheld column: its rows and their focus fill start this far in from the content's left |
+| **sc-side** | 192 | Screen Colors' color chart column: its six rows and their focus fill start this far in from the content's left (the design session's mock, 2026-11-16) |
 | **ctl-device-x** | 99 | the handheld's middle from the content's left: half the Pixel 2's drawing at its tab pose, so its left edge is on the heading rule's left end |
 | **ctl-device-y** | 458 | the handheld's middle on the screen: one place on every tab and page that has it, as their panel is as tall as the screen allows (the mock's, 2026-11-13) |
 | **hud-band** | 152 | On-Screen Stats' band: the screen's strip where the line goes, the line at Far (48) under the level bar (94 + 49) and at the foot; on the grid, 95 whole pixels on the Pixel 2 (150 until 1.0.6) |
@@ -977,7 +978,7 @@ Opens and closes as 8.2 says.
 
 **Option rows, one rule (1.0.6).** A row whose value is one of several
 choices answers the same way on every page - MENU, a system's menu, the
-Muse shelf, the in-game menu's Game and Display tabs, Theme, Auto Hours,
+Muse shelf, the in-game menu's Game and Display tabs, Theme, Night Hours,
 Video Snaps, Menu Music:
 
 - **More than two choices: A opens their list**, a panel of its own under
@@ -1102,7 +1103,7 @@ where it was.)*
 | Tab | Rows |
 |---|---|
 | **Games** | Search Games, Play Time, Random Game, Achievements, Scraper |
-| **Display** | Appearance, Auto Hours, Theme, Home Screen, System Order, Home Systems, Battery Icon |
+| **Display** | Appearance, Theme, Home Screen, System Order, Home Systems, Battery Icon, Screensaver, Shader, Strength, Screen Colors, Night Mode, Night Warmth, Night Hours |
 | **Sound** | Audio Output, Audio Channels, UI Sounds, Menu Music |
 | **Connections** | USB Device (while a plug waits), Wi-Fi, Bluetooth, File Transfer, USB Accessories, Developer Mode |
 | **System** | Date & Time, Clock, Language, Power Button, Auto Off, Charge Limit, Side Lights, Storage, System Update |
@@ -1209,7 +1210,8 @@ light to 13/17 and 9/17 of it (src/panelgamma.h): the launcher, Diatom and
 portkeys each set the table from the value in sysfs, which is the rung's
 name. Moving between those two rungs blinks one frame at the floor: the
 PX30 loads its table with the table off. A rung kept before 1.0.6 moved once
-to the new rung nearest its light. *(Discord, 1.0.6: "one or two dimmer
+to the new rung nearest its light. The player's Screen Colors (11.42) go in
+the same table, on every rung. *(Discord, 1.0.6: "one or two dimmer
 steps"; Tarik, 2026-11-15, after a 20 kHz backlight went black under 17.)*
 
 **POWER held** (MENU > Power Button on **Hold**, 11.47) is the same pill with
@@ -4062,7 +4064,7 @@ renames. The details page stays open on the game, under its new name.
 
 Host shots: `--info-delete` shows the row above Delete Game.
 
-### 11.42 Display's Theme and Auto Hours
+### 11.42 Display's Theme, Screen Colors and Night Mode
 
 **Theme** (MENU > Display) is a menu panel of six rows over the shelf:
 **Accent**, **Light Background**, **Dark Background**, **Corners**,
@@ -4079,11 +4081,62 @@ value, a mark of what it is: the accent's dot on Accent, the theme's chip
 (its ground in its edge, the accent on it, 64 by 36) on each background's
 row. Display's own **Theme** row shows both chips and the accent's name.
 
-**Auto Hours** (MENU > Display, under Appearance) is two rows, **Light From**
-and **Dark From**, each a time of day stepped by the half hour round the
-day, written as MENU > Clock says; 7:00 AM and 7:00 PM as it ships. Its row
-in Display says "7:00 AM to 7:00 PM". A theme the change turns turns at
-once. *(My pick, 2026-11-12.)*
+**Appearance** is Light or Dark, two, so A turns it over. *(1.0.6: Auto,
+light from 7:00 to 19:00, went, and its hours became Night Hours below; a
+1.0.5 player on Auto gets the theme the hour gave at the first start of
+1.0.6.)*
+
+**Screen Colors** (MENU > Display, its last row; the Pixel 2 only,
+`plat_screen_colors_here`) is a page of six rows beside a color chart (the
+24 patches of a camera's, a grey ramp in sixteen steps and a hue band):
+**Look**, then **Temperature** (cool to warm), **Tint** (green to magenta),
+**Contrast**, **Saturation** and **Gamma**, each -10 to +10 with 0 the frame
+as drawn and the number signed. The Look is a ready-made set of all five:
+Standard, Vivid, Intense, Warm, Cool and Muted, and Custom while a
+row was moved by hand; the row in Display says it. The colors are the whole
+screen's, the shelf's and every game's and port's, made by the display's
+gamma table (src/panelgamma.h) over the dimming of the two bottom brightness
+rungs (11.6): Temperature and Tint are gains in light, every one 1 or under
+so white keeps its brightest channel (+10 warm: white 255, 230, 177; -10
+cool: 230, 241, 255), Contrast an S about the middle and Gamma a power
+(black, white and mid grey kept, and every table rising at every value),
+and Saturation the display controller's BCSH block, 5% a step (plastron's
+kernel patch 9-px2-px30-vop-bcsh-saturation; no row on a system image
+without it). No Hue, which turns every color round the wheel together,
+and no brightness offset, which lifts black: the backlight is the
+brightness. Standard changes nothing and puts no table on the display at
+all, as before: colors change only when the player asks, because the one
+change ZyperOS made for everyone (1.0.4's correction) took the warmth out
+of every game. A row's step is applied and kept at once, with the
+one-frame blink of a table load, at most one every 120 ms while a key
+repeats (Saturation never blinks). The Look's list shows the look under
+its cursor on the whole screen as the cursor moves, with what it does
+under the chart; A keeps it, B puts back what was set, and a look under
+the cursor never reaches Diatom or portkeys. Screenshots and the pictures
+of save states never show the colors, being taken before the table; nor do
+the boot splash's first second and USB Drive's screen. *(Asked for on the
+Discord; the first page approved by Tarik, 2026-11-16, "All approved"; the
+second, with "more options and granularity", negative numbers and a
+preview on hover, approved the same day.)*
+
+**Night Mode** (MENU > Display, under Screen Colors, where the display has
+a table) makes the whole screen warmer for the night, over the player's own
+colors: **Off**, **On** or **By Hours**, three, so A opens their list.
+**Night Warmth**, under it while it is not Off (as Strength under Shader),
+is 1 to 10, 8 as it ships: the gains of Temperature +n, multiplied into the
+player's, so it adds warmth to their colors, never clips against their
+Temperature and changes nothing else. **Night Hours**, under it for By
+Hours, says "9:00 PM to 7:00 AM" and opens two rows, **Night From** and
+**Until**, each a time of day by the half hour, written as MENU > Clock
+says; 9:00 PM and 7:00 AM as it ships, and a 1.0.5 player's Auto hours
+carry over. Night Warmth's list shows the warmth under the cursor on the
+whole screen as the Look list does, with no picture beside it
+(menu_choice's `focus`), whatever the hour; B puts back what was set. A change is on the
+display at once, and By Hours turns at the hour in games and ports too:
+one frame's blink, as any table load, and no fade, whose every step would
+blink. Night Mode never changes the theme, and the Look list has no Night
+look. *(Tarik's move from Screen Colors' Night look and Appearance's Auto,
+approved on the sheet 2026-11-16.)*
 
 ### 11.43 Player 2
 A friend plays an NES game's second controller in a browser, with nothing

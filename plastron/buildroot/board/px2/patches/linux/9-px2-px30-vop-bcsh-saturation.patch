@@ -1,0 +1,164 @@
+From: plastron
+Subject: [PATCH] drm/rockchip: vop: saturation through the PX30's BCSH block
+
+The PX30's VOPs have a BCSH block (brightness, contrast, saturation, hue)
+after the windows, at 0x160: control, colour bar, BCS and hue registers,
+as Rockchip's vendor kernel drives them (RK3366_LIT_* offsets). Mainline
+does not use it. The gamma LUT maps each channel by itself and cannot
+change saturation, which mixes them; this block can.
+
+A sysfs file on each PX30 VOP, saturation, from 0 (grey) to 511, 256
+being the picture as drawn: at 256 the block is off, as at reset; any
+other value turns it on with contrast 1.0, brightness 0 and hue 0 and
+that saturation (in the VOP-B's units, 1.0 = 256; the VOP-L's are half).
+The value goes in the register copy the driver writes back at every
+enable, so it outlives a suspend, and to the VOP at once while it runs.
+
+On the GKD Pixel 2, ZyperOS's MENU > Display > Screen Colors sets it.
+Checked on the device through /dev/mem first: grey at 0, as drawn at
+1.0, more colour at 1.4.
+---
+diff --git a/drivers/gpu/drm/rockchip/rockchip_drm_vop.c b/drivers/gpu/drm/rockchip/rockchip_drm_vop.c
+index 572f4ad..796401b 100644
+--- a/drivers/gpu/drm/rockchip/rockchip_drm_vop.c
++++ b/drivers/gpu/drm/rockchip/rockchip_drm_vop.c
+@@ -163,6 +163,9 @@ struct vop {
+ 	/* physical map length of vop register */
+ 	uint32_t len;
+ 
++	/* the saturation the BCSH block applies, 256 = as drawn (block off) */
++	unsigned int saturation;
++
+ 	/* one time only one process allowed to config the register */
+ 	spinlock_t reg_lock;
+ 	/* lock vop irq reg */
+@@ -248,6 +251,74 @@ static inline void vop_cfg_done(struct vop *vop)
+ 	VOP_REG_SET(vop, common, cfg_done, 1);
+ }
+ 
++/* The PX30's BCSH registers (Rockchip's vendor kernel drives them;
++ * mainline does not): control, colour bar, brightness/contrast/saturation,
++ * hue */
++#define VOP_BCSH_CTRL	0x160
++#define VOP_BCSH_BCS	0x168
++#define VOP_BCSH_H	0x16c
++
++/*
++ * Saturation through the BCSH block, everything else as drawn: contrast
++ * 1.0, brightness 0, hue 0. At 256 the block is off, as it is at reset.
++ * Kept in the register copy the driver writes back at every enable, so it
++ * outlives a suspend; written to the VOP now if it is running.
++ */
++static void vop_bcsh_apply(struct vop *vop)
++{
++	u32 one = vop->data->bcsh_one, ctrl = 0, bcs = 0, h = 0;
++
++	if (vop->len < VOP_BCSH_H + 4)
++		return;
++	if (vop->saturation != 256) {
++		/* en, out_mode 3 (normal video), y2r and r2y on, BT.601 */
++		ctrl = BIT(0) | (3 << 2) | BIT(6) | BIT(7);
++		bcs = ((vop->saturation * one / 256) << 20) | (one << 8);
++		h = one << 16;			/* cos 1.0, sin 0 */
++	}
++	spin_lock(&vop->reg_lock);
++	vop->regsbak[VOP_BCSH_H / 4] = h;
++	vop->regsbak[VOP_BCSH_BCS / 4] = bcs;
++	vop->regsbak[VOP_BCSH_CTRL / 4] = ctrl;
++	if (vop->is_enabled) {
++		writel(h, vop->regs + VOP_BCSH_H);
++		writel(bcs, vop->regs + VOP_BCSH_BCS);
++		writel(ctrl, vop->regs + VOP_BCSH_CTRL);
++		vop_cfg_done(vop);
++	}
++	spin_unlock(&vop->reg_lock);
++}
++
++static ssize_t saturation_show(struct device *dev,
++			       struct device_attribute *attr, char *buf)
++{
++	struct vop *vop = dev_get_drvdata(dev);
++
++	return sysfs_emit(buf, "%u\n", vop->saturation);
++}
++
++static ssize_t saturation_store(struct device *dev,
++				struct device_attribute *attr,
++				const char *buf, size_t count)
++{
++	struct vop *vop = dev_get_drvdata(dev);
++	unsigned int v;
++	int ret;
++
++	ret = kstrtouint(buf, 0, &v);
++	if (ret)
++		return ret;
++	if (v > 511)
++		return -EINVAL;
++	mutex_lock(&vop->vop_lock);
++	vop->saturation = v;
++	vop_bcsh_apply(vop);
++	mutex_unlock(&vop->vop_lock);
++	return count;
++}
++
++static DEVICE_ATTR_RW(saturation);
++
+ static bool has_rb_swapped(uint32_t version, uint32_t format)
+ {
+ 	switch (format) {
+@@ -2266,6 +2337,10 @@ static int vop_bind(struct device *dev, struct device *master, void *data)
+ 
+ 	rockchip_drm_dma_init_device(drm_dev, dev);
+ 
++	vop->saturation = 256;
++	if (vop->data->bcsh_one && device_create_file(dev, &dev_attr_saturation))
++		DRM_DEV_ERROR(dev, "no saturation file\n");
++
+ 	return 0;
+ 
+ err_disable_pm_runtime:
+@@ -2278,6 +2353,8 @@ static void vop_unbind(struct device *dev, struct device *master, void *data)
+ {
+ 	struct vop *vop = dev_get_drvdata(dev);
+ 
++	if (vop->data->bcsh_one)
++		device_remove_file(dev, &dev_attr_saturation);
+ 	if (vop->rgb)
+ 		rockchip_rgb_fini(vop->rgb);
+ 
+diff --git a/drivers/gpu/drm/rockchip/rockchip_drm_vop.h b/drivers/gpu/drm/rockchip/rockchip_drm_vop.h
+index f04c973..46ab948 100644
+--- a/drivers/gpu/drm/rockchip/rockchip_drm_vop.h
++++ b/drivers/gpu/drm/rockchip/rockchip_drm_vop.h
+@@ -232,6 +232,10 @@ struct vop_data {
+ 	const struct vop_win_data *win;
+ 	unsigned int win_size;
+ 	unsigned int lut_size;
++	/* BCSH (brightness, contrast, saturation, hue) after the windows,
++	 * as the PX30's VOPs have it at 0x160: 1.0 in its contrast and
++	 * saturation fields, 0 for a VOP without the block */
++	unsigned int bcsh_one;
+ 	struct vop_rect max_output;
+ 
+ #define VOP_FEATURE_OUTPUT_RGB10	BIT(0)
+diff --git a/drivers/gpu/drm/rockchip/rockchip_vop_reg.c b/drivers/gpu/drm/rockchip/rockchip_vop_reg.c
+index 4e1fa15..0cd0f4e 100644
+--- a/drivers/gpu/drm/rockchip/rockchip_vop_reg.c
++++ b/drivers/gpu/drm/rockchip/rockchip_vop_reg.c
+@@ -375,6 +375,7 @@ static const struct vop_data px30_vop_big = {
+ 	.win = px30_vop_big_win_data,
+ 	.win_size = ARRAY_SIZE(px30_vop_big_win_data),
+ 	.lut_size = 256,
++	.bcsh_one = 256,
+ 	.max_output = { 1920, 1080 },
+ };
+ 
+@@ -393,6 +394,7 @@ static const struct vop_data px30_vop_lit = {
+ 	.win = px30_vop_lit_win_data,
+ 	.win_size = ARRAY_SIZE(px30_vop_lit_win_data),
+ 	.lut_size = 256,
++	.bcsh_one = 128,
+ 	.max_output = { 1920, 1080 },
+ };
+ 

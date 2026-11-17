@@ -251,6 +251,7 @@ LAYOUT = [
     ("tab-move-name",   96,  "a tab's turn (L1, R1): the tab names move this far the press's way"),
     ("tab-move-in",     64,  "...and the new tab's rows come in from this far, the Controls tab's handheld with them"),
     ("ctl-side",        280, "the Controls tab's handheld column: its rows and their focus fill start this far in from the content's left"),
+    ("sc-side",         192, "Screen Colors' color chart column: its six rows and their focus fill start this far in from the content's left (the design session's mock, 2026-11-16)"),
     ("ctl-device-x",    99,  "the handheld's middle from the content's left: half the Pixel 2's drawing at its tab pose, so its left edge is on the heading rule's left end"),
     ("ctl-device-y",    458, "the handheld's middle on the screen: one place on every tab and page that has it, as their panel is as tall as the screen allows (the mock's, 2026-11-13)"),
     ("hud-band",        152, "On-Screen Stats' band: the screen's strip where the line goes, the line at Far (48) under the level bar (94 + 49) and at the foot; on the grid, 95 whole pixels on the Pixel 2 (150 until 1.0.6)"),

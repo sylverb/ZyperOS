@@ -21,6 +21,7 @@
 #include "device.h"
 #include "displayback.h"
 #include "fileio.h"
+#include "nightkeep.h"
 #include "panelgamma.h"
 #include "phonelink.h"
 #include "platform.h"
@@ -1050,21 +1051,175 @@ static void usb_volume_create(void)
 	ctl_write(USB_CTL, px2_usb_raw(VOL_MAX / 2));
 }
 
-/* The table for the backlight's value now (panelgamma.h): the dimming one
- * at 9 and 13, none from 17 up. Only while this process holds the display -
- * at the start the splash still does, and take_from_splash sets it then. */
+/* MENU > Display > Screen Colors as the table carries them (panelgamma.h),
+ * Standard until plat_settings_init reads the saved ones */
+static panelgamma_color screen_color;
+
+/* The table for the backlight's value now and the Screen Colors
+ * (panelgamma.h): the dimming one at 9 and 13, none from 17 up in Standard.
+ * Only while this process holds the display - at the start the splash still
+ * does, and take_from_splash sets it then. */
 static void display_gamma(const char *when)
 {
 	int raw, n;
 
 	if (drm_fd < 0 || !display_held || (raw = read_int(BACKLIGHT)) < 0) return;
-	n = panelgamma_apply(drm_fd, raw);
+	n = panelgamma_apply_color(drm_fd, raw, &screen_color);
 	if (n > 0)
 		fprintf(stderr, "video: the display's gamma table set for brightness %d, %s\n",
 		        raw, when);
 	else if (n < 0)
 		fprintf(stderr, "video: could not set the display's gamma table for brightness %d, "
 		        "%s\n", raw, when);
+}
+
+/* The kept colors (night 0) and Night Mode as kept, with its nights about
+ * now (src/nightmode.h): what the file says. Night Warmth's list shows its
+ * cursor's warmth meanwhile (night_preview), which nothing else sees. */
+static panelgamma_color screen_kept;
+static night_cfg        night_kept;
+static panelgamma_night night_sched;
+static int              night_preview;
+static time_t           night_looked, night_planned;
+
+/* The colors and Night Mode for the other two writers, Diatom and portkeys,
+ * which read the file each time they take the display (panelgamma.h), and
+ * look at the nights in it once a second: the kept ones only, never a
+ * preview */
+static void screen_colors_share(void)
+{
+	if (panelgamma_screen_write(PANELGAMMA_COLOR_FILE, &screen_kept, &night_sched) != 0)
+		fprintf(stderr, "settings: could not write %s\n", PANELGAMMA_COLOR_FILE);
+}
+
+/* The warmth on the display at `now`: the list's cursor's, or the kept
+ * Night Mode's */
+static int night_now(time_t now)
+{
+	return night_preview > 0 ? night_preview : panelgamma_night_at(&night_sched, (long long)now);
+}
+
+/* Night Mode's nights about `now` in this zone, and the file written again
+ * when they are not the ones it has (or always, with `force`) */
+static void night_plan(time_t now, bool force)
+{
+	panelgamma_night s;
+
+	night_schedule(&night_kept, now, &s);
+	night_planned = now;
+	if (!force && !memcmp(&s, &night_sched, sizeof s)) return;
+	night_sched = s;
+	screen_colors_share();
+}
+
+/* Saturation: the BCSH block's knob on each of the PX30's two display
+ * controllers (plastron's kernel patch 9-px2-px30-vop-bcsh-saturation),
+ * 256 the picture as drawn: 5% a step, 128 (half) at -10 to 384 (one and a
+ * half) at +10. The panel's is the VOP-B; the VOP-L, where it is bound (not
+ * on the Pixel 2, seen 2026-11-16), takes the same value in its own units.
+ * Kept by the kernel for every program after. A register write: no blink. */
+#define SCREEN_SATURATION_FILE "/sys/devices/platform/ff460000.vop/saturation"
+#define SCREEN_SATURATION_LIT  "/sys/devices/platform/ff470000.vop/saturation"
+static int screen_saturation_on = 0;   /* the step on the knob now */
+
+bool plat_screen_saturation_here(void)
+{
+	return access(SCREEN_SATURATION_FILE, W_OK) == 0;
+}
+
+static void screen_saturation_apply(int step)
+{
+	char text[8];
+
+	step = clampi(step, -SCREEN_COLORS_RANGE, SCREEN_COLORS_RANGE);
+	if (step == screen_saturation_on || access(SCREEN_SATURATION_FILE, W_OK) != 0) return;
+	snprintf(text, sizeof text, "%d\n", 256 + 256 * 5 * step / 100);
+	write_file(SCREEN_SATURATION_FILE, text);
+	write_file(SCREEN_SATURATION_LIT, text);
+	screen_saturation_on = step;
+}
+
+/* The table wanted, and when one was last loaded: a load waits out
+ * SCREEN_COLORS_GAP_MS after the last (platform.h) */
+static panelgamma_color screen_want;
+static bool screen_held;
+static Uint32 screen_loaded_at;
+
+static void screen_colors_load(void)
+{
+	screen_color = screen_want;
+	screen_held = false;
+	screen_loaded_at = SDL_GetTicks();
+	display_gamma("Screen Colors");
+}
+
+void plat_screen_colors_tick(bool now)
+{
+	if (screen_held && (now || SDL_GetTicks() - screen_loaded_at >= SCREEN_COLORS_GAP_MS))
+		screen_colors_load();
+}
+
+void plat_screen_colors(const screen_colors *c, bool keep)
+{
+	panelgamma_color want = { c->temp, c->tint, c->contrast, c->gamma, 0 };
+
+	panelgamma_color_clamp(&want);
+	if (keep) {
+		screen_kept = want;
+		screen_colors_share();
+	}
+	screen_saturation_apply(c->saturation);
+	want.night = night_now(time(NULL));
+	screen_want = want;
+	screen_held = memcmp(&want, &screen_color, sizeof want) != 0;
+	plat_screen_colors_tick(false);
+}
+
+/* The warmth wanted now on the display, loaded at once (`at_once`: a kept
+ * change, or the hour) or after the gap (the list's cursor running) */
+static void night_want(bool at_once)
+{
+	screen_want.night = night_now(time(NULL));
+	screen_held = memcmp(&screen_want, &screen_color, sizeof screen_want) != 0;
+	plat_screen_colors_tick(at_once);
+}
+
+void plat_night(const struct night_cfg *n)
+{
+	night_kept = *n;
+	night_cfg_clamp(&night_kept);
+	night_preview = 0;
+	night_plan(time(NULL), true);
+	night_want(true);
+	fprintf(stderr, "night: Night Mode %s, warmth %d, %02d:%02d to %02d:%02d\n",
+	        night_mode_id(night_kept.mode), night_kept.warmth, night_kept.from / 60,
+	        night_kept.from % 60, night_kept.until / 60, night_kept.until % 60);
+}
+
+void plat_night_preview(int warmth)
+{
+	night_preview = warmth < 0 ? 0 : warmth > PANELGAMMA_NIGHT_MAX ? PANELGAMMA_NIGHT_MAX : warmth;
+	night_want(false);
+}
+
+bool plat_night_tick(void)
+{
+	time_t now = time(NULL);
+	int w;
+
+	if (now == night_looked) return false;
+	night_looked = now;
+	/* The nights again each minute, at once when the clock went back or
+	 * the first night in the file ended: a zone chosen in Date & Time, the
+	 * time set by hand, and the next night written for the other two */
+	if (now - night_planned >= 60 || now < night_planned ||
+	    (night_sched.n > 0 && (long long)now >= night_sched.until[0]))
+		night_plan(now, false);
+	w = night_now(now);
+	if (w == screen_want.night) return false;
+	night_want(true);
+	fprintf(stderr, "night: Night Mode %s\n", w ? "on" : "off");
+	return true;
 }
 
 static void apply_brightness(int b)
@@ -1120,6 +1275,24 @@ void plat_settings_init(void)
 	}
 	cur_vol    = v >= 0 ? clampi(v, 0, VOL_MAX)    : -1;
 	cur_bright = b >= 0 ? clampi(b, 0, BRIGHT_MAX) : BRIGHT_MAX / 2;
+	/* Screen Colors before the first table: written to the file even when
+	 * Standard, so a launcher started again in the same boot leaves no
+	 * older line for Diatom to read */
+	screen_color.temp = db_get_int(db_dev(), "screen_temp", 0);
+	screen_color.tint = db_get_int(db_dev(), "screen_tint", 0);
+	screen_color.contrast = db_get_int(db_dev(), "screen_contrast", 0);
+	screen_color.gamma = db_get_int(db_dev(), "screen_gamma", 0);
+	panelgamma_color_clamp(&screen_color);
+	screen_kept = screen_color;
+	/* Night Mode's, and the file with both, before the first table */
+	night_kept = night_load();
+	night_plan(time(NULL), true);
+	screen_color.night = night_now(time(NULL));
+	screen_want = screen_color;
+	/* Written whatever the knob holds: a launcher started again keeps
+	 * nothing of the last one's (screen_saturation_on starts at 0) */
+	screen_saturation_on = SCREEN_COLORS_RANGE + 1;
+	screen_saturation_apply(db_get_int(db_dev(), "screen_saturation", 0));
 	usb_volume_create();
 	if (cur_vol >= 0) apply_volume(cur_vol);
 	apply_brightness(cur_bright);
@@ -1154,6 +1327,8 @@ void plat_display_plain(void)
 	int n;
 
 	if (drm_fd < 0 || !display_held) return;
+	/* Saturation too: the program after this one sees the panel plain */
+	screen_saturation_apply(0);
 	n = panelgamma_clear(drm_fd);
 	if (n > 0)
 		fprintf(stderr, "video: the display's gamma table emptied for the program after this one\n");

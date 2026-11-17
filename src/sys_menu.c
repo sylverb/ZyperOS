@@ -62,6 +62,11 @@ int sys_menu_zyperos_rows(const sys_ui *u, pm_row *out)
 		if ((u->no_usb_power || u->no_usb_wait) && r == PM_USB_WAIT) continue;
 		/* Strength only while a system draws an old screen */
 		if (u->no_strength && r == PM_STRENGTH) continue;
+		if (u->no_screen_colors && r == PM_SCREEN) continue;
+		/* Night Mode where the display has a table for it */
+		if (u->no_night && (r == PM_NIGHT || r == PM_NIGHT_WARMTH || r == PM_NIGHT_HOURS)) continue;
+		if (u->no_night_warmth && r == PM_NIGHT_WARMTH) continue;
+		if (u->no_night_hours && r == PM_NIGHT_HOURS) continue;
 		out[n++] = (pm_row)r;
 	}
 	return n;
@@ -74,9 +79,9 @@ pm_tab sys_menu_tab_of(pm_row r)
 	case PM_SEARCH: case PM_STATS: case PM_RANDOM: case PM_ACHIEVEMENTS:
 	case PM_SCRAPER:
 		return PT_GAMES;
-	case PM_APPEARANCE: case PM_AUTOHOURS: case PM_THEME: case PM_HOME:
+	case PM_APPEARANCE: case PM_THEME: case PM_HOME:
 	case PM_ORDER: case PM_HOMESYS: case PM_BATTERY: case PM_SAVER: case PM_SHADER:
-	case PM_STRENGTH:
+	case PM_STRENGTH: case PM_SCREEN: case PM_NIGHT: case PM_NIGHT_WARMTH: case PM_NIGHT_HOURS:
 		return PT_DISPLAY;
 	case PM_AUDIO: case PM_CHANNELS: case PM_SOUNDS: case PM_MUSIC:
 		return PT_SOUND;
@@ -302,6 +307,9 @@ static const unsigned char PM_SOUND[PM_ROWS] = {
 	[PM_CHARGE]     = MENU_SND_RING,
 	[PM_SAVER]      = MENU_SND_NO_A,
 	[PM_APPEARANCE] = MENU_SND_RING,
+	[PM_NIGHT]      = MENU_SND_RING,
+	/* Stops at 1 and 10, as Strength */
+	[PM_NIGHT_WARMTH] = MENU_SND_NO_A,
 	[PM_SHADER]     = MENU_SND_RING,
 	/* Stops at 10% and 100%, heard after by whether it moved, as Auto Off */
 	[PM_STRENGTH]   = MENU_SND_NO_A,
@@ -631,10 +639,17 @@ int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
 	full[PM_ABOUT]        = (menu_row){ T(S_SYSMENU_ABOUT), NULL, true  };
 	/* Any game by its name, typed (src/search.h) */
 	full[PM_SEARCH]       = (menu_row){ T(S_SYSMENU_SEARCH), NULL, true  };
-	/* When Auto turns light and dark; A opens its two rows */
-	full[PM_AUTOHOURS]    = (menu_row){ T(S_SYSMENU_AUTO_HOURS), u->auto_hours, true };
+	/* Warmer colors for the night (src/panelgamma.h), how much, and when;
+	 * Night Hours' A opens its two rows */
+	full[PM_NIGHT]        = (menu_row){ T(S_SYSMENU_NIGHT_MODE), u->night ? u->night : T(S_MENU_OFF_TITLE), true };
+	full[PM_NIGHT_WARMTH] = (menu_row){ T(S_SYSMENU_NIGHT_WARMTH), u->night_warmth ? u->night_warmth : "8", true };
+	full[PM_NIGHT_HOURS]  = (menu_row){ T(S_SYSMENU_NIGHT_HOURS), u->night_hours, true };
 	/* The look: its value the accent's name, both themes' chips before it
 	 * (main.c draws them); A opens the page */
+	/* The whole screen's colors (src/panelgamma.h): its value the look;
+	 * A opens the page */
+	full[PM_SCREEN]       = (menu_row){ T(S_SCREEN_TITLE),
+	                                   u->screen_colors ? u->screen_colors : T(S_SCREEN_STANDARD), true };
 	full[PM_THEME]        = (menu_row){ T(S_SYSMENU_THEME),
 	                                   u->theme ? u->theme : T(S_LOOK_ACCENT_LIME), true };
 	{
