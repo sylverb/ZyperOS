@@ -9,6 +9,7 @@
 #include "clock_screen.h"
 #include "ctltab.h"
 #include "ctltab_screen.h"
+#include "db.h"
 #include "devmode_screen.h"
 #include "ds/page.h"
 #include "emptyhome.h"
@@ -1209,7 +1210,20 @@ static void shot_compose(app *a)
 		}
 		i18n_set(was);
 		if (k == n) {
+			char all[32], own[32], key[CFG_STR + 16];
+			const char *tag = a->sys.count > 0 ? a->sys.systems[a->sys_cursor].tag : "";
+
 			fprintf(stderr, "--menu: no row called %s\n", shot_menu_label);
+			/* What the rows were built from: a row that comes and goes with
+			 * a setting (Strength with the Shader) says whether the setting
+			 * was there to be read */
+			snprintf(key, sizeof key, "shader.%s", tag);
+			db_get_str(db_dev(), "shader", all, sizeof all, "(none)");
+			db_get_str(db_dev(), key, own, sizeof own, "(none)");
+			fprintf(stderr, "--menu: built with the settings %s, shader=%s, %s=%s, "
+			        "the shelf's shader %d, %d systems\n",
+			        db_dev() ? "open" : "NOT OPEN", all, key, own,
+			        a->sys.count > 0 ? a->view[a->sys_cursor].shader : -1, a->sys.count);
 			shot_failed = 1;
 		}
 		shot_menu_sel = k < n ? k : 0;
