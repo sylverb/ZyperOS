@@ -779,6 +779,10 @@ EXTRA.setdefault("theme-foot-off", ("demo", "PS1", ["--look", "lime,warm,black,s
 # Warmth's; and Night Hours' page, Night From and Until
 EXTRA.setdefault("menu-night", ("demo", "PS1", ["--menu", "Night Hours"]))
 SHOT_SETTINGS["menu-night"] = {"night.mode": "hours", "night.from": "1260", "night.until": "420"}
+# ...and on the 12-hour clock, its longest form (10:30 PM to 11:30 AM)
+EXTRA.setdefault("menu-night-12h", ("demo", "PS1", ["--menu", "Night Hours"]))
+SHOT_SETTINGS["menu-night-12h"] = {"night.mode": "hours", "night.from": "1350", "night.until": "690"}
+SHOT_STATUS["menu-night-12h"] = "10:08 12h wifi=off batt=82"
 EXTRA.setdefault("menu-night-on", ("demo", "PS1", ["--menu", "Night Warmth"]))
 SHOT_SETTINGS["menu-night-on"] = {"night.mode": "on", "night.warmth": "10"}
 EXTRA.setdefault("menu-night-list", ("demo", "PS1", ["--menu", "Night Mode", "--press", "a"]))

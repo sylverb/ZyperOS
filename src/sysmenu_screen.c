@@ -725,6 +725,29 @@ static void nm_warmth_focus(void *app_, int k)
 	plat_screen_colors_tick(false);
 }
 
+/* The three Night rows as MENU's width measures them (main.c's
+ * menu_shelf_width), into out[0..2], shown or not: Night Mode at its
+ * longest choice, Night Warmth at 10 and Night Hours at the hours set, as
+ * Auto Hours was. So the panel holds its width as Night Mode turns its rows
+ * on and off; a change of the hours measures MENU again (hours_key). 0
+ * where there is no Night Mode (the Brick). */
+int night_rows_widest(menu_row *out)
+{
+	static char warm[4];
+	TTF_Font *f = ui_font(UI_F_MENU);
+	const char *mode[NM_MODES] = { T(S_MENU_OFF_TITLE), T(S_MENU_ON_TITLE), T(S_SYSMENU_NIGHT_BY_HOURS) };
+	int i, w, best = -1, at = 0;
+
+	if (!plat_night_here()) return 0;
+	for (i = 0; i < NM_MODES; i++)
+		if ((w = ui_text_width(f, mode[i])) > best) best = w, at = i;
+	snprintf(warm, sizeof warm, "%d", NM_WARMTH_MAX);
+	out[0] = (menu_row){ T(S_SYSMENU_NIGHT_MODE), mode[at], true };
+	out[1] = (menu_row){ T(S_SYSMENU_NIGHT_WARMTH), warm, true };
+	out[2] = (menu_row){ T(S_SYSMENU_NIGHT_HOURS), night_hours_value(), true };
+	return 3;
+}
+
 /* Night Hours' value in MENU: "9:00 PM to 7:00 AM", from then until */
 static const char *night_hours_value(void)
 {
@@ -777,11 +800,12 @@ static menu_result hours_key(app *a, void *ctx, in_button key, int sel)
 	int *m;
 	const int day = 24 * 60;
 
-	(void)a; (void)ctx;
+	(void)ctx;
 	if (!d || sel < 0 || sel > 1) return MENU_STAY;
 	m = sel == 0 ? &c->from : &c->until;
 	*m = ((*m + d * NM_STEP) % day + day) % day;
 	nm_keep();
+	a->menu_w = 0;   /* MENU measured again with the new hours (night_rows_widest) */
 	return MENU_CHANGED;
 }
 

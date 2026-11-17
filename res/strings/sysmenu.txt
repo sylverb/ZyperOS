@@ -634,12 +634,12 @@ ja = 暖色の強さ
 it = Intensità notturna
 
 [sysmenu.night_hours]
-note = A MENU row under Night Warmth, shown while Night Mode is By Hours, and its page's heading: when Night Mode turns on and off (look.hours is its value)
+note = A MENU row under Night Warmth, shown while Night Mode is By Hours, and its page's heading: when Night Mode turns on and off (look.hours is its value). Short: its value is a MENU row's longest on the 12-hour clock, so the row's name may be the plain word for hours where the Night Mode row above says the rest
 en = Night Hours
 zh-Hans = 夜间时段
-es = Horario nocturno
-pt-BR = Horário noturno
-fr = Horaires de nuit
+es = Horario
+pt-BR = Horário
+fr = Horaires
 de = Nachtzeiten
 ja = 夜間の時間帯
 it = Orari notturni

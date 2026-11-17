@@ -289,15 +289,15 @@ ja = 終了
 it = Fino alle
 
 [look.hours]
-note = Night Hours' value in MENU: the time Night Mode turns on, then the time it turns off (9:00 PM to 7:00 AM)
+note = Night Hours' value in MENU: the time Night Mode turns on, then the time it turns off (9:00 PM to 7:00 AM). Short: on the 12-hour clock it is a MENU row's longest value (10:30 PM to 11:30 AM)
 en = %s to %s
 zh-Hans = %s至%s
-es = de %s a %s
-pt-BR = das %s às %s
-fr = de %s à %s
+es = %s a %s
+pt-BR = %s às %s
+fr = %s à %s
 de = %s bis %s
 ja = %s〜%s
-it = da %s a %s
+it = %s – %s
 
 [look.time_12h]
 note = A time of day in 12-hour time on Auto Hours: %1$d:%2$02d the time, %3$s AM or PM (7:00 AM)
