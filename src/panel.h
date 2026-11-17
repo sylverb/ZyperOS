@@ -716,6 +716,7 @@ bool pacing_row_shown(const app *a, int sys);
 bool dslang_row_shown(const app *a, int sys);
 const char *dslang_label(dsl_choice c, char *buf, size_t n);
 void view_turn(app *a, int sys, int dir);
+void view_set(app *a, int sys, int k, bool keep);
 float grid_shape_load(const app *a, int sys);
 void grid_shape_save(const app *a, int sys, float shape);
 void sort_save(app *a);
@@ -724,6 +725,8 @@ int muse_rows_kind(void);
 int muse_kinds(void);
 void free_view_textures(sysview *v);
 void muse_show(sysview *v, ml_kind kind);
+/* The same, shown and not saved: Show's list's cursor (src/ds/hover.h) */
+void muse_show_only(sysview *v, ml_kind kind);
 void auto_off_save(int seconds);
 void saver_save(int seconds);
 void charge_limit_apply(void);

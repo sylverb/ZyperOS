@@ -284,6 +284,114 @@ static void home_undo(void *app_, int kept)
 
 static const ds_hover PM_HOME_HOVER = { .show = home_show, .undo = home_undo };
 
+/* Shelf `sys` in order `sort`, saved with `keep` or only shown (Sort By's
+ * list's cursor). The cursor follows the GAME, not its index. Re-sorting
+ * under a cursor left where it sat means closing the menu onto a different
+ * game than the one that was selected when it opened - the shelf would
+ * appear to have jumped on its own. Which game you were looking at is the
+ * thing that survives a reorder; where it happened to sit in the old order
+ * is not. On Muse's shelf the same goes for the album, whose folder is its
+ * `file`. */
+static void shelf_sort_to(app *a, int sys, int sort, bool keep)
+{
+	sysview *v = &a->view[sys];
+	char was[LIB_PATH];
+	int i, was_owner = -1;
+
+	was[0] = '\0';
+	if (v->cursor >= 0 && v->cursor < v->list.count) {
+		snprintf(was, sizeof was, "%s", v->list.items[v->cursor].file);
+		/* On Favorites a file name is not enough: the same one can be on
+		 * the shelf twice, from two systems. */
+		if (v->owner) was_owner = v->owner[v->cursor];
+	}
+	v->sort = sort;
+	sort_shelf(a, sys);
+	if (keep) sort_save(a);
+	/* The textures are indexed by position, so they moved with nothing.
+	 * Dropping them lets the next frame fetch each card's art for where it
+	 * now sits. */
+	free_view_textures(v);
+	v->cursor = 0;
+	for (i = 0; i < v->list.count; i++)
+		if (!strcmp(v->list.items[i].file, was) && (!v->owner || v->owner[i] == was_owner)) {
+			v->cursor = i;
+			break;
+		}
+	cf_reset(&v->cf, v->cursor);
+	games_reset(&v->row, v->cursor, v->list.count, plat_now_ms());
+}
+
+/* A system's Sort By and View lists, and Muse's Show: the shelf behind the
+ * list in the order, the view or the kind under the cursor, on the same
+ * game, in memory; saved only as A takes it. Sort By waits for the cursor
+ * to rest a moment: a big shelf's order is a sort and every card's art
+ * fetched again. */
+static void sort_show(void *app_, int k)
+{
+	app *a = app_;
+
+	if (k >= 0 && k < (is_muse(&a->sys.systems[a->sys_cursor]) ? ML_ORDERS : SORT_COUNT))
+		shelf_sort_to(a, a->sys_cursor, k, false);
+	redraw_now();
+}
+
+static void sort_undo(void *app_, int kept)
+{
+	sort_show(app_, kept);
+}
+
+static void view_show(void *app_, int k)
+{
+	app *a = app_;
+
+	if (k >= 0 && k < 3) view_set(a, a->sys_cursor, k, false);
+	redraw_now();
+}
+
+static void view_undo(void *app_, int kept)
+{
+	view_show(app_, kept);
+}
+
+/* Show's choices are the kinds the card has, then All (menu_choices):
+ * choice k is the k-th of them. The album the shelf was on, back on undo. */
+static int g_show_cursor = -1;
+
+static void show_kind_show(void *app_, int k)
+{
+	app *a = app_;
+	sysview *v = &a->view[a->sys_cursor];
+	int i, n = 0;
+
+	if (g_show_cursor < 0) g_show_cursor = v->cursor;
+	for (i = 0; i <= ML_ALL; i++) {
+		if (!ml_count_kind(&g_muse, (ml_kind)i)) continue;
+		if (n++ == k) {
+			muse_show_only(v, (ml_kind)i);
+			break;
+		}
+	}
+	redraw_now();
+}
+
+static void show_kind_undo(void *app_, int kept)
+{
+	app *a = app_;
+	sysview *v = &a->view[a->sys_cursor];
+
+	show_kind_show(app_, kept);
+	if (g_show_cursor >= 0 && g_show_cursor < v->list.count) {
+		v->cursor = g_show_cursor;
+		cf_reset(&v->cf, v->cursor);
+	}
+	g_show_cursor = -1;
+}
+
+static const ds_hover SM_SORT_HOVER = { .show = sort_show, .undo = sort_undo, .rest_ms = 150 };
+static const ds_hover SM_VIEW_HOVER = { .show = view_show, .undo = view_undo };
+static const ds_hover SMM_SHOW_HOVER = { .show = show_kind_show, .undo = show_kind_undo };
+
 /* The pictures beside the shelf's and MENU's lists, as hovers */
 static const ds_hover SM_DMODE_HOVER = { .draw = sm_dmode_preview };
 static const ds_hover SM_SHADER_HOVER = { .draw = sm_shader_preview };
@@ -318,8 +426,10 @@ static void menu_choices(app *a, int sys, bool games)
 				P[0].lab[n++] = T(show_text[i]);
 			}
 			g_smm_choice[SMM_SHOW] = ch_make(&P[0], n, cur, false);
+			g_smm_choice[SMM_SHOW].hover = &SMM_SHOW_HOVER;
 			for (i = 0; i < ML_ORDERS; i++) P[1].lab[i] = ml_order_label_kind((ml_order)i, muse_kind_shown());
 			g_smm_choice[SMM_SORT] = ch_make(&P[1], ML_ORDERS, v->sort, false);
+			g_smm_choice[SMM_SORT].hover = &SM_SORT_HOVER;
 			return;
 		}
 		n = cfg_core_count(sc);
@@ -340,6 +450,7 @@ static void menu_choices(app *a, int sys, bool games)
 		g_sm_choice[SM_PACE] = ch_make(&P[10], PACING_CHOICES, pacing_load(sc), false);
 		for (i = 0; i < SORT_COUNT; i++) P[4].lab[i] = sort_label(i);
 		g_sm_choice[SM_SORT] = ch_make(&P[4], SORT_COUNT, v->sort, false);
+		g_sm_choice[SM_SORT].hover = &SM_SORT_HOVER;
 		{
 			static const char *notes[CH_MAX];
 
@@ -372,6 +483,7 @@ static void menu_choices(app *a, int sys, bool games)
 		P[8].lab[1] = T(S_SYSMENU_VIEW_GRID);
 		P[8].lab[2] = T(S_SYSMENU_VIEW_LIST);
 		g_sm_choice[SM_VIEW] = ch_make(&P[8], 3, v->listed ? 2 : v->grid ? 1 : 0, false);
+		g_sm_choice[SM_VIEW].hover = &SM_VIEW_HOVER;
 		return;
 	}
 	/* MENU */
@@ -1531,38 +1643,10 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 		 * the album, whose folder is its `file`. */
 		if (d && sel == SM_SORT) {
 			sysview *v = &a->view[a->sys_cursor];
-			char keep[LIB_PATH];
-			int i, keep_owner = -1;
 
-			keep[0] = '\0';
-			if (v->cursor >= 0 && v->cursor < v->list.count) {
-				snprintf(keep, sizeof keep, "%s",
-				         v->list.items[v->cursor].file);
-				/* On Favorites a file name is not enough: the same one can
-				 * be on the shelf twice, from two systems. */
-				if (v->owner) keep_owner = v->owner[v->cursor];
-			}
-
-			v->sort = is_muse(&a->sys.systems[a->sys_cursor])
-			        ? (v->sort + d + ML_ORDERS) % ML_ORDERS
-			        : sort_step(v->sort, d);
-			sort_shelf(a, a->sys_cursor);
-			sort_save(a);
-
-			/* The textures are indexed by position, so they moved with
-			 * nothing. Dropping them lets the next frame fetch each card's
-			 * art for where it now sits. */
-			free_view_textures(v);
-
-			v->cursor = 0;
-			for (i = 0; i < v->list.count; i++)
-				if (!strcmp(v->list.items[i].file, keep) &&
-				    (!v->owner || v->owner[i] == keep_owner)) {
-					v->cursor = i;
-					break;
-				}
-			cf_reset(&v->cf, v->cursor);
-	games_reset(&v->row, v->cursor, v->list.count, plat_now_ms());
+			shelf_sort_to(a, a->sys_cursor, is_muse(&a->sys.systems[a->sys_cursor])
+			                                ? (v->sort + d + ML_ORDERS) % ML_ORDERS
+			                                : sort_step(v->sort, d), true);
 			return MENU_STAY;
 		}
 		if (key != IN_ACCEPT) return MENU_STAY;
