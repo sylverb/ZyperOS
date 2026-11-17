@@ -138,7 +138,7 @@ static const char *night_hours_value(void);
 static int nm_mode(void);
 static int nm_warmth(void);
 static void nm_keep(void);
-static const ds_hover NM_WARMTH_HOVER;
+static const ds_hover NM_WARMTH_HOVER, NM_MODE_HOVER;
 
 /* ---------- option rows' choices (menu.h's menu_choice, DESIGN.md 9) ------ */
 
@@ -385,6 +385,7 @@ static void menu_choices(app *a, int sys, bool games)
 	P[11].lab[NIGHT_ON] = T(S_MENU_ON_TITLE);
 	P[11].lab[NIGHT_HOURS] = T(S_SYSMENU_NIGHT_BY_HOURS);
 	g_pm_choice[PM_NIGHT] = ch_make(&P[11], NM_MODES, nm_mode(), false);
+	g_pm_choice[PM_NIGHT].hover = &NM_MODE_HOVER;
 	for (i = 0; i < NM_WARMTH_MAX; i++) {
 		snprintf(P[12].buf[i], sizeof P[12].buf[i], "%d", i + 1);
 		P[12].lab[i] = P[12].buf[i];
@@ -778,6 +779,26 @@ static void screen_colors_tick(void *app_)
 
 static const ds_hover NM_WARMTH_HOVER = { .show = nm_warmth_show, .undo = nm_warmth_undo,
                                           .tick = screen_colors_tick };
+
+/* Night Mode's list: the warmth its choice under the cursor gives now on
+ * the whole screen - none for Off, Night Warmth's for On, By Hours as the
+ * hour is - in memory, as Night Warmth's list shows its own */
+static void nm_mode_show(void *app_, int k)
+{
+	night_cfg c = *nm_cfg();
+	panelgamma_night s;
+	int w;
+
+	(void)app_;
+	if (k < 0 || k >= NM_MODES) return;
+	c.mode = (night_mode)k;
+	night_schedule(&c, time(NULL), &s);
+	w = panelgamma_night_at(&s, (long long)time(NULL));
+	plat_night_preview(w > 0 ? w : -1);
+}
+
+static const ds_hover NM_MODE_HOVER = { .show = nm_mode_show, .undo = nm_warmth_undo,
+                                        .tick = screen_colors_tick };
 
 /* The three Night rows as MENU's width measures them (main.c's
  * menu_shelf_width), into out[0..2], shown or not: Night Mode at its
