@@ -116,7 +116,7 @@ written to match. Change a term here first, then everywhere it is used.
 | Accent (the focus's color) | 强调色 | Color de acento | Cor de destaque | Couleur d'accent | Akzentfarbe | アクセント | Colore d'accento |
 | Night Mode (warmer colors at night: Off / On / By Hours) | 夜间模式 (关闭 / 开启 / 定时) | Modo nocturno (Desactivado / Activado / Por horario) | Modo noturno (Desativado / Ativado / Por horário) | Mode nuit (Désactivé / Activé / Selon l'horaire) | Nachtmodus (Aus / An / Nach Uhrzeit) | ナイトモード (オフ / オン / 時間指定) | Modalità notte (Disattivo / Attivo / Per orario) |
 | Night Warmth | 暖色强度 | Intensidad nocturna | Intensidade noturna | Intensité de nuit | Nachtwärme | 暖色の強さ | Intensità notturna |
-| Night Hours (Night From / Until) | 夜间时段 (开始 / 结束) | Horario (Noche desde / Hasta) | Horário (Noite desde / Até) | Horaires (Nuit dès / Jusqu'à) | Nachtzeiten (Nacht ab / Bis) | 夜間の時間帯 (開始 / 終了) | Orari notturni (Notte dalle / Fino alle) |
+| Night From / Until | 开始 / 结束 | Noche desde / Hasta | Noite desde / Até | Nuit dès / Jusqu'à | Nacht ab / Bis | 開始 / 終了 | Notte dalle / Fino alle |
 | on / off (a value) | 开启 / 关闭 | activado / desactivado | ativado / desativado | activé / désactivé | an / aus | オン / オフ | attivo / disattivo |
 | not connected | 未连接 | sin conexión | não conectado | non connecté | nicht verbunden | 未接続 | non connesso |
 | connecting | 正在连接 | conectando | conectando | connexion… | verbindet … | 接続中 | connessione… |
