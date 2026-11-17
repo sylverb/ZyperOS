@@ -6,6 +6,7 @@
 #include "db.h"
 #include "ds/hover.h"
 
+#include <SDL.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -39,18 +40,33 @@ static long written(void)
 
 /* Each choice shown in turn, as a cursor going down the list would, then
  * back on the kept one, then the list closed: the shows it made */
-static int sweep(app *a, const ds_hover *h, int kept, int n)
+static int sweep(app *a, const ds_hover *h, int kept, int n, double *worst_ms)
 {
 	ds_hover_run r;
 	unsigned now = 0;
 	int k, shown = 0;
+	const double per_ms = 1000.0 / (double)SDL_GetPerformanceFrequency();
 
+	*worst_ms = 0;
 	ds_hover_begin(&r, h, a, kept, kept >= 0 ? kept : 0, now);
 	for (k = 0; k < n; k++) {
+		Uint64 t0;
+		double ms;
+
 		/* past any rest: the cursor stops on each */
 		now += h->rest_ms + 1000;
 		ds_hover_at(&r, k, now);
+		t0 = SDL_GetPerformanceCounter();
 		ds_hover_at(&r, k, now + h->rest_ms + 1);
+		ms = (double)(SDL_GetPerformanceCounter() - t0) * per_ms;
+		/* the show itself, timed where it is made: after the rest */
+		if (!h->rest_ms) {
+			ds_hover_at(&r, kept >= 0 ? kept : (k + 1) % n, now + 2);
+			t0 = SDL_GetPerformanceCounter();
+			ds_hover_at(&r, k, now + 3);
+			ms = (double)(SDL_GetPerformanceCounter() - t0) * per_ms;
+		}
+		if (ms > *worst_ms) *worst_ms = ms;
 		if (r.shown == k) shown++;
 	}
 	if (kept >= 0) ds_hover_at(&r, kept, now + 1);
@@ -64,14 +80,16 @@ void hover_sweep_list(app *a, const char *page, const char *label, const ds_hove
 	page_read before, after;
 	long w0;
 	int shown;
+	double worst;
 
 	if (!h || !h->show || n <= 0) return;
 	page_take(a, build, ctx, &before);
 	w0 = written();
-	shown = sweep(a, h, kept, n);
+	shown = sweep(a, h, kept, n, &worst);
 	page_take(a, build, ctx, &after);
-	printf("hover: %s\t%s\t%d\t%ld\t%s\n", page, label ? label : "", shown, written() - w0,
-	       before.n == after.n && !memcmp(before.value, after.value, sizeof before.value) ? "same" : "changed");
+	printf("hover: %s\t%s\t%d\t%ld\t%s\t%.2f\n", page, label ? label : "", shown, written() - w0,
+	       before.n == after.n && !memcmp(before.value, after.value, sizeof before.value) ? "same" : "changed",
+	       worst);
 	fflush(stdout);
 }
 

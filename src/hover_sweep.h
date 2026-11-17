@@ -4,9 +4,10 @@
  * back as its list would (src/ds/hover.h), proving a hover writes nothing
  * and leaves the page as it found it. A line each:
  *
- *   hover: <page>\t<row>\t<choices shown>\t<db rows written>\t<same|changed>
+ *   hover: <page>\t<row>\t<choices shown>\t<db rows written>\t<same|changed>\t<ms>
  *
- * "same": the page built again after reads the same, every row's value. */
+ * "same": the page built again after reads the same, every row's value;
+ * <ms> the slowest show, here (a show's cost on the host, not the Pixel 2's). */
 #ifndef ZYPEROS_HOVER_SWEEP_H
 #define ZYPEROS_HOVER_SWEEP_H
 

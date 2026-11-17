@@ -34,7 +34,7 @@ CASES = [
       ("theme", "Accent"), ("theme", "Light Background"), ("theme", "Dark Background"),
       ("screen", "Look"), ("system", "Sort By"), ("system", "View"), ("datetime", "Time Zone"),
       ("music", "Volume"), ("music", "Track"),
-      ("hud", "Corner"), ("hud", "Edge"), ("hud", "Opacity"), ("hud", "Color")}),
+      ("hud", "Corner"), ("hud", "Edge Distance"), ("hud", "Opacity"), ("hud", "Text Color")}),
     ("night on", "demo", "PS1", True, "pixel2", {"night.mode": "on"}, [],
      {("menu", "Night Warmth"), ("menu", "Night Mode")}),
     ("dark", "demo", "PS1", True, "pixel2", {"appearance": "dark"}, [],
@@ -86,7 +86,7 @@ def main():
     if not binary.is_file():
         print("FAIL no build-native/zyperos: make native first")
         return 1
-    fails, lists = [], 0
+    fails, lists, slow = [], 0, []
     for name, card_kind, shelf, focus, device, settings, extra, want in CASES:
         with tempfile.TemporaryDirectory() as tmp:
             plain, plain_tree = shoot(card_kind, shelf, focus, device, settings, extra, False, tmp)
@@ -98,7 +98,8 @@ def main():
         for line in r.stdout.splitlines():
             if not line.startswith("hover: "):
                 continue
-            page, label, shown, written, same = line[7:].split("\t")
+            page, label, shown, written, same, ms = line[7:].split("\t")
+            slow.append((float(ms), "%s > %s" % (page, label)))
             seen.add((page, label))
             lists += 1
             if int(written):
@@ -118,8 +119,9 @@ def main():
         print("FAIL " + f)
     if fails:
         return 1
-    print("ok: %d lists in %d cases show every choice and write nothing, and their pages read the same after"
-          % (lists, len(CASES)))
+    slow.sort(reverse=True)
+    print("ok: %d lists in %d cases show every choice and write nothing, and their pages read the same after;"
+          " slowest shows here: %s" % (lists, len(CASES), ", ".join("%s %.1f ms" % (n, m) for m, n in slow[:4])))
     return 0
 
 
