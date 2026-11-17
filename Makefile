@@ -2315,13 +2315,16 @@ check-shaderdemo: build-native/shaderdemo
 
 # The graded bar (src/ds/scale.h): a scale value reads back as written and
 # keeps its range, words are never one, and the knob is drawn where the value
-# is, zero's mark through the track, in both themes.
+# is, zero's mark through the track, in both themes; the bars' columns and
+# the colour chart's hue band, copied from their textures (ui_bake), are the
+# pixels they drew, and a frame of Screen Colors' bars and chart keeps to a
+# budget of drawing calls.
 check-scale:
 	@if pkg-config --exists sdl2 SDL2_ttf SDL2_image; then \
 		mkdir -p build-native; \
 		$(CC) -std=gnu11 -D_GNU_SOURCE -O1 -g -Wall -Wextra \
 		  $$(pkg-config --cflags sdl2 SDL2_ttf SDL2_image) -Isrc \
-		  -o build-native/scale-check tools/scale-check.c src/ds/scale.c src/ui.c src/ds/glyph.c src/ds/button.c src/folderart.c src/roundrect.c src/theme.c src/look.c \
+		  -o build-native/scale-check tools/scale-check.c src/ds/scale.c src/ds/colorref.c src/ui.c src/ds/glyph.c src/ds/button.c src/folderart.c src/roundrect.c src/theme.c src/look.c \
 		  src/themefile.c src/linebreak.c src/blur.c src/cardgen.c src/cardart.c src/cardart_draw.c src/sysmark.c $(I18N_SRC) \
 		  $$(pkg-config --libs sdl2 SDL2_ttf SDL2_image) -lm && \
 		ZYPEROS_HEADLESS=1 SDL_VIDEODRIVER=dummy SDL_RENDER_DRIVER=software \
