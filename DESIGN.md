@@ -1835,7 +1835,7 @@ rows, who on the left and what of theirs on the right, short enough that no
 row scrolls sideways, Eric Reinsmidt first; then, under a rule and the
 heading **Help with other handhelds**, the people who help with the other
 handhelds ZyperOS runs on, a name and the handheld each (src/about_screen.c's
-`ABOUT_HANDHELD_THANKS`, shown only while it has a row: none yet); and held at the
+`ABOUT_HANDHELD_THANKS`, shown only while it has a row); and held at the
 foot, under the footer's rule, the note "All licenses are in Licenses/".
 Every page uses the standard menu panel and one measured width. The **meta**
 **text-dim** page count, "1 / 4" to "4 / 4",
