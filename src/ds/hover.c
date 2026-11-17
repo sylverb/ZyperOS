@@ -27,7 +27,10 @@ static void hover_at(ds_hover_run *r, int k, unsigned now)
 		/* Back on the kept one: what is kept, at once (no rest: the
 		 * kept one is not something new to start) */
 		if (r->shown >= 0) {
-			if (r->h->undo) r->h->undo(r->ctx, r->kept);
+			/* A list that plays its own moves is heard coming back too:
+			 * the kept one shown, which puts it back with its sound */
+			if (r->h->own_sound && k >= 0) r->h->show(r->ctx, k);
+			else if (r->h->undo) r->h->undo(r->ctx, r->kept);
 			r->shown = -1;
 			g_showing--;
 		}

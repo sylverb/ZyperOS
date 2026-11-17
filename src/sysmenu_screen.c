@@ -388,6 +388,46 @@ static void show_kind_undo(void *app_, int kept)
 	g_show_cursor = -1;
 }
 
+/* UI Sounds' and Audio Channels' lists: the cursor's click in the voice,
+ * or through the channels, under it (own_sound: the list's moves are quiet
+ * and the show plays them); in memory, saved only as A takes it */
+static int ui_voice_at(int k)
+{
+	int s = 0, i;
+
+	for (i = 0; i < k; i++) s = uisound_setting_step(s, 1);
+	return s;
+}
+
+static void voice_show(void *app_, int k)
+{
+	uisound_set(ui_voice_at(k));
+	moved_sound(app_, IN_DOWN);
+}
+
+static void voice_undo(void *app_, int kept)
+{
+	(void)app_;
+	uisound_set(ui_voice_at(kept));
+}
+
+static void channels_show(void *app_, int k)
+{
+	if (k >= 0 && k < AOUT_CHANNELS_COUNT) g_channels = (aout_channels)k;
+	aout_apply(false);
+	moved_sound(app_, IN_DOWN);
+}
+
+static void channels_undo(void *app_, int kept)
+{
+	(void)app_;
+	if (kept >= 0 && kept < AOUT_CHANNELS_COUNT) g_channels = (aout_channels)kept;
+	aout_apply(false);
+}
+
+static const ds_hover PM_VOICE_HOVER = { .show = voice_show, .undo = voice_undo, .own_sound = true };
+static const ds_hover PM_CHANNELS_HOVER = { .show = channels_show, .undo = channels_undo, .own_sound = true };
+
 static const ds_hover SM_SORT_HOVER = { .show = sort_show, .undo = sort_undo, .rest_ms = 150 };
 static const ds_hover SM_VIEW_HOVER = { .show = view_show, .undo = view_undo };
 static const ds_hover SMM_SHOW_HOVER = { .show = show_kind_show, .undo = show_kind_undo };
@@ -550,6 +590,7 @@ static void menu_choices(app *a, int sys, bool games)
 			P[5].lab[i] = P[5].buf[i];
 		}
 		g_pm_choice[PM_CHANNELS] = ch_make(&P[5], AOUT_CHANNELS_COUNT, (int)g_channels, false);
+		g_pm_choice[PM_CHANNELS].hover = &PM_CHANNELS_HOVER;
 	}
 	{
 		/* The voices round from the first, as uisound_setting_step goes */
@@ -562,6 +603,7 @@ static void menu_choices(app *a, int sys, bool games)
 			if (s == s0) break;
 		}
 		g_pm_choice[PM_SOUNDS] = ch_make(&P[6], n, cur, false);
+		g_pm_choice[PM_SOUNDS].hover = &PM_VOICE_HOVER;
 	}
 	for (i = 0, cur = 0; i < AUTO_OFF_COUNT; i++) {
 		if (AUTO_OFF[i] == a->auto_off) cur = i;

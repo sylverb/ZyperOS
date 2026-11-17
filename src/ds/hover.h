@@ -25,7 +25,8 @@
  *
  * `own_sound`: show plays the move's sound itself, after it has made the
  * choice heard (UI Sounds: the click in the voice under the cursor), so
- * the list's own move sound stays quiet.
+ * the list's own move sound stays quiet; back on the kept one it is shown
+ * too (its click heard), not undone.
  *
  * `tick`: each pass while the list is open, after any show (the panel's
  * table: a load a key's repeat held back is made once its gap is over).
