@@ -442,6 +442,14 @@ const char *shot_kb_text = "correct horse";
  * uses this keyboard - signing in to RetroAchievements - could not be
  * rendered at all. A harness narrower than the thing it checks. */
 const char *shot_kb_title = "Wi-Fi password";
+/* --kb-ss-user: the title is the ScreenScraper sign-in's, in the shot's
+ * language, so check-i18n-shots measures it in every one */
+int shot_kb_ss_user;
+
+static const char *kb_title_shown(void)
+{
+	return shot_kb_ss_user ? T(S_SCRAPER_SS_USER) : shot_kb_title;
+}
 int shot_slots, shot_slot_sel;
 int shot_jump;               /* letter-jumps to apply before drawing */
 /* --nowplaying ALBUM [TRACK [SECONDS]], and --paused with it. */
@@ -1185,7 +1193,7 @@ static void shot_compose(app *a)
 			draw_shelf(a);
 			zyperos_menu_draw(a, shot_menu_sel);
 		} else {
-			kb_preview_panel(a->r, shot_kb_title, shot_kb_text,
+			kb_preview_panel(a->r, kb_title_shown(), shot_kb_text,
 			                 shot_kb_layer, shot_kb_row, shot_kb_col, pose);
 		}
 		return;
@@ -1454,9 +1462,9 @@ static void shot_compose(app *a)
 	}
 	if (shot_kb) {
 		if (shot_at >= 0)
-			kb_preview_press(a->r, shot_kb_title, shot_kb_text,
+			kb_preview_press(a->r, kb_title_shown(), shot_kb_text,
 			                 shot_kb_layer, shot_kb_row, shot_kb_col, (unsigned)shot_at);
-		else kb_preview(a->r, shot_kb_title, shot_kb_text,
+		else kb_preview(a->r, kb_title_shown(), shot_kb_text,
 		                shot_kb_layer, shot_kb_row, shot_kb_col);
 	}
 	/* The in-game notice is not drawn by this process - Diatom composites it

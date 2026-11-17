@@ -5322,9 +5322,11 @@ int main(int argc, char *argv[])
 				return 2;
 			}
 		}
-		/* --keyboard [layer] [text] draws one frame of the text-entry panel,
-		 * for the same reason --menu and --slots exist: it is dense, and
-		 * laying it out against a screenshot beats a round trip to a device. */
+		/* --keyboard [layer] [text] [title] draws one frame of the text-entry
+		 * panel, for the same reason --menu and --slots exist: it is dense, and
+		 * laying it out against a screenshot beats a round trip to a device.
+		 * --kb-ss-user titles it as the ScreenScraper sign-in does, in the
+		 * shot's language. */
 		else if (!strcmp(argv[i], "--cheevos-screen")) {
 			shot_cheevos = 1;
 			if (i + 1 < argc && argv[i + 1][0] >= '0' && argv[i + 1][0] <= '9')
@@ -5986,6 +5988,7 @@ int main(int argc, char *argv[])
 			if (i + 1 < argc && argv[i + 1][0] != '-') shot_kb_text = argv[++i];
 			if (i + 1 < argc && argv[i + 1][0] != '-') shot_kb_title = argv[++i];
 		}
+		else if (!strcmp(argv[i], "--kb-ss-user")) shot_kb_ss_user = 1;
 		/* --kbsel ROW COL puts the keyboard's selection on a key, so the
 		 * action row can be looked at selected key by key. */
 		else if (!strcmp(argv[i], "--kbsel") && i + 2 < argc) {
