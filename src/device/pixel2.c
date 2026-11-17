@@ -21,6 +21,7 @@
 #include "device.h"
 #include "displayback.h"
 #include "fileio.h"
+#include "nightkeep.h"
 #include "panelgamma.h"
 #include "phonelink.h"
 #include "platform.h"
@@ -1072,13 +1073,43 @@ static void display_gamma(const char *when)
 		        "%s\n", raw, when);
 }
 
-/* The colors for the other two writers, Diatom and portkeys, which read the
- * file each time they take the display (panelgamma.h): the kept ones only,
- * never a preview */
-static void screen_colors_share(const panelgamma_color *c)
+/* The kept colors (night 0) and Night Mode as kept, with its nights about
+ * now (src/nightmode.h): what the file says. Night Warmth's list shows its
+ * cursor's warmth meanwhile (night_preview), which nothing else sees. */
+static panelgamma_color screen_kept;
+static night_cfg        night_kept;
+static panelgamma_night night_sched;
+static int              night_preview;
+static time_t           night_looked, night_planned;
+
+/* The colors and Night Mode for the other two writers, Diatom and portkeys,
+ * which read the file each time they take the display (panelgamma.h), and
+ * look at the nights in it once a second: the kept ones only, never a
+ * preview */
+static void screen_colors_share(void)
 {
-	if (panelgamma_color_write(PANELGAMMA_COLOR_FILE, c) != 0)
+	if (panelgamma_screen_write(PANELGAMMA_COLOR_FILE, &screen_kept, &night_sched) != 0)
 		fprintf(stderr, "settings: could not write %s\n", PANELGAMMA_COLOR_FILE);
+}
+
+/* The warmth on the display at `now`: the list's cursor's, or the kept
+ * Night Mode's */
+static int night_now(time_t now)
+{
+	return night_preview > 0 ? night_preview : panelgamma_night_at(&night_sched, (long long)now);
+}
+
+/* Night Mode's nights about `now` in this zone, and the file written again
+ * when they are not the ones it has (or always, with `force`) */
+static void night_plan(time_t now, bool force)
+{
+	panelgamma_night s;
+
+	night_schedule(&night_kept, now, &s);
+	night_planned = now;
+	if (!force && !memcmp(&s, &night_sched, sizeof s)) return;
+	night_sched = s;
+	screen_colors_share();
 }
 
 /* Saturation: the BCSH block's knob on each of the PX30's two display
@@ -1130,14 +1161,65 @@ void plat_screen_colors_tick(bool now)
 
 void plat_screen_colors(const screen_colors *c, bool keep)
 {
-	panelgamma_color want = { c->temp, c->tint, c->contrast, c->gamma };
+	panelgamma_color want = { c->temp, c->tint, c->contrast, c->gamma, 0 };
 
 	panelgamma_color_clamp(&want);
-	if (keep) screen_colors_share(&want);
+	if (keep) {
+		screen_kept = want;
+		screen_colors_share();
+	}
 	screen_saturation_apply(c->saturation);
+	want.night = night_now(time(NULL));
 	screen_want = want;
 	screen_held = memcmp(&want, &screen_color, sizeof want) != 0;
 	plat_screen_colors_tick(false);
+}
+
+/* The warmth wanted now on the display, loaded at once (`at_once`: a kept
+ * change, or the hour) or after the gap (the list's cursor running) */
+static void night_want(bool at_once)
+{
+	screen_want.night = night_now(time(NULL));
+	screen_held = memcmp(&screen_want, &screen_color, sizeof screen_want) != 0;
+	plat_screen_colors_tick(at_once);
+}
+
+void plat_night(const struct night_cfg *n)
+{
+	night_kept = *n;
+	night_cfg_clamp(&night_kept);
+	night_preview = 0;
+	night_plan(time(NULL), true);
+	night_want(true);
+	fprintf(stderr, "night: Night Mode %s, warmth %d, %02d:%02d to %02d:%02d\n",
+	        night_mode_id(night_kept.mode), night_kept.warmth, night_kept.from / 60,
+	        night_kept.from % 60, night_kept.until / 60, night_kept.until % 60);
+}
+
+void plat_night_preview(int warmth)
+{
+	night_preview = warmth < 0 ? 0 : warmth > PANELGAMMA_NIGHT_MAX ? PANELGAMMA_NIGHT_MAX : warmth;
+	night_want(false);
+}
+
+bool plat_night_tick(void)
+{
+	time_t now = time(NULL);
+	int w;
+
+	if (now == night_looked) return false;
+	night_looked = now;
+	/* The nights again each minute, at once when the clock went back or
+	 * the first night in the file ended: a zone chosen in Date & Time, the
+	 * time set by hand, and the next night written for the other two */
+	if (now - night_planned >= 60 || now < night_planned ||
+	    (night_sched.n > 0 && (long long)now >= night_sched.until[0]))
+		night_plan(now, false);
+	w = night_now(now);
+	if (w == screen_want.night) return false;
+	night_want(true);
+	fprintf(stderr, "night: Night Mode %s\n", w ? "on" : "off");
+	return true;
 }
 
 static void apply_brightness(int b)
@@ -1201,8 +1283,12 @@ void plat_settings_init(void)
 	screen_color.contrast = db_get_int(db_dev(), "screen_contrast", 0);
 	screen_color.gamma = db_get_int(db_dev(), "screen_gamma", 0);
 	panelgamma_color_clamp(&screen_color);
+	screen_kept = screen_color;
+	/* Night Mode's, and the file with both, before the first table */
+	night_kept = night_load();
+	night_plan(time(NULL), true);
+	screen_color.night = night_now(time(NULL));
 	screen_want = screen_color;
-	screen_colors_share(&screen_color);
 	/* Written whatever the knob holds: a launcher started again keeps
 	 * nothing of the last one's (screen_saturation_on starts at 0) */
 	screen_saturation_on = SCREEN_COLORS_RANGE + 1;

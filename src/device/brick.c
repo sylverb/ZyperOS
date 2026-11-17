@@ -919,6 +919,9 @@ void plat_backlight_dim(bool dim)
 void plat_display_plain(void) { }
 void plat_screen_colors(const screen_colors *c, bool keep) { (void)c; (void)keep; }
 void plat_screen_colors_tick(bool now) { (void)now; }
+void plat_night(const struct night_cfg *n) { (void)n; }
+void plat_night_preview(int warmth) { (void)warmth; }
+bool plat_night_tick(void) { return false; }
 bool plat_screen_saturation_here(void) { return false; }
 
 #else   /* not __linux__ */
@@ -966,6 +969,9 @@ void plat_backlight_dim(bool dim) { (void)dim; }
 void plat_display_plain(void) { }
 void plat_screen_colors(const screen_colors *c, bool keep) { (void)c; (void)keep; }
 void plat_screen_colors_tick(bool now) { (void)now; }
+void plat_night(const struct night_cfg *n) { (void)n; }
+void plat_night_preview(int warmth) { (void)warmth; }
+bool plat_night_tick(void) { return false; }
 /* The host draws the Pixel 2's page whole, Saturation too, for the shots */
 bool plat_screen_saturation_here(void) { return true; }
 

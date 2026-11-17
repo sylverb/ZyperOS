@@ -321,8 +321,9 @@ static void menu_choices(app *a, int sys, bool games)
 		return;
 	}
 	/* MENU */
-	for (i = 0; i < 3; i++) P[0].lab[i] = appearance_name((appearance)i);
-	g_pm_choice[PM_APPEARANCE] = ch_make(&P[0], 3, (int)theme_appearance(), false);
+	/* Light and Dark: Auto is gone since 1.0.6 (src/nightkeep.h) */
+	for (i = 0; i < 2; i++) P[0].lab[i] = appearance_name((appearance)i);
+	g_pm_choice[PM_APPEARANCE] = ch_make(&P[0], 2, theme_appearance() == APPEAR_DARK, false);
 	P[1].lab[BATT_BARS] = T(S_PANEL_BATTERY_BARS);
 	P[1].lab[BATT_PCT] = T(S_PANEL_BATTERY_PERCENTAGE);
 	P[1].lab[BATT_TIME] = T(S_PANEL_BATTERY_TIME);
@@ -1445,9 +1446,8 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 	 * again here, saved as its word, and the theme file the bar's other
 	 * programs read is rewritten by theme_init - so the next frame is drawn
 	 * from the new theme(), and the next bar over a game or a port is drawn
-	 * in it. Saved even when the theme it comes to is the one already on:
-	 * Auto at noon is Beard and so is Light, and they are still two
-	 * settings. */
+	 * in it. Light and Dark since 1.0.6: Auto's hours are Night Mode's
+	 * (src/nightmode.h). */
 	if (sel == PM_APPEARANCE && (d || key == IN_ACCEPT)) {
 		appearance k = appearance_step(theme_appearance(), d ? d : 1);
 		int was = theme_index();

@@ -96,7 +96,7 @@ int panelgamma_out(int raw, int in)
 
 int panelgamma_color_standard(const panelgamma_color *c)
 {
-	return !c || (!c->temp && !c->tint && !c->contrast && !c->gamma);
+	return !c || (!c->temp && !c->tint && !c->contrast && !c->gamma && c->night <= 0);
 }
 
 static int pg_clamp(int v)
@@ -110,15 +110,65 @@ void panelgamma_color_clamp(panelgamma_color *c)
 	c->tint = pg_clamp(c->tint);
 	c->contrast = pg_clamp(c->contrast);
 	c->gamma = pg_clamp(c->gamma);
+	c->night = c->night < 0 ? 0 : c->night > PANELGAMMA_NIGHT_MAX ? PANELGAMMA_NIGHT_MAX : c->night;
 }
 
-int panelgamma_color_read(const char *path, panelgamma_color *c)
+int panelgamma_night_at(const panelgamma_night *n, long long now)
 {
-	char line[128], *p, *save = NULL;
+	int i;
+
+	if (!n || n->warmth <= 0) return 0;
+	if (n->always) return n->warmth;
+	for (i = 0; i < n->n && i < PANELGAMMA_NIGHTS; i++)
+		if (now >= n->from[i] && now < n->until[i]) return n->warmth;
+	return 0;
+}
+
+long long panelgamma_night_next(const panelgamma_night *n, long long now)
+{
+	long long next = 0;
+	int i;
+
+	if (!n || n->warmth <= 0 || n->always) return 0;
+	for (i = 0; i < n->n && i < PANELGAMMA_NIGHTS; i++) {
+		if (n->from[i] > now && (!next || n->from[i] < next)) next = n->from[i];
+		if (n->until[i] > now && (!next || n->until[i] < next)) next = n->until[i];
+	}
+	return next;
+}
+
+/* "always", or up to PANELGAMMA_NIGHTS "from-until" with commas between;
+ * a night that ends before it starts is none */
+static void nights_parse(const char *s, panelgamma_night *n)
+{
+	if (!strcmp(s, "always")) {
+		n->always = 1;
+		return;
+	}
+	while (*s && n->n < PANELGAMMA_NIGHTS) {
+		long long a, b;
+		int used = 0;
+
+		if (sscanf(s, "%lld-%lld%n", &a, &b, &used) != 2 || used <= 0) return;
+		if (b > a) {
+			n->from[n->n] = a;
+			n->until[n->n] = b;
+			n->n++;
+		}
+		s += used;
+		if (*s != ',') return;
+		s++;
+	}
+}
+
+int panelgamma_screen_read(const char *path, panelgamma_color *c, panelgamma_night *night)
+{
+	char line[256], *p, *save = NULL;
 	ssize_t n;
 	int fd;
 
 	memset(c, 0, sizeof *c);
+	if (night) memset(night, 0, sizeof *night);
 	/* As src/themefile.c reads its word: O_NONBLOCK, so a FIFO left at this
 	 * name answers at once with nothing (Standard) rather than holding the
 	 * display's next frame; one read, and a file this long is not ours */
@@ -134,21 +184,42 @@ int panelgamma_color_read(const char *path, panelgamma_color *c)
 		else if (sscanf(p, "tint=%d", &v) == 1) c->tint = v;
 		else if (sscanf(p, "contrast=%d", &v) == 1) c->contrast = v;
 		else if (sscanf(p, "gamma=%d", &v) == 1) c->gamma = v;
+		else if (night && sscanf(p, "warmth=%d", &v) == 1) night->warmth = v;
+		else if (night && !strncmp(p, "nights=", 7)) nights_parse(p + 7, night);
 	}
 	panelgamma_color_clamp(c);
+	if (night && (night->warmth < 0 || night->warmth > PANELGAMMA_NIGHT_MAX))
+		night->warmth = night->warmth < 0 ? 0 : PANELGAMMA_NIGHT_MAX;
 	return 1;
 }
 
-int panelgamma_color_write(const char *path, const panelgamma_color *c)
+int panelgamma_color_read(const char *path, panelgamma_color *c)
+{
+	return panelgamma_screen_read(path, c, NULL);
+}
+
+int panelgamma_screen_write(const char *path, const panelgamma_color *c, const panelgamma_night *night)
 {
 	panelgamma_color v = *c;
-	char tmp[256], text[80];
-	int fd, len, ok;
+	char tmp[256], text[256];
+	int fd, len, ok, i;
 
 	panelgamma_color_clamp(&v);
 	if (!path || snprintf(tmp, sizeof tmp, "%s.tmp", path) >= (int)sizeof tmp) return -1;
-	len = snprintf(text, sizeof text, "temp=%d tint=%d contrast=%d gamma=%d\n",
+	len = snprintf(text, sizeof text, "temp=%d tint=%d contrast=%d gamma=%d",
 	               v.temp, v.tint, v.contrast, v.gamma);
+	/* Night Mode, when it has a warmth and a time to be on */
+	if (night && night->warmth > 0 && (night->always || night->n > 0)) {
+		len += snprintf(text + len, sizeof text - (size_t)len, " warmth=%d nights=",
+		                night->warmth > PANELGAMMA_NIGHT_MAX ? PANELGAMMA_NIGHT_MAX : night->warmth);
+		if (night->always)
+			len += snprintf(text + len, sizeof text - (size_t)len, "always");
+		else
+			for (i = 0; i < night->n && i < PANELGAMMA_NIGHTS; i++)
+				len += snprintf(text + len, sizeof text - (size_t)len, "%s%lld-%lld",
+				                i ? "," : "", night->from[i], night->until[i]);
+	}
+	len += snprintf(text + len, sizeof text - (size_t)len, "\n");
 	/* A new temporary each time, as src/themefile.c makes its own: a link
 	 * left at this name in /tmp is not followed (O_EXCL after the unlink),
 	 * and a race lost there fails the write, which the caller logs */
@@ -164,11 +235,17 @@ int panelgamma_color_write(const char *path, const panelgamma_color *c)
 	return 0;
 }
 
-/* A channel's gain in light for Temperature and Tint, every gain 1 or under
- * so white's brightest channel stays 255. Warm takes green a little down and
- * blue more, toward a candle's white (+10: green 80%, blue 45%); cool takes
- * red down and green a little (-10: red 80%, green 88%). Magenta takes green
- * down, green red and blue (+-10: 80%). */
+int panelgamma_color_write(const char *path, const panelgamma_color *c)
+{
+	return panelgamma_screen_write(path, c, NULL);
+}
+
+/* A channel's gain in light for Temperature, Tint and Night Mode, every gain
+ * 1 or under so white's brightest channel stays 255. Warm takes green a
+ * little down and blue more, toward a candle's white (+10: green 80%, blue
+ * 45%); cool takes red down and green a little (-10: red 80%, green 88%).
+ * Magenta takes green down, green red and blue (+-10: 80%). Night is warm
+ * again, multiplied in. */
 static double color_gain(const panelgamma_color *v, int ch)
 {
 	double g = 1;
@@ -184,6 +261,11 @@ static double color_gain(const panelgamma_color *v, int ch)
 		if (ch == 1) g *= 1 - 0.02 * v->tint;
 	} else if (v->tint < 0) {
 		if (ch != 1) g *= 1 + 0.02 * v->tint;
+	}
+	/* Night Mode: Temperature's warm gains again, on top */
+	if (v->night > 0) {
+		if (ch == 1) g *= 1 - 0.02 * v->night;
+		if (ch == 2) g *= 1 - 0.055 * v->night;
 	}
 	return g;
 }

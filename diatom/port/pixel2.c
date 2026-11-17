@@ -97,8 +97,12 @@ static int                 g_gamma_want = -1;
 static int                 g_gamma_have = -2;
 /* The player's Screen Colors, as the launcher left them in
  * PANELGAMMA_COLOR_FILE: read again each time the display comes back
- * (g_gamma_have -2), since they change only in the launcher's MENU */
+ * (g_gamma_have -2), since they change only in the launcher's MENU. And
+ * Night Mode's warmth and nights there: the clock looked at once a second,
+ * and the table loaded at a night's start and end (g_gamma_color.night). */
 static panelgamma_color    g_gamma_color;
+static panelgamma_night    g_gamma_night;
+static time_t              g_night_looked;
 
 static EGLDisplay g_egl_display = EGL_NO_DISPLAY;
 static EGLContext g_egl_context = EGL_NO_CONTEXT;
@@ -1573,12 +1577,33 @@ static void display_gamma(void)
 		want = __atomic_compare_exchange_n(&g_gamma_want, &unset, now, false,
 		                                   __ATOMIC_RELAXED, __ATOMIC_RELAXED) ? now : unset;
 	}
-	if (g_gamma_have == -2) panelgamma_color_read(PANELGAMMA_COLOR_FILE, &g_gamma_color);
+	if (g_gamma_have == -2) {
+		panelgamma_screen_read(PANELGAMMA_COLOR_FILE, &g_gamma_color, &g_gamma_night);
+		g_gamma_color.night = panelgamma_night_at(&g_gamma_night, (long long)time(NULL));
+		g_night_looked = 0;
+	}
+	/* Night Mode's hour, once a second: the table again at once when the
+	 * warmth due now is not the one on (src/nightmode.h: one blink, no
+	 * fade) */
+	{
+		time_t now = time(NULL);
+
+		if (now != g_night_looked) {
+			int w = panelgamma_night_at(&g_gamma_night, (long long)now);
+
+			g_night_looked = now;
+			if (w != g_gamma_color.night) {
+				g_gamma_color.night = w;
+				port_logf(DIATOM_LOG_INFO, "pixel2: Night Mode %s", w ? "on" : "off");
+				if (want == g_gamma_have) g_gamma_have = -1;
+			}
+		}
+	}
 	if (want == g_gamma_have) return;
 	n = panelgamma_apply_color(g_drm_fd, want, &g_gamma_color);
 	if (n > 0)
-		port_logf(DIATOM_LOG_INFO, "pixel2: the display's gamma table set for brightness %d",
-		          want);
+		port_logf(DIATOM_LOG_INFO, "pixel2: the display's gamma table set for brightness %d%s",
+		          want, g_gamma_color.night ? ", Night Mode on" : "");
 	else if (n < 0)
 		port_logf(DIATOM_LOG_WARN, "pixel2: could not set the display's gamma table for "
 		          "brightness %d", want);

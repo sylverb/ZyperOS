@@ -45,6 +45,7 @@
 #include "sort.h"
 #include "coverflow.h"
 #include "library.h"
+#include "nightkeep.h"
 #include "platform.h"
 #include "texload.h"
 #include "tween.h"
@@ -2458,6 +2459,10 @@ static void on_game_tick(void)
 
 	/* Developer Mode's SSH, which a game does not end (see dev_ssh_tick) */
 	dev_ssh_tick();
+	/* Night Mode's hour behind the game: Diatom loads its table, and this
+	 * keeps the launcher's right for when it has the display back, and the
+	 * nights in the file Diatom reads (platform.h) */
+	plat_night_tick();
 	/* System Update behind the game: its looks, a cut download going on,
 	 * and its news as a notice */
 	tick_update_daily(true);
@@ -5189,6 +5194,7 @@ static int port_menu_main(int argc, char **argv)
 
 		db_get_str(db_dev(), "language", lc, sizeof lc, "en");
 		i18n_set(lang_parse(lc));
+		night_migrate_db(time(NULL));
 		db_get_str(db_dev(), "appearance", ap, sizeof ap, appearance_id(APPEAR_LIGHT));
 		look_load();
 		theme_init(appearance_parse(ap));
@@ -6556,6 +6562,9 @@ int main(int argc, char *argv[])
 		 * launcher's word: a shot in the other theme must not turn its
 		 * bar over. */
 		if (shot_path) theme_set_file(NULL);
+		/* A 1.0.5 device's Appearance Auto and its hours, once: the theme
+		 * Auto gave now, and the hours kept as Night Hours (nightkeep.h) */
+		night_migrate_db(time(NULL));
 		db_get_str(db_dev(), "appearance", ap, sizeof ap,
 		           appearance_id(APPEAR_LIGHT));
 		/* The language, MENU > Language's, or --lang's for a shot: every
