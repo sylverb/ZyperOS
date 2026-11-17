@@ -263,6 +263,7 @@ void moved_sound(app *a, in_button b);
 bool timed_message(app *a, const char *heading, const menu_row *rows,
                    int n, int fixed_w, unsigned accent);
 bool result_message(app *a, const char *heading, const char *text);
+void result_preview(app *a, const char *heading, const char *text);
 kb_result keyboard_prompt(app *a, const char *title, char *buf, int cap);
 /* MENU pressed in a screen over the one asking: every screen closing */
 extern bool g_menu_closing;
