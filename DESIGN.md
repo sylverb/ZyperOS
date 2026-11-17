@@ -795,6 +795,16 @@ its own. *(2026-11-13: "We should leave no trace of the old art behind".)*
 MENU > Home Screen offers **Spotlight** (default), **Gallery** and **Grid**
 (below); Right steps on, Left back, and A opens the three as a list (11.3's option rows). Old `cards` and `cards_dir` settings have no effect. Fancy Pants,
 the old system posters and their generators are removed, not hidden.
+**START** on the home steps it on too, Spotlight to Gallery to Grid and round,
+with no menu, as START steps a shelf's View: the same setting, saved the same
+way, the home on the same system, with the move sound; not with MENU or
+SELECT held (MENU + START is the way out). Every layout's foot names where it
+goes, START's hint 32 right of MENU's (**START Gallery** on Spotlight,
+**START Grid** on Gallery, **START Spotlight** on Grid), in the Home Screen
+row's words. *(2026-11-17: "also implement start in the home menu with the
+systems".)* The place stays in the middle of the foot; where a long word
+would come nearer than 32 to it (Italian's "In evidenza" by the Grid's
+"12 / 21"), it stands 32 right of START's word instead.
 
 **Spotlight:** system name and count on the left, the console art on the
 right, five nearby sprites in an unframed dock below. The selected sprite
@@ -825,15 +835,15 @@ DS_GRID_GAP apart, as many across as cells of at least 128 fit between the
 64 margins, the grid in the middle of its room; the rail at the right when
 the systems are more than three rows. The band: the system's whole name in
 **game-title** (Favorites in the language that is on), A's **Open games** at
-its right, its count under it in **support**; the foot at 720: MENU, the
-place, SELECT. **Up** and **Down** move a row, stopping at the top and the foot
+its right, its count under it in **support**; the foot at 720: MENU and
+START, the place, SELECT. **Up** and **Down** move a row, stopping at the top and the foot
 with the edge sound (Down over a short last row lands on its last system);
 **Left** and **Right** step round the ends; **L1** and **R1** jump a screenful, or to the last (first) system where less is left, and from the last round to the first (as the shelf grid's, 11.47).
 A system hidden or emptied leaves the grid as it leaves the row; Favorites is
 a tile like any other.
 
-MENU remains at the left footer, the position in the middle, and A at the
-right. SELECT still opens the player without another footer caption.
+MENU remains at the left footer with START after it, the position in the
+middle, and A at the right. SELECT still opens the player without another footer caption.
 **L1**/**R1** jump three systems, coming round past either end as a step
 does, the row moving all three in the press's direction in **move** and
 **out**; on a games shelf they jump a screenful. **Up**/**Down** on the home
@@ -3934,7 +3944,8 @@ row's own setting, saved the same way, the shelf on the same entry, with
 the move sound. Favorites, folders and Ports alike; MP4's shelf is MP4's
 own screen, where START does nothing alone. Not with MENU or SELECT held:
 MENU + START is the way out (tools/zyhome.c) and SELECT + START MP4's lock.
-Before, START did nothing on a shelf. The foot names where it goes:
+Before, START did nothing on a shelf. On the home it steps the Home
+Screen's layout the same way (11.1). The foot names where it goes:
 **START Grid** under the covers, **START List** under the grid, **START
 Covers** under the list; MENU > Controls has it
 on the shelf's page. The tutorial is as it was: it teaches one button a

@@ -703,6 +703,7 @@ bool pacing_row_shown(const app *a, int sys);
 bool dslang_row_shown(const app *a, int sys);
 const char *dslang_label(dsl_choice c, char *buf, size_t n);
 void view_turn(app *a, int sys, int dir);
+void home_turn(app *a, int dir);
 float grid_shape_load(const app *a, int sys);
 void grid_shape_save(const app *a, int sys, float shape);
 void sort_save(app *a);
