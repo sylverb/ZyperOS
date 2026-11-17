@@ -728,17 +728,25 @@ static const sc_look_def SC_LOOKS[] = {
 #define SC_LOOKS_N ((int)(sizeof SC_LOOKS / sizeof SC_LOOKS[0]))
 #define SC_CUSTOM SC_LOOKS_N   /* not a look: what the rows make that none is */
 
+/* The kept colors, read from the database once: the page's build asks for
+ * them every pass of its loop, and MENU > Display's row every pass of
+ * MENU's, and only sc_keep changes them while the launcher runs */
+static screen_colors g_sc_kept;
+static bool g_sc_have;
+
 static screen_colors sc_load(void)
 {
 	const int r = SCREEN_COLORS_RANGE;
-	screen_colors c;
 
-	c.temp = clampi(db_get_int(db_dev(), "screen_temp", 0), -r, r);
-	c.tint = clampi(db_get_int(db_dev(), "screen_tint", 0), -r, r);
-	c.contrast = clampi(db_get_int(db_dev(), "screen_contrast", 0), -r, r);
-	c.saturation = clampi(db_get_int(db_dev(), "screen_saturation", 0), -r, r);
-	c.gamma = clampi(db_get_int(db_dev(), "screen_gamma", 0), -r, r);
-	return c;
+	if (!g_sc_have) {
+		g_sc_kept.temp = clampi(db_get_int(db_dev(), "screen_temp", 0), -r, r);
+		g_sc_kept.tint = clampi(db_get_int(db_dev(), "screen_tint", 0), -r, r);
+		g_sc_kept.contrast = clampi(db_get_int(db_dev(), "screen_contrast", 0), -r, r);
+		g_sc_kept.saturation = clampi(db_get_int(db_dev(), "screen_saturation", 0), -r, r);
+		g_sc_kept.gamma = clampi(db_get_int(db_dev(), "screen_gamma", 0), -r, r);
+		g_sc_have = true;
+	}
+	return g_sc_kept;
 }
 
 static int sc_look_of(const screen_colors *c)
@@ -771,6 +779,8 @@ static void sc_keep(const screen_colors *c)
 	db_set_int(db_dev(), "screen_contrast", c->contrast);
 	db_set_int(db_dev(), "screen_saturation", c->saturation);
 	db_set_int(db_dev(), "screen_gamma", c->gamma);
+	g_sc_kept = *c;
+	g_sc_have = true;
 	g_sc_previewing = false;
 	g_sc_preview_k = -1;
 	plat_screen_colors(c, true);
