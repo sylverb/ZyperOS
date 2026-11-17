@@ -157,6 +157,25 @@ static void without_a_show(void)
 	ck(ds_hover_quiet(&SOUNDS), "own_sound quiets the list's moves");
 }
 
+static void showing_while_shown(void)
+{
+	tape t = { 0 };
+	ds_hover_run r;
+
+	ck(!ds_hover_showing(), "nothing showing before a list opens");
+	ds_hover_begin(&r, &AT_ONCE, &t, 0, 0, 0);
+	ds_hover_at(&r, 0, 0);
+	ck(!ds_hover_showing(), "nothing showing on the kept one");
+	ds_hover_at(&r, 2, 16);
+	ds_hover_at(&r, 3, 32);
+	ck(ds_hover_showing(), "showing once a choice is shown, through the next");
+	ds_hover_at(&r, 0, 48);
+	ck(!ds_hover_showing(), "not showing back on the kept one");
+	ds_hover_at(&r, 1, 64);
+	ds_hover_end(&r);
+	ck(!ds_hover_showing(), "not showing once the list has closed");
+}
+
 static void ticks_each_pass(void)
 {
 	static const ds_hover TICKS = { .show = show, .undo = undo, .tick = tick };
@@ -180,6 +199,7 @@ int main(void)
 	none_is_on();
 	without_a_show();
 	ticks_each_pass();
+	showing_while_shown();
 	if (fails) { printf("\n%d hover check(s) failed\n", fails); return 1; }
 	printf("ok: a list shows each choice once as its cursor comes to it, puts the kept one back with undo, "
 	       "rests before a show where it asks, and undoes on close only what it showed\n");

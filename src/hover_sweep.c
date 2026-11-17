@@ -28,7 +28,8 @@ static void page_take(app *a, hover_sweep_build build, void *ctx, page_read *pr)
 	if (pr->n > SWEEP_ROWS) pr->n = SWEEP_ROWS;
 	for (i = 0; i < pr->n; i++)
 		snprintf(pr->value[i], sizeof pr->value[i], "%s\t%s", rows[i].label ? rows[i].label : "",
-		         rows[i].value == MENU_TICK ? "(tick)" : rows[i].value ? rows[i].value : "");
+		         ROW_IS_NOTE(rows[i]) ? "(note)" : rows[i].value == MENU_TICK ? "(tick)"
+		         : rows[i].value ? rows[i].value : "");
 }
 
 static long written(void)

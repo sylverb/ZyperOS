@@ -72,4 +72,10 @@ void ds_hover_end(ds_hover_run *r);
 /* Whether the list's own move sound should stay quiet (own_sound) */
 bool ds_hover_quiet(const ds_hover *h);
 
+/* A list is showing a choice that is not kept (a show not yet undone):
+ * whatever keeps what is on screen - the boot screen's words, the night's
+ * hours, a zone Auto found - waits until it is undone, so a show is never
+ * written down by something else */
+bool ds_hover_showing(void);
+
 #endif
