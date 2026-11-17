@@ -216,7 +216,8 @@ if [ -n "$missing" ]; then
 	echo "payload: systems.cfg needs cores that vendor/ does not have:$missing" >&2
 	echo "payload: run mk/fetch-vendor.sh, mk/build-mgba-bridge.sh, mk/build-dsperate.sh," >&2
 	echo "payload: mk/build-fake08.sh, mk/build-flycast2021.sh, mk/build-scummvm.sh, mk/build-freej2me.sh," >&2
-	echo "payload: mk/build-small-cores.sh, mk/build-ppsspp.sh and mk/build-tic80.sh" >&2
+	echo "payload: mk/build-small-cores.sh, mk/build-ppsspp.sh, mk/build-tic80.sh and" >&2
+	echo "payload: mk/build-pcsx-rearmed.sh" >&2
 	exit 1
 fi
 
