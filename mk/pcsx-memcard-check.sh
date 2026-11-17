@@ -35,14 +35,14 @@ docker image inspect $IMAGE >/dev/null 2>&1 ||
 W=$(mktemp -d "${TMPDIR:-/tmp}/pcsx-memcard.XXXXXX")
 trap 'rm -rf "$W"' EXIT
 cp "$SO" "$W/core.so"
-if [ -z "$OTHER" ]; then
-	OTHER=${TMPDIR:-/tmp}/pcsx_rearmed-buildbot-07cb263f.so
-	[ -f "$OTHER" ] && [ "$(shasum -a 256 "$OTHER" | cut -d' ' -f1)" = $BUILDBOT_SHA ] ||
-		curl -sSfL -o "$OTHER" "$BUILDBOT"
+if [ -n "$OTHER" ]; then
+	cp "$OTHER" "$W/other.so"
+else
+	# Into the check's own folder, and the copy it runs is the one checked
+	curl -sSfL -o "$W/other.so" "$BUILDBOT"
+	[ "$(shasum -a 256 "$W/other.so" | cut -d' ' -f1)" = $BUILDBOT_SHA ] ||
+		{ echo "the buildbot core is not $BUILDBOT_SHA" >&2; exit 1; }
 fi
-[ "$(shasum -a 256 "$OTHER" | cut -d' ' -f1)" = $BUILDBOT_SHA ] || [ -n "${2:-}" ] ||
-	{ echo "the buildbot core is not $BUILDBOT_SHA" >&2; exit 1; }
-cp "$OTHER" "$W/other.so"
 docker run --rm --platform linux/arm64 -v "$ROOT:/src:ro" -v "$W:/w" $IMAGE sh -c '
 gcc-12 -std=gnu11 -O1 -Wall -Wextra -Werror -I/src/diatom/src \
 	-o /w/check /src/tools/pcsx-memcard-check.c -ldl &&
