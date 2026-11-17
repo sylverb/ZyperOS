@@ -30,6 +30,7 @@
 #include "nowplaying_screen.h"
 #include "osdbar.h"
 #include "panel.h"
+#include "hover_sweep.h"
 #include "ds/hover.h"
 #include "nightkeep.h"
 #include "panelgamma.h"
@@ -247,6 +248,41 @@ static void pm_strength_preview(void *app_, int k, int x, int y, int w, int h)
 	shader_demo_draw(app_, g_pm_demo_shader, STRENGTH_MIN + k * STRENGTH_STEP, x, y, w, h);
 }
 
+/* Battery Icon's list: the corner's battery as the choice under the
+ * cursor (src/ds/hover.h), in memory; saved only as A takes it */
+static void batt_show(void *app_, int k)
+{
+	(void)app_;
+	if (k >= 0 && k < BATT_MODES) g_batt_mode = k;
+	redraw_now();
+}
+
+static void batt_undo(void *app_, int kept)
+{
+	batt_show(app_, kept);
+}
+
+static const ds_hover PM_BATT_HOVER = { .show = batt_show, .undo = batt_undo };
+
+/* Home Screen's list: the shelf behind it in the layout under the cursor,
+ * in memory; saved only as A takes it */
+static void home_show(void *app_, int k)
+{
+	app *a = app_;
+
+	if (k < 0 || k >= HOME_LAYOUTS) return;
+	a->home_layout = (home_layout)k;
+	home_reset(&a->home, a->sys_cursor, a->sys.count, plat_now_ms());
+	redraw_now();
+}
+
+static void home_undo(void *app_, int kept)
+{
+	home_show(app_, kept);
+}
+
+static const ds_hover PM_HOME_HOVER = { .show = home_show, .undo = home_undo };
+
 /* The pictures beside the shelf's and MENU's lists, as hovers */
 static const ds_hover SM_DMODE_HOVER = { .draw = sm_dmode_preview };
 static const ds_hover SM_SHADER_HOVER = { .draw = sm_shader_preview };
@@ -358,6 +394,7 @@ static void menu_choices(app *a, int sys, bool games)
 	P[1].lab[BATT_PCT] = T(S_PANEL_BATTERY_PERCENTAGE);
 	P[1].lab[BATT_TIME] = T(S_PANEL_BATTERY_TIME);
 	g_pm_choice[PM_BATTERY] = ch_make(&P[1], BATT_MODES, g_batt_mode, false);
+	g_pm_choice[PM_BATTERY].hover = &PM_BATT_HOVER;
 	for (i = 0, cur = 0; i < CHARGE_LIMITS_COUNT; i++) {
 		if (CHARGE_LIMITS[i] == g_charge_limit) cur = i;
 		if (CHARGE_LIMITS[i] > 0) snprintf(P[2].buf[i], sizeof P[2].buf[i], "%d%%", CHARGE_LIMITS[i]);
@@ -436,6 +473,7 @@ static void menu_choices(app *a, int sys, bool games)
 	/* Home Screen: in the order Right steps it */
 	for (i = 0; i < HOME_LAYOUTS; i++) P[9].lab[i] = home_name((home_layout)i);
 	g_pm_choice[PM_HOME] = ch_make(&P[9], HOME_LAYOUTS, (int)a->home_layout, false);
+	g_pm_choice[PM_HOME].hover = &PM_HOME_HOVER;
 	g_pm_choice[PM_LANGUAGE] = (menu_choice){ .n = LANG_COUNT, .cur = (unsigned char)i18n_lang(), .own = true };
 }
 
@@ -725,9 +763,9 @@ static void nm_warmth_show(void *app_, int k)
 	plat_night_preview(NM_WARMTH_MIN + k);
 }
 
-static void nm_warmth_undo(void *app_)
+static void nm_warmth_undo(void *app_, int kept)
 {
-	(void)app_;
+	(void)app_; (void)kept;
 	plat_night_preview(0);
 }
 
@@ -944,9 +982,9 @@ static void sc_look_show(void *app_, int k)
 	plat_screen_colors(&c, false);
 }
 
-static void sc_look_undo(void *app_)
+static void sc_look_undo(void *app_, int kept)
 {
-	(void)app_;
+	(void)app_; (void)kept;
 	sc_preview_end();
 }
 
@@ -1845,6 +1883,51 @@ void sysmenu_rows_report(app *a)
 	menu_rows_print("theme", rows, n, LOOK_SOUND, g_lk_choice);
 	n = hours_build(&hv, rows, MENU_MAX_ROWS, &h);
 	menu_rows_print("hours", rows, n, HOURS_SOUND, g_hours_choice);
+}
+
+/* The pages as check-hover-sweep reads them (src/hover_sweep.h) */
+static int sweep_menu(app *a, void *ctx, menu_row *rows, int max, const menu_choice **choices)
+{
+	static menu_bufs b;
+	const char *h;
+	int was = g_tabs.at, n;
+
+	(void)max;
+	g_tabs.at = ctx ? g_tabs.at : PT_TABS;   /* MENU: every one of its rows */
+	n = menu_build(a, ctx ? SCREEN_GAMES : SCREEN_SYSTEMS, a->sys_cursor, rows, &b, &h);
+	g_tabs.at = was;
+	*choices = b.choice;
+	return n;
+}
+
+static int sweep_theme(app *a, void *ctx, menu_row *rows, int max, const menu_choice **choices)
+{
+	const char *h;
+
+	(void)a; (void)ctx;
+	*choices = g_lk_choice;
+	return look_build(NULL, rows, max, &h);
+}
+
+static int sweep_screen(app *a, void *ctx, menu_row *rows, int max, const menu_choice **choices)
+{
+	const char *h;
+
+	(void)a; (void)ctx;
+	*choices = g_sc_choice;
+	return sc_build(NULL, rows, max, &h);
+}
+
+void sysmenu_hover_sweep(app *a)
+{
+	static int games = 1;
+	menu_choice ch;
+
+	hover_sweep_page(a, "menu", sweep_menu, NULL);
+	hover_sweep_page(a, "system", sweep_menu, &games);
+	hover_sweep_page(a, "theme", sweep_theme, NULL);
+	sc_look_choice(&ch);
+	hover_sweep_list(a, "screen", T(S_SCREEN_LOOK), ch.hover, ch.cur, ch.n, sweep_screen, NULL);
 }
 
 /* MENU > Power Button as saved: "hold" is Hold, anything else Press, the

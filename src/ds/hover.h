@@ -6,7 +6,8 @@
  *   once chosen - the accent on every surface, the shelf in that layout,
  *   the click in that voice. In memory only: a show writes no setting and
  *   no file, so B, a close or POWER leave the card as it was.
- * - undo(): what is kept, back. Safe at any time, shown or not.
+ * - undo(kept): what is kept, back; `kept` the list's kept choice (-1:
+ *   none on as a whole). Safe at any time, shown or not.
  * - draw(k, box): a picture of choice k in a box beside the list (the
  *   Display list's paused game, the Shader's demo). Drawn each frame; it
  *   changes nothing, so it needs no undo.
@@ -38,7 +39,7 @@
 
 typedef struct ds_hover {
 	void (*show)(void *ctx, int k);
-	void (*undo)(void *ctx);
+	void (*undo)(void *ctx, int kept);
 	void (*draw)(void *ctx, int k, int x, int y, int w, int h);
 	void (*tick)(void *ctx);
 	unsigned rest_ms;

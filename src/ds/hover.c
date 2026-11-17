@@ -24,7 +24,7 @@ static void hover_at(ds_hover_run *r, int k, unsigned now)
 		/* Back on the kept one: what is kept, at once (no rest: the
 		 * kept one is not something new to start) */
 		if (r->shown >= 0) {
-			if (r->h->undo) r->h->undo(r->ctx);
+			if (r->h->undo) r->h->undo(r->ctx, r->kept);
 			r->shown = -1;
 		}
 		return;
@@ -44,7 +44,7 @@ void ds_hover_at(ds_hover_run *r, int k, unsigned now)
 
 void ds_hover_end(ds_hover_run *r)
 {
-	if (r->h && r->shown >= 0 && r->h->undo) r->h->undo(r->ctx);
+	if (r->h && r->shown >= 0 && r->h->undo) r->h->undo(r->ctx, r->kept);
 	r->shown = -1;
 }
 

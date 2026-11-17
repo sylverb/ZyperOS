@@ -36,9 +36,11 @@ static void show(void *ctx, int k)
 	t->said[t->n] = '\0';
 }
 
-static void undo(void *ctx)
+static void undo(void *ctx, int kept)
 {
 	tape *t = ctx;
+
+	(void)kept;
 
 	if (t->n < (int)sizeof t->said - 1) t->said[t->n++] = 'U';
 	t->said[t->n] = '\0';

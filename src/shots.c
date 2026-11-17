@@ -613,6 +613,11 @@ int shot_pick_at = -1;
  * beside them with its picture (menu_choice's hover draw), or under them */
 static const menu_choice *g_shot_list;
 static int g_shot_list_at, g_shot_list_side;
+/* What the list's cursor shows (src/ds/hover.h): shown in the first
+ * compose, the shot then composed again over it (shot_compose), the tick
+ * staying on the choice kept before the show */
+static int g_shot_hover_kept = -2;
+static bool g_shot_hover_again;
 
 static void shot_list_side(app *a, const menu_side *at)
 {
@@ -630,11 +635,23 @@ static void shot_list_draw(app *a, const char *heading, const menu_choice *ch, i
 	static char pw[MENU_CHOICES_MAX][64];
 	static char pn[2][CHV_WRAP_COLS];
 	const int at = shot_pick_at >= 0 && shot_pick_at < ch->n ? shot_pick_at : ch->cur;
-	int k, np = ch->n;
+	int k, np = ch->n, kept = ch->none ? -1 : ch->cur;
 
+	/* The choice under the cursor shown, as the list shows it: once, and
+	 * the shot composed again with it on (the tick on the one kept) */
+	if (g_shot_hover_kept == -2) {
+		g_shot_hover_kept = kept;
+		if (ch->hover && ch->hover->show && at != kept) {
+			ch->hover->show(a, at);
+			g_shot_hover_again = true;
+		}
+	} else {
+		kept = g_shot_hover_kept;
+	}
+	if (ch->hover && ch->hover->tick) ch->hover->tick(a);
 	for (k = 0; k < ch->n; k++) {
 		menu_pick_word(ch->labels[k], pw[k], (int)sizeof pw[k]);
-		pr[k] = (menu_row){ pw[k], !ch->none && k == ch->cur ? MENU_TICK : NULL, true };
+		pr[k] = (menu_row){ pw[k], k == kept ? MENU_TICK : NULL, true };
 	}
 	const bool drawn = ch->hover && ch->hover->draw;
 
@@ -978,6 +995,7 @@ int  shot_hud_pick = -1; /* --hud-pick ROW: that row's list of choices */
 const char *shot_hud_shows; /* --hud-shows WORDS: the items it shows */
 bool shot_hud_alt;      /* --hud-alt: Shadow and Small, the two-choice rows' other values */
 int shot_rows_report;   /* --rows-report: every option page's rows (tools/menu-rows-check.py) */
+int shot_hover_sweep;   /* --hover-sweep: every list's cursor shows, writing nothing (check-hover-sweep) */
 /* --menu's row by its label, found when the menu is built */
 const char *shot_menu_label;
 
@@ -1181,7 +1199,22 @@ int   g_shot_saver = -1;          /* --saver [cover]: 0 video, 1 cover */
 float g_shot_saver_alpha = 1;     /* --saver-alpha F: how far it has faded up */
 const char *g_shot_saver_pic;     /* --saver-pic FILE: its picture, a screenshot */
 
+static void shot_compose_once(app *a);
+
+/* A shot's picture; composed again where an open list's cursor showed its
+ * choice on the whole screen in the first (shot_list_draw) */
 static void shot_compose(app *a)
+{
+	shot_compose_once(a);
+	if (g_shot_hover_again) {
+		g_shot_hover_again = false;
+		SDL_SetRenderDrawColor(a->r, 0, 0, 0, 255);
+		SDL_RenderClear(a->r);
+		shot_compose_once(a);
+	}
+}
+
+static void shot_compose_once(app *a)
 {
 	drawn_forget();
 	ui_fit_frame();
@@ -1442,6 +1475,10 @@ static void shot_compose(app *a)
 		snaps_rows_report(a);
 		bgm_rows_report(a);
 		shot_rows_report = 0;   /* once: --flip composes the shot twice */
+	}
+	if (shot_hover_sweep) {
+		sysmenu_hover_sweep(a);
+		shot_hover_sweep = 0;
 	}
 	if (shot_handheld_box) handheld_box_report();
 	/* Over **scrim.menu**, as the screens they picture are: kb_prompt's
