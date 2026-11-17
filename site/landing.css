@@ -67,6 +67,8 @@ p { text-wrap: pretty; }
 .device canvas:active { cursor: grabbing; }
 .device.ready canvas { opacity: 1; }
 .device.ready .device-poster { visibility: hidden; }
+.device.ready.resting canvas { opacity: 0; }
+.device.ready.resting .device-poster { visibility: visible; }
 .handheld-name { display: flex; flex-direction: column; align-items: center; gap: 9px; margin-top: 4px; padding: 6px 12px; border-radius: 8px; font-size: 14px; font-weight: 600; letter-spacing: -.02em; color: var(--text-dim); transition: color .2s; }
 .handheld-name::after { content: ""; width: 34px; height: 5px; border-radius: 3px; background: transparent; transition: background .2s; }
 .handheld:hover .handheld-name { color: var(--text-soft); }

@@ -281,10 +281,22 @@
     });
     picks.forEach(button => button.setAttribute('aria-pressed', String(button.dataset.pick === which)));
     views.forEach((view, model) => view.setTurntable(model === which));
+    rest(which);
     chooseScreen(wantedScreen, wantedAppearance);
   }
   const picks = [...document.querySelectorAll('[data-pick]')];
   const views = new Map();
+  // The handheld not chosen rests on its poster, the model's own pose and
+  // first screen; it comes back to life when chosen, dragged or focused.
+  const boxes = [...document.querySelectorAll('.device[data-model]')];
+  let restTimer = 0;
+  function rest(which) {
+    clearTimeout(restTimer);
+    boxes.forEach(box => { if (box.dataset.model === which) box.classList.remove('resting'); });
+    restTimer = setTimeout(() => boxes.forEach(box => box.classList.toggle('resting', box.dataset.model !== which)), 750);
+  }
+  boxes.forEach(box => ['pointerdown', 'focusin'].forEach(type =>
+    box.addEventListener(type, () => { clearTimeout(restTimer); box.classList.remove('resting'); })));
   function pick(which) {
     const input = deviceInputs.find(item => item.value === which);
     if (!input || input.checked) return;
@@ -306,9 +318,10 @@
     import('./pixel2.js').then(module => Promise.all([...document.querySelectorAll('.device[data-model]')].map(box => {
       const canvas = box.querySelector('canvas'), model = box.dataset.model;
       canvas.hidden = false;
-      return module.mount(canvas, { model, frame: frames[model], turntable: model === device(), motionAllowed: () => !paused() })
+      return module.mount(canvas, { model, frameMm: frames[model], turntable: model === device(), motionAllowed: () => !paused() })
         .then(view => {
           views.set(model, view);
+          box.classList.toggle('resting', model !== device());
           box.classList.add('ready');
           box.querySelector('.device-poster').setAttribute('aria-hidden', 'true');
         }).catch(() => { canvas.hidden = true; });

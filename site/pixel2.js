@@ -16,10 +16,14 @@ const SHOTS = {
 	brick: ["brick/systems", "brick/shelf-snes", "brick/theme", "brick/mp4", "brick/menu"],
 };
 const REST = { pitch: 0, yaw: -0.28, roll: 0 };
+// The studio's reflections and a tone on the colours: the Pixel 2 is metal;
+// the Brick's matte plastic takes the lights more, and would pale next to its
+// poster (Blender's AgX) without them
+const ENV = { pixel2: { env: 1.1, tone: 1 }, brick: { env: 0.6, tone: 0.5 } };
 
-// frame: the poster's frame height in millimetres, so the model stands as
+// frameMm: the poster's frame height in millimetres, so the model stands as
 // tall in its canvas as on its poster, and two handhelds stay true to size
-export async function mount(canvas, { motionAllowed = () => true, screenSource = null, turntable = true, interactive = true, pose = REST, model: name = "pixel2", frame = null } = {}) {
+export async function mount(canvas, { motionAllowed = () => true, screenSource = null, turntable = true, interactive = true, pose = REST, model: name = "pixel2", frameMm = null } = {}) {
 	const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
 	renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 	renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -63,7 +67,7 @@ export async function mount(canvas, { motionAllowed = () => true, screenSource =
 	model.traverse(obj => {
 		if (obj.isMesh && obj.material) {
 			const materials = Array.isArray(obj.material) ? obj.material : [obj.material];
-			materials.forEach(m => { m.envMapIntensity = 1.1; });
+			materials.forEach(m => { m.envMapIntensity = ENV[name].env; m.color?.multiplyScalar(ENV[name].tone); });
 		}
 	});
 	const device = new THREE.Group();
@@ -81,7 +85,7 @@ export async function mount(canvas, { motionAllowed = () => true, screenSource =
 		renderer.setSize(w, h, false);
 		const aspect = w / h;
 		// Fixed framing keeps the upright product centred during rotation.
-		const halfHeight = frame ? frame / heightMm / 2
+		const halfHeight = frameMm ? frameMm / heightMm / 2
 			: screenSource ? Math.max(0.56, 0.45 / aspect) : Math.max(0.64, 0.55 / aspect);
 		camera.left = -halfHeight * aspect; camera.right = halfHeight * aspect;
 		camera.top = halfHeight; camera.bottom = -halfHeight;
