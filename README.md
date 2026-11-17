@@ -242,7 +242,7 @@ The GKD Pixel 2 has several operating systems to choose from. This is ZyperOS be
 | **Achievements offline** | Yes: sent when Wi-Fi is back, dated when earned | — | — | Yes: sent later | No: needs the internet | — |
 | **System updates** | Over Wi-Fi or the USB cable, A/B with roll back | — | Copy the new files | TortOS Installer, on a computer | Over the air, or a file | A file you copy, A/B with roll back |
 | **First-start tutorial** | Yes | — | — | — | — | — |
-| **Themes** | Light and dark, or by the clock; ten accents, three backgrounds each, square or rounded corners | EmulationStation themes | 13 launcher skins | 2 card art styles | Yes, with a downloader | Your own themes |
+| **Themes** | Light and dark, and Night Mode by the clock on the Pixel 2; ten accents, three backgrounds each, square or rounded corners | EmulationStation themes | 13 launcher skins | 2 card art styles | Yes, with a downloader | Your own themes |
 | **Languages** | 8: English, 简体中文, Español, Português (Brasil), Français, Deutsch, 日本語, Italiano | — | 21, in its launcher | English | 36 | 6 |
 | **Menu music** | 10 free tracks and yours, from a folder of its own | — | — | — | Yes | — |
 | **Media player** | Music, audiobooks, video | — | Music, video | Music, audiobooks | Music, video | Music |
@@ -287,7 +287,7 @@ The GKD Pixel 2 has several operating systems to choose from. This is ZyperOS be
 
 ## Light and dark
 
-ZyperOS has two themes, Beard in light and Salt & Pepper in dark. **MENU > Display > Appearance** chooses `Light`, `Dark` or `Auto`, which is light from 7:00 to 19:00 by the clock or at the hours you set in **Auto Hours**, and the first start asks too. Every screen follows it. The File Transfer page follows the phone or computer it is open on instead.
+ZyperOS has two themes, Beard in light and Salt & Pepper in dark. **MENU > Display > Appearance** chooses `Light` or `Dark`, and the first start asks too. Every screen follows it. The File Transfer page follows the phone or computer it is open on instead. For the night, the Pixel 2 has **Night Mode** on the same tab: it warms the whole screen, always or by the hours you set (9:00 PM to 7:00 AM to start), and never changes the theme.
 
 **MENU > Display > Theme** makes them yours: an accent from ten (lime, green, teal, blue, purple, pink, red, orange, yellow and silver), a background for each theme (warm, neutral or cool grey in light; black, deep blue or dark grey in dark), rounded or square corners, and Zyper on or off. Both themes are drawn small at the top as you change them, and **Reset to Default** puts them back. ZyperOS works out every other color from the two you pick and keeps every word at the contrast it has as it ships.
 
