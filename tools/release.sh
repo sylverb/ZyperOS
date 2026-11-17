@@ -65,8 +65,8 @@
 #
 # The devices are config/devices: a device joins it with its first release
 # and stays, as System Update and the installer read releases/latest. The
-# TrimUI Brick is not in it yet; its test kits carry it (--kit brick). Its
-# release-brick builds its kernel and modules first (plastron's make
+# TrimUI Brick joined it with 1.0.6; before that, its test kits carried it
+# (--kit brick). Its release-brick builds its kernel and modules first (plastron's make
 # brick-kernel), and needs the builder's own copy of its closed files
 # (plastron's make brick-fetch, into ~/brick-runtime), which build it and are
 # never released: each player's installer gets them (installer/README.md).
