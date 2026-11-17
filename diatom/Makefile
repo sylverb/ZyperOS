@@ -220,8 +220,8 @@ $(PACE_TEST): test/pace_test.c src/pace.c src/pace.h
 	      -Isrc -o $@ test/pace_test.c src/pace.c -lm
 
 # Refreshes missed with the frame ready (src/flipwatch.h): each climbs the
-# clocks one step, the power level, then the GPU held at its top, then the CPU,
-# a second apart at least and never in a game's first two. Offline: the rule
+# clocks one step, the power level, then the CPU and the GPU held at their
+# tops, a second apart at least and never in a game's first two. Offline: the rule
 # alone. The frame loop's side, end to end, is check-flipwatch-e2e.
 FLIPWATCH_TEST := $(BUILD)/flipwatch-test
 
@@ -473,8 +473,8 @@ check-power-e2e:
 # Refreshes missed with the frame ready, end to end: the desktop port counts
 # every frame after the N-th as a miss (DIATOM_TEST_MISSED) and writes the
 # clock holds into a scratch folder, as the Pixel 2 writes its CPU's and GPU's
-# lowest clocks. At full power the GPU is held, then the CPU, each said once,
-# the summary counts them and the holds let go at the end; without misses,
+# lowest clocks. At full power the CPU and the GPU are held, said once, the
+# summary counts the misses and the holds let go at the end; without misses,
 # nothing. On check-stateplane's terms: the stub core, seconds, skipped unbuilt.
 check-flipwatch-e2e:
 	$(FRESH_IF_BUILT)

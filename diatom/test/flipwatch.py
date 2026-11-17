@@ -9,13 +9,13 @@ cap. The desktop port counts every frame after the N-th as such a miss
 into DIATOM_POWER_DIR as the Pixel 2 writes its clocks:
 
   - power light, misses from the start's third second: at full power the
-    GPU held at its top, then the CPU, each said once, and the summary
-    counts them (on a desktop the level reaches full on the stub's sound,
+    CPU and the GPU held at their tops, said once, and the summary counts
+    the misses (on a desktop the level reaches full on the stub's sound,
     which has no device and counts as dropped; the level step on a miss is
     flipwatch_test.c's)
   - the holds let go when the game ends
   - no misses: no hold and no count
-  - power full, misses: straight to the GPU, then the CPU
+  - power full, misses: held at once
 
 Needs build/desktop (diatom and stubcore.so) and SKIPS without it, as
 check-power-e2e does. SDL's dummy drivers: no window, no sound.
@@ -66,31 +66,30 @@ def lines(out, word):
 # sound has no device to go to and counts as dropped, which lifts the level
 # to full in the first seconds by itself ("power up ... after dropped
 # sound"); the level step on a miss is test/flipwatch_test.c's. Here: the
-# rest of the ladder, said once each, in order, and the holds' files.
+# hold, said once, after full, and the holds' files.
+HELD = "the CPU and the GPU held at their tops after a refresh missed"
 out, holds = run("light", missed=180)
-said = [l for l in out.splitlines() if "power up" in l or "held at its top clock" in l]
+said = [l for l in out.splitlines() if "power up" in l or HELD in l]
 check("a light game ends up at full power", any("up to full" in l for l in said), said or out[-600:])
-check("  ...then the GPU held at its top", len(lines(out, "the GPU held at its top clock after")) == 1, said)
-check("  ...then the CPU too", len(lines(out, "the CPU held at its top clock too")) == 1, said)
-gpu_at = [i for i, l in enumerate(said) if "GPU held" in l]
-cpu_at = [i for i, l in enumerate(said) if "CPU held" in l]
+check("  ...then the CPU and the GPU held at their tops, once", len(lines(out, HELD)) == 1, said)
+held_at = [i for i, l in enumerate(said) if HELD in l]
 full_at = [i for i, l in enumerate(said) if "up to full" in l]
-check("  ...in that order", gpu_at and cpu_at and full_at and full_at[0] < gpu_at[0] < cpu_at[0], said)
+check("  ...after full", held_at and full_at and full_at[0] < held_at[0], said)
 m = re.search(r"(\d+) refresh\(es\) missed with the frame ready; the CPU and the GPU held at their tops", out)
 check("  ...and the summary counts them", m is not None and int(m.group(1)) > 300, out[-400:])
 check("the holds let go at the game's end", holds["cpu_hold"] == "0" and holds["gpu_hold"] == "0", holds)
 
 # no misses: nothing
 out, holds = run("light")
-check("no misses: no hold and no count", "refresh missed" not in out and "held at its top" not in out and
+check("no misses: no hold and no count", "refresh missed" not in out and "held at their tops" not in out and
       "missed with the frame ready" not in out, out[-600:])
 
-# full from the start: straight to the GPU, then the CPU
+# full from the start: held at once
 out, holds = run("full", missed=180)
-check("a full game: the GPU held first, then the CPU", len(lines(out, "the GPU held at its top clock after")) == 1 and
-      len(lines(out, "the CPU held at its top clock too")) == 1, out[-600:])
+check("a full game: the CPU and the GPU held, once", len(lines(out, HELD)) == 1 and
+      "power up" not in out, out[-600:])
 
 if fails:
     print(f"flipwatch e2e: {len(fails)} FAILED")
     sys.exit(1)
-print("ok: refreshes missed with the frame ready lift the level, then hold the GPU, then the CPU; none, nothing")
+print("ok: refreshes missed with the frame ready lift the level, then hold the CPU and the GPU; none, nothing")

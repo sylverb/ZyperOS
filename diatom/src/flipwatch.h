@@ -17,11 +17,15 @@
  * of calm, so a burst climbs once and only misses that go on climb further:
  *
  *   FLIPWATCH_LEVEL_UP  the power level one step up (light, medium, full)
- *   FLIPWATCH_HOLD_GPU  at full: the GPU's clock held at its top
- *   FLIPWATCH_HOLD_ALL  then the CPU's too
+ *   FLIPWATCH_HOLD      at full: the CPU's and the GPU's clocks held at
+ *                       their tops, together, as the port holds them for a
+ *                       core that draws with the GPU (diatom_port_fast_clock)
  *
- * and stays there for the rest of the game, as a lifted level does. The
- * first seconds of a game are not judged: its first flips set the display.
+ * and stays there for the rest of the game, as a lifted level does. Under
+ * CRT on the Pixel 2 that took Goof Troop (SNES, power medium) from 58.1 new
+ * frames a second to 60.0, and Metroid Fusion (GBA, its line made light)
+ * from 58.7-59.0 to 59.6-59.7 (2026-11-16). The first seconds of a game are not
+ * judged: its first flips set the display.
  *
  * Plain C, no port: test/flipwatch_test.c (check-flipwatch). */
 #ifndef DIATOM_FLIPWATCH_H
@@ -38,13 +42,12 @@
 typedef enum {
 	FLIPWATCH_NONE,
 	FLIPWATCH_LEVEL_UP,
-	FLIPWATCH_HOLD_GPU,
-	FLIPWATCH_HOLD_ALL,
+	FLIPWATCH_HOLD,
 } flipwatch_step;
 
 typedef struct {
 	unsigned seen;          /* the port's count at the last look */
-	int      held;          /* 0 none, 1 the GPU, 2 the GPU and the CPU */
+	bool     held;          /* the clocks held at their tops */
 	uint64_t calm_until;    /* no step before this */
 } flipwatch;
 

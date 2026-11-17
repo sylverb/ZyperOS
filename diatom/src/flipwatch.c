@@ -4,7 +4,7 @@
 void flipwatch_begin(flipwatch *w, unsigned missed, uint64_t start_us)
 {
 	w->seen = missed;
-	w->held = 0;
+	w->held = false;
 	w->calm_until = start_us + FLIPWATCH_START_US;
 }
 
@@ -18,8 +18,7 @@ flipwatch_step flipwatch_turn(flipwatch *w, unsigned missed, bool full, uint64_t
 		w->calm_until = now_us + FLIPWATCH_CALM_US;
 		return FLIPWATCH_LEVEL_UP;
 	}
-	if (w->held >= 2) return FLIPWATCH_NONE;
-	w->held++;
-	w->calm_until = now_us + FLIPWATCH_CALM_US;
-	return w->held == 1 ? FLIPWATCH_HOLD_GPU : FLIPWATCH_HOLD_ALL;
+	if (w->held) return FLIPWATCH_NONE;
+	w->held = true;
+	return FLIPWATCH_HOLD;
 }
