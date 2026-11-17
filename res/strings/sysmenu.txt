@@ -767,6 +767,28 @@ de = Exakt
 ja = 正確
 it = Esatta
 
+[sysmenu.pace_smooth_note]
+note = What Smooth does, under the picture beside Timing's list (sysmenu.pace_smooth): a new game frame each screen refresh, so motion is even, the game a little faster than the console. Six short lines at most in a narrow column, about 70 letters: keep it short, no long words
+en = A new frame each refresh: even motion, the game a little fast.
+zh-Hans = 每次刷新一帧新画面：动作均匀，游戏略快。
+es = Un fotograma nuevo en cada ciclo: movimiento uniforme, juego algo rápido.
+pt-BR = Um quadro novo a cada ciclo: movimento uniforme, jogo um pouco rápido.
+fr = Une image neuve à chaque cycle : mouvement régulier, jeu un peu rapide.
+de = Pro Bildaufbau ein neues Bild: gleichmäßig, das Spiel etwas schnell.
+ja = 更新ごとに新しいフレーム：動きが均一、ゲームは少し速め。
+it = Un fotogramma nuovo a ogni ciclo: moto uniforme, gioco un po' veloce.
+
+[sysmenu.pace_exact_note]
+note = What Exact does, under the picture beside Timing's list (sysmenu.pace_exact): the console's own speed, for timers and rhythm games, and now and then one frame shown twice. Six short lines at most in a narrow column, about 70 letters: keep it short, no long words
+en = The console's own speed, for timers and rhythm: now and then a frame repeats.
+zh-Hans = 原机速度，适合计时和节奏：偶尔有一帧重复。
+es = La velocidad de la consola, para ritmo y tiempos: a veces un fotograma se repite.
+pt-BR = A velocidade do console, para ritmo e tempo: às vezes um quadro se repete.
+fr = La vitesse de la console, pour le rythme : parfois une image se répète.
+de = Das Tempo der Konsole, für Rhythmus und Zeit: ab und zu ein Bild doppelt.
+ja = 実機の速さ。リズムやタイマー向け：ときどき1フレームが重なります。
+it = La velocità della console, per ritmo e tempi: a volte un fotogramma si ripete.
+
 [sysmenu.sort_by]
 note = A system menu row: the shelf's order
 en = Sort By

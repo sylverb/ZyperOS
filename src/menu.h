@@ -85,6 +85,10 @@ typedef struct menu_choice {
 	 * with the cursor's choice, and with -1 once the list has closed,
 	 * whichever way, before a choice is applied. NULL: none. */
 	void (*focus)(void *app, int k);
+	/* Two choices whose list opens on A all the same, for the picture and
+	 * the note that tell them apart (Timing, DESIGN.md 9); Left and Right
+	 * still turn the row over */
+	bool list;
 } menu_choice;
 
 /* Row `sel`'s choices from a build's table, or NULL: no table, a place past

@@ -1027,7 +1027,18 @@ Video Snaps, Menu Music:
   ramp and the hues in a band; four across in a column beside the rows,
   six across in a list's picture. The setting changes the whole screen, so
   the chart shows it as the panel makes it.
-- **Two: A turns it over.**
+- **Two: A turns it over**, unless the two need a picture to tell apart:
+  **Timing** (Smooth or Exact, a GB, GBC, GBA, DS or Genesis shelf's)
+  opens its list on A all the same (`menu_choice.list`), Left and Right
+  still turning it over. Its picture is the two ways slowed down, in the
+  dark theme's colors as a game's screen: a ball crossing a small screen a
+  step a game frame, a refresh every 160 ms, and where it was at the five
+  refreshes before behind it. Smooth's steps are even; with Exact a refresh
+  now and then shows the frame before again, the ball stopping for one,
+  its two places ringed in the accent - one refresh in four here, one in
+  about 170 on the Pixel 2, so it can be seen at all. Under it, what each
+  does in a sentence. *(Tarik's for 1.0.6 rc.2: "improve the timing screen
+  to explain/demonstrate that".)*
 - **Left and Right step every row**, as before, and show the change at
   once, so a look before choosing is one press away. A scale (minutes,
   percent, volume) stops at its ends; a set of names goes round.

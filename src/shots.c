@@ -722,7 +722,7 @@ static void shot_draw_gamemenu(app *a)
 		int ni = gm_tab_rows(&u, (gm_tab)tabs.at, ids), sel = shot_gamemenu_sel < n ? shot_gamemenu_sel : n - 1;
 		const menu_choice *ch = sel >= 0 && sel < ni ? &gm_choices(a, &u)[ids[sel]] : NULL;
 
-		if (ch && ch->n > 2) {
+		if (ch && (ch->n > 2 || ch->list)) {
 			shot_list_draw(a, rows[sel].label, ch, gm_width(a), a->tint);
 			if (bg) SDL_DestroyTexture(bg);
 			return;
@@ -1266,7 +1266,7 @@ static void shot_compose(app *a)
 			int mn = menu_build(a, a->screen, a->sys_cursor, mr, &c.bufs, &mh);
 
 			ch = menu_choice_at(c.bufs.choice, mn, shot_menu_sel);
-			if (ch && !ch->own && ch->n > 2) {
+			if (ch && !ch->own && (ch->n > 2 || ch->list)) {
 				shot_pick = *ch;
 				shot_pick_heading = mr[shot_menu_sel].label;
 			} else if (ch && !ch->own && ch->n == 2) {
