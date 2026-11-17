@@ -9,6 +9,7 @@
 #include "clock_screen.h"
 #include "ctltab.h"
 #include "ctltab_screen.h"
+#include "db.h"
 #include "devmode_screen.h"
 #include "ds/page.h"
 #include "emptyhome.h"
@@ -199,6 +200,54 @@ static SDL_Texture *shot_row_badge(int row)
 int shot_syn;       /* --synopsis: the card a scraped game opens */
 int shot_info;
 int shot_delete_ask, shot_delete_now;
+/* --gm-said K: one of Delete Game's and Rename's messages (GM_SAID) */
+int shot_gm_said = -1;
+
+/* Delete Game's and Rename's messages, each as its screen words it
+ * (src/gamedel_screen.c, src/gamern_screen.c): first the frame a delete runs
+ * under, then Delete Game's results, then Rename's. A port's is about the
+ * game under the cursor (a port, on the shot's card), a BIOS's about neogeo,
+ * the one result_message's lines were made for. */
+static const str_id GM_SAID[] = {
+	S_GAMEMENU_DELETING, S_GAMEMENU_DELETE_PARTLY, S_GAMEMENU_DELETE_FAILED,
+	S_GAMEMENU_DELETE_OUTSIDE, S_GAMEMENU_DELETE_RUNTIME, S_GAMEMENU_DELETE_PORT_UNKNOWN,
+	S_GAMEMENU_DELETE_BIOS,
+	S_GAMEMENU_RENAME_INVALID, S_GAMEMENU_RENAME_TAKEN, S_GAMEMENU_RENAME_FAILED,
+	S_GAMEMENU_RENAME_PARTLY,
+};
+#define GM_SAID_RENAME 7    /* GM_SAID's first of Rename's */
+
+static void gm_said_preview(app *a, int k)
+{
+	sysview *v = &a->view[a->sys_cursor];
+	const char *heading = T(k >= GM_SAID_RENAME ? S_GAMEMENU_RENAME : S_GAMEMENU_DELETE);
+	char said[LIB_NAME + 256];
+	str_id id;
+
+	if (k < 0 || k >= (int)(sizeof GM_SAID / sizeof GM_SAID[0]) || v->list.count == 0) return;
+	id = GM_SAID[k];
+	if (id == S_GAMEMENU_DELETING) {
+		/* wait_panel's one frame, before the delete runs */
+		menu_row row = { T(id), NULL, false };
+
+		draw_shelf(a);
+		ui_scrim(a->r, 0);
+		menu_message(a, heading, row, MENU_ZYPEROS);
+		return;
+	}
+	/* The table's own string where nothing is put in it, which the host's
+	 * check holds as a string (a copy of it is data, whose cut English is
+	 * let off) */
+	if (id == S_GAMEMENU_DELETE_PORT_UNKNOWN)
+		snprintf(said, sizeof said, T(id), v->list.items[v->cursor].title);
+	else if (id == S_GAMEMENU_DELETE_BIOS)
+		snprintf(said, sizeof said, T(id), "neogeo");
+	else {
+		result_preview(a, heading, T(id));
+		return;
+	}
+	result_preview(a, heading, said);
+}
 
 int shot_controls = -1;
 /* --sgdb [0|1|2]: MENU > SteamGridDB with no key, a key that works, or one
@@ -1161,7 +1210,20 @@ static void shot_compose(app *a)
 		}
 		i18n_set(was);
 		if (k == n) {
+			char all[32], own[32], key[CFG_STR + 16];
+			const char *tag = a->sys.count > 0 ? a->sys.systems[a->sys_cursor].tag : "";
+
 			fprintf(stderr, "--menu: no row called %s\n", shot_menu_label);
+			/* What the rows were built from: a row that comes and goes with
+			 * a setting (Strength with the Shader) says whether the setting
+			 * was there to be read */
+			snprintf(key, sizeof key, "shader.%s", tag);
+			db_get_str(db_dev(), "shader", all, sizeof all, "(none)");
+			db_get_str(db_dev(), key, own, sizeof own, "(none)");
+			fprintf(stderr, "--menu: built with the settings %s, shader=%s, %s=%s, "
+			        "the shelf's shader %d, %d systems\n",
+			        db_dev() ? "open" : "NOT OPEN", all, key, own,
+			        a->sys.count > 0 ? a->view[a->sys_cursor].shader : -1, a->sys.count);
 			shot_failed = 1;
 		}
 		shot_menu_sel = k < n ? k : 0;
@@ -1403,6 +1465,7 @@ static void shot_compose(app *a)
 	else if (shot_info) info_preview(a, true, shot_info == 2 ? T(S_GAMEMENU_DELETE)
 	                                     : shot_info == 3 ? T(S_GAMEMENU_RENAME) : NULL);
 	if (shot_delete_ask) delete_ask_preview(a);
+	if (shot_gm_said >= 0) gm_said_preview(a, shot_gm_said);
 	if (shot_controls >= 0 && (shot_press != SHOT_SWAP || shot_pressed)) {
 		menu_row rows[CTL_MAX_ROWS];
 		char head[80], count[16];

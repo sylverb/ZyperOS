@@ -22,7 +22,9 @@ Portuguese, and Chinese's taller face. The launcher, built for the host, says
 on stderr when a string from res/strings had to be cut, broken past its
 lines, slid in a marquee or drawn off the screen ("i18n: cut: ...", src/ui.c), in the language
 it is drawn in. This shoots the README's screens (tools/readme-shots.py's
-cards and SHOTS) and the rest of the main ones in every language, and fails on any such line, or a shot that fails.
+cards and SHOTS) and the rest of the main ones in every language, and fails on any such line, or a shot that fails
+twice (one that fails is taken once more: a screen fails every time, and one
+that passes the second time is said, "flaky ...", with its first reason).
 
 The pseudo-locale, xx (src/i18n.h: every string accented, 40% longer and in
 brackets), is shot too, and what it does not fit is listed: a warning of
@@ -541,6 +543,10 @@ EXTRA.setdefault("gamemenu-dual", ("demo", "PS1", ["--gamemenu", "0", "dual"]))
 # ...and its Display tab, where the screens' three rows are, on the Stylus row
 EXTRA.setdefault("gamemenu-dual-display", ("demo", "PS1", ["--gamemenu", "0", "dual", "--gm-tab", "1"]))
 EXTRA.setdefault("gamemenu-dual-stylus", ("demo", "PS1", ["--gamemenu", "4", "dual", "--gm-tab", "1"]))
+# Rename's refusal of a name, the longest of its and Delete Game's messages
+# (src/shots.c's GM_SAID): four lines in English, German, French and
+# Portuguese, which three cut ("* ?...")
+EXTRA.setdefault("gm-said-7", ("demo", "PS1", ["--screen", "games", "--gm-said", "7"]))
 # MENU's Shader when a system has its own (SHOT_SETTINGS below): "per system"
 EXTRA.setdefault("menu-shader", ("demo", "PS1", ["--menu", "Shader"]))
 
@@ -603,6 +609,11 @@ EXTRA.setdefault("system-menu-strength", ("demo", "PS1", ["--screen", "games", "
 SHOT_SETTINGS["system-menu-strength"] = {"shader.PS1": "scanlines", "shader_strength.PS1": "20"}
 EXTRA.setdefault("menu-strength", ("demo", "PS1", ["--menu", "Strength"]))
 SHOT_SETTINGS["menu-strength"] = {"shader": "crt", "shader_strength.PS1": "60"}
+
+# Timing (src/pacing.h) on the GBA's system menu, at its other value, Exact:
+# Smooth, the default, is drawn in every GBA system menu shot
+EXTRA.setdefault("system-menu-timing-exact", ("demo", "GBA", ["--screen", "games", "--menu", "Timing"]))
+SHOT_SETTINGS["system-menu-timing-exact"] = {"pace.GBA": "exact"}
 
 # The in-game menu's Controls tab (src/ctltab.c), beside the handheld: its
 # end (Reset Buttons, Hotkeys), a button's choices, the system over a game
@@ -944,16 +955,51 @@ def run_language(code, shots, binary, keep, theme="light", device="pixel2", firs
                 pm.mkdir(exist_ok=True)
                 (pm / "status").write_text(PM_STATES[name][0])
                 env["ZYPEROS_PM_STATUS"] = str(pm / "status")
-            # A shot's own settings (readme-shots' SHOT_SETTINGS), only while it
-            # is taken: the Shader row at its widest value
-            R.set_settings(card, SHOT_SETTINGS.get(name), True)
-            set_lib(card, SHOT_LIB.get(name), True)
-            set_files(card, SHOT_FILES.get(name), True)
-            r = subprocess.run(command, cwd=ROOT, env=env, text=True, errors="replace",
-                               stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-            R.set_settings(card, SHOT_SETTINGS.get(name), False)
-            set_lib(card, SHOT_LIB.get(name), False)
-            set_files(card, SHOT_FILES.get(name), False)
+
+            def shoot():
+                # A shot's own settings (readme-shots' SHOT_SETTINGS), only while
+                # it is taken: the Shader row at its widest value
+                if target.exists():
+                    target.unlink()
+                R.set_settings(card, SHOT_SETTINGS.get(name), True)
+                set_lib(card, SHOT_LIB.get(name), True)
+                set_files(card, SHOT_FILES.get(name), True)
+                r = subprocess.run(command, cwd=ROOT, env=env, text=True, errors="replace",
+                                   stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                R.set_settings(card, SHOT_SETTINGS.get(name), False)
+                set_lib(card, SHOT_LIB.get(name), False)
+                set_files(card, SHOT_FILES.get(name), False)
+                return r
+
+            def failed(r):
+                # A row this handheld has not (the Strength row where there are
+                # no GPU shaders) is said, not failed: on the first handheld a
+                # missing row is a renamed one, and fails
+                ok_anyway = name in R.CORNER_OWN and R.CORNER_OWN[name] in r.stdout
+                if not first and r.returncode and re.search(r"--menu: no row called", r.stdout):
+                    return False
+                return bool(r.returncode and not ok_anyway) or not target.is_file()
+
+            def last_words(r):
+                # Its last words but the strings it drew, which bury the reason
+                # ("--menu: no row called Strength") under the rows it did draw
+                return " | ".join([l for l in r.stdout.strip().splitlines()
+                                   if not l.startswith("fit: ")][-4:])
+
+            r = shoot()
+            # A shot is the same frame from the same card every time, so one
+            # that fails is taken once more: what fails twice is the screen's,
+            # and fails; what passes the second time was the run's, and is said
+            # with its first reason. On GitHub's runners, sixteen checks at once,
+            # one in some thousand launches built MENU with the Shader Off
+            # (pixel2:ja/system-menu-strength, pixel2:pt-BR/menu-strength,
+            # 2026-11-16), which none of 1,700 here did.
+            if failed(r):
+                once = r
+                r = shoot()
+                if not failed(r):
+                    print("flaky %s:%s/%s: failed once (exit %d), passed again: %s" % (
+                        device, code, name, once.returncode, last_words(once)))
             for line in r.stdout.splitlines():
                 if line.startswith(("i18n: cut data: ", "i18n: slides data: ", "i18n: tight data: ")):
                     data.setdefault(name, []).append(line[6:])
@@ -971,17 +1017,13 @@ def run_language(code, shots, binary, keep, theme="light", device="pixel2", firs
                         code, name, strings_of(code).label(text), px, what, text.replace("\n", " / ")[:60]))
                 elif line.startswith("i18n: "):
                     notes.append("%s/%s: %s" % (code, name, line[6:]))
-            ok_anyway = name in R.CORNER_OWN and R.CORNER_OWN[name] in r.stdout
-            # A row this handheld has not (the Strength row where there are no
-            # GPU shaders): said, not failed; on the first handheld a missing
-            # row is a renamed one, and fails
             row = re.search(r"--menu: no row called (.*)", r.stdout)
             if not first and r.returncode and row:
                 print("not on %s: %s/%s: no row %s" % (device, code, name, row.group(1).strip()))
                 continue
-            if (r.returncode and not ok_anyway) or not target.is_file():
-                tail = " | ".join(r.stdout.strip().splitlines()[-3:])
-                failures.append("%s/%s: the shot failed (exit %d): %s" % (code, name, r.returncode, tail))
+            if failed(r):
+                failures.append("%s/%s: the shot failed twice (exit %d): %s" % (
+                    code, name, r.returncode, last_words(r)))
     return device, code, notes, failures, data, drawn
 
 

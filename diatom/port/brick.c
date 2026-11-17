@@ -2143,6 +2143,13 @@ bool diatom_port_capture(const char *path)
 	return ok;
 }
 
+/* No display lock on the Brick yet: its panel's rate is not read */
+bool diatom_port_vblank(uint64_t *at_us, double *period_us)
+{
+	(void)at_us; (void)period_us;
+	return false;
+}
+
 uint64_t diatom_port_now_us(void)
 {
 	return diatom_ticks_to_us(SDL_GetPerformanceCounter(),
@@ -2173,6 +2180,9 @@ void diatom_port_mute_set(bool on)
 bool diatom_port_mute_get(void) { return g_muted; }
 
 /* The Brick has no GPU clock to hold: the CPU alone */
+/* Its display is SDL's, which says nothing of when a frame was shown */
+unsigned diatom_port_refreshes_missed(void) { return 0; }
+
 void diatom_port_fast_clock(bool cpu, bool gpu)
 {
 	static bool said;
