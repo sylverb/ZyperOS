@@ -35,18 +35,24 @@ for f in "$ROOT"/site/*; do
 	if [ -f "$f" ]; then cp "$f" "$OUT/"; fi
 done
 cp "$ROOT/site/models/pixel2.glb" "$ROOT/site/models/pixel2-poster.png" \
-   "$ROOT/site/models/pixel2-music.png" "$OUT/models/"
+   "$ROOT/site/models/pixel2-music.png" "$ROOT/site/models/brick.glb" \
+   "$ROOT/site/models/brick-poster.png" "$OUT/models/"
 cp "$ROOT/res/web/icon.svg" "$ROOT/res/web/zyper.svg" "$OUT/img/"
 # Every screenshot in the light theme; dark/ only for the light-and-dark section
 for f in lockup lockup-light systems gallery shelf shelf-n64 shelf-snes favorites info cheevos cheevo-notice menu scraper \
          mp4 storage nowplaying portal portmaster battery gamemenu-shader controls-tab controls-hotkeys achtab media folders list grid-favorites home-grid es-shelf info-rename display theme \
          shaders screensaver play-phone-side player2-hotspot hare charging heat tour-language tour-home \
-         rename usb-ask update ports-controls cheevos-waiting topbar storage-system storage-music eric-reinsmidt brick-home brick-controls; do
+         rename usb-ask update ports-controls cheevos-waiting topbar storage-system storage-music eric-reinsmidt; do
 	cp "$ROOT/res/readme/$f.png" "$OUT/img/"
 done
 for f in shelf-n64 systems menu; do
 	cp "$ROOT/res/readme/dark/$f.png" "$OUT/img/dark/"
 done
+# The TrimUI Brick's own captures, by the Pixel 2's names: the page's device
+# switch shows them in place of the Pixel 2's (site/landing.js, BRICK_SHOTS)
+mkdir -p "$OUT/img/brick/dark"
+cp "$ROOT"/res/readme/brick/*.png "$OUT/img/brick/"
+cp "$ROOT"/res/readme/brick/dark/*.png "$OUT/img/brick/dark/"
 # Reuse the original art and its exact frame timings. Keep the full source
 # catalogue and unselected atlases out of the deployed site.
 python3 - "$ROOT" "$OUT" <<'PY'
@@ -73,8 +79,10 @@ for name in ('MUSE-still.png', 'FAVORITES-still.png'):
 def version(path):
     return hashlib.sha256((out / path).read_bytes()).hexdigest()[:12]
 device_script = out / 'pixel2.js'
-device_script.write_text(device_script.read_text().replace('"./models/pixel2.glb"',
-                         '"./models/pixel2.glb?v=' + version('models/pixel2.glb') + '"'))
+text = device_script.read_text()
+for model in ('pixel2', 'brick'):
+    text = text.replace(f'"./models/{model}.glb"', f'"./models/{model}.glb?v=' + version(f'models/{model}.glb') + '"')
+device_script.write_text(text)
 for filename in ('landing.js', 'player-two.js'):
     script = out / filename
     script.write_text(script.read_text().replace("import('./pixel2.js')", "import('./pixel2.js?v=" + version('pixel2.js') + "')"))

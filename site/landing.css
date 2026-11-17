@@ -32,7 +32,7 @@ p { text-wrap: pretty; }
 .nav-links a:hover { color: var(--accent-ink); }
 .nav-download { display: flex; align-items: center; gap: 24px; font-weight: 600; }
 .nav-download span { font-size: 21px; }
-.hero { display: grid; grid-template-columns: 1.05fr 1fr; align-items: center; min-height: 705px; padding-block: 48px 38px; }
+.hero { display: grid; grid-template-columns: .94fr 1.06fr; align-items: center; min-height: 705px; padding-block: 48px 38px; }
 .hero-copy { position: relative; z-index: 1; padding-bottom: 26px; }
 .compatibility { display: flex; align-items: center; gap: 10px; margin-bottom: 30px; font-size: 13px; color: var(--text-soft); }
 .compatibility > span { width: 7px; height: 7px; border-radius: 50%; background: var(--accent-ink); }
@@ -49,14 +49,31 @@ p { text-wrap: pretty; }
 .release-note { margin-top: 17px; font-size: 12px; color: var(--text-dim); }
 .release-note span { padding-inline: 8px; color: var(--edge); }
 .hero-product { position: relative; min-width: 0; }
-.device { position: relative; width: 100%; aspect-ratio: 5 / 5.6; }
-.device::after { content: ""; position: absolute; width: 56%; height: 24px; bottom: 7%; left: 24%; background: var(--text); opacity: .13; filter: blur(20px); border-radius: 50%; z-index: -1; }
+/* The two handhelds, side by side and true to size: both posters are drawn at
+ * 8.807 px a millimetre (tools/build-*-model.py). Each name is a choice; the
+ * chosen one carries the launcher's own selection bar. */
+.handhelds { display: flex; align-items: flex-end; justify-content: center; min-width: 0; margin: 0; padding: 0; border: 0; }
+.handheld { position: relative; display: flex; flex: 1 1 0; flex-direction: column; align-items: center; min-width: 0; cursor: pointer; }
+.handheld + .handheld { margin-left: -7%; }
+.device { position: relative; display: block; width: 100%; }
+/* Its poster has more clear room below the body than the Brick's */
+.device[data-model="pixel2"] { aspect-ratio: 800 / 960; margin-bottom: -7.125%; }
+.device[data-model="brick"] { aspect-ratio: 800 / 1100; }
+.device::after { content: ""; position: absolute; height: 22px; background: var(--text); opacity: .13; filter: blur(18px); border-radius: 50%; z-index: -1; }
+.device[data-model="pixel2"]::after { width: 56%; left: 22%; bottom: 10.5%; }
+.device[data-model="brick"]::after { width: 64%; left: 18%; bottom: 4.5%; }
 .device-poster { position: absolute; width: 100%; height: 100%; inset: 0; object-fit: contain; }
 .device canvas { position: relative; display: block; width: 100%; height: 100%; cursor: grab; touch-action: pan-y; opacity: 0; transition: opacity .5s; }
 .device canvas:active { cursor: grabbing; }
 .device.ready canvas { opacity: 1; }
 .device.ready .device-poster { visibility: hidden; }
-.device-caption { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 16px; min-height: 44px; color: var(--text-dim); font-size: 11px; }
+.handheld-name { display: flex; flex-direction: column; align-items: center; gap: 9px; margin-top: 4px; padding: 6px 12px; border-radius: 8px; font-size: 14px; font-weight: 600; letter-spacing: -.02em; color: var(--text-dim); transition: color .2s; }
+.handheld-name::after { content: ""; width: 34px; height: 5px; border-radius: 3px; background: transparent; transition: background .2s; }
+.handheld:hover .handheld-name { color: var(--text-soft); }
+.handheld:has(input:checked) .handheld-name { color: var(--text); }
+.handheld:has(input:checked) .handheld-name::after { background: var(--accent-ink); }
+.handheld:has(input:focus-visible) .handheld-name { outline: 3px solid var(--accent-ink); outline-offset: 2px; }
+.device-caption { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 16px; min-height: 44px; margin-top: 6px; color: var(--text-dim); font-size: 11px; text-align: center; }
 .motion-control { display: inline-flex; gap: 7px; align-items: center; border: 0; padding: 10px 4px; background: none; font-size: 11px; }
 .motion-control:hover { color: var(--text); }
 .motion-symbol { width: 12px; font-size: 12px; }
@@ -262,8 +279,8 @@ details[open] > summary > span[aria-hidden="true"]:last-child { transform: rotat
   .button { font-size: 13px; min-height: 52px; padding: 14px 18px; gap: 18px; }
   .text-link { font-size: 12px; gap: 10px; }
   .release-note { font-size: 10px; }
-  .hero-product { width: min(100%, 420px); justify-self: center; margin-top: 12px; }
-  .device { aspect-ratio: 1.12; }
+  .hero-product { width: min(100%, 460px); justify-self: center; margin-top: 24px; }
+  .handheld-name { font-size: 13px; }
   .device-caption { gap: 12px; font-size: 10px; }
   .motion-control { font-size: 10px; }
   .facts { grid-template-columns: repeat(2, 1fr); gap: 25px 20px; padding-top: 26px; }
@@ -357,14 +374,19 @@ details[open] > summary > span[aria-hidden="true"]:last-child { transform: rotat
 .motion-paused { scroll-behavior: auto; }
 .motion-paused *, .motion-paused *::before, .motion-paused *::after { animation: none !important; transition: none !important; }
 
-/* The TrimUI Brick (1.0.6): its two screens side by side, three notes under them */
-.brick-section { padding-block: 110px 20px; }
-.brick-shots { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
-.brick-shots figure { margin: 0; }
-.brick-notes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 40px; margin-top: 44px; }
-.brick-notes h3 { font-size: 20px; }
-.brick-notes p, .brick-notes li { margin-top: 12px; font-size: 14px; color: var(--text-soft); }
-.brick-notes ul { margin: 0; padding-left: 18px; }
-.brick-notes .text-link { margin-top: 10px; }
-@media (max-width: 1050px) { .brick-notes { grid-template-columns: 1fr; gap: 28px; } }
-@media (max-width: 760px) { .brick-section { padding-block: 72px 8px; } .brick-shots { grid-template-columns: 1fr; gap: 16px; } }
+
+/* One page for both handhelds. The hero's choice shows its own lines and
+ * hides the other's; without :has(), both show. */
+:root:has(#brick:checked) [data-for="pixel2"],
+:root:has(#pixel2:checked) [data-for="brick"] { display: none !important; }
+/* What the Brick doesn't have yet: a small mark, louder once it is chosen */
+.not-brick { display: inline-block; margin-left: 2px; padding: 0 9px 1px; border: 1px solid color-mix(in srgb, currentColor 30%, transparent); border-radius: 100px; font-size: 11px; font-weight: 600; line-height: 1.7; letter-spacing: 0; color: inherit; opacity: .72; white-space: nowrap; vertical-align: 1px; transition: opacity .2s, border-color .2s; }
+:root:has(#brick:checked) .not-brick { opacity: 1; border-color: color-mix(in srgb, currentColor 60%, transparent); }
+.p2-heading .not-brick { display: table; margin: 14px 0 0; }
+.chips li.later::after, .later-key { content: ""; display: inline-block; width: 7px; height: 7px; margin-left: 7px; border: 1.5px solid currentColor; border-radius: 50%; opacity: .75; vertical-align: 1px; }
+.later-key { margin: 0 7px 0 0; }
+.device-pick { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.device-pick button { min-height: 44px; padding: 8px 18px; border: 1px solid var(--edge); border-radius: 100px; background: transparent; color: var(--text-soft); font-size: 13px; transition: background .2s, color .2s; }
+.device-pick button:hover { border-color: var(--text-dim); }
+.device-pick button[aria-pressed="true"] { border-color: var(--text); background: var(--text); color: var(--surface); }
+.install-steps .install-brick { margin-top: 14px; }

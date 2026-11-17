@@ -96,8 +96,8 @@ Questions, ideas, or want to help build it? Come say hi on [the ZyperOS Discord]
 ## On the TrimUI Brick
 
 <p align="center">
-  <img src="res/readme/brick-home.png" width="512" alt="The ZyperOS home on the TrimUI Brick's 1024x768 screen: the PS1 with ZyperOS's own system art, and MENU, the Brick's key, for Settings">
-  <img src="res/readme/brick-controls.png" width="512" alt="The in-game Controls tab on the TrimUI Brick, beside a drawing of the Brick that lights the keys you set">
+  <img src="res/readme/brick/systems.png" width="512" alt="The ZyperOS home on the TrimUI Brick's 1024x768 screen: the PS1 with ZyperOS's own system art, and MENU, the Brick's key, for Settings">
+  <img src="res/readme/brick/controls-tab.png" width="512" alt="The in-game Controls tab on the TrimUI Brick, beside a drawing of the Brick that lights the keys you set">
 </p>
 
 From 1.0.6, ZyperOS runs on a second handheld, the TrimUI Brick (TG3040), drawn for its own 1024x768 screen and its keys. It runs from its own microSD card and never writes to the Brick's storage: take the card out, and the Brick starts its own system, as before.
@@ -105,7 +105,7 @@ From 1.0.6, ZyperOS runs on a second handheld, the TrimUI Brick (TG3040), drawn 
 - **Install it with ZyperOS Installer.** Pick **TrimUI Brick**. The Brick's graphics and Wi-Fi need closed files made for its chips (Imagination's GPU driver and XRadio's Wi-Fi firmware), which ZyperOS does not pass on, so the installer downloads them from where they are published, Creality's Sonic Pad SDK on GitHub, checks each one, and puts them only on your card. An image writer gives the card none of them, so use the installer.
 - **Wi-Fi is built in,** so File Transfer, box art, achievements and System Update need no adapter.
 - **The 3D systems are hidden for now:** Dreamcast, NAOMI, Atomiswave, Nintendo 64, PSP and Saturn, whose cores draw with the GPU. They come once those cores run on the Brick's graphics chip.
-- **Not there yet:** PortMaster's ports, Flash Drive, Screen Colors and the Brick's lights. Nobody has tried Bluetooth headphones with ZyperOS on a Brick yet.
+- **Not there yet:** PortMaster's ports, Flash Drive, Screen Colors, the old-screen shaders (CRT, CRT Curved, Scanlines and LCD Grid; Sharp-Shimmerless is there), NES Player 2, the charge limit and the Brick's lights. Nobody has tried Bluetooth headphones with ZyperOS on a Brick yet.
 - **The Brick Hammer** runs the same card, but nobody has tried one yet. The Brick Pro isn't supported yet.
 
 I don't have a Brick myself: players on [the ZyperOS Discord](https://discord.gg/Ust8sE22Tm) test it for me. If you have one, your logs help a lot (**Download logs** on File Transfer's page, or the card's `.userdata/brick/logs`).
@@ -702,7 +702,7 @@ The device lists every button under **MENU > Controls**, and in a game, the in-g
 <details>
 <summary><b>Does it run on the TrimUI Brick?</b></summary>
 
-Yes, from 1.0.6: the TrimUI Brick (TG3040), from its own microSD card, installed with ZyperOS Installer, which adds the closed files its graphics and Wi-Fi need. The 3D systems (Dreamcast, NAOMI, Atomiswave, Nintendo 64, PSP and Saturn) are hidden on it for now, and PortMaster's ports, Flash Drive, Screen Colors and its lights are not there yet. The Brick Hammer runs the same card, but nobody has tried one yet, and the Brick Pro isn't supported yet. More in [On the TrimUI Brick](#on-the-trimui-brick).
+Yes, from 1.0.6: the TrimUI Brick (TG3040), from its own microSD card, installed with ZyperOS Installer, which adds the closed files its graphics and Wi-Fi need. The 3D systems (Dreamcast, NAOMI, Atomiswave, Nintendo 64, PSP and Saturn) are hidden on it for now, and PortMaster's ports, Flash Drive, Screen Colors, the old-screen shaders, NES Player 2, the charge limit and its lights are not there yet. The Brick Hammer runs the same card, but nobody has tried one yet, and the Brick Pro isn't supported yet. More in [On the TrimUI Brick](#on-the-trimui-brick).
 
 </details>
 

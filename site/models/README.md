@@ -88,3 +88,24 @@ Blender:
 ```sh
 sh mk/site.sh
 ```
+
+## TrimUI Brick
+
+`brick.glb` and `brick-poster.png` are the TrimUI Brick, built the same way by
+`tools/build-brick-model.py` from the published outline (73.2 x 109.9 mm; 11.8
+deep above the back ledge, 19.9 below) and the key places measured in
+`docs/superpowers/specs/2026-11-14-device-modular-design.md` (appendix
+"Measurements"), the numbers `src/device/brick_model.c` draws the launcher's
+own Brick with. The product images those were measured on are reference
+only: nothing is traced from them, and none of TrimUI's marks is on the model.
+It is a visual reconstruction in purple, one of the Brick's colours.
+
+```sh
+blender --background --python-exit-code 1 --python tools/build-brick-model.py -- --render
+```
+
+The poster uses the Pixel 2 poster's pose, studio and scale (8.807 px a
+millimetre), 800 x 1100 for the taller Brick, with `res/readme/brick/systems.png`
+on its screen, so the page stands the two side by side, true to size. Its
+`Screen` mesh has the same 4:3 UVs; `site/pixel2.js` draws the Brick's own
+captures on it. On the page, the handheld you pick turns; the other rests.
