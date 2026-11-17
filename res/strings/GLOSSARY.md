@@ -110,11 +110,13 @@ written to match. Change a term here first, then everywhere it is used.
 | MENU (the ZyperOS menu) | MENU | MENU | MENU | MENU | MENU | MENU | MENU |
 | Language | 语言 | Idioma | Idioma | Langue | Sprache | 言語 | Lingua |
 | Appearance | 外观 | Apariencia | Aparência | Apparence | Erscheinungsbild | 外観 | Aspetto |
-| Light / Dark / Auto | 浅色 / 深色 / 自动 | Claro / Oscuro / Automático | Claro / Escuro / Automático | Clair / Sombre / Auto | Hell / Dunkel / Automatisch | ライト / ダーク / 自動 | Chiaro / Scuro / Automatico |
+| Light / Dark | 浅色 / 深色 | Claro / Oscuro | Claro / Escuro | Clair / Sombre | Hell / Dunkel | ライト / ダーク | Chiaro / Scuro |
 | MENU's tabs: Games / Display / Sound / Connections / System / About | 游戏 / 显示 / 声音 / 连接 / 系统 / 关于 | Juegos / Pantalla / Sonido / Conexiones / Sistema / Acerca de | Jogos / Tela / Som / Conexões / Sistema / Sobre | Jeux / Affichage / Son / Connexions / Système / À propos | Spiele / Anzeige / Ton / Verbindungen / System / Info | ゲーム / 画面 / サウンド / 接続 / システム / 情報 | Giochi / Schermo / Audio / Connessioni / Sistema / Info |
 | Theme (the look: accent, backgrounds, corners, Zyper) | 主题 | Tema | Tema | Thème | Design | テーマ | Tema |
 | Accent (the focus's color) | 强调色 | Color de acento | Cor de destaque | Couleur d'accent | Akzentfarbe | アクセント | Colore d'accento |
-| Auto Hours | 自动时段 | Horario auto | Horário auto | Horaires auto | Auto-Zeiten | 自動の時間帯 | Orari automatici |
+| Night Mode (warmer colors at night: Off / On / By Hours) | 夜间模式 (关闭 / 开启 / 定时) | Modo nocturno (Desactivado / Activado / Por horario) | Modo noturno (Desativado / Ativado / Por horário) | Mode nuit (Désactivé / Activé / Selon l'horaire) | Nachtmodus (Aus / An / Nach Uhrzeit) | ナイトモード (オフ / オン / 時間指定) | Modalità notte (Disattivo / Attivo / Per orario) |
+| Night Warmth | 暖色强度 | Intensidad nocturna | Intensidade noturna | Intensité de nuit | Nachtwärme | 暖色の強さ | Intensità notturna |
+| Night Hours (Night From / Until) | 夜间时段 (开始 / 结束) | Horario nocturno (Noche desde / Hasta) | Horário noturno (Noite desde / Até) | Horaires de nuit (Nuit dès / Jusqu'à) | Nachtzeiten (Nacht ab / Bis) | 夜間の時間帯 (開始 / 終了) | Orari notturni (Notte dalle / Fino alle) |
 | on / off (a value) | 开启 / 关闭 | activado / desactivado | ativado / desativado | activé / désactivé | an / aus | オン / オフ | attivo / disattivo |
 | not connected | 未连接 | sin conexión | não conectado | non connecté | nicht verbunden | 未接続 | non connesso |
 | connecting | 正在连接 | conectando | conectando | connexion… | verbindet … | 接続中 | connessione… |

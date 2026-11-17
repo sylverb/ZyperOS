@@ -16,7 +16,7 @@ ja = 画面の色
 it = Colori dello schermo
 
 [screen.look]
-note = A row of the Screen Colors page and the heading of its list: a ready-made set of the five rows under it (Standard, Vivid, Intense, Warm, Cool, Muted, Night); Custom when a row was changed by hand
+note = A row of the Screen Colors page and the heading of its list: a ready-made set of the five rows under it (Standard, Vivid, Intense, Warm, Cool, Muted); Custom when a row was changed by hand
 en = Look
 zh-Hans = 风格
 es = Estilo
@@ -91,17 +91,6 @@ fr = Doux
 de = Gedämpft
 ja = 控えめ
 it = Tenue
-
-[screen.night]
-note = A look for the evening: a much warmer white, with less blue
-en = Night
-zh-Hans = 夜间
-es = Noche
-pt-BR = Noite
-fr = Nuit
-de = Nacht
-ja = 夜間
-it = Notte
 
 [screen.custom]
 note = The look's value when the player moved one of the rows by hand, so it is none of the ready-made looks
@@ -234,17 +223,6 @@ fr = Couleurs plus douces, ombres plus claires.
 de = Sanftere Farben, hellere Schatten.
 ja = 色は控えめ、暗部は明るめ。
 it = Colori più tenui, ombre più chiare.
-
-[screen.night_note]
-note = Under the Look list's picture while Night is under the cursor: what the look does, in a few words. A short sentence with its full stop
-en = Much warmer, easy on the eyes at night.
-zh-Hans = 暖色得多，夜间更护眼。
-es = Mucho más cálido, descansa la vista de noche.
-pt-BR = Bem mais quente, descansa a vista à noite.
-fr = Bien plus chaud, doux pour les yeux la nuit.
-de = Viel wärmer, angenehm für die Augen nachts.
-ja = かなり暖色、夜は目にやさしい。
-it = Molto più caldo, riposante per gli occhi di notte.
 
 [screen.custom_note]
 note = Under the Look list's picture while Custom is under the cursor (it is in the list only while it is the look on): the rows as the player set them by hand. A short sentence with its full stop

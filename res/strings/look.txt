@@ -266,30 +266,30 @@ de = Dunkelgrau
 ja = ダークグレー
 it = Grigio scuro
 
-[look.light_from]
-note = A row of Auto Hours: the time Auto turns light
-en = Light From
-zh-Hans = 浅色开始
-es = Claro desde
-pt-BR = Claro desde
-fr = Clair dès
-de = Hell ab
-ja = ライト開始
-it = Chiaro dalle
+[look.night_from]
+note = A row of Night Hours' page: the time Night Mode turns on (its value a time, 9:00 PM)
+en = Night From
+zh-Hans = 开始
+es = Noche desde
+pt-BR = Noite desde
+fr = Nuit dès
+de = Nacht ab
+ja = 開始
+it = Notte dalle
 
-[look.dark_from]
-note = A row of Auto Hours: the time Auto turns dark
-en = Dark From
-zh-Hans = 深色开始
-es = Oscuro desde
-pt-BR = Escuro desde
-fr = Sombre dès
-de = Dunkel ab
-ja = ダーク開始
-it = Scuro dalle
+[look.night_until]
+note = A row of Night Hours' page, under Night From: the time Night Mode turns off (its value a time, 7:00 AM)
+en = Until
+zh-Hans = 结束
+es = Hasta
+pt-BR = Até
+fr = Jusqu'à
+de = Bis
+ja = 終了
+it = Fino alle
 
 [look.hours]
-note = Auto Hours' value in MENU: the time Auto turns light, then the time it turns dark
+note = Night Hours' value in MENU: the time Night Mode turns on, then the time it turns off (9:00 PM to 7:00 AM)
 en = %s to %s
 zh-Hans = %s至%s
 es = de %s a %s

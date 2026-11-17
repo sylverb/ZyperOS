@@ -3,17 +3,17 @@
 #define ZYPEROS_SYSMENU_SCREEN_H
 
 /* MENU (DESIGN.md 11.3): its rows built tab by tab, its keys, the top menu
- * and a system's, and MENU > Display's Auto Hours and Theme pages. The
+ * and a system's, and MENU > Display's Night Hours and Theme pages. The
  * screens are src/sysmenu_screen.c; the rows' words are src/sys_menu.c's. */
 #include "app.h"
 #include "linebreak.h"
 #include "panel.h"
 #include "ds/layout.h"
 
-/* MENU > Display > Auto Hours: Light From and Dark From, by the half hour,
- * Left and Right round the day, A forward; applied at once, so a theme that
- * turns on the change turns on screen */
-typedef struct { app *a; char l[24], d[24]; } hours_view;
+/* MENU > Display > Night Hours: Night From and Until, by the half hour,
+ * Left and Right round the day, A forward; applied at once, so a night that
+ * begins or ends on the change does on screen */
+typedef struct { app *a; char from[24], until[24]; } hours_view;
 
 /* MENU > Display > Theme: Accent, Light Background, Dark Background,
  * Corners, Zyper and Reset to Default. Left and Right step a row round and
@@ -42,7 +42,7 @@ void sc_look_choice(menu_choice *out);
 menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel);
 void zyperos_menu(app *a);
 
-/* --rows-report: MENU's rows, the shelf's menu's, Theme's and Auto Hours' (menu_rows_print) */
+/* --rows-report: MENU's rows, the shelf's menu's, Theme's and Night Hours' (menu_rows_print) */
 void sysmenu_rows_report(app *a);
 
 #endif

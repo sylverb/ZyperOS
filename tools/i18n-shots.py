@@ -749,7 +749,7 @@ for _k, _m in enumerate(["stretch", "aspect", "integer", "integer-vertical", "ov
 # Display's Theme page (DESIGN.md 11.42) in each of the ten accents, the
 # tones going round in both themes and the corners turning over, so every
 # accent's, tone's and value's name is drawn; its foot, Zyper and Reset to
-# Default, both ways; and Auto Hours
+# Default, both ways
 _TONES = (("warm", "black"), ("neutral", "deepblue"), ("cool", "darkgrey"))
 for _i, _acc in enumerate(("lime", "green", "teal", "blue", "purple", "pink", "red", "orange",
                            "yellow", "silver")):
@@ -766,14 +766,27 @@ EXTRA.setdefault("menu-screen", ("demo", "PS1", ["--menu", "Screen Colors"]))
 EXTRA.setdefault("screen-colors", ("demo", "PS1", ["--look-page", "screen", "0"]))
 EXTRA.setdefault("screen-colors-vivid", ("demo", "PS1", ["--look-page", "screen", "0"]))
 EXTRA.setdefault("screen-colors-custom", ("demo", "PS1", ["--look-page", "screen", "1"]))
-for _k, _l in enumerate(["standard", "vivid", "intense", "warm", "cool", "muted", "night"]):
+for _k, _l in enumerate(["standard", "vivid", "intense", "warm", "cool", "muted"]):
     EXTRA.setdefault("screen-colors-look-" + _l,
                      ("demo", "PS1", ["--look-page", "screen-looks", "0", "--pick-at", str(_k)]))
 EXTRA.setdefault("screen-colors-look-custom",
-                 ("demo", "PS1", ["--look-page", "screen-looks", "0", "--pick-at", "7"]))
+                 ("demo", "PS1", ["--look-page", "screen-looks", "0", "--pick-at", "6"]))
 EXTRA.setdefault("theme-foot-off", ("demo", "PS1", ["--look", "lime,warm,black,square,off",
                                                     "--look-page", "theme", "5"]))
-EXTRA.setdefault("auto-hours", ("demo", "PS1", ["--look-page", "hours", "0"]))
+# MENU > Display > Night Mode (DESIGN.md 11.42), only where the display has a
+# table (not the Brick): By Hours with its three rows, the cursor on Night
+# Hours; On with Night Warmth and no Night Hours; Night Mode's list and Night
+# Warmth's; and Night Hours' page, Night From and Until
+EXTRA.setdefault("menu-night", ("demo", "PS1", ["--menu", "Night Hours"]))
+SHOT_SETTINGS["menu-night"] = {"night.mode": "hours", "night.from": "1260", "night.until": "420"}
+EXTRA.setdefault("menu-night-on", ("demo", "PS1", ["--menu", "Night Warmth"]))
+SHOT_SETTINGS["menu-night-on"] = {"night.mode": "on", "night.warmth": "10"}
+EXTRA.setdefault("menu-night-list", ("demo", "PS1", ["--menu", "Night Mode", "--press", "a"]))
+SHOT_SETTINGS["menu-night-list"] = {"night.mode": "hours"}
+EXTRA.setdefault("menu-night-warmth-list", ("demo", "PS1", ["--menu", "Night Warmth", "--press", "a"]))
+SHOT_SETTINGS["menu-night-warmth-list"] = {"night.mode": "on"}
+EXTRA.setdefault("night-hours", ("demo", "PS1", ["--look-page", "hours", "0"]))
+SHOT_SETTINGS["night-hours"] = {"night.from": "1290", "night.until": "450"}
 
 # The pop-ups the SELECT hotkeys put over a game (src/main.c, on_quick and
 # on_speed), each as it says: the slot saved, loaded, empty or failed, a game

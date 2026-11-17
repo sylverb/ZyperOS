@@ -94,7 +94,7 @@ int shot_menu_steps;
 /* --menu-tab-from M: the tab MENU's move comes from, or -1 */
 int shot_tab_from = -1, shot_tab_ms;
 /* --look ACCENT,LIGHT,DARK,CORNERS,ZYPER: the look for the shot; and
- * --look-page theme|hours [row]: Theme's page or Auto Hours' (DESIGN.md
+ * --look-page theme|hours [row]: Theme's page or Night Hours' (DESIGN.md
  * 11.42), the cursor on `row` */
 const char *shot_look, *shot_look_page;
 int shot_homesys = -1;     /* --homesys-page ROW: MENU > Home Systems' page */
@@ -1129,7 +1129,7 @@ static void muse_covers_settle(void)
 	}
 }
 
-/* --look-page: Theme's page, Auto Hours' or Screen Colors', over the shelf,
+/* --look-page: Theme's page, Night Hours' or Screen Colors', over the shelf,
  * as menu_run draws them, the cursor on --look-page's row */
 static void shot_draw_look(app *a)
 {
