@@ -4,9 +4,10 @@
  * no game's art), drawn here at a console's 256x224, through
  * each of Diatom's filters as the handheld draws it, and the top left of it
  * kept at the handheld's own pixels, one image a filter and, for an old
- * screen, a Strength step. Each filter is Diatom's GLSL (diatom/port/pixel2.c)
- * in C, line for line: the same numbers in the same order, in float as the
- * GPU's highp is.
+ * screen, a Strength step. CRT Curved's top left is set in from the
+ * picture's by a few pixels of black, so its curve shows whole. Each filter
+ * is Diatom's GLSL (diatom/port/pixel2.c) in C, line for line: the same
+ * numbers in the same order, in float as the GPU's highp is.
  *
  *     build-native/shaderdemo OUT_DIR
  *
@@ -365,7 +366,7 @@ static v3 shimmerless_cpu(const tap *cx, const tap *cy, int dx, int dy)
 static tap g_cx[2048], g_cy[2048];
 static bool g_cpu;   /* the device draws Sharp-Shimmerless on its CPU (the Brick) */
 
-static int save(const char *dir, const char *dev, filt f, int strength, v2 scale, int cw, int ch)
+static int save(const char *dir, const char *dev, filt f, int strength, v2 scale, int cw, int ch, int inset)
 {
 	char path[512];
 	SDL_Surface *s = SDL_CreateRGBSurfaceWithFormat(0, cw, ch, 24, SDL_PIXELFORMAT_RGB24);
@@ -375,8 +376,11 @@ static int save(const char *dir, const char *dev, filt f, int strength, v2 scale
 		unsigned char *row = (unsigned char *)s->pixels + (size_t)y * s->pitch;
 
 		for (int x = 0; x < cw; x++) {
-			v3 c = f == F_SHIMMERLESS && g_cpu ? shimmerless_cpu(g_cx, g_cy, x, y)
-			                                    : shade(f, x, y, scale, (float)strength / 100.0f);
+			/* `inset` pixels of black above and left of the panel's corner */
+			const int px = x - inset, py = y - inset;
+			v3 c = px < 0 || py < 0 ? (v3){ 0, 0, 0 }
+			     : f == F_SHIMMERLESS && g_cpu ? shimmerless_cpu(g_cx, g_cy, px, py)
+			                                   : shade(f, px, py, scale, (float)strength / 100.0f);
 
 			row[3 * x + 0] = (unsigned char)lroundf(clampf(c.r, 0, 1) * 255.0f);
 			row[3 * x + 1] = (unsigned char)lroundf(clampf(c.g, 0, 1) * 255.0f);
@@ -419,8 +423,8 @@ static int device_set(const char *dir)
 	if (f) fclose(f);
 	g_cpu = false;
 	for (int i = 0; i < F_COUNT; i++) {   /* save() writes DIR/DEV/NAME.png: DEV is "." */
-		bad |= save(dir, ".", (filt)i, 100, scale, 640, 480);
-		if (i >= F_CRT) bad |= save(dir, ".", (filt)i, 50, scale, 640, 480);
+		bad |= save(dir, ".", (filt)i, 100, scale, 640, 480, 0);
+		if (i >= F_CRT) bad |= save(dir, ".", (filt)i, 50, scale, 640, 480, 0);
 	}
 	if (bad) fprintf(stderr, "shaderdemo: %s: could not write the device set\n", dir);
 	return bad;
@@ -458,9 +462,19 @@ int main(int argc, char **argv)
 		mkdir(dir, 0755);
 		for (int f = 0; f < F_COUNT; f++) {
 			if (f >= F_CRT && !DEV[d].gpu) continue;
-			bad |= save(argv[1], DEV[d].id, (filt)f, 100, scale, DEV[d].cw, DEV[d].ch);
+			/* CRT Curved's curve is at the panel's edges: its corner set in
+			 * from the small screen's, past the frame's round inside corner
+			 * (src/design.h: DS_RADIUS_ROW - DS_FRAME, 11 units), so its own
+			 * round corner, bowed edges and dark edge show whole, at the
+			 * panel's pixels like every filter's. A corner at the screen's
+			 * corner hid the round under the frame's, and read as a straight
+			 * dark wedge rather than a curve (1.0.6). */
+			const int inset = f == F_CRT_CURVED ? (int)lroundf(12.0f * DEV[d].ph / 768.0f) : 0;
+
+			bad |= save(argv[1], DEV[d].id, (filt)f, 100, scale, DEV[d].cw, DEV[d].ch, inset);
 			if (f >= F_CRT)
-				for (int s = 10; s < 100; s += 10) bad |= save(argv[1], DEV[d].id, (filt)f, s, scale, DEV[d].cw, DEV[d].ch);
+				for (int s = 10; s < 100; s += 10)
+					bad |= save(argv[1], DEV[d].id, (filt)f, s, scale, DEV[d].cw, DEV[d].ch, inset);
 		}
 	}
 	return bad;

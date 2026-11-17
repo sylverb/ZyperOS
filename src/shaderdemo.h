@@ -22,7 +22,8 @@ void shader_demo_notes(const char **out, int n);
 void shader_demo_strength_notes(const char **out, int steps);
 
 /* Shader `shader` at `strength` percent in the preview's box (units), its
- * close-up at the handheld's own pixels, the small screen framed */
+ * close-up at the handheld's own pixels, the small screen framed. CRT
+ * Curved's has its corner set in, with black round it, so its curve shows */
 void shader_demo_draw(app *a, int shader, int strength, int x, int y, int w, int h);
 
 #endif
