@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
+#include "ds/hover.h"
 #include "shots.h"
 
 #include "about_screen.h"
@@ -609,7 +610,7 @@ int shot_pick_at = -1;
 
 /* An option row's list as menu_pick draws it: its choices, the one on
  * ticked, and what the one under the cursor does - in a picture column
- * beside them with its preview (menu_pick_preview), or under them */
+ * beside them with its picture (menu_choice's hover draw), or under them */
 static const menu_choice *g_shot_list;
 static int g_shot_list_at, g_shot_list_side;
 
@@ -619,7 +620,7 @@ static void shot_list_side(app *a, const menu_side *at)
 
 	if (!c || at->stage == MENU_SIDE_OVER) return;
 	menu_pick_side_draw(a, at->content_x, at->content_y, g_shot_list_side,
-	                    menu_pick_note_room(c->notes, c->n, g_shot_list_side), c->notes ? c->notes[g_shot_list_at] : NULL, c->preview, g_shot_list_at);
+	                    menu_pick_note_room(c->notes, c->n, g_shot_list_side), c->notes ? c->notes[g_shot_list_at] : NULL, c->hover ? c->hover->draw : NULL, g_shot_list_at);
 }
 
 static void shot_list_draw(app *a, const char *heading, const menu_choice *ch, int width,
@@ -635,7 +636,9 @@ static void shot_list_draw(app *a, const char *heading, const menu_choice *ch, i
 		menu_pick_word(ch->labels[k], pw[k], (int)sizeof pw[k]);
 		pr[k] = (menu_row){ pw[k], !ch->none && k == ch->cur ? MENU_TICK : NULL, true };
 	}
-	if (ch->notes && !ch->preview) {   /* what the choice under the cursor does */
+	const bool drawn = ch->hover && ch->hover->draw;
+
+	if (ch->notes && !drawn) {   /* what the choice under the cursor does */
 		int nl = menu_pick_note(ch->notes[at], pn);
 
 		pr[np++] = MENU_RULE;
@@ -646,11 +649,11 @@ static void shot_list_draw(app *a, const char *heading, const menu_choice *ch, i
 	g_menu_tabs = NULL;   /* a list of its own: the row's name, no tabs */
 	g_shot_list = ch;
 	g_shot_list_at = at;
-	g_menu_side = ch->preview ? shot_list_side : NULL;
-	width = menu_pick_width(a, width, ch->labels, ch->n, ch->none ? -1 : ch->cur, ch->preview != NULL,
+	g_menu_side = drawn ? shot_list_side : NULL;
+	width = menu_pick_width(a, width, ch->labels, ch->n, ch->none ? -1 : ch->cur, drawn,
 	                        &g_shot_list_side);
 	g_menu_side_w = g_shot_list_side;
-	g_menu_pin_foot = !ch->preview;   /* as menu_pick's style asks */
+	g_menu_pin_foot = !drawn;   /* as menu_pick's style asks */
 	menu_draw(a, heading, pr, np, at, width, accent);
 	g_menu_pin_foot = false;
 	g_menu_side = NULL;

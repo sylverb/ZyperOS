@@ -30,6 +30,7 @@
 #include "nowplaying_screen.h"
 #include "osdbar.h"
 #include "panel.h"
+#include "ds/hover.h"
 #include "nightkeep.h"
 #include "panelgamma.h"
 #include "powerhold.h"
@@ -135,7 +136,7 @@ static const char *night_hours_value(void);
 static int nm_mode(void);
 static int nm_warmth(void);
 static void nm_keep(void);
-static void nm_warmth_focus(void *app, int k);
+static const ds_hover NM_WARMTH_HOVER;
 
 /* ---------- option rows' choices (menu.h's menu_choice, DESIGN.md 9) ------ */
 
@@ -246,6 +247,13 @@ static void pm_strength_preview(void *app_, int k, int x, int y, int w, int h)
 	shader_demo_draw(app_, g_pm_demo_shader, STRENGTH_MIN + k * STRENGTH_STEP, x, y, w, h);
 }
 
+/* The pictures beside the shelf's and MENU's lists, as hovers */
+static const ds_hover SM_DMODE_HOVER = { .draw = sm_dmode_preview };
+static const ds_hover SM_SHADER_HOVER = { .draw = sm_shader_preview };
+static const ds_hover SM_STRENGTH_HOVER = { .draw = sm_strength_preview };
+static const ds_hover PM_SHADER_HOVER = { .draw = pm_shader_preview };
+static const ds_hover PM_STRENGTH_HOVER = { .draw = pm_strength_preview };
+
 static void menu_choices(app *a, int sys, bool games)
 {
 	/* A system's menu and MENU each their own words: the shelf under MENU
@@ -304,7 +312,7 @@ static void menu_choices(app *a, int sys, bool games)
 			}
 			g_sm_choice[SM_DISPLAY] = ch_make(&P[5], DMODE_COUNT, v->dmode, false);
 			g_sm_choice[SM_DISPLAY].notes = notes;
-			g_sm_choice[SM_DISPLAY].preview = sm_dmode_preview;
+			g_sm_choice[SM_DISPLAY].hover = &SM_DMODE_HOVER;
 		}
 		{
 			static const char *snotes[CH_MAX], *tnotes[CH_MAX];
@@ -315,12 +323,12 @@ static void menu_choices(app *a, int sys, bool games)
 			g_sm_choice[SM_SHADER] = ch_make(&P[6], n, cur, false);
 			shader_demo_notes(snotes, n);
 			g_sm_choice[SM_SHADER].notes = snotes;
-			g_sm_choice[SM_SHADER].preview = sm_shader_preview;
+			g_sm_choice[SM_SHADER].hover = &SM_SHADER_HOVER;
 			n = ch_strengths(&P[7], strength_clamp(v->strength), &cur);
 			g_sm_choice[SM_STRENGTH] = ch_make(&P[7], n, cur, false);
 			shader_demo_strength_notes(tnotes, n);
 			g_sm_choice[SM_STRENGTH].notes = tnotes;
-			g_sm_choice[SM_STRENGTH].preview = sm_strength_preview;
+			g_sm_choice[SM_STRENGTH].hover = &SM_STRENGTH_HOVER;
 		}
 		/* View: in the order Right steps it (view_turn) */
 		P[8].lab[0] = T(S_SYSMENU_VIEW_COVERS);
@@ -345,7 +353,7 @@ static void menu_choices(app *a, int sys, bool games)
 		P[12].lab[i] = P[12].buf[i];
 	}
 	g_pm_choice[PM_NIGHT_WARMTH] = ch_make(&P[12], NM_WARMTH_MAX, nm_warmth() - NM_WARMTH_MIN, false);
-	g_pm_choice[PM_NIGHT_WARMTH].focus = nm_warmth_focus;
+	g_pm_choice[PM_NIGHT_WARMTH].hover = &NM_WARMTH_HOVER;
 	P[1].lab[BATT_BARS] = T(S_PANEL_BATTERY_BARS);
 	P[1].lab[BATT_PCT] = T(S_PANEL_BATTERY_PERCENTAGE);
 	P[1].lab[BATT_TIME] = T(S_PANEL_BATTERY_TIME);
@@ -365,7 +373,7 @@ static void menu_choices(app *a, int sys, bool games)
 		g_pm_choice[PM_SHADER] = ch_make(&P[3], n, cur, mixed);
 		shader_demo_notes(snotes, n);
 		g_pm_choice[PM_SHADER].notes = snotes;
-		g_pm_choice[PM_SHADER].preview = pm_shader_preview;
+		g_pm_choice[PM_SHADER].hover = &PM_SHADER_HOVER;
 		g_pm_demo_shader = g_shader_all;
 		mixed = false;
 		{
@@ -377,7 +385,7 @@ static void menu_choices(app *a, int sys, bool games)
 			g_pm_choice[PM_STRENGTH] = ch_make(&P[4], n, cur, mixed);
 			shader_demo_strength_notes(tnotes, n);
 			g_pm_choice[PM_STRENGTH].notes = tnotes;
-			g_pm_choice[PM_STRENGTH].preview = pm_strength_preview;
+			g_pm_choice[PM_STRENGTH].hover = &PM_STRENGTH_HOVER;
 			g_pm_demo_strength = strength_clamp(all);
 		}
 	}
@@ -707,23 +715,30 @@ static void nm_keep(void)
 	night_keep(nm_cfg());
 }
 
-/* Night Warmth's list: the warmth under the cursor on the display alone,
- * loaded once a move (a list's build runs every pass), and the load a
- * key's repeat held back made once its gap is over; the list closed, what
- * is kept back on it */
-static int g_nm_shown;
-
-static void nm_warmth_focus(void *app_, int k)
+/* Night Warmth's list (src/ds/hover.h): the warmth under the cursor on the
+ * display alone, loaded once a move, and the load a key's repeat held back
+ * made once its gap is over; the kept one back on the cursor's return and
+ * when the list closes */
+static void nm_warmth_show(void *app_, int k)
 {
-	const int w = k < 0 ? 0 : NM_WARMTH_MIN + k;
-
 	(void)app_;
-	if (w != g_nm_shown) {
-		g_nm_shown = w;
-		plat_night_preview(w);
-	}
+	plat_night_preview(NM_WARMTH_MIN + k);
+}
+
+static void nm_warmth_undo(void *app_)
+{
+	(void)app_;
+	plat_night_preview(0);
+}
+
+static void screen_colors_tick(void *app_)
+{
+	(void)app_;
 	plat_screen_colors_tick(false);
 }
+
+static const ds_hover NM_WARMTH_HOVER = { .show = nm_warmth_show, .undo = nm_warmth_undo,
+                                          .tick = screen_colors_tick };
 
 /* The three Night rows as MENU's width measures them (main.c's
  * menu_shelf_width), into out[0..2], shown or not: Night Mode at its
@@ -916,27 +931,39 @@ static void sc_preview_end(void)
 	plat_screen_colors(&c, false);
 }
 
-/* The Look list's picture: the color chart in a screen (src/ds/colorref.h),
- * and on the whole screen the look under the cursor, once a move (the list
- * draws this every frame), so the chart shows it as the panel makes it */
-static void sc_look_preview(void *app_, int k, int x, int y, int w, int h)
+/* The Look list (src/ds/hover.h): on the whole screen the look under the
+ * cursor, loaded once a move, and beside the list the color chart in a
+ * screen (src/ds/colorref.h), so the chart shows it as the panel makes it */
+static void sc_look_show(void *app_, int k)
+{
+	screen_colors c = k >= 0 && k < SC_LOOKS_N ? SC_LOOKS[k].c : sc_load();
+
+	(void)app_;
+	g_sc_preview_k = k;
+	g_sc_previewing = true;
+	plat_screen_colors(&c, false);
+}
+
+static void sc_look_undo(void *app_)
+{
+	(void)app_;
+	sc_preview_end();
+}
+
+static void sc_look_draw(void *app_, int k, int x, int y, int w, int h)
 {
 	app *a = app_;
 	const SDL_Rect screen = { x, y, w, h };
 	SDL_Rect in;
 
-	if (k != g_sc_preview_k) {
-		screen_colors c = k >= 0 && k < SC_LOOKS_N ? SC_LOOKS[k].c : sc_load();
-
-		g_sc_preview_k = k;
-		g_sc_previewing = true;
-		plat_screen_colors(&c, false);
-	}
-	plat_screen_colors_tick(false);
+	(void)k;
 	in = ds_preview_screen_begin(a->r, &screen);
 	ds_color_ref_draw(a->r, &(SDL_Rect){ in.x + DS_GRID, in.y + DS_GRID, in.w - 2 * DS_GRID, in.h - 2 * DS_GRID });
 	ds_preview_screen_end(a->r, &screen);
 }
+
+static const ds_hover SC_LOOK_HOVER = { .show = sc_look_show, .undo = sc_look_undo,
+                                        .draw = sc_look_draw, .tick = screen_colors_tick };
 
 /* The Look's list as the page opens it and the shots draw it: every look,
  * Custom last while it is the one on, with what each does */
@@ -953,7 +980,7 @@ void sc_look_choice(menu_choice *out)
 	labels[SC_CUSTOM] = T(S_SCREEN_CUSTOM);
 	notes[SC_CUSTOM] = T(S_SCREEN_CUSTOM_NOTE);
 	*out = (menu_choice){ .n = (unsigned char)(SC_LOOKS_N + (cur == SC_CUSTOM)), .cur = (unsigned char)cur,
-	                      .labels = labels, .notes = notes, .preview = sc_look_preview };
+	                      .labels = labels, .notes = notes, .hover = &SC_LOOK_HOVER };
 }
 
 /* The rows by place: Saturation only where the kernel has its knob */
@@ -1009,8 +1036,8 @@ static menu_result sc_look_list(app *a)
 
 	sc_look_choice(&ch);
 	g_sc_preview_k = ch.cur;   /* what the display shows already */
-	k = menu_pick_preview(a, &g_sc_style, NULL, T(S_SCREEN_LOOK), ch.labels, ch.notes, ch.preview,
-	                      ch.n, ch.cur, ch.cur);
+	k = menu_pick_hover(a, &g_sc_style, NULL, T(S_SCREEN_LOOK), ch.labels, ch.notes, ch.hover,
+	                    ch.n, ch.cur, ch.cur);
 	if (k >= 0 && k < SC_LOOKS_N) {
 		sc_keep(&SC_LOOKS[k].c);
 	} else {

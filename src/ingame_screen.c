@@ -30,6 +30,7 @@
 #include <sys/stat.h>
 
 #include "shaderdemo.h"
+#include "ds/hover.h"
 #include <unistd.h>
 
 /* ---------- launching ----------------------------------------------------- */
@@ -1440,7 +1441,7 @@ void gm_preview_frame(SDL_Texture *bg)
 int    shot_gm_src_w, shot_gm_src_h;
 double shot_gm_aspect;
 
-/* The Display list's picture (menu_choice's preview): the paused game as
+/* The Display list's picture (menu_choice's hover): the paused game as
  * mode `k` would draw it, at the size and shape Diatom said */
 /* The Shader and Strength lists' picture (src/shaderdemo.h), with the game's
  * own system's shader and strength (owner_view) as the lists were made */
@@ -1476,6 +1477,11 @@ static void gm_dmode_preview(void *app_, int k, int x, int y, int w, int h)
 	dmode_preview_draw(a, g_gm_frame, sw, sh, aspect, fw, fh, k, x, y, w, h);
 }
 
+/* The three lists' pictures, as their hovers (src/ds/hover.h) */
+static const ds_hover GM_DMODE_HOVER = { .draw = gm_dmode_preview };
+static const ds_hover GM_SHADER_HOVER = { .draw = gm_shader_preview };
+static const ds_hover GM_STRENGTH_HOVER = { .draw = gm_strength_preview };
+
 const menu_choice *gm_choices(app *a, const gm_ui *u)
 {
 	static const char *lab[6][GM_CH_MAX];
@@ -1493,7 +1499,7 @@ const menu_choice *gm_choices(app *a, const gm_ui *u)
 		}
 		g_gm_choice[GM_DISPLAY] = (menu_choice){ .n = (unsigned char)DMODE_COUNT, .cur = (unsigned char)v->dmode,
 		                                         .labels = lab[0], .notes = notes,
-		                                         .preview = gm_dmode_preview };
+		                                         .hover = &GM_DMODE_HOVER };
 	}
 	for (i = 0, n = 0, cur = 0; i < SHADER_COUNT && n < GM_CH_MAX; i++) {
 		if (SHADERS[i].gpu && !plat_gpu_shaders()) continue;
@@ -1507,7 +1513,7 @@ const menu_choice *gm_choices(app *a, const gm_ui *u)
 		g_gm_demo_shader = v->shader;
 		g_gm_demo_strength = strength_clamp(v->strength);
 		g_gm_choice[GM_SHADER] = (menu_choice){ .n = (unsigned char)n, .cur = (unsigned char)cur, .labels = lab[1],
-		                                        .notes = notes, .preview = gm_shader_preview };
+		                                        .notes = notes, .hover = &GM_SHADER_HOVER };
 	}
 	for (i = STRENGTH_MIN, n = 0, cur = 0; i <= STRENGTH_MAX && n < GM_CH_MAX; i += STRENGTH_STEP, n++) {
 		if (i == strength_clamp(v->strength)) cur = n;
@@ -1519,7 +1525,7 @@ const menu_choice *gm_choices(app *a, const gm_ui *u)
 
 		shader_demo_strength_notes(notes, n);
 		g_gm_choice[GM_STRENGTH] = (menu_choice){ .n = (unsigned char)n, .cur = (unsigned char)cur, .labels = lab[2],
-		                                          .notes = notes, .preview = gm_strength_preview };
+		                                          .notes = notes, .hover = &GM_STRENGTH_HOVER };
 	}
 	for (i = 0; i < GM_SLOTS; i++) {
 		snprintf(buf[1][i], sizeof buf[1][i], "%d", i + 1);

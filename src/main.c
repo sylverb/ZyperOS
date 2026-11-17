@@ -4232,6 +4232,16 @@ int menu_step_heard(app *a, const menu_row *rows, int n, int sel,
 	return to;
 }
 
+int menu_step_quiet(app *a, const menu_row *rows, int n, int sel,
+                    int dir, in_button b)
+{
+	int to = a->in.pressed[b] ? menu_step_round(rows, n, sel, dir)
+	                          : menu_step_sel(rows, n, sel, dir);
+
+	if (to == sel) step_sound(a, b, sel, to);
+	return to;
+}
+
 /* MENU was pressed in a screen over this one: every screen is closing */
 bool menu_closing(void)
 {
