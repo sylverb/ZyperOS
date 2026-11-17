@@ -23,6 +23,7 @@ page can stand the two side by side, true to size.
 """
 import math
 import sys
+import os
 from pathlib import Path
 import bpy
 from mathutils import Vector, Matrix
@@ -36,6 +37,8 @@ scene = bpy.context.scene
 scene.unit_settings.system = 'METRIC'
 scene.unit_settings.scale_length = 0.001
 objects = []
+# The studio light's strength; the area lights below draw the clean highlights
+STUDIO = float(os.environ.get('STUDIO', '1.0'))
 
 def linear(c):
     return c / 12.92 if c < .04045 else ((c + .055) / 1.055) ** 2.4
@@ -51,11 +54,20 @@ def material(name, color, metal=0, rough=.4):
     m.diffuse_color = (*rgb,1)
     return m
 
-# A purple shell, one of the Brick's own colours, in matte plastic
-shell = material('Purple plastic shell', '6a5aa0', 0, .5)
-ledge = material('Purple plastic, shaded', '5a4c8a', 0, .55)
-plastic = material('Graphite plastic keys', '302e36', 0, .42)
-engraved = material('Key markings', 'c9c5d6', 0, .5)
+# The purple Brick, as TrimUI's own product photo shows it: the shell
+# #564f78, the keys in the same purple, F1 and F2 light grey (#cecece). Its
+# shell is plastic, so no metal: a satin finish under a clear coat, which
+# gives it its highlights.
+def coated(m, weight=.6, rough=.12):
+    p=m.node_tree.nodes.get('Principled BSDF')
+    p.inputs['Coat Weight'].default_value=weight
+    p.inputs['Coat Roughness'].default_value=rough
+    return m
+shell = coated(material('Purple plastic shell', os.environ.get('BRICK_SHELL','372a4b'), 0, .36))
+ledge = coated(material('Purple plastic, shaded', '31263f', 0, .4))
+plastic = coated(material('Purple plastic keys', '342a48', 0, .3), .5)
+pills = material('Light grey pills', 'cecece', 0, .38)
+engraved = material('Key markings', '3b355a', 0, .45)
 black = material('Port and socket interiors', '0b0c10', 0, .75)
 silver = material('Steel port rims', 'b9bfc0', .9, .24)
 glass = material('Black glass', '07080b', .05, .12)
@@ -229,7 +241,7 @@ for label,ox,oz in [('A',7.6,0),('B',0,-7.6),('X',0,7.6),('Y',-7.6,0)]:
 for name,x in [('F1',30.9),('F2',41.6)]:
     cut(body,rounded(name+' bore',7.1+.8,2.6+.8,3,1.7,(fx(x),FRONT,fz(63.6)),None))
     rounded(name+' socket',7.1+.75,2.6+.75,.3,1.65,(fx(x),FRONT+1.4,fz(63.6)),black)
-    rounded(name,7.1,2.6,2.2,1.3,(fx(x),FRONT+.1,fz(63.6)),plastic,.35)
+    rounded(name,7.1,2.6,2.2,1.3,(fx(x),FRONT+.1,fz(63.6)),pills,.35)
 
 # MENU, SELECT and START: round keys 5.4 across along the bottom
 for name,x in [('MENU',26.1),('SELECT',36.1),('START',46.2)]:
@@ -314,10 +326,17 @@ scene.render.engine='CYCLES'; scene.cycles.samples=32
 scene.cycles.use_denoising=True
 scene.render.image_settings.file_format='PNG'
 scene.render.film_transparent=False
-scene.world.color=(.25,.25,.25)
+# A real studio around the product, for its reflections: Blender's own
+# studio light (Poly Haven's studio_small_01, CC0), the same one the web page
+# lights the 3D model with (site/models/studio.hdr)
 scene.world.use_nodes=True
-scene.world.node_tree.nodes['Background'].inputs[0].default_value=(.65,.65,.65,1)
-scene.world.node_tree.nodes['Background'].inputs[1].default_value=.4
+world_nodes=scene.world.node_tree.nodes; world_nodes.clear()
+studio_image=world_nodes.new('ShaderNodeTexEnvironment')
+studio_image.image=bpy.data.images.load(str(Path(bpy.utils.system_resource('DATAFILES'))/'studiolights/world/studio.exr'))
+background=world_nodes.new('ShaderNodeBackground'); background.inputs[1].default_value=STUDIO
+world_out=world_nodes.new('ShaderNodeOutputWorld')
+scene.world.node_tree.links.new(studio_image.outputs['Color'],background.inputs['Color'])
+scene.world.node_tree.links.new(background.outputs[0],world_out.inputs['Surface'])
 scene.view_settings.view_transform='AgX'
 scene.view_settings.look='AgX - Medium High Contrast'
 
@@ -330,6 +349,8 @@ area('Large softbox',(-80,-100,110),220000,90,1.5)
 area('Right strip',(85,-35,35),160000,20,5)
 area('Rear rim',(30,70,90),240000,65,1.5)
 area('Front fill',(0,-110,-40),55000,70)
+# Behind the camera: what a satin metal face mirrors back at the viewer
+area('Front softbox',(0,-300,25),float(os.environ.get('FRONT','400000')),700,.45)
 camdata=bpy.data.cameras.new('Review camera'); camera=bpy.data.objects.new('Review camera',camdata); scene.collection.objects.link(camera); scene.camera=camera
 camdata.type='ORTHO'; camdata.ortho_scale=135
 camera.location=(0,-220,0); camera.rotation_euler=(Vector((0,0,0))-camera.location).to_track_quat('-Z','Y').to_euler()
@@ -380,4 +401,8 @@ if '--render' in sys.argv:
     scene.render.filepath=str(OUT/'hero.png')
     bpy.ops.render.render(write_still=True)
     bpy.data.images['Render Result'].save_render(str(ROOT/'site/models/brick-poster.png'))
+    # The page's row of handhelds shows a quarter of it (site/devices.json)
+    thumb=bpy.data.images.load(str(ROOT/'site/models/brick-poster.png'))
+    thumb.scale(thumb.size[0]//4,thumb.size[1]//4)
+    thumb.filepath_raw=str(ROOT/'site/models/brick-thumb.png'); thumb.file_format='PNG'; thumb.save()
 print('Brick asset:',ROOT/'site/models/brick.glb')

@@ -32,11 +32,12 @@ cp -R "$ROOT/site/download" "$OUT/download"
 # style sheet and script (site/blog/, the posts, is a folder: mk/blog.py
 # reads it)
 for f in "$ROOT"/site/*; do
-	if [ -f "$f" ]; then cp "$f" "$OUT/"; fi
+	if [ -f "$f" ] && [ "${f##*/}" != devices.json ]; then cp "$f" "$OUT/"; fi
 done
+# The music section's Pixel 2; every handheld's model, poster and thumbnail
+# come with the list (mk/site_devices.py, below)
 cp "$ROOT/site/models/pixel2.glb" "$ROOT/site/models/pixel2-poster.png" \
-   "$ROOT/site/models/pixel2-music.png" "$ROOT/site/models/brick.glb" \
-   "$ROOT/site/models/brick-poster.png" "$OUT/models/"
+   "$ROOT/site/models/pixel2-music.png" "$OUT/models/"
 cp "$ROOT/res/web/icon.svg" "$ROOT/res/web/zyper.svg" "$OUT/img/"
 # Every screenshot in the light theme; dark/ only for the light-and-dark section
 for f in lockup lockup-light systems gallery shelf shelf-n64 shelf-snes favorites info cheevos cheevo-notice menu scraper \
@@ -48,11 +49,9 @@ done
 for f in shelf-n64 systems menu; do
 	cp "$ROOT/res/readme/dark/$f.png" "$OUT/img/dark/"
 done
-# The TrimUI Brick's own captures, by the Pixel 2's names: the page's device
-# switch shows them in place of the Pixel 2's (site/landing.js, BRICK_SHOTS)
-mkdir -p "$OUT/img/brick/dark"
-cp "$ROOT"/res/readme/brick/*.png "$OUT/img/brick/"
-cp "$ROOT"/res/readme/brick/dark/*.png "$OUT/img/brick/dark/"
+# The handhelds the page shows (site/devices.json, or SITE_DEVICES for a
+# check's list): their models and captures, and the page's parts for them
+python3 "$ROOT/mk/site_devices.py" --out "$OUT" --devices "${SITE_DEVICES:-$ROOT/site/devices.json}"
 # Reuse the original art and its exact frame timings. Keep the full source
 # catalogue and unselected atlases out of the deployed site.
 python3 - "$ROOT" "$OUT" <<'PY'
@@ -79,10 +78,8 @@ for name in ('MUSE-still.png', 'FAVORITES-still.png'):
 def version(path):
     return hashlib.sha256((out / path).read_bytes()).hexdigest()[:12]
 device_script = out / 'pixel2.js'
-text = device_script.read_text()
-for model in ('pixel2', 'brick'):
-    text = text.replace(f'"./models/{model}.glb"', f'"./models/{model}.glb?v=' + version(f'models/{model}.glb') + '"')
-device_script.write_text(text)
+device_script.write_text(device_script.read_text().replace('"./models/pixel2.glb"',
+                         '"./models/pixel2.glb?v=' + version('models/pixel2.glb') + '"'))
 for filename in ('landing.js', 'player-two.js'):
     script = out / filename
     script.write_text(script.read_text().replace("import('./pixel2.js')", "import('./pixel2.js?v=" + version('pixel2.js') + "')"))

@@ -48,34 +48,41 @@ p { text-wrap: pretty; }
 .text-link span { font-size: 19px; }
 .release-note { margin-top: 17px; font-size: 12px; color: var(--text-dim); }
 .release-note span { padding-inline: 8px; color: var(--edge); }
-.hero-product { position: relative; min-width: 0; }
-/* The two handhelds, side by side and true to size: both posters are drawn at
- * 8.807 px a millimetre (tools/build-*-model.py). Each name is a choice; the
- * chosen one carries the launcher's own selection bar. */
-.handhelds { display: flex; align-items: flex-end; justify-content: center; min-width: 0; margin: 0; padding: 0; border: 0; }
-.handheld { position: relative; display: flex; flex: 1 1 0; flex-direction: column; align-items: center; min-width: 0; cursor: pointer; }
-.handheld + .handheld { margin-left: -7%; }
-.device { position: relative; display: block; width: 100%; }
-/* Its poster has more clear room below the body than the Brick's */
-.device[data-model="pixel2"] { aspect-ratio: 800 / 960; margin-bottom: -7.125%; }
-.device[data-model="brick"] { aspect-ratio: 800 / 1100; }
-.device::after { content: ""; position: absolute; height: 22px; background: var(--text); opacity: .13; filter: blur(18px); border-radius: 50%; z-index: -1; }
-.device[data-model="pixel2"]::after { width: 56%; left: 22%; bottom: 10.5%; }
-.device[data-model="brick"]::after { width: 64%; left: 18%; bottom: 4.5%; }
+.hero-product { position: relative; display: flex; flex-direction: column; align-items: center; min-width: 0; }
+/* The handhelds, from site/devices.json (mk/site_devices.py). The chosen one
+ * stands large on the stage, as the launcher's home shows the chosen system;
+ * the row below it picks one, every handheld to scale (--px-mm), under the
+ * launcher's own selection bar. Any number of them: the row scrolls when it
+ * is wider than the page. */
+.stage { position: relative; display: flex; align-items: flex-end; justify-content: center; width: 100%; height: clamp(300px, 36vw, 480px); }
+.stage .device { position: relative; display: block; height: 100%; aspect-ratio: var(--ratio); }
+.device::after { content: ""; position: absolute; left: calc(50% - var(--body) * .42); width: calc(var(--body) * .84); bottom: calc(var(--floor) - 2.5%); height: 22px; background: var(--text); opacity: .13; filter: blur(18px); border-radius: 50%; z-index: -1; }
 .device-poster { position: absolute; width: 100%; height: 100%; inset: 0; object-fit: contain; }
 .device canvas { position: relative; display: block; width: 100%; height: 100%; cursor: grab; touch-action: pan-y; opacity: 0; transition: opacity .5s; }
 .device canvas:active { cursor: grabbing; }
 .device.ready canvas { opacity: 1; }
 .device.ready .device-poster { visibility: hidden; }
-.device.ready.resting canvas { opacity: 0; }
-.device.ready.resting .device-poster { visibility: visible; }
-.handheld-name { display: flex; flex-direction: column; align-items: center; gap: 9px; margin-top: 4px; padding: 6px 12px; border-radius: 8px; font-size: 14px; font-weight: 600; letter-spacing: -.02em; color: var(--text-dim); transition: color .2s; }
-.handheld-name::after { content: ""; width: 34px; height: 5px; border-radius: 3px; background: transparent; transition: background .2s; }
-.handheld:hover .handheld-name { color: var(--text-soft); }
-.handheld:has(input:checked) .handheld-name { color: var(--text); }
-.handheld:has(input:checked) .handheld-name::after { background: var(--accent-ink); }
-.handheld:has(input:focus-visible) .handheld-name { outline: 3px solid var(--accent-ink); outline-offset: 2px; }
-.device-caption { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 16px; min-height: 44px; margin-top: 6px; color: var(--text-dim); font-size: 11px; text-align: center; }
+.handhelds { width: 100%; min-width: 0; margin: 2px 0 0; padding: 0; border: 0; }
+.picks { --px-mm: 1.1px; display: flex; align-items: flex-end; gap: 22px; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x proximity; scrollbar-width: none; padding: 10px 12px 4px; }
+.picks::-webkit-scrollbar { display: none; }
+/* While the row scrolls, its edges fade: there is more to either side */
+.picks.scrolls { mask-image: linear-gradient(to right, transparent, #000 28px, #000 calc(100% - 28px), transparent); }
+/* Centred while they fit, and scrolling from the start once they don't */
+.picks > :first-child { margin-left: auto; }
+.picks > :last-child { margin-right: auto; }
+.pick { position: relative; display: flex; flex: none; flex-direction: column; align-items: center; scroll-snap-align: center; cursor: pointer; }
+/* The poster's clear room around the body, taken back, so bodies stand on
+ * one line and sit side by side */
+.pick img { width: calc(var(--frame-w) * var(--px-mm)); max-width: none; height: auto; margin: calc((var(--body-h) - var(--frame-h)) / 2 * var(--px-mm)) calc((var(--body-w) - var(--frame-w)) / 2 * var(--px-mm)); pointer-events: none; transition: transform .25s var(--ease); }
+.pick:hover img { transform: translateY(-3px); }
+/* A long name takes two lines under its handheld, not the row's width */
+.pick-name { display: flex; flex-direction: column; align-items: center; gap: 8px; max-width: max(calc(var(--body-w) * var(--px-mm) + 28px), 6.5em); margin-top: 10px; padding: 4px 8px; border-radius: 8px; font-size: 13px; font-weight: 600; line-height: 1.25; letter-spacing: -.02em; text-align: center; text-wrap: balance; color: var(--text-dim); transition: color .2s; }
+.pick-name::after { content: ""; width: 30px; height: 5px; border-radius: 3px; background: transparent; transition: background .2s; }
+.pick:hover .pick-name { color: var(--text-soft); }
+.pick:has(input:checked) .pick-name { color: var(--text); }
+.pick:has(input:checked) .pick-name::after { background: var(--accent-ink); }
+.pick:has(input:focus-visible) .pick-name { outline: 3px solid var(--accent-ink); outline-offset: 2px; }
+.device-caption { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 16px; min-height: 44px; color: var(--text-dim); font-size: 11px; text-align: center; }
 .motion-control { display: inline-flex; gap: 7px; align-items: center; border: 0; padding: 10px 4px; background: none; font-size: 11px; }
 .motion-control:hover { color: var(--text); }
 .motion-symbol { width: 12px; font-size: 12px; }
@@ -281,8 +288,10 @@ details[open] > summary > span[aria-hidden="true"]:last-child { transform: rotat
   .button { font-size: 13px; min-height: 52px; padding: 14px 18px; gap: 18px; }
   .text-link { font-size: 12px; gap: 10px; }
   .release-note { font-size: 10px; }
-  .hero-product { width: min(100%, 460px); justify-self: center; margin-top: 24px; }
-  .handheld-name { font-size: 13px; }
+  .hero-product { width: 100%; justify-self: center; margin-top: 24px; }
+  .stage { height: 300px; }
+  .picks { --px-mm: .85px; gap: 16px; }
+  .pick-name { font-size: 12px; }
   .device-caption { gap: 12px; font-size: 10px; }
   .motion-control { font-size: 10px; }
   .facts { grid-template-columns: repeat(2, 1fr); gap: 25px 20px; padding-top: 26px; }
@@ -377,18 +386,17 @@ details[open] > summary > span[aria-hidden="true"]:last-child { transform: rotat
 .motion-paused *, .motion-paused *::before, .motion-paused *::after { animation: none !important; transition: none !important; }
 
 
-/* One page for both handhelds. The hero's choice shows its own lines and
- * hides the other's; without :has(), both show. */
-:root:has(#brick:checked) [data-for="pixel2"],
-:root:has(#pixel2:checked) [data-for="brick"] { display: none !important; }
-/* What the Brick doesn't have yet: a small mark, louder once it is chosen */
-.not-brick { display: inline-block; margin-left: 2px; padding: 0 9px 1px; border: 1px solid color-mix(in srgb, currentColor 30%, transparent); border-radius: 100px; font-size: 11px; font-weight: 600; line-height: 1.7; letter-spacing: 0; color: inherit; opacity: .72; white-space: nowrap; vertical-align: 1px; transition: opacity .2s, border-color .2s; }
-:root:has(#brick:checked) .not-brick { opacity: 1; border-color: color-mix(in srgb, currentColor 60%, transparent); }
-.p2-heading .not-brick { display: table; margin: 14px 0 0; }
+/* The lines of one handheld at a time, and what one doesn't have yet: the
+ * rules for each are mk/site_devices.py's, beside the list in the page */
+@media (prefers-reduced-motion: no-preference) {
+  html:not(.motion-paused) .stage .device { animation: arrive 600ms var(--ease) both; }
+}
+.not-yet { display: inline-block; margin-left: 2px; padding: 0 9px 1px; border: 1px solid color-mix(in srgb, currentColor 30%, transparent); border-radius: 100px; font-size: 11px; font-weight: 600; line-height: 1.7; letter-spacing: 0; color: inherit; opacity: .72; white-space: nowrap; vertical-align: 1px; transition: opacity .2s, border-color .2s; }
+.p2-heading .not-yet { display: table; margin: 14px 0 0; }
 .chips li.later::after, .later-key { content: ""; display: inline-block; width: 7px; height: 7px; margin-left: 7px; border: 1.5px solid currentColor; border-radius: 50%; opacity: .75; vertical-align: 1px; }
 .later-key { margin: 0 7px 0 0; }
 .device-pick { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
 .device-pick button { min-height: 44px; padding: 8px 18px; border: 1px solid var(--edge); border-radius: 100px; background: transparent; color: var(--text-soft); font-size: 13px; transition: background .2s, color .2s; }
 .device-pick button:hover { border-color: var(--text-dim); }
 .device-pick button[aria-pressed="true"] { border-color: var(--text); background: var(--text); color: var(--surface); }
-.install-steps .install-brick { margin-top: 14px; }
+.install-steps .install-note { margin-top: 14px; }
