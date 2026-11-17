@@ -101,6 +101,38 @@ static ds_rgb track_at(ds_scale_kind kind, float t, bool low)
 	}
 }
 
+/* The track's colors, its columns `w` by `h` at (x0, y0), each cut to the
+ * round ends: a line for each column's top half and one for its bottom (the
+ * contrast's two greys). Drawn once into a texture (ui_bake) and copied after;
+ * in place when there is none. The column's ends are counted from the track's
+ * middle, so they come out the same wherever the track is (tools/scale-check.c
+ * holds the copy to the drawing). */
+static void track_columns(SDL_Renderer *r, ds_scale_kind kind, int x0, int y0, int w, int h)
+{
+	const float rad = h / 2.0f;
+	const int cy = y0 + h / 2;
+	int x;
+
+	for (x = 0; x < w; x++) {
+		const float t = (float)x / (float)(w - 1);
+		const ds_rgb c = track_at(kind, t, false), lo = track_at(kind, t, true);
+		float d = x < rad ? rad - (float)x - 0.5f : x > w - rad ? (float)x + 0.5f - (w - rad) : 0.0f;
+		float half = d > 0 ? sqrtf(fmaxf(0.0f, rad * rad - d * d)) : rad;
+		int a = (int)lroundf((float)cy - half), b = (int)lroundf((float)cy + half);
+
+		SDL_SetRenderDrawColor(r, c.r, c.g, c.b, 255);
+		SDL_RenderDrawLine(r, x0 + x, a, x0 + x, (a + b) / 2 - 1);
+		SDL_SetRenderDrawColor(r, lo.r, lo.g, lo.b, 255);
+		SDL_RenderDrawLine(r, x0 + x, (a + b) / 2, x0 + x, b - 1);
+		ui_calls += 2;
+	}
+}
+
+static void track_bake(SDL_Renderer *r, int k, int w, int h)
+{
+	track_columns(r, (ds_scale_kind)k, 0, 0, w, h);
+}
+
 void ds_scale_draw(SDL_Renderer *r, const SDL_Rect *box, ds_scale_kind kind, int v, int range, bool on_fill)
 {
 	const ds_theme *th = theme();
@@ -111,26 +143,21 @@ void ds_scale_draw(SDL_Renderer *r, const SDL_Rect *box, ds_scale_kind kind, int
 	/* The track, its knob's half in from each end so the knob at -10 or
 	 * +10 stays over it */
 	const SDL_Rect track = { box->x + KNOB_D / 2, cy - TRACK_H / 2, box->w - num_w - KNOB_D, TRACK_H };
-	const float rad = TRACK_H / 2.0f;
+	SDL_Texture *baked;
 	char num[16];
-	int x, k;
+	int k;
 
 	if (range <= 0 || track.w <= 0) return;
 	/* Its ring, then its colors inside, each column cut to the round ends */
 	ui_round_rect(r, &(SDL_Rect){ track.x - TRACK_RING, track.y - TRACK_RING, track.w + 2 * TRACK_RING,
 	                                track.h + 2 * TRACK_RING },
 	              TRACK_H / 2 + TRACK_RING, on_fill ? ui_col(th->on_accent, 90) : ui_col(th->edge, 255));
-	for (x = 0; x < track.w; x++) {
-		const float t = (float)x / (float)(track.w - 1);
-		const ds_rgb c = track_at(kind, t, false), lo = track_at(kind, t, true);
-		float d = x < rad ? rad - (float)x - 0.5f : x > track.w - rad ? (float)x + 0.5f - (track.w - rad) : 0.0f;
-		float half = d > 0 ? sqrtf(fmaxf(0.0f, rad * rad - d * d)) : rad;
-		int y0 = (int)lroundf((float)cy - half), y1 = (int)lroundf((float)cy + half);
-
-		SDL_SetRenderDrawColor(r, c.r, c.g, c.b, 255);
-		SDL_RenderDrawLine(r, track.x + x, y0, track.x + x, (y0 + y1) / 2 - 1);
-		SDL_SetRenderDrawColor(r, lo.r, lo.g, lo.b, 255);
-		SDL_RenderDrawLine(r, track.x + x, (y0 + y1) / 2, track.x + x, y1 - 1);
+	ui_calls++;
+	if ((baked = ui_bake(r, "scale", (int)kind, track.w, track.h, track_bake))) {
+		SDL_RenderCopy(r, baked, NULL, &track);
+		ui_calls++;
+	} else {
+		track_columns(r, kind, track.x, track.y, track.w, track.h);
 	}
 	/* The marks under it: the ends, the halves and zero, zero's the tallest
 	 * and through the track */
@@ -141,6 +168,7 @@ void ds_scale_draw(SDL_Renderer *r, const SDL_Rect *box, ds_scale_kind kind, int
 		const int h = zero ? TRACK_H + ZERO_H : MARK_H;
 
 		ui_round_rect(r, &(SDL_Rect){ mx - 1, top, 2, h }, 1, zero ? ink : dim);
+		ui_calls++;
 	}
 	/* The knob: the value, a ring in the text's color round the panel's face */
 	{
@@ -150,6 +178,7 @@ void ds_scale_draw(SDL_Renderer *r, const SDL_Rect *box, ds_scale_kind kind, int
 
 		ui_round_rect(r, &o, KNOB_D / 2, ink);
 		ui_round_rect(r, &in, KNOB_D / 2 - 4, on_fill ? ui_col(th->accent, 255) : ui_col(th->raised, 255));
+		ui_calls += 2;
 	}
 	/* The number, signed, its digits tabular: "-3" with a minus sign */
 	if (v > 0) snprintf(num, sizeof num, "+%d", v);
@@ -159,5 +188,6 @@ void ds_scale_draw(SDL_Renderer *r, const SDL_Rect *box, ds_scale_kind kind, int
 		TTF_Font *f = ui_font(UI_F_MENU);
 
 		ui_text_tabular(r, f, num, box->x + box->w, ui_cap_y(f, cy), 1, ink);
+		ui_calls++;
 	}
 }

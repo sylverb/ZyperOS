@@ -38,6 +38,26 @@ static void hue_at(float h, Uint8 *r, Uint8 *g, Uint8 *b)
 	*b = (Uint8)lroundf(c[2] * 255.0f);
 }
 
+/* The hues, red round to red, a line a column, `w` by `h` at (x0, y0): drawn
+ * once into a texture (ui_bake) and copied after, in place when there is none */
+static void hue_columns(SDL_Renderer *r, int x0, int y0, int w, int h)
+{
+	for (int x = 0; x < w; x++) {
+		Uint8 cr, cg, cb;
+
+		hue_at((float)x / (float)w, &cr, &cg, &cb);
+		SDL_SetRenderDrawColor(r, cr, cg, cb, 255);
+		SDL_RenderDrawLine(r, x0 + x, y0, x0 + x, y0 + h - 1);
+		ui_calls++;
+	}
+}
+
+static void hue_bake(SDL_Renderer *r, int k, int w, int h)
+{
+	(void)k;
+	hue_columns(r, 0, 0, w, h);
+}
+
 void ds_color_ref_draw(SDL_Renderer *r, const SDL_Rect *box)
 {
 	/* Tall (a column): the chart four across, the ramp in two rows of
@@ -54,13 +74,15 @@ void ds_color_ref_draw(SDL_Renderer *r, const SDL_Rect *box)
 	const int ramp_h = (int)lroundf((float)p * ramp_k), band_h = p / 2;
 	const int total = rws * p + (rws - 1) * gap + REF_GAP + ramp_h + REF_GAP + band_h;
 	const int x0 = box->x + (box->w - cw) / 2;
-	int y = box->y + (box->h - total) / 2, i, x;
+	int y = box->y + (box->h - total) / 2, i;
+	SDL_Texture *band;
 
 	if (p <= 0) return;
 	for (i = 0; i < 24; i++) {
 		SDL_Rect q = { x0 + (i % cols) * (p + gap), y + (i / cols) * (p + gap), p, p };
 
 		ui_round_rect(r, &q, DS_RADIUS_CHIP, (SDL_Color){ CHART[i][0], CHART[i][1], CHART[i][2], 255 });
+		ui_calls++;
 	}
 	y += rws * p + (rws - 1) * gap + REF_GAP;
 	/* Sixteen greys, black to white */
@@ -71,14 +93,14 @@ void ds_color_ref_draw(SDL_Renderer *r, const SDL_Rect *box)
 
 		SDL_SetRenderDrawColor(r, (Uint8)v, (Uint8)v, (Uint8)v, 255);
 		SDL_RenderFillRect(r, &(SDL_Rect){ a, y + row * h, b - a, h });
+		ui_calls++;
 	}
 	y += ramp_h + REF_GAP;
 	/* The hues, red round to red */
-	for (x = 0; x < cw; x++) {
-		Uint8 cr, cg, cb;
-
-		hue_at((float)x / (float)cw, &cr, &cg, &cb);
-		SDL_SetRenderDrawColor(r, cr, cg, cb, 255);
-		SDL_RenderDrawLine(r, x0 + x, y, x0 + x, y + band_h - 1);
+	if ((band = ui_bake(r, "hues", 0, cw, band_h, hue_bake))) {
+		SDL_RenderCopy(r, band, NULL, &(SDL_Rect){ x0, y, cw, band_h });
+		ui_calls++;
+	} else {
+		hue_columns(r, x0, y, cw, band_h);
 	}
 }
