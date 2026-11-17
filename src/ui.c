@@ -12,6 +12,7 @@
 #include "linebreak.h" /* where a name too wide for its box breaks or is cut */
 #include "look.h"      /* Corners: Square */
 #include "padglyph.h"
+#include "platform.h"  /* PLAT_TARGET_FORMAT, a render target's format */
 #include "ds/button.h"  /* which glyph a button name draws on this handheld */
 #include "folderart.h" /* a folder's card and row, in pixel art */  /* the PlayStation's shapes, drawn in running text */
 
@@ -1331,7 +1332,7 @@ SDL_Texture *ui_bake(SDL_Renderer *r, const char *what, int k, int w, int h,
 		if (bakes[i].t && bakes[i].r == r && bakes[i].what == what && bakes[i].k == k &&
 		    bakes[i].w == w && bakes[i].h == h)
 			return bakes[i].t;
-	if (!(t = SDL_CreateTexture(r, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_TARGET, w, h)))
+	if (!(t = SDL_CreateTexture(r, PLAT_TARGET_FORMAT, SDL_TEXTUREACCESS_TARGET, w, h)))
 		return NULL;
 	was = SDL_GetRenderTarget(r);
 	SDL_RenderGetViewport(r, &view);
