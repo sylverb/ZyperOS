@@ -1444,9 +1444,52 @@ static void give_display(void)
 	g_have_master = false;
 }
 
+/* The refreshes, for the frame loop's display lock (diatom_port_vblank):
+ * the last flip's, in diatom_port_now_us's time, and the period measured from
+ * the flips, which start at the mode's own and move a thirty-second of each
+ * flip's difference. Written by the presenting thread, read by the loop: a
+ * word each, a read a frame old at worst. */
+static volatile uint64_t g_vbl_at;
+static volatile double   g_vbl_period, g_vbl_nominal;
+
 static void flip_done(int fd, unsigned seq, unsigned sec, unsigned usec, void *data)
 {
+	static uint64_t prev;
+	struct timespec mono;
+	uint64_t flip, mono_us, now, at;
+
 	*(bool *)data = true;
+	/* The event's time is the kernel's CLOCK_MONOTONIC at the refresh; the
+	 * loop's is SDL's counter, so the refresh is put in it by its distance
+	 * from now on each */
+	clock_gettime(CLOCK_MONOTONIC, &mono);
+	now = diatom_port_now_us();
+	flip = (uint64_t)sec * 1000000u + usec;
+	mono_us = (uint64_t)mono.tv_sec * 1000000u + (uint64_t)mono.tv_nsec / 1000u;
+	at = mono_us >= flip && mono_us - flip < 1000000u ? now - (mono_us - flip) : now;
+	if (prev && g_vbl_nominal > 0 && at > prev) {
+		double d = (double)(at - prev);
+		long k = lround(d / g_vbl_nominal);
+
+		if (k >= 1 && k <= 4) {
+			double one = d / (double)k;
+
+			if (fabs(one - g_vbl_nominal) < g_vbl_nominal * 0.02)
+				g_vbl_period += (one - g_vbl_period) / 32;
+		}
+	}
+	prev = at;
+	g_vbl_at = at;
+}
+
+bool diatom_port_vblank(uint64_t *at_us, double *period_us)
+{
+	uint64_t at = g_vbl_at;
+
+	if (!at || g_vbl_period <= 0) return false;
+	*at_us = at;
+	*period_us = g_vbl_period;
+	return true;
 }
 
 static void wait_vblank(void)
@@ -3113,6 +3156,13 @@ bool diatom_port_init(diatom_port_caps *out)
 	out->audio_buffer_frames = AUDIO_BUFFER_FRAMES;   /* open or not yet */
 	out->present_blocks      = false;
 	out->gpu                 = true;
+	/* The mode's own rate: 25 MHz over 570 x 730 on the Pixel 2, 60.08 Hz */
+	out->refresh_hz          = g_mode.htotal && g_mode.vtotal
+	                         ? g_mode.clock * 1000.0 / ((double)g_mode.htotal * g_mode.vtotal) : 0;
+	if (out->refresh_hz > 0 && g_vbl_nominal <= 0) {
+		g_vbl_nominal = 1e6 / out->refresh_hz;
+		g_vbl_period = g_vbl_nominal;
+	}
 	return true;
 }
 

@@ -589,6 +589,27 @@ dss_choice dsslow_load(void)
 	return dsslow_parse(v);
 }
 
+/* Timing (src/pacing.h): the system's own, as the device's database keeps
+ * it, and its systems.cfg word until the player picks */
+pacing_choice pacing_load(const system_cfg *s)
+{
+	char key[32], v[16];
+	pacing_choice own = pacing_parse(s->pace, PACING_EXACT);
+
+	pacing_key(s->tag, key, sizeof key);
+	db_get_str(db_dev(), key, v, sizeof v, pacing_id(own));
+	return pacing_parse(v, own);
+}
+
+/* A system with a pace line, and Diatom to pace it: a program of its own
+ * ("run:") or a port has its own timing */
+bool pacing_row_shown(const app *a, int sys)
+{
+	const system_cfg *s = &a->sys.systems[sys];
+
+	return s->pace[0] && strncmp(s->core, "run:", 4) != 0 && strcmp(s->core, "port") != 0;
+}
+
 bool dslang_row_shown(const app *a, int sys)
 {
 	const system_cfg *s = &a->sys.systems[sys];
@@ -4664,6 +4685,7 @@ static int sm_pos(const app *a, int sys, sm_row which)
 	sys_ui dev = { .no_wifi = !plat_has_wifi(), .online = net_internet(NULL),
 	               .dslang = dslang_row_shown(a, sys) ? "" : NULL,
 	               .dsslow = dslang_row_shown(a, sys) ? "" : NULL,
+	               .pace = pacing_row_shown(a, sys) ? "" : NULL,
 	               .no_strength = !shader_has_strength(a->view[sys].shader) };
 	sm_row ids[SM_ROWS];
 	int n = sys_menu_system_rows(&dev, ids), k;
@@ -4737,6 +4759,7 @@ static int menu_shelf_width(app *a)
 		int  crow = own ? -1 : sm_pos(a, i, SM_CORE);
 		int  lrow = own ? -1 : sm_pos(a, i, SM_DSLANG);
 		int  wrow = own ? -1 : sm_pos(a, i, SM_DSSLOW);
+		int  prow = own ? -1 : sm_pos(a, i, SM_PACE);
 		int  vrow = muse ? -1 : a->view[i].owner ? 3 : sm_pos(a, i, SM_VIEW);
 
 		n = menu_build(a, SCREEN_GAMES, i, rows, &bufs, &heading);
@@ -4819,6 +4842,18 @@ static int menu_shelf_width(app *a)
 				if (mw > w) w = mw;
 			}
 			rows[wrow].value = keep;
+		}
+		/* Timing's two */
+		if (prow >= 0 && prow < n) {
+			const char *keep = rows[prow].value;
+
+			for (k = 0; k < PACING_CHOICES; k++) {
+				int mw;
+				rows[prow].value = T(pacing_label_id((pacing_choice)k));
+				mw = menu_measure(rows, n, heading);
+				if (mw > w) w = mw;
+			}
+			rows[prow].value = keep;
 		}
 		/* View's three values, the longest kept */
 		if (vrow >= 0 && vrow < n) {
@@ -5329,6 +5364,9 @@ int main(int argc, char *argv[])
 		/* The Buttons page a game with its own buttons opens from its details */
 		else if (!strcmp(argv[i], "--info-buttons")) shot_info = 4;
 		else if (!strcmp(argv[i], "--delete-ask")) shot_delete_ask = 1;
+		/* --gm-said K: Delete Game's and Rename's messages (shots.c's
+		 * GM_SAID: 0 the delete's wait, 1-6 Delete Game's, 7-10 Rename's) */
+		else if (!strcmp(argv[i], "--gm-said") && i + 1 < argc) shot_gm_said = atoi(argv[++i]);
 		/* The game under the cursor deleted as Delete Game's yes deletes it,
 		 * then the shot: the shelf after, and what went on stderr */
 		else if (!strcmp(argv[i], "--delete-now")) shot_delete_now = 1;

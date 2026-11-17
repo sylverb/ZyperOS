@@ -78,6 +78,10 @@ typedef struct diatom_session {
 	/* RUN stick=plain: the d-pad is the left stick always, and the joypad's
 	 * d-pad too. No SELECT rule (SELECT is the system's own) and no R2 turn */
 	bool          stick_plain;
+	/* RUN pace=smooth: the display's rate where it is close to the core's
+	 * (src/pace.h, DISPLAY LOCK), the launcher's Timing: Smooth. Without
+	 * it, the core's own rate (Exact) */
+	bool          pace_smooth;
 } diatom_session;
 
 static bool game_msg(const diatom_msg *m);
@@ -855,6 +859,7 @@ static void usage(void)
 		"              [--frameskip late|steady]  leave a late frame undrawn, at 1x too;\n"
 		"                                  steady: every second one while late\n"
 		"              [--power light|medium]  run under that clock ceiling\n"
+		"              [--pace smooth]     the display's rate where close, one frame a refresh\n"
 		"              [--controller <n>]  libretro controller type for port 0\n"
 		"              [--stick dpad]      the d-pad as the left analog stick (N64)\n"
 		"              [--stick toggle]    R2 turns the d-pad into the left stick and back (PSP)\n"
@@ -2230,6 +2235,12 @@ static int run_session_inner(const diatom_session *sn)
 	 * really sends where that is known to differ (sound_rate). */
 	double   audio_rate = 0.0;
 	bool     sound_paced = false;   /* paced_by_sound: this core's turns last its sound */
+	/* The display lock (src/pace.h): the panel's rate over the core's when
+	 * this game runs at the panel's, one frame a refresh; 0 when it runs at
+	 * its own. t_shown: when the last drawn frame was handed over, for the
+	 * lock's phase. */
+	double   lock = 0;
+	uint64_t t_shown = 0;
 
 	/* Every game starts from identity and from an unknown level, so a launcher
 	 * that sends no map gets no map, and the first poll reports where the
@@ -2411,6 +2422,19 @@ static int run_session_inner(const diatom_session *sn)
 	if (audio_rate != av.timing.sample_rate)
 		printf("diatom: Super Game Boy timing: resampling from %.0f Hz, "
 		       "not the %.0f Hz announced\n", audio_rate, av.timing.sample_rate);
+	/* Locked to the display: the core's frames come at the panel's rate,
+	 * so its sound comes that much faster too, and is resampled as such -
+	 * 0.59% for a GBA, past rate control's 0.5% */
+	sound_paced = paced_by_sound(&si) && audio_rate > 0.0;
+	lock = sound_paced || !sn->pace_smooth ? 0 : pace_lock_ratio(g_caps.refresh_hz, av.timing.fps);
+	if (lock > 0) {
+		audio_rate *= lock;
+		printf("diatom: locked to the display, %.3f Hz for the core's %.4f fps (%+.2f%%), "
+		       "the sound resampled to match\n", g_caps.refresh_hz, av.timing.fps, (lock - 1) * 100);
+	} else if (sn->pace_smooth && g_caps.refresh_hz > 0 && !sound_paced) {
+		printf("diatom: at the core's own %.4f fps, not the display's %.3f Hz "
+		       "(more than 1%% apart)\n", av.timing.fps, g_caps.refresh_hz);
+	}
 	{
 		int cap = diatom_port_audio_start() ? g_caps.audio_buffer_frames : 0;
 
@@ -2422,7 +2446,6 @@ static int run_session_inner(const diatom_session *sn)
 		g_foreign_debug = getenv("DIATOM_AUDIO_DEBUG") != NULL;
 	}
 	diatom_audio_prime();
-	sound_paced = paced_by_sound(&si) && audio_rate > 0.0;
 	if (sound_paced)
 		printf("diatom: each frame paced by the sound it made, not by %.4f fps\n",
 		       av.timing.fps);
@@ -2477,7 +2500,7 @@ static int run_session_inner(const diatom_session *sn)
 	 *
 	 * Audio drift is not this loop's problem. It is handled by rate control,
 	 * because no panel and no core will ever agree on a rate. */
-	frame_us = 1000000.0 / (av.timing.fps > 0 ? av.timing.fps : 60.0);
+	frame_us = 1000000.0 / (lock > 0 ? g_caps.refresh_hz : av.timing.fps > 0 ? av.timing.fps : 60.0);
 
 	/* Idle reporting belongs to this game, and this game has not asked yet.
 	 * The launcher's SETIDLE comes behind SETLEVEL, SETMUTE and SETDISPLAY,
@@ -2857,7 +2880,8 @@ static int run_session_inner(const diatom_session *sn)
 			 * drawn frame's, already on the panel, and presenting them again
 			 * would spend on the upload what skipping saved. */
 			present_frame(g_frame_fresh && last_shown);
-			g_present_us += diatom_port_now_us() - p0;
+			t_shown = diatom_port_now_us();
+			g_present_us += t_shown - p0;
 			g_present_frames++;
 		}
 
@@ -3169,6 +3193,20 @@ static int run_session_inner(const diatom_session *sn)
 			next_us += frame_us * 2.0 * ran / speed_half();
 		} else {
 			next_us += frame_us * periods;
+			/* Locked (src/pace.h): the measured refresh as the period, and
+			 * the next frame handed over half a refresh from the boundary,
+			 * where a millisecond's noise cannot carry it across - only from
+			 * a turn on time, whose start was the schedule's */
+			if (lock > 0 && t_shown >= batch_t0 && (double)diatom_port_now_us() < next_us) {
+				uint64_t vb;
+				double per;
+
+				if (diatom_port_vblank(&vb, &per)) {
+					frame_us = per;
+					next_us += pace_phase_step((double)t_shown, (double)vb, per, per / 2,
+					                           PACE_PHASE_GAIN, per * PACE_PHASE_MAX_FRAC);
+				}
+			}
 		}
 		g_turn_sound = 0;
 		now = diatom_port_now_us();
@@ -3284,7 +3322,10 @@ static int run_session_inner(const diatom_session *sn)
 
 		if (secs < 0) secs = 0;
 		printf("diatom: %ld frames in %.2fs = %.2f fps (target %.4f)\n",
-		       paced, secs, secs > 0 ? paced / secs : 0.0, av.timing.fps);
+		       paced, secs, secs > 0 ? paced / secs : 0.0, lock > 0 ? 1e6 / frame_us : av.timing.fps);
+		if (lock > 0)
+			printf("diatom: locked to the display: its refresh measured at %.4f Hz, the core's own %.4f fps\n",
+			       1e6 / frame_us, av.timing.fps);
 		/* Fast forward is kept out of the rate, as the menu is, and said. */
 		if (fast_frames)
 			printf("diatom: %ld more frames fast over %.2fs = %.2fx, "
@@ -3422,6 +3463,7 @@ int main(int argc, char **argv)
 	bool list_options = false, stylus = false;
 	const char *frameskip = "";
 	const char *power = "";
+	const char *pace = "";
 	unsigned controller = 0;
 	bool dpad_stick = false;
 	int  stick_toggle = 0;
@@ -3477,6 +3519,7 @@ int main(int argc, char **argv)
 			screens = (int)strtol(argv[++i], NULL, 10);
 		else if (!strcmp(argv[i], "--frameskip") && i + 1 < argc) frameskip = argv[++i];
 		else if (!strcmp(argv[i], "--power") && i + 1 < argc) power = argv[++i];
+		else if (!strcmp(argv[i], "--pace") && i + 1 < argc) pace = argv[++i];
 		else if (!strcmp(argv[i], "--controller") && i + 1 < argc)
 			controller = (unsigned)strtoul(argv[++i], NULL, 10);
 		else if (!strcmp(argv[i], "--stick") && i + 1 < argc) {
@@ -3661,6 +3704,7 @@ int main(int argc, char **argv)
 			sn.stick_toggle = !strcmp(m.stick, "toggle") ? 1
 			                : !strcmp(m.stick, "toggle-stick") ? 2 : 0;
 			sn.stick_plain = !strcmp(m.stick, "plain");
+			sn.pace_smooth = !strcmp(m.pace, "smooth");
 			sn.mode   = start_mode;
 			sn.filter = start_filter;
 			sn.strength = start_strength;
@@ -3693,6 +3737,7 @@ int main(int argc, char **argv)
 			.dpad_stick = dpad_stick,
 			.stick_toggle = stick_toggle,
 			.stick_plain = stick_plain,
+			.pace_smooth = !strcmp(pace, "smooth"),
 		};
 		int rc = run_session(&sn);
 		if (rc) return rc;

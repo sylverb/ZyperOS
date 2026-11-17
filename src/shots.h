@@ -58,6 +58,7 @@ extern const char *shot_badge_set;
 extern int shot_syn;
 extern int shot_info;
 extern int shot_delete_ask;
+extern int shot_gm_said;
 extern int shot_delete_now;
 extern int shot_controls;
 extern int shot_sgdb;

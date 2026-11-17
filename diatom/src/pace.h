@@ -58,4 +58,41 @@ double pace_room_us(size_t queued, size_t n, int capacity, double rate);
 pace_late pace_when_late(double late_us, double frame_us, double depth_us,
                          double *keep_us);
 
+/* DISPLAY LOCK, the launcher's Timing: Smooth (RUN pace=smooth): a core
+ * whose rate is within PACE_LOCK_MAX of the panel's runs at the panel's, one
+ * frame a refresh, as RetroArch's vsync runs it, its sound resampled to
+ * match. The GKD Pixel 2's panel is 60.08 Hz (25 MHz over 570 x 730) and a
+ * GBA 59.7275: paced at the core's own rate (Exact, and what a RUN without
+ * pace=smooth gets), 0.35 refreshes a second have no new frame, one every
+ * 2.9 s, and while the frames cross a refresh's boundary a millisecond of
+ * scheduling noise puts them before and after it in turn. Locked, every
+ * frame has its refresh, and the game runs 0.59% fast: a player who timed
+ * mGBA against a GBA micro found it under 0.5 s slow in 10 minutes, where
+ * Smooth would be 3.5 s fast, so it is a choice. On Metroid Fusion the
+ * panel showed 58.6 to 59.1 new frames a second locked, 58.1 to 58.5 not
+ * (2026-11-16); the rest of what is lost either way is flips that take two
+ * refreshes, not pacing. */
+#define PACE_LOCK_MAX 0.01
+
+/* The panel's rate over the core's, when within PACE_LOCK_MAX of 1 (the game
+ * runs that much faster, or slower, locked); 0 when not: no refresh known, no
+ * core rate, or too far apart (a PAL game, 50 Hz) */
+double pace_lock_ratio(double refresh_hz, double core_fps);
+
+/* The lock's phase steering (main.c): each on-time turn moves the next start
+ * a fiftieth of the way to handing its frame over half a refresh after a
+ * vblank, at most a 64th of a refresh. Slow on purpose: the period is the
+ * panel's own, measured, so the phase hardly drifts, and a turn's hand-over
+ * time carries the core's own variance (a DS's 10 ms frames vary by several
+ * ms), which a tenth a frame turned into a schedule a millisecond unsteady. */
+#define PACE_PHASE_GAIN     0.02
+#define PACE_PHASE_MAX_FRAC (1.0 / 64)
+
+/* How far to move the next turn's start so turns start `target_us` after a
+ * refresh: `start_us` the turn's start, `vblank_us` any refresh's time,
+ * `period_us` the refresh period. A part `gain` of the error, at most
+ * `max_us` either way, the error taken the short way round the period. */
+double pace_phase_step(double start_us, double vblank_us, double period_us,
+                       double target_us, double gain, double max_us);
+
 #endif
