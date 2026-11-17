@@ -168,6 +168,10 @@ typedef struct {
 	/* A picture at each row's left, by place: the Achievements tab's
 	 * badges (main.c's g_row_icon while the panel is drawn). NULL: none. */
 	SDL_Texture *(*row_icon)(int row);
+	/* Told the cursor's row each pass, after the keys and before the
+	 * frame is drawn, so an option's list shows the choice under it
+	 * (src/ds/hover.h) in the frame the cursor reaches it. NULL: none. */
+	void   (*at)(app *a, void *ctx, int sel);
 } menu_style;
 
 /* ---- the menu runner (main.c's menu_run) ------------------------------------

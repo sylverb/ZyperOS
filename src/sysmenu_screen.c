@@ -30,6 +30,8 @@
 #include "nowplaying_screen.h"
 #include "osdbar.h"
 #include "panel.h"
+#include "ds/hover.h"
+#include "hover_sweep.h"
 #include "nightkeep.h"
 #include "panelgamma.h"
 #include "powerhold.h"
@@ -1181,9 +1183,56 @@ static const char *look_accent_name(void)
 	return T(ACCENT_NAME[look_now()->accent]);
 }
 
+/* Theme's three lists (src/ds/hover.h): the accent or the ground under
+ * the cursor on the whole screen, in memory (look_set, no setting and no
+ * theme file); a ground of the theme that is not on shows that theme while
+ * its list is open. The look as it was, back on undo. */
+static look g_lk_kept;
+static bool g_lk_showing;
+
+static void look_show(app *a, int row, int k)
+{
+	look l;
+
+	if (!g_lk_showing) {
+		g_lk_kept = *look_now();
+		g_lk_showing = true;
+	}
+	l = g_lk_kept;
+	if (row == LK_ACCENT && k >= 0 && k < DS_ACCENTS) l.accent = k;
+	if (row == LK_LIGHT && k >= 0 && k < DS_TONES) l.tone[DS_LIGHT] = k;
+	if (row == LK_DARK && k >= 0 && k < DS_TONES) l.tone[DS_DARK] = k;
+	look_set(&l);
+	theme_show(row == LK_LIGHT ? DS_LIGHT : row == LK_DARK ? DS_DARK : -1);
+	theme_changed(a);
+}
+
+static void look_undo(void *app_, int kept)
+{
+	(void)kept;
+	if (!g_lk_showing) return;
+	g_lk_showing = false;
+	look_set(&g_lk_kept);
+	theme_show(-1);
+	theme_changed(app_);
+}
+
+static void accent_show(void *app_, int k) { look_show(app_, LK_ACCENT, k); }
+static void light_show(void *app_, int k) { look_show(app_, LK_LIGHT, k); }
+static void dark_show(void *app_, int k) { look_show(app_, LK_DARK, k); }
+
+static const ds_hover LK_ACCENT_HOVER = { .show = accent_show, .undo = look_undo };
+static const ds_hover LK_LIGHT_HOVER = { .show = light_show, .undo = look_undo };
+static const ds_hover LK_DARK_HOVER = { .show = dark_show, .undo = look_undo };
+
 /* Theme's rows' choices (menu.h's menu_choice): the accents and each
  * theme's grounds, as look_key steps them, so A opens their list */
 static menu_choice g_lk_choice[LK_ROWS];
+
+const menu_choice *theme_choices(void)
+{
+	return g_lk_choice;
+}
 
 int look_build(void *ctx, menu_row *rows, int max, const char **heading)
 {
@@ -1196,11 +1245,12 @@ int look_build(void *ctx, menu_row *rows, int max, const char **heading)
 	for (t = 0; t < DS_THEMES; t++)
 		for (i = 0; i < DS_TONES; i++) tone[t][i] = T(TONE_NAME[t][i]);
 	memset(g_lk_choice, 0, sizeof g_lk_choice);
-	g_lk_choice[LK_ACCENT] = (menu_choice){ .n = DS_ACCENTS, .cur = (unsigned char)l->accent, .labels = acc };
+	g_lk_choice[LK_ACCENT] = (menu_choice){ .n = DS_ACCENTS, .cur = (unsigned char)l->accent, .labels = acc,
+	                                        .hover = &LK_ACCENT_HOVER };
 	g_lk_choice[LK_LIGHT] = (menu_choice){ .n = DS_TONES, .cur = (unsigned char)l->tone[DS_LIGHT],
-	                                       .labels = tone[DS_LIGHT] };
+	                                       .labels = tone[DS_LIGHT], .hover = &LK_LIGHT_HOVER };
 	g_lk_choice[LK_DARK] = (menu_choice){ .n = DS_TONES, .cur = (unsigned char)l->tone[DS_DARK],
-	                                      .labels = tone[DS_DARK] };
+	                                      .labels = tone[DS_DARK], .hover = &LK_DARK_HOVER };
 	*heading = T(S_SYSMENU_THEME);
 	rows[LK_ACCENT]  = (menu_row){ T(S_LOOK_ACCENT), T(ACCENT_NAME[l->accent]), true };
 	rows[LK_LIGHT]   = (menu_row){ T(S_LOOK_BG_LIGHT), T(TONE_NAME[DS_LIGHT][l->tone[DS_LIGHT]]), true };
@@ -1798,6 +1848,21 @@ void zyperos_menu_for(app *a, int screen)
 void zyperos_menu(app *a)
 {
 	zyperos_menu_for(a, a->screen);
+}
+
+/* Theme's lists through what their cursors show (src/hover_sweep.h) */
+static int sweep_theme(app *a, void *ctx, menu_row *rows, int max, const menu_choice **choices)
+{
+	const char *h;
+
+	(void)a; (void)ctx;
+	*choices = g_lk_choice;
+	return look_build(NULL, rows, max, &h);
+}
+
+void sysmenu_hover_sweep(app *a)
+{
+	hover_sweep_page(a, "theme", sweep_theme, NULL);
 }
 
 void sysmenu_rows_report(app *a)

@@ -85,6 +85,12 @@ typedef struct menu_choice {
 	 * with the cursor's choice, and with -1 once the list has closed,
 	 * whichever way, before a choice is applied. NULL: none. */
 	void (*focus)(void *app, int k);
+	/* What the cursor shows on the whole screen while the list is open
+	 * (src/ds/hover.h, DESIGN.md 11.3): the choice under it shown once a
+	 * move and the kept one put back as the list closes, whichever way;
+	 * nothing saved until A. Theme's lists (1.0.6). The hover's ctx is the
+	 * app. NULL: none. */
+	const struct ds_hover *hover;
 } menu_choice;
 
 /* Row `sel`'s choices from a build's table, or NULL: no table, a place past
