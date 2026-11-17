@@ -587,7 +587,8 @@ beside a cubic one. One function each, in `src/design.h`.)*
 | **zyper-ears** | 420 | - | Zyper's ears swinging out and back as he says hello |
 | **tour-reward** | 1100 | - | a tutorial step's reward, before the next |
 | **tour-pulse** | 440 | - | the right glyph's two pulses after a press of the wrong button |
-| **hold-unlock** | 2000 | - | MP4's lock: SELECT and START held together this long unlock it; POWER held this long starts the charging screen's handheld, and turns it off with Power Button on Hold |
+| **hold-unlock** | 2000 | - | MP4's lock: SELECT and START held together this long unlock it; POWER held this long starts the charging screen's handheld |
+| **hold-power** | 1000 | - | POWER held this long turns the handheld off with Power Button on Hold |
 | **hold-lock-lit** | 4000 | - | MP4's lock screen, lit as it locks |
 | **hold-controls** | 3000 | - | MP4's video controls after the last press |
 | **hold-snap** | 1000 | - | a game focused on the shelf before its cover turns into its video snap |
@@ -1217,7 +1218,7 @@ steps"; Tarik, 2026-11-15, after a 20 kHz backlight went black under 17.)*
 **POWER held** (MENU > Power Button on **Hold**, 11.47) is the same pill with
 the power mark - a ring open at the top and the line down into it, as every
 power button has it - and 20 segments in **accent-ink** over **track**, one
-lit for each twentieth of **hold-unlock** while POWER is held. Full, the
+lit for each twentieth of **hold-power** while POWER is held. Full, the
 handheld turns off as a press does, and the pill holds and fades as after a
 level step; let go early, it goes in **fade.out** at once and nothing else
 happens. On the shelf and every screen, over a Diatom game (the launcher
@@ -4933,18 +4934,19 @@ which is too easy to do accidentally." My pick: a MENU setting.)*
 **Power Button** in MENU's System tab, over Auto Off, the first of the rows
 about the handheld going off: **Press**, the default on every card, POWER
 pressed saves the game and turns the handheld off, as it always has; **Hold**,
-POWER held for **hold-unlock**, the same two seconds the charging screen's
-Hold (POWER) to start asks for, with the pill of 11.6 filling while it is
-held. Two choices, so A switches it, as Left and Right do, heard as a ring.
+POWER held for **hold-power**, one second (Tarik, 2026-11-17: "so make it 1
+second"; the charging screen's Hold (POWER) to start keeps **hold-unlock**'s
+two), with the pill of 11.6 filling while it is held. Two choices, so A switches it, as Left and Right do, heard as a ring.
 
 One rule wherever POWER is read (src/powerhold.h): every screen of the
 launcher, its watch over a game and over a program it waits for, and
-portkeys over a port, so a hold is the same two seconds whichever of them
+portkeys over a port, so a hold is the same second whichever of them
 reads it, and one begun in a game and ended in the in-game menu is still one
 hold. What is not a turn-off stays a press: POWER starts an off handheld (the
 power chip's), and during the charging screen's send-off a press starts
 ZyperOS, as from off; the hold that starts ZyperOS from the charging screen
-is taken by it, so the same two seconds never turn it off again. Holding
+is taken by it: the turn-off's second comes on the way to that screen's two,
+and the charging screen reads no turn-off, so it never turns it off. Holding
 POWER about 10 s is still the power chip's own cut, for a handheld that does
 not answer. With Hold on, Controls says "Hold: save and turn off" ("Hold:
 turn off", "Hold: quit and turn off" over a port), and the tutorial's POWER

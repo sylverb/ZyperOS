@@ -214,7 +214,7 @@ ja = %d 秒
 it = %d s
 
 [sysmenu.power_button]
-note = A MENU row on System, under Auto Off: what turns the handheld off, a press of POWER or POWER held for 2 seconds
+note = A MENU row on System, under Auto Off: what turns the handheld off, a press of POWER or POWER held for 1 second
 en = Power Button
 zh-Hans = 电源键
 es = Botón de encendido
@@ -236,7 +236,7 @@ ja = 押す
 it = Premi
 
 [sysmenu.power_hold]
-note = Power Button's value: POWER held for 2 seconds turns the handheld off, and a press alone does not. Short, as Ask is.
+note = Power Button's value: POWER held for 1 second turns the handheld off, and a press alone does not. Short, as Ask is.
 en = Hold
 zh-Hans = 长按
 es = Mantener
