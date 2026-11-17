@@ -1170,6 +1170,16 @@ static void shot_draw_look(app *a)
 	      : screen ? sc_build(NULL, rows, LK_ROWS, &heading) : look_build(NULL, rows, LK_ROWS, &heading);
 
 	ui_scrim(a->r, 0);
+	/* --look-page theme-list ROW: Theme's row ROW's list, Accent's or a
+	 * ground's (--pick-at for the cursor, the whole screen showing it) */
+	if (!strcmp(shot_look_page, "theme-list")) {
+		const menu_choice *ch;
+		int row = shot_look_row >= 0 && shot_look_row < n ? shot_look_row : 0;
+
+		ch = menu_choice_at(theme_choices(), n, row);
+		if (ch) shot_list_draw(a, rows[row].label, ch, menu_std_width(a), MENU_ZYPEROS);
+		return;
+	}
 	if (!strcmp(shot_look_page, "screen-looks")) {
 		/* The Look's list, its picture beside it (--pick-at for the cursor) */
 		menu_choice ch;

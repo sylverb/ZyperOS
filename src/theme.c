@@ -162,6 +162,11 @@ void theme_init(appearance a)
 	theme_init_at(a, time(NULL));
 }
 
+void theme_show(int ix)
+{
+	idx = ix >= 0 ? theme_clamp(ix) : theme_resolve_min(cur, cur == APPEAR_AUTO ? minute_of(time(NULL)) : 0);
+}
+
 bool theme_refresh_at(time_t now)
 {
 	int next;
