@@ -1670,7 +1670,9 @@ static int pick_run(app *a, const menu_style *from, void *from_ctx, const char *
 	                           .side = drawn ? pick_side : NULL,
 	                           .side_w = q->side_w,
 	                           .at = shows ? pick_at : NULL,
-	                           .quiet_moves = ds_hover_quiet(hover) },
+	                           .quiet_moves = ds_hover_quiet(hover),
+	                           .header = hover && hover->keep_header && from ? from->header : NULL,
+	                           .header_h = hover && hover->keep_header && from ? from->header_h : 0 },
 	         pick_build, pick_key, q);
 	/* Closed, whichever way: what is kept back before A's choice is
 	 * applied, so the row steps it from the kept one */

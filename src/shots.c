@@ -1500,6 +1500,7 @@ static void shot_compose_once(app *a)
 		sysmenu_hover_sweep(a);
 		clock_hover_sweep(a);
 		bgm_hover_sweep(a);
+		hud_hover_sweep(a);
 		shot_hover_sweep = 0;
 	}
 	if (shot_handheld_box) handheld_box_report();

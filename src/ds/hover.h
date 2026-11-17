@@ -31,6 +31,10 @@
  * `tick`: each pass while the list is open, after any show (the panel's
  * table: a load a key's repeat held back is made once its gap is over).
  *
+ * `keep_header`: the list keeps its page's header, the picture under the
+ * page's heading, drawn as the show leaves it (On-Screen Stats' band: the
+ * stats over the paused game where the choice puts them).
+ *
  * Part of the design system (src/ds/): no app.h, no panel.h; `ctx` is the
  * caller's (the app). */
 #ifndef ZYPEROS_DS_HOVER_H
@@ -45,6 +49,7 @@ typedef struct ds_hover {
 	void (*tick)(void *ctx);
 	unsigned rest_ms;
 	bool own_sound;
+	bool keep_header;
 } ds_hover;
 
 typedef struct ds_hover_run {
