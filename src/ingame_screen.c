@@ -1583,6 +1583,75 @@ static const char *const *qs_notes(app *a)
 
 static const ds_hover GM_QUICK_HOVER = { .draw = qs_draw, .end = qs_end };
 
+/* Screens' list (a DS game): the paused game in the layout under the
+ * cursor beside the list, as the Display list's picture. The paused frame
+ * is Diatom's preview in the layout on now (diatom/src/screens.h's
+ * scr_compose): both screens stacked, the large one and a quarter-size one
+ * for Top Focus, the one in front alone for Single. Each screen is cut from
+ * it and placed as scr_planes places it on the Pixel 2's 640x480 with the
+ * display mode's aspect; a screen the frame does not hold (the other one,
+ * from Single) is an empty screen. */
+static int g_gm_layout;
+
+static void screens_draw(void *app_, int k, int x, int y, int w, int h)
+{
+	app *a = app_;
+	const SDL_Rect screen = { x, y, w, h };
+	const ds_theme *dk = theme_at(DS_DARK);
+	/* Where each layout puts the screen in front and the other on 640x480 */
+	static const SDL_Rect DST[GM_LAYOUTS][2] = {
+		{ { 160, 0, 320, 240 }, { 160, 240, 320, 240 } },   /* stacked */
+		{ { 0, 48, 512, 384 }, { 512, 336, 128, 96 } },     /* focus */
+		{ { 0, 0, 640, 480 }, { 0, 0, 0, 0 } },             /* single */
+	};
+	SDL_Rect in, src[2];
+	bool have[2] = { false, false };
+	int fw = 0, fh = 0, i;
+
+	if (k < 0 || k >= GM_LAYOUTS) return;
+	if (g_gm_frame) SDL_QueryTexture(g_gm_frame, NULL, NULL, &fw, &fh);
+	if (fw > 0 && fh > 0) {
+		switch (g_gm_layout) {
+		case 1:   /* focus: 320x192, the small one 64x48 at the bottom right */
+			src[0] = (SDL_Rect){ 0, 0, fw * 256 / 320, fh };
+			src[1] = (SDL_Rect){ fw * 256 / 320, fh - fh * 48 / 192, fw * 64 / 320, fh * 48 / 192 };
+			have[0] = have[1] = true;
+			break;
+		case 2:   /* single: the one in front */
+			src[0] = (SDL_Rect){ 0, 0, fw, fh };
+			have[0] = true;
+			break;
+		default:  /* stacked: the front over the other */
+			src[0] = (SDL_Rect){ 0, 0, fw, fh / 2 };
+			src[1] = (SDL_Rect){ 0, fh / 2, fw, fh - fh / 2 };
+			have[0] = have[1] = true;
+			break;
+		}
+	}
+	in = ds_preview_screen_begin(a->r, &screen);
+	SDL_SetRenderDrawColor(a->r, 0, 0, 0, 255);
+	SDL_RenderFillRect(a->r, &in);
+	for (i = 0; i < 2; i++) {
+		const SDL_Rect *d = &DST[k][i];
+		SDL_Rect to;
+
+		if (d->w <= 0) continue;
+		to = (SDL_Rect){ in.x + d->x * in.w / 640, in.y + d->y * in.h / 480,
+		                 d->w * in.w / 640, d->h * in.h / 480 };
+		if (have[i]) {
+			SDL_RenderCopy(a->r, g_gm_frame, &src[i], &to);
+		} else {
+			/* The screen the paused frame does not hold: an unlit one,
+			 * the dark theme's raised ground in either theme */
+			SDL_SetRenderDrawColor(a->r, dk->raised.r, dk->raised.g, dk->raised.b, 255);
+			SDL_RenderFillRect(a->r, &to);
+		}
+	}
+	ds_preview_screen_end(a->r, &screen);
+}
+
+static const ds_hover GM_SCREENS_HOVER = { .draw = screens_draw };
+
 /* The three lists' pictures, as their hovers (src/ds/hover.h) */
 static const ds_hover GM_DMODE_HOVER = { .draw = gm_dmode_preview };
 static const ds_hover GM_SHADER_HOVER = { .draw = gm_shader_preview };
@@ -1653,8 +1722,11 @@ const menu_choice *gm_choices(app *a, const gm_ui *u)
 		g_gm_choice[GM_DISC] = (menu_choice){ .n = (unsigned char)n, .cur = (unsigned char)u->disc,
 		                                      .labels = lab[4] };
 	for (i = 0; i < GM_LAYOUTS; i++) lab[5][i] = gm_layout_label(i);
-	if (u->screens && u->layout >= 0 && u->layout < GM_LAYOUTS)
-		g_gm_choice[GM_SCREENS] = (menu_choice){ .n = GM_LAYOUTS, .cur = (unsigned char)u->layout, .labels = lab[5] };
+	if (u->screens && u->layout >= 0 && u->layout < GM_LAYOUTS) {
+		g_gm_layout = u->layout;
+		g_gm_choice[GM_SCREENS] = (menu_choice){ .n = GM_LAYOUTS, .cur = (unsigned char)u->layout, .labels = lab[5],
+		                                         .hover = &GM_SCREENS_HOVER };
+	}
 	return g_gm_choice;
 }
 
