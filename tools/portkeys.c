@@ -919,6 +919,13 @@ static int bar_tick(void)
  * Set on the port's display, borrowed for the bar just shown - a master's
  * ioctl, as the bar's are. The launcher set it before the port started and
  * sets it again when it comes back; this is for the steps in between. */
+/* Night Mode as the launcher left it (src/nightmode.h): its warmth and
+ * nights, read at the start and at each step, and the warmth the table has
+ * (night_on): the clock is looked at once a second (night_tick) */
+static panelgamma_night night;
+static int night_on;
+static time_t night_looked;
+
 static void port_gamma(void)
 {
 	int raw = bright_ladder[L.bright], n;
@@ -929,14 +936,55 @@ static void port_gamma(void)
 		        "waits for the launcher\n", raw);
 		return;
 	}
-	/* With the player's Screen Colors, as the launcher left them */
-	panelgamma_color_read(PANELGAMMA_COLOR_FILE, &c);
+	/* With the player's Screen Colors and Night Mode, as the launcher left
+	 * them */
+	panelgamma_screen_read(PANELGAMMA_COLOR_FILE, &c, &night);
+	c.night = night_on = panelgamma_night_at(&night, (long long)time(NULL));
 	n = panelgamma_apply_color(G.fd, raw, &c);
 	if (n > 0)
 		fprintf(stderr, "portkeys: the display's gamma table set for brightness %d\n", raw);
 	else if (n < 0)
 		fprintf(stderr, "portkeys: could not set the display's gamma table for brightness %d\n",
 		        raw);
+}
+
+/* Night Mode's hour over the port, once a second: the table for the rung,
+ * the Screen Colors and the warmth due now, at once when that warmth is not
+ * the one on (one blink, no fade). On the port's display, borrowed for the
+ * bar if it is up, else a master's copy taken for the load and let go. */
+static void night_tick(void)
+{
+	time_t now = time(NULL);
+	panelgamma_color c;
+	bool borrowed;
+	int w, n;
+
+	if (now == night_looked) return;
+	night_looked = now;
+	w = panelgamma_night_at(&night, (long long)now);
+	if (w == night_on) return;
+	night_on = w;
+	borrowed = held();
+	if (!borrowed && !master_copy()) {
+		fprintf(stderr, "portkeys: Night Mode %s, but no display to load the table on\n",
+		        w ? "on" : "off");
+		return;
+	}
+	panelgamma_color_read(PANELGAMMA_COLOR_FILE, &c);
+	c.night = w;
+	n = panelgamma_apply_color(G.fd, bright_ladder[L.bright], &c);
+	fprintf(stderr, "portkeys: Night Mode %s%s\n", w ? "on" : "off",
+	        n < 0 ? ": could not set the display's gamma table" : "");
+	if (!borrowed) release(false);
+}
+
+/* Milliseconds to Night Mode's next change, or -1 when none is due */
+static int night_wait(void)
+{
+	long long now = (long long)time(NULL), next = panelgamma_night_next(&night, now);
+
+	if (!next) return -1;
+	return next - now > 3600 ? 3600 * 1000 : (int)(next - now) * 1000 + 50;
 }
 
 /* One step from tools/pkkeys.c: the level, saved when it moved, its line in
@@ -1898,6 +1946,14 @@ int main(int argc, char **argv)
 		if (pkset_text(db, POWERHOLD_KEY, pb, sizeof pb)) powerhold_set_mode(!strcmp(pb, "hold"));
 	}
 	pkset_zone_load(argc > 2 ? argv[2] : NULL);
+	/* Night Mode: the launcher left the table right as the port started */
+	{
+		panelgamma_color c;
+
+		panelgamma_screen_read(PANELGAMMA_COLOR_FILE, &c, &night);
+		night_on = panelgamma_night_at(&night, (long long)time(NULL));
+		night_looked = time(NULL);
+	}
 	/* The heat notice the launcher left, in both themes (heat_check) */
 	heat_init(&H);
 	notice_load(DS_LIGHT, PORT_HEAT_LIGHT);
@@ -1981,6 +2037,12 @@ int main(int argc, char **argv)
 		 * found at the end of it and not before, all that time with its file
 		 * and its master kept alive by this copy (see the top of this file). */
 		if (G.fd >= 0 && (wait < 0 || wait > 200)) wait = 200;
+		/* Night Mode's next start or end */
+		{
+			int nw = night_wait();
+
+			if (nw >= 0 && (wait < 0 || nw < wait)) wait = nw;
+		}
 		/* The battery, every BATT_EVERY_MS (batt_empty) */
 		{
 			long now = now_ms();
@@ -2013,6 +2075,7 @@ int main(int argc, char **argv)
 		if (pi >= 0 && (fds[pi].revents & (POLLIN | POLLHUP | POLLERR))) release(true);
 		if (pw >= 0 && fds[pw].revents) power_read();
 		power_due();
+		night_tick();
 
 		/* poll is only a wakeup hint. A key may arrive on an fd after poll
 		 * checked it but before another fd woke us. Read ALL open inputs,

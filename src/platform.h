@@ -433,6 +433,35 @@ void plat_screen_colors_tick(bool now);
 /* Whether the kernel has the Saturation knob: the Saturation row shows only
  * then (a system image without plastron's BCSH patch has none) */
 bool plat_screen_saturation_here(void);
+/* Night Mode (src/nightmode.h, MENU > Display): the whole screen warmer,
+ * always or by the Night Hours, in the same table as the Screen Colors.
+ * Only where the profile has that table (plat_night_here, as
+ * plat_screen_colors_here): not on the Brick.
+ *
+ * plat_night: the kept settings (src/nightkeep.c's night_keep calls it, and
+ * plat_settings_init reads them at the start): the table now, at once, and
+ * the warmth and the next nights in PANELGAMMA_COLOR_FILE for Diatom and
+ * portkeys, which turn it on and off at the hour themselves over a game or
+ * a port.
+ *
+ * plat_night_preview: Night Warmth's list, `warmth` (1..10) on the whole
+ * screen now and kept nowhere, as the Look list previews; 0 puts the kept
+ * Night Mode back. Loads after the gap as plat_screen_colors' preview does,
+ * so the list calls plat_screen_colors_tick every frame, as the Look list's
+ * picture does.
+ *
+ * plat_night_tick: the hour's change, once a second at most, from every
+ * screen's loop (tick_theme) and a game's (on_game_tick): the table loaded
+ * at once when the warmth due now is not the one on (one blink, no fade),
+ * and the nights worked out again each minute and the file written when they
+ * change (the zone, the clock, a night that ended). True when it turned on
+ * or off. Over a game it only remembers, and the table the launcher loads
+ * when it has the display back is right. */
+struct night_cfg;
+void plat_night(const struct night_cfg *n);
+void plat_night_preview(int warmth);
+bool plat_night_tick(void);
+bool plat_night_here(void);
 /* Headphones and the speaker want different volume ladders - the jack covers
  * 61 dB where the speaker covers 45 - so the level has to be re-applied when a
  * plug goes in or comes out, not merely at the next volume press. Call from a

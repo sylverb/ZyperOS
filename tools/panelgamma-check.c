@@ -346,12 +346,12 @@ int main(void)
 	CHECK(n == -1 && crtcs[0].values[5] == 0 && destroys == creates,
 	      "without DRM master: -1, no table, no blob kept");
 
-	/* Screen Colors: { temp, tint, contrast, gamma }, each -10..+10 */
+	/* Screen Colors: { temp, tint, contrast, gamma, night }, each -10..+10 */
 	{
-		const panelgamma_color std = { 0, 0, 0, 0 }, warm6 = { 6, 0, 0, 0 }, warm10 = { 10, 0, 0, 0 },
-		                       cool10 = { -10, 0, 0, 0 }, mag10 = { 0, 10, 0, 0 }, green10 = { 0, -10, 0, 0 },
-		                       con5 = { 0, 0, 5, 0 }, flat10 = { 0, 0, -10, 0 }, con3 = { 0, 0, 3, 0 },
-		                       vivid = { 0, 0, 3, -2 }, light10 = { 0, 0, 0, 10 }, dark10 = { 0, 0, 0, -10 };
+		const panelgamma_color std = { 0, 0, 0, 0, 0 }, warm6 = { 6, 0, 0, 0, 0 }, warm10 = { 10, 0, 0, 0, 0 },
+		                       cool10 = { -10, 0, 0, 0, 0 }, mag10 = { 0, 10, 0, 0, 0 }, green10 = { 0, -10, 0, 0, 0 },
+		                       con5 = { 0, 0, 5, 0, 0 }, flat10 = { 0, 0, -10, 0, 0 }, con3 = { 0, 0, 3, 0, 0 },
+		                       vivid = { 0, 0, 3, -2, 0 }, light10 = { 0, 0, 0, 10, 0 }, dark10 = { 0, 0, 0, -10, 0 };
 		int same = 1, mono = 1, ends = 1, warm = 1, cool = 1;
 
 		for (int raw = 0; raw <= 255; raw++)
@@ -438,7 +438,7 @@ int main(void)
 	/* The file the launcher leaves for Diatom and portkeys */
 	{
 		char dir[] = "/tmp/zyperos-pg-XXXXXX", path[64];
-		panelgamma_color c = { 9, 9, 9, 9 }, w = { 4, -3, 2, -1 };
+		panelgamma_color c = { 9, 9, 9, 9, 0 }, w = { 4, -3, 2, -1, 0 };
 
 		if (!mkdtemp(dir)) { perror("mkdtemp"); return 1; }
 		snprintf(path, sizeof path, "%s/screen", dir);

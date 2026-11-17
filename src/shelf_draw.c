@@ -289,6 +289,8 @@ bool tick_theme(app *a)
 	tick_update_trial();
 	tick_boot_theme();
 	tick_update_daily(false);
+	/* Night Mode's hour: the table, not the theme, so nothing to redraw */
+	plat_night_tick();
 	turned = theme_tick();
 	/* A zone Auto found is another hour of the day: the corner's clock
 	 * says it now, and Appearance's Auto follows it now, as it does a zone

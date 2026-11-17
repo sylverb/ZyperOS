@@ -101,12 +101,14 @@ appearance appearance_parse(const char *s)
 
 appearance appearance_step(appearance a, int d)
 {
-	int i = (int)a;
+	/* Light and Dark, the two the row has since 1.0.6: Auto is a 1.0.5
+	 * word the start migrates (src/nightkeep.h), and steps as the Light it
+	 * is not */
+	int i = a == APPEAR_DARK ? 1 : 0;
 
-	/* Three of them in a ring. The remainder of a negative number is
-	 * negative in C, hence the second modulus. */
-	if (i < 0 || i > (int)APPEAR_AUTO) i = APPEAR_LIGHT;
-	return (appearance)((((i + d) % 3) + 3) % 3);
+	/* The remainder of a negative number is negative in C, hence the
+	 * second modulus */
+	return (((i + d) % 2) + 2) % 2 ? APPEAR_DARK : APPEAR_LIGHT;
 }
 
 /* The local minute of the day of `t`, or -1 if the time cannot be made into

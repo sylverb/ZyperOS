@@ -30,7 +30,7 @@
 #include "nowplaying_screen.h"
 #include "osdbar.h"
 #include "panel.h"
-#include "nightmode.h"
+#include "nightkeep.h"
 #include "panelgamma.h"
 #include "powerhold.h"
 #include "powerscreens.h"
@@ -128,8 +128,10 @@ static void usb_auto_message(app *a)
 static const char *look_accent_name(void);   /* with the Theme page */
 static const char *screen_colors_value(void); /* with the Screen Colors page */
 static const char *night_hours_value(void);
-/* Night Mode, with its page (below Screen Colors) */
-#define NM_MODES 3   /* night_mode's: Off, On, By Hours */
+/* Night Mode, with its page (below Screen Colors): Night Warmth 1 to 10 */
+#define NM_MODES NIGHT_MODES
+#define NM_WARMTH_MIN 1
+#define NM_WARMTH_MAX PANELGAMMA_NIGHT_MAX
 static int nm_mode(void);
 static int nm_warmth(void);
 static void nm_keep(void);
@@ -672,9 +674,7 @@ static void time_of_day(int m, char *out, size_t n)
  * Night Warmth's list shows the warmth under its cursor on the whole screen,
  * as the Look list does, and B puts back what was set. Tarik's move,
  * approved on the sheet 2026-11-16. */
-#define NM_WARMTH_MIN 1
-#define NM_WARMTH_MAX 10
-#define NM_STEP 30   /* Night Hours' step, minutes */
+#define NM_STEP NIGHT_HOURS_STEP
 
 /* The settings, read once, as Screen Colors' are (90e438b): MENU's build
  * asks for them every pass of its loop, and only these rows change them
@@ -684,13 +684,8 @@ static bool g_nm_have;
 
 static night_cfg *nm_cfg(void)
 {
-	const int day = 24 * 60;
-
 	if (!g_nm_have) {
-		g_nm = night_load();
-		g_nm.warmth = clampi(g_nm.warmth, NM_WARMTH_MIN, NM_WARMTH_MAX);
-		g_nm.from = (g_nm.from % day + day) % day / NM_STEP * NM_STEP;
-		g_nm.until = (g_nm.until % day + day) % day / NM_STEP * NM_STEP;
+		g_nm = night_load();   /* put right (night_cfg_clamp) */
 		g_nm_have = true;
 	}
 	return &g_nm;
