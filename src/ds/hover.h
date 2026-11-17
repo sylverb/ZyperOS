@@ -31,6 +31,9 @@
  * `tick`: each pass while the list is open, after any show (the panel's
  * table: a load a key's repeat held back is made once its gap is over).
  *
+ * `end`: the list has closed, whichever way, shown or not, after any undo:
+ * what draw made for it let go (Quick Slot's pictures, loaded once a list).
+ *
  * `keep_header`: the list keeps its page's header, the picture under the
  * page's heading, drawn as the show leaves it (On-Screen Stats' band: the
  * stats over the paused game where the choice puts them).
@@ -47,6 +50,7 @@ typedef struct ds_hover {
 	void (*undo)(void *ctx, int kept);
 	void (*draw)(void *ctx, int k, int x, int y, int w, int h);
 	void (*tick)(void *ctx);
+	void (*end)(void *ctx);
 	unsigned rest_ms;
 	bool own_sound;
 	bool keep_header;
@@ -72,7 +76,8 @@ void ds_hover_begin(ds_hover_run *r, const ds_hover *h, void *ctx, int kept, int
 void ds_hover_at(ds_hover_run *r, int k, unsigned now);
 
 /* The list has closed, whichever way: undo if anything was shown, before
- * the choice taken is applied. The run is spent (shown -1). */
+ * the choice taken is applied, then end. The run is spent (shown -1, no
+ * hover). */
 void ds_hover_end(ds_hover_run *r);
 
 /* Whether the list's own move sound should stay quiet (own_sound) */

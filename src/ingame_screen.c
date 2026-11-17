@@ -31,6 +31,7 @@
 
 #include "shaderdemo.h"
 #include "ds/hover.h"
+#include "ds/preview.h"
 #include <unistd.h>
 
 /* ---------- launching ----------------------------------------------------- */
@@ -1477,6 +1478,111 @@ static void gm_dmode_preview(void *app_, int k, int x, int y, int w, int h)
 	dmode_preview_draw(a, g_gm_frame, sw, sh, aspect, fw, fh, k, x, y, w, h);
 }
 
+/* Quick Slot's list: the picture of the slot under the cursor beside it,
+ * its time under the picture (the choice's note), Empty for a slot with
+ * nothing in it (src/ds/hover.h's draw). The pictures loaded once a list,
+ * as the cursor first comes to each, and let go as it closes (end). Choice
+ * k is slot k + 1. */
+static SDL_Texture *g_qs_tex[GM_SLOTS];
+static bool g_qs_tried[GM_SLOTS];
+
+static bool qs_game(app *a, int *owner, game_entry **g)
+{
+	sysview *v = &a->view[a->sys_cursor];
+
+	if (v->cursor < 0 || v->cursor >= v->list.count) return false;
+	*g = &v->list.items[v->cursor];
+	*owner = shelf_owner(a, a->sys_cursor, v->cursor);
+	return true;
+}
+
+static void qs_draw(void *app_, int k, int x, int y, int w, int h)
+{
+	app *a = app_;
+	const SDL_Rect screen = { x, y, w, h };
+	const ds_theme *t = theme();
+	SDL_Rect in;
+	game_entry *g;
+	int o;
+
+	if (k < 0 || k >= GM_SLOTS) return;
+	if (!g_qs_tried[k] && qs_game(a, &o, &g)) {
+		char pth[LIB_PATH * 2];
+		SDL_Surface *sf;
+
+		g_qs_tried[k] = true;
+		slot_preview_path(a, o, g, k + 1, pth, sizeof pth);
+		if ((sf = IMG_Load(pth))) {
+			g_qs_tex[k] = SDL_CreateTextureFromSurface(a->r, sf);
+			SDL_FreeSurface(sf);
+		}
+	}
+	in = ds_preview_screen_begin(a->r, &screen);
+	if (g_qs_tex[k]) {
+		int tw = 0, th = 0;
+		SDL_Rect pic = in;
+
+		/* The picture whole in the screen, its shape kept */
+		SDL_QueryTexture(g_qs_tex[k], NULL, NULL, &tw, &th);
+		if (tw > 0 && th > 0) {
+			if (in.w * th > in.h * tw) pic.w = in.h * tw / th;
+			else pic.h = in.w * th / tw;
+			pic.x = in.x + (in.w - pic.w) / 2;
+			pic.y = in.y + (in.h - pic.h) / 2;
+		}
+		SDL_RenderCopy(a->r, g_qs_tex[k], NULL, &pic);
+	} else {
+		ui_text(a->r, ui_font(UI_F_MENU), T(S_SLOTS_EMPTY), in.x + in.w / 2,
+		        ui_cap_y(ui_font(UI_F_MENU), in.y + in.h / 2), 0, ui_col(t->text_dim, 255));
+	}
+	ds_preview_screen_end(a->r, &screen);
+}
+
+static void qs_end(void *app_)
+{
+	int k;
+
+	(void)app_;
+	for (k = 0; k < GM_SLOTS; k++) {
+		if (g_qs_tex[k]) SDL_DestroyTexture(g_qs_tex[k]);
+		g_qs_tex[k] = NULL;
+		g_qs_tried[k] = false;
+	}
+}
+
+/* Each slot's time as its note: when it was saved, or nothing (the
+ * picture says Empty). Asked again at most once a second (the menu is built
+ * every pass). */
+static const char *const *qs_notes(app *a)
+{
+	static char when[GM_SLOTS][64];
+	static const char *notes[GM_SLOTS];
+	static unsigned at;
+	static bool have;
+	const unsigned now = plat_now_ms();
+	game_entry *g;
+	int o, k;
+
+	if (have && now - at < 1000) return notes;
+	have = true;
+	at = now;
+	for (k = 0; k < GM_SLOTS; k++) {
+		char pth[LIB_PATH * 2];
+		struct stat st;
+		struct tm *tm;
+
+		notes[k] = "";
+		if (!qs_game(a, &o, &g)) continue;
+		slot_state_path(a, o, g, k + 1, pth, sizeof pth);
+		if (stat(pth, &st) != 0 || st.st_size <= 0 || !(tm = localtime(&st.st_mtime))) continue;
+		slot_when(when[k], sizeof when[k], tm);
+		notes[k] = when[k];
+	}
+	return notes;
+}
+
+static const ds_hover GM_QUICK_HOVER = { .draw = qs_draw, .end = qs_end };
+
 /* The three lists' pictures, as their hovers (src/ds/hover.h) */
 static const ds_hover GM_DMODE_HOVER = { .draw = gm_dmode_preview };
 static const ds_hover GM_SHADER_HOVER = { .draw = gm_shader_preview };
@@ -1532,7 +1638,8 @@ const menu_choice *gm_choices(app *a, const gm_ui *u)
 		lab[3][i] = buf[1][i];
 	}
 	if (u->quick >= 1 && u->quick <= GM_SLOTS)
-		g_gm_choice[GM_QUICK] = (menu_choice){ .n = GM_SLOTS, .cur = (unsigned char)(u->quick - 1), .labels = lab[3] };
+		g_gm_choice[GM_QUICK] = (menu_choice){ .n = GM_SLOTS, .cur = (unsigned char)(u->quick - 1), .labels = lab[3],
+		                                       .notes = qs_notes(a), .hover = &GM_QUICK_HOVER };
 	/* The discs Diatom says there are, as many as the list holds: a count
 	 * or an index past what was filled gives no table, and the row keeps
 	 * Left and Right */

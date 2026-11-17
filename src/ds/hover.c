@@ -57,6 +57,8 @@ void ds_hover_end(ds_hover_run *r)
 		g_showing--;
 	}
 	r->shown = -1;
+	if (r->h && r->h->end) r->h->end(r->ctx);
+	r->h = NULL;
 }
 
 bool ds_hover_showing(void)
