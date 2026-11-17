@@ -1554,8 +1554,16 @@ static void pick_backdrop(app *a, void *ctx, float k)
 static menu_result pick_power(app *a, void *ctx)
 {
 	pick_ctx *p = ctx;
-	menu_result r = p->over->on_power(a, p->over_ctx);
+	menu_result r;
 
+	/* What the cursor shows put back first: the power-off keeps the
+	 * place (src/place.h) and must keep the kept one, not the shown */
+	ds_hover_end(&p->run);
+	if (!p->over || !p->over->on_power) {
+		power_off(a);
+		return MENU_DONE;
+	}
+	r = p->over->on_power(a, p->over_ctx);
 	if (r == MENU_DONE) p->powered = true;
 	return r;
 }
@@ -1663,7 +1671,7 @@ static int pick_run(app *a, const menu_style *from, void *from_ctx, const char *
 	menu_run(a, &(menu_style){ .accent = from ? from->accent : MENU_ZYPEROS,
 	                           .follow_tint = from && from->follow_tint,
 	                           .backdrop = from && from->backdrop ? pick_backdrop : NULL,
-	                           .on_power = from && from->on_power ? pick_power : NULL,
+	                           .on_power = pick_power,
 	                           .fixed_w = width,
 	                           .sound = q->sound, .start_sel = cur >= 0 && cur < q->n ? cur : 0,
 	                           .sel_out = notes ? &q->sel : NULL, .pin_foot = !drawn,

@@ -273,6 +273,14 @@ static void zone_list_at(app *a, void *ctx, int sel)
 	ds_hover_at(&z->run, sel, plat_now_ms());
 }
 
+/* POWER or the idle timer on the list: the kept zone back, then off */
+static menu_result zone_list_power(app *a, void *ctx)
+{
+	ds_hover_end(&((zone_list_ui *)ctx)->run);
+	power_off(a);
+	return MENU_DONE;
+}
+
 static menu_result zone_list_key(app *a, void *ctx, in_button key, int sel)
 {
 	zone_list_ui *z = ctx;
@@ -297,7 +305,7 @@ static void zone_list_screen(app *a)
 	menu_run(a, &(menu_style){ .accent = MENU_ZYPEROS, .fixed_w = menu_std_width(a),
 	                           .sound = z.sound,
 	                           .start_sel = clock_zone_list_row(id, zone_auto_on()),
-	                           .at = zone_list_at },
+	                           .at = zone_list_at, .on_power = zone_list_power },
 	         zone_list_build, zone_list_key, &z);
 	/* Closed, whichever way: the kept zone back before a pick is made */
 	ds_hover_end(&z.run);

@@ -117,9 +117,16 @@ static void track_show(void *app_, int k)
 
 static void track_undo(void *app_, int kept)
 {
-	(void)app_; (void)kept;
-	if (g_bgm_heard) bgm_hear(g_bgm_was);
+	char now[512];
+
+	(void)app_;
+	if (!g_bgm_heard) return;
 	g_bgm_heard = false;
+	bgm_now(now, sizeof now);
+	/* A track kept: the setting plays it again, from its start. Shuffle
+	 * kept: the one that played, once, if another plays now */
+	if (kept > 0 || !strcmp(now, g_bgm_was)) bgm_hear("");
+	else bgm_hear_back(g_bgm_was);
 }
 
 static const ds_hover BGM_VOLUME_HOVER = { .show = volume_show, .undo = volume_undo };

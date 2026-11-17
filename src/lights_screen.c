@@ -115,6 +115,14 @@ static void language_undo(void *app_, int kept)
 
 const ds_hover LANGUAGE_HOVER = { .show = language_show, .undo = language_undo };
 
+/* POWER or the idle timer on the page: the kept language back, then off */
+static menu_result language_power(app *a, void *ctx)
+{
+	ds_hover_end(&((language_page *)ctx)->run);
+	power_off(a);
+	return MENU_DONE;
+}
+
 static void language_at(app *a, void *ctx, int sel)
 {
 	language_page *pg = ctx;
@@ -143,7 +151,8 @@ void language_screen(app *a)
 	pg.kept = (int)i18n_lang();
 	ds_hover_begin(&pg.run, &LANGUAGE_HOVER, a, pg.kept, pg.kept, plat_now_ms());
 	menu_run(a, &(menu_style){ .accent = MENU_ZYPEROS, .fixed_w = menu_std_width(a),
-	                           .sound = pg.sound, .start_sel = pg.kept, .at = language_at },
+	                           .sound = pg.sound, .start_sel = pg.kept, .at = language_at,
+                           .on_power = language_power },
 	         language_build, language_key, &pg);
 	/* B, MENU or POWER: the kept one back */
 	ds_hover_end(&pg.run);
