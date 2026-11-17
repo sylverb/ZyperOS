@@ -11,7 +11,6 @@
 about.no_address_yet
 about.battery_charging
 about.health_estimate
-about.thanks_handhelds  # About > Thanks: the heading over the people who help with other handhelds, drawn only once src/about_screen.c's ABOUT_HANDHELD_THANKS has a row; none yet
 
 # audio: no shot draws it yet
 audio.wired
@@ -128,7 +127,6 @@ gamemenu.delete_outside
 gamemenu.delete_runtime
 gamemenu.delete_port_unknown
 gamemenu.delete_bios
-gamemenu.rename_invalid
 gamemenu.rename_taken
 gamemenu.rename_failed
 gamemenu.rename_partly

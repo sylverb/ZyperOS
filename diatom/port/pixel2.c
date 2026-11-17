@@ -1585,13 +1585,24 @@ static void display_gamma(void)
 	g_gamma_have = want;               /* once, even refused: not at every frame */
 }
 
+/* Refreshes missed with the frame ready (diatom_port_refreshes_missed):
+ * counted by the presenting thread, read by the loop */
+static volatile unsigned g_refreshes_missed;
+
+unsigned diatom_port_refreshes_missed(void)
+{
+	return __atomic_load_n(&g_refreshes_missed, __ATOMIC_RELAXED);
+}
+
 /* Put what was just swapped on glass, and wait until it is. */
 static void show_frame(void)
 {
 	struct gbm_bo *bo = gbm_surface_lock_front_buffer(g_gbm_surface);
 	uint32_t fb;
-	bool done = false;
+	bool done = false, flipped;
 	int ret;
+	uint64_t asked = 0;
+	static double refresh_us;
 
 	if (!bo) {
 		diatom_port_log(DIATOM_LOG_ERROR, "pixel2: no front buffer after swap");
@@ -1616,6 +1627,12 @@ static void show_frame(void)
 		gbm_surface_release_buffer(g_gbm_surface, bo);
 		return;
 	}
+	/* A flip asked for (not a mode-set, which is done at once): when, and
+	 * the mode's refresh period, to tell a missed refresh by */
+	flipped = !done;
+	if (flipped) asked = diatom_port_now_us();
+	if (!refresh_us && g_mode.clock)
+		refresh_us = (double)g_mode.htotal * g_mode.vtotal * 1000.0 / g_mode.clock;
 
 	while (!done) {
 		struct pollfd p = { .fd = g_drm_fd, .events = POLLIN };
@@ -1629,6 +1646,12 @@ static void show_frame(void)
 		}
 		drmHandleEvent(g_drm_fd, &ev);
 	}
+	/* Shown more than a refresh and a quarter after it was asked for: the
+	 * flip waited past the refresh it was in time for, on the GPU's drawing
+	 * or the kernel's */
+	if (flipped && done && refresh_us > 0 &&
+	    (double)(diatom_port_now_us() - asked) > refresh_us * 1.25)
+		__atomic_add_fetch(&g_refreshes_missed, 1, __ATOMIC_RELAXED);
 
 	if (g_shown_bo) gbm_surface_release_buffer(g_gbm_surface, g_shown_bo);
 	g_shown_bo = bo;

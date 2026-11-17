@@ -12,6 +12,7 @@
 #include "linebreak.h" /* where a name too wide for its box breaks or is cut */
 #include "look.h"      /* Corners: Square */
 #include "padglyph.h"
+#include "platform.h"  /* PLAT_TARGET_FORMAT, a render target's format */
 #include "ds/button.h"  /* which glyph a button name draws on this handheld */
 #include "folderart.h" /* a folder's card and row, in pixel art */  /* the PlayStation's shapes, drawn in running text */
 
@@ -371,6 +372,7 @@ void ui_face_close(TTF_Font *f)
 
 static void digits_free(void);
 static void button_fonts_free(void);
+static void bakes_free(void);
 
 void ui_quit(void)
 {
@@ -387,6 +389,7 @@ void ui_quit(void)
 	memo_clear();
 	ds_glyphs_free();
 	digits_free();
+	bakes_free();
 	shadows_free();
 	for (int i = 0; i < TEXT_CACHE; i++)
 		if (cache[i].tex) { SDL_DestroyTexture(cache[i].tex); cache[i].tex = NULL; }
@@ -1291,6 +1294,88 @@ static struct {
 	int          w[10], h;
 	bool         tried[10];          /* asked for: made, or failed for good */
 } digits[DIGIT_FONTS];
+
+/* ---- parts drawn once -------------------------------------------------
+ * The Pixel 2's GPU takes each one-pixel line in a new color as a draw call of
+ * its own (panfrost): the five graded bars of Screen Colors, a line for each
+ * half of each column, made the page draw 13 frames a second while Down was
+ * held, 66.6 ms a frame against the Display tab's 22 (2026-11-16). So such a
+ * part is drawn once into a texture and copied, one draw a frame. Only what is
+ * opaque and the same in both themes goes in, and it is copied 1:1 where it was
+ * drawn, so the copy puts the very pixels the drawing did and leaves the rest
+ * (tools/scale-check.c compares the two). Everything the renderer had - its
+ * target, viewport, clip, scale, blend and color - is put back after. */
+#define BAKES 32
+static struct {
+	SDL_Renderer *r;
+	const char   *what;
+	int           k, w, h;
+	SDL_Texture  *t;
+} bakes[BAKES];
+static int bake_next;
+bool ui_bake_on = true;
+unsigned long ui_calls;
+
+SDL_Texture *ui_bake(SDL_Renderer *r, const char *what, int k, int w, int h,
+                     void (*draw)(SDL_Renderer *r, int k, int w, int h))
+{
+	SDL_Texture *t, *was;
+	SDL_Rect view, clip;
+	SDL_bool clipped;
+	SDL_BlendMode mode;
+	Uint8 cr, cg, cb, ca;
+	float sx, sy;
+	int i;
+
+	if (!ui_bake_on || !r || w <= 0 || h <= 0) return NULL;
+	for (i = 0; i < BAKES; i++)
+		if (bakes[i].t && bakes[i].r == r && bakes[i].what == what && bakes[i].k == k &&
+		    bakes[i].w == w && bakes[i].h == h)
+			return bakes[i].t;
+	if (!(t = SDL_CreateTexture(r, PLAT_TARGET_FORMAT, SDL_TEXTUREACCESS_TARGET, w, h)))
+		return NULL;
+	was = SDL_GetRenderTarget(r);
+	SDL_RenderGetViewport(r, &view);
+	clipped = SDL_RenderIsClipEnabled(r);
+	SDL_RenderGetClipRect(r, &clip);
+	SDL_RenderGetScale(r, &sx, &sy);
+	SDL_GetRenderDrawBlendMode(r, &mode);
+	SDL_GetRenderDrawColor(r, &cr, &cg, &cb, &ca);
+	if (SDL_SetRenderTarget(r, t) != 0) {
+		SDL_DestroyTexture(t);
+		return NULL;
+	}
+	SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_NONE);
+	SDL_SetRenderDrawColor(r, 0, 0, 0, 0);
+	SDL_RenderClear(r);
+	draw(r, k, w, h);
+	SDL_SetRenderTarget(r, was);
+	SDL_RenderSetScale(r, sx, sy);
+	SDL_RenderSetViewport(r, &view);
+	SDL_RenderSetClipRect(r, clipped ? &clip : NULL);
+	SDL_SetRenderDrawBlendMode(r, mode);
+	SDL_SetRenderDrawColor(r, cr, cg, cb, ca);
+	SDL_SetTextureBlendMode(t, SDL_BLENDMODE_BLEND);
+	SDL_SetTextureScaleMode(t, SDL_ScaleModeNearest);
+	if (bakes[bake_next].t) SDL_DestroyTexture(bakes[bake_next].t);
+	bakes[bake_next].r = r;
+	bakes[bake_next].what = what;
+	bakes[bake_next].k = k;
+	bakes[bake_next].w = w;
+	bakes[bake_next].h = h;
+	bakes[bake_next].t = t;
+	bake_next = (bake_next + 1) % BAKES;
+	return t;
+}
+
+static void bakes_free(void)
+{
+	for (int i = 0; i < BAKES; i++) {
+		if (bakes[i].t) SDL_DestroyTexture(bakes[i].t);
+		bakes[i].t = NULL;
+	}
+	bake_next = 0;
+}
 
 static void digits_free(void)
 {

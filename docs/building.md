@@ -97,7 +97,7 @@ something once broke in a way nothing noticed:
 | `check-systemart` | the system art compiler: each pose rebuilt exactly from its atlas, frame timing, moving regions inside their bounds, the decoded budget, catalogue coverage and generated output consistency; and the art itself against its records (tools/systemart-original-check.py, tools/systemart-symbol-pixels-check.py) |
 | `check-design` | DESIGN.md's tables, `src/design.h`, the mock kit's `tokens.js`, Wi-Fi File Transfer's colors and the play page's are what `tools/designdef.py` writes, and every text pair the launcher and the page draw meets its contrast |
 | `check-strings` | every string in `res/strings/` in all five languages with English's printf conversions, every ID used and defined, every character in the font that draws it, and `src/i18n_ids.h`, `src/i18n_tables.c` and `res/web/i18n/` what `tools/i18n.py` writes |
-| `check-i18n-shots` | the main screens in every language and the pseudo-locale, from the host build, as the Pixel 2 and as the Brick (`--device`; the Brick's MENU is the word on its key, wider than the Pixel 2's three dots, and a row it has not, such as Strength, is said, not failed): no string from `res/strings` cut, broken past its lines or off the screen in any language, and no string's ink within 3 units of a key's glyph or a more mark (`ui_fit_mark`; five older screens listed as known in the tool until their fixes); and a list of what the pseudo-locale's longer words do not fit |
+| `check-i18n-shots` | the main screens in every language and the pseudo-locale, from the host build, as the Pixel 2 and as the Brick (`--device`; the Brick's MENU is the word on its key, wider than the Pixel 2's three dots, and a row it has not, such as Strength, is said, not failed; a shot that fails is taken once more, and one that then passes is said as flaky with its first reason): no string from `res/strings` cut, broken past its lines or off the screen in any language, and no string's ink within 3 units of a key's glyph or a more mark (`ui_fit_mark`; five older screens listed as known in the tool until their fixes); and a list of what the pseudo-locale's longer words do not fit |
 | `check-rootswitch` | how the Brick's initramfs (plastron's `brick-rootswitch`) reads the kernel's line: the slot's root partition the boot script names (`zyperos.root=`), the name lookup when there is none or it is not a device, and a developer's `rootupdate=1` only as a word of its own |
 | `check-datapart` | where the Brick's first start puts the games partition (its `datapart`), over a made-up `/sys`: right after root B on a 4 MiB boundary as partition 5, nothing on a card without root B, and a games partition already there found by its name |
 | `check-brick-closed` | the Brick's start checking its closed files (its `init.d/brick`, `closed_check`) against the lists its image carries, over a made-up card: all there passes quietly; one missing, one cut short, no folder or no list fails and names what is wrong |
@@ -366,7 +366,10 @@ now, and say which flag has it.
 
 `--info` draws a game's details over the shelf, `--info-delete` the same with
 the cursor on Delete Game, and `--delete-ask` Delete Game's question, the
-cursor on Cancel (DESIGN.md 11.31). `--delete-now` deletes the game under the
+cursor on Cancel (DESIGN.md 11.31). `--gm-said K` draws one of Delete Game's
+and Rename's messages over the shelf, as it shows once it has arrived
+(src/shots.c's GM_SAID: 0 the frame a delete runs under, 1-6 Delete Game's,
+7-10 Rename's). `--delete-now` deletes the game under the
 cursor as Delete Game's yes does, on the card the shot is given, and the shot
 is the shelf after it; stderr lists every path that went.
 

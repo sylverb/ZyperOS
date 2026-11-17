@@ -3,15 +3,27 @@
  * as it was written and stays in its range; a string that is not one is
  * never taken for one; and the bar draws its knob where the value is - the
  * left end at -range, zero's mark under it at 0, the right end at +range -
- * with the panel's face in the knob, in both themes. */
+ * with the panel's face in the knob, in both themes.
+ *
+ * And the bars and the colour chart (src/ds/colorref.h) are cheap to draw:
+ * their many one-pixel columns are drawn once into a texture (ui_bake) and
+ * copied, the very pixels they drew (each kind, both themes, two widths, two
+ * places, focused or not, square corners, and the chart in a column and in a
+ * list's picture), and a frame of Screen Colors' five bars and its chart makes
+ * at most BUDGET drawing calls. Each column a call made the Pixel 2 draw the
+ * page at 13 frames a second (#240, 2026-11-16). */
+#include "../src/look.h"
 #include "../src/ui.h"
+#include "../src/ds/colorref.h"
 #include "../src/ds/scale.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #define W 640
-#define H 96
-static Uint32 px[W * H];
+#define H 720
+#define BUDGET 40
+static Uint32 px[W * H], live[W * H];
 static int fails;
 
 static void ck(int ok, const char *what)
@@ -30,6 +42,90 @@ static Uint32 at(int x, int y)
 static Uint32 rgb(ds_rgb c)
 {
 	return (Uint32)c.r << 16 | (Uint32)c.g << 8 | c.b;
+}
+
+/* The frame `draw` makes, read into `out` */
+static void frame(SDL_Renderer *r, const ds_theme *t, void (*draw)(SDL_Renderer *, int), int arg, Uint32 *out)
+{
+	SDL_SetRenderDrawColor(r, t->raised.r, t->raised.g, t->raised.b, 255);
+	SDL_RenderClear(r);
+	draw(r, arg);
+	SDL_RenderReadPixels(r, NULL, SDL_PIXELFORMAT_ARGB8888, out, W * 4);
+}
+
+/* Bars of each kind: a = kind * 8 + width * 4 + place * 2 + focused */
+static void bar(SDL_Renderer *r, int a)
+{
+	const int kind = a / 8, wide = a / 4 % 2, place = a / 2 % 2, on_fill = a % 2;
+	const SDL_Rect box = { 8 + place * 3, place ? 307 : 12, wide ? W - 16 : 420, 72 };
+
+	ds_scale_draw(r, &box, (ds_scale_kind)kind, place ? 7 : -4, 10, on_fill);
+}
+
+/* The chart, in a column (0) and in a list's picture (1) */
+static void chart(SDL_Renderer *r, int wide)
+{
+	ds_color_ref_draw(r, wide ? &(SDL_Rect){ 20, 40, 600, 300 } : &(SDL_Rect){ 200, 30, 230, 660 });
+}
+
+/* Drawn in place, then copied from its texture twice (made, then kept): the
+ * same pixels every time */
+static void same_baked(SDL_Renderer *r, const ds_theme *t, int th)
+{
+	int a, same = 0, all = 0, copied = 0;
+
+	for (a = 0; a < DS_SCALE_KINDS * 8 + 2; a++) {
+		void (*draw)(SDL_Renderer *, int) = a < DS_SCALE_KINDS * 8 ? bar : chart;
+		const int arg = a < DS_SCALE_KINDS * 8 ? a : a - DS_SCALE_KINDS * 8;
+		unsigned long in_place;
+
+		ui_bake_on = false;
+		ui_calls = 0;
+		frame(r, t, draw, arg, live);
+		in_place = ui_calls;
+		ui_bake_on = true;
+		for (int twice = 0; twice < 2; twice++) {
+			ui_calls = 0;
+			frame(r, t, draw, arg, px);
+			all++;
+			same += !memcmp(px, live, sizeof px);
+		}
+		/* the second from the texture kept, not drawn in place again */
+		copied += ui_calls * 4 < in_place;
+	}
+	ck(copied == DS_SCALE_KINDS * 8 + 2, "every bar and chart drawn from its texture");
+	ck(same == all, th == DS_LIGHT ? "the bars and the chart from their textures are the pixels they drew, in light"
+	                               : "the bars and the chart from their textures are the pixels they drew, in dark");
+}
+
+/* Screen Colors' five bars and its chart, a frame: a few calls each */
+static void page(SDL_Renderer *r, int unused)
+{
+	(void)unused;
+	for (int k = 0; k < 5; k++)
+		ds_scale_draw(r, &(SDL_Rect){ 20, 120 + k * 72, 420, 56 }, (ds_scale_kind)(k + 1), k - 2, 10, k == 1);
+	ds_color_ref_draw(r, &(SDL_Rect){ 470, 120, 150, 560 });
+}
+
+static void budget(SDL_Renderer *r)
+{
+	unsigned long in_place, baked;
+
+	theme_init(APPEAR_LIGHT);
+	if (!ui_init(r, "res/fonts/menu.ttf")) return;
+	ui_bake_on = false;
+	ui_calls = 0;
+	frame(r, theme(), page, 0, px);
+	in_place = ui_calls;
+	ui_bake_on = true;
+	frame(r, theme(), page, 0, px);   /* the textures made */
+	ui_calls = 0;
+	frame(r, theme(), page, 0, px);
+	baked = ui_calls;
+	ui_quit();
+	printf("scale: a frame of five bars and the chart, %lu drawing calls (%lu drawn in place)\n", baked, in_place);
+	ck(baked <= BUDGET, "a frame of five bars and the chart within its budget of drawing calls");
+	ck(in_place > 10 * baked, "the count sees the columns drawn in place");
 }
 
 int main(void)
@@ -87,12 +183,30 @@ int main(void)
 			if (ends[e] != 0)
 				ck(at(tx + (tw - 1) / 2, cy) == rgb(t->text), "zero's mark through the track, away from the knob");
 		}
+		same_baked(r, t, th);
 		ui_quit();
 	}
+	{
+		/* Corners: Square, whose ring and patches have no round ends: a
+		 * texture of its own, the same pixels again */
+		look sq = LOOK_DEFAULT;
+
+		sq.square = true;
+		look_set(&sq);
+		theme_init(APPEAR_LIGHT);
+		if (ui_init(r, "res/fonts/menu.ttf")) {
+			same_baked(r, theme(), DS_LIGHT);
+			ui_quit();
+		}
+		sq = LOOK_DEFAULT;
+		look_set(&sq);
+	}
+	budget(r);
 	if (fails) {
 		fprintf(stderr, "scale: %d failed\n", fails);
 		return 1;
 	}
-	printf("scale: the value reads back and keeps its range, and the knob is where it is, in both themes\n");
+	printf("scale: the value reads back and keeps its range, the knob is where it is, and the bars and the chart "
+	       "copied from their textures are the pixels they drew, in both themes\n");
 	return 0;
 }

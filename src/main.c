@@ -5364,6 +5364,9 @@ int main(int argc, char *argv[])
 		/* The Buttons page a game with its own buttons opens from its details */
 		else if (!strcmp(argv[i], "--info-buttons")) shot_info = 4;
 		else if (!strcmp(argv[i], "--delete-ask")) shot_delete_ask = 1;
+		/* --gm-said K: Delete Game's and Rename's messages (shots.c's
+		 * GM_SAID: 0 the delete's wait, 1-6 Delete Game's, 7-10 Rename's) */
+		else if (!strcmp(argv[i], "--gm-said") && i + 1 < argc) shot_gm_said = atoi(argv[++i]);
 		/* The game under the cursor deleted as Delete Game's yes deletes it,
 		 * then the shot: the shelf after, and what went on stderr */
 		else if (!strcmp(argv[i], "--delete-now")) shot_delete_now = 1;
