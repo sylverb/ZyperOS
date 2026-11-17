@@ -8,10 +8,11 @@
  * And the bars and the colour chart (src/ds/colorref.h) are cheap to draw:
  * their many one-pixel columns are drawn once into a texture (ui_bake) and
  * copied, the very pixels they drew (each kind, both themes, two widths, two
- * places, focused or not, and the chart in a column and in a list's
- * picture), and a frame of Screen Colors' five bars and its chart makes at
- * most BUDGET drawing calls. Each column a call made the Pixel 2 draw the
+ * places, focused or not, square corners, and the chart in a column and in a
+ * list's picture), and a frame of Screen Colors' five bars and its chart makes
+ * at most BUDGET drawing calls. Each column a call made the Pixel 2 draw the
  * page at 13 frames a second (#240, 2026-11-16). */
+#include "../src/look.h"
 #include "../src/ui.h"
 #include "../src/ds/colorref.h"
 #include "../src/ds/scale.h"
@@ -21,7 +22,7 @@
 
 #define W 640
 #define H 720
-#define BUDGET 120
+#define BUDGET 40
 static Uint32 px[W * H], live[W * H];
 static int fails;
 
@@ -184,6 +185,21 @@ int main(void)
 		}
 		same_baked(r, t, th);
 		ui_quit();
+	}
+	{
+		/* Corners: Square, whose ring and patches have no round ends: a
+		 * texture of its own, the same pixels again */
+		look sq = LOOK_DEFAULT;
+
+		sq.square = true;
+		look_set(&sq);
+		theme_init(APPEAR_LIGHT);
+		if (ui_init(r, "res/fonts/menu.ttf")) {
+			same_baked(r, theme(), DS_LIGHT);
+			ui_quit();
+		}
+		sq = LOOK_DEFAULT;
+		look_set(&sq);
 	}
 	budget(r);
 	if (fails) {

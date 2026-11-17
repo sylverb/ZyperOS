@@ -5,6 +5,7 @@
 #include <math.h>
 #include <stdbool.h>
 
+#include "../look.h"
 #include "../theme.h"
 #include "../ui.h"
 #include "layout.h"
@@ -52,13 +53,8 @@ static void hue_columns(SDL_Renderer *r, int x0, int y0, int w, int h)
 	}
 }
 
-static void hue_bake(SDL_Renderer *r, int k, int w, int h)
-{
-	(void)k;
-	hue_columns(r, 0, 0, w, h);
-}
-
-void ds_color_ref_draw(SDL_Renderer *r, const SDL_Rect *box)
+/* The chart, the ramp and the band, all opaque, drawn at `box` */
+static void chart_at(SDL_Renderer *r, const SDL_Rect *box)
 {
 	/* Tall (a column): the chart four across, the ramp in two rows of
 	 * eight; wide (a list's picture): the chart six across as it is
@@ -75,7 +71,6 @@ void ds_color_ref_draw(SDL_Renderer *r, const SDL_Rect *box)
 	const int total = rws * p + (rws - 1) * gap + REF_GAP + ramp_h + REF_GAP + band_h;
 	const int x0 = box->x + (box->w - cw) / 2;
 	int y = box->y + (box->h - total) / 2, i;
-	SDL_Texture *band;
 
 	if (p <= 0) return;
 	for (i = 0; i < 24; i++) {
@@ -97,10 +92,25 @@ void ds_color_ref_draw(SDL_Renderer *r, const SDL_Rect *box)
 	}
 	y += ramp_h + REF_GAP;
 	/* The hues, red round to red */
-	if ((band = ui_bake(r, "hues", 0, cw, band_h, hue_bake))) {
-		SDL_RenderCopy(r, band, NULL, &(SDL_Rect){ x0, y, cw, band_h });
+	hue_columns(r, x0, y, cw, band_h);
+}
+
+static void chart_bake(SDL_Renderer *r, int k, int w, int h)
+{
+	(void)k;
+	chart_at(r, &(SDL_Rect){ 0, 0, w, h });
+}
+
+/* The whole of it in one texture, for its size and the corners' shape (the
+ * patches' radius), copied after; drawn in place when there is none */
+void ds_color_ref_draw(SDL_Renderer *r, const SDL_Rect *box)
+{
+	SDL_Texture *baked = ui_bake(r, "chart", look_square(), box->w, box->h, chart_bake);
+
+	if (baked) {
+		SDL_RenderCopy(r, baked, NULL, box);
 		ui_calls++;
 	} else {
-		hue_columns(r, x0, y, cw, band_h);
+		chart_at(r, box);
 	}
 }

@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "../look.h"
 #include "../theme.h"
 #include "../ui.h"
 #include "layout.h"
@@ -133,6 +134,68 @@ static void track_bake(SDL_Renderer *r, int k, int w, int h)
 	track_columns(r, (ds_scale_kind)k, 0, 0, w, h);
 }
 
+/* The parts of a bar that hold still: its ring, its colors and its marks
+ * under it, for the track at `track`; the colors from their texture
+ * (`columns_baked`) or drawn in place */
+static void bar_still(SDL_Renderer *r, ds_scale_kind kind, const SDL_Rect *track, SDL_Color ring,
+                      SDL_Color ink, SDL_Color dim, bool columns_baked)
+{
+	const int cy = track->y + TRACK_H / 2;
+	SDL_Texture *baked;
+	int k;
+
+	/* Its ring, then its colors inside, each column cut to the round ends */
+	ui_round_rect(r, &(SDL_Rect){ track->x - TRACK_RING, track->y - TRACK_RING, track->w + 2 * TRACK_RING,
+	                                track->h + 2 * TRACK_RING }, TRACK_H / 2 + TRACK_RING, ring);
+	ui_calls++;
+	if (columns_baked && (baked = ui_bake(r, "scale", (int)kind, track->w, track->h, track_bake))) {
+		SDL_RenderCopy(r, baked, NULL, track);
+		ui_calls++;
+	} else {
+		track_columns(r, kind, track->x, track->y, track->w, track->h);
+	}
+	/* The marks under it: the ends, the halves and zero, zero's the tallest
+	 * and through the track */
+	for (k = 0; k <= 4; k++) {
+		const int mx = track->x + (track->w - 1) * k / 4;
+		const bool zero = k == 2;
+		const int top = zero ? cy - TRACK_H / 2 - ZERO_H / 2 : cy + TRACK_H / 2 + 4;
+		const int h = zero ? TRACK_H + ZERO_H : MARK_H;
+
+		ui_round_rect(r, &(SDL_Rect){ mx - 1, top, 2, h }, 1, zero ? ink : dim);
+		ui_calls++;
+	}
+}
+
+/* An unfocused bar's still parts, all opaque, in one texture: the ring and
+ * the marks reach PAD_X either side of the track, PAD_TOP over it (zero's
+ * mark) and PAD_BOTTOM under it (the others). A focused bar's ring and marks
+ * are see-through over the focus fill, and a texture cannot hold them so that
+ * its copy is the same pixels, so they are drawn in place. */
+#define PAD_X TRACK_RING
+#define PAD_TOP (ZERO_H / 2)
+#define PAD_BOTTOM (4 + MARK_H)
+
+/* Its texture's key: the kind and every color and shape it is drawn in */
+static int still_key(ds_scale_kind kind, const ds_theme *th)
+{
+	const Uint8 v[] = { th->edge.r, th->edge.g, th->edge.b, th->text.r, th->text.g, th->text.b,
+	                    th->text_dim.r, th->text_dim.g, th->text_dim.b, (Uint8)look_square() };
+	Uint32 h = 2166136261u;
+
+	for (size_t i = 0; i < sizeof v; i++) h = (h ^ v[i]) * 16777619u;
+	return (int)((h << 3 | (Uint32)kind) & 0x7fffffffu);
+}
+
+static void still_bake(SDL_Renderer *r, int k, int w, int h)
+{
+	const ds_theme *th = theme();
+
+	(void)h;
+	bar_still(r, (ds_scale_kind)(k & 7), &(SDL_Rect){ PAD_X, PAD_TOP, w - 2 * PAD_X, TRACK_H },
+	          ui_col(th->edge, 255), ui_col(th->text, 255), ui_col(th->text_dim, 255), false);
+}
+
 void ds_scale_draw(SDL_Renderer *r, const SDL_Rect *box, ds_scale_kind kind, int v, int range, bool on_fill)
 {
 	const ds_theme *th = theme();
@@ -143,32 +206,17 @@ void ds_scale_draw(SDL_Renderer *r, const SDL_Rect *box, ds_scale_kind kind, int
 	/* The track, its knob's half in from each end so the knob at -10 or
 	 * +10 stays over it */
 	const SDL_Rect track = { box->x + KNOB_D / 2, cy - TRACK_H / 2, box->w - num_w - KNOB_D, TRACK_H };
+	const SDL_Rect still = { track.x - PAD_X, track.y - PAD_TOP, track.w + 2 * PAD_X,
+	                         PAD_TOP + TRACK_H + PAD_BOTTOM };
 	SDL_Texture *baked;
 	char num[16];
-	int k;
 
 	if (range <= 0 || track.w <= 0) return;
-	/* Its ring, then its colors inside, each column cut to the round ends */
-	ui_round_rect(r, &(SDL_Rect){ track.x - TRACK_RING, track.y - TRACK_RING, track.w + 2 * TRACK_RING,
-	                                track.h + 2 * TRACK_RING },
-	              TRACK_H / 2 + TRACK_RING, on_fill ? ui_col(th->on_accent, 90) : ui_col(th->edge, 255));
-	ui_calls++;
-	if ((baked = ui_bake(r, "scale", (int)kind, track.w, track.h, track_bake))) {
-		SDL_RenderCopy(r, baked, NULL, &track);
+	if (!on_fill && (baked = ui_bake(r, "scale-still", still_key(kind, th), still.w, still.h, still_bake))) {
+		SDL_RenderCopy(r, baked, NULL, &still);
 		ui_calls++;
 	} else {
-		track_columns(r, kind, track.x, track.y, track.w, track.h);
-	}
-	/* The marks under it: the ends, the halves and zero, zero's the tallest
-	 * and through the track */
-	for (k = 0; k <= 4; k++) {
-		const int mx = track.x + (track.w - 1) * k / 4;
-		const bool zero = k == 2;
-		const int top = zero ? cy - TRACK_H / 2 - ZERO_H / 2 : cy + TRACK_H / 2 + 4;
-		const int h = zero ? TRACK_H + ZERO_H : MARK_H;
-
-		ui_round_rect(r, &(SDL_Rect){ mx - 1, top, 2, h }, 1, zero ? ink : dim);
-		ui_calls++;
+		bar_still(r, kind, &track, on_fill ? ui_col(th->on_accent, 90) : ui_col(th->edge, 255), ink, dim, true);
 	}
 	/* The knob: the value, a ring in the text's color round the panel's face */
 	{

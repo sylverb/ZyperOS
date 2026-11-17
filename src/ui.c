@@ -1305,7 +1305,7 @@ static struct {
  * drawn, so the copy puts the very pixels the drawing did and leaves the rest
  * (tools/scale-check.c compares the two). Everything the renderer had - its
  * target, viewport, clip, scale, blend and color - is put back after. */
-#define BAKES 24
+#define BAKES 32
 static struct {
 	SDL_Renderer *r;
 	const char   *what;
