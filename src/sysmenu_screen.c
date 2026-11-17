@@ -31,6 +31,7 @@
 #include "osdbar.h"
 #include "panel.h"
 #include "hover_sweep.h"
+#include "lights_screen.h"   /* Language's page and what its cursor shows */
 #include "ds/hover.h"
 #include "nightkeep.h"
 #include "panelgamma.h"
@@ -1925,6 +1926,7 @@ void sysmenu_hover_sweep(app *a)
 
 	hover_sweep_page(a, "menu", sweep_menu, NULL);
 	hover_sweep_page(a, "system", sweep_menu, &games);
+	hover_sweep_list(a, "menu", T(S_MENU_LANGUAGE), &LANGUAGE_HOVER, (int)i18n_lang(), LANG_COUNT, sweep_menu, NULL);
 	hover_sweep_page(a, "theme", sweep_theme, NULL);
 	sc_look_choice(&ch);
 	hover_sweep_list(a, "screen", T(S_SCREEN_LOOK), ch.hover, ch.cur, ch.n, sweep_screen, NULL);

@@ -1344,13 +1344,23 @@ static void shot_compose_once(app *a)
 		return;
 	}
 	if (shot_language > -2) {
-		static unsigned char snd[LANG_COUNT];
+		static language_page pg = { .kept = -1 };
 		menu_row rows[LANG_COUNT];
 		const char *heading;
-		int n = language_build(snd, rows, LANG_COUNT, &heading);
+		int n;
 
+		/* The cursor off the one on: the screen in its language, as the
+		 * page shows it (LANGUAGE_HOVER), composed again over it */
+		if (pg.kept < 0) {
+			pg.kept = (int)i18n_lang();
+			if (shot_language >= 0 && shot_language != pg.kept) {
+				LANGUAGE_HOVER.show(a, shot_language);
+				g_shot_hover_again = true;
+			}
+		}
+		n = language_build(&pg, rows, LANG_COUNT, &heading);
 		ui_scrim(a->r, 0);
-		menu_draw(a, heading, rows, n, shot_language >= 0 ? shot_language : (int)i18n_lang(),
+		menu_draw(a, heading, rows, n, shot_language >= 0 ? shot_language : pg.kept,
 		          menu_std_width(a), MENU_ZYPEROS);
 		return;
 	}
