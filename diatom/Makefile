@@ -26,7 +26,7 @@ LDFLAGS += -lz
 # Objects live under build/$(PORT)/ so host and cross builds cannot collide:
 # a leftover x86 main.o in a device link fails late and confusingly.
 BUILD := build/$(PORT)
-SRC   := src/main.c src/cheevos.c src/core.c src/env.c src/scale.c src/audio.c src/save.c src/proto.c src/options.c src/zip.c src/levels.c src/screens.c src/chord.c src/stick.c src/hw.c src/now.c src/player2.c src/statefile.c src/pace.c port/$(PORT).c
+SRC   := src/main.c src/cheevos.c src/core.c src/env.c src/scale.c src/audio.c src/save.c src/proto.c src/options.c src/zip.c src/levels.c src/screens.c src/chord.c src/stick.c src/hw.c src/now.c src/player2.c src/statefile.c src/pace.c src/flipwatch.c port/$(PORT).c
 # Expanded where it is used, not here: a port's block below adds its own files
 # to SRC (the Pixel 2's bar, port/osdbar.c), and := took the list before they
 # were in it, so they were never built and the link failed.
@@ -155,7 +155,7 @@ $(BUILD)/%.o: %.c
 # backend exists. Cheap to check, so check it.
 # Mechanical checks, each guarding a rule that decays the moment nothing fails
 # when it is broken: check-seam has held since day one for exactly that reason.
-check: check-seam check-copies check-corefacts check-rates check-cheevos check-screens check-chord check-pace check-stick check-bounds check-rumble check-statefile check-proto check-port check-power check-power-e2e check-fastforward check-lateskip check-stateplane check-resident check-hotkeys check-coreend check-cardframe check-now check-displaylock check-rumble-e2e check-player2 check-states check-statereads
+check: check-seam check-copies check-corefacts check-rates check-cheevos check-screens check-chord check-pace check-flipwatch check-stick check-bounds check-rumble check-statefile check-proto check-port check-power check-power-e2e check-flipwatch-e2e check-fastforward check-lateskip check-stateplane check-resident check-hotkeys check-coreend check-cardframe check-now check-displaylock check-rumble-e2e check-player2 check-states check-statereads
 
 # Does a RetroAchievements address reach the byte it names? Offline, needs no
 # core and no ROM, and links only cheevos.c plus the vendored runtime - so it
@@ -218,6 +218,20 @@ $(PACE_TEST): test/pace_test.c src/pace.c src/pace.h
 	@mkdir -p $(BUILD)
 	$(CC) -std=gnu11 -Wall -Wextra -Wno-unused-parameter -O2 \
 	      -Isrc -o $@ test/pace_test.c src/pace.c -lm
+
+# Refreshes missed with the frame ready (src/flipwatch.h): each climbs the
+# clocks one step, the power level, then the CPU and the GPU held at their
+# tops, a second apart at least and never in a game's first two. Offline: the rule
+# alone. The frame loop's side, end to end, is check-flipwatch-e2e.
+FLIPWATCH_TEST := $(BUILD)/flipwatch-test
+
+check-flipwatch: $(FLIPWATCH_TEST)
+	@./$(FLIPWATCH_TEST)
+
+$(FLIPWATCH_TEST): test/flipwatch_test.c src/flipwatch.c src/flipwatch.h
+	@mkdir -p $(BUILD)
+	$(CC) -std=gnu11 -Wall -Wextra -Wno-unused-parameter -O2 \
+	      -Isrc -o $@ test/flipwatch_test.c src/flipwatch.c
 
 # The d-pad as the left analog stick (src/stick.h), for the N64: each
 # direction's axes, a diagonal as long as a straight push, and the SELECT rule
@@ -455,6 +469,17 @@ check-power-e2e:
 	$(FRESH_IF_BUILT)
 	@python3 test/power.py
 .PHONY: check-power-e2e
+
+# Refreshes missed with the frame ready, end to end: the desktop port counts
+# every frame after the N-th as a miss (DIATOM_TEST_MISSED) and writes the
+# clock holds into a scratch folder, as the Pixel 2 writes its CPU's and GPU's
+# lowest clocks. At full power the CPU and the GPU are held, said once, the
+# summary counts the misses and the holds let go at the end; without misses,
+# nothing. On check-stateplane's terms: the stub core, seconds, skipped unbuilt.
+check-flipwatch-e2e:
+	$(FRESH_IF_BUILT)
+	@python3 test/flipwatch.py
+.PHONY: check-flipwatch-e2e
 
 # Fast forward's speed, end to end: the stub core as slow as a DS game on the
 # Pixel 2 (STUBCORE_FRAME_US) runs flat out at a step it cannot reach, and a
