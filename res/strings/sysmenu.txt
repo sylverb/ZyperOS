@@ -701,39 +701,6 @@ de = Auto (%s)
 ja = 自動（%s）
 it = Auto (%s)
 
-[sysmenu.dsslow]
-note = A system menu row, on the Nintendo DS shelf, under Game Language: what the game's frames do when the game cannot keep up (sysmenu.dsslow_keep or sysmenu.dsslow_steady). Short: the value column beside it holds "Keep Speed" or "Steady 30"
-en = When Slow
-zh-Hans = 运行缓慢时
-es = Si va lento
-pt-BR = Quando lento
-fr = Si ça ralentit
-de = Bei Ruckeln
-ja = 処理落ち時
-it = Se rallenta
-
-[sysmenu.dsslow_keep]
-note = When Slow's value, the default: the game keeps its speed and frames it cannot draw in time are left out, so motion can look uneven
-en = Keep Speed
-zh-Hans = 保持速度
-es = Mantener velocidad
-pt-BR = Manter velocidade
-fr = Garder la vitesse
-de = Tempo halten
-ja = 速度を保つ
-it = Mantieni velocità
-
-[sysmenu.dsslow_steady]
-note = When Slow's other value: while the game is slow, every second frame is drawn, an even 30 a second
-en = Steady 30
-zh-Hans = 稳定 30 帧
-es = 30 estables
-pt-BR = 30 estáveis
-fr = 30 stables
-de = Stabile 30
-ja = 安定30
-it = 30 stabili
-
 [sysmenu.pace]
 note = A system menu row, on the GBA, Game Boy, Game Boy Color, Nintendo DS and Genesis shelves: how the games are paced against the screen (sysmenu.pace_smooth or sysmenu.pace_exact). Short: the value column beside it holds "Smooth" or "Exact"
 en = Timing

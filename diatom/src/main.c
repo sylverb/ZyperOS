@@ -62,7 +62,7 @@ typedef struct diatom_session {
 	 * its drawing left out, when the core can do that. See the frame loop. */
 	bool          late_skip;
 	/* RUN frameskip=steady: as late, but while frames run late exactly
-	 * every second one is drawn (MENU's When Slow, Steady 30) */
+	 * every second one is drawn (no launcher sends it now; see diatom.h) */
 	bool          late_steady;
 	bool          stylus;     /* --stylus: start with stylus mode on (tests) */
 	/* RUN power=: the clock ceiling the system keeps its speed under, a
@@ -2743,8 +2743,8 @@ static int run_session_inner(const diatom_session *sn)
 			 * debt rule below still drops a stall of four frames. The idea,
 			 * at 1x and from libretro's audio buffer status callback, is
 			 * nelynes's slotPlus, as plorpOS's Diatom has it too. */
-			/* frameskip=steady, the player's When Slow: Steady 30 on the
-			 * system's menu: once a frame starts late, exactly every second
+			/* frameskip=steady (a RUN word no launcher sends now, see
+			 * diatom.h): once a frame starts late, exactly every second
 			 * frame is drawn, until frames have started on time for half a
 			 * second (STEADY_HOLD). The panel then changes at an even 30 a
 			 * second while the game is slow, where late draws whatever the
