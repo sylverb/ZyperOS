@@ -197,7 +197,7 @@ shot(env,'setting-spotlight','--menu','Home Screen','--press','left','--theme','
 saved=shot(env,'restored-spotlight','--theme','light')
 assert same(saved,Image.open(OUT/'spotlight-light.png').convert('RGBA'))
 # Appearance is Light or Dark through the real row handler (1.0.6: Auto
-# went, its hours became Night Hours): Left turns it over, and over again.
+# went, its hours became Night Mode's): Left turns it over, and over again.
 shot(env,'setting-dark','--menu','Appearance','--press','left')
 assert re.search(r'^\s+appearance\s+dark$',run(env,'--dump'),re.M|re.I)
 shot(env,'setting-light','--menu','Appearance','--press','left')

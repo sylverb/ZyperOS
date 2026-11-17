@@ -978,7 +978,7 @@ Opens and closes as 8.2 says.
 
 **Option rows, one rule (1.0.6).** A row whose value is one of several
 choices answers the same way on every page - MENU, a system's menu, the
-Muse shelf, the in-game menu's Game and Display tabs, Theme, Night Hours,
+Muse shelf, the in-game menu's Game and Display tabs, Theme, Night Mode's page,
 Video Snaps, Menu Music:
 
 - **More than two choices: A opens their list**, a panel of its own under
@@ -1114,7 +1114,7 @@ where it was.)*
 | Tab | Rows |
 |---|---|
 | **Games** | Search Games, Play Time, Random Game, Achievements, Scraper |
-| **Display** | Appearance, Theme, Home Screen, System Order, Home Systems, Battery Icon, Screensaver, Shader, Strength, Screen Colors, Night Mode, Night Warmth, Night Hours |
+| **Display** | Appearance, Theme, Home Screen, System Order, Home Systems, Battery Icon, Screensaver, Shader, Strength, Screen Colors, Night Mode (its page: Night Mode, Night Warmth, Night From, Until) |
 | **Sound** | Audio Output, Audio Channels, UI Sounds, Menu Music |
 | **Connections** | USB Device (while a plug waits), Wi-Fi, Bluetooth, File Transfer, USB Accessories, Developer Mode |
 | **System** | Date & Time, Clock, Language, Power Button, Auto Off, Charge Limit, Side Lights, Storage, System Update |
@@ -4093,7 +4093,7 @@ value, a mark of what it is: the accent's dot on Accent, the theme's chip
 row. Display's own **Theme** row shows both chips and the accent's name.
 
 **Appearance** is Light or Dark, two, so A turns it over. *(1.0.6: Auto,
-light from 7:00 to 19:00, went, and its hours became Night Hours below; a
+light from 7:00 to 19:00, went, and its hours became Night Mode's below; a
 1.0.5 player on Auto gets the theme the hour gave at the first start of
 1.0.6.)*
 
@@ -4132,22 +4132,28 @@ preview on hover, approved the same day.)*
 
 **Night Mode** (MENU > Display, under Screen Colors, where the display has
 a table) makes the whole screen warmer for the night, over the player's own
-colors: **Off**, **On** or **By Hours**, three, so A opens their list.
-**Night Warmth**, under it while it is not Off (as Strength under Shader),
-is 1 to 10, 8 as it ships: the gains of Temperature +n, multiplied into the
-player's, so it adds warmth to their colors, never clips against their
-Temperature and changes nothing else. **Night Hours**, under it for By
-Hours, says "9:00 PM to 7:00 AM" and opens two rows, **Night From** and
+colors. Display has one row for it, its value the mode (**Off**, **On** or
+**By Hours**); A opens its page, as Screen Colors' row does, and Left and
+Right do nothing there. The page, headed Night Mode, has every setting of
+it, each an option row (DESIGN.md 9): **Night Mode**, the three; **Night
+Warmth**, 1 to 10, 8 as it ships: the gains of Temperature +n, multiplied
+into the player's, so it adds warmth to their colors, never clips against
+their Temperature and changes nothing else; and **Night From** and
 **Until**, each a time of day by the half hour, written as MENU > Clock
 says; 9:00 PM and 7:00 AM as it ships, and a 1.0.5 player's Auto hours
-carry over. Night Warmth's list shows the warmth under the cursor on the
-whole screen as the Look list does, with no picture beside it
-(menu_choice's `focus`), whatever the hour; B puts back what was set. A change is on the
+carry over. A row the mode does not use is quiet, its value still read:
+Night Warmth and the hours while Off, the hours while On. So the page holds
+its shape as the mode changes, and says what On or By Hours would use;
+the cursor passes the quiet rows, as any quiet row. Night Warmth's list
+shows the warmth under the cursor on the whole screen as the Look list
+does, with no picture beside it (menu_choice's `focus`), whatever the hour;
+B puts back what was set. A change is on the
 display at once, and By Hours turns at the hour in games and ports too:
 one frame's blink, as any table load, and no fade, whose every step would
 blink. Night Mode never changes the theme, and the Look list has no Night
 look. *(Tarik's move from Screen Colors' Night look and Appearance's Auto,
-approved on the sheet 2026-11-16.)*
+approved on the sheet 2026-11-16; one row and its page for 1.0.6 rc.2, his:
+"Can the night mode settings be all in night mode row".)*
 
 ### 11.43 Player 2
 A friend plays an NES game's second controller in a browser, with nothing

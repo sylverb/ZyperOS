@@ -1594,25 +1594,17 @@ static void menu_tabs(void)
 	}
 	ck(ok && at == n_all, "the tabs, one after another, are every row the device has");
 	m = sys_menu_tab_rows(&u, PT_DISPLAY, tab);
-	ck(m == 13 && tab[0] == PM_APPEARANCE && tab[1] == PM_THEME &&
+	ck(m == 11 && tab[0] == PM_APPEARANCE && tab[1] == PM_THEME &&
 	   tab[2] == PM_HOME && tab[3] == PM_ORDER && tab[4] == PM_HOMESYS && tab[5] == PM_BATTERY &&
 	   tab[6] == PM_SAVER && tab[7] == PM_SHADER && tab[8] == PM_STRENGTH && tab[9] == PM_SCREEN &&
-	   tab[10] == PM_NIGHT && tab[11] == PM_NIGHT_WARMTH && tab[12] == PM_NIGHT_HOURS,
+	   tab[10] == PM_NIGHT,
 	   "Display: Appearance, Theme, Home Screen, System Order, Home Systems, Battery Icon, "
-	   "Screensaver, Shader, Strength, Screen Colors, Night Mode, Night Warmth, Night Hours");
+	   "Screensaver, Shader, Strength, Screen Colors, Night Mode (its page has the rest)");
 	u.no_strength = true;
 	m = sys_menu_tab_rows(&u, PT_DISPLAY, tab);
-	ck(m == 12 && tab[7] == PM_SHADER && tab[8] == PM_SCREEN,
+	ck(m == 10 && tab[7] == PM_SHADER && tab[8] == PM_SCREEN,
 	   "and no Strength while no system draws an old screen");
 	u.no_strength = false;
-	u.no_night_hours = true;
-	m = sys_menu_tab_rows(&u, PT_DISPLAY, tab);
-	ck(m == 12 && tab[10] == PM_NIGHT && tab[11] == PM_NIGHT_WARMTH,
-	   "Night Mode On: its warmth, and no Night Hours");
-	u.no_night_warmth = true;
-	m = sys_menu_tab_rows(&u, PT_DISPLAY, tab);
-	ck(m == 11 && tab[10] == PM_NIGHT, "Night Mode Off: the row alone");
-	u.no_night_warmth = u.no_night_hours = false;
 	u.no_screen_colors = u.no_night = true;
 	m = sys_menu_tab_rows(&u, PT_DISPLAY, tab);
 	ck(m == 9 && tab[8] == PM_STRENGTH,
@@ -1632,21 +1624,16 @@ static void menu_tabs(void)
 	u.tab = PT_DISPLAY;
 	u.theme = "Lime";
 	n = (sys_menu_build)(&u, rows, &b, &heading);
-	ck(n == 13 && !strcmp(rows[1].label, "Theme") && !strcmp(val(&rows[1]), "Lime") &&
+	ck(n == 11 && !strcmp(rows[1].label, "Theme") && !strcmp(val(&rows[1]), "Lime") &&
 	   !strcmp(rows[9].label, "Screen Colors") && !strcmp(val(&rows[9]), "Standard") &&
-	   !strcmp(rows[10].label, "Night Mode") && !strcmp(val(&rows[10]), "Off") &&
-	   !strcmp(rows[11].label, "Night Warmth") && !strcmp(val(&rows[11]), "8"),
-	   "Theme says its accent, Screen Colors its look, Night Mode its choice and Night Warmth its step "
-	   "(Standard, Off and 8 when none is said)");
+	   !strcmp(rows[10].label, "Night Mode") && !strcmp(val(&rows[10]), "Off"),
+	   "Theme says its accent, Screen Colors its look and Night Mode its mode "
+	   "(Standard and Off when none is said)");
 	u.night = "By Hours";
-	u.night_warmth = "3";
-	u.night_hours = "9:00 PM to 7:00 AM";
 	n = (sys_menu_build)(&u, rows, &b, &heading);
-	ck(n == 13 && !strcmp(val(&rows[10]), "By Hours") && !strcmp(val(&rows[11]), "3") &&
-	   !strcmp(rows[12].label, "Night Hours") && !strcmp(val(&rows[12]), "9:00 PM to 7:00 AM"),
-	   "and say what they are given; Night Hours says its hours");
-	ck(b.sound[10] == MENU_SND_RING && b.sound[11] == MENU_SND_NO_A,
-	   "Night Mode steps round; Night Warmth stops at its ends, as Strength");
+	ck(n == 11 && !strcmp(val(&rows[10]), "By Hours"), "and says what it is given");
+	ck(b.sound[9] == 0 && b.sound[10] == 0,
+	   "Screen Colors and Night Mode open their pages, as Theme does: no row of steps");
 	ck(!strcmp(sys_menu_tab_name(PT_CONNECTIONS), "Connections") &&
 	   !strcmp(sys_menu_tab_name(PT_ABOUT), "About"), "the tabs' names");
 }
