@@ -303,6 +303,8 @@ EXTRA = {
     "slots": ("demo", "PS1", ["--slots", "0"]),
     "synopsis": ("demo", "PS1", ["--screen", "games", "--info", "--synopsis"]),
     "keyboard": ("demo", "PS1", ["--keyboard"]),
+    # The ScreenScraper sign-in's title, the longest the keyboard has
+    "keyboard-ss-user": ("demo", "PS1", ["--keyboard", "--kb-ss-user"]),
     "video-controls": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--video", "controls"]),
     "video-full": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--video", "hidden"]),
     # MP4's lock screen, its panel with the bar a hold fills: over music, and
