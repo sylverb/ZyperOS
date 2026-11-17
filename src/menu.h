@@ -207,4 +207,9 @@ int menu_window_first(const menu_row *rows, int n, int sel, int vis, int first);
  * scrolled a title or cut it depending on whether the player had EARNED it. */
 bool menu_row_moves(menu_row row, bool selected, bool visits_all);
 
+/* Whether the cursor has a row to land on: a live one, or any with
+ * `visits_all`. A list with none is a message, not a choice, and the panel
+ * draws no focus plate on it (menu_panel) */
+bool menu_rows_landable(const menu_row *rows, int n, bool visits_all);
+
 #endif
