@@ -79,6 +79,12 @@ typedef struct menu_choice {
 	 * note under it in place of under the list (the Display list's mini
 	 * screen: menu_pick, DESIGN.md 11.3). `app` is the app. NULL: none. */
 	void (*preview)(void *app, int k, int x, int y, int w, int h);
+	/* The choice under the cursor shown on the whole screen while the list
+	 * is open, with no picture: Night Warmth's list warms the screen as the
+	 * cursor moves (DESIGN.md 11.42). Called each pass
+	 * with the cursor's choice, and with -1 once the list has closed,
+	 * whichever way, before a choice is applied. NULL: none. */
+	void (*focus)(void *app, int k);
 } menu_choice;
 
 /* Row `sel`'s choices from a build's table, or NULL: no table, a place past

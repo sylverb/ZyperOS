@@ -119,6 +119,7 @@ extern const char *shot_portload;
 extern int shot_poweroff;
 extern const char *shot_kb_text;
 extern const char *shot_kb_title;
+extern int shot_kb_ss_user;      /* --kb-ss-user: the ScreenScraper sign-in's title */
 extern int shot_slot_sel;
 extern int shot_slots;
 extern int shot_jump;

@@ -97,15 +97,15 @@ ja = 完了
 it = Fatto
 
 [scraper.ss_user]
-note = The keyboard's title when linking a ScreenScraper account: type the user name.
-en = ScreenScraper User
-zh-Hans = ScreenScraper 用户名
-es = Usuario de ScreenScraper
-pt-BR = Usuário do ScreenScraper
-fr = Utilisateur ScreenScraper
-de = ScreenScraper-Benutzer
-ja = ScreenScraper ユーザー名
-it = Utente ScreenScraper
+note = The keyboard's title when linking a ScreenScraper account: type the user name, not the e-mail address. Their website's sign-in takes either one, so a player who signs in there with the e-mail types it here too; the device signs in with the user name. A heading: the keyboard panel's width, about 30 Latin letters, so the account's name is left to the ScreenScraper row it opens from.
+en = User Name, Not Email
+zh-Hans = 用户名（不是邮箱）
+es = Usuario, no el correo
+pt-BR = Usuário, não o e-mail
+fr = Nom d'utilisateur, pas l'e-mail
+de = Benutzername, keine E-Mail
+ja = ユーザー名（メールアドレス不可）
+it = Nome utente, non l'email
 
 [scraper.ss_no_key]
 note = A message: this build of ZyperOS was made without the key ScreenScraper gives developers, so no account can be linked.

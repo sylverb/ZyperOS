@@ -78,6 +78,9 @@ static void put(int id, int64_t us, int type, int code, int value)
 }
 static long now_ms(void) { return (long)mono_ms; }
 static int bar_tick(void) { return -1; }
+/* Night Mode's hour (night_tick): no clock here, so never due */
+static void night_tick(void) {}
+static int night_wait(void) { return -1; }
 /* The bar's POWER kind while a hold fills it (pw_bar): how often, the last
  * level, and how often it was let go to fade at once */
 static int bar_shows, bar_level, bar_fades;

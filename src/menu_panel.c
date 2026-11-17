@@ -1482,6 +1482,9 @@ typedef struct {
 	void (*preview)(void *app, int k, int x, int y, int w, int h);
 	int side_w;                /* its column's width (menu_pick_width) */
 	int note_lines;            /* its note's room: the set's tallest */
+	/* Told the choice under the cursor on every pass (menu_pick_focus) */
+	void (*focus)(void *app, int k);
+	app *app;
 	int sel;                   /* the cursor, as the runner leaves it (sel_out) */
 	unsigned char sound[MENU_CHOICES_MAX + 3];
 	char word[MENU_CHOICES_MAX][64];
@@ -1494,6 +1497,10 @@ static int pick_build(void *ctx, menu_row *rows, int max, const char **heading)
 	int i;
 
 	*heading = p->heading;
+	/* The build runs on every pass, the cursor of the pass before in
+	 * p->sel: the screen shows the choice under it (a list with focus
+	 * loads a table only when the choice changes) */
+	if (p->focus) p->focus(p->app, p->sel >= 0 && p->sel < p->n ? p->sel : 0);
 	for (i = 0; i < p->n && i < max && i < MENU_CHOICES_MAX; i++) {
 		menu_pick_word(p->labels ? p->labels[i] : NULL, p->word[i], (int)sizeof p->word[i]);
 		rows[i] = (menu_row){ p->word[i], i == p->cur ? MENU_TICK : NULL, true };
@@ -1618,12 +1625,14 @@ static void pick_side(app *a, const menu_side *at)
 static int pick_run(app *a, const menu_style *from, void *from_ctx, const char *heading,
                     const char *const *labels, const char *const *notes,
                     void (*preview)(void *app, int k, int x, int y, int w, int h),
-                    int n, int ticked, int at)
+                    void (*focus)(void *app, int k), int n, int ticked, int at)
 {
 	pick_ctx *const q = &g_pick_list;
 
 	memset(q, 0, sizeof *q);
 	q->preview = preview;
+	q->focus = focus;
+	q->app = a;
 	q->heading = heading;
 	q->labels = labels;
 	q->n = n > MENU_CHOICES_MAX ? MENU_CHOICES_MAX : n;
@@ -1644,17 +1653,18 @@ static int pick_run(app *a, const menu_style *from, void *from_ctx, const char *
 	                           .on_power = from && from->on_power ? pick_power : NULL,
 	                           .fixed_w = width,
 	                           .sound = q->sound, .start_sel = cur >= 0 && cur < q->n ? cur : 0,
-	                           .sel_out = notes ? &q->sel : NULL, .pin_foot = !preview,
+	                           .sel_out = notes || focus ? &q->sel : NULL, .pin_foot = !preview,
 	                           .side = preview ? pick_side : NULL,
 	                           .side_w = q->side_w },
 	         pick_build, pick_key, q);
+	if (focus) focus(a, -1);
 	return q->powered ? MENU_PICK_POWER : q->picked;
 }
 
 int menu_pick(app *a, const menu_style *from, void *from_ctx, const char *heading,
               const char *const *labels, const char *const *notes, int n, int ticked, int at)
 {
-	return pick_run(a, from, from_ctx, heading, labels, notes, NULL, n, ticked, at);
+	return pick_run(a, from, from_ctx, heading, labels, notes, NULL, NULL, n, ticked, at);
 }
 
 int menu_pick_preview(app *a, const menu_style *from, void *from_ctx, const char *heading,
@@ -1662,5 +1672,12 @@ int menu_pick_preview(app *a, const menu_style *from, void *from_ctx, const char
                       void (*preview)(void *app, int k, int x, int y, int w, int h),
                       int n, int ticked, int at)
 {
-	return pick_run(a, from, from_ctx, heading, labels, notes, preview, n, ticked, at);
+	return pick_run(a, from, from_ctx, heading, labels, notes, preview, NULL, n, ticked, at);
+}
+
+int menu_pick_focus(app *a, const menu_style *from, void *from_ctx, const char *heading,
+                    const char *const *labels, const char *const *notes,
+                    void (*focus)(void *app, int k), int n, int ticked, int at)
+{
+	return pick_run(a, from, from_ctx, heading, labels, notes, NULL, focus, n, ticked, at);
 }

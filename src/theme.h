@@ -6,9 +6,13 @@
  * handheld's clock is read to give it.
  *
  * DESIGN.md has two themes, Beard (DS_LIGHT) and Salt & Pepper (DS_DARK), and
- * MENU > Appearance has three settings for choosing between them: Light, Dark,
- * and Auto, which is Beard from 7:00 to 19:00 by the handheld's clock and
- * Salt & Pepper the rest of the day. The setting is what a player chose and
+ * MENU > Appearance chooses between them: Light or Dark. Up to 1.0.5 it had
+ * Auto too, Beard from 7:00 to 19:00 by the handheld's clock and Salt &
+ * Pepper the rest of the day; 1.0.6 took it out for Night Mode
+ * (src/nightmode.h), and the first start migrates a saved Auto to the theme
+ * it gave then (src/nightkeep.h). Auto stays here as a word to read: an
+ * older database's, which portkeys may read before the launcher migrated
+ * it, and theme-check's. The setting is what a player chose and
  * is saved; the theme is what it comes to at this minute and is not. Every
  * screen draws from theme(), and nothing but this file turns one into the
  * other.
@@ -96,8 +100,8 @@ const char *appearance_id(appearance a);
 appearance appearance_parse(const char *s);
 
 /* The setting `d` steps from `a` (-1 or +1, or 0 for none), wrapping at both
- * ends: Light, Dark, Auto and round again. A setting that is not one of the
- * three steps from Light. */
+ * ends: Light, Dark and round again, the two the row has. Auto, or a
+ * setting that is not one of the three, steps from Light. */
 appearance appearance_step(appearance a, int d);
 
 /* Where THEME_FILE is written, THEME_FILE unless this says otherwise, and

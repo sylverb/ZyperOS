@@ -303,6 +303,8 @@ EXTRA = {
     "slots": ("demo", "PS1", ["--slots", "0"]),
     "synopsis": ("demo", "PS1", ["--screen", "games", "--info", "--synopsis"]),
     "keyboard": ("demo", "PS1", ["--keyboard"]),
+    # The ScreenScraper sign-in's title, the longest the keyboard has
+    "keyboard-ss-user": ("demo", "PS1", ["--keyboard", "--kb-ss-user"]),
     "video-controls": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--video", "controls"]),
     "video-full": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--video", "hidden"]),
     # MP4's lock screen, its panel with the bar a hold fills: over music, and
@@ -609,6 +611,10 @@ EXTRA.setdefault("system-menu-strength", ("demo", "PS1", ["--screen", "games", "
 SHOT_SETTINGS["system-menu-strength"] = {"shader.PS1": "scanlines", "shader_strength.PS1": "20"}
 EXTRA.setdefault("menu-strength", ("demo", "PS1", ["--menu", "Strength"]))
 SHOT_SETTINGS["menu-strength"] = {"shader": "crt", "shader_strength.PS1": "60"}
+SHOT_SETTINGS["screen-colors-vivid"] = {"screen_contrast": "3", "screen_saturation": "3", "screen_gamma": "-2"}
+SHOT_SETTINGS["screen-colors-custom"] = {"screen_temp": "4", "screen_tint": "-1", "screen_contrast": "3",
+                                         "screen_saturation": "5", "screen_gamma": "-2"}
+SHOT_SETTINGS["screen-colors-look-custom"] = dict(SHOT_SETTINGS["screen-colors-custom"])
 
 # Timing (src/pacing.h) on the GBA's system menu, at its other value, Exact:
 # Smooth, the default, is drawn in every GBA system menu shot
@@ -745,7 +751,7 @@ for _k, _m in enumerate(["stretch", "aspect", "integer", "integer-vertical", "ov
 # Display's Theme page (DESIGN.md 11.42) in each of the ten accents, the
 # tones going round in both themes and the corners turning over, so every
 # accent's, tone's and value's name is drawn; its foot, Zyper and Reset to
-# Default, both ways; and Auto Hours
+# Default, both ways
 _TONES = (("warm", "black"), ("neutral", "deepblue"), ("cool", "darkgrey"))
 for _i, _acc in enumerate(("lime", "green", "teal", "blue", "purple", "pink", "red", "orange",
                            "yellow", "silver")):
@@ -754,9 +760,39 @@ for _i, _acc in enumerate(("lime", "green", "teal", "blue", "purple", "pink", "r
         "--look", "%s,%s,%s,%s,on" % (_acc, _lt, _dk, "square" if _i % 2 else "rounded"),
         "--look-page", "theme", "0"]))
 EXTRA.setdefault("theme-foot-on", ("demo", "PS1", ["--look-page", "theme", "5"]))
+# MENU > Display > Screen Colors (src/panelgamma.h): its row, and its page
+# Standard as it ships, Vivid, and Custom with every row moved (the values
+# from the database, as the page reads them); and the Look's list with each
+# look under the cursor, its note in the picture column, and Custom's
+EXTRA.setdefault("menu-screen", ("demo", "PS1", ["--menu", "Screen Colors"]))
+EXTRA.setdefault("screen-colors", ("demo", "PS1", ["--look-page", "screen", "0"]))
+EXTRA.setdefault("screen-colors-vivid", ("demo", "PS1", ["--look-page", "screen", "0"]))
+EXTRA.setdefault("screen-colors-custom", ("demo", "PS1", ["--look-page", "screen", "1"]))
+for _k, _l in enumerate(["standard", "vivid", "intense", "warm", "cool", "muted"]):
+    EXTRA.setdefault("screen-colors-look-" + _l,
+                     ("demo", "PS1", ["--look-page", "screen-looks", "0", "--pick-at", str(_k)]))
+EXTRA.setdefault("screen-colors-look-custom",
+                 ("demo", "PS1", ["--look-page", "screen-looks", "0", "--pick-at", "6"]))
 EXTRA.setdefault("theme-foot-off", ("demo", "PS1", ["--look", "lime,warm,black,square,off",
                                                     "--look-page", "theme", "5"]))
-EXTRA.setdefault("auto-hours", ("demo", "PS1", ["--look-page", "hours", "0"]))
+# MENU > Display > Night Mode (DESIGN.md 11.42), only where the display has a
+# table (not the Brick): By Hours with its three rows, the cursor on Night
+# Hours; On with Night Warmth and no Night Hours; Night Mode's list and Night
+# Warmth's; and Night Hours' page, Night From and Until
+EXTRA.setdefault("menu-night", ("demo", "PS1", ["--menu", "Night Hours"]))
+SHOT_SETTINGS["menu-night"] = {"night.mode": "hours", "night.from": "1260", "night.until": "420"}
+# ...and on the 12-hour clock, its longest form (10:30 PM to 11:30 AM)
+EXTRA.setdefault("menu-night-12h", ("demo", "PS1", ["--menu", "Night Hours"]))
+SHOT_SETTINGS["menu-night-12h"] = {"night.mode": "hours", "night.from": "1350", "night.until": "690"}
+SHOT_STATUS["menu-night-12h"] = "10:08 12h wifi=off batt=82"
+EXTRA.setdefault("menu-night-on", ("demo", "PS1", ["--menu", "Night Warmth"]))
+SHOT_SETTINGS["menu-night-on"] = {"night.mode": "on", "night.warmth": "10"}
+EXTRA.setdefault("menu-night-list", ("demo", "PS1", ["--menu", "Night Mode", "--press", "a"]))
+SHOT_SETTINGS["menu-night-list"] = {"night.mode": "hours"}
+EXTRA.setdefault("menu-night-warmth-list", ("demo", "PS1", ["--menu", "Night Warmth", "--press", "a"]))
+SHOT_SETTINGS["menu-night-warmth-list"] = {"night.mode": "on"}
+EXTRA.setdefault("night-hours", ("demo", "PS1", ["--look-page", "hours", "0"]))
+SHOT_SETTINGS["night-hours"] = {"night.from": "1290", "night.until": "450"}
 
 # The pop-ups the SELECT hotkeys put over a game (src/main.c, on_quick and
 # on_speed), each as it says: the slot saved, loaded, empty or failed, a game

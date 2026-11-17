@@ -94,7 +94,7 @@ int shot_menu_steps;
 /* --menu-tab-from M: the tab MENU's move comes from, or -1 */
 int shot_tab_from = -1, shot_tab_ms;
 /* --look ACCENT,LIGHT,DARK,CORNERS,ZYPER: the look for the shot; and
- * --look-page theme|hours [row]: Theme's page or Auto Hours' (DESIGN.md
+ * --look-page theme|hours [row]: Theme's page or Night Hours' (DESIGN.md
  * 11.42), the cursor on `row` */
 const char *shot_look, *shot_look_page;
 int shot_homesys = -1;     /* --homesys-page ROW: MENU > Home Systems' page */
@@ -442,6 +442,14 @@ const char *shot_kb_text = "correct horse";
  * uses this keyboard - signing in to RetroAchievements - could not be
  * rendered at all. A harness narrower than the thing it checks. */
 const char *shot_kb_title = "Wi-Fi password";
+/* --kb-ss-user: the title is the ScreenScraper sign-in's, in the shot's
+ * language, so check-i18n-shots measures it in every one */
+int shot_kb_ss_user;
+
+static const char *kb_title_shown(void)
+{
+	return shot_kb_ss_user ? T(S_SCRAPER_SS_USER) : shot_kb_title;
+}
 int shot_slots, shot_slot_sel;
 int shot_jump;               /* letter-jumps to apply before drawing */
 /* --nowplaying ALBUM [TRACK [SECONDS]], and --paused with it. */
@@ -1129,26 +1137,40 @@ static void muse_covers_settle(void)
 	}
 }
 
-/* --look-page: Theme's page or Auto Hours', over the shelf, as menu_run
- * draws them, the cursor on --look-page's row */
+/* --look-page: Theme's page, Night Hours' or Screen Colors', over the shelf,
+ * as menu_run draws them, the cursor on --look-page's row */
 static void shot_draw_look(app *a)
 {
 	menu_row rows[LK_ROWS];
 	const char *heading;
 	hours_view hv = { .a = a };
-	bool hours = !strcmp(shot_look_page, "hours");
-	int n = hours ? hours_build(&hv, rows, 2, &heading) : look_build(NULL, rows, LK_ROWS, &heading);
+	bool hours = !strcmp(shot_look_page, "hours"), screen = !strcmp(shot_look_page, "screen");
+	int n = hours ? hours_build(&hv, rows, 2, &heading)
+	      : screen ? sc_build(NULL, rows, LK_ROWS, &heading) : look_build(NULL, rows, LK_ROWS, &heading);
 
 	ui_scrim(a->r, 0);
-	if (!hours) {
+	if (!strcmp(shot_look_page, "screen-looks")) {
+		/* The Look's list, its picture beside it (--pick-at for the cursor) */
+		menu_choice ch;
+
+		sc_look_choice(&ch);
+		shot_list_draw(a, T(S_SCREEN_LOOK), &ch, menu_most_w(), MENU_ZYPEROS);
+		return;
+	}
+	if (screen) {
+		g_menu_side = sc_side;
+		g_menu_side_w = SC_SIDE_W;
+	} else if (!hours) {
 		g_row_mark = look_row_mark;
 		g_menu_header = look_header;
 		g_menu_header_h = 150;
 	}
 	menu_draw(a, heading, rows, n, shot_look_row < n ? shot_look_row : 0,
-	          menu_std_width(a), MENU_ZYPEROS);
+	          screen ? menu_most_w() : menu_std_width(a), MENU_ZYPEROS);
 	g_row_mark = NULL;
 	g_menu_header = NULL;
+	g_menu_side = NULL;
+	g_menu_side_w = 0;
 }
 
 /* Everything a shot draws, in the theme that is on. */
@@ -1171,7 +1193,7 @@ static void shot_compose(app *a)
 			draw_shelf(a);
 			zyperos_menu_draw(a, shot_menu_sel);
 		} else {
-			kb_preview_panel(a->r, shot_kb_title, shot_kb_text,
+			kb_preview_panel(a->r, kb_title_shown(), shot_kb_text,
 			                 shot_kb_layer, shot_kb_row, shot_kb_col, pose);
 		}
 		return;
@@ -1440,9 +1462,9 @@ static void shot_compose(app *a)
 	}
 	if (shot_kb) {
 		if (shot_at >= 0)
-			kb_preview_press(a->r, shot_kb_title, shot_kb_text,
+			kb_preview_press(a->r, kb_title_shown(), shot_kb_text,
 			                 shot_kb_layer, shot_kb_row, shot_kb_col, (unsigned)shot_at);
-		else kb_preview(a->r, shot_kb_title, shot_kb_text,
+		else kb_preview(a->r, kb_title_shown(), shot_kb_text,
 		                shot_kb_layer, shot_kb_row, shot_kb_col);
 	}
 	/* The in-game notice is not drawn by this process - Diatom composites it
