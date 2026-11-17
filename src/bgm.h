@@ -235,6 +235,11 @@ void bgm_set_builtin(bool with);
 bool bgm_builtin(void);
 /* "" for shuffle, or a file in the folder */
 void bgm_set_track(const char *file);
+/* `file` playing now, from its start, the setting untouched: Track's list's
+ * cursor (src/ds/hover.h). Once it is open the setting has the player again
+ * (shuffle lets it finish, a track chosen is that track); a track chosen
+ * (bgm_set_track) ends it at once. "" none. */
+void bgm_hear(const char *file);
 bool bgm_on(void);
 int  bgm_volume(void);
 /* The track setting: "" for shuffle */
