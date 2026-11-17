@@ -42,59 +42,69 @@
 
 - [x] `make check-hover`: show once per choice, undo on the kept one, rest, tick, undo on close only for what was shown.
 - [x] Night Warmth, Look, Shader, Strength, Display (shelf, MENU, game menu) moved onto hovers; `make native`, `make check-menus` pass.
-- [ ] Pixel gate on the list shots (menu-shader-list, menu-night-warmth-list, system-menu-display-list, gamemenu-display-list-*, screen-colors-look-*): 0 changed.
+- [x] Pixel gate on the list shots (menu-shader-list, menu-night-warmth-list, system-menu-display-list, gamemenu-display-list-*, screen-colors-look-*): 0 of 522 changed.
 
 ### Task 2: Shots draw what the cursor shows
 
 **Files:** `src/shots.c` (`shot_list_draw` and the shot compose).
 
-- [ ] A shot of an open list with `--pick-at K` calls the hover's `show(K)` before the screen is composed and `undo()` after, so host shots draw the preview; a list with no show draws as today.
-- [ ] Check: new shots `menu-battery-list-pct`, `menu-home-list-gallery`, `theme-accent-list-teal` differ from their kept-choice shots only where the preview draws.
+- [x] A shot of an open list with `--pick-at K` calls the hover's `show(K)` before the screen is composed and `undo()` after, so host shots draw the preview; a list with no show draws as today.
+- [x] Twelve new shots (Task 9's list), each list with its cursor off the kept choice; all fit in every language.
 
 ### Task 3: No write on a hover (the guard)
 
 **Files:** `src/db.c` (a write count), `src/shots.c` (`--hover-sweep`), `tools/hover-sweep-check.py`, `Makefile` (`check-hover-sweep`).
 
-- [ ] `--hover-sweep` builds every option page the rows report builds (MENU's tabs, a system's menu, Muse's, Theme, Screen Colors, the game menu, Menu Music, On-Screen Stats), and for each choice with a show: shows every choice, undoes, and checks the db write count is unchanged and the page's rows read the same as before. Prints `hover: <page> <row>: <n> shown, 0 written, same after`.
-- [ ] `check-hover-sweep` fails on any write or any row that reads differently after undo.
+- [x] `--hover-sweep` builds every option page the rows report builds (MENU's tabs, a system's menu, Muse's, Theme, Screen Colors, the game menu, Menu Music, On-Screen Stats), and for each choice with a show: shows every choice, undoes, and checks the db write count is unchanged and the page's rows read the same as before. Prints `hover: <page> <row>: <n> shown, 0 written, same after`.
+- [x] `check-hover-sweep` fails on any write or any row that reads differently after undo.
 
 ### Task 4: MENU's lists on the whole screen
 
 Battery Icon, Home Screen, Night Mode (MENU > Display); Language, Time Zone (lists of their own).
 
-- [ ] Each: a show that sets the in-memory state only (the apply half of its key handler, split from the save), an undo back to the kept value read at begin; Language with `language_apply(a, l, false)`, Time Zone with the zone in memory for the corner clock only.
-- [ ] Sweep passes; shots of each list with the cursor off the kept one.
+- [x] Each: a show that sets the in-memory state only (the apply half of its key handler, split from the save), an undo back to the kept value read at begin; Language with `language_apply(a, l, false)`, Time Zone with the zone in memory for the corner clock only.
+- [x] Sweep passes; shots of each list with the cursor off the kept one.
 
 ### Task 5: Theme's lists
 
 Accent, Light Background, Dark Background (Display > Theme).
 
-- [ ] Show applies the look in memory with the choice (Light Background with Dark on: the light appearance while the list is open); undo the kept look and appearance.
-- [ ] Sweep passes; shots `theme-accent-list-*`, `theme-light-list-dark`.
+- [x] Show applies the look in memory with the choice (Light Background with Dark on: the light appearance while the list is open); undo the kept look and appearance.
+- [x] Sweep passes; shots `theme-accent-list-*`, `theme-light-list-dark`.
 
 ### Task 6: The shelf's lists
 
 Sort By, View (a system's menu), Show (Muse's).
 
-- [ ] Show re-sorts or re-lays the shelf behind in memory, keeping the focus on the same game; undo the kept order or view and focus.
-- [ ] Sweep passes; shots of each list off the kept one.
+- [x] Show re-sorts or re-lays the shelf behind in memory, keeping the focus on the same game; undo the kept order or view and focus.
+- [x] Sweep passes; shots of each list off the kept one.
 
 ### Task 7: Sound lists
 
 UI Sounds, Audio Channels (MENU > Sound); Volume, Track (Menu Music, Track with rest_ms 500).
 
-- [ ] UI Sounds: own_sound, show sets the voice in memory and plays the move in it. Audio Channels: own_sound, show routes the channels in memory and plays the move. Volume: the music's volume in memory. Track: plays the track after the rest; undo the kept track (from where it was, if the player can say).
-- [ ] Sweep passes (no write).
+- [x] UI Sounds: own_sound, show sets the voice in memory and plays the move in it. Audio Channels: own_sound, show routes the channels in memory and plays the move. Volume: the music's volume in memory. Track: plays the track after the rest; undo the kept track (from where it was, if the player can say).
+- [x] Sweep passes (no write).
 
 ### Task 8: Pictures and the band
 
 DS Screens and Quick Slot (game menu), a button's choices (Controls), On-Screen Stats' Corner, Edge, Opacity, Color.
 
-- [ ] DS Screens: draw the paused game in layout k as Display does. Quick Slot: draw slot k's saved picture and time, "Empty" when none (no new string if one exists). A button's choices: the handheld beside marks the button with the job under the cursor. On-Screen Stats: the page's band over the list, drawn with the choice under the cursor.
-- [ ] Shots of each; sweep passes.
+- [x] DS Screens: draw the paused game in layout k as Display does. Quick Slot: draw slot k's saved picture and time, "Empty" when none (no new string if one exists). A button's choices: the handheld beside marks the button with the job under the cursor. On-Screen Stats: the page's band over the list, drawn with the choice under the cursor.
+- [x] Shots of each; sweep passes.
 
 ### Task 9: Docs, checks, gate, PR
 
-- [ ] DESIGN.md 11.3 (what a list's cursor shows, one paragraph per kind, the table of lists), README's feature list.
+- [x] DESIGN.md 11.3 (what a list's cursor shows, one paragraph per kind, the table of lists), README's feature list.
 - [ ] `CHECK_JOBS=1 make check`; the pixel gate on the shots this branch touches (the full gate once the Brick builds are done).
 - [ ] Sheet for Tarik (real shots, light and dark), PR, report to the coordinator.
+
+## As built (notes for review)
+
+- Found while building: a brightness key during Language's list would have kept the shown language (tick_boot_theme reads i18n_lang), and a Time Zone shown would have rewritten the night's hours file. While any list shows a choice that is not kept (`ds_hover_showing`), `tick_theme` leaves those ticks for after the undo.
+- `plat_night_preview(-1)` is new: no warmth, so Night Mode's Off shows while On is kept.
+- `bgm_hear(file)` is new: a track heard now, the setting untouched; a chosen track ends it.
+- `theme_show(ix)`: a theme on screen without the theme file (theme_init writes it).
+- Split for showing without saving: `view_set(.., keep)`, `muse_show_only`, `shelf_sort_to(.., keep)`.
+- Not swept: the Controls button list (its model lives with the in-game Controls tab); its show changes only the table in memory and its shots show it.
+- DS Screens draws the screens it has from the paused frame (Diatom's preview in the layout on now); from Single the other screen is unlit.
