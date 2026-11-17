@@ -53,13 +53,15 @@ int menu_pick_note_room(const char *const *notes, int n, int side_w);
  * too. */
 int menu_pick_note(const char *note, char out[2][CHV_WRAP_COLS]);
 
-/* A choice's words as its list shows them, begun with a capital: "never" is
- * "Never" there. The shots draw a list with it too. */
+/* A choice's words as its list shows them: the row's value as it is, which
+ * begins with a capital where it is written (res/strings/GLOSSARY.md), a
+ * name in its own case. The shots draw a list with it too. */
 int menu_pick_word(const char *label, char *out, int n);
 
 /* For tools/menu-rows-check.py (--rows-report): each row of `page` on a
  * line, "rows: page, label, value, live, sound class, choices, cur, none,
- * own, the word at cur", the words as a list shows them */
+ * own, the word at cur, every choice", the words as a list shows them and
+ * the choices apart by 0x1f */
 void menu_rows_print(const char *page, const menu_row *rows, int n, const unsigned char *sound,
                      const menu_choice *choices);
 

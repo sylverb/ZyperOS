@@ -287,8 +287,10 @@ Lexend's time the first time it is drawn, then cached like any line.
 - **Title Case** for headings, menu rows and named choices ("Audio Output",
   "Light"), a switch's "On" and "Off" among them (Developer Mode, Wi-Fi
   and Bluetooth, Swap Screens, 2026-11-12: "Off/On in the dev mode row in
-  settings should be capitalized"). **lowercase** for status words in the
-  value column ("not connected", "needs Wi-Fi", "never"). **Sentence case** for lines and
+  settings should be capitalized"). **A capital first** for status words in
+  the value column ("Not connected", "Needs Wi-Fi", "Never"), as every value
+  there begins (2026-11-17: "make sure they are all capitalized"; a name keeps
+  its own case, a number begins as it begins). **Sentence case** for lines and
   messages ("Press A to open the game you are on.").
 - No italics, no letter spacing, no all-caps except button names, which are
   written as printed on the handheld: A, B, X, Y, L1, R1, L2, R2, START,
@@ -4668,9 +4670,10 @@ ahead are asked for again when the grid is back. The row keeps eight.
 
 ## 12. Copy
 
-- Headings and rows in Title Case; status values lowercase; lines and
-  messages in sentence case, ending with a full stop.
-- One name for one thing: "needs Wi-Fi" in a value column, "Connect to Wi-Fi
+- Headings and rows in Title Case; status values begun with a capital, as
+  every value in a row's value column is; lines and messages in sentence
+  case, ending with a full stop.
+- One name for one thing: "Needs Wi-Fi" in a value column, "Connect to Wi-Fi
   first." as a message. *(The audit found three names for no network.)*
 - Pairs of buttons with a slash and no spaces ("L1/R1", "Left/Right"), chords
   with a plus ("MENU+VOL").
@@ -4681,7 +4684,7 @@ ahead are asked for again when the grid is back. The row keeps eight.
   the same thing; button names as printed (A, START, MENU), the d-pad's
   directions translated; product names never. Title Case is English's:
   Spanish, Portuguese and French write headings and rows in sentence case,
-  and status values lowercase as English does; Chinese uses full-width
+  and every value begins with a capital as English's does; Chinese uses full-width
   punctuation with a space between Chinese and Latin letters or digits;
   French a no-break space before `! ? : ;`. Spanish says *tú*, Portuguese
   *você*, French *vous*.

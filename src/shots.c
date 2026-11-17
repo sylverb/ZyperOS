@@ -1438,6 +1438,7 @@ static void shot_compose(app *a)
 		gm_rows_report(a);
 		snaps_rows_report(a);
 		bgm_rows_report(a);
+		hud_rows_report(a);
 		shot_rows_report = 0;   /* once: --flip composes the shot twice */
 	}
 	if (shot_handheld_box) handheld_box_report();

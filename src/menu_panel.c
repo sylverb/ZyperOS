@@ -1251,6 +1251,12 @@ void menu_panel(app *a, const char *heading, const menu_row *rows,
 			int vw = menu_value_w(fm, rows[i].value);
 			int room;
 
+			/* A value in words, for the host's check that it begins with a
+			 * capital (ui_fit_value): not a tick, a key or a scale */
+			if (rows[i].value && rows[i].value != MENU_TICK && rows[i].value != MENU_KEY_X &&
+			    rows[i].value != MENU_KEY_Y_ON && rows[i].value != MENU_KEY_Y_OFF && !row_is_scale(rows[i]))
+				ui_fit_value(rows[i].value);
+
 			/* WHICHEVER IS LONGER IS THE CONTENT, and the content is what
 			 * moves. The other one is a caption, and a caption keeps its
 			 * natural width.

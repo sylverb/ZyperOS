@@ -1039,6 +1039,14 @@ void ui_fit_drawn(const char *s)
 	if (s && *s) fit_say("drawn", "", s);
 }
 
+/* A menu row's value, "fit: value: TEXT" once a string: tools/i18n-shots.py
+ * fails on one of the table's that begins with a small letter (a row's value
+ * begins with a capital, res/strings/GLOSSARY.md) */
+void ui_fit_value(const char *s)
+{
+	if (s && *s) fit_say("value", "", s);
+}
+
 /* Where the rough boxes come close, the string's own ink: rendered as
  * ui_text draws it (dst is where it was drawn), the rows of it with a pixel
  * of ink within `m` of `mark`. A line of lowercase under a key keeps its
@@ -1190,6 +1198,7 @@ static void i18n_fit_seen(const char *src, const char *dst)
 void ui_fit_frame(void) {}
 void ui_fit_tight(const char *s, int w, int room, int row_w) { (void)s; (void)w; (void)room; (void)row_w; }
 void ui_fit_drawn(const char *s) { (void)s; }
+void ui_fit_value(const char *s) { (void)s; }
 void ui_fit_mark(const SDL_Rect *q) { (void)q; }
 #endif
 
