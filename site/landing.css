@@ -356,3 +356,15 @@ details[open] > summary > span[aria-hidden="true"]:last-child { transform: rotat
 }
 .motion-paused { scroll-behavior: auto; }
 .motion-paused *, .motion-paused *::before, .motion-paused *::after { animation: none !important; transition: none !important; }
+
+/* The TrimUI Brick (1.0.6): its two screens side by side, three notes under them */
+.brick-section { padding-block: 110px 20px; }
+.brick-shots { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+.brick-shots figure { margin: 0; }
+.brick-notes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 40px; margin-top: 44px; }
+.brick-notes h3 { font-size: 20px; }
+.brick-notes p, .brick-notes li { margin-top: 12px; font-size: 14px; color: var(--text-soft); }
+.brick-notes ul { margin: 0; padding-left: 18px; }
+.brick-notes .text-link { margin-top: 10px; }
+@media (max-width: 1050px) { .brick-notes { grid-template-columns: 1fr; gap: 28px; } }
+@media (max-width: 760px) { .brick-section { padding-block: 72px 8px; } .brick-shots { grid-template-columns: 1fr; gap: 16px; } }

@@ -41,7 +41,7 @@ cp "$ROOT/res/web/icon.svg" "$ROOT/res/web/zyper.svg" "$OUT/img/"
 for f in lockup lockup-light systems gallery shelf shelf-n64 shelf-snes favorites info cheevos cheevo-notice menu scraper \
          mp4 storage nowplaying portal portmaster battery gamemenu-shader controls-tab controls-hotkeys achtab media folders list grid-favorites home-grid es-shelf info-rename display theme \
          shaders screensaver play-phone-side player2-hotspot hare charging heat tour-language tour-home \
-         rename usb-ask update ports-controls cheevos-waiting topbar storage-system storage-music eric-reinsmidt; do
+         rename usb-ask update ports-controls cheevos-waiting topbar storage-system storage-music eric-reinsmidt brick-home brick-controls; do
 	cp "$ROOT/res/readme/$f.png" "$OUT/img/"
 done
 for f in shelf-n64 systems menu; do

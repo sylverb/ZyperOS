@@ -5,7 +5,7 @@
   </picture>
 </p>
 
-<h3 align="center">A fast, light firmware for the GKD Pixel 2 that plays your whole retro library.</h3>
+<h3 align="center">A fast, light firmware for the GKD Pixel 2 and the TrimUI Brick that plays your whole retro library.</h3>
 
 <p align="center">
   <b>On in about 2 seconds. The stock firmware takes 30 to 40.</b><br>
@@ -27,6 +27,7 @@
   <a href="https://zyperos.com"><b>zyperos.com</b></a> &nbsp;·&nbsp;
   <a href="#why-zyperos">Why ZyperOS</a> &nbsp;·&nbsp;
   <a href="#coming-from-the-stock-os">From the stock OS</a> &nbsp;·&nbsp;
+  <a href="#on-the-trimui-brick">TrimUI Brick</a> &nbsp;·&nbsp;
   <a href="#features">Features</a> &nbsp;·&nbsp;
   <a href="#how-it-compares">Compare</a> &nbsp;·&nbsp;
   <a href="#supported-systems">Systems</a> &nbsp;·&nbsp;
@@ -78,8 +79,8 @@ The folders still work in the other system: ZyperOS writes nothing in them but i
 ## Install in three steps
 
 1. **Download ZyperOS Installer** for macOS, Windows or Linux from [the latest release](https://github.com/tarikbc/ZyperOS/releases/latest).
-2. **Write the card.** Put the microSD card in the computer, pick the GKD Pixel 2, the latest release and the card, and choose **Fresh install**.
-3. **Play.** Put the card in the Pixel 2 and turn it on. The first start sets the card up in about a minute, then shows you each button.
+2. **Write the card.** Put the microSD card in the computer, pick the GKD Pixel 2 or the TrimUI Brick, the latest release and the card, and choose **Fresh install**.
+3. **Play.** Put the card in the handheld and turn it on. The first start sets the card up in about a minute, then shows you each button.
 
 Then add games over Wi-Fi, the USB cable or the card itself. [The full install](#install) covers the card image, updates and the Wi-Fi adapter.
 
@@ -91,6 +92,23 @@ Questions, ideas, or want to help build it? Come say hi on [the ZyperOS Discord]
   <sub>The 1.0.5 video tour. See the <a href="https://zyperos.com/#tour">current screens</a> on zyperos.com.</sub>
 </p>
 <!-- /tour-video -->
+
+## On the TrimUI Brick
+
+<p align="center">
+  <img src="res/readme/brick-home.png" width="512" alt="The ZyperOS home on the TrimUI Brick's 1024x768 screen: the PS1 with ZyperOS's own system art, and MENU, the Brick's key, for Settings">
+  <img src="res/readme/brick-controls.png" width="512" alt="The in-game Controls tab on the TrimUI Brick, beside a drawing of the Brick that lights the keys you set">
+</p>
+
+From 1.0.6, ZyperOS runs on a second handheld, the TrimUI Brick (TG3040), drawn for its own 1024x768 screen and its keys. It runs from its own microSD card and never writes to the Brick's storage: take the card out, and the Brick starts its own system, as before.
+
+- **Install it with ZyperOS Installer.** Pick **TrimUI Brick**. The Brick's graphics and Wi-Fi need closed files made for its chips (Imagination's GPU driver and XRadio's Wi-Fi firmware), which ZyperOS does not pass on, so the installer downloads them from where they are published, Creality's Sonic Pad SDK on GitHub, checks each one, and puts them only on your card. An image writer gives the card none of them, so use the installer.
+- **Wi-Fi is built in,** so File Transfer, box art, achievements and System Update need no adapter.
+- **The 3D systems are hidden for now:** Dreamcast, NAOMI, Atomiswave, Nintendo 64, PSP and Saturn, whose cores draw with the GPU. They come once those cores run on the Brick's graphics chip.
+- **Not there yet:** PortMaster's ports, Flash Drive, Screen Colors and the Brick's lights. Nobody has tried Bluetooth headphones with ZyperOS on a Brick yet.
+- **The Brick Hammer** runs the same card, but nobody has tried one yet. The Brick Pro isn't supported yet.
+
+I don't have a Brick myself: players on [the ZyperOS Discord](https://discord.gg/Ust8sE22Tm) test it for me. If you have one, your logs help a lot (**Download logs** on File Transfer's page, or the card's `.userdata/brick/logs`).
 
 ## Screens
 
@@ -188,7 +206,7 @@ Questions, ideas, or want to help build it? Come say hi on [the ZyperOS Discord]
 - **Every control, in the game:** the **Hotkeys** row at the end of the Controls tab opens what each button does in the game you are playing, one page at a time: what its system adds, such as the Nintendo 64's C buttons (SELECT with X, A, B or Y) and the DS's screens and stylus, the hotkeys, and the buttons that work in every game. Over a port, **Controls** shows what the port documents: the controls in its README, the key each button types for it, and what to copy where before it runs.
 - **Rumble on the Pixel 2:** Dreamcast games, PlayStation games (as a DualShock) and Game Boy Color rumble cartridges shake the handheld, and Nintendo 64 games get a Rumble Pak. A game that saves to the Controller Pak, the N64's memory card, takes it instead in the **Pak** row of the in-game menu's Controls tab, which keeps the choice for that game. The motor stops while the in-game menu is open.
 - **A USB-C headphone adapter on the Pixel 2:** plug one in and the sound goes there, ahead of the headphone jack, in games and in MP4. It's a choice of its own in Audio Output.
-- **Bluetooth headphones** on the Brick, paired on the device, with its volume buttons reaching them and their own buttons playing and skipping in MP4. Plug in wired ones and they take over.
+- **Bluetooth headphones** on the Brick, paired on the device, with its volume buttons reaching them and their own buttons playing and skipping in MP4. Plug in wired ones and they take over. Nobody has tried them with ZyperOS on a Brick yet.
 - **Mono audio:** the Pixel 2 has one speaker, so Audio Channels starts on Auto, mono on the speaker and stereo on headphones, mixed so it never clips. For anyone who hears with one ear, it plays games and MP4 in mono everywhere, or in mono in just the left or right ear on headphones.
 - **MP4, a media player for music, audiobooks and videos:** your albums, books and films on one shelf of their own covers, mixed, each with a small mark in its corner for an album, a book or a video, or one kind at a time with **MENU > Show**; every book and every video picks up where you left it, and **Shuffle All** plays every song on the card in a random order. SELECT opens MP4 from anywhere, even the in-game menu, and it keeps playing when you close it. While it plays, the game is silent. **X**, or **SELECT + START** together, locks it: the screen goes dark and every button but volume stops working, POWER included, until you hold **SELECT + START** for two seconds. Any other press shows how to unlock for a moment, a volume press lights the screen just long enough to show the volume bar, and a video stays in sight.
 - **Menu music:** ten free 8-bit tracks play behind the shelf and the menus, never over a game, and **MENU > Menu Music** shuffles them, plays one over and over or turns them off. Your own go in `Menu Music`, a folder of their own at the top of the card beside `Music` and `Videos`: copy MP3 or Ogg files there with the card in a computer, in Flash Drive, or on File Transfer's page. **ZyperOS Tracks** in the same menu turns ZyperOS's ten off, so only yours play. On the shelf, **L2** and **R2** go to the song before or the next, and Zyper pops up with each new song's name, read from its tags. While MP4 plays behind the shelf, L2 and R2 skip its tracks (or a book's chapters) instead.
@@ -424,8 +442,8 @@ EmulationStation's folder names work too, as they are: `nds`, `gba`, `psx`, `meg
 
 ZyperOS 1.0.6 is out for the GKD Pixel 2 and, for the first time, the TrimUI Brick, released in November 2026. [The latest release](https://github.com/tarikbc/ZyperOS/releases/latest) on GitHub has the card images and [ZyperOS Installer](installer/) for macOS, Windows and Linux. On the Brick, the installer also adds the closed files its graphics and Wi-Fi need, which ZyperOS does not pass on, so install the Brick with the installer, not an image writer. The consoles whose cores draw with the GPU (Dreamcast, NAOMI, Atomiswave, Nintendo 64, PSP and Saturn) are hidden on the Brick for now.
 
-1. **Write the card.** Download ZyperOS Installer for your computer from [the latest release](https://github.com/tarikbc/ZyperOS/releases/latest): the `.zip` for macOS, the `.exe` for Windows, the `.deb` or `.rpm` for Linux. Put the microSD card in the computer, pick the GKD Pixel 2, the latest release and the card, then choose **Fresh install**, which erases the card. Or download the card image, `ZyperOS-v<version>-pixel2.img.xz`, and write it with any program that writes disk images, like Raspberry Pi Imager.
-2. **Put the card in the Pixel 2 and turn it on.** The first start sets the card up in about a minute, turning the rest of it into space for games, music and saves. Every boot after that comes straight up, and the first one ends with [the tutorial](#the-first-start). If it ever stops partway, the card's PX2BOOT drive has `zyperos-setup.txt`, a record of what it did: send it to me in [an issue](https://github.com/tarikbc/ZyperOS/issues).
+1. **Write the card.** Download ZyperOS Installer for your computer from [the latest release](https://github.com/tarikbc/ZyperOS/releases/latest): the `.zip` for macOS, the `.exe` for Windows, the `.deb` or `.rpm` for Linux. Put the microSD card in the computer, pick the GKD Pixel 2 or the TrimUI Brick, the latest release and the card, then choose **Fresh install**, which erases the card. For the Pixel 2, you can also download the card image, `ZyperOS-v<version>-pixel2.img.xz`, and write it with any program that writes disk images, like Raspberry Pi Imager. The Brick needs the installer, which adds its closed files ([on the TrimUI Brick](#on-the-trimui-brick)).
+2. **Put the card in the handheld and turn it on.** The first start sets the card up in about a minute, turning the rest of it into space for games, music and saves. Every boot after that comes straight up, and the first one ends with [the tutorial](#the-first-start). If it ever stops partway, the card's PX2BOOT drive has `zyperos-setup.txt`, a record of what it did: send it to me in [an issue](https://github.com/tarikbc/ZyperOS/issues).
 3. **The time zone sets itself.** **MENU > Date & Time** starts on **Auto**, which asks ipwho.is where you are each time the handheld gets internet ([how](docs/guide.md#date--time)). To use your own zone, pick it there, which turns Auto off. Wi-Fi sets the time whenever it connects; without it, set the time there too, and it keeps it.
 4. **Add games** to the folders in `Roms/`. Put the card back in the computer, where it shows up as ZYPEROS, or send them over, with Wi-Fi or the USB cable: [a card with no games](#a-card-with-no-games) shows both ways. Windows may also ask to format two drives it can't read: those are ZyperOS's system, so choose **Cancel** ([the card in a computer](docs/guide.md#the-card-in-a-computer)).
 5. **Add the extras you want.** [PortMaster](#portmaster) installs from the Ports shelf over Wi-Fi. Copy Flycast to `Emulators/Flycast`. A shelf with nothing in it stays hidden, except Ports, which holds PortMaster's entry until you install it.
@@ -682,6 +700,13 @@ The device lists every button under **MENU > Controls**, and in a game, the in-g
 ## FAQ
 
 <details>
+<summary><b>Does it run on the TrimUI Brick?</b></summary>
+
+Yes, from 1.0.6: the TrimUI Brick (TG3040), from its own microSD card, installed with ZyperOS Installer, which adds the closed files its graphics and Wi-Fi need. The 3D systems (Dreamcast, NAOMI, Atomiswave, Nintendo 64, PSP and Saturn) are hidden on it for now, and PortMaster's ports, Flash Drive, Screen Colors and its lights are not there yet. The Brick Hammer runs the same card, but nobody has tried one yet, and the Brick Pro isn't supported yet. More in [On the TrimUI Brick](#on-the-trimui-brick).
+
+</details>
+
+<details>
 <summary><b>My games don't show up.</b></summary>
 
 Check the folder name against the table above, spelled exactly, and that the file type is listed for that console. A console with nothing in its folder is hidden. Games sent over Wi-Fi File Transfer appear when you leave its screen. Games copied any other way while the device is on appear after **Rescan Folder** in that console's menu, or after a restart. The log names every file a console's folder left out, and the file types it takes.
@@ -806,7 +831,7 @@ An unlock shows its badge, its name and its points for a few seconds, with Zyper
 <details>
 <summary><b>Can I use Bluetooth headphones?</b></summary>
 
-Yes, on the Brick. Put them in pairing mode, open **MENU > Bluetooth**, press **Y** to search and **A** to pair. They reconnect by themselves from then on. Wired headphones always win when they're plugged in.
+On the Brick, ZyperOS has them, though nobody has tried them on a Brick with ZyperOS yet; the Pixel 2 has no Bluetooth. Put them in pairing mode, open **MENU > Bluetooth**, press **Y** to search and **A** to pair. They reconnect by themselves from then on. Wired headphones always win when they're plugged in.
 
 The Brick's volume buttons set the headphones' volume, and the headphones' own volume buttons move the Brick's. On a few headphones, the Brick's buttons set only the starting volume; after that, change it on the headphones themselves. Play, pause and skip on the headphones control MP4.
 

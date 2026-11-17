@@ -12,7 +12,9 @@ headphone mark) in both themes. The 3D device on the website shows the light one
 The logo/wordmark files remain the branding generator's output.
 
 These are 1024x768 frames rendered by the native ZyperOS launcher, not edited
-mockups or photographs of a running device. The three `portal` shots are the
+mockups or photographs of a running device. `brick-home` and `brick-controls` are the
+TrimUI Brick's (`--device brick`, at its own 1024x768 screen with its MENU key
+and its drawing): `tools/readme-shots.py` with its `DEVICE` set to `brick`. The three `portal` shots are the
 File Transfer page (res/web) in headless Chrome, at a computer's 1280x800 and
 a phone's 390x844, served by the real routes over a scratch card of freeware
 names (build-native/portal-serve). The two `play-phone` shots are NES Player
