@@ -48,20 +48,22 @@ SRC="$WORK/openbor-$PIN"
 rm -rf "$SRC"
 tar -xzf "$TAR" -C "$WORK"
 
-# The source goes in read-only and is built in a copy inside the container,
-# and only the binary (and libvpx's notice) come out, to $WORK/out. Built
-# where it was mounted, the sed -i below failed on Docker Desktop's shared
-# folders: sed makes its temporary file beside the Makefile, and there that
-# open is refused ("couldn't open temporary file ./sedXXXXXX: Permission
-# denied", 2026-11-16) although plain writes work.
+# The source is mounted read-only at /src-ro and copied to /src inside the
+# container; only the binary (and libvpx's notice) come out, to $WORK/out.
+# Built where it was mounted, the sed -i below failed on Docker Desktop's
+# shared folders: sed makes its temporary file beside the Makefile, and
+# there that open is refused ("couldn't open temporary file ./sedXXXXXX:
+# Permission denied", 2026-11-16) although plain writes work.
+# The copy must live at /src, not /build: OpenBOR's 20-byte build ID hashes
+# the build path, and the pin's sha256 was produced under /src.
 rm -rf "$WORK/out"
 mkdir -p "$WORK/out"
-docker run --rm --platform linux/arm64 -v "$SRC:/src:ro" -v "$WORK/out:/out" \
+docker run --rm --platform linux/arm64 -v "$SRC:/src-ro:ro" -v "$WORK/out:/out" \
 	-e BUILD_NO="$BUILD_NO" -e COMMIT="$(echo $PIN | cut -c1-7)" \
 	-e SOURCE_DATE_EPOCH="$SOURCE_DATE_EPOCH" zyperos-openbor bash -c '
 set -e
-cp -a /src /build
-cd /build/engine
+cp -a /src-ro /src
+cd /src/engine
 sed -i "s|-Werror||g" Makefile
 printf "%s\n%s\n" "$BUILD_NO" "$COMMIT" | LC_ALL=C bash version.sh > /dev/null 2>&1
 mkdir -p /static && ln -sf /usr/lib/aarch64-linux-gnu/libvpx.a /static/libvpx.a
