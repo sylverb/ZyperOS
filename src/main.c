@@ -921,6 +921,18 @@ void view_turn(app *a, int sys, int dir)
 	games_reset(&v->row, v->cursor, v->list.count, plat_now_ms());
 }
 
+/* The home's layout turned, `dir` 1 or -1 round Spotlight, Gallery and Grid,
+ * saved, the home on the same system: START on the home goes forward, as it
+ * turns a shelf's View, and MENU's Home Screen row either way (2026-11-17:
+ * "also implement start in the home menu with the systems") */
+void home_turn(app *a, int dir)
+{
+	a->home_layout = (home_layout)(((int)a->home_layout + (dir < 0 ? HOME_LAYOUTS - 1 : 1)) % HOME_LAYOUTS);
+	db_set_str(db_dev(), "home", home_id(a->home_layout));
+	home_reset(&a->home, a->sys_cursor, a->sys.count, plat_now_ms());
+	redraw_now();
+}
+
 /* The grid's shape kept for shelf `sys` (src/gamegrid.h): by its tag, and
  * the folder of it on screen, so each folder of a shelf keeps its own; 0
  * for none yet */
@@ -2578,10 +2590,16 @@ static void on_game_tick(void)
 		if (r == 0) return;
 		g_pending_hashing = false;
 		if (r == 1) {
+			/* The hash in the log, and the answer below: what a game that
+			 * found no set was asked by (a DS game, 2026-11-17) */
+			fprintf(stderr, "cheevos: first play, hash %s; asking RetroAchievements\n", h);
 			snprintf(g_pending_set, sizeof g_pending_set, "%s", set);
 			ra_fetch_begin(h, g_pending_set);
 		} else {
-			if (r == -1) chv_none_mark(set, true);
+			if (r == -1) {
+				fprintf(stderr, "cheevos: first play, no hash for this file; marked none\n");
+				chv_none_mark(set, true);
+			}
 			g_pending_set[0] = '\0';
 		}
 		return;
@@ -2595,7 +2613,12 @@ static void on_game_tick(void)
 	/* RA has nothing for this ROM: said so on its Achievements rows, "none"
 	 * rather than "not checked yet" (chv_state_of). A fetch that failed
 	 * says nothing, and the next launch with a network asks again. */
-	if (rc == RA_FETCH_NOTHING) chv_none_mark(g_pending_set, true);
+	if (rc == RA_FETCH_NOTHING) {
+		fprintf(stderr, "cheevos: RetroAchievements has no game for that hash; marked none\n");
+		chv_none_mark(g_pending_set, true);
+	} else if (rc < 0) {
+		fprintf(stderr, "cheevos: no set came (no network, or no answer); asked next launch\n");
+	}
 	if (rc < 0) { g_pending_set[0] = '\0'; return; }
 	chv_none_mark(g_pending_set, false);        /* a set now: it has one */
 

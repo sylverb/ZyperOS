@@ -198,7 +198,19 @@ typedef struct {
 	int  published, unlocked; /* allprogress's, -1 not said */
 } dl_game;
 
-#define HASHES_HEAD "#! zyperos-rahash 1"
+/* 2 since the DS hash (#235). A file of head 1 was written by 1.0.6's first
+ * Download (#196), which hashed a DS game whole: its DS lines are a hash
+ * RetroAchievements has never seen, and as the file is the same size and
+ * time they were kept for good, so a DS game stayed none (Mario Kart DS on
+ * the 1.0.6 test card, 2026-11-17). Its other shelves' lines are right. */
+#define HASHES_HEAD "#! zyperos-rahash 2"
+
+static bool hashes_head_ok(const char *line, const char *tag)
+{
+	if (!strcmp(line, HASHES_HEAD)) return true;
+	if (!strcmp(line, "#! zyperos-rahash 1")) return strcmp(tag, "NDS") != 0;
+	return false;
+}
 
 static void hashes_path(const char *roms, const char *folder, char *out, size_t n)
 {
@@ -217,9 +229,9 @@ static int by_md5_idx(const void *a, const void *b)
 	return strcmp(g_sorting[*(const int *)a].md5, g_sorting[*(const int *)b].md5);
 }
 
-/* What the file says for each game whose file is the same size and time.
- * True when it said anything. */
-static void hashes_load(const char *path, dl_game *games, int n)
+/* What the file says for each game whose file is the same size and time,
+ * on the shelf of `tag`. True when it said anything. */
+static void hashes_load(const char *path, const char *tag, dl_game *games, int n)
 {
 	FILE *f = fopen(path, "r");
 	char *line = NULL;
@@ -240,7 +252,7 @@ static void hashes_load(const char *path, dl_game *games, int n)
 		const char *file;
 
 		line[strcspn(line, "\r\n")] = '\0';
-		if (!head) { head = !strcmp(line, HASHES_HEAD); if (!head) break; continue; }
+		if (!head) { head = hashes_head_ok(line, tag); if (!head) break; continue; }
 		/* "<size>\t<mtime>\t<md5, - or ?>\t<checked>\t<file>" */
 		if (sscanf(line, "%lld\t%ld\t%39s\t%d\t%n", &size, &mtime, md5, &checked, &used) != 4 ||
 		    !used)
@@ -738,7 +750,7 @@ static bool system_open(void)
 
 		snprintf(g.p.folder_now, sizeof g.p.folder_now, "%s", s->folder);
 		hashes_path(g.roms, s->folder, hp, sizeof hp);
-		hashes_load(hp, g.games, g.ng);
+		hashes_load(hp, s->tag, g.games, g.ng);
 
 		/* A game with a set needs no hash: its id is in the set. The rest
 		 * are looked up by theirs. */

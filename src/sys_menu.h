@@ -97,7 +97,7 @@
  * row is in a tab. */
 /* PM_POWER is Power Button, over Auto Off, the first of the rows about the
  * handheld going off: Press, POWER pressed turns it off, as it always has;
- * Hold, POWER held for two seconds (src/powerhold.h). Two choices, so A
+ * Hold, POWER held for one second (src/powerhold.h). Two choices, so A
  * switches it, as Left and Right do (1.0.6, asked for on the Discord). */
 /* PM_HOMESYS is Home Systems, under System Order: which shelves the home
  * shows, each system with games, Favorites and Recents (src/homesys.h). Its

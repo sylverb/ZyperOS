@@ -222,6 +222,69 @@ static void sm_dmode_preview(void *app_, int k, int x, int y, int w, int h)
 }
 
 
+/* Timing's list's picture (menu_choice's preview, DESIGN.md 11.39): the two
+ * ways, slowed down. A ball crosses a small screen a step a game frame, a
+ * refresh every PACE_DEMO_MS, and where it was at each of the refreshes
+ * before is behind it. Smooth shows the next frame each refresh: the steps
+ * even. Exact keeps the game's own rate, so now and then a refresh shows the
+ * frame before again: the ball stops for a refresh, its two places one,
+ * ringed in the accent. Slowed about ten times, and the repeat made about
+ * forty times as common as on the Pixel 2 (one refresh in about 170), so
+ * the hitch can be seen at all. In the dark theme's colors in either, as a
+ * game's screen is. */
+#define PACE_DEMO_MS 160      /* one refresh, slowed */
+#define PACE_DEMO_EVERY 4     /* Exact: one refresh in this many shows the frame before */
+#define PACE_DEMO_STEPS 8     /* game frames to cross */
+#define PACE_DEMO_TRAIL 5     /* the refreshes before, behind the ball */
+
+/* The game frame refresh `r` shows */
+static long pace_frame(int k, long r)
+{
+	return k == PACING_EXACT ? r - r / PACE_DEMO_EVERY : r;
+}
+
+static void pace_disc(SDL_Renderer *r, int cx, int cy, int d, ds_rgb c)
+{
+	ui_round_rect(r, &(SDL_Rect){ cx - d / 2, cy - d / 2, d, d }, d / 2, ui_col(c, 255));
+}
+
+static void sm_pace_preview(void *app_, int k, int x, int y, int w, int h)
+{
+	app *a = app_;
+	const ds_theme *dk = theme_at(DS_DARK), *t = theme();
+	const SDL_Rect screen = { x, y, w, h };
+	/* A shot's moment: a repeat behind Exact's ball, neither wrapped */
+	const Uint32 now = shot_path ? 7u * PACE_DEMO_MS + PACE_DEMO_MS / 2 : plat_now_ms();
+	const long r = (long)(now / PACE_DEMO_MS);
+	const SDL_Rect in = ds_preview_screen_begin(a->r, &screen);
+	const int d = in.h / 5 > 8 ? in.h / 5 : 8, cy = in.y + in.h / 2;
+	const int x0 = in.x + d, span = in.w - 2 * d;
+	const long f_now = pace_frame(k, r) % PACE_DEMO_STEPS;
+	int i;
+
+	SDL_SetRenderDrawColor(a->r, dk->edge.r, dk->edge.g, dk->edge.b, 255);
+	SDL_RenderFillRect(a->r, &(SDL_Rect){ x0, cy + d / 2 + DS_GRID, span, 2 });
+	for (i = PACE_DEMO_TRAIL; i >= 0; i--) {
+		const long ri = r - i;
+		long f;
+		int fx;
+
+		if (ri < 0) continue;
+		f = pace_frame(k, ri) % PACE_DEMO_STEPS;
+		if (f > f_now) continue;   /* before the ball came round */
+		fx = x0 + (int)(f * span / (PACE_DEMO_STEPS - 1));
+		/* A refresh that showed the frame before again: ringed */
+		if (ri > 0 && pace_frame(k, ri) == pace_frame(k, ri - 1)) {
+			pace_disc(a->r, fx, cy, d + d / 2, t->accent);
+			pace_disc(a->r, fx, cy, d + d / 2 - 6, dk->ink);
+		}
+		if (i == 0) pace_disc(a->r, fx, cy, d, t->accent);
+		else pace_disc(a->r, fx, cy, d / 3, dk->text_dim);
+	}
+	ds_preview_screen_end(a->r, &screen);
+	if (!shot_path) redraw_at(now + PACE_DEMO_MS - now % PACE_DEMO_MS);
+}
+
 /* The Shader and Strength lists' picture (src/shaderdemo.h): a system's
  * menu with its own shader and strength, MENU with every system's, as the
  * lists were made */
@@ -293,7 +356,18 @@ static void menu_choices(app *a, int sys, bool games)
 		for (i = 0; i < DSS_CHOICES; i++) P[9].lab[i] = T(dsslow_label_id((dss_choice)i));
 		g_sm_choice[SM_DSSLOW] = ch_make(&P[9], DSS_CHOICES, dsslow_load(), false);
 		for (i = 0; i < PACING_CHOICES; i++) P[10].lab[i] = T(pacing_label_id((pacing_choice)i));
-		g_sm_choice[SM_PACE] = ch_make(&P[10], PACING_CHOICES, pacing_load(sc), false);
+		{
+			/* Two, so A would turn it over: its list opens all the same,
+			 * the picture and a note telling them apart (DESIGN.md 9) */
+			static const char *notes[PACING_CHOICES];
+
+			notes[PACING_SMOOTH] = T(S_SYSMENU_PACE_SMOOTH_NOTE);
+			notes[PACING_EXACT] = T(S_SYSMENU_PACE_EXACT_NOTE);
+			g_sm_choice[SM_PACE] = ch_make(&P[10], PACING_CHOICES, pacing_load(sc), false);
+			g_sm_choice[SM_PACE].notes = notes;
+			g_sm_choice[SM_PACE].preview = sm_pace_preview;
+			g_sm_choice[SM_PACE].list = true;
+		}
 		for (i = 0; i < SORT_COUNT; i++) P[4].lab[i] = sort_label(i);
 		g_sm_choice[SM_SORT] = ch_make(&P[4], SORT_COUNT, v->sort, false);
 		{
@@ -1591,11 +1665,9 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 	/* The home layout is independent of Appearance and the selected system. */
 	if (sel == PM_HOME && (d || key == IN_ACCEPT)) {
 		/* Spotlight, Gallery, Grid and round: Right on, Left back; A opens
-		 * the three as a list (menu_choices' PM_HOME, the runner's) */
-		a->home_layout = (home_layout)(((int)a->home_layout + (d < 0 ? HOME_LAYOUTS - 1 : 1)) % HOME_LAYOUTS);
-		db_set_str(db_dev(), "home", home_id(a->home_layout));
-		home_reset(&a->home, a->sys_cursor, a->sys.count, plat_now_ms());
-		redraw_now();
+		 * the three as a list (menu_choices' PM_HOME, the runner's). START
+		 * on the home turns it on too (home_turn). */
+		home_turn(a, d < 0 ? -1 : 1);
 		return MENU_CHANGED;
 	}
 	/* Charge Limit, round Off, 80%, 85% and 90% as Side Lights goes round its

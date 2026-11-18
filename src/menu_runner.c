@@ -165,7 +165,7 @@ static menu_result menu_choose(app *a, zr_rig *z, const menu_style *st, menu_key
 	int to, steps;
 
 	uisound_play(DS_SOUND_ACCEPT);
-	if (c->n > 2) {
+	if (c->n > 2 || c->list) {
 		to = c->preview
 		     ? menu_pick_preview(a, st, ctx, heading, c->labels, c->notes, c->preview, c->n,
 		                         c->none ? -1 : c->cur, c->cur)

@@ -305,6 +305,10 @@ window.ZYPER_TOKENS = {
       "ms": 2000,
       "curve": "-"
     },
+    "hold-power": {
+      "ms": 1000,
+      "curve": "-"
+    },
     "hold-lock-lit": {
       "ms": 4000,
       "curve": "-"

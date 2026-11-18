@@ -765,6 +765,11 @@ for _i, _acc in enumerate(("lime", "green", "teal", "blue", "purple", "pink", "r
 EXTRA.setdefault("theme-accent-list-teal", ("demo", "PS1", ["--look-page", "theme-list", "0", "--pick-at", "2"]))
 EXTRA.setdefault("theme-light-list-cool", ("demo", "PS1", ["--look-page", "theme-list", "1", "--pick-at", "2"]))
 EXTRA.setdefault("theme-dark-list-deepblue", ("demo", "PS1", ["--look-page", "theme-list", "2", "--pick-at", "1"]))
+# Timing's list (src/pacing.h): two choices, opened on A all the same for
+# the picture beside it (the two ways, slowed) and what each does under it
+for _k, _p in enumerate(("smooth", "exact")):
+    EXTRA.setdefault("system-menu-timing-list-" + _p, ("demo", "GBA", ["--screen", "games", "--menu", "Timing",
+                                                                      "--press", "a", "--pick-at", str(_k)]))
 EXTRA.setdefault("theme-foot-on", ("demo", "PS1", ["--look-page", "theme", "5"]))
 # MENU > Display > Screen Colors (src/panelgamma.h): its row, and its page
 # Standard as it ships, Vivid, and Custom with every row moved (the values

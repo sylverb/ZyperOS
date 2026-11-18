@@ -91,6 +91,10 @@ typedef struct menu_choice {
 	 * nothing saved until A. Theme's lists (1.0.6). The hover's ctx is the
 	 * app. NULL: none. */
 	const struct ds_hover *hover;
+	/* Two choices whose list opens on A all the same, for the picture and
+	 * the note that tell them apart (Timing, DESIGN.md 9); Left and Right
+	 * still turn the row over */
+	bool list;
 } menu_choice;
 
 /* Row `sel`'s choices from a build's table, or NULL: no table, a place past

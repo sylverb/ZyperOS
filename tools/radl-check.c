@@ -16,7 +16,8 @@
  * that it knows now, a Game Boy game behind a 429, and a shelf with no
  * console. Then a second run that asks nothing per game and hashes nothing,
  * a run cut by the network and gone on with, one cancelled and done again,
- * one whose libraries never come, and one whose account is refused. The time
+ * one whose libraries never come, a DS game whose hash was kept from before
+ * the DS hash, and one whose account is refused. The time
  * is the check's, so the minute a 429 asks for passes at once. */
 #include <dirent.h>
 #include <errno.h>
@@ -648,6 +649,102 @@ int main(int argc, char **argv)
 	CHECK(set_count(ROMS "/NES/.cheevos/New.set") == 2, "New's set came that way");
 	CHECK(has(ROMS "/NES/.cheevos/Unknown.none"), "and Unknown is none again");
 	CHECK(log_count("Game Boy") == 0 && log_count("c=4") == 0, "nothing asked for the Game Boy");
+
+	printf("radl: a DS game's hash kept from before the DS hash\n");
+	{
+		/* 1.0.6's first Download (#196) hashed a DS game whole and kept that
+		 * in .hashes; #235 hashes it as RetroAchievements does, but a file
+		 * of the same size and time kept the old one, so Mario Kart DS was
+		 * looked up by a hash nobody has and stayed none (2026-11-17, the
+		 * 1.0.6 test card). A file kept that way is hashed again, once. */
+		static unsigned char ds[0xA000];
+		char h_ds[33] = "", h_whole[33], line[512];
+		struct stat st;
+		unsigned seed = 1459;
+		size_t i;
+
+		for (i = 0; i < sizeof ds; i++) {
+			seed = seed * 1103515245u + 12345u;
+			ds[i] = (unsigned char)(seed >> 16);
+		}
+		/* arm9 at 0x4000 (0x1000), arm7 at 0x6000 (0x800), icon at 0x8000 */
+		ds[0x20] = 0x00; ds[0x21] = 0x40; ds[0x22] = 0; ds[0x23] = 0;
+		ds[0x2C] = 0x00; ds[0x2D] = 0x10; ds[0x2E] = 0; ds[0x2F] = 0;
+		ds[0x30] = 0x00; ds[0x31] = 0x60; ds[0x32] = 0; ds[0x33] = 0;
+		ds[0x3C] = 0x00; ds[0x3D] = 0x08; ds[0x3E] = 0; ds[0x3F] = 0;
+		ds[0x68] = 0x00; ds[0x69] = 0x80; ds[0x6A] = 0; ds[0x6B] = 0;
+		/* not a 0x2E 00 00 EA SuperCard header */
+		ds[0] = 0;
+		sh("mkdir -p '" ROMS "/Nintendo DS/.cheevos'");
+		{
+			FILE *f = fopen(ROMS "/Nintendo DS/Kart.nds", "wb");
+
+			if (f) { fwrite(ds, 1, sizeof ds, f); fclose(f); }
+		}
+		CHECK(ra_hash_rom(ROMS "/Nintendo DS/Kart.nds", "NDS", h_ds), "the DS image hashes");
+		ra_md5_hex(ds, sizeof ds, h_whole);
+		CHECK(strcmp(h_ds, h_whole) != 0, "and not as the whole file: %s", h_ds);
+		/* What that first Download left: the whole file's hash, and none */
+		stat(ROMS "/Nintendo DS/Kart.nds", &st);
+		snprintf(line, sizeof line, "#! zyperos-rahash 1\n%lld\t%ld\t%s\t-1\tKart.nds\n",
+		         (long long)st.st_size, (long)st.st_mtime, h_whole);
+		put(ROMS "/Nintendo DS/.cheevos/.hashes", line);
+		put(ROMS "/Nintendo DS/.cheevos/Kart.none", "");
+
+		add_system("Nintendo DS", "NDS", "nds,zip");
+		unlink(LOG);
+		snprintf(line, sizeof line, "lib 18 %s=301\nprog 18 301:2:0\npatch 301 Kart 2\n", h_ds);
+		write_server(true, line);
+		CHECK(radl_begin(&g_sys, ROMS, "Nintendo DS", g_now), "a run for the DS alone starts");
+		run_until_done(NULL);
+		radl_status(&p);
+		CHECK(g_hashed, "the DS file is hashed again, not taken from .hashes");
+		CHECK(p.problem == RADL_OK && p.fetched == 1 && p.none == 0,
+		      "its set came: %d fetched, %d none, problem %d", p.fetched, p.none, p.problem);
+		CHECK(log_count("hashlibrary c=18") == 1 && log_count(h_whole) == 0,
+		      "the DS library asked, and the old hash never: %d", log_count("hashlibrary c=18"));
+		CHECK(set_count(ROMS "/Nintendo DS/.cheevos/Kart.set") == 2 &&
+		      !has(ROMS "/Nintendo DS/.cheevos/Kart.none"),
+		      "Kart's set is on the card, and its marker is gone");
+		{
+			char h[33] = "";
+
+			radl_read_set(ROMS "/Nintendo DS/.cheevos/Kart.set", NULL, NULL, NULL, NULL, 0, h);
+			CHECK(!strcmp(h, h_ds), "with the DS hash in its header: %s", h);
+		}
+
+		/* The next run trusts what this one kept */
+		unlink(ROMS "/Nintendo DS/.cheevos/Kart.set");
+		put(ROMS "/Nintendo DS/.cheevos/Kart.none", "");
+		unlink(LOG);
+		CHECK(radl_begin(&g_sys, ROMS, "Nintendo DS", g_now), "a second DS run starts");
+		run_until_done(NULL);
+		radl_status(&p);
+		CHECK(!g_hashed, "nothing hashed: the hash this version kept is used");
+		CHECK(p.fetched == 1 && set_count(ROMS "/Nintendo DS/.cheevos/Kart.set") == 2,
+		      "and the set comes by it: %d", p.fetched);
+
+		/* Any other shelf's hashes from that first Download are right, and
+		 * kept: a NES .hashes put back to its first head hashes nothing */
+		{
+			static char body[16384], again[sizeof body + 32];
+			FILE *f = fopen(ROMS "/NES/.cheevos/.hashes", "r");
+			size_t len = f ? fread(body, 1, sizeof body - 1, f) : 0;
+			const char *nl;
+
+			if (f) fclose(f);
+			body[len] = '\0';
+			nl = strchr(body, '\n');
+			CHECK(nl && !strncmp(body, "#! zyperos-rahash ", 18), "the NES keeps its hashes");
+			snprintf(again, sizeof again, "#! zyperos-rahash 1%s", nl ? nl : "\n");
+			put(ROMS "/NES/.cheevos/.hashes", again);
+		}
+		g_sys.count--;                   /* the DS shelf: this scenario's alone */
+		unlink(LOG);
+		CHECK(radl_begin(&g_sys, ROMS, "NES", g_now), "a NES run starts");
+		run_until_done(NULL);
+		CHECK(!g_hashed, "and hashes nothing: the NES's hashes never changed");
+	}
 
 	printf("radl: the account is refused\n");
 	unlink(LOG);

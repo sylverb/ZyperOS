@@ -587,7 +587,8 @@ beside a cubic one. One function each, in `src/design.h`.)*
 | **zyper-ears** | 420 | - | Zyper's ears swinging out and back as he says hello |
 | **tour-reward** | 1100 | - | a tutorial step's reward, before the next |
 | **tour-pulse** | 440 | - | the right glyph's two pulses after a press of the wrong button |
-| **hold-unlock** | 2000 | - | MP4's lock: SELECT and START held together this long unlock it; POWER held this long starts the charging screen's handheld, and turns it off with Power Button on Hold |
+| **hold-unlock** | 2000 | - | MP4's lock: SELECT and START held together this long unlock it; POWER held this long starts the charging screen's handheld |
+| **hold-power** | 1000 | - | POWER held this long turns the handheld off with Power Button on Hold |
 | **hold-lock-lit** | 4000 | - | MP4's lock screen, lit as it locks |
 | **hold-controls** | 3000 | - | MP4's video controls after the last press |
 | **hold-snap** | 1000 | - | a game focused on the shelf before its cover turns into its video snap |
@@ -795,6 +796,16 @@ its own. *(2026-11-13: "We should leave no trace of the old art behind".)*
 MENU > Home Screen offers **Spotlight** (default), **Gallery** and **Grid**
 (below); Right steps on, Left back, and A opens the three as a list (11.3's option rows). Old `cards` and `cards_dir` settings have no effect. Fancy Pants,
 the old system posters and their generators are removed, not hidden.
+**START** on the home steps it on too, Spotlight to Gallery to Grid and round,
+with no menu, as START steps a shelf's View: the same setting, saved the same
+way, the home on the same system, with the move sound; not with MENU or
+SELECT held (MENU + START is the way out). Every layout's foot names where it
+goes, START's hint 32 right of MENU's (**START Gallery** on Spotlight,
+**START Grid** on Gallery, **START Spotlight** on Grid), in the Home Screen
+row's words. *(2026-11-17: "also implement start in the home menu with the
+systems".)* The place stays in the middle of the foot; where a long word
+would come nearer than 32 to it (Italian's "In evidenza" by the Grid's
+"12 / 21"), it stands 32 right of START's word instead.
 
 **Spotlight:** system name and count on the left, the console art on the
 right, five nearby sprites in an unframed dock below. The selected sprite
@@ -825,15 +836,15 @@ DS_GRID_GAP apart, as many across as cells of at least 128 fit between the
 64 margins, the grid in the middle of its room; the rail at the right when
 the systems are more than three rows. The band: the system's whole name in
 **game-title** (Favorites in the language that is on), A's **Open games** at
-its right, its count under it in **support**; the foot at 720: MENU, the
-place, SELECT. **Up** and **Down** move a row, stopping at the top and the foot
+its right, its count under it in **support**; the foot at 720: MENU and
+START, the place, SELECT. **Up** and **Down** move a row, stopping at the top and the foot
 with the edge sound (Down over a short last row lands on its last system);
 **Left** and **Right** step round the ends; **L1** and **R1** jump a screenful, or to the last (first) system where less is left, and from the last round to the first (as the shelf grid's, 11.47).
 A system hidden or emptied leaves the grid as it leaves the row; Favorites is
 a tile like any other.
 
-MENU remains at the left footer, the position in the middle, and A at the
-right. SELECT still opens the player without another footer caption.
+MENU remains at the left footer with START after it, the position in the
+middle, and A at the right. SELECT still opens the player without another footer caption.
 **L1**/**R1** jump three systems, coming round past either end as a step
 does, the row moving all three in the press's direction in **move** and
 **out**; on a games shelf they jump a screenful. **Up**/**Down** on the home
@@ -1037,7 +1048,18 @@ Video Snaps, Menu Music:
   file: `ds_hover_showing`). Theme's three lists (11.42). `check-hover-sweep`
   shows every choice of them and fails on a database row or a file written,
   or a page that reads otherwise after.
-- **Two: A turns it over.**
+- **Two: A turns it over**, unless the two need a picture to tell apart:
+  **Timing** (Smooth or Exact, a GB, GBC, GBA, DS or Genesis shelf's)
+  opens its list on A all the same (`menu_choice.list`), Left and Right
+  still turning it over. Its picture is the two ways slowed down, in the
+  dark theme's colors as a game's screen: a ball crossing a small screen a
+  step a game frame, a refresh every 160 ms, and where it was at the five
+  refreshes before behind it. Smooth's steps are even; with Exact a refresh
+  now and then shows the frame before again, the ball stopping for one,
+  its two places ringed in the accent - one refresh in four here, one in
+  about 170 on the Pixel 2, so it can be seen at all. Under it, what each
+  does in a sentence. *(Tarik's for 1.0.6 rc.2: "improve the timing screen
+  to explain/demonstrate that".)*
 - **Left and Right step every row**, as before, and show the change at
   once, so a look before choosing is one press away. A scale (minutes,
   percent, volume) stops at its ends; a set of names goes round.
@@ -1227,7 +1249,7 @@ steps"; Tarik, 2026-11-15, after a 20 kHz backlight went black under 17.)*
 **POWER held** (MENU > Power Button on **Hold**, 11.47) is the same pill with
 the power mark - a ring open at the top and the line down into it, as every
 power button has it - and 20 segments in **accent-ink** over **track**, one
-lit for each twentieth of **hold-unlock** while POWER is held. Full, the
+lit for each twentieth of **hold-power** while POWER is held. Full, the
 handheld turns off as a press does, and the pill holds and fades as after a
 level step; let go early, it goes in **fade.out** at once and nothing else
 happens. On the shelf and every screen, over a Diatom game (the launcher
@@ -3944,7 +3966,8 @@ row's own setting, saved the same way, the shelf on the same entry, with
 the move sound. Favorites, folders and Ports alike; MP4's shelf is MP4's
 own screen, where START does nothing alone. Not with MENU or SELECT held:
 MENU + START is the way out (tools/zyhome.c) and SELECT + START MP4's lock.
-Before, START did nothing on a shelf. The foot names where it goes:
+Before, START did nothing on a shelf. On the home it steps the Home
+Screen's layout the same way (11.1). The foot names where it goes:
 **START Grid** under the covers, **START List** under the grid, **START
 Covers** under the list; MENU > Controls has it
 on the shelf's page. The tutorial is as it was: it teaches one button a
@@ -4958,18 +4981,19 @@ which is too easy to do accidentally." My pick: a MENU setting.)*
 **Power Button** in MENU's System tab, over Auto Off, the first of the rows
 about the handheld going off: **Press**, the default on every card, POWER
 pressed saves the game and turns the handheld off, as it always has; **Hold**,
-POWER held for **hold-unlock**, the same two seconds the charging screen's
-Hold (POWER) to start asks for, with the pill of 11.6 filling while it is
-held. Two choices, so A switches it, as Left and Right do, heard as a ring.
+POWER held for **hold-power**, one second (Tarik, 2026-11-17: "so make it 1
+second"; the charging screen's Hold (POWER) to start keeps **hold-unlock**'s
+two), with the pill of 11.6 filling while it is held. Two choices, so A switches it, as Left and Right do, heard as a ring.
 
 One rule wherever POWER is read (src/powerhold.h): every screen of the
 launcher, its watch over a game and over a program it waits for, and
-portkeys over a port, so a hold is the same two seconds whichever of them
+portkeys over a port, so a hold is the same second whichever of them
 reads it, and one begun in a game and ended in the in-game menu is still one
 hold. What is not a turn-off stays a press: POWER starts an off handheld (the
 power chip's), and during the charging screen's send-off a press starts
 ZyperOS, as from off; the hold that starts ZyperOS from the charging screen
-is taken by it, so the same two seconds never turn it off again. Holding
+is taken by it: the turn-off's second comes on the way to that screen's two,
+and the charging screen reads no turn-off, so it never turns it off. Holding
 POWER about 10 s is still the power chip's own cut, for a handheld that does
 not answer. With Hold on, Controls says "Hold: save and turn off" ("Hold:
 turn off", "Hold: quit and turn off" over a port), and the tutorial's POWER
