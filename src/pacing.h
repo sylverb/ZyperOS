@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 /* Timing: how a system's games are paced against the panel, a row of the
- * system's menu, under Core (and When Slow on the Nintendo DS shelf).
+ * system's menu, under Core (and Game Language on the Nintendo DS shelf).
  *
  * The GKD Pixel 2's panel refreshes 60.08 times a second, and a GBA makes
  * 59.73 frames a second, a DS 59.83 and a Genesis 59.92. Two ways to show

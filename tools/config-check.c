@@ -231,10 +231,10 @@ int main(void)
 		   "a need the launcher does not know is none, and changes nothing else");
 		s = find(&c, "Late");
 		ck(s && !s->needs_gpu_frames, "a system with no needs line needs nothing");
-		cfg_run_keys(find(&c, "Named"), false, NULL, NULL, keys, (int)sizeof keys);
+		cfg_run_keys(find(&c, "Named"), false, NULL, keys, (int)sizeof keys);
 		ck(!strcmp(keys, "power=medium"), "a need is no RUN key");
 
-		cfg_run_keys(find(&c, "Black"), false, NULL, NULL, keys, (int)sizeof keys);
+		cfg_run_keys(find(&c, "Black"), false, NULL, keys, (int)sizeof keys);
 		ck(!strcmp(keys, ""), "no RUN keys for a plain system");
 		s = find(&c, "Lower");
 		ck(s && !strcmp(s->pace, "smooth"), "pace|tag|smooth gives the system Timing, Smooth its own");
@@ -242,28 +242,28 @@ int main(void)
 		ck(s && !s->pace[0], "and a word that is neither smooth nor exact is no line: no Timing row");
 		s = find(&c, "Named");
 		ck(s && !s->pace[0], "nor has a system with no pace line one");
-		cfg_run_keys(find(&c, "Lower"), false, NULL, NULL, keys, (int)sizeof keys);
+		cfg_run_keys(find(&c, "Lower"), false, NULL, keys, (int)sizeof keys);
 		ck(!strcmp(keys, "controller=517\tpace=smooth"), "controller=, then the system's own pace=");
-		cfg_run_keys(find(&c, "Lower"), false, NULL, "exact", keys, (int)sizeof keys);
+		cfg_run_keys(find(&c, "Lower"), false, "exact", keys, (int)sizeof keys);
 		ck(!strcmp(keys, "controller=517\tpace=exact"), "the player's choice over the system's");
-		cfg_run_keys(find(&c, "Lower"), false, NULL, "fast", keys, (int)sizeof keys);
+		cfg_run_keys(find(&c, "Lower"), false, "fast", keys, (int)sizeof keys);
 		ck(!strcmp(keys, "controller=517\tpace=smooth"), "a choice that is none: the system's own");
-		cfg_run_keys(find(&c, "Named"), false, NULL, "smooth", keys, (int)sizeof keys);
+		cfg_run_keys(find(&c, "Named"), false, "smooth", keys, (int)sizeof keys);
 		ck(!strcmp(keys, "power=medium"), "and no pace= at all where the system has no Timing row");
 		s = find(&c, "Late");
 		ck(s && s->rumble == 35, "rumble| gives the motor's share, in percent");
 		s = find(&c, "Lower");
 		ck(s && s->rumble == 0, "and none is 0, the core's own");
-		cfg_run_keys(find(&c, "Late"), false, NULL, NULL, keys, (int)sizeof keys);
+		cfg_run_keys(find(&c, "Late"), false, NULL, keys, (int)sizeof keys);
 		ck(!strcmp(keys, "power=light\tcontroller=517\trumble=35\tpace=exact"), "power=, controller=, rumble=, pace=");
-		cfg_run_keys(find(&c, "Late"), true, NULL, NULL, keys, (int)sizeof keys);
+		cfg_run_keys(find(&c, "Late"), true, NULL, keys, (int)sizeof keys);
 		ck(!strcmp(keys, "screens=2\tframeskip=late\tpower=light\tcontroller=517\trumble=35\tpace=exact"),
 		   "two screens first, all tab separated");
-		cfg_run_keys(find(&c, "Black"), true, NULL, NULL, keys, (int)sizeof keys);
-		ck(!strcmp(keys, "screens=2\tframeskip=late"), "two screens alone");
-		cfg_run_keys(find(&c, "Black"), true, "steady", NULL, keys, (int)sizeof keys);
-		ck(!strcmp(keys, "screens=2\tframeskip=steady"), "When Slow's Steady 30 is frameskip=steady");
-		cfg_run_keys(find(&c, "Black"), false, "steady", NULL, keys, (int)sizeof keys);
+		/* frameskip=late always: the DS shelf's When Slow is gone (1.0.6), so
+		 * a Steady 30 a card kept from before has nothing that sends it */
+		cfg_run_keys(find(&c, "Black"), true, NULL, keys, (int)sizeof keys);
+		ck(!strcmp(keys, "screens=2\tframeskip=late"), "two screens alone, frameskip=late");
+		cfg_run_keys(find(&c, "Black"), false, NULL, keys, (int)sizeof keys);
 		ck(!strcmp(keys, ""), "and one screen sends no frameskip at all");
 	}
 

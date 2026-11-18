@@ -3,7 +3,7 @@
 A DS game sent with frameskip=late leaves out the drawing of a frame that
 starts late, two in a row at most, so a slow stretch shows frames 16.7 and
 33.3 ms apart in turn (Mario Kart DS on the Pixel 2: a median 41 fps, uneven,
-2026-11-16). frameskip=steady, the player's When Slow: Steady 30, draws
+2026-11-16). frameskip=steady, a RUN word the launcher no longer sends, draws
 exactly every second frame while frames start late, and every frame again
 once they have started on time for half a second (main.c, STEADY_HOLD).
 
