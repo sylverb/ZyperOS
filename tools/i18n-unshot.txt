@@ -392,9 +392,6 @@ sysmenu.wifi_connecting
 sysmenu.hotspot
 sysmenu.charge_limit
 sysmenu.dslang
-sysmenu.dsslow
-sysmenu.dsslow_keep
-sysmenu.dsslow_steady
 sysmenu.muse_books
 sysmenu.muse_albums
 sysmenu.muse_author
