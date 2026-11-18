@@ -25,6 +25,16 @@ cd /zyperos
 VERSION=$(sed -n 's/^VERSION ?= //p' Makefile)
 B=build/px2
 
+# The launcher's objects stay between builds (mk/cross.mk, one a source
+# file), and the compile line is the same for every SDK (/sdk), so objects
+# from another SDK would be linked against this one's libraries: a build
+# against another SDK than the last starts from nothing
+sdk_id=$(sed -n 's/^id=//p' "$MANIFEST")
+if [ "$(cat "$B/sdk-id" 2> /dev/null)" != "$sdk_id" ]; then
+	find "$B" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+	printf '%s\n' "$sdk_id" > "$B/sdk-id"
+fi
+
 # The ScreenScraper pair into a header, read in the shell so make prints
 # neither (mk/cross.mk, creds)
 SS_DEVID="$(sed -n 's/^SS_DEVID=//p' /zyperos-ss.env 2> /dev/null | head -1)" \
