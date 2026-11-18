@@ -189,7 +189,9 @@ written to match. Change a term here first, then everywhere it is used.
    all eight languages: the ID is the area, then what it is
    (`menu.language`, `tour.lang.hello`).
 2. Run `python3 tools/i18n.py` (`make strings`): it writes
-   `src/i18n_ids.h`, `src/i18n_tables.c` and `res/web/i18n/`.
+   `src/i18n_ids.h`, `src/i18n_tables.c` and `res/web/i18n/`. Commit the
+   first and the last; the tables are the build's own (`.gitignore`), and
+   every build writes them again when a string is newer.
 3. Use it: `T(S_MENU_LANGUAGE)` in C, `t("name")` on the page for
    `web.name`. `make check-strings` holds every block complete and used.
 4. A Chinese or Japanese string with a character its font cut lacks fails

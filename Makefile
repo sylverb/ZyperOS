@@ -24,6 +24,22 @@ all: check
 NPROC := $(shell getconf _NPROCESSORS_ONLN 2>/dev/null || echo 4)
 NATIVE_J = $(if $(filter -j%,$(MAKEFLAGS))$(findstring j,$(filter-out -%,$(firstword $(MAKEFLAGS)))),,-j$(NPROC))
 
+# What a check that links a part of src/ which says T() links beside it: the
+# strings and their tables (src/i18n.h). English, as the launcher is before
+# the setting is read, unless the check sets another. Up here, before the
+# first rule that lists it, since make reads a rule's prerequisites as it
+# meets them.
+#
+# The tables are the build's, not the repository's (.gitignore): written by
+# tools/i18n.py from res/strings whenever one of those, or the script, is
+# newer. mk/native.mk and mk/cross.mk have the same rule, and
+# tools/px2-payload.sh runs it before its read-only build. Committed, their
+# offsets moved with every string anyone added, and every open pull request
+# that touched a string conflicted with every other after each merge.
+I18N_SRC := src/i18n.c src/i18n_tables.c
+src/i18n_tables.c: $(wildcard res/strings/*.txt) tools/i18n.py
+	@python3 tools/i18n.py
+
 # Everything offline, in one command. There was no umbrella target: every check
 # had to be remembered by name, which is a suite in the same sense that a list
 # of good intentions is a plan. A check nobody runs is a check that does not
@@ -53,7 +69,7 @@ check: check-prep
 # shares with check-ss (without SDL2, the header alone); and player 2's p2d,
 # its feed, the codec check and the theme writer's check, which check-p2d,
 # check-p2codec, check-webtheme and check-play run.
-check-prep:
+check-prep: src/i18n_tables.c
 	@if pkg-config --exists sdl2 SDL2_image SDL2_ttf 2>/dev/null; then \
 		$(MAKE) --no-print-directory native; \
 	else \
@@ -1160,17 +1176,14 @@ check-design:
 
 # Every string a player reads, in English, 简体中文, Español, Português
 # (Brasil) and Français: res/strings/*.txt, the source, and tools/i18n.py,
-# which writes src/i18n_ids.h, src/i18n_tables.c and the File Transfer page's
-# res/web/i18n/. The check holds them fresh, every string in all five with
+# which writes src/i18n_ids.h, src/i18n_tables.c (the build's own, see
+# I18N_SRC) and the File Transfer page's res/web/i18n/. The check holds the
+# committed ones fresh and the tables uncommitted, every string in all five with
 # English's printf conversions, every ID defined where it is used and used
 # where it is defined, and every character in the font that draws it.
 strings:
 	python3 tools/i18n.py
 
-# What a check that links a part of src/ which says T() links beside it: the
-# strings and their tables (src/i18n.h). English, as the launcher is before
-# the setting is read, unless the check sets another.
-I18N_SRC := src/i18n.c src/i18n_tables.c
 # The device profiles' data (src/device/profile.h), for checks that pose a
 # device; src/profile.c is linked only where one is chosen (check-devices)
 DEVICE_PROFILES := src/device/pixel2_profile.c src/device/brick_profile.c src/device/desktop_profile.c \
