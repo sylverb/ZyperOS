@@ -601,7 +601,7 @@ ja = 情報
 it = Info
 
 [sysmenu.night_mode]
-note = A MENU row on Display, under Screen Colors: warmer colors on the whole screen for the night. Its value Off, On (menu.off_title, menu.on_title) or By Hours (sysmenu.night_by_hours). Title Case in English
+note = A MENU row on Display, under Screen Colors: warmer colors on the whole screen for the night. Its value Off, On (menu.off_title, menu.on_title) or By Hours (sysmenu.night_by_hours); A opens its page, which has this as its heading and its first row. Title Case in English
 en = Night Mode
 zh-Hans = 夜间模式
 es = Modo nocturno
@@ -612,7 +612,7 @@ ja = ナイトモード
 it = Modalità notte
 
 [sysmenu.night_by_hours]
-note = Night Mode's third choice, beside Off and On: on only between Night Hours' two times (sysmenu.night_hours). A named choice: capitals as each language writes one
+note = Night Mode's third choice, beside Off and On: on only between the two times on Night Mode's page (look.night_from, look.night_until). A named choice: capitals as each language writes one
 en = By Hours
 zh-Hans = 定时
 es = Por horario
@@ -623,7 +623,7 @@ ja = 時間指定
 it = Per orario
 
 [sysmenu.night_warmth]
-note = A MENU row under Night Mode, shown while it is not Off: how much warmer Night Mode makes the screen, 1 to 10 (8 as it ships). Its value is the number alone
+note = A row of Night Mode's page, under Night Mode, quiet while it is Off: how much warmer Night Mode makes the screen, 1 to 10 (8 as it ships). Its value is the number alone
 en = Night Warmth
 zh-Hans = 暖色强度
 es = Intensidad nocturna
@@ -632,17 +632,6 @@ fr = Intensité de nuit
 de = Nachtwärme
 ja = 暖色の強さ
 it = Intensità notturna
-
-[sysmenu.night_hours]
-note = A MENU row under Night Warmth, shown while Night Mode is By Hours, and its page's heading: when Night Mode turns on and off (look.hours is its value). Short: its value is a MENU row's longest on the 12-hour clock, so the row's name may be the plain word for hours where the Night Mode row above says the rest
-en = Night Hours
-zh-Hans = 夜间时段
-es = Horario
-pt-BR = Horário
-fr = Horaires
-de = Nachtzeiten
-ja = 夜間の時間帯
-it = Orari notturni
 
 [sysmenu.theme]
 note = A MENU row: the accent, background tones, corners and Zyper
