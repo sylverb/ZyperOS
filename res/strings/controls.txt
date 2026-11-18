@@ -1625,14 +1625,14 @@ it = Misto
 
 [controls.default]
 note = In a button's list of choices, at the right of the choice it gives when nothing is changed (the system's, or ZyperOS's for every game), while another choice is on. Lowercase where the language writes a status so. The value column beside a choice, whose name can be long (an NES's "Turbo A", an Atari 2600's "Interruptor der. A"): the shortest natural word.
-en = default
+en = Default
 zh-Hans = 默认
-es = por defecto
-pt-BR = padrão
-fr = par défaut
+es = Por defecto
+pt-BR = Padrão
+fr = Par défaut
 de = Standard
 ja = 既定
-it = predefinito
+it = Predefinito
 
 [controls.no_button_now]
 note = A quiet row under a button of the Controls tab whose change left one of the game's buttons on no button of the handheld: %s is that game button as its core names it (×, Start, C, Interruptor der. A). Wrapped to the 580-unit column a line a row, as gamemenu.own_buttons is: keep it to two lines.
