@@ -73,14 +73,23 @@ void xfer_init(const char *roms_dir, const char *card_dir,
 
 int xfer_root_count(void) { return g_nroots; }
 
-xfer_del xfer_delete_rule(const char *abs, const char **why)
+static bool (*g_known)(const char *folder);
+
+void xfer_set_systems(bool (*known)(const char *folder))
+{
+	g_known = known;
+}
+
+/* The root `abs` is in, by its longest path, and how many folders below it
+ * `abs` is (0: the root itself); NULL outside every root */
+static const xfer_root *root_of(const char *abs, int *depth)
 {
 	const xfer_root *root = NULL;
 	size_t best = 0;
-	const char *rest, *p;
-	int depth = 0, i;
+	const char *p;
+	int i;
 
-	if (why) *why = "";
+	*depth = 0;
 	for (i = 0; i < g_nroots; i++) {
 		size_t n = strlen(g_roots[i].path);
 
@@ -90,21 +99,55 @@ xfer_del xfer_delete_rule(const char *abs, const char **why)
 			best = n;
 		}
 	}
-	if (!root) {
+	if (!root) return NULL;
+	for (p = abs + best; *p; p++)
+		if (*p == '/' && p[1]) (*depth)++;
+	return root;
+}
+
+bool xfer_console(const char *abs)
+{
+	char name[XFER_NAME_MAX + 1];
+	const xfer_root *root;
+	const char *base;
+	size_t n;
+	int depth;
+
+	if (!(root = root_of(abs, &depth)) || depth != 1) return false;
+	if (strcmp(root->name, "roms") != 0 && strcmp(root->name, "states") != 0) return false;
+	if (!g_known) return !strcmp(root->name, "roms");
+	/* Its name alone, a trailing slash off ("Roms/GBA/") */
+	base = abs + strlen(root->path) + 1;
+	n = strcspn(base, "/");
+	if (n > XFER_NAME_MAX) return false;
+	memcpy(name, base, n);
+	name[n] = '\0';
+	return g_known(name);
+}
+
+xfer_del xfer_delete_rule(const char *abs, const char **why)
+{
+	const xfer_root *root;
+	int depth;
+
+	if (why) *why = "";
+	if (!(root = root_of(abs, &depth))) {
 		if (why) *why = T(S_TRANSFER_WHY_OUTSIDE);
 		return XFER_DEL_NO;
 	}
-	rest = abs + best;
-	for (p = rest; *p; p++)
-		if (*p == '/' && p[1]) depth++;
-
 	if (depth == 0) {
 		if (why) *why = T(S_TRANSFER_WHY_ROOT);
 		return XFER_DEL_NO;
 	}
+	/* A console's own folder stays, even empty: the shelf looks for its
+	 * games there by name (xfer_console) */
+	if (xfer_console(abs)) {
+		if (why) *why = T(S_TRANSFER_WHY_CONSOLE);
+		return XFER_DEL_NO;
+	}
 	if (!strcmp(root->name, "roms")) {
 		if (depth >= 2) return XFER_DEL_ALL;
-		if (why) *why = T(S_TRANSFER_WHY_CONSOLE);
+		if (why) *why = T(S_TRANSFER_WHY_EMPTY);
 		return XFER_DEL_EMPTY;
 	}
 	if (!strcmp(root->name, "music") || !strcmp(root->name, "books") ||

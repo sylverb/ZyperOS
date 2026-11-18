@@ -16,7 +16,8 @@
  *
  * Lit for **hold-charge-lit** from the last button, then dark (the side
  * lights go on showing the charge); any button lights it again; POWER held
- * for **hold-unlock**, with the lock screen's bar filling, starts ZyperOS.
+ * for **hold-power**, one second, with the lock screen's bar filling, starts
+ * ZyperOS: the same second Power Button on Hold turns it off with.
  *
  * Pure: no SDL, no files, the caller's readings and milliseconds, so
  * tools/charging-check.c holds the words, the estimate and the rules. */

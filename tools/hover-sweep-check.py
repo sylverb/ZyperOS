@@ -3,9 +3,9 @@
 
     python3 tools/hover-sweep-check.py        (make check-hover-sweep)
 
-Each card below is shot with --hover-sweep: Theme's Accent, Light Background
-and Dark Background show every choice and put the kept one back, as their
-lists would, and three frames of the shelf behind are drawn after each show.
+Each card below is shot with --hover-sweep: Theme's Accent, Light Background,
+Dark Background and Folder Color show every choice and put the kept one back,
+as their lists would, and three frames of the shelf behind are drawn after each show.
 The launcher says, a line a list, how many it showed, how many database rows
 were written meanwhile, whether the page reads the same after, and the
 slowest show and frame (src/hover_sweep.h). This fails on a row written, a
@@ -26,7 +26,8 @@ spec = importlib.util.spec_from_file_location("rs", ROOT / "tools" / "readme-sho
 R = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(R)
 
-THEME = {("theme", "Accent"), ("theme", "Light Background"), ("theme", "Dark Background")}
+THEME = {("theme", "Accent"), ("theme", "Light Background"), ("theme", "Dark Background"),
+         ("theme", "Folder Color")}
 # (name, device, settings)
 CASES = [
     ("pixel2 light", "pixel2", {}),

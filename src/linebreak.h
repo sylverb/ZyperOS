@@ -14,7 +14,16 @@
  * the way a person would set it: in as few lines as it fits in, and of those
  * breaks the one whose widest line is narrowest, so the lines come out near
  * one length. The port loading screen breaks the game's name this way, in up
- * to three lines (src/main.c, port_loading_screen). */
+ * to three lines (src/main.c, port_loading_screen).
+ *
+ * FILLED, for a sentence set left in a list's place (lb_fill): the in-game
+ * menu's Achievements tab, which says why a game has no list in a panel
+ * every tab shares, as wide as the widest. Balanced there, its lines stopped
+ * well short of the panel's right edge, a narrow column in a wide panel,
+ * and a short first line alone ("ZyperOS kann" over a long one in German):
+ * "The empty achievements text in the menu is not using the full menu's
+ * width" (Tarik, testing 1.0.6). Filled, it reads as the panel's text, as
+ * the same menu's synopsis and an achievement's description do (wrap_text). */
 
 #include <stddef.h>
 
@@ -49,11 +58,21 @@ void lb_fit(const char *src, char *dst, size_t dstn, int maxw,
  *
  * So never more than `cap` lines and never a line over `maxw`. Words are what
  * spaces separate: a run of spaces is one break, and spaces at either end are
- * dropped. Chinese, which has no spaces, breaks between its characters, but
+ * dropped. The ">" of a way through the menus ("MENU > Achievements") goes
+ * with the word before it: no line starts with one. Chinese, which has no spaces, breaks between its characters, but
  * not before a mark that closes (，。！) nor after one that opens (（「), and
  * its lines are joined with no space (src/linebreak.c, lb_piece). */
 int lb_balance(const char *text, int maxw, int cap, lb_width_fn width,
                void *ctx, char lines[][LB_LINE]);
+
+/* `text` in at most `cap` lines, none wider than `maxw`, filled: each line
+ * with as many words as fit, the next word on the next line, and a text that
+ * fits in no `cap` lines cut at the end of the last, as lb_balance cuts it.
+ * The words, a word too wide for the box and Chinese's breaks as
+ * lb_balance's; the fewest lines it fits in, as lb_balance's, but its lines
+ * as full as they go, not near one length. */
+int lb_fill(const char *text, int maxw, int cap, lb_width_fn width,
+            void *ctx, char lines[][LB_LINE]);
 
 /* Where an edge `at` units into `text` falls between its characters: into
  * *in the end of the last character that ends at or before `at`, 0 when none

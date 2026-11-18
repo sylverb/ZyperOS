@@ -25,12 +25,17 @@
 # No patch of ours; mk/core-stamp.sh stamps it all the same, so a core built
 # from another commit is never put on a card.
 #
+# Glide64 embeds __DATE__ ("G64 Mk2Date: …"), so the sha256 would change every
+# day. SOURCE_DATE_EPOCH freezes that to the day the pin below was first
+# produced (Nov 8 2026 UTC).
+#
 # Usage: mk/build-parallel-n64.sh [work dir]
 set -e
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 SRC=${1:-/tmp/zyperos-parallel-n64}
 PIN=334998e6129debe50f7ef9c5cd1e995460ae2da8   # libretro/parallel-n64, ROGUE OS's "2.0-rc2 334998e"
 TAR_SHA=8fa8b47f718c8f8d003108c22c67b906995c8315aa9dd385eb413bb70b68d7d7
+SOURCE_DATE_EPOCH=1794096000   # 2026-11-08T00:00:00Z; __DATE__ "Nov  8 2026"
 SHA=ecbf976ef2c1c0b88ab92ed8cc8f2c5cf4afc3293ed6ba27559be5a621bcbaba
 
 command -v docker >/dev/null || { echo "need docker" >&2; exit 1; }
@@ -46,7 +51,7 @@ rm -rf "$SRC/parallel-n64-$PIN"
 tar -xzf "$TAR" -C "$SRC"
 
 docker run --rm --platform linux/arm64 -v "$SRC/parallel-n64-$PIN:/src" -w /src \
-	zyperos-flycast2021 bash -c '
+	-e SOURCE_DATE_EPOCH="$SOURCE_DATE_EPOCH" zyperos-flycast2021 bash -c '
 set -e
 make -j3 platform=unix-gles GIT_VERSION=" 334998e" \
 	CPUFLAGS="-DNO_ASM -DARM -DARM_ASM -DDONT_WANT_ARM_OPTIMIZATIONS -DARM_FIX -DCLASSIC -DARM64 -march=armv8-a+crc" >/dev/null 2>&1

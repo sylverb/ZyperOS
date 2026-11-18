@@ -215,7 +215,7 @@ static void title_path_beside(const char *menu, char *out, size_t n)
 #define MEMO_TEXT  256
 #define MEMO_LINES 3
 
-enum { MEMO_FREE, MEMO_WIDTH, MEMO_FIT, MEMO_BALANCE };
+enum { MEMO_FREE, MEMO_WIDTH, MEMO_FIT, MEMO_BALANCE, MEMO_FILL };
 
 typedef struct {
 	unsigned char kind;
@@ -1845,33 +1845,50 @@ static void balance_cut_note(const char *text, char lines[][LB_LINE], int n)
 }
 #endif
 
-int ui_balance_lines(TTF_Font *f, const char *text, int maxw, int cap,
-                     char lines[][LB_LINE])
+/* `text` broken by `brk` (lb_balance or lb_fill), measured in `f`, and
+ * remembered under `kind` when it is short enough to keep */
+typedef int (*lines_fn)(const char *text, int maxw, int cap, lb_width_fn width,
+                        void *ctx, char lines[][LB_LINE]);
+
+static int break_lines(int kind, lines_fn brk, TTF_Font *f, const char *text, int maxw,
+                       int cap, char lines[][LB_LINE])
 {
 	memo_entry *e;
 	int n;
 
 	if (!f) return 0;
 	if (cap < 1 || cap > MEMO_LINES || !memo_usable(text)) {
-		n = lb_balance(text, maxw, cap, ttf_width, f, lines);
+		n = brk(text, maxw, cap, ttf_width, f, lines);
 #ifdef I18N_PSEUDO
 		balance_cut_note(text, lines, n);
 #endif
 		return n;
 	}
-	if ((e = memo_find(MEMO_BALANCE, f, text, maxw, cap, 0))) {
+	if ((e = memo_find(kind, f, text, maxw, cap, 0))) {
 		memcpy(lines, e->out, (size_t)e->n * LB_LINE);
 		return e->n;
 	}
-	n = lb_balance(text, maxw, cap, ttf_width, f, lines);
+	n = brk(text, maxw, cap, ttf_width, f, lines);
 #ifdef I18N_PSEUDO
 	balance_cut_note(text, lines, n);
 #endif
 	if (n < 0 || n > cap) return n;
-	e = memo_slot(MEMO_BALANCE, f, text, maxw, cap, 0);
+	e = memo_slot(kind, f, text, maxw, cap, 0);
 	e->n = n;
 	memcpy(e->out, lines, (size_t)n * LB_LINE);
 	return n;
+}
+
+int ui_balance_lines(TTF_Font *f, const char *text, int maxw, int cap,
+                     char lines[][LB_LINE])
+{
+	return break_lines(MEMO_BALANCE, lb_balance, f, text, maxw, cap, lines);
+}
+
+int ui_fill_lines(TTF_Font *f, const char *text, int maxw, int cap,
+                  char lines[][LB_LINE])
+{
+	return break_lines(MEMO_FILL, lb_fill, f, text, maxw, cap, lines);
 }
 
 void ui_text_memo_clear(void)
@@ -4076,16 +4093,18 @@ static SDL_Texture *make_card(SDL_Renderer *r, const char *title, unsigned rgb,
 
 int ui_card_theme(SDL_Texture *t)
 {
-	void *p = t ? SDL_GetTextureUserData(t) : NULL;
+	uintptr_t p = (uintptr_t)(t ? SDL_GetTextureUserData(t) : NULL);
+	uintptr_t base = (uintptr_t)&card_made_for[0][0];
 	int i, g;
 
+	/* One of the marks, by its place among them (a table of every look
+	 * since Folder Color, too long to walk for each card a frame) */
+	if (p < base || p >= base + sizeof card_made_for) return -1;
+	i = (int)((p - base) / CARD_LOOKS);
+	g = (int)((p - base) % CARD_LOOKS);
 	/* A card of an older look reads as made for the other theme, which is
 	 * what makes it stale (tex_stale) and made again */
-	for (i = 0; i < DS_THEMES; i++)
-		for (g = 0; g < CARD_LOOKS; g++)
-			if (p == &card_made_for[i][g])
-				return g == look_id() ? i : (i == DS_DARK ? DS_LIGHT : DS_DARK);
-	return -1;
+	return g == look_id() ? i : (i == DS_DARK ? DS_LIGHT : DS_DARK);
 }
 
 SDL_Texture *ui_make_card_for(SDL_Renderer *r, const ui_card_order *o, int *w, int *h,

@@ -5,11 +5,12 @@
  * pressed saves the game and turns the handheld off. **Hold**: POWER held
  * for DS_MS_HOLD_POWER, one second (Tarik, 2026-11-17: "so make it 1
  * second"); a press does nothing but show how far a hold has to go. The
- * charging screen's Hold POWER to start keeps its own two seconds
- * (DS_MS_HOLD_UNLOCK). Asked for on the Discord (drmoze: "A long
- * press on the power button should be required to shut down. My Pixel shuts
- * down after a momentary press, which is too easy to do accidentally"), and
- * my pick to put it in MENU, Press staying the default.
+ * charging screen's Hold POWER to start is the same second (Tarik, 1.0.6),
+ * and takes the hold it starts with (powerhold_consume). Asked for on the
+ * Discord (drmoze: "A long press on the power button should be required to
+ * shut down. My Pixel shuts down after a momentary press, which is too easy
+ * to do accidentally"), and my pick to put it in MENU, Press staying the
+ * default.
  *
  * One rule for every place that reads the key: the launcher's input (every
  * screen's in_state, src/platform.c), its watch over a game (resident.c's

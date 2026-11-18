@@ -219,6 +219,7 @@ window.ZYPEROS_STRINGS = {
   "move.done_n": ["%1$d elemento movido a %2$s", "%1$d elementos movidos a %2$s"],
   "act.undo": "Deshacer",
   "move.undone": "Movimiento deshecho.",
+  "console.kept": "Las carpetas de consola se quedan donde están para que ZyperOS encuentre sus juegos.",
   "sel.count": ["%d seleccionado", "%d seleccionados"],
   "sel.all": "Seleccionar todo",
   "sel.clear": "Quitar la selección",
