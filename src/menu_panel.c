@@ -202,10 +202,10 @@ static void menu_zyper_draw(app *a, const SDL_Rect *panel, int pad)
 /* `fixed_w` is the content width to use, or 0 to size to these rows. The shelf
  * menus pass a width measured across both of them so the panel never resizes;
  * the in-game menu has no values to cycle and sizes to itself. */
-/* `accent` is whose menu it is: a system's color, the light it is lifted
- * with in Salt & Pepper (its heading rule is **edge** on every menu, Tarik's
- * for 1.0.6 rc.2), or MENU_ZYPEROS for a menu
- * that is no system's. The shelf's own menu passes MENU_ZYPEROS because that
+/* `accent` is whose menu it is: a system's color, or MENU_ZYPEROS for a menu
+ * that is no system's. Since 1.0.6 rc.2 (Tarik's) the panel draws nothing in
+ * it - its rule is **edge** and its light the neutral one on every menu -
+ * and it stays only as the callers' word until the cleanup after 1.0.6. The shelf's own menu passes MENU_ZYPEROS because that
  * menu is ZyperOS, not whichever card is under the cursor; a menu that
  * belongs to a system passes that system's color, CFG_NO_COLOR for one whose
  * line names none. It is never the focus, which is lime on every menu
@@ -767,9 +767,9 @@ void menu_panel(app *a, const char *heading, const menu_row *rows,
 	                          panel.y + panel.h - pad - content_y };
 
 	/* DESIGN.md 11.3: **surface** in an **edge** frame, lifted off what is
-	 * behind it - a shadow on Beard, light in the system's color in Salt &
-	 * Pepper, or a neutral light for a menu that is no system's. The frame and
-	 * the heading's rule are never the system's color. */
+	 * behind it - a shadow on Beard, a neutral light in Salt & Pepper - the
+	 * same on every menu, a system's too: no system's color on the panel,
+	 * its frame, its rule or its light (1.0.6 rc.2, Tarik's) */
 	/* Moving, the lift goes straight on the screen at the panel's size and
 	 * its strength, and the panel into the pass: a shadow or a glow drawn
 	 * into a clear texture and copied out with its alpha would be faded
@@ -777,7 +777,7 @@ void menu_panel(app *a, const char *heading, const menu_row *rows,
 	{
 		const ds_pass pass = { panel_scaled, menu_pass_begin, menu_pass_end, a };
 
-		posed = ds_panel_open(a->r, &panel, accent == MENU_ZYPEROS ? CFG_NO_COLOR : accent, pose, &pass);
+		posed = ds_panel_open(a->r, &panel, CFG_NO_COLOR, pose, &pass);
 	}
 
 	if (heading) {

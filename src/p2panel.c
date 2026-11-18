@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "config.h"   /* CFG_NO_COLOR: the neutral light */
 #include "design.h"
 #include "ds/panel.h"
 #include "hotpanel.h"
@@ -139,7 +140,7 @@ void p2panel_draw(SDL_Renderer *r, const p2panel *p, bool lift)
 	x0 = g.panel.x + P2P_PAD;
 	w = g.panel.w - 2 * P2P_PAD;
 	/* DESIGN.md 11.3: **surface** in an **edge** frame, lifted off the game */
-	ds_panel_slab(r, &g.panel, p->accent, lift);
+	ds_panel_slab(r, &g.panel, CFG_NO_COLOR, lift);   /* the neutral light, as every menu's */
 	ui_text(r, ui_font(UI_F_LABEL), p->heading ? p->heading : "", g.panel.x + g.panel.w / 2,
 	        ui_line_y(UI_F_LABEL, g.head_y), 0, UI_TEXT_SOFT);
 	/* The heading's rule in **edge**, as every menu's (1.0.6 rc.2) */
