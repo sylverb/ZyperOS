@@ -325,6 +325,11 @@ changed" and each one, with before and after sheets of what changed in
 change that means to change them. Not in `make check`: it builds twice and
 takes about 9,200 frames a side.
 
+`make clean-scratch` (`tools/clean-scratch.py`) deletes what the tools
+left and nothing touched for a day: `$TMPDIR/zyperos-*` (the shots' scratch
+cards, about 250 MB a language, from a run stopped hard) and each worktree's
+pixel gate frames; `SCRATCH=-n` only lists them.
+
 `--tour STEP [MS [DONE]]` draws a frame of the tutorial in place of the shelf:
 STEP is `lang` (the language step: its cursor steps a language a second,
 and `--tour-pick N` puts it on language N), `welcome`, `move`, `a`, `b`, `y`, `x`, `menu`, `select`, `vol`,
