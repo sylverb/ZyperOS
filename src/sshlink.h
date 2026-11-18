@@ -117,9 +117,9 @@ bool sshlink_dev_image(void);
  * computer on the cable find it in hours and then sign in as root. */
 void sshlink_note_web(int wrong);
 
-/* The screen's value for its SSH row, lowercase as status words are
- * (DESIGN.md 4): "waiting", "1 signed in", "locked", "dev image",
- * "not with Wi-Fi", "needs a key", "off". */
+/* The screen's value for its SSH row, begun with a capital as every row's
+ * value is (DESIGN.md 4): "Waiting", "1 signed in", "Locked", "Dev image",
+ * "Not with Wi-Fi", "Needs a key", "Off". */
 const char *sshlink_status(void);
 
 /* ---- the parts a host check can reach (tools/sshlink-check.c) ---------- */

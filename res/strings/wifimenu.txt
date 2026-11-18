@@ -3,37 +3,37 @@
 # networks' own.
 
 [wifimenu.strong]
-note = A network's signal. Lowercase. es: la señal; pt-BR and fr: o sinal, le signal
-en = strong
+note = A network's signal. Begun with a capital. es: la señal; pt-BR and fr: o sinal, le signal
+en = Strong
 zh-Hans = 强
-es = fuerte
-pt-BR = forte
-fr = fort
-de = stark
+es = Fuerte
+pt-BR = Forte
+fr = Fort
+de = Stark
 ja = 強い
-it = forte
+it = Forte
 
 [wifimenu.good]
-note = A network's signal. Lowercase.
-en = good
+note = A network's signal. Begun with a capital.
+en = Good
 zh-Hans = 良好
-es = buena
-pt-BR = bom
-fr = bon
-de = gut
+es = Buena
+pt-BR = Bom
+fr = Bon
+de = Gut
 ja = 良好
-it = buono
+it = Buono
 
 [wifimenu.weak]
-note = A network's signal. Lowercase.
-en = weak
+note = A network's signal. Begun with a capital.
+en = Weak
 zh-Hans = 弱
-es = débil
-pt-BR = fraco
-fr = faible
-de = schwach
+es = Débil
+pt-BR = Fraco
+fr = Faible
+de = Schwach
 ja = 弱い
-it = debole
+it = Debole
 
 [wifimenu.signal_connected]
 note = A network's value: %s is its signal (strong), and it is the one joined. es and pt-BR: la red, a rede
@@ -69,15 +69,15 @@ ja = %s - 保護なし
 it = %s - aperta
 
 [wifimenu.saved]
-note = A saved network's value before the scan has heard it. Lowercase.
-en = saved
+note = A saved network's value before the scan has heard it. Begun with a capital.
+en = Saved
 zh-Hans = 已保存
-es = guardada
-pt-BR = salva
-fr = enregistré
-de = gespeichert
+es = Guardada
+pt-BR = Salva
+fr = Enregistré
+de = Gespeichert
 ja = 保存済み
-it = salvata
+it = Salvata
 
 [wifimenu.turn_on]
 note = The note under the switch with the radio off

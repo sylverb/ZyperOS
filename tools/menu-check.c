@@ -107,7 +107,7 @@ static void scanning_state(void)
 	ck(n == 5, "switch, two networks, rule, note");
 	ck(live_count(rows, n) == 3, "switch and both networks are choosable");
 	ck(!strcmp(rows[1].label, "ReinFi"), "the first saved network is listed");
-	ck(!strcmp(rows[1].value, "saved"), "no signal word before the scan lands");
+	ck(!strcmp(rows[1].value, "Saved"), "no signal word before the scan lands");
 	ck(rule_at(rows, n) == 3, "rule after the networks");
 	ck(!strcmp(rows[4].label, "Scanning..."), "footer says what is happening");
 	ck(ROW_IS_NOTE(rows[4]), "the progress line is a note");
@@ -135,14 +135,14 @@ static void scanned_state(void)
 
 	printf("scan done, one unsaved network:\n");
 	ck(n == 4, "switch, network, rule, note");
-	ck(!strcmp(rows[1].value, "strong"), "-55 dBm reads as strong");
+	ck(!strcmp(rows[1].value, "Strong"), "-55 dBm reads as strong");
 	ck(!strcmp(legend_text(rows[3].label), "Y: rescan"), "no forget offered with nothing saved");
 
 	w.nets[0].known = true;
 	wifi_label(&w);
 	n = wifi_build(&w, rows, 64, &heading);
 	ck(!strcmp(legend_text(rows[3].label), "Y: rescan   X: forget"), "forget offered once saved");
-	ck(!strcmp(rows[1].value, "strong - saved"), "a saved network in range shows both");
+	ck(!strcmp(rows[1].value, "Strong - saved"), "a saved network in range shows both");
 }
 
 /* The Wi-Fi screen's footer, in every state it has: where it names a button
@@ -196,11 +196,11 @@ static void wifi_footer_is_a_legend(void)
 static void strength_words(void)
 {
 	printf("signal words:\n");
-	ck(!strcmp(wifi_strength(-40), "strong"), "-40 strong");
-	ck(!strcmp(wifi_strength(-60), "strong"), "-60 is the strong boundary");
-	ck(!strcmp(wifi_strength(-61), "good"),   "-61 good");
-	ck(!strcmp(wifi_strength(-72), "good"),   "-72 is the good boundary");
-	ck(!strcmp(wifi_strength(-73), "weak"),   "-73 weak, the measured cliff");
+	ck(!strcmp(wifi_strength(-40), "Strong"), "-40 strong");
+	ck(!strcmp(wifi_strength(-60), "Strong"), "-60 is the strong boundary");
+	ck(!strcmp(wifi_strength(-61), "Good"),   "-61 good");
+	ck(!strcmp(wifi_strength(-72), "Good"),   "-72 is the good boundary");
+	ck(!strcmp(wifi_strength(-73), "Weak"),   "-73 weak, the measured cliff");
 }
 
 /* A build must never write past what it was given. */
@@ -262,11 +262,11 @@ static void zyperos_menu_offline(void)
 	ck(n == PM_ROWS, "every row is filled");
 	ck(!strcmp(heading, "ZyperOS"), "heading");
 	ck(!strcmp(val(&rows[PM_WIFI]), "Off"), "Wi-Fi reads Off, its switch's value");
-	ck(!strcmp(val(&rows[PM_XFER]), "needs Wi-Fi"), "OTH says why it is dead");
+	ck(!strcmp(val(&rows[PM_XFER]), "Needs Wi-Fi"), "OTH says why it is dead");
 	ck(!rows[PM_XFER].live, "OTH is not selectable offline");
 	ck(!strcmp(rows[PM_SCRAPER].label, "Scraper") && rows[PM_SCRAPER].live,
 	   "Scraper is live offline: its Video Snaps and sources need no network");
-	ck(!strcmp(val(&rows[PM_ACHIEVEMENTS]), "sign in"), "Achievements invites a sign in");
+	ck(!strcmp(val(&rows[PM_ACHIEVEMENTS]), "Sign in"), "Achievements invites a sign in");
 	ck(rows[PM_ACHIEVEMENTS].live, "Achievements is reachable signed out");
 	ck(!strcmp(val(&rows[PM_SLEEP]), "2 min"), "120 s reads as 2 min");
 	ck(!strcmp(rows[PM_CLOCK].label, "Date & Time") &&
@@ -281,14 +281,14 @@ static void zyperos_menu_offline(void)
 	 * to in order to say "not Bluetooth", so it must not vanish with the thing
 	 * it refuses. */
 	ck(rows[PM_AUDIO].live, "Audio Output is reachable offline");
-	ck(!strcmp(val(&rows[PM_AUDIO]), "auto (speaker)"),
+	ck(!strcmp(val(&rows[PM_AUDIO]), "Auto (Speaker)"),
 	   "and Auto names where it landed rather than only saying Auto");
 	/* Directly under it, and as reachable: someone who hears with one ear
 	 * needs it with no radio and no cable as much as with both. */
 	ck(PM_CHANNELS == PM_AUDIO + 1, "Audio Channels sits under Audio Output");
 	ck(!strcmp(rows[PM_CHANNELS].label, "Audio Channels") && rows[PM_CHANNELS].live,
 	   "Audio Channels is reachable offline");
-	ck(!strcmp(val(&rows[PM_CHANNELS]), "stereo"), "and reads stereo until it is set");
+	ck(!strcmp(val(&rows[PM_CHANNELS]), "Stereo"), "and reads stereo until it is set");
 }
 
 /* The row names the choice, not what a speaker makes of it: mono left stays
@@ -300,7 +300,7 @@ static void channels_row(void)
 	menu_row rows[MENU_MAX_ROWS];
 	const char *heading;
 	static const char *const want[AOUT_CHANNELS_COUNT] = {
-		"stereo", "mono", "mono left", "mono right", "auto (stereo)",
+		"Stereo", "Mono", "Mono left", "Mono right", "Auto (Stereo)",
 	};
 	int c;
 
@@ -317,7 +317,7 @@ static void channels_row(void)
 	u.audio_channels = AOUT_CHANNELS_AUTO;
 	u.audio_mix = AOUT_MONO;
 	sys_menu_build(&u, rows, &b, &heading);
-	ck(!strcmp(val(&rows[PM_CHANNELS]), "auto (mono)"), "Auto names the mix it makes");
+	ck(!strcmp(val(&rows[PM_CHANNELS]), "Auto (Mono)"), "Auto names the mix it makes");
 }
 
 /* The row has to say a PLACE. "Auto" alone makes the player guess which of
@@ -348,7 +348,7 @@ static void gm_disc_row_only_with_discs(void)
 	   at + 1 == gm_row_at(&u, GT_GAME, GM_CHEEVOS), "with 3 discs: right after Quick Slot");
 	ck(at >= 0 && !strcmp(rows[at].label, "Disc") && !strcmp(val(&rows[at]), "Disc 2 of 3") &&
 	   rows[at].live && b.sound[at], "Disc says Disc 2 of 3, and steps round");
-	u.player2 = true; u.player2_value = "off";
+	u.player2 = true; u.player2_value = "Off";
 	n = gm_rows(&u, GT_GAME, rows, &b);
 	ck(n == 9 && gm_row_at(&u, GT_GAME, GM_PLAYER2) == gm_row_at(&u, GT_GAME, GM_DISC) + 1,
 	   "Player 2 follows Disc");
@@ -461,24 +461,24 @@ static void audio_row(void)
 	u.audio_policy = AOUT_AUTO;
 	u.audio_dest = AOUT_WIRED;
 	sys_menu_build(&u, rows, &b, &heading);
-	ck(!strcmp(val(&rows[PM_AUDIO]), "auto (wired)"), "auto, on a cable");
+	ck(!strcmp(val(&rows[PM_AUDIO]), "Auto (Wired)"), "auto, on a cable");
 
 	u.audio_dest = AOUT_BT;
 	sys_menu_build(&u, rows, &b, &heading);
-	ck(!strcmp(val(&rows[PM_AUDIO]), "auto (bluetooth)"), "auto, on a headset");
+	ck(!strcmp(val(&rows[PM_AUDIO]), "Auto (Bluetooth)"), "auto, on a headset");
 
 	/* Pinned says the place with no "auto", because there is no rule left to
 	 * describe - it is just where the sound is. */
 	u.audio_policy = AOUT_SPEAKER;
 	u.audio_dest = AOUT_SPK;
 	sys_menu_build(&u, rows, &b, &heading);
-	ck(!strcmp(val(&rows[PM_AUDIO]), "speaker"), "pinned reads as the place");
+	ck(!strcmp(val(&rows[PM_AUDIO]), "Speaker"), "pinned reads as the place");
 
 	/* Pinned to Speaker with a cable in is still the cable: the pin refuses
 	 * Bluetooth, never the jack. */
 	u.audio_dest = AOUT_WIRED;
 	sys_menu_build(&u, rows, &b, &heading);
-	ck(!strcmp(val(&rows[PM_AUDIO]), "wired"),
+	ck(!strcmp(val(&rows[PM_AUDIO]), "Wired"),
 	   "and a cable still shows through the Speaker pin");
 }
 
@@ -528,9 +528,9 @@ static void look_rows(void)
 	ck(!strcmp(rows[PM_SHADER].label, "Shader") && !strcmp(val(&rows[PM_SHADER]), "Off") &&
 	   rows[PM_SHADER].live, "Shader, Off when nothing is said, a stop");
 	ck(b.sound[PM_SHADER] == MENU_SND_RING, "it steps round, on A too");
-	u.shader_all = "per system";
+	u.shader_all = "Per system";
 	sys_menu_build(&u, rows, &b, &heading);
-	ck(!strcmp(val(&rows[PM_SHADER]), "per system"), "and says what it is given");
+	ck(!strcmp(val(&rows[PM_SHADER]), "Per system"), "and says what it is given");
 	u.shader_all = NULL;
 
 	/* Strength, every system's (2026-11-14, src/strength.h): right under
@@ -542,9 +542,9 @@ static void look_rows(void)
 	ck(!strcmp(rows[PM_STRENGTH].label, "Strength") && !strcmp(val(&rows[PM_STRENGTH]), "100%") &&
 	   rows[PM_STRENGTH].live, "Strength, 100% when nothing is said, a stop");
 	ck(b.sound[PM_STRENGTH] == MENU_SND_NO_A, "left and right step it, A does nothing");
-	u.strength_all = "per system";
+	u.strength_all = "Per system";
 	sys_menu_build(&u, rows, &b, &heading);
-	ck(!strcmp(val(&rows[PM_STRENGTH]), "per system"), "and says what it is given");
+	ck(!strcmp(val(&rows[PM_STRENGTH]), "Per system"), "and says what it is given");
 	u.strength_all = NULL;
 	{
 		pm_row all[PM_ROWS];
@@ -663,7 +663,7 @@ static void zyperos_menu_online(void)
 	ck(rows[PM_SCRAPER].live && !rows[PM_SCRAPER].value,
 	   "Scraper is live, with no value before a count");
 	ck(!strcmp(val(&rows[PM_ACHIEVEMENTS]), "eric"), "Achievements shows the account");
-	ck(!strcmp(val(&rows[PM_SLEEP]), "never"), "0s reads as never");
+	ck(!strcmp(val(&rows[PM_SLEEP]), "Never"), "0s reads as never");
 
 	/* ONE ROW, SCRAPER, where Box Art was: the run, Video Snaps and the
 	 * three sources behind it (My picks in the Scraper lab, 2026-11-06;
@@ -689,7 +689,7 @@ static void zyperos_menu_online(void)
 		ssp_row pid[SSP_ROWS];
 		int m = sys_menu_ss_rows(true, NULL, NULL, pr, pid), j, unlink = 0;
 
-		ck(pid[0] == SSP_ACCOUNT && !strcmp(val(&pr[0]), "none") && pr[0].live,
+		ck(pid[0] == SSP_ACCOUNT && !strcmp(val(&pr[0]), "None") && pr[0].live,
 		   "ScreenScraper's page: Account, none, live to link one");
 		for (j = 0; j < m; j++) if (pid[j] == SSP_UNLINK) unlink++;
 		ck(!unlink, "and nothing to unlink");
@@ -697,7 +697,7 @@ static void zyperos_menu_online(void)
 		for (j = 0; j < m; j++) if (pid[j] == SSP_UNLINK) unlink++;
 		ck(!strcmp(val(&pr[0]), "tarik") && unlink == 1, "linked: the account, and Unlink");
 		m = sys_menu_ss_rows(false, NULL, NULL, pr, pid);
-		ck(!pr[0].live && !strcmp(val(&pr[0]), "not in this build"), "a build without its key says so");
+		ck(!pr[0].live && !strcmp(val(&pr[0]), "Not in this build"), "a build without its key says so");
 	}
 	{
 		menu_row sr[SG_ROWS];
@@ -706,15 +706,15 @@ static void zyperos_menu_online(void)
 		int m = sys_menu_sgdb_rows(NULL, NULL, sr, ids), j, notes = 0;
 
 		ck(m <= SG_ROWS, "SteamGridDB's page fits SG_ROWS");
-		ck(ids[0] == SG_KEY && !strcmp(sr[0].label, "Key") && !strcmp(val(&sr[0]), "none")
+		ck(ids[0] == SG_KEY && !strcmp(sr[0].label, "Key") && !strcmp(val(&sr[0]), "None")
 		   && sr[0].live, "SteamGridDB's page with no key: Key, none, live to type one");
 		for (j = 0; j < m; j++) {
 			ck(ids[j] != SG_REMOVE && ids[j] != SG_STATUS, "and nothing to unlink");
 			if (sr[j].value == MENU_NOTE_MARK) notes++;
 		}
 		ck(notes == 2, "two notes say where a key comes from");
-		m = sys_menu_sgdb_rows(masked, "works", sr, ids);
-		ck(m <= SG_ROWS && ids[1] == SG_STATUS && !strcmp(val(&sr[1]), "works") &&
+		m = sys_menu_sgdb_rows(masked, "Works", sr, ids);
+		ck(m <= SG_ROWS && ids[1] == SG_STATUS && !strcmp(val(&sr[1]), "Works") &&
 		   !sr[1].live, "with a key: its status, which is not a button");
 		ck(ids[2] == SG_REMOVE && !strcmp(sr[2].label, "Unlink") && sr[2].live,
 		   "and Unlink, live");
@@ -734,7 +734,7 @@ static void zyperos_menu_online(void)
 		for (j = 0; j < m; j++) ck(!vr[j].label || strcmp(vr[j].label, "Fetch with Box Art"),
 		                            "no Fetch with Box Art row: the Systems grid gets them");
 		ck(vid[0] == SN_PLAY && !strcmp(val(&vr[0]), "On") && vr[0].live, "playing is On to start");
-		ck(vid[1] == SN_SOUND && !strcmp(val(&vr[1]), "muted"), "and muted to start");
+		ck(vid[1] == SN_SOUND && !strcmp(val(&vr[1]), "Muted"), "and muted to start");
 		ck(vid[3] == SN_CONSOLE && con[3] == 0 && !strcmp(vr[3].label, "SNES") &&
 		   !strcmp(val(&vr[3]), "On \xc2\xb7 212 MB"), "a console with its room and its switch");
 		ck(vid[4] == SN_CONSOLE && !strcmp(val(&vr[4]), "Off \xc2\xb7 0 KB"), "one turned off");
@@ -817,11 +817,11 @@ static void wifi_row_wording(void)
 
 	u.wifi = WIFI_CONNECTING;
 	sys_menu_build(&u, rows, &b, &heading);
-	ck(!strcmp(val(&rows[PM_WIFI]), "connecting"), "connecting");
+	ck(!strcmp(val(&rows[PM_WIFI]), "Connecting"), "connecting");
 
 	u.wifi = WIFI_IDLE;
 	sys_menu_build(&u, rows, &b, &heading);
-	ck(!strcmp(val(&rows[PM_WIFI]), "not connected"), "up but unassociated");
+	ck(!strcmp(val(&rows[PM_WIFI]), "Not connected"), "up but unassociated");
 
 	/* Connected with no name yet: better to say nothing useful than to print
 	 * an empty value where a network name belongs. */
@@ -901,7 +901,7 @@ static void system_menu(void)
 	u.wifi = WIFI_OFF;
 	sys_menu_build(&u, rows, &b, &heading);
 	ck(!rows[sm_at(&u, SM_BOXART)].live, "Box Art dies with the radio");
-	ck(!strcmp(val(&rows[sm_at(&u, SM_BOXART)]), "needs Wi-Fi"), "and says why");
+	ck(!strcmp(val(&rows[sm_at(&u, SM_BOXART)]), "Needs Wi-Fi"), "and says why");
 	ck(rows[sm_at(&u, SM_RESCAN)].live, "Rescan does not need a network");
 
 	/* Favorites, which is not a system: no core and no folder, so four of the
@@ -966,7 +966,7 @@ static void system_menu(void)
 		ck(!strcmp(mrows[2].label, "Shuffle All") && mrows[2].live && !val(&mrows[2])[0],
 		   "Shuffle All, live whether or not anything plays");
 		ck(!strcmp(mrows[3].label, "Lock Screen") && !mrows[3].live &&
-		   !strcmp(val(&mrows[3]), "while playing"),
+		   !strcmp(val(&mrows[3]), "While playing"),
 		   "Lock Screen, dead and saying why with nothing playing");
 		ck(!strcmp(mrows[4].label, "Album Art") && mrows[4].live,
 		   "covers to fetch, on a network");
@@ -980,7 +980,7 @@ static void system_menu(void)
 		m.wifi = WIFI_OFF;
 		sys_menu_build(&m, mrows, &mb, &mhead);
 		ck(!strcmp(val(&mrows[1]), "Album"), "the order it is in");
-		ck(!mrows[4].live && !strcmp(val(&mrows[4]), "needs Wi-Fi"),
+		ck(!mrows[4].live && !strcmp(val(&mrows[4]), "Needs Wi-Fi"),
 		   "Album Art says why it cannot, off the network");
 		ck(mrows[1].live && mrows[2].live && mrows[5].live,
 		   "and neither Sort By, Shuffle All nor Rescan Folder needs one");
@@ -1066,7 +1066,7 @@ static void auto_off_words(void)
 {
 	char s[16];
 	struct { int sec; const char *want; } t[] = {
-		{ 0, "never" }, { 30, "30 s" }, { 60, "1 min" },
+		{ 0, "Never" }, { 30, "30 s" }, { 60, "1 min" },
 		{ 120, "2 min" }, { 300, "5 min" }, { 600, "10 min" },
 	};
 	size_t i;
@@ -1269,7 +1269,7 @@ static void cursor_reaches(void)
 		h.hotspot = true;
 		sys_menu_build(&h, hr, &hb, &hh);
 		printf("ZyperOS menu, no network, an adapter that can host one:\n");
-		ck(hr[PM_XFER].live && !strcmp(val(&hr[PM_XFER]), "hotspot"),
+		ck(hr[PM_XFER].live && !strcmp(val(&hr[PM_XFER]), "Hotspot"),
 		   "Wi-Fi File Transfer is live and says it makes a hotspot");
 		ck(hr[PM_SCRAPER].live, "Scraper opens: its fetch says it needs a real network");
 		h.wifi = WIFI_CONNECTED;
@@ -1769,7 +1769,7 @@ static void info_rows(void)
 	ck(!strcmp(val(&rows[0]), "12 of 78"), "and carries the count");
 	ck(rows[0].live, "and opens the set, the way the in-game row does");
 	ck(!strcmp(rows[1].label, "Cover and Video"), "art present: Cover and Video");
-	ck(!strcmp(val(&rows[1]), "no video"), "says what is missing: the video");
+	ck(!strcmp(val(&rows[1]), "No video"), "says what is missing: the video");
 	ck(rows[1].live, "and opens its page");
 	ck(!strcmp(rows[2].label, "Delete Game"), "Delete Game last");
 	ck(rows[2].live && !rows[2].value, "live, with no value: the question says what goes");
@@ -1790,7 +1790,7 @@ static void info_rows(void)
 	printf("game info, no set, no art and no network:\n");
 	ck(!rows[0].live, "a game with no set has nothing to open");
 	ck(!strcmp(rows[1].label, "Cover and Video"), "no art: the same row");
-	ck(!strcmp(val(&rows[1]), "no cover"), "and says the cover is what is missing");
+	ck(!strcmp(val(&rows[1]), "No cover"), "and says the cover is what is missing");
 	ck(rows[1].live, "live with no network: the page shows what is on the card");
 	ck(!strcmp(rows[2].label, "Delete Game") && rows[2].live,
 	   "Delete Game needs no network");
@@ -1860,7 +1860,7 @@ static void info_rows(void)
 	gi.has_synopsis = false;
 	n = gi_rows(rows, &gi, true);
 	printf("game info, scraped with no prose:\n");
-	ck(!strcmp(val(&rows[0]), "none"), "Synopsis says none");
+	ck(!strcmp(val(&rows[0]), "None"), "Synopsis says none");
 	ck(!rows[0].live, "and does nothing, the way the in-game Achievements row does");
 
 	gi.year[0] = '\0';
@@ -1991,7 +1991,7 @@ static void ingame_rows(void)
 	   ids[5] == GM_CHEEVOS && ids[7] == GM_QUIT, "and the ids say the same");
 	ck(!strcmp(val(&rows[3]), "2") && rows[3].live && !strcmp(val(&rows[5]), "12 / 40"),
 	   "Quick Slot says its slot, Achievements counts the set");
-	ck(!strcmp(val(&rows[4]), "off") && rows[4].live && !b.sound[4], "Player 2 says off, a plain stop");
+	ck(!strcmp(val(&rows[4]), "Off") && rows[4].live && !b.sound[4], "Player 2 says off, a plain stop");
 	ck(reachable(rows, n, got, GM_MAX_ROWS) == 8, "every row is a stop");
 	/* X from anywhere is Quit's, and Quit alone carries X's glyph */
 	ck(gm_x_row() == GM_QUIT && rows[7].value == MENU_KEY_X, "X is Quit's, and Quit draws X's glyph");
@@ -2017,7 +2017,7 @@ static void ingame_rows(void)
 	u.earned = 0; u.total = 0;
 	n = gm_rows(&u, GT_GAME, rows, &b);
 	printf("in-game menu, a game with no set:\n");
-	ck(!strcmp(val(&rows[gm_row_at(&u, GT_GAME, GM_CHEEVOS)]), "none"), "Achievements says none");
+	ck(!strcmp(val(&rows[gm_row_at(&u, GT_GAME, GM_CHEEVOS)]), "None"), "Achievements says none");
 	ck(rows[gm_row_at(&u, GT_GAME, GM_CHEEVOS)].live, "and is a stop, A turning to its tab");
 	k = reachable(rows, n, got, GM_MAX_ROWS);
 	ck(k == n && holds(got, k, gm_row_at(&u, GT_GAME, GM_CHEEVOS)),
@@ -2586,7 +2586,7 @@ static void ctl_tab(void)
 		ck(n == nch && !strcmp(pb.head, "Y: PlayStation"), "the choices of Y, under \"Y: PlayStation\"");
 		ck(sel == 1 && rows[1].value == MENU_TICK && !strcmp(lbl(&rows[1]), PAD_CROSS),
 		   "a tick on cross, what it gives now, the cursor on it");
-		ck(!strcmp(val(&rows[3]), "default") && !strcmp(lbl(&rows[3]), PAD_SQUARE), "default on square");
+		ck(!strcmp(val(&rows[3]), "Default") && !strcmp(lbl(&rows[3]), PAD_SQUARE), "default on square");
 		for (k = 0, i = 0; k < n; k++) i += rows[k].live;
 		ck(i == n, "every choice can be taken");
 		n = ct_pick_rows(&m, RM_A, ch, nch, rows, &pb, &sel);
@@ -2652,17 +2652,17 @@ static void player2_row_on_nes_only(void)
 	ck(n == 8, "eight rows with it");
 	ck(at == gm_row_at(&u, GT_GAME, GM_QUICK) + 1 && at + 1 == gm_row_at(&u, GT_GAME, GM_CHEEVOS),
 	   "right after Quick Slot, before Achievements");
-	ck(at >= 0 && !strcmp(rows[at].label, "Player 2") && !strcmp(val(&rows[at]), "off"),
+	ck(at >= 0 && !strcmp(rows[at].label, "Player 2") && !strcmp(val(&rows[at]), "Off"),
 	   "Player 2, off until it is started");
 	ck(at >= 0 && rows[at].live && !b.sound[at], "a stop, and plain: A opens its page");
-	ck(!strcmp(gm_player2_value(P2_OFF), "off") &&
-	   !strcmp(gm_player2_value(P2_WAITING), "waiting") &&
-	   !strcmp(gm_player2_value(P2_CONNECTED), "connected"),
+	ck(!strcmp(gm_player2_value(P2_OFF), "Off") &&
+	   !strcmp(gm_player2_value(P2_WAITING), "Waiting") &&
+	   !strcmp(gm_player2_value(P2_CONNECTED), "Connected"),
 	   "its three values: off, waiting, connected");
-	ck(!strcmp(gm_player2_value(P2_FAILED), "off"), "and a start that failed reads off");
+	ck(!strcmp(gm_player2_value(P2_FAILED), "Off"), "and a start that failed reads off");
 	u.player2_value = gm_player2_value(P2_CONNECTED);
 	n = gm_rows(&u, GT_GAME, rows, &b);
-	ck(!strcmp(val(&rows[gm_row_at(&u, GT_GAME, GM_PLAYER2)]), "connected"), "the row says the value it is given");
+	ck(!strcmp(val(&rows[gm_row_at(&u, GT_GAME, GM_PLAYER2)]), "Connected"), "the row says the value it is given");
 	/* Over a port, none */
 	u.port = true;
 	ck(gm_row_at(&u, GT_GAME, GM_PLAYER2) == -1, "and none over a port");
@@ -2889,7 +2889,7 @@ static void saver_row(void)
 	const char *heading;
 	char s[16];
 	struct { int sec; const char *want; } t[] = {
-		{ 0, "off" }, { 30, "30 s" }, { 60, "1 min" }, { 120, "2 min" }, { 300, "5 min" }, { 600, "10 min" },
+		{ 0, "Off" }, { 30, "30 s" }, { 60, "1 min" }, { 120, "2 min" }, { 300, "5 min" }, { 600, "10 min" },
 	};
 	int n, k, i, found = 0;
 	size_t j;
@@ -2921,7 +2921,7 @@ static void saver_row(void)
 	n = sys_menu_build(&u, rows, &b, &heading);
 	for (i = 0, found = 0; i < n; i++)
 		if (rows[i].label && !strcmp(rows[i].label, "Screensaver"))
-			found += !strcmp(val(&rows[i]), "off");
+			found += !strcmp(val(&rows[i]), "Off");
 	ck(found == 1, "and off when it is off");
 	u.no_lights = true;
 	u.no_charge_limit = true;
@@ -3057,22 +3057,37 @@ static void lights_row(void)
 	ck(n == k && !has_label(rows, n, "Side Lights"), "a device without lights has no row");
 	for (i = 0; i < k; i++) ck(pm[i] != PM_LIGHTS, "and the list does not name it");
 
-	/* The page: the five parts, as I picked them in the side lights lab */
+	/* The page: the five parts, as I picked them in the side lights lab, and
+	 * Battery Level with the battery's two (my ask after testing 1.0.6) */
 	n = sys_menu_lights_rows(LIGHTS_ALL, page, ids);
-	ck(n == 5, "the page has five rows");
+	ck(n == 6, "the page has six rows");
 	ck(!strcmp(lbl(&page[0]), "Charging Bar") && !strcmp(lbl(&page[1]), "Low Battery") &&
-	   !strcmp(lbl(&page[2]), "Volume and Brightness") &&
-	   !strcmp(lbl(&page[3]), "Files and Covers") && !strcmp(lbl(&page[4]), "Achievements"),
-	   "named in the lab's order");
+	   !strcmp(lbl(&page[2]), "Battery Level") && !strcmp(lbl(&page[3]), "Volume and Brightness") &&
+	   !strcmp(lbl(&page[4]), "Files and Covers") && !strcmp(lbl(&page[5]), "Achievements"),
+	   "named in the lab's order, Battery Level third");
+	{
+		static const side_light_part want[6] = { LP_BAR, LP_LOW, LP_BATTERY, LP_LEVEL, LP_DONE, LP_CHEER };
+
+		for (i = 0; i < n; i++)
+			ck(page[i].live && !strcmp(val(&page[i]), "On") && ids[i] == want[i],
+			   "each On, live, and its part");
+	}
+	n = sys_menu_lights_rows(LIGHTS_DEFAULT, page, ids);
 	for (i = 0; i < n; i++)
-		ck(page[i].live && !strcmp(val(&page[i]), "On") && ids[i] == (side_light_part)i,
-		   "each On, live, and its part");
+		ck(!strcmp(val(&page[i]), i == 2 ? "Off" : "On"), "a new card: Battery Level Off, the rest On");
 	n = sys_menu_lights_rows(side_lights_flip(LIGHTS_ALL, LP_DONE), page, ids);
-	ck(!strcmp(val(&page[3]), "Off") && !strcmp(val(&page[2]), "On"), "a part off says Off");
+	ck(!strcmp(val(&page[4]), "Off") && !strcmp(val(&page[3]), "On"), "a part off says Off");
 	ck(!strcmp(side_lights_value(LIGHTS_ALL, buf, sizeof buf), "All on") &&
 	   !strcmp(side_lights_value(0, buf, sizeof buf), "Off") &&
 	   !strcmp(side_lights_value((1u << LP_BAR) | (1u << LP_CHEER), buf, sizeof buf), "2 on"),
 	   "the row's words");
+	ck(!strcmp(side_lights_value(LIGHTS_DEFAULT, buf, sizeof buf), "All on"),
+	   "a new card still reads All on, Battery Level off to start");
+	ck(!strcmp(side_lights_value(1u << LP_BATTERY, buf, sizeof buf), "1 on") &&
+	   !strcmp(side_lights_value((1u << LP_BAR) | (1u << LP_CHEER) | (1u << LP_BATTERY), buf, sizeof buf), "3 on") &&
+	   !strcmp(side_lights_value(LIGHTS_DEFAULT & ~(1u << LP_DONE), buf, sizeof buf), "4 on") &&
+	   !strcmp(side_lights_value(LIGHTS_ALL & ~(1u << LP_DONE), buf, sizeof buf), "5 on"),
+	   "Battery Level counts once another part is off");
 }
 
 /* How each row sounds (DESIGN.md 9): the class each build sets beside its

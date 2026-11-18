@@ -233,6 +233,10 @@ void ui_fit_frame(void);
  * Diatom to show): said as drawn to the host's check, which holds it to its
  * box where it is cut (ui_fit_text) */
 void ui_fit_drawn(const char *s);
+/* A menu row's value drawn (src/menu_panel.c), said to the host's check:
+ * one of the table's strings that begins with a small letter fails it
+ * (tools/i18n-shots.py). Nothing on the device. */
+void ui_fit_value(const char *s);
 /* A menu row's value `s`, `w` wide, in `room` of a row `row_w` wide: said
  * on a host when it fits by less than 2% of the row (see ui.c) */
 void ui_fit_tight(const char *s, int w, int room, int row_w);
