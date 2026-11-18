@@ -1238,6 +1238,13 @@ check-hwreport:
 	@$(CC) -std=gnu11 -Wall -Wextra -O1 -g -o build-native/hwreport-check tools/hwreport-check.c src/hwreport.c
 	@./build-native/hwreport-check
 
+# What the tools left in the temporary folder and the worktrees' gate frames
+# that nothing touched for a day (tools/clean-scratch.py; -n lists only):
+# scratch cards of runs stopped hard, about 250 MB a language
+.PHONY: clean-scratch
+clean-scratch:
+	@python3 tools/clean-scratch.py $(SCRATCH)
+
 # The same pixels, proved (tools/pixel-gate.py): every shot of check-i18n-shots
 # in every language and both themes, at BASE (origin/main) and here, compared
 # as decoded pixels, with sheets of what changed. Not in CHECKS: it builds the

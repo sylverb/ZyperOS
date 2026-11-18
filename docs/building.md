@@ -341,6 +341,12 @@ every language and theme. The full gate is a release candidate's. This
 tree's frames are deleted when the run ends (`--keep-frames` keeps them); the
 report and the sheets stay.
 
+`make clean-scratch` (`tools/clean-scratch.py`) deletes what the tools
+left and nothing touched for a day: `$TMPDIR/zyperos-*` (the shots' scratch
+cards, about 250 MB a language, from a run stopped hard) and each worktree's
+pixel gate frames. A folder a running process holds a file in, or sits in,
+is kept (lsof); `SCRATCH=-n` only lists them.
+
 `--tour STEP [MS [DONE]]` draws a frame of the tutorial in place of the shelf:
 STEP is `lang` (the language step: its cursor steps a language a second,
 and `--tour-pick N` puts it on language N), `welcome`, `move`, `a`, `b`, `y`, `x`, `menu`, `select`, `vol`,
