@@ -61,8 +61,12 @@ CHECKS = check-cheevos check-hare check-portal check-httpd check-idle check-task
 # prints a line as each ends and the whole log of any that failed. One after
 # another the suite took 167 s on an M3 (2026-11-06), with fifteen cores idle.
 .PHONY: $(CHECKS)
+# CHECKS_SKIP="check-a check-b" leaves those out: CI's Linux job names the
+# checks that do not pass on Linux yet, which its macOS job still runs.
+CHECKS_SKIP ?=
 check: check-prep
-	@python3 tools/check-run.py $(CHECKS)
+	@$(if $(strip $(CHECKS_SKIP)),echo "check: left out (CHECKS_SKIP): $(strip $(CHECKS_SKIP))")
+	@python3 tools/check-run.py $(filter-out $(CHECKS_SKIP),$(CHECKS))
 
 # What more than one check builds, built once before any of them starts: the
 # host launcher, which nine checks draw with, and the ScreenScraper header it
@@ -118,12 +122,13 @@ check-building-doc:
 
 # The simulator's tests (simulator/Tests: its VNC client, the px2sim link, the
 # state lines and the control socket's commands), with Swift's own build kept
-# in build-native/. Skipped where there is no Swift.
+# in build-native/. Skipped where there is no Swift, and off macOS: the
+# simulator is an AppKit app (Ubuntu's runner has Swift, and its build fails).
 check-simulator:
-	@if command -v swift > /dev/null 2>&1; then \
+	@if [ "$$(uname -s)" = Darwin ] && command -v swift > /dev/null 2>&1; then \
 		cd simulator && swift test --scratch-path ../build-native/simulator; \
 	else \
-		echo "check-simulator: skipped, no Swift"; \
+		echo "check-simulator: skipped, not macOS or no Swift"; \
 	fi
 
 # px2sim's choice of the keyboard it takes (plastron/.../px2sim/src/kbdsel.h):

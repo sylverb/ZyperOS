@@ -1,14 +1,7 @@
 # make check on every pull request and on main: the whole offline suite
-# (Makefile CHECKS, Diatom's included) on Linux. A failure keeps
-# build-native/check-logs as an artifact: one log a check, the failing one
-# printed in the job's output as well.
-#
-# Linux, not macOS, since 2026-11-17: GitHub has far fewer macOS runners, and
-# the macOS job sat in the queue for long and was cancelled before it started
-# when several pull requests were open. Every check runs on Linux (the host
-# launcher with SDL's dummy drivers, the pages in the runner's Chrome); the
-# one that needs a Mac, check-simulator (the Swift simulator's tests), has a
-# macOS job of its own, a few minutes long.
+# (Makefile CHECKS, Diatom's and the simulator's included) on macOS, the system
+# ZyperOS is written on. A failure keeps build-native/check-logs as an artifact:
+# one log a check, the failing one printed in the job's output as well.
 name: Check
 
 on:
@@ -26,25 +19,13 @@ concurrency:
 
 jobs:
   check:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    runs-on: macos-15
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
-      - name: SDL2, SQLite, xz, ALSA, curl and OpenSSL for the host launcher, Diatom and the checks, and ccache
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq pkg-config libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev \
-            libsqlite3-dev liblzma-dev zlib1g-dev libasound2-dev libcurl4-openssl-dev libssl-dev ccache
-
-      # The compile cache (mk/ccache.mk, where the Makefile has it) from the
-      # last run on this branch or main: a run compiles what changed
-      - uses: actions/cache@v4
-        with:
-          path: ~/.cache/zyperos/ccache
-          key: ccache-${{ runner.os }}-${{ github.sha }}
-          restore-keys: |
-            ccache-${{ runner.os }}-
+      - name: SDL2 for the host launcher and Diatom's desktop port, xz for CHD
+        run: brew install sdl2 sdl2_image sdl2_ttf xz
 
       - uses: actions/setup-python@v5
         with:
@@ -63,18 +44,47 @@ jobs:
           name: check-logs
           path: build-native/check-logs/
 
-  # The simulator's tests (check-simulator: Swift, AppKit's world), the one
-  # check that needs a Mac. make check skips it where there is no Swift.
-  simulator:
-    runs-on: macos-15
-    timeout-minutes: 15
+  # The same suite on Linux, beside the macOS job and not instead of it:
+  # Linux runners are many more than macOS ones, and this is the start of
+  # moving the suite there. Not trusted yet: the checks named in CHECKS_SKIP
+  # do not pass on Ubuntu (their first run, 2026-11-18: PNGs the shader demo
+  # writes otherwise, the portal and the play page in another Chrome, the
+  # shot checks' fonts, timing on four cores, Diatom's desktop port), so they
+  # run on macOS only until each is fixed and taken off the list.
+  check-linux:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
-      - name: make check-simulator
-        run: make check-simulator
+      - name: SDL2, SQLite, xz, ALSA, curl and OpenSSL for the host launcher, Diatom and the checks
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq pkg-config libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev \
+            libsqlite3-dev liblzma-dev zlib1g-dev libasound2-dev libcurl4-openssl-dev libssl-dev
 
-  # The device files the host job never compiles: the launcher's for the
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Pillow for the image checks
+        run: python -m pip install Pillow
+
+      - name: make check, but for the checks that do not pass on Linux yet
+        run: >
+          make check CHECKS_SKIP="check-hare check-portal check-raoffline check-radl
+          check-signin check-badges check-storage check-play check-spawn check-shaderdemo
+          check-wifi-watch check-launch-start check-putpace check-menu-rows check-diatom
+          check-i18n-shots"
+
+      - name: Keep the logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: check-logs-linux
+          path: build-native/check-logs/
+
+  # The device files the macOS job never compiles: the launcher's for the
   # GKD Pixel 2 and the TrimUI Brick with their profiles, and Diatom's ports,
   # syntax only against Ubuntu's headers (make check-device-compile), so a
   # device nobody is holding still fails here when it stops building.
