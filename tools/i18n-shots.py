@@ -32,7 +32,12 @@ what a longer translation would meet, which fails only with --strict.
 
 Shots, not pictures held to a reference: what is drawn is the launcher's own,
 and English's frames are held by the other shot checks. Each language has its
-own scratch cards, so the five run at once. Needs the launcher built (SDL2);
+own scratch cards, cloned from one set made once a run, so they run at once,
+one launcher a language and handheld (--jobs says otherwise). Stopped
+(Ctrl-C, SIGTERM, a closed terminal), each language ends after its shot and
+every scratch card goes. A pass is kept by the launcher's bytes and the
+inputs its verdict is made of, and the same again prints it and passes at
+once (ZYPEROS_SHOTS_CACHE=0 shoots anyway). Needs the launcher built (SDL2);
 skips cleanly without SDL2.
 """
 import argparse
@@ -45,6 +50,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -971,35 +977,98 @@ def all_systems_card(card):
 KNOWN_KEYS = set()
 
 
-def run_language(code, shots, binary, keep, theme="light", device="pixel2", first=True):
+# The scratch cards every run shoots from, by name
+CARDS = ["demo", "empty", "scummvm", "openbor", "ports", "all", "portdocs", "media", "pmcard", "psp",
+         "es", "systems"]
+
+
+def make_cards(top):
+    """Every scratch card under top/: made once a run (about 250 MB, 4 s on
+    an idle M3 and 20 s on a loaded one), then cloned for each language and
+    handheld (clone_cards), since no card says a language"""
+    cards = {name: top / name for name in CARDS}
+    R.demo_card(cards["demo"], None, {"artwork": {}})
+    R.systems_card(cards["systems"])
+    R.media_card(cards["media"])
+    R.es_card(cards["es"])
+    R.ports_card(cards["ports"])
+    R.portdocs_card(cards["portdocs"])
+    R.portdocs_card(cards["pmcard"])
+    (cards["pmcard"] / "Roms/Ports/PortMaster").mkdir()
+    (cards["pmcard"] / "Roms/Ports/PortMaster/pugwash").touch()
+    (cards["pmcard"] / "Roms/Ports/PortMaster/version").write_text("2026.11.12-1059\n")
+    R.demo_card(cards["all"], None, {"artwork": {}})
+    all_systems_card(cards["all"])
+    R.scummvm_card(cards["scummvm"])
+    R.openbor_card(cards["openbor"])
+    R.psp_card(cards["psp"])
+    R.card_dirs(cards["empty"])
+
+
+def clone(src, dst):
+    """src's tree as dst: cloned where the file system can (APFS's
+    clonefile, cp -c; a reflink on Btrfs or XFS), so copies share their
+    blocks and cost next to nothing, and copied where it cannot"""
+    if sys.platform == "darwin":
+        cmd = ["cp", "-cR", str(src), str(dst)]
+    else:
+        cmd = ["cp", "-a", "--reflink=auto", str(src), str(dst)]
+    if subprocess.call(cmd, stderr=subprocess.DEVNULL) != 0:
+        shutil.rmtree(dst, ignore_errors=True)
+        shutil.copytree(src, dst, symlinks=True)
+
+
+def clone_cards(template, tmp):
+    """The cards of make_cards into tmp/, a run's own to write: eighteen
+    runs share one copy's blocks and take a quarter of a second each"""
+    for name in CARDS:
+        clone(template / name, Path(tmp) / name)
+    return {name: Path(tmp) / name for name in CARDS}
+
+
+# What the launcher writes on a card while it is shot: its settings database
+# and boot.env (userdata/) and the library it scans (shared/.zyperos/), and
+# nothing else (2026-11-18, every shot of a language against a copy of the
+# cards). Each shot starts from the cards' own: a shot's frame was the
+# shots' before it too (a per-game remap one left put a row on Game Info and
+# swapped the PlayStation's keys on Controls), so the same screen drew
+# otherwise in a run of some shots than in a run of all, and the pixel gate
+# compared the two.
+STATE = ("userdata", "shared/.zyperos")
+
+
+def reset_state(template, card):
+    for sub in STATE:
+        shutil.rmtree(card / sub, ignore_errors=True)
+        src = template / card.name / sub
+        if src.exists():
+            clone(src, card / sub)
+
+
+# Set when the run is stopped (Ctrl-C, SIGTERM, a closed terminal): each
+# language's run ends after the shot it is taking, and its scratch cards go
+STOP = threading.Event()
+# Every scratch folder this run made, deleted at its end whatever happens
+SCRATCH = []
+
+
+def run_language(code, shots, binary, keep, theme="light", device="pixel2", first=True, template=None):
     notes, failures, data, drawn = [], [], {}, set()
     small_said = set()      # a value said once a language, on the first screen it is on
     with tempfile.TemporaryDirectory(prefix="zyperos-i18n-%s-" % code) as tmp:
-        cards = {"demo": Path(tmp) / "demo", "empty": Path(tmp) / "empty", "scummvm": Path(tmp) / "scummvm",
-                 "openbor": Path(tmp) / "openbor", "ports": Path(tmp) / "ports", "all": Path(tmp) / "all",
-                 "portdocs": Path(tmp) / "portdocs", "media": Path(tmp) / "media",
-                 "pmcard": Path(tmp) / "pmcard", "psp": Path(tmp) / "psp", "es": Path(tmp) / "es",
-                 "systems": Path(tmp) / "systems"}
-        R.demo_card(cards["demo"], None, {"artwork": {}})
-        R.systems_card(cards["systems"])
-        R.media_card(cards["media"])
-        R.es_card(cards["es"])
-        R.ports_card(cards["ports"])
-        R.portdocs_card(cards["portdocs"])
-        R.portdocs_card(cards["pmcard"])
-        (cards["pmcard"] / "Roms/Ports/PortMaster").mkdir()
-        (cards["pmcard"] / "Roms/Ports/PortMaster/pugwash").touch()
-        (cards["pmcard"] / "Roms/Ports/PortMaster/version").write_text("2026.11.12-1059\n")
-        R.demo_card(cards["all"], None, {"artwork": {}})
-        all_systems_card(cards["all"])
-        R.scummvm_card(cards["scummvm"])
-        R.openbor_card(cards["openbor"])
-        R.psp_card(cards["psp"])
-        R.card_dirs(cards["empty"])
+        SCRATCH.append(tmp)
+        if template is None:
+            make_cards(Path(tmp) / "template")
+            cards = clone_cards(Path(tmp) / "template", tmp)
+        else:
+            cards = clone_cards(template, tmp)
         out = keep if keep else Path(tmp) / "out"
         out.mkdir(parents=True, exist_ok=True)
         for name, (card_name, tag, flags) in shots.items():
+            if STOP.is_set():
+                break
             card = cards[card_name]
+            reset_state(template if template is not None else Path(tmp) / "template", card)
             focus = PORT_FOCUS.get(name) or CTL_FOCUS.get(name) or R.SHOT_FOCUS.get(name) or \
                 {"PS1": R.FOCUS + ".chd", "SCUMMVM": R.SCUMMVM_FOCUS, "OPENBOR": R.OPENBOR[0],
                  "PRT": "PortMaster.sh"}.get(tag, "")
@@ -1111,7 +1180,134 @@ def run_language(code, shots, binary, keep, theme="light", device="pixel2", firs
     return device, code, notes, failures, data, drawn
 
 
+def shot_list(only=()):
+    """{name: (card, tag, flags)}: every shot, or those named. The README's
+    but those of one language (menu-pt is that language's own), and EXTRA's.
+    tools/pixel-gate.py keys its kept base frames by it."""
+    shots = {k: v for k, v in R.SHOTS.items() if "--lang" not in v[2]}
+    shots.update(EXTRA)
+    if only:
+        shots = {k: v for k, v in shots.items() if k in only}
+    return shots
+
+
+def cache_dir():
+    if os.environ.get("ZYPEROS_SHOTS_CACHE_DIR"):
+        return Path(os.environ["ZYPEROS_SHOTS_CACHE_DIR"]).expanduser()
+    if sys.platform == "darwin":
+        return Path.home() / "Library" / "Caches" / "ZyperOS" / "i18n-shots"
+    return Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache") / "zyperos" / "i18n-shots"
+
+
+# What a verdict is made of besides the launcher: the cards and their files
+# (res/, the fixtures, the systems), the strings this reads the drawn text
+# against (res/strings, tools/i18n.py), the list of strings no shot draws,
+# and this tool and the one it takes its cards and shots from
+VERDICT_INPUTS = ["res", "tools/i18n-shots.py", "tools/readme-shots.py", "tools/i18n.py",
+                  "tools/i18n-unshot.txt", "tools/fixtures", "config/systems.cfg"]
+
+
+def verdict_key(binary, argv):
+    """A pass's key: the launcher's own bytes (rebuilt from the same source,
+    the same bytes), VERDICT_INPUTS as this tree has them, committed or not
+    (their git hashes, staged into a copy of this worktree's index), the
+    host's SDL, and the arguments. None when git cannot say."""
+    import hashlib
+    h = hashlib.sha256()
+    h.update(binary.read_bytes())
+    paths = [p for p in VERDICT_INPUTS if (ROOT / p).exists()]
+    with tempfile.TemporaryDirectory(prefix="zyperos-i18n-index-") as tmp:
+        index = Path(tmp) / "index"
+        real = subprocess.run(["git", "rev-parse", "--path-format=absolute", "--git-path", "index"],
+                              cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL).stdout.strip()
+        if real and Path(real).is_file():
+            shutil.copyfile(real, index)
+        env = dict(os.environ, GIT_INDEX_FILE=str(index))
+        if subprocess.call(["git", "add", "-A", "--", *paths], cwd=ROOT, env=env,
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL):
+            return None
+        tree = subprocess.run(["git", "write-tree"], cwd=ROOT, env=env, text=True,
+                              stdout=subprocess.PIPE, stderr=subprocess.DEVNULL).stdout.strip()
+        listing = subprocess.run(["git", "ls-tree", tree, "--", *paths], cwd=ROOT, text=True,
+                                 stdout=subprocess.PIPE, stderr=subprocess.DEVNULL).stdout
+    if not tree:
+        return None
+    libs = subprocess.run(["pkg-config", "--modversion", "sdl2", "SDL2_image", "SDL2_ttf"],
+                          text=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL).stdout
+    h.update(("\n".join([listing, libs, sys.platform, repr(argv)])).encode())
+    return h.hexdigest()
+
+
+class Tee:
+    """What is printed, printed and kept: a pass's words are kept with it"""
+    def __init__(self, out):
+        self.out, self.kept = out, []
+
+    def write(self, text):
+        self.kept.append(text)
+        return self.out.write(text)
+
+    def flush(self):
+        self.out.flush()
+
+
 def main():
+    """check() with the run's stops and its kept passes around it: a pass is
+    kept by verdict_key (ZYPEROS_SHOTS_CACHE_DIR; ~/Library/Caches/ZyperOS/
+    i18n-shots on a Mac), and the same launcher and inputs again print it
+    and pass at once (make check run again after a change to a document,
+    a check or the device's system). ZYPEROS_SHOTS_CACHE=0 shoots anyway.
+    Kept only for a run that writes nothing (no --keep, --coverage or
+    --write-unshot)."""
+    import signal
+
+    def stop(signum, frame):
+        raise KeyboardInterrupt
+    signal.signal(signal.SIGTERM, stop)
+    signal.signal(signal.SIGHUP, stop)
+    argv = sys.argv[1:]
+    writes = any(a.startswith(("--keep", "--coverage", "--write-unshot")) for a in argv)
+    key = kept = None
+    binary = ROOT / "build-native" / "zyperos"
+    for i, a in enumerate(argv):
+        if a == "--binary" and i + 1 < len(argv):
+            binary = Path(argv[i + 1]).resolve()
+        elif a.startswith("--binary="):
+            binary = Path(a.split("=", 1)[1]).resolve()
+    if not writes and os.environ.get("ZYPEROS_SHOTS_CACHE", "1") != "0" and binary.is_file():
+        key = verdict_key(binary, argv)
+        if key:
+            kept = cache_dir() / (key + ".txt")
+            if kept.is_file():
+                sys.stdout.write(kept.read_text(encoding="utf-8"))
+                print("(kept: the same launcher and inputs passed on %s; ZYPEROS_SHOTS_CACHE=0 "
+                      "shoots them again)" % time.strftime("%Y-%m-%d %H:%M", time.localtime(kept.stat().st_mtime)))
+                os.utime(kept)
+                return 0
+    tee = Tee(sys.stdout)
+    sys.stdout = tee
+    try:
+        code = check()
+    except KeyboardInterrupt:
+        STOP.set()
+        print("i18n-shots: stopped", file=sys.stderr)
+        code = 130
+    finally:
+        sys.stdout = tee.out
+        for d in SCRATCH:
+            shutil.rmtree(d, ignore_errors=True)
+    if code == 0 and kept is not None:
+        kept.parent.mkdir(parents=True, exist_ok=True)
+        tmp = kept.with_suffix(".%d.tmp" % os.getpid())
+        tmp.write_text("".join(tee.kept), encoding="utf-8")
+        os.replace(tmp, kept)
+        # The 200 passes used last
+        for old in sorted(kept.parent.glob("*.txt"), key=lambda p: p.stat().st_mtime)[:-200]:
+            old.unlink(missing_ok=True)
+    return code
+
+
+def check():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--keep", type=Path, help="keep the frames in DIR/<code>/, or DIR/<device>/<code>/ "
                     "for more than one handheld")
@@ -1137,24 +1333,32 @@ def main():
     if not binary.is_file():
         print("FAIL no build-native/zyperos: make native first", file=sys.stderr)
         return 1
-    # The README's shots of one language (menu-pt) are that language's own
-    shots = {k: v for k, v in R.SHOTS.items() if "--lang" not in v[2]}
-    shots.update(EXTRA)
-    if args.only:
-        shots = {k: v for k, v in shots.items() if k in args.only}
+    shots = shot_list(args.only)
     langs = args.lang or (i18n.CODES + [i18n.PSEUDO])
     keep = args.keep.resolve() if args.keep else None
     runs = [(d, c) for d in devices for c in langs]
 
+    # One launcher a language and handheld, as before 2026-11-18: fewer when
+    # the computer was loaded (its free cores) left a make check's run at two
+    # launchers under other sessions' load, 712.9 s where 18 at once took 166
+    jobs = max(1, min(args.jobs or len(runs), len(runs)))
+    results = {}
+    template = Path(tempfile.mkdtemp(prefix="zyperos-i18n-cards-"))
+    SCRATCH.append(str(template))
+    make_cards(template)
+
     def run(dc):
         d, c = dc
         out = None if not keep else keep / c if len(devices) == 1 else keep / d / c
-        return run_language(c, shots, binary, out, args.theme, d, d == devices[0])
-
-    results = {}
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, min(args.jobs or len(runs), len(runs)))) as pool:
-        for device, code, notes, failures, data, drawn in pool.map(run, runs):
-            results[(device, code)] = (notes, failures, data, drawn)
+        return run_language(c, shots, binary, out, args.theme, d, d == devices[0], template)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, min(jobs, len(runs)))) as pool:
+        try:
+            for device, code, notes, failures, data, drawn in pool.map(run, runs):
+                results[(device, code)] = (notes, failures, data, drawn)
+        except KeyboardInterrupt:
+            # Each run ends after its shot, and its cards go with it
+            STOP.set()
+            raise
 
     def texts(said):
         # the data each line names, whether it was cut or slides: a name
