@@ -36,15 +36,15 @@ ja = スマホ
 it = Telefoni
 
 [hotpanel.starting]
-note = The Phones row's value while the network starts. A lowercase value.
-en = starting
+note = The Phones row's value while the network starts. A value, begun with a capital.
+en = Starting
 zh-Hans = 正在启动
-es = iniciando
-pt-BR = iniciando
-fr = démarrage
-de = startet
+es = Iniciando
+pt-BR = Iniciando
+fr = Démarrage
+de = Startet
 ja = 起動中
-it = avvio
+it = Avvio
 
 [hotpanel.joined]
 note = The Phones row's value: how many phones joined the handheld's network.

@@ -76,6 +76,7 @@ void lights_parse(struct lights_cfg *c, const char *text)
 
 	snprintf(buf, sizeof buf, "%s", text ? text : "");
 	c->bar = c->low = 1;
+	c->battery = 0;   /* off whatever the first word, until a word says so */
 	more = PARTS_AFTER_AUTO;
 	for (p = strtok_r(buf, " \t\r\n", &save); p; p = strtok_r(NULL, " \t\r\n", &save)) {
 		int on = *p != '-';
@@ -98,6 +99,7 @@ void lights_parse(struct lights_cfg *c, const char *text)
 		else if (!strcmp(w, "level")) c->level = on;
 		else if (!strcmp(w, "done"))  c->done = on;
 		else if (!strcmp(w, "cheer")) c->cheer = on;
+		else if (!strcmp(w, "battery")) c->battery = on;
 	}
 	if (more >= 0)
 		c->level = c->done = c->cheer = more;
@@ -202,23 +204,26 @@ static int moving(const struct lights_cfg *c, struct lights_state *s, long now, 
  * in a loop, whether the part is on or off (Side Lights' own page is where
  * you look at them; 2026-11-13). Each loop is the part's own pattern, short:
  *
- *   bar    the bar filling from none to four, STEP_MS a light
- *   low    one red flash, then the two of the second stage
- *   level  up the eight steps, the half light blinking, then the red of
- *          silence
- *   done   the wave down, the wave up, then Done's climb
- *   cheer  the sparkle
+ *   bar      the bar filling from none to four, STEP_MS a light
+ *   low      one red flash, then the two of the second stage
+ *   level    up the eight steps, the half light blinking, then the red of
+ *            silence
+ *   done     the wave down, the wave up, then Done's climb
+ *   cheer    the sparkle
+ *   battery  the level as it is now, still, as Battery Level shows it
  */
-static const char *const PREVIEW_WORD[] = { NULL, "bar", "low", "level", "done", "cheer" };
+static const char *const PREVIEW_WORD[] = { NULL, "bar", "low", "level", "done", "cheer", "battery" };
 #define PV_LOW_MS   2600
 #define PV_LEVEL_MS 500                  /* a step of the level's */
 #define PV_DONE_MS  3000
 #define PV_CHEER_MS 1500
 
 /* The preview at t ms into it, and in *w the ms to its next change */
-static int preview_bits(int part, long t, int *w)
+static int preview_bits(const struct lights_state *s, int part, long t, int *w)
 {
 	switch (part) {
+	case PV_BATTERY:   /* still: it changes only with the battery */
+		return s->known ? lights_level_bits(s->pct) : 0;
 	case PV_BAR:
 		soon(w, STEP_MS - t % STEP_MS);
 		return greens((int)(t / STEP_MS % 5));
@@ -278,7 +283,7 @@ static int preview_parse(const char *line)
 
 	if (!strcmp(w, "off"))
 		return PV_NONE;
-	for (int i = PV_BAR; i <= PV_CHEER; i++)
+	for (int i = PV_BAR; i <= PV_BATTERY; i++)
 		if (!strcmp(w, PREVIEW_WORD[i]))
 			return i;
 	return -1;
@@ -361,6 +366,19 @@ static int bar(const struct lights_state *s, long now, int *w)
 	return greens(held + (int)(t / STEP_MS % steps));
 }
 
+/* Battery Level: the level all the time, still, the picture L2+R2 flashes,
+ * under everything else (my ask after testing 1.0.6, 2026-11-17: off the
+ * cable the lights were dark although there was battery). Off the cable, and
+ * on it when the bar is off: on and showing the level is what the row says.
+ * Under LOW off the cable it gives way to Low Battery's flash, which says
+ * the same and says how low; with Low Battery off it stays a steady red. */
+static int level_still(const struct lights_cfg *c, const struct lights_state *s)
+{
+	if (!s->plugged && s->pct < LOW && c->low)
+		return 0;
+	return lights_level_bits(s->pct);
+}
+
 /* The pattern now showing, or -1 when it is over */
 static int pattern(const struct lights_state *s, long now, int *w)
 {
@@ -434,10 +452,13 @@ static int low_red(const struct lights_cfg *c, const struct lights_state *s, lon
 int lights_frame(const struct lights_cfg *c, struct lights_state *s, long now, int *wait)
 {
 	int bits = 0, w = IDLE_MS, previewing = 0;
+
 	if (s->known && s->plugged && c->bar)
 		bits = bar(s, now, &w);
+	else if (s->known && c->battery)
+		bits = level_still(c, s);
 
-	/* Files moving, over the bar, for as long as they move */
+	/* Files moving, over the bar or the level, for as long as they move */
 	if (s->mv_on) {
 		int b = moving(c, s, now, &w);
 
@@ -445,7 +466,7 @@ int lights_frame(const struct lights_cfg *c, struct lights_state *s, long now, i
 			bits = b;
 	}
 
-	/* The newest pattern over the bar, for its time */
+	/* The newest pattern over the bar or the level, for its time */
 	if (s->ev != LE_NONE) {
 		int pw = IDLE_MS, b = pattern(s, now, &pw);
 
@@ -465,7 +486,7 @@ int lights_frame(const struct lights_cfg *c, struct lights_state *s, long now, i
 		} else {
 			long t = now - s->pv_at;
 
-			bits = preview_bits(s->pv_part, t < 0 ? 0 : t, &w);
+			bits = preview_bits(s, s->pv_part, t < 0 ? 0 : t, &w);
 			soon(&w, s->pv_last + PREVIEW_HOLD_MS - now);
 			previewing = 1;
 		}

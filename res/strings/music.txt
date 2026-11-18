@@ -80,26 +80,26 @@ ja = シャッフル
 it = Casuale
 
 [music.nothing]
-note = Playing's value when nothing plays. Lowercase.
-en = nothing
+note = Playing's value when nothing plays. Begun with a capital.
+en = Nothing
 zh-Hans = 无
-es = nada
-pt-BR = nada
-fr = rien
-de = nichts
+es = Nada
+pt-BR = Nada
+fr = Rien
+de = Nichts
 ja = なし
-it = niente
+it = Niente
 
 [music.no_tracks]
-note = MENU > Menu Music's value when the folder has no tracks. Lowercase.
-en = no tracks
+note = MENU > Menu Music's value when the folder has no tracks. Begun with a capital.
+en = No tracks
 zh-Hans = 没有曲目
-es = sin pistas
-pt-BR = sem faixas
-fr = aucune piste
-de = keine Titel
+es = Sin pistas
+pt-BR = Sem faixas
+fr = Aucune piste
+de = Keine Titel
 ja = 曲なし
-it = nessuna traccia
+it = Nessuna traccia
 
 [music.mine_and_builtin]
 note = A note under the rows: how many of the card's own tracks play (those in its Menu Music folder), then how many of ZyperOS's. Plural by the first number.

@@ -24,6 +24,17 @@ de = Akku schwach
 ja = バッテリー低下
 it = Batteria scarica
 
+[lights.battery]
+note = A Side Lights row: the lights show the battery level all the time (the words of the L2+R2 hint, controls.battery)
+en = Battery Level
+zh-Hans = 电量
+es = Nivel de batería
+pt-BR = Nível da bateria
+fr = Niveau de batterie
+de = Akkustand
+ja = バッテリー残量
+it = Livello batteria
+
 [lights.level]
 note = A Side Lights row: the lights show the level while it changes
 en = Volume and Brightness
