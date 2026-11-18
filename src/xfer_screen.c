@@ -16,6 +16,7 @@
 #include "hareart.h"
 #include "hotpanel.h"
 #include "logpack.h"
+#include "look.h"
 #include "mdns.h"
 #include "menu_panel.h"
 #include "muse_screen.h"
@@ -716,12 +717,13 @@ static bool xfer_folder_known(const char *folder)
 	return false;
 }
 
-/* A console's color for its folder, as hare_set_folder_color asks */
+/* A console's color for its folder, as hare_set_folder_color asks: its
+ * own, or Folder Color's for every folder (MENU > Display > Theme) */
 static unsigned xfer_folder_color(const char *folder)
 {
 	const system_cfg *s = xfer_sys_of(folder);
 
-	return s ? s->accent : CFG_NO_COLOR;
+	return s ? look_folder_rgb(s->accent) : CFG_NO_COLOR;
 }
 
 /* And its pixel art, as hare_set_folder_icon asks: the shelf's own for the

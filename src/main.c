@@ -1802,15 +1802,15 @@ SDL_Texture *game_get_tex(void *ctx, int i, int *w, int *h, float *cb)
 	if (is_muse(&a->sys.systems[s]) && game_card_wanted(v, i)) {
 		muse_card_want(a, s, i);
 	} else if (game_card_wanted(v, i) && v->list.items[i].folder) {
-		/* A folder on the shelf (src/shelfdir.h): its own card, no art */
+		/* A folder on the shelf (src/shelfdir.h): its own card, no art, in
+		 * its system's color or Folder Color's (look_folder_rgb) */
 		ui_card_order card;
+		const unsigned frgb = look_folder_rgb(a->sys.systems[o].accent);
 
-		ui_card_order_folder(&card, v->list.items[i].title, a->sys.systems[o].accent,
-		                     v->list.items[i].folder);
+		ui_card_order_folder(&card, v->list.items[i].title, frgb, v->list.items[i].folder);
 		if (!texload_want_or_draw(s, i, NULL, NULL, &card) && !g_loads_held) {
 			if (v->tex[i]) SDL_DestroyTexture(v->tex[i]);
-			v->tex[i] = ui_make_folder_card(a->r, v->list.items[i].title,
-			                                a->sys.systems[o].accent,
+			v->tex[i] = ui_make_folder_card(a->r, v->list.items[i].title, frgb,
 			                                v->list.items[i].folder, &v->tw[i], &v->th[i]);
 			v->cb[i] = 1.0f;
 		}
@@ -1956,8 +1956,8 @@ void shelf_put(void *ctx, texload_got *g)
 		                          a->sys.systems[o].accent, &v->tw[i], &v->th[i])
 		          : v->list.items[i].folder
 		          ? ui_make_folder_card(a->r, v->list.items[i].title,
-		                                a->sys.systems[o].accent, v->list.items[i].folder,
-		                                &v->tw[i], &v->th[i])
+		                                look_folder_rgb(a->sys.systems[o].accent),
+		                                v->list.items[i].folder, &v->tw[i], &v->th[i])
 		          : ui_make_card_for(a->r, &card, &v->tw[i], &v->th[i], &ground);
 		v->cb[i] = 1.0f;
 		grid_note(a, s, i, ground, !v->list.items[i].folder);
@@ -6594,14 +6594,16 @@ int main(int argc, char *argv[])
 		}
 		look_load();
 		/* --look's, for a shot: ACCENT,LIGHT,DARK,CORNERS,ZYPER as the
-		 * database keeps them ("blue,cool,deepblue,square,off") */
+		 * database keeps them ("blue,cool,deepblue,square,off"), and
+		 * FOLDERS after them if given (",teal"; System Colors without) */
 		if (shot_path && shot_look) {
-			char w[5][16] = { "", "", "", "", "" };
+			char w[6][16] = { "", "", "", "", "", "" };
 			look l;
 
-			sscanf(shot_look, "%15[^,],%15[^,],%15[^,],%15[^,],%15s",
-			       w[0], w[1], w[2], w[3], w[4]);
+			sscanf(shot_look, "%15[^,],%15[^,],%15[^,],%15[^,],%15[^,],%15s",
+			       w[0], w[1], w[2], w[3], w[4], w[5]);
 			l = look_parse(w[0], w[1], w[2], w[3], w[4]);
+			l.folder = look_folder_parse(w[5]);
 			look_set(&l);
 			look_bar_colors();
 		}
