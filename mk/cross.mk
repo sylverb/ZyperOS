@@ -4,12 +4,16 @@
 BUILD := build
 # Every device shares src/*.c; DEVICE picks the one device file built with it.
 DEVICE ?= brick
+# The string tables are generated, not committed (Makefile, I18N_SRC), so
+# they are named on their own: the wildcard is read before they exist. Their
+# rule is below the first target.
+I18N_TABLES := src/i18n_tables.c
 # The device's build (config/device/<id>.mk, from src/device/<id>_build.c):
 # the baseline its code is built for, and the helpers its payload carries
 include config/device/$(DEVICE).mk
 MCPU := -mcpu=$(ZYDEV_MCPU)
 # and its profile (src/device/profile.h), the one the build is for
-SRC := $(wildcard src/*.c) $(wildcard src/ds/*.c) src/device/$(DEVICE).c src/device/$(DEVICE)_profile.c \
+SRC := $(I18N_TABLES) $(filter-out $(I18N_TABLES),$(wildcard src/*.c)) $(wildcard src/ds/*.c) src/device/$(DEVICE).c src/device/$(DEVICE)_profile.c \
        $(wildcard src/device/$(DEVICE)_hw.c) \
        src/device/td_model.c $(wildcard src/device/$(DEVICE)_model.c) \
        src/device/pixel2_coreopts.c
@@ -59,6 +63,11 @@ creds:
 	} > $(CREDS).new
 	@cmp -s $(CREDS).new $(CREDS) 2>/dev/null || mv -f $(CREDS).new $(CREDS)
 	@rm -f $(CREDS).new
+
+# tools/i18n.py writes the string tables whenever res/strings or the script
+# is newer, so a tree fresh from git builds (Makefile, I18N_SRC)
+$(I18N_TABLES): $(wildcard res/strings/*.txt) tools/i18n.py
+	@python3 tools/i18n.py
 
 # The device file's own headers too: src/device/pixel2_levels.h is the volume
 # and backlight ladders, which portkeys shares.
