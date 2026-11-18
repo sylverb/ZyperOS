@@ -8,10 +8,14 @@ BUILD := build-native
 # The Brick's device file, whose hardware is behind __linux__ with a host stub
 # beside it: that is what this build has always run.
 DEVICE ?= brick
+# The string tables are generated, not committed (Makefile, I18N_SRC), so
+# they are named on their own: the wildcard is read before they exist. Their
+# rule is below the first target.
+I18N_TABLES := src/i18n_tables.c
 # src/ds/: the design system's components and marks (DESIGN.md, "Where each part lives")
 # Every device's profile (src/device/profile.h), so --device can wear any;
 # the host's own is desktop's
-SRC := $(wildcard src/*.c) $(wildcard src/ds/*.c) src/device/$(DEVICE).c $(wildcard src/device/$(DEVICE)_hw.c) \
+SRC := $(I18N_TABLES) $(filter-out $(I18N_TABLES),$(wildcard src/*.c)) $(wildcard src/ds/*.c) src/device/$(DEVICE).c $(wildcard src/device/$(DEVICE)_hw.c) \
        $(wildcard src/device/*_profile.c) \
        src/device/td_model.c $(filter-out src/device/td_model.c,$(wildcard src/device/*_model.c)) \
        src/device/pixel2_coreopts.c
@@ -62,6 +66,11 @@ CFLAGS += -DZYPEROS_PROFILE=device_profile_desktop -DZYPEROS_PROFILES_ALL
 .PHONY: all creds
 all: $(BUILD)/zyperos
 creds: $(CREDS)
+
+# tools/i18n.py writes the string tables whenever res/strings or the script
+# is newer, so a tree fresh from git builds (Makefile, I18N_SRC)
+$(I18N_TABLES): $(wildcard res/strings/*.txt) tools/i18n.py
+	@python3 tools/i18n.py
 
 # Written every build and moved into place only when it changed, so the
 # objects that include it are rebuilt only then. A name of its own for each
