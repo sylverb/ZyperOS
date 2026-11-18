@@ -515,7 +515,12 @@ cross-compiler and the system's own SDL2, FFmpeg and ALSA, so what links is
 what runs. Then `mk/payload.sh` lays
 it out with the cores from the main checkout's `vendor/`. The objects stay
 unstripped in `build/px2/` and `diatom/build/pixel2/`; the payload's
-programs are stripped, as the image's are. Nothing it uses can change under
+programs are stripped, as the image's are. The launcher is compiled one
+object a source file (`build/px2/obj`, `mk/cross.mk`), each with the headers
+it read, so a change to one file compiles that file and the files that
+include it, then links; a build against another SDK, or with another
+version or compile line, compiles them all again. The link is the one the
+single command did, so the launcher is the same bytes either way. Nothing it uses can change under
 it, so any number of worktrees build at once, with no lock and no plastron
 build volume: about 20 seconds from clean. `PX2_SDK` picks an SDK by name
 (`docker volume ls --filter label=plastron.sdk`); without it, the newest.
