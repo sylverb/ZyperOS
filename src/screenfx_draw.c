@@ -8,18 +8,29 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 /* What plat_screen_shader asked for */
 static screenfx_kind g_kind;
 static int g_strength = 100;
 
-/* The mask's texture, and what it was made for. A renderer is known by its
- * pointer, as the bar's texture is (plat_osd_forget): sfx_forget is told
- * before one goes. */
-static SDL_Texture *g_mask;
-static SDL_Renderer *g_mask_for;
-static screenfx_kind g_mask_kind;
-static int g_mask_strength, g_mask_w, g_mask_h;
+/* The masks made, kept: a list's cursor going back and forth over the
+ * shaders pays for each one once, not at every step (CRT Curved's takes
+ * about 65 ms on the Pixel 2). MASKS_KEPT of them, the one used longest
+ * ago let go for a new one: 1.2 MB each at the Pixel 2's 640x480, so 7 MB
+ * at most. A renderer is known by its pointer, as the bar's texture is
+ * (plat_osd_forget): sfx_forget is told before one goes. */
+#define MASKS_KEPT 6
+static struct {
+	SDL_Texture *tex;
+	SDL_Renderer *for_r;
+	screenfx_kind kind;
+	int strength, w, h;
+	unsigned used;          /* when it was last asked for, in asks */
+} g_masks[MASKS_KEPT];
+static unsigned g_asks, g_made;
+
+unsigned sfx_masks_made(void) { return g_made; }
 
 /* sfx_bend_target's copy of the frame */
 static SDL_Texture *g_copy;
@@ -40,25 +51,37 @@ bool sfx_curved(void) { return screenfx_curved(g_kind); }
 
 void sfx_forget(void)
 {
-	if (g_mask) SDL_DestroyTexture(g_mask);
+	int i;
+
+	for (i = 0; i < MASKS_KEPT; i++)
+		if (g_masks[i].tex) SDL_DestroyTexture(g_masks[i].tex);
+	memset(g_masks, 0, sizeof g_masks);
 	if (g_copy) SDL_DestroyTexture(g_copy);
-	g_mask = g_copy = NULL;
-	g_mask_for = NULL;
+	g_copy = NULL;
 }
 
-/* The mask for what is asked, made when that or the size changed. Into a
- * texture of its own each time, the last one let go: the last frame may
- * still be drawing with it, and writing into it then waits for the GPU
- * (25 ms more a step of the list on the Pixel 2, 2026-11-18). */
+/* The mask for what is asked: a kept one, or made now into a texture of its
+ * own (never into one a frame may still be drawing with, which waits for
+ * the GPU: 25 ms more a step of the list on the Pixel 2, 2026-11-18) */
 static SDL_Texture *mask_for(SDL_Renderer *r, int w, int h)
 {
 	SDL_Texture *t;
 	unsigned char *px;
 	Uint64 t0, t1;
+	int i, slot = 0;
 
-	if (g_mask && g_mask_for == r && g_mask_kind == g_kind && g_mask_strength == g_strength &&
-	    g_mask_w == w && g_mask_h == h)
-		return g_mask;
+	g_asks++;
+	for (i = 0; i < MASKS_KEPT; i++)
+		if (g_masks[i].tex && g_masks[i].for_r == r && g_masks[i].kind == g_kind &&
+		    g_masks[i].strength == g_strength && g_masks[i].w == w && g_masks[i].h == h) {
+			g_masks[i].used = g_asks;
+			return g_masks[i].tex;
+		}
+	/* An empty place, else the one used longest ago */
+	for (i = 0; i < MASKS_KEPT; i++) {
+		if (!g_masks[i].tex) { slot = i; break; }
+		if (g_masks[i].used < g_masks[slot].used) slot = i;
+	}
 	if (!(px = malloc((size_t)w * (size_t)h * 4))) return NULL;
 	t0 = SDL_GetPerformanceCounter();
 	screenfx_mask(g_kind, g_strength, w, h, px);
@@ -73,19 +96,21 @@ static SDL_Texture *mask_for(SDL_Renderer *r, int w, int h)
 	}
 	free(px);
 	if (!t) return NULL;
-	if (g_mask && g_mask_for == r) SDL_DestroyTexture(g_mask);
-	g_mask = t;
-	g_mask_for = r;
-	g_mask_w = w;
-	g_mask_h = h;
-	g_mask_kind = g_kind;
-	g_mask_strength = g_strength;
-	/* Once a shader, strength and size: what a list's step costs */
+	if (g_masks[slot].tex) SDL_DestroyTexture(g_masks[slot].tex);
+	g_masks[slot].tex = t;
+	g_masks[slot].for_r = r;
+	g_masks[slot].kind = g_kind;
+	g_masks[slot].strength = g_strength;
+	g_masks[slot].w = w;
+	g_masks[slot].h = h;
+	g_masks[slot].used = g_asks;
+	g_made++;
+	/* Once a mask is made: what the first step onto it costs */
 	fprintf(stderr, "screens' shader: kind %d at %d%%, %dx%d, made in %.1f ms, sent in %.1f ms\n",
 	        (int)g_kind, g_strength, w, h,
 	        (double)(t1 - t0) * 1000.0 / (double)SDL_GetPerformanceFrequency(),
 	        (double)(SDL_GetPerformanceCounter() - t1) * 1000.0 / (double)SDL_GetPerformanceFrequency());
-	return g_mask;
+	return t;
 }
 
 void sfx_draw_mask(SDL_Renderer *r, int w, int h, const SDL_Rect *dst, double angle)

@@ -30,6 +30,10 @@ void sfx_draw_curved(SDL_Renderer *r, SDL_Texture *src, const SDL_Rect *dst, dou
  * the host's), read back and drawn again. False when it could not. */
 bool sfx_bend_target(SDL_Renderer *r, int w, int h);
 
+/* How many masks were made since the start: the check's, to see a kept
+ * one used again rather than made again */
+unsigned sfx_masks_made(void);
+
 /* The renderer is about to go (plat_video_quit): its textures go now */
 void sfx_forget(void);
 

@@ -20,6 +20,11 @@
 #undef main
 
 #include "../src/screenfx.h"
+#include "../src/screenfx_draw.h"
+
+/* What src/screenfx_draw.c asks of the device: the old screens are drawn */
+bool plat_gpu_shaders(void) { return true; }
+void plat_screen_shader(const char *name, int strength);
 
 #include <time.h>
 
@@ -172,6 +177,52 @@ int main(void)
 		screenfx_warp(0.0f, 0.0f, &u2, &v2);
 		ok("the curve holds the middle still", fabsf(u - 0.5f) < 1e-6f && fabsf(v - 0.5f) < 1e-6f);
 		ok("the curve sends a corner past the picture", u2 < 0.0f && v2 < 0.0f);
+	}
+
+	printf("masks kept (src/screenfx_draw.c), SDL's software renderer\n");
+	{
+		SDL_Surface *sf = SDL_CreateRGBSurfaceWithFormat(0, W, H, 32, SDL_PIXELFORMAT_RGBA32);
+		SDL_Renderer *r = sf ? SDL_CreateSoftwareRenderer(sf) : NULL;
+		SDL_Rect all = { 0, 0, W, H };
+		static const char *const NAMES[] = { "crt", "crt-curved", "scanlines", "lcd" };
+		unsigned before;
+		int pass, n;
+
+		if (!r) {
+			ok("a software renderer to draw with", 0);
+		} else {
+			before = sfx_masks_made();
+			for (pass = 0; pass < 3; pass++)
+				for (n = 0; n < 4; n++) {
+					plat_screen_shader(NAMES[n], 100);
+					sfx_draw_mask(r, W, H, &all, 0.0);
+				}
+			snprintf(what, sizeof what, "the four old screens, three times round: each made once (%u made)",
+			         sfx_masks_made() - before);
+			ok(what, sfx_masks_made() - before == 4);
+			before = sfx_masks_made();
+			for (n = 10; n <= 40; n += 10) {
+				plat_screen_shader("crt-curved", n);
+				sfx_draw_mask(r, W, H, &all, 0.0);
+			}
+			/* Eight asked: the two used longest ago (CRT and CRT Curved
+			 * at 100%) gave way; Scanlines and the LCD are still kept */
+			plat_screen_shader("lcd", 100);
+			sfx_draw_mask(r, W, H, &all, 0.0);
+			plat_screen_shader("scanlines", 100);
+			sfx_draw_mask(r, W, H, &all, 0.0);
+			ok("six kept: four strengths more made, the two newest of the first still kept",
+			   sfx_masks_made() - before == 4);
+			plat_screen_shader("crt", 100);
+			sfx_draw_mask(r, W, H, &all, 0.0);
+			ok("the one used longest ago was let go, and is made again", sfx_masks_made() - before == 5);
+			plat_screen_shader("nearest", 100);
+			sfx_draw_mask(r, W, H, &all, 0.0);
+			ok("Off makes nothing", sfx_masks_made() - before == 5);
+			sfx_forget();
+			SDL_DestroyRenderer(r);
+		}
+		if (sf) SDL_FreeSurface(sf);
 	}
 
 	printf("time to make a mask on this machine\n");

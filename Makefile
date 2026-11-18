@@ -2358,11 +2358,13 @@ check-shaderdemo: build-native/shaderdemo
 
 # ZyperOS's own screens' shader (src/screenfx.h): its picture held to
 # Diatom's GLSL through tools/shaderdemo.c's port of it, at a game's size,
-# every pixel, and what the Pixel 2 shows of each old screen.
-build-native/screenfx-check: tools/screenfx-check.c tools/shaderdemo.c src/screenfx.c src/screenfx.h
+# every pixel, what the Pixel 2 shows of each old screen, and the masks
+# kept and used again (src/screenfx_draw.c) on SDL's software renderer.
+build-native/screenfx-check: tools/screenfx-check.c tools/shaderdemo.c src/screenfx.c src/screenfx.h \
+                             src/screenfx_draw.c src/screenfx_draw.h
 	@mkdir -p build-native
-	$(CC) -std=gnu11 -O2 -Wall -Wextra $$(pkg-config --cflags sdl2 SDL2_image) \
-	  -o $@ tools/screenfx-check.c src/screenfx.c $$(pkg-config --libs sdl2 SDL2_image) -lm
+	$(CC) -std=gnu11 -O2 -Wall -Wextra -Isrc $$(pkg-config --cflags sdl2 SDL2_image) \
+	  -o $@ tools/screenfx-check.c src/screenfx.c src/screenfx_draw.c $$(pkg-config --libs sdl2 SDL2_image) -lm
 
 .PHONY: check-screenfx
 check-screenfx: build-native/screenfx-check

@@ -5152,7 +5152,9 @@ arithmetic (tools/shaderdemo.c's port of its GLSL) at a game's size.
 on the CPU, into a texture of its own (writing into the one the last frame
 drew with waits for the GPU): on the Pixel 2 14 to 28 ms, CRT Curved about
 65 ms, 44 at the launcher's start, from tables so no pixel takes a cosine
-or a root. Each frame shows it with one more textured pass at the panel's
+or a root. The last six made are kept (1.2 MB each at 640x480, 7 MB at
+most), so a list's cursor pays for each choice once, the first time it
+lands on it, and never again while it stays among the six. Each frame shows it with one more textured pass at the panel's
 size, a multiply; CRT Curved draws the frame through a 16 x 12 mesh in
 place of the plain copy, its edge moved in onto the picture's (SDL 2
 draws nothing for a mesh with a texture point outside it). Off is the
