@@ -723,7 +723,15 @@ static void shot_draw_gamemenu(app *a)
 		st.tabs = &tabs;
 		an = achtab_rows(a, &f, gm_at_source(), &ab, arows, MENU_RUN_ROWS, st.fixed_w, &st);
 		asel = shot_gamemenu_sel < an ? shot_gamemenu_sel : an - 1;
-		if (!st.visits_all && !arows[asel].live) asel = -1;
+		/* Where the runner puts the cursor (menu_run_body): off a dead row
+		 * onto a live one, or, with none (a sentence in place of the list),
+		 * still on the dead row, which the panel draws no plate on
+		 * (menu_rows_landable). Hiding it here, as the shot did, kept the
+		 * plate the device drew on that sentence out of every shot (1.0.6) */
+		if (!st.visits_all && !arows[asel].live) {
+			asel = menu_step_sel(arows, an, asel, +1);
+			if (!arows[asel].live) asel = menu_step_sel(arows, an, asel, -1);
+		}
 		menu_draw_styled(a, &st, gm_tab_name(tabs.at), arows, an, asel);
 		if (bg) SDL_DestroyTexture(bg);
 		return;

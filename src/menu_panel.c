@@ -961,10 +961,14 @@ void menu_panel(app *a, const char *heading, const menu_row *rows,
 		if (tween_moving(&give, nw)) redraw_now();    /* the list still easing: moving */
 	}
 
-	/* No plate on a note nothing can land on: a list that is only that (the
-	 * in-game menu's Controls tab before it has rows) has no cursor to show */
+	/* No plate where the cursor has nothing to land on: on a note (the
+	 * in-game menu's Controls tab before it has rows), or anywhere in a list
+	 * with no row it can take (no live row, and not visits_all), which is a
+	 * message and not a choice: the Achievements tab's "RetroAchievements has
+	 * no achievements for this game", for one. A plate there read as a row
+	 * to pick. */
 	if (sel >= 0 && sel < n && rows[sel].label &&
-	    !(ROW_IS_NOTE(rows[sel]) && !rows[sel].live)) {
+	    !(ROW_IS_NOTE(rows[sel]) && !rows[sel].live) && menu_rows_landable(rows, n, visits_all)) {
 		static int   pl_n = -1;
 		static unsigned pl_ep;
 		static tween pl_y, pl_h;
