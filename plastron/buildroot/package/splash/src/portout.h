@@ -36,7 +36,8 @@
  *   starts from the pen, u16 its cell's width, then the cell's coverage,
  *   width x h bytes, row by row. All little-endian.
  *
- * DRAWN (portout_draw) over the box's own pixels of the screen, so a shorter
+ * DRAWN (portout_compose), once the screen has been up a few seconds
+ * (portout_wait), over the box's own pixels of the screen, so a shorter
  * line leaves nothing of a longer one; a line wider than the box ends at the
  * last whole letter that leaves room for an ellipsis. On a panel mounted
  * turned (the Pixel 2's, 480 x 640), a landscape pixel (x, y) is the
@@ -290,6 +291,41 @@ static size_t portout_shown(const portout_reader *R, const portout_atlas *A, uin
 	k = k ? portout_clean(A, R->cur, k, out) : 0;
 	if (!k) k = portout_clean(A, R->last, R->last_n, out);
 	return k;
+}
+
+/* WHEN IT SHOWS (portout_wait). Only once the loading screen has been on
+ * the panel PORTOUT_AFTER_S seconds in a row, and from then on whenever it
+ * is on the panel. A quick start shows nothing of what it prints, as before
+ * (PortMaster's own start says "chmod: /dev/tty0: No such file or
+ * directory", harmless, and it read as an error for the three seconds
+ * before PortMaster's window); a long one, an install, shows its lines from
+ * then on. The screen back on the panel for a moment (between PortMaster's
+ * splash and its window) counts again from zero, unless the line has shown
+ * already. The line is read all the while; only its drawing waits. */
+#define PORTOUT_AFTER_S 5.0
+
+typedef struct {
+	double since;   /* when the screen came on the panel; < 0 while it is not */
+	int open;       /* on the panel PORTOUT_AFTER_S in a row, once */
+} portout_wait;
+
+static void portout_wait_init(portout_wait *W)
+{
+	W->since = -1.0;
+	W->open = 0;
+}
+
+/* `up`: the loading screen is on the panel now, with nothing over it;
+ * `now`, in seconds. Whether the line shows. */
+static int portout_wait_tick(portout_wait *W, int up, double now)
+{
+	if (!up) {
+		W->since = -1.0;
+		return 0;
+	}
+	if (W->since < 0) W->since = now;
+	if (!W->open && now - W->since >= PORTOUT_AFTER_S) W->open = 1;
+	return W->open;
 }
 
 /* The box: `under`, the screen's own pixels of it (w x h, 0xXXRRGGBB, its

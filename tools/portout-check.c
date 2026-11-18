@@ -199,6 +199,42 @@ static void reader_checks(void)
 	SHOWS(&R, "1mred\n", "1mred");
 }
 
+/* When the line shows: the screen on the panel PORTOUT_AFTER_S in a row,
+ * then whenever it is up. Ticks of 0.25 s, as splash's. */
+static void wait_checks(void)
+{
+	portout_wait W;
+	double t;
+	int shown;
+
+	/* A start that draws its own window at 3 s, the screen back for a second
+	 * at 8 s (PortMaster's, on a Pixel 2): no line, ever */
+	portout_wait_init(&W);
+	for (shown = 0, t = 0.0; t <= 12.0; t += 0.25)
+		shown |= portout_wait_tick(&W, t < 3.0 || (t >= 8.0 && t < 9.0), t);
+	CHECK(!shown, "a quick start and a moment back on the panel showed the line");
+
+	/* A long one: nothing before 5 s, the line from 5 s on */
+	portout_wait_init(&W);
+	CHECK(!portout_wait_tick(&W, 1, 0.0), "the line at once");
+	CHECK(!portout_wait_tick(&W, 1, 4.0), "the line at 4 s");
+	CHECK(!portout_wait_tick(&W, 1, 4.75), "the line at 4.75 s");
+	CHECK(portout_wait_tick(&W, 1, 5.0), "no line at 5 s");
+	CHECK(portout_wait_tick(&W, 1, 6.0), "no line at 6 s");
+	/* away (a window of the port's, the in-game menu), then back: at once,
+	 * as it has shown */
+	CHECK(!portout_wait_tick(&W, 0, 7.0), "the line while the screen is not on the panel");
+	CHECK(portout_wait_tick(&W, 1, 30.0), "no line back on the panel after it had shown");
+
+	/* In a row: 4 s up, away, 4 s up again is not 5 s; 5 s in a row is */
+	portout_wait_init(&W);
+	for (shown = 0, t = 0.0; t < 4.0; t += 0.25) shown |= portout_wait_tick(&W, 1, t);
+	portout_wait_tick(&W, 0, 4.0);
+	for (t = 10.0; t < 14.0; t += 0.25) shown |= portout_wait_tick(&W, 1, t);
+	CHECK(!shown, "two stretches of 4 s showed the line");
+	CHECK(portout_wait_tick(&W, 1, 15.0), "no line after 5 s in a row");
+}
+
 static int px_ink(uint32_t p) { return (p & 0xffffff) == 0x102030; }
 
 static void draw_checks(void)
@@ -381,9 +417,10 @@ static int follow(const char *atlas, const char *still, const char *log, const c
 	uint8_t *ap = slurp(atlas, &an), *sp = slurp(still, &sn);
 	uint32_t *buf = (uint32_t *)sp, *under, *px, now[PORTOUT_CHARS], shown[PORTOUT_CHARS];
 	size_t shown_n = 0, k;
-	int fd, frame = 0;
+	int fd, frame = 0, at4 = 0, at6 = 0;
 	portout_reader R;
-	double end;
+	portout_wait W;
+	double start, end;
 	char path[1024];
 
 	if (!ap || portout_load(ap, an, &A) < 0 || !sp || sn != 480 * 640 * 4 ||
@@ -400,17 +437,41 @@ static int follow(const char *atlas, const char *still, const char *log, const c
 	px = malloc((size_t)A.w * A.h * 4);
 	portout_get_box(&A, buf, 480, 1, under);
 	memset(&R, 0, sizeof R);
+	/* The screen on the panel from the start, as splash puts it there */
+	start = now_s();
+	portout_wait_init(&W);
+	portout_wait_tick(&W, 1, 0.0);
 	snprintf(path, sizeof path, "%s-%02d.ppm", out, frame++);
 	write_ppm(path, buf);
-	printf("%s: (nothing yet)\n", path);
-	for (end = now_s() + secs; now_s() < end;) {
+	printf("%s: 0.0 s (nothing yet)\n", path);
+	for (end = start + secs; now_s() < end;) {
 		uint8_t chunk[4096];
 		ssize_t r;
 		struct timespec t = { 0, 250 * 1000000L };
+		double el;
 
 		nanosleep(&t, NULL);
+		el = now_s() - start;
 		while ((r = read(fd, chunk, sizeof chunk)) > 0) portout_feed(&R, &A, chunk, (size_t)r);
-		k = portout_shown(&R, &A, now);
+		k = portout_wait_tick(&W, 1, el) ? portout_shown(&R, &A, now) : 0;
+		/* The screen at 4 s and at 6 s, whatever it shows: before and after
+		 * the wait */
+		if ((!at4 && el >= 4.0) || (!at6 && el >= 6.0)) {
+			int six = at4;
+
+			if (!at4) at4 = 1;
+			else at6 = 1;
+			snprintf(path, sizeof path, "%s-at%ds.ppm", out, six ? 6 : 4);
+			if (k != shown_n || memcmp(now, shown, k * sizeof now[0])) {
+				portout_compose(&A, under, now, k, px);
+				portout_put_box(&A, px, buf, 480, 1);
+				memcpy(shown, now, k * sizeof now[0]);
+				shown_n = k;
+			}
+			write_ppm(path, buf);
+			printf("%s: %.1f s, %s\n", path, el, shown_n ? "the line" : "no line");
+			continue;
+		}
 		if (k == shown_n && !memcmp(now, shown, k * sizeof now[0])) continue;
 		portout_compose(&A, under, now, k, px);
 		portout_put_box(&A, px, buf, 480, 1);
@@ -418,7 +479,7 @@ static int follow(const char *atlas, const char *still, const char *log, const c
 		shown_n = k;
 		snprintf(path, sizeof path, "%s-%02d.ppm", out, frame++);
 		write_ppm(path, buf);
-		printf("%s: ", path);
+		printf("%s: %.1f s, ", path, el);
 		for (size_t i = 0; i < k; i++) {
 			if (now[i] < 0x80) putchar((int)now[i]);
 			else printf("\\u%04x", (unsigned)now[i]);
@@ -441,14 +502,15 @@ int main(int argc, char **argv)
 		return 1;
 	}
 	reader_checks();
+	wait_checks();
 	draw_checks();
 	if (fails) {
 		printf("\n%d FAILED\n", fails);
 		return 1;
 	}
 	printf("ok: the port's output read as a terminal shows it (\\r, \\r\\n, backspace, tabs, escapes,\n"
-	       "UTF-8, ZyperOS's own lines passed over, in the middle of a line too), and drawn\n"
-	       "over the screen's own box, cut at a whole letter with an ellipsis inside it,\n"
-	       "turned as the Pixel 2's panel is\n");
+	       "UTF-8, ZyperOS's own lines passed over, in the middle of a line too), shown once\n"
+	       "the screen has been up 5 s in a row, and drawn over the screen's own box, cut at a\n"
+	       "whole letter with an ellipsis inside it, turned as the Pixel 2's panel is\n");
 	return 0;
 }

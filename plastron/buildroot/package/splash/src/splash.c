@@ -50,8 +50,9 @@
  * at the screen's foot, the same way, into its own buffer only: the letters
  * and the box ZyperOS's launcher wrote, and the log the port prints into,
  * followed from where it ends as this starts, a few times a second while the
- * panel shows this buffer and not at all while it shows anything else
- * (portout.h, out_tick below; ZyperOS's DESIGN.md 11.11).
+ * panel shows this buffer and not at all while it shows anything else, and
+ * drawn once the screen has been up 5 s in a row, so a quick start shows
+ * nothing new (portout.h, out_tick below; ZyperOS's DESIGN.md 11.11).
  */
 #define _GNU_SOURCE             /* nftw */
 #include <dirent.h>
@@ -662,6 +663,7 @@ int main(int argc, char **argv)
 static struct {
 	int on, turned, away, log, dirty;
 	const char *pause;
+	portout_wait W;
 	portout_atlas A;
 	uint8_t *file;
 	portout_reader R;
@@ -725,6 +727,10 @@ static void out_open(int fd, const drmModeModeInfo *mode, const struct buffer *b
 	const char *p = getenv("SPLASH_OUT_PAUSE");
 	out.pause = p && *p ? p : NULL;
 	out.on = 1;
+	/* The screen is on the panel from now: the line may show in a few
+	 * seconds (portout_wait) */
+	portout_wait_init(&out.W);
+	portout_wait_tick(&out.W, 1, since_boot());
 	snprintf(line, sizeof(line), "splash: the port's output at its loading screen's foot, %ux%u at %u,%u\n",
 		 out.A.w, out.A.h, out.A.x, out.A.y);
 	log_to_kernel(line);
@@ -757,6 +763,7 @@ static int out_tick(int fd, uint32_t crtc, const struct buffer *b, uint32_t pitc
 
 	drmModeFreeCrtc(c);
 	if (!ours || (out.pause && access(out.pause, F_OK) == 0)) {
+		portout_wait_tick(&out.W, 0, since_boot());
 		out.away = 1;
 		return ours;
 	}
@@ -774,7 +781,9 @@ static int out_tick(int fd, uint32_t crtc, const struct buffer *b, uint32_t pitc
 			break;
 		}
 	}
-	n = portout_shown(&out.R, &out.A, now);
+	/* Read all the while, drawn only once the screen has been up a few
+	 * seconds */
+	n = portout_wait_tick(&out.W, 1, since_boot()) ? portout_shown(&out.R, &out.A, now) : 0;
 	if (n == out.shown_n && !memcmp(now, out.shown, n * sizeof now[0])) return ours;
 	portout_compose(&out.A, out.under, now, n, out.px);
 	portout_put_box(&out.A, out.px, b->map, pitch / 4, out.turned);

@@ -22,10 +22,11 @@
 # check-portload is.
 #
 # --shots DIR: each of those screens as splash shows it while a stand-in port
-# (tools/portout-standin.sh) prints, the screen saved as the device
-# saves it (480x640, turned) and followed every 250 ms by splash's own code
-# (portout-check --follow), each change of the line a PNG, and one sheet of
-# them all, DIR/sheet.png. It needs Pillow.
+# (tools/portout-standin.sh) prints a line a second, the screen saved as the
+# device saves it (480x640, turned) and followed every 250 ms by splash's own
+# code (portout-check --follow): no line until the screen has been up 5 s,
+# each change of the line after that a PNG, the screen at 4 s and at 6 s, and
+# one sheet of them, DIR/sheet.png. It needs Pillow.
 set -u
 
 D=build-native/portout-check.d
@@ -110,11 +111,11 @@ with open(sys.argv[2], "wb") as f:
         f.write(bytes((b, g, r, 255)))
 EOF
 	: >"$D/$name.port.log"
-	"$CHECK" --follow "$D/$name.out" "$D/$name.raw" "$D/$name.port.log" "$SHOTS/$name" 9 \
+	"$CHECK" --follow "$D/$name.out" "$D/$name.raw" "$D/$name.port.log" "$SHOTS/$name" 15 \
 		>"$SHOTS/$name.txt" &
 	follow=$!
 	sleep 0.4
-	PORTOUT_STEP=0.5 sh tools/portout-standin.sh >>"$D/$name.port.log" 2>&1
+	PORTOUT_STEP=1 sh tools/portout-standin.sh >>"$D/$name.port.log" 2>&1
 	wait "$follow"
 	echo "  $name: $(grep -c ppm "$SHOTS/$name.txt") frames"
 done
@@ -129,9 +130,10 @@ rows = ["en-light", "de-light", "en-dark", "de-dark", "en-light-later", "de-dark
 cols = []
 for r in rows:
     frames = sorted(glob.glob(os.path.join(out, r + "-[0-9][0-9].png")))
-    # the first (nothing yet), the progress, the long line cut, the last
-    pick = [frames[0], frames[4], frames[-3], frames[-1]] if len(frames) >= 6 else frames
-    cols.append((r, pick))
+    # at 4 s (no line yet) and 6 s (the line), the long line cut, the last
+    pick = [os.path.join(out, r + "-at4s.png"), os.path.join(out, r + "-at6s.png")]
+    pick += [f for f in frames[-3:-2] + frames[-1:] if f not in pick]
+    cols.append((r, [p for p in pick if os.path.exists(p)]))
 w, h, gap, strip = 640, 480, 12, 24
 n = max(len(p) for _, p in cols)
 sheet = Image.new("RGB", (n * (w + gap) - gap, len(cols) * (h + strip + gap) - gap), (128, 128, 128))
@@ -144,7 +146,7 @@ for j, (r, pick) in enumerate(cols):
     y = j * (h + strip + gap)
     for i, p in enumerate(pick):
         sheet.paste(Image.open(p), (i * (w + gap), y + strip))
-        d.text((i * (w + gap) + 4, y + 4), "%s  %s" % (r, os.path.basename(p)[len(r) + 1:-4]),
+        d.text((i * (w + gap) + 4, y + 4), "%s  %s" % (r, os.path.basename(p)[len(r) + 1:-4].replace("at", "")),
                font=f, fill=(255, 255, 255))
 sheet.save(os.path.join(out, "sheet.png"))
 print("  sheet: %s" % os.path.join(out, "sheet.png"))

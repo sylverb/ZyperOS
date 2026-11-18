@@ -1719,7 +1719,12 @@ not fill it with the ground.
 
 **The port's output** (1.0.6, after a player's first start installed for five
 hours behind this screen with no sign that anything ran): the latest line the
-port's script and PortMaster print, at the foot, as it comes. One line in
+port's script and PortMaster print, at the foot, as it comes, once the screen
+has been on the panel 5 s in a row, and from then on whenever it is. A quick
+start shows nothing new: PortMaster's own start prints "chmod: /dev/tty0: No
+such file or directory", harmless, which read as an error for the three
+seconds before its window; and the screen back for a moment between its
+splash and its window counts from zero again. One line in
 **support** **text-dim**, from the cover's left edge to the column's right
 (992), its capitals centered on the foot's 720 (`DS_FOOT_Y`), or just under
 Zyper's frame when they would reach it (724 in Lexend). Its box, the font's
