@@ -1302,6 +1302,8 @@ def check():
     ap.add_argument("--jobs", type=int, help="launchers at once (one a language a handheld)")
     ap.add_argument("--device", action="append",
                     help="as this handheld only (more than once for more; all of DEVICES by default)")
+    ap.add_argument("--cards", type=Path, help="clone the cards from DIR, which make_cards made (tools/pixel-gate.py "
+                    "makes them once a gate), and leave it")
     ap.add_argument("only", nargs="*", help="shot names (default: all)")
     args = ap.parse_args()
     if subprocess.call(["pkg-config", "--exists", "sdl2", "SDL2_image", "SDL2_ttf"],
@@ -1320,9 +1322,12 @@ def check():
 
     jobs = args.jobs or default_jobs(len(runs))
     results = {}
-    template = Path(tempfile.mkdtemp(prefix="zyperos-i18n-cards-"))
-    SCRATCH.append(str(template))
-    make_cards(template)
+    if args.cards:
+        template = args.cards.resolve()
+    else:
+        template = Path(tempfile.mkdtemp(prefix="zyperos-i18n-cards-"))
+        SCRATCH.append(str(template))
+        make_cards(template)
 
     def run(dc):
         d, c = dc

@@ -323,7 +323,23 @@ changed" and each one, with before and after sheets of what changed in
 `build-native/pixel-gate/`. Some shots or one language:
 `make pixel-gate GATE='--lang en usb-ask hare'`; `--allow-changes` for a
 change that means to change them. Not in `make check`: it builds twice and
-takes about 9,200 frames a side.
+takes about 13,000 frames a side.
+
+The base's frames are shared by every worktree on the computer, frame by
+frame, keyed by the base's commit, by what this tree hands the shots (`res/`
+but its strings, `tools/fixtures`, `config/systems.cfg`, the shot tools and
+their list) and by the host's compiler and SDL (`ZYPEROS_GATE_CACHE`;
+`~/Library/Caches/ZyperOS/pixel-gate` on a Mac): a run shoots only the base
+frames no run has shot yet, and a second run at the same base waits for the
+first and takes its frames. `make pixel-gate-warm` shoots a base and nothing
+else, once a main commit, so every pull request up to date with that main
+shoots only its own side. `GATE=--targeted` is a pull request's round: no
+frame at all when nothing the launcher is built from changed, else a first
+look in English, the pseudo-locale and Chinese in light, English in dark and
+any language whose strings changed, then every screen that changed in it in
+every language and theme. The full gate is a release candidate's. This
+tree's frames are deleted when the run ends (`--keep-frames` keeps them); the
+report and the sheets stay.
 
 `--tour STEP [MS [DONE]]` draws a frame of the tutorial in place of the shelf:
 STEP is `lang` (the language step: its cursor steps a language a second,

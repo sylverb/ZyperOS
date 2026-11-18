@@ -1228,11 +1228,16 @@ check-hwreport:
 # The same pixels, proved (tools/pixel-gate.py): every shot of check-i18n-shots
 # in every language and both themes, at BASE (origin/main) and here, compared
 # as decoded pixels, with sheets of what changed. Not in CHECKS: it builds the
-# launcher twice. One language or theme: make pixel-gate GATE='--lang en'.
+# launcher twice. One language or theme: make pixel-gate GATE='--lang en'; a
+# pull request's round, only what the change can touch: GATE=--targeted. The
+# base's frames are shared by every worktree (the tool says how);
+# pixel-gate-warm shoots BASE's and nothing else, once a main commit.
 BASE ?= origin/main
-.PHONY: pixel-gate
+.PHONY: pixel-gate pixel-gate-warm
 pixel-gate:
 	@'$(PYIMG)' tools/pixel-gate.py --base '$(BASE)' $(GATE)
+pixel-gate-warm:
+	@'$(PYIMG)' tools/pixel-gate.py --base '$(BASE)' --warm $(GATE)
 
 # The Chinese UI's cut of Noto Sans SC (tools/cjkfont.py), from the two OTFs
 # in CJK_SRC; needs fontTools. Only when check-strings says a character is
