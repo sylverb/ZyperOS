@@ -1822,8 +1822,9 @@ check-raoffline:
 # RetroAchievements of the check's own - this check is its curl, net.c read in
 # whole - on a mixed card: sets right and out of date, new, unknown, empty, a
 # marker RetroAchievements has news for, a 429, the network gone mid-run, a
-# run stopped and finished by the next, libraries that never come, an account
-# refused. The time is the check's. No network.
+# run stopped and finished by the next, libraries that never come, a DS hash
+# kept from before the DS hash, an account refused. The time is the check's.
+# No network.
 check-radl: build-native/radl-check
 	@./build-native/radl-check
 

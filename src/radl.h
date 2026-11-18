@@ -48,7 +48,7 @@
  * HASHES are the slow part of a first run, and are kept: Roms/<System>/
  * .cheevos/.hashes, one line a file - its size, its time, its hash and the
  * count its set had when last checked - so a file is hashed once, until it
- * changes. They are made on a thread of their own while the system's two
+ * changes, or the way its system is hashed does (HASHES_HEAD in radl.c). They are made on a thread of their own while the system's two
  * requests are on their way (ra_hash_rom: a PSP .pbp is the whole file).
  *
  * PACE. RetroAchievements throttles dorequest.php per account, 180 a minute
