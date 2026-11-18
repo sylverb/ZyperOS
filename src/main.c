@@ -5552,6 +5552,7 @@ int main(int argc, char *argv[])
 			shot_gm_aspect = at ? atof(at + 1) : 4.0 / 3.0;
 		}
 		else if (!strcmp(argv[i], "--rows-report")) shot_rows_report = 1;
+		else if (!strcmp(argv[i], "--hover-sweep")) shot_hover_sweep = 1;
 		else if (!strcmp(argv[i], "--backdrop") && i + 1 < argc) shot_backdrop = argv[++i];
 		else if (!strcmp(argv[i], "--press") && i + 1 < argc) {
 			i++;
