@@ -97,7 +97,7 @@ something once broke in a way nothing noticed:
 | `check-systemart` | the system art compiler: each pose rebuilt exactly from its atlas, frame timing, moving regions inside their bounds, the decoded budget, catalogue coverage and generated output consistency; and the art itself against its records (tools/systemart-original-check.py, tools/systemart-symbol-pixels-check.py) |
 | `check-design` | DESIGN.md's tables, `src/design.h`, the mock kit's `tokens.js`, Wi-Fi File Transfer's colors and the play page's are what `tools/designdef.py` writes, and every text pair the launcher and the page draw meets its contrast |
 | `check-strings` | every string in `res/strings/` in all five languages with English's printf conversions, every ID used and defined, every character in the font that draws it, `src/i18n_ids.h` and `res/web/i18n/` what `tools/i18n.py` writes, and `src/i18n_tables.c` not committed (the build writes it from `res/strings`, so no two pull requests conflict over its offsets) |
-| `check-i18n-shots` | the main screens in every language and the pseudo-locale, from the host build, as the Pixel 2 and as the Brick (`--device`; the Brick's MENU is the word on its key, wider than the Pixel 2's three dots, and a row it has not, such as Strength, is said, not failed; a shot that fails is taken once more, and one that then passes is said as flaky with its first reason): no string from `res/strings` cut, broken past its lines or off the screen in any language, and no string's ink within 3 units of a key's glyph or a more mark (`ui_fit_mark`; five older screens listed as known in the tool until their fixes); and a list of what the pseudo-locale's longer words do not fit |
+| `check-i18n-shots` | the main screens in every language and the pseudo-locale, from the host build, as the Pixel 2 and as the Brick (`--device`; the Brick's MENU is the word on its key, wider than the Pixel 2's three dots, and a row it has not, such as Strength, is said, not failed; a shot that fails is taken once more, and one that then passes is said as flaky with its first reason): no string from `res/strings` cut, broken past its lines or off the screen in any language, and no string's ink within 3 units of a key's glyph or a more mark (`ui_fit_mark`; five older screens listed as known in the tool until their fixes); and a list of what the pseudo-locale's longer words do not fit; one set of scratch cards cloned for each language and handheld, and a pass kept by the launcher's bytes and the verdict's inputs, so the same again passes at once (`ZYPEROS_SHOTS_CACHE=0` shoots anyway) |
 | `check-rootswitch` | how the Brick's initramfs (plastron's `brick-rootswitch`) reads the kernel's line: the slot's root partition the boot script names (`zyperos.root=`), the name lookup when there is none or it is not a device, and a developer's `rootupdate=1` only as a word of its own |
 | `check-datapart` | where the Brick's first start puts the games partition (its `datapart`), over a made-up `/sys`: right after root B on a 4 MiB boundary as partition 5, nothing on a card without root B, and a games partition already there found by its name |
 | `check-brick-closed` | the Brick's start checking its closed files (its `init.d/brick`, `closed_check`) against the lists its image carries, over a made-up card: all there passes quietly; one missing, one cut short, no folder or no list fails and names what is wrong |
@@ -323,7 +323,23 @@ changed" and each one, with before and after sheets of what changed in
 `build-native/pixel-gate/`. Some shots or one language:
 `make pixel-gate GATE='--lang en usb-ask hare'`; `--allow-changes` for a
 change that means to change them. Not in `make check`: it builds twice and
-takes about 9,200 frames a side.
+takes about 13,000 frames a side.
+
+The base's frames are shared by every worktree on the computer, frame by
+frame, keyed by the base's commit, by what this tree hands the shots (`res/`
+but its strings, `tools/fixtures`, `config/systems.cfg`, the shot tools and
+their list) and by the host's compiler and SDL (`ZYPEROS_GATE_CACHE`;
+`~/Library/Caches/ZyperOS/pixel-gate` on a Mac): a run shoots only the base
+frames no run has shot yet, and a second run at the same base waits for the
+first and takes its frames. `make pixel-gate-warm` shoots a base and nothing
+else, once a main commit, so every pull request up to date with that main
+shoots only its own side. `GATE=--targeted` is a pull request's round: no
+frame at all when nothing the launcher is built from changed, else a first
+look in English, the pseudo-locale, German and Chinese in light, English in
+dark and any language whose strings changed, then every screen that changed in it in
+every language and theme. The full gate is a release candidate's. This
+tree's frames are deleted when the run ends (`--keep-frames` keeps them); the
+report and the sheets stay.
 
 `--tour STEP [MS [DONE]]` draws a frame of the tutorial in place of the shelf:
 STEP is `lang` (the language step: its cursor steps a language a second,
@@ -404,6 +420,21 @@ with an isolated demonstration library; `--art` gives its games their real box
 art from libretro-thumbnails, cached outside the repository. See
 [`res/readme/README.md`](../res/readme/README.md) for capture provenance and
 the refresh steps.
+
+## Merging several pull requests
+
+`python3 tools/merge-train.py 281 283 284` merges those pull requests' heads
+onto `origin/main`, in that order, in a scratch worktree; writes again what
+`tools/i18n.py` and `tools/designdef.py` write whole (a conflict in one of
+those files is settled that way, and two PRs that each added a string merge
+cleanly but leave the IDs stale); and runs one `make check` (`CHECK_JOBS` as
+given). A conflict in any other file stops the train at that PR. The branch
+`train-281-283-284` stays here; `--push` pushes it and opens its pull
+request, which merged with a merge commit (`gh pr merge N --merge`) lands
+every PR's own commits in main, so GitHub marks each one merged. One check
+for the lot, where merging them one by one sent every other PR back to merge
+main and check again. `--no-check` for the merges alone, `--keep` keeps the
+worktree.
 
 ## Devices
 
