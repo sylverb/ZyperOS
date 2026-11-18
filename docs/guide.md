@@ -114,7 +114,7 @@ it away.
 | **B** | up one folder of games, or back to the systems row from a shelf's top |
 | **X** | game info for the card under the cursor |
 | **Y** | start the game from the start, without its resume point, when it has one. In a game's details (X), Y favorites it - Favorites is a shelf of its own. Nothing on MP4's shelf |
-| **START** | on a games shelf: the row of covers turns into the grid, the grid into a list of names, and the list back into covers. It is MENU > View's setting, kept for each shelf. Nothing on MP4's shelf |
+| **START** | on a games shelf: the row of covers turns into the grid, the grid into a list of names, and the list back into covers. It is MENU > View's setting, kept for each shelf. Nothing on MP4's shelf. On the home: Spotlight turns into Gallery, Gallery into Grid, and Grid back into Spotlight, MENU > Home Screen's setting |
 | **Volume rocker** | volume, everywhere, including in game |
 | **F1/F2** | brightness, everywhere, including in game |
 | **MENU** (on the systems row) | the ZyperOS menu - settings that are about the firmware |
@@ -150,12 +150,14 @@ glance:
 | **files or covers done** | a light climbs the four twice when a File Transfer batch is in, or the Scraper finishes |
 | **an achievement** | a sparkle: two pairs of lights take turns |
 | **L2+R2** (outside a game) | the level, flashed four times: all four lights at 75% and up, three at 50, two at 25, one at 10, the bottom light red below that |
+| **Battery Level**, if you turn it on | the same level, held still, off the cable (and on it with Charging Bar off), on the home and in games. Everything above shows over it, then it comes back; below 10% the red flash says it instead |
 | **the rest of the time** | dark |
 
 MENU > Side Lights turns the first six on or off: one switch each, and one,
-Files and Covers, for files moving and files or covers done. The red flash shows
-through everything else; L2+R2 flashes the level whatever is chosen. The
-lights are on or off, with nothing between, so there is no brightness to set.
+Files and Covers, for files moving and files or covers done; and Battery
+Level, which is off until you turn it on. The red flash shows through
+everything else; L2+R2 flashes the level whatever is chosen. The lights are
+on or off, with nothing between, so there is no brightness to set.
 
 MENU means three different menus depending on where you are, and each one is
 about the thing you are looking at: the firmware on the systems row, one
@@ -270,25 +272,25 @@ than any one console:
 |---|---|
 | **Play Time** | per game or per system, by day, week, month, year or all time |
 | **Wi-Fi** | the network's name when connected, or why it is not |
-| **Bluetooth** | the connected headset, or `not connected` - pair, connect and forget |
+| **Bluetooth** | the connected headset, or `Not connected` - pair, connect and forget |
 | **Audio Output** | `Auto` or `Speaker`, and where Auto landed - see **Audio** below |
-| **Audio Channels** | `auto`, `stereo`, `mono`, `mono left` or `mono right` - see **Audio** below. `auto` on a new device and after an upgrade |
-| **Wi-Fi File Transfer** | the file server; needs Wi-Fi and says so when there is none. On the Pixel 2 with no network it says `hotspot`, and makes the handheld its own network for a phone to join - see below. While a computer is on the USB cable it is **USB File Transfer** instead, at `http://zyperos.local`, or always at `10.55.0.2` on the Brick and `10.42.0.1` on the Pixel 2 |
+| **Audio Channels** | `Auto`, `Stereo`, `Mono`, `Mono left` or `Mono right` - see **Audio** below. `Auto` on a new device and after an upgrade |
+| **Wi-Fi File Transfer** | the file server; needs Wi-Fi and says so when there is none. On the Pixel 2 with no network it says `Hotspot`, and makes the handheld its own network for a phone to join - see below. While a computer is on the USB cable it is **USB File Transfer** instead, at `http://zyperos.local`, or always at `10.55.0.2` on the Brick and `10.42.0.1` on the Pixel 2 |
 | **Date & Time** | the clock and the time zone, set with left and right - see below |
 | **Clock** | `12-hour` or `24-hour`, for the clock on the shelf and here. `12-hour` on a new device |
 | **Auto Off** | how long without a button before the device powers itself down. It waits while a long job runs (a scraper run, a System Update download, PortMaster's install, Storage measuring the card, files moving over File Transfer) and counts again from the start when the job ends. On the charger it does not power down; on the shelf the screen goes off instead, and any button (power too) lights it again. On USB File Transfer the screen goes off when nothing is moving, and only dims while files are on their way; a button, a browser coming to the page or files starting to move light it fully, and files keep moving while it is dark |
-| **Screensaver** | `off`, `30s`, `1m`, `2m`, `5m` or `10m` with nothing pressed on the shelf before the video snaps of random games play over the whole screen, each with its game's name and system. START boots the game on screen; any other button goes back. `1m` on a new device. It never starts in a game, a menu, MP4 or File Transfer, while music plays or a long job runs, or under 20% on battery; on battery it ends by itself after 10 minutes, and Auto Off still powers the device off at its own time. With no video snaps on the card it shows covers instead, and with neither, nothing - see **Screensaver** below |
+| **Screensaver** | `Off`, `30s`, `1m`, `2m`, `5m` or `10m` with nothing pressed on the shelf before the video snaps of random games play over the whole screen, each with its game's name and system. START boots the game on screen; any other button goes back. `1m` on a new device. It never starts in a game, a menu, MP4 or File Transfer, while music plays or a long job runs, or under 20% on battery; on battery it ends by itself after 10 minutes, and Auto Off still powers the device off at its own time. With no video snaps on the card it shows covers instead, and with neither, nothing - see **Screensaver** below |
 | **Side Lights** | the Pixel 2 only: a page of switches for what the side lights show on their own, `Charging Bar`, `Low Battery`, `Volume and Brightness`, `Files and Covers` and `Achievements`, each `On` or `Off`, and the row under the cursor plays its pattern on the lights; the row says how many are on. L2+R2 shows the level in all four. `All on` on a new device |
 | **System Order** | the home's systems `A to Z` by name, on a new device and after an upgrade, or by `Release Date`. Favorites stays first, then Recents, and Ports and MP4 stay last |
 | **Home Systems** | which shelves the home shows: `All`, or how many are on. A opens a switch for Favorites, Recents (the ten games played last) and every system with games; Left, Right or A turns one on or off. A hidden system leaves the home, Random Game, Search, Favorites and Recents, and its games stay on the card. The last system on stays on |
 | **Appearance** | `Light`, `Dark` or `Auto`, which is light from 7:00 to 19:00 by the clock. `Light` on a new device and after an upgrade |
-| **Scraper** | box art, its sources and video snaps - see below. Its value is how many games have no cover, or `complete` |
-| **Achievements** | the RetroAchievements account, or `sign in`. **A** opens its page, which downloads every game's achievements for offline play - see **Achievements** below |
-| **Shader** | `Off`, `Sharp-Shimmerless`, `CRT`, `CRT Curved`, `Scanlines` or `LCD Grid`, for every system at once: each system's own choice goes. It says `per system` when a system has chosen another in its own menu or in a game. `Off` on a new device and after an upgrade - see **Shaders** below |
-| **Strength** | right under Shader while a system draws an old screen: `10%` to `100%`, how dark its lines and grid are, for every system at once, each system's own going. Left and right step it 10% at a time and stop at the ends. It says `per system` when a system has its own. `100%` on a new device and after an upgrade |
+| **Scraper** | box art, its sources and video snaps - see below. Its value is how many games have no cover, or `Complete` |
+| **Achievements** | the RetroAchievements account, or `Sign in`. **A** opens its page, which downloads every game's achievements for offline play - see **Achievements** below |
+| **Shader** | `Off`, `Sharp-Shimmerless`, `CRT`, `CRT Curved`, `Scanlines` or `LCD Grid`, for every system at once: each system's own choice goes. It says `Per system` when a system has chosen another in its own menu or in a game. `Off` on a new device and after an upgrade - see **Shaders** below |
+| **Strength** | right under Shader while a system draws an old screen: `10%` to `100%`, how dark its lines and grid are, for every system at once, each system's own going. Left and right step it 10% at a time and stop at the ends. It says `Per system` when a system has its own. `100%` on a new device and after an upgrade |
 | **Controls** | every button and what it does, a page per place |
 | **Show Tutorial** | the tutorial a new handheld starts with, again - see below |
-| **Developer Mode** | development images on the Pixel 2 only: `on` keeps the USB link to a computer always up, `off` asks when one is plugged in - see **Plugging into a computer** |
+| **Developer Mode** | development images on the Pixel 2 only: `On` keeps the USB link to a computer always up, `Off` asks when one is plugged in - see **Plugging into a computer** |
 | **About ZyperOS** | two pages: version, address, charge and uptime; then storage and estimated battery health |
 
 The Pixel 2 has no radio, so the rows that need Wi-Fi show only while a
@@ -311,7 +313,7 @@ page for that console alone.
 |---|---|
 | **Covers** | the covers a run will look for, the room they will add (`+131 MB`), and on how many systems |
 | **Videos** | the video snaps it will get, the room they will add (`+525 MB`) and on how many systems; `all off` to start, `needs ScreenScraper` with no account |
-| under the heading | about how long the run will take (`about 35 min`), or `needs Wi-Fi` |
+| under the heading | about how long the run will take (`about 35 min`), or `Needs Wi-Fi` |
 | over the keys | the names a run will look up for games that have a cover but no name (`199 names`, gone with **Names and Details** off), then the room: what the run will add and what the card has (`656 MB to fetch · 11.2 GB free`). In red when the run would leave less than 200 MB free; then **A** does not start it, and says `Not enough room on the card` |
 | **A** Fetch | runs it over Wi-Fi: the game it is asking about, its system, the source it asks and how many games it has looked at (`31 / 142`). Each cover found lands big, beside the six before it, and the time left is beside a clock. **B** stops, and so does a card down to its last 100 MB. Then **All done**: the covers found, how many came, how many are still missing, and the room the videos take |
 | **Y** Systems | a tile for each system with two marks, covers and videos, and under them the focused system's covers missing and videos to fetch. **A** turns the system's covers on or off (on to start), **X** its videos (off to start: a snap is a megabyte or three), and **Y** picks **Videos for**: **All Games**, **Favorites** or **Played**, for every system with videos on, each with how many videos and how much to fetch |
@@ -326,10 +328,10 @@ again for 30 days.
 
 | In Settings | What it is |
 |---|---|
-| **ScreenScraper** | `linked as` its account, `link`, or `not in this build`. Its page links the account (user, then password, checked once), says how many requests are left today, and unlinks it. It brings covers with each game's year, genre and synopsis, and the video snaps. A build needs ScreenScraper's developer pair for any of it |
-| **SteamGridDB** | the API key as its last four characters (`••••1a2b`), `key refused`, or `link`. Its page types a key in, checks it once, and unlinks it; the File Transfer page takes one pasted. Covers the other two do not have |
+| **ScreenScraper** | `Linked as` its account, `Link`, or `Not in this build`. Its page links the account (user, then password, checked once), says how many requests are left today, and unlinks it. It brings covers with each game's year, genre and synopsis, and the video snaps. A build needs ScreenScraper's developer pair for any of it |
+| **SteamGridDB** | the API key as its last four characters (`••••1a2b`), `Key refused`, or `Link`. Its page types a key in, checks it once, and unlinks it; the File Transfer page takes one pasted. Covers the other two do not have |
 | **Videos** | the Video Snaps page, below |
-| **Names and Details** | `on` to start: a run also looks up the names, years and synopses of games that have a cover and no name, one ScreenScraper request each. Covers that came by File Transfer or from libretro have none, so on a card full of them that is the long part of a run. `off` skips it; **A** switches it |
+| **Names and Details** | `On` to start: a run also looks up the names, years and synopses of games that have a cover and no name, one ScreenScraper request each. Covers that came by File Transfer or from libretro have none, so on a card full of them that is the long part of a run. `Off` skips it; **A** switches it |
 
 libretro needs no account: covers by file name, and for zipped games by
 checksum.
@@ -340,9 +342,9 @@ it goes back to the cover when the focus moves or a menu opens. Its page:
 
 | Row | What it is |
 |---|---|
-| **Play on the Shelf** | `on` to start |
-| **Sound** | `muted` (to start), `quiet` or `full`. Never over music playing in MP4; Menu Music dips under it |
-| each console | `on` or `off`: whether that console's snaps play on the shelf, and the room they take |
+| **Play on the Shelf** | `On` to start |
+| **Sound** | `Muted` (to start), `Quiet` or `Full`. Never over music playing in MP4; Menu Music dips under it |
+| each console | `On` or `Off`: whether that console's snaps play on the shelf, and the room they take |
 | **Delete All** | deletes every snap, after a question |
 
 A snap is `Roms/<console>/.media/<name>.mp4`, beside its cover, so one put
@@ -368,7 +370,7 @@ you first play on a plane has its achievements too.
 | the systems | each system's icon over a tick, lit when every game of it has been checked |
 | **Ready Offline** | the games whose achievements are on the card, and on how many systems |
 | **To Download** | the games never checked, and about how much they will add to the card (`+14 MB`); `all checked` when there are none |
-| under the heading | about how long a download takes (`about 3 min`), `Every game checked`, `Sign in to download`, or `needs Wi-Fi` |
+| under the heading | about how long a download takes (`about 3 min`), `Every game checked`, `Sign in to download`, or `Needs Wi-Fi` |
 | over the keys | what a download will add (with the card's room when it has less than 2 GB free) and how many games RetroAchievements has nothing for (`23 games have none`: a hack, a copy it does not know, or a game with no achievements) |
 | **A** Download | asks RetroAchievements about every game: the game it is asking about, its system and how many games it has looked at (`214 / 553`). Each set that arrives shows with its badges (`Just added: ...`). **B** stops. Then **All done**: the games ready offline and the achievements your account already had for them; or **Stopped**, with why; or **Sign in again** when RetroAchievements refused the account, and **A** signs in |
 | **Y** Account | signs in again, or as somebody else. Signed out, **A** signs in |
@@ -388,7 +390,7 @@ for a Scraper run.
 ### Screensaver
 
 MENU > **Screensaver** plays the video snaps of random games over the whole
-screen after the delay you pick, `off` or 30 seconds to 10 minutes, `1m` to
+screen after the delay you pick, `Off` or 30 seconds to 10 minutes, `1m` to
 start with, when nothing has been pressed on the shelf. Each clip shows for
 15 seconds with its game's name and system, then the next fades in.
 
@@ -460,7 +462,7 @@ and Play Time need no network at all.
 
 On the Pixel 2 with a Wi-Fi adapter in and no network joined - Wi-Fi off,
 or on with nothing in range - Wi-Fi File Transfer makes the handheld its own
-Wi-Fi network for as long as the screen is open. The row says `hotspot`.
+Wi-Fi network for as long as the screen is open. The row says `Hotspot`.
 
 1. Open **Wi-Fi File Transfer**. The screen shows a QR code, the network's name
    (`ZyperOS-` and four characters of the adapter's address), its password and
@@ -520,6 +522,7 @@ The system menu opens on a shelf of games and applies to that system alone:
 | **Games** | how many the shelf found |
 | **Core** | which core runs them; left/right/A choose on a shelf that has two (the Dreamcast's) |
 | **Game Language** | the Nintendo DS shelf's: left/right/A go round `Auto`, English, Español, Français, Deutsch, Italiano, 日本語 and 简体中文, saved the moment it changes. `Auto` is the language of MENU > Language where the DS has it and English where it does not, and the row says which. The next game started speaks it, whatever the language of the `firmware.bin` in `Bios/`. A game whose resume point was left in another language starts fresh in this one, with a note that says so, its battery save kept; a save state you load keeps its own language until Reset |
+| **Timing** | the Game Boy, Game Boy Color, Game Boy Advance, Nintendo DS and Genesis shelves', under Core (and under Game Language on the DS's): `Smooth` to start with, or `Exact`, for this system alone; left/right/A flip it, saved the moment it changes, for the next game started. The screen refreshes 60.08 times a second and these consoles make 59.7 to 59.9 frames. `Smooth` shows one game frame each refresh, so motion is even, and the game runs up to 0.6% faster than the console: a GBA game 3.5 seconds fast in 10 minutes. `Exact` keeps the console's own speed, for timers and rhythm games, and about every 3 seconds one frame stays on the screen for two refreshes |
 | **Sort By** | left/right; `Name`, `Play Time`, `Last Played` or `Recently Added` |
 | **View** | left/right, or A for the list; `Covers`, the row of covers, `Grid`, two rows of covers in cells shaped like the shelf's own art, or `List`, the games as a list of names with the focused one's cover beside it. START on the shelf steps it too, without the menu |
 | **Display** | how the picture fills the screen: Full Screen, Original Shape, Sharp Pixels, Sharp Pixels, Tall, Sharp Pixels, Zoomed, Fill, Edges Cut or Actual Size; left/right cycles it, and A opens the list, with a small picture of your game in the mode under the cursor and a line that says what it does; saved the moment it changes |
@@ -812,7 +815,7 @@ the step it is waiting on dimmed:
 
 | Step | Ticked when | If it waits too long |
 |---|---|---|
-| **Cable** (USB) | the computer took the handheld and opened its network | `waiting` with a computer that didn't connect: after 5 seconds, unplug the cable and plug it back in, which can take a few tries, or use a USB-A to USB-C cable, which connects every time ([why](#plugging-something-in)). `unplugged`: no computer is on the cable; after 5 seconds, the hint says some cables only charge. After 10 seconds with a computer that does not answer: try another USB port or cable. After 10 seconds with the computer answering and no network: it has no driver for the handheld; on Windows, look in Device Manager |
+| **Cable** (USB) | the computer took the handheld and opened its network | `Waiting` with a computer that didn't connect: after 5 seconds, unplug the cable and plug it back in, which can take a few tries, or use a USB-A to USB-C cable, which connects every time ([why](#plugging-something-in)). `Unplugged`: no computer is on the cable; after 5 seconds, the hint says some cables only charge. After 10 seconds with a computer that does not answer: try another USB port or cable. After 10 seconds with the computer answering and no network: it has no driver for the handheld; on Windows, look in Device Manager |
 | **Address** (USB) | the computer answers at the address the handheld gave it, `10.42.0.2` | after 10 seconds: check Network adapters in Windows' Device Manager |
 | **Wi-Fi** (Wi-Fi) | the handheld is on a network | after 5 seconds: connect to Wi-Fi first |
 | **Browser** | a browser asked for the page | after 30 seconds: type `http://zyperos.local` or the address, and turn off any VPN or proxy |
@@ -846,17 +849,17 @@ ssh-copy-id root@zyperos.local
 
 The key stays on the card, in `.userdata/pixel2/ssh/`, with the handheld's
 own host key, so the computer knows it the next time. The screen's **SSH**
-row says `waiting`, or how many are signed in. SSH only listens on the
+row says `Waiting`, or how many are signed in. SSH only listens on the
 cable's address, never on Wi-Fi, and only while the screen is open: closing
 it ends every session. Five wrong PINs, on the page and in SSH together,
-turn SSH off (`locked`) until the screen opens again, and end any session
+turn SSH off (`Locked`) until the screen opens again, and end any session
 that is open. It does not start while a Wi-Fi adapter is in (`not with
 Wi-Fi`), which on the Pixel 2 cannot happen with the cable in its one port. Copying files with `scp` needs its `-O` flag, since the
 handheld has no SFTP server: `scp -O game.zip root@10.42.0.1:/roms/SNES/`.
 
 A release image starts no SSH at boot and has no keys in it; this screen is
 the only way in. A development image already has SSH on every interface with
-the developer's key, so there the row says `dev image` and the PIN is not
+the developer's key, so there the row says `Dev image` and the PIN is not
 used.
 
 ### Plugging into a computer
@@ -951,7 +954,7 @@ their phone or on a computer, with nothing to install. The handheld's own
 buttons stay player 1, and the sound stays on the handheld.
 
 In an NES game, MENU, then **Player 2**, on the Game tab just under Quick Slot. Its value says
-`off`, `waiting` (on, with nobody playing yet) or `connected`. A on the row
+`Off`, `Waiting` (on, with nobody playing yet) or `Connected`. A on the row
 opens its page over the paused game:
 
 | | |
@@ -960,11 +963,11 @@ opens its page over the paused game:
 | **With a computer on the USB cable** | **A** brings up the cable's link, as USB File Transfer does, and the page says to open `zyperos.local/play` on the computer (`10.42.0.1/play` works too). Windows 10 has no driver for the link, as for USB File Transfer |
 | **With neither** | the page says to plug in a Wi-Fi adapter or a computer, and A does nothing until you do. The page sees one plugged in while it is open |
 
-Under that, a line for player 2: `off`, `waiting` or `connected`. **B**
+Under that, a line for player 2: `Off`, `Waiting` or `Connected`. **B**
 closes the page and **Continue** goes back to the game with Player 2 on. A
 notice over the game says **Player 2 joined** when the friend's browser
 starts to play, and **Player 2 left** once it has been gone five seconds,
-the line saying `connected` until then. A phone whose link drops for a
+the line saying `Connected` until then. A phone whose link drops for a
 moment and comes back by itself was never gone, and nothing is said. A
 phone that just goes quiet (it walked out of range) is let go after five
 seconds of silence, so its notice comes about ten seconds after it went.
@@ -1048,22 +1051,22 @@ the rule above; `Speaker` refuses Bluetooth and nothing else - a cable still
 works through it. There is no third "Headset" position because it would do
 nothing `Auto` does not already do: `Auto` takes a headset whenever one is
 connected, and neither setting can route to one that is not there. The row
-shows where the sound actually went - `auto (wired)` - because `Auto` on its
+shows where the sound actually went - `Auto (Wired)` - because `Auto` on its
 own names a rule, not a place you can hear.
 
-The **Audio Channels** row starts on `auto`: mono on the Pixel 2's speaker,
+The **Audio Channels** row starts on `Auto`: mono on the Pixel 2's speaker,
 which is one speaker, and stereo everywhere else - headphones in the jack, a
 USB-C adapter, and the Brick's two speakers. The row says which it is making
-now, `auto (mono)` or `auto (stereo)`, and plugging headphones in switches it
-as the jack notices them. `stereo` is stereo everywhere, the speaker
+now, `Auto (Mono)` or `Auto (Stereo)`, and plugging headphones in switches it
+as the jack notices them. `Stereo` is stereo everywhere, the speaker
 included. Mono is the two channels averaged, so it is never louder than the
 louder of them and never clips.
 
-The other choices are for anyone who hears with one ear. `mono` plays
+The other choices are for anyone who hears with one ear. `Mono` plays
 the two channels as one in both ears, so nothing a game or a song puts on one
-side alone is lost. `mono left` and `mono right` put that sound in one ear
+side alone is lost. `Mono left` and `Mono right` put that sound in one ear
 only, with the other silent, on headphones, a Bluetooth headset or a USB-C
-adapter. On the speaker they play as `mono`, since a speaker is not on one
+adapter. On the speaker they play as `Mono`, since a speaker is not on one
 ear. It covers games, MP4 and the menu music alike, and takes effect as you
 change it.
 
@@ -1303,7 +1306,8 @@ Up and down jump by initial on a games or album shelf. A opens a system or start
 B returns to the systems row. Fancy Pants and UI Direction are removed.
 Old saved layout and card-style values do not change this behavior.
 
-MENU > Home Screen selects Spotlight, Gallery or Grid. MENU > System Order puts the
+MENU > Home Screen selects Spotlight, Gallery or Grid; START on the home steps
+from one to the next, and its hint at the foot names the next. MENU > System Order puts the
 systems A to Z by name (3DO, 32X, Arcade, Atari 2600 ...) or by their release
 dates, as before. Favorites stays first, then Recents, and Ports and MP4 stay last.
 MENU > Home Systems shows or hides each of them. Spotlight puts the system name
@@ -1352,8 +1356,8 @@ network the page still shows the cover, plays the video and puts Before back,
 and says to connect, or to add covers from a computer with File Transfer.
 ScreenScraper counts each of its pictures as a request on your account, so
 only the small copies of the pictures on screen are fetched, and the whole one
-only when you look closer. The row's value says what is missing: `no cover` or
-`no video`.
+only when you look closer. The row's value says what is missing: `No cover` or
+`No video`.
 
 **Rename**, above Delete Game, gives the game a new name. A opens the
 keyboard with the game's name as its file has it. START renames. The game's

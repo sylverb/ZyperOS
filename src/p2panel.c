@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "config.h"   /* CFG_NO_COLOR: the neutral light */
 #include "design.h"
 #include "ds/panel.h"
 #include "hotpanel.h"
@@ -57,6 +58,7 @@ static void geom(const p2panel *p, p2p_geom *g)
 	g->nhow = p->how && *p->how
 	        ? ui_balance_lines(ui_font(g->role), p->how, inner, g->code ? 2 : P2P_HOW_LINES, g->how)
 	        : 0;
+	if (g->nhow > 1) ui_fit_drawn(p->how);    /* drawn in lines, said whole to the host's check */
 	g->who_step = line * 3 / 2;
 
 	/* Offsets from the panel's top first */
@@ -127,8 +129,7 @@ static void entry(SDL_Renderer *r, int x, int y, const char *what, const char *v
 
 void p2panel_draw(SDL_Renderer *r, const p2panel *p, bool lift)
 {
-	const unsigned rule_rgb = ui_sys_mark(p->accent);
-	const SDL_Color rule = { (Uint8)(rule_rgb >> 16), (Uint8)(rule_rgb >> 8), (Uint8)rule_rgb, 255 };
+	const SDL_Color rule = ui_col(theme()->edge, 255);
 	TTF_Font *f;
 	p2p_geom g;
 	int i, x0, w, line;
@@ -139,10 +140,10 @@ void p2panel_draw(SDL_Renderer *r, const p2panel *p, bool lift)
 	x0 = g.panel.x + P2P_PAD;
 	w = g.panel.w - 2 * P2P_PAD;
 	/* DESIGN.md 11.3: **surface** in an **edge** frame, lifted off the game */
-	ds_panel_slab(r, &g.panel, p->accent, lift);
+	ds_panel_slab(r, &g.panel, CFG_NO_COLOR, lift);   /* the neutral light, as every menu's */
 	ui_text(r, ui_font(UI_F_LABEL), p->heading ? p->heading : "", g.panel.x + g.panel.w / 2,
 	        ui_line_y(UI_F_LABEL, g.head_y), 0, UI_TEXT_SOFT);
-	/* The heading's rule in the system's color, as its menu's */
+	/* The heading's rule in **edge**, as every menu's (1.0.6 rc.2) */
 	ds_panel_rule(r, x0, g.rule_y, w, rule);
 
 	/* The line: what the page is for, under the heading as the hot panel's

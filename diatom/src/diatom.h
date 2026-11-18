@@ -305,12 +305,19 @@ typedef struct {
 	 * Diatom has no core list. Anything else is one screen. */
 	int  screens;
 	/* RUN: "late" lets a core with a frameskip leave out the drawing of a
-	 * frame that is running late, at 1x as well as fast. Empty: only fast
-	 * forward skips, as before. */
+	 * frame that is running late, at 1x as well as fast; "steady" does the
+	 * same with exactly every second frame drawn while frames run late (the
+	 * DS shelf's When Slow sent it in a 1.0.6 test build; the launcher sends
+	 * late alone now, and steady stays a RUN word). Empty: only fast forward
+	 * skips, as before. */
 	char frameskip[16];
 	/* RUN: "medium" or "light" caps the clocks for a system that keeps its
 	 * speed under them; empty or anything else is full. See diatom_port_power. */
 	char power[16];
+	/* RUN: "smooth" locks a game to the display's rate where the two are
+	 * close (src/pace.h, DISPLAY LOCK); empty or anything else ("exact"),
+	 * the core's own rate, as before */
+	char pace[8];
 	/* RUN: how hard the motor runs, in percent of what the core asks, 1 to
 	 * 99 (a system whose core shakes harder than the handheld wants:
 	 * PrBoom's every shot); 0, 100 or absent is as asked. See
@@ -514,6 +521,12 @@ double diatom_audio_ratio_drift(void);     /* current DRC correction, for report
 /* Frames the port refused, this session. Nonzero means rate control is not
  * keeping up - the buffer is hitting a wall rather than being steered. */
 uint64_t diatom_audio_dropped(void);
+/* A push that does not fit waits for room instead of being refused (audio.c,
+ * HOLD), for a core paced by its sound; and how long it waited this session,
+ * over how many pushes */
+void     diatom_audio_hold(bool on);
+uint64_t diatom_audio_held_us(void);
+uint64_t diatom_audio_held_pushes(void);
 
 /* Peak absolute sample, and how many of the samples written were non-zero.
  * The first thing to check when nothing is audible. */

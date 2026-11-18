@@ -91,4 +91,6 @@ void ds_preview_note(SDL_Renderer *r, const SDL_Rect *note, const char *text)
 	for (i = 0; i < n; i++)
 		ui_text(r, f, lines[i], note->x, ui_line_y(UI_F_META, note->y + i * DS_LINE_META), -1,
 		        UI_TEXT_SOFT);
+	/* drawn in lines, so said whole to the host's check */
+	if (n > 1) ui_fit_drawn(text);
 }

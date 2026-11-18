@@ -16,15 +16,15 @@ ja = あらすじ
 it = Trama
 
 [gamemenu.synopsis_none]
-note = Synopsis' value when the scrape found no text. Lowercase.
-en = none
+note = Synopsis' value when the scrape found no text. Begun with a capital.
+en = None
 zh-Hans = 无
-es = ninguna
-pt-BR = nenhuma
-fr = aucun
-de = keine
+es = Ninguna
+pt-BR = Nenhuma
+fr = Aucun
+de = Keine
 ja = なし
-it = nessuna
+it = Nessuna
 
 [gamemenu.year]
 note = The game info screen's row: the year it came out
@@ -539,15 +539,15 @@ ja = タッチペン
 it = Stilo
 
 [gamemenu.cheevos_none]
-note = The in-game Achievements row's value for a game with no achievements. Lowercase.
-en = none
+note = The in-game Achievements row's value for a game with no achievements. Begun with a capital.
+en = None
 zh-Hans = 无
-es = ninguno
-pt-BR = nenhuma
-fr = aucun
-de = keine
+es = Ninguno
+pt-BR = Nenhuma
+fr = Aucun
+de = Keine
 ja = なし
-it = nessuno
+it = Nessuno
 
 [gamemenu.layout_stacked]
 note = Screens' value: one screen above the other, both the same size
@@ -810,15 +810,92 @@ ja = LCD グリッド
 it = Griglia LCD
 
 [gamemenu.shader_mixed]
-note = MENU's Shader row's value when the systems do not all have the same shader: each system has its own, chosen in its menu or in a game. Lowercase, as a status value.
-en = per system
+note = MENU's Shader row's value when the systems do not all have the same shader: each system has its own, chosen in its menu or in a game. Begun with a capital, as a status value.
+en = Per system
 zh-Hans = 按系统
-es = por sistema
-pt-BR = por sistema
-fr = par système
-de = je System
+es = Por sistema
+pt-BR = Por sistema
+fr = Par système
+de = Je System
 ja = システムごと
-it = per sistema
+it = Per sistema
+
+[gamemenu.shader_off_note]
+note = Under the Shader list's picture: what Off does to a game's pixels at a size the screen cannot divide evenly. One short line.
+en = Sharp pixels, some a little wider than others.
+zh-Hans = 像素锐利，有些会略宽一些。
+es = Píxeles nítidos, algunos un poco más anchos.
+pt-BR = Pixels nítidos, alguns um pouco mais largos.
+fr = Pixels nets, certains un peu plus larges.
+de = Scharfe Pixel, manche etwas breiter.
+ja = くっきりした画素。一部が少し太くなります。
+it = Pixel nitidi, alcuni un po' più larghi.
+
+[gamemenu.shader_shimmerless_note]
+note = Under the Shader list's picture: what Sharp-Shimmerless does. One short line.
+en = Sharp pixels all one size, so nothing shimmers.
+zh-Hans = 像素锐利且大小一致，画面不闪烁。
+es = Píxeles nítidos del mismo tamaño, sin parpadeo.
+pt-BR = Pixels nítidos do mesmo tamanho, sem cintilar.
+fr = Pixels nets, tous de la même taille, sans scintillement.
+de = Scharfe, gleich große Pixel, nichts flimmert.
+ja = くっきりした同じ大きさの画素。ちらつきません。
+it = Pixel nitidi tutti uguali, senza sfarfallio.
+
+[gamemenu.shader_crt_note]
+note = Under the Shader list's picture: what CRT looks like, an old tube TV. One short line.
+en = A tube TV: its lines and glowing colored dots.
+zh-Hans = 显像管电视：扫描线和发光的彩色点。
+es = Un televisor de tubo: sus líneas y puntos de color.
+pt-BR = Uma TV de tubo: as linhas e os pontos coloridos.
+fr = Une télé à tube : ses lignes et ses points de couleur.
+de = Ein Röhren-TV: Zeilen und leuchtende Farbpunkte.
+ja = ブラウン管テレビ。走査線と光る色の点。
+it = Una TV a tubo: le righe e i punti colorati.
+
+[gamemenu.shader_crt_curved_note]
+note = Under the Shader list's picture: CRT Curved, the same tube TV with its glass curved and its corners round. One short line.
+en = The same tube TV, with its curved glass.
+zh-Hans = 同样的显像管电视，带弧形玻璃。
+es = El mismo televisor de tubo, con su cristal curvo.
+pt-BR = A mesma TV de tubo, com o vidro curvo.
+fr = La même télé à tube, avec sa vitre bombée.
+de = Derselbe Röhren-TV, mit gewölbtem Glas.
+ja = 同じブラウン管テレビに、丸みのあるガラス。
+it = La stessa TV a tubo, con il vetro curvo.
+
+[gamemenu.shader_scanlines_note]
+note = Under the Shader list's picture: what Scanlines does. One short line.
+en = Dark lines between the game's rows.
+zh-Hans = 游戏画面的行与行之间有暗线。
+es = Líneas oscuras entre las filas del juego.
+pt-BR = Faixas escuras entre as linhas do jogo.
+fr = Des lignes sombres entre les rangées du jeu.
+de = Dunkle Linien zwischen den Zeilen des Spiels.
+ja = ゲームの行と行の間に暗い線。
+it = Linee scure tra le righe del gioco.
+
+[gamemenu.shader_lcd_note]
+note = Under the Shader list's picture: what LCD Grid looks like, a handheld's screen. One short line.
+en = A handheld's screen: a grid around every pixel.
+zh-Hans = 掌机屏幕：每个像素周围都有网格。
+es = La pantalla de una portátil: una rejilla en cada píxel.
+pt-BR = A tela de um portátil: uma grade em cada pixel.
+fr = L'écran d'une console portable : une grille autour de chaque pixel.
+de = Wie ein Handheld: ein Raster um jedes Pixel.
+ja = 携帯機の画面。画素ごとに格子。
+it = Lo schermo di una portatile: una griglia attorno a ogni pixel.
+
+[gamemenu.strength_note]
+note = Under the Strength list's picture, the same for every step: what the percentage sets. One short line.
+en = How strong the lines and dots are.
+zh-Hans = 线条和色点的强度。
+es = Qué tan fuertes son las líneas y los puntos.
+pt-BR = A força das linhas e dos pontos.
+fr = L'intensité des lignes et des points.
+de = Wie stark Linien und Punkte sind.
+ja = 線と点の強さ。
+it = Quanto sono marcate le linee e i punti.
 
 [gamemenu.strength]
 note = A row right under Shader in the in-game menu, the system menu and MENU, shown while the shader is CRT, CRT Curved, Scanlines or LCD Grid: how strongly its lines and grid are drawn over the picture, 10% to 100%. Its value is a percentage, or "per system" in MENU.

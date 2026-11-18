@@ -16,7 +16,11 @@
 #                               were built from main as GitHub has it now (or
 #                               from a commit before it that only lacked the
 #                               notes' Tested on lines) and still match their
-#                               SHA256SUMS
+#                               SHA256SUMS. If main has gone on since the
+#                               build (build tooling, say), run it on a branch
+#                               of the built commit whose only change is the
+#                               Tested on lines: that branch is the release,
+#                               and it goes into main after
 #
 # Both --publish forms refuse a release whose notes lack a "Tested on <id>:"
 # line for any device in config/devices (tools/release-devices.sh tested,
@@ -65,8 +69,8 @@
 #
 # The devices are config/devices: a device joins it with its first release
 # and stays, as System Update and the installer read releases/latest. The
-# TrimUI Brick is not in it yet; its test kits carry it (--kit brick). Its
-# release-brick builds its kernel and modules first (plastron's make
+# TrimUI Brick joined it with 1.0.6; before that, its test kits carried it
+# (--kit brick). Its release-brick builds its kernel and modules first (plastron's make
 # brick-kernel), and needs the builder's own copy of its closed files
 # (plastron's make brick-fetch, into ~/brick-runtime), which build it and are
 # never released: each player's installer gets them (installer/README.md).
@@ -137,10 +141,11 @@ publish() {
 	# A draft first, with the image on it: the tag's workflow adds the installer
 	# to this release and publishes it, and refuses a tag with no draft waiting
 	[ $UPDATES = 0 ] || [ -n "$UPDATE_FILES" ] || stop "the update list is not signed"
-	# A kit's commit is on no branch GitHub has: the draft names main, and
-	# the tag, pushed before the workflow publishes it, is what it is made from
+	# A kit's commit, or a branch of the built commit with its Tested on lines,
+	# is on no branch GitHub has: the draft names main, and the tag, pushed
+	# before the workflow publishes it, is what it is made from
 	TARGET=$HEAD
-	[ -z "$KIT" ] || TARGET=main
+	git merge-base --is-ancestor "$HEAD" origin/main 2>/dev/null || TARGET=main
 	gh release create "$TAG" --repo $REPO --draft $PRERELEASE --target "$TARGET" --title "ZyperOS $VERSION" \
 		--notes-file "$ROOT/$NOTES" $RELEASE_FILES $UPDATE_FILES SHA256SUMS
 	cd "$ROOT"
@@ -149,6 +154,8 @@ publish() {
 	echo
 	echo "The draft is up and $TAG is pushed. GitHub now builds ZyperOS Installer and publishes the release:"
 	echo "  https://github.com/$REPO/actions/workflows/release.yml"
+	[ -n "$KIT" ] || [ "$TARGET" = "$HEAD" ] ||
+		echo "$TAG is $(git rev-parse --short HEAD), which main doesn't have yet: push its branch and merge it into main, for its Tested on lines"
 	if [ -n "$KIT" ]; then
 		echo "A test kit: nothing goes to #releases. Its page, for the kit's thread: https://github.com/$REPO/releases/tag/$TAG"
 		return 0
@@ -203,7 +210,9 @@ if [ $PUBLISH = 1 ]; then
 	if [ -n "$KIT" ]; then
 		kit_change
 	else
-		[ "$HEAD" = "$(git rev-parse origin/main)" ] ||
+		# --publish-built checks a branch of the built commit below, once it
+		# knows that commit
+		[ "$HEAD" = "$(git rev-parse origin/main)" ] || [ $BUILT = 1 ] ||
 			stop "a release is made from main as GitHub has it: this is $(git rev-parse --short HEAD), origin/main is $(git rev-parse --short origin/main)"
 	fi
 	[ -f "$NOTES" ] || stop "write the release notes in $NOTES and commit them first"
@@ -270,8 +279,16 @@ if [ $BUILT = 1 ]; then
 		git merge-base --is-ancestor "$BUILT_HEAD" "$HEAD" 2>/dev/null &&
 			[ "$(git diff --name-only "$BUILT_HEAD" "$HEAD")" = "$NOTES" ] &&
 			[ "$(untested "$BUILT_HEAD")" = "$(untested "$HEAD")" ] ||
-			stop "$OUT is from another commit: $(cat "$OUT/BUILT-FROM"); since then more changed than $NOTES's Tested on lines, so build again"
-		echo "release.sh: built from $(git rev-parse --short "$BUILT_HEAD"); main since has only $NOTES's Tested on lines"
+			stop "$OUT is from another commit: $(cat "$OUT/BUILT-FROM"); since then more changed than $NOTES's Tested on lines, so build again, or run this on a branch of $(git rev-parse --short "$BUILT_HEAD") that adds only them"
+		echo "release.sh: built from $(git rev-parse --short "$BUILT_HEAD"); since then only $NOTES's Tested on lines"
+	fi
+	# Main may have gone on since the build (build tooling, say): the release
+	# is then a branch of the built commit, which must be main's, as GitHub has
+	# it, and the branch goes into main after
+	if [ -z "$KIT" ] && [ "$HEAD" != "$(git rev-parse origin/main)" ]; then
+		git merge-base --is-ancestor "$BUILT_HEAD" origin/main 2>/dev/null ||
+			stop "a release is made from main as GitHub has it: $(git rev-parse --short "$BUILT_HEAD"), which $OUT was built from, is not on origin/main"
+		echo "release.sh: main has gone on to $(git rev-parse --short origin/main); this release is $(git rev-parse --short "$BUILT_HEAD") as built, on its own branch"
 	fi
 	cd "$OUT"
 	shasum -a 256 -c SHA256SUMS > /dev/null || stop "a file in $OUT no longer matches SHA256SUMS"

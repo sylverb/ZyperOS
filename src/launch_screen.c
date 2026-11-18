@@ -4,6 +4,8 @@
 #include "aout_route.h"
 #include "app.h"
 #include "bgm.h"
+#include "biosfile.h"
+#include "gamefile.h"
 #include "ctl.h"
 #include "ctl_channel.h"
 #include "dsv.h"
@@ -12,6 +14,7 @@
 #include "musec.h"
 #include "net.h"
 #include "notice.h"
+#include "pacing.h"
 #include "panel.h"
 #include "place.h"
 #include "pminstall.h"
@@ -562,25 +565,6 @@ void pm_after_run(app *a)
 	pm_install_screen(a, s, true, why, true);
 }
 
-/* A shelf's disc bios in Bios/: any one of its names, which config/systems.cfg
- * lists with commas (the Saturn core takes any of three). The first is the
- * one a refusal names. */
-bool disc_bios_found(const char *bios, const char *names)
-{
-	const char *p = names;
-
-	while (*p) {
-		size_t n = strcspn(p, ",");
-		char fw[CFG_STR * 3];
-
-		snprintf(fw, sizeof fw, "%s/%.*s", bios, (int)n, p);
-		if (n && access(fw, R_OK) == 0) return true;
-		p += n;
-		if (*p) p++;
-	}
-	return false;
-}
-
 void launch(app *a)
 {
 	/* The game has the screen, and the CPU: no snap under it */
@@ -599,11 +583,11 @@ void launch(app *a)
 	int  console = 0;
 	bool first_play = false;
 	/* 22 fixed entries (the shader's two and its strength's since 1.0.5)
-	 * plus NULL, seven more for a DS game's two screens, then two per core
-	 * option. Sized off the loader's own cap so the two cannot drift apart:
+	 * plus NULL, seven more for a DS game's two screens, two for Timing's
+	 * --pace (1.0.6), then two per core option. Sized off the loader's own cap so the two cannot drift apart:
 	 * the previous 20 was already 18 full, and a silent bound check would
 	 * have dropped every option rather than failing loudly. */
-	char *argv[33 + 2 * 32];
+	char *argv[35 + 2 * 32];
 	bool resident = false, want_menu;
 	/* A DS game's resume by its language (ds_resume_fresh): what it will
 	 * run in, whether it starts fresh, and its auto state as it was */
@@ -641,6 +625,25 @@ void launch(app *a)
 	snprintf(save, sizeof save, "%s/Saves", P_CARD);
 	snprintf(bios, sizeof bios, "%s/Bios", P_CARD);
 
+	/* The game's own file, before anything is sent or started for it: an
+	 * empty one, or one too short to be its kind, is said here (gamefile.h).
+	 * A 0-byte PSP .iso crashed Diatom inside PPSSPP and came back to the
+	 * shelf with nothing said (2026-11-16). */
+	{
+		unsigned long long have;
+		gamefile_state gs = gamefile_check(rom, &have);
+
+		if (gs != GAMEFILE_OK) {
+			char msg[160];
+
+			gamefile_message(gs, have, msg, sizeof msg);
+			fprintf(stderr, "launch: %s refused: %s is %llu bytes\n", s->name, romfile, have);
+			if (a->in.pressed[IN_ACCEPT]) uisound_play(DS_SOUND_DENY);
+			result_message(a, v->list.items[v->cursor].title, msg);
+			return;
+		}
+	}
+
 	/* A DS game: two screens in one frame, a DraStic save (ROGUE OS's) to
 	 * take over the first time, and frames left undrawn when they run late -
 	 * DSperate's 3D is the heaviest thing a Cortex-A35 is asked to draw, and
@@ -658,7 +661,7 @@ void launch(app *a)
 		char map[320];
 		bool stick_on = rms_stick_get(s, romfile);
 
-		cfg_run_keys(s, g_game_dual, keys, (int)sizeof keys);
+		cfg_run_keys(s, g_game_dual, pacing_id(pacing_load(s)), keys, (int)sizeof keys);
 		/* The d-pad as the stick, a game's own (rms_stick_get): the PSP's
 		 * stick=toggle-stick when it was left on the stick */
 		rms_run_stick(s, stick_on, stick, sizeof stick);
@@ -690,13 +693,22 @@ void launch(app *a)
 	 * cartridge on the shelf because a CD would have needed one is a worse
 	 * failure than the one being fixed. Every game where the shelf's whole
 	 * library needs it (bios_every, a `bios|tag|names` line: the
-	 * ColecoVision's). */
+	 * ColecoVision's).
+	 *
+	 * And a file of the wrong size as well as no file: the core would start
+	 * a 0-byte saturn_bios.bin to a black screen with no sound. Looked at in
+	 * the core's order, so a bad first name is said even beside a good later
+	 * one the core never reaches (src/biosfile.h). */
 	if (s->disc_bios[0] && (s->bios_every || lib_is_disc(v->list.items[v->cursor].file))) {
-		if (!disc_bios_found(bios, s->disc_bios)) {
-			char msg[CFG_STR + 96];
+		bios_result br;
 
-			snprintf(msg, sizeof msg, T(S_LAUNCH_NEEDS_BIOS),
-				 (int)strcspn(s->disc_bios, ","), s->disc_bios);
+		if (bios_check(s, bios, &br) != BIOS_OK) {
+			char msg[CFG_STR + 160];
+
+			bios_message(&br, msg, sizeof msg);
+			if (br.state == BIOS_WRONG_SIZE)
+				fprintf(stderr, "launch: %s refused: Bios/%s is %llu bytes, not %u\n", s->name,
+				        br.name, br.have, br.want);
 			if (a->in.pressed[IN_ACCEPT]) uisound_play(DS_SOUND_DENY);
 			result_message(a, v->list.items[v->cursor].title, msg);
 			return;
@@ -1108,6 +1120,11 @@ void launch(app *a)
 			argv[n++] = (char *)"--frameskip"; argv[n++] = (char *)"late";
 			argv[n++] = (char *)"--layout";    argv[n++] = (char *)gm_layout_names[lay];
 			if (sw) argv[n++] = (char *)"--swap";
+		}
+		/* Timing, as RUN's pace= gives it to the resident one (src/pacing.h) */
+		if (s->pace[0]) {
+			argv[n++] = (char *)"--pace";
+			argv[n++] = (char *)pacing_id(pacing_load(s));
 		}
 		/* The Auto card's own path here, not the scratch the resident mode
 		 * uses. Standalone has no in-game menu - the launcher is torn down -

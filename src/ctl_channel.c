@@ -2,6 +2,8 @@
 #include "ctl_channel.h"
 
 #include "app.h"
+#include "biosfile.h"
+#include "gamefile.h"
 #include "ctl.h"
 #include "panel.h"
 #include "platform.h"
@@ -136,18 +138,49 @@ static bool ctl_resolve(app *a, const ctl_cmd *c, bool rescan, ctl_target *t,
 		}
 		snprintf(t->core, sizeof t->core, "%s", alt);
 	}
+	/* An empty or cut-short game file, as launch refuses it (gamefile.h) */
+	if (strcmp(t->core, PORT_CORE) && strncmp(t->core, RUN_PREFIX, strlen(RUN_PREFIX))) {
+		char rom[LIB_PATH * 2];
+		unsigned long long have;
+
+		snprintf(rom, sizeof rom, "%s/%s/%s", P_ROMS, s->folder, sys_games(&a->view[si])->items[gi].file);
+		switch (gamefile_check(rom, &have)) {
+		case GAMEFILE_EMPTY:
+			*code = "empty-game";
+			snprintf(msg, mn, "%s/%s is 0 bytes", folder, file);
+			return false;
+		case GAMEFILE_SHORT:
+			*code = "short-game";
+			snprintf(msg, mn, "%s/%s is %llu bytes, shorter than any %s can be", folder, file, have,
+			         strrchr(file, '.') ? strrchr(file, '.') : "file");
+			return false;
+		case GAMEFILE_OK:
+			break;
+		}
+	}
 	/* A disc that needs firmware, as launch refuses it, said here instead of
 	 * in a message on the handheld that nobody over SSH would see */
 	if (strcmp(t->core, PORT_CORE) && strncmp(t->core, RUN_PREFIX, strlen(RUN_PREFIX)) &&
 	    s->disc_bios[0] && (s->bios_every || lib_is_disc(sys_games(&a->view[si])->items[gi].file))) {
 		char bios[CFG_STR * 2];
+		bios_result br;
 
 		snprintf(bios, sizeof bios, "%s/Bios", P_CARD);
-		if (!disc_bios_found(bios, s->disc_bios)) {
+		switch (bios_check(s, bios, &br)) {
+		case BIOS_MISSING:
 			*code = "needs-bios";
-			snprintf(msg, mn, "%s needs Bios/%.*s", s->name, (int)strcspn(s->disc_bios, ","),
-			         s->disc_bios);
+			snprintf(msg, mn, "%s needs Bios/%s", s->name, br.name);
 			return false;
+		case BIOS_WRONG_SIZE:
+			/* There, but not a copy the core can start: in the core's
+			 * order, the file it would use (src/biosfile.h) */
+			*code = "bad-bios";
+			snprintf(msg, mn, "%s: Bios/%s is %llu bytes; it should be %u%s%s%s", s->name, br.name,
+			         br.have, br.want, br.good[0] ? " (delete it to use " : "", br.good,
+			         br.good[0] ? ")" : "");
+			return false;
+		case BIOS_OK:
+			break;
 		}
 	}
 	return true;

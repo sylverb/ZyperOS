@@ -38,6 +38,7 @@ const device_profile device_profile_brick = {
 	.speaker_mono = false,
 	.player2 = false,
 	.usb_shared_port = false,
+	.screen_colors = false,
 	.wifi = DEV_WIFI_BUILTIN,
 	.thermal_zones = brick_zones,
 };

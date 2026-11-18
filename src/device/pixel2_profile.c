@@ -64,6 +64,7 @@ const device_profile device_profile_pixel2 = {
 	.speaker_mono = true,
 	.player2 = true,
 	.usb_shared_port = true,
+	.screen_colors = true,
 	.wifi = DEV_WIFI_ADAPTER,
 	.thermal_zones = pixel2_zones,
 };

@@ -24,6 +24,7 @@ extern int shot_tab_ms;
 extern const char *shot_look;
 extern const char *shot_look_page;
 extern int shot_homesys;        /* --homesys-page ROW: MENU > Home Systems' page, or -1 */
+extern int shot_lights;         /* --lights-page ROW: MENU > Side Lights' page, or -1 */
 extern int shot_look_row;
 extern int shot_kb_layer;
 extern int shot_kb;
@@ -58,6 +59,7 @@ extern const char *shot_badge_set;
 extern int shot_syn;
 extern int shot_info;
 extern int shot_delete_ask;
+extern int shot_gm_said;
 extern int shot_delete_now;
 extern int shot_controls;
 extern int shot_sgdb;
@@ -70,7 +72,7 @@ extern int shot_music_steps;
 extern int shot_update;
 extern int shot_hare;
 extern int shot_usb;
-extern int shot_datetime;
+extern int shot_datetime, shot_datetime_mon;
 extern int shot_dev;
 extern bool shot_usb_dev;
 extern int shot_power;
@@ -118,6 +120,7 @@ extern const char *shot_portload;
 extern int shot_poweroff;
 extern const char *shot_kb_text;
 extern const char *shot_kb_title;
+extern int shot_kb_ss_user;      /* --kb-ss-user: the ScreenScraper sign-in's title */
 extern int shot_slot_sel;
 extern int shot_slots;
 extern int shot_jump;
@@ -129,6 +132,7 @@ extern int shot_video;
 extern float shot_np_at;
 extern const char *shot_mode;
 extern float shot_slot_aspect;
+extern int shot_slot_mon, shot_slot_hour, shot_slot_save;
 extern int shot_gamemenu_tab;
 extern int shot_gamemenu_sel;
 extern int shot_gamemenu;
@@ -152,6 +156,7 @@ extern const char *shot_hud_shows; /* --hud-shows WORDS */
 extern bool shot_hud_alt;      /* --hud-alt */
 extern int shot_pick_at;       /* --pick-at K */
 extern int shot_rows_report;   /* --rows-report */
+extern int shot_hover_sweep;   /* --hover-sweep */
 extern const char *shot_menu_label;
 bool shot_status_parse(const char *spec);
 void shot_motion(app *a);

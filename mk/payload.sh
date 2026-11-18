@@ -109,6 +109,12 @@ cp "$ROOT/res/bgm/"*.mp3 "$P/res/bgm/"
 # without them.
 mkdir -p "$P/res/tour"
 cp "$ROOT/res/tour/"*.png "$P/res/tour/"
+# The Shader and Strength lists' pictures (src/shaderdemo.h), made by
+# tools/shaderdemo.c for each panel: the device's own panel's alone. The
+# Pixel 2's 640x480, the Brick's 1024x768.
+if [ "$DEVICE" = pixel2 ]; then DEMO=640x480; else DEMO=1024x768; fi
+mkdir -p "$P/res/shaderdemo/$DEMO"
+cp "$ROOT/res/shaderdemo/$DEMO/"*.png "$P/res/shaderdemo/$DEMO/"
 # Wi-Fi File Transfer's page. The launcher serves these off the card at P_WEB, so a
 # payload without them is a card whose transfer screen starts a server and then
 # answers its own page with a 404, which only shows on a built card - the
@@ -212,7 +218,7 @@ if [ -n "$missing" ]; then
 	echo "payload: mk/build-mgba-bridge.sh, mk/build-dsperate.sh, mk/build-fake08.sh," >&2
 	echo "payload: mk/build-flycast2021.sh, mk/build-scummvm.sh, mk/build-freej2me.sh," >&2
 	echo "payload: mk/build-small-cores.sh, mk/build-ppsspp.sh, mk/build-tic80.sh," >&2
-	echo "payload: mk/build-mupen64plus-next.sh, mk/build-parallel-n64.sh," >&2
+	echo "payload: mk/build-pcsx-rearmed.sh, mk/build-mupen64plus-next.sh, mk/build-parallel-n64.sh," >&2
 	echo "payload: mk/build-yabasanshiro.sh (and mk/build-openbor.sh for the Pixel 2)" >&2
 	exit 1
 fi

@@ -114,6 +114,9 @@ static void media_kind_line(const art_source *as, char *out, size_t n)
 	const char *reg = media_region(as->region);
 
 	if (as->kind < 0 || as->kind >= AK_KINDS) { out[0] = '\0'; return; }
+	/* drawn inside the line, so said whole to the host's check */
+	ui_fit_drawn(T(MEDIA_KIND[as->kind]));
+	ui_fit_drawn(reg);
 	if (reg) snprintf(out, n, "%s · %s", T(MEDIA_KIND[as->kind]), reg);
 	else snprintf(out, n, "%s", T(MEDIA_KIND[as->kind]));
 }
@@ -280,6 +283,7 @@ static void media_build(media_view *v, unsigned now)
 		for (i = 0; i < AS_SOURCES && i < 3; i++) {
 			snprintf(v->lines[i], sizeof v->lines[i], "%s · %s", artsrc_name((as_source)i),
 			         media_q_word(st->q[i]));
+			ui_fit_drawn(media_q_word(st->q[i]));    /* inside the line */
 			p->msg_lines[p->nmsg_lines++] = v->lines[i];
 		}
 	} else {
@@ -844,8 +848,12 @@ void media_shot(app *a)
 		};
 		sysview *sv = &a->view[a->sys_cursor];
 		int owner, i, n = (int)(sizeof FIX / sizeof FIX[0]);
-		bool nothing = !strcmp(name, "nothing"), fetching = !strcmp(name, "fetching");
-		bool after = !strcmp(name, "after"), offline = !strcmp(name, "offline");
+		/* nothing-off: nothing found, ScreenScraper not linked;
+		 * offline-novideo: offline, and the game has no video */
+		bool nothing_off = !strcmp(name, "nothing-off");
+		bool nothing = nothing_off || !strcmp(name, "nothing"), fetching = !strcmp(name, "fetching");
+		bool offline_novideo = !strcmp(name, "offline-novideo");
+		bool after = !strcmp(name, "after"), offline = offline_novideo || !strcmp(name, "offline");
 		bool videoget = !strcmp(name, "videoget");
 		/* No ScreenScraper account: no video to download, and why */
 		bool novideo = !strcmp(name, "novideo");
@@ -861,7 +869,7 @@ void media_shot(app *a)
 		v.now_as = (art_source){ AS_LR, AK_BOX, "", "Fixture (Japan)" };
 		if (nothing) {
 			v.now_tex = ui_make_card(a->r, v.title, v.sys_rgb, &v.now_w, &v.now_h);
-			v.fix.q[AS_SS] = MFQ_UNKNOWN;
+			v.fix.q[AS_SS] = nothing_off ? MFQ_OFF : MFQ_UNKNOWN;
 			v.fix.q[AS_LR] = MFQ_NONE;
 			v.fix.q[AS_SG] = MFQ_NO_ANSWER;
 			n = 0;
@@ -909,7 +917,7 @@ void media_shot(app *a)
 			v.fix.n = n;
 		}
 		/* The video: a game with one, but where it is being fetched or is none */
-		v.has_snap = !videoget && !fetching && !nothing && !novideo;
+		v.has_snap = !videoget && !fetching && !nothing && !novideo && !offline_novideo;
 		if (novideo) v.fix.q[AS_SS] = MFQ_OFF;
 		if (v.has_snap) {
 			v.snap_secs = 12;
@@ -917,7 +925,7 @@ void media_shot(app *a)
 			media_fixture_tex(&v, &v.tex[MF_MAX - 1], &v.tw[MF_MAX - 1], &v.th[MF_MAX - 1], "snap.png",
 			                  T(S_MEDIA_VIDEO));
 		}
-		v.fix.video_offer = !nothing && !fetching && !novideo;
+		v.fix.video_offer = !nothing && !fetching && !novideo && !offline_novideo;
 		v.fix.video_size = 2400000;
 		if (videoget) {
 			v.fix.video_coming = true;
@@ -954,6 +962,7 @@ void media_shot(app *a)
 		rows[0] = (menu_row){ text, NULL, false };
 		if (ui_text_width(ui_font(UI_F_MENU), text) > w) {
 			n = ui_balance_lines(ui_font(UI_F_MENU), text, w, 3, lines);
+			ui_fit_drawn(text);    /* drawn in lines */
 			for (i = 0; i < n; i++) rows[i] = (menu_row){ lines[i], NULL, false };
 		}
 		ui_scrim(a->r, 0);

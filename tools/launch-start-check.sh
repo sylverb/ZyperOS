@@ -18,6 +18,8 @@
 #      away): launch.sh is set aside as in 2, and the handheld goes off,
 #      where `.` on the missing file would have ended the script before
 #      ZyperOS.
+#   6. on the Pixel 2, the kernel's line about the battery's level at the
+#      start (plastron's 9-px2-rk817-start-soc.patch) is in the start's log.
 D=${TMPDIR:-/tmp}/zyperos-launch-check.$$
 trap 'rm -rf "$D"' EXIT
 fails=0
@@ -47,6 +49,10 @@ prepare() {
 		printf '#!/bin/sh\necho %s >> "%s/calls"\n' "$c" "$D" > "$D/bin/$c"
 	done
 	printf '#!/bin/sh\nexit 1\n' > "$D/bin/pidof"
+	# The kernel's log, with the gauge's line among others
+	printf '#!/bin/sh\necho "[    0.5] mmc0: new card"\necho "[    1.2] %s"\necho "[    1.3] usb 1-1: new device"\n' \
+	       'rk817-charger rk817-charger: battery at start: 49% from the voltage; off 120 min, on 0x80, sampled 3815 mV at -250 mA, at rest 3843 mV (49%), counter 85%' \
+	       > "$D/bin/dmesg"
 	printf '#!/bin/sh\nexit 0\n' > "$D/card/ZyperOS/diatom"
 	chmod +x "$D"/bin/* "$D/card/ZyperOS/diatom"
 }
@@ -83,6 +89,16 @@ for dev in pixel2 brick; do
 	[ -f "$U/start-failed" ] || fail "no start-failed marker"
 	grep -q 'copies ZyperOS onto the card again' "$LOG" || fail "the log does not say a copy comes"
 	grep -q poweroff "$D/calls" 2>/dev/null || fail "no power-off after five fast stops"
+	# The battery's line, copied in the background: a moment for it
+	if [ "$dev" = pixel2 ]; then
+		i=0
+		while [ $i -lt 20 ] && ! grep -q '^kernel: battery at start: ' "$LOG"; do
+			sleep 0.1
+			i=$((i + 1))
+		done
+		[ "$(grep -c '^kernel: battery at start: 49% from the voltage; off 120 min, on 0x80, sampled 3815 mV at -250 mA, at rest 3843 mV (49%), counter 85%$' "$LOG")" = 1 ] ||
+			fail "the start's log has not the kernel's battery line once: $(grep battery "$LOG")"
+	fi
 
 	# The next start's copy, as zyperos.init makes it: launch.sh back
 	cp "$D/seed/ZyperOS/launch.sh" "$D/card/ZyperOS/launch.sh"

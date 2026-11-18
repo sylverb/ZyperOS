@@ -49,7 +49,8 @@ Game Boy Advance shelves open onto nothing. Restore the fetch and delete the
 script the day that fork syncs.
 
 `make check` runs before every commit, and GitHub runs it on every pull
-request (`.github/workflows/check.yml`, on macOS). It builds the host launcher
+request (`.github/workflows/check.yml`, on macOS, and on Linux without the checks
+its `CHECKS_SKIP` names, which do not pass there yet). It builds the host launcher
 once, then runs every check at once, as many at a time as there are cores
 (`CHECK_JOBS=1 make check` for one after another): a line as each ends, each
 one's output in `build-native/check-logs/CHECK.log`, and the whole log of any
@@ -96,8 +97,8 @@ something once broke in a way nothing noticed:
 | `check-pkkeys` | the volume keys over a port: MENU+VOL is the backlight whichever device is read first, the kernel's autorepeat is no step, a hold repeats on the launcher's clock, and the levels saved are the ones pressed |
 | `check-systemart` | the system art compiler: each pose rebuilt exactly from its atlas, frame timing, moving regions inside their bounds, the decoded budget, catalogue coverage and generated output consistency; and the art itself against its records (tools/systemart-original-check.py, tools/systemart-symbol-pixels-check.py) |
 | `check-design` | DESIGN.md's tables, `src/design.h`, the mock kit's `tokens.js`, Wi-Fi File Transfer's colors and the play page's are what `tools/designdef.py` writes, and every text pair the launcher and the page draw meets its contrast |
-| `check-strings` | every string in `res/strings/` in all five languages with English's printf conversions, every ID used and defined, every character in the font that draws it, and `src/i18n_ids.h`, `src/i18n_tables.c` and `res/web/i18n/` what `tools/i18n.py` writes |
-| `check-i18n-shots` | the main screens in every language and the pseudo-locale, from the host build, as the Pixel 2 and as the Brick (`--device`; the Brick's MENU is the word on its key, wider than the Pixel 2's three dots, and a row it has not, such as Strength, is said, not failed): no string from `res/strings` cut, broken past its lines or off the screen in any language, and no string's ink within 3 units of a key's glyph or a more mark (`ui_fit_mark`; five older screens listed as known in the tool until their fixes); and a list of what the pseudo-locale's longer words do not fit |
+| `check-strings` | every string in `res/strings/` in all five languages with English's printf conversions, every ID used and defined, every character in the font that draws it, `src/i18n_ids.h` and `res/web/i18n/` what `tools/i18n.py` writes, and `src/i18n_tables.c` not committed (the build writes it from `res/strings`, so no two pull requests conflict over its offsets) |
+| `check-i18n-shots` | the main screens in every language and the pseudo-locale, from the host build, as the Pixel 2 and as the Brick (`--device`; the Brick's MENU is the word on its key, wider than the Pixel 2's three dots, and a row it has not, such as Strength, is said, not failed; a shot that fails is taken once more, and one that then passes is said as flaky with its first reason): no string from `res/strings` cut, broken past its lines or off the screen in any language, and no string's ink within 3 units of a key's glyph or a more mark (`ui_fit_mark`; five older screens listed as known in the tool until their fixes); and a list of what the pseudo-locale's longer words do not fit; one set of scratch cards cloned for each language and handheld, and a pass kept by the launcher's bytes and the verdict's inputs, so the same again passes at once (`ZYPEROS_SHOTS_CACHE=0` shoots anyway) |
 | `check-rootswitch` | how the Brick's initramfs (plastron's `brick-rootswitch`) reads the kernel's line: the slot's root partition the boot script names (`zyperos.root=`), the name lookup when there is none or it is not a device, and a developer's `rootupdate=1` only as a word of its own |
 | `check-datapart` | where the Brick's first start puts the games partition (its `datapart`), over a made-up `/sys`: right after root B on a 4 MiB boundary as partition 5, nothing on a card without root B, and a games partition already there found by its name |
 | `check-brick-closed` | the Brick's start checking its closed files (its `init.d/brick`, `closed_check`) against the lists its image carries, over a made-up card: all there passes quietly; one missing, one cut short, no folder or no list fails and names what is wrong |
@@ -113,6 +114,8 @@ something once broke in a way nothing noticed:
 | `check-ds` | the design system's rules (DESIGN.md section 15, tools/ds-check.py): src/ds/ includes nothing of main.c; outside it no foot typed as 704, 714, 720 or 724 at a page_hint, a keyhints_draw or words on the keys' line (ui_cap_y), no Zyper typed at a page's (123, 168), no tile mark or tiles style read off a name (tile_glyph, tiles_are_list) |
 | `check-layout-ratchet` | the layout ratchet (DESIGN.md "The system", tools/layout-ratchet.py): each launcher source's typed layout numbers (a layout #define set to numbers, words at a typed height, a rectangle typed in place) held to tools/layout-ratchet.txt, which only goes down; over its line fails, and under it fails until the line is lowered (`--write`); drawings (a handheld, Zyper's face) are not counted |
 | `check-flex` | the layout engine (src/ds/flex.c): each rule (padding, gaps, grow and shrink, min and max, justify and align, a wrapping row as keyhints_rows breaks one, whole steps, a kept aspect, a measured text), a thousand random trees that stay in their parents the same way every time, and its time per screen |
+| `check-hover` | what an option list's cursor shows (src/ds/hover.c): a show once per choice the cursor comes to, the kept one back on the cursor's return and when the list closes, and `ds_hover_showing` true exactly while a choice that is not kept shows |
+| `check-hover-sweep` | Theme's Accent, Light Background and Dark Background on three cards (Pixel 2 light and dark, the Brick): every choice shown and the kept one back with no database row and no file written, the page reading the same after, and the slowest show and frame after it on this machine |
 | `check-glyphs` | the marks drawn from strokes (src/ds/glyph.c): every one within 32 strokes and 4 arrowheads, counted as it asks for them, kept or not; and the cache, full, giving the same pixels for a mark drawn again (needs SDL2) |
 | `check-zyper` | Zyper as the launcher draws him: in the top ZyperOS menu and no other, his tongue in after a failure, his eyes shut in a blink, and his shadow on Beard, in the menu and on the power-off screen where it goes out with him, never on Salt & Pepper; the host build's shots read back with Python's standard library (builds the host launcher; skips without SDL2) |
 | `check-portload` | the port loading screen over a white cover, a black one and a Nintendo DS game with a black one, in both themes: its words at 4.5:1 and its band at 3:1 as the screen reads them back, and neither words nor cover in Zyper's frame (builds the host launcher; skips without SDL2) |
@@ -164,13 +167,14 @@ something once broke in a way nothing noticed:
 | `check-battery` | a charger change reaches the shared battery cache within 250 ms at the shelf's poll rate |
 | `check-battery-eta` | the time left on the battery: the estimate from how long a percent takes to fall, against a simulated gauge at several loads, across the clock's wrap, a change of load, a stall, the cable and a gauge that corrects itself; and the corner's rounding |
 | `check-dslang` | the Nintendo DS's language: each language MENU > Language has maps, in Auto, to the DS's own or to English (Português (Brasil) and 简体中文 have none), the Game Language row's eight choices round trip through the database and go round both ways, the core's option and its values are the patch's, and the launcher sends it first with every DS game and with no other; the row is on the DS shelf's menu in every language with nothing cut, and Left, Right and A go round it, saved (builds the host launcher for the second half; skips without SDL2) |
+| `check-pacing` | Timing, a system menu row: its two choices, Smooth and Exact, the words the database keeps and RUN's `pace=` sends for them (`smooth`, `exact`), a word that is none being the system's own default from `config/systems.cfg`, the database key by the system's tag (`pace.GBA`), and Left and Right going round. The row on the menu is `check-menus`', RUN's keys and which shelves have the row `check-config`'s, and what Diatom does with `pace=smooth` Diatom's `check-displaylock` |
 | `check-corestate` | a game's resume when its auto state was left by the shelf's other core (the N64's ParallelN64 and Mupen64Plus-Next): Diatom's state header read back, version 1 and the packed version 2, and the start fresh or resume (src/corestate.h) |
 | `check-dsresume` | a Nintendo DS game's resume by its language: the firmware's language as DSperate's direct boot takes it, the language a game starts in for each option, the `.lang` beside its auto state, and a game left in another language started fresh (src/dsresume.h) |
 | `check-core-stamp` | the patched cores' stamps (mk/core-stamp.sh): a stamped core passes; a core built before a patch changed, one changed after its stamp, one with no stamp and a patch no core claims each fail, with what to run |
 | `check-core-room` | the libretro cores systems.cfg names against the resident Diatom's room for them (`DIATOM_MAX_RESIDENT`): more cores than that, and the last in folder order would start every game in the one-off Diatom (1.0.5 had 34 for 32) |
 | `check-px2-perf` | px2-perf's arithmetic: percentiles as a spreadsheet gives them, the frame-time spread from the times new frames were seen, a process's CPU ticks from a /proc stat line whose name has spaces and parentheses, and the speed against the clock from two of Diatom's now files, refused across two games or a Diatom started again |
 | `check-px2-snap` | px2-snap on a scratch card: a game's .srm, states, slots and pictures, fbneo's, a NAOMI game's and a ScummVM game's own files, never another game's that starts with its name; its play sessions, favorite and Pak through the host launcher's `--game-rows`, and no other game's; a test's changes undone byte for byte, the files it made removed; an open game, a name that is a path, a name taken, another game's rows and a launcher with no `--game-rows` refused or said (builds the host launcher; skips without SDL2 or sqlite3) |
-| `check-px2` | tools/px2 with a stand-in for ssh: wrong uses refused before the lock or the device, the test card and a VM's card go ahead and any other only with `--real-card`, the lock's owner file, a lock held refused or waited for, the lock let go after a failure, a TERM and a Ctrl-C, and each argument one word on the device |
+| `check-px2` | tools/px2 with a stand-in for ssh: wrong uses refused before the lock or the device, the test card and a VM's card go ahead and any other only with `--real-card`, the lock's owner file, a lock held refused or waited for, the lock let go after a failure, a TERM and a Ctrl-C, and each argument one word on the device; `deploy` and `restore` against a card that is a folder here: only what changed sent, the card's own files kept once however many deploys, a restore that puts them back and deletes what was added, ZyperOS restarted or, for a `launch.sh`, the device |
 | `check-powerhold` | MENU > Power Button's rule: a press turns the handheld off on Press, a hold of two seconds on Hold, once per time down, a hold the charging screen took never, and the pill's segments and the waits that move them |
 | `check-homesys` | MENU > Display > Home Systems' setting: the word of the shelves that are off, read and written back, a hand edit's spaces and repeats, whole tags only when it is cut |
 | `check-lowbatt` | the start with a battery too low to play: which start shows the screen, its hold, POWER, the charger's moment, and the reading that decides the power-off |
@@ -179,11 +183,15 @@ something once broke in a way nothing noticed:
 | `check-dsv` | DraStic's DS saves taken over by DSperate: footer off, the chip's bytes kept, an .srm already there never touched, written whole and flushed |
 | `check-osdbar` | the volume and brightness bar the launcher, Diatom and portkeys all draw: a segment lit per step and no more, at both scales, and its in, hold and out |
 | `check-hud` | On-Screen Stats (src/hud.h): the line for each item, the speed as a multiplier and none at full speed (0.98x-1.02x), rounded and clamped; every style's place at both scales over every set of items, inside the screen, clear of the level bar and the low-battery disc, and still as the numbers change; its colors; and Diatom's copies the same |
+| `check-shaderdemo` | the Shader and Strength lists' pictures (res/shaderdemo): each one what tools/shaderdemo.c makes now, pixel for pixel; one for every filter the Shader rows offer and every Strength step, on each panel; and Diatom's GLSL and the Brick's Sharp-Shimmerless on its CPU unchanged since they were made (res/shaderdemo/SOURCES). tools/shaderdemo-device.sh sets them beside a Pixel 2's own shots |
+| `check-scale` | a row's graded bar (src/ds/scale.h): its value reads back as written and keeps its range, a row's words or a bad kind or range is never a scale, and the knob is where the value is, with its ring round it and zero's mark away from it, in both themes, on a software renderer |
 | `check-dmodefit` | the Display list's pictures: each display mode's rect as the launcher works it out (src/dmodefit.c), against Diatom's own arithmetic (diatom/src/scale.c), over every mode, the sizes cores report, their shapes and the handhelds' surfaces |
 | `check-themefile` | the theme file the launcher writes and Diatom and portkeys read: a missing or nonsense file reads as Beard, the word written reads back, no half-written file is ever seen |
 | `check-theme` | which theme is on: MENU > Appearance's three settings, Auto's seven to seven and the hours MENU > Display > Auto Hours sets (round midnight too), the minute it may be late by, and the file the bar's other programs read after every kind of change |
 | `check-look` | the player's look (MENU > Display > Theme): every accent with every background tone, in both themes, held to the contrast each color is owed; the look as it ships is the tokens to the byte, and its words read back |
 | `check-config` | systems.cfg's accent field: six hex digits are that color, anything else is no color at all (CFG_NO_COLOR); and the systems in A to Z order |
+| `check-bios` | a shelf's BIOS as its core judges it: every disc bios name in systems.cfg has a size, and a 0-byte, short or long file in Bios/ is refused and named in the core's order (with the one delete that fixes it when a good later name is there), while a right-size one starts |
+| `check-gamefile` | a game's own file before its core: a 0-byte file of any kind is refused as empty (a 0-byte PSP .iso crashed PPSSPP), a zip, 7z, CHD, CSO, PBP or iso under its kind's least size as incomplete, while a ROM, cue or m3u is judged by being empty alone; what the shelf says, in two languages |
 | `check-kbnav` | the on-screen keyboard's d-pad: onto and off the action row, the wraps at every edge, and the action keys' labels on each layer |
 | `check-randgame` | Random Game's pick: every game as likely as every other, nothing off a shelf, never the last pick again |
 | `check-shelfdir` | Folders on a shelf: what a folder shows, its folders first by name with their games counted at every depth, then its games; a disc set in a folder a game there |
@@ -215,17 +223,19 @@ something once broke in a way nothing noticed:
 | `check-boottheme` | the boot screen's theme and language words (DESIGN.md 11.21) |
 | `check-splashbright` | the backlight value plastron's splash lights the panel at (`zybright` on the kernel's line, from theme.txt): within the backlight's maximum, and none for `-`, 0, a word or a value above it |
 | `check-bootbright` | plastron's init sets the backlight from the card's `boot-brightness` as soon as the card is mounted, within its maximum or through the Brick's tool, and leaves the kernel's level for anything else |
-| `check-panelgamma` | the display's gamma table emptied (src/panelgamma.h), against a stand-in display with Linux's request numbers: an older splash's table emptied on its CRTC alone, an empty one left alone, a kernel with none, and a refusal without DRM master |
+| `check-panelgamma` | the display's gamma table (src/panelgamma.h), against a stand-in display with Linux's request numbers: an older splash's table emptied on its CRTC alone, an empty one left alone, a kernel with none, a refusal without DRM master; the dimming table under the backlight's floor; Screen Colors' Temperature, Tint, Contrast and Gamma per channel on every rung (every value of every row a rising table, black kept), Standard exactly as before, and the file the launcher leaves for Diatom and portkeys (a FIFO or a link at its name not followed) |
+| `check-nightmode` | Night Mode (src/nightmode.h): its warmth in the display's table (Temperature's gains again, multiplied after the player's), the file's warmth and nights for Diatom and portkeys and the clock against them, the nights by the hours across midnight, on the same day, none for the same hour twice, On and Off, and in New York across both ends of summer time; and the first start's migration from Appearance's Auto, pure and on a scratch database: the theme Auto gave at that moment, its hours kept as Night Hours, Night Mode left Off, once |
 | `check-displayback` | the display taken back after a game (src/displayback.h), against a stand-in display and clock with Linux's request numbers: a clean end (master at once, the game's last frame left up), a crash (master asked for again until the dying Diatom lets go, then a black picture put up on the CRTC it left empty, in SDL's own format so SDL's next flip is allowed, kept for the next crash), a crash that turned the CRTC off (the panel's preferred mode), QEMU's XRGB8888 frames, a panel listing more modes than it holds, a Diatom that never lets go (refused on the bound), the per-frame try, and a refusal without master |
 | `check-px2-push` | plastron's `make push` (scripts/px2-slot.sh): it writes the system slot the Pixel 2 is not running and never the running one, a card with one system or a command line that does not add up gets nothing, bootstate.txt edited as System Update does, and the device's script parses and writes no partition by number |
 | `check-wifi-watch` | the Pixel 2's Wi-Fi watcher (plastron's `/usr/lib/zyperos/wifi-watch`) against a stand-in wpa_cli and log: a signal line soon after a join, at once on a jump of 8 dB and every minute, none while not joined or for the drivers' -9999; a line with the last look when the link drops; after a drop that cut a handshake on a network that joined with its password, one retry (disable_network then enable_network) per join, never for a network that never joined or another reason; no network name in its lines; it ends with the supplicant |
-| `check-launch-start` | launch.sh's start on a card a power cut broke, on each device (`sd/zyperos/launch.sh` with its `sd/DEVICE/device.sh` beside it) with the card's paths moved to a scratch folder and the device's commands stood in for: a junk boot.env is read as off and the script goes on to the launcher (sourced, a syntax error in it ended launch.sh before ZyperOS); a launcher that stops at once five times sets launch.sh aside, so the next start copies ZyperOS again, says so and powers off; a second time it is left as it is; a power-off asked for takes the marker away; and launch.sh with no device.sh beside it is set aside the same way, the launcher never started, and the handheld powers off |
+| `check-launch-start` | launch.sh's start on a card a power cut broke, on each device (`sd/zyperos/launch.sh` with its `sd/DEVICE/device.sh` beside it) with the card's paths moved to a scratch folder and the device's commands stood in for: a junk boot.env is read as off and the script goes on to the launcher (sourced, a syntax error in it ended launch.sh before ZyperOS); a launcher that stops at once five times sets launch.sh aside, so the next start copies ZyperOS again, says so and powers off; a second time it is left as it is; a power-off asked for takes the marker away; and launch.sh with no device.sh beside it is set aside the same way, the launcher never started, and the handheld powers off; and on the Pixel 2 the kernel's line about the battery at the start is copied into the start's log once |
 | `check-crashlog` | the Pixel 2's crash report (plastron's `/usr/sbin/crashlog`) against a stand-in pstore folder: nothing kept says nothing; a panic's dump becomes one crash-DATE.txt with the dump and the end of the console, plain line ends, and the dump is let go, so the next start adds nothing; a console that ends in the kernel's own restart or power-off says nothing, one that ends otherwise is a report; two reports in one second keep a file each; only the newest CRASH_KEEP stay; the RCU stall panic is set at every start |
 | `check-captive` | Wi-Fi File Transfer's hotspot, its pure half: the DNS answer for every name, the Host check that tells a phone's internet check from the page, the QR code's text and the password |
 | `check-mdns` | zyperos.local's responder (src/mdns.c): the queries a Mac sent, read off the wire, each answered as RFC 6762 says; every piece of them and random bytes under the address sanitizer; two handhelds on one Wi-Fi named apart on a pretend network |
 | `check-linksteps` | File Transfer's link steps (src/linksteps.c): the cable, the address and the browser, each hint at its time, a replug, Wi-Fi, and the device's /proc/net/arp and UDC state |
 | `check-usbdrive` | plastron's usbdrive (src/drive.c), the card as a USB drive: never exported while mounted or held; an export ends on the computer's eject, the cable out for 1.5 s, POWER, or no computer in a minute; the page's numbers (src/drivestat.c): the totals and speeds as the page shows them, each way idle at 0 two seconds after its last sector, a pause that keeps the speed, both ways at once, never redrawn while idle, a counter that goes back, the clock's wrap; and the atlas (src/atlas.c), read as untrusted: a broken one refused (a missing glyph, a glyph taller than its slots, rects that overflow or are inverted, a huge picture), a row from the left or right-aligned, cut at its slot, the slot cleared first, and a layout that skipped the parser still drawing only inside its slot; bright.txt read as untrusted (rungs 1 to 255 going up, the level on them, the bar inside the picture); the handheld's buttons (src/drive.c drv_key): FUNCTION and volume step the rungs and stop at the ends, each rung said to the side lights as `level brightness RUNG TOP`, volume alone does nothing, B ejects at once unless the computer may still be copying (then it asks: A ejects, B keeps): a write in the last 5 s, more than 1 MB dirty, or the gadget's counters unreadable, which always asks; /proc/<pid>/io and /proc/meminfo's Dirty read as the kernel writes them; across the clock's wrap; the side lights' line (src/drivestat.c dst_lights_line): each way's bytes a second over the last look alone, a way under 64 KB/s still, `move 0 0` once when both go still, a short look counted at its length, a counter that goes back |
 | `check-gauge` | plastron's gauge (package/gauge/src/lights.c), the Pixel 2's side lights, as plastron's `make gauge-check` holds it: the setting's line, old and new words; the charging bar, still when full and at the charge limit; the low-battery red in two stages and through everything; the volume and brightness in eight steps; Done, the sparkle, newest on top; MENU > Side Lights' previews, each part in a loop, On or Off, over everything but L2+R2, 2.5 s past the last line or `preview off`; files moving: the wave down for files coming in and up for files going out, its pace by the speed (200, 100 and 60 ms), the bigger way chosen as each run begins and never cut, 1.5 s past the last line or `move 0 0`, over the bar and under the patterns, off with Files and Covers, lines that are not two numbers ignored; L2+R2 over all of it; and no wake of 0 ms anywhere |
+| `check-start-soc` | the GKD Pixel 2's battery level at a start (plastron's `9-px2-rk817-start-soc.patch`), as plastron's `make start-soc-check` holds it: `rk817_rest_uv`, `rk817_start_from` and the 100 mA limit taken out of the patch, the OCV table and the 111 mOhm internal resistance out of the device tree; the sample has its current's drop taken out (none without a resistance, 5 A through 1 Ohm without overflow); under 30 min off the counter is kept, from 30 min the voltage, a charger's start (over 100 mA in) keeps the counter, and a start from POWER under any current out takes the voltage; a battery at rest at 49% sampled at 250 mA out reads 42% alone and 49% corrected |
 | `check-usbrole` | when the Pixel 2's USB port may be a host (plastron's usbrole, src/rule.c): the nine plugs of a Mac traced on 2026-11-10 never host unanswered; a DAC only on USB Accessory for its own plug; the quick swap (a Mac's cable out, an adapter in a second later) and a plug made during a game asked about and powered on the answer; Automatic after its 2 s settle, a computer on the bus ending it, and the Mac whose port drops and comes back after each feed (2026-11-10, Automatic) fed at most once, its next plugs asked about until the port rests empty 3 s; never with power in, a charger detection or a failed reading |
 | `check-clients` | File Transfer's browser count (src/clients.c): browsers, not sockets; one tab with five keep-alive connections is one, two browsers two |
 | `check-pace` | when a panel screen draws (src/pace.c): a still one its heartbeat (about 610 frames in 10 minutes, not 36,000), a change, the redraw clock's moment or anything moving at once, the memory's slow clock after 2 s still |
@@ -245,7 +255,7 @@ something once broke in a way nothing noticed:
 | `check-artbadge-shots` | the badge on the real shelves: a heart on a favorite's cover and on no other, smaller on a side card, on Favorites too; on MP4's All an album, a book and a video each with its own badge, and none on Music alone, in both themes (builds the host launcher) |
 | `check-layout-shots` | a game page's play time sits where Favorites' system line does, and over a paused game the clock is at the top left and the battery's text at the top right, in 8 languages and in both themes (builds the host launcher) |
 | `check-games` | the games row: the aspect, the wrap, tiny lists, rapid reversals and bounded jumps, on the launcher's own objects |
-| `check-cardpaint` | the card for a game or an album with no art, drawn on an art worker: the frame's pixels byte for byte, for every kind of title and both themes, a game's and an album's; in the faces of the language it was asked in; never handed to the shelf after a turn of the theme; the fonts closed and opened again around a fallback game while cards are asked for, with none drawn while they are down; and the frame's to make with no faces or no worker, on the launcher's own objects |
+| `check-cardpaint` | the card for a game or an album with no art, drawn on an art worker: the frame's pixels byte for byte, for every kind of title and both themes, a game's and an album's; in the faces of the language it was asked in; never handed to the shelf after a turn of the theme; the fonts closed and opened again around a fallback game while cards are asked for, with none drawn while they are down; two drawn at once by the two workers, one held in the middle of its paint while the other is drawn; and the frame's to make with no faces or no worker, on the launcher's own objects |
 | `check-putpace` | finished pictures put on screen a few a frame: the pace's rules with the costs handed in, then the workers' own cards on a software renderer, slow uploads included - every frame inside its share or one picture, every picture in its own slot in a few frames, none lost when more finish than the ring holds, a loop with nothing pressed drawing until the last is in, and the picture a screen waits for out of its turn, on the launcher's own objects |
 | `checkmark` | src/zypermark.h, Zyper as triangles, is what tools/zyperdef.py generates |
 | `check-installer` | ZyperOS Installer's version is ZyperOS's, and its page wears this repository's colors, fonts and Zyper (its Rust tests run in CI) |
@@ -314,7 +324,29 @@ changed" and each one, with before and after sheets of what changed in
 `build-native/pixel-gate/`. Some shots or one language:
 `make pixel-gate GATE='--lang en usb-ask hare'`; `--allow-changes` for a
 change that means to change them. Not in `make check`: it builds twice and
-takes about 9,200 frames a side.
+takes about 13,000 frames a side.
+
+The base's frames are shared by every worktree on the computer, frame by
+frame, keyed by the base's commit, by what this tree hands the shots (`res/`
+but its strings, `tools/fixtures`, `config/systems.cfg`, the shot tools and
+their list) and by the host's compiler and SDL (`ZYPEROS_GATE_CACHE`;
+`~/Library/Caches/ZyperOS/pixel-gate` on a Mac): a run shoots only the base
+frames no run has shot yet, and a second run at the same base waits for the
+first and takes its frames. `make pixel-gate-warm` shoots a base and nothing
+else, once a main commit, so every pull request up to date with that main
+shoots only its own side. `GATE=--targeted` is a pull request's round: no
+frame at all when nothing the launcher is built from changed, else a first
+look in English, the pseudo-locale, German and Chinese in light, English in
+dark and any language whose strings changed, then every screen that changed in it in
+every language and theme. The full gate is a release candidate's. This
+tree's frames are deleted when the run ends (`--keep-frames` keeps them); the
+report and the sheets stay.
+
+`make clean-scratch` (`tools/clean-scratch.py`) deletes what the tools
+left and nothing touched for a day: `$TMPDIR/zyperos-*` (the shots' scratch
+cards, about 250 MB a language, from a run stopped hard) and each worktree's
+pixel gate frames. A folder a running process holds a file in, or sits in,
+is kept (lsof); `SCRATCH=-n` only lists them.
 
 `--tour STEP [MS [DONE]]` draws a frame of the tutorial in place of the shelf:
 STEP is `lang` (the language step: its cursor steps a language a second,
@@ -359,7 +391,10 @@ now, and say which flag has it.
 
 `--info` draws a game's details over the shelf, `--info-delete` the same with
 the cursor on Delete Game, and `--delete-ask` Delete Game's question, the
-cursor on Cancel (DESIGN.md 11.31). `--delete-now` deletes the game under the
+cursor on Cancel (DESIGN.md 11.31). `--gm-said K` draws one of Delete Game's
+and Rename's messages over the shelf, as it shows once it has arrived
+(src/shots.c's GM_SAID: 0 the frame a delete runs under, 1-6 Delete Game's,
+7-10 Rename's). `--delete-now` deletes the game under the
 cursor as Delete Game's yes does, on the card the shot is given, and the shot
 is the shelf after it; stderr lists every path that went.
 
@@ -393,6 +428,21 @@ art from libretro-thumbnails, cached outside the repository. See
 [`res/readme/README.md`](../res/readme/README.md) for capture provenance and
 the refresh steps.
 
+## Merging several pull requests
+
+`python3 tools/merge-train.py 281 283 284` merges those pull requests' heads
+onto `origin/main`, in that order, in a scratch worktree; writes again what
+`tools/i18n.py` and `tools/designdef.py` write whole (a conflict in one of
+those files is settled that way, and two PRs that each added a string merge
+cleanly but leave the IDs stale); and runs one `make check` (`CHECK_JOBS` as
+given). A conflict in any other file stops the train at that PR. The branch
+`train-281-283-284` stays here; `--push` pushes it and opens its pull
+request, which merged with a merge commit (`gh pr merge N --merge`) lands
+every PR's own commits in main, so GitHub marks each one merged. One check
+for the lot, where merging them one by one sent every other PR back to merge
+main and check again. `--no-check` for the merges alone, `--keep` keeps the
+worktree.
+
 ## Devices
 
 Each handheld is a profile (`src/device/profile.h`): plain data in
@@ -419,9 +469,35 @@ job `devices` runs on Ubuntu. The design and the order of work:
 A change to ZyperOS goes onto a Pixel 2 as a payload, without a new image:
 
 ```sh
-make px2-payload                                   # -> build/px2/payload/ZyperOS
+make px2-programs                                  # a change to the code: the programs alone
+make px2-payload                                   # or the whole payload (res/, launch.sh, cores)
+tools/px2 deploy                                   # the newer of the two, under the device's lock
+tools/px2 restore                                  # when done: the card as it was before
+```
+
+`tools/px2 deploy` is `tools/px2-deploy.sh` behind `tools/px2`'s door: the
+device's lock (`/tmp/px2-lock`, refused while another session holds it, or
+`--wait`) and the card check (the 32 GB test card, or `--real-card`). It
+sends only the files whose checksums differ from the card's, and first keeps
+the card's own copy of each file it replaces, and the name of each it adds,
+in `/mnt/SDCARD/.px2-deploy` (outside `ZyperOS/`, so nothing on the card
+reads it). A later deploy keeps what the first kept, so `tools/px2 restore`
+always puts back the card from before the session's first deploy, deletes
+what the deploys added, restarts ZyperOS (or the device, for a `launch.sh`)
+and forgets it; `tools/px2 restore --status` says what it would put back.
+`make px2-programs` (`tools/px2-payload.sh --programs`) builds the launcher,
+Muse, portkeys, zyhome, System Update's program, p2d and Diatom into
+`build/px2/programs/ZyperOS` and nothing else: no cores, so no main
+checkout's `vendor/`, whose patched cores' stamps a whole payload holds to
+`mk/patches`. A change to `res/`, `launch.sh` or a core needs `make
+px2-payload`.
+
+The same without the lock, and to other places:
+
+```sh
 tools/px2-deploy.sh build/px2/payload/ZyperOS      # the device on the USB cable
 PX2_HOST=192.168.1.23 tools/px2-deploy.sh build/px2/payload/ZyperOS   # or over Wi-Fi
+tools/px2-deploy.sh --restore                      # what it kept, back
 tools/qemu-run.sh deploy -n mine build/px2/payload/ZyperOS   # or a VM (docs/qemu.md)
 ```
 
@@ -545,13 +621,14 @@ refused, a link that leads out of it too.
   `px2-open --wait-running 20` waits for whatever is opened.
 
 Its errors say a code and why: `bad-path`, `no-file`, `unknown-system`,
-`not-a-game`, `unknown-core`, `needs-bios`, `not-running`, `busy`,
-`bad-command`. It exits 0 when done, 1 for a refusal, 2 when no launcher
-answers or a wait runs out. The launcher reads the channel on the shelf, on
-every screen that runs a loop, and ten times a second in a game; a game
-started without the resident emulator (its fallback) has no launcher to
-answer until it ends. A game copied onto the card after the launcher read the
-shelves is found all the same: an open from the shelf reads them again.
+`not-a-game`, `unknown-core`, `needs-bios`, `bad-bios` (a BIOS file of the
+wrong size), `not-running`, `busy`, `bad-command`. It exits 0 when done, 1
+for a refusal, 2 when no launcher answers or a wait runs out. The launcher
+reads the channel on the shelf, on every screen that runs a loop, and ten
+times a second in a game; a game started without the resident emulator (its
+fallback) has no launcher to answer until it ends. A game copied onto the
+card after the launcher read the shelves is found all the same: an open from
+the shelf reads them again.
 
 For the Pixel 2 with nobody holding it, `tools/` has more small programs to build
 with plastron's toolchain (`aarch64-buildroot-linux-gnu-gcc -O2`, `-pthread`

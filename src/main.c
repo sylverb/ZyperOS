@@ -45,6 +45,7 @@
 #include "sort.h"
 #include "coverflow.h"
 #include "library.h"
+#include "nightkeep.h"
 #include "platform.h"
 #include "texload.h"
 #include "tween.h"
@@ -579,6 +580,27 @@ dsl_choice dslang_load(void)
 	return dslang_parse(v);
 }
 
+/* Timing (src/pacing.h): the system's own, as the device's database keeps
+ * it, and its systems.cfg word until the player picks */
+pacing_choice pacing_load(const system_cfg *s)
+{
+	char key[32], v[16];
+	pacing_choice own = pacing_parse(s->pace, PACING_EXACT);
+
+	pacing_key(s->tag, key, sizeof key);
+	db_get_str(db_dev(), key, v, sizeof v, pacing_id(own));
+	return pacing_parse(v, own);
+}
+
+/* A system with a pace line, and Diatom to pace it: a program of its own
+ * ("run:") or a port has its own timing */
+bool pacing_row_shown(const app *a, int sys)
+{
+	const system_cfg *s = &a->sys.systems[sys];
+
+	return s->pace[0] && strncmp(s->core, "run:", 4) != 0 && strcmp(s->core, "port") != 0;
+}
+
 bool dslang_row_shown(const app *a, int sys)
 {
 	const system_cfg *s = &a->sys.systems[sys];
@@ -887,6 +909,18 @@ void view_turn(app *a, int sys, int dir)
 	view_save(a, sys);
 	cf_reset(&v->cf, v->cursor);
 	games_reset(&v->row, v->cursor, v->list.count, plat_now_ms());
+}
+
+/* The home's layout turned, `dir` 1 or -1 round Spotlight, Gallery and Grid,
+ * saved, the home on the same system: START on the home goes forward, as it
+ * turns a shelf's View, and MENU's Home Screen row either way (2026-11-17:
+ * "also implement start in the home menu with the systems") */
+void home_turn(app *a, int dir)
+{
+	a->home_layout = (home_layout)(((int)a->home_layout + (dir < 0 ? HOME_LAYOUTS - 1 : 1)) % HOME_LAYOUTS);
+	db_set_str(db_dev(), "home", home_id(a->home_layout));
+	home_reset(&a->home, a->sys_cursor, a->sys.count, plat_now_ms());
+	redraw_now();
 }
 
 /* The grid's shape kept for shelf `sys` (src/gamegrid.h): by its tag, and
@@ -2427,6 +2461,10 @@ static void on_game_tick(void)
 
 	/* Developer Mode's SSH, which a game does not end (see dev_ssh_tick) */
 	dev_ssh_tick();
+	/* Night Mode's hour behind the game: Diatom loads its table, and this
+	 * keeps the launcher's right for when it has the display back, and the
+	 * nights in the file Diatom reads (platform.h) */
+	plat_night_tick();
 	/* System Update behind the game: its looks, a cut download going on,
 	 * and its news as a notice */
 	tick_update_daily(true);
@@ -2542,10 +2580,16 @@ static void on_game_tick(void)
 		if (r == 0) return;
 		g_pending_hashing = false;
 		if (r == 1) {
+			/* The hash in the log, and the answer below: what a game that
+			 * found no set was asked by (a DS game, 2026-11-17) */
+			fprintf(stderr, "cheevos: first play, hash %s; asking RetroAchievements\n", h);
 			snprintf(g_pending_set, sizeof g_pending_set, "%s", set);
 			ra_fetch_begin(h, g_pending_set);
 		} else {
-			if (r == -1) chv_none_mark(set, true);
+			if (r == -1) {
+				fprintf(stderr, "cheevos: first play, no hash for this file; marked none\n");
+				chv_none_mark(set, true);
+			}
 			g_pending_set[0] = '\0';
 		}
 		return;
@@ -2559,7 +2603,12 @@ static void on_game_tick(void)
 	/* RA has nothing for this ROM: said so on its Achievements rows, "none"
 	 * rather than "not checked yet" (chv_state_of). A fetch that failed
 	 * says nothing, and the next launch with a network asks again. */
-	if (rc == RA_FETCH_NOTHING) chv_none_mark(g_pending_set, true);
+	if (rc == RA_FETCH_NOTHING) {
+		fprintf(stderr, "cheevos: RetroAchievements has no game for that hash; marked none\n");
+		chv_none_mark(g_pending_set, true);
+	} else if (rc < 0) {
+		fprintf(stderr, "cheevos: no set came (no network, or no answer); asked next launch\n");
+	}
 	if (rc < 0) { g_pending_set[0] = '\0'; return; }
 	chv_none_mark(g_pending_set, false);        /* a set now: it has one */
 
@@ -3220,7 +3269,7 @@ static void status_gather(status_marks *m, bool moving)
 	}
 }
 
-/* The time a shot shows: today at --status's time of day, into *t. False for
+/* The time a shot shows: today (or --status's date=) at its time of day, into *t. False for
  * a shot with no time to show - no --status, or one with no time - which
  * then shows none, since the host's would change the shot every minute. Not
  * a shot: *t as it is, and true. */
@@ -3231,6 +3280,11 @@ bool shot_time(time_t *t)
 	if (!shot_st.shot) return true;
 	if (!shot_st.set || shot_st.minutes < 0) return false;
 	localtime_r(t, &tm);
+	if (shot_st.year) {
+		tm.tm_year = shot_st.year - 1900;
+		tm.tm_mon = shot_st.mon - 1;
+		tm.tm_mday = shot_st.mday;
+	}
 	tm.tm_hour = shot_st.minutes / 60;
 	tm.tm_min = shot_st.minutes % 60;
 	tm.tm_sec = 0;
@@ -4648,6 +4702,7 @@ static int sm_pos(const app *a, int sys, sm_row which)
 {
 	sys_ui dev = { .no_wifi = !plat_has_wifi(), .online = net_internet(NULL),
 	               .dslang = dslang_row_shown(a, sys) ? "" : NULL,
+	               .pace = pacing_row_shown(a, sys) ? "" : NULL,
 	               .no_strength = !shader_has_strength(a->view[sys].shader) };
 	sm_row ids[SM_ROWS];
 	int n = sys_menu_system_rows(&dev, ids), k;
@@ -4699,6 +4754,14 @@ static int menu_shelf_width(app *a)
 					if (mw > w) w = mw;
 				}
 			}
+			/* And Night Mode's row, the tab's last, at its longest mode
+			 * (night_row_widest) */
+			for (k = 0; k < n; k++)
+				if (rows[k].label == T(S_SYSMENU_NIGHT_MODE)) break;
+			if (k < n && night_row_widest(rows + k)) {
+				mw = menu_measure(rows, k + 1, heading);
+				if (mw > w) w = mw;
+			}
 		}
 		g_tabs.at = at;
 	}
@@ -4720,6 +4783,7 @@ static int menu_shelf_width(app *a)
 		int  hrow = own ? -1 : sm_pos(a, i, SM_SHADER);
 		int  crow = own ? -1 : sm_pos(a, i, SM_CORE);
 		int  lrow = own ? -1 : sm_pos(a, i, SM_DSLANG);
+		int  prow = own ? -1 : sm_pos(a, i, SM_PACE);
 		int  vrow = muse ? -1 : a->view[i].owner ? 3 : sm_pos(a, i, SM_VIEW);
 
 		n = menu_build(a, SCREEN_GAMES, i, rows, &bufs, &heading);
@@ -4790,6 +4854,18 @@ static int menu_shelf_width(app *a)
 				if (mw > w) w = mw;
 			}
 			rows[lrow].value = keep;
+		}
+		/* Timing's two */
+		if (prow >= 0 && prow < n) {
+			const char *keep = rows[prow].value;
+
+			for (k = 0; k < PACING_CHOICES; k++) {
+				int mw;
+				rows[prow].value = T(pacing_label_id((pacing_choice)k));
+				mw = menu_measure(rows, n, heading);
+				if (mw > w) w = mw;
+			}
+			rows[prow].value = keep;
 		}
 		/* View's three values, the longest kept */
 		if (vrow >= 0 && vrow < n) {
@@ -5125,6 +5201,7 @@ static int port_menu_main(int argc, char **argv)
 
 		db_get_str(db_dev(), "language", lc, sizeof lc, "en");
 		i18n_set(lang_parse(lc));
+		night_migrate_db(time(NULL));
 		db_get_str(db_dev(), "appearance", ap, sizeof ap, appearance_id(APPEAR_LIGHT));
 		look_load();
 		theme_init(appearance_parse(ap));
@@ -5214,6 +5291,10 @@ int main(int argc, char *argv[])
 		 * cursor on ROW (src/homesys_screen.c) */
 		else if (!strcmp(argv[i], "--homesys-page") && i + 1 < argc)
 			shot_homesys = atoi(argv[++i]);
+		/* --lights-page ROW: MENU > Side Lights' page, the cursor on ROW
+		 * (src/lights_screen.c) */
+		else if (!strcmp(argv[i], "--lights-page") && i + 1 < argc)
+			shot_lights = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--look-page") && i + 1 < argc) {
 			shot_look_page = argv[++i];
 			if (i + 1 < argc && argv[i + 1][0] >= '0' && argv[i + 1][0] <= '9')
@@ -5244,9 +5325,11 @@ int main(int argc, char *argv[])
 				return 2;
 			}
 		}
-		/* --keyboard [layer] [text] draws one frame of the text-entry panel,
-		 * for the same reason --menu and --slots exist: it is dense, and
-		 * laying it out against a screenshot beats a round trip to a device. */
+		/* --keyboard [layer] [text] [title] draws one frame of the text-entry
+		 * panel, for the same reason --menu and --slots exist: it is dense, and
+		 * laying it out against a screenshot beats a round trip to a device.
+		 * --kb-ss-user titles it as the ScreenScraper sign-in does, in the
+		 * shot's language. */
 		else if (!strcmp(argv[i], "--cheevos-screen")) {
 			shot_cheevos = 1;
 			if (i + 1 < argc && argv[i + 1][0] >= '0' && argv[i + 1][0] <= '9')
@@ -5300,6 +5383,9 @@ int main(int argc, char *argv[])
 		/* The Buttons page a game with its own buttons opens from its details */
 		else if (!strcmp(argv[i], "--info-buttons")) shot_info = 4;
 		else if (!strcmp(argv[i], "--delete-ask")) shot_delete_ask = 1;
+		/* --gm-said K: Delete Game's and Rename's messages (shots.c's
+		 * GM_SAID: 0 the delete's wait, 1-6 Delete Game's, 7-10 Rename's) */
+		else if (!strcmp(argv[i], "--gm-said") && i + 1 < argc) shot_gm_said = atoi(argv[++i]);
 		/* The game under the cursor deleted as Delete Game's yes deletes it,
 		 * then the shot: the shelf after, and what went on stderr */
 		else if (!strcmp(argv[i], "--delete-now")) shot_delete_now = 1;
@@ -5363,7 +5449,8 @@ int main(int argc, char *argv[])
 		 * wifi=off|idle|1|2|3, bt, batt=PCT, chg, and blinkoff for a
 		 * critical battery caught in its second off, eta=MIN for what
 		 * MENU > Battery Icon > Time Left writes, icon=bars|percentage|time
-		 * for the setting itself. */
+		 * for the setting itself, date=YYYY-MM-DD for the day (today
+		 * without it). */
 		else if (!strcmp(argv[i], "--status") && i + 1 < argc) {
 			if (!shot_status_parse(argv[++i])) {
 				fprintf(stderr, "--status: cannot read \"%s\"\n", argv[i]);
@@ -5445,6 +5532,7 @@ int main(int argc, char *argv[])
 			shot_gm_aspect = at ? atof(at + 1) : 4.0 / 3.0;
 		}
 		else if (!strcmp(argv[i], "--rows-report")) shot_rows_report = 1;
+		else if (!strcmp(argv[i], "--hover-sweep")) shot_hover_sweep = 1;
 		else if (!strcmp(argv[i], "--backdrop") && i + 1 < argc) shot_backdrop = argv[++i];
 		else if (!strcmp(argv[i], "--press") && i + 1 < argc) {
 			i++;
@@ -5771,10 +5859,16 @@ int main(int argc, char *argv[])
 			else if (i + 1 < argc && argv[i + 1][0] >= '0' && argv[i + 1][0] <= '2')
 				shot_power = atoi(argv[++i]);
 		}
+		/* --datetime [K [MONTH]]: Date & Time's page K, on the 3rd of MONTH
+		 * (1 to 12; October without it) */
 		else if (!strcmp(argv[i], "--datetime")) {
 			shot_datetime = 0;
 			if (i + 1 < argc && argv[i + 1][0] >= '0' && argv[i + 1][0] <= '9')
 				shot_datetime = atoi(argv[++i]);
+			if (i + 1 < argc && argv[i + 1][0] >= '0' && argv[i + 1][0] <= '9') {
+				shot_datetime_mon = atoi(argv[++i]);
+				if (shot_datetime_mon < 1 || shot_datetime_mon > 12) shot_datetime_mon = 10;
+			}
 		}
 		else if (!strcmp(argv[i], "--dev-page")) {
 			shot_dev = 0;
@@ -5898,6 +5992,7 @@ int main(int argc, char *argv[])
 			if (i + 1 < argc && argv[i + 1][0] != '-') shot_kb_text = argv[++i];
 			if (i + 1 < argc && argv[i + 1][0] != '-') shot_kb_title = argv[++i];
 		}
+		else if (!strcmp(argv[i], "--kb-ss-user")) shot_kb_ss_user = 1;
 		/* --kbsel ROW COL puts the keyboard's selection on a key, so the
 		 * action row can be looked at selected key by key. */
 		else if (!strcmp(argv[i], "--kbsel") && i + 2 < argc) {
@@ -5912,6 +6007,13 @@ int main(int argc, char *argv[])
 			if (i + 1 < argc && argv[i + 1][0] >= '0' && argv[i + 1][0] <= '9')
 				shot_slot_aspect = (float)atof(argv[++i]);
 		}
+		else if (!strcmp(argv[i], "--slot-when") && i + 2 < argc) {
+			shot_slot_mon = atoi(argv[++i]);
+			shot_slot_hour = atoi(argv[++i]);
+			if (shot_slot_mon < 1 || shot_slot_mon > 12 || shot_slot_hour < 0 || shot_slot_hour > 23)
+				shot_slot_mon = 0;
+		}
+		else if (!strcmp(argv[i], "--slot-save")) shot_slot_save = 1;
 	}
 	/* --status is for a shot, as --theme is: a launcher started
 	 * with it and no --shot draws the device's own corner. And a shot draws
@@ -6475,6 +6577,9 @@ int main(int argc, char *argv[])
 		 * launcher's word: a shot in the other theme must not turn its
 		 * bar over. */
 		if (shot_path) theme_set_file(NULL);
+		/* A 1.0.5 device's Appearance Auto and its hours, once: the theme
+		 * Auto gave now, and the hours kept as Night Hours (nightkeep.h) */
+		night_migrate_db(time(NULL));
 		db_get_str(db_dev(), "appearance", ap, sizeof ap,
 		           appearance_id(APPEAR_LIGHT));
 		/* The language, MENU > Language's, or --lang's for a shot: every

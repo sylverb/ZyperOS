@@ -35,9 +35,16 @@ written to match. Change a term here first, then everywhere it is used.
   Case for headings, rows and named choices. Spanish, Portuguese, French
   and Italian: sentence case for those (*Saída de áudio*, *Tiempo de juego*,
   *Écran d'accueil*, *Uscita audio*); German too, its nouns capitalized
-  (*Spiele suchen*). Status values in the value column are lowercase in
-  every Latin language, as in English (*off*, *desativado*, *non connecté*,
-  *aus*), German's nouns again excepted.
+  (*Spiele suchen*). **Every value in a row's value column begins with a
+  capital**, in every language that has them, status words too (*Never*,
+  *Not connected*, *Desativado*, *Non connecté*, *Aus*, *Auto (stereo)*): its
+  first letter only, the rest as the language writes it. A name keeps its
+  own case (a core's *pcsx_rearmed*, a network's, a song's), and a number or
+  a unit begins as it begins (*30 s*, *1 min*, *80%*). Tarik, 2026-11-17:
+  "menu options are inconsistent. some say "never" some say "Press". make
+  sure they are all capitalized". tools/i18n-shots.py fails on a value of
+  the table's that begins with a small letter on any screen, and
+  tools/menu-rows-check.py on any option row's choice.
 - **Wi-Fi** is WLAN in German, as German devices write it; Wi-Fi in every
   other language.
   Messages are sentences and end with a full stop (。 in Chinese).
@@ -110,11 +117,13 @@ written to match. Change a term here first, then everywhere it is used.
 | MENU (the ZyperOS menu) | MENU | MENU | MENU | MENU | MENU | MENU | MENU |
 | Language | 语言 | Idioma | Idioma | Langue | Sprache | 言語 | Lingua |
 | Appearance | 外观 | Apariencia | Aparência | Apparence | Erscheinungsbild | 外観 | Aspetto |
-| Light / Dark / Auto | 浅色 / 深色 / 自动 | Claro / Oscuro / Automático | Claro / Escuro / Automático | Clair / Sombre / Auto | Hell / Dunkel / Automatisch | ライト / ダーク / 自動 | Chiaro / Scuro / Automatico |
+| Light / Dark | 浅色 / 深色 | Claro / Oscuro | Claro / Escuro | Clair / Sombre | Hell / Dunkel | ライト / ダーク | Chiaro / Scuro |
 | MENU's tabs: Games / Display / Sound / Connections / System / About | 游戏 / 显示 / 声音 / 连接 / 系统 / 关于 | Juegos / Pantalla / Sonido / Conexiones / Sistema / Acerca de | Jogos / Tela / Som / Conexões / Sistema / Sobre | Jeux / Affichage / Son / Connexions / Système / À propos | Spiele / Anzeige / Ton / Verbindungen / System / Info | ゲーム / 画面 / サウンド / 接続 / システム / 情報 | Giochi / Schermo / Audio / Connessioni / Sistema / Info |
 | Theme (the look: accent, backgrounds, corners, Zyper) | 主题 | Tema | Tema | Thème | Design | テーマ | Tema |
 | Accent (the focus's color) | 强调色 | Color de acento | Cor de destaque | Couleur d'accent | Akzentfarbe | アクセント | Colore d'accento |
-| Auto Hours | 自动时段 | Horario auto | Horário auto | Horaires auto | Auto-Zeiten | 自動の時間帯 | Orari automatici |
+| Night Mode (warmer colors at night: Off / On / By Hours) | 夜间模式 (关闭 / 开启 / 定时) | Modo nocturno (Desactivado / Activado / Por horario) | Modo noturno (Desativado / Ativado / Por horário) | Mode nuit (Désactivé / Activé / Selon l'horaire) | Nachtmodus (Aus / An / Nach Uhrzeit) | ナイトモード (オフ / オン / 時間指定) | Modalità notte (Disattivo / Attivo / Per orario) |
+| Night Warmth | 暖色强度 | Intensidad nocturna | Intensidade noturna | Intensité de nuit | Nachtwärme | 暖色の強さ | Intensità notturna |
+| Night From / Until | 开始 / 结束 | Noche desde / Hasta | Noite desde / Até | Nuit dès / Jusqu'à | Nacht ab / Bis | 開始 / 終了 | Notte dalle / Fino alle |
 | on / off (a value) | 开启 / 关闭 | activado / desactivado | ativado / desativado | activé / désactivé | an / aus | オン / オフ | attivo / disattivo |
 | not connected | 未连接 | sin conexión | não conectado | non connecté | nicht verbunden | 未接続 | non connesso |
 | connecting | 正在连接 | conectando | conectando | connexion… | verbindet … | 接続中 | connessione… |
@@ -187,7 +196,9 @@ written to match. Change a term here first, then everywhere it is used.
    all eight languages: the ID is the area, then what it is
    (`menu.language`, `tour.lang.hello`).
 2. Run `python3 tools/i18n.py` (`make strings`): it writes
-   `src/i18n_ids.h`, `src/i18n_tables.c` and `res/web/i18n/`.
+   `src/i18n_ids.h`, `src/i18n_tables.c` and `res/web/i18n/`. Commit the
+   first and the last; the tables are the build's own (`.gitignore`), and
+   every build writes them again when a string is newer.
 3. Use it: `T(S_MENU_LANGUAGE)` in C, `t("name")` on the page for
    `web.name`. `make check-strings` holds every block complete and used.
 4. A Chinese or Japanese string with a character its font cut lacks fails

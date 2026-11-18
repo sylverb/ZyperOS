@@ -101,12 +101,14 @@ appearance appearance_parse(const char *s)
 
 appearance appearance_step(appearance a, int d)
 {
-	int i = (int)a;
+	/* Light and Dark, the two the row has since 1.0.6: Auto is a 1.0.5
+	 * word the start migrates (src/nightkeep.h), and steps as the Light it
+	 * is not */
+	int i = a == APPEAR_DARK ? 1 : 0;
 
-	/* Three of them in a ring. The remainder of a negative number is
-	 * negative in C, hence the second modulus. */
-	if (i < 0 || i > (int)APPEAR_AUTO) i = APPEAR_LIGHT;
-	return (appearance)((((i + d) % 3) + 3) % 3);
+	/* The remainder of a negative number is negative in C, hence the
+	 * second modulus */
+	return (((i + d) % 2) + 2) % 2 ? APPEAR_DARK : APPEAR_LIGHT;
 }
 
 /* The local minute of the day of `t`, or -1 if the time cannot be made into
@@ -136,8 +138,12 @@ void theme_set_file(const char *path)
 
 /* Says the theme that is on to the programs that read the file, or says on
  * stderr why not. Never more than that, as theme.h says why. */
+/* The theme the file last said (publish), -1 before it said one */
+static int said = -1;
+
 static void publish(void)
 {
+	said = idx;
 	if (!file) return;
 	/* with the bar's colors when the player's look has its own (look.h) */
 	if (!themefile_write_bar(file, idx, look_is_default(look_now()) ? NULL : theme_at(idx)))
@@ -158,6 +164,20 @@ void theme_init_at(appearance a, time_t now)
 void theme_init(appearance a)
 {
 	theme_init_at(a, time(NULL));
+}
+
+void theme_show(int ix)
+{
+	if (ix >= 0) {
+		idx = theme_clamp(ix);
+		return;
+	}
+	/* Back: Auto's hour may have turned while a theme was shown, the
+	 * screens' tick waiting (ds_hover_showing), so the file is said again
+	 * where it is behind */
+	looked = time(NULL);
+	idx = theme_resolve_min(cur, cur == APPEAR_AUTO ? minute_of(looked) : 0);
+	if (said >= 0 && idx != said) publish();
 }
 
 bool theme_refresh_at(time_t now)

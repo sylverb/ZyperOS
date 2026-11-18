@@ -47,25 +47,25 @@ it = Stato
 
 [cheevolist.earned]
 note = The Status row's value: the achievement is earned (pt-BR: a conquista, feminine)
-en = earned
+en = Earned
 zh-Hans = 已解锁
-es = conseguido
-pt-BR = conquistada
-fr = obtenu
-de = erhalten
+es = Conseguido
+pt-BR = Conquistada
+fr = Obtenu
+de = Erhalten
 ja = 解除済み
-it = ottenuto
+it = Ottenuto
 
 [cheevolist.not_earned]
 note = The Status row's value: not earned yet
-en = not earned
+en = Not earned
 zh-Hans = 未解锁
-es = no conseguido
-pt-BR = não conquistada
-fr = non obtenu
-de = nicht erhalten
+es = No conseguido
+pt-BR = Não conquistada
+fr = Non obtenu
+de = Nicht erhalten
 ja = 未解除
-it = non ottenuto
+it = Non ottenuto
 
 [cheevolist.unlocked]
 note = The small line of the notice over a game as it starts: earned of all the game's achievements; the game's name is the large line
@@ -97,11 +97,11 @@ it.other = %s\n%d / %d · %d da inviare
 
 [cheevolist.earned_waiting]
 note = The Status row's value: earned, offline, and not on the RetroAchievements account yet (pt-BR: a conquista, feminine)
-en = earned, not sent yet
+en = Earned, not sent yet
 zh-Hans = 已解锁，待发送
-es = conseguido, sin enviar
-pt-BR = conquistada, a enviar
-fr = obtenu, pas encore envoyé
-de = erhalten, noch nicht gesendet
+es = Conseguido, sin enviar
+pt-BR = Conquistada, a enviar
+fr = Obtenu, pas encore envoyé
+de = Erhalten, noch nicht gesendet
 ja = 解除済み・送信待ち
-it = ottenuto, da inviare
+it = Ottenuto, da inviare

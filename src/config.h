@@ -18,6 +18,10 @@
  * rows, 39 with Favorites and Muse. 48 again leaves room. */
 #define CFG_MAX_SYSTEMS 48
 #define CFG_STR 256
+/* A shelf's disc bios names (the Saturn's and the ColecoVision's are three)
+ * and the sizes a good copy of one may be */
+#define CFG_BIOS_NAMES 4
+#define CFG_BIOS_SIZES 2
 
 /* A system's color when its line names none, or names something that is not
  * one: no color at all, rather than one picked for it. It was cyan, which
@@ -60,12 +64,25 @@ typedef struct {
 	 * the console's BIOS. From a `bios|tag|names` line, which also sets
 	 * disc_bios. */
 	bool bios_every;
+	/* The size a good copy of each disc_bios name is, in that field's order:
+	 * up to CFG_BIOS_SIZES byte counts a name may come in (a PC Engine
+	 * System Card with its 512-byte header or without), 0 when no
+	 * `firmware|name|bytes` line names it. src/biosfile.h says a file of
+	 * another size is not one the core can start. */
+	unsigned bios_bytes[CFG_BIOS_NAMES][CFG_BIOS_SIZES];
 	/* How much clock its games get: "light" or "medium" caps the CPU, the
 	 * memory and the GPU for a system measured to keep its speed under that
 	 * ceiling, empty is full. From a `power|tag|level` line; sent to Diatom
 	 * with RUN, which steps a game back up at the first frame it can't keep.
 	 * Ports and the standalone emulators always run at full. */
 	char power[8];
+	/* Timing (src/pacing.h): a `pace|tag|smooth` or `pace|tag|exact` line
+	 * gives the system's menu its Timing row, and the word is the row's
+	 * default until the player picks: Smooth locks a game to the panel's
+	 * refresh where the rates are close (diatom/src/pace.h, DISPLAY LOCK),
+	 * Exact keeps the core's own rate. Empty: no row, the core's rate, as
+	 * before 1.0.6. Any other word is no line. */
+	char pace[8];
 	/* How hard the motor runs for its games, in percent of what the core
 	 * asks: 1 to 99 for a core that shakes harder than the handheld wants
 	 * (PrBoom, on every shot), 0 for the core's own. From a
@@ -136,7 +153,13 @@ int cfg_name_cmp(const char *a, const char *b);
  * not in the file: the launcher puts them first and last. */
 void cfg_sort_systems(systems_cfg *s);
 
-void cfg_run_keys(const system_cfg *s, bool dual, char *out, int cap);
+/* The RUN keys for a game on `s`, tab separated, into `out`: a two-screen
+ * game's (`dual`) screens=2 and frameskip=late (a frame that starts late is
+ * run undrawn, so the game keeps its speed: always, since 1.0.6's When Slow
+ * row went, Tarik 2026-11-17), then power=, controller= and rumble=, and on a
+ * system with a Timing row pace=, `pace` the player's choice ("smooth" or
+ * "exact"; NULL or another word is the system's own, src/pacing.h) */
+void cfg_run_keys(const system_cfg *s, bool dual, const char *pace, char *out, int cap);
 
 /* How many cores `s` lists, and the i-th of them into `out` (false past the
  * end). A system with one core lists one. */

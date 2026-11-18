@@ -27,7 +27,9 @@
 # fails on a short line, on the frame reached, and on a shot that failed or
 # was not written. And a Nintendo DS game, its cover black: Nintendo DS's
 # silver is pale on Beard, 2.19:1 as a mark on the plain ground, so no scrim
-# could hold its band and only its color can.
+# could hold its band and only its color can. And a port whose name takes
+# three lines, after a minute: the line's two sentences in four lines under
+# it would reach Zyper's frame if the block stayed centered, so it rises.
 #
 # It needs the launcher built, which needs SDL2, and skips cleanly without
 # it, as check-flip does. The card is a scratch tree under
@@ -56,7 +58,8 @@ rm -rf "$D"
 mkdir -p "$D/root" "$D/Roms/Ports/.media" "$D/Roms/Nintendo DS/.media" "$D/userdata" \
 	"$D/shared" || exit 1
 cp config/systems.cfg "$D/root/systems.cfg" || exit 1
-for g in Whiteout Blackout; do printf '#!/bin/sh\n' >"$D/Roms/Ports/$g.sh" || exit 1; done
+LONG="Dungeons and Degenerate Gamblers"
+for g in Whiteout Blackout "$LONG"; do printf '#!/bin/sh\n' >"$D/Roms/Ports/$g.sh" || exit 1; done
 : >"$D/Roms/Nintendo DS/Silver.nds" || exit 1
 # 7x10, 8-bit RGB, every pixel 255,255,255; and every pixel 0,0,0
 printf '\211\120\116\107\015\012\032\012\000\000\000\015\111\110\104\122\000\000\000\007\000\000\000\012\010\002\000\000\000\367\256\323\132\000\000\000\017\111\104\101\124\170\332\143\370\217\015\060\014\013\121\000\347\327\321\057\055\374\160\362\000\000\000\000\111\105\116\104\256\102\140\202' \
@@ -68,11 +71,13 @@ cp "$D/Roms/Ports/.media/Blackout.png" "$D/Roms/Nintendo DS/.media/Silver.png" |
 
 fails=0
 echo "the words keep 4.5:1 and the band 3:1 over a white and a black cover, out of Zyper's frame,"
-echo "with the start's line and with the one after a minute (--portload-later)"
-for game in Whiteout Blackout Silver Whiteout+later Silver+later; do
+echo "with the start's line and with the one after a minute (--portload-later), and a name in"
+echo "three lines over the line after a minute"
+for game in Whiteout Blackout Silver Whiteout+later Silver+later Long Long+later; do
 	for theme in dark light; do
 		later= name=$game
 		case $game in *+later) later=--portload-later; name=${game%+later} ;; esac
+		[ "$name" = Long ] && name=$LONG
 		out=$D/$name-$theme${later:+-later}.png
 		ZYPEROS_HEADLESS=1 SDL_VIDEODRIVER=dummy SDL_RENDER_DRIVER=software \
 		ZYPEROS_ROOT="$D/root" ZYPEROS_CARD="$D" ZYPEROS_ROMS="$D/Roms" \

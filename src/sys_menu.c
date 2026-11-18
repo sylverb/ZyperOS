@@ -62,6 +62,9 @@ int sys_menu_zyperos_rows(const sys_ui *u, pm_row *out)
 		if ((u->no_usb_power || u->no_usb_wait) && r == PM_USB_WAIT) continue;
 		/* Strength only while a system draws an old screen */
 		if (u->no_strength && r == PM_STRENGTH) continue;
+		if (u->no_screen_colors && r == PM_SCREEN) continue;
+		/* Night Mode where the display has a table for it */
+		if (u->no_night && r == PM_NIGHT) continue;
 		out[n++] = (pm_row)r;
 	}
 	return n;
@@ -74,9 +77,9 @@ pm_tab sys_menu_tab_of(pm_row r)
 	case PM_SEARCH: case PM_STATS: case PM_RANDOM: case PM_ACHIEVEMENTS:
 	case PM_SCRAPER:
 		return PT_GAMES;
-	case PM_APPEARANCE: case PM_AUTOHOURS: case PM_THEME: case PM_HOME:
+	case PM_APPEARANCE: case PM_THEME: case PM_HOME:
 	case PM_ORDER: case PM_HOMESYS: case PM_BATTERY: case PM_SAVER: case PM_SHADER:
-	case PM_STRENGTH:
+	case PM_STRENGTH: case PM_SCREEN: case PM_NIGHT:
 		return PT_DISPLAY;
 	case PM_AUDIO: case PM_CHANNELS: case PM_SOUNDS: case PM_MUSIC:
 		return PT_SOUND;
@@ -125,6 +128,7 @@ int sys_menu_system_rows(const sys_ui *u, sm_row *out)
 	for (r = 0; r < SM_ROWS; r++) {
 		if (u->no_wifi && !u->online && r == SM_BOXART) continue;
 		if (!u->dslang && r == SM_DSLANG) continue;
+		if (!u->pace && r == SM_PACE) continue;
 		if (u->no_strength && r == SM_STRENGTH) continue;
 		out[n++] = (sm_row)r;
 	}
@@ -202,13 +206,14 @@ int sys_menu_snaps_rows(const snaps_ui *u, snaps_bufs *b, menu_row *out,
 
 int sys_menu_lights_rows(side_lights on, menu_row *out, side_light_part *ids)
 {
+	/* The battery's three together: the cable, off it, and low */
+	static const side_light_part ORDER[LP_COUNT] = { LP_BAR, LP_LOW, LP_BATTERY, LP_LEVEL, LP_DONE, LP_CHEER };
 	int i;
 
 	for (i = 0; i < LP_COUNT; i++) {
-		ids[i] = (side_light_part)i;
-		out[i] = (menu_row){ side_lights_part_name((side_light_part)i),
-		                     side_lights_has(on, (side_light_part)i) ? T(S_MENU_ON_TITLE)
-		                                                             : T(S_MENU_OFF_TITLE), true };
+		ids[i] = ORDER[i];
+		out[i] = (menu_row){ side_lights_part_name(ORDER[i]),
+		                     side_lights_has(on, ORDER[i]) ? T(S_MENU_ON_TITLE) : T(S_MENU_OFF_TITLE), true };
 	}
 	return LP_COUNT;
 }
@@ -312,11 +317,12 @@ static const unsigned char PM_SOUND[PM_ROWS] = {
 	/* A pick is heard as reward, or deny with nothing to pick */
 	[PM_RANDOM]     = MENU_SND_OWN,
 };
-/* Core, Game Language, View and Shader step on A as well; Sort By,
+/* Core, Game Language, Timing, View and Shader step on A as well; Sort By,
  * Display Mode and Strength do nothing with it. */
 static const unsigned char SM_SOUND[SM_ROWS] = {
 	[SM_CORE]    = MENU_SND_RING,
 	[SM_DSLANG]  = MENU_SND_RING,
+	[SM_PACE]    = MENU_SND_RING,
 	[SM_SORT]    = MENU_SND_RING | MENU_SND_NO_A,
 	[SM_VIEW]    = MENU_SND_RING,
 	[SM_DISPLAY] = MENU_SND_RING | MENU_SND_NO_A,
@@ -415,6 +421,8 @@ int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
 		full[SM_CORE]    = (menu_row){ T(S_SYSMENU_CORE),         b->b, u->core_choice };
 		/* The Nintendo DS's game language, a choice stepped like the core */
 		full[SM_DSLANG]  = (menu_row){ T(S_SYSMENU_DSLANG), u->dslang, u->dslang != NULL };
+		/* Smooth or Exact, how its games meet the screen (src/pacing.h) */
+		full[SM_PACE]    = (menu_row){ T(S_SYSMENU_PACE), u->pace, u->pace != NULL };
 		full[SM_SORT]    = (menu_row){ T(S_SYSMENU_SORT_BY),
 		                              u->sort ? u->sort : T(S_SORT_NAME), true  };
 		/* The covers in a row, or a list of names (DESIGN.md 11.39) */
@@ -623,10 +631,15 @@ int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
 	full[PM_ABOUT]        = (menu_row){ T(S_SYSMENU_ABOUT), NULL, true  };
 	/* Any game by its name, typed (src/search.h) */
 	full[PM_SEARCH]       = (menu_row){ T(S_SYSMENU_SEARCH), NULL, true  };
-	/* When Auto turns light and dark; A opens its two rows */
-	full[PM_AUTOHOURS]    = (menu_row){ T(S_SYSMENU_AUTO_HOURS), u->auto_hours, true };
+	/* Warmer colors for the night (src/panelgamma.h): its value the mode;
+	 * A opens its page, how much and when */
+	full[PM_NIGHT]        = (menu_row){ T(S_SYSMENU_NIGHT_MODE), u->night ? u->night : T(S_MENU_OFF_TITLE), true };
 	/* The look: its value the accent's name, both themes' chips before it
 	 * (main.c draws them); A opens the page */
+	/* The whole screen's colors (src/panelgamma.h): its value the look;
+	 * A opens the page */
+	full[PM_SCREEN]       = (menu_row){ T(S_SCREEN_TITLE),
+	                                   u->screen_colors ? u->screen_colors : T(S_SCREEN_STANDARD), true };
 	full[PM_THEME]        = (menu_row){ T(S_SYSMENU_THEME),
 	                                   u->theme ? u->theme : T(S_LOOK_ACCENT_LIME), true };
 	{

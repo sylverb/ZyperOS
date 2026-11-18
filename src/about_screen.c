@@ -78,8 +78,9 @@ static const about_thanks ABOUT_THANKS[] = {
  *	{ "Their name", "TrimUI Brick" },
  *
  * Under its own heading, Help with other handhelds, which is there only
- * while this has a row: none yet. */
+ * while this has a row. */
 static const struct { const char *who, *handheld; } ABOUT_HANDHELD_THANKS[] = {
+	{ "autobiogphnation", "TrimUI Brick" },   /* kit 2's first tester, all 12 steps */
 	{ NULL, NULL }
 };
 

@@ -64,6 +64,7 @@ const device_profile device_profile_desktop = {
 	.speaker_mono = false,
 	.player2 = false,
 	.usb_shared_port = false,
+	.screen_colors = false,
 	.wifi = DEV_WIFI_BUILTIN,
 	/* None: the computer's chip is not the launcher's to warn of, and the
 	 * host's plat_chip_temp reads only the test file */

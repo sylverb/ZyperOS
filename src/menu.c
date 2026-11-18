@@ -140,6 +140,16 @@ bool menu_row_moves(menu_row row, bool selected, bool visits_all)
 	return selected || (!row.live && !visits_all);
 }
 
+bool menu_rows_landable(const menu_row *rows, int n, bool visits_all)
+{
+	int i;
+
+	if (visits_all) return n > 0;
+	for (i = 0; i < n; i++)
+		if (rows[i].live) return true;
+	return false;
+}
+
 unsigned menu_sound_at(const unsigned char *sound, int n, int sel)
 {
 	return sound && sel >= 0 && sel < n ? sound[sel] : 0;

@@ -342,11 +342,10 @@ void free_all_textures(app *a);
 void copy_file(const char *from, const char *to);
 bool file_nonempty(const char *p);
 
-/* For px2-open's commands (src/ctl_channel.c): a core on the card, a disc
- * system's BIOS there, whether a shelf is Muse's, and the in-game menu's
- * Quit */
+/* For px2-open's commands (src/ctl_channel.c): a core on the card, whether
+ * a shelf is Muse's, and the in-game menu's Quit (a disc system's BIOS is
+ * src/biosfile.h's) */
 bool core_present(const char *core);
-bool disc_bios_found(const char *bios, const char *names);
 bool is_muse(const system_cfg *s);
 void gm_quit(void);
 /* A Ports shelf's core, and a standalone emulator's: "run:<script>"
@@ -388,6 +387,7 @@ typedef struct {
 	int          calc;         /* the calculating dots, this many filled, -1 for none */
 	bool         full;         /* on the cable and charged */
 	int          icon;         /* BATT_BARS.., -1 for the saved setting */
+	int          year, mon, mday;  /* date=YYYY-MM-DD, the day the shot shows; 0 for today */
 	status_marks m;
 } shot_status;
 extern shot_status shot_st;

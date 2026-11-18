@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
+#include "ds/hover.h"
 #include "shots.h"
 
 #include "about_screen.h"
@@ -9,6 +10,7 @@
 #include "clock_screen.h"
 #include "ctltab.h"
 #include "ctltab_screen.h"
+#include "db.h"
 #include "devmode_screen.h"
 #include "ds/page.h"
 #include "emptyhome.h"
@@ -93,10 +95,12 @@ int shot_menu_steps;
 /* --menu-tab-from M: the tab MENU's move comes from, or -1 */
 int shot_tab_from = -1, shot_tab_ms;
 /* --look ACCENT,LIGHT,DARK,CORNERS,ZYPER: the look for the shot; and
- * --look-page theme|hours [row]: Theme's page or Auto Hours' (DESIGN.md
- * 11.42), the cursor on `row` */
+ * --look-page theme|night|night-list|screen|screen-looks [row]: Theme's
+ * page, Night Mode's, a Night Mode row's list (--pick-at for its cursor),
+ * Screen Colors' or its Look's list (DESIGN.md 11.42), the cursor on `row` */
 const char *shot_look, *shot_look_page;
 int shot_homesys = -1;     /* --homesys-page ROW: MENU > Home Systems' page */
+int shot_lights = -1;      /* --lights-page ROW: MENU > Side Lights' page */
 int shot_look_row;
 int shot_kb, shot_kb_layer;
 static keyboard_transition shot_keyboard;
@@ -199,6 +203,54 @@ static SDL_Texture *shot_row_badge(int row)
 int shot_syn;       /* --synopsis: the card a scraped game opens */
 int shot_info;
 int shot_delete_ask, shot_delete_now;
+/* --gm-said K: one of Delete Game's and Rename's messages (GM_SAID) */
+int shot_gm_said = -1;
+
+/* Delete Game's and Rename's messages, each as its screen words it
+ * (src/gamedel_screen.c, src/gamern_screen.c): first the frame a delete runs
+ * under, then Delete Game's results, then Rename's. A port's is about the
+ * game under the cursor (a port, on the shot's card), a BIOS's about neogeo,
+ * the one result_message's lines were made for. */
+static const str_id GM_SAID[] = {
+	S_GAMEMENU_DELETING, S_GAMEMENU_DELETE_PARTLY, S_GAMEMENU_DELETE_FAILED,
+	S_GAMEMENU_DELETE_OUTSIDE, S_GAMEMENU_DELETE_RUNTIME, S_GAMEMENU_DELETE_PORT_UNKNOWN,
+	S_GAMEMENU_DELETE_BIOS,
+	S_GAMEMENU_RENAME_INVALID, S_GAMEMENU_RENAME_TAKEN, S_GAMEMENU_RENAME_FAILED,
+	S_GAMEMENU_RENAME_PARTLY,
+};
+#define GM_SAID_RENAME 7    /* GM_SAID's first of Rename's */
+
+static void gm_said_preview(app *a, int k)
+{
+	sysview *v = &a->view[a->sys_cursor];
+	const char *heading = T(k >= GM_SAID_RENAME ? S_GAMEMENU_RENAME : S_GAMEMENU_DELETE);
+	char said[LIB_NAME + 256];
+	str_id id;
+
+	if (k < 0 || k >= (int)(sizeof GM_SAID / sizeof GM_SAID[0]) || v->list.count == 0) return;
+	id = GM_SAID[k];
+	if (id == S_GAMEMENU_DELETING) {
+		/* wait_panel's one frame, before the delete runs */
+		menu_row row = { T(id), NULL, false };
+
+		draw_shelf(a);
+		ui_scrim(a->r, 0);
+		menu_message(a, heading, row, MENU_ZYPEROS);
+		return;
+	}
+	/* The table's own string where nothing is put in it, which the host's
+	 * check holds as a string (a copy of it is data, whose cut English is
+	 * let off) */
+	if (id == S_GAMEMENU_DELETE_PORT_UNKNOWN)
+		snprintf(said, sizeof said, T(id), v->list.items[v->cursor].title);
+	else if (id == S_GAMEMENU_DELETE_BIOS)
+		snprintf(said, sizeof said, T(id), "neogeo");
+	else {
+		result_preview(a, heading, T(id));
+		return;
+	}
+	result_preview(a, heading, said);
+}
 
 int shot_controls = -1;
 /* --sgdb [0|1|2]: MENU > SteamGridDB with no key, a key that works, or one
@@ -230,7 +282,7 @@ int shot_usb = -1;   /* --usb-ask [N]: the question, tile N focused */
  * zone of the list (3), or Auto's message as it is chosen (4); Time Zone's
  * list open on its first zone (5), on its longest city in the middle (6), on
  * Auto with the zone it found (7), and with a long city (8) */
-int shot_datetime = -1;
+int shot_datetime = -1, shot_datetime_mon = 10;
 int shot_dev = -1;   /* --dev-page [N]: Developer Mode's page on the cable with 1, 12 or no keys (0..2), or the message that
                       * says it is on (3); over Wi-Fi with one key signed in (4); SSH over Wi-Fi's message as it is turned
                       * on (5); over Wi-Fi with no key (6); Wi-Fi up with SSH over Wi-Fi off (7); the cursor on
@@ -318,6 +370,15 @@ bool shot_status_parse(const char *spec)
 		else if (!strncmp(w, "wifi=", 5) && w[5] >= '1' && w[5] <= '3' && !w[6])
 			shot_st.m.wifi = w[5] - '0';
 		else if (!strcmp(w, "bt")) shot_st.m.bt = true;
+		/* the day it shows (MENU's Date & Time row), date=2026-01-15; today
+		 * without it */
+		else if (!strncmp(w, "date=", 5)) {
+			int y, mo, d;
+
+			if (sscanf(w + 5, "%d-%d-%d", &y, &mo, &d) != 3 || y < 1971 || mo < 1 || mo > 12 || d < 1 || d > 31)
+				return false;
+			shot_st.year = y, shot_st.mon = mo, shot_st.mday = d;
+		}
 		else if (!strncmp(w, "batt=", 5)) shot_st.m.batt = atoi(w + 5);
 		else if (!strcmp(w, "chg")) shot_st.m.charging = true;
 		/* on the cable, held at the charge limit: the plug */
@@ -384,6 +445,14 @@ const char *shot_kb_text = "correct horse";
  * uses this keyboard - signing in to RetroAchievements - could not be
  * rendered at all. A harness narrower than the thing it checks. */
 const char *shot_kb_title = "Wi-Fi password";
+/* --kb-ss-user: the title is the ScreenScraper sign-in's, in the shot's
+ * language, so check-i18n-shots measures it in every one */
+int shot_kb_ss_user;
+
+static const char *kb_title_shown(void)
+{
+	return shot_kb_ss_user ? T(S_SCRAPER_SS_USER) : shot_kb_title;
+}
 int shot_slots, shot_slot_sel;
 int shot_jump;               /* letter-jumps to apply before drawing */
 /* --nowplaying ALBUM [TRACK [SECONDS]], and --paused with it. */
@@ -396,6 +465,10 @@ float shot_np_at = 83.0f;
  * the track count is drawn from it. */
 const char *shot_mode;
 float shot_slot_aspect = 4.0f / 3.0f;
+/* --slot-when MONTH HOUR: the slot in view saved in that month (1 to 12) at
+ * that hour, not August's afternoon; --slot-save: the strip as Save asks
+ * where to ("Save to") */
+int shot_slot_mon, shot_slot_hour, shot_slot_save;
 
 /* A stand-in for a paused game frame, at whatever shape was asked for: the
  * slot carousel frames the picture to its own aspect, so looking at that
@@ -425,7 +498,7 @@ static SDL_Texture *fake_frame(SDL_Renderer *r, float aspect)
 
 static void shot_draw_slots(app *a)
 {
-	slot_view sv = { .aspect = shot_slot_aspect, .saving = 0 };
+	slot_view sv = { .aspect = shot_slot_aspect, .saving = shot_slot_save };
 	int i;
 
 	for (i = 0; i <= GM_SLOTS; i++) {
@@ -433,6 +506,7 @@ static void shot_draw_slots(app *a)
 		struct tm tm = { .tm_mon = 7, .tm_mday = 20 + i, .tm_hour = 13 + i,
 		                 .tm_min = i * 7, .tm_sec = i * 9 };
 
+		if (i == shot_slot_sel && shot_slot_mon) tm.tm_mon = shot_slot_mon - 1, tm.tm_hour = shot_slot_hour;
 		/* Slot 5 left empty, so the empty state is in the picture too. */
 		if (i == 5) continue;
 		sv.have[i] = 1;
@@ -541,6 +615,11 @@ int shot_pick_at = -1;
  * beside them with its preview (menu_pick_preview), or under them */
 static const menu_choice *g_shot_list;
 static int g_shot_list_at, g_shot_list_side;
+/* What the list's cursor shows (src/ds/hover.h): shown in the first
+ * compose, the shot then composed again over it (shot_compose), the tick
+ * staying on the choice kept before the show */
+static int g_shot_hover_kept = -2;
+static bool g_shot_hover_again;
 
 static void shot_list_side(app *a, const menu_side *at)
 {
@@ -558,11 +637,22 @@ static void shot_list_draw(app *a, const char *heading, const menu_choice *ch, i
 	static char pw[MENU_CHOICES_MAX][64];
 	static char pn[2][CHV_WRAP_COLS];
 	const int at = shot_pick_at >= 0 && shot_pick_at < ch->n ? shot_pick_at : ch->cur;
-	int k, np = ch->n;
+	int k, np = ch->n, kept = ch->none ? -1 : ch->cur;
 
+	/* The choice under the cursor shown, as the list shows it: once, and
+	 * the shot composed again with it on (the tick on the one kept) */
+	if (g_shot_hover_kept == -2) {
+		g_shot_hover_kept = kept;
+		if (ch->hover && ch->hover->show && at != kept) {
+			ch->hover->show(a, at);
+			g_shot_hover_again = true;
+		}
+	} else {
+		kept = g_shot_hover_kept;
+	}
 	for (k = 0; k < ch->n; k++) {
 		menu_pick_word(ch->labels[k], pw[k], (int)sizeof pw[k]);
-		pr[k] = (menu_row){ pw[k], !ch->none && k == ch->cur ? MENU_TICK : NULL, true };
+		pr[k] = (menu_row){ pw[k], k == kept ? MENU_TICK : NULL, true };
 	}
 	if (ch->notes && !ch->preview) {   /* what the choice under the cursor does */
 		int nl = menu_pick_note(ch->notes[at], pn);
@@ -634,7 +724,15 @@ static void shot_draw_gamemenu(app *a)
 		st.tabs = &tabs;
 		an = achtab_rows(a, &f, gm_at_source(), &ab, arows, MENU_RUN_ROWS, st.fixed_w, &st);
 		asel = shot_gamemenu_sel < an ? shot_gamemenu_sel : an - 1;
-		if (!st.visits_all && !arows[asel].live) asel = -1;
+		/* Where the runner puts the cursor (menu_run_body): off a dead row
+		 * onto a live one, or, with none (a sentence in place of the list),
+		 * still on the dead row, which the panel draws no plate on
+		 * (menu_rows_landable). Hiding it here, as the shot did, kept the
+		 * plate the device drew on that sentence out of every shot (1.0.6) */
+		if (!st.visits_all && !arows[asel].live) {
+			asel = menu_step_sel(arows, an, asel, +1);
+			if (!arows[asel].live) asel = menu_step_sel(arows, an, asel, -1);
+		}
 		menu_draw_styled(a, &st, gm_tab_name(tabs.at), arows, an, asel);
 		if (bg) SDL_DestroyTexture(bg);
 		return;
@@ -651,7 +749,7 @@ static void shot_draw_gamemenu(app *a)
 		int ni = gm_tab_rows(&u, (gm_tab)tabs.at, ids), sel = shot_gamemenu_sel < n ? shot_gamemenu_sel : n - 1;
 		const menu_choice *ch = sel >= 0 && sel < ni ? &gm_choices(a, &u)[ids[sel]] : NULL;
 
-		if (ch && ch->n > 2) {
+		if (ch && (ch->n > 2 || ch->list)) {
 			shot_list_draw(a, rows[sel].label, ch, gm_width(a), a->tint);
 			if (bg) SDL_DestroyTexture(bg);
 			return;
@@ -904,6 +1002,7 @@ int  shot_hud_pick = -1; /* --hud-pick ROW: that row's list of choices */
 const char *shot_hud_shows; /* --hud-shows WORDS: the items it shows */
 bool shot_hud_alt;      /* --hud-alt: Shadow and Small, the two-choice rows' other values */
 int shot_rows_report;   /* --rows-report: every option page's rows (tools/menu-rows-check.py) */
+int shot_hover_sweep;   /* --hover-sweep: Theme's lists show every choice, writing nothing (check-hover-sweep) */
 /* --menu's row by its label, found when the menu is built */
 const char *shot_menu_label;
 
@@ -1066,26 +1165,59 @@ static void muse_covers_settle(void)
 	}
 }
 
-/* --look-page: Theme's page or Auto Hours', over the shelf, as menu_run
- * draws them, the cursor on --look-page's row */
+/* --look-page: Theme's page, Night Mode's or Screen Colors', over the shelf,
+ * as menu_run draws them, the cursor on --look-page's row */
 static void shot_draw_look(app *a)
 {
 	menu_row rows[LK_ROWS];
 	const char *heading;
-	hours_view hv = { .a = a };
-	bool hours = !strcmp(shot_look_page, "hours");
-	int n = hours ? hours_build(&hv, rows, 2, &heading) : look_build(NULL, rows, LK_ROWS, &heading);
+	night_view nv = { .a = a };
+	bool night_list = !strcmp(shot_look_page, "night-list");
+	bool night = night_list || !strcmp(shot_look_page, "night"), screen = !strcmp(shot_look_page, "screen");
+	int n = night ? night_page_build(&nv, rows, NP_ROWS, &heading)
+	      : screen ? sc_build(NULL, rows, LK_ROWS, &heading) : look_build(NULL, rows, LK_ROWS, &heading);
 
 	ui_scrim(a->r, 0);
-	if (!hours) {
+	/* --look-page theme-list ROW: Theme's row ROW's list, Accent's or a
+	 * ground's (--pick-at for the cursor, the whole screen showing it) */
+	if (!strcmp(shot_look_page, "theme-list")) {
+		const menu_choice *ch;
+		int row = shot_look_row >= 0 && shot_look_row < n ? shot_look_row : 0;
+
+		ch = menu_choice_at(theme_choices(), n, row);
+		if (ch) shot_list_draw(a, rows[row].label, ch, menu_std_width(a), MENU_ZYPEROS);
+		return;
+	}
+	if (night_list) {
+		/* A Night Mode row's list, as A opens it (menu_pick) */
+		const int row = shot_look_row >= 0 && shot_look_row < n ? shot_look_row : 0;
+		const menu_choice *ch = menu_choice_at(night_page_choices(), n, row);
+
+		if (ch) shot_list_draw(a, rows[row].label, ch, menu_std_width(a), MENU_ZYPEROS);
+		return;
+	}
+	if (!strcmp(shot_look_page, "screen-looks")) {
+		/* The Look's list, its picture beside it (--pick-at for the cursor) */
+		menu_choice ch;
+
+		sc_look_choice(&ch);
+		shot_list_draw(a, T(S_SCREEN_LOOK), &ch, menu_most_w(), MENU_ZYPEROS);
+		return;
+	}
+	if (screen) {
+		g_menu_side = sc_side;
+		g_menu_side_w = SC_SIDE_W;
+	} else if (!night) {
 		g_row_mark = look_row_mark;
 		g_menu_header = look_header;
 		g_menu_header_h = 150;
 	}
 	menu_draw(a, heading, rows, n, shot_look_row < n ? shot_look_row : 0,
-	          menu_std_width(a), MENU_ZYPEROS);
+	          screen ? menu_most_w() : menu_std_width(a), MENU_ZYPEROS);
 	g_row_mark = NULL;
 	g_menu_header = NULL;
+	g_menu_side = NULL;
+	g_menu_side_w = 0;
 }
 
 /* Everything a shot draws, in the theme that is on. */
@@ -1093,7 +1225,22 @@ int   g_shot_saver = -1;          /* --saver [cover]: 0 video, 1 cover */
 float g_shot_saver_alpha = 1;     /* --saver-alpha F: how far it has faded up */
 const char *g_shot_saver_pic;     /* --saver-pic FILE: its picture, a screenshot */
 
+static void shot_compose_once(app *a);
+
+/* A shot's picture; composed again where an open list's cursor showed its
+ * choice on the whole screen in the first (shot_list_draw) */
 static void shot_compose(app *a)
+{
+	shot_compose_once(a);
+	if (g_shot_hover_again) {
+		g_shot_hover_again = false;
+		SDL_SetRenderDrawColor(a->r, 0, 0, 0, 255);
+		SDL_RenderClear(a->r);
+		shot_compose_once(a);
+	}
+}
+
+static void shot_compose_once(app *a)
 {
 	drawn_forget();
 	ui_fit_frame();
@@ -1108,7 +1255,7 @@ static void shot_compose(app *a)
 			draw_shelf(a);
 			zyperos_menu_draw(a, shot_menu_sel);
 		} else {
-			kb_preview_panel(a->r, shot_kb_title, shot_kb_text,
+			kb_preview_panel(a->r, kb_title_shown(), shot_kb_text,
 			                 shot_kb_layer, shot_kb_row, shot_kb_col, pose);
 		}
 		return;
@@ -1147,7 +1294,20 @@ static void shot_compose(app *a)
 		}
 		i18n_set(was);
 		if (k == n) {
+			char all[32], own[32], key[CFG_STR + 16];
+			const char *tag = a->sys.count > 0 ? a->sys.systems[a->sys_cursor].tag : "";
+
 			fprintf(stderr, "--menu: no row called %s\n", shot_menu_label);
+			/* What the rows were built from: a row that comes and goes with
+			 * a setting (Strength with the Shader) says whether the setting
+			 * was there to be read */
+			snprintf(key, sizeof key, "shader.%s", tag);
+			db_get_str(db_dev(), "shader", all, sizeof all, "(none)");
+			db_get_str(db_dev(), key, own, sizeof own, "(none)");
+			fprintf(stderr, "--menu: built with the settings %s, shader=%s, %s=%s, "
+			        "the shelf's shader %d, %d systems\n",
+			        db_dev() ? "open" : "NOT OPEN", all, key, own,
+			        a->sys.count > 0 ? a->view[a->sys_cursor].shader : -1, a->sys.count);
 			shot_failed = 1;
 		}
 		shot_menu_sel = k < n ? k : 0;
@@ -1168,7 +1328,7 @@ static void shot_compose(app *a)
 			int mn = menu_build(a, a->screen, a->sys_cursor, mr, &c.bufs, &mh);
 
 			ch = menu_choice_at(c.bufs.choice, mn, shot_menu_sel);
-			if (ch && !ch->own && ch->n > 2) {
+			if (ch && !ch->own && (ch->n > 2 || ch->list)) {
 				shot_pick = *ch;
 				shot_pick_heading = mr[shot_menu_sel].label;
 			} else if (ch && !ch->own && ch->n == 2) {
@@ -1330,6 +1490,7 @@ static void shot_compose(app *a)
 	}
 	if (shot_look_page) shot_draw_look(a);
 	if (shot_homesys >= 0) homesys_shot_draw(a, shot_homesys);
+	if (shot_lights >= 0) lights_shot_draw(a, shot_lights);
 	if (shot_slots) shot_draw_slots(a);
 	if (shot_gamemenu && a->sys.count > 0) shot_draw_gamemenu(a);
 	else if (g_shot_p2 && a->sys.count > 0) shot_draw_player2(a);
@@ -1340,7 +1501,12 @@ static void shot_compose(app *a)
 		gm_rows_report(a);
 		snaps_rows_report(a);
 		bgm_rows_report(a);
+		hud_rows_report(a);
 		shot_rows_report = 0;   /* once: --flip composes the shot twice */
+	}
+	if (shot_hover_sweep) {
+		sysmenu_hover_sweep(a);
+		shot_hover_sweep = 0;
 	}
 	if (shot_handheld_box) handheld_box_report();
 	/* Over **scrim.menu**, as the screens they picture are: kb_prompt's
@@ -1364,9 +1530,9 @@ static void shot_compose(app *a)
 	}
 	if (shot_kb) {
 		if (shot_at >= 0)
-			kb_preview_press(a->r, shot_kb_title, shot_kb_text,
+			kb_preview_press(a->r, kb_title_shown(), shot_kb_text,
 			                 shot_kb_layer, shot_kb_row, shot_kb_col, (unsigned)shot_at);
-		else kb_preview(a->r, shot_kb_title, shot_kb_text,
+		else kb_preview(a->r, kb_title_shown(), shot_kb_text,
 		                shot_kb_layer, shot_kb_row, shot_kb_col);
 	}
 	/* The in-game notice is not drawn by this process - Diatom composites it
@@ -1389,6 +1555,7 @@ static void shot_compose(app *a)
 	else if (shot_info) info_preview(a, true, shot_info == 2 ? T(S_GAMEMENU_DELETE)
 	                                     : shot_info == 3 ? T(S_GAMEMENU_RENAME) : NULL);
 	if (shot_delete_ask) delete_ask_preview(a);
+	if (shot_gm_said >= 0) gm_said_preview(a, shot_gm_said);
 	if (shot_controls >= 0 && (shot_press != SHOT_SWAP || shot_pressed)) {
 		menu_row rows[CTL_MAX_ROWS];
 		char head[80], count[16];
@@ -1515,7 +1682,7 @@ static void shot_compose(app *a)
 		 * in the language that is on */
 		static const char *const ids[4] = { "America/New_York", "America/Sao_Paulo",
 		                                     "America/Bahia_Banderas", "America/New_York" };
-		struct tm tm = { .tm_year = 2026 - 1900, .tm_mon = 9, .tm_mday = 3,
+		struct tm tm = { .tm_year = 2026 - 1900, .tm_mon = shot_datetime_mon - 1, .tm_mday = 3,
 		                 .tm_hour = 18, .tm_min = 5, .tm_isdst = -1 };
 		menu_row rows[CLOCK_ZONE_LIST_MAX];
 		clock_ui c;

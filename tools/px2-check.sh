@@ -156,8 +156,71 @@ check "a VM takes its own ($(lock_for 127.0.0.1 2222))" \
 	 [ "$(lock_for 127.0.0.1 22)" = /tmp/px2-lock-127.0.0.1-22 ] &&
 	 [ "$(lock_for 192.168.1.23 2222)" = /tmp/px2-lock-192.168.1.23-2222 ]'
 
+# deploy and restore (tools/px2-deploy.sh under the lock), against a card that
+# is a folder here (PX2_CARD), scp a copy, and the device's restart and reboot
+# written down
+cat > "$D/scp" <<'EOF'
+#!/bin/sh
+# scp as tools/px2-deploy.sh calls it: options, the file, root@HOST:PATH
+for a in "$@"; do from=$to; to=$a; done
+cp "$from" "${to#*:}"
+EOF
+printf '#!/bin/sh\necho restart >> "$FAKE_DIR/restarts"\nexit 1\n' > "$D/bin/pidof"
+printf '#!/bin/sh\necho reboot >> "$FAKE_DIR/restarts"\n' > "$D/bin/reboot"
+chmod +x "$D/scp" "$D/bin/pidof" "$D/bin/reboot"
+C=$D/card
+P=$D/payload/ZyperOS
+mkdir -p "$C/ZyperOS/cores" "$P/cores"
+echo "old launcher" > "$C/ZyperOS/zyperos.elf"
+echo "old launch.sh" > "$C/ZyperOS/launch.sh"
+echo "a core" > "$C/ZyperOS/cores/a.so"
+echo "new launcher" > "$P/zyperos.elf"
+echo "new muse" > "$P/muse"
+echo "a core" > "$P/cores/a.so"
+dep() { PX2_SCP="$D/scp" PX2_CARD="$C" PX2_DEVICE_TMP="$D/devtmp" "$PX2" "$@"; }
+rm -f "$D/restarts"
+out=$(dep deploy "$P" 2>&1); rc=$?
+check "deploy: what changed is sent, what did not stays" \
+	'[ $rc -eq 0 ] && [ "$(cat "$C/ZyperOS/zyperos.elf")" = "new launcher" ] && [ "$(cat "$C/ZyperOS/muse")" = "new muse" ] &&
+	 printf "%s" "$out" | grep -qx "  sent zyperos.elf" && ! printf "%s" "$out" | grep -q "sent cores/a.so"'
+check "and the new programs are executable" '[ -x "$C/ZyperOS/zyperos.elf" ] && [ -x "$C/ZyperOS/muse" ]'
+check "the card's own launcher is kept, the added Muse named" \
+	'[ "$(cat "$C/.px2-deploy/orig/zyperos.elf")" = "old launcher" ] && [ "$(cat "$C/.px2-deploy/added")" = muse ]'
+check "ZyperOS restarted, not the device" 'grep -qx restart "$D/restarts" && ! grep -q reboot "$D/restarts"'
+check "the lock let go after a deploy" '[ ! -e "$D/lock" ]'
+echo "newer launcher" > "$P/zyperos.elf"
+dep deploy "$P" > /dev/null 2>&1
+check "a second deploy keeps the first one's kept file" \
+	'[ "$(cat "$C/ZyperOS/zyperos.elf")" = "newer launcher" ] && [ "$(cat "$C/.px2-deploy/orig/zyperos.elf")" = "old launcher" ] &&
+	 [ "$(cat "$C/.px2-deploy/added")" = muse ]'
+out=$(dep restore --status 2>&1)
+check "restore --status says what a restore puts back" \
+	'printf "%s" "$out" | grep -qx "  replaced zyperos.elf" && printf "%s" "$out" | grep -qx "  added muse"'
+rm -f "$D/restarts"
+out=$(dep restore 2>&1); rc=$?
+check "restore: the card's own launcher back, Muse gone, the kept folder gone" \
+	'[ $rc -eq 0 ] && [ "$(cat "$C/ZyperOS/zyperos.elf")" = "old launcher" ] && [ ! -e "$C/ZyperOS/muse" ] &&
+	 [ ! -e "$C/.px2-deploy" ] && [ "$(cat "$C/ZyperOS/cores/a.so")" = "a core" ] && grep -qx restart "$D/restarts" && ! grep -q reboot "$D/restarts"'
+dep restore > /dev/null 2>&1; rc=$?
+check "a restore with nothing kept is a refusal (3)" '[ $rc -eq 3 ]'
+echo "new launch.sh" > "$P/launch.sh"
+rm -f "$D/restarts"
+dep deploy "$P" > /dev/null 2>&1
+check "a new launch.sh reboots the device" '[ "$(cat "$D/restarts")" = reboot ]'
+rm -f "$D/restarts"
+dep restore > /dev/null 2>&1
+check "and its restore does too, with the old launch.sh back" \
+	'[ "$(cat "$D/restarts")" = reboot ] && [ "$(cat "$C/ZyperOS/launch.sh")" = "old launch.sh" ]'
+FAKE_CARD=249737216 dep deploy "$P" > /dev/null 2>&1; rc=$?
+check "deploy holds the card to the test card like the rest" '[ $rc -eq 1 ] && [ "$(cat "$C/ZyperOS/zyperos.elf")" = "old launcher" ]'
+for args in "deploy a b" "deploy --x" "restore now" "restore --status x"; do
+	# shellcheck disable=SC2086
+	px2 $args > /dev/null 2>&1; rc=$?
+	[ $rc -eq 2 ] || bad "'tools/px2 $args' exits 2, not $rc"
+done
+
 if [ $fails -gt 0 ]; then
 	echo "$fails failed"
 	exit 1
 fi
-echo "ok: tools/px2 refuses wrong uses first, holds the card to the test card, and lets its lock go however it ends"
+echo "ok: tools/px2 refuses wrong uses first, holds the card to the test card, lets its lock go however it ends, and restores what a deploy replaced"

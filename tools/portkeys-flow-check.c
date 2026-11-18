@@ -78,6 +78,9 @@ static void put(int id, int64_t us, int type, int code, int value)
 }
 static long now_ms(void) { return (long)mono_ms; }
 static int bar_tick(void) { return -1; }
+/* Night Mode's hour (night_tick): no clock here, so never due */
+static void night_tick(void) {}
+static int night_wait(void) { return -1; }
 /* The bar's POWER kind while a hold fills it (pw_bar): how often, the last
  * level, and how often it was let go to fade at once */
 static int bar_shows, bar_level, bar_fades;
@@ -342,7 +345,7 @@ int main(void)
 	 * nothing ends */
 	reset(); has_vol[0] = has_menu[1] = true; powfd = 12; ready = 1 << 2; limit = 3;
 	powerhold_set_mode(true);
-	times[0] = 1000; times[1] = 2000; times[2] = 1000 + POWERHOLD_MS + 50;
+	times[0] = 1000; times[1] = 1000 + POWERHOLD_MS / 2; times[2] = 1000 + POWERHOLD_MS + 50;
 	put(2, 1000000, EV_KEY, KEY_POWER, 1);
 	run_loop();
 	ck(kills == 1 && kill_sig == SIGUSR1 && kill_pid == 4242,

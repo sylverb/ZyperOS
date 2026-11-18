@@ -97,23 +97,37 @@
  * row is in a tab. */
 /* PM_POWER is Power Button, over Auto Off, the first of the rows about the
  * handheld going off: Press, POWER pressed turns it off, as it always has;
- * Hold, POWER held for two seconds (src/powerhold.h). Two choices, so A
+ * Hold, POWER held for one second (src/powerhold.h). Two choices, so A
  * switches it, as Left and Right do (1.0.6, asked for on the Discord). */
 /* PM_HOMESYS is Home Systems, under System Order: which shelves the home
  * shows, each system with games, Favorites and Recents (src/homesys.h). Its
  * value "All", or how many of them are on; A opens the page of switches
  * (sys_menu_homesys_rows). 1.0.6, asked for on the Discord. */
-/* PM_AUTOHOURS is Auto Hours, under Appearance: when Auto turns light and
- * when dark, by the half hour (src/theme.h), 7:00 and 19:00 as it ships.
- * PM_THEME is Theme, under it: the accent, a background tone for each theme,
- * the corners and Zyper (src/look.h, DESIGN.md 3.5). My picks 2026-11-12. */
+/* PM_THEME is Theme, under Appearance: the accent, a background tone for
+ * each theme, the corners and Zyper (src/look.h, DESIGN.md 3.5). My picks
+ * 2026-11-12. Appearance is Light or Dark (1.0.6: Auto went, its hours
+ * became Night Hours). */
+/* PM_SCREEN is Screen Colors, Display's last row: Temperature, Tint,
+ * Contrast, Saturation, Gamma and the looks for the whole screen, in the
+ * display's own table
+ * (src/panelgamma.h); only where the device has one (no_screen_colors).
+ * 1.0.6, asked for on the Discord; the page approved 2026-11-16. */
+/* PM_NIGHT is Night Mode, under Screen Colors: warmer colors for the night,
+ * its value Off, On or By Hours; A opens its page, as Screen Colors' does:
+ * Night Mode, Night Warmth (1 to 10, 8 as it ships), Night From and Until
+ * by the half hour (21:00 and 7:00 as it ships; 1.0.5's Auto Hours). Only
+ * where the display has a table (no_night, plat_night_here). Tarik's move,
+ * approved on the sheet 2026-11-16; one row and its page, his for 1.0.6
+ * rc.2 (DESIGN.md 11.42). */
 typedef enum {
 	/* Games */
 	PM_SEARCH, PM_STATS, PM_RANDOM, PM_ACHIEVEMENTS, PM_SCRAPER,
 	/* Display */
-	PM_APPEARANCE, PM_AUTOHOURS, PM_THEME, PM_HOME, PM_ORDER, PM_HOMESYS, PM_BATTERY, PM_SAVER,
+	PM_APPEARANCE, PM_THEME, PM_HOME, PM_ORDER, PM_HOMESYS, PM_BATTERY, PM_SAVER,
 	PM_SHADER,
 	PM_STRENGTH,
+	PM_SCREEN,
+	PM_NIGHT,
 	/* Sound */
 	PM_AUDIO, PM_CHANNELS, PM_SOUNDS, PM_MUSIC,
 	/* Connections: USB Device first, while a plug waits for its answer */
@@ -147,7 +161,7 @@ typedef enum { PT_GAMES, PT_DISPLAY, PT_SOUND, PT_CONNECTIONS, PT_SYSTEM,
 #define SM_NOTE_W 760
 
 typedef enum {
-	SM_GAMES, SM_RANDOM, SM_CORE, SM_DSLANG, SM_SORT, SM_VIEW,
+	SM_GAMES, SM_RANDOM, SM_CORE, SM_DSLANG, SM_PACE, SM_SORT, SM_VIEW,
 	SM_DISPLAY, SM_SHADER, SM_STRENGTH, /* SM_BUTTONS, */ SM_BOXART,
 	SM_RESCAN, SM_ROWS
 } sm_row;
@@ -322,11 +336,16 @@ typedef struct {
 	/* The ZyperOS menu: the tab it shows (pm_tab), or PT_TABS for every row
 	 * in the enum's order (a measure, a check) */
 	int         tab;
-	/* Auto Hours' value, "7:00 AM to 7:00 PM" as MENU > Clock writes the
-	 * time; NULL reads nothing */
-	const char *auto_hours;
+	/* Night Mode's value, the mode's word (NULL reads Off) */
+	const char *night;
+	/* No table for Night Mode here (plat_night_here, the Brick): no row */
+	bool        no_night;
 	/* Theme's value: the accent's name (src/look.h); NULL reads Lime */
 	const char *theme;
+	/* No gamma table for Screen Colors here (plat_screen_colors_here): no
+	 * row. Its value otherwise, the look's name; NULL reads Standard. */
+	bool        no_screen_colors;
+	const char *screen_colors;
 	bool        ra_in;
 	const char *ra_name;     /* only read when ra_in */
 	/* The Scraper row's value: "142 missing", "complete", or NULL until a
@@ -405,6 +424,10 @@ typedef struct {
 	 * the row's value, "Auto (English)" or a language's name. NULL: the
 	 * shelf has no such row, and every other shelf's menu is as it was. */
 	const char *dslang;
+	/* Timing, under Core (and Game Language), on a shelf whose system has a
+	 * pace line in systems.cfg (src/pacing.h): "Smooth" or "Exact". NULL:
+	 * no such row. */
+	const char *pace;
 	int         game_count;
 	const char *dmode;
 	/* This system's shader's label, after Display Mode; NULL reads Off */

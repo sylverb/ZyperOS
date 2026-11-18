@@ -8,6 +8,7 @@
  * main.c. */
 #include "app.h"
 #include "dslang.h"
+#include "pacing.h"
 #include "game_menu.h"
 #include "hare.h"
 #include "heat.h"
@@ -166,6 +167,10 @@ typedef struct {
 	/* A picture at each row's left, by place: the Achievements tab's
 	 * badges (main.c's g_row_icon while the panel is drawn). NULL: none. */
 	SDL_Texture *(*row_icon)(int row);
+	/* Told the cursor's row each pass, after the keys and before the
+	 * frame is drawn, so an option's list shows the choice under it
+	 * (src/ds/hover.h) in the frame the cursor reaches it. NULL: none. */
+	void   (*at)(app *a, void *ctx, int sel);
 } menu_style;
 
 /* ---- the menu runner (main.c's menu_run) ------------------------------------
@@ -261,6 +266,7 @@ void moved_sound(app *a, in_button b);
 bool timed_message(app *a, const char *heading, const menu_row *rows,
                    int n, int fixed_w, unsigned accent);
 bool result_message(app *a, const char *heading, const char *text);
+void result_preview(app *a, const char *heading, const char *text);
 kb_result keyboard_prompt(app *a, const char *title, char *buf, int cap);
 /* MENU pressed in a screen over the one asking: every screen closing */
 extern bool g_menu_closing;
@@ -694,9 +700,12 @@ const char *strength_all_label(const app *a);
 const char *core_label(const char *core, char *buf, size_t n);
 void core_step(app *a, int sys, int d);
 dsl_choice dslang_load(void);
+pacing_choice pacing_load(const system_cfg *s);
+bool pacing_row_shown(const app *a, int sys);
 bool dslang_row_shown(const app *a, int sys);
 const char *dslang_label(dsl_choice c, char *buf, size_t n);
 void view_turn(app *a, int sys, int dir);
+void home_turn(app *a, int dir);
 float grid_shape_load(const app *a, int sys);
 void grid_shape_save(const app *a, int sys, float shape);
 void sort_save(app *a);

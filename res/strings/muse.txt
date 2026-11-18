@@ -157,26 +157,26 @@ ja = モード
 it = Modalità
 
 [muse.row_playing]
-note = An album's tracks: the value beside the track that is playing (a status, lowercase)
-en = playing
+note = An album's tracks: the value beside the track that is playing (a status, begun with a capital)
+en = Playing
 zh-Hans = 正在播放
-es = reproduciendo
-pt-BR = tocando
-fr = en lecture
-de = läuft
+es = Reproduciendo
+pt-BR = Tocando
+fr = En lecture
+de = Läuft
 ja = 再生中
-it = in riproduzione
+it = In riproduzione
 
 [muse.row_paused]
-note = An album's tracks: the value beside the track that is paused (a status, lowercase)
-en = paused
+note = An album's tracks: the value beside the track that is paused (a status, begun with a capital)
+en = Paused
 zh-Hans = 已暂停
-es = en pausa
-pt-BR = pausado
-fr = en pause
-de = pausiert
+es = En pausa
+pt-BR = Pausado
+fr = En pause
+de = Pausiert
 ja = 一時停止中
-it = in pausa
+it = In pausa
 
 [muse.paused_note]
 note = An album's tracks, the note under the list while what plays is paused: %s is the title, artist and times ("Song · Artist · 1:26 / 3:40")

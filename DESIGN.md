@@ -135,7 +135,7 @@ Each role has one value per theme. Code asks for the role, never the value.
 | Accent | Is | Never |
 |---|---|---|
 | lime (**accent**, **accent-ink**) | ZyperOS: focus, the system's chrome, volume, success, earned, Muse | a system's color, decoration |
-| a system's color (systems.cfg) | that system's menu heading rule and missing-cover fallback | focus, source sprite colors, unrelated screens |
+| a system's color (systems.cfg) | its shelf's marks and lift and missing-cover fallback | focus, any menu (its heading rule, its frame, its light), source sprite colors, unrelated screens |
 | **light** | brightness | anything else |
 | **favorite** | the heart | anything else |
 | **warning** | low battery, an error a row reports | emphasis |
@@ -147,7 +147,7 @@ both themes (Salt & Pepper is one-accent), and an earned achievement is lime
 where it was cyan. Cyan leaves the system.
 
 A system's color on the Beard ground is mixed a quarter of the way toward
-**text** before it is used as a mark (a rail, a heading rule), so a yellow
+**text** before it is used as a mark (a rail), so a yellow
 like Game Boy Color's still reads on a light ground. Source console sprites
 and game covers are never recolored for a theme. Their dark outlines remain
 opaque. Focus uses the accent underline, size and text, not a tint of the art.
@@ -287,8 +287,10 @@ Lexend's time the first time it is drawn, then cached like any line.
 - **Title Case** for headings, menu rows and named choices ("Audio Output",
   "Light"), a switch's "On" and "Off" among them (Developer Mode, Wi-Fi
   and Bluetooth, Swap Screens, 2026-11-12: "Off/On in the dev mode row in
-  settings should be capitalized"). **lowercase** for status words in the
-  value column ("not connected", "needs Wi-Fi", "never"). **Sentence case** for lines and
+  settings should be capitalized"). **A capital first** for status words in
+  the value column ("Not connected", "Needs Wi-Fi", "Never"), as every value
+  there begins (2026-11-17: "make sure they are all capitalized"; a name keeps
+  its own case, a number begins as it begins). **Sentence case** for lines and
   messages ("Press A to open the game you are on.").
 - No italics, no letter spacing, no all-caps except button names, which are
   written as printed on the handheld: A, B, X, Y, L1, R1, L2, R2, START,
@@ -411,9 +413,15 @@ its own says why beside it.
 | **tab-move-name** | 96 | a tab's turn (L1, R1): the tab names move this far the press's way |
 | **tab-move-in** | 64 | ...and the new tab's rows come in from this far, the Controls tab's handheld with them |
 | **ctl-side** | 280 | the Controls tab's handheld column: its rows and their focus fill start this far in from the content's left |
+| **sc-side** | 192 | Screen Colors' color chart column: its six rows and their focus fill start this far in from the content's left (the design session's mock, 2026-11-16) |
 | **ctl-device-x** | 99 | the handheld's middle from the content's left: half the Pixel 2's drawing at its tab pose, so its left edge is on the heading rule's left end |
 | **ctl-device-y** | 458 | the handheld's middle on the screen: one place on every tab and page that has it, as their panel is as tall as the screen allows (the mock's, 2026-11-13) |
 | **hud-band** | 152 | On-Screen Stats' band: the screen's strip where the line goes, the line at Far (48) under the level bar (94 + 49) and at the foot; on the grid, 95 whole pixels on the Pixel 2 (150 until 1.0.6) |
+| **scale-track** | 16 | the bar's track, its colors the scale's |
+| **scale-knob** | 32 | the value's knob, across |
+| **scale-mark** | 8 | a mark under the track at an end or a half |
+| **scale-zero** | 12 | zero's mark, through the track and this much past it |
+| **scale-min-w** | 192 | the least a bar is, so the words beside it stay at most about 313 units |
 | **tile-w** | 272 | a tile, three in a row |
 | **tile-w-wide** | 408 | a tile, two in a row or the grid's |
 | **tile-h** | 232 | a tile's height: the mark, a name on two lines |
@@ -493,8 +501,11 @@ pill. A pill is only ever a pill: the bar, button glyphs, chips.
 - A panel's frame is **edge**, 3 units, in both themes. *(The 12-unit cyan
   frame goes: with lime as the focus fill, a lime frame around it doubled the
   accent, and a grey frame lets the focused row be the brightest thing on
-  the panel. A system menu says which system it is with its color on the
-  heading rule.)*
+  the panel. A system's menu says which system it is in its heading; its
+  heading rule is **edge** and its light in Salt & Pepper the neutral one,
+  as every menu's. Tarik's for 1.0.6 rc.2: "why the line below the header
+  in the menu varies with the system? can we not do that?", and the light
+  the same for all systems too, "yeah".)*
 - Covers keep their own corners (square for album covers, as now).
 
 ---
@@ -502,7 +513,8 @@ pill. A pill is only ever a pill: the bar, button glyphs, chips.
 ## 7. Elevation
 
 Salt & Pepper lifts with light: the additive glow under a focused card, in
-the system's color, as the launcher has always done. Beard lifts with
+the system's color, as the launcher has always done; a menu panel's light
+is the neutral one on every menu, a system's too (1.0.6 rc.2). Beard lifts with
 shadow: light on a light ground is invisible, so the same places get a soft
 shadow of ink instead, neutral, never tinted. In Beard the system's color is
 the wash along the bottom of the shelf (a normal blend, not additive), the
@@ -581,7 +593,8 @@ beside a cubic one. One function each, in `src/design.h`.)*
 | **zyper-ears** | 420 | - | Zyper's ears swinging out and back as he says hello |
 | **tour-reward** | 1100 | - | a tutorial step's reward, before the next |
 | **tour-pulse** | 440 | - | the right glyph's two pulses after a press of the wrong button |
-| **hold-unlock** | 2000 | - | MP4's lock: SELECT and START held together this long unlock it; POWER held this long starts the charging screen's handheld, and turns it off with Power Button on Hold |
+| **hold-unlock** | 2000 | - | MP4's lock: SELECT and START held together this long unlock it; POWER held this long starts the charging screen's handheld |
+| **hold-power** | 1000 | - | POWER held this long turns the handheld off with Power Button on Hold |
 | **hold-lock-lit** | 4000 | - | MP4's lock screen, lit as it locks |
 | **hold-controls** | 3000 | - | MP4's video controls after the last press |
 | **hold-snap** | 1000 | - | a game focused on the shelf before its cover turns into its video snap |
@@ -789,6 +802,16 @@ its own. *(2026-11-13: "We should leave no trace of the old art behind".)*
 MENU > Home Screen offers **Spotlight** (default), **Gallery** and **Grid**
 (below); Right steps on, Left back, and A opens the three as a list (11.3's option rows). Old `cards` and `cards_dir` settings have no effect. Fancy Pants,
 the old system posters and their generators are removed, not hidden.
+**START** on the home steps it on too, Spotlight to Gallery to Grid and round,
+with no menu, as START steps a shelf's View: the same setting, saved the same
+way, the home on the same system, with the move sound; not with MENU or
+SELECT held (MENU + START is the way out). Every layout's foot names where it
+goes, START's hint 32 right of MENU's (**START Gallery** on Spotlight,
+**START Grid** on Gallery, **START Spotlight** on Grid), in the Home Screen
+row's words. *(2026-11-17: "also implement start in the home menu with the
+systems".)* The place stays in the middle of the foot; where a long word
+would come nearer than 32 to it (Italian's "In evidenza" by the Grid's
+"12 / 21"), it stands 32 right of START's word instead.
 
 **Spotlight:** system name and count on the left, the console art on the
 right, five nearby sprites in an unframed dock below. The selected sprite
@@ -819,15 +842,15 @@ DS_GRID_GAP apart, as many across as cells of at least 128 fit between the
 64 margins, the grid in the middle of its room; the rail at the right when
 the systems are more than three rows. The band: the system's whole name in
 **game-title** (Favorites in the language that is on), A's **Open games** at
-its right, its count under it in **support**; the foot at 720: MENU, the
-place, SELECT. **Up** and **Down** move a row, stopping at the top and the foot
+its right, its count under it in **support**; the foot at 720: MENU and
+START, the place, SELECT. **Up** and **Down** move a row, stopping at the top and the foot
 with the edge sound (Down over a short last row lands on its last system);
 **Left** and **Right** step round the ends; **L1** and **R1** jump a screenful, or to the last (first) system where less is left, and from the last round to the first (as the shelf grid's, 11.47).
 A system hidden or emptied leaves the grid as it leaves the row; Favorites is
 a tile like any other.
 
-MENU remains at the left footer, the position in the middle, and A at the
-right. SELECT still opens the player without another footer caption.
+MENU remains at the left footer with START after it, the position in the
+middle, and A at the right. SELECT still opens the player without another footer caption.
 **L1**/**R1** jump three systems, coming round past either end as a step
 does, the row moving all three in the press's direction in **move** and
 **out**; on a games shelf they jump a screenful. **Up**/**Down** on the home
@@ -959,7 +982,7 @@ over **scrim.menu**. Centered, 24 from the screen's edges, but never above
 y 96, clear of the header row (11.12), which stands over
 every screen a panel opens on; a list too tall for that scrolls in its
 window. Heading in **label**, **text-soft**, over a 2-unit rule
-in **edge** (in a system's menu, in that system's color). Rows in **menu**:
+in **edge**, a system's menu and the in-game menu's too. Rows in **menu**:
 live rows **text-soft**, values **text-dim**, dead rows **text-dim** at both.
 The focused row is an **accent** fill, **radius.row**, its label and value in
 **on-accent**. More rows above or below: a small triangle in **text-dim**,
@@ -972,7 +995,7 @@ Opens and closes as 8.2 says.
 
 **Option rows, one rule (1.0.6).** A row whose value is one of several
 choices answers the same way on every page - MENU, a system's menu, the
-Muse shelf, the in-game menu's Game and Display tabs, Theme, Auto Hours,
+Muse shelf, the in-game menu's Game and Display tabs, Theme, Night Mode's page,
 Video Snaps, Menu Music:
 
 - **More than two choices: A opens their list**, a panel of its own under
@@ -1001,7 +1024,48 @@ Video Snaps, Menu Music:
   is **preview-col-w** (336) units, narrower where the choices run long, to
   **preview-col-min** (200), so every choice keeps its words; the list is as wide as the column and its
   longest choice need (`menu_pick_preview`, src/menu_pick.h).
-- **Two: A turns it over.**
+- **A row with a scale** (Screen Colors, 1.0.6; `src/ds/scale.h`, section
+  15): a value from -range to +range, zero in the middle, is a graded bar
+  where its value would be, its row's words at the left as any row's. The
+  track, 16 high in an **edge** ring, says in its colors what the scale
+  does: cool blue to warm orange, green to magenta, one grey parting to
+  black and white, a color's grey to the color at its fullest, darker to
+  lighter mid-tones. Marks under it at the ends and halves and zero's
+  through it, the tallest; the value a knob 32 across, a ring in **text**
+  round the panel's **raised**; the number after it, signed, its digits
+  tabular ("−3" with a minus sign, "0", "+5"). The bars of a page start
+  together, past the widest of their rows' words, and are never under 192
+  units, so a row's words stay at most about 313 units in every language.
+  On the focus fill its marks, ring and number are **on-accent**. A row
+  carries it as its value (`ds_scale_value`); the panel draws it.
+- **A color chart** (Screen Colors; `src/ds/colorref.h`): what a color
+  setting is judged on, the 24-patch chart photographers use (skin, sky,
+  foliage, the primaries and their mixes, six greys), a sixteen-step grey
+  ramp and the hues in a band; four across in a column beside the rows,
+  six across in a list's picture. The setting changes the whole screen, so
+  the chart shows it as the panel makes it.
+- **What the cursor shows** (1.0.6 rc.2; `src/ds/hover.h`, section 15):
+  a list whose choice changes how the whole screen looks shows the one
+  under the cursor from the frame the cursor reaches it, once a move and
+  never each frame; the tick stays on the kept choice, and B, MENU or
+  POWER put back what is kept before anything else runs - nothing is saved
+  until A. While a list shows a choice that is not kept, nothing that keeps
+  the screen's state writes it down (the boot screen's words, the theme
+  file: `ds_hover_showing`). Theme's three lists (11.42). `check-hover-sweep`
+  shows every choice of them and fails on a database row or a file written,
+  or a page that reads otherwise after.
+- **Two: A turns it over**, unless the two need a picture to tell apart:
+  **Timing** (Smooth or Exact, a GB, GBC, GBA, DS or Genesis shelf's)
+  opens its list on A all the same (`menu_choice.list`), Left and Right
+  still turning it over. Its picture is the two ways slowed down, in the
+  dark theme's colors as a game's screen: a ball crossing a small screen a
+  step a game frame, a refresh every 160 ms, and where it was at the five
+  refreshes before behind it. Smooth's steps are even; with Exact a refresh
+  now and then shows the frame before again, the ball stopping for one,
+  its two places ringed in the accent - one refresh in four here, one in
+  about 170 on the Pixel 2, so it can be seen at all. Under it, what each
+  does in a sentence. *(Tarik's for 1.0.6 rc.2: "improve the timing screen
+  to explain/demonstrate that".)*
 - **Left and Right step every row**, as before, and show the change at
   once, so a look before choosing is one press away. A scale (minutes,
   percent, volume) stops at its ends; a set of names goes round.
@@ -1077,7 +1141,7 @@ where it was.)*
 | Tab | Rows |
 |---|---|
 | **Games** | Search Games, Play Time, Random Game, Achievements, Scraper |
-| **Display** | Appearance, Auto Hours, Theme, Home Screen, System Order, Home Systems, Battery Icon |
+| **Display** | Appearance, Theme, Home Screen, System Order, Home Systems, Battery Icon, Screensaver, Shader, Strength, Screen Colors, Night Mode (its page: Night Mode, Night Warmth, Night From, Until) |
 | **Sound** | Audio Output, Audio Channels, UI Sounds, Menu Music |
 | **Connections** | USB Device (while a plug waits), Wi-Fi, Bluetooth, File Transfer, USB Accessories, Developer Mode |
 | **System** | Date & Time, Clock, Language, Power Button, Auto Off, Charge Limit, Side Lights, Storage, System Update |
@@ -1184,13 +1248,14 @@ light to 13/17 and 9/17 of it (src/panelgamma.h): the launcher, Diatom and
 portkeys each set the table from the value in sysfs, which is the rung's
 name. Moving between those two rungs blinks one frame at the floor: the
 PX30 loads its table with the table off. A rung kept before 1.0.6 moved once
-to the new rung nearest its light. *(Discord, 1.0.6: "one or two dimmer
+to the new rung nearest its light. The player's Screen Colors (11.42) go in
+the same table, on every rung. *(Discord, 1.0.6: "one or two dimmer
 steps"; Tarik, 2026-11-15, after a 20 kHz backlight went black under 17.)*
 
 **POWER held** (MENU > Power Button on **Hold**, 11.47) is the same pill with
 the power mark - a ring open at the top and the line down into it, as every
 power button has it - and 20 segments in **accent-ink** over **track**, one
-lit for each twentieth of **hold-unlock** while POWER is held. Full, the
+lit for each twentieth of **hold-power** while POWER is held. Full, the
 handheld turns off as a press does, and the pill holds and fades as after a
 level step; let go early, it goes in **fade.out** at once and nothing else
 happens. On the shelf and every screen, over a Diatom game (the launcher
@@ -1240,6 +1305,9 @@ A menu panel over **scrim.menu**. One row holds for **hold.short**;
 two rows hold for **hold.long**. The hold starts after the panel opens.
 The panel fades in and out with the menu motion. B dismisses it early.
 Progress before a synchronous operation is one presented frame, without a hold.
+A result wider than the panel goes onto balanced lines at the menus' shared
+width, up to five, and is never cut: three cut Rename's refusal of a name in
+English, at the very characters it names (1.0.6).
 
 ### 11.9 Button glyphs
 For the tutorial and anywhere a button is drawn rather than named
@@ -1807,7 +1875,7 @@ rows, who on the left and what of theirs on the right, short enough that no
 row scrolls sideways, Eric Reinsmidt first; then, under a rule and the
 heading **Help with other handhelds**, the people who help with the other
 handhelds ZyperOS runs on, a name and the handheld each (src/about_screen.c's
-`ABOUT_HANDHELD_THANKS`, shown only while it has a row: none yet); and held at the
+`ABOUT_HANDHELD_THANKS`, shown only while it has a row); and held at the
 foot, under the footer's rule, the note "All licenses are in Licenses/".
 Every page uses the standard menu panel and one measured width. The **meta**
 **text-dim** page count, "1 / 4" to "4 / 4",
@@ -2732,6 +2800,16 @@ loses no frames. A step of a moving pattern lasts 100 ms ("Even, 100 ms").
   flashes red 200 ms every 5 s, under 5% twice (150 ms on, 150 off, 150 on)
   every 2 s. The first flash comes the moment it falls under each, and when
   the cable comes out.
+- **Battery Level**, all the time (my ask after testing 1.0.6, 2026-11-17:
+  with the cable out every light was dark although there was battery, and
+  only L2+R2 showed it): the level L2+R2 flashes, still, at the same lights
+  (all four from 75%, three from 50%, two from 25%, one green from 10%), on
+  the shelf, in menus and in games. Off the cable, and on it when Charging
+  Bar is off; on the cable the bar shows instead. Under 10% off the cable it
+  gives way to Low Battery's flash, which says how low; with Low Battery off
+  it is a steady red. Off to start, so a card that never turns it on sees
+  what it saw before. Everything below shows over it for its time, then the
+  level comes back; L2+R2 over it flashes it, so the press still shows.
 - **Volume and Brightness**, while one changes ("Eight steps, a half
   blinks"): each light is two of eight steps; the one above the lit ones
   blinks (250 ms on, 250 off) for a half. Volume at 0 lights the bottom one
@@ -2769,30 +2847,36 @@ loses no frames. A step of a moving pattern lasts 100 ms ("Even, 100 ms").
 - **No game light** ("Not on the lights"): nothing shows that a game runs.
 
 Sharing them ("Newest on top"): a level, a Done or a sparkle takes the lights
-for its time, over the charging bar and over files moving, and the newest
-replaces the one before; then the wave or the bar comes back. Files moving
-is over the charging bar for as long as they move. The low-battery red is laid over everything, a
+for its time, over the charging bar (or Battery Level) and over files moving,
+and the newest replaces the one before; then the wave, the bar or the battery
+level comes back. Files moving is over the charging bar and Battery Level for
+as long as they move. The low-battery red is laid over everything, a
 pattern included (it is the bottom light's red, which no pattern uses but
 silence), and is hidden only when Low Battery is off. L2+R2 flashes the
 battery level over all of it, four times in 2 s, in every setting.
 
 **Side Lights** in MENU, under Charge Limit, says how many parts are on ("All
 on", "3 on", "Off"); A opens its page ("A page of switches"): Charging Bar,
-Low Battery, Volume and Brightness, Files and Covers, Achievements, each
-On or Off, stepped by Left, Right or A and heard as a ring. Every change is
+Low Battery, Battery Level, Volume and Brightness, Files and Covers,
+Achievements, each On or Off, stepped by Left, Right or A and heard as a
+ring. All on counts every part a new card has on, so a card that kept the
+default still reads All on with Battery Level off; once another part is
+off, Battery Level counts like the rest. Every change is
 written to the card at once and the gauge reads it again, so the lights
 follow the row. The row under the cursor plays its part on the lights in a
 loop, On or Off, for as long as the cursor stays on it (my ask, 2026-11-13):
-the bar filling from none, one red flash then two, the level up its eight
-steps then silence's red, the wave down and up then Done, the sparkle. It
+the bar filling from none, one red flash then two, the battery's level as it
+is now (still), the level up its eight steps then silence's red, the wave
+down and up then Done, the sparkle. It
 takes the lights over everything but L2+R2, and they go back to what they
 show on their own as the page closes. Everything is on for a new card and for a card that said
-Auto ("Everything on"); a card set to Charging, Low Battery or Off before
-keeps what it said, the newer parts off. The setting is a line in
-`.userdata/pixel2/side-lights`: the old word first (auto, charging, low,
-off), which an older gauge reads alone, then `level`/`-level`, `done`/`-done`,
-`cheer`/`-cheer`; `done` covers files moving too, so the line needed no new
-word for it.
+Auto ("Everything on"), Battery Level aside; a card set to Charging, Low
+Battery or Off before keeps what it said, the newer parts off. The setting is
+a line in `.userdata/pixel2/side-lights`: the old word first (auto, charging,
+low, off), which an older gauge reads alone, then `level`/`-level`,
+`done`/`-done`, `cheer`/`-cheer`, `battery`/`-battery` (off unless named,
+whatever the first word; an older gauge leaves the word alone); `done`
+covers files moving too, so the line needed no new word for it.
 
 ### 11.28 Controls in a game
 
@@ -3065,7 +3149,8 @@ folder refuses the whole delete, with nothing touched. Earned achievements
 stay: they are the player's.
 
 Host shots: `--info-delete` (the details, the cursor on Delete Game),
-`--delete-ask` (the question), `--delete-now` (the shelf after the yes).
+`--delete-ask` (the question), `--gm-said K` (its messages and Rename's),
+`--delete-now` (the shelf after the yes).
 
 ### 11.32 Storage
 
@@ -3903,10 +3988,12 @@ row's own setting, saved the same way, the shelf on the same entry, with
 the move sound. Favorites, folders and Ports alike; MP4's shelf is MP4's
 own screen, where START does nothing alone. Not with MENU or SELECT held:
 MENU + START is the way out (tools/zyhome.c) and SELECT + START MP4's lock.
-Before, START did nothing on a shelf. The foot names where it goes:
+Before, START did nothing on a shelf. On the home it steps the Home
+Screen's layout the same way (11.1). The foot names where it goes:
 **START Grid** under the covers, **START List** under the grid, **START
 Covers** under the list; MENU > Controls has it
-on the shelf's page. The tutorial is as it was: it teaches one button a
+on the shelf's page, as **Home Screen or View**: the two MENU rows START
+steps, the home's first, as A's **Open or play** puts the home's first. The tutorial is as it was: it teaches one button a
 step, its START skips it, and its last page sends you to MENU > Controls.
 
 The heading and the foot are the cover row's (START's word apart), so
@@ -4033,7 +4120,7 @@ renames. The details page stays open on the game, under its new name.
 
 Host shots: `--info-delete` shows the row above Delete Game.
 
-### 11.42 Display's Theme and Auto Hours
+### 11.42 Display's Theme, Screen Colors and Night Mode
 
 **Theme** (MENU > Display) is a menu panel of six rows over the shelf:
 **Accent**, **Light Background**, **Dark Background**, **Corners**,
@@ -4049,12 +4136,77 @@ everything at once, and a change to the other in its picture. Before a
 value, a mark of what it is: the accent's dot on Accent, the theme's chip
 (its ground in its edge, the accent on it, 64 by 36) on each background's
 row. Display's own **Theme** row shows both chips and the accent's name.
+Accent's, Light Background's and Dark Background's lists show the choice
+under the cursor on the whole screen as it moves (11.3's what the cursor
+shows): the look in memory, no setting and no theme file, the list's own
+focus bar in the accent too; a ground of the theme that is not on shows
+that theme while its list is open, so the choice can be seen at all. B,
+MENU or POWER put back the look as it was; A keeps the one chosen. *(Tarik's
+for 1.0.6 rc.2: "Can we have the theme accent preview on hover? same for
+all other theme options".)*
 
-**Auto Hours** (MENU > Display, under Appearance) is two rows, **Light From**
-and **Dark From**, each a time of day stepped by the half hour round the
-day, written as MENU > Clock says; 7:00 AM and 7:00 PM as it ships. Its row
-in Display says "7:00 AM to 7:00 PM". A theme the change turns turns at
-once. *(My pick, 2026-11-12.)*
+**Appearance** is Light or Dark, two, so A turns it over. *(1.0.6: Auto,
+light from 7:00 to 19:00, went, and its hours became Night Mode's below; a
+1.0.5 player on Auto gets the theme the hour gave at the first start of
+1.0.6.)*
+
+**Screen Colors** (MENU > Display, its last row; the Pixel 2 only,
+`plat_screen_colors_here`) is a page of six rows beside a color chart (the
+24 patches of a camera's, a grey ramp in sixteen steps and a hue band):
+**Look**, then **Temperature** (cool to warm), **Tint** (green to magenta),
+**Contrast**, **Saturation** and **Gamma**, each -10 to +10 with 0 the frame
+as drawn and the number signed. The Look is a ready-made set of all five:
+Standard, Vivid, Intense, Warm, Cool and Muted, and Custom while a
+row was moved by hand; the row in Display says it. The colors are the whole
+screen's, the shelf's and every game's and port's, made by the display's
+gamma table (src/panelgamma.h) over the dimming of the two bottom brightness
+rungs (11.6): Temperature and Tint are gains in light, every one 1 or under
+so white keeps its brightest channel (+10 warm: white 255, 230, 177; -10
+cool: 230, 241, 255), Contrast an S about the middle and Gamma a power
+(black, white and mid grey kept, and every table rising at every value),
+and Saturation the display controller's BCSH block, 5% a step (plastron's
+kernel patch 9-px2-px30-vop-bcsh-saturation; no row on a system image
+without it). No Hue, which turns every color round the wheel together,
+and no brightness offset, which lifts black: the backlight is the
+brightness. Standard changes nothing and puts no table on the display at
+all, as before: colors change only when the player asks, because the one
+change ZyperOS made for everyone (1.0.4's correction) took the warmth out
+of every game. A row's step is applied and kept at once, with the
+one-frame blink of a table load, at most one every 120 ms while a key
+repeats (Saturation never blinks). The Look's list shows the look under
+its cursor on the whole screen as the cursor moves, with what it does
+under the chart; A keeps it, B puts back what was set, and a look under
+the cursor never reaches Diatom or portkeys. Screenshots and the pictures
+of save states never show the colors, being taken before the table; nor do
+the boot splash's first second and USB Drive's screen. *(Asked for on the
+Discord; the first page approved by Tarik, 2026-11-16, "All approved"; the
+second, with "more options and granularity", negative numbers and a
+preview on hover, approved the same day.)*
+
+**Night Mode** (MENU > Display, under Screen Colors, where the display has
+a table) makes the whole screen warmer for the night, over the player's own
+colors. Display has one row for it, its value the mode (**Off**, **On** or
+**By Hours**); A opens its page, as Screen Colors' row does, and Left and
+Right do nothing there. The page, headed Night Mode, has every setting of
+it, each an option row (DESIGN.md 9): **Night Mode**, the three; **Night
+Warmth**, 1 to 10, 8 as it ships: the gains of Temperature +n, multiplied
+into the player's, so it adds warmth to their colors, never clips against
+their Temperature and changes nothing else; and **Night From** and
+**Until**, each a time of day by the half hour, written as MENU > Clock
+says; 9:00 PM and 7:00 AM as it ships, and a 1.0.5 player's Auto hours
+carry over. A row the mode does not use is quiet, its value still read:
+Night Warmth and the hours while Off, the hours while On. So the page holds
+its shape as the mode changes, and says what On or By Hours would use;
+the cursor passes the quiet rows, as any quiet row. Night Warmth's list
+shows the warmth under the cursor on the whole screen as the Look list
+does, with no picture beside it (menu_choice's `focus`), whatever the hour;
+B puts back what was set. A change is on the
+display at once, and By Hours turns at the hour in games and ports too:
+one frame's blink, as any table load, and no fade, whose every step would
+blink. Night Mode never changes the theme, and the Look list has no Night
+look. *(Tarik's move from Screen Colors' Night look and Appearance's Auto,
+approved on the sheet 2026-11-16; one row and its page for 1.0.6 rc.2, his:
+"Can the night mode settings be all in night mode row".)*
 
 ### 11.43 Player 2
 A friend plays an NES game's second controller in a browser, with nothing
@@ -4069,7 +4221,7 @@ what is built: plain HTTP, the touch pad and the keyboard.)*
 **On the handheld.** The in-game menu has a **Player 2** row on its Game tab, after Quick Slot,
 its value `off`, `waiting` or `connected`. A opens its page over the paused
 game, a panel as the in-game menu's (11.3): **Player 2** in **label**
-**text-soft** over a rule in the system's color, a line that says what to do,
+**text-soft** over a rule in **edge**, a line that says what to do,
 a line for each player a friend can be ("Player 2" in **text-soft**, its
 state at the right in **text-dim**), a second rule and the key legend
 (11.4): A to turn it on or stop it, B to close the page. Continue goes back
@@ -4586,9 +4738,10 @@ ahead are asked for again when the grid is back. The row keeps eight.
 
 ## 12. Copy
 
-- Headings and rows in Title Case; status values lowercase; lines and
-  messages in sentence case, ending with a full stop.
-- One name for one thing: "needs Wi-Fi" in a value column, "Connect to Wi-Fi
+- Headings and rows in Title Case; status values begun with a capital, as
+  every value in a row's value column is; lines and messages in sentence
+  case, ending with a full stop.
+- One name for one thing: "Needs Wi-Fi" in a value column, "Connect to Wi-Fi
   first." as a message. *(The audit found three names for no network.)*
 - Pairs of buttons with a slash and no spaces ("L1/R1", "Left/Right"), chords
   with a plus ("MENU+VOL").
@@ -4599,7 +4752,7 @@ ahead are asked for again when the grid is back. The row keeps eight.
   the same thing; button names as printed (A, START, MENU), the d-pad's
   directions translated; product names never. Title Case is English's:
   Spanish, Portuguese and French write headings and rows in sentence case,
-  and status values lowercase as English does; Chinese uses full-width
+  and every value begins with a capital as English's does; Chinese uses full-width
   punctuation with a space between Chinese and Latin letters or digits;
   French a no-break space before `! ? : ;`. Spanish says *tú*, Portuguese
   *você*, French *vous*.
@@ -4793,7 +4946,10 @@ the tiles' style is read off a name.
 | Distances | `src/ds/sdf.h` | the segment, polygon and rounded-box distances the distance-field marks share: the status corner, the cover badges |
 | Button hints | `src/keyhints.c`, `src/keyhints_draw.c`; `page_hint` in `src/home.c` | 11.4 |
 | Menu panel | `src/menu_panel.c` (its slab `ds_panel_open`, its more marks `ds_more`) | 11.3 |
+| What a list's cursor shows | `src/ds/hover.c`, `hover.h` | 11.3: a list's `ds_hover` (`menu_choice.hover`) - `show(k)` the choice in memory, `undo(kept)` - run by `ds_hover_run`: a show once per choice the cursor comes to, the kept one back on the cursor's return and when the list closes, before A's choice is applied. The runner tells a list its cursor after the keys and before the frame (`menu_style.at`). `ds_hover_showing` holds what would write a shown state down. `check-hover` (its rules), `check-hover-sweep` (Theme's lists, nothing written). |
 | A choice's picture | `src/ds/preview.c`, `preview.h` | 11.3: the column at an option list's left (`menu_pick_preview`): `ds_preview_layout` on the layout engine (the small screen a 4:3 leaf, **preview-note-gap**, the note's room in meta lines, the set's tallest), `ds_preview_screen_begin` / `ds_preview_screen_end` (the screen's ink, its **edge** frame of `DS_FRAME` and its corners `DS_RADIUS_ROW`, the focus fill's beside it), `ds_preview_note`; the column **preview-col-w**, to **preview-col-min** where the choices run long (`ds_preview_col_w`), **preview-gap** from the rows. The Display list's picture is `src/dmodepreview.c`, each mode placed as Diatom places it (`src/dmodefit.c`, `check-dmodefit`). |
+| A row's scale | `src/ds/scale.c`, `scale.h` | 11.3: the graded bar a row carries as its value (`ds_scale_value`, `ds_scale_parse`), drawn by `menu_draw` in the page's scales' column (`ds_scale_draw`, `DS_SCALE_MIN_W`, `ds_scale_num_w`); `check-scale` holds the value's round trip and range and the knob's place in both themes. |
+| A color chart | `src/ds/colorref.c`, `colorref.h` | 11.3: `ds_color_ref_draw`, the 24-patch chart, a grey ramp and the hues, tall in a column or wide in a list's picture. |
 | Status corner | `src/status.c` | 11.12. Its marks keep drawings of their own, by decision (2026-11-14, round 2 of the design system): at 24 units, 15 pixels on the panel, each shows a state - a signal's lit arcs, a charge, a sweep - and is drawn for that size as a distance field, where `ui_glyph`'s are 56 to 72-unit marks for a choice. They share their distances (`src/ds/sdf.h`), not their shapes. |
 | Zyper | `tools/zyperdef.py` → `src/zypermark.h`; `src/zyperdraw.c` | section 10 |
 | Art | `res/` | the table below |
@@ -4849,18 +5005,19 @@ which is too easy to do accidentally." My pick: a MENU setting.)*
 **Power Button** in MENU's System tab, over Auto Off, the first of the rows
 about the handheld going off: **Press**, the default on every card, POWER
 pressed saves the game and turns the handheld off, as it always has; **Hold**,
-POWER held for **hold-unlock**, the same two seconds the charging screen's
-Hold (POWER) to start asks for, with the pill of 11.6 filling while it is
-held. Two choices, so A switches it, as Left and Right do, heard as a ring.
+POWER held for **hold-power**, one second (Tarik, 2026-11-17: "so make it 1
+second"; the charging screen's Hold (POWER) to start keeps **hold-unlock**'s
+two), with the pill of 11.6 filling while it is held. Two choices, so A switches it, as Left and Right do, heard as a ring.
 
 One rule wherever POWER is read (src/powerhold.h): every screen of the
 launcher, its watch over a game and over a program it waits for, and
-portkeys over a port, so a hold is the same two seconds whichever of them
+portkeys over a port, so a hold is the same second whichever of them
 reads it, and one begun in a game and ended in the in-game menu is still one
 hold. What is not a turn-off stays a press: POWER starts an off handheld (the
 power chip's), and during the charging screen's send-off a press starts
 ZyperOS, as from off; the hold that starts ZyperOS from the charging screen
-is taken by it, so the same two seconds never turn it off again. Holding
+is taken by it: the turn-off's second comes on the way to that screen's two,
+and the charging screen reads no turn-off, so it never turns it off. Holding
 POWER about 10 s is still the power chip's own cut, for a handheld that does
 not answer. With Hold on, Controls says "Hold: save and turn off" ("Hold:
 turn off", "Hold: quit and turn off" over a port), and the tutorial's POWER

@@ -28,6 +28,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
+
+#include "shaderdemo.h"
 #include <unistd.h>
 
 /* ---------- launching ----------------------------------------------------- */
@@ -754,6 +756,7 @@ static bool cheevo_detail_screen(app *a, SDL_Texture *bg, bool over_shelf,
 	nl = wrap_text(ui_font(UI_F_MENU),
 	               c->desc[0] ? c->desc : T(S_CHEEVOLIST_NO_DESCRIPTION),
 	               fixed, lines, CHV_WRAP_LINES);
+	if (!c->desc[0]) ui_fit_drawn(T(S_CHEEVOLIST_NO_DESCRIPTION));    /* drawn in lines */
 	/* Live, unlike an ordinary note. A caption under a setting is a caption;
 	 * here the description IS the content, and UI_TEXT_DIM is too quiet to be
 	 * the only thing on the card worth reading. */
@@ -1439,6 +1442,20 @@ double shot_gm_aspect;
 
 /* The Display list's picture (menu_choice's preview): the paused game as
  * mode `k` would draw it, at the size and shape Diatom said */
+/* The Shader and Strength lists' picture (src/shaderdemo.h), with the game's
+ * own system's shader and strength (owner_view) as the lists were made */
+static int g_gm_demo_shader, g_gm_demo_strength;
+
+static void gm_shader_preview(void *app_, int k, int x, int y, int w, int h)
+{
+	shader_demo_draw(app_, shader_offered(k), g_gm_demo_strength, x, y, w, h);
+}
+
+static void gm_strength_preview(void *app_, int k, int x, int y, int w, int h)
+{
+	shader_demo_draw(app_, g_gm_demo_shader, STRENGTH_MIN + k * STRENGTH_STEP, x, y, w, h);
+}
+
 static void gm_dmode_preview(void *app_, int k, int x, int y, int w, int h)
 {
 	app *a = app_;
@@ -1483,13 +1500,27 @@ const menu_choice *gm_choices(app *a, const gm_ui *u)
 		if (i == v->shader) cur = n;
 		lab[1][n++] = shader_label(i);
 	}
-	g_gm_choice[GM_SHADER] = (menu_choice){ .n = (unsigned char)n, .cur = (unsigned char)cur, .labels = lab[1] };
+	{
+		static const char *notes[GM_CH_MAX];
+
+		shader_demo_notes(notes, n);
+		g_gm_demo_shader = v->shader;
+		g_gm_demo_strength = strength_clamp(v->strength);
+		g_gm_choice[GM_SHADER] = (menu_choice){ .n = (unsigned char)n, .cur = (unsigned char)cur, .labels = lab[1],
+		                                        .notes = notes, .preview = gm_shader_preview };
+	}
 	for (i = STRENGTH_MIN, n = 0, cur = 0; i <= STRENGTH_MAX && n < GM_CH_MAX; i += STRENGTH_STEP, n++) {
 		if (i == strength_clamp(v->strength)) cur = n;
 		snprintf(buf[0][n], sizeof buf[0][n], "%d%%", i);
 		lab[2][n] = buf[0][n];
 	}
-	g_gm_choice[GM_STRENGTH] = (menu_choice){ .n = (unsigned char)n, .cur = (unsigned char)cur, .labels = lab[2] };
+	{
+		static const char *notes[GM_CH_MAX];
+
+		shader_demo_strength_notes(notes, n);
+		g_gm_choice[GM_STRENGTH] = (menu_choice){ .n = (unsigned char)n, .cur = (unsigned char)cur, .labels = lab[2],
+		                                          .notes = notes, .preview = gm_strength_preview };
+	}
 	for (i = 0; i < GM_SLOTS; i++) {
 		snprintf(buf[1][i], sizeof buf[1][i], "%d", i + 1);
 		lab[3][i] = buf[1][i];

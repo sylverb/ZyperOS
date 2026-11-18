@@ -45,6 +45,32 @@ static unsigned parse_color(const char *f)
 	return (unsigned)strtoul(f, NULL, 16);
 }
 
+/* A firmware|name|bytes[,bytes] line: what a good copy of a disc bios name
+ * weighs */
+typedef struct {
+	char name[96];
+	unsigned bytes[CFG_BIOS_SIZES];
+} fw_line;
+
+/* Each of a shelf's disc bios names gets the sizes its firmware line gives,
+ * in the field's order; a name no line gives stays 0, which checks nothing
+ * but that the file is there */
+static void bios_sizes_apply(system_cfg *s, const fw_line *fw, int nfw)
+{
+	const char *p = s->disc_bios;
+	int k, j;
+
+	for (k = 0; *p && k < CFG_BIOS_NAMES; k++) {
+		size_t n = strcspn(p, ",");
+
+		for (j = 0; j < nfw; j++)
+			if (strlen(fw[j].name) == n && !strncmp(fw[j].name, p, n))
+				memcpy(s->bios_bytes[k], fw[j].bytes, sizeof s->bios_bytes[k]);
+		p += n;
+		if (*p) p++;
+	}
+}
+
 /* sys|display name|rom folder|core|tag|card|RRGGBB|extensions */
 bool cfg_load_systems(const char *path, systems_cfg *out)
 {
@@ -54,9 +80,12 @@ bool cfg_load_systems(const char *path, systems_cfg *out)
 	char line[1024];
 	/* power|tag|level, map|tag|spec, controller|tag|n, stick|tag|dpad,
 	 * rumble|tag|percent, bios|tag|names, es|tag|names and needs|tag|what lines, applied
-	 * once every system is read, so they may sit anywhere in the file */
+	 * once every system is read, so they may sit anywhere in the file; and
+	 * firmware|name|bytes lines, by a disc bios name rather than a tag */
 	struct { char kind[12], tag[8], value[160]; } extra[CFG_MAX_SYSTEMS * 4];
 	int nextra = 0;
+	fw_line fw[CFG_MAX_SYSTEMS];
+	int nfw = 0;
 	while (fgets(line, sizeof line, f) && out->count < CFG_MAX_SYSTEMS) {
 		strip(line);
 		if (!line[0] || line[0] == '#') continue;
@@ -74,7 +103,23 @@ bool cfg_load_systems(const char *path, systems_cfg *out)
 			nextra++;
 			continue;
 		}
-		if (n == 3 && (!strcmp(fld[0], "power") || !strcmp(fld[0], "map") ||
+		if (n == 3 && !strcmp(fld[0], "firmware")) {
+			if (nfw < (int)(sizeof fw / sizeof fw[0])) {
+				char *p = fld[2], *e;
+				int k;
+
+				memset(&fw[nfw], 0, sizeof fw[nfw]);
+				snprintf(fw[nfw].name, sizeof fw[nfw].name, "%s", fld[1]);
+				for (k = 0; k < CFG_BIOS_SIZES && *p; k++) {
+					fw[nfw].bytes[k] = (unsigned)strtoul(p, &e, 10);
+					if (e == p) break;
+					p = e + (*e == ',');
+				}
+				nfw++;
+			}
+			continue;
+		}
+		if (n == 3 && (!strcmp(fld[0], "power") || !strcmp(fld[0], "map") || !strcmp(fld[0], "pace") ||
 		               !strcmp(fld[0], "controller") || !strcmp(fld[0], "stick") ||
 		               !strcmp(fld[0], "rumble") || !strcmp(fld[0], "needs") ||
 	               !strcmp(fld[0], "bios") || !strcmp(fld[0], "es"))) {
@@ -109,6 +154,10 @@ bool cfg_load_systems(const char *path, systems_cfg *out)
 			if (strcmp(s->tag, extra[i].tag)) continue;
 			if (!strcmp(extra[i].kind, "power"))
 				snprintf(s->power, sizeof s->power, "%s", extra[i].value);
+			else if (!strcmp(extra[i].kind, "pace")) {
+				if (!strcmp(extra[i].value, "smooth") || !strcmp(extra[i].value, "exact"))
+					snprintf(s->pace, sizeof s->pace, "%s", extra[i].value);
+			}
 			else if (!strcmp(extra[i].kind, "map"))
 				snprintf(s->map, sizeof s->map, "%s", extra[i].value);
 			else if (!strcmp(extra[i].kind, "stick"))
@@ -133,22 +182,28 @@ bool cfg_load_systems(const char *path, systems_cfg *out)
 			else
 				s->controller = (unsigned)strtoul(extra[i].value, NULL, 10);
 		}
+	/* After the bios lines, which set a shelf's names too */
+	for (int k = 0; k < out->count; k++)
+		bios_sizes_apply(&out->systems[k], fw, nfw);
 	return out->count > 0;
 }
 
-void cfg_run_keys(const system_cfg *s, bool dual, char *out, int cap)
+void cfg_run_keys(const system_cfg *s, bool dual, const char *pace, char *out, int cap)
 {
 	int n = 0;
 
 	out[0] = '\0';
-	if (dual)
-		n += snprintf(out + n, (size_t)(cap - n), "screens=2\tframeskip=late");
+	if (dual) n += snprintf(out + n, (size_t)(cap - n), "screens=2\tframeskip=late");
 	if (s->power[0] && n < cap)
 		n += snprintf(out + n, (size_t)(cap - n), "%spower=%s", n ? "\t" : "", s->power);
 	if (s->controller && n < cap)
 		n += snprintf(out + n, (size_t)(cap - n), "%scontroller=%u", n ? "\t" : "", s->controller);
 	if (s->rumble && n < cap)
 		n += snprintf(out + n, (size_t)(cap - n), "%srumble=%d", n ? "\t" : "", s->rumble);
+	if (s->pace[0] && n < cap) {
+		if (!pace || (strcmp(pace, "smooth") && strcmp(pace, "exact"))) pace = s->pace;
+		n += snprintf(out + n, (size_t)(cap - n), "%space=%s", n ? "\t" : "", pace);
+	}
 	/* The stick is not here: whether a game has it on is its own
 	 * (rms_run_stick), added by the launch */
 }

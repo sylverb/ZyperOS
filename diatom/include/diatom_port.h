@@ -85,6 +85,10 @@ typedef struct {
 	bool present_blocks;        /* does present() wait for vblank? */
 	bool gpu;                   /* can draw a core's GPU frames (diatom_port_gpu_begin) */
 	bool rumble;                /* has a motor diatom_port_rumble can run */
+	/* The panel's refresh rate from its mode, Hz; 0 where the port does not
+	 * know it. A core within 1% of it runs at it, one frame a refresh (the
+	 * frame loop's display lock, src/pace.h). */
+	double refresh_hz;
 } diatom_port_caps;
 
 /* Canonical Diatom buttons. Digital only, no analog axes anywhere.
@@ -490,6 +494,17 @@ void diatom_port_power_hold(bool on, unsigned ms, unsigned at, bool done);
  * to its governor. */
 void diatom_port_fast_clock(bool cpu, bool gpu);
 
+/* How many frames since the port started were ready in time and still
+ * reached the panel a refresh late: asked of the display and shown more than
+ * a refresh and a quarter after, where a frame asked of it in time is shown
+ * at the next refresh. A frame that comes after a refresh is shown at the
+ * one after and is not one: that is the core's lateness, which the frame
+ * loop sees for itself. What such a miss costs is the display's own work,
+ * a shader on a GPU kept at a low clock (src/flipwatch.h), which no ceiling
+ * the frame loop knows of lifts by itself. A port that cannot tell returns
+ * 0. The frame loop asks once a turn. */
+unsigned diatom_port_refreshes_missed(void);
+
 /* How much clock a game gets. FULL is the device's top clocks; MEDIUM and
  * LIGHT are lower ceilings for systems that keep their speed under them
  * (RUN power=, from the launcher's systems.cfg). Ceilings, not settings:
@@ -548,6 +563,12 @@ bool diatom_port_should_quit(void);
 bool diatom_port_capture(const char *path);
 
 uint64_t diatom_port_now_us(void);
+
+/* The last refresh a frame was flipped at, in diatom_port_now_us's time, and
+ * the refresh period measured from the flips, for the display lock to keep
+ * its frames half a refresh from the boundary. False where the port has no
+ * flips to time (the loop then runs at refresh_hz alone). */
+bool diatom_port_vblank(uint64_t *at_us, double *period_us);
 void     diatom_port_log(diatom_log_level lvl, const char *msg);
 
 #endif /* DIATOM_PORT_H */

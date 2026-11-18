@@ -100,7 +100,8 @@ static int shelf(menu_row *out)
 	out[n++] = (menu_row){ "B", T(S_CONTROLS_BACK), false };
 	out[n++] = (menu_row){ "X", T(S_CONTROLS_DETAILS), false };
 	out[n++] = (menu_row){ "Y", T(S_CONTROLS_FRESH), false };
-	/* MENU > View, at a press (2026-11-13) */
+	/* MENU > View, at a press (2026-11-13), and on the home MENU > Home
+	 * Screen (2026-11-17): the two rows' names, the home's first */
 	out[n++] = (menu_row){ "START", T(S_CONTROLS_VIEW), false };
 	/* Here rather than on Anywhere, which is full: it works outside a game,
 	 * and in one L2 and R2 are the game's */
@@ -319,7 +320,7 @@ static const ctl_pad PADS[] = {
 	                    [P_SELECT] = SAYS_ON(S_CONTROLS_KEYPAD, "#") } },
 	/* Genesis Plus GX's two-button pad, as the Master System's: the
 	 * SG-1000's buttons 1 and 2, START the PAUSE button on the console
-	 * (core/system.c at v1.7.4 b7e79b3: START is the NMI on every system
+	 * (core/system.c at v1.7.4 b9c2316: START is the NMI on every system
 	 * but the Game Gear) */
 	{ "SG1000", NULL, { [P_A] = SAYS_ON(S_CONTROLS_BUTTON, "2"),
 	                    [P_B] = SAYS_ON(S_CONTROLS_BUTTON, "1"), [P_START] = BTN("Pause") } },
