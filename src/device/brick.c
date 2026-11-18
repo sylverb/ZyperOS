@@ -1049,7 +1049,7 @@ bool plat_menu_held(void) { return false; }
 /* L2 and R2 are buttons of their own too. */
 bool plat_tap_held(in_button b) { (void)b; return false; }
 
-side_lights plat_side_lights(void) { return LIGHTS_ALL; }
+side_lights plat_side_lights(void) { return LIGHTS_DEFAULT; }
 void plat_side_lights_set(side_lights on) { (void)on; }
 void plat_side_lights_say(const char *line) { (void)line; }
 

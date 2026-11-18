@@ -287,8 +287,10 @@ Lexend's time the first time it is drawn, then cached like any line.
 - **Title Case** for headings, menu rows and named choices ("Audio Output",
   "Light"), a switch's "On" and "Off" among them (Developer Mode, Wi-Fi
   and Bluetooth, Swap Screens, 2026-11-12: "Off/On in the dev mode row in
-  settings should be capitalized"). **lowercase** for status words in the
-  value column ("not connected", "needs Wi-Fi", "never"). **Sentence case** for lines and
+  settings should be capitalized"). **A capital first** for status words in
+  the value column ("Not connected", "Needs Wi-Fi", "Never"), as every value
+  there begins (2026-11-17: "make sure they are all capitalized"; a name keeps
+  its own case, a number begins as it begins). **Sentence case** for lines and
   messages ("Press A to open the game you are on.").
 - No italics, no letter spacing, no all-caps except button names, which are
   written as printed on the handheld: A, B, X, Y, L1, R1, L2, R2, START,
@@ -2798,6 +2800,16 @@ loses no frames. A step of a moving pattern lasts 100 ms ("Even, 100 ms").
   flashes red 200 ms every 5 s, under 5% twice (150 ms on, 150 off, 150 on)
   every 2 s. The first flash comes the moment it falls under each, and when
   the cable comes out.
+- **Battery Level**, all the time (my ask after testing 1.0.6, 2026-11-17:
+  with the cable out every light was dark although there was battery, and
+  only L2+R2 showed it): the level L2+R2 flashes, still, at the same lights
+  (all four from 75%, three from 50%, two from 25%, one green from 10%), on
+  the shelf, in menus and in games. Off the cable, and on it when Charging
+  Bar is off; on the cable the bar shows instead. Under 10% off the cable it
+  gives way to Low Battery's flash, which says how low; with Low Battery off
+  it is a steady red. Off to start, so a card that never turns it on sees
+  what it saw before. Everything below shows over it for its time, then the
+  level comes back; L2+R2 over it flashes it, so the press still shows.
 - **Volume and Brightness**, while one changes ("Eight steps, a half
   blinks"): each light is two of eight steps; the one above the lit ones
   blinks (250 ms on, 250 off) for a half. Volume at 0 lights the bottom one
@@ -2835,30 +2847,36 @@ loses no frames. A step of a moving pattern lasts 100 ms ("Even, 100 ms").
 - **No game light** ("Not on the lights"): nothing shows that a game runs.
 
 Sharing them ("Newest on top"): a level, a Done or a sparkle takes the lights
-for its time, over the charging bar and over files moving, and the newest
-replaces the one before; then the wave or the bar comes back. Files moving
-is over the charging bar for as long as they move. The low-battery red is laid over everything, a
+for its time, over the charging bar (or Battery Level) and over files moving,
+and the newest replaces the one before; then the wave, the bar or the battery
+level comes back. Files moving is over the charging bar and Battery Level for
+as long as they move. The low-battery red is laid over everything, a
 pattern included (it is the bottom light's red, which no pattern uses but
 silence), and is hidden only when Low Battery is off. L2+R2 flashes the
 battery level over all of it, four times in 2 s, in every setting.
 
 **Side Lights** in MENU, under Charge Limit, says how many parts are on ("All
 on", "3 on", "Off"); A opens its page ("A page of switches"): Charging Bar,
-Low Battery, Volume and Brightness, Files and Covers, Achievements, each
-On or Off, stepped by Left, Right or A and heard as a ring. Every change is
+Low Battery, Battery Level, Volume and Brightness, Files and Covers,
+Achievements, each On or Off, stepped by Left, Right or A and heard as a
+ring. All on counts every part a new card has on, so a card that kept the
+default still reads All on with Battery Level off; once another part is
+off, Battery Level counts like the rest. Every change is
 written to the card at once and the gauge reads it again, so the lights
 follow the row. The row under the cursor plays its part on the lights in a
 loop, On or Off, for as long as the cursor stays on it (my ask, 2026-11-13):
-the bar filling from none, one red flash then two, the level up its eight
-steps then silence's red, the wave down and up then Done, the sparkle. It
+the bar filling from none, one red flash then two, the battery's level as it
+is now (still), the level up its eight steps then silence's red, the wave
+down and up then Done, the sparkle. It
 takes the lights over everything but L2+R2, and they go back to what they
 show on their own as the page closes. Everything is on for a new card and for a card that said
-Auto ("Everything on"); a card set to Charging, Low Battery or Off before
-keeps what it said, the newer parts off. The setting is a line in
-`.userdata/pixel2/side-lights`: the old word first (auto, charging, low,
-off), which an older gauge reads alone, then `level`/`-level`, `done`/`-done`,
-`cheer`/`-cheer`; `done` covers files moving too, so the line needed no new
-word for it.
+Auto ("Everything on"), Battery Level aside; a card set to Charging, Low
+Battery or Off before keeps what it said, the newer parts off. The setting is
+a line in `.userdata/pixel2/side-lights`: the old word first (auto, charging,
+low, off), which an older gauge reads alone, then `level`/`-level`,
+`done`/`-done`, `cheer`/`-cheer`, `battery`/`-battery` (off unless named,
+whatever the first word; an older gauge leaves the word alone); `done`
+covers files moving too, so the line needed no new word for it.
 
 ### 11.28 Controls in a game
 
@@ -3974,7 +3992,8 @@ Before, START did nothing on a shelf. On the home it steps the Home
 Screen's layout the same way (11.1). The foot names where it goes:
 **START Grid** under the covers, **START List** under the grid, **START
 Covers** under the list; MENU > Controls has it
-on the shelf's page. The tutorial is as it was: it teaches one button a
+on the shelf's page, as **Home Screen or View**: the two MENU rows START
+steps, the home's first, as A's **Open or play** puts the home's first. The tutorial is as it was: it teaches one button a
 step, its START skips it, and its last page sends you to MENU > Controls.
 
 The heading and the foot are the cover row's (START's word apart), so
@@ -4719,9 +4738,10 @@ ahead are asked for again when the grid is back. The row keeps eight.
 
 ## 12. Copy
 
-- Headings and rows in Title Case; status values lowercase; lines and
-  messages in sentence case, ending with a full stop.
-- One name for one thing: "needs Wi-Fi" in a value column, "Connect to Wi-Fi
+- Headings and rows in Title Case; status values begun with a capital, as
+  every value in a row's value column is; lines and messages in sentence
+  case, ending with a full stop.
+- One name for one thing: "Needs Wi-Fi" in a value column, "Connect to Wi-Fi
   first." as a message. *(The audit found three names for no network.)*
 - Pairs of buttons with a slash and no spaces ("L1/R1", "Left/Right"), chords
   with a plus ("MENU+VOL").
@@ -4732,7 +4752,7 @@ ahead are asked for again when the grid is back. The row keeps eight.
   the same thing; button names as printed (A, START, MENU), the d-pad's
   directions translated; product names never. Title Case is English's:
   Spanish, Portuguese and French write headings and rows in sentence case,
-  and status values lowercase as English does; Chinese uses full-width
+  and every value begins with a capital as English's does; Chinese uses full-width
   punctuation with a space between Chinese and Latin letters or digits;
   French a no-break space before `! ? : ;`. Spanish says *tú*, Portuguese
   *você*, French *vous*.

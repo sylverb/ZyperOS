@@ -14,10 +14,11 @@
 
 /* The words, in the order of side_light_part. The first two are the battery's,
  * which share the legacy first word; the rest stand alone. */
-static const char *const WORD[LP_COUNT] = { "bar", "low", "level", "done", "cheer" };
+static const char *const WORD[LP_COUNT] = { "bar", "low", "level", "done", "cheer", "battery" };
 static const str_id NAME[LP_COUNT] = {
-	S_LIGHTS_BAR, S_LIGHTS_LOW, S_LIGHTS_LEVEL, S_LIGHTS_DONE, S_LIGHTS_CHEER
+	S_LIGHTS_BAR, S_LIGHTS_LOW, S_LIGHTS_LEVEL, S_LIGHTS_DONE, S_LIGHTS_CHEER, S_LIGHTS_BATTERY
 };
+/* The newer parts on after auto; Battery Level is not one: off unless named */
 #define NEWER ((1u << LP_LEVEL) | (1u << LP_DONE) | (1u << LP_CHEER))
 
 const char *side_lights_part_name(side_light_part p)
@@ -79,7 +80,7 @@ const char *side_lights_value(side_lights on, char *buf, size_t cap)
 	int i, n = 0;
 
 	for (i = 0; i < LP_COUNT; i++) n += side_lights_has(on, (side_light_part)i);
-	if (n == LP_COUNT) return T(S_LIGHTS_ALL_ON);
+	if ((on & LIGHTS_DEFAULT) == LIGHTS_DEFAULT) return T(S_LIGHTS_ALL_ON);
 	if (n == 0) return T(S_MENU_OFF_TITLE);
 	snprintf(buf, cap, TN(S_LIGHTS_SOME_ON, n), n);
 	return buf;

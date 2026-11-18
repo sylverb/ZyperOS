@@ -50,6 +50,11 @@ bool g_port_loading_later;
 #define LOAD_GAP_SYS    28           /* the system's capitals to the name's */
 #define LOAD_GAP_NAME   40           /* the name's last capitals to the line's */
 #define LOAD_NAME_LINES 3
+/* Each of the line's two sentences in up to two balanced lines: the one after
+ * a minute says a first start can install for hours, and which buttons to
+ * hold, both long in most languages. So a role holds up to four. */
+#define LOAD_SAY_LINES  2
+#define LOAD_LINES      (2 * LOAD_SAY_LINES)
 #define LOAD_NAME_STEP  64           /* one line of the name to the next */
 #define LOAD_SAY_STEP   48           /* and of the line under it */
 #define LOAD_SAY_A      T(g_port_loading_later ? S_PORTLOAD_STILL : S_PORTLOAD_STARTING)
@@ -58,9 +63,10 @@ bool g_port_loading_later;
 #define LOAD_SAY_AB     T(g_port_loading_later ? S_PORTLOAD_STILL_GO_BACK : S_PORTLOAD_STARTING_A_MINUTE)
 /* Zyper's frame, where splash draws his loop: 120 x 116 panel pixels with its
  * top left at loading.txt's x 315 y 330, which is these units. Neither the
- * words nor the cover go in it: the block of words is at most 364 high (three
- * lines of the name, the line in two), so its capitals end at 494, and the
- * cover ends 40 short of the column, at 496. Only the backdrop is under him,
+ * words nor the cover go in it: the block of words ends above it, centered
+ * and, when that would reach it (a name in three lines over the line in
+ * four), raised just clear (load_layout_make), and the cover ends 40 short of
+ * the column, at 496. Only the backdrop is under him,
  * and the soft edge of the cover's lift where it reaches, a few levels at the
  * most. So splash must copy the still back under his frame before it draws
  * each one, and not fill it with the ground, which would show as a box on the
@@ -247,7 +253,7 @@ static const char *const LOAD_HELD_NAME[LOAD_HELD] = {
 typedef struct {
 	SDL_Rect cover;
 	SDL_Rect band;
-	char line[LOAD_ROLES][LOAD_NAME_LINES][LB_LINE];
+	char line[LOAD_ROLES][LOAD_LINES][LB_LINE];
 	int  lines[LOAD_ROLES];
 	int  top[LOAD_ROLES];            /* the first line's capitals start here */
 } load_layout;
@@ -275,6 +281,19 @@ static SDL_Rect load_line_rect(const load_layout *L, int role, int i)
 
 	return (SDL_Rect){ LOAD_COL_X, ui_cap_y(f, top + ui_cap_height(f) / 2),
 	                   ui_text_width(f, L->line[role][i]), TTF_FontHeight(f) };
+}
+
+/* One sentence of the line in up to LOAD_SAY_LINES balanced lines; how many */
+static int load_sentence(TTF_Font *meta, const char *text, char lines[][LB_LINE])
+{
+	int n = ui_balance_lines(meta, text, LOAD_COL_W, LOAD_SAY_LINES, lines);
+
+	if (n > 1) ui_fit_drawn(text);    /* drawn in lines, said whole to the host's check */
+	if (n < 1) {
+		ui_fit_text(meta, text, lines[0], LB_LINE, LOAD_COL_W);
+		n = 1;
+	}
+	return n;
 }
 
 /* The layout for a game called `title` of system `s`, its cover `tw` x `th`.
@@ -318,20 +337,12 @@ static void load_layout_make(load_layout *L, const system_cfg *s, const char *ti
 		snprintf(L->line[LOAD_SAY][0], LB_LINE, "%s", LOAD_SAY_AB);
 		L->lines[LOAD_SAY] = 1;
 	} else {
-		/* The second sentence in two balanced lines when it needs them: the
-		 * one after a minute says which buttons to hold, and is long in
-		 * most languages (1.0.6) */
-		int nb;
+		/* Each sentence in up to two balanced lines when it needs them
+		 * (LOAD_SAY_LINES): after a minute, that a first start can install
+		 * for hours, and which buttons to hold */
+		int na = load_sentence(meta, LOAD_SAY_A, L->line[LOAD_SAY]);
 
-		ui_fit_text(meta, LOAD_SAY_A, L->line[LOAD_SAY][0], LB_LINE, LOAD_COL_W);
-		nb = ui_balance_lines(meta, LOAD_SAY_B, LOAD_COL_W, LOAD_NAME_LINES - 1,
-		                      &L->line[LOAD_SAY][1]);
-		if (nb > 1) ui_fit_drawn(LOAD_SAY_B);    /* drawn in lines, said whole to the host's check */
-		if (nb < 1) {
-			ui_fit_text(meta, LOAD_SAY_B, L->line[LOAD_SAY][1], LB_LINE, LOAD_COL_W);
-			nb = 1;
-		}
-		L->lines[LOAD_SAY] = 1 + nb;
+		L->lines[LOAD_SAY] = na + load_sentence(meta, LOAD_SAY_B, &L->line[LOAD_SAY][na]);
 	}
 
 	total = DS_BAR + LOAD_GAP_BAND + cm + LOAD_GAP_SYS +
@@ -345,6 +356,20 @@ static void load_layout_make(load_layout *L, const system_cfg *s, const char *ti
 	L->top[LOAD_NAME] = y;
 	y += (L->lines[LOAD_NAME] - 1) * LOAD_NAME_STEP + ct + LOAD_GAP_NAME;
 	L->top[LOAD_SAY] = y;
+
+	/* Centered, unless that reaches Zyper's frame: a name in three lines
+	 * over the line in four (after a minute, in most languages) rises just
+	 * clear of it. Nothing shorter moves. */
+	{
+		const SDL_Rect last = load_line_rect(L, LOAD_SAY, L->lines[LOAD_SAY] - 1);
+		const int over = last.y + last.h - LOAD_ZYPER_Y;
+		int r;
+
+		if (over > 0) {
+			L->band.y -= over;
+			for (r = 0; r < LOAD_ROLES; r++) L->top[r] -= over;
+		}
+	}
 }
 
 /* The lowest contrast luminance `lt` has with any pixel of `q`, in `px`, the

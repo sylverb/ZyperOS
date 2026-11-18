@@ -67,7 +67,7 @@ DEVICES = ["pixel2", "brick"]
 class Strings:
     def __init__(self, code):
         errors = []
-        self.names, self.whole, self.formats = [], {}, []
+        self.names, self.whole, self.formats, self.leads = [], {}, [], []
         for name, s, form in i18n.flat(i18n.parse(errors)):
             sid = s.id + ("" if not s.plural else (".one" if form == 0 else ".other"))
             en = i18n.get(s, "en", form)
@@ -86,6 +86,10 @@ class Strings:
                     pattern += re.escape(piece[pos:])
                     literal += len(piece) - pos
                     self.formats.append((re.compile("^" + pattern.replace("%%", "%") + "$", re.S), sid, literal))
+                    # A format whose own words come first ("auto (%s)"): what
+                    # it begins with is the string's, not a name put in it
+                    if i18n.FMT_RE.match(piece) is None:
+                        self.leads.append((self.formats[-1][0], sid))
 
     def ids(self, text):
         """The IDs a drawn text may be: [] when it is no string's (a name, a number)"""
@@ -105,6 +109,17 @@ class Strings:
                 for piece in m.groups():
                     ids += [n for n in self.whole.get(piece, []) if n.startswith(COMPOSED)]
         return ids
+
+    def small_first(self, text):
+        """The IDs whose words begin `text` with a small letter: a row's value
+        begins with a capital in every language that has them
+        (GLOSSARY.md), and a name in it (a core's, a network's, a song's)
+        keeps its own case, so only the table's own first word is held"""
+        if not text[:1].islower():
+            return []
+        if text in self.whole:
+            return self.whole[text]
+        return [sid for pattern, sid in self.leads if pattern.match(text)]
 
     def label(self, text):
         found = self.ids(text)
@@ -679,6 +694,10 @@ SHOT_SETTINGS["menu-homesys"] = _HS_OFF
 EXTRA.setdefault("homesys-page", ("demo", "PS1", ["--homesys-page", "4"]))
 SHOT_SETTINGS["homesys-page"] = _HS_OFF
 EXTRA.setdefault("homesys-last", ("openbor", "OPENBOR", ["--homesys-page", "3"]))
+# MENU > Side Lights (DESIGN.md 11.27), where the handheld has the lights (the
+# Pixel 2; nothing over the shelf on the Brick): its page, the cursor on
+# Battery Level, Off as on a new card
+EXTRA.setdefault("lights-page", ("demo", "PS1", ["--lights-page", "2"]))
 for _name, _flags in (("home-recents", []), ("shelf-recents", ["--screen", "games"])):
     EXTRA.setdefault(_name, ("demo", "RECENT", _flags))
     SHOT_LIB[_name] = _RECENT_LIB
@@ -704,8 +723,8 @@ def set_lib(card, settings, on):
 for _tab in range(6):
     EXTRA.setdefault("menu-tab-%d" % _tab, ("demo", "PS1", ["--menu-tab", str(_tab), "--menu", "0"]))
 EXTRA.setdefault("menu-display-theme", ("demo", "PS1", ["--menu-tab", "1", "--menu", "Theme"]))
-# Display's Screensaver at off: "off", a status's lowercase, now that the
-# switches say On and Off (menu.off, and scraper.off and ssh.off, its words)
+# Display's Screensaver at off: "Off", a status begun with a capital as every
+# row's value is (menu.off, and scraper.off and ssh.off, its words)
 EXTRA.setdefault("menu-saver-off", ("demo", "PS1", ["--menu-tab", "1", "--menu", "Screensaver"]))
 # An option row's list (DESIGN.md 11.3), A on the row: Auto Off's every
 # value (its seconds and minutes); Display's, with what the mode under the
@@ -889,6 +908,13 @@ EXTRA["portmaster-details"] = ("pmcard", "PRT", ["--screen", "games", "--info"])
 # (The Ports shelf with PortMaster's Install, and the page downloading, are
 # the README's, tools/readme-shots.py's ports and portmaster.)
 
+# A port's loading screen (src/portload.c, DESIGN.md 11.11): the start's line,
+# and the one after a minute that tools/portkeys.c shows, which says how long
+# a first start can install and how to go back (check-portload holds its
+# contrast and Zyper's frame, in English)
+EXTRA["portload"] = ("portdocs", "PRT", ["--portload", "Star Farm"])
+EXTRA["portload-later"] = ("portdocs", "PRT", ["--portload-later", "--portload", "Star Farm"])
+
 # Every Controls page of the made-up ports (tools/fixtures/ports) and of
 # PortMaster's own app, on the card that has them (readme-shots.py's
 # portdocs_card): a port's README's words, its keys, In a game and its About,
@@ -947,6 +973,7 @@ KNOWN_KEYS = set()
 
 def run_language(code, shots, binary, keep, theme="light", device="pixel2", first=True):
     notes, failures, data, drawn = [], [], {}, set()
+    small_said = set()      # a value said once a language, on the first screen it is on
     with tempfile.TemporaryDirectory(prefix="zyperos-i18n-%s-" % code) as tmp:
         cards = {"demo": Path(tmp) / "demo", "empty": Path(tmp) / "empty", "scummvm": Path(tmp) / "scummvm",
                  "openbor": Path(tmp) / "openbor", "ports": Path(tmp) / "ports", "all": Path(tmp) / "all",
@@ -1055,6 +1082,13 @@ def run_language(code, shots, binary, keep, theme="light", device="pixel2", firs
                     data.setdefault(name, []).append(line[6:])
                 elif line.startswith("fit: drawn: "):
                     drawn.add(unescape(line[12:]))
+                elif line.startswith("fit: value: "):
+                    value = unescape(line[12:])
+                    small = strings_of(code).small_first(value)
+                    if small and value not in small_said:
+                        small_said.add(value)
+                        failures.append("%s/%s: a row's value begins with a small letter: %r (%s)" % (
+                            code, name, value, "/".join(list(dict.fromkeys(small))[:3])))
                 elif line.startswith("fit: overflow: "):
                     px, box, text = line[15:].split("|", 2)
                     kind, span, *beside = box.split(" ", 2)

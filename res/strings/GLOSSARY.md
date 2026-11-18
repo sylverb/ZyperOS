@@ -35,9 +35,16 @@ written to match. Change a term here first, then everywhere it is used.
   Case for headings, rows and named choices. Spanish, Portuguese, French
   and Italian: sentence case for those (*Saída de áudio*, *Tiempo de juego*,
   *Écran d'accueil*, *Uscita audio*); German too, its nouns capitalized
-  (*Spiele suchen*). Status values in the value column are lowercase in
-  every Latin language, as in English (*off*, *desativado*, *non connecté*,
-  *aus*), German's nouns again excepted.
+  (*Spiele suchen*). **Every value in a row's value column begins with a
+  capital**, in every language that has them, status words too (*Never*,
+  *Not connected*, *Desativado*, *Non connecté*, *Aus*, *Auto (stereo)*): its
+  first letter only, the rest as the language writes it. A name keeps its
+  own case (a core's *pcsx_rearmed*, a network's, a song's), and a number or
+  a unit begins as it begins (*30 s*, *1 min*, *80%*). Tarik, 2026-11-17:
+  "menu options are inconsistent. some say "never" some say "Press". make
+  sure they are all capitalized". tools/i18n-shots.py fails on a value of
+  the table's that begins with a small letter on any screen, and
+  tools/menu-rows-check.py on any option row's choice.
 - **Wi-Fi** is WLAN in German, as German devices write it; Wi-Fi in every
   other language.
   Messages are sentences and end with a full stop (。 in Chinese).

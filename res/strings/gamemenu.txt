@@ -16,15 +16,15 @@ ja = あらすじ
 it = Trama
 
 [gamemenu.synopsis_none]
-note = Synopsis' value when the scrape found no text. Lowercase.
-en = none
+note = Synopsis' value when the scrape found no text. Begun with a capital.
+en = None
 zh-Hans = 无
-es = ninguna
-pt-BR = nenhuma
-fr = aucun
-de = keine
+es = Ninguna
+pt-BR = Nenhuma
+fr = Aucun
+de = Keine
 ja = なし
-it = nessuna
+it = Nessuna
 
 [gamemenu.year]
 note = The game info screen's row: the year it came out
@@ -539,15 +539,15 @@ ja = タッチペン
 it = Stilo
 
 [gamemenu.cheevos_none]
-note = The in-game Achievements row's value for a game with no achievements. Lowercase.
-en = none
+note = The in-game Achievements row's value for a game with no achievements. Begun with a capital.
+en = None
 zh-Hans = 无
-es = ninguno
-pt-BR = nenhuma
-fr = aucun
-de = keine
+es = Ninguno
+pt-BR = Nenhuma
+fr = Aucun
+de = Keine
 ja = なし
-it = nessuno
+it = Nessuno
 
 [gamemenu.layout_stacked]
 note = Screens' value: one screen above the other, both the same size
@@ -810,15 +810,15 @@ ja = LCD グリッド
 it = Griglia LCD
 
 [gamemenu.shader_mixed]
-note = MENU's Shader row's value when the systems do not all have the same shader: each system has its own, chosen in its menu or in a game. Lowercase, as a status value.
-en = per system
+note = MENU's Shader row's value when the systems do not all have the same shader: each system has its own, chosen in its menu or in a game. Begun with a capital, as a status value.
+en = Per system
 zh-Hans = 按系统
-es = por sistema
-pt-BR = por sistema
-fr = par système
-de = je System
+es = Por sistema
+pt-BR = Por sistema
+fr = Par système
+de = Je System
 ja = システムごと
-it = per sistema
+it = Per sistema
 
 [gamemenu.shader_off_note]
 note = Under the Shader list's picture: what Off does to a game's pixels at a size the screen cannot divide evenly. One short line.
