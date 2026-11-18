@@ -28,6 +28,12 @@ SOURCES := -v $(ZYPEROS_SRC):/zyperos:ro -v $(ZYPEROS_VENDOR):/zyperos-vendor:ro
 # shows the second (scripts/lock.sh)
 PLASTRON_COMMIT := $(shell git describe --always --dirty --abbrev=12 2>/dev/null || echo unknown)
 STAMP := -e PLASTRON_COMMIT=$(PLASTRON_COMMIT) -e "PLASTRON_WHO=$(USER) with plastron $(PLASTRON_COMMIT)"
+# Every build but a release's keeps its output and builds again only what
+# changed, through ccache (scripts/build.sh says what it built and what it
+# took as it was). CLEAN=1 empties the kept output first: after a change to
+# the toolchain or the architecture (the build stops and says so), or when
+# what an image carries must not depend on what was built before it.
+STAMP += -e PLASTRON_CLEAN=$(CLEAN)
 DOCKER_RUN := docker run --rm -t $(STAMP) -v $(CURDIR):/src:ro $(SOURCES) -v $(VOLUME):/work $(IMAGE)
 
 .PHONY: gauge-check charge-limit-check start-soc-check push all builder volume image base qemu sdk brick brick-fetch brick-inputs brick-kernel brick-bootloader brick-probe bootloader shell linux-rebuild copy-out clean-output release release-pixel2 release-brick third-party

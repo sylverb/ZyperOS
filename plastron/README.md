@@ -92,10 +92,10 @@ folder, are built from its checkout, mounted into the container (see the
 Makefile).
 
 ```sh
-make                # out/sdcard.img: ZyperOS on the Pixel 2's base system
+make                # out/sdcard.img: ZyperOS on the Pixel 2's base system (CLEAN=1: from empty)
 make base           # out/sdcard-base.img: the Pixel 2's base system alone
 make qemu           # out/qemu/: ZyperOS on QEMU's virt machine, standing in for the Pixel 2
-make linux-rebuild  # just the Pixel 2's kernel, after changing its config or patches
+make linux-rebuild  # the Pixel 2's kernel built again (a change to its patches or config is found anyway)
 make bootloader     # U-Boot -> buildroot/board/px2/bootloader/u-boot-px2.bin
 make brick-kernel   # the Brick's kernel and modules, from all its patches
 make brick          # out/brick-sdcard.img: ZyperOS on the Brick's system
@@ -107,12 +107,34 @@ make shell          # a shell in the build container
 ```
 
 The first build takes a while: it builds the whole toolchain. After that,
-Buildroot only rebuilds what changed. Buildroot alone never notices a change
-to a local package (the launcher and Diatom from the ZyperOS checkout, and the
-gauge, splash, powerkey, usbrole and jackswitch here), so `scripts/build.sh`
-fingerprints each one's source before every build and builds again any whose
-source changed since the last one. A dirclean by hand is only for a kernel
-config or patch change (`make linux-rebuild`).
+every build but a release's is a development build: it keeps its output
+(`/work/output`, `output-brick`, `output-qemu`, `output-base`) and builds
+again only what changed, through ccache (`board/zyperos/dev.config`, the
+cache in `/work/ccache`, 5 GB at most).
+
+Buildroot alone rebuilds a package only for a new version. So
+`scripts/build.sh` fingerprints, by their contents, every input it does not
+watch, and builds again what changed since the output's last build:
+
+- a local package's source (the launcher and Diatom from the ZyperOS
+  checkout, and the gauge, splash, powerkey, usbrole and jackswitch here);
+- every package of this tree (`buildroot/package/<name>/`: its `.mk`,
+  patches and files) and every package's patches in the global patch
+  folders: a new patch for a version that did not change;
+- the kernel's patches, config and device trees, and busybox's config;
+- the `.config`: a package's own option changed rebuilds that package; a
+  change to the toolchain or the architecture stops the build and asks for
+  `CLEAN=1`; ccache switched on rebuilds `host-gcc-final` for its wrapper.
+
+Each build ends by saying what it built again and how many packages it took
+from the output as they were, and keeps that list in
+`<output>/plastron-reused.txt`. `make CLEAN=1` (`make brick CLEAN=1`, ...)
+empties the kept output first. A clean build is still needed after a
+toolchain or architecture change (the build says so), when a file was
+removed from an overlay or a package (an incremental build never empties
+`target/`), and for anything that ships: `make release` (ZyperOS's
+`tools/release.sh`) always builds clean, in an output of its own, without
+ccache, as before.
 
 The Brick's build needs its two closed parts, which plastron doesn't include:
 Imagination's GPU libraries, in `BRICK_GPU`, and XRadio's XR829 firmware, in
