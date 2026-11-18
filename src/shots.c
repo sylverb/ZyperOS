@@ -528,7 +528,7 @@ static void shot_draw_slots(app *a)
  * game under it in place of the made-up frame, at the screen's size. */
 int shot_gamemenu, shot_gamemenu_sel, shot_gamemenu_tab;
 const char *shot_backdrop;
-/* The Controls tab's (src/ctltab_screen.h), with --gm-tab 2: --gm-all,
+/* The Controls tab's (src/ctltab_screen.h), with --gm-tab 3: --gm-all,
  * Applies To on All <System>; --gm-pick, the choices of the button under
  * the cursor; --gm-ask, Reset Buttons' question; --gm-keys N, page N of the
  * Hotkeys row's pages. */

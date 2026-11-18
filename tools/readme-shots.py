@@ -268,18 +268,18 @@ SHOTS={
     # ...on its Shader row, Sharp-Shimmerless (SHOT_SETTINGS)
     'gamemenu-shader':('demo','PS1',['--screen','games','--gamemenu','1','--gm-tab','1']),
     # The in-game menu's Achievements tab (1.0.5): the list, with its badges
-    'achtab':('demo','PS1',['--screen','games','--gamemenu','1','--gm-tab','3','--achtab','list',
+    'achtab':('demo','PS1',['--screen','games','--gamemenu','1','--gm-tab','4','--achtab','list',
                             '--cheevos-badge','{card}/Roms/PlayStation/.cheevos/Hagane.set','b#']),
     # The in-game menu's Controls tab (2026-11-13), light: a PlayStation game
     # with Y given Cross, so B gives Square (two Lefts on Y, the swap, both
     # values in the accent ink and both keys lit on the handheld). It is kept
     # in the library, so on a library of its own (SHOT_OWN_LIB)
-    'controls-tab':('demo','PS1',['--screen','games','--gamemenu','5','--gm-tab','2','--gm-press','left,left','--shot-at','400']),
+    'controls-tab':('demo','PS1',['--screen','games','--gamemenu','5','--gm-tab','3','--gm-press','left,left','--shot-at','400']),
     'controls-ps1':('demo','PS1',['--screen','games','--gamecontrols','0','PS1']),
     'controls-hotkeys':('demo','PS1',['--screen','games','--gamecontrols','2','PS1']),
     # The PSP's buttons, with R2, which turns the d-pad into its stick
     # (2026-11-13: the Controls tab, on D-pad as Stick, the d-pad lit on the handheld)
-    'controls-psp':('psp','PSP',['--screen','games','--gamemenu','1','--gm-tab','2']),
+    'controls-psp':('psp','PSP',['--screen','games','--gamemenu','1','--gm-tab','3']),
 }
 # Favorites for a shot alone, set before it is taken and cleared after: the
 # games page with the focused game and the one before it kept, so the heart

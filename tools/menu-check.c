@@ -1155,22 +1155,24 @@ static void dslang_row(void)
 	 * row for it) */
 	ck(!has_label(rows, n, "When Slow"), "and no When Slow under it");
 
-	/* Timing (src/pacing.h): under Game Language on the DS's shelf, under
-	 * Core on a shelf without it (the GBA's) */
+	/* Timing (src/pacing.h): under Core Settings on the DS's shelf (Game
+	 * Language, then Core Settings, then Timing), and under Core Settings
+	 * on a shelf without Game Language (the GBA's) */
 	printf("system menu, Timing:\n");
 	u.pace = "Smooth";
 	n = sys_menu_build(&u, rows, &b, &heading);
 	{
-		int gl = sm_at(&u, SM_DSLANG), tr = sm_at(&u, SM_PACE);
+		int gl = sm_at(&u, SM_DSLANG), co = sm_at(&u, SM_COREOPTS), tr = sm_at(&u, SM_PACE);
 
 		ck(n == SM_ROWS, "with Timing too, every row");
-		ck(tr == gl + 1, "right under Game Language");
+		ck(tr == co + 1 && co == gl + 1, "right under Core Settings, which is under Game Language");
 		ck(!strcmp(rows[tr].label, "Timing"), "named Timing");
 		ck(!strcmp(val(&rows[tr]), "Smooth"), "saying what it is set to");
 		ck(rows[tr].live, "a row to press");
 		ck(menu_sound_at(b.sound, n, tr) == MENU_SND_RING, "that steps round, on A too");
 		ck(sys_menu_system_rows(&u, sm) == n && sm[tr] == SM_PACE, "the build and the list agree");
-		ck(!strcmp(rows[gl].label, "Game Language") && !strcmp(rows[tr + 1].label, plain[at].label),
+		ck(!strcmp(rows[gl].label, "Game Language") && !strcmp(rows[co].label, "Core Settings") &&
+		   !strcmp(rows[tr + 1].label, plain[at + 1].label),
 		   "and the rows round it are as they were");
 		u.pace = "Exact";
 		sys_menu_build(&u, rows, &b, &heading);
@@ -1184,7 +1186,8 @@ static void dslang_row(void)
 		int tr = sm_at(&u, SM_PACE);
 
 		ck(n == SM_ROWS - 1, "on a shelf without the DS's row, one row more than its own");
-		ck(tr == sm_at(&u, SM_CORE) + 1 && !strcmp(rows[tr].label, "Timing"), "Timing right under Core");
+		ck(tr == sm_at(&u, SM_COREOPTS) + 1 && !strcmp(rows[tr].label, "Timing"),
+		   "Timing right under Core Settings");
 		ck(!has_label(rows, n, "Game Language"), "and no DS row with it");
 	}
 	u.pace = NULL;
@@ -1339,7 +1342,14 @@ static void radio_less(void)
 	for (i = 0, ok = true; i < k; i++) if (pm[i] != (pm_row)i) ok = false;
 	ck(k == PM_ROWS && ok, "every ZyperOS row, in the enum's order");
 	k = sys_menu_system_rows(&u, sm);
-	for (i = 0, ok = true; i < k; i++) if (sm[i] != (sm_row)(i + (i >= SM_DSLANG ? 2 : 0))) ok = false;
+	/* Skip Game Language and Timing; Core Settings stays between them. */
+	for (i = 0, ok = true; i < k; i++) {
+		sm_row want = (sm_row)i;
+
+		if ((int)want >= SM_DSLANG) want++;
+		if ((int)want >= SM_PACE) want++;
+		if (sm[i] != want) ok = false;
+	}
 	ck(k == SM_ROWS - 2 && ok, "every system row but Game Language and Timing, in the enum's order");
 
 	u.no_wifi = true;

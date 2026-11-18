@@ -193,14 +193,14 @@ for th in light dark; do
 	done
 done
 
-echo "the in-game menu is in tabs: Game, Display and Controls, MENU's tab row"
+echo "the in-game menu is in tabs: Game, Display, Core Settings and Controls, MENU's tab row"
 # Quick Slot after Load on the Game tab, Display and Shader on the Display tab,
 # and the Controls tab (its rows come with the remap screen) drawn empty
 for th in light dark; do
 	shot "gamemenu-$th" --theme "$th" --screen games --gamemenu 3 --gm-tab 0
 	shot "gamemenu-display-$th" --theme "$th" --screen games --gamemenu 0 --gm-tab 1
 	shot "gamemenu-shader-$th" --theme "$th" --screen games --gamemenu 1 --gm-tab 1
-	shot "gamemenu-controls-$th" --theme "$th" --screen games --gamemenu 0 --gm-tab 2
+	shot "gamemenu-controls-$th" --theme "$th" --screen games --gamemenu 0 --gm-tab 3
 	other "$th: the Game tab is not the Display tab" "gamemenu-$th" "gamemenu-display-$th"
 	other "$th: Shader is not Display" "gamemenu-shader-$th" "gamemenu-display-$th"
 	other "$th: the Controls tab is not the Display tab" "gamemenu-controls-$th" "gamemenu-display-$th"
@@ -253,24 +253,24 @@ echo "the Controls tab: its rows beside the handheld, in both themes, still"
 # Nintendo 64 game's tab, with its Pak and SELECT held for the C buttons
 printf 'PS1\nRidge Racer.chd\n' >"$D/root/.last"
 for th in light dark; do
-	shot "ctltab-$th" --theme "$th" --screen games --gamemenu 0 --gm-tab 2
-	shot "ctltab-later-$th" --theme "$th" --screen games --gamemenu 0 --gm-tab 2 --shot-at 4000
+	shot "ctltab-$th" --theme "$th" --screen games --gamemenu 0 --gm-tab 3
+	shot "ctltab-later-$th" --theme "$th" --screen games --gamemenu 0 --gm-tab 3 --shot-at 4000
 	same "$th: the Controls tab sits still" "ctltab-$th" "ctltab-later-$th"
 	other "$th: a PlayStation game's Controls tab is its own" "ctltab-$th" "gamemenu-controls-$th"
-	shot "ctltab-stick-$th" --theme "$th" --screen games --gamemenu 1 --gm-tab 2
+	shot "ctltab-stick-$th" --theme "$th" --screen games --gamemenu 1 --gm-tab 3
 	other "$th: D-pad as Stick is its own row, its key lit" "ctltab-stick-$th" "ctltab-$th"
-	shot "ctltab-y-$th" --theme "$th" --screen games --gamemenu 5 --gm-tab 2
+	shot "ctltab-y-$th" --theme "$th" --screen games --gamemenu 5 --gm-tab 3
 	# the handheld leans toward the side of the keys the row lights (ct_lean):
 	# the d-pad's row, a right-side key's row (Y) and SELECT's differ
-	shot "ctltab-select-$th" --theme "$th" --screen games --gamemenu 11 --gm-tab 2
+	shot "ctltab-select-$th" --theme "$th" --screen games --gamemenu 11 --gm-tab 3
 	other "$th: a left row and a right row lean the handheld apart" "ctltab-stick-$th" "ctltab-y-$th"
 	other "$th: SELECT (front) is not Y (leaning right)" "ctltab-select-$th" "ctltab-y-$th"
 	other "$th: SELECT (front) is not D-pad as Stick (leaning left)" "ctltab-select-$th" "ctltab-stick-$th"
 	# a shoulder's row leans the handheld its way and tilts it to show the
 	# top: L1 is not the d-pad's lean, R2 not Y's, neither the front
-	shot "ctltab-l1-$th" --theme "$th" --screen games --gamemenu 6 --gm-tab 2
-	shot "ctltab-r2-$th" --theme "$th" --screen games --gamemenu 9 --gm-tab 2
-	shot "ctltab-r2-later-$th" --theme "$th" --screen games --gamemenu 9 --gm-tab 2 --shot-at 4000
+	shot "ctltab-l1-$th" --theme "$th" --screen games --gamemenu 6 --gm-tab 3
+	shot "ctltab-r2-$th" --theme "$th" --screen games --gamemenu 9 --gm-tab 3
+	shot "ctltab-r2-later-$th" --theme "$th" --screen games --gamemenu 9 --gm-tab 3 --shot-at 4000
 	other "$th: L1 (tilted, leaning left) is not D-pad as Stick (level, further left)" "ctltab-l1-$th" "ctltab-stick-$th"
 	other "$th: R2 (tilted, leaning right) is not Y (level, leaning right)" "ctltab-r2-$th" "ctltab-y-$th"
 	other "$th: L1 (leaning left) is not R2 (leaning right)" "ctltab-l1-$th" "ctltab-r2-$th"
@@ -280,9 +280,9 @@ for th in light dark; do
 	# Each device draws its own (src/ctltab_screen.c): the Brick's profile
 	# its own handheld, the d-pad's row lighting its d-pad, its shoulder rows
 	# turning it round to its back, where its ledge is
-	shot "ctltab-stick-brick-$th" --theme "$th" --screen games --gamemenu 1 --gm-tab 2 --device brick
-	shot "ctltab-l1-brick-$th" --theme "$th" --screen games --gamemenu 6 --gm-tab 2 --device brick
-	shot "ctltab-r2-brick-$th" --theme "$th" --screen games --gamemenu 9 --gm-tab 2 --device brick
+	shot "ctltab-stick-brick-$th" --theme "$th" --screen games --gamemenu 1 --gm-tab 3 --device brick
+	shot "ctltab-l1-brick-$th" --theme "$th" --screen games --gamemenu 6 --gm-tab 3 --device brick
+	shot "ctltab-r2-brick-$th" --theme "$th" --screen games --gamemenu 9 --gm-tab 3 --device brick
 	other "$th: the Brick's handheld is not the Pixel 2's" "ctltab-stick-brick-$th" "ctltab-stick-$th"
 	other "$th: the Brick's L1 (its back) is not its d-pad's row (its front)" "ctltab-l1-brick-$th" "ctltab-stick-brick-$th"
 	other "$th: the Brick's L1 is not its R2" "ctltab-l1-brick-$th" "ctltab-r2-brick-$th"
@@ -300,16 +300,16 @@ for th in light dark; do
 	# shots after it show the card's own table
 	rm -rf "$D/shared-swap" && mkdir -p "$D/shared-swap" || exit 1
 	SHARED="$D/shared-swap"
-	shot "ctltab-swap-$th" --theme "$th" --screen games --gamemenu 5 --gm-tab 2 \
+	shot "ctltab-swap-$th" --theme "$th" --screen games --gamemenu 5 --gm-tab 3 \
 	     --gm-press left,left --shot-at 400
 	SHARED=""
 	other "$th: a swap changes the rows and the handheld" "ctltab-swap-$th" "ctltab-y-$th"
-	shot "ctltab-pick-$th" --theme "$th" --screen games --gamemenu 5 --gm-tab 2 --gm-pick
+	shot "ctltab-pick-$th" --theme "$th" --screen games --gamemenu 5 --gm-tab 3 --gm-pick
 	other "$th: A on Y opens its choices" "ctltab-pick-$th" "ctltab-y-$th"
-	shot "ctltab-keys-$th" --theme "$th" --screen games --gamemenu 13 --gm-tab 2 --gm-keys 0
+	shot "ctltab-keys-$th" --theme "$th" --screen games --gamemenu 13 --gm-tab 3 --gm-keys 0
 	other "$th: the Hotkeys row opens its page" "ctltab-keys-$th" "ctltab-$th"
 	# ...and the swap left nothing behind: the tab on Y is as it was
-	shot "ctltab-y-after-$th" --theme "$th" --screen games --gamemenu 5 --gm-tab 2
+	shot "ctltab-y-after-$th" --theme "$th" --screen games --gamemenu 5 --gm-tab 3
 	same "$th: the swap's shot left the card's table as it was" "ctltab-y-after-$th" "ctltab-y-$th"
 done
 other "the Controls tab's themes are the same picture" "ctltab-light" "ctltab-dark"
@@ -323,7 +323,7 @@ echo "the Controls tab keeps its cursor on the row a change moved"
 # first), on a library of its own, as the swap's
 rm -rf "$D/shared-keep" && mkdir -p "$D/shared-keep" || exit 1
 SHARED="$D/shared-keep"
-run --shot "$D/ctltab-keep.png" --theme light --screen games --gamemenu 2 --gm-tab 2 \
+run --shot "$D/ctltab-keep.png" --theme light --screen games --gamemenu 2 --gm-tab 3 \
     --gm-press left,left,left,down,left,left,left,left,down,left,left,left,left,left,left,left,left,left --shot-at 400 \
     --status "20:41 24h wifi=3 batt=80" >"$D/one.log" 2>&1
 SHARED=""
@@ -345,7 +345,7 @@ done
 other "the choices' themes are the same picture" "info-pick-light" "info-pick-dark"
 printf 'N64\nMario Kart 64.z64\n' >"$D/root/.last"
 for th in light dark; do
-	shot "ctltab-n64-$th" --theme "$th" --screen games --gamemenu 2 --gm-tab 2
+	shot "ctltab-n64-$th" --theme "$th" --screen games --gamemenu 2 --gm-tab 3
 	other "$th: the N64's tab is the PlayStation's" "ctltab-n64-$th" "ctltab-$th"
 done
 grep -q 'drawn: Pak' "$D/log" || fail "the N64's tab draws its Pak row"
@@ -379,7 +379,7 @@ if [ "$fails" -ne 0 ]; then
 	echo "controls-shots: $fails FAILED"
 	exit 1
 fi
-echo "ok: every page sits still and is its own, Controls follows Display, the"
+echo "ok: every page sits still and is its own, Controls follows Core Settings, the"
 echo "Controls tab sits still beside its handheld and keeps its cursor, the"
 echo "Buttons page's choices stand over the shelf, and the"
 echo "home goes A to Z, to release dates and back"

@@ -5531,7 +5531,7 @@ int main(int argc, char *argv[])
 				i++;
 			}
 		}
-		/* --gm-tab N: the in-game menu's tab, 0 Game, 1 Display, 2 Controls */
+		/* --gm-tab N: 0 Game, 1 Display, 2 Core Settings, 3 Controls, 4 Achievements */
 		else if (!strcmp(argv[i], "--gm-tab") && i + 1 < argc) shot_gamemenu_tab = atoi(argv[++i]);
 		/* --dmode NAME: every system's display mode, for a shot of its row
 		 * and its caption (display.<TAG>'s value: stretch, aspect, ...) */
@@ -5684,7 +5684,7 @@ int main(int argc, char *argv[])
 			shot_ranews = atoi(argv[++i]);
 			if (shot_heatpop < 0) shot_heatpop = 3000;
 		}
-		/* --achtab STATE: the in-game menu's Achievements tab (--gm-tab 3) in
+		/* --achtab STATE: the in-game menu's Achievements tab (--gm-tab 4) in
 		 * one state, a made-up set for list and all: list, all (every one
 		 * earned), not-system, not-file, signed-out, waiting, unchecked,
 		 * none */

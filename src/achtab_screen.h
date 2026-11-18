@@ -55,7 +55,7 @@ const cheevo *achtab_pick(const achtab_bufs *b, at_source at, int sel);
 /* Leaving the in-game menu: the badges' textures go (rb_textures_free) */
 void achtab_close(void);
 
-/* A made-up set for a shot (--gm-tab 3): eight real-length titles, the
+/* A made-up set for a shot (--gm-tab 4): eight real-length titles, the
  * first `earned` of them earned (-1: three), and a count moving on one */
 const cheevo *achtab_shot_at(int i);
 int  achtab_shot_count(void);
