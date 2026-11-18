@@ -128,8 +128,7 @@ static void entry(SDL_Renderer *r, int x, int y, const char *what, const char *v
 
 void p2panel_draw(SDL_Renderer *r, const p2panel *p, bool lift)
 {
-	const unsigned rule_rgb = ui_sys_mark(p->accent);
-	const SDL_Color rule = { (Uint8)(rule_rgb >> 16), (Uint8)(rule_rgb >> 8), (Uint8)rule_rgb, 255 };
+	const SDL_Color rule = ui_col(theme()->edge, 255);
 	TTF_Font *f;
 	p2p_geom g;
 	int i, x0, w, line;
@@ -143,7 +142,7 @@ void p2panel_draw(SDL_Renderer *r, const p2panel *p, bool lift)
 	ds_panel_slab(r, &g.panel, p->accent, lift);
 	ui_text(r, ui_font(UI_F_LABEL), p->heading ? p->heading : "", g.panel.x + g.panel.w / 2,
 	        ui_line_y(UI_F_LABEL, g.head_y), 0, UI_TEXT_SOFT);
-	/* The heading's rule in the system's color, as its menu's */
+	/* The heading's rule in **edge**, as every menu's (1.0.6 rc.2) */
 	ds_panel_rule(r, x0, g.rule_y, w, rule);
 
 	/* The line: what the page is for, under the heading as the hot panel's
