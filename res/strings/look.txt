@@ -47,15 +47,15 @@ ja = フォルダの色
 it = Colore cartelle
 
 [look.folders_system]
-note = Folder Color's first value, as it ships: each folder in its own system's color (systems.cfg's), as before this row
+note = Folder Color's first value, as it ships: each folder in its own system's color (systems.cfg's), as before this row. Short: it stands beside a mark in Folder Color's row, and "per system" reads as well
 en = System Colors
-zh-Hans = 各系统的颜色
-es = Color de cada sistema
-pt-BR = Cor de cada sistema
-fr = Couleur de chaque système
+zh-Hans = 按系统
+es = Por sistema
+pt-BR = Por sistema
+fr = Par système
 de = Systemfarben
 ja = システムごとの色
-it = Colore di ogni sistema
+it = Per sistema
 
 [look.corners]
 note = A row of the Theme page: panels and highlights rounded or square
