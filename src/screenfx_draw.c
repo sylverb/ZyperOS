@@ -6,6 +6,7 @@
 #include "screenfx.h"
 
 #include <math.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 /* What plat_screen_shader asked for */
@@ -69,8 +70,16 @@ static SDL_Texture *mask_for(SDL_Renderer *r, int w, int h)
 		g_mask_h = h;
 	}
 	if (!(px = malloc((size_t)w * (size_t)h * 4))) return NULL;
-	screenfx_mask(g_kind, g_strength, w, h, px);
-	SDL_UpdateTexture(g_mask, NULL, px, w * 4);
+	{
+		Uint64 t0 = SDL_GetPerformanceCounter();
+
+		screenfx_mask(g_kind, g_strength, w, h, px);
+		SDL_UpdateTexture(g_mask, NULL, px, w * 4);
+		/* Once a shader, strength and size: what a list's step costs */
+		fprintf(stderr, "screens' shader: kind %d at %d%%, %dx%d, made in %.1f ms\n", (int)g_kind,
+		        g_strength, w, h,
+		        (double)(SDL_GetPerformanceCounter() - t0) * 1000.0 / (double)SDL_GetPerformanceFrequency());
+	}
 	free(px);
 	g_mask_kind = g_kind;
 	g_mask_strength = g_strength;

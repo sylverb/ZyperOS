@@ -657,6 +657,8 @@ static void shot_list_draw(app *a, const char *heading, const menu_choice *ch, i
 	if (ch->notes && !ch->preview) {   /* what the choice under the cursor does */
 		int nl = menu_pick_note(ch->notes[at], pn);
 
+		/* drawn in lines, said whole to the host's check, as menu_pick says it */
+		if (nl > 1) ui_fit_drawn(ch->notes[at]);
 		pr[np++] = MENU_RULE;
 		pr[np++] = MENU_BODY(nl > 0 ? pn[0] : "");
 		pr[np++] = MENU_BODY(nl > 1 ? pn[1] : "");
