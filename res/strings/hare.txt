@@ -1,42 +1,43 @@
 # File Transfer's server (src/hare.c, hareart.c). Two kinds of words: the
 # line the handheld's File Transfer screen shows in its Now row, what
-# happened last (status values: lowercase, no full stop), and the reasons the
-# server gives the page when it refuses something, which the page shows as
-# they are (lowercase, no full stop: they follow a file's name or stand
-# alone in a short note). %s is a file or folder's name.
+# happened last (row values: begun with a capital as every row's value is,
+# GLOSSARY.md, no full stop), and the reasons the server gives the page when
+# it refuses something, which the page shows as they are (lowercase, no full
+# stop: they follow a file's name or stand alone in a short note). %s is a
+# file or folder's name.
 
 # ---- the Now row on the handheld ------------------------------------------------
 
 [hare.waiting]
 note = The Now row when File Transfer opens
-en = waiting for a browser
+en = Waiting for a browser
 zh-Hans = 正在等待连接
-es = esperando un navegador
-pt-BR = aguardando um navegador
-fr = en attente d'un navigateur
-de = wartet auf einen Browser
+es = Esperando un navegador
+pt-BR = Aguardando um navegador
+fr = En attente d'un navigateur
+de = Wartet auf einen Browser
 ja = ブラウザの接続待ち
-it = in attesa di un browser
+it = In attesa di un browser
 
 [hare.signed_in]
 note = A phone or a computer typed the right PIN
-en = a browser signed in
+en = A browser signed in
 zh-Hans = 已有设备登录
-es = un navegador inició sesión
-pt-BR = um navegador entrou
-fr = un navigateur s'est connecté
-de = ein Browser hat sich angemeldet
+es = Un navegador inició sesión
+pt-BR = Um navegador entrou
+fr = Un navigateur s'est connecté
+de = Ein Browser hat sich angemeldet
 ja = ブラウザがサインインしました
-it = accesso da un browser
+it = Accesso da un browser
 
 [hare.wrong_pin]
 note = A wrong PIN: how many wrong of how many before a 30-second wait
-en = wrong PIN (%d / %d)
+en = Wrong PIN (%d / %d)
 zh-Hans = PIN 错误（%d / %d）
 es = PIN incorrecto (%d / %d)
 pt-BR = PIN incorreto (%d / %d)
 fr = PIN incorrect (%d / %d)
-de = falsche PIN (%d / %d)
+de = Falsche PIN (%d / %d)
 ja = PIN が違います（%d / %d）
 it = PIN errato (%d / %d)
 
@@ -53,67 +54,67 @@ it = PIN bloccato
 
 [hare.receiving]
 note = A file coming from the phone or computer onto the card
-en = receiving %s
+en = Receiving %s
 zh-Hans = 正在接收 %s
-es = recibiendo %s
-pt-BR = recebendo %s
-fr = réception de %s
-de = empfange %s
+es = Recibiendo %s
+pt-BR = Recebendo %s
+fr = Réception de %s
+de = Empfange %s
 ja = %s を受信中
-it = ricezione di %s
+it = Ricezione di %s
 
 [hare.received]
-en = received %s
+en = Received %s
 zh-Hans = 已接收 %s
-es = recibido: %s
-pt-BR = recebido: %s
-fr = reçu : %s
-de = empfangen: %s
+es = Recibido: %s
+pt-BR = Recebido: %s
+fr = Reçu : %s
+de = Empfangen: %s
 ja = %s を受信しました
-it = ricevuto: %s
+it = Ricevuto: %s
 
 [hare.sending]
 note = A file going from the card to the phone or computer
-en = sending %s
+en = Sending %s
 zh-Hans = 正在发送 %s
-es = enviando %s
-pt-BR = enviando %s
-fr = envoi de %s
-de = sende %s
+es = Enviando %s
+pt-BR = Enviando %s
+fr = Envoi de %s
+de = Sende %s
 ja = %s を送信中
-it = invio di %s
+it = Invio di %s
 
 [hare.sent]
-en = sent %s
+en = Sent %s
 zh-Hans = 已发送 %s
-es = enviado: %s
-pt-BR = enviado: %s
-fr = envoyé : %s
-de = gesendet: %s
+es = Enviado: %s
+pt-BR = Enviado: %s
+fr = Envoyé : %s
+de = Gesendet: %s
 ja = %s を送信しました
-it = inviato: %s
+it = Inviato: %s
 
 [hare.failed]
 note = A file that did not arrive or did not go
-en = failed: %s
+en = Failed: %s
 zh-Hans = 失败：%s
-es = falló: %s
-pt-BR = falhou: %s
-fr = échec : %s
+es = Falló: %s
+pt-BR = Falhou: %s
+fr = Échec : %s
 de = Fehler: %s
 ja = 失敗：%s
-it = non riuscito: %s
+it = Non riuscito: %s
 
 [hare.paused]
 note = An upload whose connection broke, its part kept on the card for the page to go on from when it can reach the handheld again
-en = paused: %s
+en = Paused: %s
 zh-Hans = 已暂停：%s
-es = en pausa: %s
-pt-BR = pausado: %s
-fr = en pause\u00a0: %s
-de = pausiert: %s
+es = En pausa: %s
+pt-BR = Pausado: %s
+fr = En pause\u00a0: %s
+de = Pausiert: %s
 ja = 一時停止中：%s
-it = in pausa: %s
+it = In pausa: %s
 
 [hare.have]
 note = The answer to an upload that asked to go on from a byte the handheld does not have: how many it has (a number of bytes), for the page to go on from there
@@ -128,30 +129,30 @@ it = la console ha %s byte di questo file
 
 [hare.made]
 note = A new folder
-en = made %s
+en = Made %s
 zh-Hans = 已创建 %s
-es = creada: %s
-pt-BR = criada: %s
-fr = créé : %s
-de = erstellt: %s
+es = Creada: %s
+pt-BR = Criada: %s
+fr = Créé : %s
+de = Erstellt: %s
 ja = %s を作成しました
-it = creata: %s
+it = Creata: %s
 
 [hare.renamed]
 note = %s is the new name
-en = renamed %s
+en = Renamed %s
 zh-Hans = 已重命名 %s
-es = renombrado: %s
-pt-BR = renomeado: %s
-fr = renommé : %s
-de = umbenannt: %s
+es = Renombrado: %s
+pt-BR = Renomeado: %s
+fr = Renommé : %s
+de = Umbenannt: %s
 ja = %s に名前を変更しました
-it = rinominato: %s
+it = Rinominato: %s
 
 [hare.tidied]
 note = The page's Tidy names: how many names, in which folder
-en.one = tidied %d name in %s
-en.other = tidied %d names in %s
+en.one = Tidied %d name in %s
+en.other = Tidied %d names in %s
 zh-Hans = 已整理 %2$s 中的 %1$d 个名称
 es.one = %d nombre limpio en %s
 es.other = %d nombres limpios en %s
@@ -166,67 +167,67 @@ it.one = %d nome sistemato in %s
 it.other = %d nomi sistemati in %s
 
 [hare.deleted]
-en = deleted %s
+en = Deleted %s
 zh-Hans = 已删除 %s
-es = eliminado: %s
-pt-BR = excluído: %s
-fr = supprimé : %s
-de = gelöscht: %s
+es = Eliminado: %s
+pt-BR = Excluído: %s
+fr = Supprimé : %s
+de = Gelöscht: %s
 ja = %s を削除しました
-it = eliminato: %s
+it = Eliminato: %s
 
 [hare.box_art]
 note = The page is getting covers for a system's games; %s is the system's folder
-en = box art for %s
+en = Box art for %s
 zh-Hans = 正在获取 %s 的封面
-es = carátulas de %s
-pt-BR = capas de %s
-fr = jaquettes de %s
+es = Carátulas de %s
+pt-BR = Capas de %s
+fr = Jaquettes de %s
 de = Cover für %s
 ja = %s のパッケージ画像を取得中
-it = copertine per %s
+it = Copertine per %s
 
 [hare.sgdb_checking]
-en = checking a SteamGridDB key
+en = Checking a SteamGridDB key
 zh-Hans = 正在检查 SteamGridDB 密钥
-es = comprobando una clave de SteamGridDB
-pt-BR = verificando uma chave do SteamGridDB
-fr = vérification d'une clé SteamGridDB
-de = prüfe einen SteamGridDB-Schlüssel
+es = Comprobando una clave de SteamGridDB
+pt-BR = Verificando uma chave do SteamGridDB
+fr = Vérification d'une clé SteamGridDB
+de = Prüfe einen SteamGridDB-Schlüssel
 ja = SteamGridDB のキーを確認中
-it = verifica di una chiave SteamGridDB
+it = Verifica di una chiave SteamGridDB
 
 [hare.sgdb_removed]
 en = SteamGridDB key removed
 zh-Hans = 已移除 SteamGridDB 密钥
-es = clave de SteamGridDB quitada
-pt-BR = chave do SteamGridDB removida
-fr = clé SteamGridDB supprimée
+es = Clave de SteamGridDB quitada
+pt-BR = Chave do SteamGridDB removida
+fr = Clé SteamGridDB supprimée
 de = SteamGridDB-Schlüssel entfernt
 ja = SteamGridDB のキーを削除しました
-it = chiave SteamGridDB rimossa
+it = Chiave SteamGridDB rimossa
 
 [hare.logs]
 note = The page is downloading the handheld's logs
-en = sending the logs
+en = Sending the logs
 zh-Hans = 正在发送日志
-es = enviando los registros
-pt-BR = enviando os logs
-fr = envoi des journaux
-de = sende die Protokolle
+es = Enviando los registros
+pt-BR = Enviando os logs
+fr = Envoi des journaux
+de = Sende die Protokolle
 ja = ログを送信中
-it = invio dei log
+it = Invio dei log
 
 [hare.closing]
 note = Asked to stop after the file on its way
-en = closing after this file
+en = Closing after this file
 zh-Hans = 这个文件传完后关闭
-es = se cierra después de este archivo
-pt-BR = fecha depois deste arquivo
-fr = fermeture après ce fichier
-de = schließt nach dieser Datei
+es = Se cierra después de este archivo
+pt-BR = Fecha depois deste arquivo
+fr = Fermeture après ce fichier
+de = Schließt nach dieser Datei
 ja = このファイルの後に終了します
-it = chiusura dopo questo file
+it = Chiusura dopo questo file
 
 # ---- the reasons the page shows ---------------------------------------------------
 
@@ -613,14 +614,14 @@ it = prima abbina questo elenco giochi per nome
 
 [hare.moved]
 note = On the handheld's File Transfer screen: a file or folder dragged into another folder on the page; %s is its name
-en = moved %s
+en = Moved %s
 zh-Hans = 已移动 %s
-es = movido: %s
-pt-BR = movido: %s
-fr = déplacé : %s
-de = verschoben: %s
+es = Movido: %s
+pt-BR = Movido: %s
+fr = Déplacé : %s
+de = Verschoben: %s
 ja = %s を移動しました
-it = spostato: %s
+it = Spostato: %s
 
 [hare.cannot_move]
 note = The page's message when an entry cannot be moved: a top folder (ROMs, Music...), a folder that is not there, or another card

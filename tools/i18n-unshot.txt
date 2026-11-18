@@ -238,12 +238,6 @@ launch.game_short  # wrapped onto balanced lines, as launch.bios_size
 # library: no shot draws it yet
 library.scanning
 
-# lights: no shot draws it yet
-lights.bar
-lights.low
-lights.level
-lights.done
-
 # lowbatt: no shot draws it yet
 lowbatt.charging
 
@@ -259,6 +253,7 @@ muse.hint_chapter
 muse.row_playing
 muse.row_paused
 muse.paused_note
+muse.art_starting  # Album Art's line before the first album is asked about, and no shot draws a run that has not begun; it was counted before only because the Phones row's "starting" had the same words, which row values now begin with a capital
 muse.art_all_crisp
 muse.art_albums
 muse.art_counts
@@ -286,12 +281,8 @@ playtime.lost.one
 playtime.lost.other
 
 # portload: no shot draws it yet
-portload.starting_a_minute
-portload.starting
-portload.a_minute
-portload.still_go_back
-portload.still
-portload.go_back
+portload.starting_a_minute  # the start's line on one line, drawn only where it fits the column, which it does in no language; portload draws its two sentences
+portload.still_go_back  # the line after a minute on one line, which never fits the column; portload-later draws its two sentences
 
 # portmaster: no shot draws it yet
 portmaster.err_internal
@@ -368,6 +359,7 @@ ssh.locked
 
 # stats: no shot draws it yet
 stats.all_time
+stats.never  # a time or a last-played day for a game never played, inside Play Time's line and Storage's captions, and no shot's game is unplayed there; it was counted before only because Auto Off's "never" had the same words, which row values now begin with a capital
 stats.this_year
 stats.this_month
 stats.this_week

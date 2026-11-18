@@ -18,26 +18,26 @@ ja = プレイヤー 2
 it = Giocatore 2
 
 [player2.waiting]
-note = A lowercase value: the Player 2 row's, and the page's beside a player, while Player 2 is on and that player has not joined yet. As xfer.waiting.
-en = waiting
+note = A value, begun with a capital: the Player 2 row's, and the page's beside a player, while Player 2 is on and that player has not joined yet. As xfer.waiting.
+en = Waiting
 zh-Hans = 等待中
-es = esperando
-pt-BR = aguardando
-fr = en attente
-de = wartet
+es = Esperando
+pt-BR = Aguardando
+fr = En attente
+de = Wartet
 ja = 待機中
-it = in attesa
+it = In attesa
 
 [player2.connected]
-note = A lowercase value: the Player 2 row's, and the page's beside a player, while that player's browser plays the game.
-en = connected
+note = A value, begun with a capital: the Player 2 row's, and the page's beside a player, while that player's browser plays the game.
+en = Connected
 zh-Hans = 已连接
-es = conectado
-pt-BR = conectado
-fr = connecté
-de = verbunden
+es = Conectado
+pt-BR = Conectado
+fr = Connecté
+de = Verbunden
 ja = 接続済み
-it = connesso
+it = Connesso
 
 [player2.player]
 note = On the Player 2 page, a row's label for each player a friend can be, %d their number (2, and on a system with more players 3 and 4); its value is starting, waiting or connected. As play.state.player.
