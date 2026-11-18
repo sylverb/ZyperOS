@@ -4,9 +4,10 @@
  * no game's art), drawn here at a console's 256x224, through
  * each of Diatom's filters as the handheld draws it, and the top left of it
  * kept at the handheld's own pixels, one image a filter and, for an old
- * screen, a Strength step. Each filter is Diatom's GLSL (diatom/port/pixel2.c)
- * in C, line for line: the same numbers in the same order, in float as the
- * GPU's highp is.
+ * screen, a Strength step. CRT Curved's is its whole screen instead, its
+ * curve made larger so it reads that small (curved_small). Each filter is
+ * Diatom's GLSL (diatom/port/pixel2.c) in C, line for line: the same
+ * numbers in the same order, in float as the GPU's highp is.
  *
  *     build-native/shaderdemo OUT_DIR
  *
@@ -26,6 +27,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 
@@ -209,6 +211,10 @@ static v3 texture(float u, float v)
 }
 
 typedef enum { F_NEAREST, F_SHIMMERLESS, F_CRT, F_CRT_CURVED, F_SCANLINES, F_LCD, F_COUNT } filt;
+
+/* CRT Curved's curve, the game's at 1 and 0 (its corner at quad.y): larger
+ * only for the Shader list's picture of it (curved_small) */
+static float g_warp = 1.0f, g_corner = 0.0f;
 static const char *NAME[F_COUNT] = { "nearest", "shimmerless", "crt", "crt-curved", "scanlines", "lcd" };
 
 /* One destination pixel (dx, dy) of a SWxSH picture drawn scale times */
@@ -264,12 +270,14 @@ static v3 shade(filt f, int dx, int dy, v2 scale, float strength)
 
 		if (f == F_CRT_CURVED) {
 			v2 q = { px.x / (quad.x * scale.x) * 2.0f - 1.0f, px.y / (quad.y * scale.y) * 2.0f - 1.0f };
-			v2 m = { 1.0f + q.y * q.y * 0.02f, 1.0f + q.x * q.x * 0.015f };
+			v2 m = { 1.0f + q.y * q.y * 0.02f * g_warp, 1.0f + q.x * q.x * 0.015f * g_warp };
 
 			q.x *= m.x;
 			q.y *= m.y;
 			vin = (1.0f - (1.0f - clampf(q.x * q.x, 0, 1)) * (1.0f - clampf(q.y * q.y, 0, 1))) * 1.001f;
-			vin = clampf(quad.y - vin * quad.y, 0.0f, 1.0f);
+			const float corner = g_corner > 0.0f ? g_corner : quad.y;
+
+			vin = clampf(corner - vin * corner, 0.0f, 1.0f);
 			pos.x = (q.x + 1.0f) * 0.5f * quad.x;
 			pos.y = (q.y + 1.0f) * 0.5f * quad.y;
 		}
@@ -365,18 +373,106 @@ static v3 shimmerless_cpu(const tap *cx, const tap *cy, int dx, int dy)
 static tap g_cx[2048], g_cy[2048];
 static bool g_cpu;   /* the device draws Sharp-Shimmerless on its CPU (the Brick) */
 
-static int save(const char *dir, const char *dev, filt f, int strength, v2 scale, int cw, int ch)
+/* The Shader list's picture of CRT Curved (Tarik, 1.0.6): its whole screen,
+ * as the small screen's inside holds it, with the curve made larger so it
+ * reads at that size. At the game's curve the bow is 2% of the width and the
+ * round corner smaller still: at a third of the panel, two or three pixels,
+ * under the small screen's own round corner. CURVE_WARP times the warp and
+ * a corner of CURVE_CORNER rows make the barrel, the round corners and the
+ * dark edge plain; the lines and the grille are the game's, faded by
+ * Strength as the game fades them, and the curve stays at every step, as
+ * the game's does. The game's shader is not changed by this.
+ *
+ * The whole panel through the filter, then made iw x ih (the small screen's
+ * inside at the panel's pixels) by a tent filter one picture pixel wide each
+ * way, in the filter's linear light (its gamma 2), so the lines average out
+ * rather than beat into bands. *out is cw x ch, black past iw x ih. */
+#define CURVE_WARP   5.0f
+#define CURVE_CORNER 40.0f
+
+static int curved_small(v3 *out, float strength, v2 scale, int cw, int ch, int iw, int ih)
+{
+	const int pw = (int)lroundf(scale.x * SW), ph = (int)lroundf(scale.y * SH);
+	const float sx = (float)pw / (float)iw, sy = (float)ph / (float)ih;
+	v3 *full = malloc(sizeof *full * (size_t)pw * (size_t)ph);
+	v3 *across = malloc(sizeof *across * (size_t)iw * (size_t)ph);
+
+	if (!full || !across) { free(full); free(across); return 1; }
+	g_warp = CURVE_WARP;
+	g_corner = CURVE_CORNER;
+	for (int y = 0; y < ph; y++)
+		for (int x = 0; x < pw; x++) {
+			v3 c = shade(F_CRT_CURVED, x, y, scale, strength);
+
+			full[(size_t)y * pw + x] = (v3){ c.r * c.r, c.g * c.g, c.b * c.b };
+		}
+	g_warp = 1.0f;
+	g_corner = 0.0f;
+	for (int y = 0; y < ph; y++)
+		for (int x = 0; x < iw; x++) {
+			const float cx = ((float)x + 0.5f) * sx;
+			v3 a = { 0, 0, 0 };
+			float wsum = 0;
+
+			for (int i = (int)floorf(cx - sx); i <= (int)ceilf(cx + sx); i++) {
+				float w = 1.0f - fabsf((float)i + 0.5f - cx) / sx;
+
+				if (i < 0 || i >= pw || w <= 0) continue;
+				a.r += w * full[(size_t)y * pw + i].r;
+				a.g += w * full[(size_t)y * pw + i].g;
+				a.b += w * full[(size_t)y * pw + i].b;
+				wsum += w;
+			}
+			across[(size_t)y * iw + x] = (v3){ a.r / wsum, a.g / wsum, a.b / wsum };
+		}
+	for (int y = 0; y < ch; y++)
+		for (int x = 0; x < cw; x++) {
+			const float cy = ((float)y + 0.5f) * sy;
+			v3 a = { 0, 0, 0 };
+			float wsum = 0;
+
+			if (x >= iw || y >= ih) { out[(size_t)y * cw + x] = a; continue; }
+			for (int j = (int)floorf(cy - sy); j <= (int)ceilf(cy + sy); j++) {
+				float w = 1.0f - fabsf((float)j + 0.5f - cy) / sy;
+
+				if (j < 0 || j >= ph || w <= 0) continue;
+				a.r += w * across[(size_t)j * iw + x].r;
+				a.g += w * across[(size_t)j * iw + x].g;
+				a.b += w * across[(size_t)j * iw + x].b;
+				wsum += w;
+			}
+			out[(size_t)y * cw + x] = (v3){ sqrtf(a.r / wsum), sqrtf(a.g / wsum), sqrtf(a.b / wsum) };
+		}
+	free(full);
+	free(across);
+	return 0;
+}
+
+/* `inner`: the small screen's inside at the panel's pixels, which a CRT
+ * Curved picture is made to (curved_small); 0 x 0 for the device set */
+static int save(const char *dir, const char *dev, filt f, int strength, v2 scale, int cw, int ch,
+                int iw, int ih)
 {
 	char path[512];
 	SDL_Surface *s = SDL_CreateRGBSurfaceWithFormat(0, cw, ch, 24, SDL_PIXELFORMAT_RGB24);
+	v3 *small = NULL;
 
 	if (!s) return 1;
+	if (f == F_CRT_CURVED && iw > 0) {
+		small = malloc(sizeof *small * (size_t)cw * (size_t)ch);
+		if (!small || curved_small(small, (float)strength / 100.0f, scale, cw, ch, iw, ih)) {
+			free(small);
+			SDL_FreeSurface(s);
+			return 1;
+		}
+	}
 	for (int y = 0; y < ch; y++) {
 		unsigned char *row = (unsigned char *)s->pixels + (size_t)y * s->pitch;
 
 		for (int x = 0; x < cw; x++) {
-			v3 c = f == F_SHIMMERLESS && g_cpu ? shimmerless_cpu(g_cx, g_cy, x, y)
-			                                    : shade(f, x, y, scale, (float)strength / 100.0f);
+			v3 c = small ? small[(size_t)y * cw + x]
+			     : f == F_SHIMMERLESS && g_cpu ? shimmerless_cpu(g_cx, g_cy, x, y)
+			                                   : shade(f, x, y, scale, (float)strength / 100.0f);
 
 			row[3 * x + 0] = (unsigned char)lroundf(clampf(c.r, 0, 1) * 255.0f);
 			row[3 * x + 1] = (unsigned char)lroundf(clampf(c.g, 0, 1) * 255.0f);
@@ -387,6 +483,7 @@ static int save(const char *dir, const char *dev, filt f, int strength, v2 scale
 	else snprintf(path, sizeof path, "%s/%s/%s-%d.png", dir, dev, NAME[f], strength);
 	int bad = IMG_SavePNG(s, path) != 0;
 	SDL_FreeSurface(s);
+	free(small);
 	if (bad) fprintf(stderr, "shaderdemo: %s: %s\n", path, IMG_GetError());
 	return bad;
 }
@@ -419,8 +516,8 @@ static int device_set(const char *dir)
 	if (f) fclose(f);
 	g_cpu = false;
 	for (int i = 0; i < F_COUNT; i++) {   /* save() writes DIR/DEV/NAME.png: DEV is "." */
-		bad |= save(dir, ".", (filt)i, 100, scale, 640, 480);
-		if (i >= F_CRT) bad |= save(dir, ".", (filt)i, 50, scale, 640, 480);
+		bad |= save(dir, ".", (filt)i, 100, scale, 640, 480, 0, 0);
+		if (i >= F_CRT) bad |= save(dir, ".", (filt)i, 50, scale, 640, 480, 0, 0);
 	}
 	if (bad) fprintf(stderr, "shaderdemo: %s: could not write the device set\n", dir);
 	return bad;
@@ -458,9 +555,16 @@ int main(int argc, char **argv)
 		mkdir(dir, 0755);
 		for (int f = 0; f < F_COUNT; f++) {
 			if (f >= F_CRT && !DEV[d].gpu) continue;
-			bad |= save(argv[1], DEV[d].id, (filt)f, 100, scale, DEV[d].cw, DEV[d].ch);
+			/* The small screen's inside (src/ds/preview.c: the 304 x 228
+			 * units of the screen less DS_FRAME, 3, each side), at the
+			 * panel's pixels: what a CRT Curved picture is made to */
+			const int iw = (int)lroundf(298.0f * DEV[d].ph / 768.0f);
+			const int ih = (int)lroundf(222.0f * DEV[d].ph / 768.0f);
+
+			bad |= save(argv[1], DEV[d].id, (filt)f, 100, scale, DEV[d].cw, DEV[d].ch, iw, ih);
 			if (f >= F_CRT)
-				for (int s = 10; s < 100; s += 10) bad |= save(argv[1], DEV[d].id, (filt)f, s, scale, DEV[d].cw, DEV[d].ch);
+				for (int s = 10; s < 100; s += 10)
+					bad |= save(argv[1], DEV[d].id, (filt)f, s, scale, DEV[d].cw, DEV[d].ch, iw, ih);
 		}
 	}
 	return bad;
