@@ -3,15 +3,15 @@
 # three spaces between two of them stay.
 
 [btmenu.no_adapter]
-note = The Bluetooth row's value when the radio's stack never started. Lowercase.
-en = no adapter
+note = The Bluetooth row's value when the radio's stack never started. Begun with a capital.
+en = No adapter
 zh-Hans = 无适配器
-es = sin adaptador
-pt-BR = sem adaptador
-fr = aucun adaptateur
-de = kein Adapter
+es = Sin adaptador
+pt-BR = Sem adaptador
+fr = Aucun adaptateur
+de = Kein Adapter
 ja = アダプターなし
-it = nessun adattatore
+it = Nessun adattatore
 
 [btmenu.searching]
 note = The line under the list while it looks for headsets

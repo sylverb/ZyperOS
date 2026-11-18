@@ -1,39 +1,39 @@
-# MENU > Bluetooth's headsets (src/bt.c): each one's value, a status in
-# lowercase, then the note the screen shows when pairing or connecting one
-# did not work, also lowercase.
+# MENU > Bluetooth's headsets (src/bt.c): each one's value, a status begun
+# with a capital as a row's value is (GLOSSARY.md), then the note the screen
+# shows when pairing or connecting one did not work, in lowercase.
 
 [btlink.connected]
 note = A headset's value: connected, so the sound is there
-en = connected
+en = Connected
 zh-Hans = 已连接
-es = conectado
-pt-BR = conectado
-fr = connecté
-de = verbunden
+es = Conectado
+pt-BR = Conectado
+fr = Connecté
+de = Verbunden
 ja = 接続済み
-it = connesso
+it = Connesso
 
 [btlink.paired]
 note = A headset's value: paired before, not connected now
-en = paired
+en = Paired
 zh-Hans = 已配对
-es = vinculado
-pt-BR = pareado
-fr = associé
-de = gekoppelt
+es = Vinculado
+pt-BR = Pareado
+fr = Associé
+de = Gekoppelt
 ja = ペアリング済み
-it = associato
+it = Associato
 
 [btlink.in_range]
 note = A headset's value: found nearby, never paired
-en = in range
+en = In range
 zh-Hans = 在附近
-es = disponible
-pt-BR = disponível
-fr = à portée
-de = in Reichweite
+es = Disponible
+pt-BR = Disponível
+fr = À portée
+de = In Reichweite
 ja = 近くにあります
-it = disponibile
+it = Disponibile
 
 [btlink.pair_refused]
 en = the headset refused the pairing

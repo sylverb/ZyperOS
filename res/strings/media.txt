@@ -14,26 +14,26 @@ ja = パッケージ画像と動画
 it = Copertina e video
 
 [media.value_no_cover]
-note = The row's value when the game has no cover yet. Lowercase, a status. tight: beside the row's label in the details panel (Italian's "senza copertina" did not fit beside "Copertina e video")
-en = no cover
+note = The row's value when the game has no cover yet. A status, begun with a capital. tight: beside the row's label in the details panel (Italian's "senza copertina" did not fit beside "Copertina e video")
+en = No cover
 zh-Hans = 无封面
-es = sin carátula
-pt-BR = sem capa
-fr = sans jaquette
-de = kein Cover
+es = Sin carátula
+pt-BR = Sem capa
+fr = Sans jaquette
+de = Kein Cover
 ja = 画像なし
-it = senza cover
+it = Senza cover
 
 [media.value_no_video]
-note = The row's value when the game has a cover and no video snap. Lowercase, a status.
-en = no video
+note = The row's value when the game has a cover and no video snap. A status, begun with a capital.
+en = No video
 zh-Hans = 无视频
-es = sin video
-pt-BR = sem vídeo
-fr = pas de vidéo
-de = kein Video
+es = Sin video
+pt-BR = Sem vídeo
+fr = Pas de vidéo
+de = Kein Video
 ja = 動画なし
-it = nessun video
+it = Nessun video
 
 [media.now]
 note = The heading over the cover the shelf shows now. tight: 264 units
