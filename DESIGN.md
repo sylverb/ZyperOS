@@ -798,6 +798,16 @@ its own. *(2026-11-13: "We should leave no trace of the old art behind".)*
 MENU > Home Screen offers **Spotlight** (default), **Gallery** and **Grid**
 (below); Right steps on, Left back, and A opens the three as a list (11.3's option rows). Old `cards` and `cards_dir` settings have no effect. Fancy Pants,
 the old system posters and their generators are removed, not hidden.
+**START** on the home steps it on too, Spotlight to Gallery to Grid and round,
+with no menu, as START steps a shelf's View: the same setting, saved the same
+way, the home on the same system, with the move sound; not with MENU or
+SELECT held (MENU + START is the way out). Every layout's foot names where it
+goes, START's hint 32 right of MENU's (**START Gallery** on Spotlight,
+**START Grid** on Gallery, **START Spotlight** on Grid), in the Home Screen
+row's words. *(2026-11-17: "also implement start in the home menu with the
+systems".)* The place stays in the middle of the foot; where a long word
+would come nearer than 32 to it (Italian's "In evidenza" by the Grid's
+"12 / 21"), it stands 32 right of START's word instead.
 
 **Spotlight:** system name and count on the left, the console art on the
 right, five nearby sprites in an unframed dock below. The selected sprite
@@ -828,15 +838,15 @@ DS_GRID_GAP apart, as many across as cells of at least 128 fit between the
 64 margins, the grid in the middle of its room; the rail at the right when
 the systems are more than three rows. The band: the system's whole name in
 **game-title** (Favorites in the language that is on), A's **Open games** at
-its right, its count under it in **support**; the foot at 720: MENU, the
-place, SELECT. **Up** and **Down** move a row, stopping at the top and the foot
+its right, its count under it in **support**; the foot at 720: MENU and
+START, the place, SELECT. **Up** and **Down** move a row, stopping at the top and the foot
 with the edge sound (Down over a short last row lands on its last system);
 **Left** and **Right** step round the ends; **L1** and **R1** jump a screenful, or to the last (first) system where less is left, and from the last round to the first (as the shelf grid's, 11.47).
 A system hidden or emptied leaves the grid as it leaves the row; Favorites is
 a tile like any other.
 
-MENU remains at the left footer, the position in the middle, and A at the
-right. SELECT still opens the player without another footer caption.
+MENU remains at the left footer with START after it, the position in the
+middle, and A at the right. SELECT still opens the player without another footer caption.
 **L1**/**R1** jump three systems, coming round past either end as a step
 does, the row moving all three in the press's direction in **move** and
 **out**; on a games shelf they jump a screenful. **Up**/**Down** on the home
@@ -1030,7 +1040,28 @@ Video Snaps, Menu Music:
   ramp and the hues in a band; four across in a column beside the rows,
   six across in a list's picture. The setting changes the whole screen, so
   the chart shows it as the panel makes it.
-- **Two: A turns it over.**
+- **What the cursor shows** (1.0.6 rc.2; `src/ds/hover.h`, section 15):
+  a list whose choice changes how the whole screen looks shows the one
+  under the cursor from the frame the cursor reaches it, once a move and
+  never each frame; the tick stays on the kept choice, and B, MENU or
+  POWER put back what is kept before anything else runs - nothing is saved
+  until A. While a list shows a choice that is not kept, nothing that keeps
+  the screen's state writes it down (the boot screen's words, the theme
+  file: `ds_hover_showing`). Theme's three lists (11.42). `check-hover-sweep`
+  shows every choice of them and fails on a database row or a file written,
+  or a page that reads otherwise after.
+- **Two: A turns it over**, unless the two need a picture to tell apart:
+  **Timing** (Smooth or Exact, a GB, GBC, GBA, DS or Genesis shelf's)
+  opens its list on A all the same (`menu_choice.list`), Left and Right
+  still turning it over. Its picture is the two ways slowed down, in the
+  dark theme's colors as a game's screen: a ball crossing a small screen a
+  step a game frame, a refresh every 160 ms, and where it was at the five
+  refreshes before behind it. Smooth's steps are even; with Exact a refresh
+  now and then shows the frame before again, the ball stopping for one,
+  its two places ringed in the accent - one refresh in four here, one in
+  about 170 on the Pixel 2, so it can be seen at all. Under it, what each
+  does in a sentence. *(Tarik's for 1.0.6 rc.2: "improve the timing screen
+  to explain/demonstrate that".)*
 - **Left and Right step every row**, as before, and show the change at
   once, so a look before choosing is one press away. A scale (minutes,
   percent, volume) stops at its ends; a set of names goes round.
@@ -3937,7 +3968,8 @@ row's own setting, saved the same way, the shelf on the same entry, with
 the move sound. Favorites, folders and Ports alike; MP4's shelf is MP4's
 own screen, where START does nothing alone. Not with MENU or SELECT held:
 MENU + START is the way out (tools/zyhome.c) and SELECT + START MP4's lock.
-Before, START did nothing on a shelf. The foot names where it goes:
+Before, START did nothing on a shelf. On the home it steps the Home
+Screen's layout the same way (11.1). The foot names where it goes:
 **START Grid** under the covers, **START List** under the grid, **START
 Covers** under the list; MENU > Controls has it
 on the shelf's page. The tutorial is as it was: it teaches one button a
@@ -4083,6 +4115,14 @@ everything at once, and a change to the other in its picture. Before a
 value, a mark of what it is: the accent's dot on Accent, the theme's chip
 (its ground in its edge, the accent on it, 64 by 36) on each background's
 row. Display's own **Theme** row shows both chips and the accent's name.
+Accent's, Light Background's and Dark Background's lists show the choice
+under the cursor on the whole screen as it moves (11.3's what the cursor
+shows): the look in memory, no setting and no theme file, the list's own
+focus bar in the accent too; a ground of the theme that is not on shows
+that theme while its list is open, so the choice can be seen at all. B,
+MENU or POWER put back the look as it was; A keeps the one chosen. *(Tarik's
+for 1.0.6 rc.2: "Can we have the theme accent preview on hover? same for
+all other theme options".)*
 
 **Appearance** is Light or Dark, two, so A turns it over. *(1.0.6: Auto,
 light from 7:00 to 19:00, went, and its hours became Night Mode's below; a
@@ -4885,6 +4925,7 @@ the tiles' style is read off a name.
 | Distances | `src/ds/sdf.h` | the segment, polygon and rounded-box distances the distance-field marks share: the status corner, the cover badges |
 | Button hints | `src/keyhints.c`, `src/keyhints_draw.c`; `page_hint` in `src/home.c` | 11.4 |
 | Menu panel | `src/menu_panel.c` (its slab `ds_panel_open`, its more marks `ds_more`) | 11.3 |
+| What a list's cursor shows | `src/ds/hover.c`, `hover.h` | 11.3: a list's `ds_hover` (`menu_choice.hover`) - `show(k)` the choice in memory, `undo(kept)` - run by `ds_hover_run`: a show once per choice the cursor comes to, the kept one back on the cursor's return and when the list closes, before A's choice is applied. The runner tells a list its cursor after the keys and before the frame (`menu_style.at`). `ds_hover_showing` holds what would write a shown state down. `check-hover` (its rules), `check-hover-sweep` (Theme's lists, nothing written). |
 | A choice's picture | `src/ds/preview.c`, `preview.h` | 11.3: the column at an option list's left (`menu_pick_preview`): `ds_preview_layout` on the layout engine (the small screen a 4:3 leaf, **preview-note-gap**, the note's room in meta lines, the set's tallest), `ds_preview_screen_begin` / `ds_preview_screen_end` (the screen's ink, its **edge** frame of `DS_FRAME` and its corners `DS_RADIUS_ROW`, the focus fill's beside it), `ds_preview_note`; the column **preview-col-w**, to **preview-col-min** where the choices run long (`ds_preview_col_w`), **preview-gap** from the rows. The Display list's picture is `src/dmodepreview.c`, each mode placed as Diatom places it (`src/dmodefit.c`, `check-dmodefit`). |
 | A row's scale | `src/ds/scale.c`, `scale.h` | 11.3: the graded bar a row carries as its value (`ds_scale_value`, `ds_scale_parse`), drawn by `menu_draw` in the page's scales' column (`ds_scale_draw`, `DS_SCALE_MIN_W`, `ds_scale_num_w`); `check-scale` holds the value's round trip and range and the knob's place in both themes. |
 | A color chart | `src/ds/colorref.c`, `colorref.h` | 11.3: `ds_color_ref_draw`, the 24-patch chart, a grey ramp and the hues, tall in a column or wide in a list's picture. |

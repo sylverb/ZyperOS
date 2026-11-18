@@ -85,6 +85,16 @@ typedef struct menu_choice {
 	 * with the cursor's choice, and with -1 once the list has closed,
 	 * whichever way, before a choice is applied. NULL: none. */
 	void (*focus)(void *app, int k);
+	/* What the cursor shows on the whole screen while the list is open
+	 * (src/ds/hover.h, DESIGN.md 11.3): the choice under it shown once a
+	 * move and the kept one put back as the list closes, whichever way;
+	 * nothing saved until A. Theme's lists (1.0.6). The hover's ctx is the
+	 * app. NULL: none. */
+	const struct ds_hover *hover;
+	/* Two choices whose list opens on A all the same, for the picture and
+	 * the note that tell them apart (Timing, DESIGN.md 9); Left and Right
+	 * still turn the row over */
+	bool list;
 } menu_choice;
 
 /* Row `sel`'s choices from a build's table, or NULL: no table, a place past
@@ -206,5 +216,10 @@ int menu_window_first(const menu_row *rows, int n, int sel, int vis, int first);
  * rule quietly meant something else nobody could see it: the achievement list
  * scrolled a title or cut it depending on whether the player had EARNED it. */
 bool menu_row_moves(menu_row row, bool selected, bool visits_all);
+
+/* Whether the cursor has a row to land on: a live one, or any with
+ * `visits_all`. A list with none is a message, not a choice, and the panel
+ * draws no focus plate on it (menu_panel) */
+bool menu_rows_landable(const menu_row *rows, int n, bool visits_all);
 
 #endif

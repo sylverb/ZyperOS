@@ -30,6 +30,8 @@
 #include "nowplaying_screen.h"
 #include "osdbar.h"
 #include "panel.h"
+#include "ds/hover.h"
+#include "hover_sweep.h"
 #include "nightkeep.h"
 #include "panelgamma.h"
 #include "powerhold.h"
@@ -220,6 +222,69 @@ static void sm_dmode_preview(void *app_, int k, int x, int y, int w, int h)
 }
 
 
+/* Timing's list's picture (menu_choice's preview, DESIGN.md 11.39): the two
+ * ways, slowed down. A ball crosses a small screen a step a game frame, a
+ * refresh every PACE_DEMO_MS, and where it was at each of the refreshes
+ * before is behind it. Smooth shows the next frame each refresh: the steps
+ * even. Exact keeps the game's own rate, so now and then a refresh shows the
+ * frame before again: the ball stops for a refresh, its two places one,
+ * ringed in the accent. Slowed about ten times, and the repeat made about
+ * forty times as common as on the Pixel 2 (one refresh in about 170), so
+ * the hitch can be seen at all. In the dark theme's colors in either, as a
+ * game's screen is. */
+#define PACE_DEMO_MS 160      /* one refresh, slowed */
+#define PACE_DEMO_EVERY 4     /* Exact: one refresh in this many shows the frame before */
+#define PACE_DEMO_STEPS 8     /* game frames to cross */
+#define PACE_DEMO_TRAIL 5     /* the refreshes before, behind the ball */
+
+/* The game frame refresh `r` shows */
+static long pace_frame(int k, long r)
+{
+	return k == PACING_EXACT ? r - r / PACE_DEMO_EVERY : r;
+}
+
+static void pace_disc(SDL_Renderer *r, int cx, int cy, int d, ds_rgb c)
+{
+	ui_round_rect(r, &(SDL_Rect){ cx - d / 2, cy - d / 2, d, d }, d / 2, ui_col(c, 255));
+}
+
+static void sm_pace_preview(void *app_, int k, int x, int y, int w, int h)
+{
+	app *a = app_;
+	const ds_theme *dk = theme_at(DS_DARK), *t = theme();
+	const SDL_Rect screen = { x, y, w, h };
+	/* A shot's moment: a repeat behind Exact's ball, neither wrapped */
+	const Uint32 now = shot_path ? 7u * PACE_DEMO_MS + PACE_DEMO_MS / 2 : plat_now_ms();
+	const long r = (long)(now / PACE_DEMO_MS);
+	const SDL_Rect in = ds_preview_screen_begin(a->r, &screen);
+	const int d = in.h / 5 > 8 ? in.h / 5 : 8, cy = in.y + in.h / 2;
+	const int x0 = in.x + d, span = in.w - 2 * d;
+	const long f_now = pace_frame(k, r) % PACE_DEMO_STEPS;
+	int i;
+
+	SDL_SetRenderDrawColor(a->r, dk->edge.r, dk->edge.g, dk->edge.b, 255);
+	SDL_RenderFillRect(a->r, &(SDL_Rect){ x0, cy + d / 2 + DS_GRID, span, 2 });
+	for (i = PACE_DEMO_TRAIL; i >= 0; i--) {
+		const long ri = r - i;
+		long f;
+		int fx;
+
+		if (ri < 0) continue;
+		f = pace_frame(k, ri) % PACE_DEMO_STEPS;
+		if (f > f_now) continue;   /* before the ball came round */
+		fx = x0 + (int)(f * span / (PACE_DEMO_STEPS - 1));
+		/* A refresh that showed the frame before again: ringed */
+		if (ri > 0 && pace_frame(k, ri) == pace_frame(k, ri - 1)) {
+			pace_disc(a->r, fx, cy, d + d / 2, t->accent);
+			pace_disc(a->r, fx, cy, d + d / 2 - 6, dk->ink);
+		}
+		if (i == 0) pace_disc(a->r, fx, cy, d, t->accent);
+		else pace_disc(a->r, fx, cy, d / 3, dk->text_dim);
+	}
+	ds_preview_screen_end(a->r, &screen);
+	if (!shot_path) redraw_at(now + PACE_DEMO_MS - now % PACE_DEMO_MS);
+}
+
 /* The Shader and Strength lists' picture (src/shaderdemo.h): a system's
  * menu with its own shader and strength, MENU with every system's, as the
  * lists were made */
@@ -291,7 +356,18 @@ static void menu_choices(app *a, int sys, bool games)
 		for (i = 0; i < DSS_CHOICES; i++) P[9].lab[i] = T(dsslow_label_id((dss_choice)i));
 		g_sm_choice[SM_DSSLOW] = ch_make(&P[9], DSS_CHOICES, dsslow_load(), false);
 		for (i = 0; i < PACING_CHOICES; i++) P[10].lab[i] = T(pacing_label_id((pacing_choice)i));
-		g_sm_choice[SM_PACE] = ch_make(&P[10], PACING_CHOICES, pacing_load(sc), false);
+		{
+			/* Two, so A would turn it over: its list opens all the same,
+			 * the picture and a note telling them apart (DESIGN.md 9) */
+			static const char *notes[PACING_CHOICES];
+
+			notes[PACING_SMOOTH] = T(S_SYSMENU_PACE_SMOOTH_NOTE);
+			notes[PACING_EXACT] = T(S_SYSMENU_PACE_EXACT_NOTE);
+			g_sm_choice[SM_PACE] = ch_make(&P[10], PACING_CHOICES, pacing_load(sc), false);
+			g_sm_choice[SM_PACE].notes = notes;
+			g_sm_choice[SM_PACE].preview = sm_pace_preview;
+			g_sm_choice[SM_PACE].list = true;
+		}
 		for (i = 0; i < SORT_COUNT; i++) P[4].lab[i] = sort_label(i);
 		g_sm_choice[SM_SORT] = ch_make(&P[4], SORT_COUNT, v->sort, false);
 		{
@@ -1186,9 +1262,56 @@ static const char *look_accent_name(void)
 	return T(ACCENT_NAME[look_now()->accent]);
 }
 
+/* Theme's three lists (src/ds/hover.h): the accent or the ground under
+ * the cursor on the whole screen, in memory (look_set, no setting and no
+ * theme file); a ground of the theme that is not on shows that theme while
+ * its list is open. The look as it was, back on undo. */
+static look g_lk_kept;
+static bool g_lk_showing;
+
+static void look_show(app *a, int row, int k)
+{
+	look l;
+
+	if (!g_lk_showing) {
+		g_lk_kept = *look_now();
+		g_lk_showing = true;
+	}
+	l = g_lk_kept;
+	if (row == LK_ACCENT && k >= 0 && k < DS_ACCENTS) l.accent = k;
+	if (row == LK_LIGHT && k >= 0 && k < DS_TONES) l.tone[DS_LIGHT] = k;
+	if (row == LK_DARK && k >= 0 && k < DS_TONES) l.tone[DS_DARK] = k;
+	look_set(&l);
+	theme_show(row == LK_LIGHT ? DS_LIGHT : row == LK_DARK ? DS_DARK : -1);
+	theme_changed(a);
+}
+
+static void look_undo(void *app_, int kept)
+{
+	(void)kept;
+	if (!g_lk_showing) return;
+	g_lk_showing = false;
+	look_set(&g_lk_kept);
+	theme_show(-1);
+	theme_changed(app_);
+}
+
+static void accent_show(void *app_, int k) { look_show(app_, LK_ACCENT, k); }
+static void light_show(void *app_, int k) { look_show(app_, LK_LIGHT, k); }
+static void dark_show(void *app_, int k) { look_show(app_, LK_DARK, k); }
+
+static const ds_hover LK_ACCENT_HOVER = { .show = accent_show, .undo = look_undo };
+static const ds_hover LK_LIGHT_HOVER = { .show = light_show, .undo = look_undo };
+static const ds_hover LK_DARK_HOVER = { .show = dark_show, .undo = look_undo };
+
 /* Theme's rows' choices (menu.h's menu_choice): the accents and each
  * theme's grounds, as look_key steps them, so A opens their list */
 static menu_choice g_lk_choice[LK_ROWS];
+
+const menu_choice *theme_choices(void)
+{
+	return g_lk_choice;
+}
 
 int look_build(void *ctx, menu_row *rows, int max, const char **heading)
 {
@@ -1201,11 +1324,12 @@ int look_build(void *ctx, menu_row *rows, int max, const char **heading)
 	for (t = 0; t < DS_THEMES; t++)
 		for (i = 0; i < DS_TONES; i++) tone[t][i] = T(TONE_NAME[t][i]);
 	memset(g_lk_choice, 0, sizeof g_lk_choice);
-	g_lk_choice[LK_ACCENT] = (menu_choice){ .n = DS_ACCENTS, .cur = (unsigned char)l->accent, .labels = acc };
+	g_lk_choice[LK_ACCENT] = (menu_choice){ .n = DS_ACCENTS, .cur = (unsigned char)l->accent, .labels = acc,
+	                                        .hover = &LK_ACCENT_HOVER };
 	g_lk_choice[LK_LIGHT] = (menu_choice){ .n = DS_TONES, .cur = (unsigned char)l->tone[DS_LIGHT],
-	                                       .labels = tone[DS_LIGHT] };
+	                                       .labels = tone[DS_LIGHT], .hover = &LK_LIGHT_HOVER };
 	g_lk_choice[LK_DARK] = (menu_choice){ .n = DS_TONES, .cur = (unsigned char)l->tone[DS_DARK],
-	                                      .labels = tone[DS_DARK] };
+	                                      .labels = tone[DS_DARK], .hover = &LK_DARK_HOVER };
 	*heading = T(S_SYSMENU_THEME);
 	rows[LK_ACCENT]  = (menu_row){ T(S_LOOK_ACCENT), T(ACCENT_NAME[l->accent]), true };
 	rows[LK_LIGHT]   = (menu_row){ T(S_LOOK_BG_LIGHT), T(TONE_NAME[DS_LIGHT][l->tone[DS_LIGHT]]), true };
@@ -1541,11 +1665,9 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 	/* The home layout is independent of Appearance and the selected system. */
 	if (sel == PM_HOME && (d || key == IN_ACCEPT)) {
 		/* Spotlight, Gallery, Grid and round: Right on, Left back; A opens
-		 * the three as a list (menu_choices' PM_HOME, the runner's) */
-		a->home_layout = (home_layout)(((int)a->home_layout + (d < 0 ? HOME_LAYOUTS - 1 : 1)) % HOME_LAYOUTS);
-		db_set_str(db_dev(), "home", home_id(a->home_layout));
-		home_reset(&a->home, a->sys_cursor, a->sys.count, plat_now_ms());
-		redraw_now();
+		 * the three as a list (menu_choices' PM_HOME, the runner's). START
+		 * on the home turns it on too (home_turn). */
+		home_turn(a, d < 0 ? -1 : 1);
 		return MENU_CHANGED;
 	}
 	/* Charge Limit, round Off, 80%, 85% and 90% as Side Lights goes round its
@@ -1786,6 +1908,21 @@ void zyperos_menu_for(app *a, int screen)
 void zyperos_menu(app *a)
 {
 	zyperos_menu_for(a, a->screen);
+}
+
+/* Theme's lists through what their cursors show (src/hover_sweep.h) */
+static int sweep_theme(app *a, void *ctx, menu_row *rows, int max, const menu_choice **choices)
+{
+	const char *h;
+
+	(void)a; (void)ctx;
+	*choices = g_lk_choice;
+	return look_build(NULL, rows, max, &h);
+}
+
+void sysmenu_hover_sweep(app *a)
+{
+	hover_sweep_page(a, "theme", sweep_theme, NULL);
 }
 
 void sysmenu_rows_report(app *a)

@@ -168,6 +168,10 @@ typedef struct {
 	/* A picture at each row's left, by place: the Achievements tab's
 	 * badges (main.c's g_row_icon while the panel is drawn). NULL: none. */
 	SDL_Texture *(*row_icon)(int row);
+	/* Told the cursor's row each pass, after the keys and before the
+	 * frame is drawn, so an option's list shows the choice under it
+	 * (src/ds/hover.h) in the frame the cursor reaches it. NULL: none. */
+	void   (*at)(app *a, void *ctx, int sel);
 } menu_style;
 
 /* ---- the menu runner (main.c's menu_run) ------------------------------------
@@ -703,6 +707,7 @@ bool pacing_row_shown(const app *a, int sys);
 bool dslang_row_shown(const app *a, int sys);
 const char *dslang_label(dsl_choice c, char *buf, size_t n);
 void view_turn(app *a, int sys, int dir);
+void home_turn(app *a, int dir);
 float grid_shape_load(const app *a, int sys);
 void grid_shape_save(const app *a, int sys, float shape);
 void sort_save(app *a);

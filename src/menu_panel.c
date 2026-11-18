@@ -9,6 +9,7 @@
 #include "ds/layout.h"
 #include "ds/mark.h"      /* the more marks */
 #include "ds/preview.h"   /* an option list's picture column */
+#include "ds/hover.h"     /* what its cursor shows */
 #include "look.h"
 #include "panel.h"
 #include "sys_menu.h"   /* SM_NOTE_W: a choice's line, as the Display row's */
@@ -960,10 +961,14 @@ void menu_panel(app *a, const char *heading, const menu_row *rows,
 		if (tween_moving(&give, nw)) redraw_now();    /* the list still easing: moving */
 	}
 
-	/* No plate on a note nothing can land on: a list that is only that (the
-	 * in-game menu's Controls tab before it has rows) has no cursor to show */
+	/* No plate where the cursor has nothing to land on: on a note (the
+	 * in-game menu's Controls tab before it has rows), or anywhere in a list
+	 * with no row it can take (no live row, and not visits_all), which is a
+	 * message and not a choice: the Achievements tab's "RetroAchievements has
+	 * no achievements for this game", for one. A plate there read as a row
+	 * to pick. */
 	if (sel >= 0 && sel < n && rows[sel].label &&
-	    !(ROW_IS_NOTE(rows[sel]) && !rows[sel].live)) {
+	    !(ROW_IS_NOTE(rows[sel]) && !rows[sel].live) && menu_rows_landable(rows, n, visits_all)) {
 		static int   pl_n = -1;
 		static unsigned pl_ep;
 		static tween pl_y, pl_h;
@@ -1490,6 +1495,9 @@ typedef struct {
 	int note_lines;            /* its note's room: the set's tallest */
 	/* Told the choice under the cursor on every pass (menu_pick_focus) */
 	void (*focus)(void *app, int k);
+	/* What the cursor shows (menu_pick_hover), run by `run` */
+	const ds_hover *hover;
+	ds_hover_run run;
 	app *app;
 	int sel;                   /* the cursor, as the runner leaves it (sel_out) */
 	unsigned char sound[MENU_CHOICES_MAX + 3];
@@ -1557,10 +1565,27 @@ static void pick_backdrop(app *a, void *ctx, float k)
 static menu_result pick_power(app *a, void *ctx)
 {
 	pick_ctx *p = ctx;
-	menu_result r = p->over->on_power(a, p->over_ctx);
+	menu_result r;
 
+	/* What the cursor shows put back first: the power-off keeps the
+	 * place and the theme, and must keep the kept one, not the shown */
+	ds_hover_end(&p->run);
+	if (!p->over || !p->over->on_power) {
+		power_off(a);
+		return MENU_DONE;
+	}
+	r = p->over->on_power(a, p->over_ctx);
 	if (r == MENU_DONE) p->powered = true;
 	return r;
+}
+
+/* The cursor where it is for this frame: the choice under it shown */
+static void pick_at(app *a, void *ctx, int sel)
+{
+	pick_ctx *p = ctx;
+
+	(void)a;
+	ds_hover_at(&p->run, sel >= 0 && sel < p->n ? sel : 0);
 }
 
 static pick_ctx g_pick_list;
@@ -1631,13 +1656,14 @@ static void pick_side(app *a, const menu_side *at)
 static int pick_run(app *a, const menu_style *from, void *from_ctx, const char *heading,
                     const char *const *labels, const char *const *notes,
                     void (*preview)(void *app, int k, int x, int y, int w, int h),
-                    void (*focus)(void *app, int k), int n, int ticked, int at)
+                    void (*focus)(void *app, int k), const ds_hover *hover, int n, int ticked, int at)
 {
 	pick_ctx *const q = &g_pick_list;
 
 	memset(q, 0, sizeof *q);
 	q->preview = preview;
 	q->focus = focus;
+	q->hover = hover;
 	q->app = a;
 	q->heading = heading;
 	q->labels = labels;
@@ -1652,25 +1678,30 @@ static int pick_run(app *a, const menu_style *from, void *from_ctx, const char *
 	const int width = menu_pick_width(a, from && from->fixed_w ? from->fixed_w : menu_std_width(a),
 	                                  labels, q->n, ticked, preview != NULL, &q->side_w);
 	q->note_lines = preview ? menu_pick_note_room(notes, q->n, q->side_w) : 0;
+	ds_hover_begin(&q->run, hover, a, ticked, cur >= 0 && cur < q->n ? cur : 0);
 
 	menu_run(a, &(menu_style){ .accent = from ? from->accent : MENU_ZYPEROS,
 	                           .follow_tint = from && from->follow_tint,
 	                           .backdrop = from && from->backdrop ? pick_backdrop : NULL,
-	                           .on_power = from && from->on_power ? pick_power : NULL,
+	                           .on_power = pick_power,
 	                           .fixed_w = width,
 	                           .sound = q->sound, .start_sel = cur >= 0 && cur < q->n ? cur : 0,
 	                           .sel_out = notes || focus ? &q->sel : NULL, .pin_foot = !preview,
 	                           .side = preview ? pick_side : NULL,
-	                           .side_w = q->side_w },
+	                           .side_w = q->side_w,
+	                           .at = hover ? pick_at : NULL },
 	         pick_build, pick_key, q);
 	if (focus) focus(a, -1);
+	/* Closed, whichever way: what is kept back before A's choice is
+	 * applied, so the row steps it from the kept one */
+	ds_hover_end(&q->run);
 	return q->powered ? MENU_PICK_POWER : q->picked;
 }
 
 int menu_pick(app *a, const menu_style *from, void *from_ctx, const char *heading,
               const char *const *labels, const char *const *notes, int n, int ticked, int at)
 {
-	return pick_run(a, from, from_ctx, heading, labels, notes, NULL, NULL, n, ticked, at);
+	return pick_run(a, from, from_ctx, heading, labels, notes, NULL, NULL, NULL, n, ticked, at);
 }
 
 int menu_pick_preview(app *a, const menu_style *from, void *from_ctx, const char *heading,
@@ -1678,12 +1709,19 @@ int menu_pick_preview(app *a, const menu_style *from, void *from_ctx, const char
                       void (*preview)(void *app, int k, int x, int y, int w, int h),
                       int n, int ticked, int at)
 {
-	return pick_run(a, from, from_ctx, heading, labels, notes, preview, NULL, n, ticked, at);
+	return pick_run(a, from, from_ctx, heading, labels, notes, preview, NULL, NULL, n, ticked, at);
 }
 
 int menu_pick_focus(app *a, const menu_style *from, void *from_ctx, const char *heading,
                     const char *const *labels, const char *const *notes,
                     void (*focus)(void *app, int k), int n, int ticked, int at)
 {
-	return pick_run(a, from, from_ctx, heading, labels, notes, NULL, focus, n, ticked, at);
+	return pick_run(a, from, from_ctx, heading, labels, notes, NULL, focus, NULL, n, ticked, at);
+}
+
+int menu_pick_hover(app *a, const menu_style *from, void *from_ctx, const char *heading,
+                    const char *const *labels, const char *const *notes, const ds_hover *hover,
+                    int n, int ticked, int at)
+{
+	return pick_run(a, from, from_ctx, heading, labels, notes, NULL, NULL, hover, n, ticked, at);
 }
