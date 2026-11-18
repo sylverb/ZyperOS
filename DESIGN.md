@@ -3990,7 +3990,8 @@ Before, START did nothing on a shelf. On the home it steps the Home
 Screen's layout the same way (11.1). The foot names where it goes:
 **START Grid** under the covers, **START List** under the grid, **START
 Covers** under the list; MENU > Controls has it
-on the shelf's page. The tutorial is as it was: it teaches one button a
+on the shelf's page, as **Home Screen or View**: the two MENU rows START
+steps, the home's first, as A's **Open or play** puts the home's first. The tutorial is as it was: it teaches one button a
 step, its START skips it, and its last page sends you to MENU > Controls.
 
 The heading and the foot are the cover row's (START's word apart), so
