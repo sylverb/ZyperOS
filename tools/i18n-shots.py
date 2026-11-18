@@ -33,7 +33,7 @@ what a longer translation would meet, which fails only with --strict.
 Shots, not pictures held to a reference: what is drawn is the launcher's own,
 and English's frames are held by the other shot checks. Each language has its
 own scratch cards, cloned from one set made once a run, so they run at once,
-as many as the computer has cores free (--jobs says otherwise). Stopped
+one launcher a language and handheld (--jobs says otherwise). Stopped
 (Ctrl-C, SIGTERM, a closed terminal), each language ends after its shot and
 every scratch card goes. A pass is kept by the launcher's bytes and the
 inputs its verdict is made of, and the same again prints it and passes at
@@ -1191,20 +1191,6 @@ def shot_list(only=()):
     return shots
 
 
-def default_jobs(runs):
-    """Launchers at once when --jobs does not say: a language and handheld
-    each, as many as the cores this computer has free now (its load taken
-    off), two at least. Eighteen at once on a computer six other checks
-    were loading took its load to 39 on 16 cores (2026-11-17), and was no
-    faster for it."""
-    cores = os.cpu_count() or 4
-    try:
-        load = os.getloadavg()[0]
-    except OSError:
-        load = 0
-    return max(2, min(runs, int(cores - load)))
-
-
 def cache_dir():
     if os.environ.get("ZYPEROS_SHOTS_CACHE_DIR"):
         return Path(os.environ["ZYPEROS_SHOTS_CACHE_DIR"]).expanduser()
@@ -1352,7 +1338,10 @@ def check():
     keep = args.keep.resolve() if args.keep else None
     runs = [(d, c) for d in devices for c in langs]
 
-    jobs = args.jobs or default_jobs(len(runs))
+    # One launcher a language and handheld, as before 2026-11-18: fewer when
+    # the computer was loaded (its free cores) left a make check's run at two
+    # launchers under other sessions' load, 712.9 s where 18 at once took 166
+    jobs = max(1, min(args.jobs or len(runs), len(runs)))
     results = {}
     template = Path(tempfile.mkdtemp(prefix="zyperos-i18n-cards-"))
     SCRATCH.append(str(template))
