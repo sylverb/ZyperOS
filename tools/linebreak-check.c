@@ -500,31 +500,32 @@ static void chinese(void)
 	size_t t;
 
 	printf("Chinese: between its characters, never at a mark's wrong side\n");
-	for (t = 0; t < sizeof texts / sizeof texts[0]; t++) {
+	for (t = 0; t < sizeof texts / sizeof texts[0] * 2; t++) {
 		for (int maxw = 60; maxw <= 300; maxw += 24) {
 			char joined[1024] = "", plain[1024] = "";
-			int n = lb_balance(texts[t], maxw, LB_MAX_LINES, width, NULL, lines), i;
+			/* balanced, then filled (lb_fill breaks where lb_balance may) */
+			int n = (t % 2 ? lb_fill : lb_balance)(texts[t / 2], maxw, LB_MAX_LINES, width, NULL, lines), i;
 			const char *q;
 			char *o;
 
 			for (i = 0; i < n; i++) {
 				snprintf(msg, sizeof msg, "\"%s\" in %d: line %d \"%s\" is %d wide",
-				         texts[t], maxw, i, lines[i], width(NULL, lines[i]));
+				         texts[t / 2], maxw, i, lines[i], width(NULL, lines[i]));
 				ck(width(NULL, lines[i]) <= maxw, msg);
 				ck(valid_utf8(lines[i]), msg);
 				snprintf(msg, sizeof msg, "\"%s\" in %d: line %d \"%s\" starts or ends at a mark",
-				         texts[t], maxw, i, lines[i]);
+				         texts[t / 2], maxw, i, lines[i]);
 				ck(!bad_edge(lines[i]), msg);
 				strcat(joined, lines[i]);
 			}
 			if (strstr(joined, "...")) continue;      /* a word cut to fit: not the whole */
 			/* Joined without spaces, it is the text without the spaces a
 			 * break took at a Latin word's edge */
-			for (q = texts[t], o = plain; *q; q++) if (*q != ' ') *o++ = *q;
+			for (q = texts[t / 2], o = plain; *q; q++) if (*q != ' ') *o++ = *q;
 			*o = '\0';
 			for (q = joined, o = joined; *q; q++) if (*q != ' ') *o++ = *q;
 			*o = '\0';
-			snprintf(msg, sizeof msg, "\"%s\" in %d lines of %d: joined \"%s\"", texts[t], n, maxw, joined);
+			snprintf(msg, sizeof msg, "\"%s\" in %d lines of %d: joined \"%s\"", texts[t / 2], n, maxw, joined);
 			ck(!strcmp(joined, plain), msg);
 		}
 	}
@@ -536,6 +537,144 @@ static void chinese(void)
 	}
 }
 
+/* ---- filled: a sentence set left across a list's width ----------------------
+ *
+ * The in-game menu's Achievements tab says why a game has no list in a panel
+ * as wide as every tab, and balanced, its lines stopped well short of the
+ * panel's right margin (Tarik, testing 1.0.6). lb_fill fills them: each line
+ * as far as it goes, which is the greedy break the oracle above makes, never
+ * over the cap or the box, and cut at the end of the last as lb_balance cuts
+ * a text that does not fit. */
+
+static void filled(void)
+{
+	static const char *letters[] = { "a", "e", "i", "l", "m", "w", "S", "T", "o", "r",
+	                                 "\xc3\xa9", ":", "1", "-" };
+	char text[512], lines[LB_MAX_LINES][LB_LINE], want[64][LB_LINE], msg[768];
+	int t, bad = 0, n;
+
+	printf("filled: each line as far as it goes, over 2000 random sentences\n");
+	n = lb_fill("aaaa bbbb cccc", width(NULL, "aaaa bbbb"), 3, width, NULL, lines);
+	ck(n == 2 && !strcmp(lines[0], "aaaa bbbb") && !strcmp(lines[1], "cccc"),
+	   "filled: as many words as fit on the first line, the rest under it");
+	n = lb_balance("aaaa bbbb cccc", width(NULL, "aaaa bbbb"), 3, width, NULL, lines);
+	ck(n == 2 && !strcmp(lines[0], "aaaa"), "balanced: the same words near one length");
+	n = lb_fill("Cave Story", 500, 3, width, NULL, lines);
+	ck(n == 1 && !strcmp(lines[0], "Cave Story"), "filled: one line when it fits");
+	ck(lb_fill("", 500, 3, width, NULL, lines) == 0 && lb_fill(NULL, 500, 3, width, NULL, lines) == 0 &&
+	   lb_fill("Cave Story", 500, 0, width, NULL, lines) == 0, "filled: no text, or no lines, is none");
+
+	for (t = 0; t < 2000 && bad < 8; t++) {
+		words ws;
+		int nw = 1 + (int)rnd(20), cap = 1 + (int)rnd(6), maxw = 30 + (int)rnd(400);
+		int i, g, any_long = 0;
+
+		text[0] = '\0';
+		for (i = 0; i < nw; i++) {
+			int len = 1 + (int)rnd(12), c;
+
+			if (i) strcat(text, rnd(5) ? " " : "  ");
+			for (c = 0; c < len; c++) strcat(text, letters[rnd(sizeof letters / sizeof *letters)]);
+		}
+		split(text, &ws);
+		for (i = 0; i < ws.n; i++)
+			if (width(NULL, ws.w[i]) > maxw) any_long = 1;
+		n = lb_fill(text, maxw, cap, width, NULL, lines);
+		if (n < 1 || n > cap) {
+			snprintf(msg, sizeof msg, "filled \"%s\" in %d, cap %d: %d lines", text, maxw, cap, n);
+			ck(0, msg);
+			bad++;
+			continue;
+		}
+		for (i = 0; i < n; i++)
+			if (width(NULL, lines[i]) > maxw || !valid_utf8(lines[i])) {
+				snprintf(msg, sizeof msg, "filled \"%s\" in %d, cap %d: line \"%s\" is %d wide",
+				         text, maxw, cap, lines[i], width(NULL, lines[i]));
+				ck(0, msg);
+				bad++;
+			}
+		if (any_long) continue;
+		g = greedy(&ws, maxw, want);
+		if (g > cap) {
+			if (n != cap || !ends_with(lines[n - 1], "...")) {
+				snprintf(msg, sizeof msg, "filled \"%s\" in %d needs %d lines, cap %d: %d, the last \"%s\"",
+				         text, maxw, g, cap, n, lines[n - 1]);
+				ck(0, msg);
+				bad++;
+			}
+			for (i = 0; i < cap - 1; i++)
+				if (strcmp(lines[i], want[i])) {
+					snprintf(msg, sizeof msg, "filled \"%s\" in %d: line %d \"%s\", greedy \"%s\"",
+					         text, maxw, i, lines[i], want[i]);
+					ck(0, msg);
+					bad++;
+				}
+			continue;
+		}
+		for (i = 0; i < n && n == g; i++)
+			if (strcmp(lines[i], want[i])) break;
+		if (n != g || i < n) {
+			snprintf(msg, sizeof msg, "filled \"%s\" in %d, cap %d: %d lines, greedy %d (line %d \"%s\")",
+			         text, maxw, cap, n, g, i, i < n ? lines[i] : "");
+			ck(0, msg);
+			bad++;
+		}
+		/* The fewest lines, as the balanced break's */
+		if (n != lb_balance(text, maxw, cap, width, NULL, want)) {
+			snprintf(msg, sizeof msg, "filled \"%s\" in %d: %d lines, balanced in fewer or more",
+			         text, maxw, n);
+			ck(0, msg);
+			bad++;
+		}
+	}
+}
+
+/* The ">" of a way through the menus goes with the word before it: "in MENU"
+ * over "> Achievements, ..." was what filling the Achievements tab's sentence
+ * first drew (1.0.6). Only the ">": the name after it can be words of its
+ * own ("System Update"), which a line breaks between as any. */
+static void paths(void)
+{
+	static const char *const texts[] = {
+		"Sign in to RetroAchievements in MENU > Achievements, then play with Wi-Fi.",
+		"Open MENU > System Update. Then MENU > Display > Theme, or not.",
+		"Melde dich unter MENU > Erfolge bei RetroAchievements an und spiele dann.",
+		"PortMaster needs a newer ZyperOS system. Update it in MENU > System Update, then come back.",
+	};
+	char lines[LB_MAX_LINES][LB_LINE], msg[512];
+	size_t t;
+
+	printf("no line starts with the \">\" of \"MENU > Achievements\"\n");
+	for (t = 0; t < sizeof texts / sizeof texts[0]; t++)
+		for (int maxw = 120; maxw <= 700; maxw += 7)
+			for (int fill = 0; fill < 2; fill++) {
+				int n = (fill ? lb_fill : lb_balance)(texts[t], maxw, LB_MAX_LINES, width, NULL, lines), i;
+
+				for (i = 0; i < n; i++) {
+					snprintf(msg, sizeof msg, "%s \"%s\" in %d: line %d \"%s\" starts with \">\"",
+					         fill ? "filled" : "balanced", texts[t], maxw, i, lines[i]);
+					ck(lines[i][0] != '>', msg);
+				}
+			}
+	{
+		int n = lb_fill("Update it in MENU > System Update", width(NULL, "Update it in MENU > System"), 3,
+		                width, NULL, lines);
+
+		ck(n == 2 && !strcmp(lines[0], "Update it in MENU > System") && !strcmp(lines[1], "Update"),
+		   "the name after the \">\" breaks as any words");
+		n = lb_fill("Update it in MENU > System", width(NULL, "Update it in MENU"), 3, width, NULL, lines);
+		ck(n == 2 && !strcmp(lines[0], "Update it in") && !strcmp(lines[1], "MENU > System"),
+		   "a \">\" that does not fit after its word takes the word down with it");
+		n = lb_fill("MENU > Achievements", 500, 2, width, NULL, lines);
+		ck(n == 1 && !strcmp(lines[0], "MENU > Achievements"), "a path that fits is one line");
+		n = lb_fill("Go Back >", width(NULL, "Go Back"), 2, width, NULL, lines);
+		ck(n == 2 && !strcmp(lines[0], "Go") && !strcmp(lines[1], "Back >"),
+		   "a \">\" at the end stays with its word");
+		n = lb_fill("a >b c", 500, 2, width, NULL, lines);
+		ck(n == 1 && !strcmp(lines[0], "a >b c"), "a \">\" inside a word is the word's");
+	}
+}
+
 int main(void)
 {
 	chinese();
@@ -544,13 +683,15 @@ int main(void)
 	capped();
 	cut_word();
 	random_names();
+	filled();
+	paths();
 	edges();
 	if (fails) {
 		printf("\n%d FAILED\n", fails);
 		return 1;
 	}
 	printf("\nok: one line when it fits, else the fewest lines and the narrowest widest; "
-	       "never over the cap or the box; cuts as ui_fit_text; a window's edge "
-	       "between letters\n");
+	       "filled, each line as far as it goes; never over the cap or the box; no line "
+	       "starting with a path's \">\"; cuts as ui_fit_text; a window's edge between letters\n");
 	return 0;
 }

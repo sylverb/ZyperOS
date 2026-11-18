@@ -82,7 +82,10 @@ int achtab_rows(app *a, const at_facts *f, at_source at, achtab_bufs *b,
 		st->visits_all = true;
 	} else {
 		const char *text = T(at_message(b->state));
-		int k = ui_balance_lines(ui_font(UI_F_MENU), text, w, AT_LINES, b->lines);
+		/* Filled to the list's width, the panel's text width, as a
+		 * paragraph is: balanced, it stood in a narrow column at the
+		 * left of a panel as wide as every tab (Tarik, testing 1.0.6) */
+		int k = ui_fill_lines(ui_font(UI_F_MENU), text, w, AT_LINES, b->lines);
 
 		b->counts[0] = '\0';
 		b->mastered = false;

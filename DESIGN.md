@@ -1719,7 +1719,11 @@ not fill it with the ground.
 
 A name too wide for its box breaks balanced, not greedy: one line when it
 fits, else the fewest lines that fit and, of those, the break whose widest
-line is narrowest (src/linebreak.c).
+line is narrowest (src/linebreak.c). A sentence set left in a list's place
+(the in-game menu's Achievements tab, 11.46) is filled instead, each line as
+far as it goes, so it reaches the panel's right margin. Either way, the ">"
+of a way through the menus ("MENU > Achievements") stays with the word before
+it: no line starts with one.
 
 ### 11.12 Header and status corner
 
@@ -4477,7 +4481,11 @@ over the menu (src/achtab.h, src/achtab_screen.h).
 - **A** on a row opens the achievement's card, as in the list over the
   shelf. X quits from here too.
 - **No list**: a sentence where the list would be, **menu** **text-soft**,
-  balanced onto up to six lines, A doing nothing on it. In the order that
+  filled across the list's width onto up to six lines, A doing nothing on it:
+  each line as far as it goes, to the panel's right margin, as the panel's
+  other text is (Tarik, testing 1.0.6: "The empty achievements text in the
+  menu is not using the full menu's width"; balanced, it stood in a narrow
+  column at the left of a panel as wide as every tab). In the order that
   decides it: a set on the card is always the list; no hash for the system,
   or for the kind of file; nobody signed in; the set on its way (a first play
   with Wi-Fi); never played with Wi-Fi ("not checked yet"'s sentence); and
