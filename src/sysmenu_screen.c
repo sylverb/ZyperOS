@@ -160,15 +160,16 @@ static menu_choice ch_make(const ch_pool *p, int n, int cur, bool none)
 	                      .none = none, .labels = p->lab };
 }
 
-/* The shaders this device runs, in shader_step's order, `cur` the place of
- * shader `on` */
-static int ch_shaders(ch_pool *p, int on, int *cur)
+/* The shaders this device runs for the system tagged `tag`, in
+ * shader_step's order, `cur` the place of shader `on` */
+static int ch_shaders(ch_pool *p, int on, int *cur, const char *tag)
 {
 	int k, n = 0;
 
 	*cur = 0;
 	for (k = 0; k < SHADER_COUNT && n < CH_MAX; k++) {
 		if (SHADERS[k].gpu && !plat_gpu_shaders()) continue;
+		if (!shader_for(k, tag)) continue;
 		if (k == on) *cur = n;
 		p->lab[n++] = shader_label(k);
 	}
@@ -288,10 +289,11 @@ static void sm_pace_preview(void *app_, int k, int x, int y, int w, int h)
 /* The Shader and Strength lists' picture (src/shaderdemo.h): a system's
  * menu with its own shader and strength, as the lists were made */
 static int g_sm_demo_shader, g_sm_demo_strength;
+static const char *g_sm_demo_tag;
 
 static void sm_shader_preview(void *app_, int k, int x, int y, int w, int h)
 {
-	shader_demo_draw(app_, shader_offered(k), g_sm_demo_strength, x, y, w, h);
+	shader_demo_draw(app_, shader_at(k, g_sm_demo_tag), g_sm_demo_strength, x, y, w, h);
 }
 
 static void sm_strength_preview(void *app_, int k, int x, int y, int w, int h)
@@ -404,9 +406,10 @@ static void menu_choices(app *a, int sys, bool games)
 
 			g_sm_demo_shader = v->shader;
 			g_sm_demo_strength = strength_clamp(v->strength);
-			n = ch_shaders(&P[6], v->shader, &cur);
+			g_sm_demo_tag = a->sys.systems[a->sys_cursor].tag;
+			n = ch_shaders(&P[6], v->shader, &cur, g_sm_demo_tag);
 			g_sm_choice[SM_SHADER] = ch_make(&P[6], n, cur, false);
-			shader_demo_notes(snotes, n);
+			shader_demo_notes(snotes, n, g_sm_demo_tag);
 			g_sm_choice[SM_SHADER].notes = snotes;
 			g_sm_choice[SM_SHADER].preview = sm_shader_preview;
 			n = ch_strengths(&P[7], strength_clamp(v->strength), &cur);
@@ -1622,7 +1625,7 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 		if ((d || key == IN_ACCEPT) && sel == SM_SHADER) {
 			sysview *v = &a->view[a->sys_cursor];
 
-			v->shader = shader_step(v->shader, d ? d : 1);
+			v->shader = shader_step(v->shader, d ? d : 1, a->sys.systems[a->sys_cursor].tag);
 			shader_save(a, a->sys_cursor);
 			return MENU_STAY;
 		}

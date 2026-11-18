@@ -5259,3 +5259,55 @@ its own." The Strength list the same, its step on the whole screen.
 Host shots: `screens-crt-curved-home`, `screens-scanlines-shelf`,
 `screens-lcd-menu`, and MENU's `menu-shader`, `menu-shader-list`,
 `menu-strength` with the screens' shader on (tools/i18n-shots.py).
+
+### 11.51 LCD No Backlight
+*(Asked for on Discord, 2026-11-18: the Game Boy Color and the Game Boy
+Advance had no backlight, so white was the screen itself, not a glow. An
+idea from mattakins's Pixel Transparency for RetroArch; ZyperOS's shader is
+its own, LCD Grid's with a step after its read.)*
+
+**What it is.** A shader for the Game Boy's three alone (GB, GBC, GBA): their
+LCD grid as the screen looked with nothing lit behind it. A light pixel let
+the light through to the reflective backing, so a white background was that
+backing's dull, slightly green grey (0.78, 0.80, 0.71), and the dark pixels
+sat on it. Each pixel goes toward the backing by its luma squared, a soft
+curve: white is the backing, black stays black, a dark grey moves a little.
+The liquid crystal sits above the backing, so a dark pixel casts a shadow on
+it, 0.4 of a game pixel down and to the right, 35% dark at most, with a
+quarter-pixel soft edge and no blur; it shows only through light pixels.
+LCD Grid's grid over all of it. Strength scales the backing's share, the
+shadow and the grid together; 10% is close to Sharp-Shimmerless.
+
+**Where it is offered.** SHADERS' `only` (src/app.h, `shader_for`): the
+systems' rows (the system menu's Shader and the in-game Display tab's) list
+it on those three shelves and their games, a Favorite's by its own system,
+and nowhere else. Never ZyperOS's own screens (11.50): it changes what a
+game's light pixels are, and the screens' white is the theme's. A card
+that names it for another system, `shader.<TAG>` or the old `shader` key
+(an edited database), gets that system's default instead: the old key's
+where that is for it, else Off. `launcher_shader` naming it is Off. Off by
+default everywhere, as every shader. The Pixel 2 only, as the old screens;
+the Brick has no row for it.
+
+**What it costs.** Diatom's `lcd-unlit` filter (diatom/port/pixel2.c): LCD
+Grid's one texture read and its arithmetic, then one more read for the
+shadow, a sharp-bilinear point at the texel up and left, and a few sums.
+Two reads a pixel, where the others but the CRT take one; a Game Boy's
+picture is small, so the GPU has room. Measured on the Pixel 2 (2026-11-18,
+Metroid Fusion, a fresh start each, a minute of px2-perf, power medium):
+LCD Grid 60.1 frames a second, the GPU at 300 MHz, the CPU at 790-797 MHz;
+LCD No Backlight the same 60.1, 300 MHz and 772-814 MHz, no clock climbed
+in either. With the GPU held at its lowest step, 200 MHz, both still show
+60.1 and miss no refresh. tools/shaderdemo-device.sh puts the device's
+picture within 1 level of tools/shaderdemo.c's (mean 0.27).
+
+**Its picture.** The Shader list's picture of it (11.3, a choice with a
+picture) is a Game Boy Color's 160x144 scene of ZyperOS's own on white,
+at Original Shape's square pixels (tools/shaderdemo.c `draw_handheld`): the
+same Zyper, score and ledge as the others' scene, which has almost no white
+to change.
+
+Host shots: `gamemenu-shader-lcd-unlit`, `gamemenu-shader-list-lcd-unlit`,
+`system-menu-shader-list-gba`, and where it is not offered with a card that
+names it, `system-menu-shader-list-snes` and `menu-shader-list-unlit`
+(tools/i18n-shots.py).

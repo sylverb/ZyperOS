@@ -13,12 +13,13 @@
 #include "platform.h"
 #include "strength.h"
 
-int shader_offered(int k)
+int shader_at(int k, const char *tag)
 {
 	int i, n = 0;
 
 	for (i = 0; i < SHADER_COUNT; i++) {
 		if (SHADERS[i].gpu && !plat_gpu_shaders()) continue;
+		if (!shader_for(i, tag)) continue;
 		if (n++ == k) return i;
 	}
 	return 0;
@@ -28,11 +29,12 @@ int shader_offered(int k)
 static const str_id NOTE[SHADER_COUNT] = {
 	S_GAMEMENU_SHADER_OFF_NOTE, S_GAMEMENU_SHADER_SHIMMERLESS_NOTE, S_GAMEMENU_SHADER_CRT_NOTE,
 	S_GAMEMENU_SHADER_CRT_CURVED_NOTE, S_GAMEMENU_SHADER_SCANLINES_NOTE, S_GAMEMENU_SHADER_LCD_NOTE,
+	S_GAMEMENU_SHADER_LCD_UNLIT_NOTE,
 };
 
-void shader_demo_notes(const char **out, int n)
+void shader_demo_notes(const char **out, int n, const char *tag)
 {
-	for (int k = 0; k < n; k++) out[k] = T(NOTE[shader_offered(k)]);
+	for (int k = 0; k < n; k++) out[k] = T(NOTE[shader_at(k, tag)]);
 }
 
 void shader_demo_strength_notes(const char **out, int steps)

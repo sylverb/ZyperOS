@@ -792,7 +792,7 @@ extern const char *shot_path;
 extern int shot_cheevos_waiting;
 void present_clear(app *a, ds_rgb c);
 void drawn_forget(void);
-int shader_step(int k, int d);
+int shader_step(int k, int d, const char *tag);
 void display_save(app *a);
 void shader_save(app *a, int sys);
 const char *strength_row_label(const app *a, int sys);

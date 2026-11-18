@@ -635,6 +635,25 @@ SHOT_SETTINGS["gamemenu-strength-list"] = {"shader.PS1": "crt", "shader_strength
 EXTRA.setdefault("menu-shader-list", ("demo", "PS1", ["--menu", "Shader", "--press", "a"]))
 SHOT_SETTINGS["menu-shader-list"] = {"launcher_shader": "scanlines"}
 
+# LCD No Backlight (src/app.h SHADERS' only), the Game Boy's three's alone:
+# in the in-game menu of a Game Boy Advance game, its row and its list under
+# the cursor; the GBA shelf's own Shader list with it; and where it is not
+# offered, with a card edited to name it: the SNES shelf's list (Off, the
+# SNES's default, and no such row) and MENU's, the screens' own (Off)
+EXTRA.setdefault("gamemenu-shader-lcd-unlit", ("demo", "GBA", ["--screen", "games", "--gamemenu", "1",
+                                                               "--gm-tab", "1"]))
+SHOT_SETTINGS["gamemenu-shader-lcd-unlit"] = {"shader.GBA": "lcd-unlit"}
+EXTRA.setdefault("gamemenu-shader-list-lcd-unlit",
+                 ("demo", "GBA", ["--gamemenu", "1", "--gm-tab", "1", "--gm-choose", "--pick-at", "6"]))
+EXTRA.setdefault("system-menu-shader-list-gba", ("demo", "GBA", ["--screen", "games", "--menu", "Shader",
+                                                                 "--press", "a"]))
+SHOT_SETTINGS["system-menu-shader-list-gba"] = {"shader.GBA": "lcd-unlit"}
+EXTRA.setdefault("system-menu-shader-list-snes", ("demo", "SNES", ["--screen", "games", "--menu", "Shader",
+                                                                   "--press", "a"]))
+SHOT_SETTINGS["system-menu-shader-list-snes"] = {"shader.SNES": "lcd-unlit"}
+EXTRA.setdefault("menu-shader-list-unlit", ("demo", "PS1", ["--menu", "Shader", "--press", "a"]))
+SHOT_SETTINGS["menu-shader-list-unlit"] = {"launcher_shader": "lcd-unlit"}
+
 # The Strength row under each Shader row while the shader is an old screen
 # (src/strength.h): in the game on it, in the system menu, and MENU's, the
 # screens' own, a system's own beside it changing nothing

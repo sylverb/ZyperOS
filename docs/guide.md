@@ -527,8 +527,8 @@ The system menu opens on a shelf of games and applies to that system alone:
 | **Sort By** | left/right; `Name`, `Play Time`, `Last Played` or `Recently Added` |
 | **View** | left/right, or A for the list; `Covers`, the row of covers, `Grid`, two rows of covers in cells shaped like the shelf's own art, or `List`, the games as a list of names with the focused one's cover beside it. START on the shelf steps it too, without the menu |
 | **Display** | how the picture fills the screen: Full Screen, Original Shape, Sharp Pixels, Sharp Pixels, Tall, Sharp Pixels, Zoomed, Fill, Edges Cut or Actual Size; left/right cycles it, and A opens the list, with a small picture of your game in the mode under the cursor and a line that says what it does; saved the moment it changes |
-| **Shader** | `Off`, `Sharp-Shimmerless`, `CRT`, `CRT Curved`, `Scanlines` or `LCD Grid`, for this system alone: left, right or A steps it, saved the moment it changes. The next game started plays with it |
-| **Strength** | right under Shader while it is `CRT`, `CRT Curved`, `Scanlines` or `LCD Grid`: `10%` to `100%`, for this system alone. Left and right step it 10% at a time and stop at the ends |
+| **Shader** | `Off`, `Sharp-Shimmerless`, `CRT`, `CRT Curved`, `Scanlines` or `LCD Grid`, and on the Game Boy, Game Boy Color and Game Boy Advance `LCD No Backlight` too, for this system alone: left, right or A steps it, saved the moment it changes. The next game started plays with it |
+| **Strength** | right under Shader while it is `CRT`, `CRT Curved`, `Scanlines`, `LCD Grid` or `LCD No Backlight`: `10%` to `100%`, for this system alone. Left and right step it 10% at a time and stop at the ends |
 | **Box Art** | fetch what this system is missing, and nothing else |
 | **Rescan Folder** | read the card again, for ROMs that arrived since boot |
 
@@ -602,6 +602,18 @@ a 224-line SNES game at twice its height. These four are the Pixel 2's,
 whose last step is its GPU's; the Brick draws them as Sharp-Shimmerless, and
 its rows step over them.
 
+`LCD No Backlight` is for the Game Boy, the Game Boy Color and the Game Boy
+Advance alone, and only their Shader rows offer it. Their screens had no
+light behind them: a light pixel let the light through to the screen's
+dull grey backing, so a white background looked like the screen itself,
+not a glowing white, and many games were drawn for that. This is LCD Grid
+with each pixel faded toward that backing by how light it is: white
+becomes the backing, black stays black, and the colors between move a
+little. A dark pixel also casts a faint shadow down and to the right on
+the backing, which shows next to light pixels. On the Pixel 2, as the
+other four. An idea from mattakins's Pixel Transparency for RetroArch;
+ZyperOS draws it with its own shader.
+
 The in-game menu's **Shader** row, in its Display tab right under Display, changes it for
 the game's system, from the next frame after Continue (the paused picture
 behind the menu stays as it was); the system menu's row does the same from
@@ -619,11 +631,12 @@ the one you see, its in-game menu included, and a video in the player plays
 as it is. It is `Off` to start with, and with `Off` the screen is drawn
 exactly as before. On the Pixel 2 only, as the old screens are.
 
-Under each Shader row, while the shader is one of the four old screens, a
+Under each Shader row, while the shader is one of the old screens, a
 **Strength** row says how strongly it is drawn: `100%` is the shader as it
 is, and each step of 10% down makes the dark lines and grid lighter, down to
 `10%`, a faint hint of them. On the CRT it softens the scanlines and the
-stripes together; a curved CRT keeps its curve. Like Shader, it is kept per
+stripes together; a curved CRT keeps its curve. On `LCD No Backlight` the
+backing, its shadows and the grid fade together. Like Shader, it is kept per
 system, and **MENU > Display > Strength** is ZyperOS's own screens'. It is
 `100%` to start with, the shaders as they were before the row.
 
