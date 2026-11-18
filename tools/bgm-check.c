@@ -732,7 +732,7 @@ static void menu(void)
 	   "Off, and still live to turn on");
 	ck(!rows[BGM_ROW_VOLUME].live && !rows[BGM_ROW_TRACK].live && !rows[BGM_ROW_NOW].live &&
 	   !rows[BGM_ROW_POPUP].live && !rows[BGM_ROW_BUILTIN].live, "the rest quiet while off");
-	ck(!strcmp(rows[BGM_ROW_NOW].value, "nothing"), "and nothing playing");
+	ck(!strcmp(rows[BGM_ROW_NOW].value, "Nothing"), "and nothing playing");
 
 	u.on = true;
 	u.popup = false;
@@ -768,7 +768,7 @@ static void menu(void)
 
 	ck(!strcmp(bgm_menu_value(true, 3), "On") && !strcmp(bgm_menu_value(false, 3), "Off"),
 	   "the ZyperOS menu's row says On or Off");
-	ck(!strcmp(bgm_menu_value(true, 0), "no tracks"), "or why it is silent");
+	ck(!strcmp(bgm_menu_value(true, 0), "No tracks"), "or why it is silent");
 }
 
 /* MP3 played gapless: a 1 s tone at 48 kHz (48,000 frames from its first

@@ -301,6 +301,20 @@ void hud_page(app *a, SDL_Texture *bg)
 	g_hm_bg = NULL;
 }
 
+void hud_rows_report(app *a)
+{
+	menu_row rows[HM_MAX];
+	const char *h;
+	int n;
+
+	(void)a;
+	hm_load(&g_hm);
+	n = hm_build(NULL, rows, HM_MAX, &h);
+	menu_rows_print("hud", rows, n, g_hm_sound, g_hm_choice);
+	n = items_build(NULL, rows, HM_MAX, &h);
+	menu_rows_print("hud-shows", rows, n, g_hm_sound, g_hm_choice);
+}
+
 void hud_page_shot(app *a, SDL_Texture *bg, int sel, bool items, int pick, const char *shows)
 {
 	menu_row rows[HM_MAX];

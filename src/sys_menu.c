@@ -206,13 +206,14 @@ int sys_menu_snaps_rows(const snaps_ui *u, snaps_bufs *b, menu_row *out,
 
 int sys_menu_lights_rows(side_lights on, menu_row *out, side_light_part *ids)
 {
+	/* The battery's three together: the cable, off it, and low */
+	static const side_light_part ORDER[LP_COUNT] = { LP_BAR, LP_LOW, LP_BATTERY, LP_LEVEL, LP_DONE, LP_CHEER };
 	int i;
 
 	for (i = 0; i < LP_COUNT; i++) {
-		ids[i] = (side_light_part)i;
-		out[i] = (menu_row){ side_lights_part_name((side_light_part)i),
-		                     side_lights_has(on, (side_light_part)i) ? T(S_MENU_ON_TITLE)
-		                                                             : T(S_MENU_OFF_TITLE), true };
+		ids[i] = ORDER[i];
+		out[i] = (menu_row){ side_lights_part_name(ORDER[i]),
+		                     side_lights_has(on, ORDER[i]) ? T(S_MENU_ON_TITLE) : T(S_MENU_OFF_TITLE), true };
 	}
 	return LP_COUNT;
 }

@@ -1383,15 +1383,18 @@ build-native/menu-check: tools/menu-check.c tools/legend.h src/wifi_menu.c src/w
 	      src/device/brick_model.c $(I18N_SRC)
 
 # What the launcher tells the side lights' gauge (src/sidelights.h): the lines
-# as plastron's gauge reads them, the FIFO writer that never waits and never
-# dies of SIGPIPE, on a real FIFO, and when a File Transfer batch is over.
+# as plastron's gauge reads them (its lights.c linked in, for the setting's
+# line), the FIFO writer that never waits and never dies of SIGPIPE, on a
+# real FIFO, and when a File Transfer batch is over.
+GAUGE_SRC := plastron/buildroot/package/gauge/src
 check-sidelights: build-native/sidelights-check
 	@./build-native/sidelights-check
 
-build-native/sidelights-check: tools/sidelights-check.c src/sidelights.c src/sidelights.h $(I18N_SRC) FORCE
+build-native/sidelights-check: tools/sidelights-check.c src/sidelights.c src/sidelights.h \
+                               $(GAUGE_SRC)/lights.c $(GAUGE_SRC)/lights.h $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
-	      -o $@ tools/sidelights-check.c src/sidelights.c $(I18N_SRC)
+	      -o $@ tools/sidelights-check.c src/sidelights.c $(GAUGE_SRC)/lights.c $(I18N_SRC)
 
 build-native/xfer-check: tools/xfer-check.c src/xfer.c src/xfer.h $(I18N_SRC) FORCE
 	@mkdir -p build-native

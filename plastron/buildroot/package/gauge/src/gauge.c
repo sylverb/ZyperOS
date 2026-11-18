@@ -24,6 +24,9 @@
  *     a loop, On or Off, over everything but L2+R2.
  *   - Asked (SIGUSR1, which ZyperOS sends on L2+R2 outside a game): the level
  *     flashes four times in two seconds, over everything.
+ *   - With Battery Level on (MENU > Side Lights, off to start): that level,
+ *     still, off the cable, under everything above, which shows over it and
+ *     then gives it back (my ask after testing 1.0.6, 2026-11-17).
  *   - Otherwise nothing, so they cost nothing.
  *
  * Which parts show is ZyperOS's MENU > Side Lights, words in MODE on the card

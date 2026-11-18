@@ -1893,7 +1893,7 @@ side_lights plat_side_lights(void)
 	int fd = open(SIDE_LIGHTS_FILE, O_RDONLY | O_CLOEXEC);
 	ssize_t n;
 
-	if (fd < 0) return LIGHTS_ALL;
+	if (fd < 0) return LIGHTS_DEFAULT;
 	n = read(fd, text, sizeof text - 1);
 	close(fd);
 	text[n > 0 ? n : 0] = '\0';
