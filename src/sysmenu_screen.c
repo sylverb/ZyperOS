@@ -285,9 +285,8 @@ static void sm_pace_preview(void *app_, int k, int x, int y, int w, int h)
 }
 
 /* The Shader and Strength lists' picture (src/shaderdemo.h): a system's
- * menu with its own shader and strength, MENU with every system's, as the
- * lists were made */
-static int g_sm_demo_shader, g_sm_demo_strength, g_pm_demo_shader, g_pm_demo_strength;
+ * menu with its own shader and strength, as the lists were made */
+static int g_sm_demo_shader, g_sm_demo_strength;
 
 static void sm_shader_preview(void *app_, int k, int x, int y, int w, int h)
 {
@@ -299,15 +298,36 @@ static void sm_strength_preview(void *app_, int k, int x, int y, int w, int h)
 	shader_demo_draw(app_, g_sm_demo_shader, STRENGTH_MIN + k * STRENGTH_STEP, x, y, w, h);
 }
 
-static void pm_shader_preview(void *app_, int k, int x, int y, int w, int h)
+/* MENU's Shader and Strength lists: the screens' own (src/screenfx.h), so
+ * the cursor shows its choice on the whole screen, the list and the menu
+ * under it too, as Theme's lists do (src/ds/hover.h): nothing saved until
+ * A, the kept one back as the list closes. No picture: the screen is it.
+ * g_pm_screen_at maps the list's places to SHADERS. */
+static int g_pm_screen_at[SHADER_COUNT];
+
+static void pm_shader_show(void *app_, int k)
 {
-	shader_demo_draw(app_, shader_offered(k), g_pm_demo_strength, x, y, w, h);
+	(void)app_;
+	g_screen_shown = k >= 0 && k < SHADER_COUNT ? g_pm_screen_at[k] : -1;
+	screen_shader_apply();
 }
 
-static void pm_strength_preview(void *app_, int k, int x, int y, int w, int h)
+static void pm_strength_show(void *app_, int k)
 {
-	shader_demo_draw(app_, g_pm_demo_shader, STRENGTH_MIN + k * STRENGTH_STEP, x, y, w, h);
+	(void)app_;
+	g_screen_shown_strength = STRENGTH_MIN + k * STRENGTH_STEP;
+	screen_shader_apply();
 }
+
+static void pm_screen_undo(void *app_, int kept)
+{
+	(void)app_; (void)kept;
+	g_screen_shown = g_screen_shown_strength = -1;
+	screen_shader_apply();
+}
+
+static const ds_hover PM_SHADER_HOVER = { .show = pm_shader_show, .undo = pm_screen_undo };
+static const ds_hover PM_STRENGTH_HOVER = { .show = pm_strength_show, .undo = pm_screen_undo };
 
 static void menu_choices(app *a, int sys, bool games)
 {
@@ -417,29 +437,26 @@ static void menu_choices(app *a, int sys, bool games)
 	}
 	g_pm_choice[PM_CHARGE] = ch_make(&P[2], CHARGE_LIMITS_COUNT, cur, false);
 	{
-		bool mixed = false;
-
-		for (i = 0; i < a->sys.count; i++) if (a->view[i].shader != g_shader_all) mixed = true;
+		/* The screens' shaders, in screen_shader_step's order, the note
+		 * the same under each: what the row is for */
 		static const char *snotes[CH_MAX], *tnotes[CH_MAX];
-		n = ch_shaders(&P[3], g_shader_all, &cur);
-		g_pm_choice[PM_SHADER] = ch_make(&P[3], n, cur, mixed);
-		shader_demo_notes(snotes, n);
-		g_pm_choice[PM_SHADER].notes = snotes;
-		g_pm_choice[PM_SHADER].preview = pm_shader_preview;
-		g_pm_demo_shader = g_shader_all;
-		mixed = false;
-		{
-			int all = strength_read_all(db_dev());
+		int k;
 
-			for (i = 0; i < a->sys.count; i++)
-				if (strength_clamp(a->view[i].strength) != strength_clamp(all)) mixed = true;
-			n = ch_strengths(&P[4], strength_clamp(all), &cur);
-			g_pm_choice[PM_STRENGTH] = ch_make(&P[4], n, cur, mixed);
-			shader_demo_strength_notes(tnotes, n);
-			g_pm_choice[PM_STRENGTH].notes = tnotes;
-			g_pm_choice[PM_STRENGTH].preview = pm_strength_preview;
-			g_pm_demo_strength = strength_clamp(all);
+		for (k = 0, n = 0, cur = 0; k < SHADER_COUNT && n < CH_MAX; k++) {
+			if (!screen_shader_offered(k)) continue;
+			if (k == g_screen_shader) cur = n;
+			g_pm_screen_at[n] = k;
+			snotes[n] = T(S_GAMEMENU_SHADER_SCREENS_NOTE);
+			P[3].lab[n++] = shader_label(k);
 		}
+		g_pm_choice[PM_SHADER] = ch_make(&P[3], n, cur, false);
+		g_pm_choice[PM_SHADER].notes = snotes;
+		g_pm_choice[PM_SHADER].hover = &PM_SHADER_HOVER;
+		n = ch_strengths(&P[4], g_screen_strength, &cur);
+		g_pm_choice[PM_STRENGTH] = ch_make(&P[4], n, cur, false);
+		shader_demo_strength_notes(tnotes, n);
+		g_pm_choice[PM_STRENGTH].notes = tnotes;
+		g_pm_choice[PM_STRENGTH].hover = &PM_STRENGTH_HOVER;
 	}
 	{
 		aout_state ao = aout_now();
@@ -573,9 +590,10 @@ int menu_build(app *a, screen_id screen, int sys,
 		}
 		u.storage = storage_menu_value();
 		u.appearance = appearance_name(theme_appearance());
-		u.shader_all = shader_all_label(a);
-		u.strength_all = strength_all_label(a);
-		u.no_strength = !strength_all_shown(a);
+		u.shader_screens = shader_label(g_screen_shader);
+		u.strength_screens = screen_strength_label();
+		u.no_strength = !screen_strength_shown();
+		u.no_shader = !plat_gpu_shaders();
 		{
 			u.no_night = !plat_night_here();
 			u.night = nm_mode_name(nm_mode());
@@ -1468,7 +1486,7 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 		}
 		/* The shader, stepped round on left, right and A and kept at once,
 		 * for this system alone: its next game plays with it. MENU's row
-		 * sets every system's. */
+		 * is ZyperOS's own screens'. */
 		if ((d || key == IN_ACCEPT) && sel == SM_SHADER) {
 			sysview *v = &a->view[a->sys_cursor];
 
@@ -1585,7 +1603,8 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 		               /* the same rule as the build's (menu_build): a card with
 		                * the update program has the row */
 		               .update = up_have() ? "" : NULL,
-		               .no_strength = !strength_all_shown(a) };
+		               .no_strength = !screen_strength_shown(),
+		               .no_shader = !plat_gpu_shaders() };
 		pm_row ids[PM_ROWS];
 		int n = sys_menu_tab_rows(&dev, (pm_tab)g_tabs.at, ids);
 
@@ -1690,27 +1709,19 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 		return MENU_CHANGED;
 	}
 
-	/* The shader for every system, stepped round (A opens the list):
-	 * kept as MENU's, and each system's own choice goes with it
-	 * (shader_set_all). From "per system" a step goes on from MENU's last. */
+	/* The screens' shader (src/screenfx.h), stepped round (A opens the
+	 * list), kept at once and on the next frame: no system's moves */
 	if (sel == PM_SHADER && (d || key == IN_ACCEPT)) {
-		shader_set_all(a, shader_step(g_shader_all, d ? d : 1));
+		screen_shader_set(screen_shader_step(g_screen_shader, d ? d : 1));
 		return MENU_CHANGED;
 	}
-	/* Strength for every system, on Auto Off's idiom: left and right, a
-	 * step past either end changing nothing; kept as MENU's, and each
-	 * system's own goes with it. From "per system" a step goes on from
-	 * MENU's last (src/strength.h). */
+	/* Its strength, on Auto Off's idiom: left and right, a step past
+	 * either end changing nothing (src/strength.h) */
 	if (d && sel == PM_STRENGTH) {
-		int was = strength_read_all(db_dev()), k = strength_step(was, d), i;
-		bool moved = k != was;
+		int was = g_screen_strength, k = strength_step(was, d);
 
-		for (i = 0; i < a->sys.count; i++) {
-			if (strength_clamp(a->view[i].strength) != k) moved = true;
-			a->view[i].strength = k;
-		}
-		strength_write_all(db_dev(), k);
-		return moved ? MENU_CHANGED : MENU_STAY;
+		screen_strength_set(k);
+		return k != was ? MENU_CHANGED : MENU_STAY;
 	}
 
 	/* On or off, so left, right and A all turn it over. Off lets the link
@@ -1861,7 +1872,8 @@ void zyperos_menu_for(app *a, int screen)
 		               .no_usb_power = !usb_power_offered(),
 		               .no_usb_wait = !usb_wait_row(),
 		               .update = up_have() ? "" : NULL,
-		               .no_strength = !strength_all_shown(a) };
+		               .no_strength = !screen_strength_shown(),
+		               .no_shader = !plat_gpu_shaders() };
 		pm_row ids[PM_ROWS];
 		int n, k;
 
@@ -1882,7 +1894,7 @@ void zyperos_menu_for(app *a, int screen)
 		menu_run(a, &st, sysmenu_build, sysmenu_key, &c);
 		/* where it was closed, for the next time it opens; Strength may
 		 * have come or gone with a Shader step */
-		dev.no_strength = !strength_all_shown(a);
+		dev.no_strength = !screen_strength_shown();
 		n = sys_menu_tab_rows(&dev, (pm_tab)g_tabs.at, ids);
 		if (c.seen >= 0 && c.seen < n) g_tab_row[g_tabs.at] = ids[c.seen];
 	} else {

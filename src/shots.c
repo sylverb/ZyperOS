@@ -1302,9 +1302,9 @@ static void shot_compose_once(app *a)
 			 * a setting (Strength with the Shader) says whether the setting
 			 * was there to be read */
 			snprintf(key, sizeof key, "shader.%s", tag);
-			db_get_str(db_dev(), "shader", all, sizeof all, "(none)");
+			db_get_str(db_dev(), "launcher_shader", all, sizeof all, "(none)");
 			db_get_str(db_dev(), key, own, sizeof own, "(none)");
-			fprintf(stderr, "--menu: built with the settings %s, shader=%s, %s=%s, "
+			fprintf(stderr, "--menu: built with the settings %s, launcher_shader=%s, %s=%s, "
 			        "the shelf's shader %d, %d systems\n",
 			        db_dev() ? "open" : "NOT OPEN", all, key, own,
 			        a->sys.count > 0 ? a->view[a->sys_cursor].shader : -1, a->sys.count);
@@ -2437,6 +2437,7 @@ void shot_portload_take(app *a)
 	out = SDL_CreateRGBSurfaceWithFormat(0, ZYPEROS_SCREEN_W, ZYPEROS_SCREEN_H, 32,
 	                                     SDL_PIXELFORMAT_RGBA32);
 	if (!out) return;
+	plat_screen_finish();   /* the screens' shader, which the present would add */
 	SDL_RenderReadPixels(a->r, NULL, SDL_PIXELFORMAT_RGBA32, out->pixels, out->pitch);
 	plat_present();
 	IMG_SavePNG(out, shot_path);
@@ -2607,7 +2608,9 @@ void take_shot(app *a)
 		shot_compose(a);
 	}
 	if (out) {
-		/* Read BEFORE presenting: the backbuffer is invalid afterwards. */
+		/* Read BEFORE presenting: the backbuffer is invalid afterwards.
+		 * The screens' shader first, which the present would add. */
+		plat_screen_finish();
 		SDL_RenderReadPixels(a->r, NULL, SDL_PIXELFORMAT_RGBA32,
 		                     out->pixels, out->pitch);
 		plat_present();

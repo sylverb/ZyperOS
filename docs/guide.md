@@ -286,8 +286,8 @@ than any one console:
 | **Appearance** | `Light`, `Dark` or `Auto`, which is light from 7:00 to 19:00 by the clock. `Light` on a new device and after an upgrade |
 | **Scraper** | box art, its sources and video snaps - see below. Its value is how many games have no cover, or `Complete` |
 | **Achievements** | the RetroAchievements account, or `Sign in`. **A** opens its page, which downloads every game's achievements for offline play - see **Achievements** below |
-| **Shader** | `Off`, `Sharp-Shimmerless`, `CRT`, `CRT Curved`, `Scanlines` or `LCD Grid`, for every system at once: each system's own choice goes. It says `Per system` when a system has chosen another in its own menu or in a game. `Off` on a new device and after an upgrade - see **Shaders** below |
-| **Strength** | right under Shader while a system draws an old screen: `10%` to `100%`, how dark its lines and grid are, for every system at once, each system's own going. Left and right step it 10% at a time and stop at the ends. It says `Per system` when a system has its own. `100%` on a new device and after an upgrade |
+| **Shader** | `Off`, `CRT`, `CRT Curved`, `Scanlines` or `LCD Grid` for ZyperOS's own screens: the home, the shelves, the menus and every screen while no game is on. A opens the list, and the choice under the cursor shows on the whole screen until you choose. Each system's games keep their own shader, set in the system's menu or in a game. `Off` on a new device and after an upgrade. Not on the Brick - see **Shaders** below |
+| **Strength** | right under Shader while it is an old screen: `10%` to `100%`, how dark its lines and grid are on ZyperOS's screens. Left and right step it 10% at a time and stop at the ends. `100%` on a new device and after an upgrade |
 | **Controls** | every button and what it does, a page per place |
 | **Show Tutorial** | the tutorial a new handheld starts with, again - see below |
 | **Developer Mode** | development images on the Pixel 2 only: `On` keeps the USB link to a computer always up, `Off` asks when one is plugged in - see **Plugging into a computer** |
@@ -603,14 +603,26 @@ its rows step over them.
 The in-game menu's **Shader** row, in its Display tab right under Display, changes it for
 the game's system, from the next frame after Continue (the paused picture
 behind the menu stays as it was); the system menu's row does the same from
-the shelf, and **MENU > Display > Shader** sets every system at once.
+the shelf. A system that never had its own plays with what **MENU >
+Display > Shader** set for every system before 1.0.6, so your games look as
+they did.
+
+**MENU > Display > Shader**, opened from the home, is for ZyperOS's own
+screens: the home, the shelves, the menus and every screen while no game is
+on. It offers `Off` and the four old screens. The screen keeps its own
+sharp pixels, words and all, and the old screen's lines, grille or grid go
+over it, as a white picture through that shader would show them; `CRT
+Curved` curves the whole screen too. While a game is on, its own shader is
+the one you see, its in-game menu included, and a video in the player plays
+as it is. It is `Off` to start with, and with `Off` the screen is drawn
+exactly as before. On the Pixel 2 only, as the old screens are.
 
 Under each Shader row, while the shader is one of the four old screens, a
 **Strength** row says how strongly it is drawn: `100%` is the shader as it
 is, and each step of 10% down makes the dark lines and grid lighter, down to
 `10%`, a faint hint of them. On the CRT it softens the scanlines and the
 stripes together; a curved CRT keeps its curve. Like Shader, it is kept per
-system, and **MENU > Display > Strength** sets every system at once. It is
+system, and **MENU > Display > Strength** is ZyperOS's own screens'. It is
 `100%` to start with, the shaders as they were before the row.
 
 Rescan Folder is what makes a ROM that arrived after boot appear without a
