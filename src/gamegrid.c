@@ -133,6 +133,7 @@ void gg_note(gg_arts *t, SDL_Renderer *r, int count, int i, SDL_Texture *of,
 	if (!of || !arts_fit(t, count) || i < 0 || i >= t->n) return;
 	e = &t->a[i];
 	if (e->blur) SDL_DestroyTexture(e->blur);
+	if (e->card) SDL_DestroyTexture(e->card);
 	*e = (gg_art){ .of = of, .key = key, .generated = generated };
 	if (!s) return;
 	if (generated) {
@@ -160,7 +161,7 @@ void gg_note(gg_arts *t, SDL_Renderer *r, int count, int i, SDL_Texture *of,
 	}
 }
 
-const gg_art *gg_art_of(const gg_arts *t, int i, const SDL_Texture *of, unsigned key)
+gg_art *gg_art_of(const gg_arts *t, int i, const SDL_Texture *of, unsigned key)
 {
 	if (!t->a || i < 0 || i >= t->n || !of) return NULL;
 	return t->a[i].of == of && t->a[i].key == key ? &t->a[i] : NULL;
@@ -170,13 +171,16 @@ void gg_drop(gg_arts *t, int i)
 {
 	if (!t->a || i < 0 || i >= t->n) return;
 	if (t->a[i].blur) SDL_DestroyTexture(t->a[i].blur);
+	if (t->a[i].card) SDL_DestroyTexture(t->a[i].card);
 	t->a[i] = (gg_art){ 0 };
 }
 
 void gg_arts_free(gg_arts *t)
 {
-	for (int i = 0; t->a && i < t->n; i++)
+	for (int i = 0; t->a && i < t->n; i++) {
 		if (t->a[i].blur) SDL_DestroyTexture(t->a[i].blur);
+		if (t->a[i].card) SDL_DestroyTexture(t->a[i].card);
+	}
 	free(t->a);
 	*t = (gg_arts){ 0 };
 }
@@ -579,6 +583,121 @@ static void grid_named(SDL_Renderer *r, SDL_FRect c, const char *title, unsigned
 	SDL_RenderFillRect(r, &(SDL_Rect){ q.x + pad, y + 8, (int)lroundf(c.w * .14f), DS_RULE });
 }
 
+/* ---- a game's card, drawn once at its cell's size ----
+ *
+ * grid_named is about seven draws a card (its ground, the shade, the name's
+ * lines and their shadows, the rule) in two kinds, a texture's and a
+ * color's, and the Pixel 2's GPU (panfrost) pays for each draw and each
+ * change of kind on the frame's own thread: a Grid of games with no art
+ * glided at 30 frames a second where one of covers, a draw a cell, glides at
+ * 60 (2026-11-18: 33.1 ms frames against 16.6 on the same taps). So the card
+ * is drawn once into a texture of the cell's size and that is copied, one
+ * draw, as a cover is. Whole pixels both ways (the copy lands on the cell's
+ * whole rect, as the name always did), so a card at rest is the very pixels
+ * it was; while the grid glides its ground moves with its name, a whole pixel
+ * at a time, where it moved by fractions under it before.
+ *
+ * Kept with what the grid knows of the game (gg_art), so it goes when the
+ * game's cover does (evict_grid, evict_far: gg_drop) or its card is made
+ * again (gg_note). 160 x 224 on the canvas, 140 KB. */
+
+/* At most this many drawn a frame: each one turns the GPU to another
+ * target and back. The rest are drawn as before until their turn; a grid at
+ * rest goes on drawing until the cards in sight and the rows either side are
+ * done (named_ahead). */
+#define GG_CARDS_A_FRAME 2
+static int  g_cards_left;
+static bool g_cards_wanted, g_cards_off;
+
+static unsigned card_for(const char *title, unsigned rgb)
+{
+	unsigned h = 2166136261u ^ rgb;
+
+	for (const char *p = title ? title : ""; *p; p++) h = (h ^ (unsigned char)*p) * 16777619u;
+	return h ^ (look_square() ? 0x9e3779b9u : 0);
+}
+
+static bool card_current(const gg_art *e, int w, int h, unsigned key)
+{
+	return e->card && e->card_w == w && e->card_h == h && e->card_for == key &&
+	       e->card_face == (const void *)page_font(PAGE_CHROME);
+}
+
+/* grid_named into a texture of w x h, clear where it draws nothing (the
+ * round corners), the renderer's target, viewport, clip, scale, blend and
+ * color put back after, as src/ui.c's ui_bake does */
+static SDL_Texture *card_draw(SDL_Renderer *r, int w, int h, const char *title, unsigned rgb,
+                              SDL_Texture *ground)
+{
+	SDL_Texture *t = SDL_CreateTexture(r, PLAT_TARGET_FORMAT, SDL_TEXTUREACCESS_TARGET, w, h), *was;
+	SDL_Rect view, clip;
+	SDL_bool clipped;
+	SDL_BlendMode mode;
+	Uint8 cr, cg, cb, ca;
+	float sx, sy;
+
+	if (!t) return NULL;
+	was = SDL_GetRenderTarget(r);
+	SDL_RenderGetViewport(r, &view);
+	clipped = SDL_RenderIsClipEnabled(r);
+	SDL_RenderGetClipRect(r, &clip);
+	SDL_RenderGetScale(r, &sx, &sy);
+	SDL_GetRenderDrawBlendMode(r, &mode);
+	SDL_GetRenderDrawColor(r, &cr, &cg, &cb, &ca);
+	if (SDL_SetRenderTarget(r, t) != 0) {
+		SDL_DestroyTexture(t);
+		return NULL;
+	}
+	SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_NONE);
+	SDL_SetRenderDrawColor(r, 0, 0, 0, 0);
+	SDL_RenderClear(r);
+	grid_named(r, (SDL_FRect){ 0, 0, (float)w, (float)h }, title, rgb, ground);
+	SDL_SetRenderTarget(r, was);
+	SDL_RenderSetScale(r, sx, sy);
+	SDL_RenderSetViewport(r, &view);
+	SDL_RenderSetClipRect(r, clipped ? &clip : NULL);
+	SDL_SetRenderDrawBlendMode(r, mode);
+	SDL_SetRenderDrawColor(r, cr, cg, cb, ca);
+	SDL_SetTextureBlendMode(t, SDL_BLENDMODE_BLEND);
+	return t;
+}
+
+/* Game `e`'s card drawn at w x h if it is not, while this frame may draw
+ * one: whether it is there to copy */
+static bool card_ready(SDL_Renderer *r, gg_art *e, int w, int h, const char *title, unsigned rgb)
+{
+	unsigned key = card_for(title, rgb);
+
+	if (card_current(e, w, h, key)) return true;
+	if (g_cards_off) return false;
+	if (g_cards_left <= 0) {
+		g_cards_wanted = true;
+		return false;
+	}
+	g_cards_left--;
+	if (e->card) SDL_DestroyTexture(e->card);
+	e->card = card_draw(r, w, h, title, rgb, e->blur);
+	if (!e->card) {
+		/* no texture to draw into: drawn as before, every frame */
+		g_cards_off = true;
+		return false;
+	}
+	e->card_w = w;
+	e->card_h = h;
+	e->card_for = key;
+	e->card_face = page_font(PAGE_CHROME);
+	return true;
+}
+
+/* A game's card in `cell`: copied, or drawn as before until it is */
+static void named_card(SDL_Renderer *r, gg_art *e, SDL_FRect cell, const char *title, unsigned rgb)
+{
+	SDL_Rect q = whole(cell);
+
+	if (card_ready(r, e, q.w, q.h, title, rgb)) SDL_RenderCopy(r, e->card, NULL, &q);
+	else grid_named(r, cell, title, rgb, e->blur);
+}
+
 /* A game with no art: the generated card, drawn here at the cell's shape -
  * the theme's slab falling toward its ground, the system's color as a band
  * across the top, the name in support type a fifth of the way down, a rule
@@ -635,7 +754,7 @@ static void grid_card(SDL_Renderer *r, SDL_FRect c, const char *title, unsigned 
 static SDL_FRect cover(SDL_Renderer *r, const gg_info *in, void *ctx, int i,
                        SDL_Texture *t, int tw, int th, float cb, SDL_FRect cell)
 {
-	const gg_art *e = in->art_of ? in->art_of(ctx, i) : NULL;
+	gg_art *e = in->art_of ? in->art_of(ctx, i) : NULL;
 	bool folder = in->folder_of && in->folder_of(ctx, i) > 0;
 	float ah = th * (cb > 0 && cb <= 1 ? cb : 1), ca = cell.w / cell.h, rel = tw / ah / ca;
 	SDL_FRect src = { 0, 0, (float)tw, ah };
@@ -650,8 +769,7 @@ static SDL_FRect cover(SDL_Renderer *r, const gg_info *in, void *ctx, int i,
 	}
 	if (e && e->generated && e->blur) {
 		/* a game's card: its ground, and its name at the cell's size */
-		grid_named(r, cell, in->title_of(ctx, i), in->accent_of ? in->accent_of(ctx, i) : in->accent,
-		           e->blur);
+		named_card(r, e, cell, in->title_of(ctx, i), in->accent_of ? in->accent_of(ctx, i) : in->accent);
 		return cell;
 	}
 	if ((e && e->generated) || (!e && ui_card_theme(t) >= 0)) {
@@ -861,6 +979,30 @@ static void snap(SDL_Renderer *r, const gg_info *in, const gg_geom *g, SDL_FRect
 	          d, DS_RADIUS_CELL, 255);
 }
 
+/* At rest, the cards of the rows just over and under the window drawn too,
+ * as many as the frame may: the row a press brings in is copied from its
+ * first frame of the glide */
+static void named_ahead(SDL_Renderer *r, const gg_geom *g, const gg_info *in, void *ctx, int top)
+{
+	const int rows[2] = { top - 1, top + GG_ROWS };
+
+	for (int k = 0; k < 2; k++) {
+		if (rows[k] < 0) continue;
+		for (int i = rows[k] * g->cols; i < (rows[k] + 1) * g->cols && i < in->count; i++) {
+			int w = 0, h = 0;
+			float cb = 1;
+			gg_art *e;
+
+			if (!in->peek || !in->peek(ctx, i, &w, &h, &cb) || (in->folder_of && in->folder_of(ctx, i) > 0))
+				continue;
+			e = in->art_of ? in->art_of(ctx, i) : NULL;
+			if (e && e->generated && e->blur)
+				card_ready(r, e, g->cw, g->ch, in->title_of(ctx, i),
+				           in->accent_of ? in->accent_of(ctx, i) : in->accent);
+		}
+	}
+}
+
 uint32_t gg_draw(gg_motion *m, SDL_Renderer *r, const gg_info *in,
                  cf_tex_fn texture, void *ctx, uint32_t now, uint32_t phase)
 {
@@ -876,6 +1018,8 @@ uint32_t gg_draw(gg_motion *m, SDL_Renderer *r, const gg_info *in,
 	SDL_GetRenderDrawBlendMode(r, &blend);
 	SDL_GetRenderDrawColor(r, &red, &green, &blue, &alpha);
 	SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
+	g_cards_left = GG_CARDS_A_FRAME;
+	g_cards_wanted = false;
 	if (!m->set || m->count != in->count) {
 		gg_reset(m, in->cursor, in->count);
 		m->shape = in->kept > 0 ? in->kept : GG_SHAPE_NONE;
@@ -944,6 +1088,9 @@ uint32_t gg_draw(gg_motion *m, SDL_Renderer *r, const gg_info *in,
 		}
 	}
 	SDL_RenderSetClipRect(r, NULL);
+	if (!gg_moving(m, now)) named_ahead(r, &g, in, ctx, (int)floorf(top));
+	/* cards still to draw: another frame for them */
+	if (g_cards_wanted) wait = 0;
 	if (in->count > 0 && in->snap && in->snap_k > 0 && in->snap_w > 0 && in->snap_h > 0)
 		snap(r, in, &g, cell_rect(&g, (float)(in->cursor % g.cols), (float)(in->cursor / g.cols), top));
 	(void)focus;

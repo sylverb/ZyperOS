@@ -1150,7 +1150,7 @@ static SDL_Texture *grid_peek(void *ctx, int i, int *w, int *h, float *cb)
 	return v->tex[i];
 }
 
-static const gg_art *grid_art(void *ctx, int i)
+static gg_art *grid_art(void *ctx, int i)
 {
 	app *a = ctx;
 	sysview *v = &a->view[a->sys_cursor];
