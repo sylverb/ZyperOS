@@ -286,12 +286,8 @@ playtime.lost.one
 playtime.lost.other
 
 # portload: no shot draws it yet
-portload.starting_a_minute
-portload.starting
-portload.a_minute
-portload.still_go_back
-portload.still
-portload.go_back
+portload.starting_a_minute  # the start's line on one line, drawn only where it fits the column, which it does in no language; portload draws its two sentences
+portload.still_go_back  # the line after a minute on one line, which never fits the column; portload-later draws its two sentences
 
 # portmaster: no shot draws it yet
 portmaster.err_internal
