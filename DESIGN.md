@@ -5265,8 +5265,13 @@ the Brick has no row for it.
 Grid's one texture read and its arithmetic, then one more read for the
 shadow, a sharp-bilinear point at the texel up and left, and a few sums.
 Two reads a pixel, where the others but the CRT take one; a Game Boy's
-picture is small, so the GPU has room. Measured on the Pixel 2 against LCD
-Grid: see the pull request.
+picture is small, so the GPU has room. Measured on the Pixel 2 (2026-11-18,
+Metroid Fusion, a fresh start each, a minute of px2-perf, power medium):
+LCD Grid 60.1 frames a second, the GPU at 300 MHz, the CPU at 790-797 MHz;
+LCD No Backlight the same 60.1, 300 MHz and 772-814 MHz, no clock climbed
+in either. With the GPU held at its lowest step, 200 MHz, both still show
+60.1 and miss no refresh. tools/shaderdemo-device.sh puts the device's
+picture within 1 level of tools/shaderdemo.c's (mean 0.27).
 
 **Its picture.** The Shader list's picture of it (11.3, a choice with a
 picture) is a Game Boy Color's 160x144 scene of ZyperOS's own on white,
