@@ -49,7 +49,8 @@ Game Boy Advance shelves open onto nothing. Restore the fetch and delete the
 script the day that fork syncs.
 
 `make check` runs before every commit, and GitHub runs it on every pull
-request (`.github/workflows/check.yml`, on macOS). It builds the host launcher
+request (`.github/workflows/check.yml`, on macOS, and on Linux without the checks
+its `CHECKS_SKIP` names, which do not pass there yet). It builds the host launcher
 once, then runs every check at once, as many at a time as there are cores
 (`CHECK_JOBS=1 make check` for one after another): a line as each ends, each
 one's output in `build-native/check-logs/CHECK.log`, and the whole log of any
