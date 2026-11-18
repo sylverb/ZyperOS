@@ -650,8 +650,10 @@ static int charging_run(app *a)
 		if (step == CS_START || step == CS_OFF) {
 			fprintf(stderr, "charging: %s\n", step == CS_START ? "POWER, starting"
 			                                                   : "unplugged, turning off");
-			/* The hold that started it is not one that turns it off
-			 * (MENU > Power Button on Hold: the same two seconds) */
+			/* The hold that started it is not one that turns it off:
+			 * MENU > Power Button on Hold's one second (DS_MS_HOLD_POWER)
+			 * came on the way to these two, and this screen reads no
+			 * turn-off; taken, the key goes up before POWER is one again */
 			if (step == CS_START) plat_power_consume();
 			return step;
 		}

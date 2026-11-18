@@ -911,6 +911,18 @@ void view_turn(app *a, int sys, int dir)
 	games_reset(&v->row, v->cursor, v->list.count, plat_now_ms());
 }
 
+/* The home's layout turned, `dir` 1 or -1 round Spotlight, Gallery and Grid,
+ * saved, the home on the same system: START on the home goes forward, as it
+ * turns a shelf's View, and MENU's Home Screen row either way (2026-11-17:
+ * "also implement start in the home menu with the systems") */
+void home_turn(app *a, int dir)
+{
+	a->home_layout = (home_layout)(((int)a->home_layout + (dir < 0 ? HOME_LAYOUTS - 1 : 1)) % HOME_LAYOUTS);
+	db_set_str(db_dev(), "home", home_id(a->home_layout));
+	home_reset(&a->home, a->sys_cursor, a->sys.count, plat_now_ms());
+	redraw_now();
+}
+
 /* The grid's shape kept for shelf `sys` (src/gamegrid.h): by its tag, and
  * the folder of it on screen, so each folder of a shelf keeps its own; 0
  * for none yet */

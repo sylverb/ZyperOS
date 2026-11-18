@@ -114,7 +114,7 @@ it away.
 | **B** | up one folder of games, or back to the systems row from a shelf's top |
 | **X** | game info for the card under the cursor |
 | **Y** | start the game from the start, without its resume point, when it has one. In a game's details (X), Y favorites it - Favorites is a shelf of its own. Nothing on MP4's shelf |
-| **START** | on a games shelf: the row of covers turns into the grid, the grid into a list of names, and the list back into covers. It is MENU > View's setting, kept for each shelf. Nothing on MP4's shelf |
+| **START** | on a games shelf: the row of covers turns into the grid, the grid into a list of names, and the list back into covers. It is MENU > View's setting, kept for each shelf. Nothing on MP4's shelf. On the home: Spotlight turns into Gallery, Gallery into Grid, and Grid back into Spotlight, MENU > Home Screen's setting |
 | **Volume rocker** | volume, everywhere, including in game |
 | **F1/F2** | brightness, everywhere, including in game |
 | **MENU** (on the systems row) | the ZyperOS menu - settings that are about the firmware |
@@ -1304,7 +1304,8 @@ Up and down jump by initial on a games or album shelf. A opens a system or start
 B returns to the systems row. Fancy Pants and UI Direction are removed.
 Old saved layout and card-style values do not change this behavior.
 
-MENU > Home Screen selects Spotlight, Gallery or Grid. MENU > System Order puts the
+MENU > Home Screen selects Spotlight, Gallery or Grid; START on the home steps
+from one to the next, and its hint at the foot names the next. MENU > System Order puts the
 systems A to Z by name (3DO, 32X, Arcade, Atari 2600 ...) or by their release
 dates, as before. Favorites stays first, then Recents, and Ports and MP4 stay last.
 MENU > Home Systems shows or hides each of them. Spotlight puts the system name

@@ -459,6 +459,28 @@ int page_hint_width(const char *key, const char *label, bool focus)
     return ui_button_width(key,focus?DS_HINT_GLYPH_FOCUS:DS_HINT_GLYPH)+DS_HINT_GAP+
            ui_text_width(page_font(focus?PAGE_ACTION:PAGE_CHROME),label);
 }
+/* The foot's left end, on every layout: MENU's Settings, then START and the
+ * layout it turns to, 32 on (keyhints' gap), as a shelf's foot names the
+ * View its START turns to (2026-11-17). Returns where START's word ends. */
+static int home_foot_keys(SDL_Renderer *r, home_layout layout, int x)
+{
+    const char *settings=T(S_HOME_SETTINGS);
+    const char *next=home_name((home_layout)(((int)layout+1)%HOME_LAYOUTS));
+    int sx=x+page_hint_width("MENU",settings,false)+DS_HINTS_GAP;
+
+    page_hint(r,"MENU",settings,x,DS_FOOT_Y,false,false);
+    page_hint(r,"START",next,sx,DS_FOOT_Y,false,false);
+    return sx+page_hint_width("START",next,false);
+}
+/* The place ("7 / 9", w wide) in the middle of the foot, or keyhints' gap
+ * right of the keys where a long word would meet it there (Italian's "In
+ * evidenza" by the Grid's "12 / 21") */
+static int home_foot_mid(int keys_end, int w)
+{
+    int mid=ZYPEROS_SCREEN_W/2;
+
+    return mid-w/2<keys_end+DS_HINTS_GAP ? keys_end+DS_HINTS_GAP+(w+1)/2 : mid;
+}
 /* These draws alter only the draw color/blend. Targets, scale, viewport and
  * clipping stay untouched, including when a menu draws the home into a target. */
 typedef struct { Uint8 r,g,b,a; SDL_BlendMode blend; } draw_state;
@@ -817,16 +839,17 @@ static uint32_t home_grid_draw(home *h, SDL_Renderer *r, const home_item *items,
         page_hint(r, "A", open, ZYPEROS_SCREEN_W - HG_MARGIN - aw, ny, true, false);
         ui_text(r, meta, count_label ? count_label : "", HG_MARGIN, ui_cap_y(meta, fy2), -1, UI_TEXT_DIM);
     }
-    /* The foot, as Spotlight's: MENU at the left, the place in the middle,
-     * SELECT at the right, on the one foot (DS_FOOT_Y, the shelf
-     * grid's) */
+    /* The foot, as Spotlight's: MENU and START at the left, the place in
+     * the middle, SELECT at the right, on the one foot (DS_FOOT_Y, the
+     * shelf grid's) */
     {
         char index[32];
-        int sw = page_hint_width("SELECT", "MP4", false);
+        int sw = page_hint_width("SELECT", "MP4", false), end = home_foot_keys(r, HOME_GRID, HG_MARGIN);
+        TTF_Font *chrome = page_font(PAGE_CHROME);
 
         snprintf(index, sizeof index, "%d / %d", cursor + 1, count);
-        ui_text_tabular(r, page_font(PAGE_CHROME), index, 512, ui_cap_y(page_font(PAGE_CHROME), DS_FOOT_Y), 0, UI_TEXT_DIM);
-        page_hint(r, "MENU", T(S_HOME_SETTINGS), HG_MARGIN, DS_FOOT_Y, false, false);
+        ui_text_tabular(r, chrome, index, home_foot_mid(end, ui_text_tabular_width(chrome, index)),
+                        ui_cap_y(chrome, DS_FOOT_Y), 0, UI_TEXT_DIM);
         page_hint(r, "SELECT", "MP4", ZYPEROS_SCREEN_W - HG_MARGIN - sw, DS_FOOT_Y, false, false);
     }
     return *wait;
@@ -870,8 +893,9 @@ uint32_t home_draw(home *h,SDL_Renderer *r,home_layout layout,
     SDL_SetRenderDrawColor(r,accent.r,accent.g,accent.b,255);
     SDL_Rect underline={HOME_MID_X-20,under_y,40,DS_BAR}; SDL_RenderFillRect(r,&underline);
     char index[32]; snprintf(index,sizeof index,"%d / %d",cursor+1,count);
-    ui_text(r,page_font(PAGE_CHROME),index,HOME_MID_X,ui_cap_y(page_font(PAGE_CHROME),DS_FOOT_Y),0,UI_TEXT_DIM);   /* on the hints' line */
-    page_hint(r,"MENU",T(S_HOME_SETTINGS),HOME_MARGIN,DS_FOOT_Y,false,false);
+    int keys_end=home_foot_keys(r,layout,HOME_MARGIN);
+    ui_text(r,page_font(PAGE_CHROME),index,home_foot_mid(keys_end,ui_text_width(page_font(PAGE_CHROME),index)),
+            ui_cap_y(page_font(PAGE_CHROME),DS_FOOT_Y),0,UI_TEXT_DIM);   /* on the hints' line */
     if(!gallery) page_hint(r,"SELECT","MP4",HOME_SELECT_X,DS_FOOT_Y,false,false);
     /* The gallery's A hint starts at 768 and keeps there while it ends by 1000;
      * a longer label (the pseudo-locale's) slides left to end there instead of
