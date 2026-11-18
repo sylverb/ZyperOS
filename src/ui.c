@@ -472,6 +472,13 @@ const char *ui_cjk_font_path(bool title, char *out, size_t n)
 	return out;
 }
 
+const char *ui_regular_font_path(char *out, size_t n)
+{
+	if (set_on == SET_LATIN || !font_path_kept[0]) snprintf(out, n, "%s", font_path_kept);
+	else set_path(set_on, false, out, n);
+	return out;
+}
+
 TTF_Font *ui_font_lang(ui_font_role role, lang l)
 {
 	int set = set_of(l);

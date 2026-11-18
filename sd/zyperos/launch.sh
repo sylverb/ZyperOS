@@ -427,7 +427,7 @@ run_port() {
 	# It steps ZyperOS's own levels, saved in its database, and shows the bar
 	# over the port, in the theme the Appearance setting there makes; the
 	# library database holds the time zone Auto's hour is read in
-	local keys= still= turn= m
+	local keys= still= turn= m sout= slater=
 	trap port_power USR1
 	trap port_quit USR2
 	# The Pixel 2's panel is a 480x640 portrait one mounted turned (below). A
@@ -440,16 +440,24 @@ run_port() {
 		[ "$m" = 480x640 ] && turn=270
 	fi
 	# The loading screen the launcher left (launch_port), held on the panel
-	# until the port draws, so a minute of loading is not a black panel; and
-	# the same screen after a minute, saying how to leave (SPLASH_LATER, which
-	# a splash older than 1.0.6 ignores)
+	# until the port draws, so a minute of loading is not a black panel; the
+	# same screen after a minute, saying how to leave (SPLASH_LATER, which a
+	# splash older than 1.0.6 ignores); and the port's latest line at its
+	# foot, so an install that runs for hours shows that it runs (SPLASH_OUT,
+	# the letters and the box the launcher wrote, which a splash older than
+	# 1.0.6 ignores too). splash follows this log from its end, the port's
+	# output being in it, and passes over what goes in while the in-game menu
+	# is up over the screen (SPLASH_OUT_PAUSE, there while it is: portkeys's).
+	# One left by a portkeys that ended with its menu up would hold the line
+	# back for the whole start, so none is kept from before.
 	if [ "$HAS_PORT_STILL" = 1 ] && [ -n "$turn" ] && [ -f /tmp/zyperos_loading.raw ] &&
 	   [ -x /usr/bin/splash ]; then
-		if [ -f /tmp/zyperos_loading_later.raw ]; then
-			SPLASH_LATER=/tmp/zyperos_loading_later.raw /usr/bin/splash --still /tmp/zyperos_loading.raw &
-		else
+		rm -f /tmp/zyperos_menu_up
+		[ -f /tmp/zyperos_loading_later.raw ] && slater=/tmp/zyperos_loading_later.raw
+		[ -f /tmp/zyperos_loading_out ] && sout=/tmp/zyperos_loading_out
+		SPLASH_LATER=$slater SPLASH_OUT=$sout SPLASH_OUT_LOG=${sout:+$LOG} \
+		SPLASH_OUT_PAUSE=${sout:+/tmp/zyperos_menu_up} \
 			/usr/bin/splash --still /tmp/zyperos_loading.raw &
-		fi
 		still=$!
 	fi
 	# A program of its own (OpenBOR, the standalone Flycast, a port,
@@ -513,7 +521,7 @@ run_port() {
 	[ -n "$3" ] && killall -TERM zyperos.elf 2> /dev/null
 	trap - USR1 USR2
 	[ -n "$still" ] && kill "$still" 2> /dev/null
-	rm -f /tmp/zyperos_loading.raw
+	rm -f /tmp/zyperos_loading.raw /tmp/zyperos_loading_out /tmp/zyperos_menu_up
 	# A helper left behind would keep the buttons typing keys under the
 	# shelf: gptokeyb
 	killall -9 gptokeyb gptokeyb2 2> /dev/null

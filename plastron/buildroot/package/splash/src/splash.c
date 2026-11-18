@@ -45,6 +45,13 @@
  * own buffer only: a port that has taken the display by then, through DRM or
  * the fbdev console, shows its own picture, and the write is seen by nobody.
  * An older splash ignores the variable and keeps the first picture.
+ *
+ * With SPLASH_OUT and SPLASH_OUT_LOG it also draws the port's latest output
+ * at the screen's foot, the same way, into its own buffer only: the letters
+ * and the box ZyperOS's launcher wrote, and the log the port prints into,
+ * followed from where it ends as this starts, a few times a second while the
+ * panel shows this buffer and not at all while it shows anything else
+ * (portout.h, out_tick below; ZyperOS's DESIGN.md 11.11).
  */
 #define _GNU_SOURCE             /* nftw */
 #include <dirent.h>
@@ -67,6 +74,7 @@
 #include <zlib.h>
 
 #include "bright.h"
+#include "portout.h"
 
 #define FRAMES     "/usr/share/splash/frames.bin"
 #define FIRST      "/usr/share/splash/first-start.bin"
@@ -637,12 +645,151 @@ int main(int argc, char **argv)
 		pause();
 }
 
+/* The port's output at the foot of the loading screen (portout.h), when
+ * launch.sh asks for it: SPLASH_OUT, the letters and the box the launcher
+ * wrote; SPLASH_OUT_LOG, the log the port's output goes to, followed from
+ * where it ends as this starts; SPLASH_OUT_PAUSE, a file that is there while
+ * the lines going into the log are not the port's (the in-game menu over the
+ * loading screen, ZyperOS's tools/portkeys.c). Drawn into this process's own
+ * buffer only, as the line after a minute is: a port or PortMaster that has
+ * taken the display by then shows its own picture, and the write is seen by
+ * nobody. And looked for only while the panel shows that buffer: the log is
+ * read a few times a second then, and not at all while a port draws. */
+#define OUT_TICK_MS  250        /* while the loading screen is on the panel */
+#define OUT_AWAY_MS  1000       /* while something else is */
+#define OUT_READ_MAX (256 * 1024)  /* bytes read in a tick; past that, from the end */
+
+static struct {
+	int on, turned, away, log, dirty;
+	const char *pause;
+	portout_atlas A;
+	uint8_t *file;
+	portout_reader R;
+	uint32_t *under, *under_later, *px;
+	uint32_t shown[PORTOUT_CHARS];
+	size_t shown_n;
+} out = { .log = -1 };
+
+/* The log, from its end, first of all: the port starts beside this, and
+ * what it prints from then on is its own */
+static void out_follow(void)
+{
+	const char *path = getenv("SPLASH_OUT_LOG"), *letters = getenv("SPLASH_OUT");
+
+	if (!path || !*path || !letters || !*letters) return;
+	out.log = open(path, O_RDONLY | O_CLOEXEC);
+	if (out.log >= 0) lseek(out.log, 0, SEEK_END);
+}
+
+/* The letters and the box, and the screen's own pixels of the box: on when
+ * they hold together and fit this panel. `later`, the picture after a
+ * minute, or NULL. */
+static void out_open(int fd, const drmModeModeInfo *mode, const struct buffer *b, uint32_t pitch,
+		     const uint8_t *later)
+{
+	const char *path = getenv("SPLASH_OUT");
+	struct stat st;
+	char line[160];
+	drmVersionPtr v;
+	int afd;
+
+	if (out.log < 0 || !path) return;
+	afd = open(path, O_RDONLY | O_CLOEXEC);
+	if (afd < 0 || fstat(afd, &st) < 0 || st.st_size < PORTOUT_HEADER || st.st_size > (1 << 20) ||
+	    !(out.file = malloc(st.st_size)) || read(afd, out.file, st.st_size) != st.st_size ||
+	    portout_load(out.file, st.st_size, &out.A) < 0) {
+		if (afd >= 0) close(afd);
+		log_to_kernel("splash: no port's output on its loading screen: its letters would not read\n");
+		return;
+	}
+	close(afd);
+	if (mode->hdisplay == out.A.land_w && mode->vdisplay == out.A.land_h)
+		out.turned = 0;
+	else if (mode->hdisplay == out.A.land_h && mode->vdisplay == out.A.land_w)
+		out.turned = 1;
+	else {
+		log_to_kernel("splash: no port's output on its loading screen: not this panel's size\n");
+		return;
+	}
+	size_t box = (size_t)out.A.w * out.A.h * 4;
+	if (pitch % 4 || !(out.under = malloc(box)) || !(out.px = malloc(box)) ||
+	    (later && !(out.under_later = malloc(box))))
+		return;
+	portout_get_box(&out.A, b->map, pitch / 4, out.turned, out.under);
+	if (later) portout_get_box(&out.A, (const uint32_t *)later, mode->hdisplay, out.turned, out.under_later);
+	/* A display that keeps its own copy of the buffer (virtio-gpu in QEMU)
+	 * is told of each new line; the Pixel's VOP reads the buffer itself */
+	v = drmGetVersion(fd);
+	out.dirty = !v || strcmp(v->name, "rockchip") != 0;
+	drmFreeVersion(v);
+	const char *p = getenv("SPLASH_OUT_PAUSE");
+	out.pause = p && *p ? p : NULL;
+	out.on = 1;
+	snprintf(line, sizeof(line), "splash: the port's output at its loading screen's foot, %ux%u at %u,%u\n",
+		 out.A.w, out.A.h, out.A.x, out.A.y);
+	log_to_kernel(line);
+}
+
+/* A display that keeps its own copy, told; only while the panel shows this
+ * buffer, which takes master, back for that one call and dropped at once */
+static void out_told(int fd, uint32_t crtc, uint32_t fb)
+{
+	drmModeCrtc *c = drmModeGetCrtc(fd, crtc);
+	int ours = c && c->buffer_id == fb;
+
+	drmModeFreeCrtc(c);
+	if (ours && drmSetMaster(fd) == 0) {
+		drmModeDirtyFB(fd, fb, NULL, 0);
+		drmDropMaster(fd);
+	}
+}
+
+/* One look: the panel's buffer, the log's new lines, the line drawn when it
+ * changed. Whether the loading screen is on the panel. */
+static int out_tick(int fd, uint32_t crtc, const struct buffer *b, uint32_t pitch)
+{
+	drmModeCrtc *c = drmModeGetCrtc(fd, crtc);
+	int ours = c && c->buffer_id == b->fb;
+	uint8_t chunk[4096];
+	uint32_t now[PORTOUT_CHARS];
+	size_t got = 0, n;
+	ssize_t r;
+
+	drmModeFreeCrtc(c);
+	if (!ours || (out.pause && access(out.pause, F_OK) == 0)) {
+		out.away = 1;
+		return ours;
+	}
+	/* Back: what went into the log meanwhile was not shown, and need not be */
+	if (out.away) {
+		lseek(out.log, 0, SEEK_END);
+		portout_skip(&out.R);
+		out.away = 0;
+	}
+	while ((r = read(out.log, chunk, sizeof chunk)) > 0) {
+		portout_feed(&out.R, &out.A, chunk, (size_t)r);
+		if ((got += (size_t)r) >= OUT_READ_MAX) {
+			lseek(out.log, 0, SEEK_END);
+			portout_skip(&out.R);
+			break;
+		}
+	}
+	n = portout_shown(&out.R, &out.A, now);
+	if (n == out.shown_n && !memcmp(now, out.shown, n * sizeof now[0])) return ours;
+	portout_compose(&out.A, out.under, now, n, out.px);
+	portout_put_box(&out.A, out.px, b->map, pitch / 4, out.turned);
+	memcpy(out.shown, now, n * sizeof now[0]);
+	out.shown_n = n;
+	if (out.dirty) out_told(fd, crtc, b->fb);
+	return ours;
+}
+
 /* splash --still FILE: one picture, held until something else draws (see the
  * top of the file). Exits at once, drawing nothing, when the file is not the
  * panel's size: a wrong picture is worse than the black it replaces. */
 static int still(const char *path)
 {
-	int fd = open("/dev/dri/card0", O_RDWR | O_CLOEXEC);
+	int fd;
 	drmModeRes *res;
 	drmModeConnector *conn = NULL;
 	struct buffer b;
@@ -650,6 +797,8 @@ static int still(const char *path)
 	uint64_t size;
 	FILE *f;
 
+	out_follow();
+	fd = open("/dev/dri/card0", O_RDWR | O_CLOEXEC);
 	if (fd < 0 || !(res = drmModeGetResources(fd))) return 1;
 	for (int i = 0; i < res->count_connectors; i++) {
 		conn = drmModeGetConnector(fd, res->connectors[i]);
@@ -678,45 +827,79 @@ static int still(const char *path)
 	/* After a minute, the same screen saying how to leave, when launch.sh
 	 * gave one (see the top of the file): read whole first, so a short file
 	 * changes nothing */
-	{
-		const char *later = getenv("SPLASH_LATER");
-		const char *secs = getenv("SPLASH_LATER_S");
-		unsigned wait = secs && atoi(secs) > 0 ? (unsigned)atoi(secs) : 60;
-		size_t row = (size_t)mode.hdisplay * 4;
-		uint8_t *pic = later && *later ? malloc(row * mode.vdisplay) : NULL;
+	const char *later = getenv("SPLASH_LATER");
+	const char *secs = getenv("SPLASH_LATER_S");
+	unsigned wait = secs && atoi(secs) > 0 ? (unsigned)atoi(secs) : 60;
+	size_t row = (size_t)mode.hdisplay * 4;
+	uint8_t *pic = later && *later ? malloc(row * mode.vdisplay) : NULL;
 
-		if (pic && (f = fopen(later, "rb"))) {
-			bool whole = fread(pic, row, mode.vdisplay, f) == mode.vdisplay;
+	if (pic && (f = fopen(later, "rb"))) {
+		bool whole = fread(pic, row, mode.vdisplay, f) == mode.vdisplay;
 
-			fclose(f);
-			if (whole) {
-				drmModeCrtc *c;
-				bool ours;
-
-				while (wait) wait = sleep(wait);
-				/* Into this buffer whether or not the panel shows it: the
-				 * in-game menu over a port still starting covers it for a
-				 * while, and portkeys puts this buffer back after it */
-				for (unsigned y = 0; y < mode.vdisplay; y++)
-					memcpy((uint8_t *)b.map + (size_t)y * pitch, pic + (size_t)y * row, row);
-				/* A display that keeps its own copy of the buffer
-				 * (virtio-gpu in QEMU) shows new pixels only once told; the
-				 * Pixel's VOP reads the buffer itself. Told only while the
-				 * panel shows this buffer, which takes master, back for that
-				 * one call and dropped at once; never while a port or the
-				 * menu holds it (SetMaster fails then) */
-				c = drmModeGetCrtc(fd, crtc);
-				ours = c && c->buffer_id == b.fb;
-				drmModeFreeCrtc(c);
-				if (ours && drmSetMaster(fd) == 0) {
-					drmModeDirtyFB(fd, b.fb, NULL, 0);
-					drmDropMaster(fd);
-				}
-				log_to_kernel(ours ? "splash: a minute in, the loading screen says how to leave\n"
-				                   : "splash: a minute in; the next loading screen shown says how to leave\n");
-			}
+		fclose(f);
+		if (!whole) {
+			free(pic);
+			pic = NULL;
 		}
+	} else {
 		free(pic);
+		pic = NULL;
+	}
+	out_open(fd, &mode, &b, pitch, pic);
+	double due = since_boot() + wait;
+	int ours = 1;
+
+	while (pic || out.on) {
+		/* Until the picture after a minute is due, a look at the output a
+		 * few times a second; with no output, the whole wait at once */
+		if (out.on) {
+			double left = pic ? due - since_boot() : 1e9;
+			double tick = (ours ? OUT_TICK_MS : OUT_AWAY_MS) / 1e3;
+
+			if (left > tick) left = tick;
+			if (left > 0) {
+				struct timespec t = { (time_t)left, (long)((left - (time_t)left) * 1e9) };
+				nanosleep(&t, NULL);
+			}
+		} else {
+			while (wait) wait = sleep(wait);
+		}
+		if (pic && (!out.on || since_boot() >= due)) {
+			drmModeCrtc *c;
+
+			/* The line as it is now goes in with it, so the swap shows no
+			 * frame without the line */
+			if (out.on) {
+				free(out.under);
+				out.under = out.under_later;
+				out.under_later = NULL;
+				portout_compose(&out.A, out.under, out.shown, out.shown_n, out.px);
+				portout_put_box(&out.A, out.px, (uint32_t *)pic, mode.hdisplay, out.turned);
+			}
+			/* Into this buffer whether or not the panel shows it: the
+			 * in-game menu over a port still starting covers it for a
+			 * while, and portkeys puts this buffer back after it */
+			for (unsigned y = 0; y < mode.vdisplay; y++)
+				memcpy((uint8_t *)b.map + (size_t)y * pitch, pic + (size_t)y * row, row);
+			/* A display that keeps its own copy of the buffer
+			 * (virtio-gpu in QEMU) shows new pixels only once told; the
+			 * Pixel's VOP reads the buffer itself. Told only while the
+			 * panel shows this buffer, which takes master, back for that
+			 * one call and dropped at once; never while a port or the
+			 * menu holds it (SetMaster fails then) */
+			c = drmModeGetCrtc(fd, crtc);
+			ours = c && c->buffer_id == b.fb;
+			drmModeFreeCrtc(c);
+			if (ours && drmSetMaster(fd) == 0) {
+				drmModeDirtyFB(fd, b.fb, NULL, 0);
+				drmDropMaster(fd);
+			}
+			log_to_kernel(ours ? "splash: a minute in, the loading screen says how to leave\n"
+			                   : "splash: a minute in; the next loading screen shown says how to leave\n");
+			free(pic);
+			pic = NULL;
+		}
+		if (out.on) ours = out_tick(fd, crtc, &b, pitch);
 	}
 	/* The picture lasts as long as the buffer: stay until launch.sh says */
 	for (;;)
