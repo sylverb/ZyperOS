@@ -307,8 +307,9 @@ typedef struct {
 	/* RUN: "late" lets a core with a frameskip leave out the drawing of a
 	 * frame that is running late, at 1x as well as fast; "steady" does the
 	 * same with exactly every second frame drawn while frames run late (the
-	 * player's When Slow: Steady 30). Empty: only fast forward skips, as
-	 * before. */
+	 * DS shelf's When Slow sent it in a 1.0.6 test build; the launcher sends
+	 * late alone now, and steady stays a RUN word). Empty: only fast forward
+	 * skips, as before. */
 	char frameskip[16];
 	/* RUN: "medium" or "light" caps the clocks for a system that keeps its
 	 * speed under them; empty or anything else is full. See diatom_port_power. */
