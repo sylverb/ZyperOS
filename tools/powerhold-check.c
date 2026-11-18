@@ -25,11 +25,12 @@ int main(void)
 	const unsigned t0 = 5000, step = POWERHOLD_MS / OSDBAR_POWER_STEPS;
 
 	/* The hold is one second (Tarik, 2026-11-17: "so make it 1 second"), its
-	 * own design time: the charging screen's Hold POWER to start and MP4's
-	 * unlock keep their two (DS_MS_HOLD_UNLOCK) */
+	 * own design time, which the charging screen's Hold POWER to start uses
+	 * too (Tarik, 1.0.6; tools/charging-check.c); MP4's unlock keeps its two
+	 * (DS_MS_HOLD_UNLOCK) */
 	ck(POWERHOLD_MS == 1000, "Hold: one second");
 	ck(POWERHOLD_MS == DS_MS_HOLD_POWER && DS_MS_HOLD_UNLOCK == 2000,
-	   "Hold: its own time, the charging screen's and the lock's two seconds kept");
+	   "Hold: its own time, the lock's two seconds kept");
 	/* The pill's segments even over it: each one a whole number of
 	 * milliseconds, the last one lit as the hold fires */
 	ck(POWERHOLD_MS % OSDBAR_POWER_STEPS == 0, "Hold: the pill's segments are even over the hold");
@@ -81,6 +82,22 @@ int main(void)
 	powerhold_consume(&p);
 	powerhold_key(&p, true, t0 + 28000);
 	ck(powerhold_due(&p, t0 + 28000 + POWERHOLD_MS), "Hold: a consume with the key up takes nothing");
+	powerhold_key(&p, false, t0 + 29500);
+
+	/* The charging screen's start and the turn-off are the same second: the
+	 * launcher's input can see the turn-off due a pass before the screen
+	 * starts and takes the hold. Taken after it fired, the key held on is
+	 * still no second turn-off, and the next hold is a whole one. */
+	powerhold_key(&p, true, t0 + 30000);
+	ck(powerhold_due(&p, t0 + 30000 + POWERHOLD_MS), "Hold: due as the charging screen starts");
+	powerhold_consume(&p);
+	ck(!powerhold_due(&p, t0 + 30000 + POWERHOLD_MS * 3), "Hold: taken after it fired, no second turn-off");
+	ck(powerhold_permille(&p, t0 + 30000 + POWERHOLD_MS + 10) == -1, "Hold: and shows nothing");
+	powerhold_key(&p, false, t0 + 34000);
+	powerhold_key(&p, true, t0 + 35000);
+	ck(!powerhold_due(&p, t0 + 35000 + POWERHOLD_MS - 1), "Hold: the next hold starts empty");
+	ck(powerhold_due(&p, t0 + 35000 + POWERHOLD_MS), "Hold: and turns it off at its second");
+	powerhold_key(&p, false, t0 + 37000);
 
 	/* Across the clock's wrap */
 	powerhold_key(&p, false, 0);

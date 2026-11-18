@@ -593,8 +593,8 @@ beside a cubic one. One function each, in `src/design.h`.)*
 | **zyper-ears** | 420 | - | Zyper's ears swinging out and back as he says hello |
 | **tour-reward** | 1100 | - | a tutorial step's reward, before the next |
 | **tour-pulse** | 440 | - | the right glyph's two pulses after a press of the wrong button |
-| **hold-unlock** | 2000 | - | MP4's lock: SELECT and START held together this long unlock it; POWER held this long starts the charging screen's handheld |
-| **hold-power** | 1000 | - | POWER held this long turns the handheld off with Power Button on Hold |
+| **hold-unlock** | 2000 | - | MP4's lock: SELECT and START held together this long unlock it |
+| **hold-power** | 1000 | - | POWER held this long turns the handheld off with Power Button on Hold, and starts the charging screen's handheld |
 | **hold-lock-lit** | 4000 | - | MP4's lock screen, lit as it locks |
 | **hold-controls** | 3000 | - | MP4's video controls after the last press |
 | **hold-snap** | 1000 | - | a game focused on the shelf before its cover turns into its video snap |
@@ -1719,7 +1719,11 @@ not fill it with the ground.
 
 A name too wide for its box breaks balanced, not greedy: one line when it
 fits, else the fewest lines that fit and, of those, the break whose widest
-line is narrowest (src/linebreak.c).
+line is narrowest (src/linebreak.c). A sentence set left in a list's place
+(the in-game menu's Achievements tab, 11.46) is filled instead, each line as
+far as it goes, so it reaches the panel's right margin. Either way, the ">"
+of a way through the menus ("MENU > Achievements") stays with the word before
+it: no line starts with one.
 
 ### 11.12 Header and status corner
 
@@ -2716,7 +2720,9 @@ for its first 30 seconds, "Almost full", "Fully charged"); and at the foot
 
 Lit for **hold-charge-lit** from the last button, then dark, the side lights
 showing the charge; any button lights it again. POWER held for
-**hold-unlock** starts ZyperOS: a start the charger made goes on, and a
+**hold-power**, one second, the same as Power Button's Hold (11.47; Tarik,
+1.0.6: "Can we have the hold power to turn on on charging screen also be one
+second?"), starts ZyperOS: a start the charger made goes on, and a
 power-off on a charger starts afresh, back into a game as any start goes. The
 cable out: "Unplugged" for **hold-short**, the screen dims to the ground and
 the handheld turns off; the cable back while it dims, or in the 5 s after
@@ -4475,7 +4481,11 @@ over the menu (src/achtab.h, src/achtab_screen.h).
 - **A** on a row opens the achievement's card, as in the list over the
   shelf. X quits from here too.
 - **No list**: a sentence where the list would be, **menu** **text-soft**,
-  balanced onto up to six lines, A doing nothing on it. In the order that
+  filled across the list's width onto up to six lines, A doing nothing on it:
+  each line as far as it goes, to the panel's right margin, as the panel's
+  other text is (Tarik, testing 1.0.6: "The empty achievements text in the
+  menu is not using the full menu's width"; balanced, it stood in a narrow
+  column at the left of a panel as wide as every tab). In the order that
   decides it: a set on the card is always the list; no hash for the system,
   or for the kind of file; nobody signed in; the set on its way (a first play
   with Wi-Fi); never played with Wi-Fi ("not checked yet"'s sentence); and
@@ -5006,8 +5016,8 @@ which is too easy to do accidentally." My pick: a MENU setting.)*
 about the handheld going off: **Press**, the default on every card, POWER
 pressed saves the game and turns the handheld off, as it always has; **Hold**,
 POWER held for **hold-power**, one second (Tarik, 2026-11-17: "so make it 1
-second"; the charging screen's Hold (POWER) to start keeps **hold-unlock**'s
-two), with the pill of 11.6 filling while it is held. Two choices, so A switches it, as Left and Right do, heard as a ring.
+second"; the charging screen's Hold (POWER) to start is the same second,
+11.25), with the pill of 11.6 filling while it is held. Two choices, so A switches it, as Left and Right do, heard as a ring.
 
 One rule wherever POWER is read (src/powerhold.h): every screen of the
 launcher, its watch over a game and over a program it waits for, and
@@ -5016,8 +5026,8 @@ reads it, and one begun in a game and ended in the in-game menu is still one
 hold. What is not a turn-off stays a press: POWER starts an off handheld (the
 power chip's), and during the charging screen's send-off a press starts
 ZyperOS, as from off; the hold that starts ZyperOS from the charging screen
-is taken by it: the turn-off's second comes on the way to that screen's two,
-and the charging screen reads no turn-off, so it never turns it off. Holding
+is taken by it: the turn-off's second is that screen's second too, and the
+charging screen reads no turn-off, so it never turns it off. Holding
 POWER about 10 s is still the power chip's own cut, for a handheld that does
 not answer. With Hold on, Controls says "Hold: save and turn off" ("Hold:
 turn off", "Hold: quit and turn off" over a port), and the tutorial's POWER

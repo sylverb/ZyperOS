@@ -7,8 +7,9 @@
  * achievement's badge (src/rabadge.h, the plain one until the card has the
  * art) and its title and points, every row reachable, earned ones in the
  * earned color; or, for a game with no list, the sentence that says why,
- * balanced onto up to AT_LINES lines. main.c hooks it into the in-game menu's
- * build, keys and close (gm_menu_build, gm_key, game_menu).
+ * filled onto up to AT_LINES lines across the list's width (ui_fill_lines).
+ * main.c hooks it into the in-game menu's build, keys and close
+ * (gm_menu_build, gm_key, game_menu).
  *
  * L1 and R1 turn the tabs, so the list has no "eight at a time" paging of
  * its own: it goes round, as every long list does (menu_step_round). A on a
@@ -42,7 +43,7 @@ typedef struct {
 /* The tab's rows, at most `max`, into `rows`; and how the panel draws them,
  * into `st`: the counts over the list (header), the badges (row_icon), the
  * earned color (vcolors), every row reachable (visits_all), or none of that
- * for a sentence. `w` is the width the sentence is balanced to, onto up to
+ * for a sentence. `w` is the width the sentence is filled to, onto up to
  * AT_LINES lines. The count. */
 int achtab_rows(app *a, const at_facts *f, at_source at, achtab_bufs *b,
                 menu_row *rows, int max, int w, menu_style *st);

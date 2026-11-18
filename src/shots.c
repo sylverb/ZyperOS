@@ -2521,7 +2521,7 @@ static void shot_charging_draw(app *a)
 	ch_words(&g_chg.r, ch_eta_minutes(&g_chg.eta, T0, &g_chg.r), false, g_chg.speed,
 	         sizeof g_chg.speed, g_chg.when, sizeof g_chg.when);
 	if (shot_charging_kind == 1) {
-		ch_screen_tick(&g_chg.s, now - DS_MS_HOLD_UNLOCK / 2, true, true, true);
+		ch_screen_tick(&g_chg.s, now - DS_MS_HOLD_POWER / 2, true, true, true);
 		ch_screen_tick(&g_chg.s, now, false, true, true);
 	} else if (shot_charging_kind == 2)
 		ch_screen_tick(&g_chg.s, now, false, false, false);
