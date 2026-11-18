@@ -679,6 +679,10 @@ SHOT_SETTINGS["menu-homesys"] = _HS_OFF
 EXTRA.setdefault("homesys-page", ("demo", "PS1", ["--homesys-page", "4"]))
 SHOT_SETTINGS["homesys-page"] = _HS_OFF
 EXTRA.setdefault("homesys-last", ("openbor", "OPENBOR", ["--homesys-page", "3"]))
+# MENU > Side Lights (DESIGN.md 11.27), where the handheld has the lights (the
+# Pixel 2; nothing over the shelf on the Brick): its page, the cursor on
+# Battery Level, Off as on a new card
+EXTRA.setdefault("lights-page", ("demo", "PS1", ["--lights-page", "2"]))
 for _name, _flags in (("home-recents", []), ("shelf-recents", ["--screen", "games"])):
     EXTRA.setdefault(_name, ("demo", "RECENT", _flags))
     SHOT_LIB[_name] = _RECENT_LIB
