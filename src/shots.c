@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
+#include "ds/hover.h"
 #include "shots.h"
 
 #include "about_screen.h"
@@ -614,6 +615,11 @@ int shot_pick_at = -1;
  * beside them with its preview (menu_pick_preview), or under them */
 static const menu_choice *g_shot_list;
 static int g_shot_list_at, g_shot_list_side;
+/* What the list's cursor shows (src/ds/hover.h): shown in the first
+ * compose, the shot then composed again over it (shot_compose), the tick
+ * staying on the choice kept before the show */
+static int g_shot_hover_kept = -2;
+static bool g_shot_hover_again;
 
 static void shot_list_side(app *a, const menu_side *at)
 {
@@ -631,11 +637,22 @@ static void shot_list_draw(app *a, const char *heading, const menu_choice *ch, i
 	static char pw[MENU_CHOICES_MAX][64];
 	static char pn[2][CHV_WRAP_COLS];
 	const int at = shot_pick_at >= 0 && shot_pick_at < ch->n ? shot_pick_at : ch->cur;
-	int k, np = ch->n;
+	int k, np = ch->n, kept = ch->none ? -1 : ch->cur;
 
+	/* The choice under the cursor shown, as the list shows it: once, and
+	 * the shot composed again with it on (the tick on the one kept) */
+	if (g_shot_hover_kept == -2) {
+		g_shot_hover_kept = kept;
+		if (ch->hover && ch->hover->show && at != kept) {
+			ch->hover->show(a, at);
+			g_shot_hover_again = true;
+		}
+	} else {
+		kept = g_shot_hover_kept;
+	}
 	for (k = 0; k < ch->n; k++) {
 		menu_pick_word(ch->labels[k], pw[k], (int)sizeof pw[k]);
-		pr[k] = (menu_row){ pw[k], !ch->none && k == ch->cur ? MENU_TICK : NULL, true };
+		pr[k] = (menu_row){ pw[k], k == kept ? MENU_TICK : NULL, true };
 	}
 	if (ch->notes && !ch->preview) {   /* what the choice under the cursor does */
 		int nl = menu_pick_note(ch->notes[at], pn);
@@ -707,7 +724,15 @@ static void shot_draw_gamemenu(app *a)
 		st.tabs = &tabs;
 		an = achtab_rows(a, &f, gm_at_source(), &ab, arows, MENU_RUN_ROWS, st.fixed_w, &st);
 		asel = shot_gamemenu_sel < an ? shot_gamemenu_sel : an - 1;
-		if (!st.visits_all && !arows[asel].live) asel = -1;
+		/* Where the runner puts the cursor (menu_run_body): off a dead row
+		 * onto a live one, or, with none (a sentence in place of the list),
+		 * still on the dead row, which the panel draws no plate on
+		 * (menu_rows_landable). Hiding it here, as the shot did, kept the
+		 * plate the device drew on that sentence out of every shot (1.0.6) */
+		if (!st.visits_all && !arows[asel].live) {
+			asel = menu_step_sel(arows, an, asel, +1);
+			if (!arows[asel].live) asel = menu_step_sel(arows, an, asel, -1);
+		}
 		menu_draw_styled(a, &st, gm_tab_name(tabs.at), arows, an, asel);
 		if (bg) SDL_DestroyTexture(bg);
 		return;
@@ -977,6 +1002,7 @@ int  shot_hud_pick = -1; /* --hud-pick ROW: that row's list of choices */
 const char *shot_hud_shows; /* --hud-shows WORDS: the items it shows */
 bool shot_hud_alt;      /* --hud-alt: Shadow and Small, the two-choice rows' other values */
 int shot_rows_report;   /* --rows-report: every option page's rows (tools/menu-rows-check.py) */
+int shot_hover_sweep;   /* --hover-sweep: Theme's lists show every choice, writing nothing (check-hover-sweep) */
 /* --menu's row by its label, found when the menu is built */
 const char *shot_menu_label;
 
@@ -1152,6 +1178,16 @@ static void shot_draw_look(app *a)
 	      : screen ? sc_build(NULL, rows, LK_ROWS, &heading) : look_build(NULL, rows, LK_ROWS, &heading);
 
 	ui_scrim(a->r, 0);
+	/* --look-page theme-list ROW: Theme's row ROW's list, Accent's or a
+	 * ground's (--pick-at for the cursor, the whole screen showing it) */
+	if (!strcmp(shot_look_page, "theme-list")) {
+		const menu_choice *ch;
+		int row = shot_look_row >= 0 && shot_look_row < n ? shot_look_row : 0;
+
+		ch = menu_choice_at(theme_choices(), n, row);
+		if (ch) shot_list_draw(a, rows[row].label, ch, menu_std_width(a), MENU_ZYPEROS);
+		return;
+	}
 	if (night_list) {
 		/* A Night Mode row's list, as A opens it (menu_pick) */
 		const int row = shot_look_row >= 0 && shot_look_row < n ? shot_look_row : 0;
@@ -1189,7 +1225,22 @@ int   g_shot_saver = -1;          /* --saver [cover]: 0 video, 1 cover */
 float g_shot_saver_alpha = 1;     /* --saver-alpha F: how far it has faded up */
 const char *g_shot_saver_pic;     /* --saver-pic FILE: its picture, a screenshot */
 
+static void shot_compose_once(app *a);
+
+/* A shot's picture; composed again where an open list's cursor showed its
+ * choice on the whole screen in the first (shot_list_draw) */
 static void shot_compose(app *a)
+{
+	shot_compose_once(a);
+	if (g_shot_hover_again) {
+		g_shot_hover_again = false;
+		SDL_SetRenderDrawColor(a->r, 0, 0, 0, 255);
+		SDL_RenderClear(a->r);
+		shot_compose_once(a);
+	}
+}
+
+static void shot_compose_once(app *a)
 {
 	drawn_forget();
 	ui_fit_frame();
@@ -1451,6 +1502,10 @@ static void shot_compose(app *a)
 		snaps_rows_report(a);
 		bgm_rows_report(a);
 		shot_rows_report = 0;   /* once: --flip composes the shot twice */
+	}
+	if (shot_hover_sweep) {
+		sysmenu_hover_sweep(a);
+		shot_hover_sweep = 0;
 	}
 	if (shot_handheld_box) handheld_box_report();
 	/* Over **scrim.menu**, as the screens they picture are: kb_prompt's

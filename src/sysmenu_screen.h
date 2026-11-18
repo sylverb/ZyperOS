@@ -48,7 +48,11 @@ void sc_look_choice(menu_choice *out);
 menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel);
 void zyperos_menu(app *a);
 
+/* Theme's rows' choices by place, as look_build last made them (the shots) */
+const menu_choice *theme_choices(void);
 /* --rows-report: MENU's rows, the shelf's menu's, Theme's and Night Mode's (menu_rows_print) */
 void sysmenu_rows_report(app *a);
+/* For check-hover-sweep (--hover-sweep, src/hover_sweep.h): Theme's lists */
+void sysmenu_hover_sweep(app *a);
 
 #endif

@@ -140,7 +140,6 @@
 #include "portinfo.h"
 #include "dsv.h"
 #include "dslang.h"
-#include "dsslow.h"
 #include "corestate.h"
 #include "dsresume.h"
 #include "ui.h"
@@ -579,15 +578,6 @@ dsl_choice dslang_load(void)
 
 	db_get_str(db_dev(), DSLANG_SETTING, v, sizeof v, "auto");
 	return dslang_parse(v);
-}
-
-/* When Slow (src/dsslow.h), as the device's database keeps it */
-dss_choice dsslow_load(void)
-{
-	char v[16];
-
-	db_get_str(db_dev(), DSSLOW_SETTING, v, sizeof v, "keep");
-	return dsslow_parse(v);
 }
 
 /* Timing (src/pacing.h): the system's own, as the device's database keeps
@@ -4712,7 +4702,6 @@ static int sm_pos(const app *a, int sys, sm_row which)
 {
 	sys_ui dev = { .no_wifi = !plat_has_wifi(), .online = net_internet(NULL),
 	               .dslang = dslang_row_shown(a, sys) ? "" : NULL,
-	               .dsslow = dslang_row_shown(a, sys) ? "" : NULL,
 	               .pace = pacing_row_shown(a, sys) ? "" : NULL,
 	               .no_strength = !shader_has_strength(a->view[sys].shader) };
 	sm_row ids[SM_ROWS];
@@ -4794,7 +4783,6 @@ static int menu_shelf_width(app *a)
 		int  hrow = own ? -1 : sm_pos(a, i, SM_SHADER);
 		int  crow = own ? -1 : sm_pos(a, i, SM_CORE);
 		int  lrow = own ? -1 : sm_pos(a, i, SM_DSLANG);
-		int  wrow = own ? -1 : sm_pos(a, i, SM_DSSLOW);
 		int  prow = own ? -1 : sm_pos(a, i, SM_PACE);
 		int  vrow = muse ? -1 : a->view[i].owner ? 3 : sm_pos(a, i, SM_VIEW);
 
@@ -4866,18 +4854,6 @@ static int menu_shelf_width(app *a)
 				if (mw > w) w = mw;
 			}
 			rows[lrow].value = keep;
-		}
-		/* When Slow's two */
-		if (wrow >= 0) {
-			const char *keep = rows[wrow].value;
-
-			for (k = 0; k < DSS_CHOICES; k++) {
-				int mw;
-				rows[wrow].value = T(dsslow_label_id((dss_choice)k));
-				mw = menu_measure(rows, n, heading);
-				if (mw > w) w = mw;
-			}
-			rows[wrow].value = keep;
 		}
 		/* Timing's two */
 		if (prow >= 0 && prow < n) {
@@ -5556,6 +5532,7 @@ int main(int argc, char *argv[])
 			shot_gm_aspect = at ? atof(at + 1) : 4.0 / 3.0;
 		}
 		else if (!strcmp(argv[i], "--rows-report")) shot_rows_report = 1;
+		else if (!strcmp(argv[i], "--hover-sweep")) shot_hover_sweep = 1;
 		else if (!strcmp(argv[i], "--backdrop") && i + 1 < argc) shot_backdrop = argv[++i];
 		else if (!strcmp(argv[i], "--press") && i + 1 < argc) {
 			i++;

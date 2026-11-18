@@ -135,7 +135,7 @@ Each role has one value per theme. Code asks for the role, never the value.
 | Accent | Is | Never |
 |---|---|---|
 | lime (**accent**, **accent-ink**) | ZyperOS: focus, the system's chrome, volume, success, earned, Muse | a system's color, decoration |
-| a system's color (systems.cfg) | that system's menu heading rule and missing-cover fallback | focus, source sprite colors, unrelated screens |
+| a system's color (systems.cfg) | its shelf's marks and lift and missing-cover fallback | focus, any menu (its heading rule, its frame, its light), source sprite colors, unrelated screens |
 | **light** | brightness | anything else |
 | **favorite** | the heart | anything else |
 | **warning** | low battery, an error a row reports | emphasis |
@@ -147,7 +147,7 @@ both themes (Salt & Pepper is one-accent), and an earned achievement is lime
 where it was cyan. Cyan leaves the system.
 
 A system's color on the Beard ground is mixed a quarter of the way toward
-**text** before it is used as a mark (a rail, a heading rule), so a yellow
+**text** before it is used as a mark (a rail), so a yellow
 like Game Boy Color's still reads on a light ground. Source console sprites
 and game covers are never recolored for a theme. Their dark outlines remain
 opaque. Focus uses the accent underline, size and text, not a tint of the art.
@@ -499,8 +499,11 @@ pill. A pill is only ever a pill: the bar, button glyphs, chips.
 - A panel's frame is **edge**, 3 units, in both themes. *(The 12-unit cyan
   frame goes: with lime as the focus fill, a lime frame around it doubled the
   accent, and a grey frame lets the focused row be the brightest thing on
-  the panel. A system menu says which system it is with its color on the
-  heading rule.)*
+  the panel. A system's menu says which system it is in its heading; its
+  heading rule is **edge** and its light in Salt & Pepper the neutral one,
+  as every menu's. Tarik's for 1.0.6 rc.2: "why the line below the header
+  in the menu varies with the system? can we not do that?", and the light
+  the same for all systems too, "yeah".)*
 - Covers keep their own corners (square for album covers, as now).
 
 ---
@@ -508,7 +511,8 @@ pill. A pill is only ever a pill: the bar, button glyphs, chips.
 ## 7. Elevation
 
 Salt & Pepper lifts with light: the additive glow under a focused card, in
-the system's color, as the launcher has always done. Beard lifts with
+the system's color, as the launcher has always done; a menu panel's light
+is the neutral one on every menu, a system's too (1.0.6 rc.2). Beard lifts with
 shadow: light on a light ground is invisible, so the same places get a soft
 shadow of ink instead, neutral, never tinted. In Beard the system's color is
 the wash along the bottom of the shelf (a normal blend, not additive), the
@@ -976,7 +980,7 @@ over **scrim.menu**. Centered, 24 from the screen's edges, but never above
 y 96, clear of the header row (11.12), which stands over
 every screen a panel opens on; a list too tall for that scrolls in its
 window. Heading in **label**, **text-soft**, over a 2-unit rule
-in **edge** (in a system's menu, in that system's color). Rows in **menu**:
+in **edge**, a system's menu and the in-game menu's too. Rows in **menu**:
 live rows **text-soft**, values **text-dim**, dead rows **text-dim** at both.
 The focused row is an **accent** fill, **radius.row**, its label and value in
 **on-accent**. More rows above or below: a small triangle in **text-dim**,
@@ -1038,6 +1042,16 @@ Video Snaps, Menu Music:
   ramp and the hues in a band; four across in a column beside the rows,
   six across in a list's picture. The setting changes the whole screen, so
   the chart shows it as the panel makes it.
+- **What the cursor shows** (1.0.6 rc.2; `src/ds/hover.h`, section 15):
+  a list whose choice changes how the whole screen looks shows the one
+  under the cursor from the frame the cursor reaches it, once a move and
+  never each frame; the tick stays on the kept choice, and B, MENU or
+  POWER put back what is kept before anything else runs - nothing is saved
+  until A. While a list shows a choice that is not kept, nothing that keeps
+  the screen's state writes it down (the boot screen's words, the theme
+  file: `ds_hover_showing`). Theme's three lists (11.42). `check-hover-sweep`
+  shows every choice of them and fails on a database row or a file written,
+  or a page that reads otherwise after.
 - **Two: A turns it over**, unless the two need a picture to tell apart:
   **Timing** (Smooth or Exact, a GB, GBC, GBA, DS or Genesis shelf's)
   opens its list on A all the same (`menu_choice.list`), Left and Right
@@ -4119,6 +4133,14 @@ everything at once, and a change to the other in its picture. Before a
 value, a mark of what it is: the accent's dot on Accent, the theme's chip
 (its ground in its edge, the accent on it, 64 by 36) on each background's
 row. Display's own **Theme** row shows both chips and the accent's name.
+Accent's, Light Background's and Dark Background's lists show the choice
+under the cursor on the whole screen as it moves (11.3's what the cursor
+shows): the look in memory, no setting and no theme file, the list's own
+focus bar in the accent too; a ground of the theme that is not on shows
+that theme while its list is open, so the choice can be seen at all. B,
+MENU or POWER put back the look as it was; A keeps the one chosen. *(Tarik's
+for 1.0.6 rc.2: "Can we have the theme accent preview on hover? same for
+all other theme options".)*
 
 **Appearance** is Light or Dark, two, so A turns it over. *(1.0.6: Auto,
 light from 7:00 to 19:00, went, and its hours became Night Mode's below; a
@@ -4196,7 +4218,7 @@ what is built: plain HTTP, the touch pad and the keyboard.)*
 **On the handheld.** The in-game menu has a **Player 2** row on its Game tab, after Quick Slot,
 its value `off`, `waiting` or `connected`. A opens its page over the paused
 game, a panel as the in-game menu's (11.3): **Player 2** in **label**
-**text-soft** over a rule in the system's color, a line that says what to do,
+**text-soft** over a rule in **edge**, a line that says what to do,
 a line for each player a friend can be ("Player 2" in **text-soft**, its
 state at the right in **text-dim**), a second rule and the key legend
 (11.4): A to turn it on or stop it, B to close the page. Continue goes back
@@ -4920,6 +4942,7 @@ the tiles' style is read off a name.
 | Distances | `src/ds/sdf.h` | the segment, polygon and rounded-box distances the distance-field marks share: the status corner, the cover badges |
 | Button hints | `src/keyhints.c`, `src/keyhints_draw.c`; `page_hint` in `src/home.c` | 11.4 |
 | Menu panel | `src/menu_panel.c` (its slab `ds_panel_open`, its more marks `ds_more`) | 11.3 |
+| What a list's cursor shows | `src/ds/hover.c`, `hover.h` | 11.3: a list's `ds_hover` (`menu_choice.hover`) - `show(k)` the choice in memory, `undo(kept)` - run by `ds_hover_run`: a show once per choice the cursor comes to, the kept one back on the cursor's return and when the list closes, before A's choice is applied. The runner tells a list its cursor after the keys and before the frame (`menu_style.at`). `ds_hover_showing` holds what would write a shown state down. `check-hover` (its rules), `check-hover-sweep` (Theme's lists, nothing written). |
 | A choice's picture | `src/ds/preview.c`, `preview.h` | 11.3: the column at an option list's left (`menu_pick_preview`): `ds_preview_layout` on the layout engine (the small screen a 4:3 leaf, **preview-note-gap**, the note's room in meta lines, the set's tallest), `ds_preview_screen_begin` / `ds_preview_screen_end` (the screen's ink, its **edge** frame of `DS_FRAME` and its corners `DS_RADIUS_ROW`, the focus fill's beside it), `ds_preview_note`; the column **preview-col-w**, to **preview-col-min** where the choices run long (`ds_preview_col_w`), **preview-gap** from the rows. The Display list's picture is `src/dmodepreview.c`, each mode placed as Diatom places it (`src/dmodefit.c`, `check-dmodefit`). |
 | A row's scale | `src/ds/scale.c`, `scale.h` | 11.3: the graded bar a row carries as its value (`ds_scale_value`, `ds_scale_parse`), drawn by `menu_draw` in the page's scales' column (`ds_scale_draw`, `DS_SCALE_MIN_W`, `ds_scale_num_w`); `check-scale` holds the value's round trip and range and the knob's place in both themes. |
 | A color chart | `src/ds/colorref.c`, `colorref.h` | 11.3: `ds_color_ref_draw`, the 24-patch chart, a grey ramp and the hues, tall in a column or wide in a list's picture. |

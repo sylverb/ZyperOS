@@ -32,6 +32,13 @@ int menu_pick_preview(app *a, const menu_style *from, void *from_ctx, const char
 int menu_pick_focus(app *a, const menu_style *from, void *from_ctx, const char *heading,
                     const char *const *labels, const char *const *notes,
                     void (*focus)(void *app, int k), int n, int ticked, int at);
+/* The same with `hover` (menu_choice's, src/ds/hover.h): the choice under
+ * the cursor shown on the whole screen from the frame the cursor reaches
+ * it, and the kept one put back when the list closes, whichever way, before
+ * a choice is applied; no picture column */
+int menu_pick_hover(app *a, const menu_style *from, void *from_ctx, const char *heading,
+                    const char *const *labels, const char *const *notes, const struct ds_hover *hover,
+                    int n, int ticked, int at);
 /* The list's width: `base`, the menu it opens from's, or wider with a
  * picture column, to hold the column and the longest choice beside it
  * (`ticked` with its tick); and the column's width into `side_w` (0
