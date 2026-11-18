@@ -216,6 +216,19 @@ static void lb_read(lb_text *t, const char *text)
 			/* To the next space, or to where a line may break inside the
 			 * run (Chinese): the next word then follows with no space */
 			wl = lb_piece(p, strcspn(p, " "));
+			/* The ">" of a way through the menus ("MENU > Achievements")
+			 * stays with the word before it, so no line starts with one:
+			 * "in MENU" over "> Achievements" was the Achievements tab's
+			 * sentence, filled (1.0.6). Only the ">": the name after it
+			 * can be words of its own ("System Update", 系统更新), which
+			 * a line may break between as before. */
+			{
+				const char *q = p + wl;
+
+				while (*q == ' ') q++;
+				if (q > p + wl && q[0] == '>' && (q[1] == ' ' || !q[1]))
+					wl = (size_t)(q - p) + 1;
+			}
 		}
 		snprintf(word, sizeof word, "%.*s", (int)wl, p);
 		lb_whole(word);
@@ -238,20 +251,55 @@ static void lb_read(lb_text *t, const char *text)
 	t->buf[len] = '\0';
 }
 
+/* Words read into `t`, as many as fit on each line but the last, which
+ * takes the rest and is cut to fit when they do not: at most `cap` lines.
+ * Every word fits a line on its own, cut as it is. */
+static int lb_greedy(lb_text *t, int cap, char lines[][LB_LINE])
+{
+	int i, n;
+
+	for (i = 0, n = 0; n < cap - 1 && i < t->n; n++) {
+		int j = i + 1;
+
+		while (j < t->n && lb_span(t, i, j + 1) <= t->maxw) j++;
+		lb_line(t, i, j, lines[n]);
+		i = j;
+	}
+	if (i < t->n) {
+		char rest[LB_LINE];
+
+		if (!lb_line(t, i, t->n, rest)) {
+			snprintf(rest, sizeof rest, "%.*s", LB_LINE - 1, t->buf + t->at[i]);
+			lb_whole(rest);
+		}
+		lb_fit(rest, lines[n], LB_LINE, t->maxw, t->width, t->ctx);
+		n++;
+	}
+	return n;
+}
+
+/* `text` read into `t` for a box `maxw` wide, at most LB_MAX_LINES; the
+ * cap held to that, 0 for no words or a cap under 1 */
+static int lb_start(lb_text *t, const char *text, int maxw, int cap, lb_width_fn width,
+                    void *ctx)
+{
+	if (!text || cap < 1) return 0;
+	t->maxw = maxw;
+	t->width = width;
+	t->ctx = ctx;
+	lb_read(t, text);
+	if (!t->n) return 0;
+	memset(t->span, -1, sizeof t->span);
+	return cap > LB_MAX_LINES ? LB_MAX_LINES : cap;
+}
+
 int lb_balance(const char *text, int maxw, int cap, lb_width_fn width,
                void *ctx, char lines[][LB_LINE])
 {
 	lb_text t;   /* 26 KB */
 	int k, i, n;
 
-	if (!text || cap < 1) return 0;
-	if (cap > LB_MAX_LINES) cap = LB_MAX_LINES;
-	t.maxw = maxw;
-	t.width = width;
-	t.ctx = ctx;
-	lb_read(&t, text);
-	if (!t.n) return 0;
-	memset(t.span, -1, sizeof t.span);
+	if (!(cap = lb_start(&t, text, maxw, cap, width, ctx))) return 0;
 	memset(t.best, -1, sizeof t.best);
 
 	/* The fewest lines that fit, and the narrowest break into that many */
@@ -266,27 +314,17 @@ int lb_balance(const char *text, int maxw, int cap, lb_width_fn width,
 		return k;
 	}
 
-	/* No `cap` lines hold it: as many words as fit on each line but the
-	 * last, which takes the rest and is cut to fit. Every word fits a line
-	 * on its own, cut as it is. */
-	for (i = 0, n = 0; n < cap - 1 && i < t.n; n++) {
-		int j = i + 1;
+	/* No `cap` lines hold it: filled, the last cut */
+	return lb_greedy(&t, cap, lines);
+}
 
-		while (j < t.n && lb_span(&t, i, j + 1) <= maxw) j++;
-		lb_line(&t, i, j, lines[n]);
-		i = j;
-	}
-	if (i < t.n) {
-		char rest[LB_LINE];
+int lb_fill(const char *text, int maxw, int cap, lb_width_fn width,
+            void *ctx, char lines[][LB_LINE])
+{
+	lb_text t;
 
-		if (!lb_line(&t, i, t.n, rest)) {
-			snprintf(rest, sizeof rest, "%.*s", LB_LINE - 1, t.buf + t.at[i]);
-			lb_whole(rest);
-		}
-		lb_fit(rest, lines[n], LB_LINE, maxw, width, ctx);
-		n++;
-	}
-	return n;
+	if (!(cap = lb_start(&t, text, maxw, cap, width, ctx))) return 0;
+	return lb_greedy(&t, cap, lines);
 }
 
 void lb_edges(const char *text, int at, lb_width_fn width, void *ctx,

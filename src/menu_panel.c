@@ -1724,3 +1724,11 @@ int menu_pick_hover(app *a, const menu_style *from, void *from_ctx, const char *
 {
 	return pick_run(a, from, from_ctx, heading, labels, notes, NULL, NULL, hover, n, ticked, at);
 }
+
+int menu_pick_preview_hover(app *a, const menu_style *from, void *from_ctx, const char *heading,
+                            const char *const *labels, const char *const *notes,
+                            void (*preview)(void *app, int k, int x, int y, int w, int h),
+                            const ds_hover *hover, int n, int ticked, int at)
+{
+	return pick_run(a, from, from_ctx, heading, labels, notes, preview, NULL, hover, n, ticked, at);
+}

@@ -570,11 +570,22 @@ EXTRA.setdefault("gamemenu-dual-stylus", ("demo", "PS1", ["--gamemenu", "4", "du
 # (src/shots.c's GM_SAID): four lines in English, German, French and
 # Portuguese, which three cut ("* ?...")
 EXTRA.setdefault("gm-said-7", ("demo", "PS1", ["--screen", "games", "--gm-said", "7"]))
-# MENU's Shader when a system has its own (SHOT_SETTINGS below): "per system"
+# MENU's Shader, ZyperOS's own screens' (src/screenfx.h, SHOT_SETTINGS
+# below): CRT Curved on the menu itself, a system's own shader beside it
+# changing nothing
 EXTRA.setdefault("menu-shader", ("demo", "PS1", ["--menu", "Shader"]))
+# The screens' shader on the home, a shelf and a menu, one old screen each
+# (the proof sheet has every one on each)
+EXTRA.setdefault("screens-crt-curved-home", ("demo", "PS1", ["--home", "spotlight"]))
+EXTRA.setdefault("screens-scanlines-shelf", ("demo", "PS1", ["--screen", "games"]))
+EXTRA.setdefault("screens-lcd-menu", ("demo", "PS1", ["--menu", "Search Games"]))
 
 # The README's shots' own settings, and these shots'
-SHOT_SETTINGS = {**R.SHOT_SETTINGS, "menu-shader": {"shader.PS1": "shimmerless"},
+SHOT_SETTINGS = {**R.SHOT_SETTINGS,
+                 "menu-shader": {"launcher_shader": "crt-curved", "shader.PS1": "shimmerless"},
+                 "screens-crt-curved-home": {"launcher_shader": "crt-curved"},
+                 "screens-scanlines-shelf": {"launcher_shader": "scanlines"},
+                 "screens-lcd-menu": {"launcher_shader": "lcd", "launcher_strength": "50"},
                  "menu-saver-off": {"saver": "0"}}
 
 # MENU > Menu Music with the card's own tracks in its Menu Music folder, at
@@ -612,8 +623,9 @@ for _s in ("shimmerless", "crt", "crt-curved", "scanlines", "lcd"):
 
 # The Shader list, each shader under its cursor beside its picture and its
 # note (src/shaderdemo.h); the Strength list beside its picture; MENU's
-# Shader list (the Pixel 2 offers all six; the Brick Off and
-# Sharp-Shimmerless, its list's last row standing in past them)
+# Shader list, the screens' own, its choice on the whole screen and its note
+# under it (the Pixel 2 offers Off and the four old screens; the Brick has no
+# such row, its list's last row standing in)
 for _k, _s in enumerate(["off", "shimmerless", "crt", "crt-curved", "scanlines", "lcd"]):
     EXTRA.setdefault("gamemenu-shader-list-" + _s,
                      ("demo", "PS1", ["--gamemenu", "1", "--gm-tab", "1", "--gm-choose", "--pick-at", str(_k)]))
@@ -621,17 +633,17 @@ EXTRA.setdefault("gamemenu-strength-list", ("demo", "PS1", ["--gamemenu", "2", "
                                                            "--pick-at", "4"]))
 SHOT_SETTINGS["gamemenu-strength-list"] = {"shader.PS1": "crt", "shader_strength.PS1": "50"}
 EXTRA.setdefault("menu-shader-list", ("demo", "PS1", ["--menu", "Shader", "--press", "a"]))
-SHOT_SETTINGS["menu-shader-list"] = {"shader": "scanlines"}
+SHOT_SETTINGS["menu-shader-list"] = {"launcher_shader": "scanlines"}
 
 # The Strength row under each Shader row while the shader is an old screen
-# (src/strength.h): in the game on it, in the system menu, and MENU's saying
-# "per system" when one system has its own
+# (src/strength.h): in the game on it, in the system menu, and MENU's, the
+# screens' own, a system's own beside it changing nothing
 EXTRA.setdefault("gamemenu-strength", ("demo", "PS1", ["--screen", "games", "--gamemenu", "2", "--gm-tab", "1"]))
 SHOT_SETTINGS["gamemenu-strength"] = {"shader.PS1": "lcd", "shader_strength.PS1": "50"}
 EXTRA.setdefault("system-menu-strength", ("demo", "PS1", ["--screen", "games", "--menu", "Strength"]))
 SHOT_SETTINGS["system-menu-strength"] = {"shader.PS1": "scanlines", "shader_strength.PS1": "20"}
 EXTRA.setdefault("menu-strength", ("demo", "PS1", ["--menu", "Strength"]))
-SHOT_SETTINGS["menu-strength"] = {"shader": "crt", "shader_strength.PS1": "60"}
+SHOT_SETTINGS["menu-strength"] = {"launcher_shader": "crt", "launcher_strength": "60", "shader_strength.PS1": "60"}
 SHOT_SETTINGS["screen-colors-vivid"] = {"screen_contrast": "3", "screen_saturation": "3", "screen_gamma": "-2"}
 SHOT_SETTINGS["screen-colors-custom"] = {"screen_temp": "4", "screen_tint": "-1", "screen_contrast": "3",
                                          "screen_saturation": "5", "screen_gamma": "-2"}
@@ -790,12 +802,20 @@ for _i, _acc in enumerate(("lime", "green", "teal", "blue", "purple", "pink", "r
 EXTRA.setdefault("theme-accent-list-teal", ("demo", "PS1", ["--look-page", "theme-list", "0", "--pick-at", "2"]))
 EXTRA.setdefault("theme-light-list-cool", ("demo", "PS1", ["--look-page", "theme-list", "1", "--pick-at", "2"]))
 EXTRA.setdefault("theme-dark-list-deepblue", ("demo", "PS1", ["--look-page", "theme-list", "2", "--pick-at", "1"]))
+# Folder Color (1.0.6 rc.3): its row in focus, System Colors and an accent,
+# and its list with the picture of the shelf's folders beside it, on System
+# Colors and on an accent under the cursor
+EXTRA.setdefault("theme-folders-system", ("demo", "PS1", ["--look-page", "theme", "3"]))
+EXTRA.setdefault("theme-folders-orange", ("demo", "PS1", ["--look", "lime,warm,black,rounded,on,orange",
+                                                          "--look-page", "theme", "3"]))
+EXTRA.setdefault("theme-folders-list-system", ("demo", "PS1", ["--look-page", "theme-list", "3", "--pick-at", "0"]))
+EXTRA.setdefault("theme-folders-list-teal", ("demo", "PS1", ["--look-page", "theme-list", "3", "--pick-at", "3"]))
 # Timing's list (src/pacing.h): two choices, opened on A all the same for
 # the picture beside it (the two ways, slowed) and what each does under it
 for _k, _p in enumerate(("smooth", "exact")):
     EXTRA.setdefault("system-menu-timing-list-" + _p, ("demo", "GBA", ["--screen", "games", "--menu", "Timing",
                                                                       "--press", "a", "--pick-at", str(_k)]))
-EXTRA.setdefault("theme-foot-on", ("demo", "PS1", ["--look-page", "theme", "5"]))
+EXTRA.setdefault("theme-foot-on", ("demo", "PS1", ["--look-page", "theme", "6"]))
 # MENU > Display > Screen Colors (src/panelgamma.h): its row, and its page
 # Standard as it ships, Vivid, and Custom with every row moved (the values
 # from the database, as the page reads them); and the Look's list with each
@@ -810,7 +830,7 @@ for _k, _l in enumerate(["standard", "vivid", "intense", "warm", "cool", "muted"
 EXTRA.setdefault("screen-colors-look-custom",
                  ("demo", "PS1", ["--look-page", "screen-looks", "0", "--pick-at", "6"]))
 EXTRA.setdefault("theme-foot-off", ("demo", "PS1", ["--look", "lime,warm,black,square,off",
-                                                    "--look-page", "theme", "5"]))
+                                                    "--look-page", "theme", "6"]))
 # MENU > Display > Night Mode (DESIGN.md 11.42), only where the display has a
 # table (not the Brick): its one row, By Hours; and its page, A on the row:
 # By Hours with every row live, Off and On with the rows they do not use

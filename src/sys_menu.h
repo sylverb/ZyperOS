@@ -361,17 +361,20 @@ typedef struct {
 	 * is the clock's to say. NULL reads Light, the default. A label and not
 	 * an enum, as cards and dmode are, so this file need not link theme.c. */
 	const char *appearance;
-	/* Shader, for every system (src/app.h SHADERS): Off, a shader's name, or
-	 * "per system" when systems differ. NULL reads Off. A label, for the
-	 * reason appearance is one. */
-	const char *shader_all;
-	/* Strength, under it (src/strength.h): "50%", or "per system" when
-	 * systems differ. NULL reads 100%. */
-	const char *strength_all;
-	/* No Strength row, in MENU nor in the system menu: no system's shader
-	 * is an old screen (MENU), or this system's is not. False means present,
-	 * as no_lights does, so a check that says nothing gets every row. */
+	/* Shader, ZyperOS's own screens' (src/screenfx.h, 1.0.6): Off or an old
+	 * screen's name. NULL reads Off. A label, for the reason appearance is
+	 * one. Each system's own is in its menu. */
+	const char *shader_screens;
+	/* Strength, under it (src/strength.h): "50%". NULL reads 100%. */
+	const char *strength_screens;
+	/* No Strength row, in MENU nor in the system menu: the screens' shader
+	 * is not an old screen (MENU), or this system's is not. False means
+	 * present, as no_lights does, so a check that says nothing gets every
+	 * row. */
 	bool        no_strength;
+	/* No Shader row in MENU: the device draws no old screen
+	 * (plat_gpu_shaders), so the screens' row would have Off alone */
+	bool        no_shader;
 	const char *home;       /* Spotlight (default) or Gallery */
 	/* System Order, under Home Screen: "A to Z" (default, NULL reads it) or
 	 * "Release Date", systems.cfg's order (2026-11-06) */

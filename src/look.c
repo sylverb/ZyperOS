@@ -189,6 +189,7 @@ void look_set(const look *l)
 
 	g_look = l ? *l : LOOK_DEFAULT;
 	g_look.accent = clamp_ix(g_look.accent, DS_ACCENTS);
+	g_look.folder = clamp_ix(g_look.folder, LOOK_FOLDERS);
 	for (t = 0; t < DS_THEMES; t++) {
 		g_look.tone[t] = clamp_ix(g_look.tone[t], DS_TONES);
 		look_theme(t, DS_TONE[t][g_look.tone[t]], DS_ACCENT[g_look.accent], &g_live[t]);
@@ -206,7 +207,7 @@ unsigned look_gen(void)
 int look_id(void)
 {
 	return g_look.accent + DS_ACCENTS * (g_look.tone[DS_LIGHT] + DS_TONES * (g_look.tone[DS_DARK]
-	       + DS_TONES * (g_look.square ? 1 : 0)));
+	       + DS_TONES * ((g_look.square ? 1 : 0) + 2 * g_look.folder)));
 }
 
 const look *look_now(void)
@@ -222,6 +223,29 @@ bool look_square(void)
 bool look_zyper_off(void)
 {
 	return g_look.zyper_off;
+}
+
+unsigned look_folder_rgb(unsigned system_rgb)
+{
+	ds_rgb c;
+
+	if (g_look.folder <= 0 || g_look.folder >= LOOK_FOLDERS) return system_rgb;
+	c = DS_ACCENT[g_look.folder - 1];
+	return (unsigned)c.r << 16 | (unsigned)c.g << 8 | c.b;
+}
+
+int look_folder_parse(const char *word)
+{
+	int i;
+
+	for (i = 0; word && i < DS_ACCENTS; i++)
+		if (!strcmp(DS_ACCENT_ID[i], word)) return i + 1;
+	return 0;
+}
+
+const char *look_folder_word(int folder)
+{
+	return folder > 0 && folder < LOOK_FOLDERS ? DS_ACCENT_ID[folder - 1] : "system";
 }
 
 const ds_theme *theme_at(int ix)

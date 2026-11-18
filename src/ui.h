@@ -223,6 +223,13 @@ void ui_fit_text(TTF_Font *f, const char *src, char *dst, size_t dstn,
 int ui_balance_lines(TTF_Font *f, const char *text, int maxw, int cap,
                      char lines[][LB_LINE]);
 
+/* The same, filled: each line with as many words as fit (lb_fill), for a
+ * sentence set left in a list's place, which should reach the panel's right
+ * margin rather than stand in a narrow column (the in-game menu's
+ * Achievements tab) */
+int ui_fill_lines(TTF_Font *f, const char *text, int maxw, int cap,
+                  char lines[][LB_LINE]);
+
 /* Forget the widths, fits and balances remembered on the main thread (ui.c
  * keeps the last 64, as each is a pure function of the face, the text and the
  * box). Called wherever a face the main thread measures with is closed: a new
