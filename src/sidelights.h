@@ -7,13 +7,17 @@
 
 /* MENU > Side Lights, on a device that shows the battery on lights of its own
  * (plat_battery_lights: the GKD Pixel 2's four, which plastron's gauge
- * drives). A page of five switches, each part of what they show on its own
+ * drives). A page of six switches, each part of what they show on its own
  * (My picks in the side lights lab, 2026-11-06; DESIGN.md 11.27):
  *
  *   Charging Bar           a bar filling on the cable, still when full and
  *                          at the charge limit
  *   Low Battery            the red flash: under 10% once every 5 s, under 5%
  *                          twice every 2 s
+ *   Battery Level          the level all the time, still, the picture L2+R2
+ *                          flashes, under everything else; off the cable, and
+ *                          on it with the bar off. Off to start (my ask after
+ *                          testing 1.0.6, 2026-11-17)
  *   Volume and Brightness  the level on the lights while it changes, eight
  *                          steps, a blinking light for a half
  *   Files and Covers       a wave while files move to or from the card
@@ -23,7 +27,8 @@
  *                          transfer lights lab, 2026-11-13)
  *   Achievements           a sparkle when one unlocks
  *
- * Every part on for a new card and for one that said Auto. L2+R2 flashes the
+ * Every part but Battery Level on for a new card and for one that said Auto;
+ * Battery Level is on only once the line names it. L2+R2 flashes the
  * level in all four in every setting: it is a press made on purpose (
  * 2026-11-05). The lights are on or off, nothing between (GPIO pins, no PWM),
  * so there is no brightness to offer.
@@ -34,8 +39,9 @@
  * starts with one of the four words the gauge knew before the parts (auto,
  * charging, low, off: the bar and the red flash), then a word for each newer
  * part, "level" for on and "-level" for off; a newer part the line does not
- * name is on after auto and off after the others. So an older gauge still
- * reads the battery's parts right, and a card set to Charging, Low Battery
+ * name is on after auto and off after the others, but for "battery", off
+ * unless named. So an older gauge still reads the battery's parts right (and
+ * leaves the word it does not know), and a card set to Charging, Low Battery
  * or Off before keeps what it said. plastron's gauge reads it the same way
  * (package/gauge/src/lights.c, lights_parse): a change here is a change there.
  *
@@ -47,20 +53,24 @@ typedef enum {
 	LP_LEVEL,
 	LP_DONE,
 	LP_CHEER,
+	LP_BATTERY,   /* the last bit, whatever its row's place on the page */
 	LP_COUNT
 } side_light_part;
 
-/* The parts that are on, a bit each (1u << LP_BAR ...) */
+/* The parts that are on, a bit each (1u << LP_BAR ...). LIGHTS_DEFAULT is a
+ * new card's: every part but Battery Level. */
 typedef unsigned side_lights;
 #define LIGHTS_ALL ((1u << LP_COUNT) - 1)
+#define LIGHTS_DEFAULT (LIGHTS_ALL & ~(1u << LP_BATTERY))
 
 /* The setting's line, and back. NULL, empty or unknown first words read as
- * auto, which is every part. */
+ * auto, which is LIGHTS_DEFAULT. */
 side_lights side_lights_parse(const char *text);
 void side_lights_line(side_lights on, char *out, size_t cap);
 
 /* A part's row on the page, and the page's row in MENU: "All on", "3 on",
- * "Off" */
+ * "Off". All on is every part a new card has on, Battery Level or not, so a
+ * card that kept the default reads as it did before the row came. */
 const char *side_lights_part_name(side_light_part p);
 const char *side_lights_value(side_lights on, char *buf, size_t cap);
 
@@ -137,7 +147,7 @@ bool side_lights_move_end(side_lights_move *m, char *line, size_t cap);
 
 /* MENU > Side Lights: the row under the cursor played on the lights, On or
  * Off, for as long as the cursor stays on it; the gauge loops it
- * (package/gauge/src/lights.h, "preview bar" to "preview cheer"). Said again
+ * (package/gauge/src/lights.h, "preview bar" to "preview battery"). Said again
  * every SIDE_LIGHTS_PREVIEW_MS, as the gauge keeps a preview 2.5 s past its
  * last line; another row at once; "preview off" as the page closes. */
 #define SIDE_LIGHTS_PREVIEW_MS 1000u

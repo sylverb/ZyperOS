@@ -5291,6 +5291,10 @@ int main(int argc, char *argv[])
 		 * cursor on ROW (src/homesys_screen.c) */
 		else if (!strcmp(argv[i], "--homesys-page") && i + 1 < argc)
 			shot_homesys = atoi(argv[++i]);
+		/* --lights-page ROW: MENU > Side Lights' page, the cursor on ROW
+		 * (src/lights_screen.c) */
+		else if (!strcmp(argv[i], "--lights-page") && i + 1 < argc)
+			shot_lights = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--look-page") && i + 1 < argc) {
 			shot_look_page = argv[++i];
 			if (i + 1 < argc && argv[i + 1][0] >= '0' && argv[i + 1][0] <= '9')

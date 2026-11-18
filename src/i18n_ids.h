@@ -670,6 +670,7 @@ typedef enum {
 	/* res/strings/lights.txt */
 	S_LIGHTS_BAR,
 	S_LIGHTS_LOW,
+	S_LIGHTS_BATTERY,
 	S_LIGHTS_LEVEL,
 	S_LIGHTS_DONE,
 	S_LIGHTS_CHEER,

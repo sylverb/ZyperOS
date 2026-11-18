@@ -96,7 +96,11 @@ out, as it does Install and Thanks.
    with no second build, as step 4 does: it refuses unless they were built
    from main as GitHub has it now, or from the commit before main's changes
    to the notes' `Tested on` lines and nothing else, and still match their
-   `SHA256SUMS`.
+   `SHA256SUMS`. If other work went into main after the build (build
+   tooling, say), the release stays the commit that was built and tested:
+   put the `Tested on` lines on a branch of that commit, run
+   `tools/release.sh --publish-built` there, and merge the branch into main
+   after. It refuses a branch whose commit isn't on main as GitHub has it.
 4. Or `make release PUBLISH=1` builds them again the same way (the notes need
    their `Tested on` lines before it starts), signs System Update's lists
    with the key in `~/.config/zyperos/update-signing-key.pem`

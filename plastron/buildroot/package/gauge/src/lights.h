@@ -28,7 +28,9 @@
  * "-level" not to; a part the file does not name is on after "auto" and off
  * after the other three. So an older gauge reads the battery parts right, and
  * a card that never had the file, or still has today's bare "auto", gets
- * every part. */
+ * every part. Battery Level is the one part off whatever the first word: it
+ * shows only once the file says "battery" (my ask after testing 1.0.6,
+ * 2026-11-17), so a card that never turned it on sees what it saw before. */
 struct lights_cfg {
 	int bar;     /* the charging bar, on the cable */
 	int low;     /* the red flash, under LOW off the cable */
@@ -36,6 +38,9 @@ struct lights_cfg {
 	int done;    /* files and covers: the wave while files move to or from
 	              * the card, a climb when files or covers finish */
 	int cheer;   /* a sparkle when an achievement unlocks */
+	int battery; /* the level all the time, still, as L2+R2 shows it, under
+	              * everything else: off the cable, and on it with the bar
+	              * off */
 };
 
 /* The patterns that come and go (lights_frame shows the newest) */
@@ -45,7 +50,7 @@ enum { LE_NONE, LE_LEVEL, LE_DONE, LE_CHEER };
 enum { MV_IN, MV_OUT };
 
 /* MENU > Side Lights' previews: the part under the cursor */
-enum { PV_NONE, PV_BAR, PV_LOW, PV_LEVEL, PV_DONE, PV_CHEER };
+enum { PV_NONE, PV_BAR, PV_LOW, PV_LEVEL, PV_DONE, PV_CHEER, PV_BATTERY };
 
 struct lights_state {
 	/* The battery, as gauge.c last read it */
@@ -95,7 +100,7 @@ void lights_battery(struct lights_state *s, int pct, int plugged, int held, long
  *                                                    a second each way, while
  *                                                    they move; "move 0 0" when
  *                                                    they stop
- *   "preview bar|low|level|done|cheer"               MENU > Side Lights' row
+ *   "preview bar|low|level|done|cheer|battery"       MENU > Side Lights' row
  *                                                    under the cursor: that
  *                                                    part in a loop, On or Off,
  *                                                    over everything but L2+R2,
