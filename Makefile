@@ -1914,6 +1914,12 @@ native:
 px2-payload:
 	sh tools/px2-payload.sh
 
+# The programs alone, for a change to the code: build/px2/programs/ZyperOS,
+# no cores (tools/px2-payload.sh --programs). tools/px2 deploy sends them.
+.PHONY: px2-programs
+px2-programs:
+	sh tools/px2-payload.sh --programs
+
 # The libretro cores ZyperOS redistributes, fetched from its own cores
 # release and hash-pinned (mk/fetch-vendor.sh). Needed once, before the first
 # payload. No runtime libraries: the cores need only what the device's

@@ -173,7 +173,7 @@ something once broke in a way nothing noticed:
 | `check-core-room` | the libretro cores systems.cfg names against the resident Diatom's room for them (`DIATOM_MAX_RESIDENT`): more cores than that, and the last in folder order would start every game in the one-off Diatom (1.0.5 had 34 for 32) |
 | `check-px2-perf` | px2-perf's arithmetic: percentiles as a spreadsheet gives them, the frame-time spread from the times new frames were seen, a process's CPU ticks from a /proc stat line whose name has spaces and parentheses, and the speed against the clock from two of Diatom's now files, refused across two games or a Diatom started again |
 | `check-px2-snap` | px2-snap on a scratch card: a game's .srm, states, slots and pictures, fbneo's, a NAOMI game's and a ScummVM game's own files, never another game's that starts with its name; its play sessions, favorite and Pak through the host launcher's `--game-rows`, and no other game's; a test's changes undone byte for byte, the files it made removed; an open game, a name that is a path, a name taken, another game's rows and a launcher with no `--game-rows` refused or said (builds the host launcher; skips without SDL2 or sqlite3) |
-| `check-px2` | tools/px2 with a stand-in for ssh: wrong uses refused before the lock or the device, the test card and a VM's card go ahead and any other only with `--real-card`, the lock's owner file, a lock held refused or waited for, the lock let go after a failure, a TERM and a Ctrl-C, and each argument one word on the device |
+| `check-px2` | tools/px2 with a stand-in for ssh: wrong uses refused before the lock or the device, the test card and a VM's card go ahead and any other only with `--real-card`, the lock's owner file, a lock held refused or waited for, the lock let go after a failure, a TERM and a Ctrl-C, and each argument one word on the device; `deploy` and `restore` against a card that is a folder here: only what changed sent, the card's own files kept once however many deploys, a restore that puts them back and deletes what was added, ZyperOS restarted or, for a `launch.sh`, the device |
 | `check-powerhold` | MENU > Power Button's rule: a press turns the handheld off on Press, a hold of two seconds on Hold, once per time down, a hold the charging screen took never, and the pill's segments and the waits that move them |
 | `check-homesys` | MENU > Display > Home Systems' setting: the word of the shelves that are off, read and written back, a hand edit's spaces and repeats, whole tags only when it is cut |
 | `check-lowbatt` | the start with a battery too low to play: which start shows the screen, its hold, POWER, the charger's moment, and the reading that decides the power-off |
@@ -468,9 +468,35 @@ job `devices` runs on Ubuntu. The design and the order of work:
 A change to ZyperOS goes onto a Pixel 2 as a payload, without a new image:
 
 ```sh
-make px2-payload                                   # -> build/px2/payload/ZyperOS
+make px2-programs                                  # a change to the code: the programs alone
+make px2-payload                                   # or the whole payload (res/, launch.sh, cores)
+tools/px2 deploy                                   # the newer of the two, under the device's lock
+tools/px2 restore                                  # when done: the card as it was before
+```
+
+`tools/px2 deploy` is `tools/px2-deploy.sh` behind `tools/px2`'s door: the
+device's lock (`/tmp/px2-lock`, refused while another session holds it, or
+`--wait`) and the card check (the 32 GB test card, or `--real-card`). It
+sends only the files whose checksums differ from the card's, and first keeps
+the card's own copy of each file it replaces, and the name of each it adds,
+in `/mnt/SDCARD/.px2-deploy` (outside `ZyperOS/`, so nothing on the card
+reads it). A later deploy keeps what the first kept, so `tools/px2 restore`
+always puts back the card from before the session's first deploy, deletes
+what the deploys added, restarts ZyperOS (or the device, for a `launch.sh`)
+and forgets it; `tools/px2 restore --status` says what it would put back.
+`make px2-programs` (`tools/px2-payload.sh --programs`) builds the launcher,
+Muse, portkeys, zyhome, System Update's program, p2d and Diatom into
+`build/px2/programs/ZyperOS` and nothing else: no cores, so no main
+checkout's `vendor/`, whose patched cores' stamps a whole payload holds to
+`mk/patches`. A change to `res/`, `launch.sh` or a core needs `make
+px2-payload`.
+
+The same without the lock, and to other places:
+
+```sh
 tools/px2-deploy.sh build/px2/payload/ZyperOS      # the device on the USB cable
 PX2_HOST=192.168.1.23 tools/px2-deploy.sh build/px2/payload/ZyperOS   # or over Wi-Fi
+tools/px2-deploy.sh --restore                      # what it kept, back
 tools/qemu-run.sh deploy -n mine build/px2/payload/ZyperOS   # or a VM (docs/qemu.md)
 ```
 
