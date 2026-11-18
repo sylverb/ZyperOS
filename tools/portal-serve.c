@@ -5,6 +5,7 @@
  *
  *     make build-native/portal-serve
  *     build-native/portal-serve CARD WEB [usb] [update=off|on|ready] [space=FREE/TOTAL] [lang=CODE]
+ *                                         [folders=WORD]
  *
  * CARD holds Roms/, Music/, Bios/, Saves/ and the rest as a card does,
  * ZyperOS/systems.cfg for the consoles' colors and icons, and
@@ -20,7 +21,9 @@
  * installed. "space=88.4/119" answers the card's room, in GB, as a card of
  * that size would rather than the computer's disk. "lang=fr" is MENU >
  * Language: the page and the server's words in that language (src/i18n.h),
- * English without it. It prints the PIN and the port on one line, then
+ * English without it. "folders=teal" is MENU > Display > Theme's Folder
+ * Color (look.folders' word, src/look.h): every console's folder in that
+ * color, each its own without it. It prints the PIN and the port on one line, then
  * serves until stdin closes, or a line on it says to stop as the handheld's
  * question does:
  * "after" (once the files on their way are in) or "now"; "usb" and "wifi"
@@ -44,6 +47,7 @@
 
 #include "../src/hare.h"
 #include "../src/i18n.h"
+#include "../src/look.h"
 #include "../src/xfer.h"
 
 #define MAX_SYS 64
@@ -82,10 +86,11 @@ static void read_systems(const char *card)
 	if (f) fclose(f);
 }
 
+/* A console's color, as Folder Color gives it (src/xfer_screen.c's) */
 static unsigned folder_color(const char *folder)
 {
 	for (int i = 0; i < g_nsys; i++)
-		if (!strcmp(g_sys[i].folder, folder)) return g_sys[i].rgb;
+		if (!strcmp(g_sys[i].folder, folder)) return look_folder_rgb(g_sys[i].rgb);
 	return 0xFF000000u;
 }
 
@@ -202,7 +207,8 @@ int main(int argc, char **argv)
 	struct pollfd in = { .fd = 0, .events = POLLIN };
 
 	if (argc < 3) {
-		fprintf(stderr, "usage: %s CARD WEB [usb] [update=off|on|ready] [space=FREE/TOTAL] [lang=CODE]\n", argv[0]);
+		fprintf(stderr, "usage: %s CARD WEB [usb] [update=off|on|ready] [space=FREE/TOTAL] [lang=CODE] "
+		        "[folders=WORD]\n", argv[0]);
 		return 2;
 	}
 	snprintf(roms, sizeof roms, "%s/Roms", argv[1]);
@@ -227,6 +233,11 @@ int main(int argc, char **argv)
 			}
 		} else if (!strncmp(argv[i], "lang=", 5)) {
 			i18n_set(lang_parse(argv[i] + 5));
+		} else if (!strncmp(argv[i], "folders=", 8)) {
+			look l = LOOK_DEFAULT;
+
+			l.folder = look_folder_parse(argv[i] + 8);
+			look_set(&l);
 		} else if (!strncmp(argv[i], "update=", 7)) {
 			g_update = argv[i] + 7;
 			if (!strcmp(g_update, "ready")) g_state = "ready";

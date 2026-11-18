@@ -226,12 +226,12 @@ build-native/hare-check: tools/hare-check.c src/hare.c src/sheet.c src/clients.c
 check-portal: build-native/portal-serve
 	@python3 tools/portal-check.py
 
-build-native/portal-serve: tools/portal-serve.c src/hare.c src/sheet.c src/clients.c src/httpd.c src/xfer.c src/muselib.c src/captive.c $(I18N_SRC) FORCE
+build-native/portal-serve: tools/portal-serve.c src/hare.c src/sheet.c src/clients.c src/httpd.c src/xfer.c src/muselib.c src/captive.c src/look.c $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -Wno-unused-parameter -D_GNU_SOURCE -O1 -g \
 	      -DHARE_PORTS=0 -DPICK_TMP='"$(CURDIR)/build-native/portal-serve-albumpick"' \
 	      -DART_NAMES_TMP='"$(CURDIR)/build-native/portal-serve-artnames"' \
-	      -o $@ tools/portal-serve.c src/hare.c src/sheet.c src/clients.c src/httpd.c src/xfer.c src/muselib.c src/captive.c $(I18N_SRC) -lz
+	      -o $@ tools/portal-serve.c src/hare.c src/sheet.c src/clients.c src/httpd.c src/xfer.c src/muselib.c src/captive.c src/look.c $(I18N_SRC) -lz -lm
 
 # Hare's transport, driven by a real client over a real socket. An HTTP parser
 # is where "looks right" and "is right" part company: every browser sends the

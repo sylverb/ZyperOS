@@ -233,6 +233,20 @@ def main():
             check(got['aw'] == '/icons/AW.png', 'Atomiswave, with no games, has its art')
             check(got['bgm'] == '/icons/FOLDER.png', f"Roms/BGM is an ordinary folder: {got['bgm']}")
             check(bool(got['tile']), "a console's tile is in its color")
+            server.stop()
+            # Folder Color (MENU > Display > Theme): every console's tile in
+            # its color, and each its own again without it
+            server = Server(card, web, 'usb', 'update=off', 'folders=teal')
+            check(signed_in(page, server), 'the page came up with Folder Color on Teal')
+            tiles = page.js("""(() => { const tile = (n) => { const r = [...document.querySelectorAll('#list li')]
+                .find((li) => li.querySelector('.name').textContent === n);
+                return r && r.querySelector('.sico').style.getPropertyValue('--sys'); };
+                return [tile('NES'), tile('SNES'), tile('BGM')]; })()""")
+            check(tiles[0] == tiles[1] == '#3FD4C0' and not tiles[2],
+                  f"Folder Color takes every console's tile, and no other folder's: {tiles}")
+            server.stop()
+            server = Server(card, web, 'usb', 'update=off')
+            check(signed_in(page, server), 'and the page came up again as it ships')
             check(got['places'] == ['/icons/ROMS.png', '/icons/MUSIC.png', '/icons/BOOKS.png', '/icons/VIDEOS.png',
                                     '/icons/BGM.png', '/icons/BIOS.png', '/icons/SAVES.png', '/icons/STATES.png'],
                   f"the card's folders wear theirs, Music its vinyl album, Menu Music the cassette: {got['places']}")
