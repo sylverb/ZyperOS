@@ -405,6 +405,21 @@ art from libretro-thumbnails, cached outside the repository. See
 [`res/readme/README.md`](../res/readme/README.md) for capture provenance and
 the refresh steps.
 
+## Merging several pull requests
+
+`python3 tools/merge-train.py 281 283 284` merges those pull requests' heads
+onto `origin/main`, in that order, in a scratch worktree; writes again what
+`tools/i18n.py` and `tools/designdef.py` write whole (a conflict in one of
+those files is settled that way, and two PRs that each added a string merge
+cleanly but leave the IDs stale); and runs one `make check` (`CHECK_JOBS` as
+given). A conflict in any other file stops the train at that PR. The branch
+`train-281-283-284` stays here; `--push` pushes it and opens its pull
+request, which merged with a merge commit (`gh pr merge N --merge`) lands
+every PR's own commits in main, so GitHub marks each one merged. One check
+for the lot, where merging them one by one sent every other PR back to merge
+main and check again. `--no-check` for the merges alone, `--keep` keeps the
+worktree.
+
 ## Devices
 
 Each handheld is a profile (`src/device/profile.h`): plain data in
