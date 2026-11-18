@@ -1392,6 +1392,22 @@ message says why, and the keyboard opens again. Arcade sets, BIOS sets and
 ports have no Rename, because the core or PortMaster finds them by their
 names.
 
+### Ports
+
+A port (a PortMaster port, OpenBOR, the standalone Flycast) starts behind a
+loading screen: its cover, its name and "Starting. This can take a minute.",
+until the port draws its own picture. A port's first start can install for a
+long time, hours for a big game: PortMaster downloads the runtimes the port
+needs, or the port unpacks its game from an installer. When a start takes more
+than a few seconds, the foot of the loading screen shows the last line the
+port and PortMaster print, as it changes (the file being downloaded, how far
+along it is), so you can see that it still runs. A window of PortMaster's own, such as its patcher, shows
+over the loading screen. After a minute, the screen says that a first start
+can install for hours, and how to leave: hold **MENU** and **START**. **MENU**
+opens the port's menu over the loading screen, with **Keep Waiting**,
+**Controls** and **Quit**. Everything a port prints is also in File Transfer's
+**Download logs**. On the Pixel 2.
+
 ## Coming from EmulationStation
 
 Knulli, ROCKNIX, ArkOS, AmberELEC, ROGUE OS, RetroPie, Recalbox and the other

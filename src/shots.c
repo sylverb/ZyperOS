@@ -2436,6 +2436,16 @@ void shot_portload_take(app *a)
 	 * Zyper's frame */
 	if (!port_loading_draw(a, &a->sys.systems[shelf_owner(a, a->sys_cursor, gi)], gi))
 		shot_failed = 1;
+	/* ZYPEROS_PORTLOAD_OUT: the letters splash would draw the port's
+	 * output with, written there too (tools/portout-check.sh) */
+	{
+		const char *outp = getenv("ZYPEROS_PORTLOAD_OUT");
+
+		if (outp && *outp && !port_out_write(outp)) {
+			fprintf(stderr, "--portload: could not write %s\n", outp);
+			shot_failed = 1;
+		}
+	}
 	out = SDL_CreateRGBSurfaceWithFormat(0, ZYPEROS_SCREEN_W, ZYPEROS_SCREEN_H, 32,
 	                                     SDL_PIXELFORMAT_RGBA32);
 	if (!out) return;
