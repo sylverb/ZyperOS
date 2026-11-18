@@ -19,6 +19,7 @@
 #include "clamp.h"
 #include "clock.h"
 #include "clock_screen.h"
+#include "coreopts_page.h"
 #include "devmode.h"
 #include "folderart.h"
 #include "homesys_screen.h"
@@ -1711,6 +1712,11 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 		/* The system's own color, not the menu's. This acts on the shelf you
 		 * are looking at, and menu_draw already follows that rule everywhere
 		 * else. */
+		if (sel == SM_COREOPTS) {
+			const system_cfg *s = &a->sys.systems[a->sys_cursor];
+
+			coreopts_page(a, s->tag, s->core, NULL, false);
+		}
 		if (sel == SM_BOXART)
 			scraper_page(a, a->sys.systems[a->sys_cursor].folder);
 		if (sel == SM_RESCAN) {

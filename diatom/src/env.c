@@ -519,12 +519,12 @@ static bool env_cb(unsigned cmd, void *data)
 		*(unsigned *)data = 2;
 		return true;
 	case MASK(RETRO_ENVIRONMENT_SET_CORE_OPTIONS_V2_INTL):
-		/* The path all six measured cores actually use. `us` is the English
-		 * set; `local` is a translation of the same keys, so the values we
-		 * serve are identical either way. */
+		/* `us` is English (keys, defaults, values); `local` is the same keys
+		 * in GET_LANGUAGE's tongue, with NULL fields falling back to us.
+		 * Core Settings shows local's desc when the core shipped one. */
 		if (data) {
 			const struct retro_core_options_v2_intl *in = data;
-			diatom_options_define_v2(in->us ? in->us : in->local);
+			diatom_options_define_v2_intl(in->us, in->local);
 		}
 		return true;
 	case MASK(RETRO_ENVIRONMENT_SET_CORE_OPTIONS_V2):
@@ -645,7 +645,9 @@ static bool env_cb(unsigned cmd, void *data)
 		((struct retro_log_callback *)data)->log = core_log;
 		return true;
 	case MASK(RETRO_ENVIRONMENT_GET_LANGUAGE):
-		*(unsigned *)data = RETRO_LANGUAGE_ENGLISH;
+		/* So a core fills SET_CORE_OPTIONS_V2_INTL's local for the UI language
+		 * (--language). English until the launcher says otherwise. */
+		*(unsigned *)data = g_policy ? g_policy->language : RETRO_LANGUAGE_ENGLISH;
 		return true;
 
 	/* ---- rumble ---------------------------------------------------------- */

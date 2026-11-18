@@ -201,6 +201,7 @@ const char *gm_tab_name(int t)
 {
 	switch (t) {
 	case GT_DISPLAY:  return T(S_GAMEMENU_TAB_DISPLAY);
+	case GT_CORE:     return T(S_SYSMENU_CORE_SETTINGS);
 	case GT_CONTROLS: return T(S_GAMEMENU_TAB_CONTROLS);
 	/* The row's own word, the glossary's Achievements, in every language */
 	case GT_ACHIEVEMENTS: return T(S_SYSMENU_CHEEVOS);
@@ -295,6 +296,7 @@ int gm_rows(const gm_ui *u, gm_tab t, menu_row *out, gm_bufs *b)
 		S_GAMEMENU_PAK, S_PLAYER2_ROW, S_GAMEMENU_DISC, S_GAMEMENU_STRENGTH,
 		S_GAMEMENU_UNDO, S_GAMEMENU_HUD,
 	};
+
 	menu_row full[GM_MAX_ROWS];
 	gm_row ids[GM_MAX_ROWS];
 	int i, n;

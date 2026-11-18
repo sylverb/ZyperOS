@@ -898,7 +898,12 @@ static void system_menu(void)
 	n = sys_menu_build(&u, rows, &b, &heading);
 	ck(rows[sm_at(&u, SM_DISPLAY)].live && rows[sm_at(&u, SM_RESCAN)].live, "the two live rows are live");
 	ck(!rows[sm_at(&u, SM_GAMES)].live && !rows[sm_at(&u, SM_CORE)].live, "reported facts are not rows to press");
+	ck(sm_at(&u, SM_COREOPTS) == sm_at(&u, SM_CORE) + 1 &&
+	   !strcmp(rows[sm_at(&u, SM_COREOPTS)].label, "Core Settings") &&
+	   rows[sm_at(&u, SM_COREOPTS)].live,
+	   "Core Settings under Core (no Game Language here), a stop that opens its page");
 	ck(rows[sm_at(&u, SM_BOXART)].live, "Box Art is live on a network");
+
 
 	/* A shelf that lists two cores, the Dreamcast's: Core is a choice. */
 	u.sys_core = "Flycast";
@@ -1241,8 +1246,9 @@ static void cursor_reaches(void)
 	k = reachable(rows, n, got, MENU_MAX_ROWS);
 
 	printf("system menu, what the cursor can reach:\n");
-	ck(k == 8, "eight rows, not the facts (Strength among them, as a zeroed sys_ui shows it)");
+	ck(k == 9, "nine rows, not the facts (Strength and Core Settings among them)");
 	ck(holds(got, k, sm_at(&u, SM_RANDOM)), "Random Game, with games on the shelf");
+	ck(holds(got, k, sm_at(&u, SM_COREOPTS)), "Core Settings");
 	/* 1.0.5: the shelf's covers or a list, under Sort By */
 	ck(holds(got, k, sm_at(&u, SM_VIEW)), "View");
 	ck(sm_at(&u, SM_VIEW) == sm_at(&u, SM_SORT) + 1, "right under Sort By");
@@ -1982,12 +1988,16 @@ static void ingame_rows(void)
 	u.dmode = "Native"; u.earned = 12; u.total = 40; u.quick = 2;
 
 	printf("in-game menu, the tabs:\n");
-	ck(GT_TABS == 4 && GT_GAME == 0 && GT_DISPLAY == 1 && GT_CONTROLS == 2 &&
-	   GT_ACHIEVEMENTS == 3, "four tabs, Game first, Achievements last (L1 from Game)");
+	ck(GT_TABS == 5 && GT_GAME == 0 && GT_DISPLAY == 1 && GT_CORE == 2 &&
+	   GT_CONTROLS == 3 && GT_ACHIEVEMENTS == 4,
+	   "five tabs, Game first, Core after Display, Achievements last (L1 from Game)");
 	ck(!strcmp(gm_tab_name(GT_GAME), "Game") && !strcmp(gm_tab_name(GT_DISPLAY), "Display") &&
+	   !strcmp(gm_tab_name(GT_CORE), "Core Settings") &&
 	   !strcmp(gm_tab_name(GT_CONTROLS), "Controls") &&
 	   !strcmp(gm_tab_name(GT_ACHIEVEMENTS), "Achievements"),
-	   "named Game, Display, Controls and Achievements");
+	   "named Game, Display, Core Settings, Controls and Achievements");
+	ck(gm_tab_rows(&u, GT_CORE, ids) == 0,
+	   "the Core tab's rows are src/coreopts_page.c's, none from here");
 	ck(gm_tab_rows(&u, GT_ACHIEVEMENTS, ids) == 0,
 	   "the Achievements tab's rows are src/achtab.c's, none from here");
 	ck(!strcmp(gm_tab_name(-1), "Game") && !strcmp(gm_tab_name(GT_TABS), "Game"),
@@ -1997,7 +2007,7 @@ static void ingame_rows(void)
 	u.player2 = true; u.player2_value = gm_player2_value(P2_OFF);
 	n = gm_rows(&u, GT_GAME, rows, &b);
 	printf("in-game menu, Game tab:\n");
-	ck(labels_are(rows, n, game, 8), "gm_tabs_game_rows: Continue Save Load Quick Slot Player 2 Achievements Reset Quit");
+	ck(labels_are(rows, n, game, 8), "gm_tabs_game_rows: Continue … Player 2 Achievements Reset Quit");
 	ck(gm_tab_rows(&u, GT_GAME, ids) == 8 && ids[0] == GM_CONTINUE && ids[4] == GM_PLAYER2 &&
 	   ids[5] == GM_CHEEVOS && ids[7] == GM_QUIT, "and the ids say the same");
 	ck(!strcmp(val(&rows[3]), "2") && rows[3].live && !strcmp(val(&rows[5]), "12 / 40"),
@@ -2013,11 +2023,13 @@ static void ingame_rows(void)
 	   "gm_row_at is a place on that tab, -1 for a row it has not");
 	u.player2 = false;
 	n = gm_rows(&u, GT_GAME, rows, &b);
-	ck(n == 7 && !strcmp(rows[4].label, "Achievements"), "a game with no Player 2 has seven");
+	ck(n == 7 && !strcmp(rows[4].label, "Achievements") && !strcmp(rows[5].label, "Reset"),
+	   "a game with no Player 2 has seven, Reset under Achievements");
 	u.quick = 0;
 	n = gm_rows(&u, GT_GAME, rows, &b);
 	ck(n == 6 && row_of(&u, GT_GAME, GM_QUICK) == -1 && !strcmp(rows[2].label, "Load") &&
 	   !strcmp(rows[3].label, "Achievements"), "no save states: no Quick Slot");
+
 	ck(ctl_has_states("SFC") && ctl_has_states("PS1") && ctl_has_states("N64") &&
 	   !ctl_has_states("SCUMMVM") && !ctl_has_states("J2ME"),
 	   "every Diatom system keeps states but ScummVM and J2ME");

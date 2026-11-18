@@ -40,6 +40,7 @@ int  plat_brightness_get(void) { return -1; }
 void plat_brightness_set(int level) { (void)level; }
 int  plat_coreopt_count(const char *tag) { (void)tag; return 0; }
 const char *plat_coreopt(const char *tag, int i) { (void)tag; (void)i; return NULL; }
+void plat_coreopts_invalidate(void) {}
 bool plat_mute_poll(bool own_volume) { (void)own_volume; return false; }
 bool plat_muted(void) { return false; }
 void plat_set_power_pressed(bool on) { (void)on; }

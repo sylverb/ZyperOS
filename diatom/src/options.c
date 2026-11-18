@@ -180,6 +180,58 @@ void diatom_options_define_v2(const struct retro_core_options_v2 *v2)
 	log_(DIATOM_LOG_INFO, "options: core declared %d", g_active->n);
 }
 
+static const struct retro_core_option_v2_definition *
+find_v2_def(const struct retro_core_options_v2 *v2, const char *key)
+{
+	const struct retro_core_option_v2_definition *d;
+
+	if (!v2 || !v2->definitions || !key) return NULL;
+	for (d = v2->definitions; d->key; d++)
+		if (!strcmp(d->key, key)) return d;
+	return NULL;
+}
+
+void diatom_options_define_v2_intl(const struct retro_core_options_v2 *us,
+                                   const struct retro_core_options_v2 *local)
+{
+	const struct retro_core_option_v2_definition *d;
+	int translated = 0;
+
+	if (!us || !us->definitions) {
+		diatom_options_define_v2(local);
+		return;
+	}
+	if (!local || !local->definitions) {
+		diatom_options_define_v2(us);
+		return;
+	}
+	if (!g_active) return;
+	g_active->n = 0;
+
+	/* Keys, defaults and values from us (SETOPT needs the English values).
+	 * desc from local when the core filled it for GET_LANGUAGE. */
+	for (d = us->definitions; d->key; d++) {
+		const struct retro_core_option_v2_definition *l = find_v2_def(local, d->key);
+		diatom_option *o = add(d->key, d->default_value);
+		int i;
+
+		if (!o) break;
+		if (l && l->desc) {
+			o->desc = l->desc;
+			translated++;
+		} else {
+			o->desc = d->desc;
+		}
+		o->values = d->values;
+		for (i = 0; i < RETRO_NUM_CORE_OPTION_VALUES_MAX && d->values[i].value; i++)
+			;
+		o->nvalues = i;
+		apply_pending(o);
+	}
+	log_(DIATOM_LOG_INFO, "options: core declared %d (%d translated)",
+	     g_active->n, translated);
+}
+
 /* The pre-v1 format: value is "Description; first|second|third", and the first
  * listed choice is the default. No core in the test matrix uses it, but it
  * costs a dozen lines and its absence would be a silent loss of configurability
