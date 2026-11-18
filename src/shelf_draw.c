@@ -1116,7 +1116,8 @@ static bool list_fav(void *ctx, int i)
 }
 
 /* The pixel folder the list's rows draw (src/folderart.h), in the shelf's
- * color, made again when the color or the theme changes; nearest so
+ * color or Folder Color's (look_folder_rgb), made again when the color or
+ * the theme changes; nearest so
  * its pixels stay whole; let go with every other texture (free_all_textures) */
 static unsigned g_folder_icon_rgb;
 static int g_folder_icon_theme = -1;
@@ -1251,7 +1252,7 @@ static void draw_games(app *a)
 			.title_of = list_title, .folder_of = list_folder,
 			/* Not on Favorites, where every game is one; on Recents, yes */
 			.fav_of = !strcmp(s->tag, HOMESYS_FAV) || is_muse(s) ? NULL : list_fav,
-			.folder_icon = v->nfold ? folder_icon(a, s->accent) : NULL,
+			.folder_icon = v->nfold ? folder_icon(a, look_folder_rgb(s->accent)) : NULL,
 			.played = g_game_page.valid ? g_game_page.played : "",
 			.origin = g && owner != a->sys_cursor ? a->sys.systems[owner].name : NULL,
 			.has_achievements = g_game_page.valid && g_game_page.achievements,

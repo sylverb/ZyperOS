@@ -556,7 +556,8 @@ function draw() {
 			if (!selected.size && ev.target.closest('.iconbtn')) return;
 			ev.preventDefault();
 			ev.stopPropagation();
-			if (ev.shiftKey && lastPicked) pickRange(e);
+			if (e.console) toast(t('console.kept'));
+			else if (ev.shiftKey && lastPicked) pickRange(e);
 			else pick(e, li);
 		}, true);
 		li.addEventListener('pointerdown', (ev) => dragDown(ev, e, li));
@@ -751,6 +752,19 @@ function openRowMenu(e, at, row) {
 	const nodes = [who];
 	if (e.dir) nodes.push(item(t('act.open'), 'folder', () => open(e.path)));
 	else nodes.push(item(t('act.download'), 'down', '/api/file?p=' + enc(e.path)));
+	/* A console's own folder (GBA, NES...) is never moved, renamed or
+	 * deleted: ZyperOS finds its games by its name (xfer_console, which
+	 * the device holds to all the same). Open, and the line that says so. */
+	if (e.console) {
+		const why = document.createElement('div');
+		why.className = 'sub';
+		const line = document.createElement('p');
+		line.textContent = t('console.kept');
+		why.append(line);
+		nodes.push(why);
+		openMenu(nodes, at, row);
+		return;
+	}
 	nodes.push(item(t('act.rename'), 'pen', () => rename(e)));
 	/* A folder of the same place, walked to (moveTo): the way to move one
 	 * where a drag cannot reach, a folder that is not on the screen */
@@ -799,13 +813,19 @@ function pickRange(e) {
 	const from = entries.findIndex((x) => x.path === lastPicked);
 	const to = entries.findIndex((x) => x.path === e.path);
 	if (from < 0 || to < 0) return pick(e);
-	for (let i = Math.min(from, to); i <= Math.max(from, to); i++) selected.add(entries[i].path);
+	for (let i = Math.min(from, to); i <= Math.max(from, to); i++)
+		if (!entries[i].console) selected.add(entries[i].path);
 	lastPicked = e.path;
 	drawPicked();
 }
 
+/* What may be picked: everything but a console's own folder */
+function pickable() {
+	return entries.filter((e) => !e.console);
+}
+
 function pickAll() {
-	for (const e of entries) selected.add(e.path);
+	for (const e of pickable()) selected.add(e.path);
 	drawPicked();
 }
 
@@ -831,7 +851,7 @@ function drawPicked() {
 	const picked = entries.filter((e) => selected.has(e.path));
 	const bytes = picked.some((e) => e.dir) ? 0 : picked.reduce((n, e) => n + (e.size || 0), 0);
 	$('selcount').textContent = tn('sel.count', selected.size) + (bytes ? ' · ' + human(bytes) : '');
-	$('selall').hidden = selected.size >= entries.length;
+	$('selall').hidden = selected.size >= pickable().length;
 }
 
 $('selclear').onclick = pickNone;
@@ -847,7 +867,7 @@ addEventListener('keydown', (ev) => {
 	if (ev.key === 'Escape' && selected.size) {
 		ev.preventDefault();
 		pickNone();
-	} else if (mod && ev.key.toLowerCase() === 'a' && entries.length) {
+	} else if (mod && ev.key.toLowerCase() === 'a' && pickable().length) {
 		ev.preventDefault();
 		pickAll();
 	} else if ((ev.key === 'Delete' || (ev.key === 'Backspace' && ev.metaKey)) && selected.size) {
@@ -868,6 +888,12 @@ function dragDown(ev, e, li) {
 function dragLift() {
 	if (!drag || drag.on) return;
 	drag.on = true;
+	/* A console's own folder stays where it is: the line, and no chip */
+	if (drag.entry.console) {
+		drag.denied = true;
+		toast(t('console.kept'));
+		return;
+	}
 	/* A finger held on a row picks it, as a phone's lists do: let go where
 	 * it is and it stays picked, the list picking; move and it is carried,
 	 * with the others picked */
@@ -900,7 +926,7 @@ function dropAt(x, y) {
 function dragAt(x, y) {
 	drag.x = x;
 	drag.y = y;
-	if (!drag.on) return;
+	if (!drag.on || drag.denied) return;
 	drag.ghost.style.transform = `translate(${x + 14}px, ${y + 10}px)`;
 	const t = dropAt(x, y);
 	if (t !== drag.over) {

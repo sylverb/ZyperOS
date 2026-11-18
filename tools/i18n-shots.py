@@ -790,12 +790,20 @@ for _i, _acc in enumerate(("lime", "green", "teal", "blue", "purple", "pink", "r
 EXTRA.setdefault("theme-accent-list-teal", ("demo", "PS1", ["--look-page", "theme-list", "0", "--pick-at", "2"]))
 EXTRA.setdefault("theme-light-list-cool", ("demo", "PS1", ["--look-page", "theme-list", "1", "--pick-at", "2"]))
 EXTRA.setdefault("theme-dark-list-deepblue", ("demo", "PS1", ["--look-page", "theme-list", "2", "--pick-at", "1"]))
+# Folder Color (1.0.6 rc.3): its row in focus, System Colors and an accent,
+# and its list with the picture of the shelf's folders beside it, on System
+# Colors and on an accent under the cursor
+EXTRA.setdefault("theme-folders-system", ("demo", "PS1", ["--look-page", "theme", "3"]))
+EXTRA.setdefault("theme-folders-orange", ("demo", "PS1", ["--look", "lime,warm,black,rounded,on,orange",
+                                                          "--look-page", "theme", "3"]))
+EXTRA.setdefault("theme-folders-list-system", ("demo", "PS1", ["--look-page", "theme-list", "3", "--pick-at", "0"]))
+EXTRA.setdefault("theme-folders-list-teal", ("demo", "PS1", ["--look-page", "theme-list", "3", "--pick-at", "3"]))
 # Timing's list (src/pacing.h): two choices, opened on A all the same for
 # the picture beside it (the two ways, slowed) and what each does under it
 for _k, _p in enumerate(("smooth", "exact")):
     EXTRA.setdefault("system-menu-timing-list-" + _p, ("demo", "GBA", ["--screen", "games", "--menu", "Timing",
                                                                       "--press", "a", "--pick-at", str(_k)]))
-EXTRA.setdefault("theme-foot-on", ("demo", "PS1", ["--look-page", "theme", "5"]))
+EXTRA.setdefault("theme-foot-on", ("demo", "PS1", ["--look-page", "theme", "6"]))
 # MENU > Display > Screen Colors (src/panelgamma.h): its row, and its page
 # Standard as it ships, Vivid, and Custom with every row moved (the values
 # from the database, as the page reads them); and the Look's list with each
@@ -810,7 +818,7 @@ for _k, _l in enumerate(["standard", "vivid", "intense", "warm", "cool", "muted"
 EXTRA.setdefault("screen-colors-look-custom",
                  ("demo", "PS1", ["--look-page", "screen-looks", "0", "--pick-at", "6"]))
 EXTRA.setdefault("theme-foot-off", ("demo", "PS1", ["--look", "lime,warm,black,square,off",
-                                                    "--look-page", "theme", "5"]))
+                                                    "--look-page", "theme", "6"]))
 # MENU > Display > Night Mode (DESIGN.md 11.42), only where the display has a
 # table (not the Brick): its one row, By Hours; and its page, A on the row:
 # By Hours with every row live, Off and On with the rows they do not use

@@ -48,6 +48,12 @@ protocol. What it holds, each a thing I asked for on 2026-11-06:
     go of its part; ten minutes with no answer give up, and Try again goes
     on from the part; a page loaded again, with the same file picked again,
     goes on from it too
+  - a console's own folder (GBA, NES...) stays where it is (1.0.6 rc.3,
+    "Can we not allow moving console folders in the file transfer
+    portal?"): its menu opens it and says why that is all, a drag, a pick
+    or a finger held on it says the same and nothing moves, Cmd+A leaves it
+    out, the device refuses its move, rename and delete itself, and a
+    folder of games in it still moves
 
 No device is touched and nothing is fetched from the internet: the release
 GitHub would answer is given to the page. Chrome is needed; without it the
@@ -227,6 +233,20 @@ def main():
             check(got['aw'] == '/icons/AW.png', 'Atomiswave, with no games, has its art')
             check(got['bgm'] == '/icons/FOLDER.png', f"Roms/BGM is an ordinary folder: {got['bgm']}")
             check(bool(got['tile']), "a console's tile is in its color")
+            server.stop()
+            # Folder Color (MENU > Display > Theme): every console's tile in
+            # its color, and each its own again without it
+            server = Server(card, web, 'usb', 'update=off', 'folders=teal')
+            check(signed_in(page, server), 'the page came up with Folder Color on Teal')
+            tiles = page.js("""(() => { const tile = (n) => { const r = [...document.querySelectorAll('#list li')]
+                .find((li) => li.querySelector('.name').textContent === n);
+                return r && r.querySelector('.sico').style.getPropertyValue('--sys'); };
+                return [tile('NES'), tile('SNES'), tile('BGM')]; })()""")
+            check(tiles[0] == tiles[1] == '#3FD4C0' and not tiles[2],
+                  f"Folder Color takes every console's tile, and no other folder's: {tiles}")
+            server.stop()
+            server = Server(card, web, 'usb', 'update=off')
+            check(signed_in(page, server), 'and the page came up again as it ships')
             check(got['places'] == ['/icons/ROMS.png', '/icons/MUSIC.png', '/icons/BOOKS.png', '/icons/VIDEOS.png',
                                     '/icons/BGM.png', '/icons/BIOS.png', '/icons/SAVES.png', '/icons/STATES.png'],
                   f"the card's folders wear theirs, Music its vinyl album, Menu Music the cassette: {got['places']}")
@@ -555,6 +575,80 @@ def main():
             click("document.getElementById('dlgyes')")
             check(page.until(f"!{row('A Del 1.nes')} && !{row('A Del 2.nes')}") and
                   not (nes / 'A Del 1.nes').exists() and not (nes / 'A Del 2.nes').exists(), 'and both are gone')
+            server.stop()
+
+            print("a console's own folder stays where it is (1.0.6 rc.3):")
+            kept = 'Console folders stay where they are, so ZyperOS can find their games.'
+            server = Server(card, web, 'usb', 'update=off')
+            check(signed_in(page, server), 'the page came up on ROMs')
+            page.js("go('roms', 'none')")
+            page.until(f"cwd === 'roms' && !!{row('NES')} && !!{row('BGM')}")
+            page.js("scrollTo(0, 0)")
+            got = page.js("[entries.find((e) => e.name === 'NES').console === true,"
+                          " !entries.find((e) => e.name === 'BGM').console]")
+            check(got == [True, True], f"the device says NES's folder is a console's and BGM's is not: {got}")
+            # Its menu: Open, and the line that says why; no Rename, Move to
+            # folder, Select or Delete (NES in the window: ROMs is long)
+            page.js(f"{row('NES')}.scrollIntoView({{ block: 'center' }})")
+            click(f"{row('NES')}.querySelector('.iconbtn')")
+            page.until("!document.getElementById('menu').hidden")
+            got = page.js("[[...document.querySelectorAll('#menu .item')].map((b) => b.textContent),"
+                          " (document.querySelector('#menu .sub p') || {}).textContent]")
+            check(got == [['Open'], kept], f"a console's folder's menu opens it and says why that is all: {got}")
+            key('Escape')
+            page.until("document.getElementById('menu').hidden")
+            page.js(f"{row('BGM')}.scrollIntoView({{ block: 'center' }})")
+            click(f"{row('BGM')}.querySelector('.iconbtn')")
+            page.until("!document.getElementById('menu').hidden")
+            got = page.js("[...document.querySelectorAll('#menu .item')].map((b) => b.textContent)")
+            check(got == ['Open', 'Rename', 'Move to folder', 'Select', 'Delete'],
+                  f"a folder at the top of ROMs that is no console's keeps every action: {got}")
+            key('Escape')
+            page.until("document.getElementById('menu').hidden")
+            # A drag: nothing lifts, the line says why, nothing moves, and
+            # the press it ends in does not open the folder
+            page.js(f"{row('NES')}.scrollIntoView({{ block: 'center' }})")
+            nextdoor = page.js(f"{row('NES')}.nextElementSibling.querySelector('.name').textContent")
+            mouse_drag('NES', at(f"{row('NES')}.nextElementSibling"))
+            check(page.until(f"{toast}.classList.contains('show') && {toast}.textContent === {json.dumps(kept)}") and
+                  not page.js("document.querySelector('.ghost')") and page.js("cwd") == 'roms',
+                  "a console's folder dragged says why it stays: " + str(page.js(f"{toast}.textContent")))
+            check((card / 'Roms/NES').is_dir() and not (card / 'Roms' / nextdoor / 'NES').exists(),
+                  f'and it stayed, not in {nextdoor}')
+            page.js(f"{toast}.classList.remove('show'); {toast}.textContent = ''")
+            # Picked: Cmd and a press, Select all, Cmd+A leave it out
+            click(row('NES'), 4)
+            check(page.until(f"{toast}.textContent === {json.dumps(kept)}") and page.js(picked) == 0,
+                  "Cmd and a press on a console's folder say why and pick nothing")
+            key('a', 4)
+            check(page.until(f"{picked} > 0") and page.js(picked) == page.js("pickable().length") and
+                  not page.js(f"{row('NES')}.classList.contains('sel')") and
+                  page.js(f"{row('BGM')}.classList.contains('sel')"),
+                  "Cmd+A picks every row but the consoles' folders: " + str(page.js(picked)))
+            key('Escape')
+            page.until(f"{picked} === 0")
+            # A finger held on it: the line, and it is not picked
+            page.dt.call('Emulation.setTouchEmulationEnabled', enabled=True, maxTouchPoints=1)
+            (x0, y0) = at(row('NES'))
+            page.dt.call('Input.dispatchTouchEvent', type='touchStart', touchPoints=[{'x': x0, 'y': y0}])
+            time.sleep(0.7)
+            page.dt.call('Input.dispatchTouchEvent', type='touchEnd', touchPoints=[])
+            check(page.until(f"{toast}.textContent === {json.dumps(kept)}") and page.js(picked) == 0 and
+                  page.js("document.getElementById('selbar').hidden"),
+                  "a finger held on a console's folder says why and picks nothing")
+            page.dt.call('Emulation.setTouchEmulationEnabled', enabled=False)
+            # An old page or a script: the device refuses all three itself
+            got = page.js("""(async () => { const post = async (u) => (await fetch(u, { method: 'POST',
+                credentials: 'same-origin' })).status;
+                return [await post('/api/move?p=roms%2FNES&to=roms%2FBGM'),
+                        await post('/api/rename?p=roms%2FNES&to=Nintendo'),
+                        await post('/api/delete?p=roms%2FAtomiswave')]; })()""")
+            check(got == [403, 403, 403] and (card / 'Roms/NES').is_dir() and (card / 'Roms/Atomiswave').is_dir(),
+                  f"the device refuses a console's folder's move, rename and delete (empty too): {got}")
+            # A folder of games in a console's still moves: Hacks, by Move to
+            got = page.js("""(async () => (await fetch('/api/move?p=roms%2FNES%2FHacks&to=roms%2FNES%2FMade',
+                { method: 'POST', credentials: 'same-origin' })).status)()""")
+            check(got == 200 and (nes / 'Made/Hacks').is_dir(), f"a folder of games in a console's still moves: {got}")
             server.stop()
 
             print("the page in the handheld's language:")

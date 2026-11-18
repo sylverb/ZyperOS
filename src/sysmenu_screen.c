@@ -20,6 +20,7 @@
 #include "clock.h"
 #include "clock_screen.h"
 #include "devmode.h"
+#include "folderart.h"
 #include "homesys_screen.h"
 #include "hotspot.h"
 #include "linebreak.h"
@@ -673,7 +674,7 @@ void look_bar_colors(void)
  * changes. Words for the look, minutes for the hours. */
 void look_load(void)
 {
-	char ac[16], li[16], dk[16], co[16], zy[8];
+	char ac[16], li[16], dk[16], co[16], zy[8], fo[16];
 	look l;
 
 	db_get_str(db_dev(), "look.accent", ac, sizeof ac, DS_ACCENT_ID[0]);
@@ -681,7 +682,9 @@ void look_load(void)
 	db_get_str(db_dev(), "look.dark", dk, sizeof dk, DS_TONE_ID[DS_DARK][0]);
 	db_get_str(db_dev(), "look.corners", co, sizeof co, "rounded");
 	db_get_str(db_dev(), "look.zyper", zy, sizeof zy, "on");
+	db_get_str(db_dev(), "look.folders", fo, sizeof fo, "system");
 	l = look_parse(ac, li, dk, co, zy);
+	l.folder = look_folder_parse(fo);
 	look_set(&l);
 	look_bar_colors();
 	theme_set_hours(db_get_int(db_dev(), "auto.light", THEME_LIGHT_FROM),
@@ -700,6 +703,7 @@ static void look_change(app *a, const look *l)
 	db_set_str(db_dev(), "look.dark", DS_TONE_ID[DS_DARK][l->tone[DS_DARK]]);
 	db_set_str(db_dev(), "look.corners", l->square ? "square" : "rounded");
 	db_set_str(db_dev(), "look.zyper", l->zyper_off ? "off" : "on");
+	db_set_str(db_dev(), "look.folders", look_folder_word(l->folder));
 	theme_init(theme_appearance());
 	theme_changed(a);
 }
@@ -1166,14 +1170,125 @@ static void look_chip(app *a, const ds_theme *t, int x, int cy)
 	ui_round_rect(a->r, &(SDL_Rect){ c.x + 12, cy - 6, 40, 12 }, 6, ui_col(t->accent, 255));
 }
 
+/* Three systems' colors for System Colors' pictures: the shelf the menu is
+ * over first, then the next ones with a color of their own, each once; a
+ * card with fewer has its colors again, and one with none the folders'
+ * text-dim (CFG_NO_COLOR) */
+static void look_system_rgbs(const app *a, unsigned out[3])
+{
+	int n = 0, i, k;
+
+	for (i = 0; i < a->sys.count && n < 3; i++) {
+		const unsigned c = a->sys.systems[(a->sys_cursor + i) % a->sys.count].accent;
+		bool seen = c == CFG_NO_COLOR;
+
+		for (k = 0; k < n && !seen; k++) seen = out[k] == c;
+		if (!seen) out[n++] = c;
+	}
+	for (k = n; k < 3; k++) out[k] = n ? out[k % n] : CFG_NO_COLOR;
+}
+
+/* Folder Color's choice `k` as three folders' colors: System Colors' three
+ * systems, or the one color three times */
+static void look_folder_rgbs(const app *a, int k, unsigned out[3])
+{
+	if (k <= 0 || k >= LOOK_FOLDERS) {
+		look_system_rgbs(a, out);
+		return;
+	}
+	out[0] = out[1] = out[2] = ui_rgb(DS_ACCENT[k - 1]);
+}
+
+/* A folder, small, drawn from shapes as the chips are: its back with the
+ * tab at 74% of the color, its front the color, its top edge lit, all in a
+ * 2-unit edge at 42% as the pixel folder's (src/folderart.h), `w` wide with
+ * its foot at `foot`, its left at `x` */
+static void look_folder_shape(app *a, unsigned rgb, int x, int foot, int w)
+{
+	const int h = w * 3 / 4, top = foot - h, r = DS_RADIUS_CHIP - 2, e = 2;
+	SDL_Color c, back, edge, lit;
+
+	if (rgb == CFG_NO_COLOR) rgb = ui_rgb(theme()->text_dim);
+	c = (SDL_Color){ (Uint8)(rgb >> 16), (Uint8)(rgb >> 8), (Uint8)rgb, 255 };
+	back = (SDL_Color){ (Uint8)(c.r * 74 / 100), (Uint8)(c.g * 74 / 100), (Uint8)(c.b * 74 / 100), 255 };
+	edge = (SDL_Color){ (Uint8)(c.r * 42 / 100), (Uint8)(c.g * 42 / 100), (Uint8)(c.b * 42 / 100), 255 };
+	lit = (SDL_Color){ (Uint8)(c.r + (255 - c.r) * 35 / 100), (Uint8)(c.g + (255 - c.g) * 35 / 100),
+	                   (Uint8)(c.b + (255 - c.b) * 35 / 100), 255 };
+	/* The edge: the tab and the body, each 2 units larger */
+	ui_round_rect(a->r, &(SDL_Rect){ x - e, top - e, w * 9 / 20 + 2 * e, h / 3 + 2 * e }, r + e, edge);
+	ui_round_rect(a->r, &(SDL_Rect){ x - e, top + h / 7 - e, w + 2 * e, h - h / 7 + 2 * e }, r + e, edge);
+	ui_round_rect(a->r, &(SDL_Rect){ x, top, w * 9 / 20, h / 3 }, r, back);
+	ui_round_rect(a->r, &(SDL_Rect){ x, top + h / 7, w, h - h / 7 }, r, back);
+	ui_round_rect(a->r, &(SDL_Rect){ x, top + h / 3, w, h - h / 3 }, r, c);
+	ui_round_rect(a->r, &(SDL_Rect){ x + r, top + h / 3, w - 2 * r, 2 }, 0, lit);
+}
+
+/* Folder Color's mark: one folder in the color every folder takes, or for
+ * System Colors three of the card's systems' folders stacked, the shelf's
+ * in front and the others standing up behind it */
+static void look_folder_mark(app *a, int right, int cy)
+{
+	const int folder = look_now()->folder, w = 38, foot = cy + w * 3 / 8;
+	unsigned rgb[3];
+	int i;
+
+	look_folder_rgbs(a, folder, rgb);
+	if (folder > 0) {
+		look_folder_shape(a, rgb[0], right - w, foot, w);
+		return;
+	}
+	for (i = 2; i >= 0; i--)
+		look_folder_shape(a, rgb[i], right - w - i * DS_GRID, foot - i * DS_GRID * 3 / 4, w);
+}
+
+/* Folder Color's list's picture: a shelf in small, the theme's ground and
+ * three folders as the shelf draws them (src/folderart.h), the middle one in
+ * focus and larger, in the colors choice `k` gives them */
+static void look_folder_preview(void *app_, int k, int x, int y, int w, int h)
+{
+	app *a = app_;
+	const SDL_Rect screen = { x, y, w, h };
+	const ds_rgb g = theme()->ground;
+	unsigned rgb[3];
+	SDL_Rect in;
+	int big = 3, gap = DS_GRID * 2, foot, cx, i;
+
+	look_folder_rgbs(a, k, rgb);
+	in = ds_preview_screen_begin(a->r, &screen);
+	SDL_SetRenderDrawColor(a->r, g.r, g.g, g.b, 255);
+	SDL_RenderFillRect(a->r, &in);
+	/* The middle folder's cells three units, the others' two, or less
+	 * where the column is narrow */
+	while (big > 1 && (2 * (big - 1) + big) * FA_ICON_W + 2 * gap > in.w) big--;
+	foot = in.y + (in.h + big * FA_ICON_H) / 2;
+	cx = in.x + in.w / 2;
+	for (i = 0; i < 3; i++) {
+		const int s = i == 1 ? big : (big > 1 ? big - 1 : 1);
+		const int fx = i == 1 ? cx - big * FA_ICON_W / 2
+		             : i == 0 ? cx - big * FA_ICON_W / 2 - gap - s * FA_ICON_W
+		                      : cx + big * FA_ICON_W / 2 + gap;
+		int tw, th;
+		SDL_Texture *t = ui_make_folder_icon(a->r, rgb[i == 1 ? 0 : i == 0 ? 1 : 2], &tw, &th);
+
+		if (!t) continue;
+		/* The ones beside the focus faded, as the shelf's are */
+		if (i != 1) SDL_SetTextureAlphaMod(t, 150);
+		SDL_RenderCopy(a->r, t, NULL, &(SDL_Rect){ fx, foot - s * th, s * tw, s * th });
+		SDL_DestroyTexture(t);
+	}
+	ds_preview_screen_end(a->r, &screen);
+}
+
 /* The marks before Theme's values: the accent's dot on Accent, each theme's
- * chip on its background's row, and both on MENU's Theme row */
+ * chip on its background's row, the folders on Folder Color, and both
+ * chips on MENU's Theme row */
 void look_row_mark(app *a, const menu_row *row, int right, int cy, float on_fill)
 {
 	const char *l = row->label;
 
 	(void)on_fill;
-	if (l == T(S_LOOK_BG_LIGHT)) look_chip(a, theme_at(DS_LIGHT), right - 64, cy);
+	if (l == T(S_LOOK_FOLDERS)) look_folder_mark(a, right, cy);
+	else if (l == T(S_LOOK_BG_LIGHT)) look_chip(a, theme_at(DS_LIGHT), right - 64, cy);
 	else if (l == T(S_LOOK_BG_DARK)) look_chip(a, theme_at(DS_DARK), right - 64, cy);
 	else if (l == T(S_SYSMENU_THEME)) {
 		look_chip(a, theme_at(DS_DARK), right - 64, cy);
@@ -1244,7 +1359,7 @@ void look_header(app *a, const SDL_Rect *q)
 }
 
 static const unsigned char LOOK_SOUND[LK_ROWS] = {
-	MENU_SND_RING, MENU_SND_RING, MENU_SND_RING, MENU_SND_RING, MENU_SND_RING, 0 };
+	MENU_SND_RING, MENU_SND_RING, MENU_SND_RING, MENU_SND_RING, MENU_SND_RING, MENU_SND_RING, 0 };
 static const int ACCENT_NAME[DS_ACCENTS] = {
 	S_LOOK_ACCENT_LIME, S_LOOK_ACCENT_GREEN, S_LOOK_ACCENT_TEAL, S_LOOK_ACCENT_BLUE,
 	S_LOOK_ACCENT_PURPLE, S_LOOK_ACCENT_PINK, S_LOOK_ACCENT_RED, S_LOOK_ACCENT_ORANGE,
@@ -1258,10 +1373,16 @@ static const char *look_accent_name(void)
 	return T(ACCENT_NAME[look_now()->accent]);
 }
 
-/* Theme's three lists (src/ds/hover.h): the accent or the ground under
- * the cursor on the whole screen, in memory (look_set, no setting and no
- * theme file); a ground of the theme that is not on shows that theme while
- * its list is open. The look as it was, back on undo. */
+/* Folder Color's value: System Colors, or the accent's name */
+static const char *look_folder_name(int folder)
+{
+	return folder > 0 && folder < LOOK_FOLDERS ? T(ACCENT_NAME[folder - 1]) : T(S_LOOK_FOLDERS_SYSTEM);
+}
+
+/* Theme's four lists (src/ds/hover.h): the accent, the ground or the
+ * folders' color under the cursor on the whole screen, in memory (look_set,
+ * no setting and no theme file); a ground of the theme that is not on shows
+ * that theme while its list is open. The look as it was, back on undo. */
 static look g_lk_kept;
 static bool g_lk_showing;
 
@@ -1277,6 +1398,7 @@ static void look_show(app *a, int row, int k)
 	if (row == LK_ACCENT && k >= 0 && k < DS_ACCENTS) l.accent = k;
 	if (row == LK_LIGHT && k >= 0 && k < DS_TONES) l.tone[DS_LIGHT] = k;
 	if (row == LK_DARK && k >= 0 && k < DS_TONES) l.tone[DS_DARK] = k;
+	if (row == LK_FOLDERS && k >= 0 && k < LOOK_FOLDERS) l.folder = k;
 	look_set(&l);
 	theme_show(row == LK_LIGHT ? DS_LIGHT : row == LK_DARK ? DS_DARK : -1);
 	theme_changed(a);
@@ -1295,13 +1417,17 @@ static void look_undo(void *app_, int kept)
 static void accent_show(void *app_, int k) { look_show(app_, LK_ACCENT, k); }
 static void light_show(void *app_, int k) { look_show(app_, LK_LIGHT, k); }
 static void dark_show(void *app_, int k) { look_show(app_, LK_DARK, k); }
+static void folder_show(void *app_, int k) { look_show(app_, LK_FOLDERS, k); }
 
 static const ds_hover LK_ACCENT_HOVER = { .show = accent_show, .undo = look_undo };
 static const ds_hover LK_LIGHT_HOVER = { .show = light_show, .undo = look_undo };
 static const ds_hover LK_DARK_HOVER = { .show = dark_show, .undo = look_undo };
+static const ds_hover LK_FOLDER_HOVER = { .show = folder_show, .undo = look_undo };
 
-/* Theme's rows' choices (menu.h's menu_choice): the accents and each
- * theme's grounds, as look_key steps them, so A opens their list */
+/* Theme's rows' choices (menu.h's menu_choice): the accents, each theme's
+ * grounds and the folders' colors, as look_key steps them, so A opens
+ * their list; Folder Color's with its picture, since a folder is nowhere
+ * on the list itself */
 static menu_choice g_lk_choice[LK_ROWS];
 
 const menu_choice *theme_choices(void)
@@ -1311,12 +1437,13 @@ const menu_choice *theme_choices(void)
 
 int look_build(void *ctx, menu_row *rows, int max, const char **heading)
 {
-	static const char *acc[DS_ACCENTS], *tone[DS_THEMES][DS_TONES];
+	static const char *acc[DS_ACCENTS], *tone[DS_THEMES][DS_TONES], *fold[LOOK_FOLDERS];
 	const look *l = look_now();
 	int i, t;
 
 	(void)ctx; (void)max;
 	for (i = 0; i < DS_ACCENTS; i++) acc[i] = T(ACCENT_NAME[i]);
+	for (i = 0; i < LOOK_FOLDERS; i++) fold[i] = look_folder_name(i);
 	for (t = 0; t < DS_THEMES; t++)
 		for (i = 0; i < DS_TONES; i++) tone[t][i] = T(TONE_NAME[t][i]);
 	memset(g_lk_choice, 0, sizeof g_lk_choice);
@@ -1326,10 +1453,14 @@ int look_build(void *ctx, menu_row *rows, int max, const char **heading)
 	                                       .labels = tone[DS_LIGHT], .hover = &LK_LIGHT_HOVER };
 	g_lk_choice[LK_DARK] = (menu_choice){ .n = DS_TONES, .cur = (unsigned char)l->tone[DS_DARK],
 	                                      .labels = tone[DS_DARK], .hover = &LK_DARK_HOVER };
+	g_lk_choice[LK_FOLDERS] = (menu_choice){ .n = LOOK_FOLDERS, .cur = (unsigned char)l->folder,
+	                                         .labels = fold, .preview = look_folder_preview,
+	                                         .hover = &LK_FOLDER_HOVER };
 	*heading = T(S_SYSMENU_THEME);
 	rows[LK_ACCENT]  = (menu_row){ T(S_LOOK_ACCENT), T(ACCENT_NAME[l->accent]), true };
 	rows[LK_LIGHT]   = (menu_row){ T(S_LOOK_BG_LIGHT), T(TONE_NAME[DS_LIGHT][l->tone[DS_LIGHT]]), true };
 	rows[LK_DARK]    = (menu_row){ T(S_LOOK_BG_DARK), T(TONE_NAME[DS_DARK][l->tone[DS_DARK]]), true };
+	rows[LK_FOLDERS] = (menu_row){ T(S_LOOK_FOLDERS), look_folder_name(l->folder), true };
 	rows[LK_CORNERS] = (menu_row){ T(S_LOOK_CORNERS), T(l->square ? S_LOOK_SQUARE : S_LOOK_ROUNDED), true };
 	rows[LK_ZYPER]   = (menu_row){ T(S_LOOK_ZYPER), T(l->zyper_off ? S_MENU_OFF_TITLE : S_MENU_ON_TITLE), true };
 	rows[LK_RESET]   = (menu_row){ T(S_LOOK_RESET), NULL, true };
@@ -1347,6 +1478,7 @@ static menu_result look_key(app *a, void *ctx, in_button key, int sel)
 	case LK_ACCENT:  l.accent = (l.accent + d + DS_ACCENTS) % DS_ACCENTS; break;
 	case LK_LIGHT:   l.tone[DS_LIGHT] = (l.tone[DS_LIGHT] + d + DS_TONES) % DS_TONES; break;
 	case LK_DARK:    l.tone[DS_DARK] = (l.tone[DS_DARK] + d + DS_TONES) % DS_TONES; break;
+	case LK_FOLDERS: l.folder = (l.folder + d + LOOK_FOLDERS) % LOOK_FOLDERS; break;
 	case LK_CORNERS: l.square = !l.square; break;
 	case LK_ZYPER:   l.zyper_off = !l.zyper_off; break;
 	case LK_RESET:

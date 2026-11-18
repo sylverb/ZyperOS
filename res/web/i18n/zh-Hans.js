@@ -219,6 +219,7 @@ window.ZYPEROS_STRINGS = {
   "move.done_n": ["已将 %1$d 项移动到 %2$s", "已将 %1$d 项移动到 %2$s"],
   "act.undo": "撤销",
   "move.undone": "已移回原处。",
+  "console.kept": "主机文件夹会保留在原处，ZyperOS 才能找到其中的游戏。",
   "sel.count": ["已选择 %d 项", "已选择 %d 项"],
   "sel.all": "全选",
   "sel.clear": "取消全部选择",

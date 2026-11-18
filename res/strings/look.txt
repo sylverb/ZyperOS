@@ -35,6 +35,28 @@ de = Dunkler Hintergrund
 ja = ダークの背景
 it = Sfondo scuro
 
+[look.folders]
+note = A row of the Theme page: the color of every folder of games on the shelves and of the consoles' folders on the File Transfer page, each system's own (System Colors) or one accent for all
+en = Folder Color
+zh-Hans = 文件夹颜色
+es = Color de carpetas
+pt-BR = Cor das pastas
+fr = Couleur des dossiers
+de = Ordnerfarbe
+ja = フォルダの色
+it = Colore cartelle
+
+[look.folders_system]
+note = Folder Color's first value, as it ships: each folder in its own system's color (systems.cfg's), as before this row. Short: it stands beside a mark in Folder Color's row, and "per system" reads as well
+en = System Colors
+zh-Hans = 按系统
+es = Por sistema
+pt-BR = Por sistema
+fr = Par système
+de = Systemfarben
+ja = システムごとの色
+it = Per sistema
+
 [look.corners]
 note = A row of the Theme page: panels and highlights rounded or square
 en = Corners
@@ -80,7 +102,7 @@ ja = Zyper
 it = Zyper
 
 [look.reset]
-note = The Theme page's last row: the accent, tones, corners and Zyper as ZyperOS ships them
+note = The Theme page's last row: the accent, tones, folders' color, corners and Zyper as ZyperOS ships them
 en = Reset to Default
 zh-Hans = 恢复默认
 es = Restablecer

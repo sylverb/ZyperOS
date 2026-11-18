@@ -2300,6 +2300,17 @@ de = Zurückverschoben.
 ja = 元の場所に戻しました。
 it = Spostamento annullato.
 
+[web.console.kept]
+note = A line on a console's own folder (GBA, NES... at the top of ROMs or Save States): in its row's menu, which has no Rename, Move or Delete, and as a toast when someone tries to drag or pick it
+en = Console folders stay where they are, so ZyperOS can find their games.
+zh-Hans = 主机文件夹会保留在原处，ZyperOS 才能找到其中的游戏。
+es = Las carpetas de consola se quedan donde están para que ZyperOS encuentre sus juegos.
+pt-BR = As pastas de console ficam onde estão para o ZyperOS achar os jogos.
+fr = Les dossiers des consoles restent en place pour que ZyperOS trouve leurs jeux.
+de = Konsolenordner bleiben, wo sie sind, damit ZyperOS ihre Spiele findet.
+ja = システムのフォルダは、ZyperOS がゲームを見つけられるようにそのまま残ります。
+it = Le cartelle delle console restano dove sono, così ZyperOS trova i loro giochi.
+
 [web.sel.count]
 note = The bar at the foot of the list while rows are picked: how many files and folders are picked (followed by their size when they are all files)
 en.one = %d selected

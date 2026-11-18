@@ -16,6 +16,7 @@
 #include "hareart.h"
 #include "hotpanel.h"
 #include "logpack.h"
+#include "look.h"
 #include "mdns.h"
 #include "menu_panel.h"
 #include "muse_screen.h"
@@ -704,12 +705,25 @@ static const system_cfg *xfer_sys_of(const char *folder)
 	return NULL;
 }
 
-/* A console's color for its folder, as hare_set_folder_color asks */
+/* A system's folder, as xfer_set_systems asks: a console's own folder on
+ * the page, which never moves, is renamed or is deleted. In any case, as
+ * the card's folders are (vfat): "gba" is GBA's folder too. */
+static bool xfer_folder_known(const char *folder)
+{
+	int i;
+
+	for (i = 0; g_xfer_sys_ok && i < g_xfer_sys.count; i++)
+		if (!strcasecmp(g_xfer_sys.systems[i].folder, folder)) return true;
+	return false;
+}
+
+/* A console's color for its folder, as hare_set_folder_color asks: its
+ * own, or Folder Color's for every folder (MENU > Display > Theme) */
 static unsigned xfer_folder_color(const char *folder)
 {
 	const system_cfg *s = xfer_sys_of(folder);
 
-	return s ? s->accent : CFG_NO_COLOR;
+	return s ? look_folder_rgb(s->accent) : CFG_NO_COLOR;
 }
 
 /* And its pixel art, as hare_set_folder_icon asks: the shelf's own for the
@@ -1407,6 +1421,9 @@ static bool xs_open(app *a, int way)
 	if (g_xfer_sys_ok) shelf_folders_apply(&g_xfer_sys);
 	hare_set_folder_color(xfer_folder_color);
 	hare_set_folder_icon(xfer_folder_icon);
+	/* A console's own folder stays put (xfer_console); without systems.cfg,
+	 * every folder at the top of ROMs is taken for one */
+	xfer_set_systems(g_xfer_sys_ok ? xfer_folder_known : NULL);
 	snprintf(path, sizeof path, "%s/system-icons", P_ROOT);
 	hare_set_icons(path);
 	if (hot) {

@@ -284,6 +284,7 @@ than any one console:
 | **System Order** | the home's systems `A to Z` by name, on a new device and after an upgrade, or by `Release Date`. Favorites stays first, then Recents, and Ports and MP4 stay last |
 | **Home Systems** | which shelves the home shows: `All`, or how many are on. A opens a switch for Favorites, Recents (the ten games played last) and every system with games; Left, Right or A turns one on or off. A hidden system leaves the home, Random Game, Search, Favorites and Recents, and its games stay on the card. The last system on stays on |
 | **Appearance** | `Light`, `Dark` or `Auto`, which is light from 7:00 to 19:00 by the clock. `Light` on a new device and after an upgrade |
+| **Theme** | your look, in Display: **Accent** (ten colors, the same in both themes), **Light Background** and **Dark Background** (three tones each), **Folder Color**, **Corners** (`Rounded` or `Square`), **Zyper** (`On` or `Off`) and **Reset to Default**. Left and right change a row at once; A opens its list, where the whole screen shows the choice under the cursor and B puts back what you had. **Folder Color** is the color of the folders of games on the shelves and of the consoles' folders on the File Transfer page: `System Colors`, each folder in its own system's color, or one of the ten accents for every folder. Its list shows three folders in the color under the cursor. `Lime`, `Warm`, `Black`, `System Colors`, `Rounded` and Zyper `On` on a new device and after an upgrade |
 | **Scraper** | box art, its sources and video snaps - see below. Its value is how many games have no cover, or `Complete` |
 | **Achievements** | the RetroAchievements account, or `Sign in`. **A** opens its page, which downloads every game's achievements for offline play - see **Achievements** below |
 | **Shader** | `Off`, `Sharp-Shimmerless`, `CRT`, `CRT Curved`, `Scanlines` or `LCD Grid`, for every system at once: each system's own choice goes. It says `Per system` when a system has chosen another in its own menu or in a game. `Off` on a new device and after an upgrade - see **Shaders** below |
@@ -562,7 +563,8 @@ the menu's row, and the foot says where it goes: `Grid` under the covers,
 
 **Folders of games.** A folder inside a system's folder on the card is a
 folder on its shelf, as deep as you like: the folders come first, A to Z,
-each a pixel-art folder in the system's color with how many games it
+each a pixel-art folder in the system's color (or one color for every
+folder: **Folder Color** in MENU > Display > Theme) with how many games it
 holds, then the games loose in
 it, in the shelf's Sort By order. A opens a folder and B goes back up one,
 onto the folder you left. A folder is one game when it holds that game's
@@ -788,7 +790,11 @@ the list, **Upload** is a button at the bottom right, and New folder, Upload
 folder, Tidy names, the covers and the logs are behind the **⋯** at the top.
 Every file and folder has a **⋯** of its own (a right-click on a computer
 does the same) for Download, Rename, Move to folder, Select and Delete; a
-delete always asks first. Once one row is picked (Select, Ctrl or Cmd with a
+delete always asks first. A console's own folder (GBA, NES and the rest at
+the top of ROMs, and their folders in Save States) has Open alone: ZyperOS
+finds a system's games by that folder's name, so the page never moves,
+renames or deletes it, and says so when you drag or pick it. Everything in
+it still moves, renames and deletes, your own folders of games too. Once one row is picked (Select, Ctrl or Cmd with a
 click, or a finger held still on it), a tap picks or unpicks the others, and
 a bar at the bottom says how many and moves or deletes them all together.
 **Move to folder** opens on the folders next to the one you are in: open
