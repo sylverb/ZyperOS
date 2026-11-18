@@ -115,18 +115,18 @@ ja = ZyperOS のフォルダは削除できません
 it = le cartelle di ZyperOS restano
 
 [transfer.why_console]
-note = A console's folder under ROMs, so one click cannot take every game for a system
-en = a console's folder only goes once it is empty
-zh-Hans = 主机的文件夹清空后才能删除
-es = la carpeta de una consola solo se borra cuando está vacía
-pt-BR = a pasta de um console só pode ser apagada vazia
-fr = le dossier d'une console ne se supprime qu'une fois vide
-de = ein Konsolenordner lässt sich nur leer löschen
-ja = システムのフォルダは空になるまで削除できません
-it = la cartella di una console si elimina solo quando è vuota
+note = A console's own folder at the top of ROMs or Save States (GBA, NES...): never moved, renamed or deleted from the page, since ZyperOS finds a system's games by that folder's name. A clause, after a folder's name and a colon, or alone when a move or a rename is refused
+en = a console's folder stays where it is, so ZyperOS can find its games
+zh-Hans = 主机的文件夹会保留在原处，ZyperOS 才能找到其中的游戏
+es = la carpeta de una consola se queda donde está para que ZyperOS encuentre sus juegos
+pt-BR = a pasta de um console fica onde está para o ZyperOS achar os jogos
+fr = le dossier d'une console reste en place pour que ZyperOS trouve ses jeux
+de = ein Konsolenordner bleibt, wo er ist, damit ZyperOS seine Spiele findet
+ja = システムのフォルダは、ZyperOS がゲームを見つけられるようにそのまま残ります
+it = la cartella di una console resta dov'è, così ZyperOS trova i suoi giochi
 
 [transfer.why_empty]
-note = A folder in BIOS, Saves or Save States
+note = A folder in BIOS, Saves or Save States, or one at the top of ROMs that is no console's
 en = this folder only goes once it is empty
 zh-Hans = 此文件夹清空后才能删除
 es = esta carpeta solo se borra cuando está vacía

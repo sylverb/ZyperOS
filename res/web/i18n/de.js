@@ -219,6 +219,7 @@ window.ZYPEROS_STRINGS = {
   "move.done_n": ["%1$d Element nach %2$s verschoben", "%1$d Elemente nach %2$s verschoben"],
   "act.undo": "Rückgängig",
   "move.undone": "Zurückverschoben.",
+  "console.kept": "Konsolenordner bleiben, wo sie sind, damit ZyperOS ihre Spiele findet.",
   "sel.count": ["%d ausgewählt", "%d ausgewählt"],
   "sel.all": "Alle auswählen",
   "sel.clear": "Auswahl aufheben",

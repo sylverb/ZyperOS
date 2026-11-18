@@ -37,12 +37,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
 
 #include "../src/hare.h"
 #include "../src/i18n.h"
+#include "../src/xfer.h"
 
 #define MAX_SYS 64
 
@@ -85,6 +87,14 @@ static unsigned folder_color(const char *folder)
 	for (int i = 0; i < g_nsys; i++)
 		if (!strcmp(g_sys[i].folder, folder)) return g_sys[i].rgb;
 	return 0xFF000000u;
+}
+
+/* A system's folder, as xfer_set_systems asks (src/xfer_screen.c's) */
+static bool folder_known(const char *folder)
+{
+	for (int i = 0; i < g_nsys; i++)
+		if (!strcasecmp(g_sys[i].folder, folder)) return true;
+	return false;
 }
 
 static const char *folder_icon(const char *folder)
@@ -201,6 +211,7 @@ int main(int argc, char **argv)
 	read_systems(argv[1]);
 	hare_set_folder_color(folder_color);
 	hare_set_folder_icon(folder_icon);
+	xfer_set_systems(g_nsys ? folder_known : NULL);
 	hare_set_icons(icons);
 	for (int i = 3; i < argc; i++) {
 		if (!strcmp(argv[i], "usb")) {
