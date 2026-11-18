@@ -2578,10 +2578,16 @@ static void on_game_tick(void)
 		if (r == 0) return;
 		g_pending_hashing = false;
 		if (r == 1) {
+			/* The hash in the log, and the answer below: what a game that
+			 * found no set was asked by (a DS game, 2026-11-17) */
+			fprintf(stderr, "cheevos: first play, hash %s; asking RetroAchievements\n", h);
 			snprintf(g_pending_set, sizeof g_pending_set, "%s", set);
 			ra_fetch_begin(h, g_pending_set);
 		} else {
-			if (r == -1) chv_none_mark(set, true);
+			if (r == -1) {
+				fprintf(stderr, "cheevos: first play, no hash for this file; marked none\n");
+				chv_none_mark(set, true);
+			}
 			g_pending_set[0] = '\0';
 		}
 		return;
@@ -2595,7 +2601,12 @@ static void on_game_tick(void)
 	/* RA has nothing for this ROM: said so on its Achievements rows, "none"
 	 * rather than "not checked yet" (chv_state_of). A fetch that failed
 	 * says nothing, and the next launch with a network asks again. */
-	if (rc == RA_FETCH_NOTHING) chv_none_mark(g_pending_set, true);
+	if (rc == RA_FETCH_NOTHING) {
+		fprintf(stderr, "cheevos: RetroAchievements has no game for that hash; marked none\n");
+		chv_none_mark(g_pending_set, true);
+	} else if (rc < 0) {
+		fprintf(stderr, "cheevos: no set came (no network, or no answer); asked next launch\n");
+	}
 	if (rc < 0) { g_pending_set[0] = '\0'; return; }
 	chv_none_mark(g_pending_set, false);        /* a set now: it has one */
 
@@ -4742,12 +4753,12 @@ static int menu_shelf_width(app *a)
 					if (mw > w) w = mw;
 				}
 			}
-			/* And Night Mode's three rows, the tab's last, there or not,
-			 * at their widest (night_rows_widest) */
+			/* And Night Mode's row, the tab's last, at its longest mode
+			 * (night_row_widest) */
 			for (k = 0; k < n; k++)
 				if (rows[k].label == T(S_SYSMENU_NIGHT_MODE)) break;
-			if (k < n && k + 3 <= MENU_MAX_ROWS && night_rows_widest(rows + k)) {
-				mw = menu_measure(rows, k + 3, heading);
+			if (k < n && night_row_widest(rows + k)) {
+				mw = menu_measure(rows, k + 1, heading);
 				if (mw > w) w = mw;
 			}
 		}

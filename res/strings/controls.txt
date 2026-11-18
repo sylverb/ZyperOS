@@ -277,7 +277,7 @@ ja = セーブして電源オフ
 it = Salva e spegni
 
 [controls.save_off_hold]
-note = What POWER does when MENU > Power Button is Hold: held for 2 seconds, it saves the game and turns the handheld off.
+note = What POWER does when MENU > Power Button is Hold: held for 1 second, it saves the game and turns the handheld off.
 en = Hold: save and turn off
 zh-Hans = 长按：保存并关机
 es = Mantén: guarda y apaga
@@ -474,7 +474,7 @@ it = Spegni
 # translated; these are the words. A value is at most about 22 characters.
 
 [controls.turn_off_hold]
-note = What POWER does outside a game when MENU > Power Button is Hold: held for 2 seconds, it turns the handheld off.
+note = What POWER does outside a game when MENU > Power Button is Hold: held for 1 second, it turns the handheld off.
 en = Hold: turn off
 zh-Hans = 长按：关机
 es = Mantén: apaga
@@ -1059,7 +1059,7 @@ ja = 終了して電源オフ
 it = Esci e spegni
 
 [controls.quit_off_hold]
-note = What POWER does in OpenBOR or a port when MENU > Power Button is Hold: held for 2 seconds, the game ends and the handheld turns off.
+note = What POWER does in OpenBOR or a port when MENU > Power Button is Hold: held for 1 second, the game ends and the handheld turns off.
 en = Hold: quit and turn off
 zh-Hans = 长按：退出并关机
 es = Mantén: sal y apaga

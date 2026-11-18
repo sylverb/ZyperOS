@@ -4,6 +4,7 @@
  * how far a hold has got for the pill. */
 #include <stdio.h>
 
+#include "../src/design.h"
 #include "../src/osdbar.h"
 #include "../src/powerhold.h"
 
@@ -22,6 +23,16 @@ int main(void)
 {
 	powerhold p = { 0 };
 	const unsigned t0 = 5000, step = POWERHOLD_MS / OSDBAR_POWER_STEPS;
+
+	/* The hold is one second (Tarik, 2026-11-17: "so make it 1 second"), its
+	 * own design time: the charging screen's Hold POWER to start and MP4's
+	 * unlock keep their two (DS_MS_HOLD_UNLOCK) */
+	ck(POWERHOLD_MS == 1000, "Hold: one second");
+	ck(POWERHOLD_MS == DS_MS_HOLD_POWER && DS_MS_HOLD_UNLOCK == 2000,
+	   "Hold: its own time, the charging screen's and the lock's two seconds kept");
+	/* The pill's segments even over it: each one a whole number of
+	 * milliseconds, the last one lit as the hold fires */
+	ck(POWERHOLD_MS % OSDBAR_POWER_STEPS == 0, "Hold: the pill's segments are even over the hold");
 
 	/* Press, the default */
 	ck(!powerhold_mode(), "Press is the default");

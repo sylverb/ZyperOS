@@ -268,7 +268,8 @@ build-native/dmodefit-check: tools/dmodefit-check.c src/dmodefit.c src/dmodefit.
 	      -o $@ tools/dmodefit-check.c src/dmodefit.c diatom/src/scale.c
 
 # MENU > Power Button's rule (src/powerhold.h): a press turns the handheld off
-# in Press mode and a hold of two seconds in Hold mode, once per time down;
+# in Press mode and a hold of one second in Hold mode (its own time, the
+# charging screen's and MP4's two kept), once per time down;
 # the pill's progress and the waits that keep it moving.
 check-powerhold: build-native/powerhold-check
 	@./build-native/powerhold-check
@@ -1822,8 +1823,9 @@ check-raoffline:
 # RetroAchievements of the check's own - this check is its curl, net.c read in
 # whole - on a mixed card: sets right and out of date, new, unknown, empty, a
 # marker RetroAchievements has news for, a 429, the network gone mid-run, a
-# run stopped and finished by the next, libraries that never come, an account
-# refused. The time is the check's. No network.
+# run stopped and finished by the next, libraries that never come, a DS hash
+# kept from before the DS hash, an account refused. The time is the check's.
+# No network.
 check-radl: build-native/radl-check
 	@./build-native/radl-check
 

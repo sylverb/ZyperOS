@@ -94,8 +94,9 @@ int shot_menu_steps;
 /* --menu-tab-from M: the tab MENU's move comes from, or -1 */
 int shot_tab_from = -1, shot_tab_ms;
 /* --look ACCENT,LIGHT,DARK,CORNERS,ZYPER: the look for the shot; and
- * --look-page theme|hours [row]: Theme's page or Night Hours' (DESIGN.md
- * 11.42), the cursor on `row` */
+ * --look-page theme|night|night-list|screen|screen-looks [row]: Theme's
+ * page, Night Mode's, a Night Mode row's list (--pick-at for its cursor),
+ * Screen Colors' or its Look's list (DESIGN.md 11.42), the cursor on `row` */
 const char *shot_look, *shot_look_page;
 int shot_homesys = -1;     /* --homesys-page ROW: MENU > Home Systems' page */
 int shot_look_row;
@@ -1137,18 +1138,27 @@ static void muse_covers_settle(void)
 	}
 }
 
-/* --look-page: Theme's page, Night Hours' or Screen Colors', over the shelf,
+/* --look-page: Theme's page, Night Mode's or Screen Colors', over the shelf,
  * as menu_run draws them, the cursor on --look-page's row */
 static void shot_draw_look(app *a)
 {
 	menu_row rows[LK_ROWS];
 	const char *heading;
-	hours_view hv = { .a = a };
-	bool hours = !strcmp(shot_look_page, "hours"), screen = !strcmp(shot_look_page, "screen");
-	int n = hours ? hours_build(&hv, rows, 2, &heading)
+	night_view nv = { .a = a };
+	bool night_list = !strcmp(shot_look_page, "night-list");
+	bool night = night_list || !strcmp(shot_look_page, "night"), screen = !strcmp(shot_look_page, "screen");
+	int n = night ? night_page_build(&nv, rows, NP_ROWS, &heading)
 	      : screen ? sc_build(NULL, rows, LK_ROWS, &heading) : look_build(NULL, rows, LK_ROWS, &heading);
 
 	ui_scrim(a->r, 0);
+	if (night_list) {
+		/* A Night Mode row's list, as A opens it (menu_pick) */
+		const int row = shot_look_row >= 0 && shot_look_row < n ? shot_look_row : 0;
+		const menu_choice *ch = menu_choice_at(night_page_choices(), n, row);
+
+		if (ch) shot_list_draw(a, rows[row].label, ch, menu_std_width(a), MENU_ZYPEROS);
+		return;
+	}
 	if (!strcmp(shot_look_page, "screen-looks")) {
 		/* The Look's list, its picture beside it (--pick-at for the cursor) */
 		menu_choice ch;
@@ -1160,7 +1170,7 @@ static void shot_draw_look(app *a)
 	if (screen) {
 		g_menu_side = sc_side;
 		g_menu_side_w = SC_SIDE_W;
-	} else if (!hours) {
+	} else if (!night) {
 		g_row_mark = look_row_mark;
 		g_menu_header = look_header;
 		g_menu_header_h = 150;

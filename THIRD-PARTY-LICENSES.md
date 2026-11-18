@@ -66,7 +66,7 @@ that rebuilds it to the same bytes.
 | `fceumm_libretro.so` | NES | GPL-2.0-or-later | https://github.com/libretro/libretro-fceumm at 236ccdf |
 | `mednafen_pce_fast_libretro.so` | TurboGrafx-16 and CD | GPL-2.0 (Mednafen-derived) | https://github.com/libretro/beetle-pce-fast-libretro at bebe2b1 (no commit in the binary; this one rebuilds the buildbot's bytes, and the file shipped is that build without its .comment section, `mk/fetch-vendor.sh`) |
 | `mednafen_ngp_libretro.so` | Neo Geo Pocket and Color | GPL-2.0 (Mednafen-derived) | https://github.com/libretro/beetle-ngp-libretro at a50d5ac |
-| `pcsx_rearmed_libretro.so` | PlayStation | GPL-2.0 | https://github.com/libretro/pcsx_rearmed at 7b0e8f8 |
+| `pcsx_rearmed_libretro.so` | PlayStation | GPL-2.0 | https://github.com/libretro/pcsx_rearmed at 7b0e8f8, with ZyperOS's `mk/patches/pcsx_rearmed-memcard-resume.patch` (a memory card that is the same when a state is loaded is not shown to the game as a new card); built by `mk/build-pcsx-rearmed.sh` with the buildbot's toolchain, not by the buildbot |
 | `mgba_libretro.so` | Game Boy, Color and Advance | MPL-2.0 | https://github.com/libretro/mgba at e31759b plus mGBA's fixes 543a197, 685023e and 8485192 (https://github.com/mgba-emu/mgba); `mk/build-mgba-bridge.sh` builds it |
 | `snes9x2010_libretro.so` | SNES | **Non-commercial** | https://github.com/libretro/snes9x2010 at fe690dd |
 | `genesis_plus_gx_libretro.so` | Genesis, Master System, Game Gear | **Non-commercial** | https://github.com/libretro/Genesis-Plus-GX at b9c2316 |

@@ -589,7 +589,8 @@ beside a cubic one. One function each, in `src/design.h`.)*
 | **zyper-ears** | 420 | - | Zyper's ears swinging out and back as he says hello |
 | **tour-reward** | 1100 | - | a tutorial step's reward, before the next |
 | **tour-pulse** | 440 | - | the right glyph's two pulses after a press of the wrong button |
-| **hold-unlock** | 2000 | - | MP4's lock: SELECT and START held together this long unlock it; POWER held this long starts the charging screen's handheld, and turns it off with Power Button on Hold |
+| **hold-unlock** | 2000 | - | MP4's lock: SELECT and START held together this long unlock it; POWER held this long starts the charging screen's handheld |
+| **hold-power** | 1000 | - | POWER held this long turns the handheld off with Power Button on Hold |
 | **hold-lock-lit** | 4000 | - | MP4's lock screen, lit as it locks |
 | **hold-controls** | 3000 | - | MP4's video controls after the last press |
 | **hold-snap** | 1000 | - | a game focused on the shelf before its cover turns into its video snap |
@@ -980,7 +981,7 @@ Opens and closes as 8.2 says.
 
 **Option rows, one rule (1.0.6).** A row whose value is one of several
 choices answers the same way on every page - MENU, a system's menu, the
-Muse shelf, the in-game menu's Game and Display tabs, Theme, Night Hours,
+Muse shelf, the in-game menu's Game and Display tabs, Theme, Night Mode's page,
 Video Snaps, Menu Music:
 
 - **More than two choices: A opens their list**, a panel of its own under
@@ -1105,7 +1106,7 @@ where it was.)*
 | Tab | Rows |
 |---|---|
 | **Games** | Search Games, Play Time, Random Game, Achievements, Scraper |
-| **Display** | Appearance, Theme, Home Screen, System Order, Home Systems, Battery Icon, Screensaver, Shader, Strength, Screen Colors, Night Mode, Night Warmth, Night Hours |
+| **Display** | Appearance, Theme, Home Screen, System Order, Home Systems, Battery Icon, Screensaver, Shader, Strength, Screen Colors, Night Mode (its page: Night Mode, Night Warmth, Night From, Until) |
 | **Sound** | Audio Output, Audio Channels, UI Sounds, Menu Music |
 | **Connections** | USB Device (while a plug waits), Wi-Fi, Bluetooth, File Transfer, USB Accessories, Developer Mode |
 | **System** | Date & Time, Clock, Language, Power Button, Auto Off, Charge Limit, Side Lights, Storage, System Update |
@@ -1219,7 +1220,7 @@ steps"; Tarik, 2026-11-15, after a 20 kHz backlight went black under 17.)*
 **POWER held** (MENU > Power Button on **Hold**, 11.47) is the same pill with
 the power mark - a ring open at the top and the line down into it, as every
 power button has it - and 20 segments in **accent-ink** over **track**, one
-lit for each twentieth of **hold-unlock** while POWER is held. Full, the
+lit for each twentieth of **hold-power** while POWER is held. Full, the
 handheld turns off as a press does, and the pill holds and fades as after a
 level step; let go early, it goes in **fade.out** at once and nothing else
 happens. On the shelf and every screen, over a Diatom game (the launcher
@@ -4084,7 +4085,7 @@ value, a mark of what it is: the accent's dot on Accent, the theme's chip
 row. Display's own **Theme** row shows both chips and the accent's name.
 
 **Appearance** is Light or Dark, two, so A turns it over. *(1.0.6: Auto,
-light from 7:00 to 19:00, went, and its hours became Night Hours below; a
+light from 7:00 to 19:00, went, and its hours became Night Mode's below; a
 1.0.5 player on Auto gets the theme the hour gave at the first start of
 1.0.6.)*
 
@@ -4123,22 +4124,28 @@ preview on hover, approved the same day.)*
 
 **Night Mode** (MENU > Display, under Screen Colors, where the display has
 a table) makes the whole screen warmer for the night, over the player's own
-colors: **Off**, **On** or **By Hours**, three, so A opens their list.
-**Night Warmth**, under it while it is not Off (as Strength under Shader),
-is 1 to 10, 8 as it ships: the gains of Temperature +n, multiplied into the
-player's, so it adds warmth to their colors, never clips against their
-Temperature and changes nothing else. **Night Hours**, under it for By
-Hours, says "9:00 PM to 7:00 AM" and opens two rows, **Night From** and
+colors. Display has one row for it, its value the mode (**Off**, **On** or
+**By Hours**); A opens its page, as Screen Colors' row does, and Left and
+Right do nothing there. The page, headed Night Mode, has every setting of
+it, each an option row (DESIGN.md 9): **Night Mode**, the three; **Night
+Warmth**, 1 to 10, 8 as it ships: the gains of Temperature +n, multiplied
+into the player's, so it adds warmth to their colors, never clips against
+their Temperature and changes nothing else; and **Night From** and
 **Until**, each a time of day by the half hour, written as MENU > Clock
 says; 9:00 PM and 7:00 AM as it ships, and a 1.0.5 player's Auto hours
-carry over. Night Warmth's list shows the warmth under the cursor on the
-whole screen as the Look list does, with no picture beside it
-(menu_choice's `focus`), whatever the hour; B puts back what was set. A change is on the
+carry over. A row the mode does not use is quiet, its value still read:
+Night Warmth and the hours while Off, the hours while On. So the page holds
+its shape as the mode changes, and says what On or By Hours would use;
+the cursor passes the quiet rows, as any quiet row. Night Warmth's list
+shows the warmth under the cursor on the whole screen as the Look list
+does, with no picture beside it (menu_choice's `focus`), whatever the hour;
+B puts back what was set. A change is on the
 display at once, and By Hours turns at the hour in games and ports too:
 one frame's blink, as any table load, and no fade, whose every step would
 blink. Night Mode never changes the theme, and the Look list has no Night
 look. *(Tarik's move from Screen Colors' Night look and Appearance's Auto,
-approved on the sheet 2026-11-16.)*
+approved on the sheet 2026-11-16; one row and its page for 1.0.6 rc.2, his:
+"Can the night mode settings be all in night mode row".)*
 
 ### 11.43 Player 2
 A friend plays an NES game's second controller in a browser, with nothing
@@ -4936,18 +4943,19 @@ which is too easy to do accidentally." My pick: a MENU setting.)*
 **Power Button** in MENU's System tab, over Auto Off, the first of the rows
 about the handheld going off: **Press**, the default on every card, POWER
 pressed saves the game and turns the handheld off, as it always has; **Hold**,
-POWER held for **hold-unlock**, the same two seconds the charging screen's
-Hold (POWER) to start asks for, with the pill of 11.6 filling while it is
-held. Two choices, so A switches it, as Left and Right do, heard as a ring.
+POWER held for **hold-power**, one second (Tarik, 2026-11-17: "so make it 1
+second"; the charging screen's Hold (POWER) to start keeps **hold-unlock**'s
+two), with the pill of 11.6 filling while it is held. Two choices, so A switches it, as Left and Right do, heard as a ring.
 
 One rule wherever POWER is read (src/powerhold.h): every screen of the
 launcher, its watch over a game and over a program it waits for, and
-portkeys over a port, so a hold is the same two seconds whichever of them
+portkeys over a port, so a hold is the same second whichever of them
 reads it, and one begun in a game and ended in the in-game menu is still one
 hold. What is not a turn-off stays a press: POWER starts an off handheld (the
 power chip's), and during the charging screen's send-off a press starts
 ZyperOS, as from off; the hold that starts ZyperOS from the charging screen
-is taken by it, so the same two seconds never turn it off again. Holding
+is taken by it: the turn-off's second comes on the way to that screen's two,
+and the charging screen reads no turn-off, so it never turns it off. Holding
 POWER about 10 s is still the power chip's own cut, for a handheld that does
 not answer. With Hold on, Controls says "Hold: save and turn off" ("Hold:
 turn off", "Hold: quit and turn off" over a port), and the tutorial's POWER

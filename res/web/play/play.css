@@ -130,6 +130,7 @@
 	--t-tour-reward: 1100ms;
 	--t-tour-pulse: 440ms;
 	--t-hold-unlock: 2000ms;
+	--t-hold-power: 1000ms;
 	--t-hold-lock-lit: 4000ms;
 	--t-hold-controls: 3000ms;
 	--t-hold-snap: 1000ms;

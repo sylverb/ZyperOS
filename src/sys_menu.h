@@ -97,7 +97,7 @@
  * row is in a tab. */
 /* PM_POWER is Power Button, over Auto Off, the first of the rows about the
  * handheld going off: Press, POWER pressed turns it off, as it always has;
- * Hold, POWER held for two seconds (src/powerhold.h). Two choices, so A
+ * Hold, POWER held for one second (src/powerhold.h). Two choices, so A
  * switches it, as Left and Right do (1.0.6, asked for on the Discord). */
 /* PM_HOMESYS is Home Systems, under System Order: which shelves the home
  * shows, each system with games, Favorites and Recents (src/homesys.h). Its
@@ -113,13 +113,12 @@
  * (src/panelgamma.h); only where the device has one (no_screen_colors).
  * 1.0.6, asked for on the Discord; the page approved 2026-11-16. */
 /* PM_NIGHT is Night Mode, under Screen Colors: warmer colors for the night,
- * Off, On or By Hours (three, so A opens their list). PM_NIGHT_WARMTH is
- * Night Warmth, 1 to 10 (8 as it ships), shown while Night Mode is not Off,
- * as Strength under Shader. PM_NIGHT_HOURS is Night Hours, shown for By
- * Hours: A opens its page, Night From and Until by the half hour (the old
- * page of 1.0.5's Auto Hours, 21:00 and 7:00 as it ships). All three only
+ * its value Off, On or By Hours; A opens its page, as Screen Colors' does:
+ * Night Mode, Night Warmth (1 to 10, 8 as it ships), Night From and Until
+ * by the half hour (21:00 and 7:00 as it ships; 1.0.5's Auto Hours). Only
  * where the display has a table (no_night, plat_night_here). Tarik's move,
- * approved on the sheet 2026-11-16 (DESIGN.md 11.42). */
+ * approved on the sheet 2026-11-16; one row and its page, his for 1.0.6
+ * rc.2 (DESIGN.md 11.42). */
 typedef enum {
 	/* Games */
 	PM_SEARCH, PM_STATS, PM_RANDOM, PM_ACHIEVEMENTS, PM_SCRAPER,
@@ -128,7 +127,7 @@ typedef enum {
 	PM_SHADER,
 	PM_STRENGTH,
 	PM_SCREEN,
-	PM_NIGHT, PM_NIGHT_WARMTH, PM_NIGHT_HOURS,
+	PM_NIGHT,
 	/* Sound */
 	PM_AUDIO, PM_CHANNELS, PM_SOUNDS, PM_MUSIC,
 	/* Connections: USB Device first, while a plug waits for its answer */
@@ -337,15 +336,9 @@ typedef struct {
 	/* The ZyperOS menu: the tab it shows (pm_tab), or PT_TABS for every row
 	 * in the enum's order (a measure, a check) */
 	int         tab;
-	/* Night Mode's value, the choice's word (NULL reads Off); Night
-	 * Warmth's, "8" (NULL reads 8); Night Hours', "9:00 PM to 7:00 AM" as
-	 * MENU > Clock writes the time (NULL reads nothing). Night Warmth goes
-	 * while Night Mode is Off, Night Hours unless it is By Hours; all three
-	 * where there is no table (no_night). */
-	const char *night, *night_warmth, *night_hours;
-	bool        no_night_warmth, no_night_hours;
-	/* No table for Night Mode here (plat_night_here, the Brick): none of
-	 * its three rows */
+	/* Night Mode's value, the mode's word (NULL reads Off) */
+	const char *night;
+	/* No table for Night Mode here (plat_night_here, the Brick): no row */
 	bool        no_night;
 	/* Theme's value: the accent's name (src/look.h); NULL reads Lime */
 	const char *theme;

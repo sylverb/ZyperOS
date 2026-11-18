@@ -11,7 +11,7 @@ when every option row has one, and every table says what its row says.
 
 The real launcher, on the demonstration card's shelves (a console's and MP4's)
 in English, prints each option page's rows (--rows-report): MENU, the shelf's
-menu, Theme, Night Hours, the in-game menu's Game and Display tabs, Video Snaps,
+menu, Theme, Night Mode's page, the in-game menu's Game and Display tabs, Video Snaps,
 Menu Music and On-Screen Stats. This fails on:
 
   - a row that steps (its sound class rings or says A does nothing) with no

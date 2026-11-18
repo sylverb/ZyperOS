@@ -1,0 +1,73 @@
+diff --git a/libpcsxcore/misc.c b/libpcsxcore/misc.c
+index 1072f04..bbb4748 100644
+--- a/libpcsxcore/misc.c
++++ b/libpcsxcore/misc.c
+@@ -774,6 +774,52 @@ struct misc_save_data {
+ 	u32 reserved[32];
+ };
+ 
++/* ZyperOS: the memory cards as the state was made, in reserved[] (an older
++ * core zeroes it and ignores it, so the format is the same both ways):
++ * MCD_MAGIC, a 64-bit FNV-1a of each card, and the cards' FLAG bytes. A card
++ * that is the same at the load gets its FLAG back, so a frontend that keeps
++ * the card with the state (an auto state at power-off and power-on) does not
++ * show the game a new card; one that changed since is still marked new. */
++#define MCD_MAGIC 0x4644434d
++#define MCD_RSV_HASH1 1	/* and 2 */
++#define MCD_RSV_HASH2 3	/* and 4 */
++#define MCD_RSV_FLAGS 5
++
++static void mcd_hash(const char *data, u32 *out)
++{
++	const u8 *d = (const u8 *)data;
++	uint64_t h = 0xcbf29ce484222325ull;
++	size_t i;
++
++	for (i = 0; i < MCD_SIZE; i++)
++		h = (h ^ d[i]) * 0x100000001b3ull;
++	out[0] = (u32)h;
++	out[1] = (u32)(h >> 32);
++}
++
++static void mcd_save(struct misc_save_data *misc)
++{
++	misc->reserved[0] = MCD_MAGIC;
++	mcd_hash(Mcd1Data, &misc->reserved[MCD_RSV_HASH1]);
++	mcd_hash(Mcd2Data, &misc->reserved[MCD_RSV_HASH2]);
++	misc->reserved[MCD_RSV_FLAGS] = McdFlag[0] | (McdFlag[1] << 8);
++}
++
++/* After sioFreeze(), which marks both cards new */
++static void mcd_load(const struct misc_save_data *misc)
++{
++	u32 h[2];
++
++	if (misc->magic != MISC_MAGIC || misc->reserved[0] != MCD_MAGIC)
++		return;
++	mcd_hash(Mcd1Data, h);
++	if (h[0] == misc->reserved[MCD_RSV_HASH1] && h[1] == misc->reserved[MCD_RSV_HASH1 + 1])
++		McdFlag[0] = misc->reserved[MCD_RSV_FLAGS] & 0xff;
++	mcd_hash(Mcd2Data, h);
++	if (h[0] == misc->reserved[MCD_RSV_HASH2] && h[1] == misc->reserved[MCD_RSV_HASH2 + 1])
++		McdFlag[1] = (misc->reserved[MCD_RSV_FLAGS] >> 8) & 0xff;
++}
++
+ #define EX_SCREENPIC_SIZE (128 * 96 * 3)
+ 
+ int SaveState(const char *file) {
+@@ -810,6 +856,7 @@ int SaveState(const char *file) {
+ 	misc->CdromFrontendId = CdromFrontendId;
+ 	misc->save_counter = ++save_counter;
+ 	memset(misc->reserved, 0, sizeof(misc->reserved));
++	mcd_save(misc);
+ 
+ 	psxCpu->Notify(R3000ACPU_NOTIFY_BEFORE_SAVE, NULL);
+ 
+@@ -982,6 +1029,7 @@ int LoadState(const char *file) {
+ 	}
+ 
+ 	sioFreeze(f, 0);
++	mcd_load(misc);
+ 	cdrFreeze(f, 0);
+ 	psxHwFreeze(f, 0);
+ 	psxRcntFreeze(f, 0);
