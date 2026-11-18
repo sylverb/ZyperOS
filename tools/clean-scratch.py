@@ -97,15 +97,22 @@ def main():
     ap.add_argument("-n", "--dry-run", action="store_true", help="list, delete nothing")
     ap.add_argument("--age", type=float, default=24, help="hours untouched (24)")
     args = ap.parse_args()
-    cutoff = time.time() - args.age * 3600
+    now = time.time()
+    cutoff = now - args.age * 3600
     total = count = 0
+    trees = sorted(worktrees(), key=lambda t: -len(str(t)))
     for path in candidates():
-        if newest(path) >= cutoff:
+        last = newest(path)
+        if last >= cutoff:
             continue
         n = size(path)
         total += n
         count += 1
-        print("%s %8.1f MB  %s" % ("would delete" if args.dry_run else "deleted", n / 1e6, path))
+        # Whose: the worktree it is in (its folder's name, as sessions name
+        # theirs), or the temporary folder's
+        owner = next((t.name for t in trees if str(path).startswith(str(t) + os.sep)), "temporary folder")
+        print("%s %8.1f MB  %5.0f h  %-28s %s" % ("would delete" if args.dry_run else "deleted",
+                                                 n / 1e6, (now - last) / 3600, owner, path))
         if not args.dry_run:
             remove(path)
     if not args.dry_run:
