@@ -5,7 +5,10 @@
  * each of Diatom's filters as the handheld draws it, and the top left of it
  * kept at the handheld's own pixels, one image a filter and, for an old
  * screen, a Strength step. CRT Curved's is its whole screen instead, its
- * curve made larger so it reads that small (curved_small). Each filter is
+ * curve made larger so it reads that small (curved_small). LCD No
+ * Backlight's, which only the Game Boy's three offer, is a Game Boy Color's
+ * 160x144 scene of the same things on white (draw_handheld), at the square
+ * pixels Original Shape draws it with: white is what it changes. Each filter is
  * Diatom's GLSL (diatom/port/pixel2.c) in C, line for line: the same
  * numbers in the same order, in float as the GPU's highp is.
  *
@@ -38,12 +41,14 @@
 #define SH 224
 
 static unsigned char scene[SH][SW][3];
+/* The scene's size: SW x SH, or the handheld's, smaller (draw_handheld) */
+static int g_sw = SW, g_sh = SH;
 
 /* ---- the scene: a sky, a score, a hero on a ledge, a coin, a slope ---------- */
 
 static void put(int x, int y, unsigned rgb)
 {
-	if (x < 0 || y < 0 || x >= SW || y >= SH) return;
+	if (x < 0 || y < 0 || x >= g_sw || y >= g_sh) return;
 	scene[y][x][0] = (unsigned char)(rgb >> 16);
 	scene[y][x][1] = (unsigned char)(rgb >> 8);
 	scene[y][x][2] = (unsigned char)rgb;
@@ -120,6 +125,8 @@ static void zyper(int x, int y)
 
 static void draw_scene(void)
 {
+	g_sw = SW;
+	g_sh = SH;
 	/* The sky in bands, deep blue to pale, as a console's palette steps */
 	static const unsigned SKY[8] = { 0x16205a, 0x1d2c74, 0x25398c, 0x2e49a3, 0x3a5cb8,
 	                                 0x4f75cb, 0x6a92db, 0x8cb2ea };
@@ -179,6 +186,57 @@ static void draw_scene(void)
 		for (int x = 0; x < 64; x++) put(x, y, ((x / 8 + y / 8) & 1) ? 0x7a3a18 : 0x8c4620);
 }
 
+/* A Game Boy Color's 160x144: the same things on the white most of its
+ * games stood on, in a handheld's light palette, so the close-up has white,
+ * light colours and dark ones side by side. ZyperOS's own drawing. */
+#define HW 160
+#define HH 144
+
+static void draw_handheld(void)
+{
+	g_sw = HW;
+	g_sh = HH;
+	for (int y = 0; y < HH; y++)
+		for (int x = 0; x < HW; x++) put(x, y, 0xffffff);
+	/* A pale cloud past the score */
+	for (int y = 0; y < 12; y++)
+		for (int x = 0; x < 30; x++) {
+			int dx = x - 15, dy = y - 7;
+
+			if (dx * dx / 4 + dy * dy * 2 < 60)
+				put(44 + x, 6 + y, y > 8 ? 0xb8d8f0 : 0xdcecfc);
+		}
+	/* Far hills, light green, under the ledge's level */
+	for (int x = 0; x < HW; x++) {
+		int top = 34 + (int)lroundf(3.0f * sinf((float)x * 0.11f));
+
+		for (int y = top; y < HH; y++) put(x, y, y == top ? 0x88c070 : 0xb8e0a0);
+	}
+	text(3, 3, "SCORE", 0x203028, 0xc8d0c8);
+	text(26, 3, "4200", 0x203028, 0xc8d0c8);
+	/* A ledge: a grass edge, then bricks with dark joints */
+	for (int y = 30; y < HH; y++)
+		for (int x = 0; x < 44; x++) {
+			unsigned c;
+
+			if (y < 32) c = (y == 30 && x % 5 == 2) ? 0xc8f080 : 0x58b048;
+			else if (y == 32) c = 0x285828;
+			else {
+				bool joint = (y - 33) % 6 == 5 || ((x + ((y - 33) / 6 % 2) * 5) % 10 == 9);
+
+				c = joint ? 0x402818 : 0xc07840;
+			}
+			put(x, y, c);
+		}
+	zyper(10, 14);
+	for (int y = 0; y < 6; y++)
+		for (int x = 0; x < 12; x++) {
+			bool knob = (x < 3 || x > 8) && (y < 2 || y > 3), bar = x >= 2 && x <= 9 && y >= 2 && y <= 3;
+
+			if (knob || bar) put(32 + x, 18 + y, (y == 0 || y == 5 || (bar && y == 3)) ? 0x908870 : 0xfffbea);
+		}
+}
+
 /* ---- GLSL in C ---------------------------------------------------------------- */
 
 typedef struct { float x, y; } v2;
@@ -192,15 +250,15 @@ static float clampf(float x, float a, float b) { return x < a ? a : x > b ? b : 
 /* texture(): LINEAR, clamped to the edge, at uv in texels / size */
 static v3 texture(float u, float v)
 {
-	float x = u * SW - 0.5f, y = v * SH - 0.5f;
+	float x = u * (float)g_sw - 0.5f, y = v * (float)g_sh - 0.5f;
 	int x0 = (int)floorf(x), y0 = (int)floorf(y);
 	float fx = x - (float)x0, fy = y - (float)y0;
 	v3 c = { 0, 0, 0 };
 
 	for (int j = 0; j < 2; j++)
 		for (int i = 0; i < 2; i++) {
-			int xi = x0 + i < 0 ? 0 : x0 + i >= SW ? SW - 1 : x0 + i;
-			int yi = y0 + j < 0 ? 0 : y0 + j >= SH ? SH - 1 : y0 + j;
+			int xi = x0 + i < 0 ? 0 : x0 + i >= g_sw ? g_sw - 1 : x0 + i;
+			int yi = y0 + j < 0 ? 0 : y0 + j >= g_sh ? g_sh - 1 : y0 + j;
 			float w = (i ? fx : 1.0f - fx) * (j ? fy : 1.0f - fy);
 
 			c.r += w * scene[yi][xi][0] / 255.0f;
@@ -210,12 +268,17 @@ static v3 texture(float u, float v)
 	return c;
 }
 
-typedef enum { F_NEAREST, F_SHIMMERLESS, F_CRT, F_CRT_CURVED, F_SCANLINES, F_LCD, F_COUNT } filt;
+typedef enum { F_NEAREST, F_SHIMMERLESS, F_CRT, F_CRT_CURVED, F_SCANLINES, F_LCD, F_LCD_UNLIT, F_COUNT } filt;
 
 /* CRT Curved's curve, the game's at 1 and 0 (its corner at quad.y): larger
  * only for the Shader list's picture of it (curved_small) */
 static float g_warp = 1.0f, g_corner = 0.0f;
-static const char *NAME[F_COUNT] = { "nearest", "shimmerless", "crt", "crt-curved", "scanlines", "lcd" };
+static const char *NAME[F_COUNT] = { "nearest", "shimmerless", "crt", "crt-curved", "scanlines", "lcd",
+                                     "lcd-unlit" };
+/* LCD No Backlight's backing, the colour white becomes, and its shadow
+ * (UNLIT_BACKING) */
+static const v3 BACKING = { 0.78f, 0.80f, 0.71f };
+static const float SHADOW = 0.4f, SHADE = 0.35f;
 
 /* One destination pixel (dx, dy) of a SWxSH picture drawn scale times */
 static v3 shade(filt f, int dx, int dy, v2 scale, float strength)
@@ -237,10 +300,11 @@ static v3 shade(filt f, int dx, int dy, v2 scale, float strength)
 
 			t[k] = t_br + 0.5f - (1.0f - stepf(t_br, t_tl)) * (s[k] * t_br - tl);
 		}
-		return texture(t[0] / SW, t[1] / SH);
+		return texture(t[0] / (float)g_sw, t[1] / (float)g_sh);
 	}
-	if (f == F_SCANLINES || f == F_LCD) {
-		const float ratio[2] = { f == F_LCD ? 0.3f : 0.0f, 0.3f }, opacity[2] = { f == F_LCD ? 0.3f : 0.0f, 0.3f };
+	if (f == F_SCANLINES || f == F_LCD || f == F_LCD_UNLIT) {
+		const bool grid = f != F_SCANLINES;
+		const float ratio[2] = { grid ? 0.3f : 0.0f, 0.3f }, opacity[2] = { grid ? 0.3f : 0.0f, 0.3f };
 		float t[2], fv[2], p[2] = { px.x, px.y }, s[2] = { scale.x, scale.y }, iv[2] = { inv.x, inv.y };
 		v3 c;
 
@@ -258,7 +322,25 @@ static v3 shade(filt f, int dx, int dy, v2 scale, float strength)
 			fv[k] = ALPHA + (1.0f - ALPHA) * ff;
 			t[k] = t_br - 0.5f + w;
 		}
-		c = texture(t[0] / SW, t[1] / SH);
+		c = texture(t[0] / (float)g_sw, t[1] / (float)g_sh);
+		if (f == F_LCD_UNLIT) {
+			/* UNLIT_LIGHT: toward the backing by the luma squared, the
+			 * backing in the shadow of the texels SHADOW up and left. v_src
+			 * - u_origin is px * inv here, the quad's own texels. */
+			const float l = c.r * 0.299f + c.g * 0.587f + c.b * 0.114f, k = strength * l * l;
+			float q[2] = { px.x * inv.x - SHADOW - 0.5f, px.y * inv.y - SHADOW - 0.5f };
+
+			for (int j = 0; j < 2; j++) {
+				const float qp = floorf(q[j]);
+
+				q[j] = qp + 0.5f + clampf((q[j] - qp - 0.5f) * 4.0f + 0.5f, 0.0f, 1.0f);
+			}
+			const v3 sh = texture(q[0] / (float)g_sw, q[1] / (float)g_sh);
+			const float d = 1.0f - (sh.r * 0.299f + sh.g * 0.587f + sh.b * 0.114f);
+			const float b = 1.0f - strength * SHADE * d;
+
+			c = (v3){ mixf(c.r, BACKING.r * b, k), mixf(c.g, BACKING.g * b, k), mixf(c.b, BACKING.b * b, k) };
+		}
 		return (v3){ fv[0] * fv[1] * c.r, fv[0] * fv[1] * c.g, fv[0] * fv[1] * c.b };
 	}
 	{
@@ -555,6 +637,7 @@ int main(int argc, char **argv)
 		mkdir(dir, 0755);
 		for (int f = 0; f < F_COUNT; f++) {
 			if (f >= F_CRT && !DEV[d].gpu) continue;
+			if (f == F_LCD_UNLIT) continue;
 			/* The small screen's inside (src/ds/preview.c: the 304 x 228
 			 * units of the screen less DS_FRAME, 3, each side), at the
 			 * panel's pixels: what a CRT Curved picture is made to */
@@ -565,6 +648,17 @@ int main(int argc, char **argv)
 			if (f >= F_CRT)
 				for (int s = 10; s < 100; s += 10)
 					bad |= save(argv[1], DEV[d].id, (filt)f, s, scale, DEV[d].cw, DEV[d].ch, iw, ih);
+		}
+		/* LCD No Backlight on the handheld's scene, its pixels square, as
+		 * Original Shape draws a Game Boy Color on the panel */
+		if (DEV[d].gpu) {
+			const v2 hs = { (float)DEV[d].ph / HH, (float)DEV[d].ph / HH };
+
+			draw_handheld();
+			bad |= save(argv[1], DEV[d].id, F_LCD_UNLIT, 100, hs, DEV[d].cw, DEV[d].ch, 0, 0);
+			for (int s = 10; s < 100; s += 10)
+				bad |= save(argv[1], DEV[d].id, F_LCD_UNLIT, s, hs, DEV[d].cw, DEV[d].ch, 0, 0);
+			draw_scene();
 		}
 	}
 	return bad;

@@ -319,22 +319,23 @@ static int shader_index(const char *name)
 	return -1;
 }
 
-/* Whether this device offers shader k: the old screens only where Diatom
- * draws them with a GPU (plat_gpu_shaders) */
-static bool shader_offered(int k)
+/* Whether this device offers shader k to the system tagged `tag`: the old
+ * screens only where Diatom draws them with a GPU (plat_gpu_shaders), and a
+ * shader for some systems only to them (shader_for) */
+static bool shader_offered(int k, const char *tag)
 {
-	return k >= 0 && k < SHADER_COUNT && (!SHADERS[k].gpu || plat_gpu_shaders());
+	return shader_for(k, tag) && (!SHADERS[k].gpu || plat_gpu_shaders());
 }
 
-/* The shader a step `d` comes to from k, round the ones this device offers:
- * each Shader row steps with it */
-int shader_step(int k, int d)
+/* The shader a step `d` comes to from k, round the ones this device offers
+ * the system tagged `tag`: each Shader row steps with it */
+int shader_step(int k, int d, const char *tag)
 {
 	int i;
 
 	for (i = 0; i < SHADER_COUNT; i++) {
 		k = (k + d + SHADER_COUNT) % SHADER_COUNT;
-		if (shader_offered(k)) break;
+		if (shader_offered(k, tag)) break;
 	}
 	return k;
 }
@@ -354,9 +355,16 @@ void display_load(app *a)
 	if (db_get_str(db_dev(), "shader", name, sizeof name, NULL) && (k = shader_index(name)) >= 0)
 		g_shader_all = k;
 	for (i = 0; i < a->sys.count; i++) {
-		snprintf(key, sizeof key, "shader.%s", a->sys.systems[i].tag);
-		a->view[i].shader = g_shader_all;
-		if (db_get_str(db_dev(), key, name, sizeof name, NULL) && (k = shader_index(name)) >= 0)
+		const char *tag = a->sys.systems[i].tag;
+
+		snprintf(key, sizeof key, "shader.%s", tag);
+		/* A shader for some systems only (shader_for) that names another,
+		 * by the old every-system key or its own on an edited card, is that
+		 * system's default instead: the old key's if that is for it, else
+		 * Off */
+		a->view[i].shader = shader_for(g_shader_all, tag) ? g_shader_all : 0;
+		if (db_get_str(db_dev(), key, name, sizeof name, NULL) && (k = shader_index(name)) >= 0 &&
+		    shader_for(k, tag))
 			a->view[i].shader = k;
 		a->view[i].strength = strength_read(db_dev(), a->sys.systems[i].tag);
 		snprintf(key, sizeof key, "display.%s", a->sys.systems[i].tag);
@@ -419,7 +427,8 @@ int g_screen_shown = -1, g_screen_shown_strength = -1;
  * drawn at the panel's own: it would change nothing, so it is not offered. */
 bool screen_shader_offered(int k)
 {
-	return k == 0 || (k > 0 && k < SHADER_COUNT && SHADERS[k].gpu && plat_gpu_shaders());
+	return k == 0 || (k > 0 && k < SHADER_COUNT && SHADERS[k].gpu && plat_gpu_shaders() &&
+	                  shader_for(k, NULL));
 }
 
 /* The screens' row's step, as shader_step is the systems' */
@@ -4841,7 +4850,7 @@ static int menu_shelf_width(app *a)
 		/* And each shader, for the same reason */
 		for (k = 0; hrow >= 0 && k < SHADER_COUNT; k++) {
 			int mw;
-			if (!shader_offered(k)) continue;
+			if (!shader_offered(k, a->sys.systems[i].tag)) continue;
 			rows[hrow].value = shader_label(k);
 			mw = menu_measure(rows, n, heading);
 			if (mw > w) w = mw;

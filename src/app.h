@@ -25,6 +25,8 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
+#include <string.h>
 #include <time.h>
 
 typedef enum { SCREEN_SYSTEMS, SCREEN_GAMES } screen_id;
@@ -158,16 +160,36 @@ static inline const char *dmode_note(int k)
  * a row here, a string, and Diatom's filter of that name.
  *
  * `gpu`: an old screen only a GPU draws (Diatom's port/pixel2.c), offered
- * where plat_gpu_shaders says so and stepped over elsewhere (shader_step). */
-static const struct { const char *name; str_id text; bool gpu; } SHADERS[] = {
-	{ "nearest",     S_MENU_OFF_TITLE,               false },
-	{ "shimmerless", S_GAMEMENU_SHADER_SHIMMERLESS,  false },
-	{ "crt",         S_GAMEMENU_SHADER_CRT,          true  },
-	{ "crt-curved",  S_GAMEMENU_SHADER_CRT_CURVED,   true  },
-	{ "scanlines",   S_GAMEMENU_SHADER_SCANLINES,    true  },
-	{ "lcd",         S_GAMEMENU_SHADER_LCD,          true  },
+ * where plat_gpu_shaders says so and stepped over elsewhere (shader_step).
+ * `only`: the systems' tags it is for, a space before and after each, or
+ * NULL for every system (shader_for). LCD No Backlight is the screen the
+ * Game Boy's three had, so only their shelves and games offer it, never
+ * ZyperOS's own screens (screen_shader_offered), and a system that is not
+ * one of them and names it (an edited card) gets its default instead
+ * (display_load). */
+static const struct { const char *name; str_id text; bool gpu; const char *only; } SHADERS[] = {
+	{ "nearest",     S_MENU_OFF_TITLE,               false, NULL },
+	{ "shimmerless", S_GAMEMENU_SHADER_SHIMMERLESS,  false, NULL },
+	{ "crt",         S_GAMEMENU_SHADER_CRT,          true,  NULL },
+	{ "crt-curved",  S_GAMEMENU_SHADER_CRT_CURVED,   true,  NULL },
+	{ "scanlines",   S_GAMEMENU_SHADER_SCANLINES,    true,  NULL },
+	{ "lcd",         S_GAMEMENU_SHADER_LCD,          true,  NULL },
+	{ "lcd-unlit",   S_GAMEMENU_SHADER_LCD_UNLIT,    true,  " GB GBC GBA " },
 };
 #define SHADER_COUNT ((int)(sizeof SHADERS / sizeof SHADERS[0]))
+
+/* Whether shader k is one the system tagged `tag` may have, on any device
+ * (`only`); NULL, ZyperOS's own screens, has only the ones for every system */
+static inline bool shader_for(int k, const char *tag)
+{
+	char key[16];
+
+	if (k < 0 || k >= SHADER_COUNT) return false;
+	if (!SHADERS[k].only) return true;
+	if (!tag || !*tag || strlen(tag) + 3 > sizeof key) return false;
+	snprintf(key, sizeof key, " %s ", tag);
+	return strstr(SHADERS[k].only, key) != NULL;
+}
 
 /* Shader k's label in the language that is on; past the ends, Off's */
 static inline const char *shader_label(int k)

@@ -63,6 +63,8 @@ const diatom_filter_info diatom_filters[DIATOM_FILTER_COUNT] = {
 	  "Sharp-Shimmerless with dark bands between the lines" },
 	{ "lcd",         DIATOM_FILTER_LCD,
 	  "a handheld LCD's grid, Sharp-Shimmerless underneath" },
+	{ "lcd-unlit",   DIATOM_FILTER_LCD_UNLIT,
+	  "the LCD's grid with no backlight: light pixels show the backing" },
 };
 
 int diatom_filter_index(const char *name)
