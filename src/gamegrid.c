@@ -454,16 +454,60 @@ static int gg_name_width(void *ctx, int size, const char *s)
 	return ui_text_width(page_font(GG_NAME_ROLE[gg_size_ix(size)]), s);
 }
 
+/* The shade behind a card's name: black at 133 from y0 to y1, `feather`
+ * rows fading out each way, never in the rows of the cell's round corners.
+ *
+ * ONE DRAW, each run of rows of one shade a flat quad in it. It was a fill a
+ * row, some 90 a card, and the Pixel 2's GPU (panfrost) takes each as a draw
+ * of its own (src/ui.c's ui_bake says the same of Screen Colors' bars): a
+ * Grid of games with no art, a dozen cards in sight, glided at 20 frames a
+ * second where covers glide at 60 (2026-11-17). The same rows, the same
+ * shades, so the same pixels. */
 static void gg_band(SDL_Renderer *r, SDL_Rect q, int y0, int y1, int feather)
 {
-	SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
-	for (int y = y0 - feather; y < y1 + feather; y++) {
-		int in = y < y0 ? y - (y0 - feather) : y >= y1 ? (y1 + feather) - y : feather;
+	enum { QUADS = 16 };
+	static const int ix[6] = { 0, 1, 2, 0, 2, 3 };
+	SDL_Vertex v[QUADS * 4];
+	int idx[QUADS * 6], n = 0, f = feather > 0 ? feather : 1;
+	int top = q.y + DS_RADIUS_CELL, foot = q.y + q.h - DS_RADIUS_CELL;
 
-		if (y < q.y + DS_RADIUS_CELL || y >= q.y + q.h - DS_RADIUS_CELL) continue;
-		SDL_SetRenderDrawColor(r, 0, 0, 0, (Uint8)(133 * in / (feather > 0 ? feather : 1)));
-		SDL_RenderFillRect(r, &(SDL_Rect){ q.x, y, q.w, 1 });
+	SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
+	for (int y = y0 - feather; y < y1 + feather;) {
+		int in = y < y0 ? y - (y0 - feather) : y >= y1 ? (y1 + feather) - y : feather;
+		Uint8 a = (Uint8)(133 * in / f);
+		int end = y + 1;
+
+		/* the rows on of the same shade */
+		while (end < y1 + feather) {
+			int k = end < y0 ? end - (y0 - feather) : end >= y1 ? (y1 + feather) - end : feather;
+
+			if ((Uint8)(133 * k / f) != a) break;
+			end++;
+		}
+		{
+			int from = y > top ? y : top, to = end < foot ? end : foot;
+			SDL_Color c = { 0, 0, 0, a };
+
+			/* an alpha of 0 leaves the pixels as they are */
+			if (a && from < to) {
+				float x0 = (float)q.x, x1 = (float)(q.x + q.w);
+
+				v[n * 4 + 0] = (SDL_Vertex){ { x0, (float)from }, c, { 0, 0 } };
+				v[n * 4 + 1] = (SDL_Vertex){ { x1, (float)from }, c, { 0, 0 } };
+				v[n * 4 + 2] = (SDL_Vertex){ { x1, (float)to }, c, { 0, 0 } };
+				v[n * 4 + 3] = (SDL_Vertex){ { x0, (float)to }, c, { 0, 0 } };
+				for (int k = 0; k < 6; k++) idx[n * 6 + k] = n * 4 + ix[k];
+				n++;
+			}
+		}
+		/* full: what is gathered goes, and the rest gathers anew */
+		if (n == QUADS) {
+			SDL_RenderGeometry(r, NULL, v, n * 4, idx, n * 6);
+			n = 0;
+		}
+		y = end;
 	}
+	if (n) SDL_RenderGeometry(r, NULL, v, n * 4, idx, n * 6);
 }
 
 static void grid_named(SDL_Renderer *r, SDL_FRect c, const char *title, unsigned rgb,
