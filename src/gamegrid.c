@@ -303,6 +303,25 @@ static void measure(gg_motion *m, const gg_info *in, void *ctx, uint32_t now)
 
 /* ---- drawing ------------------------------------------------------------- */
 
+/* A texture coordinate held to the texture, 0 to 1.
+ *
+ * SDL 2's SDL_RenderGeometry draws NOTHING when one coordinate of one vertex
+ * is outside 0..1: it returns -1 and the whole shape is gone (SDL_render.c,
+ * "Values of 'uv' out of bounds"). tex_round works a vertex's coordinate out
+ * from its place on screen, (py - dst.y) / dst.h, and while the grid glides a
+ * row's y is fractional: py is dst.y + rad - rad, which in floats is not
+ * always dst.y, so the edge's coordinate came out a hair past 1 (or under 0).
+ * The handhelds run SDL 2.32.10, and there a whole row of cells lost its
+ * picture for that frame and had it back the next: a name card's ground,
+ * whose middle is cut to the cell's shape from its full height, so its top
+ * and foot are the texture's edges; a cover whose art fills the cell's
+ * height, now and then. The Grid's flicker while it scrolled (2026-11-18).
+ * A computer's sdl2-compat (SDL 3) checks nothing, so shots never showed it. */
+static float uv_in(float t)
+{
+	return t < 0 ? 0 : t > 1 ? 1 : t;
+}
+
 /* A texture's part `src` into `dst` with its corners rounded by `rad`: a fan
  * of triangles round the outline, the texture mapped across it */
 static void tex_round(SDL_Renderer *r, SDL_Texture *t, int tw, int th, SDL_FRect src,
@@ -320,7 +339,7 @@ static void tex_round(SDL_Renderer *r, SDL_Texture *t, int tw, int th, SDL_FRect
 	if (rad > dst.w / 2) rad = dst.w / 2;
 	if (rad > dst.h / 2) rad = dst.h / 2;
 	v[0] = (SDL_Vertex){ { dst.x + dst.w / 2, dst.y + dst.h / 2 }, c,
-	                     { (src.x + src.w / 2) / tw, (src.y + src.h / 2) / th } };
+	                     { uv_in((src.x + src.w / 2) / tw), uv_in((src.y + src.h / 2) / th) } };
 	for (k = 0; k < 4; k++) {
 		float ox = dst.x + (cx[k] ? dst.w - rad : rad), oy = dst.y + (cy[k] ? dst.h - rad : rad);
 
@@ -329,8 +348,8 @@ static void tex_round(SDL_Renderer *r, SDL_Texture *t, int tw, int th, SDL_FRect
 			float px = ox + cosf(a) * rad, py = oy + sinf(a) * rad;
 
 			v[1 + n++] = (SDL_Vertex){ { px, py }, c,
-			                           { (src.x + (px - dst.x) / dst.w * src.w) / tw,
-			                             (src.y + (py - dst.y) / dst.h * src.h) / th } };
+			                           { uv_in((src.x + (px - dst.x) / dst.w * src.w) / tw),
+			                             uv_in((src.y + (py - dst.y) / dst.h * src.h) / th) } };
 		}
 	}
 	for (k = 0; k < NP; k++) {
