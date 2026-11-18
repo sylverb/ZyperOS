@@ -29,7 +29,9 @@ of a change that means to change something, for a review.
 What changed is shot twice again on each side, a second look: a frame that
 differs from its own side's first shot shows something that moves by itself
 (the time, a clock-driven Zyper's blink, the host's free disk space), and is
-listed as unsteady, not as changed.
+listed as unsteady, not as changed. The looks can agree by chance (one frame
+of 3,763 on 2026-11-18: 12 pixels of Zyper), so a changed frame of a screen
+that is unsteady elsewhere in the run says so in the report.
 
 The base's frames are shared by every worktree on this computer, frame by
 frame. They are a function of the base's commit (its launcher), of what this
@@ -53,15 +55,20 @@ candidate's:
      res/strings/, tools/i18n.py, mk/native.mk, the Makefile), no frame can,
      and nothing is built or shot.
   2. Otherwise a first look: every shot in English, the pseudo-locale (the
-     longest words) and Chinese (the CJK face) in light, English in dark, and
-     every language whose strings changed or that the change's C names
-     (LANG_JA ...), in light.
+     longest words), German (the longest real ones: where a line breaks moves
+     with them, and the pseudo-locale's padding does not break where they do)
+     and Chinese (the CJK face) in light, English in dark, and every language
+     whose strings changed or that the change's C names (LANG_JA ...), in
+     light.
   3. Every screen that changed anywhere in that first look is shot in every
      language and theme asked, on both sides, and compared as the full gate
      does.
 What a change alters only in a language and theme the first look leaves out,
 with no string of that language changed, is missed: the full gate before a
-release catches it.
+release catches it. (Measured 2026-11-18: one note line's height in the delete
+dialog changed how many lines fit on Storage's States screen in German and
+Spanish only; without German in the first look, those 4 of 54 frames were
+missed.)
 
 Exit 0 when no frame changed, 1 when one did (or with --allow-changes, 0 and
 the list), 2 when a build or a side's shots failed to run at all.
@@ -104,7 +111,7 @@ NOT_INPUTS = {"res/strings", "res/web/i18n"}
 BUILT_FROM = ("src/", "res/strings/", "tools/i18n.py", "mk/native.mk")
 
 # The first look of --targeted: (theme, language) pairs
-PROBE = [("light", "en"), ("light", "xx"), ("light", "zh-Hans"), ("dark", "en")]
+PROBE = [("light", "en"), ("light", "xx"), ("light", "de"), ("light", "zh-Hans"), ("dark", "en")]
 
 
 def run(cmd, cwd, **kw):
@@ -641,8 +648,9 @@ def main():
                 cards(mod)
                 if base_bin is None:
                     base_bin = base_binary(cache, sha, hostkey, args.jobs)
-                print("pixel gate: the base's shots (%d to shoot)" % len(set(want) - set(frames(top))),
-                      flush=True)
+                print("pixel gate: %s (%d to shoot)" % (
+                    "the base's shots" if top == base_top else "  of which not kept yet",
+                    len(set(want) - set(frames(top)))), flush=True)
                 fill(base_bin, top, want, all_names, args.jobs, args.device)
             return frames(top)
 
@@ -707,7 +715,14 @@ def main():
             len(changed), len(both), sha[:12], " ".join(themes), " ".join(langs),
             "; %d more unsteady: each differs from its own side's shot again" % len(unsteady) if unsteady else "")]
         report += ["pixel gate: " + n for n in note]
-        report += ["changed: " + n for n in changed]
+        # A changed frame of a screen that is unsteady elsewhere in the run
+        # (a clock-driven Zyper whose looks happened to agree on each side)
+        # stays changed, for a person to judge on its sheet, but says so
+        moving = {}
+        for n in unsteady:
+            moving[shot_of(n)] = moving.get(shot_of(n), 0) + 1
+        report += ["changed: " + n + (" (its screen is unsteady in %d other frames)" % moving[shot_of(n)]
+                                      if shot_of(n) in moving else "") for n in changed]
         report += ["unsteady: " + n for n in unsteady]
         report += ["new: " + n for n in new]
         report += ["gone: " + n for n in gone]

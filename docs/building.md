@@ -335,8 +335,8 @@ first and takes its frames. `make pixel-gate-warm` shoots a base and nothing
 else, once a main commit, so every pull request up to date with that main
 shoots only its own side. `GATE=--targeted` is a pull request's round: no
 frame at all when nothing the launcher is built from changed, else a first
-look in English, the pseudo-locale and Chinese in light, English in dark and
-any language whose strings changed, then every screen that changed in it in
+look in English, the pseudo-locale, German and Chinese in light, English in
+dark and any language whose strings changed, then every screen that changed in it in
 every language and theme. The full gate is a release candidate's. This
 tree's frames are deleted when the run ends (`--keep-frames` keeps them); the
 report and the sheets stay.
