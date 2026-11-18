@@ -651,7 +651,18 @@ PORTAL_GAMES={
     'PICO-8':[('Celeste Classic.p8.png',30111)],
 }
 PORTAL_SCUMMVM=['Beneath a Steel Sky','Flight of the Amazon Queen']
-CHROME='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+def find_chrome():
+    """The browser for the pages' shots and checks: CHROME, else Google Chrome
+    where a Mac keeps it, else a Chrome or Chromium on the PATH (Linux, as on
+    GitHub's Ubuntu runners)"""
+    if os.environ.get('CHROME'): return os.environ['CHROME']
+    mac='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+    if os.path.isfile(mac): return mac
+    for name in ['google-chrome','google-chrome-stable','chromium','chromium-browser']:
+        found=shutil.which(name)
+        if found: return found
+    return mac
+CHROME=find_chrome()
 
 def portal_card(card):
     """A card as the first boot leaves it, a folder per console, with a few
