@@ -26,6 +26,7 @@
 #include "phonelink.h"
 #include "platform.h"
 #include "portmenu.h"
+#include "screenfx_draw.h"
 #include "spawn.h"
 #include "thermal.h"
 
@@ -277,6 +278,23 @@ static void show_under(void)
 	if (under.tex) SDL_RenderCopyExF(ren, under.tex, NULL, &r, panel_turn, NULL, SDL_FLIP_NONE);
 }
 
+/* screen_tex at dest, 1024x768 down to 640x480 and turned onto the panel,
+ * through the screens' shader when one is on (src/screenfx.h): CRT Curved's
+ * bend in place of the plain copy, then the mask over it at the panel's own
+ * pixels, one more pass. Off is the plain copy alone, as it always was. */
+static void draw_picture(const SDL_Rect *dest, bool fx)
+{
+	fx = fx && sfx_on();
+	if (fx && sfx_curved()) sfx_draw_curved(ren, screen_tex, dest, panel_turn);
+	else SDL_RenderCopyEx(ren, screen_tex, NULL, dest, panel_turn, NULL, SDL_FLIP_NONE);
+	if (fx) sfx_draw_mask(ren, dest->w, dest->h, dest, panel_turn);
+}
+
+/* The shader goes on at the panel, in show_screen: a frame read back before
+ * it (a shot) is read from screen_tex, which has none */
+void plat_screen_finish(void) { }
+bool plat_screen_shader_in_frame(void) { return false; }
+
 /* Black around the picture, then the picture: 1024x768 down to 640x480 and a
  * quarter turn counter-clockwise, which on this panel ("Left Side Up") is the
  * right way up - checked by eye 2026-10-01 with a marker drawn top-left.
@@ -299,13 +317,14 @@ static void show_screen(void)
 				SDL_BLENDFACTOR_ONE, SDL_BLENDFACTOR_ONE_MINUS_SRC_ALPHA, SDL_BLENDOPERATION_ADD);
 		show_under();
 		SDL_SetTextureBlendMode(screen_tex, premul);
-		SDL_RenderCopyEx(ren, screen_tex, NULL, &dest, panel_turn, NULL, SDL_FLIP_NONE);
+		/* A video plays as it is, at the panel's pixels: no shader */
+		draw_picture(&dest, false);
 		SDL_SetTextureBlendMode(screen_tex, SDL_BLENDMODE_BLEND);
 		under.on = false;
 	} else {
 		SDL_SetRenderDrawColor(ren, 0, 0, 0, 255);
 		SDL_RenderClear(ren);
-		SDL_RenderCopyEx(ren, screen_tex, NULL, &dest, panel_turn, NULL, SDL_FLIP_NONE);
+		draw_picture(&dest, true);
 	}
 	SDL_RenderPresent(ren);
 	SDL_SetRenderTarget(ren, screen_tex);
@@ -375,7 +394,7 @@ bool plat_save_screen_hidden(const char *path)
 	if (t && px && SDL_SetRenderTarget(ren, t) == 0) {
 		SDL_SetRenderDrawColor(ren, 0, 0, 0, 255);
 		SDL_RenderClear(ren);
-		SDL_RenderCopyEx(ren, screen_tex, NULL, &dest, panel_turn, NULL, SDL_FLIP_NONE);
+		draw_picture(&dest, true);
 		if (SDL_RenderReadPixels(ren, NULL, SDL_PIXELFORMAT_XRGB8888, px, panel_w * 4) == 0 &&
 		    (f = fopen(path, "wb"))) {
 			ok = fwrite(px, 1, n, f) == n;
@@ -402,7 +421,7 @@ bool plat_save_screen(const char *path)
 	SDL_SetRenderTarget(ren, NULL);
 	SDL_SetRenderDrawColor(ren, 0, 0, 0, 255);
 	SDL_RenderClear(ren);
-	SDL_RenderCopyEx(ren, screen_tex, NULL, &dest, panel_turn, NULL, SDL_FLIP_NONE);
+	draw_picture(&dest, true);
 	if (px && SDL_RenderReadPixels(ren, NULL, SDL_PIXELFORMAT_XRGB8888, px, panel_w * 4) == 0 &&
 	    (f = fopen(path, "wb"))) {
 		ok = fwrite(px, 1, n, f) == n;
@@ -543,6 +562,7 @@ void plat_video_quit(void)
 {
 	if (screen_tex) { SDL_DestroyTexture(screen_tex); screen_tex = NULL; }
 	plat_osd_forget();
+	sfx_forget();
 	if (ren) { SDL_DestroyRenderer(ren); ren = NULL; }
 	if (win) { SDL_DestroyWindow(win); win = NULL; }
 	drm_fd = -1;

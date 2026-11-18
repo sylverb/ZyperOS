@@ -1014,8 +1014,7 @@ Video Snaps, Menu Music:
 - **More than two choices: A opens their list**, a panel of its own under
   the row's name, the choice that is on ticked and the cursor on it; A
   chooses one, B leaves it as it was. Its words begin with a capital, as a
-  list's rows do, where the row's value may be "never" or "stereo". A
-  shader or a strength each system has its own of ticks none. Where a
+  list's rows do, where the row's value may be "never" or "stereo". Where a
   choice needs saying what it does, the list says it, for the choice under
   the cursor: two lines under a rule, always two, so the panel holds its
   size as the cursor moves - the row itself says only its value.
@@ -1155,7 +1154,7 @@ where it was.)*
 | Tab | Rows |
 |---|---|
 | **Games** | Search Games, Play Time, Random Game, Achievements, Scraper |
-| **Display** | Appearance, Theme, Home Screen, System Order, Home Systems, Battery Icon, Screensaver, Shader, Strength, Screen Colors, Night Mode (its page: Night Mode, Night Warmth, Night From, Until) |
+| **Display** | Appearance, Theme, Home Screen, System Order, Home Systems, Battery Icon, Screensaver, Shader and Strength (ZyperOS's own screens', 11.50; not on the Brick), Screen Colors, Night Mode (its page: Night Mode, Night Warmth, Night From, Until) |
 | **Sound** | Audio Output, Audio Channels, UI Sounds, Menu Music |
 | **Connections** | USB Device (while a plug waits), Wi-Fi, Bluetooth, File Transfer, USB Accessories, Developer Mode |
 | **System** | Date & Time, Clock, Language, Power Button, Auto Off, Charge Limit, Side Lights, Storage, System Update |
@@ -5165,3 +5164,70 @@ run that ended well.
 The "not checked yet" message (A on a game's Achievements row) names it:
 "...or with Download in MENU > Achievements." Host shots: `--radl-page
 STATE`, 0 to 14 (src/radl_screen.c).
+
+### 11.50 The screens' shader
+*(Asked for 2026-11-17 and 11-18: "the launcher shader menu setting is not
+applying to the launcher view (only to games)"; the Shader row opened from
+the home is for "the menus themselves", and from a system or a game it is
+for that system or game.)*
+
+**MENU > Display > Shader**, opened from the home, is ZyperOS's own screens'
+shader: the home, the shelves, the menus, the pages, the charging screen,
+every screen while no game is up. Its choices are **Off** and the four old
+screens the handheld draws (CRT, CRT Curved, Scanlines, LCD Grid);
+Sharp-Shimmerless sizes a game's pixels, and these screens have none to
+size, so it is not offered. **Strength** under it, 10% to 100%, while it is
+an old screen. Off and 100% to start with, so nothing changes for anybody who
+never picks one. On a handheld whose GPU draws no old screen (the Brick)
+both rows are gone from MENU.
+
+**A system's menu and the in-game menu** set that system's shader, for its
+games, as they did (9; shader.<TAG>). Up to 1.0.6 MENU's row set every
+system's at once, kept as `shader`; that key stays what a system with no
+choice of its own plays with, so every game looks as it did before the
+update. The screens' own are new keys, `launcher_shader` and
+`launcher_strength`, and start Off.
+
+**What it draws** (src/screenfx.h). A game's shader redraws a few hundred
+pixels as an old screen shows them; ZyperOS's screens are drawn at the
+panel's own pixels, words and all, and drawn smaller they would blur. So
+here the old screen is the glass: the frame as it is, times what Diatom's
+own shader makes of a white 320x240 picture filling the panel (its
+scanlines, its grille, its grid, its dark curved edge), and for CRT Curved
+the frame bent by Diatom's curve as well. On the Pixel 2 each line of that
+picture is two rows of the panel, its middle on a row (Diatom's own phase
+there would light both rows alike, and the CRT would show no lines). The
+words stay sharp. make check-screenfx holds the picture to Diatom's
+arithmetic (tools/shaderdemo.c's port of its GLSL) at a game's size.
+
+**What it costs.** The picture is made once a shader, strength and size,
+on the CPU, into a texture of its own (writing into the one the last frame
+drew with waits for the GPU): on the Pixel 2 14 to 28 ms, CRT Curved about
+65 ms, 44 at the launcher's start, from tables so no pixel takes a cosine
+or a root. The last six made are kept (1.2 MB each at 640x480, 7 MB at
+most), so a list's cursor pays for each choice once, the first time it
+lands on it, and never again while it stays among the six. Each frame shows it with one more textured pass at the panel's
+size, a multiply; CRT Curved draws the frame through a 16 x 12 mesh in
+place of the plain copy, its edge moved in onto the picture's (SDL 2
+draws nothing for a mesh with a texture point outside it). Off is the
+plain copy alone, exactly as before: no picture, no pass. Measured on the
+Pixel 2 with CRT Curved, the costliest: the home in Spotlight, Gallery and
+Grid and a shelf with art and with name cards all at the panel's 60, as
+with Off; the GPU's clock up to 60 MHz higher while the screen moves, and
+on a still screen the same 200 MHz as Off.
+
+**While a game is up** (from its start to its end, the in-game menu and
+what it opens, a port's menu) the screens' shader is off: what ZyperOS draws
+then is over the game, whose own shader is its frame's. A video in the
+player plays as it is.
+
+**The list.** A on the row opens its choices, as Theme's lists (11.42): the
+choice under the cursor is on the whole screen at once, the list and the
+menu under it too, nothing saved until A, the kept one back when the list
+closes. No picture column: the screen is the picture. One note under every
+choice, what the row is for: "For the home and the menus. Each system has
+its own." The Strength list the same, its step on the whole screen.
+
+Host shots: `screens-crt-curved-home`, `screens-scanlines-shelf`,
+`screens-lcd-menu`, and MENU's `menu-shader`, `menu-shader-list`,
+`menu-strength` with the screens' shader on (tools/i18n-shots.py).

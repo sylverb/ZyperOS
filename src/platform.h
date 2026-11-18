@@ -92,6 +92,24 @@ unsigned plat_now_ms(void);
  * instead, and fits it to the panel at present. */
 void plat_present(void);
 void plat_draw_to_screen(void);
+/* ZyperOS's own screens' shader (src/screenfx.h, DESIGN.md 11.50): Diatom's
+ * name for it ("crt", "crt-curved", "scanlines", "lcd"; anything else is
+ * Off) and its strength, 10 to 100, on every frame plat_present shows from
+ * now on, at the panel's own pixels. The launcher asks for Off while a game
+ * is up: what it draws then is over the game. Off draws the frame as it was,
+ * with no pass of its own; an old screen where plat_gpu_shaders says no is
+ * Off. Defined in src/screenfx_draw.c, for every device. */
+void plat_screen_shader(const char *name, int strength);
+/* That shader on the frame drawn so far, now, for a shot that reads the
+ * screen back before plat_present: where the shader goes on as the frame
+ * goes to the panel (the Pixel 2), nothing. Once a frame: the present after
+ * it does not put it on again. */
+void plat_screen_finish(void);
+/* The shader is put on the frame itself, in the window it is drawn in (the
+ * host's file): a frame drawn over the last one's picture, as a focus frame
+ * is (src/shelf_draw.c), would put it on twice, so none is, while this is
+ * true. False where it goes on as the frame goes to the panel (the Pixel 2). */
+bool plat_screen_shader_in_frame(void);
 /* A video picture UNDER the screen, for the next plat_present only: MP4's
  * player, called at the start of a frame in place of clearing it. The frame
  * is `bg` everywhere, then `tex` (which may be NULL) in `dst` - in screen

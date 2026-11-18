@@ -2003,7 +2003,10 @@ bool focus_ok(const app *a)
 	       !g_songpop.on && !g_heatpop.on && plat_osd_until() == UINT32_MAX &&
 	       /* the replug message: a focus frame drew the sprite over it
 	        * (2026-11-10, on the device) */
-	       !replug_shown();
+	       !replug_shown() &&
+	       /* the screens' shader in the frame itself (the host's): a focus
+	        * frame would be drawn over the shaded picture */
+	       !plat_screen_shader_in_frame();
 }
 
 /* False, drawing nothing, when the sprite is not one a focus frame can draw */

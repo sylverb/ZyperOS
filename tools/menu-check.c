@@ -519,41 +519,53 @@ static void look_rows(void)
 	sys_menu_build(&u, rows, &b, &heading);
 	ck(!strcmp(val(&rows[PM_APPEARANCE]), "Light"), "and with none it reads Light, the default");
 
-	/* Shader, every system's (2026-11-12): on Display, the tab of how
-	 * things look, last, after Screensaver. Off with none said; the
-	 * shader's name, or "per system", as given. */
+	/* Shader, ZyperOS's own screens' (1.0.6; every system's from
+	 * 2026-11-12): on Display, the tab of how things look, after
+	 * Screensaver. Off with none said; the shader's name as given. */
 	printf("MENU's Shader row:\n");
 	ck(sys_menu_tab_of(PM_SHADER) == PT_DISPLAY && PM_SHADER == PM_SAVER + 1,
 	   "Shader is on Display, after Screensaver");
 	ck(!strcmp(rows[PM_SHADER].label, "Shader") && !strcmp(val(&rows[PM_SHADER]), "Off") &&
 	   rows[PM_SHADER].live, "Shader, Off when nothing is said, a stop");
 	ck(b.sound[PM_SHADER] == MENU_SND_RING, "it steps round, on A too");
-	u.shader_all = "Per system";
+	u.shader_screens = "CRT Curved";
 	sys_menu_build(&u, rows, &b, &heading);
-	ck(!strcmp(val(&rows[PM_SHADER]), "Per system"), "and says what it is given");
-	u.shader_all = NULL;
+	ck(!strcmp(val(&rows[PM_SHADER]), "CRT Curved"), "and says what it is given");
+	u.shader_screens = NULL;
 
-	/* Strength, every system's (2026-11-14, src/strength.h): right under
-	 * Shader, 100% with none said, stepped on left and right and stopping at
-	 * the ends, so A is deny; gone while no system draws an old screen */
+	/* Strength, the screens' (1.0.6; every system's from 2026-11-14,
+	 * src/strength.h): right under Shader, 100% with none said, stepped on
+	 * left and right and stopping at the ends, so A is deny; gone while the
+	 * screens' shader is not an old screen, and with Shader where the
+	 * device draws none */
 	printf("MENU's Strength row:\n");
 	ck(sys_menu_tab_of(PM_STRENGTH) == PT_DISPLAY && PM_STRENGTH == PM_SHADER + 1,
 	   "Strength is on Display, right under Shader");
 	ck(!strcmp(rows[PM_STRENGTH].label, "Strength") && !strcmp(val(&rows[PM_STRENGTH]), "100%") &&
 	   rows[PM_STRENGTH].live, "Strength, 100% when nothing is said, a stop");
 	ck(b.sound[PM_STRENGTH] == MENU_SND_NO_A, "left and right step it, A does nothing");
-	u.strength_all = "Per system";
+	u.strength_screens = "40%";
 	sys_menu_build(&u, rows, &b, &heading);
-	ck(!strcmp(val(&rows[PM_STRENGTH]), "Per system"), "and says what it is given");
-	u.strength_all = NULL;
+	ck(!strcmp(val(&rows[PM_STRENGTH]), "40%"), "and says what it is given");
+	u.strength_screens = NULL;
 	{
 		pm_row all[PM_ROWS];
-		int before = sys_menu_zyperos_rows(&u, all), na, j, has = 0;
+		int before = sys_menu_zyperos_rows(&u, all), na, j, has = 0, hs = 0;
 
 		u.no_strength = true;
 		na = sys_menu_zyperos_rows(&u, all);
 		for (j = 0; j < na; j++) has |= all[j] == PM_STRENGTH;
 		ck(!has && na == before - 1, "no_strength takes the row and nothing else");
+		u.no_strength = false;
+		u.no_shader = true;
+		na = sys_menu_zyperos_rows(&u, all);
+		has = 0;
+		for (j = 0; j < na; j++) {
+			has |= all[j] == PM_STRENGTH;
+			hs |= all[j] == PM_SHADER;
+		}
+		ck(!has && !hs && na == before - 2, "no_shader takes Shader and Strength and nothing else");
+		u.no_shader = false;
 	}
 	u.no_strength = false;
 	sys_menu_build(&u, rows, &b, &heading);

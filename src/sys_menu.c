@@ -60,7 +60,9 @@ int sys_menu_zyperos_rows(const sys_ui *u, pm_row *out)
 		if (u->no_charge_limit && r == PM_CHARGE) continue;
 		if (u->no_usb_power && r == PM_USB) continue;
 		if ((u->no_usb_power || u->no_usb_wait) && r == PM_USB_WAIT) continue;
-		/* Strength only while a system draws an old screen */
+		/* The screens' Shader where the device draws an old screen, and
+		 * Strength only while they are one */
+		if (u->no_shader && (r == PM_SHADER || r == PM_STRENGTH)) continue;
 		if (u->no_strength && r == PM_STRENGTH) continue;
 		if (u->no_screen_colors && r == PM_SCREEN) continue;
 		/* Night Mode where the display has a table for it */
@@ -602,14 +604,13 @@ int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
 	full[PM_ACHIEVEMENTS] = (menu_row){ T(S_SYSMENU_CHEEVOS),
 	                                   u->ra_in ? u->ra_name : T(S_SYSMENU_SIGN_IN),
 	                                   true };
-	/* The shader for every system at once; each system's own menu and the
-	 * in-game menu choose one for that system alone (src/app.h SHADERS) */
+	/* ZyperOS's own screens' shader (src/screenfx.h); each system's own
+	 * menu and the in-game menu choose one for that system's games */
 	full[PM_SHADER]       = (menu_row){ T(S_GAMEMENU_SHADER),
-	                                   u->shader_all ? u->shader_all : T(S_MENU_OFF_TITLE), true };
-	/* And how strongly, for every system at once, while one draws an old
-	 * screen (src/strength.h) */
+	                                   u->shader_screens ? u->shader_screens : T(S_MENU_OFF_TITLE), true };
+	/* And how strongly, while it is an old screen (src/strength.h) */
 	full[PM_STRENGTH]     = (menu_row){ T(S_GAMEMENU_STRENGTH),
-	                                   u->strength_all ? u->strength_all : "100%", true };
+	                                   u->strength_screens ? u->strength_screens : "100%", true };
 	/* What every button does, per screen. Needs nothing of the device, which
 	 * is the point: it is the page you reach when the thing you have forgotten
 	 * is which button opens Muse. See src/controls.h. */
