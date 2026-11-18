@@ -154,13 +154,12 @@ int cfg_name_cmp(const char *a, const char *b);
 void cfg_sort_systems(systems_cfg *s);
 
 /* The RUN keys for a game on `s`, tab separated, into `out`: a two-screen
- * game's (`dual`) screens=2 and frameskip=, `frameskip` the DS shelf's When
- * Slow ("late", or "steady"; NULL is late, src/dsslow.h), then power=,
- * controller= and rumble=, and on a system with a Timing row pace=, `pace`
- * the player's choice ("smooth" or "exact"; NULL or another word is the
- * system's own, src/pacing.h) */
-void cfg_run_keys(const system_cfg *s, bool dual, const char *frameskip, const char *pace,
-                  char *out, int cap);
+ * game's (`dual`) screens=2 and frameskip=late (a frame that starts late is
+ * run undrawn, so the game keeps its speed: always, since 1.0.6's When Slow
+ * row went, Tarik 2026-11-17), then power=, controller= and rumble=, and on a
+ * system with a Timing row pace=, `pace` the player's choice ("smooth" or
+ * "exact"; NULL or another word is the system's own, src/pacing.h) */
+void cfg_run_keys(const system_cfg *s, bool dual, const char *pace, char *out, int cap);
 
 /* How many cores `s` lists, and the i-th of them into `out` (false past the
  * end). A system with one core lists one. */

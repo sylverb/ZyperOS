@@ -135,7 +135,7 @@ Each role has one value per theme. Code asks for the role, never the value.
 | Accent | Is | Never |
 |---|---|---|
 | lime (**accent**, **accent-ink**) | ZyperOS: focus, the system's chrome, volume, success, earned, Muse | a system's color, decoration |
-| a system's color (systems.cfg) | that system's menu heading rule and missing-cover fallback | focus, source sprite colors, unrelated screens |
+| a system's color (systems.cfg) | its shelf's marks and lift and missing-cover fallback | focus, any menu (its heading rule, its frame, its light), source sprite colors, unrelated screens |
 | **light** | brightness | anything else |
 | **favorite** | the heart | anything else |
 | **warning** | low battery, an error a row reports | emphasis |
@@ -147,7 +147,7 @@ both themes (Salt & Pepper is one-accent), and an earned achievement is lime
 where it was cyan. Cyan leaves the system.
 
 A system's color on the Beard ground is mixed a quarter of the way toward
-**text** before it is used as a mark (a rail, a heading rule), so a yellow
+**text** before it is used as a mark (a rail), so a yellow
 like Game Boy Color's still reads on a light ground. Source console sprites
 and game covers are never recolored for a theme. Their dark outlines remain
 opaque. Focus uses the accent underline, size and text, not a tint of the art.
@@ -501,8 +501,11 @@ pill. A pill is only ever a pill: the bar, button glyphs, chips.
 - A panel's frame is **edge**, 3 units, in both themes. *(The 12-unit cyan
   frame goes: with lime as the focus fill, a lime frame around it doubled the
   accent, and a grey frame lets the focused row be the brightest thing on
-  the panel. A system menu says which system it is with its color on the
-  heading rule.)*
+  the panel. A system's menu says which system it is in its heading; its
+  heading rule is **edge** and its light in Salt & Pepper the neutral one,
+  as every menu's. Tarik's for 1.0.6 rc.2: "why the line below the header
+  in the menu varies with the system? can we not do that?", and the light
+  the same for all systems too, "yeah".)*
 - Covers keep their own corners (square for album covers, as now).
 
 ---
@@ -510,7 +513,8 @@ pill. A pill is only ever a pill: the bar, button glyphs, chips.
 ## 7. Elevation
 
 Salt & Pepper lifts with light: the additive glow under a focused card, in
-the system's color, as the launcher has always done. Beard lifts with
+the system's color, as the launcher has always done; a menu panel's light
+is the neutral one on every menu, a system's too (1.0.6 rc.2). Beard lifts with
 shadow: light on a light ground is invisible, so the same places get a soft
 shadow of ink instead, neutral, never tinted. In Beard the system's color is
 the wash along the bottom of the shelf (a normal blend, not additive), the
@@ -978,7 +982,7 @@ over **scrim.menu**. Centered, 24 from the screen's edges, but never above
 y 96, clear of the header row (11.12), which stands over
 every screen a panel opens on; a list too tall for that scrolls in its
 window. Heading in **label**, **text-soft**, over a 2-unit rule
-in **edge** (in a system's menu, in that system's color). Rows in **menu**:
+in **edge**, a system's menu and the in-game menu's too. Rows in **menu**:
 live rows **text-soft**, values **text-dim**, dead rows **text-dim** at both.
 The focused row is an **accent** fill, **radius.row**, its label and value in
 **on-accent**. More rows above or below: a small triangle in **text-dim**,
@@ -4200,7 +4204,7 @@ what is built: plain HTTP, the touch pad and the keyboard.)*
 **On the handheld.** The in-game menu has a **Player 2** row on its Game tab, after Quick Slot,
 its value `off`, `waiting` or `connected`. A opens its page over the paused
 game, a panel as the in-game menu's (11.3): **Player 2** in **label**
-**text-soft** over a rule in the system's color, a line that says what to do,
+**text-soft** over a rule in **edge**, a line that says what to do,
 a line for each player a friend can be ("Player 2" in **text-soft**, its
 state at the right in **text-dim**), a second rule and the key legend
 (11.4): A to turn it on or stop it, B to close the page. Continue goes back

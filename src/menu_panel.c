@@ -203,9 +203,10 @@ static void menu_zyper_draw(app *a, const SDL_Rect *panel, int pad)
 /* `fixed_w` is the content width to use, or 0 to size to these rows. The shelf
  * menus pass a width measured across both of them so the panel never resizes;
  * the in-game menu has no values to cycle and sizes to itself. */
-/* `accent` is whose menu it is: a system's color, which is its heading rule
- * and the light it is lifted with in Salt & Pepper, or MENU_ZYPEROS for a menu
- * that is no system's. The shelf's own menu passes MENU_ZYPEROS because that
+/* `accent` is whose menu it is: a system's color, or MENU_ZYPEROS for a menu
+ * that is no system's. Since 1.0.6 rc.2 (Tarik's) the panel draws nothing in
+ * it - its rule is **edge** and its light the neutral one on every menu -
+ * and it stays only as the callers' word until the cleanup after 1.0.6. The shelf's own menu passes MENU_ZYPEROS because that
  * menu is ZyperOS, not whichever card is under the cursor; a menu that
  * belongs to a system passes that system's color, CFG_NO_COLOR for one whose
  * line names none. It is never the focus, which is lime on every menu
@@ -446,13 +447,11 @@ void menu_panel(app *a, const char *heading, const menu_row *rows,
 	 * clears 6:1. */
 	const SDL_Color on = ui_col(thm->on_accent, 255);
 	const SDL_Color on_quiet = ui_col(thm->on_accent, 184);
-	/* The heading's rule and the list's: **edge**, or in a system's menu that
-	 * system's color as a mark (ui_sys_mark), which for a system with no
-	 * color is **text-dim**, as its other marks are. */
-	const unsigned rule_rgb = accent == MENU_ZYPEROS ? ui_rgb(thm->edge)
-	                                                 : ui_sys_mark(accent);
-	const ds_rgb rule = { (Uint8)(rule_rgb >> 16), (Uint8)(rule_rgb >> 8),
-	                      (Uint8)rule_rgb };
+	/* The heading's rule and the list's: **edge**, on every menu, a
+	 * system's too (1.0.6 rc.2, Tarik's: "why the line below the header in
+	 * the menu varies with the system? can we not do that?"). Whose menu it
+	 * is, its heading says. */
+	const ds_rgb rule = thm->edge;
 	TTF_Font *fm = ui_font(UI_F_MENU), *fh = ui_font(UI_F_LABEL);
 	int row_h = menu_row_h();
 	int pad = menu_pad();
@@ -769,9 +768,9 @@ void menu_panel(app *a, const char *heading, const menu_row *rows,
 	                          panel.y + panel.h - pad - content_y };
 
 	/* DESIGN.md 11.3: **surface** in an **edge** frame, lifted off what is
-	 * behind it - a shadow on Beard, light in the system's color in Salt &
-	 * Pepper, or a neutral light for a menu that is no system's. The frame is
-	 * never the system's color: a menu says whose it is on its heading rule. */
+	 * behind it - a shadow on Beard, a neutral light in Salt & Pepper - the
+	 * same on every menu, a system's too: no system's color on the panel,
+	 * its frame, its rule or its light (1.0.6 rc.2, Tarik's) */
 	/* Moving, the lift goes straight on the screen at the panel's size and
 	 * its strength, and the panel into the pass: a shadow or a glow drawn
 	 * into a clear texture and copied out with its alpha would be faded
@@ -779,7 +778,7 @@ void menu_panel(app *a, const char *heading, const menu_row *rows,
 	{
 		const ds_pass pass = { panel_scaled, menu_pass_begin, menu_pass_end, a };
 
-		posed = ds_panel_open(a->r, &panel, accent == MENU_ZYPEROS ? CFG_NO_COLOR : accent, pose, &pass);
+		posed = ds_panel_open(a->r, &panel, CFG_NO_COLOR, pose, &pass);
 	}
 
 	if (heading) {
@@ -1019,7 +1018,7 @@ void menu_panel(app *a, const char *heading, const menu_row *rows,
 		 * it is, and never the system's color. On a dark red system a plate
 		 * in the system's color read as a stain on the row rather than a
 		 * highlight under it, and with the system's color on the heading rule
-		 * the two competed; lime is ZyperOS's, and it means the focus
+		 * (as it was before 1.0.6) the two competed; lime is ZyperOS's, and it means the focus
 		 * wherever it is.
 		 *
 		 * Flat, with no radial glow under it. The glow was brightest at the
