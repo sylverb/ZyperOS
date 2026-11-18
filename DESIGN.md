@@ -1717,6 +1717,27 @@ lift, which reaches it by a few levels at the most (7 measured). So the
 splash must copy the still back under his frame before it draws each one,
 not fill it with the ground.
 
+**The port's output** (1.0.6, after a player's first start installed for five
+hours behind this screen with no sign that anything ran): the latest line the
+port's script and PortMaster print, at the foot, as it comes. One line in
+**support** **text-dim**, from the cover's left edge to the column's right
+(992), its capitals centered on the foot's 720 (`DS_FOOT_Y`), or just under
+Zyper's frame when they would reach it (724 in Lexend). Its box, the font's
+whole height, is held to 4.5:1 for **text-dim** as the words are, the scrim
+raised for it where a cover needs it. The line is what a terminal would show:
+what follows the last carriage return, escapes and other control characters
+dropped, a run of spaces one space, a letter the face lacks left out; a line
+too wide ends at the last whole letter that leaves room for an ellipsis. The
+lines of ZyperOS's own programs (`portkeys:`, `zyhome:`, `port:`, `kernel:`)
+and all the log gets while the in-game menu is over the screen are passed
+over. The launcher writes the letters at the panel's size (18 px), the box and
+the ink (src/portload.c, `port_out_write`), the letters drawn once and kept on
+the card, so a start does not wait for them; plastron's splash draws them into
+its own buffer only, a few times a second while that buffer is on the panel
+and not at all while anything else is (splash/src/portout.h), so a port's or
+PortMaster's own window is never drawn over. A splash older than 1.0.6 shows
+the screen without it.
+
 A name too wide for its box breaks balanced, not greedy: one line when it
 fits, else the fewest lines that fit and, of those, the break whose widest
 line is narrowest (src/linebreak.c).
