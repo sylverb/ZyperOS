@@ -10,5 +10,6 @@
 
 /* What main.c uses of it; each is described where it is defined */
 int language_build(void *ctx, menu_row *rows, int max, const char **heading);
+void lights_shot_draw(app *a, int row);
 
 #endif

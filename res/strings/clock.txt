@@ -91,125 +91,125 @@ ja = 分
 it = Minuto
 
 [clock.month_jan]
-note = Month's value on Date & Time: the month's whole name. Lowercase where the language writes months so.
+note = Month's value on Date & Time: the month's whole name. Begun with a capital: it stands alone as a row's value.
 en = January
 zh-Hans = 1 月
-es = enero
-pt-BR = janeiro
-fr = janvier
+es = Enero
+pt-BR = Janeiro
+fr = Janvier
 de = Januar
 ja = 1月
-it = gennaio
+it = Gennaio
 
 [clock.month_feb]
 en = February
 zh-Hans = 2 月
-es = febrero
-pt-BR = fevereiro
-fr = février
+es = Febrero
+pt-BR = Fevereiro
+fr = Février
 de = Februar
 ja = 2月
-it = febbraio
+it = Febbraio
 
 [clock.month_mar]
 en = March
 zh-Hans = 3 月
-es = marzo
-pt-BR = março
-fr = mars
+es = Marzo
+pt-BR = Março
+fr = Mars
 de = März
 ja = 3月
-it = marzo
+it = Marzo
 
 [clock.month_apr]
 en = April
 zh-Hans = 4 月
-es = abril
-pt-BR = abril
-fr = avril
+es = Abril
+pt-BR = Abril
+fr = Avril
 de = April
 ja = 4月
-it = aprile
+it = Aprile
 
 [clock.month_may]
 en = May
 zh-Hans = 5 月
-es = mayo
-pt-BR = maio
-fr = mai
+es = Mayo
+pt-BR = Maio
+fr = Mai
 de = Mai
 ja = 5月
-it = maggio
+it = Maggio
 
 [clock.month_jun]
 en = June
 zh-Hans = 6 月
-es = junio
-pt-BR = junho
-fr = juin
+es = Junio
+pt-BR = Junho
+fr = Juin
 de = Juni
 ja = 6月
-it = giugno
+it = Giugno
 
 [clock.month_jul]
 en = July
 zh-Hans = 7 月
-es = julio
-pt-BR = julho
-fr = juillet
+es = Julio
+pt-BR = Julho
+fr = Juillet
 de = Juli
 ja = 7月
-it = luglio
+it = Luglio
 
 [clock.month_aug]
 en = August
 zh-Hans = 8 月
-es = agosto
-pt-BR = agosto
-fr = août
+es = Agosto
+pt-BR = Agosto
+fr = Août
 de = August
 ja = 8月
-it = agosto
+it = Agosto
 
 [clock.month_sep]
 en = September
 zh-Hans = 9 月
-es = septiembre
-pt-BR = setembro
-fr = septembre
+es = Septiembre
+pt-BR = Setembro
+fr = Septembre
 de = September
 ja = 9月
-it = settembre
+it = Settembre
 
 [clock.month_oct]
 en = October
 zh-Hans = 10 月
-es = octubre
-pt-BR = outubro
-fr = octobre
+es = Octubre
+pt-BR = Outubro
+fr = Octobre
 de = Oktober
 ja = 10月
-it = ottobre
+it = Ottobre
 
 [clock.month_nov]
 en = November
 zh-Hans = 11 月
-es = noviembre
-pt-BR = novembro
-fr = novembre
+es = Noviembre
+pt-BR = Novembro
+fr = Novembre
 de = November
 ja = 11月
-it = novembre
+it = Novembre
 
 [clock.month_dec]
 en = December
 zh-Hans = 12 月
-es = diciembre
-pt-BR = dezembro
-fr = décembre
+es = Diciembre
+pt-BR = Dezembro
+fr = Décembre
 de = Dezember
 ja = 12月
-it = dicembre
+it = Dicembre
 
 [clock.short_jan]
 note = The month in the MENU row's date (Oct 3, 6:12 AM), short. tight
