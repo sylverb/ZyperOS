@@ -99,6 +99,16 @@ void update_systems(app *a)
 	 * the moment empty systems started being hidden. */
 	if (no_games(a)) { empty_keys(a); return; }
 
+	/* START turns the home's layout on, Spotlight to Gallery to Grid and
+	 * round, as MENU > Home Screen's row does and as START turns a shelf's
+	 * View (2026-11-17). Not with MENU or SELECT held, as on the shelf:
+	 * MENU + START is the way out (tools/zyhome.c). */
+	if (a->in.pressed[IN_START] && !a->in.down[IN_MENU] && !a->in.down[IN_SELECT]) {
+		uisound_play(DS_SOUND_MOVE);
+		home_turn(a, 1);
+		return;
+	}
+
 	/* The direction is carried through, not inferred from the cursor: on a
 	 * shelf of two, moving from either card to the other is one step in BOTH
 	 * directions, and only the press says which. */

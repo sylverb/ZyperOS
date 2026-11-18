@@ -1615,11 +1615,9 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 	/* The home layout is independent of Appearance and the selected system. */
 	if (sel == PM_HOME && (d || key == IN_ACCEPT)) {
 		/* Spotlight, Gallery, Grid and round: Right on, Left back; A opens
-		 * the three as a list (menu_choices' PM_HOME, the runner's) */
-		a->home_layout = (home_layout)(((int)a->home_layout + (d < 0 ? HOME_LAYOUTS - 1 : 1)) % HOME_LAYOUTS);
-		db_set_str(db_dev(), "home", home_id(a->home_layout));
-		home_reset(&a->home, a->sys_cursor, a->sys.count, plat_now_ms());
-		redraw_now();
+		 * the three as a list (menu_choices' PM_HOME, the runner's). START
+		 * on the home turns it on too (home_turn). */
+		home_turn(a, d < 0 ? -1 : 1);
 		return MENU_CHANGED;
 	}
 	/* Charge Limit, round Off, 80%, 85% and 90% as Side Lights goes round its
