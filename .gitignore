@@ -2,6 +2,11 @@
 /build/
 /build-native/
 /out/
+# The string tables, written by tools/i18n.py from res/strings whenever a
+# build needs them (Makefile, I18N_SRC). Committed, their offsets moved with
+# every string added, and every pull request that touched a string
+# conflicted with every other.
+/src/i18n_tables.c
 
 # Redistributed binaries: the libretro cores and the device runtime libraries.
 # All of it is fetched by mk/fetch-vendor.sh, so none of it belongs in the

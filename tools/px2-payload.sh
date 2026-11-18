@@ -70,6 +70,11 @@ fi
 	die "no cores in $VENDOR: make vendor in the main checkout (or set ZYPEROS_VENDOR, or --programs)"
 SS_ENV=${ZYPEROS_SS_ENV:-$main/.screenscraper.env}
 
+# The string tables are the build's (src/i18n_tables.c, not committed), and
+# the tree goes in read-only: written here first, as make would
+command -v python3 > /dev/null || die "needs python3 for the string tables (tools/i18n.py)"
+python3 "$REPO/tools/i18n.py" > /dev/null
+
 mkdir -p "$REPO/build/px2" "$REPO/diatom/build/pixel2"
 set -- --rm -e "JOBS=${JOBS:-4}" -e "PROGRAMS_ONLY=$PROGRAMS" \
 	-v "$sdk:/sdk:ro" \
