@@ -893,6 +893,13 @@ EXTRA["portmaster-details"] = ("pmcard", "PRT", ["--screen", "games", "--info"])
 # (The Ports shelf with PortMaster's Install, and the page downloading, are
 # the README's, tools/readme-shots.py's ports and portmaster.)
 
+# A port's loading screen (src/portload.c, DESIGN.md 11.11): the start's line,
+# and the one after a minute that tools/portkeys.c shows, which says how long
+# a first start can install and how to go back (check-portload holds its
+# contrast and Zyper's frame, in English)
+EXTRA["portload"] = ("portdocs", "PRT", ["--portload", "Star Farm"])
+EXTRA["portload-later"] = ("portdocs", "PRT", ["--portload-later", "--portload", "Star Farm"])
+
 # Every Controls page of the made-up ports (tools/fixtures/ports) and of
 # PortMaster's own app, on the card that has them (readme-shots.py's
 # portdocs_card): a port's README's words, its keys, In a game and its About,
