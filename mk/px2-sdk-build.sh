@@ -37,6 +37,20 @@ make -j"$JOBS" -f mk/cross.mk CC="$CC" SYSROOT="$SYSROOT" DEVICE=pixel2 BUILD=$B
 PORT=$(sed -n 's/^ZYDEV_DIATOM_PORT = *//p' config/device/pixel2.mk)
 make -j"$JOBS" -C diatom PORT="$PORT" CC="$CC"
 
+# The programs alone (tools/px2-payload.sh --programs): stripped, as the
+# payload's are, where ZyperOS/ has them
+if [ -n "${PROGRAMS_ONLY:-}" ]; then
+	P=$B/programs/ZyperOS
+	rm -rf "$B/programs"
+	mkdir -p "$P"
+	for f in zyperos.elf muse portkeys zyperos-update zyhome p2d; do
+		[ -f "$B/$f" ] && "$STRIP" -o "$P/$f" "$B/$f"
+	done
+	"$STRIP" -o "$P/diatom" "diatom/build/$PORT/diatom"
+	chmod +x "$P"/*
+	exit 0
+fi
+
 DEVICE=pixel2 OUT=/zyperos/$B/payload VERSION="$VERSION" \
 	ZYPEROS_ELF=$B/zyperos.elf MUSE_ELF=$B/muse PORTKEYS_ELF=$B/portkeys ZYHOME_ELF=$B/zyhome \
 	UPDATE_ELF=$B/zyperos-update P2D_ELF=$B/p2d DIATOM_ELF="diatom/build/$PORT/diatom" \
