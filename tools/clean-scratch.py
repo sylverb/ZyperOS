@@ -19,7 +19,9 @@ What it takes, each only when nothing in its first levels changed for the age:
   - git's records of worktrees whose folders are gone (git worktree prune).
 
 Never a worktree, a branch, the shared gate cache (tools/pixel-gate.py prunes
-its own), nor anything newer than the age. Standard library only.
+its own), anything newer than the age, nor anything a running process holds
+open (a file in it, or its current folder there: lsof, asked once a run).
+Where lsof cannot say, it deletes nothing. Standard library only.
 """
 import argparse
 import os
@@ -75,6 +77,31 @@ def remove(path):
         path.unlink(missing_ok=True)
 
 
+def open_paths():
+    """Every folder that holds something a running process has open now
+    (an open file, its current folder, its program), as real paths; None
+    when lsof cannot say. lsof sees this user's processes, which is every
+    session's."""
+    try:
+        r = subprocess.run(["lsof", "-nP", "-w", "-F", "n"], stdout=subprocess.PIPE,
+                           stderr=subprocess.DEVNULL, text=True, errors="replace")
+    except OSError:
+        return None
+    # 1 is lsof's answer when it could not look at some process; the rest
+    # is still listed
+    if r.returncode not in (0, 1) or not r.stdout:
+        return None
+    held = set()
+    for line in r.stdout.splitlines():
+        if not line.startswith("n/"):
+            continue
+        p = line[1:].split(" (", 1)[0]
+        while p not in held and p != "/":
+            held.add(p)
+            p = os.path.dirname(p)
+    return held
+
+
 def worktrees():
     r = subprocess.run(["git", "worktree", "list", "--porcelain"], cwd=ROOT, text=True,
                        stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
@@ -99,11 +126,19 @@ def main():
     args = ap.parse_args()
     now = time.time()
     cutoff = now - args.age * 3600
-    total = count = 0
+    total = count = busy = 0
     trees = sorted(worktrees(), key=lambda t: -len(str(t)))
+    held = open_paths()
+    if held is None and not args.dry_run:
+        print("clean-scratch: lsof cannot say what is open, so nothing is deleted (-n lists it)")
+        args.dry_run = True
     for path in candidates():
         last = newest(path)
         if last >= cutoff:
+            continue
+        if held is not None and os.path.realpath(path) in held:
+            busy += 1
+            print("in use, kept %5.0f h  %s" % ((now - last) / 3600, path))
             continue
         n = size(path)
         total += n
@@ -117,8 +152,9 @@ def main():
             remove(path)
     if not args.dry_run:
         subprocess.run(["git", "worktree", "prune"], cwd=ROOT)
-    print("clean-scratch: %d folders, %.1f GB%s" % (count, total / 1e9,
-                                                    " to delete (-n)" if args.dry_run else " deleted"))
+    print("clean-scratch: %d folders, %.1f GB%s%s" % (count, total / 1e9,
+                                                      " to delete (-n)" if args.dry_run else " deleted",
+                                                      ", %d in use kept" % busy if busy else ""))
     return 0
 
 
