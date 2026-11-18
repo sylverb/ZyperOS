@@ -31,11 +31,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: SDL2, SQLite, xz, ALSA, curl and OpenSSL for the host launcher, Diatom and the checks
+      - name: SDL2, SQLite, xz, ALSA, curl and OpenSSL for the host launcher, Diatom and the checks, and ccache
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq pkg-config libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev \
-            libsqlite3-dev liblzma-dev zlib1g-dev libasound2-dev libcurl4-openssl-dev libssl-dev
+            libsqlite3-dev liblzma-dev zlib1g-dev libasound2-dev libcurl4-openssl-dev libssl-dev ccache
+
+      # The compile cache (mk/ccache.mk, where the Makefile has it) from the
+      # last run on this branch or main: a run compiles what changed
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/zyperos/ccache
+          key: ccache-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            ccache-${{ runner.os }}-
 
       - uses: actions/setup-python@v5
         with:
