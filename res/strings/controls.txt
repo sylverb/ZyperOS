@@ -198,15 +198,15 @@ ja = 最初から
 it = Dall'inizio
 
 [controls.view]
-note = MENU > Controls, on the shelf: START turns its covers into a list of names and back (MENU > View). Box Art's term for covers.
-en = Covers or list
-zh-Hans = 封面或列表
-es = Carátulas o lista
-pt-BR = Capas ou lista
-fr = Jaquettes ou liste
-de = Cover oder Liste
-ja = パッケージ画像/リスト
-it = Copertine o elenco
+note = MENU > Controls, START's value on the shelf page: on the home START steps MENU > Home Screen (Spotlight, Gallery, Grid), on a shelf MENU > View (Covers, Grid, List). The two MENU rows' names (sysmenu.home_screen, sysmenu.view), the home's first, as "Open or play" puts the home's job first; fr and de say the home as controls.home does, as the row's names do not fit.
+en = Home Screen or View
+zh-Hans = 主屏幕样式或视图
+es = Pantalla de inicio o vista
+pt-BR = Tela inicial ou exibição
+fr = Accueil ou affichage
+de = Startseite oder Ansicht
+ja = ホーム画面/表示
+it = Schermata Home o vista
 
 [controls.favorite]
 note = What Y does on a shelf: mark the game a favorite.

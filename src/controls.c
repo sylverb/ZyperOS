@@ -100,7 +100,8 @@ static int shelf(menu_row *out)
 	out[n++] = (menu_row){ "B", T(S_CONTROLS_BACK), false };
 	out[n++] = (menu_row){ "X", T(S_CONTROLS_DETAILS), false };
 	out[n++] = (menu_row){ "Y", T(S_CONTROLS_FRESH), false };
-	/* MENU > View, at a press (2026-11-13) */
+	/* MENU > View, at a press (2026-11-13), and on the home MENU > Home
+	 * Screen (2026-11-17): the two rows' names, the home's first */
 	out[n++] = (menu_row){ "START", T(S_CONTROLS_VIEW), false };
 	/* Here rather than on Anywhere, which is full: it works outside a game,
 	 * and in one L2 and R2 are the game's */
