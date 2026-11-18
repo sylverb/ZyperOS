@@ -268,7 +268,8 @@ build-native/dmodefit-check: tools/dmodefit-check.c src/dmodefit.c src/dmodefit.
 	      -o $@ tools/dmodefit-check.c src/dmodefit.c diatom/src/scale.c
 
 # MENU > Power Button's rule (src/powerhold.h): a press turns the handheld off
-# in Press mode and a hold of two seconds in Hold mode, once per time down;
+# in Press mode and a hold of one second in Hold mode (its own time, the
+# charging screen's and MP4's two kept), once per time down;
 # the pill's progress and the waits that keep it moving.
 check-powerhold: build-native/powerhold-check
 	@./build-native/powerhold-check
