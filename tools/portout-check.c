@@ -168,6 +168,17 @@ static void reader_checks(void)
 	SHOWS(&R, "zyhome: MENU+START\nport: ended, 0\nkernel: battery at start: 81%\n", "next");
 	SHOWS(&R, "portkeys: half", "next");
 	SHOWS(&R, " a line\nreport: fine\n", "report: fine");
+	/* ZyperOS's lines in the middle of the port's progress line, as a Pixel 2
+	 * logged them: the port's text before them is the line */
+	SHOWS(&R, "Downloading weston\n\r    4%  1.2 MB", "4% 1.2 MB");
+	SHOWS(&R, "ssh: [379] Pubkey auth succeeded for 'root'", "4% 1.2 MB");
+	SHOWS(&R, " from 10.42.0.2:56201\n", "4% 1.2 MB");
+	SHOWS(&R, "\r   18%  5.6 MBmdns: zyperos.local is 10.42.0.1 on usb0\n", "18% 5.6 MB");
+	SHOWS(&R, "ssh: [401] Exit (root)\nmdns: let go\n", "18% 5.6 MB");
+	SHOWS(&R, "\r  100%portkeys: volume 9 -> 10 (VOL+)\n", "100%");
+	/* port: and kernel: only at a line's start, as a port may say them */
+	SHOWS(&R, "Starting the port: Celeste\n", "Starting the port: Celeste");
+	SHOWS(&R, "Loading kernel: none\n", "Loading kernel: none");
 	/* a line longer than the reader keeps: its start */
 	{
 		char lng[PORTOUT_CHARS + 40];
@@ -436,7 +447,8 @@ int main(int argc, char **argv)
 		return 1;
 	}
 	printf("ok: the port's output read as a terminal shows it (\\r, \\r\\n, backspace, tabs, escapes,\n"
-	       "UTF-8, ZyperOS's own lines passed over), and drawn over the screen's own box, cut at a\n"
-	       "whole letter with an ellipsis inside it, turned as the Pixel 2's panel is\n");
+	       "UTF-8, ZyperOS's own lines passed over, in the middle of a line too), and drawn\n"
+	       "over the screen's own box, cut at a whole letter with an ellipsis inside it,\n"
+	       "turned as the Pixel 2's panel is\n");
 	return 0;
 }

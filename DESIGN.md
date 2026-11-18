@@ -1728,9 +1728,11 @@ raised for it where a cover needs it. The line is what a terminal would show:
 what follows the last carriage return, escapes and other control characters
 dropped, a run of spaces one space, a letter the face lacks left out; a line
 too wide ends at the last whole letter that leaves room for an ellipsis. The
-lines of ZyperOS's own programs (`portkeys:`, `zyhome:`, `port:`, `kernel:`)
-and all the log gets while the in-game menu is over the screen are passed
-over. The launcher writes the letters at the panel's size (18 px), the box and
+lines of ZyperOS's own programs (`portkeys:`, `zyhome:`, `ssh:` and `mdns:`,
+which portkeys runs over a port, also where one lands in the middle of a
+progress line the port has not ended yet; `port:` and `kernel:` at a line's
+start) and all the log gets while the in-game menu is over the screen are
+passed over. The launcher writes the letters at the panel's size (18 px), the box and
 the ink (src/portload.c, `port_out_write`), the letters drawn once and kept on
 the card, so a start does not wait for them; plastron's splash draws them into
 its own buffer only, a few times a second while that buffer is on the panel

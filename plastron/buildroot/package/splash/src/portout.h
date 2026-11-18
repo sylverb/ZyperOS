@@ -20,7 +20,9 @@
  * dropped, and so is a letter the font has none of. Shown: the line being
  * written when it has letters, else the last whole line that had. Runs of
  * spaces are one, ends trimmed. Lines of ZyperOS's own programs (portkeys:,
- * zyhome:, port:, kernel:) are not the port's and are passed over.
+ * zyhome:, ssh:, mdns:, port:, kernel:) are not the port's and are passed
+ * over, also where one lands in the middle of the port's line
+ * (portout_own_at).
  *
  * THE LETTERS AND THE BOX (portout_load). ZyperOS's launcher writes them as
  * it saves the loading screen (its src/portload.c, port_out_write), in the
@@ -135,19 +137,35 @@ typedef struct {
 
 enum { PORTOUT_ESC = 1, PORTOUT_CSI, PORTOUT_OSC, PORTOUT_OSC_ESC };
 
-/* ZyperOS's own programs, whose lines in the log are not the port's */
-static int portout_ours(const uint32_t *s, size_t n)
+/* Whether `word` is at `s` (`n` letters left) */
+static int portout_is(const uint32_t *s, size_t n, const char *word)
 {
-	static const char *const own[] = { "portkeys: ", "zyhome: ", "port: ", "kernel: " };
+	size_t len = strlen(word), i;
 
-	for (size_t k = 0; k < sizeof own / sizeof own[0]; k++) {
-		size_t len = strlen(own[k]), i;
+	if (n < len) return 0;
+	for (i = 0; i < len && s[i] == (unsigned char)word[i]; i++) {}
+	return i == len;
+}
 
-		if (n < len) continue;
-		for (i = 0; i < len && s[i] == (unsigned char)own[k][i]; i++) {}
-		if (i == len) return 1;
-	}
-	return 0;
+/* Where the port's text of a line ends: at the first line of ZyperOS's own
+ * programs in it, or at its end. Their lines go into the same log, each with
+ * one write ending in a line end, and land in the middle of a line the port
+ * has not ended yet: a progress line rewritten with \r has no line end until
+ * it is done (seen on a Pixel 2: "  4%  1.2 MB of 31.0 MBssh: [379] Pubkey
+ * auth succeeded ..."). So portkeys's and zyhome's, and those of SSH and mDNS
+ * that portkeys runs over a port, end the port's text wherever they start;
+ * launch.sh's port: and the kernel's lines only at a line's start, as a port
+ * may say "port: " itself. */
+static size_t portout_own_at(const uint32_t *s, size_t n)
+{
+	static const char *const anywhere[] = { "portkeys: ", "zyhome: ", "ssh: ", "mdns: " };
+
+	if (portout_is(s, n, "port: ") || portout_is(s, n, "kernel: ")) return 0;
+	for (size_t i = 0; i < n; i++)
+		for (size_t k = 0; k < sizeof anywhere / sizeof anywhere[0]; k++)
+			if (s[i] == (unsigned char)anywhere[k][0] && portout_is(s + i, n - i, anywhere[k]))
+				return i;
+	return n;
 }
 
 /* `s`, `n` letters, as shown: the letters the font has, a run of spaces
@@ -169,14 +187,16 @@ static size_t portout_clean(const portout_atlas *A, const uint32_t *s, size_t n,
 	return k;
 }
 
-/* A line ended: the last worth showing when it has a letter to show */
+/* A line ended: the port's text of it the last worth showing, when it has
+ * a letter to show */
 static void portout_line_end(portout_reader *R, const portout_atlas *A)
 {
 	uint32_t shown[PORTOUT_CHARS];
+	size_t k = portout_own_at(R->cur, R->n);
 
-	if (R->n && !portout_ours(R->cur, R->n) && portout_clean(A, R->cur, R->n, shown)) {
-		memcpy(R->last, R->cur, R->n * sizeof R->cur[0]);
-		R->last_n = R->n;
+	if (k && portout_clean(A, R->cur, k, shown)) {
+		memcpy(R->last, R->cur, k * sizeof R->cur[0]);
+		R->last_n = k;
 	}
 	R->n = 0;
 	R->cr = 0;
@@ -265,9 +285,9 @@ static void portout_skip(portout_reader *R)
  * 0 for none yet */
 static size_t portout_shown(const portout_reader *R, const portout_atlas *A, uint32_t *out)
 {
-	size_t k = 0;
+	size_t k = portout_own_at(R->cur, R->n);
 
-	if (R->n && !portout_ours(R->cur, R->n)) k = portout_clean(A, R->cur, R->n, out);
+	k = k ? portout_clean(A, R->cur, k, out) : 0;
 	if (!k) k = portout_clean(A, R->last, R->last_n, out);
 	return k;
 }
