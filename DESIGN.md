@@ -5148,12 +5148,19 @@ there would light both rows alike, and the CRT would show no lines). The
 words stay sharp. make check-screenfx holds the picture to Diatom's
 arithmetic (tools/shaderdemo.c's port of its GLSL) at a game's size.
 
-**What it costs.** The picture is made once a shader, strength and size
-(0.1 to 5 ms on the host; CRT Curved the most), and each frame shows it
-with one more textured pass at the panel's size, a multiply; CRT Curved
-draws the frame through a 16 x 12 mesh in place of the plain copy. Off is
-the plain copy alone, exactly as before: no picture, no pass. Nothing is
-drawn while nothing moves, so a still screen costs nothing more.
+**What it costs.** The picture is made once a shader, strength and size,
+on the CPU, into a texture of its own (writing into the one the last frame
+drew with waits for the GPU): on the Pixel 2 14 to 28 ms, CRT Curved about
+65 ms, 44 at the launcher's start, from tables so no pixel takes a cosine
+or a root. Each frame shows it with one more textured pass at the panel's
+size, a multiply; CRT Curved draws the frame through a 16 x 12 mesh in
+place of the plain copy, its edge moved in onto the picture's (SDL 2
+draws nothing for a mesh with a texture point outside it). Off is the
+plain copy alone, exactly as before: no picture, no pass. Measured on the
+Pixel 2 with CRT Curved, the costliest: the home in Spotlight, Gallery and
+Grid and a shelf with art and with name cards all at the panel's 60, as
+with Off; the GPU's clock up to 60 MHz higher while the screen moves, and
+on a still screen the same 200 MHz as Off.
 
 **While a game is up** (from its start to its end, the in-game menu and
 what it opens, a port's menu) the screens' shader is off: what ZyperOS draws

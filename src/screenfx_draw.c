@@ -46,43 +46,45 @@ void sfx_forget(void)
 	g_mask_for = NULL;
 }
 
-/* The mask for what is asked, made when that or the size changed */
+/* The mask for what is asked, made when that or the size changed. Into a
+ * texture of its own each time, the last one let go: the last frame may
+ * still be drawing with it, and writing into it then waits for the GPU
+ * (25 ms more a step of the list on the Pixel 2, 2026-11-18). */
 static SDL_Texture *mask_for(SDL_Renderer *r, int w, int h)
 {
+	SDL_Texture *t;
 	unsigned char *px;
+	Uint64 t0, t1;
 
 	if (g_mask && g_mask_for == r && g_mask_kind == g_kind && g_mask_strength == g_strength &&
 	    g_mask_w == w && g_mask_h == h)
 		return g_mask;
-	if (g_mask && (g_mask_for != r || g_mask_w != w || g_mask_h != h)) {
-		if (g_mask_for == r) SDL_DestroyTexture(g_mask);
-		g_mask = NULL;
-	}
-	if (!g_mask) {
-		g_mask = SDL_CreateTexture(r, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STATIC, w, h);
-		if (!g_mask) return NULL;
-		/* A multiply: the frame times the mask, its alpha left alone */
-		SDL_SetTextureBlendMode(g_mask, SDL_BLENDMODE_MOD);
-		/* Pixel for pixel: it is the panel's size where it is drawn */
-		SDL_SetTextureScaleMode(g_mask, SDL_ScaleModeNearest);
-		g_mask_for = r;
-		g_mask_w = w;
-		g_mask_h = h;
-	}
 	if (!(px = malloc((size_t)w * (size_t)h * 4))) return NULL;
-	{
-		Uint64 t0 = SDL_GetPerformanceCounter();
-
-		screenfx_mask(g_kind, g_strength, w, h, px);
-		SDL_UpdateTexture(g_mask, NULL, px, w * 4);
-		/* Once a shader, strength and size: what a list's step costs */
-		fprintf(stderr, "screens' shader: kind %d at %d%%, %dx%d, made in %.1f ms\n", (int)g_kind,
-		        g_strength, w, h,
-		        (double)(SDL_GetPerformanceCounter() - t0) * 1000.0 / (double)SDL_GetPerformanceFrequency());
+	t0 = SDL_GetPerformanceCounter();
+	screenfx_mask(g_kind, g_strength, w, h, px);
+	t1 = SDL_GetPerformanceCounter();
+	t = SDL_CreateTexture(r, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STATIC, w, h);
+	if (t) {
+		/* A multiply: the frame times the mask, its alpha left alone */
+		SDL_SetTextureBlendMode(t, SDL_BLENDMODE_MOD);
+		/* Pixel for pixel: it is the panel's size where it is drawn */
+		SDL_SetTextureScaleMode(t, SDL_ScaleModeNearest);
+		SDL_UpdateTexture(t, NULL, px, w * 4);
 	}
 	free(px);
+	if (!t) return NULL;
+	if (g_mask && g_mask_for == r) SDL_DestroyTexture(g_mask);
+	g_mask = t;
+	g_mask_for = r;
+	g_mask_w = w;
+	g_mask_h = h;
 	g_mask_kind = g_kind;
 	g_mask_strength = g_strength;
+	/* Once a shader, strength and size: what a list's step costs */
+	fprintf(stderr, "screens' shader: kind %d at %d%%, %dx%d, made in %.1f ms, sent in %.1f ms\n",
+	        (int)g_kind, g_strength, w, h,
+	        (double)(t1 - t0) * 1000.0 / (double)SDL_GetPerformanceFrequency(),
+	        (double)(SDL_GetPerformanceCounter() - t1) * 1000.0 / (double)SDL_GetPerformanceFrequency());
 	return g_mask;
 }
 
@@ -111,11 +113,33 @@ void sfx_draw_curved(SDL_Renderer *r, SDL_Texture *src, const SDL_Rect *dst, dou
 
 	for (j = 0; j <= GY; j++)
 		for (i = 0; i <= GX; i++) {
-			float x = (float)i / GX, y = (float)j / GY, u, w;
-			float dx = x * dst->w - dst->w / 2.0f, dy = y * dst->h - dst->h / 2.0f;
+			float x = (float)i / GX, y = (float)j / GY, u, w, dx, dy;
 			SDL_Vertex *p = &v[j * (GX + 1) + i];
 
 			screenfx_warp(x, y, &u, &w);
+			/* A point of the edge the curve shows past the picture: moved
+			 * in toward the middle onto the picture's edge. SDL 2's
+			 * SDL_RenderGeometry refuses a texture point outside 0..1
+			 * ("Values of 'uv' out of bounds") and draws nothing; past
+			 * it is the mask's black, and the clear's. */
+			if (u < 0.0f || u > 1.0f || w < 0.0f || w > 1.0f) {
+				float in = 0.0f, out = 1.0f, t;
+				int k;
+
+				for (k = 0; k < 24; k++) {
+					t = (in + out) / 2.0f;
+					screenfx_warp(0.5f + (x - 0.5f) * t, 0.5f + (y - 0.5f) * t, &u, &w);
+					if (u < 0.0f || u > 1.0f || w < 0.0f || w > 1.0f) out = t;
+					else in = t;
+				}
+				x = 0.5f + (x - 0.5f) * in;
+				y = 0.5f + (y - 0.5f) * in;
+				screenfx_warp(x, y, &u, &w);
+				u = u < 0.0f ? 0.0f : u > 1.0f ? 1.0f : u;
+				w = w < 0.0f ? 0.0f : w > 1.0f ? 1.0f : w;
+			}
+			dx = x * dst->w - dst->w / 2.0f;
+			dy = y * dst->h - dst->h / 2.0f;
 			/* Turned as SDL_RenderCopyEx turns: clockwise on the screen */
 			p->position.x = cx + (float)(dx * ca - dy * sa);
 			p->position.y = cy + (float)(dx * sa + dy * ca);
@@ -134,9 +158,12 @@ void sfx_draw_curved(SDL_Renderer *r, SDL_Texture *src, const SDL_Rect *dst, dou
 			idx[n++] = k + GX + 2;
 			idx[n++] = k + GX + 1;
 		}
-	/* Past the picture's edge the GPU repeats its edge, the software
-	 * renderer wraps round: either way under the mask's black */
-	SDL_RenderGeometry(r, src, v, (GX + 1) * (GY + 1), idx, n);
+	if (SDL_RenderGeometry(r, src, v, (GX + 1) * (GY + 1), idx, n) != 0) {
+		static bool said;
+
+		if (!said) fprintf(stderr, "screens' shader: the curve's mesh: %s\n", SDL_GetError());
+		said = true;
+	}
 }
 
 bool sfx_bend_target(SDL_Renderer *r, int w, int h)
