@@ -150,12 +150,14 @@ glance:
 | **files or covers done** | a light climbs the four twice when a File Transfer batch is in, or the Scraper finishes |
 | **an achievement** | a sparkle: two pairs of lights take turns |
 | **L2+R2** (outside a game) | the level, flashed four times: all four lights at 75% and up, three at 50, two at 25, one at 10, the bottom light red below that |
+| **Battery Level**, if you turn it on | the same level, held still, off the cable (and on it with Charging Bar off), on the home and in games. Everything above shows over it, then it comes back; below 10% the red flash says it instead |
 | **the rest of the time** | dark |
 
 MENU > Side Lights turns the first six on or off: one switch each, and one,
-Files and Covers, for files moving and files or covers done. The red flash shows
-through everything else; L2+R2 flashes the level whatever is chosen. The
-lights are on or off, with nothing between, so there is no brightness to set.
+Files and Covers, for files moving and files or covers done; and Battery
+Level, which is off until you turn it on. The red flash shows through
+everything else; L2+R2 flashes the level whatever is chosen. The lights are
+on or off, with nothing between, so there is no brightness to set.
 
 MENU means three different menus depending on where you are, and each one is
 about the thing you are looking at: the firmware on the systems row, one

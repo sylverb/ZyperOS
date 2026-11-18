@@ -238,12 +238,6 @@ launch.game_short  # wrapped onto balanced lines, as launch.bios_size
 # library: no shot draws it yet
 library.scanning
 
-# lights: no shot draws it yet
-lights.bar
-lights.low
-lights.level
-lights.done
-
 # lowbatt: no shot draws it yet
 lowbatt.charging
 

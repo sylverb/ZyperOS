@@ -3057,22 +3057,37 @@ static void lights_row(void)
 	ck(n == k && !has_label(rows, n, "Side Lights"), "a device without lights has no row");
 	for (i = 0; i < k; i++) ck(pm[i] != PM_LIGHTS, "and the list does not name it");
 
-	/* The page: the five parts, as I picked them in the side lights lab */
+	/* The page: the five parts, as I picked them in the side lights lab, and
+	 * Battery Level with the battery's two (my ask after testing 1.0.6) */
 	n = sys_menu_lights_rows(LIGHTS_ALL, page, ids);
-	ck(n == 5, "the page has five rows");
+	ck(n == 6, "the page has six rows");
 	ck(!strcmp(lbl(&page[0]), "Charging Bar") && !strcmp(lbl(&page[1]), "Low Battery") &&
-	   !strcmp(lbl(&page[2]), "Volume and Brightness") &&
-	   !strcmp(lbl(&page[3]), "Files and Covers") && !strcmp(lbl(&page[4]), "Achievements"),
-	   "named in the lab's order");
+	   !strcmp(lbl(&page[2]), "Battery Level") && !strcmp(lbl(&page[3]), "Volume and Brightness") &&
+	   !strcmp(lbl(&page[4]), "Files and Covers") && !strcmp(lbl(&page[5]), "Achievements"),
+	   "named in the lab's order, Battery Level third");
+	{
+		static const side_light_part want[6] = { LP_BAR, LP_LOW, LP_BATTERY, LP_LEVEL, LP_DONE, LP_CHEER };
+
+		for (i = 0; i < n; i++)
+			ck(page[i].live && !strcmp(val(&page[i]), "On") && ids[i] == want[i],
+			   "each On, live, and its part");
+	}
+	n = sys_menu_lights_rows(LIGHTS_DEFAULT, page, ids);
 	for (i = 0; i < n; i++)
-		ck(page[i].live && !strcmp(val(&page[i]), "On") && ids[i] == (side_light_part)i,
-		   "each On, live, and its part");
+		ck(!strcmp(val(&page[i]), i == 2 ? "Off" : "On"), "a new card: Battery Level Off, the rest On");
 	n = sys_menu_lights_rows(side_lights_flip(LIGHTS_ALL, LP_DONE), page, ids);
-	ck(!strcmp(val(&page[3]), "Off") && !strcmp(val(&page[2]), "On"), "a part off says Off");
+	ck(!strcmp(val(&page[4]), "Off") && !strcmp(val(&page[3]), "On"), "a part off says Off");
 	ck(!strcmp(side_lights_value(LIGHTS_ALL, buf, sizeof buf), "All on") &&
 	   !strcmp(side_lights_value(0, buf, sizeof buf), "Off") &&
 	   !strcmp(side_lights_value((1u << LP_BAR) | (1u << LP_CHEER), buf, sizeof buf), "2 on"),
 	   "the row's words");
+	ck(!strcmp(side_lights_value(LIGHTS_DEFAULT, buf, sizeof buf), "All on"),
+	   "a new card still reads All on, Battery Level off to start");
+	ck(!strcmp(side_lights_value(1u << LP_BATTERY, buf, sizeof buf), "1 on") &&
+	   !strcmp(side_lights_value((1u << LP_BAR) | (1u << LP_CHEER) | (1u << LP_BATTERY), buf, sizeof buf), "3 on") &&
+	   !strcmp(side_lights_value(LIGHTS_DEFAULT & ~(1u << LP_DONE), buf, sizeof buf), "4 on") &&
+	   !strcmp(side_lights_value(LIGHTS_ALL & ~(1u << LP_DONE), buf, sizeof buf), "5 on"),
+	   "Battery Level counts once another part is off");
 }
 
 /* How each row sounds (DESIGN.md 9): the class each build sets beside its
