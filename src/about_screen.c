@@ -30,6 +30,9 @@
 #include <sys/statvfs.h>
 #include <time.h>
 #include <unistd.h>
+#ifdef ZYPEROS_KIT_BUILD
+#include "kit.h"
+#endif
 
 /* ---------- About --------------------------------------------------------- */
 
@@ -266,6 +269,14 @@ void about_screen(app *a)
 		if (a->in.pressed[IN_POWER] || idle_due(a)) { power_off(a); return; }
 		if (menu_leaving(a)) done = true;
 		if (a->in.pressed[IN_SELECT]) muse_open(a, NULL, NULL);
+#ifdef ZYPEROS_KIT_BUILD
+		/* A test kit's own page (src/kit.h), where the device has one */
+		if (a->in.pressed[IN_Y] && kit_page) {
+			kit_page(a);
+			plat_input_flush();
+			memset(&a->in, 0, sizeof a->in);
+		}
+#endif
 		if (in_repeat(&a->in, IN_LEFT)) {
 			moved_sound(a, IN_LEFT);
 			page = (page + ABOUT_PAGES - 1) % ABOUT_PAGES;
