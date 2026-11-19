@@ -136,7 +136,8 @@ typedef struct {
 	double           skip_before; /* after a seek: frames before this are not shown */
 	double           pos;         /* the newest frame's time */
 	bool             flushed, eof;
-	bool             any;         /* a picture of it has gone out */
+	bool             decoded;     /* the decoder has given a picture */
+	int              refused;     /* packets it refused before that */
 } vdec;
 
 static void say(const char *what, const char *path)
@@ -246,6 +247,8 @@ static int vdec_next(vdec *d, double *pts)
 
 		if (r == 0) {
 			int64_t ts = d->fr->best_effort_timestamp;
+
+			d->decoded = true;
 			double t = ts == AV_NOPTS_VALUE ? d->pos + d->fdur : ts * d->tb;
 
 			d->pos = t;
@@ -265,7 +268,14 @@ static int vdec_next(vdec *d, double *pts)
 			d->flushed = true;
 			continue;
 		}
-		if (d->pkt->stream_index == d->si) avcodec_send_packet(d->cc, d->pkt);
+		/* A decoder that refuses every packet and gives nothing - the
+		 * GPU-only AV1 decoder of an FFmpeg without dav1d - decodes
+		 * nothing: said at once, not after reading the whole file */
+		if (d->pkt->stream_index == d->si && avcodec_send_packet(d->cc, d->pkt) < 0 &&
+		    !d->decoded && ++d->refused >= 8) {
+			av_packet_unref(d->pkt);
+			return -1;
+		}
 		av_packet_unref(d->pkt);
 	}
 }
@@ -326,7 +336,6 @@ static void publish(vdec *d, double pts)
 	g_shm->slot[s].serial = ++g_serial ? g_serial : ++g_serial;
 	g_shm->slot[s].file = g_shm->file;
 	g_shm->slot[s].pts = pts;
-	d->any = true;
 	if (f->sample_aspect_ratio.num > 0 && f->sample_aspect_ratio.den > 0) {
 		g_shm->sar_num = (uint32_t)f->sample_aspect_ratio.num;
 		g_shm->sar_den = (uint32_t)f->sample_aspect_ratio.den;
@@ -468,8 +477,9 @@ static void *vthread(void *arg)
 			pthread_mutex_lock(&V.mu);
 			if (r <= 0) {
 				if (r < 0) say("decoding stopped in", d->path);
-				/* Not one picture of it: as good as no decoder */
-				if (r < 0 && !d->any) set_trouble(MPF_NO_PICTURE);
+				/* Not one picture from its decoder, to its end or an
+				 * error: as good as no decoder */
+				if (!d->decoded) set_trouble(MPF_NO_PICTURE);
 				d->eof = true;
 				continue;
 			}

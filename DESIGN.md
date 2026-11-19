@@ -2032,7 +2032,8 @@ Muse, so a card's saved places and modes still read.
   under a tenth and it takes that back; the first stretch after an open, a
   seek, a pause or the screen coming back is not judged, as the decoder
   catches up then on any file (src/muse/vidtry.h). A format nothing here
-  decodes, it says there is no picture. MP4 says so in words rather than
+  decodes, or a decoder that gives not one picture, it says there is no
+  picture. MP4 says so in words rather than
   show a slide show or a black box (2026-11-19: "If a size cannot keep up,
   MP4 must say so plainly"): the notice's slab (11.7) centered over the
   picture's foot, **inset** over the band, what the video is ("AV1 ·
