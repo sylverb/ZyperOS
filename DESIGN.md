@@ -838,9 +838,8 @@ its underline sits a grid step under the whole cell, never on the art, and
 the name a little lower again, so tall art such as the Game Boy keeps its
 lower body clear.
 **Grid** *(2026-11-15, the dense layout, with the shelves' Grid, 11.47)*: the
-systems in a grid, more of them at once - 18 on the 1024-wide canvas, six
-across and three rows - each its still (104 units) with its concise name
-under it in **chrome**, **text-soft**; the focus on a **surface** tile, 8
+systems in a grid, more of them at once, each its still with its concise name
+under it, **text-soft**; the focus on a **surface** tile, 8
 round its cell and its underline, corners radius.card (square with Square
 corners), with a thumbnail's lift as the shelf grid's focused cover has
 (UI_LIFT_FOCUS_SMALL, in the system's color in Salt & Pepper), its name in
@@ -848,19 +847,58 @@ corners), with a thumbnail's lift as the shelf grid's focused cover has
 tile and underline glide from cell to cell in **ms.quick**, the window of
 rows in **ms.move**. *(2026-11-15: a name and its underline alone were hard to
 find at arm's length among 21 systems; the tile makes the home's focus read as
-the shelf grid's.)* Only the
-focused system's sprite moves, as on the others. The grid's room and band are
-the shelf grid's: from the top bar's band and a section (96) to 568, the cells
-DS_GRID_GAP apart, as many across as cells of at least 128 fit between the
-64 margins, the grid in the middle of its room; the rail at the right when
-the systems are more than three rows. The band: the system's whole name in
+the shelf grid's.)* The focus is drawn in one place (src/home.c, `hg_focus`),
+so a look for it can be picked there one day. Only the
+focused system's sprite moves, as on the others.
+
+**The grid sizes itself** to how many systems the home shows *(2026-11-19:
+Man in Boots on the Discord, "a little too much white space" on a card of few
+systems, asked for a grid size to set; I wanted no setting, the grid fitting
+the systems instead, and picked from the home grid lab)*: the still in four
+steps, the biggest whose rows hold every system, so fewer systems get bigger
+tiles and a full card keeps the 1.0.6 grid. The name grows with its still. A
+step's cell is its still and 12 either side (129 for 104), the cells
+DS_GRID_GAP apart, as many across as fit between the 64 margins, the columns
+as few as the rows allow so the rows are even (5 is 3 + 2, 7 is 4 + 3), the
+grid in the middle of its room (from the top bar's band and a section, 96, to
+568). The rule is `gh_layout` (src/gridrule.h); `check-gridrule` holds this
+table. On the 1024 x 768 canvas:
+
+| Systems | Still | Across, rows | Name | On the Pixel 2 | On the Brick |
+|---|---|---|---|---|---|
+| 1 to 3 | 256 | up to 3, one row | **meta** (37, line 40) | 160 px | 256 px |
+| 4 to 8 | 176 | up to 4, two rows (4 is one) | **support** (28, line 36) | 110 px | 176 px |
+| 9, 10 | 128 | 5, two rows | **chrome** (24, line 28) | 80 px | 128 px |
+| 11, 12 | 104 | 6, two rows | **chrome** | 65 px | 104 px |
+| 13 and more | 104 | 6, three rows in sight, the rail | **chrome** | 65 px | 104 px |
+
+Thirteen and more is the 1.0.6 grid: cells of at least 128 filling the width
+(129 x 140 from 65, 98), three rows in sight, scrolling, the rail at the right.
+A wider canvas (a screen of another shape in the 768-high design space) has
+more across by the same rule. A short last row stands in the middle under
+the full ones. The stills are the 128-pixel ones drawn larger, nearest, as
+Gallery's are; nothing more is decoded. The band: the system's whole name in
 **game-title** (Favorites in the language that is on), A's **Open games** at
 its right, its count under it in **support**; the foot at 720: MENU and
-START, the place, SELECT. **Up** and **Down** move a row, stopping at the top and the foot
-with the edge sound (Down over a short last row lands on its last system);
-**Left** and **Right** step round the ends; **L1** and **R1** jump a screenful, or to the last (first) system where less is left, and from the last round to the first (as the shelf grid's, 11.47).
+START, the place, SELECT. **Up** and **Down** move a row, to the system
+nearest the place where the column started, so Down then Up comes back to the
+same system (Down from the last column over a short row lands on its last
+system), stopping at the top and the foot with the edge sound; **Left** and
+**Right** step, a press going round the ends and a held one stopping at the
+first or the last system with the edge sound once, as a list's does;
+**L1** and **R1** jump a screenful, or to the last (first) system where less is left, and from the last round to the first (as the shelf grid's, 11.47).
 A system hidden or emptied leaves the grid as it leaves the row; Favorites is
-a tile like any other.
+a tile like any other. When the systems change (one turned off or on in
+Home Systems, 11.48; Favorites or Recents made or emptied; a system's last
+game deleted; System Order turned), the grid **glides** from the tiles it drew
+last to its new shape: each system slides and grows to its new place on the
+**turn** curve in **ms.turn** (300), one that left fades out as its own still
+where it was in **ms.fade-out**, one that came fades in at its place. While a
+menu is over the home the glide waits at its start, drawing no more frames
+than the home would; it runs from the frame the menu starts to leave, so it
+is seen; a press during it moves the focus with its system. It runs only from a grid drawn last: never on the first frame, nor
+from Spotlight or Gallery. A frame of the glide is the same stills drawn at
+places between: nothing is decoded for it.
 
 MENU remains at the left footer with START after it, the position in the
 middle, and A at the right. SELECT still opens the player without another footer caption.
@@ -1170,7 +1208,7 @@ where it was.)*
 |---|---|
 | **Games** | Search Games, Play Time, Random Game, Downloads (11.53) |
 | **Display** | Appearance, Theme, Home Screen, System Order, Home Systems, Battery Icon, Screensaver, Shader and Strength (ZyperOS's own screens', 11.50; not on the Brick), Screen Colors, Night Mode (its page: Night Mode, Night Warmth, Night From, Until) |
-| **Sound** | Audio Output, Audio Channels, UI Sounds, Menu Music |
+| **Sound** | Audio Output, Audio Channels, UI Sounds, Menu Music, Rumble (a handheld with a motor ZyperOS runs, 11.54) |
 | **Connections** | USB Device (while a plug waits), Wi-Fi, Bluetooth, File Transfer, USB Accessories, Developer Mode |
 | **System** | Date & Time, Clock, Language, Power Button, Auto Off, Charge Limit, Side Lights, Storage, System Update |
 | **About** | About ZyperOS, Controls, Show Tutorial |
@@ -1417,9 +1455,9 @@ after it.
 the page: the row's value is `MENU_KEY_X` (src/menu.h), and the glyph is
 drawn at 40, the keyboard's action keys' size, where the value's right edge
 is, plain off the fill and UI_BUTTON_ON_ACCENT on it. The in-game menu's Quit
-is the one (11.28). "MENU, X" names the press on a Controls page: MENU's
-glyph, a comma and X's, for one press after the other, as a plus is for held
-together.
+(11.28) and the Quit of MP4's MENU (11.14) are the two. "MENU, X" names the
+press on a Controls page: MENU's glyph, a comma and X's, for one press after
+the other, as a plus is for held together.
 
 A pressed glyph is 92% size, its ring **accent**, with a soft **accent** halo
 (16 units of blur at three quarters), in **press**. A pressed arm of the
@@ -1815,7 +1853,8 @@ each in its own theme. The second layout, the clock beside the marks at the
 right, which Now Playing, a video's controls and MP4's shelf drew, is gone. MP4's shelf puts its album's title in the
 row between the clock and the marks, 24 clear of each, sliding when it is
 longer, and a video with its controls puts its title there in **action**
-**text**, centered. A background track
+**text**, centered, or sliding when it is longer, as a long name slides
+everywhere (2026-11-18: it was cut). A background track
 occupies only the space between the logo and the measured status corner. Its
 music mark, two eighth notes on one beam (heads of radius 3.5, stems and
 beam 2.5-unit strokes) in a 24-unit cell, uses **accent-ink**; paused
@@ -2005,9 +2044,26 @@ Muse, so a card's saved places and modes still read.
   key, which also does what it does (the first press too, as a remote's
   would), stay for **hold-controls** after the last press and for as long
   as it is paused, in over **quick** and out over **fade-out**; Y shows
-  them, or hides them at once. Paused or stopped, a play disc
-  (`ds_play_disc`) stands in the picture's middle. Under the lock the
-  controls stay hidden: no key they name works there.
+  them, or hides them at once. The header goes and comes with them, at the
+  same pace, and the ground around the picture eases with them from
+  **ground** to pure black (#000): hidden, there is the picture and black,
+  as a TV's player has it (2026-11-18: "when the footer times out and
+  disappears while video is playing, the top bar should too, and the
+  background should go pitch black"). Then, the surround gone, the picture
+  grows to the whole screen over **turn**, its shape kept and black only
+  where its shape is not the screen's, so a 4:3 film fills the Pixel 2
+  (2026-11-19: "if we could make the video go full size when the surround
+  collapses that's better"); on a key it goes back to its box over
+  **quick** before the surround comes back over **quick**, so the header
+  never stands over the picture. A 16:9 film is the same size either way
+  (its box is the screen's middle) and waits for neither. The title in the
+  header's row slides when it is wider than its room, from its start each
+  time the header comes back, and is drawn as it moves, paused too. Paused
+  or stopped, a play disc (`ds_play_disc`) stands in the picture's middle,
+  its triangle centered by its centroid (UI_GLYPH_PLAY is drawn so; it sat
+  a sixteenth of the disc right before, 2026-11-19). Under the lock the
+  controls stay hidden, and with them the header, the picture whole on
+  black: no key they name works there.
   The keys are hints as the shelves draw them (`page_hint`: a glyph and a word,
   **chrome** type, **text-soft**), from x 64 to 960 with the room shared out, and
   on a second row above where a language's words need it, never cut: A, B,
@@ -2038,6 +2094,15 @@ Muse, so a card's saved places and modes still read.
   with no panel.
 - **Shuffle All.** MENU on the music shelf: every song on the card, the mode
   set to shuffle and kept.
+- **Quit.** The last row of MP4's MENU on every shelf (music, books, videos,
+  All), from the shelf, an album's tracks or Now Playing: MP4 closes, as
+  SELECT closes it, to the screen it was opened from (the home, a menu, a
+  paused game's menu). **X** does it from any row of that MENU, heard as A
+  is, and the row carries X's glyph at its right (`MENU_KEY_X`, 11.9), as the
+  in-game menu's Quit and its X (11.28). Like SELECT it leaves what plays
+  playing, heard behind the home as above; A pauses it first for silence.
+  *(2026-11-18: "add an option in the mp4 menu to quit it, like we have in
+  games (with the shortcut too)".)*
 - **From the shelf.** While MP4 is heard behind the home or a games shelf
   (music, a book or a video's sound, playing; the menu music is quiet for
   it), **L2**/**R2** do what **L1**/**R1** do on Now Playing: the track
@@ -2613,9 +2678,11 @@ it still takes half a second to show the video. We should load the video as
 the bar fills up, or like 500ms after it starts filling up, to avoid
 affecting scrolling performance".)*
 Every cover whose game has a snap carries a mark at its bottom right, inset
-12: an **accent** disc 40 across with the play glyph in **on-accent**, 30 and
-inset 9 on the cards either side (at the turned corner of a turned cover),
-fading with the cover as its snap takes over, and none when Play on the Shelf or the console's switch is off. The
+12: an **accent** disc 40 across with the play glyph in **on-accent** (its
+triangle's centroid on the disc's middle), 30 and inset 9 on the cards
+either side (at the turned corner of a turned cover), fading with the cover
+as its snap takes over, and none when Play on the Shelf or the console's
+switch is off. The
 shelf knows from one listing of the folder's .media, taken when it is first
 drawn and again when the folder changes (looked at every 2 s at most). A
 Scraper run, from MENU or a console's Box Art, and a game's Cover and
@@ -3009,7 +3076,7 @@ and R1 go round them, and the panel is the same size on every tab:
 |---|---|
 | **Game** | Continue, Save, Load, Undo Load (after a load, below), Quick Slot, Disc (a game on more than one disc), Player 2 (an NES game, 11.43), Achievements, Reset, Quit |
 | **Display** | Display, Shader; a DS game's Screens, Swap Screens, Stylus |
-| **Controls** | Applies To, D-pad as Stick, Pak, Face Buttons, one row a button, Reset Buttons, Hotkeys (11.45) |
+| **Controls** | Applies To, D-pad as Stick, Pak, Rumble (11.54), Face Buttons, one row a button, Reset Buttons, Hotkeys (11.45) |
 | **Achievements** | the game's achievements, or the sentence that says why it has none (11.46) |
 
 **Undo Load** (1.0.6). Every load the player makes, Load's slot strip or
@@ -3064,6 +3131,8 @@ screen), in this order, the rows in brackets only where they apply:
    the system and this game has buttons of its own.]
 3. [**D-pad as Stick**, On or Off, this game's whatever Applies To says (11.45).]
 4. [**Pak**, an N64 game's, as it was in the Game list.]
+4b. [**Rumble**, Off, Low, Medium or Full for the scope Applies To shows, a
+   game whose core asked for the motor on a handheld with one (11.54).]
 5. [**Face Buttons**, **By Letter** or **By Place** (11.45).]
 6. **A, B, X, Y, L1, R1, L2, R2, START, SELECT**, the handheld's button at the
    left and what it does in this game at the right, in the core's own name
@@ -4753,8 +4822,8 @@ tutorial's front pose (10 degrees), lights the keys of the row under the
 cursor in the tutorial's lit look (accent fill, ring, halo): a button row its
 button; D-pad as Stick the d-pad (and SELECT on the N64 and the Dreamcast);
 Face Buttons the four faces; Reset Buttons every changed button; a swap
-both buttons while the cursor stays on the row; Applies To, Pak and Hotkeys
-nothing. A lit shoulder stands up out of the top edge. It **leans**
+both buttons while the cursor stays on the row; Applies To, Pak, Rumble and
+Hotkeys nothing. A lit shoulder stands up out of the top edge. It **leans**
 toward the side of the keys lit: the faces (A, B, X, Y) turn it 12 degrees
 from the front pose to show its right side (22 degrees), the d-pad 22 the
 other way (-12). A shoulder row turns it 12 toward its side (R1 and R2 to 22
@@ -5257,14 +5326,14 @@ tools/i18n-shots.py (`scene_bmp`).
 
 **Home Systems** in MENU's Display tab, under System Order: its value
 **All**, or how many of them are on ("8 of 10"); A opens its page. The page
-lists Favorites, Recents and Collections (11.54; its row once the card has
+lists Favorites, Recents and Collections (11.56; its row once the card has
 a collection, as a system has one only with games), a rule, then every system
 the card has games for, in the home's order (a system with none is not on the home, so not on
 the page either), each **On** or **Off**, Left, Right or A turning it over,
 heard as a ring, as Side Lights' parts are. Under a rule, the note: "Games
 stay on the card." All of them On as they ship. A system turned off leaves
 the home, and with it Random Game and Search; its games stay on Favorites,
-Recents and Collections (11.54), start from there on the system's own core and display, and resume
+Recents and Collections (11.56), start from there on the system's own core and display, and resume
 there at the next start after a power-off (on Recents, else Favorites), as
 they stay on the card and in File Transfer; its shelf comes back the moment it
 is on again. *(Davistoa on the Discord, 2026-11-19, hides every system and
@@ -5553,7 +5622,58 @@ kinds' A opens their pages, so the switches are Settings' rows.)*
 Host shots: `--downloads STATE`, 0 the plan, 1 a run going on, 2 every kind
 done or out, 3 no network and nobody signed in, 4 Settings.
 
-### 11.54 Collections
+### 11.54 Rumble
+*(Asked for on the Discord after 1.0.6: turn the motor down or off. My picks
+in the Sound lab, 2026-11-19: four levels, Low 35% and Medium 65% of what a
+game asks, a row in MENU and in a game's Controls tab.)*
+
+**The levels.** **Off**, **Low**, **Medium**, **Full**: none, 35% and 65% of
+the strength a game asks the motor for, and all of it, as ZyperOS always ran
+it. A new card is Full, so nobody who leaves the row alone feels a change.
+The level multiplies a system's own share (systems.cfg's `rumble|` lines:
+Doom's 35%, whose every shot rumbled), so Low on Doom is 12%; a level above
+Off never rounds to nothing (src/rumble.h, `rumble_run_pct`).
+
+**MENU > Sound > Rumble**, the Sound tab's last row, under Menu Music: the
+level for every game. Left and Right step it and stop at Off and Full,
+heard as Auto Off is (move when it moved, edge when it did not); A opens the
+four as a list with a note under it: "No rumble at all.", "35% of what a
+game asks.", "65% of what a game asks." or "As strong as each game asks."
+(one sentence each: the note has two lines, and German's and French's
+second sentence did not fit). **Each step is felt**: the motor buzzes
+once, 160 ms, at the level it comes to, and in the list the level under the
+cursor buzzes as the cursor comes onto it (Off is still). Only on a handheld
+with a motor ZyperOS runs (the profile's `rumble`): the Pixel 2. The Brick's
+motor (GPIO 227 on the axp2202's bldo3 rail) waits for its tester's first
+buzz; its profile turns the rows on with it.
+
+**In a game, the Controls tab's Rumble row**, under the Pak: only for a game
+whose core asked for the motor (Diatom answers PAUSED with `rumble=1`), on a
+handheld with one. It is the level of what Applies To shows, This Game or
+the system; a game without its own follows its system's, and a system
+without its own follows MENU's. A value the scope set itself is in the
+**accent-ink**, as a changed button is. A opens "Rumble: This Game" (or the
+system's name): the four levels, the tick on the scope's and **Default** on
+what it falls back to (MENU's, or the system's for a game that has one);
+choosing that one takes the scope's own level away. Left and Right step it
+as in MENU. Each change reaches the paused game at once (`SETRUMBLE`) and
+buzzes once at what the game will feel, its system's share included.
+
+**What it costs.** Nothing a frame: a level is one number Diatom multiplies
+by when a core changes its motor. The port is handed what the core asks and
+a 0 to 1 scale beside it (`diatom_port_rumble`): the Pixel 2's force
+feedback runs at the product; a motor whose strength is a voltage, as the
+Brick's, takes the scale as its step.
+
+**Kept**: `rumble` in the device's database (MENU's; no key at Full),
+`rumble.<TAG>` and `rumble.<TAG>.<file>` in the library's, each gone when it
+would equal what it falls back to; Rename and Delete Game move and remove a
+game's with its file. Host shots: `menu-rumble`, `menu-rumble-list` (and
+`-low`, `-off`: the list opened on those levels, with their notes),
+`gamemenu-rumble`, `gamemenu-rumble-list`, `gamemenu-rumble-own-list`
+(tools/i18n-shots.py; `--gm-rumble` stands in for the core's asking).
+
+### 11.56 Collections
 *(NextUI's top ten, and my picks in the Library lab, 2026-11-19: "Add to
 Collection" on a game, a group on the home after Favorites and Recents once
 there is one collection, Home Systems can hide it, and Delete Collection

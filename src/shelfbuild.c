@@ -522,7 +522,7 @@ static void drop_recents_shelf(app *a)
 	group_drop(a, HOMESYS_RECENT);
 }
 
-/* ---- Collections (src/collect.h, DESIGN.md 11.54) -----------------------
+/* ---- Collections (src/collect.h, DESIGN.md 11.56) -----------------------
  *
  * A group like Favorites and Recents, after them, once a collection has a
  * game on the shelves. Its shelf is one folder deep. At its top, a folder
