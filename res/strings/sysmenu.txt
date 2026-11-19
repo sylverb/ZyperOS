@@ -444,19 +444,8 @@ de = Erscheinungsbild
 ja = 外観
 it = Aspetto
 
-[sysmenu.scraper]
-note = A MENU row: box art, its sources and video snaps
-en = Scraper
-zh-Hans = 资料抓取
-es = Scraper
-pt-BR = Capas e vídeos
-fr = Scraper
-de = Cover und Videos
-ja = 画像と動画
-it = Copertine e video
-
 [sysmenu.cheevos]
-note = A MENU row and a row of the game menus: RetroAchievements' achievements, and the page the row opens. Called Achievements in English, and by each language's own word for them (not Cheevos, RetroAchievements' slang).
+note = A row of MENU > Downloads and of the game menus: RetroAchievements' achievements, and the page the row opens. Called Achievements in English, and by each language's own word for them (not Cheevos, RetroAchievements' slang).
 en = Achievements
 zh-Hans = 成就
 es = Logros
@@ -946,6 +935,17 @@ de = Bildschirmsperre
 ja = 画面ロック
 it = Blocca schermo
 
+[sysmenu.muse_quit]
+note = MP4's menu row, its last, with X's glyph at its right (X does it from any row): leave MP4 for the screen it was opened from, as SELECT does; what plays keeps playing. The in-game menu's Quit (gamemenu.quit), the same word
+en = Quit
+zh-Hans = 退出
+es = Salir
+pt-BR = Sair
+fr = Quitter
+de = Beenden
+ja = 終了
+it = Esci
+
 [sysmenu.muse_lock_when]
 note = Lock Screen's value while nothing plays: it only works while music plays. Begun with a capital.
 en = While playing
@@ -995,7 +995,7 @@ es = No disponible
 pt-BR = Indisponível
 fr = Non disponible
 de = Nicht enthalten
-ja = このビルドは非対応
+ja = 利用不可
 it = Non disponibile
 
 [sysmenu.sc_linked_as]

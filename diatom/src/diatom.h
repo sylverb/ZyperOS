@@ -20,6 +20,7 @@
 
 #include "diatom_port.h"
 #include "libretro.h"
+#include "corefail.h"
 
 /* How many cores one Diatom process keeps open (the resident registry in
  * core.c, whose comment says why 64), and so how many need a table of their
@@ -110,6 +111,9 @@ void diatom_core_stop(diatom_core *c);
  * launch skips dlopen and retro_init. Never unloaded. Locked, so the premap's
  * thread and a RUN can both call it. */
 diatom_core *diatom_core_resident(const char *path);
+/* Why the last core that would not open, `path`, would not (corefail.h):
+ * false when it was another core that failed last, or none */
+bool diatom_core_failure(const char *path, corefail *out);
 /* Map every *_libretro.so in `dir`, returning how many are now resident. For
  * the boot path: it costs less than reading them to warm the cache did, and
  * leaves the dynamic linker's work done as well. */

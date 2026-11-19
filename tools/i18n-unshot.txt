@@ -83,6 +83,11 @@ cheevos.progress
 cheevos.ra_user
 
 # controls: no shot draws it yet
+controls.key.left_right  # drawn as the d-pad's glyph, its left and right arms, on every Controls page (ctl_glyph_rows, DESIGN.md 11.9); the word is the row's data, which check-controls reads
+controls.key.up_down  # drawn as the d-pad's glyph, its up and down arms, as controls.key.left_right
+controls.key.dpad  # drawn as the whole d-pad's glyph, as controls.key.left_right
+controls.select_dpad  # drawn as SELECT's and the d-pad's glyphs, as controls.key.left_right
+controls.key.volume  # drawn as the volume keys' rocker glyph, as controls.key.left_right
 controls.show_keypad
 controls.disk_side
 controls.eject_disk
@@ -234,6 +239,11 @@ launch.bios_bytes.other  # a piece of launch.bios_size's line
 launch.couldnt_start
 launch.game_empty  # wrapped onto balanced lines, as launch.bios_size
 launch.game_short  # wrapped onto balanced lines, as launch.bios_size
+launch.core_machine  # wrapped onto balanced lines, as launch.bios_size
+launch.core_library  # wrapped onto balanced lines, as launch.bios_size
+launch.core_version  # wrapped onto balanced lines, as launch.bios_size
+launch.core_symbol  # wrapped onto balanced lines, as launch.bios_size
+launch.core_failed  # wrapped onto balanced lines, as launch.bios_size
 
 # library: no shot draws it yet
 library.scanning

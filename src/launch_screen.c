@@ -29,6 +29,7 @@
 #include "remap.h"
 #include "remapstore.h"
 #include "shelfbuild.h"
+#include "startfail.h"
 #include "stats.h"
 #include "strength.h"
 #include "ui.h"
@@ -517,7 +518,7 @@ void pm_after_run(app *a)
 	if (!up_read(PM_RAN, ran, sizeof ran)) return;
 	unlink(PM_RAN);
 	if (sscanf(ran, "%lld %lld %d", &start, &end, &rc) < 2) return;
-	for (i = 0; i < a->sys.count && !s; i++)
+	for (i = 0; i < sys_kept(a) && !s; i++)        /* Ports off the home too */
 		if (!strcmp(a->sys.systems[i].core, PORT_CORE) && pm_on_card(a->sys.systems[i].folder))
 			s = &a->sys.systems[i];
 	if (!s) return;
@@ -557,6 +558,10 @@ void launch(app *a)
 	 * have dropped every option rather than failing loudly. */
 	char *argv[35 + 2 * 32];
 	bool resident = false, want_menu;
+	/* Diatom said its core would not load (src/startfail.h): the shelf says
+	 * so, and a second Diatom that would fail the same way is not started */
+	bool core_said = false;
+	char core_msg[320] = "";
 	/* A DS game's resume by its language (ds_resume_fresh): what it will
 	 * run in, whether it starts fresh, and its auto state as it was */
 	char ds_lang[16] = "";
@@ -1028,8 +1033,21 @@ void launch(app *a)
 			 * never started. Say so by falling through to the path that
 			 * runs it the slow way, rather than fading the shelf back up
 			 * as though it had run. */
-			if (!resident)
-				fprintf(stderr, "resident emulator stopped answering, falling back\n");
+			if (!resident) {
+				plat_start_error se;
+
+				/* A core that would not load: the fallback is the same Diatom
+				 * and the same core, and the game would go straight back to
+				 * the shelf with nothing said (Davistoa's bsnes and MAME,
+				 * Discord, 2026-11-18). The reason is on the shelf instead. */
+				if (plat_resident_start_error(&se) && startfail_message(&se, core_msg, sizeof core_msg)) {
+					fprintf(stderr, "launch: %s refused: its core would not load: %s (%s%s%s)\n", s->name,
+					        se.core, se.why, se.name[0] ? " " : "", se.name);
+					core_said = true;
+				} else {
+					fprintf(stderr, "resident emulator stopped answering, falling back\n");
+				}
+			}
 		} else {
 			fprintf(stderr, "resident emulator did not answer, falling back\n");
 		}
@@ -1040,7 +1058,7 @@ void launch(app *a)
 		        waited);
 	}
 
-	if (!resident) {
+	if (!resident && !core_said) {
 		/* One game per process, the old way: the fallback for a resident that
 		 * is missing or has died. Diatom standalone IS the one-shot mode -
 		 * same binary, no socket - so the fallback stopped being a different
@@ -1220,8 +1238,15 @@ void launch(app *a)
 	 * than a shutdown. Everything above leaves the marker standing, which is
 	 * what makes the next boot able to tell them apart. */
 	playing_clear();
-	/* The game just played first on Recents (src/homesys.h) */
-	refresh_recents_shelf(a);
+	if (core_said) {
+		/* It never ran: not first on Recents, and the reason on the screen */
+		tick_theme(a);
+		render(a);
+		result_message(a, v->list.items[v->cursor].title, core_msg);
+	} else {
+		/* The game just played first on Recents (src/homesys.h) */
+		refresh_recents_shelf(a);
+	}
 
 	tick_theme(a);
 	render(a);
