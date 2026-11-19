@@ -98,10 +98,14 @@ ifeq ($(PORT),brick)
   # controls, which need no library.
   PKG_CONFIG ?= pkg-config
   # The level bar, ZyperOS's own drawing of it (port/osdbar.c), and the theme
-  # file the launcher writes for it to read (port/themefile.c), as on the Pixel 2
-  SRC += port/osdbar.c port/themefile.c
-  CFLAGS  += $(shell $(PKG_CONFIG) --cflags sdl2)
-  LDFLAGS += $(shell $(PKG_CONFIG) --libs sdl2) -lm -ldl -lpthread
+  # file the launcher writes for it to read (port/themefile.c), as on the Pixel 2;
+  # the FPS readout's drawing (port/hud.c), which the GPU path's shared drawing
+  # links. The GPU path draws with the PowerVR's EGL and GLES, whose headers
+  # and pkg-config files plastron's pvr-ge8300 package puts in the sysroot.
+  BRICK_PKGS := sdl2 egl glesv2
+  SRC += port/osdbar.c port/themefile.c port/hud.c
+  CFLAGS  += $(shell $(PKG_CONFIG) --cflags $(BRICK_PKGS))
+  LDFLAGS += $(shell $(PKG_CONFIG) --libs $(BRICK_PKGS)) -lm -ldl -lpthread
 endif
 
 ifeq ($(PORT),pixel2)
