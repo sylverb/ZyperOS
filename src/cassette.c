@@ -7,6 +7,7 @@
 #include "ds/sdf.h"
 
 #include <math.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -304,12 +305,18 @@ bool cas_ready(SDL_Renderer *r, cas_tex *t, const ds_theme *th, bool dark)
 	if (t->shell && t->glass && t->hub && t->pack && !memcmp(&t->paper, &th->surface, sizeof t->paper) &&
 	    t->dark == dark)
 		return true;
-	cas_free(t);
-	t->paper = th->surface;
-	t->dark = dark;
-	t->shell = shell(r, t);
-	t->glass = glass(r, t);
-	t->hub = hub(r, t);
-	t->pack = pack(r);
+	{
+		Uint32 t0 = SDL_GetTicks();
+
+		cas_free(t);
+		t->paper = th->surface;
+		t->dark = dark;
+		t->shell = shell(r, t);
+		t->glass = glass(r, t);
+		t->hub = hub(r, t);
+		t->pack = pack(r);
+		/* Once a theme: what it costs, for the device's log */
+		fprintf(stderr, "mp4: the cassette drawn in %u ms\n", (unsigned)(SDL_GetTicks() - t0));
+	}
 	return t->shell && t->glass && t->hub && t->pack;
 }
