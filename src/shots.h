@@ -129,7 +129,7 @@ extern int shot_np;
 extern int shot_np_track;
 extern int shot_locked;
 extern int shot_np_bench;
-extern int shot_video, shot_video_w, shot_video_h;
+extern int shot_video, shot_video_w, shot_video_h, shot_video_trouble;
 extern float shot_video_k, shot_video_grow;
 extern float shot_np_at;
 extern const char *shot_mode;
