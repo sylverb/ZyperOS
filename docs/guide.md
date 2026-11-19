@@ -834,7 +834,9 @@ it, in the shelf's Sort By order. A opens a folder and B goes back up one,
 onto the folder you left. A folder is one game when it holds that game's
 set: an `.m3u`, a PSP game's `EBOOT.PBP`, two or more discs of the one game,
 or a `.cue` (or `.gdi`) with its tracks; or when its one disc image is named
-as the folder is (`God of War/God of War (USA).iso`). A ScummVM game's folder is one game too. Any other folder
+as the folder is (`God of War/God of War (USA).iso`). An `.m3u` loose beside
+its discs is one game too: the discs it lists are not on the shelf, in the
+Grid, in Search Games or in Random Game, and the `.m3u` starts the game. A ScummVM game's folder is one game too. Any other folder
 is a folder of games, also with one game in it, so `PSP/Favorites/Ridge Racer (USA).iso`
 shows as the folder Favorites with Ridge Racer in it. Saves and save states go by the game's file name,
 as they always have, so two copies of one game in two folders share them. In the list (MENU > View >
@@ -1416,7 +1418,8 @@ If PortMaster closes with an error, ZyperOS says so when it comes back, with the
 ## Changing discs
 
 A game on more than one disc, a PlayStation game with an `.m3u` in a folder of
-its own, has a **Disc** row in the in-game menu: MENU, the Game tab, just under
+its own or beside its discs (the shelf then shows the `.m3u` alone, not each
+disc), has a **Disc** row in the in-game menu: MENU, the Game tab, just under
 Quick Slot. Its value is the disc in the tray, by the name the emulator gives
 it, or "Disc 2 of 3" when that name is too long for the row. **Left** and
 **Right** (or **A**) pick the next or the last disc, going round: Left on disc 1

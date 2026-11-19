@@ -356,7 +356,9 @@ void display_load(app *a)
 	g_shader_all = 0;
 	if (db_get_str(db_dev(), "shader", name, sizeof name, NULL) && (k = shader_index(name)) >= 0)
 		g_shader_all = k;
-	for (i = 0; i < a->sys.count; i++) {
+	/* The systems off the home too (app.parked): their games start from
+	 * Favorites and Recents in their own mode */
+	for (i = 0; i < sys_kept(a); i++) {
 		const char *tag = a->sys.systems[i].tag;
 
 		snprintf(key, sizeof key, "shader.%s", tag);
@@ -394,7 +396,7 @@ void display_save(app *a)
 	char key[CFG_STR + 16];
 	int i;
 
-	for (i = 0; i < a->sys.count; i++) {
+	for (i = 0; i < sys_kept(a); i++) {
 		snprintf(key, sizeof key, "display.%s", a->sys.systems[i].tag);
 		db_set_str(db_dev(), key, DMODES[a->view[i].dmode].name);
 	}
@@ -561,7 +563,9 @@ void core_load(app *a)
 	char key[CFG_STR + 16], name[CFG_STR], alt[CFG_STR];
 	int i, k, n;
 
-	for (i = 0; i < a->sys.count; i++) {
+	/* The systems off the home too: a game of one starts from Favorites and
+	 * Recents on the core chosen for it */
+	for (i = 0; i < sys_kept(a); i++) {
 		system_cfg *s = &a->sys.systems[i];
 		bool set = false;
 
@@ -1035,7 +1039,8 @@ void sort_shelf(app *a, int sys)
 		const char *tags[CFG_MAX_SYSTEMS];
 		int i;
 
-		for (i = 0; i < a->sys.count && i < CFG_MAX_SYSTEMS; i++)
+		/* Every owner's, the systems off the home too (app.parked) */
+		for (i = 0; i < sys_kept(a) && i < CFG_MAX_SYSTEMS; i++)
 			tags[i] = a->sys.systems[i].tag;
 		/* Collections' top is its folders alone, A to Z (src/collect.h) */
 		sort_apply_owned(v->list.items + v->nfold, v->owner + v->nfold,
@@ -4680,7 +4685,8 @@ void refresh_game_titles(app *a)
 {
 	int si, i;
 
-	for (si = 0; si < a->sys.count; si++) {
+	/* The systems off the home too, whose games Favorites copies again */
+	for (si = 0; si < sys_kept(a); si++) {
 		sysview *v = &a->view[si];
 		char file[LIB_PATH];
 		int owner, selected;
@@ -7376,7 +7382,7 @@ done:
 	art_shrink_stop();
 	/* Told, not waited for - see ra_flush_stop. */
 	ra_flush_stop();
-	for (int i = 0; i < a.sys.count; i++) {
+	for (int i = 0; i < sys_kept(&a); i++) {
 		free(a.view[i].tex); free(a.view[i].tw); free(a.view[i].th);
 		lib_free(&a.view[i].list);
 	}

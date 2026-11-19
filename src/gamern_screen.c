@@ -48,12 +48,12 @@ bool game_rename(app *a, int owner, const game_entry *g, char *said, size_t n)
 	said[0] = '\0';
 
 	/* Every other game of every system, at every depth of its folders
-	 * (sys_games): what one folder of a shelf shows is not all that shares
-	 * a name */
-	for (i = 0; i < a->sys.count; i++)
+	 * (sys_games), the systems off the home too (app.parked): what one
+	 * folder of a shelf shows is not all that shares a name */
+	for (i = 0; i < sys_kept(a); i++)
 		if (!a->view[i].owner && !is_muse(&a->sys.systems[i])) cap += sys_games(&a->view[i])->count;
 	if (cap > 0 && !(others = malloc((size_t)cap * sizeof *others))) cap = 0;
-	for (i = 0; i < a->sys.count && others; i++) {
+	for (i = 0; i < sys_kept(a) && others; i++) {
 		const system_cfg *o = &a->sys.systems[i];
 		bool hooked = lib_shelf_hooked(o->exts);
 
