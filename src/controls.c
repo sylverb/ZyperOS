@@ -1298,6 +1298,11 @@ void ctl_remap_say(const char *tag, const char *ext, rm_choice c, char *out, siz
 		snprintf(out, n, "%s", T(S_CONTROLS_NOTHING));
 		return;
 	}
+	/* The d-pad's side on a button, whatever the system (ct_choices) */
+	if (RM_IS_STICK(c.to)) {
+		snprintf(out, n, "%s", T(c.to == RM_STICK_TOGGLE ? S_CONTROLS_STICK_TOGGLE : S_CONTROLS_STICK_HOLD));
+		return;
+	}
 	if (!pd || p < 0 || !remap_label(&pd->pad[p])) {
 		snprintf(out, n, "%s", "");
 		return;

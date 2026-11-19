@@ -18,5 +18,8 @@ menu_result snaps_screen(app *a);
 
 /* --rows-report: Video Snaps' rows (menu_rows_print) */
 void snaps_rows_report(app *a);
+/* A run that ended behind the screens (src/dlq.h): the shelves take its
+ * names, covers and snaps, on the shelf's own pass */
+void scraper_after_run(app *a);
 
 #endif
