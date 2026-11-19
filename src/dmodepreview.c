@@ -231,8 +231,8 @@ static SDL_Texture *blur_of(SDL_Renderer *r, SDL_Texture *pic)
 	if (made != r) {
 		if (mid) SDL_DestroyTexture(mid);
 		if (small) SDL_DestroyTexture(small);
-		mid = SDL_CreateTexture(r, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_TARGET, 128, 96);
-		small = SDL_CreateTexture(r, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_TARGET, 32, 24);
+		mid = SDL_CreateTexture(r, PLAT_TARGET_FORMAT, SDL_TEXTUREACCESS_TARGET, 128, 96);
+		small = SDL_CreateTexture(r, PLAT_TARGET_FORMAT, SDL_TEXTUREACCESS_TARGET, 32, 24);
 		if (mid) SDL_SetTextureScaleMode(mid, SDL_ScaleModeLinear);
 		if (small) SDL_SetTextureScaleMode(small, SDL_ScaleModeLinear);
 		made = r;

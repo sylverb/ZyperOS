@@ -53,11 +53,11 @@ bool border_own_path(const system_cfg *s, char *out, size_t n)
 
 bool border_blur_here(void)
 {
-	const device_profile *p = plat_profile();
-
-	/* The GPU draws every frame on the Pixel 2 (and the host); the Brick's
-	 * CPU path would paint every page again ten times a second */
-	return !p || strcmp(p->id, "brick") != 0;
+	/* Where Diatom draws every frame with the GPU, as it draws the old
+	 * screens' shaders (the profile's gpu_shaders: the Pixel 2, the host, a
+	 * Brick test kit's GPU path); a CPU path would paint every page again
+	 * ten times a second */
+	return plat_gpu_shaders();
 }
 
 border_kind border_load(const app *a, int sys)
