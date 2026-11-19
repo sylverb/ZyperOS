@@ -72,6 +72,7 @@
 #include "spawn.h"
 #include "webtheme.h"
 #include "devmode.h"
+#include "dlq.h"
 #include "sshlink.h"
 #include "mdns.h"
 #include "linksteps.h"
@@ -2949,9 +2950,10 @@ static void on_speed(int half)
 	popup_now(T(S_POPUP_SPEED), body);
 }
 
-/* Called from inside plat_resident_wait when R2 turned a PSP game's d-pad
- * into the analog stick (on) or back: said over the game, and kept for the
- * game (rms_stick_put). The answers to the Controls tab's own SETSTICKs
+/* Called from inside plat_resident_wait when a button given Stick On/Off
+ * (the PSP's R2 by default, DESIGN.md 11.45) turned a game's d-pad into the
+ * analog stick (on) or back: said over the game, and kept for the game
+ * (rms_stick_put), as its D-pad as Stick row says. The answers to the Controls tab's own SETSTICKs
  * never come here (plat_resident_set_stick): its row said it already. */
 static void on_stick(bool on)
 {
@@ -3377,6 +3379,12 @@ static void status_gather(status_marks *m, bool moving)
 
 		m->update = true;
 		m->update_pct = v->st.total ? (int)(v->st.done * 100 / v->st.total) : 0;
+	} else if (dlq_behind()) {
+		/* The downloads going on behind the screen (src/dlq.h): the same
+		 * arrow into a tray, swept as far as the lanes have got; not on
+		 * their own page, which shows the run whole */
+		m->update = true;
+		m->update_pct = dlq_pct();
 	}
 }
 
@@ -4784,7 +4792,9 @@ int menu_measure(const menu_row *rows, int n, const char *heading)
 		int rw;
 
 		if (!rows[i].label) continue;          /* a rule measures nothing */
-		rw = ui_text_width(fm, rows[i].label);
+		/* buttons for a label (MENU_KEYS_MARK) are their glyphs' width */
+		rw = menu_keys_is(rows[i].label) ? ui_button_width(menu_keys_names(rows[i].label), MENU_KEYS_SIZE)
+		                                 : ui_text_width(fm, rows[i].label);
 		if (two_col && rows[i].value && !ROW_IS_NOTE(rows[i]))
 			rw += gap + menu_value_w(fm, rows[i].value);
 		if (rw > w) w = rw;
@@ -6622,6 +6632,9 @@ int main(int argc, char *argv[])
 		plat_resident_on_quick(on_quick);
 		plat_resident_on_tick(on_game_tick);
 		plat_resident_on_battery_empty(battery_empty);
+		/* The downloads' lanes go on behind every screen while it rests
+		 * (src/dlq.h); tick_theme steps them as one draws */
+		plat_on_input_wait(dlq_wait);
 		p2_setup();
 		heat_init(&g_heat);
 
@@ -7311,6 +7324,10 @@ int main(int argc, char *argv[])
 		g_ctl_shelf_pass = true;
 		tick_theme(&a);
 		g_ctl_shelf_pass = false;
+		/* A Scraper run that ended behind the screens may have named games
+		 * and brought covers and snaps: the shelves take them here, on the
+		 * shelf's own pass, as the page's close does (scraper_screen.c) */
+		scraper_after_run(&a);
 
 		/* Back on the shelf, so any menu MENU closed is closed: put the flag
 		 * down before anything here can open another. See menu_leaving. And
@@ -7420,6 +7437,9 @@ int main(int argc, char *argv[])
 
 done:
 	ctl_stop();
+	/* The downloads' requests with the launcher: the next run starts from
+	 * what is missing */
+	dlq_stop_all();
 	free_all_textures(&a);
 	/* First, and before IMG_Quit: the worker is inside IMG_Load, and the
 	 * views it decodes into are freed just below. The resizer too, for the

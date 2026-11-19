@@ -16,6 +16,9 @@
 
 typedef struct {
 	char name[COLL_NAME];
+	/* Its file's own name in Collections/, as the card has it: "RPGs.TXT"
+	 * is read and written as that, on a card whose file names keep case */
+	char file[COLL_NAME + 8];
 	char **line;          /* as read, its line end dropped */
 	int n, cap;
 } coll;
@@ -61,9 +64,11 @@ static void dir_path(char *out, size_t n)
 	snprintf(out, n, "%s/%s", g_card, COLL_DIR);
 }
 
-static bool file_path(const char *name, char *out, size_t n)
+/* Collection c's file: its own name, or <name>.txt for one this makes */
+static bool file_path(const coll *c, char *out, size_t n)
 {
-	return snprintf(out, n, "%s/%s/%s.txt", g_card, COLL_DIR, name) < (int)n;
+	if (c->file[0]) return snprintf(out, n, "%s/%s/%s", g_card, COLL_DIR, c->file) < (int)n;
+	return snprintf(out, n, "%s/%s/%s.txt", g_card, COLL_DIR, c->name) < (int)n;
 }
 
 static int by_name(const void *pa, const void *pb)
@@ -128,7 +133,9 @@ void coll_load(const char *card)
 		if (!list_name(e->d_name, stem, sizeof stem)) continue;
 		memset(c, 0, sizeof *c);
 		snprintf(c->name, sizeof c->name, "%s", stem);
-		if (!file_path(stem, path, sizeof path) || !read_list(c, path)) {
+		/* list_name held its stem to COLL_NAME, so it fits with ".txt" */
+		memcpy(c->file, e->d_name, strlen(stem) + 5);
+		if (!file_path(c, path, sizeof path) || !read_list(c, path)) {
 			coll_drop(c);
 			continue;
 		}
@@ -232,7 +239,7 @@ static bool write_list(const coll *c)
 
 	dir_path(dir, sizeof dir);
 	if (mkdir(dir, 0755) != 0 && errno != EEXIST) return false;
-	if (!file_path(c->name, path, sizeof path) || !(f = atomic_open(path, 0644))) return false;
+	if (!file_path(c, path, sizeof path) || !(f = atomic_open(path, 0644))) return false;
 	for (int k = 0; k < c->n; k++)
 		if (fprintf(f, "%s\n", c->line[k]) < 0) { atomic_abort(f, path); return false; }
 	return atomic_commit(f, path);
@@ -315,7 +322,8 @@ static int index_of(const char *name)
 
 int coll_create(const char *name, const char *folder, const char *file)
 {
-	char t[COLL_NAME * 2], line[COLL_LINE];
+	/* The name checked first (coll_name_check), so it fits a name's field */
+	char t[COLL_NAME], line[COLL_LINE];
 	coll *c;
 
 	if (g_n >= COLL_MAX || coll_name_check(name, -1) != COLL_NAME_OK) return -1;
@@ -336,14 +344,19 @@ int coll_create(const char *name, const char *folder, const char *file)
 
 int coll_rename(int i, const char *name)
 {
-	char t[COLL_NAME * 2], from[800], to[800];
+	char t[COLL_NAME], from[800], to[800];
+	coll renamed;
 
 	if (i < 0 || i >= g_n || coll_name_check(name, i) != COLL_NAME_OK) return -1;
 	trimmed(name, t, sizeof t);
 	if (!strcmp(t, g_coll[i].name)) return i;
-	if (!file_path(g_coll[i].name, from, sizeof from) || !file_path(t, to, sizeof to)) return -1;
+	/* Its new file is <name>.txt, whatever its old one's extension was */
+	memset(&renamed, 0, sizeof renamed);
+	memcpy(renamed.name, t, sizeof renamed.name);
+	if (!file_path(&g_coll[i], from, sizeof from) || !file_path(&renamed, to, sizeof to)) return -1;
 	if (rename(from, to) != 0) return -1;
-	snprintf(g_coll[i].name, sizeof g_coll[i].name, "%s", t);
+	memcpy(g_coll[i].name, t, sizeof g_coll[i].name);
+	g_coll[i].file[0] = '\0';
 	qsort(g_coll, (size_t)g_n, sizeof *g_coll, by_name);
 	return index_of(t);
 }
@@ -352,7 +365,7 @@ bool coll_delete(int i)
 {
 	char path[800];
 
-	if (i < 0 || i >= g_n || !file_path(g_coll[i].name, path, sizeof path)) return false;
+	if (i < 0 || i >= g_n || !file_path(&g_coll[i], path, sizeof path)) return false;
 	if (unlink(path) != 0 && errno != ENOENT) return false;
 	coll_drop(&g_coll[i]);
 	memmove(&g_coll[i], &g_coll[i + 1], (size_t)(g_n - i - 1) * sizeof *g_coll);

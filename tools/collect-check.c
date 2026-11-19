@@ -152,6 +152,16 @@ int main(void)
 	ck(coll_delete(0) && coll_count() == 2 && !slurp("A Puzzle Box.txt") && !strcmp(coll_name(0), "Couch Co-op"),
 	   "deleted, its file with it");
 
+	/* The list whose file says .TXT, renamed: its new file is <name>.txt,
+	 * the old one gone, on a card whose names keep case as on one that
+	 * does not */
+	i = coll_rename(1, "RPGs");
+	ck(i >= 0 && !strcmp(coll_name(i), "RPGs") && slurp("RPGs.txt") && !slurp("rpgs to finish.TXT"),
+	   "a .TXT list renamed to <name>.txt");
+	ck(coll_add(i, "NES", "Brick Hero.nes") && slurp("RPGs.txt") && strstr(slurp("RPGs.txt"), "Brick Hero"),
+	   "and written there after");
+	i = coll_rename(i, "rpgs to finish");
+
 	/* Read again: the same */
 	coll_load(g_card);
 	ck(coll_count() == 2 && coll_has(1, "GBC", "Sky Fort.gbc") && coll_games(0) == 3,
