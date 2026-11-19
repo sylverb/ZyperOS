@@ -1,7 +1,8 @@
 // Stills of the tour at chosen frames, and a contact sheet of them, to look at
 // before the full render: npm run stills [-- FRAME ...]
 // STILLS_COMP and STILLS_TIMELINE pick another composition and its scenes
-// (npm run stills:reddit: Reddit105, src/reddit/timeline.ts, out/reddit/).
+// (npm run stills:reddit: Reddit105, src/reddit/timeline.ts, out/reddit/), and
+// STILLS_MUSIC the file with its track's bpm (npm run stills:106).
 // Without frames: two of every scene (scenes last whole bars of src/music.ts's track) (just after it lands, and past its
 // middle). Writes out/stills/<frame>.jpeg and out/contact-sheet.jpg,
 // six to a row in the order given.
@@ -25,7 +26,8 @@ if (!frames.length) {
   const src = readFileSync(path.join(root, process.env.STILLS_TIMELINE ?? "src/timeline.ts"), "utf8");
   const from = src.search(/export const [A-Z_]*SCENES/);
   const table = src.slice(from, src.indexOf("];", from));
-  const bpm = Number(readFileSync(path.join(root, "src/music.ts"), "utf8").match(/bpm: ([\d.]+)/)[1]);
+  // STILLS_MUSIC: the composition's own track, where it has one (src/v106/music.ts)
+  const bpm = Number(readFileSync(path.join(root, process.env.STILLS_MUSIC ?? "src/music.ts"), "utf8").match(/bpm: ([\d.]+)/)[1]);
   const beat = 1800 / bpm;
   const beats = [...table.matchAll(/bars: ([\d.]+)/g)].map((m) => Math.round(Number(m[1]) * 4));
   let at = 0;
