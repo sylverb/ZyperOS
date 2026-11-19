@@ -1979,6 +1979,10 @@ static bool state_plane_msg(const diatom_msg *m)
 	case DIATOM_MSG_SETDISPLAY: display_set(m); return true;
 	case DIATOM_MSG_SETHUD:     hud_set(m); return true;
 	case DIATOM_MSG_SETRUMBLE:  diatom_env_rumble_level(m->rumble); return true;
+	case DIATOM_MSG_SETEQ:
+		if (!diatom_audio_eq(m->bands))
+			diatom_proto_send("ERROR\tcode=bad_eq\tmsg=%s", m->bands);
+		return true;
 	case DIATOM_MSG_OVERLAY:
 		/* Not on the state plane's query/write shape, because there is no
 		 * state to query: it is a thing that happens and then stops. The
