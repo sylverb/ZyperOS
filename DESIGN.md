@@ -1254,9 +1254,9 @@ where it was.)*
 
 | Tab | Rows |
 |---|---|
-| **Games** | Search Games, Play Time, Random Game, Achievements, Scraper |
+| **Games** | Search Games, Play Time, Random Game, Downloads (11.53) |
 | **Display** | Appearance, Theme, Home Screen, System Order, Home Systems, Battery Icon, Screensaver, Shader and Strength (ZyperOS's own screens', 11.50; not on the Brick), Screen Colors, Night Mode (its page: Night Mode, Night Warmth, Night From, Until) |
-| **Sound** | Audio Output, Audio Channels, UI Sounds, Menu Music |
+| **Sound** | Audio Output, Audio Channels, UI Sounds, Menu Music, Rumble (a handheld with a motor ZyperOS runs, 11.54) |
 | **Connections** | USB Device (while a plug waits), Wi-Fi, Bluetooth, File Transfer, USB Accessories, Developer Mode |
 | **System** | Date & Time, Clock, Language, Power Button, Auto Off, Charge Limit, Side Lights, Storage, System Update |
 | **About** | About ZyperOS, Controls, Show Tutorial |
@@ -1276,7 +1276,7 @@ scrolls itself, so every Controls page is measured with the font
 (`--controls-fit`, in check-controls-shots).
 
 A key or a token is shown as four bullets and its last four characters,
-"••••1a2b", and nowhere in full: a value in a row (MENU > Scraper), a
+"••••1a2b", and nowhere in full: a value in a row (MENU > Downloads > Settings), a
 link on the File Transfer page. Notes under a rule fit the panel on one line
 each, about 30 characters at **menu**; a longer one is said in two.
 
@@ -1386,7 +1386,7 @@ left-aligned beside it. A progress notice is the achievement's name in
 **meta** **text-dim**, a strip **bar** high in **accent-ink** on **track**,
 and the count ("74 / 100") in **meta** **text** under it. Notices take turns:
 each has its time and a 300 ms gap before the next; unlocks go ahead of
-progress. The achievements list (MENU > Achievements) has the badge at the start
+progress. The achievements list (a game's Achievements row) has the badge at the start
 of every row, greyed and faded until earned, and the count where the points
 are while it moves. *(My picks in the achievements lab,
 docs/design/mock/cheevos-lab.html, 2026-11-05: badge at the left, strip, on
@@ -1503,9 +1503,9 @@ after it.
 the page: the row's value is `MENU_KEY_X` (src/menu.h), and the glyph is
 drawn at 40, the keyboard's action keys' size, where the value's right edge
 is, plain off the fill and UI_BUTTON_ON_ACCENT on it. The in-game menu's Quit
-is the one (11.28). "MENU, X" names the press on a Controls page: MENU's
-glyph, a comma and X's, for one press after the other, as a plus is for held
-together.
+(11.28) and the Quit of MP4's MENU (11.14) are the two. "MENU, X" names the
+press on a Controls page: MENU's glyph, a comma and X's, for one press after
+the other, as a plus is for held together.
 
 A pressed glyph is 92% size, its ring **accent**, with a soft **accent** halo
 (16 units of blur at three quarters), in **press**. A pressed arm of the
@@ -1880,7 +1880,7 @@ fits, else the fewest lines that fit and, of those, the break whose widest
 line is narrowest (src/linebreak.c). A sentence set left in a list's place
 (the in-game menu's Achievements tab, 11.46) is filled instead, each line as
 far as it goes, so it reaches the panel's right margin. Either way, the ">"
-of a way through the menus ("MENU > Achievements") stays with the word before
+of a way through the menus ("MENU > Downloads") stays with the word before
 it: no line starts with one.
 
 ### 11.12 Header and status corner
@@ -1901,7 +1901,8 @@ each in its own theme. The second layout, the clock beside the marks at the
 right, which Now Playing, a video's controls and MP4's shelf drew, is gone. MP4's shelf puts its album's title in the
 row between the clock and the marks, 24 clear of each, sliding when it is
 longer, and a video with its controls puts its title there in **action**
-**text**, centered. A background track
+**text**, centered, or sliding when it is longer, as a long name slides
+everywhere (2026-11-18: it was cut). A background track
 occupies only the space between the logo and the measured status corner. Its
 music mark, two eighth notes on one beam (heads of radius 3.5, stems and
 beam 2.5-unit strokes) in a 24-unit cell, uses **accent-ink**; paused
@@ -2091,9 +2092,26 @@ Muse, so a card's saved places and modes still read.
   key, which also does what it does (the first press too, as a remote's
   would), stay for **hold-controls** after the last press and for as long
   as it is paused, in over **quick** and out over **fade-out**; Y shows
-  them, or hides them at once. Paused or stopped, a play disc
-  (`ds_play_disc`) stands in the picture's middle. Under the lock the
-  controls stay hidden: no key they name works there.
+  them, or hides them at once. The header goes and comes with them, at the
+  same pace, and the ground around the picture eases with them from
+  **ground** to pure black (#000): hidden, there is the picture and black,
+  as a TV's player has it (2026-11-18: "when the footer times out and
+  disappears while video is playing, the top bar should too, and the
+  background should go pitch black"). Then, the surround gone, the picture
+  grows to the whole screen over **turn**, its shape kept and black only
+  where its shape is not the screen's, so a 4:3 film fills the Pixel 2
+  (2026-11-19: "if we could make the video go full size when the surround
+  collapses that's better"); on a key it goes back to its box over
+  **quick** before the surround comes back over **quick**, so the header
+  never stands over the picture. A 16:9 film is the same size either way
+  (its box is the screen's middle) and waits for neither. The title in the
+  header's row slides when it is wider than its room, from its start each
+  time the header comes back, and is drawn as it moves, paused too. Paused
+  or stopped, a play disc (`ds_play_disc`) stands in the picture's middle,
+  its triangle centered by its centroid (UI_GLYPH_PLAY is drawn so; it sat
+  a sixteenth of the disc right before, 2026-11-19). Under the lock the
+  controls stay hidden, and with them the header, the picture whole on
+  black: no key they name works there.
   The keys are hints as the shelves draw them (`page_hint`: a glyph and a word,
   **chrome** type, **text-soft**), from x 64 to 960 with the room shared out, and
   on a second row above where a language's words need it, never cut: A, B,
@@ -2124,6 +2142,15 @@ Muse, so a card's saved places and modes still read.
   with no panel.
 - **Shuffle All.** MENU on the music shelf: every song on the card, the mode
   set to shuffle and kept.
+- **Quit.** The last row of MP4's MENU on every shelf (music, books, videos,
+  All), from the shelf, an album's tracks or Now Playing: MP4 closes, as
+  SELECT closes it, to the screen it was opened from (the home, a menu, a
+  paused game's menu). **X** does it from any row of that MENU, heard as A
+  is, and the row carries X's glyph at its right (`MENU_KEY_X`, 11.9), as the
+  in-game menu's Quit and its X (11.28). Like SELECT it leaves what plays
+  playing, heard behind the home as above; A pauses it first for silence.
+  *(2026-11-18: "add an option in the mp4 menu to quit it, like we have in
+  games (with the shortcut too)".)*
 - **From the shelf.** While MP4 is heard behind the home or a games shelf
   (music, a book or a video's sound, playing; the menu music is quiet for
   it), **L2**/**R2** do what **L1**/**R1** do on Now Playing: the track
@@ -2544,7 +2571,9 @@ trident; Follow the port; Zyper cheers first.)*
 ---
 
 ### 11.19 Scraper and video snaps
-MENU > **Scraper** opens a page in the Flash Drive pages' look (11.18):
+MENU > Downloads' Covers, Videos and Names and Details rows (11.53; MENU >
+**Scraper** until the Downloads row took its place) open a page in the Flash
+Drive pages' look (11.18):
 Zyper and the heading at the top, the keys at the foot. A console's own
 **Box Art** opens the same page for that console alone. MENU's Scraper row
 still says what is missing (the count, "complete", "needs Wi-Fi"), counted
@@ -2697,9 +2726,11 @@ it still takes half a second to show the video. We should load the video as
 the bar fills up, or like 500ms after it starts filling up, to avoid
 affecting scrolling performance".)*
 Every cover whose game has a snap carries a mark at its bottom right, inset
-12: an **accent** disc 40 across with the play glyph in **on-accent**, 30 and
-inset 9 on the cards either side (at the turned corner of a turned cover),
-fading with the cover as its snap takes over, and none when Play on the Shelf or the console's switch is off. The
+12: an **accent** disc 40 across with the play glyph in **on-accent** (its
+triangle's centroid on the disc's middle), 30 and inset 9 on the cards
+either side (at the turned corner of a turned cover), fading with the cover
+as its snap takes over, and none when Play on the Shelf or the console's
+switch is off. The
 shelf knows from one listing of the folder's .media, taken when it is first
 drawn and again when the folder changes (looked at every 2 s at most). A
 Scraper run, from MENU or a console's Box Art, and a game's Cover and
@@ -3093,7 +3124,7 @@ and R1 go round them, and the panel is the same size on every tab:
 |---|---|
 | **Game** | Continue, Save, Load, Undo Load (after a load, below), Quick Slot, Disc (a game on more than one disc), Player 2 (an NES game, 11.43), Achievements, Reset, Quit |
 | **Display** | Display, Shader; a DS game's Screens, Swap Screens, Stylus |
-| **Controls** | Applies To, D-pad as Stick, Pak, Face Buttons, one row a button, Reset Buttons, Hotkeys (11.45) |
+| **Controls** | Applies To, D-pad as Stick, Pak, Rumble (11.54), Face Buttons, one row a button, Reset Buttons, Hotkeys (11.45) |
 | **Achievements** | the game's achievements, or the sentence that says why it has none (11.46) |
 
 **Undo Load** (1.0.6). Every load the player makes, Load's slot strip or
@@ -3148,6 +3179,8 @@ screen), in this order, the rows in brackets only where they apply:
    the system and this game has buttons of its own.]
 3. [**D-pad as Stick**, On or Off, this game's whatever Applies To says (11.45).]
 4. [**Pak**, an N64 game's, as it was in the Game list.]
+4b. [**Rumble**, Off, Low, Medium or Full for the scope Applies To shows, a
+   game whose core asked for the motor on a handheld with one (11.54).]
 5. [**Face Buttons**, **By Letter** or **By Place** (11.45).]
 6. **A, B, X, Y, L1, R1, L2, R2, START, SELECT**, the handheld's button at the
    left and what it does in this game at the right, in the core's own name
@@ -3935,7 +3968,7 @@ phone's tethering is a way out to the internet as Wi-Fi is. One rule says so
 for every fetch, net_internet (phonelink_way_out): Wi-Fi joined, or a
 default route on a link other than lo; never the USB cable to a computer,
 which gives the handheld no route (it leads nowhere, 2026-11-09). It gates
-MENU > Scraper, a game's Cover and Video, Box Art, Album Art, Achievements,
+MENU > Downloads, a game's Cover and Video, Box Art, Album Art, Achievements,
 System Update and PortMaster's install, and with no radio Achievements, Box
 Art and Album Art come back while it holds (sys_ui.online). The phone may be
 on mobile data: when the route out with the lowest metric is phone0's
@@ -4090,7 +4123,7 @@ a clip, START and then anything.)*
 **One rule.** A job the device was asked to do holds Auto Off the way the
 charger does: the countdown does not run while it works, and a whole fresh
 one starts when it ends. The jobs: the scraper's art and video downloads
-(a run of MENU > Scraper's page, from MENU or a console's Box Art),
+(a run of the Scraper's page, from MENU > Downloads or a console's Box Art),
 System Update's download, check of its files and install, PortMaster's install (whichever
 screen is up, or a game), Storage's walk of the card, File Transfer's copies
 and connected browsers, and Muse's album covers. A Scraper or Achievements
@@ -4142,6 +4175,25 @@ Genesis's `.bin` are cartridges) has only folders of games. The folders
 EmulationStation keeps a system's art in (images, videos, media, boxart,
 snaps, wheel, box3d and the rest, lib_es_media_dir) and MinUI's Imgs are
 never folders of games, and are not counted as left out.
+
+**A game with a loose `.m3u`** is one entry too, the `.m3u` *(metior and
+Davistoa on the Discord, 2026-11-19; my OK)*: the disc images it names are
+not entries, so they are off the shelf, the Grid, the list, Search Games and
+Random Game, and the `.m3u` starts the game with its discs to swap. Its names
+are read as Delete Game and File Transfer read them (src/sheet.c): relative
+to the `.m3u`'s folder, into the folders under it (a set folder whose launch
+disc it names goes whole; a folder of games keeps the games it does not
+name; discs kept in a hidden folder were never entries), `#` lines and CRLF
+ends skipped, matched without case. A disc no `.m3u` names stays, a name
+that is not on the card or that leaves the system's folder hides nothing,
+two `.m3u` may name one disc, and every `.m3u` stays. Disc images only
+(src/library.c's SET_EXTS): Doom's `.m3u` names WADs, and each is a game too.
+In the scan, once per read of the card (hide_m3u_discs, after the walk), so
+the saved library and the check have it, and a shelf with no `.m3u` pays
+nothing but a look at each entry's extension: on the Mac, 1,000 loose
+three-disc sets (4,000 files) read in 36-39 ms against 3.4 ms, and 4,000
+games with no `.m3u` in the same time as before. `check-titles` holds the
+cases.
 
 Everything about a system's games rather than what its shelf shows goes by
 all of them, in every folder: the home's count, Favorites, Search Games,
@@ -4822,8 +4874,8 @@ tutorial's front pose (10 degrees), lights the keys of the row under the
 cursor in the tutorial's lit look (accent fill, ring, halo): a button row its
 button; D-pad as Stick the d-pad (and SELECT on the N64 and the Dreamcast);
 Face Buttons the four faces; Reset Buttons every changed button; a swap
-both buttons while the cursor stays on the row; Applies To, Pak and Hotkeys
-nothing. A lit shoulder stands up out of the top edge. It **leans**
+both buttons while the cursor stays on the row; Applies To, Pak, Rumble and
+Hotkeys nothing. A lit shoulder stands up out of the top edge. It **leans**
 toward the side of the keys lit: the faces (A, B, X, Y) turn it 12 degrees
 from the front pose to show its right side (22 degrees), the d-pad 22 the
 other way (-12). A shoulder row turns it 12 toward its side (R1 and R2 to 22
@@ -5293,7 +5345,7 @@ page of switches in MENU, and a new group, Recents, beside Favorites.)*
 
 **Recents** is a group like Favorites: the ten games played last, from the
 play time's sessions (src/stats.h, `stats_recent`), newest first, from every
-system the home shows. It sits right after Favorites, first when there is
+system with games, on the home or turned off it. It sits right after Favorites, first when there is
 none, and is named **Recents** in the language that is on. Its card is a
 placeholder until a real design comes: a pixel-art clock with ZyperOS's lime
 rim, its minute hand stepping between twelve and one in two poses of 400 ms,
@@ -5311,9 +5363,15 @@ for, in the home's order (a system with none is not on the home, so not on
 the page either), each **On** or **Off**, Left, Right or A turning it over,
 heard as a ring, as Side Lights' parts are. Under a rule, the note: "Games
 stay on the card." All of them On as they ship. A system turned off leaves
-the home, and with it Random Game, Search, Favorites and Recents; its games
-stay on the card and in File Transfer, and come back the moment it is on
-again. On a handheld without GPU frames (the Brick's profile today,
+the home, and with it Random Game and Search; its games stay on Favorites and
+Recents, start from there on the system's own core and display, and resume
+there at the next start after a power-off (on Recents, else Favorites), as
+they stay on the card and in File Transfer; its shelf comes back the moment it
+is on again. *(Davistoa on the Discord, 2026-11-19, hides every system and
+lives in Favorites; my OK.)* The systems turned off keep their listings after
+the home's shelves (`app.parked`, `sys_kept`), so Favorites and Recents
+resolve against them as against the home's; `make check-homesys-groups`
+holds it on the host launcher. On a handheld without GPU frames (the Brick's profile today,
 `plat_gpu_frames`), a system whose cores need them (config/systems.cfg's
 `needs` lines: the Dreamcast, NAOMI, Atomiswave, the N64, the PSP and
 Saturn) leaves the home the same way, and is no row of this page, since it
@@ -5334,7 +5392,8 @@ advance vs having to load the game while on WiFi would greatly enhance RA
 offline feature. Think of it like a scraper for achievements." So the page is
 the Scraper's (11.19), in its look.)*
 
-MENU > **Achievements** opens a page where A once went straight to the
+MENU > Downloads > **Achievements** (11.53; MENU > **Achievements** until
+the Downloads row took its place) opens a page where A once went straight to the
 sign-in keyboard; the sign-in is now behind **Y** (**A** while nobody is
 signed in). Three states, as the Scraper's page:
 
@@ -5376,7 +5435,7 @@ rows of seven; the counts as marks; over the keys `393 games ready offline ·
 run that ended well.
 
 The "not checked yet" message (A on a game's Achievements row) names it:
-"...or with Download in MENU > Achievements." Host shots: `--radl-page
+"...or with Download in MENU > Downloads." Host shots: `--radl-page
 STATE`, 0 to 14 (src/radl_screen.c).
 
 ### 11.50 The screens' shader
@@ -5544,3 +5603,103 @@ Checked with the stub core, which can repeat every second picture
 (`STUBCORE_DUPE`) or run two or three frames in a call (`STUBCORE_SPAN`):
 `make check-hudspeed` (end to end, 1.00x and 30 fps for each, below 1x for a
 slow core and the step in fast forward) and `make check-emumeter` (the rule).
+
+### 11.53 Downloads
+*(My picks in the downloads lab, 2026-11-19: one place for every download of
+game data, its name **Downloads**, one door - the Scraper and Achievements
+rows go - and a list with Download on top. The lab's other picks, a run that
+goes on behind the screens (11.19) and side by side on lanes of its own
+(src/dlq.h), came first.)*
+
+MENU > Games > **Downloads**, where Scraper was, is a MENU page (11.3) of
+every download of game data, src/dl_screen.c:
+
+- **Download**, first, so A, A from MENU gets everything: what every kind
+  that is in adds to the card and the time it takes, "186 MB · 15 min"
+  (the Scraper's and the achievements download's own estimates, the two
+  servers side by side, so the longer of the two); "Nothing to fetch";
+  "Needs Wi-Fi"; "Downloading · 41%" while a run goes on. A starts each
+  kind's lane at once (11.19). A plan that will not fit on the card with
+  200 MB to spare says "Not enough room on the card" and starts nothing.
+- a rule, then the kinds, each with what it lacks, as MENU values begin:
+  **Covers** ("41 missing", "Complete", "Off"), **Videos** ("63 to fetch",
+  "Needs ScreenScraper"), **Names and Details** ("199 names"),
+  **Achievements** ("150 to fetch", "Ready offline", "Sign in"). While a
+  lane runs its kinds say how far it has got, the number alone ("37%"), so
+  a long name keeps its room. A opens the kind's own page: the Scraper's
+  (11.19) for the first three, the achievements download's (11.49), or the
+  sign-in when nobody is signed in.
+- a rule, then **Settings**: **ScreenScraper**, **RetroAchievements** and
+  **SteamGridDB**, each with its account (or Link, Sign in) and its page;
+  a rule; what Download gets, each **On** or **Off** as every MENU switch is
+  (Left, Right, A): **Covers**, **Videos**, **Names and Details** (the
+  Scraper's own switch, the same as in its Settings) and **Achievements**;
+  a rule; **Video Snaps** (11.19's page).
+
+A kind that is Off says so on the page and Download leaves it out; a
+system's own switches (the Scraper's Systems) still choose within it, and
+Names and Details asks names for a system whose covers switch is on even
+with Covers off, its games with no cover too (artscrape.c's
+art_names_rule). Every kind starts On (my pick: everything but videos,
+whose systems start off). The counts are taken as the page opens, after a
+switch or a page it opened, and as a lane ends - never a frame. MENU's
+Downloads row says how far a run behind the screens has got, else what the
+Scraper's page counted as it closed.
+
+*(The lab drew the kinds' in and out on the page itself, Left and Right on
+each kind's row. In MENU a row that steps opens its own list on A, and the
+kinds' A opens their pages, so the switches are Settings' rows.)*
+
+Host shots: `--downloads STATE`, 0 the plan, 1 a run going on, 2 every kind
+done or out, 3 no network and nobody signed in, 4 Settings.
+
+### 11.54 Rumble
+*(Asked for on the Discord after 1.0.6: turn the motor down or off. My picks
+in the Sound lab, 2026-11-19: four levels, Low 35% and Medium 65% of what a
+game asks, a row in MENU and in a game's Controls tab.)*
+
+**The levels.** **Off**, **Low**, **Medium**, **Full**: none, 35% and 65% of
+the strength a game asks the motor for, and all of it, as ZyperOS always ran
+it. A new card is Full, so nobody who leaves the row alone feels a change.
+The level multiplies a system's own share (systems.cfg's `rumble|` lines:
+Doom's 35%, whose every shot rumbled), so Low on Doom is 12%; a level above
+Off never rounds to nothing (src/rumble.h, `rumble_run_pct`).
+
+**MENU > Sound > Rumble**, the Sound tab's last row, under Menu Music: the
+level for every game. Left and Right step it and stop at Off and Full,
+heard as Auto Off is (move when it moved, edge when it did not); A opens the
+four as a list with a note under it: "No rumble at all.", "35% of what a
+game asks.", "65% of what a game asks." or "As strong as each game asks."
+(one sentence each: the note has two lines, and German's and French's
+second sentence did not fit). **Each step is felt**: the motor buzzes
+once, 160 ms, at the level it comes to, and in the list the level under the
+cursor buzzes as the cursor comes onto it (Off is still). Only on a handheld
+with a motor ZyperOS runs (the profile's `rumble`): the Pixel 2. The Brick's
+motor (GPIO 227 on the axp2202's bldo3 rail) waits for its tester's first
+buzz; its profile turns the rows on with it.
+
+**In a game, the Controls tab's Rumble row**, under the Pak: only for a game
+whose core asked for the motor (Diatom answers PAUSED with `rumble=1`), on a
+handheld with one. It is the level of what Applies To shows, This Game or
+the system; a game without its own follows its system's, and a system
+without its own follows MENU's. A value the scope set itself is in the
+**accent-ink**, as a changed button is. A opens "Rumble: This Game" (or the
+system's name): the four levels, the tick on the scope's and **Default** on
+what it falls back to (MENU's, or the system's for a game that has one);
+choosing that one takes the scope's own level away. Left and Right step it
+as in MENU. Each change reaches the paused game at once (`SETRUMBLE`) and
+buzzes once at what the game will feel, its system's share included.
+
+**What it costs.** Nothing a frame: a level is one number Diatom multiplies
+by when a core changes its motor. The port is handed what the core asks and
+a 0 to 1 scale beside it (`diatom_port_rumble`): the Pixel 2's force
+feedback runs at the product; a motor whose strength is a voltage, as the
+Brick's, takes the scale as its step.
+
+**Kept**: `rumble` in the device's database (MENU's; no key at Full),
+`rumble.<TAG>` and `rumble.<TAG>.<file>` in the library's, each gone when it
+would equal what it falls back to; Rename and Delete Game move and remove a
+game's with its file. Host shots: `menu-rumble`, `menu-rumble-list` (and
+`-low`, `-off`: the list opened on those levels, with their notes),
+`gamemenu-rumble`, `gamemenu-rumble-list`, `gamemenu-rumble-own-list`
+(tools/i18n-shots.py; `--gm-rumble` stands in for the core's asking).

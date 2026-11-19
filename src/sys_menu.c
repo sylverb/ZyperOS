@@ -49,8 +49,6 @@ int sys_menu_zyperos_rows(const sys_ui *u, pm_row *out)
 		 * account nobody can reach is a row that can only fail. Audio Output
 		 * stays, since a cable and the speaker are still two places. */
 		if (u->no_wifi && r == PM_WIFI) continue;
-		/* A phone's USB tethering is a way out with no radio */
-		if (u->no_wifi && !u->online && r == PM_ACHIEVEMENTS) continue;
 		/* Unless the files go over a cable, which needs no radio. */
 		if (u->no_wifi && !u->cable_xfer && r == PM_XFER) continue;
 		if (u->no_bt && r == PM_BT) continue;
@@ -67,6 +65,8 @@ int sys_menu_zyperos_rows(const sys_ui *u, pm_row *out)
 		if (u->no_screen_colors && r == PM_SCREEN) continue;
 		/* Night Mode where the display has a table for it */
 		if (u->no_night && r == PM_NIGHT) continue;
+		/* Rumble where there is a motor ZyperOS runs */
+		if (u->no_rumble && r == PM_RUMBLE) continue;
 		out[n++] = (pm_row)r;
 	}
 	return n;
@@ -76,14 +76,13 @@ pm_tab sys_menu_tab_of(pm_row r)
 {
 	/* No default: -Wswitch names a row that has no tab */
 	switch (r) {
-	case PM_SEARCH: case PM_STATS: case PM_RANDOM: case PM_ACHIEVEMENTS:
-	case PM_SCRAPER:
+	case PM_SEARCH: case PM_STATS: case PM_RANDOM: case PM_SCRAPER:
 		return PT_GAMES;
 	case PM_APPEARANCE: case PM_THEME: case PM_HOME:
 	case PM_ORDER: case PM_HOMESYS: case PM_BATTERY: case PM_SAVER: case PM_SHADER:
 	case PM_STRENGTH: case PM_SCREEN: case PM_NIGHT:
 		return PT_DISPLAY;
-	case PM_AUDIO: case PM_CHANNELS: case PM_SOUNDS: case PM_MUSIC:
+	case PM_AUDIO: case PM_CHANNELS: case PM_SOUNDS: case PM_MUSIC: case PM_RUMBLE:
 		return PT_SOUND;
 	case PM_USB_WAIT: case PM_WIFI: case PM_BT: case PM_XFER: case PM_USB:
 	case PM_DEVELOPER:
@@ -291,6 +290,7 @@ int sys_menu_muse_rows(int kind, bool both, bool no_wifi, sm_muse_row *out)
 	out[n++] = SMM_LOCK;
 	if ((kind == 0 || kind == 3) && !no_wifi) out[n++] = SMM_ART;
 	out[n++] = SMM_RESCAN;
+	out[n++] = SMM_QUIT;
 	return n;
 }
 
@@ -412,6 +412,10 @@ int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
 				case SMM_RESCAN:
 					out[k] = (menu_row){ T(S_SYSMENU_RESCAN), NULL, true };
 					break;
+				/* X does it from any row, and its glyph says so */
+				case SMM_QUIT:
+					out[k] = (menu_row){ T(S_SYSMENU_MUSE_QUIT), MENU_KEY_X, true };
+					break;
 				}
 			return n;
 		}
@@ -530,6 +534,10 @@ int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
 	 * track (src/bgm_menu.h). */
 	full[PM_MUSIC]        = (menu_row){ T(S_SYSMENU_MENU_MUSIC),
 	                                   u->menu_music ? u->menu_music : T(S_MENU_OFF_TITLE), true };
+	/* How hard the motor runs in every game, the Sound tab's last row: a
+	 * game or its system may have its own (the in-game Controls tab's) */
+	full[PM_RUMBLE]       = (menu_row){ T(S_SYSMENU_RUMBLE),
+	                                   u->rumble ? u->rumble : T(S_RUMBLE_FULL), true };
 	/* Files onto and off the device over Wi-Fi: a small web server on the LAN
 	 * that a phone or a laptop opens. Named for OTA, which is what everyone
 	 * already calls this, and for the other half of the fable - the tortoise
@@ -600,10 +608,7 @@ int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
 	/* Box Art, its sources and Video Snaps, behind one row (DESIGN.md
 	 * 11.19). Live with no network too: its fetch says it needs Wi-Fi, and
 	 * the rest of it does not. */
-	full[PM_SCRAPER]      = (menu_row){ T(S_SYSMENU_SCRAPER), u->scraper, true };
-	full[PM_ACHIEVEMENTS] = (menu_row){ T(S_SYSMENU_CHEEVOS),
-	                                   u->ra_in ? u->ra_name : T(S_SYSMENU_SIGN_IN),
-	                                   true };
+	full[PM_SCRAPER]      = (menu_row){ T(S_DOWNLOADS_HEADING), u->scraper, true };
 	/* ZyperOS's own screens' shader (src/screenfx.h); each system's own
 	 * menu and the in-game menu choose one for that system's games */
 	full[PM_SHADER]       = (menu_row){ T(S_GAMEMENU_SHADER),
