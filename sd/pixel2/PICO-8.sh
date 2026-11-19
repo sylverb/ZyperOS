@@ -71,6 +71,13 @@ esac
 # The Pixel 2's SDL is KMS/DRM's; a device.sh that names its own (the Brick's
 # pvrfb) keeps it
 export SDL_VIDEODRIVER="${SDL_VIDEODRIVER:-kmsdrm}"
+# O at the bottom and X beside it, as fake08 lays PICO-8 out (src/controls.c)
+# and the Controls pages say. PICO-8 takes SDL's "a" as O, and SDL's own
+# mapping of the Pixel 2's joypad (its log.txt) has "a" on BTN_SOUTH, which
+# this pad sends from the A cap, on the right: so O was the A cap and X the B
+# cap (device test, 2026-11-19). The same mapping with the two swapped, for
+# this pad's id, which SDL reads before any mapping of PICO-8's own
+export SDL_GAMECONTROLLERCONFIG="190043d2010000000221000000010000,gkd_pixel2_joypad,a:b1,b:b0,x:b2,y:b3,back:b8,start:b9,leftshoulder:b4,rightshoulder:b5,dpup:b10,dpdown:b11,dpleft:b12,dpright:b13,lefttrigger:b6,righttrigger:b7,crc:d243,platform:Linux,"
 
 cd "$HOME_DIR" || exit 1
 if [ "$RUN" = -run ]; then
