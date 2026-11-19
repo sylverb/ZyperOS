@@ -1695,9 +1695,11 @@ folder: one named cover or folder, or the only one there.
 
 **Videos** go in `Videos/` on the card. A film on its own goes straight in, `Videos/Where the Light Is.mp4`, and is a card of its own; a folder of videos is a series, its files in name order, with seasons as folders inside it if you like: `Videos/Planet Earth/01 From Pole to Pole.mp4`. A picture named like the film, `Where the Light Is.jpg`, is its cover; otherwise MP4 takes one from the video itself. Every video remembers where you stopped.
 
-The Pixel 2 has no hardware video decoder that its Linux can use, so its four cores decode in software. **H.264 in an .mp4 plays smoothly up to 720p**; 854x480 or 640x360 is the size to make for its 640x480 screen, and costs a fraction of the battery. HEVC and VP9 play up to about 480p. 1080p only just keeps up, dropping frames when the picture moves a lot. AV1 does not play. MKV, WebM, MOV and AVI files play too, if the video inside them is one of those.
+The Pixel 2 has no hardware video decoder that its Linux can use, so its four cores decode in software. **H.264 in an .mp4 plays smoothly up to 720p**; 854x480 or 640x360 is the size to make for its 640x480 screen, and costs a fraction of the battery. HEVC and VP9 play up to about 480p. 1080p only just keeps up, dropping frames when the picture moves a lot. AV1 plays up to 1440x1080 at 24 fps, 1280x720 at 60 fps and 1920x1080 at 30 fps; 1920x1080 at 60 fps does not keep up. MKV, WebM, MOV and AVI files play too, if the video inside them is one of those. A video too big to play smoothly says so over its picture, and one whose picture cannot play here says that instead of staying black.
 
 **Y** turns a video between full screen, where the controls show only when you press a button, and a view with its controls always on screen.
+
+**Repeat**, in MP4's menu on Videos and All only, is how videos play on: `Off`, each once and in order; `One`, the video playing again and again; or `All`, its folder round again. It is `Off` on a new card, changes a video already playing, and leaves music's play mode as it is. With `One` or `All` the controls show its mark before the time left, and the screen stays on while the video plays.
 
 **Lock Screen**, for a pocket: press **X** or **SELECT + START** together on
 any MP4 screen while something plays, or pick Lock Screen in MP4's menu. With
