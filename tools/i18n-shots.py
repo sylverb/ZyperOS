@@ -606,12 +606,19 @@ EXTRA.setdefault("music-page-none", ("demo", "PS1", ["--music-page", "foot"]))
 
 
 def set_files(card, files, on):
-    """A shot's files (SHOT_FILES) on the card, empty, or off it"""
+    """A shot's files (SHOT_FILES) on the card, empty, or off it.
+    Each entry is a path, or (path, text) to write that text."""
     for f in files or []:
-        path = card / f
+        if isinstance(f, (tuple, list)):
+            path, text = card / f[0], f[1]
+        else:
+            path, text = card / f, None
         if on:
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.touch()
+            if text is None:
+                path.touch()
+            else:
+                path.write_text(text)
         elif path.exists():
             path.unlink()
 
@@ -672,6 +679,18 @@ SHOT_SETTINGS["screen-colors-look-custom"] = dict(SHOT_SETTINGS["screen-colors-c
 # Smooth, the default, is drawn in every GBA system menu shot
 EXTRA.setdefault("system-menu-timing-exact", ("demo", "GBA", ["--screen", "games", "--menu", "Timing"]))
 SHOT_SETTINGS["system-menu-timing-exact"] = {"pace.GBA": "exact"}
+# Core Settings (DESIGN.md 11.53): the page with a cache of OPTION lines, and
+# empty when the core has never been launched (No options.)
+_COREOPTS_CACHE = (
+    "userdata/coreopt-defs/fceumm.txt",
+    "OPTION\tkey=fceumm_palette\tvalue=default\tdefault=default\t"
+    "values=default|asqrealc|nintendo-vc\tdesc=Color Palette\n"
+    "OPTION\tkey=fceumm_nospritelimit\tvalue=disabled\tdefault=disabled\t"
+    "values=disabled|enabled\tdesc=No Sprite Limit\n"
+)
+EXTRA.setdefault("coreopts-page", ("demo", "NES", ["--screen", "games", "--coreopts-page", "0"]))
+SHOT_FILES["coreopts-page"] = [_COREOPTS_CACHE]
+EXTRA.setdefault("coreopts-page-empty", ("demo", "PS1", ["--screen", "games", "--coreopts-page", "0"]))
 
 # The in-game menu's Controls tab (src/ctltab.c), beside the handheld: its
 # end (Reset Buttons, Hotkeys), a button's choices, the system over a game

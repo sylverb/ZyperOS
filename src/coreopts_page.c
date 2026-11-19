@@ -13,6 +13,7 @@
 #include "menu_panel.h"
 #include "panel.h"
 #include "platform.h"
+#include "ui.h"
 
 static void mkdir_p_parent(const char *path)
 {
@@ -246,4 +247,22 @@ void coreopts_page(app *a, const char *tag, const char *core,
 		st.on_power = cop_power;
 	}
 	menu_run(a, &st, cop_build, cop_key, &pg);
+}
+
+void coreopts_shot_draw(app *a, int row)
+{
+	coreopts_ui ui;
+	menu_row rows[CODEFS_MAX + 4];
+	const system_cfg *s;
+	int n, sel;
+
+	if (!a || a->sys.count <= 0) return;
+	s = &a->sys.systems[a->sys_cursor];
+	coreopts_ui_init(&ui, s->tag, s->core, false);
+	n = coreopts_ui_rows(&ui, rows, CODEFS_MAX + 4);
+	if (n <= 0) return;
+	sel = row >= 0 && row < n ? row : 0;
+	ui_scrim(a->r, 0);
+	menu_draw(a, T(S_SYSMENU_CORE_SETTINGS), rows, n, sel,
+	          menu_std_width(a), MENU_ZYPEROS);
 }

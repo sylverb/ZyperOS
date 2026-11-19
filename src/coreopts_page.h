@@ -46,4 +46,8 @@ bool coreopts_ui_key(coreopts_ui *ui, in_button key, int sel);
 void coreopts_page(app *a, const char *tag, const char *core,
                    SDL_Texture *bg, bool live);
 
+/* Host shot: the shelf's Core Settings page for the system under the
+ * cursor, the focus on `row` (0 when empty). */
+void coreopts_shot_draw(app *a, int row);
+
 #endif

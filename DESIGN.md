@@ -2973,7 +2973,7 @@ and R1 go round them, and the panel is the same size on every tab:
 
 | Tab | Rows |
 |---|---|
-| **Game** | Continue, Save, Load, Undo Load (after a load, below), Quick Slot, Disc (a game on more than one disc), Player 2 (an NES game, 11.43), Achievements, Reset, Quit |
+| **Game** | Continue, Save, Load, Undo Load (after a load, below), Quick Slot, Disc (a game on more than one disc), Player 2 (an NES game, 11.43), Core Settings (11.53), Achievements, Reset, Quit |
 | **Display** | Display, Shader; a DS game's Screens, Swap Screens, Stylus |
 | **Controls** | Applies To, D-pad as Stick, Pak, Face Buttons, one row a button, Reset Buttons, Hotkeys (11.45) |
 | **Achievements** | the game's achievements, or the sentence that says why it has none (11.46) |
@@ -5412,3 +5412,22 @@ Checked with the stub core, which can repeat every second picture
 (`STUBCORE_DUPE`) or run two or three frames in a call (`STUBCORE_SPAN`):
 `make check-hudspeed` (end to end, 1.00x and 30 fps for each, below 1x for a
 slow core and the step in fast forward) and `make check-emumeter` (the rule).
+
+### 11.53 Core Settings
+A system's **Core Settings** row (the shelf's menu, under Core / Timing) and
+the in-game menu's Game-tab row of the same name open one page: every option
+that core offers (mapper, palette, sound cart, …), or only the keys listed
+for it in `config/coreopts-show.cfg` when that file names some.
+
+**Where the list comes from.** In a game, Diatom's `OPTIONS` lines fill it
+live and are written to `$userdata/coreopt-defs/<core>.txt`. On the shelf,
+or before a first launch, that cache is what the page reads; with neither,
+the page says **No options.** Values the player picks are kept as
+`coreopt.<TAG>.<key>` in the library, and dropped again when they match the
+option's default so a later device default can still apply.
+
+**The page.** Heading **Core Settings**, one option a row (its description
+at the left, the current value at the right). Left and Right step the value;
+A opens the list when there are more than two, as every option row does
+(11.3). B closes. Host shots: `--coreopts-page ROW` on a system's shelf
+(tools/i18n-shots.py: `coreopts-page`, `coreopts-page-empty`).

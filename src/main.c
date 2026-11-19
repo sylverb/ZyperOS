@@ -5337,6 +5337,10 @@ int main(int argc, char *argv[])
 		 * (src/lights_screen.c) */
 		else if (!strcmp(argv[i], "--lights-page") && i + 1 < argc)
 			shot_lights = atoi(argv[++i]);
+		/* --coreopts-page ROW: the shelf's Core Settings page for the
+		 * system under the cursor (src/coreopts_page.c) */
+		else if (!strcmp(argv[i], "--coreopts-page") && i + 1 < argc)
+			shot_coreopts = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--look-page") && i + 1 < argc) {
 			shot_look_page = argv[++i];
 			if (i + 1 < argc && argv[i + 1][0] >= '0' && argv[i + 1][0] <= '9')

@@ -384,7 +384,6 @@ storage.orphan_ask
 storage.files.one
 
 # sysmenu: no shot draws it yet
-sysmenu.core_settings_empty  # Core Settings when the core has nothing to configure
 sysmenu.wifi_connecting
 sysmenu.hotspot
 sysmenu.charge_limit

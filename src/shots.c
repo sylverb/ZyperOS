@@ -8,6 +8,7 @@
 #include "bgm_screen.h"
 #include "clock.h"
 #include "clock_screen.h"
+#include "coreopts_page.h"
 #include "ctltab.h"
 #include "ctltab_screen.h"
 #include "db.h"
@@ -101,6 +102,7 @@ int shot_tab_from = -1, shot_tab_ms;
 const char *shot_look, *shot_look_page;
 int shot_homesys = -1;     /* --homesys-page ROW: MENU > Home Systems' page */
 int shot_lights = -1;      /* --lights-page ROW: MENU > Side Lights' page */
+int shot_coreopts = -1;    /* --coreopts-page ROW: a system's Core Settings page */
 int shot_look_row;
 int shot_kb, shot_kb_layer;
 static keyboard_transition shot_keyboard;
@@ -1493,6 +1495,7 @@ static void shot_compose_once(app *a)
 	if (shot_look_page) shot_draw_look(a);
 	if (shot_homesys >= 0) homesys_shot_draw(a, shot_homesys);
 	if (shot_lights >= 0) lights_shot_draw(a, shot_lights);
+	if (shot_coreopts >= 0) coreopts_shot_draw(a, shot_coreopts);
 	if (shot_slots) shot_draw_slots(a);
 	if (shot_gamemenu && a->sys.count > 0) shot_draw_gamemenu(a);
 	else if (g_shot_p2 && a->sys.count > 0) shot_draw_player2(a);
