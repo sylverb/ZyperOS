@@ -40,6 +40,8 @@ SDCARD=/mnt/SDCARD
 # named below, each nothing where device.sh does not say otherwise.
 device_card() { :; }       # before the card's folders are made
 device_log() { :; }        # once this boot's log is open
+device_boot_mount() { return 1; }  # the boot partition readable at BOOT_DIR
+device_boot_unmount() { :; }       # and let go of again
 device_resident() { :; }   # just before Diatom starts
 device_radios() { :; }     # in the background, once Diatom has started
 BACKLIGHT=
@@ -81,6 +83,12 @@ export ZYPEROS_DIATOM_SOCKET=/tmp/diatom.sock
 # launcher started (measured 2026-10-01). The radios go in the background.
 
 device_card
+
+# A card's first start: its device's folder in .userdata is made below, by
+# this start (the payload has none). What ZyperOS Installer left in the boot
+# partition for it is read then, and never again (pico8_from_boot)
+FIRST_START=
+[ -d "$USERDATA_PATH" ] || FIRST_START=1
 
 # Only on a fresh card are any of these missing
 for d in "$BIOS_PATH" "$ROMS_PATH" "$SAVES_PATH" "$USERDATA_PATH" "$LOGS_PATH" \
@@ -182,6 +190,28 @@ LOG=$LOGS_PATH/zyperos.log
 	[ -f "$LOG.prev" ] && mv -f "$LOG.prev" "$LOG.1"
 ) &
 device_log
+
+# Your PICO-8, from a fresh install: ZyperOS Installer puts the player's own
+# pico8_64 and pico8.dat (and its license and version.txt) in the image's boot
+# partition, pico8/, as a card that never started has no games partition yet
+# (installer/src-tauri/src/pico8.rs). Its first start copies them into
+# Bios/PICO-8, where the PICO-8 shelf looks (src/pico8.h). Only on that
+# start, and only with no PICO-8 there already: no other boot mounts anything.
+# The files stay in the boot partition; ZyperOS never ships PICO-8, and these
+# are this card's player's own.
+if [ -n "$FIRST_START" ] && [ ! -f "$BIOS_PATH/PICO-8/pico8_64" ] && device_boot_mount; then
+	if [ -f "$BOOT_DIR/pico8/pico8_64" ] && [ -f "$BOOT_DIR/pico8/pico8.dat" ]; then
+		mkdir -p "$BIOS_PATH/PICO-8" &&
+			cp "$BOOT_DIR/pico8/"* "$BIOS_PATH/PICO-8/" &&
+			chmod +x "$BIOS_PATH/PICO-8/pico8_64" 2> /dev/null
+		if [ -f "$BIOS_PATH/PICO-8/pico8_64" ]; then
+			echo "pico8: your PICO-8 copied from the boot partition into Bios/PICO-8" >> "$LOG"
+		else
+			echo "pico8: your PICO-8 is in the boot partition, and the copy into Bios/PICO-8 failed" >> "$LOG"
+		fi
+	fi
+	device_boot_unmount
+fi
 
 # The settings this script needs before ZyperOS runs, which ZyperOS writes out
 # for it. The defaults are for a fresh card's first boot, before ZyperOS has
