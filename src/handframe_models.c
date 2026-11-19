@@ -21,9 +21,11 @@
  *               +-1.5 mm: the photo's heights carry the LCD's depth under
  *               the lens, so its widths are used and the drawing's heights
  *   colors      sampled from those pictures and from Nintendo's own
- *               (nintendo.co.jp's Color and Advance pages); not under a
- *               grey card, so near, not exact. The Game Boy Color's Red
- *               (Berry) has no picture found: Nintendo's name only. */
+ *               (nintendo.co.jp's Color and Advance pages); Clear Purple
+ *               from a studio photo ("Game-Boy-Color-Purple.jpg", Evan-Amos)
+ *               beside the lens. Not under a grey card, so near, not exact.
+ *               The Game Boy Color's Red (Berry) has no picture found:
+ *               Nintendo's name only. */
 #include "handframe.h"
 
 #include <string.h>
@@ -108,9 +110,9 @@ static const hf_model CGB = {
 	.ncolors = 6,
 	.color_name = { "yellow", "red", "purple", "green", "teal", "clear_purple" },
 	.body = { RGB(241, 197, 54), RGB(184, 36, 64), RGB(90, 70, 205), RGB(112, 220, 41), RGB(43, 146, 176),
-	          RGB(160, 138, 196) },
+	          RGB(178, 156, 200) },
 	.body_dark = { RGB(205, 164, 38), RGB(150, 26, 50), RGB(70, 52, 170), RGB(88, 182, 30), RGB(30, 118, 146),
-	               RGB(133, 101, 148) },
+	               RGB(150, 122, 176) },
 	.nparts = 6,
 	.part = {
 		{ RR(-17.17f, -13.38f, 59.33f, 120.12f, 4.0f, 4.0f, 4.0f, 4.0f), HF_BODY_DARK, RGB(0, 0, 0) },

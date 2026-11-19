@@ -5637,5 +5637,71 @@ painted, and put back wherever a notice, the level bar or the low battery's
 dot comes down off the bars. The volume bar, On-Screen Stats, the low
 battery's dot and every notice stay on top of it.
 
-Host shots: `system-menu-border`, `system-menu-border-list-off|blur|own`,
-`gamemenu-border`, `gamemenu-border-list-off|blur|own`.
+#### The handheld frames
+
+*(Tarik's picks in the Display lab, 2026-11-19: two frames, Handheld and
+Handheld, Whole; the three Game Boys first; Handheld Color for the Game Boy
+Color in its six.)*
+
+Two more kinds in Border's list, for a system with a frame (the Game Boy,
+the Game Boy Color, the Game Boy Advance) at Sharp Pixels: ZyperOS's own
+drawing of the real handheld's face around its game, at the game's own
+scale. One game pixel is one dot of the handheld's LCD, so a millimetre of
+the face is (panel pixels a game pixel) / (the LCD's dot pitch), across and
+down each by its own pitch, never stretched. Nothing in them is a photo, a
+logo, a maker's name or printed text: where the real face has a logo or
+words, the plastic is plain.
+
+- **Handheld**: the game at its full Sharp Pixels size, where Sharp Pixels
+  puts it, the frame cut where the panel ends (on the Pixel 2 a Game Boy at
+  3x shows the lens's glass round it and the edge of its light).
+- **Handheld, Whole**: the game smaller by whole steps until the whole lens
+  and 1.5 mm of body round it are on the panel, the lens in the middle: 2x
+  on the Pixel 2, 3x on the Brick (one step smaller, 4x, still cuts a Game
+  Boy's lens there). Never under 2x, so the Advance on the Pixel 2, whose
+  full size is 2x, has Handheld only.
+- **Handheld Color**, a row under Border while it is a frame of a handheld
+  that came in more than one color (`border_color.TAG`): the Game Boy
+  Color's Yellow, Red, Purple, Green, Teal and Clear Purple. Its list
+  pictures each in the Whole frame, where the body shows.
+
+The game's window is the frame's: Diatom puts the game where the frame has
+it (`SETBORDER path= rect=WxH+X+Y`), so Whole's smaller game sits in its
+lens. Drawn once, as Your Own is, at the panel's size: 640x480 and
+1024x768. Every straight edge is on whole pixels (each edge's millimetre
+place rounded once, so two parts that share an edge share it in pixels and
+a line is one crisp pixel row); only a corner's or an arc's curve is
+smoothed, by how much of each pixel it covers (`src/handframe.c`). The
+colors are the plastic's own and do not follow the theme; Screen Colors at
+Standard leaves them as drawn.
+
+**Where each number comes from** (`src/handframe_models.c`, the face in
+millimetres from the LCD's active area's top left). Published sizes are
+used as published; the rest is measured from straight-on pictures, viewed in
+a browser and scaled by a published size, nothing saved:
+
+| | Published | Measured |
+|---|---|---|
+| Game Boy | body 90 x 148 mm ([Nintendo Japan](https://www.nintendo.co.jp/n02/dmg/hardware/gbtaihi/index.html), [Nintendo UK](https://www.nintendo.com/en-gb/Game-Boy/Game-Boy-627031.html)); LCD 47 x 43 mm, 160 x 144 (Nintendo UK's technical data; the 1989 manual) | from [DMG-01.jpg](https://commons.wikimedia.org/wiki/File:DMG-01.jpg), a flatbed scan, at 148 mm tall, about ±0.5 mm: the window 47.6 x 43.8; the lens 75.0 x 57.2 (a seller lists 75 x 57), its corners 2.55, 2.3, 11.5 (bottom right) and 2.6; the two lines 0.47 mm each, 1.5 mm apart; the light 2.26 across at 8.3 left of the active area and 14.7 down; the groove across the top 12.3 and 10.9 above it |
+| Game Boy Color | body 78 x 133.5 mm (Nintendo Japan's spec table; Nintendo UK says 75 x 133); screen 44 x 40 mm with its black mask (Nintendo UK) | from [Game Boy Color (green).png](https://commons.wikimedia.org/wiki/File:Game_Boy_Color_(green).png), a flatbed scan, at 133.5 mm tall, about ±0.5 mm: the dots 42.4 x 39.1 (RetroRGB measured 43 x 39) with 1.0 mm of mask; the lens 67.6 x 61.5 at its middle, top corners 2.2, its bottom an arc 1.34 mm below its ends with a 4 mm fillet each side; the light 1.3 across at 9.1 left of the dots and 12.2 down |
+| Game Boy Advance | body 144.5 x 82 mm, LCD 61.2 x 40.8 mm, 240 x 160 ([Nintendo Japan](https://www.nintendo.co.jp/n08/hardware/spec/index.html)) | from Nintendo Japan's [front drawing](https://www.nintendo.co.jp/n08/hardware/gba/zu.gif) and [Game Boy Advance front.jpg](https://commons.wikimedia.org/wiki/File:Game_Boy_Advance_front.jpg) corrected for its perspective on the LCD's published size, about ±1.5 mm (the photo's heights carry the LCD's depth under the lens, so its widths are used and the drawing's heights): the lens 75.2 wide, 6.4 over the dots and 13.6 under them at its middle, its top and bottom gently arched (1.5 and 2.0 mm), corners 3.7 at the top and 8 at the bottom; the light 2 across, 76.5 right of the dots' left edge and 2.5 over their top |
+
+Colors are sampled from the same pictures and from Nintendo's own
+(nintendo.co.jp's [Color](https://www.nintendo.co.jp/n02/dmg/hardware/color/index.html)
+and Advance pages), Yellow from
+[Game-Boy-Color-Yellow.jpg](https://commons.wikimedia.org/wiki/File:Game-Boy-Color-Yellow.jpg),
+Clear Purple from
+[Game-Boy-Color-Purple.jpg](https://commons.wikimedia.org/wiki/File:Game-Boy-Color-Purple.jpg),
+none under a grey card, so near and not exact. **Red** (Berry) is not
+measured: no straight-on picture was found, and its color is Nintendo's name
+only. The check sheet (`python3 tools/handframe-sheet.py OUT`) draws every
+frame at both sizes under its model's outlines, one pixel wide, so an edge
+off its line shows; `check-handframe` holds the placements, the pixel edges,
+the arc and the parts.
+
+Host shots: `system-menu-border`, `system-menu-border-list-off|blur|handheld|whole|own`,
+`gamemenu-border`, `gamemenu-border-list-off|blur|handheld|whole|own`,
+`system-menu-border-gbc|gba`, `system-menu-border-gbc|gba-list-handheld|whole`,
+`gamemenu-border-gbc|gba-list-handheld|whole`, `system-menu-border-color`,
+`system-menu-border-color-list-yellow|red|purple|green|teal|clear-purple`,
+`gamemenu-border-color-list`.
