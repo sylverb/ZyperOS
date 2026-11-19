@@ -35,11 +35,32 @@ if [ ! -d "$BUILDROOT" ]; then
 	tar -C /work -xf "$tarball"
 fi
 
+# The development setting (make DEV=1, make brick DEV=1): this output's
+# builds compile through ccache and build again whatever input changed
+# (plastron_fresh, below). Off unless asked for, so a build without it is
+# the build it always was. An output keeps it once set, because its compiler
+# wrapper then goes through ccache; it leaves it only clean (make DEV=0
+# CLEAN=1). Never for a release, which starts from an empty output.
+dev_mark=$OUTPUT/.plastron-dev
+if [ "${PLASTRON_DEV:-}" = 0 ] && [ -e "$dev_mark" ] && [ -z "${PLASTRON_CLEAN:-}" ]; then
+	echo "plastron: $OUTPUT is a development output (its compiler wrapper goes through ccache):" >&2
+	echo "plastron: it leaves that only clean, make DEV=0 CLEAN=1 (make brick DEV=0 CLEAN=1, ...), about an hour" >&2
+	exit 1
+fi
+
 # CLEAN=1 (make CLEAN=1, make brick CLEAN=1): the kept output emptied first, for what a
 # kept one cannot follow (plastron_fresh says when)
 if [ -n "${PLASTRON_CLEAN:-}" ] && [ -z "${PLASTRON_RELEASE:-}" ] && [ -d "$OUTPUT" ]; then
 	echo "plastron: emptying $OUTPUT for a clean build"
 	find "$OUTPUT" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+fi
+
+DEV=
+if [ -z "${PLASTRON_RELEASE:-}" ]; then
+	if [ "${PLASTRON_DEV:-}" = 1 ] || { [ "${PLASTRON_DEV:-}" != 0 ] && [ -e "$dev_mark" ]; }; then
+		DEV=1
+		echo "plastron: a development build of $OUTPUT: ccache, and every input it does not watch checked (DEV=0 CLEAN=1 leaves it)"
+	fi
 fi
 
 make -C "$BUILDROOT" O="$OUTPUT" BR2_EXTERNAL=/src/buildroot BR2_DL_DIR=/work/dl $DEFCONFIG
@@ -53,14 +74,14 @@ elif [ "$FLAVOR" = qemu ]; then
 		/src/buildroot/board/qemu/zyperos-qemu.config >/dev/null
 	make -C "$OUTPUT" olddefconfig >/dev/null
 fi
-# Every build but a release's compiles through ccache, its cache shared by
-# every output in /work/ccache (board/zyperos/dev.config): a package built
-# again for a changed input takes its unchanged objects from it. A release
-# builds clean without it (scripts/release.sh), as before.
-if [ -z "${PLASTRON_RELEASE:-}" ]; then
+# A development build compiles through ccache, its cache shared by every
+# output in /work/ccache (board/zyperos/dev.config): a package built again
+# for a changed input takes its unchanged objects from it
+if [ -n "$DEV" ]; then
 	"$BUILDROOT/support/kconfig/merge_config.sh" -m -O "$OUTPUT" \
 		"$OUTPUT/.config" /src/buildroot/board/zyperos/dev.config >/dev/null
 	make -C "$OUTPUT" olddefconfig >/dev/null
+	touch "$dev_mark"
 fi
 # Buildroot copies a local package's source (SITE_METHOD = local: the
 # launcher, Diatom, the gauge, the splash, ...) into the output once and never
@@ -96,12 +117,20 @@ plastron_fresh_locals() {
 			echo "plastron: $pkg's source $site is not here; its build stays as it is" >&2
 			continue
 		fi
-		# By contents: every session builds from its own worktree, whose files
-		# have their own times, and the same source need not be built twice
-		# shellcheck disable=SC2086 # the exclusions are rsync arguments
-		now=$(rsync -a --dry-run --out-format='%n' $RSYNC_VCS_EXCLUSIONS $excl "$site/" "$empty/" |
-			grep -v '/$' | LC_ALL=C sort | tr '\n' '\0' | (cd "$site" && xargs -0r sha256sum) |
-			sha256sum | cut -d' ' -f1)
+		if [ -n "$DEV" ]; then
+			# A development build goes by contents: every session builds from
+			# its own worktree, whose files have their own times, and the same
+			# source need not be built twice. (Not the same record as the other
+			# way, so a build that changes ways builds these again once.)
+			# shellcheck disable=SC2086 # the exclusions are rsync arguments
+			now=$(rsync -a --dry-run --out-format='%n' $RSYNC_VCS_EXCLUSIONS $excl "$site/" "$empty/" |
+				grep -v '/$' | LC_ALL=C sort | tr '\n' '\0' | (cd "$site" && xargs -0r sha256sum) |
+				sha256sum | cut -d' ' -f1)
+		else
+			# shellcheck disable=SC2086 # the exclusions are rsync arguments
+			now=$(rsync -a --dry-run --out-format='%n %l %M' $RSYNC_VCS_EXCLUSIONS $excl "$site/" "$empty/" |
+				LC_ALL=C sort | sha256sum | cut -d' ' -f1)
+		fi
 		was=$(cat "$state/$pkg" 2>/dev/null || true)
 		[ "$now" = "$was" ] && continue
 		if [ -n "$was" ]; then
@@ -116,11 +145,11 @@ plastron_fresh_locals() {
 }
 plastron_fresh_locals "$OUTPUT"
 
-# A kept output (every build but a release's, which starts empty) is only as
-# good as Buildroot's idea of what changed, and Buildroot rebuilds a package
-# for a new version and nothing else. So before each build every input it
-# does not watch is fingerprinted by its contents, and what changed is
-# rebuilt, said, and recorded:
+# A kept output is only as good as Buildroot's idea of what changed, and
+# Buildroot rebuilds a package for a new version and nothing else. So before
+# each development build (DEV=1) every input it does not watch is
+# fingerprinted by its contents, and what changed is rebuilt, said, and
+# recorded:
 #
 #   - a local package's source (SITE_METHOD = local: the launcher, Diatom,
 #     the gauge, the splash, ...), copied once and never looked at again.
@@ -152,7 +181,7 @@ plastron_fp() {
 }
 
 plastron_fresh() {
-	out=$1 state=$1/.plastron-src clean= why=
+	out=$1 state=$1/.plastron-src why=
 	mkdir -p "$state"
 	# What a build records, for the next to compare with: none on a first
 	# build, which has nothing to be stale
@@ -263,15 +292,15 @@ plastron_record() {
 	rm -f "$started"
 }
 
-# A release starts empty and builds everything: none of this is needed
-if [ -z "${PLASTRON_RELEASE:-}" ]; then
+# A development build's checks and record; any other builds as it always did
+if [ -n "$DEV" ]; then
 	plastron_fresh "$OUTPUT"
 	plastron_started=$OUTPUT/.plastron-src/started
 	touch "$plastron_started"
 fi
 
 make -C "$OUTPUT" "$@"
-[ -n "${PLASTRON_RELEASE:-}" ] || plastron_record "$OUTPUT" "$plastron_started"
+[ -z "$DEV" ] || plastron_record "$OUTPUT" "$plastron_started"
 # Which plastron this output was last built from, for make sdk to name in the
 # SDK it packs from it (the Makefile passes it; the container has no git)
 [ -z "${PLASTRON_COMMIT:-}" ] || echo "$PLASTRON_COMMIT" > "$OUTPUT/plastron-commit"
