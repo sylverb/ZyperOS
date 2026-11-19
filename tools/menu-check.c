@@ -967,7 +967,7 @@ static void system_menu(void)
 		m.wifi = WIFI_CONNECTED;     /* the case above left the radio down */
 		mn = sys_menu_build(&m, mrows, &mb, &mhead);
 		printf("MP4's shelf menu:\n");
-		ck(mn == 7, "seven rows with only music, Quit last");
+		ck(mn == 8, "eight rows with only music, Quit last");
 		ck(!strcmp(mrows[0].label, "Albums") && !strcmp(val(&mrows[0]), "7"),
 		   "how many albums");
 		ck(!strcmp(mrows[1].label, "Sort By") && mrows[1].live &&
@@ -975,25 +975,31 @@ static void system_menu(void)
 		   "Sort By, and by artist when nothing says otherwise");
 		ck(!strcmp(mrows[2].label, "Shuffle All") && mrows[2].live && !val(&mrows[2])[0],
 		   "Shuffle All, live whether or not anything plays");
-		ck(!strcmp(mrows[3].label, "Lock Screen") && !mrows[3].live &&
-		   !strcmp(val(&mrows[3]), "While playing"),
+		ck(!strcmp(mrows[3].label, "Equalizer") && mrows[3].live && !strcmp(val(&mrows[3]), "Off"),
+		   "Equalizer, MENU's own row, Off until it is set");
+		ck(!strcmp(mrows[4].label, "Lock Screen") && !mrows[4].live &&
+		   !strcmp(val(&mrows[4]), "While playing"),
 		   "Lock Screen, dead and saying why with nothing playing");
-		ck(!strcmp(mrows[4].label, "Album Art") && mrows[4].live,
+		ck(!strcmp(mrows[5].label, "Album Art") && mrows[5].live,
 		   "covers to fetch, on a network");
-		ck(!strcmp(mrows[5].label, "Rescan Folder") && mrows[5].live,
+		ck(!strcmp(mrows[6].label, "Rescan Folder") && mrows[6].live,
 		   "and a rescan that works");
+		m.eq = "Bass";
+		sys_menu_build(&m, mrows, &mb, &mhead);
+		ck(!strcmp(val(&mrows[3]), "Bass"), "the Equalizer says the preset in use");
+		m.eq = NULL;
 		m.muse_playing = true;
 		sys_menu_build(&m, mrows, &mb, &mhead);
-		ck(mrows[3].live && !val(&mrows[3])[0], "Lock Screen live while music plays");
+		ck(mrows[4].live && !val(&mrows[4])[0], "Lock Screen live while music plays");
 		m.muse_playing = false;
 		m.sort = "Album";
 		m.wifi = WIFI_OFF;
 		sys_menu_build(&m, mrows, &mb, &mhead);
 		ck(!strcmp(val(&mrows[1]), "Album"), "the order it is in");
-		ck(!mrows[4].live && !strcmp(val(&mrows[4]), "Needs Wi-Fi"),
+		ck(!mrows[5].live && !strcmp(val(&mrows[5]), "Needs Wi-Fi"),
 		   "Album Art says why it cannot, off the network");
-		ck(mrows[1].live && mrows[2].live && mrows[5].live,
-		   "and neither Sort By, Shuffle All nor Rescan Folder needs one");
+		ck(mrows[1].live && mrows[2].live && mrows[3].live && mrows[6].live,
+		   "and neither Sort By, Shuffle All, Equalizer nor Rescan Folder needs one");
 		for (k = 0; k < mn; k++) {
 			ck(strcmp(lbl(&mrows[k]), "Core") != 0, "no Core: it has none");
 			ck(strcmp(lbl(&mrows[k]), "Display Mode") != 0, "no Display Mode");
@@ -1005,17 +1011,17 @@ static void system_menu(void)
 		m.wifi = WIFI_CONNECTED;
 		m.muse_both = true;
 		mn = sys_menu_build(&m, mrows, &mb, &mhead);
-		ck(mn == SM_MUSE_ROWS - 1, "eight rows with more than one kind on music (no Repeat)");
+		ck(mn == SM_MUSE_ROWS - 1, "nine rows with more than one kind on music (no Repeat)");
 		ck(!strcmp(mrows[1].label, "Show") && mrows[1].live &&
 		   !strcmp(val(&mrows[1]), "Music"), "Show, on music");
 		ck(!strcmp(mrows[2].label, "Sort By") && !strcmp(mrows[3].label, "Shuffle All") &&
-		   mrows[3].live && !strcmp(mrows[4].label, "Lock Screen") &&
-		   !strcmp(mrows[5].label, "Album Art"),
-		   "Sort By, Shuffle All, Lock Screen, then Album Art");
+		   mrows[3].live && !strcmp(mrows[4].label, "Equalizer") &&
+		   !strcmp(mrows[5].label, "Lock Screen") && !strcmp(mrows[6].label, "Album Art"),
+		   "Sort By, Shuffle All, Equalizer, Lock Screen, then Album Art");
 		m.muse_books = true;
 		m.game_count = 2;
 		mn = sys_menu_build(&m, mrows, &mb, &mhead);
-		ck(mn == 6, "six rows on books");
+		ck(mn == 7 && !strcmp(mrows[3].label, "Equalizer"), "seven rows on books, the Equalizer among them");
 		ck(!strcmp(mrows[0].label, "Books") && !strcmp(val(&mrows[0]), "2"),
 		   "how many books");
 		ck(!strcmp(val(&mrows[1]), "Audiobooks"), "Show, on books");
@@ -1030,7 +1036,7 @@ static void system_menu(void)
 		m.muse_videos = true;
 		m.game_count = 3;
 		mn = sys_menu_build(&m, mrows, &mb, &mhead);
-		ck(mn == 7 && !strcmp(mrows[0].label, "Videos") && !strcmp(val(&mrows[0]), "3") &&
+		ck(mn == 8 && !strcmp(mrows[0].label, "Videos") && !strcmp(val(&mrows[0]), "3") &&
 		   !strcmp(val(&mrows[1]), "Videos") && !strcmp(val(&mrows[2]), "Folder"),
 		   "on videos: how many, Show, by folder");
 		ck(!strcmp(mrows[3].label, "Repeat") && !strcmp(val(&mrows[3]), "Off") && mrows[3].live &&
@@ -1054,8 +1060,9 @@ static void system_menu(void)
 		ck(mn == SM_MUSE_ROWS && !strcmp(mrows[0].label, "Total") &&
 		   !strcmp(val(&mrows[0]), "7") && !strcmp(val(&mrows[1]), "All") &&
 		   !strcmp(val(&mrows[2]), "Folder") && !strcmp(mrows[3].label, "Shuffle All") &&
-		   !strcmp(mrows[4].label, "Repeat") && !strcmp(mrows[6].label, "Album Art"),
-		   "on All: the Total, Show All, by folder, Shuffle All, Repeat and Album Art");
+		   !strcmp(mrows[4].label, "Repeat") && !strcmp(mrows[5].label, "Equalizer") &&
+		   !strcmp(mrows[7].label, "Album Art"),
+		   "on All: the Total, Show All, by folder, Shuffle All, Repeat, Equalizer and Album Art");
 		m.muse_songs = false;
 		mn = sys_menu_build(&m, mrows, &mb, &mhead);
 		for (k = 0; k < mn; k++)
@@ -1078,9 +1085,9 @@ static void system_menu(void)
 				for (int j = 0; j < q; j++) if (ids[j] == SMM_REPEAT) has = 1;
 				ck(has == (kind == 2 || kind == 3), "Repeat on Videos and All alone");
 			}
-			ck(sys_menu_muse_rows(true, false, false, ids) == 5 && ids[1] == SMM_SORT &&
-			   ids[2] == SMM_LOCK && ids[3] == SMM_RESCAN && ids[4] == SMM_QUIT,
-			   "books alone: the count, Sort By, Lock Screen, Rescan Folder and Quit");
+			ck(sys_menu_muse_rows(true, false, false, ids) == 6 && ids[1] == SMM_SORT &&
+			   ids[2] == SMM_EQ && ids[3] == SMM_LOCK && ids[4] == SMM_RESCAN && ids[5] == SMM_QUIT,
+			   "books alone: the count, Sort By, Equalizer, Lock Screen, Rescan Folder and Quit");
 			/* Quit last on every shelf of MP4's, live, X's glyph its
 			 * value: X does it from any row (DESIGN.md 11.14) */
 			for (int kind = 0; kind <= 3; kind++)
@@ -1645,8 +1652,9 @@ static void menu_tabs(void)
 	ck(m > 0 && tab[0] == PM_WIFI, "and on Wi-Fi when none does");
 	u.tab = PT_SOUND;
 	n = (sys_menu_build)(&u, rows, &b, &heading);
-	ck(n == 5 && !strcmp(heading, "Sound") && !strcmp(rows[0].label, "Audio Output") &&
-	   !strcmp(rows[3].label, "Menu Music") && !strcmp(rows[4].label, "Rumble"),
+	ck(n == 6 && !strcmp(heading, "Sound") && !strcmp(rows[0].label, "Audio Output") &&
+	   !strcmp(rows[2].label, "Equalizer") && !strcmp(rows[4].label, "Menu Music") &&
+	   !strcmp(rows[5].label, "Rumble"),
 	   "a tab's build: its rows, headed by its name");
 	u.tab = PT_DISPLAY;
 	u.theme = "Lime";
@@ -2860,14 +2868,14 @@ static void sounds_row(void)
 	n = sys_menu_build(&u, rows, &b, &heading);
 
 	printf("the UI Sounds row:\n");
-	ck(PM_SOUNDS == PM_CHANNELS + 1, "sits under Audio Channels");
+	ck(PM_SOUNDS == PM_EQ + 1 && PM_EQ == PM_CHANNELS + 1, "sits under the Equalizer, under Audio Channels");
 	for (i = 0; i < n; i++)
 		if (rows[i].label && !strcmp(rows[i].label, "UI Sounds")) {
 			found++;
 			ck(rows[i].live, "is live on a device with no radio");
 			ck(!strcmp(val(&rows[i]), "Wood"), "and with no setting reads Wood, the default");
-			ck(i > 0 && !strcmp(rows[i - 1].label, "Audio Channels"),
-			   "directly under Audio Channels there too");
+			ck(i > 0 && !strcmp(rows[i - 1].label, "Equalizer"),
+			   "directly under the Equalizer there too");
 		}
 	ck(found == 1, "is there once");
 	for (i = 0; i < 4; i++) {

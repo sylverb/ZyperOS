@@ -328,12 +328,20 @@ EXTRA = {
     "keyboard-ss-user": ("demo", "PS1", ["--keyboard", "--kb-ss-user"]),
     "video-controls": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--video", "controls"]),
     "video-full": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--video", "hidden"]),
+    # A video this CPU cannot carry, its notice: too big (AV1 at 60 fps), with
+    # the controls it brings up; no picture at all, alone in the black
+    "video-too-big": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--video", "controls",
+                                       "--video-size", "1920x1080", "--video-trouble", "too-big"]),
+    "video-no-picture": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--video", "hidden",
+                                          "--video-size", "1920x1080", "--video-trouble", "no-picture"]),
     # MP4's lock screen, its panel with the bar a hold fills: over music, and
     # over a video, where the panel is the same and the picture is under it
     # MP4's menu on its shelf, which shows All (albums and videos mixed)
     "mp4-menu": ("media", "MUSE", ["--screen", "games", "--menu"]),
     # its Repeat row on One, the value no other shot has
     "mp4-menu-repeat-one": ("media", "MUSE", ["--screen", "games", "--menu", "--mode", "repeat one"]),
+    # MP4's menu with its cursor on the Equalizer row, the same as MENU's
+    "mp4-menu-eq": ("media", "MUSE", ["--screen", "games", "--menu", "Equalizer"]),
     "mp4-locked": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--locked"]),
     "mp4-locked-video": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--video", "hidden", "--locked"]),
     "tour-lang": ("demo", "PS1", ["--tour", "lang", "3500"]),
@@ -875,6 +883,22 @@ EXTRA.setdefault("theme-foot-on", ("demo", "PS1", ["--look-page", "theme", "6"])
 # from the database, as the page reads them); and the Look's list with each
 # look under the cursor, its note in the picture column, and Custom's
 EXTRA.setdefault("menu-screen", ("demo", "PS1", ["--menu", "Screen Colors"]))
+# MENU > Sound > Equalizer (src/eq.h): the row; the page Off, as a new card
+# has it, and with a curve of the player's own, the cursor on 60 Hz; the
+# presets' list, each with its picture, the cursor on Bass
+EXTRA.setdefault("menu-eq", ("demo", "PS1", ["--menu", "Equalizer"]))
+EXTRA.setdefault("eq-page", ("demo", "PS1", ["--look-page", "eq", "0"]))
+EXTRA.setdefault("eq-page-custom", ("demo", "PS1", ["--look-page", "eq", "1"]))
+SHOT_SETTINGS["eq-page-custom"] = {"eq.speaker": "custom", "eq.speaker.bands": "4,1,-2,3,5"}
+EXTRA.setdefault("eq-presets", ("demo", "PS1", ["--look-page", "eq-presets", "0", "--pick-at", "1"]))
+# And the cursor on each other preset, for its note and its picture
+for _k, _p in enumerate(["off", "bass", "voice", "treble", "custom"]):
+    if _p != "bass":
+        EXTRA.setdefault("eq-presets-" + _p, ("demo", "PS1", ["--look-page", "eq-presets", "0", "--pick-at", str(_k)]))
+SHOT_SETTINGS["eq-presets-custom"] = {"eq.speaker.bands": "4,1,-2,3,5"}
+# With headphones in: their own preset, Bass, and its curve on the bands
+EXTRA.setdefault("eq-page-phones", ("demo", "PS1", ["--look-page", "eq", "0", "--eq-phones"]))
+SHOT_SETTINGS["eq-page-phones"] = {"eq.phones": "bass"}
 EXTRA.setdefault("screen-colors", ("demo", "PS1", ["--look-page", "screen", "0"]))
 EXTRA.setdefault("screen-colors-vivid", ("demo", "PS1", ["--look-page", "screen", "0"]))
 EXTRA.setdefault("screen-colors-custom", ("demo", "PS1", ["--look-page", "screen", "1"]))

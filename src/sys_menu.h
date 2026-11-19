@@ -95,6 +95,10 @@
  * the motor runs in every game, Off, Low, Medium or Full (src/rumble.h),
  * Full on a new card; each step buzzes once. Only where the handheld has a
  * motor ZyperOS runs (no_rumble). My picks in the Sound lab, 2026-11-19. */
+/* PM_EQ is Equalizer, under Audio Channels: the third thing about how the
+ * sound reaches you, its shape. Its value is the preset of the output in use
+ * (the speaker's or the headphones'), Off on a new card; A opens its page
+ * (src/eq.h, DESIGN.md 11.60). My picks in the Sound lab, 2026-11-19. */
 /* MENU IS IN TABS (DESIGN.md 11.3, my picks 2026-11-12): Games, Display,
  * Sound, Connections, System and About, L1 and R1 going round them. The rows
  * are in the enum by tab, and in a tab in the enum's order; which tab a row
@@ -136,7 +140,7 @@ typedef enum {
 	PM_SCREEN,
 	PM_NIGHT,
 	/* Sound */
-	PM_AUDIO, PM_CHANNELS, PM_SOUNDS, PM_MUSIC, PM_RUMBLE,
+	PM_AUDIO, PM_CHANNELS, PM_EQ, PM_SOUNDS, PM_MUSIC, PM_RUMBLE,
 	/* Connections: USB Device first, while a plug waits for its answer */
 	PM_USB_WAIT, PM_WIFI, PM_BT, PM_XFER, PM_USB, PM_DEVELOPER,
 	/* System */
@@ -227,10 +231,13 @@ typedef enum {
  * any row (its glyph at the row's right, MENU_KEY_X). It leaves as SELECT
  * does: what plays keeps playing, behind the home, as music does
  * (2026-11-18: "add an option in the mp4 menu to quit it, like we have in
- * games (with the shortcut too)"). */
-typedef enum { SMM_COUNT, SMM_SHOW, SMM_SORT, SMM_SHUFFLE, SMM_LOCK, SMM_ART,
+ * games (with the shortcut too)").
+ *
+ * Equalizer, over Lock Screen on every kind: the same row and page as
+ * MENU's, there while music or a video plays (2026-11-19). */
+typedef enum { SMM_COUNT, SMM_SHOW, SMM_SORT, SMM_SHUFFLE, SMM_EQ, SMM_LOCK, SMM_ART,
                SMM_RESCAN, SMM_QUIT, SMM_REPEAT } sm_muse_row;
-#define SM_MUSE_ROWS 9
+#define SM_MUSE_ROWS 10
 
 /* MP4's rows in order, for the kind its shelf shows - 0 music, 1 books,
  * 2 videos, muselib.h's ml_kind, and 3 all of them with music among them
@@ -436,6 +443,9 @@ typedef struct {
 	 * no motor ZyperOS runs here (plat_has_rumble): no row. */
 	const char *rumble;
 	bool        no_rumble;
+	/* Equalizer, in MENU and MP4's menu: the preset's name for the output
+	 * in use, eq_preset_name's. NULL reads Off. */
+	const char *eq;
 
 	/* Bluetooth: the name of the connected headset, or NULL. The row used to
 	 * read "not yet" and be dead, which was true of the pairing screen and

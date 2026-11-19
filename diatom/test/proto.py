@@ -157,6 +157,19 @@ def main():
         d.send("SETCHANNELS\tmode=stereo")
         d.line("CHANNELS")
 
+        # The equalizer's bands (ZyperOS's src/eq.h): five whole dB from -6 to
+        # +6, taken with no answer; anything else refused, the bands in force
+        # left as they were
+        d.send("SETEQ\tbands=5,2,0,0,1")
+        d.send("SETEQ\tbands=0,0,0,0,9")
+        r = d.line()
+        ck(r is not None and r.startswith("ERROR\tcode=bad_eq\tmsg=0,0,0,0,9"),
+           "SETEQ takes five bands with no answer, and refuses one past +6")
+        d.send("SETEQ\tbands=1,2,3")
+        r = d.line()
+        ck(r is not None and r.startswith("ERROR\tcode=bad_eq"), "and four or fewer")
+        d.send("SETEQ\tbands=0,0,0,0,0")
+
         # The stick, for a game's d-pad: each mode is answered with whether the
         # d-pad is now the stick (the live input is test/hotkeys.py's), and a
         # mode it does not know is refused without touching what is in force.

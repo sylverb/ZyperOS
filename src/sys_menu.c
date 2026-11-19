@@ -82,7 +82,7 @@ pm_tab sys_menu_tab_of(pm_row r)
 	case PM_ORDER: case PM_HOMESYS: case PM_BATTERY: case PM_SAVER: case PM_SHADER:
 	case PM_STRENGTH: case PM_SCREEN: case PM_NIGHT:
 		return PT_DISPLAY;
-	case PM_AUDIO: case PM_CHANNELS: case PM_SOUNDS: case PM_MUSIC: case PM_RUMBLE:
+	case PM_AUDIO: case PM_CHANNELS: case PM_EQ: case PM_SOUNDS: case PM_MUSIC: case PM_RUMBLE:
 		return PT_SOUND;
 	case PM_USB_WAIT: case PM_WIFI: case PM_BT: case PM_XFER: case PM_USB:
 	case PM_DEVELOPER:
@@ -288,6 +288,7 @@ int sys_menu_muse_rows(int kind, bool both, bool no_wifi, sm_muse_row *out)
 	out[n++] = SMM_SORT;
 	if (kind == 0 || kind == 3) out[n++] = SMM_SHUFFLE;
 	if (kind == 2 || kind == 3) out[n++] = SMM_REPEAT;
+	out[n++] = SMM_EQ;
 	out[n++] = SMM_LOCK;
 	if ((kind == 0 || kind == 3) && !no_wifi) out[n++] = SMM_ART;
 	out[n++] = SMM_RESCAN;
@@ -302,6 +303,8 @@ int sys_menu_muse_rows(int kind, bool both, bool no_wifi, sm_muse_row *out)
 static const unsigned char PM_SOUND[PM_ROWS] = {
 	[PM_AUDIO]      = MENU_SND_RING,
 	[PM_CHANNELS]   = MENU_SND_RING,
+	/* Its presets round, as Audio Channels' choices are; A opens the page */
+	[PM_EQ]         = MENU_SND_RING,
 	[PM_SOUNDS]     = MENU_SND_OWN,
 	[PM_SLEEP]      = MENU_SND_NO_A,
 	[PM_POWER]      = MENU_SND_RING,
@@ -335,7 +338,7 @@ static const unsigned char SM_SOUND[SM_ROWS] = {
 };
 static unsigned char smm_sound(sm_muse_row r)
 {
-	return r == SMM_SHOW || r == SMM_REPEAT ? MENU_SND_RING
+	return r == SMM_SHOW || r == SMM_REPEAT || r == SMM_EQ ? MENU_SND_RING
 	     : r == SMM_SORT ? MENU_SND_RING | MENU_SND_NO_A : 0;
 }
 
@@ -405,6 +408,9 @@ int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
 				case SMM_REPEAT:
 					out[k] = (menu_row){ T(S_SYSMENU_MUSE_REPEAT),
 					                     u->muse_repeat ? u->muse_repeat : T(S_MENU_OFF_TITLE), true };
+					break;
+				case SMM_EQ:
+					out[k] = (menu_row){ T(S_SYSMENU_EQUALIZER), u->eq ? u->eq : T(S_MENU_OFF_TITLE), true };
 					break;
 				case SMM_LOCK:
 					out[k] = (menu_row){ T(S_SYSMENU_MUSE_LOCK),
@@ -527,6 +533,9 @@ int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
 	 * and the row still says what was chosen - and, on Auto, what it makes. */
 	aout_channels_label(u->audio_channels, u->audio_mix, b->ch, sizeof b->ch);
 	full[PM_CHANNELS]     = (menu_row){ T(S_SYSMENU_AUDIO_CHANNELS), b->ch, true };
+	/* The shape of the sound, for the output in use: its preset, Off on a
+	 * new card; A opens the page (src/eq.h) */
+	full[PM_EQ]           = (menu_row){ T(S_SYSMENU_EQUALIZER), u->eq ? u->eq : T(S_MENU_OFF_TITLE), true };
 	/* The launcher's own sounds: which of the three voices, or Off. Live on
 	 * every device and with every output; on a Bluetooth headset the sounds
 	 * are not played at all (src/uisound.h), and the row still says which
