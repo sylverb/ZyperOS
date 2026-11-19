@@ -235,16 +235,18 @@ static bool take_back(unsigned max_ms, int *err)
 static struct {
 	bool         on;
 	SDL_Texture *tex;
+	SDL_Rect     src;                  /* the part of tex to draw; w 0 for all of it */
 	SDL_Rect     dst;                  /* in screen coordinates */
 	SDL_Color    bg;
 } under;
 
-void plat_video_under(SDL_Texture *tex, const SDL_Rect *dst, SDL_Color bg)
+void plat_video_under(SDL_Texture *tex, const SDL_Rect *src, const SDL_Rect *dst, SDL_Color bg)
 {
 	SDL_BlendMode mode;
 
 	under.on = true;
 	under.tex = tex;
+	under.src = src ? *src : (SDL_Rect){ 0, 0, 0, 0 };
 	under.dst = dst ? *dst : (SDL_Rect){ 0, 0, 0, 0 };
 	under.bg = bg;
 	/* The screen clear, so the picture shows through wherever this frame
@@ -275,7 +277,9 @@ static void show_under(void)
 
 	SDL_SetRenderDrawColor(ren, under.bg.r, under.bg.g, under.bg.b, 255);
 	SDL_RenderClear(ren);
-	if (under.tex) SDL_RenderCopyExF(ren, under.tex, NULL, &r, panel_turn, NULL, SDL_FLIP_NONE);
+	if (under.tex)
+		SDL_RenderCopyExF(ren, under.tex, under.src.w > 0 ? &under.src : NULL, &r, panel_turn,
+		                  NULL, SDL_FLIP_NONE);
 }
 
 /* screen_tex at dest, 1024x768 down to 640x480 and turned onto the panel,
