@@ -965,18 +965,22 @@ static void snap(SDL_Renderer *r, const gg_info *in, const gg_geom *g, SDL_FRect
 	int sw = in->snap_src.w > 0 ? in->snap_src.w : in->snap_w;
 	int sh = in->snap_src.h > 0 ? in->snap_src.h : in->snap_h;
 	float vw = fminf(2.0f * g->cw + g->gap, gw), vh, k = fminf(in->snap_k, 1);
-	SDL_FRect v, d;
+	SDL_FRect v, d, lo;
 	SDL_Rect lift;
 	int qw, qh;
 
 	if (sw <= 0 || sh <= 0) return;
 	vh = vw * sh / sw;
 	if (vh > gh) { vh = gh; vw = vh * sw / sh; }
+	/* in the grid, or as far as the grown cover goes, so the video covers it */
+	lo = (SDL_FRect){ fminf((float)g->x, c.x), fminf((float)g->y, c.y), 0, 0 };
+	lo.w = fmaxf(g->x + gw, c.x + c.w) - lo.x;
+	lo.h = fmaxf(g->y + gh, c.y + c.h) - lo.y;
 	v = (SDL_FRect){ c.x + c.w / 2 - vw / 2, c.y + c.h / 2 - vh / 2, vw, vh };
-	if (v.x < g->x) v.x = (float)g->x;
-	if (v.x + v.w > g->x + gw) v.x = g->x + gw - v.w;
-	if (v.y < g->y) v.y = (float)g->y;
-	if (v.y + v.h > g->y + gh) v.y = g->y + gh - v.h;
+	if (v.x < lo.x) v.x = lo.x;
+	if (v.x + v.w > lo.x + lo.w) v.x = lo.x + lo.w - v.w;
+	if (v.y < lo.y) v.y = lo.y;
+	if (v.y + v.h > lo.y + lo.h) v.y = lo.y + lo.h - v.h;
 	d = (SDL_FRect){ c.x + (v.x - c.x) * k, c.y + (v.y - c.y) * k,
 	                 c.w + (v.w - c.w) * k, c.h + (v.h - c.h) * k };
 	lift = whole(d);
