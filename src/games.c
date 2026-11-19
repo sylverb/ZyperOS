@@ -271,11 +271,13 @@ uint32_t games_draw(games_row *row,SDL_Renderer *r,const games_info *info,
         if(pose.alpha<=0) continue;
         SDL_FRect dst={pose.cx-pose.hw,pose.cy-pose.hh,pose.hw*2,pose.hh*2};
         bool turned=fabsf(pose.ang)>.001f;
-        float focus=fmaxf(0,1-fabsf(slots[i].offset));
+        float focus=fmaxf(0,1-fabsf(slots[i].offset)),rise=0;
         /* Highlight's Lift (src/ds/focus.h): the cover coming to the middle
-         * rises 12 on a deep lift as it comes */
+         * rises 12 on a deep lift as it comes, and a snap taking its place
+         * with it */
         if(marks.lift==DS_FOCUS_LIFT_HIGH && !turned && focus>.02f) {
-            dst.y-=12*focus;
+            rise=12*focus;
+            dst.y-=rise;
             ui_lift_focus(r,&(SDL_Rect){(int)lroundf(dst.x),(int)lroundf(dst.y),(int)lroundf(dst.w),(int)lroundf(dst.h)},
                           true,focus*pose.alpha*slots[i].alpha);
         }
@@ -312,6 +314,7 @@ uint32_t games_draw(games_row *row,SDL_Renderer *r,const games_info *info,
              * through a frame that grows from the cover's rect to its own,
              * as the cover fades. Never stretched on the way. */
             SDL_FRect vr=games_cover_rect(info->snap_w,info->snap_h,0);
+            vr.y-=rise;
             SDL_Rect clip={(int)floorf(dst.x+(vr.x-dst.x)*k),(int)floorf(dst.y+(vr.y-dst.y)*k),
                            (int)ceilf(dst.w+(vr.w-dst.w)*k)+1,(int)ceilf(dst.h+(vr.h-dst.h)*k)+1};
             SDL_RenderSetClipRect(r,&clip);

@@ -953,10 +953,13 @@ static void band(SDL_Renderer *r, const gg_info *in, void *ctx, int games, int s
 
 /* The video snap: the focused cell opens to two cells across (no wider than
  * the grid, no taller than it) over its neighbors, at the video's own shape,
- * growing from the cell as the cover row's turns wide, with the ring and
- * the lift going with it */
-static void snap(SDL_Renderer *r, const gg_info *in, const gg_geom *g, SDL_FRect c)
+ * growing from the focused cover as Highlight grew it, as the cover row's
+ * turns wide, with Highlight's lift and marks going with it, round the
+ * video itself */
+static void snap(SDL_Renderer *r, const gg_info *in, const gg_geom *g, SDL_FRect cell)
 {
+	const ds_focus_marks mk = ds_focus_marks_of(DS_FOCUS_COVER);
+	const SDL_FRect c = ds_focus_tile(cell, &mk, 1);
 	float gw = (float)(g->cols * g->cw + (g->cols - 1) * g->gap);
 	float gh = (float)(GG_ROWS * g->ch + (GG_ROWS - 1) * g->gap);
 	int sw = in->snap_src.w > 0 ? in->snap_src.w : in->snap_w;
@@ -977,12 +980,10 @@ static void snap(SDL_Renderer *r, const gg_info *in, const gg_geom *g, SDL_FRect
 	d = (SDL_FRect){ c.x + (v.x - c.x) * k, c.y + (v.y - c.y) * k,
 	                 c.w + (v.w - c.w) * k, c.h + (v.h - c.h) * k };
 	lift = whole(d);
-	{
-		const ds_focus_marks mk = ds_focus_marks_of(DS_FOCUS_COVER);
-
-		if (mk.lift) ui_lift_focus(r, &lift, mk.lift == DS_FOCUS_LIFT_HIGH, k);
-		marks_round(r, &mk, d, (Uint8)lroundf(255 * k));
-	}
+	if (mk.lift) ui_lift_focus(r, &lift, mk.lift == DS_FOCUS_LIFT_HIGH, k);
+	/* the marks the covers had, from where they were: no blink */
+	if (mk.ring) ds_focus_ring(r, d, DS_RADIUS_CELL, 255);
+	if (mk.bar) ds_focus_bar(r, d, 255);
 	if (SDL_QueryTexture(in->snap, NULL, NULL, &qw, &qh)) return;
 	tex_round(r, in->snap, qw, qh,
 	          (SDL_FRect){ (float)in->snap_src.x, (float)in->snap_src.y, (float)sw, (float)sh },

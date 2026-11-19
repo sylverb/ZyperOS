@@ -909,12 +909,16 @@ static void hg_focus(home *h, SDL_Renderer *r, const SDL_FRect *cell, float stil
         SDL_FRect card;
         SDL_Rect q;
 
-        if (!m->ring) return;
+        if (!m->ring) {
+            /* the tiles cut to the window of rows, when there is one */
+            if (window) SDL_RenderSetClipRect(r, window);
+            return;
+        }
         card = ds_focus_tile((SDL_FRect){ cell->x - HG_TILE_PAD, cell->y - HG_TILE_PAD,
                                           cell->w + 2 * HG_TILE_PAD, cell->h + 2 * HG_TILE_PAD }, m, 1);
         q = (SDL_Rect){ (int)lroundf(card.x), (int)lroundf(card.y), (int)lroundf(card.w), (int)lroundf(card.h) };
-        /* the lift in the room the caller gave it, then the card and its
-         * ring cut to the window of rows, when there is one */
+        /* the lift in the room the caller gave it, then the card, its ring
+         * and the tiles cut to the window of rows, when there is one */
         ui_lift_focus(r, &q, false, 1);
         if (window) SDL_RenderSetClipRect(r, window);
         ui_round_rect(r, &q, DS_RADIUS_CARD, ui_col(theme()->surface, 255));
@@ -1013,12 +1017,13 @@ static uint32_t home_grid_draw(home *h, SDL_Renderer *r, const home_item *items,
     focus = gliding ? (SDL_FRect){ at[cursor].x, at[cursor].y, at[cursor].cw, at[cursor].ch }
                     : (SDL_FRect){ fx, fy - top * pitch, (float)g.cw, (float)g.ch };
 
-    /* The window of rows: from the top row's tile to the foot of the last
-     * row's, so a row scrolling in or out is cut there and the next is not
-     * seen. The tile and its lift get room round it for the lift's blur. A
-     * grid with every row in sight is not cut. */
-    clip = (SDL_Rect){ 0, g.y - HG_TILE_PAD, ZYPEROS_SCREEN_W,
-                       (g.win - 1) * pitch + g.ch + 24 + 2 * HG_TILE_PAD };
+    /* The window of rows: a gap round the rows in sight, from the foot of
+     * the row above to the top of the row below, so the focus's marks have
+     * room (Border's ring, Bar's bar under the name) and a row scrolling in
+     * or out is cut there and the next is not seen. Border's card lift gets
+     * another gap round it for its blur. A grid with every row in sight is
+     * not cut. */
+    clip = (SDL_Rect){ 0, g.y - g.gap, ZYPEROS_SCREEN_W, (g.win - 1) * pitch + g.ch + 2 * g.gap };
     if (g.rows > g.win)
         SDL_RenderSetClipRect(r, &(SDL_Rect){ clip.x, clip.y - g.gap, clip.w, clip.h + 2 * g.gap });
     hg_focus(h, r, &focus, (float)g.still, g.box, &marks, false, g.rows > g.win ? &clip : NULL);
@@ -1038,7 +1043,7 @@ static uint32_t home_grid_draw(home *h, SDL_Renderer *r, const home_item *items,
         const char *name = home_label(items[i].key, items[i].name);
         float alpha = gliding && h->grid_map[i] < 0 ? k : 1;
 
-        if (at[i].y > clip.y + clip.h || at[i].y + at[i].ch < clip.y) continue;
+        if (at[i].y >= clip.y + clip.h || at[i].y + at[i].ch <= clip.y) continue;
         hg_tile(h, r, &items[i], name, label, g.box, at[i].x, at[i].y, at[i].s, at[i].cw,
                 i == cursor, gliding ? (i == cursor ? 1.0f : 0.0f) : ds_focus_weight(&h->grid_w, i, cursor, now - h->grid_moved),
                 &marks, alpha, phase, wait);
