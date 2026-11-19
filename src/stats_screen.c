@@ -87,7 +87,7 @@ bool stats_screen(app *a)
 				 * disappearing: the time was still spent. */
 				int k, found = 0;
 
-				for (k = 0; k < a->sys.count; k++)
+				for (k = 0; k < sys_kept(a); k++)      /* off the home too */
 					if (!strcmp(a->sys.systems[k].tag, tag)) {
 						snprintf(labels[shown], sizeof labels[0], "%s",
 						         a->sys.systems[k].name);
@@ -111,7 +111,7 @@ bool stats_screen(app *a)
 
 				snprintf(bare, sizeof bare, "%.*s", len, file);
 				const char *folder = NULL;
-				for (int k = 0; k < a->sys.count; k++)
+				for (int k = 0; k < sys_kept(a); k++)  /* off the home too */
 					if (!strcmp(a->sys.systems[k].tag, tag)) {
 						folder = a->sys.systems[k].folder;
 						break;

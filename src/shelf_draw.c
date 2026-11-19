@@ -870,8 +870,8 @@ static void shelf_snap(app *a, sysview *v, const game_entry *g, int owner, bool 
 	info->snap = k > 0 ? snapv_texture(&w, &h, &info->snap_src) : NULL;
 	/* A host shot of the turn (--snap K): the test picture, K of the way */
 	if (g_shot_snap_k >= 0 && g) {
-		if (!mp4v_texture()) mp4v_test_picture(a->r, 320, 240);
-		info->snap = mp4v_texture();
+		if (!mp4v_texture(NULL)) mp4v_test_picture(a->r, 320, 240);
+		info->snap = mp4v_texture(NULL);
 		if (info->snap) SDL_SetTextureBlendMode(info->snap, SDL_BLENDMODE_BLEND);
 		w = 320; h = 240;
 		info->snap_src = (SDL_Rect){ 0, 0, 0, 0 };
