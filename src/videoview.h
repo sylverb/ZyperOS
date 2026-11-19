@@ -2,7 +2,7 @@
 #ifndef ZYPEROS_VIDEOVIEW_H
 #define ZYPEROS_VIDEOVIEW_H
 
-/* A shelf as its video snaps (MENU > View > Video, DESIGN.md 11.54): the
+/* A shelf as its video snaps (MENU > View > Video, DESIGN.md 11.55): the
  * focused game's snap on the whole screen, its name in a card at the top
  * left, and its covers in a band at the foot with the keys. The fourth View,
  * after Covers, Grid and List; my pick in the Library lab, 2026-11-19: the

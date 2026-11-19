@@ -424,6 +424,13 @@ EXTRA = {
     "scraper-page-done-full": ("demo", "PS1", ["--scraper-page", "15"]),
     # and the Video Snaps page it opens: how the shelf plays them, the room
     "scraper-video-snaps": ("demo", "PS1", ["--scraper", "3"]),
+    # MENU > Downloads (DESIGN.md 11.53): the plan, a run going on, every
+    # kind done or out, no network and nobody signed in, and its Settings
+    "downloads": ("demo", "PS1", ["--downloads", "0"]),
+    "downloads-running": ("demo", "PS1", ["--downloads", "1"]),
+    "downloads-done": ("demo", "PS1", ["--downloads", "2"]),
+    "downloads-offline": ("demo", "PS1", ["--downloads", "3"]),
+    "downloads-settings": ("demo", "PS1", ["--downloads", "4"]),
     # A game's Cover and Video (DESIGN.md 11.34) in every state, a tile of
     # each kind and region focused, Delete's question and the message of a
     # download that did not come; and the details row's other value
@@ -745,7 +752,7 @@ for _name, _flags in (("home-recents", []), ("shelf-recents", ["--screen", "game
     CTL_FOCUS[_name] = "The Legend of Zelda - The Minish Cap (USA).gba"
 
 
-# Collections (src/collect.h, DESIGN.md 11.53): three lists on the card, one
+# Collections (src/collect.h, DESIGN.md 11.54): three lists on the card, one
 # naming a game in a folder of games and one with a note line, as the files
 # a player keeps; the home on its group, its shelf's top, one opened, a
 # game's details on Add to Collection and its list, the shelf's menu at its
@@ -856,7 +863,7 @@ for _name, _flags in (("shelf-recents-screen", ["--screen", "games"]),
         SHOT_SETTINGS[_name] = {"recents.picture": "screen"}
 
 
-# The Video view (DESIGN.md 11.54): a game with no snap, its card whole
+# The Video view (DESIGN.md 11.55): a game with no snap, its card whole
 # above the band; its snap playing (the test picture), the band up; the band
 # down to its strip, and halfway there; MENU's View on Video and its list
 for _name, _flags in (("shelf-video", ["--screen", "games", "--view", "video"]),

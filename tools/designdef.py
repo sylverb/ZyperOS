@@ -239,7 +239,7 @@ LAYOUT = [
     ("page-line-gap",   48,  "between the line's marks and words"),
     ("page-line-gap-tight", 24, "...where they are wider than the page"),
     ("foot-y",          720, "every screen's keys: the last row's middle, 32 from the screen's foot to the glyph's (one foot since 1.0.6; pages had 704, Cover and Video 724)"),
-    # the Video view (src/videoview.h, DESIGN.md 11.54)
+    # the Video view (src/videoview.h, DESIGN.md 11.55)
     ("video-band-top",  524, "the Video view's band of covers and keys: its top while it is up"),
     ("video-step",      108, "its covers a step apart"),
     ("video-cover-w",   90,  "a cover's box in the band"),

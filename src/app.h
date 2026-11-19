@@ -88,7 +88,7 @@ typedef struct {
 	 * (11.47); never both */
 	bool listed;
 	bool grid;
-	/* ...or the Video view (DESIGN.md 11.54, src/videoview.h): the focused
+	/* ...or the Video view (DESIGN.md 11.55, src/videoview.h): the focused
 	 * game's snap on the whole screen, its covers in a band at the foot;
 	 * never with either of those, and its band's motion */
 	bool video;
@@ -361,7 +361,7 @@ void sort_load(app *a);
 /* MENU > View, each shelf's: its covers or a list (DESIGN.md 11.39) */
 void view_load(app *a);
 /* A shelf's View, in the order Right and START step it (view_turn): Covers,
- * Grid, List, Video (DESIGN.md 11.39, 11.47, 11.54) */
+ * Grid, List, Video (DESIGN.md 11.39, 11.47, 11.55) */
 enum { VIEW_COVERS, VIEW_GRID, VIEW_LIST, VIEW_VIDEO, VIEW_COUNT };
 static inline int view_index(const sysview *v)
 {
