@@ -6,7 +6,8 @@ import SimCore
 import UniformTypeIdentifiers
 
 /// One simulated Pixel 2: the QEMU VM behind it (tools/qemu-run.sh, by name),
-/// its screen over VNC, and its parts over px2sim's link.
+/// its screen from QEMU's D-Bus display (or VNC), and its parts over
+/// px2sim's link.
 @MainActor
 final class Simulator: ObservableObject {
     enum Power: String { case off, starting, on }
@@ -28,8 +29,14 @@ final class Simulator: ObservableObject {
     private(set) var frame: CGImage?
     private(set) var frameCount = 0
     var frameSink: ((CGImage) -> Void)?
+    /// Every frame as it came, timed on the screen client's thread
+    let frameLog = FrameLog()
+    /// Which way the frames come: "shared memory", "D-Bus" (pixels over
+    /// its socket) or "VNC"
+    @Published private(set) var screenPath = ""
 
     private var rfb: RFBClient?
+    private var display: DBusDisplayClient?
     private var link: SimLink?
     /// What the window last set, given to the VM again when it comes back:
     /// a battery keeps its charge, a cable stays in, across a power cycle
@@ -131,17 +138,28 @@ final class Simulator: ObservableObject {
         p.waitUntilExit()
     }
 
-    /// The screen and the link, as soon as QEMU's sockets answer
+    /// Whether the VM offers QEMU's D-Bus display (qemu-run.sh's display
+    /// file), and it is wanted: ZYPEROS_SIM_SCREEN=vnc takes VNC instead
+    nonisolated var wantsDBus: Bool {
+        guard ProcessInfo.processInfo.environment["ZYPEROS_SIM_SCREEN"] != "vnc" else { return false }
+        let display = (try? String(contentsOfFile: vmDir + "/display", encoding: .utf8)) ?? ""
+        return display.trimmingCharacters(in: .whitespacesAndNewlines) == "dbus"
+    }
+
+    /// The screen and the link, as soon as QEMU's sockets answer: the screen
+    /// from QEMU's D-Bus display, every frame, in memory shared with QEMU;
+    /// from its VNC server where the VM has no D-Bus display or it fails
     private func attach() {
         guard !attaching else { return }
         attaching = true
         if power == .off { power = .starting }
-        let vnc = vmDir + "/vnc.sock", sim = vmDir + "/sim.sock"
+        let vnc = vmDir + "/vnc.sock", sim = vmDir + "/sim.sock", qmp = vmDir + "/qmp.sock"
         let started = Date()
         DispatchQueue.global().async { [weak self] in
             var client: RFBClient?
             // Two minutes for QEMU to open its socket; fifteen seconds if
-            // it isn't even running by then (qemu-run.sh refused to start)
+            // it isn't even running by then (qemu-run.sh refused to start).
+            // VNC's socket is the sign QEMU is up, whichever way is taken.
             while Date().timeIntervalSince(started) < 120 {
                 client = try? RFBClient(path: vnc)
                 if client != nil { break }
@@ -153,17 +171,38 @@ final class Simulator: ObservableObject {
                 DispatchQueue.main.async { self?.lost() }
                 return
             }
-            client.onFrame = { image in
+            var display: DBusDisplayClient?
+            var fallback = ""
+            if self?.wantsDBus ?? false {
+                let d = DBusDisplayClient(qmpPath: qmp)
+                do {
+                    try d.connect()
+                    display = d
+                    client.close()
+                } catch {
+                    d.close()
+                    fallback = " (D-Bus display: \(error); VNC instead)"
+                    NSLog("ZyperOS Simulator: \(error); the screen comes over VNC")
+                }
+            }
+            let log = self?.frameLog
+            let onFrame: (CGImage) -> Void = { image in
+                log?.add(image)
                 DispatchQueue.main.async { self?.show(image) }
             }
+            display?.onFrame = onFrame
+            client.onFrame = onFrame
             DispatchQueue.main.async {
                 guard let self else { return }
-                self.rfb = client
+                if let display { self.display = display } else { self.rfb = client }
+                self.screenPath = display == nil ? "VNC" : "D-Bus"
                 self.power = .on
-                self.status = "\(self.name): SSH on 127.0.0.1:\(self.sshPort)"
+                self.status = "\(self.name): SSH on 127.0.0.1:\(self.sshPort)\(fallback)"
                 self.connectLink(sim)
             }
-            do { try client.run() } catch {
+            do {
+                if let display { try display.serve() } else { try client.run() }
+            } catch {
                 DispatchQueue.main.async { self?.status = "\(error)" }
             }
             DispatchQueue.main.async { self?.lost() }
@@ -195,6 +234,8 @@ final class Simulator: ObservableObject {
     /// The screen's connection ended: the VM has gone, or will come back
     private func lost() {
         rfb = nil
+        display?.close()
+        display = nil
         link?.close()
         link = nil
         held.removeAll()
@@ -213,6 +254,7 @@ final class Simulator: ObservableObject {
     private func show(_ image: CGImage) {
         frame = image
         frameCount += 1
+        if let display, display.shared, screenPath != "shared memory" { screenPath = "shared memory" }
         frameSink?(image)
     }
 

@@ -19,7 +19,10 @@ qemu`), as `tools/qemu-run.sh` does: the window starts its VM with it, by the
 name `simulator` (`--args --name NAME` for another, `--image DIR` for an image
 somewhere else). A VM already running by that name is shown as it is, and
 stays running when the window closes; one the window started shuts down with
-it. The VM's sound plays on the Mac.
+it. The VM's sound plays on the Mac. It boots the fast way, its kernel on
+Apple's hypervisor; the card's U-Boot and its system slots, for System
+Update, are `tools/qemu-run.sh start --uboot`, several times slower
+([qemu.md](qemu.md), "How it boots").
 
 ## Using it
 
@@ -60,6 +63,9 @@ simulator/simctl tap start                    # 80 ms; tap a+right 500 for a cho
 simulator/simctl press menu; simulator/simctl release menu
 simulator/simctl battery 8; simulator/simctl cable 0
 simulator/simctl wait-frames 10               # until ten more frames came
+simulator/simctl fps                          # frames the window got in the last second
+simulator/simctl latency down                 # a tap, and ms to the first frame it changed
+simulator/simctl latency a 80 223 40 34       # ...in a part of the screen (a game's)
 simulator/simctl screenshot shot.png          # the VM's screen
 simulator/simctl window-shot device.png       # the whole device, drawn
 simulator/simctl power | shutdown | quit
@@ -75,12 +81,42 @@ parts with no window, `ZyperSimulator` for the app). It runs
 `tools/qemu-run.sh start -n NAME --sound` and connects to two of the VM's
 sockets:
 
-- `vnc.sock`, QEMU's VNC server: the screen, as raw frames (SimCore's
-  `RFBClient`), shown in a layer. QEMU's VNC server looks for changes on a
-  timer of its own and backs off when one look sends nothing, so the window
-  shows about 10 to 13 frames a second of a game the VM draws at 48 (measured
-  2026-11-05, the app at 4% of a core): enough to follow a flow, not to judge
-  motion. QEMU's D-Bus display, which pushes every frame, would lift that.
+- the screen, every frame the VM draws, from QEMU's D-Bus display
+  (`-display dbus,p2p=yes`, which `tools/qemu-run.sh` starts headless VMs
+  with), through memory shared with QEMU (SimCore's `DBusDisplayClient`).
+  The window hands QEMU one end of a socket pair over `qmp.sock` (QMP's
+  `getfd` and `add_client`), logs in on it as D-Bus's EXTERNAL, and gives
+  `Console_0` a second pair's end as its display listener, one that says it
+  takes `org.qemu.Display1.Listener.Unix.Map`. QEMU then sends `ScanoutMap`
+  whenever the guest flips to another buffer, with the file descriptor of
+  the memory it keeps that buffer in, which the window maps, and `UpdateMap`
+  whenever the guest draws into it: a rectangle and no pixels. QEMU on a Mac
+  has no ivshmem device (it needs Linux's eventfd), so this is the shared
+  memory it offers. A QEMU that cannot share sends the pixels over the
+  socket (`Scanout`, `Update`), which the window takes too.
+- `vnc.sock`, QEMU's VNC server, where the VM has no D-Bus display (an older
+  QEMU, `--window`) or it fails (the status line says why), or with
+  `ZYPEROS_SIM_SCREEN=vnc`: raw frames (SimCore's `RFBClient`). QEMU's VNC
+  server looks for changes on a timer of its own (30 ms) and backs off when
+  one look sends nothing.
+
+What the two give the window (2026-11-19, one VM, the same card, the Mac
+busy with other builds; `simctl fps` and `simctl latency`, a press timed to
+the first frame it changed as it reached the window, before the window
+draws it):
+
+| | VNC | D-Bus, shared memory |
+|---|---|---|
+| NES game (`ZyperOS Test.nes`) | 15 frames a second, a press shown in 11-45 ms | 60 frames a second, 4-11 ms |
+| The home, a key held | 32 frames a second | 75 frames a second |
+| The home, a press | 16-29 ms | 5-12 ms |
+| MENU's menu, a key held | 31 frames a second | 75 frames a second |
+| MENU's menu, a press | 4-36 ms | 9-12 ms |
+
+The window takes about a tenth of one of the Mac's cores for 60 frames a
+second. `ZYPEROS_SIM_DEBUG=1` prints each step of the D-Bus way in, and
+each of QEMU's calls. `state` says which way the frames come
+(`screen_path`: `shared memory`, `D-Bus` or `VNC`).
 - `sim.sock`, QEMU's end of a virtio-serial port, whose other end is
   plastron's px2sim in the VM: lines both ways. The window sends `press a`,
   `release a`, `battery 15`, `cable 0`, `headphones 1`; px2sim sends `state
