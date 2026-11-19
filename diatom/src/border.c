@@ -73,7 +73,9 @@ bool border_blur(const void *frame, int w, int h, size_t pitch, bool rgb565, int
 		for (x = 0; x < BORDER_BLUR_W; x++) {
 			int fx0 = cx0 + x * cw / BORDER_BLUR_W, fx1 = cx0 + (x + 1) * cw / BORDER_BLUR_W;
 			int fy0 = cy0 + y * ch / BORDER_BLUR_H, fy1 = cy0 + (y + 1) * ch / BORDER_BLUR_H;
-			int sx = (fx1 - fx0) / 4 > 1 ? (fx1 - fx0) / 4 : 1, sy = (fy1 - fy0) / 4 > 1 ? (fy1 - fy0) / 4 : 1;
+			/* At most 4 x 4 samples a cell, whatever the frame's size */
+			int sx = (fx1 - fx0 + 3) / 4 > 1 ? (fx1 - fx0 + 3) / 4 : 1;
+			int sy = (fy1 - fy0 + 3) / 4 > 1 ? (fy1 - fy0 + 3) / 4 : 1;
 			unsigned long sr = 0, sg = 0, sb = 0, n = 0;
 			int fx, fy;
 
