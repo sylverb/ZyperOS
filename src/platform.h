@@ -7,6 +7,7 @@
 #include <time.h>
 
 #include "sidelights.h"
+#include "startfail.h"   /* plat_start_error: why a game never started, with no SDL */
 #include "device/profile.h"   /* what the handheld is, and the answers it gives */
 
 /* Everything that knows which device it is running on sits behind this file:
@@ -231,6 +232,12 @@ bool plat_resident_send(const plat_game_run *run);
 int  plat_resident_wait(void);
 /* Whether the game last sent has said RUNNING: its first frame is up */
 bool plat_resident_started(void);
+
+/* Why the game last sent never started, when Diatom says: its ERROR before
+ * RUNNING, a core that would not load (plat_start_error, src/startfail.h).
+ * Taken once: false when the last start gave no such error, or when it was
+ * taken already. */
+bool plat_resident_start_error(plat_start_error *out);
 
 /* Called from inside plat_resident_wait when Diatom reports an achievement
  * unlocked. A callback rather than a queue because the wait blocks: anything

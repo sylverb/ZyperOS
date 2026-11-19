@@ -234,6 +234,11 @@ launch.bios_bytes.other  # a piece of launch.bios_size's line
 launch.couldnt_start
 launch.game_empty  # wrapped onto balanced lines, as launch.bios_size
 launch.game_short  # wrapped onto balanced lines, as launch.bios_size
+launch.core_machine  # wrapped onto balanced lines, as launch.bios_size
+launch.core_library  # wrapped onto balanced lines, as launch.bios_size
+launch.core_version  # wrapped onto balanced lines, as launch.bios_size
+launch.core_symbol  # wrapped onto balanced lines, as launch.bios_size
+launch.core_failed  # wrapped onto balanced lines, as launch.bios_size
 
 # library: no shot draws it yet
 library.scanning
