@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "ds/hover.h"
 #include "shots.h"
+#include "aout_route.h"
+#include "eq.h"
 
 #include "about_screen.h"
 #include "app.h"
@@ -27,6 +29,7 @@
 #include "menu_pick.h"
 #include "menu_runner.h"
 #include "mp4lock.h"
+#include "mp4frame.h"
 #include "mp4video.h"
 #include "musec.h"
 #include "notice.h"
@@ -475,8 +478,11 @@ int   shot_np = -1, shot_np_track, shot_np_paused;
  * [full|controls]: Now Playing as a video, a test picture for the frame;
  * --video-size WxH that picture's size (640x360), --video-at K G the
  * controls' level and the picture's growth to the whole screen, between
- * the two ends (src/nowplaying_screen.c's np_draw_video). */
+ * the two ends (src/nowplaying_screen.c's np_draw_video), --video-trouble
+ * too-big|no-picture what the daemon says of a file this CPU cannot carry
+ * (an AV1 at 60 fps; a ProRes, with no picture), its notice. */
 int   shot_locked, shot_video = -1, shot_video_w = 640, shot_video_h = 360;
+int   shot_video_trouble;
 float shot_video_k = -1, shot_video_grow = -1;
 float shot_np_at = 83.0f;
 /* --mode NAME plays whatever the shot shows in that play mode: the mark beside
@@ -1157,7 +1163,9 @@ static void np_shot(app *a)
 	}
 	np_cover(a, shot_np);
 	if (shot_video >= 0) {
-		mp4v_test_picture(a->r, shot_video_w, shot_video_h);
+		if (shot_video_trouble == MPF_TOO_BIG)    mp4v_test_trouble(MPF_TOO_BIG, "av1", 60000);
+		if (shot_video_trouble == MPF_NO_PICTURE) mp4v_test_trouble(MPF_NO_PICTURE, "prores", 23976);
+		if (shot_video_trouble != MPF_NO_PICTURE) mp4v_test_picture(a->r, shot_video_w, shot_video_h);
 		mn.vw = shot_video_w;
 		mn.vh = shot_video_h;
 		np_draw_video(a, &mn, shot_video_k >= 0 ? shot_video_k : (float)shot_video,
@@ -1224,6 +1232,26 @@ static void shot_draw_look(app *a)
 		const menu_choice *ch = menu_choice_at(night_page_choices(), n, row);
 
 		if (ch) shot_list_draw(a, rows[row].label, ch, menu_std_width(a), MENU_ZYPEROS);
+		return;
+	}
+	/* --look-page eq ROW: the Equalizer page; eq-presets: its presets'
+	 * list, each one's picture beside it (--pick-at for the cursor) */
+	if (!strcmp(shot_look_page, "eq-presets")) {
+		menu_choice ch;
+		aout_state s = aout_now();
+
+		eq_preset_choice(&ch);
+		shot_list_draw(a, eq_out_name(g_shot_eq_phones ? EQ_OUT_PHONES : eq_out_of(aout_resolve(&s))), &ch,
+		               menu_most_w(), MENU_ZYPEROS);
+		return;
+	}
+	if (!strcmp(shot_look_page, "eq")) {
+		menu_row er[16];
+		const char *eh;
+		const int en = eq_page_build(NULL, er, 16, &eh);
+
+		menu_draw(a, eh, er, en, shot_look_row >= 0 && shot_look_row < en ? shot_look_row : 0,
+		          menu_most_w(), MENU_ZYPEROS);
 		return;
 	}
 	if (!strcmp(shot_look_page, "screen-looks")) {

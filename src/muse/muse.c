@@ -21,12 +21,15 @@
  *        SPEED   x=                          0.5-2.0, pitch preserved
  *        SINK    device=                     an ALSA name; "default" is dmix
  *        CHANNELS mode=                      stereo | mono | left | right
+ *        EQ      bands=  live=1|0            the equalizer's five bands, dB
+ *                                            ("5,2,0,0,1"; all 0 flat), and
+ *                                            whether its page is open
  *        STATUS
  *        VIDEO   show=1|0                    whether anyone is watching: frames
  *                                            are decoded only while one is
  *        COVER   path=  base=                write path's picture to base.jpg|png
  *        ARTIST  dir=                        who a folder of tracks is by
- *   out  READY   proto=4                     3 added CHANNELS, 4 VIDEO
+ *   out  READY   proto=5                     3 added CHANNELS, 4 VIDEO, 5 EQ
  *        CHANNELS mode=                      the mix in force, after each CHANNELS
  *        STATE   state=playing|paused|stopped  path=
  *        META    title= artist= album= len= chapters= video=WxH|0
@@ -58,6 +61,7 @@
 
 #include "cover.h"
 #include "dec.h"
+#include "../eqdsp.h"
 #include "pcm.h"
 #include "tags.h"
 #include "vid.h"
@@ -178,6 +182,54 @@ static void mix_channels(int16_t *buf, int n)
 		}
 		buf[i * 2]     = clamp16(mix[0] * l + mix[1] * r);
 		buf[i * 2 + 1] = clamp16(mix[2] * l + mix[3] * r);
+	}
+}
+
+/* The equalizer (src/eqdsp.h): the bands EQ last gave, set by the socket
+ * thread and taken by the player at its next chunk, where the gains move to
+ * them over 20 ms; flat is no filter at all. Five bytes and a count the
+ * socket thread bumps after writing them, so the player never takes a half
+ * written set: it reads the count, the bands, and the count again. */
+static int8_t g_eq_want[EQ_BANDS];
+static volatile unsigned g_eq_gen;
+/* While the Equalizer page is open the player keeps only about this much
+ * queued, so a step is heard in under a tenth of a second (EQ live=1); the
+ * 200 ms the device holds otherwise is for a busy game, and no game runs
+ * while the page is up */
+static volatile sig_atomic_t g_eq_live;
+#define EQ_LIVE_FRAMES (DEC_RATE * 60 / 1000)
+
+static void eq_follow(eq_state *e, int16_t *buf, int n)
+{
+	static unsigned took = (unsigned)-1;
+	unsigned a = __atomic_load_n(&g_eq_gen, __ATOMIC_ACQUIRE);
+
+	/* Odd: the socket thread is writing them; taken at the next chunk */
+	if (a != took && !(a & 1)) {
+		int8_t db[EQ_BANDS];
+
+		memcpy(db, g_eq_want, sizeof db);
+		__atomic_thread_fence(__ATOMIC_ACQUIRE);
+		if (__atomic_load_n(&g_eq_gen, __ATOMIC_RELAXED) == a) {
+			eq_set(e, db);
+			took = a;
+		}
+	}
+	eq_run(e, buf, n);
+}
+
+/* The page open: no more than EQ_LIVE_FRAMES queued before the next chunk
+ * goes in, waited for in steps of 5 ms, never more than the queue's own
+ * length; the lock is not held */
+static void eq_live_wait(void)
+{
+	int waited = 0;
+
+	while (g_eq_live && !g_quit && waited < 200 && pcm_queued() > EQ_LIVE_FRAMES) {
+		struct timespec ts = { 0, 5 * 1000000L };
+
+		nanosleep(&ts, NULL);
+		waited += 5;
 	}
 }
 
@@ -370,8 +422,10 @@ static void handle(const qcmd *q)
 static void *player(void *arg)
 {
 	static int16_t buf[CHUNK * DEC_CHANNELS];
+	static eq_state eq;
 
 	(void)arg;
+	eq_init(&eq, DEC_RATE);
 	if (!pcm_open(g_dev)) say("%s", pcm_error());
 	pthread_mutex_lock(&S.mu);
 	while (!g_quit) {
@@ -395,7 +449,10 @@ static void *player(void *arg)
 		 * the device takes to drain, and a command arriving meanwhile must
 		 * not wait behind it. */
 		pthread_mutex_unlock(&S.mu);
+		eq_live_wait();
 		n = dec_read(g_dec, buf, CHUNK);
+		/* The equalizer on the stereo the file is, then the ears' mix */
+		if (n > 0) eq_follow(&eq, buf, n);
 		if (n > 0) mix_channels(buf, n);
 		if (n > 0 && !pcm_write(buf, n)) { n = -1; lost = true; }
 		pthread_mutex_lock(&S.mu);
@@ -563,6 +620,35 @@ static void command(int fd, const char *line)
 		for (c = 0; c < CH_COUNT; c++)
 			if (!strcmp(m, CHANNELS_NAME[c])) { g_channels = c; break; }
 		send_line(fd, "CHANNELS\tmode=%s", CHANNELS_NAME[g_channels]);
+		return;
+	}
+	if (!strncmp(line, "EQ", 2) && (line[2] == '\t' || !line[2])) {
+		/* As CHANNELS: bytes the player takes at its next chunk, nothing
+		 * queued behind a seek. Anything but five whole numbers changes
+		 * nothing. */
+		char v[48], lv[4];
+		int8_t db[EQ_BANDS];
+		int b, ok = 1;
+		const char *p = v;
+
+		arg(line, "bands", v, sizeof v);
+		arg(line, "live", lv, sizeof lv);
+		for (b = 0; b < EQ_BANDS && ok; b++) {
+			char *end;
+			long d = strtol(p, &end, 10);
+
+			ok = end != p && d >= EQ_DB_MIN && d <= EQ_DB_MAX &&
+			     (b == EQ_BANDS - 1 ? *end == '\0' : *end == ',');
+			db[b] = (int8_t)d;
+			p = end + 1;
+		}
+		if (ok) {
+			__atomic_store_n(&g_eq_gen, g_eq_gen + 1, __ATOMIC_RELAXED);
+			__atomic_thread_fence(__ATOMIC_RELEASE);
+			memcpy(g_eq_want, db, sizeof db);
+			__atomic_store_n(&g_eq_gen, g_eq_gen + 1, __ATOMIC_RELEASE);
+		}
+		g_eq_live = !strcmp(lv, "1");
 		return;
 	}
 	if (!strncmp(line, "SNAP", 4)) {
@@ -789,7 +875,7 @@ int main(void)
 				if (cfd >= 0) close(cfd);
 				cfd = n;
 				have = 0;
-				send_line(cfd, "READY\tproto=4");
+				send_line(cfd, "READY\tproto=5");
 				announce(cfd, 1);
 			}
 		}
