@@ -25,6 +25,7 @@
 #include "hotspot.h"
 #include "linebreak.h"
 #include "look.h"
+#include "ds/focus.h"
 #include "menu_panel.h"
 #include "menu_pick.h"
 #include "nowplaying_screen.h"
@@ -1375,10 +1376,25 @@ static void look_thumb(app *a, const ds_theme *t, const SDL_Rect *q)
 	BAR(bx + 22, q->y + 64, q->w * 11 / 100, 8, t->text_soft);
 	ui_round_rect(r, &(SDL_Rect){ q->x + q->w * 27 / 100, q->y + 14, q->w * 16 / 100, q->w * 12 / 100 },
 	              6, ui_col(t->raised, 255));
-	for (i = 0; i < 4; i++)
-		ui_round_rect(r, &(SDL_Rect){ bx + i * (q->w / 10), q->y + q->h - 46, q->w / 14, q->w / 14 },
-		              4, ui_col(i == 2 ? t->text_soft : t->text_dim, 255));
-	BAR(bx + 2 * (q->w / 10), q->y + q->h - 14, q->w / 14, 4, t->accent_ink);
+	/* the dock's mark as Highlight has it (src/ds/focus.h): Bar's bar,
+	 * Border's ring, Lift's rise on a shadow, None's step back alone */
+	{
+		const int f = look_focus(), s = q->w / 14, fx = bx + 2 * (q->w / 10), fy = q->y + q->h - 46;
+
+		for (i = 0; i < 4; i++) {
+			SDL_Rect d = { bx + i * (q->w / 10), fy, s, s };
+
+			if (i == 2 && f == LOOK_FOCUS_LIFT) {
+				ui_round_rect(r, &(SDL_Rect){ d.x + 1, d.y + 2, s, s }, 4, ui_col(t->ink, 70));
+				d.y -= 3;
+			}
+			ui_round_rect(r, &d, 4, ui_col(i == 2 ? t->text_soft : t->text_dim, i == 2 || f != LOOK_FOCUS_NONE ? 255 : 150));
+		}
+		if (f == LOOK_FOCUS_BAR) BAR(fx, q->y + q->h - 14, s, 4, t->accent_ink);
+		if (f == LOOK_FOCUS_BORDER)
+			ds_round_ring(r, (SDL_Rect){ fx - 5, fy - 5, s + 10, s + 10 }, (SDL_Rect){ fx - 2, fy - 2, s + 4, s + 4 },
+			              9, 6, ui_col(t->accent_ink, 255));
+	}
 	/* a menu over it: its heading, rule and bar, three rows, one in focus */
 	ui_round_rect(r, &(SDL_Rect){ mx, my, mw, mh }, 12, ui_col(t->edge, 255));
 	ui_round_rect(r, &(SDL_Rect){ mx + 2, my + 2, mw - 4, mh - 4 }, 10, ui_col(t->surface, 255));

@@ -152,7 +152,7 @@ zh-Hans = 焦点项目会稍稍放大，下方有一条短横条。
 es = El elemento seleccionado crece un poco, con una barra corta debajo.
 pt-BR = O item em foco cresce um pouco, com uma barra curta embaixo.
 fr = L'élément sélectionné grandit un peu, avec une petite barre dessous.
-de = Das ausgewählte Element wird etwas größer, mit einem kurzen Balken darunter.
+de = Das ausgewählte Element wird größer, mit kurzem Balken darunter.
 ja = 選択中の項目が少し大きくなり、下に短いバーが付きます。
 it = L'elemento selezionato si ingrandisce un po', con una barretta sotto.
 
@@ -185,7 +185,7 @@ zh-Hans = 没有标记：焦点项目放大，其他项目变暗。
 es = Sin marca: el elemento seleccionado crece y los demás se atenúan.
 pt-BR = Sem marca: o item em foco cresce e os outros ficam mais apagados.
 fr = Sans repère : l'élément sélectionné grandit et les autres s'estompent.
-de = Ohne Markierung: Das ausgewählte Element wird größer, die anderen treten zurück.
+de = Keine Markierung: Das Element wächst, die anderen treten zurück.
 ja = 印なし：選択中の項目が大きくなり、ほかの項目は控えめになります。
 it = Nessun segno: l'elemento selezionato si ingrandisce e gli altri si attenuano.
 

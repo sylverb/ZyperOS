@@ -833,6 +833,15 @@ EXTRA.setdefault("theme-folders-orange", ("demo", "PS1", ["--look", "lime,warm,b
                                                           "--look-page", "theme", "3"]))
 EXTRA.setdefault("theme-folders-list-system", ("demo", "PS1", ["--look-page", "theme-list", "3", "--pick-at", "0"]))
 EXTRA.setdefault("theme-folders-list-teal", ("demo", "PS1", ["--look-page", "theme-list", "3", "--pick-at", "3"]))
+# Highlight (the focus lab, 2026-11-19): its row in focus on each choice,
+# the pictures over it showing the dock's mark as the choice has it, and its
+# list with the home's three systems beside it marked as the choice under
+# the cursor marks them, each choice's note under the picture
+for _k, _f in enumerate(("bar", "border", "lift", "none")):
+    EXTRA.setdefault("theme-highlight-" + _f, ("demo", "PS1", ["--look", "lime,warm,black,rounded,on,system," + _f,
+                                                              "--look-page", "theme", "5"]))
+    EXTRA.setdefault("theme-highlight-list-" + _f, ("demo", "PS1", ["--look-page", "theme-list", "5",
+                                                                   "--pick-at", str(_k)]))
 # Timing's list (src/pacing.h): two choices, opened on A all the same for
 # the picture beside it (the two ways, slowed) and what each does under it
 for _k, _p in enumerate(("smooth", "exact")):
