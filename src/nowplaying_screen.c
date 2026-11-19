@@ -914,6 +914,7 @@ static void np_video_notice(SDL_Renderer *r, const SDL_Rect *band, const mu_now 
 		snprintf(head + n, sizeof head - (size_t)n, fabs(fps - round(fps)) < 0.01 ? " · %.0f fps" : " · %.2f fps", fps);
 	}
 	body = trouble == MPF_TOO_BIG ? T(S_MP4_TOO_BIG) : T(S_MP4_NO_PICTURE);
+	ui_fit_drawn(body);
 	if ((nl = strchr(body, '\n'))) {
 		/* Chinese and Japanese say where their two lines part, which a
 		 * break between any two characters would not */
