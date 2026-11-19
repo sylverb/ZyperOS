@@ -683,16 +683,8 @@ void diatom_port_low_battery(bool on, bool blink)
 	g_lowbat_blink = blink;
 }
 
-/* On-Screen Stats (diatom_port.h): not drawn on the Brick yet */
-void diatom_port_hud(bool on, double fps, double speed)
-{
-	(void)on; (void)fps; (void)speed;
-}
-
-void diatom_port_hud_style(const diatom_hud_words *w)
-{
-	(void)w;
-}
+/* On-Screen Stats: diatom_port_hud and _hud_style are port/hud_host.h's
+ * (the GPU path's section, below), drawn by either path */
 
 /* The picture under the notice, in ordinary memory.
  *
@@ -1077,6 +1069,78 @@ static void cpu_present_stop(diatom_park park_mode)
 }
 
 
+/* The refreshes, for the frame loop's display lock (diatom_port_vblank,
+ * Timing's Smooth): the panel's rate from fb0's timings (panel_refresh_hz),
+ * and from the flip thread's pans, which return at the refresh that latched
+ * them, the last one's time and the period, which starts at the timings' and
+ * moves a thirty-second of each pan's difference, as the Pixel 2's moves with
+ * its flips. Written by the flip thread, read by the loop: a word each. */
+static volatile uint64_t g_vbl_at;
+static volatile double   g_vbl_period, g_vbl_nominal;
+
+static void vbl_mark(uint64_t at)
+{
+	static uint64_t prev;
+
+	if (prev && g_vbl_nominal > 0 && at > prev) {
+		double d = (double)(at - prev);
+		long k = lround(d / g_vbl_nominal);
+
+		/* A pan one to four refreshes after the last, its period within 2%
+		 * of the timings': a wake-up late or a frame skipped moves nothing */
+		if (k >= 1 && k <= 4) {
+			double one = d / (double)k;
+
+			if (fabs(one - g_vbl_nominal) < g_vbl_nominal * 0.02)
+				g_vbl_period += (one - g_vbl_period) / 32;
+		}
+	}
+	prev = at;
+	g_vbl_at = at;
+}
+
+/* The panel's refresh rate from fb0's timings, Hz: the pixel clock (Allwinner's
+ * dev_fb.c fills pixclock, in picoseconds, and the porches and syncs from the
+ * LCD's timings) over the whole frame's pixels; 0 when they are missing or
+ * make no sense */
+static double panel_refresh_hz(void)
+{
+	const struct fb_var_screeninfo *v = &g_vinfo;
+	double htotal = (double)v->xres + v->left_margin + v->right_margin + v->hsync_len;
+	double vtotal = (double)v->yres + v->upper_margin + v->lower_margin + v->vsync_len;
+	double hz;
+
+	if (!v->pixclock || !v->left_margin || !v->upper_margin) return 0;
+	hz = 1e12 / ((double)v->pixclock * htotal * vtotal);
+	return hz >= 30 && hz <= 120 ? hz : 0;
+}
+
+/* The rate and where it came from, once at the start */
+static void refresh_log(double hz)
+{
+	char msg[200];
+
+	if (hz > 0)
+		snprintf(msg, sizeof msg, "brick: the panel refreshes at %.3f Hz (fb0's timings: "
+		         "pixclock %u ps, %ux%u of %ux%u)", hz, g_vinfo.pixclock, g_vinfo.xres, g_vinfo.yres,
+		         g_vinfo.xres + g_vinfo.left_margin + g_vinfo.right_margin + g_vinfo.hsync_len,
+		         g_vinfo.yres + g_vinfo.upper_margin + g_vinfo.lower_margin + g_vinfo.vsync_len);
+	else
+		snprintf(msg, sizeof msg, "brick: the panel's rate is not in fb0's timings "
+		         "(pixclock %u ps); no display lock", g_vinfo.pixclock);
+	diatom_port_log(DIATOM_LOG_INFO, msg);
+}
+
+bool diatom_port_vblank(uint64_t *at_us, double *period_us)
+{
+	uint64_t at = g_vbl_at;
+
+	if (!at || g_vbl_period <= 0) return false;
+	*at_us = at;
+	*period_us = g_vbl_period;
+	return true;
+}
+
 static void *flip_worker(void *arg)
 {
 	struct fb_var_screeninfo v = g_vinfo;
@@ -1100,6 +1164,8 @@ static void *flip_worker(void *arg)
 		v.activate = FB_ACTIVATE_VBL;
 		if (ioctl(g_fb_fd, FBIOPAN_DISPLAY, &v) != 0)
 			diatom_port_log(DIATOM_LOG_WARN, "pan failed in flip thread");
+		else
+			vbl_mark(diatom_port_now_us());
 
 		pthread_mutex_lock(&g_flip_mx);
 		g_page_front    = page;
@@ -1320,6 +1386,9 @@ bool diatom_port_init(diatom_port_caps *out)
 	out->audio_buffer_frames = AUDIO_BUFFER_FRAMES;
 	out->present_blocks      = false;
 	out->gpu                 = g_gl_possible;
+	out->refresh_hz          = panel_refresh_hz();
+	if (out->refresh_hz > 0) g_vbl_nominal = g_vbl_period = 1e6 / out->refresh_hz;
+	refresh_log(out->refresh_hz);
 	out->rumble              = false;
 	return true;
 }
@@ -1754,14 +1823,23 @@ static PFNEGLDESTROYIMAGEKHRPROC           p_destroy_image;
 static PFNGLEGLIMAGETARGETTEXTURE2DOESPROC p_image_target;
 
 /* What the shared code reads that the CPU path has no use for: the
- * overlay's new image, the level bar's colors handed over, and On-Screen
- * Stats, which this port does not draw yet (off) */
+ * overlay's new image and the level bar's colors handed over. And On-Screen
+ * Stats' line, style and colors, which both paths draw (the GPU path's
+ * draw_hud, the CPU path's hud_page), written under g_mx by the host side */
 static bool      g_ov_dirty;
 static unsigned  g_osd_colors_seen;
 static bool      g_hud_on, g_hud_dirty;
 static char      g_hud_text[160];
 static ds_theme  g_hud_colors;
 static hud_style g_hud_style;
+
+/* On-Screen Stats' host side (port/hud_host.h), on the Brick's sensors: the
+ * A133's CPU and GPU zones, as its device tree names them, and the AXP2202's
+ * gauge (plastron's kernel patch 0016) */
+#define HUD_ZONE_A       "cpu_thermal_zone"
+#define HUD_ZONE_B       "gpu_thermal_zone"
+#define HUD_BATTERY_FILE "/sys/class/power_supply/axp2202-battery/capacity"
+#include "hud_host.h"
 
 static void port_logf(diatom_log_level lvl, const char *fmt, ...)
 	__attribute__((format(printf, 2, 3)));
@@ -2116,6 +2194,93 @@ static void gl_quit(void)
 	g_thread_running = false;
 }
 
+/* On-Screen Stats on the CPU path: the line made into pixels when it, its
+ * style or its colors change (hud_render, as the GPU path's draw_hud does),
+ * placed by the style (hud_place), then on every page it goes on its
+ * rectangle cleared outside the picture (the letterbox, where a page keeps
+ * what was drawn three frames ago: blending over that again would darken a
+ * half-clear pill each time) and the line blended in, straight alpha. Taken
+ * off a page it was on once it is off or has moved. On the frame loop's
+ * thread, in present. */
+static uint32_t    g_hudc_px[1024 * 128];
+static diatom_rect g_hudc_rect;                 /* where it goes now; w 0, nowhere */
+static diatom_rect g_hudc_painted[FB_PAGES];
+static char        g_hudc_text[sizeof g_hud_text];
+static hud_style   g_hudc_style;
+static ds_theme    g_hudc_colors;
+
+static void hud_cpu_update(void)
+{
+	char text[sizeof g_hud_text];
+	hud_style st;
+	ds_theme colors;
+	bool on;
+	int w = 0, h = 0, x = 0, y = 0;
+
+	pthread_mutex_lock(&g_mx);
+	on = g_hud_on;
+	if (on) {
+		memcpy(text, g_hud_text, sizeof text);
+		st = g_hud_style;
+		colors = g_hud_colors;
+	}
+	pthread_mutex_unlock(&g_mx);
+	if (!on) {
+		g_hudc_rect.w = 0;
+		g_hudc_text[0] = '\0';
+		return;
+	}
+	if (g_hudc_rect.w > 0 && !strcmp(text, g_hudc_text) &&
+	    !memcmp(&st, &g_hudc_style, sizeof st) && !memcmp(&colors, &g_hudc_colors, sizeof colors))
+		return;
+	memcpy(g_hudc_text, text, sizeof text);
+	g_hudc_style = st;
+	g_hudc_colors = colors;
+	g_hudc_rect.w = 0;
+	hud_size(text, 1.0f, &st, &w, &h);
+	if (!w || w > 1024 || h > 128 || w > (int)g_vinfo.xres || h > (int)g_vinfo.yres) return;
+	hud_render(g_hudc_px, w, h, w, 1.0f, text, &st, &colors, false);
+	hud_place(&st, 1.0f, w, h, (int)g_vinfo.xres, (int)g_vinfo.yres, &x, &y);
+	if (x < 0 || y < 0 || x + w > (int)g_vinfo.xres || y + h > (int)g_vinfo.yres) return;
+	g_hudc_rect = (diatom_rect){ x, y, w, h };
+}
+
+static void hud_page(uint8_t *base, int page, diatom_rect dst)
+{
+	const unsigned ro = g_vinfo.red.offset, go = g_vinfo.green.offset;
+	const unsigned bo = g_vinfo.blue.offset;
+	diatom_rect *was = &g_hudc_painted[page], r = g_hudc_rect;
+	int yy, xx;
+
+	if (was->w > 0 && (r.w == 0 || memcmp(was, &r, sizeof r) != 0)) {
+		clear_overlay(base, *was, dst);
+		was->w = 0;
+	}
+	if (r.w == 0) return;
+	clear_overlay(base, r, dst);
+	for (yy = 0; yy < r.h; yy++) {
+		uint32_t *row = (uint32_t *)(base + (size_t)(r.y + yy) * g_finfo.line_length) + r.x;
+		const uint32_t *src = g_hudc_px + (size_t)yy * (size_t)r.w;
+
+		for (xx = 0; xx < r.w; xx++) {
+			const uint32_t q = src[xx];
+			const unsigned a = q >> 24;
+			unsigned cr = (q >> 16) & 0xff, cg = (q >> 8) & 0xff, cb = q & 0xff;
+
+			if (a == 0) continue;
+			if (a < 255) {
+				const uint32_t p = row[xx];
+
+				cr = (cr * a + ((p >> ro) & 0xff) * (255 - a) + 127) / 255;
+				cg = (cg * a + ((p >> go) & 0xff) * (255 - a) + 127) / 255;
+				cb = (cb * a + ((p >> bo) & 0xff) * (255 - a) + 127) / 255;
+			}
+			row[xx] = (cr << ro) | (cg << go) | (cb << bo) | g_opaque;
+		}
+	}
+	*was = r;
+}
+
 /* The planes and the strength are held for both paths: the CPU path reads
  * g_planes in present, the GPU path copies both into each frame */
 void diatom_port_planes(const diatom_plane *planes, int n) { gl_planes(planes, n); }
@@ -2269,6 +2434,9 @@ static void cpu_present(const void *src, int w, int h, size_t pitch,
 	if (g_present_debug) t0 = diatom_port_now_us();
 
 	blit(page_base(page), src, w, h, pitch, fmt, dst);
+	/* On-Screen Stats first, so the bar, the disc and a notice go over it */
+	hud_cpu_update();
+	hud_page(page_base(page), page, dst);
 	/* Painted, or unpainted. A page keeps whatever was last written outside
 	 * dst, so the bar has to be taken off the same page it was put on - and
 	 * only here, where this page is the one being prepared and no one is
@@ -2333,6 +2501,7 @@ void diatom_port_present(const void *src, int w, int h, size_t pitch,
 			memset(g_bar_painted, 0, sizeof g_bar_painted);
 			memset(g_ov_painted, 0, sizeof g_ov_painted);
 			memset(g_dot_painted, 0, sizeof g_dot_painted);
+			memset(g_hudc_painted, 0, sizeof g_hudc_painted);
 		}
 		g_gl_last = gpu;
 		g_gpu_seq_seen = g_gpu_seq;
@@ -2687,12 +2856,6 @@ static bool cpu_capture(const char *path)
 	return ok;
 }
 
-/* No display lock on the Brick yet: its panel's rate is not read */
-bool diatom_port_vblank(uint64_t *at_us, double *period_us)
-{
-	(void)at_us; (void)period_us;
-	return false;
-}
 
 uint64_t diatom_port_now_us(void)
 {
