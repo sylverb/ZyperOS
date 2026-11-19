@@ -8,6 +8,7 @@
 #include "ds/flex.h"     /* the shelf, laid out by rules */
 #include "ds/layout.h"
 #include "ds/mark.h"
+#include "ds/focus.h"
 #include "theme.h"
 #include <math.h>
 #include <stdio.h>
@@ -257,6 +258,7 @@ uint32_t games_draw(games_row *row,SDL_Renderer *r,const games_info *info,
     } else ui_text(r,meta,info->system,sf.sys.x,ui_cap_y(meta,sys_cy),-1,UI_TEXT_SOFT);
     ui_text_tabular(r,chrome,count,sf.sys.x+sf.sys.w,ui_cap_y(chrome,sys_cy),1,UI_TEXT_DIM);
 
+    const ds_focus_marks marks=ds_focus_marks_of(DS_FOCUS_COVER);
     games_slot slots[GAMES_WINDOW]; int n=games_slots(row,now,slots);
     for(int i=0;i<n;i++) {
         /* Asked out to the last seat, where a cover shows nothing: so the
@@ -270,6 +272,13 @@ uint32_t games_draw(games_row *row,SDL_Renderer *r,const games_info *info,
         SDL_FRect dst={pose.cx-pose.hw,pose.cy-pose.hh,pose.hw*2,pose.hh*2};
         bool turned=fabsf(pose.ang)>.001f;
         float focus=fmaxf(0,1-fabsf(slots[i].offset));
+        /* Highlight's Lift (src/ds/focus.h): the cover coming to the middle
+         * rises 12 on a deep lift as it comes */
+        if(marks.lift==DS_FOCUS_LIFT_HIGH && !turned && focus>.02f) {
+            dst.y-=12*focus;
+            ui_lift_focus(r,&(SDL_Rect){(int)lroundf(dst.x),(int)lroundf(dst.y),(int)lroundf(dst.w),(int)lroundf(dst.h)},
+                          true,focus*pose.alpha*slots[i].alpha);
+        }
         Uint8 was; SDL_BlendMode texblend;
         SDL_GetTextureAlphaMod(t,&was); SDL_GetTextureBlendMode(t,&texblend);
         SDL_SetTextureBlendMode(t,SDL_BLENDMODE_BLEND);
@@ -347,6 +356,21 @@ uint32_t games_draw(games_row *row,SDL_Renderer *r,const games_info *info,
             int bw=(int)lroundf(dst.w),bx=(int)lroundf(dst.x),by=(int)lroundf(dst.y+dst.h)+12;
             float fade=(1-k)*slots[i].alpha;
             ds_bar(r,bx,by,bw,(int)lroundf(bw*fminf(info->snap_wait,1)),(Uint8)lroundf(255*fade));
+        }
+    }
+    /* Highlight's marks round the cover in the middle, holding still as the
+     * row slides under them, as Spotlight's do: Border's ring (its corners
+     * the cover's own, square), Bar's bar under the snap's wait bar; both
+     * gone as a snap takes the cover's place */
+    if((marks.ring || marks.bar) && info->count>0) {
+        int w=0,h=0; float cb=1;
+        SDL_Texture *t=texture(ctx,info->cursor,&w,&h,&cb);
+        float k=info->snap && info->snap_k>0 ? fminf(info->snap_k,1) : 0;
+        if(t && w>0 && h>0 && k<1) {
+            SDL_FRect c=games_cover_rect(w,h,0);
+            Uint8 al=(Uint8)lroundf(255*(1-k));
+            if(marks.ring) ds_focus_ring(r,c,0,al);
+            if(marks.bar) ds_focus_bar(r,(SDL_FRect){c.x,c.y,c.w,c.h+16},al);
         }
     }
     TTF_Font *title=page_font(PAGE_GAME_TITLE);

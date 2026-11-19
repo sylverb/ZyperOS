@@ -15,6 +15,7 @@
 #include "ui.h"
 #include "ds/layout.h"
 #include "ds/mark.h"
+#include "ds/focus.h"
 #include "zyperdraw.h"
 
 #include <math.h>
@@ -222,6 +223,7 @@ static void place(gg_motion *m, int cursor, int count)
 	m->top_from = m->top_to = (float)top;
 	m->fx_from = (float)(cursor % cols);
 	m->fy_from = (float)(cursor / cols);
+	m->fw.n = 0;
 }
 
 void gg_reset(gg_motion *m, int cursor, int count)
@@ -258,6 +260,7 @@ static void follow(gg_motion *m, int cursor, int count, uint32_t now)
 	m->fx_from = eased(m->fx_from, (float)(m->cursor % cols), now - m->ring_moved, DS_MS_QUICK);
 	m->fy_from = eased(m->fy_from, (float)(m->cursor / cols), now - m->ring_moved, DS_MS_QUICK);
 	m->top_to = (float)window_top(cursor, count, cols, (int)lroundf(m->top_to));
+	ds_focus_weights_move(&m->fw, m->cursor, now - m->ring_moved);
 	if (abs(cursor / cols - m->cursor / cols) > 1) {
 		int dir = cursor > m->cursor ? 1 : -1;
 
@@ -690,11 +693,14 @@ static bool card_ready(SDL_Renderer *r, gg_art *e, int w, int h, const char *tit
 }
 
 /* A game's card in `cell`: copied, or drawn as before until it is */
-static void named_card(SDL_Renderer *r, gg_art *e, SDL_FRect cell, const char *title, unsigned rgb)
+static void named_card(SDL_Renderer *r, gg_art *e, SDL_FRect cell, SDL_FRect base, const char *title, unsigned rgb)
 {
-	SDL_Rect q = whole(cell);
+	SDL_Rect q = whole(cell), b = whole(base);
 
-	if (card_ready(r, e, q.w, q.h, title, rgb)) SDL_RenderCopy(r, e->card, NULL, &q);
+	/* Made at the cell's own size and drawn at the size the focus grows it
+	 * to, so a growing card neither lays its name out again nor is made
+	 * again on every frame of the glide */
+	if (card_ready(r, e, b.w, b.h, title, rgb)) SDL_RenderCopy(r, e->card, NULL, &q);
 	else grid_named(r, cell, title, rgb, e->blur);
 }
 
@@ -750,9 +756,10 @@ static void grid_card(SDL_Renderer *r, SDL_FRect c, const char *title, unsigned 
 	SDL_RenderFillRect(r, &(SDL_Rect){ q.x + pad, y + 8, (int)lroundf(c.w * .18f), DS_RULE });
 }
 
-/* One cover in its cell; returns the rect the ring goes round */
+/* One cover in its cell, grown from `base` by the focus (the cell itself
+ * when out of focus); returns the rect the ring goes round */
 static SDL_FRect cover(SDL_Renderer *r, const gg_info *in, void *ctx, int i,
-                       SDL_Texture *t, int tw, int th, float cb, SDL_FRect cell)
+                       SDL_Texture *t, int tw, int th, float cb, SDL_FRect cell, SDL_FRect base)
 {
 	gg_art *e = in->art_of ? in->art_of(ctx, i) : NULL;
 	bool folder = in->folder_of && in->folder_of(ctx, i) > 0;
@@ -769,7 +776,7 @@ static SDL_FRect cover(SDL_Renderer *r, const gg_info *in, void *ctx, int i,
 	}
 	if (e && e->generated && e->blur) {
 		/* a game's card: its ground, and its name at the cell's size */
-		named_card(r, e, cell, in->title_of(ctx, i), in->accent_of ? in->accent_of(ctx, i) : in->accent);
+		named_card(r, e, cell, base, in->title_of(ctx, i), in->accent_of ? in->accent_of(ctx, i) : in->accent);
 		return cell;
 	}
 	if ((e && e->generated) || (!e && ui_card_theme(t) >= 0)) {
@@ -833,17 +840,16 @@ static SDL_FRect cell_rect(const gg_geom *g, float col, float row, float top)
 	                    (float)g->cw, (float)g->ch };
 }
 
-/* The ring round `f`: accent-ink, a focus gap of ground inside it, the
- * corners nesting round the cell's (14 + 4 + 4 = radius.card) */
-static void ring(SDL_Renderer *r, SDL_FRect f, Uint8 alpha)
+/* Highlight's marks round the focus `f` where it is now, gliding (src/ds/
+ * focus.h, DESIGN.md 11.47): Border's ring, Bar's bar under it, both on
+ * whole pixels round the cover grown as the focus grows it; Lift and None
+ * mark nothing, the cover itself grows (and rises) */
+static void marks_round(SDL_Renderer *r, const ds_focus_marks *mk, SDL_FRect f, Uint8 alpha)
 {
-	int out = DS_FOCUS_RING + DS_FOCUS_GAP;
-	SDL_Rect q = whole(f);
-	SDL_Rect o = { q.x - out, q.y - out, q.w + 2 * out, q.h + 2 * out };
-	SDL_Rect gp = { q.x - DS_FOCUS_GAP, q.y - DS_FOCUS_GAP, q.w + 2 * DS_FOCUS_GAP, q.h + 2 * DS_FOCUS_GAP };
+	SDL_FRect t = ds_focus_tile(f, mk, 1);
 
-	ui_round_rect(r, &o, DS_RADIUS_CELL + out, ui_col(theme()->accent_ink, alpha));
-	ui_round_rect(r, &gp, DS_RADIUS_CELL + DS_FOCUS_GAP, ui_col(theme()->ground, 255));
+	if (mk->ring) ds_focus_ring(r, t, DS_RADIUS_CELL, alpha);
+	if (mk->bar) ds_focus_bar(r, t, alpha);
 }
 
 /* The rail at the right, 23 from the edge: where the window is in the grid */
@@ -971,8 +977,12 @@ static void snap(SDL_Renderer *r, const gg_info *in, const gg_geom *g, SDL_FRect
 	d = (SDL_FRect){ c.x + (v.x - c.x) * k, c.y + (v.y - c.y) * k,
 	                 c.w + (v.w - c.w) * k, c.h + (v.h - c.h) * k };
 	lift = whole(d);
-	ui_lift_k(r, &lift, in->accent, UI_LIFT_FOCUS, k);
-	ring(r, d, (Uint8)lroundf(255 * k));
+	{
+		const ds_focus_marks mk = ds_focus_marks_of(DS_FOCUS_COVER);
+
+		if (mk.lift) ui_lift_focus(r, &lift, mk.lift == DS_FOCUS_LIFT_HIGH, k);
+		marks_round(r, &mk, d, (Uint8)lroundf(255 * k));
+	}
 	if (SDL_QueryTexture(in->snap, NULL, NULL, &qw, &qh)) return;
 	tex_round(r, in->snap, qw, qh,
 	          (SDL_FRect){ (float)in->snap_src.x, (float)in->snap_src.y, (float)sw, (float)sh },
@@ -1014,6 +1024,7 @@ uint32_t gg_draw(gg_motion *m, SDL_Renderer *r, const gg_info *in,
 	gg_geom g;
 	SDL_Rect clip;
 	SDL_FRect focus = { 0 };
+	const ds_focus_marks mk = ds_focus_marks_of(DS_FOCUS_COVER);
 
 	SDL_GetRenderDrawBlendMode(r, &blend);
 	SDL_GetRenderDrawColor(r, &red, &green, &blue, &alpha);
@@ -1035,9 +1046,9 @@ uint32_t gg_draw(gg_motion *m, SDL_Renderer *r, const gg_info *in,
 	fy = eased(m->fy_from, (float)(in->cursor / g.cols), now - m->ring_moved, DS_MS_QUICK);
 	games = in->count && in->folder_of ? in->folder_of(ctx, in->cursor) : 0;
 
-	/* The grid, in a window it scrolls through, room round it for the ring */
-	clip = (SDL_Rect){ 0, g.y - 2 * (DS_FOCUS_RING + DS_FOCUS_GAP), ZYPEROS_SCREEN_W,
-	                   GG_ROWS * g.ch + (GG_ROWS - 1) * g.gap + 4 * (DS_FOCUS_RING + DS_FOCUS_GAP) };
+	/* The grid, in a window it scrolls through, room round it for
+	 * Highlight's marks and the lift (src/ds/focus.h) */
+	clip = (SDL_Rect){ 0, g.y - 24, ZYPEROS_SCREEN_W, GG_ROWS * g.ch + (GG_ROWS - 1) * g.gap + 48 };
 	SDL_RenderSetClipRect(r, &clip);
 	if (in->count > 0) {
 		SDL_FRect f = cell_rect(&g, fx, fy, top);
@@ -1045,23 +1056,27 @@ uint32_t gg_draw(gg_motion *m, SDL_Renderer *r, const gg_info *in,
 		float cb = 1;
 		SDL_Texture *t = texture(ctx, in->cursor, &w, &h, &cb);
 
-		/* A folder is its picture: the ring goes round the folder */
+		/* A folder is its picture: the marks go round the folder */
 		if (t && w > 0 && h > 0 && in->folder_of && in->folder_of(ctx, in->cursor) > 0)
 			f = fit_in(f, (float)w, h * (cb > 0 && cb <= 1 ? cb : 1), 0);
 		focus = f;
-		ui_lift_k(r, &(SDL_Rect){ (int)f.x, (int)f.y, (int)f.w, (int)f.h }, in->accent,
-		          UI_LIFT_FOCUS_SMALL, 1);
-		ring(r, f, 255);
 	}
 	first = (int)floorf(top) * g.cols;
 	m->top_drawn = top;
 	m->holes = 0;
+	/* Twice: the covers out of focus, then over them the ones with a weight
+	 * in the focus's glide, each grown with it on its lift; every cover
+	 * with its hairline, and stepped back by what it is out of focus */
+	for (int pass = 0; pass < 2; pass++)
 	for (int i = first < 0 ? 0 : first; i < first + (GG_ROWS + 1) * g.cols && i < in->count; i++) {
-		SDL_FRect c = cell_rect(&g, (float)(i % g.cols), (float)(i / g.cols), top);
+		SDL_FRect c = cell_rect(&g, (float)(i % g.cols), (float)(i / g.cols), top), gc;
+		const float wt = ds_focus_weight(&m->fw, i, in->cursor, now - m->ring_moved);
 		int w = 0, h = 0;
 		float cb = 1;
+		bool folder;
 		SDL_Texture *t;
 
+		if ((wt > 0) != (pass == 1)) continue;
 		if (c.y > clip.y + clip.h || c.y + c.h < clip.y) continue;
 		t = texture(ctx, i, &w, &h, &cb);
 		if (!t || w <= 0 || h <= 0) {
@@ -1072,28 +1087,48 @@ uint32_t gg_draw(gg_motion *m, SDL_Renderer *r, const gg_info *in,
 			ui_round_rect(r, &q, DS_RADIUS_CELL, ui_col(theme()->raised, 255));
 			continue;
 		}
-		cover(r, in, ctx, i, t, w, h, cb, c);
+		folder = in->folder_of && in->folder_of(ctx, i) > 0;
+		gc = ds_focus_tile(c, &mk, wt);
+		{
+			SDL_FRect shape = folder ? fit_in(gc, (float)w, h * (cb > 0 && cb <= 1 ? cb : 1), 0) : gc;
+			SDL_Rect lq = whole(shape);
+
+			if (mk.lift && wt > .02f) ui_lift_focus(r, &lq, mk.lift == DS_FOCUS_LIFT_HIGH, wt);
+			cover(r, in, ctx, i, t, w, h, cb, gc, c);
+			if (!folder) ds_focus_hairline(r, gc, DS_RADIUS_CELL);
+			ds_focus_dim(r, shape, DS_RADIUS_CELL, wt);
+		}
 		if (i != in->cursor) continue;
+		if (mk.sheen) {
+			const float st = (float)(now - m->ring_moved) / DS_MS_SHEEN;
+
+			if (st < 1) {
+				ds_focus_sheen(r, gc, st);
+				wait = 0;
+			}
+		}
 		/* The focused cover's video snap mark, and the wait before the
 		 * snap: a bar along its foot, filling (DESIGN.md 11.19) */
 		if (in->has_snap && !(in->snap && in->snap_k > 0))
-			ds_play_disc(r, (int)lroundf(c.x + c.w) - DS_BADGE_INSET_SMALL - DS_BADGE_SMALL,
-			             (int)lroundf(c.y + c.h) - DS_BADGE_INSET_SMALL - DS_BADGE_SMALL,
+			ds_play_disc(r, (int)lroundf(gc.x + gc.w) - DS_BADGE_INSET_SMALL - DS_BADGE_SMALL,
+			             (int)lroundf(gc.y + gc.h) - DS_BADGE_INSET_SMALL - DS_BADGE_SMALL,
 			             DS_BADGE_SMALL, 255);
 		if (in->snap_wait > 0 && !(in->snap && in->snap_k > 0)) {
-			int bw = (int)lroundf(c.w) - 2 * DS_BADGE_INSET_SMALL;
-			ds_bar(r, (int)lroundf(c.x) + DS_BADGE_INSET_SMALL,
-			       (int)lroundf(c.y + c.h) - DS_BADGE_INSET_SMALL - DS_BAR, bw,
+			int bw = (int)lroundf(gc.w) - 2 * DS_BADGE_INSET_SMALL;
+			ds_bar(r, (int)lroundf(gc.x) + DS_BADGE_INSET_SMALL,
+			       (int)lroundf(gc.y + gc.h) - DS_BADGE_INSET_SMALL - DS_BAR, bw,
 			       (int)lroundf(bw * fminf(in->snap_wait, 1)), 255);
 		}
 	}
+	/* The marks, over the covers, where the focus is now (gliding); under
+	 * a video snap, the snap's own */
+	if (in->count > 0 && !(in->snap && in->snap_k > 0)) marks_round(r, &mk, focus, 255);
 	SDL_RenderSetClipRect(r, NULL);
 	if (!gg_moving(m, now)) named_ahead(r, &g, in, ctx, (int)floorf(top));
 	/* cards still to draw: another frame for them */
 	if (g_cards_wanted) wait = 0;
 	if (in->count > 0 && in->snap && in->snap_k > 0 && in->snap_w > 0 && in->snap_h > 0)
 		snap(r, in, &g, cell_rect(&g, (float)(in->cursor % g.cols), (float)(in->cursor / g.cols), top));
-	(void)focus;
 	rail(r, &g, top, in->count);
 	band(r, in, ctx, games, sh, phase, &wait);
 	{
