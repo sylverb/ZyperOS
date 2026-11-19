@@ -475,18 +475,53 @@ long net_get_hdr_answer(const char *url, const char *header, char *out,
 
 /* ---- the same thing, without waiting ------------------------------------ */
 
-static pid_t g_async = -1;
-static char  g_async_cfg[sizeof NET_TMP + 96];
-/* When the request in flight started, and what the last one to finish took
- * and exited with. See net_async_ms. */
-static long  g_async_t0;
-static int   g_async_ms, g_async_exit;
+/* A slot: one request in flight, and what the last one to finish answered
+ * (net.h, net_slot). MAIN is the one slot there always was; the downloads'
+ * lanes have theirs, so a lane's request and a screen's run side by side.
+ * Zeroed is empty: a pid of 0 or less means nothing in flight. */
+typedef struct {
+	pid_t pid;
+	char  cfg[sizeof NET_TMP + 96];
+	/* When the request in flight started, and what the last one to finish
+	 * took and exited with. See net_async_ms. */
+	long  t0;
+	int   ms, exit;
+	/* A POST's reply file that ends with the status curl wrote after the
+	 * body, for net_async_poll to take off it (net_post_async_status).
+	 * Empty for one that does not. */
+	char  post[512];
+	int   http;
+	/* Where an async GET is being written, so the poll can put it in place.
+	 * Empty when the request in flight is a POST, which manages its own
+	 * destination. */
+	char  dest[512];
+	char  part[520];
+	/* Where curl prints the status, and the last one it printed. Kept apart
+	 * from the body so that a caller can ask what happened even when there
+	 * is no body to read - which is every refusal, since curl runs with
+	 * `fail`. */
+	char  st[560];
+} async_slot;
 
-/* A POST's reply file that ends with the status curl wrote after the body,
- * for net_async_poll to take off it (net_post_async_status). Empty for one
- * that does not. */
-static char g_async_post[512];
-static int  g_async_http;
+static async_slot g_slot[NET_SLOTS];
+static net_slot g_cur = NET_SLOT_MAIN;
+#define A (&g_slot[g_cur])
+
+net_slot net_slot_use(net_slot s)
+{
+	net_slot was = g_cur;
+
+	if ((int)s >= 0 && s < NET_SLOTS) g_cur = s;
+	return was;
+}
+
+/* The config's name, by the process and the slot: two slots' requests are in
+ * flight at once, and each curl reads its own */
+static void slot_cfg(const char *kind)
+{
+	snprintf(A->cfg, sizeof A->cfg, NET_TMP "/zyperos-%s-async-%ld-%d.curl",
+	         kind, (long)getpid(), (int)g_cur);
+}
 
 static bool post_async(const net_field *f, int n, const char *path, int timeout_s,
                        bool status)
@@ -494,32 +529,31 @@ static bool post_async(const net_field *f, int n, const char *path, int timeout_
 	const char *bin = curl_bin();
 	int fd;
 
-	if (g_async > 0 && net_async_poll() == 0) return false;
+	if (A->pid > 0 && net_async_poll() == 0) return false;
 	if (!bin) return false;
 
-	snprintf(g_async_cfg, sizeof g_async_cfg, NET_TMP "/zyperos-ra-async-%ld.curl",
-	         (long)getpid());
-	if (!write_config(g_async_cfg, RA_URL, false, f, n, timeout_s, NULL, status)) return false;
+	slot_cfg("ra");
+	if (!write_config(A->cfg, RA_URL, false, f, n, timeout_s, NULL, status)) return false;
 
 	fd = open_new(path, O_WRONLY, 0644);
-	if (fd < 0) { unlink(g_async_cfg); return false; }
+	if (fd < 0) { unlink(A->cfg); return false; }
 
-	g_async_t0 = now_ms();
-	g_async_http = 0;
-	g_async_post[0] = '\0';
-	if (status && snprintf(g_async_post, sizeof g_async_post, "%s", path)
-	              >= (int)sizeof g_async_post) {
+	A->t0 = now_ms();
+	A->http = 0;
+	A->post[0] = '\0';
+	if (status && snprintf(A->post, sizeof A->post, "%s", path)
+	              >= (int)sizeof A->post) {
 		close(fd);
-		unlink(g_async_cfg);
-		g_async_post[0] = '\0';
+		unlink(A->cfg);
+		A->post[0] = '\0';
 		return false;
 	}
-	g_async = spawn_curl(bin, g_async_cfg, fd);
-	if (g_async < 0) {
+	A->pid = spawn_curl(bin, A->cfg, fd);
+	if (A->pid < 0) {
 		close(fd);
-		unlink(g_async_cfg);
-		g_async = -1;
-		g_async_post[0] = '\0';
+		unlink(A->cfg);
+		A->pid = -1;
+		A->post[0] = '\0';
 		return false;
 	}
 	close(fd);
@@ -564,28 +598,19 @@ static int take_post_status(const char *path)
 	return code;
 }
 
-/* Where an async GET is being written, so the poll can put it in place. Empty
- * when the request in flight is a POST, which manages its own destination. */
-static char g_async_dest[512];
-static char g_async_part[520];
-/* Where curl prints the status, and the last one it printed. Kept apart from
- * the body so that a caller can ask what happened even when there is no body
- * to read - which is every refusal, since curl runs with `fail`. */
-static char g_async_st[560];
-
 void net_async_abort(void)
 {
-	if (g_async > 0) {
-		kill(g_async, SIGKILL);
-		waitpid(g_async, NULL, 0);
+	if (A->pid > 0) {
+		kill(A->pid, SIGKILL);
+		waitpid(A->pid, NULL, 0);
 	}
-	g_async = -1;
-	if (g_async_cfg[0]) unlink(g_async_cfg);
-	if (g_async_part[0]) unlink(g_async_part);
-	if (g_async_st[0]) { unlink(g_async_st); g_async_st[0] = '\0'; }
-	g_async_post[0] = '\0';
-	g_async_dest[0] = '\0';
-	g_async_part[0] = '\0';
+	A->pid = -1;
+	if (A->cfg[0]) unlink(A->cfg);
+	if (A->part[0]) unlink(A->part);
+	if (A->st[0]) { unlink(A->st); A->st[0] = '\0'; }
+	A->post[0] = '\0';
+	A->dest[0] = '\0';
+	A->part[0] = '\0';
 }
 
 bool net_get_async(const char *url, const char *path, int timeout_s)
@@ -603,42 +628,41 @@ bool net_get_async_hdr(const char *url, const char *path, int timeout_s,
 	 * than refused forever.
 	 *
 	 * This deadlocked once, and silently: a screen closed mid-fetch left
-	 * g_async pointing at a pid nobody would ever wait for. Every later
+	 * the slot pointing at a pid nobody would ever wait for. Every later
 	 * request then returned false - so no WAIT phase was entered, so
 	 * net_async_poll was never called, so the slot was never cleared. Box art
 	 * reported "could not start curl" on every system for the rest of the
 	 * launcher's life, with curl sitting right there working. Only a restart
 	 * fixed it, which is the shape of a bug nobody reports accurately. */
-	if (g_async > 0 && net_async_poll() == 0) return false;   /* genuinely busy */
+	if (A->pid > 0 && net_async_poll() == 0) return false;   /* genuinely busy */
 	if (!bin) return false;
 	if (!url_ok(url) || (header && !url_ok(header))) return false;
 
-	snprintf(g_async_cfg, sizeof g_async_cfg, NET_TMP "/zyperos-get-async-%ld.curl",
-	         (long)getpid());
-	snprintf(g_async_dest, sizeof g_async_dest, "%s", path);
-	if (snprintf(g_async_part, sizeof g_async_part, "%s.part", path)
-	    >= (int)sizeof g_async_part) {
-		g_async_dest[0] = '\0';
+	slot_cfg("get");
+	snprintf(A->dest, sizeof A->dest, "%s", path);
+	if (snprintf(A->part, sizeof A->part, "%s.part", path)
+	    >= (int)sizeof A->part) {
+		A->dest[0] = '\0';
 		return false;
 	}
-	if (!write_get_config(g_async_cfg, url, g_async_part, timeout_s, header)) {
-		g_async_dest[0] = '\0';
+	if (!write_get_config(A->cfg, url, A->part, timeout_s, header)) {
+		A->dest[0] = '\0';
 		return false;
 	}
-	snprintf(g_async_st, sizeof g_async_st, "%s.http", g_async_part);
+	snprintf(A->st, sizeof A->st, "%s.http", A->part);
 
-	g_async_http = 0;
-	fd = open_new(g_async_st, O_WRONLY, 0644);
-	if (fd < 0) { unlink(g_async_cfg); g_async_dest[0] = '\0'; return false; }
+	A->http = 0;
+	fd = open_new(A->st, O_WRONLY, 0644);
+	if (fd < 0) { unlink(A->cfg); A->dest[0] = '\0'; return false; }
 
-	g_async_t0 = now_ms();
-	g_async = spawn_curl(bin, g_async_cfg, fd);
-	if (g_async < 0) {
+	A->t0 = now_ms();
+	A->pid = spawn_curl(bin, A->cfg, fd);
+	if (A->pid < 0) {
 		close(fd);
-		unlink(g_async_cfg);
-		unlink(g_async_part);
-		g_async = -1;
-		g_async_dest[0] = '\0';
+		unlink(A->cfg);
+		unlink(A->part);
+		A->pid = -1;
+		A->dest[0] = '\0';
 		return false;
 	}
 	close(fd);
@@ -647,7 +671,7 @@ bool net_get_async_hdr(const char *url, const char *path, int timeout_s,
 
 bool net_async_held(void)
 {
-	return g_async > 0;
+	return A->pid > 0;
 }
 
 int net_async_poll(void)
@@ -656,50 +680,52 @@ int net_async_poll(void)
 	pid_t r;
 	bool ok;
 
-	if (g_async <= 0) return -1;
-	r = waitpid(g_async, &st, WNOHANG);
+	if (A->pid <= 0) return -1;
+	r = waitpid(A->pid, &st, WNOHANG);
 	if (r == 0) return 0;                      /* still going */
 
-	g_async = -1;
-	unlink(g_async_cfg);
+	A->pid = -1;
+	unlink(A->cfg);
 	ok = (r > 0 && WIFEXITED(st) && WEXITSTATUS(st) == 0);
-	g_async_ms = (int)(now_ms() - g_async_t0);
-	g_async_exit = (r > 0 && WIFEXITED(st)) ? WEXITSTATUS(st) : -1;
+	A->ms = (int)(now_ms() - A->t0);
+	A->exit = (r > 0 && WIFEXITED(st)) ? WEXITSTATUS(st) : -1;
 
-	g_async_http = 0;
-	if (g_async_post[0]) {
-		g_async_http = take_post_status(g_async_post);
-		g_async_post[0] = '\0';
+	A->http = 0;
+	if (A->post[0]) {
+		A->http = take_post_status(A->post);
+		A->post[0] = '\0';
 	}
-	if (g_async_st[0]) {
-		FILE *h = fopen(g_async_st, "r");
+	if (A->st[0]) {
+		FILE *h = fopen(A->st, "r");
 
 		if (h) {
-			if (fscanf(h, "%d", &g_async_http) != 1) g_async_http = 0;
+			if (fscanf(h, "%d", &A->http) != 1) A->http = 0;
 			fclose(h);
 		}
-		unlink(g_async_st);
-		g_async_st[0] = '\0';
+		unlink(A->st);
+		A->st[0] = '\0';
 	}
 
 	/* A GET renames into place here rather than in the child, because only
 	 * the parent knows the request succeeded. curl -f exits non-zero on an
 	 * HTTP error but has usually already written the error body. */
-	if (g_async_dest[0]) {
-		if (ok && rename(g_async_part, g_async_dest) != 0) ok = false;
-		if (!ok) unlink(g_async_part);
-		g_async_dest[0] = '\0';
+	if (A->dest[0]) {
+		if (ok && rename(A->part, A->dest) != 0) ok = false;
+		if (!ok) unlink(A->part);
+		A->dest[0] = '\0';
 	}
 	return ok ? 1 : -1;
 }
 
 int net_async_http(void)
 {
-	return g_async_http;
+	return A->http;
 }
 
-int net_async_ms(void)   { return g_async_ms; }
-int net_async_exit(void) { return g_async_exit; }
+int net_async_ms(void)   { return A->ms; }
+int net_async_exit(void) { return A->exit; }
+
+#undef A
 
 bool net_online(void)
 {
