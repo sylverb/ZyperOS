@@ -5463,6 +5463,12 @@ int main(int argc, char *argv[])
 			if (i + 1 < argc && !strcmp(argv[i + 1], "controls")) { shot_video = 1; i++; }
 			else if (i + 1 < argc && (!strcmp(argv[i + 1], "hidden") || !strcmp(argv[i + 1], "full"))) i++;
 		}
+		else if (!strcmp(argv[i], "--video-size") && i + 1 < argc)
+			sscanf(argv[++i], "%dx%d", &shot_video_w, &shot_video_h);
+		else if (!strcmp(argv[i], "--video-at") && i + 2 < argc) {
+			shot_video_k = (float)atof(argv[++i]);
+			shot_video_grow = (float)atof(argv[++i]);
+		}
 		else if (!strcmp(argv[i], "--mode") && i + 1 < argc) shot_mode = argv[++i];
 		else if (!strcmp(argv[i], "--sysmove") && i + 1 < argc)
 			shot_sysmove = (float)atof(argv[++i]);

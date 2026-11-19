@@ -208,10 +208,17 @@ typedef enum {
  * card has songs, which are the two rows' only business.
  *
  * Lock Screen is the pocket lock, the way to find it without knowing X:
- * live while something plays, and saying so when nothing does. */
+ * live while something plays, and saying so when nothing does.
+ *
+ * Quit, the last row on every MP4 shelf, leaves MP4 for the screen it was
+ * opened from, as the in-game menu's Quit leaves a game, and X does it from
+ * any row (its glyph at the row's right, MENU_KEY_X). It leaves as SELECT
+ * does: what plays keeps playing, behind the home, as music does
+ * (2026-11-18: "add an option in the mp4 menu to quit it, like we have in
+ * games (with the shortcut too)"). */
 typedef enum { SMM_COUNT, SMM_SHOW, SMM_SORT, SMM_SHUFFLE, SMM_LOCK, SMM_ART,
-               SMM_RESCAN } sm_muse_row;
-#define SM_MUSE_ROWS 7
+               SMM_RESCAN, SMM_QUIT } sm_muse_row;
+#define SM_MUSE_ROWS 8
 
 /* MP4's rows in order, for the kind its shelf shows - 0 music, 1 books,
  * 2 videos, muselib.h's ml_kind, and 3 all of them with music among them
