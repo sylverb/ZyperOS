@@ -637,6 +637,9 @@ int gd_forget(const char *folder, const char *tag, const char *file)
 	if (db_del(db_lib(), key)) n++;
 	snprintf(key, sizeof key, "stick.%s.%s", tag, file);
 	if (db_del(db_lib(), key)) n++;
+	/* And its own Rumble level (src/rumble.h) */
+	snprintf(key, sizeof key, "rumble.%s.%s", tag, file);
+	if (db_del(db_lib(), key)) n++;
 	if (fav_forget(tag, file)) n++;
 	n += stats_forget(tag, file);
 	return n;

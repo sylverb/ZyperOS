@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 /* Border: what fills the screen around a game where its display mode leaves
- * room (DESIGN.md 11.55). A row of a game's Display tab, under Display, and
+ * room (DESIGN.md 11.59). A row of a game's Display tab, under Display, and
  * of a system's menu, under Display, kept per system (border.TAG). It shows
  * only while the mode leaves room: the GKD Pixel 2's panel is 4:3, so a 4:3
  * game at Full Screen or Sharp Pixels at 2x fills it, and the room is around

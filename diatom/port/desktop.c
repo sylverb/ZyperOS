@@ -576,14 +576,23 @@ void diatom_port_input_poll(void)
 
 uint32_t diatom_port_input_state(void) { return g_buttons; }
 
-bool diatom_port_rumble(uint16_t strong, uint16_t weak)
+/* The pretend motor writes down what a motor of the Pixel 2's kind would
+ * run at: each strength times the scale, rounded (test/rumble.py) */
+static unsigned rumble_times(uint16_t v, float scale)
+{
+	if (scale >= 1.0f) return v;
+	if (scale <= 0.0f) return 0;
+	return (unsigned)((float)v * scale + 0.5f);
+}
+
+bool diatom_port_rumble(uint16_t strong, uint16_t weak, float scale)
 {
 	bool ok;
 
 	pthread_mutex_lock(&g_rumble_mx);
 	ok = g_rumble_log != NULL;
 	if (ok) {
-		fprintf(g_rumble_log, "%u %u\n", (unsigned)strong, (unsigned)weak);
+		fprintf(g_rumble_log, "%u %u\n", rumble_times(strong, scale), rumble_times(weak, scale));
 		fflush(g_rumble_log);
 	}
 	pthread_mutex_unlock(&g_rumble_mx);

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 /* The Border behind a game: what fills the screen around the game's picture
  * where the display mode leaves room (the launcher's src/border.h, DESIGN.md
- * 11.55). Black, as always, until the launcher says otherwise.
+ * 11.59). Black, as always, until the launcher says otherwise.
  *
  *   SETBORDER path=FILE   a picture the launcher made, the surface's size or
  *                         any size (stretched to the surface), in the overlay's
