@@ -990,6 +990,17 @@ de = Bildschirmsperre
 ja = 画面ロック
 it = Blocca schermo
 
+[sysmenu.muse_quit]
+note = MP4's menu row, its last, with X's glyph at its right (X does it from any row): leave MP4 for the screen it was opened from, as SELECT does; what plays keeps playing. The in-game menu's Quit (gamemenu.quit), the same word
+en = Quit
+zh-Hans = 退出
+es = Salir
+pt-BR = Sair
+fr = Quitter
+de = Beenden
+ja = 終了
+it = Esci
+
 [sysmenu.muse_lock_when]
 note = Lock Screen's value while nothing plays: it only works while music plays. Begun with a capital.
 en = While playing

@@ -84,7 +84,7 @@ Each line has its details in [the guide](docs/guide.md).
 - **Nintendo 64 and Dreamcast:** ParallelN64 with Glide64 holds Super Mario 64 and Mario Kart 64 at 30 frames a second on my Pixel 2, and flycast2021 runs the Dreamcast ([Dreamcast](docs/guide.md#dreamcast)).
 - **Smooth or exact timing** in the Game Boy, Game Boy Advance, DS and Genesis shelves: one game frame for each screen refresh, or the console's own speed for timers and rhythm games.
 - **A home in pixel art:** every system as its own animated console on a Spotlight, Gallery or Grid home, with Favorites, Recents and a choice of which systems show ([the shelf](docs/guide.md#the-shelf)).
-- **Your folders, a grid or a list:** folders on the card show as folders, and a system's games show as a row of covers, a grid shaped like the art, or a list.
+- **Your folders, a grid or a list:** folders on the card show as folders, a game on several discs shows once by its `.m3u`, and a system's games show as a row of covers, a grid shaped like the art, or a list.
 - **MENU in six tabs,** with **Search Games** and **Random Game** for any system ([menus](docs/guide.md#controls-and-menus)).
 - **Your look:** light and dark, ten accents, three backgrounds for each theme, a folder color, rounded or square corners, and Zyper on or off ([light and dark](docs/guide.md#light-and-dark)).
 - **Screen Colors and Night Mode** on the Pixel 2: temperature, tint, contrast, saturation and gamma, ready-made looks, and a warm screen for the night ([how](docs/guide.md#screen-colors-and-night-mode)).

@@ -30,7 +30,7 @@ static menu_row row_save_off(void)
 	                   false };
 }
 /* X in the in-game menu, from any row: its Quit, whose row draws X's glyph
- * (src/game_menu.h, gm_x_row). MENU then X, a comma for one after the
+ * (src/game_menu.h, gm_x_row), and in MP4's MENU the same (src/sys_menu.h). MENU then X, a comma for one after the
  * other, as a plus is for held together; the value is the row's own name. */
 static menu_row row_quit(void)   { return (menu_row){ "MENU, X", T(S_GAMEMENU_QUIT), false }; }
 static menu_row row_volume(void)
@@ -256,6 +256,10 @@ static int muse(menu_row *out)
 	 * volume keys on the Pixel 2), which it replaced: one button anyone can
 	 * find instead of three held together. */
 	out[n++] = (menu_row){ "X",     T(S_CONTROLS_LOCK), false };
+	/* MP4's MENU has a Quit row and X does it from any row, as the in-game
+	 * menu's (2026-11-18): said as the In a game page says it. The sixth
+	 * row, which the page holds without scrolling. */
+	out[n++] = row_quit();
 	return n;
 }
 

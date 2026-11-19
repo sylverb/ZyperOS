@@ -29,8 +29,21 @@ typedef struct {
 	 * and rumble, which its next work needs facts about */
 	char leds[256];
 	char motor_rail[96];
+#ifdef ZYPEROS_KIT_BUILD
+	/* A test kit's (src/kit.h): the PMIC's registers as its kernel's
+	 * regmap shows them, "addr: value" a line, "" where unread */
+	char pmic_regs[6144];
+#endif
 	char boot_times[1024];   /* the start's own marks, a line each */
 } hw_facts;
+
+/* Room a test kit's report needs past a release's (src/xfer_screen.c's
+ * buffers): its PMIC registers, eight a line */
+#ifdef ZYPEROS_KIT_BUILD
+#define HWREPORT_KIT_ROOM 8192
+#else
+#define HWREPORT_KIT_ROOM 0
+#endif
 
 /* The facts as about.txt's lines into out (n bytes): "Hardware:", then one
  * "  name: value" a fact, "-" for what is not known, and the start's marks

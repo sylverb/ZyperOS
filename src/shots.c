@@ -460,8 +460,12 @@ int shot_jump;               /* letter-jumps to apply before drawing */
 /* --nowplaying ALBUM [TRACK [SECONDS]], and --paused with it. */
 int   shot_np = -1, shot_np_track, shot_np_paused;
 /* --locked: the lock screen over it, its hold three fifths done. --video
- * [full|controls]: Now Playing as a video, a test picture for the frame. */
-int   shot_locked, shot_video = -1;
+ * [full|controls]: Now Playing as a video, a test picture for the frame;
+ * --video-size WxH that picture's size (640x360), --video-at K G the
+ * controls' level and the picture's growth to the whole screen, between
+ * the two ends (src/nowplaying_screen.c's np_draw_video). */
+int   shot_locked, shot_video = -1, shot_video_w = 640, shot_video_h = 360;
+float shot_video_k = -1, shot_video_grow = -1;
 int   shot_np_bench;                     /* --np-bench N: N frames timed */
 float shot_np_at = 83.0f;
 /* --mode NAME plays whatever the shot shows in that play mode: the mark beside
@@ -1142,10 +1146,11 @@ static void np_shot(app *a)
 	}
 	np_cover(a, shot_np);
 	if (shot_video >= 0) {
-		mp4v_test_picture(a->r, 640, 360);
-		mn.vw = 640;
-		mn.vh = 360;
-		np_draw_video(a, &mn, (float)shot_video);
+		mp4v_test_picture(a->r, shot_video_w, shot_video_h);
+		mn.vw = shot_video_w;
+		mn.vh = shot_video_h;
+		np_draw_video(a, &mn, shot_video_k >= 0 ? shot_video_k : (float)shot_video,
+		              shot_video_grow >= 0 ? shot_video_grow : shot_video ? 0.0f : 1.0f);
 	} else {
 		/* A look's bars as a song has them, held; paused or locked they
 		 * are at rest, as they are then */
