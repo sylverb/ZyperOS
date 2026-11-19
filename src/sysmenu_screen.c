@@ -1551,6 +1551,14 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 			                           !plat_has_wifi() && !net_internet(NULL), ids);
 			sm_muse_row id = sel >= 0 && sel < n ? ids[sel] : SMM_COUNT;
 
+			/* Quit, or X from any row (DESIGN.md 11.14): closes the menu,
+			 * and MP4 after it, as the in-game menu's Quit and its X. A is
+			 * heard from the runner; X, which it leaves alone, here. */
+			if (key == IN_X || (id == SMM_QUIT && key == IN_ACCEPT)) {
+				if (key == IN_X) uisound_play(DS_SOUND_ACCEPT);
+				muse_ask_quit();
+				return MENU_DONE;
+			}
 			if (id == SMM_SORT) {
 				sel = SM_SORT;
 			} else if (id == SMM_LOCK) {
