@@ -21,9 +21,6 @@
 #define DEV_VBUS_IN    "/sys/class/power_supply/axp2202-usb/online"
 #define DEV_INQUIRY    "ZyperOS TrimUI Brick card"
 #define DEV_TURNED     false
-/* Its gadget stays bound for the cable's network link (usbgadget), so
- * the link comes back when the drive ends */
-#define DEV_REBIND     1
 #else
 #define DEV_PART       "/dev/mmcblk0p3"
 #define DEV_PART_STAT  "/sys/class/block/mmcblk0p3/stat"
@@ -31,8 +28,6 @@
 #define DEV_VBUS_IN    "/sys/class/power_supply/rk817-charger/online"
 #define DEV_INQUIRY    "ZyperOS GKD Pixel 2 card"
 #define DEV_TURNED     true
-/* Unbound after: ZyperOS binds it when asked (its usblink.h) */
-#define DEV_REBIND     0
 #endif
 
 #endif

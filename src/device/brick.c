@@ -815,9 +815,124 @@ bool plat_cable_link(char *addr, size_t n)
 	return true;
 }
 
-/* The Brick's link is its own usbgadget script's, always on: no question. */
-usb_peer plat_usb_peer(void) { return USB_PEER_UNKNOWN; }
-bool plat_usb_link(int op) { (void)op; return true; }
+/* The cable as on the Pixel 2 (src/usblink.h): charging only until asked.
+ * plastron's usbgadget script makes the network gadget at boot and binds it
+ * only in Developer Mode (a development image's); ZyperOS asks once a plug
+ * when a computer is on the cable, and binds it for File Transfer or
+ * Developer, or hands the card over for Flash Drive.
+ *
+ * Telling a computer from a charger is the Brick's own problem: the
+ * AXP2202's BC1.2 reads a computer's port as a dedicated charger (plastron's
+ * kernel patch 0029, measured on a Mac's USB-A port), and its Type-C CC
+ * says nothing either through a USB-A cable. The one tell is the computer:
+ * it resets the bus and configures a device it sees, which a charger never
+ * does. So each plug is probed: the gadget bound for up to USB_PROBE_MS,
+ * and a reset or a configuration in that time (the controller's state off
+ * "not attached") is a computer, left bound until the player answers
+ * (Charge Only lets it go, as on the Pixel 2); none is a charger, and the
+ * probe let go. The probe is this file's, not the link's: plat_usb_link
+ * answers for what usblink set, and the probe's binding never shows there.
+ * A computer sees the Brick's network device for the probe's moment, or
+ * until the question is answered: no way to ask the computer without it. */
+#define CABLE_GADGET "/sys/kernel/config/usb_gadget/brick/UDC"
+#define CABLE_ONLINE "/sys/class/power_supply/axp2202-usb/online"
+#define USB_PROBE_MS 3000u
+
+enum { PLUG_OUT, PLUG_PROBING, PLUG_COMPUTER, PLUG_CHARGER };
+static int plug_state = PLUG_OUT;
+static unsigned plug_t0;
+static bool link_on;          /* what usblink set: plat_usb_link's answer */
+
+/* The gadget on the controller, or off it: the UDC's name in the gadget's
+ * UDC file, or an empty line. True when it is bound after. */
+static bool gadget_bound(void)
+{
+	char buf[64] = "";
+	int fd = open(CABLE_GADGET, O_RDONLY | O_CLOEXEC);
+
+	if (fd < 0) return false;
+	if (read(fd, buf, sizeof buf - 1) < 0) buf[0] = '\0';
+	close(fd);
+	return buf[0] != '\0' && buf[0] != '\n';
+}
+
+static bool gadget_bind(bool on)
+{
+	const char *udc = strrchr(CABLE_UDC, '/') + 1;
+	int fd;
+
+	if (on == gadget_bound()) return on;
+	if ((fd = open(CABLE_GADGET, O_WRONLY | O_CLOEXEC)) < 0) return false;
+	/* An empty line unbinds; a write of nothing at all is ignored */
+	if (write(fd, on ? udc : "\n", on ? strlen(udc) : 1) < 0) { /* said below */ }
+	close(fd);
+	return gadget_bound();
+}
+
+/* A host on the bus: the controller past "not attached" (reset, addressed,
+ * configured), which only a computer's reset moves it to */
+static bool host_seen(void)
+{
+	return file_starts(CABLE_UDC "/state", "default") ||
+	       file_starts(CABLE_UDC "/state", "addressed") ||
+	       file_starts(CABLE_UDC "/state", "configured");
+}
+
+usb_peer plat_usb_peer(void)
+{
+	if (!file_starts(CABLE_ONLINE, "1")) {
+		/* Out: the probe's binding goes with it (the link's is usblink's
+		 * to let go, which it does when it sees this) */
+		if (plug_state != PLUG_OUT && !link_on) gadget_bind(false);
+		if (plug_state == PLUG_COMPUTER) fprintf(stderr, "usb: the cable came out\n");
+		plug_state = PLUG_OUT;
+		return USB_PEER_NONE;
+	}
+	switch (plug_state) {
+	case PLUG_OUT:
+		/* A new plug, or the cable already in at the start: probed */
+		plug_t0 = plat_now_ms();
+		plug_state = PLUG_PROBING;
+		if (!gadget_bind(true)) fprintf(stderr, "usb: the gadget would not bind to probe the cable\n");
+		return USB_PEER_NONE;
+	case PLUG_PROBING:
+		if (host_seen()) {
+			plug_state = PLUG_COMPUTER;
+			fprintf(stderr, "usb: a computer on the cable (it reset the bus in %u ms)\n",
+			        plat_now_ms() - plug_t0);
+			return USB_PEER_COMPUTER;
+		}
+		if (plat_now_ms() - plug_t0 < USB_PROBE_MS) return USB_PEER_NONE;
+		plug_state = PLUG_CHARGER;
+		if (!link_on) gadget_bind(false);
+		fprintf(stderr, "usb: a charger on the cable (no reset in %u ms)\n", USB_PROBE_MS);
+		return USB_PEER_CHARGER;
+	case PLUG_COMPUTER:
+		return USB_PEER_COMPUTER;
+	default:
+		return USB_PEER_CHARGER;
+	}
+}
+
+/* usblink's link: -1 asks, 0 lets it go (charging only), 1 binds it, 2 a
+ * fresh one (off and on). The answer is the link's state after. */
+bool plat_usb_link(int op)
+{
+	if (op < 0) return link_on;
+	if (op == 2) {
+		gadget_bind(false);
+		op = 1;
+	}
+	if (op == 1) {
+		link_on = gadget_bind(true);
+		if (link_on) fprintf(stderr, "usb: the link to the computer is on\n");
+		return link_on;
+	}
+	link_on = false;
+	gadget_bind(false);
+	fprintf(stderr, "usb: the link to the computer is off: charging only\n");
+	return false;
+}
 bool plat_cable_sense(link_sense *out) { (void)out; return false; }
 bool plat_usb_power(usb_power *out) { (void)out; return false; }
 bool plat_usb_power_grant(unsigned plug) { (void)plug; return false; }

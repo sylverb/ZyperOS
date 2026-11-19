@@ -577,11 +577,7 @@ static void export_off(void)
 	put(GADGET "/configs/c.1/strings/0x409/configuration", "NCM");
 	if (symlink(GADGET "/functions/ncm.usb0", GADGET "/configs/c.1/ncm.usb0") && errno != EEXIST)
 		say("usbdrive: NCM not linked back\n", NULL);
-	/* Unbound: ZyperOS binds it when it is asked to (its usblink.h); bound
-	 * again where the link is always up (device.h) */
-#if DEV_REBIND
-	gadget_bind(true);
-#endif
+	/* Unbound: ZyperOS binds it when it is asked to (its usblink.h) */
 }
 
 /* POWER, grabbed from powerkey while the card is the computer's: its press
