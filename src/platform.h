@@ -143,6 +143,13 @@ void plat_input_flush(void);
  * the shelf reached the panel two blanks later (33 ms). With no button
  * devices to wait on (a desktop), it sleeps `ms`. */
 void plat_input_wait(unsigned ms);
+/* Work that goes on behind every screen while it rests: each device's
+ * plat_input_wait calls the hook with the wait it was asked for, and the
+ * hook does its step and returns how long the wait may be (`ms`, or less to
+ * be back sooner). The downloads' lanes (src/dlq.h, dlq_wait); none set,
+ * the wait is as asked. */
+void plat_on_input_wait(unsigned (*hook)(unsigned ms));
+unsigned plat_input_wait_hook(unsigned ms);
 /* Once, just before the shelf's first frame: throw away whatever input the
  * boot produced, so nothing pressed while the device came up is honored, and
  * leave `st` empty. How long that takes depends on the device - on one whose

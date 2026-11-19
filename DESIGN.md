@@ -1831,6 +1831,11 @@ it has priority for direct volume or brightness feedback.
   **accent-ink** as far as the upload on its way. Not while its own screen is
   up. *(My pick in the File Transfer 2 lab, 2026-11-06: "A mark in the
   corner".)*
+- **A download**, 24 wide, right of the USB plug, while System Update
+  downloads or installs behind the screen (11.17), or a Scraper or
+  Achievements run goes on behind it (11.19): an arrow down into a tray in
+  **text-soft**, in File Transfer's ring, swept as far as the download, or
+  as far as the runs have got together. Not on the page that shows it.
 - **USB plug**, 24 wide, leftmost, on the Pixel 2 while something on the
   USB port waits for an answer to What did you plug in? (11.36): a plug
   pointing up, its metal end with two slots over a body of radius 2.5 and a
@@ -2498,19 +2503,39 @@ was the focus's alone, with its videos on the card added in.)
   move one place along, three by two, each with its source's mark and a
   play mark when a video came with it; the pictures are decoded off the
   frame (mediatex). The covers and videos found, and the time left beside
-  a clock, over the keys, as marks; B stops. The time left is the part it
+  a clock, over the keys, as marks. B is **Continue in background**
+  (System Update's words, 11.17): the page closes and the run goes on
+  behind the screens (below); Y stops. The time left is the part it
   is in at its own pace once it has one (six games and 15 s), else 2 s a
   ScreenScraper lookup, 1 s a libretro try and 2 s a video's download, and
   in the covers part the details part's games after it, counted as
   details_count picks them. The newest lands in a 360 square at the page's
   left side, the six before it in 168 squares to its right side. The card
   is looked at every 2 s: under 100 MB free, the run stops and done says
-  "Not enough room on the card".
+  "Not enough room on the card" (the downloads' queue's rule, DLQ_FLOOR,
+  for every run).
 - **Done**: "All done", the covers found as a wall (fourteen at most), the
   counts as marks (covers, videos, missing) and the room said plainly
   ("Videos: 3 systems, 525 MB on the card", or "Videos: needs
   ScreenScraper"); A runs again, B closes. A problem that ended the run is
   the heading's second line, in at most 25 characters.
+
+**Behind the screens** (src/dlq.h; my pick in the downloads lab,
+2026-11-19: continue in the background, wait in a game). A run is a lane of
+the downloads' queue, not its page's: it has a network slot of its own, so
+it asks its servers beside the achievements download's run and beside every
+screen's request (a game's Cover and Video page, an account's answer), and
+it is stepped from behind every screen - as one draws (tick_theme, not while
+a button is held, so a held direction scrolls without paying for a step)
+and while one rests (the input wait, cut to 16 ms while a run goes). The
+status corner shows it (11.12's download mark, swept as far as the runs
+have got), MENU closes over it as over anything, and Auto Off waits for it
+(11.38). While a game runs it waits, nothing of the game's frame spent on
+it, and goes on when the game is over. POWER stops it, as everything; the
+next run starts from what is missing. Opening the page again shows the run
+where it is, or, when it ended while the page was closed, Done as it ended;
+a run that ended behind the screens leaves its names, covers and snaps to
+the shelf's next pass (scraper_after_run), as the page's close does.
 
 A run gets covers for every system first, then the details (names, years,
 synopses) of games that already have a cover, with a count of their own.
@@ -3948,7 +3973,8 @@ one starts when it ends. The jobs: the scraper's art and video downloads
 (a run of MENU > Scraper's page, from MENU or a console's Box Art),
 System Update's download, check of its files and install, PortMaster's install (whichever
 screen is up, or a game), Storage's walk of the card, File Transfer's copies
-and connected browsers, and Muse's album covers. The rule is one function,
+and connected browsers, and Muse's album covers. A Scraper or Achievements
+run holds it behind the screens too, its page closed (11.19, src/dlq.h). The rule is one function,
 `long_task_busy` in src/zyperdraw.c, asked by `idle_due` for every screen
 and by the game's SETIDLE; a new long job is a line there or a `task_note`
 from its loop (src/taskhold.h), never a clock reset of its own. A job that
@@ -5174,7 +5200,9 @@ none) and the time left at the run's own pace; or, in **warning**, why it
 waits: `Waiting for Wi-Fi`, `RetroAchievements asked for a pause · 0:42`
 (a 429, counted down), `No answer · trying again in 0:12`; or
 `Identifying games · 12 / 31` while a system's new files are hashed. B
-stops; the next download starts from what is missing.
+is **Continue in background**: the page closes and the run goes on behind
+the screens, as the Scraper's does (11.19), on a network slot of its own
+beside it; Y stops, and the next download starts from what is missing.
 
 **Done.** Titled by what happened: **All done** when the run ended on its
 own; **Stopped** when B stopped it, the card filled or RetroAchievements

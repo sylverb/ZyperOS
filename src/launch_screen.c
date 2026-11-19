@@ -8,6 +8,7 @@
 #include "gamefile.h"
 #include "ctl.h"
 #include "ctl_channel.h"
+#include "dlq.h"
 #include "dsv.h"
 #include "ingame_screen.h"
 #include "hudmenu_screen.h"
@@ -978,6 +979,9 @@ void launch(app *a)
 			 * engine when one side is fbdev. A warm launch is 26 to 44 ms from
 			 * RUN to RUNNING, so there is nothing to animate over anyway; the
 			 * shelf simply holds until the game's first frame replaces it. */
+			/* The downloads behind the screens wait while the game runs
+			 * (src/dlq.h): no frame of it is spent on them */
+			dlq_game(true);
 			for (;;) {
 				r = plat_resident_wait();
 				if (r == RES_PAUSED) {
@@ -988,6 +992,7 @@ void launch(app *a)
 				}
 				break;
 			}
+			dlq_game(false);
 			g_ctl_game.on = false;
 			screen_shader_apply();
 			resident = (r == RES_EXIT);
