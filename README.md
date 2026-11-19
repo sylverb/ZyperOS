@@ -123,7 +123,7 @@ Each line has its details in [the guide](docs/guide.md).
 | **Others** | TurboGrafx-16 and CD, Neo Geo, Neo Geo CD, Neo Geo Pocket and Color, WonderSwan and Color, ColecoVision, Vectrex, MSX2, 3DO |
 | **Arcade and more** | Arcade, MAME, NAOMI, Atomiswave, Doom, ScummVM, PICO-8, TIC-80, OpenBOR, J2ME, and PortMaster's ports |
 
-Each system's games go in its folder under `Roms/`, and EmulationStation's folder names (`nds`, `gba`, `psx`, `megadrive` and the rest) work as they are. BIOS files go loose in `Bios/`. [The guide](docs/guide.md#supported-systems) has every folder, file type and core, and [each BIOS file](docs/guide.md#bios-files).
+Each system's games go in its folder under `Roms/`, and EmulationStation's folder names (`nds`, `gba`, `psx`, `megadrive` and the rest) work as they are. BIOS files go loose in `Bios/`; a Famicom Disk System game (`.fds`) needs `disksys.rom` there. [The guide](docs/guide.md#supported-systems) has every folder, file type and core, and [each BIOS file](docs/guide.md#bios-files).
 
 ## How it compares
 

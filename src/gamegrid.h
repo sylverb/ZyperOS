@@ -121,8 +121,9 @@ typedef struct {
 	SDL_Rect snap_src;
 	float snap_k, snap_wait;
 	bool has_snap;
-	/* The focused entry's facts, as the cover row has them */
-	const char *played, *origin;
+	/* The focused entry's facts, as the cover row has them; `needs` its
+	 * firmware the card lacks, in **warning** */
+	const char *played, *origin, *needs;
 	bool has_achievements, resumable, install, inside;
 	int earned, total;
 	/* START's word at the foot: what the shelf turns into next */

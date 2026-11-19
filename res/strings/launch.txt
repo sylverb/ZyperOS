@@ -2,15 +2,15 @@
 # says when it cannot start.
 
 [launch.needs_bios]
-note = A message under the game's name when a game (a disc, or any ColecoVision game) needs a firmware file the card lacks: %.*s is the file's name; Bios/ is the folder on the card (never translated)
-en = needs Bios/%.*s
-zh-Hans = 需要 Bios/%.*s
-es = requiere Bios/%.*s
-pt-BR = requer Bios/%.*s
-fr = nécessite Bios/%.*s
-de = braucht Bios/%.*s
-ja = Bios/%.*s が必要
-it = richiede Bios/%.*s
+note = Under a game's name on the shelf (in the line of facts under it) and in the message when A is pressed, when the game (a disc, any ColecoVision game, a Famicom Disk System .fds image) needs a firmware file the card lacks: %.*s is the file's name (disksys.rom); Bios is the folder on the card (never translated). Starts with a capital, as a value does
+en = Needs %.*s in Bios
+zh-Hans = 需要 Bios 中的 %.*s
+es = Requiere %.*s en Bios
+pt-BR = Requer %.*s em Bios
+fr = Nécessite %.*s dans Bios
+de = Braucht %.*s in Bios
+ja = Bios に %.*s が必要です
+it = Richiede %.*s in Bios
 
 [launch.bios_size]
 note = A message under the game's name when its firmware file is in Bios/ but is not the size a good copy is (an empty or cut-short file, which would start the game to a black screen): the file's name, the size it is ("0 bytes", "10 bytes", "256 KB", from launch.bios_bytes or sysmenu.size_kb / size_mb) and the size it should be ("512 KB"). Bios/ is the folder on the card (never translated). Drawn on up to three lines

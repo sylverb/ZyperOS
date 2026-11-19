@@ -55,9 +55,8 @@ typedef struct {
 /* Each of a shelf's disc bios names gets the sizes its firmware line gives,
  * in the field's order; a name no line gives stays 0, which checks nothing
  * but that the file is there */
-static void bios_sizes_apply(system_cfg *s, const fw_line *fw, int nfw)
+static void names_sized(const char *p, unsigned (*bytes)[CFG_BIOS_SIZES], const fw_line *fw, int nfw)
 {
-	const char *p = s->disc_bios;
 	int k, j;
 
 	for (k = 0; *p && k < CFG_BIOS_NAMES; k++) {
@@ -65,10 +64,18 @@ static void bios_sizes_apply(system_cfg *s, const fw_line *fw, int nfw)
 
 		for (j = 0; j < nfw; j++)
 			if (strlen(fw[j].name) == n && !strncmp(fw[j].name, p, n))
-				memcpy(s->bios_bytes[k], fw[j].bytes, sizeof s->bios_bytes[k]);
+				memcpy(bytes[k], fw[j].bytes, sizeof bytes[k]);
 		p += n;
 		if (*p) p++;
 	}
+}
+
+/* And the names a type of file needs (a `bios|tag|names|extensions` line),
+ * the same way */
+static void bios_sizes_apply(system_cfg *s, const fw_line *fw, int nfw)
+{
+	names_sized(s->disc_bios, s->bios_bytes, fw, nfw);
+	names_sized(s->type_bios, s->type_bios_bytes, fw, nfw);
 }
 
 /* sys|display name|rom folder|core|tag|card|RRGGBB|extensions */
@@ -79,7 +86,8 @@ bool cfg_load_systems(const char *path, systems_cfg *out)
 	if (!f) return false;
 	char line[1024];
 	/* power|tag|level, map|tag|spec, controller|tag|n, stick|tag|dpad,
-	 * rumble|tag|percent, bios|tag|names, es|tag|names and needs|tag|what lines, applied
+	 * rumble|tag|percent, bios|tag|names (and bios|tag|names|extensions), es|tag|names and
+	 * needs|tag|what lines, applied
 	 * once every system is read, so they may sit anywhere in the file; and
 	 * firmware|name|bytes lines, by a disc bios name rather than a tag */
 	struct { char kind[12], tag[8], value[160]; } extra[CFG_MAX_SYSTEMS * 4];
@@ -100,6 +108,20 @@ bool cfg_load_systems(const char *path, systems_cfg *out)
 			nextra++;
 			snprintf(extra[nextra].kind, sizeof extra[0].kind, "stickoff");
 			snprintf(extra[nextra].tag, sizeof extra[0].tag, "%s", fld[1]);
+			nextra++;
+			continue;
+		}
+		/* bios|tag|names|extensions: firmware for those types of file
+		 * alone (an .fds image's disksys.rom), kept as two entries */
+		if (n == 4 && !strcmp(fld[0], "bios") &&
+		    nextra + 1 < (int)(sizeof extra / sizeof extra[0])) {
+			snprintf(extra[nextra].kind, sizeof extra[0].kind, "biostype");
+			snprintf(extra[nextra].tag, sizeof extra[0].tag, "%s", fld[1]);
+			snprintf(extra[nextra].value, sizeof extra[0].value, "%s", fld[2]);
+			nextra++;
+			snprintf(extra[nextra].kind, sizeof extra[0].kind, "biosexts");
+			snprintf(extra[nextra].tag, sizeof extra[0].tag, "%s", fld[1]);
+			snprintf(extra[nextra].value, sizeof extra[0].value, "%s", fld[3]);
 			nextra++;
 			continue;
 		}
@@ -168,6 +190,10 @@ bool cfg_load_systems(const char *path, systems_cfg *out)
 				snprintf(s->disc_bios, sizeof s->disc_bios, "%s", extra[i].value);
 				s->bios_every = true;
 			}
+			else if (!strcmp(extra[i].kind, "biostype"))
+				snprintf(s->type_bios, sizeof s->type_bios, "%s", extra[i].value);
+			else if (!strcmp(extra[i].kind, "biosexts"))
+				snprintf(s->type_exts, sizeof s->type_exts, "%s", extra[i].value);
 			else if (!strcmp(extra[i].kind, "es"))
 				snprintf(s->es, sizeof s->es, "%s", extra[i].value);
 			else if (!strcmp(extra[i].kind, "needs")) {

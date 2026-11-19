@@ -178,3 +178,58 @@ fr = Non, croix normale
 de = Aus, Kreuz normal
 ja = オフ、十字キーに戻る
 it = No, croce normale
+
+[popup.disk_side]
+note = The pop-up as L1 turns a Famicom Disk System game's disk to its next side (the disk out of the drive), first line: what L1 does, as the Controls page's controls.disk_side names it. Under it popup.disk_which, or popup.disk_eject_first when the disk is in.
+en = Disk side
+zh-Hans = 磁盘面
+es = Lado del disco
+pt-BR = Lado do disco
+fr = Face du disque
+de = Disk-Seite
+ja = ディスクの面
+it = Lato del disco
+
+[popup.disk_in]
+note = The pop-up as R1 puts a Famicom Disk System game's disk into the drive, first line. Under it popup.disk_which, the side that went in.
+en = Disk in
+zh-Hans = 已插入磁盘
+es = Disco dentro
+pt-BR = Disco inserido
+fr = Disque inséré
+de = Disk eingelegt
+ja = ディスクを入れました
+it = Disco inserito
+
+[popup.disk_out]
+note = The pop-up as R1 takes a Famicom Disk System game's disk out of the drive (controls.eject_disk), first line. Under it popup.disk_which, the side that came out.
+en = Disk out
+zh-Hans = 已弹出磁盘
+es = Disco fuera
+pt-BR = Disco ejetado
+fr = Disque éjecté
+de = Disk ausgeworfen
+ja = ディスクを取り出しました
+it = Disco espulso
+
+[popup.disk_which]
+note = Under popup.disk_side, popup.disk_in or popup.disk_out: which disk and which of its two sides, %d the disk (1 to 4), %c its side, the letter A or B as the disk's label prints it (never translated). The dot between is a middle dot with a space either side.
+en = Disk %d · Side %c
+zh-Hans = 磁盘 %d · %c 面
+es = Disco %d · Lado %c
+pt-BR = Disco %d · Lado %c
+fr = Disque %d · Face %c
+de = Disk %d · Seite %c
+ja = ディスク %d · %c 面
+it = Disco %d · Lato %c
+
+[popup.disk_eject_first]
+note = Under popup.disk_side when L1 is pressed with the disk in the drive: the core turns a disk only while it is out, and R1 takes it out (controls.eject_disk). R1 is the button's name as printed (never translated).
+en = Eject it first with R1
+zh-Hans = 请先用 R1 弹出磁盘
+es = Expúlsalo antes con R1
+pt-BR = Ejete-o antes com R1
+fr = Éjectez-le d'abord avec R1
+de = Wirf sie zuerst mit R1 aus
+ja = 先に R1 で取り出してください
+it = Prima espellilo con R1

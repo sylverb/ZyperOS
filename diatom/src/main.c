@@ -30,6 +30,7 @@
 #include "flipwatch.h"
 #include "player2.h"
 #include "screens.h"
+#include "sgb.h"
 
 /* --- the frame the core last handed us ----------------------------------- */
 static void       *g_frame;
@@ -3602,6 +3603,7 @@ int main(int argc, char **argv)
 		else if (!strcmp(argv[i], "--frameskip") && i + 1 < argc) frameskip = argv[++i];
 		else if (!strcmp(argv[i], "--power") && i + 1 < argc) power = argv[++i];
 		else if (!strcmp(argv[i], "--pace") && i + 1 < argc) pace = argv[++i];
+		else if (!strcmp(argv[i], "--sgb") && i + 1 < argc) diatom_sgb_set(diatom_sgb_parse(argv[++i]));
 		else if (!strcmp(argv[i], "--controller") && i + 1 < argc)
 			controller = (unsigned)strtoul(argv[++i], NULL, 10);
 		else if (!strcmp(argv[i], "--stick") && i + 1 < argc) {
@@ -3789,6 +3791,8 @@ int main(int argc, char **argv)
 			sn.stick_plain = !strcmp(m.stick, "plain") || !strcmp(m.stick, "plain-pad");
 			sn.stick_pad = !strcmp(m.stick, "dpad-pad") || !strcmp(m.stick, "plain-pad");
 			sn.pace_smooth = !strcmp(m.pace, "smooth");
+			/* The Super Game Boy, if the game's header says it can be one */
+			diatom_sgb_set(diatom_sgb_parse(m.sgb));
 			sn.mode   = start_mode;
 			sn.filter = start_filter;
 			sn.strength = start_strength;

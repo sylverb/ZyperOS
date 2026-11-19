@@ -18,6 +18,9 @@ typedef struct {
 	bool valid, resume, achievements;
 	int earned, total;
 	char played[32], file[LIB_PATH];
+	/* The firmware it needs and the card lacks, said under its name
+	 * ("Needs disksys.rom in Bios"); "" when it has what it needs */
+	char needs[CFG_STR + 64];
 } game_page_state;
 
 /* Zyper in the cheer, posed by the rig at the cheer's clock */

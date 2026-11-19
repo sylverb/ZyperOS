@@ -161,12 +161,14 @@ static bool ctl_resolve(app *a, const ctl_cmd *c, bool rescan, ctl_target *t,
 	/* A disc that needs firmware, as launch refuses it, said here instead of
 	 * in a message on the handheld that nobody over SSH would see */
 	if (strcmp(t->core, PORT_CORE) && strncmp(t->core, RUN_PREFIX, strlen(RUN_PREFIX)) &&
-	    s->disc_bios[0] && (s->bios_every || lib_is_disc(sys_games(&a->view[si])->items[gi].file))) {
+	    bios_needs(s, sys_games(&a->view[si])->items[gi].file,
+	               lib_is_disc(sys_games(&a->view[si])->items[gi].file))) {
+		const char *gf = sys_games(&a->view[si])->items[gi].file;
 		char bios[CFG_STR * 2];
 		bios_result br;
 
 		snprintf(bios, sizeof bios, "%s/Bios", P_CARD);
-		switch (bios_check(s, bios, &br)) {
+		switch (bios_check_file(s, gf, lib_is_disc(gf), bios, &br)) {
 		case BIOS_MISSING:
 			*code = "needs-bios";
 			snprintf(msg, mn, "%s needs Bios/%s", s->name, br.name);

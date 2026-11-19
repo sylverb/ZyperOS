@@ -19,6 +19,7 @@
 
 #include "cheevos.h"
 #include "diatom.h"
+#include "fdsdisk.h"
 #include "player2.h"
 #include "stick.h"
 
@@ -672,6 +673,28 @@ static bool env_cb(unsigned cmd, void *data)
 	case MASK(RETRO_ENVIRONMENT_SHUTDOWN):
 		g_core_quit = true;
 		return true;
+
+	/* ---- a core's own words ---------------------------------------------- */
+	/* What a core says on the screen, in its English: RetroArch draws it
+	 * over the game. ZyperOS draws none of it, but for the one that answers
+	 * a press: FCEUmm's word on a Famicom Disk System disk, after L1 or R1
+	 * (src/fdsdisk.h), which goes to the launcher as DISK, and its pop-up
+	 * says it in the player's language ("Disk 1 · Side B"). Every other
+	 * message is the core talking to nobody, as it was when this was
+	 * declined. Called inside retro_run, on the frame loop's thread, as the
+	 * STICK line is sent. */
+	case MASK(RETRO_ENVIRONMENT_SET_MESSAGE): {
+		const struct retro_message *msg = data;
+		fdsdisk_msg d;
+
+		if (!msg || !diatom_fdsdisk_parse(msg->msg, &d)) return false;
+		if (d.what == FDSDISK_EJECT_FIRST)
+			diatom_proto_send("DISK\tstate=%s", diatom_fdsdisk_word(d.what));
+		else
+			diatom_proto_send("DISK\tstate=%s\tdisk=%d\tof=%d\tside=%c",
+			                  diatom_fdsdisk_word(d.what), d.disk, d.of, d.side);
+		return true;
+	}
 
 	/* ---- declined, and said so ------------------------------------------ */
 	case MASK(RETRO_ENVIRONMENT_GET_MICROPHONE_INTERFACE):

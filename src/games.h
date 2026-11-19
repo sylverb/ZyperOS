@@ -32,6 +32,10 @@ typedef struct {
      * (src/pminstall.h): A says Install, and the line under its name
      * that it is not installed */
     bool install;
+    /* The firmware the focused game needs and the card lacks, in
+     * **warning** first on the line under its name ("Needs disksys.rom in
+     * Bios"); NULL or "" for none */
+    const char *needs;
     /* The focused game's video snap (src/snapshelf.h), or NULL: its picture,
      * its shape, and how far the cover has turned into it, 0 to 1. */
     SDL_Texture *snap;

@@ -73,6 +73,7 @@
 #include "devmode.h"
 #include "dl_screen.h"
 #include "dlq.h"
+#include "diskpopup.h"
 #include "sshlink.h"
 #include "mdns.h"
 #include "linksteps.h"
@@ -636,6 +637,25 @@ bool pacing_row_shown(const app *a, int sys)
 	const system_cfg *s = &a->sys.systems[sys];
 
 	return s->pace[0] && strncmp(s->core, "run:", 4) != 0 && strcmp(s->core, "port") != 0;
+}
+
+/* Super Game Boy (src/sgbmode.h): the system's own, as the device's
+ * database keeps it, Off until the player picks */
+sgbm_choice sgbm_load(const system_cfg *s)
+{
+	char key[32], v[16];
+
+	sgbm_key(s->tag, key, sizeof key);
+	db_get_str(db_dev(), key, v, sizeof v, sgbm_id(SGBM_OFF));
+	return sgbm_parse(v);
+}
+
+/* The Game Boy's and the Game Boy Color's shelves, while mGBA runs them */
+bool sgb_row_shown(const app *a, int sys)
+{
+	const system_cfg *s = &a->sys.systems[sys];
+
+	return sgbm_shelf(s->tag, s->core);
 }
 
 bool dslang_row_shown(const app *a, int sys)
@@ -2886,6 +2906,17 @@ static void on_stick(bool on)
 	if (g_quick.tag[0] && g_quick.file[0]) rms_stick_put(&g_quick.sys, g_quick.file, on);
 }
 
+/* Called from inside plat_resident_wait as L1 or R1 moves a Famicom Disk
+ * System game's disk (src/diskpopup.h): said over the game, as the speed
+ * step is */
+static void on_disk(const char *state, int disk, char side)
+{
+	const char *head;
+	char body[64];
+
+	if (disk_popup_words(state, disk, side, &head, body, sizeof body)) popup_now(head, body);
+}
+
 /* Called from inside plat_resident_wait for the quick slot (platform.h's
  * PLAT_QUICK_*). SELECT+R1 and SELECT+L1 ask, and the slot is this
  * process's to know (quick_slot_get), so the SAVE or LOAD goes back to
@@ -4751,6 +4782,7 @@ static int sm_pos(const app *a, int sys, sm_row which)
 {
 	sys_ui dev = { .no_wifi = !plat_has_wifi(), .online = net_internet(NULL),
 	               .dslang = dslang_row_shown(a, sys) ? "" : NULL,
+	               .sgb = sgb_row_shown(a, sys) ? "" : NULL,
 	               .pace = pacing_row_shown(a, sys) ? "" : NULL,
 	               .no_strength = !shader_has_strength(a->view[sys].shader) };
 	sm_row ids[SM_ROWS];
@@ -4832,6 +4864,7 @@ static int menu_shelf_width(app *a)
 		int  crow = own ? -1 : sm_pos(a, i, SM_CORE);
 		int  lrow = own ? -1 : sm_pos(a, i, SM_DSLANG);
 		int  prow = own ? -1 : sm_pos(a, i, SM_PACE);
+		int  grow = own ? -1 : sm_pos(a, i, SM_SGB);
 		int  vrow = muse ? -1 : a->view[i].owner ? 3 : sm_pos(a, i, SM_VIEW);
 
 		n = menu_build(a, SCREEN_GAMES, i, rows, &bufs, &heading);
@@ -4902,6 +4935,18 @@ static int menu_shelf_width(app *a)
 				if (mw > w) w = mw;
 			}
 			rows[lrow].value = keep;
+		}
+		/* Super Game Boy's three */
+		if (grow >= 0 && grow < n) {
+			const char *keep = rows[grow].value;
+
+			for (k = 0; k < SGBM_CHOICES; k++) {
+				int mw;
+				rows[grow].value = T(sgbm_label_id((sgbm_choice)k));
+				mw = menu_measure(rows, n, heading);
+				if (mw > w) w = mw;
+			}
+			rows[grow].value = keep;
 		}
 		/* Timing's two */
 		if (prow >= 0 && prow < n) {
@@ -6540,6 +6585,7 @@ int main(int argc, char *argv[])
 		plat_resident_on_progress(on_cheevo_progress);
 		plat_resident_on_speed(on_speed);
 		plat_resident_on_stick(on_stick);
+		plat_resident_on_disk(on_disk);
 		plat_resident_on_quick(on_quick);
 		plat_resident_on_tick(on_game_tick);
 		plat_resident_on_battery_empty(battery_empty);

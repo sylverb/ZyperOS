@@ -12,6 +12,7 @@
 #include "ctltab_screen.h"
 #include "db.h"
 #include "devmode_screen.h"
+#include "diskpopup.h"
 #include "dl_screen.h"
 #include "ds/page.h"
 #include "emptyhome.h"
@@ -46,6 +47,7 @@
 #include "storage_screen.h"
 #include "sysmenu_screen.h"
 #include "devmode_screen.h"
+#include "diskpopup.h"
 #include "topbar.h"
 #include "tour_screen.h"
 #include "tourdevice.h"
@@ -123,7 +125,8 @@ nq_kind shot_notice_kind = NQ_SET;
 /* --notice-heat: the notice with the thermometer where a badge goes, as
  * "Getting hot" is over a game (DESIGN.md 11.23) */
 int shot_notice_mark;
-/* --popup saved|loaded|save_failed|load_failed|slot_empty|no_states|dslang|corestate|stick_on|stick_off|speed N:
+/* --popup saved|loaded|save_failed|load_failed|slot_empty|no_states|dslang|corestate|stick_on|stick_off|
+ * disk_side|disk_in|disk_out|disk_first|speed N:
  * the pop-up of the SELECT hotkeys, as on_quick and on_speed put it over a
  * game (notice_render, no badge, no Zyper); N is the step for speed, in
  * halves (3 is 1.5x) */
@@ -2018,6 +2021,15 @@ static void shot_compose_once(app *a)
 			/* ...and Player 2 stopping by itself during the game */
 			shot_notice_head = T(S_PLAYER2_NOTICE);
 			snprintf(pbody, sizeof pbody, "%s", T(S_PLAYER2_STOPPED));
+		} else if (!strncmp(shot_popup, "disk_", 5)) {
+			/* L1 or R1 moving a Famicom Disk System game's disk (on_disk):
+			 * disk_side, disk_in, disk_out on disk 1's side B, disk_first
+			 * L1 with the disk in */
+			const char *st = !strcmp(shot_popup, "disk_side") ? "selected"
+			               : !strcmp(shot_popup, "disk_in") ? "in"
+			               : !strcmp(shot_popup, "disk_out") ? "out" : "eject-first";
+
+			disk_popup_words(st, 1, 'B', &shot_notice_head, pbody, sizeof pbody);
 		} else if (!strcmp(shot_popup, "stick_on") || !strcmp(shot_popup, "stick_off")) {
 			/* R2 in a PSP game (on_stick) */
 			shot_notice_head = T(S_POPUP_STICK);

@@ -679,6 +679,72 @@ de = Auto (%s)
 ja = 自動（%s）
 it = Auto (%s)
 
+[sysmenu.sgb]
+note = A system menu row, on the Game Boy and Game Boy Color shelves when mGBA runs them: whether games start as on a Super Game Boy (Nintendo's adapter that played Game Boy games on a SNES, with colors and a border around the screen). The machine's name, never translated. Its value is menu.off_title, sysmenu.sgb_games or sysmenu.sgb_every
+en = Super Game Boy
+zh-Hans = Super Game Boy
+es = Super Game Boy
+pt-BR = Super Game Boy
+fr = Super Game Boy
+de = Super Game Boy
+ja = Super Game Boy
+it = Super Game Boy
+
+[sysmenu.sgb_games]
+note = Super Game Boy's value: only the games made for the Super Game Boy start as on one, with their own colors and border
+en = Its Games
+zh-Hans = 对应游戏
+es = Sus juegos
+pt-BR = Jogos dele
+fr = Ses jeux
+de = Seine Spiele
+ja = 対応ソフト
+it = I suoi giochi
+
+[sysmenu.sgb_every]
+note = Super Game Boy's value: every game starts as on a Super Game Boy, in its frame (a Game Boy Color only game cannot, and starts as with Off)
+en = Every Game
+zh-Hans = 所有游戏
+es = Todos los juegos
+pt-BR = Todos os jogos
+fr = Tous les jeux
+de = Alle Spiele
+ja = すべてのソフト
+it = Tutti i giochi
+
+[sysmenu.sgb_off_note]
+note = What Off does, under the picture beside Super Game Boy's list (menu.off_title): games start as before, in the shelf's colors and with no border. Six short lines at most in a narrow column, about 70 letters
+en = As before: the game in the shelf's colors, with no border.
+zh-Hans = 与之前相同：使用本架的颜色，没有边框。
+es = Como antes: el juego con los colores del estante, sin borde.
+pt-BR = Como antes: o jogo nas cores da estante, sem borda.
+fr = Comme avant : le jeu aux couleurs de l'étagère, sans bordure.
+de = Wie bisher: das Spiel in den Farben des Regals, ohne Rahmen.
+ja = これまでどおり：この棚の色で、枠はありません。
+it = Come prima: il gioco nei colori dello scaffale, senza cornice.
+
+[sysmenu.sgb_games_note]
+note = What Its Games does, under the picture beside Super Game Boy's list (sysmenu.sgb_games): a game made for the Super Game Boy shows its own colors and its own border, which the game sends itself, so no BIOS file is needed; other games as with Off. Six short lines at most in a narrow column, about 70 letters
+en = A game made for it shows its own colors and border. No BIOS needed.
+zh-Hans = 对应的游戏显示自带的颜色和边框，无需 BIOS。
+es = Un juego hecho para él muestra sus colores y su borde. Sin BIOS.
+pt-BR = Um jogo feito para ele mostra suas cores e sua borda. Sem BIOS.
+fr = Un jeu conçu pour lui montre ses couleurs et sa bordure. Sans BIOS.
+de = Ein Spiel dafür zeigt seine Farben und seinen Rahmen. Ohne BIOS.
+ja = 対応ソフトは自分の色と枠で表示されます。BIOS は不要です。
+it = Un gioco fatto per lui mostra i suoi colori e la sua cornice. Senza BIOS.
+
+[sysmenu.sgb_every_note]
+note = What Every Game does, under the picture beside Super Game Boy's list (sysmenu.sgb_every): every game starts as on a Super Game Boy, in its frame; a game without a border of its own gets a plain one. Six short lines at most in a narrow column, about 70 letters
+en = Every game in its frame; a game with no border of its own gets a plain one.
+zh-Hans = 所有游戏都显示在边框中；没有自带边框的游戏使用纯色边框。
+es = Todos los juegos en su marco; uno sin borde propio lo tiene liso.
+pt-BR = Todos os jogos na moldura; um jogo sem borda própria fica com uma lisa.
+fr = Tous les jeux dans son cadre ; sans bordure à lui, un cadre uni.
+de = Jedes Spiel im Rahmen; ohne eigenen Rahmen ein schlichter.
+ja = すべてのソフトを枠の中に。枠がないソフトは無地の枠になります。
+it = Ogni gioco nella cornice; chi non ne ha una propria ne ha una semplice.
+
 [sysmenu.pace]
 note = A system menu row, on the GBA, Game Boy, Game Boy Color, Nintendo DS and Genesis shelves: how the games are paced against the screen (sysmenu.pace_smooth or sysmenu.pace_exact). Short: the value column beside it holds "Smooth" or "Exact"
 en = Timing

@@ -25,6 +25,15 @@
 void dmode_preview_draw(app *a, SDL_Texture *frame, int src_w, int src_h, double aspect,
                         int surf_w, int surf_h, int k, int x, int y, int w, int h);
 
+/* The Super Game Boy list's picture (src/sgbmode.h) for choice `k` (Off,
+ * Its Games, Every Game), at display mode `dmode` on this handheld's
+ * screen, sized as Diatom would size it: a Game Boy game's 160x144 alone
+ * for Off, the Super Game Boy's 256x224 with the game in its middle for the
+ * other two, its border a stand-in of a game's own (Its Games) or the plain
+ * frame in the game's lightest shade (Every Game). Drawn frames, ours: no
+ * game's border and no Nintendo art. */
+void dmode_sgb_preview(app *a, int dmode, int k, int x, int y, int w, int h);
+
 /* The surface Diatom draws on, as the last DISPLAY said, or the device's
  * panel before one did */
 void dmode_surface(int *w, int *h);
