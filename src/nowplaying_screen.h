@@ -42,8 +42,11 @@ void muse_locked(app *a);
 muse_exit muse_menu(app *a);
 
 /* A frame of the video player, its controls and the header at k (0 hidden,
- * 1 shown); when it next wants a frame by itself (0 while the title slides) */
-unsigned np_draw_video(app *a, const mu_now *mn, float k);
+ * 1 shown) and the picture `grow` of the way to the whole screen (with the
+ * header gone); when it next wants a frame by itself (0 while the title
+ * slides). Whether the picture playing grows at all: a 16:9 one does not. */
+unsigned np_draw_video(app *a, const mu_now *mn, float k, float grow);
+bool np_video_grows(void);
 /* Now Playing, opened from the shelf or a list */
 muse_exit muse_now_screen(app *a);
 

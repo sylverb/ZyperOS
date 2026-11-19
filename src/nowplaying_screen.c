@@ -559,7 +559,7 @@ void muse_locked(app *a)
 
 			tick_theme(a);
 			if (video) {
-				np_draw_video(a, mn, 0);
+				np_draw_video(a, mn, 0, 1);
 			} else {
 				np_next_name(next, sizeof next);
 				np_draw(a, mn, next);
@@ -686,6 +686,16 @@ static void np_next_name(char *next, size_t n)
  *                 wider than the header's row slides there, as a long name
  *                 does everywhere (ui_text_marquee), from its start each
  *                 time the header comes back
+ *   full screen   with the surround gone, the picture grows to the whole
+ *                 screen, its shape kept, black only where its shape is not
+ *                 the screen's: a 4:3 film fills the Pixel 2 (2026-11-19:
+ *                 "if we could make the video go full size when the
+ *                 surround collapses that's better"). Over turn, after the
+ *                 surround has gone; back to its box over quick, before
+ *                 the surround comes back, so the header never stands over
+ *                 the picture. A 16:9 film is the same size either way (its
+ *                 box under the header is the screen's middle) and does not
+ *                 wait for it
  *   paused        a play disc in the picture's middle (ds_play_disc), the
  *                 bar's fill faded
  *
@@ -755,6 +765,12 @@ static void np_video_bar(SDL_Renderer *r, const mu_now *mn, int x, int y, int w,
 	          mn->state != MU_PLAYING ? ui_fade(acc, 0.45f) : acc);
 }
 
+/* The picture under the header, the screen's width at 16:9 */
+static SDL_Rect np_video_boxed(void)
+{
+	return (SDL_Rect){ 0, NPV_Y, ZYPEROS_SCREEN_W, ZYPEROS_SCREEN_W * 9 / 16 };
+}
+
 /* Where the player's parts go, laid out by rules from the canvas and what
  * it holds (np_player_layout): no y is typed. */
 typedef struct {
@@ -773,7 +789,7 @@ static void np_player_layout(np_player *L, const key_hint *h, int n, const char 
 
 	/* The picture: the canvas's width at 16:9, under the header's band. It
 	 * stands apart: the band floats over its foot and never moves it. */
-	L->pic = (SDL_Rect){ 0, NPV_Y, ZYPEROS_SCREEN_W, ZYPEROS_SCREEN_W * 9 / 16 };
+	L->pic = np_video_boxed();
 	/* The band, laid out by rules (src/ds/flex.h) from the screen's foot up:
 	 * the keys on every screen's foot, as many rows as their words take,
 	 * spread as keyhints_draw spreads them; the bar's row over them, the
@@ -823,12 +839,37 @@ static unsigned np_video_title(SDL_Renderer *r, const char *title, int index)
 	return ui_pingpong_wait(tw - room, phase);
 }
 
+/* The picture's box `grow` of the way from its place under the header to the
+ * whole screen, on the turn curve, and the picture fitted in each */
+static SDL_Rect np_video_box(const SDL_Rect *boxed, float grow, SDL_Rect *pic)
+{
+	SDL_Rect full = { 0, 0, ZYPEROS_SCREEN_W, ZYPEROS_SCREEN_H };
+	SDL_Rect a = mp4v_fit(*boxed), b = mp4v_fit(full);
+	float e = ds_turn(grow);
+#define NPV_LERP(p, q) ((int)lroundf((p) + ((q) - (p)) * e))
+	if (pic) *pic = (SDL_Rect){ NPV_LERP(a.x, b.x), NPV_LERP(a.y, b.y), NPV_LERP(a.w, b.w), NPV_LERP(a.h, b.h) };
+	return (SDL_Rect){ NPV_LERP(boxed->x, full.x), NPV_LERP(boxed->y, full.y),
+	                   NPV_LERP(boxed->w, full.w), NPV_LERP(boxed->h, full.h) };
+#undef NPV_LERP
+}
+
+bool np_video_grows(void)
+{
+	SDL_Rect a, b, boxed = np_video_boxed();
+
+	np_video_box(&boxed, 0, &a);
+	np_video_box(&boxed, 1, &b);
+	return !SDL_RectEquals(&a, &b);
+}
+
 /* One frame of the video, the controls and the header at `k` (0 hidden, 1
- * shown), the ground around the picture the theme's at 1 and black at 0. The
- * run loop keeps them up while paused; the lock draws them hidden, since no
- * key they name does anything while it is locked. When the frame changes by
- * itself, the title's slide: 0 while it moves. */
-unsigned np_draw_video(app *a, const mu_now *mn, float k)
+ * shown), the ground around the picture the theme's at 1 and black at 0, and
+ * the picture `grow` of the way to the whole screen (drawn only with the
+ * header gone, k 0). The run loop keeps the controls up while paused; the
+ * lock draws them hidden and the picture whole, since no key they name does
+ * anything while it is locked. When the frame changes by itself, the title's
+ * slide: 0 while it moves. */
+unsigned np_draw_video(app *a, const mu_now *mn, float k, float grow)
 {
 	SDL_Renderer *r = a->r;
 	SDL_Texture *tex = mp4v_texture();
@@ -838,7 +879,7 @@ unsigned np_draw_video(app *a, const mu_now *mn, float k)
 	key_hint h[KEYHINTS_MAX];
 	char t0[16], t1[24], left[16];
 	np_player L;
-	SDL_Rect pic;
+	SDL_Rect pic, box;
 	unsigned wait = (unsigned)-1;
 	int n;
 	Uint8 al;
@@ -857,12 +898,15 @@ unsigned np_draw_video(app *a, const mu_now *mn, float k)
 	}
 	np_player_layout(&L, h, n, t0, t1);
 
-	pic = mp4v_fit(L.pic);
+	/* The header stands over the box's band: the picture grows only once
+	 * it has gone (the run loop's order; held here too) */
+	if (al > 0) grow = 0;
+	box = np_video_box(&L.pic, grow < 0 ? 0 : grow > 1 ? 1 : grow, &pic);
 	plat_video_under(tex, &pic, bg);
 	ui_fit_frame();   /* the picture covers what was drawn (the host's fit check) */
 	SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
 	/* Before the first picture: its box, empty, so nothing jumps. */
-	if (!tex) ui_round_rect(r, &L.pic, 0, (SDL_Color){ 0, 0, 0, 255 });
+	if (!tex) ui_round_rect(r, &box, 0, (SDL_Color){ 0, 0, 0, 255 });
 
 	/* The home's header, as on every MP4 screen (2026-11-09): the clock at
 	 * the left, the marks at the right, and the title between them. It goes
@@ -907,7 +951,7 @@ static muse_exit muse_now_screen_run(app *a)
 		SDL_Texture *tex;
 	} shown, drawn;
 	unsigned due = 0, ctl_until = 0, ctl_at = 0;
-	float ctl = 1, ctl_drawn = -1;
+	float ctl = 1, ctl_drawn = -1, grow = 0, grow_drawn = -1;
 	muse_exit how = MUSE_BACK;
 
 	mq_reset(MQ_NP);
@@ -966,6 +1010,7 @@ static muse_exit muse_now_screen_run(app *a)
 			if (!a->running || g_muse_gone) { how = MUSE_CLOSE; break; }
 			memset(&drawn, 0, sizeof drawn);   /* the screen is back: draw it */
 			ctl_drawn = -1;
+			grow_drawn = -1;
 			continue;
 		}
 
@@ -977,8 +1022,12 @@ static muse_exit muse_now_screen_run(app *a)
 
 		if (video) {
 			/* The controls: up for hold-controls after any press, and for
-			 * as long as it is paused; in over quick, out over fade-out. */
-			float want, step;
+			 * as long as it is paused; in over quick, out over fade-out.
+			 * The picture grows to the whole screen over turn once they
+			 * have gone, and is back in its box, over quick, before they
+			 * come again; a picture that does not grow waits for nothing. */
+			float dt;
+			bool want, grows;
 
 			fresh = mp4v_update(a->r);
 			/* Y shows them, or hides them at once if they were up; any
@@ -987,23 +1036,32 @@ static muse_exit muse_now_screen_run(app *a)
 			for (b = 0; b < IN_COUNT; b++)
 				if (b != IN_Y && a->in.pressed[b]) { ctl_until = now + DS_MS_HOLD_CONTROLS; break; }
 			if (ctl_y) ctl_until = up ? now : now + DS_MS_HOLD_CONTROLS;
-			want = mn->state != MU_PLAYING || (int)(ctl_until - now) > 0 ? 1.0f : 0.0f;
-			step = (float)(now - ctl_at) / (want > ctl ? DS_MS_QUICK : DS_MS_FADE_OUT);
-			ctl = want > ctl ? (ctl + step > want ? want : ctl + step)
-			                 : (ctl - step < want ? want : ctl - step);
+			want = mn->state != MU_PLAYING || (int)(ctl_until - now) > 0;
+			grows = np_video_grows();
+			dt = (float)(now - ctl_at);
+			if (want) {
+				if (grows && grow > 0) grow = grow - dt / DS_MS_QUICK > 0 ? grow - dt / DS_MS_QUICK : 0;
+				else { grow = 0; ctl = ctl + dt / DS_MS_QUICK < 1 ? ctl + dt / DS_MS_QUICK : 1; }
+			} else if (ctl > 0) {
+				ctl = ctl - dt / DS_MS_FADE_OUT > 0 ? ctl - dt / DS_MS_FADE_OUT : 0;
+			} else {
+				grow = !grows ? 1 : grow + dt / DS_MS_TURN < 1 ? grow + dt / DS_MS_TURN : 1;
+			}
 			ctl_at = now;
-			if (fresh || touched || ctl != ctl_drawn || drawn.at != (int)(mn->at + 0.5) ||
+			if (fresh || touched || ctl != ctl_drawn || grow != grow_drawn ||
+			    drawn.at != (int)(mn->at + 0.5) ||
 			    drawn.st != mn->state || !drawn.video || (int)(now - due) >= 0) {
 				Uint32 osd;
 				unsigned wait;
 
 				/* The header coming back: its title reads from the start */
 				if (ctl > 0 && ctl_drawn == 0) mq_reset(MQ_NP);
-				wait = np_draw_video(a, mn, ctl);
+				wait = np_draw_video(a, mn, ctl, grow);
 				plat_draw_osd(a->r);
 				osd = plat_osd_until();
 				plat_present();
 				ctl_drawn = ctl;
+				grow_drawn = grow;
 				memset(&drawn, 0, sizeof drawn);
 				drawn.video = true;
 				drawn.at = (int)(mn->at + 0.5);
