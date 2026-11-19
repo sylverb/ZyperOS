@@ -83,3 +83,58 @@ fr = impossible de le lancer
 de = Start fehlgeschlagen
 ja = 起動できませんでした
 it = avvio non riuscito
+
+[launch.core_machine]
+note = A message under the game's name when its core's file would not load because it is a build for another kind of computer (an x86-64 or 32-bit one: an added core). %s is the core's file name (bsnes_libretro.so), never translated. Linux, ARM and the numbers are as written. Drawn on up to five lines
+en = %s could not be loaded: it is not a 64-bit ARM Linux build
+zh-Hans = 无法加载 %s：它不是 64 位 ARM Linux 版本
+es = No se pudo cargar %s: no es una versión para Linux ARM de 64 bits
+pt-BR = Não foi possível carregar %s: não é uma versão para Linux ARM de 64 bits
+fr = %s n'a pas pu être chargé\u00a0: ce n'est pas une version pour Linux ARM 64 bits
+de = %s konnte nicht geladen werden: Es ist keine Version für 64-Bit-ARM-Linux
+ja = %s を読み込めませんでした（64 ビット ARM Linux 用ではありません）
+it = Impossibile caricare %s: non è una versione per Linux ARM a 64 bit
+
+[launch.core_library]
+note = A message under the game's name when its core would not load because a library it needs (a file with .so in its name) is not on the system: the core's file name and the library's file name (libfoo.so.2), both never translated. Drawn on up to five lines
+en = %s could not be loaded: it needs %s, which ZyperOS does not have
+zh-Hans = 无法加载 %s：它需要 %s，但 ZyperOS 中没有
+es = No se pudo cargar %s: necesita %s, que ZyperOS no tiene
+pt-BR = Não foi possível carregar %s: precisa de %s, que o ZyperOS não tem
+fr = %s n'a pas pu être chargé\u00a0: il a besoin de %s, que ZyperOS n'a pas
+de = %s konnte nicht geladen werden: Es braucht %s, das ZyperOS nicht hat
+ja = %s を読み込めませんでした（%s が必要ですが、ZyperOS にはありません）
+it = Impossibile caricare %s: richiede %s, che ZyperOS non ha
+
+[launch.core_version]
+note = A message under the game's name when its core would not load because a library it needs is on the system and too old: the core's file name, the library's file name (libstdc++.so.6) and the version of it the core asks for (GLIBCXX_3.4.30), all never translated. Drawn on up to five lines
+en = %s could not be loaded: it needs %s (%s), which ZyperOS does not have
+zh-Hans = 无法加载 %s：它需要 %s（%s），但 ZyperOS 中没有
+es = No se pudo cargar %s: necesita %s (%s), que ZyperOS no tiene
+pt-BR = Não foi possível carregar %s: precisa de %s (%s), que o ZyperOS não tem
+fr = %s n'a pas pu être chargé\u00a0: il a besoin de %s (%s), que ZyperOS n'a pas
+de = %s konnte nicht geladen werden: Es braucht %s (%s), das ZyperOS nicht hat
+ja = %s を読み込めませんでした（%s（%s）が必要ですが、ZyperOS にはありません）
+it = Impossibile caricare %s: richiede %s (%s), che ZyperOS non ha
+
+[launch.core_symbol]
+note = A message under the game's name when its core would not load because it calls a function that nothing on the system has: the core's file name and the function's name (_ZN5bsnes3fooEv), both never translated. Drawn on up to five lines
+en = %s could not be loaded: it calls %s, which ZyperOS does not have
+zh-Hans = 无法加载 %s：它调用了 %s，但 ZyperOS 中没有
+es = No se pudo cargar %s: usa %s, que ZyperOS no tiene
+pt-BR = Não foi possível carregar %s: usa %s, que o ZyperOS não tem
+fr = %s n'a pas pu être chargé\u00a0: il appelle %s, que ZyperOS n'a pas
+de = %s konnte nicht geladen werden: Es ruft %s auf, das ZyperOS nicht hat
+ja = %s を読み込めませんでした（%s を呼び出しますが、ZyperOS にはありません）
+it = Impossibile caricare %s: chiama %s, che ZyperOS non ha
+
+[launch.core_failed]
+note = A message under the game's name when its core would not load and nothing more is known (the log has the system's own words): the core's file name, never translated. Drawn on up to five lines
+en = %s could not be loaded
+zh-Hans = 无法加载 %s
+es = No se pudo cargar %s
+pt-BR = Não foi possível carregar %s
+fr = %s n'a pas pu être chargé
+de = %s konnte nicht geladen werden
+ja = %s を読み込めませんでした
+it = Impossibile caricare %s

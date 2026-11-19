@@ -2311,7 +2311,16 @@ static int run_session_inner(const diatom_session *sn)
 
 	g_core = diatom_core_resident(sn->core);
 	if (!g_core) {
-		diatom_proto_send("ERROR\tcode=core_missing\tmsg=%s", sn->core);
+		corefail why;
+
+		/* Why, in words the launcher puts on the screen (corefail.h): the
+		 * game went straight back to the shelf with nothing said. The log
+		 * has dlerror's own text. */
+		if (diatom_core_failure(sn->core, &why))
+			diatom_proto_send("ERROR\tcode=core_load\tmsg=%s\twhy=%s\tname=%s\tversion=%s",
+			                  sn->core, corefail_word(why.why), why.name, why.version);
+		else
+			diatom_proto_send("ERROR\tcode=core_missing\tmsg=%s", sn->core);
 		return 3;
 	}
 	diatom_env_bind(g_core, &g_policy, &g_caps);
