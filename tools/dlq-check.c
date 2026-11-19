@@ -14,7 +14,8 @@
  * wait, and go on after it; a stop is its lane's done, once, with its request
  * dropped; a lane below the card's floor is stopped as DLQ_FULL; the input
  * wait is cut to 16 ms while a lane runs and is as asked when none does. The
- * floor here is past any disk, so the room rule fires on the first look. */
+ * floor here is past any disk, so the room rule fires on its first look. */
+#include <limits.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -42,7 +43,8 @@ static int failures;
 
 /* ---- src/net.c and src/dlq.c, with this binary for its curl -------------- */
 
-static char g_self[1024];
+/* PATH_MAX: a fortified realpath (glibc) refuses a smaller one */
+static char g_self[PATH_MAX];
 
 #define NET_CURL_BINARIES g_self
 #include "../src/net.c"
@@ -144,6 +146,9 @@ typedef struct {
 
 static fake g_fa, g_fb;
 static fake *g_mine[DLQ_LANES];   /* the fake on each lane, for its functions */
+/* Ends of a request seen while the other lane had one in flight: two lanes
+ * side by side, told by what happened rather than by a clock */
+static int g_overlap;
 
 static int fake_step(fake *f)
 {
@@ -159,6 +164,11 @@ static int fake_step(fake *f)
 		snprintf(word, sizeof word, "%s%d", f->name, f->done_n);
 		if (!file_is(path, word)) return -1;      /* another slot's answer */
 		f->done_n++;
+		{
+			const fake *other = f == g_mine[DLQ_ART] ? g_mine[DLQ_RA] : g_mine[DLQ_ART];
+
+			if (other && other->started) g_overlap++;
+		}
 	}
 	if (f->done_n == f->want) return 0;
 	snprintf(url, sizeof url, "https://standin.invalid/wait/%d/%s%d", f->wait_ms, f->name, f->done_n);
@@ -220,19 +230,19 @@ int main(int argc, char **argv)
 		int ra;
 
 		CHECK(was == NET_SLOT_MAIN, "the screens' slot is the one in use to start");
-		CHECK(net_get_async("https://standin.invalid/wait/600/slow", NET_TMP "/slow", 10), "a slow request starts on the art slot");
+		CHECK(net_get_async("https://standin.invalid/wait/3000/slow", NET_TMP "/slow", 10), "a slow request starts on the art slot");
 		net_slot_use(NET_SLOT_RA);
 		CHECK(net_get_async("https://standin.invalid/wait/50/quick", NET_TMP "/quick", 10),
 		      "a quick one starts on the achievements slot while it runs");
-		ra = poll_until(2000);
+		ra = poll_until(4000);
 		CHECK(ra == 1 && file_is(NET_TMP "/quick", "quick"), "the quick one ends with its own answer");
-		CHECK(ms_now() - t0 < 500, "without waiting for the slow one (%ld ms)", ms_now() - t0);
+		/* By what happened, not by the clock: the slow one has not ended */
 		net_slot_use(NET_SLOT_ART);
-		CHECK(net_async_held(), "the slow one is still in flight on its slot");
+		CHECK(net_async_poll() == 0, "while the slow one is still in flight on its slot (%ld ms in)", ms_now() - t0);
 		net_slot_use(NET_SLOT_MAIN);
 		CHECK(!net_async_held(), "the screens' slot is free all along");
 		net_slot_use(NET_SLOT_ART);
-		CHECK(poll_until(3000) == 1 && file_is(NET_TMP "/slow", "slow"), "the slow one ends with its own answer");
+		CHECK(poll_until(8000) == 1 && file_is(NET_TMP "/slow", "slow"), "the slow one ends with its own answer");
 
 		/* Dropping one slot's request leaves the other's */
 		CHECK(net_get_async("https://standin.invalid/wait/800/dropped", NET_TMP "/dropped", 10), "a request to drop starts");
@@ -254,15 +264,19 @@ int main(int argc, char **argv)
 
 		g_mine[DLQ_ART] = &g_fa;
 		g_mine[DLQ_RA] = &g_fb;
-		fresh(&g_fa, "a", 3, 200);
-		fresh(&g_fb, "b", 3, 200);
+		fresh(&g_fa, "a", 3, 300);
+		fresh(&g_fb, "b", 3, 300);
+		g_overlap = 0;
 		CHECK(dlq_start(DLQ_ART, &LANE_A, begin_a), "lane a starts");
 		CHECK(dlq_start(DLQ_RA, &LANE_B, begin_b), "lane b starts");
 		CHECK(!dlq_start(DLQ_ART, &LANE_A, begin_a), "a lane already running does not start again");
 		CHECK(dlq_busy() && dlq_running(DLQ_ART) && dlq_running(DLQ_RA), "both run");
-		took = run_out(5000);
+		dlq_tick();
+		CHECK(g_fa.started && g_fb.started, "both started a request before either ended one");
+		took = run_out(15000);
 		CHECK(g_fa.done_n == 3 && g_fb.done_n == 3, "each did its three (a %d, b %d)", g_fa.done_n, g_fb.done_n);
-		CHECK(took < 1000, "in about the time of one lane, not two (%ld ms for 2 x 600)", took);
+		CHECK(g_overlap >= 2, "side by side: %d of their 6 requests ended while the other lane had one in flight", g_overlap);
+		fprintf(stderr, "dlq-check: two lanes of three 300 ms requests took %ld ms\n", took);
 		CHECK(g_fa.dones == 1 && g_fa.how == DLQ_ENDED && g_fb.dones == 1 && g_fb.how == DLQ_ENDED,
 		      "each lane's done once, as ended");
 		CHECK(dlq_last(DLQ_ART) == DLQ_ENDED && dlq_ends(DLQ_ART) == 1 && dlq_ends(DLQ_RA) == 1, "their ends are counted");

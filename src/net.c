@@ -649,7 +649,7 @@ bool net_get_async_hdr(const char *url, const char *path, int timeout_s,
 		A->dest[0] = '\0';
 		return false;
 	}
-	snprintf(A->st, sizeof A->st, "%s.http", A->part);
+	snprintf(A->st, sizeof A->st, "%s.part.http", path);   /* the part's own name, .http after */
 
 	A->http = 0;
 	fd = open_new(A->st, O_WRONLY, 0644);
