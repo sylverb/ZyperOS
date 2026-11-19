@@ -7,6 +7,7 @@
 
 #include "aout_route.h"
 #include "muselib.h"
+#include "musec.h"
 #include "audioout.h"
 #include "dslang.h"
 #include "pacing.h"
@@ -334,6 +335,21 @@ static void pm_screen_undo(void *app_, int kept)
 static const ds_hover PM_SHADER_HOVER = { .show = pm_shader_show, .undo = pm_screen_undo };
 static const ds_hover PM_STRENGTH_HOVER = { .show = pm_strength_show, .undo = pm_screen_undo };
 
+/* MP4's Repeat, videos' own mode (src/sys_menu.h): its values in the row's
+ * order, Off first, which is how videos played before it */
+static const muq_mode REPEAT_MODE[3] = { MUQ_IN_ORDER, MUQ_REPEAT_ONE, MUQ_REPEAT_ALL };
+static const str_id REPEAT_TEXT[3] = { S_MENU_OFF_TITLE, S_SYSMENU_MUSE_REPEAT_ONE,
+                                       S_SYSMENU_MUSE_REPEAT_ALL };
+
+static int repeat_at(void)
+{
+	int i;
+
+	for (i = 0; i < 3; i++)
+		if (REPEAT_MODE[i] == musec_video_mode()) return i;
+	return 0;
+}
+
 static void menu_choices(app *a, int sys, bool games)
 {
 	/* A system's menu and MENU each their own words: the shelf under MENU
@@ -363,6 +379,8 @@ static void menu_choices(app *a, int sys, bool games)
 			g_smm_choice[SMM_SHOW] = ch_make(&P[0], n, cur, false);
 			for (i = 0; i < ML_ORDERS; i++) P[1].lab[i] = ml_order_label_kind((ml_order)i, muse_kind_shown());
 			g_smm_choice[SMM_SORT] = ch_make(&P[1], ML_ORDERS, v->sort, false);
+			for (i = 0; i < 3; i++) P[2].lab[i] = T(REPEAT_TEXT[i]);
+			g_smm_choice[SMM_REPEAT] = ch_make(&P[2], 3, repeat_at(), false);
 			return;
 		}
 		n = cfg_core_count(sc);
@@ -580,6 +598,7 @@ int menu_build(app *a, screen_id screen, int sys,
 		u.muse_songs = u.muse && ml_count_kind(&g_muse, ML_MUSIC) > 0;
 		u.muse_both  = u.muse && muse_kinds() > 1;
 		u.muse_playing = u.muse && lock_allowed();
+		u.muse_repeat = u.muse ? T(REPEAT_TEXT[repeat_at()]) : NULL;
 		u.sort       = u.muse ? ml_order_label_kind((ml_order)a->view[sys].sort, muse_kind_shown())
 		                      : sort_label(a->view[sys].sort);
 	} else {
@@ -1566,6 +1585,16 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 				if (key != IN_ACCEPT) return MENU_STAY;
 				muse_ask_lock();
 				return MENU_DONE;
+			} else if (id == SMM_REPEAT) {
+				/* Off, One, All, round either way (A opens their list,
+				 * menu_choose), applied to videos playing now and kept */
+				if (d) {
+					int i = (repeat_at() + d + 3) % 3;
+
+					musec_set_video_mode(REPEAT_MODE[i]);
+					db_set_str(db_dev(), "video.mode", MUSE_MODES[REPEAT_MODE[i]].key);
+				}
+				return MENU_STAY;
 			} else if (id == SMM_SHUFFLE) {
 				/* Closes the menu; Now Playing opens on the first song. */
 				if (key != IN_ACCEPT) return MENU_STAY;

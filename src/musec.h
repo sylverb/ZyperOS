@@ -170,6 +170,12 @@ const char *musec_upcoming(void);
  * caller's. */
 void     musec_set_mode(muq_mode m);
 muq_mode musec_mode(void);
+/* Videos' own mode, MP4's MENU > Repeat (2026-11-19): in order (Off), repeat
+ * all or repeat one, never shuffle. Applied to a queue of videos playing now
+ * and kept for every one after it; music's mode is left as it is. Saving it
+ * is the caller's. */
+void     musec_set_video_mode(muq_mode m);
+muq_mode musec_video_mode(void);
 
 /* Ask for the picture `track` (relative to the music root) carries, written to
  * `base` plus the extension its format has. The daemon answers in a few

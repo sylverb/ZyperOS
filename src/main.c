@@ -6599,6 +6599,11 @@ int main(int argc, char *argv[])
 			if (shot_mode) snprintf(m, sizeof m, "%s", shot_mode);
 			for (k = 0; k < MUQ_MODES; k++)
 				if (!strcmp(m, MUSE_MODES[k].key)) musec_set_mode((muq_mode)k);
+			/* Videos' own, MENU > Repeat on MP4's video shelves */
+			db_get_str(db_dev(), "video.mode", m, sizeof m, "in order");
+			if (shot_mode) snprintf(m, sizeof m, "%s", shot_mode);
+			for (k = 0; k < MUQ_MODES; k++)
+				if (!strcmp(m, MUSE_MODES[k].key)) musec_set_video_mode((muq_mode)k);
 		}
 	}
 	t_mark("muse+accounts");
