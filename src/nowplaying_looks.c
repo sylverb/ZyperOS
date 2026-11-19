@@ -492,7 +492,7 @@ static unsigned classic(SDL_Renderer *r, const npl_frame *F, const mu_now *mn, u
 			int k = first + i, y = top + i * DS_LOOK_LIST_ROW;
 			bool on = k == place;
 			SDL_Color c = on ? ui_col(theme()->on_accent, 255) : UI_TEXT_SOFT;
-			char num[8], fit[160];
+			char num[12], fit[160];
 			int ty = ui_cap_y(fs, y + DS_LOOK_LIST_ROW / 2);
 
 			if (on)
