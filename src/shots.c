@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "ds/hover.h"
 #include "shots.h"
+#include "aout_route.h"
+#include "eq.h"
 
 #include "about_screen.h"
 #include "app.h"
@@ -1226,6 +1228,26 @@ static void shot_draw_look(app *a)
 		if (ch) shot_list_draw(a, rows[row].label, ch, menu_std_width(a), MENU_ZYPEROS);
 		return;
 	}
+	/* --look-page eq ROW: the Equalizer page; eq-presets: its presets'
+	 * list, each one's picture beside it (--pick-at for the cursor) */
+	if (!strcmp(shot_look_page, "eq-presets")) {
+		menu_choice ch;
+		aout_state s = aout_now();
+
+		eq_preset_choice(&ch);
+		shot_list_draw(a, eq_out_name(g_shot_eq_phones ? EQ_OUT_PHONES : eq_out_of(aout_resolve(&s))), &ch,
+		               menu_most_w(), MENU_ZYPEROS);
+		return;
+	}
+	if (!strcmp(shot_look_page, "eq")) {
+		menu_row er[16];
+		const char *eh;
+		const int en = eq_page_build(NULL, er, 16, &eh);
+
+		menu_draw(a, eh, er, en, shot_look_row >= 0 && shot_look_row < en ? shot_look_row : 0,
+		          menu_most_w(), MENU_ZYPEROS);
+		return;
+	}
 	if (!strcmp(shot_look_page, "screen-looks")) {
 		/* The Look's list, its picture beside it (--pick-at for the cursor) */
 		menu_choice ch;
@@ -1430,6 +1452,10 @@ static void shot_compose_once(app *a)
 		update_page_draw(a, T(S_UPDATEPAGE_TITLE), &p, np, nn, NULL);
 		return;
 	}
+	if (g_p8_shot) {
+		p8_page_shot(a);
+		return;
+	}
 	if (g_pm_shot >= 0) {
 		static system_cfg ports = { .folder = "Ports", .core = "port" };
 		char notes[PM_NOTES][120];
@@ -1587,6 +1613,7 @@ static void shot_compose_once(app *a)
 	                                     : shot_info == 3 ? T(S_GAMEMENU_RENAME) : NULL);
 	if (shot_delete_ask) delete_ask_preview(a);
 	if (shot_gm_said >= 0) gm_said_preview(a, shot_gm_said);
+	if (g_p8_said_shot >= 0) p8_said_shot(a, g_p8_said_shot);
 	if (shot_controls >= 0 && (shot_press != SHOT_SWAP || shot_pressed)) {
 		menu_row rows[CTL_MAX_ROWS];
 		char head[80], count[16];

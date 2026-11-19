@@ -796,14 +796,21 @@ typedef struct {
 	SDL_Rect band;     /* the controls' surface, from the bar's row to the screen's foot */
 	SDL_Rect bar;      /* the bar between the two times */
 	SDL_Rect t0, t1;   /* the time played, the time left */
+	SDL_Rect mark;     /* Repeat's mark, before the time left; w 0 for none */
 	int keys_cy;       /* the keys' last row's middle */
 } np_player;
 
-static void np_player_layout(np_player *L, const key_hint *h, int n, const char *t0, const char *t1)
+/* Repeat's mark in the bar's row (MP4's MENU > Repeat): music's marks at
+ * music's size, half again the times' line, so repeat one's 1 reads at arm's
+ * length as it does beside music's count */
+#define NPV_MARK (ui_font_line(UI_F_META) * 3 / 2)
+
+static void np_player_layout(np_player *L, const key_hint *h, int n, const char *t0, const char *t1,
+                             bool mark)
 {
 	static ds_flex F;
 	TTF_Font *fs = ui_font(UI_F_META);
-	int root, band, row, keys, bar, c0, c1 = -1, i;
+	int root, band, row, keys, bar, c0, c1 = -1, mk = -1, i;
 
 	/* The picture: the canvas's width at 16:9, under the header's band. It
 	 * stands apart: the band floats over its foot and never moves it. */
@@ -821,6 +828,7 @@ static void np_player_layout(np_player *L, const key_hint *h, int n, const char 
 	                                       .align = DS_A_CENTER });
 	c0 = ds_flex_add(&F, row, &(ds_box){ .w = ui_text_tabular_width(fs, t0), .h = NPV_BAR_ROW });
 	bar = ds_flex_add(&F, row, &(ds_box){ .h = UI_BAR_H, .grow = 1 });
+	if (mark) mk = ds_flex_add(&F, row, &(ds_box){ .w = NPV_MARK, .h = NPV_BAR_ROW });
 	if (t1[0]) c1 = ds_flex_add(&F, row, &(ds_box){ .w = ui_text_tabular_width(fs, t1), .h = NPV_BAR_ROW });
 	keys = ds_flex_add(&F, band, &(ds_box){ .dir = DS_ROW, .wrap = true, .gap = KEYHINTS_GAP_SPREAD,
 	                                        .line_gap = KEYHINTS_ROW - DS_HINT_GLYPH });
@@ -833,6 +841,7 @@ static void np_player_layout(np_player *L, const key_hint *h, int n, const char 
 	L->bar = ds_flex_rect(&F, bar);
 	L->t1 = c1 >= 0 ? ds_flex_rect(&F, c1)
 	                : (SDL_Rect){ ZYPEROS_SCREEN_W - NPV_X, L->t0.y, 0, NPV_BAR_ROW };
+	L->mark = mk >= 0 ? ds_flex_rect(&F, mk) : (SDL_Rect){ 0, 0, 0, 0 };
 	L->keys_cy = ds_flex_rect(&F, keys).y + ds_flex_rect(&F, keys).h - DS_HINT_GLYPH / 2;
 }
 
@@ -976,7 +985,7 @@ unsigned np_draw_video(app *a, const mu_now *mn, float k, float grow)
 	np_player L;
 	SDL_Rect pic, box;
 	unsigned wait = (unsigned)-1;
-	int n;
+	int n, mg;
 	Uint8 al;
 
 	k = k < 0 ? 0 : k > 1 ? 1 : k;
@@ -991,7 +1000,9 @@ unsigned np_draw_video(app *a, const mu_now *mn, float k, float grow)
 		mmss(left, sizeof left, mn->len > mn->at ? mn->len - mn->at : 0);
 		snprintf(t1, sizeof t1, "-%s", left);
 	}
-	np_player_layout(&L, h, n, t0, t1);
+	/* Repeat's mark (MP4's MENU > Repeat), music's own, when it is not Off */
+	mg = MUSE_MODES[musec_video_mode()].glyph;
+	np_player_layout(&L, h, n, t0, t1, mg >= 0);
 
 	/* The header stands over the box's band: the picture grows only once
 	 * it has gone (the run loop's order; held here too) */
@@ -1029,6 +1040,9 @@ unsigned np_draw_video(app *a, const mu_now *mn, float k, float grow)
 	np_video_bar(r, mn, L.bar.x, L.bar.y, L.bar.w, al);
 	ui_text_tabular(r, fs, t0, L.t0.x, ui_cap_y(fs, L.t0.y + L.t0.h / 2), -1, soft);
 	if (t1[0]) ui_text_tabular(r, fs, t1, L.t1.x + L.t1.w, ui_cap_y(fs, L.t1.y + L.t1.h / 2), 1, soft);
+	if (L.mark.w > 0)
+		ui_glyph_draw(r, (ui_glyph)mg, L.mark.x + L.mark.w / 2, L.mark.y + L.mark.h / 2, L.mark.w,
+		              ui_col(theme()->accent_ink, al));
 	keyhints_draw(r, h, n, NPV_X, ZYPEROS_SCREEN_W - NPV_X, L.keys_cy, KEYHINTS_SPREAD, true, al);
 	return wait;
 }

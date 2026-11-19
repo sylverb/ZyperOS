@@ -50,6 +50,7 @@ static char  **g_q;                 /* the queue, relative paths, ours */
 static int     g_qn;
 static muq     g_order;             /* which of them plays when: the mode */
 static muq_mode g_mode = MUQ_IN_ORDER;
+static muq_mode g_video_mode = MUQ_IN_ORDER;   /* videos' own: no shuffle */
 static int     g_pending;           /* a PLAY waiting for the connection */
 static bool    g_advanced;          /* the next track is asked for; see event() */
 static int     g_skips;             /* consecutive tracks that would not open */
@@ -80,6 +81,9 @@ static char     g_sink_said[128];   /* what it last reported, "" not yet */
 static unsigned g_sink_ms;          /* when the ask went */
 static bool     g_sink_waiting;     /* asked, and no answer yet */
 static char     g_chan_sent[8];     /* the channels last asked for, "" none yet */
+/* The equalizer last asked for, as EQ carries it ("5,2,0,0,1 live=1"); ""
+ * none yet */
+static char     g_eq_sent[40];
 static bool     g_asked;            /* PLAY or RESUME sent, not yet answered */
 static void   (*g_before_heard)(void);
 
@@ -120,6 +124,8 @@ static void drop(const char *why, int err)
 	/* And it starts in stereo, so whatever was asked of the old one has to
 	 * be asked again. */
 	g_chan_sent[0] = '\0';
+	/* And flat, so the equalizer is asked again too */
+	g_eq_sent[0] = '\0';
 	/* And with nobody watching, or looking at bars. */
 	g_show = -1;
 	g_bands_sent = -1;
@@ -511,7 +517,7 @@ void musec_play(const char *const *paths, int n, int start, double at, bool book
 	if (!g_videos_call) g_videos = false;
 	g_speed = speed >= 0.5 && speed <= 2.0 ? speed : 1.0;
 	muq_init(&g_order, k, start >= 0 && start < k ? start : 0,
-	         book || g_videos ? MUQ_IN_ORDER : g_mode, plat_now_ms() * 2654435761u + 1);
+	         book ? MUQ_IN_ORDER : g_videos ? g_video_mode : g_mode, plat_now_ms() * 2654435761u + 1);
 	g_skips = 0;
 	g_start_at = at > 0 ? at : 0;
 	g_ran_out = false;
@@ -636,6 +642,18 @@ void musec_channels(const char *mode)
 	snprintf(g_chan_sent, sizeof g_chan_sent, "%s", m);
 	sendf("CHANNELS\tmode=%s", m);
 	fprintf(stderr, "muse: channels -> %s\n", m);
+}
+
+void musec_eq(const int8_t db[5], bool live)
+{
+	char bands[32], said[40];
+
+	if (g_fd < 0 || !g_sink_said[0]) return;   /* not connected, or not heard from */
+	snprintf(bands, sizeof bands, "%d,%d,%d,%d,%d", db[0], db[1], db[2], db[3], db[4]);
+	snprintf(said, sizeof said, "%s live=%d", bands, live ? 1 : 0);
+	if (!strcmp(said, g_eq_sent)) return;
+	snprintf(g_eq_sent, sizeof g_eq_sent, "%s", said);
+	sendf("EQ\tbands=%s\tlive=%d", bands, live ? 1 : 0);
 }
 
 void musec_sink_again(void)
@@ -813,6 +831,17 @@ bool musec_take_ran_out(void)
 }
 
 muq_mode musec_mode(void) { return g_mode; }
+
+void musec_set_video_mode(muq_mode m)
+{
+	if (m != MUQ_REPEAT_ALL && m != MUQ_REPEAT_ONE) m = MUQ_IN_ORDER;
+	g_video_mode = m;
+	if (!g_videos) return;
+	muq_set_mode(&g_order, m);
+	g_now.index = g_order.pos;
+}
+
+muq_mode musec_video_mode(void) { return g_video_mode; }
 
 const mu_now *musec_now(void) { return &g_now; }
 
