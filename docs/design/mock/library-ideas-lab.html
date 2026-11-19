@@ -1,0 +1,359 @@
+<meta charset="utf-8">
+<title>ZyperOS Library Ideas Lab</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="kit.css">
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; background: #141615; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 0 64px; }
+  body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: #141615; }
+  header { padding-block: 32px 6px; display: grid; grid-template-columns: auto 1fr; gap: 18px; align-items: center; }
+  header svg { width: 70px; height: 74px; }
+  .status { font: 13px var(--zk-f-mono); color: var(--zk-ink-3); padding-top: 8px; }
+  .keep { margin-top: 18px; padding: 14px 16px; border: 1px solid var(--zk-line); border-radius: 12px; color: var(--zk-ink-2); max-width: 86ch; }
+  .keep b { color: var(--zk-ink); font-weight: 600; }
+  .how { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 4; background: var(--zk-page); display: flex; flex-wrap: wrap; gap: 10px 22px; align-items: center; margin-top: 14px; padding-block: 10px; border-bottom: 1px solid var(--zk-line); font: 13px var(--zk-f-mono); color: var(--zk-ink-3); }
+  .how kbd { font: 500 12px var(--zk-f-mono); color: var(--zk-ink); border: 1px solid var(--zk-line); border-bottom-width: 2px; border-radius: 5px; padding: 1px 6px; }
+  .how label { display: flex; gap: 8px; align-items: center; color: var(--zk-ink-2); }
+  .how select { font: 13px var(--zk-f-mono); color: var(--zk-ink); background: var(--zk-page-2); border: 1px solid var(--zk-line); border-radius: 8px; padding: 4px 8px; }
+  .play { padding-block: 30px 6px; border-bottom: 1px solid var(--zk-line); }
+  .play .zk-grid { margin-top: 18px; }
+</style>
+<!--ZYPER-->
+<div class="zk-page"><div class="zk-wrap">
+  <header>
+    <svg aria-label="Zyper"><use href="#zyper"/></svg>
+    <div>
+      <h1 class="zk-h1">ZyperOS <b>Library Ideas Lab</b></h1>
+      <p class="zk-lede">The game library's ideas: cheats from libretro's list to the game, Collections of your own, Recents showing where you stopped, the Video view, Core Settings in your language, Gambatte, and the Link Cable. Play the flows, then pick what is still open.</p>
+      <p class="status" id="status">Connecting&hellip;</p>
+    </div>
+  </header>
+  <div class="keep"><b>Decided already.</b> <b>Cheats</b> come from libretro's <code>cheats.zip</code> (39.4 MB, 28,757 files, CC BY-SA 4.0, rebuilt daily): ZyperOS reads its 4.3 MB index with byte ranges and fetches only the files that match games on the card, by the Scraper's No-Intro names; then they work offline. <b>Video View</b>, <b>Gambatte</b> and the <b>Link Cable</b>: approved as drawn. <b>Collections</b>, <b>Core Settings</b> (on Sylver's PR #303) and <b>Recents</b> last screens: from NextUI's list, yes. No row shows a "new" tag.</div>
+  <div class="how">
+    <span>Click a screen, then <kbd>&larr;</kbd> <kbd>&uarr;</kbd> <kbd>&rarr;</kbd> <kbd>&darr;</kbd>, <kbd>Enter</kbd> A, <kbd>Backspace</kbd> B, <kbd>X</kbd> X, <kbd>Y</kbd> Y, <kbd>M</kbd> MENU, <kbd>Space</kbd> START.</span>
+    <label for="labgain">UI sounds <select id="labgain"><option value="1">as on the handheld</option><option value="4">+12 dB for laptop speakers</option><option value="0">off</option></select></label>
+  </div>
+  <section class="play" id="play"></section>
+  <main id="m"></main>
+</div></div>
+<script src="tokens.js"></script>
+<script src="kit.js"></script>
+<script src="sounds.js"></script>
+<script src="ideas.js"></script>
+<script>
+(() => {
+  const Z = ZI, K = Z.kinds, G = Z.glyph;
+  const SUGGEST = { "cheats-source": "libretro", "cheats-ach": "pause", "cheats-files": "list", "recents-default": "cover", "col-place": "home", "core-place": "row", "snap-start": "rest" };
+  let board = null;
+  const pick = k => (board && board.picks[k] && board.picks[k].choice) || SUGGEST[k];
+  document.getElementById("labgain").addEventListener("change", e => { const v = +e.target.value; Z.mute = v === 0; Z.gain = v || 1; });
+  const redrawId = id => { const el = document.querySelector(`.zi-demo[data-id="${id}"]`); if (el) Z.redraw(el); };
+
+  /* ---- cheats: the page, its run, its end --------------------------------- */
+  const SYSROW = [["NES", "#c4443a"], ["SNES", "#8a6fc0"], ["GB", "#7e9b47"], ["GBC", "#e0b23a"], ["GBA", "#5b4fc4"], ["MD", "#2c2c2c"], ["PS", "#777"], ["N64", "#2e8b3e"], ["PCE", "#e0703a"]];
+  const RUN = [["Super Metroid", "SNES", 212], ["Kirby's Adventure", "NES", 96], ["Golden Sun", "GBA", 188], ["Sonic the Hedgehog 2", "MD", 41], ["Pokemon Crystal", "GBC", 154], ["Mega Man 2", "NES", 77], ["Super Mario World", "SNES", 336]];
+  const TICKSV = `<svg width="26" height="26" viewBox="0 0 24 24"><path d="M4 12.5l5 5L20 6.5" fill="none" stroke="var(--accent-ink)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  const sysIcons = (y, all) => `<div class="i-abs" style="left:64px;right:64px;top:${y}px;display:flex;justify-content:center;gap:22px">${SYSROW.map(([n, c], i) => `<div style="display:flex;flex-direction:column;align-items:center;gap:6px"><div style="width:64px;height:48px;border-radius:10px;background:${c};display:grid;place-items:center;font-size:17px;font-weight:600;color:#fff">${n}</div><div style="height:26px;opacity:${all || [0, 1, 2, 5, 8].includes(i) ? 1 : .25}">${TICKSV}</div></div>`).join("")}</div>`;
+  const ARROW = `<svg viewBox="0 0 72 72" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M36 10v34M22 30l14 14 14-14M12 48v12h48V48"/></svg>`;
+  const BIGTICK = `<svg viewBox="0 0 72 72" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"><circle cx="36" cy="36" r="28"/><path d="M24 37l8 8 16-17"/></svg>`;
+  function page(title, sub, body, line, keys, warn) {
+    return `${Z.status(false)}<div class="i-abs" style="left:64px;top:118px;font-size:60px;font-weight:600;color:var(--text)">${title}</div>
+      <div class="i-abs" style="left:64px;top:196px;font-size:37px;color:${warn ? "var(--warning)" : "var(--text-soft)"}">${sub}</div>${body}
+      <div class="i-abs" style="left:64px;right:64px;top:630px;text-align:center;font-size:30px;color:${warn ? "var(--warning)" : "var(--text-dim)"}">${line}</div>${Z.hints(keys, true)}`;
+  }
+  K.cheatpage = {
+    pad: ["A", "B", "X", "Y"],
+    init: () => ({ st: "plan", n: 214, wifi: true, last: 0, done: 0, newer: false }),
+    draw(s) {
+      const files = pick("cheats-files") === "page";
+      if (s.st === "plan" || s.st === "update") {
+        const upd = s.st === "update";
+        return page("Cheats", upd ? "Updated 12 days ago · a newer list is out" : s.wifi ? "About 1 min · from libretro's cheat list" : "Needs Wi-Fi", sysIcons(258, upd) +
+          `<div class="i-tile" style="left:64px;top:344px;width:436px;height:250px">${BIGTICK}<div class="tn">Ready Offline</div><div class="ts">${upd ? "230 games" : "212 games"}</div></div>
+           <div class="i-tile sel" style="left:524px;top:344px;width:436px;height:250px">${ARROW}<div class="tn">${upd ? "To Update" : "To Download"}</div><div class="ts">${upd ? "37 changed · +120 KB" : "428 games · +3 MB"}</div></div>`,
+          "libretro-database, CC BY-SA 4.0 · 120 games have none", [["A", upd ? "Update" : "Download"]].concat(files ? [["Y", "Your Files"]] : [], [["X", s.wifi ? "Wi-Fi Off" : "Wi-Fi On"], ["B", "Close"]]), !s.wifi);
+      }
+      if (s.st === "run") {
+        const g = RUN[s.done % RUN.length], prev = RUN[(s.done + RUN.length - 1) % RUN.length];
+        return page("Finding cheats", s.wifi ? `${g[0]} · ${g[1]}` : "Waiting for Wi-Fi", `
+          <div class="i-abs" style="left:64px;right:64px;top:300px;height:16px;border-radius:8px;background:var(--track)"><i class="cbar" style="display:block;width:${s.n / 640 * 100}%;height:100%;border-radius:8px;background:var(--accent-ink)"></i></div>
+          <div class="i-abs cn" style="left:64px;top:336px;font-size:37px;color:var(--text-soft);font-variant-numeric:tabular-nums">${s.n} / 640</div><div class="i-abs" style="right:64px;top:336px;font-size:37px;color:var(--text-soft)">About ${Math.max(1, Math.round((640 - s.n) / 10))} s</div>
+          ${s.done ? `<div class="i-abs jadd" style="left:64px;right:64px;top:430px;padding:30px 36px;border-radius:22px;background:var(--surface);box-shadow:inset 0 0 0 3px var(--edge)"><div style="font-size:30px;color:var(--text-dim)">Just added</div><div style="font-size:49px;color:var(--text);margin-top:12px">${prev[0]} · ${prev[2]} cheats</div></div>` : ""}`,
+          s.wifi ? `${s.done} new · ${Math.floor(s.done / 3)} with none` : "It goes on by itself when Wi-Fi is back.", [["X", s.wifi ? "Wi-Fi Off" : "Wi-Fi On"], ["B", "Stop"]], !s.wifi);
+      }
+      if (s.st === "files") return page("Your Files", "Files you put in Cheats/ by hand", `<div class="i-pn" style="left:64px;top:270px;width:896px;height:330px;padding:20px 26px">${Z.rows([{ l: "Kingdom Run.cht", v: "SNES · 12 cheats", sel: true }, { l: "Pocket Quest.cht", v: "GB · 4 cheats" }, { l: "Night Drive.cht", v: "PS · 9 cheats" }])}</div>`, "An update never replaces these.", [["B", "Back"]]);
+      return page(s.st === "stopped" ? "Stopped" : "All done", s.st === "stopped" ? "You stopped it. The next run starts from what is missing." : "Cheats for 230 of 640 games", sysIcons(258, s.st === "done") +
+        `<div class="i-abs" style="left:64px;right:64px;top:400px;text-align:center;font-size:37px;line-height:48px;color:var(--text-soft)">410 games have none in libretro's list:<br>hacks, translations, and games nobody wrote codes for.</div>`, "They work offline now.", [["A", "Again"], ["B", "Close"]]);
+    },
+    key(s, b) {
+      if (b === "X" && (s.st === "plan" || s.st === "run")) { s.wifi = !s.wifi; return "move"; }
+      if (s.st === "plan" || s.st === "update") { if (b === "A") { if (!s.wifi) return "deny"; s.st = "run"; s.n = s.st === "update" ? 600 : 214; s.done = 0; return "accept"; } if (b === "Y" && pick("cheats-files") === "page") { s.st = "files"; return "accept"; } if (b === "B") { s.st = "update"; return "back"; } return false; }
+      if (s.st === "files") { if (b === "B") { s.st = "plan"; return "back"; } return false; }
+      if (s.st === "run") { if (b === "B") { s.st = "stopped"; return "back"; } return false; }
+      if (b === "A") { s.st = "plan"; return "accept"; } if (b === "B") { s.st = "update"; return "back"; } return false;
+    },
+    frame(s, zs, dt, now, el) {
+      if (s.st !== "run" || !s.wifi) return;
+      s.last += dt;
+      if (s.last > 260) { s.last = 0; s.n = Math.min(640, s.n + 7); s.done++; if (s.n >= 640) { s.st = "done"; Z.sound("reward"); } Z.redraw(el); const j = zs.querySelector(".jadd"); if (j && s.st === "run") ZK.animate(j, "move", [{ transform: "translateY(24px)", opacity: 0 }, { transform: "none", opacity: 1 }]); }
+    },
+  };
+
+  /* ---- cheats in the game ---------------------------------------------- */
+  function cheatsGame(mode) {
+    const list = [["Infinite Lives", true], ["Infinite Maximum Coins", false], ["Powerup Always in Level", false], ["Moon Jump", false], ["Start on Any World", false]];
+    const on = st => list.filter((c, i) => st.cheat[i]).length;
+    const crow = (i) => ({ l: list[i][0], v: (st) => st.cheat[i] ? "On" : "Off", ink: (st) => st.cheat[i], dead: mode === "block",
+      a: (st) => { if (mode === "block") return "deny"; if (!st.asked && !st.cheat[i] && on(st) === 0) { st.askQ = { i, sel: 1 }; return "accept"; } st.cheat[i] = !st.cheat[i]; return st.cheat[i] ? "accept" : "back"; } });
+    const page = { title: "Cheats", at: { x: 24, y: 96, w: 976, h: 608 }, rows: [{ l: mode === "block" ? "Signed in: cheats wait until you sign out." : "Achievements wait while a cheat is on.", quiet: 1 }].concat(list.map((c, i) => crow(i)), [{ l: "Game Genie", quiet: 1, style: "justify-content:center;border-top:2px solid var(--edge);margin:0 26px" }, { l: "Turn All Off", a: (st) => { st.cheat = st.cheat.map(() => false); return "back"; } }]),
+      extra: () => `<div class="i-abs" style="left:0;right:0;bottom:22px;display:flex;justify-content:center;gap:40px;font-size:28px;color:var(--text-soft)"><span class="i-hint">${G("Y", 32)} Search</span><span class="i-hint">${G("X", 32)} On First</span></div>` };
+    const v = Z.gameView(0, { Game: [{ l: "Continue" }, { l: "Save" }, { l: "Load" }, { l: "Quick Slot", values: ["1", "2", "3", "4", "5", "6"], i: 0 }, { l: "Cheats", v: (st) => on(st) ? `${on(st)} On` : "None", page }, { l: "Achievements", v: (st) => on(st) ? "Paused" : "3 / 8" }, { dn: 1 }] }, { bg: th => Z.gameBg(th, "snes") });
+    return v;
+  }
+  K.cheatgame = Object.assign({}, K.menu, {
+    pad: ["up", "down", "A", "B", "L1", "R1", "left", "right"],
+    init(o) { const s = Object.assign({ cheat: [true, false, false, false, false] }, K.menu.init({ view: cheatsGame(o.mode), sel: 5 }));
+      if (o.mode === "block" || o.fresh) s.cheat = s.cheat.map(() => false);
+      s.overlay = (th, st) => st.askQ ? Z.question({ y: 200, title: "Turn on a cheat?", body: "Achievements stop for this game<br>until it starts again with every cheat off.", buttons: ["Turn On", "Cancel"], sel: st.askQ.sel }) : "";
+      s.onKey = (st, b) => { if (!st.askQ) return undefined; if (b === "left" || b === "right") { st.askQ.sel = 1 - st.askQ.sel; return "move"; } if (b === "A") { const q = st.askQ; st.askQ = null; if (q.sel === 0) { st.asked = true; st.cheat[q.i] = true; return "accept"; } return "back"; } if (b === "B") { st.askQ = null; return "back"; } return false; };
+      return s; },
+  });
+
+  /* ---- the game's start: the pop-up, and the question after a crash ----- */
+  K.cheatstart = {
+    pad: ["A", "B", "X"],
+    init: () => ({ st: "shelf", crashed: false, sel: 0 }),
+    draw(s, th) {
+      if (s.st === "game") return `<div class="i-game">${Z.scene("snes", 1024, 768)}</div>${s.pop ? Z.popup("2 cheats on", `<svg width="34" height="34" viewBox="0 0 24 24"><path d="M12 3l2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.6 6.6 19.5l1.2-6L3.3 9.3l6.1-.7z" fill="var(--accent-ink)"/></svg>`) : ""}<div class="i-abs" style="left:24px;bottom:18px;font-size:24px;color:#fff;text-shadow:0 1px 3px #000;display:flex;gap:10px;align-items:center">${G("B", 30)} back to the shelf · ${G("X", 30)} quit as a crash would</div>`;
+      let h = `${Z.status(false)}<div class="i-abs" style="left:64px;top:132px;font-size:30px;color:var(--text-soft)">SNES</div><div class="i-cover" style="left:362px;top:196px;width:300px;height:300px;border-radius:22px;${Z.cover(30)}"><div class="ct" style="font-size:34px">Kingdom Run</div></div>
+        <div class="i-abs" style="left:64px;top:548px;font-size:60px;font-weight:600;color:var(--text)">Kingdom Run</div><div class="i-abs" style="left:64px;top:626px;font-size:30px;color:var(--text-soft)">2 cheats on${s.crashed ? " · the last session ended in a crash" : ""}</div>${Z.hints([["B", "Systems"], ["A", "Play"], ["X", "Details"]])}`;
+      if (s.st === "ask") h += `<div class="scrim"></div>` + Z.question({ y: 190, title: "This game stopped last time<br>with cheats on.", body: "Start it without them?", buttons: ["Without Cheats", "With Cheats"], sel: s.sel });
+      return h;
+    },
+    key(s, b) {
+      if (s.st === "ask") { if (b === "left" || b === "right") { s.sel = 1 - s.sel; return "move"; } if (b === "A") { s.crashed = false; s.st = "game"; s.pop = s.sel === 1; s._fx = { pop: true }; s.t = performance.now(); return "accept"; } if (b === "B") { s.st = "shelf"; return "back"; } return false; }
+      if (s.st === "game") { if (b === "B") { s.st = "shelf"; return "back"; } if (b === "X") { s.crashed = true; s.st = "shelf"; return "deny"; } return false; }
+      if (b === "A") { if (s.crashed) { s.st = "ask"; s.sel = 0; s._fx = { open: true }; return "accept"; } s.st = "game"; s.pop = true; s._fx = { pop: true }; s.t = performance.now(); return "accept"; }
+      return false;
+    },
+    frame(s, zs, dt, now, el) { if (s.st === "game" && s.pop && now - s.t > 1600) { s.pop = false; Z.redraw(el); } },
+  };
+
+  /* ---- Collections ------------------------------------------------------- */
+  function folder(x, y, w, n, col, focus) {
+    const h = w * .82;
+    return `<div class="i-abs" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px"><svg viewBox="0 0 100 82" width="${w}" height="${h}" shape-rendering="crispEdges"><rect x="6" y="10" width="36" height="12" fill="${col}"/><rect x="6" y="16" width="88" height="60" fill="${col}"/><rect x="14" y="8" width="70" height="40" fill="#f4f3ee"/><rect x="18" y="14" width="40" height="3" fill="#c9c7bc"/><rect x="18" y="20" width="56" height="3" fill="#c9c7bc"/><rect x="6" y="30" width="88" height="46" fill="${col}" opacity=".92"/></svg>
+      <div class="i-abs" style="right:10%;bottom:14%;font-size:${w * .12}px;font-weight:600;color:#fff">${n}</div>${focus ? `<div class="i-ring" style="inset:-10px;border-radius:18px"></div>` : ""}</div>`;
+  }
+  K.collect = Object.assign({}, K.menu, {
+    pad: ["up", "down", "A", "B", "START"],
+    init() {
+      const s = { cols: [["Couch Co-op", true], ["RPGs to Finish", false], ["For the Kids", false]], kb: false };
+      const add = { title: "Add to Collection", at: { x: 112, y: 96, w: 800, h: 560 }, rows: [] };
+      const build = () => { add.rows = [{ up: 1 }].concat(s.cols.map((c, i) => ({ l: c[0], tickf: () => s.cols[i][1], a: () => { s.cols[i][1] = !s.cols[i][1]; return s.cols[i][1] ? "reward" : "back"; } })), ["sep", { l: "New Collection", a: () => { s.kb = true; s._fx = { open: true }; return "accept"; } }]); };
+      build(); s.build = build;
+      const v = { title: "Pocket Quest", at: { x: 112, y: 96, w: 800, h: 624 }, rows: [{ up: 1 }, { l: "Favorite", values: ["On", "Off"], i: 0 }, { l: "Add to Collection", v: () => { const n = s.cols.filter(c => c[1]).length; return n ? `In ${n}` : "None"; }, page: () => { build(); return add; } }, { l: "Cover and Video" }, { l: "Buttons", v: "System" }, { l: "Rename" }, { l: "Delete Game" }] };
+      Object.assign(s, K.menu.init({ view: v, sel: 2 }));
+      s.overlay = (th, st) => st.kb ? ZK.keyboard(th, { title: "New Collection", text: "Puzzles" }).replace('<div class="scrim"></div>', "") : "";
+      s.onKey = (st, b) => { if (!st.kb) return undefined; if (b === "START" || b === "A") { st.cols.push(["Puzzles", true]); st.kb = false; build(); st.sel[st.sel.length - 1] = st.cols.length; return "reward"; } if (b === "B" || b === "MENU") { st.kb = false; return "back"; } return "move"; };
+      return s;
+    },
+  });
+  K.colshelf = {
+    pad: ["left", "right", "A", "B", "MENU"],
+    init: () => ({ cur: 1, open: null, menu: false, ask: false, sel: 1, cols: [["Couch Co-op", 9, "#5b8fd6"], ["RPGs to Finish", 18, "#8a6fc0"], ["For the Kids", 14, "#e0703a"]] }),
+    draw(s, th) {
+      if (s.open !== null) {
+        const c = s.cols[s.open];
+        return `${Z.status(false)}<div class="i-abs" style="left:64px;top:132px;font-size:30px;color:var(--text-soft)">Collections / ${c[0]}</div><div class="i-abs" style="right:64px;top:132px;font-size:30px;color:var(--text-soft)">3 / ${c[1]}</div>
+          <div class="i-cover" style="left:80px;top:240px;width:200px;height:200px;opacity:.75;${Z.cover(250)}"></div><div class="i-cover" style="left:362px;top:196px;width:300px;height:300px;border-radius:22px;${Z.cover(30)}"><div class="ct" style="font-size:34px">Kingdom Run</div><div class="i-abs" style="right:12px;top:12px;width:56px;height:40px;border-radius:8px;background:#8a6fc0;display:grid;place-items:center;font-size:16px;font-weight:600;color:#fff">SNES</div></div><div class="i-cover" style="left:744px;top:240px;width:200px;height:200px;opacity:.75;${Z.cover(140)}"></div>
+          <div class="i-abs" style="left:64px;top:548px;font-size:60px;font-weight:600;color:var(--text)">Kingdom Run</div><div class="i-abs" style="left:64px;top:626px;font-size:30px;color:var(--text-soft)">SNES · 12h 40m</div>${Z.hints([["B", "Back"], ["START", "List"], ["X", "Details"]])}`;
+      }
+      if (!s.cols.length) return `${Z.status(false)}<div class="i-abs" style="left:0;right:0;top:330px;text-align:center;font-size:49px;color:var(--text-soft)">No collections.</div>`;
+      const n = s.cols.length, f = [-1, 0, 1].map(d => (s.cur + d + n) % n);
+      let h = `${Z.status(false)}<div class="i-abs" style="left:64px;top:132px;font-size:30px;color:var(--text-soft)">Collections</div><div class="i-abs" style="right:64px;top:132px;font-size:30px;color:var(--text-soft)">${s.cur + 1} / ${n}</div>`;
+      if (n > 1) h += folder(70, 260, 220, s.cols[f[0]][1], s.cols[f[0]][2]);
+      h += folder(372, 210, 300, s.cols[f[1]][1], s.cols[f[1]][2], true);
+      if (n > 2) h += folder(744, 260, 220, s.cols[f[2]][1], s.cols[f[2]][2]);
+      const c = s.cols[s.cur];
+      h += `<div class="i-abs" style="left:64px;top:548px;font-size:60px;font-weight:600;color:var(--text)">${c[0]}</div><div class="i-abs" style="left:64px;top:626px;font-size:30px;color:var(--text-soft)">${c[1]} games</div>${Z.hints([["B", "Systems"], ["A", "Open"], ["MENU", "Menu"]])}`;
+      if (s.menu) h += `<div class="scrim"></div>` + Z.panel({ x: 112, y: 96, w: 800, h: 480, title: c[0], rows: [{ up: 1 }, { l: "Rename", sel: s.sel === 1 }, { l: "Sort By", v: "Added", sel: s.sel === 2 }, { l: "Delete Collection", sel: s.sel === 3 }] });
+      if (s.ask) h += `<div class="scrim"></div>` + Z.question({ y: 200, title: `Delete ${c[0]}?`, body: `Its ${c[1]} games stay on the card.`, buttons: ["Delete", "Cancel"], sel: s.askSel });
+      return h;
+    },
+    key(s, b) {
+      if (s.ask) { if (b === "left" || b === "right") { s.askSel = 1 - s.askSel; return "move"; } if (b === "A") { s.ask = false; if (s.askSel === 0) { s.cols.splice(s.cur, 1); s.cur = Math.max(0, s.cur - 1); s.menu = false; return "back"; } return "back"; } if (b === "B") { s.ask = false; return "back"; } return false; }
+      if (s.menu) { if (b === "up" || b === "down" || b === "left" || b === "right") { s.sel = 1 + ((s.sel - 1 + (b === "up" || b === "left" ? 2 : 1)) % 3); return "move"; } if (b === "A") { if (s.sel === 3) { s.ask = true; s.askSel = 1; s._fx = { open: true }; return "accept"; } return "accept"; } if (b === "B" || b === "MENU") { s.menu = false; return "back"; } return false; }
+      if (s.open !== null) { if (b === "B") { s.open = null; return "back"; } return false; }
+      if (!s.cols.length) return "deny";
+      if (b === "left" || b === "right") { s.cur = (s.cur + (b === "left" ? -1 : 1) + s.cols.length) % s.cols.length; return "move"; }
+      if (b === "A") { s.open = s.cur; return "accept"; }
+      if (b === "MENU") { s.menu = true; s.sel = 1; s._fx = { open: true }; return "accept"; }
+      return "back";
+    },
+  };
+
+  /* ---- Recents: covers or last screens ---------------------------------- */
+  const SC = ["snes", "gb", "night", "city", "gbc"], HUE = [30, 120, 250, 200, 340], SYSB = [["SNES", "#8a6fc0"], ["GB", "#7e9b47"], ["PS", "#777"], ["GBA", "#5b4fc4"], ["GBC", "#e0b23a"]], NAMES = ["Kingdom Run", "Pocket Quest", "Night Drive", "Moon Base", "Sky Fort"];
+  K.recents = {
+    pad: ["left", "right", "A", "START", "MENU", "B"],
+    init: o => ({ cur: 2, grid: false, last: o.last !== undefined ? o.last : null, menu: false, msel: 0 }),
+    draw(s, th) {
+      const last = s.last !== null ? s.last : pick("recents-default") === "last";
+      let h = `${Z.status(false)}<div class="i-abs" style="left:64px;top:${s.grid ? 100 : 132}px;font-size:30px;color:var(--text-soft)">Recents</div>`;
+      if (s.grid) {
+        for (let r = 0; r < 2; r++) for (let c = 0; c < 4; c++) { const i = (r * 4 + c) % 5, x = 64 + c * 230, y = 150 + r * 196, f = (r * 4 + c) === s.cur;
+          h += `<div class="i-cover" style="left:${x}px;top:${y}px;width:206px;height:155px;border-radius:14px;${last ? "" : Z.cover(HUE[i])}">${last ? Z.scene(SC[i], 206, 155) + `<div class="i-abs" style="left:8px;bottom:8px;width:38px;height:48px;border-radius:5px;${Z.cover(HUE[i])}"></div>` : `<div class="ct">${NAMES[i]}</div>`}</div>${f ? `<div class="i-ring" style="left:${x - 8}px;top:${y - 8}px;width:222px;height:171px"></div>` : ""}`; }
+      } else {
+        [-2, -1, 0, 1, 2].forEach(d => { const i = (s.cur + d + 5) % 5, sc = [0.55, 0.72, 1, 0.72, 0.55][d + 2], o = [0.55, 0.75, 1, 0.75, 0.55][d + 2];
+          const w = (last ? 400 : 300) * sc, hh = 300 * sc, x = 512 + d * (last ? 360 : 300) * (Math.abs(d) === 2 ? .9 : 1) - w / 2, y = 330 - hh / 2;
+          h += `<div class="i-cover" style="left:${x}px;top:${y}px;width:${w}px;height:${hh}px;opacity:${o};border-radius:${(last ? 16 : 22) * sc}px;${last ? "" : Z.cover(HUE[i])}">${last ? Z.scene(SC[i], w, hh) + `<div class="i-abs" style="left:${10 * sc}px;bottom:${10 * sc}px;width:${70 * sc}px;height:${88 * sc}px;border-radius:${6 * sc}px;${Z.cover(HUE[i])};box-shadow:0 2px 8px rgba(0,0,0,.4)"></div><div class="i-abs" style="right:${10 * sc}px;top:${10 * sc}px;padding:${4 * sc}px ${8 * sc}px;border-radius:${8 * sc}px;background:${SYSB[i][1]};font-size:${16 * sc}px;font-weight:600;color:#fff">${SYSB[i][0]}</div>` : `<div class="ct" style="font-size:${34 * sc}px">${NAMES[i]}</div>`}</div>`; });
+      }
+      const i = s.cur % 5;
+      h += `<div class="i-abs" style="left:64px;top:${s.grid ? 560 : 548}px;font-size:${s.grid ? 49 : 60}px;font-weight:600;color:var(--text)">${NAMES[i]}</div><div class="i-abs" style="left:64px;top:626px;font-size:30px;color:var(--text-soft)">${SYSB[i][0]} · ${i + 1} h ago · 3h 12m</div>`;
+      h += Z.hints([["B", "Systems"], ["A", "Continue"], ["START", s.grid ? "Covers" : "Grid"], ["MENU", "Menu"]]);
+      if (s.menu) h += `<div class="scrim"></div>` + Z.pick({ x: 66, y: 96, w: 892, h: 624, title: "Card Picture", items: [{ l: "Cover", kept: !last, sel: s.msel === 0 }, { l: "Last Screen", kept: last, sel: s.msel === 1 }],
+        pv: { w: 300, h: 225, html: s.msel === 1 ? `<div style="position:relative;width:300px;height:225px">${Z.scene("night", 300, 225)}<div style="position:absolute;left:8px;bottom:8px;width:50px;height:64px;border-radius:5px;${Z.cover(250)}"></div></div>` : `<div style="width:300px;height:225px;${Z.cover(250)}"></div>`, note: s.msel === 1 ? "The screen where you stopped, the cover small." : "The game's cover, as today." } });
+      return h;
+    },
+    key(s, b) {
+      if (s.menu) { if (b === "up" || b === "down") { s.msel = 1 - s.msel; return "move"; } if (b === "A") { s.last = s.msel === 1; s.menu = false; return "accept"; } if (b === "B" || b === "MENU") { s.menu = false; return "back"; } return false; }
+      const n = s.grid ? 8 : 5;
+      if (b === "left" || b === "right") { s.cur = (s.cur + (b === "left" ? -1 : 1) + n) % n; return "move"; }
+      if (b === "START") { s.grid = !s.grid; s.cur = s.cur % (s.grid ? 8 : 5); return "move"; }
+      if (b === "MENU") { const last = s.last !== null ? s.last : pick("recents-default") === "last"; s.menu = true; s.msel = last ? 1 : 0; s._fx = { open: true }; return "accept"; }
+      if (b === "A") return "accept";
+      return "back";
+    },
+  };
+
+  /* ---- Video View: the snap starts after the shelf's rest --------------- */
+  const VG = [["Star Rangers", 210, "snes"], ["Kingdom Run", 20, "gbc"], ["Pocket Quest", 120, "gb"], ["Night Drive", 260, "night"], ["Brick Hero", 0, "city"], ["Moon Base", 180, "night"], ["Sky Fort", 40, "snes"]];
+  K.videoview = {
+    pad: ["left", "right", "A", "B", "START"],
+    init: o => ({ cur: 3, t: performance.now(), mode: o.snap }),
+    draw(s, th) {
+      const g = VG[s.cur];
+      let h = `<div class="i-game vsnap" style="opacity:.0">${Z.scene(g[2], 1100, 825)}</div><div class="i-abs vcov" style="inset:0;${Z.cover(g[1])}"></div>
+        <div class="i-abs" style="left:0;right:0;top:0;height:150px;background:linear-gradient(rgba(17,19,16,.55),transparent)"></div>${Z.status(true)}
+        <div class="i-abs" style="left:24px;top:96px;padding:18px 28px;border-radius:22px;background:color-mix(in srgb, var(--surface) 92%, transparent);box-shadow:inset 0 0 0 3px var(--edge)"><div style="font-size:30px;color:var(--text-soft);display:flex;align-items:center;gap:12px"><i style="width:14px;height:14px;border-radius:50%;background:#8a6fc0;display:block"></i>SNES · ${s.cur + 1} / ${VG.length}</div><div style="font-size:49px;font-weight:600;color:var(--text);margin-top:12px">${g[0]}</div></div>
+        <div class="i-abs" style="left:0;right:0;top:524px;bottom:0;background:color-mix(in srgb, var(--surface) 92%, transparent)"></div>`;
+      const x0 = 512 - 3 * 108 - 54;
+      VG.forEach(([n, hue], i) => { const f = i === s.cur, w = f ? 108 : 90, hh = f ? 144 : 120, x = x0 + i * 108 + (f ? -9 : 0), y = f ? 548 : 572;
+        h += `<div class="i-cover" style="left:${x}px;top:${y}px;width:${w}px;height:${hh}px;border-radius:12px;${Z.cover(hue)};opacity:${f ? 1 : .8}"></div>${f ? `<div class="i-ring" style="left:${x - 8}px;top:${y - 8}px;width:${w + 16}px;height:${hh + 16}px;border-radius:18px"></div><div class="i-abs vbar" style="left:${x}px;top:${y + hh + 4}px;width:0;height:6px;border-radius:3px;background:var(--accent-ink)"></div>` : ""}`; });
+      return h + Z.hints([["B", "Systems"], ["A", "Play"], ["START", "Covers"], ["X", "Details"]]);
+    },
+    key(s, b) { if (b === "left" || b === "right") { s.cur = (s.cur + (b === "left" ? -1 : 1) + VG.length) % VG.length; s.t = performance.now(); return "move"; } if (b === "A") return "accept"; if (b === "B") return "back"; return false; },
+    frame(s, zs, dt, now) {
+      const rest = (s.mode || pick("snap-start")) === "rest" ? 1000 : 0, k = Math.min(1, (now - s.t) / Math.max(1, rest));
+      const bar = zs.querySelector(".vbar"), snap = zs.querySelector(".vsnap"), cov = zs.querySelector(".vcov");
+      if (bar) bar.style.width = (rest && k < 1 ? k * 108 : 0) + "px";
+      const on = k >= 1, a = on ? Math.min(1, (now - s.t - rest) / 200) : 0;
+      if (snap) { snap.style.opacity = a; snap.style.transform = `translateX(${-((now / 40) % 76)}px)`; }
+      if (cov) cov.style.opacity = 1 - a;
+    },
+  };
+
+  /* ---- Core Settings (on PR #303), Gambatte, and the Link Cable --------- */
+  const PALS = { Green: "gb", Pocket: "pocket", Light: "light", Gray: "gray" };
+  function coreView(place) {
+    const pal = { l: "Palette", values: Object.keys(PALS), i: 1, list: true, pickAt: { x: 24, y: 96, w: 976, h: 608 }, ink: (s, r) => r.i !== 0, pv: v => Z.scene(PALS[v], 300, 270), pvH: 270, pvNote: v => ({ Green: "The first Game Boy's green.", Pocket: "The Pocket's grey.", Light: "The Light's green glow.", Gray: "Plain grey." })[v],
+      notes: v => ["Applies at once.", ""] };
+    const page = { title: "Core Settings", at: { x: 24, y: 96, w: 976, h: 608 }, rows: [{ l: "Applies To", values: ["This Game", "Game Boy"], i: 0, ink: (s, r) => r.i === 0 }, pal, { l: "Color Correction", values: ["GBC Games", "Always", "Off"], i: 0 }, { l: "Frame Blending", values: ["Off", "Mix", "LCD Ghosting"], i: 0 }, { l: "All Options", page: { title: "All Options", at: { x: 24, y: 96, w: 976, h: 608 }, rows: [{ l: "The core's own words, in English.", quiet: 1 }, { l: "GB Colorization", v: "internal" }, { l: "Internal Palette", v: "GB - Pocket" }, { l: "Color Correction", v: "GBC only" }, { l: "Mix Frames", v: "disabled" }, { l: "Show Boot Logo", v: "disabled" }] } }],
+      extra: () => "" };
+    const bg = (th, s) => `<div class="i-game">${Z.scene(PALS[pal.values[pal.i]], 1024, 768)}</div><div class="i-veil" style="background:color-mix(in srgb, ${th === "light" ? "var(--ground) 52%" : "var(--ink) 58%"}, transparent)"></div>${Z.status(th === "dark")}`;
+    if (place === "tab") { const v = Z.gameView(3, {}, { bg }); v.tabs = ["Game", "Display", "Controls", "Core", "Achievements"]; const own = page.rows; const tabSet = v.tabSet; v.tabSet = (s, n) => { v.on = n; v.rows = n === 3 ? [{ up: 1 }].concat(own) : [{ up: 1 }, { l: v.tabs[n] + "'s rows" , quiet: 1 }]; s.sel[0] = Z.firstLive(v.rows, 0); }; v.rows = [{ up: 1 }].concat(own); return v; }
+    return Z.gameView(0, { Game: [{ l: "Load" }, { l: "Quick Slot", values: ["1", "2", "3"], i: 0 }, { l: "Core Settings", v: "Gambatte", page }, { l: "Achievements", v: "3 / 8" }, { l: "Reset" }, { l: "Quit", glyph: "X" }] }, { bg });
+  }
+  function gambatteView() {
+    return { title: "Game Boy Color", at: { x: 112, y: 96, w: 800, h: 624 }, rows: [{ up: 1 }, { l: "Games", v: "48" }, { l: "Core", values: ["mGBA", "Gambatte"], i: 1 }, { l: "Super Game Boy", v: (s) => s.stack[0].rows[2].i === 1 ? "Needs mGBA" : "Off", dead: false }, { l: "Timing", values: ["Smooth", "Exact"], i: 0 }, { l: "Sort By", values: ["Name", "Play Time", "Last Played", "Recently Added"], i: 0 }, { l: "View", values: ["Covers", "Grid", "List", "Video"], i: 0 }, { dn: 1 }] };
+  }
+  const HOST = `<svg viewBox="0 0 72 72" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"><circle cx="36" cy="40" r="6" fill="currentColor"/><path d="M22 26a20 20 0 0 0 0 28M50 26a20 20 0 0 1 0 28M12 16a34 34 0 0 0 0 48M60 16a34 34 0 0 1 0 48"/></svg>`;
+  const JOIN = `<svg viewBox="0 0 72 72" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"><circle cx="30" cy="30" r="18"/><path d="M44 44l18 18"/></svg>`;
+  K.link = {
+    pad: ["left", "right", "A", "B"],
+    init: () => ({ st: "tiles", sel: 0, t: 0 }),
+    draw(s, th) {
+      let h = Z.gameBg(th, "gbc");
+      if (s.st === "linked") return `<div class="i-game">${Z.scene("gbc", 1024, 768)}</div>` + Z.popup("Linked with Pixel 2 7F2A");
+      if (s.st === "tiles") return h + Z.panel({ x: 24, y: 96, w: 976, h: 608, title: "Link Cable", rows: [], extra: `<div class="i-tile ${s.sel === 0 ? "sel" : ""}" style="left:52px;top:150px;width:424px;height:300px">${HOST}<div class="tn">Host</div><div class="ts">The other Pixel 2 joins this one.</div></div><div class="i-tile ${s.sel === 1 ? "sel" : ""}" style="left:500px;top:150px;width:424px;height:300px">${JOIN}<div class="tn">Join</div><div class="ts">Find a Pixel 2 that hosts.</div></div><div class="i-abs" style="left:52px;right:52px;top:482px;font-size:37px;color:var(--text-dim);text-align:center">Each handheld needs a Wi-Fi adapter in.</div>` });
+      return h + Z.panel({ x: 24, y: 96, w: 976, h: 608, title: "Link Cable", rows: [], extra: `<div class="i-abs" style="left:0;right:0;top:190px;text-align:center;font-size:55px;color:var(--text)">${s.sel === 0 ? "Waiting for the other Pixel 2" : "Looking for a Pixel 2"}</div><div class="i-abs" style="left:0;right:0;top:280px;text-align:center;font-size:37px;line-height:44px;color:var(--text-soft)">${s.sel === 0 ? "This one is <b style='font-weight:600;color:var(--text)'>Pixel 2 7F2A</b>.<br>On the other one: Link Cable, then Join." : "Pixel 2 7F2A hosts Pocket Quest.<br>It joins in a moment."}</div><div class="i-abs ldots" style="left:0;right:0;top:420px;display:flex;justify-content:center;gap:18px">${[0, 1, 2].map(() => `<i style="width:22px;height:22px;border-radius:50%;background:var(--accent-ink);display:block"></i>`).join("")}</div>${Z.hints([["B", "Stop"]], true).replace('class="i-hints center"', 'class="i-hints center" style="top:520px;left:0;right:0"')}` });
+    },
+    key(s, b) { if (s.st === "tiles") { if (b === "left" || b === "right") { s.sel = 1 - s.sel; return "move"; } if (b === "A") { s.st = "wait"; s.t = performance.now(); return "accept"; } return b === "B" ? "back" : false; } if (s.st === "wait" && b === "B") { s.st = "tiles"; return "back"; } if (s.st === "linked" && (b === "A" || b === "B")) { s.st = "tiles"; return "back"; } return false; },
+    frame(s, zs, dt, now, el) { if (s.st !== "wait") return; zs.querySelectorAll(".ldots i").forEach((d, i) => d.style.opacity = 0.3 + 0.7 * Math.max(0, Math.sin(now / 300 - i * 0.8))); if (now - s.t > 3200) { s.st = "linked"; s._fx = { pop: true }; Z.redraw(el); Z.sound("reward"); } },
+  };
+
+  /* ---- the page ------------------------------------------------------------ */
+  const play = document.getElementById("play");
+  const card = (t, b, inner) => `<article class="zk-card"><h3>${t}</h3><p>${b}</p>${inner}</article>`;
+  play.innerHTML = `<h2 class="zk-h2">Play the flows</h2><p class="zk-why">The cheats flow from the download to the game, then the rest, live.</p>
+    <div class="zk-grid">
+      ${card("Cheats: the page, the run, the end", "A downloads: the index first, then only your games' files. X drops Wi-Fi: the run waits in the warning color and goes on when it is back. B stops. Close and open again for the update state.", Z.demo("cheatpage", "p-cpage", "light", { caption: "Beard · MENU &gt; Games &gt; Cheats" }))}
+      ${card("Cheats in the game", "Down to Cheats, A: each cheat On or Off. While signed in, the first one asks first, the cursor on Cancel.", Z.demo("cheatgame", "p-cgame", "dark", { fresh: true, caption: "Salt &amp; Pepper · the Game tab" }))}
+      ${card("The game's start, and after a crash", "A plays: a pop-up says how many cheats are on. X quits as a crash would; the next A asks whether to start without them.", Z.demo("cheatstart", "p-cstart", "light", { caption: "Beard · the SNES shelf" }))}
+      ${card("Add to Collection", "On a game's details: A toggles each collection; New Collection opens the keyboard (START is done).", Z.demo("collect", "p-col", "light", { caption: "Beard · X on a game" }))}
+      ${card("The Collections shelf", "Each collection a folder; A opens it, MENU has Rename, Sort By and Delete Collection, which asks first.", Z.demo("colshelf", "p-colshelf", "dark", { caption: "Salt &amp; Pepper · the home's Collections" }))}
+      ${card("Recents", "MENU, Card Picture: Cover or Last Screen. START steps to the grid.", Z.demo("recents", "p-rec", "dark", { caption: "Salt &amp; Pepper · Recents" }))}
+      ${card("Video View", "Left and Right move along the covers; after the shelf's rest (a bar fills under the cover for 1 s) the snap fades in and plays.", Z.demo("videoview", "p-vv", "dark", { caption: "Salt &amp; Pepper · approved as drawn" }))}
+      ${card("Core Settings (on PR #303)", "Down to Core Settings, A: Palette repaints the game behind as you move in its list; All Options is the core's own list.", Z.demo("menu", "p-core", "light", { view: coreView("row"), sel: 3, caption: "Beard · a Game Boy game on Gambatte" }))}
+      ${card("Gambatte on the Core row", "Two choices: Left, Right or A turns it over; Super Game Boy says it needs mGBA while Gambatte is on.", Z.demo("menu", "p-gamb", "dark", { view: gambatteView(), sel: 2, caption: "Salt &amp; Pepper · the GBC shelf's menu" }))}
+      ${card("Link Cable", "Host or Join; the host waits with its name; in a moment the other joins and a pop-up says Linked.", Z.demo("link", "p-link", "dark", { caption: "Salt &amp; Pepper · approved as drawn" }))}
+    </div>`;
+  ZK.fit(play);
+
+  board = ZK.decisions(document.getElementById("m"), [
+    { key: "cheats-source", title: "Where cheats come from",
+      why: "libretro's list is CC BY-SA 4.0 and ZyperOS ships none of it; the handheld downloads only its games' files, as it downloads box art.",
+      options: {
+        libretro: { name: "libretro's list, downloaded", tag: "suggested", blurb: "The Cheats page downloads, updates and works offline after; your own files still count.", draw: () => Z.demo("cheatpage", "d-src-lib", "dark") },
+        files: { name: "Card files only", blurb: "No page and no download: cheats are the .cht files you copy to Cheats/.", draw: () => ZK.screen("dark", page("Cheats", "From the files in Cheats/ on the card", `<div class="i-pn" style="left:64px;top:270px;width:896px;height:330px;padding:20px 26px">${Z.rows([{ l: "Kingdom Run.cht", v: "SNES · 12 cheats", sel: true }, { l: "Pocket Quest.cht", v: "GB · 4 cheats" }])}</div>`, "Copy RetroArch .cht files to Cheats/<System>/.", [["B", "Close"]])) },
+      } },
+    { key: "cheats-ach", title: "Cheats and RetroAchievements",
+      why: "RetroAchievements does not count unlocks made with cheats.",
+      options: {
+        pause: { name: "Achievements stop while a cheat is on", tag: "suggested", blurb: "The first cheat asks first; the tab says why nothing unlocks; they come back at the next start with every cheat off.", draw: () => Z.demo("cheatgame", "d-ach-p", "dark", { fresh: true }) },
+        block: { name: "No cheats while signed in", blurb: "Cheat rows are dead while signed in to RetroAchievements, and say why.", draw: () => Z.demo("cheatgame", "d-ach-b", "dark", { mode: "block" }) },
+      } },
+    { key: "cheats-files", title: "Where your own cheat files show",
+      why: "Files put in Cheats/ by hand are shown first in the game's list either way, and an update never replaces them.",
+      options: {
+        list: { name: "In the game's list only", tag: "suggested", blurb: "The page stays about the download.", draw: () => Z.demo("cheatpage", "d-f-list", "light") },
+        page: { name: "And a Your Files page (Y)", blurb: "Y on the Cheats page lists every file you added, by system.", draw: () => Z.demo("cheatpage", "d-f-page", "light") },
+      } },
+    { key: "recents-default", title: "What a Recents card shows on a new card",
+      why: "By the rule, a new choice changes nothing for a person who does not touch it; Recents may be the one place where the last screen is the better start.",
+      options: {
+        cover: { name: "Cover", tag: "suggested", blurb: "As 1.0.6 ships; Last Screen is one row away in Recents' MENU.", draw: () => Z.demo("recents", "d-rec-c", "dark", { last: false }) },
+        last: { name: "Last Screen", blurb: "Where you stopped, at once, for everyone.", draw: () => Z.demo("recents", "d-rec-l", "dark", { last: true }) },
+      } },
+    { key: "col-place", title: "Where Collections live",
+      why: "Favorites and Recents are groups on the home; Collections can be one more, or sit inside one of them.",
+      options: {
+        home: { name: "A group on the home", tag: "suggested", blurb: "After Favorites and Recents, shown once there is one; Home Systems can hide it.", draw: () => Z.demo("colshelf", "d-col-home", "dark") },
+        menu: { name: "MENU > Games > Collections", blurb: "Out of the home; one press further, and the home stays as it is.", draw: () => ZK.screen("light", Z.homeBg() + Z.panel({ x: 66, y: 96, w: 892, h: 624, tabs: ["Games", "Display", "Sound", "Connections", "System", "About"], on: 0, each: 2, rows: [{ up: 1 }, { l: "Search Games" }, { l: "Play Time" }, { l: "Random Game" }, { l: "Collections", v: "3", sel: true }, { l: "Achievements" }, { l: "Scraper" }] })) },
+      } },
+    { key: "core-place", title: "Core Settings: a row or a tab",
+      why: "PR #303 adds a row; a tab of its own gives the options and their sentences more room.",
+      options: {
+        row: { name: "A row in the Game tab", tag: "suggested", blurb: "As PR #303 has it; the page opens from the row.", draw: () => Z.demo("menu", "d-core-row", "light", { view: coreView("row"), sel: 3 }) },
+        tab: { name: "A tab of its own", blurb: "Game, Display, Controls, Core, Achievements: five tabs, one neighbour each way.", draw: () => Z.demo("menu", "d-core-tab", "light", { view: coreView("tab"), sel: 1 }) },
+      } },
+    { key: "snap-start", title: "When the Video View's snap starts",
+      why: "On Covers a snap starts after the shelf's rest (hold-snap, 1 s), so a fast scroll decodes nothing.",
+      options: {
+        rest: { name: "After the rest", tag: "suggested", blurb: "A bar fills under the cover for 1 s, then the snap fades in.", draw: () => Z.demo("videoview", "d-snap-rest", "dark", { snap: "rest" }) },
+        now: { name: "At once", blurb: "The snap starts with every move: livelier, and it decodes during a scroll.", draw: () => Z.demo("videoview", "d-snap-now", "dark", { snap: "now" }) },
+      } },
+  ], { status: t => (document.getElementById("status").textContent = t), storeKey: "zk-library-ideas",
+       onRender: () => document.querySelectorAll(".zi-demo").forEach(el => Z.redraw(el)) });
+
+  /* decision demos play their own option */
+  const OPT = { "d-f-list": ["cheats-files", "list"], "d-f-page": ["cheats-files", "page"] };
+  ["cheatpage"].forEach(name => { const k = K[name], kd = k.key, dr = k.draw;
+    const as = (s, fn) => { const o = OPT[s.id]; if (!o) return fn(); const keep = board.picks[o[0]]; board.picks[o[0]] = { choice: o[1] }; try { return fn(); } finally { if (keep) board.picks[o[0]] = keep; else delete board.picks[o[0]]; } };
+    k.key = (s, b, r) => as(s, () => kd.call(k, s, b, r)); k.draw = (s, th) => as(s, () => dr.call(k, s, th)); });
+  document.querySelectorAll(".zi-demo").forEach(el => Z.redraw(el));
+  Z.start(document);
+})();
+</script>

@@ -10,7 +10,7 @@ and res/web/zyper.svg in an SVG <symbol id="zyper">, and writes OUT. A page
 that links sounds.js, the sound lab's WAVs (tools/gensounds.py --lab), or
 menu-music.js, the menu music lab's tracks (tools/bgm-tracks.py lab), or
 portal.js, the File Transfer page's stylesheet and icons (tools/mockportal.py),
-gets that inlined too; the music lab's MP3s stay files beside the page.
+or ideas.js, the ideas labs' 1.0.6 pieces and player, gets that inlined too; the music lab's MP3s stay files beside the page.
 Standard library only.
 """
 import os
@@ -33,7 +33,7 @@ def main():
             return f.read()
 
     page = page.replace('<link rel="stylesheet" href="kit.css">', "<style>\n" + read("kit.css") + "</style>")
-    for js in ("tokens.js", "kit.js", "sounds.js", "menu-music.js", "portal.js"):
+    for js in ("tokens.js", "kit.js", "sounds.js", "menu-music.js", "portal.js", "ideas.js"):
         tag = '<script src="%s"></script>' % js
         if tag in page:
             page = page.replace(tag, "<script>\n" + read(js) + "</script>")
@@ -45,7 +45,7 @@ def main():
               '<symbol id="zyper" viewBox="%s">%s</symbol></svg>' % (box, body))
     page = page.replace("<!--ZYPER-->", symbol)
     left = [m for m in ('href="kit.css"', 'src="tokens.js"', 'src="kit.js"', 'src="sounds.js"',
-                        'src="menu-music.js"', 'src="portal.js"', "<!--ZYPER-->")
+                        'src="menu-music.js"', 'src="portal.js"', 'src="ideas.js"', "<!--ZYPER-->")
             if m in page]
     if left:
         raise SystemExit("not inlined: " + ", ".join(left))
