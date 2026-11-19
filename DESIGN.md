@@ -1170,7 +1170,7 @@ where it was.)*
 |---|---|
 | **Games** | Search Games, Play Time, Random Game, Downloads (11.53) |
 | **Display** | Appearance, Theme, Home Screen, System Order, Home Systems, Battery Icon, Screensaver, Shader and Strength (ZyperOS's own screens', 11.50; not on the Brick), Screen Colors, Night Mode (its page: Night Mode, Night Warmth, Night From, Until) |
-| **Sound** | Audio Output, Audio Channels, UI Sounds, Menu Music |
+| **Sound** | Audio Output, Audio Channels, UI Sounds, Menu Music, Rumble (a handheld with a motor ZyperOS runs, 11.54) |
 | **Connections** | USB Device (while a plug waits), Wi-Fi, Bluetooth, File Transfer, USB Accessories, Developer Mode |
 | **System** | Date & Time, Clock, Language, Power Button, Auto Off, Charge Limit, Side Lights, Storage, System Update |
 | **About** | About ZyperOS, Controls, Show Tutorial |
@@ -3038,7 +3038,7 @@ and R1 go round them, and the panel is the same size on every tab:
 |---|---|
 | **Game** | Continue, Save, Load, Undo Load (after a load, below), Quick Slot, Disc (a game on more than one disc), Player 2 (an NES game, 11.43), Achievements, Reset, Quit |
 | **Display** | Display, Shader; a DS game's Screens, Swap Screens, Stylus |
-| **Controls** | Applies To, D-pad as Stick, Pak, Face Buttons, one row a button, Reset Buttons, Hotkeys (11.45) |
+| **Controls** | Applies To, D-pad as Stick, Pak, Rumble (11.54), Face Buttons, one row a button, Reset Buttons, Hotkeys (11.45) |
 | **Achievements** | the game's achievements, or the sentence that says why it has none (11.46) |
 
 **Undo Load** (1.0.6). Every load the player makes, Load's slot strip or
@@ -3093,6 +3093,8 @@ screen), in this order, the rows in brackets only where they apply:
    the system and this game has buttons of its own.]
 3. [**D-pad as Stick**, On or Off, this game's whatever Applies To says (11.45).]
 4. [**Pak**, an N64 game's, as it was in the Game list.]
+4b. [**Rumble**, Off, Low, Medium or Full for the scope Applies To shows, a
+   game whose core asked for the motor on a handheld with one (11.54).]
 5. [**Face Buttons**, **By Letter** or **By Place** (11.45).]
 6. **A, B, X, Y, L1, R1, L2, R2, START, SELECT**, the handheld's button at the
    left and what it does in this game at the right, in the core's own name
@@ -4782,8 +4784,8 @@ tutorial's front pose (10 degrees), lights the keys of the row under the
 cursor in the tutorial's lit look (accent fill, ring, halo): a button row its
 button; D-pad as Stick the d-pad (and SELECT on the N64 and the Dreamcast);
 Face Buttons the four faces; Reset Buttons every changed button; a swap
-both buttons while the cursor stays on the row; Applies To, Pak and Hotkeys
-nothing. A lit shoulder stands up out of the top edge. It **leans**
+both buttons while the cursor stays on the row; Applies To, Pak, Rumble and
+Hotkeys nothing. A lit shoulder stands up out of the top edge. It **leans**
 toward the side of the keys lit: the faces (A, B, X, Y) turn it 12 degrees
 from the front pose to show its right side (22 degrees), the d-pad 22 the
 other way (-12). A shoulder row turns it 12 toward its side (R1 and R2 to 22
@@ -5551,3 +5553,54 @@ kinds' A opens their pages, so the switches are Settings' rows.)*
 
 Host shots: `--downloads STATE`, 0 the plan, 1 a run going on, 2 every kind
 done or out, 3 no network and nobody signed in, 4 Settings.
+
+### 11.54 Rumble
+*(Asked for on the Discord after 1.0.6: turn the motor down or off. My picks
+in the Sound lab, 2026-11-19: four levels, Low 35% and Medium 65% of what a
+game asks, a row in MENU and in a game's Controls tab.)*
+
+**The levels.** **Off**, **Low**, **Medium**, **Full**: none, 35% and 65% of
+the strength a game asks the motor for, and all of it, as ZyperOS always ran
+it. A new card is Full, so nobody who leaves the row alone feels a change.
+The level multiplies a system's own share (systems.cfg's `rumble|` lines:
+Doom's 35%, whose every shot rumbled), so Low on Doom is 12%; a level above
+Off never rounds to nothing (src/rumble.h, `rumble_run_pct`).
+
+**MENU > Sound > Rumble**, the Sound tab's last row, under Menu Music: the
+level for every game. Left and Right step it and stop at Off and Full,
+heard as Auto Off is (move when it moved, edge when it did not); A opens the
+four as a list with a note under it: "No rumble at all.", "35% of what a
+game asks.", "65% of what a game asks." or "As strong as each game asks."
+(one sentence each: the note has two lines, and German's and French's
+second sentence did not fit). **Each step is felt**: the motor buzzes
+once, 160 ms, at the level it comes to, and in the list the level under the
+cursor buzzes as the cursor comes onto it (Off is still). Only on a handheld
+with a motor ZyperOS runs (the profile's `rumble`): the Pixel 2. The Brick's
+motor (GPIO 227 on the axp2202's bldo3 rail) waits for its tester's first
+buzz; its profile turns the rows on with it.
+
+**In a game, the Controls tab's Rumble row**, under the Pak: only for a game
+whose core asked for the motor (Diatom answers PAUSED with `rumble=1`), on a
+handheld with one. It is the level of what Applies To shows, This Game or
+the system; a game without its own follows its system's, and a system
+without its own follows MENU's. A value the scope set itself is in the
+**accent-ink**, as a changed button is. A opens "Rumble: This Game" (or the
+system's name): the four levels, the tick on the scope's and **Default** on
+what it falls back to (MENU's, or the system's for a game that has one);
+choosing that one takes the scope's own level away. Left and Right step it
+as in MENU. Each change reaches the paused game at once (`SETRUMBLE`) and
+buzzes once at what the game will feel, its system's share included.
+
+**What it costs.** Nothing a frame: a level is one number Diatom multiplies
+by when a core changes its motor. The port is handed what the core asks and
+a 0 to 1 scale beside it (`diatom_port_rumble`): the Pixel 2's force
+feedback runs at the product; a motor whose strength is a voltage, as the
+Brick's, takes the scale as its step.
+
+**Kept**: `rumble` in the device's database (MENU's; no key at Full),
+`rumble.<TAG>` and `rumble.<TAG>.<file>` in the library's, each gone when it
+would equal what it falls back to; Rename and Delete Game move and remove a
+game's with its file. Host shots: `menu-rumble`, `menu-rumble-list` (and
+`-low`, `-off`: the list opened on those levels, with their notes),
+`gamemenu-rumble`, `gamemenu-rumble-list`, `gamemenu-rumble-own-list`
+(tools/i18n-shots.py; `--gm-rumble` stands in for the core's asking).

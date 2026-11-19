@@ -56,6 +56,9 @@ static char d_run_keys[128];
 static char d_map[256];          /* plat_resident_map, for the next RUN */
 static char d_opt[128];         /* plat_resident_opt, "key\tvalue=..." */
 static bool d_stylus, d_swap;
+/* The game's core asked for the motor, as its last PAUSED said (rumble=1):
+ * the in-game Controls tab's Rumble row. Off at every RUN. */
+static bool d_rumble_asked;
 
 static bool dsend(const char *fmt, ...)
 {
@@ -491,6 +494,7 @@ bool plat_resident_send(const plat_game_run *run)
 		 * process holds it. */
 		device_display_release();
 		d_stylus = d_swap = false;
+		d_rumble_asked = false;
 		/* The zone Date & Time chose, which this process holds in TZ
 		 * (plat_clock_zone), for a game's real-time clock: Diatom is started
 		 * by launch.sh with none, so its cores read UTC without it. With
@@ -800,6 +804,7 @@ void plat_resident_opt(const char *key, const char *value)
 		d_opt[0] = '\0';
 }
 
+bool plat_resident_rumble_asked(void) { return d_rumble_asked; }
 bool plat_resident_stylus(void) { return d_stylus; }
 void plat_resident_note_stylus(bool on) { d_stylus = on; }
 
@@ -1001,7 +1006,11 @@ static int diatom_wait(void)
 			 * the menu stepped from the level before the game - seen on the
 			 * GKD Pixel 2 2026-10-02, raised to 18 in a game, and the menu's
 			 * first press went to 3. */
-			else if (strncmp(l, "PAUSED", 6) == 0)  { d_apply_levels(); return RES_PAUSED; }
+			else if (strncmp(l, "PAUSED", 6) == 0)  {
+				d_rumble_asked = strstr(l, "\trumble=1") != NULL;
+				d_apply_levels();
+				return RES_PAUSED;
+			}
 			else if (strncmp(l, "PREVIEW\tpath=", 13) == 0)
 				snprintf(d_preview, sizeof d_preview, "%s", l + 13);
 			else if (strncmp(l, "LEVEL\t", 6) == 0) d_note_level(l);

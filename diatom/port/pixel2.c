@@ -1178,9 +1178,21 @@ void diatom_port_input_poll(void)
 
 uint32_t diatom_port_input_state(void) { return g_buttons; }
 
-bool diatom_port_rumble(uint16_t strong, uint16_t weak)
+/* The force feedback's strength is the motor's: the scale multiplies it,
+ * rounded, so Full (1) is the core's own number as it always was */
+static uint16_t rumble_times(uint16_t v, float scale)
 {
-	return evdev_rumble_set(strong, weak);
+	float f;
+
+	if (scale >= 1.0f) return v;
+	if (scale <= 0.0f) return 0;
+	f = (float)v * scale + 0.5f;
+	return (uint16_t)(f > 65535.0f ? 65535.0f : f);
+}
+
+bool diatom_port_rumble(uint16_t strong, uint16_t weak, float scale)
+{
+	return evdev_rumble_set(rumble_times(strong, scale), rumble_times(weak, scale));
 }
 
 void diatom_port_input_reset(void)
