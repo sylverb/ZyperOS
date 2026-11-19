@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* Collections (DESIGN.md 11.53): lists of games of your own, from every
+/* Collections (DESIGN.md 11.54): lists of games of your own, from every
  * system, kept on the card as Collections/<name>.txt.
  *
  * NextUI's top ten, and my picks in the Library lab (2026-11-19): "Add to
