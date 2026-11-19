@@ -5733,6 +5733,77 @@ game's with its file. Host shots: `menu-rumble`, `menu-rumble-list` (and
 `gamemenu-rumble`, `gamemenu-rumble-list`, `gamemenu-rumble-own-list`
 (tools/i18n-shots.py; `--gm-rumble` stands in for the core's asking).
 
+### 11.55 Your PICO-8
+
+My picks in the native PICO-8 lab (`~/Documents/ZyperOS/labs/pico8-native-lab.html`,
+2026-11-19), from a player's ask on Discord: Lexaloffle's own PICO-8, for every
+cart's full compatibility and for Splore, its online cart browser.
+
+**Whose it is.** PICO-8 is Lexaloffle's to sell, and its license lets no one
+pass it on. ZyperOS never ships it, never downloads it and keeps no copy of it:
+the player brings the PICO-8 for Raspberry Pi zip they bought
+(`pico-8_0.2.7_raspi.zip`). Two of its files run here, `pico8_64` (the 64-bit
+ARM program) and `pico8.dat` beside it, in `Bios/PICO-8` (src/pico8.h). Its
+words never call it ZyperOS's: **Your PICO-8**.
+
+**Adding it.** ZyperOS Installer's **PICO-8** group, under Card: optional, the
+zip chosen or dropped on the window. **Update** and **Fresh install** carry it,
+and **What to do** gets **Add PICO-8**, for a card that has started: the two
+files onto its ZYPEROS volume, no system written, no password asked. On a card
+that never started, the files ride in the image's boot partition and its first
+start moves them (installer/README.md). By hand, the zip as it comes or its two
+files into `Bios/PICO-8`: the launcher takes the files out of a zip at its next
+start or Rescan and says so in a one-line message (11.8): "Your PICO-8 0.2.7 is
+ready.", or "… is not the PICO-8 for Raspberry Pi zip." for any other zip.
+
+**The player.** `config/systems.cfg`'s PICO-8 row lists two cores, your PICO-8
+first (`run:ZyperOS/pico8/PICO-8.sh`) and fake08 after it, and its `brings`
+line names the two files: the core counts as on the card only with both there.
+So once they are, carts open in it, and the shelf's **Core** row offers it
+beside fake08; before, the row names fake08 alone, as today. *(2026-11-19:
+adding it is the choice.)* It runs as OpenBOR does, a program of its own:
+the loading screen (11.11) until it draws, **MENU** ZyperOS's menu over it
+(Continue, Controls, Quit, **X** Quit from any row, 11.28), its Controls pages
+the PICO-8 shelf's buttons, **START** PICO-8's own pause menu, **MENU+START**
+held a second home even when it hangs, the volume keys and **MENU+VOL** over it,
+**POWER** its end and the power-off. No save states: PICO-8 has none, so Save,
+Load, Undo Load and Resume stay fake08's. Full clocks, as every program of its
+own.
+
+**The picture** follows the shelf's **Display** row (launch.sh hands the
+row's name to the script): **Sharp Pixels** is whole multiples of 128, 3x on
+the Pixel 2 (384 x 384); every other mode is the panel's full height
+(480 x 480), its pixels 3 or 4 of the panel's. On the Brick 6x is its full
+height (768 x 768).
+
+**A cart's own saves** are one set for both players: fake08's `Saves/cdata`,
+bound over PICO-8's `cdata` for the run. PICO-8's settings, Splore's downloads
+and its favourites stay in `Saves/PICO-8`. *(Favourites stay in Splore.)*
+
+**Splore** is the PICO-8 shelf's first entry, pinned whatever the sort, as
+PortMaster's is on the Ports shelf (11.33): its own art, ZyperOS's, a lens over
+a row of carts on a desk in PICO-8's colors, the band of PICO-8's color across
+the top, the sun in Beard and the moon in Salt & Pepper (`res/pico8`,
+`tools/genpico8-art.py`). It is never a game: not counted in the shelf's
+**Games**, never a Random Game, and A says **Open**, not Play. Before your
+PICO-8 is on the card it is there all the same (*my pick: the entry says how,
+where a player looks*), its line **Not installed** and A **How to Add**, which
+opens a page in System Update's form (11.17): heading **Your PICO-8**, "PICO-8"
+where the versions go, "By Lexaloffle · not on this card" under it, three
+points (what it adds, whose it is, how to add it), and **Back**. With no way
+out to the internet and a radio to turn on, A asks first: **Splore needs
+Wi-Fi**, "Wi-Fi is off. Offline, Splore has only the carts it downloaded
+before.", **Turn On Wi-Fi** (on, and the saved network joined, up to 15 s) or
+**Open Offline**; B leaves it.
+
+**The Brick** gets your PICO-8 with its ports (the parity plan's item 8):
+until then its script is not in the Brick's payload, so the Brick's PICO-8
+shelf has no Splore and plays on fake08.
+
+Host shots: `make pico8-shots` (the shelf before and after, the Core row, the
+page in both themes). The rules: `make check-pico8`, `check-config`,
+`check-controls`.
+
 ### 11.60 Equalizer
 *(Asked for on the Discord after 1.0.6: more bass, and a system-wide
 equalizer. My picks in the Sound lab, 2026-11-19: one preset for the speaker
@@ -5839,3 +5910,4 @@ Custom's five bands (no key when flat). Host shots: `menu-eq`, `eq-page`,
 `eq-page-custom`, `eq-presets` (and `eq-presets-off`, `-voice`, `-treble`,
 `-custom`: the cursor on each), `eq-page-phones` (`--eq-phones` stands in
 for a cable), `mp4-menu-eq` (tools/i18n-shots.py).
+

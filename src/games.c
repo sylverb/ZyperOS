@@ -422,7 +422,7 @@ uint32_t games_draw(games_row *row,SDL_Renderer *r,const games_info *info,
         char pt[64]=""; int w=0, parts=0;
         if(games_line[0]) { w+=ui_text_width(chrome,games_line); parts++; }
         if(origin) { w+=ui_text_width(chrome,info->origin); parts++; }
-        if(info->install) { w+=ui_text_width(chrome,T(S_PORTMASTER_NOT_INSTALLED)); parts++; }
+        if(info->install||info->howto) { w+=ui_text_width(chrome,T(S_PORTMASTER_NOT_INSTALLED)); parts++; }
         if(info->played && *info->played) { snprintf(pt,sizeof pt,T(S_GAMES_PLAYED),info->played); w+=ui_text_width(chrome,pt); parts++; }
         if(info->has_achievements) { char at[64]; snprintf(at,sizeof at,T(S_GAMES_ACHIEVEMENTS),info->earned,info->total); w+=ui_text_width(chrome,at); parts++; }
         if(parts) w+=(parts-1)*32;
@@ -430,7 +430,7 @@ uint32_t games_draw(games_row *row,SDL_Renderer *r,const games_info *info,
     }
     if(origin) x=meta_part(r,chrome,info->origin,x,my);
     if(games_line[0]) x=meta_part(r,chrome,games_line,x,my);
-    if(info->install) x=meta_part(r,chrome,T(S_PORTMASTER_NOT_INSTALLED),x,my);
+    if(info->install||info->howto) x=meta_part(r,chrome,T(S_PORTMASTER_NOT_INSTALLED),x,my);
     if(info->played && *info->played) {
         char text[64]; snprintf(text,sizeof text,T(S_GAMES_PLAYED),info->played);
         x=meta_part(r,chrome,text,x,my);
@@ -439,14 +439,14 @@ uint32_t games_draw(games_row *row,SDL_Renderer *r,const games_info *info,
         char text[64]; snprintf(text,sizeof text,T(S_GAMES_ACHIEVEMENTS),info->earned,info->total);
         meta_part(r,chrome,text,x,my);
     }
-    if(info->count) page_hint(r,"A",T(info->folder>0?S_GAMES_OPEN:info->install?S_PORTMASTER_INSTALL:
+    if(info->count) page_hint(r,"A",T(info->folder>0||info->opens?S_GAMES_OPEN:info->howto?S_PICO8_HOW_TO_ADD:info->install?S_PORTMASTER_INSTALL:
                                       info->resumable?S_GAMES_RESUME:S_GAMES_PLAY),SHELF_HINT_X,GAMES_TITLE_Y+SHELF_HINT_DY,true,false);
     /* The foot, spread from B at the left to X at the right (DESIGN.md
      * 11.4): START turns the shelf into the grid, the next View (11.47) */
     key_hint foot[4]; int nf=0;
     foot[nf++]=(key_hint){"B",T(info->inside?S_GAMES_BACK:S_GAMES_SYSTEMS)};
     if(info->count) foot[nf++]=(key_hint){"START",T(S_GAMES_TO_GRID)};
-    if(info->count&&info->resumable&&!info->install&&!info->folder) foot[nf++]=(key_hint){"Y",T(S_GAMES_FRESH)};
+    if(info->count&&info->resumable&&!info->install&&!info->howto&&!info->opens&&!info->folder) foot[nf++]=(key_hint){"Y",T(S_GAMES_FRESH)};
     if(!info->folder) foot[nf++]=(key_hint){"X",T(S_GAMES_DETAILS)};
     /* DS_FOOT_Y, every screen's: a two-line name's system line (cap 664) stays 30 from the keys */
     keyhints_draw(r,foot,nf,sf.keys.x,sf.keys.x+sf.keys.w,sf.keys.y+sf.keys.h/2,KEYHINTS_SPREAD,true,255);

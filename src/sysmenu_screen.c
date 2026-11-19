@@ -384,11 +384,11 @@ static void menu_choices(app *a, int sys, bool games)
 			g_smm_choice[SMM_SORT] = ch_make(&P[1], ML_ORDERS, v->sort, false);
 			return;
 		}
-		n = cfg_core_count(sc);
+		n = core_offered_count(sc);
 		for (i = 0, cur = 0; i < n && i < CH_MAX; i++) {
 			char core[CFG_STR];
 
-			if (!cfg_core_at(sc, i, core, sizeof core)) core[0] = '\0';
+			if (!core_offered_at(sc, i, core, sizeof core)) core[0] = '\0';
 			if (!strcmp(core, sc->core)) cur = i;
 			core_label(core, P[2].buf[i], sizeof P[2].buf[i]);
 			P[2].lab[i] = P[2].buf[i];
@@ -588,7 +588,7 @@ int menu_build(app *a, screen_id screen, int sys,
 
 		u.sys_name   = sc->name;
 		u.sys_core   = core_label(sc->core, corebuf, sizeof corebuf);
-		u.core_choice = cfg_core_count(sc) > 1;
+		u.core_choice = core_offered_count(sc) > 1;
 		{
 			static char dslbuf[64];
 
@@ -601,8 +601,9 @@ int menu_build(app *a, screen_id screen, int sys,
 		u.muse       = is_muse(sc);
 		u.fav        = !u.muse && sc->core[0] == '\0' && sc->folder[0] == '\0';
 		/* Every game of the system, in its folders too: the shelf's own
-		 * entries would count a folder as one */
-		u.game_count = sys_games(&a->view[sys])->count;
+		 * entries would count a folder as one. Not Splore's entry, nor
+		 * PortMaster's while it is not on the card: no game */
+		u.game_count = sys_games(&a->view[sys])->count - pm_shelf_offers(a, sys);
 		u.dmode      = dmode_label(a->view[sys].dmode);
 		u.shader     = shader_label(a->view[sys].shader);
 		u.strength   = strength_row_label(a, sys);
@@ -1897,7 +1898,7 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 		 * steps to the next, saved at once like the display mode. The next
 		 * game launched from here runs on it. */
 		if ((d || key == IN_ACCEPT) && sel == SM_CORE &&
-		    cfg_core_count(&a->sys.systems[a->sys_cursor]) > 1) {
+		    core_offered_count(&a->sys.systems[a->sys_cursor]) > 1) {
 			core_step(a, a->sys_cursor, d ? d : 1);
 			return MENU_STAY;
 		}

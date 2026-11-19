@@ -86,6 +86,8 @@ bool cfg_load_systems(const char *path, systems_cfg *out)
 	int nextra = 0;
 	fw_line fw[CFG_MAX_SYSTEMS];
 	int nfw = 0;
+	struct { char tag[8], core[CFG_STR], paths[160]; } br[CFG_MAX_SYSTEMS];
+	int nbr = 0;
 	while (fgets(line, sizeof line, f) && out->count < CFG_MAX_SYSTEMS) {
 		strip(line);
 		if (!line[0] || line[0] == '#') continue;
@@ -101,6 +103,16 @@ bool cfg_load_systems(const char *path, systems_cfg *out)
 			snprintf(extra[nextra].kind, sizeof extra[0].kind, "stickoff");
 			snprintf(extra[nextra].tag, sizeof extra[0].tag, "%s", fld[1]);
 			nextra++;
+			continue;
+		}
+		/* brings|tag|core|paths: files the player brings for a core */
+		if (n == 4 && !strcmp(fld[0], "brings")) {
+			if (nbr < CFG_MAX_SYSTEMS) {
+				snprintf(br[nbr].tag, sizeof br[nbr].tag, "%s", fld[1]);
+				snprintf(br[nbr].core, sizeof br[nbr].core, "%s", fld[2]);
+				snprintf(br[nbr].paths, sizeof br[nbr].paths, "%s", fld[3]);
+				nbr++;
+			}
 			continue;
 		}
 		if (n == 3 && !strcmp(fld[0], "firmware")) {
@@ -181,6 +193,20 @@ bool cfg_load_systems(const char *path, systems_cfg *out)
 			}
 			else
 				s->controller = (unsigned)strtoul(extra[i].value, NULL, 10);
+		}
+	/* The files a shelf's core needs from the player, for a core it lists */
+	for (int i = 0; i < nbr; i++)
+		for (int k = 0; k < out->count; k++) {
+			system_cfg *s = &out->systems[k];
+			char one[CFG_STR];
+			int j;
+
+			if (strcmp(s->tag, br[i].tag)) continue;
+			for (j = 0; cfg_core_at(s, j, one, sizeof one); j++)
+				if (!strcmp(one, br[i].core)) {
+					snprintf(s->brings_core, sizeof s->brings_core, "%s", br[i].core);
+					snprintf(s->brings, sizeof s->brings, "%s", br[i].paths);
+				}
 		}
 	/* After the bios lines, which set a shelf's names too */
 	for (int k = 0; k < out->count; k++)
