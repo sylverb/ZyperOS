@@ -446,9 +446,10 @@ typedef struct {
 } diatom_hud_words;
 void diatom_port_hud_style(const diatom_hud_words *w);
 
-/* ...and the line shown with these numbers, the frames the core ran a
- * second and that against the game's own rate (1 is full speed), until the
- * next call; or taken off. The port reads what else its items say (the
+/* ...and the line shown with these numbers, the pictures the core made a
+ * second and the frames it emulated against the game's own rate (1 is full
+ * speed; src/emumeter.h says how each is counted), until the next call; or
+ * taken off. The port reads what else its items say (the
  * chip's temperature, load and clock, the battery, the time) itself, then,
  * and only those picked. The host calls it twice a second while it is on,
  * from the emulation thread. A port with no screen of its own implements

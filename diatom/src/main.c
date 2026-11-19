@@ -23,6 +23,7 @@
 #include "cheevos.h"
 #include "chord.h"
 #include "diatom.h"
+#include "emumeter.h"
 #include "levels.h"
 #include "now.h"
 #include "pace.h"
@@ -648,6 +649,14 @@ static bool          g_swap;
 static long     g_present_frames;
 static uint64_t g_present_us;
 
+/* What the overlay's Speed and FPS and the now file's counter are made of
+ * (emumeter.h): the sound frames the core made, on any thread since a game
+ * began (the core's thread adds to it, hence atomic; a relaxed add is one
+ * instruction), and the new pictures it handed over, on the host's. A frame
+ * pays one add each. */
+static uint64_t g_sound_made;
+static uint64_t g_pictures;
+
 /* The frame turned by the game's rotation (SET_ROTATION, see env.c), written
  * packed into g_frame. Libretro's quarter turns are counter-clockwise: a
  * source pixel (x, y) in a w x h frame lands at
@@ -698,6 +707,7 @@ void diatom_on_video(const void *data, unsigned w, unsigned h, size_t pitch)
 	size_t need;
 
 	if (!data) return;          /* dupe: keep the previous frame */
+	g_pictures++;
 	/* Drawn by the GPU into the port's framebuffer (hw.c): no pixels to copy,
 	 * only the size. Not turned: no GPU core here asks for a rotation. */
 	if (data == RETRO_HW_FRAME_BUFFER_VALID) {
@@ -815,6 +825,7 @@ static void foreign_pace(void)
 
 void diatom_on_audio_batch_store(const int16_t *data, size_t frames)
 {
+	__atomic_fetch_add(&g_sound_made, (uint64_t)frames, __ATOMIC_RELAXED);
 	if (pthread_equal(pthread_self(), g_host_thread))
 		g_turn_sound += frames;
 	else {
@@ -1603,7 +1614,8 @@ static void level_set(const diatom_msg *m)
 
 /* On-Screen Stats (ZyperOS's src/hud.h): on while the launcher's in-game
  * menu says so (SETHUD on=1), for every game until it says otherwise, as it
- * keeps the setting per player. hud_turn measures and the port draws. */
+ * keeps the setting per player. The meter measures (emumeter.h), hud_turn
+ * hands its numbers over and the port draws. */
 static bool g_hud_on;
 
 static void hud_set(const diatom_msg *m)
@@ -1653,42 +1665,31 @@ static void display_set(const diatom_msg *m)
 	apply_display(mode, filter);
 }
 
-/* Once a turn: the frames the core ran over the last half second
- * (HUD_EVERY_MS) and that against the game's own rate, from the counters
- * px2-perf reads in the now file (now.h: frames x 1e6 / fps / run_us), so the
- * two say the same; to the port twice a second. Off, one test. A new game
- * (its counters back under the window's start) starts a new window, and the
- * last game's numbers go until it has one. */
-static void hud_turn(uint64_t now, long frames, uint64_t run_us, double game_fps)
+/* Once a window (emumeter.h: half a second of the game's time, the menu's
+ * left out): the pictures the core made a second, and the frames it emulated
+ * against the game's own rate, from the same counters px2-perf reads in the
+ * now file (now.h), so the two say the same; to the port twice a second.
+ * Speed is the emulation's, so a game that draws 30 pictures a second at
+ * full speed reads 30 fps and 1.00x. Off, one test. A new game hides the
+ * last game's numbers until it has a window of its own. */
+static bool g_hud_shown;
+
+static void hud_hide(void)
 {
-	static uint64_t t0, run0;
-	static long f0;
-	static bool shown;
+	if (g_hud_shown) diatom_port_hud(false, 0, -1);
+	g_hud_shown = false;
+}
 
+static void hud_turn(const emumeter *m, bool closed)
+{
 	if (!g_hud_on) {
-		if (shown) diatom_port_hud(false, 0, -1);
-		shown = false;
-		t0 = 0;
+		hud_hide();
 		return;
 	}
-	if (!t0 || frames < f0 || run_us < run0) {
-		if (shown) diatom_port_hud(false, 0, -1);
-		shown = false;
-		t0 = now;
-		run0 = run_us;
-		f0 = frames;
-		return;
-	}
-	if (now - t0 < 500000 || run_us <= run0) return;
-	{
-		const double fps = (double)(frames - f0) * 1e6 / (double)(run_us - run0);
-
-		diatom_port_hud(true, fps, game_fps > 0 ? fps / game_fps : -1);
-		shown = true;
-	}
-	t0 = now;
-	run0 = run_us;
-	f0 = frames;
+	/* The window just closed; or, with the overlay just turned on, the last */
+	if (!closed && (g_hud_shown || !m->have)) return;
+	diatom_port_hud(true, m->pic_fps, m->speed);
+	g_hud_shown = true;
 }
 
 /* ---- two screens ---------------------------------------------------------
@@ -2241,6 +2242,8 @@ static int run_session_inner(const diatom_session *sn)
 	/* The sound rate the resampler uses: the announced one, or what the core
 	 * really sends where that is known to differ (sound_rate). */
 	double   audio_rate = 0.0;
+	double   core_sound_rate = 0.0;   /* audio_rate before the display lock scales it */
+	emumeter em;                      /* the overlay's numbers and the now file's counter */
 	bool     sound_paced = false;   /* paced_by_sound: this core's turns last its sound */
 	/* The display lock (src/pace.h): the panel's rate over the core's when
 	 * this game runs at the panel's, one frame a refresh; 0 when it runs at
@@ -2432,6 +2435,7 @@ static int run_session_inner(const diatom_session *sn)
 	/* Locked to the display: the core's frames come at the panel's rate,
 	 * so its sound comes that much faster too, and is resampled as such -
 	 * 0.59% for a GBA, past rate control's 0.5% */
+	core_sound_rate = audio_rate;   /* as the core announces it, for the meter */
 	sound_paced = paced_by_sound(&si) && audio_rate > 0.0;
 	lock = sound_paced || !sn->pace_smooth ? 0 : pace_lock_ratio(g_caps.refresh_hz, av.timing.fps);
 	if (lock > 0) {
@@ -2629,6 +2633,9 @@ static int run_session_inner(const diatom_session *sn)
 	/* What runs, for a tool on the device (now.h): from here until
 	 * run_session's end, paused or not */
 	diatom_now_begin(sn->core, sn->rom, av.timing.fps);
+	emumeter_begin(&em, av.timing.fps, core_sound_rate, frames,
+	               __atomic_load_n(&g_sound_made, __ATOMIC_RELAXED), g_pictures, 0);
+	hud_hide();
 
 	while (!diatom_port_should_quit() && !g_terminate && !stop && !diatom_env_core_quit() &&
 	       (sn->limit <= 0 || frames < sn->limit)) {
@@ -2819,16 +2826,19 @@ static int run_session_inner(const diatom_session *sn)
 		if (turn_short) step_sleep.short_turns++;
 		{
 			const uint64_t t = diatom_port_now_us();
+			const uint64_t run_us = t - t_start > paused_us ? t - t_start - paused_us : 0;
+			const bool closed = emumeter_turn(&em, frames,
+			                                  __atomic_load_n(&g_sound_made, __ATOMIC_RELAXED),
+			                                  g_pictures, run_us);
 
-			diatom_now_turn(t, frames, t - t_start > paused_us ? t - t_start - paused_us : 0,
+			diatom_now_turn(t, emumeter_frames(&em, frames), run_us,
 			                speed_half() / 2.0, diatom_audio_dropped());
 			if (card_due && t - t_start > paused_us && t - t_start - paused_us >= card_after) {
 				card_due = false;
 				if (diatom_hw_active()) card_later = true;
 				else card_frame(sn->card, false);
 			}
-			hud_turn(t, frames, t - t_start > paused_us ? t - t_start - paused_us : 0,
-			         av.timing.fps);
+			hud_turn(&em, closed);
 		}
 
 		if (fast) {
@@ -3134,6 +3144,17 @@ static int run_session_inner(const diatom_session *sn)
 					 * next second catching up. */
 					next_us = (double)diatom_port_now_us();
 					g_turn_sound = 0;
+					{
+						/* The window's clock restarts where the game's now is
+						 * (the menu's time is in paused_us), and the sound a
+						 * core's thread made meanwhile is not the game's */
+						const uint64_t tn = (uint64_t)next_us;
+
+						emumeter_rebase(&em, frames,
+						                __atomic_load_n(&g_sound_made, __ATOMIC_RELAXED),
+						                g_pictures,
+						                tn - t_start > paused_us ? tn - t_start - paused_us : 0);
+					}
 
 					/* And the device played the sound buffer out meanwhile, so
 					 * it is filled back to target before the first frame. */

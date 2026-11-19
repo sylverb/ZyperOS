@@ -1,7 +1,8 @@
 /* Loading a core, and its lifecycle.
  *
- * Every core is dlopen'd once and NEVER unloaded, but for the one that runs a
- * single game per load (one_game_per_load below), which is closed after each
+ * Every core is dlopen'd once and NEVER unloaded, but for the ones that run a
+ * single game per load (one_game_per_load below), and every core whose file
+ * ZyperOS did not ship (core_is_shipped below), which are closed after each
  * game and opened again for the next, as RetroArch does with every core.
  * RTLD_LOCAL always. It is the only thing preventing symbol collision between
  * resident cores - measured, picodrive exports 1069 non-retro_* symbols
@@ -17,6 +18,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "cheevos.h"
@@ -61,12 +63,74 @@ static const char *dbg_base(const char *p)
 	return s ? s + 1 : p;
 }
 
+/* Is this core's file one ZyperOS shipped?
+ *
+ * ZyperOS/.files is the answer: the card's index of every file the folder
+ * shipped, "<sha256> <size> <path>" a line (mk/payload.sh writes it, System
+ * Update writes it again for every update; docs/updates.md). A core is shipped
+ * when the index names it, by its path from the ZyperOS folder, at the size it
+ * has on the card. One that is not named is one a person added (freeintv, #304).
+ * One that is named at another size is a shipped core's file with another
+ * build put over it, and it is not what ZyperOS shipped either.
+ *
+ * The size, not the hash: a hash is the whole file read through, which on the
+ * devices is more than a core costs to map, and this is asked of every core at
+ * every boot. A build that comes to the very same size is taken for the
+ * shipped one, which is the behaviour before this existed, not a new risk.
+ *
+ * The folder is the core's folder's parent: a core at <ZyperOS>/cores/x.so is
+ * "cores/x.so" in <ZyperOS>/.files. Where there is no index to read (a card
+ * from before System Update, a desktop build), or one with no entry in it, there
+ * is nothing to say a core was not shipped, and it is taken to be: the cores
+ * stay open between games as they always did. */
+static bool core_is_shipped(const char *path)
+{
+	const char *file = strrchr(path, '/'), *dir, *rel;
+	char idx[1100], line[1300];
+	unsigned long long size = 0;
+	bool listed = false, any = false;
+	struct stat st;
+	FILE *f;
+
+	if (!file || file == path) return true;
+	for (dir = file - 1; dir > path && *dir != '/'; dir--)
+		;
+	if (*dir != '/') return true;
+	rel = dir + 1;
+	snprintf(idx, sizeof idx, "%.*s/.files", (int)(dir - path), path);
+
+	f = fopen(idx, "r");
+	if (!f) return true;
+	while (fgets(line, sizeof line, f)) {
+		char *sp1 = strchr(line, ' '), *sp2;
+
+		line[strcspn(line, "\n")] = '\0';
+		if (!sp1 || sp1 - line != 64) continue;
+		sp2 = strchr(sp1 + 1, ' ');
+		if (!sp2) continue;
+		any = true;
+		if (!strcmp(sp2 + 1, rel)) {
+			size = strtoull(sp1 + 1, NULL, 10);
+			listed = true;
+			break;
+		}
+	}
+	fclose(f);
+
+	/* An index with no line of the form in it is no index */
+	if (!any) return true;
+	if (!listed) return false;
+	if (stat(path, &st) != 0) return true;
+	return (unsigned long long)st.st_size == size;
+}
+
 bool diatom_core_open(diatom_core *c, const char *path)
 {
 	double t0;
 
 	memset(c, 0, sizeof *c);
 	c->path = path;
+	c->shipped = core_is_shipped(path);
 
 	t0 = dbg_now_ms();
 	c->handle = dlopen(path, RTLD_NOW | RTLD_LOCAL);
@@ -545,11 +609,22 @@ bool diatom_core_start(diatom_core *c, const char *rom_path)
  * https://github.com/libretro/blueMSX-libretro/pull/213
  * Once merged, this core will not need to unload between games.
  *
- * By name, because nothing a core declares says so. */
+ * By name, because nothing a core declares says so.
+ *
+ * And every core ZyperOS did not ship, which is the case nobody can name
+ * ahead of time: a core a person adds to the cores folder is one nobody here
+ * has read. freeintv, added by hand to a Brick (#304), keeps its last game in
+ * statics too: the next game, with no resume point, started on the first
+ * game's screen under "LOAD CART OKAY / INTELLIVISION HALTED", and that
+ * screen was saved as the next game's resume point when the player left. The
+ * cores ZyperOS ships were each read and measured to stay open; a core nobody
+ * here has read starts clean, as under RetroArch, and costs a dlopen and a
+ * retro_init a game. See core_is_shipped. */
 static bool one_game_per_load(diatom_core *c)
 {
 	struct retro_system_info si;
 
+	if (!c->shipped) return true;
 	memset(&si, 0, sizeof si);
 	c->get_system_info(&si);
 	return si.library_name && (!strcmp(si.library_name, "ScummVM") ||

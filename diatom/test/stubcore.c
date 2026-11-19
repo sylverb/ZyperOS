@@ -72,6 +72,16 @@
  * the frontend had drawn, a 1 or a 0 each, and when each started
  * (test/lateskip.py).
  *
+ * And a core that draws less often than it runs, the two ways real cores do
+ * (test/hudspeed.py): STUBCORE_DUPE=N hands over a new picture on every Nth
+ * retro_run and a repeat (a NULL frame) on the rest, as a core that runs 60
+ * frames a second and draws 30 does; STUBCORE_SPAN=N makes each retro_run N
+ * frames long - N frames of sound and one picture - as PPSSPP's, Flycast's
+ * and ParallelN64's do when a game shows a new picture every Nth vblank. The
+ * time such a call takes is STUBCORE_FRAME_US's, so a span of 2 at 33500 is a
+ * 30 fps game at full speed; with STUBCORE_PRECISE=1 it is that to the
+ * microsecond, slept and then spun, where a sleep alone overshoots.
+ *
  * And a picture of its own in place of the pattern: STUBCORE_IMAGE=path, a
  * BASE_W x BASE_H RGB565 frame in the host's byte order (what
  * tools/shaderdemo.c --rgb565 writes), drawn on every frame with the
@@ -96,8 +106,9 @@
 #define MAX_H  448
 #define FPS    59.7275
 #define RATE   32040.0
-/* 32040/59.7275 = 536.44, so 1024 is ample headroom. */
-#define AUDIO_MAX_FRAMES 1024
+/* 32040/59.7275 = 536.44, so 1024 is ample headroom, and for a run of up to
+ * four frames (STUBCORE_SPAN) four times that. */
+#define AUDIO_MAX_FRAMES 4096
 
 static retro_environment_t   env;
 static retro_video_refresh_t video_cb;
@@ -357,6 +368,10 @@ static void report_load(const struct retro_game_info *game)
  * on time (test/lateskip.py) */
 static long frame_cost_us;
 static bool frame_unshown;
+static bool precise_cost;         /* STUBCORE_PRECISE: the cost to the microsecond */
+#define PRECISE_SPIN_US 6000      /* spun, not slept, for the last of it */
+static unsigned dupe_every = 1;   /* STUBCORE_DUPE: a new picture on every Nth run */
+static unsigned span = 1;         /* STUBCORE_SPAN: frames in one retro_run */
 static FILE *shown_log;
 static void frame_status(bool active, unsigned occupancy, bool underrun_likely)
 {
@@ -385,6 +400,26 @@ static void frame_cost(void)
 	/* Slept, not spent: the frontend's pacing sees only the time a frame
 	 * takes, and a sleep takes it however busy the machine is (make check
 	 * runs many at once), where a busy wait took longer on a busy one */
+	if (precise_cost) {
+		/* STUBCORE_PRECISE=1: to the microsecond, for a check of a speed
+		 * (test/hudspeed.py). A sleep alone overshoots by 4 ms on a Mac, which
+		 * made a core of 2 frames at 33.5 ms run at 88% of its speed. Slept
+		 * to just short of the end, spun for the rest. */
+		struct timespec t0, t;
+		long us;
+
+		clock_gettime(CLOCK_MONOTONIC, &t0);
+		if (frame_cost_us > PRECISE_SPIN_US) {
+			d.tv_sec = (frame_cost_us - PRECISE_SPIN_US) / 1000000L;
+			d.tv_nsec = ((frame_cost_us - PRECISE_SPIN_US) % 1000000L) * 1000L;
+			nanosleep(&d, NULL);
+		}
+		do {
+			clock_gettime(CLOCK_MONOTONIC, &t);
+			us = (t.tv_sec - t0.tv_sec) * 1000000L + (t.tv_nsec - t0.tv_nsec) / 1000L;
+		} while (us < frame_cost_us);
+		return;
+	}
 	d.tv_sec = frame_cost_us / 1000000L;
 	d.tv_nsec = (frame_cost_us % 1000000L) * 1000L;
 	nanosleep(&d, NULL);
@@ -436,6 +471,14 @@ bool retro_load_game(const struct retro_game_info *game)
 	{
 		const char *e = getenv("STUBCORE_FRAME_US");
 		frame_cost_us = e && *e ? strtol(e, NULL, 10) : 0;
+		precise_cost = getenv("STUBCORE_PRECISE") != NULL;
+		e = getenv("STUBCORE_DUPE");
+		dupe_every = e && *e ? (unsigned)strtoul(e, NULL, 10) : 1;
+		if (dupe_every < 1) dupe_every = 1;
+		e = getenv("STUBCORE_SPAN");
+		span = e && *e ? (unsigned)strtoul(e, NULL, 10) : 1;
+		if (span < 1) span = 1;
+		if (span > 4) span = 4;
 		e = getenv("STUBCORE_SOUND_BURST");
 		burst_n = 0;
 		while (e && *e && burst_n < 8) {
@@ -674,7 +717,7 @@ void retro_run(void)
 	 * queue. The frontend was behaving correctly on a starved input; the fixture
 	 * was lying. A test core that produces the wrong amount of audio tests
 	 * nothing useful. */
-	audio_accum += RATE / FPS;
+	audio_accum += RATE / FPS * span;
 	n = (size_t)audio_accum;
 	audio_accum -= (double)n;
 	if (n > AUDIO_MAX_FRAMES) n = AUDIO_MAX_FRAMES;   /* cannot happen; guard anyway */
@@ -763,7 +806,11 @@ void retro_run(void)
 			fb[y * cur_w + x] = rgb565(220, 90, 40);
 
 	if (image_on) memcpy(fb, image, sizeof image);
-	video_cb(fb, (unsigned)cur_w, (unsigned)cur_h, (size_t)cur_w * sizeof(uint16_t));
+	/* A repeat is a NULL frame, as libretro has a core say it drew nothing new */
+	if (frame % dupe_every)
+		video_cb(NULL, (unsigned)cur_w, (unsigned)cur_h, (size_t)cur_w * sizeof(uint16_t));
+	else
+		video_cb(fb, (unsigned)cur_w, (unsigned)cur_h, (size_t)cur_w * sizeof(uint16_t));
 
 	for (i = 0; i < n; i++) {
 		int16_t s = (int16_t)(sin(phase) * 2200.0);
