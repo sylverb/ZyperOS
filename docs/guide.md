@@ -12,7 +12,7 @@ the reasons behind them.
 - [Controls and menus](#controls-and-menus), [Scraper](#scraper), [Achievements](#achievements), [Screensaver](#screensaver), [Date & Time](#date--time), [Shaders](#shaders) and [in a game](#in-a-game)
 - [Languages](#languages), [Light and dark](#light-and-dark), [Screen Colors and Night Mode](#screen-colors-and-night-mode), [Battery and power](#battery-and-power) and [Rumble](#rumble)
 - [File transfer](#file-transfer), [System Update](#system-update) and [PortMaster](#portmaster)
-- [Changing discs](#changing-discs), [Player 2](#player-2), [Audio](#audio) and [MP4](#mp4)
+- [Changing discs](#changing-discs), [Player 2](#player-2), [Audio](#audio), [Equalizer](#equalizer) and [MP4](#mp4)
 - [The shelf](#the-shelf), [Delete Game](#delete-game), [Storage](#storage), [Ports](#ports) and [Coming from EmulationStation](#coming-from-emulationstation)
 - [Questions](#questions), [How it compares](#how-it-compares) and [Screens](#screens)
 
@@ -464,6 +464,7 @@ than any one console:
 | **Bluetooth** | the connected headset, or `Not connected` - pair, connect and forget |
 | **Audio Output** | `Auto` or `Speaker`, and where Auto landed - see **Audio** below |
 | **Audio Channels** | `Auto`, `Stereo`, `Mono`, `Mono left` or `Mono right` - see **Audio** below. `Auto` on a new device and after an upgrade |
+| **Equalizer** | the preset of the output in use, `Off` on a new card; **A** opens its page: the speaker's or the headphones' preset and five bands - see [Equalizer](#equalizer) |
 | **Rumble** | the Pixel 2: `Off`, `Low`, `Medium` or `Full` for every game, each step felt as you choose it - see [Rumble](#rumble). `Full` on a new card |
 | **Wi-Fi File Transfer** | the file server; needs Wi-Fi and says so when there is none. On the Pixel 2 with no network it says `Hotspot`, and makes the handheld its own network for a phone to join - see below. While a computer is on the USB cable it is **USB File Transfer** instead, at `http://zyperos.local`, or always at `10.55.0.2` on the Brick and `10.42.0.1` on the Pixel 2 |
 | **Date & Time** | the clock and the time zone, set with left and right - see below |
@@ -1660,6 +1661,14 @@ If a headset is switched off or walks out of range mid-game, sound falls back
 to the speaker within a second or two and the game keeps running. It never ends
 a game to report an audio problem. That fallback is the emulator's own - it
 does not wait for the launcher to notice the headset is gone.
+
+## Equalizer
+
+**MENU > Sound > Equalizer** shapes the sound by its low, middle and high notes: the music and videos in MP4, the menu music, games and ports. It is the same row in **MP4's MENU**, so you can open it while a song or a video plays and hear each change as you make it.
+
+The speaker and headphones each keep their own preset, `Off`, `Bass`, `Voice`, `Treble` or `Custom`, so the bass you like on headphones does not make the small speaker strain. The page shows the one in use now (**Speaker** or **Headphones**, which covers the jack, a USB-C adapter and a Bluetooth headset). **A** on it opens the presets, each with a picture of its curve, and you hear the one under the cursor before you choose it. Under it are five bands, `60 Hz`, `250 Hz`, `1 kHz`, `4 kHz` and `12 kHz`, each from -6 to +6 dB: change one and the preset becomes `Custom`, starting from the curve you had. `Off` on a new card, and `Off` is no filter at all, so nothing changes until you choose a preset.
+
+While the page is open, MP4 keeps only a little sound waiting, so a step is heard in under a tenth of a second, and each gain moves over 20 ms, so a step never clicks. A boost that takes a loud song past full scale is bent gently rather than cut. Ports get the equalizer on a system that has its plugin; a port that plays straight to the hardware keeps its own sound.
 
 ## MP4
 
