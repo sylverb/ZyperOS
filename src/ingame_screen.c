@@ -569,11 +569,15 @@ void gm_gather(app *a, gm_ui *out)
 }
 
 /* What the in-game menu remembers of the game running: the tab it was on,
- * the row each tab was left on (by identity; GM_MAX_ROWS is none, the tab's
- * first) and, for the Controls tab's Applies To, whether a change is for
- * every game of the system (Task 7 reads and writes it). Reset when a game
+ * the row each tab was left on (by identity; -1 is none, the tab's first)
+ * and, for the Controls tab's Applies To, whether a change is for every
+ * game of the system (Task 7 reads and writes it). Reset when a game
  * starts (launch) and kept across MENU presses until it ends, so MENU opens
- * where it was closed. */
+ * where it was closed.
+ *
+ * -1, not GM_MAX_ROWS: the Core tab's ids are option indices 0, 1, 2, ...
+ * and fceumm's "Volume principal" is index 19, which is GM_MAX_ROWS - a
+ * visit that had never set Core then landed there instead of Région. */
 gm_mem_state g_gm_mem;
 
 void gm_mem_reset(void)
@@ -581,7 +585,7 @@ void gm_mem_reset(void)
 	int t;
 
 	g_gm_mem.tab = GT_GAME;
-	for (t = 0; t < GT_TABS; t++) g_gm_mem.row[t] = GM_MAX_ROWS;
+	for (t = 0; t < GT_TABS; t++) g_gm_mem.row[t] = -1;
 	g_gm_mem.scope_all = false;
 }
 
@@ -1309,7 +1313,7 @@ static bool gm_screens(app *a, gm_row id, int d)
 }
 
 /* A row of any tab by identity: gm_row, ct_row, or an achievement, which is
- * AT_ID0 and its place in the set - apart from GM_MAX_ROWS, the kept row's
+ * AT_ID0 and its place in the set - apart from -1, the kept row's
  * "none" (g_gm_mem) */
 #define AT_ID0 1000
 #define GM_IDS_MAX (CHV_MAX > CT_MAX_ROWS ? CHV_MAX : CT_MAX_ROWS)
@@ -1993,16 +1997,18 @@ void game_menu(app *a)
 	g_in_game_menu = false;
 	g_menu_closing = false;
 	/* Where it was closed, for the next MENU press in this game: the cursor
-	 * moves without asking gm_key, so it is read from the runner here */
+	 * moves without asking gm_key, so it is read from the runner here. The
+	 * Core tab keeps its own sel (c.core.sel); the others write c.seen. */
 	if (c.st.tabs) {
 		gm_ui u;
 		int ids[GM_IDS_MAX];
-		int n;
+		int n, cur;
 
 		gm_gather(a, &u);
 		n = gm_ids(a, &c, &u, c.tabs.at, ids, GM_IDS_MAX);
 		g_gm_mem.tab = c.tabs.at;
-		if (c.seen >= 0 && c.seen < n) g_gm_mem.row[c.tabs.at] = ids[c.seen];
+		cur = c.tabs.at == GT_CORE ? c.core.sel : c.seen;
+		if (cur >= 0 && cur < n) g_gm_mem.row[c.tabs.at] = ids[cur];
 	}
 	/* Closed by px2-open's quit, which said STOP as Quit does: no Continue */
 	if (g_ctl_close_menu) c.resume = false;

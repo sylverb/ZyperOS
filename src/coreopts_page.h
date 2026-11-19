@@ -25,7 +25,6 @@ typedef struct {
 	menu_choice     choice[CODEFS_MAX + 4];
 	const char     *labels[CODEFS_MAX][CODEFS_VALUES_MAX];
 	char            cur[CODEFS_MAX][CODEFS_VAL_MAX];
-	char            note[CODEFS_DESC_MAX];
 	bool            empty;
 } coreopts_ui;
 

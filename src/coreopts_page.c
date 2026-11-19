@@ -124,7 +124,7 @@ int coreopts_ui_count(const coreopts_ui *ui)
 
 int coreopts_ui_rows(coreopts_ui *ui, menu_row *rows, int max)
 {
-	int i, n = 0, note_i;
+	int i, n = 0;
 
 	memset(ui->sound, 0, sizeof ui->sound);
 	memset(ui->choice, 0, sizeof ui->choice);
@@ -134,7 +134,9 @@ int coreopts_ui_rows(coreopts_ui *ui, menu_row *rows, int max)
 		return n;
 	}
 
-	for (i = 0; i < ui->defs.n && n < max - 2; i++) {
+	/* Options only: no rule/note footer. The row's label is already the
+	 * option's words; a pinned caption that repeated them said nothing. */
+	for (i = 0; i < ui->defs.n && n < max; i++) {
 		codef *o = &ui->defs.opt[i];
 		int v, k;
 
@@ -151,14 +153,6 @@ int coreopts_ui_rows(coreopts_ui *ui, menu_row *rows, int max)
 		};
 		n++;
 	}
-
-	note_i = ui->sel;
-	if (note_i < 0 || note_i >= ui->defs.n) note_i = 0;
-	snprintf(ui->note, sizeof ui->note, "%s",
-	         ui->defs.opt[note_i].desc[0] ? ui->defs.opt[note_i].desc
-	                                      : ui->defs.opt[note_i].key);
-	if (n < max) rows[n++] = MENU_RULE;
-	if (n < max) rows[n++] = MENU_NOTE(ui->note);
 	return n;
 }
 
@@ -239,7 +233,6 @@ void coreopts_page(app *a, const char *tag, const char *core,
 	st.sound = pg.ui.sound;
 	st.choices = pg.ui.choice;
 	st.sel_out = &pg.ui.sel;
-	st.pin_foot = true;
 	if (bg) {
 		st.backdrop = cop_backdrop;
 		st.on_power = cop_power;
