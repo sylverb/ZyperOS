@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 /* Core Settings: every (or whitelisted) option of a system's core, cycled and
- * kept as coreopt.<TAG>.<key> in the library. The shelf opens it as a page
- * (coreopts_page); the in-game menu shows the same list as a tab (GT_CORE).
- * When a game is paused on that core, definitions come from Diatom's OPTIONS
- * and are cached; otherwise the cache alone. */
+ * kept as coreopt.<TAG>.<key> in the library. The shelf and the in-game menu
+ * both open it as a page (coreopts_page); in-game A on Core Settings passes
+ * the paused frame and asks Diatom for live OPTIONS. Otherwise definitions
+ * come from the userdata cache alone. */
 #ifndef ZYPEROS_COREOPTS_PAGE_H
 #define ZYPEROS_COREOPTS_PAGE_H
 

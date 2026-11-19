@@ -47,9 +47,6 @@ typedef struct {
 	/* The Achievements tab's rows' values, colors and sounds
 	 * (src/achtab_screen.h) */
 	achtab_bufs   ach;
-	/* The Core tab's option list (src/coreopts_page.h), gathered once
-	 * when the menu opens */
-	coreopts_ui   core;
 } gm_ctx;
 
 /* What main.c uses of it; each is described where it is defined */

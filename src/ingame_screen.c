@@ -575,9 +575,7 @@ void gm_gather(app *a, gm_ui *out)
  * starts (launch) and kept across MENU presses until it ends, so MENU opens
  * where it was closed.
  *
- * -1 means none (first row). Core ids are CORE_ID0 + i so they never collide
- * with gm_row values or GM_MAX_ROWS (which is also fceumm option 19,
- * "Volume principal"). */
+ * -1 means none (first row of that tab). */
 gm_mem_state g_gm_mem;
 
 void gm_mem_reset(void)
@@ -1312,13 +1310,9 @@ static bool gm_screens(app *a, gm_row id, int d)
 	return plat_resident_sync_screens(300);
 }
 
-/* A row of any tab by identity: gm_row, ct_row, an achievement (AT_ID0 + i),
- * or a Core option (CORE_ID0 + i) - apart from -1, the kept row's "none"
- * (g_gm_mem). Core must not use bare 0, 1, 2, ...: those collide with gm_row
- * values, and with GM_MAX_ROWS (== 19), which is also fceumm's
- * "Volume principal" - so an unset Core row used to land there. */
-#define AT_ID0   1000
-#define CORE_ID0 2000
+/* A row of any tab by identity: gm_row, ct_row, or an achievement
+ * (AT_ID0 + i) - apart from -1, the kept row's "none" (g_gm_mem) */
+#define AT_ID0 1000
 #define GM_IDS_MAX (CHV_MAX > CT_MAX_ROWS ? CHV_MAX : CT_MAX_ROWS)
 
 int shot_achtab = -1;      /* --achtab STATE: the tab's state in a shot */
@@ -1407,13 +1401,6 @@ static int gm_ids(app *a, gm_ctx *c, const gm_ui *u, int tab, int *ids, int max)
 		n = ctlscr_rows(a, &g, rows, vcol, NULL, ct);
 		if (n > max) n = max;
 		for (i = 0; i < n; i++) ids[i] = ct[i];
-		return n;
-	}
-	/* The Core tab: each option's place in the list (src/coreopts_page.h) */
-	if (!u->port && tab == GT_CORE) {
-		n = coreopts_ui_count(&c->core);
-		if (n > max) n = max;
-		for (i = 0; i < n; i++) ids[i] = CORE_ID0 + i;
 		return n;
 	}
 	/* The Achievements tab: an achievement's place, or the one row of a
@@ -1594,26 +1581,6 @@ static int gm_menu_build(void *ctx, menu_row *rows, int max,
 		c->st.sel_out = &c->seen;
 		return n;
 	}
-	/* The Core tab's: the same list as the shelf's Core Settings page
-	 * (src/coreopts_page.h), cycled Left/Right and kept live */
-	if (!u.port && c->tabs.at == GT_CORE) {
-		c->st.header = NULL;
-		c->st.header_h = 0;
-		c->st.row_icon = NULL;
-		c->st.visits_all = false;
-		c->st.sound = c->core.sound;
-		c->st.choices = c->core.choice;
-		c->st.vcolors = NULL;
-		c->st.side_w = 0;
-		c->st.sel_out = &c->core.sel;
-		n = coreopts_ui_rows(&c->core, rows, max);
-		if (n == 0) {
-			rows[0] = MENU_NOTE("");
-			c->core.sound[0] = 0;
-			n = 1;
-		}
-		return n;
-	}
 	/* The Achievements tab's: the game's list, or why it has none
 	 * (src/achtab_screen.h), which sets the style its rows want */
 	if (!u.port && c->tabs.at == GT_ACHIEVEMENTS) {
@@ -1713,11 +1680,6 @@ static menu_result gm_key(app *a, void *ctx, in_button key, int sel)
 
 			if (ch) cheevo_detail_screen(a, c->bg, false, ch);
 			return plat_run_power_pressed() ? MENU_DONE : MENU_STAY;
-		}
-		/* The Core tab: Left/Right cycles an option; X still quits */
-		if (!u.port && c->tabs.at == GT_CORE && key != IN_X) {
-			coreopts_ui_key(&c->core, key, sel);
-			return MENU_STAY;
 		}
 		/* The Controls tab's rows, but X, which quits from any tab, and the
 		 * Pak, below as before */
@@ -1881,6 +1843,14 @@ static menu_result gm_key(app *a, void *ctx, in_button key, int sel)
 	case GM_CONTROLS:
 		game_controls_screen(a, c->bg);
 		break;
+	case GM_COREOPTS: {
+		sysview *sv = &a->view[a->sys_cursor];
+		const system_cfg *q = &a->sys.systems[shelf_owner(a, a->sys_cursor, sv->cursor)];
+
+		/* Same page as the shelf's Core Settings, live over the paused game */
+		coreopts_page(a, q->tag, q->core, c->bg, true);
+		break;
+	}
 	case GM_PLAYER2:
 		player2_page(a, c->bg);
 		break;
@@ -1966,16 +1936,13 @@ void game_menu(app *a)
 	gm_disc_ask();
 	/* MENU's tab row, opened where this game's menu was last closed */
 	c.tabs = (menu_tabs){ .count = GT_TABS, .name = gm_tab_name_i };
+	if (g_gm_mem.tab < 0 || g_gm_mem.tab >= GT_TABS) g_gm_mem.tab = GT_GAME;
 	c.tabs.at = c.tabs.from = g_gm_mem.tab;
 	if (!g_port_menu) {
 		gm_ui u;
 		int ids[GM_IDS_MAX];
 		int n, k;
-		sysview *sv = &a->view[a->sys_cursor];
-		const system_cfg *q = &a->sys.systems[shelf_owner(a, a->sys_cursor, sv->cursor)];
 
-		/* Core tab list once for this open (live OPTIONS while paused) */
-		coreopts_ui_init(&c.core, q->tag, q->core, true);
 		c.st.tabs = &c.tabs;
 		c.st.sel_out = &c.seen;
 		/* The handheld beside the Controls tab's rows, and as it leaves */
@@ -2000,18 +1967,16 @@ void game_menu(app *a)
 	g_in_game_menu = false;
 	g_menu_closing = false;
 	/* Where it was closed, for the next MENU press in this game: the cursor
-	 * moves without asking gm_key, so it is read from the runner here. The
-	 * Core tab keeps its own sel (c.core.sel); the others write c.seen. */
+	 * moves without asking gm_key, so it is read from the runner here */
 	if (c.st.tabs) {
 		gm_ui u;
 		int ids[GM_IDS_MAX];
-		int n, cur;
+		int n;
 
 		gm_gather(a, &u);
 		n = gm_ids(a, &c, &u, c.tabs.at, ids, GM_IDS_MAX);
 		g_gm_mem.tab = c.tabs.at;
-		cur = c.tabs.at == GT_CORE ? c.core.sel : c.seen;
-		if (cur >= 0 && cur < n) g_gm_mem.row[c.tabs.at] = ids[cur];
+		if (c.seen >= 0 && c.seen < n) g_gm_mem.row[c.tabs.at] = ids[c.seen];
 	}
 	/* Closed by px2-open's quit, which said STOP as Quit does: no Continue */
 	if (g_ctl_close_menu) c.resume = false;

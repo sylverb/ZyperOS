@@ -294,19 +294,19 @@ shots('gm-strength', [(PS1, MGS_GM + ['--gamemenu', '1', '--gm-tab', '1', '--gm-
 # Button remapping: R1 to Controls, the handheld coming in beside its rows;
 # down them, the handheld leaning toward each button; Left twice on Y, which
 # swaps its button with the one that had it; down to L1, and it tilts back
-shots('gm-remap', [(PS1, MGS_GM + ['--gamemenu', '0', '--gm-tab', '3', '--gm-tab-from', '1', '--shot-at', '{t}'],
+shots('gm-remap', [(PS1, MGS_GM + ['--gamemenu', '0', '--gm-tab', '2', '--gm-tab-from', '1', '--shot-at', '{t}'],
                     motion(0, 700), REMAP)] +
-      [(PS1, MGS_GM + ['--gamemenu', str(r), '--gm-tab', '3', '--gm-press', 'down', '--shot-at', '{t}'], motion(0, 340), REMAP)
+      [(PS1, MGS_GM + ['--gamemenu', str(r), '--gm-tab', '2', '--gm-press', 'down', '--shot-at', '{t}'], motion(0, 340), REMAP)
        for r in range(5)] +
-      [(PS1, MGS_GM + ['--gamemenu', '5', '--gm-tab', '3', '--gm-press', press, '--shot-at', '{t}'], motion(0, ms), REMAP)
+      [(PS1, MGS_GM + ['--gamemenu', '5', '--gm-tab', '2', '--gm-press', press, '--shot-at', '{t}'], motion(0, ms), REMAP)
        for press, ms in (('left', 650), ('left,left', 750), ('left,left,down', 1000))] +
-      [(PS1, MGS_GM + ['--gamemenu', '5', '--gm-tab', '3', '--gm-press', 'left,left,down', '--shot-at', '2000'], 900, REMAP)])
+      [(PS1, MGS_GM + ['--gamemenu', '5', '--gm-tab', '2', '--gm-press', 'left,left,down', '--shot-at', '2000'], 900, REMAP)])
 # The Achievements tab: R1 from Controls, the game's list with two unlocks
 # waiting to be sent, and down it to one counting its progress
 ACH = ['--achtab', 'list', '--cheevos-waiting', '2', '--cheevos-badge', '{card}/Roms/PlayStation/.cheevos/Hagane.set', 'b#']
-shots('gm-cheevos', [(PS1, MGS_GM + ['--gamemenu', '0', '--gm-tab', '4', '--gm-tab-from', '3', '--shot-at', '{t}'] + ACH,
+shots('gm-cheevos', [(PS1, MGS_GM + ['--gamemenu', '0', '--gm-tab', '3', '--gm-tab-from', '2', '--shot-at', '{t}'] + ACH,
                       motion(0, 600), REMAP)] +
-      [(PS1, MGS_GM + ['--gamemenu', str(r), '--gm-tab', '4'] + ACH, ms) for r, ms in ((1, 300), (2, 300), (3, 300), (4, 1800))])
+      [(PS1, MGS_GM + ['--gamemenu', str(r), '--gm-tab', '3'] + ACH, ms) for r, ms in ((1, 300), (2, 300), (3, 300), (4, 1800))])
 # MENU > Scraper as one page: the plan, the Systems grid, a run with the
 # covers landing (one each 1.1 s, the shot's run clock) and done. The page's
 # own stand-in systems, with covers of the card's games.

@@ -194,6 +194,9 @@ typedef enum {
 	/* On-Screen Stats over the game (src/hud.h), on or off, and A opens
 	 * its page (src/hudmenu.h): the Display tab's last row */
 	GM_HUD,
+	/* Core Settings (src/coreopts_page.h): A opens the page of this system's
+	 * core options, as the shelf's Core Settings row does */
+	GM_COREOPTS,
 	GM_MAX_ROWS
 } gm_row;
 
@@ -272,17 +275,17 @@ const char *gm_disc_value(const gm_ui *u, char *out, size_t n, bool (*fits)(cons
 int gm_disc_step(int disc, int discs, int d);
 
 /* The in-game menu is in tabs, MENU's tab row (DESIGN.md
- * 11.45): Game, Display, Core, Controls and Achievements,
- * L1 and R1 going round them. gm_tab_name is a tab's name in the language
- * that is on, the first for a tab past the ends.
+ * 11.45): Game, Display, Controls and Achievements, L1 and R1 going round
+ * them. gm_tab_name is a tab's name in the language that is on, the first
+ * for a tab past the ends.
  *
  * gm_tab_rows says which rows a tab has, in the order shown:
  *   Game      Continue, Save, Load, Quick Slot (a system that keeps states),
  *             Disc (a game on more than one disc), Player 2 (an NES game),
- *             Achievements, Reset, Quit
+ *             Core Settings (A opens src/coreopts_page.c), Achievements,
+ *             Reset, Quit
  *   Display   Display, Shader, Strength (an old screen's shader), and a DS
  *             game's Screens, Swap Screens, Stylus
- *   Core      none from here: its rows are src/coreopts_page.c's
  *   Controls  none from here: its rows are src/ctltab.c's
  *   Achievements  none from here either: the game's list, or the sentence
  *             that says why there is none, are src/achtab.c's (1.0.5).
@@ -291,7 +294,7 @@ int gm_disc_step(int disc, int discs, int d);
  * GM_CONTROLS and GM_PAK are in no tab: Controls is a tab now and Pak is one
  * of its rows. A port's menu (u->port) has no tabs and is Continue, Controls
  * and Quit whichever tab is asked for. */
-typedef enum { GT_GAME, GT_DISPLAY, GT_CORE, GT_CONTROLS, GT_ACHIEVEMENTS, GT_TABS } gm_tab;
+typedef enum { GT_GAME, GT_DISPLAY, GT_CONTROLS, GT_ACHIEVEMENTS, GT_TABS } gm_tab;
 
 /* On-Screen Stats' switch in the device's database, kept per player and
  * not per game: 1 draws the line over every game (src/hud.h, Diatom's

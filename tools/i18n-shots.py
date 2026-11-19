@@ -301,7 +301,7 @@ EXTRA = {
     # The menu over a port still starting, and its loading screen after a
     # minute (1.0.6)
     "gamemenu-port-waiting": ("demo", "PS1", ["--gamemenu", "0", "port", "--port-waiting"]),
-    "gamemenu-controls": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "3"]),
+    "gamemenu-controls": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "2"]),
     # ...and of a game the launcher has no hash for: a PSP game ("system"),
     # a PlayStation .chd ("file"), one in each screen; the Achievements row
     # is on the in-game menu's Game tab
@@ -309,16 +309,16 @@ EXTRA = {
     # The Achievements tab (1.0.5), in every state it has: the list (with
     # unlocks waiting too), every one earned, and the sentence where a game
     # has no list (src/achtab.h)
-    "achtab-list": ("demo", "PS1", ["--gamemenu", "1", "--gm-tab", "4", "--achtab", "list"]),
-    "achtab-waiting-send": ("demo", "PS1", ["--gamemenu", "4", "--gm-tab", "4", "--achtab", "list",
+    "achtab-list": ("demo", "PS1", ["--gamemenu", "1", "--gm-tab", "3", "--achtab", "list"]),
+    "achtab-waiting-send": ("demo", "PS1", ["--gamemenu", "4", "--gm-tab", "3", "--achtab", "list",
                                             "--cheevos-waiting", "2"]),
-    "achtab-all": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "4", "--achtab", "all"]),
-    "achtab-not-system": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "4", "--achtab", "not-system"]),
-    "achtab-not-file": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "4", "--achtab", "not-file"]),
-    "achtab-signed-out": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "4", "--achtab", "signed-out"]),
-    "achtab-waiting": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "4", "--achtab", "waiting"]),
-    "achtab-unchecked": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "4", "--achtab", "unchecked"]),
-    "achtab-none": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "4", "--achtab", "none"]),
+    "achtab-all": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "3", "--achtab", "all"]),
+    "achtab-not-system": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "3", "--achtab", "not-system"]),
+    "achtab-not-file": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "3", "--achtab", "not-file"]),
+    "achtab-signed-out": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "3", "--achtab", "signed-out"]),
+    "achtab-waiting": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "3", "--achtab", "waiting"]),
+    "achtab-unchecked": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "3", "--achtab", "unchecked"]),
+    "achtab-none": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "3", "--achtab", "none"]),
     "info-nohash": ("demo", "PS1", ["--screen", "games", "--info", "--cheevos-no-hash", "file"]),
     "gamecontrols": ("demo", "PS1", ["--gamecontrols", "1", "MD"]),
     "slots": ("demo", "PS1", ["--slots", "0"]),
@@ -696,9 +696,9 @@ for _name, _tag, _flags in (
         ("dc-place", "DC", ["--gamemenu", "2"]), ("dc-mixed", "DC", ["--gamemenu", "2"]),
         ("stick", "PS1", ["--gamemenu", "9"])):
     EXTRA.setdefault("gamemenu-controls-" + _name,
-                     ("demo", _tag, ["--screen", "games", "--gm-tab", "3"] + _flags))
+                     ("demo", _tag, ["--screen", "games", "--gm-tab", "2"] + _flags))
 # A Nintendo 64 game's Pak row, back in the Controls tab
-EXTRA.setdefault("gamemenu-pak", ("demo", "N64", ["--screen", "games", "--gm-tab", "3", "--gamemenu", "2"]))
+EXTRA.setdefault("gamemenu-pak", ("demo", "N64", ["--screen", "games", "--gm-tab", "2", "--gamemenu", "2"]))
 CTL_FOCUS = {"gamemenu-pak": "Mario Kart 64 (USA).z64",
              "gamemenu-controls-n64-end": "Mario Kart 64 (USA).z64",
              **{"gamemenu-controls-" + _n: _SONIC for _n in ("dc", "dc-end", "dc-place", "dc-mixed")}}
