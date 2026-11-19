@@ -436,7 +436,8 @@ static void in_a_game(void)
 
 		if (!resident && !port_menu_pads(s->tag)) {
 			/* a standalone emulator or a port has no page of its buttons,
-			 * but OpenBOR, whose layout ships with it (src/portmenu.h) */
+			 * but OpenBOR, whose layout ships with it, and your PICO-8
+			 * (src/portmenu.h) */
 			snprintf(msg, sizeof msg, "%s runs outside Diatom and has a page", s->tag);
 			ck(!ctl_game_known(s->tag), msg);
 			continue;
@@ -640,9 +641,9 @@ static void in_a_game(void)
 		   port_menu_for("run:Emulators/Flycast/Flycast.sh") && port_menu_for("port") &&
 		   !port_menu_for("dsperate") && !port_menu_for("flycast2021"),
 		   "the in-game menu over every \"run:\" program and every port, and not over a Diatom core");
-		ck(port_menu_pads("OPENBOR") && !port_menu_pads("NDS") && !port_menu_pads("DC") &&
-		   !port_menu_pads("PORTS"),
-		   "OpenBOR's buttons on its Controls page; Flycast 2.7's are its own");
+		ck(port_menu_pads("OPENBOR") && port_menu_pads("PICO8") && !port_menu_pads("NDS") &&
+		   !port_menu_pads("DC") && !port_menu_pads("PORTS"),
+		   "OpenBOR's and your PICO-8's buttons on their Controls pages; Flycast 2.7's are its own");
 		ck(says(all, n, "A", "Attack") && says(all, n, "B", "Jump") &&
 		   says(all, n, "X", "Attack 2") && says(all, n, "Y", "Special") &&
 		   says(all, n, "L1/R1", "Attack 3/4") && says(all, n, "START", "Pause") &&
