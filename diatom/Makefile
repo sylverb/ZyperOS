@@ -223,8 +223,8 @@ $(FDSDISK_TEST): test/fdsdisk_test.c src/fdsdisk.c src/fdsdisk.h
 	      -Isrc -o $@ test/fdsdisk_test.c src/fdsdisk.c
 
 # The Super Game Boy per game (src/sgb.h): which cartridge headers start as
-# one under RUN sgb=games and sgb=every (mGBA's own test of the header), a
-# Color only cartridge never, and the two options set for that game alone.
+# one under RUN sgb=games (mGBA's own test of the header), a Color only
+# cartridge never, and the two options set for that game alone.
 # Offline: src/sgb.c alone.
 SGB_TEST := $(BUILD)/sgb-test
 
@@ -382,9 +382,9 @@ check-proto:
 
 # The Famicom Disk System's disk messages (a core's SET_MESSAGE in FCEUmm's
 # words reaches the launcher as a DISK line, any other none) and the Super
-# Game Boy per game (RUN sgb=games and sgb=every set mGBA's model and border
-# for the games the header allows, and the next game loads with the
-# launcher's values), end to end against the stub core.
+# Game Boy per game (RUN sgb=games sets mGBA's model and border for the games
+# made for it, and the next game loads with the launcher's values), end to
+# end against the stub core.
 check-fdssgb:
 	$(FRESH_IF_BUILT)
 	@python3 test/fdssgb.py

@@ -1,5 +1,5 @@
 /* The Super Game Boy per game (src/sgb.h): which cartridge headers start as
- * one under Its Games and Every Game, the words RUN sends, and the two
+ * one under Its Games, the word RUN sends, and the two
  * options set for such a game. Offline: src/sgb.c alone, with
  * diatom_options_set written down here instead of sent to a core. */
 #include <stdio.h>
@@ -41,16 +41,14 @@ int main(void)
 {
 	/* The words */
 	ck(diatom_sgb_parse("games") == DIATOM_SGB_GAMES, "games");
-	ck(diatom_sgb_parse("every") == DIATOM_SGB_EVERY, "every");
 	ck(diatom_sgb_parse("off") == DIATOM_SGB_OFF && diatom_sgb_parse("") == DIATOM_SGB_OFF &&
-	   diatom_sgb_parse(NULL) == DIATOM_SGB_OFF && diatom_sgb_parse("Games") == DIATOM_SGB_OFF,
-	   "anything else is off");
+	   diatom_sgb_parse(NULL) == DIATOM_SGB_OFF && diatom_sgb_parse("Games") == DIATOM_SGB_OFF &&
+	   diatom_sgb_parse("every") == DIATOM_SGB_OFF, "anything else is off (no Every Game: src/sgb.h)");
 
 	/* A game made for it: Game Boy only, and with Color colors too (0x80,
 	 * as the Pokemon Yellow and Link's Awakening DX cartridges have) */
 	cart(0x00, 0x03, 0x33);
 	ck(diatom_sgb_wanted(DIATOM_SGB_GAMES, rom, sizeof rom), "Its Games: a game made for it");
-	ck(diatom_sgb_wanted(DIATOM_SGB_EVERY, rom, sizeof rom), "Every Game: that game too");
 	ck(!diatom_sgb_wanted(DIATOM_SGB_OFF, rom, sizeof rom), "Off: never");
 	cart(0x80, 0x03, 0x33);
 	ck(diatom_sgb_wanted(DIATOM_SGB_GAMES, rom, sizeof rom),
@@ -59,26 +57,22 @@ int main(void)
 	/* The flag without the new licensee code is not one (mGBA's rule) */
 	cart(0x00, 0x03, 0x01);
 	ck(!diatom_sgb_wanted(DIATOM_SGB_GAMES, rom, sizeof rom), "the flag with an old licensee is not");
-	ck(diatom_sgb_wanted(DIATOM_SGB_EVERY, rom, sizeof rom), "Every Game takes it all the same");
 
 	/* A plain Game Boy game */
 	cart(0x00, 0x00, 0x33);
 	ck(!diatom_sgb_wanted(DIATOM_SGB_GAMES, rom, sizeof rom), "Its Games: not a game without the flag");
-	ck(diatom_sgb_wanted(DIATOM_SGB_EVERY, rom, sizeof rom), "Every Game: yes");
 	cart(0x80, 0x00, 0x01);
-	ck(!diatom_sgb_wanted(DIATOM_SGB_GAMES, rom, sizeof rom) &&
-	   diatom_sgb_wanted(DIATOM_SGB_EVERY, rom, sizeof rom), "a Color-too game: Every Game only");
+	ck(!diatom_sgb_wanted(DIATOM_SGB_GAMES, rom, sizeof rom), "nor a Color-too game without it");
 
 	/* A Color only cartridge cannot run on one */
 	cart(0xC0, 0x03, 0x33);
-	ck(!diatom_sgb_wanted(DIATOM_SGB_GAMES, rom, sizeof rom) &&
-	   !diatom_sgb_wanted(DIATOM_SGB_EVERY, rom, sizeof rom), "a Color only cartridge never");
+	ck(!diatom_sgb_wanted(DIATOM_SGB_GAMES, rom, sizeof rom), "a Color only cartridge never, flag or not");
 
 	/* Too short for a header, or none at all */
 	cart(0x00, 0x03, 0x33);
-	ck(!diatom_sgb_wanted(DIATOM_SGB_EVERY, rom, 0x14F), "a ROM that ends inside its header");
-	ck(!diatom_sgb_wanted(DIATOM_SGB_EVERY, NULL, 0), "no ROM in memory");
-	ck(diatom_sgb_wanted(DIATOM_SGB_EVERY, rom, 0x150), "exactly the header is enough");
+	ck(!diatom_sgb_wanted(DIATOM_SGB_GAMES, rom, 0x14F), "a ROM that ends inside its header");
+	ck(!diatom_sgb_wanted(DIATOM_SGB_GAMES, NULL, 0), "no ROM in memory");
+	ck(diatom_sgb_wanted(DIATOM_SGB_GAMES, rom, 0x150), "exactly the header is enough");
 
 	/* The options, for this game alone, and only when it is wanted */
 	cart(0x00, 0x03, 0x33);
@@ -91,9 +85,6 @@ int main(void)
 	g_nset = 0;
 	diatom_sgb_apply(rom, sizeof rom);
 	ck(g_nset == 0, "a game that is not: nothing set, the launcher's values stand");
-	diatom_sgb_set(DIATOM_SGB_EVERY);
-	diatom_sgb_apply(rom, sizeof rom);
-	ck(g_nset == 2, "Every Game sets them for it");
 	diatom_sgb_set(DIATOM_SGB_OFF);
 	cart(0x00, 0x03, 0x33);
 	g_nset = 0;

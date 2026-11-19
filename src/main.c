@@ -4942,7 +4942,7 @@ static int menu_shelf_width(app *a)
 			}
 			rows[lrow].value = keep;
 		}
-		/* Super Game Boy's three */
+		/* Super Game Boy's two */
 		if (grow >= 0 && grow < n) {
 			const char *keep = rows[grow].value;
 

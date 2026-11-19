@@ -7,13 +7,21 @@
  *   Its Games    a game made for the Super Game Boy starts as one: its own
  *                colors and its own border, which the game sends itself, so
  *                no BIOS file is needed. Other games as with Off.
- *   Every Game   every game starts as one, in its frame; a Game Boy Color
- *                only cartridge cannot run on one and starts as with Off
+ *
+ * There is no Every Game (every game in the Super Game Boy's frame), though
+ * the Display lab had one: the Super Game Boy's own frame and colors for a
+ * game made for none are drawn by its SNES side, from the cartridge ROM on
+ * the SNES, and mGBA (libretro/mgba e31759b) runs only the Game Boy side.
+ * sgb_bios.bin is the 256-byte boot ROM of that Game Boy side, the start-up
+ * logo and nothing more, so with or without it such a game would get a plain
+ * frame in its lightest shade, which reads as a fault. The Border row is the
+ * place to frame every game. It can come back with a core that runs the SNES
+ * side.
  *
  * The picture is 256x224 with the border: exactly 2x on the GKD Pixel 2's
  * 640x480 (512x448) and 3x on the TrimUI Brick's 1024x768 (768x672) at Sharp
  * Pixels. The choice is the system's own, kept in the device's database as
- * sgb.TAG ("sgb.GB"), and sent with RUN as sgb=games or sgb=every; Diatom
+ * sgb.TAG ("sgb.GB"), and sent with RUN as sgb=games; Diatom
  * reads the game's header and sets mGBA's model and border for that game
  * alone (diatom/src/sgb.h). Off sends nothing, so a player who never turns
  * it on starts every game as before.
@@ -34,18 +42,17 @@
 typedef enum {
 	SGBM_OFF,      /* nothing sent */
 	SGBM_GAMES,    /* sgb=games */
-	SGBM_EVERY,    /* sgb=every */
 	SGBM_CHOICES
 } sgbm_choice;
 
-/* The word the database keeps and RUN's sgb= sends ("off", "games",
- * "every"); RUN sends nothing for off */
+/* The word the database keeps and RUN's sgb= sends ("off", "games"); RUN
+ * sends nothing for off */
 const char *sgbm_id(sgbm_choice c);
 
 /* The choice for a word; Off for one that is none (NULL included) */
 sgbm_choice sgbm_parse(const char *word);
 
-/* The choice after or before `c`, round the three: d is +1 or -1 */
+/* The choice after or before `c`, round the two: d is +1 or -1 */
 sgbm_choice sgbm_step(sgbm_choice c, int d);
 
 /* The row's value for a choice, and the note its list says under it */

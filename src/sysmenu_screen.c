@@ -388,7 +388,7 @@ static void menu_choices(app *a, int sys, bool games)
 		for (i = 0; i < DSL_CHOICES; i++) P[3].lab[i] = dslang_label((dsl_choice)i, P[3].buf[i], sizeof P[3].buf[i]);
 		g_sm_choice[SM_DSLANG] = ch_make(&P[3], DSL_CHOICES, dslang_load(), false);
 		{
-			/* Super Game Boy's three, a list with a picture of each and a
+			/* Super Game Boy's two, a list with a picture of each and a
 			 * note telling them apart, as Timing's (src/sgbmode.h) */
 			static const char *notes[SGBM_CHOICES];
 

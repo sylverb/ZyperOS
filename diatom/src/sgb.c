@@ -17,21 +17,17 @@ static diatom_sgb_mode g_mode;
 diatom_sgb_mode diatom_sgb_parse(const char *word)
 {
 	if (word && !strcmp(word, "games")) return DIATOM_SGB_GAMES;
-	if (word && !strcmp(word, "every")) return DIATOM_SGB_EVERY;
 	return DIATOM_SGB_OFF;
 }
 
 bool diatom_sgb_wanted(diatom_sgb_mode mode, const unsigned char *rom, size_t size)
 {
-	bool made_for = false, color_only;
-
-	if (mode == DIATOM_SGB_OFF || !rom || size < HDR_END) return false;
+	if (mode != DIATOM_SGB_GAMES || !rom || size < HDR_END) return false;
+	/* A Color only cartridge cannot run on one */
+	if (rom[HDR_CGB] == 0xC0) return false;
 	/* mGBA's test (src/gb/gb.c GBValidModels), so a game it would run as
 	 * one is the game this says is made for it */
-	made_for = rom[HDR_SGB] == 0x03 && rom[HDR_LICENSEE] == 0x33;
-	color_only = rom[HDR_CGB] == 0xC0;
-	if (color_only) return false;
-	return mode == DIATOM_SGB_EVERY || made_for;
+	return rom[HDR_SGB] == 0x03 && rom[HDR_LICENSEE] == 0x33;
 }
 
 void diatom_sgb_set(diatom_sgb_mode mode)

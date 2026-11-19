@@ -135,12 +135,9 @@ static SDL_Texture *gb_stand_in(SDL_Renderer *r, bool border)
 				else if (dx + dy < 12)  { R = 84;  G = 132; B = 204; }
 				else                    { R = 52;  G = 92;  B = 166; }
 			} else {
-				/* The sky a shade down from the lightest, so the plain
-				 * frame (the lightest, Every Game's) shows where the game
-				 * ends */
 				const int dx = x - 116, dy = y - 40, sh_i =
-					dx * dx + dy * dy < 16 * 16 ? 0      /* sun */
-					: y < 96 ? 1                          /* sky */
+					dx * dx + dy * dy < 16 * 16 ? 1      /* sun */
+					: y < 96 ? 0                          /* sky */
 					: y < 102 + (x / 20 % 2) * 4 ? 2      /* hills */
 					: (((x / 16) + (y / 16)) & 1) ? 3 : 2;  /* ground */
 
@@ -191,14 +188,9 @@ void dmode_sgb_preview(app *a, int dmode, int k, int x, int y, int w, int h)
 			                            fit.y + 40 * fit.h / SGB_H, GB_W * fit.w / SGB_W,
 			                            GB_H * fit.h / SGB_H);
 
-			if (k == 1) {
-				SDL_Texture *bt = gb_stand_in(a->r, true);
+			SDL_Texture *bt = gb_stand_in(a->r, true);
 
-				if (bt) SDL_RenderCopy(a->r, bt, NULL, &pic);
-			} else {
-				SDL_SetRenderDrawColor(a->r, GB_SHADE[0][0], GB_SHADE[0][1], GB_SHADE[0][2], 255);
-				SDL_RenderFillRect(a->r, &pic);
-			}
+			if (bt) SDL_RenderCopy(a->r, bt, NULL, &pic);
 			if (game) SDL_RenderCopy(a->r, game, NULL, &win);
 		} else if (game) {
 			SDL_RenderCopy(a->r, game, NULL, &pic);

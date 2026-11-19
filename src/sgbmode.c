@@ -8,7 +8,6 @@
 static const char *const IDS[SGBM_CHOICES] = {
 	[SGBM_OFF]   = "off",
 	[SGBM_GAMES] = "games",
-	[SGBM_EVERY] = "every",
 };
 
 const char *sgbm_id(sgbm_choice c)
@@ -36,14 +35,12 @@ sgbm_choice sgbm_step(sgbm_choice c, int d)
 
 str_id sgbm_label_id(sgbm_choice c)
 {
-	return c == SGBM_GAMES ? S_SYSMENU_SGB_GAMES : c == SGBM_EVERY ? S_SYSMENU_SGB_EVERY
-	                                                               : S_MENU_OFF_TITLE;
+	return c == SGBM_GAMES ? S_SYSMENU_SGB_GAMES : S_MENU_OFF_TITLE;
 }
 
 str_id sgbm_note_id(sgbm_choice c)
 {
-	return c == SGBM_GAMES ? S_SYSMENU_SGB_GAMES_NOTE : c == SGBM_EVERY ? S_SYSMENU_SGB_EVERY_NOTE
-	                                                                    : S_SYSMENU_SGB_OFF_NOTE;
+	return c == SGBM_GAMES ? S_SYSMENU_SGB_GAMES_NOTE : S_SYSMENU_SGB_OFF_NOTE;
 }
 
 void sgbm_key(const char *tag, char *out, size_t n)

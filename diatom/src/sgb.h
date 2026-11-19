@@ -7,15 +7,13 @@
  * option is one value for every game: "Autodetect" would start a game that
  * also has Game Boy Color colors (a 0x80 cartridge) as a Game Boy Color, not
  * as a Super Game Boy, and "Super Game Boy" starts every game as one. So the
- * launcher says which games (RUN sgb=games or sgb=every), and Diatom reads
- * the header in the ROM it is about to hand the core and sets the two
- * options for this game alone, over what the launcher sent:
- *
- *   games  a game made for it (the header's SGB flag, 0x146 = 0x03, with
- *          the old licensee 0x33 at 0x14B: mGBA's own test, GBValidModels)
- *          starts as a Super Game Boy, its border on. Others as before.
- *   every  every game that can, the same; a Game Boy Color only cartridge
- *          (0xC0 at 0x143) cannot run on one and starts as before.
+ * launcher says it wants the games made for it (RUN sgb=games), and Diatom
+ * reads the header in the ROM it is about to hand the core and sets the two
+ * options for this game alone, over what the launcher sent: a game made for
+ * it (the header's SGB flag, 0x146 = 0x03, with the old licensee 0x33 at
+ * 0x14B: mGBA's own test, GBValidModels) starts as a Super Game Boy, its
+ * border on, unless it is a Game Boy Color only cartridge (0xC0 at 0x143),
+ * which cannot run on one. Others as before.
  *
  * As before means the launcher's values stand: the Game Boy shelf's model
  * "Game Boy", the Color shelf's own, the border off (src/coreopts.c). The
@@ -30,10 +28,9 @@
 typedef enum {
 	DIATOM_SGB_OFF,     /* nothing set: the launcher's options stand */
 	DIATOM_SGB_GAMES,   /* the games made for it */
-	DIATOM_SGB_EVERY,   /* every game that can run on one */
 } diatom_sgb_mode;
 
-/* RUN's sgb= word: "games", "every"; anything else, empty or NULL, off */
+/* RUN's sgb= word: "games"; anything else, empty or NULL, off */
 diatom_sgb_mode diatom_sgb_parse(const char *word);
 
 /* Whether the game in `rom` (`size` bytes, a Game Boy ROM) starts as a Super

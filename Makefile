@@ -384,8 +384,8 @@ build-native/pacing-check: tools/pacing-check.c src/pacing.c src/pacing.h src/i1
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -O1 -g -Isrc -o $@ tools/pacing-check.c src/pacing.c
 
-# Super Game Boy, a system menu row (src/sgbmode.h): Off, Its Games or Every
-# Game, the words kept and sent as RUN's sgb=, Off for a word that is none,
+# Super Game Boy, a system menu row (src/sgbmode.h): Off or Its Games, the
+# words kept and sent as RUN's sgb=, Off for a word that is none,
 # the database key by tag, stepping round, and the shelves that have it (the
 # Game Boy's and the Color's, on mGBA). What Diatom does with sgb=, diatom's
 # check-sgb.

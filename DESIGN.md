@@ -1093,7 +1093,7 @@ Video Snaps, Menu Music:
   its two places ringed in the accent - one refresh in four here, one in
   about 170 on the Pixel 2, so it can be seen at all. Under it, what each
   does in a sentence. *(Tarik's for 1.0.6 rc.2: "improve the timing screen
-  to explain/demonstrate that".)* **Super Game Boy**'s three open their list
+  to explain/demonstrate that".)* **Super Game Boy**'s two open their list
   the same way, a picture of each (11.54).
 - **Left and Right step every row**, as before, and show the change at
   once, so a look before choosing is one press away. A scale (minutes,
@@ -5528,7 +5528,7 @@ done or out, 3 no network and nobody signed in, 4 Settings.
 
 *(Tarik's picks in the Display lab, 2026-11-19: the FDS fix, a pop-up for
 the disk's side, and a Super Game Boy row of three: Off, Its Games, Every
-Game.)*
+Game. Every Game dropped the same day, the coordinator's call: see below.)*
 
 **A Famicom Disk System game** (an `.fds` image on the NES shelf, FCEUmm)
 needs `disksys.rom` in `Bios/`; a cartridge beside it needs nothing. The
@@ -5558,7 +5558,7 @@ language. Nothing is done in a frame but what the core already did.
 
 **Super Game Boy**, a row of the Game Boy's and the Game Boy Color's system
 menus under Core, while mGBA runs them (Gambatte has no Super Game Boy). Its
-three, kept per system (`sgb.TAG`):
+two, kept per system (`sgb.TAG`):
 
 - **Off**, the default: as before, the game in the shelf's colors with no
   border. Nothing is sent, so a player who never turns it on starts every
@@ -5566,19 +5566,26 @@ three, kept per system (`sgb.TAG`):
 - **Its Games**: a game made for the Super Game Boy (its header says so)
   starts as one, in its own colors and its own border, which the game sends
   itself: no BIOS needed. Others start as with Off.
-- **Every Game**: every game starts as one, in its frame; a game with no
-  border of its own gets a plain one (mGBA's, the game's lightest shade). A
-  Game Boy Color only cartridge cannot run on one and starts as with Off.
+  A Game Boy Color only cartridge cannot run on one and starts as with Off.
+
+**No Every Game** (every game in the Super Game Boy's frame), though the lab
+had it: for a game made for none, the Super Game Boy's own frame and colors
+come from its SNES side (the cartridge ROM on the SNES), which mGBA does not
+run. `sgb_bios.bin` is the 256-byte boot ROM of its Game Boy side, the
+start-up logo and the header sent to the SNES, no frame; so with or without
+it mGBA would draw a plain frame in the game's lightest shade, which reads
+as a fault. The Border row is the place to frame every game. It can come
+back with a core that runs the SNES side.
 
 The picture with its border is 256x224: exactly 2x on the Pixel 2's 640x480
 (512x448) and 3x on the Brick's 1024x768 (768x672) at Sharp Pixels. A opens
-the three as a list, as Timing's (11.3): beside it the shelf's display mode
-with each choice, a Game Boy picture of our own in four greens, alone (Off),
-in a border of our own of the kind a game sends (Its Games), or in the plain
-frame (Every Game); under it what each does. The launcher sends `sgb=games`
-or `sgb=every` with RUN, and Diatom reads the game's header and sets mGBA's
-model and border for that game alone (diatom/src/sgb.h), since mGBA's own
-Autodetect would start a game that also has Game Boy Color colors as a Color.
+the two as a list, as Timing's (11.3): beside it the shelf's display mode
+with each choice, a Game Boy picture of our own in four greens, alone (Off)
+or in a border of our own of the kind a game sends (Its Games); under it
+what each does. The launcher sends `sgb=games` with RUN, and Diatom reads
+the game's header and sets mGBA's model and border for that game alone
+(diatom/src/sgb.h), since mGBA's own Autodetect would start a game that also
+has Game Boy Color colors as a Color.
 
-Host shots: `system-menu-sgb`, `system-menu-sgb-list-off|games|every`,
+Host shots: `system-menu-sgb`, `system-menu-sgb-list-off|games`,
 `shelf-fds-needs-bios` (and `-list`, `-grid`), `popup-disk_side|in|out|first`.

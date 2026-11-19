@@ -854,7 +854,7 @@ EXTRA.setdefault("theme-folders-list-teal", ("demo", "PS1", ["--look-page", "the
 # at the shelf's display mode and what it does under it
 EXTRA.setdefault("system-menu-sgb", ("demo", "GB", ["--screen", "games", "--menu", "Super Game Boy"]))
 SHOT_SETTINGS["system-menu-sgb"] = {"sgb.GB": "games"}
-for _k, _p in enumerate(("off", "games", "every")):
+for _k, _p in enumerate(("off", "games")):
     EXTRA.setdefault("system-menu-sgb-list-" + _p, ("demo", "GB", ["--screen", "games", "--menu", "Super Game Boy",
                                                                   "--press", "a", "--pick-at", str(_k)]))
 # Timing's list (src/pacing.h): two choices, opened on A all the same for

@@ -431,7 +431,7 @@ typedef struct {
 	 * shelf has no such row, and every other shelf's menu is as it was. */
 	const char *dslang;
 	/* Super Game Boy, under Core, on the Game Boy and Game Boy Color shelves
-	 * on mGBA (src/sgbmode.h): "Off", "Its Games" or "Every Game". NULL: no
+	 * on mGBA (src/sgbmode.h): "Off" or "Its Games". NULL: no
 	 * such row. */
 	const char *sgb;
 	/* Timing, under Core (and Game Language), on a shelf whose system has a

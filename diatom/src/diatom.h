@@ -323,8 +323,8 @@ typedef struct {
 	 * close (src/pace.h, DISPLAY LOCK); empty or anything else ("exact"),
 	 * the core's own rate, as before */
 	char pace[8];
-	/* RUN: "games" or "every", the Super Game Boy for this game when its
-	 * header says it can be one (src/sgb.h); empty or anything else, none */
+	/* RUN: "games", the Super Game Boy for this game when its header says
+	 * it is made for one (src/sgb.h); empty or anything else, none */
 	char sgb[8];
 	/* RUN: how hard the motor runs, in percent of what the core asks, 1 to
 	 * 99 (a system whose core shakes harder than the handheld wants:

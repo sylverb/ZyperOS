@@ -7,9 +7,9 @@ end to end, against the stub core.
   - RUN sgb=games (src/sgb.h): a Game Boy ROM whose header says it is made
     for the Super Game Boy loads with mgba_gb_model=Super Game Boy and
     mgba_sgb_borders=ON over what the launcher sent; one that is not, with
-    the launcher's values. sgb=every: every ROM but a Color only one. No
-    sgb=: the launcher's values. And a game after one that was set loads
-    with the launcher's values again, not the one before's.
+    the launcher's values, and so has a Color only one. No sgb=: the
+    launcher's values. And a game after one that was set loads with the
+    launcher's values again, not the one before's.
 
 The stub declares mGBA's two options as libretro/mgba e31759b does
 (STUBCORE_MGBA) and writes what each game loaded with to stderr; it says a
@@ -126,7 +126,7 @@ color_only = gb_rom("color-only", 0xC0, 0x03, 0x33)
 SHELF = [("mgba_gb_model", "Game Boy"), ("mgba_sgb_borders", "OFF")]   # the Game Boy shelf's
 LAUNCHER, SGB = "stubcore: model=Game Boy borders=OFF", "stubcore: model=Super Game Boy borders=ON"
 runs = [(made_for, ["sgb=games"], SHELF), (color_too, ["sgb=games"], SHELF), (plain, ["sgb=games"], SHELF),
-        (plain, ["sgb=every"], SHELF), (color_only, ["sgb=every"], SHELF), (made_for, [], SHELF),
+        (plain, ["sgb=every"], SHELF), (color_only, ["sgb=games"], SHELF), (made_for, [], SHELF),
         (plain, [], SHELF)]
 got, err = session("sgb", runs, STUBCORE_MGBA="1")
 loaded = [l for l in err if l.startswith("stubcore: model=")]
@@ -135,8 +135,8 @@ if len(loaded) == 7:
     check("Its Games: a game made for it loads as a Super Game Boy, its border on", loaded[0] == SGB, loaded[0])
     check("and one with Color colors too, as a Super Game Boy rather than a Color", loaded[1] == SGB, loaded[1])
     check("a game not made for it: the launcher's values", loaded[2] == LAUNCHER, loaded[2])
-    check("Every Game: that game too", loaded[3] == SGB, loaded[3])
-    check("a Color only cartridge never", loaded[4] == LAUNCHER, loaded[4])
+    check("sgb=every is no word (no Every Game): the launcher's values", loaded[3] == LAUNCHER, loaded[3])
+    check("a Color only cartridge with the flag never", loaded[4] == LAUNCHER, loaded[4])
     check("no sgb=: the launcher's values, even for a game made for it", loaded[5] == LAUNCHER, loaded[5])
     check("the game after a Super Game Boy one loads with the launcher's values", loaded[6] == LAUNCHER,
           loaded[6])
