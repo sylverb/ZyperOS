@@ -587,7 +587,8 @@ typedef struct {
 
 static struct {
 	cas_words now, was;
-	unsigned  t0;            /* the change; 0 none under way */
+	unsigned  t0;            /* the change, while `moving` */
+	bool      moving;
 	int       song;
 	bool      known;
 } g_lab;
@@ -623,7 +624,7 @@ static bool turn_moving(const mu_now *mn)
 {
 	float target = song_frac(mn);
 
-	return mp4l_spin_moving(&g_spin) || mp4l_tape_moving(&g_tape, target) || g_lab.t0;
+	return mp4l_spin_moving(&g_spin) || mp4l_tape_moving(&g_tape, target) || g_lab.moving;
 }
 
 /* The label's words for the song: the side its place in the album puts it
@@ -742,16 +743,17 @@ static unsigned cassette(SDL_Renderer *r, const npl_frame *F, const mu_now *mn, 
 			g_lab.now = w;
 			g_lab.song = mn->index;
 			g_lab.known = true;
-			g_lab.t0 = 0;
+			g_lab.moving = false;
 		} else if (mn->index != g_lab.song) {
 			g_lab.was = g_lab.now;
 			g_lab.song = mn->index;
-			g_lab.t0 = now | 1;
+			g_lab.t0 = now;
+			g_lab.moving = true;
 		}
 		g_lab.now = w;
-		t = g_lab.t0 ? now - g_lab.t0 : DS_MS_EXIT + DS_MS_MOVE;
+		t = g_lab.moving ? now - g_lab.t0 : DS_MS_EXIT + DS_MS_MOVE;
 		if (t >= DS_MS_EXIT + DS_MS_MOVE) {
-			g_lab.t0 = 0;
+			g_lab.moving = false;
 			cas_words_draw(r, &g_lab.now, x, y, 1.0f, 0, phase, &wait);
 		} else if (t < DS_MS_EXIT) {
 			float k = ds_in((float)t / DS_MS_EXIT);
