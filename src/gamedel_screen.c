@@ -6,6 +6,7 @@
 #include "collect.h"
 #include "gamedel.h"
 #include "panel.h"
+#include "pico8.h"
 #include "portinfo.h"
 #include "shelfbuild.h"
 #include "sys_menu.h"
@@ -227,6 +228,11 @@ bool game_delete(app *a, int owner, const game_entry *g, char *said, size_t n)
 	bool port = s && !strcmp(s->core, "port");
 
 	said[0] = '\0';
+	/* Splore's entry is your PICO-8's browser, no file on the card */
+	if (s && !strcmp(s->tag, P8_TAG) && splore_file(g->file)) {
+		snprintf(said, n, "%s", T(S_PICO8_SPLORE_STAYS));
+		return false;
+	}
 	if (gd_is_bios(g->file)) {
 		snprintf(said, n, T(S_GAMEMENU_DELETE_BIOS), g->name);
 		return false;
