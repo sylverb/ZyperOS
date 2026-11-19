@@ -167,6 +167,12 @@ void cfg_sort_systems(systems_cfg *s);
  * system with a Timing row pace=, `pace` the player's choice ("smooth" or
  * "exact"; NULL or another word is the system's own, src/pacing.h) */
 void cfg_run_keys(const system_cfg *s, bool dual, const char *pace, char *out, int cap);
+/* The same with the motor's share given, in percent of what the core asks
+ * (src/rumble.h's rumble_run_pct: the player's Rumble level times the
+ * system's share): rumble= when it is under 100, rumble=0 for Off.
+ * cfg_run_keys is this with the system's share alone. */
+void cfg_run_keys_at(const system_cfg *s, bool dual, const char *pace, int rumble,
+                     char *out, int cap);
 
 /* How many cores `s` lists, and the i-th of them into `out` (false past the
  * end). A system with one core lists one. */

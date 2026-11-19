@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 /* Your PICO-8: Lexaloffle's own PICO-8, the player's copy, as the PICO-8
  * shelf's first player, with Splore, its online cart browser (Tarik's picks
- * in the native PICO-8 lab, 2026-11-19; DESIGN.md 11.54).
+ * in the native PICO-8 lab, 2026-11-19; DESIGN.md 11.55).
  *
  * PICO-8 is Lexaloffle's to sell, and its license lets no one pass it on, so
  * ZyperOS never ships, downloads or keeps a copy of it. The player brings the
