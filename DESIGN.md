@@ -932,6 +932,15 @@ two neighbors' are decoded, at most 2.1 MiB each. The row and every other
 place draw the stills. Movement uses **ms.move** and **out**, including
 interrupted reversals.
 
+Nothing a step on the home does waits on a file *(2026-11-19: on the Pixel 2
+the home's frames stalled to 50 ms and more as the cursor crossed systems)*:
+the stills and atlases are decoded on the art workers, and an atlas arrives
+in the texture's format and is kept as it comes, never copied on the frame;
+the focus draws its still until its atlas is in. The focused system's shelf
+- its covers' paths and files, MP4's album covers - is asked for ahead of A
+only once the cursor has rested on it 400 ms, not on every step: a shelf
+opened sooner asks for its own as it draws.
+
 **Games:** the selected **Cover row** design has a straight horizontal row of
 real box art: the focused cover large and flat in its 384 x 328 box, and two
 covers either side of it, five in sight, turned as MP4's album row turns its
