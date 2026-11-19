@@ -356,8 +356,11 @@ list carries on past its end, while a held button stops at the end.
 few letters of its name, on any system. **Random Game** picks one and starts
 it, from every system in MENU or from one shelf in that system's menu.
 
-**MENU > Controls** lists the buttons on five pages.
-Left and right change the page, and the top right of each says which it is, "2 / 5". The pages cover movement, the shelf, games, MP4, and common controls.
+**MENU > Controls** lists the buttons on six pages, each drawn as your
+handheld prints it (the Pixel 2's round SE and ST keys, the Brick's square and
+play keys), with "+" for buttons held together and "," for one press after the
+other.
+Left and right change the page, and the top right of each says which it is, "2 / 6". The pages cover movement, the shelf, games, hotkeys, MP4, and common controls.
 The shelf always runs horizontally.
 
 **Changing a button.** The in-game menu's **Controls** tab (MENU in a game, then
