@@ -159,6 +159,8 @@ something once broke in a way nothing noticed:
 | `check-musequeue` | the order Muse plays in: the last track, the first, a shuffle running out, a track that will not open, and the mode changed under a playing track |
 | `check-museart` | album covers from MusicBrainz: the rule that picks the record, and a run on a stubbed network |
 | `check-mp4lock` | the play modes, and MP4's lock screen: every button blocked, power and volume too, and L1 + R1 held two seconds the one way out |
+| `check-mp4look` | MP4's Player Looks' motion: bars up at once and down on follow at any frame rate, caps held for peak-hold and down with gravity, at rest after, the bands over a look's bars |
+| `check-bands` | the daemon's bands for the bars: each lit by a tone at its own middle, silence dark, the window where the listener is; `build-native/bands-check --song FILE` plays a song through it |
 | `check-mp4frame` | MP4's video frames between the daemon and the launcher: a writer and a reader on two threads over the same pages, every picture the reader keeps whole |
 | `check-controls` | what MENU > Controls says: every button on exactly one page, and rows short enough to sit still; and a game's Controls, for every system in systems.cfg: the core's names through its map and turbo, pages that fit |
 | `check-remap` | the remap rules: Diatom's map language read and written, a button's change and its swap worked from the base, what is stored and loaded, the N64's layer kept, the choices a system offers and its letter layout |

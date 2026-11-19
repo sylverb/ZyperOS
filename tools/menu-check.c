@@ -967,7 +967,7 @@ static void system_menu(void)
 		m.wifi = WIFI_CONNECTED;     /* the case above left the radio down */
 		mn = sys_menu_build(&m, mrows, &mb, &mhead);
 		printf("MP4's shelf menu:\n");
-		ck(mn == 6, "six rows with only music");
+		ck(mn == 7, "seven rows with only music");
 		ck(!strcmp(mrows[0].label, "Albums") && !strcmp(val(&mrows[0]), "7"),
 		   "how many albums");
 		ck(!strcmp(mrows[1].label, "Sort By") && mrows[1].live &&
@@ -975,25 +975,32 @@ static void system_menu(void)
 		   "Sort By, and by artist when nothing says otherwise");
 		ck(!strcmp(mrows[2].label, "Shuffle All") && mrows[2].live && !val(&mrows[2])[0],
 		   "Shuffle All, live whether or not anything plays");
-		ck(!strcmp(mrows[3].label, "Lock Screen") && !mrows[3].live &&
-		   !strcmp(val(&mrows[3]), "While playing"),
+		ck(!strcmp(mrows[3].label, "Player Look") && mrows[3].live &&
+		   !strcmp(val(&mrows[3]), "Cover"),
+		   "Player Look, Cover when nothing says otherwise (DESIGN.md 11.14)");
+		ck(!strcmp(mrows[4].label, "Lock Screen") && !mrows[4].live &&
+		   !strcmp(val(&mrows[4]), "While playing"),
 		   "Lock Screen, dead and saying why with nothing playing");
-		ck(!strcmp(mrows[4].label, "Album Art") && mrows[4].live,
+		ck(!strcmp(mrows[5].label, "Album Art") && mrows[5].live,
 		   "covers to fetch, on a network");
-		ck(!strcmp(mrows[5].label, "Rescan Folder") && mrows[5].live,
+		ck(!strcmp(mrows[6].label, "Rescan Folder") && mrows[6].live,
 		   "and a rescan that works");
+		m.muse_look = "Spectrum";
+		sys_menu_build(&m, mrows, &mb, &mhead);
+		ck(!strcmp(val(&mrows[3]), "Spectrum"), "Player Look says the look that is on");
+		m.muse_look = NULL;
 		m.muse_playing = true;
 		sys_menu_build(&m, mrows, &mb, &mhead);
-		ck(mrows[3].live && !val(&mrows[3])[0], "Lock Screen live while music plays");
+		ck(mrows[4].live && !val(&mrows[4])[0], "Lock Screen live while music plays");
 		m.muse_playing = false;
 		m.sort = "Album";
 		m.wifi = WIFI_OFF;
 		sys_menu_build(&m, mrows, &mb, &mhead);
 		ck(!strcmp(val(&mrows[1]), "Album"), "the order it is in");
-		ck(!mrows[4].live && !strcmp(val(&mrows[4]), "Needs Wi-Fi"),
+		ck(!mrows[5].live && !strcmp(val(&mrows[5]), "Needs Wi-Fi"),
 		   "Album Art says why it cannot, off the network");
-		ck(mrows[1].live && mrows[2].live && mrows[5].live,
-		   "and neither Sort By, Shuffle All nor Rescan Folder needs one");
+		ck(mrows[1].live && mrows[2].live && mrows[3].live && mrows[6].live,
+		   "and neither Sort By, Shuffle All, Player Look nor Rescan Folder needs one");
 		for (k = 0; k < mn; k++) {
 			ck(strcmp(lbl(&mrows[k]), "Core") != 0, "no Core: it has none");
 			ck(strcmp(lbl(&mrows[k]), "Display Mode") != 0, "no Display Mode");
@@ -1005,13 +1012,13 @@ static void system_menu(void)
 		m.wifi = WIFI_CONNECTED;
 		m.muse_both = true;
 		mn = sys_menu_build(&m, mrows, &mb, &mhead);
-		ck(mn == SM_MUSE_ROWS, "seven rows with more than one kind");
+		ck(mn == SM_MUSE_ROWS, "eight rows with more than one kind");
 		ck(!strcmp(mrows[1].label, "Show") && mrows[1].live &&
 		   !strcmp(val(&mrows[1]), "Music"), "Show, on music");
 		ck(!strcmp(mrows[2].label, "Sort By") && !strcmp(mrows[3].label, "Shuffle All") &&
-		   mrows[3].live && !strcmp(mrows[4].label, "Lock Screen") &&
-		   !strcmp(mrows[5].label, "Album Art"),
-		   "Sort By, Shuffle All, Lock Screen, then Album Art");
+		   mrows[3].live && !strcmp(mrows[4].label, "Player Look") &&
+		   !strcmp(mrows[5].label, "Lock Screen") && !strcmp(mrows[6].label, "Album Art"),
+		   "Sort By, Shuffle All, Player Look, Lock Screen, then Album Art");
 		m.muse_books = true;
 		m.game_count = 2;
 		mn = sys_menu_build(&m, mrows, &mb, &mhead);
@@ -1022,8 +1029,9 @@ static void system_menu(void)
 		ck(!strcmp(val(&mrows[2]), "Author"), "by author when nothing says otherwise");
 		for (k = 0; k < mn; k++)
 			ck(strcmp(lbl(&mrows[k]), "Album Art") != 0 &&
-			   strcmp(lbl(&mrows[k]), "Shuffle All") != 0,
-			   "no Album Art on books (MusicBrainz knows records), no Shuffle All");
+			   strcmp(lbl(&mrows[k]), "Shuffle All") != 0 &&
+			   strcmp(lbl(&mrows[k]), "Player Look") != 0,
+			   "no Album Art on books (MusicBrainz knows records), no Shuffle All, no Player Look");
 		/* Videos: their own count and orders, and like books no Album Art
 		 * and no Shuffle All. */
 		m.muse_books = false;
@@ -1035,8 +1043,9 @@ static void system_menu(void)
 		   "on videos: how many, Show, by folder");
 		for (k = 0; k < mn; k++)
 			ck(strcmp(lbl(&mrows[k]), "Album Art") != 0 &&
-			   strcmp(lbl(&mrows[k]), "Shuffle All") != 0,
-			   "no Album Art and no Shuffle All on videos");
+			   strcmp(lbl(&mrows[k]), "Shuffle All") != 0 &&
+			   strcmp(lbl(&mrows[k]), "Player Look") != 0,
+			   "no Album Art, Shuffle All or Player Look on videos");
 		/* All, where Show starts: the count is the Total, the orders the
 		 * videos', and Shuffle All and Album Art when there are songs */
 		m.muse_videos = false;
@@ -1047,14 +1056,15 @@ static void system_menu(void)
 		ck(mn == SM_MUSE_ROWS && !strcmp(mrows[0].label, "Total") &&
 		   !strcmp(val(&mrows[0]), "7") && !strcmp(val(&mrows[1]), "All") &&
 		   !strcmp(val(&mrows[2]), "Folder") && !strcmp(mrows[3].label, "Shuffle All") &&
-		   !strcmp(mrows[5].label, "Album Art"),
-		   "on All: the Total, Show All, by folder, Shuffle All and Album Art");
+		   !strcmp(mrows[4].label, "Player Look") && !strcmp(mrows[6].label, "Album Art"),
+		   "on All: the Total, Show All, by folder, Shuffle All, Player Look and Album Art");
 		m.muse_songs = false;
 		mn = sys_menu_build(&m, mrows, &mb, &mhead);
 		for (k = 0; k < mn; k++)
 			ck(strcmp(lbl(&mrows[k]), "Album Art") != 0 &&
-			   strcmp(lbl(&mrows[k]), "Shuffle All") != 0,
-			   "All with no songs: no Album Art and no Shuffle All");
+			   strcmp(lbl(&mrows[k]), "Shuffle All") != 0 &&
+			   strcmp(lbl(&mrows[k]), "Player Look") != 0,
+			   "All with no songs: no Album Art, Shuffle All or Player Look");
 		m.muse_all = false;
 		m.muse_books = true;
 		{

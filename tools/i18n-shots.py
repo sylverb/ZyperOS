@@ -338,8 +338,11 @@ EXTRA = {
     "np-classic": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--np-look", "classic"]),
     "np-classic-paused": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--np-look", "classic", "--paused"]),
     "np-spectrum": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--np-look", "spectrum"]),
-    "mp4-look-list": ("media", "MUSE", ["--screen", "games", "--menu", "Player Look", "--press", "a",
-                                        "--pick-at", "1"]),
+    # ...its list with the cursor on each look, so every look's note is
+    # drawn in its picture's narrow column
+    **{"mp4-look-list-%s" % _l: ("media", "MUSE", ["--screen", "games", "--menu", "Player Look", "--press",
+                                                   "a", "--pick-at", str(_k)])
+       for _k, _l in enumerate(("cover", "classic", "spectrum"))},
     "mp4-locked": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--locked"]),
     "mp4-locked-video": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--video", "hidden", "--locked"]),
     "tour-lang": ("demo", "PS1", ["--tour", "lang", "3500"]),
