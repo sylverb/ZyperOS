@@ -379,7 +379,7 @@ ja = 閉じる
 it = Chiudi
 
 [scraper.key_stop]
-note = A hint at the page's foot while a run goes: B stops it. One word, capital
+note = A hint at the page's foot while a run goes: Y stops it (B continues it in the background). One word, capital
 en = Stop
 zh-Hans = 停止
 es = Detener

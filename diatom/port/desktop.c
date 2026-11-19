@@ -550,14 +550,23 @@ void diatom_port_input_poll(void)
 
 uint32_t diatom_port_input_state(void) { return g_buttons; }
 
-bool diatom_port_rumble(uint16_t strong, uint16_t weak)
+/* The pretend motor writes down what a motor of the Pixel 2's kind would
+ * run at: each strength times the scale, rounded (test/rumble.py) */
+static unsigned rumble_times(uint16_t v, float scale)
+{
+	if (scale >= 1.0f) return v;
+	if (scale <= 0.0f) return 0;
+	return (unsigned)((float)v * scale + 0.5f);
+}
+
+bool diatom_port_rumble(uint16_t strong, uint16_t weak, float scale)
 {
 	bool ok;
 
 	pthread_mutex_lock(&g_rumble_mx);
 	ok = g_rumble_log != NULL;
 	if (ok) {
-		fprintf(g_rumble_log, "%u %u\n", (unsigned)strong, (unsigned)weak);
+		fprintf(g_rumble_log, "%u %u\n", rumble_times(strong, scale), rumble_times(weak, scale));
 		fflush(g_rumble_log);
 	}
 	pthread_mutex_unlock(&g_rumble_mx);
@@ -637,13 +646,16 @@ void diatom_port_level_invalidate(void) { }
  * and the host half of the low-battery state is tested through its answers. */
 void diatom_port_low_battery(bool on, bool blink) { (void)on; (void)blink; }
 /* No overlay to draw, but the numbers it would say, written down when
- * DIATOM_HUD_LOG is set, so test/hudspeed.py can read them */
+ * DIATOM_HUD_LOG is set, each with the time (Diatom's clock, the now file's
+ * t_us) its window ended, so test/hudspeed.py can read them */
 void diatom_port_hud(bool on, double fps, double speed)
 {
 	static int log = -1;
 
 	if (log < 0) log = getenv("DIATOM_HUD_LOG") != NULL;
-	if (log && on) printf("diatom: hud fps=%.2f speed=%.3f\n", fps, speed);
+	if (log && on)
+		printf("diatom: hud t=%llu fps=%.2f speed=%.3f\n",
+		       (unsigned long long)diatom_port_now_us(), fps, speed);
 }
 void diatom_port_hud_style(const diatom_hud_words *w) { (void)w; }
 void diatom_port_power_hold(bool on, unsigned ms, unsigned at, bool done)

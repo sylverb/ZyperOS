@@ -114,18 +114,66 @@ static void signal_splash(int sig)
 /* The screens' shader is on this frame already (plat_screen_finish) */
 static bool fx_done;
 
-/* This file draws straight into the window, so the shader goes on the frame
- * where it is: CRT Curved's bend reads it back and draws it again, then the
- * mask multiplies it. The Brick's own rows offer none of the old screens
- * (plat_gpu_shaders), so on the Brick this is always Off and nothing; the
- * host, which shows the Pixel 2's screens, has them. */
+/* CRT Curved's frame: while the screens' shader bends, ZyperOS draws into
+ * this texture of the screen's size instead of the window, and the bend
+ * draws it onto the window (plat_screen_finish), as the Pixel 2 bends its
+ * screen_tex. Reading the window back instead (sfx_bend_target) stalls a
+ * GPU that draws in tiles, the Brick's PowerVR, for a whole frame's pixels
+ * every frame. Made the first time the curve is on; while it is off ZyperOS
+ * draws straight into the window as before, so a frame without the curve
+ * costs what it did. */
+static SDL_Texture *bend_tex;
+
+static bool bending(void) { return sfx_on() && sfx_curved(); }
+
+/* Where ZyperOS's frame goes: bend_tex while the curve is on, else the
+ * window (also when bend_tex cannot be made: the bend reads back then) */
+static SDL_Texture *screen_target(void)
+{
+	if (!bending()) return NULL;
+	if (!bend_tex) {
+		bend_tex = SDL_CreateTexture(ren, PLAT_TARGET_FORMAT, SDL_TEXTUREACCESS_TARGET,
+		                             ZYPEROS_SCREEN_W, ZYPEROS_SCREEN_H);
+		if (bend_tex) SDL_SetTextureBlendMode(bend_tex, SDL_BLENDMODE_NONE);
+		else fprintf(stderr, "screens' shader: no texture for the curve (%s); "
+		             "it reads the screen back\n", SDL_GetError());
+	}
+	return bend_tex;
+}
+
+/* The shader on the frame where it is: CRT Curved's bend draws bend_tex
+ * onto the window (or, the frame it came on, which went to the window,
+ * reads it back and draws it again), then the mask multiplies it. The
+ * Brick's own rows offer none of the old screens (plat_gpu_shaders), so on
+ * the Brick this is Off and nothing until they do; the host, which shows
+ * the Pixel 2's screens, has them. */
 void plat_screen_finish(void)
 {
 	SDL_Rect all = { 0, 0, ZYPEROS_SCREEN_W, ZYPEROS_SCREEN_H };
+	bool in_tex = bend_tex && SDL_GetRenderTarget(ren) == bend_tex;
 
+	if (in_tex && !bending()) {
+		/* The curve went off with this frame in bend_tex: the frame as it is */
+		SDL_SetRenderTarget(ren, NULL);
+		SDL_RenderCopy(ren, bend_tex, NULL, &all);
+		in_tex = false;
+	}
 	if (fx_done || !sfx_on()) return;
 	fx_done = true;
-	if (sfx_curved()) sfx_bend_target(ren, ZYPEROS_SCREEN_W, ZYPEROS_SCREEN_H);
+	if (sfx_curved()) {
+		if (in_tex) {
+			Uint8 cr, cg, cb, ca;
+
+			SDL_SetRenderTarget(ren, NULL);
+			SDL_GetRenderDrawColor(ren, &cr, &cg, &cb, &ca);
+			SDL_SetRenderDrawColor(ren, 0, 0, 0, 255);
+			SDL_RenderClear(ren);
+			SDL_SetRenderDrawColor(ren, cr, cg, cb, ca);
+			sfx_draw_curved(ren, bend_tex, &all, 0.0);
+		} else {
+			sfx_bend_target(ren, ZYPEROS_SCREEN_W, ZYPEROS_SCREEN_H);
+		}
+	}
 	sfx_draw_mask(ren, ZYPEROS_SCREEN_W, ZYPEROS_SCREEN_H, &all, 0.0);
 }
 
@@ -160,21 +208,75 @@ void plat_present(void)
 	}
 	SDL_RenderPresent(ren);
 	fx_done = false;
+	/* The next frame into bend_tex while the curve is on */
+	if (bending()) SDL_SetRenderTarget(ren, screen_target());
 }
-void plat_draw_to_screen(void) { SDL_SetRenderTarget(ren, NULL); }
+void plat_draw_to_screen(void) { SDL_SetRenderTarget(ren, screen_target()); }
 
 /* The Brick's screen is its panel: the picture goes straight into the frame,
  * and what is drawn after it lands on top of it. */
-void plat_video_under(SDL_Texture *tex, const SDL_Rect *dst, SDL_Color bg)
+void plat_video_under(SDL_Texture *tex, const SDL_Rect *src, const SDL_Rect *dst, SDL_Color bg)
 {
 	SDL_SetRenderDrawColor(ren, bg.r, bg.g, bg.b, 255);
 	SDL_RenderClear(ren);
-	if (tex) SDL_RenderCopy(ren, tex, NULL, dst);
+	if (tex) SDL_RenderCopy(ren, tex, src, dst);
 }
 
 /* No ports on the Brick, and no splash --still to hold a picture */
 bool plat_save_screen(const char *path) { (void)path; return false; }
+
+#ifdef __linux__
+/* Flash Drive's pictures for usbdrive (src/usbdrive_screen.c): the frame
+ * just drawn, never shown, read back and made 640x480, the size usbdrive's
+ * atlas is laid out in on every device, landscape (the Brick's panel is not
+ * turned), as raw XRGB8888. usbdrive's page on the Brick (plastron's
+ * package/usbdrive/src/panel_fb.c) scales it up to the panel again. Each
+ * picture is the average of the 1.6 x 1.6 frame pixels under it, two taps a
+ * way, so text keeps its weight. A few frames at Flash Drive's start: a
+ * read back here costs nothing a game would see. */
+/* usbdrive's pictures' size on every device: src/usbdrive_screen.c's
+ * UD_SAVE_W and UD_SAVE_H, the units its atlas is written in (a file's
+ * format, not a place on this screen) */
+#define SAVE_W 640
+#define SAVE_H 480
+bool plat_save_screen_hidden(const char *path)
+{
+	const int w = ZYPEROS_SCREEN_W, h = ZYPEROS_SCREEN_H;
+	uint32_t *in = malloc((size_t)w * h * 4), *out = malloc((size_t)SAVE_W * SAVE_H * 4);
+	bool ok = false;
+	FILE *f;
+	int x, y;
+
+	if (in && out && SDL_RenderReadPixels(ren, NULL, SDL_PIXELFORMAT_XRGB8888, in, w * 4) == 0) {
+		for (y = 0; y < SAVE_H; y++) {
+			/* The source rows the picture's row covers: its two edges */
+			int y0 = y * h / SAVE_H, y1 = ((y + 1) * h - 1) / SAVE_H;
+
+			for (x = 0; x < SAVE_W; x++) {
+				int x0 = x * w / SAVE_W, x1 = ((x + 1) * w - 1) / SAVE_W;
+				uint32_t a = in[(size_t)y0 * w + x0], b = in[(size_t)y0 * w + x1];
+				uint32_t c = in[(size_t)y1 * w + x0], d = in[(size_t)y1 * w + x1];
+				uint32_t v = 0;
+				int k;
+
+				for (k = 0; k < 24; k += 8)
+					v |= (((a >> k & 255) + (b >> k & 255) + (c >> k & 255) + (d >> k & 255) + 2) / 4) << k;
+				out[(size_t)y * SAVE_W + x] = v;
+			}
+		}
+		if ((f = fopen(path, "wb"))) {
+			ok = fwrite(out, 4, (size_t)SAVE_W * SAVE_H, f) == (size_t)SAVE_W * SAVE_H;
+			if (fclose(f) != 0) ok = false;
+		}
+	}
+	free(in);
+	free(out);
+	return ok;
+}
+#else
+/* The host has no usbdrive to leave pictures for */
 bool plat_save_screen_hidden(const char *path) { (void)path; return false; }
+#endif
 SDL_Texture *plat_load_screen(const char *path) { (void)path; return NULL; }
 
 bool plat_video_init(void)
@@ -247,6 +349,7 @@ void plat_video_quit(void)
 {
 	plat_osd_forget();
 	sfx_forget();
+	if (bend_tex) { SDL_DestroyTexture(bend_tex); bend_tex = NULL; }
 	if (ren) { SDL_DestroyRenderer(ren); ren = NULL; }
 	if (win) { SDL_DestroyWindow(win); win = NULL; }
 	SDL_QuitSubSystem(SDL_INIT_VIDEO);
@@ -328,6 +431,15 @@ void plat_input_settle(in_state *st)
 /* The descriptors stay open: they are display-independent. */
 void plat_input_quit(void) { }
 
+/* No motor yet: GPIO 227 on the bldo3 rail waits for the tester's buzz (the
+ * Brick parity plan's item 14), and the profile says none (rumble false) */
+bool plat_rumble_buzz(float scale, int ms)
+{
+	(void)scale;
+	(void)ms;
+	return false;
+}
+
 static void poll_fd(int fd, in_state *st)
 {
 #ifdef __linux__
@@ -390,8 +502,9 @@ void plat_input_wait(unsigned ms)
 	if (fd_keys >= 0)  p[n++] = (struct pollfd){ .fd = fd_keys,  .events = POLLIN };
 	if (fd_power >= 0) p[n++] = (struct pollfd){ .fd = fd_power, .events = POLLIN };
 	/* POWER held in Hold mode: woken for the pill's next segment and the
-	 * hold's end, which no event marks */
-	ms = plat_power_wait(ms);
+	 * hold's end, which no event marks; and the work behind every screen
+	 * (the downloads' lanes, plat_on_input_wait) has its step */
+	ms = plat_input_wait_hook(plat_power_wait(ms));
 	if (!n) { SDL_Delay(ms); return; }
 	/* A signal ends it early too, which is what a stop should do */
 	poll(p, n, (int)ms);
@@ -766,9 +879,124 @@ bool plat_cable_link(char *addr, size_t n)
 	return true;
 }
 
-/* The Brick's link is its own usbgadget script's, always on: no question. */
-usb_peer plat_usb_peer(void) { return USB_PEER_UNKNOWN; }
-bool plat_usb_link(int op) { (void)op; return true; }
+/* The cable as on the Pixel 2 (src/usblink.h): charging only until asked.
+ * plastron's usbgadget script makes the network gadget at boot and binds it
+ * only in Developer Mode (a development image's); ZyperOS asks once a plug
+ * when a computer is on the cable, and binds it for File Transfer or
+ * Developer, or hands the card over for Flash Drive.
+ *
+ * Telling a computer from a charger is the Brick's own problem: the
+ * AXP2202's BC1.2 reads a computer's port as a dedicated charger (plastron's
+ * kernel patch 0029, measured on a Mac's USB-A port), and its Type-C CC
+ * says nothing either through a USB-A cable. The one tell is the computer:
+ * it resets the bus and configures a device it sees, which a charger never
+ * does. So each plug is probed: the gadget bound for up to USB_PROBE_MS,
+ * and a reset or a configuration in that time (the controller's state off
+ * "not attached") is a computer, left bound until the player answers
+ * (Charge Only lets it go, as on the Pixel 2); none is a charger, and the
+ * probe let go. The probe is this file's, not the link's: plat_usb_link
+ * answers for what usblink set, and the probe's binding never shows there.
+ * A computer sees the Brick's network device for the probe's moment, or
+ * until the question is answered: no way to ask the computer without it. */
+#define CABLE_GADGET "/sys/kernel/config/usb_gadget/brick/UDC"
+#define CABLE_ONLINE "/sys/class/power_supply/axp2202-usb/online"
+#define USB_PROBE_MS 3000u
+
+enum { PLUG_OUT, PLUG_PROBING, PLUG_COMPUTER, PLUG_CHARGER };
+static int plug_state = PLUG_OUT;
+static unsigned plug_t0;
+static bool link_on;          /* what usblink set: plat_usb_link's answer */
+
+/* The gadget on the controller, or off it: the UDC's name in the gadget's
+ * UDC file, or an empty line. True when it is bound after. */
+static bool gadget_bound(void)
+{
+	char buf[64] = "";
+	int fd = open(CABLE_GADGET, O_RDONLY | O_CLOEXEC);
+
+	if (fd < 0) return false;
+	if (read(fd, buf, sizeof buf - 1) < 0) buf[0] = '\0';
+	close(fd);
+	return buf[0] != '\0' && buf[0] != '\n';
+}
+
+static bool gadget_bind(bool on)
+{
+	const char *udc = strrchr(CABLE_UDC, '/') + 1;
+	int fd;
+
+	if (on == gadget_bound()) return on;
+	if ((fd = open(CABLE_GADGET, O_WRONLY | O_CLOEXEC)) < 0) return false;
+	/* An empty line unbinds; a write of nothing at all is ignored */
+	if (write(fd, on ? udc : "\n", on ? strlen(udc) : 1) < 0) { /* said below */ }
+	close(fd);
+	return gadget_bound();
+}
+
+/* A host on the bus: the controller past "not attached" (reset, addressed,
+ * configured), which only a computer's reset moves it to */
+static bool host_seen(void)
+{
+	return file_starts(CABLE_UDC "/state", "default") ||
+	       file_starts(CABLE_UDC "/state", "addressed") ||
+	       file_starts(CABLE_UDC "/state", "configured");
+}
+
+usb_peer plat_usb_peer(void)
+{
+	if (!file_starts(CABLE_ONLINE, "1")) {
+		/* Out: the probe's binding goes with it (the link's is usblink's
+		 * to let go, which it does when it sees this) */
+		if (plug_state != PLUG_OUT && !link_on) gadget_bind(false);
+		if (plug_state == PLUG_COMPUTER) fprintf(stderr, "usb: the cable came out\n");
+		plug_state = PLUG_OUT;
+		return USB_PEER_NONE;
+	}
+	switch (plug_state) {
+	case PLUG_OUT:
+		/* A new plug, or the cable already in at the start: probed */
+		plug_t0 = plat_now_ms();
+		plug_state = PLUG_PROBING;
+		if (!gadget_bind(true)) fprintf(stderr, "usb: the gadget would not bind to probe the cable\n");
+		return USB_PEER_NONE;
+	case PLUG_PROBING:
+		if (host_seen()) {
+			plug_state = PLUG_COMPUTER;
+			fprintf(stderr, "usb: a computer on the cable (it reset the bus in %u ms)\n",
+			        plat_now_ms() - plug_t0);
+			return USB_PEER_COMPUTER;
+		}
+		if (plat_now_ms() - plug_t0 < USB_PROBE_MS) return USB_PEER_NONE;
+		plug_state = PLUG_CHARGER;
+		if (!link_on) gadget_bind(false);
+		fprintf(stderr, "usb: a charger on the cable (no reset in %u ms)\n", USB_PROBE_MS);
+		return USB_PEER_CHARGER;
+	case PLUG_COMPUTER:
+		return USB_PEER_COMPUTER;
+	default:
+		return USB_PEER_CHARGER;
+	}
+}
+
+/* usblink's link: -1 asks, 0 lets it go (charging only), 1 binds it, 2 a
+ * fresh one (off and on). The answer is the link's state after. */
+bool plat_usb_link(int op)
+{
+	if (op < 0) return link_on;
+	if (op == 2) {
+		gadget_bind(false);
+		op = 1;
+	}
+	if (op == 1) {
+		link_on = gadget_bind(true);
+		if (link_on) fprintf(stderr, "usb: the link to the computer is on\n");
+		return link_on;
+	}
+	link_on = false;
+	gadget_bind(false);
+	fprintf(stderr, "usb: the link to the computer is off: charging only\n");
+	return false;
+}
 bool plat_cable_sense(link_sense *out) { (void)out; return false; }
 bool plat_usb_power(usb_power *out) { (void)out; return false; }
 bool plat_usb_power_grant(unsigned plug) { (void)plug; return false; }

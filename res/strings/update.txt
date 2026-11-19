@@ -333,7 +333,7 @@ ja = %d / %d
 it = %d di %d
 
 [update.back_goes_on]
-note = The B button's label while System Update downloads (or PortMaster installs): B leaves the page and the work keeps going in the background (2026-11-11: "Voltar, continua" read as unclear). Short: a button hint.
+note = The B button's label while System Update downloads (or PortMaster installs, or a Scraper or Achievements run goes): B leaves the page and the work keeps going in the background (2026-11-11: "Voltar, continua" read as unclear). Short: a button hint.
 en = Continue in background
 zh-Hans = 后台继续
 es = Seguir en segundo plano

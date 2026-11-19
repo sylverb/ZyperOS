@@ -8,10 +8,10 @@
 .PHONY: all clean native px2-payload vendor boot system-art checkmark \
         check check-cheevos check-hare check-portal check-httpd check-idle check-taskhold check-saver check-rahash check-flacdec check-achtab check-signin check-search \
         check-raset check-xfer check-sshlink check-usblink check-devmode check-devices check-devicegen check-model check-ctl check-menus check-status check-battery check-corner check-artscrape check-artrun check-sgdb check-snapshelf check-snaps check-audioout \
-        check-db check-coreopts check-gpuframes check-gamedel check-gamern check-esmedia check-corepins check-targets yuvtarget check-storage check-stats check-sort check-bt check-ss check-titles check-dsv check-sidelights check-osdbar check-hud check-dmodefit check-themefile check-pkkeys check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-bios check-gamefile check-kbnav check-tween check-menumotion check-menusnap check-cardgen check-cardart check-focusfx check-blur check-gridrule check-roundrect check-rowmacro check-emptyhome check-zyperrig check-randgame check-shelfdir \
+        check-db check-coreopts check-gpuframes check-gamedel check-gamern check-esmedia check-corepins check-targets yuvtarget check-storage check-stats check-sort check-bt check-ss check-titles check-dsv check-sidelights check-osdbar check-hud check-dmodefit check-themefile check-pkkeys check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-bios check-gamefile check-startfail check-kbnav check-tween check-menumotion check-menusnap check-cardgen check-cardart check-focusfx check-blur check-gridrule check-roundrect check-rowmacro check-emptyhome check-zyperrig check-randgame check-shelfdir \
         check-sysmark check-flip check-menushots check-controls-shots check-design check-systemart check-linebreak check-portload check-portout \
         check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-messages check-tour check-tour-shots check-textfade check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pmhelper check-portdoc check-boottheme check-splashbright check-bootbright check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr check-autozone \
-        check-home check-home-shots check-games check-cardpaint check-putpace landbench check-favorites-shots check-np-footer check-menu-rows check-layout-shots check-artbadge check-artbadge-shots check-cardart-shots design sounds strings cjk-font check-strings check-i18n-shots check-rootswitch check-datapart check-brick-closed check-hwreport \
+        check-home check-home-shots check-games check-cardpaint check-putpace landbench check-favorites-shots check-homesys-groups check-np-footer check-menu-rows check-layout-shots check-artbadge check-artbadge-shots check-cardart-shots design sounds strings cjk-font check-strings check-i18n-shots check-rootswitch check-datapart check-brick-closed check-hwreport \
         check-tour-previews tour-previews check-prep check-diatom check-simulator check-px2sim check-building-doc check-blog check-discord-release \
         check-release-devices check-installer release check-site-devices
 
@@ -44,17 +44,17 @@ src/i18n_tables.c: $(wildcard res/strings/*.txt) tools/i18n.py
 # had to be remembered by name, which is a suite in the same sense that a list
 # of good intentions is a plan. A check nobody runs is a check that does not
 # exist, and check-menus was about to join eight others in that state.
-CHECKS = check-cheevos check-hare check-portal check-httpd check-idle check-taskhold check-saver check-rahash check-flacdec check-achtab check-rasubmit check-raoffline check-radl check-signin check-noticeq check-badges check-badge-shots \
+CHECKS = check-cheevos check-hare check-portal check-httpd check-idle check-taskhold check-saver check-rahash check-flacdec check-achtab check-rasubmit check-raoffline check-radl check-dlq check-signin check-noticeq check-badges check-badge-shots \
          check-raset check-xfer check-sshlink check-usblink check-devmode check-devices check-devicegen check-model check-ctl check-menus check-artscrape check-artrun check-sgdb check-snapshelf check-snaps check-audioout \
          check-db check-coreopts check-gamedel check-gamern check-esmedia check-media check-snapsize check-corepins check-targets check-storage check-stats check-sort check-bt check-ss check-titles check-savedlib check-search \
-         check-muselib check-musequeue check-museart check-mp4lock check-mp4frame check-p2share check-webtheme check-p2ws check-p2codec check-p2d check-play check-p2 check-resident check-spawn check-controls check-remap check-eq check-eqdsp check-eqplugin check-controls-shots check-logpack \
-         check-clock check-autozone check-status check-battery check-battery-eta check-dslang check-pacing check-gpuframes check-dsresume check-corestate check-core-stamp check-core-room check-px2-perf check-px2-snap check-px2 check-lowbatt check-powerhold check-homesys check-heat check-charging check-corner check-dsv check-sidelights check-osdbar check-hud check-dmodefit check-themefile check-pkkeys check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-bios check-gamefile check-kbnav check-randgame check-shelfdir check-look \
+         check-muselib check-musequeue check-museart check-mp4lock check-mp4frame check-mp4size check-p2share check-webtheme check-p2ws check-p2codec check-p2d check-play check-p2 check-resident check-spawn check-controls check-remap check-rumble check-eq check-eqdsp check-eqplugin check-controls-shots check-logpack \
+         check-clock check-autozone check-status check-battery check-battery-eta check-dslang check-pacing check-gpuframes check-dsresume check-corestate check-core-stamp check-core-room check-px2-perf check-px2-snap check-px2 check-lowbatt check-powerhold check-homesys check-heat check-charging check-corner check-dsv check-sidelights check-osdbar check-hud check-dmodefit check-themefile check-pkkeys check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-bios check-gamefile check-startfail check-kbnav check-randgame check-shelfdir check-look \
          check-tween check-menumotion check-menusnap check-cardgen check-cardart check-focusfx check-blur check-gridrule check-roundrect check-rowmacro check-emptyhome check-zyperrig check-sysmark check-flip check-menushots check-design \
          check-systemart check-linebreak check-portload check-portout check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-messages \
          check-tour check-tour-shots check-tour-previews check-textfade check-glyphs check-scale check-shaderdemo check-screenfx check-ds check-layout-ratchet check-flex check-hover check-hover-sweep check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pmhelper check-pmart check-portdoc check-boottheme check-splashbright check-bootbright check-panelgamma check-panelgamma-sunxi check-nightmode check-displayback check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-start-soc check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr \
-         check-home check-home-shots check-games check-cardpaint check-putpace check-favorites-shots check-np-footer check-menu-rows check-layout-shots check-artbadge check-artbadge-shots check-cardart-shots checkmark \
+         check-home check-home-shots check-games check-cardpaint check-putpace check-favorites-shots check-homesys-groups check-np-footer check-menu-rows check-layout-shots check-artbadge check-artbadge-shots check-cardart-shots checkmark \
          check-installer check-from-rogue check-importers check-diatom check-simulator check-px2sim check-building-doc check-blog check-discord-release \
-         check-release-devices check-strings check-i18n-shots check-rootswitch check-datapart check-brick-closed check-hwreport
+         check-release-devices check-strings check-i18n-shots check-rootswitch check-datapart check-brick-closed check-hwreport check-kitbuild
 
 # All of them at once, as many at a time as there are cores (CHECK_JOBS=1 for
 # one after another), each into build-native/check-logs/: tools/check-run.py
@@ -763,6 +763,18 @@ build-native/gamefile-check: tools/gamefile-check.c src/gamefile.c src/gamefile.
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
 	      -o $@ tools/gamefile-check.c src/gamefile.c src/biosfile.c src/config.c $(I18N_SRC)
 
+# What the shelf says when a core would not load (src/startfail.h): another
+# machine's build, a library it needs, a library too old, a function nothing
+# has, or nothing more known, in each of the eight languages, with the core's
+# file name and the name dlerror gave, cut where it is long. No SDL.
+check-startfail: build-native/startfail-check
+	@./build-native/startfail-check
+
+build-native/startfail-check: tools/startfail-check.c src/startfail.c src/startfail.h src/platform.h $(I18N_SRC) FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
+	      -o $@ tools/startfail-check.c src/startfail.c $(I18N_SRC)
+
 # The on-screen keyboard's d-pad: down from the grid onto the action row under
 # a column, up from an action key onto the column under its center, the wraps
 # at every edge, and the action keys' labels on each layer. No SDL.
@@ -1279,6 +1291,13 @@ check-hwreport:
 	@$(CC) -std=gnu11 -Wall -Wextra -O1 -g -o build-native/hwreport-check tools/hwreport-check.c src/hwreport.c
 	@./build-native/hwreport-check
 
+# A test kit's code reaches a kit alone (src/kit.h, tools/kitbuild-check.sh):
+# mk/cross.mk adds ZYPEROS_KIT_BUILD and the device's kit file only for a
+# VERSION with "-kit", the hooks' objects have none of it without the define
+# and all of it with it, and the host launcher, never a kit, has none
+check-kitbuild:
+	@CC='$(CC)' DEVICE_PROFILES='$(DEVICE_PROFILES)' DEVICE_BUILDS='$(DEVICE_BUILDS)' sh tools/kitbuild-check.sh
+
 # What the tools left in the temporary folder and the worktrees' gate frames
 # that nothing touched for a day (tools/clean-scratch.py; -n lists only):
 # scratch cards of runs stopped hard, about 250 MB a language
@@ -1411,6 +1430,18 @@ build-native/remap-check: tools/remap-check.c src/remap.c src/remap.h src/remaps
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
 	      -o $@ tools/remap-check.c src/remap.c src/remapstore.c src/controls.c src/powerhold.c src/config.c src/db.c src/atomic.c \
+	      $(I18N_SRC) -lsqlite3
+
+# Rumble's levels, the share a game is sent, and what is kept for a game, a
+# system and MENU (src/rumble.h)
+check-rumble: build-native/rumble-check
+	@./build-native/rumble-check
+
+build-native/rumble-check: tools/rumble-check.c src/rumble.c src/rumble.h src/config.c src/config.h \
+                           src/db.c src/db.h src/atomic.c $(I18N_SRC) FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
+	      -o $@ tools/rumble-check.c src/rumble.c src/config.c src/db.c src/atomic.c \
 	      $(I18N_SRC) -lsqlite3
 
 # The equalizer's settings, presets and the file a port's plugin reads
@@ -1599,6 +1630,8 @@ check-device-compile:
 	$(CC) $$F $$D $$(pkg-config --cflags sdl2 egl glesv2) \
 		diatom/port/brick.c diatom/port/osdbar.c diatom/port/themefile.c diatom/port/hud.c \
 		diatom/port/panelgamma.c; \
+	echo "  launcher: a test kit's src/device/brick_kit.c and src/device/brick_hw.c (ZYPEROS_KIT_BUILD)"; \
+	$(CC) $$F -DZYPEROS_KIT_BUILD -Isrc $$S src/device/brick_kit.c src/device/brick_hw.c; \
 	echo "  diatom: port/pixel2.c"; \
 	$(CC) $$F $$D $$(pkg-config --cflags sdl2 egl glesv2 gbm libdrm) \
 		diatom/port/pixel2.c diatom/port/rumble_evdev.c diatom/port/panelgamma.c; \
@@ -1744,12 +1777,12 @@ check-artscrape: build-native/artscrape-check
 	@ART_SCORING=1 ./build-native/artscrape-check
 	@python3 tools/artscrape-check.py
 
-build-native/artscrape-check: tools/artscrape-check.c src/artscrape.c src/artscrape.h src/urlenc.c src/library.c src/db.c $(I18N_SRC) src/artsrc.c FORCE
+build-native/artscrape-check: tools/artscrape-check.c src/artscrape.c src/artscrape.h src/urlenc.c src/library.c src/sheet.c src/db.c $(I18N_SRC) src/artsrc.c FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Isrc \
 	      -DZYPEROS_VERSION='"check"' \
 	      -DINDEX_TMP='"$(CURDIR)/build-native/artscrape-check-artindex"' -DDAT_TMP='"$(CURDIR)/build-native/artscrape-check-artdat"' \
-	      -o $@ tools/artscrape-check.c src/artscrape.c src/artsrc.c src/net.c src/urlenc.c src/library.c src/db.c $(I18N_SRC) -lsqlite3
+	      -o $@ tools/artscrape-check.c src/artscrape.c src/artsrc.c src/net.c src/urlenc.c src/library.c src/sheet.c src/db.c $(I18N_SRC) -lsqlite3
 
 # Replace fetches over a cover rather than deleting it first. The real scraper
 # against a stubbed network, so a hit and a miss are both pinned with no device
@@ -1757,11 +1790,11 @@ build-native/artscrape-check: tools/artscrape-check.c src/artscrape.c src/artscr
 check-artrun: build-native/artrun-check
 	@./build-native/artrun-check
 
-build-native/artrun-check: tools/artrun-check.c src/artscrape.c src/artscrape.h src/urlenc.c src/library.c src/db.c $(I18N_SRC) src/artsrc.c FORCE
+build-native/artrun-check: tools/artrun-check.c src/artscrape.c src/artscrape.h src/urlenc.c src/library.c src/sheet.c src/db.c $(I18N_SRC) src/artsrc.c FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Isrc -DSS_BUSY_WAIT=0 -DSGDB_BUSY_WAIT=0 -DART_QUIET \
 	      -DINDEX_TMP='"$(CURDIR)/build-native/artrun-check-artindex"' -DDAT_TMP='"$(CURDIR)/build-native/artrun-check-artdat"' \
-	      -o $@ tools/artrun-check.c src/artscrape.c src/artsrc.c src/urlenc.c src/library.c src/db.c $(I18N_SRC) -lsqlite3
+	      -o $@ tools/artrun-check.c src/artscrape.c src/artsrc.c src/urlenc.c src/library.c src/sheet.c src/db.c $(I18N_SRC) -lsqlite3
 
 # SteamGridDB on the device (src/sgdb.h): the real client and a whole run
 # against a fake API - the key in a header and never a URL, the match, the
@@ -1771,14 +1804,14 @@ check-sgdb: build-native/sgdb-check
 	@./build-native/sgdb-check
 	@python3 tools/sgdb-check.py
 
-build-native/sgdb-check: tools/sgdb-check.c src/sgdb.c src/sgdb.h src/sgdbrun.c src/sgdbrun.h src/artscrape.c src/artscrape.h src/rajson.c src/urlenc.c src/library.c src/db.c $(I18N_SRC) src/artsrc.c FORCE
+build-native/sgdb-check: tools/sgdb-check.c src/sgdb.c src/sgdb.h src/sgdbrun.c src/sgdbrun.h src/artscrape.c src/artscrape.h src/rajson.c src/urlenc.c src/library.c src/sheet.c src/db.c $(I18N_SRC) src/artsrc.c FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Isrc \
 	      -DSGDB_GAP_MS=0 -DSGDB_BUSY_WAIT=0 -DART_QUIET -DSGDB_QUIET \
 	      -DSGDB_TMP='"build-native/sgdb-reply.json"' \
 	      -DINDEX_TMP='"$(CURDIR)/build-native/sgdb-check-artindex"' -DDAT_TMP='"$(CURDIR)/build-native/sgdb-check-artdat"' \
 	      -o $@ tools/sgdb-check.c src/sgdb.c src/sgdbrun.c src/artscrape.c src/artsrc.c src/rajson.c \
-	      src/urlenc.c src/library.c src/db.c $(I18N_SRC) -lsqlite3 -lpthread
+	      src/urlenc.c src/library.c src/sheet.c src/db.c $(I18N_SRC) -lsqlite3 -lpthread
 
 # Which systems get videos and for which games (src/snaps.h): off to start,
 # 1.0.4's setting kept, a system's own switch, Videos for.
@@ -1829,7 +1862,7 @@ build-native/rahash-check: tools/rahash-check.c $(RAHASH_SRC) src/rahashjob.c sr
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g $(LZMA_CFLAGS) \
 	      -o $@ tools/rahash-check.c $(RAHASH_SRC) -lz $(LZMA_LIBS) -lpthread
 
-.PHONY: check-noticeq check-badges check-badge-shots check-radl check-rasubmit check-lowbatt check-powerhold check-homesys check-heat check-charging
+.PHONY: check-noticeq check-badges check-badge-shots check-radl check-dlq check-rasubmit check-lowbatt check-powerhold check-homesys check-heat check-charging
 
 # The pop-ups over a game, one after another (src/noticeq.h)
 check-noticeq: build-native/noticeq-check
@@ -1924,13 +1957,26 @@ check-raoffline:
 check-radl: build-native/radl-check
 	@./build-native/radl-check
 
-build-native/radl-check: tools/radl-check.c src/radl.c src/radl.h src/net.c src/net.h src/rafetch.c src/rajson.c src/cheevos.c src/library.c $(RAHASH_SRC) src/atomic.c src/db.c $(I18N_SRC) FORCE
+# The downloads' queue (src/dlq.h) and net.c's slots: two lanes side by side,
+# a game, a stop, the card's floor, against this check's own curl. The floor
+# is past any disk so the room rule fires on its first look.
+check-dlq: build-native/dlq-check
+	@./build-native/dlq-check
+
+build-native/dlq-check: tools/dlq-check.c src/dlq.c src/dlq.h src/net.c src/net.h src/monoclock.h FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -DZYPEROS_VERSION='"check"' \
+	      -DNET_TMP='"$(CURDIR)/build-native/dlq-check-tmp"' \
+	      -DDLQ_FLOOR='(1ULL << 62)' -DDLQ_ROOM_MS=1 \
+	      -o $@ tools/dlq-check.c
+
+build-native/radl-check: tools/radl-check.c src/radl.c src/radl.h src/net.c src/net.h src/rafetch.c src/rajson.c src/cheevos.c src/library.c src/sheet.c $(RAHASH_SRC) src/atomic.c src/db.c $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -DZYPEROS_VERSION='"check"' \
 	      -DNET_TMP='"$(CURDIR)/build-native/radl-check-tmp"' \
 	      -DRADL_TMP='"$(CURDIR)/build-native"' \
 	      $(LZMA_CFLAGS) -o $@ tools/radl-check.c src/radl.c src/rafetch.c src/rajson.c src/cheevos.c \
-	      src/library.c $(RAHASH_SRC) src/atomic.c src/db.c $(I18N_SRC) -lsqlite3 -lz $(LZMA_LIBS) -lpthread
+	      src/library.c src/sheet.c $(RAHASH_SRC) src/atomic.c src/db.c $(I18N_SRC) -lsqlite3 -lz $(LZMA_LIBS) -lpthread
 
 # The two set converters - one C on the device, one Python in the bulk tool -
 # over real RetroAchievements responses. Needs credentials and a network;
@@ -1949,12 +1995,12 @@ build-native/raset-check: tools/raset-check.c src/rafetch.c src/rajson.c $(RAHAS
 check-ss: build-native/ss-check
 	@./build-native/ss-check
 
-build-native/ss-check: tools/ss-check.c src/ss.c src/ss.h src/ssfetch.c src/ssfetch.h src/db.c src/net.c src/urlenc.c src/rajson.c src/library.c $(I18N_SRC) FORCE
+build-native/ss-check: tools/ss-check.c src/ss.c src/ss.h src/ssfetch.c src/ssfetch.h src/db.c src/net.c src/urlenc.c src/rajson.c src/library.c src/sheet.c $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	@$(MAKE) -f mk/native.mk VERSION=$(VERSION) creds
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Ibuild-native \
 	      -DZYPEROS_VERSION='"check"' \
-	      -o $@ tools/ss-check.c src/ss.c src/ssfetch.c src/db.c src/net.c src/urlenc.c src/rajson.c src/library.c $(I18N_SRC) -lsqlite3 -lpthread
+	      -o $@ tools/ss-check.c src/ss.c src/ssfetch.c src/db.c src/net.c src/urlenc.c src/rajson.c src/library.c src/sheet.c $(I18N_SRC) -lsqlite3 -lpthread
 
 # Scraped display names: SQLite upgrade, real parser/runner, library fallback,
 # and the actual main.c refresh hooks with headless view stubs.
@@ -1963,24 +2009,24 @@ check-titles: build-native/title-check build-native/title-refresh-check build-na
 	@./build-native/title-refresh-check
 	@./build-native/title-bulk-check
 
-build-native/title-check: tools/title-check.c src/db.c src/library.c src/ssfetch.c src/ssrun.c src/rajson.c src/urlenc.c $(I18N_SRC) src/artsrc.c FORCE
+build-native/title-check: tools/title-check.c src/db.c src/library.c src/sheet.c src/ssfetch.c src/ssrun.c src/rajson.c src/urlenc.c $(I18N_SRC) src/artsrc.c FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Isrc \
 	      -DSS_TMP='"build-native/title-reply.json"' \
-	      -o $@ tools/title-check.c src/db.c src/library.c src/ssfetch.c src/ssrun.c src/artsrc.c src/rajson.c src/urlenc.c $(I18N_SRC) -lsqlite3
+	      -o $@ tools/title-check.c src/db.c src/library.c src/sheet.c src/ssfetch.c src/ssrun.c src/artsrc.c src/rajson.c src/urlenc.c $(I18N_SRC) -lsqlite3
 
-build-native/title-bulk-check: tools/title-bulk-check.c src/artscrape.c src/db.c src/library.c src/ssfetch.c src/ssrun.c src/rajson.c src/urlenc.c $(I18N_SRC) src/artsrc.c FORCE
+build-native/title-bulk-check: tools/title-bulk-check.c src/artscrape.c src/db.c src/library.c src/sheet.c src/ssfetch.c src/ssrun.c src/rajson.c src/urlenc.c $(I18N_SRC) src/artsrc.c FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Isrc -DSS_BUSY_WAIT=0 -DSGDB_BUSY_WAIT=0 -DART_QUIET \
 	      -DSS_TMP='"build-native/title-bulk-reply.json"' \
 	      -DINDEX_TMP='"$(CURDIR)/build-native/title-bulk-check-artindex"' -DDAT_TMP='"$(CURDIR)/build-native/title-bulk-check-artdat"' \
-	      -o $@ tools/title-bulk-check.c src/artscrape.c src/artsrc.c src/db.c src/library.c src/ssfetch.c src/ssrun.c src/rajson.c src/urlenc.c $(I18N_SRC) -lsqlite3
+	      -o $@ tools/title-bulk-check.c src/artscrape.c src/artsrc.c src/db.c src/library.c src/sheet.c src/ssfetch.c src/ssrun.c src/rajson.c src/urlenc.c $(I18N_SRC) -lsqlite3
 
-build-native/title-refresh-check: tools/title-refresh-check.c tools/title-refresh-hooks.py src/main.c src/scraper_screen.c src/library.c src/db.c src/stats.c $(I18N_SRC) FORCE
+build-native/title-refresh-check: tools/title-refresh-check.c tools/title-refresh-hooks.py src/main.c src/scraper_screen.c src/library.c src/sheet.c src/db.c src/stats.c $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	python3 tools/title-refresh-hooks.py src/main.c src/scraper_screen.c build-native/title-refresh-hooks.h
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Ibuild-native \
-	      -o $@ tools/title-refresh-check.c src/library.c src/db.c src/stats.c $(I18N_SRC) -lsqlite3
+	      -o $@ tools/title-refresh-check.c src/library.c src/sheet.c src/db.c src/stats.c $(I18N_SRC) -lsqlite3
 
 # Host build of the launcher, for working on how the shelf looks.
 native:
@@ -2083,11 +2129,11 @@ check-savedlib: build-native/savedlib-check
 	fi
 	@sh tools/savedlib-e2e.sh
 
-build-native/savedlib-check: tools/savedlib-check.c src/savedlib.c src/savedlib.h src/library.c src/library.h \
+build-native/savedlib-check: tools/savedlib-check.c src/savedlib.c src/savedlib.h src/library.c src/sheet.c src/library.h \
                              src/db.c src/db.h src/atomic.c FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
-	      -o $@ tools/savedlib-check.c src/savedlib.c src/library.c src/db.c src/atomic.c -lsqlite3 -lpthread
+	      -o $@ tools/savedlib-check.c src/savedlib.c src/library.c src/sheet.c src/db.c src/atomic.c -lsqlite3 -lpthread
 
 build-native/db-check: tools/db-check.c src/db.c src/db.h src/atomic.c src/strength.c src/strength.h FORCE
 	@mkdir -p build-native
@@ -2127,11 +2173,11 @@ build-native/gamern-check: tools/gamern-check.c src/gamern.c src/gamern.h src/ga
 check-esmedia: build-native/esmedia-check
 	@./build-native/esmedia-check
 
-build-native/esmedia-check: tools/esmedia-check.c src/esmedia.c src/esmedia.h src/library.c src/library.h \
+build-native/esmedia-check: tools/esmedia-check.c src/esmedia.c src/esmedia.h src/library.c src/sheet.c src/library.h \
                             src/db.c src/db.h FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Isrc \
-	      -o $@ tools/esmedia-check.c src/esmedia.c src/library.c src/db.c -lsqlite3 -lpthread
+	      -o $@ tools/esmedia-check.c src/esmedia.c src/library.c src/sheet.c src/db.c -lsqlite3 -lpthread
 	@if pkg-config --exists sdl2 SDL2_image SDL2_ttf 2>/dev/null; then \
 		$(MAKE) --no-print-directory native || exit 1; \
 	fi
@@ -2276,6 +2322,30 @@ build-native/mp4frame-check: tools/mp4frame-check.c src/mp4frame.h FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O2 -g \
 	      -o $@ tools/mp4frame-check.c -lpthread
+
+# MP4's video picture of any shape - 4:3 (1440x1080, 480x360), 16:9, odd,
+# tiny, the largest, the size changing inside one file - published as
+# src/muse/vid.c publishes it and read by src/mp4video.c into its texture: as
+# wide as the frame's rows, a multiple of 128 (src/mp4frame.h, mpf_stride: the
+# Pixel 2's Mesa ran past a texture's buffer for other widths), each plane
+# fitting Mesa's tile buffer as rows, drawn whole from its own rectangle,
+# nothing out of bounds (UBSan where the compiler has it, and Guard Malloc on
+# a Mac). Needs SDL2.
+check-mp4size:
+	@if pkg-config --exists sdl2 2>/dev/null; then \
+		$(MAKE) --no-print-directory build-native/mp4size-check || exit 1; \
+		if [ -f /usr/lib/libgmalloc.dylib ]; then gm=/usr/lib/libgmalloc.dylib; else gm=; fi; \
+		SDL_VIDEODRIVER=dummy SDL_RENDER_DRIVER=software DYLD_INSERT_LIBRARIES=$$gm \
+			./build-native/mp4size-check; \
+	else echo "check-mp4size: skipped, no SDL2"; fi
+
+build-native/mp4size-check: tools/mp4size-check.c src/mp4video.c src/mp4video.h src/mp4frame.h FORCE
+	@mkdir -p build-native
+	san=; echo 'int main(void){return 0;}' | $(CC) -fsanitize=undefined -x c - -o /dev/null 2>/dev/null && \
+		san='-fsanitize=undefined -fno-sanitize-recover=all'; \
+	$(CC) -std=gnu11 -Wall -Wextra -Wno-unused-parameter -D_GNU_SOURCE -O1 -g $$san -Isrc \
+	      -DMP4SIZE_FRAMES='"$(CURDIR)/build-native/mp4size-frames"' $$(pkg-config --cflags sdl2) \
+	      -o $@ tools/mp4size-check.c $$(pkg-config --libs sdl2) -lm
 
 # Player 2's frame codec (src/p2d/codec.c): a frame of palette indices, XORed
 # with the last one, raw-deflated; and the decoder the page mirrors. The check
@@ -2579,11 +2649,11 @@ build-native/randgame-check: tools/randgame-check.c src/randgame.c src/randgame.
 check-shelfdir: build-native/shelfdir-check
 	@./build-native/shelfdir-check
 
-build-native/shelfdir-check: tools/shelfdir-check.c src/shelfdir.c src/shelfdir.h src/library.c \
+build-native/shelfdir-check: tools/shelfdir-check.c src/shelfdir.c src/shelfdir.h src/library.c src/sheet.c \
                              src/library.h src/db.c src/atomic.c FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
-	      -o $@ tools/shelfdir-check.c src/shelfdir.c src/library.c src/db.c src/atomic.c \
+	      -o $@ tools/shelfdir-check.c src/shelfdir.c src/library.c src/sheet.c src/db.c src/atomic.c \
 	      -lsqlite3 -lpthread
 .PHONY: check-home
 check-home:
@@ -2598,6 +2668,12 @@ check-home-shots: native
 .PHONY: check-favorites-shots
 check-favorites-shots: native
 	@'$(PYIMG)' tools/favorites-shot-check.py
+
+# A system turned off the home keeps its games on Favorites and Recents, and
+# they start from there on its own core (src/shelfbuild.c, app.parked)
+.PHONY: check-homesys-groups
+check-homesys-groups: native
+	@'$(PYIMG)' tools/homesys-groups-check.py
 
 # The song's name in the top bar slides when too long, and Now Playing's foot
 # is a row of hints (src/home.c, src/main.c)

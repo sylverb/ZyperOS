@@ -405,6 +405,9 @@ int g_shot_discs;
 const char *g_shot_disc_label;
 /* --gm-undo: Undo Load's row in a shot, with no state behind it */
 bool g_shot_undo;
+/* --gm-rumble: the game's core asked for the motor, so the Controls tab has
+ * its Rumble row in a shot */
+bool g_shot_rumble;
 
 /* Where the focused game's Undo Load state is (SLOT_UNDO): as its slots are,
  * under its own system on Favorites too (shelf_owner). False with no game. */
@@ -1135,6 +1138,7 @@ int controls_page_rows(const ctl_game *g, int page, int width, ctl_buf *b,
 	static menu_row rows[SYN_ROWS];
 	static char lines[SYN_WRAP_LINES][CHV_WRAP_COLS];
 	static char text[2 * PD_TEXT + 4];
+	static char keys[CTL_MAX_ROWS][CTL_KEYS_MAX];
 	menu_row made[CTL_MAX_ROWS];
 	int n = ctl_game_rows(g, page, made, b), i;
 
@@ -1142,6 +1146,8 @@ int controls_page_rows(const ctl_game *g, int page, int width, ctl_buf *b,
 	*out = rows;
 	if (!ctl_game_prose(g, page)) {
 		memcpy(rows, made, (size_t)n * sizeof *rows);
+		/* the button column in the handheld's own glyphs (DESIGN.md 11.9) */
+		ctl_glyph_rows(rows, n, keys);
 		return n;
 	}
 	text[0] = '\0';
@@ -1168,9 +1174,12 @@ int game_controls_width(app *a, const ctl_game *g)
 
 	for (p = 0; p < pages; p++) {
 		menu_row rows[CTL_MAX_ROWS], kept[CTL_MAX_ROWS];
+		char keys[CTL_MAX_ROWS][CTL_KEYS_MAX];
 		ctl_buf b;
 		int i, n = ctl_game_rows(g, p, rows, &b), k = 0, m;
 
+		/* measured as drawn, the buttons as glyphs */
+		if (!ctl_game_prose(g, p)) ctl_glyph_rows(rows, n, keys);
 		for (i = 0; i < n; i++)
 			if (!ROW_IS_NOTE(rows[i])) kept[k++] = rows[i];
 		m = menu_measure(kept, k, NULL);
@@ -1374,6 +1383,9 @@ void gm_ctl_game(app *a, gm_ctx *c, ctlscr_game *g)
 	g->file = e ? e->file : "";
 	g->title = e ? e->title : "";
 	g->pak = pak_system(s) && e ? gm_pak_name(pak_get(s, e->file)) : NULL;
+	/* Rumble where the handheld has a motor and the game's core asked for
+	 * it (a shot's --gm-rumble stands in for the asking) */
+	g->rumble = plat_has_rumble() && e && (shot_path ? g_shot_rumble : plat_resident_rumble_asked());
 	g->scope_all = &g_gm_mem.scope_all;
 	/* A shot sends nothing: there is no game */
 	g->running = !shot_path;
