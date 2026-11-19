@@ -451,6 +451,7 @@ than any one console:
 | **Bluetooth** | the connected headset, or `Not connected` - pair, connect and forget |
 | **Audio Output** | `Auto` or `Speaker`, and where Auto landed - see **Audio** below |
 | **Audio Channels** | `Auto`, `Stereo`, `Mono`, `Mono left` or `Mono right` - see **Audio** below. `Auto` on a new device and after an upgrade |
+| **Rumble** | the Pixel 2: `Off`, `Low`, `Medium` or `Full` for every game, each step felt as you choose it - see [Rumble](#rumble). `Full` on a new card |
 | **Wi-Fi File Transfer** | the file server; needs Wi-Fi and says so when there is none. On the Pixel 2 with no network it says `Hotspot`, and makes the handheld its own network for a phone to join - see below. While a computer is on the USB cable it is **USB File Transfer** instead, at `http://zyperos.local`, or always at `10.55.0.2` on the Brick and `10.42.0.1` on the Pixel 2 |
 | **Date & Time** | the clock and the time zone, set with left and right - see below |
 | **Clock** | `12-hour` or `24-hour`, for the clock on the shelf and here. `12-hour` on a new device |
@@ -1056,6 +1057,8 @@ A battery too low to start says so and charges first; a charger plugged in while
 ## Rumble
 
 Dreamcast games, PlayStation games (as a DualShock) and Game Boy Color rumble cartridges shake the handheld, and Nintendo 64 games get a Rumble Pak. (The Controller Pak is under [In a game](#in-a-game).) The motor stops while the in-game menu is open.
+
+**How strong.** **MENU > Sound > Rumble** is `Off`, `Low`, `Medium` or `Full` for every game: none, 35%, 65% or all of what a game asks the motor for. `Full` on a new card, as ZyperOS always ran it. Each step buzzes the motor once at its level, so you feel it before you leave the row; in its list, the level under the cursor buzzes as you reach it. In a game whose core uses the motor, the in-game menu's Controls tab has a **Rumble** row too, for **This Game** or the whole system, as **Applies To** says: a game without its own level follows its system's, and a system without its own follows MENU's, which its list marks `Default`. A change reaches the paused game at once. A system that shakes harder than the handheld wants keeps its own share under every level: Doom's rumble is 35%, so `Low` there is 12%. The Pixel 2 only for now: the TrimUI Brick's motor waits for its first test on the Brick.
 
 ## File transfer
 

@@ -25,6 +25,7 @@
 #include "rahashjob.h"
 #include "raqueue.h"
 #include "remap.h"
+#include "rumble.h"
 #include "remapstore.h"
 #include "shelfbuild.h"
 #include "stats.h"
@@ -661,7 +662,10 @@ void launch(app *a)
 		char map[320];
 		bool stick_on = rms_stick_get(s, romfile);
 
-		cfg_run_keys(s, g_game_dual, pacing_id(pacing_load(s)), keys, (int)sizeof keys);
+		/* The motor at the player's Rumble level (the game's own, its
+		 * system's or MENU's) times the system's share (src/rumble.h) */
+		cfg_run_keys_at(s, g_game_dual, pacing_id(pacing_load(s)),
+		                rumble_run_pct(s->rumble, rumble_scope(s->tag, romfile)), keys, (int)sizeof keys);
 		/* The d-pad as the stick, a game's own (rms_stick_get): the PSP's
 		 * stick=toggle-stick when it was left on the stick */
 		rms_run_stick(s, stick_on, stick, sizeof stick);

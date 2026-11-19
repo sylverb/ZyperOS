@@ -81,6 +81,17 @@ de = Audiokanäle
 ja = 音声チャンネル
 it = Canali audio
 
+[sysmenu.rumble]
+note = A MENU row on the Sound tab, and the in-game Controls tab's row: how hard the rumble motor runs in games (Off, Low, Medium, Full). The word a console's own settings use for the controller's vibration.
+en = Rumble
+zh-Hans = 振动
+es = Vibración
+pt-BR = Vibração
+fr = Vibration
+de = Vibration
+ja = 振動
+it = Vibrazione
+
 [sysmenu.ui_sounds]
 note = A MENU row: the launcher's own sounds (Wood, Glass, Bubble or Off)
 en = UI Sounds

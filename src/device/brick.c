@@ -328,6 +328,15 @@ void plat_input_settle(in_state *st)
 /* The descriptors stay open: they are display-independent. */
 void plat_input_quit(void) { }
 
+/* No motor yet: GPIO 227 on the bldo3 rail waits for the tester's buzz (the
+ * Brick parity plan's item 14), and the profile says none (rumble false) */
+bool plat_rumble_buzz(float scale, int ms)
+{
+	(void)scale;
+	(void)ms;
+	return false;
+}
+
 static void poll_fd(int fd, in_state *st)
 {
 #ifdef __linux__

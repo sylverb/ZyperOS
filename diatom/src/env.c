@@ -104,26 +104,50 @@ void diatom_env_pointer(bool down, int16_t x, int16_t y)
 static pthread_mutex_t g_rumble_mx = PTHREAD_MUTEX_INITIALIZER;
 static uint16_t        g_rumble[2];          /* [RETRO_RUMBLE_STRONG], [WEAK] */
 static bool            g_rumble_held;
-/* The system's share of what its core asks, in percent (RUN rumble=) */
+/* How much of what the core asks reaches the hand, in percent (RUN rumble=,
+ * SETRUMBLE): the player's Rumble level times the system's share, the
+ * launcher's product (src/rumble.h). 0 is Off: the motor never runs. */
 static int             g_rumble_pct = 100;
+/* The core asked for the motor (GET_RUMBLE_INTERFACE, answered yes), since
+ * it was bound: the in-game menu's Rumble row is for its games alone. Per
+ * core, not per game: a resident core asks once, as it loads (flycast2021)
+ * or as it starts (pcsx_rearmed), and keeps the interface for every game. */
+static bool            g_rumble_asked;
 
-static uint16_t rumble_scaled(uint16_t v)
-{
-	return (uint16_t)(((uint32_t)v * (uint32_t)g_rumble_pct + 50) / 100);
-}
-
+/* The strengths go to the port as the core asked, the scale beside them, so
+ * each port makes its own motor's sense of a level: the Pixel 2's force
+ * feedback takes the product, the Brick's motor a voltage
+ * (diatom_port_rumble). Off sends nothing to run. */
 static void rumble_apply(void)
 {
-	if (g_rumble_held) diatom_port_rumble(0, 0);
-	else diatom_port_rumble(rumble_scaled(g_rumble[RETRO_RUMBLE_STRONG]),
-	                        rumble_scaled(g_rumble[RETRO_RUMBLE_WEAK]));
+	const float scale = (float)g_rumble_pct / 100.0f;
+
+	if (g_rumble_held || g_rumble_pct <= 0) diatom_port_rumble(0, 0, scale);
+	else diatom_port_rumble(g_rumble[RETRO_RUMBLE_STRONG], g_rumble[RETRO_RUMBLE_WEAK], scale);
 }
 
 void diatom_env_rumble_scale(int pct)
 {
 	pthread_mutex_lock(&g_rumble_mx);
-	g_rumble_pct = pct >= 1 && pct <= 99 ? pct : 100;
+	g_rumble_pct = pct >= 0 && pct <= 99 ? pct : 100;
 	pthread_mutex_unlock(&g_rumble_mx);
+}
+
+/* SETRUMBLE: the same at once, over a game that runs or is paused. The
+ * motor is told now when it runs (a hold keeps it still, and the resume
+ * gives it back at the new level). */
+void diatom_env_rumble_level(int pct)
+{
+	if (!g_caps || !g_caps->rumble) return;
+	pthread_mutex_lock(&g_rumble_mx);
+	g_rumble_pct = pct >= 0 && pct <= 99 ? pct : 100;
+	rumble_apply();
+	pthread_mutex_unlock(&g_rumble_mx);
+}
+
+bool diatom_rumble_asked(void)
+{
+	return g_rumble_asked;
 }
 
 static bool RETRO_CALLCONV cb_rumble(unsigned port, enum retro_rumble_effect effect,
@@ -658,6 +682,7 @@ static bool env_cb(unsigned cmd, void *data)
 
 		if (!g_caps || !g_caps->rumble || !r) return false;
 		r->set_rumble_state = cb_rumble;
+		g_rumble_asked = true;
 		return true;
 	}
 
@@ -1298,6 +1323,8 @@ void diatom_env_bind(diatom_core *c, diatom_policy *p, diatom_port_caps *caps)
 {
 	g_policy = p;
 	g_caps   = caps;
+	/* A new core asks for the motor itself, or does not */
+	g_rumble_asked = false;
 	/* Before set_environment, and for the same reason as the option table
 	 * below: a core may hand over its disc tray from inside that call. */
 	g_bound  = c;
