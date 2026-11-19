@@ -189,6 +189,7 @@ static void parse_line(char *line, diatom_msg *out)
 	else if (!strcmp(field, "DISPLAY"))  out->kind = DIATOM_MSG_DISPLAY;
 	else if (!strcmp(field, "SETDISPLAY")) out->kind = DIATOM_MSG_SETDISPLAY;
 	else if (!strcmp(field, "OVERLAY"))    out->kind = DIATOM_MSG_OVERLAY;
+	else if (!strcmp(field, "SETBORDER"))  out->kind = DIATOM_MSG_SETBORDER;
 	else if (!strcmp(field, "CHEEVOS"))    out->kind = DIATOM_MSG_CHEEVOS;
 	else if (!strcmp(field, "SETCHEEVOS")) out->kind = DIATOM_MSG_SETCHEEVOS;
 	else if (!strcmp(field, "AUDIO"))      out->kind = DIATOM_MSG_AUDIO;
@@ -278,6 +279,8 @@ static void parse_line(char *line, diatom_msg *out)
 			snprintf(out->pace, sizeof out->pace, "%s", v);
 		else if (!strcmp(field, "sgb"))
 			snprintf(out->sgb, sizeof out->sgb, "%s", v);
+		else if (!strcmp(field, "blur"))
+			snprintf(out->blur, sizeof out->blur, "%s", v);
 		else if (!strcmp(field, "rumble"))
 			out->rumble = (int)strtol(v, NULL, 10);
 		else if (!strcmp(field, "controller"))

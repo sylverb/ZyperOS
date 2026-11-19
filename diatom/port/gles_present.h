@@ -43,7 +43,7 @@ static bool capture_front(int front, const char *path)
 	glViewport(0, 0, g_surface_w, g_surface_h);
 
 	upload_frame(&g_frames[front]);
-	draw_scene(&g_frames[front], false, false, 0, 0, 0, 0, 0, 0, false,
+	draw_scene(&g_frames[front], false, false, false, 0, 0, 0, 0, 0, 0, false,
 	           false, false, NULL, NULL, NULL, false);
 	glReadPixels(0, 0, g_surface_w, g_surface_h, GL_RGBA, GL_UNSIGNED_BYTE, rgba);
 
@@ -80,7 +80,7 @@ static void *present_thread(void *arg)
 
 	while (!g_thread_stop) {
 		int frame;
-		bool ov_live, osd_live, lowbat, hud_live, hud_repaint;
+		bool ov_live, osd_live, lowbat, hud_live, hud_repaint, bd_live;
 		int osd_kind, osd_level, osd_max, osd_theme;
 		float osd_alpha = 0, osd_rise = 0;
 		uint64_t now, t0 = 0;
@@ -130,6 +130,18 @@ static void *present_thread(void *arg)
 		 * diatom_port_overlay takes, so the borrowed pointer is never read
 		 * after the host has moved on. */
 		now = diatom_port_now_us();
+		/* The Border, uploaded here when it moved, on this thread, whose
+		 * context the texture is */
+		bd_live = g_bd_on;
+		if (bd_live && g_bd_dirty) {
+			glBindTexture(GL_TEXTURE_2D, g_border_tex);
+			glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, g_bd_w, g_bd_h, 0,
+			             GL_RGBA, GL_UNSIGNED_BYTE, g_bd);
+			g_bd_tex_w = g_bd_w;
+			g_bd_tex_h = g_bd_h;
+			g_bd_dirty = false;
+		}
 		ov_live = g_ov && now < g_ov_until;
 		if (ov_live && g_ov_dirty) {
 			glBindTexture(GL_TEXTURE_2D, g_overlay_tex);
@@ -188,7 +200,7 @@ static void *present_thread(void *arg)
 		}
 		PRESENT_TARGET();
 		upload_frame(&g_frames[frame]);
-		draw_scene(&g_frames[frame], ov_live, osd_live, osd_kind, osd_level,
+		draw_scene(&g_frames[frame], bd_live, ov_live, osd_live, osd_kind, osd_level,
 		           osd_max, osd_theme, osd_alpha, osd_rise, lowbat,
 		           hud_live, hud_repaint, hud_text_now, &hud_st, &hud_colors, g_turned);
 		/* The core may draw into this texture again once the GPU has read
@@ -350,6 +362,33 @@ void PORT_FN(present)(const void *src, int w, int h, size_t pitch,
 static float ov_scale(void)
 {
 	return g_surface_w > 0 && g_surface_w < 1024 ? (float)g_surface_w / 1024.0f : 1.0f;
+}
+
+void PORT_FN(border)(const uint8_t *bgra, int w, int h)
+{
+	uint8_t *copy = NULL;
+
+	/* Copied outside the lock: the present thread waits on it */
+	if (bgra && w > 0 && h > 0) {
+		copy = malloc((size_t)w * (size_t)h * 4);
+		if (copy) memcpy(copy, bgra, (size_t)w * (size_t)h * 4);
+	}
+	pthread_mutex_lock(&g_mx);
+	if (copy && g_bd && g_bd_w == w && g_bd_h == h) {
+		/* The same size again (the blur, ten times a second): into the
+		 * buffer that is there, and the copy let go */
+		memcpy(g_bd, copy, (size_t)w * (size_t)h * 4);
+	} else {
+		free(g_bd);
+		g_bd = copy;
+		copy = NULL;
+		g_bd_w = g_bd ? w : 0;
+		g_bd_h = g_bd ? h : 0;
+	}
+	g_bd_on = g_bd != NULL;
+	g_bd_dirty = g_bd_on;
+	pthread_mutex_unlock(&g_mx);
+	free(copy);
 }
 
 void PORT_FN(overlay)(const uint8_t *bgra, int w, int h, unsigned ms)

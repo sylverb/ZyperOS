@@ -609,7 +609,7 @@ static void quad_scale(diatom_filter filter, GLuint prog, float dw, float dh,
 }
 
 /* Draw one frame and whatever is over it, onto the current target. */
-static void draw_scene(const mailbox_frame *f, bool overlay_live, bool osd_live,
+static void draw_scene(const mailbox_frame *f, bool border, bool overlay_live, bool osd_live,
                        int osd_kind, int osd_level, int osd_max, int osd_theme,
                        float osd_alpha, float osd_rise, bool lowbat,
                        bool hud_live, bool hud_repaint, const char *hud_text_now,
@@ -627,6 +627,18 @@ static void draw_scene(const mailbox_frame *f, bool overlay_live, bool osd_live,
 
 	glClearColor(0, 0, 0, 1);
 	glClear(GL_COLOR_BUFFER_BIT);
+	/* The Border (diatom_port_border), stretched over the whole surface
+	 * under the game: its texture uploaded once, so this is a quad drawn
+	 * where the clear was. Opaque, its alpha swizzled to 1, and no blending
+	 * is on yet. */
+	if (border && g_bd_tex_w > 0 && g_bd_tex_h > 0) {
+		glBindTexture(GL_TEXTURE_2D, g_border_tex);
+		glUseProgram(g_prog_plain);
+		glUniform1i(uloc(g_prog_plain, "u_tex"), 0);
+		glUniform2f(uloc(g_prog_plain, "u_size"), (float)g_bd_tex_w, (float)g_bd_tex_h);
+		draw_quad(0.0f, 0.0f, (float)g_surface_w, (float)g_surface_h,
+		          (float)g_bd_tex_w, (float)g_bd_tex_h, turned);
+	}
 
 	glBindTexture(GL_TEXTURE_2D, f->gpu ? f->gpu_tex : g_frame_tex);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
