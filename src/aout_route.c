@@ -5,6 +5,7 @@
 #include "bgm.h"
 #include "btvol.h"
 #include "db.h"
+#include "eq.h"
 #include "musec.h"
 #include "platform.h"
 #include "uisound.h"
@@ -84,6 +85,60 @@ static void channels_tell(const aout_state *s, const char *diatom_dev,
 		aout_channels_for(g_channels, aout_dest_of(s, diatom_dev), plat_speaker_mono())));
 	musec_channels(aout_channels_wire(
 		aout_channels_for(g_channels, aout_dest_of(s, muse_dev), plat_speaker_mono())));
+}
+
+/* ---- the equalizer's bands, to whatever makes the sound (src/eq.h) ----- */
+
+/* Each output's bands as the settings have them, read once a change: the
+ * menus route every frame, and this must not ask the database each time */
+static int8_t g_eq_bands[EQ_OUTS][EQ_BANDS];
+static bool   g_eq_known;
+/* The list on the Equalizer page heard before it is chosen: the output in
+ * use gets the preset under the cursor (eq_route_preview) */
+static bool   g_eq_previewing;
+static eq_out g_eq_preview_out;
+static int8_t g_eq_preview[EQ_BANDS];
+/* The page is open: MP4 keeps little queued, so a step is heard at once */
+static bool   g_eq_live;
+
+void eq_route_changed(void) { g_eq_known = false; }
+
+void eq_route_preview(eq_out o, const int8_t *db)
+{
+	g_eq_previewing = db != NULL;
+	g_eq_preview_out = o;
+	if (db) memcpy(g_eq_preview, db, EQ_BANDS);
+}
+
+void eq_route_live(bool on) { g_eq_live = on; }
+
+static void eq_bands_for(aout_dest d, int8_t db[EQ_BANDS])
+{
+	const eq_out o = eq_out_of(d);
+	int k;
+
+	if (!g_eq_known) {
+		for (k = 0; k < EQ_OUTS; k++) eq_bands((eq_out)k, g_eq_bands[k]);
+		g_eq_known = true;
+	}
+	if (g_eq_previewing && o == g_eq_preview_out) memcpy(db, g_eq_preview, EQ_BANDS);
+	else                                          memcpy(db, g_eq_bands[o], EQ_BANDS);
+}
+
+/* Diatom and Muse by the device each was just given, as their channels are;
+ * the menu music, and a port's plugin through the shared file, by where the
+ * system's sound goes. Each sends only on a change. */
+static void eq_tell(const aout_state *s, const char *diatom_dev, const char *muse_dev)
+{
+	int8_t db[EQ_BANDS];
+
+	eq_bands_for(aout_dest_of(s, diatom_dev), db);
+	plat_resident_eq(db);
+	eq_bands_for(aout_dest_of(s, muse_dev), db);
+	musec_eq(db, g_eq_live);
+	eq_bands_for(aout_resolve(s), db);
+	bgm_eq(db);
+	eq_share_write(db);
 }
 
 /* The connected sink, published by bt_reconnect in launch.sh.
@@ -373,6 +428,7 @@ void aout_apply(bool force)
 		aout_tell_diatom(&s, out, force, false);
 		musec_sink(out);
 		channels_tell(&s, out, out);
+		eq_tell(&s, out, out);
 		bt_volume_follow("", false);
 		return;
 	}
@@ -388,6 +444,7 @@ void aout_apply(bool force)
 	aout_tell_diatom(&s, muse ? "" : out, force || (fresh && !muse), muse);
 	if (muse) musec_sink(out);
 	channels_tell(&s, muse ? "" : out, muse ? out : "");
+	eq_tell(&s, muse ? "" : out, muse ? out : "");
 	bt_volume_follow(out, fresh);
 }
 
