@@ -99,8 +99,10 @@ assertion, QEMU 11.1.3 too), and so does everything after it. On one card,
 | a key held in MENU's menu | 75 frames a second | 3 |
 | QEMU's share of the Mac | under one core | 3.7 cores |
 
-So keep `--uboot` for the slots. The rest of this page is the same either
-way, but for a charger's start (below).
+So keep `--uboot` for the slots: a test of System Update's A/B switch in
+QEMU needs it, or `ZYPEROS_QEMU_UBOOT=1` for a script that starts the VM;
+without it the VM always runs slot A. The rest of this page is the same
+either way, but for a charger's start (below).
 
 `--window` shows QEMU's own window, where the keyboard is the Pixel 2's
 buttons (below); `--sound` plays the VM's sound on the Mac. Headless, the
