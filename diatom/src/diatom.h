@@ -67,6 +67,11 @@ typedef struct {
 	 * wants a file (need_fullpath), so the game's stop can remove it; empty
 	 * when there is none. See unstage in core.c. */
 	char          staged[600];
+	/* Whether this core's file is one ZyperOS shipped, or one somebody added
+	 * or put another build in the place of (core.c, core_is_shipped). Said
+	 * once, when the core is opened. A core that is not shipped is closed
+	 * after each game. */
+	bool          shipped;
 
 	void   (*set_environment)(retro_environment_t);
 	void   (*set_video_refresh)(retro_video_refresh_t);
