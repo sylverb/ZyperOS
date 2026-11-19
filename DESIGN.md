@@ -1783,7 +1783,8 @@ each in its own theme. The second layout, the clock beside the marks at the
 right, which Now Playing, a video's controls and MP4's shelf drew, is gone. MP4's shelf puts its album's title in the
 row between the clock and the marks, 24 clear of each, sliding when it is
 longer, and a video with its controls puts its title there in **action**
-**text**, centered. A background track
+**text**, centered, or sliding when it is longer, as a long name slides
+everywhere (2026-11-18: it was cut). A background track
 occupies only the space between the logo and the measured status corner. Its
 music mark, two eighth notes on one beam (heads of radius 3.5, stems and
 beam 2.5-unit strokes) in a 24-unit cell, uses **accent-ink**; paused
@@ -1968,9 +1969,17 @@ Muse, so a card's saved places and modes still read.
   key, which also does what it does (the first press too, as a remote's
   would), stay for **hold-controls** after the last press and for as long
   as it is paused, in over **quick** and out over **fade-out**; Y shows
-  them, or hides them at once. Paused or stopped, a play disc
+  them, or hides them at once. The header goes and comes with them, at the
+  same pace, and the ground around the picture eases with them from
+  **ground** to pure black (#000): hidden, there is the picture and black,
+  as a TV's player has it (2026-11-18: "when the footer times out and
+  disappears while video is playing, the top bar should too, and the
+  background should go pitch black"). The title in the header's row slides
+  when it is wider than its room, from its start each time the header comes
+  back, and is drawn as it moves, paused too. Paused or stopped, a play disc
   (`ds_play_disc`) stands in the picture's middle. Under the lock the
-  controls stay hidden: no key they name works there.
+  controls stay hidden, and with them the header, the picture on black: no
+  key they name works there.
   The keys are hints as the shelves draw them (`page_hint`: a glyph and a word,
   **chrome** type, **text-soft**), from x 64 to 960 with the room shared out, and
   on a second row above where a language's words need it, never cut: A, B,

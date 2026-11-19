@@ -664,6 +664,15 @@ static void np_next_name(char *next, size_t n)
  *                 paused, fading in over quick and out over fade-out; every
  *                 key also does what it does, the first one too. Y shows
  *                 them, or hides them at once
+ *   the header    goes and comes with the controls, at the same pace, and
+ *                 the ground around the picture goes to pure black with it
+ *                 (2026-11-18: "when the footer times out and disappears
+ *                 while video is playing, the top bar should too, and the
+ *                 background should go pitch black"): hidden, there is
+ *                 the picture and black, as a TV's player has it. A title
+ *                 wider than the header's row slides there, as a long name
+ *                 does everywhere (ui_text_marquee), from its start each
+ *                 time the header comes back
  *   paused        a play disc in the picture's middle (ds_play_disc), the
  *                 bar's fill faded
  *
@@ -780,24 +789,52 @@ static void np_player_layout(np_player *L, const key_hint *h, int n, const char 
 	L->keys_cy = ds_flex_rect(&F, keys).y + ds_flex_rect(&F, keys).h - DS_HINT_GLYPH / 2;
 }
 
-/* One frame of the video, the controls at `k` (0 hidden, 1 shown). The run
- * loop keeps them up while paused; the lock draws them hidden, since no key
- * they name does anything while it is locked. */
-void np_draw_video(app *a, const mu_now *mn, float k)
+/* The video's title in the header's row, between the clock and the marks, in
+ * the clock's face: centered when it fits, else sliding in that room on
+ * Now Playing's clock (MQ_NP, which the music view keeps and a video does
+ * not share a frame with). How long until it moves by itself: 0 while it
+ * slides, the rest of a hold at one end, never for one that fits. */
+static unsigned np_video_title(SDL_Renderer *r, const char *title, int index)
+{
+	TTF_Font *fh = page_font(PAGE_ACTION);
+	int half = header_half(), room = 2 * half, tw = ui_text_width(fh, title);
+	int y = ui_cap_y(fh, TOPBAR_MID);
+	unsigned phase;
+
+	if (tw <= room) {
+		ui_text(r, fh, title, ZYPEROS_SCREEN_W / 2, y, 0, UI_TEXT);
+		return (unsigned)-1;
+	}
+	phase = mq_phase(MQ_NP, index, (int)strlen(title));
+	ui_text_marquee(r, fh, title, ZYPEROS_SCREEN_W / 2 - half, y, room, phase, UI_TEXT);
+	return ui_pingpong_wait(tw - room, phase);
+}
+
+/* One frame of the video, the controls and the header at `k` (0 hidden, 1
+ * shown), the ground around the picture the theme's at 1 and black at 0. The
+ * run loop keeps them up while paused; the lock draws them hidden, since no
+ * key they name does anything while it is locked. When the frame changes by
+ * itself, the title's slide: 0 while it moves. */
+unsigned np_draw_video(app *a, const mu_now *mn, float k)
 {
 	SDL_Renderer *r = a->r;
 	SDL_Texture *tex = mp4v_texture();
-	TTF_Font *fs = ui_font(UI_F_META), *fh = page_font(PAGE_ACTION);
+	TTF_Font *fs = ui_font(UI_F_META);
 	ds_rgb g = theme()->ground;
-	SDL_Color soft = UI_TEXT_SOFT;
+	SDL_Color soft = UI_TEXT_SOFT, bg;
 	key_hint h[KEYHINTS_MAX];
-	char t0[16], t1[24], left[16], fit[200];
+	char t0[16], t1[24], left[16];
 	np_player L;
 	SDL_Rect pic;
+	unsigned wait = (unsigned)-1;
 	int n;
 	Uint8 al;
 
-	al = (Uint8)(255 * (k < 0 ? 0 : k > 1 ? 1 : k) + 0.5f);
+	k = k < 0 ? 0 : k > 1 ? 1 : k;
+	al = (Uint8)(255 * k + 0.5f);
+	/* The ground: the theme's with the controls, and pure black without, the
+	 * one eased to the other as they come and go (2026-11-18) */
+	bg = (SDL_Color){ (Uint8)(g.r * k + 0.5f), (Uint8)(g.g * k + 0.5f), (Uint8)(g.b * k + 0.5f), 255 };
 	n = np_hint_list(h, mn->state == MU_PLAYING, 0, mn->count, true);
 	mmss(t0, sizeof t0, mn->at);
 	t1[0] = 0;
@@ -808,31 +845,39 @@ void np_draw_video(app *a, const mu_now *mn, float k)
 	np_player_layout(&L, h, n, t0, t1);
 
 	pic = mp4v_fit(L.pic);
-	plat_video_under(tex, &pic, (SDL_Color){ g.r, g.g, g.b, 255 });
+	plat_video_under(tex, &pic, bg);
 	ui_fit_frame();   /* the picture covers what was drawn (the host's fit check) */
 	SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
 	/* Before the first picture: its box, empty, so nothing jumps. */
 	if (!tex) ui_round_rect(r, &L.pic, 0, (SDL_Color){ 0, 0, 0, 255 });
 
 	/* The home's header, as on every MP4 screen (2026-11-09): the clock at
-	 * the left, the marks at the right, and the title between them in the
-	 * clock's face, centered */
-	draw_topbar(r, theme_index(), UI_TEXT_SOFT, true);
-	ui_fit_text(fh, mn->title, fit, sizeof fit, 2 * header_half());
-	ui_text(r, fh, fit, ZYPEROS_SCREEN_W / 2, ui_cap_y(fh, TOPBAR_MID), 0, UI_TEXT);
+	 * the left, the marks at the right, and the title between them. It goes
+	 * with the controls: above the picture's box there is only the ground,
+	 * so the ground laid over it at what is gone of `k` fades all of it as
+	 * one, on every device (over the Pixel 2's clear screen too: the blend
+	 * is the same there, premultiplied), and hidden it is not drawn. */
+	if (al > 0) {
+		draw_topbar(r, theme_index(), UI_TEXT_SOFT, true);
+		wait = np_video_title(r, mn->title, mn->index);
+		if (al < 255)
+			ui_round_rect(r, &(SDL_Rect){ 0, 0, ZYPEROS_SCREEN_W, L.pic.y }, 0,
+			              (SDL_Color){ bg.r, bg.g, bg.b, (Uint8)(255 - al) });
+	}
 
 	if (mn->state != MU_PLAYING) {
 		int d = 120;
 
 		ds_play_disc(r, pic.x + (pic.w - d) / 2, pic.y + (pic.h - d) / 2, d, 255);
 	}
-	if (al == 0) return;
+	if (al == 0) return wait;
 	ui_round_rect(r, &L.band, 0, ui_col(theme()->surface, (Uint8)(al * 0.92f)));
 	soft.a = al;
 	np_video_bar(r, mn, L.bar.x, L.bar.y, L.bar.w, al);
 	ui_text_tabular(r, fs, t0, L.t0.x, ui_cap_y(fs, L.t0.y + L.t0.h / 2), -1, soft);
 	if (t1[0]) ui_text_tabular(r, fs, t1, L.t1.x + L.t1.w, ui_cap_y(fs, L.t1.y + L.t1.h / 2), 1, soft);
 	keyhints_draw(r, h, n, NPV_X, ZYPEROS_SCREEN_W - NPV_X, L.keys_cy, KEYHINTS_SPREAD, true, al);
+	return wait;
 }
 
 /* MUSE_CLOSE for SELECT and the power button, which leave Muse altogether;
@@ -937,8 +982,11 @@ static muse_exit muse_now_screen_run(app *a)
 			if (fresh || touched || ctl != ctl_drawn || drawn.at != (int)(mn->at + 0.5) ||
 			    drawn.st != mn->state || !drawn.video || (int)(now - due) >= 0) {
 				Uint32 osd;
+				unsigned wait;
 
-				np_draw_video(a, mn, ctl);
+				/* The header coming back: its title reads from the start */
+				if (ctl > 0 && ctl_drawn == 0) mq_reset(MQ_NP);
+				wait = np_draw_video(a, mn, ctl);
 				plat_draw_osd(a->r);
 				osd = plat_osd_until();
 				plat_present();
@@ -947,7 +995,9 @@ static muse_exit muse_now_screen_run(app *a)
 				drawn.video = true;
 				drawn.at = (int)(mn->at + 0.5);
 				drawn.st = mn->state;
-				due = now + 1000;
+				/* A sliding title is drawn as it moves, paused too, when no
+				 * new picture would; its holds are slept through */
+				due = now + (wait < 1000 ? wait : 1000);
 				if (osd != UINT32_MAX && (int)(osd - due) < 0) due = osd;
 			}
 			/* A frame is due every 33 to 42 ms; looking every 4 catches it

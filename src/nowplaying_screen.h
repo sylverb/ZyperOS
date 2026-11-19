@@ -39,8 +39,9 @@ void muse_locked(app *a);
 /* MP4's menu, from Now Playing and the shelf */
 muse_exit muse_menu(app *a);
 
-/* A frame of the video player, its controls at k (0 hidden, 1 shown) */
-void np_draw_video(app *a, const mu_now *mn, float k);
+/* A frame of the video player, its controls and the header at k (0 hidden,
+ * 1 shown); when it next wants a frame by itself (0 while the title slides) */
+unsigned np_draw_video(app *a, const mu_now *mn, float k);
 /* Now Playing, opened from the shelf or a list */
 muse_exit muse_now_screen(app *a);
 
