@@ -139,6 +139,7 @@ window.ZYPER_TOKENS = {
     "tab-move-name": 96,
     "tab-move-in": 64,
     "ctl-side": 280,
+    "sc-side": 192,
     "ctl-device-x": 99,
     "ctl-device-y": 458,
     "hud-band": 152,
@@ -302,6 +303,10 @@ window.ZYPER_TOKENS = {
     },
     "hold-unlock": {
       "ms": 2000,
+      "curve": "-"
+    },
+    "hold-power": {
+      "ms": 1000,
       "curve": "-"
     },
     "hold-lock-lit": {

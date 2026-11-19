@@ -4,12 +4,16 @@
 BUILD := build
 # Every device shares src/*.c; DEVICE picks the one device file built with it.
 DEVICE ?= brick
+# The string tables are generated, not committed (Makefile, I18N_SRC), so
+# they are named on their own: the wildcard is read before they exist. Their
+# rule is below the first target.
+I18N_TABLES := src/i18n_tables.c
 # The device's build (config/device/<id>.mk, from src/device/<id>_build.c):
 # the baseline its code is built for, and the helpers its payload carries
 include config/device/$(DEVICE).mk
 MCPU := -mcpu=$(ZYDEV_MCPU)
 # and its profile (src/device/profile.h), the one the build is for
-SRC := $(wildcard src/*.c) $(wildcard src/ds/*.c) src/device/$(DEVICE).c src/device/$(DEVICE)_profile.c \
+SRC := $(I18N_TABLES) $(filter-out $(I18N_TABLES),$(wildcard src/*.c)) $(wildcard src/ds/*.c) src/device/$(DEVICE).c src/device/$(DEVICE)_profile.c \
        $(wildcard src/device/$(DEVICE)_hw.c) \
        src/device/td_model.c $(wildcard src/device/$(DEVICE)_model.c) \
        src/device/pixel2_coreopts.c
@@ -60,11 +64,52 @@ creds:
 	@cmp -s $(CREDS).new $(CREDS) 2>/dev/null || mv -f $(CREDS).new $(CREDS)
 	@rm -f $(CREDS).new
 
-# The device file's own headers too: src/device/pixel2_levels.h is the volume
-# and backlight ladders, which portkeys shares.
-$(BUILD)/zyperos.elf: $(SRC) $(CREDS) $(wildcard src/*.h) $(wildcard src/ds/*.h) $(wildcard src/device/*.h)
-	mkdir -p $(BUILD)
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(SRC) $(LDLIBS)
+# tools/i18n.py writes the string tables whenever res/strings or the script
+# is newer, so a tree fresh from git builds (Makefile, I18N_SRC)
+$(I18N_TABLES): $(wildcard res/strings/*.txt) tools/i18n.py
+	@python3 tools/i18n.py
+# It writes src/i18n_ids.h as well (committed, and rewritten only when the
+# strings' IDs change). Named here as made with the tables, so make looks at
+# its time again after the script ran: an object that includes it is
+# compared with the new IDs, not with the time make saw before.
+src/i18n_ids.h: $(I18N_TABLES) ;
+
+# The launcher: one object a source file, under $(BUILD)/obj, so a change to
+# one file compiles that file alone and make -j compiles the rest at once.
+# Then one link, the objects in SRC's order and with the flags the single
+# command had (CFLAGS too, which the compiler driver can pass on to the
+# linker), so the program is the same bytes as when SRC was compiled and
+# linked in one command. Each object's headers are the ones its compile read (-MMD, its .d
+# file beside it; -MP so a header taken away does not stop the build).
+OBJ := $(BUILD)/obj
+OBJS := $(patsubst src/%.c,$(OBJ)/%.o,$(SRC))
+
+# The compile line itself (VERSION, CC, SYSROOT and the device's -mcpu among
+# it), so a build with another one compiles every object again. Written every
+# build and moved into place only when it changed, as the creds header is.
+$(OBJ)/flags: FORCE
+	@mkdir -p $(@D)
+	@printf '%s\n' '$(subst ','\'',$(CC) $(CFLAGS))' > $@.new; \
+	 cmp -s $@.new $@ 2>/dev/null || mv -f $@.new $@; rm -f $@.new
+
+# The string tables and the ScreenScraper header before any compile,
+# order-only (their times alone rebuild nothing): the first build has no .d
+# file to say which object includes them. And src/i18n_ids.h, by that name,
+# a prerequisite of every object: an object can reach it as
+# src/ds/../i18n_ids.h, which make takes for another file, looked at before
+# the script ran, so new IDs would leave that object stale until the next
+# build. Half the objects read it, and new IDs are rare.
+$(OBJ)/%.o: src/%.c $(OBJ)/flags src/i18n_ids.h | $(I18N_TABLES) $(CREDS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -MMD -MP -c -o $@ $<
+
+$(BUILD)/zyperos.elf: $(OBJS)
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(OBJS) $(LDLIBS)
+
+-include $(OBJS:.o=.d)
+
+.PHONY: FORCE
+FORCE:
 
 # Muse, the engine of MP4 (the media player, once the audio player Muse): a
 # second binary, not part of zyperos.elf - SRC above is src/*.c, which does not

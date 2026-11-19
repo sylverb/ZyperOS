@@ -661,8 +661,7 @@ void launch(app *a)
 		char map[320];
 		bool stick_on = rms_stick_get(s, romfile);
 
-		cfg_run_keys(s, g_game_dual, dsslow_frameskip(dsslow_load()), pacing_id(pacing_load(s)),
-		             keys, (int)sizeof keys);
+		cfg_run_keys(s, g_game_dual, pacing_id(pacing_load(s)), keys, (int)sizeof keys);
 		/* The d-pad as the stick, a game's own (rms_stick_get): the PSP's
 		 * stick=toggle-stick when it was left on the stick */
 		rms_run_stick(s, stick_on, stick, sizeof stick);
@@ -879,6 +878,7 @@ void launch(app *a)
 			/* What px2-open's status says from here to the wait's end */
 			memset(&g_ctl_game, 0, sizeof g_ctl_game);
 			g_ctl_game.on = true;
+			screen_shader_apply();   /* the screens' shader off over the game */
 			snprintf(g_ctl_game.tag, sizeof g_ctl_game.tag, "%s", s->tag);
 			snprintf(g_ctl_game.name, sizeof g_ctl_game.name, "%s", s->name);
 			snprintf(g_ctl_game.core, sizeof g_ctl_game.core, "%s", s->core);
@@ -989,6 +989,7 @@ void launch(app *a)
 				break;
 			}
 			g_ctl_game.on = false;
+			screen_shader_apply();
 			resident = (r == RES_EXIT);
 			/* The game is over, and however it ended it ended here: Quit,
 			 * a crash (EXIT reason=crash) or Diatom gone (RES_DEAD), POWER,
@@ -1118,8 +1119,7 @@ void launch(app *a)
 
 			screens_get(s->tag, &lay, &sw);
 			argv[n++] = (char *)"--screens";   argv[n++] = (char *)"2";
-			argv[n++] = (char *)"--frameskip";
-			argv[n++] = (char *)dsslow_frameskip(dsslow_load());
+			argv[n++] = (char *)"--frameskip"; argv[n++] = (char *)"late";
 			argv[n++] = (char *)"--layout";    argv[n++] = (char *)gm_layout_names[lay];
 			if (sw) argv[n++] = (char *)"--swap";
 		}
@@ -1152,6 +1152,7 @@ void launch(app *a)
 		memset(&g_ctl_game, 0, sizeof g_ctl_game);
 		g_ctl_game.on = true;
 		g_ctl_game.fallback = true;
+		screen_shader_apply();
 		snprintf(g_ctl_game.tag, sizeof g_ctl_game.tag, "%s", s->tag);
 		snprintf(g_ctl_game.name, sizeof g_ctl_game.name, "%s", s->name);
 		snprintf(g_ctl_game.core, sizeof g_ctl_game.core, "%s", s->core);
@@ -1161,6 +1162,7 @@ void launch(app *a)
 		fprintf(stderr, "diatom exited %d\n", plat_run(argv, NULL, P_ROOT));
 		plat_run_on_tick(NULL);
 		g_ctl_game.on = false;
+		screen_shader_apply();
 
 		if (!plat_video_init() || !plat_input_init()) { a->running = false; return; }
 		a->r = plat_renderer();

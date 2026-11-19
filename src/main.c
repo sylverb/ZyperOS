@@ -45,6 +45,7 @@
 #include "sort.h"
 #include "coverflow.h"
 #include "library.h"
+#include "nightkeep.h"
 #include "platform.h"
 #include "texload.h"
 #include "tween.h"
@@ -139,7 +140,6 @@
 #include "portinfo.h"
 #include "dsv.h"
 #include "dslang.h"
-#include "dsslow.h"
 #include "corestate.h"
 #include "dsresume.h"
 #include "ui.h"
@@ -303,7 +303,10 @@ const ds_rgb DIATOM_PAGE = { 0, 0, 0 };
 
 /* ---------- per-system display mode --------------------------------------- */
 
-/* MENU's shader, every system's that has not chosen its own (SHADERS) */
+/* Every system's shader that has not chosen its own (SHADERS): the `shader`
+ * key, which MENU's Shader row set for every system up to 1.0.6. That row
+ * is the screens' own now (below) and nothing sets this; a system with no
+ * choice of its own still plays with it, so a game looks as it did. */
 int g_shader_all;
 
 /* A shader by Diatom's name for it (SHADERS), or -1 */
@@ -316,22 +319,23 @@ static int shader_index(const char *name)
 	return -1;
 }
 
-/* Whether this device offers shader k: the old screens only where Diatom
- * draws them with a GPU (plat_gpu_shaders) */
-static bool shader_offered(int k)
+/* Whether this device offers shader k to the system tagged `tag`: the old
+ * screens only where Diatom draws them with a GPU (plat_gpu_shaders), and a
+ * shader for some systems only to them (shader_for) */
+static bool shader_offered(int k, const char *tag)
 {
-	return k >= 0 && k < SHADER_COUNT && (!SHADERS[k].gpu || plat_gpu_shaders());
+	return shader_for(k, tag) && (!SHADERS[k].gpu || plat_gpu_shaders());
 }
 
-/* The shader a step `d` comes to from k, round the ones this device offers:
- * each Shader row steps with it */
-int shader_step(int k, int d)
+/* The shader a step `d` comes to from k, round the ones this device offers
+ * the system tagged `tag`: each Shader row steps with it */
+int shader_step(int k, int d, const char *tag)
 {
 	int i;
 
 	for (i = 0; i < SHADER_COUNT; i++) {
 		k = (k + d + SHADER_COUNT) % SHADER_COUNT;
-		if (shader_offered(k)) break;
+		if (shader_offered(k, tag)) break;
 	}
 	return k;
 }
@@ -339,8 +343,9 @@ int shader_step(int k, int d)
 /* Keyed on the system's tag rather than its folder or its place in the list,
  * for the same reason saves are: renaming a ROM folder or reordering
  * systems.cfg then cannot quietly hand a system somebody else's setting.
- * The shaders too, each system's: its own shader.<TAG>, else MENU's
- * `shader`, else Off; and their strength the same way (src/strength.h). */
+ * The shaders too, each system's: its own shader.<TAG>, else the old
+ * `shader` for every system, else Off; and their strength the same way
+ * (src/strength.h). The screens' own shader with them (screen_shader_load). */
 void display_load(app *a)
 {
 	char key[CFG_STR + 16], name[CFG_STR];
@@ -350,9 +355,16 @@ void display_load(app *a)
 	if (db_get_str(db_dev(), "shader", name, sizeof name, NULL) && (k = shader_index(name)) >= 0)
 		g_shader_all = k;
 	for (i = 0; i < a->sys.count; i++) {
-		snprintf(key, sizeof key, "shader.%s", a->sys.systems[i].tag);
-		a->view[i].shader = g_shader_all;
-		if (db_get_str(db_dev(), key, name, sizeof name, NULL) && (k = shader_index(name)) >= 0)
+		const char *tag = a->sys.systems[i].tag;
+
+		snprintf(key, sizeof key, "shader.%s", tag);
+		/* A shader for some systems only (shader_for) that names another,
+		 * by the old every-system key or its own on an edited card, is that
+		 * system's default instead: the old key's if that is for it, else
+		 * Off */
+		a->view[i].shader = shader_for(g_shader_all, tag) ? g_shader_all : 0;
+		if (db_get_str(db_dev(), key, name, sizeof name, NULL) && (k = shader_index(name)) >= 0 &&
+		    shader_for(k, tag))
 			a->view[i].shader = k;
 		a->view[i].strength = strength_read(db_dev(), a->sys.systems[i].tag);
 		snprintf(key, sizeof key, "display.%s", a->sys.systems[i].tag);
@@ -360,6 +372,7 @@ void display_load(app *a)
 		for (k = 0; k < DMODE_COUNT; k++)
 			if (!strcmp(DMODES[k].name, name)) { a->view[i].dmode = k; break; }
 	}
+	screen_shader_load();
 }
 
 /* One row per visible system, and nothing else touched.
@@ -397,68 +410,90 @@ void shader_save(app *a, int sys)
 	db_set_str(db_dev(), key, SHADERS[a->view[sys].shader].name);
 }
 
-/* Every key a system's own shader is kept under, gathered before any goes:
- * a walk is not the place to delete what it walks */
-typedef struct { char key[CFG_MAX_SYSTEMS * 2][CFG_STR + 16]; int n; } shader_keys;
+/* ---------- the screens' shader --------------------------------------------- */
 
-static bool shader_key_note(const char *key, const char *value, void *ctx)
+/* MENU > Display > Shader from the home (src/screenfx.h, DESIGN.md 11.50):
+ * ZyperOS's own screens' shader while no game is up, a SHADERS index, Off
+ * to start with, and its strength, 100% to start with. Keys of their own,
+ * launcher_shader and launcher_strength, so no system's shader moves: not
+ * under "shader." nor "shader_strength.", which are the systems'. */
+int g_screen_shader;
+int g_screen_strength = STRENGTH_MAX;
+/* What a list's cursor shows in their place (src/ds/hover.h): -1, none */
+int g_screen_shown = -1, g_screen_shown_strength = -1;
+
+/* The screens' choices: Off and the old screens this device draws.
+ * Sharp-Shimmerless sizes a game's pixels evenly, and these screens are
+ * drawn at the panel's own: it would change nothing, so it is not offered. */
+bool screen_shader_offered(int k)
 {
-	shader_keys *k = ctx;
-
-	(void)value;
-	if (k->n >= (int)(sizeof k->key / sizeof k->key[0])) return false;
-	snprintf(k->key[k->n++], sizeof k->key[0], "%s", key);
-	return true;
+	return k == 0 || (k > 0 && k < SHADER_COUNT && SHADERS[k].gpu && plat_gpu_shaders() &&
+	                  shader_for(k, NULL));
 }
 
-/* MENU's row: shader `k` for every system, those whose games are off the card
- * now too, so each system's own choice goes and the next game of any of them
- * plays with it. */
-void shader_set_all(app *a, int k)
-{
-	static shader_keys keys;
-	int i;
-
-	g_shader_all = k;
-	db_set_str(db_dev(), "shader", SHADERS[k].name);
-	keys.n = 0;
-	db_each_prefix(db_dev(), "shader.", shader_key_note, &keys);
-	for (i = 0; i < keys.n; i++) db_del(db_dev(), keys.key[i]);
-	for (i = 0; i < a->sys.count; i++) a->view[i].shader = k;
-}
-
-/* What MENU's row says: the shader every system has, or "per system" when one
- * of them chose another in its own menu or in a game */
-const char *shader_all_label(const app *a)
+/* The screens' row's step, as shader_step is the systems' */
+int screen_shader_step(int k, int d)
 {
 	int i;
 
-	for (i = 0; i < a->sys.count; i++)
-		if (a->view[i].shader != g_shader_all) return T(S_GAMEMENU_SHADER_MIXED);
-	return shader_label(g_shader_all);
+	for (i = 0; i < SHADER_COUNT; i++) {
+		k = (k + d + SHADER_COUNT) % SHADER_COUNT;
+		if (screen_shader_offered(k)) break;
+	}
+	return k;
 }
 
-/* The Strength rows (src/strength.h). MENU has one while any system draws an
- * old screen; a system's menu and the in-game menu while that system does. */
-bool strength_all_shown(const app *a)
+/* The device told what to draw: the shown one over the kept one, and Off
+ * while a game is up (from RUN to its end, its in-game menu and what that
+ * opens with it, and a port's menu): what is drawn then is over the game,
+ * whose own shader is its frame's */
+void screen_shader_apply(void)
 {
-	int i;
+	int k = g_screen_shown >= 0 ? g_screen_shown : g_screen_shader;
+	int s = g_screen_shown_strength >= 0 ? g_screen_shown_strength : g_screen_strength;
 
-	for (i = 0; i < a->sys.count; i++)
-		if (shader_has_strength(a->view[i].shader)) return true;
-	return false;
+	if (g_ctl_game.on || g_port_menu || !screen_shader_offered(k)) k = 0;
+	plat_screen_shader(SHADERS[k].name, s);
 }
 
-/* MENU's row's value: every system's strength, or "per system" when one
- * chose another */
-const char *strength_all_label(const app *a)
+void screen_shader_load(void)
+{
+	char name[CFG_STR];
+	int k;
+
+	g_screen_shader = 0;
+	if (db_get_str(db_dev(), "launcher_shader", name, sizeof name, NULL) &&
+	    (k = shader_index(name)) >= 0 && screen_shader_offered(k))
+		g_screen_shader = k;
+	g_screen_strength = strength_clamp(db_get_int(db_dev(), "launcher_strength", STRENGTH_MAX));
+	screen_shader_apply();
+}
+
+void screen_shader_set(int k)
+{
+	g_screen_shader = screen_shader_offered(k) ? k : 0;
+	db_set_str(db_dev(), "launcher_shader", SHADERS[g_screen_shader].name);
+	screen_shader_apply();
+}
+
+void screen_strength_set(int pct)
+{
+	g_screen_strength = strength_clamp(pct);
+	db_set_int(db_dev(), "launcher_strength", g_screen_strength);
+	screen_shader_apply();
+}
+
+/* MENU's Strength row: there while the screens' shader is an old screen */
+bool screen_strength_shown(void)
+{
+	return shader_has_strength(g_screen_shader);
+}
+
+const char *screen_strength_label(void)
 {
 	static char buf[16];
-	int i, all = strength_read_all(db_dev());
 
-	for (i = 0; i < a->sys.count; i++)
-		if (strength_clamp(a->view[i].strength) != all) return T(S_GAMEMENU_SHADER_MIXED);
-	strength_label(all, buf, sizeof buf);
+	strength_label(g_screen_strength, buf, sizeof buf);
 	return buf;
 }
 
@@ -578,15 +613,6 @@ dsl_choice dslang_load(void)
 
 	db_get_str(db_dev(), DSLANG_SETTING, v, sizeof v, "auto");
 	return dslang_parse(v);
-}
-
-/* When Slow (src/dsslow.h), as the device's database keeps it */
-dss_choice dsslow_load(void)
-{
-	char v[16];
-
-	db_get_str(db_dev(), DSSLOW_SETTING, v, sizeof v, "keep");
-	return dsslow_parse(v);
 }
 
 /* Timing (src/pacing.h): the system's own, as the device's database keeps
@@ -918,6 +944,18 @@ void view_turn(app *a, int sys, int dir)
 	view_save(a, sys);
 	cf_reset(&v->cf, v->cursor);
 	games_reset(&v->row, v->cursor, v->list.count, plat_now_ms());
+}
+
+/* The home's layout turned, `dir` 1 or -1 round Spotlight, Gallery and Grid,
+ * saved, the home on the same system: START on the home goes forward, as it
+ * turns a shelf's View, and MENU's Home Screen row either way (2026-11-17:
+ * "also implement start in the home menu with the systems") */
+void home_turn(app *a, int dir)
+{
+	a->home_layout = (home_layout)(((int)a->home_layout + (dir < 0 ? HOME_LAYOUTS - 1 : 1)) % HOME_LAYOUTS);
+	db_set_str(db_dev(), "home", home_id(a->home_layout));
+	home_reset(&a->home, a->sys_cursor, a->sys.count, plat_now_ms());
+	redraw_now();
 }
 
 /* The grid's shape kept for shelf `sys` (src/gamegrid.h): by its tag, and
@@ -1799,15 +1837,15 @@ SDL_Texture *game_get_tex(void *ctx, int i, int *w, int *h, float *cb)
 	if (is_muse(&a->sys.systems[s]) && game_card_wanted(v, i)) {
 		muse_card_want(a, s, i);
 	} else if (game_card_wanted(v, i) && v->list.items[i].folder) {
-		/* A folder on the shelf (src/shelfdir.h): its own card, no art */
+		/* A folder on the shelf (src/shelfdir.h): its own card, no art, in
+		 * its system's color or Folder Color's (look_folder_rgb) */
 		ui_card_order card;
+		const unsigned frgb = look_folder_rgb(a->sys.systems[o].accent);
 
-		ui_card_order_folder(&card, v->list.items[i].title, a->sys.systems[o].accent,
-		                     v->list.items[i].folder);
+		ui_card_order_folder(&card, v->list.items[i].title, frgb, v->list.items[i].folder);
 		if (!texload_want_or_draw(s, i, NULL, NULL, &card) && !g_loads_held) {
 			if (v->tex[i]) SDL_DestroyTexture(v->tex[i]);
-			v->tex[i] = ui_make_folder_card(a->r, v->list.items[i].title,
-			                                a->sys.systems[o].accent,
+			v->tex[i] = ui_make_folder_card(a->r, v->list.items[i].title, frgb,
 			                                v->list.items[i].folder, &v->tw[i], &v->th[i]);
 			v->cb[i] = 1.0f;
 		}
@@ -1953,8 +1991,8 @@ void shelf_put(void *ctx, texload_got *g)
 		                          a->sys.systems[o].accent, &v->tw[i], &v->th[i])
 		          : v->list.items[i].folder
 		          ? ui_make_folder_card(a->r, v->list.items[i].title,
-		                                a->sys.systems[o].accent, v->list.items[i].folder,
-		                                &v->tw[i], &v->th[i])
+		                                look_folder_rgb(a->sys.systems[o].accent),
+		                                v->list.items[i].folder, &v->tw[i], &v->th[i])
 		          : ui_make_card_for(a->r, &card, &v->tw[i], &v->th[i], &ground);
 		v->cb[i] = 1.0f;
 		grid_note(a, s, i, ground, !v->list.items[i].folder);
@@ -2458,6 +2496,10 @@ static void on_game_tick(void)
 
 	/* Developer Mode's SSH, which a game does not end (see dev_ssh_tick) */
 	dev_ssh_tick();
+	/* Night Mode's hour behind the game: Diatom loads its table, and this
+	 * keeps the launcher's right for when it has the display back, and the
+	 * nights in the file Diatom reads (platform.h) */
+	plat_night_tick();
 	/* System Update behind the game: its looks, a cut download going on,
 	 * and its news as a notice */
 	tick_update_daily(true);
@@ -2573,10 +2615,16 @@ static void on_game_tick(void)
 		if (r == 0) return;
 		g_pending_hashing = false;
 		if (r == 1) {
+			/* The hash in the log, and the answer below: what a game that
+			 * found no set was asked by (a DS game, 2026-11-17) */
+			fprintf(stderr, "cheevos: first play, hash %s; asking RetroAchievements\n", h);
 			snprintf(g_pending_set, sizeof g_pending_set, "%s", set);
 			ra_fetch_begin(h, g_pending_set);
 		} else {
-			if (r == -1) chv_none_mark(set, true);
+			if (r == -1) {
+				fprintf(stderr, "cheevos: first play, no hash for this file; marked none\n");
+				chv_none_mark(set, true);
+			}
 			g_pending_set[0] = '\0';
 		}
 		return;
@@ -2590,7 +2638,12 @@ static void on_game_tick(void)
 	/* RA has nothing for this ROM: said so on its Achievements rows, "none"
 	 * rather than "not checked yet" (chv_state_of). A fetch that failed
 	 * says nothing, and the next launch with a network asks again. */
-	if (rc == RA_FETCH_NOTHING) chv_none_mark(g_pending_set, true);
+	if (rc == RA_FETCH_NOTHING) {
+		fprintf(stderr, "cheevos: RetroAchievements has no game for that hash; marked none\n");
+		chv_none_mark(g_pending_set, true);
+	} else if (rc < 0) {
+		fprintf(stderr, "cheevos: no set came (no network, or no answer); asked next launch\n");
+	}
 	if (rc < 0) { g_pending_set[0] = '\0'; return; }
 	chv_none_mark(g_pending_set, false);        /* a set now: it has one */
 
@@ -4684,7 +4737,6 @@ static int sm_pos(const app *a, int sys, sm_row which)
 {
 	sys_ui dev = { .no_wifi = !plat_has_wifi(), .online = net_internet(NULL),
 	               .dslang = dslang_row_shown(a, sys) ? "" : NULL,
-	               .dsslow = dslang_row_shown(a, sys) ? "" : NULL,
 	               .pace = pacing_row_shown(a, sys) ? "" : NULL,
 	               .no_strength = !shader_has_strength(a->view[sys].shader) };
 	sm_row ids[SM_ROWS];
@@ -4705,8 +4757,8 @@ static int menu_shelf_width(app *a)
 	if (a->menu_w) return a->menu_w;
 
 	/* MENU's every tab, so the panel is one width on all of them, and on
-	 * the tab with Shader every value of it, "per system" too, so stepping
-	 * it does not resize the panel under it */
+	 * the tab with Shader every value of it, so stepping it does not resize
+	 * the panel under it */
 	{
 		int t, at = g_tabs.at, mw;
 
@@ -4722,20 +4774,27 @@ static int menu_shelf_width(app *a)
 				const char *keep = rows[k].value;
 				int j;
 
-				for (j = 0; j <= SHADER_COUNT; j++) {
-					if (j < SHADER_COUNT && !shader_offered(j)) continue;
-					rows[k].value = j < SHADER_COUNT ? shader_label(j) : T(S_GAMEMENU_SHADER_MIXED);
+				for (j = 0; j < SHADER_COUNT; j++) {
+					if (!screen_shader_offered(j)) continue;
+					rows[k].value = shader_label(j);
 					mw = menu_measure(rows, n, heading);
 					if (mw > w) w = mw;
 				}
 				rows[k].value = keep;
 				/* And Strength under it, there or not, at its widest */
-				for (j = 0; j < 2 && n < MENU_MAX_ROWS; j++) {
-					rows[n] = (menu_row){ T(S_GAMEMENU_STRENGTH),
-					                      j ? "100%" : T(S_GAMEMENU_SHADER_MIXED), true };
+				if (n < MENU_MAX_ROWS) {
+					rows[n] = (menu_row){ T(S_GAMEMENU_STRENGTH), "100%", true };
 					mw = menu_measure(rows, n + 1, heading);
 					if (mw > w) w = mw;
 				}
+			}
+			/* And Night Mode's row, the tab's last, at its longest mode
+			 * (night_row_widest) */
+			for (k = 0; k < n; k++)
+				if (rows[k].label == T(S_SYSMENU_NIGHT_MODE)) break;
+			if (k < n && night_row_widest(rows + k)) {
+				mw = menu_measure(rows, k + 1, heading);
+				if (mw > w) w = mw;
 			}
 		}
 		g_tabs.at = at;
@@ -4758,7 +4817,6 @@ static int menu_shelf_width(app *a)
 		int  hrow = own ? -1 : sm_pos(a, i, SM_SHADER);
 		int  crow = own ? -1 : sm_pos(a, i, SM_CORE);
 		int  lrow = own ? -1 : sm_pos(a, i, SM_DSLANG);
-		int  wrow = own ? -1 : sm_pos(a, i, SM_DSSLOW);
 		int  prow = own ? -1 : sm_pos(a, i, SM_PACE);
 		int  vrow = muse ? -1 : a->view[i].owner ? 3 : sm_pos(a, i, SM_VIEW);
 
@@ -4792,7 +4850,7 @@ static int menu_shelf_width(app *a)
 		/* And each shader, for the same reason */
 		for (k = 0; hrow >= 0 && k < SHADER_COUNT; k++) {
 			int mw;
-			if (!shader_offered(k)) continue;
+			if (!shader_offered(k, a->sys.systems[i].tag)) continue;
 			rows[hrow].value = shader_label(k);
 			mw = menu_measure(rows, n, heading);
 			if (mw > w) w = mw;
@@ -4830,18 +4888,6 @@ static int menu_shelf_width(app *a)
 				if (mw > w) w = mw;
 			}
 			rows[lrow].value = keep;
-		}
-		/* When Slow's two */
-		if (wrow >= 0) {
-			const char *keep = rows[wrow].value;
-
-			for (k = 0; k < DSS_CHOICES; k++) {
-				int mw;
-				rows[wrow].value = T(dsslow_label_id((dss_choice)k));
-				mw = menu_measure(rows, n, heading);
-				if (mw > w) w = mw;
-			}
-			rows[wrow].value = keep;
 		}
 		/* Timing's two */
 		if (prow >= 0 && prow < n) {
@@ -5189,6 +5235,7 @@ static int port_menu_main(int argc, char **argv)
 
 		db_get_str(db_dev(), "language", lc, sizeof lc, "en");
 		i18n_set(lang_parse(lc));
+		night_migrate_db(time(NULL));
 		db_get_str(db_dev(), "appearance", ap, sizeof ap, appearance_id(APPEAR_LIGHT));
 		look_load();
 		theme_init(appearance_parse(ap));
@@ -5278,6 +5325,10 @@ int main(int argc, char *argv[])
 		 * cursor on ROW (src/homesys_screen.c) */
 		else if (!strcmp(argv[i], "--homesys-page") && i + 1 < argc)
 			shot_homesys = atoi(argv[++i]);
+		/* --lights-page ROW: MENU > Side Lights' page, the cursor on ROW
+		 * (src/lights_screen.c) */
+		else if (!strcmp(argv[i], "--lights-page") && i + 1 < argc)
+			shot_lights = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--look-page") && i + 1 < argc) {
 			shot_look_page = argv[++i];
 			if (i + 1 < argc && argv[i + 1][0] >= '0' && argv[i + 1][0] <= '9')
@@ -5308,9 +5359,11 @@ int main(int argc, char *argv[])
 				return 2;
 			}
 		}
-		/* --keyboard [layer] [text] draws one frame of the text-entry panel,
-		 * for the same reason --menu and --slots exist: it is dense, and
-		 * laying it out against a screenshot beats a round trip to a device. */
+		/* --keyboard [layer] [text] [title] draws one frame of the text-entry
+		 * panel, for the same reason --menu and --slots exist: it is dense, and
+		 * laying it out against a screenshot beats a round trip to a device.
+		 * --kb-ss-user titles it as the ScreenScraper sign-in does, in the
+		 * shot's language. */
 		else if (!strcmp(argv[i], "--cheevos-screen")) {
 			shot_cheevos = 1;
 			if (i + 1 < argc && argv[i + 1][0] >= '0' && argv[i + 1][0] <= '9')
@@ -5513,6 +5566,7 @@ int main(int argc, char *argv[])
 			shot_gm_aspect = at ? atof(at + 1) : 4.0 / 3.0;
 		}
 		else if (!strcmp(argv[i], "--rows-report")) shot_rows_report = 1;
+		else if (!strcmp(argv[i], "--hover-sweep")) shot_hover_sweep = 1;
 		else if (!strcmp(argv[i], "--backdrop") && i + 1 < argc) shot_backdrop = argv[++i];
 		else if (!strcmp(argv[i], "--press") && i + 1 < argc) {
 			i++;
@@ -5972,6 +6026,7 @@ int main(int argc, char *argv[])
 			if (i + 1 < argc && argv[i + 1][0] != '-') shot_kb_text = argv[++i];
 			if (i + 1 < argc && argv[i + 1][0] != '-') shot_kb_title = argv[++i];
 		}
+		else if (!strcmp(argv[i], "--kb-ss-user")) shot_kb_ss_user = 1;
 		/* --kbsel ROW COL puts the keyboard's selection on a key, so the
 		 * action row can be looked at selected key by key. */
 		else if (!strcmp(argv[i], "--kbsel") && i + 2 < argc) {
@@ -6556,6 +6611,9 @@ int main(int argc, char *argv[])
 		 * launcher's word: a shot in the other theme must not turn its
 		 * bar over. */
 		if (shot_path) theme_set_file(NULL);
+		/* A 1.0.5 device's Appearance Auto and its hours, once: the theme
+		 * Auto gave now, and the hours kept as Night Hours (nightkeep.h) */
+		night_migrate_db(time(NULL));
 		db_get_str(db_dev(), "appearance", ap, sizeof ap,
 		           appearance_id(APPEAR_LIGHT));
 		/* The language, MENU > Language's, or --lang's for a shot: every
@@ -6570,14 +6628,16 @@ int main(int argc, char *argv[])
 		}
 		look_load();
 		/* --look's, for a shot: ACCENT,LIGHT,DARK,CORNERS,ZYPER as the
-		 * database keeps them ("blue,cool,deepblue,square,off") */
+		 * database keeps them ("blue,cool,deepblue,square,off"), and
+		 * FOLDERS after them if given (",teal"; System Colors without) */
 		if (shot_path && shot_look) {
-			char w[5][16] = { "", "", "", "", "" };
+			char w[6][16] = { "", "", "", "", "", "" };
 			look l;
 
-			sscanf(shot_look, "%15[^,],%15[^,],%15[^,],%15[^,],%15s",
-			       w[0], w[1], w[2], w[3], w[4]);
+			sscanf(shot_look, "%15[^,],%15[^,],%15[^,],%15[^,],%15[^,],%15s",
+			       w[0], w[1], w[2], w[3], w[4], w[5]);
 			l = look_parse(w[0], w[1], w[2], w[3], w[4]);
+			l.folder = look_folder_parse(w[5]);
 			look_set(&l);
 			look_bar_colors();
 		}

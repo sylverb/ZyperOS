@@ -1,16 +1,16 @@
-# USB File Transfer's SSH row (src/sshlink.c): its value, a status in
-# lowercase as status words are (DESIGN.md 4).
+# USB File Transfer's SSH row (src/sshlink.c): its value, a status begun
+# with a capital as every row's value is (DESIGN.md 4, GLOSSARY.md).
 
 [ssh.waiting]
 note = SSH is on and nobody has signed in yet
-en = waiting
+en = Waiting
 zh-Hans = 等待中
-es = esperando
-pt-BR = aguardando
-fr = en attente
-de = wartet
+es = Esperando
+pt-BR = Aguardando
+fr = En attente
+de = Wartet
 ja = 待機中
-it = in attesa
+it = In attesa
 
 [ssh.signed_in]
 note = How many are signed in over SSH right now
@@ -31,54 +31,54 @@ it.other = %d connessi
 
 [ssh.dev_image]
 note = A development image runs its own SSH, so this one does not start
-en = dev image
+en = Dev image
 zh-Hans = 开发版镜像
-es = imagen de desarrollo
-pt-BR = imagem de desenvolvimento
-fr = image de développement
+es = Imagen de desarrollo
+pt-BR = Imagem de desenvolvimento
+fr = Image de développement
 de = Entwickler-Image
 ja = 開発用イメージ
-it = immagine di sviluppo
+it = Immagine di sviluppo
 
 [ssh.locked]
 note = Five wrong PINs: SSH stops until the screen opens again
-en = locked
+en = Locked
 zh-Hans = 已锁定
-es = bloqueado
-pt-BR = bloqueado
-fr = verrouillé
-de = gesperrt
+es = Bloqueado
+pt-BR = Bloqueado
+fr = Verrouillé
+de = Gesperrt
 ja = ロック中
-it = bloccato
+it = Bloccato
 
 [ssh.not_with_wifi]
 note = review: pt-BR "indisponível com Wi-Fi". SSH over the cable does not run while Wi-Fi is up
-en = not with Wi-Fi
+en = Not with Wi-Fi
 zh-Hans = Wi-Fi 开启时不可用
-es = no disponible con Wi-Fi
-pt-BR = indisponível com Wi-Fi
-fr = indisponible avec le Wi-Fi
-de = nicht mit WLAN
+es = No disponible con Wi-Fi
+pt-BR = Indisponível com Wi-Fi
+fr = Indisponible avec le Wi-Fi
+de = Nicht mit WLAN
 ja = Wi-Fi 使用時は不可
-it = non con Wi-Fi attivo
+it = Non con Wi-Fi attivo
 
 [ssh.needs_key]
 note = SSH over Wi-Fi takes keys only, and the card has none yet, so it does not start
-en = needs a key
+en = Needs a key
 zh-Hans = 需要密钥
-es = falta una clave
-pt-BR = falta uma chave
-fr = clé requise
+es = Falta una clave
+pt-BR = Falta uma chave
+fr = Clé requise
 de = Schlüssel fehlt
 ja = 鍵が必要
-it = serve una chiave
+it = Serve una chiave
 
 [ssh.off]
-en = off
+en = Off
 zh-Hans = 关闭
-es = desactivado
-pt-BR = desativado
-fr = désactivé
-de = aus
+es = Desactivado
+pt-BR = Desativado
+fr = Désactivé
+de = Aus
 ja = オフ
-it = disattivo
+it = Disattivo

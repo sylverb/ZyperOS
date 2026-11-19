@@ -45,6 +45,14 @@ typedef struct {
 	unsigned     key;
 	SDL_Texture *blur;
 	bool         cutout, generated;
+	/* A game's card as its cell shows it (the ground and the name over it),
+	 * drawn once at the cell's size and copied after: what it was drawn
+	 * for, its size, its name and color, the corners and the face, so a
+	 * change of any draws it again (gamegrid.c's named_card) */
+	SDL_Texture *card;
+	int          card_w, card_h;
+	unsigned     card_for;
+	const void  *card_face;
 } gg_art;
 
 typedef struct {
@@ -57,8 +65,8 @@ typedef struct {
 void gg_note(gg_arts *t, SDL_Renderer *r, int count, int i, SDL_Texture *of,
              unsigned key, SDL_Surface *s, bool generated);
 /* Cover `i`'s, when it was made for `of` and `key`; NULL otherwise */
-const gg_art *gg_art_of(const gg_arts *t, int i, const SDL_Texture *of, unsigned key);
-/* Cover `i`'s let go, with its texture (main.c's evict_far) */
+gg_art *gg_art_of(const gg_arts *t, int i, const SDL_Texture *of, unsigned key);
+/* Cover `i`'s let go, with its textures (main.c's evict_far, evict_grid) */
 void gg_drop(gg_arts *t, int i);
 void gg_arts_free(gg_arts *t);
 /* ---- the grid on a shelf ------------------------------------------------- */
@@ -99,8 +107,9 @@ typedef struct {
 	/* Cover i's texture if it is in hand, without asking for it, for the
 	 * shape (cf_tex_fn's own asks) */
 	cf_tex_fn peek;
-	/* What is known of cover i (gg_note), or NULL */
-	const gg_art *(*art_of)(void *ctx, int i);
+	/* What is known of cover i (gg_note), or NULL; the grid keeps a game's
+	 * card drawn at the cell's size in it */
+	gg_art *(*art_of)(void *ctx, int i);
 	/* The shape kept for this shelf, 0 for none */
 	float kept;
 	/* The focused game's video snap (src/snapshelf.h), as the cover row has

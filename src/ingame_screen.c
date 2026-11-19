@@ -375,7 +375,7 @@ static void gm_cycle_shader(app *a, int d)
 {
 	sysview *v = owner_view(a);
 
-	v->shader = shader_step(v->shader, d);
+	v->shader = shader_step(v->shader, d, a->sys.systems[v - a->view].tag);
 	shader_save(a, (int)(v - a->view));
 	plat_resident_line("SETDISPLAY\tfilter=%s", SHADERS[v->shader].name);
 	plat_resident_sync_rect(150);
@@ -1445,10 +1445,11 @@ double shot_gm_aspect;
 /* The Shader and Strength lists' picture (src/shaderdemo.h), with the game's
  * own system's shader and strength (owner_view) as the lists were made */
 static int g_gm_demo_shader, g_gm_demo_strength;
+static const char *g_gm_demo_tag;
 
 static void gm_shader_preview(void *app_, int k, int x, int y, int w, int h)
 {
-	shader_demo_draw(app_, shader_offered(k), g_gm_demo_strength, x, y, w, h);
+	shader_demo_draw(app_, shader_at(k, g_gm_demo_tag), g_gm_demo_strength, x, y, w, h);
 }
 
 static void gm_strength_preview(void *app_, int k, int x, int y, int w, int h)
@@ -1495,15 +1496,17 @@ const menu_choice *gm_choices(app *a, const gm_ui *u)
 		                                         .labels = lab[0], .notes = notes,
 		                                         .preview = gm_dmode_preview };
 	}
+	g_gm_demo_tag = a->sys.systems[v - a->view].tag;
 	for (i = 0, n = 0, cur = 0; i < SHADER_COUNT && n < GM_CH_MAX; i++) {
 		if (SHADERS[i].gpu && !plat_gpu_shaders()) continue;
+		if (!shader_for(i, g_gm_demo_tag)) continue;
 		if (i == v->shader) cur = n;
 		lab[1][n++] = shader_label(i);
 	}
 	{
 		static const char *notes[GM_CH_MAX];
 
-		shader_demo_notes(notes, n);
+		shader_demo_notes(notes, n, g_gm_demo_tag);
 		g_gm_demo_shader = v->shader;
 		g_gm_demo_strength = strength_clamp(v->strength);
 		g_gm_choice[GM_SHADER] = (menu_choice){ .n = (unsigned char)n, .cur = (unsigned char)cur, .labels = lab[1],

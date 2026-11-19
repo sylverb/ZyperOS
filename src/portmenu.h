@@ -71,6 +71,13 @@ static inline bool port_menu_pads(const char *tag)
 #define PORT_MENU_STILL    "/tmp/zyperos-port-still.raw"
 #define PORT_MENU_MAGIC    "ZPST"
 
+/* There while the menu is up over a port that is still starting (portkeys's
+ * menu_waiting): the lines going into the log then are the menu's and
+ * portkeys's, not the port's, and plastron's splash, which draws the port's
+ * latest line on its loading screen, passes over them (launch.sh gives it
+ * this path as SPLASH_OUT_PAUSE; its splash/src/portout.h). An empty file. */
+#define PORT_MENU_UP       "/tmp/zyperos_menu_up"
+
 /* "Getting hot" over a port (DESIGN.md 11.23). The launcher renders the
  * notices Diatom shows over a game; for a port it is not running, so it
  * renders this one as it hands over to the port (launch_port), in both

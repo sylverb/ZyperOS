@@ -12,6 +12,7 @@
 #include "linebreak.h" /* where a name too wide for its box breaks or is cut */
 #include "look.h"      /* Corners: Square */
 #include "padglyph.h"
+#include "platform.h"  /* PLAT_TARGET_FORMAT, a render target's format */
 #include "ds/button.h"  /* which glyph a button name draws on this handheld */
 #include "folderart.h" /* a folder's card and row, in pixel art */  /* the PlayStation's shapes, drawn in running text */
 
@@ -214,7 +215,7 @@ static void title_path_beside(const char *menu, char *out, size_t n)
 #define MEMO_TEXT  256
 #define MEMO_LINES 3
 
-enum { MEMO_FREE, MEMO_WIDTH, MEMO_FIT, MEMO_BALANCE };
+enum { MEMO_FREE, MEMO_WIDTH, MEMO_FIT, MEMO_BALANCE, MEMO_FILL };
 
 typedef struct {
 	unsigned char kind;
@@ -371,6 +372,7 @@ void ui_face_close(TTF_Font *f)
 
 static void digits_free(void);
 static void button_fonts_free(void);
+static void bakes_free(void);
 
 void ui_quit(void)
 {
@@ -387,6 +389,7 @@ void ui_quit(void)
 	memo_clear();
 	ds_glyphs_free();
 	digits_free();
+	bakes_free();
 	shadows_free();
 	for (int i = 0; i < TEXT_CACHE; i++)
 		if (cache[i].tex) { SDL_DestroyTexture(cache[i].tex); cache[i].tex = NULL; }
@@ -466,6 +469,13 @@ int ui_font_set(void)
 const char *ui_cjk_font_path(bool title, char *out, size_t n)
 {
 	set_path(set_on == SET_LATIN ? SET_SC : set_on, title, out, n);
+	return out;
+}
+
+const char *ui_regular_font_path(char *out, size_t n)
+{
+	if (set_on == SET_LATIN || !font_path_kept[0]) snprintf(out, n, "%s", font_path_kept);
+	else set_path(set_on, false, out, n);
 	return out;
 }
 
@@ -1036,6 +1046,14 @@ void ui_fit_drawn(const char *s)
 	if (s && *s) fit_say("drawn", "", s);
 }
 
+/* A menu row's value, "fit: value: TEXT" once a string: tools/i18n-shots.py
+ * fails on one of the table's that begins with a small letter (a row's value
+ * begins with a capital, res/strings/GLOSSARY.md) */
+void ui_fit_value(const char *s)
+{
+	if (s && *s) fit_say("value", "", s);
+}
+
 /* Where the rough boxes come close, the string's own ink: rendered as
  * ui_text draws it (dst is where it was drawn), the rows of it with a pixel
  * of ink within `m` of `mark`. A line of lowercase under a key keeps its
@@ -1187,6 +1205,7 @@ static void i18n_fit_seen(const char *src, const char *dst)
 void ui_fit_frame(void) {}
 void ui_fit_tight(const char *s, int w, int room, int row_w) { (void)s; (void)w; (void)room; (void)row_w; }
 void ui_fit_drawn(const char *s) { (void)s; }
+void ui_fit_value(const char *s) { (void)s; }
 void ui_fit_mark(const SDL_Rect *q) { (void)q; }
 #endif
 
@@ -1291,6 +1310,88 @@ static struct {
 	int          w[10], h;
 	bool         tried[10];          /* asked for: made, or failed for good */
 } digits[DIGIT_FONTS];
+
+/* ---- parts drawn once -------------------------------------------------
+ * The Pixel 2's GPU takes each one-pixel line in a new color as a draw call of
+ * its own (panfrost): the five graded bars of Screen Colors, a line for each
+ * half of each column, made the page draw 13 frames a second while Down was
+ * held, 66.6 ms a frame against the Display tab's 22 (2026-11-16). So such a
+ * part is drawn once into a texture and copied, one draw a frame. Only what is
+ * opaque and the same in both themes goes in, and it is copied 1:1 where it was
+ * drawn, so the copy puts the very pixels the drawing did and leaves the rest
+ * (tools/scale-check.c compares the two). Everything the renderer had - its
+ * target, viewport, clip, scale, blend and color - is put back after. */
+#define BAKES 32
+static struct {
+	SDL_Renderer *r;
+	const char   *what;
+	int           k, w, h;
+	SDL_Texture  *t;
+} bakes[BAKES];
+static int bake_next;
+bool ui_bake_on = true;
+unsigned long ui_calls;
+
+SDL_Texture *ui_bake(SDL_Renderer *r, const char *what, int k, int w, int h,
+                     void (*draw)(SDL_Renderer *r, int k, int w, int h))
+{
+	SDL_Texture *t, *was;
+	SDL_Rect view, clip;
+	SDL_bool clipped;
+	SDL_BlendMode mode;
+	Uint8 cr, cg, cb, ca;
+	float sx, sy;
+	int i;
+
+	if (!ui_bake_on || !r || w <= 0 || h <= 0) return NULL;
+	for (i = 0; i < BAKES; i++)
+		if (bakes[i].t && bakes[i].r == r && bakes[i].what == what && bakes[i].k == k &&
+		    bakes[i].w == w && bakes[i].h == h)
+			return bakes[i].t;
+	if (!(t = SDL_CreateTexture(r, PLAT_TARGET_FORMAT, SDL_TEXTUREACCESS_TARGET, w, h)))
+		return NULL;
+	was = SDL_GetRenderTarget(r);
+	SDL_RenderGetViewport(r, &view);
+	clipped = SDL_RenderIsClipEnabled(r);
+	SDL_RenderGetClipRect(r, &clip);
+	SDL_RenderGetScale(r, &sx, &sy);
+	SDL_GetRenderDrawBlendMode(r, &mode);
+	SDL_GetRenderDrawColor(r, &cr, &cg, &cb, &ca);
+	if (SDL_SetRenderTarget(r, t) != 0) {
+		SDL_DestroyTexture(t);
+		return NULL;
+	}
+	SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_NONE);
+	SDL_SetRenderDrawColor(r, 0, 0, 0, 0);
+	SDL_RenderClear(r);
+	draw(r, k, w, h);
+	SDL_SetRenderTarget(r, was);
+	SDL_RenderSetScale(r, sx, sy);
+	SDL_RenderSetViewport(r, &view);
+	SDL_RenderSetClipRect(r, clipped ? &clip : NULL);
+	SDL_SetRenderDrawBlendMode(r, mode);
+	SDL_SetRenderDrawColor(r, cr, cg, cb, ca);
+	SDL_SetTextureBlendMode(t, SDL_BLENDMODE_BLEND);
+	SDL_SetTextureScaleMode(t, SDL_ScaleModeNearest);
+	if (bakes[bake_next].t) SDL_DestroyTexture(bakes[bake_next].t);
+	bakes[bake_next].r = r;
+	bakes[bake_next].what = what;
+	bakes[bake_next].k = k;
+	bakes[bake_next].w = w;
+	bakes[bake_next].h = h;
+	bakes[bake_next].t = t;
+	bake_next = (bake_next + 1) % BAKES;
+	return t;
+}
+
+static void bakes_free(void)
+{
+	for (int i = 0; i < BAKES; i++) {
+		if (bakes[i].t) SDL_DestroyTexture(bakes[i].t);
+		bakes[i].t = NULL;
+	}
+	bake_next = 0;
+}
 
 static void digits_free(void)
 {
@@ -1751,33 +1852,50 @@ static void balance_cut_note(const char *text, char lines[][LB_LINE], int n)
 }
 #endif
 
-int ui_balance_lines(TTF_Font *f, const char *text, int maxw, int cap,
-                     char lines[][LB_LINE])
+/* `text` broken by `brk` (lb_balance or lb_fill), measured in `f`, and
+ * remembered under `kind` when it is short enough to keep */
+typedef int (*lines_fn)(const char *text, int maxw, int cap, lb_width_fn width,
+                        void *ctx, char lines[][LB_LINE]);
+
+static int break_lines(int kind, lines_fn brk, TTF_Font *f, const char *text, int maxw,
+                       int cap, char lines[][LB_LINE])
 {
 	memo_entry *e;
 	int n;
 
 	if (!f) return 0;
 	if (cap < 1 || cap > MEMO_LINES || !memo_usable(text)) {
-		n = lb_balance(text, maxw, cap, ttf_width, f, lines);
+		n = brk(text, maxw, cap, ttf_width, f, lines);
 #ifdef I18N_PSEUDO
 		balance_cut_note(text, lines, n);
 #endif
 		return n;
 	}
-	if ((e = memo_find(MEMO_BALANCE, f, text, maxw, cap, 0))) {
+	if ((e = memo_find(kind, f, text, maxw, cap, 0))) {
 		memcpy(lines, e->out, (size_t)e->n * LB_LINE);
 		return e->n;
 	}
-	n = lb_balance(text, maxw, cap, ttf_width, f, lines);
+	n = brk(text, maxw, cap, ttf_width, f, lines);
 #ifdef I18N_PSEUDO
 	balance_cut_note(text, lines, n);
 #endif
 	if (n < 0 || n > cap) return n;
-	e = memo_slot(MEMO_BALANCE, f, text, maxw, cap, 0);
+	e = memo_slot(kind, f, text, maxw, cap, 0);
 	e->n = n;
 	memcpy(e->out, lines, (size_t)n * LB_LINE);
 	return n;
+}
+
+int ui_balance_lines(TTF_Font *f, const char *text, int maxw, int cap,
+                     char lines[][LB_LINE])
+{
+	return break_lines(MEMO_BALANCE, lb_balance, f, text, maxw, cap, lines);
+}
+
+int ui_fill_lines(TTF_Font *f, const char *text, int maxw, int cap,
+                  char lines[][LB_LINE])
+{
+	return break_lines(MEMO_FILL, lb_fill, f, text, maxw, cap, lines);
 }
 
 void ui_text_memo_clear(void)
@@ -3940,10 +4058,13 @@ SDL_Surface *ui_card_paint(const ui_card_order *o, bool away)
  * into slots that are allocated, reordered, moved and freed in a dozen places
  * in src/main.c, and a mark that lives with the texture cannot be left behind
  * by any of them. */
-/* And by the look it was made in (src/look.h): a card made before the
- * player's look changed is made again, in its new colors, as one of the
- * other theme is. Four looks round is enough to tell the last from this. */
-#define CARD_LOOKS 4
+/* And by the look it was made in (src/look.h's look_id): a card made in
+ * another look is made again, in its new colors, as one of the other theme
+ * is. By the look itself and not a count of changes, so a list's cursor
+ * going through accents (src/ds/hover.h) and back leaves the kept look's
+ * cards current and no other: a count kept in four could come round to a
+ * shown look's cards. */
+#define CARD_LOOKS LOOK_IDS
 static char card_made_for[DS_THEMES][CARD_LOOKS];
 
 SDL_Texture *ui_card_upload(SDL_Renderer *r, SDL_Surface *s, int theme_ix)
@@ -3952,7 +4073,7 @@ SDL_Texture *ui_card_upload(SDL_Renderer *r, SDL_Surface *s, int theme_ix)
 
 	if (!t) return NULL;
 	SDL_SetTextureBlendMode(t, SDL_BLENDMODE_BLEND);
-	SDL_SetTextureUserData(t, &card_made_for[theme_clamp(theme_ix)][look_gen() % CARD_LOOKS]);
+	SDL_SetTextureUserData(t, &card_made_for[theme_clamp(theme_ix)][look_id()]);
 	return t;
 }
 
@@ -3979,16 +4100,18 @@ static SDL_Texture *make_card(SDL_Renderer *r, const char *title, unsigned rgb,
 
 int ui_card_theme(SDL_Texture *t)
 {
-	void *p = t ? SDL_GetTextureUserData(t) : NULL;
+	uintptr_t p = (uintptr_t)(t ? SDL_GetTextureUserData(t) : NULL);
+	uintptr_t base = (uintptr_t)&card_made_for[0][0];
 	int i, g;
 
+	/* One of the marks, by its place among them (a table of every look
+	 * since Folder Color, too long to walk for each card a frame) */
+	if (p < base || p >= base + sizeof card_made_for) return -1;
+	i = (int)((p - base) / CARD_LOOKS);
+	g = (int)((p - base) % CARD_LOOKS);
 	/* A card of an older look reads as made for the other theme, which is
 	 * what makes it stale (tex_stale) and made again */
-	for (i = 0; i < DS_THEMES; i++)
-		for (g = 0; g < CARD_LOOKS; g++)
-			if (p == &card_made_for[i][g])
-				return g == (int)(look_gen() % CARD_LOOKS) ? i : (i == DS_DARK ? DS_LIGHT : DS_DARK);
-	return -1;
+	return g == look_id() ? i : (i == DS_DARK ? DS_LIGHT : DS_DARK);
 }
 
 SDL_Texture *ui_make_card_for(SDL_Renderer *r, const ui_card_order *o, int *w, int *h,

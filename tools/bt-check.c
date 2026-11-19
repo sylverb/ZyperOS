@@ -153,17 +153,17 @@ static void labels(void)
 
 	printf("what the right-hand column says:\n");
 	bt_label(&d, v, sizeof v);
-	ck(!strcmp(v, "in range"), "seen but not paired");
+	ck(!strcmp(v, "In range"), "seen but not paired");
 	d.bonded = true;
 	bt_label(&d, v, sizeof v);
-	ck(!strcmp(v, "paired"), "paired but not connected");
+	ck(!strcmp(v, "Paired"), "paired but not connected");
 
 	/* Connected has to outrank paired. A successful connect that redraws the
 	 * list saying what it already said gives no sign anything happened, which
 	 * is a mistake wifi_label made and this one is not repeating. */
 	d.connected = true;
 	bt_label(&d, v, sizeof v);
-	ck(!strcmp(v, "connected"), "connected outranks paired");
+	ck(!strcmp(v, "Connected"), "connected outranks paired");
 
 	bt_label(NULL, v, sizeof v);
 	ck(v[0] == '\0', "nothing at all says nothing");

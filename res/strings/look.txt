@@ -35,6 +35,28 @@ de = Dunkler Hintergrund
 ja = ダークの背景
 it = Sfondo scuro
 
+[look.folders]
+note = A row of the Theme page: the color of every folder of games on the shelves and of the consoles' folders on the File Transfer page, each system's own (System Colors) or one accent for all
+en = Folder Color
+zh-Hans = 文件夹颜色
+es = Color de carpetas
+pt-BR = Cor das pastas
+fr = Couleur des dossiers
+de = Ordnerfarbe
+ja = フォルダの色
+it = Colore cartelle
+
+[look.folders_system]
+note = Folder Color's first value, as it ships: each folder in its own system's color (systems.cfg's), as before this row. Short: it stands beside a mark in Folder Color's row, and "per system" reads as well
+en = System Colors
+zh-Hans = 按系统
+es = Por sistema
+pt-BR = Por sistema
+fr = Par système
+de = Systemfarben
+ja = システムごとの色
+it = Per sistema
+
 [look.corners]
 note = A row of the Theme page: panels and highlights rounded or square
 en = Corners
@@ -80,7 +102,7 @@ ja = Zyper
 it = Zyper
 
 [look.reset]
-note = The Theme page's last row: the accent, tones, corners and Zyper as ZyperOS ships them
+note = The Theme page's last row: the accent, tones, folders' color, corners and Zyper as ZyperOS ships them
 en = Reset to Default
 zh-Hans = 恢复默认
 es = Restablecer
@@ -266,38 +288,27 @@ de = Dunkelgrau
 ja = ダークグレー
 it = Grigio scuro
 
-[look.light_from]
-note = A row of Auto Hours: the time Auto turns light
-en = Light From
-zh-Hans = 浅色开始
-es = Claro desde
-pt-BR = Claro desde
-fr = Clair dès
-de = Hell ab
-ja = ライト開始
-it = Chiaro dalle
+[look.night_from]
+note = A row of Night Mode's page, quiet unless Night Mode is By Hours: the time Night Mode turns on (its value a time, 9:00 PM)
+en = Night From
+zh-Hans = 开始
+es = Noche desde
+pt-BR = Noite desde
+fr = Nuit dès
+de = Nacht ab
+ja = 開始
+it = Notte dalle
 
-[look.dark_from]
-note = A row of Auto Hours: the time Auto turns dark
-en = Dark From
-zh-Hans = 深色开始
-es = Oscuro desde
-pt-BR = Escuro desde
-fr = Sombre dès
-de = Dunkel ab
-ja = ダーク開始
-it = Scuro dalle
-
-[look.hours]
-note = Auto Hours' value in MENU: the time Auto turns light, then the time it turns dark
-en = %s to %s
-zh-Hans = %s至%s
-es = de %s a %s
-pt-BR = das %s às %s
-fr = de %s à %s
-de = %s bis %s
-ja = %s〜%s
-it = da %s a %s
+[look.night_until]
+note = A row of Night Mode's page, under Night From, quiet unless Night Mode is By Hours: the time Night Mode turns off (its value a time, 7:00 AM)
+en = Until
+zh-Hans = 结束
+es = Hasta
+pt-BR = Até
+fr = Jusqu'à
+de = Bis
+ja = 終了
+it = Fino alle
 
 [look.time_12h]
 note = A time of day in 12-hour time on Auto Hours: %1$d:%2$02d the time, %3$s AM or PM (7:00 AM)

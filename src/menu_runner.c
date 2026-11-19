@@ -165,10 +165,19 @@ static menu_result menu_choose(app *a, zr_rig *z, const menu_style *st, menu_key
 	int to, steps;
 
 	uisound_play(DS_SOUND_ACCEPT);
-	if (c->n > 2) {
-		to = c->preview
+	if (c->n > 2 || c->list) {
+		to = c->preview && c->hover
+		     ? menu_pick_preview_hover(a, st, ctx, heading, c->labels, c->notes, c->preview, c->hover,
+		                               c->n, c->none ? -1 : c->cur, c->cur)
+		     : c->preview
 		     ? menu_pick_preview(a, st, ctx, heading, c->labels, c->notes, c->preview, c->n,
 		                         c->none ? -1 : c->cur, c->cur)
+		     : c->focus
+		     ? menu_pick_focus(a, st, ctx, heading, c->labels, c->notes, c->focus, c->n,
+		                       c->none ? -1 : c->cur, c->cur)
+		     : c->hover
+		     ? menu_pick_hover(a, st, ctx, heading, c->labels, c->notes, c->hover, c->n,
+		                       c->none ? -1 : c->cur, c->cur)
 		     : menu_pick(a, st, ctx, heading, c->labels, c->notes, c->n, c->none ? -1 : c->cur, c->cur);
 		if (to == MENU_PICK_POWER) return MENU_DONE;   /* as POWER on the menu itself */
 		if (to < 0 || !a->running || want_quit || g_message_stopped || g_menu_closing) return MENU_STAY;
@@ -429,6 +438,9 @@ static menu_exit menu_run_body(app *a, const menu_style *st,
 			break;
 		}
 
+		/* The cursor where it is for this frame: an option's list shows
+		 * the choice under it before the frame is drawn */
+		if (st->at) st->at(a, ctx, sel);
 		if (!panel_frame(a, lv, &k)) continue;
 		tick_tint(a);
 		if (!st->backdrop) {

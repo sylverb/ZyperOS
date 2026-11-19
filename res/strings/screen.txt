@@ -1,0 +1,236 @@
+# MENU > Display > Screen Colors (src/panelgamma.h, DESIGN.md 11.42): colors
+# for the whole screen, games and the shelf alike, made by the display's own
+# table and its BCSH block. Opt-in: Standard changes nothing. The looks are
+# named choices: capitals as each language writes a choice (GLOSSARY.md).
+# The rows' values are signed numbers, -10 to +10, with no words of their own.
+
+[screen.title]
+note = A MENU row on Display, its last, and the heading of its page: the whole screen's colors (Temperature, Tint, Contrast, Saturation, Gamma) and the looks made of them. Its value is the look (screen.standard, screen.vivid... or screen.custom). Title Case in English
+en = Screen Colors
+zh-Hans = 屏幕色彩
+es = Colores de pantalla
+pt-BR = Cores da tela
+fr = Couleurs de l'écran
+de = Bildschirmfarben
+ja = 画面の色
+it = Colori dello schermo
+
+[screen.look]
+note = A row of the Screen Colors page and the heading of its list: a ready-made set of the five rows under it (Standard, Vivid, Intense, Warm, Cool, Muted); Custom when a row was changed by hand
+en = Look
+zh-Hans = 风格
+es = Estilo
+pt-BR = Estilo
+fr = Style
+de = Stil
+ja = スタイル
+it = Stile
+
+[screen.standard]
+note = The look that changes nothing: the colors as the game or the shelf draws them (the default)
+en = Standard
+zh-Hans = 标准
+es = Estándar
+pt-BR = Padrão
+fr = Standard
+de = Standard
+ja = 標準
+it = Standard
+
+[screen.vivid]
+note = The look with more contrast, stronger colors and deeper shadows, for a punchier picture
+en = Vivid
+zh-Hans = 鲜艳
+es = Vívido
+pt-BR = Vívido
+fr = Vif
+de = Lebendig
+ja = 鮮やか
+it = Vivace
+
+[screen.intense]
+note = A look: much more contrast and saturation than Vivid
+en = Intense
+zh-Hans = 浓烈
+es = Intenso
+pt-BR = Intenso
+fr = Intense
+de = Intensiv
+ja = 強烈
+it = Intenso
+
+[screen.warm]
+note = A look: a warmer white and a little more color
+en = Warm
+zh-Hans = 暖色
+es = Cálido
+pt-BR = Quente
+fr = Chaud
+de = Warm
+ja = 暖色
+it = Caldo
+
+[screen.cool]
+note = A look: a cooler white and a little more contrast
+en = Cool
+zh-Hans = 冷色
+es = Frío
+pt-BR = Frio
+fr = Froid
+de = Kühl
+ja = 寒色
+it = Freddo
+
+[screen.muted]
+note = A look: softer colors and lighter shadows
+en = Muted
+zh-Hans = 柔和
+es = Suave
+pt-BR = Suave
+fr = Doux
+de = Gedämpft
+ja = 控えめ
+it = Tenue
+
+[screen.custom]
+note = The look's value when the player moved one of the rows by hand, so it is none of the ready-made looks
+en = Custom
+zh-Hans = 自定义
+es = Personalizado
+pt-BR = Personalizado
+fr = Personnalisé
+de = Eigene
+ja = カスタム
+it = Personalizzato
+
+[screen.temperature]
+note = A row of the Screen Colors page, -10 to +10: the white of the whole screen, cooler (bluer) below 0 and warmer (more orange, the evening's night light) above. The word display menus use for it
+en = Temperature
+zh-Hans = 色温
+es = Temperatura
+pt-BR = Temperatura
+fr = Température
+de = Temperatur
+ja = 色温度
+it = Temperatura
+
+[screen.tint]
+note = A row of the Screen Colors page, -10 to +10: the white of the whole screen, greener below 0 and more magenta above, the other half of a white balance (a panel's green or pink cast). The word TV menus use for it
+en = Tint
+zh-Hans = 色调
+es = Matiz
+pt-BR = Matiz
+fr = Teinte
+de = Farbton
+ja = 色合い
+it = Tinta
+
+[screen.contrast]
+note = A row of the Screen Colors page, -10 to +10: below 0 a flatter picture, above 0 darker shadows and brighter highlights (black, white and mid grey stay put)
+en = Contrast
+zh-Hans = 对比度
+es = Contraste
+pt-BR = Contraste
+fr = Contraste
+de = Kontrast
+ja = コントラスト
+it = Contrasto
+
+[screen.saturation]
+note = A row of the Screen Colors page, -10 to +10: how strong the colors are, half as strong at -10 and half again at +10. Shown only where the system has the display's saturation control
+en = Saturation
+zh-Hans = 饱和度
+es = Saturación
+pt-BR = Saturação
+fr = Saturation
+de = Sättigung
+ja = 彩度
+it = Saturazione
+
+[screen.gamma]
+note = A row of the Screen Colors page, -10 to +10: the mid-tones darker below 0 and lighter above, black and white kept (for a dark game on a dim screen). The word game settings use for it
+en = Gamma
+zh-Hans = Gamma
+es = Gamma
+pt-BR = Gama
+fr = Gamma
+de = Gamma
+ja = ガンマ
+it = Gamma
+
+[screen.standard_note]
+note = Under the Look list's picture while Standard is under the cursor: what the look does, in a few words. A short sentence with its full stop
+en = The picture as the game drew it.
+zh-Hans = 游戏原本的画面。
+es = La imagen tal como la dibujó el juego.
+pt-BR = A imagem como o jogo a desenhou.
+fr = L'image telle que le jeu l'a dessinée.
+de = Das Bild, wie das Spiel es zeichnet.
+ja = ゲームが描いたままの画面。
+it = L'immagine come la disegna il gioco.
+
+[screen.vivid_note]
+note = Under the Look list's picture while Vivid is under the cursor: what the look does, in a few words. A short sentence with its full stop
+en = Stronger colors and contrast.
+zh-Hans = 色彩和对比度更强。
+es = Colores y contraste más fuertes.
+pt-BR = Cores e contraste mais fortes.
+fr = Couleurs et contraste plus forts.
+de = Kräftigere Farben und Kontrast.
+ja = 色とコントラストを強く。
+it = Colori e contrasto più forti.
+
+[screen.intense_note]
+note = Under the Look list's picture while Intense is under the cursor: what the look does, in a few words. A short sentence with its full stop
+en = Much stronger colors and contrast.
+zh-Hans = 色彩和对比度强得多。
+es = Colores y contraste mucho más fuertes.
+pt-BR = Cores e contraste bem mais fortes.
+fr = Couleurs et contraste bien plus forts.
+de = Viel kräftigere Farben und Kontrast.
+ja = 色とコントラストをかなり強く。
+it = Colori e contrasto molto più forti.
+
+[screen.warm_note]
+note = Under the Look list's picture while Warm is under the cursor: what the look does, in a few words. A short sentence with its full stop
+en = A warmer white, a little more color.
+zh-Hans = 更暖的白色，色彩略强。
+es = Un blanco más cálido, algo más de color.
+pt-BR = Um branco mais quente, um pouco mais de cor.
+fr = Un blanc plus chaud, un peu plus de couleur.
+de = Wärmeres Weiß, etwas mehr Farbe.
+ja = 暖かい白、色は少し強め。
+it = Un bianco più caldo, un po' più di colore.
+
+[screen.cool_note]
+note = Under the Look list's picture while Cool is under the cursor: what the look does, in a few words. A short sentence with its full stop
+en = A cooler white, a little more contrast.
+zh-Hans = 更冷的白色，对比度略强。
+es = Un blanco más frío, algo más de contraste.
+pt-BR = Um branco mais frio, um pouco mais de contraste.
+fr = Un blanc plus froid, un peu plus de contraste.
+de = Kühleres Weiß, etwas mehr Kontrast.
+ja = 冷たい白、コントラストは少し強め。
+it = Un bianco più freddo, un po' più di contrasto.
+
+[screen.muted_note]
+note = Under the Look list's picture while Muted is under the cursor: what the look does, in a few words. A short sentence with its full stop
+en = Softer colors, lighter shadows.
+zh-Hans = 色彩更柔和，暗部更亮。
+es = Colores más suaves, sombras más claras.
+pt-BR = Cores mais suaves, sombras mais claras.
+fr = Couleurs plus douces, ombres plus claires.
+de = Sanftere Farben, hellere Schatten.
+ja = 色は控えめ、暗部は明るめ。
+it = Colori più tenui, ombre più chiare.
+
+[screen.custom_note]
+note = Under the Look list's picture while Custom is under the cursor (it is in the list only while it is the look on): the rows as the player set them by hand. A short sentence with its full stop
+en = The rows below, as you set them.
+zh-Hans = 下方各项按你的设置。
+es = Las filas de abajo, como las ajustaste.
+pt-BR = As linhas abaixo, como você as ajustou.
+fr = Les lignes ci-dessous, telles que vous les avez réglées.
+de = Die Zeilen darunter, wie du sie eingestellt hast.
+ja = 下の各項目を自分で設定した状態。
+it = Le righe qui sotto, come le hai impostate.

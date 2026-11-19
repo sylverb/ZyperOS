@@ -39,14 +39,14 @@ it = Gioco a caso
 
 [sysmenu.wifi_connecting]
 note = MENU > Wi-Fi's value while it joins a network
-en = connecting
+en = Connecting
 zh-Hans = 正在连接
-es = conectando
-pt-BR = conectando
-fr = connexion…
-de = verbindet …
+es = Conectando
+pt-BR = Conectando
+fr = Connexion…
+de = Verbindet …
 ja = 接続中
-it = connessione…
+it = Connessione…
 
 [sysmenu.audio_output]
 note = A MENU row: where the sound goes
@@ -61,14 +61,14 @@ it = Uscita audio
 
 [sysmenu.audio_auto]
 note = review: Audio Output's value when set to Auto; %s is where the sound goes now (speaker, wired, bluetooth, usb). Also Audio Channels' value when set to Auto; %s is the mix it makes now (stereo, mono). es and pt-BR write auto as English does, for the row's room; the glossary's word is automático.
-en = auto (%s)
+en = Auto (%s)
 zh-Hans = 自动（%s）
-es = auto (%s)
-pt-BR = auto (%s)
-fr = auto (%s)
-de = auto (%s)
+es = Auto (%s)
+pt-BR = Auto (%s)
+fr = Auto (%s)
+de = Auto (%s)
 ja = 自動（%s）
-it = auto (%s)
+it = Auto (%s)
 
 [sysmenu.audio_channels]
 note = A MENU row: auto, stereo, mono, or mono on one side
@@ -127,14 +127,14 @@ it = Trasferisci USB
 
 [sysmenu.hotspot]
 note = review: Wi-Fi File Transfer's value with no network: the handheld makes a network of its own. pt-BR and es keep the English word; roteador/punto de acceso are the other choices.
-en = hotspot
+en = Hotspot
 zh-Hans = 热点
-es = hotspot
-pt-BR = hotspot
-fr = point d'accès
+es = Hotspot
+pt-BR = Hotspot
+fr = Point d'accès
 de = Hotspot
 ja = ホットスポット
-it = hotspot
+it = Hotspot
 
 [sysmenu.date_time]
 note = A MENU row: the date, the time and the time zone
@@ -192,15 +192,15 @@ ja = 自動電源オフ
 it = Spegnimento automatico
 
 [sysmenu.auto_off_never]
-note = Auto Off's value when it is off. Lowercase. tight
-en = never
+note = Auto Off's value when it is off. Begun with a capital. tight
+en = Never
 zh-Hans = 从不
-es = nunca
-pt-BR = nunca
-fr = jamais
-de = nie
+es = Nunca
+pt-BR = Nunca
+fr = Jamais
+de = Nie
 ja = しない
-it = mai
+it = Mai
 
 [sysmenu.auto_off_secs]
 note = Auto Off's value in seconds (30 s). tight: 15 bytes at most
@@ -214,7 +214,7 @@ ja = %d 秒
 it = %d s
 
 [sysmenu.power_button]
-note = A MENU row on System, under Auto Off: what turns the handheld off, a press of POWER or POWER held for 2 seconds
+note = A MENU row on System, under Auto Off: what turns the handheld off, a press of POWER or POWER held for 1 second
 en = Power Button
 zh-Hans = 电源键
 es = Botón de encendido
@@ -236,7 +236,7 @@ ja = 押す
 it = Premi
 
 [sysmenu.power_hold]
-note = Power Button's value: POWER held for 2 seconds turns the handheld off, and a press alone does not. Short, as Ask is.
+note = Power Button's value: POWER held for 1 second turns the handheld off, and a press alone does not. Short, as Ask is.
 en = Hold
 zh-Hans = 长按
 es = Mantener
@@ -467,15 +467,15 @@ ja = 実績
 it = Obiettivi
 
 [sysmenu.sign_in]
-note = The Achievements row's value when no account is signed in. Lowercase.
-en = sign in
+note = The Achievements row's value when no account is signed in. Begun with a capital.
+en = Sign in
 zh-Hans = 登录
-es = iniciar sesión
-pt-BR = entrar
-fr = se connecter
-de = anmelden
+es = Iniciar sesión
+pt-BR = Entrar
+fr = Se connecter
+de = Anmelden
 ja = サインイン
-it = accedi
+it = Accedi
 
 [sysmenu.controls]
 note = A MENU row and an in-game menu row: what every button does
@@ -600,16 +600,38 @@ de = Info
 ja = 情報
 it = Info
 
-[sysmenu.auto_hours]
-note = A MENU row under Appearance: when Auto turns light and dark
-en = Auto Hours
-zh-Hans = 自动时段
-es = Horario auto
-pt-BR = Horário auto
-fr = Horaires auto
-de = Auto-Zeiten
-ja = 自動の時間帯
-it = Orari automatici
+[sysmenu.night_mode]
+note = A MENU row on Display, under Screen Colors: warmer colors on the whole screen for the night. Its value Off, On (menu.off_title, menu.on_title) or By Hours (sysmenu.night_by_hours); A opens its page, which has this as its heading and its first row. Title Case in English
+en = Night Mode
+zh-Hans = 夜间模式
+es = Modo nocturno
+pt-BR = Modo noturno
+fr = Mode nuit
+de = Nachtmodus
+ja = ナイトモード
+it = Modalità notte
+
+[sysmenu.night_by_hours]
+note = Night Mode's third choice, beside Off and On: on only between the two times on Night Mode's page (look.night_from, look.night_until). A named choice: capitals as each language writes one
+en = By Hours
+zh-Hans = 定时
+es = Por horario
+pt-BR = Por horário
+fr = Selon l'horaire
+de = Nach Uhrzeit
+ja = 時間指定
+it = Per orario
+
+[sysmenu.night_warmth]
+note = A row of Night Mode's page, under Night Mode, quiet while it is Off: how much warmer Night Mode makes the screen, 1 to 10 (8 as it ships). Its value is the number alone
+en = Night Warmth
+zh-Hans = 暖色强度
+es = Intensidad nocturna
+pt-BR = Intensidade noturna
+fr = Intensité de nuit
+de = Nachtwärme
+ja = 暖色の強さ
+it = Intensità notturna
 
 [sysmenu.theme]
 note = A MENU row: the accent, background tones, corners and Zyper
@@ -668,39 +690,6 @@ de = Auto (%s)
 ja = 自動（%s）
 it = Auto (%s)
 
-[sysmenu.dsslow]
-note = A system menu row, on the Nintendo DS shelf, under Game Language: what the game's frames do when the game cannot keep up (sysmenu.dsslow_keep or sysmenu.dsslow_steady). Short: the value column beside it holds "Keep Speed" or "Steady 30"
-en = When Slow
-zh-Hans = 运行缓慢时
-es = Si va lento
-pt-BR = Quando lento
-fr = Si ça ralentit
-de = Bei Ruckeln
-ja = 処理落ち時
-it = Se rallenta
-
-[sysmenu.dsslow_keep]
-note = When Slow's value, the default: the game keeps its speed and frames it cannot draw in time are left out, so motion can look uneven
-en = Keep Speed
-zh-Hans = 保持速度
-es = Mantener velocidad
-pt-BR = Manter velocidade
-fr = Garder la vitesse
-de = Tempo halten
-ja = 速度を保つ
-it = Mantieni velocità
-
-[sysmenu.dsslow_steady]
-note = When Slow's other value: while the game is slow, every second frame is drawn, an even 30 a second
-en = Steady 30
-zh-Hans = 稳定 30 帧
-es = 30 estables
-pt-BR = 30 estáveis
-fr = 30 stables
-de = Stabile 30
-ja = 安定30
-it = 30 stabili
-
 [sysmenu.pace]
 note = A system menu row, on the GBA, Game Boy, Game Boy Color, Nintendo DS and Genesis shelves: how the games are paced against the screen (sysmenu.pace_smooth or sysmenu.pace_exact). Short: the value column beside it holds "Smooth" or "Exact"
 en = Timing
@@ -733,6 +722,28 @@ fr = Exacte
 de = Exakt
 ja = 正確
 it = Esatta
+
+[sysmenu.pace_smooth_note]
+note = What Smooth does, under the picture beside Timing's list (sysmenu.pace_smooth): a new game frame each screen refresh, so motion is even, the game a little faster than the console. Six short lines at most in a narrow column, about 70 letters: keep it short, no long words
+en = A new frame each refresh: even motion, the game a little fast.
+zh-Hans = 每次刷新一帧新画面：动作均匀，游戏略快。
+es = Un fotograma nuevo en cada ciclo: movimiento uniforme, juego algo rápido.
+pt-BR = Um quadro novo a cada ciclo: movimento uniforme, jogo um pouco rápido.
+fr = Une image neuve à chaque cycle : mouvement régulier, jeu un peu rapide.
+de = Pro Bildaufbau ein neues Bild: gleichmäßig, das Spiel etwas schnell.
+ja = 更新ごとに新しいフレーム：動きが均一、ゲームは少し速め。
+it = Un fotogramma nuovo a ogni ciclo: moto uniforme, gioco un po' veloce.
+
+[sysmenu.pace_exact_note]
+note = What Exact does, under the picture beside Timing's list (sysmenu.pace_exact): the console's own speed, for timers and rhythm games, and now and then one frame shown twice. Six short lines at most in a narrow column, about 70 letters: keep it short, no long words
+en = The console's own speed, for timers and rhythm: now and then a frame repeats.
+zh-Hans = 原机速度，适合计时和节奏：偶尔有一帧重复。
+es = La velocidad de la consola, para ritmo y tiempos: a veces un fotograma se repite.
+pt-BR = A velocidade do console, para ritmo e tempo: às vezes um quadro se repete.
+fr = La vitesse de la console, pour le rythme : parfois une image se répète.
+de = Das Tempo der Konsole, für Rhythmus und Zeit: ab und zu ein Bild doppelt.
+ja = 実機の速さ。リズムやタイマー向け：ときどき1フレームが重なります。
+it = La velocità della console, per ritmo e tempi: a volte un fotogramma si ripete.
 
 [sysmenu.sort_by]
 note = A system menu row: the shelf's order
@@ -914,15 +925,15 @@ ja = 画面ロック
 it = Blocca schermo
 
 [sysmenu.muse_lock_when]
-note = Lock Screen's value while nothing plays: it only works while music plays. Lowercase.
-en = while playing
+note = Lock Screen's value while nothing plays: it only works while music plays. Begun with a capital.
+en = While playing
 zh-Hans = 播放时可用
-es = al reproducir
-pt-BR = ao tocar
-fr = en lecture
-de = bei Wiedergabe
+es = Al reproducir
+pt-BR = Ao tocar
+fr = En lecture
+de = Bei Wiedergabe
 ja = 再生中のみ
-it = solo con musica
+it = Solo con musica
 
 [sysmenu.muse_art]
 note = Muse's menu row: fetch album covers. tight: its value may be "needs Wi-Fi"
@@ -942,10 +953,10 @@ note = How many covers are missing: MENU's Scraper row, and the Scraper page's S
 en.one = %d missing
 en.other = %d missing
 zh-Hans = 缺少 %d 个
-es.one = falta %d
-es.other = faltan %d
-pt-BR.one = falta %d
-pt-BR.other = faltam %d
+es.one = Falta %d
+es.other = Faltan %d
+pt-BR.one = Falta %d
+pt-BR.other = Faltam %d
 fr.one = %d manquante
 fr.other = %d manquantes
 de.one = %d fehlt
@@ -955,37 +966,37 @@ it.one = %d mancante
 it.other = %d mancanti
 
 [sysmenu.not_in_build]
-note = review: a value: this copy of ZyperOS was built without ScreenScraper's key, so the source cannot be used. Lowercase.
-en = not in this build
+note = review: a value: this copy of ZyperOS was built without ScreenScraper's key, so the source cannot be used. Begun with a capital.
+en = Not in this build
 zh-Hans = 此版本不支持
-es = no disponible
-pt-BR = indisponível
-fr = non disponible
-de = nicht enthalten
+es = No disponible
+pt-BR = Indisponível
+fr = Non disponible
+de = Nicht enthalten
 ja = このビルドは非対応
-it = non disponibile
+it = Non disponibile
 
 [sysmenu.sc_linked_as]
 note = ScreenScraper's value: the account it is linked to; %s is the user name. tight: beside ScreenScraper, with room left for the name
-en = linked as %s
+en = Linked as %s
 zh-Hans = 已关联 %s
-es = vinculado: %s
-pt-BR = vinculado: %s
-fr = lié : %s
-de = verknüpft als %s
+es = Vinculado: %s
+pt-BR = Vinculado: %s
+fr = Lié : %s
+de = Verknüpft als %s
 ja = 連携：%s
-it = collegato: %s
+it = Collegato: %s
 
 [sysmenu.sc_link]
-note = A source's value with no account linked: A links one. Lowercase.
-en = link
+note = A source's value with no account linked: A links one. Begun with a capital.
+en = Link
 zh-Hans = 关联
-es = vincular
-pt-BR = vincular
-fr = lier
-de = verknüpfen
+es = Vincular
+pt-BR = Vincular
+fr = Lier
+de = Verknüpfen
 ja = 連携する
-it = collega
+it = Collega
 
 # ---- Scraper > ScreenScraper ------------------------------------------------
 
@@ -1001,15 +1012,15 @@ ja = アカウント
 it = Account
 
 [sysmenu.ss_account_none]
-note = Account's value with no account linked. Lowercase.
-en = none
+note = Account's value with no account linked. Begun with a capital.
+en = None
 zh-Hans = 无
-es = ninguna
-pt-BR = nenhuma
-fr = aucun
-de = keines
+es = Ninguna
+pt-BR = Nenhuma
+fr = Aucun
+de = Keines
 ja = なし
-it = nessuno
+it = Nessuno
 
 [sysmenu.status]
 note = A row on the ScreenScraper and SteamGridDB pages: whether the account or key works
@@ -1023,15 +1034,15 @@ ja = 状態
 it = Stato
 
 [sysmenu.ss_linked]
-note = Status' value: the account is linked. Lowercase.
-en = linked
+note = Status' value: the account is linked. Begun with a capital.
+en = Linked
 zh-Hans = 已关联
-es = vinculada
-pt-BR = vinculada
-fr = lié
-de = verknüpft
+es = Vinculada
+pt-BR = Vinculada
+fr = Lié
+de = Verknüpft
 ja = 連携済み
-it = collegato
+it = Collegato
 
 [sysmenu.unlink]
 note = A row on the ScreenScraper and SteamGridDB pages: forget the account or key
@@ -1113,37 +1124,37 @@ ja = サウンド
 it = Audio
 
 [sysmenu.sn_muted]
-note = Sound's value: no sound. Lowercase.
-en = muted
+note = Sound's value: no sound. Begun with a capital.
+en = Muted
 zh-Hans = 静音
-es = silenciado
-pt-BR = mudo
-fr = coupé
-de = stumm
+es = Silenciado
+pt-BR = Mudo
+fr = Coupé
+de = Stumm
 ja = ミュート
-it = muto
+it = Muto
 
 [sysmenu.sn_quiet]
-note = Sound's value: low. Lowercase.
-en = quiet
+note = Sound's value: low. Begun with a capital.
+en = Quiet
 zh-Hans = 小声
-es = bajo
-pt-BR = baixo
-fr = faible
-de = leise
+es = Bajo
+pt-BR = Baixo
+fr = Faible
+de = Leise
 ja = 小さめ
-it = basso
+it = Basso
 
 [sysmenu.sn_full]
-note = Sound's value: at the full volume. Lowercase.
-en = full
+note = Sound's value: at the full volume. Begun with a capital.
+en = Full
 zh-Hans = 正常
-es = completo
-pt-BR = completo
-fr = plein
-de = voll
+es = Completo
+pt-BR = Completo
+fr = Plein
+de = Voll
 ja = 最大
-it = massimo
+it = Massimo
 
 [sysmenu.sn_delete]
 note = Video Snaps' last row: delete every snap on the card; its value is the room they take
@@ -1170,26 +1181,26 @@ ja = キー
 it = Chiave
 
 [sysmenu.sg_key_none]
-note = Key's value with no key. Lowercase.
-en = none
+note = Key's value with no key. Begun with a capital.
+en = None
 zh-Hans = 无
-es = ninguna
-pt-BR = nenhuma
-fr = aucune
-de = keiner
+es = Ninguna
+pt-BR = Nenhuma
+fr = Aucune
+de = Keiner
 ja = なし
-it = nessuna
+it = Nessuna
 
 [sysmenu.sg_not_checked]
-note = Status' value before the key was tried. Lowercase.
-en = not checked
+note = Status' value before the key was tried. Begun with a capital.
+en = Not checked
 zh-Hans = 未验证
-es = sin verificar
-pt-BR = não verificada
-fr = non vérifiée
-de = nicht geprüft
+es = Sin verificar
+pt-BR = Não verificada
+fr = Non vérifiée
+de = Nicht geprüft
 ja = 未確認
-it = non verificata
+it = Non verificata
 
 [sysmenu.sg_note_get]
 note = A note: where a key comes from
@@ -1304,15 +1315,15 @@ ja = USB 機器
 it = Dispositivo USB
 
 [sysmenu.usb_choose]
-note = USB Device's value: it waits for an answer; A chooses. A lowercase value.
-en = choose
+note = USB Device's value: it waits for an answer; A chooses. A value, begun with a capital.
+en = Choose
 zh-Hans = 选择
-es = elegir
-pt-BR = escolher
-fr = choisir
-de = wählen
+es = Elegir
+pt-BR = Escolher
+fr = Choisir
+de = Wählen
 ja = 選択
-it = scegli
+it = Scegli
 
 [sysmenu.view]
 note = A system menu row, under Sort By: how the shelf shows its games, its covers in a row or a list of names (DESIGN.md 11.39). Title Case in English.

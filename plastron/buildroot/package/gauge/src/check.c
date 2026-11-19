@@ -71,6 +71,19 @@ static void parse(void)
 	CHECK(c.level && !c.done && c.cheer, "an unknown word is left alone");
 	c = cfg("rainbow");
 	CHECK(c.bar && c.low && c.level, "an unknown first word reads as auto");
+
+	/* Battery Level: off whatever the first word, until a word says so */
+	CHECK(!cfg(NULL).battery && !cfg("auto").battery && !cfg("auto level done cheer").battery &&
+	      !cfg("charging").battery && !cfg("off").battery && !cfg("rainbow").battery,
+	      "Battery Level: off unless the file says so");
+	c = cfg("auto level done cheer battery\n");
+	CHECK(c.bar && c.low && c.level && c.done && c.cheer && c.battery, "every part, Battery Level too");
+	c = cfg("off -level -done -cheer battery");
+	CHECK(!c.bar && !c.low && !c.level && !c.done && !c.cheer && c.battery, "Battery Level alone");
+	c = cfg("auto -level done -cheer -battery");
+	CHECK(c.bar && c.low && !c.level && c.done && !c.battery, "-battery: off");
+	c = cfg("battery");
+	CHECK(c.bar && c.low && c.level && c.battery, "battery as the first word: auto, and the part on");
 }
 
 static void charging_bar(void)
@@ -409,6 +422,113 @@ static void moving(void)
 	CHECK(w >= 1 && w <= 60, "a late wake waits a step at most (%d)", w);
 }
 
+/* Battery Level: the level all the time, still, the picture L2+R2 flashes,
+ * under everything else, which shows over it as before and gives it back */
+static void battery_level(void)
+{
+	struct lights_cfg c = cfg("auto level done cheer battery"), off = cfg("auto");
+	struct lights_state s;
+	int w;
+
+	s = battery(60, 0, 0);
+	CHECK(at(&off, &s, 0) == 0 && at(&off, &s, 5000) == 0, "Battery Level off: dark off the cable, as before");
+	CHECK(at(&c, &s, 0) == BAR(3) && at(&c, &s, 400) == BAR(3) && at(&c, &s, 60000) == BAR(3),
+	      "60%%: three lights, still");
+	lights_frame(&c, &s, 0, &w);
+	CHECK(w == IDLE_MS, "still: nothing to wake for (%d)", w);
+	s = battery(100, 0, 0);
+	CHECK(at(&c, &s, 0) == L_ALL, "100%%: all four");
+	s = battery(74, 0, 0);
+	CHECK(at(&c, &s, 0) == BAR(3), "74%%: three");
+	s = battery(25, 0, 0);
+	CHECK(at(&c, &s, 0) == BAR(2), "25%%: two");
+	s = battery(10, 0, 0);
+	CHECK(at(&c, &s, 0) == BAR(1), "10%%: one green");
+	for (int p = 0; p <= 100; p++) {
+		s = battery(p, 0, 0);
+		CHECK(at(&c, &s, 0) == (p < LOW ? L_RED : lights_level_bits(p)),
+		      "%d%%: the same picture L2+R2 shows", p);
+	}
+	s = battery(60, 0, 0);
+	lights_battery(&s, 49, 0, 0, 1000);
+	CHECK(at(&c, &s, 1000) == BAR(2), "falling under 50%%: two, at once");
+	lights_init(&s);
+	CHECK(at(&c, &s, 0) == 0, "the battery not read yet: dark");
+
+	/* Under 10%, off the cable: Low Battery's flash says it, as before */
+	s = battery(9, 0, 0);
+	CHECK(at(&c, &s, 0) == L_RED && at(&c, &s, 199) == L_RED && at(&c, &s, 200) == 0 &&
+	      at(&c, &s, 4999) == 0 && at(&c, &s, 5000) == L_RED, "under 10%%: the flash, not a steady red");
+	lights_frame(&c, &s, 300, &w);
+	CHECK(w == 4700, "under 10%%: sleeps to the next flash (%d)", w);
+	s = battery(4, 0, 0);
+	CHECK(at(&c, &s, 0) == L_RED && at(&c, &s, 150) == 0 && at(&c, &s, 300) == L_RED &&
+	      at(&c, &s, 450) == 0 && at(&c, &s, 2000) == L_RED, "under 5%%: twice every 2 s, as before");
+	s = battery(12, 0, 0);
+	CHECK(at(&c, &s, 0) == BAR(1), "12%%: one green");
+	lights_battery(&s, 9, 0, 0, 1000);
+	CHECK(at(&c, &s, 1000) == L_RED && at(&c, &s, 1200) == 0, "falling under 10%%: the flash at once");
+	{
+		struct lights_cfg nolow = cfg("charging level done cheer battery");
+
+		s = battery(9, 0, 0);
+		CHECK(at(&nolow, &s, 0) == L_RED && at(&nolow, &s, 200) == L_RED && at(&nolow, &s, 3000) == L_RED,
+		      "under 10%% with Low Battery off: a steady red");
+	}
+
+	/* The cable: the bar over it while it charges, then the level again */
+	s = battery(60, 1, 0);
+	CHECK(at(&c, &s, 0) == BAR(2) && at(&c, &s, 400) == BAR(3) && at(&c, &s, 800) == BAR(4),
+	      "on the cable: the bar moves, as before");
+	lights_battery(&s, 60, 0, 0, 1000);
+	CHECK(at(&c, &s, 1000) == BAR(3) && at(&c, &s, 1400) == BAR(3), "the cable out: the level, still");
+	{
+		struct lights_cfg nobar = cfg("low level done cheer battery");
+
+		s = battery(60, 1, 0);
+		CHECK(at(&nobar, &s, 0) == BAR(3) && at(&nobar, &s, 400) == BAR(3),
+		      "on the cable with the bar off: the level, still");
+		s = battery(9, 1, 0);
+		CHECK(at(&nobar, &s, 0) == L_RED && at(&nobar, &s, 300) == L_RED,
+		      "on the cable under 10%% with the bar off: red, still (no flash on the cable)");
+	}
+
+	/* Every pattern over it, then the level back */
+	s = battery(60, 0, 0);
+	lights_line(&s, &c, "level volume 10 20", 0);
+	CHECK(at(&c, &s, 0) == BAR(2), "the volume over it");
+	CHECK(at(&c, &s, 1500) == BAR(3), "1.5 s after the last change: the level back");
+	lights_line(&s, &c, "level volume 0 20", 2000);
+	CHECK(at(&c, &s, 2000) == L_RED && at(&c, &s, 3500) == BAR(3), "silence's red over it, then the level");
+	lights_line(&s, &c, "done", 4000);
+	CHECK(at(&c, &s, 4000) == G(0) && at(&c, &s, 4300) == G(3) && at(&c, &s, 4800) == BAR(3),
+	      "Done's climb over it, then the level");
+	lights_line(&s, &c, "cheer", 5000);
+	CHECK(at(&c, &s, 5000) == (G(0) | G(2)) && at(&c, &s, 5150) == (G(1) | G(3)) && at(&c, &s, 5900) == BAR(3),
+	      "the sparkle over it, then the level");
+	lights_line(&s, &c, "move 4200000 0", 6000);
+	CHECK(at(&c, &s, 6000) == WIN[0] && at(&c, &s, 6300) == WIN[3], "the wave over it");
+	CHECK(at(&c, &s, 7500) == BAR(3), "1.5 s past the last move line: the level");
+	lights_line(&s, &c, "move 4200000 0", 8000);
+	lights_line(&s, &c, "move 0 0", 8200);
+	CHECK(at(&c, &s, 8200) == BAR(3), "move 0 0: the level at once");
+	lights_ask(&s, 9000);
+	CHECK(at(&c, &s, 9000) == BAR(3) && at(&c, &s, 9250) == 0 && at(&c, &s, 9500) == BAR(3) &&
+	      at(&c, &s, 9750) == 0, "L2+R2 over it: four flashes, so it still shows a press");
+	CHECK(at(&c, &s, 11000) == BAR(3) && s.asked_at < 0, "then the level, still");
+
+	/* A part turned off is not shown over it, as before */
+	{
+		struct lights_cfg quiet = cfg("auto -level -done -cheer battery");
+
+		s = battery(60, 0, 0);
+		lights_line(&s, &quiet, "level volume 10 20", 0);
+		lights_line(&s, &quiet, "done", 0);
+		lights_line(&s, &quiet, "cheer", 0);
+		CHECK(at(&quiet, &s, 0) == BAR(3) && at(&quiet, &s, 300) == BAR(3), "the other parts off: only the level");
+	}
+}
+
 /* MENU > Side Lights: the row under the cursor plays its part on the lights,
  * in a loop, On or Off, over everything but L2+R2 */
 static void previews(void)
@@ -468,6 +588,27 @@ static void previews(void)
 	lights_line(&s, &c, "preview cheer", 0);
 	CHECK(at(&c, &s, 0) == (G(0) | G(2)), "a preview with every part off");
 	c = cfg("auto");
+
+	/* Battery Level: the level as it is now, still, On or Off */
+	s = battery(60, 0, 0);
+	lights_line(&s, &c, "preview battery", 0);
+	CHECK(at(&c, &s, 0) == BAR(3) && at(&c, &s, 400) == BAR(3) && at(&c, &s, 2000) == BAR(3),
+	      "battery preview: the level, still, with Battery Level off");
+	lights_frame(&c, &s, 100, &w);
+	CHECK(w == 2400, "battery preview: wakes only at its end (%d)", w);
+	CHECK(at(&c, &s, 2500) == 0, "battery preview over: dark again, the part being off");
+	s = battery(60, 1, 0);
+	lights_line(&s, &c, "preview battery", 0);
+	CHECK(at(&c, &s, 0) == BAR(3) && at(&c, &s, 400) == BAR(3) && at(&c, &s, 800) == BAR(3),
+	      "battery preview on the cable: the level, still, not the bar");
+	s = battery(8, 0, 0);
+	lights_line(&s, &c, "preview battery", 0);
+	CHECK(at(&c, &s, 0) == L_RED && at(&c, &s, 200) == L_RED && at(&c, &s, 1000) == L_RED,
+	      "battery preview under 10%%: L2+R2's red, still");
+	s = battery(60, 0, 0);
+	lights_line(&s, &c, "preview battery", 0);
+	lights_line(&s, &c, "preview cheer", 500);
+	CHECK(at(&c, &s, 500) == (G(0) | G(2)), "from the battery preview to the next row at once");
 
 	/* Another row: its own, from its start */
 	s = battery(60, 0, 0);
@@ -555,6 +696,32 @@ static void never_spins(void)
 		CHECK(w >= 1 && w <= IDLE_MS, "wake in range at %ld (%d)", t, w);
 	}
 	CHECK(worst >= 1, "the shortest wake is %d ms", worst);
+
+	/* The same with Battery Level on, its preview included */
+	c = cfg("auto level done cheer battery");
+	s = battery(3, 0, 0);
+	worst = IDLE_MS;
+	for (long t = 0; t < 22000; t += 7) {
+		if (t == 3000) lights_line(&s, &c, "done", t);
+		if (t == 5000) lights_battery(&s, 9, 0, 0, t);
+		if (t == 6000) lights_battery(&s, 60, 0, 0, t);
+		if (t == 7000) lights_line(&s, &c, "level volume 3 20", t);
+		if (t == 9000) lights_ask(&s, t);
+		if (t == 12000) lights_battery(&s, 30, 1, 0, t);
+		if (t == 13000) lights_battery(&s, 30, 0, 0, t);
+		if (t >= 14000 && t < 17000 && t % 1000 < 7)
+			lights_line(&s, &c, t < 15000 ? "move 600000 0" : "move 0 24000000", t);
+		if (t >= 17000 && t < 21000 && t % 500 < 7) {
+			static const char *const PV[] = { "preview bar", "preview low", "preview battery", "preview level",
+			                                  "preview done", "preview cheer" };
+
+			lights_line(&s, &c, PV[(t - 17000) / 500 % 6], t);
+		}
+		lights_frame(&c, &s, t, &w);
+		if (w < worst) worst = w;
+		CHECK(w >= 1 && w <= IDLE_MS, "Battery Level on: wake in range at %ld (%d)", t, w);
+	}
+	CHECK(worst >= 1, "Battery Level on: the shortest wake is %d ms", worst);
 }
 
 int main(void)
@@ -565,6 +732,7 @@ int main(void)
 	level();
 	events();
 	moving();
+	battery_level();
 	previews();
 	asked();
 	never_spins();

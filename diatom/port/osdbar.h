@@ -50,7 +50,7 @@
 enum { OSDBAR_BRIGHT = 1, OSDBAR_VOLUME = 2, OSDBAR_POWER = 3 };   /* plat_osd_show's kinds */
 
 /* POWER held to turn the handheld off (src/powerhold.h, MENU > Power Button
- * on Hold): the power mark, and a segment lit for each tenth of the hold,
+ * on Hold): the power mark, and a segment lit for each twentieth of the hold,
  * in accent-ink as the lock screen's bar and the charging screen's hold
  * fill. Its level is how many are lit, of this many. */
 #define OSDBAR_POWER_STEPS 20

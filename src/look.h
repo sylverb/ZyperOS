@@ -2,11 +2,14 @@
 #ifndef ZYPEROS_LOOK_H
 #define ZYPEROS_LOOK_H
 
-/* The player's look (DESIGN.md 3.5): MENU > Display > Theme. Four things and
- * nothing else, my picks for the first version (2026-11-12): the accent, one
- * of DS_ACCENT's ten and the same in both themes; a background tone for each
- * theme, one of DS_TONE's three; corners rounded or square; and Zyper on or
- * off. Each starts as the themes ship, which is LOOK_DEFAULT.
+/* The player's look (DESIGN.md 3.5): MENU > Display > Theme. My picks for
+ * the first version (2026-11-12): the accent, one of DS_ACCENT's ten and the
+ * same in both themes; a background tone for each theme, one of DS_TONE's
+ * three; corners rounded or square; and Zyper on or off. And since 1.0.6
+ * rc.3 the folders' color: each system's own, or one of the accents for
+ * every folder (Tarik: "can we customize them in theme to be per system or a
+ * custom color for all?"). Each starts as the themes ship, which is
+ * LOOK_DEFAULT.
  *
  * From an accent and a tone this works out the whole theme - its surfaces,
  * its text, the accent's ink and the text on the accent - and holds every
@@ -29,9 +32,22 @@ typedef struct {
 	int  tone[DS_THEMES];      /* DS_TONE[theme]'s */
 	bool square;               /* Corners: Square */
 	bool zyper_off;            /* Zyper: Off */
+	int  folder;               /* Folder Color: 0 System Colors, each system's
+	                            * own; k DS_ACCENT[k - 1] for every folder */
 } look;
 
-#define LOOK_DEFAULT ((look){ 0, { 0, 0 }, false, false })
+/* Folder Color's choices: System Colors, then the accents */
+#define LOOK_FOLDERS (DS_ACCENTS + 1)
+
+#define LOOK_DEFAULT ((look){ 0, { 0, 0 }, false, false, 0 })
+
+/* The look that is on as one number, 0 to LOOK_IDS - 1: its accent, both
+ * tones, its corners and its folders' color, what a card is painted with
+ * (src/ui.c's stamp on a card's texture). Not a count of changes: a list's
+ * cursor going through looks and back leaves a card of the kept look
+ * current and every other one stale, however many it went through. */
+#define LOOK_IDS (DS_ACCENTS * DS_TONES * DS_TONES * 2 * LOOK_FOLDERS)
+int look_id(void);
 
 /* The colors as they ship: the first accent and both first tones (corners
  * and Zyper are not colors) */
@@ -58,6 +74,18 @@ unsigned look_gen(void);
 /* Corners and Zyper, as the drawing asks: square corners on, Zyper off */
 bool look_square(void);
 bool look_zyper_off(void);
+
+/* A folder's color as Folder Color has it: `system_rgb`, its system's own
+ * (0xRRGGBB, or CFG_NO_COLOR, which the drawing gives its text-dim), with
+ * System Colors on; the one color every folder takes with any other. The
+ * shelf's folders of games and the File Transfer page's console folders. */
+unsigned look_folder_rgb(unsigned system_rgb);
+
+/* Folder Color's word as the database keeps it (look.folders): "system", or
+ * an accent's id (DS_ACCENT_ID); NULL or a word from another release reads
+ * as System Colors */
+int look_folder_parse(const char *word);
+const char *look_folder_word(int folder);
 
 /* The words the database keeps (look.accent, look.light, look.dark: an id
  * of DS_ACCENT_ID or DS_TONE_ID; look.corners: "rounded" or "square";

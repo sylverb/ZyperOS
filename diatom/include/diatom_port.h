@@ -69,6 +69,11 @@ typedef enum {
 	DIATOM_FILTER_CRT_CURVED,
 	DIATOM_FILTER_SCANLINES,
 	DIATOM_FILTER_LCD,
+	/* The LCD's grid on a screen with no light behind it, as the Game Boy
+	 * Color's and the first Game Boy Advance's were: a light pixel shows
+	 * the screen's backing rather than glowing white. Which systems it is
+	 * for is the host's to say (ZyperOS: the Game Boy's three). */
+	DIATOM_FILTER_LCD_UNLIT,
 	DIATOM_FILTER_COUNT
 } diatom_filter;
 
@@ -493,6 +498,17 @@ void diatom_port_power_hold(bool on, unsigned ms, unsigned at, bool done);
  * second under 58. Its GPU only puts the picture on the panel, so it is left
  * to its governor. */
 void diatom_port_fast_clock(bool cpu, bool gpu);
+
+/* How many frames since the port started were ready in time and still
+ * reached the panel a refresh late: asked of the display and shown more than
+ * a refresh and a quarter after, where a frame asked of it in time is shown
+ * at the next refresh. A frame that comes after a refresh is shown at the
+ * one after and is not one: that is the core's lateness, which the frame
+ * loop sees for itself. What such a miss costs is the display's own work,
+ * a shader on a GPU kept at a low clock (src/flipwatch.h), which no ceiling
+ * the frame loop knows of lifts by itself. A port that cannot tell returns
+ * 0. The frame loop asks once a turn. */
+unsigned diatom_port_refreshes_missed(void);
 
 /* How much clock a game gets. FULL is the device's top clocks; MEDIUM and
  * LIGHT are lower ceilings for systems that keep their speed under them

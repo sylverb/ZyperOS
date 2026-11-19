@@ -177,10 +177,13 @@ fetch_core neocd             684caf31de3f1efe3c7fa583d0d5db61ce00097c6e8311fa34d
 # of it, and Diatom needs three patches to it. Run mk/build-fake08.sh, which
 # builds and pins it.
 
-# The PlayStation. PCSX-ReARMed r26l-137-g7b0e8f8, libretro/pcsx_rearmed
-# 7b0e8f8, pinned 2026-11-03 with Diatom's CORES.md. Wants a BIOS in Bios/,
+# The PlayStation, PCSX-ReARMed (libretro/pcsx_rearmed 7b0e8f8, which ZyperOS
+# shipped up to 1.0.5 as the buildbot built it, 07cb263f...), IS NOT FETCHED
+# since 1.0.6: mk/build-pcsx-rearmed.sh builds it from the same commit with
+# the buildbot's toolchain and mk/patches/pcsx_rearmed-memcard-resume.patch (a
+# game saw a new memory card after every start from its auto state). Wants a
+# BIOS in Bios/,
 # scph5501.bin for US discs, which systems.cfg names as the shelf's disc bios.
-fetch_core pcsx_rearmed      07cb263f1af645ea60906dbdc8d00ba32cd735bde60cf7d8fbc210118e169808
 
 # DSperate, the Nintendo DS shelf's libretro core, is not on the buildbot at
 # all: mk/build-dsperate.sh builds it, pinned by sha256 like these.

@@ -8,7 +8,6 @@
  * main.c. */
 #include "app.h"
 #include "dslang.h"
-#include "dsslow.h"
 #include "pacing.h"
 #include "game_menu.h"
 #include "hare.h"
@@ -168,6 +167,10 @@ typedef struct {
 	/* A picture at each row's left, by place: the Achievements tab's
 	 * badges (main.c's g_row_icon while the panel is drawn). NULL: none. */
 	SDL_Texture *(*row_icon)(int row);
+	/* Told the cursor's row each pass, after the keys and before the
+	 * frame is drawn, so an option's list shows the choice under it
+	 * (src/ds/hover.h) in the frame the cursor reaches it. NULL: none. */
+	void   (*at)(app *a, void *ctx, int sel);
 } menu_style;
 
 /* ---- the menu runner (main.c's menu_run) ------------------------------------
@@ -690,19 +693,26 @@ extern bool shot_usb_menu;
 extern const char *const BATT_IDS[BATT_MODES];
 extern int g_batt_mode;
 extern char g_scraper_val[32];
-void shader_set_all(app *a, int k);
-const char *shader_all_label(const app *a);
-bool strength_all_shown(const app *a);
-const char *strength_all_label(const app *a);
+/* The screens' shader, MENU's row from the home (main.c, src/screenfx.h):
+ * its SHADERS index and strength, and a list's cursor's in their place */
+extern int g_screen_shader, g_screen_strength, g_screen_shown, g_screen_shown_strength;
+bool screen_shader_offered(int k);
+int  screen_shader_step(int k, int d);
+void screen_shader_load(void);
+void screen_shader_set(int k);
+void screen_strength_set(int pct);
+void screen_shader_apply(void);
+bool screen_strength_shown(void);
+const char *screen_strength_label(void);
 const char *core_label(const char *core, char *buf, size_t n);
 void core_step(app *a, int sys, int d);
 dsl_choice dslang_load(void);
-dss_choice dsslow_load(void);
 pacing_choice pacing_load(const system_cfg *s);
 bool pacing_row_shown(const app *a, int sys);
 bool dslang_row_shown(const app *a, int sys);
 const char *dslang_label(dsl_choice c, char *buf, size_t n);
 void view_turn(app *a, int sys, int dir);
+void home_turn(app *a, int dir);
 float grid_shape_load(const app *a, int sys);
 void grid_shape_save(const app *a, int sys, float shape);
 void sort_save(app *a);
@@ -782,7 +792,7 @@ extern const char *shot_path;
 extern int shot_cheevos_waiting;
 void present_clear(app *a, ds_rgb c);
 void drawn_forget(void);
-int shader_step(int k, int d);
+int shader_step(int k, int d, const char *tag);
 void display_save(app *a);
 void shader_save(app *a, int sys);
 const char *strength_row_label(const app *a, int sys);

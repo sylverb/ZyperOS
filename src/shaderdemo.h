@@ -11,18 +11,20 @@
 
 #include "app.h"
 
-/* The shader the k-th row of a Shader list is: the list offers only the
- * shaders this handheld draws (SHADERS' gpu, plat_gpu_shaders) */
-int shader_offered(int k);
+/* The shader the k-th row of the Shader list of the system tagged `tag` is:
+ * the list offers only the shaders this handheld draws (SHADERS' gpu,
+ * plat_gpu_shaders) and that are for that system (shader_for) */
+int shader_at(int k, const char *tag);
 
 /* The notes under a Shader list's picture, a choice each, into `out` (n of
- * them, as many as the list has); the Strength list's note for every step
- * into `strength`, `steps` of them */
-void shader_demo_notes(const char **out, int n);
+ * them, as many as the list of the system tagged `tag` has); the Strength
+ * list's note for every step into `strength`, `steps` of them */
+void shader_demo_notes(const char **out, int n, const char *tag);
 void shader_demo_strength_notes(const char **out, int steps);
 
 /* Shader `shader` at `strength` percent in the preview's box (units), its
- * close-up at the handheld's own pixels, the small screen framed */
+ * close-up at the handheld's own pixels, the small screen framed. CRT
+ * Curved's is its whole screen, its curve made larger to read that small */
 void shader_demo_draw(app *a, int shader, int strength, int x, int y, int w, int h);
 
 #endif

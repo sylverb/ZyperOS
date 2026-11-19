@@ -24,6 +24,7 @@ extern int shot_tab_ms;
 extern const char *shot_look;
 extern const char *shot_look_page;
 extern int shot_homesys;        /* --homesys-page ROW: MENU > Home Systems' page, or -1 */
+extern int shot_lights;         /* --lights-page ROW: MENU > Side Lights' page, or -1 */
 extern int shot_look_row;
 extern int shot_kb_layer;
 extern int shot_kb;
@@ -119,6 +120,7 @@ extern const char *shot_portload;
 extern int shot_poweroff;
 extern const char *shot_kb_text;
 extern const char *shot_kb_title;
+extern int shot_kb_ss_user;      /* --kb-ss-user: the ScreenScraper sign-in's title */
 extern int shot_slot_sel;
 extern int shot_slots;
 extern int shot_jump;
@@ -154,6 +156,7 @@ extern const char *shot_hud_shows; /* --hud-shows WORDS */
 extern bool shot_hud_alt;      /* --hud-alt */
 extern int shot_pick_at;       /* --pick-at K */
 extern int shot_rows_report;   /* --rows-report */
+extern int shot_hover_sweep;   /* --hover-sweep */
 extern const char *shot_menu_label;
 bool shot_status_parse(const char *spec);
 void shot_motion(app *a);

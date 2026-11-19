@@ -12,6 +12,7 @@
 #include "device.h"
 #include "fileio.h"
 #include "platform.h"
+#include "screenfx_draw.h"
 #include "thermal.h"
 
 #include <dirent.h>
@@ -107,6 +108,26 @@ static void signal_splash(int sig)
 	if (proc) closedir(proc);
 }
 
+/* The screens' shader is on this frame already (plat_screen_finish) */
+static bool fx_done;
+
+/* This file draws straight into the window, so the shader goes on the frame
+ * where it is: CRT Curved's bend reads it back and draws it again, then the
+ * mask multiplies it. The Brick's own rows offer none of the old screens
+ * (plat_gpu_shaders), so on the Brick this is always Off and nothing; the
+ * host, which shows the Pixel 2's screens, has them. */
+void plat_screen_finish(void)
+{
+	SDL_Rect all = { 0, 0, ZYPEROS_SCREEN_W, ZYPEROS_SCREEN_H };
+
+	if (fx_done || !sfx_on()) return;
+	fx_done = true;
+	if (sfx_curved()) sfx_bend_target(ren, ZYPEROS_SCREEN_W, ZYPEROS_SCREEN_H);
+	sfx_draw_mask(ren, ZYPEROS_SCREEN_W, ZYPEROS_SCREEN_H, &all, 0.0);
+}
+
+bool plat_screen_shader_in_frame(void) { return sfx_on(); }
+
 /* The Brick's panel is the screen, so drawing to the screen is drawing to the
  * window. The first present tells the splash first, and goes on the kernel's
  * clock beside the splash's own lines, so the boot from power to shelf reads
@@ -116,6 +137,7 @@ void plat_present(void)
 	static bool shown;
 
 	plat_overlay_present(ren);
+	plat_screen_finish();
 	if (!shown) {
 		signal_splash(SIGUSR1);
 #ifdef __linux__
@@ -134,6 +156,7 @@ void plat_present(void)
 		shown = true;
 	}
 	SDL_RenderPresent(ren);
+	fx_done = false;
 }
 void plat_draw_to_screen(void) { SDL_SetRenderTarget(ren, NULL); }
 
@@ -220,6 +243,7 @@ bool plat_video_init(void)
 void plat_video_quit(void)
 {
 	plat_osd_forget();
+	sfx_forget();
 	if (ren) { SDL_DestroyRenderer(ren); ren = NULL; }
 	if (win) { SDL_DestroyWindow(win); win = NULL; }
 	SDL_QuitSubSystem(SDL_INIT_VIDEO);
@@ -917,6 +941,12 @@ void plat_backlight_dim(bool dim)
 
 /* No gamma table here: the Brick's backlight goes as low as its rungs need */
 void plat_display_plain(void) { }
+void plat_screen_colors(const screen_colors *c, bool keep) { (void)c; (void)keep; }
+void plat_screen_colors_tick(bool now) { (void)now; }
+void plat_night(const struct night_cfg *n) { (void)n; }
+void plat_night_preview(int warmth) { (void)warmth; }
+bool plat_night_tick(void) { return false; }
+bool plat_screen_saturation_here(void) { return false; }
 
 #else   /* not __linux__ */
 
@@ -961,6 +991,13 @@ static void mute_forget(void) { }
 void plat_backlight(bool on) { (void)on; }
 void plat_backlight_dim(bool dim) { (void)dim; }
 void plat_display_plain(void) { }
+void plat_screen_colors(const screen_colors *c, bool keep) { (void)c; (void)keep; }
+void plat_screen_colors_tick(bool now) { (void)now; }
+void plat_night(const struct night_cfg *n) { (void)n; }
+void plat_night_preview(int warmth) { (void)warmth; }
+bool plat_night_tick(void) { return false; }
+/* The host draws the Pixel 2's page whole, Saturation too, for the shots */
+bool plat_screen_saturation_here(void) { return true; }
 
 /* No settings database on the host, so the config defaults are all there is.
  * Taken anyway rather than ignored: a shelf rendered by --shot should show the
@@ -1036,7 +1073,7 @@ bool plat_menu_held(void) { return false; }
 /* L2 and R2 are buttons of their own too. */
 bool plat_tap_held(in_button b) { (void)b; return false; }
 
-side_lights plat_side_lights(void) { return LIGHTS_ALL; }
+side_lights plat_side_lights(void) { return LIGHTS_DEFAULT; }
 void plat_side_lights_set(side_lights on) { (void)on; }
 void plat_side_lights_say(const char *line) { (void)line; }
 

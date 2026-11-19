@@ -95,6 +95,14 @@ static bool                g_have_master;
  * after another program had the display. */
 static int                 g_gamma_want = -1;
 static int                 g_gamma_have = -2;
+/* The player's Screen Colors, as the launcher left them in
+ * PANELGAMMA_COLOR_FILE: read again each time the display comes back
+ * (g_gamma_have -2), since they change only in the launcher's MENU. And
+ * Night Mode's warmth and nights there: the clock looked at once a second,
+ * and the table loaded at a night's start and end (g_gamma_color.night). */
+static panelgamma_color    g_gamma_color;
+static panelgamma_night    g_gamma_night;
+static time_t              g_night_looked;
 
 static EGLDisplay g_egl_display = EGL_NO_DISPLAY;
 static EGLContext g_egl_context = EGL_NO_CONTEXT;
@@ -810,7 +818,7 @@ static const char *SHIMMERLESS_SHADER =
  * however the picture is scaled, and nothing shimmers. One texture read.
  * `ratio` and `opacity` are vec2s, across and down: with nothing across it is
  * scanlines; with both, an LCD's grid. */
-#define GRID_SHADER_SRC(ratio, alpha) \
+#define GRID_SHADER_SRC(ratio, alpha, light) \
 	"#version 300 es\n" \
 	"precision highp float;\n" \
 	QUAD_UNIFORMS \
@@ -829,10 +837,12 @@ static const char *SHIMMERLESS_SHADER =
 	"	f = mix(f, clamp((RATIO - ftl) * u_scale, 0.0, 1.0), step(t_br, t_tl));\n" \
 	"	f = ALPHA + (1.0 - ALPHA) * f;\n" \
 	"	vec2 t = t_br - 0.5 + w;\n" \
-	"	o_color = vec4(f.x * f.y * texture(u_tex, (t + u_origin) / u_size).rgb, 1.0);\n" \
+	"	vec3 c = texture(u_tex, (t + u_origin) / u_size).rgb;\n" \
+	light \
+	"	o_color = vec4(f.x * f.y * c, 1.0);\n" \
 	"}\n"
 #define GRID_SHADER(ratio, opacity) \
-	GRID_SHADER_SRC(ratio, "const vec2 ALPHA = 1.0 - " opacity ";\n")
+	GRID_SHADER_SRC(ratio, "const vec2 ALPHA = 1.0 - " opacity ";\n", "")
 /* Under 100% strength the band is that much as dark: OPACITY times
  * u_strength, 0 to 1. The band's width stays, so nothing shimmers at any
  * strength, and at 0 nothing is dark and the weights are the box filter's -
@@ -840,7 +850,47 @@ static const char *SHIMMERLESS_SHADER =
  * original counts the band's whole width. Still one texture read. */
 #define GRID_SHADER_SOFT(ratio, opacity) \
 	GRID_SHADER_SRC(ratio, "uniform float u_strength;\n" \
-	                "#define ALPHA (1.0 - " opacity " * u_strength)\n")
+	                "#define ALPHA (1.0 - " opacity " * u_strength)\n", "")
+
+/* LCD No Backlight: the LCD's grid on a screen with nothing lit behind it,
+ * as the Game Boy Color's and the first Game Boy Advance's were. Such a
+ * screen shows a light pixel by letting light through to the reflective
+ * layer behind it, so white is that layer's own dull, slightly green grey,
+ * the dark pixels sit on it, and the grid shows over both. Here a pixel
+ * goes toward BACKING by how light it is, by a soft curve, its luma
+ * squared: black stays black, a dark grey moves a little, white becomes
+ * BACKING.
+ *
+ * The liquid crystal sits a little above that layer, so a dark pixel casts
+ * a shadow on it, down and to the right, which shows only where a light
+ * pixel lets the layer through: the backing is darkened by SHADE times the
+ * darkness of the source SHADOW texels up and to the left. Read as sharp
+ * bilinear does, the point moved into its texel's middle but for the last
+ * quarter on each side, so the shadow's edge is a soft quarter of a game
+ * pixel at any scale with no blur. The grid's one read and this one: two a
+ * pixel, where the Game Boy's three fill a fraction of the panel.
+ *
+ * Under 100% the backing's share, the shadow and the grid's dark all scale
+ * by u_strength, so at 0 it is Sharp-Shimmerless. An idea from mattakins's
+ * Pixel Transparency for RetroArch; this is ZyperOS's own code. */
+#define UNLIT_BACKING \
+	"const vec3 BACKING = vec3(0.78, 0.80, 0.71);\n" \
+	"const vec3 LUMA = vec3(0.299, 0.587, 0.114);\n" \
+	"const vec2 SHADOW = vec2(0.4, 0.4);\n" \
+	"const float SHADE = 0.35;\n"
+#define UNLIT_LIGHT(amount) \
+	"	float l = dot(c, LUMA);\n" \
+	"	vec2 q = v_src - u_origin - SHADOW - 0.5, qp = floor(q);\n" \
+	"	q = qp + 0.5 + clamp((q - qp - 0.5) * 4.0 + 0.5, 0.0, 1.0);\n" \
+	"	float s = 1.0 - dot(texture(u_tex, (q + u_origin) / u_size).rgb, LUMA);\n" \
+	"	c = mix(c, BACKING * (1.0 - " amount " * SHADE * s), " amount " * l * l);\n"
+#define LCD_UNLIT_SHADER_SRC \
+	GRID_SHADER_SRC("vec2(0.3, 0.3)", UNLIT_BACKING "const vec2 ALPHA = 1.0 - vec2(0.3, 0.3);\n", \
+	                UNLIT_LIGHT("1.0"))
+#define LCD_UNLIT_SOFT_SHADER_SRC \
+	GRID_SHADER_SRC("vec2(0.3, 0.3)", UNLIT_BACKING "uniform float u_strength;\n" \
+	                "#define ALPHA (1.0 - vec2(0.3, 0.3) * u_strength)\n", \
+	                UNLIT_LIGHT("u_strength"))
 
 /* A handheld's LCD: the grid both ways, the original's defaults */
 static const char *LCD_SHADER = GRID_SHADER("vec2(0.3, 0.3)", "vec2(0.3, 0.3)");
@@ -848,6 +898,8 @@ static const char *LCD_SHADER = GRID_SHADER("vec2(0.3, 0.3)", "vec2(0.3, 0.3)");
 static const char *SCANLINES_SHADER = GRID_SHADER("vec2(0.0, 0.3)", "vec2(0.0, 0.3)");
 static const char *LCD_SOFT_SHADER = GRID_SHADER_SOFT("vec2(0.3, 0.3)", "vec2(0.3, 0.3)");
 static const char *SCANLINES_SOFT_SHADER = GRID_SHADER_SOFT("vec2(0.0, 0.3)", "vec2(0.0, 0.3)");
+static const char *LCD_UNLIT_SHADER = LCD_UNLIT_SHADER_SRC;
+static const char *LCD_UNLIT_SOFT_SHADER = LCD_UNLIT_SOFT_SHADER_SRC;
 
 /* A CRT: Timothy Lottes's CRTS (public domain; libretro glsl-shaders'
  * crt/shaders/crt-lottes-fast.glsl, its 20180120b), its 2-tap filter: two
@@ -1198,6 +1250,7 @@ static const char *const *const FILTER_SHADER[DIATOM_FILTER_COUNT] = {
 	[DIATOM_FILTER_CRT_CURVED]  = &CRT_CURVED_SHADER,
 	[DIATOM_FILTER_SCANLINES]   = &SCANLINES_SHADER,
 	[DIATOM_FILTER_LCD]         = &LCD_SHADER,
+	[DIATOM_FILTER_LCD_UNLIT]   = &LCD_UNLIT_SHADER,
 };
 /* And under 100% strength, for the filters that have an effect to weaken */
 static const char *const *const SOFT_SHADER[DIATOM_FILTER_COUNT] = {
@@ -1205,6 +1258,7 @@ static const char *const *const SOFT_SHADER[DIATOM_FILTER_COUNT] = {
 	[DIATOM_FILTER_CRT_CURVED]  = &CRT_CURVED_SOFT_SHADER,
 	[DIATOM_FILTER_SCANLINES]   = &SCANLINES_SOFT_SHADER,
 	[DIATOM_FILTER_LCD]         = &LCD_SOFT_SHADER,
+	[DIATOM_FILTER_LCD_UNLIT]   = &LCD_UNLIT_SOFT_SHADER,
 };
 
 /* The final pass's program for a filter, linked the first time it is asked
@@ -1552,8 +1606,9 @@ static int put_on_glass(uint32_t fb, bool *done)
 	return flip_err;
 }
 
-/* The gamma table the backlight's value asks for (port/panelgamma.h): the
- * dimming one at 9 and 13, none from 17 up. Present thread, before a flip,
+/* The gamma table the backlight's value and the Screen Colors ask for
+ * (port/panelgamma.h): the dimming one at 9 and 13, none from 17 up in
+ * Standard. Present thread, before a flip,
  * with no flip pending: loading it is an atomic commit, which waits a
  * refresh or two, at a brightness step or when the display comes back. */
 static void display_gamma(void)
@@ -1568,15 +1623,46 @@ static void display_gamma(void)
 		want = __atomic_compare_exchange_n(&g_gamma_want, &unset, now, false,
 		                                   __ATOMIC_RELAXED, __ATOMIC_RELAXED) ? now : unset;
 	}
+	if (g_gamma_have == -2) {
+		panelgamma_screen_read(PANELGAMMA_COLOR_FILE, &g_gamma_color, &g_gamma_night);
+		g_gamma_color.night = panelgamma_night_at(&g_gamma_night, (long long)time(NULL));
+		g_night_looked = 0;
+	}
+	/* Night Mode's hour, once a second: the table again at once when the
+	 * warmth due now is not the one on (src/nightmode.h: one blink, no
+	 * fade) */
+	{
+		time_t now = time(NULL);
+
+		if (now != g_night_looked) {
+			int w = panelgamma_night_at(&g_gamma_night, (long long)now);
+
+			g_night_looked = now;
+			if (w != g_gamma_color.night) {
+				g_gamma_color.night = w;
+				port_logf(DIATOM_LOG_INFO, "pixel2: Night Mode %s", w ? "on" : "off");
+				if (want == g_gamma_have) g_gamma_have = -1;
+			}
+		}
+	}
 	if (want == g_gamma_have) return;
-	n = panelgamma_apply(g_drm_fd, want);
+	n = panelgamma_apply_color(g_drm_fd, want, &g_gamma_color);
 	if (n > 0)
-		port_logf(DIATOM_LOG_INFO, "pixel2: the display's gamma table set for brightness %d",
-		          want);
+		port_logf(DIATOM_LOG_INFO, "pixel2: the display's gamma table set for brightness %d%s",
+		          want, g_gamma_color.night ? ", Night Mode on" : "");
 	else if (n < 0)
 		port_logf(DIATOM_LOG_WARN, "pixel2: could not set the display's gamma table for "
 		          "brightness %d", want);
 	g_gamma_have = want;               /* once, even refused: not at every frame */
+}
+
+/* Refreshes missed with the frame ready (diatom_port_refreshes_missed):
+ * counted by the presenting thread, read by the loop */
+static volatile unsigned g_refreshes_missed;
+
+unsigned diatom_port_refreshes_missed(void)
+{
+	return __atomic_load_n(&g_refreshes_missed, __ATOMIC_RELAXED);
 }
 
 /* Put what was just swapped on glass, and wait until it is. */
@@ -1584,8 +1670,10 @@ static void show_frame(void)
 {
 	struct gbm_bo *bo = gbm_surface_lock_front_buffer(g_gbm_surface);
 	uint32_t fb;
-	bool done = false;
+	bool done = false, flipped;
 	int ret;
+	uint64_t asked = 0;
+	static double refresh_us;
 
 	if (!bo) {
 		diatom_port_log(DIATOM_LOG_ERROR, "pixel2: no front buffer after swap");
@@ -1610,6 +1698,12 @@ static void show_frame(void)
 		gbm_surface_release_buffer(g_gbm_surface, bo);
 		return;
 	}
+	/* A flip asked for (not a mode-set, which is done at once): when, and
+	 * the mode's refresh period, to tell a missed refresh by */
+	flipped = !done;
+	if (flipped) asked = diatom_port_now_us();
+	if (!refresh_us && g_mode.clock)
+		refresh_us = (double)g_mode.htotal * g_mode.vtotal * 1000.0 / g_mode.clock;
 
 	while (!done) {
 		struct pollfd p = { .fd = g_drm_fd, .events = POLLIN };
@@ -1623,6 +1717,12 @@ static void show_frame(void)
 		}
 		drmHandleEvent(g_drm_fd, &ev);
 	}
+	/* Shown more than a refresh and a quarter after it was asked for: the
+	 * flip waited past the refresh it was in time for, on the GPU's drawing
+	 * or the kernel's */
+	if (flipped && done && refresh_us > 0 &&
+	    (double)(diatom_port_now_us() - asked) > refresh_us * 1.25)
+		__atomic_add_fetch(&g_refreshes_missed, 1, __ATOMIC_RELAXED);
 
 	if (g_shown_bo) gbm_surface_release_buffer(g_gbm_surface, g_shown_bo);
 	g_shown_bo = bo;

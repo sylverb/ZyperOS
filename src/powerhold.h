@@ -3,23 +3,25 @@
  *
  * MENU > Power Button chooses. **Press**, as it has always been: POWER
  * pressed saves the game and turns the handheld off. **Hold**: POWER held
- * for DS_MS_HOLD_UNLOCK, the same two seconds the charging screen's Hold
- * POWER to start asks for, so one hold does both; a press does nothing but
- * show how far a hold has to go. Asked for on the Discord (drmoze: "A long
- * press on the power button should be required to shut down. My Pixel shuts
- * down after a momentary press, which is too easy to do accidentally"), and
- * my pick to put it in MENU, Press staying the default.
+ * for DS_MS_HOLD_POWER, one second (Tarik, 2026-11-17: "so make it 1
+ * second"); a press does nothing but show how far a hold has to go. The
+ * charging screen's Hold POWER to start is the same second (Tarik, 1.0.6),
+ * and takes the hold it starts with (powerhold_consume). Asked for on the
+ * Discord (drmoze: "A long press on the power button should be required to
+ * shut down. My Pixel shuts down after a momentary press, which is too easy
+ * to do accidentally"), and my pick to put it in MENU, Press staying the
+ * default.
  *
  * One rule for every place that reads the key: the launcher's input (every
  * screen's in_state, src/platform.c), its watch over a game (resident.c's
  * device_power_pressed) and over a program it waits for (plat_run), and
  * portkeys over a port. Each feeds this the key's own events and asks it
- * whether the handheld turns off now, so a hold is the same two seconds
+ * whether the handheld turns off now, so a hold is the same second
  * whichever of them happens to read it.
  *
  * While a hold is under way the settings pill shows it (src/osdbar.h,
- * OSDBAR_POWER): the power mark and a segment lit for each tenth of a
- * second, the same pill the volume is, where it is on every screen, over a
+ * OSDBAR_POWER): the power mark and a segment lit for each twentieth of the
+ * hold (50 ms), the same pill the volume is, where it is on every screen, over a
  * game (Diatom, SETPOWERHOLD) and over a port (portkeys). Let go early, it
  * fades out at once.
  *
@@ -35,7 +37,7 @@
 
 #include "design.h"
 
-#define POWERHOLD_MS  DS_MS_HOLD_UNLOCK
+#define POWERHOLD_MS  DS_MS_HOLD_POWER
 /* The setting in the device database: "hold" for Hold; anything else, or
  * nothing, is Press */
 #define POWERHOLD_KEY "power.button"

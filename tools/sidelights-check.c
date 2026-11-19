@@ -6,9 +6,11 @@
  * wait or die, and when a File Transfer batch counts as finished.
  *
  * The FIFO is a real one, in a folder of this run's own, so two runs at once
- * do not meet.
+ * do not meet. plastron's gauge rules are linked in (package/gauge/src/
+ * lights.c), so the setting's line is held to the gauge's own reading.
  */
 #include "../src/sidelights.h"
+#include "../plastron/buildroot/package/gauge/src/lights.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -43,9 +45,13 @@ static void setting(void)
 	char l[96];
 	side_lights on;
 
-	CHECK(side_lights_parse(NULL) == LIGHTS_ALL && side_lights_parse("") == LIGHTS_ALL,
-	      "no file, or an empty one: every part (My pick: everything on)");
-	CHECK(side_lights_parse("auto\n") == LIGHTS_ALL, "today's Auto: every part");
+	CHECK(side_lights_parse(NULL) == LIGHTS_DEFAULT && side_lights_parse("") == LIGHTS_DEFAULT,
+	      "no file, or an empty one: every part but Battery Level (My pick: everything on)");
+	CHECK(LIGHTS_DEFAULT == (LIGHTS_ALL & ~ON(LP_BATTERY)) && LP_BATTERY == LP_COUNT - 1,
+	      "Battery Level: the last bit, and the one part a new card has off");
+	CHECK(side_lights_parse("auto\n") == LIGHTS_DEFAULT, "today's Auto: every part but Battery Level");
+	CHECK(side_lights_parse("auto level done cheer\n") == LIGHTS_DEFAULT,
+	      "a line from before Battery Level: it stays off");
 	CHECK(side_lights_parse("charging\n") == ON(LP_BAR), "today's Charging: the bar, and no newer part");
 	CHECK(side_lights_parse("low") == ON(LP_LOW), "today's Low Battery: the red flash");
 	CHECK(side_lights_parse("off") == 0, "today's Off: nothing");
@@ -53,18 +59,27 @@ static void setting(void)
 	      "auto with two parts off");
 	CHECK(side_lights_parse("off level done") == (ON(LP_LEVEL) | ON(LP_DONE)), "off with two parts on");
 	CHECK(side_lights_parse("charging low -bar") == ON(LP_LOW), "a later bar or low word wins");
-	CHECK(side_lights_parse("auto shiny -done game") == (LIGHTS_ALL & ~ON(LP_DONE)), "unknown words are left alone");
-	CHECK(side_lights_parse("rainbow") == LIGHTS_ALL, "an unknown first word reads as auto");
-	CHECK(side_lights_parse("  auto\t-level  \n") == (LIGHTS_ALL & ~ON(LP_LEVEL)), "spaces and tabs");
-	CHECK(side_lights_parse("lowish") == LIGHTS_ALL && side_lights_parse("of") == LIGHTS_ALL,
-	      "a word is whole, not its start");
+	CHECK(side_lights_parse("auto shiny -done game") == (LIGHTS_DEFAULT & ~ON(LP_DONE)), "unknown words are left alone");
+	CHECK(side_lights_parse("rainbow") == LIGHTS_DEFAULT, "an unknown first word reads as auto");
+	CHECK(side_lights_parse("  auto\t-level  \n") == (LIGHTS_DEFAULT & ~ON(LP_LEVEL)), "spaces and tabs");
+	CHECK(side_lights_parse("lowish") == LIGHTS_DEFAULT && side_lights_parse("of") == LIGHTS_DEFAULT &&
+	      side_lights_parse("auto batteryy") == LIGHTS_DEFAULT, "a word is whole, not its start");
+	CHECK(side_lights_parse("auto level done cheer battery") == LIGHTS_ALL, "every part, Battery Level too");
+	CHECK(side_lights_parse("off -level -done -cheer battery") == ON(LP_BATTERY), "Battery Level alone");
+	CHECK(side_lights_parse("charging battery") == (ON(LP_BAR) | ON(LP_BATTERY)), "Charging with Battery Level");
+	CHECK(side_lights_parse("battery") == LIGHTS_ALL, "battery as the first word: auto, and the part on");
+	CHECK(side_lights_parse("auto battery -battery") == LIGHTS_DEFAULT, "a later -battery wins");
 
 	side_lights_line(LIGHTS_ALL, l, sizeof l);
-	CHECK(!strcmp(l, "auto level done cheer"), "every part: \"%s\"", l);
+	CHECK(!strcmp(l, "auto level done cheer battery"), "every part: \"%s\"", l);
+	side_lights_line(LIGHTS_DEFAULT, l, sizeof l);
+	CHECK(!strcmp(l, "auto level done cheer -battery"), "a new card's: \"%s\"", l);
 	side_lights_line(0, l, sizeof l);
-	CHECK(!strcmp(l, "off -level -done -cheer"), "none: \"%s\"", l);
+	CHECK(!strcmp(l, "off -level -done -cheer -battery"), "none: \"%s\"", l);
 	side_lights_line(ON(LP_BAR) | ON(LP_CHEER), l, sizeof l);
-	CHECK(!strcmp(l, "charging -level -done cheer"), "the bar and achievements: \"%s\"", l);
+	CHECK(!strcmp(l, "charging -level -done cheer -battery"), "the bar and achievements: \"%s\"", l);
+	side_lights_line(ON(LP_BATTERY), l, sizeof l);
+	CHECK(!strcmp(l, "off -level -done -cheer battery"), "Battery Level alone: \"%s\"", l);
 	side_lights_line(ON(LP_LOW), l, sizeof l);
 	CHECK(!strncmp(l, "low ", 4), "the red flash alone starts with low, as older gauges read it");
 	for (on = 0; on <= LIGHTS_ALL; on++) {
@@ -73,6 +88,37 @@ static void setting(void)
 	}
 	CHECK(side_lights_flip(LIGHTS_ALL, LP_DONE) == (LIGHTS_ALL & ~ON(LP_DONE)) &&
 	      side_lights_has(ON(LP_LEVEL), LP_LEVEL) && !side_lights_has(ON(LP_LEVEL), LP_BAR), "flip and has");
+}
+
+/* Every setting's line as plastron's gauge reads it (lights_parse), each
+ * part where the launcher meant it; and the gauge's reading of no file and
+ * of the old words, the launcher's too */
+static void gauge_reads(void)
+{
+	static const char *const OLD[] = { "", "auto", "charging", "low", "off", "auto -level", "rainbow" };
+	struct lights_cfg c;
+	char l[96];
+	side_lights on;
+	size_t i;
+
+	for (on = 0; on <= LIGHTS_ALL; on++) {
+		side_lights_line(on, l, sizeof l);
+		memset(&c, 0x55, sizeof c);
+		lights_parse(&c, l);
+		CHECK(c.bar == side_lights_has(on, LP_BAR) && c.low == side_lights_has(on, LP_LOW) &&
+		      c.level == side_lights_has(on, LP_LEVEL) && c.done == side_lights_has(on, LP_DONE) &&
+		      c.cheer == side_lights_has(on, LP_CHEER) && c.battery == side_lights_has(on, LP_BATTERY),
+		      "the gauge reads \"%s\" as the launcher wrote it", l);
+	}
+	for (i = 0; i < sizeof OLD / sizeof OLD[0]; i++) {
+		on = side_lights_parse(OLD[i]);
+		memset(&c, 0x55, sizeof c);
+		lights_parse(&c, OLD[i]);
+		CHECK(c.bar == side_lights_has(on, LP_BAR) && c.low == side_lights_has(on, LP_LOW) &&
+		      c.level == side_lights_has(on, LP_LEVEL) && c.done == side_lights_has(on, LP_DONE) &&
+		      c.cheer == side_lights_has(on, LP_CHEER) && !c.battery && !side_lights_has(on, LP_BATTERY),
+		      "\"%s\": the gauge and the launcher agree, Battery Level off", OLD[i]);
+	}
 }
 
 static void lines(void)
@@ -288,6 +334,7 @@ static void previews(void)
 	CHECK(side_lights_preview_step(&p, LP_LEVEL, 2060, l, sizeof l) && !strcmp(l, "preview level"), "\"%s\"", l);
 	CHECK(side_lights_preview_step(&p, LP_DONE, 2070, l, sizeof l) && !strcmp(l, "preview done"), "\"%s\"", l);
 	CHECK(side_lights_preview_step(&p, LP_CHEER, 2080, l, sizeof l) && !strcmp(l, "preview cheer"), "\"%s\"", l);
+	CHECK(side_lights_preview_step(&p, LP_BATTERY, 2090, l, sizeof l) && !strcmp(l, "preview battery"), "\"%s\"", l);
 	CHECK(side_lights_preview_end(&p, l, sizeof l) && !strcmp(l, "preview off"), "the page closing: \"%s\"", l);
 	CHECK(!side_lights_preview_end(&p, l, sizeof l), "preview off twice");
 	/* Not a part: nothing, or the preview off */
@@ -306,6 +353,7 @@ static void previews(void)
 int main(void)
 {
 	setting();
+	gauge_reads();
 	lines();
 	fifo();
 	sigpipe();

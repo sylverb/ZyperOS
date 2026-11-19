@@ -312,15 +312,15 @@ ja = ブラウザ
 it = Browser
 
 [xfer.waiting]
-note = A lowercase value on File Transfer's screens: nobody yet (Browsers, the hotspot's Phones), and the Now row before anything happens.
-en = waiting
+note = A value on File Transfer's screens: nobody yet (Browsers, the hotspot's Phones), and the Now row before anything happens.
+en = Waiting
 zh-Hans = 等待中
-es = esperando
-pt-BR = aguardando
-fr = en attente
-de = wartet
+es = Esperando
+pt-BR = Aguardando
+fr = En attente
+de = Wartet
 ja = 待機中
-it = in attesa
+it = In attesa
 
 [xfer.connected]
 note = The Browsers row's value: how many browsers are signed in.
@@ -351,26 +351,26 @@ ja = 現在
 it = Adesso
 
 [xfer.closing_after]
-note = The Now row's value once File Transfer closes after the file on its way; %s is the file's name. Lowercase, as English.
-en = closing after %s
+note = The Now row's value once File Transfer closes after the file on its way; %s is the file's name. Begun with a capital, as English.
+en = Closing after %s
 zh-Hans = 传完 %s 后关闭
-es = se cierra después de %s
-pt-BR = fecha depois de %s
-fr = fermeture après %s
-de = schließt nach %s
+es = Se cierra después de %s
+pt-BR = Fecha depois de %s
+fr = Fermeture après %s
+de = Schließt nach %s
 ja = %s の後に終了
-it = chiusura dopo %s
+it = Chiusura dopo %s
 
 [xfer.closing_after_this_file]
 note = The same with no file name known.
-en = closing after this file
+en = Closing after this file
 zh-Hans = 传完此文件后关闭
-es = se cierra después de este archivo
-pt-BR = fecha depois deste arquivo
-fr = fermeture après ce fichier
-de = schließt nach dieser Datei
+es = Se cierra después de este archivo
+pt-BR = Fecha depois deste arquivo
+fr = Fermeture après ce fichier
+de = Schließt nach dieser Datei
 ja = このファイルの後に終了
-it = chiusura dopo questo file
+it = Chiusura dopo questo file
 
 [xfer.cable_unplugged]
 note = In the heading, where the address goes, when the USB cable came out.
@@ -439,15 +439,15 @@ ja = Wi-Fi
 it = Wi-Fi
 
 [xfer.step_unplugged]
-note = The Cable step's value when no computer is on the USB cable. A lowercase value.
-en = unplugged
+note = The Cable step's value when no computer is on the USB cable. A value, begun with a capital.
+en = Unplugged
 zh-Hans = 已拔出
-es = desconectado
-pt-BR = desconectado
-fr = débranché
-de = getrennt
+es = Desconectado
+pt-BR = Desconectado
+fr = Débranché
+de = Getrennt
 ja = 未接続
-it = scollegato
+it = Scollegato
 
 [xfer.hint_no_computer]
 note = Under File Transfer's steps when the Cable step has waited 5 s with no computer found on the cable: some USB cables only charge. Up to three balanced lines in the panel's inner width at menu size; say it short.
@@ -494,48 +494,48 @@ ja = アドレスがありません。Windows ではデバイス マネージャ
 it = Il computer non ha un indirizzo. Su Windows: Gestione dispositivi, Schede di rete.
 
 [xfer.row_on]
-note = MENU's File Transfer row's value while it runs behind the shelf with nothing moving. A lowercase value.
-en = on
+note = MENU's File Transfer row's value while it runs behind the shelf with nothing moving. A value, begun with a capital.
+en = On
 zh-Hans = 开启
-es = activado
-pt-BR = ativado
-fr = activé
-de = an
+es = Activado
+pt-BR = Ativado
+fr = Activé
+de = An
 ja = オン
-it = attivo
+it = Attivo
 
 [xfer.row_receiving]
 note = The same row while files arrive.
-en = receiving
+en = Receiving
 zh-Hans = 正在接收
-es = recibiendo
-pt-BR = recebendo
-fr = réception
-de = empfängt
+es = Recibiendo
+pt-BR = Recebendo
+fr = Réception
+de = Empfängt
 ja = 受信中
-it = ricezione
+it = Ricezione
 
 [xfer.row_sending]
 note = The same row while files go to the computer or phone.
-en = sending
+en = Sending
 zh-Hans = 正在发送
-es = enviando
-pt-BR = enviando
-fr = envoi
-de = sendet
+es = Enviando
+pt-BR = Enviando
+fr = Envoi
+de = Sendet
 ja = 送信中
-it = invio
+it = Invio
 
 [xfer.row_closing]
 note = The same row while it closes after the file on its way.
-en = closing
+en = Closing
 zh-Hans = 正在关闭
-es = cerrando
-pt-BR = fechando
-fr = fermeture
-de = schließt
+es = Cerrando
+pt-BR = Fechando
+fr = Fermeture
+de = Schließt
 ja = 終了中
-it = chiusura
+it = Chiusura
 
 [xfer.still_moving]
 note = The heading of the question B (or a game) brings while files move: three tiles.

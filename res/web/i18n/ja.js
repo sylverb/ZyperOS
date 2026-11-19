@@ -219,6 +219,7 @@ window.ZYPEROS_STRINGS = {
   "move.done_n": ["%1$d 件を %2$s に移動しました", "%1$d 件を %2$s に移動しました"],
   "act.undo": "元に戻す",
   "move.undone": "元の場所に戻しました。",
+  "console.kept": "システムのフォルダは、ZyperOS がゲームを見つけられるようにそのまま残ります。",
   "sel.count": ["%d 件を選択中", "%d 件を選択中"],
   "sel.all": "すべて選択",
   "sel.clear": "選択を解除",

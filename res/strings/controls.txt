@@ -198,15 +198,15 @@ ja = 最初から
 it = Dall'inizio
 
 [controls.view]
-note = MENU > Controls, on the shelf: START turns its covers into a list of names and back (MENU > View). Box Art's term for covers.
-en = Covers or list
-zh-Hans = 封面或列表
-es = Carátulas o lista
-pt-BR = Capas ou lista
-fr = Jaquettes ou liste
-de = Cover oder Liste
-ja = パッケージ画像/リスト
-it = Copertine o elenco
+note = MENU > Controls, START's value on the shelf page: on the home START steps MENU > Home Screen (Spotlight, Gallery, Grid), on a shelf MENU > View (Covers, Grid, List). The two MENU rows' names (sysmenu.home_screen, sysmenu.view), the home's first, as "Open or play" puts the home's job first; fr and de say the home as controls.home does, as the row's names do not fit.
+en = Home Screen or View
+zh-Hans = 主屏幕样式或视图
+es = Pantalla de inicio o vista
+pt-BR = Tela inicial ou exibição
+fr = Accueil ou affichage
+de = Startseite oder Ansicht
+ja = ホーム画面/表示
+it = Schermata Home o vista
 
 [controls.favorite]
 note = What Y does on a shelf: mark the game a favorite.
@@ -277,7 +277,7 @@ ja = セーブして電源オフ
 it = Salva e spegni
 
 [controls.save_off_hold]
-note = What POWER does when MENU > Power Button is Hold: held for 2 seconds, it saves the game and turns the handheld off.
+note = What POWER does when MENU > Power Button is Hold: held for 1 second, it saves the game and turns the handheld off.
 en = Hold: save and turn off
 zh-Hans = 长按：保存并关机
 es = Mantén: guarda y apaga
@@ -474,7 +474,7 @@ it = Spegni
 # translated; these are the words. A value is at most about 22 characters.
 
 [controls.turn_off_hold]
-note = What POWER does outside a game when MENU > Power Button is Hold: held for 2 seconds, it turns the handheld off.
+note = What POWER does outside a game when MENU > Power Button is Hold: held for 1 second, it turns the handheld off.
 en = Hold: turn off
 zh-Hans = 长按：关机
 es = Mantén: apaga
@@ -1059,7 +1059,7 @@ ja = 終了して電源オフ
 it = Esci e spegni
 
 [controls.quit_off_hold]
-note = What POWER does in OpenBOR or a port when MENU > Power Button is Hold: held for 2 seconds, the game ends and the handheld turns off.
+note = What POWER does in OpenBOR or a port when MENU > Power Button is Hold: held for 1 second, the game ends and the handheld turns off.
 en = Hold: quit and turn off
 zh-Hans = 长按：退出并关机
 es = Mantén: sal y apaga
@@ -1625,14 +1625,14 @@ it = Misto
 
 [controls.default]
 note = In a button's list of choices, at the right of the choice it gives when nothing is changed (the system's, or ZyperOS's for every game), while another choice is on. Lowercase where the language writes a status so. The value column beside a choice, whose name can be long (an NES's "Turbo A", an Atari 2600's "Interruptor der. A"): the shortest natural word.
-en = default
+en = Default
 zh-Hans = 默认
-es = por defecto
-pt-BR = padrão
-fr = par défaut
+es = Por defecto
+pt-BR = Padrão
+fr = Par défaut
 de = Standard
 ja = 既定
-it = predefinito
+it = Predefinito
 
 [controls.no_button_now]
 note = A quiet row under a button of the Controls tab whose change left one of the game's buttons on no button of the handheld: %s is that game button as its core names it (×, Start, C, Interruptor der. A). Wrapped to the 580-unit column a line a row, as gamemenu.own_buttons is: keep it to two lines.
