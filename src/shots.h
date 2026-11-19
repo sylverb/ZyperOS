@@ -155,6 +155,7 @@ extern int  shot_hud_pick;     /* --hud-pick ROW */
 extern const char *shot_hud_shows; /* --hud-shows WORDS */
 extern bool shot_hud_alt;      /* --hud-alt */
 extern int shot_pick_at;       /* --pick-at K */
+extern const char *shot_pick_en; /* --pick-en WORDS */
 extern int shot_rows_report;   /* --rows-report */
 extern int shot_hover_sweep;   /* --hover-sweep */
 extern const char *shot_menu_label;

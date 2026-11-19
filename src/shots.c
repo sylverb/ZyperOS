@@ -611,8 +611,25 @@ static void shot_draw_ctltab(app *a, menu_tabs *tabs)
 	menu_draw_styled(a, &st, gm_tab_name(tabs->at), rows, n, sel);
 }
 
-/* --pick-at K: the list's cursor on choice K, not on the one that is on */
+/* --pick-at K: the list's cursor on choice K, not on the one that is on;
+ * --pick-en WORDS: on the choice whose words are WORDS in English, in
+ * whatever language is on, for a list whose choices differ by device
+ * (Border's: no Blur on the Brick) */
 int shot_pick_at = -1;
+const char *shot_pick_en;
+
+static int shot_pick_index(const menu_choice *ch)
+{
+	int id, k;
+
+	if (shot_pick_en && ch->labels)
+		for (id = 0; id < S_COUNT; id++) {
+			if (strcmp(T_en((str_id)id), shot_pick_en)) continue;
+			for (k = 0; k < ch->n; k++)
+				if (ch->labels[k] && !strcmp(ch->labels[k], T((str_id)id))) return k;
+		}
+	return shot_pick_at >= 0 && shot_pick_at < ch->n ? shot_pick_at : ch->cur;
+}
 
 /* An option row's list as menu_pick draws it: its choices, the one on
  * ticked, and what the one under the cursor does - in a picture column
@@ -640,7 +657,7 @@ static void shot_list_draw(app *a, const char *heading, const menu_choice *ch, i
 	menu_row pr[MENU_CHOICES_MAX + 3];
 	static char pw[MENU_CHOICES_MAX][64];
 	static char pn[2][CHV_WRAP_COLS];
-	const int at = shot_pick_at >= 0 && shot_pick_at < ch->n ? shot_pick_at : ch->cur;
+	const int at = shot_pick_index(ch);
 	int k, np = ch->n, kept = ch->none ? -1 : ch->cur;
 
 	/* The choice under the cursor shown, as the list shows it: once, and
