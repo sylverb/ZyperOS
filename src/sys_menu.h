@@ -98,7 +98,7 @@
 /* PM_EQ is Equalizer, under Audio Channels: the third thing about how the
  * sound reaches you, its shape. Its value is the preset of the output in use
  * (the speaker's or the headphones'), Off on a new card; A opens its page
- * (src/eq.h, DESIGN.md 11.55). My picks in the Sound lab, 2026-11-19. */
+ * (src/eq.h, DESIGN.md 11.60). My picks in the Sound lab, 2026-11-19. */
 /* MENU IS IN TABS (DESIGN.md 11.3, my picks 2026-11-12): Games, Display,
  * Sound, Connections, System and About, L1 and R1 going round them. The rows
  * are in the enum by tab, and in a tab in the enum's order; which tab a row

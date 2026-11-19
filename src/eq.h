@@ -10,7 +10,7 @@
 #include "eqdsp.h"
 
 /* The equalizer's settings: MENU > Sound > Equalizer, and the same row in
- * MP4's MENU (DESIGN.md 11.55). My picks in the Sound lab, 2026-11-19: one
+ * MP4's MENU (DESIGN.md 11.60). My picks in the Sound lab, 2026-11-19: one
  * preset for the speaker and one for headphones (wired, USB-C or
  * Bluetooth), each Off, Bass, Voice, Treble or Custom, and five bands of
  * your own; Off on a new card, and Off is no filter at all. Everything that
