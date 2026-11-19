@@ -2054,10 +2054,11 @@ build-native/coreopts-check: tools/coreopts-check.c src/coreopts.c src/coreopts.
 check-coreopts-page: build-native/coreopts-page-check
 	@./build-native/coreopts-page-check
 
-build-native/coreopts-page-check: tools/coreopts-page-check.c src/coreopt_defs.c src/coreopt_defs.h FORCE
+build-native/coreopts-page-check: tools/coreopts-page-check.c src/coreopt_defs.c src/coreopt_defs.h \
+                                  src/atomic.c src/atomic.h FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Isrc \
-	      -o $@ tools/coreopts-page-check.c src/coreopt_defs.c
+	      -o $@ tools/coreopts-page-check.c src/coreopt_defs.c src/atomic.c
 
 
 # The saved library a start shows before it reads the card (src/savedlib.h):

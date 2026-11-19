@@ -2,6 +2,8 @@
 /* See src/coreopt_defs.h. */
 #include "coreopt_defs.h"
 
+#include "atomic.h"
+
 #include <dirent.h>
 #include <stdio.h>
 #include <string.h>
@@ -22,6 +24,9 @@ static const char *field(const char *line, const char *name)
 	return p ? p + strlen(key) : NULL;
 }
 
+/* One OPTION field into `out`. Cache files escape \, tab, newline and return
+ * as \\ \t \n \r (same idea as savedlib); live Diatom lines have none of
+ * those, so a bare backslash that is not one of those four stays as itself. */
 static void copy_field(char *out, size_t n, const char *line, const char *name)
 {
 	const char *p = field(line, name);
@@ -29,11 +34,38 @@ static void copy_field(char *out, size_t n, const char *line, const char *name)
 
 	out[0] = '\0';
 	if (!p || n == 0) return;
-	while (p[i] && p[i] != '\t' && p[i] != '\r' && p[i] != '\n' && i + 1 < n) {
-		out[i] = p[i];
-		i++;
+	while (*p && *p != '\t' && *p != '\r' && *p != '\n' && i + 1 < n) {
+		char c = *p++;
+
+		if (c == '\\' && *p) {
+			char e = *p++;
+
+			c = e == '\\' ? '\\' : e == 't' ? '\t' : e == 'n' ? '\n' :
+			    e == 'r' ? '\r' : 0;
+			if (!c) {
+				if (i + 2 >= n) break;
+				out[i++] = '\\';
+				c = e;
+			}
+		}
+		out[i++] = c;
 	}
 	out[i] = '\0';
+}
+
+/* Write one field so a tab or newline in a description cannot split the line. */
+static void put_field(FILE *f, const char *s)
+{
+	if (!s) return;
+	for (; *s; s++) {
+		switch (*s) {
+		case '\\': fputs("\\\\", f); break;
+		case '\t': fputs("\\t", f); break;
+		case '\n': fputs("\\n", f); break;
+		case '\r': fputs("\\r", f); break;
+		default:   fputc(*s, f); break;
+		}
+	}
 }
 
 void codef_set_values(codef *o, const char *pipe)
@@ -108,16 +140,28 @@ bool codefs_save_file(const codefs *in, const char *path)
 	int i;
 
 	if (!in || !path || !path[0]) return false;
-	f = fopen(path, "w");
+	f = atomic_open(path, 0644);
 	if (!f) return false;
 	for (i = 0; i < in->n; i++) {
 		const codef *o = &in->opt[i];
 
-		fprintf(f, "OPTION\tkey=%s\tvalue=%s\tdefault=%s\tvalues=%s\tdesc=%s\n",
-		        o->key, o->value, o->deflt, o->pipe, o->desc);
+		fputs("OPTION\tkey=", f);
+		put_field(f, o->key);
+		fputs("\tvalue=", f);
+		put_field(f, o->value);
+		fputs("\tdefault=", f);
+		put_field(f, o->deflt);
+		fputs("\tvalues=", f);
+		put_field(f, o->pipe);
+		fputs("\tdesc=", f);
+		put_field(f, o->desc);
+		fputc('\n', f);
 	}
-	fclose(f);
-	return true;
+	if (ferror(f)) {
+		atomic_abort(f, path);
+		return false;
+	}
+	return atomic_commit(f, path);
 }
 
 void codefs_cache_path(const char *userdata, const char *core,
@@ -126,6 +170,12 @@ void codefs_cache_path(const char *userdata, const char *core,
 	if (!out || n == 0) return;
 	out[0] = '\0';
 	if (!userdata || !core || !core[0]) return;
+	/* One path component under coreopt-defs/ only. A "run:" core or a
+	 * comma list from systems.cfg can carry / or ..; leave out empty so
+	 * save/load skip the cache rather than write outside that dir. */
+	if (strchr(core, '/') || strchr(core, '\\') ||
+	    strstr(core, "..") || core[0] == '.')
+		return;
 	snprintf(out, n, "%s/coreopt-defs/%s.txt", userdata, core);
 }
 

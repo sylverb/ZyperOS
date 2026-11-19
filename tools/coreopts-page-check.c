@@ -148,6 +148,7 @@ static void whitelist(void)
 static void cache_roundtrip(void)
 {
 	char path[] = "/tmp/zyperos-coreopt-defsXXXXXX";
+	char out[256];
 	codefs a, b;
 	int fd;
 
@@ -160,7 +161,29 @@ static void cache_roundtrip(void)
 	ck(codefs_save_file(&a, path) && codefs_load_file(&b, path) && b.n == a.n &&
 	   !strcmp(b.opt[0].key, a.opt[0].key) && !strcmp(b.opt[1].pipe, a.opt[1].pipe),
 	   "save and load keep keys and values");
+	/* A description with a tab and a newline must round-trip as one field. */
+	memset(&a, 0, sizeof a);
+	snprintf(a.opt[0].key, sizeof a.opt[0].key, "opt_tabby");
+	snprintf(a.opt[0].desc, sizeof a.opt[0].desc, "one\ttwo\nthree");
+	snprintf(a.opt[0].deflt, sizeof a.opt[0].deflt, "a");
+	snprintf(a.opt[0].value, sizeof a.opt[0].value, "a");
+	codef_set_values(&a.opt[0], "a|b");
+	a.n = 1;
+	ck(codefs_save_file(&a, path) && codefs_load_file(&b, path) && b.n == 1 &&
+	   !strcmp(b.opt[0].key, "opt_tabby") &&
+	   !strcmp(b.opt[0].desc, "one\ttwo\nthree"),
+	   "a desc with tab and newline survives the cache");
 	unlink(path);
+
+	codefs_cache_path("/tmp/ud", "fceumm", out, sizeof out);
+	ck(!strcmp(out, "/tmp/ud/coreopt-defs/fceumm.txt"),
+	   "a plain core name builds the cache path");
+	codefs_cache_path("/tmp/ud", "run:Emulators/Flycast/Flycast.sh", out, sizeof out);
+	ck(!out[0], "a core with / leaves the path empty");
+	codefs_cache_path("/tmp/ud", "../etc", out, sizeof out);
+	ck(!out[0], "a core with .. leaves the path empty");
+	codefs_cache_path("/tmp/ud", ".hidden", out, sizeof out);
+	ck(!out[0], "a core starting with . leaves the path empty");
 }
 
 int main(void)

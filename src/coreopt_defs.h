@@ -43,10 +43,12 @@ void codef_set_values(codef *o, const char *pipe);
 /* Read a cache file of OPTION lines into `out` (cleared first). */
 bool codefs_load_file(codefs *out, const char *path);
 
-/* Write `in` as OPTION lines. */
+/* Write `in` as OPTION lines through atomic_open/commit. Tabs and newlines
+ * in fields are escaped so a description cannot split the line. */
 bool codefs_save_file(const codefs *in, const char *path);
 
-/* Path `$userdata/coreopt-defs/<core>.txt` into `out`. */
+/* Path `$userdata/coreopt-defs/<core>.txt` into `out`. Empty when `core`
+ * is not a single safe path component (contains /, \\, .., or starts with .). */
 void codefs_cache_path(const char *userdata, const char *core,
                        char *out, size_t n);
 
