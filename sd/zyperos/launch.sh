@@ -34,6 +34,9 @@ SDCARD=/mnt/SDCARD
 #   HAS_OFF_PENDING  the marker a charger that comes during a power-off is
 #                    started for (plastron's lastoff, the power-off's last step)
 #
+# EQ_SLAVE, the dmix a port mixes into, for the equalizer over a port's
+# sound (eq-port.sh): unset, a port plays as it always did.
+#
 # BACKLIGHT, the system's tool that lights the panel at each start of the
 # launcher, where the launcher does not light it itself; WIFI_DOWN, what the
 # log says when Wi-Fi does not come up; and these, called where they are
@@ -484,8 +487,30 @@ run_port() {
 	# its desktop GL one, which SDL prefers once it has OpenGL, draws nothing
 	# but the clear color on the Pixel 2's Panfrost, so a port that draws with
 	# SDL_Renderer was black.
+	# The equalizer over the port's sound (DESIGN.md 11.60): while the
+	# launcher's bands are not flat and the system has ZyperOS's plugin
+	# (plastron's zyperos-eq), the port gets an ALSA config of its own whose
+	# default runs through it into the same mix (eq-port.sh); flat, no
+	# bands file, no plugin (or an empty one), or no EQ_SLAVE, and the port
+	# starts as it always did, the plugin nowhere in its chain. Two files:
+	# its PCMs, and the one in its ALSA_CONFIG_PATH that loads them after
+	# /etc/asound.conf, whose default would replace them (eq-port.sh)
+	local eqcfg=
+	if [ -n "${EQ_SLAVE:-}" ] && [ -s /usr/lib/ladspa/zyperos_eq.so ] &&
+	   sh "$ZYPEROS_DIR/eq-port.sh" --on; then
+		eqcfg=/tmp/zyperos_port_eq.hook
+		if sh "$ZYPEROS_DIR/eq-port.sh" "$EQ_SLAVE" > /tmp/zyperos_port_eq.conf &&
+		   sh "$ZYPEROS_DIR/eq-port.sh" --after /tmp/zyperos_port_eq.conf > "$eqcfg"; then
+			echo "port: the equalizer over its sound (into $EQ_SLAVE)" >> "$LOG"
+		else
+			eqcfg=
+		fi
+	fi
 	( cd "${1%/*}" &&
 	  if [ -n "$turn" ]; then export SDL_KMSDRM_ROTATION=$turn; fi &&
+	  if [ -n "$eqcfg" ]; then
+		export ALSA_CONFIG_PATH=${ALSA_CONFIG_PATH:-/usr/share/alsa/alsa.conf}:$eqcfg
+	  fi &&
 	  SDL_RENDER_DRIVER=opengles2 exec setsid /bin/bash "$1" ${2:+"$2"} ) >> "$LOG" 2>&1 &
 	PORT_PID=$!
 	# A USR1 (POWER) ends the wait early; the port has ended once its
