@@ -1459,6 +1459,10 @@ static void shot_compose_once(app *a)
 		update_page_draw(a, T(S_UPDATEPAGE_TITLE), &p, np, nn, NULL);
 		return;
 	}
+	if (g_p8_shot) {
+		p8_page_shot(a);
+		return;
+	}
 	if (g_pm_shot >= 0) {
 		static system_cfg ports = { .folder = "Ports", .core = "port" };
 		char notes[PM_NOTES][120];
@@ -1624,6 +1628,7 @@ static void shot_compose_once(app *a)
 	if (shot_zip_said && a->view[a->sys_cursor].list.count > 0)
 		result_preview(a, a->view[a->sys_cursor].list.items[a->view[a->sys_cursor].cursor].title,
 		               T(S_LAUNCH_ZIP_METHOD));
+	if (g_p8_said_shot >= 0) p8_said_shot(a, g_p8_said_shot);
 	if (shot_controls >= 0 && (shot_press != SHOT_SWAP || shot_pressed)) {
 		menu_row rows[CTL_MAX_ROWS];
 		char head[80], count[16];

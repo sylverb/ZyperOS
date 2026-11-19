@@ -53,7 +53,7 @@ static inline bool port_menu_for(const char *core)
 #define PORT_MENU_OOM "1000"
 
 /* Of those, the programs whose buttons the Controls pages know, by tag:
- * OpenBOR, whose layout ships with it (src/controls.c). Flycast 2.7 keeps
+ * OpenBOR, whose layout ships with it (src/controls.c), and your PICO-8. Flycast 2.7 keeps
  * its own in its settings, which ZyperOS does not read, so over it Controls
  * is In a game alone; and the Dreamcast's page of buttons is flycast2021's.
  * A port's pages are its own files' instead (src/portdoc.h: its README,
@@ -61,7 +61,10 @@ static inline bool port_menu_for(const char *core)
  * tools/controls-check.c holds this to the table. */
 static inline bool port_menu_pads(const char *tag)
 {
-	return tag && !strcmp(tag, "OPENBOR");
+	/* OpenBOR's, and your PICO-8's: the PICO-8 shelf's row is fake08's
+	 * layout, which is PICO-8's own, O at the bottom and X beside it
+	 * (sd/pixel2/PICO-8.sh keeps your PICO-8 so) */
+	return tag && (!strcmp(tag, "OPENBOR") || !strcmp(tag, "PICO8"));
 }
 
 /* The frame as the panel showed it when MENU was tapped, at the panel's own
