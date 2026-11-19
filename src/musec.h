@@ -133,6 +133,12 @@ void musec_stop(void);
 
 const mu_now *musec_now(void);
 
+/* Where the song is this moment, between the daemon's reports (POS, once a
+ * second): carried on from the last at the speed it plays. For what moves
+ * with the song every frame - a Player Look's tape and tonearm - where the
+ * clock's whole seconds would step. */
+double musec_at_live(void);
+
 /* The queued track, relative to the music root, or "" - so a list can mark
  * the row that is playing without comparing titles, which tags can change. */
 const char *musec_path(void);

@@ -560,6 +560,16 @@ static unsigned spectrum(SDL_Renderer *r, const npl_frame *F, const mu_now *mn, 
 
 /* ---- Cassette --------------------------------------------------------------------- */
 
+/* Where the song is, as a fraction, for what moves with it every frame: the
+ * daemon's live position for the song that plays (musec_at_live, between
+ * its once-a-second reports), the given one for a shot's or the list's */
+static float song_frac(const mu_now *mn)
+{
+	double at = mn == musec_now() ? musec_at_live() : mn->at;
+
+	return mn->len > 0 ? (float)(at / mn->len) : 0.0f;
+}
+
 /* What turns: the reels' speed, and the tape (src/mp4look.h). Stepped once
  * a frame by turn_step for the look that has them. */
 static mp4l_spin g_spin;
@@ -595,7 +605,7 @@ static struct {
  * where the song is without a rewind to get there */
 static void turn_step(const mu_now *mn, float dt, bool gap)
 {
-	float target = mn->len > 0 ? (float)(mn->at / mn->len) : 0.0f;
+	float target = song_frac(mn);
 
 	if (gap) {
 		g_tape.known = false;
@@ -611,7 +621,7 @@ static void turn_step(const mu_now *mn, float dt, bool gap)
 
 static bool turn_moving(const mu_now *mn)
 {
-	float target = mn->len > 0 ? (float)(mn->at / mn->len) : 0.0f;
+	float target = song_frac(mn);
 
 	return mp4l_spin_moving(&g_spin) || mp4l_tape_moving(&g_tape, target) || g_lab.t0;
 }
@@ -904,7 +914,7 @@ void npl_preview(app *a, mp4l_id look, int x, int y, int w, int h)
 		}
 		show.state = MU_PLAYING;
 		show.len = 214.0;
-		show.at = shot_path ? 83.0 : (double)((now - since) / 1000);
+		show.at = shot_path ? 83.0 : (double)(now - since) / 1000.0;
 		mn = &show;
 	} else {
 		np_cover(a, ml_album_of(&g_muse, musec_track(live->index)));
