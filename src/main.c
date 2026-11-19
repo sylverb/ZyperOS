@@ -2875,9 +2875,10 @@ static void on_speed(int half)
 	popup_now(T(S_POPUP_SPEED), body);
 }
 
-/* Called from inside plat_resident_wait when R2 turned a PSP game's d-pad
- * into the analog stick (on) or back: said over the game, and kept for the
- * game (rms_stick_put). The answers to the Controls tab's own SETSTICKs
+/* Called from inside plat_resident_wait when a button given Stick On/Off
+ * (the PSP's R2 by default, DESIGN.md 11.45) turned a game's d-pad into the
+ * analog stick (on) or back: said over the game, and kept for the game
+ * (rms_stick_put), as its D-pad as Stick row says. The answers to the Controls tab's own SETSTICKs
  * never come here (plat_resident_set_stick): its row said it already. */
 static void on_stick(bool on)
 {

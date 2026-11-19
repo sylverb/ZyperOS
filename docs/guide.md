@@ -401,9 +401,17 @@ need one. **D-pad as Stick**, On or Off for each game, makes the d-pad the
 left stick in Nintendo 64 games (On to start with), Dreamcast, PlayStation and
 PSP games. In a Nintendo 64 or Dreamcast game, SELECT then the d-pad is the
 system's own d-pad (the tab's SELECT row says "C buttons" or "Held: D-pad"). On
-the PSP, R2 in the game still turns it on and off, and the row agrees. A
+the PSP, R2 in the game turns it on and off, and the row agrees. A
 PlayStation game moves with the stick only in the pad's analog mode, which many
 games turn on themselves.
+
+On those four systems any button but SELECT can turn the d-pad too: give it
+**Stick On/Off**, and each press turns the d-pad into the stick and back (a
+pop-up says which, and the game keeps it), or **Stick While Held**, and the
+d-pad is the stick while you hold the button and the d-pad again when you let
+go (with D-pad as Stick on, the other way round). They are the last two of a
+button's choices. The PSP's R2 is Stick On/Off from the start; give it to
+another button, or make R2 something else.
 
 **Face Buttons** (Dreamcast, Saturn and Neo Geo Pocket games) swaps all four
 faces at once: **By Letter**, each cap gives the button it names, or **By
