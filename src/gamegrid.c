@@ -877,7 +877,8 @@ static int fact(SDL_Renderer *r, const char *s, int x, int cy, int right)
 
 static const char *a_word(const gg_info *in, int games)
 {
-	return T(games > 0 ? S_GAMES_OPEN : in->install ? S_PORTMASTER_INSTALL
+	return T(games > 0 || in->opens ? S_GAMES_OPEN : in->howto ? S_PICO8_HOW_TO_ADD
+	         : in->install ? S_PORTMASTER_INSTALL
 	         : in->resumable ? S_GAMES_RESUME : S_GAMES_PLAY);
 }
 
@@ -934,7 +935,7 @@ static void band(SDL_Renderer *r, const gg_info *in, void *ctx, int games, int s
 	}
 	if (!in->count) return;
 	x = fact(r, in->origin, x, fy, right);
-	if (in->install) x = fact(r, T(S_PORTMASTER_NOT_INSTALLED), x, fy, right);
+	if (in->install || in->howto) x = fact(r, T(S_PORTMASTER_NOT_INSTALLED), x, fy, right);
 	if (in->played && *in->played) {
 		snprintf(line, sizeof line, T(S_GAMES_PLAYED), in->played);
 		x = fact(r, line, x, fy, right);
@@ -1102,7 +1103,7 @@ uint32_t gg_draw(gg_motion *m, SDL_Renderer *r, const gg_info *in,
 
 		foot[nf++] = (key_hint){ "B", T(in->inside ? S_GAMES_BACK : S_GAMES_SYSTEMS) };
 		if (in->count > 0 && in->start_word) foot[nf++] = (key_hint){ "START", in->start_word };
-		if (in->count > 0 && in->resumable && !in->install && !games)
+		if (in->count > 0 && in->resumable && !in->install && !in->howto && !in->opens && !games)
 			foot[nf++] = (key_hint){ "Y", T(S_GAMES_FRESH) };
 		if (in->count > 0 && !games) foot[nf++] = (key_hint){ "X", T(S_GAMES_DETAILS) };
 		keyhints_draw(r, foot, nf, GG_MARGIN, ZYPEROS_SCREEN_W - GG_MARGIN, GG_FOOT(sh),

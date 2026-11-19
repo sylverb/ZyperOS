@@ -334,7 +334,7 @@ uint32_t gl_draw(gl_motion *m, SDL_Renderer *r, const gl_info *in,
 			y = gl_fact(r, line, y);
 		} else {
 			y = gl_fact(r, in->origin, y);
-			if (in->install) y = gl_fact(r, T(S_PORTMASTER_NOT_INSTALLED), y);
+			if (in->install || in->howto) y = gl_fact(r, T(S_PORTMASTER_NOT_INSTALLED), y);
 			if (in->played && *in->played) {
 				snprintf(line, sizeof line, T(S_GAMES_PLAYED), in->played);
 				y = gl_fact(r, line, y);
@@ -344,7 +344,8 @@ uint32_t gl_draw(gl_motion *m, SDL_Renderer *r, const gl_info *in,
 				y = gl_fact(r, line, y);
 			}
 		}
-		page_hint(r, "A", T(games > 0 ? S_GAMES_OPEN : in->install ? S_PORTMASTER_INSTALL
+		page_hint(r, "A", T(games > 0 || in->opens ? S_GAMES_OPEN : in->howto ? S_PICO8_HOW_TO_ADD
+		                    : in->install ? S_PORTMASTER_INSTALL
 		                    : in->resumable ? S_GAMES_RESUME : S_GAMES_PLAY),
 		          GL_PANEL_X, GL_A_Y, true, false);
 	}
@@ -356,7 +357,7 @@ uint32_t gl_draw(gl_motion *m, SDL_Renderer *r, const gl_info *in,
 
 		foot[nf++] = (key_hint){ "B", T(in->inside ? S_GAMES_BACK : S_GAMES_SYSTEMS) };
 		if (in->count > 0) foot[nf++] = (key_hint){ "START", T(S_GAMES_TO_COVERS) };
-		if (in->count > 0 && in->resumable && !in->install && !games)
+		if (in->count > 0 && in->resumable && !in->install && !in->howto && !in->opens && !games)
 			foot[nf++] = (key_hint){ "Y", T(S_GAMES_FRESH) };
 		if (in->count > 0 && !games) foot[nf++] = (key_hint){ "X", T(S_GAMES_DETAILS) };
 		keyhints_draw(r, foot, nf, sf.keys.x, sf.keys.x + sf.keys.w, sf.keys.y + sf.keys.h / 2,

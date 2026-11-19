@@ -135,6 +135,7 @@
 #include "tourdraw.h"
 #include "tourdevice.h"
 #include "game_menu.h"
+#include "pico8.h"
 #include "portmenu.h"
 #include "gamedel.h"
 #include "gamerows.h"
@@ -540,6 +541,87 @@ bool core_present(const char *core)
 	return access(path, R_OK) == 0;
 }
 
+/* The files the player brings for `core` on `s` (config/systems.cfg's
+ * brings lines: your PICO-8's pico8_64 and pico8.dat), each on the card;
+ * true for a core that needs none. `missing`, n bytes, gets the first one
+ * that is not there ("Bios/PICO-8/pico8_64"), when given. */
+bool core_brought(const system_cfg *s, const char *core, char *missing, size_t n)
+{
+	const char *p = s->brings;
+
+	if (missing && n) missing[0] = '\0';
+	if (!s->brings_core[0] || strcmp(core, s->brings_core)) return true;
+	while (*p) {
+		size_t len = strcspn(p, ",");
+		char path[CFG_STR * 2];
+
+		snprintf(path, sizeof path, "%s/%.*s", P_CARD, (int)len, p);
+		if (len && access(path, R_OK) != 0) {
+			if (missing) snprintf(missing, n, "%.*s", (int)len, p);
+			return false;
+		}
+		p += len;
+		if (*p) p++;
+	}
+	return true;
+}
+
+/* A core that can run here: on the card, and with what the player brings */
+bool core_ready(const system_cfg *s, const char *core)
+{
+	return core_present(core) && core_brought(s, core, NULL, 0);
+}
+
+/* The cores the shelf's Core row offers, in the core field's order: each
+ * that can run here, and the one chosen whatever it is, so the row still
+ * says it. Your PICO-8 is offered once its files are on the card, and on a
+ * handheld whose ZyperOS has its script (the Pixel 2's). Their count; the
+ * i-th into `out` with core_offered_at. */
+int core_offered_count(const system_cfg *s)
+{
+	char alt[CFG_STR];
+	int k, n = 0;
+
+	for (k = 0; cfg_core_at(s, k, alt, sizeof alt); k++)
+		if (!strcmp(alt, s->core) || core_ready(s, alt)) n++;
+	return n;
+}
+
+bool core_offered_at(const system_cfg *s, int i, char *out, int cap)
+{
+	char alt[CFG_STR];
+	int k;
+
+	for (k = 0; cfg_core_at(s, k, alt, sizeof alt); k++)
+		if (!strcmp(alt, s->core) || core_ready(s, alt)) {
+			if (i-- == 0) {
+				snprintf(out, (size_t)cap, "%s", alt);
+				return true;
+			}
+		}
+	return false;
+}
+
+/* ---------- your PICO-8, from a zip copied by hand (src/pico8.h) ---------- */
+
+/* What the launcher says once the home is up about the zip it took, "" for
+ * nothing (Tarik's pick, 2026-11-19: the zip as it comes, or its files) */
+char g_p8_said[256];
+
+void p8_take_now(void)
+{
+	char ver[32], zip[128];
+	p8_take t = p8_take_zip(P_CARD, ver, sizeof ver, zip, sizeof zip);
+
+	if (t == P8_TAKE_DONE)
+		fprintf(stderr, "pico8: took your PICO-8 %s out of Bios/PICO-8/%s\n", ver[0] ? ver : "(no version)", zip);
+	else if (t == P8_TAKE_NOT_RASPI)
+		fprintf(stderr, "pico8: Bios/PICO-8/%s is not the PICO-8 for Raspberry Pi zip\n", zip);
+	else if (t == P8_TAKE_FAILED)
+		fprintf(stderr, "pico8: could not take PICO-8 out of Bios/PICO-8/%s\n", zip);
+	p8_take_message(t, ver, zip, g_p8_said, sizeof g_p8_said);
+}
+
 /* What the Core row says: a libretro core by its short name, as every other
  * shelf's row always has, and a script by its own name - "Flycast" for
  * run:Emulators/Flycast/Flycast.sh - since the path is the card's business. */
@@ -573,7 +655,7 @@ void core_load(app *a)
 					set = true;
 				}
 		for (k = 0; k < n && !set; k++)
-			if (cfg_core_at(s, k, alt, sizeof alt) && core_present(alt)) {
+			if (cfg_core_at(s, k, alt, sizeof alt) && core_ready(s, alt)) {
 				snprintf(s->core, sizeof s->core, "%s", alt);
 				set = true;
 			}
@@ -582,18 +664,18 @@ void core_load(app *a)
 	}
 }
 
-/* The next core in the shelf's list, or the previous one. */
+/* The next core the shelf's Core row offers, or the previous one. */
 void core_step(app *a, int sys, int d)
 {
 	system_cfg *s = &a->sys.systems[sys];
 	char key[CFG_STR + 16], alt[CFG_STR];
-	int n = cfg_core_count(s), k, cur = 0;
+	int n = core_offered_count(s), k, cur = 0;
 
 	if (n < 2) return;
 	for (k = 0; k < n; k++)
-		if (cfg_core_at(s, k, alt, sizeof alt) && !strcmp(alt, s->core)) cur = k;
+		if (core_offered_at(s, k, alt, sizeof alt) && !strcmp(alt, s->core)) cur = k;
 	cur = (cur + d + n) % n;
-	if (!cfg_core_at(s, cur, alt, sizeof alt)) return;
+	if (!core_offered_at(s, cur, alt, sizeof alt)) return;
 	snprintf(s->core, sizeof s->core, "%s", alt);
 	snprintf(key, sizeof key, "core.%s", s->tag);
 	db_set_str(db_dev(), key, s->core);
@@ -1043,6 +1125,10 @@ void sort_shelf(app *a, int sys)
 	 * its games' */
 	sort_apply(v->list.items + v->nfold, v->list.count - v->nfold, v->sort,
 	           a->sys.systems[sys].tag);
+	/* Splore first among the PICO-8 shelf's, whatever the order (Tarik's
+	 * pick, 2026-11-19: the shelf's first entry) */
+	if (!strcmp(a->sys.systems[sys].tag, P8_TAG))
+		splore_pin(v->list.items + v->nfold, v->list.count - v->nfold);
 }
 
 void sort_all(app *a)
@@ -1851,10 +1937,10 @@ SDL_Texture *game_get_tex(void *ctx, int i, int *w, int *h, float *cb)
 			v->cb[i] = 1.0f;
 		}
 	} else if (game_card_wanted(v, i) &&
-	           pm_cover_path(a, o, &v->list.items[i], theme_index(), pm, sizeof pm)) {
-		/* PortMaster's own cover, in the theme that is on, made a card of
-		 * that theme as a generated one is, so a change of theme asks for
-		 * the other (src/shelfbuild.h) */
+	           own_cover_path(a, o, &v->list.items[i], theme_index(), pm, sizeof pm)) {
+		/* An entry's own cover (PortMaster's, Splore's), in the theme that
+		 * is on, made a card of that theme as a generated one is, so a
+		 * change of theme asks for the other (src/shelfbuild.h) */
 		if (!texload_want_art(s, i, pm, NULL, theme_index()) && !g_loads_held) {
 			SDL_Surface *sf = IMG_Load(pm);
 
@@ -4186,10 +4272,21 @@ bool random_pick(app *a, bool all, int *shelf, int *game)
 		use[i] = all ? !is_muse(s) && !a->view[i].owner && !pm_only_offer(a, i)
 		             : i == a->sys_cursor && !is_muse(s);
 	}
-	if (!rg_pick(count, use, a->sys.count, rg_random(), last_shelf, last_game,
-	             shelf, game)) {
-		uisound_play(DS_SOUND_DENY);
-		return false;
+	/* Never an entry of a shelf's own that is no game (Splore's, PortMaster's
+	 * while it is not on the card): picked again, a few times */
+	for (i = 0;; i++) {
+		const game_list *gl;
+
+		if (i >= 8 || !rg_pick(count, use, a->sys.count, rg_random(), last_shelf, last_game,
+		                       shelf, game)) {
+			uisound_play(DS_SOUND_DENY);
+			return false;
+		}
+		gl = sys_games(&a->view[*shelf]);
+		if (*game < 0 || *game >= gl->count ||
+		    (!splore_is_entry(a, *shelf, &gl->items[*game]) &&
+		     !pm_is_offer(a, *shelf, &gl->items[*game])))
+			break;
 	}
 	last_shelf = *shelf;
 	last_game = *game;
@@ -4479,11 +4576,15 @@ leave_end panel_leave_run(app *a, void (*backdrop)(app *, void *, float),
  * go. Over the shelf, or over `over`'s backdrop with its power rule: the
  * in-game menu's paused game, where POWER stops the game. confirm_rows_as
  * and confirm_rows_over below are this with the parts they need. */
-static bool confirm_rows_full(app *a, const char *heading, menu_row *rows, int nq,
-                              const char *yes_label, const char *no_label, int fixed_w, int lv,
-                              usbpower_guard *guard, const menu_style *over, void *ctx)
+/* The question's answer: 1 the first (`yes_label`), 2 the second, 0 left
+ * with B, MENU or POWER. The cursor starts on the second, the safe one,
+ * unless `first` */
+static int confirm_rows_pick(app *a, const char *heading, menu_row *rows, int nq,
+                             const char *yes_label, const char *no_label, int fixed_w, int lv,
+                             usbpower_guard *guard, const menu_style *over, void *ctx,
+                             bool first)
 {
-	int sel = nq + 1;
+	int sel = first ? nq : nq + 1;
 	float k;
 
 	rows[nq]     = (menu_row){ yes_label, NULL, true };
@@ -4493,13 +4594,13 @@ static bool confirm_rows_full(app *a, const char *heading, menu_row *rows, int n
 		plat_input_poll(&a->in);
 		if (guard) ask_settle(a, guard);
 		ui_sounds_follow();
-		if (a->in.quit_requested) { a->running = false; return false; }
+		if (a->in.quit_requested) { a->running = false; return 0; }
 		if (a->in.pressed[IN_POWER] || idle_due(a)) {
 			if (over && over->on_power) over->on_power(a, ctx);
 			else power_off(a);
-			return false;
+			return 0;
 		}
-		if (menu_leaving(a)) return false;
+		if (menu_leaving(a)) return 0;
 
 		/* Only the two answerable rows are reachable; the rows above are the
 		 * question. */
@@ -4514,7 +4615,7 @@ static bool confirm_rows_full(app *a, const char *heading, menu_row *rows, int n
 		}
 		if (a->in.pressed[IN_ACCEPT]) {
 			uisound_play(DS_SOUND_ACCEPT);
-			return sel == nq;
+			return sel == nq ? 1 : 2;
 		}
 
 		if (!panel_frame(a, lv, &k)) continue;
@@ -4531,6 +4632,29 @@ static bool confirm_rows_full(app *a, const char *heading, menu_row *rows, int n
 		plat_present();
 		ui_frame_rest(8);
 	}
+}
+
+static bool confirm_rows_full(app *a, const char *heading, menu_row *rows, int nq,
+                              const char *yes_label, const char *no_label, int fixed_w, int lv,
+                              usbpower_guard *guard, const menu_style *over, void *ctx)
+{
+	return confirm_rows_pick(a, heading, rows, nq, yes_label, no_label, fixed_w, lv, guard,
+	                         over, ctx, false) == 1;
+}
+
+/* A question with two answers that both go on (Splore's Turn On Wi-Fi and
+ * Open Offline), over the shelf: 1 the first, 2 the second, 0 left. The
+ * cursor starts on the first. */
+int ask_two_panel(app *a, const char *heading, const char *msg, const char *first,
+                  const char *second)
+{
+	menu_row rows[3];
+	int lv = panel_open(), r;
+
+	rows[0] = (menu_row){ msg, NULL, false };
+	r = confirm_rows_pick(a, heading, rows, 1, first, second, 0, lv, NULL, NULL, NULL, true);
+	panel_close(a, lv, !a->running);
+	return r;
 }
 
 bool confirm_rows_as(app *a, const char *heading, menu_row *rows, int nq,
@@ -5646,6 +5770,9 @@ int main(int argc, char *argv[])
 		else if (!strcmp(argv[i], "--portload-later")) g_port_loading_later = true;
 		else if (!strcmp(argv[i], "--portload") && i + 1 < argc)
 			shot_portload = argv[++i];
+		/* --pico8-page: the page A opens on Splore while your PICO-8 is not
+		 * on the card (src/pico8.h) */
+		else if (!strcmp(argv[i], "--pico8-page")) g_p8_shot = true;
 		else if (!strcmp(argv[i], "--portmaster")) {
 			/* The Install PortMaster page, as ZYPEROS_PM_STATUS's file
 			 * says, with any of running, nonet, nopython, installed; and
@@ -6782,6 +6909,9 @@ int main(int argc, char *argv[])
 		for (k = 0; k < DMODE_COUNT && strcmp(DMODES[k].name, shot_dmode); k++) ;
 		for (v = 0; k < DMODE_COUNT && v < a.sys.count; v++) a.view[v].dmode = k;
 	}
+	/* A PICO-8 zip the player copied into Bios/PICO-8, before the cores are
+	 * chosen: once taken, your PICO-8 plays the carts from this start on */
+	p8_take_now();
 	core_load(&a);
 	sort_load(&a);
 	view_load(&a);
@@ -7067,6 +7197,15 @@ int main(int argc, char *argv[])
 		plat_input_poll(&a.in);
 		if (a.in.quit_requested || want_quit) break;
 		after_start_step(&a, last_render != 0);
+		/* What became of a PICO-8 zip copied by hand, once the home is up */
+		if (g_p8_said[0] && last_render) {
+			char said[sizeof g_p8_said];
+
+			snprintf(said, sizeof said, "%s", g_p8_said);
+			g_p8_said[0] = 0;
+			result_message(&a, "PICO-8", said);
+			redraw_now();
+		}
 
 		/* The memory back at full before a press is acted on, whatever it
 		 * opens: a menu, a game, the next shelf's art. Games set their own

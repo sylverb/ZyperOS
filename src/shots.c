@@ -1411,6 +1411,10 @@ static void shot_compose_once(app *a)
 		update_page_draw(a, T(S_UPDATEPAGE_TITLE), &p, np, nn, NULL);
 		return;
 	}
+	if (g_p8_shot) {
+		p8_page_shot(a);
+		return;
+	}
 	if (g_pm_shot >= 0) {
 		static system_cfg ports = { .folder = "Ports", .core = "port" };
 		char notes[PM_NOTES][120];

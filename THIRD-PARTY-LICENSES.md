@@ -160,6 +160,15 @@ routine from Stack Overflow (CC BY-SA 3.0), each under its own terms, which
 its LICENSE.MD lists in full. It is not Lexaloffle's PICO-8 and is not related
 to it.
 
+Lexaloffle's PICO-8 itself is not part of ZyperOS, and no ZyperOS image,
+release or download contains any part of it. A player may add their own
+copy, the PICO-8 for Raspberry Pi download they bought from Lexaloffle: its
+`pico8_64` and `pico8.dat` go on that player's card only, in `Bios/PICO-8`,
+under Lexaloffle's license. ZyperOS runs it as a separate program through its
+own script (`sd/pixel2/PICO-8.sh`), as it runs OpenBOR. The Splore entry's art
+(`res/pico8`, `tools/genpico8-art.py`) is ZyperOS's own and uses no part of
+Lexaloffle's.
+
 ---
 
 ## Runtime libraries

@@ -254,6 +254,10 @@ int  menu_std_width(app *a);
 int  menu_list_fit(int fixed, int rules, int notes);
 /* One line on a panel over the shelf, before something that blocks */
 void wait_panel(app *a, const char *heading, const char *msg);
+/* A question on a panel over the shelf with two answers that both go on: 1
+ * the first, 2 the second, 0 left with B */
+int ask_two_panel(app *a, const char *heading, const char *msg, const char *first,
+                  const char *second);
 /* A question on a panel over the shelf, Yes on `yes_label`: true on Yes */
 bool confirm_panel(app *a, const char *heading, const char *msg,
                    const char *yes_label);

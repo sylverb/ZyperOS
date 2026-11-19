@@ -484,9 +484,12 @@ run_port() {
 	# its desktop GL one, which SDL prefers once it has OpenGL, draws nothing
 	# but the clear color on the Pixel 2's Panfrost, so a port that draws with
 	# SDL_Renderer was black.
+	# And the system's Display row ("integer" for Sharp Pixels, its
+	# display.<TAG> name), fourth: a "run:" script that draws to it reads
+	# ZYPEROS_DISPLAY (your PICO-8's, sd/pixel2/PICO-8.sh)
 	( cd "${1%/*}" &&
 	  if [ -n "$turn" ]; then export SDL_KMSDRM_ROTATION=$turn; fi &&
-	  SDL_RENDER_DRIVER=opengles2 exec setsid /bin/bash "$1" ${2:+"$2"} ) >> "$LOG" 2>&1 &
+	  ZYPEROS_DISPLAY=$4 SDL_RENDER_DRIVER=opengles2 exec setsid /bin/bash "$1" ${2:+"$2"} ) >> "$LOG" 2>&1 &
 	PORT_PID=$!
 	# A USR1 (POWER) ends the wait early; the port has ended once its
 	# process is gone
@@ -622,20 +625,26 @@ while : ; do
 		continue
 	fi
 	if [ "$HAS_PORTS" = 1 ] && [ -f "$PORT_REQUEST" ]; then
-		# The script, the game and the menu's tag, a tab between each
-		# (launch_port). Split by hand: read would run the two tabs around a
-		# port's empty game together, as it does any whitespace in IFS
+		# The script, the game, the menu's tag and the system's Display row,
+		# a tab between each (launch_port). Split by hand: read would run the
+		# two tabs around a port's empty game together, as it does any
+		# whitespace in IFS
 		TAB=$(printf '\t')
 		IFS= read -r REQ < "$PORT_REQUEST"
 		rm -f "$PORT_REQUEST"
-		PORT=${REQ%%"$TAB"*}; GAME=; TAG=
+		PORT=${REQ%%"$TAB"*}; GAME=; TAG=; DISP=
 		case $REQ in *"$TAB"*)
 			REQ=${REQ#*"$TAB"}
 			GAME=${REQ%%"$TAB"*}
-			case $REQ in *"$TAB"*) TAG=${REQ#*"$TAB"} ;; esac
+			case $REQ in *"$TAB"*)
+				REQ=${REQ#*"$TAB"}
+				TAG=${REQ%%"$TAB"*}
+				case $REQ in *"$TAB"*) DISP=${REQ#*"$TAB"} ;; esac
+				;;
+			esac
 			;;
 		esac
-		run_port "$PORT" "$GAME" "$TAG"
+		run_port "$PORT" "$GAME" "$TAG" "$DISP"
 		# POWER, or the battery run flat, over the port (port_power)
 		[ -f /tmp/zyperos_poweroff ] && break
 		cd "$ZYPEROS_DIR"

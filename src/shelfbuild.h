@@ -85,6 +85,21 @@ bool pm_cover_path(const app *a, int sys, const game_entry *g, int theme_ix,
 /* The icon the Install PortMaster page draws where System Update's draws
  * Zyper, into `out`; false when the card has none */
 bool pm_icon_path(char *out, size_t n);
+/* Splore on the PICO-8 shelf (src/pico8.h). p8_on_card: your PICO-8's files
+ * on the card, as its shelf `s` asks them, now. splore_is_entry: whether `g`,
+ * a game of system `sys`, is Splore's entry; splore_is_offer: and your
+ * PICO-8 is not on the card, so A opens the page that says how to add it;
+ * splore_cover_path: its own art for theme `theme_ix`, as pm_cover_path.
+ * own_cover_path: either entry's (PortMaster's, Splore's), false for any
+ * other game, which keeps its box art. pm_shelf_offers counts Splore's entry
+ * too: it is never a game. */
+bool p8_on_card(const system_cfg *s);
+bool splore_is_entry(const app *a, int sys, const game_entry *g);
+bool splore_is_offer(const app *a, int sys, const game_entry *g);
+bool splore_cover_path(const app *a, int sys, const game_entry *g, int theme_ix,
+                       char *out, size_t n);
+bool own_cover_path(const app *a, int sys, const game_entry *g, int theme_ix,
+                    char *out, size_t n);
 /* Folders on a shelf (src/shelfdir.h). shelf_dirs_init: after a scan, the
  * system's games moved to `all` when any is in a folder, and the shelf on
  * the top's folders and games; shelf_dirs_free: `all` let go, the shelf on
