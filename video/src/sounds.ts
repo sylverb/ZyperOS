@@ -43,6 +43,8 @@ const SHOT_PRESSES: Record<string, [number, string][]> = {
   flashdrive: [[400, "move"], [800, "move"], [1400, "accept"]],
   "update-bg": [[900, "accept"]],
   "charge-full": [[1400, "accept"]],
+  // 1.0.6's: POWER held, its bar filling (no press to hear but the hold)
+  powerhold: [],
 };
 
 /** Scenes' own moments, in seconds into the scene: POWER pressed, and Zyper's
@@ -60,7 +62,8 @@ export const SOUND_CUES = (footage: Footage, lay: Layout = TOUR): Cue[] => {
   for (const c of lay.clips) {
     if (c.kind !== "take" || c.scene === "end") continue;
     const presses: [number, string][] =
-      footage[c.take]?.presses?.map(([ms, key]) => [ms, SOUND[key] ?? "move"] as [number, string]) ?? SHOT_PRESSES[c.take] ?? [];
+      footage[c.take]?.presses?.map(([ms, key]) => [ms, SOUND[key] ?? "move"] as [number, string]) ?? SHOT_PRESSES[c.take] ??
+      footage[c.take]?.cuts?.map((ms): [number, string] => [ms, "move"]) ?? [];
     const spanMs = (c.len / FPS) * 1000 * c.rate;
     for (const [ms, sound] of presses) {
       // A press at the clip's very first frame belongs to the cut, not the screen

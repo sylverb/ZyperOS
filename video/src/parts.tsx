@@ -4,7 +4,7 @@ import { ease, mix, mixColor } from "./anim";
 import { BEAT, Clip, FPS, Pose, Punch } from "./timeline";
 
 export type DeviceInfo = { image: string; width: number; height: number; screen: { x: number; y: number; w: number; h: number } };
-export type Take = { fps: number; ms: number; presses?: [number, string, number][] };
+export type Take = { fps: number; ms: number; presses?: [number, string, number][]; cuts?: number[] };
 export type Footage = Record<string, Take>;
 export type Cam = { k: number; x: number; y: number; blur?: number; rot?: number };
 
@@ -54,12 +54,12 @@ export const poseOf = (pose: Pose, d: DeviceInfo): Cam => {
 export const mixCam = (a: Cam, b: Cam, t: number): Cam => ({ k: mix(a.k, b.k, t), x: mix(a.x, b.x, t), y: mix(a.y, b.y, t) });
 
 /** The screen's digital zoom: the point brought to the middle, `zoom` times larger */
-export const punchAt = (frame: number, start: number, end: number, punches: Punch[] | undefined) => {
+export const punchAt = (frame: number, start: number, end: number, punches: Punch[] | undefined, beat = BEAT) => {
   let z = 1, px = 0.5, py = 0.5;
   for (const p of punches ?? []) {
     // ...back out at its own `until` (beats into the scene), or at the scene's end
-    const back = p.until !== undefined ? start + p.until * BEAT : end;
-    const a = pop(frame, start + p.at * BEAT, 120, 18) * (1 - ease(frame, back - 10, back));
+    const back = p.until !== undefined ? start + p.until * beat : end;
+    const a = pop(frame, start + p.at * beat, 120, 18) * (1 - ease(frame, back - 10, back));
     z = mix(z, p.zoom, a);
     px = mix(px, p.x, a);
     py = mix(py, p.y, a);
@@ -96,13 +96,13 @@ export const Screen: React.FC<{ clips: Clip[]; d: DeviceInfo; zoom?: { z: number
   );
 };
 
-/** The Pixel 2 with a screen under its cut-out, at the camera's place */
+/** A handheld (the Pixel 2, or the 1.0.6 video's Brick) with a screen under its cut-out, at the camera's place */
 export const Device: React.FC<{ d: DeviceInfo; cam: Cam; children: React.ReactNode; shadow?: number }> = ({ d, cam, children, shadow = 0.22 }) => (
   <div style={{ position: "absolute", left: 0, top: 0, width: d.width, height: d.height, transformOrigin: "0 0",
     transform: `translate(${cam.x}px, ${cam.y}px) scale(${cam.k}) rotate(${cam.rot ?? 0}deg)`,
     filter: cam.blur ? `blur(${cam.blur}px)` : undefined }}>
     {children}
-    <Img src={staticFile("device/pixel2-front.png")} style={{ position: "absolute", inset: 0, width: d.width, height: d.height,
+    <Img src={staticFile(`device/${d.image || "pixel2-front.png"}`)} style={{ position: "absolute", inset: 0, width: d.width, height: d.height,
       filter: `drop-shadow(0 40px 60px rgba(0,0,0,${shadow}))` }} />
   </div>
 );
@@ -111,7 +111,9 @@ export const Device: React.FC<{ d: DeviceInfo; cam: Cam; children: React.ReactNo
 export const Label: React.FC<{
   frame: number; at: number; end: number; text: string; sub?: string; dark: number;
   x: number; y: number; width: number; size?: number; align?: "left" | "center"; anchor?: "middle" | "top"; subSize?: number;
-}> = ({ frame, at, end, text, sub, dark, x, y, width, size: wanted = 76, align = "left", anchor = "middle", subSize = 30 }) => {
+  /** the music's beat in frames, for the words' steps (another track's) */
+  beat?: number;
+}> = ({ frame, at, end, text, sub, dark, x, y, width, size: wanted = 76, align = "left", anchor = "middle", subSize = 30, beat = BEAT }) => {
   let size = wanted;
   const t = theme(dark);
   if (frame < at || frame >= end) return null;
@@ -127,7 +129,7 @@ export const Label: React.FC<{
         marginLeft: align === "center" ? "auto" : 0, marginRight: align === "center" ? "auto" : 0, opacity: 1 - out(0) }} />
       <div style={{ fontSize: size, lineHeight: 1.04, fontWeight: 600, color: t.text, letterSpacing: -1 }}>
         {words.map((w, i) => {
-          const k = pop(frame, at + (i * BEAT) / 2, 210, 17);
+          const k = pop(frame, at + (i * beat) / 2, 210, 17);
           return (
             <span key={i} style={{ display: "inline-block", overflow: "hidden", verticalAlign: "top", paddingBottom: 6, marginRight: "0.24em" }}>
               <span style={{ display: "inline-block", transform: `translateY(${(1 - k) * 105 - out(i) * 110}%)` }}>{w}</span>
