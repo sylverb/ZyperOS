@@ -64,8 +64,9 @@ sites = {
     # MENU > Scraper's page: A with no network, and A with too little room
     "scp_page": (0, 2), "album_art_screen": (1, 0),
     # A port that could not start; a game whose own file is empty or cut short
-    # (src/gamefile.h) and a disc whose firmware is missing or the wrong size
-    "launch_port": (0, 1), "launch": (0, 2),
+    # (src/gamefile.h), a disc whose firmware is missing or the wrong size, and
+    # a core that would not load (src/startfail.h)
+    "launch_port": (0, 1), "launch": (0, 3),
 }
 for name, counts in sites.items():
     body = function(name)
