@@ -86,8 +86,10 @@ bool border_room(const char *mode, int src_w, int src_h, double aspect, int surf
 	dmode_rect r;
 
 	if (!mode || surf_w <= 0 || surf_h <= 0) return false;
+	/* Sharp Pixels, Zoomed takes the larger of the two scales that reach
+	 * the edges, so it covers the surface whatever the picture is */
 	if (src_w <= 0 || src_h <= 0)
-		return strcmp(mode, "stretch") != 0 && strcmp(mode, "fill") != 0;
+		return strcmp(mode, "stretch") != 0 && strcmp(mode, "fill") != 0 && strcmp(mode, "overscale") != 0;
 	r = dmode_fit(mode, src_w, src_h, aspect, surf_w, surf_h);
 	/* A rect reaching past the surface covers it that way (fill, overscale) */
 	return r.x > 0 || r.y > 0 || r.x + r.w < surf_w || r.y + r.h < surf_h;
