@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* The Video view. See src/videoview.h and DESIGN.md 11.54. */
+/* The Video view. See src/videoview.h and DESIGN.md 11.57. */
 #include "videoview.h"
 
 #include "design.h"

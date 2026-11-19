@@ -30,7 +30,7 @@ typedef struct {
 	char      key[1024];     /* the focused game's snap, "" for none */
 	uint32_t  t;             /* when the phase began */
 	float     from;          /* how far it had turned when it began to go back */
-	/* The Video view's (DESIGN.md 11.54): no rest, the snap asked for the
+	/* The Video view's (DESIGN.md 11.57): no rest, the snap asked for the
 	 * frame the focus comes, not held, its sound with it */
 	bool      at_once;
 } snapshelf;

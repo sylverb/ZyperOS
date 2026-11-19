@@ -1,0 +1,82 @@
+# Rumble's levels (src/rumble.c): MENU > Sound > Rumble for every game, and
+# the in-game Controls tab's Rumble row for a game or its system. Off is
+# menu.off_title. Each value begins with a capital, as a row's value does
+# (GLOSSARY.md); the words are the ones a console's own vibration setting
+# uses in each language.
+
+[rumble.low]
+note = Rumble's value: the motor at about a third of what a game asks. As a console's vibration setting says its weakest step; the feminine form where the language's word for rumble (vibration) is feminine.
+en = Low
+zh-Hans = 弱
+es = Baja
+pt-BR = Baixa
+fr = Faible
+de = Schwach
+ja = 弱
+it = Bassa
+
+[rumble.medium]
+note = Rumble's value: the motor at about two thirds of what a game asks. As a console's vibration setting says its middle step.
+en = Medium
+zh-Hans = 中
+es = Media
+pt-BR = Média
+fr = Moyenne
+de = Mittel
+ja = 中
+it = Media
+
+[rumble.full]
+note = Rumble's value: the motor as strong as each game asks, as ZyperOS always ran it, and the default. As a console's vibration setting says its strongest step.
+en = Full
+zh-Hans = 强
+es = Fuerte
+pt-BR = Forte
+fr = Forte
+de = Stark
+ja = 強
+it = Forte
+
+[rumble.note_off]
+note = Under Rumble's list of levels, for Off: the motor never runs in a game. A sentence.
+en = No rumble at all.
+zh-Hans = 完全不振动。
+es = Sin vibración.
+pt-BR = Sem vibração.
+fr = Aucune vibration.
+de = Keine Vibration.
+ja = 振動しません。
+it = Nessuna vibrazione.
+
+[rumble.note_share]
+note = Under Rumble's list of levels, for Low and Medium: %d is the share in percent (35, 65) of how hard a game asks the motor to run. One short sentence: the list's note has two lines.
+en = %d%% of what a game asks.
+zh-Hans = 游戏要求强度的 %d%%。
+es = El %d\u00a0%% de lo que pide el juego.
+pt-BR = %d%% do que o jogo pede.
+fr = %d\u00a0%% de ce que demande le jeu.
+de = %d\u00a0%% dessen, was ein Spiel verlangt.
+ja = ゲームが求める強さの %d%% です。
+it = Il %d%% di quanto chiede il gioco.
+
+[rumble.note_full]
+note = Under Rumble's list of levels, for Full: the motor runs as hard as each game asks. One short sentence: the list's note has two lines.
+en = As strong as each game asks.
+zh-Hans = 按每个游戏要求的强度。
+es = Tan fuerte como pide cada juego.
+pt-BR = Tão forte quanto cada jogo pede.
+fr = Aussi fort que le demande chaque jeu.
+de = So stark, wie jedes Spiel es verlangt.
+ja = 各ゲームが求める強さです。
+it = Forte quanto chiede ogni gioco.
+
+[rumble.pick_heading]
+note = The heading of the Rumble row's list of levels in a game's Controls tab (A on the row): %s is This Game (gamemenu.this_game) or the system's name (Nintendo 64), as Applies To says. Title size, over a 860-unit panel.
+en = Rumble: %s
+zh-Hans = 振动：%s
+es = Vibración: %s
+pt-BR = Vibração: %s
+fr = Vibration : %s
+de = Vibration: %s
+ja = 振動：%s
+it = Vibrazione: %s

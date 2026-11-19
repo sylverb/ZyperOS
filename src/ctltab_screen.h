@@ -30,6 +30,9 @@ typedef struct {
 	const char *file;        /* the game's file, as the shelf names it */
 	const char *title;       /* its name, for Reset Buttons' question */
 	const char *pak;         /* the Pak row's value (gm_pak_name), NULL for no row */
+	/* The Rumble row: the handheld has a motor and the game's core asked
+	 * for it (PAUSED rumble=1, plat_resident_rumble_asked) */
+	bool        rumble;
 	/* Applies To says the system (every game of it): kept with the in-game
 	 * menu's memory, so it stays with the tab and the row until the game ends */
 	bool       *scope_all;

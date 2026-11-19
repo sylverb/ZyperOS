@@ -56,6 +56,9 @@ static char d_run_keys[128];
 static char d_map[256];          /* plat_resident_map, for the next RUN */
 static char d_opt[128];         /* plat_resident_opt, "key\tvalue=..." */
 static bool d_stylus, d_swap;
+/* The game's core asked for the motor, as its last PAUSED said (rumble=1):
+ * the in-game Controls tab's Rumble row. Off at every RUN. */
+static bool d_rumble_asked;
 
 static bool dsend(const char *fmt, ...)
 {
@@ -360,10 +363,60 @@ void plat_resident_on_battery_empty(bool (*fn)(void)) { d_battery_empty = fn; }
  * to 0 on each re-entry made a running game look like one that never started.
  * The cost was not cosmetic - see the ERROR arm in diatom_wait. */
 static int d_got_running;
+/* The refusal of the game last sent, from Diatom's ERROR before RUNNING
+ * (plat_resident_start_error): kept by plat_resident_wait and taken by the
+ * launcher once the wait says the game never started */
+static plat_start_error d_start_err;
+static int d_start_err_set;
 
 bool plat_resident_started(void)
 {
 	return d_got_running != 0;
+}
+
+/* The value of `key` in a tab-separated line of key=value, in `out` ("" when
+ * the line has none) */
+static void d_field(const char *line, const char *key, char *out, size_t n)
+{
+	char pat[40];
+	const char *p;
+	size_t len;
+
+	out[0] = '\0';
+	snprintf(pat, sizeof pat, "\t%s=", key);
+	p = strstr(line, pat);
+	if (!p) return;
+	p += strlen(pat);
+	len = strcspn(p, "\t\r\n");
+	if (len >= n) len = n - 1;
+	memcpy(out, p, len);
+	out[len] = '\0';
+}
+
+/* An ERROR line that came before RUNNING: a core that would not load says
+ * why (code=core_load, diatom/src/corefail.h) and the launcher keeps it for
+ * the shelf to say. Any other refusal is left to the log. */
+static void d_note_start_error(const char *line)
+{
+	plat_start_error e;
+
+	memset(&e, 0, sizeof e);
+	d_field(line, "code", e.code, sizeof e.code);
+	if (strcmp(e.code, "core_load") != 0) return;
+	d_field(line, "why", e.why, sizeof e.why);
+	d_field(line, "name", e.name, sizeof e.name);
+	d_field(line, "version", e.version, sizeof e.version);
+	d_field(line, "msg", e.core, sizeof e.core);
+	d_start_err = e;
+	d_start_err_set = 1;
+}
+
+bool plat_resident_start_error(plat_start_error *out)
+{
+	if (!d_start_err_set) return false;
+	d_start_err_set = 0;
+	if (out) *out = d_start_err;
+	return true;
 }
 
 bool plat_resident_send(const plat_game_run *run)
@@ -378,6 +431,7 @@ bool plat_resident_send(const plat_game_run *run)
 	 * diatom_wait, because the launcher re-enters that after every in-game
 	 * menu and the answer must survive those. */
 	d_got_running = 0;
+	d_start_err_set = 0;
 
 	{
 		char *l;
@@ -440,6 +494,7 @@ bool plat_resident_send(const plat_game_run *run)
 		 * process holds it. */
 		device_display_release();
 		d_stylus = d_swap = false;
+		d_rumble_asked = false;
 		/* The zone Date & Time chose, which this process holds in TZ
 		 * (plat_clock_zone), for a game's real-time clock: Diatom is started
 		 * by launch.sh with none, so its cores read UTC without it. With
@@ -749,6 +804,7 @@ void plat_resident_opt(const char *key, const char *value)
 		d_opt[0] = '\0';
 }
 
+bool plat_resident_rumble_asked(void) { return d_rumble_asked; }
 bool plat_resident_stylus(void) { return d_stylus; }
 void plat_resident_note_stylus(bool on) { d_stylus = on; }
 
@@ -950,7 +1006,11 @@ static int diatom_wait(void)
 			 * the menu stepped from the level before the game - seen on the
 			 * GKD Pixel 2 2026-10-02, raised to 18 in a game, and the menu's
 			 * first press went to 3. */
-			else if (strncmp(l, "PAUSED", 6) == 0)  { d_apply_levels(); return RES_PAUSED; }
+			else if (strncmp(l, "PAUSED", 6) == 0)  {
+				d_rumble_asked = strstr(l, "\trumble=1") != NULL;
+				d_apply_levels();
+				return RES_PAUSED;
+			}
 			else if (strncmp(l, "PREVIEW\tpath=", 13) == 0)
 				snprintf(d_preview, sizeof d_preview, "%s", l + 13);
 			else if (strncmp(l, "LEVEL\t", 6) == 0) d_note_level(l);
@@ -1049,7 +1109,10 @@ static int diatom_wait(void)
 				 * framebuffer - two presenters, which wedges the display
 				 * engine in-kernel, and the supervisor powered the device
 				 * off. */
-				if (!d_got_running) return RES_DEAD;
+				if (!d_got_running) {
+					d_note_start_error(l);
+					return RES_DEAD;
+				}
 			}
 		}
 		if (dsock < 0) return RES_DEAD;            /* EOF mid-game */

@@ -134,12 +134,13 @@ bool game_delete_now(app *a, int owner, const game_entry *g, bool wait,
 	said[0] = '\0';
 	if (wait) wait_panel(a, T(S_GAMEMENU_DELETE), T(S_GAMEMENU_DELETING));
 
-	/* Every other game on the card's own shelves - not Favorites', whose
-	 * games are on them too, and not MP4's albums */
-	for (i = 0; i < a->sys.count; i++)
+	/* Every other game on the card's own shelves and the systems off the
+	 * home (app.parked) - not Favorites', whose games are on them too, and
+	 * not MP4's albums */
+	for (i = 0; i < sys_kept(a); i++)
 		if (!a->view[i].owner && !is_muse(&a->sys.systems[i])) cap += sys_games(&a->view[i])->count;
 	if (cap > 0 && !(others = malloc((size_t)cap * sizeof *others))) cap = 0;
-	for (i = 0; i < a->sys.count && others; i++) {
+	for (i = 0; i < sys_kept(a) && others; i++) {
 		const system_cfg *o = &a->sys.systems[i];
 		bool hooked = lib_shelf_hooked(o->exts);
 
@@ -222,7 +223,7 @@ bool game_delete(app *a, int owner, const game_entry *g, char *said, size_t n)
 	int nq, lv;
 	bool yes;
 
-	const system_cfg *s = owner >= 0 && owner < a->sys.count ? &a->sys.systems[owner] : NULL;
+	const system_cfg *s = owner >= 0 && owner < sys_kept(a) ? &a->sys.systems[owner] : NULL;
 	bool port = s && !strcmp(s->core, "port");
 
 	said[0] = '\0';

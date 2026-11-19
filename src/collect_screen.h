@@ -2,7 +2,7 @@
 #ifndef ZYPEROS_COLLECT_SCREEN_H
 #define ZYPEROS_COLLECT_SCREEN_H
 
-/* Collections' screens (DESIGN.md 11.53; src/collect.h keeps the lists):
+/* Collections' screens (DESIGN.md 11.56; src/collect.h keeps the lists):
  * Add to Collection on a game's details page, and the Collections shelf's
  * Rename, Remove from Collection and Delete Collection. */
 #include "app.h"

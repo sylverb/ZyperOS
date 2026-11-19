@@ -81,6 +81,17 @@ de = Audiokanäle
 ja = 音声チャンネル
 it = Canali audio
 
+[sysmenu.rumble]
+note = A MENU row on the Sound tab, and the in-game Controls tab's row: how hard the rumble motor runs in games (Off, Low, Medium, Full). The word a console's own settings use for the controller's vibration.
+en = Rumble
+zh-Hans = 振动
+es = Vibración
+pt-BR = Vibração
+fr = Vibration
+de = Vibration
+ja = 振動
+it = Vibrazione
+
 [sysmenu.ui_sounds]
 note = A MENU row: the launcher's own sounds (Wood, Glass, Bubble or Off)
 en = UI Sounds
@@ -444,19 +455,8 @@ de = Erscheinungsbild
 ja = 外観
 it = Aspetto
 
-[sysmenu.scraper]
-note = A MENU row: box art, its sources and video snaps
-en = Scraper
-zh-Hans = 资料抓取
-es = Scraper
-pt-BR = Capas e vídeos
-fr = Scraper
-de = Cover und Videos
-ja = 画像と動画
-it = Copertine e video
-
 [sysmenu.cheevos]
-note = A MENU row and a row of the game menus: RetroAchievements' achievements, and the page the row opens. Called Achievements in English, and by each language's own word for them (not Cheevos, RetroAchievements' slang).
+note = A row of MENU > Downloads and of the game menus: RetroAchievements' achievements, and the page the row opens. Called Achievements in English, and by each language's own word for them (not Cheevos, RetroAchievements' slang).
 en = Achievements
 zh-Hans = 成就
 es = Logros
@@ -979,6 +979,17 @@ de = Bildschirmsperre
 ja = 画面ロック
 it = Blocca schermo
 
+[sysmenu.muse_quit]
+note = MP4's menu row, its last, with X's glyph at its right (X does it from any row): leave MP4 for the screen it was opened from, as SELECT does; what plays keeps playing. The in-game menu's Quit (gamemenu.quit), the same word
+en = Quit
+zh-Hans = 退出
+es = Salir
+pt-BR = Sair
+fr = Quitter
+de = Beenden
+ja = 終了
+it = Esci
+
 [sysmenu.muse_lock_when]
 note = Lock Screen's value while nothing plays: it only works while music plays. Begun with a capital.
 en = While playing
@@ -1028,7 +1039,7 @@ es = No disponible
 pt-BR = Indisponível
 fr = Non disponible
 de = Nicht enthalten
-ja = このビルドは非対応
+ja = 利用不可
 it = Non disponibile
 
 [sysmenu.sc_linked_as]
@@ -1426,7 +1437,7 @@ it = Elenco
 
 
 [sysmenu.view_video]
-note = View's value: the shelf shows the focused game's video snap on the whole screen, its covers in a row at the foot (DESIGN.md 11.54). A named choice.
+note = View's value: the shelf shows the focused game's video snap on the whole screen, its covers in a row at the foot (DESIGN.md 11.57). A named choice.
 en = Video
 zh-Hans = 视频
 es = Video

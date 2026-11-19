@@ -208,6 +208,9 @@ int ct_rows(const ct_model *m, ct_row *ids, menu_row *out, unsigned *vcol, ct_bu
 		                           T(m->stick_on ? S_MENU_ON_TITLE : S_MENU_OFF_TITLE), true }),
 		    m->stick_on != m->stick_default ? 1u : 0u);
 	if (m->pak) ROW(CT_PAK, ((menu_row){ T(S_GAMEMENU_PAK), m->pak, true }), 0u);
+	/* How hard the motor runs for this game or its system (src/rumble.h) */
+	if (m->rumble) ROW(CT_RUMBLE, ((menu_row){ T(S_SYSMENU_RUMBLE), m->rumble, true }),
+	                   m->rumble_own ? 1u : 0u);
 	if (m->face_offered) {
 		const int f = ct_faces(m, &m->cur);
 

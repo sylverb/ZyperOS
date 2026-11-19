@@ -1,4 +1,4 @@
-# Collections (src/collect.h, DESIGN.md 11.53): the player's own lists of
+# Collections (src/collect.h, DESIGN.md 11.56): the player's own lists of
 # games from every system, Collections/<name>.txt on the card. The group's
 # name is library.collections; Sort By's two orders are sort.added and
 # sort.system.

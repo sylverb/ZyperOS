@@ -20,7 +20,9 @@ concurrency:
 jobs:
   check:
     runs-on: macos-15
-    timeout-minutes: 30
+    # A full make check takes 20 to 25 minutes on a quiet runner; on a busy
+    # day (2026-11-19) runs went past 30 and were cancelled at the limit
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
