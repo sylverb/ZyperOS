@@ -1687,7 +1687,8 @@ static void clear_pages(void)
  *
  * DIATOM_PRESENT=cpu never starts it. DIATOM_PRESENT=gpu, or the card's
  * .userdata/brick/diatom-present saying "gpu", draws every frame with it, so
- * a kit can time the two paths on the same game. */
+ * a kit can time the two paths on the same game; the card's file, whatever
+ * it says, also puts both paths' present times in the log. */
 
 #define BRICK_PRESENT_FILE "/mnt/SDCARD/.userdata/brick/diatom-present"
 
@@ -2044,6 +2045,9 @@ static void gl_init(void)
 		if (fgets(line, sizeof line, f)) line[strcspn(line, " \r\n")] = '\0';
 		fclose(f);
 		want = line;
+		/* A kit's timing: both paths' present times in the log, once a
+		 * second (DIATOM_PRESENT_DEBUG's lines) */
+		g_present_debug = true;
 	}
 	if (want && !strcmp(want, "cpu")) {
 		diatom_port_log(DIATOM_LOG_INFO, "brick: GPU path off (DIATOM_PRESENT=cpu)");
