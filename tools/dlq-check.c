@@ -14,7 +14,8 @@
  * wait, and go on after it; a stop is its lane's done, once, with its request
  * dropped; a lane below the card's floor is stopped as DLQ_FULL; the input
  * wait is cut to 16 ms while a lane runs and is as asked when none does. The
- * floor here is past any disk, so the room rule fires on the first look. */
+ * floor here is past any disk, so the room rule fires on its first look. */
+#include <limits.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -42,7 +43,8 @@ static int failures;
 
 /* ---- src/net.c and src/dlq.c, with this binary for its curl -------------- */
 
-static char g_self[1024];
+/* PATH_MAX: a fortified realpath (glibc) refuses a smaller one */
+static char g_self[PATH_MAX];
 
 #define NET_CURL_BINARIES g_self
 #include "../src/net.c"
@@ -254,15 +256,19 @@ int main(int argc, char **argv)
 
 		g_mine[DLQ_ART] = &g_fa;
 		g_mine[DLQ_RA] = &g_fb;
-		fresh(&g_fa, "a", 3, 200);
-		fresh(&g_fb, "b", 3, 200);
+		fresh(&g_fa, "a", 3, 500);
+		fresh(&g_fb, "b", 3, 500);
 		CHECK(dlq_start(DLQ_ART, &LANE_A, begin_a), "lane a starts");
 		CHECK(dlq_start(DLQ_RA, &LANE_B, begin_b), "lane b starts");
 		CHECK(!dlq_start(DLQ_ART, &LANE_A, begin_a), "a lane already running does not start again");
 		CHECK(dlq_busy() && dlq_running(DLQ_ART) && dlq_running(DLQ_RA), "both run");
-		took = run_out(5000);
+		dlq_tick();
+		CHECK(g_fa.started && g_fb.started, "both have a request in flight at once");
+		took = run_out(8000);
 		CHECK(g_fa.done_n == 3 && g_fb.done_n == 3, "each did its three (a %d, b %d)", g_fa.done_n, g_fb.done_n);
-		CHECK(took < 1000, "in about the time of one lane, not two (%ld ms for 2 x 600)", took);
+		/* One after another is 3000 ms at the least; side by side about
+		 * 1500 and what starting six curls costs, however slow the machine */
+		CHECK(took < 3000, "side by side, never one after the other (%ld ms for 2 x 1500)", took);
 		CHECK(g_fa.dones == 1 && g_fa.how == DLQ_ENDED && g_fb.dones == 1 && g_fb.how == DLQ_ENDED,
 		      "each lane's done once, as ended");
 		CHECK(dlq_last(DLQ_ART) == DLQ_ENDED && dlq_ends(DLQ_ART) == 1 && dlq_ends(DLQ_RA) == 1, "their ends are counted");

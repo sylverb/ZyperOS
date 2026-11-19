@@ -1899,7 +1899,7 @@ build-native/dlq-check: tools/dlq-check.c src/dlq.c src/dlq.h src/net.c src/net.
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -DZYPEROS_VERSION='"check"' \
 	      -DNET_TMP='"$(CURDIR)/build-native/dlq-check-tmp"' \
-	      -DDLQ_FLOOR='(1ULL << 62)' -DDLQ_ROOM_MS=0 \
+	      -DDLQ_FLOOR='(1ULL << 62)' -DDLQ_ROOM_MS=1 \
 	      -o $@ tools/dlq-check.c
 
 build-native/radl-check: tools/radl-check.c src/radl.c src/radl.h src/net.c src/net.h src/rafetch.c src/rajson.c src/cheevos.c src/library.c $(RAHASH_SRC) src/atomic.c src/db.c $(I18N_SRC) FORCE
