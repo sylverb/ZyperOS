@@ -7,6 +7,12 @@ the parts a player can't press - the battery, the charging cable, the
 headphones - set from a panel beside it. What the device shows of them shows
 too: the side lights, the backlight, the motor.
 
+For the launcher's menus alone, desk mode is quicker: `make desk` runs the
+launcher itself in a window as the Pixel 2, at 60 frames a second, a game and
+its in-game menu included ([building.md](building.md), "Work on the UI without
+a device"). The simulator is for the whole system: the boot, the setup, the
+battery and the charger, the side lights.
+
 ## Building and opening it
 
 ```sh
@@ -28,7 +34,9 @@ it. The VM's sound plays on the Mac.
   keys along the top, the volume rocker on the left side, MENU and POWER on
   the right. The keyboard: arrows, x z s a (A B X Y), q w e r (L1 R1 L2 R2),
   Return (START), Right Shift or Delete (SELECT), Esc or m (MENU), = and -
-  (volume), p (power), h (headphones). A key held is a button held.
+  (volume), p (power), h (headphones). A key held is a button held. It is
+  the one key map of `src/device/keymap.h`, desk mode's too, by the keys'
+  places on a US keyboard.
 - **Power.** POWER is ZyperOS's power button. When the VM is off (after Power
   Off, or Auto Off), POWER turns it on again.
 - **The panel** (View > Hardware Panel, ⌘I): the battery level, the charging

@@ -5,7 +5,7 @@
 # the offline checks, a host build of the launcher, the cores, and the assets.
 # docs/building.md says how to work on a device.
 
-.PHONY: all clean native px2-payload vendor boot system-art checkmark \
+.PHONY: all clean native desk desk-brick px2-payload vendor boot system-art checkmark \
         check check-cheevos check-hare check-portal check-httpd check-idle check-taskhold check-saver check-rahash check-flacdec check-achtab check-signin check-search \
         check-raset check-xfer check-sshlink check-usblink check-devmode check-devices check-devicegen check-model check-ctl check-menus check-status check-battery check-corner check-artscrape check-artrun check-sgdb check-snapshelf check-snaps check-audioout \
         check-db check-coreopts check-gpuframes check-gamedel check-gamern check-esmedia check-corepins check-targets yuvtarget check-storage check-stats check-sort check-bt check-ss check-titles check-dsv check-sidelights check-osdbar check-hud check-dmodefit check-themefile check-pkkeys check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-bios check-gamefile check-kbnav check-tween check-menumotion check-menusnap check-cardgen check-cardart check-focusfx check-blur check-gridrule check-roundrect check-rowmacro check-emptyhome check-zyperrig check-randgame check-shelfdir \
@@ -53,7 +53,7 @@ CHECKS = check-cheevos check-hare check-portal check-httpd check-idle check-task
          check-systemart check-linebreak check-portload check-portout check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-messages \
          check-tour check-tour-shots check-tour-previews check-textfade check-glyphs check-scale check-shaderdemo check-screenfx check-ds check-layout-ratchet check-flex check-hover check-hover-sweep check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pmhelper check-pmart check-portdoc check-boottheme check-splashbright check-bootbright check-panelgamma check-panelgamma-sunxi check-nightmode check-displayback check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-start-soc check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr \
          check-home check-home-shots check-games check-cardpaint check-putpace check-favorites-shots check-np-footer check-menu-rows check-layout-shots check-artbadge check-artbadge-shots check-cardart-shots checkmark \
-         check-installer check-from-rogue check-importers check-diatom check-simulator check-px2sim check-building-doc check-blog check-discord-release \
+         check-installer check-from-rogue check-importers check-diatom check-simulator check-desk check-keymap check-px2sim check-building-doc check-blog check-discord-release \
          check-release-devices check-strings check-i18n-shots check-rootswitch check-datapart check-brick-closed check-hwreport
 
 # All of them at once, as many at a time as there are cores (CHECK_JOBS=1 for
@@ -126,6 +126,24 @@ check-release-devices:
 # the table had 32 of 91 rows (2026-11-06) and said nothing of the rest.
 check-building-doc:
 	@python3 tools/building-doc-check.py
+
+# Desk mode (docs/building.md, "Work on the UI without a device"): the
+# launcher in a window as the Pixel 2, or as the Brick, on a sample card, a
+# game in it on Diatom's desktop build. tools/desk takes more (--zoom, --roms,
+# --lang, --fresh) and drives a running window.
+desk:
+	@tools/desk run --device pixel2
+
+desk-brick:
+	@tools/desk run --device brick
+
+# Desk mode in SDL's dummy window, both handhelds, over its control socket
+check-desk: native
+	@python3 tools/desk-check.py
+
+# One key map: src/device/keymap.h, the Simulator's and Diatom's window's
+check-keymap:
+	@python3 tools/keymap-check.py
 
 # The simulator's tests (simulator/Tests: its VNC client, the px2sim link, the
 # state lines and the control socket's commands), with Swift's own build kept
