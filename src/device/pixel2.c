@@ -618,6 +618,7 @@ void device_display_take(void)
 #define BIT_IS_SET(a,b) (((a)[(b) / BITS_PER_LONG] >> ((b) % BITS_PER_LONG)) & 1UL)
 
 static int fd_pad = -1;     /* "gkd_pixel2_joypad": the face, d-pad, shoulders, FUNCTION */
+static int pad_node = -1;   /* its N in /dev/input/eventN, for the motor (plat_rumble_buzz) */
 static int fd_keys = -1;    /* "gpio-keys": volume */
 static int fd_power = -1;   /* "rk805 pwrkey" */
 static int jack_fd = -1;    /* "rk817_int Headphones": the jack switch, for the settings */
@@ -667,7 +668,7 @@ static void input_scan(void)
 		memset(sw, 0, sizeof sw);
 		ioctl(fd, EVIOCGBIT(EV_KEY, sizeof keys), keys);
 		ioctl(fd, EVIOCGBIT(EV_SW, sizeof sw), sw);
-		if      (fd_pad < 0   && BIT_IS_SET(keys, BTN_SOUTH))           fd_pad = fd;
+		if      (fd_pad < 0   && BIT_IS_SET(keys, BTN_SOUTH))           { fd_pad = fd; pad_node = i; }
 		else if (fd_keys < 0  && BIT_IS_SET(keys, KEY_VOLUMEUP))        fd_keys = fd;
 		else if (fd_power < 0 && BIT_IS_SET(keys, KEY_POWER))           fd_power = fd;
 		else if (jack_fd < 0  && BIT_IS_SET(sw, SW_HEADPHONE_INSERT))   jack_fd = fd;
@@ -722,6 +723,56 @@ void plat_input_settle(in_state *st)
 
 /* The descriptors stay open: they are display-independent. */
 void plat_input_quit(void) { }
+
+/* ---------- the motor: a step's buzz -------------------------------------- */
+
+/* The joypad again, opened to write: the motor is its force feedback (PWM0,
+ * the joypad driver's; diatom/port/rumble_evdev.c says how). Opened at the
+ * first buzz and kept, so a step costs one upload and one write, never an
+ * open or a close (a close waits out an RCU grace period, input_scan). Our
+ * effect is ours alone: Diatom's, on its own descriptor, plays beside it,
+ * held still while its game is paused. */
+static int rumble_fd = -1;
+static int rumble_id = -1;
+
+bool plat_rumble_buzz(float scale, int ms)
+{
+	struct ff_effect e;
+	struct input_event ev;
+	uint16_t v;
+	char path[32];
+
+	if (scale <= 0.0f || ms <= 0) return true;      /* Off: nothing to feel */
+	if (rumble_fd < 0) {
+		if (pad_node < 0) return false;
+		snprintf(path, sizeof path, "/dev/input/event%d", pad_node);
+		if ((rumble_fd = open(path, O_RDWR | O_NONBLOCK | O_CLOEXEC)) < 0) {
+			fprintf(stderr, "rumble: %s: %s\n", path, strerror(errno));
+			return false;
+		}
+	}
+	v = scale >= 1.0f ? 0xFFFF : (uint16_t)((float)0xFFFF * scale + 0.5f);
+	memset(&e, 0, sizeof e);
+	e.type = FF_RUMBLE;
+	e.id = (int16_t)rumble_id;
+	/* The driver runs the motor from the strong one; both, as SDL sends */
+	e.u.rumble.strong_magnitude = v;
+	e.u.rumble.weak_magnitude = v;
+	/* ff-memless ends it after this long and tells the driver 0: a buzz
+	 * stops itself, whatever the launcher does next */
+	e.replay.length = (uint16_t)(ms > 2000 ? 2000 : ms);
+	if (ioctl(rumble_fd, EVIOCSFF, &e) < 0) {
+		fprintf(stderr, "rumble: upload: %s\n", strerror(errno));
+		rumble_id = -1;
+		return false;
+	}
+	rumble_id = e.id;
+	memset(&ev, 0, sizeof ev);
+	ev.type = EV_FF;
+	ev.code = (uint16_t)rumble_id;
+	ev.value = 1;
+	return write(rumble_fd, &ev, sizeof ev) == (ssize_t)sizeof ev;
+}
 
 /* FUNCTION is MENU, and also the modifier that makes the volume keys
  * brightness: this device has no brightness keys, and MENU plus volume is

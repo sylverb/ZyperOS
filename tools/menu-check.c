@@ -1646,8 +1646,9 @@ static void menu_tabs(void)
 	ck(m > 0 && tab[0] == PM_WIFI, "and on Wi-Fi when none does");
 	u.tab = PT_SOUND;
 	n = (sys_menu_build)(&u, rows, &b, &heading);
-	ck(n == 4 && !strcmp(heading, "Sound") && !strcmp(rows[0].label, "Audio Output") &&
-	   !strcmp(rows[3].label, "Menu Music"), "a tab's build: its rows, headed by its name");
+	ck(n == 5 && !strcmp(heading, "Sound") && !strcmp(rows[0].label, "Audio Output") &&
+	   !strcmp(rows[3].label, "Menu Music") && !strcmp(rows[4].label, "Rumble"),
+	   "a tab's build: its rows, headed by its name");
 	u.tab = PT_DISPLAY;
 	u.theme = "Lime";
 	n = (sys_menu_build)(&u, rows, &b, &heading);
@@ -2300,6 +2301,21 @@ static void ctl_tab(void)
 	ck(ct_lit(&m, CT_STICK) == (1u << TD_DPAD | 1u << TD_SELECT), "the stick lights SELECT, the way to the D-pad");
 	ck(ct_lit(&m, CT_PAK) == 0, "Pak lights nothing");
 
+	/* ct_rows_n64_rumble: a core that asked for the motor, on a handheld
+	 * with one (src/rumble.h) */
+	m.rumble = "Low";
+	m.rumble_own = true;
+	n = ct_rows(&m, ids, rows, vcol, &b);
+	ck(n == 16 && ids[3] == CT_RUMBLE && !strcmp(rows[3].label, "Rumble") && !strcmp(val(&rows[3]), "Low") &&
+	   rows[3].live && vcol[3], "ct_rows_n64_rumble: Rumble under the Pak, its own level in accent-ink");
+	ck(!strcmp(rows[4].label, "A") && ct_button_of(ids[4]) >= 0, "and the buttons after it");
+	ck(ct_lit(&m, CT_RUMBLE) == 0, "Rumble lights nothing");
+	m.rumble = "Full";
+	m.rumble_own = false;
+	n = ct_rows(&m, ids, rows, vcol, &b);
+	ck(!strcmp(val(&rows[3]), "Full") && !vcol[3], "MENU's level, the scope's none: plain");
+	m.rumble = NULL;
+
 	/* ct_rows_dc_face_stick_on */
 	memset(&m, 0, sizeof m);
 	m.tag = "DC"; m.ext = "chd"; m.sys_label = "Dreamcast"; m.map = CT_DC_MAP;
@@ -2899,6 +2915,44 @@ static void sounds_row(void)
 		ck(strcmp(rows[i].label, "UI Sounds"), "a system's menu has none");
 }
 
+/* MENU > Sound > Rumble (src/rumble.h): the Sound tab's last row, under Menu
+ * Music, Full until it is set, on a handheld with a motor ZyperOS runs; on
+ * one without (the Brick's waits for its tester), not there. */
+static void rumble_row(void)
+{
+	sys_ui u;
+	menu_bufs b;
+	menu_row rows[MENU_MAX_ROWS];
+	pm_row ids[MENU_MAX_ROWS];
+	const char *heading;
+	int n, i, found = 0;
+
+	memset(&u, 0, sizeof u);
+	u.no_wifi = true;
+	u.no_bt = true;
+	n = sys_menu_build(&u, rows, &b, &heading);
+	printf("the Rumble row:\n");
+	ck(PM_RUMBLE == PM_MUSIC + 1 && sys_menu_tab_of(PM_RUMBLE) == PT_SOUND, "sits under Menu Music, on Sound");
+	for (i = 0; i < n; i++)
+		if (rows[i].label && !strcmp(rows[i].label, "Rumble")) {
+			found++;
+			ck(rows[i].live && !strcmp(val(&rows[i]), "Full"), "is live, and reads Full until it is set");
+			ck(i > 0 && !strcmp(rows[i - 1].label, "Menu Music"), "directly under Menu Music there too");
+		}
+	ck(found == 1, "is there once");
+	u.rumble = "Low";
+	n = sys_menu_build(&u, rows, &b, &heading);
+	ck(!strcmp(val_of(rows, n, "Rumble"), "Low"), "says the level");
+	u.tab = PT_SOUND;
+	n = sys_menu_tab_rows(&u, PT_SOUND, ids);
+	ck(n > 0 && ids[n - 1] == PM_RUMBLE, "the Sound tab's last row");
+	u.no_rumble = true;
+	u.tab = PT_TABS;
+	n = sys_menu_zyperos_rows(&u, ids);
+	for (i = 0, found = 0; i < n; i++) found += ids[i] == PM_RUMBLE;
+	ck(!found, "no motor: no row");
+}
+
 /* MENU > Side Lights (src/sidelights.h): on a device with lights of its own,
  * under Charge Limit, saying how many parts are on, opening the page of five
  * switches; on one without, not there at all. The setting's words are
@@ -3362,6 +3416,7 @@ int main(void)
 	audio_row();
 	channels_row();
 	sounds_row();
+	rumble_row();
 	charge_row();
 	power_row();
 	homesys_rows();

@@ -55,6 +55,7 @@
 #include "update_screen.h"
 #include "usblink.h"
 #include "shaderdemo.h"
+#include "rumble.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -335,11 +336,26 @@ static void pm_screen_undo(void *app_, int kept)
 static const ds_hover PM_SHADER_HOVER = { .show = pm_shader_show, .undo = pm_screen_undo };
 static const ds_hover PM_STRENGTH_HOVER = { .show = pm_strength_show, .undo = pm_screen_undo };
 
+/* Rumble's list: the level under the cursor buzzes once as the cursor
+ * comes onto it, so each is felt before it is chosen (the lab's) */
+static void pm_rumble_focus(void *app_, int k)
+{
+	static int last = -1;
+
+	(void)app_;
+	if (k < 0 || k >= RUMBLE_LEVELS) { last = -1; return; }
+	if (k == last) return;
+	/* The list opening is no step: its first pass only notes where it is */
+	if (last >= 0)
+		plat_rumble_buzz((float)rumble_level_pct((rumble_level)k) / 100.0f, RUMBLE_BUZZ_MS);
+	last = k;
+}
+
 static void menu_choices(app *a, int sys, bool games)
 {
 	/* A system's menu and MENU each their own words: the shelf under MENU
 	 * builds a system's rows too, and must not write over MENU's */
-	static ch_pool PS[13], PM[13];
+	static ch_pool PS[13], PM[14];
 	ch_pool *P = games ? PS : PM;
 	int i, n, cur;
 
@@ -512,6 +528,21 @@ static void menu_choices(app *a, int sys, bool games)
 	/* Home Screen: in the order Right steps it */
 	for (i = 0; i < HOME_LAYOUTS; i++) P[9].lab[i] = home_name((home_layout)i);
 	g_pm_choice[PM_HOME] = ch_make(&P[9], HOME_LAYOUTS, (int)a->home_layout, false);
+	{
+		/* Off to Full, each with what it does; felt as the cursor reaches
+		 * it (pm_rumble_focus) */
+		static const char *rnotes[RUMBLE_LEVELS];
+		static char rbuf[RUMBLE_LEVELS][160];
+
+		for (i = 0; i < RUMBLE_LEVELS; i++) {
+			P[13].lab[i] = rumble_level_name((rumble_level)i);
+			rumble_level_note((rumble_level)i, rbuf[i], sizeof rbuf[i]);
+			rnotes[i] = rbuf[i];
+		}
+		g_pm_choice[PM_RUMBLE] = ch_make(&P[13], RUMBLE_LEVELS, (int)rumble_menu(), false);
+		g_pm_choice[PM_RUMBLE].notes = rnotes;
+		g_pm_choice[PM_RUMBLE].focus = pm_rumble_focus;
+	}
 	g_pm_choice[PM_LANGUAGE] = (menu_choice){ .n = LANG_COUNT, .cur = (unsigned char)i18n_lang(), .own = true };
 }
 
@@ -539,6 +570,7 @@ int menu_build(app *a, screen_id screen, int sys,
 	u.xfer = xs_row_value();
 	u.xfer_cable = xs_row_cable();
 	u.no_lights = !plat_battery_lights();
+	u.no_rumble = !plat_has_rumble();
 	u.no_screen_colors = !plat_screen_colors_here();
 	u.no_charge_limit = !plat_charge_limit_supported();
 	u.charge_limit = g_charge_limit;
@@ -632,6 +664,7 @@ int menu_build(app *a, screen_id screen, int sys,
 		          : g_batt_mode == BATT_PCT ? T(S_PANEL_BATTERY_PERCENTAGE) : T(S_PANEL_BATTERY_BARS);
 		u.ui_sounds  = uisound_setting_name(uisound_setting());
 		u.menu_music = bgm_menu_value(bgm_on(), bgm_count());
+		u.rumble     = rumble_level_name(rumble_menu());
 		u.auto_off  = a->auto_off;
 		u.power_hold = powerhold_mode();
 		u.saver     = g_saver_s;
@@ -1967,6 +2000,18 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 		else   uisound_play(DS_SOUND_ACCEPT);
 		db_set_str(db_dev(), "uisounds", uisound_setting_id(k));
 		return MENU_STAY;
+	}
+
+	/* Off, Low, Medium, Full, stopping at its ends (heard by the runner as
+	 * Auto Off is, after, by whether it moved), and felt: the motor buzzes
+	 * once at the level it comes to. A opens the list (its choices). */
+	if (sel == PM_RUMBLE && d) {
+		const rumble_level was = rumble_menu(), l = rumble_level_step(was, d);
+
+		if (l == was) return MENU_STAY;
+		rumble_menu_set(l);
+		plat_rumble_buzz((float)rumble_level_pct(l) / 100.0f, RUMBLE_BUZZ_MS);
+		return MENU_CHANGED;
 	}
 
 	if (key != IN_ACCEPT) return MENU_STAY;

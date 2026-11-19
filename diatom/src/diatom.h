@@ -149,8 +149,15 @@ bool diatom_env_new_geometry(int *w, int *h, double *aspect);   /* consumes the 
  * last reset, which main.c makes at each start */
 bool diatom_env_core_quit(void);
 /* The motor at `pct` percent of every level the core asks for, from the next
- * one; 100 (or anything outside 1 to 99) is as asked. Per game: RUN sets it. */
+ * one: the player's Rumble level times the system's share (the launcher's
+ * product, RUN rumble=). 0 is Off, the motor never run; 100 (or anything
+ * outside 0 to 99, absent included) is as asked. Per game: RUN sets it. */
 void diatom_env_rumble_scale(int pct);
+/* The same at once, from SETRUMBLE: the in-game menu's Rumble row */
+void diatom_env_rumble_level(int pct);
+/* Whether the core bound now asked for the motor and was given it: the
+ * in-game menu's Rumble row is for its games alone (PAUSED rumble=1) */
+bool diatom_rumble_asked(void);
 void diatom_env_core_quit_reset(void);
 void diatom_env_suppress(uint32_t mask);
 /* Called at every poll the core makes, with the pad just read, before the
@@ -296,6 +303,9 @@ typedef enum {
 	 * and its style's words in `hud`, for every game until said again. No
 	 * answer. */
 	DIATOM_MSG_SETHUD,
+	/* Rumble (env.c): the motor at `rumble` percent of what the core asks,
+	 * 0 Off, from now. No answer. */
+	DIATOM_MSG_SETRUMBLE,
 	/* The launcher went away - or was displaced by a newer one, which means
 	 * the same thing. The game keeps running. */
 	DIATOM_MSG_HANGUP
@@ -337,9 +347,10 @@ typedef struct {
 	 * close (src/pace.h, DISPLAY LOCK); empty or anything else ("exact"),
 	 * the core's own rate, as before */
 	char pace[8];
-	/* RUN: how hard the motor runs, in percent of what the core asks, 1 to
-	 * 99 (a system whose core shakes harder than the handheld wants:
-	 * PrBoom's every shot); 0, 100 or absent is as asked. See
+	/* RUN and SETRUMBLE: how hard the motor runs, in percent of what the
+	 * core asks: the player's Rumble level times the system's share (a
+	 * system whose core shakes harder than the handheld wants: PrBoom's
+	 * every shot). 0 is Off; 100 or absent (-1) is as asked. See
 	 * diatom_env_rumble_scale. */
 	int  rumble;
 	/* RUN: the libretro controller type for port 0 (pcsx_rearmed's DualShock

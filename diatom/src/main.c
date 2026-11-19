@@ -1232,8 +1232,11 @@ static bool menu_pause_inner(const diatom_session *sn)
 	 * long as the menu is up: the core is not running to stop it. */
 	diatom_rumble_hold(true);
 
-	/* Symmetrical with RUNNING: the launcher may draw from here. */
-	diatom_proto_send("PAUSED");
+	/* Symmetrical with RUNNING: the launcher may draw from here. And
+	 * whether the core asked for the motor, for the in-game menu's Rumble
+	 * row (an old launcher reads the verb alone). */
+	if (diatom_rumble_asked()) diatom_proto_send("PAUSED\trumble=1");
+	else                       diatom_proto_send("PAUSED");
 
 	/* NOT for(;;). A paused Diatom blocks here on a socket with no timeout,
 	 * and this loop used to ignore g_terminate entirely - so SIGTERM set the
@@ -1993,6 +1996,7 @@ static bool state_plane_msg(const diatom_msg *m)
 		return true;
 	case DIATOM_MSG_SETDISPLAY: display_set(m); return true;
 	case DIATOM_MSG_SETHUD:     hud_set(m); return true;
+	case DIATOM_MSG_SETRUMBLE:  diatom_env_rumble_level(m->rumble); return true;
 	case DIATOM_MSG_OVERLAY:
 		/* Not on the state plane's query/write shape, because there is no
 		 * state to query: it is a thing that happens and then stops. The
@@ -3811,7 +3815,8 @@ int main(int argc, char **argv)
 			              : !strcmp(m.power, "medium") ? DIATOM_POWER_MEDIUM
 			              : DIATOM_POWER_FULL;
 			sn.controller = m.controller;
-			/* The system's share of the core's rumble, this game on */
+			/* The player's Rumble level times the system's share of
+			 * the core's rumble, this game on (0: Off) */
 			diatom_env_rumble_scale(m.rumble);
 			sn.dpad_stick = !strcmp(m.stick, "dpad") || !strcmp(m.stick, "dpad-pad");
 			sn.stick_toggle = !strcmp(m.stick, "toggle") ? 1

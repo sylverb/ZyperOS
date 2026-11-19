@@ -136,6 +136,11 @@ bool plat_save_screen_hidden(const char *path);
 SDL_Texture *plat_load_screen(const char *path);
 
 bool plat_input_init(void);
+/* The motor once, at `scale` (0 to 1, rumble_run_pct's share over 100) for
+ * `ms` milliseconds, then still by itself: Rumble's step, felt as it is
+ * chosen (src/rumble.h). True when it buzzed, or `scale` is 0 (Off); false
+ * where the handheld has no motor it can run (plat_has_rumble). */
+bool plat_rumble_buzz(float scale, int ms);
 void plat_input_quit(void);
 void plat_input_poll(in_state *st);
 void plat_input_flush(void);
@@ -383,6 +388,10 @@ void plat_resident_opt(const char *key, const char *value);
  * R2 turns it in the game, where this process cannot see. Off at every RUN.
  * _note records what the menu just asked for, so the row says it at once. */
 bool plat_resident_stylus(void);
+/* The game's core asked for the motor, as Diatom's last PAUSED said
+ * (rumble=1): the in-game Controls tab's Rumble row is for its games alone.
+ * Off at every RUN, and from a Diatom too old to say. */
+bool plat_resident_rumble_asked(void);
 void plat_resident_note_stylus(bool on);
 /* Whether the bottom screen is in front, as Diatom last said (SCREENS swap=):
  * L2 switches it in the game. Off at every RUN, so each game starts on the
