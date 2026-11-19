@@ -12,9 +12,17 @@
  *
  * So H.264 plays at full rate up to 720p, and 480p is the size worth making
  * for a 640x480 panel; HEVC and VP9 up to about 480p; 1080p only just keeps
- * up, and leans on the frame skipping below. AV1 does not play: this FFmpeg
- * has no software AV1 decoder. */
+ * up, and leans on the frame skipping below.
+ *
+ * AV1 is dav1d's (FFmpeg's own AV1 decoder only drives a GPU's, which this
+ * one has not). Measured on the Pixel 2 2026-11-19, playing, with sound:
+ * 640x480, 960x720, 1280x720 and 1440x1080 at 23.976 fps all shown whole
+ * (one or two pictures dropped as each starts), 1440x1080 with dav1d on about
+ * two of the four cores; 1280x720 at 60 fps whole; 1920x1080 at 30 fps with
+ * 0 to 4 of every 30 dropped; 1920x1080 at 60 fps not: 4 a second shown, and
+ * the picture falling behind the sound, which MP4 says (vidtry.h). */
 #include "vid.h"
+#include "vidtry.h"
 #include "../mp4frame.h"
 
 #include <fcntl.h>
@@ -51,6 +59,19 @@
 
 static mpf_head *g_shm;
 static uint32_t  g_serial;
+
+/* mpf_head.trouble, after what it is about (format, rate_milli) */
+static void set_trouble(uint32_t t)
+{
+	if (__atomic_load_n(&g_shm->trouble, __ATOMIC_RELAXED) != t)
+		__atomic_store_n(&g_shm->trouble, t, __ATOMIC_RELEASE);
+}
+
+/* Whether the file is too big for this CPU, from the pictures shown and
+ * dropped (vidtry.h has the rule and what it was measured on) */
+static vidtry g_try;
+
+static void try_restart(void) { vidtry_restart(&g_try); }
 
 /* MUSE_VIDEO_DEBUG=1: every two seconds, how many pictures went out and were
  * dropped, and how far from their time they went out (the clock minus the
@@ -115,6 +136,7 @@ typedef struct {
 	double           skip_before; /* after a seek: frames before this are not shown */
 	double           pos;         /* the newest frame's time */
 	bool             flushed, eof;
+	bool             any;         /* a picture of it has gone out */
 } vdec;
 
 static void say(const char *what, const char *path)
@@ -166,11 +188,16 @@ static vdec *vdec_open(const char *path)
 	    (d->si = video_stream(d->fmt)) < 0)
 		goto fail;
 	st = d->fmt->streams[d->si];
+	/* What it is, for MP4's words should it not play (mpf_head.trouble) */
+	snprintf(g_shm->format, sizeof g_shm->format, "%s", avcodec_get_name(st->codecpar->codec_id));
+	g_shm->rate_milli = st->avg_frame_rate.num > 0 && st->avg_frame_rate.den > 0
+	                    ? (uint32_t)(av_q2d(st->avg_frame_rate) * 1000 + 0.5) : 0;
 	/* Only the picture's packets: the sound has its own demuxer. */
 	for (i = 0; i < d->fmt->nb_streams; i++)
 		if ((int)i != d->si) d->fmt->streams[i]->discard = AVDISCARD_ALL;
 	if (!(codec = avcodec_find_decoder(st->codecpar->codec_id))) {
 		say("no decoder for", path);
+		set_trouble(MPF_NO_PICTURE);
 		goto fail;
 	}
 	if (!(d->cc = avcodec_alloc_context3(codec)) ||
@@ -181,7 +208,11 @@ static vdec *vdec_open(const char *path)
 	 * each frame thread holds a frame of delay and its own buffers. */
 	d->cc->thread_count = st->codecpar->width * st->codecpar->height <= 640 * 480 ? 2 : 4;
 	d->cc->thread_type = FF_THREAD_FRAME | FF_THREAD_SLICE;
-	if (avcodec_open2(d->cc, codec, NULL) < 0) goto fail;
+	if (avcodec_open2(d->cc, codec, NULL) < 0) {
+		say("cannot decode", path);
+		set_trouble(MPF_NO_PICTURE);
+		goto fail;
+	}
 	d->pkt = av_packet_alloc();
 	d->fr = av_frame_alloc();
 	if (!d->pkt || !d->fr) goto fail;
@@ -203,6 +234,7 @@ static void vdec_seek(vdec *d, double at)
 	d->flushed = d->eof = false;
 	d->skip_before = at;
 	d->pos = at;
+	try_restart();
 }
 
 /* The next frame into d->fr: 1, or 0 at the end, <0 on an error. Frames
@@ -294,6 +326,7 @@ static void publish(vdec *d, double pts)
 	g_shm->slot[s].serial = ++g_serial ? g_serial : ++g_serial;
 	g_shm->slot[s].file = g_shm->file;
 	g_shm->slot[s].pts = pts;
+	d->any = true;
 	if (f->sample_aspect_ratio.num > 0 && f->sample_aspect_ratio.den > 0) {
 		g_shm->sar_num = (uint32_t)f->sample_aspect_ratio.num;
 		g_shm->sar_den = (uint32_t)f->sample_aspect_ratio.den;
@@ -326,6 +359,19 @@ static double mono(void)
 
 	clock_gettime(CLOCK_MONOTONIC, &n);
 	return (double)n.tv_sec + n.tv_nsec / 1e9;
+}
+
+/* A file opened, or closed: nothing known against it */
+static void try_reset(void)
+{
+	vidtry_reset(&g_try);
+	set_trouble(MPF_FINE);
+}
+
+/* A picture shown or dropped while playing */
+static void try_note(bool shown)
+{
+	set_trouble(vidtry_note(&g_try, mono(), shown, __atomic_load_n(&g_shm->trouble, __ATOMIC_RELAXED)));
 }
 
 /* Waits on V.cv for up to `sec`. Under V.mu. */
@@ -376,7 +422,11 @@ static void *vthread(void *arg)
 			}
 			if (!open) {
 				__atomic_store_n(&g_shm->active, 0u, __ATOMIC_RELEASE);
+				try_reset();
 			} else if (!d) {
+				try_reset();
+				g_shm->format[0] = 0;
+				g_shm->rate_milli = 0;
 				d = vdec_open(path);
 				g_shm->file++;
 				g_shm->sar_num = g_shm->sar_den = 1;
@@ -400,6 +450,7 @@ static void *vthread(void *arg)
 		if (V.resync) {
 			now = clock_now();
 			V.resync = false;
+			try_restart();
 			if (fabs((have ? pts : d->pos) - now) >= NEAR) {
 				pthread_mutex_unlock(&V.mu);
 				vdec_seek(d, now);
@@ -417,6 +468,8 @@ static void *vthread(void *arg)
 			pthread_mutex_lock(&V.mu);
 			if (r <= 0) {
 				if (r < 0) say("decoding stopped in", d->path);
+				/* Not one picture of it: as good as no decoder */
+				if (r < 0 && !d->any) set_trouble(MPF_NO_PICTURE);
 				d->eof = true;
 				continue;
 			}
@@ -434,7 +487,7 @@ static void *vthread(void *arg)
 			shown_at = mono();
 			continue;
 		}
-		if (!V.playing) { wait_for(0.25); continue; }
+		if (!V.playing) { try_restart(); wait_for(0.25); continue; }
 		now = clock_now();
 		if (now + LEAD < pts) {
 			double w = pts - LEAD - now;
@@ -446,11 +499,13 @@ static void *vthread(void *arg)
 		if (now - pts > LATE && mono() - shown_at < STILL) {
 			dropped++;
 			dbg_note(now - pts, false);
+			try_note(false);
 		} else {
 			publish(d, pts);
 			shown++;
 			shown_at = mono();
 			dbg_note(now - pts, true);
+			try_note(true);
 		}
 		av_frame_unref(d->fr);
 		/* Read before the next decode, which is what it changes. */
