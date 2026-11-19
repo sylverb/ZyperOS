@@ -30,6 +30,9 @@
 #include <sys/statvfs.h>
 #include <time.h>
 #include <unistd.h>
+#ifdef ZYPEROS_KIT_BUILD
+#include "kit.h"
+#endif
 
 /* ---------- About --------------------------------------------------------- */
 
@@ -266,6 +269,14 @@ void about_screen(app *a)
 		if (a->in.pressed[IN_POWER] || idle_due(a)) { power_off(a); return; }
 		if (menu_leaving(a)) done = true;
 		if (a->in.pressed[IN_SELECT]) muse_open(a, NULL, NULL);
+#ifdef ZYPEROS_KIT_BUILD
+		/* A test kit's own page (src/kit.h), where the device has one */
+		if (a->in.pressed[IN_Y] && kit_page) {
+			kit_page(a);
+			plat_input_flush();
+			memset(&a->in, 0, sizeof a->in);
+		}
+#endif
 		if (in_repeat(&a->in, IN_LEFT)) {
 			moved_sound(a, IN_LEFT);
 			page = (page + ABOUT_PAGES - 1) % ABOUT_PAGES;
@@ -348,8 +359,11 @@ void controls_screen(app *a)
 
 	while (!done && !want_quit && a->running) {
 		menu_row rows[CTL_MAX_ROWS];
-		char head[80], count[16];
+		char head[80], count[16], keys[CTL_MAX_ROWS][CTL_KEYS_MAX];
 		int n = ctl_rows(page, rows);
+
+		/* the button column in the handheld's own glyphs (DESIGN.md 11.9) */
+		ctl_glyph_rows(rows, n, keys);
 
 		snprintf(head, sizeof head, T(S_PANEL_CONTROLS), ctl_page_name(page));
 		/* which page of how many, at the heading's right (DESIGN.md 11.3) */

@@ -4,6 +4,7 @@
 #include "aout_route.h"
 #include "app.h"
 #include "cheevos.h"
+#include "dlq.h"
 #include "ds/flex.h"
 #include "ds/layout.h"
 #include "ds/mark.h"
@@ -446,7 +447,7 @@ static void rdl_run_draw(rdl_view *v, unsigned now)
 	int hx = pf.head_x, si, k, cap = 0, grid = 0;
 	char fit[160], cnt[48], eta[48], line[160], w[24];
 	static ds_flex F;
-	const char *K[1] = { "B" }, *L[1] = { T(S_SCRAPER_KEY_STOP) };
+	const char *K[2] = { "B", "Y" }, *L[2] = { T(S_UPDATE_BACK_GOES_ON), T(S_SCRAPER_KEY_STOP) };
 	const char *title;
 	SDL_Rect gr, cr;
 
@@ -519,7 +520,7 @@ static void rdl_run_draw(rdl_view *v, unsigned now)
 		rdl_time(rdl_eta(v, now), eta, sizeof eta);
 		rdl_stats(a, ZYPEROS_SCREEN_W / 2, pf.line_y, v->p.ready, v->p.fetched + v->p.updated, v->p.none, eta);
 	}
-	ds_page_foot(a->r, &pf, K, L, 1, DS_PAGE_FOOT_GAP, DS_PAGE_FOOT_GAP_TIGHT);
+	ds_page_foot(a->r, &pf, K, L, 2, DS_PAGE_FOOT_GAP, DS_PAGE_FOOT_GAP_TIGHT);
 }
 
 /* Done: the first badge of each set that came, as a wall; the counts; the
@@ -624,12 +625,70 @@ static void rdl_take_arrival(rdl_view *v, unsigned now)
 	snprintf(v->ring[0].badge, sizeof v->ring[0].badge, "%.23s", n ? names[0] : "");
 }
 
+/* ---- the run, as a lane of the downloads' queue (src/dlq.h) ---------------
+ * The queue's, not this page's: it goes on when the page closes (B,
+ * "Continue in background") and the page shows it again when it opens. Its
+ * systems are kept here (radl reads them for the whole run), and so is what
+ * it did once it has ended. */
+static systems_cfg g_ra_sys;
+static radl_progress g_ra_last;        /* what the last run did, as it ended */
+static unsigned g_rdl_seen;            /* the lane's ends this page has shown */
+static unsigned g_ra_t0;               /* its begin's clock */
+static int g_ra_badges;                /* badges the list was told of */
+
+static bool ra_lane_begin(void)
+{
+	return radl_begin(&g_ra_sys, P_ROMS, NULL, g_ra_t0);
+}
+
+static int ra_lane_step(unsigned now_ms)
+{
+	radl_progress p;
+	int r;
+
+	(void)now_ms;
+	r = radl_step(plat_now_ms());      /* the clock its pauses are in */
+	radl_status(&p);
+	/* Badges landed: the lists' textures look for them again, whichever
+	 * screen is up */
+	if (p.badges != g_ra_badges) {
+		g_ra_badges = p.badges;
+		rb_note_landed();
+	}
+	return r;
+}
+
+static void ra_lane_done(dlq_end how)
+{
+	radl_status(&g_ra_last);
+	if (radl_running()) radl_cancel();
+	if (how == DLQ_ENDED && g_ra_last.problem == RADL_OK) plat_side_lights_say(SIDE_LIGHTS_DONE);
+}
+
+static int ra_lane_pct(void)
+{
+	radl_progress p;
+
+	radl_status(&p);
+	return p.games > 0 ? (int)((long long)p.games_done * 100 / p.games) : 0;
+}
+
+/* Its card is set as it starts: P_ROMS is the device's, read at run time */
+static dlq_lane_def RA_LANE = {
+	.name = "achievements", .slot = NET_SLOT_RA,
+	.step = ra_lane_step, .done = ra_lane_done, .pct = ra_lane_pct,
+	.every_ms = 8,
+};
+
 static void rdl_start(rdl_view *v, unsigned now)
 {
-	/* The one async slot: an account answer from the last game that never
-	 * landed is let go, as a launch does */
-	sync_abandon();
-	if (!radl_begin(&v->a->sys, P_ROMS, NULL, now)) {
+	/* Its own network slot (src/dlq.h): an account's answer after a game,
+	 * on the screens' slot, goes on beside it */
+	g_ra_sys = v->a->sys;
+	g_ra_t0 = now;
+	g_ra_badges = 0;
+	RA_LANE.card = P_ROMS;
+	if (!dlq_start(DLQ_RA, &RA_LANE, ra_lane_begin)) {
 		uisound_play(DS_SOUND_DENY);
 		result_message(v->a, T(S_SYSMENU_CHEEVOS), MSG_NEEDS_WIFI);
 		return;
@@ -645,12 +704,33 @@ static void rdl_start(rdl_view *v, unsigned now)
 	v->where = RDL_RUN;
 }
 
-static void rdl_finish(rdl_view *v, bool stopped)
+/* Back on a run that went on behind the screens: from where it is, its pace
+ * counted again from here; the set that came last shown as it lands */
+static void rdl_rejoin(rdl_view *v, unsigned now)
 {
-	if (radl_running()) radl_cancel();
 	radl_status(&v->p);
+	v->seen_seq = 0;
+	v->seen_badges = v->p.badges;
+	v->ncur = 0;
+	v->nring = 0;
 	v->problem[0] = '\0';
-	v->ended = stopped ? RDL_STOPPED : RDL_ENDED;
+	v->t0 = now;
+	v->g0 = v->p.games_done;
+	v->where = RDL_RUN;
+}
+
+/* The run is over - by its end, stopped, or the card nearly full; here or
+ * behind the screens - and the page shows how, from what the lane kept as it
+ * ended (ra_lane_done) */
+static void rdl_finish(rdl_view *v)
+{
+	dlq_end how = dlq_last(DLQ_RA);
+
+	v->p = g_ra_last;
+	v->problem[0] = '\0';
+	v->ended = how == DLQ_ENDED ? RDL_ENDED : RDL_STOPPED;
+	if (how == DLQ_FULL) snprintf(v->problem, sizeof v->problem, "%s", T(S_SCRAPER_NO_ROOM));
+	g_rdl_seen = dlq_ends(DLQ_RA);
 	switch (v->p.problem) {
 	case RADL_SIGN_IN:
 		v->ended = RDL_REFUSED;
@@ -666,7 +746,6 @@ static void rdl_finish(rdl_view *v, bool stopped)
 		break;
 	default: break;
 	}
-	if (v->ended == RDL_ENDED) plat_side_lights_say(SIDE_LIGHTS_DONE);
 	rdl_count(v);
 	v->where = RDL_DONE;
 }
@@ -688,6 +767,11 @@ static void rdl_page(app *a)
 	if (!v) return;
 	v->a = a;
 	rdl_count(v);
+	/* A run behind the screens is shown where it is; one that ended while
+	 * the page was closed, as done (src/dlq.h) */
+	if (dlq_running(DLQ_RA)) rdl_rejoin(v, plat_now_ms());
+	else if (dlq_ends(DLQ_RA) != g_rdl_seen) rdl_finish(v);
+	dlq_page(DLQ_RA, true);
 	base = panel_base();
 	g_base_page = rdl_base;
 	g_base_ctx = v;
@@ -700,8 +784,7 @@ static void rdl_page(app *a)
 		aout_apply(false);
 		if (a->in.quit_requested) { a->running = false; break; }
 		if (a->in.pressed[IN_POWER] || idle_due(a)) {
-			if (v->where == RDL_RUN) radl_cancel();
-			power_off(a);
+			power_off(a);              /* the run with everything else */
 			break;
 		}
 		if (in_repeat(&a->in, IN_VOLUP))    plat_volume_nudge(+1);
@@ -710,33 +793,40 @@ static void rdl_page(app *a)
 		if (in_repeat(&a->in, IN_BRIGHTDN)) plat_brightness_nudge(-1);
 		for (int b = 0; b < IN_COUNT; b++) if (a->in.pressed[b] || a->in.down[b]) dirty = true;
 		if (a->in.pressed[IN_MENU]) {
-			if (v->where == RDL_RUN) rdl_finish(v, true);
-			menu_leaving(a);
+			menu_leaving(a);           /* a run goes on behind the screens */
 			break;
 		}
 
 		if (v->where == RDL_RUN) {
-			int r = radl_step(plat_now_ms());
 			radl_progress last = v->p;
 
-			radl_status(&v->p);
-			if (v->p.set_seq != v->seen_seq) { rdl_take_arrival(v, now); dirty = true; }
-			if (v->p.badges != v->seen_badges) {
-				/* Badges landed: the list's textures look for them again */
-				v->seen_badges = v->p.badges;
-				rb_note_landed();
+			/* The lane steps here once a frame, and behind every screen
+			 * once the page has closed (src/dlq.h) */
+			dlq_tick();
+			if (!dlq_running(DLQ_RA)) {
+				rdl_finish(v);
 				dirty = true;
-			}
-			if (v->p.games_done != last.games_done || v->p.state != last.state ||
-			    v->p.hashed != last.hashed || strcmp(v->p.now, last.now))
-				dirty = true;
-			if (r != 1) {
-				rdl_finish(v, false);
-				dirty = true;
-			} else if (a->in.pressed[IN_BACK]) {
-				uisound_play(DS_SOUND_BACK);
-				rdl_finish(v, true);
-				dirty = true;
+			} else {
+				radl_status(&v->p);
+				if (v->p.set_seq != v->seen_seq) { rdl_take_arrival(v, now); dirty = true; }
+				/* Badges landed (the lane told the lists): the page's own
+				 * textures follow */
+				if (v->p.badges != v->seen_badges) { v->seen_badges = v->p.badges; dirty = true; }
+				if (v->p.games_done != last.games_done || v->p.state != last.state ||
+				    v->p.hashed != last.hashed || strcmp(v->p.now, last.now))
+					dirty = true;
+				if (a->in.pressed[IN_BACK]) {
+					/* Continue in background: the page closes and the run
+					 * goes on, the status corner's ring showing it */
+					uisound_play(DS_SOUND_BACK);
+					break;
+				}
+				if (a->in.pressed[IN_Y]) {
+					uisound_play(DS_SOUND_BACK);
+					dlq_stop(DLQ_RA);
+					rdl_finish(v);
+					dirty = true;
+				}
 			}
 		} else if (a->in.pressed[IN_BACK]) {
 			uisound_play(DS_SOUND_BACK);
@@ -784,13 +874,53 @@ static void rdl_page(app *a)
 		plat_present();
 		ui_frame_rest(8);
 	}
-	if (radl_running()) radl_cancel();
+	dlq_page(DLQ_RA, false);
 	mm_close(base, anim_now(), 0, g_menu_closing);
 	rdl_icons_free(v);
 	rb_textures_free();
 	g_base_page = NULL;
 	g_base_ctx = NULL;
 	free(v);
+}
+
+/* ---- for the Downloads page (src/dl_screen.h) -----------------------------
+ * The page's plan and its run, with no page drawn */
+void radl_plan_of(app *a, radl_counts *out)
+{
+	rdl_view *v = calloc(1, sizeof *v);
+	rdl_sum t;
+
+	memset(out, 0, sizeof *out);
+	if (!v) return;
+	v->a = a;
+	rdl_count(v);
+	t = rdl_totals(v);
+	out->ready = t.ready;
+	out->todo = t.todo;
+	out->none = t.none;
+	out->in = v->in;
+	out->net = v->net;
+	out->secs = t.todo ? t.todo * RDL_S_GAME + t.nsys * RDL_S_SYSTEM : 0;
+	out->bytes = t.todo * RDL_MB_GAME * 1e6;
+	rdl_icons_free(v);
+	free(v);
+}
+
+bool radl_run(app *a)
+{
+	rdl_view *v;
+	bool ok;
+
+	if (dlq_running(DLQ_RA)) return true;
+	if (!(v = calloc(1, sizeof *v))) return false;
+	v->a = a;
+	rdl_count(v);
+	ok = v->in && v->net;
+	if (ok) rdl_start(v, plat_now_ms());
+	ok = ok && dlq_running(DLQ_RA);
+	rdl_icons_free(v);
+	free(v);
+	return ok;
 }
 
 menu_result radl_screen(app *a)

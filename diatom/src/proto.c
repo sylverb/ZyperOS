@@ -16,6 +16,11 @@
  * Unknown verbs and unknown keys are ignored rather than refused, so a newer
  * launcher can talk to an older Diatom without a version negotiation.
  *
+ * A core that would not load is `ERROR code=core_load msg=<path> why=<word>
+ * name=<it> version=<it>` (corefail.h): why is machine, library, version,
+ * symbol or other, name the library's file or the function's, so the launcher
+ * can say it on the screen. An older launcher reads the ERROR and no more.
+ *
  * One connection at a time, and THE NEWEST WINS. A connect while one is held
  * displaces it, and the old one is reported as a hangup.
  *
@@ -167,6 +172,7 @@ static void parse_line(char *line, diatom_msg *out)
 	char *save = NULL, *field;
 
 	memset(out, 0, sizeof *out);
+	out->rumble = -1;   /* absent: as the core asks (diatom_env_rumble_scale) */
 	field = strtok_r(line, "\t", &save);
 	if (!field) { out->kind = DIATOM_MSG_NONE; return; }
 
@@ -214,6 +220,7 @@ static void parse_line(char *line, diatom_msg *out)
 	else if (!strcmp(field, "SETPLAYER2")) out->kind = DIATOM_MSG_SETPLAYER2;
 	else if (!strcmp(field, "SETPOWERHOLD")) out->kind = DIATOM_MSG_SETPOWERHOLD;
 	else if (!strcmp(field, "SETHUD"))       out->kind = DIATOM_MSG_SETHUD;
+	else if (!strcmp(field, "SETRUMBLE"))    out->kind = DIATOM_MSG_SETRUMBLE;
 	else if (!strcmp(field, "SETEQ"))        out->kind = DIATOM_MSG_SETEQ;
 	else {
 		log_(DIATOM_LOG_WARN, "proto: ignoring unknown verb '%s'", field);
@@ -451,7 +458,11 @@ diatom_msg_kind diatom_proto_poll(diatom_msg *out, int timeout_ms, bool running)
 		 * d-pad is now the stick, on=0 otherwise, and an unknown mode is
 		 * an ERROR with the stick as it was. Additive, so proto stays 14:
 		 * an old Diatom ignores the verb, and the launcher never waits
-		 * for the answer. */
+		 * for the answer. Later (Stick On/Off and Stick While Held as a
+		 * button's choices): dpad-pad and plain-pad are dpad and plain
+		 * starting on the d-pad's side, and what turns the side is a
+		 * button the map gives `stick` or `stickhold`, the PSP's R2
+		 * among them, no longer R2 by itself under toggle. */
 		/* proto=13 moves the speed and adds the quick slot: SELECT+R2 and
 		 * SELECT+L2 step it in halves, so SPEED's x may be "1.5", and MENU+R1
 		 * does nothing; SELECT+R1 and SELECT+L1 send HOTKEY key=save|load,
@@ -477,6 +488,14 @@ diatom_msg_kind diatom_proto_poll(diatom_msg *out, int timeout_ms, bool running)
 		 * clock24=: On-Screen Stats over every game until said again
 		 * (diatom_port_hud_style). Additive, so proto stays 14: an old
 		 * Diatom ignores the verb, and nothing is drawn. */
+		/* SETRUMBLE rumble=N: the motor at N percent of what the core
+		 * asks from now (the in-game menu's Rumble row: the player's level
+		 * times the system's share), 0 Off, over a game that runs or is
+		 * paused; RUN rumble= says the same at a start, where 0 is now Off
+		 * too. And PAUSED says rumble=1 when the core asked for the motor,
+		 * so the row is for its games alone. Additive, so proto stays 14:
+		 * an old Diatom ignores the verb, and an old launcher reads PAUSED
+		 * by its first six letters. */
 		/* SETEQ bands=5,2,0,0,1: the equalizer for where the game plays
 		 * (ZyperOS's src/eq.h), all 0 flat, from the sound's next push,
 		 * over a game that runs or is paused. Additive, so proto stays 14:

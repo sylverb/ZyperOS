@@ -70,10 +70,13 @@
 /* Show Tutorial between Controls and About: the same buttons as Controls,
  * taught a step at a time rather than listed (DESIGN.md 11.10), and like the
  * two either side of it, a row nobody needs every day. */
-/* PM_SCRAPER is Scraper, where Box Art was: the run that fetches missing box
- * art, Video Snaps, and the three sources it asks - ScreenScraper, libretro
- * and SteamGridDB - each linked on a page of its own. One row in place of
- * Box Art, ScreenScraper and SteamGridDB (My picks in the Scraper lab,
+/* PM_SCRAPER is Downloads (src/dl_screen.h): every download of game data -
+ * covers, videos, names, achievements - in one row and its page, in place of
+ * the Scraper and Achievements rows (my pick in the downloads lab, 2026-11-19:
+ * one door). Before it, Scraper, where Box Art was: the run that fetches
+ * missing box art, Video Snaps, and the three sources it asks - ScreenScraper,
+ * libretro and SteamGridDB - each linked on a page of its own. One row in
+ * place of Box Art, ScreenScraper and SteamGridDB (My picks in the Scraper lab,
  * 2026-11-06; DESIGN.md 11.19). On every device: with no network it cannot
  * fetch, but Video Snaps still play and a key pasted over the USB cable
  * still wants a place to be seen. */
@@ -88,10 +91,14 @@
  * settings together, as a phone keeps Language and Region (My pick in
  * the languages lab, 2026-11-07; DESIGN.md 11.30). Its value is the
  * language's own name; A opens the five. */
+/* PM_RUMBLE is Rumble, the Sound tab's last row, under Menu Music: how hard
+ * the motor runs in every game, Off, Low, Medium or Full (src/rumble.h),
+ * Full on a new card; each step buzzes once. Only where the handheld has a
+ * motor ZyperOS runs (no_rumble). My picks in the Sound lab, 2026-11-19. */
 /* PM_EQ is Equalizer, under Audio Channels: the third thing about how the
  * sound reaches you, its shape. Its value is the preset of the output in use
  * (the speaker's or the headphones'), Off on a new card; A opens its page
- * (src/eq.h, DESIGN.md 11.54). My picks in the Sound lab, 2026-11-19. */
+ * (src/eq.h, DESIGN.md 11.55). My picks in the Sound lab, 2026-11-19. */
 /* MENU IS IN TABS (DESIGN.md 11.3, my picks 2026-11-12): Games, Display,
  * Sound, Connections, System and About, L1 and R1 going round them. The rows
  * are in the enum by tab, and in a tab in the enum's order; which tab a row
@@ -125,7 +132,7 @@
  * rc.2 (DESIGN.md 11.42). */
 typedef enum {
 	/* Games */
-	PM_SEARCH, PM_STATS, PM_RANDOM, PM_ACHIEVEMENTS, PM_SCRAPER,
+	PM_SEARCH, PM_STATS, PM_RANDOM, PM_SCRAPER,
 	/* Display */
 	PM_APPEARANCE, PM_THEME, PM_HOME, PM_ORDER, PM_HOMESYS, PM_BATTERY, PM_SAVER,
 	PM_SHADER,
@@ -133,7 +140,7 @@ typedef enum {
 	PM_SCREEN,
 	PM_NIGHT,
 	/* Sound */
-	PM_AUDIO, PM_CHANNELS, PM_EQ, PM_SOUNDS, PM_MUSIC,
+	PM_AUDIO, PM_CHANNELS, PM_EQ, PM_SOUNDS, PM_MUSIC, PM_RUMBLE,
 	/* Connections: USB Device first, while a plug waits for its answer */
 	PM_USB_WAIT, PM_WIFI, PM_BT, PM_XFER, PM_USB, PM_DEVELOPER,
 	/* System */
@@ -209,12 +216,20 @@ typedef enum {
  * card has songs, which are the two rows' only business.
  *
  * Lock Screen is the pocket lock, the way to find it without knowing X:
- * live while something plays, and saying so when nothing does. */
-/* Equalizer, over Lock Screen on every kind: the same row and page as
+ * live while something plays, and saying so when nothing does.
+ *
+ * Quit, the last row on every MP4 shelf, leaves MP4 for the screen it was
+ * opened from, as the in-game menu's Quit leaves a game, and X does it from
+ * any row (its glyph at the row's right, MENU_KEY_X). It leaves as SELECT
+ * does: what plays keeps playing, behind the home, as music does
+ * (2026-11-18: "add an option in the mp4 menu to quit it, like we have in
+ * games (with the shortcut too)").
+ *
+ * Equalizer, over Lock Screen on every kind: the same row and page as
  * MENU's, there while music or a video plays (2026-11-19). */
 typedef enum { SMM_COUNT, SMM_SHOW, SMM_SORT, SMM_SHUFFLE, SMM_EQ, SMM_LOCK, SMM_ART,
-               SMM_RESCAN } sm_muse_row;
-#define SM_MUSE_ROWS 8
+               SMM_RESCAN, SMM_QUIT } sm_muse_row;
+#define SM_MUSE_ROWS 9
 
 /* MP4's rows in order, for the kind its shelf shows - 0 music, 1 books,
  * 2 videos, muselib.h's ml_kind, and 3 all of them with music among them
@@ -415,6 +430,10 @@ typedef struct {
 	/* Menu Music: "On", "Off" or "no tracks" - bgm_menu_value's. NULL reads
 	 * "Off". A label, for the reason ui_sounds is one. */
 	const char *menu_music;
+	/* Rumble: the level's name, rumble_level_name's. NULL reads Full. And
+	 * no motor ZyperOS runs here (plat_has_rumble): no row. */
+	const char *rumble;
+	bool        no_rumble;
 	/* Equalizer, in MENU and MP4's menu: the preset's name for the output
 	 * in use, eq_preset_name's. NULL reads Off. */
 	const char *eq;

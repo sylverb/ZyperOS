@@ -14,6 +14,7 @@
 #include "ctltab_screen.h"
 #include "db.h"
 #include "devmode_screen.h"
+#include "dl_screen.h"
 #include "ds/page.h"
 #include "emptyhome.h"
 #include "gamedel_screen.h"
@@ -460,8 +461,12 @@ int shot_jump;               /* letter-jumps to apply before drawing */
 /* --nowplaying ALBUM [TRACK [SECONDS]], and --paused with it. */
 int   shot_np = -1, shot_np_track, shot_np_paused;
 /* --locked: the lock screen over it, its hold three fifths done. --video
- * [full|controls]: Now Playing as a video, a test picture for the frame. */
-int   shot_locked, shot_video = -1;
+ * [full|controls]: Now Playing as a video, a test picture for the frame;
+ * --video-size WxH that picture's size (640x360), --video-at K G the
+ * controls' level and the picture's growth to the whole screen, between
+ * the two ends (src/nowplaying_screen.c's np_draw_video). */
+int   shot_locked, shot_video = -1, shot_video_w = 640, shot_video_h = 360;
+float shot_video_k = -1, shot_video_grow = -1;
 float shot_np_at = 83.0f;
 /* --mode NAME plays whatever the shot shows in that play mode: the mark beside
  * the track count is drawn from it. */
@@ -913,10 +918,12 @@ static int controls_fit_ports(app *a, const char *dev, int *pages)
 		np = ctl_game_pages(&g);
 		for (p = 0; p < np; p++) {
 			menu_row rows[CTL_MAX_ROWS];
+			char keys[CTL_MAX_ROWS][CTL_KEYS_MAX];
 			ctl_buf b;
 			int n = ctl_game_rows(&g, p, rows, &b);
 
 			if (ctl_game_prose(&g, p)) continue;
+			ctl_glyph_rows(rows, n, keys);
 			snprintf(where, sizeof where, "%s, the port %s page %d", dev, doc.title, p);
 			snprintf(count, sizeof count, "%d / %d", p + 1, np);
 			bad += controls_fit_one(a, where, b.head, np > 1 ? count : NULL, rows, n);
@@ -949,7 +956,11 @@ static void controls_fit_report(app *a)
 		if (seen) continue;
 		ctl_set_chords(&pd->chords);
 		for (p = 0; home && p < CTL_PAGES; p++) {
+			char keys[CTL_MAX_ROWS][CTL_KEYS_MAX];
 			int n = ctl_rows((ctl_page)p, rows);
+
+			/* measured as drawn, the buttons as glyphs */
+			ctl_glyph_rows(rows, n, keys);
 
 			snprintf(head, sizeof head, "Controls: %s", ctl_page_name((ctl_page)p));
 			snprintf(count, sizeof count, "%d / %d", p + 1, CTL_PAGES);
@@ -974,8 +985,11 @@ static void controls_fit_report(app *a)
 				g.stick = st;
 				np = ctl_game_known(s->tag) ? ctl_game_pages(&g) : 0;
 				for (p = 0; p < np; p++) {
+					char keys[CTL_MAX_ROWS][CTL_KEYS_MAX];
 					ctl_buf b;
 					int n = ctl_game_rows(&g, p, rows, &b);
+
+					if (!ctl_game_prose(&g, p)) ctl_glyph_rows(rows, n, keys);
 
 					snprintf(where, sizeof where, "%s, %s%s%s page %d",
 					         pd->name, s->tag, e ? " (fds)" : "",
@@ -1132,10 +1146,11 @@ static void np_shot(app *a)
 	}
 	np_cover(a, shot_np);
 	if (shot_video >= 0) {
-		mp4v_test_picture(a->r, 640, 360);
-		mn.vw = 640;
-		mn.vh = 360;
-		np_draw_video(a, &mn, (float)shot_video);
+		mp4v_test_picture(a->r, shot_video_w, shot_video_h);
+		mn.vw = shot_video_w;
+		mn.vh = shot_video_h;
+		np_draw_video(a, &mn, shot_video_k >= 0 ? shot_video_k : (float)shot_video,
+		              shot_video_grow >= 0 ? shot_video_grow : shot_video ? 0.0f : 1.0f);
 	} else {
 		np_draw(a, &mn, next);
 	}
@@ -1524,6 +1539,7 @@ static void shot_compose_once(app *a)
 		sysmenu_rows_report(a);
 		gm_rows_report(a);
 		snaps_rows_report(a);
+		downloads_rows_report(a);
 		bgm_rows_report(a);
 		hud_rows_report(a);
 		shot_rows_report = 0;   /* once: --flip composes the shot twice */
@@ -1587,8 +1603,11 @@ static void shot_compose_once(app *a)
 		float k = 1.0f;
 		int n;
 
+		char keys[CTL_MAX_ROWS][CTL_KEYS_MAX];
+
 		ctl_set_chords(&plat_profile()->chords);
 		n = ctl_rows(p, rows);
+		ctl_glyph_rows(rows, n, keys);
 
 		snprintf(head, sizeof head, T(S_CONTROLS_HEADING), ctl_page_name(p));
 		snprintf(count, sizeof count, "%d / %d", (int)p + 1, CTL_PAGES);
@@ -1645,6 +1664,11 @@ static void shot_compose_once(app *a)
 	}
 	if (shot_scraper_page >= 0) {
 		scraper_page_shot(a);
+		return;
+	}
+	/* MENU > Downloads (--downloads STATE) */
+	if (shot_downloads >= 0) {
+		downloads_shot(a);
 		return;
 	}
 	/* MENU > Achievements' page (--radl-page STATE) */

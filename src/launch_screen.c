@@ -8,6 +8,7 @@
 #include "gamefile.h"
 #include "ctl.h"
 #include "ctl_channel.h"
+#include "dlq.h"
 #include "dsv.h"
 #include "ingame_screen.h"
 #include "hudmenu_screen.h"
@@ -25,8 +26,10 @@
 #include "rahashjob.h"
 #include "raqueue.h"
 #include "remap.h"
+#include "rumble.h"
 #include "remapstore.h"
 #include "shelfbuild.h"
+#include "startfail.h"
 #include "stats.h"
 #include "strength.h"
 #include "ui.h"
@@ -549,7 +552,7 @@ void pm_after_run(app *a)
 	if (!up_read(PM_RAN, ran, sizeof ran)) return;
 	unlink(PM_RAN);
 	if (sscanf(ran, "%lld %lld %d", &start, &end, &rc) < 2) return;
-	for (i = 0; i < a->sys.count && !s; i++)
+	for (i = 0; i < sys_kept(a) && !s; i++)        /* Ports off the home too */
 		if (!strcmp(a->sys.systems[i].core, PORT_CORE) && pm_on_card(a->sys.systems[i].folder))
 			s = &a->sys.systems[i];
 	if (!s) return;
@@ -589,6 +592,10 @@ void launch(app *a)
 	 * have dropped every option rather than failing loudly. */
 	char *argv[35 + 2 * 32];
 	bool resident = false, want_menu;
+	/* Diatom said its core would not load (src/startfail.h): the shelf says
+	 * so, and a second Diatom that would fail the same way is not started */
+	bool core_said = false;
+	char core_msg[320] = "";
 	/* A DS game's resume by its language (ds_resume_fresh): what it will
 	 * run in, whether it starts fresh, and its auto state as it was */
 	char ds_lang[16] = "";
@@ -661,17 +668,21 @@ void launch(app *a)
 		char map[320];
 		bool stick_on = rms_stick_get(s, romfile);
 
-		cfg_run_keys(s, g_game_dual, pacing_id(pacing_load(s)), keys, (int)sizeof keys);
+		/* The motor at the player's Rumble level (the game's own, its
+		 * system's or MENU's) times the system's share (src/rumble.h) */
+		cfg_run_keys_at(s, g_game_dual, pacing_id(pacing_load(s)),
+		                rumble_run_pct(s->rumble, rumble_scope(s->tag, romfile)), keys, (int)sizeof keys);
+		/* The whole table, whatever the card holds for the game or its
+		 * system (rms_sent): Diatom is sent no turbo of its own */
+		rms_sent(s, romfile, stick_on, &sent);
 		/* The d-pad as the stick, a game's own (rms_stick_get): the PSP's
-		 * stick=toggle-stick when it was left on the stick */
-		rms_run_stick(s, stick_on, stick, sizeof stick);
+		 * stick=toggle-stick when it was left on the stick, and a stick
+		 * that is off on the d-pad's side when a button turns it */
+		rms_run_stick(s, stick_on, rm_has_stick(&sent), stick, sizeof stick);
 		if (stick[0] && strlen(keys) + strlen(stick) + 2 <= sizeof keys)
 			snprintf(keys + strlen(keys), sizeof keys - strlen(keys), "%s%s",
 			         keys[0] ? "\t" : "", stick);
 		if (keys[0]) plat_resident_run_keys(keys);
-		/* The whole table, whatever the card holds for the game or its
-		 * system (rms_sent): Diatom is sent no turbo of its own */
-		rms_sent(s, romfile, stick_on, &sent);
 		rm_format(&sent, map, sizeof map);
 		plat_resident_map(strcmp(map, "identity") ? map : "");
 		/* And an N64 game's Pak, its own over the system's; none else */
@@ -978,6 +989,9 @@ void launch(app *a)
 			 * engine when one side is fbdev. A warm launch is 26 to 44 ms from
 			 * RUN to RUNNING, so there is nothing to animate over anyway; the
 			 * shelf simply holds until the game's first frame replaces it. */
+			/* The downloads behind the screens wait while the game runs
+			 * (src/dlq.h): no frame of it is spent on them */
+			dlq_game(true);
 			for (;;) {
 				r = plat_resident_wait();
 				if (r == RES_PAUSED) {
@@ -988,6 +1002,7 @@ void launch(app *a)
 				}
 				break;
 			}
+			dlq_game(false);
 			g_ctl_game.on = false;
 			screen_shader_apply();
 			resident = (r == RES_EXIT);
@@ -1055,8 +1070,21 @@ void launch(app *a)
 			 * never started. Say so by falling through to the path that
 			 * runs it the slow way, rather than fading the shelf back up
 			 * as though it had run. */
-			if (!resident)
-				fprintf(stderr, "resident emulator stopped answering, falling back\n");
+			if (!resident) {
+				plat_start_error se;
+
+				/* A core that would not load: the fallback is the same Diatom
+				 * and the same core, and the game would go straight back to
+				 * the shelf with nothing said (Davistoa's bsnes and MAME,
+				 * Discord, 2026-11-18). The reason is on the shelf instead. */
+				if (plat_resident_start_error(&se) && startfail_message(&se, core_msg, sizeof core_msg)) {
+					fprintf(stderr, "launch: %s refused: its core would not load: %s (%s%s%s)\n", s->name,
+					        se.core, se.why, se.name[0] ? " " : "", se.name);
+					core_said = true;
+				} else {
+					fprintf(stderr, "resident emulator stopped answering, falling back\n");
+				}
+			}
 		} else {
 			fprintf(stderr, "resident emulator did not answer, falling back\n");
 		}
@@ -1067,7 +1095,7 @@ void launch(app *a)
 		        waited);
 	}
 
-	if (!resident) {
+	if (!resident && !core_said) {
 		/* One game per process, the old way: the fallback for a resident that
 		 * is missing or has died. Diatom standalone IS the one-shot mode -
 		 * same binary, no socket - so the fallback stopped being a different
@@ -1246,8 +1274,15 @@ void launch(app *a)
 	 * than a shutdown. Everything above leaves the marker standing, which is
 	 * what makes the next boot able to tell them apart. */
 	playing_clear();
-	/* The game just played first on Recents (src/homesys.h) */
-	refresh_recents_shelf(a);
+	if (core_said) {
+		/* It never ran: not first on Recents, and the reason on the screen */
+		tick_theme(a);
+		render(a);
+		result_message(a, v->list.items[v->cursor].title, core_msg);
+	} else {
+		/* The game just played first on Recents (src/homesys.h) */
+		refresh_recents_shelf(a);
+	}
 
 	tick_theme(a);
 	render(a);

@@ -309,8 +309,8 @@ static void saver_draw(app *a, float alpha)
 				t = pic;
 				SDL_QueryTexture(pic, NULL, NULL, &w, &h);
 			} else {
-				if (!mp4v_texture()) mp4v_test_picture(r, 640, 480);
-				t = mp4v_texture();
+				if (!mp4v_texture(NULL)) mp4v_test_picture(r, 640, 480);
+				t = mp4v_texture(NULL);
 				w = 640; h = 480;
 			}
 			src = (SDL_Rect){ 0, 0, 0, 0 };
@@ -405,8 +405,8 @@ void saver_shot(app *a)
 		    (g_sv.cover = saver_cover_load(a->r, g_shot_saver_pic, &g_sv.cw, &g_sv.ch))) {
 			/* loaded as saver_next loads one */
 		} else {
-			if (!mp4v_texture()) mp4v_test_picture(a->r, 640, 480);
-			g_sv.cover = mp4v_texture();
+			if (!mp4v_texture(NULL)) mp4v_test_picture(a->r, 640, 480);
+			g_sv.cover = mp4v_texture(NULL);
 			g_sv.cw = 640;
 			g_sv.ch = 480;
 		}

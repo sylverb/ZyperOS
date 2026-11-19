@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "library.h"
+#include "sheet.h"
 #include "titletext.h"
 
 #include <dirent.h>
@@ -740,6 +741,81 @@ static bool shelf_discs(const char *exts)
 	return false;
 }
 
+/* ---- a playlist's discs (2026-11-19) ---------------------------------------
+ *
+ * metior and Davistoa on the Discord, my OK: a game with an .m3u beside its
+ * discs is one entry, the .m3u, which starts it with its discs to swap. The
+ * discs it names are off the list, the Grid, Search and Random Game, since
+ * all of them are this listing. A disc no .m3u names stays, and so does every
+ * .m3u. Only disc images (SET_EXTS) go: Doom's .m3u names WADs, each a game
+ * of its own too.
+ *
+ * Only a loose .m3u is read: one in a folder of its own is that folder's game
+ * (set_is_game), and its discs, in its folder, are no entries. The names are
+ * src/sheet.c's, as Delete Game and File Transfer read them: relative to the
+ * .m3u's folder, into the folders under it (Davistoa keeps his discs in one),
+ * "#" lines and CRLF ends as any .m3u has them, a name that leaves the
+ * console's folder or a disc that is not there hiding nothing. Matched
+ * without case, as the card's exFAT opens them. One read a loose .m3u and no
+ * more: a shelf with none pays a look at each entry's extension. */
+
+/* Whether `g` is an .m3u lying loose (not the one a set folder launches) */
+static bool loose_m3u(const game_entry *g)
+{
+	const char *in = g->file + (g->dir ? g->dir + 1 : 0);
+
+	return !strchr(in, '/') && ext_index(in, SET_EXTS) == 0;
+}
+
+static int claim_cmp(const void *a, const void *b)
+{
+	return strcasecmp(*(char *const *)a, *(char *const *)b);
+}
+
+static void hide_m3u_discs(const char *dirpath, const char *exts, game_list *l)
+{
+	sheet_names *s = NULL;
+	char **claim = NULL;
+	int n = 0, cap = 0, i, o;
+
+	if (!lib_ext_allowed("m3u", exts)) return;
+	for (i = 0; i < l->count; i++) {
+		if (!loose_m3u(&l->items[i])) continue;
+		if (!s && !(s = malloc(sizeof *s))) break;
+		s->n = 0;
+		s->outside = false;
+		/* Its discs alone, not the tracks their sheets name (depth 1) */
+		sheet_read(dirpath, l->items[i].file, s, 1);
+		for (int k = 0; k < s->n; k++) {
+			if (n == cap) {
+				int more = cap ? cap * 2 : 64;
+				char **bigger = realloc(claim, (size_t)more * sizeof *bigger);
+
+				if (!bigger) goto out;
+				claim = bigger;
+				cap = more;
+			}
+			if (!(claim[n] = strdup(s->name[k]))) goto out;
+			n++;
+		}
+	}
+	if (n == 0) goto out;
+	qsort(claim, (size_t)n, sizeof *claim, claim_cmp);
+	for (i = o = 0; i < l->count; i++) {
+		const char *file = l->items[i].file;
+		int r = ext_index(file, SET_EXTS);
+
+		if (r > 0 && bsearch(&file, claim, (size_t)n, sizeof *claim, claim_cmp)) continue;
+		if (o != i) l->items[o] = l->items[i];
+		o++;
+	}
+	l->count = o;
+out:
+	for (i = 0; i < n; i++) free(claim[i]);
+	free(claim);
+	free(s);
+}
+
 bool lib_scan_listing(const char *roms_root, const char *folder, const char *exts,
                       game_list *out)
 {
@@ -764,6 +840,7 @@ bool lib_scan_listing(const char *roms_root, const char *folder, const char *ext
 	w.out = out;
 	walk_folder(&w, dirpath, "", &top, 0);
 	dir_free(&top);
+	hide_m3u_discs(dirpath, exts, out);
 	if (out->count == 0) { free(out->items); out->items = NULL; return false; }
 	return true;
 }

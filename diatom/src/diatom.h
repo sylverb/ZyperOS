@@ -20,6 +20,7 @@
 
 #include "diatom_port.h"
 #include "libretro.h"
+#include "corefail.h"
 
 /* How many cores one Diatom process keeps open (the resident registry in
  * core.c, whose comment says why 64), and so how many need a table of their
@@ -109,6 +110,9 @@ void diatom_core_stop(diatom_core *c);
  * launch skips dlopen and retro_init. Never unloaded. Locked, so the premap's
  * thread and a RUN can both call it. */
 diatom_core *diatom_core_resident(const char *path);
+/* Why the last core that would not open, `path`, would not (corefail.h):
+ * false when it was another core that failed last, or none */
+bool diatom_core_failure(const char *path, corefail *out);
 /* Map every *_libretro.so in `dir`, returning how many are now resident. For
  * the boot path: it costs less than reading them to warm the cache did, and
  * leaves the dynamic linker's work done as well. */
@@ -144,8 +148,15 @@ bool diatom_env_new_geometry(int *w, int *h, double *aspect);   /* consumes the 
  * last reset, which main.c makes at each start */
 bool diatom_env_core_quit(void);
 /* The motor at `pct` percent of every level the core asks for, from the next
- * one; 100 (or anything outside 1 to 99) is as asked. Per game: RUN sets it. */
+ * one: the player's Rumble level times the system's share (the launcher's
+ * product, RUN rumble=). 0 is Off, the motor never run; 100 (or anything
+ * outside 0 to 99, absent included) is as asked. Per game: RUN sets it. */
 void diatom_env_rumble_scale(int pct);
+/* The same at once, from SETRUMBLE: the in-game menu's Rumble row */
+void diatom_env_rumble_level(int pct);
+/* Whether the core bound now asked for the motor and was given it: the
+ * in-game menu's Rumble row is for its games alone (PAUSED rumble=1) */
+bool diatom_rumble_asked(void);
 void diatom_env_core_quit_reset(void);
 void diatom_env_suppress(uint32_t mask);
 /* Called at every poll the core makes, with the pad just read, before the
@@ -282,6 +293,9 @@ typedef enum {
 	 * and its style's words in `hud`, for every game until said again. No
 	 * answer. */
 	DIATOM_MSG_SETHUD,
+	/* Rumble (env.c): the motor at `rumble` percent of what the core asks,
+	 * 0 Off, from now. No answer. */
+	DIATOM_MSG_SETRUMBLE,
 	/* The equalizer (eqdsp.h): `bands`, five whole dB from -6 to +6, "5,2,
 	 * 0,0,1", all 0 flat; the gains move to them over 20 ms. No answer. */
 	DIATOM_MSG_SETEQ,
@@ -326,9 +340,10 @@ typedef struct {
 	 * close (src/pace.h, DISPLAY LOCK); empty or anything else ("exact"),
 	 * the core's own rate, as before */
 	char pace[8];
-	/* RUN: how hard the motor runs, in percent of what the core asks, 1 to
-	 * 99 (a system whose core shakes harder than the handheld wants:
-	 * PrBoom's every shot); 0, 100 or absent is as asked. See
+	/* RUN and SETRUMBLE: how hard the motor runs, in percent of what the
+	 * core asks: the player's Rumble level times the system's share (a
+	 * system whose core shakes harder than the handheld wants: PrBoom's
+	 * every shot). 0 is Off; 100 or absent (-1) is as asked. See
 	 * diatom_env_rumble_scale. */
 	int  rumble;
 	/* RUN: the libretro controller type for port 0 (pcsx_rearmed's DualShock
@@ -392,9 +407,20 @@ void diatom_input_set_stick_toggle(bool as_stick);
 /* RUN stick=plain: the d-pad is the left stick and the joypad's d-pad both,
  * always: no SELECT rule, and nothing turns it (main.c gives R2 no turn) */
 void diatom_input_set_stick_plain(void);
-/* R2 under stick=toggle: the d-pad goes to the other side. True when it is
- * the stick now. Nothing turns outside stick=toggle. */
+/* The side the d-pad starts on: the d-pad (`pad`) or the stick. RUN's -pad
+ * modes (stick=dpad-pad, plain-pad) start on the d-pad, for a game whose
+ * D-pad as Stick is off and whose map gives a button the stick. */
+void diatom_input_stick_side(bool pad);
+/* A press of a button the map gives Stick On/Off (`r2:stick`, the PSP's R2):
+ * the d-pad goes to the other side. True when it is the stick now. Nothing
+ * turns while the stick is off. */
 bool diatom_input_stick_flip(void);
+/* A button the map gives Stick While Held (`l2:stickhold`) is held: the
+ * d-pad is on its other side until it is let go */
+void diatom_input_stick_hold(bool held);
+/* The buttons the map gives Stick On/Off, and in *hold those it gives Stick
+ * While Held (DIATOM_BIT); none while the stick is off */
+uint32_t diatom_input_stick_keys(uint32_t *hold);
 /* Before each retro_run: the pad is read once a frame, at the core's poll or
  * its first question, whichever comes first (env.c, cb_input_poll) */
 void diatom_env_frame_begin(void);
