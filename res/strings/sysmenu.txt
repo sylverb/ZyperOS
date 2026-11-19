@@ -1415,7 +1415,7 @@ it = Elenco
 
 
 [sysmenu.view_video]
-note = View's value: the shelf shows the focused game's video snap on the whole screen, its covers in a row at the foot (DESIGN.md 11.55). A named choice.
+note = View's value: the shelf shows the focused game's video snap on the whole screen, its covers in a row at the foot (DESIGN.md 11.57). A named choice.
 en = Video
 zh-Hans = 视频
 es = Video

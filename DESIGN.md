@@ -925,7 +925,7 @@ scraped title appears below, followed by play time and the achievement
 count. Missing metadata is omitted rather than invented.
 A is **Resume** only when the existing resume path is available, otherwise
 **Play**. B returns to systems, START steps the shelf's View on, Covers to Grid
-to List to Video and round (11.39, 11.47, 11.55), Y starts the game from the start, and X opens game details, whose
+to List to Video and round (11.39, 11.47, 11.57), Y starts the game from the start, and X opens game details, whose
 last row is Delete Game (11.31). The foot spreads their hints from B at the
 left to X at the right (11.4).
 Long titles wrap or fit within their region, clear of the action and footer.
@@ -4126,7 +4126,7 @@ name and its system's color.)*
 
 **The list** (MENU > View > List, src/gamelist.h). A system's menu has
 **View** under Sort By: **Covers**, the row as it always was, **Grid**
-(11.47), **List**, or **Video** (11.55).
+(11.47), **List**, or **Video** (11.57).
 Each shelf keeps its own, Favorites too, in the device's database by the
 system's tag (`view.<tag>`): the choice belongs with Sort By and Display
 Mode, which are per shelf, because it follows what a shelf holds - a
@@ -4145,7 +4145,7 @@ MENU + START is the way out (tools/zyhome.c) and SELECT + START MP4's lock.
 Before, START did nothing on a shelf. On the home it steps the Home
 Screen's layout the same way (11.1). The foot names where it goes:
 **START Grid** under the covers, **START List** under the grid, **START
-Video** under the list, **START Covers** on the Video view (11.55); MENU >
+Video** under the list, **START Covers** on the Video view (11.57); MENU >
 Controls has it
 on the shelf's page, as **Home Screen or View**: the two MENU rows START
 steps, the home's first, as A's **Open or play** puts the home's first. The tutorial is as it was: it teaches one button a
@@ -5644,7 +5644,7 @@ Host shots: `home-collections`, `shelf-collections`, `shelf-collection-in`,
 `collect-page-none` (tools/i18n-shots.py), with `--info-collect`,
 `--collect-page K` and `--collect-delete`.
 
-### 11.55 The Video view
+### 11.57 The Video view
 *(metior on the Discord asked for a video-centered layout; Tarik: "perfect".
 My pick in the Library lab, 2026-11-19: the snap starts at once, and "when
 rested for more than 2s, the bottom bar goes down (into a compact mode) so

@@ -1209,7 +1209,7 @@ static void draw_games(app *a)
 
 	shelf_heading(s, v, head, sizeof head);
 	if (v->video) {
-		/* MENU > View > Video (DESIGN.md 11.55): the focused game's snap on
+		/* MENU > View > Video (DESIGN.md 11.57): the focused game's snap on
 		 * the whole screen, asked the frame the focus comes rather than
 		 * after the shelf's rest (my pick, 2026-11-19); not while a
 		 * direction is held, so a scroll opens no file */

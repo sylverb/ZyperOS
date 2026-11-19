@@ -863,7 +863,7 @@ for _name, _flags in (("shelf-recents-screen", ["--screen", "games"]),
         SHOT_SETTINGS[_name] = {"recents.picture": "screen"}
 
 
-# The Video view (DESIGN.md 11.55): a game with no snap, its card whole
+# The Video view (DESIGN.md 11.57): a game with no snap, its card whole
 # above the band; its snap playing (the test picture), the band up; the band
 # down to its strip, and halfway there; MENU's View on Video and its list
 for _name, _flags in (("shelf-video", ["--screen", "games", "--view", "video"]),
