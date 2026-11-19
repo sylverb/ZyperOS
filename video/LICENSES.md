@@ -38,6 +38,20 @@ start is checked by ear and on the beat grid):
 | The Arplands | LordZintick | 120.0 | 0.273 s | 16.273 s (its drums) | 144 s |
 | Truth | HydroGene | 156.0 | 0.031 s | the start | 111 s |
 
+The 1.0.6 video (`src/v106`) has its own track, Tarik's pick: **Level 1** from
+Juhani Junkala's "5 Chiptunes (Action)", **CC0 1.0**
+(<https://opengameart.org/content/5-chiptunes-action>). It is not in the
+repository: `scripts/prepare-assets.sh` fetches the file
+(<https://opengameart.org/sites/default/files/level1.mp3>, sha256
+`559ad4eb...6b19da`) into `~/Library/Caches/zyperos-video-music`. Measured from
+an onset envelope of ffmpeg's decode (5 ms hops): exactly 181 BPM (232 of its 236
+strong onsets on the half-beat grid, 2 ms off it), the first downbeat 0.0259 s
+in. Of its 60 bars, the last 4 are bars 0 to 3 again, fading (their samples
+correlate 0.94 to 0.99 with the opening's): the loop is 56 bars, 74.25 s. The
+video plays the loop once from the first downbeat, then from the top again,
+joined with a 12 ms crossfade on the bar line, and it is mastered 8.5 dB louder
+than Leap, so the video plays it at 0.34 (`src/v106/music.ts`).
+
 ## Sound effects
 
 `public/audio/ui/*.wav` are the launcher's own interface sounds, `res/sounds/wood/`, the
@@ -48,8 +62,12 @@ plays them where a press is seen on the screen (`src/sounds.ts`).
 ## Pictures
 
 - The footage is the launcher's own frames (`footage/takes.py`), and the device
-  is `tools/build-pixel2-model.py`'s model (`device/render-device.py`); the fonts
+  is `tools/build-pixel2-model.py`'s model (`device/render-device.py`), and the
+  1.0.6 video's TrimUI Brick `tools/build-brick-model.py`'s (a reconstruction
+  from its published outline, none of TrimUI's marks on it); the fonts
   are `res/fonts` (Lexend, Noto Sans JP and SC: OFL), the lockups `res/readme`.
+- File Transfer's page in the 1.0.6 video is `res/web`, ZyperOS's own, shot in
+  a browser (`footage/portal-pages.py`) over freeware and homebrew names.
 - The games' box art and screenshots on the sample card come from the
   [libretro-thumbnails](https://github.com/libretro-thumbnails) sets, cached
   outside the repository and never committed. The games and their art belong to

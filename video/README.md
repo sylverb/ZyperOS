@@ -148,3 +148,59 @@ sh scripts/finish-reddit.sh         # the master, outside the repository
 
 `src/reddit/timeline.ts` lays its scenes on the music's sections, as the
 tour's `src/timeline.ts` does (both use its `layout`).
+
+## The 1.0.6 video for the Discord
+
+`src/v106/` is a third composition, `Release106`: what 1.0.6 added, in 96
+seconds at 16:9, for the ZyperOS Discord, where most of it was asked for. It
+opens on the release's name beside both handhelds, true to size: 1.0.6 is the
+first release for the TrimUI Brick, so the Brick stands beside the Pixel 2
+(`device/render-device.py` renders either; `scripts/prepare-assets.sh` builds
+the Brick from `tools/build-brick-model.py`), and its screen is the host
+launcher wearing the Brick's own profile (`--device brick`: its 1024x768
+screen, its keys, its home without the systems it lacks yet). Then a scene for
+each of 21 features at the tour's pace, on a track of its own (`src/v106/music.ts`:
+Juhani Junkala's "Level 1", CC0, 181 BPM, which `prepare-assets.sh` fetches and
+loops on its 56 bars; LICENSES.md has how it was measured), each a feature the Discord
+asked for wearing a small "Asked for on Discord" at its foot; the features only
+the Pixel 2 has say so. It ends on both handhelds with the same Grid, and the
+end card thanks the Discord.
+
+Its takes are `footage/takes.py`'s 1.0.6 section, on a fuller card
+(`card.py`'s `MORE`: sixteen SNES and NES games, so a Grid has rows to page,
+and the SG-1000's shelf, whose games have no art, for the name cards). Every
+take names its handheld, the Pixel 2's unless it says the Brick's: the host
+build wears the desktop's own profile without `--device`. File Transfer's page
+is `footage/portal-pages.py`'s: the real page in headless Chrome, as
+`tools/readme-shots.py` takes it, with three games picked and a console's own
+folder's menu.
+
+```sh
+make native
+python3 video/footage/takes.py      # or only the 1.0.6 takes, by name
+python3 video/footage/portal-pages.py
+sh video/scripts/prepare-assets.sh
+cd video && npm run stills:106      # out/v106/contact-sheet.jpg
+npx remotion render Release106 out/v106/zyperos-1.0.6-raw.mp4 --crf=6 --concurrency=4
+sh scripts/finish-106.sh            # the master, and the Discord file at 10 MB or less, outside the repository
+```
+
+Each scene's last piece of footage is a `fit` step (`src/timeline.ts`): from
+one moment of a take to another, stretched over the scene, so the scenes can be
+laid on another track's bars and still show the same thing.
+
+One thing the host cannot draw: a port's loading screen shows the last line the
+port prints only on the handheld, where plastron's splash draws it, so its scene
+shows the screen a minute in, which says how to go back.
+
+### Frame 0
+
+Discord, Reddit, most players and a page without a poster show a video's first
+frame until someone presses play, so frame 0 is a designed frame: `Release106`
+opens with its name, its version and both handhelds already drawn, with no fade
+in (the first copy posted opened on the bare ground colour), and its opening
+takes start after Zyper's song pop-up. `scripts/finish-106.sh` ends with
+`scripts/check-first-frame.py` on both files: it saves each frame 0 beside its
+video as `NAME-poster.jpg` and fails if it is blank. The tour and the Reddit cut
+still fade in from the ground colour; give them the same opening before
+rendering them again.

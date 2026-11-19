@@ -9,7 +9,8 @@
     "poster": "remotion still Poster out/poster.png",
     "typecheck": "tsc --noEmit",
     "stills": "node scripts/stills.mjs",
-    "stills:reddit": "STILLS_COMP=Reddit105 STILLS_TIMELINE=src/reddit/timeline.ts STILLS_OUT=out/reddit node scripts/stills.mjs"
+    "stills:reddit": "STILLS_COMP=Reddit105 STILLS_TIMELINE=src/reddit/timeline.ts STILLS_OUT=out/reddit node scripts/stills.mjs",
+    "stills:106": "STILLS_COMP=Release106 STILLS_TIMELINE=src/v106/timeline.ts STILLS_MUSIC=src/v106/music.ts STILLS_OUT=out/v106 node scripts/stills.mjs"
   },
   "dependencies": {
     "@remotion/bundler": "4.0.529",
