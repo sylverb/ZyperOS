@@ -34,6 +34,7 @@
 #include <GLES3/gl3.h>
 #include <GLES2/gl2ext.h>
 
+#include <dlfcn.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <linux/fb.h>
@@ -2087,11 +2088,15 @@ static void give_display(void)
 #define PORT_FN(n)       gl_##n
 
 /* port/gles_gpu.h's diatom_port_gpu_begin as gl_gpu_begin, so this file's
- * own can start the GPU path first (below) */
+ * own can start the GPU path first, and its diatom_port_gpu_proc as
+ * gl_gpu_proc, so this file's own can look further (both below) */
 #define diatom_port_gpu_begin gl_gpu_begin
+#define diatom_port_gpu_proc  gl_gpu_proc
 bool gl_gpu_begin(const diatom_gpu_spec *spec);
+void *gl_gpu_proc(const char *name);
 #include "gles_present.h"
 #undef diatom_port_gpu_begin
+#undef diatom_port_gpu_proc
 
 /* The presenting thread started at the first frame or core that needs it,
  * not at Diatom's start: its EGL and its programs cost nothing to a boot or
@@ -2144,6 +2149,23 @@ bool diatom_port_gpu_begin(const diatom_gpu_spec *spec)
 		return false;
 	}
 	return gl_gpu_begin(spec);
+}
+
+/* A core's GL or EGL call by name: EGL's answer first, as on the Pixel 2,
+ * then the libraries' own symbols. EGL 1.4, the PowerVR's, owes
+ * eglGetProcAddress only for extensions, and a core's GL loader (libretro's
+ * glsm, the cores' own) asks for core calls by name too; Diatom links both
+ * libraries, so opening them again only finds them. */
+void *diatom_port_gpu_proc(const char *name)
+{
+	static void *gles, *egl;
+	void *f = gl_gpu_proc(name);
+
+	if (f || !name) return f;
+	if (!gles) gles = dlopen("libGLESv2.so.2", RTLD_NOW | RTLD_GLOBAL);
+	if (gles && (f = dlsym(gles, name))) return f;
+	if (!egl) egl = dlopen("libEGL.so.1", RTLD_NOW | RTLD_GLOBAL);
+	return egl ? dlsym(egl, name) : NULL;
 }
 
 /* Whether the last frame on the panel was the GPU's: a shader's frame, or a

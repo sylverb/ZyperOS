@@ -1229,7 +1229,7 @@ strings:
 # device; src/profile.c is linked only where one is chosen (check-devices)
 DEVICE_PROFILES := src/device/pixel2_profile.c src/device/brick_profile.c src/device/desktop_profile.c \
                    src/device/td_model.c src/device/pixel2_model.c src/device/brick_model.c \
-                   src/device/pixel2_coreopts.c
+                   src/device/pixel2_coreopts.c src/device/brick_coreopts.c
 # Each device's build and card (src/device/build.h): the generator and the
 # checks link them; the launcher never does
 DEVICE_BUILDS := src/device/pixel2_build.c src/device/brick_build.c
