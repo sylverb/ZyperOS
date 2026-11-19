@@ -24,7 +24,7 @@ favorites and two games played, one of each on the SNES. Then:
 - Delete Game on the SNES game on Favorites takes it off the card and off
   Favorites; on the last one, on Recents, the SNES goes from the systems off
   the home as an emptied shelf goes from the home;
-- a collection naming the SNES game and a GBA one (DESIGN.md 11.54) keeps
+- a collection naming the SNES game and a GBA one (DESIGN.md 11.56) keeps
   both, and its shelf, opened on it, looks the same with the SNES off as on;
 - with Favorites, Recents and Collections off as well, nothing of the SNES
   is anywhere.

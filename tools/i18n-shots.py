@@ -752,7 +752,7 @@ for _name, _flags in (("home-recents", []), ("shelf-recents", ["--screen", "game
     CTL_FOCUS[_name] = "The Legend of Zelda - The Minish Cap (USA).gba"
 
 
-# Collections (src/collect.h, DESIGN.md 11.54): three lists on the card, one
+# Collections (src/collect.h, DESIGN.md 11.56): three lists on the card, one
 # naming a game in a folder of games and one with a note line, as the files
 # a player keeps; the home on its group, its shelf's top, one opened, a
 # game's details on Add to Collection and its list, the shelf's menu at its

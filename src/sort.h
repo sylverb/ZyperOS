@@ -48,7 +48,7 @@ static const sort_order SORTS[] = {
 	{ "played", "Play Time",      S_SYSMENU_PLAY_TIME   },
 	{ "recent", "Last Played",    S_SORT_LAST_PLAYED    },
 	{ "added",  "Recently Added", S_SORT_RECENTLY_ADDED },
-	/* A collection's own two (DESIGN.md 11.54): Added, its list's order,
+	/* A collection's own two (DESIGN.md 11.56): Added, its list's order,
 	 * the order its games were put in it, and System, by the home's order
 	 * of the systems, A to Z in each. No games shelf offers them. */
 	{ "list",   "Added",          S_SORT_ADDED          },

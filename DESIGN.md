@@ -5228,14 +5228,14 @@ as an empty Favorites shows none: a card should lead somewhere.
 
 **Home Systems** in MENU's Display tab, under System Order: its value
 **All**, or how many of them are on ("8 of 10"); A opens its page. The page
-lists Favorites, Recents and Collections (11.54; its row once the card has
+lists Favorites, Recents and Collections (11.56; its row once the card has
 a collection, as a system has one only with games), a rule, then every system
 the card has games for, in the home's order (a system with none is not on the home, so not on
 the page either), each **On** or **Off**, Left, Right or A turning it over,
 heard as a ring, as Side Lights' parts are. Under a rule, the note: "Games
 stay on the card." All of them On as they ship. A system turned off leaves
 the home, and with it Random Game and Search; its games stay on Favorites,
-Recents and Collections (11.54), start from there on the system's own core and display, and resume
+Recents and Collections (11.56), start from there on the system's own core and display, and resume
 there at the next start after a power-off (on Recents, else Favorites), as
 they stay on the card and in File Transfer; its shelf comes back the moment it
 is on again. *(Davistoa on the Discord, 2026-11-19, hides every system and
@@ -5524,7 +5524,7 @@ kinds' A opens their pages, so the switches are Settings' rows.)*
 Host shots: `--downloads STATE`, 0 the plan, 1 a run going on, 2 every kind
 done or out, 3 no network and nobody signed in, 4 Settings.
 
-### 11.54 Collections
+### 11.56 Collections
 *(NextUI's top ten, and my picks in the Library lab, 2026-11-19: "Add to
 Collection" on a game, a group on the home after Favorites and Recents once
 there is one collection, Home Systems can hide it, and Delete Collection

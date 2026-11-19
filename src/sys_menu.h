@@ -186,7 +186,7 @@ typedef enum {
  * (1.0.5) is the shelf's, under Sort By as on a console's. */
 #define SM_FAV_ROWS 4
 
-/* What the Collections shelf's menu is (src/collect.h, DESIGN.md 11.54),
+/* What the Collections shelf's menu is (src/collect.h, DESIGN.md 11.56),
  * headed by the collection's name: on its top, the collection under the
  * cursor's Rename and Delete Collection, the shelf's Sort By (its own four,
  * Added first) and View between them; in one, that collection's count and
