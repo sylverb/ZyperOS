@@ -85,7 +85,7 @@ Each line has its details in [the guide](docs/guide.md).
 - **Smooth or exact timing** in the Game Boy, Game Boy Advance, DS and Genesis shelves: one game frame for each screen refresh, or the console's own speed for timers and rhythm games.
 - **A home in pixel art:** every system as its own animated console on a Spotlight, Gallery or Grid home, with Favorites, Recents and a choice of which systems show ([the shelf](docs/guide.md#the-shelf)).
 - **Recents where you stopped:** Recents can show each game's last screen, its cover small in the corner, instead of the cover.
-- **Your folders, a grid or a list:** folders on the card show as folders, and a system's games show as a row of covers, a grid shaped like the art, or a list.
+- **Your folders, a grid or a list:** folders on the card show as folders, a game on several discs shows once by its `.m3u`, and a system's games show as a row of covers, a grid shaped like the art, or a list.
 - **A Video view:** each game's video snap on the whole screen as you move, its cover in a row at the foot.
 - **Collections of your own:** put any game in a list from its details, mix systems, and find your lists in a group on the home ([collections](docs/guide.md#collections)).
 - **MENU in six tabs,** with **Search Games** and **Random Game** for any system ([menus](docs/guide.md#controls-and-menus)).

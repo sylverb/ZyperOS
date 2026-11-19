@@ -16,6 +16,11 @@
  * Unknown verbs and unknown keys are ignored rather than refused, so a newer
  * launcher can talk to an older Diatom without a version negotiation.
  *
+ * A core that would not load is `ERROR code=core_load msg=<path> why=<word>
+ * name=<it> version=<it>` (corefail.h): why is machine, library, version,
+ * symbol or other, name the library's file or the function's, so the launcher
+ * can say it on the screen. An older launcher reads the ERROR and no more.
+ *
  * One connection at a time, and THE NEWEST WINS. A connect while one is held
  * displaces it, and the old one is reported as a hangup.
  *

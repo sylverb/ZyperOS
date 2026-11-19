@@ -220,6 +220,13 @@ typedef struct {
 	home home;
 	home_layout home_layout;
 	sysview view[CFG_MAX_SYSTEMS];
+	/* The systems MENU > Display > Home Systems turned off (src/homesys.h),
+	 * kept after the home's shelves, at sys.systems[] and view[] from
+	 * sys.count on (sys_kept): no shelf of the home, nor Search's or Random
+	 * Game's, but their games stay on Favorites and Recents and start from
+	 * there, as an owner of those (shelf_owner). Davistoa's ask, my OK on
+	 * 2026-11-19: "hide every system and live in Favorites". */
+	int parked;
 
 	screen_id screen;
 	int sys_cursor;
@@ -235,6 +242,15 @@ typedef struct {
 	idle_clock idle;            /* Auto Off's clock - src/idle.h */
 	SDL_Renderer *r;
 } app;
+
+/* How many systems have their games in memory: the home's shelves and, after
+ * them, the ones turned off the home (app.parked). A loop over a game's own
+ * system by its index or tag goes this far; a loop over the home stops at
+ * sys.count. */
+static inline int sys_kept(const app *a)
+{
+	return a->sys.count + a->parked;
+}
 
 /* The earliest moment something already on screen will look different with
  * nobody touching anything - a card mid-move, the tint still easing toward a

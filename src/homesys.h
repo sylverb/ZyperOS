@@ -9,10 +9,11 @@
  * Recents, a new shelf of the ten games played last (src/shelfbuild.c). All
  * of them On as they ship.
  *
- * A system turned off leaves the home, and with it Random Game, Search,
- * Favorites and Recents; its games stay on the card and in File Transfer,
- * and come back the moment it is turned on again. Nothing is deleted and
- * nothing is moved.
+ * A system turned off leaves the home, and with it Random Game and Search;
+ * its games stay on Favorites and Recents and start from there (Davistoa's
+ * ask, my OK on 2026-11-19: app.parked in src/app.h), on the card and in File
+ * Transfer, and its shelf comes back the moment it is turned on again.
+ * Nothing is deleted and nothing is moved.
  *
  * The setting is one word in the device database, HOMESYS_KEY: the tags that
  * are off, with commas ("PRT,RECENT"), so a card with none off has no row at

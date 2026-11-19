@@ -786,7 +786,8 @@ static void np_player_layout(np_player *L, const key_hint *h, int n, const char 
 void np_draw_video(app *a, const mu_now *mn, float k)
 {
 	SDL_Renderer *r = a->r;
-	SDL_Texture *tex = mp4v_texture();
+	SDL_Rect src;
+	SDL_Texture *tex = mp4v_texture(&src);
 	TTF_Font *fs = ui_font(UI_F_META), *fh = page_font(PAGE_ACTION);
 	ds_rgb g = theme()->ground;
 	SDL_Color soft = UI_TEXT_SOFT;
@@ -808,7 +809,7 @@ void np_draw_video(app *a, const mu_now *mn, float k)
 	np_player_layout(&L, h, n, t0, t1);
 
 	pic = mp4v_fit(L.pic);
-	plat_video_under(tex, &pic, (SDL_Color){ g.r, g.g, g.b, 255 });
+	plat_video_under(tex, &src, &pic, (SDL_Color){ g.r, g.g, g.b, 255 });
 	ui_fit_frame();   /* the picture covers what was drawn (the host's fit check) */
 	SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
 	/* Before the first picture: its box, empty, so nothing jumps. */
