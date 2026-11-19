@@ -312,6 +312,9 @@ void plat_resident_low_battery(int level);
  * "right", already decided for where Diatom's sound goes (src/audioout.h).
  * Sent like quiet: on a change, and before every RUN. */
 void plat_resident_channels(const char *mode);
+/* The equalizer's bands for where Diatom plays (src/eq.h), dB each: SETEQ,
+ * on a change and before every RUN, as the channels. All 0 is flat. */
+void plat_resident_eq(const int8_t db[5]);
 /* Where Diatom says its sound actually is, which may not be where it was asked
  * to put it - a sink that will not open, or one that died, makes the port fall
  * back and report the fallback. False until it has said. */
