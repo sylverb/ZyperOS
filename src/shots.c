@@ -26,6 +26,7 @@
 #include "menu_pick.h"
 #include "menu_runner.h"
 #include "mp4lock.h"
+#include "mp4frame.h"
 #include "mp4video.h"
 #include "musec.h"
 #include "notice.h"
@@ -463,8 +464,11 @@ int   shot_np = -1, shot_np_track, shot_np_paused;
  * [full|controls]: Now Playing as a video, a test picture for the frame;
  * --video-size WxH that picture's size (640x360), --video-at K G the
  * controls' level and the picture's growth to the whole screen, between
- * the two ends (src/nowplaying_screen.c's np_draw_video). */
+ * the two ends (src/nowplaying_screen.c's np_draw_video), --video-trouble
+ * too-big|no-picture what the daemon says of a file this CPU cannot carry
+ * (an AV1 at 60 fps; a ProRes, with no picture), its notice. */
 int   shot_locked, shot_video = -1, shot_video_w = 640, shot_video_h = 360;
+int   shot_video_trouble;
 float shot_video_k = -1, shot_video_grow = -1;
 int   shot_np_bench;                     /* --np-bench N: N frames timed */
 float shot_np_at = 83.0f;
@@ -1146,7 +1150,9 @@ static void np_shot(app *a)
 	}
 	np_cover(a, shot_np);
 	if (shot_video >= 0) {
-		mp4v_test_picture(a->r, shot_video_w, shot_video_h);
+		if (shot_video_trouble == MPF_TOO_BIG)    mp4v_test_trouble(MPF_TOO_BIG, "av1", 60000);
+		if (shot_video_trouble == MPF_NO_PICTURE) mp4v_test_trouble(MPF_NO_PICTURE, "prores", 23976);
+		if (shot_video_trouble != MPF_NO_PICTURE) mp4v_test_picture(a->r, shot_video_w, shot_video_h);
 		mn.vw = shot_video_w;
 		mn.vh = shot_video_h;
 		np_draw_video(a, &mn, shot_video_k >= 0 ? shot_video_k : (float)shot_video,
