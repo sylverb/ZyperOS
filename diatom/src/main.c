@@ -1213,8 +1213,11 @@ static bool menu_pause_inner(const diatom_session *sn)
 	 * long as the menu is up: the core is not running to stop it. */
 	diatom_rumble_hold(true);
 
-	/* Symmetrical with RUNNING: the launcher may draw from here. */
-	diatom_proto_send("PAUSED");
+	/* Symmetrical with RUNNING: the launcher may draw from here. And
+	 * whether the core asked for the motor, for the in-game menu's Rumble
+	 * row (an old launcher reads the verb alone). */
+	if (diatom_rumble_asked()) diatom_proto_send("PAUSED\trumble=1");
+	else                       diatom_proto_send("PAUSED");
 
 	/* NOT for(;;). A paused Diatom blocks here on a socket with no timeout,
 	 * and this loop used to ignore g_terminate entirely - so SIGTERM set the
@@ -1974,6 +1977,7 @@ static bool state_plane_msg(const diatom_msg *m)
 		return true;
 	case DIATOM_MSG_SETDISPLAY: display_set(m); return true;
 	case DIATOM_MSG_SETHUD:     hud_set(m); return true;
+	case DIATOM_MSG_SETRUMBLE:  diatom_env_rumble_level(m->rumble); return true;
 	case DIATOM_MSG_OVERLAY:
 		/* Not on the state plane's query/write shape, because there is no
 		 * state to query: it is a thing that happens and then stops. The
@@ -2311,7 +2315,16 @@ static int run_session_inner(const diatom_session *sn)
 
 	g_core = diatom_core_resident(sn->core);
 	if (!g_core) {
-		diatom_proto_send("ERROR\tcode=core_missing\tmsg=%s", sn->core);
+		corefail why;
+
+		/* Why, in words the launcher puts on the screen (corefail.h): the
+		 * game went straight back to the shelf with nothing said. The log
+		 * has dlerror's own text. */
+		if (diatom_core_failure(sn->core, &why))
+			diatom_proto_send("ERROR\tcode=core_load\tmsg=%s\twhy=%s\tname=%s\tversion=%s",
+			                  sn->core, corefail_word(why.why), why.name, why.version);
+		else
+			diatom_proto_send("ERROR\tcode=core_missing\tmsg=%s", sn->core);
 		return 3;
 	}
 	diatom_env_bind(g_core, &g_policy, &g_caps);
@@ -3781,7 +3794,8 @@ int main(int argc, char **argv)
 			              : !strcmp(m.power, "medium") ? DIATOM_POWER_MEDIUM
 			              : DIATOM_POWER_FULL;
 			sn.controller = m.controller;
-			/* The system's share of the core's rumble, this game on */
+			/* The player's Rumble level times the system's share of
+			 * the core's rumble, this game on (0: Off) */
 			diatom_env_rumble_scale(m.rumble);
 			sn.dpad_stick = !strcmp(m.stick, "dpad") || !strcmp(m.stick, "dpad-pad");
 			sn.stick_toggle = !strcmp(m.stick, "toggle") ? 1

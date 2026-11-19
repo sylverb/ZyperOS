@@ -24,6 +24,7 @@
 #include "notice.h"
 #include "nowplaying_screen.h"
 #include "panel.h"
+#include "menumotion.h"
 #include "place.h"
 #include "powerscreens.h"
 #include "rahash.h"
@@ -392,6 +393,9 @@ static void draw_systems(app *a)
 	}
 	home_item items[CFG_MAX_SYSTEMS];
 	home_items(a, items);
+	/* A menu over the home: the Grid holds a glide to a new shape until the
+	 * menu goes, and starts it as the menu leaves (DESIGN.md 11.1) */
+	a->home.covered = mm_depth() > 0;
 	uint32_t now = g_home_phase >= 0 ? a->home.animation + (uint32_t)g_home_phase : anim_now();
 	uint32_t wait = home_draw(&a->home, a->r, a->home_layout, items,
 	                          a->sys.count, a->sys_cursor, line,
@@ -871,8 +875,8 @@ static void shelf_snap(app *a, sysview *v, const game_entry *g, int owner, bool 
 	info->snap = k > 0 ? snapv_texture(&w, &h, &info->snap_src) : NULL;
 	/* A host shot of the turn (--snap K): the test picture, K of the way */
 	if (g_shot_snap_k >= 0 && g) {
-		if (!mp4v_texture()) mp4v_test_picture(a->r, 320, 240);
-		info->snap = mp4v_texture();
+		if (!mp4v_texture(NULL)) mp4v_test_picture(a->r, 320, 240);
+		info->snap = mp4v_texture(NULL);
 		if (info->snap) SDL_SetTextureBlendMode(info->snap, SDL_BLENDMODE_BLEND);
 		w = 320; h = 240;
 		info->snap_src = (SDL_Rect){ 0, 0, 0, 0 };
@@ -1209,7 +1213,7 @@ static void draw_games(app *a)
 
 	shelf_heading(s, v, head, sizeof head);
 	if (v->video) {
-		/* MENU > View > Video (DESIGN.md 11.54): the focused game's snap on
+		/* MENU > View > Video (DESIGN.md 11.57): the focused game's snap on
 		 * the whole screen, asked the frame the focus comes rather than
 		 * after the shelf's rest (my pick, 2026-11-19); not while a
 		 * direction is held, so a scroll opens no file */

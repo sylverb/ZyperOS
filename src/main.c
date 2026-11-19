@@ -72,6 +72,7 @@
 #include "spawn.h"
 #include "webtheme.h"
 #include "devmode.h"
+#include "dl_screen.h"
 #include "dlq.h"
 #include "sshlink.h"
 #include "mdns.h"
@@ -356,7 +357,9 @@ void display_load(app *a)
 	g_shader_all = 0;
 	if (db_get_str(db_dev(), "shader", name, sizeof name, NULL) && (k = shader_index(name)) >= 0)
 		g_shader_all = k;
-	for (i = 0; i < a->sys.count; i++) {
+	/* The systems off the home too (app.parked): their games start from
+	 * Favorites and Recents in their own mode */
+	for (i = 0; i < sys_kept(a); i++) {
 		const char *tag = a->sys.systems[i].tag;
 
 		snprintf(key, sizeof key, "shader.%s", tag);
@@ -394,7 +397,7 @@ void display_save(app *a)
 	char key[CFG_STR + 16];
 	int i;
 
-	for (i = 0; i < a->sys.count; i++) {
+	for (i = 0; i < sys_kept(a); i++) {
 		snprintf(key, sizeof key, "display.%s", a->sys.systems[i].tag);
 		db_set_str(db_dev(), key, DMODES[a->view[i].dmode].name);
 	}
@@ -561,7 +564,9 @@ void core_load(app *a)
 	char key[CFG_STR + 16], name[CFG_STR], alt[CFG_STR];
 	int i, k, n;
 
-	for (i = 0; i < a->sys.count; i++) {
+	/* The systems off the home too: a game of one starts from Favorites and
+	 * Recents on the core chosen for it */
+	for (i = 0; i < sys_kept(a); i++) {
 		system_cfg *s = &a->sys.systems[i];
 		bool set = false;
 
@@ -1087,7 +1092,8 @@ void sort_shelf(app *a, int sys)
 		const char *tags[CFG_MAX_SYSTEMS];
 		int i;
 
-		for (i = 0; i < a->sys.count && i < CFG_MAX_SYSTEMS; i++)
+		/* Every owner's, the systems off the home too (app.parked) */
+		for (i = 0; i < sys_kept(a) && i < CFG_MAX_SYSTEMS; i++)
 			tags[i] = a->sys.systems[i].tag;
 		/* Collections' top is its folders alone, A to Z (src/collect.h) */
 		sort_apply_owned(v->list.items + v->nfold, v->owner + v->nfold,
@@ -3899,6 +3905,9 @@ void menu_message(app *a, const char *heading, menu_row row,
  * covers are handed here as it starts (g_snap_sys); without them only "all"
  * gets videos. The play times are folded once a run (stats_summarize). */
 const systems_cfg *g_snap_sys;
+/* Videos out of the run going now (the Downloads page's Videos row): none
+ * come, whatever each system's switch says */
+bool g_snap_run_off;
 
 static bool snap_wanted(const char *folder, const char *file)
 {
@@ -3906,7 +3915,7 @@ static bool snap_wanted(const char *folder, const char *file)
 	int which, i;
 	long secs = 0, last = 0;
 
-	if (!snaps_get(folder)) return false;
+	if (g_snap_run_off || !snaps_get(folder)) return false;
 	if ((which = snaps_for()) == SNAPS_FOR_ALL) return true;
 	for (i = 0; g_snap_sys && i < g_snap_sys->count; i++)
 		if (!strcmp(g_snap_sys->systems[i].folder, folder)) { tag = g_snap_sys->systems[i].tag; break; }
@@ -4751,7 +4760,8 @@ void refresh_game_titles(app *a)
 {
 	int si, i;
 
-	for (si = 0; si < a->sys.count; si++) {
+	/* The systems off the home too, whose games Favorites copies again */
+	for (si = 0; si < sys_kept(a); si++) {
 		sysview *v = &a->view[si];
 		char file[LIB_PATH];
 		int owner, selected;
@@ -5507,6 +5517,12 @@ int main(int argc, char *argv[])
 			if (i + 1 < argc && !strcmp(argv[i + 1], "controls")) { shot_video = 1; i++; }
 			else if (i + 1 < argc && (!strcmp(argv[i + 1], "hidden") || !strcmp(argv[i + 1], "full"))) i++;
 		}
+		else if (!strcmp(argv[i], "--video-size") && i + 1 < argc)
+			sscanf(argv[++i], "%dx%d", &shot_video_w, &shot_video_h);
+		else if (!strcmp(argv[i], "--video-at") && i + 2 < argc) {
+			shot_video_k = (float)atof(argv[++i]);
+			shot_video_grow = (float)atof(argv[++i]);
+		}
 		else if (!strcmp(argv[i], "--mode") && i + 1 < argc) shot_mode = argv[++i];
 		else if (!strcmp(argv[i], "--sysmove") && i + 1 < argc)
 			shot_sysmove = (float)atof(argv[++i]);
@@ -5660,6 +5676,9 @@ int main(int argc, char *argv[])
 		/* --gm-undo: the game has a state from before its last load, so
 		 * the Game tab has Undo Load */
 		else if (!strcmp(argv[i], "--gm-undo")) g_shot_undo = true;
+		/* --gm-rumble: the game's core asked for the motor (PAUSED
+		 * rumble=1), so its Controls tab has Rumble */
+		else if (!strcmp(argv[i], "--gm-rumble")) g_shot_rumble = true;
 		else if (!strcmp(argv[i], "--gm-tab-from") && i + 1 < argc) shot_gm_from = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--gm-press") && i + 1 < argc) shot_gm_press = argv[++i];
 		else if (!strcmp(argv[i], "--gm-choose")) shot_gm_choose = 1;
@@ -5911,6 +5930,9 @@ int main(int argc, char *argv[])
 		/* --radl-page STATE: MENU > Achievements' page (radl_page_shot) */
 		else if (!strcmp(argv[i], "--radl-page") && i + 1 < argc)
 			shot_radl_page = atoi(argv[++i]);
+		/* --downloads STATE: MENU > Downloads (downloads_shot) */
+		else if (!strcmp(argv[i], "--downloads") && i + 1 < argc)
+			shot_downloads = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--scraper-page") && i + 1 < argc) {
 			shot_scraper_page = atoi(argv[++i]);
 			if (i + 1 < argc && argv[i + 1][0] >= '0' && argv[i + 1][0] <= '9')
@@ -7465,7 +7487,7 @@ done:
 	art_shrink_stop();
 	/* Told, not waited for - see ra_flush_stop. */
 	ra_flush_stop();
-	for (int i = 0; i < a.sys.count; i++) {
+	for (int i = 0; i < sys_kept(&a); i++) {
 		free(a.view[i].tex); free(a.view[i].tw); free(a.view[i].th);
 		lib_free(&a.view[i].list);
 	}

@@ -149,7 +149,7 @@ typedef struct {
 	 * Y on the shelf starts a game fresh (2026-11-08) */
 	bool  can_favorite;
 	bool  favorite;
-	/* Add to Collection (src/collect.h, DESIGN.md 11.53), after Favorite:
+	/* Add to Collection (src/collect.h, DESIGN.md 11.56), after Favorite:
 	 * every game a favorite can be, its value how many collections it is in
 	 * ("In 2"), none when it is in none */
 	bool  can_collect;

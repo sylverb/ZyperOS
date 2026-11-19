@@ -57,6 +57,7 @@ static void publish(uint32_t w, uint32_t h, uint32_t file)
 	for (i = 0; i < (size_t)w * h; i++) y[i] = (uint8_t)(i * 7);
 	memset(u, 128, 2 * (size_t)mpf_chroma(w) * mpf_chroma(h));
 	g_shm->slot[s].w = w;
+	g_shm->slot[s].stride = w;
 	g_shm->slot[s].h = h;
 	g_shm->slot[s].color = MPF_BT601;
 	g_shm->slot[s].serial = ++g_serial;

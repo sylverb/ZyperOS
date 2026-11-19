@@ -102,6 +102,10 @@ typedef struct device_profile {
 	 * (SET_HW_RENDER): the Dreamcast's, the N64's, the PSP's, Saturn's */
 	bool gpu_frames;
 	bool speaker_mono;       /* one built-in speaker */
+	/* A rumble motor the launcher and Diatom run (Diatom's caps.rumble):
+	 * MENU > Sound > Rumble and the in-game Controls tab's row are here
+	 * alone, and the step's buzz (plat_rumble_buzz) */
+	bool rumble;
 	bool player2;            /* NES Player 2 was built and tried on it */
 	bool usb_shared_port;    /* one port for the computer and accessories */
 	/* A gamma table between the frame and the panel, per channel, that
@@ -203,6 +207,11 @@ bool plat_gpu_frames(void);
  * the Brick has two: Audio Channels' Auto is mono there and stereo on
  * everything else (src/audioout.h). */
 bool plat_speaker_mono(void);
+/* Whether the handheld has a rumble motor ZyperOS runs (the profile's
+ * rumble): the Pixel 2's, on PWM0 through the joypad's force feedback. Not
+ * the Brick's yet: its motor (GPIO 227 on the bldo3 rail) waits for the
+ * tester's buzz (the Brick parity plan's item 14). */
+bool plat_has_rumble(void);
 /* Whether brightness is FUNCTION with the volume keys, the device having no
  * brightness keys of its own. What MENU > Controls calls them (controls.h). */
 bool plat_brightness_on_volume(void);
