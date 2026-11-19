@@ -872,7 +872,8 @@ bool np_video_grows(void)
 unsigned np_draw_video(app *a, const mu_now *mn, float k, float grow)
 {
 	SDL_Renderer *r = a->r;
-	SDL_Texture *tex = mp4v_texture();
+	SDL_Rect src;
+	SDL_Texture *tex = mp4v_texture(&src);
 	TTF_Font *fs = ui_font(UI_F_META);
 	ds_rgb g = theme()->ground;
 	SDL_Color soft = UI_TEXT_SOFT, bg;
@@ -902,7 +903,7 @@ unsigned np_draw_video(app *a, const mu_now *mn, float k, float grow)
 	 * it has gone (the run loop's order; held here too) */
 	if (al > 0) grow = 0;
 	box = np_video_box(&L.pic, grow < 0 ? 0 : grow > 1 ? 1 : grow, &pic);
-	plat_video_under(tex, &pic, bg);
+	plat_video_under(tex, &src, &pic, bg);
 	ui_fit_frame();   /* the picture covers what was drawn (the host's fit check) */
 	SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
 	/* Before the first picture: its box, empty, so nothing jumps. */
