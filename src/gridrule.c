@@ -134,6 +134,76 @@ static Uint32 px_at(const SDL_Surface *s, int x, int y)
 	return *(const Uint32 *)((const Uint8 *)s->pixels + y * s->pitch + x * 4);
 }
 
+/* The home's steps: a still and how many rows it takes */
+static const struct { int still, rows; } gh_step[GH_STEPS] = {
+	{ 256, 1 }, { 176, 2 }, { 128, 2 }, { GH_STILL_FULL, 2 },
+};
+
+gh_geom gh_layout(int n, int left, int top, int w, int h, int gap)
+{
+	gh_geom g = { 0 };
+	int k, used, bh, bw;
+
+	if (n < 1) n = 1;
+	g.n = n;
+	g.gap = gap;
+	for (k = 0; k < GH_STEPS; k++) {
+		int fit = (w + gap) / (gh_step[k].still + GH_CELL_SIDE + gap);
+
+		if (fit < 1 || fit * gh_step[k].rows < n) continue;
+		g.still = gh_step[k].still;
+		g.rows = (n + fit - 1) / fit;
+		g.cols = (n + g.rows - 1) / g.rows;
+		g.cw = g.still + GH_CELL_SIDE;
+		g.win = g.rows;
+		break;
+	}
+	if (k == GH_STEPS) {
+		g.still = GH_STILL_FULL;
+		g.cols = (w + gap) / (GH_CELL_MIN + gap);
+		if (g.cols < 3) g.cols = 3;
+		g.cw = (w - (g.cols - 1) * gap) / g.cols;
+		g.rows = (n + g.cols - 1) / g.cols;
+		g.win = GH_WIN_FULL;
+	}
+	g.name = g.still >= 256 ? GH_NAME_META : g.still >= 176 ? GH_NAME_SUPPORT : GH_NAME_CHROME;
+	g.box = g.name == GH_NAME_META ? 40 : g.name == GH_NAME_SUPPORT ? 36 : 28;
+	g.ch = g.still + GH_NAME_GAP + g.box;
+	used = g.rows < g.win ? g.rows : g.win;
+	if (k == GH_STEPS) used = g.win;
+	bh = used * g.ch + (used - 1) * gap;
+	bw = g.cols * g.cw + (g.cols - 1) * gap;
+	g.x = left + (w - bw) / 2;
+	g.y = top + (h - bh) / 2;
+	return g;
+}
+
+void gh_cell(const gh_geom *g, int i, int *x, int *y)
+{
+	int row = i / g->cols, col = i % g->cols, in = g->cols;
+
+	if (row == g->rows - 1) in = g->n - row * g->cols;
+	*x = g->x + (g->cols - in) * (g->cw + g->gap) / 2 + col * (g->cw + g->gap);
+	*y = g->y + row * (g->ch + g->gap);
+}
+
+int gh_row_step(const gh_geom *g, int cursor, int dir, int anchor)
+{
+	int row = cursor / g->cols + (dir < 0 ? -1 : 1), best = -1, near = 0;
+
+	if (row < 0 || row >= g->rows) return -1;
+	for (int i = row * g->cols; i < g->n && i < (row + 1) * g->cols; i++) {
+		int x, y, d;
+
+		gh_cell(g, i, &x, &y);
+		d = abs(x + g->cw / 2 - anchor);
+		/* within a unit is as near: a short row's half-cell offset
+		 * rounds down, and the first of two still wins */
+		if (best < 0 || d + 1 < near) { best = i; near = d; }
+	}
+	return best;
+}
+
 bool gg_cutout(const SDL_Surface *s)
 {
 	enum { N = 32 };

@@ -107,6 +107,7 @@
 #include "musec.h"
 #include "mp4lock.h"
 #include "topbar.h"
+#include "mp4frame.h"  /* MPF_TOO_BIG, for --video-trouble */
 #include "mp4video.h"
 #include "museart.h"
 #include "muselib.h"
@@ -5562,6 +5563,11 @@ int main(int argc, char *argv[])
 		}
 		else if (!strcmp(argv[i], "--video-size") && i + 1 < argc)
 			sscanf(argv[++i], "%dx%d", &shot_video_w, &shot_video_h);
+		else if (!strcmp(argv[i], "--video-trouble") && i + 1 < argc) {
+			i++;
+			shot_video_trouble = !strcmp(argv[i], "too-big") ? MPF_TOO_BIG
+			                   : !strcmp(argv[i], "no-picture") ? MPF_NO_PICTURE : MPF_FINE;
+		}
 		else if (!strcmp(argv[i], "--video-at") && i + 2 < argc) {
 			shot_video_k = (float)atof(argv[++i]);
 			shot_video_grow = (float)atof(argv[++i]);

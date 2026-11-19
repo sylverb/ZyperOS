@@ -838,9 +838,8 @@ its underline sits a grid step under the whole cell, never on the art, and
 the name a little lower again, so tall art such as the Game Boy keeps its
 lower body clear.
 **Grid** *(2026-11-15, the dense layout, with the shelves' Grid, 11.47)*: the
-systems in a grid, more of them at once - 18 on the 1024-wide canvas, six
-across and three rows - each its still (104 units) with its concise name
-under it in **chrome**, **text-soft**; the focus on a **surface** tile, 8
+systems in a grid, more of them at once, each its still with its concise name
+under it, **text-soft**; the focus on a **surface** tile, 8
 round its cell and its underline, corners radius.card (square with Square
 corners), with a thumbnail's lift as the shelf grid's focused cover has
 (UI_LIFT_FOCUS_SMALL, in the system's color in Salt & Pepper), its name in
@@ -848,19 +847,58 @@ corners), with a thumbnail's lift as the shelf grid's focused cover has
 tile and underline glide from cell to cell in **ms.quick**, the window of
 rows in **ms.move**. *(2026-11-15: a name and its underline alone were hard to
 find at arm's length among 21 systems; the tile makes the home's focus read as
-the shelf grid's.)* Only the
-focused system's sprite moves, as on the others. The grid's room and band are
-the shelf grid's: from the top bar's band and a section (96) to 568, the cells
-DS_GRID_GAP apart, as many across as cells of at least 128 fit between the
-64 margins, the grid in the middle of its room; the rail at the right when
-the systems are more than three rows. The band: the system's whole name in
+the shelf grid's.)* The focus is drawn in one place (src/home.c, `hg_focus`),
+so a look for it can be picked there one day. Only the
+focused system's sprite moves, as on the others.
+
+**The grid sizes itself** to how many systems the home shows *(2026-11-19:
+Man in Boots on the Discord, "a little too much white space" on a card of few
+systems, asked for a grid size to set; I wanted no setting, the grid fitting
+the systems instead, and picked from the home grid lab)*: the still in four
+steps, the biggest whose rows hold every system, so fewer systems get bigger
+tiles and a full card keeps the 1.0.6 grid. The name grows with its still. A
+step's cell is its still and 12 either side (129 for 104), the cells
+DS_GRID_GAP apart, as many across as fit between the 64 margins, the columns
+as few as the rows allow so the rows are even (5 is 3 + 2, 7 is 4 + 3), the
+grid in the middle of its room (from the top bar's band and a section, 96, to
+568). The rule is `gh_layout` (src/gridrule.h); `check-gridrule` holds this
+table. On the 1024 x 768 canvas:
+
+| Systems | Still | Across, rows | Name | On the Pixel 2 | On the Brick |
+|---|---|---|---|---|---|
+| 1 to 3 | 256 | up to 3, one row | **meta** (37, line 40) | 160 px | 256 px |
+| 4 to 8 | 176 | up to 4, two rows (4 is one) | **support** (28, line 36) | 110 px | 176 px |
+| 9, 10 | 128 | 5, two rows | **chrome** (24, line 28) | 80 px | 128 px |
+| 11, 12 | 104 | 6, two rows | **chrome** | 65 px | 104 px |
+| 13 and more | 104 | 6, three rows in sight, the rail | **chrome** | 65 px | 104 px |
+
+Thirteen and more is the 1.0.6 grid: cells of at least 128 filling the width
+(129 x 140 from 65, 98), three rows in sight, scrolling, the rail at the right.
+A wider canvas (a screen of another shape in the 768-high design space) has
+more across by the same rule. A short last row stands in the middle under
+the full ones. The stills are the 128-pixel ones drawn larger, nearest, as
+Gallery's are; nothing more is decoded. The band: the system's whole name in
 **game-title** (Favorites in the language that is on), A's **Open games** at
 its right, its count under it in **support**; the foot at 720: MENU and
-START, the place, SELECT. **Up** and **Down** move a row, stopping at the top and the foot
-with the edge sound (Down over a short last row lands on its last system);
-**Left** and **Right** step round the ends; **L1** and **R1** jump a screenful, or to the last (first) system where less is left, and from the last round to the first (as the shelf grid's, 11.47).
+START, the place, SELECT. **Up** and **Down** move a row, to the system
+nearest the place where the column started, so Down then Up comes back to the
+same system (Down from the last column over a short row lands on its last
+system), stopping at the top and the foot with the edge sound; **Left** and
+**Right** step, a press going round the ends and a held one stopping at the
+first or the last system with the edge sound once, as a list's does;
+**L1** and **R1** jump a screenful, or to the last (first) system where less is left, and from the last round to the first (as the shelf grid's, 11.47).
 A system hidden or emptied leaves the grid as it leaves the row; Favorites is
-a tile like any other.
+a tile like any other. When the systems change (one turned off or on in
+Home Systems, 11.48; Favorites or Recents made or emptied; a system's last
+game deleted; System Order turned), the grid **glides** from the tiles it drew
+last to its new shape: each system slides and grows to its new place on the
+**turn** curve in **ms.turn** (300), one that left fades out as its own still
+where it was in **ms.fade-out**, one that came fades in at its place. While a
+menu is over the home the glide waits at its start, drawing no more frames
+than the home would; it runs from the frame the menu starts to leave, so it
+is seen; a press during it moves the focus with its system. It runs only from a grid drawn last: never on the first frame, nor
+from Spotlight or Gallery. A frame of the glide is the same stills drawn at
+places between: nothing is decoded for it.
 
 MENU remains at the left footer with START after it, the position in the
 middle, and A at the right. SELECT still opens the player without another footer caption.
@@ -2026,6 +2064,26 @@ Muse, so a card's saved places and modes still read.
   a sixteenth of the disc right before, 2026-11-19). Under the lock the
   controls stay hidden, and with them the header, the picture whole on
   black: no key they name works there.
+  **Too big, or no picture.** The daemon judges as it plays whether this
+  CPU carries the video: more than a quarter of its pictures dropped in two
+  stretches of 2 s running and it says the video is too big, two stretches
+  under a tenth and it takes that back; the first stretch after an open, a
+  seek, a pause or the screen coming back is not judged, as the decoder
+  catches up then on any file (src/muse/vidtry.h). A format nothing here
+  decodes, or a decoder that gives not one picture, it says there is no
+  picture. MP4 says so in words rather than
+  show a slide show or a black box (2026-11-19: "If a size cannot keep up,
+  MP4 must say so plainly"): the notice's slab (11.7) centered over the
+  picture's foot, **inset** over the band, what the video is ("AV1 ·
+  1920x1080 · 60 fps", **meta** **text-dim**) over what that means in
+  **label** **text** ("Too big to play smoothly here.", "This video's
+  picture cannot play here."), on one line or two balanced (Chinese and
+  Japanese set their own break), no wider than a menu panel. Too big, the
+  controls come up as on a key when it is first said, and the notice comes
+  and goes with them; no picture, it stands in the black whatever the
+  controls do. With dav1d on the Pixel 2 (2026-11-19), AV1 plays whole up to
+  1440x1080 at 24 fps, 1280x720 at 60 and 1920x1080 at 30; 1920x1080 at 60
+  is too big.
   The keys are hints as the shelves draw them (`page_hint`: a glyph and a word,
   **chrome** type, **text-soft**), from x 64 to 960 with the room shared out, and
   on a second row above where a language's words need it, never cut: A, B,

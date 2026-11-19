@@ -68,4 +68,58 @@ unsigned gg_key(const char *file);
  * of all of it. Pure, on an ARGB8888 surface. */
 bool gg_cutout(const SDL_Surface *s);
 
+/* ---- the home's Grid (DESIGN.md 11.1) ------------------------------------ */
+
+/* The home's Grid sizes itself to how many systems it shows (2026-11-19, Man
+ * in Boots on the Discord: "a little too much white space" on a card of few
+ * systems; my picks from the home grid lab): the biggest still of four steps
+ * whose rows hold them all, so fewer systems get bigger tiles, and a card of
+ * more than two rows of today's tiles keeps today's grid. A cell is its still
+ * and the system's name under it, GH_NAME_GAP apart, in the type the still's
+ * size gives it. */
+#define GH_STEPS      4
+#define GH_STILL_FULL 104   /* today's still, the full grid's */
+#define GH_CELL_MIN   128   /* the full grid's cell at the least: as many across as fit */
+#define GH_CELL_SIDE  25    /* a step's cell: its still and 12 either side (129 for 104) */
+#define GH_NAME_GAP   8     /* the still to its name (related) */
+#define GH_WIN_FULL   3     /* the full grid's rows in sight; it scrolls past them */
+
+/* The name's type under a still: chrome (24, in a 28 box, today's), support
+ * (28, DS_LINE_SUPPORT 36) from a 176 still, meta (37, DS_LINE_META 40) from
+ * a 256 one: the name grows with its still */
+enum { GH_NAME_CHROME, GH_NAME_SUPPORT, GH_NAME_META };
+
+typedef struct {
+	int n;          /* systems */
+	int cols;       /* across */
+	int rows;       /* rows, all of them */
+	int win;        /* rows in sight: the grid scrolls when rows > win */
+	int still;      /* a still's side */
+	int cw, ch;     /* a cell: its width, and its still and its name down */
+	int name, box;  /* the name's type (GH_NAME_*) and its line box */
+	int x, y;       /* a full row's top left, the window at its first row */
+	int gap;
+} gh_geom;
+
+/* Where the home's `n` systems go in the room (`left`, `top`, `w`, `h`),
+ * cells `gap` apart. The steps, the first whose rows hold them all: a still
+ * of 256 in one row, 176 in two, 128 in two, 104 in two; as many across as
+ * cells of the still and GH_CELL_SIDE fit, the columns as few as the rows
+ * allow (5 is 3 + 2, 7 is 4 + 3). More than that: today's grid, cells of at
+ * least GH_CELL_MIN filling the width, GH_WIN_FULL rows in sight. On the
+ * 1024-wide canvas: 1 to 3 at 256, 4 to 8 at 176, 9 and 10 at 128, 11 and 12
+ * at 104 in two rows, 13 and more today's. The grid in the middle of its room
+ * (the full grid's window of three rows). Pure. */
+gh_geom gh_layout(int n, int left, int top, int w, int h, int gap);
+
+/* Cell `i`'s top left with the window at the first row: a short last row in
+ * the middle under the full ones. Pure. */
+void gh_cell(const gh_geom *g, int i, int *x, int *y);
+
+/* Up (`dir` -1) and Down (+1) from `cursor`: the system in the row over or
+ * under whose middle is nearest `anchor` (the x where the column started:
+ * Down then Up comes back), the first of two as near; -1 from the top row or
+ * the last. Pure. */
+int gh_row_step(const gh_geom *g, int cursor, int dir, int anchor);
+
 #endif
