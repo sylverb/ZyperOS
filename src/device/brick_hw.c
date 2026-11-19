@@ -7,6 +7,9 @@
  * its start checks too), and the start's marks. On the host, the build's
  * desktop, what the host has. */
 #include "hwfacts.h"
+#ifdef ZYPEROS_KIT_BUILD
+#include "../kit.h"
+#endif
 
 #include <dirent.h>
 #include <string.h>
@@ -112,5 +115,8 @@ void plat_hw_facts(hw_facts *f)
 	closed_count(f);
 	leds_read(f);
 	motor_rail_read(f);
+#endif
+#ifdef ZYPEROS_KIT_BUILD
+	kit_hw_facts(f);   /* a test kit's own (src/device/brick_kit.c) */
 #endif
 }

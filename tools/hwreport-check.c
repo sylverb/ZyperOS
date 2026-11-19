@@ -85,6 +85,23 @@ int main(void)
 	ck(hw_klog_line(klog, "PVR_K:", line, sizeof line) && !strncmp(line, "PVR_K:  301: Read BVNC", 22),
 	   "the GPU driver's line");
 	ck(!hw_klog_line(klog, "panfrost", line, sizeof line), "no line with it: false");
+#ifdef ZYPEROS_KIT_BUILD
+	/* A test kit's report (src/kit.h; make check-kitbuild builds this with
+	 * ZYPEROS_KIT_BUILD): the PMIC's registers eight a line, after the motor
+	 * rail and before the boot times */
+	memset(&f, 0, sizeof f);
+	f.closed_total = -1;
+	strcpy(f.motor_rail, "axp2202-bldo3, 3300000 uV, enabled");
+	strcpy(f.pmic_regs, "00: 1f\n01: 00\n02: 3a\n03: 4b\n04: 00\n05: 80\n06: 01\n07: ff\n08: 12\n\n09: 34\n");
+	hwreport_build(&f, out, sizeof out);
+	ck(!strcmp(out, "Hardware:\n  Panel: -\n  Inputs: -\n  GPU driver: -\n  Graphics: -\n  Wi-Fi: -\n"
+	                "  Motor rail: axp2202-bldo3, 3300000 uV, enabled\n"
+	                "  PMIC registers:\n"
+	                "    00: 1f  01: 00  02: 3a  03: 4b  04: 00  05: 80  06: 01  07: ff\n"
+	                "    08: 12  09: 34\n"
+	                "Boot times:\n  -\n"),
+	   "a kit: the PMIC's registers eight a line, an empty line skipped");
+#endif
 	if (fails) {
 		printf("hwreport: %d of %d checks failed\n", fails, checks);
 		return 1;
