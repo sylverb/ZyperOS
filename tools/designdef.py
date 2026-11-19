@@ -110,7 +110,7 @@ PAGE_TEXT_ON = {
 # names a color for, under a picture, never under text.
 PAGE_FILLS = ("track", "accent-ink", "warning", "ink", "sys", "text-dim")
 
-# The page's sizes (DESIGN.md 11.64). Its shapes are DESIGN.md 6's radii at
+# The page's sizes (DESIGN.md 11.14). Its shapes are DESIGN.md 6's radii at
 # the Pixel 2's own 0.625, so a row on a phone has the corners of a row on the
 # handheld. Its type keeps DESIGN.md 4's roles and their ratio to **menu**,
 # with **menu** at the web's 16 px; **meta** would come out at 12 and is held
@@ -316,9 +316,14 @@ LAYOUT = [
     # the dense grid (src/gamegrid.c)
     ("grid-gap",        24,  "between a grid's cells"),
     ("grid-band-gap",   24,  "a grid's foot to the band under it: the name and its facts"),
-    ("focus-ring",      4,   "the ring round a focused cell"),
-    ("focus-gap",       4,   "the ground between that ring and the cell"),
-    ("radius-cell",     14,  "a grid cell's corners; its ring's are radius-card (14 + 4 + 4)"),
+    # Highlight's marks (src/ds/focus.h), each drawn as the whole panel
+    # pixels it comes to (src/focusgeo.h): 2 on the Pixel 2, 3 on the Brick
+    ("focus-ring",      3,   "Border's ring round the item in focus, as whole panel pixels"),
+    ("focus-gap",       3,   "the ground between that ring and the item, as whole panel pixels"),
+    ("focus-bar-w",     40,  "Bar's bar under the item in focus"),
+    ("focus-bar-h",     6,   "...its height, a pill"),
+    ("focus-bar-under", 8,   "...under the item's foot (a cover's, a still's name)"),
+    ("radius-cell",     14,  "a grid cell's corners; its ring's are the cell's, the gap's and the ring's added"),
     # a choice's picture beside its list (src/ds/preview.h)
     ("preview-col-w",   336, "the picture column at an option list's left: the screen in small and its note"),
     ("preview-col-min", 200, "...narrower where the list's choices run long, to this"),

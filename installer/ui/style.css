@@ -296,9 +296,10 @@ picture { display: contents; }
 	color: var(--text-dim);
 }
 
-/* Two options side by side, and a list of rows: one is on, as an accent
- * fill, the way a focused row is on the handheld */
+/* Two options side by side (three with Add PICO-8), and a list of rows: one
+ * is on, as an accent fill, the way a focused row is on the handheld */
 .seg { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.seg.three { grid-template-columns: 1fr 1fr 1fr; }
 .list {
 	background: var(--surface);
 	border: var(--frame) solid var(--edge);
@@ -358,6 +359,30 @@ picture { display: contents; }
 
 .row .warn, .note.warn, .warn-text { color: var(--warning); }
 .row.on .warn { color: var(--on-accent); }
+
+/* The PICO-8 row's remove button: a round x at its right end, over the row
+ * (a button can't hold one), in the row's own ink */
+.list.pico8 { position: relative; }
+.list.pico8 .row.with-x { padding-right: 46px; }
+.x {
+	position: absolute;
+	right: 16px;
+	top: calc(50% - 13px);
+	width: 26px;
+	height: 26px;
+	padding: 0;
+	display: grid;
+	place-items: center;
+	border-radius: 50%;
+	border-color: transparent;
+	background: transparent;
+	color: var(--text-dim);
+	font-size: 18px;
+	line-height: 1;
+}
+.x:hover { background: var(--raised); color: var(--text); }
+.row.on + .x { color: var(--on-accent); }
+.row.on + .x:hover { background: rgba(var(--on-accent-rgb), 0.12); color: var(--on-accent); }
 
 .empty {
 	display: flex;

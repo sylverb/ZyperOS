@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <SDL.h>
+#include "ds/focus.h"
 #include <SDL_ttf.h>
 #include "rowmotion.h"
 #include "gridrule.h"
@@ -37,6 +38,7 @@ typedef struct {
     SDL_Rect content;
     SDL_Surface *motion;
     int shown;
+    SDL_Texture *shade;   /* a still's own soft shadow: its shape blurred (Highlight's lift) */
 } home_texture;
 /* A tile the Grid drew: its system's key and name, its color, where it was
  * (its cell's top left, its still's side, the cell's width and height) and
@@ -61,6 +63,8 @@ typedef struct {
      * grid_cols across, stills of grid_still; grid_ax the x where Up and Down
      * started (-1: none yet), so Down then Up comes back */
     int grid_cursor, grid_cols, grid_n, grid_still, grid_ax;
+    /* The tiles' weights in the focus's glide (src/ds/focus.h) */
+    ds_focus_weights grid_w;
     float grid_top_from, grid_top_to, grid_fx, grid_fy;
     uint32_t grid_moved;
     /* The tiles it drew last (grid_live: the last home drawn was a Grid),
@@ -128,6 +132,11 @@ void home_prepare(home *h, SDL_Renderer *r, const char *root,
  * was the home's. An atlas in the texture's format is kept as it is, and
  * *surface is then NULL; the caller frees whatever is left. */
 bool home_accept(home *h, SDL_Renderer *r, int shelf, int asset, SDL_Surface **surface);
+/* Highlight's list picture (MENU > Display > Theme, DESIGN.md 11.42): three
+ * of the home's systems in a row in `box`, the middle one in focus as
+ * Highlight's choice `focus` (LOOK_FOCUS_*) marks it, the others stepped
+ * back, the stills only */
+void home_focus_preview(home *h, SDL_Renderer *r, const home_item *items, SDL_Rect box, int focus);
 void home_free(home *h);
 /* Spotlight's focused sprite alone, for a frame where nothing else on the
  * home has changed (main.c, focus frames): whether that is so - Spotlight,

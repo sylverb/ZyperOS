@@ -24,12 +24,20 @@ public enum ControlCommand: Equatable {
     case windowShot(String)
     /// Returns once count more frames have come from the VM (10 s at most)
     case waitFrames(Int)
+    /// Frames the window got in the last second, and which way they came
+    case fps
+    /// A tap, and the ms from it to the first frame that differs from the
+    /// one before it, in the whole screen or in X Y W H of it (a game's own
+    /// part, where the rest moves anyway)
+    case latency([PadButton], region: [Int]?)
+    /// Every key's keyboard key on it, as Option shows them
+    case keys(Bool)
     case quit
 
     public static let usage = """
         state | press|release BUTTON[+BUTTON] | tap BUTTON[+BUTTON] [MS] | battery 0-100 | \
         cable 0|1 | kind wall|computer | headphones 0|1 | power | shutdown | screenshot FILE.png | \
-        window-shot FILE.png | wait-frames N | quit
+        window-shot FILE.png | wait-frames N | fps | latency BUTTON[+BUTTON] [X Y W H] | keys 0|1 | quit
         """
 
     public init?(line: String) {
@@ -38,6 +46,16 @@ public enum ControlCommand: Equatable {
         let arg = words.count > 1 ? words[1] : nil
         switch (verb, words.count) {
         case ("state", 1): self = .state
+        case ("fps", 1): self = .fps
+        case ("latency", 2), ("latency", 6):
+            guard let buttons = ControlCommand.chord(arg!) else { return nil }
+            if words.count == 6 {
+                let r = words[2...].compactMap { Int($0) }
+                guard r.count == 4, r[2] > 0, r[3] > 0 else { return nil }
+                self = .latency(buttons, region: r)
+            } else {
+                self = .latency(buttons, region: nil)
+            }
         case ("power", 1): self = .power
         case ("shutdown", 1): self = .shutdown
         case ("quit", 1): self = .quit
@@ -52,6 +70,9 @@ public enum ControlCommand: Equatable {
         case ("battery", 2):
             guard let pct = Int(arg!), (0...100).contains(pct) else { return nil }
             self = .battery(pct)
+        case ("keys", 2):
+            guard arg == "0" || arg == "1" else { return nil }
+            self = .keys(arg == "1")
         case ("cable", 2), ("headphones", 2):
             guard arg == "0" || arg == "1" else { return nil }
             self = verb == "cable" ? .cable(arg == "1") : .headphones(arg == "1")

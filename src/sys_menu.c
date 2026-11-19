@@ -288,6 +288,7 @@ int sys_menu_muse_rows(int kind, bool both, bool no_wifi, sm_muse_row *out)
 	out[n++] = SMM_SORT;
 	if (kind == 0 || kind == 3) out[n++] = SMM_SHUFFLE;
 	if (kind == 0 || kind == 3) out[n++] = SMM_LOOK;
+	if (kind == 2 || kind == 3) out[n++] = SMM_REPEAT;
 	out[n++] = SMM_EQ;
 	out[n++] = SMM_LOCK;
 	if ((kind == 0 || kind == 3) && !no_wifi) out[n++] = SMM_ART;
@@ -338,7 +339,7 @@ static const unsigned char SM_SOUND[SM_ROWS] = {
 };
 static unsigned char smm_sound(sm_muse_row r)
 {
-	return r == SMM_SHOW || r == SMM_LOOK || r == SMM_EQ ? MENU_SND_RING
+	return r == SMM_SHOW || r == SMM_LOOK || r == SMM_REPEAT || r == SMM_EQ ? MENU_SND_RING
 	     : r == SMM_SORT ? MENU_SND_RING | MENU_SND_NO_A : 0;
 }
 
@@ -408,6 +409,10 @@ int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
 				case SMM_LOOK:
 					out[k] = (menu_row){ T(S_SYSMENU_MUSE_LOOK), u->muse_look ? u->muse_look
 					                     : T(S_SYSMENU_LOOK_COVER), true };
+					break;
+				case SMM_REPEAT:
+					out[k] = (menu_row){ T(S_SYSMENU_MUSE_REPEAT),
+					                     u->muse_repeat ? u->muse_repeat : T(S_MENU_OFF_TITLE), true };
 					break;
 				case SMM_EQ:
 					out[k] = (menu_row){ T(S_SYSMENU_EQUALIZER), u->eq ? u->eq : T(S_MENU_OFF_TITLE), true };
