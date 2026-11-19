@@ -189,7 +189,81 @@ int main(void)
 		NEED(n == 2 && rows[0] == 4 && rows[1] == 7, "ahead, capped: the nearest rows kept");
 	}
 
+	/* 4. The home's Grid sizes itself (DESIGN.md 11.1's table) */
+	{
+		static const struct { int n, still, cols, rows, win, name; } want[] = {
+			{ 1, 256, 1, 1, 1, GH_NAME_META }, { 2, 256, 2, 1, 1, GH_NAME_META },
+			{ 3, 256, 3, 1, 1, GH_NAME_META }, { 4, 176, 4, 1, 1, GH_NAME_SUPPORT },
+			{ 5, 176, 3, 2, 2, GH_NAME_SUPPORT }, { 6, 176, 3, 2, 2, GH_NAME_SUPPORT },
+			{ 7, 176, 4, 2, 2, GH_NAME_SUPPORT }, { 8, 176, 4, 2, 2, GH_NAME_SUPPORT },
+			{ 9, 128, 5, 2, 2, GH_NAME_CHROME }, { 10, 128, 5, 2, 2, GH_NAME_CHROME },
+			{ 11, 104, 6, 2, 2, GH_NAME_CHROME }, { 12, 104, 6, 2, 2, GH_NAME_CHROME },
+			{ 13, 104, 6, 3, 3, GH_NAME_CHROME }, { 20, 104, 6, 4, 3, GH_NAME_CHROME },
+			{ 48, 104, 6, 8, 3, GH_NAME_CHROME },
+		};
+		gh_geom g;
+		int x, y, prev = 1 << 30;
+
+		for (unsigned i = 0; i < sizeof want / sizeof *want; i++) {
+			g = gh_layout(want[i].n, LEFT, TOP, 1024 - 2 * LEFT, FOOT - TOP, 24);
+			NEED(g.still == want[i].still && g.cols == want[i].cols && g.rows == want[i].rows &&
+			     g.win == want[i].win && g.name == want[i].name,
+			     "home of %d: still %d, %d x %d (%d in sight), name %d; want %d, %d x %d (%d), %d",
+			     want[i].n, g.still, g.cols, g.rows, g.win, g.name, want[i].still, want[i].cols,
+			     want[i].rows, want[i].win, want[i].name);
+		}
+		/* a card of more than twelve keeps 1.0.6's grid: 129 x 140 cells
+		 * from (65, 98), three rows in sight */
+		for (int n = 13; n <= 48; n++) {
+			g = gh_layout(n, LEFT, TOP, 1024 - 2 * LEFT, FOOT - TOP, 24);
+			NEED(g.cw == 129 && g.ch == 140 && g.x == 65 && g.y == 98 && g.win == 3,
+			     "home of %d: %d x %d cells from (%d, %d); want 1.0.6's 129 x 140 from (65, 98)",
+			     n, g.cw, g.ch, g.x, g.y);
+		}
+		/* every grid in its room, on this canvas and a wider one; fewer
+		 * systems never get a smaller still */
+		for (int sw = 1024; sw <= 1365; sw += 341)
+			for (int n = 1; n <= 48; n++) {
+				int rows;
+
+				g = gh_layout(n, LEFT, TOP, sw - 2 * LEFT, FOOT - TOP, 24);
+				rows = g.rows < g.win ? g.rows : g.win;
+				NEED(g.x >= LEFT && g.x + g.cols * g.cw + (g.cols - 1) * 24 <= sw - LEFT,
+				     "home of %d on %d: the grid leaves its room across", n, sw);
+				NEED(g.y >= TOP && g.y + rows * g.ch + (rows - 1) * 24 <= FOOT,
+				     "home of %d on %d: the grid leaves its room down", n, sw);
+				NEED(g.cols * g.rows >= n && g.cols * (g.rows - 1) < n, "home of %d on %d: %d x %d", n, sw, g.cols, g.rows);
+				NEED(g.ch == g.still + GH_NAME_GAP + g.box, "home of %d: a cell is its still and its name", n);
+				if (sw == 1024) NEED(g.still <= prev, "home of %d: a bigger still than one fewer has", n);
+				if (sw == 1024) prev = g.still;
+			}
+		/* a short last row in the middle under the full ones */
+		g = gh_layout(5, LEFT, TOP, 1024 - 2 * LEFT, FOOT - TOP, 24);
+		gh_cell(&g, 3, &x, &y);
+		NEED(x == g.x + (g.cw + 24) / 2 && y == g.y + g.ch + 24, "home of 5: the second row starts half a cell in");
+		/* Up and Down: the nearest under or over where the column started */
+		{
+			int a0, a1, a2, yy;
+
+			gh_cell(&g, 0, &a0, &yy); a0 += g.cw / 2;
+			gh_cell(&g, 1, &a1, &yy); a1 += g.cw / 2;
+			gh_cell(&g, 2, &a2, &yy); a2 += g.cw / 2;
+			NEED(gh_row_step(&g, 0, 1, a0) == 3, "5: Down from the first lands on the first under it");
+			NEED(gh_row_step(&g, 1, 1, a1) == 3, "5: Down from the middle lands on the first of two as near");
+			NEED(gh_row_step(&g, 3, -1, a1) == 1, "5: Up again comes back to the middle");
+			NEED(gh_row_step(&g, 2, 1, a2) == 4, "5: Down from the last lands on the last under it");
+			NEED(gh_row_step(&g, 1, -1, a1) == -1 && gh_row_step(&g, 4, 1, a2) == -1, "5: the top and the foot stop");
+		}
+		g = gh_layout(20, LEFT, TOP, 1024 - 2 * LEFT, FOOT - TOP, 24);
+		gh_cell(&g, 17, &x, &y);
+		NEED(gh_row_step(&g, 17, 1, x + g.cw / 2) == 19, "20: Down from the last column onto the short row's nearer, its last");
+		gh_cell(&g, 12, &x, &y);
+		NEED(gh_row_step(&g, 12, 1, x + g.cw / 2) == 18, "20: Down from the first column onto the short row's first");
+		g = gh_layout(3, LEFT, TOP, 1024 - 2 * LEFT, FOOT - TOP, 24);
+		NEED(gh_row_step(&g, 1, 1, 0) == -1 && gh_row_step(&g, 1, -1, 0) == -1, "one row: Up and Down stop");
+	}
+
 	if (failed) { printf("gridrule: %d failed\n", failed); return 1; }
-	printf("gridrule: every shape, mix and cell as DESIGN.md 11.47 says\n");
+	printf("gridrule: every shape, mix and cell as DESIGN.md 11.47 says, and the home's steps as 11.1 does\n");
 	return 0;
 }
