@@ -367,7 +367,10 @@ static void draw_systems(app *a)
 		snprintf(line, sizeof line, "%s%s%s%s%s", al, al[0] && bk[0] ? sep : "", bk,
 		         (al[0] || bk[0]) && vd[0] ? sep : "", vd);
 	} else {
-		int gc = sys_games(&a->view[a->sys_cursor])->count;
+		/* Collections' entries are its collections: its games are counted
+		 * apart, each once (src/collect.h) */
+		int gc = a->sys_cursor == shelf_coll_at(a) ? shelf_coll_games()
+		       : sys_games(&a->view[a->sys_cursor])->count;
 
 		/* A shelf of one read "1 games". Favorites hits it first because it
 		 * starts empty and grows one at a time, but any system with a single

@@ -17,6 +17,7 @@
 #include "rabadge.h"
 #include "rafetch.h"
 #include "remap.h"
+#include "collect_screen.h"
 #include "remapstore.h"
 #include "shelf_keys.h"
 #include "shelfbuild.h"
@@ -55,6 +56,9 @@ static void gi_gather(app *a, int owner, const game_entry *g, game_info *gi)
 	gi->can_rename = !is_muse(s) && gr_renames(s->core, g->file, g->dir);
 	gi->can_favorite = !is_muse(s);
 	gi->favorite = gi->can_favorite && fav_is(s->tag, g->file);
+	/* Collections take every game a favorite can be (src/collect.h) */
+	gi->can_collect = gi->can_favorite && s->folder[0];
+	if (gi->can_collect) collect_value(s->folder, g->file, gi->collected, sizeof gi->collected);
 	/* A key of its own on the card (map.<tag>.<file>): read here, so a reset
 	 * on the Buttons page takes the row away when the page comes back */
 	{
@@ -169,6 +173,8 @@ typedef struct {
 	/* Y on the page (or A on Favorite) changed the favorite: the Favorites
 	 * shelf is rebuilt once the page has closed */
 	bool        fav_changed;
+	/* Add to Collection changed a collection: Collections the same */
+	bool        coll_changed;
 	char        said[192];
 } info_ctx;
 
@@ -220,6 +226,16 @@ static menu_result info_key(app *a, void *ctx, in_button key, int sel)
 		if ((db_game_get(db_lib(), folder, c->g->file, &m) ||
 		     es_details(P_ROMS, folder, c->g->file, c->g->name, &m, NULL)) && m.synopsis[0])
 			synopsis_screen(a, c->g->title, m.synopsis, c->st.accent);
+		return MENU_STAY;
+	}
+
+	if (!strcmp(rows[sel].label, T(S_COLLECT_ADD))) {
+		/* The collections, ticked where it is in one (src/collect_screen.h);
+		 * the shelf made again once this page closes */
+		if (collect_page(a, c->owner, c->g, c->st.accent)) c->coll_changed = true;
+		gi_gather(a, c->owner, c->g, &c->gi);
+		plat_input_flush();
+		memset(&a->in, 0, sizeof a->in);
 		return MENU_STAY;
 	}
 
@@ -325,6 +341,7 @@ void game_info_screen(app *a)
 	/* The card may now hold art it did not before. */
 	free_all_textures(a);
 	if (c.fav_changed) refresh_favorites_shelf(a);
+	if (c.coll_changed && !c.deleted) refresh_collections_shelf(a);
 	if (c.deleted && c.said[0] && a->running)
 		result_message(a, T(S_GAMEMENU_DELETE), c.said);
 }

@@ -52,6 +52,11 @@ int gi_rows(menu_row *out, const game_info *gi, bool net)
 	 * fresh, so marking one moved to this page, Y on it or A on the row */
 	if (gi->can_favorite)
 		out[n++] = (menu_row){ T(S_CONTROLS_FAVORITE), gi->favorite ? MENU_KEY_Y_ON : MENU_KEY_Y_OFF, true };
+	/* Add to Collection (DESIGN.md 11.53) beside it, the other list of the
+	 * player's own: A opens the collections, a tick on each it is in, and
+	 * New Collection under them (src/collect_screen.c) */
+	if (gi->can_collect)
+		out[n++] = (menu_row){ T(S_COLLECT_ADD), gi->collected[0] ? gi->collected : NULL, true };
 	/* A game with a key of its own on the card (rms_game) shows its buttons
 	 * here, after Favorite: A opens the Controls list for it alone, so a
 	 * game kept apart from its system can be found and put right from the

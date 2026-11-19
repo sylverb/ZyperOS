@@ -95,7 +95,7 @@ const char *gm_pak_other(const char *value);           /* the one it steps to */
 const char *gm_pak_name(const char *value);            /* "Rumble Pak" ... */
 void gm_pak_key(const char *tag, const char *file, char *out, size_t n);
 
-#define GI_MAX 9          /* four facts at most, Favorite, Buttons and three actions */
+#define GI_MAX 10         /* four facts at most, Favorite, Add to Collection, Buttons and three actions */
 
 /* The genre line, from the scrape. Sized from the card rather than guessed:
  * measured 2026-09-17 over 1,704 rows, the whole comma-separated value has a
@@ -149,6 +149,11 @@ typedef struct {
 	 * Y on the shelf starts a game fresh (2026-11-08) */
 	bool  can_favorite;
 	bool  favorite;
+	/* Add to Collection (src/collect.h, DESIGN.md 11.53), after Favorite:
+	 * every game a favorite can be, its value how many collections it is in
+	 * ("In 2"), none when it is in none */
+	bool  can_collect;
+	char  collected[24];
 	/* The game has a key of its own on the card (rms_game): its buttons
 	 * differ from the system's, so the Buttons row shows them */
 	bool  own_buttons;

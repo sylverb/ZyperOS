@@ -59,6 +59,12 @@ extern const char *shot_badge_set;
 extern int shot_syn;
 extern int shot_info;
 extern int shot_delete_ask;
+/* Collections (src/collect_screen.h): Add to Collection's list for the game
+ * under the cursor, the cursor on that row (-1 none), and Delete
+ * Collection's question for the collection the shelf is on */
+extern int shot_collect_page, shot_collect_delete;
+/* --collect-said K: one of Collections' messages (0 to 2) */
+extern int shot_collect_said;
 extern int shot_gm_said;
 extern int shot_delete_now;
 extern int shot_controls;

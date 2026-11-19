@@ -1035,7 +1035,9 @@ void sort_shelf(app *a, int sys)
 
 		for (i = 0; i < a->sys.count && i < CFG_MAX_SYSTEMS; i++)
 			tags[i] = a->sys.systems[i].tag;
-		sort_apply_owned(v->list.items, v->owner, v->list.count, v->sort, tags);
+		/* Collections' top is its folders alone, A to Z (src/collect.h) */
+		sort_apply_owned(v->list.items + v->nfold, v->owner + v->nfold,
+		                 v->list.count - v->nfold, v->sort, tags);
 		return;
 	}
 	/* A shelf's folders stay first, A to Z (src/shelfdir.h): the order is
@@ -2146,9 +2148,15 @@ void shelf_open_dir(app *a, int s, const char *dir, const char *select)
 	sysview *v = &a->view[s];
 	int i;
 
-	if (!v->all) return;
-	texload_bump();
-	shelf_show_dir(v, dir);
+	/* Collections' folders are its collections (src/collect.h) */
+	if (s == shelf_coll_at(a)) {
+		texload_bump();
+		if (!shelf_coll_show(a, s, dir)) return;
+	} else {
+		if (!v->all) return;
+		texload_bump();
+		shelf_show_dir(v, dir);
+	}
 	sort_shelf(a, s);
 	v->cursor = 0;
 	for (i = 0; select && i < v->list.count; i++)
@@ -4916,6 +4924,8 @@ static int menu_shelf_width(app *a)
 		}
 		for (k = 0; k < (muse ? ML_ORDERS : SORT_COUNT); k++) {
 			int mw;
+			/* Every order a shelf of either kind offers: Collections' two
+			 * too (src/sort.h), so its menu is no wider than this */
 			rows[srow].value = muse ? ml_order_label((ml_order)k, false) : sort_label(k);
 			mw = menu_measure(rows, n, heading);
 			if (mw > w) w = mw;
@@ -5413,6 +5423,13 @@ int main(int argc, char *argv[])
 		 * over the shelf (DESIGN.md 11.31) */
 		else if (!strcmp(argv[i], "--info-delete")) shot_info = 2;
 		else if (!strcmp(argv[i], "--info-rename")) shot_info = 3;
+		/* Collections (src/collect_screen.h): the details page on Add to
+		 * Collection, its list with the cursor on row K, and Delete
+		 * Collection's question on the Collections shelf */
+		else if (!strcmp(argv[i], "--info-collect")) shot_info = 5;
+		else if (!strcmp(argv[i], "--collect-page") && i + 1 < argc) shot_collect_page = atoi(argv[++i]);
+		else if (!strcmp(argv[i], "--collect-delete")) shot_collect_delete = 1;
+		else if (!strcmp(argv[i], "--collect-said") && i + 1 < argc) shot_collect_said = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--info-art")) shot_info_art = true;
 		/* The Buttons page a game with its own buttons opens from its details */
 		else if (!strcmp(argv[i], "--info-buttons")) shot_info = 4;
