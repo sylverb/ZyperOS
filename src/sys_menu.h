@@ -91,6 +91,10 @@
  * settings together, as a phone keeps Language and Region (My pick in
  * the languages lab, 2026-11-07; DESIGN.md 11.30). Its value is the
  * language's own name; A opens the five. */
+/* PM_RUMBLE is Rumble, the Sound tab's last row, under Menu Music: how hard
+ * the motor runs in every game, Off, Low, Medium or Full (src/rumble.h),
+ * Full on a new card; each step buzzes once. Only where the handheld has a
+ * motor ZyperOS runs (no_rumble). My picks in the Sound lab, 2026-11-19. */
 /* MENU IS IN TABS (DESIGN.md 11.3, my picks 2026-11-12): Games, Display,
  * Sound, Connections, System and About, L1 and R1 going round them. The rows
  * are in the enum by tab, and in a tab in the enum's order; which tab a row
@@ -132,7 +136,7 @@ typedef enum {
 	PM_SCREEN,
 	PM_NIGHT,
 	/* Sound */
-	PM_AUDIO, PM_CHANNELS, PM_SOUNDS, PM_MUSIC,
+	PM_AUDIO, PM_CHANNELS, PM_SOUNDS, PM_MUSIC, PM_RUMBLE,
 	/* Connections: USB Device first, while a plug waits for its answer */
 	PM_USB_WAIT, PM_WIFI, PM_BT, PM_XFER, PM_USB, PM_DEVELOPER,
 	/* System */
@@ -211,7 +215,7 @@ typedef enum {
  * live while something plays, and saying so when nothing does.
  *
  * Player Look, under Shuffle All where the songs are: how Now Playing draws
- * a song (src/mp4look.h, DESIGN.md 11.14, 2026-11-19), its list showing the
+ * a song (src/mp4look.h, DESIGN.md 11.64, 2026-11-19), its list showing the
  * look under the cursor, playing.
  *
  * Quit, the last row on every MP4 shelf, leaves MP4 for the screen it was
@@ -424,6 +428,10 @@ typedef struct {
 	/* Menu Music: "On", "Off" or "no tracks" - bgm_menu_value's. NULL reads
 	 * "Off". A label, for the reason ui_sounds is one. */
 	const char *menu_music;
+	/* Rumble: the level's name, rumble_level_name's. NULL reads Full. And
+	 * no motor ZyperOS runs here (plat_has_rumble): no row. */
+	const char *rumble;
+	bool        no_rumble;
 
 	/* Bluetooth: the name of the connected headset, or NULL. The row used to
 	 * read "not yet" and be dead, which was true of the pairing screen and

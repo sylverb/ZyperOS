@@ -117,22 +117,48 @@ void update_systems(app *a)
 	in_button sb = IN_NONE;              /* the step's button, for its sound */
 	int dir = 0, was = a->sys_cursor;
 
-	if (in_repeat(&a->in, back)) { a->sys_cursor = (a->sys_cursor - 1 + n) % n; dir = -1; sb = back; }
-	if (in_repeat(&a->in, fwd))  { a->sys_cursor = (a->sys_cursor + 1) % n; dir = +1; sb = fwd; }
-	/* The Grid home (DESIGN.md 11.1): Up and Down a row, stopping at the top
-	 * and the foot (the edge sound), Down over a short last row onto its
-	 * last system; L1 and R1 a screenful, or to the end, then round
-	 * (gg_page, as the shelf grid's) */
-	if (a->home_layout == HOME_GRID) {
-		int cols = home_grid_cols(), page = cols * HOME_GRID_ROWS, to = a->sys_cursor;
+	/* On the Grid a held Left or Right stops at the first or the last
+	 * system with the edge sound once, as a list's does, and a new press
+	 * goes round (2026-11-19, from the home grid lab); a press goes round
+	 * on every layout */
+	bool grid = a->home_layout == HOME_GRID;
 
-		if (in_repeat(&a->in, IN_UP)) { if (to >= cols) to -= cols; sb = IN_UP; }
-		if (in_repeat(&a->in, IN_DOWN)) {
-			if (to / cols < (n - 1) / cols) to = to + cols < n ? to + cols : n - 1;
-			sb = IN_DOWN;
+	if (in_repeat(&a->in, back)) {
+		sb = back;
+		if (!grid || a->sys_cursor > 0 || a->in.pressed[back]) {
+			a->sys_cursor = (a->sys_cursor - 1 + n) % n; dir = -1;
 		}
-		if (in_repeat(&a->in, IN_L1)) { to = gg_page(to, n, page, -1); sb = IN_L1; }
-		if (in_repeat(&a->in, IN_R1)) { to = gg_page(to, n, page, +1); sb = IN_R1; }
+	}
+	if (in_repeat(&a->in, fwd)) {
+		sb = fwd;
+		if (!grid || a->sys_cursor < n - 1 || a->in.pressed[fwd]) {
+			a->sys_cursor = (a->sys_cursor + 1) % n; dir = +1;
+		}
+	}
+	/* The Grid home (DESIGN.md 11.1): Up and Down a row, to the system
+	 * nearest where the column started (Down then Up comes back), stopping
+	 * at the top and the foot (the edge sound); L1 and R1 a screenful, or to
+	 * the end, then round (gg_page, as the shelf grid's) */
+	if (grid) {
+		gh_geom g = home_grid_geom(n);
+		int page = g.cols * g.win, to = a->sys_cursor;
+
+		if (sb != IN_NONE) a->home.grid_ax = -1;
+		if (in_repeat(&a->in, IN_UP) || in_repeat(&a->in, IN_DOWN)) {
+			int d = in_repeat(&a->in, IN_DOWN) ? 1 : -1, step;
+
+			if (a->home.grid_ax < 0) {
+				int x, y;
+
+				gh_cell(&g, to, &x, &y);
+				a->home.grid_ax = x + g.cw / 2;
+			}
+			step = gh_row_step(&g, to, d, a->home.grid_ax);
+			if (step >= 0) to = step;
+			sb = d > 0 ? IN_DOWN : IN_UP;
+		}
+		if (in_repeat(&a->in, IN_L1)) { to = gg_page(to, n, page, -1); sb = IN_L1; a->home.grid_ax = -1; }
+		if (in_repeat(&a->in, IN_R1)) { to = gg_page(to, n, page, +1); sb = IN_R1; a->home.grid_ax = -1; }
 		if (to != a->sys_cursor) dir = to > a->sys_cursor ? 1 : -1;
 		a->sys_cursor = to;
 		if (a->sys_cursor == was) dir = 0;

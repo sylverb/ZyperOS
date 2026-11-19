@@ -856,9 +856,8 @@ its underline sits a grid step under the whole cell, never on the art, and
 the name a little lower again, so tall art such as the Game Boy keeps its
 lower body clear.
 **Grid** *(2026-11-15, the dense layout, with the shelves' Grid, 11.47)*: the
-systems in a grid, more of them at once - 18 on the 1024-wide canvas, six
-across and three rows - each its still (104 units) with its concise name
-under it in **chrome**, **text-soft**; the focus on a **surface** tile, 8
+systems in a grid, more of them at once, each its still with its concise name
+under it, **text-soft**; the focus on a **surface** tile, 8
 round its cell and its underline, corners radius.card (square with Square
 corners), with a thumbnail's lift as the shelf grid's focused cover has
 (UI_LIFT_FOCUS_SMALL, in the system's color in Salt & Pepper), its name in
@@ -866,19 +865,58 @@ corners), with a thumbnail's lift as the shelf grid's focused cover has
 tile and underline glide from cell to cell in **ms.quick**, the window of
 rows in **ms.move**. *(2026-11-15: a name and its underline alone were hard to
 find at arm's length among 21 systems; the tile makes the home's focus read as
-the shelf grid's.)* Only the
-focused system's sprite moves, as on the others. The grid's room and band are
-the shelf grid's: from the top bar's band and a section (96) to 568, the cells
-DS_GRID_GAP apart, as many across as cells of at least 128 fit between the
-64 margins, the grid in the middle of its room; the rail at the right when
-the systems are more than three rows. The band: the system's whole name in
+the shelf grid's.)* The focus is drawn in one place (src/home.c, `hg_focus`),
+so a look for it can be picked there one day. Only the
+focused system's sprite moves, as on the others.
+
+**The grid sizes itself** to how many systems the home shows *(2026-11-19:
+Man in Boots on the Discord, "a little too much white space" on a card of few
+systems, asked for a grid size to set; I wanted no setting, the grid fitting
+the systems instead, and picked from the home grid lab)*: the still in four
+steps, the biggest whose rows hold every system, so fewer systems get bigger
+tiles and a full card keeps the 1.0.6 grid. The name grows with its still. A
+step's cell is its still and 12 either side (129 for 104), the cells
+DS_GRID_GAP apart, as many across as fit between the 64 margins, the columns
+as few as the rows allow so the rows are even (5 is 3 + 2, 7 is 4 + 3), the
+grid in the middle of its room (from the top bar's band and a section, 96, to
+568). The rule is `gh_layout` (src/gridrule.h); `check-gridrule` holds this
+table. On the 1024 x 768 canvas:
+
+| Systems | Still | Across, rows | Name | On the Pixel 2 | On the Brick |
+|---|---|---|---|---|---|
+| 1 to 3 | 256 | up to 3, one row | **meta** (37, line 40) | 160 px | 256 px |
+| 4 to 8 | 176 | up to 4, two rows (4 is one) | **support** (28, line 36) | 110 px | 176 px |
+| 9, 10 | 128 | 5, two rows | **chrome** (24, line 28) | 80 px | 128 px |
+| 11, 12 | 104 | 6, two rows | **chrome** | 65 px | 104 px |
+| 13 and more | 104 | 6, three rows in sight, the rail | **chrome** | 65 px | 104 px |
+
+Thirteen and more is the 1.0.6 grid: cells of at least 128 filling the width
+(129 x 140 from 65, 98), three rows in sight, scrolling, the rail at the right.
+A wider canvas (a screen of another shape in the 768-high design space) has
+more across by the same rule. A short last row stands in the middle under
+the full ones. The stills are the 128-pixel ones drawn larger, nearest, as
+Gallery's are; nothing more is decoded. The band: the system's whole name in
 **game-title** (Favorites in the language that is on), A's **Open games** at
 its right, its count under it in **support**; the foot at 720: MENU and
-START, the place, SELECT. **Up** and **Down** move a row, stopping at the top and the foot
-with the edge sound (Down over a short last row lands on its last system);
-**Left** and **Right** step round the ends; **L1** and **R1** jump a screenful, or to the last (first) system where less is left, and from the last round to the first (as the shelf grid's, 11.47).
+START, the place, SELECT. **Up** and **Down** move a row, to the system
+nearest the place where the column started, so Down then Up comes back to the
+same system (Down from the last column over a short row lands on its last
+system), stopping at the top and the foot with the edge sound; **Left** and
+**Right** step, a press going round the ends and a held one stopping at the
+first or the last system with the edge sound once, as a list's does;
+**L1** and **R1** jump a screenful, or to the last (first) system where less is left, and from the last round to the first (as the shelf grid's, 11.47).
 A system hidden or emptied leaves the grid as it leaves the row; Favorites is
-a tile like any other.
+a tile like any other. When the systems change (one turned off or on in
+Home Systems, 11.48; Favorites or Recents made or emptied; a system's last
+game deleted; System Order turned), the grid **glides** from the tiles it drew
+last to its new shape: each system slides and grows to its new place on the
+**turn** curve in **ms.turn** (300), one that left fades out as its own still
+where it was in **ms.fade-out**, one that came fades in at its place. While a
+menu is over the home the glide waits at its start, drawing no more frames
+than the home would; it runs from the frame the menu starts to leave, so it
+is seen; a press during it moves the focus with its system. It runs only from a grid drawn last: never on the first frame, nor
+from Spotlight or Gallery. A frame of the glide is the same stills drawn at
+places between: nothing is decoded for it.
 
 MENU remains at the left footer with START after it, the position in the
 middle, and A at the right. SELECT still opens the player without another footer caption.
@@ -1188,7 +1226,7 @@ where it was.)*
 |---|---|
 | **Games** | Search Games, Play Time, Random Game, Downloads (11.53) |
 | **Display** | Appearance, Theme, Home Screen, System Order, Home Systems, Battery Icon, Screensaver, Shader and Strength (ZyperOS's own screens', 11.50; not on the Brick), Screen Colors, Night Mode (its page: Night Mode, Night Warmth, Night From, Until) |
-| **Sound** | Audio Output, Audio Channels, UI Sounds, Menu Music |
+| **Sound** | Audio Output, Audio Channels, UI Sounds, Menu Music, Rumble (a handheld with a motor ZyperOS runs, 11.54) |
 | **Connections** | USB Device (while a plug waits), Wi-Fi, Bluetooth, File Transfer, USB Accessories, Developer Mode |
 | **System** | Date & Time, Clock, Language, Power Button, Auto Off, Charge Limit, Side Lights, Storage, System Update |
 | **About** | About ZyperOS, Controls, Show Tutorial |
@@ -2074,106 +2112,9 @@ Muse, so a card's saved places and modes still read.
   with no panel.
 - **Shuffle All.** MENU on the music shelf: every song on the card, the mode
   set to shuffle and kept.
-- **Player Look.** MENU on the music shelf, and on All when the card has
-  songs, under Shuffle All: how Now Playing shows a song (src/mp4look.h,
-  src/nowplaying_looks.c). **Cover**, the cover large as it always was, is
-  the default; **Cassette**, **Classic** and **Spectrum** beside it. A opens the list, its
-  picture the look under the cursor playing (src/ds/preview.h's column):
-  Now Playing drawn whole at the screen's size into a texture, halved, then
-  drawn into the box - the song that plays, or with none the shelf's
-  album's first song in show, its clock running and its bars moving. Left
-  and Right step it round. Kept as `muse.look`. A book and a video keep
-  their own Now Playing.
-  - **The frame** every look shares: the top bar; the song's time, the bar
-    from margin to margin with the time played and the time left under its
-    two ends in **meta** **text-soft** (tabular) and the word for a pause
-    between them; the keys at the foot. Laid out from the foot up
-    (src/ds/flex.h): the keys' rows, their box rounded up to the grid, a
-    section, the times, a related step, the bar, a section; the look has the
-    rest, from a section under the header. Six of the eight languages put
-    the keys on two rows, and their looks are 48 shorter: nothing meets.
-  - **Cassette**: a C-cassette at its real proportions, 100.4 x 63.8 mm,
-    **look-cassette-w** wide (592 x 376, 74 x 47 grid steps, the nearest
-    whole steps to its 1.5737), in a clear smoke-grey shell with the theme's
-    ground through it (my pick). Its parts are a drawing in millimetres
-    (src/cassette.h): the label in the theme's **surface**, the side's letter
-    in a **text** box, the song in **game-title** (sliding when long), its
-    place in the album in **chrome** **text-dim** with the play mode's mark,
-    the cover's main color as a stripe across it (src/covercolor.h: the hue
-    most of the cover is, gently weighed by how vivid; the accent for an
-    album with no cover), and under the window the artist and the album; the
-    window, a pill, its glass lit at the top; through it the reels, each hub
-    21.5 mm of white plastic with six teeth round the spindle's hole and the
-    clamp in its rim, each pack of tape up to 50.2 mm; the head end with its
-    three openings and the tape across them; five screws. The side is the
-    album's: its first half A, the rest B, as an album went onto a tape. 25
-    bars under it, as wide as it.
-  - **The cassette's motion**: the packs trade their area over the song,
-    the left emptying and the right filling; each reel turns at the tape's
-    4.76 cm a second over its pack's radius, counterclockwise as the tape
-    leaves the left pack down its outer side and climbs onto the right, so
-    the near-empty one turns fast. Play and pause bring them up over
-    **spin-up** and down over **spin-down** (out, from wherever they are),
-    the sound stopping at once. A new song rewinds the tape over **rewind**
-    (turn), the reels turning back with it, the label's words leaving in
-    **exit** (in) up a grid step and the new ones arriving in **move** (out)
-    from one under; a seek winds the tape on follow (tau **wind**). The
-    rewind is a show, not the song's real tape: from a song's end it turns
-    the empty hub at most 4.3 times a second, 26 degrees a frame, under the
-    30 at which six teeth would seem to stand or turn back. Drawn once into
-    textures for the theme's colors - the shell and label, the window's
-    glass, a hub, a pack - so a frame only copies them: the packs scaled,
-    the hubs turned, the reels clipped to the window. Under Square the
-    cassette keeps its own corners: it is a thing, not the interface.
-  - **Classic**: the clock's panel (**look-classic-w** wide, a panel's slab
-    with its lift) - the play state's mark in **accent-ink** and its word
-    (Playing, Paused, Stopped) in **meta** **text-dim**, where in the queue
-    and the mode's mark at its right, the time played in **clock** (tabular;
-    a time past an hour too wide for the panel comes down to **title**), and
-    18 bars in the room under it - and under the panel the song in **title**
-    and its artist in **meta** **text-soft**, sliding when long. On the right
-    the album's tracks in a panel of their own, **look-list-row** rows: the
-    number tabular in **text-dim**, the name fitted in **text-soft**, and the
-    song's row in the **accent** fill with **on-accent** words, kept in view
-    and as near the middle as the album allows. The word for a pause is the
-    panel's, so the times under the bar say none.
-  - **Spectrum**: 32 bars, one a band, across the screen with their
-    reflection under them (22% at their feet, fading to nothing over three
-    tenths of their height), under the cover (**look-cover**, in the light a
-    cover in MP4 gets) and beside it where in the queue and the mode's mark,
-    the song in **title** and the artist in **menu** **text-soft**. 32 bars on
-    the grid are 760 wide; the column is the grid step nearest the middle,
-    128 to 888.
-  - **The bars**: **look-bar-w** wide and **look-bar-gap** apart, in
-    **accent-ink**, round at the top (**radius-bar**) and flat on their
-    feet; over each a cap, a **text-dim** pill **look-cap** high and
-    **look-cap** over the bar. A bar rises at once and falls on **follow**
-    (tau **bar-fall**); its cap holds where the bar reached for
-    **peak-hold**, then drops with gravity, from the top to the floor in
-    667 ms. Paused, the bars fall to rest and the caps lie in a row on the
-    floor. Every edge is on the grid, whole pixels on the Pixel 2 (a bar 10
-    of them, 5 between); a bar's top and a cap move smoothly between them.
-  - **The sound** is the daemon's (src/muse/bands.h): what is heard, not
-    what the decoder has reached - the frames written, less the 200 ms still
-    queued, plus what played since - a 1024-point FFT under a Hann window
-    (at 512 the nine bands under 200 Hz shared two bins), 32 bands spaced
-    evenly in pitch from 50 Hz to 12 kHz, each its loudest bin in dB from
-    -64 to -16, tilted 2 dB an octave about 1 kHz; the scale set on five
-    songs, from a quiet live recording to a loud electronic master
-    (tools/bands-check.c --song). 30 times a second, and only while bars are
-    drawn: every frame of bars keeps the daemon measuring for 300 ms more
-    (`musec_bands_keep`, BANDS on the socket), so behind a menu, under the
-    lock, paused and still, or on Cover it is not measuring. 5 to 34 us a
-    window on an M3 Max (check-bands); the Pixel 2's is measured on the
-    device.
-  - **Power**: a look draws every frame while music plays, paced by the
-    panel (ui_frame_rest); paused, once its bars are down, it draws as Cover
-    does, on a change and once a second. Under the lock nothing moves: the
-    bars are at rest from its first frame.
-  - *(My picks in the Sound lab, 2026-11-19: the looks ship beside Cover,
-    which stays the default; a clear smoke-grey shell for the cassette; bars
-    with caps - a bar rising at once and falling on follow, its cap holding
-    400 ms and then dropping with gravity.)*
+- **Player Look.** MENU on the music shelf, under Shuffle All: how Now
+  Playing shows a song. Cover, the cover large as it always was, is the
+  default; the others are 11.64's.
 - **Quit.** The last row of MP4's MENU on every shelf (music, books, videos,
   All), from the shelf, an album's tracks or Now Playing: MP4 closes, as
   SELECT closes it, to the screen it was opened from (the home, a menu, a
@@ -3156,7 +3097,7 @@ and R1 go round them, and the panel is the same size on every tab:
 |---|---|
 | **Game** | Continue, Save, Load, Undo Load (after a load, below), Quick Slot, Disc (a game on more than one disc), Player 2 (an NES game, 11.43), Achievements, Reset, Quit |
 | **Display** | Display, Shader; a DS game's Screens, Swap Screens, Stylus |
-| **Controls** | Applies To, D-pad as Stick, Pak, Face Buttons, one row a button, Reset Buttons, Hotkeys (11.45) |
+| **Controls** | Applies To, D-pad as Stick, Pak, Rumble (11.54), Face Buttons, one row a button, Reset Buttons, Hotkeys (11.45) |
 | **Achievements** | the game's achievements, or the sentence that says why it has none (11.46) |
 
 **Undo Load** (1.0.6). Every load the player makes, Load's slot strip or
@@ -3211,6 +3152,8 @@ screen), in this order, the rows in brackets only where they apply:
    the system and this game has buttons of its own.]
 3. [**D-pad as Stick**, On or Off, this game's whatever Applies To says (11.45).]
 4. [**Pak**, an N64 game's, as it was in the Game list.]
+4b. [**Rumble**, Off, Low, Medium or Full for the scope Applies To shows, a
+   game whose core asked for the motor on a handheld with one (11.54).]
 5. [**Face Buttons**, **By Letter** or **By Place** (11.45).]
 6. **A, B, X, Y, L1, R1, L2, R2, START, SELECT**, the handheld's button at the
    left and what it does in this game at the right, in the core's own name
@@ -4900,8 +4843,8 @@ tutorial's front pose (10 degrees), lights the keys of the row under the
 cursor in the tutorial's lit look (accent fill, ring, halo): a button row its
 button; D-pad as Stick the d-pad (and SELECT on the N64 and the Dreamcast);
 Face Buttons the four faces; Reset Buttons every changed button; a swap
-both buttons while the cursor stays on the row; Applies To, Pak and Hotkeys
-nothing. A lit shoulder stands up out of the top edge. It **leans**
+both buttons while the cursor stays on the row; Applies To, Pak, Rumble and
+Hotkeys nothing. A lit shoulder stands up out of the top edge. It **leans**
 toward the side of the keys lit: the faces (A, B, X, Y) turn it 12 degrees
 from the front pose to show its right side (22 degrees), the d-pad 22 the
 other way (-12). A shoulder row turns it 12 toward its side (R1 and R2 to 22
@@ -5669,3 +5612,158 @@ kinds' A opens their pages, so the switches are Settings' rows.)*
 
 Host shots: `--downloads STATE`, 0 the plan, 1 a run going on, 2 every kind
 done or out, 3 no network and nobody signed in, 4 Settings.
+
+### 11.54 Rumble
+*(Asked for on the Discord after 1.0.6: turn the motor down or off. My picks
+in the Sound lab, 2026-11-19: four levels, Low 35% and Medium 65% of what a
+game asks, a row in MENU and in a game's Controls tab.)*
+
+**The levels.** **Off**, **Low**, **Medium**, **Full**: none, 35% and 65% of
+the strength a game asks the motor for, and all of it, as ZyperOS always ran
+it. A new card is Full, so nobody who leaves the row alone feels a change.
+The level multiplies a system's own share (systems.cfg's `rumble|` lines:
+Doom's 35%, whose every shot rumbled), so Low on Doom is 12%; a level above
+Off never rounds to nothing (src/rumble.h, `rumble_run_pct`).
+
+**MENU > Sound > Rumble**, the Sound tab's last row, under Menu Music: the
+level for every game. Left and Right step it and stop at Off and Full,
+heard as Auto Off is (move when it moved, edge when it did not); A opens the
+four as a list with a note under it: "No rumble at all.", "35% of what a
+game asks.", "65% of what a game asks." or "As strong as each game asks."
+(one sentence each: the note has two lines, and German's and French's
+second sentence did not fit). **Each step is felt**: the motor buzzes
+once, 160 ms, at the level it comes to, and in the list the level under the
+cursor buzzes as the cursor comes onto it (Off is still). Only on a handheld
+with a motor ZyperOS runs (the profile's `rumble`): the Pixel 2. The Brick's
+motor (GPIO 227 on the axp2202's bldo3 rail) waits for its tester's first
+buzz; its profile turns the rows on with it.
+
+**In a game, the Controls tab's Rumble row**, under the Pak: only for a game
+whose core asked for the motor (Diatom answers PAUSED with `rumble=1`), on a
+handheld with one. It is the level of what Applies To shows, This Game or
+the system; a game without its own follows its system's, and a system
+without its own follows MENU's. A value the scope set itself is in the
+**accent-ink**, as a changed button is. A opens "Rumble: This Game" (or the
+system's name): the four levels, the tick on the scope's and **Default** on
+what it falls back to (MENU's, or the system's for a game that has one);
+choosing that one takes the scope's own level away. Left and Right step it
+as in MENU. Each change reaches the paused game at once (`SETRUMBLE`) and
+buzzes once at what the game will feel, its system's share included.
+
+**What it costs.** Nothing a frame: a level is one number Diatom multiplies
+by when a core changes its motor. The port is handed what the core asks and
+a 0 to 1 scale beside it (`diatom_port_rumble`): the Pixel 2's force
+feedback runs at the product; a motor whose strength is a voltage, as the
+Brick's, takes the scale as its step.
+
+**Kept**: `rumble` in the device's database (MENU's; no key at Full),
+`rumble.<TAG>` and `rumble.<TAG>.<file>` in the library's, each gone when it
+would equal what it falls back to; Rename and Delete Game move and remove a
+game's with its file. Host shots: `menu-rumble`, `menu-rumble-list` (and
+`-low`, `-off`: the list opened on those levels, with their notes),
+`gamemenu-rumble`, `gamemenu-rumble-list`, `gamemenu-rumble-own-list`
+(tools/i18n-shots.py; `--gm-rumble` stands in for the core's asking).
+
+### 11.64 Player Looks
+
+**Player Look**, in MP4's MENU on the music shelf (and on All when the card
+has songs) under Shuffle All, is how Now Playing shows a song
+(src/mp4look.h, src/nowplaying_looks.c). **Cover**, the cover large as it
+always was, is the default; **Cassette**, **Classic** and **Spectrum**
+beside it. A opens the list, its picture the look under the cursor playing
+(src/ds/preview.h's column): Now Playing drawn whole at the screen's size
+into a texture, halved, then drawn into the box - the song that plays, or
+with none the shelf's album's first song in show, its clock running and its
+bars moving. Left and Right step it round. Kept as `muse.look`. A book and a
+video keep their own Now Playing.
+
+- **The frame** every look shares: the top bar; the song's time, the bar
+  from margin to margin with the time played and the time left under its
+  two ends in **meta** **text-soft** (tabular) and the word for a pause
+  between them; the keys at the foot. Laid out from the foot up
+  (src/ds/flex.h): the keys' rows, their box rounded up to the grid, a
+  section, the times, a related step, the bar, a section; the look has the
+  rest, from a section under the header. Six of the eight languages put
+  the keys on two rows, and their looks are 48 shorter: nothing meets.
+- **Cassette**: a C-cassette at its real proportions, 100.4 x 63.8 mm,
+  **look-cassette-w** wide (592 x 376, 74 x 47 grid steps, the nearest
+  whole steps to its 1.5737), in a clear smoke-grey shell with the theme's
+  ground through it (my pick). Its parts are a drawing in millimetres
+  (src/cassette.h): the label in the theme's **surface**, the side's letter
+  in a **text** box, the song in **game-title** (sliding when long), its
+  place in the album in **chrome** **text-dim** with the play mode's mark,
+  the cover's main color as a stripe across it (src/covercolor.h: the hue
+  most of the cover is, gently weighed by how vivid; the accent for an
+  album with no cover), and under the window the artist and the album; the
+  window, a pill, its glass lit at the top; through it the reels, each hub
+  21.5 mm of white plastic with six teeth round the spindle's hole and the
+  clamp in its rim, each pack of tape up to 50.2 mm; the head end with its
+  three openings and the tape across them; five screws. The side is the
+  album's: its first half A, the rest B, as an album went onto a tape. 25
+  bars under it, as wide as it.
+- **The cassette's motion**: the packs trade their area over the song,
+  the left emptying and the right filling; each reel turns at the tape's
+  4.76 cm a second over its pack's radius, counterclockwise as the tape
+  leaves the left pack down its outer side and climbs onto the right, so
+  the near-empty one turns fast. Play and pause bring them up over
+  **spin-up** and down over **spin-down** (out, from wherever they are),
+  the sound stopping at once. A new song rewinds the tape over **rewind**
+  (turn), the reels turning back with it, the label's words leaving in
+  **exit** (in) up a grid step and the new ones arriving in **move** (out)
+  from one under; a seek winds the tape on follow (tau **wind**). The
+  rewind is a show, not the song's real tape: from a song's end it turns
+  the empty hub at most 4.3 times a second, 26 degrees a frame, under the
+  30 at which six teeth would seem to stand or turn back. Drawn once into
+  textures for the theme's colors - the shell and label, the window's
+  glass, a hub, a pack - so a frame only copies them: the packs scaled,
+  the hubs turned, the reels clipped to the window. Under Square the
+  cassette keeps its own corners: it is a thing, not the interface.
+- **Classic**: the clock's panel (**look-classic-w** wide, a panel's slab
+  with its lift) - the play state's mark in **accent-ink** and its word
+  (Playing, Paused, Stopped) in **meta** **text-dim**, where in the queue
+  and the mode's mark at its right, the time played in **clock** (tabular;
+  a time past an hour too wide for the panel comes down to **title**), and
+  18 bars in the room under it - and under the panel the song in **title**
+  and its artist in **meta** **text-soft**, sliding when long. On the right
+  the album's tracks in a panel of their own, **look-list-row** rows: the
+  number tabular in **text-dim**, the name fitted in **text-soft**, and the
+  song's row in the **accent** fill with **on-accent** words, kept in view
+  and as near the middle as the album allows. The word for a pause is the
+  panel's, so the times under the bar say none.
+- **Spectrum**: 32 bars, one a band, across the screen with their
+  reflection under them (22% at their feet, fading to nothing over three
+  tenths of their height), under the cover (**look-cover**, in the light a
+  cover in MP4 gets) and beside it where in the queue and the mode's mark,
+  the song in **title** and the artist in **menu** **text-soft**. 32 bars on
+  the grid are 760 wide; the column is the grid step nearest the middle,
+  128 to 888.
+- **The bars**: **look-bar-w** wide and **look-bar-gap** apart, in
+  **accent-ink**, round at the top (**radius-bar**) and flat on their
+  feet; over each a cap, a **text-dim** pill **look-cap** high and
+  **look-cap** over the bar. A bar rises at once and falls on **follow**
+  (tau **bar-fall**); its cap holds where the bar reached for
+  **peak-hold**, then drops with gravity, from the top to the floor in
+  667 ms. Paused, the bars fall to rest and the caps lie in a row on the
+  floor. Every edge is on the grid, whole pixels on the Pixel 2 (a bar 10
+  of them, 5 between); a bar's top and a cap move smoothly between them.
+- **The sound** is the daemon's (src/muse/bands.h): what is heard, not
+  what the decoder has reached - the frames written, less the 200 ms still
+  queued, plus what played since - a 1024-point FFT under a Hann window
+  (at 512 the nine bands under 200 Hz shared two bins), 32 bands spaced
+  evenly in pitch from 50 Hz to 12 kHz, each its loudest bin in dB from
+  -64 to -16, tilted 2 dB an octave about 1 kHz; the scale set on five
+  songs, from a quiet live recording to a loud electronic master
+  (tools/bands-check.c --song). 30 times a second, and only while bars are
+  drawn: every frame of bars keeps the daemon measuring for 300 ms more
+  (`musec_bands_keep`, BANDS on the socket), so behind a menu, under the
+  lock, paused and still, or on Cover it is not measuring. 5 to 34 us a
+  window on an M3 Max (check-bands); the Pixel 2's is measured on the
+  device.
+- **Power**: a look draws every frame while music plays, paced by the
+  panel (ui_frame_rest); paused, once its bars are down, it draws as Cover
+  does, on a change and once a second. Under the lock nothing moves: the
+  bars are at rest from its first frame.
+- *(My picks in the Sound lab, 2026-11-19: the looks ship beside Cover,
+  which stays the default; a clear smoke-grey shell for the cassette; bars
+  with caps - a bar rising at once and falling on follow, its cap holding
+  400 ms and then dropping with gravity.)*

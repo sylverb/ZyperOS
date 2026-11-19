@@ -2,7 +2,7 @@
 #ifndef ZYPEROS_MP4LOOK_H
 #define ZYPEROS_MP4LOOK_H
 
-/* MP4's Player Looks (DESIGN.md 11.14, my picks in the Sound lab,
+/* MP4's Player Looks (DESIGN.md 11.64, my picks in the Sound lab,
  * 2026-11-19): how Now Playing draws a song. Cover, the album's cover
  * large, is the default and was the only one; the others are drawn by
  * src/nowplaying_looks.c from what this holds, which is the part with no

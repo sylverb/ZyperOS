@@ -110,7 +110,7 @@ PAGE_TEXT_ON = {
 # names a color for, under a picture, never under text.
 PAGE_FILLS = ("track", "accent-ink", "warning", "ink", "sys", "text-dim")
 
-# The page's sizes (DESIGN.md 11.14). Its shapes are DESIGN.md 6's radii at
+# The page's sizes (DESIGN.md 11.64). Its shapes are DESIGN.md 6's radii at
 # the Pixel 2's own 0.625, so a row on a phone has the corners of a row on the
 # handheld. Its type keeps DESIGN.md 4's roles and their ratio to **menu**,
 # with **menu** at the web's 16 px; **meta** would come out at 12 and is held
@@ -324,7 +324,7 @@ LAYOUT = [
     ("preview-col-min", 200, "...narrower where the list's choices run long, to this"),
     ("preview-gap",     32,  "the column to the list's rows"),
     ("preview-note-gap", 16, "the small screen's foot to its note's first line"),
-    # MP4's Player Looks (src/nowplaying_looks.c, DESIGN.md 11.14): every
+    # MP4's Player Looks (src/nowplaying_looks.c, DESIGN.md 11.64): every
     # edge on the grid, so whole pixels on the Pixel 2 as on the Brick
     ("look-bar-w",      16,  "a bar: 10 whole pixels on the Pixel 2"),
     ("look-bar-gap",    8,   "between two bars: 5"),

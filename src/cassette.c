@@ -12,7 +12,7 @@
 #include <string.h>
 
 /* The materials, the only colors the look has of its own besides the
- * cover's (DESIGN.md 11.14): the smoke-grey shell and its moulded edge, the
+ * cover's (DESIGN.md 11.64): the smoke-grey shell and its moulded edge, the
  * dark inside seen through the window, the screws, the hubs' white plastic,
  * the tape's brown */
 typedef struct { float r, g, b, a; } rgba;

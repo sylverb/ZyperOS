@@ -2,7 +2,7 @@
 #ifndef ZYPEROS_CASSETTE_H
 #define ZYPEROS_CASSETTE_H
 
-/* MP4's Cassette look drawn (DESIGN.md 11.14): a C-cassette at its real
+/* MP4's Cassette look drawn (DESIGN.md 11.64): a C-cassette at its real
  * proportions, 100.4 by 63.8 mm, in a clear smoke-grey shell (my pick,
  * 2026-11-19), 592 by 376 units - 74 and 47 grid steps, the nearest pair of
  * whole steps to its 1.5737 (1.5745). Its parts are a drawing, in units of
