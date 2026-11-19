@@ -1418,9 +1418,9 @@ after it.
 the page: the row's value is `MENU_KEY_X` (src/menu.h), and the glyph is
 drawn at 40, the keyboard's action keys' size, where the value's right edge
 is, plain off the fill and UI_BUTTON_ON_ACCENT on it. The in-game menu's Quit
-is the one (11.28). "MENU, X" names the press on a Controls page: MENU's
-glyph, a comma and X's, for one press after the other, as a plus is for held
-together.
+(11.28) and the Quit of MP4's MENU (11.14) are the two. "MENU, X" names the
+press on a Controls page: MENU's glyph, a comma and X's, for one press after
+the other, as a plus is for held together.
 
 A pressed glyph is 92% size, its ring **accent**, with a soft **accent** halo
 (16 units of blur at three quarters), in **press**. A pressed arm of the
@@ -1816,7 +1816,8 @@ each in its own theme. The second layout, the clock beside the marks at the
 right, which Now Playing, a video's controls and MP4's shelf drew, is gone. MP4's shelf puts its album's title in the
 row between the clock and the marks, 24 clear of each, sliding when it is
 longer, and a video with its controls puts its title there in **action**
-**text**, centered. A background track
+**text**, centered, or sliding when it is longer, as a long name slides
+everywhere (2026-11-18: it was cut). A background track
 occupies only the space between the logo and the measured status corner. Its
 music mark, two eighth notes on one beam (heads of radius 3.5, stems and
 beam 2.5-unit strokes) in a 24-unit cell, uses **accent-ink**; paused
@@ -2006,9 +2007,26 @@ Muse, so a card's saved places and modes still read.
   key, which also does what it does (the first press too, as a remote's
   would), stay for **hold-controls** after the last press and for as long
   as it is paused, in over **quick** and out over **fade-out**; Y shows
-  them, or hides them at once. Paused or stopped, a play disc
-  (`ds_play_disc`) stands in the picture's middle. Under the lock the
-  controls stay hidden: no key they name works there.
+  them, or hides them at once. The header goes and comes with them, at the
+  same pace, and the ground around the picture eases with them from
+  **ground** to pure black (#000): hidden, there is the picture and black,
+  as a TV's player has it (2026-11-18: "when the footer times out and
+  disappears while video is playing, the top bar should too, and the
+  background should go pitch black"). Then, the surround gone, the picture
+  grows to the whole screen over **turn**, its shape kept and black only
+  where its shape is not the screen's, so a 4:3 film fills the Pixel 2
+  (2026-11-19: "if we could make the video go full size when the surround
+  collapses that's better"); on a key it goes back to its box over
+  **quick** before the surround comes back over **quick**, so the header
+  never stands over the picture. A 16:9 film is the same size either way
+  (its box is the screen's middle) and waits for neither. The title in the
+  header's row slides when it is wider than its room, from its start each
+  time the header comes back, and is drawn as it moves, paused too. Paused
+  or stopped, a play disc (`ds_play_disc`) stands in the picture's middle,
+  its triangle centered by its centroid (UI_GLYPH_PLAY is drawn so; it sat
+  a sixteenth of the disc right before, 2026-11-19). Under the lock the
+  controls stay hidden, and with them the header, the picture whole on
+  black: no key they name works there.
   The keys are hints as the shelves draw them (`page_hint`: a glyph and a word,
   **chrome** type, **text-soft**), from x 64 to 960 with the room shared out, and
   on a second row above where a language's words need it, never cut: A, B,
@@ -2039,6 +2057,15 @@ Muse, so a card's saved places and modes still read.
   with no panel.
 - **Shuffle All.** MENU on the music shelf: every song on the card, the mode
   set to shuffle and kept.
+- **Quit.** The last row of MP4's MENU on every shelf (music, books, videos,
+  All), from the shelf, an album's tracks or Now Playing: MP4 closes, as
+  SELECT closes it, to the screen it was opened from (the home, a menu, a
+  paused game's menu). **X** does it from any row of that MENU, heard as A
+  is, and the row carries X's glyph at its right (`MENU_KEY_X`, 11.9), as the
+  in-game menu's Quit and its X (11.28). Like SELECT it leaves what plays
+  playing, heard behind the home as above; A pauses it first for silence.
+  *(2026-11-18: "add an option in the mp4 menu to quit it, like we have in
+  games (with the shortcut too)".)*
 - **From the shelf.** While MP4 is heard behind the home or a games shelf
   (music, a book or a video's sound, playing; the menu music is quiet for
   it), **L2**/**R2** do what **L1**/**R1** do on Now Playing: the track
@@ -2614,9 +2641,11 @@ it still takes half a second to show the video. We should load the video as
 the bar fills up, or like 500ms after it starts filling up, to avoid
 affecting scrolling performance".)*
 Every cover whose game has a snap carries a mark at its bottom right, inset
-12: an **accent** disc 40 across with the play glyph in **on-accent**, 30 and
-inset 9 on the cards either side (at the turned corner of a turned cover),
-fading with the cover as its snap takes over, and none when Play on the Shelf or the console's switch is off. The
+12: an **accent** disc 40 across with the play glyph in **on-accent** (its
+triangle's centroid on the disc's middle), 30 and inset 9 on the cards
+either side (at the turned corner of a turned cover), fading with the cover
+as its snap takes over, and none when Play on the Shelf or the console's
+switch is off. The
 shelf knows from one listing of the folder's .media, taken when it is first
 drawn and again when the folder changes (looked at every 2 s at most). A
 Scraper run, from MENU or a console's Box Art, and a game's Cover and
