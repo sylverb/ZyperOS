@@ -4667,7 +4667,10 @@ takes it with the swap and **Y** takes it as well, so both give it
 (`rm_share`). The list's foot, under a rule and kept still (pin_foot), says
 what the choice under the cursor does in two lines - "A: B takes Square." and
 "Y: Y and B give Cross." - and its keys as hints, "A Swap" and "Y Both";
-on any other choice one line, "Y gives Cross.", and "A Take". **A shared row
+on any other choice one line, "Y gives Cross.", and "A Take". The list is
+as tall as the page it opens over, so the panel holds still: the foot comes
+out of the page's rows (three choices show, and scroll) and stands in the
+bottom pad down to a note's own air (`pad / 3`). **A shared row
 carries its partner's glyph after the value** (`MENU_PARTNER_MARK`, 32
 units, at 70%: B, then a small Y), and the handheld lights both buttons while
 the cursor is on either row. **Removing one** is giving that row anything

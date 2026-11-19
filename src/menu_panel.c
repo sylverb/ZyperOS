@@ -643,8 +643,15 @@ void menu_panel(app *a, const char *heading, const menu_row *rows,
 				for (j = k + 1; k > sel && j < n; j++)
 					if (rows[j].live || (rows[j].label && !ROW_IS_NOTE(rows[j]))) k = -1;
 				if (k > sel) {
+					/* A panel with a picture beside its rows holds the
+					 * height its pages have (below), so its footer comes
+					 * out of that: their rows, and of the bottom pad all
+					 * but a note's own air, which its last note keeps
+					 * (a button's list on the Controls tab, 11.45) */
+					int room = g_menu_side ? avail / row_h * row_h + pad - pad / 3 : avail;
+
 					for (j = k; j < n; j++) foot_h += ROW_H(rows[j]);
-					if (avail - foot_h >= row_h) { nl = k; avail -= foot_h; }
+					if (room - foot_h >= row_h) { nl = k; avail = room - foot_h; }
 					else foot_h = 0;
 				}
 			}
@@ -782,7 +789,10 @@ void menu_panel(app *a, const char *heading, const menu_row *rows,
 		int most = (MENU_AVAIL_H - content_off - pad) / row_h;
 		int tall = content_off + most * row_h + pad;
 
-		if (panel.h < tall) panel.h = tall;
+		/* and no taller with a footer kept under its rows: the footer
+		 * stands in the bottom pad (above) rather than the panel growing
+		 * as a button's list opens over its page */
+		if (panel.h < tall || (g_menu_side && foot_h)) panel.h = tall;
 	}
 	panel.x = (ZYPEROS_SCREEN_W - panel.w) / 2;
 	panel.y = (ZYPEROS_SCREEN_H - panel.h) / 2;
