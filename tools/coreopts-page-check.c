@@ -80,6 +80,22 @@ static void seed_and_cycle(void)
 	ck(!strcmp(s.opt[2].vals[codef_value_step(&s.opt[2], i, 1)], "sccexpanded") ||
 	   codef_value_step(&s.opt[2], i, 1) != i,
 	   "stepping moves to another value");
+	/* A value longer than CODEFS_VAL_MAX: truncated, and the next field
+	 * is still the next field (not the cut tail). */
+	{
+		char longv[CODEFS_VAL_MAX + 40], pipe[CODEFS_PIPE_MAX];
+		codef o;
+		size_t k;
+
+		for (k = 0; k < sizeof longv - 1; k++) longv[k] = 'a' + (char)(k % 26);
+		longv[sizeof longv - 1] = '\0';
+		snprintf(pipe, sizeof pipe, "%s|short", longv);
+		memset(&o, 0, sizeof o);
+		codef_set_values(&o, pipe);
+		ck(o.nvals == 2 && strlen(o.vals[0]) == CODEFS_VAL_MAX - 1 &&
+		   !strcmp(o.vals[1], "short"),
+		   "a long value is cut; the next stays intact");
+	}
 }
 
 static void whitelist(void)

@@ -47,12 +47,15 @@ void codef_set_values(codef *o, const char *pipe)
 	snprintf(o->pipe, sizeof o->pipe, "%s", pipe);
 	p = o->pipe;
 	while (*p && n < CODEFS_VALUES_MAX) {
-		size_t i = 0;
+		size_t i = 0, copy;
 
 		while (p[i] && p[i] != '|') i++;
-		if (i >= CODEFS_VAL_MAX) i = CODEFS_VAL_MAX - 1;
-		memcpy(o->vals[n], p, i);
-		o->vals[n][i] = '\0';
+		/* Truncate what we store, but still skip the whole field: cutting
+		 * `i` and advancing only that far used to turn the tail into a
+		 * second bogus value. Past CODEFS_VALUES_MAX, the rest is dropped. */
+		copy = i < CODEFS_VAL_MAX ? i : CODEFS_VAL_MAX - 1;
+		memcpy(o->vals[n], p, copy);
+		o->vals[n][copy] = '\0';
 		if (o->vals[n][0]) n++;
 		p += i;
 		if (*p == '|') p++;
