@@ -5,9 +5,9 @@ Hypervisor framework, standing in for the GKD Pixel 2. It is the Pixel 2's
 system (plastron's `qemu_defconfig`: the same toolchain, libraries, Mesa,
 SDL2 and ZyperOS payload) with a kernel for the virt machine and the Pixel 2's
 own parts simulated. ZyperOS's first frame comes 0.85 s after QEMU starts, the
-menus move at about 33 frames a second, a NES game runs at its full 60 (about
-48 reach the display), and screenshots and button presses work over SSH, as
-on the device,
+menus move at up to 75 frames a second with a key held and a NES game at its
+full 60 (as the [simulator](simulator.md) gets them, 2026-11-19), and
+screenshots and button presses work over SSH, as on the device,
 so a launcher or OS flow can be tried without the Pixel 2, and by several
 sessions at once, each with its own VM.
 
@@ -79,6 +79,29 @@ Hold presses a little longer than on the device in menus over a game
 (`down:200`): the launcher draws at about 33 frames a second there, and an 80 ms
 press can fall between two of its reads.
 
+### How it boots
+
+By default QEMU starts the image's kernel itself, on Apple's hypervisor (hvf),
+with the system in slot A: the Mac's own speed. `start --uboot` (or
+`ZYPEROS_QEMU_UBOOT=1`) runs the image's U-Boot instead, as plastron's
+`make qemu` builds it, which runs the card's own boot.scr and its system
+slots as the Pixel 2 does: what System Update's A/B switch needs
+([updates.md](updates.md)). U-Boot runs on QEMU's own CPU (TCG), because
+U-Boot writing into the flash it starts from stops QEMU under hvf (its "isv"
+assertion, QEMU 11.1.3 too), and so does everything after it. On one card,
+2026-11-19:
+
+| | default (hvf) | `--uboot` (TCG) |
+|---|---|---|
+| start, to ZyperOS up | 1.6-2.9 s | 7.7 s |
+| a press in the home, shown in | 5-12 ms | 5-174 ms |
+| a press in MENU's menu, shown in | 9-12 ms | 111-258 ms |
+| a key held in MENU's menu | 75 frames a second | 3 |
+| QEMU's share of the Mac | under one core | 3.7 cores |
+
+So keep `--uboot` for the slots. The rest of this page is the same either
+way, but for a charger's start (below).
+
 `--window` shows QEMU's own window, where the keyboard is the Pixel 2's
 buttons (below); `--sound` plays the VM's sound on the Mac. Headless, the
 display is still there for `shot`, `dump` (what QEMU shows, even with the
@@ -114,7 +137,8 @@ What the Pixel 2 does with a charger, as measured on one (2026-11-05 and
   on and says why in its ON_SOURCE register: 0x40 for a charger, 0x80 for
   POWER, 0x02 after a restart. plastron's U-Boot passes `zycharge=1` for a
   charger's start, and ZyperOS shows its charging screen (DESIGN.md 11.25).
-  QEMU has no PMIC, so `qemu-run.sh start --charger` writes the reason,
+  QEMU has no PMIC, so `qemu-run.sh start --charger` puts `zycharge=1` on
+  the kernel's command line itself; with `--uboot` it writes the reason,
   `on_source=0x40`, into `/px2sim-on.txt` on the card's boot partition, and
   plastron's QEMU boot.scr reads it there as U-Boot reads the PMIC, then sets
   it to 0x02: a restart is an ordinary start, as on the device. The
@@ -181,9 +205,10 @@ It does not stand in for the hardware:
 - **Sound.** QEMU's virtio sound card, not the RK817: the volume works
   through software, the speaker and headphone windows are the same sound, and
   the headphone jack only switches which window applies.
-- **Boot.** With an image from plastron's `make qemu` that has U-Boot
-  (`u-boot.bin`), QEMU's U-Boot runs the card's own boot.scr, slots and all;
-  an older image has QEMU load the kernel itself. The Pixel 2's U-Boot (its
+- **Boot.** With `start --uboot` and an image from plastron's `make qemu`
+  that has U-Boot (`u-boot.bin`), QEMU's U-Boot runs the card's own boot.scr,
+  slots and all, on TCG (above); without, QEMU loads slot A's kernel itself.
+  The Pixel 2's U-Boot (its
   first stage, its DDR set-up, its PMIC) and its device tree are the
   device's only.
 

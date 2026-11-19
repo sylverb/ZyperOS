@@ -8,7 +8,7 @@
 # what still needs the device.
 #
 #   tools/qemu-run.sh start [-n NAME] [--window] [--sound] [--fresh] [--size 4G]
-#                           [--image DIR] [--no-test-rom] [--charger]
+#                           [--image DIR] [--no-test-rom] [--charger] [--uboot]
 #   tools/qemu-run.sh ssh   [-n NAME] [COMMAND...]
 #   tools/qemu-run.sh shot  [-n NAME] [FILE.png]       (px2-shot, as a PNG)
 #   tools/qemu-run.sh dump  [-n NAME] [FILE.png]       (what QEMU's display shows)
@@ -54,7 +54,19 @@
 # QEMU has no PMIC, so the reason goes into /px2sim-on.txt on the card's
 # boot partition, which plastron's QEMU boot.scr reads and then sets to 0x02,
 # the RK817's after a restart. An image from before that reads nothing, and
-# the start is an ordinary one.
+# the start is an ordinary one. Without --uboot (below) QEMU starts the
+# kernel itself, and zycharge=1 goes on its command line directly.
+#
+# How it boots. By default QEMU starts the image's kernel itself, on Apple's
+# hypervisor (hvf): the system in slot A, at the Mac's own speed. --uboot (or
+# ZYPEROS_QEMU_UBOOT=1) runs the image's U-Boot instead, which runs the
+# card's own boot.scr and its slots, as the Pixel 2 does: for System
+# Update's A/B switch (docs/updates.md). It runs on QEMU's own CPU (TCG),
+# since U-Boot writing the flash it starts from stops QEMU under hvf (its
+# "isv" assertion, QEMU 11.1.3 too), and everything after it does as well:
+# measured 2026-11-19 on one card, a menu press took 111-258 ms to show on
+# TCG against 9-12 ms on hvf, and a held key moved it at 3 frames a second
+# against 75 (docs/qemu.md).
 set -eu
 
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -212,6 +224,7 @@ power_on_reason() {
 
 cmd_start() {
 	WINDOW= SOUND= FRESH= SIZE=4G IMAGE=${ZYPEROS_QEMU_IMAGE:-} TEST_ROM=1 NEW_CARD= CHARGER=
+	UBOOT=${ZYPEROS_QEMU_UBOOT:-}
 	while [ $# -gt 0 ]; do
 		case $1 in
 		--window) WINDOW=1 ;;
@@ -221,6 +234,7 @@ cmd_start() {
 		--image) IMAGE=$2; shift ;;
 		--no-test-rom) TEST_ROM= ;;
 		--charger) CHARGER=1 ;;
+		--uboot) UBOOT=1 ;;
 		*) die "start: unknown option $1" ;;
 		esac
 		shift
@@ -238,8 +252,13 @@ cmd_start() {
 	# is the window's, and stays
 	rm -f "$dir/vnc.sock" "$dir/qmp.sock" "$dir/serial.sock" "$dir/sim.sock"
 	prepare_card
+	# U-Boot only when asked for, and when the image has one (see the top)
+	[ -n "$UBOOT" ] && [ ! -f "$dir/u-boot.bin" ] &&
+		echo "qemu-run: --uboot, but the image has no u-boot.bin: QEMU starts the kernel itself"
+	[ -n "$UBOOT" ] && [ -f "$dir/u-boot.bin" ] || UBOOT=
+	charge_arg=
 	if [ -n "$CHARGER" ]; then
-		power_on_reason 0x40
+		if [ -n "$UBOOT" ]; then power_on_reason 0x40; else charge_arg=" zycharge=1"; fi
 		echo "qemu-run: $NAME starts as a charger plugged in while it was off would start it"
 	fi
 	p=$(free_port 2222 ssh.port)
@@ -247,10 +266,20 @@ cmd_start() {
 	web=$(free_port 8222 web.port)
 	echo "$web" > "$dir/web.port"
 
+	# Headless, the display is QEMU's D-Bus one, peer to peer, where QEMU
+	# has it (Homebrew's does): the simulator takes every frame from it,
+	# in memory shared with QEMU (docs/simulator.md). VNC stays on beside
+	# it, for a QEMU without D-Bus and for any VNC viewer. The display file
+	# says which the VM has.
 	if [ -n "$WINDOW" ]; then
 		display="-display cocoa,zoom-to-fit=on"
+		echo vnc > "$dir/display"
+	elif qemu-system-aarch64 -display help 2> /dev/null | grep -qx dbus; then
+		display="-display dbus,p2p=yes"
+		echo dbus > "$dir/display"
 	else
 		display="-display none"
+		echo vnc > "$dir/display"
 	fi
 	if [ -n "$SOUND" ]; then
 		audio="-audiodev coreaudio,id=snd"
@@ -267,16 +296,17 @@ cmd_start() {
 	# refused it and QEMU said so at every start.
 	# shellcheck disable=SC2086
 	# How it starts, as the positional arguments (the -append line has spaces).
-	# Through U-Boot on QEMU's own CPU (TCG): under Apple's hypervisor,
-	# U-Boot writing into the flash it starts from stops QEMU (hvf's "isv"
-	# assertion). Slower, but it is the card's own boot.scr that runs.
-	if [ -f "$dir/u-boot.bin" ]; then
+	# --uboot: through U-Boot on QEMU's own CPU (TCG), the card's own
+	# boot.scr and its slots; else the image's kernel, slot A, on hvf (the top
+	# says why, and what each costs)
+	if [ -n "$UBOOT" ]; then
 		set -- -accel tcg,thread=multi -cpu max -bios "$dir/u-boot.bin"
 		accel=
 		WAIT=900
+		echo "qemu-run: $NAME boots through U-Boot, on TCG: several times slower than without --uboot"
 	else
 		set -- -kernel "$dir/Image" \
-			-append "root=/dev/vda2 rootfstype=squashfs ro rootwait console=ttyAMA0 panic=30"
+			-append "root=/dev/vda2 rootfstype=squashfs ro rootwait console=ttyAMA0 panic=30$charge_arg"
 		accel="-accel hvf -cpu host"
 	fi
 	nohup qemu-system-aarch64 \
@@ -434,7 +464,7 @@ cmd_list() {
 	done
 }
 
-[ $# -gt 0 ] || { sed -n '3,48p' "$0"; exit 1; }
+[ $# -gt 0 ] || { sed -n '3,69p' "$0"; exit 1; }
 CMD=$1
 shift
 if [ "${1:-}" = -n ]; then NAME=${2:?-n needs a name}; shift 2; fi
@@ -464,6 +494,7 @@ info)
 	echo "serial  $dir/serial.sock (nc -U), log $dir/serial.log"
 	echo "qmp     $dir/qmp.sock"
 	echo "vnc     $dir/vnc.sock"
+	echo "display $(cat "$dir/display" 2> /dev/null || echo vnc) (the simulator's way to the screen: dbus, through qmp.sock, or vnc)"
 	echo "qemu    $dir/qemu.log"
 	;;
 *) die "unknown command $CMD (start ssh shot dump input open quit status sim roms deploy stop kill list info prune)" ;;
