@@ -66,14 +66,18 @@ unsigned cover_main_rgb(const uint32_t *px, int w, int h, int pitch)
 	if (vivid < VIVID_MIN * n)
 		return ((unsigned)(all[0] / n + 0.5) << 16) | ((unsigned)(all[1] / n + 0.5) << 8) |
 		       (unsigned)(all[2] / n + 0.5);
-	/* The hue with the most, its neighbours counting half, so a color on
-	 * the line between two buckets is not split in two and lost */
+	/* The hue with the most, its neighbours two either way counting too
+	 * (a bell 22 degrees wide), so a color on the line between two buckets
+	 * is not split and lost, and a gradient - purple into magenta over most
+	 * of a cover - is one color, as the eye takes it, not five small ones
+	 * a band of orange beats */
 	for (b = 0; b < HUES; b++) {
-		double score = wt[b] + 0.5 * (wt[(b + HUES - 1) % HUES] + wt[(b + 1) % HUES]);
+		double score = wt[b] + 0.80 * (wt[(b + HUES - 1) % HUES] + wt[(b + 1) % HUES]) +
+		               0.41 * (wt[(b + HUES - 2) % HUES] + wt[(b + 2) % HUES]);
 
 		if (score > top) { top = score; best = b; }
 	}
-	for (k = -1; k <= 1; k++) {
+	for (k = -2; k <= 2; k++) {
 		int c = (best + k + HUES) % HUES;
 
 		acc[0] += sum[c][0]; acc[1] += sum[c][1]; acc[2] += sum[c][2];

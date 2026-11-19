@@ -66,6 +66,23 @@ int main(void)
 	fill(0xFFF08A20, 0, 180, W, H);
 	expect("the larger of two colors", 0x7A3FB0, 12);
 
+	/* A gradient from blue-purple to magenta over three quarters, a band
+	 * of orange under it: the gradient is the cover's color */
+	for (int x = 0; x < W; x++) {
+		unsigned r = 70 + 150 * x / W, b = 210 - 60 * x / W;
+
+		fill(0xFF000000u | r << 16 | 40u << 8 | b, x, 0, x + 1, H * 3 / 4);
+	}
+	fill(0xFFF07A28, 0, H * 3 / 4, W, H);
+	{
+		unsigned got = cover_main_rgb(px, W, H, W * 4);
+
+		if (((got >> 16) & 255) > 230 || (got & 255) < 100) {
+			printf("FAIL: a purple gradient over an orange band: #%06x, not a purple\n", got);
+			fails++;
+		}
+	}
+
 	for (int y = 0; y < H; y++)
 		fill(0xFF000000u | (unsigned)(y * 255 / H) * 0x010101u, 0, y, W, y + 1);
 	expect("a grey photograph", 0x7F7F7F, 12);
@@ -93,6 +110,6 @@ int main(void)
 		printf("covercolor-check: %d failed\n", fails);
 		return 1;
 	}
-	printf("covercolor-check: one color, a title on white, the larger of two, grey, transparent; darkened for the vinyl\n");
+	printf("covercolor-check: one color, a title on white, the larger of two, a gradient over a band, grey, transparent; darkened for the vinyl\n");
 	return 0;
 }
