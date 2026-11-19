@@ -111,6 +111,18 @@ static void brick(void)
 	   !p->speaker_mono && !p->player2 && !p->usb_shared_port && p->wifi == DEV_WIFI_BUILTIN,
 	   "brick: its own model, Bluetooth, CPU shaders, no GPU frames, two speakers, no Player 2, built-in Wi-Fi");
 	ck(p->screen_colors, "brick: Screen Colors, on its display's own gamma table");
+	{
+		/* Its core options: some, and none of the Pixel 2's rumble until a
+		 * tester has felt its motor (src/device/brick_coreopts.c) */
+		const dev_default *d = p->coreopts;
+		bool any = false, rumble = false;
+
+		for (; d && d->key; d++) {
+			any = true;
+			if (strstr(d->key, "rumble") || strstr(d->key, "pak1")) rumble = true;
+		}
+		ck(any && !rumble, "brick: its own core options, no rumble in them");
+	}
 	ck(menu && !strcmp(menu->label, "MENU") && menu->icon == DEV_ICON_NONE,
 	   "brick: MENU is the word (no vendor mark as an icon)");
 	ck(label_is(p, IN_BRIGHTDN, "F1") && label_is(p, IN_BRIGHTUP, "F2"),
