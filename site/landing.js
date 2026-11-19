@@ -19,6 +19,25 @@
   reduce.addEventListener('change', updateMotion);
   updateMotion();
 
+  // The handhelds, from site/devices.json (mk/site_devices.py puts the list
+  // in the page), and the one the page shows: the hero's choice. An inline
+  // script there has already restored the last one, or #<id>.
+  const { devices: DEVICES } = JSON.parse(document.querySelector('#device-data').textContent);
+  const deviceInputs = [...document.querySelectorAll('input[name="device"]')];
+  const device = () => deviceInputs.find(input => input.checked)?.value || DEVICES[0].id;
+  const info = id => DEVICES.find(d => d.id === id) || DEVICES[0];
+  // A capture by the first handheld's name, as the chosen one has it: its
+  // own (img/<captures>/), its swap for that screen, or the page's own
+  function shot(name, dark = false, which = device()) {
+    const d = info(which);
+    const own = d.swap[name] && d.shots.includes(d.swap[name]) ? d.swap[name] : name;
+    if (d.captures && d.shots.includes(own)) {
+      return { path: `img/${d.captures}/${dark && d.dark.includes(own) ? 'dark/' : ''}${own}.png`, alt: d.alts[own] };
+    }
+    return { path: `img/${dark ? 'dark/' : ''}${name}.png` };
+  }
+  document.documentElement.dataset.device = device();
+
   // Decode first, then replace. A slow previous request cannot win a later click.
   const screens = {
     home: { image: 'systems', dark: true, title: 'A familiar face. A whole new home.', copy: 'Original animated art for every system. A cartridge slides in. A handheld comes to life.', alt: 'ZyperOS home with the new original PlayStation illustration.' },
@@ -41,7 +60,7 @@
   async function chooseScreen(key, theme) {
     wantedScreen = key; wantedAppearance = theme;
     const ticket = ++requested, screen = screens[key];
-    const src = `img/${screen.dark && theme === 'dark' ? 'dark/' : ''}${screen.image}.png`;
+    const own = shot(screen.image, screen.dark && theme === 'dark'), src = own.path;
     const next = new Image(); next.src = src;
     try { await next.decode(); }
     catch {
@@ -54,7 +73,7 @@
     if (ticket !== requested) return;
     selected = key; appearance = theme;
     image.getAnimations().forEach(animation => animation.cancel());
-    image.src = src; image.alt = screen.alt;
+    image.src = src; image.alt = own.alt || screen.alt;
     tabs.forEach(button => button.setAttribute('aria-pressed', String(button.dataset.screen === key)));
     themes.forEach(button => button.setAttribute('aria-pressed', String(button.dataset.theme === theme)));
     document.querySelector('#screen-title').textContent = screen.title;
@@ -241,15 +260,97 @@
   }
   addEventListener('hashchange', openLinkedDetails); openLinkedDetails();
 
-  const device = document.querySelector('.device');
-  const canvas = device.querySelector('canvas');
-  if (!navigator.connection?.saveData) {
+  // Everything else that shows a screenshot follows the choice: the feature
+  // galleries show the chosen handheld's capture where it has one.
+  const views = new Map();
+  let mod = null;
+  function showDevice() {
+    const which = device();
+    document.documentElement.dataset.device = which;
+    document.querySelectorAll('#features img[src^="img/"], #features [data-feature-src]').forEach(element => {
+      // A gallery's picture follows its pressed button, below
+      if (element.tagName === 'IMG' && element.closest('[data-feature-gallery]')) return;
+      const attr = element.hasAttribute('data-feature-src') ? 'data-feature-src' : 'src';
+      const altAttr = attr === 'src' ? 'alt' : 'data-feature-alt';
+      // The build versions the page's own addresses (?v=); keep each one as it was
+      if (!element.dataset.pageSrc) { element.dataset.pageSrc = element.getAttribute(attr); element.dataset.pageAlt = element.getAttribute(altAttr); }
+      const name = element.dataset.pageSrc.replace(/^img\//, '').replace(/\.png(\?.*)?$/, '');
+      const own = shot(name, false, which);
+      const mine = own.path !== `img/${name}.png`;
+      element.setAttribute(attr, mine ? own.path : element.dataset.pageSrc);
+      element.setAttribute(altAttr, mine && own.alt ? own.alt : element.dataset.pageAlt);
+    });
+    document.querySelectorAll('#features [data-feature-gallery]').forEach(gallery => {
+      const pressed = gallery.querySelector('[data-feature-src][aria-pressed="true"]');
+      const image = gallery.querySelector('img');
+      if (!pressed || image.getAttribute('src') === pressed.dataset.featureSrc) return;
+      image.src = pressed.dataset.featureSrc; image.alt = pressed.dataset.featureAlt;
+    });
+    picks.forEach(button => button.setAttribute('aria-pressed', String(button.dataset.pick === which)));
+    views.forEach((view, id) => view?.setTurntable(id === which));
+    stage(which);
+    inView();
+    chooseScreen(wantedScreen, wantedAppearance);
+  }
+  const picks = [...document.querySelectorAll('[data-pick]')];
+  function pick(which) {
+    const input = deviceInputs.find(item => item.value === which);
+    if (!input || input.checked) return;
+    input.checked = true;
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+  deviceInputs.forEach(input => input.addEventListener('change', () => {
+    try { localStorage.setItem('zyperos-device', device()); } catch { /* a private window */ }
+    showDevice();
+  }));
+  picks.forEach(button => button.addEventListener('click', () => pick(button.dataset.pick)));
+  // A pick's label would focus its radio and scroll the page to it; the
+  // choice is made here instead, the page left where it is
+  document.querySelectorAll('.pick').forEach(label => label.addEventListener('click', event => {
+    const input = label.querySelector('input');
+    if (event.target === input) return;
+    event.preventDefault();
+    input.focus({ preventScroll: true });
+    pick(input.value);
+  }));
+  document.querySelector('.device-pick').hidden = false;
+  // The row of picks scrolls when it is wider than the page; its edges fade then
+  const row = document.querySelector('.picks');
+  new ResizeObserver(() => row.classList.toggle('scrolls', row.scrollWidth > row.clientWidth + 1)).observe(row);
+  // The chosen pick in view in its row, as the launcher keeps its chosen
+  // system in view: the row scrolls, never the page
+  function inView(behavior = paused() ? 'instant' : 'smooth') {
+    const chosen = row.querySelector('input:checked')?.closest('.pick');
+    if (!chosen || row.scrollWidth <= row.clientWidth + 1) return;
+    const r = row.getBoundingClientRect(), p = chosen.getBoundingClientRect();
+    if (p.left >= r.left && p.right <= r.right) return;
+    row.scrollTo({ left: row.scrollLeft + p.left - r.left - (r.width - p.width) / 2, behavior });
+  }
+  inView('instant');
+  addEventListener('hashchange', () => { if (DEVICES.some(d => d.id === location.hash.slice(1))) pick(location.hash.slice(1)); });
+
+  // The chosen handheld's 3D model on the stage, loaded the first time it is
+  // chosen; the stage's others stay hidden. Its poster stays until it draws.
+  function stage(which) {
+    if (!mod || views.has(which)) return;
+    const box = document.querySelector(`.stage .device[data-model="${which}"]`), d = info(which);
+    if (!box) return;
+    const canvas = box.querySelector('canvas');
+    views.set(which, null);
     canvas.hidden = false;
-    import('./pixel2.js').then(module => module.mount(canvas, { motionAllowed: () => !paused() }))
-      .then(() => {
-        device.classList.add('ready');
-        device.querySelector('.device-poster').setAttribute('aria-hidden', 'true');
-        document.querySelector('.device-hint').textContent = 'Drag to take a closer look.';
-      }).catch(() => { canvas.hidden = true; });
+    mod.mount(canvas, {
+      glb: d.glb, frameMm: d.frame_mm, studio: d.studio, turntable: which === device(), motionAllowed: () => !paused(),
+      shots: ['systems', 'shelf-n64', 'theme', 'mp4', 'menu'].map(name => shot(name, false, which).path)
+    }).then(view => {
+      views.set(which, view);
+      view.setTurntable(which === device());
+      box.classList.add('ready');
+      box.querySelector('.device-poster').setAttribute('aria-hidden', 'true');
+      document.querySelector('.device-hint').textContent = 'The row is to scale. Pick yours, or drag it to take a closer look.';
+    }).catch(() => { canvas.hidden = true; views.delete(which); });
+  }
+  if (device() !== DEVICES[0].id) showDevice();
+  if (!navigator.connection?.saveData) {
+    import('./pixel2.js').then(module => { mod = module; stage(device()); }).catch(() => {});
   }
 })();

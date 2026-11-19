@@ -13,7 +13,7 @@
         check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-messages check-tour check-tour-shots check-textfade check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pmhelper check-portdoc check-boottheme check-splashbright check-bootbright check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr check-autozone \
         check-home check-home-shots check-games check-cardpaint check-putpace landbench check-favorites-shots check-np-footer check-menu-rows check-layout-shots check-artbadge check-artbadge-shots check-cardart-shots design sounds strings cjk-font check-strings check-i18n-shots check-rootswitch check-datapart check-brick-closed check-hwreport \
         check-tour-previews tour-previews check-prep check-diatom check-simulator check-px2sim check-building-doc check-blog check-discord-release \
-        check-release-devices check-installer release
+        check-release-devices check-installer release check-site-devices
 
 all: check
 
@@ -102,6 +102,13 @@ check-diatom:
 # colors still the landing page's.
 check-blog:
 	@python3 mk/blog.py --check
+
+# zyperos.com with any number of handhelds (site/devices.json): the site built
+# with made-up ones added (three, then five in all), each at a computer's and
+# a phone's width in headless Chrome, with no error, no sideways scroll and
+# every pick followed. Needs Google Chrome; --shots DIR keeps the heroes.
+check-site-devices:
+	@python3 tools/check-site-devices.py
 
 # The release notes as tools/release.sh posts them in the Discord's #releases:
 # within Discord's limits, with What's new and the release's link

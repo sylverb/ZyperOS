@@ -32,8 +32,10 @@ cp -R "$ROOT/site/download" "$OUT/download"
 # style sheet and script (site/blog/, the posts, is a folder: mk/blog.py
 # reads it)
 for f in "$ROOT"/site/*; do
-	if [ -f "$f" ]; then cp "$f" "$OUT/"; fi
+	if [ -f "$f" ] && [ "${f##*/}" != devices.json ]; then cp "$f" "$OUT/"; fi
 done
+# The music section's Pixel 2; every handheld's model, poster and thumbnail
+# come with the list (mk/site_devices.py, below)
 cp "$ROOT/site/models/pixel2.glb" "$ROOT/site/models/pixel2-poster.png" \
    "$ROOT/site/models/pixel2-music.png" "$OUT/models/"
 cp "$ROOT/res/web/icon.svg" "$ROOT/res/web/zyper.svg" "$OUT/img/"
@@ -47,6 +49,9 @@ done
 for f in shelf-n64 systems menu; do
 	cp "$ROOT/res/readme/dark/$f.png" "$OUT/img/dark/"
 done
+# The handhelds the page shows (site/devices.json, or SITE_DEVICES for a
+# check's list): their models and captures, and the page's parts for them
+python3 "$ROOT/mk/site_devices.py" --out "$OUT" --devices "${SITE_DEVICES:-$ROOT/site/devices.json}"
 # Reuse the original art and its exact frame timings. Keep the full source
 # catalogue and unselected atlases out of the deployed site.
 python3 - "$ROOT" "$OUT" <<'PY'
