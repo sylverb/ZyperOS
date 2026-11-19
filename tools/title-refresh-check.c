@@ -16,7 +16,9 @@ typedef struct { int cursor; } coverflow;
 /* A shelf with folders (src/shelfdir.h) has every game in `all` and its
  * folders first in `list`; these have none */
 typedef struct { game_list list; game_list *all; int *owner; int sort, cursor, dropped, nfold; coverflow cf; } sysview;
-typedef struct { struct { int count; system_cfg systems[4]; } sys; sysview view[4]; int sys_cursor; bool running; } app;
+typedef struct { struct { int count; system_cfg systems[4]; } sys; sysview view[4]; int parked; int sys_cursor; bool running; } app;
+/* src/app.h's: the home's shelves and the systems turned off it (app.parked) */
+static inline int sys_kept(const app *a) { return a->sys.count + a->parked; }
 typedef enum { MENU_STAY, MENU_CHANGED, MENU_FAILED } menu_result;
 static int failures;
 #define CHECK(c) do { if (!(c)) { fprintf(stderr, "FAIL %d: %s\n", __LINE__, #c); failures++; } } while (0)
