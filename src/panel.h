@@ -255,6 +255,13 @@ int  menu_std_width(app *a);
 int  menu_list_fit(int fixed, int rules, int notes);
 /* One line on a panel over the shelf, before something that blocks */
 void wait_panel(app *a, const char *heading, const char *msg);
+/* A question on a panel over the shelf with two answers that both go on: 1
+ * the first, 2 the second, 0 left with B */
+int ask_two_panel(app *a, const char *heading, const char *msg, const char *first,
+                  const char *second);
+/* Its rows: `msg` in lines (at most ASK_TWO_LINES), then the two answers;
+ * how many lines */
+#define ASK_TWO_LINES 6
 /* A question on a panel over the shelf, Yes on `yes_label`: true on Yes */
 bool confirm_panel(app *a, const char *heading, const char *msg,
                    const char *yes_label);
@@ -296,6 +303,9 @@ bool confirm_rows(app *a, const char *heading, menu_row *rows, int nq,
 #define CHV_WRAP_COLS  96
 int wrap_text(TTF_Font *f, const char *src, int w,
               char out[][CHV_WRAP_COLS], int max);
+/* ask_two_panel's rows (ASK_TWO_LINES above) */
+int ask_two_rows(app *a, const char *msg, const char *first, const char *second,
+                 char (*lines)[CHV_WRAP_COLS], menu_row *rows);
 /* The roles a row of menu_draw_ex's `vcolors` names. VCOL_EARNED is
  * the value in **accent-ink**, lime as a mark: an earned achievement. On the
  * focus fill it is **on-accent**, like every other value. */

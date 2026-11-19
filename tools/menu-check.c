@@ -1028,7 +1028,7 @@ static void system_menu(void)
 		m.wifi = WIFI_CONNECTED;
 		m.muse_both = true;
 		mn = sys_menu_build(&m, mrows, &mb, &mhead);
-		ck(mn == SM_MUSE_ROWS, "nine rows with more than one kind");
+		ck(mn == SM_MUSE_ROWS - 1, "nine rows with more than one kind on music (no Repeat)");
 		ck(!strcmp(mrows[1].label, "Show") && mrows[1].live &&
 		   !strcmp(val(&mrows[1]), "Music"), "Show, on music");
 		ck(!strcmp(mrows[2].label, "Sort By") && !strcmp(mrows[3].label, "Shuffle All") &&
@@ -1053,9 +1053,16 @@ static void system_menu(void)
 		m.muse_videos = true;
 		m.game_count = 3;
 		mn = sys_menu_build(&m, mrows, &mb, &mhead);
-		ck(mn == 7 && !strcmp(mrows[0].label, "Videos") && !strcmp(val(&mrows[0]), "3") &&
+		ck(mn == 8 && !strcmp(mrows[0].label, "Videos") && !strcmp(val(&mrows[0]), "3") &&
 		   !strcmp(val(&mrows[1]), "Videos") && !strcmp(val(&mrows[2]), "Folder"),
 		   "on videos: how many, Show, by folder");
+		ck(!strcmp(mrows[3].label, "Repeat") && !strcmp(val(&mrows[3]), "Off") && mrows[3].live &&
+		   menu_sound_at(mb.sound, mn, 3) == MENU_SND_RING,
+		   "on videos: Repeat, Off to start with, steps round");
+		m.muse_repeat = "One";
+		mn = sys_menu_build(&m, mrows, &mb, &mhead);
+		ck(!strcmp(val(&mrows[3]), "One"), "Repeat says what it is");
+		m.muse_repeat = NULL;
 		for (k = 0; k < mn; k++)
 			ck(strcmp(lbl(&mrows[k]), "Album Art") != 0 &&
 			   strcmp(lbl(&mrows[k]), "Shuffle All") != 0,
@@ -1070,8 +1077,9 @@ static void system_menu(void)
 		ck(mn == SM_MUSE_ROWS && !strcmp(mrows[0].label, "Total") &&
 		   !strcmp(val(&mrows[0]), "7") && !strcmp(val(&mrows[1]), "All") &&
 		   !strcmp(val(&mrows[2]), "Folder") && !strcmp(mrows[3].label, "Shuffle All") &&
-		   !strcmp(mrows[4].label, "Equalizer") && !strcmp(mrows[6].label, "Album Art"),
-		   "on All: the Total, Show All, by folder, Shuffle All, Equalizer and Album Art");
+		   !strcmp(mrows[4].label, "Repeat") && !strcmp(mrows[5].label, "Equalizer") &&
+		   !strcmp(mrows[7].label, "Album Art"),
+		   "on All: the Total, Show All, by folder, Shuffle All, Repeat, Equalizer and Album Art");
 		m.muse_songs = false;
 		mn = sys_menu_build(&m, mrows, &mb, &mhead);
 		for (k = 0; k < mn; k++)
@@ -1086,6 +1094,14 @@ static void system_menu(void)
 			ck(sys_menu_muse_rows(3, true, false, ids) == SM_MUSE_ROWS && ids[3] == SMM_SHUFFLE,
 			   "All with songs has every row");
 
+			/* Repeat on the shelves with videos (Videos, All), not on
+			 * music or books, after Shuffle All where that is */
+			for (int kind = 0; kind <= 3; kind++) {
+				int q = sys_menu_muse_rows(kind, true, false, ids), has = 0;
+
+				for (int j = 0; j < q; j++) if (ids[j] == SMM_REPEAT) has = 1;
+				ck(has == (kind == 2 || kind == 3), "Repeat on Videos and All alone");
+			}
 			ck(sys_menu_muse_rows(true, false, false, ids) == 6 && ids[1] == SMM_SORT &&
 			   ids[2] == SMM_EQ && ids[3] == SMM_LOCK && ids[4] == SMM_RESCAN && ids[5] == SMM_QUIT,
 			   "books alone: the count, Sort By, Equalizer, Lock Screen, Rescan Folder and Quit");

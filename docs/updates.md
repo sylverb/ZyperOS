@@ -342,7 +342,10 @@ confirm, the third boots the other slot.
 `make check-update` covers the system path on the Mac with files standing in
 for the partitions (`ZYPEROS_UPDATE_PART2/PART4`), a folder for the boot
 partition (`ZYPEROS_UPDATE_BOOT`) and a file for `/proc/cmdline`
-(`ZYPEROS_UPDATE_CMDLINE`). QEMU boots through U-Boot (plastron's
-`scripts/build-qemu-uboot.sh`, `make qemu`), so the VM runs the real
-`boot.scr`: `tools/qemu-run.sh` starts it with `-bios u-boot.bin` when the
-image folder has one.
+(`ZYPEROS_UPDATE_CMDLINE`). In QEMU, a test of the A/B switch needs
+`tools/qemu-run.sh start --uboot` (or `ZYPEROS_QEMU_UBOOT=1` in the
+environment of a script that starts the VM): the VM then boots through U-Boot
+(plastron's `scripts/build-qemu-uboot.sh`, `make qemu`, `-bios u-boot.bin`)
+and runs the real `boot.scr` and its slots. Without it QEMU starts slot A's
+kernel itself, much faster but with no slot switch to test ([qemu.md](qemu.md),
+"How it boots").

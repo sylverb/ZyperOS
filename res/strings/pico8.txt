@@ -1,0 +1,183 @@
+# Your PICO-8 (src/pico8.c, src/launch_screen.c, src/main.c): the player's
+# own PICO-8 on the PICO-8 shelf. Splore's entry while PICO-8 is not on the
+# card (the line under it is portmaster.not_installed's "Not installed"), the
+# page its A opens, the question before Splore with no network, and what the
+# launcher says after taking a zip copied into Bios/PICO-8 by hand. PICO-8,
+# Splore, Lexaloffle and Raspberry Pi are names, never translated; so are
+# Bios/PICO-8 and ZyperOS Installer.
+
+[pico8.how_to_add]
+note = The A button's label on the PICO-8 shelf under Splore while the player's own PICO-8 is not on the card: A opens a page that says how to add it. Short: it sits beside the game's name, as Play does ("See how" where "How to add" is long)
+en = How to Add
+zh-Hans = 如何添加
+es = Ver cómo
+pt-BR = Ver como
+fr = Aide
+de = Anleitung
+ja = 追加方法
+it = Vedi come
+
+[pico8.page_title]
+note = The page's heading: the player's own copy of PICO-8, the program they bought from Lexaloffle
+en = Your PICO-8
+zh-Hans = 你的 PICO-8
+es = Tu PICO-8
+pt-BR = Seu PICO-8
+fr = Votre PICO-8
+de = Dein PICO-8
+ja = あなたの PICO-8
+it = Il tuo PICO-8
+
+[pico8.page_sub]
+note = The line under "PICO-8" on the page: who makes it, and that it is not on this card. " · " between facts, as everywhere
+en = By Lexaloffle · not on this card
+zh-Hans = 来自 Lexaloffle · 不在这张卡上
+es = De Lexaloffle · no está en esta tarjeta
+pt-BR = Da Lexaloffle · não está neste cartão
+fr = De Lexaloffle · absent de cette carte
+de = Von Lexaloffle · nicht auf dieser Karte
+ja = Lexaloffle 製 · このカードにはありません
+it = Di Lexaloffle · non è su questa scheda
+
+[pico8.point_what]
+note = The page's first point: what the player's own PICO-8 adds over FAKE-08, the player every card has. Splore is PICO-8's online cart browser (a name)
+en = Your own PICO-8 adds Splore, its online cart browser, and plays every cart as PICO-8 does.
+zh-Hans = 你自己的 PICO-8 会加入 Splore（它的在线卡带库），并像 PICO-8 一样运行每个卡带。
+es = Tu propio PICO-8 añade Splore, su explorador de cartuchos en línea, y juega cada cartucho como lo hace PICO-8.
+pt-BR = Seu próprio PICO-8 adiciona o Splore, o navegador de cartuchos online dele, e roda cada cartucho como o PICO-8 roda.
+fr = Votre propre PICO-8 ajoute Splore, son navigateur de cartouches en ligne, et lance chaque cartouche comme PICO-8.
+de = Dein eigenes PICO-8 bringt Splore mit, seinen Online-Browser für Carts, und spielt jedes Cart so wie PICO-8.
+ja = あなた自身の PICO-8 があれば、オンラインのカート ブラウザー Splore が使え、どのカートも PICO-8 そのままに遊べます。
+it = Il tuo PICO-8 aggiunge Splore, il suo browser di cartucce online, e gioca ogni cartuccia come fa PICO-8.
+
+[pico8.point_whose]
+note = The page's second point: PICO-8 is Lexaloffle's product, sold by them, so ZyperOS cannot put it on the card
+en = It is Lexaloffle's: ZyperOS cannot bring it.
+zh-Hans = 它属于 Lexaloffle：ZyperOS 无法提供。
+es = Es de Lexaloffle: ZyperOS no puede traerlo.
+pt-BR = Ele é da Lexaloffle: o ZyperOS não pode trazê-lo.
+fr = Il appartient à Lexaloffle : ZyperOS ne peut pas le fournir.
+de = Es gehört Lexaloffle: ZyperOS kann es nicht mitbringen.
+ja = Lexaloffle の製品なので、ZyperOS からは入れられません。
+it = È di Lexaloffle: ZyperOS non può portarlo.
+
+[pico8.point_how]
+note = The page's third point: the two ways to add it. "The Raspberry Pi zip" is the PICO-8 for Raspberry Pi download (a .zip file) the player bought; ZyperOS Installer is the computer app; Bios/PICO-8 the folder on the card
+en = Add the Raspberry Pi zip you bought with ZyperOS Installer, or copy it to Bios/PICO-8.
+zh-Hans = 用 ZyperOS Installer 添加你购买的 Raspberry Pi 版 zip，或把它复制到 Bios/PICO-8。
+es = Añade el zip de Raspberry Pi que compraste con ZyperOS Installer, o cópialo en Bios/PICO-8.
+pt-BR = Adicione o zip de Raspberry Pi que você comprou com o ZyperOS Installer, ou copie-o para Bios/PICO-8.
+fr = Ajoutez le zip Raspberry Pi que vous avez acheté avec ZyperOS Installer, ou copiez-le dans Bios/PICO-8.
+de = Füge das gekaufte Raspberry-Pi-Zip mit dem ZyperOS Installer hinzu oder kopiere es nach Bios/PICO-8.
+ja = 購入した Raspberry Pi 版の zip を ZyperOS Installer で追加するか、Bios/PICO-8 にコピーしてください。
+it = Aggiungi lo zip per Raspberry Pi che hai comprato con ZyperOS Installer, o copialo in Bios/PICO-8.
+
+[pico8.wifi_title]
+note = The question's heading before Splore opens with no network: Splore lists and downloads carts online
+en = Splore needs Wi-Fi
+zh-Hans = Splore 需要 Wi-Fi
+es = Splore requiere Wi-Fi
+pt-BR = O Splore requer Wi-Fi
+fr = Splore a besoin du Wi-Fi
+de = Splore braucht WLAN
+ja = Splore には Wi-Fi が必要です
+it = Splore richiede il Wi-Fi
+
+[pico8.wifi_body]
+note = The question's sentence: with no network, Splore opens with the carts it downloaded on earlier visits only
+en = Wi-Fi is off. Offline, Splore has only the carts it downloaded before.
+zh-Hans = Wi-Fi 已关闭。离线时，Splore 只有之前下载过的卡带。
+es = El Wi-Fi está apagado. Sin conexión, Splore solo tiene los cartuchos que descargó antes.
+pt-BR = O Wi-Fi está desligado. Offline, o Splore só tem os cartuchos que baixou antes.
+fr = Le Wi-Fi est désactivé. Hors ligne, Splore n'a que les cartouches déjà téléchargées.
+de = WLAN ist aus. Offline hat Splore nur die Carts, die es vorher geladen hat.
+ja = Wi-Fi がオフです。オフラインの Splore では、前にダウンロードしたカートだけが使えます。
+it = Il Wi-Fi è spento. Offline, Splore ha solo le cartucce scaricate prima.
+
+[pico8.wifi_on]
+note = The question's first button: turn Wi-Fi on, join the saved network, then open Splore
+en = Turn On Wi-Fi
+zh-Hans = 打开 Wi-Fi
+es = Activar Wi-Fi
+pt-BR = Ligar o Wi-Fi
+fr = Activer le Wi-Fi
+de = WLAN einschalten
+ja = Wi-Fi をオン
+it = Attiva il Wi-Fi
+
+[pico8.offline]
+note = The question's second button: open Splore with no network, as it is
+en = Open Offline
+zh-Hans = 离线打开
+es = Abrir sin conexión
+pt-BR = Abrir offline
+fr = Ouvrir hors ligne
+de = Offline öffnen
+ja = オフラインで開く
+it = Apri offline
+
+[pico8.no_network]
+note = A message when Wi-Fi was turned on for Splore but no saved network was joined in time; Splore then opens offline on the next A
+en = No Wi-Fi network was joined. Splore can still open offline.
+zh-Hans = 未连接到 Wi-Fi 网络。Splore 仍可离线打开。
+es = No se conectó a ninguna red Wi-Fi. Splore aún puede abrirse sin conexión.
+pt-BR = Nenhuma rede Wi-Fi foi conectada. O Splore ainda pode abrir offline.
+fr = Aucun réseau Wi-Fi n'a été rejoint. Splore peut tout de même s'ouvrir hors ligne.
+de = Kein WLAN verbunden. Splore lässt sich trotzdem offline öffnen.
+ja = Wi-Fi ネットワークに接続できませんでした。Splore はオフラインで開けます。
+it = Nessuna rete Wi-Fi collegata. Splore si può comunque aprire offline.
+
+[pico8.ready]
+note = A message after the launcher took the player's PICO-8 out of a zip they copied into Bios/PICO-8: %s is its version ("0.2.7")
+en = Your PICO-8 %s is ready.
+zh-Hans = 你的 PICO-8 %s 已就绪。
+es = Tu PICO-8 %s está listo.
+pt-BR = Seu PICO-8 %s está pronto.
+fr = Votre PICO-8 %s est prêt.
+de = Dein PICO-8 %s ist bereit.
+ja = あなたの PICO-8 %s の準備ができました。
+it = Il tuo PICO-8 %s è pronto.
+
+[pico8.ready_plain]
+note = pico8.ready when the zip does not say which version it is
+en = Your PICO-8 is ready.
+zh-Hans = 你的 PICO-8 已就绪。
+es = Tu PICO-8 está listo.
+pt-BR = Seu PICO-8 está pronto.
+fr = Votre PICO-8 est prêt.
+de = Dein PICO-8 ist bereit.
+ja = あなたの PICO-8 の準備ができました。
+it = Il tuo PICO-8 è pronto.
+
+[pico8.not_raspi]
+note = A message when the zip in Bios/PICO-8 is not the PICO-8 for Raspberry Pi download (another platform's, an old one, or another file): %s is the zip's file name
+en = %s is not the PICO-8 for Raspberry Pi zip.
+zh-Hans = %s 不是 Raspberry Pi 版 PICO-8 的 zip。
+es = %s no es el zip de PICO-8 para Raspberry Pi.
+pt-BR = %s não é o zip do PICO-8 para Raspberry Pi.
+fr = %s n'est pas le zip de PICO-8 pour Raspberry Pi.
+de = %s ist nicht das Zip von PICO-8 für Raspberry Pi.
+ja = %s は Raspberry Pi 版 PICO-8 の zip ではありません。
+it = %s non è lo zip di PICO-8 per Raspberry Pi.
+
+[pico8.take_failed]
+note = A message when the launcher could not take PICO-8's files out of the zip in Bios/PICO-8 (the card refused a write, or the zip is damaged): %s is the zip's file name
+en = Your PICO-8 could not be taken out of %s.
+zh-Hans = 无法从 %s 中取出你的 PICO-8。
+es = No se pudo sacar tu PICO-8 de %s.
+pt-BR = Não foi possível tirar seu PICO-8 de %s.
+fr = Impossible d'extraire votre PICO-8 de %s.
+de = Dein PICO-8 ließ sich nicht aus %s entpacken.
+ja = %s から PICO-8 を取り出せませんでした。
+it = Impossibile estrarre il tuo PICO-8 da %s.
+
+[pico8.splore_stays]
+note = A message when the player asks to delete Splore's entry on the PICO-8 shelf: it is no file of theirs but PICO-8's own browser, so it stays (as gamemenu.delete_runtime says of PortMaster)
+en = Splore is part of your PICO-8. It stays.
+zh-Hans = Splore 是你的 PICO-8 的一部分，会保留。
+es = Splore es parte de tu PICO-8. Se queda.
+pt-BR = O Splore faz parte do seu PICO-8. Ele fica.
+fr = Splore fait partie de votre PICO-8. Il reste.
+de = Splore gehört zu deinem PICO-8. Es bleibt.
+ja = Splore は PICO-8 の一部なので、残ります。
+it = Splore fa parte del tuo PICO-8. Resta.

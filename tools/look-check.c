@@ -128,6 +128,26 @@ int main(void)
 	ck(look_folder_parse("teal") == 3 && !strcmp(look_folder_word(3), "teal") &&
 	   !strcmp(look_folder_word(0), "system") && !strcmp(look_folder_word(LOOK_FOLDERS), "system"),
 	   "Folder Color's words read back as its choice");
+	/* Highlight (the focus lab, 2026-11-19): Bar as it ships, from no word
+	 * and from one of another release; each word back as its choice; and
+	 * no part of the look a card is painted with (look_id keeps) */
+	ck(LOOK_DEFAULT.focus == LOOK_FOCUS_BAR && look_focus_parse(NULL) == LOOK_FOCUS_BAR &&
+	   look_focus_parse("glow") == LOOK_FOCUS_BAR, "Highlight ships as Bar, and reads so from any other word");
+	ck(look_focus_parse("border") == LOOK_FOCUS_BORDER && look_focus_parse("lift") == LOOK_FOCUS_LIFT &&
+	   look_focus_parse("none") == LOOK_FOCUS_NONE && !strcmp(look_focus_word(LOOK_FOCUS_LIFT), "lift") &&
+	   !strcmp(look_focus_word(LOOK_FOCUSES), "bar"), "Highlight's words read back as its choice");
+	l = LOOK_DEFAULT;
+	look_set(&l);
+	{
+		const int before = look_id();
+
+		l.focus = LOOK_FOCUS_NONE;
+		look_set(&l);
+		ck(look_focus() == LOOK_FOCUS_NONE && look_id() == before, "Highlight is set and paints no card again");
+		l.focus = 99;
+		look_set(&l);
+		ck(look_focus() == LOOK_FOCUS_BAR, "a Highlight out of range is Bar");
+	}
 	l = LOOK_DEFAULT;
 	look_set(&l);
 	{
@@ -159,7 +179,7 @@ int main(void)
 				for (dk = 0; dk < DS_TONES; dk++)
 					for (sq = 0; sq < 2; sq++)
 						for (fo = 0; fo < LOOK_FOLDERS; fo++) {
-							look x = { ac, { lt, dk }, sq != 0, false, fo };
+							look x = { ac, { lt, dk }, sq != 0, false, fo, LOOK_FOCUS_BAR };
 							int id;
 
 							look_set(&x);

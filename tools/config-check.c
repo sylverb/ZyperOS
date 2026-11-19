@@ -173,12 +173,15 @@ int main(void)
 	      "needs|NAM|gpu-frames\n"
 	      "needs|LOW|teleporter\n"
 	      "needs|NOPE|gpu-frames\n"
-	      "es|NAM|famicom, fds\n", f);
+	      "es|NAM|famicom, fds\n"
+	      "sys|Two|two|run:Emulators/Two/Two.sh,core|TWO|T.png|C4443A|gb\n"
+	      "brings|TWO|run:Emulators/Two/Two.sh|Bios/Two/a,Bios/Two/b\n"
+	      "brings|NAM|run:Emulators/None/None.sh|Bios/x\n", f);
 	fclose(f);
 
 	printf("reading:\n");
 	ck(cfg_load_systems(path, &c), "the file loads");
-	ck(c.count == 11, "every sys line is a system, colored or not");
+	ck(c.count == 12, "every sys line is a system, colored or not");
 
 	printf("a color:\n");
 	s = find(&c, "Named");
@@ -238,6 +241,13 @@ int main(void)
 		ck(!strcmp(keys, ""), "no RUN keys for a plain system");
 		s = find(&c, "Lower");
 		ck(s && !strcmp(s->pace, "smooth"), "pace|tag|smooth gives the system Timing, Smooth its own");
+		s = find(&c, "Two");
+		ck(s && !strcmp(s->brings_core, "run:Emulators/Two/Two.sh") && !strcmp(s->brings, "Bios/Two/a,Bios/Two/b"),
+		   "brings| gives the shelf's core the files the player brings");
+		ck(s && !strcmp(s->core, "run:Emulators/Two/Two.sh") && cfg_core_count(s) == 2,
+		   "and the core field keeps its two cores");
+		s = find(&c, "Named");
+		ck(s && !s->brings_core[0] && !s->brings[0], "a brings line for a core the shelf lacks is none");
 		s = find(&c, "Black");
 		ck(s && !s->pace[0], "and a word that is neither smooth nor exact is no line: no Timing row");
 		s = find(&c, "Named");
@@ -332,6 +342,20 @@ int main(void)
 				}
 			ck(!strcmp(gpu, "AW DC NAOMI N64 PSP SATURN "),
 			   "GPU frames for the Atomiswave, Dreamcast, NAOMI, N64, PSP and Saturn, no other");
+		}
+		/* Your PICO-8: the player's files, never shipped, for the core
+		 * listed first, with fake08 after it for every other card */
+		for (i = 0; i < c.count && strcmp(c.systems[i].tag, "PICO8"); i++) {}
+		ck(i < c.count && !strcmp(c.systems[i].cores, "run:ZyperOS/pico8/PICO-8.sh,fake08"),
+		   "PICO-8: your PICO-8 first, fake08 after it");
+		ck(i < c.count && !strcmp(c.systems[i].brings_core, "run:ZyperOS/pico8/PICO-8.sh") &&
+		   !strcmp(c.systems[i].brings, "Bios/PICO-8/pico8_64,Bios/PICO-8/pico8.dat"),
+		   "and your PICO-8 needs the zip's two files in Bios/PICO-8");
+		{
+			int k, nb = 0;
+
+			for (k = 0; k < c.count; k++) if (c.systems[k].brings_core[0]) nb++;
+			ck(nb == 1, "no other shelf has files the player brings");
 		}
 		/* and the tags, which settings hang off, went with their names */
 		ck(!strcmp(c.systems[0].tag, "3DO") && !strcmp(c.systems[n - 1].tag, "PRT"),

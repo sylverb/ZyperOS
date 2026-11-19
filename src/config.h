@@ -134,6 +134,13 @@ typedef struct {
 	 * shelf_folder_choose). What a system IS to the tables keyed on
 	 * ZyperOS's names, libretro's and ScreenScraper's, goes by this. */
 	char home[CFG_STR];
+	/* A "run:" core of this shelf that runs files the player brings, which
+	 * ZyperOS never ships (your PICO-8), and those files, under the card,
+	 * comma separated: from a `brings|tag|core|paths` line. The core counts
+	 * as on the card only with each of them there (src/main.c, core_ready).
+	 * Empty for a shelf with none. */
+	char brings_core[CFG_STR];
+	char brings[160];
 } system_cfg;
 
 typedef struct {

@@ -8,6 +8,7 @@
 #include "ds/flex.h"     /* the shelf, laid out by rules */
 #include "ds/layout.h"
 #include "ds/mark.h"
+#include "ds/focus.h"
 #include "theme.h"
 #include <math.h>
 #include <stdio.h>
@@ -261,6 +262,7 @@ uint32_t games_draw(games_row *row,SDL_Renderer *r,const games_info *info,
     } else ui_text(r,meta,info->system,sf.sys.x,ui_cap_y(meta,sys_cy),-1,UI_TEXT_SOFT);
     ui_text_tabular(r,chrome,count,sf.sys.x+sf.sys.w,ui_cap_y(chrome,sys_cy),1,UI_TEXT_DIM);
 
+    const ds_focus_marks marks=ds_focus_marks_of(DS_FOCUS_COVER);
     games_slot slots[GAMES_WINDOW]; int n=games_slots(row,now,slots);
     for(int i=0;i<n;i++) {
         /* Asked out to the last seat, where a cover shows nothing: so the
@@ -273,7 +275,16 @@ uint32_t games_draw(games_row *row,SDL_Renderer *r,const games_info *info,
         if(pose.alpha<=0) continue;
         SDL_FRect dst={pose.cx-pose.hw,pose.cy-pose.hh,pose.hw*2,pose.hh*2};
         bool turned=fabsf(pose.ang)>.001f;
-        float focus=fmaxf(0,1-fabsf(slots[i].offset));
+        float focus=fmaxf(0,1-fabsf(slots[i].offset)),rise=0;
+        /* Highlight's Lift (src/ds/focus.h): the cover coming to the middle
+         * rises 12 on a deep lift as it comes, and a snap taking its place
+         * with it */
+        if(marks.lift==DS_FOCUS_LIFT_HIGH && !turned && focus>.02f) {
+            rise=12*focus;
+            dst.y-=rise;
+            ui_lift_focus(r,&(SDL_Rect){(int)lroundf(dst.x),(int)lroundf(dst.y),(int)lroundf(dst.w),(int)lroundf(dst.h)},
+                          true,focus*pose.alpha*slots[i].alpha);
+        }
         Uint8 was; SDL_BlendMode texblend;
         SDL_GetTextureAlphaMod(t,&was); SDL_GetTextureBlendMode(t,&texblend);
         SDL_SetTextureBlendMode(t,SDL_BLENDMODE_BLEND);
@@ -307,6 +318,7 @@ uint32_t games_draw(games_row *row,SDL_Renderer *r,const games_info *info,
              * through a frame that grows from the cover's rect to its own,
              * as the cover fades. Never stretched on the way. */
             SDL_FRect vr=games_cover_rect(info->snap_w,info->snap_h,0);
+            vr.y-=rise;
             SDL_Rect clip={(int)floorf(dst.x+(vr.x-dst.x)*k),(int)floorf(dst.y+(vr.y-dst.y)*k),
                            (int)ceilf(dst.w+(vr.w-dst.w)*k)+1,(int)ceilf(dst.h+(vr.h-dst.h)*k)+1};
             SDL_RenderSetClipRect(r,&clip);
@@ -351,6 +363,21 @@ uint32_t games_draw(games_row *row,SDL_Renderer *r,const games_info *info,
             int bw=(int)lroundf(dst.w),bx=(int)lroundf(dst.x),by=(int)lroundf(dst.y+dst.h)+12;
             float fade=(1-k)*slots[i].alpha;
             ds_bar(r,bx,by,bw,(int)lroundf(bw*fminf(info->snap_wait,1)),(Uint8)lroundf(255*fade));
+        }
+    }
+    /* Highlight's marks round the cover in the middle, holding still as the
+     * row slides under them, as Spotlight's do: Border's ring (its corners
+     * the cover's own, square), Bar's bar under the snap's wait bar; both
+     * gone as a snap takes the cover's place */
+    if((marks.ring || marks.bar) && info->count>0) {
+        int w=0,h=0; float cb=1;
+        SDL_Texture *t=texture(ctx,info->cursor,&w,&h,&cb);
+        float k=info->snap && info->snap_k>0 ? fminf(info->snap_k,1) : 0;
+        if(t && w>0 && h>0 && k<1) {
+            SDL_FRect c=games_cover_rect(w,h,0);
+            Uint8 al=(Uint8)lroundf(255*(1-k));
+            if(marks.ring) ds_focus_ring(r,c,0,al);
+            if(marks.bar) ds_focus_bar(r,(SDL_FRect){c.x,c.y,c.w,c.h+16},al);
         }
     }
     TTF_Font *title=page_font(PAGE_GAME_TITLE);
@@ -399,7 +426,7 @@ uint32_t games_draw(games_row *row,SDL_Renderer *r,const games_info *info,
         char pt[64]=""; int w=0, parts=0;
         if(games_line[0]) { w+=ui_text_width(chrome,games_line); parts++; }
         if(origin) { w+=ui_text_width(chrome,info->origin); parts++; }
-        if(info->install) { w+=ui_text_width(chrome,T(S_PORTMASTER_NOT_INSTALLED)); parts++; }
+        if(info->install||info->howto) { w+=ui_text_width(chrome,T(S_PORTMASTER_NOT_INSTALLED)); parts++; }
         if(info->needs && *info->needs) { w+=ui_text_width(chrome,info->needs); parts++; }
         if(info->played && *info->played) { snprintf(pt,sizeof pt,T(S_GAMES_PLAYED),info->played); w+=ui_text_width(chrome,pt); parts++; }
         if(info->has_achievements) { char at[64]; snprintf(at,sizeof at,T(S_GAMES_ACHIEVEMENTS),info->earned,info->total); w+=ui_text_width(chrome,at); parts++; }
@@ -408,7 +435,7 @@ uint32_t games_draw(games_row *row,SDL_Renderer *r,const games_info *info,
     }
     if(origin) x=meta_part(r,chrome,info->origin,x,my);
     if(games_line[0]) x=meta_part(r,chrome,games_line,x,my);
-    if(info->install) x=meta_part(r,chrome,T(S_PORTMASTER_NOT_INSTALLED),x,my);
+    if(info->install||info->howto) x=meta_part(r,chrome,T(S_PORTMASTER_NOT_INSTALLED),x,my);
     /* Firmware it cannot start without, in **warning**: what A would say */
     if(info->needs && *info->needs) x=meta_part_in(r,chrome,info->needs,x,my,ui_col(theme()->warning,255));
     if(info->played && *info->played) {
@@ -419,14 +446,14 @@ uint32_t games_draw(games_row *row,SDL_Renderer *r,const games_info *info,
         char text[64]; snprintf(text,sizeof text,T(S_GAMES_ACHIEVEMENTS),info->earned,info->total);
         meta_part(r,chrome,text,x,my);
     }
-    if(info->count) page_hint(r,"A",T(info->folder>0?S_GAMES_OPEN:info->install?S_PORTMASTER_INSTALL:
+    if(info->count) page_hint(r,"A",T(info->folder>0||info->opens?S_GAMES_OPEN:info->howto?S_PICO8_HOW_TO_ADD:info->install?S_PORTMASTER_INSTALL:
                                       info->resumable?S_GAMES_RESUME:S_GAMES_PLAY),SHELF_HINT_X,GAMES_TITLE_Y+SHELF_HINT_DY,true,false);
     /* The foot, spread from B at the left to X at the right (DESIGN.md
      * 11.4): START turns the shelf into the grid, the next View (11.47) */
     key_hint foot[4]; int nf=0;
     foot[nf++]=(key_hint){"B",T(info->inside?S_GAMES_BACK:S_GAMES_SYSTEMS)};
     if(info->count) foot[nf++]=(key_hint){"START",T(S_GAMES_TO_GRID)};
-    if(info->count&&info->resumable&&!info->install&&!info->folder) foot[nf++]=(key_hint){"Y",T(S_GAMES_FRESH)};
+    if(info->count&&info->resumable&&!info->install&&!info->howto&&!info->opens&&!info->folder) foot[nf++]=(key_hint){"Y",T(S_GAMES_FRESH)};
     if(!info->folder) foot[nf++]=(key_hint){"X",T(S_GAMES_DETAILS)};
     /* DS_FOOT_Y, every screen's: a two-line name's system line (cap 664) stays 30 from the keys */
     keyhints_draw(r,foot,nf,sf.keys.x,sf.keys.x+sf.keys.w,sf.keys.y+sf.keys.h/2,KEYHINTS_SPREAD,true,255);
