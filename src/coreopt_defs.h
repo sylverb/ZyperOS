@@ -3,11 +3,10 @@
 #define ZYPEROS_COREOPT_DEFS_H
 
 /* Core option definitions for the Core Settings page: what a core offers
- * (key, description, default, allowed values), from Diatom's OPTIONS lines,
- * a cache under the player's userdata, or a small seed for blueMSX so MSX
- * mapper and sound cart are configurable before a first launch. The optional
- * whitelist (config/coreopts-show.cfg) can later hide keys; an absent file
- * or an empty section for a core shows every definition. No SDL. */
+ * (key, description, default, allowed values), from Diatom's OPTIONS lines
+ * or a cache under the player's userdata. The optional whitelist
+ * (config/coreopts-show.cfg) can later hide keys; an absent file or an empty
+ * section for a core shows every definition. No SDL. */
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -55,8 +54,8 @@ void codefs_cache_path(const char *userdata, const char *core,
  * Language changed, and the OPTION lines' desc were for the old tongue. */
 void codefs_cache_clear(const char *userdata);
 
-/* blueMSX seed: cartmapper + additional_cart, so MSX works with an empty
- * cache. False for any other core name. */
+/* Optional baked-in defs when Diatom and the cache are both empty. Always
+ * false for now (no core seeds); kept so the gather path can grow one again. */
 bool codefs_seed(codefs *out, const char *core);
 
 /* Whitelist: keys listed under `core=<name>` in the show file. `n_allow` 0

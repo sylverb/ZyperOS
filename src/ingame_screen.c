@@ -575,9 +575,9 @@ void gm_gather(app *a, gm_ui *out)
  * starts (launch) and kept across MENU presses until it ends, so MENU opens
  * where it was closed.
  *
- * -1, not GM_MAX_ROWS: the Core tab's ids are option indices 0, 1, 2, ...
- * and fceumm's "Volume principal" is index 19, which is GM_MAX_ROWS - a
- * visit that had never set Core then landed there instead of Région. */
+ * -1 means none (first row). Core ids are CORE_ID0 + i so they never collide
+ * with gm_row values or GM_MAX_ROWS (which is also fceumm option 19,
+ * "Volume principal"). */
 gm_mem_state g_gm_mem;
 
 void gm_mem_reset(void)
@@ -1312,10 +1312,13 @@ static bool gm_screens(app *a, gm_row id, int d)
 	return plat_resident_sync_screens(300);
 }
 
-/* A row of any tab by identity: gm_row, ct_row, or an achievement, which is
- * AT_ID0 and its place in the set - apart from -1, the kept row's
- * "none" (g_gm_mem) */
-#define AT_ID0 1000
+/* A row of any tab by identity: gm_row, ct_row, an achievement (AT_ID0 + i),
+ * or a Core option (CORE_ID0 + i) - apart from -1, the kept row's "none"
+ * (g_gm_mem). Core must not use bare 0, 1, 2, ...: those collide with gm_row
+ * values, and with GM_MAX_ROWS (== 19), which is also fceumm's
+ * "Volume principal" - so an unset Core row used to land there. */
+#define AT_ID0   1000
+#define CORE_ID0 2000
 #define GM_IDS_MAX (CHV_MAX > CT_MAX_ROWS ? CHV_MAX : CT_MAX_ROWS)
 
 int shot_achtab = -1;      /* --achtab STATE: the tab's state in a shot */
@@ -1410,7 +1413,7 @@ static int gm_ids(app *a, gm_ctx *c, const gm_ui *u, int tab, int *ids, int max)
 	if (!u->port && tab == GT_CORE) {
 		n = coreopts_ui_count(&c->core);
 		if (n > max) n = max;
-		for (i = 0; i < n; i++) ids[i] = i;
+		for (i = 0; i < n; i++) ids[i] = CORE_ID0 + i;
 		return n;
 	}
 	/* The Achievements tab: an achievement's place, or the one row of a

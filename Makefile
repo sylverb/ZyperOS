@@ -2049,8 +2049,8 @@ build-native/coreopts-check: tools/coreopts-check.c src/coreopts.c src/coreopts.
 	      -o $@ tools/coreopts-check.c src/coreopts.c src/db.c src/atomic.c src/strength.c \
 	      src/device/pixel2_coreopts.c -lsqlite3 -lpthread
 
-# Core Settings page helpers (src/coreopt_defs.h): OPTION parse, blueMSX seed,
-# empty whitelist = all, value cycle, cache round-trip, coreopt.<TAG>.key.
+# Core Settings page helpers (src/coreopt_defs.h): OPTION parse, no baked-in
+# seed, empty whitelist = all, value cycle, cache round-trip, coreopt.<TAG>.key.
 check-coreopts-page: build-native/coreopts-page-check
 	@./build-native/coreopts-page-check
 

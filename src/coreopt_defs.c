@@ -148,56 +148,13 @@ void codefs_cache_clear(const char *userdata)
 
 bool codefs_seed(codefs *out, const char *core)
 {
-	/* Same labels/values as blueMSX-libretro's option_defs_us; Machine Type
-	 * must be exactly "MSXturboR" (case-sensitive). (Restart) = Quit + relaunch. */
-	static const char *const type_vals =
-		"Auto|MSX|MSXturboR|MSX2|MSX2+|"
-		"SEGA - SG-1000|SEGA - SC-3000|SEGA - SF-7000|"
-		"SVI - Spectravideo SVI-318|SVI - Spectravideo SVI-328|"
-		"SVI - Spectravideo SVI-328 MK2|"
-		"ColecoVision|Coleco (Spectravideo SVI-603)";
-	static const char *const cart_vals =
-		"Auto|Normal|mirrored|basic|0x4000|0xC000|"
-		"ascii8|ascii8sram|ascii16|ascii16sram|ascii16nf|"
-		"konami4|konami4nf|konami5|konamisynth|"
-		"korean80|korean90|korean126|"
-		"MegaFlashRomScc|MegaFlashRomSccPlus";
-	/* Core option_defs say default "None", but check_variables only treats
-	 * "disabled" as off; any other string (including "None") inserts a cart. */
-	static const char *const sound_vals =
-		"disabled|scc|sccexpanded|sccmirrored|sccplus|snatcher|sdsnatcher";
-
-	if (!out || !core) return false;
-	out->n = 0;
-	if (strcmp(core, "bluemsx") != 0) return false;
-
-	memset(&out->opt[0], 0, sizeof out->opt[0]);
-	snprintf(out->opt[0].key, sizeof out->opt[0].key, "bluemsx_msxtype");
-	snprintf(out->opt[0].desc, sizeof out->opt[0].desc,
-	         "Machine Type (Restart)");
-	snprintf(out->opt[0].deflt, sizeof out->opt[0].deflt, "Auto");
-	snprintf(out->opt[0].value, sizeof out->opt[0].value, "Auto");
-	codef_set_values(&out->opt[0], type_vals);
-	out->n = 1;
-
-	memset(&out->opt[1], 0, sizeof out->opt[1]);
-	snprintf(out->opt[1].key, sizeof out->opt[1].key, "bluemsx_cartmapper");
-	snprintf(out->opt[1].desc, sizeof out->opt[1].desc,
-	         "Cart Mapper Type (Restart)");
-	snprintf(out->opt[1].deflt, sizeof out->opt[1].deflt, "Auto");
-	snprintf(out->opt[1].value, sizeof out->opt[1].value, "Auto");
-	codef_set_values(&out->opt[1], cart_vals);
-	out->n = 2;
-
-	memset(&out->opt[2], 0, sizeof out->opt[2]);
-	snprintf(out->opt[2].key, sizeof out->opt[2].key, "bluemsx_additional_cart");
-	snprintf(out->opt[2].desc, sizeof out->opt[2].desc,
-	         "Additional MSX Sound Cartridge (Restart)");
-	snprintf(out->opt[2].deflt, sizeof out->opt[2].deflt, "disabled");
-	snprintf(out->opt[2].value, sizeof out->opt[2].value, "disabled");
-	codef_set_values(&out->opt[2], sound_vals);
-	out->n = 3;
-	return true;
+	/* No baked-in defs: Core Settings uses Diatom's OPTIONS or the
+	 * userdata cache only. A blueMSX seed lived here so MSX mapper /
+	 * machine type were editable from the shelf before a first launch;
+	 * removed to check whether that path matters in practice. */
+	(void)core;
+	if (out) out->n = 0;
+	return false;
 }
 
 int codefs_load_allow(const char *path, const char *core,

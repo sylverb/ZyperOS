@@ -3,7 +3,7 @@
  * kept as coreopt.<TAG>.<key> in the library. The shelf opens it as a page
  * (coreopts_page); the in-game menu shows the same list as a tab (GT_CORE).
  * When a game is paused on that core, definitions come from Diatom's OPTIONS
- * and are cached; otherwise the cache or blueMSX's seed. */
+ * and are cached; otherwise the cache alone. */
 #ifndef ZYPEROS_COREOPTS_PAGE_H
 #define ZYPEROS_COREOPTS_PAGE_H
 

@@ -16,6 +16,30 @@ static void ck(int cond, const char *what)
 	if (!cond) { printf("  FAIL %s\n", what); fails++; }
 }
 
+/* A small stand-in set of defs (was the blueMSX seed; now handmade so the
+ * helpers still have something to filter and cycle). */
+static void sample_defs(codefs *out)
+{
+	memset(out, 0, sizeof *out);
+	snprintf(out->opt[0].key, sizeof out->opt[0].key, "bluemsx_msxtype");
+	snprintf(out->opt[0].desc, sizeof out->opt[0].desc, "Machine Type (Restart)");
+	snprintf(out->opt[0].deflt, sizeof out->opt[0].deflt, "Auto");
+	snprintf(out->opt[0].value, sizeof out->opt[0].value, "Auto");
+	codef_set_values(&out->opt[0], "Auto|MSX|MSXturboR|MSX2");
+	snprintf(out->opt[1].key, sizeof out->opt[1].key, "bluemsx_cartmapper");
+	snprintf(out->opt[1].desc, sizeof out->opt[1].desc, "Cart Mapper Type (Restart)");
+	snprintf(out->opt[1].deflt, sizeof out->opt[1].deflt, "Auto");
+	snprintf(out->opt[1].value, sizeof out->opt[1].value, "Auto");
+	codef_set_values(&out->opt[1], "Auto|Normal|konami4");
+	snprintf(out->opt[2].key, sizeof out->opt[2].key, "bluemsx_additional_cart");
+	snprintf(out->opt[2].desc, sizeof out->opt[2].desc,
+	         "Additional MSX Sound Cartridge (Restart)");
+	snprintf(out->opt[2].deflt, sizeof out->opt[2].deflt, "disabled");
+	snprintf(out->opt[2].value, sizeof out->opt[2].value, "disabled");
+	codef_set_values(&out->opt[2], "disabled|scc|sccexpanded|sccplus");
+	out->n = 3;
+}
+
 static void parse_and_key(void)
 {
 	codef o;
@@ -42,25 +66,20 @@ static void seed_and_cycle(void)
 	codefs s;
 	int i;
 
-	printf("blueMSX seed and cycle:\n");
-	ck(codefs_seed(&s, "bluemsx") && s.n == 3, "bluemsx seeds three options");
-	ck(!strcmp(s.opt[0].key, "bluemsx_msxtype") &&
-	   !strcmp(s.opt[1].key, "bluemsx_cartmapper") &&
-	   !strcmp(s.opt[2].key, "bluemsx_additional_cart"),
-	   "machine type, mapper and additional sound cart");
+	printf("no baked-in seed; value cycle:\n");
+	ck(!codefs_seed(&s, "bluemsx") && s.n == 0, "bluemsx has no seed");
+	ck(!codefs_seed(&s, "gambatte"), "another core has no seed");
+	sample_defs(&s);
 	ck(codef_value_index(&s.opt[0], "MSXturboR") >= 0 &&
 	   codef_value_index(&s.opt[2], "disabled") >= 0 &&
 	   codef_value_index(&s.opt[2], "scc") >= 0 &&
 	   codef_value_index(&s.opt[2], "sccplus") >= 0 &&
 	   codef_value_index(&s.opt[1], "Auto") >= 0,
 	   "MSXturboR, disabled, scc, sccplus and Auto are among the values");
-	ck(!strcmp(s.opt[2].value, "disabled") && !strcmp(s.opt[2].deflt, "disabled"),
-	   "additional cart seed stays off");
 	i = codef_value_index(&s.opt[2], "scc");
 	ck(!strcmp(s.opt[2].vals[codef_value_step(&s.opt[2], i, 1)], "sccexpanded") ||
 	   codef_value_step(&s.opt[2], i, 1) != i,
 	   "stepping moves to another value");
-	ck(!codefs_seed(&s, "gambatte"), "another core has no seed");
 }
 
 static void whitelist(void)
@@ -82,8 +101,7 @@ static void whitelist(void)
 	           "core=gambatte\n");
 	fclose(f);
 
-	codefs_seed(&all, "bluemsx");
-	/* invent an extra so filter is visible */
+	sample_defs(&all);
 	if (all.n < CODEFS_MAX) {
 		codef *o = &all.opt[all.n++];
 
@@ -122,7 +140,7 @@ static void cache_roundtrip(void)
 	ck(fd >= 0, "a temp cache file");
 	if (fd < 0) return;
 	close(fd);
-	codefs_seed(&a, "bluemsx");
+	sample_defs(&a);
 	ck(codefs_save_file(&a, path) && codefs_load_file(&b, path) && b.n == a.n &&
 	   !strcmp(b.opt[0].key, a.opt[0].key) && !strcmp(b.opt[1].pipe, a.opt[1].pipe),
 	   "save and load keep keys and values");

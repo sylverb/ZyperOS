@@ -159,6 +159,77 @@ static diatom_option *add(const char *key, const char *deflt)
 	return o;
 }
 
+void diatom_options_define(const struct retro_core_option_definition *defs)
+{
+	const struct retro_core_option_definition *d;
+
+	if (!defs || !g_active) return;
+	g_active->n = 0;
+
+	for (d = defs; d->key; d++) {
+		diatom_option *o = add(d->key, d->default_value);
+		int i;
+		if (!o) break;
+		o->desc   = d->desc;
+		o->values = d->values;
+		for (i = 0; i < RETRO_NUM_CORE_OPTION_VALUES_MAX && d->values[i].value; i++)
+			;
+		o->nvalues = i;
+		apply_pending(o);
+	}
+	log_(DIATOM_LOG_INFO, "options: core declared %d (v1)", g_active->n);
+}
+
+static const struct retro_core_option_definition *
+find_v1_def(const struct retro_core_option_definition *defs, const char *key)
+{
+	const struct retro_core_option_definition *d;
+
+	if (!defs || !key) return NULL;
+	for (d = defs; d->key; d++)
+		if (!strcmp(d->key, key)) return d;
+	return NULL;
+}
+
+void diatom_options_define_intl(const struct retro_core_options_intl *in)
+{
+	const struct retro_core_option_definition *d, *us, *local;
+	int translated = 0;
+
+	if (!in || !g_active) return;
+	us = in->us;
+	local = in->local;
+	if (!us) {
+		diatom_options_define(local);
+		return;
+	}
+	if (!local) {
+		diatom_options_define(us);
+		return;
+	}
+	g_active->n = 0;
+	for (d = us; d->key; d++) {
+		const struct retro_core_option_definition *l = find_v1_def(local, d->key);
+		diatom_option *o = add(d->key, d->default_value);
+		int i;
+
+		if (!o) break;
+		if (l && l->desc) {
+			o->desc = l->desc;
+			translated++;
+		} else {
+			o->desc = d->desc;
+		}
+		o->values = d->values;
+		for (i = 0; i < RETRO_NUM_CORE_OPTION_VALUES_MAX && d->values[i].value; i++)
+			;
+		o->nvalues = i;
+		apply_pending(o);
+	}
+	log_(DIATOM_LOG_INFO, "options: core declared %d (v1, %d translated)",
+	     g_active->n, translated);
+}
+
 void diatom_options_define_v2(const struct retro_core_options_v2 *v2)
 {
 	const struct retro_core_option_v2_definition *d;

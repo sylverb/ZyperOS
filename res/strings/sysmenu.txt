@@ -680,15 +680,15 @@ ja = コア設定
 it = Impostazioni core
 
 [sysmenu.core_settings_empty]
-note = Core Settings page when this core has no cached options yet: launch a game once to load the list
-en = Launch a game once to load options.
-zh-Hans = 先启动一次游戏以加载选项。
-es = Abre un juego una vez para cargar las opciones.
-pt-BR = Abra um jogo uma vez para carregar as opções.
-fr = Lancez un jeu une fois pour charger les options.
-de = Starte einmal ein Spiel, um die Optionen zu laden.
-ja = 一度ゲームを起動するとオプションが読み込まれます。
-it = Avvia un gioco una volta per caricare le opzioni.
+note = Core Settings when this core has nothing to configure (no options, or none known yet)
+en = No options.
+zh-Hans = 无选项。
+es = Sin opciones.
+pt-BR = Sem opções.
+fr = Aucune option.
+de = Keine Optionen.
+ja = オプションはありません。
+it = Nessuna opzione.
 
 [sysmenu.dslang]
 note = A system menu row, on the Nintendo DS shelf: the language its games speak, whatever the firmware.bin on the card was dumped from
