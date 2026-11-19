@@ -2,7 +2,7 @@
 #ifndef ZYPEROS_VINYL_H
 #define ZYPEROS_VINYL_H
 
-/* MP4's Vinyl look drawn (DESIGN.md 11.14): a 12-inch record, 302 mm
+/* MP4's Vinyl look drawn (DESIGN.md 11.64): a 12-inch record, 302 mm
  * across, at 33 1/3 turns a minute on its platter, pressed in its cover's
  * main color (my pick, 2026-11-19), darkened so its grooves read, the cover
  * as its label; the tonearm's needle on the song's place in the album. A

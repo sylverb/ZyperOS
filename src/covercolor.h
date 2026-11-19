@@ -2,7 +2,7 @@
 #ifndef ZYPEROS_COVERCOLOR_H
 #define ZYPEROS_COVERCOLOR_H
 
-/* An album cover's main color (DESIGN.md 11.14): the cassette's stripe and
+/* An album cover's main color (DESIGN.md 11.64): the cassette's stripe and
  * the vinyl it is pressed in. Content, as the cover is - the one color of
  * MP4's looks that is no theme's role.
  *

@@ -14,7 +14,7 @@ static const struct { const char *key; int bars; } LOOKS[MP4L_COUNT] = {
 	/* In the column beside the record, under the names */
 	[MP4L_VINYL]    = { "vinyl",    15 },
 	/* A Winamp's window of bars, under the clock: as many as fit the
-	 * panel on the grid, 16 wide with 8 between (DESIGN.md 11.14) */
+	 * panel on the grid, 16 wide with 8 between (DESIGN.md 11.64) */
 	[MP4L_CLASSIC]  = { "classic",  18 },
 	/* One bar a band */
 	[MP4L_SPECTRUM] = { "spectrum", 32 },
