@@ -66,9 +66,10 @@ sites = {
     "scp_page": (0, 2), "album_art_screen": (1, 0),
     # A port whose brought files are gone (your PICO-8's, src/pico8.h) and a
     # port that could not start; Splore with no network joined; a game whose
-    # own file is empty or cut short (src/gamefile.h) and a disc whose
-    # firmware is missing or the wrong size
-    "launch_port_core": (0, 2), "splore_open": (0, 1), "launch": (0, 2),
+    # own file is empty or cut short (src/gamefile.h), a disc whose firmware
+    # is missing or the wrong size, and a core that would not load
+    # (src/startfail.h)
+    "launch_port_core": (0, 2), "splore_open": (0, 1), "launch": (0, 3),
 }
 for name, counts in sites.items():
     body = function(name)

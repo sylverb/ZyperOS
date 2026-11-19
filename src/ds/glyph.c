@@ -302,10 +302,14 @@ static void g_build(ui_glyph g, g_shape *s)
 		return;
 	}
 	if (g == UI_GLYPH_PLAY) {
-		/* A play triangle, outlined, its point to the right */
-		g_line(s, 0.27f, 0.14f, 0.27f, 0.86f, G_W);
-		g_line(s, 0.27f, 0.86f, 0.84f, 0.50f, G_W);
-		g_line(s, 0.84f, 0.50f, 0.27f, 0.14f, G_W);
+		/* A play triangle, outlined, its point to the right, its centroid
+		 * ((0.31 + 0.31 + 0.88) / 3) on the cell's middle: centered by its
+		 * box, a triangle looks pushed toward its flat side, so every disc
+		 * that held one moved it right by eye, and too far (2026-11-19, a
+		 * report from the Pixel 2: the paused video's play mark sat right) */
+		g_line(s, 0.31f, 0.14f, 0.31f, 0.86f, G_W);
+		g_line(s, 0.31f, 0.86f, 0.88f, 0.50f, G_W);
+		g_line(s, 0.88f, 0.50f, 0.31f, 0.14f, G_W);
 		return;
 	}
 	if (g == UI_GLYPH_WIFI) {
