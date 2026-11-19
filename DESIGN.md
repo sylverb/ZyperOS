@@ -895,10 +895,24 @@ place draw the stills. Movement uses **ms.move** and **out**, including
 interrupted reversals.
 
 **Games:** the selected **Cover row** design has a straight horizontal row of
-real box art, with a large focused cover and smaller neighbors. Every cover
-keeps its aspect ratio. There is no perspective tilt, reflection or added
-card frame. The full scraped title appears below, followed by play time and
-the achievement count. Missing metadata is omitted rather than invented.
+real box art: the focused cover large and flat in its 384 x 328 box, and two
+covers either side of it, five in sight, turned as MP4's album row turns its
+side cards (src/coverflow.c): 0.82 radians, the near edge outward, seen
+through the same weak perspective, the far edge shorter. The near pair is at
+72% and 290 out, at MP4's side alpha (150), the far pair at 56% and 458 out,
+48%, standing partly past the screen's edge for the widest boxes as MP4's do;
+a cover sliding in comes from 560 out, unseen, its picture decoded before it
+shows (src/games.c's seats). A turned cover is narrower, which is what lets
+five fit with the focused one at its size, and the near pair stays clear of
+the focused cover for every shape of box. *(2026-11-18: "can we fit more
+covers instead of three? and make the furthest ones a bit inclined like we
+do in the mp4 player?"; three flat covers before, the two beside at 72%,
+42% and 390 out.)* A turned cover is drawn as MP4's are, in upright strips
+through the GPU's geometry (8 a cover), every texture coordinate inside 0 to
+1, as the handhelds' SDL 2.32.10 draws nothing for one outside. Every cover
+keeps its aspect ratio. There is no reflection or added card frame. The full
+scraped title appears below, followed by play time and the achievement
+count. Missing metadata is omitted rather than invented.
 A is **Resume** only when the existing resume path is available, otherwise
 **Play**. B returns to systems, START steps the shelf's View on, Covers to Grid
 to List and round (11.39, 11.47), Y starts the game from the start, and X opens game details, whose
@@ -950,8 +964,9 @@ edges, over a soft shadow of **ink** (down 2, softened over 6, 28% in Beard
 and 47% in Salt & Pepper), so the glyph has the theme's ground under it on
 any art; drawn by signed distance on the status marks' 24-unit grid, 3:1 or
 better on its disc in both themes. Disc and inset scale with the card as the
-row scales it (a side cover's is 29), the card's fade fades it, and under 20
-there is none. It is the same component everywhere it is used:
+row scales it (a near side cover's is 29), at the turned corner of a turned
+cover and as large as the cover is there, the card's fade fades it, and under
+20 there is none. It is the same component everywhere it is used:
 - The favorite's heart is no badge (below): it leads the game's name.
 - On MP4's **All** (11.14), what each card is, in **accent-ink**: an
   **album**, the top bar's two beamed notes; a **book**, an open book; a
@@ -1380,14 +1395,31 @@ glyph with the sign between them, "/" for either and "+" for together, in
 **meta** **text-dim**, 4 units either side at the hints' sizes and 8 at the
 tutorial's 64, so the chord reads as one hint. It was one pill with the
 whole name in it. A sign with nothing on one side is part of a name (VOL+).
-The rows of MENU > Controls write a chord as words ("L1/R1", src/controls.c), as they did.
+**The Controls pages in glyphs** *(2026-11-18: my review of the Controls
+ideas, "draw the Controls page with the buttons render component")*. The
+button column of MENU > Controls and of a game's Controls pages (11.28) is
+drawn as this handheld's glyphs, not words: the Pixel 2's SE and ST faces
+and MENU's dots, the Brick's square and play keys and its MENU word, "+" for
+held together, "," for one press after the other and "/" for either, at 44
+(the keyboard's line), where the label goes, the value at the right as
+ever. The d-pad's words are the d-pad's glyph ("Left/Right" its left and
+right arms lit, "Up/Down" its up and down, "D-pad" the whole cross with all
+four, "SELECT+D-pad" SELECT with it) and the volume keys' the rocker. The
+rows stay words in src/controls.c, which `make check-controls` reads; the
+screens turn each row whose label is buttons into a key label as they draw
+it (`ctl_glyph_rows`, `MENU_KEYS_MARK` in src/menu.h), and words that are no
+button (a port README's own) stay words. A glyph row is a row's height, so
+six rows a page stays, and `--controls-fit` measures every page with the
+glyphs. The comma sits close to the press before it, twice the chord's air
+after it.
 
 **In a menu row**, a glyph says a button does the row's job from anywhere on
 the page: the row's value is `MENU_KEY_X` (src/menu.h), and the glyph is
 drawn at 40, the keyboard's action keys' size, where the value's right edge
 is, plain off the fill and UI_BUTTON_ON_ACCENT on it. The in-game menu's Quit
-is the one (11.28). "MENU, X" names the press on a Controls page: a comma for
-one press after the other, as a plus is for held together.
+is the one (11.28). "MENU, X" names the press on a Controls page: MENU's
+glyph, a comma and X's, for one press after the other, as a plus is for held
+together.
 
 A pressed glyph is 92% size, its ring **accent**, with a soft **accent** halo
 (16 units of blur at three quarters), in **press**. A pressed arm of the
@@ -2580,8 +2612,8 @@ the bar fills up, or like 500ms after it starts filling up, to avoid
 affecting scrolling performance".)*
 Every cover whose game has a snap carries a mark at its bottom right, inset
 12: an **accent** disc 40 across with the play glyph in **on-accent**, 30 and
-inset 9 on the cards either side, fading with the cover as its snap takes
-over, and none when Play on the Shelf or the console's switch is off. The
+inset 9 on the cards either side (at the turned corner of a turned cover),
+fading with the cover as its snap takes over, and none when Play on the Shelf or the console's switch is off. The
 shelf knows from one listing of the folder's .media, taken when it is first
 drawn and again when the folder changes (looked at every 2 s at most). A
 Scraper run, from MENU or a console's Box Art, and a game's Cover and
@@ -4752,8 +4784,9 @@ says; MENU, the volume keys and POWER cannot be remapped.
 
 **The grid** (MENU > View > Grid, src/gamegrid.h; the rule src/gridrule.h).
 A shelf's covers in two rows of cells of one shape, more of them at once and
-each at least as large as the cover row's side covers: Covers shows about
-three, the grid six to twelve. *(2026-11-15: Bruno Jenso, Discord, on 1.0.5:
+each at least as large as the cover row's near side covers: Covers shows
+five, the four beside the focused one turned and smaller, the grid six to
+twelve. *(2026-11-15: Bruno Jenso, Discord, on 1.0.5:
 "all art ... feels a wee bit too small"; I asked for a layout more dense that
 looks as good as the others, and for every shape of art and a mix of them to
 look meant. Picked from three mocked layouts, the shape rule, the fill, the
