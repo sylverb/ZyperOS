@@ -5723,8 +5723,8 @@ does: the GKD Pixel 2's panel is 4:3, so a 4:3 game at Full Screen or at
 Sharp Pixels 2x fills it, and the room is around the handhelds and a Sharp
 Pixels picture smaller than the panel. In a game Diatom's own size says so;
 on a system's menu the size its games last said (`display_source.TAG`), and
-for a system never played the mode alone (Full Screen and Fill always
-cover). Not over a Super Game Boy game, whose own border fills the room
+for a system never played the mode alone (Full Screen, Fill and Sharp
+Pixels, Zoomed always cover). Not over a Super Game Boy game, whose own border fills the room
 (11.58), nor a DS game's two screens.
 
 - **Off**, the default: black, as before.

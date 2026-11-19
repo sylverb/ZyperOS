@@ -57,6 +57,10 @@ int main(void)
 	ck(!border_room("aspect", 320, 240, 4.0 / 3.0, 640, 480), "but not for a 4:3 game");
 	ck(border_room("integer", 0, 0, 0, 640, 480) && !border_room("stretch", 0, 0, 0, 640, 480),
 	   "a picture not known yet: room unless the mode covers whatever it is");
+	ck(!border_room("overscale", 0, 0, 0, 640, 480) && !border_room("fill", 0, 0, 0, 1024, 768),
+	   "Sharp Pixels, Zoomed and Fill cover whatever it is");
+	ck(!border_room("overscale", 160, 144, 0, 640, 480) && !border_room("overscale", 240, 160, 0, 1024, 768),
+	   "Sharp Pixels, Zoomed covers a known picture too");
 	ck(!border_room(NULL, 160, 144, 0, 640, 480) && !border_room("integer", 160, 144, 0, 0, 0), "no mode, no surface");
 
 	ck(!strcmp(border_nextui_tag("NES"), "FC") && !strcmp(border_nextui_tag("PS1"), "PS") &&

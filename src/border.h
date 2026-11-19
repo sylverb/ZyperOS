@@ -70,7 +70,7 @@ border_kind border_step(border_kind k, int d, bool blur, bool own);
  * `src_w` x `src_h` with the shape `aspect` (0 for square pixels) on a
  * surface `surf_w` x `surf_h`: its rect smaller than the surface either way.
  * An unknown picture (0 x 0, a system never played): room unless the mode
- * always covers the surface (Full Screen, Fill). */
+ * always covers the surface (Full Screen, Fill, Sharp Pixels, Zoomed). */
 bool border_room(const char *mode, int src_w, int src_h, double aspect, int surf_w, int surf_h);
 
 /* NextUI's tag for a ZyperOS system's, where the two differ (its Overlays
