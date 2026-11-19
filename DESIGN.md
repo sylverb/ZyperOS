@@ -5718,11 +5718,16 @@ is measured on the test card before it ships.
 ALSA's `default`. While the bands are not flat and the image has ZyperOS's
 plugin (plastron's `zyperos-eq`, `/usr/lib/ladspa/zyperos_eq.so`),
 launch.sh starts a port with an ALSA config of its own
-(`sd/zyperos/eq-port.sh`, added to its `ALSA_CONFIG_PATH` after
-`alsa.conf`): `default` is plug, then alsa-lib's ladspa PCM running the
-plugin, then plug into `EQ_SLAVE`, the dmix every program mixes into
-(`mixed` on the Pixel 2, the same `ipc_key`), so the port still plays over
-MP4 and under the volume bar. Flat, or no plugin, and the port starts with
+(`sd/zyperos/eq-port.sh`): `default` is plug, then alsa-lib's ladspa PCM
+running the plugin, then plug into `EQ_SLAVE`, the dmix every program mixes
+into (`mixed` on the Pixel 2, the same `ipc_key`), so the port still plays
+over MP4 and under the volume bar. alsa-lib reads the files in
+`ALSA_CONFIG_PATH` first and runs the hooks after, and `alsa.conf`'s own
+hook (0) loads `/etc/asound.conf`, whose `pcm.!default` would replace the
+port's: the image check found the port playing straight into the mix. So
+the file added to the port's `ALSA_CONFIG_PATH` only adds hook 1, which
+loads the port's PCMs after `/etc/asound.conf` (`errors false`: a file that
+cannot be read leaves the port on the system's default). Flat, or no plugin, and the port starts with
 none of it, as before. The launcher is not running during a port, so the
 plugin reads the bands from `/run/zyperos/eq` at the start of every period
 (a mapped file, no system call), which the port's in-game menu can change;
@@ -5730,8 +5735,11 @@ a cable plugged in during a port reaches its bands at the port's next start.
 A port that opens the hardware itself (`hw:0`) keeps its own sound. The
 Brick runs no ports yet; its device.sh names no `EQ_SLAVE`.
 *Measured:* the plugin through the Pixel 2's own alsa-lib (its SDK's
-sysroot, tools/eqplugin-alsa.sh): a 1 kHz tone flat at 0.000 dB, through
-Voice at +3.162 dB; on the computer that builds it, 0.84 ms for a second of
+sysroot, tools/eqplugin-alsa.sh, with a system default that goes to the mix
+as `/etc/asound.conf`'s does): a 1 kHz tone flat at 0.000 dB, through Voice
+at +3.162 dB (with the PCMs added straight to the path instead, 0.000 dB:
+the system's default won); a port started by the Pixel 2 image's own
+run_port, in its root file system, the same; on the computer that builds it, 0.84 ms for a second of
 48 kHz stereo in the dmix's 512-frame periods (`check-eqplugin`). It runs in
 the port's own sound thread, not its drawing.
 

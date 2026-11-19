@@ -3,10 +3,15 @@
 # the plugin (plastron's zyperos-eq) and a small player built with plastron's
 # Pixel 2 SDK, run in its build image against the SDK's sysroot (its glibc,
 # its libasound, whose ladspa PCM is built in). The ALSA config is the one
-# launch.sh writes for a port (eq_port_config), its dmix swapped for a file,
-# so what the port would have sent to the mix is written down (a WAV, in the
-# format the chain settled on): a 1 kHz tone
-# through flat bands, then through Voice (+3 dB there). Needs Docker,
+# launch.sh gives a port (sd/zyperos/eq-port.sh: its PCMs, and the hook file
+# in its ALSA_CONFIG_PATH that loads them), and the system's is the
+# handheld's shape: a file alsa.conf's own hook loads, whose pcm.!default
+# goes to the mix, as /etc/asound.conf's does (here through
+# $XDG_CONFIG_HOME/alsa/asoundrc, the same hook), its dmix swapped for a
+# file, so what the port would have sent to the mix is written down (a WAV,
+# in the format the chain settled on): a 1 kHz tone through flat bands, then
+# through Voice (+3 dB there). The port's PCMs only win over that default
+# when loaded after it; this is what shows they are. Needs Docker,
 # plastron's builder image and an SDK volume (make sdk in plastron); skips
 # without them. Not in make check: CI has no SDK.
 #
@@ -29,9 +34,14 @@ docker run --rm -v "$sdk:/sdk:ro" -v "$REPO:/zyperos:ro" "$IMAGE" sh -eu -c '
 	# As the package builds it (zyperos-eq.mk)
 	$CC -O2 -mcpu=cortex-a35 -fPIC -shared -Wall -Wextra -I/zyperos/src -o $W/zyperos_eq.so $P/zyperos_eq.c -lm
 	$CC -O2 -Wall -o $W/play /zyperos/tools/eqplugin-play.c -lasound -lm
-	# launch.sh'"'"'s config for a port, the dmix swapped for a file
-	sh /zyperos/sd/zyperos/eq-port.sh capture $W/zyperos_eq.so > $W/port.conf
-	cat >> $W/port.conf <<CONF
+	# The system'"'"'s config, as the handheld'"'"'s /etc/asound.conf: its default
+	# into the mix, the mix swapped for a file
+	mkdir -p $W/xdg/alsa
+	cat > $W/xdg/alsa/asoundrc <<CONF
+pcm.!default {
+	type plug
+	slave.pcm "capture"
+}
 pcm.capture {
 	type file
 	slave.pcm "null"
@@ -39,8 +49,12 @@ pcm.capture {
 	format "wav"
 }
 CONF
+	# launch.sh'"'"'s for a port: its PCMs into that mix, and the hook file
+	sh /zyperos/sd/zyperos/eq-port.sh capture $W/zyperos_eq.so > $W/port.conf
+	sh /zyperos/sd/zyperos/eq-port.sh --after $W/port.conf > $W/port.hook
 	run() {
-		ZYPEROS_EQ_FILE=$W/eq ALSA_CONFIG_PATH=$S/usr/share/alsa/alsa.conf:$W/port.conf \
+		XDG_CONFIG_HOME=$W/xdg ZYPEROS_EQ_FILE=$W/eq \
+		ALSA_CONFIG_PATH=$S/usr/share/alsa/alsa.conf:$W/port.hook \
 			$S/lib/ld-linux-aarch64.so.1 --library-path $S/lib:$S/usr/lib $W/play "$@"
 	}
 	# The launcher'"'"'s file, flat, then Voice (eqdsp.h'"'"'s eq_share)
@@ -48,5 +62,5 @@ CONF
 	run $W/out.wav flat
 	printf "ZEQ1\004\000\000\000\376\000\003\003\000\000\000\000" > $W/eq
 	run $W/out.wav voice
-	echo "eqplugin-alsa: the port config:"; sed "s/^/  /" $W/port.conf
+	echo "eqplugin-alsa: the port config:"; sed "s/^/  /" $W/port.hook $W/port.conf
 '

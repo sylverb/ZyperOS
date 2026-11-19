@@ -492,12 +492,15 @@ run_port() {
 	# (plastron's zyperos-eq), the port gets an ALSA config of its own whose
 	# default runs through it into the same mix (eq-port.sh); flat, no
 	# bands file, no plugin (or an empty one), or no EQ_SLAVE, and the port
-	# starts as it always did, the plugin nowhere in its chain
+	# starts as it always did, the plugin nowhere in its chain. Two files:
+	# its PCMs, and the one in its ALSA_CONFIG_PATH that loads them after
+	# /etc/asound.conf, whose default would replace them (eq-port.sh)
 	local eqcfg=
 	if [ -n "${EQ_SLAVE:-}" ] && [ -s /usr/lib/ladspa/zyperos_eq.so ] &&
 	   sh "$ZYPEROS_DIR/eq-port.sh" --on; then
-		eqcfg=/tmp/zyperos_port_eq.conf
-		if sh "$ZYPEROS_DIR/eq-port.sh" "$EQ_SLAVE" > "$eqcfg"; then
+		eqcfg=/tmp/zyperos_port_eq.hook
+		if sh "$ZYPEROS_DIR/eq-port.sh" "$EQ_SLAVE" > /tmp/zyperos_port_eq.conf &&
+		   sh "$ZYPEROS_DIR/eq-port.sh" --after /tmp/zyperos_port_eq.conf > "$eqcfg"; then
 			echo "port: the equalizer over its sound (into $EQ_SLAVE)" >> "$LOG"
 		else
 			eqcfg=
