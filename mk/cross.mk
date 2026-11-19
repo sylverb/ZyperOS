@@ -116,9 +116,10 @@ FORCE:
 # second binary, not part of zyperos.elf - SRC above is src/*.c, which does not
 # descend into src/muse/. Linked against the FFmpeg and ALSA in SYSROOT;
 # swscale for the odd video whose pictures are not 8-bit 4:2:0 (src/muse/vid.c),
-# and src/mp4frame.h, the pictures' shared layout, is the launcher's too.
+# and src/mp4frame.h, the pictures' shared layout, is the launcher's too, as
+# src/eqdsp.h, the equalizer's five bands, is.
 MUSE_SRC := $(wildcard src/muse/*.c)
-$(BUILD)/muse: $(MUSE_SRC) $(wildcard src/muse/*.h) src/mp4frame.h src/monoclock.h
+$(BUILD)/muse: $(MUSE_SRC) $(wildcard src/muse/*.h) src/mp4frame.h src/monoclock.h src/eqdsp.h
 	mkdir -p $(BUILD)
 	$(CC) -O2 $(MCPU) -Wall -Wextra -Wno-unused-parameter -std=gnu11 \
 	      -D_GNU_SOURCE -I$(SYSROOT)/usr/include $(LDFLAGS) -o $@ $(MUSE_SRC) \

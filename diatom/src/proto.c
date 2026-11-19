@@ -214,6 +214,7 @@ static void parse_line(char *line, diatom_msg *out)
 	else if (!strcmp(field, "SETPLAYER2")) out->kind = DIATOM_MSG_SETPLAYER2;
 	else if (!strcmp(field, "SETPOWERHOLD")) out->kind = DIATOM_MSG_SETPOWERHOLD;
 	else if (!strcmp(field, "SETHUD"))       out->kind = DIATOM_MSG_SETHUD;
+	else if (!strcmp(field, "SETEQ"))        out->kind = DIATOM_MSG_SETEQ;
 	else {
 		log_(DIATOM_LOG_WARN, "proto: ignoring unknown verb '%s'", field);
 		out->kind = DIATOM_MSG_NONE;
@@ -286,6 +287,7 @@ static void parse_line(char *line, diatom_msg *out)
 			snprintf(out->layout, sizeof out->layout, "%s", v);
 		else if (!strcmp(field, "swap")) snprintf(out->swap, sizeof out->swap, "%s", v);
 		else if (!strcmp(field, "key"))  snprintf(out->key,   sizeof out->key,   "%s", v);
+		else if (!strcmp(field, "bands")) snprintf(out->bands, sizeof out->bands, "%s", v);
 		else if (!strcmp(field, "value"))snprintf(out->value, sizeof out->value, "%s", v);
 		else if (!strcmp(field, "map"))  snprintf(out->map,   sizeof out->map,   "%s", v);
 		else if (!strcmp(field, "kind")) snprintf(out->lkind, sizeof out->lkind, "%s", v);
@@ -475,6 +477,10 @@ diatom_msg_kind diatom_proto_poll(diatom_msg *out, int timeout_ms, bool running)
 		 * clock24=: On-Screen Stats over every game until said again
 		 * (diatom_port_hud_style). Additive, so proto stays 14: an old
 		 * Diatom ignores the verb, and nothing is drawn. */
+		/* SETEQ bands=5,2,0,0,1: the equalizer for where the game plays
+		 * (ZyperOS's src/eq.h), all 0 flat, from the sound's next push,
+		 * over a game that runs or is paused. Additive, so proto stays 14:
+		 * an old Diatom ignores the verb and plays as it always did. */
 		diatom_proto_send("READY\tproto=14\tstate=%s", running ? "running" : "idle");
 		/* A displaced launcher is a vanished one, and every loop already
 		 * knows what that means - the in-game menu resumes the game. Said

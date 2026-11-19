@@ -22,6 +22,8 @@ typedef enum {
 	DS_SCALE_CONTRAST,      /* two greys close together, to black and white */
 	DS_SCALE_SATURATION,    /* a color's grey, to the color at its fullest */
 	DS_SCALE_GAMMA,         /* darker mid-tones, to lighter */
+	DS_SCALE_GAIN,          /* a band's cut, to its boost: a grey, darker to lighter
+	                         * (the Equalizer's bands, src/eq.h) */
 	DS_SCALE_KINDS
 } ds_scale_kind;
 

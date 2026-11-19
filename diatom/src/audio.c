@@ -27,6 +27,7 @@
 #include <time.h>
 
 #include "diatom.h"
+#include "eqdsp.h"
 #include "pace.h"
 
 #define OUT_CHUNK 2048
@@ -199,6 +200,66 @@ static bool mixed_as_asked(void)
 	return !memcmp(g_mix, CHANNEL_MIX[g_channels], sizeof g_mix);
 }
 
+/* The equalizer (eqdsp.h): the bands SETEQ last gave, taken by the next
+ * push on whatever thread pushes (a core may push from a thread of its own),
+ * so the filter's state is that thread's alone. Written by the message loop
+ * as five bytes between two bumps of a count: a push that sees it odd, or
+ * changed while it read, takes them at the next. */
+static int8_t            g_eq_want[EQ_BANDS];
+static volatile unsigned g_eq_gen;
+static unsigned          g_eq_took = 1;    /* odd: never a count, so the first push takes them */
+static eq_state          g_eq;
+static int16_t           g_eq_buf[OUT_CHUNK * 2];
+
+bool diatom_audio_eq(const char *bands)
+{
+	int8_t db[EQ_BANDS];
+	const char *p = bands;
+	int b;
+
+	if (!p) return false;
+	for (b = 0; b < EQ_BANDS; b++) {
+		char *end;
+		long d = strtol(p, &end, 10);
+
+		if (end == p || d < EQ_DB_MIN || d > EQ_DB_MAX) return false;
+		if (b < EQ_BANDS - 1 ? *end != ',' : *end != '\0') return false;
+		db[b] = (int8_t)d;
+		p = end + 1;
+	}
+	__atomic_store_n(&g_eq_gen, g_eq_gen + 1, __ATOMIC_RELAXED);
+	__atomic_thread_fence(__ATOMIC_RELEASE);
+	memcpy(g_eq_want, db, sizeof db);
+	__atomic_store_n(&g_eq_gen, g_eq_gen + 1, __ATOMIC_RELEASE);
+	return true;
+}
+
+/* What SETEQ gave, if it changed and is whole: true with it in `db` */
+static bool eq_taken(int8_t db[EQ_BANDS])
+{
+	const unsigned a = __atomic_load_n(&g_eq_gen, __ATOMIC_ACQUIRE);
+
+	if (a == g_eq_took || (a & 1)) return false;
+	memcpy(db, g_eq_want, EQ_BANDS);
+	__atomic_thread_fence(__ATOMIC_ACQUIRE);
+	if (__atomic_load_n(&g_eq_gen, __ATOMIC_RELAXED) != a) return false;
+	g_eq_took = a;
+	return true;
+}
+
+/* `n` frames of `in` through the equalizer into g_eq_buf, or `in` itself
+ * when it is flat and at rest: nothing copied, nothing filtered */
+static const int16_t *equalize(const int16_t *in, size_t n)
+{
+	int8_t db[EQ_BANDS];
+
+	if (eq_taken(db)) eq_set(&g_eq, db);
+	if (!eq_active(&g_eq) || n > OUT_CHUNK) return in;
+	memcpy(g_eq_buf, in, n * 2 * sizeof(int16_t));
+	eq_run(&g_eq, g_eq_buf, (int)n);
+	return g_eq_buf;
+}
+
 static int16_t clamp16(float v)
 {
 	return v > 32767.0f ? 32767 : v < -32768.0f ? -32768 : (int16_t)v;
@@ -238,6 +299,8 @@ static void push(const int16_t *f, size_t n)
 	/* Every caller hands over at most a chunk - the resampler flushes at
 	 * OUT_CHUNK and priming at 512 - so one scratch buffer is enough. The
 	 * channels before quiet, so quiet fades whatever the ears are hearing. */
+	/* The equalizer first, on the stereo the game made, then the ears' mix */
+	f = equalize(f, n);
 	if ((g_channels != DIATOM_CHANNELS_STEREO || !mixed_as_asked()) && n <= OUT_CHUNK)
 		f = mix_channels(f, n);
 	if ((g_quiet || g_gain < 1.0f) && n <= OUT_CHUNK) f = quieten(f, n);
@@ -325,6 +388,17 @@ static void configure(double src_rate, int dst_rate, int capacity_frames)
 	/* And mixed as asked, the same way: the launcher sends the channels
 	 * before RUN, so the first sample is already in the right ear. */
 	memcpy(g_mix, CHANNEL_MIX[g_channels], sizeof g_mix);
+	/* And equalized as asked, the same way, at the device's rate: the
+	 * launcher sends SETEQ before RUN, so the first sample is shaped, with
+	 * no move from flat */
+	{
+		int8_t db[EQ_BANDS];
+
+		eq_init(&g_eq, dst_rate > 0 ? dst_rate : 48000);
+		(void)eq_taken(db);
+		memcpy(db, g_eq_want, EQ_BANDS);
+		eq_jump(&g_eq, db);
+	}
 
 	if (src_rate <= 0.0 || dst_rate <= 0) {
 		g_base_ratio = g_ratio = 1.0;

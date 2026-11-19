@@ -5543,6 +5543,8 @@ int main(int argc, char *argv[])
 		/* --gm-undo: the game has a state from before its last load, so
 		 * the Game tab has Undo Load */
 		else if (!strcmp(argv[i], "--gm-undo")) g_shot_undo = true;
+		/* --eq-phones: the Equalizer page as with headphones in */
+		else if (!strcmp(argv[i], "--eq-phones")) g_shot_eq_phones = true;
 		else if (!strcmp(argv[i], "--gm-tab-from") && i + 1 < argc) shot_gm_from = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--gm-press") && i + 1 < argc) shot_gm_press = argv[++i];
 		else if (!strcmp(argv[i], "--gm-choose")) shot_gm_choose = 1;
