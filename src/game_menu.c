@@ -52,7 +52,7 @@ int gi_rows(menu_row *out, const game_info *gi, bool net)
 	 * fresh, so marking one moved to this page, Y on it or A on the row */
 	if (gi->can_favorite)
 		out[n++] = (menu_row){ T(S_CONTROLS_FAVORITE), gi->favorite ? MENU_KEY_Y_ON : MENU_KEY_Y_OFF, true };
-	/* Add to Collection (DESIGN.md 11.54) beside it, the other list of the
+	/* Add to Collection (DESIGN.md 11.56) beside it, the other list of the
 	 * player's own: A opens the collections, a tick on each it is in, and
 	 * New Collection under them (src/collect_screen.c) */
 	if (gi->can_collect)

@@ -11,6 +11,10 @@ motor that writes down each level the host tells it.
     the port is 0.
   - RUN rumble=35 (a system's share, Doom's): every level at 35%, and the
     next game with no share at full.
+  - RUN rumble=0 (the player's Rumble at Off): the motor never runs.
+  - SETRUMBLE while it runs: the next word to the port is at the new level,
+    at once; at 0, the motor stops.
+  - PAUSED says rumble=1 for a core that asked for the motor.
 
 What the port does with a level - the GKD Pixel 2's force feedback, whose
 stop never reached the motor on ZyperOS 1.0.4 - is test/rumble_test.c's.
@@ -180,6 +184,36 @@ n = len(r.levels())
 r.send(f"RUN\tcore={STUB}")
 lv = r.wait_level(ON, after=n)
 check("the next game, with no rumble=, is at full again", lv[-1:] == [ON], lv)
+r.end("QUIT")
+
+# ---- RUN rumble=0: the player's Rumble at Off ------------------------------
+r = Run("off", "20:on,40:off,60:on")
+r.pump(0.3)
+r.send(f"RUN\tcore={STUB}\trumble=0")
+r.pump(1.5)
+lv = r.levels()
+check("RUN rumble=0: the core's on never runs the motor", lv and all(l == OFF for l in lv), lv)
+r.end("QUIT")
+
+# ---- SETRUMBLE: the in-game menu's Rumble row, live ------------------------
+r = Run("live", "20:on", "300:menu;304:")
+r.pump(0.3)
+r.send(f"RUN\tcore={STUB}")
+lv = r.wait_level(ON)
+r.send("SETRUMBLE\trumble=65")
+lv = r.wait_level("42598 42598", after=len(lv))
+check("SETRUMBLE rumble=65 while it runs: the port is told 65% at once",
+      lv[-1:] == ["42598 42598"], lv)
+r.send("SETRUMBLE\trumble=0")
+lv = r.wait_level(OFF, after=len(lv))
+check("SETRUMBLE rumble=0: the motor stops", lv[-1:] == [OFF], lv)
+r.send("SETRUMBLE\trumble=35")
+lv = r.wait_level("22937 22937", after=len(lv))
+check("and Low again: on at 35%", lv[-1:] == ["22937 22937"], lv)
+r.wait_for("PAUSED")
+paused = [l for l in r.got if l.startswith("PAUSED")]
+check("PAUSED says rumble=1: the core asked for the motor",
+      paused[-1:] == ["PAUSED\trumble=1"], paused)
 r.end("QUIT")
 
 print("rumble end to end: %s" % ("all passed" if not fails else f"{len(fails)} FAILED"))

@@ -5517,6 +5517,12 @@ int main(int argc, char *argv[])
 			if (i + 1 < argc && !strcmp(argv[i + 1], "controls")) { shot_video = 1; i++; }
 			else if (i + 1 < argc && (!strcmp(argv[i + 1], "hidden") || !strcmp(argv[i + 1], "full"))) i++;
 		}
+		else if (!strcmp(argv[i], "--video-size") && i + 1 < argc)
+			sscanf(argv[++i], "%dx%d", &shot_video_w, &shot_video_h);
+		else if (!strcmp(argv[i], "--video-at") && i + 2 < argc) {
+			shot_video_k = (float)atof(argv[++i]);
+			shot_video_grow = (float)atof(argv[++i]);
+		}
 		else if (!strcmp(argv[i], "--mode") && i + 1 < argc) shot_mode = argv[++i];
 		else if (!strcmp(argv[i], "--sysmove") && i + 1 < argc)
 			shot_sysmove = (float)atof(argv[++i]);
@@ -5669,6 +5675,9 @@ int main(int argc, char *argv[])
 		/* --gm-undo: the game has a state from before its last load, so
 		 * the Game tab has Undo Load */
 		else if (!strcmp(argv[i], "--gm-undo")) g_shot_undo = true;
+		/* --gm-rumble: the game's core asked for the motor (PAUSED
+		 * rumble=1), so its Controls tab has Rumble */
+		else if (!strcmp(argv[i], "--gm-rumble")) g_shot_rumble = true;
 		else if (!strcmp(argv[i], "--gm-tab-from") && i + 1 < argc) shot_gm_from = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--gm-press") && i + 1 < argc) shot_gm_press = argv[++i];
 		else if (!strcmp(argv[i], "--gm-choose")) shot_gm_choose = 1;
