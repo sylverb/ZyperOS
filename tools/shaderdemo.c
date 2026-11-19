@@ -9,7 +9,7 @@
  * Backlight's, which only the Game Boy's three offer, is a Game Boy Color's
  * 160x144 scene of the same things on white (draw_handheld), at the square
  * pixels Original Shape draws it with: white is what it changes. Each filter is
- * Diatom's GLSL (diatom/port/pixel2.c) in C, line for line: the same
+ * Diatom's GLSL (diatom/port/gles_draw.h) in C, line for line: the same
  * numbers in the same order, in float as the GPU's highp is.
  *
  *     build-native/shaderdemo OUT_DIR
