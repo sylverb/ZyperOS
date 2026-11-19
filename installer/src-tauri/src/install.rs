@@ -52,13 +52,16 @@ const ROOT: usize = 2;
 /// image; `card_bytes` the card's size, which a GPT is fitted to; `closed`
 /// the Brick's closed files (closed.rs), fetched and checked already, which
 /// go into the image's boot partition on its way to the card (none for the
-/// Pixel 2).
+/// Pixel 2); `pico8` the player's PICO-8 zip, for a card that never started,
+/// whose PICO-8 rides along in the same boot partition (pico8.rs).
+#[allow(clippy::too_many_arguments)]
 pub fn write_here(
     card_id: &str,
     action: Action,
     source: &Path,
     card_bytes: u64,
     closed: &[PathBuf],
+    pico8: Option<&Path>,
     progress: &mut dyn FnMut(Progress),
     cancel: &AtomicBool,
 ) -> Result<(), String> {
@@ -68,13 +71,27 @@ pub fn write_here(
     }
     let len = crate::image::size(source).map_err(|e| format!("Reading the image: {e}"))?;
     let plain = || crate::image::open(source);
-    let over = if closed.is_empty() {
+    // Checked again here, which is root on Linux: exactly these bytes go on
+    // the card
+    let checked = crate::closed::load_checked(crate::closed::LIST, closed)?;
+    let p8 = pico8.map(crate::pico8::load).transpose()?;
+    let mut folders: Vec<(&str, &crate::closed::Files)> = Vec::new();
+    if !checked.is_empty() {
+        folders.push((crate::closed::FOLDER, &checked));
+    }
+    if let Some(p) = &p8 {
+        folders.push((crate::pico8::FOLDER, &p.files));
+    }
+    let over = if folders.is_empty() {
         None
     } else {
-        // Checked again here, which is root on Linux: exactly these bytes go
-        // on the card
-        let checked = crate::closed::load_checked(crate::closed::LIST, closed)?;
-        let (at, boot) = crate::closed::boot_with(&plain, &checked)?;
+        if p8.is_some() {
+            progress(Progress::Pico8 { done: 0, total: 2 });
+        }
+        let (at, boot) = crate::closed::boot_with(&plain, &folders)?;
+        if p8.is_some() {
+            progress(Progress::Pico8 { done: 2, total: 2 });
+        }
         Some((at, std::sync::Arc::new(boot)))
     };
     let open = || -> std::io::Result<Box<dyn std::io::Read + Send>> {
@@ -95,30 +112,38 @@ pub fn write_here(
 }
 
 /// The write, wherever it has to run: here, or on Linux in the helper.
+#[allow(clippy::too_many_arguments)]
 pub fn run(
     card_id: &str,
     action: Action,
     source: &Path,
     card_bytes: u64,
     closed: &[PathBuf],
+    pico8: Option<&Path>,
     progress: &mut dyn FnMut(Progress),
     cancel: &AtomicBool,
 ) -> Result<(), String> {
     #[cfg(target_os = "linux")]
-    return run_helper(card_id, action, source, card_bytes, closed, progress, cancel);
+    return run_helper(card_id, action, source, card_bytes, closed, pico8, progress, cancel);
     #[cfg(not(target_os = "linux"))]
-    return write_here(card_id, action, source, card_bytes, closed, progress, cancel);
+    return write_here(card_id, action, source, card_bytes, closed, pico8, progress, cancel);
 }
+
+/// No PICO-8 zip, in the helper's arguments
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
+const NO_PICO8: &str = "-";
 
 /// Linux: pkexec runs this program again as root with `--write`, which asks
 /// for the password through the desktop's own prompt.
 #[cfg(target_os = "linux")]
+#[allow(clippy::too_many_arguments)]
 fn run_helper(
     card_id: &str,
     action: Action,
     source: &Path,
     card_bytes: u64,
     closed: &[PathBuf],
+    pico8: Option<&Path>,
     progress: &mut dyn FnMut(Progress),
     cancel: &AtomicBool,
 ) -> Result<(), String> {
@@ -130,6 +155,7 @@ fn run_helper(
         .args(["--write", action.word(), card_id])
         .arg(source)
         .arg(card_bytes.to_string())
+        .arg(pico8.map_or_else(|| std::ffi::OsString::from(NO_PICO8), |p| p.as_os_str().to_owned()))
         .args(closed)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -161,7 +187,8 @@ fn run_helper(
 }
 
 #[cfg_attr(not(target_os = "linux"), allow(dead_code))]
-/// The helper's lines: `writing DONE TOTAL`, `checking DONE TOTAL`, then
+/// The helper's lines: `pico8 DONE TOTAL` while PICO-8 goes into the
+/// image's boot partition, `writing DONE TOTAL`, `checking DONE TOTAL`, then
 /// `ok` or `error MESSAGE`.
 enum Line {
     Progress(Progress),
@@ -174,12 +201,12 @@ fn parse_line(line: &str) -> Option<Line> {
     let word = f.next()?;
     let num = |s: Option<&str>| s.and_then(|x| x.parse::<u64>().ok());
     match word {
-        "writing" | "checking" => {
+        "writing" | "checking" | "pico8" => {
             let (done, total) = (num(f.next())?, num(f.next())?);
-            Some(Line::Progress(if word == "writing" {
-                Progress::Writing { done, total }
-            } else {
-                Progress::Checking { done, total }
+            Some(Line::Progress(match word {
+                "writing" => Progress::Writing { done, total },
+                "checking" => Progress::Checking { done, total },
+                _ => Progress::Pico8 { done, total },
             }))
         }
         "ok" => Some(Line::Done(Ok(()))),
@@ -189,26 +216,34 @@ fn parse_line(line: &str) -> Option<Line> {
 }
 
 /// The helper: `--write update|brick-update|fresh CARD SOURCE CARD_BYTES
-/// [CLOSED...]`, run as root on Linux; CLOSED the Brick's closed files the
-/// window fetched and checked.
+/// PICO8 [CLOSED...]`, run as root on Linux; PICO8 the player's PICO-8 zip
+/// for a card that never started, or `-`, and CLOSED the Brick's closed files
+/// the window fetched and checked. It checks both again itself.
 /// Prints progress at most every few hundred milliseconds.
 pub fn helper(args: &[String]) -> i32 {
-    let (Some(action), Some(card), Some(source), Some(card_bytes)) = (
+    let (Some(action), Some(card), Some(source), Some(card_bytes), Some(pico8)) = (
         args.first().and_then(|a| Action::parse(a)),
         args.get(1),
         args.get(2).map(PathBuf::from),
         args.get(3).and_then(|n| n.parse::<u64>().ok()),
+        args.get(4),
     ) else {
-        eprintln!("usage: zyperos-installer --write update|brick-update|fresh CARD SOURCE CARD_BYTES [CLOSED...]");
+        eprintln!("usage: zyperos-installer --write update|brick-update|fresh CARD SOURCE CARD_BYTES PICO8|- [CLOSED...]");
         return 2;
     };
-    let closed: Vec<PathBuf> = args.iter().skip(4).map(PathBuf::from).collect();
+    let pico8 = (pico8 != NO_PICO8).then(|| PathBuf::from(pico8));
+    let closed: Vec<PathBuf> = args.iter().skip(5).map(PathBuf::from).collect();
     let mut last = std::time::Instant::now();
     let mut last_word = "";
     let mut progress = |p: Progress| {
         let (word, done, total) = match p {
-            // The window downloads, and checks a local image, before the helper starts
-            Progress::Downloading { .. } | Progress::Verifying { .. } | Progress::Fetching { .. } => return,
+            // The window downloads, and checks a local image, before the
+            // helper starts, and copies PICO-8 to a started card itself
+            Progress::Downloading { .. }
+            | Progress::Verifying { .. }
+            | Progress::Fetching { .. }
+            | Progress::Pico8Check { .. } => return,
+            Progress::Pico8 { done, total } => ("pico8", done, total),
             Progress::Writing { done, total } => ("writing", done, total),
             Progress::Checking { done, total } => ("checking", done, total),
         };
@@ -219,7 +254,7 @@ pub fn helper(args: &[String]) -> i32 {
         }
     };
     let never = AtomicBool::new(false);
-    match write_here(card, action, &source, card_bytes, &closed, &mut progress, &never) {
+    match write_here(card, action, &source, card_bytes, &closed, pico8.as_deref(), &mut progress, &never) {
         Ok(()) => {
             println!("ok");
             0
@@ -239,6 +274,7 @@ mod tests {
     fn reads_the_helpers_lines() {
         assert!(matches!(parse_line("writing 10 20"), Some(Line::Progress(Progress::Writing { done: 10, total: 20 }))));
         assert!(matches!(parse_line("checking 20 20"), Some(Line::Progress(Progress::Checking { done: 20, total: 20 }))));
+        assert!(matches!(parse_line("pico8 0 2"), Some(Line::Progress(Progress::Pico8 { done: 0, total: 2 }))));
         assert!(matches!(parse_line("ok"), Some(Line::Done(Ok(())))));
         match parse_line("error This card's partitions aren't where") {
             Some(Line::Done(Err(e))) => assert_eq!(e, "This card's partitions aren't where"),
