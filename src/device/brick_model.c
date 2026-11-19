@@ -2,9 +2,7 @@
 /* The TrimUI Brick's 3D drawing as data (src/device/td_model.h), in the
  * millimetres of its published outline (73.2 x 109.9 mm; 11.8 deep above
  * the back ledge, 19.9 below it) and the key places measured to it
- * (docs/superpowers/specs/2026-11-14-device-modular-design.md, appendix
- * "Measurements"; the plan's model coordinates, docs/superpowers/plans/
- * 2026-11-15-brick-front-step5.md): the d-pad, F1 and F2, A B X Y and the
+ * (from TrimUI's product images; the numbers are the ones in this file): the d-pad, F1 and F2, A B X Y and the
  * three round keys along the bottom (MENU, SELECT, START) on the front, the
  * volume keys on the left side, POWER on the right, and the four shoulders
  * on the back ledge, L1 and R1 outside. A side key's x is its depth across

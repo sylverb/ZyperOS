@@ -37,3 +37,6 @@ __pycache__/
 # The menu music lab's MP3s, made by tools/bgm-tracks.py lab (45 MB): published
 # with the lab, never committed. menu-music.js beside them is.
 /docs/design/mock/audio/
+
+# Design specs and plans stay on the author's computer, not in the repo
+docs/superpowers/

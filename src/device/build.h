@@ -2,8 +2,8 @@
 #ifndef ZYPEROS_DEVICE_BUILD_H
 #define ZYPEROS_DEVICE_BUILD_H
 
-/* How a handheld is built and laid out (docs/superpowers/specs/
- * 2026-11-14-device-modular-design.md, section 5): its architecture and the
+/* How a handheld is built and laid out (docs/building.md,
+ * Devices): its architecture and the
  * build's baseline, the Diatom port it runs, its card's partitions, and the
  * helpers its payload carries beside the launcher. Stated once here, in
  * src/device/<id>_build.c, and read by the build, the card and plastron

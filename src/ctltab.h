@@ -14,7 +14,7 @@
  * are (a model the launcher gathers, src/ctltab_screen.c), which keys of the
  * handheld each row is about, and the steps a row's value takes. No SDL and
  * no database, so tools/menu-check.c holds it. Design:
- * docs/superpowers/specs/2026-11-13-button-remap-design.md, sections 2 to 7.
+ * DESIGN.md 11.45.
  *
  * The rows, in this order, those in brackets only where they apply:
  *

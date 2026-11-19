@@ -1400,7 +1400,7 @@ check-controls: build-native/controls-check
 
 # The remap rules, pure: Diatom's map language read and written, the swap rule
 # of a button's change, what is stored for a scope, and the choices a system
-# offers (docs/superpowers/specs/2026-11-13-button-remap-design.md).
+# offers (DESIGN.md 11.45).
 check-remap: build-native/remap-check
 	@./build-native/remap-check
 

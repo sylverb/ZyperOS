@@ -5,9 +5,7 @@ blender --background --python tools/build-brick-model.py -- [--render]
 
 Source dimensions: the published outline (73.2 wide x 109.9 tall mm; 11.8
 deep above the back ledge, 19.9 below it) and the key places measured to it
-from TrimUI's six-view product images, in
-docs/superpowers/specs/2026-11-14-device-modular-design.md, appendix
-"Measurements", the same numbers src/device/brick_model.c draws the
+from TrimUI's six-view product images, the same numbers src/device/brick_model.c draws the
 launcher's own Brick with. The images are reference only: nothing is traced
 from them, and none of TrimUI's marks is on the model. This is a visual
 reconstruction, not manufacturer CAD or a printable part.

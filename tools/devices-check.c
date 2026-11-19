@@ -2,8 +2,8 @@
 /* The device profiles (src/device/profile.h): every profile filled in, every
  * control it has printed with something, no control twice, and today's
  * answers for the GKD Pixel 2, the TrimUI Brick and the host's `desktop`,
- * which the launcher's pixels depend on (docs/superpowers/specs/
- * 2026-11-14-device-modular-design.md, section 1). The chip's temperature
+ * which the launcher's pixels depend on (docs/building.md,
+ * Devices). The chip's temperature
  * from the zones a profile names, on a sysfs made in a scratch folder. Then
  * the choice of a profile by its id, as --device makes it on the host. Built
  * with all three profiles, as the host build is. No SDL. */

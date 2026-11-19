@@ -1948,8 +1948,7 @@ static void gi_buttons_row_only_when_own(void)
 
 /* ---------- the in-game menu ---------------------------------------------- */
 
-/* The in-game menu is three tabs (docs/superpowers/specs/2026-11-13-button-remap-design.md,
- * section 1): Game, Display and Controls, MENU's tab row. gm_tab_rows says
+/* The in-game menu is three tabs (DESIGN.md 11.45): Game, Display and Controls, MENU's tab row. gm_tab_rows says
  * which rows a tab has, gm_rows builds them, and a port's menu has no tabs.
  * Achievements is the only row that can be dead, and it is dead exactly when
  * the game has no set. Everything else is always something A does. */

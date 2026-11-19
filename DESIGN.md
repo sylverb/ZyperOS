@@ -1589,8 +1589,7 @@ of the player's own goes on from wherever the loop was.
     drawn before the body, so it glows from behind the edge, and its ring
     goes round what stands up. The player's own press shows on it (the
     shoulders have no glyph), back toward the edge in **press**.
-  - **The TrimUI Brick** (src/device/brick_model.c; the plan
-    `docs/superpowers/plans/2026-11-15-brick-front-step5.md`): original art
+  - **The TrimUI Brick** (src/device/brick_model.c): original art
     from its published outline, 73.2 x 109.9 mm, in the same roles and lit
     look. Two blocks: the thin part, 11.8 deep and the whole height (front
     corners 0.5 at the top, 4.1 at the bottom), and the thick part behind
@@ -2943,7 +2942,7 @@ covers files moving too, so the line needed no new word for it.
 
 My picks in the controls lab (docs/design/mock/controls-lab.html,
 2026-11-06), made over on 2026-11-13 for the in-game menu's tabs and button
-remapping (docs/superpowers/specs/2026-11-13-button-remap-design.md, 11.45).
+remapping (11.45).
 The in-game menu is MENU's tab row (11.3) over four tabs, in the order L1
 and R1 go round them, and the panel is the same size on every tab:
 
@@ -4289,9 +4288,8 @@ to install: a phone on the handheld's own Wi-Fi (a USB Wi-Fi adapter makes
 it, as 11.16's), or a computer on the USB cable. The handheld's own buttons
 stay player 1. The Pixel 2 only (`plat_player2`: its hotspot and its cable
 link are the ones Player 2 is built on), and only for a game on a core in the
-system table below: the NES's FCEUmm today. *(The design, approved 2026-11-12:
-docs/superpowers/specs/2026-11-12-nes-multiplayer-design.md. This section is
-what is built: plain HTTP, the touch pad and the keyboard.)*
+system table below: the NES's FCEUmm today. *(The design was approved on 2026-11-12. This section
+is what is built: plain HTTP, the touch pad and the keyboard.)*
 
 **On the handheld.** The in-game menu has a **Player 2** row on its Game tab, after Quick Slot,
 its value `off`, `waiting` or `connected`. A opens its page over the paused
@@ -4568,8 +4566,7 @@ What each button does in a game, changed from the in-game menu's Controls
 tab (11.28), for one game or every game of a system, kept on the card
 *(2026-11-13: from the ZyperOS Discord, "change what each button does for one
 system, or for one game, right from the in-game menu, and keep it on the
-card", and the d-pad as the left stick Nindzusek asked for)*. The design is
-docs/superpowers/specs/2026-11-13-button-remap-design.md; the rules are pure
+card", and the d-pad as the left stick Nindzusek asked for)*. The rules are pure
 (src/remap.c, src/remapstore.c, `make check-remap`), Diatom's SETMAP and
 SETSTICK are the way they reach a game, at once while it is paused.
 

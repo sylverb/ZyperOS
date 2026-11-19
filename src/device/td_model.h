@@ -2,8 +2,8 @@
 #ifndef ZYPEROS_TD_MODEL_H
 #define ZYPEROS_TD_MODEL_H
 
-/* A handheld's 3D drawing as data (docs/superpowers/specs/
- * 2026-11-14-device-modular-design.md, section 3): where each of its keys is
+/* A handheld's 3D drawing as data (docs/building.md,
+ * Devices): where each of its keys is
  * and on which face, the views the tutorial and the Controls tab turn it to,
  * the boxes its kept textures need, and which art draws its body. What the
  * tutorial and the Controls tab work out from this - which way to turn for a
