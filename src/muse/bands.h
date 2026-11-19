@@ -3,7 +3,7 @@
 #define MUSE_BANDS_H
 
 /* The sound as 32 bands, for the bars of MP4's Player Looks (DESIGN.md
- * 11.14): what is HEARD at this moment, not what the decoder has reached.
+ * 11.64): what is HEARD at this moment, not what the decoder has reached.
  *
  * The player thread hands over every chunk it writes, with how much was
  * still queued in the device after the write (bands_feed); the socket thread

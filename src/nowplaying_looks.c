@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 /* MP4's Player Looks on Now Playing: see nowplaying_looks.h, and
- * DESIGN.md 11.14 for what each is and why.
+ * DESIGN.md 11.64 for what each is and why.
  *
  * Every look is the same frame - the top bar, the bar of the song's time
  * with the time played and the time left under its two ends, the keys at

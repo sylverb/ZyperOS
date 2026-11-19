@@ -26,6 +26,7 @@
 #include "rahashjob.h"
 #include "raqueue.h"
 #include "remap.h"
+#include "rumble.h"
 #include "remapstore.h"
 #include "shelfbuild.h"
 #include "startfail.h"
@@ -667,7 +668,10 @@ void launch(app *a)
 		char map[320];
 		bool stick_on = rms_stick_get(s, romfile);
 
-		cfg_run_keys(s, g_game_dual, pacing_id(pacing_load(s)), keys, (int)sizeof keys);
+		/* The motor at the player's Rumble level (the game's own, its
+		 * system's or MENU's) times the system's share (src/rumble.h) */
+		cfg_run_keys_at(s, g_game_dual, pacing_id(pacing_load(s)),
+		                rumble_run_pct(s->rumble, rumble_scope(s->tag, romfile)), keys, (int)sizeof keys);
 		/* The whole table, whatever the card holds for the game or its
 		 * system (rms_sent): Diatom is sent no turbo of its own */
 		rms_sent(s, romfile, stick_on, &sent);

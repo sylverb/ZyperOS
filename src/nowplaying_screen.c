@@ -233,7 +233,7 @@ unsigned np_draw(app *a, const mu_now *mn, const char *next)
 	return wait;
 }
 
-/* Now Playing in the look that is on (MENU > Player Look, DESIGN.md 11.14):
+/* Now Playing in the look that is on (MENU > Player Look, DESIGN.md 11.64):
  * Cover is np_draw above, as it always was; the others are
  * src/nowplaying_looks.c's. A book and a video are always Cover's. */
 unsigned np_draw_now(app *a, const mu_now *mn, const char *next)

@@ -2,7 +2,7 @@
 #ifndef ZYPEROS_NOWPLAYING_LOOKS_H
 #define ZYPEROS_NOWPLAYING_LOOKS_H
 
-/* MP4's Player Looks drawn (DESIGN.md 11.14): Now Playing as the look MENU >
+/* MP4's Player Looks drawn (DESIGN.md 11.64): Now Playing as the look MENU >
  * Player Look has on, for music. The looks and their motion are
  * src/mp4look.h's; Cover, the default, is src/nowplaying_screen.c's np_draw
  * as it always was. */
@@ -29,7 +29,7 @@ mp4l_id np_look_for(void);
  * while music plays */
 unsigned npl_draw(app *a, mp4l_id look, const mu_now *mn);
 
-/* Under the lock nothing moves (DESIGN.md 11.14): the bars rest and the
+/* Under the lock nothing moves (DESIGN.md 11.64): the bars rest and the
  * daemon stops measuring, until it is let go */
 void npl_still(bool still);
 

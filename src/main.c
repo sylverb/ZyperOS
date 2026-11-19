@@ -5589,6 +5589,9 @@ int main(int argc, char *argv[])
 		/* --gm-undo: the game has a state from before its last load, so
 		 * the Game tab has Undo Load */
 		else if (!strcmp(argv[i], "--gm-undo")) g_shot_undo = true;
+		/* --gm-rumble: the game's core asked for the motor (PAUSED
+		 * rumble=1), so its Controls tab has Rumble */
+		else if (!strcmp(argv[i], "--gm-rumble")) g_shot_rumble = true;
 		else if (!strcmp(argv[i], "--gm-tab-from") && i + 1 < argc) shot_gm_from = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--gm-press") && i + 1 < argc) shot_gm_press = argv[++i];
 		else if (!strcmp(argv[i], "--gm-choose")) shot_gm_choose = 1;
