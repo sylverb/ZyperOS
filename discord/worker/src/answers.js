@@ -1,7 +1,8 @@
 // Zyper's answers to the common questions. Each one is short and links to the
-// README section that says it in full; keep them in step with the README.
+// README or guide section that says it in full; keep them in step with them.
 
 const R = "https://github.com/tarikbc/ZyperOS#";
+const G = "https://github.com/tarikbc/ZyperOS/blob/main/docs/guide.md#";
 
 export const LINKS = {
   title: "ZyperOS links",
@@ -27,7 +28,7 @@ export const ANSWERS = {
   },
   bios: {
     title: "BIOS files",
-    url: R + "supported-systems",
+    url: G + "bios-files",
     text:
       "BIOS files go **loose in `Bios/`** on the card, not in a folder per system. ZyperOS ships none.\n\n" +
       "• **PlayStation:** `scph5501.bin`\n" +
@@ -37,11 +38,11 @@ export const ANSWERS = {
       "• **Dreamcast, NAOMI, Atomiswave:** in `Bios/dc/`: `dc_boot.bin`, `naomi.zip`, `awbios.zip`\n" +
       "• **3DO:** `panafz10.bin` · **Lynx:** `lynxboot.img`\n" +
       "• Game Boy Advance and Atari 7800 run without theirs.\n\n" +
-      "The README's Supported systems list has every system.",
+      "The guide's Supported systems list has every system.",
   },
   wifi: {
     title: "Wi-Fi on the Pixel 2",
-    url: R + "install",
+    url: G + "wi-fi-on-the-pixel-2",
     text:
       "The Pixel 2 has no Wi-Fi of its own. A **USB Wi-Fi adapter** in its USB-C port gives it Wi-Fi while it's plugged in, and with it box art, RetroAchievements, System Update and Wi-Fi File Transfer.\n\n" +
       "It needs a Realtek chip ZyperOS has a driver for, like the **TP-Link TL-WN725N** on a USB-C adapter. When the shelf asks **What did you plug in?**, choose **USB Accessory**, or set **MENU > USB Accessories** to **Automatic**.\n\n" +
@@ -49,7 +50,7 @@ export const ANSWERS = {
   },
   transfer: {
     title: "Adding games",
-    url: R + "adding-games-over-wi-fi",
+    url: G + "adding-games-over-wi-fi",
     text:
       "**Over Wi-Fi:** join a network in **MENU > Wi-Fi**, open **MENU > Wi-Fi File Transfer**, then open `http://zyperos.local` (or the address it shows) in a browser and type the PIN.\n" +
       "**Over the USB cable:** plug the Pixel 2 into a Mac, Linux or Windows 11 computer, choose **File Transfer** when it asks, and open `http://zyperos.local` or `http://10.42.0.1`.\n\n" +
@@ -60,7 +61,7 @@ export const ANSWERS = {
   },
   portmaster: {
     title: "PortMaster",
-    url: R + "portmaster",
+    url: G + "portmaster",
     text:
       "On the **Ports** shelf, open **PortMaster** and press **Install**. It downloads the official PortMaster app over Wi-Fi (about 24 MB).\n\n" +
       "Its first start unpacks and downloads its catalog, which takes a few minutes. Pick the ports you want; they're on the Ports shelf when you leave. Many ports of commercial games need files from a copy you own, and PortMaster says which and where.\n\n" +
@@ -68,7 +69,7 @@ export const ANSWERS = {
   },
   update: {
     title: "Updating ZyperOS",
-    url: R + "system-update",
+    url: G + "system-update",
     text:
       "**MENU > System Update** gets new versions over Wi-Fi. **A** downloads, checks and installs it, and **Restart Now** starts it. It needs 25% battery or the charger.\n\n" +
       "No Wi-Fi? **Update ZyperOS** on the File Transfer page installs it over the USB cable.\n\n" +
@@ -76,7 +77,7 @@ export const ANSWERS = {
   },
   controls: {
     title: "Getting around",
-    url: R + "controls",
+    url: G + "controls-and-menus",
     text:
       "• **MENU** in a game opens the in-game menu: save, load, Controls and more. **X** there quits.\n" +
       "• **A** continues a game, **Y** starts it from the beginning, **X** on the shelf opens its details.\n" +

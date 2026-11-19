@@ -5,7 +5,7 @@ capture. It retains the supplied image without edits.
 
 The screenshots in this folder show the current launcher in Beard, the light
 theme: the README and the website show every screen in light. `dark/` holds
-the screens their light-and-dark sections show in Salt & Pepper, the
+the screens the guide's and the website's light-and-dark sections show in Salt & Pepper, the
 Nintendo 64 shelf, the home, the ZyperOS menu and a game's Cover and Video
 page, and the top bar's shot (`topbar`, the song's note and the
 headphone mark) in both themes. The 3D device on the website shows the light ones too.

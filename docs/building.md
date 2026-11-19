@@ -540,6 +540,17 @@ SFTP server runs, and into `/tmp` first; check that the checksums match on
 both sides before you move a file into `/mnt/SDCARD/ZyperOS/`. Release builds
 carry no key and run no SSH server until Developer Mode is on (MENU > About).
 
+### Developer mode
+
+A release image starts no SSH and holds no key, so a shell on it is yours to ask for. Developer mode is how, and it stays out of the way until you look for it. On **MENU > About**, on the first page (the one with the version), hold **L2 and R2 together for five seconds**. A **Developer Mode** row appears with a bar that fills as the seconds pass, and letting go of either button, or leaving the page, starts again. When it is full, a message says **Developer Mode is on**, and the row stays on the first page as *on*. **MENU > Developer Mode** then opens its page, where **A** turns developer mode off again.
+
+With it on, the Pixel 2 behaves like a development build for as long as a computer is on the cable. The USB link stays up with no question, and SSH runs on the cable's address, `ssh root@zyperos.local` or `ssh root@10.42.0.1`, never over Wi-Fi. Closing a page or starting a game does not end it, and when the launcher restarts (a `tools/px2-deploy.sh` run does that) the sessions drop and SSH is back a few seconds later, so a key logs in again. Pulling the cable out, or turning developer mode off, ends it. There are two ways in, and both are yours:
+
+- **A key from the card.** Copy your public key, `id_ed25519.pub` or any `.pub` file (or an `authorized_keys` file), into the `Developer` folder at the card's root; the Pixel makes the folder the first time. Plain public keys only: a line with options in front, such as a forced command, is skipped. A key taken is kept with the ones `ssh-copy-id` saves. The folder is outside `ZyperOS/` because an update swaps that one for the new version's.
+- **A password for this plug.** The Pixel makes eight random characters each time a computer is plugged in. Only **MENU > Developer Mode** shows them, and nothing keeps them. Five wrong ones lock SSH until the next plug, as File Transfer's PIN does. This is also how the first key gets in without taking the card out: sign in with the password, then run `ssh-copy-id root@10.42.0.1`.
+
+**MENU > Developer Mode** opens the page: the command, the password, where the keys go, how many it read, and SSH's status. **A** there turns developer mode off; **B** closes the page and leaves everything running. Nothing is shipped in the image: no password, no key. A development image is unchanged: its SSH starts at boot with the key in `plastron/local/authorized_keys`, and `tools/px2-deploy.sh` works as before.
+
 ### SSH over Wi-Fi
 
 With Developer Mode on, its page (MENU > Connections > Developer Mode) has
@@ -695,6 +706,22 @@ from `/tmp` as root:
 - `px2-memtest` checks the RAM with patterns under load and times a memcpy,
   for changes to the memory clock. Stop ZyperOS first, so nothing else uses
   the memory meanwhile.
+
+## Documenting a feature
+
+The README stays short. A significant feature gets one line in its Features list,
+and, when the other systems can be compared on it, a row in the comparison on
+zyperos.com and in the guide's full table. Its details go in `docs/guide.md`,
+under the heading that fits, and its screenshots are in the light theme
+(`tools/readme-shots.py`, `res/readme/README.md`). `README.md` keeps the Credits
+and the License sections whole, since `check-bgm-tracks` reads the menu music's
+credits there.
+
+## Releasing, and working without the device
+
+[Releasing](releases/README.md): `make release PUBLISH=1` on the Mac builds the card image and makes the draft release; the tag it pushes has GitHub build ZyperOS Installer for macOS, Windows and Linux, add it to the same release and publish it. Every version's release has the image and the installer together. A release also carries System Update's pack and its list, signed with ZyperOS's release key (`tools/update-key.sh`) ([how it works](updates.md)).
+
+Without the device: ZyperOS runs on a Mac in [QEMU](qemu.md) (`tools/qemu-run.sh`, plastron's `make qemu`), and the [simulator](simulator.md) shows it as a Pixel 2 in a window, its buttons, battery, cable and side lights included. Speed, the GPU and the hardware itself still need the device.
 
 ## Debugging on the device
 
