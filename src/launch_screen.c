@@ -550,7 +550,7 @@ void pm_after_run(app *a)
 	if (!up_read(PM_RAN, ran, sizeof ran)) return;
 	unlink(PM_RAN);
 	if (sscanf(ran, "%lld %lld %d", &start, &end, &rc) < 2) return;
-	for (i = 0; i < a->sys.count && !s; i++)
+	for (i = 0; i < sys_kept(a) && !s; i++)        /* Ports off the home too */
 		if (!strcmp(a->sys.systems[i].core, PORT_CORE) && pm_on_card(a->sys.systems[i].folder))
 			s = &a->sys.systems[i];
 	if (!s) return;

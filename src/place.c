@@ -3,6 +3,7 @@
 
 #include "atomic.h"
 #include "config.h"
+#include "homesys.h"
 #include "platform.h"
 
 #include <stdio.h>
@@ -87,6 +88,38 @@ void playing_clear(void)
 	remove(p);
 }
 
+/* A game of a system off the home (app.parked) has no shelf of its own to
+ * resume on: the group it is on, the one the shelf stood on first
+ * (restore_place), then Recents, where the game played last is, then
+ * Favorites. False with it on none. */
+static bool group_take(app *a, int s, int owner, const char *file)
+{
+	sysview *v = &a->view[s];
+
+	for (int k = 0; v->owner && k < v->list.count; k++)
+		if (v->owner[k] == owner && !strcmp(v->list.items[k].file, file)) {
+			a->sys_cursor = s;
+			v->cursor = k;
+			return true;
+		}
+	return false;
+}
+
+static bool resume_on_group(app *a, int owner, const char *file)
+{
+	static const char *const groups[] = { HOMESYS_RECENT, HOMESYS_FAV };
+
+	if (a->sys_cursor >= 0 && a->sys_cursor < a->sys.count &&
+	    group_take(a, a->sys_cursor, owner, file))
+		return true;
+	for (int g = 0; g < 2; g++)
+		for (int s = 0; s < a->sys.count; s++)
+			if (a->view[s].owner && !strcmp(a->sys.systems[s].tag, groups[g]) &&
+			    group_take(a, s, owner, file))
+				return true;
+	return false;
+}
+
 /* Point the cursor at whatever was being played, if anything was, and say so.
  * Only when there is a state to come back to: without one, "resume" would
  * mean starting the game from its title screen, which is not what anyone
@@ -109,7 +142,8 @@ bool playing_restore(app *a)
 	/* Not powered off on purpose: a crash or a power cut. The home, then */
 	if (strcmp(off, "off") != 0) { playing_clear(); return false; }
 
-	for (i = 0; i < a->sys.count; i++) {
+	/* The systems off the home too, whose games resume on a group */
+	for (i = 0; i < sys_kept(a); i++) {
 		const game_list *gl = sys_games(&a->view[i]);
 
 		if (strcmp(a->sys.systems[i].tag, tag) != 0) continue;
@@ -123,6 +157,11 @@ bool playing_restore(app *a)
 				 * never landed. Clear the marker rather than trying every
 				 * boot from here on. */
 				playing_clear();
+				return false;
+			}
+			if (i >= a->sys.count) {
+				if (resume_on_group(a, i, file)) return true;
+				playing_clear();      /* on no shelf of the home */
 				return false;
 			}
 			a->sys_cursor = i;

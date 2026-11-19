@@ -5196,7 +5196,7 @@ page of switches in MENU, and a new group, Recents, beside Favorites.)*
 
 **Recents** is a group like Favorites: the ten games played last, from the
 play time's sessions (src/stats.h, `stats_recent`), newest first, from every
-system the home shows. It sits right after Favorites, first when there is
+system with games, on the home or turned off it. It sits right after Favorites, first when there is
 none, and is named **Recents** in the language that is on. Its card is a
 placeholder until a real design comes: a pixel-art clock with ZyperOS's lime
 rim, its minute hand stepping between twelve and one in two poses of 400 ms,
@@ -5214,9 +5214,15 @@ for, in the home's order (a system with none is not on the home, so not on
 the page either), each **On** or **Off**, Left, Right or A turning it over,
 heard as a ring, as Side Lights' parts are. Under a rule, the note: "Games
 stay on the card." All of them On as they ship. A system turned off leaves
-the home, and with it Random Game, Search, Favorites and Recents; its games
-stay on the card and in File Transfer, and come back the moment it is on
-again. On a handheld without GPU frames (the Brick's profile today,
+the home, and with it Random Game and Search; its games stay on Favorites and
+Recents, start from there on the system's own core and display, and resume
+there at the next start after a power-off (on Recents, else Favorites), as
+they stay on the card and in File Transfer; its shelf comes back the moment it
+is on again. *(Davistoa on the Discord, 2026-11-19, hides every system and
+lives in Favorites; my OK.)* The systems turned off keep their listings after
+the home's shelves (`app.parked`, `sys_kept`), so Favorites and Recents
+resolve against them as against the home's; `make check-homesys-groups`
+holds it on the host launcher. On a handheld without GPU frames (the Brick's profile today,
 `plat_gpu_frames`), a system whose cores need them (config/systems.cfg's
 `needs` lines: the Dreamcast, NAOMI, Atomiswave, the N64, the PSP and
 Saturn) leaves the home the same way, and is no row of this page, since it
