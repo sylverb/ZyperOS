@@ -5674,7 +5674,7 @@ which builds a small core systems.cfg names and the vendor folder lacks and
 only looks when none is missing; mk/payload.sh, which refuses a card without
 it, names that command.
 
-### 11.56 Zipped games
+### 11.63 Zipped games
 *(NextUI's top ten; Tarik: "ok".)*
 
 A cartridge's game in a zip, one game a zip as No-Intro sets come: Diatom
