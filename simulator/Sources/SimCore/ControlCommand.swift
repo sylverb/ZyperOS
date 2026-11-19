@@ -30,12 +30,14 @@ public enum ControlCommand: Equatable {
     /// one before it, in the whole screen or in X Y W H of it (a game's own
     /// part, where the rest moves anyway)
     case latency([PadButton], region: [Int]?)
+    /// Every key's keyboard key on it, as Option shows them
+    case keys(Bool)
     case quit
 
     public static let usage = """
         state | press|release BUTTON[+BUTTON] | tap BUTTON[+BUTTON] [MS] | battery 0-100 | \
         cable 0|1 | kind wall|computer | headphones 0|1 | power | shutdown | screenshot FILE.png | \
-        window-shot FILE.png | wait-frames N | fps | latency BUTTON[+BUTTON] [X Y W H] | quit
+        window-shot FILE.png | wait-frames N | fps | latency BUTTON[+BUTTON] [X Y W H] | keys 0|1 | quit
         """
 
     public init?(line: String) {
@@ -68,6 +70,9 @@ public enum ControlCommand: Equatable {
         case ("battery", 2):
             guard let pct = Int(arg!), (0...100).contains(pct) else { return nil }
             self = .battery(pct)
+        case ("keys", 2):
+            guard arg == "0" || arg == "1" else { return nil }
+            self = .keys(arg == "1")
         case ("cable", 2), ("headphones", 2):
             guard arg == "0" || arg == "1" else { return nil }
             self = verb == "cable" ? .cable(arg == "1") : .headphones(arg == "1")

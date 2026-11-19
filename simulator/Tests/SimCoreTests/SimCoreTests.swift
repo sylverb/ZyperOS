@@ -34,6 +34,8 @@ final class SimCoreTests: XCTestCase {
 
     func testCommands() {
         XCTAssertEqual(ControlCommand(line: "fps"), .fps)
+        XCTAssertEqual(ControlCommand(line: "keys 1"), .keys(true))
+        XCTAssertNil(ControlCommand(line: "keys 2"))
         XCTAssertEqual(ControlCommand(line: "latency a"), .latency([.a], region: nil))
         XCTAssertEqual(ControlCommand(line: "latency a+right 10 20 30 40"), .latency([.a, .right], region: [10, 20, 30, 40]))
         XCTAssertNil(ControlCommand(line: "latency a 10 20 0 40"))

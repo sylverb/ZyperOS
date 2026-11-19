@@ -31,12 +31,18 @@ Update, are `tools/qemu-run.sh start --uboot`, several times slower
   keys along the top, the volume rocker on the left side, MENU and POWER on
   the right. The keyboard: arrows, x z s a (A B X Y), q w e r (L1 R1 L2 R2),
   Return (START), Right Shift or Delete (SELECT), Esc or m (MENU), = and -
-  (volume), p (power), h (headphones). A key held is a button held.
+  (volume), p (power), h (headphones). A key held is a button held. The
+  pointer over a button shows its key on a small keycap beside it, and
+  holding Option shows every one.
 - **Power.** POWER is ZyperOS's power button. When the VM is off (after Power
   Off, or Auto Off), POWER turns it on again.
-- **The panel** (View > Hardware Panel, ⌘I): the battery level, the charging
-  cable, the headphones; what the backlight, the side lights and the motor
-  are doing; Shut Down; Save Screenshot.
+- **The panel** (View > Hardware Panel, ⌘I, or the sidebar button under the
+  device): the battery level, the charging cable, the headphones; what the
+  backlight, the side lights and the motor are doing; the keyboard's keys;
+  Power, Shut Down, Save Screenshot.
+- **The line under the device**: whether the VM is on, and how many frames a
+  second reach the window and which way (`shared memory`, `D-Bus` or `VNC`,
+  below); off, what `qemu-run.sh` last said.
 - **The Device menu:** Power Button (⇧⌘P), Shut Down, Charging Cable (⇧⌘U),
   Battery levels, Headphones (⇧⌘H), Volume Up and Down (⌘↑, ⌘↓), Save
   Screenshot (⌘S, to the Desktop), Copy Screen (⌃⌘C).
@@ -66,6 +72,7 @@ simulator/simctl wait-frames 10               # until ten more frames came
 simulator/simctl fps                          # frames the window got in the last second
 simulator/simctl latency down                 # a tap, and ms to the first frame it changed
 simulator/simctl latency a 80 223 40 34       # ...in a part of the screen (a game's)
+simulator/simctl keys 1                       # every button's key on it, as Option
 simulator/simctl screenshot shot.png          # the VM's screen
 simulator/simctl window-shot device.png       # the whole device, drawn
 simulator/simctl power | shutdown | quit

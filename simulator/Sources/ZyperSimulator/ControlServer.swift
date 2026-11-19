@@ -99,6 +99,7 @@ final class ControlServer {
             return json(["ok": true, "path": path])
         case .quit:
             DispatchQueue.main.async { NSApp.terminate(nil) }
+        case let .keys(on): sim.showKeys = on
         case .fps:
             return json(["ok": true, "fps": sim.frameLog.perSecond(), "screen_path": sim.screenPath])
         case .tap, .waitFrames, .latency:

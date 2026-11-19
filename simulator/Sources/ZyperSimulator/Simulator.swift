@@ -18,6 +18,10 @@ final class Simulator: ObservableObject {
     @Published private(set) var held: Set<PadButton> = []
     @Published private(set) var status = ""
     @Published var showPanel = true
+    /// Every key's keyboard key on it (Option held), and the key under the
+    /// pointer
+    @Published var showKeys = false
+    @Published var hovered: PadButton?
     @Published var zoom: Double = 0.75
 
     let name: String

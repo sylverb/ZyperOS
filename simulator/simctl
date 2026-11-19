@@ -16,6 +16,7 @@
 #   simulator/simctl [-n NAME] window-shot FILE.png     (the whole device, drawn)
 #   simulator/simctl [-n NAME] wait-frames N
 #   simulator/simctl [-n NAME] fps                      (frames in the last second)
+#   simulator/simctl [-n NAME] keys 0|1                 (every key's key on it, as Option)
 #   simulator/simctl [-n NAME] latency BUTTON [X Y W H] (a tap, and ms to the first
 #                                                        frame it changed, in X Y W H)
 #
@@ -25,7 +26,7 @@
 set -eu
 NAME=${ZYPEROS_QEMU_NAME:-simulator}
 if [ "${1:-}" = -n ]; then NAME=$2; shift 2; fi
-[ $# -gt 0 ] || { sed -n '3,23p' "$0"; exit 1; }
+[ $# -gt 0 ] || { sed -n '3,24p' "$0"; exit 1; }
 SOCK=${ZYPEROS_QEMU_HOME:-$HOME/Library/Caches/zyperos-qemu}/$NAME/app.sock
 [ -S "$SOCK" ] || { echo "simctl: no simulator window for $NAME ($SOCK)" >&2; exit 1; }
 # Paths as the window sees them: absolute
