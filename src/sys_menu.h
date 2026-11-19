@@ -165,7 +165,7 @@ typedef enum { PT_GAMES, PT_DISPLAY, PT_SOUND, PT_CONNECTIONS, PT_SYSTEM,
 
 typedef enum {
 	SM_GAMES, SM_RANDOM, SM_CORE, SM_DSLANG, SM_SGB, SM_PACE, SM_SORT, SM_VIEW,
-	SM_DISPLAY, SM_BORDER, SM_SHADER, SM_STRENGTH, /* SM_BUTTONS, */ SM_BOXART,
+	SM_DISPLAY, SM_BORDER, SM_BORDER_COLOR, SM_SHADER, SM_STRENGTH, /* SM_BUTTONS, */ SM_BOXART,
 	SM_RESCAN, SM_ROWS
 } sm_row;
 
@@ -443,6 +443,8 @@ typedef struct {
 	/* Border's value under Display (src/border.h) while the display mode
 	 * leaves room around the system's games; NULL: no such row */
 	const char *border;
+	/* Handheld Color's value under it (src/border_pic.h); NULL: no row */
+	const char *border_color;
 	/* This system's shader's label, after Display Mode; NULL reads Off */
 	const char *shader;
 	/* Its strength, "50%", when it is an old screen (no_strength says

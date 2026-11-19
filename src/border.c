@@ -11,6 +11,8 @@ static const char *const IDS[BORDER_KINDS] = {
 	[BORDER_OFF]  = "off",
 	[BORDER_BLUR] = "blur",
 	[BORDER_OWN]  = "own",
+	[BORDER_HANDHELD] = "handheld",
+	[BORDER_WHOLE] = "whole",
 };
 
 const char *border_id(border_kind k)
@@ -31,13 +33,15 @@ border_kind border_parse(const char *word)
 str_id border_label_id(border_kind k)
 {
 	return k == BORDER_BLUR ? S_GAMEMENU_BORDER_BLUR : k == BORDER_OWN ? S_GAMEMENU_BORDER_OWN
-	                                                                   : S_MENU_OFF_TITLE;
+	     : k == BORDER_HANDHELD ? S_GAMEMENU_BORDER_HANDHELD : k == BORDER_WHOLE ? S_GAMEMENU_BORDER_WHOLE
+	     : S_MENU_OFF_TITLE;
 }
 
 str_id border_note_id(border_kind k)
 {
 	return k == BORDER_BLUR ? S_GAMEMENU_BORDER_BLUR_NOTE : k == BORDER_OWN ? S_GAMEMENU_BORDER_OWN_NOTE
-	                                                                        : S_GAMEMENU_BORDER_OFF_NOTE;
+	     : k == BORDER_HANDHELD ? S_GAMEMENU_BORDER_HANDHELD_NOTE
+	     : k == BORDER_WHOLE ? S_GAMEMENU_BORDER_WHOLE_NOTE : S_GAMEMENU_BORDER_OFF_NOTE;
 }
 
 void border_key(const char *tag, char *out, size_t n)
@@ -45,29 +49,34 @@ void border_key(const char *tag, char *out, size_t n)
 	snprintf(out, n, "%s%s", BORDER_SETTING_PREFIX, tag ? tag : "");
 }
 
-int border_offered(bool blur, bool own, border_kind *out)
+int border_offered(border_offer o, border_kind *out)
 {
 	int n = 0;
 
 	out[n++] = BORDER_OFF;
-	if (blur) out[n++] = BORDER_BLUR;
-	if (own) out[n++] = BORDER_OWN;
+	if (o.blur) out[n++] = BORDER_BLUR;
+	if (o.handheld) {
+		out[n++] = BORDER_HANDHELD;
+		out[n++] = BORDER_WHOLE;
+	}
+	if (o.own) out[n++] = BORDER_OWN;
 	return n;
 }
 
-border_kind border_shown(border_kind kept, bool blur, bool own)
+border_kind border_shown(border_kind kept, border_offer o)
 {
-	if (kept == BORDER_BLUR && !blur) return BORDER_OFF;
-	if (kept == BORDER_OWN && !own) return BORDER_OFF;
+	if (kept == BORDER_BLUR && !o.blur) return BORDER_OFF;
+	if (kept == BORDER_OWN && !o.own) return BORDER_OFF;
+	if ((kept == BORDER_HANDHELD || kept == BORDER_WHOLE) && !o.handheld) return BORDER_OFF;
 	return kept >= 0 && kept < BORDER_KINDS ? kept : BORDER_OFF;
 }
 
-border_kind border_step(border_kind k, int d, bool blur, bool own)
+border_kind border_step(border_kind k, int d, border_offer o)
 {
 	border_kind list[BORDER_KINDS];
-	int n = border_offered(blur, own, list), i, at = 0;
+	int n = border_offered(o, list), i, at = 0;
 
-	k = border_shown(k, blur, own);
+	k = border_shown(k, o);
 	for (i = 0; i < n; i++)
 		if (list[i] == k) at = i;
 	return list[((at + (d < 0 ? -1 : 1)) % n + n) % n];

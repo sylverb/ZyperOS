@@ -12,6 +12,7 @@
 #include "pacing.h"
 #include "sgbmode.h"
 #include "border_pic.h"
+#include "handframe.h"
 #include "app.h"
 #include "bgm.h"
 #include "bgm_menu.h"
@@ -256,7 +257,29 @@ static void sm_border_preview(void *app_, int k, int x, int y, int w, int h)
 	aspect = dmode_shape_of(s->tag, &known);
 	if (!dmode_source_of(s->tag, &sw, &sh) && t) { sw = tw; sh = th; }
 	if (kind == BORDER_OWN) pic = border_own_cached(s, own, sizeof own);
-	dmode_border_preview(a, t, sw, sh, known ? aspect : 0.0, v->dmode, (int)kind, pic, own, x, y, w, h);
+	if (kind == BORDER_HANDHELD || kind == BORDER_WHOLE) {
+		SDL_Rect at;
+
+		pic = border_frame_cached(a, a->sys_cursor, kind, -1, own, sizeof own, &at);
+		dmode_border_preview(a, t, sw, sh, known ? aspect : 0.0, v->dmode, (int)kind, pic, own,
+		                     pic ? &at : NULL, x, y, w, h);
+		return;
+	}
+	dmode_border_preview(a, t, sw, sh, known ? aspect : 0.0, v->dmode, (int)kind, pic, own, NULL, x, y, w, h);
+}
+
+/* Handheld Color's list's picture: the frame kept for Border, in color k,
+ * the game under the cursor's last picture in its window */
+static void sm_color_preview(void *app_, int k, int x, int y, int w, int h)
+{
+	app *a = app_;
+	sysview *v = &a->view[a->sys_cursor];
+	border_kind kind = border_load(a, a->sys_cursor);
+	char key[96];
+	SDL_Rect at;
+	SDL_Surface *f = border_frame_cached(a, a->sys_cursor, kind, k, key, sizeof key, &at);
+
+	dmode_border_preview(a, NULL, 0, 0, 0.0, v->dmode, (int)kind, f, key, f ? &at : NULL, x, y, w, h);
 }
 
 /* Timing's list's picture (menu_choice's preview, DESIGN.md 11.39): the two
@@ -463,10 +486,9 @@ static void menu_choices(app *a, int sys, bool games)
 		{
 			/* Border's offered kinds, each with its picture and note */
 			static const char *notes[BORDER_KINDS];
-			char own[CFG_STR * 3];
 			border_kind kept = border_load(a, sys);
 
-			n = border_offered(border_blur_here(), border_own_path(sc, own, sizeof own), g_sm_border_kinds);
+			n = border_offered(border_offer_for(a, sys), g_sm_border_kinds);
 			for (i = 0, cur = 0; i < n; i++) {
 				P[12].lab[i] = T(border_label_id(g_sm_border_kinds[i]));
 				notes[i] = T(border_note_id(g_sm_border_kinds[i]));
@@ -476,6 +498,17 @@ static void menu_choices(app *a, int sys, bool games)
 			g_sm_choice[SM_BORDER].notes = notes;
 			g_sm_choice[SM_BORDER].preview = sm_border_preview;
 			g_sm_choice[SM_BORDER].list = true;
+		}
+		{
+			/* Handheld Color's colors, each with the frame in it */
+			const hf_model *m = hf_model_for(sc->tag);
+
+			if (m && m->ncolors > 1) {
+				for (i = 0; i < m->ncolors && i < CH_MAX; i++)
+					P[9].lab[i] = border_color_label(m->color_name[i]);
+				g_sm_choice[SM_BORDER_COLOR] = ch_make(&P[9], m->ncolors, border_color_load(a, sys), false);
+				g_sm_choice[SM_BORDER_COLOR].preview = sm_color_preview;
+			}
 		}
 		{
 			static const char *snotes[CH_MAX], *tnotes[CH_MAX];
@@ -635,6 +668,7 @@ int menu_build(app *a, screen_id screen, int sys,
 			u.pace = pacing_row_shown(a, sys) ? T(pacing_label_id(pacing_load(sc))) : NULL;
 			u.sgb = sgb_row_shown(a, sys) ? T(sgbm_label_id(sgbm_load(sc))) : NULL;
 			u.border = border_row_value(a, sys);
+			u.border_color = u.border ? border_color_value(a, sys) : NULL;
 		}
 		/* By what it HAS, not by its name or its position: a shelf with no
 		 * core and no folder is the built one, and a check can hand that
@@ -1678,6 +1712,7 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 			               .pace = pacing_row_shown(a, a->sys_cursor) ? "" : NULL,
 			               .sgb = sgb_row_shown(a, a->sys_cursor) ? "" : NULL,
 			               .border = border_row_value(a, a->sys_cursor),
+			               .border_color = border_color_value(a, a->sys_cursor),
 			               .no_strength = !shader_has_strength(a->view[a->sys_cursor].shader) };
 			sm_row ids[SM_ROWS];
 			int n = sys_menu_system_rows(&dev, ids);
@@ -1757,17 +1792,21 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 			display_save(a);
 			return MENU_STAY;
 		}
+		/* Handheld Color, the same way */
+		if (d && sel == SM_BORDER_COLOR) {
+			border_color_step(a, a->sys_cursor, d);
+			return MENU_STAY;
+		}
 		/* Border, stepped among what the row offers, kept for this system
 		 * at once: its next game has it (src/border.h). A opens its list,
 		 * which comes back as steps. */
 		if (d && sel == SM_BORDER) {
 			const system_cfg *sc = &a->sys.systems[a->sys_cursor];
-			char key[CFG_STR + 16], own[CFG_STR * 3];
+			char key[CFG_STR + 16];
 
 			border_key(sc->tag, key, sizeof key);
 			db_set_str(db_dev(), key, border_id(border_step(border_load(a, a->sys_cursor), d,
-			                                                border_blur_here(),
-			                                                border_own_path(sc, own, sizeof own))));
+			                                                border_offer_for(a, a->sys_cursor))));
 			return MENU_STAY;
 		}
 		/* Sort order, on the same left/right idiom.

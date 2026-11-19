@@ -75,6 +75,7 @@
 #include "dlq.h"
 #include "diskpopup.h"
 #include "border_pic.h"
+#include "handframe.h"
 #include "dmodepreview.h"
 #include "sshlink.h"
 #include "mdns.h"
@@ -4811,6 +4812,7 @@ static int sm_pos(const app *a, int sys, sm_row which)
 	               .dslang = dslang_row_shown(a, sys) ? "" : NULL,
 	               .sgb = sgb_row_shown(a, sys) ? "" : NULL,
 	               .border = border_row_value(a, sys),
+	               .border_color = border_color_value(a, sys),
 	               .pace = pacing_row_shown(a, sys) ? "" : NULL,
 	               .no_strength = !shader_has_strength(a->view[sys].shader) };
 	sm_row ids[SM_ROWS];
@@ -4894,6 +4896,7 @@ static int menu_shelf_width(app *a)
 		int  prow = own ? -1 : sm_pos(a, i, SM_PACE);
 		int  grow = own ? -1 : sm_pos(a, i, SM_SGB);
 		int  brow = own ? -1 : sm_pos(a, i, SM_BORDER);
+		int  bcrow = own ? -1 : sm_pos(a, i, SM_BORDER_COLOR);
 		int  vrow = muse ? -1 : a->view[i].owner ? 3 : sm_pos(a, i, SM_VIEW);
 
 		n = menu_build(a, SCREEN_GAMES, i, rows, &bufs, &heading);
@@ -4965,7 +4968,7 @@ static int menu_shelf_width(app *a)
 			}
 			rows[lrow].value = keep;
 		}
-		/* Border's three */
+		/* Border's kinds */
 		if (brow >= 0 && brow < n) {
 			const char *keep = rows[brow].value;
 
@@ -4976,6 +4979,19 @@ static int menu_shelf_width(app *a)
 				if (mw > w) w = mw;
 			}
 			rows[brow].value = keep;
+		}
+		/* Handheld Color's colors */
+		if (bcrow >= 0 && bcrow < n) {
+			const hf_model *m = hf_model_for(a->sys.systems[i].tag);
+			const char *keep = rows[bcrow].value;
+
+			for (k = 0; m && k < m->ncolors; k++) {
+				int mw;
+				rows[bcrow].value = border_color_label(m->color_name[k]);
+				mw = menu_measure(rows, n, heading);
+				if (mw > w) w = mw;
+			}
+			rows[bcrow].value = keep;
 		}
 		/* Super Game Boy's two */
 		if (grow >= 0 && grow < n) {

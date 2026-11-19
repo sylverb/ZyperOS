@@ -862,8 +862,8 @@ static void system_menu(void)
 	n = sys_menu_build(&u, rows, &b, &heading);
 
 	printf("system menu:\n");
-	ck(n == SM_ROWS - 3, "every row is filled, but Game Language, which only the Nintendo DS has, Super Game Boy "
-	   "and Timing");
+	ck(n == SM_ROWS - 4, "every row is filled, but Game Language, which only the Nintendo DS has, Super Game Boy, "
+	   "Timing and Handheld Color");
 	ck(!strcmp(heading, "Game Boy"), "heading is the system, not ZyperOS");
 	ck(!strcmp(val(&rows[sm_at(&u, SM_GAMES)]), "412"), "the count is the real one");
 	ck(!strcmp(val(&rows[sm_at(&u, SM_CORE)]), "gambatte"), "the core is the real one");
@@ -1133,14 +1133,14 @@ static void dslang_row(void)
 	printf("system menu, Game Language:\n");
 	ck(!has_label(plain, np, "Game Language"), "no Game Language row unless the shelf says so");
 	ck(!has_label(plain, np, "Timing"), "nor Timing");
-	ck(np == SM_ROWS - 3, "and every other row is there");
+	ck(np == SM_ROWS - 4, "and every other row is there");
 	ck(!plain[sm_at(&u, SM_CORE)].live && !strcmp(val(&plain[sm_at(&u, SM_CORE)]), "dsperate"),
 	   "one core: the DS's Core row names DSperate and is no row to press");
 
 	u.dslang = "Auto (English)";
 	n = sys_menu_build(&u, rows, &b, &heading);
 	at = sm_at(&u, SM_DSLANG);
-	ck(n == np + 1 && n == SM_ROWS - 2, "one row more, every row but Super Game Boy and Timing");
+	ck(n == np + 1 && n == SM_ROWS - 3, "one row more, every row but Super Game Boy, Timing and Handheld Color");
 	ck(at == sm_at(&u, SM_CORE) + 1, "right under Core");
 	ck(!strcmp(rows[at].label, "Game Language"), "named Game Language");
 	ck(!strcmp(val(&rows[at]), "Auto (English)"), "saying what it is set to");
@@ -1173,7 +1173,7 @@ static void dslang_row(void)
 	{
 		int gl = sm_at(&u, SM_DSLANG), tr = sm_at(&u, SM_PACE);
 
-		ck(n == SM_ROWS - 1, "with Timing too, every row but the Game Boys' Super Game Boy");
+		ck(n == SM_ROWS - 2, "with Timing too, every row but the Game Boys' Super Game Boy and Handheld Color");
 		ck(tr == gl + 1, "right under Game Language");
 		ck(!strcmp(rows[tr].label, "Timing"), "named Timing");
 		ck(!strcmp(val(&rows[tr]), "Smooth"), "saying what it is set to");
@@ -1193,7 +1193,7 @@ static void dslang_row(void)
 	{
 		int tr = sm_at(&u, SM_PACE);
 
-		ck(n == SM_ROWS - 2, "on a shelf without the DS's row, one row more than its own");
+		ck(n == SM_ROWS - 3, "on a shelf without the DS's row, one row more than its own");
 		ck(tr == sm_at(&u, SM_CORE) + 1 && !strcmp(rows[tr].label, "Timing"), "Timing right under Core");
 		ck(!has_label(rows, n, "Game Language"), "and no DS row with it");
 		ck(!has_label(rows, n, "Super Game Boy"), "nor the Game Boys' Super Game Boy");
@@ -1208,7 +1208,7 @@ static void dslang_row(void)
 	{
 		int sg = sm_at(&u, SM_SGB), tr = sm_at(&u, SM_PACE);
 
-		ck(n == SM_ROWS - 1, "with Timing, every row but the DS's");
+		ck(n == SM_ROWS - 2, "with Timing, every row but the DS's and Handheld Color");
 		ck(sg == sm_at(&u, SM_CORE) + 1, "right under Core");
 		ck(tr == sg + 1 && !strcmp(rows[tr].label, "Timing"), "Timing under it");
 		ck(!strcmp(rows[sg].label, "Super Game Boy"), "named Super Game Boy");
@@ -1217,6 +1217,21 @@ static void dslang_row(void)
 		ck(menu_sound_at(b.sound, n, sg) == MENU_SND_RING, "that steps round, on A too");
 		ck(sys_menu_system_rows(&u, sm) == n && sm[sg] == SM_SGB, "the build and the list agree");
 	}
+	/* Handheld Color (src/border_pic.h): right under Border, while it is a
+	 * frame that comes in more than one color */
+	printf("system menu, Handheld Color:\n");
+	u.border = "Handheld";
+	u.border_color = "Teal";
+	n = sys_menu_build(&u, rows, &b, &heading);
+	{
+		int bo = sm_at(&u, SM_BORDER), co = sm_at(&u, SM_BORDER_COLOR);
+
+		ck(n == SM_ROWS - 1 && co == bo + 1 && !strcmp(rows[co].label, "Handheld Color") &&
+		   !strcmp(val(&rows[co]), "Teal") && rows[co].live &&
+		   menu_sound_at(b.sound, n, co) == MENU_SND_RING, "right under Border, its color, a row that steps round");
+		ck(sys_menu_system_rows(&u, sm) == n && sm[co] == SM_BORDER_COLOR, "the build and the list agree");
+	}
+	u.border_color = NULL;
 	u.sgb = NULL;
 	u.pace = NULL;
 }
@@ -1375,13 +1390,14 @@ static void radio_less(void)
 
 		ok = true;
 		for (i = 0; i < SM_ROWS; i++) {
-			if (i == SM_DSLANG || i == SM_SGB || i == SM_PACE || i == SM_BORDER) continue;
+			if (i == SM_DSLANG || i == SM_SGB || i == SM_PACE || i == SM_BORDER || i == SM_BORDER_COLOR)
+				continue;
 			if (j >= k || sm[j] != (sm_row)i) ok = false;
 			j++;
 		}
 	}
-	ck(k == SM_ROWS - 4 && ok, "every system row but Game Language, Super Game Boy, Timing and Border, in the "
-	   "enum's order");
+	ck(k == SM_ROWS - 5 && ok, "every system row but Game Language, Super Game Boy, Timing, Border and Handheld "
+	   "Color, in the enum's order");
 
 	u.no_wifi = true;
 	u.no_bt = true;
@@ -1479,7 +1495,7 @@ static void radio_less(void)
 	n = sys_menu_build(&u, rows, &b, &heading);
 	k = sys_menu_system_rows(&u, sm);
 	printf("system menu, no radio at all:\n");
-	ck(n == k && n == SM_ROWS - 4, "Box Art goes and nothing else");
+	ck(n == k && n == SM_ROWS - 5, "Box Art goes and nothing else");
 	ck(!has_label(rows, n, "Box Art"), "no Box Art");
 	ck(sm[n - 1] == SM_RESCAN && !strcmp(rows[n - 1].label, "Rescan Folder"),
 	   "Rescan Folder moves up into its place");

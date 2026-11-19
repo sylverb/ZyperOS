@@ -10,7 +10,9 @@
 #include <strings.h>
 
 #include "db.h"
+#include "i18n.h"
 #include "dmodepreview.h"
+#include "handframe.h"
 #include "platform.h"
 
 /* The first PNG by name in `dir`, or false */
@@ -60,14 +62,26 @@ bool border_blur_here(void)
 	return !p || strcmp(p->id, "brick") != 0;
 }
 
+border_offer border_offer_for(const app *a, int sys)
+{
+	const system_cfg *s = &a->sys.systems[sys];
+	char own[CFG_STR * 3];
+	border_offer o;
+
+	o.blur = border_blur_here();
+	o.handheld = hf_model_for(s->tag) != NULL && !strcmp(DMODES[a->view[sys].dmode].name, "integer");
+	o.own = border_own_path(s, own, sizeof own);
+	return o;
+}
+
 border_kind border_load(const app *a, int sys)
 {
 	const system_cfg *s = &a->sys.systems[sys];
-	char key[CFG_STR + 16], v[16], own[CFG_STR * 3];
+	char key[CFG_STR + 16], v[16];
 
 	border_key(s->tag, key, sizeof key);
 	db_get_str(db_dev(), key, v, sizeof v, border_id(BORDER_OFF));
-	return border_shown(border_parse(v), border_blur_here(), border_own_path(s, own, sizeof own));
+	return border_shown(border_parse(v), border_offer_for(a, sys));
 }
 
 SDL_Surface *border_own_surface(const char *png, int w, int h)
@@ -142,6 +156,96 @@ SDL_Surface *border_own_cached(const system_cfg *s, char *path, size_t n)
 	return kept;
 }
 
+const char *border_color_label(const char *word)
+{
+	static const struct { const char *word; str_id id; } NAMES[] = {
+		{ "yellow", S_GAMEMENU_COLOR_YELLOW }, { "red", S_GAMEMENU_COLOR_RED },
+		{ "purple", S_GAMEMENU_COLOR_PURPLE }, { "green", S_GAMEMENU_COLOR_GREEN },
+		{ "teal", S_GAMEMENU_COLOR_TEAL }, { "clear_purple", S_GAMEMENU_COLOR_CLEAR_PURPLE },
+	};
+	size_t i;
+
+	for (i = 0; word && i < sizeof NAMES / sizeof NAMES[0]; i++)
+		if (!strcmp(word, NAMES[i].word)) return T(NAMES[i].id);
+	return word ? word : "";
+}
+
+const char *border_color_value(const app *a, int sys)
+{
+	const hf_model *m = hf_model_for(a->sys.systems[sys].tag);
+	border_kind k = border_load(a, sys);
+
+	if (!m || m->ncolors < 2 || (k != BORDER_HANDHELD && k != BORDER_WHOLE)) return NULL;
+	return border_color_label(m->color_name[border_color_load(a, sys)]);
+}
+
+void border_color_step(const app *a, int sys, int d)
+{
+	const hf_model *m = hf_model_for(a->sys.systems[sys].tag);
+	char key[CFG_STR + 16];
+	int c;
+
+	if (!m || m->ncolors < 2) return;
+	c = ((border_color_load(a, sys) + (d < 0 ? -1 : 1)) % m->ncolors + m->ncolors) % m->ncolors;
+	snprintf(key, sizeof key, "border_color.%s", a->sys.systems[sys].tag);
+	db_set_int(db_dev(), key, c);
+}
+
+int border_color_load(const app *a, int sys)
+{
+	const system_cfg *s = &a->sys.systems[sys];
+	const hf_model *m = hf_model_for(s->tag);
+	char key[CFG_STR + 16];
+	int c;
+
+	if (!m) return 0;
+	snprintf(key, sizeof key, "border_color.%s", s->tag);
+	c = db_get_int(db_dev(), key, 0);
+	return c >= 0 && c < m->ncolors ? c : 0;
+}
+
+SDL_Surface *border_frame_surface(const app *a, int sys, border_kind kind, int color,
+                                  int *gx, int *gy, int *gw, int *gh)
+{
+	const hf_model *m = hf_model_for(a->sys.systems[sys].tag);
+	SDL_Surface *s;
+	int w, h, scale;
+
+	if (!m || (kind != BORDER_HANDHELD && kind != BORDER_WHOLE)) return NULL;
+	dmode_surface(&w, &h);
+	if (!hf_place(m, kind == BORDER_WHOLE ? HF_WHOLE : HF_CUT, w, h, &scale, gx, gy, gw, gh)) return NULL;
+	s = SDL_CreateRGBSurfaceWithFormat(0, w, h, 32, SDL_PIXELFORMAT_ARGB8888);
+	if (!s) return NULL;
+	/* ARGB8888 on a little-endian CPU is B, G, R, A in memory: hf's BGRA,
+	 * rows packed (pitch w * 4 for 32-bit surfaces SDL makes) */
+	if (s->pitch != w * 4) { SDL_FreeSurface(s); return NULL; }
+	hf_render(m, color, w, h, *gx, *gy, *gw, *gh, (uint8_t *)s->pixels);
+	return s;
+}
+
+SDL_Surface *border_frame_cached(const app *a, int sys, border_kind kind, int color, char *key, size_t n,
+                                 SDL_Rect *at)
+{
+	static SDL_Surface *kept;
+	static char of[96];
+	static SDL_Rect kept_at;
+	int gx, gy, gw, gh;
+
+	if (color < 0) color = border_color_load(a, sys);
+
+	snprintf(key, n, "frame:%s:%s:%d", a->sys.systems[sys].tag, border_id(kind), color);
+	if (kept && !strcmp(of, key)) {
+		*at = kept_at;
+		return kept;
+	}
+	if (kept) SDL_FreeSurface(kept);
+	kept = border_frame_surface(a, sys, kind, color, &gx, &gy, &gw, &gh);
+	kept_at = (SDL_Rect){ gx, gy, gw, gh };
+	snprintf(of, sizeof of, "%s", kept ? key : "");
+	*at = kept_at;
+	return kept;
+}
+
 /* A surface as DTOV: "DTOV", width, height (16-bit LE), then BGRA rows */
 static bool write_dtov(SDL_Surface *s, const char *path)
 {
@@ -167,6 +271,22 @@ void border_send(app *a, int sys)
 	if (k == BORDER_BLUR) {
 		plat_resident_line("SETBORDER\tblur=1");
 		return;
+	}
+	if (k == BORDER_HANDHELD || k == BORDER_WHOLE) {
+		int gx, gy, gw, gh;
+		SDL_Surface *pic = border_frame_surface(a, sys, k, border_color_load(a, sys), &gx, &gy, &gw, &gh);
+
+		if (pic) {
+			bool ok = write_dtov(pic, BORDER_FILE);
+
+			SDL_FreeSurface(pic);
+			/* The window with it: the game at the frame's own scale */
+			if (ok) {
+				plat_resident_line("SETBORDER\tpath=%s\trect=%dx%d+%d+%d", BORDER_FILE, gw, gh, gx, gy);
+				return;
+			}
+		}
+		fprintf(stderr, "border: %s: no frame drawn\n", s->name);
 	}
 	if (k == BORDER_OWN) {
 		char png[CFG_STR * 3];
