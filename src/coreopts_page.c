@@ -32,7 +32,11 @@ static void on_option_line(const char *line, void *ctx)
 	codefs *out = ctx;
 	codef o;
 
-	if (!codef_parse_line(line, &o) || out->n >= CODEFS_MAX) return;
+	if (!codef_parse_line(line, &o)) return;
+	if (out->n >= CODEFS_MAX) {
+		codef_clear(&o);
+		return;
+	}
 	out->opt[out->n++] = o;
 }
 
@@ -63,32 +67,29 @@ static void load_current(coreopts_ui *ui)
 
 static void gather(coreopts_ui *ui)
 {
-	codefs raw = {0}, filtered = {0};
 	char path[512];
 	char allow[CODEFS_ALLOW_MAX][CODEFS_KEY_MAX];
 	int n_allow;
 
-	ui->defs.n = 0;
+	codefs_clear(&ui->defs);
 	ui->empty = false;
 
 	if (ui->live && plat_resident_ready()) {
-		raw.n = 0;
-		if (plat_resident_options(on_option_line, &raw, 400) && raw.n > 0) {
+		if (plat_resident_options(on_option_line, &ui->defs, 400) && ui->defs.n > 0) {
 			codefs_cache_path(P_USERDATA, ui->core, path, sizeof path);
 			mkdir_p_parent(path);
-			codefs_save_file(&raw, path);
+			codefs_save_file(&ui->defs, path);
 		}
 	}
-	if (raw.n == 0) {
+	if (ui->defs.n == 0) {
 		codefs_cache_path(P_USERDATA, ui->core, path, sizeof path);
-		if (!codefs_load_file(&raw, path))
-			codefs_seed(&raw, ui->core);
+		if (!codefs_load_file(&ui->defs, path))
+			codefs_seed(&ui->defs, ui->core);
 	}
 
 	snprintf(path, sizeof path, "%s/coreopts-show.cfg", P_ROOT);
 	n_allow = codefs_load_allow(path, ui->core, allow, CODEFS_ALLOW_MAX);
-	codefs_filter(&raw, &filtered, allow, n_allow);
-	ui->defs = filtered;
+	codefs_filter(&ui->defs, allow, n_allow);
 	if (ui->defs.n == 0) ui->empty = true;
 	else load_current(ui);
 }
@@ -123,6 +124,11 @@ void coreopts_ui_init(coreopts_ui *ui, const char *tag, const char *core,
 	snprintf(ui->core, sizeof ui->core, "%s", core ? core : "");
 	ui->live = live;
 	gather(ui);
+}
+
+void coreopts_ui_finish(coreopts_ui *ui)
+{
+	if (ui) codefs_clear(&ui->defs);
 }
 
 int coreopts_ui_count(const coreopts_ui *ui)
@@ -247,6 +253,7 @@ void coreopts_page(app *a, const char *tag, const char *core,
 		st.on_power = cop_power;
 	}
 	menu_run(a, &st, cop_build, cop_key, &pg);
+	coreopts_ui_finish(&pg.ui);
 }
 
 void coreopts_shot_draw(app *a, int row)
@@ -260,9 +267,11 @@ void coreopts_shot_draw(app *a, int row)
 	s = &a->sys.systems[a->sys_cursor];
 	coreopts_ui_init(&ui, s->tag, s->core, false);
 	n = coreopts_ui_rows(&ui, rows, CODEFS_MAX + 4);
-	if (n <= 0) return;
-	sel = row >= 0 && row < n ? row : 0;
-	ui_scrim(a->r, 0);
-	menu_draw(a, T(S_SYSMENU_CORE_SETTINGS), rows, n, sel,
-	          menu_std_width(a), MENU_ZYPEROS);
+	if (n > 0) {
+		sel = row >= 0 && row < n ? row : 0;
+		ui_scrim(a->r, 0);
+		menu_draw(a, T(S_SYSMENU_CORE_SETTINGS), rows, n, sel,
+		          menu_std_width(a), MENU_ZYPEROS);
+	}
+	coreopts_ui_finish(&ui);
 }

@@ -17,10 +17,11 @@ static void ck(int cond, const char *what)
 }
 
 /* A small stand-in set of defs (was the blueMSX seed; now handmade so the
- * helpers still have something to filter and cycle). */
+ * helpers still have something to filter and cycle). `out` must be zeroed
+ * or already cleared. */
 static void sample_defs(codefs *out)
 {
-	memset(out, 0, sizeof *out);
+	codefs_clear(out);
 	snprintf(out->opt[0].key, sizeof out->opt[0].key, "bluemsx_msxtype");
 	snprintf(out->opt[0].desc, sizeof out->opt[0].desc, "Machine Type (Restart)");
 	snprintf(out->opt[0].deflt, sizeof out->opt[0].deflt, "Auto");
@@ -46,6 +47,7 @@ static void parse_and_key(void)
 	char key[80];
 
 	printf("OPTION lines and db keys:\n");
+	memset(&o, 0, sizeof o);
 	ck(codef_parse_line(
 	       "OPTION\tkey=bluemsx_additional_cart\tvalue=scc\tdefault=disabled\t"
 	       "values=disabled|scc|sccplus\tdesc=Additional MSX Sound Cartridge (Restart)",
@@ -55,6 +57,7 @@ static void parse_and_key(void)
 	   !strcmp(o.deflt, "disabled") && o.nvals == 3 && !strcmp(o.vals[1], "scc") &&
 	   strstr(o.desc, "Restart"),
 	   "key, value, default, values and desc");
+	codef_clear(&o);
 	ck(!codef_parse_line("OPTIONS\tcount=2", &o), "OPTIONS count is not an OPTION");
 	codef_db_key("MSX2", "bluemsx_additional_cart", key, sizeof key);
 	ck(!strcmp(key, "coreopt.MSX2.bluemsx_additional_cart"),
@@ -63,7 +66,7 @@ static void parse_and_key(void)
 
 static void seed_and_cycle(void)
 {
-	codefs s;
+	codefs s = {0};
 	int i;
 
 	printf("no baked-in seed; value cycle:\n");
@@ -92,18 +95,20 @@ static void seed_and_cycle(void)
 		snprintf(pipe, sizeof pipe, "%s|short", longv);
 		memset(&o, 0, sizeof o);
 		codef_set_values(&o, pipe);
-		ck(o.nvals == 2 && strlen(o.vals[0]) == CODEFS_VAL_MAX - 1 &&
-		   !strcmp(o.vals[1], "short"),
+		ck(o.nvals == 2 && o.vals[0] && strlen(o.vals[0]) == CODEFS_VAL_MAX - 1 &&
+		   o.vals[1] && !strcmp(o.vals[1], "short"),
 		   "a long value is cut; the next stays intact");
+		codef_clear(&o);
 	}
+	codefs_clear(&s);
 }
 
 static void whitelist(void)
 {
 	char path[] = "/tmp/zyperos-coreopts-showXXXXXX";
 	char allow[CODEFS_ALLOW_MAX][CODEFS_KEY_MAX];
-	codefs all, shown;
-	int fd, n;
+	codefs all = {0};
+	int fd, n, kept;
 	FILE *f;
 
 	printf("whitelist:\n");
@@ -130,26 +135,29 @@ static void whitelist(void)
 	   !strcmp(allow[1], "bluemsx_cartmapper") &&
 	   !strcmp(allow[2], "bluemsx_additional_cart"),
 	   "three keys under bluemsx");
-	codefs_filter(&all, &shown, allow, n);
-	ck(shown.n == 3 && !strcmp(shown.opt[0].key, "bluemsx_msxtype") &&
-	   !strcmp(shown.opt[2].key, "bluemsx_additional_cart"),
+	kept = all.n;
+	codefs_filter(&all, allow, n);
+	ck(all.n == 3 && all.n < kept && !strcmp(all.opt[0].key, "bluemsx_msxtype") &&
+	   !strcmp(all.opt[2].key, "bluemsx_additional_cart"),
 	   "filter keeps only the listed keys");
 
 	n = codefs_load_allow(path, "gambatte", allow, CODEFS_ALLOW_MAX);
 	ck(n == 0, "a core with no key= lines allows all");
-	codefs_filter(&all, &shown, allow, n);
-	ck(shown.n == all.n, "empty allow list passes every definition through");
+	kept = all.n;
+	codefs_filter(&all, allow, n);
+	ck(all.n == kept, "empty allow list passes every definition through");
 
 	n = codefs_load_allow("/no/such/coreopts-show.cfg", "bluemsx", allow, CODEFS_ALLOW_MAX);
 	ck(n == 0, "a missing file allows all");
 	unlink(path);
+	codefs_clear(&all);
 }
 
 static void cache_roundtrip(void)
 {
 	char path[] = "/tmp/zyperos-coreopt-defsXXXXXX";
 	char out[256];
-	codefs a, b;
+	codefs a = {0}, b = {0};
 	int fd;
 
 	printf("cache file:\n");
@@ -159,10 +167,13 @@ static void cache_roundtrip(void)
 	close(fd);
 	sample_defs(&a);
 	ck(codefs_save_file(&a, path) && codefs_load_file(&b, path) && b.n == a.n &&
-	   !strcmp(b.opt[0].key, a.opt[0].key) && !strcmp(b.opt[1].pipe, a.opt[1].pipe),
+	   !strcmp(b.opt[0].key, a.opt[0].key) &&
+	   b.opt[1].nvals == a.opt[1].nvals &&
+	   !strcmp(b.opt[1].vals[0], a.opt[1].vals[0]) &&
+	   !strcmp(b.opt[1].vals[a.opt[1].nvals - 1], a.opt[1].vals[a.opt[1].nvals - 1]),
 	   "save and load keep keys and values");
 	/* A description with a tab and a newline must round-trip as one field. */
-	memset(&a, 0, sizeof a);
+	codefs_clear(&a);
 	snprintf(a.opt[0].key, sizeof a.opt[0].key, "opt_tabby");
 	snprintf(a.opt[0].desc, sizeof a.opt[0].desc, "one\ttwo\nthree");
 	snprintf(a.opt[0].deflt, sizeof a.opt[0].deflt, "a");
@@ -174,6 +185,8 @@ static void cache_roundtrip(void)
 	   !strcmp(b.opt[0].desc, "one\ttwo\nthree"),
 	   "a desc with tab and newline survives the cache");
 	unlink(path);
+	codefs_clear(&a);
+	codefs_clear(&b);
 
 	codefs_cache_path("/tmp/ud", "fceumm", out, sizeof out);
 	ck(!strcmp(out, "/tmp/ud/coreopt-defs/fceumm.txt"),

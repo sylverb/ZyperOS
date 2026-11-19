@@ -32,6 +32,9 @@ typedef struct {
 void coreopts_ui_init(coreopts_ui *ui, const char *tag, const char *core,
                       bool live);
 
+/* Free the defs blob heap held by `ui`. */
+void coreopts_ui_finish(coreopts_ui *ui);
+
 /* Fill `rows` (option lines, or the empty-state note). The count. */
 int coreopts_ui_rows(coreopts_ui *ui, menu_row *rows, int max);
 

@@ -23,8 +23,10 @@ typedef struct {
 	char desc[CODEFS_DESC_MAX];
 	char deflt[CODEFS_VAL_MAX];
 	char value[CODEFS_VAL_MAX];   /* last known / current when from OPTIONS */
-	char pipe[CODEFS_PIPE_MAX]; /* values joined by |, as Diatom emits */
-	char vals[CODEFS_VALUES_MAX][CODEFS_VAL_MAX];
+	/* One heap string of the values (each cut at CODEFS_VAL_MAX), joined by
+	 * NULs; vals[] points into it. Free with codef_clear / codefs_clear. */
+	char *blob;
+	const char *vals[CODEFS_VALUES_MAX];
 	int  nvals;
 } codef;
 
@@ -33,11 +35,17 @@ typedef struct {
 	int   n;
 } codefs;
 
+/* Free `o->blob` and zero the rest. */
+void codef_clear(codef *o);
+
+/* Free every option's blob and set `n` to 0. */
+void codefs_clear(codefs *s);
+
 /* Parse one Diatom OPTION line into `o`. False if it is not an OPTION line
- * or lacks a key. */
+ * or lacks a key. On success `o` owns a blob; clear it when done. */
 bool codef_parse_line(const char *line, codef *o);
 
-/* Split `pipe` ("a|b|c") into `o->vals` / `o->nvals`; copies into `o->pipe`. */
+/* Split `pipe` ("a|b|c") into a heap blob and `o->vals` / `o->nvals`. */
 void codef_set_values(codef *o, const char *pipe);
 
 /* Read a cache file of OPTION lines into `out` (cleared first). */
@@ -66,12 +74,12 @@ bool codefs_seed(codefs *out, const char *core);
 int codefs_load_allow(const char *path, const char *core,
                       char allow[][CODEFS_KEY_MAX], int max);
 
-/* Copy defs from `in` that the whitelist keeps into `out`. `n_allow` 0 keeps
- * every one. */
-void codefs_filter(const codefs *in, codefs *out,
+/* Keep only defs the whitelist names, in place. `n_allow` 0 leaves every
+ * one; dropped options free their blob. */
+void codefs_filter(codefs *io,
                    const char allow[][CODEFS_KEY_MAX], int n_allow);
 
-/* Index of `key` in `o->vals`, or -1. */
+/* Index of `value` in `o->vals`, or -1. */
 int codef_value_index(const codef *o, const char *value);
 
 /* Step `cur` by `dir` (+1 / -1) round the values; returns the new index. */

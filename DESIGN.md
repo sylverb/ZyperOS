@@ -5429,5 +5429,7 @@ option's default so a later device default can still apply.
 **The page.** Heading **Core Settings**, one option a row (its description
 at the left, the current value at the right). Left and Right step the value;
 A opens the list when there are more than two, as every option row does
-(11.3). B closes. Host shots: `--coreopts-page ROW` on a system's shelf
-(tools/i18n-shots.py: `coreopts-page`, `coreopts-page-empty`).
+(11.3). B closes. Each option's allowed values live as one heap string
+(`codef.blob`), not a fixed `vals[64][128]` table, so opening the page no
+longer stacks nearly a megabyte. Host shots: `--coreopts-page ROW` on a
+system's shelf (tools/i18n-shots.py: `coreopts-page`, `coreopts-page-empty`).
