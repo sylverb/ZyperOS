@@ -100,7 +100,7 @@ void refresh_favorites_shelf(app *a);
 /* Recents, the games played last (src/homesys.h), built again after a game
  * ended, keeping the shelf stood on */
 void refresh_recents_shelf(app *a);
-/* Collections (src/collect.h, DESIGN.md 11.53), the group after them, made
+/* Collections (src/collect.h, DESIGN.md 11.54), the group after them, made
  * again after a collection or a game in one changed, keeping the shelf stood
  * on and its place in Collections */
 void refresh_collections_shelf(app *a);
