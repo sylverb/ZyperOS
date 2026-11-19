@@ -2171,6 +2171,17 @@ Muse, so a card's saved places and modes still read.
   with no panel.
 - **Shuffle All.** MENU on the music shelf: every song on the card, the mode
   set to shuffle and kept.
+- **Repeat.** MP4's MENU on the shelves with videos (Videos, and All):
+  videos' own play mode, **Off** (each once, in order, as before), **One**
+  (the video playing, again and again) or **All** (its folder, round
+  again), never shuffled; left and right step it round, A opens the three,
+  it applies to a video playing now and is kept (`video.mode`), and music's
+  mode, Y's on Now Playing, is left as it is. The video's controls carry
+  music's mark for it before the time left, at music's size (half again the
+  times' line, so repeat one's 1 reads), and none for Off. A video looping
+  holds Auto Off as music does, so the screen stays on while it plays
+  (2026-11-19: loop playback, to leave a film playing as a decoration). Y in
+  the video player stays the controls' key.
 - **Quit.** The last row of MP4's MENU on every shelf (music, books, videos,
   All), from the shelf, an album's tracks or Now Playing: MP4 closes, as
   SELECT closes it, to the screen it was opened from (the home, a menu, a

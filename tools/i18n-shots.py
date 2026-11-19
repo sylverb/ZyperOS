@@ -338,8 +338,13 @@ EXTRA = {
     # over a video, where the panel is the same and the picture is under it
     # MP4's menu on its shelf, which shows All (albums and videos mixed)
     "mp4-menu": ("media", "MUSE", ["--screen", "games", "--menu"]),
+    # its Repeat row on One, the value no other shot has
+    "mp4-menu-repeat-one": ("media", "MUSE", ["--screen", "games", "--menu", "--mode", "repeat one"]),
     # MP4's menu with its cursor on the Equalizer row, the same as MENU's
     "mp4-menu-eq": ("media", "MUSE", ["--screen", "games", "--menu", "Equalizer"]),
+    # its Album Art row, under the fold since Repeat and Equalizer (opened, it
+    # asks MusicBrainz, which no shot can hold still)
+    "mp4-menu-art": ("media", "MUSE", ["--screen", "games", "--menu", "Album Art"]),
     "mp4-locked": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--locked"]),
     "mp4-locked-video": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--video", "hidden", "--locked"]),
     "tour-lang": ("demo", "PS1", ["--tour", "lang", "3500"]),
