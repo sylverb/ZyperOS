@@ -338,7 +338,7 @@ typedef struct {
 	int         tab;
 	/* Night Mode's value, the mode's word (NULL reads Off) */
 	const char *night;
-	/* No table for Night Mode here (plat_night_here, the Brick): no row */
+	/* No table for Night Mode here (plat_night_here): no row */
 	bool        no_night;
 	/* Theme's value: the accent's name (src/look.h); NULL reads Lime */
 	const char *theme;

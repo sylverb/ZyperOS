@@ -4225,8 +4225,8 @@ light from 7:00 to 19:00, went, and its hours became Night Mode's below; a
 1.0.5 player on Auto gets the theme the hour gave at the first start of
 1.0.6.)*
 
-**Screen Colors** (MENU > Display, its last row; the Pixel 2 only,
-`plat_screen_colors_here`) is a page of six rows beside a color chart (the
+**Screen Colors** (MENU > Display, its last row; where the display has a
+gamma table, `plat_screen_colors_here`: the Pixel 2's VOP, the Brick's TCON) is a page of six rows beside a color chart (the
 24 patches of a camera's, a grey ramp in sixteen steps and a hue band):
 **Look**, then **Temperature** (cool to warm), **Tint** (green to magenta),
 **Contrast**, **Saturation** and **Gamma**, each -10 to +10 with 0 the frame

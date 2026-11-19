@@ -15,6 +15,7 @@ self-contained deployment asset goes in site/models/pixel2.glb.
 """
 import math
 import sys
+import os
 from pathlib import Path
 import bpy
 from mathutils import Vector, Matrix
@@ -28,6 +29,8 @@ scene = bpy.context.scene
 scene.unit_settings.system = 'METRIC'
 scene.unit_settings.scale_length = 0.001
 objects = []
+# The studio light's strength; the area lights below draw the clean highlights
+STUDIO = float(os.environ.get('STUDIO', '1.0'))
 
 def linear(c):
     return c / 12.92 if c < .04045 else ((c + .055) / 1.055) ** 2.4
@@ -43,10 +46,12 @@ def material(name, color, metal=0, rough=.4):
     m.diffuse_color = (*rgb,1)
     return m
 
-metal = material('Green anodized aluminium', '9cb849', .85, .3)
-edge = material('Machined green edges', 'b0c967', .9, .24)
-recess = material('Recessed aluminium', '708b32', .8, .38)
-plastic = material('Graphite plastic buttons', '343638', 0, .43)
+# GKD's green, as its product six-view shows the face (#9bba4d) and the lit
+# edges (#b8d46d); its keys #434543. Anodized aluminium: all metal, satin.
+metal = material('Green anodized aluminium', '9bba4d', 1, .27)
+edge = material('Machined green edges', 'b8d46d', 1, .2)
+recess = material('Recessed aluminium', '7a9638', 1, .36)
+plastic = material('Graphite plastic buttons', '434543', 0, .38)
 engraved = material('Recessed button markings', '17191a', 0, .55)
 black = material('Port and socket interiors', '0b0e0c', 0, .75)
 silver = material('Steel fasteners', 'b9bfc0', .9, .24)
@@ -514,10 +519,17 @@ scene.cycles.use_denoising=True
 scene.render.resolution_x=1000; scene.render.resolution_y=1100; scene.render.resolution_percentage=100
 scene.render.image_settings.file_format='PNG'
 scene.render.film_transparent=False
-scene.world.color=(.25,.25,.25)
+# A real studio around the product, for its reflections: Blender's own
+# studio light (Poly Haven's studio_small_01, CC0), the same one the web page
+# lights the 3D model with (site/models/studio.hdr)
 scene.world.use_nodes=True
-scene.world.node_tree.nodes['Background'].inputs[0].default_value=(.65,.65,.65,1)
-scene.world.node_tree.nodes['Background'].inputs[1].default_value=.4
+world_nodes=scene.world.node_tree.nodes; world_nodes.clear()
+studio_image=world_nodes.new('ShaderNodeTexEnvironment')
+studio_image.image=bpy.data.images.load(str(Path(bpy.utils.system_resource('DATAFILES'))/'studiolights/world/studio.exr'))
+background=world_nodes.new('ShaderNodeBackground'); background.inputs[1].default_value=STUDIO
+world_out=world_nodes.new('ShaderNodeOutputWorld')
+scene.world.node_tree.links.new(studio_image.outputs['Color'],background.inputs['Color'])
+scene.world.node_tree.links.new(background.outputs[0],world_out.inputs['Surface'])
 scene.view_settings.view_transform='AgX'
 scene.view_settings.look='AgX - Medium High Contrast'
 
@@ -530,6 +542,8 @@ area('Large softbox',(-80,-100,110),220000,90,1.5)
 area('Right strip',(85,-35,35),160000,20,5)
 area('Rear rim',(30,70,90),240000,65,1.5)
 area('Front fill',(0,-110,-40),55000,70)
+# Behind the camera: what a satin metal face mirrors back at the viewer
+area('Front softbox',(0,-300,25),float(os.environ.get('FRONT','400000')),700,.45)
 camdata=bpy.data.cameras.new('Review camera'); camera=bpy.data.objects.new('Review camera',camdata); scene.collection.objects.link(camera); scene.camera=camera
 camdata.type='ORTHO'; camdata.ortho_scale=110
 camera.location=(0,-220,0); camera.rotation_euler=(Vector((0,0,0))-camera.location).to_track_quat('-Z','Y').to_euler()
@@ -583,6 +597,10 @@ if '--render' in sys.argv:
     scene.render.filepath=str(OUT/'hero.png')
     bpy.ops.render.render(write_still=True)
     bpy.data.images['Render Result'].save_render(str(ROOT/'site/models/pixel2-poster.png'))
+    # The page's row of handhelds shows a quarter of it (site/devices.json)
+    thumb=bpy.data.images.load(str(ROOT/'site/models/pixel2-poster.png'))
+    thumb.scale(thumb.size[0]//4,thumb.size[1]//4)
+    thumb.filepath_raw=str(ROOT/'site/models/pixel2-thumb.png'); thumb.file_format='PNG'; thumb.save()
     # Static product illustrations reuse the same geometry and real launcher
     # frames. Their screens are not AI-generated or edited mock interfaces.
     image.image=bpy.data.images.load(str(ROOT/'site/music/now-playing.png'))

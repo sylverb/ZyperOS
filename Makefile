@@ -13,7 +13,7 @@
         check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-messages check-tour check-tour-shots check-textfade check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pmhelper check-portdoc check-boottheme check-splashbright check-bootbright check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr check-autozone \
         check-home check-home-shots check-games check-cardpaint check-putpace landbench check-favorites-shots check-np-footer check-menu-rows check-layout-shots check-artbadge check-artbadge-shots check-cardart-shots design sounds strings cjk-font check-strings check-i18n-shots check-rootswitch check-datapart check-brick-closed check-hwreport \
         check-tour-previews tour-previews check-prep check-diatom check-simulator check-px2sim check-building-doc check-blog check-discord-release \
-        check-release-devices check-installer release
+        check-release-devices check-installer release check-site-devices
 
 all: check
 
@@ -51,7 +51,7 @@ CHECKS = check-cheevos check-hare check-portal check-httpd check-idle check-task
          check-clock check-autozone check-status check-battery check-battery-eta check-dslang check-pacing check-gpuframes check-dsresume check-corestate check-core-stamp check-core-room check-px2-perf check-px2-snap check-px2 check-lowbatt check-powerhold check-homesys check-heat check-charging check-corner check-dsv check-sidelights check-osdbar check-hud check-dmodefit check-themefile check-pkkeys check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-bios check-gamefile check-kbnav check-randgame check-shelfdir check-look \
          check-tween check-menumotion check-menusnap check-cardgen check-cardart check-focusfx check-blur check-gridrule check-roundrect check-rowmacro check-emptyhome check-zyperrig check-sysmark check-flip check-menushots check-design \
          check-systemart check-linebreak check-portload check-portout check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-messages \
-         check-tour check-tour-shots check-tour-previews check-textfade check-glyphs check-scale check-shaderdemo check-screenfx check-ds check-layout-ratchet check-flex check-hover check-hover-sweep check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pmhelper check-pmart check-portdoc check-boottheme check-splashbright check-bootbright check-panelgamma check-nightmode check-displayback check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-start-soc check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr \
+         check-tour check-tour-shots check-tour-previews check-textfade check-glyphs check-scale check-shaderdemo check-screenfx check-ds check-layout-ratchet check-flex check-hover check-hover-sweep check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pmhelper check-pmart check-portdoc check-boottheme check-splashbright check-bootbright check-panelgamma check-panelgamma-sunxi check-nightmode check-displayback check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-start-soc check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr \
          check-home check-home-shots check-games check-cardpaint check-putpace check-favorites-shots check-np-footer check-menu-rows check-layout-shots check-artbadge check-artbadge-shots check-cardart-shots checkmark \
          check-installer check-from-rogue check-importers check-diatom check-simulator check-px2sim check-building-doc check-blog check-discord-release \
          check-release-devices check-strings check-i18n-shots check-rootswitch check-datapart check-brick-closed check-hwreport
@@ -102,6 +102,13 @@ check-diatom:
 # colors still the landing page's.
 check-blog:
 	@python3 mk/blog.py --check
+
+# zyperos.com with any number of handhelds (site/devices.json): the site built
+# with made-up ones added (three, then five in all), each at a computer's and
+# a phone's width in headless Chrome, with no error, no sideways scroll and
+# every pick followed. Needs Google Chrome; --shots DIR keeps the heroes.
+check-site-devices:
+	@python3 tools/check-site-devices.py
 
 # The release notes as tools/release.sh posts them in the Discord's #releases:
 # within Discord's limits, with What's new and the release's link
@@ -627,6 +634,17 @@ check-panelgamma: build-native/panelgamma-check
 build-native/panelgamma-check: tools/panelgamma-check.c src/panelgamma.c src/panelgamma.h FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -Werror -O1 -g -o $@ tools/panelgamma-check.c src/panelgamma.c -lm
+
+# The TrimUI Brick's display's gamma table and saturation
+# (src/panelgamma_sunxi.h): its Screen Colors and Night Mode against a
+# stand-in /dev/disp, with the disp2 driver's command numbers
+check-panelgamma-sunxi: build-native/panelgamma-sunxi-check
+	@./build-native/panelgamma-sunxi-check
+
+build-native/panelgamma-sunxi-check: tools/panelgamma-sunxi-check.c src/panelgamma_sunxi.h src/panelgamma.c \
+                                     src/panelgamma.h FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -Werror -O1 -g -o $@ tools/panelgamma-sunxi-check.c src/panelgamma.c -lm
 
 # Night Mode (src/nightmode.h): its warmth in the table, the file's nights
 # and the clock against them, the nights in two zones across summer time's
@@ -1543,7 +1561,9 @@ check-device-compile:
 	done; \
 	D="-Idiatom/include -Idiatom/src -Idiatom/vendor/rcheevos/include -Idiatom/vendor/lz4"; \
 	echo "  diatom: port/brick.c"; \
-	$(CC) $$F $$D $$S diatom/port/brick.c diatom/port/osdbar.c diatom/port/themefile.c; \
+	$(CC) $$F $$D $$(pkg-config --cflags sdl2 egl glesv2) \
+		diatom/port/brick.c diatom/port/osdbar.c diatom/port/themefile.c diatom/port/hud.c \
+		diatom/port/panelgamma.c; \
 	echo "  diatom: port/pixel2.c"; \
 	$(CC) $$F $$D $$(pkg-config --cflags sdl2 egl glesv2 gbm libdrm) \
 		diatom/port/pixel2.c diatom/port/rumble_evdev.c diatom/port/panelgamma.c; \
