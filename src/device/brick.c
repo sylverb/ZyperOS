@@ -215,11 +215,11 @@ void plat_draw_to_screen(void) { SDL_SetRenderTarget(ren, screen_target()); }
 
 /* The Brick's screen is its panel: the picture goes straight into the frame,
  * and what is drawn after it lands on top of it. */
-void plat_video_under(SDL_Texture *tex, const SDL_Rect *dst, SDL_Color bg)
+void plat_video_under(SDL_Texture *tex, const SDL_Rect *src, const SDL_Rect *dst, SDL_Color bg)
 {
 	SDL_SetRenderDrawColor(ren, bg.r, bg.g, bg.b, 255);
 	SDL_RenderClear(ren);
-	if (tex) SDL_RenderCopy(ren, tex, NULL, dst);
+	if (tex) SDL_RenderCopy(ren, tex, src, dst);
 }
 
 /* No ports on the Brick, and no splash --still to hold a picture */
