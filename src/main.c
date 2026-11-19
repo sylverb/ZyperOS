@@ -660,7 +660,7 @@ sgbm_choice sgbm_load(const system_cfg *s)
  * system's display mode leaves room around its games, by the size they
  * last said (dmode_source_of; a system never played, by the mode alone);
  * NULL, no row, else, and on a shelf of no console (Favorites, MP4, ports) */
-const char *border_row_value(app *a, int sys)
+const char *border_row_value(const app *a, int sys)
 {
 	const system_cfg *s = &a->sys.systems[sys];
 	int sw, sh, fw, fh;
