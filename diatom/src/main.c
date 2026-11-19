@@ -356,6 +356,17 @@ static bool write_preview(const char *path)
 
 static diatom_port_caps g_caps;
 
+
+static diatom_rect      g_dst;   /* locked at load */
+
+/* Set from a signal handler and read by the frame loop. The handler does NO
+ * file I/O: it flips this, the loop notices after retro_run returns and does
+ * the flush itself. Measured on the Brick, SIGTERM arrives about 810 ms before
+ * the process dies on power-off, and one frame of retro_run is ~10 ms of that
+ * budget - a 1% price for not calling malloc or open from a handler. */
+static volatile sig_atomic_t g_terminate;
+static bool g_quit_requested;   /* launcher said QUIT */
+
 /* The Border around the game (src/border.h): a picture the launcher made,
  * handed to the port once, or the game's own picture blurred, made again
  * every BORDER_BLUR_EVERY frames presented (border_tick). Dropped at each
@@ -384,6 +395,12 @@ static void border_make_blur(void)
 
 static bool border_set(const diatom_msg *m)
 {
+	/* A Super Game Boy game draws its own border in its picture: none
+	 * around it (DESIGN.md 11.55), whatever was asked, and the answer ok */
+	if (diatom_sgb_active()) {
+		border_off();
+		return true;
+	}
 	if (m->path[0]) {
 		int w = 0, h = 0;
 		uint8_t *px = border_read(m->path, &w, &h);
@@ -421,21 +438,20 @@ static void border_from_arg(void)
 	if (!border_set(&m)) fprintf(stderr, "diatom: --border %s: not a picture\n", g_border_arg);
 }
 
-/* After each frame presented: the blur made again, a few times a second */
-static void border_tick(void)
+/* Whether the game's picture leaves any of the surface uncovered */
+static bool border_room_now(void)
 {
-	if (g_border_blur && ++g_border_frames % BORDER_BLUR_EVERY == 0) border_make_blur();
+	return g_dst.x > 0 || g_dst.y > 0 || g_dst.x + g_dst.w < g_caps.surface_w ||
+	       g_dst.y + g_dst.h < g_caps.surface_h;
 }
 
-static diatom_rect      g_dst;   /* locked at load */
-
-/* Set from a signal handler and read by the frame loop. The handler does NO
- * file I/O: it flips this, the loop notices after retro_run returns and does
- * the flush itself. Measured on the Brick, SIGTERM arrives about 810 ms before
- * the process dies on power-off, and one frame of retro_run is ~10 ms of that
- * budget - a 1% price for not calling malloc or open from a handler. */
-static volatile sig_atomic_t g_terminate;
-static bool g_quit_requested;   /* launcher said QUIT */
+/* After each frame presented: the blur made again, a few times a second,
+ * and not at all while the picture covers the whole surface */
+static void border_tick(void)
+{
+	if (g_border_blur && ++g_border_frames % BORDER_BLUR_EVERY == 0 && border_room_now())
+		border_make_blur();
+}
 
 /* The pipe that lets a blocked poll notice the flag above. See
  * diatom_proto_wake_fd - the flag alone is not enough, because the signal may

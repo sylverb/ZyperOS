@@ -743,6 +743,72 @@ it = Un pixel del gioco per un pixel dello schermo.
 # SHADERS): Off, or a shader by its name. The in-game menu's row after
 # Display, the system menu's after Display Mode, and MENU's for every system.
 
+[gamemenu.border]
+note = A row in a game's Display tab and the system menu, under Display: what fills the screen around the game's picture where the display mode leaves room (black, the game's picture blurred, or a picture of your own); its value is Off, gamemenu.border_blur or gamemenu.border_own. Short
+en = Border
+zh-Hans = 边框
+es = Borde
+pt-BR = Borda
+fr = Bordure
+de = Rahmen
+ja = 枠
+it = Cornice
+
+[gamemenu.border_blur]
+note = Border's value: the game's own picture, blurred and darkened, fills the room around it. A named choice
+en = Blur
+zh-Hans = 模糊
+es = Difuminado
+pt-BR = Desfoque
+fr = Flou
+de = Unschärfe
+ja = ぼかし
+it = Sfocatura
+
+[gamemenu.border_own]
+note = Border's value: a picture of the player's own, a PNG they put in the card's Borders folder (or NextUI's Overlays folder), fills the room around the game. A named choice
+en = Your Own
+zh-Hans = 自定义
+es = Tuyo
+pt-BR = Seu
+fr = Le vôtre
+de = Eigener
+ja = 自分の画像
+it = Tuo
+
+[gamemenu.border_off_note]
+note = What Off does, under the picture beside Border's list: the room around the game stays black, as before. Six short lines at most in a narrow column, about 70 letters
+en = Black around the game, as before.
+zh-Hans = 游戏周围保持黑色，与之前相同。
+es = Negro alrededor del juego, como antes.
+pt-BR = Preto em volta do jogo, como antes.
+fr = Du noir autour du jeu, comme avant.
+de = Schwarz um das Spiel, wie bisher.
+ja = これまでどおり、ゲームの周りは黒です。
+it = Nero intorno al gioco, come prima.
+
+[gamemenu.border_blur_note]
+note = What Blur does, under the picture beside Border's list: the game's own picture, blurred and darker, fills the room around it, and follows the game. Six short lines at most in a narrow column, about 70 letters
+en = The game's own picture, blurred and darker, around it.
+zh-Hans = 用游戏自己的画面，模糊并调暗后填满周围。
+es = La propia imagen del juego, difuminada y más oscura, a su alrededor.
+pt-BR = A própria imagem do jogo, desfocada e mais escura, em volta dele.
+fr = L'image du jeu lui-même, floue et plus sombre, autour de lui.
+de = Das Bild des Spiels selbst, unscharf und dunkler, um es herum.
+ja = ゲーム自身の画面を、ぼかして暗くして周りに表示します。
+it = L'immagine del gioco stesso, sfocata e più scura, intorno a lui.
+
+[gamemenu.border_own_note]
+note = What Your Own does, under the picture beside Border's list: the picture from the card's Borders folder for this system fills the room around the game. Borders is the folder's name on the card (never translated). Six short lines at most in a narrow column, about 70 letters
+en = Your picture from Borders on the card, around the game.
+zh-Hans = 用存储卡 Borders 文件夹中你的图片填满游戏周围。
+es = Tu imagen de Borders en la tarjeta, alrededor del juego.
+pt-BR = Sua imagem de Borders no cartão, em volta do jogo.
+fr = Votre image de Borders sur la carte, autour du jeu.
+de = Dein Bild aus Borders auf der Karte, um das Spiel.
+ja = カードの Borders にある画像をゲームの周りに表示します。
+it = La tua immagine da Borders sulla scheda, intorno al gioco.
+
 [gamemenu.shader]
 note = A row in the in-game menu, the system menu and MENU: the shader the game's picture is drawn with; its value is Off or a shader's name. Shader is the word players know from RetroArch, kept in the Latin languages.
 en = Shader

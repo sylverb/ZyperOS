@@ -1,0 +1,189 @@
+/* SPDX-License-Identifier: GPL-3.0-only */
+/* The Border's pictures. See src/border_pic.h. */
+#include "border_pic.h"
+
+#include <SDL_image.h>
+#include <dirent.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <strings.h>
+
+#include "db.h"
+#include "dmodepreview.h"
+#include "platform.h"
+
+/* The first PNG by name in `dir`, or false */
+static bool first_png(const char *dir, char *out, size_t n)
+{
+	DIR *d = opendir(dir);
+	struct dirent *e;
+	char best[256] = "";
+
+	if (!d) return false;
+	while ((e = readdir(d))) {
+		size_t l = strlen(e->d_name);
+
+		if (e->d_name[0] == '.' || l < 5 || strcasecmp(e->d_name + l - 4, ".png")) continue;
+		if (!best[0] || strcmp(e->d_name, best) < 0) snprintf(best, sizeof best, "%s", e->d_name);
+	}
+	closedir(d);
+	if (!best[0]) return false;
+	snprintf(out, n, "%s/%s", dir, best);
+	return true;
+}
+
+bool border_own_path(const system_cfg *s, char *out, size_t n)
+{
+	char dir[CFG_STR * 2];
+	const char *nt = border_nextui_tag(s->tag);
+
+	out[0] = '\0';
+	snprintf(dir, sizeof dir, "%s/Borders/%s", P_CARD, s->folder);
+	if (first_png(dir, out, n)) return true;
+	snprintf(dir, sizeof dir, "%s/Overlays/%s", P_CARD, s->tag);
+	if (first_png(dir, out, n)) return true;
+	if (nt) {
+		snprintf(dir, sizeof dir, "%s/Overlays/%s", P_CARD, nt);
+		if (first_png(dir, out, n)) return true;
+	}
+	out[0] = '\0';
+	return false;
+}
+
+bool border_blur_here(void)
+{
+	const device_profile *p = plat_profile();
+
+	/* The GPU draws every frame on the Pixel 2 (and the host); the Brick's
+	 * CPU path would paint every page again ten times a second */
+	return !p || strcmp(p->id, "brick") != 0;
+}
+
+border_kind border_load(const app *a, int sys)
+{
+	const system_cfg *s = &a->sys.systems[sys];
+	char key[CFG_STR + 16], v[16], own[CFG_STR * 3];
+
+	border_key(s->tag, key, sizeof key);
+	db_get_str(db_dev(), key, v, sizeof v, border_id(BORDER_OFF));
+	return border_shown(border_parse(v), border_blur_here(), border_own_path(s, own, sizeof own));
+}
+
+SDL_Surface *border_own_surface(const char *png, int w, int h)
+{
+	SDL_Surface *raw = png ? IMG_Load(png) : NULL, *src, *dst;
+	int cx, cy, cw, ch, x, y;
+
+	if (!raw || w <= 0 || h <= 0) { if (raw) SDL_FreeSurface(raw); return NULL; }
+	src = SDL_ConvertSurfaceFormat(raw, SDL_PIXELFORMAT_ARGB8888, 0);
+	SDL_FreeSurface(raw);
+	if (!src) return NULL;
+	dst = SDL_CreateRGBSurfaceWithFormat(0, w, h, 32, SDL_PIXELFORMAT_ARGB8888);
+	if (!dst) { SDL_FreeSurface(src); return NULL; }
+	/* The picture's middle in the surface's shape, never stretched out of
+	 * its own: a 16:9 overlay made for another handheld loses its sides */
+	if ((long)src->w * h > (long)src->h * w) {
+		ch = src->h;
+		cw = (int)((long)src->h * w / h);
+	} else {
+		cw = src->w;
+		ch = (int)((long)src->w * h / w);
+	}
+	cx = (src->w - cw) / 2;
+	cy = (src->h - ch) / 2;
+	/* Bilinear, each channel, alpha made opaque over black (a transparent
+	 * window in an overlay is where the game goes, under it here) */
+	for (y = 0; y < h; y++) {
+		Uint32 *drow = (Uint32 *)((Uint8 *)dst->pixels + (size_t)y * dst->pitch);
+		const float fy = cy + ((float)y + 0.5f) * ch / h - 0.5f;
+		const int y0 = fy < 0 ? 0 : (int)fy, y1 = y0 + 1 < src->h ? y0 + 1 : src->h - 1;
+		const float ty = fy < 0 ? 0 : fy - y0;
+		const Uint32 *r0 = (const Uint32 *)((const Uint8 *)src->pixels + (size_t)y0 * src->pitch);
+		const Uint32 *r1 = (const Uint32 *)((const Uint8 *)src->pixels + (size_t)y1 * src->pitch);
+
+		for (x = 0; x < w; x++) {
+			const float fx = cx + ((float)x + 0.5f) * cw / w - 0.5f;
+			const int x0 = fx < 0 ? 0 : (int)fx, x1 = x0 + 1 < src->w ? x0 + 1 : src->w - 1;
+			const float tx = fx < 0 ? 0 : fx - x0;
+			const Uint32 p[4] = { r0[x0], r0[x1], r1[x0], r1[x1] };
+			float c[3] = { 0, 0, 0 };
+			int k, sh;
+
+			for (k = 0, sh = 16; k < 3; k++, sh -= 8) {
+				/* each texel times its own alpha: straight alpha over black */
+				float v[4];
+				int q;
+
+				for (q = 0; q < 4; q++)
+					v[q] = (float)((p[q] >> sh) & 255) * (float)(p[q] >> 24) / 255.0f;
+				c[k] = (v[0] + (v[1] - v[0]) * tx) * (1 - ty) + (v[2] + (v[3] - v[2]) * tx) * ty;
+			}
+			drow[x] = 0xff000000u | ((Uint32)(c[0] + .5f) << 16) | ((Uint32)(c[1] + .5f) << 8) |
+			          (Uint32)(c[2] + .5f);
+		}
+	}
+	SDL_FreeSurface(src);
+	return dst;
+}
+
+SDL_Surface *border_own_cached(const system_cfg *s, char *path, size_t n)
+{
+	static SDL_Surface *kept;
+	static char of[CFG_STR * 3];
+	int w, h;
+
+	if (!border_own_path(s, path, n)) return NULL;
+	if (kept && !strcmp(of, path)) return kept;
+	if (kept) SDL_FreeSurface(kept);
+	dmode_surface(&w, &h);
+	kept = border_own_surface(path, w, h);
+	snprintf(of, sizeof of, "%s", kept ? path : "");
+	return kept;
+}
+
+/* A surface as DTOV: "DTOV", width, height (16-bit LE), then BGRA rows */
+static bool write_dtov(SDL_Surface *s, const char *path)
+{
+	FILE *f = fopen(path, "wb");
+	unsigned char hdr[8] = { 'D', 'T', 'O', 'V', (unsigned char)s->w, (unsigned char)(s->w >> 8),
+	                         (unsigned char)s->h, (unsigned char)(s->h >> 8) };
+	bool ok;
+	int y;
+
+	if (!f) return false;
+	ok = fwrite(hdr, 1, sizeof hdr, f) == sizeof hdr;
+	/* ARGB8888 in memory on a little-endian CPU is B, G, R, A: DTOV's */
+	for (y = 0; ok && y < s->h; y++)
+		ok = fwrite((const Uint8 *)s->pixels + (size_t)y * s->pitch, 4, (size_t)s->w, f) == (size_t)s->w;
+	return fclose(f) == 0 && ok;
+}
+
+void border_send(app *a, int sys)
+{
+	const system_cfg *s = &a->sys.systems[sys];
+	border_kind k = border_load(a, sys);
+
+	if (k == BORDER_BLUR) {
+		plat_resident_line("SETBORDER\tblur=1");
+		return;
+	}
+	if (k == BORDER_OWN) {
+		char png[CFG_STR * 3];
+		int w, h;
+		SDL_Surface *pic;
+
+		dmode_surface(&w, &h);
+		if (border_own_path(s, png, sizeof png) && (pic = border_own_surface(png, w, h))) {
+			bool ok = write_dtov(pic, BORDER_FILE);
+
+			SDL_FreeSurface(pic);
+			if (ok) {
+				plat_resident_line("SETBORDER\tpath=%s", BORDER_FILE);
+				return;
+			}
+		}
+		fprintf(stderr, "border: %s: cannot use %s\n", s->name, png[0] ? png : "(no picture)");
+	}
+	plat_resident_line("SETBORDER");
+}

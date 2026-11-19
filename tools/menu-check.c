@@ -858,6 +858,7 @@ static void system_menu(void)
 	u.sys_core = "gambatte";
 	u.game_count = 412;
 	u.dmode = "Sharp";
+	u.border = "Blur";
 	n = sys_menu_build(&u, rows, &b, &heading);
 
 	printf("system menu:\n");
@@ -867,12 +868,27 @@ static void system_menu(void)
 	ck(!strcmp(val(&rows[sm_at(&u, SM_GAMES)]), "412"), "the count is the real one");
 	ck(!strcmp(val(&rows[sm_at(&u, SM_CORE)]), "gambatte"), "the core is the real one");
 	ck(!strcmp(val(&rows[sm_at(&u, SM_DISPLAY)]), "Sharp"), "display mode is passed through");
+	/* Border (src/border.h) right under Display, while the mode leaves room */
+	ck(sm_at(&u, SM_BORDER) == sm_at(&u, SM_DISPLAY) + 1 && !strcmp(rows[sm_at(&u, SM_BORDER)].label, "Border") &&
+	   !strcmp(val(&rows[sm_at(&u, SM_BORDER)]), "Blur") && rows[sm_at(&u, SM_BORDER)].live &&
+	   menu_sound_at(b.sound, n, sm_at(&u, SM_BORDER)) == MENU_SND_RING,
+	   "Border right under Display, its value, a row that steps round, on A too");
+	{
+		sys_ui nb = u;
+		menu_row r2[MENU_MAX_ROWS];
+		menu_bufs b2;
+		const char *h2;
+
+		nb.border = NULL;
+		ck(sys_menu_build(&nb, r2, &b2, &h2) == n - 1 && !has_label(r2, n - 1, "Border"),
+		   "and no Border row where the mode leaves no room");
+	}
 	/* Shader right under Display, no caption between (what a mode does is
 	 * said in its list, beside a picture of it) */
-	ck(sm_at(&u, SM_SHADER) == sm_at(&u, SM_DISPLAY) + 1 &&
+	ck(sm_at(&u, SM_SHADER) == sm_at(&u, SM_BORDER) + 1 &&
 	   !strcmp(rows[sm_at(&u, SM_SHADER)].label, "Shader") &&
 	   !strcmp(val(&rows[sm_at(&u, SM_SHADER)]), "Off") && rows[sm_at(&u, SM_SHADER)].live,
-	   "Shader right after Display, Off when nothing is said, a stop");
+	   "Shader right after Display and its Border, Off when nothing is said, a stop");
 	ck(b.sound[sm_at(&u, SM_SHADER)] == MENU_SND_RING, "and it steps round, on A too");
 	u.shader = "Sharp-Shimmerless";
 	sys_menu_build(&u, rows, &b, &heading);
@@ -1111,7 +1127,7 @@ static void dslang_row(void)
 	u.games = true;
 	u.wifi = WIFI_CONNECTED;
 	u.sys_name = "Nintendo DS"; u.sys_core = "dsperate"; u.core_choice = false;
-	u.game_count = 20; u.dmode = "Native";
+	u.game_count = 20; u.dmode = "Native"; u.border = "Off";
 	np = sys_menu_build(&u, plain, &b, &heading);
 
 	printf("system menu, Game Language:\n");
@@ -1353,8 +1369,19 @@ static void radio_less(void)
 	for (i = 0, ok = true; i < k; i++) if (pm[i] != (pm_row)i) ok = false;
 	ck(k == PM_ROWS && ok, "every ZyperOS row, in the enum's order");
 	k = sys_menu_system_rows(&u, sm);
-	for (i = 0, ok = true; i < k; i++) if (sm[i] != (sm_row)(i + (i >= SM_DSLANG ? 3 : 0))) ok = false;
-	ck(k == SM_ROWS - 3 && ok, "every system row but Game Language, Super Game Boy and Timing, in the enum's order");
+	{
+		/* Every row but the four that only some shelves have, in order */
+		int j = 0;
+
+		ok = true;
+		for (i = 0; i < SM_ROWS; i++) {
+			if (i == SM_DSLANG || i == SM_SGB || i == SM_PACE || i == SM_BORDER) continue;
+			if (j >= k || sm[j] != (sm_row)i) ok = false;
+			j++;
+		}
+	}
+	ck(k == SM_ROWS - 4 && ok, "every system row but Game Language, Super Game Boy, Timing and Border, in the "
+	   "enum's order");
 
 	u.no_wifi = true;
 	u.no_bt = true;
@@ -1448,7 +1475,7 @@ static void radio_less(void)
 	u.games = true;
 	u.no_wifi = true;
 	u.sys_name = "NES"; u.sys_core = "nestopia";
-	u.game_count = 3; u.dmode = "Native";
+	u.game_count = 3; u.dmode = "Native"; u.border = "Off";
 	n = sys_menu_build(&u, rows, &b, &heading);
 	k = sys_menu_system_rows(&u, sm);
 	printf("system menu, no radio at all:\n");

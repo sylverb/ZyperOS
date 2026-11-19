@@ -5589,3 +5589,53 @@ has Game Boy Color colors as a Color.
 
 Host shots: `system-menu-sgb`, `system-menu-sgb-list-off|games`,
 `shelf-fds-needs-bios` (and `-list`, `-grid`), `popup-disk_side|in|out|first`.
+
+### 11.55 Border
+
+*(Tarik's picks in the Display lab, 2026-11-19: the row is called Border,
+its folder Borders/<System>/, NextUI's Overlays/<system>/ read too; the
+handheld frames come after, the three Game Boys first.)*
+
+**Border**, a row of a game's Display tab and of a system's menu, right under
+Display, kept per system (`border.TAG`): what fills the screen around the
+game where its display mode leaves room. The row shows only while the mode
+does: the GKD Pixel 2's panel is 4:3, so a 4:3 game at Full Screen or at
+Sharp Pixels 2x fills it, and the room is around the handhelds and a Sharp
+Pixels picture smaller than the panel. In a game Diatom's own size says so;
+on a system's menu the size its games last said (`display_source.TAG`), and
+for a system never played the mode alone (Full Screen and Fill always
+cover). Not over a Super Game Boy game, whose own border fills the room
+(11.54), nor a DS game's two screens.
+
+- **Off**, the default: black, as before.
+- **Blur**: the game's own picture, small, blurred and darker, made again ten
+  times a second as the game moves (Diatom makes a 32x24 from the frame it
+  keeps anyway, cut to the screen's shape, blurred twice, its colors a little
+  stronger, then 0.55 as bright, and the GPU stretches it smoothly). Only
+  where the GPU draws every frame: the Pixel 2. The Brick's frames are its
+  CPU's until its GPU path draws them all (the Brick parity plan's kit A).
+- **Your Own**: the first PNG by name in `Borders/<the system's folder>/`
+  on the card (`Borders/Game Boy/`), else in NextUI's `Overlays/<its tag>/`
+  (`Overlays/GB/`; FC for the NES and PS for the PlayStation, as NextUI names
+  them), so a NextUI card's overlays work as they are. Shown only when there
+  is one. Made the screen's shape from its middle, never stretched out of its
+  own shape, and drawn under the game: a transparent window where a game was
+  meant to show is where the game is. ZyperOS ships none.
+
+A opens the list: beside it the game's picture where the mode puts it, each
+kind around it (the paused frame in a game; the game under the cursor's last
+picture on a system's menu, or a stand-in at its system's size), and under
+it what each does. Left and Right step it, and in a game it is around the
+game the moment the menu closes.
+
+**What it costs.** Drawn once: the launcher makes the picture the panel's
+size and writes it as Diatom's overlay file (DTOV), and Diatom uploads it
+once (`SETBORDER path=`); Blur sends `SETBORDER blur=1`. On the GPU it is one
+quad where the clear was, under the game, and none while the picture covers
+the panel; on the Brick's CPU path it is painted into the pages when they are
+painted, and put back wherever a notice, the level bar or the low battery's
+dot comes down off the bars. The volume bar, On-Screen Stats, the low
+battery's dot and every notice stay on top of it.
+
+Host shots: `system-menu-border`, `system-menu-border-list-off|blur|own`,
+`gamemenu-border`, `gamemenu-border-list-off|blur|own`.

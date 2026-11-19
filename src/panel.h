@@ -712,6 +712,7 @@ dsl_choice dslang_load(void);
 pacing_choice pacing_load(const system_cfg *s);
 bool pacing_row_shown(const app *a, int sys);
 sgbm_choice sgbm_load(const system_cfg *s);
+const char *border_row_value(app *a, int sys);
 bool sgb_row_shown(const app *a, int sys);
 bool dslang_row_shown(const app *a, int sys);
 const char *dslang_label(dsl_choice c, char *buf, size_t n);

@@ -74,6 +74,8 @@
 #include "dl_screen.h"
 #include "dlq.h"
 #include "diskpopup.h"
+#include "border_pic.h"
+#include "dmodepreview.h"
 #include "sshlink.h"
 #include "mdns.h"
 #include "linksteps.h"
@@ -652,6 +654,25 @@ sgbm_choice sgbm_load(const system_cfg *s)
 	sgbm_key(s->tag, key, sizeof key);
 	db_get_str(db_dev(), key, v, sizeof v, sgbm_id(SGBM_OFF));
 	return sgbm_parse(v);
+}
+
+/* Border's row on a system's menu (src/border.h): its value while the
+ * system's display mode leaves room around its games, by the size they
+ * last said (dmode_source_of; a system never played, by the mode alone);
+ * NULL, no row, else, and on a shelf of no console (Favorites, MP4, ports) */
+const char *border_row_value(app *a, int sys)
+{
+	const system_cfg *s = &a->sys.systems[sys];
+	int sw, sh, fw, fh;
+	bool known;
+	double aspect;
+
+	if (!s->core[0] || is_muse(s) || is_port(s) || a->view[sys].owner) return NULL;
+	dmode_source_of(s->tag, &sw, &sh);
+	aspect = dmode_shape_of(s->tag, &known);
+	dmode_surface(&fw, &fh);
+	if (!border_room(DMODES[a->view[sys].dmode].name, sw, sh, known ? aspect : 0.0, fw, fh)) return NULL;
+	return T(border_label_id(border_load(a, sys)));
 }
 
 /* The Game Boy's and the Game Boy Color's shelves, while mGBA runs them */
@@ -4789,6 +4810,7 @@ static int sm_pos(const app *a, int sys, sm_row which)
 	sys_ui dev = { .no_wifi = !plat_has_wifi(), .online = net_internet(NULL),
 	               .dslang = dslang_row_shown(a, sys) ? "" : NULL,
 	               .sgb = sgb_row_shown(a, sys) ? "" : NULL,
+	               .border = border_row_value(a, sys),
 	               .pace = pacing_row_shown(a, sys) ? "" : NULL,
 	               .no_strength = !shader_has_strength(a->view[sys].shader) };
 	sm_row ids[SM_ROWS];
@@ -4871,6 +4893,7 @@ static int menu_shelf_width(app *a)
 		int  lrow = own ? -1 : sm_pos(a, i, SM_DSLANG);
 		int  prow = own ? -1 : sm_pos(a, i, SM_PACE);
 		int  grow = own ? -1 : sm_pos(a, i, SM_SGB);
+		int  brow = own ? -1 : sm_pos(a, i, SM_BORDER);
 		int  vrow = muse ? -1 : a->view[i].owner ? 3 : sm_pos(a, i, SM_VIEW);
 
 		n = menu_build(a, SCREEN_GAMES, i, rows, &bufs, &heading);
@@ -4941,6 +4964,18 @@ static int menu_shelf_width(app *a)
 				if (mw > w) w = mw;
 			}
 			rows[lrow].value = keep;
+		}
+		/* Border's three */
+		if (brow >= 0 && brow < n) {
+			const char *keep = rows[brow].value;
+
+			for (k = 0; k < BORDER_KINDS; k++) {
+				int mw;
+				rows[brow].value = T(border_label_id((border_kind)k));
+				mw = menu_measure(rows, n, heading);
+				if (mw > w) w = mw;
+			}
+			rows[brow].value = keep;
 		}
 		/* Super Game Boy's two */
 		if (grow >= 0 && grow < n) {

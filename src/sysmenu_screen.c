@@ -11,6 +11,7 @@
 #include "dslang.h"
 #include "pacing.h"
 #include "sgbmode.h"
+#include "border_pic.h"
 #include "app.h"
 #include "bgm.h"
 #include "bgm_menu.h"
@@ -225,6 +226,38 @@ static void sm_dmode_preview(void *app_, int k, int x, int y, int w, int h)
 	dmode_preview_draw(a, t, t ? tw : 0, t ? th : 0, aspect, fw, fh, k, x, y, w, h);
 }
 
+/* Border's list's picture: the game under the cursor's last frame, as
+ * Display's list has it, where the system's mode puts it, each kind the row
+ * offers around it (dmode_border_preview) */
+static border_kind g_sm_border_kinds[BORDER_KINDS];
+
+static void sm_border_preview(void *app_, int k, int x, int y, int w, int h)
+{
+	static SDL_Texture *t;
+	static char made[LIB_PATH * 2];
+	static int tw, th;
+	app *a = app_;
+	sysview *v = &a->view[a->sys_cursor];
+	const system_cfg *s = &a->sys.systems[a->sys_cursor];
+	char path[LIB_PATH * 2] = "", own[CFG_STR * 3] = "";
+	double aspect = 0.0;
+	bool known = false;
+	int sw = 0, sh = 0;
+	border_kind kind = k >= 0 && k < BORDER_KINDS ? g_sm_border_kinds[k] : BORDER_OFF;
+	SDL_Surface *pic = NULL;
+
+	if (v->cursor >= 0 && v->cursor < v->list.count)
+		preview_path(a, a->sys_cursor, &v->list.items[v->cursor], path, sizeof path);
+	if (strcmp(path, made)) {
+		if (t) SDL_DestroyTexture(t);
+		t = path[0] ? load_image(a->r, path, &tw, &th, NULL) : NULL;
+		snprintf(made, sizeof made, "%s", path);
+	}
+	aspect = dmode_shape_of(s->tag, &known);
+	if (!dmode_source_of(s->tag, &sw, &sh) && t) { sw = tw; sh = th; }
+	if (kind == BORDER_OWN) pic = border_own_cached(s, own, sizeof own);
+	dmode_border_preview(a, t, sw, sh, known ? aspect : 0.0, v->dmode, (int)kind, pic, own, x, y, w, h);
+}
 
 /* Timing's list's picture (menu_choice's preview, DESIGN.md 11.39): the two
  * ways, slowed down. A ball crosses a small screen a step a game frame, a
@@ -428,6 +461,23 @@ static void menu_choices(app *a, int sys, bool games)
 			g_sm_choice[SM_DISPLAY].preview = sm_dmode_preview;
 		}
 		{
+			/* Border's offered kinds, each with its picture and note */
+			static const char *notes[BORDER_KINDS];
+			char own[CFG_STR * 3];
+			border_kind kept = border_load(a, sys);
+
+			n = border_offered(border_blur_here(), border_own_path(sc, own, sizeof own), g_sm_border_kinds);
+			for (i = 0, cur = 0; i < n; i++) {
+				P[12].lab[i] = T(border_label_id(g_sm_border_kinds[i]));
+				notes[i] = T(border_note_id(g_sm_border_kinds[i]));
+				if (g_sm_border_kinds[i] == kept) cur = i;
+			}
+			g_sm_choice[SM_BORDER] = ch_make(&P[12], n, cur, false);
+			g_sm_choice[SM_BORDER].notes = notes;
+			g_sm_choice[SM_BORDER].preview = sm_border_preview;
+			g_sm_choice[SM_BORDER].list = true;
+		}
+		{
 			static const char *snotes[CH_MAX], *tnotes[CH_MAX];
 
 			g_sm_demo_shader = v->shader;
@@ -584,6 +634,7 @@ int menu_build(app *a, screen_id screen, int sys,
 			u.dslang = dslang_row_shown(a, sys) ? dslang_label(dslang_load(), dslbuf, sizeof dslbuf) : NULL;
 			u.pace = pacing_row_shown(a, sys) ? T(pacing_label_id(pacing_load(sc))) : NULL;
 			u.sgb = sgb_row_shown(a, sys) ? T(sgbm_label_id(sgbm_load(sc))) : NULL;
+			u.border = border_row_value(a, sys);
 		}
 		/* By what it HAS, not by its name or its position: a shelf with no
 		 * core and no folder is the built one, and a check can hand that
@@ -1626,6 +1677,7 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 			               .dslang = dslang_row_shown(a, a->sys_cursor) ? "" : NULL,
 			               .pace = pacing_row_shown(a, a->sys_cursor) ? "" : NULL,
 			               .sgb = sgb_row_shown(a, a->sys_cursor) ? "" : NULL,
+			               .border = border_row_value(a, a->sys_cursor),
 			               .no_strength = !shader_has_strength(a->view[a->sys_cursor].shader) };
 			sm_row ids[SM_ROWS];
 			int n = sys_menu_system_rows(&dev, ids);
@@ -1703,6 +1755,19 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 
 			v->dmode = (v->dmode + d + DMODE_COUNT) % DMODE_COUNT;
 			display_save(a);
+			return MENU_STAY;
+		}
+		/* Border, stepped among what the row offers, kept for this system
+		 * at once: its next game has it (src/border.h). A opens its list,
+		 * which comes back as steps. */
+		if (d && sel == SM_BORDER) {
+			const system_cfg *sc = &a->sys.systems[a->sys_cursor];
+			char key[CFG_STR + 16], own[CFG_STR * 3];
+
+			border_key(sc->tag, key, sizeof key);
+			db_set_str(db_dev(), key, border_id(border_step(border_load(a, a->sys_cursor), d,
+			                                                border_blur_here(),
+			                                                border_own_path(sc, own, sizeof own))));
 			return MENU_STAY;
 		}
 		/* Sort order, on the same left/right idiom.

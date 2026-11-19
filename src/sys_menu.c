@@ -130,6 +130,7 @@ int sys_menu_system_rows(const sys_ui *u, sm_row *out)
 		if (!u->sgb && r == SM_SGB) continue;
 		if (!u->pace && r == SM_PACE) continue;
 		if (u->no_strength && r == SM_STRENGTH) continue;
+		if (!u->border && r == SM_BORDER) continue;
 		out[n++] = (sm_row)r;
 	}
 	return n;
@@ -327,6 +328,7 @@ static const unsigned char SM_SOUND[SM_ROWS] = {
 	[SM_SORT]    = MENU_SND_RING | MENU_SND_NO_A,
 	[SM_VIEW]    = MENU_SND_RING,
 	[SM_DISPLAY] = MENU_SND_RING | MENU_SND_NO_A,
+	[SM_BORDER]  = MENU_SND_RING,
 	[SM_SHADER]  = MENU_SND_RING,
 	[SM_STRENGTH] = MENU_SND_NO_A,
 	[SM_RANDOM]  = MENU_SND_OWN,
@@ -435,6 +437,9 @@ int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
 		 * longest of the modes' names fitted the panel in no language with
 		 * Latin letters (1.0.6) */
 		full[SM_DISPLAY] = (menu_row){ T(S_GAMEMENU_DISPLAY), u->dmode, true  };
+		/* What fills the room the mode leaves around its games, under it
+		 * (src/border.h) */
+		full[SM_BORDER]  = (menu_row){ T(S_GAMEMENU_BORDER), u->border, u->border != NULL };
 		/* How the picture is drawn at its last step, Off or a shader: this
 		 * system's, as Display Mode is (src/app.h SHADERS) */
 		full[SM_SHADER]  = (menu_row){ T(S_GAMEMENU_SHADER),

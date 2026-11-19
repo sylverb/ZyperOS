@@ -631,7 +631,10 @@ static void draw_scene(const mailbox_frame *f, bool border, bool overlay_live, b
 	 * under the game: its texture uploaded once, so this is a quad drawn
 	 * where the clear was. Opaque, its alpha swizzled to 1, and no blending
 	 * is on yet. */
-	if (border && g_bd_tex_w > 0 && g_bd_tex_h > 0) {
+	/* None where the picture covers the surface: nothing to show it in */
+	if (border && g_bd_tex_w > 0 && g_bd_tex_h > 0 && !f->nplanes &&
+	    (f->dst.x > 0 || f->dst.y > 0 || f->dst.x + f->dst.w < g_surface_w ||
+	     f->dst.y + f->dst.h < g_surface_h)) {
 		glBindTexture(GL_TEXTURE_2D, g_border_tex);
 		glUseProgram(g_prog_plain);
 		glUniform1i(uloc(g_prog_plain, "u_tex"), 0);
