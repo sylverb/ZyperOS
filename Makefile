@@ -127,7 +127,7 @@ check-release-devices:
 check-building-doc:
 	@python3 tools/building-doc-check.py
 
-# The simulator's tests (simulator/Tests: its VNC client, the px2sim link, the
+# The simulator's tests (simulator/Tests: its D-Bus display and VNC clients, the px2sim link, the
 # state lines and the control socket's commands), with Swift's own build kept
 # in build-native/. Skipped where there is no Swift, and off macOS: the
 # simulator is an AppKit app (Ubuntu's runner has Swift, and its build fails).
