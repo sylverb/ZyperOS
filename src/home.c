@@ -261,8 +261,9 @@ static bool atlas_size(const sa_asset *a, int *w, int *h)
     *h += a->rows*a->rh;
     return true;
 }
-static bool install(home_texture *t, SDL_Renderer *r, SDL_Surface *s, bool atlas)
+static bool install(home_texture *t, SDL_Renderer *r, SDL_Surface **sp, bool atlas)
 {
+    SDL_Surface *s = *sp;
     const sa_asset *a = valid(t->asset) ? &SA_ASSETS[t->asset] : NULL;
     int w, ht;
     t->done = true;
@@ -272,10 +273,16 @@ static bool install(home_texture *t, SDL_Renderer *r, SDL_Surface *s, bool atlas
         t->tex = SDL_CreateTextureFromSurface(r,s);
     } else {
         if (!atlas_size(a,&w,&ht) || s->w != w || s->h != ht) return false;
-        /* The loader frees `s`: the regions are kept in a copy of their own,
-         * in the texture's format, so a pose is one SDL_UpdateTexture */
-        SDL_Surface *c = SDL_ConvertSurfaceFormat(s,SDL_PIXELFORMAT_ARGB8888,0);
+        /* The regions are kept in the texture's format, so a pose is one
+         * SDL_UpdateTexture. The workers decode to it (src/texload.c), and
+         * such a surface is taken as it is, *sp left NULL for the caller:
+         * an atlas is up to a megapixel, and copying it on the frame it
+         * landed on was a hitch of its own (2026-11-19). Another format (a
+         * shot's own decode) is converted, as before. */
+        SDL_Surface *c = s->format->format == SDL_PIXELFORMAT_ARGB8888 ? s
+                       : SDL_ConvertSurfaceFormat(s,SDL_PIXELFORMAT_ARGB8888,0);
         if (!c) return false;
+        if (c == s) *sp = NULL;
         t->tex = SDL_CreateTexture(r,SDL_PIXELFORMAT_ARGB8888,SDL_TEXTUREACCESS_STATIC,a->cell,a->cell);
         if (!t->tex || SDL_UpdateTexture(t->tex,&(SDL_Rect){0,0,a->cell,a->cell},c->pixels,c->pitch)) {
             if (t->tex) SDL_DestroyTexture(t->tex);
@@ -305,10 +312,11 @@ static void show_pose(home_texture *t, const sa_asset *a, unsigned tile)
     if (SDL_UpdateTexture(t->tex,&(SDL_Rect){a->rx,a->ry,a->rw,a->rh},p,t->motion->pitch)==0)
         t->shown = (int)tile;
 }
-bool home_accept(home *h, SDL_Renderer *r, int shelf, int asset, SDL_Surface *s)
+bool home_accept(home *h, SDL_Renderer *r, int shelf, int asset, SDL_Surface **s)
 {
     if (shelf != HOME_LOADER_ATLAS && shelf != HOME_LOADER_STILL) return false;
     if (shelf == HOME_LOADER_ATLAS) {
+        /* One slot holds an atlas (take_atlas), so one takes the surface */
         if (h->atlas.asset == asset && !h->atlas.done) install(&h->atlas,r,s,true);
         for(int i=0;i<HOME_NEAR;i++)
             if (h->near[i].asset == asset && !h->near[i].done) install(&h->near[i],r,s,true);
@@ -327,7 +335,7 @@ static void request(home_texture *t, SDL_Renderer *r, const char *root, bool atl
     /* --shot has no workers. Also log the exceptional worker-start failure path. */
     uint64_t start = SDL_GetPerformanceCounter();
     SDL_Surface *s = IMG_Load(path);
-    install(t,r,s,atlas);
+    install(t,r,&s,atlas);
     if(s) SDL_FreeSurface(s);
     fprintf(stderr,"home: cold %s %.2f ms\n",relative,
             (SDL_GetPerformanceCounter()-start)*1000.0/SDL_GetPerformanceFrequency());

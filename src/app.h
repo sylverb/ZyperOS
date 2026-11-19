@@ -213,6 +213,9 @@ typedef struct {
 
 	home home;
 	home_layout home_layout;
+	/* When the focused system's shelf is asked for ahead of A: once the
+	 * home's cursor has rested on it (src/shelf_keys.c); 0 for none */
+	Uint32 home_prime_at;
 	sysview view[CFG_MAX_SYSTEMS];
 	/* The systems MENU > Display > Home Systems turned off (src/homesys.h),
 	 * kept after the home's shelves, at sys.systems[] and view[] from
