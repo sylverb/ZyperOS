@@ -8,6 +8,7 @@
 
 #include "aout_route.h"
 #include "controls.h"
+#include "design.h"
 #include "device/profile.h"
 #include "gamedel_screen.h"
 #include "hkstore.h"
@@ -27,7 +28,8 @@ enum { HKR_SCOPE = 100, HKR_HOME, HKR_NOTE, HKR_RESET, HKR_ALL };
 
 /* The capture screen's glyphs, as the keyboard's big keys: 11.9's 112 */
 #define HK_CAPTURE_GLYPH 112
-#define HK_CAPTURE_H     176
+/* ...and the room for them, a glyph and the grid's eight above and below */
+#define HK_CAPTURE_H     (HK_CAPTURE_GLYPH + DS_GRID * 8)
 
 typedef struct {
 	app              *a;
