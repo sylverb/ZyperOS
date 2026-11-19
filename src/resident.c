@@ -363,10 +363,60 @@ void plat_resident_on_battery_empty(bool (*fn)(void)) { d_battery_empty = fn; }
  * to 0 on each re-entry made a running game look like one that never started.
  * The cost was not cosmetic - see the ERROR arm in diatom_wait. */
 static int d_got_running;
+/* The refusal of the game last sent, from Diatom's ERROR before RUNNING
+ * (plat_resident_start_error): kept by plat_resident_wait and taken by the
+ * launcher once the wait says the game never started */
+static plat_start_error d_start_err;
+static int d_start_err_set;
 
 bool plat_resident_started(void)
 {
 	return d_got_running != 0;
+}
+
+/* The value of `key` in a tab-separated line of key=value, in `out` ("" when
+ * the line has none) */
+static void d_field(const char *line, const char *key, char *out, size_t n)
+{
+	char pat[40];
+	const char *p;
+	size_t len;
+
+	out[0] = '\0';
+	snprintf(pat, sizeof pat, "\t%s=", key);
+	p = strstr(line, pat);
+	if (!p) return;
+	p += strlen(pat);
+	len = strcspn(p, "\t\r\n");
+	if (len >= n) len = n - 1;
+	memcpy(out, p, len);
+	out[len] = '\0';
+}
+
+/* An ERROR line that came before RUNNING: a core that would not load says
+ * why (code=core_load, diatom/src/corefail.h) and the launcher keeps it for
+ * the shelf to say. Any other refusal is left to the log. */
+static void d_note_start_error(const char *line)
+{
+	plat_start_error e;
+
+	memset(&e, 0, sizeof e);
+	d_field(line, "code", e.code, sizeof e.code);
+	if (strcmp(e.code, "core_load") != 0) return;
+	d_field(line, "why", e.why, sizeof e.why);
+	d_field(line, "name", e.name, sizeof e.name);
+	d_field(line, "version", e.version, sizeof e.version);
+	d_field(line, "msg", e.core, sizeof e.core);
+	d_start_err = e;
+	d_start_err_set = 1;
+}
+
+bool plat_resident_start_error(plat_start_error *out)
+{
+	if (!d_start_err_set) return false;
+	d_start_err_set = 0;
+	if (out) *out = d_start_err;
+	return true;
 }
 
 bool plat_resident_send(const plat_game_run *run)
@@ -381,6 +431,7 @@ bool plat_resident_send(const plat_game_run *run)
 	 * diatom_wait, because the launcher re-enters that after every in-game
 	 * menu and the answer must survive those. */
 	d_got_running = 0;
+	d_start_err_set = 0;
 
 	{
 		char *l;
@@ -1058,7 +1109,10 @@ static int diatom_wait(void)
 				 * framebuffer - two presenters, which wedges the display
 				 * engine in-kernel, and the supervisor powered the device
 				 * off. */
-				if (!d_got_running) return RES_DEAD;
+				if (!d_got_running) {
+					d_note_start_error(l);
+					return RES_DEAD;
+				}
 			}
 		}
 		if (dsock < 0) return RES_DEAD;            /* EOF mid-game */
