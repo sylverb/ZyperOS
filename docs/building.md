@@ -531,7 +531,13 @@ Make the SDK again in plastron after a change to its libraries.
 
 A whole card image is plastron's: `make -C plastron` for the Pixel 2, or `make -C plastron brick
 BRICK_TARGET=zyperos-rebuild` for the Brick. A full `make brick` also writes a
-card image.
+card image. For work that builds the system again and again, `DEV=1` (`make
+-C plastron DEV=1`, `make -C plastron brick DEV=1`) makes the output a
+development output: it compiles through ccache, builds again every input that
+changed (a package's patches, the kernel's, the `.config`), and goes by
+contents, so the same source from another worktree is not built twice
+(`plastron/README.md`). Without `DEV=1` a build is as it always was, and a
+release never is one.
 
 On a plastron development build, SSH runs over the USB cable with the key
 from `plastron/local/authorized_keys` (ignored by git): `ssh root@10.55.0.2` reaches the

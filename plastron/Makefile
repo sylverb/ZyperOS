@@ -28,6 +28,15 @@ SOURCES := -v $(ZYPEROS_SRC):/zyperos:ro -v $(ZYPEROS_VENDOR):/zyperos-vendor:ro
 # shows the second (scripts/lock.sh)
 PLASTRON_COMMIT := $(shell git describe --always --dirty --abbrev=12 2>/dev/null || echo unknown)
 STAMP := -e PLASTRON_COMMIT=$(PLASTRON_COMMIT) -e "PLASTRON_WHO=$(USER) with plastron $(PLASTRON_COMMIT)"
+# DEV=1, the development setting: the output's builds go through ccache and
+# build again every input that changed, which Buildroot alone does not watch
+# (scripts/build.sh says what it built and what it took as it was). Off
+# unless asked for; an output keeps it once set, and leaves it with DEV=0
+# CLEAN=1. Never for a release. CLEAN=1 empties the kept output first: after
+# a change to the toolchain or the architecture (a development build stops
+# and says so), or when what an image carries must not depend on what was
+# built before it.
+STAMP += -e PLASTRON_CLEAN=$(CLEAN) -e PLASTRON_DEV=$(filter 0 1,$(DEV))
 DOCKER_RUN := docker run --rm -t $(STAMP) -v $(CURDIR):/src:ro $(SOURCES) -v $(VOLUME):/work $(IMAGE)
 
 .PHONY: gauge-check charge-limit-check start-soc-check push all builder volume image base qemu sdk brick brick-fetch brick-inputs brick-kernel brick-bootloader brick-probe bootloader shell linux-rebuild copy-out clean-output release release-pixel2 release-brick third-party
