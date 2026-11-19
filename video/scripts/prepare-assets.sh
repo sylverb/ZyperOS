@@ -82,18 +82,14 @@ if [ ! -f "$PUB/device/pixel2-front.png" ]; then
 	        --python "$VIDEO/device/render-device.py" -- "$PUB/device" 2000 >/dev/null
 fi
 # The TrimUI Brick, for the 1.0.6 video (src/v106): tools/build-brick-model.py's
-# model the same way, true to size beside the Pixel 2. The script came with the
-# site's Brick (branch site-106); taken from there while main lacks it.
+# model (the site's) the same way, true to size beside the Pixel 2
 if [ ! -f "$PUB/device/brick-front.png" ]; then
 	command -v blender >/dev/null || { echo "Blender is needed once, for the device" >&2; exit 1; }
 	work=$(mktemp -d)
 	trap 'rm -rf "$work"' EXIT
+	# The model's script writes beside itself, so it runs from a copy
 	mkdir -p "$work/tools"
-	if [ -f "$ROOT/tools/build-brick-model.py" ]; then
-		cp "$ROOT/tools/build-brick-model.py" "$work/tools/"
-	else
-		git -C "$ROOT" show origin/site-106:tools/build-brick-model.py > "$work/tools/build-brick-model.py"
-	fi
+	cp "$ROOT/tools/build-brick-model.py" "$work/tools/"
 	(cd "$work" && blender --background --python tools/build-brick-model.py >/dev/null)
 	blender --background "$work/build/brick-model/brick.blend" \
 	        --python "$VIDEO/device/render-device.py" -- "$PUB/device" 2000 >/dev/null
