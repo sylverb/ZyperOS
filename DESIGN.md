@@ -2064,6 +2064,26 @@ Muse, so a card's saved places and modes still read.
   a sixteenth of the disc right before, 2026-11-19). Under the lock the
   controls stay hidden, and with them the header, the picture whole on
   black: no key they name works there.
+  **Too big, or no picture.** The daemon judges as it plays whether this
+  CPU carries the video: more than a quarter of its pictures dropped in two
+  stretches of 2 s running and it says the video is too big, two stretches
+  under a tenth and it takes that back; the first stretch after an open, a
+  seek, a pause or the screen coming back is not judged, as the decoder
+  catches up then on any file (src/muse/vidtry.h). A format nothing here
+  decodes, or a decoder that gives not one picture, it says there is no
+  picture. MP4 says so in words rather than
+  show a slide show or a black box (2026-11-19: "If a size cannot keep up,
+  MP4 must say so plainly"): the notice's slab (11.7) centered over the
+  picture's foot, **inset** over the band, what the video is ("AV1 ·
+  1920x1080 · 60 fps", **meta** **text-dim**) over what that means in
+  **label** **text** ("Too big to play smoothly here.", "This video's
+  picture cannot play here."), on one line or two balanced (Chinese and
+  Japanese set their own break), no wider than a menu panel. Too big, the
+  controls come up as on a key when it is first said, and the notice comes
+  and goes with them; no picture, it stands in the black whatever the
+  controls do. With dav1d on the Pixel 2 (2026-11-19), AV1 plays whole up to
+  1440x1080 at 24 fps, 1280x720 at 60 and 1920x1080 at 30; 1920x1080 at 60
+  is too big.
   The keys are hints as the shelves draw them (`page_hint`: a glyph and a word,
   **chrome** type, **text-soft**), from x 64 to 960 with the room shared out, and
   on a second row above where a language's words need it, never cut: A, B,
