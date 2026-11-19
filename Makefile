@@ -47,7 +47,7 @@ src/i18n_tables.c: $(wildcard res/strings/*.txt) tools/i18n.py
 CHECKS = check-cheevos check-hare check-portal check-httpd check-idle check-taskhold check-saver check-rahash check-flacdec check-achtab check-rasubmit check-raoffline check-radl check-dlq check-signin check-noticeq check-badges check-badge-shots \
          check-raset check-xfer check-sshlink check-usblink check-devmode check-devices check-devicegen check-model check-ctl check-menus check-artscrape check-artrun check-sgdb check-snapshelf check-snaps check-audioout \
          check-db check-coreopts check-gamedel check-gamern check-esmedia check-media check-snapsize check-corepins check-targets check-storage check-stats check-sort check-bt check-ss check-titles check-savedlib check-search \
-         check-muselib check-musequeue check-museart check-mp4lock check-mp4frame check-mp4size check-p2share check-webtheme check-p2ws check-p2codec check-p2d check-play check-p2 check-resident check-spawn check-controls check-remap check-rumble check-eq check-eqdsp check-controls-shots check-logpack \
+         check-muselib check-musequeue check-museart check-mp4lock check-mp4frame check-mp4size check-p2share check-webtheme check-p2ws check-p2codec check-p2d check-play check-p2 check-resident check-spawn check-controls check-remap check-rumble check-eq check-eqdsp check-eqplugin check-controls-shots check-logpack \
          check-clock check-autozone check-status check-battery check-battery-eta check-dslang check-pacing check-gpuframes check-dsresume check-corestate check-core-stamp check-core-room check-px2-perf check-px2-snap check-px2 check-lowbatt check-powerhold check-homesys check-heat check-charging check-corner check-dsv check-sidelights check-osdbar check-hud check-dmodefit check-themefile check-pkkeys check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-bios check-gamefile check-startfail check-kbnav check-randgame check-shelfdir check-look \
          check-tween check-menumotion check-menusnap check-cardgen check-cardart check-focusfx check-blur check-gridrule check-roundrect check-rowmacro check-emptyhome check-zyperrig check-sysmark check-flip check-menushots check-design \
          check-systemart check-linebreak check-portload check-portout check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-messages \
@@ -127,7 +127,7 @@ check-release-devices:
 check-building-doc:
 	@python3 tools/building-doc-check.py
 
-# The simulator's tests (simulator/Tests: its VNC client, the px2sim link, the
+# The simulator's tests (simulator/Tests: its D-Bus display and VNC clients, the px2sim link, the
 # state lines and the control socket's commands), with Swift's own build kept
 # in build-native/. Skipped where there is no Swift, and off macOS: the
 # simulator is an AppKit app (Ubuntu's runner has Swift, and its build fails).
@@ -1471,6 +1471,23 @@ check-eqdsp: build-native/eqdsp-check
 build-native/eqdsp-check: tools/eqdsp-check.c src/eqdsp.h FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -O2 -o $@ tools/eqdsp-check.c -lm
+
+# The ports' equalizer plugin (plastron's zyperos-eq), built for this computer
+# and loaded the way alsa-lib's ladspa PCM loads it: flat untouched, Voice
+# heard, the launcher's file followed, and its cost. tools/eqplugin-alsa.sh
+# runs it through the handheld's own alsa-lib, by hand (it needs the SDK).
+check-eqplugin: build-native/eqplugin-check build-native/zyperos_eq.so
+	@./build-native/eqplugin-check build-native/zyperos_eq.so
+
+build-native/zyperos_eq.so: plastron/buildroot/package/zyperos-eq/src/zyperos_eq.c \
+                            plastron/buildroot/package/zyperos-eq/src/ladspa.h src/eqdsp.h FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -O2 -fPIC -shared -Isrc -o $@ \
+	      plastron/buildroot/package/zyperos-eq/src/zyperos_eq.c -lm
+
+build-native/eqplugin-check: tools/eqplugin-check.c src/eqdsp.h FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -O2 -o $@ tools/eqplugin-check.c -lm -ldl
 
 # The in-game Controls pages and the home's A to Z order, drawn
 check-controls-shots:

@@ -64,6 +64,9 @@ cp "$MUSE_ELF" "$P/muse"                  # the audio player's engine; Muse cann
 # below.
 [ -n "${P2D_ELF:-}" ] && cp "$P2D_ELF" "$P/p2d"
 cp "$ROOT/sd/zyperos/launch.sh" "$P/launch.sh"
+# The equalizer's config for a port (launch.sh's run_port), on every device:
+# a device whose device.sh names no EQ_SLAVE never runs it
+cp "$ROOT/sd/zyperos/eq-port.sh" "$P/eq-port.sh"
 cp "$DEVICE_SH" "$P/device.sh"
 # Which ZyperOS this is, for plastron: the Pixel's image copies its ZyperOS/ over
 # the card's only when it is newer than the card's (/etc/init.d/zyperos), so a
