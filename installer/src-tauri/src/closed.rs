@@ -165,28 +165,93 @@ pub fn load_checked(list: &[ClosedFile], files: &[PathBuf]) -> Result<Vec<(Strin
         .collect()
 }
 
-/// A boot partition's FAT (its whole bytes) with `files` (name, bytes) in
-/// closed/: the folder made if it isn't there, a file there already written
-/// over, everything else left as it was.
-pub fn into_boot(boot: Vec<u8>, files: &[(String, Vec<u8>)]) -> Result<Vec<u8>, String> {
+/// Files for a folder on the boot partition: (name, bytes)
+pub type Files = [(String, Vec<u8>)];
+
+/// How many clusters `folder` with `files` takes on a FAT whose clusters are
+/// `cluster` bytes, less what its files there already take (written over),
+/// and whether the folder is there yet. Its directory: each long name takes
+/// up to three entries of 32 bytes.
+fn clusters_for<T: io::Read + io::Write + io::Seek>(
+    root: &fatfs::Dir<T>,
+    folder: &str,
+    files: &Files,
+    cluster: u64,
+) -> u64 {
+    let of = |bytes: u64| bytes.div_ceil(cluster);
+    let mut need: u64 = files.iter().map(|(_, b)| of(b.len() as u64)).sum();
+    match root.open_dir(folder) {
+        Ok(dir) => {
+            for e in dir.iter().flatten() {
+                if e.is_file() && files.iter().any(|(n, _)| e.file_name().eq_ignore_ascii_case(n)) {
+                    need = need.saturating_sub(of(e.len()));
+                }
+            }
+        }
+        // A new folder: its entries, and one more in the folder above
+        Err(_) => need += of((files.len() as u64 * 3 + 2) * 32) + 1,
+    }
+    need
+}
+
+/// Why `folders` don't fit, with what they need and what is free, in bytes
+fn no_room(folders: &[(&str, &Files)], need: &[u64], free: u64) -> String {
+    let mb = |n: u64| format!("{:.1}", n as f64 / 1e6);
+    match folders.iter().position(|(f, _)| *f == crate::pico8::FOLDER) {
+        Some(i) => {
+            let others: u64 = need.iter().enumerate().filter(|(j, _)| *j != i).map(|(_, n)| n).sum();
+            format!(
+                "Your PICO-8 doesn't fit in the card image's boot partition: it needs {} MB, and {} MB are free. \
+                 Install without it, and add it with Add PICO-8 after the card's first start. Nothing was written.",
+                mb(need[i]),
+                mb(free.saturating_sub(others))
+            )
+        }
+        None => format!(
+            "The Brick's files don't fit in the card image's boot partition: they need {} MB, and {} MB are free. \
+             Nothing was written.",
+            mb(need.iter().sum()),
+            mb(free)
+        ),
+    }
+}
+
+/// A boot partition's FAT (its whole bytes) with each folder's files (closed/
+/// for the Brick's, pico8/ for the player's PICO-8): a folder made if it isn't
+/// there, a file there already written over, everything else left as it was.
+/// Refused, with nothing changed, when they don't fit in its free space.
+pub fn into_boot(boot: Vec<u8>, folders: &[(&str, &Files)]) -> Result<Vec<u8>, String> {
     let mut disk = Cursor::new(boot);
     {
         let fs = fatfs::FileSystem::new(&mut disk, fatfs::FsOptions::new())
             .map_err(|e| format!("Reading the image's boot partition: {e}"))?;
         {
             let root = fs.root_dir();
-            let dir = match root.open_dir(FOLDER) {
-                Ok(d) => d,
-                Err(_) => root.create_dir(FOLDER).map_err(|e| format!("Making closed/ on the boot partition: {e}"))?,
-            };
-            for (name, bytes) in files {
-                let name = name.as_str();
-                let mut file = dir.create_file(name).map_err(|e| format!("Putting {name} on the boot partition: {e}"))?;
-                file.truncate().map_err(|e| format!("Putting {name} on the boot partition: {e}"))?;
-                io::Write::write_all(&mut file, bytes).map_err(|e| {
-                    format!("Putting {name} on the boot partition: {e} (is the image's boot partition full?)")
-                })?;
-                io::Write::flush(&mut file).map_err(|e| format!("Putting {name} on the boot partition: {e}"))?;
+            let stats = fs.stats().map_err(|e| format!("Reading the image's boot partition: {e}"))?;
+            let cluster = u64::from(stats.cluster_size());
+            let need: Vec<u64> = folders.iter().map(|(f, files)| clusters_for(&root, f, files, cluster)).collect();
+            let free = u64::from(stats.free_clusters());
+            if need.iter().sum::<u64>() > free {
+                let bytes: Vec<u64> = need.iter().map(|n| n * cluster).collect();
+                return Err(no_room(folders, &bytes, free * cluster));
+            }
+            for (folder, files) in folders {
+                let dir = match root.open_dir(folder) {
+                    Ok(d) => d,
+                    Err(_) => root
+                        .create_dir(folder)
+                        .map_err(|e| format!("Making {folder}/ on the boot partition: {e}"))?,
+                };
+                for (name, bytes) in files.iter() {
+                    let name = name.as_str();
+                    let mut file =
+                        dir.create_file(name).map_err(|e| format!("Putting {name} on the boot partition: {e}"))?;
+                    file.truncate().map_err(|e| format!("Putting {name} on the boot partition: {e}"))?;
+                    io::Write::write_all(&mut file, bytes).map_err(|e| {
+                        format!("Putting {name} on the boot partition: {e} (is the image's boot partition full?)")
+                    })?;
+                    io::Write::flush(&mut file).map_err(|e| format!("Putting {name} on the boot partition: {e}"))?;
+                }
             }
         }
         fs.unmount().map_err(|e| format!("Finishing the boot partition: {e}"))?;
@@ -237,22 +302,22 @@ pub fn boot_span(image: &mut dyn Read) -> Result<(u64, u64), String> {
     Ok((boot.start * SECTOR, boot.sectors * SECTOR))
 }
 
-/// The image's boot partition, read from its start, with the closed files
-/// in: what goes over the image's own at its offset (Overlay)
+/// The image's boot partition, read from its start, with each folder's files
+/// in (into_boot): what goes over the image's own at its offset (Overlay)
 pub fn boot_with(
     open: &dyn Fn() -> io::Result<Box<dyn Read + Send>>,
-    files: &[(String, Vec<u8>)],
+    folders: &[(&str, &Files)],
 ) -> Result<(u64, Vec<u8>), String> {
     let (at, len) = boot_span(&mut *open().map_err(|e| format!("Opening the image: {e}"))?)?;
     let mut image = open().map_err(|e| format!("Opening the image: {e}"))?;
     io::copy(&mut (&mut image).take(at), &mut io::sink()).map_err(|e| format!("Reading the image: {e}"))?;
     let mut boot = vec![0u8; len as usize];
     image.read_exact(&mut boot).map_err(|e| format!("Reading the image's boot partition: {e}"))?;
-    Ok((at, into_boot(boot, files)?))
+    Ok((at, into_boot(boot, folders)?))
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use std::io::{Seek, SeekFrom, Write};
 
@@ -265,7 +330,7 @@ mod tests {
 
     // A boot partition as the Brick's image has it: FAT, a/ with its kernel,
     // bootstate.txt
-    fn boot_fat() -> Vec<u8> {
+    pub(crate) fn boot_fat() -> Vec<u8> {
         let mut disk = Cursor::new(vec![0u8; 8 << 20]);
         fatfs::format_volume(&mut disk, fatfs::FormatVolumeOptions::new().volume_label(*b"BRICKBOOT  ")).unwrap();
         {
@@ -280,7 +345,7 @@ mod tests {
         disk.into_inner()
     }
 
-    fn read_in(boot: &[u8], path: &str) -> Option<Vec<u8>> {
+    pub(crate) fn read_in(boot: &[u8], path: &str) -> Option<Vec<u8>> {
         let mut disk = Cursor::new(boot.to_vec());
         let fs = fatfs::FileSystem::new(&mut disk, fatfs::FsOptions::new()).unwrap();
         let mut f = fs.root_dir().open_file(path).ok()?;
@@ -347,13 +412,13 @@ mod tests {
             ("libGLESv2.so".to_string(), b"gles".to_vec()),
             ("rgx.fw.22.102.54.38".to_string(), b"firmware".to_vec()),
         ];
-        let boot = into_boot(boot_fat(), &files).unwrap();
+        let boot = into_boot(boot_fat(), &[(FOLDER, &files)]).unwrap();
         assert_eq!(read_in(&boot, "closed/libGLESv2.so").unwrap(), b"gles");
         assert_eq!(read_in(&boot, "closed/rgx.fw.22.102.54.38").unwrap(), b"firmware");
         assert_eq!(read_in(&boot, "a/Image.lz4").unwrap(), b"kernel");
         assert_eq!(read_in(&boot, "bootstate.txt").unwrap(), b"slot=a\n");
         // A folder from before, one file cut short: written over whole
-        let again = into_boot(boot, &[("libGLESv2.so".to_string(), b"gles, all of it".to_vec())]).unwrap();
+        let again = into_boot(boot, &[(FOLDER, &[("libGLESv2.so".to_string(), b"gles, all of it".to_vec())])]).unwrap();
         assert_eq!(read_in(&again, "closed/libGLESv2.so").unwrap(), b"gles, all of it");
         assert_eq!(read_in(&again, "closed/rgx.fw.22.102.54.38").unwrap(), b"firmware");
     }
@@ -423,7 +488,7 @@ mod tests {
         let path = temp("gpt").join("brick.img");
         std::fs::write(&path, &image).unwrap();
         let open = || crate::image::open(&path);
-        let (at, boot) = boot_with(&open, &[("fw_xr829.bin".to_string(), b"wifi".to_vec())]).unwrap();
+        let (at, boot) = boot_with(&open, &[(FOLDER, &[("fw_xr829.bin".to_string(), b"wifi".to_vec())])]).unwrap();
         assert_eq!(at, 1 << 20);
         assert_eq!(boot.len(), fat.len());
         assert_eq!(read_in(&boot, "closed/fw_xr829.bin").unwrap(), b"wifi");

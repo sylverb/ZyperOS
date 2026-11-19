@@ -64,6 +64,9 @@ cp "$MUSE_ELF" "$P/muse"                  # the audio player's engine; Muse cann
 # below.
 [ -n "${P2D_ELF:-}" ] && cp "$P2D_ELF" "$P/p2d"
 cp "$ROOT/sd/zyperos/launch.sh" "$P/launch.sh"
+# The equalizer's config for a port (launch.sh's run_port), on every device:
+# a device whose device.sh names no EQ_SLAVE never runs it
+cp "$ROOT/sd/zyperos/eq-port.sh" "$P/eq-port.sh"
 cp "$DEVICE_SH" "$P/device.sh"
 # Which ZyperOS this is, for plastron: the Pixel's image copies its ZyperOS/ over
 # the card's only when it is newer than the card's (/etc/init.d/zyperos), so a
@@ -275,6 +278,13 @@ if has_helper ports; then
 	cp "$VENDOR_DIR/openbor/OpenBOR" "$VENDOR_DIR/openbor/LICENSE" \
 	   "$VENDOR_DIR/openbor/LICENSE.libvpx" "$ROOT/sd/pixel2/OpenBOR.sh" "$P/openbor/"
 	chmod +x "$P/openbor/OpenBOR" "$P/openbor/OpenBOR.sh"
+	# Your PICO-8's script, which the PICO-8 shelf's first core names
+	# (config/systems.cfg), and Splore's entry art (tools/genpico8-art.py).
+	# Never PICO-8 itself: the player brings it into Bios/PICO-8 (src/pico8.h)
+	mkdir -p "$P/pico8"
+	cp "$ROOT/sd/pixel2/PICO-8.sh" "$ROOT/res/pico8/cover-light.png" \
+	   "$ROOT/res/pico8/cover-dark.png" "$ROOT/res/pico8/icon.png" "$P/pico8/"
+	chmod +x "$P/pico8/PICO-8.sh"
 fi
 
 # One ROM folder per system. Read from systems.cfg (awk, not sed: folder names

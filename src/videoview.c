@@ -116,7 +116,7 @@ static uint32_t name_card(SDL_Renderer *r, const vv_info *in, uint32_t phase)
 		size_t at = 0;
 
 		if (in->origin && *in->origin) at += (size_t)snprintf(facts + at, sizeof facts - at, "%s", in->origin);
-		if (in->install && at < sizeof facts)
+		if ((in->install || in->howto) && at < sizeof facts)
 			at += (size_t)snprintf(facts + at, sizeof facts - at, "%s%s", at ? "  \xc2\xb7  " : "",
 			                       T(S_PORTMASTER_NOT_INSTALLED));
 		if (in->played && *in->played && at < sizeof facts) {
@@ -234,10 +234,12 @@ static void band(SDL_Renderer *r, const games_row *row, const vv_info *in, cf_te
 
 		foot[nf++] = (key_hint){ "B", T(in->inside ? S_GAMES_BACK : S_GAMES_SYSTEMS) };
 		if (in->count > 0)
-			foot[nf++] = (key_hint){ "A", T(in->folder > 0 ? S_GAMES_OPEN : in->install ? S_PORTMASTER_INSTALL
+			foot[nf++] = (key_hint){ "A", T(in->folder > 0 || in->opens ? S_GAMES_OPEN
+			                                : in->howto ? S_PICO8_HOW_TO_ADD
+			                                : in->install ? S_PORTMASTER_INSTALL
 			                                : in->resumable ? S_GAMES_RESUME : S_GAMES_PLAY) };
 		if (in->count > 0 && in->start_word) foot[nf++] = (key_hint){ "START", in->start_word };
-		if (in->count > 0 && in->resumable && !in->install && !in->folder)
+		if (in->count > 0 && in->resumable && !in->install && !in->howto && !in->opens && !in->folder)
 			foot[nf++] = (key_hint){ "Y", T(S_GAMES_FRESH) };
 		if (in->count > 0 && !in->folder) foot[nf++] = (key_hint){ "X", T(S_GAMES_DETAILS) };
 		keyhints_draw(r, foot, nf, sf.keys.x, sf.keys.x + sf.keys.w, sf.keys.y + sf.keys.h / 2 + dy,

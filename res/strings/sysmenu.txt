@@ -979,6 +979,39 @@ de = Bildschirmsperre
 ja = 画面ロック
 it = Blocca schermo
 
+[sysmenu.muse_repeat]
+note = MP4's menu row on the shelves with videos (Videos, All): play videos again. Its values are Off (as before: each once), muse_repeat_one and muse_repeat_all
+en = Repeat
+zh-Hans = 重复播放
+es = Repetir
+pt-BR = Repetir
+fr = Répéter
+de = Wiederholen
+ja = リピート
+it = Ripeti
+
+[sysmenu.muse_repeat_one]
+note = Repeat's value: the video playing, again and again (a video: masculine in es, pt-BR, it; feminine in fr). Begun with a capital
+en = One
+zh-Hans = 单个
+es = Uno
+pt-BR = Um
+fr = Une
+de = Eins
+ja = 1本
+it = Uno
+
+[sysmenu.muse_repeat_all]
+note = Repeat's value: every video in its folder, then round again (videos: masculine in es, pt-BR, it; feminine in fr). Begun with a capital
+en = All
+zh-Hans = 全部
+es = Todos
+pt-BR = Todos
+fr = Toutes
+de = Alle
+ja = すべて
+it = Tutti
+
 [sysmenu.muse_quit]
 note = MP4's menu row, its last, with X's glyph at its right (X does it from any row): leave MP4 for the screen it was opened from, as SELECT does; what plays keeps playing. The in-game menu's Quit (gamemenu.quit), the same word
 en = Quit

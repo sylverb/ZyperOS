@@ -54,6 +54,9 @@ typedef struct {
 	/* The focused entry's facts, as the cover row has them */
 	const char *played, *origin;
 	bool has_achievements, resumable, install, inside;
+	/* Splore's entries (src/games.h): the offer to add PICO-8, and one that
+	 * opens rather than plays; A says so and there is no Y, as on the others */
+	bool howto, opens;
 	int earned, total;
 	int folder;                   /* the focused entry is a folder of this many */
 	/* The word by START: the View it turns to (Covers) */

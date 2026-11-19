@@ -62,6 +62,7 @@ typedef struct {
 	/* The focused entry's facts, as the cover row has them */
 	const char *played, *origin;
 	bool has_achievements, resumable, install, inside;
+	bool howto, opens;     /* Splore's entry (src/games.h) */
 	int earned, total;
 } gl_info;
 
