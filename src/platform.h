@@ -454,7 +454,7 @@ bool plat_screen_saturation_here(void);
 /* Night Mode (src/nightmode.h, MENU > Display): the whole screen warmer,
  * always or by the Night Hours, in the same table as the Screen Colors.
  * Only where the profile has that table (plat_night_here, as
- * plat_screen_colors_here): not on the Brick.
+ * plat_screen_colors_here): the Pixel 2's VOP, the Brick's TCON.
  *
  * plat_night: the kept settings (src/nightkeep.c's night_keep calls it, and
  * plat_settings_init reads them at the start): the table now, at once, and

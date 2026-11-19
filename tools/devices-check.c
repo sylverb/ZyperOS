@@ -110,6 +110,7 @@ static void brick(void)
 	ck(p->model == &td_model_brick && !p->model_borrowed && p->bluetooth && !p->gpu_shaders && !p->gpu_frames &&
 	   !p->speaker_mono && !p->player2 && !p->usb_shared_port && p->wifi == DEV_WIFI_BUILTIN,
 	   "brick: its own model, Bluetooth, CPU shaders, no GPU frames, two speakers, no Player 2, built-in Wi-Fi");
+	ck(p->screen_colors, "brick: Screen Colors, on its display's own gamma table");
 	ck(menu && !strcmp(menu->label, "MENU") && menu->icon == DEV_ICON_NONE,
 	   "brick: MENU is the word (no vendor mark as an icon)");
 	ck(label_is(p, IN_BRIGHTDN, "F1") && label_is(p, IN_BRIGHTUP, "F2"),
