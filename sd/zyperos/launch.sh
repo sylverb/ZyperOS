@@ -487,7 +487,7 @@ run_port() {
 	# its desktop GL one, which SDL prefers once it has OpenGL, draws nothing
 	# but the clear color on the Pixel 2's Panfrost, so a port that draws with
 	# SDL_Renderer was black.
-	# The equalizer over the port's sound (DESIGN.md 11.55): while the
+	# The equalizer over the port's sound (DESIGN.md 11.60): while the
 	# launcher's bands are not flat and the system has ZyperOS's plugin
 	# (plastron's zyperos-eq), the port gets an ALSA config of its own whose
 	# default runs through it into the same mix (eq-port.sh); flat, no
