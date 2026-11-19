@@ -1573,18 +1573,18 @@ note = A choice for a button on the Controls tab, on the four systems with D-pad
 en = Stick On/Off
 zh-Hans = 摇杆开/关
 es = Palanca sí/no
-pt-BR = Analógico liga/desliga
+pt-BR = Analógico sim/não
 fr = Stick oui/non
 de = Stick an/aus
 ja = スティック切替
 it = Levetta sì/no
 
 [controls.stick_hold]
-note = A choice for a button on the Controls tab, beside controls.stick_toggle: while the button is held the d-pad is the game's left stick, and when it is let go it is the d-pad again (with D-pad as Stick on, the other way round). A value beside the button (358 units at most) and a row of the button's list of choices.
+note = A choice for a button on the Controls tab, beside controls.stick_toggle: while the button is held the d-pad is the game's left stick, and when it is let go it is the d-pad again (with D-pad as Stick on, the other way round). A value beside the button (358 units at most) and a row of the button's list of choices. es and pt-BR say it as controls.held_dpad does (Mantén: palanca, Segure: analógico), where the phrase did not fit.
 en = Stick While Held
 zh-Hans = 按住时摇杆
-es = Palanca al mantener
-pt-BR = Analógico ao segurar
+es = Mantén: palanca
+pt-BR = Segure: analógico
 fr = Stick si maintenu
 de = Stick beim Halten
 ja = 押す間スティック
