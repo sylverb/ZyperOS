@@ -21,8 +21,11 @@ bool mp4v_update(SDL_Renderer *r);
 
 /* The picture to draw, or NULL when there is none yet for the file playing -
  * the daemon has opened it and not decoded its first frame, or it is another
- * file's picture still sitting in the frames. */
-SDL_Texture *mp4v_texture(void);
+ * file's picture still sitting in the frames. In `src` (which may be NULL)
+ * the part of the texture the picture is in, to draw from: a picture smaller
+ * than 640x480 is in the top-left corner of a texture of that size, as a
+ * snap's is (src/mp4frame.h, mpf_tex_size). */
+SDL_Texture *mp4v_texture(SDL_Rect *src);
 
 /* The largest rectangle inside `box` with the picture's shape - its pixels'
  * own shape counted, for the anamorphic DVD rips that store 720x480 for a

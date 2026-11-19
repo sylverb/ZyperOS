@@ -47,7 +47,7 @@ src/i18n_tables.c: $(wildcard res/strings/*.txt) tools/i18n.py
 CHECKS = check-cheevos check-hare check-portal check-httpd check-idle check-taskhold check-saver check-rahash check-flacdec check-achtab check-rasubmit check-raoffline check-radl check-signin check-noticeq check-badges check-badge-shots \
          check-raset check-xfer check-sshlink check-usblink check-devmode check-devices check-devicegen check-model check-ctl check-menus check-artscrape check-artrun check-sgdb check-snapshelf check-snaps check-audioout \
          check-db check-coreopts check-gamedel check-gamern check-esmedia check-media check-snapsize check-corepins check-targets check-storage check-stats check-sort check-bt check-ss check-titles check-savedlib check-search \
-         check-muselib check-musequeue check-museart check-mp4lock check-mp4frame check-p2share check-webtheme check-p2ws check-p2codec check-p2d check-play check-p2 check-resident check-spawn check-controls check-remap check-controls-shots check-logpack \
+         check-muselib check-musequeue check-museart check-mp4lock check-mp4frame check-mp4size check-p2share check-webtheme check-p2ws check-p2codec check-p2d check-play check-p2 check-resident check-spawn check-controls check-remap check-controls-shots check-logpack \
          check-clock check-autozone check-status check-battery check-battery-eta check-dslang check-pacing check-gpuframes check-dsresume check-corestate check-core-stamp check-core-room check-px2-perf check-px2-snap check-px2 check-lowbatt check-powerhold check-homesys check-heat check-charging check-corner check-dsv check-sidelights check-osdbar check-hud check-dmodefit check-themefile check-pkkeys check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-bios check-gamefile check-kbnav check-randgame check-shelfdir check-look \
          check-tween check-menumotion check-menusnap check-cardgen check-cardart check-focusfx check-blur check-gridrule check-roundrect check-rowmacro check-emptyhome check-zyperrig check-sysmark check-flip check-menushots check-design \
          check-systemart check-linebreak check-portload check-portout check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-messages \
@@ -2241,6 +2241,28 @@ build-native/mp4frame-check: tools/mp4frame-check.c src/mp4frame.h FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O2 -g \
 	      -o $@ tools/mp4frame-check.c -lpthread
+
+# MP4's video picture of any shape - 4:3 (480x360, 320x240), odd, tiny, the
+# largest, the size changing inside one file - published as src/muse/vid.c
+# publishes it and read by src/mp4video.c into its texture: never under
+# 640x480 (src/mp4frame.h, mpf_tex_size: the Pixel 2's GPU faulted on
+# narrower ones), drawn whole from its own rectangle, nothing out of bounds
+# (UBSan where the compiler has it, and Guard Malloc on a Mac). Needs SDL2.
+check-mp4size:
+	@if pkg-config --exists sdl2 2>/dev/null; then \
+		$(MAKE) --no-print-directory build-native/mp4size-check || exit 1; \
+		if [ -f /usr/lib/libgmalloc.dylib ]; then gm=/usr/lib/libgmalloc.dylib; else gm=; fi; \
+		SDL_VIDEODRIVER=dummy SDL_RENDER_DRIVER=software DYLD_INSERT_LIBRARIES=$$gm \
+			./build-native/mp4size-check; \
+	else echo "check-mp4size: skipped, no SDL2"; fi
+
+build-native/mp4size-check: tools/mp4size-check.c src/mp4video.c src/mp4video.h src/mp4frame.h FORCE
+	@mkdir -p build-native
+	san=; echo 'int main(void){return 0;}' | $(CC) -fsanitize=undefined -x c - -o /dev/null 2>/dev/null && \
+		san='-fsanitize=undefined -fno-sanitize-recover=all'; \
+	$(CC) -std=gnu11 -Wall -Wextra -Wno-unused-parameter -D_GNU_SOURCE -O1 -g $$san -Isrc \
+	      -DMP4SIZE_FRAMES='"$(CURDIR)/build-native/mp4size-frames"' $$(pkg-config --cflags sdl2) \
+	      -o $@ tools/mp4size-check.c $$(pkg-config --libs sdl2) -lm
 
 # Player 2's frame codec (src/p2d/codec.c): a frame of palette indices, XORed
 # with the last one, raw-deflated; and the decoder the page mirrors. The check

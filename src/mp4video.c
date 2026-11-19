@@ -4,6 +4,8 @@
 
 #include <fcntl.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/mman.h>
 #include <unistd.h>
 
@@ -13,7 +15,8 @@
 static mpf_head    *g_head;          /* the frames, mapped read-only */
 static unsigned     g_tried_ms;      /* the last look for the file */
 static SDL_Texture *g_tex;
-static int          g_tw, g_th;      /* g_tex's size */
+static int          g_tw, g_th;      /* the picture's size, in g_tex's top-left corner */
+static int          g_xw, g_xh;      /* g_tex's own size: mpf_tex_size's */
 static uint32_t     g_seen;          /* the serial of the picture in g_tex */
 static uint32_t     g_file;          /* the file it came from */
 static uint32_t     g_color = MPF_BT601;
@@ -37,6 +40,22 @@ static bool mapped(void)
 	return true;
 }
 
+/* The whole texture black (studio range), so what is past a smaller picture
+ * is black and never a texel of an older, larger one at its edge. Only when
+ * the picture's size changes, never per frame. */
+static void clear_texture(void)
+{
+	size_t cw = mpf_chroma((uint32_t)g_xw), ch = mpf_chroma((uint32_t)g_xh);
+	uint8_t *y = malloc((size_t)g_xw * g_xh + 2 * cw * ch);
+
+	if (!y) return;
+	memset(y, 16, (size_t)g_xw * g_xh);
+	memset(y + (size_t)g_xw * g_xh, 128, 2 * cw * ch);
+	SDL_UpdateYUVTexture(g_tex, NULL, y, g_xw, y + (size_t)g_xw * g_xh, (int)cw,
+	                     y + (size_t)g_xw * g_xh + cw * ch, (int)cw);
+	free(y);
+}
+
 bool mp4v_update(SDL_Renderer *r)
 {
 	const mpf_slot *sl;
@@ -49,24 +68,39 @@ bool mp4v_update(SDL_Renderer *r)
 	w = sl->w;
 	h = sl->h;
 	if (!g_tex || g_tw != (int)w || g_th != (int)h) {
-		if (g_tex) SDL_DestroyTexture(g_tex);
-		g_tex = SDL_CreateTexture(r, SDL_PIXELFORMAT_IYUV, SDL_TEXTUREACCESS_STREAMING,
-		                          (int)w, (int)h);
-		if (!g_tex) {
-			fprintf(stderr, "mp4: no %ux%u video texture: %s\n", w, h, SDL_GetError());
-			g_seen = sl->serial;          /* not tried again every pass */
-			return false;
+		uint32_t xw, xh;
+
+		/* Never a texture under 640x480 (mpf_tex_size): the Pixel 2's GPU
+		 * faulted, and took the launcher with it, on snaps narrower than
+		 * that, and a 4:3 video is narrower too (480x360, 320x240). A
+		 * smaller picture goes in the corner of one that size and is drawn
+		 * from its own rectangle (mp4v_texture), as a snap is. */
+		mpf_tex_size(w, h, &xw, &xh);
+		if (!g_tex || g_xw != (int)xw || g_xh != (int)xh) {
+			if (g_tex) SDL_DestroyTexture(g_tex);
+			g_tex = SDL_CreateTexture(r, SDL_PIXELFORMAT_IYUV, SDL_TEXTUREACCESS_STREAMING,
+			                          (int)xw, (int)xh);
+			if (!g_tex) {
+				fprintf(stderr, "mp4: no %ux%u video texture: %s\n", xw, xh, SDL_GetError());
+				g_seen = sl->serial;          /* not tried again every pass */
+				g_tw = g_th = g_xw = g_xh = 0;
+				return false;
+			}
+			SDL_SetTextureBlendMode(g_tex, SDL_BLENDMODE_NONE);
+			g_xw = (int)xw;
+			g_xh = (int)xh;
 		}
-		SDL_SetTextureBlendMode(g_tex, SDL_BLENDMODE_NONE);
+		if (xw != w || xh != h) clear_texture();
 		g_tw = (int)w;
 		g_th = (int)h;
 	}
 	cw = mpf_chroma(w);
 	y = mpf_slot_data(g_head, s);
-	/* Straight from the shared pages to the GPU, no copy of our own. A
-	 * picture overwritten while it went (mpf_still_good) is taken again on
-	 * the next pass; the texture shows it for one frame at most. */
-	SDL_UpdateYUVTexture(g_tex, NULL, y, (int)w,
+	/* Straight from the shared pages to the GPU, no copy of our own: the
+	 * picture's own rectangle, the same bytes whatever the texture's size.
+	 * A picture overwritten while it went (mpf_still_good) is taken again
+	 * on the next pass; the texture shows it for one frame at most. */
+	SDL_UpdateYUVTexture(g_tex, &(SDL_Rect){ 0, 0, (int)w, (int)h }, y, (int)w,
 	                     y + (size_t)w * h, (int)cw,
 	                     y + (size_t)w * h + (size_t)cw * mpf_chroma(h), (int)cw);
 	g_file = sl->file;
@@ -76,8 +110,9 @@ bool mp4v_update(SDL_Renderer *r)
 	return true;
 }
 
-SDL_Texture *mp4v_texture(void)
+SDL_Texture *mp4v_texture(SDL_Rect *src)
 {
+	if (src) *src = (SDL_Rect){ 0, 0, g_tw, g_th };
 	if (g_test) return g_tex;
 	if (!g_tex || !g_head || g_file != g_head->file) return NULL;
 	/* The matrix the GPU's YUV shader uses, which SDL reads as it draws:
@@ -115,7 +150,7 @@ static void mp4v_release(void)
 {
 	if (g_tex) SDL_DestroyTexture(g_tex);
 	g_tex = NULL;
-	g_tw = g_th = 0;
+	g_tw = g_th = g_xw = g_xh = 0;
 	g_seen = 0;
 }
 
@@ -146,8 +181,8 @@ void mp4v_test_picture(SDL_Renderer *r, int w, int h)
 	g_tex = SDL_CreateTexture(r, SDL_PIXELFORMAT_IYUV, SDL_TEXTUREACCESS_STREAMING, w, h);
 	if (!g_tex) goto done;
 	SDL_UpdateYUVTexture(g_tex, NULL, yp, w, up, cw, vp, cw);
-	g_tw = w;
-	g_th = h;
+	g_tw = g_xw = w;
+	g_th = g_xh = h;
 	g_color = MPF_BT601;
 	g_test = true;
 done:
