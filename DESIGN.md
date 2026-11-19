@@ -1208,7 +1208,7 @@ where it was.)*
 |---|---|
 | **Games** | Search Games, Play Time, Random Game, Downloads (11.53) |
 | **Display** | Appearance, Theme, Home Screen, System Order, Home Systems, Battery Icon, Screensaver, Shader and Strength (ZyperOS's own screens', 11.50; not on the Brick), Screen Colors, Night Mode (its page: Night Mode, Night Warmth, Night From, Until) |
-| **Sound** | Audio Output, Audio Channels, Equalizer (11.55), UI Sounds, Menu Music, Rumble (a handheld with a motor ZyperOS runs, 11.54) |
+| **Sound** | Audio Output, Audio Channels, Equalizer (11.60), UI Sounds, Menu Music, Rumble (a handheld with a motor ZyperOS runs, 11.54) |
 | **Connections** | USB Device (while a plug waits), Wi-Fi, Bluetooth, File Transfer, USB Accessories, Developer Mode |
 | **System** | Date & Time, Clock, Language, Power Button, Auto Off, Charge Limit, Side Lights, Storage, System Update |
 | **About** | About ZyperOS, Controls, Show Tutorial |
@@ -5643,7 +5643,7 @@ game's with its file. Host shots: `menu-rumble`, `menu-rumble-list` (and
 `gamemenu-rumble`, `gamemenu-rumble-list`, `gamemenu-rumble-own-list`
 (tools/i18n-shots.py; `--gm-rumble` stands in for the core's asking).
 
-### 11.55 Equalizer
+### 11.60 Equalizer
 *(Asked for on the Discord after 1.0.6: more bass, and a system-wide
 equalizer. My picks in the Sound lab, 2026-11-19: one preset for the speaker
 and one for headphones, presets and five bands of your own, everything that

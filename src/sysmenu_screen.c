@@ -1229,7 +1229,7 @@ static void screen_colors_screen(app *a)
 	plat_screen_colors_tick(true);
 }
 
-/* ---- MENU > Sound > Equalizer (src/eq.h, DESIGN.md 11.55) ----------------- */
+/* ---- MENU > Sound > Equalizer (src/eq.h, DESIGN.md 11.60) ----------------- */
 
 /* The output whose preset the page shows: where the system's sound goes */
 /* --eq-phones: a shot's headphones, for the computer has no jack */
