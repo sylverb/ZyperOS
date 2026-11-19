@@ -82,6 +82,7 @@ Each line has its details in [the guide](docs/guide.md).
 - **Ports:** the Ports shelf installs the official [PortMaster](https://portmaster.games) with one press and runs its games, such as Stardew Valley and Celeste, with ZyperOS's in-game menu over every port ([how](docs/guide.md#portmaster)).
 - **Nintendo DS your way:** [DSperate](https://github.com/beebono/DSperate) with three screen layouts, a d-pad stylus and a language you pick for each game ([notes](docs/guide.md#nintendo-ds)).
 - **Nintendo 64 and Dreamcast:** ParallelN64 with Glide64 holds Super Mario 64 and Mario Kart 64 at 30 frames a second on my Pixel 2, and flycast2021 runs the Dreamcast ([Dreamcast](docs/guide.md#dreamcast)).
+- **Zipped games** read stored, Deflate or LZMA, and a zip it cannot read says so on the shelf.
 - **Two Game Boy cores:** mGBA, or Gambatte from the Game Boy and Game Boy Color shelves' Core row.
 - **Smooth or exact timing** in the Game Boy, Game Boy Advance, DS and Genesis shelves: one game frame for each screen refresh, or the console's own speed for timers and rhythm games.
 - **A home in pixel art:** every system as its own animated console on a Spotlight, Gallery or Grid home, with Favorites, Recents and a choice of which systems show ([the shelf](docs/guide.md#the-shelf)).

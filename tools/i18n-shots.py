@@ -869,6 +869,8 @@ for _name, _flags in (("shelf-video", ["--screen", "games", "--view", "video"]),
     EXTRA.setdefault(_name, ("demo", "PS1", _flags))
 
 
+# A zip whose game Diatom cannot unpack (DESIGN.md 11.56): its message
+EXTRA.setdefault("launch-zip-method", ("demo", "SFC", ["--screen", "games", "--zip-said"]))
 # Two cores on the Game Boy shelves (DESIGN.md 11.55): the GB shelf's menu
 # on Core, and a game's details with its Core fact
 EXTRA.setdefault("system-menu-core-gb", ("demo", "GB", ["--screen", "games", "--menu", "Core"]))
