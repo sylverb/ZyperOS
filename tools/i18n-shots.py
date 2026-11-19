@@ -338,8 +338,13 @@ EXTRA = {
     # over a video, where the panel is the same and the picture is under it
     # MP4's menu on its shelf, which shows All (albums and videos mixed)
     "mp4-menu": ("media", "MUSE", ["--screen", "games", "--menu"]),
+    # its Repeat row on One, the value no other shot has
+    "mp4-menu-repeat-one": ("media", "MUSE", ["--screen", "games", "--menu", "--mode", "repeat one"]),
     # MP4's menu with its cursor on the Equalizer row, the same as MENU's
     "mp4-menu-eq": ("media", "MUSE", ["--screen", "games", "--menu", "Equalizer"]),
+    # its Album Art row, under the fold since Repeat and Equalizer (opened, it
+    # asks MusicBrainz, which no shot can hold still)
+    "mp4-menu-art": ("media", "MUSE", ["--screen", "games", "--menu", "Album Art"]),
     "mp4-locked": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--locked"]),
     "mp4-locked-video": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--video", "hidden", "--locked"]),
     "tour-lang": ("demo", "PS1", ["--tour", "lang", "3500"]),
@@ -923,6 +928,15 @@ EXTRA.setdefault("theme-folders-orange", ("demo", "PS1", ["--look", "lime,warm,b
                                                           "--look-page", "theme", "3"]))
 EXTRA.setdefault("theme-folders-list-system", ("demo", "PS1", ["--look-page", "theme-list", "3", "--pick-at", "0"]))
 EXTRA.setdefault("theme-folders-list-teal", ("demo", "PS1", ["--look-page", "theme-list", "3", "--pick-at", "3"]))
+# Highlight (the focus lab, 2026-11-19): its row in focus on each choice,
+# the pictures over it showing the dock's mark as the choice has it, and its
+# list with the home's three systems beside it marked as the choice under
+# the cursor marks them, each choice's note under the picture
+for _k, _f in enumerate(("bar", "border", "lift", "none")):
+    EXTRA.setdefault("theme-highlight-" + _f, ("demo", "PS1", ["--look", "lime,warm,black,rounded,on,system," + _f,
+                                                              "--look-page", "theme", "5"]))
+    EXTRA.setdefault("theme-highlight-list-" + _f, ("demo", "PS1", ["--look-page", "theme-list", "5",
+                                                                   "--pick-at", str(_k)]))
 # Timing's list (src/pacing.h): two choices, opened on A all the same for
 # the picture beside it (the two ways, slowed) and what each does under it
 for _k, _p in enumerate(("smooth", "exact")):
@@ -1095,6 +1109,32 @@ for _name, _shot in (("menu-power-hold", ("demo", "PS1", ["--menu-tab", "4", "--
     SHOT_SETTINGS[_name] = {"power.button": "hold"}
 PORT_FOCUS["port-plain-0-hold"] = "Plain.sh"
 
+# Your PICO-8 (src/pico8.h, DESIGN.md 11.55), on a card of its own with the
+# payload's script and Splore's art and a cart, but not PICO-8's own files:
+# Splore first on the shelf, Not installed, A How to Add; the page A opens
+# there; and what it says over the shelf (src/launch_screen.c's
+# p8_said_shot): a zip copied by hand taken, with its version and without,
+# and not taken (another PICO-8's zip, one that could not be), Splore with
+# no network joined, Delete Game on Splore, and Splore's question with no
+# network
+def pico8_card(card):
+    R.card_dirs(card)
+    (card / "ZyperOS/pico8").mkdir()
+    shutil.copy(ROOT / "sd/pixel2/PICO-8.sh", card / "ZyperOS/pico8/PICO-8.sh")
+    for art in ("cover-light.png", "cover-dark.png", "icon.png"):
+        shutil.copy(ROOT / "res/pico8" / art, card / "ZyperOS/pico8" / art)
+    # fake08, the shelf's other core, as the payload has it (a stand-in file)
+    (card / "ZyperOS/cores").mkdir()
+    (card / "ZyperOS/cores/fake08_libretro.so").write_bytes(b"")
+    (card / "Roms/PICO-8").mkdir(parents=True)
+    (card / "Roms/PICO-8/Cloud Hopper.p8").write_text("pico-8 cartridge // stand-in\n")
+
+
+EXTRA["pico8-splore"] = ("pico8", "PICO8", ["--screen", "games"])
+EXTRA["pico8-page"] = ("pico8", "PICO8", ["--screen", "games", "--pico8-page"])
+for _k in range(7):
+    EXTRA["pico8-said-%d" % _k] = ("pico8", "PICO8", ["--screen", "games", "--pico8-said", str(_k)])
+
 
 # The demonstration card with one game in each system that has none (a name
 # and its first extension, from config/systems.cfg), so that every system is
@@ -1128,7 +1168,7 @@ KNOWN_KEYS = set()
 
 # The scratch cards every run shoots from, by name
 CARDS = ["demo", "empty", "scummvm", "openbor", "ports", "all", "portdocs", "media", "pmcard", "psp",
-         "es", "systems"]
+         "es", "systems", "pico8"]
 
 
 def make_cards(top):
@@ -1151,6 +1191,7 @@ def make_cards(top):
     R.scummvm_card(cards["scummvm"])
     R.openbor_card(cards["openbor"])
     R.psp_card(cards["psp"])
+    pico8_card(cards["pico8"])
     R.card_dirs(cards["empty"])
 
 
@@ -1220,7 +1261,7 @@ def run_language(code, shots, binary, keep, theme="light", device="pixel2", firs
             reset_state(template if template is not None else Path(tmp) / "template", card)
             focus = PORT_FOCUS.get(name) or CTL_FOCUS.get(name) or R.SHOT_FOCUS.get(name) or \
                 {"PS1": R.FOCUS + ".chd", "SCUMMVM": R.SCUMMVM_FOCUS, "OPENBOR": R.OPENBOR[0],
-                 "PRT": "PortMaster.sh"}.get(tag, "")
+                 "PRT": "PortMaster.sh", "PICO8": "Splore.splore"}.get(tag, "")
             (card / "ZyperOS/.last").write_text(tag + "\n" + focus + "\n")
             # A state of the update page: its status, with or without a network
             up = card / "userdata/update"

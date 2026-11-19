@@ -77,7 +77,7 @@ static void gi_gather(app *a, int owner, const game_entry *g, game_info *gi)
 	gi->has_snap = (snaps_path(P_ROMS, s->folder, g->name, p, sizeof p) &&
 	                stat(p, &st) == 0 && st.st_size > 0) ||
 	               es_media(P_ROMS, s->folder, g->file, g->name, ES_VIDEO, true, p, sizeof p);
-	gi->own_art = pm_cover_path(a, owner, g, theme_index(), p, sizeof p);
+	gi->own_art = own_cover_path(a, owner, g, theme_index(), p, sizeof p);
 	/* PortMaster's entry with PortMaster on the card: Reinstall PortMaster */
 	gi->can_reinstall = pm_is_entry(a, owner, g) && pm_on_card(s->folder);
 

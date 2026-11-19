@@ -190,6 +190,7 @@ void look_set(const look *l)
 	g_look = l ? *l : LOOK_DEFAULT;
 	g_look.accent = clamp_ix(g_look.accent, DS_ACCENTS);
 	g_look.folder = clamp_ix(g_look.folder, LOOK_FOLDERS);
+	g_look.focus = clamp_ix(g_look.focus, LOOK_FOCUSES);
 	for (t = 0; t < DS_THEMES; t++) {
 		g_look.tone[t] = clamp_ix(g_look.tone[t], DS_TONES);
 		look_theme(t, DS_TONE[t][g_look.tone[t]], DS_ACCENT[g_look.accent], &g_live[t]);
@@ -223,6 +224,27 @@ bool look_square(void)
 bool look_zyper_off(void)
 {
 	return g_look.zyper_off;
+}
+
+static const char *const FOCUS_WORD[LOOK_FOCUSES] = { "bar", "border", "lift", "none" };
+
+int look_focus(void)
+{
+	return g_look.focus;
+}
+
+int look_focus_parse(const char *word)
+{
+	int i;
+
+	for (i = 0; word && i < LOOK_FOCUSES; i++)
+		if (!strcmp(FOCUS_WORD[i], word)) return i;
+	return LOOK_FOCUS_BAR;
+}
+
+const char *look_focus_word(int focus)
+{
+	return FOCUS_WORD[clamp_ix(focus, LOOK_FOCUSES)];
 }
 
 unsigned look_folder_rgb(unsigned system_rgb)

@@ -90,6 +90,105 @@ de = Eckig
 ja = 四角
 it = Squadrati
 
+[look.highlight]
+note = A row of the Theme page (the focus lab, 2026-11-19): how the item in focus is marked on the home and the shelves; its values are Bar, Border, Lift and None
+en = Highlight
+zh-Hans = 高亮
+es = Resaltado
+pt-BR = Realce
+fr = Surbrillance
+de = Hervorhebung
+ja = ハイライト
+it = Evidenziazione
+
+[look.focus_bar]
+note = Highlight's value: the item in focus grows a little, a short bar under it (as it ships)
+en = Bar
+zh-Hans = 横条
+es = Barra
+pt-BR = Barra
+fr = Barre
+de = Balken
+ja = バー
+it = Barra
+
+[look.focus_border]
+note = Highlight's value: a ring in the accent color round the item in focus
+en = Border
+zh-Hans = 边框
+es = Borde
+pt-BR = Borda
+fr = Contour
+de = Rahmen
+ja = 枠
+it = Bordo
+
+[look.focus_lift]
+note = Highlight's value: the item in focus rises on a soft shadow
+en = Lift
+zh-Hans = 浮起
+es = Elevación
+pt-BR = Elevação
+fr = Relief
+de = Anheben
+ja = 浮き上がり
+it = Rilievo
+
+[look.focus_none]
+note = Highlight's value: no mark (agrees with Highlight's own word where a language has genders)
+en = None
+zh-Hans = 无
+es = Ninguno
+pt-BR = Nenhum
+fr = Aucune
+de = Keine
+ja = なし
+it = Nessuna
+
+[look.focus_bar_note]
+note = Under Highlight's list, beside its picture, for Bar: what it does, one sentence
+en = The item in focus grows a little, with a short bar under it.
+zh-Hans = 焦点项目会稍稍放大，下方有一条短横条。
+es = El elemento seleccionado crece un poco, con una barra corta debajo.
+pt-BR = O item em foco cresce um pouco, com uma barra curta embaixo.
+fr = L'élément sélectionné grandit un peu, avec une petite barre dessous.
+de = Das ausgewählte Element wird größer, mit kurzem Balken darunter.
+ja = 選択中の項目が少し大きくなり、下に短いバーが付きます。
+it = L'elemento selezionato si ingrandisce un po', con una barretta sotto.
+
+[look.focus_border_note]
+note = Under Highlight's list, beside its picture, for Border: what it does, one sentence
+en = A ring in the accent color goes round the item in focus.
+zh-Hans = 焦点项目外有一圈强调色的边框。
+es = Un borde del color de acento rodea el elemento seleccionado.
+pt-BR = Uma borda na cor de destaque contorna o item em foco.
+fr = Un contour de la couleur d'accent entoure l'élément sélectionné.
+de = Ein Rahmen in der Akzentfarbe umgibt das ausgewählte Element.
+ja = 選択中の項目をアクセントの色の枠が囲みます。
+it = Un bordo del colore d'accento circonda l'elemento selezionato.
+
+[look.focus_lift_note]
+note = Under Highlight's list, beside its picture, for Lift: what it does, one sentence
+en = The item in focus rises on a soft shadow.
+zh-Hans = 焦点项目在柔和的阴影上浮起。
+es = El elemento seleccionado se eleva sobre una sombra suave.
+pt-BR = O item em foco se eleva sobre uma sombra suave.
+fr = L'élément sélectionné s'élève sur une ombre douce.
+de = Das ausgewählte Element hebt sich auf einem weichen Schatten ab.
+ja = 選択中の項目がやわらかい影の上に浮き上がります。
+it = L'elemento selezionato si solleva su un'ombra morbida.
+
+[look.focus_none_note]
+note = Under Highlight's list, beside its picture, for None: what it does, one sentence
+en = No mark: the item in focus grows and the others step back.
+zh-Hans = 没有标记：焦点项目放大，其他项目变暗。
+es = Sin marca: el elemento seleccionado crece y los demás se atenúan.
+pt-BR = Sem marca: o item em foco cresce e os outros ficam mais apagados.
+fr = Sans repère : l'élément sélectionné grandit et les autres s'estompent.
+de = Keine Markierung: Das Element wächst, die anderen treten zurück.
+ja = 印なし：選択中の項目が大きくなり、ほかの項目は控えめになります。
+it = Nessun segno: l'elemento selezionato si ingrandisce e gli altri si attenuano.
+
 [look.zyper]
 note = A row of the Theme page: Zyper in the menus' corner, the song pop-up and the achievement notice, On or Off
 en = Zyper
@@ -102,7 +201,7 @@ ja = Zyper
 it = Zyper
 
 [look.reset]
-note = The Theme page's last row: the accent, tones, folders' color, corners and Zyper as ZyperOS ships them
+note = The Theme page's last row: the accent, tones, folders' color, corners, Highlight and Zyper as ZyperOS ships them
 en = Reset to Default
 zh-Hans = 恢复默认
 es = Restablecer

@@ -231,6 +231,14 @@ int sys_menu_coll_rows(bool inside, sm_coll_row *out);
  * Lock Screen is the pocket lock, the way to find it without knowing X:
  * live while something plays, and saying so when nothing does.
  *
+ * Repeat, on the shelves with videos (Videos, and All), is videos' own play
+ * mode: Off (in order, as before), One (the video playing, again and again)
+ * or All (its folder, round again), never shuffled; kept like music's mode,
+ * whose Y on Now Playing it leaves alone (2026-11-19: loop playback, a film
+ * left playing as a decoration). Its marks are music's, in the video's
+ * controls. Auto Off waits while something plays, so a loop keeps the screen
+ * on as long as it plays.
+ *
  * Quit, the last row on every MP4 shelf, leaves MP4 for the screen it was
  * opened from, as the in-game menu's Quit leaves a game, and X does it from
  * any row (its glyph at the row's right, MENU_KEY_X). It leaves as SELECT
@@ -241,8 +249,8 @@ int sys_menu_coll_rows(bool inside, sm_coll_row *out);
  * Equalizer, over Lock Screen on every kind: the same row and page as
  * MENU's, there while music or a video plays (2026-11-19). */
 typedef enum { SMM_COUNT, SMM_SHOW, SMM_SORT, SMM_SHUFFLE, SMM_EQ, SMM_LOCK, SMM_ART,
-               SMM_RESCAN, SMM_QUIT } sm_muse_row;
-#define SM_MUSE_ROWS 9
+               SMM_RESCAN, SMM_QUIT, SMM_REPEAT } sm_muse_row;
+#define SM_MUSE_ROWS 10
 
 /* MP4's rows in order, for the kind its shelf shows - 0 music, 1 books,
  * 2 videos, muselib.h's ml_kind, and 3 all of them with music among them
@@ -320,6 +328,7 @@ typedef struct {
 	bool muse_songs;         /* and the card has music, for All's rows */
 	bool muse_both;          /* and the card has more than one kind */
 	bool muse_playing;       /* and music is playing, so it can lock */
+	const char *muse_repeat; /* videos' Repeat, as its row says it */
 
 	/* What the device HAS, rather than what state it is in. A radio that is
 	 * merely off keeps its rows, saying "needs Wi-Fi", because turning it on
