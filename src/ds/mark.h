@@ -23,8 +23,8 @@ void ds_switch(SDL_Renderer *r, int cx, int cy, int d, ui_glyph g, bool on);
 
 /* A cover's play mark, that it has a video snap: the **accent** disc `d`
  * across with its top left at (x, y), a play triangle in **on-accent** in
- * it, a sixteenth of `d` right of its middle (the triangle's ink sits left in
- * its box); at `al`. On the shelf, the list and Cover and Video. */
+ * it, its centroid on the disc's middle (UI_GLYPH_PLAY is drawn so); at
+ * `al`. On the shelf, the list, Cover and Video, and a paused video. */
 void ds_play_disc(SDL_Renderer *r, int x, int y, int d, Uint8 al);
 
 /* More rows above or below a list (DESIGN.md 11.3): a triangle DS_MORE_W

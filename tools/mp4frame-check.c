@@ -28,9 +28,10 @@ static void *writer(void *arg)
 	for (n = 1; n <= FRAMES; n++) {
 		int s = mpf_begin(h);
 
-		memset(mpf_slot_data(base, s), (int)(n & 0xff), mpf_bytes(W, H));
+		memset(mpf_slot_data(base, s), (int)(n & 0xff), mpf_bytes(mpf_stride(W), H));
 		h->slot[s].w = W;
 		h->slot[s].h = H;
+		h->slot[s].stride = mpf_stride(W);
 		h->slot[s].serial = n;
 		h->slot[s].pts = n / 25.0;
 		mpf_publish(h, s);
@@ -43,7 +44,7 @@ int main(void)
 {
 	mpf_head *h;
 	pthread_t th;
-	uint8_t *copy = malloc(mpf_bytes(W, H));
+	uint8_t *copy = malloc(mpf_bytes(mpf_stride(W), H));
 	uint32_t seen = 0, kept = 0, torn = 0, retried = 0, last = 0, backwards = 0;
 
 	printf("mp4frame: the daemon's pictures, read while they are written\n");
@@ -64,13 +65,13 @@ int main(void)
 
 		if (s < 0) continue;
 		serial = h->slot[s].serial;
-		memcpy(copy, mpf_slot_data(base, s), mpf_bytes(h->slot[s].w, h->slot[s].h));
+		memcpy(copy, mpf_slot_data(base, s), mpf_bytes(h->slot[s].stride, h->slot[s].h));
 		if (!mpf_still_good(h, s, seq)) { retried++; continue; }
 		seen = serial;
 		kept++;
 		if (serial < last) backwards++;
 		last = serial;
-		for (i = 0; i < mpf_bytes(W, H); i++)
+		for (i = 0; i < mpf_bytes(mpf_stride(W), H); i++)
 			if (copy[i] != (uint8_t)(serial & 0xff)) { torn++; break; }
 	}
 	pthread_join(th, NULL);

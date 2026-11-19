@@ -967,7 +967,7 @@ static void system_menu(void)
 		m.wifi = WIFI_CONNECTED;     /* the case above left the radio down */
 		mn = sys_menu_build(&m, mrows, &mb, &mhead);
 		printf("MP4's shelf menu:\n");
-		ck(mn == 7, "seven rows with only music");
+		ck(mn == 8, "eight rows with only music, Quit last");
 		ck(!strcmp(mrows[0].label, "Albums") && !strcmp(val(&mrows[0]), "7"),
 		   "how many albums");
 		ck(!strcmp(mrows[1].label, "Sort By") && mrows[1].live &&
@@ -1012,7 +1012,7 @@ static void system_menu(void)
 		m.wifi = WIFI_CONNECTED;
 		m.muse_both = true;
 		mn = sys_menu_build(&m, mrows, &mb, &mhead);
-		ck(mn == SM_MUSE_ROWS, "eight rows with more than one kind");
+		ck(mn == SM_MUSE_ROWS, "nine rows with more than one kind");
 		ck(!strcmp(mrows[1].label, "Show") && mrows[1].live &&
 		   !strcmp(val(&mrows[1]), "Music"), "Show, on music");
 		ck(!strcmp(mrows[2].label, "Sort By") && !strcmp(mrows[3].label, "Shuffle All") &&
@@ -1022,7 +1022,7 @@ static void system_menu(void)
 		m.muse_books = true;
 		m.game_count = 2;
 		mn = sys_menu_build(&m, mrows, &mb, &mhead);
-		ck(mn == 5, "five rows on books");
+		ck(mn == 6, "six rows on books");
 		ck(!strcmp(mrows[0].label, "Books") && !strcmp(val(&mrows[0]), "2"),
 		   "how many books");
 		ck(!strcmp(val(&mrows[1]), "Audiobooks"), "Show, on books");
@@ -1038,7 +1038,7 @@ static void system_menu(void)
 		m.muse_videos = true;
 		m.game_count = 3;
 		mn = sys_menu_build(&m, mrows, &mb, &mhead);
-		ck(mn == 5 && !strcmp(mrows[0].label, "Videos") && !strcmp(val(&mrows[0]), "3") &&
+		ck(mn == 6 && !strcmp(mrows[0].label, "Videos") && !strcmp(val(&mrows[0]), "3") &&
 		   !strcmp(val(&mrows[1]), "Videos") && !strcmp(val(&mrows[2]), "Folder"),
 		   "on videos: how many, Show, by folder");
 		for (k = 0; k < mn; k++)
@@ -1073,9 +1073,28 @@ static void system_menu(void)
 			ck(sys_menu_muse_rows(3, true, false, ids) == SM_MUSE_ROWS && ids[3] == SMM_SHUFFLE,
 			   "All with songs has every row");
 
-			ck(sys_menu_muse_rows(true, false, false, ids) == 4 && ids[1] == SMM_SORT &&
-			   ids[2] == SMM_LOCK,
-			   "books alone: the count, Sort By, Lock Screen and Rescan Folder");
+			ck(sys_menu_muse_rows(true, false, false, ids) == 5 && ids[1] == SMM_SORT &&
+			   ids[2] == SMM_LOCK && ids[3] == SMM_RESCAN && ids[4] == SMM_QUIT,
+			   "books alone: the count, Sort By, Lock Screen, Rescan Folder and Quit");
+			/* Quit last on every shelf of MP4's, live, X's glyph its
+			 * value: X does it from any row (DESIGN.md 11.14) */
+			for (int kind = 0; kind <= 3; kind++)
+				for (int both = 0; both <= 1; both++)
+					for (int nw = 0; nw <= 1; nw++) {
+						int q = sys_menu_muse_rows(kind, both, nw, ids);
+						ck(q > 0 && ids[q - 1] == SMM_QUIT,
+						   "Quit is the last row on every MP4 shelf");
+					}
+		}
+		{
+			int q;
+
+			m.muse_books = false;
+			mn = sys_menu_build(&m, mrows, &mb, &mhead);
+			q = mn - 1;
+			ck(mn > 0 && !strcmp(mrows[q].label, "Quit") && mrows[q].value == MENU_KEY_X &&
+			   mrows[q].live && !menu_sound_at(mb.sound, mn, q),
+			   "MP4's Quit: last, live, X's glyph at its right, plain to the ear");
 		}
 	}
 }
