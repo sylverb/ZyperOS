@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "design.h"
+#include "ds/layout.h"
 #include "device/profile.h"
 #include "platform.h"
 #include "focusgeo.h"
@@ -15,11 +16,11 @@
 
 /* The ring and its gap (Highlight's Border, fine), and Bar's bar, in units:
  * each drawn as the whole panel pixels they come to (src/focusgeo.h) */
-#define RING_GAP    3
-#define RING_LINE   3
-#define BAR_W       40
-#define BAR_H       6
-#define BAR_UNDER   8
+#define RING_GAP    DS_FOCUS_GAP
+#define RING_LINE   DS_FOCUS_RING
+#define BAR_W       DS_FOCUS_BAR_W
+#define BAR_H       DS_FOCUS_BAR_H
+#define BAR_UNDER   DS_FOCUS_BAR_UNDER
 
 ds_focus_marks ds_focus_marks_of(int kind)
 {
