@@ -153,7 +153,7 @@ From 1.0.6, ZyperOS runs on a second handheld, the TrimUI Brick (TG3040), drawn 
 - **Install it with ZyperOS Installer.** Pick **TrimUI Brick**. The Brick's graphics and Wi-Fi need closed files made for its chips (Imagination's GPU driver and XRadio's Wi-Fi firmware), which ZyperOS does not pass on, so the installer downloads them from where they are published, Creality's Sonic Pad SDK on GitHub, checks each one, and puts them only on your card. An image writer gives the card none of them, so use the installer.
 - **Wi-Fi is built in,** so File Transfer, box art, achievements and System Update need no adapter.
 - **The 3D systems are hidden for now:** Dreamcast, NAOMI, Atomiswave, Nintendo 64, PSP and Saturn, whose cores draw with the GPU. They come once those cores run on the Brick's graphics chip.
-- **Not there yet:** PortMaster's ports, Flash Drive, Screen Colors, the old-screen shaders (CRT, CRT Curved, Scanlines and LCD Grid; Sharp-Shimmerless is there), NES Player 2, the charge limit and the Brick's lights. Nobody has tried Bluetooth headphones with ZyperOS on a Brick yet.
+- **Not there yet:** PortMaster's ports, your own PICO-8 and Splore (FAKE-08 plays the carts), Flash Drive, Screen Colors, the old-screen shaders (CRT, CRT Curved, Scanlines and LCD Grid; Sharp-Shimmerless is there), NES Player 2, the charge limit and the Brick's lights. Nobody has tried Bluetooth headphones with ZyperOS on a Brick yet.
 - **The Brick Hammer** runs the same card, but nobody has tried one yet. The Brick Pro isn't supported yet.
 
 I don't have a Brick myself: players on [the ZyperOS Discord](https://discord.gg/Ust8sE22Tm) test it for me. If you have one, your logs help a lot (**Download logs** on File Transfer's page, or the card's `.userdata/brick/logs`).
@@ -203,7 +203,7 @@ Every system has a folder under `Roms/`, and a system with nothing in its folder
 | OpenBOR | `Roms/OpenBOR` | `.pak` | OpenBOR |
 | Nintendo DS | `Roms/Nintendo DS` | `.nds` `.zip` | DSperate |
 | PSP | `Roms/PSP` | `.iso` `.cso` `.chd` `.pbp` | PPSSPP |
-| PICO-8 | `Roms/PICO-8` | `.p8` `.png` | FAKE-08 |
+| PICO-8 | `Roms/PICO-8` | `.p8` `.png` | Your own PICO-8 ([how](#pico-8)), or FAKE-08 |
 | TIC-80 | `Roms/TIC-80` | `.tic` `.png` | TIC-80 |
 | Arcade | `Roms/Arcade` | `.zip` `.7z` | FinalBurn Neo |
 | MAME | `Roms/MAME` | `.zip` | MAME 2003-Plus |
@@ -253,7 +253,24 @@ Saturn games run on YabaSanshiro and need the Saturn's BIOS in `Bios/` (above). 
 
 ### PICO-8
 
-PICO-8 carts are `.p8` files or `.p8.png` images and run on FAKE-08, an open reimplementation: you don't need Lexaloffle's PICO-8.
+PICO-8 carts are `.p8` files or `.p8.png` images. Copy them into `Roms/PICO-8`. They run on FAKE-08, an open reimplementation, so you don't need Lexaloffle's PICO-8.
+
+**Your own PICO-8.** On the GKD Pixel 2, ZyperOS can also run the PICO-8 you bought from Lexaloffle. It plays every cart as PICO-8 does, and it adds **Splore**, PICO-8's online cart browser. ZyperOS never comes with PICO-8 and never downloads it: it is Lexaloffle's to sell, and you add your own copy. Every PICO-8 purchase includes the **PICO-8 for Raspberry Pi** download, `pico-8_<version>_raspi.zip` (0.2.7 is the newest). Only that zip has `pico8_64`, the build the handheld runs.
+
+There are two ways to add it:
+
+- **With ZyperOS Installer:** choose the zip in the installer's **PICO-8** group. **Update** and **Fresh install** add it with ZyperOS, and **Add PICO-8** adds it alone to a card that already has ZyperOS, with no password and no system write. The installer only reads the zip on your computer and copies two files to your card. It sends nothing anywhere and keeps no copy.
+- **By hand:** copy the zip as it comes, or its two files `pico8_64` and `pico8.dat`, into `Bios/PICO-8` on the card (with File Transfer, Computer Connected, or the card in a computer). At the next start, or after **Rescan**, ZyperOS takes the two files out of the zip and says so. Another zip there, such as the Windows one, gets a message that says it is not the Raspberry Pi zip.
+
+Once your PICO-8 is on the card:
+
+- **Carts open in it.** MENU on the PICO-8 shelf, **Core**, goes back to fake08 and forward again. FAKE-08 keeps save states, Resume and Undo Load; PICO-8 has no save states.
+- **Splore** is the PICO-8 shelf's first entry. It needs Wi-Fi to list and download carts. With Wi-Fi off, ZyperOS asks first: **Turn On Wi-Fi** joins your saved network, and **Open Offline** opens Splore with the carts it downloaded before. Its favourites stay in Splore.
+- **A cart's own saves** (high scores, progress) are one set for both players, in `Saves/cdata`, so you can switch players and keep them. PICO-8's settings and Splore's downloads are in `Saves/PICO-8`.
+- **The picture** follows the shelf's **Display** row: **Sharp Pixels** is three times PICO-8's 128 pixels, 384 x 384, and every other mode fills the screen's height, 480 x 480.
+- **Its buttons:** the d-pad is PICO-8's arrows, **B** its O button, **A** its X button, and **START** its own pause menu (its **shutdown** ends it). **MENU** opens ZyperOS's menu over it, and **X** there quits. **MENU+START** held for a second goes back home, even when PICO-8 stops answering. The volume keys and **MENU+VOL** work as in any game, and **POWER** ends PICO-8 before the handheld turns off.
+
+Before your PICO-8 is on the card, Splore shows **Not installed**, and **A** opens a page that says how to add it. The TrimUI Brick gets your own PICO-8 together with its ports ([the Brick](#the-trimui-brick)); until then its PICO-8 shelf plays on FAKE-08.
 
 ### PSP
 
@@ -473,7 +490,7 @@ than any one console:
 | **System Order** | the home's systems `A to Z` by name, on a new device and after an upgrade, or by `Release Date`. Favorites stays first, then Recents, and Ports and MP4 stay last |
 | **Home Systems** | which shelves the home shows: `All`, or how many are on. A opens a switch for Favorites, Recents (the ten games played last) and every system with games; Left, Right or A turns one on or off. A hidden system leaves the home, Random Game, Search, Favorites and Recents, and its games stay on the card. The last system on stays on |
 | **Appearance** | `Light` or `Dark`. `Light` on a new device and after an upgrade; a handheld that had `Auto` keeps the one it showed when it updated. Night Mode, on the Pixel 2, warms the screen by the hours instead - see [Screen Colors and Night Mode](#screen-colors-and-night-mode) |
-| **Theme** | your look, in Display: **Accent** (ten colors, the same in both themes), **Light Background** and **Dark Background** (three tones each), **Folder Color**, **Corners** (`Rounded` or `Square`), **Zyper** (`On` or `Off`) and **Reset to Default**. Left and right change a row at once; A opens its list, where the whole screen shows the choice under the cursor and B puts back what you had. **Folder Color** is the color of the folders of games on the shelves and of the consoles' folders on the File Transfer page: `System Colors`, each folder in its own system's color, or one of the ten accents for every folder. Its list shows three folders in the color under the cursor. `Lime`, `Warm`, `Black`, `System Colors`, `Rounded` and Zyper `On` on a new device and after an upgrade |
+| **Theme** | your look, in Display: **Accent** (ten colors, the same in both themes), **Light Background** and **Dark Background** (three tones each), **Folder Color**, **Corners** (`Rounded` or `Square`), **Highlight**, **Zyper** (`On` or `Off`) and **Reset to Default**. Left and right change a row at once; A opens its list, where the whole screen shows the choice under the cursor and B puts back what you had. **Folder Color** is the color of the folders of games on the shelves and of the consoles' folders on the File Transfer page: `System Colors`, each folder in its own system's color, or one of the ten accents for every folder. Its list shows three folders in the color under the cursor. **Highlight** is how the game or system in focus is marked on the home and the shelves: `Bar` (it grows a little, a short bar under it), `Border` (a ring in the accent round it), `Lift` (it rises on a soft shadow) or `None` (it grows, nothing else); in each, the others step back a little. Its list shows three of your systems marked that way. Menus keep their highlight bar whatever it says. `Lime`, `Warm`, `Black`, `System Colors`, `Rounded`, `Bar` and Zyper `On` on a new device and after an upgrade |
 | **Scraper** | box art, its sources and video snaps - see below. Its value is how many games have no cover, or `Complete` |
 | **Achievements** | the RetroAchievements account, or `Sign in`. **A** opens its page, which downloads every game's achievements for offline play - see **Achievements** below |
 | **Shader** | `Off`, `CRT`, `CRT Curved`, `Scanlines` or `LCD Grid` for ZyperOS's own screens: the home, the shelves, the menus and every screen while no game is on. A opens the list, and the choice under the cursor shows on the whole screen until you choose. Each system's games keep their own shader, set in the system's menu or in a game. `Off` on a new device and after an upgrade. Not on the Brick - see **Shaders** below |
@@ -1698,9 +1715,11 @@ folder: one named cover or folder, or the only one there.
 
 **Videos** go in `Videos/` on the card. A film on its own goes straight in, `Videos/Where the Light Is.mp4`, and is a card of its own; a folder of videos is a series, its files in name order, with seasons as folders inside it if you like: `Videos/Planet Earth/01 From Pole to Pole.mp4`. A picture named like the film, `Where the Light Is.jpg`, is its cover; otherwise MP4 takes one from the video itself. Every video remembers where you stopped.
 
-The Pixel 2 has no hardware video decoder that its Linux can use, so its four cores decode in software. **H.264 in an .mp4 plays smoothly up to 720p**; 854x480 or 640x360 is the size to make for its 640x480 screen, and costs a fraction of the battery. HEVC and VP9 play up to about 480p. 1080p only just keeps up, dropping frames when the picture moves a lot. AV1 does not play. MKV, WebM, MOV and AVI files play too, if the video inside them is one of those.
+The Pixel 2 has no hardware video decoder that its Linux can use, so its four cores decode in software. **H.264 in an .mp4 plays smoothly up to 720p**; 854x480 or 640x360 is the size to make for its 640x480 screen, and costs a fraction of the battery. HEVC and VP9 play up to about 480p. 1080p only just keeps up, dropping frames when the picture moves a lot. AV1 plays up to 1440x1080 at 24 fps, 1280x720 at 60 fps and 1920x1080 at 30 fps; 1920x1080 at 60 fps does not keep up. MKV, WebM, MOV and AVI files play too, if the video inside them is one of those. A video too big to play smoothly says so over its picture, and one whose picture cannot play here says that instead of staying black.
 
 **Y** turns a video between full screen, where the controls show only when you press a button, and a view with its controls always on screen.
+
+**Repeat**, in MP4's menu on Videos and All only, is how videos play on: `Off`, each once and in order; `One`, the video playing again and again; or `All`, its folder round again. It is `Off` on a new card, changes a video already playing, and leaves music's play mode as it is. With `One` or `All` the controls show its mark before the time left, and the screen stays on while the video plays.
 
 **Lock Screen**, for a pocket: press **X** or **SELECT + START** together on
 any MP4 screen while something plays, or pick Lock Screen in MP4's menu. With

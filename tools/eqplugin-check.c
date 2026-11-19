@@ -1,0 +1,171 @@
+/* SPDX-License-Identifier: GPL-3.0-only */
+/* The ports' equalizer plugin (plastron's zyperos-eq, a LADSPA plugin),
+ * loaded on this computer the way alsa-lib's ladspa PCM loads it on the
+ * handheld - dlopen, ladspa_descriptor, instantiate, connect, activate,
+ * run - with the launcher's file stood in for by $ZYPEROS_EQ_FILE:
+ *
+ *     make check-eqplugin
+ *
+ * No file and a flat file pass the sound through untouched; Voice lifts a
+ * 1 kHz tone by about 3 dB; a change to the file is followed within a
+ * period and 20 ms; and what it costs on a second of 48 kHz stereo. */
+#include <dlfcn.h>
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+#include <unistd.h>
+
+#include "../plastron/buildroot/package/zyperos-eq/src/ladspa.h"
+#include "../src/eqdsp.h"
+
+#define RATE   48000
+#define PERIOD 512      /* the Pixel 2's dmix period */
+
+static int fails;
+
+static void report(int ok, const char *name, double got)
+{
+	printf("  %s %s (%.3f)\n", ok ? "PASS" : "FAIL", name, got);
+	if (!ok) fails++;
+}
+
+static char share_file[64];
+
+static void put_bands(int seq, const int8_t db[EQ_BANDS])
+{
+	eq_share s = { EQ_SHARE_MAGIC, (uint32_t)seq, { 0 }, { 0 } };
+	FILE *f = fopen(share_file, "r+b");
+
+	memcpy(s.db, db, EQ_BANDS);
+	if (!f) f = fopen(share_file, "wb");
+	if (!f) return;
+	fwrite(&s, sizeof s, 1, f);
+	fclose(f);
+}
+
+static void tone(float *l, float *r, int n, float hz, int from)
+{
+	int i;
+
+	for (i = 0; i < n; i++)
+		l[i] = r[i] = 0.25f * sinf(2.0f * 3.14159265f * hz * (float)(from + i) / RATE);
+}
+
+static double rms_db(const float *x, int n)
+{
+	double sq = 0;
+	int i;
+
+	for (i = 0; i < n; i++) sq += (double)x[i] * x[i];
+	return 20.0 * log10(sqrt(sq / n) / (0.25 / sqrt(2.0)));
+}
+
+int main(int argc, char **argv)
+{
+	static float il[RATE], ir[RATE], ol[RATE], or_[RATE];
+	const LADSPA_Descriptor *(*get)(unsigned long);
+	const LADSPA_Descriptor *d;
+	LADSPA_Handle h;
+	const int8_t voice[EQ_BANDS] = { -2, 0, 3, 3, 0 }, flat[EQ_BANDS] = { 0 };
+	void *so;
+	int at, same;
+	double g;
+
+	if (argc < 2 || !(so = dlopen(argv[1], RTLD_NOW))) {
+		printf("eqplugin: cannot load %s: %s\n", argc > 1 ? argv[1] : "(none)", dlerror());
+		return 1;
+	}
+	snprintf(share_file, sizeof share_file, "/tmp/eqplugin-check-%d", (int)getpid());
+	unlink(share_file);
+	setenv("ZYPEROS_EQ_FILE", share_file, 1);
+	printf("eqplugin: zyperos_eq as alsa-lib loads it\n");
+	get = (const LADSPA_Descriptor *(*)(unsigned long))dlsym(so, "ladspa_descriptor");
+	d = get ? get(0) : NULL;
+	report(d && !strcmp(d->Label, "zyperos_eq") && d->PortCount == 4 && get(1) == NULL &&
+	       LADSPA_IS_PORT_INPUT(d->PortDescriptors[0]) && LADSPA_IS_PORT_OUTPUT(d->PortDescriptors[3]) &&
+	       !strcmp(d->PortNames[1], "Input R") && !strcmp(d->PortNames[2], "Output L"),
+	       "one_stereo_plugin_labelled_zyperos_eq", 0);
+	if (!d) return 1;
+	h = d->instantiate(d, RATE);
+	d->connect_port(h, 0, il);
+	d->connect_port(h, 1, ir);
+	d->connect_port(h, 2, ol);
+	d->connect_port(h, 3, or_);
+
+	/* No file: the sound as it came */
+	d->activate(h);
+	tone(il, ir, RATE, 1000.0f, 0);
+	for (at = 0; at < RATE; at += PERIOD) {
+		d->connect_port(h, 0, il + at); d->connect_port(h, 1, ir + at);
+		d->connect_port(h, 2, ol + at); d->connect_port(h, 3, or_ + at);
+		d->run(h, (unsigned long)(RATE - at < PERIOD ? RATE - at : PERIOD));
+	}
+	report(!memcmp(il, ol, sizeof il) && !memcmp(ir, or_, sizeof ir), "no_file_touches_nothing", 0);
+	d->deactivate(h);
+
+	/* Flat in the file: the same */
+	put_bands(2, flat);
+	d->activate(h);
+	for (at = 0; at < RATE; at += PERIOD) {
+		d->connect_port(h, 0, il + at); d->connect_port(h, 1, ir + at);
+		d->connect_port(h, 2, ol + at); d->connect_port(h, 3, or_ + at);
+		d->run(h, (unsigned long)(RATE - at < PERIOD ? RATE - at : PERIOD));
+	}
+	report(!memcmp(il, ol, sizeof il), "flat_touches_nothing", 0);
+
+	/* Voice written while it runs: followed at the next period, its 1 kHz
+	 * about +3 dB once the move is over */
+	put_bands(4, voice);
+	for (at = 0; at < RATE; at += PERIOD) {
+		d->connect_port(h, 0, il + at); d->connect_port(h, 1, ir + at);
+		d->connect_port(h, 2, ol + at); d->connect_port(h, 3, or_ + at);
+		d->run(h, (unsigned long)(RATE - at < PERIOD ? RATE - at : PERIOD));
+	}
+	g = rms_db(ol + RATE / 2, RATE / 2);
+	report(g > 2.4 && g < 3.6, "voice_written_while_it_runs_lifts_1_khz_3_db", g);
+	same = !memcmp(ol, or_, sizeof ol);
+	report(same, "both_channels_alike_for_a_mono_tone", 0);
+
+	/* A file half written (an odd sequence) is not taken: the bands stay */
+	put_bands(5, flat);
+	for (at = 0; at < RATE; at += PERIOD) {
+		d->connect_port(h, 0, il + at); d->connect_port(h, 1, ir + at);
+		d->connect_port(h, 2, ol + at); d->connect_port(h, 3, or_ + at);
+		d->run(h, (unsigned long)(RATE - at < PERIOD ? RATE - at : PERIOD));
+	}
+	g = rms_db(ol + RATE / 2, RATE / 2);
+	report(g > 2.4, "a_file_half_written_is_not_taken", g);
+
+	/* What it costs: Voice over a second, a period at a time */
+	{
+		const int reps = 20;
+		struct timespec t0, t1;
+		double s;
+		int k;
+
+		put_bands(6, voice);
+		clock_gettime(CLOCK_MONOTONIC, &t0);
+		for (k = 0; k < reps; k++)
+			for (at = 0; at < RATE; at += PERIOD) {
+				d->connect_port(h, 0, il + at); d->connect_port(h, 1, ir + at);
+				d->connect_port(h, 2, ol + at); d->connect_port(h, 3, or_ + at);
+				d->run(h, (unsigned long)(RATE - at < PERIOD ? RATE - at : PERIOD));
+			}
+		clock_gettime(CLOCK_MONOTONIC, &t1);
+		s = ((double)(t1.tv_sec - t0.tv_sec) + (t1.tv_nsec - t0.tv_nsec) / 1e9) / reps;
+		printf("  cost: %.3f ms for a second of 48 kHz stereo in %d-frame periods: %.3f%% of one core here\n",
+		       s * 1000.0, PERIOD, s * 100.0);
+		report(s < 0.02, "costs_under_2_percent_of_a_core_here", s * 100.0);
+	}
+	d->deactivate(h);
+	d->cleanup(h);
+	unlink(share_file);
+	if (fails) {
+		printf("\n%d failure%s\n", fails, fails == 1 ? "" : "s");
+		return 1;
+	}
+	printf("ok\n");
+	return 0;
+}

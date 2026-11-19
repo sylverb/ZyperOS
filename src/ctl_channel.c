@@ -131,7 +131,7 @@ static bool ctl_resolve(app *a, const ctl_cmd *c, bool rescan, ctl_target *t,
 			         c->core);
 			return false;
 		}
-		if (!core_present(alt)) {
+		if (!core_ready(s, alt)) {
 			*code = "unknown-core";
 			snprintf(msg, mn, "%s is not on the card", alt);
 			return false;
