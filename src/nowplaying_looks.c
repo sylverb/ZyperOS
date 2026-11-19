@@ -20,6 +20,7 @@
 #include "app.h"
 #include "cassette.h"
 #include "config.h"
+#include "covercolor.h"
 #include "db.h"
 #include "design.h"
 #include "ds/flex.h"
@@ -37,6 +38,7 @@
 #include "shots.h"
 #include "theme.h"
 #include "ui.h"
+#include "vinyl.h"
 
 #include <limits.h>
 #include <math.h>
@@ -574,7 +576,9 @@ static float song_frac(const mu_now *mn)
  * a frame by turn_step for the look that has them. */
 static mp4l_spin g_spin;
 static mp4l_tape g_tape;
+static mp4l_disc g_disc;
 static cas_tex   g_cas;
+static vin_tex   g_vin;
 
 /* The label's words, and the last song's leaving as a new one's arrive:
  * they go in **exit** (in), up a grid step and out, and the new ones come
@@ -601,30 +605,48 @@ static struct {
  * six teeth would seem to stand or turn back. */
 #define CAS_WIND 800.0f
 
-/* The reels and the tape for this frame: `gap` says the last frame was
- * long ago (a menu, the lock, Now Playing opening), and then the tape is
- * where the song is without a rewind to get there */
-static void turn_step(const mu_now *mn, float dt, bool gap)
+static int song_album(const mu_now *mn, int *place);
+
+/* The tonearm's needle for the song: its place on the album's grooves */
+static float arm_target(const mu_now *mn)
+{
+	int place, al = song_album(mn, &place), n = al >= 0 ? g_muse.albums[al].n : mn->count;
+
+	if (place < 0) place = mn->index;
+	return vin_groove_r(place, n, song_frac(mn));
+}
+
+/* What turns, for this frame: the reels and the tape, or the record and its
+ * arm. `gap` says the last frame was long ago (a menu, the lock, Now
+ * Playing opening), and then the tape and the needle are where the song is
+ * with no rewind or glide to get there */
+static void turn_step(mp4l_id look, const mu_now *mn, float dt, bool gap)
 {
 	float target = song_frac(mn);
 
 	if (gap) {
 		g_tape.known = false;
+		g_disc.known = false;
 		g_spin = (mp4l_spin){ .v = mn->state == MU_PLAYING ? 1.0f : 0.0f,
 		                      .to = mn->state == MU_PLAYING ? 1.0f : 0.0f };
 		dt = 0;
 	}
 	mp4l_spin_to(&g_spin, mn->state == MU_PLAYING);
 	mp4l_spin_step(&g_spin, dt);
-	mp4l_tape_step(&g_tape, dt, mn->index, target, g_spin.v, CAS_TAPE_SPEED, CAS_HUB_R,
-	               CAS_PACK_R, CAS_WIND);
+	if (look == MP4L_CASSETTE)
+		mp4l_tape_step(&g_tape, dt, mn->index, target, g_spin.v, CAS_TAPE_SPEED, CAS_HUB_R,
+		               CAS_PACK_R, CAS_WIND);
+	else
+		mp4l_disc_step(&g_disc, dt, g_spin.v, arm_target(mn));
 }
 
-static bool turn_moving(const mu_now *mn)
+static bool turn_moving(mp4l_id look, const mu_now *mn)
 {
 	float target = song_frac(mn);
 
-	return mp4l_spin_moving(&g_spin) || mp4l_tape_moving(&g_tape, target) || g_lab.moving;
+	if (mp4l_spin_moving(&g_spin)) return true;
+	if (look == MP4L_CASSETTE) return mp4l_tape_moving(&g_tape, target) || g_lab.moving;
+	return mp4l_disc_moving(&g_disc, arm_target(mn));
 }
 
 /* The label's words for the song: the side its place in the album puts it
@@ -771,6 +793,110 @@ static unsigned cassette(SDL_Renderer *r, const npl_frame *F, const mu_now *mn, 
 	return wait;
 }
 
+/* ---- Vinyl ------------------------------------------------------------------------ */
+
+/* The label: the cover itself as a disc of triangles round (cx, cy), its
+ * picture turned `ang` degrees clockwise - the record's angle - by turning
+ * where each edge point reads it from, inside the picture's square so its
+ * corners never show. The light's shadow round the label's edge, over it,
+ * softens the triangles' straight sides. */
+#define LABEL_STEPS 96
+
+static void label_draw(SDL_Renderer *r, SDL_Texture *cover, float cx, float cy, float rad, float ang)
+{
+	SDL_Vertex v[LABEL_STEPS + 1];
+	int idx[LABEL_STEPS * 3], i;
+	float turn = ang * (float)M_PI / 180.0f;
+	const SDL_Color white = { 255, 255, 255, 255 };
+
+	v[0] = (SDL_Vertex){ { cx, cy }, white, { 0.5f, 0.5f } };
+	for (i = 0; i < LABEL_STEPS; i++) {
+		float a = 2.0f * (float)M_PI * (float)i / LABEL_STEPS;
+
+		v[i + 1] = (SDL_Vertex){ { cx + rad * cosf(a), cy + rad * sinf(a) }, white,
+		                         { 0.5f + 0.5f * cosf(a - turn), 0.5f + 0.5f * sinf(a - turn) } };
+		idx[i * 3] = 0;
+		idx[i * 3 + 1] = 1 + i;
+		idx[i * 3 + 2] = 1 + (i + 1) % LABEL_STEPS;
+	}
+	SDL_RenderGeometry(r, cover, v, LABEL_STEPS + 1, idx, LABEL_STEPS * 3);
+}
+
+/* A record turning at 33 1/3, pressed in the cover's main color and
+ * darkened, the cover its label, the album's songs its rings; the tonearm's
+ * needle on the song's place among them; the names and the bars beside it
+ * (the lab's, my pick). */
+static unsigned vinyl(SDL_Renderer *r, const npl_frame *F, const mu_now *mn, unsigned phase)
+{
+	static ds_flex L;
+	const ds_theme *th = theme();
+	unsigned wait = (unsigned)-1, rgb = g_np.rgb != CFG_NO_COLOR ? g_np.rgb : ui_rgb(th->accent);
+	int root, rec, col, names, count, title, artist, area, place, al, n;
+	SDL_Rect rr, cr, ct, tt, wr, ar;
+	float cx, cy, px, py, a = VIN_PIVOT_A * (float)M_PI / 180.0f;
+	int col_x;
+	const int plate = (int)ceilf(VIN_PLATTER_R) * 2 + 4, face = (int)ceilf(VIN_R) * 2 + 4;
+
+	al = song_album(mn, &place);
+	n = al >= 0 ? g_muse.albums[al].n : mn->count;
+	/* The record left in the room and on its middle; the column from a
+	 * section past the tonearm's base, on the grid */
+	root = ds_flex_begin(&L, F->content.w, F->content.h, &(ds_box){ .dir = DS_ROW, .align = DS_A_CENTER });
+	rec = ds_flex_add(&L, root, &(ds_box){ .w = DS_LOOK_RECORD, .h = DS_LOOK_RECORD });
+	ds_flex_solve(&L);
+	rr = at(&L, rec, F->content.x, F->content.y);
+	rr.y = rr.y / DS_GRID * DS_GRID;
+	cx = (float)rr.x + DS_LOOK_RECORD / 2.0f;
+	cy = (float)rr.y + DS_LOOK_RECORD / 2.0f;
+	px = cx + VIN_PIVOT_D * cosf(a);
+	py = cy + VIN_PIVOT_D * sinf(a);
+	col_x = ((int)ceilf(px) + 38 + DS_SECTION + DS_GRID - 1) / DS_GRID * DS_GRID;
+
+	root = ds_flex_begin(&L, F->content.x + F->content.w - col_x, DS_LOOK_RECORD,
+	                     &(ds_box){ .dir = DS_COL, .justify = DS_J_BETWEEN,
+	                                .pad = { 0, DS_SECTION, 0, DS_SECTION } });
+	names = ds_flex_add(&L, root, &(ds_box){ .dir = DS_COL });
+	count = ds_flex_add(&L, names, &(ds_box){ .h = DS_LINE_META });
+	title = ds_flex_add(&L, names, &(ds_box){ .h = DS_LINE_TITLE });
+	artist = ds_flex_add(&L, names, &(ds_box){ .h = DS_LINE_MENU });
+	area = ds_flex_add(&L, root, &(ds_box){ .h = DS_LOOK_LIST_ROW * 2 });
+	ds_flex_solve(&L);
+	col = 0;
+	(void)col;
+	cr = at(&L, root, col_x, rr.y);
+	ct = at(&L, count, col_x, rr.y);
+	tt = at(&L, title, col_x, rr.y);
+	wr = at(&L, artist, col_x, rr.y);
+	ar = at(&L, area, col_x, rr.y);
+	(void)cr;
+
+	if (!vin_ready(r, &g_vin, th, theme_index() == DS_DARK, cover_rgb_darken(rgb, 0.20f, 0.55f), n))
+		return wait;
+	/* The platter, the record's face, its label turning, the light that
+	 * does not, the spindle */
+	SDL_RenderCopyF(r, g_vin.deck, NULL, &(SDL_FRect){ cx - plate / 2.0f, cy - plate / 2.0f, plate, plate });
+	SDL_RenderCopyF(r, g_vin.face, NULL, &(SDL_FRect){ cx - face / 2.0f, cy - face / 2.0f, face, face });
+	if (g_np.tex) label_draw(r, g_np.tex, cx, cy, VIN_LABEL_R, g_disc.ang);
+	SDL_RenderCopyF(r, g_vin.light, NULL, &(SDL_FRect){ cx - face / 2.0f, cy - face / 2.0f, face, face });
+	/* The tonearm on its base, turned to put its needle on the song */
+	{
+		int bw, bh, aw, ah;
+
+		SDL_QueryTexture(g_vin.base, NULL, NULL, &bw, &bh);
+		SDL_QueryTexture(g_vin.arm, NULL, NULL, &aw, &ah);
+		SDL_RenderCopyF(r, g_vin.base, NULL, &(SDL_FRect){ px - bw / 2.0f, py - bh / 2.0f, bw, bh });
+		SDL_RenderCopyExF(r, g_vin.arm, NULL, &(SDL_FRect){ px - VIN_ARM_PX, py - VIN_ARM_PY, aw, ah },
+		                  vin_arm_angle(g_disc.arm), &(SDL_FPoint){ VIN_ARM_PX, VIN_ARM_PY }, SDL_FLIP_NONE);
+	}
+
+	/* The names, and the bars at the column's foot */
+	count_mark(r, mn, ct.x, ct.y, -1);
+	line(r, UI_F_TITLE, mn->title, tt.x, tt.y, tt.w, phase, UI_TEXT, &wait);
+	line(r, UI_F_MENU, mn->artist, wr.x, wr.y, wr.w, phase, UI_TEXT_SOFT, &wait);
+	bars(r, &M.bars, ar.x, ar.y + ar.h, ar.h, 0);
+	return wait;
+}
+
 /* ---- the look --------------------------------------------------------------------- */
 
 /* Now Playing in `look`, its bars stepped to `bands` (NULL: falling) */
@@ -790,12 +916,14 @@ static unsigned look_draw(app *a, mp4l_id look, const mu_now *mn, const uint8_t 
 		bool gap = !M.at || dt > 250.0f || M.still || (int)look != M.look;
 
 		/* A shot's tape where its song is, the hubs at rest */
-		if (look == MP4L_CASSETTE) turn_step(mn, gap || M.shot ? 0 : dt, gap || M.still || M.shot);
+		if (look == MP4L_CASSETTE || look == MP4L_VINYL)
+			turn_step(look, mn, gap || M.shot ? 0 : dt, gap || M.still || M.shot);
 	}
 	motion_step(look, bands);
 	frame_layout(&F, h, nh);
 	ground(r);
 	wait = look == MP4L_CASSETTE ? cassette(r, &F, mn, phase)
+	     : look == MP4L_VINYL ? vinyl(r, &F, mn, phase)
 	     : look == MP4L_CLASSIC ? classic(r, &F, mn, phase)
 	     : look == MP4L_SPECTRUM ? spectrum(r, &F, mn, phase) : (unsigned)-1;
 	frame_time(r, &F, mn, look == MP4L_CLASSIC);
@@ -803,7 +931,7 @@ static unsigned look_draw(app *a, mp4l_id look, const mu_now *mn, const uint8_t 
 	              true, 255);
 	/* Music playing moves every frame; paused, until the bars are down */
 	if (!M.still && !M.shot && (mn->state == MU_PLAYING || !mp4l_bars_rest(&M.bars) ||
-	                            (look == MP4L_CASSETTE && turn_moving(mn))))
+	                            ((look == MP4L_CASSETTE || look == MP4L_VINYL) && turn_moving(look, mn))))
 		wait = 0;
 	corner = draw_topbar(r, theme_index(), UI_TEXT_SOFT, wait <= 50 || frames_wanted());
 	return corner < wait ? corner : wait;
