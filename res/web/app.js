@@ -180,19 +180,50 @@ let blinkTimer = 0;
 
 function pinDigits() { return boxes.map((b) => b.value).join(''); }
 
-function showGate(msg) {
+/* The cursor goes to the first box with no digit yet, or the last box */
+function focusFirstEmpty() {
+	const i = boxes.findIndex((b) => !b.value);
+	boxes[i < 0 ? boxes.length - 1 : i].focus();
+}
+
+/* `keep` is the first load's gate: it has been up since the page came, with
+ * the cursor in it (autofocus), and digits typed before the handheld said
+ * there was no session stay where they are. */
+function showGate(msg, keep) {
 	closeMenu(true);
 	closeDialog(null);
 	$('app').hidden = true;
 	$('gate').hidden = false;
-	gateSay(msg || '', false);
-	boxes.forEach((b) => { b.value = ''; });
-	$('boxes').classList.remove('bad', 'busy');
-	zy.classList.remove('shut', 'tilt', 'hop');
-	checking = false;
-	boxes[0].focus();
+	if (!keep) {
+		gateSay(msg || '', false);
+		boxes.forEach((b) => { b.value = ''; });
+		$('boxes').classList.remove('bad', 'busy');
+		zy.classList.remove('shut', 'tilt', 'hop');
+		checking = false;
+	}
+	if (!checking) focusFirstEmpty();
 	blinkSoon();
 }
+
+/* A digit typed while no box has the cursor - the page came up behind
+ * another window, or a click on the page took the cursor out of the boxes -
+ * goes into the first empty box, as if that box had had the cursor. */
+document.addEventListener('keydown', (e) => {
+	if ($('gate').hidden || checking || boxes.includes(document.activeElement)) return;
+	if (e.ctrlKey || e.metaKey || e.altKey || !/^[0-9]$/.test(e.key)) return;
+	e.preventDefault();
+	const i = boxes.findIndex((b) => !b.value);
+	fill(i < 0 ? boxes.length - 1 : i, e.key);
+});
+
+/* Back to the page from the browser's history, or from another window: the
+ * cursor goes back to the boxes if nothing else on the page has it. */
+const backToBoxes = () => {
+	if (!$('gate').hidden && !checking &&
+	    (!document.activeElement || document.activeElement === document.body)) focusFirstEmpty();
+};
+window.addEventListener('pageshow', backToBoxes);
+window.addEventListener('focus', backToBoxes);
 
 /* What the PIN screen says when the handheld forgot this browser: and that a
  * file waiting to go on goes on after the PIN (resuming, below) */
@@ -2959,14 +2990,20 @@ function toast(msg, bad, action) {
 /* A reload should not always mean re-entering the PIN: the cookie may still be
  * good. Ask for the roots, and only show the gate if that is refused. */
 (async () => {
+	let refused = false;
 	try {
 		const r = await fetch('/api/list', { credentials: 'same-origin' });
-		if (!r.ok) throw new Error();
+		if (!r.ok) { refused = true; throw new Error(); }
 		$('gate').hidden = true;
 		$('app').hidden = false;
 		await start();
 	} catch (e) {
 		/* An expired session has put the gate up already, with its words */
-		if (e.message !== 'unauthorized') showGate('');
+		if (e.message === 'unauthorized') return;
+		/* The gate has been up since the page came, and the PIN may be half
+		 * typed already: it stays. A PIN typed and let in before the handheld
+		 * answered has taken the page past the gate, and is not asked again. */
+		if (refused) { if (!$('gate').hidden) showGate('', true); }
+		else showGate('');
 	}
 })();
