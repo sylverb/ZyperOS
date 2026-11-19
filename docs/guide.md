@@ -356,8 +356,11 @@ list carries on past its end, while a held button stops at the end.
 few letters of its name, on any system. **Random Game** picks one and starts
 it, from every system in MENU or from one shelf in that system's menu.
 
-**MENU > Controls** lists the buttons on five pages.
-Left and right change the page, and the top right of each says which it is, "2 / 5". The pages cover movement, the shelf, games, MP4, and common controls.
+**MENU > Controls** lists the buttons on six pages, each drawn as your
+handheld prints it (the Pixel 2's round SE and ST keys, the Brick's square and
+play keys), with "+" for buttons held together and "," for one press after the
+other.
+Left and right change the page, and the top right of each says which it is, "2 / 6". The pages cover movement, the shelf, games, hotkeys, MP4, and common controls.
 The shelf always runs horizontally.
 
 **Changing a button.** The in-game menu's **Controls** tab (MENU in a game, then
@@ -401,9 +404,17 @@ need one. **D-pad as Stick**, On or Off for each game, makes the d-pad the
 left stick in Nintendo 64 games (On to start with), Dreamcast, PlayStation and
 PSP games. In a Nintendo 64 or Dreamcast game, SELECT then the d-pad is the
 system's own d-pad (the tab's SELECT row says "C buttons" or "Held: D-pad"). On
-the PSP, R2 in the game still turns it on and off, and the row agrees. A
+the PSP, R2 in the game turns it on and off, and the row agrees. A
 PlayStation game moves with the stick only in the pad's analog mode, which many
 games turn on themselves.
+
+On those four systems any button but SELECT can turn the d-pad too: give it
+**Stick On/Off**, and each press turns the d-pad into the stick and back (a
+pop-up says which, and the game keeps it), or **Stick While Held**, and the
+d-pad is the stick while you hold the button and the d-pad again when you let
+go (with D-pad as Stick on, the other way round). They are the last two of a
+button's choices. The PSP's R2 is Stick On/Off from the start; give it to
+another button, or make R2 something else.
 
 **Face Buttons** (Dreamcast, Saturn and Neo Geo Pocket games) swaps all four
 faces at once: **By Letter**, each cap gives the button it names, or **By
@@ -492,7 +503,7 @@ page for that console alone.
 | **Videos** | the video snaps it will get, the room they will add (`+525 MB`) and on how many systems; `all off` to start, `needs ScreenScraper` with no account |
 | under the heading | about how long the run will take (`about 35 min`), or `Needs Wi-Fi` |
 | over the keys | the names a run will look up for games that have a cover but no name (`199 names`, gone with **Names and Details** off), then the room: what the run will add and what the card has (`656 MB to fetch · 11.2 GB free`). In red when the run would leave less than 200 MB free; then **A** does not start it, and says `Not enough room on the card` |
-| **A** Fetch | runs it over Wi-Fi: the game it is asking about, its system, the source it asks and how many games it has looked at (`31 / 142`). Each cover found lands big, beside the six before it, and the time left is beside a clock. **B** stops, and so does a card down to its last 100 MB. Then **All done**: the covers found, how many came, how many are still missing, and the room the videos take |
+| **A** Fetch | runs it over Wi-Fi: the game it is asking about, its system, the source it asks and how many games it has looked at (`31 / 142`). Each cover found lands big, beside the six before it, and the time left is beside a clock. **B** continues in the background: the page closes and the run goes on (below); **Y** stops, and so does a card down to its last 100 MB. Then **All done**: the covers found, how many came, how many are still missing, and the room the videos take |
 | **Y** Systems | a tile for each system with two marks, covers and videos, and under them the focused system's covers missing and videos to fetch. **A** turns the system's covers on or off (on to start), **X** its videos (off to start: a snap is a megabyte or three), and **Y** picks **Videos for**: **All Games**, **Favorites** or **Played**, for every system with videos on, each with how many videos and how much to fetch |
 | **START** Settings | **ScreenScraper**, **SteamGridDB**, **Videos** and **Names and Details**, below |
 
@@ -527,6 +538,14 @@ it goes back to the cover when the focus moves or a menu opens. Its page:
 A snap is `Roms/<console>/.media/<name>.mp4`, beside its cover, so one put
 there by hand plays too.
 
+**A run goes on behind the menus.** **B** on a Scraper run, or on an
+Achievements download, closes its page and the run goes on: the corner by
+the battery shows an arrow into a tray with a ring that fills as it goes,
+and the two runs can go at the same time, each asking its own servers.
+Open the page again to see it where it is, or how it ended. While you play a
+game the runs wait, and they go on when you leave the game. Powering off
+stops them; the next run starts from what is missing.
+
 **Auto Off waits for a fetch.** While a Scraper run, from MENU or a
 console's Box Art, is fetching covers or video snaps, Auto Off does not count, so a library left to
 scrape overnight is not cut short; the count starts again, whole, when the run
@@ -555,7 +574,7 @@ MENU > **Achievements** gets them for every game at once, ahead of time, so a ga
 | **To Download** | the games never checked, and about how much they will add to the card (`+14 MB`); `all checked` when there are none |
 | under the heading | about how long a download takes (`about 3 min`), `Every game checked`, `Sign in to download`, or `Needs Wi-Fi` |
 | over the keys | what a download will add (with the card's room when it has less than 2 GB free) and how many games RetroAchievements has nothing for (`23 games have none`: a hack, a copy it does not know, or a game with no achievements) |
-| **A** Download | asks RetroAchievements about every game: the game it is asking about, its system and how many games it has looked at (`214 / 553`). Each set that arrives shows with its badges (`Just added: ...`). **B** stops. Then **All done**: the games ready offline and the achievements your account already had for them; or **Stopped**, with why; or **Sign in again** when RetroAchievements refused the account, and **A** signs in |
+| **A** Download | asks RetroAchievements about every game: the game it is asking about, its system and how many games it has looked at (`214 / 553`). Each set that arrives shows with its badges (`Just added: ...`). **B** continues in the background, **Y** stops. Then **All done**: the games ready offline and the achievements your account already had for them; or **Stopped**, with why; or **Sign in again** when RetroAchievements refused the account, and **A** signs in |
 | **Y** Account | signs in again, or as somebody else. Signed out, **A** signs in |
 
 A download asks only what is missing. A game whose achievements are already
