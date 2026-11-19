@@ -62,9 +62,9 @@ size=$(rsh 'cat /sys/block/mmcblk0/size' < /dev/null) || die "cannot reach $HOST
 rsh 'cat /mnt/SDCARD/ZyperOS/VERSION' < /dev/null | sed 's/^/shaderdemo-device: ZyperOS /'
 
 # What the device's Diatom draws with: its GLSL, as text in the binary, is
-# this tree's (diatom/port/pixel2.c, its shaders' whole lines), or the shots
+# this tree's (diatom/port/gles_draw.h, its shaders' whole lines), or the shots
 # say nothing about it
-python3 - "$REPO/diatom/port/pixel2.c" > "$OUT/glsl.txt" <<'EOF' || die "could not read the GLSL"
+python3 - "$REPO/diatom/port/gles_draw.h" > "$OUT/glsl.txt" <<'EOF' || die "could not read the GLSL"
 import re, sys
 lines = open(sys.argv[1], encoding="utf-8").read().splitlines()
 a = next(i for i, l in enumerate(lines) if l.startswith("static const char *VERTEX_SHADER"))

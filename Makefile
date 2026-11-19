@@ -1561,7 +1561,9 @@ check-device-compile:
 	done; \
 	D="-Idiatom/include -Idiatom/src -Idiatom/vendor/rcheevos/include -Idiatom/vendor/lz4"; \
 	echo "  diatom: port/brick.c"; \
-	$(CC) $$F $$D $$S diatom/port/brick.c diatom/port/osdbar.c diatom/port/themefile.c diatom/port/panelgamma.c; \
+	$(CC) $$F $$D $$(pkg-config --cflags sdl2 egl glesv2) \
+		diatom/port/brick.c diatom/port/osdbar.c diatom/port/themefile.c diatom/port/hud.c \
+		diatom/port/panelgamma.c; \
 	echo "  diatom: port/pixel2.c"; \
 	$(CC) $$F $$D $$(pkg-config --cflags sdl2 egl glesv2 gbm libdrm) \
 		diatom/port/pixel2.c diatom/port/rumble_evdev.c diatom/port/panelgamma.c; \
