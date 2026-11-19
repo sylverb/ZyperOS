@@ -3047,9 +3047,11 @@ screen), in this order, the rows in brackets only where they apply:
 
 A row that cannot change here is a quiet row with its value: the N64's SELECT
 ("C buttons"), the Dreamcast's while D-pad as Stick is on ("Held: D-pad"), and
-a button Diatom keeps for itself, the PSP's R2 ("D-pad as stick") and a DS
-game's L2 and R2 ("Other screen", "Stylus on/off"). A swap never lands on one,
-and what Diatom does with a button is no choice.
+a button Diatom keeps for itself, a DS game's L2 and R2 ("Other screen",
+"Stylus on/off"). A swap never lands on one, and what Diatom does with a
+button is no choice. The PSP's R2 was one ("D-pad as stick") until the stick
+became a button's choice: it is a live row now, **Stick On/Off** by default
+(11.45).
 The list goes round and scrolls as every list does (11.3), six rows in view
 beside the handheld. The handheld stands in a 280-unit column at the left of
 the rows, under the tab row, and is drawn only here and on a button's choices
@@ -4599,8 +4601,12 @@ SETSTICK are the way they reach a game, at once while it is paused.
 **Steps.** Left and Right step a button's value through the row's own
 table, in this order: the buttons the system's core names (in src/controls.c's
 order for that system: faces, shoulders, Start, Select), then Turbo of each
-face button, then Nothing. A Dreamcast's list is A, B, X, Y, L trigger, R
-trigger, Start, Turbo A to Turbo Y, Nothing, and no more. A opens the same
+face button, then Nothing, and last, on the four systems with D-pad as Stick,
+**Stick On/Off** and **Stick While Held** (below; `ct_choices`). A
+Dreamcast's list is A, B, X, Y, L trigger, R trigger, Start, Turbo A to Turbo
+Y, Nothing, Stick On/Off, Stick While Held, and no more. SELECT is offered no
+stick: it holds the hotkeys, and a press of it is never a turn of the stick
+and a hotkey at once. A opens the same
 choices as a list of their own, headed "Y: PlayStation", the handheld still
 beside it, a tick on what the button does now and "default" in **text-dim**
 on the scope's default; A on a choice takes it and goes back, B goes back with
@@ -4612,14 +4618,17 @@ they were except for the one swap at the value it stops on.
 Q already gives G, Q takes what P gave before: Y given Cross makes B give
 Square, and both rows show it. Turbo and Nothing never swap (Y can be Turbo
 Cross while B stays Cross), and a swap never lands on a quiet row: it keeps
-what it gives. SELECT keeps the hotkeys' rule whatever it gives: Diatom's
+what it gives. The stick's two swap as a game button does, so one button
+turns the stick unless the player gives the other one to a second button. SELECT keeps the hotkeys' rule whatever it gives: Diatom's
 chord gives a lone SELECT to the game as it is let go, or once held 400 ms,
 and never under a shoulder (pressed after it, or up to 100 ms before it).
 
 **The warning row.** A game button that no button gives now (Nothing on the
 only button that gave it, and no turbo of it either) gets a quiet row,
 "Cross has no button now", right under the row of the button whose change
-caused it. A turbo of it counts as a button. The row is not selectable, so
+caused it. A turbo of it counts as a button. The stick's two are no game button: none is lost when a button stops
+giving one, and one given in place of a game button can leave that game
+button with none. The row is not selectable, so
 the cursor steps over it.
 
 **Scope and storage.** Two tables can exist for a system, the system's
@@ -4653,9 +4662,29 @@ stick the core reads: the Nintendo 64 (on to start with; SELECT, then the
 d-pad, is the N64's own D-pad), the Dreamcast (off; the same SELECT rule, and
 the SELECT row says "Held: D-pad"), the PlayStation (off; the plain stick, no
 SELECT rule, and the d-pad stays the d-pad too, so a game that keeps its pad
-digital still moves) and the PSP (off; R2 in the game still turns it and the
+digital still moves) and the PSP (off; its R2 turns it in the game, and the
 row agrees). It takes effect at once through SETSTICK. The Saturn has none: its
 stick is a controller type of its own.
+
+**Stick On/Off and Stick While Held**, a button's choices on those four
+systems *(2026-11-18: from the Discord, metior's "a button that turns D-pad as
+Stick on and off, or does it while held", Nindzusek's "as a choice"; my
+review: all good)*. **Stick On/Off**: each press turns the d-pad into the
+stick and the next back, and the side it was left on is kept for the game,
+as the D-pad as Stick row is, which says it; a pop-up names the side ("Stick
+on"), as R2's always did on the PSP. **Stick While Held**: while the button
+is held the d-pad is on its other side (the stick, or with D-pad as Stick on
+the d-pad), and back when it is let go, with no pop-up and nothing kept. The
+PSP's R2 is Stick On/Off by default (`map|PSP|r2:stick`), so nothing changes
+for a player who does not touch it; it can go to another button, or be
+Nothing. Neither reaches the game: in the map they are `stick` and
+`stickhold`, and Diatom hides the button from the core and turns the d-pad
+itself (diatom/src/env.c), under MENU a button being MENU's and under SELECT a
+hotkey's. A stick that is off with such a button is sent on the d-pad's side
+(RUN and SETSTICK `dpad-pad`, `plain-pad`), so the stick's own rules (the
+SELECT rule, the PlayStation's both) hold on its stick side; with none it is
+sent as before. Nothing is done in a frame but read a bit the pad already
+gives.
 
 **Face Buttons**, where the caps' letters and the system's buttons can
 disagree (Dreamcast, Saturn, Neo Geo Pocket and Pocket Color): **By Letter**,
