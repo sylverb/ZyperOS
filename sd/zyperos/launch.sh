@@ -490,10 +490,11 @@ run_port() {
 	# The equalizer over the port's sound (DESIGN.md 11.54): while the
 	# launcher's bands are not flat and the system has ZyperOS's plugin
 	# (plastron's zyperos-eq), the port gets an ALSA config of its own whose
-	# default runs through it into the same mix (eq-port.sh); flat, or no
-	# plugin, and the port starts as it always did
+	# default runs through it into the same mix (eq-port.sh); flat, no
+	# bands file, no plugin (or an empty one), or no EQ_SLAVE, and the port
+	# starts as it always did, the plugin nowhere in its chain
 	local eqcfg=
-	if [ -n "${EQ_SLAVE:-}" ] && [ -f /usr/lib/ladspa/zyperos_eq.so ] &&
+	if [ -n "${EQ_SLAVE:-}" ] && [ -s /usr/lib/ladspa/zyperos_eq.so ] &&
 	   sh "$ZYPEROS_DIR/eq-port.sh" --on; then
 		eqcfg=/tmp/zyperos_port_eq.conf
 		if sh "$ZYPEROS_DIR/eq-port.sh" "$EQ_SLAVE" > "$eqcfg"; then
