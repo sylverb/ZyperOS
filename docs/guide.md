@@ -482,6 +482,7 @@ than any one console:
 | **Bluetooth** | the connected headset, or `Not connected` - pair, connect and forget |
 | **Audio Output** | `Auto` or `Speaker`, and where Auto landed - see **Audio** below |
 | **Audio Channels** | `Auto`, `Stereo`, `Mono`, `Mono left` or `Mono right` - see **Audio** below. `Auto` on a new device and after an upgrade |
+| **Rumble** | the Pixel 2: `Off`, `Low`, `Medium` or `Full` for every game, each step felt as you choose it - see [Rumble](#rumble). `Full` on a new card |
 | **Wi-Fi File Transfer** | the file server; needs Wi-Fi and says so when there is none. On the Pixel 2 with no network it says `Hotspot`, and makes the handheld its own network for a phone to join - see below. While a computer is on the USB cable it is **USB File Transfer** instead, at `http://zyperos.local`, or always at `10.55.0.2` on the Brick and `10.42.0.1` on the Pixel 2 |
 | **Date & Time** | the clock and the time zone, set with left and right - see below |
 | **Clock** | `12-hour` or `24-hour`, for the clock on the shelf and here. `12-hour` on a new device |
@@ -510,9 +511,21 @@ there. A phone's USB tethering is internet too (see **File transfer**):
 while it is on, Achievements, Box Art and Album Art are back, and Scraper's
 fetch works.
 
+### Downloads
+
+MENU > **Downloads** is every download of game data in one place: covers,
+video snaps, names and details, and achievements.
+
+| Row | What it is |
+|---|---|
+| **Download** | gets every kind that is in it, both servers at the same time; its value says how much and how long (`186 MB · 15 min`), `Nothing to fetch`, or how far a download has got |
+| **Covers**, **Videos**, **Names and Details** | what is still missing (`41 missing`, `63 to fetch`, `199 names`); **A** opens the Scraper page, below |
+| **Achievements** | the games whose achievements are not on the card yet; **A** opens the Achievements download, below, or the sign-in |
+| **Settings** | your ScreenScraper, RetroAchievements and SteamGridDB accounts; whether **Download** gets Covers, Videos, Names and Details and Achievements (all **On** to start, each system's own videos switch still off until you turn it on); and Video Snaps |
+
 ### Scraper
 
-MENU > **Scraper** is box art and video snaps in one page. It says first
+The Scraper page (**MENU > Downloads > Covers**) is box art and video snaps in one page. It says first
 what a run will get, then gets it, with each cover on the screen as it
 lands. A console's own menu keeps its **Box Art** row, which opens the same
 page for that console alone.
@@ -573,7 +586,7 @@ ends. The power button still powers the device off, and so does the battery
 running flat. System Update's download, PortMaster's install, Storage
 measuring the card and files moving over File Transfer wait the same way.
 
-For what neither has, like homebrew, hacks and ports, give it a free [SteamGridDB](https://www.steamgriddb.com) API key (steamgriddb.com, Preferences, API) in **MENU > Scraper**'s Settings, or paste the key on the File Transfer page, which beats typing 32 characters. A run then asks SteamGridDB last, for a portrait cover by the game's name. The key stays on the card's settings and shows only its last four characters.
+For what neither has, like homebrew, hacks and ports, give it a free [SteamGridDB](https://www.steamgriddb.com) API key (steamgriddb.com, Preferences, API) in **MENU > Downloads > Settings**, or paste the key on the File Transfer page, which beats typing 32 characters. A run then asks SteamGridDB last, for a portrait cover by the game's name. The key stays on the card's settings and shows only its last four characters.
 
 **Your own covers.** Some games aren't in any collection, like fan translations. Add your own: a PNG named exactly like the game file, in `Roms/<console>/.media/`. `Black Castle.gb` wants `Black Castle.png`. Around 512 pixels on the long side is plenty.
 
@@ -581,11 +594,11 @@ Covers go over USB or Wi-Fi File Transfer too: drag a console's `.media` folder 
 
 ### Achievements
 
-Sign in under **MENU > Achievements** with your RetroAchievements account. A game's first start needs Wi-Fi, to identify the game and fetch its achievements. From then on it plays offline too: what you unlock without Wi-Fi shows at once, with its notice and Zyper, and waits on the card. When the handheld is on Wi-Fi again, on the shelf, the waiting unlocks go to your account by themselves, and Zyper says how many went. Each one is dated when you earned it, up to 14 days back, the most RetroAchievements takes.
+Sign in under **MENU > Downloads > Settings > RetroAchievements** with your RetroAchievements account. A game's first start needs Wi-Fi, to identify the game and fetch its achievements. From then on it plays offline too: what you unlock without Wi-Fi shows at once, with its notice and Zyper, and waits on the card. When the handheld is on Wi-Fi again, on the shelf, the waiting unlocks go to your account by themselves, and Zyper says how many went. Each one is dated when you earned it, up to 14 days back, the most RetroAchievements takes.
 
 While some wait, the game's list says how many under its name, and an achievement opened with A says "earned, not sent yet". A game you have never played with Wi-Fi says "not checked yet" on its Achievements row, and A on the row says how it gets its achievements. A game ZyperOS cannot identify says so instead, with or without Wi-Fi: "not for this system" for systems whose games are all discs it has no reader for (Sega CD, Saturn, Dreamcast, 3DO, Neo Geo CD), and "not for this file" for a kind of file it cannot read where another works, like a PlayStation `.ccd` (a `.cue` and `.bin` gets its achievements). Offline unlocks are softcore, the only mode ZyperOS plays.
 
-MENU > **Achievements** gets them for every game at once, ahead of time, so a game you first play on a plane has its achievements too.
+**MENU > Downloads > Achievements** gets them for every game at once, ahead of time, so a game you first play on a plane has its achievements too.
 
 | On the page | What it is |
 |---|---|
@@ -810,7 +823,9 @@ it, in the shelf's Sort By order. A opens a folder and B goes back up one,
 onto the folder you left. A folder is one game when it holds that game's
 set: an `.m3u`, a PSP game's `EBOOT.PBP`, two or more discs of the one game,
 or a `.cue` (or `.gdi`) with its tracks; or when its one disc image is named
-as the folder is (`God of War/God of War (USA).iso`). A ScummVM game's folder is one game too. Any other folder
+as the folder is (`God of War/God of War (USA).iso`). An `.m3u` loose beside
+its discs is one game too: the discs it lists are not on the shelf, in the
+Grid, in Search Games or in Random Game, and the `.m3u` starts the game. A ScummVM game's folder is one game too. Any other folder
 is a folder of games, also with one game in it, so `PSP/Favorites/Ridge Racer (USA).iso`
 shows as the folder Favorites with Ridge Racer in it. Saves and save states go by the game's file name,
 as they always have, so two copies of one game in two folders share them. In the list (MENU > View >
@@ -1096,6 +1111,8 @@ A battery too low to start says so and charges first; a charger plugged in while
 
 Dreamcast games, PlayStation games (as a DualShock) and Game Boy Color rumble cartridges shake the handheld, and Nintendo 64 games get a Rumble Pak. (The Controller Pak is under [In a game](#in-a-game).) The motor stops while the in-game menu is open.
 
+**How strong.** **MENU > Sound > Rumble** is `Off`, `Low`, `Medium` or `Full` for every game: none, 35%, 65% or all of what a game asks the motor for. `Full` on a new card, as ZyperOS always ran it. Each step buzzes the motor once at its level, so you feel it before you leave the row; in its list, the level under the cursor buzzes as you reach it. In a game whose core uses the motor, the in-game menu's Controls tab has a **Rumble** row too, for **This Game** or the whole system, as **Applies To** says: a game without its own level follows its system's, and a system without its own follows MENU's, which its list marks `Default`. A change reaches the paused game at once. A system that shakes harder than the handheld wants keeps its own share under every level: Doom's rumble is 35%, so `Low` there is 12%. The Pixel 2 only for now: the TrimUI Brick's motor waits for its first test on the Brick.
+
 ## File transfer
 
 **Wi-Fi File Transfer** (MENU, with Wi-Fi) and **USB File Transfer** (the same
@@ -1133,7 +1150,7 @@ names up. Close the screen and the phone stays connected and charging;
 tethering off, and the screen says the cable is unplugged (behind the shelf,
 it closes 10 seconds later). While USB tethering is on, the handheld also
 has the phone's internet: its clock sets itself from it, and **MENU >
-Scraper**, Cover and Video, Box Art, **MENU > Achievements**, System Update
+Downloads**, Cover and Video, Box Art, System Update
 and PortMaster's install work over it as over Wi-Fi. Close File Transfer
 with **B** and the phone stays connected for them. Over the phone, which may
 be on mobile data, nothing large starts by itself: a System Update download
@@ -1392,7 +1409,8 @@ If PortMaster closes with an error, ZyperOS says so when it comes back, with the
 ## Changing discs
 
 A game on more than one disc, a PlayStation game with an `.m3u` in a folder of
-its own, has a **Disc** row in the in-game menu: MENU, the Game tab, just under
+its own or beside its discs (the shelf then shows the `.m3u` alone, not each
+disc), has a **Disc** row in the in-game menu: MENU, the Game tab, just under
 Quick Slot. Its value is the disc in the tray, by the name the emulator gives
 it, or "Disc 2 of 3" when that name is too long for the row. **Left** and
 **Right** (or **A**) pick the next or the last disc, going round: Left on disc 1
@@ -1898,7 +1916,7 @@ A file that another game on the card still uses stays: a save two systems' games
 
 </div>
 
-**Unused Art** deletes the covers and video snaps of games that are no longer on the card; a fetch in **MENU > Scraper** can bring them back. **Old Save States** deletes the save states of games none of whose states was written in a year and that you have not played in one. Your saves stay. Each asks first, with the room it gives back, and the cursor on Cancel.
+**Unused Art** deletes the covers and video snaps of games that are no longer on the card; a fetch in **MENU > Downloads** can bring them back. **Old Save States** deletes the save states of games none of whose states was written in a year and that you have not played in one. Your saves stay. Each asks first, with the room it gives back, and the cursor on Cancel.
 
 ### Ports
 
@@ -1994,14 +2012,14 @@ no games goes from the home. Ports have no Delete Game.
 Card art comes from, in order:
 
 1. box art in `Roms/<system>/.media/<name>.png`, whether you put it there or
-   MENU > Scraper fetched it. With a ScreenScraper account the fetch asks
+   MENU > Downloads fetched it. With a ScreenScraper account the fetch asks
    ScreenScraper first. It stores the game's name, year, genre and synopsis.
    Without an account, or for a game ScreenScraper does not have, it asks
    libretro: by file name, and where no name matches, by checksum: a zip
    records its ROM's CRC, which names the game in No-Intro's list - the catalog
    libretro files its covers under - so a file still carrying an older name
    finds its box anyway. On the main card that found 29 more, every one the
-   right game. With a SteamGridDB key (MENU > Scraper > SteamGridDB, or pasted on the
+   right game. With a SteamGridDB key (MENU > Downloads > Settings > SteamGridDB, or pasted on the
    File Transfer page), what libretro still has no cover for is asked of
    SteamGridDB last, by name, and taken only when the name is a close match:
    a portrait 600x900 grid in PNG or JPEG. Fetched art is shrunk to the size it is drawn at - libretro

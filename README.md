@@ -84,7 +84,7 @@ Each line has its details in [the guide](docs/guide.md).
 - **Nintendo 64 and Dreamcast:** ParallelN64 with Glide64 holds Super Mario 64 and Mario Kart 64 at 30 frames a second on my Pixel 2, and flycast2021 runs the Dreamcast ([Dreamcast](docs/guide.md#dreamcast)).
 - **Smooth or exact timing** in the Game Boy, Game Boy Advance, DS and Genesis shelves: one game frame for each screen refresh, or the console's own speed for timers and rhythm games.
 - **A home in pixel art:** every system as its own animated console on a Spotlight, Gallery or Grid home, with Favorites, Recents and a choice of which systems show ([the shelf](docs/guide.md#the-shelf)).
-- **Your folders, a grid or a list:** folders on the card show as folders, and a system's games show as a row of covers, a grid shaped like the art, or a list.
+- **Your folders, a grid or a list:** folders on the card show as folders, a game on several discs shows once by its `.m3u`, and a system's games show as a row of covers, a grid shaped like the art, or a list.
 - **MENU in six tabs,** with **Search Games** and **Random Game** for any system ([menus](docs/guide.md#controls-and-menus)).
 - **Your look:** light and dark, ten accents, three backgrounds for each theme, a folder color, rounded or square corners, and Zyper on or off ([light and dark](docs/guide.md#light-and-dark)).
 - **Screen Colors and Night Mode** on the Pixel 2: temperature, tint, contrast, saturation and gamma, ready-made looks, and a warm screen for the night ([how](docs/guide.md#screen-colors-and-night-mode)).
@@ -92,6 +92,7 @@ Each line has its details in [the guide](docs/guide.md).
 - **Eight languages,** chosen on the first start or in **MENU > Language**, with every word following it, down to the charging screen ([languages](docs/guide.md#languages)).
 - **A first start that asks:** Zyper teaches each button, then asks for the theme, the home screen, the button sounds and the menu music ([the first start](docs/guide.md#the-first-start)).
 - **Box art the device finds itself** from libretro, ScreenScraper and SteamGridDB, with **Cover and Video** to pick a cover and see it first ([Scraper](docs/guide.md#scraper)).
+- **Every download in one place:** **MENU > Downloads** gets covers, video snaps, names and every game's achievements at once, side by side, and keeps going behind the menus while you browse ([Downloads](docs/guide.md#downloads)).
 - **Video snaps and a screensaver:** rest on a game and its cover turns into a few seconds of the game itself, and after a minute on the shelf the snaps of random games play over the whole screen ([how](docs/guide.md#screensaver)).
 - **RetroAchievements,** signed in on the device and working offline: an unlock shows at once and goes to your account when Wi-Fi is back, dated when you earned it ([how](docs/guide.md#achievements)).
 - **Coming from Knulli, ROCKNIX, ArkOS or ROGUE OS:** copy their `roms` folders over as they are, with the covers, video snaps, names and favorites their scrapers left ([what ZyperOS reads](docs/guide.md#coming-from-emulationstation)).
@@ -105,7 +106,7 @@ Each line has its details in [the guide](docs/guide.md).
 - **Faster and slower** (1.5x, 2x and 3x), **turbo** buttons and **On-Screen Stats** over the game ([in a game](docs/guide.md#in-a-game)).
 - **Hotkeys you choose,** SELECT and a button, for a screenshot, the next shader or display, reset and quit, for every game, a system or one game ([hotkeys](docs/guide.md#controls-and-menus)).
 - **Change what a button does,** for one game or a whole system, a button that turns the d-pad into the stick (each press, or while held) among the choices, with the handheld drawn beside the rows, and every control listed in the game with the handheld's own buttons ([controls](docs/guide.md#controls-and-menus)).
-- **Rumble** on the Pixel 2 for Dreamcast, PlayStation, Game Boy Color and Nintendo 64 games ([rumble](docs/guide.md#rumble)).
+- **Rumble** on the Pixel 2 for Dreamcast, PlayStation, Game Boy Color and Nintendo 64 games, Off, Low, Medium or Full for every game or one ([rumble](docs/guide.md#rumble)).
 - **Sound your way:** a USB-C headphone adapter on the Pixel 2, Bluetooth headphones on the Brick (untried so far), and mono audio for anyone who hears with one ear ([audio](docs/guide.md#audio)).
 - **MP4 and menu music:** a player for your music, audiobooks and videos that keeps playing behind the shelf, and ten free 8-bit tracks, or your own, behind the menus ([MP4](docs/guide.md#mp4)).
 - **The top bar and side lights:** the clock, Wi-Fi and the battery with its time left, and on the Pixel 2 side lights for the battery, volume, transfers and achievements.

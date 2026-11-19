@@ -5,7 +5,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 
-/* The hotkeys a player sets (DESIGN.md 11.28, "Hotkeys"), pure: no SDL, no
+/* The hotkeys a player sets (DESIGN.md 11.61), pure: no SDL, no
  * database. Every hotkey is SELECT held and one more button (my pick in the
  * Controls lab, 2026-11-19: MENU is never a holder, so MENU stays one press),
  * which Diatom's chord.h judges, its keys from RUN hotkeys= and SETHOTKEYS.

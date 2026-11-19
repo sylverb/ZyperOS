@@ -406,6 +406,9 @@ int g_shot_discs;
 const char *g_shot_disc_label;
 /* --gm-undo: Undo Load's row in a shot, with no state behind it */
 bool g_shot_undo;
+/* --gm-rumble: the game's core asked for the motor, so the Controls tab has
+ * its Rumble row in a shot */
+bool g_shot_rumble;
 
 /* Where the focused game's Undo Load state is (SLOT_UNDO): as its slots are,
  * under its own system on Favorites too (shelf_owner). False with no game. */
@@ -1393,6 +1396,9 @@ void gm_ctl_game(app *a, gm_ctx *c, ctlscr_game *g)
 	g->file = e ? e->file : "";
 	g->title = e ? e->title : "";
 	g->pak = pak_system(s) && e ? gm_pak_name(pak_get(s, e->file)) : NULL;
+	/* Rumble where the handheld has a motor and the game's core asked for
+	 * it (a shot's --gm-rumble stands in for the asking) */
+	g->rumble = plat_has_rumble() && e && (shot_path ? g_shot_rumble : plat_resident_rumble_asked());
 	g->scope_all = &g_gm_mem.scope_all;
 	/* A shot sends nothing: there is no game */
 	g->running = !shot_path;

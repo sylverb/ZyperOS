@@ -8,7 +8,7 @@
 #include "config.h"
 #include "panel.h"
 
-/* The Hotkeys list (DESIGN.md 11.28, "Hotkeys"; my picks in the Controls
+/* The Hotkeys list (DESIGN.md 11.61; my picks in the Controls
  * lab, 2026-11-19): a row an action, its keys at its right drawn as the
  * buttons (SELECT+R1) or None, A on a row the capture screen - SELECT held
  * and one more button, read as keys until let go - and a clash the swap

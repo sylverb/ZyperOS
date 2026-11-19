@@ -104,7 +104,7 @@ def pump(seconds):
                 # As the launcher does (on_quick): the game as it is, for
                 # Undo Load, then the slot over it, back to back
                 s.sendall(f"SAVE\tpath={UNDO}\nLOAD\tpath={STATE}\n".encode())
-            elif l == "PAUSED" or l.startswith("PAUSED\tfor="):
+            elif l == "PAUSED" or l.startswith("PAUSED\t"):
                 # MENU let go opens the menu, or a hotkey's pause (Reset
                 # Game's question, Quit): close it
                 s.sendall(b"RESUME\n")
