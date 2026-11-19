@@ -89,12 +89,29 @@ long net_get_hdr_answer(const char *url, const char *header, char *out,
 int net_get_pngs(const char *const *urls, const char *const *paths, int n,
                  int timeout_s);
 
+/* The async calls below act on one SLOT at a time, and each slot holds one
+ * request in flight. MAIN is every screen's, as the one slot always was; the
+ * downloads' lanes have one each (src/dlq.h), so a run of box art and one of
+ * achievements ask their servers side by side, and neither waits for the
+ * other or for a screen's request - a Cover and Video page open over a run,
+ * an account's answer after a game. net_slot_use makes `s` the slot the
+ * calls act on and returns the one that was, to be put back:
+ *
+ *     net_slot was = net_slot_use(NET_SLOT_ART);
+ *     art_step();
+ *     net_slot_use(was);
+ *
+ * Everything runs on the screens' thread, so the slot in use is plain
+ * state: whoever selects one puts the old one back before returning. */
+typedef enum { NET_SLOT_MAIN, NET_SLOT_ART, NET_SLOT_RA, NET_SLOTS } net_slot;
+net_slot net_slot_use(net_slot s);
+
 /* The same request, started and left to run. Nothing waits for it.
  *
  * This exists because a launch was 15ms warm and a request to RetroAchievements
  * is 310-460ms measured on the device, 150ms of which is the TLS handshake
  * alone - so anything on the launch path that waits for the network has
- * already lost. One in flight at a time, which is all this needs.
+ * already lost. One in flight at a time in a slot, which is all this needs.
  *
  * net_async_poll: 1 finished and the file is there, 0 still running, -1 nothing
  * started or it failed. Reaping is the caller's job via poll; an unreaped
@@ -107,7 +124,7 @@ bool net_post_async(const net_field *f, int n, const char *path, int timeout_s);
  * "no network" from "no such thing" (src/radl.h). */
 bool net_post_async_status(const net_field *f, int n, const char *path, int timeout_s);
 int  net_async_poll(void);
-/* Whether the one slot holds a request, finished or not, that nobody has
+/* Whether the slot in use holds a request, finished or not, that nobody has
  * polled to its end: another screen's, for a caller that waits its turn
  * (src/mediafetch.c) rather than take its failure to start for an answer */
 bool net_async_held(void);
@@ -152,9 +169,9 @@ int net_async_exit(void);
 /* Give up on whatever is in flight: kill it, reap it, and free the slot.
  *
  * For a caller that stops caring - a screen the player closed mid-fetch. Not
- * optional politeness: there is ONE slot, and a request abandoned without
- * this holds it forever. Everything async then fails, permanently, and
- * silently. */
+ * optional politeness: a slot holds one request, and a request abandoned
+ * without this holds it forever. Everything async on that slot then fails,
+ * permanently, and silently. Acts on the slot in use. */
 void net_async_abort(void);
 
 /* Percent-encode for a query string. Unreserved characters pass; everything

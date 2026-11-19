@@ -239,6 +239,15 @@ unsigned plat_power_wait(unsigned ms)
 	return left >= 0 && (unsigned)left < ms ? (unsigned)left : ms;
 }
 
+static unsigned (*g_wait_hook)(unsigned ms);
+
+void plat_on_input_wait(unsigned (*hook)(unsigned ms)) { g_wait_hook = hook; }
+
+unsigned plat_input_wait_hook(unsigned ms)
+{
+	return g_wait_hook ? g_wait_hook(ms) : ms;
+}
+
 void plat_set_btn(in_state *st, in_button b, bool down)
 {
 	if (b == IN_NONE) return;

@@ -8,6 +8,7 @@
 #include "gamefile.h"
 #include "ctl.h"
 #include "ctl_channel.h"
+#include "dlq.h"
 #include "dsv.h"
 #include "ingame_screen.h"
 #include "hudmenu_screen.h"
@@ -662,16 +663,17 @@ void launch(app *a)
 		bool stick_on = rms_stick_get(s, romfile);
 
 		cfg_run_keys(s, g_game_dual, pacing_id(pacing_load(s)), keys, (int)sizeof keys);
+		/* The whole table, whatever the card holds for the game or its
+		 * system (rms_sent): Diatom is sent no turbo of its own */
+		rms_sent(s, romfile, stick_on, &sent);
 		/* The d-pad as the stick, a game's own (rms_stick_get): the PSP's
-		 * stick=toggle-stick when it was left on the stick */
-		rms_run_stick(s, stick_on, stick, sizeof stick);
+		 * stick=toggle-stick when it was left on the stick, and a stick
+		 * that is off on the d-pad's side when a button turns it */
+		rms_run_stick(s, stick_on, rm_has_stick(&sent), stick, sizeof stick);
 		if (stick[0] && strlen(keys) + strlen(stick) + 2 <= sizeof keys)
 			snprintf(keys + strlen(keys), sizeof keys - strlen(keys), "%s%s",
 			         keys[0] ? "\t" : "", stick);
 		if (keys[0]) plat_resident_run_keys(keys);
-		/* The whole table, whatever the card holds for the game or its
-		 * system (rms_sent): Diatom is sent no turbo of its own */
-		rms_sent(s, romfile, stick_on, &sent);
 		rm_format(&sent, map, sizeof map);
 		plat_resident_map(strcmp(map, "identity") ? map : "");
 		/* And an N64 game's Pak, its own over the system's; none else */
@@ -978,6 +980,9 @@ void launch(app *a)
 			 * engine when one side is fbdev. A warm launch is 26 to 44 ms from
 			 * RUN to RUNNING, so there is nothing to animate over anyway; the
 			 * shelf simply holds until the game's first frame replaces it. */
+			/* The downloads behind the screens wait while the game runs
+			 * (src/dlq.h): no frame of it is spent on them */
+			dlq_game(true);
 			for (;;) {
 				r = plat_resident_wait();
 				if (r == RES_PAUSED) {
@@ -988,6 +993,7 @@ void launch(app *a)
 				}
 				break;
 			}
+			dlq_game(false);
 			g_ctl_game.on = false;
 			screen_shader_apply();
 			resident = (r == RES_EXIT);

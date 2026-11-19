@@ -66,15 +66,22 @@ def keys(steps, start=700, gap=420):
 LEAD = 2600
 
 
-def live(name, last, steps, tail=900, settings=None, start=LEAD, gap=420):
+# The handheld a take wears (src/device/profile.h): the host build draws any
+# of them, and wears the desktop's own without --device, so every take names
+# one, the Pixel 2's unless it says another (1.0.6's Brick takes)
+DEVICE = 'pixel2'
+
+
+def live(name, last, steps, tail=900, settings=None, start=LEAD, gap=420, card='demo', device=DEVICE):
     script, t = keys(steps, start=start, gap=gap)
-    TAKES[name] = dict(kind='live', last=last, settings=settings or {}, script=script, end=t + tail)
+    TAKES[name] = dict(kind='live', last=last, settings=settings or {}, script=script, end=t + tail,
+                       card=card, device=device)
 
 
-def shots(name, segments, card='demo', env=None):
+def shots(name, segments, card='demo', env=None, device=DEVICE):
     """segments: (last, args, hold ms) a still, or (last, args with {t}, [ms, ...]) a motion,
     and a fourth item for what to set on the card before each shot (run_shots)"""
-    TAKES[name] = dict(kind='shots', card=card, segments=segments, env=env or {})
+    TAKES[name] = dict(kind='shots', card=card, segments=segments, env=env or {}, device=device)
 
 
 def motion(t0, t1):
@@ -382,6 +389,87 @@ shots('update-bg', [(PS1, ['--update'], 900)] +
 shots('charge-full', [(PS1, ['--charging', '{t}', 'kept'], motion(0, 1400)),
                       (PS1, ['--charging', '{t}', 'tofull'], motion(0, 1800))])
 
+# ---- 1.0.6: the video for the Discord (src/v106) ----------------------------
+# On the fuller card (card.py's MORE), the Pixel 2's unless a take says the
+# Brick's. The Brick's profile draws its own keys and its 1024x768 screen.
+SFC = ('SFC', 'Chrono Trigger (USA).sfc')
+SG = ('SG1000', 'Flicky (Japan).sg')
+GB = ('GB', "The Legend of Zelda - Link's Awakening (USA, Europe).gb")
+GB_SNAP = "{art}/Nintendo_-_Game_Boy/Named_Snaps/Legend of Zelda, The - Link's Awakening (USA, Europe).png"
+GBA6 = ('GBA', 'Metroid Fusion (USA).gba')
+GBA_SNAP = '{art}/Nintendo_-_Game_Boy_Advance/Named_Snaps/Metroid Fusion (USA).png'
+SONIC_GM = ['--screen', 'games', '--backdrop', SONIC_SNAP]
+# The home moving between systems, on each handheld
+live('home6', PS1, start=700, steps=[1500, 'right', 800, 'right', 800, 'left', 700, 'left', 700, 'left', 1400], card='more')
+# (the Brick's home has no N64, PSP or Dreamcast yet: two to the right of
+# the PlayStation is the SNES)
+live('brick-home', PS1, start=700, steps=[1500, 'right', 800, 'right', 1000, 'a', 1300, 'right', 600,
+                                          'right', 600, 'right', 1400], card='more', device='brick')
+# MENU > View > Grid: into the SNES shelf (16 games), START from Covers to
+# Grid, along a row, down a row and a page, back, START again for the List
+GRID_KEYS = ['a', 1000, 'start', 1400, 'right', 450, 'right', 450, 'down', 700, 'down', 1100, 'down', 1000, 'up', 900, 'start', 1400]
+live('grid', SFC, GRID_KEYS, card='more')
+live('brick-grid', SFC, GRID_KEYS, card='more', device='brick')
+# The home's layouts, START after START, to the Grid: 18 systems at once
+live('homegrid', PS1, ['start', 1400, 'start', 1600, 'right', 450, 'right', 450, 'down', 700, 'left', 450, 1300], card='more')
+# The SG-1000's shelf: a card for each game with no art, the light crossing
+# the one in focus
+live('namecard', SG, ['a', 1300, 'right', 1100, 'right', 1300], card='more')
+# MENU > Display > Home Systems: down its rows, Dreamcast turned off
+shots('homesys', [(PS1, ['--homesys-page', str(r)], ms) for r, ms in ((0, 500), (1, 300), (2, 260), (3, 260), (4, 600))] +
+      [(PS1, ['--homesys-page', '4'], 1400, {'settings': {'home.hidden': 'DC'}})], card='more')
+# Screen Colors: its page, then the Look's list, each look under the cursor
+shots('screencolors', [(PS1, ['--look-page', 'screen', '0'], 700)] +
+      [(PS1, ['--look-page', 'screen-looks', '0', '--pick-at', str(k)], 480 if k < 5 else 900) for k in range(6)], card='more')
+# Night Mode's page, then Night Warmth's list stepped warmer
+shots('night', [(PS1, ['--look-page', 'night', str(r)], 400, {'settings': {'night.mode': 'hours'}}) for r in range(2)] +
+      [(PS1, ['--look-page', 'night-list', '1', '--pick-at', str(k)], 260 if k < 9 else 900, {'settings': {'night.mode': 'hours'}})
+       for k in range(3, 10)], card='more')
+# Theme's Accent list repainting the whole screen, then the dark background's
+# list showing the dark theme while it is open
+shots('hover', [(PS1, ['--look-page', 'theme', '0'], 500)] +
+      [(PS1, ['--look-page', 'theme-list', '0', '--pick-at', str(k)], 330) for k in range(1, 10)] +
+      [(PS1, ['--look-page', 'theme-list', '2', '--pick-at', str(k)], 450) for k in range(0, 4)], card='more')
+# Folder Color: its list, each choice coloring the shelf's folders beside it
+shots('foldercolor', [(PS1, ['--look-page', 'theme', '3'], 500)] +
+      [(PS1, ['--look-page', 'theme-list', '3', '--pick-at', str(k)], 330) for k in range(0, 11)], card='more')
+# Undo Load: the Game tab down to it, under Load
+shots('undo', [(GEN, SONIC_GM + ['--gamemenu', str(r), '--gm-undo'], ms) for r, ms in ((0, 400), (1, 260), (2, 400), (3, 1800))],
+      card='more')
+# On-Screen Stats: its page over the game, down its rows
+shots('stats', [(GEN, SONIC_GM + ['--gamemenu', '1', '--hud-page', str(r), '--hud-shows', 'fps,temp,batt,time'], ms)
+                for r, ms in ((0, 600), (1, 400), (2, 400), (3, 400), (4, 400), (5, 400), (6, 800))], card='more')
+# The Display list: each mode on the game's own picture, with what it does
+shots('dmode', [(GEN, SONIC_GM + ['--gamemenu', '0', '--gm-tab', '1', '--gm-choose', '--pick-at', str(k)], 480 if k < 5 else 900)
+                for k in range(6)], card='more')
+# LCD No Backlight: a Game Boy game's Shader list, down to it
+shots('lcd', [(GB, ['--screen', 'games', '--backdrop', GB_SNAP, '--gamemenu', '1', '--gm-tab', '1', '--gm-choose', '--pick-at', str(k)],
+               300 if k < 6 else 1800) for k in range(7)], card='more')
+# Timing: the list on the GBA shelf, Smooth's demo and Exact's, moving
+shots('timing', [(GBA6, ['--screen', 'games', '--menu', 'Timing', '--press', 'a', '--pick-at', str(k), '--shot-at', '{t}'],
+                  motion(0, 1800)) for k in (0, 1)], card='more')
+# MENU > Achievements: the plan, a run, done
+shots('radl', [(PS1, ['--radl-page', '0'], 1100), (PS1, ['--radl-page', '4'], 1500), (PS1, ['--radl-page', '8'], 1300)],
+      card='more', env={'ZYPEROS_LOOK_BADGES': '{card}/Roms/PlayStation/.cheevos'})
+# MENU's Shader, ZyperOS's own screens': its list showing each one on the
+# whole screen, then the home on CRT Curved
+shots('lshader', [(PS1, ['--menu', 'Shader', '--press', 'a', '--pick-at', str(k)], 450) for k in range(5)] +
+      [(PS1, ['--home', 'spotlight', '--phase', '{t}'], motion(2000, 3400), {'settings': {'launcher_shader': 'crt-curved'}})],
+      card='more')
+# A port's loading screen, PortMaster's last line at its foot, then a minute on
+shots('portline', [(('PRT', 'Star Farm.sh'), ['--portload', 'Star Farm', '--shot-at', '{t}'], motion(0, 2200)),
+                   (('PRT', 'Star Farm.sh'), ['--portload-later', '--portload', 'Star Farm'], 1600)], card='portdocs')
+# MENU > Power Button on Hold: POWER held, the bar filling for a second, and off
+shots('powerhold', [(PS1, ['--home', 'spotlight', '--phase', '3200', '--osd', 'power', str(k)], 50) for k in range(0, 21)] +
+      [(PS1, ['--screen', 'games', '--poweroff', '--shot-at', '{t}'], motion(0, 1500))], card='more')
+# The handheld while a computer's browser is on File Transfer (the page's
+# pictures are footage/portal-pages.py's)
+shots('xfer-hand', [(PS1, ['--hare', 'http://192.168.1.42', '1 connected'], 9300)], card='more')
+# The PSP's home, its console's own start, beside the numbers
+shots('psp-home', [(('PSP', 'God of War - Chains of Olympus (USA).iso'), ['--home', 'spotlight', '--phase', '{t}'],
+                    motion(0, 6300))], card='more')
+
+
 for code in ['en', 'zh-Hans', 'es', 'pt-BR', 'fr', 'de', 'ja', 'it']:
     shots(f'lang-{code}', [(PS1, ['--lang', code, '--menu', 'Language'], 100)])
 
@@ -397,6 +485,13 @@ LOOK = {'look.accent': 'lime', 'look.light': 'warm', 'look.dark': 'black', 'look
 
 def run_live(name, spec, card):
     write_last(card, *spec['last'])
+    # Every shelf on Covers, as it ships: a take that pressed START leaves
+    # its view on the card (view.TAG)
+    for db in (card / 'userdata/zyperos.db', card / 'shared/.zyperos/library.db'):
+        if db.is_file():
+            with sqlite3.connect(db) as c:
+                if c.execute("SELECT 1 FROM sqlite_master WHERE name='settings'").fetchone():
+                    c.execute("DELETE FROM settings WHERE key LIKE 'view.%'")
     cardlib.device_settings(card, BINARY, **{'tour.done': 1, 'clock': '24h', 'home': 'spotlight',
                                             'appearance': 'light', 'language': 'en', **LOOK, **spec['settings']})
     script = WORK / f'{name}.keys'
@@ -408,7 +503,7 @@ def run_live(name, spec, card):
                REC_BATT=str(WORK / 'batt'), REC_MENU_MUSIC='1', DYLD_INSERT_LIBRARIES=str(REC))
     log = WORK / f'{name}.log'
     with open(log, 'w') as f:
-        r = subprocess.run([str(BINARY), '--status', STATUS], cwd=ROOT, env=env,
+        r = subprocess.run([str(BINARY), '--status', STATUS, '--device', spec['device']], cwd=ROOT, env=env,
                            stdout=f, stderr=subprocess.STDOUT, timeout=600)
     if r.returncode:
         raise RuntimeError(f'{name}: exit {r.returncode}, see {log}')
@@ -419,7 +514,8 @@ def run_live(name, spec, card):
 def clear_kept(card):
     """No shader, Strength or button remap a take before left on the card"""
     with sqlite3.connect(card / 'userdata/zyperos.db') as db:
-        db.execute("DELETE FROM settings WHERE key LIKE 'shader%'")
+        db.execute("DELETE FROM settings WHERE key LIKE 'shader%' OR key LIKE 'launcher_s%' OR key LIKE 'night.%'"
+                   " OR key LIKE 'screen_%' OR key = 'home.hidden'")
     with sqlite3.connect(card / 'shared/.zyperos/library.db') as db:
         db.execute("DELETE FROM settings WHERE key LIKE 'map.%' OR key LIKE 'stick.%'")
 
@@ -444,6 +540,9 @@ def run_shots(name, spec, cards):
         shutil.rmtree(frames)
     frames.mkdir(parents=True)
     listing, total, n = [], 0, 0
+    # Where each held picture after the first starts, and each motion: the
+    # moments a press is seen (src/sounds.ts plays a sound there)
+    cuts = []
     # The first shot that shows the snap, for its frames' clock
     first_turn = sum(len(w) if isinstance(w, list) else 1 for _, ar, w, *_ in spec['segments']
                      if '--snap-frame' not in ar) if any('--snap-frame' in ar for _, ar, *_ in spec['segments']) else 0
@@ -454,6 +553,8 @@ def run_shots(name, spec, cards):
     for last, args, when, *pre in spec['segments']:
         write_last(card, *last)
         times = when if isinstance(when, list) else [None]
+        if n:
+            cuts.append(round(total))
         for t in times:
             if pre:
                 set_kept(card, pre[0])
@@ -471,7 +572,8 @@ def run_shots(name, spec, cards):
             status = [] if '--status' in a or '--tour' in a or '--charging' in a else ['--status', SHOT_STATUS]
             png = frames / f'{n:05d}.png'
             theme = [] if '--theme' in a else ['--theme', 'light']
-            r = subprocess.run([str(BINARY), '--shot', str(png), *theme, '--fn-volume', *status, *a],
+            device = [] if '--device' in a else ['--device', spec['device']]
+            r = subprocess.run([str(BINARY), '--shot', str(png), *theme, '--fn-volume', *status, *device, *a],
                                cwd=ROOT, env=env, capture_output=True, text=True)
             if not png.is_file():
                 raise RuntimeError(f'{name}: {a}: {r.stderr[-800:]}')
@@ -488,7 +590,7 @@ def run_shots(name, spec, cards):
                     '-crf', '10', '-pix_fmt', 'yuv420p', '-color_range', 'tv', '-colorspace', 'bt709',
                     '-color_primaries', 'bt709', '-color_trc', 'bt709', '-movflags', '+faststart',
                     str(OUT / f'{name}.mp4')], check=True)
-    (OUT / f'{name}.json').write_text(json.dumps({'fps': FPS, 'ms': round(total)}) + '\n')
+    (OUT / f'{name}.json').write_text(json.dumps({'fps': FPS, 'ms': round(total), 'cuts': cuts}) + '\n')
     # A take of one picture is used as a picture too
     if n == 1:
         shutil.copyfile(frames / '00000.png', OUT / f'{name}.png')
@@ -515,6 +617,9 @@ def main():
         sys.exit(f'no take called {", ".join(unknown)}; there are {", ".join(TAKES)}')
     cards = {'demo': cardlib.build(WORK / 'card')}
     cardlib.device_settings(cards['demo'], BINARY, **{'tour.done': 1, 'clock': '24h'})
+    # 1.0.6's: fuller shelves for the Grid, and the SG-1000's
+    cards['more'] = cardlib.build(WORK / 'card-more', more=True)
+    cardlib.device_settings(cards['more'], BINARY, **{'tour.done': 1, 'clock': '24h'})
     # The demonstration card with the snap's game holding it in its .media,
     # for the play mark and the bar, and the snap's frames for snapsub.dylib
     cards['snaps'] = cardlib.build(WORK / 'card-snaps')
@@ -553,7 +658,7 @@ def main():
         if only and name not in only:
             continue
         if spec['kind'] == 'live':
-            run_live(name, spec, cards['demo'])
+            run_live(name, spec, cards[spec['card']])
         else:
             run_shots(name, spec, cards)
         print(name, flush=True)

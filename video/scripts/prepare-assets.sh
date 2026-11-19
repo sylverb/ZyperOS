@@ -29,6 +29,27 @@ cp "$ROOT/res/readme/portal.png" "$ROOT/res/readme/portal-phone.png" "$ROOT/res/
 cp "$ROOT/res/boot/zyperos-fly.mp4" "$PUB/boot/"
 mkdir -p "$PUB/music"
 cp "$ROOT"/res/bgm/*.mp3 "$PUB/music/"
+# The 1.0.6 video's own track (src/v106/music.ts): Juhani Junkala's "Level 1",
+# CC0 (https://opengameart.org/content/5-chiptunes-action), fetched once into
+# a cache outside the repository and checked. The video plays it from its
+# first downbeat (0.0259 s), its 56-bar loop at 181 BPM once, then from the top
+# again, joined with a 12 ms crossfade centred on the bar line, so the beat
+# grid holds across the join and the file's closing fade is never heard.
+MUSIC_CACHE="${ZYPEROS_MUSIC_CACHE:-$HOME/Library/Caches/zyperos-video-music}"
+LEVEL1="$MUSIC_CACHE/level1.mp3"
+LEVEL1_SHA=559ad4eb2f936b7a3db0513aabf45926c842253a5721d23b3202a7a56a6b19da
+if [ ! -f "$LEVEL1" ]; then
+	mkdir -p "$MUSIC_CACHE"
+	curl -sSfL --max-time 120 -o "$LEVEL1.part" https://opengameart.org/sites/default/files/level1.mp3
+	mv "$LEVEL1.part" "$LEVEL1"
+fi
+[ "$(shasum -a 256 "$LEVEL1" | cut -d' ' -f1)" = "$LEVEL1_SHA" ] || { echo "$LEVEL1 is not the Level 1 that was measured" >&2; exit 1; }
+if [ ! -f "$PUB/music/level1-loop.wav" ]; then
+	set -- $(python3 -c "b=60/181*4; t0=0.0259; L=56*b; print(f'{t0:.4f} {t0+L+0.006:.4f} {t0-0.006:.4f} {t0+24*b:.4f}')")
+	ffmpeg -loglevel error -y -i "$LEVEL1" -filter_complex \
+		"[0:a]asplit[x][y];[x]atrim=start=$1:end=$2,asetpts=PTS-STARTPTS[a];[y]atrim=start=$3:end=$4,asetpts=PTS-STARTPTS[b];[a][b]acrossfade=d=0.012:c1=tri:c2=tri" \
+		-ar 48000 "$PUB/music/level1-loop.wav"
+fi
 cp "$ROOT"/res/sounds/wood/*.wav "$PUB/audio/ui/"
 snap="$ART/Sega_-_Mega_Drive_-_Genesis/Named_Snaps/Sonic The Hedgehog 2 (World).png"
 [ -f "$snap" ] || { echo "no $snap: run video/footage/takes.py first, which fills the art cache" >&2; exit 1; }
@@ -58,6 +79,19 @@ if [ ! -f "$PUB/device/pixel2-front.png" ]; then
 	cp "$ROOT/res/readme/systems.png" "$work/res/readme/"
 	(cd "$work" && blender --background --python tools/build-pixel2-model.py >/dev/null)
 	blender --background "$work/build/pixel2-model/pixel2.blend" \
+	        --python "$VIDEO/device/render-device.py" -- "$PUB/device" 2000 >/dev/null
+fi
+# The TrimUI Brick, for the 1.0.6 video (src/v106): tools/build-brick-model.py's
+# model (the site's) the same way, true to size beside the Pixel 2
+if [ ! -f "$PUB/device/brick-front.png" ]; then
+	command -v blender >/dev/null || { echo "Blender is needed once, for the device" >&2; exit 1; }
+	work=$(mktemp -d)
+	trap 'rm -rf "$work"' EXIT
+	# The model's script writes beside itself, so it runs from a copy
+	mkdir -p "$work/tools"
+	cp "$ROOT/tools/build-brick-model.py" "$work/tools/"
+	(cd "$work" && blender --background --python tools/build-brick-model.py >/dev/null)
+	blender --background "$work/build/brick-model/brick.blend" \
 	        --python "$VIDEO/device/render-device.py" -- "$PUB/device" 2000 >/dev/null
 fi
 echo "video/public is ready"
