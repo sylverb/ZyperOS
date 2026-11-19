@@ -1,4 +1,5 @@
-/* Reference-matched Pixel 2, built in Blender by tools/build-pixel2-model.py.
+/* A handheld from site/devices.json, built in Blender by its
+ * tools/build-<id>-model.py: the Pixel 2 unless the caller names another.
  * The GLB contains the product geometry and PBR materials. Only the display
  * texture, studio lighting and rotation change here. A slow turntable shows
  * the whole product, and pauses whenever the visitor takes control.
@@ -7,17 +8,30 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 
-// The README's screenshots, all in the light theme, as on the page beside it
-const SHOTS = ["systems", "shelf-n64", "theme", "mp4", "menu"];
+// The Pixel 2, for a caller that names no handheld (Player 2's). mk/site.sh
+// versions this address; keep it literal. The page's own handhelds come with
+// their versioned addresses from the list.
+const PIXEL2 = { glb: "./models/pixel2.glb", shots: ["img/systems.png", "img/shelf-n64.png", "img/theme.png", "img/mp4.png", "img/menu.png"] };
 const REST = { pitch: 0, yaw: -0.28, roll: 0 };
 
-export async function mount(canvas, { motionAllowed = () => true, screenSource = null, turntable = true, interactive = true, pose = REST } = {}) {
+// glb and shots: the handheld's model and the screens it cycles through, as
+// addresses from the page. frameMm: its poster's frame height in
+// millimetres, so the model stands as tall in its canvas as on its poster.
+// studio: how much the studio's reflections give its materials (env), and a
+// tone on their colours, so the model sits near its poster and its maker's
+// colour (site/devices.json).
+export async function mount(canvas, { motionAllowed = () => true, screenSource = null, turntable = true, interactive = true, pose = REST, glb = PIXEL2.glb, shots = PIXEL2.shots, frameMm = null, studio: look = {} } = {}) {
 	const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
 	renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 	renderer.toneMapping = THREE.ACESFilmicToneMapping;
 	renderer.toneMappingExposure = 1.15;
 	const scene = new THREE.Scene();
 	const studio = new RoomEnvironment();
+	// A broad softbox behind the viewer: what a metal face mirrors back, so
+	// the face shows its colour with a clean gradient, not the room's grey
+	const softbox = new THREE.Mesh(new THREE.PlaneGeometry(16, 7), new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide }));
+	softbox.material.color.multiplyScalar(look.softbox ?? 1.6);
+	softbox.position.set(0, 1.5, 9); softbox.lookAt(0, 0, 0); studio.add(softbox);
 	const strip = new THREE.Mesh(new THREE.PlaneGeometry(2, 10), new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide }));
 	strip.material.color.multiplyScalar(4);
 	strip.position.set(-4, 3, 5); strip.lookAt(0, 0, 0); studio.add(strip);
@@ -41,7 +55,7 @@ export async function mount(canvas, { motionAllowed = () => true, screenSource =
 
 	let model;
 	try {
-		model = (await new GLTFLoader().loadAsync(new URL("./models/pixel2.glb", import.meta.url).href)).scene;
+		model = (await new GLTFLoader().loadAsync(new URL(glb, import.meta.url).href)).scene;
 	} catch (error) {
 		environment.dispose(); renderer.dispose(); throw error;
 	}
@@ -49,12 +63,17 @@ export async function mount(canvas, { motionAllowed = () => true, screenSource =
 	const bounds = new THREE.Box3().setFromObject(model);
 	const centre = bounds.getCenter(new THREE.Vector3());
 	const height = bounds.getSize(new THREE.Vector3()).y;
+	const heightMm = height * 1000;
 	model.scale.multiplyScalar(1 / height);
 	model.position.copy(centre).multiplyScalar(-1 / height);
 	model.traverse(obj => {
 		if (obj.isMesh && obj.material) {
 			const materials = Array.isArray(obj.material) ? obj.material : [obj.material];
-			materials.forEach(m => { m.envMapIntensity = 1.1; });
+			materials.forEach(m => {
+				m.envMapIntensity = look.env ?? 1.1; m.color?.multiplyScalar(look.tone ?? 1);
+				// A clear coat mirrors the white studio over its colour: how much
+				if (m.clearcoat !== undefined) m.clearcoat *= look.coat ?? 1;
+			});
 		}
 	});
 	const device = new THREE.Group();
@@ -72,7 +91,8 @@ export async function mount(canvas, { motionAllowed = () => true, screenSource =
 		renderer.setSize(w, h, false);
 		const aspect = w / h;
 		// Fixed framing keeps the upright product centred during rotation.
-		const halfHeight = screenSource ? Math.max(0.56, 0.45 / aspect) : Math.max(0.64, 0.55 / aspect);
+		const halfHeight = frameMm ? frameMm / heightMm / 2
+			: screenSource ? Math.max(0.56, 0.45 / aspect) : Math.max(0.64, 0.55 / aspect);
 		camera.left = -halfHeight * aspect; camera.right = halfHeight * aspect;
 		camera.top = halfHeight; camera.bottom = -halfHeight;
 		camera.updateProjectionMatrix(); renderDirty = true; draw();
@@ -96,12 +116,12 @@ export async function mount(canvas, { motionAllowed = () => true, screenSource =
 		display.material.dispose();
 		display.material = new THREE.MeshBasicMaterial({ map: texture, toneMapped: false });
 	}
-	async function loadImage(name) {
+	async function loadImage(path) {
 		const image = new Image();
-		image.src = new URL(`./img/${name}.png`, import.meta.url).href;
+		image.src = new URL(`./${path}`, import.meta.url).href;
 		try { await image.decode(); return image; } catch { return null; }
 	}
-	const first = screenSource ? null : await loadImage(SHOTS[0]);
+	const first = screenSource ? null : await loadImage(shots[0]);
 	if ((!screenSource && !first) || (screenSource && !display)) {
 		environment.dispose(); renderer.dispose(); throw new Error("Device screen could not load");
 	}
@@ -208,10 +228,37 @@ export async function mount(canvas, { motionAllowed = () => true, screenSource =
 	fit(); showShot();
 	// The first screen is enough to reveal the product. Warm the small tour
 	// afterwards, without delaying the model or downloading the old full gallery.
-	if (!screenSource) Promise.all(SHOTS.slice(1).map(loadImage)).then(images => {
+	if (!screenSource) Promise.all(shots.slice(1).map(loadImage)).then(images => {
 		available.push(...images.filter(Boolean)); schedule();
 	});
 	// A live display owns its frame timing. Static game models never need an
 	// independent animation loop; the caller updates after drawing its canvas.
-	return Object.freeze({ updateScreen: showShot });
+	// A handheld that stops turning goes back to its rest pose, the poster's,
+	// and its first screen: gently, unless motion is off
+	let restFrame = 0;
+	function toRest() {
+		cancelAnimationFrame(restFrame);
+		const from = device.rotation.clone();
+		const yaw = pose.yaw ?? REST.yaw;
+		const to = { x: pose.pitch ?? REST.pitch, z: pose.roll ?? REST.roll,
+			y: yaw + Math.round((from.y - yaw) / (Math.PI * 2)) * Math.PI * 2 };
+		tilt = 0; screenTime = 0;
+		if (shot % (available.length || 1)) { shot = 0; showShot(); }
+		if (reduce.matches || !motionAllowed()) { device.rotation.set(to.x, to.y, to.z, "YXZ"); draw(); return; }
+		const start = performance.now();
+		const step = now => {
+			if (drag) return;
+			const t = Math.min(1, (now - start) / 700), e = 1 - (1 - t) ** 3;
+			device.rotation.set(from.x + (to.x - from.x) * e, from.y + (to.y - from.y) * e, from.z + (to.z - from.z) * e, "YXZ");
+			draw();
+			if (t < 1) restFrame = requestAnimationFrame(step);
+		};
+		restFrame = requestAnimationFrame(step);
+	}
+	function setTurntable(on) {
+		if (on === turntable) return;
+		turntable = on;
+		if (!on) { stopMotion(); toRest(); } else { cancelAnimationFrame(restFrame); schedule(); }
+	}
+	return Object.freeze({ updateScreen: showShot, setTurntable });
 }

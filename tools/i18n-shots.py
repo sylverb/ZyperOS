@@ -851,7 +851,7 @@ EXTRA.setdefault("screen-colors-look-custom",
 EXTRA.setdefault("theme-foot-off", ("demo", "PS1", ["--look", "lime,warm,black,square,off",
                                                     "--look-page", "theme", "6"]))
 # MENU > Display > Night Mode (DESIGN.md 11.42), only where the display has a
-# table (not the Brick): its one row, By Hours; and its page, A on the row:
+# table (the Pixel 2 and the Brick): its one row, By Hours; and its page, A on the row:
 # By Hours with every row live, Off and On with the rows they do not use
 # quiet, the hours on the 12-hour clock at their longest (10:30 PM, 11:30
 # AM), and the lists of Night Mode, Night Warmth and Night From

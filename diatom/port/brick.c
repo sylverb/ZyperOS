@@ -39,11 +39,14 @@
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "diatom_port.h"
 #include "ladder.h"
 #include "osdbar.h"
+#include "panelgamma.h"
+#include "panelgamma_sunxi.h"
 #include "port_clock.h"
 #include "port_cpufreq.h"
 #include "themefile.h"
@@ -283,6 +286,45 @@ static const unsigned char bright_ladder[] = {
 #define BRIGHT_LEVELS ((int)(sizeof bright_ladder / sizeof bright_ladder[0]) - 1)
 
 static int g_disp_fd = -1;
+
+/* The display's gamma table (port/panelgamma_sunxi.h): the Screen Colors and
+ * Night Mode the launcher keeps in PANELGAMMA_COLOR_FILE. The kernel keeps a
+ * table for every program after, so the launcher's is on the display when a
+ * game starts; this port sets it again when it takes the display (a game
+ * resumed at the boot comes before the launcher has set any), and at a
+ * night's start and end over a game, which the launcher does not see while
+ * the game has the screen. The frame loop's thread only. */
+static panelgamma_color g_gamma_color;
+static panelgamma_night g_gamma_night;
+static time_t           g_night_looked;
+
+static void display_gamma(bool take)
+{
+	time_t now = time(NULL);
+	char msg[96];
+
+	if (take) {
+		panelgamma_screen_read(PANELGAMMA_COLOR_FILE, &g_gamma_color, &g_gamma_night);
+		g_gamma_color.night = panelgamma_night_at(&g_gamma_night, (long long)now);
+	} else {
+		int w;
+
+		if (now == g_night_looked) return;
+		w = panelgamma_night_at(&g_gamma_night, (long long)now);
+		g_night_looked = now;
+		if (w == g_gamma_color.night) return;
+		g_gamma_color.night = w;
+	}
+	g_night_looked = now;
+	if (g_disp_fd < 0) return;
+	if (panelgamma_sunxi_apply(g_disp_fd, &g_gamma_color) == 0)
+		snprintf(msg, sizeof msg, "brick: the display's gamma table %s%s",
+		         panelgamma_color_standard(&g_gamma_color) ? "off" : "set",
+		         g_gamma_color.night ? ", Night Mode on" : "");
+	else
+		snprintf(msg, sizeof msg, "brick: could not set the display's gamma table");
+	diatom_port_log(DIATOM_LOG_INFO, msg);
+}
 
 static int g_mixer_fd = -1;
 static int g_level = -1;        /* the position last read or written; -1 none */
@@ -1777,6 +1819,10 @@ void diatom_port_present(const void *src, int w, int h, size_t pitch,
 		}
 	}
 	overlay_page(page_base(page), page, dst);
+
+	/* The table at the take (nothing presented since the last stop), and a
+	 * night's start or end after it */
+	display_gamma(!g_presented);
 
 	pthread_mutex_lock(&g_flip_mx);
 	g_presented = true;

@@ -38,7 +38,9 @@ const device_profile device_profile_brick = {
 	.speaker_mono = false,
 	.player2 = false,
 	.usb_shared_port = false,
-	.screen_colors = false,
+	/* The A133's TCON has a gamma table, set through /dev/disp
+	 * (src/panelgamma_sunxi.h), and its display engine a saturation */
+	.screen_colors = true,
 	.wifi = DEV_WIFI_BUILTIN,
 	.thermal_zones = brick_zones,
 };
