@@ -93,6 +93,9 @@ static ds_rgb track_at(ds_scale_kind kind, float t, bool low)
 
 		return mixc(grey, full, 0.15f + 0.85f * t);
 	}
+	/* Less to more, in grey: no color of its own, since none is the
+	 * sound's (DESIGN.md 1, one meaning per color) */
+	case DS_SCALE_GAIN:
 	case DS_SCALE_GAMMA:
 	default: {
 		const Uint8 g = (Uint8)lroundf(255.0f * (0.22f + 0.56f * t));

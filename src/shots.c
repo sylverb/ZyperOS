@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "ds/hover.h"
 #include "shots.h"
+#include "aout_route.h"
+#include "eq.h"
 
 #include "about_screen.h"
 #include "app.h"
@@ -1224,6 +1226,26 @@ static void shot_draw_look(app *a)
 		const menu_choice *ch = menu_choice_at(night_page_choices(), n, row);
 
 		if (ch) shot_list_draw(a, rows[row].label, ch, menu_std_width(a), MENU_ZYPEROS);
+		return;
+	}
+	/* --look-page eq ROW: the Equalizer page; eq-presets: its presets'
+	 * list, each one's picture beside it (--pick-at for the cursor) */
+	if (!strcmp(shot_look_page, "eq-presets")) {
+		menu_choice ch;
+		aout_state s = aout_now();
+
+		eq_preset_choice(&ch);
+		shot_list_draw(a, eq_out_name(g_shot_eq_phones ? EQ_OUT_PHONES : eq_out_of(aout_resolve(&s))), &ch,
+		               menu_most_w(), MENU_ZYPEROS);
+		return;
+	}
+	if (!strcmp(shot_look_page, "eq")) {
+		menu_row er[16];
+		const char *eh;
+		const int en = eq_page_build(NULL, er, 16, &eh);
+
+		menu_draw(a, eh, er, en, shot_look_row >= 0 && shot_look_row < en ? shot_look_row : 0,
+		          menu_most_w(), MENU_ZYPEROS);
 		return;
 	}
 	if (!strcmp(shot_look_page, "screen-looks")) {
