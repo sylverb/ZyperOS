@@ -235,11 +235,11 @@ void plat_draw_to_screen(void) { SDL_SetRenderTarget(ren, screen_target()); }
 
 /* The Brick's screen is its panel: the picture goes straight into the frame,
  * and what is drawn after it lands on top of it. */
-void plat_video_under(SDL_Texture *tex, const SDL_Rect *dst, SDL_Color bg)
+void plat_video_under(SDL_Texture *tex, const SDL_Rect *src, const SDL_Rect *dst, SDL_Color bg)
 {
 	SDL_SetRenderDrawColor(ren, bg.r, bg.g, bg.b, 255);
 	SDL_RenderClear(ren);
-	if (tex) SDL_RenderCopy(ren, tex, NULL, dst);
+	if (tex) SDL_RenderCopy(ren, tex, src, dst);
 }
 
 /* No ports on the Brick, and no splash --still to hold a picture */
@@ -473,6 +473,15 @@ void plat_input_settle(in_state *st)
 
 /* The descriptors stay open: they are display-independent. */
 void plat_input_quit(void) { }
+
+/* No motor yet: GPIO 227 on the bldo3 rail waits for the tester's buzz (the
+ * Brick parity plan's item 14), and the profile says none (rumble false) */
+bool plat_rumble_buzz(float scale, int ms)
+{
+	(void)scale;
+	(void)ms;
+	return false;
+}
 
 static void poll_fd(int fd, in_state *st)
 {

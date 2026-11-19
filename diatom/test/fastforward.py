@@ -20,8 +20,20 @@ of its turns. A fast turn either runs the step's frames or stops short,
 when the next frame would not fit its two refreshes; a short turn is behind,
 so the loop must not sleep after it (the old pacing slept there a fifth of
 the time), and that is judged on any machine. Whether a core reaches its
-step is judged only in a run with no short turn, where the machine kept up;
-otherwise the check says it could not tell. Never over the step, on any.
+step is judged only in a run that kept up (kept_up): no short turn, and no
+time lost between turns, which a busy machine loses to a sleep that runs over
+or to the CPU taken for a moment; otherwise the check says it could not tell.
+Never over the step, on any machine, and a slow core never over what its own
+sleep allows (a 9 ms core, 1.86x), not over the cost the run measured: that
+cost is the whole game's average, from its first frames, and on GitHub's
+macOS runner, where 9 ms took 48 ms, a step ran at 0.37x against the 0.35x
+the average allowed.
+
+STUBCORE_OVERSHOOT_US=N makes the stub late, as such a runner is, in
+stretches and at its start (stubcore.c); the checks hold with it on, and the
+old ones did not at 20000 and 60000:
+
+    STUBCORE_OVERSHOOT_US=60000 python3 test/fastforward.py
 
 Sound is not judged here: SDL's dummy driver drains its queue slower than
 the clock, and drops at 1x too. The silence fast forward pushes (one turn's
@@ -101,7 +113,7 @@ def run(tag, frame_us, presses, seconds=4.0, skippable=False):
     try: p.wait(5)
     except subprocess.TimeoutExpired: p.kill()
     text = open(out, errors="replace").read()
-    reps = re.findall(r"diatom: speed ([\d.]+)x held ([\d.]+)s, reached [\d.]+x "
+    reps = re.findall(r"diatom: speed ([\d.]+)x held ([\d.]+)s, reached ([\d.]+)x "
                       r"\(([\d.]+)x of the clock\), (\d+) audio frame\(s\) dropped, "
                       r"slept [\d.]+s \(([\d.]+)s after (\d+) of (\d+) turns short", text)
     # What a frame really cost in this run, drawn or not: on a busy machine
@@ -109,13 +121,22 @@ def run(tag, frame_us, presses, seconds=4.0, skippable=False):
     costs = [float(c) for c in re.findall(r"diatom: the core took ([\d.]+) ms a drawn frame", text)]
     costs += [float(c) for c in re.findall(r"diatom: and ([\d.]+) ms a frame run undrawn", text)]
     if not reps or not costs: return None
-    step, held, clock, dropped, short_s, short_n, turns = reps[-1]
+    step, held, turn_speed, clock, dropped, short_s, short_n, turns = reps[-1]
     return (float(step), float(clock), int(dropped), sum(costs) / len(costs),
-            float(held), float(short_s), int(short_n), int(turns))
+            float(held), float(short_s), int(short_n), int(turns), float(turn_speed))
 
-# What the core's own cost allows, flat out: never more than this
+# What the core's own cost allows, flat out, as this run measured it: said
+# for the reader, not judged. The cost is the whole game's average, from the
+# first frames at 1x, which a busy machine makes slower than the step's, so a
+# step can run past it (GitHub's macOS runner, 0.37x against 0.35x: 9 ms
+# frames took 48 ms there)
 def flat_of(r):
     return 1000.0 / r[3] / 59.7275
+
+def limit_of(frame_us):
+    """The most a core that takes frame_us in each frame can run at, on any
+    machine: its sleep is never shorter than it asks"""
+    return 1e6 / frame_us / 59.7275
 
 def flat_out(r):
     """Behind, flat out: no more than a twentieth of the step slept after
@@ -125,12 +146,22 @@ def flat_out(r):
 def short_of(r):
     return f"{r[6]} of {r[7]} turns short of the step, {r[5]:.2f}s slept after them"
 
+def kept_up(r):
+    """A run that held its step as a machine that keeps up does: no turn short
+    of the step's frames, and no time lost between turns, which the clock's
+    speed against the turns' says (step_report: "reached" is over the turns'
+    time, "of the clock" over the time held). A runner that kept the loop
+    waiting after a sleep, or took the CPU for a moment, loses it there and
+    reads under the step with no turn short (1.31x at 1.5x, 2026-11-19)"""
+    return r is not None and r[6] == 0 and r[1] >= r[8] * 0.95
+
 def judged(name, r, want):
-    """At the step, in a run with no turn short of it; else not judged"""
-    if r is not None and r[6] == 0:
+    """At the step, in a run that kept up; else not judged"""
+    if kept_up(r):
         check(name, r[1] >= want * 0.88, (r, short_of(r)))
     elif r is not None:
-        print(f"  --   {name}: not judged, this machine could not keep the step ({short_of(r)})")
+        print(f"  --   {name}: not judged, this machine could not keep the step ({short_of(r)}; "
+              f"{r[1]:.2f}x of the clock against {r[8]:.2f}x of the turns)")
 
 # A core that reaches every step: held to it, never over; on a machine too
 # busy for it, flat out
@@ -153,9 +184,11 @@ for presses, want in ((1, 1.5), (3, 3.0)):
 for tag, skippable in (("slow", True), ("slow-noskip", False)):
     r = run(tag, 9000, 3, skippable=skippable)
     how = "with a frameskip" if skippable else "with no frameskip"
+    # Never over what a 9 ms core can do on any machine, and never sleeping
+    # after a turn short of the step; the cost this run measured is no limit
     check(f"a 9 ms core {how} at 3x runs flat out, not whole frames a turn",
-          r is not None and r[0] == 3.0 and r[1] <= flat_of(r) * 1.05 and flat_out(r),
-          r and (r, short_of(r), round(flat_of(r), 2)))
+          r is not None and r[0] == 3.0 and r[1] <= limit_of(9000) * 1.03 and flat_out(r),
+          r and (r, short_of(r), round(limit_of(9000), 2)))
     if r: print(f"       {r[1]:.2f}x, flat out {flat_of(r):.2f}x at {r[3]:.2f} ms a frame, {short_of(r)}")
 
 # At a step it can reach it is held to the step; on a machine busy enough

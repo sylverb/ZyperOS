@@ -264,10 +264,8 @@ static void zyperos_menu_offline(void)
 	ck(!strcmp(val(&rows[PM_WIFI]), "Off"), "Wi-Fi reads Off, its switch's value");
 	ck(!strcmp(val(&rows[PM_XFER]), "Needs Wi-Fi"), "OTH says why it is dead");
 	ck(!rows[PM_XFER].live, "OTH is not selectable offline");
-	ck(!strcmp(rows[PM_SCRAPER].label, "Scraper") && rows[PM_SCRAPER].live,
-	   "Scraper is live offline: its Video Snaps and sources need no network");
-	ck(!strcmp(val(&rows[PM_ACHIEVEMENTS]), "Sign in"), "Achievements invites a sign in");
-	ck(rows[PM_ACHIEVEMENTS].live, "Achievements is reachable signed out");
+	ck(!strcmp(rows[PM_SCRAPER].label, "Downloads") && rows[PM_SCRAPER].live,
+	   "Downloads is live offline: its counts, Video Snaps and accounts need no network");
 	ck(!strcmp(val(&rows[PM_SLEEP]), "2 min"), "120 s reads as 2 min");
 	ck(!strcmp(rows[PM_CLOCK].label, "Date & Time") &&
 	   !strcmp(val(&rows[PM_CLOCK]), "Oct 3, 6:12 AM"), "Date & Time reads the time");
@@ -673,16 +671,16 @@ static void zyperos_menu_online(void)
 	ck(!strcmp(val(&rows[PM_WIFI]), "kitchen"), "Wi-Fi shows the network name");
 	ck(rows[PM_XFER].live && !rows[PM_XFER].value, "OTH is live and unqualified");
 	ck(rows[PM_SCRAPER].live && !rows[PM_SCRAPER].value,
-	   "Scraper is live, with no value before a count");
-	ck(!strcmp(val(&rows[PM_ACHIEVEMENTS]), "eric"), "Achievements shows the account");
+	   "Downloads is live, with no value before a count");
 	ck(!strcmp(val(&rows[PM_SLEEP]), "Never"), "0s reads as never");
 
-	/* ONE ROW, SCRAPER, where Box Art was: the run, Video Snaps and the
-	 * three sources behind it (My picks in the Scraper lab, 2026-11-06;
-	 * DESIGN.md 11.19). The two account rows it replaces are gone. */
-	printf("the Scraper row and its screen:\n");
-	ck(PM_SCRAPER == PM_ACHIEVEMENTS + 1 && sys_menu_tab_of(PM_SCRAPER) == PT_GAMES,
-	   "Scraper is in Games, under Achievements");
+	/* ONE ROW, DOWNLOADS, where Scraper was (and Box Art before it): the
+	 * runs, Video Snaps and the three accounts behind it (my pick in the
+	 * downloads lab, 2026-11-19: one door; DESIGN.md 11.53). The account
+	 * rows and the Achievements row it replaces are gone. */
+	printf("the Downloads row and its screen:\n");
+	ck(PM_SCRAPER == PM_RANDOM + 1 && sys_menu_tab_of(PM_SCRAPER) == PT_GAMES,
+	   "Downloads is in Games, under Random Game");
 	{
 		int j;
 
@@ -969,7 +967,7 @@ static void system_menu(void)
 		m.wifi = WIFI_CONNECTED;     /* the case above left the radio down */
 		mn = sys_menu_build(&m, mrows, &mb, &mhead);
 		printf("MP4's shelf menu:\n");
-		ck(mn == 6, "six rows with only music");
+		ck(mn == 7, "seven rows with only music, Quit last");
 		ck(!strcmp(mrows[0].label, "Albums") && !strcmp(val(&mrows[0]), "7"),
 		   "how many albums");
 		ck(!strcmp(mrows[1].label, "Sort By") && mrows[1].live &&
@@ -1007,7 +1005,7 @@ static void system_menu(void)
 		m.wifi = WIFI_CONNECTED;
 		m.muse_both = true;
 		mn = sys_menu_build(&m, mrows, &mb, &mhead);
-		ck(mn == SM_MUSE_ROWS, "seven rows with more than one kind");
+		ck(mn == SM_MUSE_ROWS, "eight rows with more than one kind");
 		ck(!strcmp(mrows[1].label, "Show") && mrows[1].live &&
 		   !strcmp(val(&mrows[1]), "Music"), "Show, on music");
 		ck(!strcmp(mrows[2].label, "Sort By") && !strcmp(mrows[3].label, "Shuffle All") &&
@@ -1017,7 +1015,7 @@ static void system_menu(void)
 		m.muse_books = true;
 		m.game_count = 2;
 		mn = sys_menu_build(&m, mrows, &mb, &mhead);
-		ck(mn == 5, "five rows on books");
+		ck(mn == 6, "six rows on books");
 		ck(!strcmp(mrows[0].label, "Books") && !strcmp(val(&mrows[0]), "2"),
 		   "how many books");
 		ck(!strcmp(val(&mrows[1]), "Audiobooks"), "Show, on books");
@@ -1032,7 +1030,7 @@ static void system_menu(void)
 		m.muse_videos = true;
 		m.game_count = 3;
 		mn = sys_menu_build(&m, mrows, &mb, &mhead);
-		ck(mn == 5 && !strcmp(mrows[0].label, "Videos") && !strcmp(val(&mrows[0]), "3") &&
+		ck(mn == 6 && !strcmp(mrows[0].label, "Videos") && !strcmp(val(&mrows[0]), "3") &&
 		   !strcmp(val(&mrows[1]), "Videos") && !strcmp(val(&mrows[2]), "Folder"),
 		   "on videos: how many, Show, by folder");
 		for (k = 0; k < mn; k++)
@@ -1065,9 +1063,28 @@ static void system_menu(void)
 			ck(sys_menu_muse_rows(3, true, false, ids) == SM_MUSE_ROWS && ids[3] == SMM_SHUFFLE,
 			   "All with songs has every row");
 
-			ck(sys_menu_muse_rows(true, false, false, ids) == 4 && ids[1] == SMM_SORT &&
-			   ids[2] == SMM_LOCK,
-			   "books alone: the count, Sort By, Lock Screen and Rescan Folder");
+			ck(sys_menu_muse_rows(true, false, false, ids) == 5 && ids[1] == SMM_SORT &&
+			   ids[2] == SMM_LOCK && ids[3] == SMM_RESCAN && ids[4] == SMM_QUIT,
+			   "books alone: the count, Sort By, Lock Screen, Rescan Folder and Quit");
+			/* Quit last on every shelf of MP4's, live, X's glyph its
+			 * value: X does it from any row (DESIGN.md 11.14) */
+			for (int kind = 0; kind <= 3; kind++)
+				for (int both = 0; both <= 1; both++)
+					for (int nw = 0; nw <= 1; nw++) {
+						int q = sys_menu_muse_rows(kind, both, nw, ids);
+						ck(q > 0 && ids[q - 1] == SMM_QUIT,
+						   "Quit is the last row on every MP4 shelf");
+					}
+		}
+		{
+			int q;
+
+			m.muse_books = false;
+			mn = sys_menu_build(&m, mrows, &mb, &mhead);
+			q = mn - 1;
+			ck(mn > 0 && !strcmp(mrows[q].label, "Quit") && mrows[q].value == MENU_KEY_X &&
+			   mrows[q].live && !menu_sound_at(mb.sound, mn, q),
+			   "MP4's Quit: last, live, X's glyph at its right, plain to the ear");
 		}
 	}
 }
@@ -1341,12 +1358,12 @@ static void radio_less(void)
 	n = sys_menu_build(&u, rows, &b, &heading);
 	k = sys_menu_zyperos_rows(&u, pm);
 	printf("ZyperOS menu, no radio at all:\n");
-	ck(n == k && n == PM_ROWS - 4, "four rows fewer, and the build agrees with the list");
+	ck(n == k && n == PM_ROWS - 3, "three rows fewer, and the build agrees with the list");
 	ck(!has_label(rows, n, "Wi-Fi") && !has_label(rows, n, "Bluetooth"),
 	   "no Wi-Fi, no Bluetooth");
-	ck(!has_label(rows, n, "Wi-Fi File Transfer") && has_label(rows, n, "Scraper"),
-	   "no Wi-Fi File Transfer; Scraper stays, for Video Snaps and the sources");
-	ck(!has_label(rows, n, "Achievements"), "and no Achievements sign-in");
+	ck(!has_label(rows, n, "Wi-Fi File Transfer") && has_label(rows, n, "Downloads"),
+	   "no Wi-Fi File Transfer; Downloads stays, for its counts, Video Snaps and the accounts");
+	ck(!has_label(rows, n, "Achievements"), "and no Achievements row");
 	ck(has_label(rows, n, "Audio Output") && has_label(rows, n, "Play Time") &&
 	   has_label(rows, n, "Controls") && has_label(rows, n, "About ZyperOS") &&
 	   has_label(rows, n, "Date & Time"),
@@ -1387,7 +1404,7 @@ static void radio_less(void)
 	n = sys_menu_build(&u, rows, &b, &heading);
 	k = sys_menu_zyperos_rows(&u, pm);
 	printf("ZyperOS menu, no radio, files over the cable:\n");
-	ck(n == k && n == PM_ROWS - 3, "three rows fewer: the transfer row stays");
+	ck(n == k && n == PM_ROWS - 2, "two rows fewer: the transfer row stays");
 	for (i = 0; i < k && pm[i] != PM_XFER; i++) { }
 	ck(i < k && !strcmp(rows[i].label, "USB File Transfer"),
 	   "as USB File Transfer, where the list says it is");
@@ -1401,13 +1418,14 @@ static void radio_less(void)
 	k = sys_menu_zyperos_rows(&u, pm);
 	printf("ZyperOS menu, no radio, a phone's tethering:\n");
 	ck(n == k && n == PM_ROWS - 2, "two rows fewer: Wi-Fi and Bluetooth");
-	ck(has_label(rows, n, "Achievements") && has_label(rows, n, "USB File Transfer"),
-	   "Achievements is back, beside USB File Transfer");
+	ck(has_label(rows, n, "Downloads") && has_label(rows, n, "USB File Transfer"),
+	   "Downloads is there, beside USB File Transfer");
+	ck(!has_label(rows, n, "Achievements"), "and no Achievements row: its page is behind Downloads");
 	ck(!has_label(rows, n, "Wi-Fi") && !has_label(rows, n, "Wi-Fi File Transfer"),
 	   "and the Wi-Fi rows stay away");
-	for (i = 0; i < k && pm[i] != PM_ACHIEVEMENTS; i++) { }
-	ck(i < k && !strcmp(rows[i].label, "Achievements") && rows[i].live,
-	   "Achievements live, where the list says it is");
+	for (i = 0; i < k && pm[i] != PM_SCRAPER; i++) { }
+	ck(i < k && !strcmp(rows[i].label, "Downloads") && rows[i].live,
+	   "Downloads live, where the list says it is");
 	u.online = false;
 
 	memset(&u, 0, sizeof u);
@@ -1604,7 +1622,7 @@ static void menu_tabs(void)
 	   "and no Screen Colors or Night Mode where the display has no table (the Brick)");
 	u.no_screen_colors = u.no_night = false;
 	m = sys_menu_tab_rows(&u, PT_GAMES, tab);
-	ck(m == 5 && tab[0] == PM_SEARCH, "Games opens on Search Games");
+	ck(m == 4 && tab[0] == PM_SEARCH, "Games opens on Search Games");
 	m = sys_menu_tab_rows(&u, PT_CONNECTIONS, tab);
 	ck(m > 0 && tab[0] == PM_USB_WAIT, "Connections starts on USB Device while a plug waits");
 	u.no_usb_wait = true;
@@ -1612,8 +1630,9 @@ static void menu_tabs(void)
 	ck(m > 0 && tab[0] == PM_WIFI, "and on Wi-Fi when none does");
 	u.tab = PT_SOUND;
 	n = (sys_menu_build)(&u, rows, &b, &heading);
-	ck(n == 4 && !strcmp(heading, "Sound") && !strcmp(rows[0].label, "Audio Output") &&
-	   !strcmp(rows[3].label, "Menu Music"), "a tab's build: its rows, headed by its name");
+	ck(n == 5 && !strcmp(heading, "Sound") && !strcmp(rows[0].label, "Audio Output") &&
+	   !strcmp(rows[3].label, "Menu Music") && !strcmp(rows[4].label, "Rumble"),
+	   "a tab's build: its rows, headed by its name");
 	u.tab = PT_DISPLAY;
 	u.theme = "Lime";
 	n = (sys_menu_build)(&u, rows, &b, &heading);
@@ -1646,7 +1665,8 @@ static void source_does_not_wrap(void)
 	static const char *const files[] = {
 		"src/main.c", "src/aout_route.c", "src/bgm_screen.c",
 		"src/bt_screen.c", "src/clock_screen.c", "src/ctl_channel.c",
-		"src/ctltab_screen.c", "src/gamedel_screen.c", "src/gamern_screen.c",
+		"src/ctltab_screen.c", "src/dl_screen.c", "src/gamedel_screen.c",
+		"src/gamern_screen.c",
 		"src/media_screen.c", "src/menu_panel.c", "src/nowplaying_screen.c",
 		"src/place.c", "src/portload.c", "src/powerscreens.c", "src/raqueue.c",
 		"src/search_screen.c", "src/shelfbuild.c", "src/stats_screen.c",
@@ -2256,6 +2276,21 @@ static void ctl_tab(void)
 	ck(ct_lit(&m, CT_STICK) == (1u << TD_DPAD | 1u << TD_SELECT), "the stick lights SELECT, the way to the D-pad");
 	ck(ct_lit(&m, CT_PAK) == 0, "Pak lights nothing");
 
+	/* ct_rows_n64_rumble: a core that asked for the motor, on a handheld
+	 * with one (src/rumble.h) */
+	m.rumble = "Low";
+	m.rumble_own = true;
+	n = ct_rows(&m, ids, rows, vcol, &b);
+	ck(n == 16 && ids[3] == CT_RUMBLE && !strcmp(rows[3].label, "Rumble") && !strcmp(val(&rows[3]), "Low") &&
+	   rows[3].live && vcol[3], "ct_rows_n64_rumble: Rumble under the Pak, its own level in accent-ink");
+	ck(!strcmp(rows[4].label, "A") && ct_button_of(ids[4]) >= 0, "and the buttons after it");
+	ck(ct_lit(&m, CT_RUMBLE) == 0, "Rumble lights nothing");
+	m.rumble = "Full";
+	m.rumble_own = false;
+	n = ct_rows(&m, ids, rows, vcol, &b);
+	ck(!strcmp(val(&rows[3]), "Full") && !vcol[3], "MENU's level, the scope's none: plain");
+	m.rumble = NULL;
+
 	/* ct_rows_dc_face_stick_on */
 	memset(&m, 0, sizeof m);
 	m.tag = "DC"; m.ext = "chd"; m.sys_label = "Dreamcast"; m.map = CT_DC_MAP;
@@ -2855,6 +2890,44 @@ static void sounds_row(void)
 		ck(strcmp(rows[i].label, "UI Sounds"), "a system's menu has none");
 }
 
+/* MENU > Sound > Rumble (src/rumble.h): the Sound tab's last row, under Menu
+ * Music, Full until it is set, on a handheld with a motor ZyperOS runs; on
+ * one without (the Brick's waits for its tester), not there. */
+static void rumble_row(void)
+{
+	sys_ui u;
+	menu_bufs b;
+	menu_row rows[MENU_MAX_ROWS];
+	pm_row ids[MENU_MAX_ROWS];
+	const char *heading;
+	int n, i, found = 0;
+
+	memset(&u, 0, sizeof u);
+	u.no_wifi = true;
+	u.no_bt = true;
+	n = sys_menu_build(&u, rows, &b, &heading);
+	printf("the Rumble row:\n");
+	ck(PM_RUMBLE == PM_MUSIC + 1 && sys_menu_tab_of(PM_RUMBLE) == PT_SOUND, "sits under Menu Music, on Sound");
+	for (i = 0; i < n; i++)
+		if (rows[i].label && !strcmp(rows[i].label, "Rumble")) {
+			found++;
+			ck(rows[i].live && !strcmp(val(&rows[i]), "Full"), "is live, and reads Full until it is set");
+			ck(i > 0 && !strcmp(rows[i - 1].label, "Menu Music"), "directly under Menu Music there too");
+		}
+	ck(found == 1, "is there once");
+	u.rumble = "Low";
+	n = sys_menu_build(&u, rows, &b, &heading);
+	ck(!strcmp(val_of(rows, n, "Rumble"), "Low"), "says the level");
+	u.tab = PT_SOUND;
+	n = sys_menu_tab_rows(&u, PT_SOUND, ids);
+	ck(n > 0 && ids[n - 1] == PM_RUMBLE, "the Sound tab's last row");
+	u.no_rumble = true;
+	u.tab = PT_TABS;
+	n = sys_menu_zyperos_rows(&u, ids);
+	for (i = 0, found = 0; i < n; i++) found += ids[i] == PM_RUMBLE;
+	ck(!found, "no motor: no row");
+}
+
 /* MENU > Side Lights (src/sidelights.h): on a device with lights of its own,
  * under Charge Limit, saying how many parts are on, opening the page of five
  * switches; on one without, not there at all. The setting's words are
@@ -3318,6 +3391,7 @@ int main(void)
 	audio_row();
 	channels_row();
 	sounds_row();
+	rumble_row();
 	charge_row();
 	power_row();
 	homesys_rows();
