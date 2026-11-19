@@ -4,7 +4,7 @@
 window, so no window opens: the host launcher as the Pixel 2 and as the
 Brick on tools/desk's sample card, driven over its control socket. Each one's
 panel is its size (a shot is the panel's pixels, 640x480 or 1024x768), the
-zoom and the buttons' bar change the window and come back in `state`, a
+zoom and the handheld around the screen change the window and come back in `state`, a
 press is held until let go, a tap's frame is timed, and `quit` ends it.
 build-native/zyperos must be built (make native)."""
 import importlib.machinery
@@ -98,9 +98,9 @@ def run(desk, tmp, device, size):
         ms = lat.get('press_to_present_ms')
         check(lat.get('ok') and ms is not None and 0 <= ms < 1000, f'{device}: a tap is timed to its frame ({ms} ms)')
         ask(sock, 'zoom 2')
-        ask(sock, 'bar 0')
+        ask(sock, 'frame 0')
         st = ask(sock, 'state')
-        check(st.get('zoom') == 2 and st.get('bar') is False, f'{device}: zoom and the bar change ({st.get("zoom")}, {st.get("bar")})')
+        check(st.get('zoom') == 2 and st.get('frame') is False, f'{device}: zoom and the handheld around the screen change ({st.get("zoom")}, {st.get("frame")})')
         bad = ask(sock, 'press nothing')
         check(bad.get('ok') is False and 'buttons' in bad.get('error', ''), f'{device}: an unknown button is refused')
         ask(sock, 'quit')

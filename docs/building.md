@@ -269,7 +269,7 @@ something once broke in a way nothing noticed:
 | `check-from-rogue` | tools/from-rogue.sh's table against systems.cfg and against the folders on a ROGUE OS card |
 | `check-importers` | the computer-side importers (--meta, --titles) on a scratch card: a title written over a game's details keeps them (builds the host launcher) |
 | `check-diatom` | Diatom's own suite (diatom/Makefile's check) on its desktop port with the stub core: the port seam, core facts, achievements, screens, the protocol, the state plane, resident cores, save states packed and read back (old ones too), the card's frame of play written once a minute in and never again; then the launcher's own Diatom link against it (tools/gamezone-check.c): the zone chosen in Date & Time reaches a game's clock, a new zone the next game with no restart, and a Diatom started again its first game (skips without SDL2) |
-| `check-desk` | desk mode (tools/desk, src/device/desk.h) in SDL's dummy window, as the Pixel 2 and as the Brick on tools/desk's sample card, over its control socket: the panel its size (a shot is 640x480 or 1024x768), a press held until let go, a tap timed to its frame, the zoom and the buttons' bar, an unknown button refused, quit |
+| `check-desk` | desk mode (tools/desk, src/device/desk.h) in SDL's dummy window, as the Pixel 2 and as the Brick on tools/desk's sample card, over its control socket: the panel its size (a shot is 640x480 or 1024x768), a press held until let go, a tap timed to its frame, the zoom and the drawn handheld on and off, an unknown button refused, quit |
 | `check-keymap` | one key map for a keyboard standing in for the buttons: src/device/keymap.h, the Simulator's (App.swift) and Diatom's own window's give each key the same button, and both docs point at it |
 | `check-simulator` | the simulator's Swift tests: its VNC client, the px2sim link, the state lines and the control socket's commands (skips without Swift) |
 | `check-px2sim` | px2sim's choice of the keyboard it takes in the QEMU image: QEMU's virtio or USB one, never a uinput one such as gptokeyb's Fake Keyboard (host compiler, no VM) |
@@ -730,9 +730,10 @@ credits there.
 
 ## Work on the UI without a device
 
-`make desk` opens ZyperOS's launcher in a window on your computer, as the GKD
-Pixel 2 does it: its 640x480 panel, and the handheld's buttons drawn under it.
-`make desk-brick` is the TrimUI Brick's 1024x768. It is the code the handheld
+`make desk` opens ZyperOS's launcher in a window on your computer as the GKD
+Pixel 2 itself, drawn to its measurements around its 640x480 panel, one panel
+pixel to a pixel of your display: on a Mac's Retina display, about the
+panel's real size. `make desk-brick` is the TrimUI Brick and its 1024x768. It is the code the handheld
 runs, built for your computer, so the menus, the settings, the themes and the
 languages behave as they do there, at the panel's 60 frames a second, and a
 press shows on the next frame. A game runs in the same window, and MENU opens
@@ -743,6 +744,7 @@ a player meets it.
 make desk                         # the Pixel 2
 make desk-brick                   # the Brick
 tools/desk --zoom 2 --lang de     # twice the size, in German (xx: every word longer)
+tools/desk --no-frame             # the screen alone, no handheld around it
 tools/desk --roms ~/Games/Roms    # your own Roms folder, laid out as on a card
 tools/desk --fresh                # a new sample card
 ```
@@ -766,13 +768,15 @@ on an AZERTY one Z is the key marked W, and A the one marked Q:
 
 It is one map, `src/device/keymap.h`, for desk mode, the
 [simulator](simulator.md) and QEMU's own window (`make check-keymap` holds
-them to it). With the mouse, click and hold a button under the screen; each
-says its key, and lights while it is held, from wherever. The mouse wheel is
-Up and Down. A game controller is the buttons too, by their place: the
-right-hand button is A and the lower one B, as on the handheld, whatever is
-printed on them. In the window, F1 lists all this; Cmd 1, 2 and 3 zoom
-(Control on Linux), Cmd 0 shows the panel at its real size on your display,
-Cmd B hides the buttons, and Cmd S saves the screen to the Desktop.
+them to it). With the mouse, click and hold any key of the drawn handheld; it
+goes down while held, from wherever. The pointer over a key shows its
+keyboard key, and holding Option shows them all. The mouse wheel is Up and
+Down. A game controller is the buttons too, by their place: the right-hand
+button is A and the lower one B, as on the handheld, whatever is printed on
+them. In the window, F1 lists all this; Cmd 1, 2 and 3 show the panel pixel
+for pixel, twice and three times (Control on Linux), Cmd 0 at its real size
+on your display, Cmd B the screen alone or the handheld, and Cmd S saves the
+screen to the Desktop.
 
 The first run makes a sample card in `build-native/desk/pixel2` (or `brick`):
 the README's library of games as empty files, a game on each system, and
@@ -798,6 +802,7 @@ tools/desk tap menu                      # buttons: up down left right a b x y l
                                          # l2 r2 select start menu volup voldown power
 tools/desk shot shot.png                 # the panel, at its own pixels
 tools/desk latency down                  # a tap, and ms from it to its frame
+tools/desk hints 1                       # every key's name on its key, as Option
 tools/desk state | stats | close | quit
 ```
 

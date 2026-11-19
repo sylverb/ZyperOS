@@ -3,11 +3,15 @@
 #include "desk.h"
 
 #include "../device.h"
+#include "deskface.h"
 #include "keymap.h"
 #include "profile.h"
 
 #include <SDL_image.h>
 #include <SDL_ttf.h>
+#ifdef __APPLE__
+#include <CoreGraphics/CoreGraphics.h>
+#endif
 
 #include "../../diatom/include/diatom_deskfb.h"
 
@@ -30,8 +34,8 @@ static SDL_Renderer *g_ren;
 static SDL_Texture  *g_screen;      /* ZyperOS's 1024x768 */
 static SDL_Texture  *g_panel;       /* the panel's pixels, when not the screen's */
 static int           g_pw, g_ph;    /* the panel, landscape */
-static float         g_zoom = 1;    /* window points a panel pixel */
-static bool          g_bar = true;  /* the buttons under the screen */
+static float         g_zoom;        /* window points a panel pixel (0 until set) */
+static bool          g_face = true; /* the handheld drawn around the screen */
 static bool          g_help;
 static double        g_hz = 60;
 
@@ -71,94 +75,26 @@ SDL_Texture *desk_screen(void) { return desk_on() ? g_screen : NULL; }
 
 in_button desk_key_button(SDL_Scancode sc) { return keymap_button(sc); }
 
-/* ---- the bar: the handheld's buttons, drawn ------------------------------ */
+/* ---- the window: the handheld around its screen (deskface.h) ------------- */
 
-#define BAR_H 150     /* points */
+/* Desk mode's own events (SDL_RegisterEvents): the socket's lines, a tap's
+ * let-go, a redraw (enum below) */
+static Uint32 g_ctl_event = (Uint32)-1;
 
-typedef struct {
-	in_button   id;
-	const char *label;
-	int         shape;     /* 0 round, 1 pill, 2 d-pad arm */
-	SDL_FRect   r;         /* points, from the bar's top left */
-	SDL_FPoint  hint;      /* where its key's name goes, the same way */
-} bar_key;
+static bool      g_has_face;          /* this handheld has a drawing */
+static float     g_s = 1;             /* the face's points a millimetre */
+static float     g_ox, g_oy;          /* its top left in the window, points */
+static SDL_FRect g_scr;               /* the screen's picture in the window, points */
+static in_button g_hover = IN_NONE;   /* the key under the pointer */
+static bool      g_hints;             /* every key's name: Option held */
+static Uint32    g_note_until;        /* the first note's end, SDL ticks */
 
-static bar_key g_keys[24];
-static int     g_nkeys;
+static bool face_on(void) { return g_face && g_has_face; }
 
-static const char *profile_label(in_button b, const char *fallback)
-{
-	const device_profile *p = plat_profile();
-
-	for (int i = 0; p && i < p->n_buttons; i++)
-		if (p->buttons[i].id == b) return p->buttons[i].label;
-	return fallback;
-}
-
-static bool profile_has(in_button b)
-{
-	const device_profile *p = plat_profile();
-
-	for (int i = 0; p && i < p->n_buttons; i++)
-		if (p->buttons[i].id == b) return true;
-	return false;
-}
-
-static void key_at(in_button id, int shape, float cx, float cy, float w, float h)
-{
-	if (g_nkeys >= (int)(sizeof g_keys / sizeof g_keys[0]) || !profile_has(id)) return;
-	g_keys[g_nkeys++] = (bar_key){ id, profile_label(id, "?"), shape,
-	                              { cx - w / 2, cy - h / 2, w, h }, { cx, cy + h / 2 + 8 } };
-}
-
-/* A handheld's face, as much of it as a strip shows: the shoulders over the
- * d-pad and the face buttons, SELECT START and MENU between, the volume and
- * the power key under. Laid out for the window's width. */
-static void bar_layout(float w)
-{
-	float l = w * 0.16f < 92 ? 92 : w * 0.16f, r = w - l, c = w / 2;
-	float y = 75, arm = 23, face = 25;
-
-	g_nkeys = 0;
-	key_at(IN_L2, 1, l - 25, 16, 44, 20);
-	key_at(IN_L1, 1, l + 25, 16, 44, 20);
-	key_at(IN_R1, 1, r - 25, 16, 44, 20);
-	key_at(IN_R2, 1, r + 25, 16, 44, 20);
-	key_at(IN_UP,    2, l, y - arm, 24, 24);
-	key_at(IN_DOWN,  2, l, y + arm, 24, 24);
-	key_at(IN_LEFT,  2, l - arm, y, 24, 24);
-	key_at(IN_RIGHT, 2, l + arm, y, 24, 24);
-	key_at(IN_X,      0, r, y - face, 28, 28);
-	key_at(IN_ACCEPT, 0, r + face, y, 28, 28);
-	key_at(IN_BACK,   0, r, y + face, 28, 28);
-	key_at(IN_Y,      0, r - face, y, 28, 28);
-	/* Round keys printed SE and ST (the Pixel 2), or pills with the word
-	 * (the Brick's SELECT and START) */
-	if (strlen(profile_label(IN_SELECT, "")) > 2) {
-		key_at(IN_SELECT, 1, c - 34, 54, 56, 20);
-		key_at(IN_START,  1, c + 34, 54, 56, 20);
-	} else {
-		key_at(IN_SELECT, 0, c - 30, 54, 26, 26);
-		key_at(IN_START,  0, c + 30, 54, 26, 26);
-	}
-	key_at(IN_MENU,   0, c, 88, 30, 30);
-	key_at(IN_VOLDN,    1, c - 92, 124, 40, 18);
-	key_at(IN_VOLUP,    1, c - 48, 124, 40, 18);
-	key_at(IN_BRIGHTDN, 1, c + 48, 124, 40, 18);
-	key_at(IN_BRIGHTUP, 1, c + 92, 124, 40, 18);
-	key_at(IN_POWER,    1, c + (profile_has(IN_BRIGHTUP) ? 150 : 70), 124, 54, 18);
-	/* The face buttons' keys outside the diamond, beside each, so they
-	 * never sit between two buttons */
-	for (int i = 0; i < g_nkeys; i++) {
-		bar_key *k = &g_keys[i];
-		float kx = k->r.x + k->r.w / 2, ky = k->r.y + k->r.h / 2;
-		if (k->id == IN_Y) k->hint = (SDL_FPoint){ kx - k->r.w / 2 - 9, ky };
-		else if (k->id == IN_X || k->id == IN_ACCEPT || k->id == IN_BACK)
-			k->hint = (SDL_FPoint){ kx + k->r.w / 2 + 9, ky };
-	}
-}
-
-/* ---- the window's geometry ---------------------------------------------- */
+/* The display's pixels a point, as of the window's start or its last move
+ * to another display: what the zoom counts in (a resize's renderer can
+ * report its old size for a moment) */
+static float g_ratio = 1;
 
 static float pixel_ratio(void)
 {
@@ -169,204 +105,150 @@ static float pixel_ratio(void)
 	return ww > 0 ? (float)pw / ww : 1;
 }
 
-/* The screen's place in the window, in points: the area over the bar, the
- * panel fitted into it whole */
-static SDL_FRect screen_rect(void)
+/* Where everything is for the window's size now: the face as large as fits,
+ * in the middle; or the screen alone */
+static void layout(void)
 {
 	int ww, wh;
-	float aw, ah, s;
 
 	SDL_GetWindowSize(g_win, &ww, &wh);
-	aw = (float)ww;
-	ah = (float)wh - (g_bar ? BAR_H : 0);
-	if (ah < 1) ah = 1;
-	s = aw / g_pw < ah / g_ph ? aw / g_pw : ah / g_ph;
-	return (SDL_FRect){ (aw - g_pw * s) / 2, (ah - g_ph * s) / 2, g_pw * s, g_ph * s };
+	if (face_on()) {
+		float w1, h1, fw, fh;
+		SDL_FRect sc;
+
+		face_size(1, &w1, &h1, &sc);
+		g_s = fminf(ww / w1, wh / h1);
+		face_size(g_s, &fw, &fh, &g_scr);
+		g_ox = (ww - fw) / 2;
+		g_oy = (wh - fh) / 2;
+		g_scr.x += g_ox;
+		g_scr.y += g_oy;
+	} else {
+		float k = fminf((float)ww / g_pw, (float)wh / g_ph);
+
+		g_ox = g_oy = 0;
+		g_scr = (SDL_FRect){ (ww - g_pw * k) / 2, (wh - g_ph * k) / 2, g_pw * k, g_ph * k };
+	}
 }
 
+/* The window for the zoom: the panel g_zoom points a pixel, and the face
+ * around it at the same scale */
 static void window_fit(void)
 {
-	SDL_SetWindowSize(g_win, (int)(g_pw * g_zoom + 0.5f), (int)(g_ph * g_zoom + 0.5f) + (g_bar ? BAR_H : 0));
-	bar_layout(g_pw * g_zoom);
+	float w = g_pw * g_zoom, h = g_ph * g_zoom;
+
+	if (face_on()) {
+		SDL_FRect sc;
+		face_size(g_pw * g_zoom / face_screen_mm(), &w, &h, &sc);
+	}
+	SDL_SetWindowSize(g_win, (int)(w + 0.5f), (int)(h + 0.5f));
+	layout();
 }
 
-/* The panel at its own size on the computer's display: its lit width in
- * millimetres (the profile's) over the display's points an inch */
+/* Points a millimetre on the display the window is on */
+static float display_ppmm(void)
+{
+#ifdef __APPLE__
+	int x, y, w, h;
+	CGDirectDisplayID id;
+	uint32_t n = 0;
+
+	SDL_GetWindowPosition(g_win, &x, &y);
+	SDL_GetWindowSize(g_win, &w, &h);
+	if (CGGetDisplaysWithPoint(CGPointMake(x + w / 2.0, y + h / 2.0), 1, &id, &n) == kCGErrorSuccess && n) {
+		CGSize mm = CGDisplayScreenSize(id);
+		CGRect pts = CGDisplayBounds(id);
+		if (mm.width > 0) return (float)(pts.size.width / mm.width);
+	}
+#endif
+	{
+		float hdpi = 0;
+		int d = SDL_GetWindowDisplayIndex(g_win);
+
+		if (d >= 0 && SDL_GetDisplayDPI(d, NULL, &hdpi, NULL) == 0 && hdpi > 0)
+			return hdpi / pixel_ratio() / 25.4f;
+	}
+	return 72 / 25.4f;
+}
+
+/* The panel at its own size on the display: its lit width (the profile's)
+ * in the display's points */
 static float actual_zoom(void)
 {
 	const device_profile *p = plat_profile();
-	float hdpi = 0, ratio = pixel_ratio();
-	int d = SDL_GetWindowDisplayIndex(g_win);
 
-	if (!p || d < 0 || SDL_GetDisplayDPI(d, NULL, &hdpi, NULL) != 0 || hdpi <= 0) return 1;
-	/* SDL gives the display's pixels an inch; points are pixels over the ratio */
-	return (p->screen.active_w_mm / 25.4f) * (hdpi / ratio) / g_pw;
+	return p ? p->screen.active_w_mm * display_ppmm() / g_pw : 1;
 }
 
-/* ---- text, for the bar and the help -------------------------------------- */
+/* ---- the help, and the first note ------------------------------------------ */
 
-typedef struct { char text[48]; int px; SDL_Color c; SDL_Texture *t; int w, h; } text_tex;
-static text_tex g_text[96];
-static int      g_ntext;
-static TTF_Font *g_font[3];
-static int       g_font_px[3];
-
-static TTF_Font *font_px(int px)
-{
-	int slot = px <= 18 ? 0 : px <= 26 ? 1 : 2;
-
-	if (!g_font[slot] || g_font_px[slot] != px) {
-		if (g_font[slot]) TTF_CloseFont(g_font[slot]);
-		g_font[slot] = TTF_OpenFont(P_FONT, px);
-		g_font_px[slot] = px;
-	}
-	return g_font[slot];
-}
-
-static text_tex *text(const char *s, int px, SDL_Color c)
-{
-	SDL_Surface *surf;
-	TTF_Font *f;
-
-	for (int i = 0; i < g_ntext; i++)
-		if (g_text[i].px == px && !memcmp(&g_text[i].c, &c, sizeof c) && !strcmp(g_text[i].text, s))
-			return &g_text[i];
-	if (g_ntext >= (int)(sizeof g_text / sizeof g_text[0])) {
-		for (int i = 0; i < g_ntext; i++) SDL_DestroyTexture(g_text[i].t);
-		g_ntext = 0;
-	}
-	if (!(f = font_px(px)) || !(surf = TTF_RenderUTF8_Blended(f, s, c))) return NULL;
-	text_tex *t = &g_text[g_ntext];
-	snprintf(t->text, sizeof t->text, "%s", s);
-	t->px = px;
-	t->c = c;
-	t->w = surf->w;
-	t->h = surf->h;
-	t->t = SDL_CreateTextureFromSurface(g_ren, surf);
-	SDL_FreeSurface(surf);
-	if (!t->t) return NULL;
-	g_ntext++;
-	return t;
-}
-
-static void text_at(const char *s, float pt, SDL_Color c, float cx, float cy, float ratio)
-{
-	text_tex *t = text(s, (int)(pt * ratio + 0.5f), c);
-
-	if (!t) return;
-	SDL_Rect d = { (int)(cx * ratio - t->w / 2.0f), (int)(cy * ratio - t->h / 2.0f), t->w, t->h };
-	SDL_RenderCopy(g_ren, t->t, NULL, &d);
-}
-
-/* ---- drawing the bar ------------------------------------------------------ */
-
-static void fill_shape(const SDL_FRect *r, int shape)
-{
-	/* A round key as a stack of rows; a pill as a box and two half rounds */
-	float rad = shape == 2 ? 3 * pixel_ratio() : r->h / 2;
-
-	for (int y = 0; y < (int)r->h; y++) {
-		float dy = y + 0.5f - r->h / 2, inset = 0;
-
-		if (shape == 0) {
-			float half = r->w / 2;
-			float dx = half * half - dy * dy;
-			inset = dx > 0 ? half - SDL_sqrtf(dx) : half;
-		} else {
-			float edge = r->h / 2 - rad;
-			if (dy > edge || dy < -edge) {
-				float ddy = (dy > 0 ? dy - edge : -dy - edge);
-				float dx = rad * rad - ddy * ddy;
-				inset = rad - (dx > 0 ? SDL_sqrtf(dx) : 0);
-			}
-		}
-		SDL_FRect row = { r->x + inset, r->y + y, r->w - 2 * inset, 1 };
-		if (row.w > 0) SDL_RenderFillRectF(g_ren, &row);
-	}
-}
-
-static void arrow(const SDL_FRect *r, in_button dir, SDL_Color c)
-{
-	float cx = r->x + r->w / 2, cy = r->y + r->h / 2, s = r->w * 0.22f;
-	SDL_Vertex v[3];
-	SDL_FPoint p[3];
-
-	switch (dir) {
-	case IN_UP:    p[0] = (SDL_FPoint){ cx, cy - s }; p[1] = (SDL_FPoint){ cx - s, cy + s * 0.6f }; p[2] = (SDL_FPoint){ cx + s, cy + s * 0.6f }; break;
-	case IN_DOWN:  p[0] = (SDL_FPoint){ cx, cy + s }; p[1] = (SDL_FPoint){ cx + s, cy - s * 0.6f }; p[2] = (SDL_FPoint){ cx - s, cy - s * 0.6f }; break;
-	case IN_LEFT:  p[0] = (SDL_FPoint){ cx - s, cy }; p[1] = (SDL_FPoint){ cx + s * 0.6f, cy + s }; p[2] = (SDL_FPoint){ cx + s * 0.6f, cy - s }; break;
-	default:       p[0] = (SDL_FPoint){ cx + s, cy }; p[1] = (SDL_FPoint){ cx - s * 0.6f, cy - s }; p[2] = (SDL_FPoint){ cx - s * 0.6f, cy + s }; break;
-	}
-	for (int i = 0; i < 3; i++) v[i] = (SDL_Vertex){ p[i], c, { 0, 0 } };
-	SDL_RenderGeometry(g_ren, NULL, v, 3, NULL, 0);
-}
-
-static const SDL_Color INK = { 236, 236, 236, 255 }, HINT = { 150, 150, 156, 255 },
-                       LIT_INK = { 20, 20, 24, 255 };
-
-static void draw_bar(float ratio)
-{
-	int ww, wh;
-	float top;
-
-	SDL_GetWindowSize(g_win, &ww, &wh);
-	top = (float)wh - BAR_H;
-	SDL_SetRenderDrawColor(g_ren, 28, 28, 32, 255);
-	SDL_FRect back = { 0, top * ratio, ww * ratio, BAR_H * ratio };
-	SDL_RenderFillRectF(g_ren, &back);
-	for (int i = 0; i < g_nkeys; i++) {
-		const bar_key *k = &g_keys[i];
-		bool lit = g_held >> k->id & 1;
-		SDL_FRect r = { k->r.x * ratio, (top + k->r.y) * ratio, k->r.w * ratio, k->r.h * ratio };
-
-		if (lit) SDL_SetRenderDrawColor(g_ren, 168, 214, 74, 255);   /* the A button's green */
-		else     SDL_SetRenderDrawColor(g_ren, 62, 62, 68, 255);
-		fill_shape(&r, k->shape);
-		if (k->shape == 2) arrow(&r, k->id, lit ? LIT_INK : INK);
-		else text_at(k->label, k->shape == 0 ? (strlen(k->label) > 2 ? 9 : 12) : 10,
-		             lit ? LIT_INK : INK, k->r.x + k->r.w / 2, top + k->r.y + k->r.h / 2, ratio);
-		/* Its key's name, under it or beside it */
-		const char *hint = keymap_hint(k->id);
-		if (*hint) text_at(hint, 8, HINT, k->hint.x, top + k->hint.y, ratio);
-	}
-	/* The d-pad's keys, once */
-	for (int i = 0; i < g_nkeys; i++)
-		if (g_keys[i].id == IN_DOWN) {
-			text_at("arrows", 8, HINT, g_keys[i].r.x + g_keys[i].r.w / 2,
-			        top + g_keys[i].r.y + g_keys[i].r.h + 7, ratio);
-			break;
-		}
-	text_at("F1 help", 8, HINT, ww - 26.0f, top + BAR_H - 9.0f, ratio);
-}
-
-static const char *const HELP[] = {
-	"Keys (by their place, as on a US keyboard)",
-	"Arrows: the d-pad.  X, Z: A, B.  S, A: X, Y.",
-	"Q, W: L1, R1.  E, R: L2, R2.",
-	"Return: START.  Right Shift or Delete: SELECT.  Esc or M: MENU.",
-	"- and =: volume.  [ and ]: brightness keys.  P: POWER.",
-	"",
-	"Mouse: click and hold a button below. The wheel is Up and Down.",
-	"A game controller: buttons by their place (A right, B bottom).",
-	"",
-	"Cmd 1, 2, 3: zoom.  Cmd 0: the panel's real size.",
-	"Cmd B: buttons on or off.  Cmd S: the screen to the Desktop.",
-	"F1: this help.  Cmd Q: quit.",
+typedef struct { const char *keys, *what; } help_row;
+static const help_row HELP_KEYS[] = {
+	{ "Arrows", "the d-pad" }, { "X   Z", "A   B" }, { "S   A", "X   Y" },
+	{ "Q   W", "L1   R1" }, { "E   R", "L2   R2" }, { "Return", "START" },
+	{ "Right Shift, Delete", "SELECT" }, { "Esc, M", "MENU" },
+	{ "-   =", "volume down, up" }, { "[   ]", "brightness keys" }, { "P", "POWER" },
+};
+static const help_row HELP_WINDOW[] = {
+	{ "Option", "the keys on the buttons" },
+	{ "Cmd 1, 2, 3", "pixel for pixel, twice, three times" },
+	{ "Cmd 0", "the panel's real size" },
+	{ "Cmd B", "the screen alone, or the handheld" },
+	{ "Cmd S", "a screenshot, to the Desktop" },
+	{ "F1", "this card" },
 };
 
-static void draw_help(float ratio)
+static void draw_help(SDL_Renderer *r, float ratio)
 {
+	const SDL_Color title = { 245, 245, 247, 255 }, key = { 236, 236, 240, 255 },
+	                what = { 168, 170, 178, 255 }, head = { 130, 132, 140, 255 };
+	const int nk = (int)(sizeof HELP_KEYS / sizeof HELP_KEYS[0]), nw = (int)(sizeof HELP_WINDOW / sizeof HELP_WINDOW[0]);
+	float row = 19, cw = 440, ch = 56 + (nk + nw) * row + 2 * 30 + 44, k;
 	int ww, wh;
-	float y;
 
 	SDL_GetWindowSize(g_win, &ww, &wh);
-	SDL_SetRenderDrawBlendMode(g_ren, SDL_BLENDMODE_BLEND);
-	SDL_SetRenderDrawColor(g_ren, 12, 12, 16, 225);
-	SDL_FRect back = { 0, 0, ww * ratio, (wh - (g_bar ? BAR_H : 0)) * ratio };
-	SDL_RenderFillRectF(g_ren, &back);
-	y = 26;
-	for (size_t i = 0; i < sizeof HELP / sizeof HELP[0]; i++, y += 22)
-		if (*HELP[i]) text_at(HELP[i], i == 0 ? 13 : 12, i == 0 ? INK : (SDL_Color){ 210, 210, 214, 255 }, ww / 2.0f, y, ratio);
+	k = fminf(1, fminf((ww - 24) / cw, (wh - 24) / ch));
+	SDL_FRect card = { (ww - cw * k) / 2, (wh - ch * k) / 2, cw * k, ch * k };
+
+	SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
+	face_rrect(r, (SDL_FRect){ 0, 0, (float)ww, (float)wh }, 0, (SDL_Color){ 0, 0, 0, 110 },
+	           (SDL_Color){ 0, 0, 0, 150 }, ratio);
+	face_shadow(r, card, 14 * k, 26 * k, 8 * k, 120, ratio);
+	face_rrect(r, card, 14 * k, (SDL_Color){ 44, 45, 51, 250 }, (SDL_Color){ 30, 31, 35, 250 }, ratio);
+	float y = card.y + 30 * k, left = card.x + 30 * k, mid = card.x + 200 * k;
+	face_text(r, "Desk mode", 17 * k, title, card.x + card.w / 2, y, ratio, true);
+	y += 34 * k;
+	face_text(r, "THE BUTTONS", 10 * k, head, left + face_text_w("THE BUTTONS", 10 * k, ratio, true) / 2, y, ratio, true);
+	y += row * k;
+	for (int i = 0; i < nk; i++, y += row * k) {
+		face_text(r, HELP_KEYS[i].keys, 12 * k, key, left + face_text_w(HELP_KEYS[i].keys, 12 * k, ratio, true) / 2, y, ratio, true);
+		face_text(r, HELP_KEYS[i].what, 12 * k, what, mid + face_text_w(HELP_KEYS[i].what, 12 * k, ratio, false) / 2, y, ratio, false);
+	}
+	y += 10 * k;
+	face_text(r, "THE WINDOW", 10 * k, head, left + face_text_w("THE WINDOW", 10 * k, ratio, true) / 2, y, ratio, true);
+	y += row * k;
+	for (int i = 0; i < nw; i++, y += row * k) {
+		face_text(r, HELP_WINDOW[i].keys, 12 * k, key, left + face_text_w(HELP_WINDOW[i].keys, 12 * k, ratio, true) / 2, y, ratio, true);
+		face_text(r, HELP_WINDOW[i].what, 12 * k, what, mid + face_text_w(HELP_WINDOW[i].what, 12 * k, ratio, false) / 2, y, ratio, false);
+	}
+	y += 12 * k;
+	face_text(r, "The mouse holds a key. The wheel is Up and Down.", 11 * k, what, card.x + card.w / 2, y, ratio, false);
+	face_text(r, "A controller's buttons go by place: A right, B bottom.", 11 * k, what, card.x + card.w / 2,
+	          y + 16 * k, ratio, false);
+}
+
+/* A note at the window's foot, the first seconds: where the keys are */
+static void draw_note(SDL_Renderer *r, float ratio)
+{
+	const char *text = "Hold Option to see the keys   \xC2\xB7   F1 for help";
+	int ww, wh;
+	float pt = 11, w = face_text_w(text, pt, ratio, true) + 28, h = 26;
+
+	SDL_GetWindowSize(g_win, &ww, &wh);
+	SDL_FRect chip = { (ww - w) / 2, wh - h - 14, w, h };
+	face_shadow(r, chip, h / 2, 10, 3, 90, ratio);
+	face_rrect(r, chip, h / 2, (SDL_Color){ 40, 41, 47, 238 }, (SDL_Color){ 26, 27, 31, 238 }, ratio);
+	face_text(r, text, pt, (SDL_Color){ 240, 240, 244, 255 }, chip.x + chip.w / 2, chip.y + chip.h / 2, ratio, true);
 }
 
 /* ---- presenting ----------------------------------------------------------- */
@@ -419,9 +301,14 @@ static void compose(SDL_Renderer *r, bool launcher)
 	SDL_BlendMode bm;
 	SDL_Texture *src = g_game && g_game_tex ? g_game_tex : g_screen;
 	float ratio = pixel_ratio();
-	SDL_FRect s = screen_rect();
-	SDL_Rect d = { (int)(s.x * ratio + 0.5f), (int)(s.y * ratio + 0.5f),
-	               (int)(s.w * ratio + 0.5f), (int)(s.h * ratio + 0.5f) };
+	SDL_Rect d = { (int)(g_scr.x * ratio + 0.5f), (int)(g_scr.y * ratio + 0.5f),
+	               (int)(g_scr.w * ratio + 0.5f), (int)(g_scr.h * ratio + 0.5f) };
+	int ww, wh;
+	SDL_Rect face_vp;
+
+	SDL_GetWindowSize(g_win, &ww, &wh);
+	face_vp = (SDL_Rect){ (int)(g_ox * ratio + 0.5f), (int)(g_oy * ratio + 0.5f),
+	                      (int)((ww - 2 * g_ox) * ratio + 0.5f), (int)((wh - 2 * g_oy) * ratio + 0.5f) };
 
 	SDL_GetRenderDrawColor(r, &cr, &cg, &cb, &ca);
 	SDL_GetRenderDrawBlendMode(r, &bm);
@@ -436,15 +323,28 @@ static void compose(SDL_Renderer *r, bool launcher)
 	SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_NONE);
 	SDL_SetRenderDrawColor(r, 0, 0, 0, 255);
 	SDL_RenderClear(r);
+	SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
+	/* The handheld on a dark desk, lit from above */
+	if (face_on()) {
+		face_rrect(r, (SDL_FRect){ 0, 0, (float)ww, (float)wh }, 0, (SDL_Color){ 46, 47, 52, 255 },
+		           (SDL_Color){ 26, 27, 30, 255 }, ratio);
+		SDL_RenderSetViewport(r, &face_vp);
+		face_draw(r, g_s, ratio, g_held);
+		SDL_RenderSetViewport(r, NULL);
+	}
 	/* Each panel pixel a block of the window's when the zoom is whole */
 	{
 		float k = (float)d.w / g_pw;
-		SDL_SetTextureScaleMode(src, k - (int)k < 0.01f ? SDL_ScaleModeNearest : SDL_ScaleModeLinear);
+		SDL_SetTextureScaleMode(src, k - (int)(k + 0.01f) < 0.01f ? SDL_ScaleModeNearest : SDL_ScaleModeLinear);
 	}
 	SDL_RenderCopy(r, src, NULL, &d);
-	SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
-	if (g_bar) draw_bar(ratio);
-	if (g_help) draw_help(ratio);
+	if (face_on()) {
+		SDL_RenderSetViewport(r, &face_vp);
+		face_draw_over(r, g_s, ratio, g_hover, g_hints);
+		SDL_RenderSetViewport(r, NULL);
+	}
+	if (SDL_GetTicks() < g_note_until && !g_help) draw_note(r, ratio);
+	if (g_help) draw_help(r, ratio);
 	/* A game's frames come at the core's own rate, Diatom's pacing: each
 	 * goes up as it comes */
 	if (!g_game) pace();
@@ -473,17 +373,34 @@ void desk_present(SDL_Renderer *r) { compose(r, true); }
 
 static void ctl_start(void);
 
+/* The first note's end: a redraw, the launcher at rest or not */
+static Uint32 note_timer(Uint32 ms, void *arg)
+{
+	SDL_Event e;
+
+	(void)ms; (void)arg;
+	SDL_zero(e);
+	e.type = g_ctl_event;
+	e.user.code = 2;            /* CTL_REDRAW */
+	SDL_PushEvent(&e);
+	return 0;
+}
+
 bool desk_video_init(SDL_Window **win, SDL_Renderer **ren)
 {
 	const device_profile *p = plat_profile();
 	const char *e;
 	char title[96];
 
+	float want = 0;
+
 	g_pw = p->screen.turn % 180 ? p->screen.panel_h : p->screen.panel_w;
 	g_ph = p->screen.turn % 180 ? p->screen.panel_w : p->screen.panel_h;
-	if ((e = getenv("ZYPEROS_DESK_ZOOM")) && atof(e) >= 0.25 && atof(e) <= 6) g_zoom = (float)atof(e);
-	if ((e = getenv("ZYPEROS_DESK_BAR"))) g_bar = atoi(e) != 0;
+	/* The zoom asked for: the display's pixels a panel pixel */
+	if ((e = getenv("ZYPEROS_DESK_ZOOM")) && atof(e) >= 0.25 && atof(e) <= 6) want = (float)atof(e);
+	if ((e = getenv("ZYPEROS_DESK_FRAME"))) g_face = atoi(e) != 0;
 	if ((e = getenv("ZYPEROS_DESK_HZ"))) g_hz = atof(e);
+	g_has_face = face_init(p->id);
 	snprintf(title, sizeof title, "ZyperOS - %s", p->name);
 
 	/* A controller's buttons by their place, never their printed letters:
@@ -493,9 +410,8 @@ bool desk_video_init(SDL_Window **win, SDL_Renderer **ren)
 		fprintf(stderr, "desk: no game controllers (%s)\n", SDL_GetError());
 	if (!TTF_WasInit()) TTF_Init();
 
-	g_win = SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-	                         (int)(g_pw * g_zoom + 0.5f), (int)(g_ph * g_zoom + 0.5f) + (g_bar ? BAR_H : 0),
-	                         SDL_WINDOW_SHOWN | SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_RESIZABLE);
+	g_win = SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, g_pw / 2, g_ph / 2,
+	                         SDL_WINDOW_HIDDEN | SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_RESIZABLE);
 	if (!g_win) {
 		fprintf(stderr, "window: %s\n", SDL_GetError());
 		return false;
@@ -520,27 +436,46 @@ bool desk_video_init(SDL_Window **win, SDL_Renderer **ren)
 		g_panel = SDL_CreateTexture(g_ren, PLAT_TARGET_FORMAT, SDL_TEXTUREACCESS_TARGET, g_pw, g_ph);
 		if (g_panel) SDL_SetTextureBlendMode(g_panel, SDL_BLENDMODE_NONE);
 	}
-	SDL_SetWindowMinimumSize(g_win, g_pw / 4, g_ph / 4 + (g_bar ? BAR_H : 0));
-	bar_layout(g_pw * g_zoom);
+	SDL_SetWindowMinimumSize(g_win, g_pw / 4, g_ph / 4);
+	/* One panel pixel a display pixel unless asked: on a Retina display that
+	 * is about the panel's real size, and its pixels exact. Smaller when the
+	 * handheld would not fit the display. */
+	{
+		SDL_Rect usable;
+		int d = SDL_GetWindowDisplayIndex(g_win);
+
+		g_ratio = pixel_ratio();
+		g_zoom = (want > 0 ? want : 1) / g_ratio;
+		window_fit();
+		if (want <= 0 && d >= 0 && SDL_GetDisplayUsableBounds(d, &usable) == 0) {
+			int ww, wh;
+			SDL_GetWindowSize(g_win, &ww, &wh);
+			float k = fminf((usable.w - 40) / (float)ww, (usable.h - 60) / (float)wh);
+			if (k < 1) { g_zoom *= k; window_fit(); }
+		}
+		SDL_SetWindowPosition(g_win, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+		SDL_ShowWindow(g_win);
+		layout();
+	}
+	g_note_until = SDL_GetTicks() + 7000;
+	SDL_AddTimer(7100, note_timer, NULL);
 	SDL_SetRenderTarget(g_ren, g_screen);
 	SDL_SetRenderDrawColor(g_ren, 0, 0, 0, 255);
 	SDL_RenderClear(g_ren);
 	*win = g_win;
 	*ren = g_ren;
 	fprintf(stderr,
-	        "desk: %s, panel %dx%d at %.2fx, %s a second. Keys: arrows d-pad, X Z S A = A B X Y,\n"
-	        "desk: Q W E R = L1 R1 L2 R2, Return START, Right Shift or Delete SELECT, Esc or M MENU,\n"
-	        "desk: - = volume, P power. F1 in the window lists the rest.\n",
-	        p->name, g_pw, g_ph, g_zoom, g_hz > 0 ? "60 frames" : "the display's frames");
+	        "desk: %s, panel %dx%d, %.2f display pixels a panel pixel, %s a second. Keys: arrows d-pad,\n"
+	        "desk: X Z S A = A B X Y, Q W E R = L1 R1 L2 R2, Return START, Right Shift or Delete SELECT,\n"
+	        "desk: Esc or M MENU, - = volume, P power. Option shows them on the keys, F1 lists the rest.\n",
+	        p->name, g_pw, g_ph, g_zoom * g_ratio, g_hz > 0 ? "60 frames" : "the display's frames");
 	ctl_start();
 	return true;
 }
 
 void desk_video_quit(void)
 {
-	for (int i = 0; i < g_ntext; i++) SDL_DestroyTexture(g_text[i].t);
-	g_ntext = 0;
-	for (int i = 0; i < 3; i++) if (g_font[i]) { TTF_CloseFont(g_font[i]); g_font[i] = NULL; }
+	face_forget();
 	if (g_panel) { SDL_DestroyTexture(g_panel); g_panel = NULL; }
 	if (g_screen) { SDL_DestroyTexture(g_screen); g_screen = NULL; }
 	g_ren = NULL;
@@ -660,22 +595,12 @@ static void tap(in_state *st, in_button b)
 	g_tap_release |= 1u << b;
 }
 
-/* The mouse on the bar */
+/* The mouse on the handheld's keys */
 static in_button g_mouse = IN_NONE;
 
-static in_button bar_hit(int x, int y)
+static in_button key_at_point(int x, int y)
 {
-	int ww, wh;
-
-	if (!g_bar) return IN_NONE;
-	SDL_GetWindowSize(g_win, &ww, &wh);
-	float by = (float)y - ((float)wh - BAR_H);
-	for (int i = 0; i < g_nkeys; i++) {
-		const SDL_FRect *r = &g_keys[i].r;
-		if (x >= r->x - 3 && x <= r->x + r->w + 3 && by >= r->y - 3 && by <= r->y + r->h + 3)
-			return g_keys[i].id;
-	}
-	return IN_NONE;
+	return face_on() ? face_hit(g_s, (float)x - g_ox, (float)y - g_oy) : IN_NONE;
 }
 
 static bool is_dpad(in_button b) { return b == IN_UP || b == IN_DOWN || b == IN_LEFT || b == IN_RIGHT; }
@@ -727,19 +652,19 @@ static void pad_axis(in_state *st, Uint8 axis, Sint16 v)
 	}
 }
 
+/* z: the display's pixels a panel pixel */
 static void zoom_to(float z)
 {
 	if (z < 0.25f) z = 0.25f;
 	if (z > 6) z = 6;
-	g_zoom = z;
+	g_zoom = z / g_ratio;
 	window_fit();
 	g_dirty = true;
-	fprintf(stderr, "desk: zoom %.2fx\n", z);
+	fprintf(stderr, "desk: %.2f display pixels a panel pixel\n", z);
 }
 
 static void ctl_event(const SDL_Event *e, in_state *st);
 static void ctl_drop(const SDL_Event *e);
-static Uint32 g_ctl_event = (Uint32)-1;
 
 bool desk_event(const SDL_Event *e, in_state *st)
 {
@@ -756,8 +681,8 @@ bool desk_event(const SDL_Event *e, in_state *st)
 			case SDL_SCANCODE_1: zoom_to(1); break;
 			case SDL_SCANCODE_2: zoom_to(2); break;
 			case SDL_SCANCODE_3: zoom_to(3); break;
-			case SDL_SCANCODE_0: zoom_to(actual_zoom()); break;
-			case SDL_SCANCODE_B: g_bar = !g_bar; window_fit(); g_dirty = true; break;
+			case SDL_SCANCODE_0: zoom_to(actual_zoom() * g_ratio); break;
+			case SDL_SCANCODE_B: g_face = !g_face; window_fit(); g_dirty = true; break;
 			case SDL_SCANCODE_S: shot_to_desktop(); break;
 			case SDL_SCANCODE_SLASH: g_help = !g_help; g_dirty = true; break;
 			default: return false;   /* Cmd Q and the rest are the system's */
@@ -768,13 +693,18 @@ bool desk_event(const SDL_Event *e, in_state *st)
 			if (down && !e->key.repeat) { g_help = !g_help; g_dirty = true; }
 			return true;
 		}
+		/* Option: every key's name on its button, while held */
+		if (e->key.keysym.scancode == SDL_SCANCODE_LALT || e->key.keysym.scancode == SDL_SCANCODE_RALT) {
+			if (g_hints != down) { g_hints = down; g_dirty = true; }
+			return true;
+		}
 		if (e->key.repeat) return true;
 		set_btn(st, keymap_button(e->key.keysym.scancode), down);
 		return true;
 	}
 	case SDL_MOUSEBUTTONDOWN:
 		if (e->button.button != SDL_BUTTON_LEFT) return true;
-		g_mouse = bar_hit(e->button.x, e->button.y);
+		g_mouse = key_at_point(e->button.x, e->button.y);
 		if (g_mouse != IN_NONE) set_btn(st, g_mouse, true);
 		return true;
 	case SDL_MOUSEBUTTONUP:
@@ -784,9 +714,14 @@ bool desk_event(const SDL_Event *e, in_state *st)
 		}
 		return true;
 	case SDL_MOUSEMOTION:
+		/* The key under the pointer names its key */
+		{
+			in_button over = key_at_point(e->motion.x, e->motion.y);
+			if (over != g_hover) { g_hover = over; g_dirty = true; }
+		}
 		/* The d-pad rolls from one way to the next under a held press */
 		if (g_mouse != IN_NONE && is_dpad(g_mouse)) {
-			in_button now = bar_hit(e->motion.x, e->motion.y);
+			in_button now = key_at_point(e->motion.x, e->motion.y);
 			if (is_dpad(now) && now != g_mouse) {
 				set_btn(st, g_mouse, false);
 				g_mouse = now;
@@ -825,11 +760,9 @@ bool desk_event(const SDL_Event *e, in_state *st)
 		pad_axis(st, e->caxis.axis, e->caxis.value);
 		return true;
 	case SDL_WINDOWEVENT:
-		if (e->window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
-			int ww, wh;
-			SDL_GetWindowSize(g_win, &ww, &wh);
-			bar_layout((float)ww);
-		}
+		if (e->window.event == SDL_WINDOWEVENT_SIZE_CHANGED) layout();
+		if (e->window.event == SDL_WINDOWEVENT_DISPLAY_CHANGED) g_ratio = pixel_ratio();
+		if (e->window.event == SDL_WINDOWEVENT_LEAVE && g_hover != IN_NONE) g_hover = IN_NONE;
 		if (e->window.event == SDL_WINDOWEVENT_SIZE_CHANGED || e->window.event == SDL_WINDOWEVENT_EXPOSED)
 			g_dirty = true;
 		return true;
@@ -858,7 +791,7 @@ void desk_wait(unsigned ms)
  * wakes the launcher's wait; the main thread does it between frames and
  * answers. A tap's let-go and a wait for frames come back the same way. */
 
-enum { CTL_LINE, CTL_RELEASE };
+enum { CTL_LINE, CTL_RELEASE, CTL_REDRAW };
 
 typedef struct { int fd; int frames_left; bool latency; } ctl_wait;
 static ctl_wait g_waits[8];
@@ -1003,6 +936,10 @@ static void held_json(char *out, size_t cap)
 
 static void ctl_event(const SDL_Event *e, in_state *st)
 {
+	if (e->user.code == CTL_REDRAW) {
+		g_dirty = true;
+		return;
+	}
 	if (e->user.code == CTL_RELEASE) {
 		Uint32 m = (Uint32)(uintptr_t)e->user.data1;
 		for (int b = 0; b < IN_COUNT; b++) if (m >> b & 1) set_btn(st, (in_button)b, false);
@@ -1015,9 +952,10 @@ static void ctl_event(const SDL_Event *e, in_state *st)
 	if (!strcmp(verb, "state")) {
 		char held[256];
 		held_json(held, sizeof held);
-		reply(fd, "{\"ok\":true,\"device\":\"%s\",\"panel\":[%d,%d],\"zoom\":%.2f,\"bar\":%s,"
+		reply(fd, "{\"ok\":true,\"device\":\"%s\",\"panel\":[%d,%d],\"zoom\":%.2f,\"frame\":%s,"
 		          "\"hz\":%.0f,\"fps\":%.0f,\"held\":[%s]}",
-		      plat_profile()->id, g_pw, g_ph, g_zoom, g_bar ? "true" : "false", g_hz, fps_last_second(), held);
+		      plat_profile()->id, g_pw, g_ph, g_zoom * g_ratio, face_on() ? "true" : "false", g_hz,
+		      fps_last_second(), held);
 	} else if (!strcmp(verb, "press") || !strcmp(verb, "release") || !strcmp(verb, "tap") ||
 	           !strcmp(verb, "latency")) {
 		Uint32 m = chord(a1);
@@ -1051,12 +989,16 @@ static void ctl_event(const SDL_Event *e, in_state *st)
 		      fps_last_second(), g_presents, lat);
 	} else if (!strcmp(verb, "zoom") && atof(a1) > 0) {
 		zoom_to((float)atof(a1));
-		reply(fd, "{\"ok\":true,\"zoom\":%.2f}", g_zoom);
-	} else if (!strcmp(verb, "bar") && (*a1 == '0' || *a1 == '1')) {
-		g_bar = *a1 == '1';
+		reply(fd, "{\"ok\":true,\"zoom\":%.2f}", g_zoom * g_ratio);
+	} else if ((!strcmp(verb, "frame") || !strcmp(verb, "bar")) && (*a1 == '0' || *a1 == '1')) {
+		g_face = *a1 == '1';
 		window_fit();
 		g_dirty = true;
 		reply(fd, "{\"ok\":true}");
+	} else if (!strcmp(verb, "hints")) {
+		g_hints = *a1 ? *a1 == '1' : !g_hints;
+		g_dirty = true;
+		reply(fd, "{\"ok\":true,\"hints\":%s}", g_hints ? "true" : "false");
 	} else if (!strcmp(verb, "help")) {
 		g_help = *a1 ? *a1 == '1' : !g_help;
 		g_dirty = true;
@@ -1069,7 +1011,7 @@ static void ctl_event(const SDL_Event *e, in_state *st)
 		reply(fd, "{\"ok\":true}");
 	} else {
 		reply(fd, "{\"ok\":false,\"error\":\"state | press|release|tap BUTTON[+BUTTON] [MS] | latency BUTTON | "
-		          "shot FILE.png | wait-frames N | stats | zoom N | bar 0|1 | help [0|1] | quit\"}");
+		          "shot FILE.png | wait-frames N | stats | zoom N | frame 0|1 | hints [0|1] | help [0|1] | quit\"}");
 	}
 	free(line);
 }

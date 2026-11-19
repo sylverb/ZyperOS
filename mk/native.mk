@@ -22,7 +22,7 @@ SRC := $(I18N_TABLES) $(filter-out $(I18N_TABLES),$(wildcard src/*.c)) $(wildcar
        src/device/pixel2_coreopts.c $(filter-out src/device/pixel2_coreopts.c,$(wildcard src/device/*_coreopts.c))
 # Desk mode (src/device/desk.h): the host build's window as a handheld. Here
 # alone: no device builds it.
-SRC += src/device/desk.c
+SRC += src/device/desk.c src/device/deskface.c
 # src/main.c and the files split from it, which call into one another: the
 # checks that link the rest of src/ leave them all out.
 MAIN_SRC := src/main.c src/about_screen.c src/aout_route.c src/bgm_screen.c \
@@ -53,6 +53,10 @@ LDLIBS := $(shell pkg-config --libs $(PKGS)) -lsqlite3 -lz \
 # ALSA only on Linux: src/btvol.c is a no-op without it, on the Mac
 ifeq ($(shell uname -s),Linux)
   LDLIBS += -lasound
+endif
+# Desk mode's real-size zoom asks the display its millimetres (desk.c)
+ifeq ($(shell uname -s),Darwin)
+  LDLIBS += -framework CoreGraphics
 endif
 
 # The same generated header the device build uses, for the same reason, so the

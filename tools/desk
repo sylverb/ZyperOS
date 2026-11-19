@@ -4,22 +4,27 @@
 without one (docs/building.md, "Work on the UI without a device").
 
     tools/desk [run] [--device pixel2|brick] [--zoom N] [--fresh] [--roms DIR]
-                     [--tour] [--lang CODE] [--no-bar] [--hz N] [--no-build]
+                     [--tour] [--lang CODE] [--no-frame] [--hz N] [--no-build]
 
 builds the host launcher (make native), makes a sample card once in
 build-native/desk/DEVICE/ (the README's demonstration library, a game on each
-of the systems, ZyperOS Test.nes), and opens it in a window: the Pixel 2's
-640x480 panel (the default) or the Brick's 1024x768, under it the handheld's
-buttons. Settings made in it stay on that card; --fresh makes a new one.
+of the systems, ZyperOS Test.nes), and opens it in a window as the handheld
+itself, drawn to its measurements around its screen: the Pixel 2's 640x480
+panel (the default) or the Brick's 1024x768, one panel pixel a display pixel,
+which on a Retina display is about its real size (--zoom 2 twice that,
+--no-frame the screen alone). Settings made in it stay on that card; --fresh
+makes a new one.
 --roms DIR shows your own Roms folder (Roms/NES/..., as on a card) instead.
 A new card skips the tutorial; --tour starts in it.
 
 The keyboard is the buttons, one map for desk mode and the Simulator: the
 arrows the d-pad, X Z S A for A B X Y, Q W E R for L1 R1 L2 R2, Return
 START, Right Shift or Delete SELECT, Esc or M MENU, - and = the volume, P
-POWER. Click and hold the drawn buttons with the mouse; the wheel is Up and
-Down. A game controller is the buttons by their place. F1 in the window lists
-the rest: Cmd 1 2 3 zoom, Cmd 0 the panel's real size, Cmd S a screenshot.
+POWER. Click and hold the drawn keys with the mouse; the wheel is Up and
+Down. A key names its keyboard key when the pointer is over it, and every key
+does while Option is held. A game controller is the buttons by their place.
+F1 in the window lists the rest: Cmd 1 2 3 zoom, Cmd 0 the panel's real size,
+Cmd B the handheld around the screen or not, Cmd S a screenshot.
 
 Games run in the same window, on Diatom's desktop build (make -C diatom)
 with libretro cores built for this computer: `tools/desk cores` fetches each
@@ -38,7 +43,7 @@ Simulator: one command, its JSON answer.
     tools/desk shot FILE.png             the panel, at its own pixels
     tools/desk wait-frames N
     tools/desk stats                     frames a second, the last presses' ms
-    tools/desk zoom N | bar 0|1 | help [0|1] | quit
+    tools/desk zoom N | frame 0|1 | hints 0|1 | help [0|1] | quit
     tools/desk open GAME [--fresh] [--core NAME]
                                          a game by its path under Roms/ (NES/ZyperOS
                                          Test.nes), as A on it in its shelf opens it
@@ -67,7 +72,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DESK = ROOT / 'build-native/desk'
 DEVICES = ('pixel2', 'brick', 'desktop')
 CLIENT = ('state', 'press', 'release', 'tap', 'latency', 'shot', 'wait-frames', 'stats',
-          'zoom', 'bar', 'help', 'quit')
+          'zoom', 'frame', 'bar', 'hints', 'help', 'quit')
 PANEL = {'pixel2': (640, 480), 'brick': (1024, 768), 'desktop': (1024, 768)}
 CORES = DESK / 'cores'
 # Cores for desk mode, built here for this computer from the source the
@@ -268,7 +273,7 @@ def run(args):
         shutil.rmtree(flags)
     flags.mkdir(parents=True)
     env.update(ZYPEROS_FLAG_DIR=str(flags), ZYPEROS_CTL_DIR=str(cdir), ZYPEROS_DESK_SOCK=str(sock), ZYPEROS_DESK_ZOOM=str(args.zoom),
-               ZYPEROS_DESK_BAR='0' if args.no_bar else '1', ZYPEROS_DESK_HZ=str(args.hz))
+               ZYPEROS_DESK_FRAME='0' if args.no_frame else '1', ZYPEROS_DESK_HZ=str(args.hz))
     env.pop('ZYPEROS_HEADLESS', None)
     if env.get('SDL_VIDEODRIVER') in ('dummy', 'offscreen'):
         env.pop('SDL_VIDEODRIVER')
@@ -346,12 +351,12 @@ def main():
     ap = argparse.ArgumentParser(prog='tools/desk', description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--device', choices=DEVICES, default='pixel2', help='the handheld (pixel2)')
-    ap.add_argument('--zoom', type=float, default=1.0, help='window points a panel pixel (1)')
+    ap.add_argument('--zoom', type=float, default=0, help="the display's pixels a panel pixel (1, as fits)")
     ap.add_argument('--fresh', action='store_true', help='a new sample card')
     ap.add_argument('--roms', help='your own Roms folder, laid out as on a card')
     ap.add_argument('--tour', action='store_true', help='a new card starts in the tutorial')
     ap.add_argument('--lang', help="MENU > Language on this card: en, de, pt-BR... or xx, the pseudo-locale's longer words")
-    ap.add_argument('--no-bar', action='store_true', help='no buttons under the screen')
+    ap.add_argument('--no-frame', action='store_true', help='the screen alone, no handheld around it')
     ap.add_argument('--hz', type=float, default=60, help="frames a second (60, the panel's; 0 the display's)")
     ap.add_argument('--no-build', action='store_true', help='run build-native/zyperos and Diatom as they are')
     ap.add_argument('--no-cores', action='store_true', help='never build the cores (no games without them)')
