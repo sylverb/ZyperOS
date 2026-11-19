@@ -980,6 +980,15 @@ two neighbors' are decoded, at most 2.1 MiB each. The row and every other
 place draw the stills. Movement uses **ms.move** and **out**, including
 interrupted reversals.
 
+Nothing a step on the home does waits on a file *(2026-11-19: on the Pixel 2
+the home's frames stalled to 50 ms and more as the cursor crossed systems)*:
+the stills and atlases are decoded on the art workers, and an atlas arrives
+in the texture's format and is kept as it comes, never copied on the frame;
+the focus draws its still until its atlas is in. The focused system's shelf
+- its covers' paths and files, MP4's album covers - is asked for ahead of A
+only once the cursor has rested on it 400 ms, not on every step: a shelf
+opened sooner asks for its own as it draws.
+
 **Games:** the selected **Cover row** design has a straight horizontal row of
 real box art: the focused cover large and flat in its 384 x 328 box, and two
 covers either side of it, five in sight, turned as MP4's album row turns its
@@ -1256,7 +1265,7 @@ where it was.)*
 |---|---|
 | **Games** | Search Games, Play Time, Random Game, Downloads (11.53) |
 | **Display** | Appearance, Theme, Home Screen, System Order, Home Systems, Battery Icon, Screensaver, Shader and Strength (ZyperOS's own screens', 11.50; not on the Brick), Screen Colors, Night Mode (its page: Night Mode, Night Warmth, Night From, Until) |
-| **Sound** | Audio Output, Audio Channels, UI Sounds, Menu Music, Rumble (a handheld with a motor ZyperOS runs, 11.54) |
+| **Sound** | Audio Output, Audio Channels, Equalizer (11.60), UI Sounds, Menu Music, Rumble (a handheld with a motor ZyperOS runs, 11.54) |
 | **Connections** | USB Device (while a plug waits), Wi-Fi, Bluetooth, File Transfer, USB Accessories, Developer Mode |
 | **System** | Date & Time, Clock, Language, Power Button, Auto Off, Charge Limit, Side Lights, Storage, System Update |
 | **About** | About ZyperOS, Controls, Show Tutorial |
@@ -2112,6 +2121,26 @@ Muse, so a card's saved places and modes still read.
   a sixteenth of the disc right before, 2026-11-19). Under the lock the
   controls stay hidden, and with them the header, the picture whole on
   black: no key they name works there.
+  **Too big, or no picture.** The daemon judges as it plays whether this
+  CPU carries the video: more than a quarter of its pictures dropped in two
+  stretches of 2 s running and it says the video is too big, two stretches
+  under a tenth and it takes that back; the first stretch after an open, a
+  seek, a pause or the screen coming back is not judged, as the decoder
+  catches up then on any file (src/muse/vidtry.h). A format nothing here
+  decodes, or a decoder that gives not one picture, it says there is no
+  picture. MP4 says so in words rather than
+  show a slide show or a black box (2026-11-19: "If a size cannot keep up,
+  MP4 must say so plainly"): the notice's slab (11.7) centered over the
+  picture's foot, **inset** over the band, what the video is ("AV1 ·
+  1920x1080 · 60 fps", **meta** **text-dim**) over what that means in
+  **label** **text** ("Too big to play smoothly here.", "This video's
+  picture cannot play here."), on one line or two balanced (Chinese and
+  Japanese set their own break), no wider than a menu panel. Too big, the
+  controls come up as on a key when it is first said, and the notice comes
+  and goes with them; no picture, it stands in the black whatever the
+  controls do. With dav1d on the Pixel 2 (2026-11-19), AV1 plays whole up to
+  1440x1080 at 24 fps, 1280x720 at 60 and 1920x1080 at 30; 1920x1080 at 60
+  is too big.
   The keys are hints as the shelves draw them (`page_hint`: a glyph and a word,
   **chrome** type, **text-soft**), from x 64 to 960 with the room shared out, and
   on a second row above where a language's words need it, never cut: A, B,
@@ -5703,3 +5732,82 @@ game's with its file. Host shots: `menu-rumble`, `menu-rumble-list` (and
 `-low`, `-off`: the list opened on those levels, with their notes),
 `gamemenu-rumble`, `gamemenu-rumble-list`, `gamemenu-rumble-own-list`
 (tools/i18n-shots.py; `--gm-rumble` stands in for the core's asking).
+
+### 11.60 Equalizer
+*(Asked for on the Discord after 1.0.6: more bass, and a system-wide
+equalizer. My picks in the Sound lab, 2026-11-19: one preset for the speaker
+and one for headphones, presets and five bands of your own, everything that
+makes sound, each step heard while it is made.)*
+
+**Where it is.** **MENU > Sound > Equalizer**, under Audio Channels, and the
+same row in **MP4's MENU**, over Lock Screen, on every kind it shows. Its
+value is the preset of the output in use; Left and Right step the presets
+round (heard on the press, as Audio Channels); A opens the page. Off on a
+new card, and Off is no filter at all.
+
+**The page.** Its first row is the output the sound goes to now, **Speaker**
+or **Headphones** (on the jack, a USB-C adapter or a Bluetooth headset),
+and that output's preset: **Off**, **Bass**, **Voice**, **Treble** or
+**Custom**. Each output keeps its own, so Bass on headphones does not make
+the small speaker strain, and the page follows a cable plugged in while it
+is open. A opens the presets as a list with a picture (11.3): the preset's
+five gains joined by a line in the **accent** over the 0 dB line, on the
+small screen's **ink**, and a note: "No filter at all.", "More low notes.
+The small speaker cannot play them all.", "Words and singing come
+forward.", "More of the high notes.", "Your own five bands." The preset
+under the cursor is **heard** at once; B puts back what was set. Under it,
+the five bands, **60 Hz**, **250 Hz**, **1 kHz**, **4 kHz** and **12 kHz**,
+each a scale from -6 to +6 dB (11.3's row with a scale, kind
+`DS_SCALE_GAIN`: a grey, darker to lighter, since no color is the sound's),
+stopping at its ends. A step on a preset's band makes the curve Custom's,
+with the step; choosing a preset leaves Custom's own bands as they were.
+What plays goes on behind the panel: MP4's Now Playing from its menu, the
+menu music from MENU. Six rows fill the panel, so the page has no strip of
+its own under them (the lab's strip, with its bars, waits for the 32-band
+meter the Player Looks bring).
+
+**The curves** (the lab's): Bass +5, +2, 0, 0, +1; Voice -2, 0, +3, +3, 0;
+Treble 0, 0, 0, +3, +5.
+
+**Heard live.** A step reaches MP4 at once (`EQ bands= live=`), and while
+the page is open MP4 keeps only about 60 ms of sound queued, where it keeps
+200 ms otherwise, so each step is heard in under a tenth of a second; no
+game runs while the page is up, so nothing starves. Every gain moves to its
+new value over 20 ms, its filter worked out again each millisecond, so a
+step is a turn, never a click. Nothing restarts.
+
+**What it shapes.** Everything that makes sound, by the output its own sound
+goes to: MP4, the menu music, games (Diatom, `SETEQ`, before each RUN and
+on a change, as the channels) and ports (plastron's `zyperos-eq` plugin,
+which reads the bands from `/run/zyperos/eq`; a system without the plugin
+plays ports as they are). Interface sounds are not shaped.
+
+**How.** Five filters of ZyperOS's own (`src/eqdsp.h`, header-only C, the
+same file in MP4, the menu music, Diatom's copy and the ports' plugin):
+RBJ's cookbook biquads, a low shelf at 60 Hz, peaks at 250 Hz, 1 kHz and 4
+kHz (Q 1.1) and a high shelf at 12 kHz, in direct form I, whose
+coefficients can move under a playing signal. *(This document's call: the
+plan named FFmpeg's `equalizer` filters in MP4's graph. One filter for
+every place the sound plays sounds the same everywhere, moves each gain
+sample by sample where a graph takes a command only between its frames of
+about 21 ms, and turns on from Off without rebuilding a graph.)* A boost
+can take a loud song over full scale: past 90% of it the samples bend
+smoothly toward full scale (a soft knee) rather than being cut flat, and
+only while a band is boosted. The level is not pulled down for a boost, so
+Bass is more bass, not less of the rest.
+
+**What it costs.** Off and flat: nothing, the samples untouched (checked:
+`check-eqdsp`'s flat_touches_nothing). On: five filters on 48 kHz stereo,
+0.53 ms for a second of sound on the computer that builds it (0.053% of
+one core, `check-eqdsp`); on the Pixel 2's Cortex-A35 an estimate of about
+0.3% of one core, 0.05 ms in a game's 16.7 ms frame, on the thread that
+hands the game's sound out (after the resampler, at the device's rate).
+The device's own number, a CPU-heavy game and a port with it On and Off,
+is measured on the test card before it ships.
+
+**Kept** in the device's database: `eq.speaker` and `eq.phones`, the
+preset's word (no key at Off), and `eq.speaker.bands`, `eq.phones.bands`,
+Custom's five bands (no key when flat). Host shots: `menu-eq`, `eq-page`,
+`eq-page-custom`, `eq-presets` (and `eq-presets-off`, `-voice`, `-treble`,
+`-custom`: the cursor on each), `eq-page-phones` (`--eq-phones` stands in
+for a cable), `mp4-menu-eq` (tools/i18n-shots.py).

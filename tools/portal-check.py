@@ -41,6 +41,10 @@ protocol. What it holds, each a thing I asked for on 2026-11-06:
     Transfer over the cable and Wi-Fi File Transfer over Wi-Fi, in its tab,
     on the PIN screen and over the folders, and never a name the browser
     kept from the other link
+  - the PIN screen (2026-11-19, an idea on the Discord): the first box has
+    the cursor as the page comes up, before the handheld has answered, so
+    the PIN can be typed straight away and what is typed stays; a digit
+    typed with the cursor out of the boxes goes into the first empty one
   - a drop in the middle of an upload (2026-11-14: a 517 MB disc lost
     whole to a few seconds without Wi-Fi): the file waits for the handheld,
     says how much it kept and, after a while, the address to check, then
@@ -685,6 +689,57 @@ def main():
             server = Server(card, web, 'update=off')
             check(signed_in(page, server) and page.js(f"{names}.every((n) => n === 'Wi-Fi File Transfer')"),
                   f"the page is Wi-Fi File Transfer: {page.js(names)}")
+            server.stop()
+
+            print('the PIN screen: the cursor in the first box from the start:')
+            server = Server(card, web, 'update=off')
+            slow = lambda ms: page.dt.call('Network.emulateNetworkConditions', offline=False, latency=ms,
+                                           downloadThroughput=-1, uploadThroughput=-1)
+            typed = "[...document.querySelectorAll('#boxes input')].map((b) => b.value).join('')"
+            cursor = "[...document.querySelectorAll('#boxes input')].indexOf(document.activeElement)"
+            # The page's first question, "is there a session?" (/api/list),
+            # marked when its answer comes: a 401 has no resource timing entry
+            answered = 'window.listAnswered === true'
+            page.dt.call('Page.enable')  # or the script below is never put in
+            mark = page.dt.call('Page.addScriptToEvaluateOnNewDocument', source="""(() => {
+                const f = window.fetch;
+                window.fetch = function (u) {
+                    const p = f.apply(this, arguments);
+                    if (String(u).includes('/api/list'))
+                        p.then(() => { window.listAnswered = true; }, () => { window.listAnswered = true; });
+                    return p;
+                };
+            })()""")['identifier']
+
+            def digit(d):
+                page.dt.call('Input.dispatchKeyEvent', type='keyDown', key=d, code='Digit' + d, text=d,
+                             windowsVirtualKeyCode=48 + int(d))
+                page.dt.call('Input.dispatchKeyEvent', type='keyUp', key=d, code='Digit' + d,
+                             windowsVirtualKeyCode=48 + int(d))
+            # A handheld slow to answer, as over a weak Wi-Fi: every request
+            # 1.5 s, so the page is up well before it says there is no session
+            slow(1500)
+            fresh(page, f'{server.origin}/')
+            page.until("typeof sendPin === 'function'", 30)
+            check(not page.js(answered) and page.js(cursor) == 0,
+                  f"before the handheld has answered, the first box has the cursor: {page.js(cursor)}")
+            digit('4')
+            digit('7')
+            ok = page.until(answered, 15)
+            time.sleep(0.3)  # the page's own handling of that answer, after the mark
+            check(ok and page.js(f"{typed} === '47' && {cursor} === 2"),
+                  f"digits typed before it answered stay, the cursor in the third box: "
+                  f"answered {ok}, {page.js(typed)!r}, box {page.js(cursor)}")
+            page.dt.call('Page.removeScriptToEvaluateOnNewDocument', identifier=mark)
+            page.dt.call('Page.disable')
+            slow(0)
+            # A press on the page outside the boxes takes the cursor out of
+            # them; the next digit still goes into the first empty box
+            page.js("document.activeElement.blur()")
+            digit('2')
+            check(page.until(f"{typed} === '472' && {cursor} === 3", 5),
+                  f"a digit typed with the cursor out of the boxes lands in the first empty one: "
+                  f"{page.js(typed)!r}, box {page.js(cursor)}")
             server.stop()
 
             print('a drop in the middle of an upload: the file waits, then goes on:')

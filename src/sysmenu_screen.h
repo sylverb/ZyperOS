@@ -46,6 +46,15 @@ int look_build(void *ctx, menu_row *rows, int max, const char **heading);
 int sc_build(void *ctx, menu_row *rows, int max, const char **heading);
 void sc_side(app *a, const menu_side *at);
 void sc_look_choice(menu_choice *out);
+/* MENU > Sound > Equalizer (src/eq.h): the page, from MENU and MP4's menu;
+ * its rows, the presets' list with each one's picture, and that picture,
+ * for the shots (--look-page eq, eq-presets) */
+void eq_screen(app *a);
+int  eq_page_build(void *ctx, menu_row *rows, int max, const char **heading);
+void eq_preset_choice(menu_choice *out);
+void eq_curve_preview(void *app, int k, int x, int y, int w, int h);
+/* --eq-phones: the page and its list as with headphones in (a shot's) */
+extern bool g_shot_eq_phones;
 menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel);
 void zyperos_menu(app *a);
 

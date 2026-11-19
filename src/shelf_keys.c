@@ -78,6 +78,20 @@ static void load_ahead(app *a)
 	prime_toward(a, a->sys_cursor, a->view[a->sys_cursor].cursor);
 }
 
+/* The focused system's shelf, its covers asked for ahead of A, once the
+ * home's cursor has rested on it HOME_PRIME_REST ms, not on every step
+ * (2026-11-19: on each step the paths, file checks and MP4's cover asks of
+ * seven games ran on the frame the step was drawn on, and their uploads on
+ * the frames after, while the home showed none of them; on the Pixel 2 the
+ * home's frames stalled to 50 ms and more as the cursor crossed systems). A
+ * shelf opened sooner asks for its own covers as it draws. */
+#define HOME_PRIME_REST 400
+static void load_later(app *a)
+{
+	a->home_prime_at = (plat_now_ms() + HOME_PRIME_REST) | 1;
+	redraw_at(a->home_prime_at);
+}
+
 /* Where up (-1) or down (+1) goes on the home with the order on A to Z */
 static int home_letter_at(const app *a, int dir)
 {
@@ -98,6 +112,10 @@ void update_systems(app *a)
 	 * the first press of left or right took the launcher down with SIGFPE
 	 * the moment empty systems started being hidden. */
 	if (no_games(a)) { empty_keys(a); return; }
+	if (a->home_prime_at && (Sint32)(plat_now_ms() - a->home_prime_at) >= 0) {
+		a->home_prime_at = 0;
+		load_ahead(a);
+	}
 
 	/* START turns the home's layout on, Spotlight to Gallery to Grid and
 	 * round, as MENU > Home Screen's row does and as START turns a shelf's
@@ -162,7 +180,7 @@ void update_systems(app *a)
 		if (to != a->sys_cursor) dir = to > a->sys_cursor ? 1 : -1;
 		a->sys_cursor = to;
 		if (a->sys_cursor == was) dir = 0;
-		if (dir) load_ahead(a);
+		if (dir) load_later(a);
 		if (sb != IN_NONE) step_sound(a, sb, was, a->sys_cursor);
 		if (a->in.pressed[IN_ACCEPT]) {
 			if (is_muse(&a->sys.systems[a->sys_cursor])) muse_open(a, NULL, NULL);
@@ -186,7 +204,7 @@ void update_systems(app *a)
 		dir = d; sb = d > 0 ? IN_DOWN : IN_UP;
 	}
 	if (a->sys_cursor == was) dir = 0;
-	if (dir) load_ahead(a);
+	if (dir) load_later(a);
 	if (sb != IN_NONE) step_sound(a, sb, was, a->sys_cursor);
 	/* Muse's card opens Muse, the one SELECT opens - see update_games. */
 	if (a->in.pressed[IN_ACCEPT]) {
