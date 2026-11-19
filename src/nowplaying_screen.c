@@ -262,6 +262,15 @@ static bool g_lock_asked;                /* MENU's Lock Screen, for muse_menu */
 
 void muse_ask_lock(void) { g_lock_asked = true; }
 
+/* QUIT: MP4's MENU, its last row or X on any row, as the in-game menu's Quit
+ * and its X (2026-11-18). MP4 closes as SELECT closes it - MUSE_CLOSE up
+ * through every screen of it to muse_shelf_screen, which puts back what it
+ * was opened over: the home, a menu, a paused game's menu. What plays keeps
+ * playing, as it does after SELECT; A pauses it first for silence. */
+static bool g_quit_asked;                /* MENU's Quit, for muse_menu */
+
+void muse_ask_quit(void) { g_quit_asked = true; }
+
 /* SHUFFLE ALL: every song on the card in a random order, from MENU on the
  * music shelf. mine, 2026-11-05: shuffle across the whole library, not one
  * album at a time. Music only - a book shuffled is not how anyone listens to
@@ -614,6 +623,10 @@ muse_exit muse_menu(app *a)
 		if (lock_allowed()) muse_locked(a);
 	}
 	if (want_quit || !a->running || g_message_stopped) return MUSE_CLOSE;
+	if (g_quit_asked) {
+		g_quit_asked = false;
+		return MUSE_CLOSE;
+	}
 	/* Shuffle All closed it to play: Now Playing, on whatever screen of
 	 * MP4's MENU was pressed - on Now Playing itself, it just carries on
 	 * with the new song (g_np_depth). */

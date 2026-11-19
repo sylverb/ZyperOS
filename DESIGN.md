@@ -1386,7 +1386,7 @@ The rows of MENU > Controls write a chord as words ("L1/R1", src/controls.c), as
 the page: the row's value is `MENU_KEY_X` (src/menu.h), and the glyph is
 drawn at 40, the keyboard's action keys' size, where the value's right edge
 is, plain off the fill and UI_BUTTON_ON_ACCENT on it. The in-game menu's Quit
-is the one (11.28). "MENU, X" names the press on a Controls page: a comma for
+(11.28) and the Quit of MP4's MENU (11.14) are the two. "MENU, X" names the press on a Controls page: a comma for
 one press after the other, as a plus is for held together.
 
 A pressed glyph is 92% size, its ring **accent**, with a soft **accent** halo
@@ -2010,6 +2010,15 @@ Muse, so a card's saved places and modes still read.
   with no panel.
 - **Shuffle All.** MENU on the music shelf: every song on the card, the mode
   set to shuffle and kept.
+- **Quit.** The last row of MP4's MENU on every shelf (music, books, videos,
+  All), from the shelf, an album's tracks or Now Playing: MP4 closes, as
+  SELECT closes it, to the screen it was opened from (the home, a menu, a
+  paused game's menu). **X** does it from any row of that MENU, heard as A
+  is, and the row carries X's glyph at its right (`MENU_KEY_X`, 11.9), as the
+  in-game menu's Quit and its X (11.28). Like SELECT it leaves what plays
+  playing, heard behind the home as above; A pauses it first for silence.
+  *(2026-11-18: "add an option in the mp4 menu to quit it, like we have in
+  games (with the shortcut too)".)*
 - **From the shelf.** While MP4 is heard behind the home or a games shelf
   (music, a book or a video's sound, playing; the menu music is quiet for
   it), **L2**/**R2** do what **L1**/**R1** do on Now Playing: the track

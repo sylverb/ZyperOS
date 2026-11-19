@@ -26,6 +26,8 @@ unsigned np_draw(app *a, const mu_now *mn, const char *next);
  * can happen here */
 void muse_ask_lock(void);
 void muse_ask_shuffle(void);
+/* MENU's Quit (or X there): MP4 closes after its menu */
+void muse_ask_quit(void);
 bool lock_allowed(void);
 /* An MP4 screen's presses: read, SELECT alone let go, a screen coming up,
  * and the volume, brightness, X and SELECT with START keys (true: lock) */
