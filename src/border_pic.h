@@ -24,7 +24,8 @@
 bool border_own_path(const system_cfg *s, char *out, size_t n);
 
 /* Whether this device's Diatom draws Blur: where it draws every frame on its
- * GPU (the Pixel 2), not where the CPU paints the pages (the Brick for now) */
+ * GPU, as the profile's gpu_shaders says (the Pixel 2, a Brick test kit's GPU
+ * path), not where the CPU paints the pages (the Brick for now) */
 bool border_blur_here(void);
 
 /* What system `sys`'s row offers now: Blur where the device draws it, the

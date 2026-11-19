@@ -5752,8 +5752,9 @@ Pixels, Zoomed always cover). Not over a Super Game Boy game, whose own border f
   times a second as the game moves (Diatom makes a 32x24 from the frame it
   keeps anyway, cut to the screen's shape, blurred twice, its colors a little
   stronger, then 0.55 as bright, and the GPU stretches it smoothly). Only
-  where the GPU draws every frame: the Pixel 2. The Brick's frames are its
-  CPU's until its GPU path draws them all (the Brick parity plan's kit A).
+  where the GPU draws every frame, as the device profile's `gpu_shaders` says:
+  the Pixel 2, and a Brick test kit's GPU path. A released Brick's frames are
+  its CPU's until its GPU path draws them all (the Brick parity plan's kit A).
 - **Your Own**: the first PNG by name in `Borders/<the system's folder>/`
   on the card (`Borders/Game Boy/`), else in NextUI's `Overlays/<its tag>/`
   (`Overlays/GB/`; FC for the NES and PS for the PlayStation, as NextUI names
