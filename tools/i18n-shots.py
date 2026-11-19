@@ -869,7 +869,7 @@ for _name, _flags in (("shelf-video", ["--screen", "games", "--view", "video"]),
     EXTRA.setdefault(_name, ("demo", "PS1", _flags))
 
 
-# Two cores on the Game Boy shelves (DESIGN.md 11.55): the GB shelf's menu
+# Two cores on the Game Boy shelves (DESIGN.md 11.62): the GB shelf's menu
 # on Core, and a game's details with its Core fact
 EXTRA.setdefault("system-menu-core-gb", ("demo", "GB", ["--screen", "games", "--menu", "Core"]))
 EXTRA.setdefault("info-core-gb", ("demo", "GB", ["--screen", "games", "--info"]))

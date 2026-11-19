@@ -5637,7 +5637,7 @@ Host shots: `shelf-video` (no snap), `shelf-video-snap` (the test picture),
 way down), `system-menu-view-video` and `system-menu-view-video-list`
 (tools/i18n-shots.py).
 
-### 11.55 Two cores on a shelf: Gambatte
+### 11.62 Two cores on a shelf: Gambatte
 *(DoctorIssa on the Discord asked for Gambatte; Tarik: "all good". mGBA
 stays the default.)*
 
