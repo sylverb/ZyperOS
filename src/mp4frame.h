@@ -66,7 +66,23 @@ typedef struct {
 	uint32_t active;           /* a file with a picture is open */
 	uint32_t sar_num, sar_den; /* the pixels' own shape, 1:1 for most */
 	mpf_slot slot[MPF_SLOTS];
+	/* What became of the picture of the file open, for MP4 to say so rather
+	 * than show nothing or a slide show (MPF_FINE ...; src/muse/vid.c says
+	 * when). Written after `format` and `rate_milli`, which say what the
+	 * file is. After the slots, so a daemon older than these fields leaves
+	 * them 0 (MPF_FINE) and a launcher older than them reads past them;
+	 * snaps (src/muse/snap.c) never set them. */
+	uint32_t trouble;
+	uint32_t rate_milli;       /* its frames a second x 1000; 0 unknown */
+	char     format[16];       /* its codec's short name, FFmpeg's ("av1") */
 } mpf_head;
+
+/* mpf_head.trouble */
+enum {
+	MPF_FINE,
+	MPF_TOO_BIG,               /* more than a quarter of its pictures dropped */
+	MPF_NO_PICTURE,            /* no decoder here for its format */
+};
 
 static inline uint8_t *mpf_slot_data(void *base, int s)
 {

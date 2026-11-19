@@ -20,6 +20,10 @@
 #      ZyperOS.
 #   6. on the Pixel 2, the kernel's line about the battery's level at the
 #      start (plastron's 9-px2-rk817-start-soc.patch) is in the start's log.
+#   7. a fresh install's first start copies your PICO-8, which ZyperOS
+#      Installer left in the boot partition's pico8/, into Bios/PICO-8; a
+#      later start never reads the boot partition, and a first start with
+#      no PICO-8 there makes nothing.
 D=${TMPDIR:-/tmp}/zyperos-launch-check.$$
 trap 'rm -rf "$D"' EXIT
 fails=0
@@ -124,5 +128,50 @@ for dev in pixel2 brick; do
 	! grep -q 'the launcher stops' "$LOG" 2>/dev/null ||
 		fail "the launcher ran with no device.sh"
 	[ "$fails" = 0 ] && echo "ok $dev: a junk boot.env read as off, five fast stops or no device.sh set launch.sh aside once"
+
+	# A fresh install's first start: your PICO-8, which ZyperOS Installer
+	# left in the boot partition's pico8/, copied into Bios/PICO-8. The boot
+	# partition is a folder here: the Pixel 2 mounts it (mount, stubbed,
+	# copies the folder to the mount point), the Brick has it at /boot
+	prepare || continue
+	U=$D/card/.userdata/$dev
+	rm -rf "$U"
+	mkdir -p "$D/bootfs/pico8"
+	printf 'program' > "$D/bootfs/pico8/pico8_64"
+	printf 'data' > "$D/bootfs/pico8/pico8.dat"
+	echo 0.2.7 > "$D/bootfs/pico8/version.txt"
+	printf '#!/bin/sh\nfor a; do m=$a; done\necho mount >> "%s/calls"\ncp -R "%s/bootfs/." "$m/"\n' "$D" "$D" > "$D/bin/mount"
+	printf '#!/bin/sh\nfor a; do m=$a; done\necho umount >> "%s/calls"\nrm -rf "$m/"*\n' "$D" > "$D/bin/umount"
+	chmod +x "$D/bin/mount" "$D/bin/umount"
+	if [ "$dev" = brick ]; then
+		grep -q '\[ -d /boot \] && BOOT_DIR=/boot' "$D/card/ZyperOS/device.sh" ||
+			fail "device.sh no longer has its /boot"
+		sed "s#\[ -d /boot \] \&\& BOOT_DIR=/boot#[ -d $D/bootfs ] \&\& BOOT_DIR=$D/bootfs#" \
+			"$D/card/ZyperOS/device.sh" > "$D/device.sh" && mv "$D/device.sh" "$D/card/ZyperOS/device.sh"
+	fi
+	launcher off
+	run
+	[ "$(cat "$D/card/Bios/PICO-8/pico8_64" 2> /dev/null)" = program ] &&
+		[ "$(cat "$D/card/Bios/PICO-8/pico8.dat" 2> /dev/null)" = data ] &&
+		[ "$(cat "$D/card/Bios/PICO-8/version.txt" 2> /dev/null)" = 0.2.7 ] ||
+		fail "the first start did not copy PICO-8 into Bios/PICO-8: $(tail -n 3 "$D/out")"
+	[ -x "$D/card/Bios/PICO-8/pico8_64" ] || fail "pico8_64 was copied not runnable"
+	grep -q 'pico8: your PICO-8 copied from the boot partition into Bios/PICO-8' "$LOG" ||
+		fail "the log does not say PICO-8 was copied"
+	if [ "$dev" = pixel2 ]; then
+		grep -q umount "$D/calls" 2> /dev/null || fail "the boot partition was not let go of"
+	fi
+	# Any later start, the boot partition never read again
+	printf 'newer' > "$D/bootfs/pico8/pico8_64"
+	rm -f "$D/card/Bios/PICO-8/pico8_64"
+	run
+	[ ! -f "$D/card/Bios/PICO-8/pico8_64" ] && ! grep -q mount "$D/calls" 2> /dev/null ||
+		fail "a start after the first read the boot partition"
+	# A first start with no PICO-8 in the boot partition: nothing made
+	rm -rf "$U" "$D/bootfs/pico8" "$D/card/Bios/PICO-8"
+	run
+	[ ! -d "$D/card/Bios/PICO-8" ] || fail "a first start with no PICO-8 made Bios/PICO-8"
+	rm -rf "$D/bootfs"
+	[ "$fails" = 0 ] && echo "ok $dev: a fresh install's PICO-8 copied from the boot partition at the first start only"
 done
 [ "$fails" = 0 ] || exit 1

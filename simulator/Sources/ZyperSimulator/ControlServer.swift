@@ -55,6 +55,7 @@ final class ControlServer {
             return json(["ok": false, "error": "usage: \(ControlCommand.usage)"])
         }
         if case let .waitFrames(n) = command { return waitFrames(n) }
+        if case let .latency(buttons, region) = command { return latency(buttons, region: region) }
         if case let .tap(buttons, ms) = command {
             onMain { $0.tap(buttons, milliseconds: ms) }
             Thread.sleep(forTimeInterval: Double(ms) / 1000 + 0.05)
@@ -71,6 +72,7 @@ final class ControlServer {
             let s = sim.state
             return json(["ok": true, "name": sim.name, "power": sim.power.rawValue,
                          "ssh_port": sim.sshPort, "frames": sim.frameCount,
+                         "screen_path": sim.screenPath, "fps": sim.frameLog.perSecond(),
                          "screen": [sim.frame?.width ?? 0, sim.frame?.height ?? 0],
                          "leds": s.leds, "backlight": s.backlight, "bl_power": s.backlightPower,
                          "battery": s.battery, "cable": s.cable, "kind": s.kind == 2 ? "computer" : "wall",
@@ -97,7 +99,10 @@ final class ControlServer {
             return json(["ok": true, "path": path])
         case .quit:
             DispatchQueue.main.async { NSApp.terminate(nil) }
-        case .tap, .waitFrames:
+        case let .keys(on): sim.showKeys = on
+        case .fps:
+            return json(["ok": true, "fps": sim.frameLog.perSecond(), "screen_path": sim.screenPath])
+        case .tap, .waitFrames, .latency:
             break
         }
         return json(["ok": true])
@@ -114,6 +119,35 @@ final class ControlServer {
         return json(["ok": false, "error": "fewer than \(n) frames in 10 s"])
     }
 
+    /// Press to photon, as far as the window can see it: from the tap (its
+    /// press sent down px2sim's link) to the first frame, as it came from
+    /// the VM, whose pixels (in the region, if one) differ from the frame
+    /// before the press
+    private func latency(_ buttons: [PadButton], region: [Int]?) -> String {
+        let rect = region.map { CGRect(x: $0[0], y: $0[1], width: $0[2], height: $0[3]) }
+        guard let (frame, log) = DispatchQueue.main.sync(execute: {
+            MainActor.assumeIsolated { () -> (CGImage, FrameLog)? in
+                guard let sim, let f = sim.frame else { return nil }
+                return (f, sim.frameLog)
+            }
+        }) else { return json(["ok": false, "error": "no frame yet"]) }
+        let before = FrameLog.hash(frame, rect: rect)
+        let t0 = FrameLog.now()
+        onMain { $0.tap(buttons, milliseconds: 80) }
+        var seen = t0
+        while FrameLog.now() - t0 < 3000 {
+            for (t, image) in log.frames(after: seen) {
+                seen = t
+                if FrameLog.hash(image, rect: rect) != before {
+                    Thread.sleep(forTimeInterval: 0.15)
+                    return json(["ok": true, "press_to_frame_ms": (t - t0).rounded(toPlaces: 1)])
+                }
+            }
+            Thread.sleep(forTimeInterval: 0.001)
+        }
+        return json(["ok": false, "error": "no frame changed in 3 s"])
+    }
+
     private func onMain(_ body: @escaping @MainActor (Simulator) -> Void) {
         DispatchQueue.main.async { MainActor.assumeIsolated { if let sim = self.sim { body(sim) } } }
     }
@@ -123,5 +157,12 @@ final class ControlServer {
             return "{\"ok\":false}"
         }
         return String(decoding: data, as: UTF8.self)
+    }
+}
+
+private extension Double {
+    func rounded(toPlaces n: Int) -> Double {
+        let k = pow(10, Double(n))
+        return (self * k).rounded() / k
     }
 }

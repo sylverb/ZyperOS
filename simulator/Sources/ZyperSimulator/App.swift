@@ -21,6 +21,7 @@ struct ZyperSimulatorApp: App {
                 .environmentObject(sim)
                 .onAppear { delegate.attach(sim) }
         }
+        .windowStyle(.hiddenTitleBar)
         .windowResizability(.contentSize)
         .commands { SimulatorCommands(sim: sim) }
     }
@@ -70,16 +71,86 @@ struct ContentView: View {
     @EnvironmentObject var sim: Simulator
 
     var body: some View {
+        // The device's column sets the window's height; the panel scrolls
+        // in it
+        let height = Geometry.height * Geometry.scale(zoom: sim.zoom) + 14 + 14 + 32 + 16
         HStack(spacing: 0) {
-            DeviceView()
-                .padding(12)
+            // The handheld on a dark desk, lit from above, and under it a
+            // line on what it is doing
+            VStack(spacing: 14) {
+                DeviceView()
+                StatusBar()
+            }
+            .padding(.top, 14)
+            .padding(.horizontal, 26)
+            .padding(.bottom, 16)
+            .frame(height: height)
             if sim.showPanel {
-                Divider()
                 HardwarePanel()
+                    .frame(height: height)
+                    .background(.regularMaterial)
+                    .overlay(alignment: .leading) {
+                        Rectangle().fill(.black.opacity(0.35)).frame(width: 1).ignoresSafeArea()
+                    }
             }
         }
+        // The backgrounds under the hidden title bar too; the content below it
+        .background { LinearGradient(colors: [Color(white: 0.19), Color(white: 0.105)],
+                                     startPoint: .top, endPoint: .bottom).ignoresSafeArea() }
         .fixedSize()
-        .background(.windowBackground)
+        .preferredColorScheme(.dark)
+    }
+}
+
+/// Under the device: on or off, which way the screen's frames come and how
+/// many a second, and the window's two quick things
+struct StatusBar: View {
+    @EnvironmentObject var sim: Simulator
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Circle()
+                .fill(sim.power == .on ? Color(hex: 0x5BE36A) : sim.power == .starting ? Color(hex: 0xFFB13D)
+                      : Color(white: 0.4))
+                .frame(width: 7, height: 7)
+                .shadow(color: sim.power == .on ? Color(hex: 0x5BE36A).opacity(0.7) : .clear, radius: 3)
+            Text(sim.name).font(.system(size: 12, weight: .semibold, design: .rounded)).fixedSize()
+            if sim.power == .on {
+                Spacer(minLength: 4)
+                TimelineView(.periodic(from: .now, by: 1)) { _ in
+                    Text("\(sim.frameLog.perSecond()) fps \u{00B7} \(sim.screenPath)")
+                        .font(.system(size: 10.5, weight: .semibold, design: .rounded).monospacedDigit())
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(Capsule().fill(.white.opacity(0.08)))
+                        .fixedSize()
+                        .help("How the screen's frames reach the window (docs/simulator.md). \(sim.status)")
+                }
+            } else {
+                Text(sim.status)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .help(sim.status)
+            }
+            Button { sim.saveScreenToDesktop() } label: { Image(systemName: "camera") }
+                .buttonStyle(.borderless)
+                .disabled(sim.power != .on)
+                .help("Save a screenshot to the Desktop (Cmd S)")
+            Button { withAnimation(.easeInOut(duration: 0.2)) { sim.showPanel.toggle() } } label: {
+                Image(systemName: "sidebar.right")
+            }
+            .buttonStyle(.borderless)
+            .help("The hardware panel (Cmd I)")
+        }
+        .foregroundStyle(.primary)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 7)
+        .background(Capsule().fill(.black.opacity(0.28)))
+        .overlay(Capsule().stroke(.white.opacity(0.07), lineWidth: 1))
+        .frame(width: Geometry.width * Geometry.scale(zoom: sim.zoom))
     }
 }
 
@@ -97,11 +168,40 @@ enum Keyboard {
     ]
     private static let rightShift: UInt16 = 60, h: UInt16 = 4
 
+    /// A button's key, as its keycap says it (src/device/keymap.h's names)
+    static func name(for button: PadButton) -> String {
+        switch button {
+        case .up: return "Up"
+        case .down: return "Down"
+        case .left: return "Left"
+        case .right: return "Right"
+        case .a: return "X"
+        case .b: return "Z"
+        case .x: return "S"
+        case .y: return "A"
+        case .l1: return "Q"
+        case .r1: return "W"
+        case .l2: return "E"
+        case .r2: return "R"
+        case .start: return "Return"
+        case .select: return "R-Shift"
+        case .menu: return "Esc"
+        case .volup: return "="
+        case .voldown: return "-"
+        case .power: return "P"
+        }
+    }
+
     @MainActor
     static func handle(_ event: NSEvent, sim: Simulator) -> Bool {
         if event.modifierFlags.contains(.command) { return false }
         // Typing in the panel's fields stays typing
         if NSApp.keyWindow?.firstResponder is NSText { return false }
+        // Option: every key's keyboard key on it, while held
+        if event.type == .flagsChanged {
+            let option = event.modifierFlags.contains(.option)
+            if sim.showKeys != option { sim.showKeys = option }
+        }
         switch event.type {
         case .flagsChanged where event.keyCode == rightShift:
             if event.modifierFlags.contains(.shift) { sim.press(.select) } else { sim.release(.select) }

@@ -32,6 +32,10 @@ typedef struct {
      * (src/pminstall.h): A says Install, and the line under its name
      * that it is not installed */
     bool install;
+    /* Splore's entry on the PICO-8 shelf (src/pico8.h): while your PICO-8 is
+     * not on the card, A says How to Add and the line Not installed
+     * (`howto`); once it is, A says Open (`opens`). Neither resumes. */
+    bool howto, opens;
     /* The focused game's video snap (src/snapshelf.h), or NULL: its picture,
      * its shape, and how far the cover has turned into it, 0 to 1. */
     SDL_Texture *snap;

@@ -87,8 +87,11 @@
 #define DS_LINE_CHROME          32
 #define DS_GRID_GAP             24
 #define DS_GRID_BAND_GAP        24
-#define DS_FOCUS_RING           4
-#define DS_FOCUS_GAP            4
+#define DS_FOCUS_RING           3
+#define DS_FOCUS_GAP            3
+#define DS_FOCUS_BAR_W          40
+#define DS_FOCUS_BAR_H          6
+#define DS_FOCUS_BAR_UNDER      8
 #define DS_RADIUS_CELL          14
 #define DS_PREVIEW_COL_W        336
 #define DS_PREVIEW_COL_MIN      200

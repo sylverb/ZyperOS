@@ -19,6 +19,9 @@ static uint32_t     g_seen;          /* the serial of the picture in g_tex */
 static uint32_t     g_file;          /* the file it came from */
 static uint32_t     g_color = MPF_BT601;
 static bool         g_test;          /* mp4v_test_picture's, not the daemon's */
+static int          g_test_trouble = -1;  /* mp4v_test_trouble's, -1 for none */
+static char         g_test_format[16];
+static unsigned     g_test_rate;
 
 /* The daemon makes the file when it starts and never removes it, so once
  * mapped it stays right; until then it is looked for twice a second at most. */
@@ -123,6 +126,40 @@ SDL_Rect mp4v_fit(SDL_Rect box)
 	out.x = box.x + (box.w - out.w) / 2;
 	out.y = box.y + (box.h - out.h) / 2;
 	return out;
+}
+
+int mp4v_trouble(char *format, size_t n, unsigned *rate_milli)
+{
+	const char *f;
+	uint32_t t;
+	size_t i;
+
+	if (g_test_trouble >= 0) {
+		t = (uint32_t)g_test_trouble;
+		f = g_test_format;
+		if (rate_milli) *rate_milli = g_test_rate;
+	} else {
+		if (!mapped() || g_head->magic != MPF_MAGIC || g_head->version != MPF_VERSION)
+			return MPF_FINE;
+		t = __atomic_load_n(&g_head->trouble, __ATOMIC_ACQUIRE);
+		f = g_head->format;
+		if (rate_milli) *rate_milli = g_head->rate_milli;
+	}
+	if (t != MPF_TOO_BIG && t != MPF_NO_PICTURE) return MPF_FINE;
+	/* Copied a byte at a time to its end or the field's: the daemon writes
+	 * it only as it opens a file, but never trusted to be terminated */
+	if (format && n) {
+		for (i = 0; i + 1 < n && i < sizeof g_head->format && f[i]; i++) format[i] = f[i];
+		format[i] = 0;
+	}
+	return (int)t;
+}
+
+void mp4v_test_trouble(int trouble, const char *format, unsigned rate_milli)
+{
+	g_test_trouble = trouble;
+	snprintf(g_test_format, sizeof g_test_format, "%s", format ? format : "");
+	g_test_rate = rate_milli;
 }
 
 /* The texture given back, for a renderer about to be torn down. */

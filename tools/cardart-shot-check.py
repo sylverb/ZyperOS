@@ -104,16 +104,18 @@ def mean(im, box):
     return tuple(sum(p[k] for p in px) / len(px) for k in range(3))
 
 
-def first_lines(im, y0, y1):
+def first_lines(im, y0, y1, lo=232):
     """The first near-white row of each run of near-white columns: one per
-    Grid cell holding a drawn name"""
+    Grid cell holding a drawn name. On Salt & Pepper `lo` is lower: the
+    cards out of focus are drawn a fifth of the way toward its dark ground
+    (Highlight's step back, DESIGN.md 11.47), the names' white 207"""
     w = im.size[0]
     px = im.load()
     cols = {}
     for x in range(32, w - 32):
         for y in range(y0, y1):
             r, g, b = px[x, y]
-            if r > 232 and g > 232 and b > 225:
+            if r > lo and g > lo and b > lo - 7:
                 cols[x] = y
                 break
     names, run = [], []
@@ -145,7 +147,7 @@ for theme in ('dark', 'light'):
     need(not (s[0] > s[1] and s[2] > s[1]), f'{theme}: the card frame wins over the Auto picture {s}')
     need(m[1] > m[0] + 15 and m[1] > m[2] + 15, f'{theme}: Mega Man 2: the Auto picture until a card frame {m}')
 
-    lines = first_lines(grid, 90, 330)
+    lines = first_lines(grid, 90, 330, 198 if theme == 'dark' else 232)
     need(len(lines) >= 3, f'{theme}: the Grid shows its three names {lines}')
     need(lines and max(lines) - min(lines) <= 2, f'{theme}: the Grid\'s names on one reading line {lines}')
 

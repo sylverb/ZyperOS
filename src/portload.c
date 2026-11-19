@@ -560,7 +560,7 @@ bool port_loading_draw(app *a, const system_cfg *s, int i)
 		char art[LIB_PATH * 3], prev[LIB_PATH * 3];
 
 		/* PortMaster's own cover in this theme, else the box art */
-		if (!pm_cover_path(a, o, &v->list.items[i], theme_index(), art, sizeof art))
+		if (!own_cover_path(a, o, &v->list.items[i], theme_index(), art, sizeof art))
 			box_art_path(a->sys.systems[o].folder, v->list.items[i].name, art, sizeof art);
 		preview_path(a, o, &v->list.items[i], prev, sizeof prev);
 		cover = load_image(a->r, art, &tw, &th, &cb);

@@ -15,6 +15,7 @@
  * nothing to convert. On the desktop build it is SDL's default audio device
  * instead. */
 #include "bgm.h"
+#include "eqdsp.h"
 #include "bgm_dec.h"
 #include "pcm_out.h"
 
@@ -55,6 +56,10 @@ static struct {
 	char        want[64];      /* the device; "" is nowhere */
 	bool        left, right;   /* the sides that carry it */
 	bool        mono;          /* and both channels on both (bgm_route) */
+	/* The equalizer's bands for where it plays (bgm_eq), and how many times
+	 * they changed, for the thread to see a change by */
+	int8_t      eq[EQ_BANDS];
+	unsigned    eq_gen;
 	unsigned    skips;         /* bgm_skip()s and R2s asked for */
 	unsigned    backs;         /* ...and L2s */
 	bool        rescan;
@@ -94,6 +99,8 @@ typedef struct {
 	int      steps;         /* presses taken and not yet acted on, R2s less L2s */
 	bool     pressed;       /* ...any at all: R2 then L2 is this track again */
 	bgm_hist hist;          /* what was heard, for L2 */
+	eq_state eq;            /* the equalizer (src/eqdsp.h) */
+	unsigned eq_gen;        /* g.eq_gen it was set to */
 	char     last[512];     /* the track opened last, kept past its close */
 	Uint32   retry_at;
 } player;
@@ -271,6 +278,19 @@ static int slice(player *p, int want)
 	return n > 0 ? m : -1;
 }
 
+/* The equalizer over the slice in g_out, at the bands bgm_eq last gave,
+ * moved to over 20 ms; flat costs nothing (eq_run). The thread's, under
+ * g.lock. After the volume, so a boost meets the knee only where the
+ * music is loud as heard. */
+static void eq_follow(player *p, int n)
+{
+	if (p->eq_gen != g.eq_gen) {
+		eq_set(&p->eq, g.eq);
+		p->eq_gen = g.eq_gen;
+	}
+	eq_run(&p->eq, g_out, n);
+}
+
 static void fade_out(player *p)
 {
 	int left = BGM_OUT_RATE * BGM_FADE_OUT_MS / 1000;
@@ -282,6 +302,7 @@ static void fade_out(player *p)
 		if (n > left) n = left;
 		g1 = (int)((long long)g0 * (left - n) / left);
 		bgm_apply(g_out, n, g0, g1);
+		eq_follow(p, n);
 		if (g.left != g.right) bgm_one_side(g_out, n, g.left);
 		else if (g.mono) bgm_mono(g_out, n);
 		p->gain = g1;
@@ -301,6 +322,8 @@ static int run(void *unused)
 
 	(void)unused;
 	memset(&p, 0, sizeof p);
+	eq_init(&p.eq, BGM_OUT_RATE);
+	p.eq_gen = (unsigned)-1;    /* takes g.eq at its first slice */
 	SDL_LockMutex(g.lock);
 	scan();
 	if (g.list.n) fprintf(stderr, "bgm: %d tracks, %d of them the card's\n", g.list.n, g.list.own);
@@ -378,6 +401,7 @@ static int run(void *unused)
 		if (p.fade < p.fade_len) p.fade += n;
 		g1 = bgm_gain(g.volume, p.fade, p.fade_len);
 		bgm_apply(g_out, n, g0, g1);
+		eq_follow(&p, n);
 		if (g.left != g.right) bgm_one_side(g_out, n, g.left);
 		else if (g.mono) bgm_mono(g_out, n);
 		p.gain = g1;
@@ -514,6 +538,16 @@ void bgm_route(const char *device, bool left, bool right, bool mono)
 		g.right = right;
 		g.mono = mono;
 		if (g.lock) SDL_CondSignal(g.wake);
+	}
+	if (g.lock) SDL_UnlockMutex(g.lock);
+}
+
+void bgm_eq(const int8_t db[EQ_BANDS])
+{
+	if (g.lock) SDL_LockMutex(g.lock);
+	if (memcmp(g.eq, db, EQ_BANDS)) {
+		memcpy(g.eq, db, EQ_BANDS);
+		g.eq_gen++;
 	}
 	if (g.lock) SDL_UnlockMutex(g.lock);
 }

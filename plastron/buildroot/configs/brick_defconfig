@@ -81,6 +81,9 @@ BR2_PACKAGE_BLUEZ5_UTILS_DEPRECATED=y
 # Sound to Bluetooth headsets: bluealsa (A2DP source, HFP gateway) and its
 # ALSA plugin, which ZyperOS's .asoundrc names (bt-alsa.sh)
 BR2_PACKAGE_BLUEZ_ALSA=y
+# ZyperOS's equalizer for ports: a LADSPA plugin alsa-lib's ladspa PCM runs
+# (launch.sh, while the equalizer is on)
+BR2_PACKAGE_ZYPEROS_EQ=y
 
 # Libraries ZyperOS and Diatom load, as on the Pixel: SDL2_image with PNG and
 # JPEG, SDL2_ttf, sqlite, zlib, FFmpeg for Muse
@@ -93,6 +96,8 @@ BR2_PACKAGE_ZLIB=y
 BR2_PACKAGE_FFMPEG=y
 BR2_PACKAGE_FFMPEG_SWSCALE=y
 # BR2_PACKAGE_FFMPEG_FFMPEG is not set
+# dav1d, for MP4's AV1 videos, as on the Pixel 2 (board/zyperos/zyperos.config)
+BR2_PACKAGE_DAV1D=y
 
 # ZyperOS (the launcher and Muse) and Diatom, built for the Brick from their
 # own repositories
