@@ -30,39 +30,54 @@ float vin_arm_angle(float r)
 	return mp4l_arm_angle(r, VIN_PIVOT_D, VIN_PIVOT_A, VIN_ARM_L);
 }
 
-/* The vinyl's color at radius `t` (units) from the spindle (q: cx cy, the
- * color's r g b, and the tracks): the grooves a satin sheen with a fine
- * ring every few units, the gaps between the album's songs glossy and dark,
- * the lead-in and lead-out smooth, the edge's bevel catching light */
+/* The vinyl's shade at each radius, a quarter unit a step: the grooves a
+ * satin sheen with a fine ring every few units, the gaps between the
+ * album's songs glossy and dark, the lead-in and lead-out smooth, the edge's
+ * bevel catching light. Worked out once a record (`n` songs) so a pixel
+ * only looks its radius up: per pixel and per song it cost the Pixel 2's
+ * core about 100 ms at every new album. */
+#define PROFILE_STEPS 4
+static float g_profile[((int)VIN_R + 2) * PROFILE_STEPS];
+
+static void profile(int n)
+{
+	int k, i;
+
+	for (k = 0; k < (int)(sizeof g_profile / sizeof g_profile[0]); k++) {
+		float r = (float)k / PROFILE_STEPS, v;
+
+		if (r > VIN_R - 2.0f) {
+			v = 1.25f;                              /* the edge */
+		} else if (r > VIN_GROOVE_OUT) {
+			v = 0.92f;                              /* the lead-in */
+		} else if (r > VIN_GROOVE_IN) {
+			/* Satin, lighter than the smooth parts, a fine ring every 5
+			 * units; under 4% so it never moires at the Pixel 2's 0.625 */
+			v = 1.10f + 0.035f * sinf(r * 2.0f * (float)M_PI / 5.0f);
+			for (i = 1; i < n; i++) {
+				float g = VIN_GROOVE_OUT - (VIN_GROOVE_OUT - VIN_GROOVE_IN) * (float)i / (float)n;
+				float d = fabsf(r - g);
+
+				/* A gap between two songs: 3 units of smooth, darker vinyl */
+				if (d < 2.0f) v = 0.78f + (1.10f - 0.78f) * ds_sd_clamp(d - 1.0f, 0, 1);
+			}
+		} else {
+			v = 0.88f;                              /* the lead-out */
+		}
+		g_profile[k] = v;
+	}
+}
+
+/* The vinyl's color at a pixel (q: cx cy, the color's r g b) */
 static la_rgba face_col(const float *q, float x, float y)
 {
-	float r = hypotf(x - q[0], y - q[1]), k = 1.0f, a = 1.0f;
-	int n = (int)q[5], i;
-	la_rgba c = { q[2], q[3], q[4], 1 };
+	int k = (int)(hypotf(x - q[0], y - q[1]) * PROFILE_STEPS);
+	float v;
 
-	if (r > VIN_R - 2.0f) {
-		k = 1.25f;                                  /* the edge */
-	} else if (r > VIN_GROOVE_OUT) {
-		k = 0.92f;                                  /* the lead-in */
-	} else if (r > VIN_GROOVE_IN) {
-		/* Satin, lighter than the smooth parts, a fine ring every 5 units;
-		 * under 4% so it never moires on the Pixel 2's 0.625 */
-		k = 1.10f + 0.035f * sinf(r * 2.0f * (float)M_PI / 5.0f);
-		for (i = 1; i < n; i++) {
-			float g = VIN_GROOVE_OUT - (VIN_GROOVE_OUT - VIN_GROOVE_IN) * (float)i / (float)n;
-			float d = fabsf(r - g);
-
-			/* A gap between two songs: 3 units of smooth, darker vinyl */
-			if (d < 2.0f) k = 0.78f + (1.10f - 0.78f) * ds_sd_clamp(d - 1.0f, 0, 1);
-		}
-	} else {
-		k = 0.88f;                                  /* the lead-out */
-	}
-	c.r = ds_sd_clamp(c.r * k, 0, 1);
-	c.g = ds_sd_clamp(c.g * k, 0, 1);
-	c.b = ds_sd_clamp(c.b * k, 0, 1);
-	c.a = a;
-	return c;
+	if (k < 0) k = 0;
+	if (k >= (int)(sizeof g_profile / sizeof g_profile[0])) k = (int)(sizeof g_profile / sizeof g_profile[0]) - 1;
+	v = g_profile[k];
+	return (la_rgba){ ds_sd_clamp(q[2] * v, 0, 1), ds_sd_clamp(q[3] * v, 0, 1), ds_sd_clamp(q[4] * v, 0, 1), 1 };
 }
 
 /* The record's edge (q: cx cy, then face_col's) */
@@ -115,6 +130,7 @@ static SDL_Texture *face(SDL_Renderer *r, const vin_tex *t)
 	la_canvas c;
 
 	if (!la_new(&c, side, side)) return NULL;
+	profile(t->tracks);
 	la_paint(&c, sd_record, face_col, q, (la_rgba){ 0 }, m - VIN_R - 1, m - VIN_R - 1, m + VIN_R + 1,
 	         m + VIN_R + 1);
 	return la_texture(r, &c);
