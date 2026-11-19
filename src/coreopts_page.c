@@ -96,11 +96,19 @@ static void keep(coreopts_ui *ui, int i)
 {
 	char key[160];
 	codef *o;
+	const char *deflt;
 
 	if (i < 0 || i >= ui->defs.n) return;
 	o = &ui->defs.opt[i];
 	codef_db_key(ui->tag, o->key, key, sizeof key);
-	db_set_str(db_lib(), key, ui->cur[i]);
+	/* Same default load_current uses: the option's default, else the
+	 * first value. At the default, drop the library key so a later
+	 * device default can still apply. */
+	deflt = o->deflt[0] ? o->deflt : (o->nvals > 0 ? o->vals[0] : "");
+	if (!strcmp(ui->cur[i], deflt))
+		db_del(db_lib(), key);
+	else
+		db_set_str(db_lib(), key, ui->cur[i]);
 	plat_coreopts_invalidate();
 	if (ui->live)
 		plat_resident_line("SETOPT\tkey=%s\tvalue=%s", o->key, ui->cur[i]);
