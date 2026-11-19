@@ -328,6 +328,12 @@ EXTRA = {
     "keyboard-ss-user": ("demo", "PS1", ["--keyboard", "--kb-ss-user"]),
     "video-controls": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--video", "controls"]),
     "video-full": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--video", "hidden"]),
+    # A video this CPU cannot carry, its notice: too big (AV1 at 60 fps), with
+    # the controls it brings up; no picture at all, alone in the black
+    "video-too-big": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--video", "controls",
+                                       "--video-size", "1920x1080", "--video-trouble", "too-big"]),
+    "video-no-picture": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--video", "hidden",
+                                          "--video-size", "1920x1080", "--video-trouble", "no-picture"]),
     # MP4's lock screen, its panel with the bar a hold fills: over music, and
     # over a video, where the panel is the same and the picture is under it
     # MP4's menu on its shelf, which shows All (albums and videos mixed)
