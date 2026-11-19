@@ -1,0 +1,292 @@
+<meta charset="utf-8">
+<title>ZyperOS Controls Ideas Lab</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="kit.css">
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; background: #141615; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 0 64px; }
+  body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: #141615; }
+  header { padding-block: 32px 6px; display: grid; grid-template-columns: auto 1fr; gap: 18px; align-items: center; }
+  header svg { width: 70px; height: 74px; }
+  .status { font: 13px var(--zk-f-mono); color: var(--zk-ink-3); padding-top: 8px; }
+  .keep { margin-top: 18px; padding: 14px 16px; border: 1px solid var(--zk-line); border-radius: 12px; color: var(--zk-ink-2); max-width: 86ch; }
+  .keep b { color: var(--zk-ink); font-weight: 600; }
+  .how { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 4; background: var(--zk-page); display: flex; flex-wrap: wrap; gap: 10px 22px; align-items: center; margin-top: 14px; padding-block: 10px; border-bottom: 1px solid var(--zk-line); font: 13px var(--zk-f-mono); color: var(--zk-ink-3); }
+  .how kbd { font: 500 12px var(--zk-f-mono); color: var(--zk-ink); border: 1px solid var(--zk-line); border-bottom-width: 2px; border-radius: 5px; padding: 1px 6px; }
+  .how label { display: flex; gap: 8px; align-items: center; color: var(--zk-ink-2); }
+  .how select { font: 13px var(--zk-f-mono); color: var(--zk-ink); background: var(--zk-page-2); border: 1px solid var(--zk-line); border-radius: 8px; padding: 4px 8px; }
+  .play { padding-block: 30px 6px; border-bottom: 1px solid var(--zk-line); }
+  .play .zk-grid { margin-top: 18px; }
+</style>
+<!--ZYPER-->
+<div class="zk-page"><div class="zk-wrap">
+  <header>
+    <svg aria-label="Zyper"><use href="#zyper"/></svg>
+    <div>
+      <h1 class="zk-h1">ZyperOS <b>Controls Ideas Lab</b></h1>
+      <p class="zk-lede">The Controls rework: a button that turns the d-pad into the stick, the Controls pages drawn with the handheld's own glyphs, hotkeys you set yourself (Screenshot among them), and two handheld buttons on one game button (issue #305). Play each on live screens, then pick what is still open.</p>
+      <p class="status" id="status">Connecting&hellip;</p>
+    </div>
+  </header>
+  <div class="keep"><b>Decided already</b> (your review of 2026-11-18). <b>Stick On/Off</b> and <b>Stick While Held</b> join a button's choices on the N64, Dreamcast, PlayStation and PSP; the PSP's R2 keeps its job until someone changes it. The <b>Controls pages</b> use <code>src/ds/button.h</code>'s glyphs, each handheld's own. A <b>Hotkeys</b> editor lives in MENU &gt; System and in a game's Controls tab; <b>Screenshot</b>, <b>Next Shader</b>, <b>Next Display</b>, <b>Reset Game</b> and <b>Quit</b> are None until set. <b>Home</b> (MENU+START held) and POWER never change. <b>Shared buttons</b> (#305) are approved; Diatom already ORs every button that targets a game button.</div>
+  <div class="how">
+    <span>Click a screen, then <kbd>&larr;</kbd> <kbd>&uarr;</kbd> <kbd>&rarr;</kbd> <kbd>&darr;</kbd>, <kbd>Enter</kbd> A, <kbd>Backspace</kbd> B, <kbd>X</kbd> X, <kbd>Y</kbd> Y, <kbd>Q</kbd>/<kbd>E</kbd> L1/R1, <kbd>Z</kbd>/<kbd>C</kbd> L2/R2, hold <kbd>S</kbd> for SELECT, <kbd>Space</kbd> START. On the pads, SELECT stays down until you press it again.</span>
+    <label for="labgain">UI sounds <select id="labgain"><option value="1">as on the handheld</option><option value="4">+12 dB for laptop speakers</option><option value="0">off</option></select></label>
+  </div>
+  <section class="play" id="play"></section>
+  <main id="m"></main>
+</div></div>
+<script src="tokens.js"></script>
+<script src="kit.js"></script>
+<script src="sounds.js"></script>
+<script src="ideas.js"></script>
+<script>
+(() => {
+  const Z = ZI, K = Z.kinds, G = Z.glyph, C = Z.chord;
+  const SUGGEST = { "hotkey-holder": "select", "reset-hotkey": "hold", "shot-popup": "picture", "shared-add": "ylist", "shared-show": "glyph" };
+  let board = null;
+  const pick = k => (board && board.picks[k] && board.picks[k].choice) || SUGGEST[k];
+  document.getElementById("labgain").addEventListener("change", e => { const v = +e.target.value; Z.mute = v === 0; Z.gain = v || 1; });
+
+  /* ---- 1. the PSP's Controls tab: Stick While Held ---------------------- */
+  const PSP_CHOICES = ["Cross", "Circle", "Square", "Triangle", "L", "R", "Start", "Select", "Nothing", "Stick On/Off", "Stick While Held"];
+  function pspView() {
+    const btn = (l, val, key) => ({ l, key, values: PSP_CHOICES, i: PSP_CHOICES.indexOf(val), list: true, pickTitle: l, pickAt: { x: 24, y: 96, w: 976, h: 608 },
+      ink: (s, r) => r.i !== PSP_CHOICES.indexOf(val), itemV: (v) => v === val ? "default" : undefined,
+      pv: () => `<div style="background:var(--surface);width:100%;height:100%;display:grid;place-items:center">${Z.handheld([key])}</div>`, pvW: 260, pvH: 300,
+      notes: v => v === "Stick While Held" ? [`Hold ${l}: the d-pad is the stick.`, "Let go: it is the d-pad again."] : v === "Stick On/Off" ? [`${l} turns the d-pad into the stick,`, "and back, at each press."] : [`${l} gives ${v}.`, ""] });
+    const rows = [{ l: "Applies To", values: ["This Game", "PSP"], i: 0, ink: (s, r) => r.i === 0 }, { l: "D-pad as Stick", values: ["Off", "On"], i: 0 },
+      btn("L1", "L", "l1"), btn("R1", "R", "r1"), btn("L2", "Nothing", "l2"), Object.assign(btn("R2", "Stick On/Off", "r2"), { i: PSP_CHOICES.indexOf("Stick While Held") }), btn("START", "Start", "start"), btn("SELECT", "Select", "select"), { dn: 1 }];
+    const v = Z.gameView(2, { Controls: rows }, { bg: th => Z.gameBg(th, "city") });
+    v.extra = (th, s) => { if (v.on !== 2) return ""; const r = v.rows[s.sel[s.sel.length - 1]]; return `<div class="i-abs" style="left:60px;top:220px">${Z.handheld(r && r.key ? [r.key] : [])}</div>`; };
+    Object.defineProperty(v, "bodyLeft", { get: () => v.on === 2 ? 306 : 26 });
+    return v;
+  }
+
+  /* ---- 2. the Controls pages, in glyphs, turned with Left and Right ----- */
+  const PAGES = [
+    ["What the N64 Adds", [[["SELECT", "X"], "+", "C up"], [["SELECT", "A"], "+", "C right"], [["SELECT", "B"], "+", "C down"], [["SELECT", "Y"], "+", "C left"], [["SELECT", "DPAD"], "+", "The N64's d-pad"], [["L2"], "", "Z"]]],
+    ["Hotkeys", [[["SELECT", "R1"], "+", "Quick save"], [["SELECT", "L1"], "+", "Quick load"], [["SELECT", "R2"], "+", "Faster"], [["SELECT", "L2"], "+", "Slower"], [["SELECT", "Y"], "+", "Screenshot"]]],
+    ["In a Game", [[["MENU"], "", "The menu"], [["MENU", "X"], ",", "Quit"], [["MENU", "START"], "+", "Home, held 1 s"], [["VOL"], "", "Volume"], [["MENU", "VOL"], "+", "Brightness"]]],
+  ];
+  K.pages = {
+    pad: ["left", "right", "B"],
+    init: () => ({ p: 0 }),
+    draw(s, th) {
+      const [title, rowsP] = PAGES[s.p];
+      const rws = rowsP.map(([keys, sign, what]) => ({ lh: keys.length === 1 ? G(keys[0], 44) : C(keys, sign, 44), v: what }));
+      return Z.gameBg(th, "snes") + Z.panel({ x: 112, y: 96, w: 800, h: 608, title, rows: rws, extra: `<div class="i-abs" style="right:52px;top:44px;font-size:37px;color:var(--text-dim)">${s.p + 1} / ${PAGES.length}</div>` });
+    },
+    key(s, b) { if (b === "left" || b === "right") { s.p = (s.p + (b === "left" ? -1 : 1) + PAGES.length) % PAGES.length; s._fx = { tab: b === "left" ? -1 : 1 }; return "move"; } if (b === "B") return "back"; return false; },
+  };
+
+  /* ---- 3. the Hotkeys editor, with its capture screen and the swap ------- */
+  const ACTIONS = [["Quick Save", ["SELECT", "R1"]], ["Quick Load", ["SELECT", "L1"]], ["Faster", ["SELECT", "R2"]], ["Slower", ["SELECT", "L2"]], ["Screenshot", null], ["Next Shader", null], ["Next Display", null], ["Reset Game", null], ["Quit", null]];
+  K.hotkeys = Object.assign({}, K.menu, {
+    pad: ["up", "down", "A", "B", "SELECT", "X", "Y", "L1", "R1", "L2", "R2", "MENU"],
+    init(o) {
+      const s = { keys: {} }; ACTIONS.forEach(([n, k]) => s.keys[n] = k);
+      const row = n => ({ l: n, vh: (st) => st.keys[n] ? C(st.keys[n], "+", 40) : `<span>None</span>`, a: (st) => { st.cap = { name: n, holder: null, keys: null }; st._fx = { open: true }; return "accept"; } });
+      const rows = [{ up: 1 }].concat(ACTIONS.map(([n]) => row(n)), [{ l: "Home", vh: C(["MENU", "START"], "+", 40), dead: 1 }, { l: "Held 1 s from anywhere. It never changes.", quiet: 1 }, { l: "Reset Hotkeys" }, { dn: 1 }]);
+      const v = o.inGame ? Z.gameView(2, { Controls: [{ l: "Applies To", values: ["Every Game", "Nintendo 64", "This Game"], i: 0, ink: (st, r) => r.i > 0 }].concat(rows.slice(1, 6)) }, { bg: th => Z.gameBg(th, "snes"), title: "Hotkeys", tabs: null })
+        : Object.assign(Z.menuView(4, {}), { tabs: null, title: "Hotkeys", rows, at: { x: 66, y: 96, w: 892, h: 648 } });
+      Object.assign(s, K.menu.init({ view: v, sel: o.sel || 5 }));
+      s.overlay = (th, st) => st.cap ? capture(st) : st.ask ? Z.question({ y: 200, title: `${C(st.ask.keys, "+", 48)}<br>is ${st.ask.other} now. Swap them?`, body: `${st.ask.other} moves to ${st.keys[st.ask.name] ? st.keys[st.ask.name].join(" + ") : "None"}.`, buttons: ["Swap", "Cancel"], sel: st.ask.sel }) : "";
+      s.onKey = (st, b) => {
+        if (st.ask) {
+          if (b === "left" || b === "right") { st.ask.sel = 1 - st.ask.sel; return "move"; }
+          if (b === "A") { if (st.ask.sel === 0) { st.keys[st.ask.other] = st.keys[st.ask.name]; st.keys[st.ask.name] = st.ask.keys; st.ask = null; return "reward"; } st.ask = null; return "back"; }
+          if (b === "B") { st.ask = null; return "back"; }
+          return false;
+        }
+        if (!st.cap) return undefined;
+        const holders = pick("hotkey-holder") === "both" ? ["SELECT", "MENU"] : ["SELECT"];
+        if (b === "SELECT" || (b === "MENU" && holders.includes("MENU"))) { st.cap.holder = b; st.cap.keys = null; return "move"; }
+        if (b === "SELECT-up" || (b === "MENU" && st.cap.holder === "MENU" && st.cap.keys)) {
+          if (!st.cap.keys) { st.cap.holder = null; return false; }
+          const keys = st.cap.keys, name = st.cap.name, other = Object.keys(st.keys).find(n => n !== name && st.keys[n] && st.keys[n].join() === keys.join());
+          st.cap = null; st._fx = { close: true };
+          if (other) { st.ask = { keys, name, other, sel: 1 }; st._fx = { open: true }; return "deny"; }
+          st.keys[name] = keys; return "reward";
+        }
+        if (st.cap.holder && ["A", "B", "X", "Y", "L1", "R1", "L2", "R2", "START", "up", "down", "left", "right"].includes(b)) { st.cap.keys = [st.cap.holder, b === "up" || b === "down" || b === "left" || b === "right" ? "DPAD" : b]; return "accept"; }
+        if (!st.cap.holder && b === "B") { st.cap = null; return "back"; }
+        return "deny";
+      };
+      return s;
+    },
+  });
+  function capture(st) {
+    const keys = st.cap.keys || (st.cap.holder ? [st.cap.holder] : []);
+    const holders = pick("hotkey-holder") === "both" ? "SELECT or MENU" : "SELECT";
+    return `<div class="i-pn" style="left:112px;top:120px;width:800px;height:520px"><div class="i-htitle">${Z.esc(st.cap.name)}</div><div class="i-rule"></div>
+      <div class="i-abs" style="left:0;right:0;top:190px;display:flex;justify-content:center;align-items:center;gap:20px;height:120px">${keys.length ? keys.map(k => G(k, 112, true)).join('<span style="font-size:60px;color:var(--text-dim)">+</span>') : `<span style="font-size:49px;color:var(--text-dim)">Waiting for the keys</span>`}</div>
+      <div class="i-abs" style="left:0;right:0;top:370px;text-align:center;font-size:37px;line-height:44px;color:var(--text-soft)">Hold ${holders}, then press a button.<br>${st.cap.keys ? "Let go to keep them." : "B with nothing held goes back."}</div></div>`;
+  }
+
+  /* ---- 4. hotkeys in a game: Screenshot, Next Shader, Reset (held) ------- */
+  const SHADERS = ["Off", "Sharp-Shimmerless", "CRT", "Scanlines", "LCD Grid"];
+  K.gamekeys = {
+    pad: ["SELECT", "Y", "X", "B", "START"],
+    init: () => ({ pops: [], shader: 0, hold: null, at: 0 }),
+    draw(s, th) {
+      const sh = SHADERS[s.shader], lines = sh === "Scanlines" || sh === "CRT" ? `<div class="i-abs" style="inset:0;background:repeating-linear-gradient(0deg,rgba(0,0,0,.28) 0 3px,transparent 3px 6px)"></div>` : sh === "LCD Grid" ? `<div class="i-abs" style="inset:0;background:repeating-linear-gradient(0deg,rgba(0,0,0,.22) 0 2px,transparent 2px 5px),repeating-linear-gradient(90deg,rgba(0,0,0,.22) 0 2px,transparent 2px 5px)"></div>` : "";
+      let h = `<div class="i-game" style="${sh === "CRT" ? "filter:saturate(1.25) contrast(1.05);border-radius:40px;overflow:hidden" : ""}">${Z.scene("snes", 1024, 768)}</div>${lines}`;
+      s.pops.forEach(p => { h += p.html; });
+      if (s.hold) h += `<div class="i-pop" style="flex-direction:column;align-items:stretch;gap:12px;width:420px;padding:16px 28px 18px"><div style="text-align:center">Hold to reset</div><div style="height:8px;border-radius:4px;background:var(--track)"><i class="rbar" style="display:block;width:0;height:100%;border-radius:4px;background:var(--accent-ink)"></i></div></div>`;
+      h += `<div class="i-abs" style="left:24px;bottom:20px;display:flex;gap:28px;font-size:24px;color:#fff;text-shadow:0 1px 3px #000">${[["Y", "Screenshot"], ["X", "Next Shader"], ["B", "Reset (hold)"]].map(([k, w]) => `<span style="display:flex;gap:8px;align-items:center">${C(["SELECT", k], "+", 28)} ${w}</span>`).join("")}</div>`;
+      return h;
+    },
+    key(s, b) {
+      const sel = Z.held.has("SELECT");
+      if (b === "SELECT" || b === "SELECT-up") { if (b === "SELECT-up" && s.hold) s.hold = null; return false; }
+      if (!sel) return b === "START" ? false : false;
+      if (b === "Y") {
+        const pic = pick("shot-popup") === "picture" ? `<span style="width:96px;height:72px;border-radius:8px;overflow:hidden;display:block;box-shadow:0 0 0 2px var(--edge)">${Z.scene("snes", 96, 72)}</span>` : "";
+        s.pops = [{ html: Z.popup("Screenshot saved", pic), until: performance.now() + 1600 + 200 }]; s._fx = { pop: true }; return "reward";
+      }
+      if (b === "X") { s.shader = (s.shader + 1) % SHADERS.length; s.pops = [{ html: Z.popup(`Shader: ${SHADERS[s.shader]}`), until: performance.now() + 1800 }]; s._fx = { pop: true }; return "move"; }
+      if (b === "B") {
+        const mode = pick("reset-hotkey");
+        if (mode === "press") { s.pops = [{ html: Z.popup("Reset"), until: performance.now() + 1800 }]; s._fx = { pop: true }; return "accept"; }
+        if (mode === "ask") { s.ask = 1; return "accept"; }
+        s.hold = { t0: performance.now() }; return "move";
+      }
+      return false;
+    },
+    release(s, b) { if (b === "B" && s.hold) s.hold = null; },
+    frame(s, zs, dt, now, el) {
+      if (s.hold) { const k = (now - s.hold.t0) / 1000; const bar = zs.querySelector(".rbar"); if (bar) bar.style.width = Math.min(100, k * 100) + "%"; if (k >= 1) { s.hold = null; s.pops = [{ html: Z.popup("Reset"), until: now + 1800 }]; s._fx = { pop: true }; Z.redraw(el); Z.sound("accept"); } }
+      if (s.pops.length && now > s.pops[0].until - 200 && !s.pops[0].fading) { s.pops[0].fading = 1; const p = zs.querySelector(".i-pop"); if (p) ZK.animate(p, "fade-out", [{ opacity: 1 }, { opacity: 0 }]); }
+      if (s.pops.length && now > s.pops[0].until) { s.pops = []; Z.redraw(el); }
+    },
+  };
+  /* "Ask first" draws the question over the game */
+  const gkDraw = K.gamekeys.draw; K.gamekeys.draw = (s, th) => gkDraw(s, th) + (s.ask ? Z.question({ y: 200, title: "Reset the game?", body: "Play since the last save is lost.", buttons: ["Reset", "Cancel"], sel: s.askSel || 1 }) : "");
+  const gkKey = K.gamekeys.key; K.gamekeys.key = (s, b) => { if (s.ask) { if (b === "left" || b === "right") { s.askSel = 1 - (s.askSel === undefined ? 1 : s.askSel); return "move"; } if (b === "A") { const yes = s.askSel === 0; s.ask = 0; s.askSel = 1; if (yes) { s.pops = [{ html: Z.popup("Reset"), until: performance.now() + 1800 }]; s._fx = { pop: true }; } return yes ? "accept" : "back"; } if (b === "B") { s.ask = 0; return "back"; } return false; } return gkKey(s, b); };
+  K.gamekeys.pad = ["SELECT", "Y", "X", "B", "A", "left", "right"];
+
+  /* ---- 5. shared buttons (#305): A swaps, Y shares ----------------------- */
+  const NES = ["A", "B", "Turbo A", "Turbo B", "Start", "Select", "Nothing"];
+  const PHYS = [["A", "a"], ["B", "b"], ["X", "x"], ["Y", "y"], ["START", "start"], ["SELECT", "select"]];
+  K.remap = Object.assign({}, K.menu, {
+    pad: ["up", "down", "left", "right", "A", "B", "Y"],
+    init(o) {
+      const s = { map: { A: "A", B: "B", X: "Turbo A", Y: "Turbo B", START: "Start", SELECT: "Select" }, warn: null, mode: o.mode, show: o.show };
+      if (o.shared) { s.map.X = "A"; s.map.Y = "B"; }
+      const givers = (st, g, not) => PHYS.map(p => p[0]).filter(p => p !== not && st.map[p] === g);
+      const row = ([p, key]) => ({ l: p, p, key, ink: (st) => st.map[p] !== { A: "A", B: "B", X: "Turbo A", Y: "Turbo B", START: "Start", SELECT: "Select" }[p],
+        vh: (st) => { const g = st.map[p], others = g === "Nothing" ? [] : givers(st, g, p), show = st.show || pick("shared-show");
+          const mark = !others.length ? "" : show === "glyph" ? `<span style="display:inline-flex;gap:6px;opacity:.75">${others.map(o => G(o, 32)).join("")}</span>` : show === "count" ? `<span style="font-size:30px;opacity:.75">×${others.length + 1}</span>` : "";
+          return `${Z.esc(g)}${mark}`; },
+        a: (st, r) => { r.values = NES; r.i = NES.indexOf(st.map[p]); r.pickTitle = p; r.pickAt = { x: 24, y: 96, w: 976, h: 608 }; r.y = true; r.keepOpen = false;
+          r.itemVh = (g) => `<span style="display:inline-flex;gap:6px">${givers(st, g).map(o => G(o, 32)).join("")}</span>`;
+          r.pv = () => `<div style="background:var(--surface);width:100%;height:100%;display:grid;place-items:center">${Z.handheld([key].concat(givers(st, NES[st.pick ? st.pick.sel : r.i], p).map(o => o.toLowerCase())))}</div>`; r.pvW = 260; r.pvH = 300;
+          r.notes = (g) => { const o = givers(st, g, p), m = st.mode || pick("shared-add"); if (!o.length || g === "Nothing" || g === st.map[p]) return [`${p} gives ${g}.`, ""]; return m === "ask" ? [`${o.join(" and ")} gives ${g} too.`, "A asks: swap or both."] : m === "lr" ? [`${p} gives ${g} too.`, `${o.join(" and ")} keeps it.`] : [`A: ${o[0]} takes ${st.map[p]}.`, `Y: ${p} and ${o.join(" and ")} give ${g}.`]; };
+          r.pickExtra = (g) => { const o = givers(st, g, p), m = st.mode || pick("shared-add"); if (m !== "ylist") return ""; return `<div class="i-abs" style="left:0;right:0;bottom:22px;display:flex;justify-content:center;gap:48px;font-size:28px;color:var(--text-soft)">${o.length && g !== st.map[p] && g !== "Nothing" ? `<span class="i-hint">${G("A", 32)} Swap</span><span class="i-hint">${G("Y", 32)} Both</span>` : `<span class="i-hint">${G("A", 32)} Take</span>`}</div>`; };
+          r.choose = (st2, rr, sel, b) => apply(st2, p, NES[sel], b === "Y" ? "share" : "swap");
+          st.pick = { row: r, sel: r.i, d: st.stack.length - 1 }; st._fx = { open: true }; return "accept"; } });
+      function apply(st, p, g, how) {
+        const old = st.map[p], o = givers(st, g, p), m = st.mode || pick("shared-add");
+        if (g === old) return "accept";
+        if (m === "ask" && o.length && g !== "Nothing" && how === "swap") { st.askQ = { p, g, old, o, sel: 0 }; st.pick = null; return "move"; }
+        if (m === "ylist" && how === "share" && !o.length) how = "swap";
+        st.map[p] = g;
+        if ((how === "swap" && m !== "lr") && o.length && !g.startsWith("Turbo") && g !== "Nothing") st.map[o[0]] = old;
+        check(st, p); return how === "share" ? "reward" : "accept";
+      }
+      function check(st, p) { const lost = ["A", "B", "Start", "Select"].filter(g => !Object.values(st.map).some(v => v === g || v === "Turbo " + g)); st.warn = lost.length ? { p, text: `${lost[0]} has no button now` } : null; }
+      s._apply = apply;
+      const rows = () => { const list = [{ l: "Applies To", v: "NES" }]; PHYS.forEach(ph => { list.push(row(ph)); }); list.push({ dn: 1 }); return list; };
+      const v = Z.gameView(2, { Controls: rows() }, { bg: th => Z.gameBg(th, "snes") });
+      v.extra = (th, st) => { if (v.on !== 2) return ""; const r = v.rows[st.sel[st.sel.length - 1]]; const lit = r && r.p ? [r.key].concat(givers(st, st.map[r.p], r.p).map(o => o.toLowerCase())) : []; return `<div class="i-abs" style="left:60px;top:220px">${Z.handheld(lit)}</div>`; };
+      Object.defineProperty(v, "bodyLeft", { get: () => v.on === 2 ? 306 : 26 });
+      Object.assign(s, K.menu.init({ view: v, sel: 5 }));
+      s.overlay = (th, st) => {
+        let h = "";
+        if (st.warn && !st.pick) h += `<div class="i-abs" style="left:330px;right:50px;top:640px;font-size:30px;color:var(--warning)">${st.warn.text}</div>`;
+        if (st.askQ) h += Z.question({ y: 200, title: `${st.askQ.o.join(" and ")} gives ${st.askQ.g} now.`, body: `Swap: ${st.askQ.o[0]} takes ${st.askQ.old}. Both: they share ${st.askQ.g}.`, buttons: ["Swap", "Both", "Cancel"], sel: st.askQ.sel, w: 900, x: 62 });
+        return h;
+      };
+      s.onKey = (st, b, rep) => {
+        if (st.askQ) {
+          if (b === "left" || b === "right") { st.askQ.sel = (st.askQ.sel + (b === "left" ? 2 : 1)) % 3; return "move"; }
+          if (b === "A") { const q = st.askQ; st.askQ = null; if (q.sel === 2) return "back"; st.map[q.p] = q.g; if (q.sel === 0) st.map[q.o[0]] = q.old; check(st, q.p); return q.sel === 1 ? "reward" : "accept"; }
+          if (b === "B") { st.askQ = null; return "back"; }
+          return false;
+        }
+        if (!st.pick && (b === "left" || b === "right")) {
+          const r = v.rows[st.sel[st.sel.length - 1]];
+          if (r && r.p) { const i = NES.indexOf(st.map[r.p]), g = NES[(i + (b === "left" ? -1 : 1) + NES.length) % NES.length]; const m = st.mode || pick("shared-add"); return apply(st, r.p, g, m === "lr" ? "share" : "swap") && "move"; }
+        }
+        return undefined;
+      };
+      return s;
+    },
+  });
+
+  /* ---- the page ------------------------------------------------------------ */
+  const play = document.getElementById("play");
+  const card = (t, b, inner) => `<article class="zk-card"><h3>${t}</h3><p>${b}</p>${inner}</article>`;
+  play.innerHTML = `<h2 class="zk-h2">Play the designs</h2><p class="zk-why">Decided screens, live. Every list goes round; a held direction stops at the end.</p>
+    <div class="zk-grid">
+      ${card("A PSP game's Controls tab", "R2 is set to Stick While Held, in the accent ink. A on a button opens its choices with the handheld beside them; default marks ZyperOS's own. L1 and R1 turn the tabs.", Z.demo("menu", "p-psp", "light", { view: pspView(), sel: 6, caption: "Beard · Pixel 2" }))}
+      ${card("The Controls pages, in glyphs (Pixel 2)", "Left and Right turn the pages; the count is in the heading. '+' is together, ',' one after the other.", Z.demo("pages", "p-pages", "dark", { caption: "Salt &amp; Pepper · Pixel 2: SE and ST faces, MENU's dots" }))}
+      ${card("The same page on the Brick", "The Brick's own keys: SELECT a square, START a play mark, MENU its word.", Z.demo("pages", "p-pages-b", "dark", { dev: "brick", caption: "Salt &amp; Pepper · TrimUI Brick" }))}
+      ${card("MENU &gt; System &gt; Hotkeys", "A on Screenshot captures its keys: hold SELECT (S, or the pad's SELECT), press Y, let go. Give it SELECT + R2 and it asks to swap with Faster. Home is fixed and says why.", Z.demo("hotkeys", "p-hk", "light", { caption: "Beard · SELECT then a button, then let go" }))}
+      ${card("A game's Controls &gt; Hotkeys", "Applies To first: Every Game, the system, or This Game; a game's own keys are in the accent ink.", Z.demo("hotkeys", "p-hk-g", "dark", { inGame: true, sel: 2, caption: "Salt &amp; Pepper · an N64 game" }))}
+      ${card("Hotkeys in the game", "SELECT + Y takes a screenshot (the pop-up lands in quick, leaves in fade-out after hold-short); SELECT + X steps the shader; SELECT + B held 1 s resets.", Z.demo("gamekeys", "p-gk", "dark", { caption: "The game itself" }))}
+      ${card("Two buttons on one game button (#305)", "A on Y opens its list; on B (which the B button gives) A swaps and Y shares. The shared value shows its partner; the handheld lights both.", Z.demo("remap", "p-remap", "dark", { caption: "Salt &amp; Pepper · an NES game" }))}
+    </div>`;
+  ZK.fit(play);
+
+  board = ZK.decisions(document.getElementById("m"), [
+    { key: "hotkey-holder", title: "What a hotkey is held with",
+      why: "Every hotkey is a holder and one more button, so SELECT alone stays the game's. MENU as a second holder gives more room, but MENU alone opens the menu, so it would open on release when no chord follows, as SELECT already works.",
+      options: {
+        select: { name: "SELECT only", tag: "suggested", blurb: "One rule, already Diatom's (chord.c). MENU stays one press everywhere.", draw: () => Z.demo("hotkeys", "d-hold-sel", "light", { sel: 5 }) },
+        both: { name: "SELECT or MENU", blurb: "Twice the chords. MENU's menu opens on release, a few milliseconds later than today.", draw: () => Z.demo("hotkeys", "d-hold-both", "light", { sel: 5 }) },
+      } },
+    { key: "reset-hotkey", title: "How Reset Game guards itself",
+      why: "A reset loses everything since the last save, and a chord can be pressed by accident.",
+      options: {
+        hold: { name: "Held for 1 s", tag: "suggested", blurb: "A bar fills in the pop-up, as Power Button's Hold does; let go early and nothing happens.", draw: () => Z.demo("gamekeys", "d-rs-hold", "dark") },
+        ask: { name: "It asks first", blurb: "The yes/cancel panel over the game, the cursor on Cancel. Two presses more.", draw: () => Z.demo("gamekeys", "d-rs-ask", "dark") },
+        press: { name: "One press", blurb: "Resets at once. Fastest, and the easiest to regret.", draw: () => Z.demo("gamekeys", "d-rs-press", "dark") },
+      } },
+    { key: "shot-popup", title: "What the screenshot pop-up shows",
+      why: "The game never stops; the pop-up is the only sign the shot was taken.",
+      options: {
+        picture: { name: "The picture, small", tag: "suggested", blurb: "The shot lands in the pop-up beside its words, so you see what you kept.", draw: () => Z.demo("gamekeys", "d-pop-pic", "dark") },
+        words: { name: "Words only", blurb: "A plain pop-up, as the quick save's.", draw: () => Z.demo("gamekeys", "d-pop-words", "dark") },
+      } },
+    { key: "shared-add", title: "How a second button is added (#305)",
+      why: "Today giving a game button to a second handheld button swaps the two. Left and Right on a row keep swapping in every option, so a quick look never leaves two buttons on one by surprise, except in the last option.",
+      options: {
+        ylist: { name: "In the list: A swaps, Y shares", tag: "suggested", blurb: "One press either way; the keys at the list's foot say what each does, only on a choice another button gives.", draw: () => Z.demo("remap", "d-add-y", "dark", { mode: "ylist" }) },
+        ask: { name: "A asks: Swap, Both or Cancel", blurb: "A question each time a choice is taken; clear, one press slower.", draw: () => Z.demo("remap", "d-add-ask", "dark", { mode: "ask" }) },
+        lr: { name: "Never swap", blurb: "Every change shares; a game button left with none gets the warning row. Simple, and the warning row shows up a lot.", draw: () => Z.demo("remap", "d-add-lr", "dark", { mode: "lr" }) },
+      } },
+    { key: "shared-show", title: "How a shared button shows on its row",
+      why: "Two rows say the same game button; something must tell they share it. The handheld lights both buttons in every option.",
+      options: {
+        glyph: { name: "The partner's glyph", tag: "suggested", blurb: "After the value, in the dim color: B, then a small Y.", draw: () => Z.demo("remap", "d-show-g", "light", { shared: true, show: "glyph" }) },
+        count: { name: "A count", blurb: "After the value: B ×2.", draw: () => Z.demo("remap", "d-show-c", "light", { shared: true, show: "count" }) },
+        none: { name: "Only the handheld", blurb: "The rows say B twice; the handheld's lit buttons tell the rest.", draw: () => Z.demo("remap", "d-show-n", "light", { shared: true, show: "none" }) },
+      } },
+  ], { status: t => (document.getElementById("status").textContent = t), storeKey: "zk-controls-ideas",
+       onRender: () => document.querySelectorAll(".zi-demo").forEach(el => Z.redraw(el)) });
+
+  /* decision demos play their own option */
+  const OPT = { "d-hold-sel": ["hotkey-holder", "select"], "d-hold-both": ["hotkey-holder", "both"], "d-rs-hold": ["reset-hotkey", "hold"], "d-rs-ask": ["reset-hotkey", "ask"], "d-rs-press": ["reset-hotkey", "press"], "d-pop-pic": ["shot-popup", "picture"], "d-pop-words": ["shot-popup", "words"] };
+  const wrap = name => { const k = K[name], kd = k.key, dr = k.draw;
+    const as = (s, fn) => { const o = OPT[s.id]; if (!o) return fn(); const keep = board.picks[o[0]]; board.picks[o[0]] = { choice: o[1] }; try { return fn(); } finally { if (keep) board.picks[o[0]] = keep; else delete board.picks[o[0]]; } };
+    k.key = (s, b, rep) => as(s, () => kd.call(k, s, b, rep)); k.draw = (s, th) => as(s, () => dr.call(k, s, th));
+    if (k.frame) { const fr = k.frame; k.frame = (s, zs, dt, now, el) => as(s, () => fr.call(k, s, zs, dt, now, el)); } };
+  ["hotkeys", "gamekeys"].forEach(wrap);
+  ["d-hold-sel", "d-hold-both"].forEach(id => { const s = Z.state[id]; if (s) { const ok = s.onKey; s.onKey = (st, b, r) => { const o = OPT[id]; const keep = board.picks[o[0]]; board.picks[o[0]] = { choice: o[1] }; try { return ok(st, b, r); } finally { if (keep) board.picks[o[0]] = keep; else delete board.picks[o[0]]; } }; } });
+  document.querySelectorAll(".zi-demo").forEach(el => Z.redraw(el));
+  Z.start(document);
+})();
+</script>
