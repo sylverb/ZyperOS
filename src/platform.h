@@ -52,6 +52,12 @@
 /* And restarts it with this one: System Update's Restart Now, which the next
  * start's switch (docs/updates.md) is waiting for. */
 #define ZYPEROS_REBOOT_FLAG "/tmp/zyperos_reboot"
+/* Where one of those flags is for this launcher: the path as it is on a card;
+ * on a computer, in $ZYPEROS_FLAG_DIR when that is set. Every launcher on a
+ * computer shares /tmp, a shot of the power-off writes its flag there, and a
+ * desk mode window (tools/desk) took another's for its own and quit after a
+ * game: tools/desk gives each window a folder of its own. */
+const char *plat_flag(const char *path);
 
 /* Overridable at runtime so the launcher can be pointed at a test tree. */
 extern const char *P_ROOT;     /* /mnt/SDCARD/ZyperOS      */

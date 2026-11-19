@@ -17,6 +17,10 @@
 #include "platform.h"
 #include "screenfx_draw.h"
 #include "thermal.h"
+#include "keymap.h"
+#ifdef ZYPEROS_DESK
+#include "desk.h"
+#endif
 
 #include <dirent.h>
 #include <fcntl.h>
@@ -126,11 +130,23 @@ static SDL_Texture *bend_tex;
 
 static bool bending(void) { return sfx_on() && sfx_curved(); }
 
+/* The window, as a render target: the window itself, or in the host's desk
+ * mode the texture its screen is drawn into, which goes to the window at
+ * present (src/device/desk.h) */
+static SDL_Texture *window_target(void)
+{
+#ifdef ZYPEROS_DESK
+	return desk_screen();
+#else
+	return NULL;
+#endif
+}
+
 /* Where ZyperOS's frame goes: bend_tex while the curve is on, else the
  * window (also when bend_tex cannot be made: the bend reads back then) */
 static SDL_Texture *screen_target(void)
 {
-	if (!bending()) return NULL;
+	if (!bending()) return window_target();
 	if (!bend_tex) {
 		bend_tex = SDL_CreateTexture(ren, PLAT_TARGET_FORMAT, SDL_TEXTUREACCESS_TARGET,
 		                             ZYPEROS_SCREEN_W, ZYPEROS_SCREEN_H);
@@ -154,7 +170,7 @@ void plat_screen_finish(void)
 
 	if (in_tex && !bending()) {
 		/* The curve went off with this frame in bend_tex: the frame as it is */
-		SDL_SetRenderTarget(ren, NULL);
+		SDL_SetRenderTarget(ren, window_target());
 		SDL_RenderCopy(ren, bend_tex, NULL, &all);
 		in_tex = false;
 	}
@@ -164,7 +180,7 @@ void plat_screen_finish(void)
 		if (in_tex) {
 			Uint8 cr, cg, cb, ca;
 
-			SDL_SetRenderTarget(ren, NULL);
+			SDL_SetRenderTarget(ren, window_target());
 			SDL_GetRenderDrawColor(ren, &cr, &cg, &cb, &ca);
 			SDL_SetRenderDrawColor(ren, 0, 0, 0, 255);
 			SDL_RenderClear(ren);
@@ -206,6 +222,10 @@ void plat_present(void)
 #endif
 		shown = true;
 	}
+#ifdef ZYPEROS_DESK
+	if (desk_on()) desk_present(ren);
+	else
+#endif
 	SDL_RenderPresent(ren);
 	fx_done = false;
 	/* The next frame into bend_tex while the curve is on */
@@ -310,6 +330,18 @@ bool plat_video_init(void)
 	 * every window OpenGL by default and fails without an EGL library; dummy
 	 * has no GL at all. The checks draw in software anyway. */
 	bool headless = getenv("ZYPEROS_HEADLESS") != NULL;
+#ifdef ZYPEROS_DESK
+	/* A window on a computer: desk mode, the handheld's panel at a zoom */
+	if (!headless && desk_on()) {
+		if (!desk_video_init(&win, &ren)) return false;
+		SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_BLEND);
+		SDL_RendererInfo info;
+		if (SDL_GetRendererInfo(ren, &info) == 0)
+			fprintf(stderr, "renderer: %s, driver: %s, vsync %s\n", info.name, SDL_GetCurrentVideoDriver(),
+			        (info.flags & SDL_RENDERER_PRESENTVSYNC) ? "granted" : "DECLINED (requested)");
+		return true;
+	}
+#endif
 	win = SDL_CreateWindow("ZyperOS", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
 	                       ZYPEROS_SCREEN_W, ZYPEROS_SCREEN_H,
 	                       headless ? SDL_WINDOW_HIDDEN : SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
@@ -350,6 +382,9 @@ void plat_video_quit(void)
 	plat_osd_forget();
 	sfx_forget();
 	if (bend_tex) { SDL_DestroyTexture(bend_tex); bend_tex = NULL; }
+#ifdef ZYPEROS_DESK
+	desk_video_quit();
+#endif
 	if (ren) { SDL_DestroyRenderer(ren); ren = NULL; }
 	if (win) { SDL_DestroyWindow(win); win = NULL; }
 	SDL_QuitSubSystem(SDL_INIT_VIDEO);
@@ -403,8 +438,16 @@ bool plat_input_init(void)
 void plat_input_flush(void)
 {
 	SDL_Event e;
-	SDL_PumpEvents();
-	while (SDL_PollEvent(&e)) { }
+#ifdef ZYPEROS_DESK
+	/* Desk mode keeps what is not a stale press: its socket's commands, the
+	 * window closed, a controller plugged in */
+	if (desk_on()) desk_flush();
+	else
+#endif
+	{
+		SDL_PumpEvents();
+		while (SDL_PollEvent(&e)) { }
+	}
 #ifdef __linux__
 	{
 		struct input_event ev;
@@ -453,36 +496,11 @@ static void poll_fd(int fd, in_state *st)
 #endif
 }
 
-/* keyboard fallback so the native dev build is drivable: every button the
- * launcher reads has a key, so the dev build can go wherever the handheld
- * can - out of the tutorial too (docs/building.md lists them) */
-static in_button map_key(SDL_Keycode k)
-{
-	switch (k) {
-	case SDLK_LEFT: return IN_LEFT;
-	case SDLK_RIGHT: return IN_RIGHT;
-	case SDLK_UP: return IN_UP;
-	case SDLK_DOWN: return IN_DOWN;
-	case SDLK_RETURN: return IN_ACCEPT;
-	case SDLK_ESCAPE: return IN_BACK;
-	case SDLK_BACKSPACE: return IN_BACK;
-	case SDLK_x: return IN_X;
-	case SDLK_y: return IN_Y;
-	case SDLK_COMMA: return IN_L1;
-	case SDLK_PERIOD: return IN_R1;
-	case SDLK_k: return IN_L2;
-	case SDLK_l: return IN_R2;
-	case SDLK_s: return IN_START;
-	case SDLK_LSHIFT: case SDLK_RSHIFT: return IN_SELECT;
-	case SDLK_m: return IN_MENU;
-	case SDLK_MINUS: return IN_VOLDN;
-	case SDLK_EQUALS: return IN_VOLUP;
-	case SDLK_LEFTBRACKET: return IN_BRIGHTDN;
-	case SDLK_RIGHTBRACKET: return IN_BRIGHTUP;
-	case SDLK_p: return IN_POWER;
-	default: return IN_NONE;
-	}
-}
+/* A keyboard is the buttons by src/device/keymap.h's one map, the host's desk
+ * mode's and the Simulator's: every button the launcher reads has a key, so a
+ * keyboard can go wherever the handheld can, out of the tutorial too
+ * (docs/building.md lists them) */
+static in_button map_key(SDL_Scancode sc) { return keymap_button(sc); }
 
 void plat_input_wait(unsigned ms)
 {
@@ -496,7 +514,16 @@ void plat_input_wait(unsigned ms)
 	 * hold's end, which no event marks; and the work behind every screen
 	 * (the downloads' lanes, plat_on_input_wait) has its step */
 	ms = plat_input_wait_hook(plat_power_wait(ms));
-	if (!n) { SDL_Delay(ms); return; }
+	if (!n) {
+#ifdef ZYPEROS_DESK
+		/* No input file on a computer: woken by an event (a key, the
+		 * mouse, desk mode's socket), not after the whole wait */
+		desk_wait(ms);
+#else
+		SDL_Delay(ms);
+#endif
+		return;
+	}
 	/* A signal ends it early too, which is what a stop should do */
 	poll(p, n, (int)ms);
 }
@@ -517,7 +544,13 @@ void plat_input_poll(in_state *st)
 	/* And the mute switch, for the same reason and on the same frame. */
 	plat_mute_poll(true);
 	SDL_Event e;
+#ifdef ZYPEROS_DESK
+	if (desk_on()) desk_poll_begin(st);
+#endif
 	while (SDL_PollEvent(&e)) {
+#ifdef ZYPEROS_DESK
+		if (e.type != SDL_QUIT && desk_on() && desk_event(&e, st)) continue;
+#endif
 		switch (e.type) {
 		case SDL_QUIT:
 			st->quit_requested = true;
@@ -525,9 +558,7 @@ void plat_input_poll(in_state *st)
 		case SDL_KEYDOWN:
 		case SDL_KEYUP:
 			if (e.key.repeat) break;
-			plat_set_btn(st, map_key(e.key.keysym.sym), e.type == SDL_KEYDOWN);
-			if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_q)
-				st->quit_requested = true;
+			plat_set_btn(st, map_key(e.key.keysym.scancode), e.type == SDL_KEYDOWN);
 			break;
 		}
 	}
@@ -546,9 +577,26 @@ void plat_input_poll(in_state *st)
 static void display_gamma(const char *when);
 static void screen_colors_init(void);
 #endif
-void device_display_release(void) { }
+/* In the host's desk mode the window shows Diatom's frames while a game
+ * runs (src/device/desk.h); on the Brick, nothing. */
+void device_display_release(void)
+{
+#ifdef ZYPEROS_DESK
+	if (desk_on()) desk_game_begin();
+#endif
+}
+unsigned device_game_wait(unsigned ms)
+{
+#ifdef ZYPEROS_DESK
+	if (desk_on()) return desk_game_wait(ms);
+#endif
+	return ms;
+}
 void device_display_take(void)
 {
+#ifdef ZYPEROS_DESK
+	if (desk_on()) desk_game_end();
+#endif
 #ifdef __linux__
 	display_gamma("taking the display back");
 #endif
@@ -560,6 +608,15 @@ void device_display_take(void)
 bool device_power_pressed(void)
 {
 	bool pressed = false;
+#ifdef ZYPEROS_DESK
+	/* The keyboard's P, the bar's POWER, the window closed: desk mode's */
+	if (desk_on()) {
+		int edge;
+
+		while ((edge = desk_power_edge()) >= 0)
+			if (plat_power_event(edge == 1)) pressed = true;
+	}
+#endif
 #ifdef __linux__
 	struct input_event ev;
 

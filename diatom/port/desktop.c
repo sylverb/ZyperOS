@@ -11,11 +11,15 @@
 /* <SDL.h>, not <SDL2/SDL.h>: sdl2-config and pkg-config both put the SDL2
  * directory on the include path, and this is the form SDL documents. */
 #include <SDL.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
 #include <string.h>
+#include <sys/mman.h>
+#include <unistd.h>
 
+#include "diatom_deskfb.h"
 #include "diatom_port.h"
 #include "port_clock.h"
 #include "port_power.h"
@@ -38,6 +42,48 @@ static diatom_filter g_tex_filter;
 static SDL_AudioDeviceID g_audio;
 static bool          g_quit;
 static uint32_t      g_buttons;
+
+/* DIATOM_DESKFB (diatom_deskfb.h): the frames into a file ZyperOS's desk mode
+ * shows in its own window, the buttons from it */
+static diatom_deskfb *g_fb;
+
+static void deskfb_open(const char *path, int w, int h)
+{
+	size_t bytes = DIATOM_DESKFB_BYTES(w, h);
+	int fd = open(path, O_RDWR | O_CREAT | O_CLOEXEC, 0600);
+	void *m;
+
+	if (fd < 0 || ftruncate(fd, (off_t)bytes) != 0) {
+		fprintf(stderr, "desktop: no desk frame file %s\n", path);
+		if (fd >= 0) close(fd);
+		return;
+	}
+	m = mmap(NULL, bytes, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+	close(fd);
+	if (m == MAP_FAILED) return;
+	g_fb = m;
+	memset(g_fb, 0, sizeof *g_fb);
+	g_fb->w = (uint32_t)w;
+	g_fb->h = (uint32_t)h;
+	g_fb->version = DIATOM_DESKFB_VERSION;
+	__atomic_store_n(&g_fb->magic, DIATOM_DESKFB_MAGIC, __ATOMIC_RELEASE);
+	fprintf(stderr, "desktop: frames to %s, %dx%d\n", path, w, h);
+}
+
+/* What was drawn, into the file, whole frames only */
+static void deskfb_frame(void)
+{
+	uint32_t seq;
+
+	if (!g_fb) return;
+	seq = __atomic_load_n(&g_fb->seq, __ATOMIC_RELAXED);
+	__atomic_store_n(&g_fb->seq, seq | 1u, __ATOMIC_RELEASE);
+	__atomic_thread_fence(__ATOMIC_SEQ_CST);
+	SDL_RenderReadPixels(g_renderer, NULL, SDL_PIXELFORMAT_ARGB8888, g_fb + 1, (int)g_fb->w * 4);
+	g_fb->polled = g_buttons;
+	g_fb->frames++;
+	__atomic_store_n(&g_fb->seq, (seq | 1u) + 1u, __ATOMIC_RELEASE);
+}
 
 /* ---------- the audio sink ------------------------------------------------ */
 
@@ -175,6 +221,10 @@ bool diatom_port_init(diatom_port_caps *out)
 	 * open below for why silence beats refusing to start. Rolled into one
 	 * SDL_Init, a missing or busy audio device is indistinguishable from a
 	 * missing display and kills both. */
+	/* Behind ZyperOS's desk mode (DIATOM_DESKFB below) this process shows
+	 * nothing of its own: no Dock icon on a Mac, never the keyboard's focus,
+	 * which stays on the launcher's window */
+	if (getenv("DIATOM_DESKFB")) SDL_SetHint(SDL_HINT_MAC_BACKGROUND_APP, "1");
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS) != 0) {
 		fprintf(stderr, "SDL_Init: %s\n", SDL_GetError());
 		return false;
@@ -193,14 +243,21 @@ bool diatom_port_init(diatom_port_caps *out)
 			g_win_h = h;
 		}
 	}
+	/* In ZyperOS's desk mode the window is never shown: its frames go to
+	 * the launcher's (diatom_deskfb.h), drawn by SDL's software renderer,
+	 * whose pixels read back at the cost of a copy */
+	const char *deskfb = getenv("DIATOM_DESKFB");
+	bool desk = deskfb && *deskfb;
+
 	g_window = SDL_CreateWindow("diatom",
 		SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-		g_win_w, g_win_h, SDL_WINDOW_SHOWN);
+		g_win_w, g_win_h, desk ? SDL_WINDOW_HIDDEN : SDL_WINDOW_SHOWN);
 	if (!g_window) { fprintf(stderr, "SDL_CreateWindow: %s\n", SDL_GetError()); return false; }
 
-	g_renderer = SDL_CreateRenderer(g_window, -1, SDL_RENDERER_ACCELERATED);
+	g_renderer = SDL_CreateRenderer(g_window, -1, desk ? SDL_RENDERER_SOFTWARE : SDL_RENDERER_ACCELERATED);
 	if (!g_renderer) { fprintf(stderr, "SDL_CreateRenderer: %s\n", SDL_GetError()); return false; }
 	SDL_SetRenderDrawColor(g_renderer, 0, 0, 0, 255);
+	if (desk) deskfb_open(deskfb, g_win_w, g_win_h);
 
 	/* Vsync OFF, deliberately.
 	 *
@@ -405,6 +462,7 @@ void diatom_port_present(const void *src, int w, int h, size_t pitch,
 		SDL_RenderCopy(g_renderer, g_texture, NULL, &r);
 	}
 	draw_overlay();
+	deskfb_frame();
 	SDL_RenderPresent(g_renderer);
 }
 
@@ -459,6 +517,7 @@ size_t diatom_port_audio_queued(void)
 	return SDL_GetQueuedAudioSize(g_audio) / AUDIO_FRAME_BYTES;
 }
 
+/* ZyperOS's one key map (its src/device/keymap.h), the Simulator's too */
 static const struct { SDL_Scancode key; int btn; } keymap[] = {
 	{ SDL_SCANCODE_UP,     DIATOM_BTN_UP     },
 	{ SDL_SCANCODE_DOWN,   DIATOM_BTN_DOWN   },
@@ -470,11 +529,14 @@ static const struct { SDL_Scancode key; int btn; } keymap[] = {
 	{ SDL_SCANCODE_A,      DIATOM_BTN_Y      },
 	{ SDL_SCANCODE_Q,      DIATOM_BTN_L1     },
 	{ SDL_SCANCODE_W,      DIATOM_BTN_R1     },
-	{ SDL_SCANCODE_1,      DIATOM_BTN_L2     },
-	{ SDL_SCANCODE_2,      DIATOM_BTN_R2     },
+	{ SDL_SCANCODE_E,      DIATOM_BTN_L2     },
+	{ SDL_SCANCODE_R,      DIATOM_BTN_R2     },
 	{ SDL_SCANCODE_RSHIFT, DIATOM_BTN_SELECT },
+	{ SDL_SCANCODE_BACKSPACE, DIATOM_BTN_SELECT },
 	{ SDL_SCANCODE_RETURN, DIATOM_BTN_START  },
+	{ SDL_SCANCODE_KP_ENTER, DIATOM_BTN_START },
 	{ SDL_SCANCODE_ESCAPE, DIATOM_BTN_MENU   },
+	{ SDL_SCANCODE_M,      DIATOM_BTN_MENU   },
 };
 
 /* DIATOM_INPUT_SCRIPT: buttons held by script rather than by hand, for a
@@ -545,7 +607,8 @@ void diatom_port_input_poll(void)
 	for (i = 0; i < sizeof keymap / sizeof keymap[0]; i++)
 		if (keys[keymap[i].key]) s |= DIATOM_BIT(keymap[i].btn);
 
-	g_buttons = s | script_held();
+	g_buttons = s | script_held() |
+	            (g_fb ? __atomic_load_n(&g_fb->buttons, __ATOMIC_ACQUIRE) : 0);
 }
 
 uint32_t diatom_port_input_state(void) { return g_buttons; }

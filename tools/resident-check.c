@@ -32,6 +32,7 @@ static int failures;
 
 void device_display_release(void) {}
 void device_display_take(void) {}
+unsigned device_game_wait(unsigned ms) { return ms; }
 void device_levels_forget(void) {}
 bool device_power_pressed(void) { return false; }
 /* POWER's hold (src/powerhold.h): none under way */
