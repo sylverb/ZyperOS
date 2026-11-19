@@ -63,6 +63,7 @@ typedef struct {
 	 * firmware the card lacks, in **warning** */
 	const char *played, *origin, *needs;
 	bool has_achievements, resumable, install, inside;
+	bool howto, opens;     /* Splore's entry (src/games.h) */
 	int earned, total;
 } gl_info;
 

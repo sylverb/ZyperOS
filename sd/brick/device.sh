@@ -34,6 +34,11 @@ HAS_ZYHOME=0       # zyhome is built for the Pixel 2 only (plastron's zyperos.mk
 HAS_USBDRIVE=1     # Flash Drive: the image's usbdrive (plastron's package, the Brick's build)
 HAS_OFF_PENDING=0  # its power-off has no last step (lastoff) to start it for a charger
 
+# The boot partition, which the Brick's system keeps read-only at /boot for
+# its closed files: what ZyperOS Installer left there for a card's first
+# start (launch.sh: your PICO-8), already there
+device_boot_mount() { [ -d /boot ] && BOOT_DIR=/boot; }
+
 WIFI_DOWN="the radio did not come up"
 
 # The settings folder was named after TrimUI's model for the Brick, tg3040,

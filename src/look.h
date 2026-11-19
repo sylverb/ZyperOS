@@ -34,12 +34,21 @@ typedef struct {
 	bool zyper_off;            /* Zyper: Off */
 	int  folder;               /* Folder Color: 0 System Colors, each system's
 	                            * own; k DS_ACCENT[k - 1] for every folder */
+	int  focus;                /* Highlight: LOOK_FOCUS_* */
 } look;
+
+/* Highlight (2026-11-19, my picks in the focus lab): how the item in focus
+ * is marked on the home and the shelves (DESIGN.md 3.5, 11.47). Bar, as it
+ * ships: the item grows a little on a soft shadow, a short bar under it.
+ * Border: a ring in the accent round it, a gap all round. Lift: it rises
+ * higher on a deeper shadow. None: no mark; it grows and the others step
+ * back. Menus keep their fill whatever it says. */
+enum { LOOK_FOCUS_BAR, LOOK_FOCUS_BORDER, LOOK_FOCUS_LIFT, LOOK_FOCUS_NONE, LOOK_FOCUSES };
 
 /* Folder Color's choices: System Colors, then the accents */
 #define LOOK_FOLDERS (DS_ACCENTS + 1)
 
-#define LOOK_DEFAULT ((look){ 0, { 0, 0 }, false, false, 0 })
+#define LOOK_DEFAULT ((look){ 0, { 0, 0 }, false, false, 0, LOOK_FOCUS_BAR })
 
 /* The look that is on as one number, 0 to LOOK_IDS - 1: its accent, both
  * tones, its corners and its folders' color, what a card is painted with
@@ -74,6 +83,14 @@ unsigned look_gen(void);
 /* Corners and Zyper, as the drawing asks: square corners on, Zyper off */
 bool look_square(void);
 bool look_zyper_off(void);
+
+/* Highlight, as the drawing asks (LOOK_FOCUS_*) */
+int look_focus(void);
+
+/* Highlight's word as the database keeps it (look.focus): "bar", "border",
+ * "lift" or "none"; NULL or a word from another release reads as Bar */
+int look_focus_parse(const char *word);
+const char *look_focus_word(int focus);
 
 /* A folder's color as Folder Color has it: `system_rgb`, its system's own
  * (0xRRGGBB, or CFG_NO_COLOR, which the drawing gives its text-dim), with

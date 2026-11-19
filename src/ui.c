@@ -2075,10 +2075,18 @@ static void shadows_make(SDL_Renderer *r)
 /* The shadow under `q`, dropped by the kind's y: nine pieces of its texture
  * (see `shadow`) over `q` grown by blur_pad, cut by blur_slice, which says
  * what a rect too small for two whole corners each way gets. */
+static void shadow_tint(SDL_Renderer *r, const SDL_Rect *q, int kind, ds_rgb ink, int alpha);
+
 static void shadow_draw(SDL_Renderer *r, const SDL_Rect *q, int kind,
                         const ds_theme *th, int alpha)
 {
-	const ds_rgb ink = th->ink;
+	shadow_tint(r, q, kind, th->ink, alpha);
+}
+
+/* A shadow of `kind` in any color: Highlight's lift leans toward the accent's
+ * ink in Beard, and is ink black under Salt & Pepper's light */
+static void shadow_tint(SDL_Renderer *r, const SDL_Rect *q, int kind, ds_rgb ink, int alpha)
+{
 	const blur_shadow *size = &shadow[kind].size;
 	const int pad = blur_pad(size);
 	blur_rect src[9], dst[9];
@@ -2135,6 +2143,40 @@ void ui_lift(SDL_Renderer *r, const SDL_Rect *q, unsigned sys_rgb, int kind)
 void ui_lift_k(SDL_Renderer *r, const SDL_Rect *q, unsigned sys_rgb, int kind, float k)
 {
 	lift_draw(r, q, sys_rgb, kind, theme_index(), k);
+}
+
+/* See ui.h. Highlight's lift (the focus lab, 2026-11-19): soft and tinted,
+ * never grey haze on Beard's light ground and never gone on Salt & Pepper's
+ * dark one. Beard: a short shadow of ink under the item, and for a high lift
+ * a long one leaning a third of the way to the accent's ink; Salt & Pepper:
+ * a light in the accent and an ink-black shadow under it. The shadows are
+ * the lift's own textures (UI_LIFT_FOCUS_SMALL's and UI_LIFT_FOCUS's),
+ * tinted: nothing is made for it. */
+void ui_lift_focus(SDL_Renderer *r, const SDL_Rect *q, bool high, float k)
+{
+	const ds_theme *t = theme();
+
+	if (!(k > 0.0f) || q->w <= 0 || q->h <= 0) return;
+	if (k > 1.0f) k = 1.0f;
+	if (theme_index() == DS_DARK) {
+		glow_draw(r, q, ui_rgb(t->accent), (int)((high ? 96 : 66) * k + 0.5f),
+		          high ? DS_GLOW_FOCUS_SPREAD : DS_GLOW_FOCUS_SMALL_SPREAD, SDL_BLENDMODE_ADD, t);
+		shadow_tint(r, q, high ? UI_LIFT_FOCUS : UI_LIFT_FOCUS_SMALL, (ds_rgb){ 0, 0, 0 },
+		            (int)((high ? 150 : 120) * k + 0.5f));
+		return;
+	}
+	{
+		const ds_rgb a = t->ink, b = t->accent_ink;
+		const ds_rgb tint = { (Uint8)(a.r + (b.r - a.r) * 2 / 5), (Uint8)(a.g + (b.g - a.g) * 2 / 5),
+		                      (Uint8)(a.b + (b.b - a.b) * 2 / 5) };
+
+		if (high) {
+			shadow_tint(r, q, UI_LIFT_FOCUS_SMALL, a, (int)(36 * k + 0.5f));
+			shadow_tint(r, q, UI_LIFT_FOCUS, tint, (int)(76 * k + 0.5f));
+		} else {
+			shadow_tint(r, q, UI_LIFT_FOCUS_SMALL, tint, (int)(62 * k + 0.5f));
+		}
+	}
 }
 
 void ui_scrim_k(SDL_Renderer *r, int game, float k)

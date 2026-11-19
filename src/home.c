@@ -1,6 +1,10 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "home.h"
+#include "blur.h"
 #include "design.h"
+#include "ds/focus.h"
+#include "focusgeo.h"
+#include "look.h"
 #include "ds/layout.h"   /* DS_HINT_*: a hint's glyph and the gap to its word */
 #include "platform.h"    /* ZYPEROS_SCREEN_W: the stage's middle and right */
 #include "theme.h"
@@ -10,6 +14,7 @@
 #include <SDL_image.h>
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "systemart_data.h"
 
@@ -215,6 +220,7 @@ const char *home_art_key(const char *tag)
 static void release(home_texture *t)
 {
     if(t->tex) SDL_DestroyTexture(t->tex);
+    if(t->shade) SDL_DestroyTexture(t->shade);
     if(t->motion) SDL_FreeSurface(t->motion);
     *t = (home_texture){ .asset = -1 };
 }
@@ -227,6 +233,52 @@ void home_free(home *h)
 }
 static bool valid(int i)
 { return i>=0 && i<(int)SA_ASSET_COUNT; }
+/* A still's own soft shadow (Highlight's lift on the home, DESIGN.md 11.1):
+ * its opaque texels at half size, padded by the blur's reach and blurred
+ * three passes (src/blur.h), white with that alpha, to be tinted where it
+ * is drawn. Made once as the still arrives: 82 x 82 texels, a few
+ * thousand sums, and nothing per frame. */
+#define SHADE_RAD 3
+#define SHADE_PAD (3 * SHADE_RAD)
+static SDL_Texture *silhouette(SDL_Renderer *r, SDL_Surface *s)
+{
+    SDL_Surface *c = SDL_ConvertSurfaceFormat(s, SDL_PIXELFORMAT_ARGB8888, 0), *o = NULL;
+    SDL_Texture *t = NULL;
+    int w = s->w / 2, hh = s->h / 2, W = w + 2 * SHADE_PAD, H = hh + 2 * SHADE_PAD;
+    float *a = c ? calloc((size_t)W * H, sizeof *a) : NULL, *line = a ? malloc(sizeof *line * (size_t)(W > H ? W : H)) : NULL;
+
+    if (!c || !a || !line) goto done;
+    for (int y = 0; y < hh; y++)
+        for (int x = 0; x < w; x++) {
+            const Uint32 *p0 = (const Uint32 *)((const Uint8 *)c->pixels + (size_t)(2 * y) * c->pitch) + 2 * x;
+            const Uint32 *p1 = (const Uint32 *)((const Uint8 *)c->pixels + (size_t)(2 * y + 1) * c->pitch) + 2 * x;
+
+            a[(y + SHADE_PAD) * W + x + SHADE_PAD] = ((p0[0] >> 24) + (p0[1] >> 24) + (p1[0] >> 24) + (p1[1] >> 24)) / 1020.0f;
+        }
+    blur_box3(a, W, H, SHADE_RAD, line);
+    o = SDL_CreateRGBSurfaceWithFormat(0, W, H, 32, SDL_PIXELFORMAT_ARGB8888);
+    if (!o) goto done;
+    for (int y = 0; y < H; y++) {
+        Uint32 *row = (Uint32 *)((Uint8 *)o->pixels + (size_t)y * o->pitch);
+
+        for (int x = 0; x < W; x++) {
+            float v = a[y * W + x];
+
+            row[x] = (Uint32)lroundf((v < 0 ? 0 : v > 1 ? 1 : v) * 255) << 24 | 0xFFFFFFu;
+        }
+    }
+    t = SDL_CreateTextureFromSurface(r, o);
+    if (t) {
+        SDL_SetTextureBlendMode(t, SDL_BLENDMODE_BLEND);
+        SDL_SetTextureScaleMode(t, SDL_ScaleModeLinear);
+    }
+done:
+    if (o) SDL_FreeSurface(o);
+    if (c) SDL_FreeSurface(c);
+    free(a);
+    free(line);
+    return t;
+}
 /* Every pose's opaque texels together, in the cell's coordinates: the first
  * pose's (the top cell of `c`, ARGB8888) and the region where the others
  * differ from it */
@@ -261,8 +313,9 @@ static bool atlas_size(const sa_asset *a, int *w, int *h)
     *h += a->rows*a->rh;
     return true;
 }
-static bool install(home_texture *t, SDL_Renderer *r, SDL_Surface *s, bool atlas)
+static bool install(home_texture *t, SDL_Renderer *r, SDL_Surface **sp, bool atlas)
 {
+    SDL_Surface *s = *sp;
     const sa_asset *a = valid(t->asset) ? &SA_ASSETS[t->asset] : NULL;
     int w, ht;
     t->done = true;
@@ -270,12 +323,19 @@ static bool install(home_texture *t, SDL_Renderer *r, SDL_Surface *s, bool atlas
     if (!atlas) {
         if (s->w != (int)SA_STILL || s->h != (int)SA_STILL) return false;
         t->tex = SDL_CreateTextureFromSurface(r,s);
+        if (t->tex) t->shade = silhouette(r, s);
     } else {
         if (!atlas_size(a,&w,&ht) || s->w != w || s->h != ht) return false;
-        /* The loader frees `s`: the regions are kept in a copy of their own,
-         * in the texture's format, so a pose is one SDL_UpdateTexture */
-        SDL_Surface *c = SDL_ConvertSurfaceFormat(s,SDL_PIXELFORMAT_ARGB8888,0);
+        /* The regions are kept in the texture's format, so a pose is one
+         * SDL_UpdateTexture. The workers decode to it (src/texload.c), and
+         * such a surface is taken as it is, *sp left NULL for the caller:
+         * an atlas is up to a megapixel, and copying it on the frame it
+         * landed on was a hitch of its own (2026-11-19). Another format (a
+         * shot's own decode) is converted, as before. */
+        SDL_Surface *c = s->format->format == SDL_PIXELFORMAT_ARGB8888 ? s
+                       : SDL_ConvertSurfaceFormat(s,SDL_PIXELFORMAT_ARGB8888,0);
         if (!c) return false;
+        if (c == s) *sp = NULL;
         t->tex = SDL_CreateTexture(r,SDL_PIXELFORMAT_ARGB8888,SDL_TEXTUREACCESS_STATIC,a->cell,a->cell);
         if (!t->tex || SDL_UpdateTexture(t->tex,&(SDL_Rect){0,0,a->cell,a->cell},c->pixels,c->pitch)) {
             if (t->tex) SDL_DestroyTexture(t->tex);
@@ -305,10 +365,11 @@ static void show_pose(home_texture *t, const sa_asset *a, unsigned tile)
     if (SDL_UpdateTexture(t->tex,&(SDL_Rect){a->rx,a->ry,a->rw,a->rh},p,t->motion->pitch)==0)
         t->shown = (int)tile;
 }
-bool home_accept(home *h, SDL_Renderer *r, int shelf, int asset, SDL_Surface *s)
+bool home_accept(home *h, SDL_Renderer *r, int shelf, int asset, SDL_Surface **s)
 {
     if (shelf != HOME_LOADER_ATLAS && shelf != HOME_LOADER_STILL) return false;
     if (shelf == HOME_LOADER_ATLAS) {
+        /* One slot holds an atlas (take_atlas), so one takes the surface */
         if (h->atlas.asset == asset && !h->atlas.done) install(&h->atlas,r,s,true);
         for(int i=0;i<HOME_NEAR;i++)
             if (h->near[i].asset == asset && !h->near[i].done) install(&h->near[i],r,s,true);
@@ -327,7 +388,7 @@ static void request(home_texture *t, SDL_Renderer *r, const char *root, bool atl
     /* --shot has no workers. Also log the exceptional worker-start failure path. */
     uint64_t start = SDL_GetPerformanceCounter();
     SDL_Surface *s = IMG_Load(path);
-    install(t,r,s,atlas);
+    install(t,r,&s,atlas);
     if(s) SDL_FreeSurface(s);
     fprintf(stderr,"home: cold %s %.2f ms\n",relative,
             (SDL_GetPerformanceCounter()-start)*1000.0/SDL_GetPerformanceFrequency());
@@ -448,6 +509,40 @@ static void sprite(home *h, SDL_Renderer *r, const home_item *item,
         SDL_Rect dash={cx-12,cy-2,24,4}; SDL_RenderFillRect(r,&dash);
         if(dst.w>=256) ui_text(r,ui_font(UI_F_META),T(S_HOME_NO_ARTWORK),cx,ui_cap_y(ui_font(UI_F_META),cy+48),0,c);
     }
+}
+/* A system's still lifted (Highlight, src/ds/focus.h): its own soft shadow
+ * under `dst`, `lift` deep, at `k` of its strength. Beard: leaning a third
+ * of the way to the accent's ink, a little under the machine; Salt &
+ * Pepper: a light in the accent round it. */
+static void sprite_shade(const home *h, SDL_Renderer *r, const home_item *item, SDL_FRect dst,
+                         int lift, float k)
+{
+    const int id = asset_for(item->key);
+    const bool high = lift == DS_FOCUS_LIFT_HIGH, dark = theme_index() == DS_DARK;
+    SDL_Texture *t = NULL;
+    float u, pad, dy, grow;
+
+    if (lift == DS_FOCUS_LIFT_NONE || !(k > 0.02f) || !valid(id)) return;
+    for (int i = 0; i < HOME_STILLS; i++) if (h->still[i].asset == id) t = h->still[i].shade;
+    if (!t) return;
+    u = dst.w / (float)SA_STILL;
+    pad = SHADE_PAD * 2 * u;
+    dy = dark ? dst.h * (high ? .03f : .015f) : dst.h * (high ? .075f : .04f);
+    grow = high ? dst.w * .03f : 0;
+    if (dark) {
+        ds_rgb c = theme()->accent;
+
+        SDL_SetTextureColorMod(t, c.r, c.g, c.b);
+        SDL_SetTextureAlphaMod(t, (Uint8)lroundf((high ? 140 : 105) * (k > 1 ? 1 : k)));
+    } else {
+        ds_rgb a = theme()->ink, b = theme()->accent_ink;
+
+        SDL_SetTextureColorMod(t, (Uint8)(a.r + (b.r - a.r) * 2 / 5), (Uint8)(a.g + (b.g - a.g) * 2 / 5),
+                               (Uint8)(a.b + (b.b - a.b) * 2 / 5));
+        SDL_SetTextureAlphaMod(t, (Uint8)lroundf((high ? 110 : 88) * (k > 1 ? 1 : k)));
+    }
+    SDL_RenderCopyF(r, t, NULL, &(SDL_FRect){ dst.x - pad - grow, dst.y - pad - grow + dy,
+                                              dst.w + 2 * (pad + grow), dst.h + 2 * (pad + grow) });
 }
 void page_hint_fade(SDL_Renderer *r, const char *key, const char *label,
                     int x, int cy, bool focus, bool favorite, Uint8 alpha)
@@ -731,9 +826,11 @@ static void hg_follow(home *h, const gh_geom *g, int cursor, uint32_t now)
         h->grid_fx = (float)x;
         h->grid_fy = (float)y;
         h->grid_moved = now - DS_MS_MOVE;
+        h->grid_w.n = 0;
         return;
     }
     if (h->grid_cursor == cursor) return;
+    ds_focus_weights_move(&h->grid_w, h->grid_cursor, now - h->grid_moved);
     gh_cell(g, h->grid_cursor, &px, &py);
     top = hg_eased(h->grid_top_from, h->grid_top_to, now - h->grid_moved, DS_MS_MOVE);
     fx = hg_eased(h->grid_fx, (float)px, now - h->grid_moved, DS_MS_QUICK);
@@ -801,58 +898,80 @@ static bool hg_glide_at(home *h, uint32_t now, float *k, float *fade)
     return true;
 }
 
-/* The grid's focus, in one place (a Theme setting may pick its look one
- * day): behind the tiles, the **surface** tile 8 round its cell and its
- * underline, corners radius.card, with a thumbnail's lift as the shelf grid's
- * focused cover has (UI_LIFT_FOCUS_SMALL, in the system's color in Salt &
- * Pepper); in front, the **accent-ink** underline (40 x DS_BAR) a grid step
- * under the name's box. `cell` is the cell, its still and its name down;
- * `window` the clip of the rows in sight, NULL when every row is. *(2026-11-15: a
- * name and its underline alone were hard to find at arm's length among 21
- * systems.)* */
-static void hg_focus(SDL_Renderer *r, const SDL_FRect *cell, unsigned accent, bool front,
-                     const SDL_Rect *window)
+/* The grid's focus, in one place: Highlight's marks (src/ds/focus.h,
+ * DESIGN.md 11.1; my picks in the focus lab, 2026-11-19). Behind the tiles,
+ * Border's: a **surface** card 8 round the cell, grown a little, on a soft
+ * lift, the ring round it. In front, Bar's: the bar 8 under the focused
+ * name's box. Lift and None mark nothing: the still itself grows and rises
+ * (hg_tile). `cell` is the cell, its still and its name down, where the
+ * focus is now (gliding); `still` the still's side and `box` the name's
+ * line; `window` the clip of the rows in sight, NULL when every row is.
+ * *(2026-11-15: a name and an underline alone were hard to find at arm's
+ * length among 21 systems; the step back of the others and a mark of the
+ * player's choosing answer that now.)* */
+static void hg_focus(home *h, SDL_Renderer *r, const SDL_FRect *cell, float still, int box,
+                     const ds_focus_marks *m, bool front, const SDL_Rect *window)
 {
+    (void)h;
     if (!front) {
-        SDL_Rect tile = {
-            (int)lroundf(cell->x) - HG_TILE_PAD, (int)lroundf(cell->y) - HG_TILE_PAD,
-            (int)lroundf(cell->w) + 2 * HG_TILE_PAD,
-            (int)lroundf(cell->h) + 4 + DS_BAR + 2 * HG_TILE_PAD,
-        };
+        SDL_FRect card;
+        SDL_Rect q;
 
-        /* the lift in the room the caller gave it, then the tile and what
-         * follows cut to the window of rows, when there is one */
-        ui_lift_k(r, &tile, accent, UI_LIFT_FOCUS_SMALL, 1);
+        if (!m->ring) {
+            /* the tiles cut to the window of rows, when there is one */
+            if (window) SDL_RenderSetClipRect(r, window);
+            return;
+        }
+        card = ds_focus_tile((SDL_FRect){ cell->x - HG_TILE_PAD, cell->y - HG_TILE_PAD,
+                                          cell->w + 2 * HG_TILE_PAD, cell->h + 2 * HG_TILE_PAD }, m, 1);
+        q = (SDL_Rect){ (int)lroundf(card.x), (int)lroundf(card.y), (int)lroundf(card.w), (int)lroundf(card.h) };
+        /* the lift in the room the caller gave it, then the card, its ring
+         * and the tiles cut to the window of rows, when there is one */
+        ui_lift_focus(r, &q, false, 1);
         if (window) SDL_RenderSetClipRect(r, window);
-        ui_round_rect(r, &tile, DS_RADIUS_CARD, ui_col(theme()->surface, 255));
+        ui_round_rect(r, &q, DS_RADIUS_CARD, ui_col(theme()->surface, 255));
+        ds_focus_ring(r, card, DS_RADIUS_CARD, 255);
         return;
     }
-    {
-        ds_rgb ink = theme()->accent_ink;
+    if (m->bar) {
+        ds_focus_marks sm = *m;
+        SDL_FRect st;
 
-        SDL_SetRenderDrawColor(r, ink.r, ink.g, ink.b, 255);
-        SDL_RenderFillRect(r, &(SDL_Rect){ (int)lroundf(cell->x + cell->w / 2) - 20,
-                                           (int)lroundf(cell->y + cell->h) + 4, 40, DS_BAR });
+        sm.ring = sm.bar = false;
+        st = ds_focus_tile((SDL_FRect){ roundf(cell->x + cell->w / 2 - still / 2), cell->y, still, still }, &sm, 1);
+        ds_focus_bar(r, (SDL_FRect){ cell->x, st.y + st.h + GH_NAME_GAP, cell->w, (float)box }, 255);
     }
 }
 
 /* One tile: its still `s` square in the middle of its cell, `cw` wide at
- * (x, y), and its name under it in `font`, `alpha` of it */
+ * (x, y), and its name under it in `font`, `alpha` of it. `w` is its weight
+ * in the focus's glide: the still grows to Highlight's size on whole pixels
+ * and rises on its own shadow with it, the name follows the still's foot
+ * and turns from **text-soft** to **text**, and a tile out of focus steps
+ * back (src/ds/focus.h). */
 static void hg_tile(home *h, SDL_Renderer *r, const home_item *item, const char *name,
                     TTF_Font *font, int box, float x, float y, float s, float cw, bool focus,
-                    float alpha, uint32_t phase, uint32_t *wait)
+                    float w, const ds_focus_marks *m, float alpha, uint32_t phase, uint32_t *wait)
 {
     char fit[64];
-    SDL_Color c = focus ? UI_TEXT : UI_TEXT_SOFT;
+    SDL_Color c = UI_TEXT, soft = UI_TEXT_SOFT;
     float cx = x + cw / 2.0f;
+    ds_focus_marks sm = *m;
+    SDL_FRect st;
 
     if (alpha <= 0) return;
-    sprite(h, r, item, (SDL_FRect){ roundf(cx - s / 2.0f), y, s, s },
-           focus, phase, wait, alpha);
+    sm.ring = sm.bar = false;
+    st = ds_focus_tile((SDL_FRect){ roundf(cx - s / 2.0f), y, s, s }, &sm, w);
+    alpha *= fg_dim_still(w);
+    sprite_shade(h, r, item, st, m->lift, w * alpha);
+    sprite(h, r, item, st, focus, phase, wait, alpha);
     ui_fit_text(font, name, fit, sizeof fit, (int)cw + DS_GRID_GAP - 8);
-    c.a = (Uint8)lroundf(c.a * alpha);
+    c.r = (Uint8)lroundf(soft.r + (c.r - soft.r) * w);
+    c.g = (Uint8)lroundf(soft.g + (c.g - soft.g) * w);
+    c.b = (Uint8)lroundf(soft.b + (c.b - soft.b) * w);
+    c.a = (Uint8)lroundf(255 * alpha);
     ui_text(r, font, fit, (int)lroundf(cx),
-            ui_cap_y(font, (int)lroundf(y + s) + GH_NAME_GAP + box / 2), 0, c);
+            ui_cap_y(font, (int)lroundf(st.y + st.h) + GH_NAME_GAP + box / 2), 0, c);
 }
 
 static uint32_t home_grid_draw(home *h, SDL_Renderer *r, const home_item *items, int count,
@@ -860,6 +979,7 @@ static uint32_t home_grid_draw(home *h, SDL_Renderer *r, const home_item *items,
                                uint32_t now, uint32_t phase, uint32_t *wait)
 {
     gh_geom g = home_grid_geom(count);
+    const ds_focus_marks marks = ds_focus_marks_of(DS_FOCUS_STILL);
     TTF_Font *label = hg_name_font(g.name), *title = page_font(PAGE_GAME_TITLE);
     TTF_Font *meta = page_font(PAGE_META);
     int pitch = g.ch + g.gap, n = count < HOME_STILLS ? count : HOME_STILLS;
@@ -905,15 +1025,16 @@ static uint32_t home_grid_draw(home *h, SDL_Renderer *r, const home_item *items,
     focus = gliding ? (SDL_FRect){ at[cursor].x, at[cursor].y, at[cursor].cw, at[cursor].ch }
                     : (SDL_FRect){ fx, fy - top * pitch, (float)g.cw, (float)g.ch };
 
-    /* The window of rows: from the top row's tile to the foot of the last
-     * row's, so a row scrolling in or out is cut there and the next is not
-     * seen. The tile and its lift get room round it for the lift's blur. A
-     * grid with every row in sight is not cut. */
-    clip = (SDL_Rect){ 0, g.y - HG_TILE_PAD, ZYPEROS_SCREEN_W,
-                       (g.win - 1) * pitch + g.ch + 4 + DS_BAR + 2 * HG_TILE_PAD };
+    /* The window of rows: a gap round the rows in sight, from the foot of
+     * the row above to the top of the row below, so the focus's marks have
+     * room (Border's ring, Bar's bar under the name) and a row scrolling in
+     * or out is cut there and the next is not seen. Border's card lift gets
+     * another gap round it for its blur. A grid with every row in sight is
+     * not cut. */
+    clip = (SDL_Rect){ 0, g.y - g.gap, ZYPEROS_SCREEN_W, (g.win - 1) * pitch + g.ch + 2 * g.gap };
     if (g.rows > g.win)
         SDL_RenderSetClipRect(r, &(SDL_Rect){ clip.x, clip.y - g.gap, clip.w, clip.h + 2 * g.gap });
-    hg_focus(r, &focus, items[cursor].accent, false, g.rows > g.win ? &clip : NULL);
+    hg_focus(h, r, &focus, (float)g.still, g.box, &marks, false, g.rows > g.win ? &clip : NULL);
     /* A system that left fades out where it was */
     if (gliding)
         for (int j = 0; j < h->grid_from_n; j++) {
@@ -924,17 +1045,18 @@ static uint32_t home_grid_draw(home *h, SDL_Renderer *r, const home_item *items,
             if (kept) continue;
             hg_tile(h, r, &(home_item){ f->key, f->name, f->accent }, f->name, hg_name_font(f->font),
                     f->font == GH_NAME_META ? 40 : f->font == GH_NAME_SUPPORT ? 36 : 28,
-                    f->x, f->y, f->s, f->cw, false, 1 - fade, phase, wait);
+                    f->x, f->y, f->s, f->cw, false, 0, &marks, 1 - fade, phase, wait);
         }
     for (int i = 0; i < n; i++) {
         const char *name = home_label(items[i].key, items[i].name);
         float alpha = gliding && h->grid_map[i] < 0 ? k : 1;
 
-        if (at[i].y > clip.y + clip.h || at[i].y + at[i].ch < clip.y) continue;
+        if (at[i].y >= clip.y + clip.h || at[i].y + at[i].ch <= clip.y) continue;
         hg_tile(h, r, &items[i], name, label, g.box, at[i].x, at[i].y, at[i].s, at[i].cw,
-                i == cursor, alpha, phase, wait);
+                i == cursor, gliding ? (i == cursor ? 1.0f : 0.0f) : ds_focus_weight(&h->grid_w, i, cursor, now - h->grid_moved),
+                &marks, alpha, phase, wait);
     }
-    hg_focus(r, &focus, items[cursor].accent, true, NULL);
+    hg_focus(h, r, &focus, (float)g.still, g.box, &marks, true, NULL);
     SDL_RenderSetClipRect(r, NULL);
     /* What it drew, for a glide when the systems change */
     for (int i = 0; i < n; i++) {
@@ -995,6 +1117,35 @@ static uint32_t home_grid_draw(home *h, SDL_Renderer *r, const home_item *items,
     return *wait;
 }
 
+void home_focus_preview(home *h, SDL_Renderer *r, const home_item *items, SDL_Rect box, int focus)
+{
+    const ds_focus_marks m = ds_focus_marks_for(DS_FOCUS_STILL, focus);
+    ds_focus_marks sm = m;
+    const float s = floorf(box.w * .24f), gap = floorf(box.w * .07f);
+    const float x0 = box.x + (box.w - 3 * s - 2 * gap) / 2, y = box.y + (box.h - s) / 2 - (m.bar ? 6 : 0);
+    uint32_t wait = UINT32_MAX;
+
+    sm.ring = sm.bar = false;
+    for (int i = 0; i < 3; i++) {
+        SDL_FRect cell = { roundf(x0 + i * (s + gap)), roundf(y), s, s }, st;
+        float w = i == 1 ? 1.0f : 0.0f;
+
+        if (i == 1 && m.ring) {
+            SDL_FRect card = ds_focus_tile((SDL_FRect){ cell.x - HG_TILE_PAD, cell.y - HG_TILE_PAD,
+                                                        cell.w + 2 * HG_TILE_PAD, cell.h + 2 * HG_TILE_PAD }, &m, 1);
+            SDL_Rect q = { (int)lroundf(card.x), (int)lroundf(card.y), (int)lroundf(card.w), (int)lroundf(card.h) };
+
+            ui_lift_focus(r, &q, false, 1);
+            ui_round_rect(r, &q, DS_RADIUS_CARD, ui_col(theme()->surface, 255));
+            ds_focus_ring(r, card, DS_RADIUS_CARD, 255);
+        }
+        st = ds_focus_tile(cell, &sm, w);
+        sprite_shade(h, r, &items[i], st, m.lift, w);
+        sprite(h, r, &items[i], st, false, 0, &wait, fg_dim_still(w));
+        if (i == 1 && m.bar) ds_focus_bar(r, st, 255);
+    }
+}
+
 uint32_t home_draw(home *h,SDL_Renderer *r,home_layout layout,
                     const home_item *items,int count,int cursor,
                     const char *count_label,const char *open_label,uint32_t now,bool animate)
@@ -1014,9 +1165,23 @@ uint32_t home_draw(home *h,SDL_Renderer *r,home_layout layout,
         return wait;
     }
     if(!gallery) sprite(h,r,&items[cursor],FOCUS,true,phase,&wait,1);
+    /* Highlight (src/ds/focus.h): Border's ring round the focused still,
+     * holding still as the row slides under it; Lift raises the focused
+     * still on its own shadow; None leaves the others a step back; Bar's
+     * bar is under it below */
+    const ds_focus_marks marks=ds_focus_marks_of(DS_FOCUS_STILL);
+    const float fs=gallery?HOME_GALLERY_STILL:128.0f, fy0=gallery?HOME_GALLERY_Y:HOME_ROW_Y-8;
+    if(marks.ring) ds_focus_ring(r,(SDL_FRect){HOME_MID_X-fs/2,fy0-fs/2,fs,fs},DS_RADIUS_CELL,255);
     row_draw row[ROW_SLOTS]; int nr=row_draws(h,gallery,count,cursor,now,row);
-    for(int k=0;k<nr;k++)
-        sprite(h,r,&items[row[k].item],row[k].dst,row[k].active,phase,&wait,row[k].alpha);
+    for(int k=0;k<nr;k++) {
+        SDL_FRect d=row[k].dst;
+        float f=gallery?(d.w-208)/176.0f:(d.w-112)/16.0f, a=row[k].alpha;
+        if(f<0) f=0;
+        if(f>1) f=1;
+        if(marks.lift==DS_FOCUS_LIFT_HIGH) { d.y-=8*f; sprite_shade(h,r,&items[row[k].item],d,marks.lift,f); }
+        if(marks.focus==LOOK_FOCUS_NONE) a*=.6f+.4f*f;
+        sprite(h,r,&items[row[k].item],d,row[k].active,phase,&wait,a);
+    }
     const char *label=home_label(items[cursor].key,items[cursor].name);
     if(gallery && items[cursor].name && items[cursor].name[0] &&
        ui_text_width(ui_font(UI_F_TITLE),items[cursor].name)<=880) label=items[cursor].name;
@@ -1030,9 +1195,8 @@ uint32_t home_draw(home *h,SDL_Renderer *r,home_layout layout,
     ui_text(r,ui_font(UI_F_TITLE),fitted,title_x,ui_cap_y(ui_font(UI_F_TITLE),title_y),gallery?0:-1,UI_TEXT);
     ui_text(r,page_font(PAGE_META),count_label?count_label:"",title_x,
             ui_cap_y(page_font(PAGE_META),title_y+HOME_LINE),gallery?0:-1,UI_TEXT_DIM);
-    ds_rgb accent=theme()->accent_ink;
-    SDL_SetRenderDrawColor(r,accent.r,accent.g,accent.b,255);
-    SDL_Rect underline={HOME_MID_X-20,under_y,40,DS_BAR}; SDL_RenderFillRect(r,&underline);
+    /* Bar's bar where the underline always was: a pill, on whole pixels */
+    if(marks.bar) ds_focus_bar(r,(SDL_FRect){HOME_MID_X-64,(float)under_y-8,128,0},255);
     char index[32]; snprintf(index,sizeof index,"%d / %d",cursor+1,count);
     int keys_end=home_foot_keys(r,layout,HOME_MARGIN);
     ui_text(r,page_font(PAGE_CHROME),index,home_foot_mid(keys_end,ui_text_width(page_font(PAGE_CHROME),index)),
