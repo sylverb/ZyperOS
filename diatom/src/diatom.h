@@ -297,6 +297,9 @@ typedef enum {
 	/* Rumble (env.c): the motor at `rumble` percent of what the core asks,
 	 * 0 Off, from now. No answer. */
 	DIATOM_MSG_SETRUMBLE,
+	/* The equalizer (eqdsp.h): `bands`, five whole dB from -6 to +6, "5,2,
+	 * 0,0,1", all 0 flat; the gains move to them over 20 ms. No answer. */
+	DIATOM_MSG_SETEQ,
 	/* The launcher went away - or was displaced by a newer one, which means
 	 * the same thing. The game keeps running. */
 	DIATOM_MSG_HANGUP
@@ -366,6 +369,7 @@ typedef struct {
 	int  console;          /* RUN / SETCHEEVOS */
 	char path[1024];       /* SAVE / LOAD / SETCHEEVOS */
 	char key[80];          /* SETOPT */
+	char bands[24];        /* SETEQ */
 	char value[128];       /* SETOPT */
 	char map[512];         /* SETMAP */
 	char lkind[32];        /* SETLEVEL: volume | brightness */
@@ -610,5 +614,13 @@ typedef enum {
 extern const char *const diatom_channels_names[DIATOM_CHANNELS_COUNT];
 void            diatom_audio_channels(diatom_channels c);
 diatom_channels diatom_audio_channels_get(void);
+
+/* The equalizer (eqdsp.h, ZyperOS's src/eqdsp.h): five bands, dB each, as
+ * the launcher sends them for where Diatom plays (SETEQ), all 0 flat. Taken
+ * by the sound's next push, after the resampler at the device's rate, the
+ * gains moving over 20 ms, so a change never clicks; held across sessions,
+ * a session starting at them with no move. Flat costs nothing. False, and
+ * nothing changed, for anything but five whole numbers from -6 to 6. */
+bool diatom_audio_eq(const char *bands);
 
 #endif /* DIATOM_H */

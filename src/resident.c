@@ -36,6 +36,9 @@ static int    d_lowbat, d_lowbat_said = -1;
 /* Diatom's CHANNELS, the same way: what the launcher wants, and what this
  * connection was last told, "" being never. */
 static char   d_chan[8] = "stereo", d_chan_said[8];
+/* The equalizer's bands for where Diatom plays (src/eq.h), as SETEQ carries
+ * them: sent on a change and before every RUN, as the channels are */
+static char   d_eq[24] = "0,0,0,0,0", d_eq_said[24];
 
 const char *plat_resident_socket(void)
 {
@@ -214,6 +217,7 @@ static bool dconnect(void)
 	d_quiet_said = -1;
 	d_lowbat_said = -1;
 	d_chan_said[0] = '\0';
+	d_eq_said[0] = '\0';
 	d_generation++;
 
 	dsock = socket(AF_UNIX, SOCK_STREAM, 0);
@@ -494,6 +498,10 @@ bool plat_resident_send(const plat_game_run *run)
 		 * restarted cannot start in stereo for a player who hears with one. */
 		if (dsend("SETCHANNELS\tmode=%s", d_chan))
 			snprintf(d_chan_said, sizeof d_chan_said, "%s", d_chan);
+		/* The equalizer for the channels' reasons: the first sample is
+		 * already shaped, and a resident that restarted is told again */
+		if (dsend("SETEQ\tbands=%s", d_eq))
+			snprintf(d_eq_said, sizeof d_eq_said, "%s", d_eq);
 		/* The low-battery disc for quiet's reasons too:
 		 * a game started on a low battery shows it from its first frame. */
 		if (dsend("SETLOWBATTERY\ton=%d\tblink=%d", d_lowbat > 0, d_lowbat == 2))
@@ -610,6 +618,15 @@ void plat_resident_channels(const char *mode)
 	if (dsock >= 0 && strcmp(d_chan, d_chan_said) &&
 	    dsend("SETCHANNELS\tmode=%s", d_chan))
 		snprintf(d_chan_said, sizeof d_chan_said, "%s", d_chan);
+}
+
+void plat_resident_eq(const int8_t db[5])
+{
+	snprintf(d_eq, sizeof d_eq, "%d,%d,%d,%d,%d", db[0], db[1], db[2], db[3], db[4]);
+	/* Only over a connection that exists, as the channels: the next RUN
+	 * sends it */
+	if (dsock >= 0 && strcmp(d_eq, d_eq_said) && dsend("SETEQ\tbands=%s", d_eq))
+		snprintf(d_eq_said, sizeof d_eq_said, "%s", d_eq);
 }
 
 bool plat_resident_line(const char *fmt, ...)
