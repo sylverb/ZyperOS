@@ -8,6 +8,7 @@
 #include "mp4look.h"
 
 #include <math.h>
+#include <stdio.h>
 #include <string.h>
 
 /* The tonearm's metal and its headshell, its counterweight, the spindle's
@@ -213,6 +214,8 @@ bool vin_ready(SDL_Renderer *r, vin_tex *t, const ds_theme *th, bool dark, unsig
 
 	if (tracks < 1) tracks = 1;
 	if (!theme_same) {
+		Uint32 t0 = SDL_GetTicks();
+
 		if (t->deck) SDL_DestroyTexture(t->deck);
 		if (t->arm) SDL_DestroyTexture(t->arm);
 		if (t->base) SDL_DestroyTexture(t->base);
@@ -225,12 +228,17 @@ bool vin_ready(SDL_Renderer *r, vin_tex *t, const ds_theme *th, bool dark, unsig
 		t->arm = arm(r, t);
 		t->base = base(r, t);
 		t->light = light(r);
+		fprintf(stderr, "mp4: the turntable drawn in %u ms\n", (unsigned)(SDL_GetTicks() - t0));
 	}
 	if (!t->face || t->vinyl != vinyl || t->tracks != tracks) {
+		Uint32 t0 = SDL_GetTicks();
+
 		if (t->face) SDL_DestroyTexture(t->face);
 		t->vinyl = vinyl;
 		t->tracks = tracks;
 		t->face = face(r, t);
+		/* Once an album: what it costs, for the device's log */
+		fprintf(stderr, "mp4: the record pressed in %u ms\n", (unsigned)(SDL_GetTicks() - t0));
 	}
 	return t->deck && t->face && t->light && t->arm && t->base;
 }
