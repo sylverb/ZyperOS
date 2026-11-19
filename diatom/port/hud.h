@@ -11,11 +11,14 @@
  *
  * Its items, in this order, each the player's to show or not:
  *
- *   FPS              59.7 fps     the frames the core ran a second
- *   Speed            0.96x        that against the game's own rate: none at
- *                                 full speed (0.98x to 1.02x), unless it is
- *                                 the only item, so the x does not come and
- *                                 go at 0.99x
+ *   FPS              59.7 fps     the pictures the game makes a second: a
+ *                                 game that draws every second frame reads 30
+ *   Speed            0.96x        how fast the game is emulated against its
+ *                                 own rate, whatever it draws: a game at 30
+ *                                 fps at full speed is 1.00x. None at full
+ *                                 speed (0.98x to 1.02x), unless it is the
+ *                                 only item, so the x does not come and go at
+ *                                 0.99x
  *   CPU Temperature  52°C         the chip's hotter zone
  *   CPU Load         CPU 34%      busy against idle, over the half second
  *   CPU Clock        1.3 GHz      cpu0's clock now ("816 MHz" under one)
@@ -26,8 +29,8 @@
  *
  * Numbers in the text's color, their units and the dots between them
  * softer, so the eye finds the numbers. Twice a second, from the last half
- * second (FPS and Speed are what px2-perf calls the game's speed, Diatom's
- * now.h, from the same counters). Digits in cells of one width, so a number
+ * second (Speed is what px2-perf calls the game's speed, Diatom's now.h, from
+ * the same counters; how they are counted is Diatom's src/emumeter.h). Digits in cells of one width, so a number
  * holds still as it changes. An item whose number is not known (no thermal
  * zone, the desktop's stand-in) is left out.
  *

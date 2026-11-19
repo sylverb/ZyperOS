@@ -688,7 +688,7 @@ right turn it on and off; A opens its page:
 | | |
 |---|---|
 | **On-Screen Stats** | `On` or `Off` |
-| **Shows** | A opens the list of items, each `On` or `Off`: FPS (the frames a second), Speed (only when the game is not at full speed, as `0.5x` or `2x`), CPU Temperature, CPU Load, CPU Clock, Battery and Time. One stays on. `FPS` and `Speed` to start with |
+| **Shows** | A opens the list of items, each `On` or `Off`: FPS (the new pictures the game draws a second, so `30` for a game that draws every second frame), Speed (how fast the game runs against its own speed, only when it is not at full speed, as `0.8x` when the game runs slow or `2x` in fast forward; a game that draws 30 pictures a second at full speed is `1x`, so it shows no speed), CPU Temperature, CPU Load, CPU Clock, Battery and Time. One stays on. `FPS` and `Speed` to start with |
 | **Corner** | `Top Left`, `Top Right`, `Bottom Left` or `Bottom Right`. In a top corner it moves under the volume bar, or left of the low-battery dot, rather than meet them |
 | **Edge Distance** | `Close`, `Normal` or `Far` from the screen's edges |
 | **Background** | `Pill`, a rounded box in the theme's colors, or `Shadow` around the text alone |

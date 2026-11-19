@@ -5311,3 +5311,50 @@ Host shots: `gamemenu-shader-lcd-unlit`, `gamemenu-shader-list-lcd-unlit`,
 `system-menu-shader-list-gba`, and where it is not offered with a card that
 names it, `system-menu-shader-list-snes` and `menu-shader-list-unlit`
 (tools/i18n-shots.py).
+
+### 11.52 On-Screen Stats: what FPS and Speed say
+*(Found on 1.0.6: a Dreamcast game that runs at 30 fps showed 0.5x, at full
+speed.)*
+
+**FPS is the pictures.** The new pictures the game makes a second: the core's
+video callbacks that brought one, over half a second of the game's time (the
+menu's is left out), said twice a second. A repeat, a NULL frame, is not one.
+A game that draws every second frame reads 30, and one that draws every third
+reads 20. In fast forward it is what the core made, not what the panel showed:
+2x of a game at 60 reads 120. A core that resends the same picture, not a NULL
+frame, is counted at every call, since a picture cannot be told from the last
+without a compare, which a frame does not pay for.
+
+**Speed is the emulation.** The frames the core emulated a second, against the
+frame rate it announces (`retro_get_system_av_info`): 1.00x at the game's own
+speed, 0.67x for a core that gets two thirds of it done, the step in fast
+forward (1.5x, 2x, 3x). It does not move with how often the game draws, so a
+game at 30 fps at full speed is 30 fps and 1.00x, and shows no speed at all
+(the line says Speed only when it is off 0.98x to 1.02x, or is the only item).
+
+**What a frame is.** A core says a game draws less than it runs in one of two
+ways. Its `retro_run` is one frame and the picture is repeated: the calls are
+the frames. Or its `retro_run` runs until the game shows a new picture, so at
+30 fps it is two frames long, and at 20 three: PPSSPP, Flycast,
+ParallelN64's `fullspeed` (`pixel2_coreopts.c`). Such a core is called 30 times
+a second at full speed, and counting the calls said 0.5x. A longer call has no
+sign in the API, but it brings its frames' sound, and a core's sound is its
+emulated time, on whichever thread it makes it: the frames of a window are the
+sound it made, as frames, when that is more than its calls (`emumeter.h`).
+Never fewer than the calls, so a core that made no sound (muted; Flycast's in
+fast forward) is counted by its calls as before; a core too slow for its game
+makes less sound and reads under 1x. The sound is judged over the window whole,
+and a little over the calls, 5%, is the sound's pieces and not a longer call.
+
+**The same in the now file.** `frames` in Diatom's now file (`now.h`), which
+px2-perf turns into the game's speed against the clock, counts the frames
+emulated, so it says what the overlay says.
+
+**What it costs.** A frame pays two adds, the sound (relaxed and atomic, since
+a core's thread makes sound too) and the pictures. A turn pays one compare. A
+window, twice a second, a few multiplications. Off or on, nothing else.
+
+Checked with the stub core, which can repeat every second picture
+(`STUBCORE_DUPE`) or run two or three frames in a call (`STUBCORE_SPAN`):
+`make check-hudspeed` (end to end, 1.00x and 30 fps for each, below 1x for a
+slow core and the step in fast forward) and `make check-emumeter` (the rule).
