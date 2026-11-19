@@ -124,7 +124,10 @@ bool home_song_update(home_song *song, bool active, bool paused, const char *tit
 /* Art requests use their own loader identities. No forget/bump of game jobs. */
 void home_prepare(home *h, SDL_Renderer *r, const char *root,
                   const home_item *items, int count, int cursor, uint32_t now);
-bool home_accept(home *h, SDL_Renderer *r, int shelf, int asset, SDL_Surface *surface);
+/* A finished picture for the home (`shelf` a HOME_LOADER_*): true when it
+ * was the home's. An atlas in the texture's format is kept as it is, and
+ * *surface is then NULL; the caller frees whatever is left. */
+bool home_accept(home *h, SDL_Renderer *r, int shelf, int asset, SDL_Surface **surface);
 void home_free(home *h);
 /* Spotlight's focused sprite alone, for a frame where nothing else on the
  * home has changed (main.c, focus frames): whether that is so - Spotlight,

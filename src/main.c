@@ -1939,7 +1939,7 @@ void shelf_put(void *ctx, texload_got *g)
 		return;
 	}
 
-	if (home_accept(&a->home, a->r, s, i, surf)) {
+	if (home_accept(&a->home, a->r, s, i, &surf)) {
 		if (surf) ui_card_free(surf);
 		return;
 	}
