@@ -108,6 +108,7 @@
 #include "musec.h"
 #include "mp4lock.h"
 #include "topbar.h"
+#include "mp4frame.h"  /* MPF_TOO_BIG, for --video-trouble */
 #include "mp4video.h"
 #include "museart.h"
 #include "muselib.h"
@@ -5519,6 +5520,11 @@ int main(int argc, char *argv[])
 		}
 		else if (!strcmp(argv[i], "--video-size") && i + 1 < argc)
 			sscanf(argv[++i], "%dx%d", &shot_video_w, &shot_video_h);
+		else if (!strcmp(argv[i], "--video-trouble") && i + 1 < argc) {
+			i++;
+			shot_video_trouble = !strcmp(argv[i], "too-big") ? MPF_TOO_BIG
+			                   : !strcmp(argv[i], "no-picture") ? MPF_NO_PICTURE : MPF_FINE;
+		}
 		else if (!strcmp(argv[i], "--video-at") && i + 2 < argc) {
 			shot_video_k = (float)atof(argv[++i]);
 			shot_video_grow = (float)atof(argv[++i]);
@@ -5678,6 +5684,8 @@ int main(int argc, char *argv[])
 		/* --gm-rumble: the game's core asked for the motor (PAUSED
 		 * rumble=1), so its Controls tab has Rumble */
 		else if (!strcmp(argv[i], "--gm-rumble")) g_shot_rumble = true;
+		/* --eq-phones: the Equalizer page as with headphones in */
+		else if (!strcmp(argv[i], "--eq-phones")) g_shot_eq_phones = true;
 		else if (!strcmp(argv[i], "--gm-tab-from") && i + 1 < argc) shot_gm_from = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--gm-press") && i + 1 < argc) shot_gm_press = argv[++i];
 		else if (!strcmp(argv[i], "--gm-choose")) shot_gm_choose = 1;

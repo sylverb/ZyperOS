@@ -169,7 +169,8 @@ None are on the card. ZyperOS links against libraries plastron's system
 carries: SDL2, SDL2_image and SDL2_ttf (with FreeType, libpng and
 libjpeg-turbo under them), SQLite, libcurl and OpenSSL for RetroAchievements
 and box art, FFmpeg (built without its GPL parts) for MP4's music,
-audiobooks and videos, ALSA and glibc. plastron's package list on the card,
+audiobooks and videos, with dav1d (BSD-2-Clause) for AV1 videos, ALSA and
+glibc. plastron's package list on the card,
 `Licenses/plastron-packages.md`, gives their versions and licenses.
 
 The Pixel 2's PortMaster installer (`res/portmaster/pm-install.py`, ZyperOS's

@@ -14,6 +14,7 @@ the boot loader and the closed parts.
 | brick-rootswitch | from its repository | GPL-3.0+ | plastron, https://github.com/ericreinsmidt/plastron |
 | brick-tools | 1.0 | GPL-3.0+ | plastron, https://github.com/ericreinsmidt/plastron |
 | busybox | 1.37.0 | GPL-2.0, bzip2-1.0.4 | https://www.busybox.net/downloads |
+| dav1d | 1.5.3 | BSD-2-Clause | https://download.videolan.org/pub/videolan/dav1d/1.5.3 |
 | dbus | 1.14.10 | AFL-2.1 or GPL-2.0+ (library, tools), GPL-2.0+ (tools) | https://dbus.freedesktop.org/releases/dbus |
 | diatom | from its repository | MPL-2.0 | Diatom, https://github.com/tarikbc/ZyperOS (diatom/) |
 | dropbear | 2026.91 | MIT, BSD-2-Clause, Public domain, Unlicense, WTFPL | https://matt.ucc.asn.au/dropbear/releases |
