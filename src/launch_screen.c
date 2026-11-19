@@ -296,7 +296,7 @@ static void launch_port_core(app *a, const system_cfg *s, const char *file, cons
 	a->running = false;
 }
 
-/* ---------- Your PICO-8 and Splore (src/pico8.h, DESIGN.md 11.48) -------- */
+/* ---------- Your PICO-8 and Splore (src/pico8.h, DESIGN.md 11.54) -------- */
 
 /* The page A opens on Splore while your PICO-8 is not on the card: what it
  * is, whose it is, how to add it. Back is its one key: nothing here can
@@ -357,6 +357,40 @@ void p8_page_shot(app *a)
 	for (i = 0; i < P8_NOTES; i++) np[i] = notes[i];
 	update_page_draw(a, T(S_PICO8_PAGE_TITLE), &p, np, nnotes, icon);
 	if (icon) SDL_DestroyTexture(icon);
+}
+
+int g_p8_said_shot = -1;
+
+/* What your PICO-8 says over the shelf, as a host shot draws it
+ * (src/shots.c, --pico8-said K): 0 to 3 a zip copied by hand, taken (with
+ * its version and without) or not (a zip of another PICO-8, one that could
+ * not be taken), in p8_take_message's words under the heading main.c gives
+ * them; 4 Splore with no network joined; 5 Delete Game on Splore; 6 the
+ * question Splore asks with no network, as ask_two_panel hands it to
+ * confirm_rows_pick, Turn On Wi-Fi focused */
+void p8_said_shot(app *a, int k)
+{
+	static const p8_take TAKES[] = { P8_TAKE_DONE, P8_TAKE_DONE, P8_TAKE_NOT_RASPI, P8_TAKE_FAILED };
+	static const char *const ZIPS[] = { NULL, NULL, "pico-8_0.2.7_windows.zip", "pico-8_0.2.7_raspi.zip" };
+	char said[256];
+
+	if (k >= 0 && k < 4) {
+		p8_take_message(TAKES[k], k == 0 ? "0.2.7" : NULL, ZIPS[k], said, sizeof said);
+		result_preview(a, "PICO-8", said);
+	} else if (k == 4) {
+		result_preview(a, SPLORE_NAME, T(S_PICO8_NO_NETWORK));
+	} else if (k == 5) {
+		result_preview(a, T(S_GAMEMENU_DELETE), T(S_PICO8_SPLORE_STAYS));
+	} else if (k == 6) {
+		char lines[ASK_TWO_LINES][CHV_WRAP_COLS];
+		menu_row rows[ASK_TWO_LINES + 2];
+		int n = ask_two_rows(a, T(S_PICO8_WIFI_BODY), T(S_PICO8_WIFI_ON), T(S_PICO8_OFFLINE), lines,
+		                     rows);
+
+		draw_shelf(a);
+		ui_scrim(a->r, 0);
+		menu_draw(a, T(S_PICO8_WIFI_TITLE), rows, n + 2, n, menu_std_width(a), MENU_ZYPEROS);
+	}
 }
 
 /* Wi-Fi on and its saved network joined, for Splore: false when no network

@@ -4646,17 +4646,35 @@ static bool confirm_rows_full(app *a, const char *heading, menu_row *rows, int n
 	                         over, ctx, false) == 1;
 }
 
+/* ask_two_panel's rows: its question in lines the panel's width, as Delete
+ * Game's is (in one row a long one slid as a marquee), then the two answers;
+ * how many lines. A host shot draws the same rows (src/launch_screen.c's
+ * p8_said_shot). */
+int ask_two_rows(app *a, const char *msg, const char *first, const char *second,
+                 char (*lines)[CHV_WRAP_COLS], menu_row *rows)
+{
+	int n = wrap_text(ui_font(UI_F_MENU), msg, menu_std_width(a), lines, ASK_TWO_LINES), i;
+
+	ui_fit_drawn(msg);    /* drawn in lines, said whole to the host's check */
+	for (i = 0; i < n; i++)
+		rows[i] = (menu_row){ lines[i], MENU_NOTE_MARK, false };
+	rows[n]     = (menu_row){ first, NULL, true };
+	rows[n + 1] = (menu_row){ second, NULL, true };
+	return n;
+}
+
 /* A question with two answers that both go on (Splore's Turn On Wi-Fi and
  * Open Offline), over the shelf: 1 the first, 2 the second, 0 left. The
  * cursor starts on the first. */
 int ask_two_panel(app *a, const char *heading, const char *msg, const char *first,
                   const char *second)
 {
-	menu_row rows[3];
-	int lv = panel_open(), r;
+	char lines[ASK_TWO_LINES][CHV_WRAP_COLS];
+	menu_row rows[ASK_TWO_LINES + 2];
+	int lv = panel_open(), r, n = ask_two_rows(a, msg, first, second, lines, rows);
 
-	rows[0] = (menu_row){ msg, NULL, false };
-	r = confirm_rows_pick(a, heading, rows, 1, first, second, 0, lv, NULL, NULL, NULL, true);
+	r = confirm_rows_pick(a, heading, rows, n, first, second, menu_std_width(a), lv, NULL, NULL,
+	                      NULL, true);
 	panel_close(a, lv, !a->running);
 	return r;
 }
@@ -5777,6 +5795,7 @@ int main(int argc, char *argv[])
 		/* --pico8-page: the page A opens on Splore while your PICO-8 is not
 		 * on the card (src/pico8.h) */
 		else if (!strcmp(argv[i], "--pico8-page")) g_p8_shot = true;
+		else if (!strcmp(argv[i], "--pico8-said") && i + 1 < argc) g_p8_said_shot = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--portmaster")) {
 			/* The Install PortMaster page, as ZYPEROS_PM_STATUS's file
 			 * says, with any of running, nonet, nopython, installed; and

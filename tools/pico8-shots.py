@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-only
-"""Your PICO-8 on the host (src/pico8.h, DESIGN.md 11.48): the real launcher
+"""Your PICO-8 on the host (src/pico8.h, DESIGN.md 11.54): the real launcher
 draws the PICO-8 shelf with Splore first, before and after your PICO-8 is on
 the card, a cart with Splore beside it, the shelf's menu with its Core row,
 and the page A opens on Splore while PICO-8 is not on the card, in both

@@ -7,15 +7,15 @@
 # Bios/PICO-8 and ZyperOS Installer.
 
 [pico8.how_to_add]
-note = The A button's label on the PICO-8 shelf under Splore while the player's own PICO-8 is not on the card: A opens a page that says how to add it
+note = The A button's label on the PICO-8 shelf under Splore while the player's own PICO-8 is not on the card: A opens a page that says how to add it. Short: it sits beside the game's name, as Play does ("See how" where "How to add" is long)
 en = How to Add
 zh-Hans = 如何添加
-es = Cómo añadir
-pt-BR = Como adicionar
-fr = Comment l'ajouter
-de = So fügst du es hinzu
+es = Ver cómo
+pt-BR = Ver como
+fr = Aide
+de = Anleitung
 ja = 追加方法
-it = Come aggiungerlo
+it = Vedi come
 
 [pico8.page_title]
 note = The page's heading: the player's own copy of PICO-8, the program they bought from Lexaloffle
