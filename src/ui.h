@@ -351,6 +351,10 @@ void ui_lift(SDL_Renderer *r, const SDL_Rect *q, unsigned sys_rgb, int kind);
  * into focus and leaves it by degrees as the row moves, and takes its lift
  * with it (cf_draw's lift). ui_lift is this at 1, at full strength. */
 void ui_lift_k(SDL_Renderer *r, const SDL_Rect *q, unsigned sys_rgb, int kind, float k);
+/* Highlight's lift under the item in focus on the home and the shelves
+ * (DESIGN.md 7, 11.47): `high` for Lift's, deeper, else Bar's and Border's;
+ * at `k` of its strength, the item's weight in the focus's glide */
+void ui_lift_focus(SDL_Renderer *r, const SDL_Rect *q, bool high, float k);
 /* The same lift as theme `theme_ix` (DS_LIGHT or DS_DARK) lifts, whichever
  * theme is on: for what is drawn straight on scrim.game, which is dark in
  * both themes, where Beard's ink shadow would fall on ink and lift nothing

@@ -1,0 +1,9 @@
+config BR2_PACKAGE_ZYPEROS_EQ
+	bool "zyperos-eq"
+	depends on BR2_PACKAGE_ALSA_LIB
+	help
+	  ZyperOS's equalizer as a LADSPA plugin, for ports: launch.sh
+	  runs a port's sound through it, by alsa-lib's ladspa PCM, while
+	  the equalizer is on (ZyperOS's sd/zyperos/eq-port.sh). Its
+	  arithmetic is ZyperOS's src/eqdsp.h, read from the tree at
+	  /zyperos as the zyperos and diatom packages read theirs.

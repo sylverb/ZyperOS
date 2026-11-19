@@ -276,7 +276,7 @@ int main(void)
         texload_got got;
         while(texload_take(&got)) {
             if(got.sys==42) { assert(got.surf); game_landed=true; }
-            else assert(home_accept(&h,r,got.sys,got.idx,got.surf));
+            else assert(home_accept(&h,r,got.sys,got.idx,&got.surf));
             if(got.surf) SDL_FreeSurface(got.surf);
         }
         SDL_Delay(1);
@@ -285,7 +285,7 @@ int main(void)
     /* A late result for another selection never replaces the active atlas. */
     SDL_Texture *kept=h.atlas.tex;
     SDL_Surface *wrong=SDL_CreateRGBSurfaceWithFormat(0,1,1,32,SDL_PIXELFORMAT_ARGB8888);
-    assert(home_accept(&h,r,HOME_LOADER_ATLAS,h.atlas.asset+1,wrong));
+    assert(home_accept(&h,r,HOME_LOADER_ATLAS,h.atlas.asset+1,&wrong));
     assert(h.atlas.tex==kept);
     SDL_FreeSurface(wrong);
     texload_stop();

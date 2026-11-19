@@ -45,7 +45,7 @@ The page is set in the fonts in `ui/fonts`. Their names, versions and copyrights
 
 Every Rust crate compiled into the apps, one row for each name and version: what cargo resolves as normal dependencies for each app's targets, procedural macros and what they use among them (they write code into the apps as they build). Crates only build scripts or tests use are not in it, nor is the installer's own crate. The targets: the macOS app is one universal build of `aarch64-apple-darwin` (Apple Silicon) and `x86_64-apple-darwin` (Intel); the Windows app is `x86_64-pc-windows-msvc`; the Linux app is `x86_64-unknown-linux-gnu`.
 
-**358 crates in all**: 275 in the macOS app (275 for Apple Silicon and 275 for Intel, the same set), 277 in the Windows app and 269 in the Linux app.
+**361 crates in all**: 282 in the macOS app (282 for Apple Silicon and 282 for Intel, the same set), 279 in the Windows app and 275 in the Linux app.
 
 | Crate | Version | License | Repository | macOS | Windows | Linux |
 |---|---|---|---|:-:|:-:|:-:|
@@ -79,7 +79,7 @@ Every Rust crate compiled into the apps, one row for each name and version: what
 | `cfb` | 0.14.0 | MIT | <https://github.com/mdsteele/rust-cfb> | ✓ | ✓ | ✓ |
 | `cfg-if` | 1.0.5 | MIT OR Apache-2.0 | <https://github.com/rust-lang/cfg-if> | ✓ | ✓ | ✓ |
 | `const-oid` | 0.10.2 | Apache-2.0 OR MIT | <https://github.com/RustCrypto/formats> | ✓ | ✓ | ✓ |
-| `constant_time_eq` | 0.6.1 | CC0-1.0 OR MIT-0 OR Apache-2.0 | <https://codeberg.org/cesarb/constant_time_eq> |  | ✓ |  |
+| `constant_time_eq` | 0.6.1 | CC0-1.0 OR MIT-0 OR Apache-2.0 | <https://codeberg.org/cesarb/constant_time_eq> | ✓ | ✓ | ✓ |
 | `cookie` | 0.18.2 | MIT OR Apache-2.0 | <https://github.com/SergioBenitez/cookie-rs> | ✓ | ✓ | ✓ |
 | `core-foundation` | 0.9.4 | MIT OR Apache-2.0 | <https://github.com/servo/core-foundation-rs> | ✓ |  |  |
 | `core-foundation` | 0.10.1 | MIT OR Apache-2.0 | <https://github.com/servo/core-foundation-rs> | ✓ |  |  |
@@ -122,6 +122,7 @@ Every Rust crate compiled into the apps, one row for each name and version: what
 | `erased-serde` | 0.4.10 | MIT OR Apache-2.0 | <https://github.com/dtolnay/erased-serde> | ✓ | ✓ | ✓ |
 | `errno` | 0.3.15 | MIT OR Apache-2.0 | <https://github.com/lambda-fairy/rust-errno> | ✓ |  |  |
 | `fastrand` | 2.5.0 | Apache-2.0 OR MIT | <https://github.com/smol-rs/fastrand> | ✓ | ✓ | ✓ |
+| `fatfs` | 0.3.6 | MIT | <https://github.com/rafalh/rust-fatfs> | ✓ | ✓ | ✓ |
 | `fdeflate` | 0.3.7 | MIT OR Apache-2.0 | <https://github.com/image-rs/fdeflate> | ✓ | ✓ | ✓ |
 | `field-offset` | 0.3.6 | MIT OR Apache-2.0 | <https://github.com/Diggsey/rust-field-offset> |  |  | ✓ |
 | `filetime` | 0.2.29 | MIT/Apache-2.0 | <https://github.com/alexcrichton/filetime> | ✓ |  |  |
@@ -211,6 +212,7 @@ Every Rust crate compiled into the apps, one row for each name and version: what
 | `mio` | 1.2.4 | MIT | <https://github.com/tokio-rs/mio> | ✓ | ✓ |  |
 | `muda` | 0.20.0 | Apache-2.0 OR MIT | <https://github.com/tauri-apps/muda> | ✓ | ✓ | ✓ |
 | `new_debug_unreachable` | 1.0.6 | MIT | <https://github.com/mbrubeck/rust-debug-unreachable> | ✓ | ✓ | ✓ |
+| `nix` | 0.31.3 | MIT | <https://github.com/nix-rust/nix> | ✓ |  |  |
 | `num-conv` | 0.2.2 | MIT OR Apache-2.0 | <https://github.com/jhpratt/num-conv> | ✓ | ✓ | ✓ |
 | `objc2` | 0.6.5 | MIT | <https://github.com/madsmtm/objc2> | ✓ |  |  |
 | `objc2-app-kit` | 0.3.2 | Zlib OR Apache-2.0 OR MIT | <https://github.com/madsmtm/objc2> | ✓ |  |  |
@@ -342,7 +344,7 @@ Every Rust crate compiled into the apps, one row for each name and version: what
 | `tracing` | 0.1.44 | MIT | <https://github.com/tokio-rs/tracing> | ✓ | ✓ |  |
 | `tracing-core` | 0.1.36 | MIT | <https://github.com/tokio-rs/tracing> | ✓ | ✓ |  |
 | `try-lock` | 0.2.5 | MIT | <https://github.com/seanmonstar/try-lock> | ✓ | ✓ |  |
-| `typed-path` | 0.13.0 | MIT OR Apache-2.0 | <https://github.com/chipsenkbeil/typed-path> |  | ✓ |  |
+| `typed-path` | 0.13.0 | MIT OR Apache-2.0 | <https://github.com/chipsenkbeil/typed-path> | ✓ | ✓ | ✓ |
 | `typeid` | 1.0.3 | MIT OR Apache-2.0 | <https://github.com/dtolnay/typeid> | ✓ | ✓ | ✓ |
 | `typenum` | 1.20.1 | MIT OR Apache-2.0 | <https://github.com/paholg/typenum> | ✓ | ✓ | ✓ |
 | `unicode-ident` | 1.0.26 | (MIT OR Apache-2.0) AND Unicode-3.0 | <https://github.com/dtolnay/unicode-ident> | ✓ | ✓ | ✓ |
@@ -401,9 +403,10 @@ Every Rust crate compiled into the apps, one row for each name and version: what
 | `zerofrom` | 0.1.8 | Unicode-3.0 | <https://github.com/unicode-org/icu4x> | ✓ | ✓ | ✓ |
 | `zerofrom-derive` | 0.1.8 | Unicode-3.0 | <https://github.com/unicode-org/icu4x> | ✓ | ✓ | ✓ |
 | `zeroize` | 1.9.1 | Apache-2.0 OR MIT | <https://github.com/RustCrypto/utils> | ✓ | ✓ | ✓ |
-| `zeroize_derive` | 1.5.0 | Apache-2.0 OR MIT | <https://github.com/RustCrypto/utils> |  | ✓ |  |
+| `zeroize_derive` | 1.5.0 | Apache-2.0 OR MIT | <https://github.com/RustCrypto/utils> | ✓ | ✓ | ✓ |
 | `zerotrie` | 0.2.5 | Unicode-3.0 | <https://github.com/unicode-org/icu4x> | ✓ | ✓ | ✓ |
 | `zerovec` | 0.11.8 | Unicode-3.0 | <https://github.com/unicode-org/icu4x> | ✓ | ✓ | ✓ |
 | `zerovec-derive` | 0.11.6 | Unicode-3.0 | <https://github.com/unicode-org/icu4x> | ✓ | ✓ | ✓ |
-| `zip` | 9.5.1 | MIT | <https://github.com/zip-rs/zip2> |  | ✓ |  |
+| `zip` | 9.5.1 | MIT | <https://github.com/zip-rs/zip2> | ✓ | ✓ | ✓ |
+| `zlib-rs` | 0.6.8 | Zlib | <https://github.com/trifectatechfoundation/zlib-rs> | ✓ | ✓ | ✓ |
 | `zmij` | 1.0.23 | MIT | <https://github.com/dtolnay/zmij> | ✓ | ✓ | ✓ |
