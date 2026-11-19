@@ -398,6 +398,7 @@ static void report_load(const struct retro_game_info *game)
  * on time (test/lateskip.py) */
 static long frame_cost_us;
 static bool frame_unshown;
+static long overshoot_us;         /* STUBCORE_OVERSHOOT_US: up to this much late, at random */
 static bool precise_cost;         /* STUBCORE_PRECISE: the cost to the microsecond */
 #define PRECISE_SPIN_US 6000      /* spun, not slept, for the last of it */
 static unsigned dupe_every = 1;   /* STUBCORE_DUPE: a new picture on every Nth run */
@@ -420,13 +421,40 @@ static int cost_at_n;
 static long burst_frame[8], burst_times[8];
 static int burst_n;
 
+/* STUBCORE_OVERSHOOT_US=N: each frame runs 0 to N us late, at random (a
+ * fixed sequence), as a sleep does on a runner busy with other work: GitHub's
+ * macOS runner kept a 9 ms core for 45 to 50 ms a frame, and not evenly. The checks of a speed
+ * (test/fastforward.py, test/hudspeed.py) are tried with it on, to see they
+ * judge only what a slow machine can show. */
+static void frame_late(void)
+{
+	static unsigned long long rng = 88172645463325252ull;
+	struct timespec d;
+	long us;
+
+	static unsigned calls;
+	unsigned level;
+
+	if (overshoot_us <= 0) return;
+	/* Busy in stretches, as a runner is: every 40 frames the machine is
+	 * 0, a third, two thirds or all of N late, by a fixed sequence, and
+	 * all of it for the first 80, as a game's start is */
+	level = calls < 80 ? 3u : (unsigned)(((calls / 40u) * 2654435761u) >> 16) % 4u;
+	calls++;
+	rng ^= rng << 13; rng ^= rng >> 7; rng ^= rng << 17;
+	us = (long)(rng % (unsigned long long)(overshoot_us + 1)) * (long)level / 3;
+	d.tv_sec = us / 1000000L;
+	d.tv_nsec = (us % 1000000L) * 1000L;
+	nanosleep(&d, NULL);
+}
+
 static void frame_cost(void)
 {
 	struct timespec d;
 
 	for (int i = 0; i < cost_at_n; i++)
 		if ((long)frame >= cost_at_frame[i]) frame_cost_us = cost_at_us[i];
-	if (frame_cost_us <= 0) return;
+	if (frame_cost_us <= 0) { frame_late(); return; }
 	/* Slept, not spent: the frontend's pacing sees only the time a frame
 	 * takes, and a sleep takes it however busy the machine is (make check
 	 * runs many at once), where a busy wait took longer on a busy one */
@@ -448,11 +476,13 @@ static void frame_cost(void)
 			clock_gettime(CLOCK_MONOTONIC, &t);
 			us = (t.tv_sec - t0.tv_sec) * 1000000L + (t.tv_nsec - t0.tv_nsec) / 1000L;
 		} while (us < frame_cost_us);
+		frame_late();
 		return;
 	}
 	d.tv_sec = frame_cost_us / 1000000L;
 	d.tv_nsec = (frame_cost_us % 1000000L) * 1000L;
 	nanosleep(&d, NULL);
+	frame_late();
 }
 
 bool retro_load_game(const struct retro_game_info *game)
@@ -508,6 +538,8 @@ bool retro_load_game(const struct retro_game_info *game)
 		const char *e = getenv("STUBCORE_FRAME_US");
 		frame_cost_us = e && *e ? strtol(e, NULL, 10) : 0;
 		precise_cost = getenv("STUBCORE_PRECISE") != NULL;
+		e = getenv("STUBCORE_OVERSHOOT_US");
+		overshoot_us = e && *e ? strtol(e, NULL, 10) : 0;
 		e = getenv("STUBCORE_DUPE");
 		dupe_every = e && *e ? (unsigned)strtoul(e, NULL, 10) : 1;
 		if (dupe_every < 1) dupe_every = 1;

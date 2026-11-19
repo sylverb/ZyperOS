@@ -22,6 +22,7 @@
 #include <unistd.h>
 
 #include "cheevos.h"
+#include "corefail.h"
 #include "diatom.h"
 #include "sgb.h"
 
@@ -38,6 +39,24 @@ static bool bind_sym(void *h, void *slot, const char *name)
 
 #define BIND(field, name) \
 	if (!bind_sym(c->handle, &c->field, name)) return false
+
+/* Why the last core that would not load would not (corefail.h), for the
+ * launcher's ERROR line: the path it was asked by and the reason. Written
+ * with the registry's lock held, since a core is opened only under it, and
+ * read under it (diatom_core_failure). One is enough: a RUN asks about the
+ * core it just asked for, and a core that fails at the premap fails again,
+ * and is described again, when a RUN names it. */
+static corefail g_fail;
+static char     g_fail_path[1024];
+
+static void note_failure(const char *path, corefail_why why, const char *name, const char *version)
+{
+	memset(&g_fail, 0, sizeof g_fail);
+	g_fail.why = why;
+	if (name) snprintf(g_fail.name, sizeof g_fail.name, "%s", name);
+	if (version) snprintf(g_fail.version, sizeof g_fail.version, "%s", version);
+	snprintf(g_fail_path, sizeof g_fail_path, "%s", path ? path : "");
+}
 
 /* What a core costs to open, logged rather than remembered.
  *
@@ -125,23 +144,8 @@ static bool core_is_shipped(const char *path)
 	return (unsigned long long)st.st_size == size;
 }
 
-bool diatom_core_open(diatom_core *c, const char *path)
+static bool bind_core(diatom_core *c)
 {
-	double t0;
-
-	memset(c, 0, sizeof *c);
-	c->path = path;
-	c->shipped = core_is_shipped(path);
-
-	t0 = dbg_now_ms();
-	c->handle = dlopen(path, RTLD_NOW | RTLD_LOCAL);
-	fprintf(stderr, "diatom: dlopen %-28s %6.1f ms\n",
-	        dbg_base(path), dbg_now_ms() - t0);
-	if (!c->handle) {
-		fprintf(stderr, "diatom: dlopen %s: %s\n", path, dlerror());
-		return false;
-	}
-
 	BIND(set_environment,            "retro_set_environment");
 	BIND(set_video_refresh,          "retro_set_video_refresh");
 	BIND(set_audio_sample,           "retro_set_audio_sample");
@@ -162,6 +166,41 @@ bool diatom_core_open(diatom_core *c, const char *path)
 	BIND(unserialize,                "retro_unserialize");
 	BIND(get_memory_data,            "retro_get_memory_data");
 	BIND(get_memory_size,            "retro_get_memory_size");
+
+	return true;
+}
+
+bool diatom_core_open(diatom_core *c, const char *path)
+{
+	double t0;
+
+	memset(c, 0, sizeof *c);
+	c->path = path;
+	c->shipped = core_is_shipped(path);
+
+	t0 = dbg_now_ms();
+	c->handle = dlopen(path, RTLD_NOW | RTLD_LOCAL);
+	fprintf(stderr, "diatom: dlopen %-28s %6.1f ms\n",
+	        dbg_base(path), dbg_now_ms() - t0);
+	if (!c->handle) {
+		/* The whole text stays in the log; the launcher is sent what it
+		 * says in a few words (corefail.h) */
+		const char *err = dlerror();
+		corefail why;
+
+		fprintf(stderr, "diatom: dlopen %s: %s\n", path, err ? err : "(no reason given)");
+		corefail_classify(&why, path, err, corefail_machine());
+		note_failure(path, why.why, why.name, why.version);
+		fprintf(stderr, "diatom: core load failed: %s%s%s%s%s\n", corefail_word(why.why),
+		        why.name[0] ? " " : "", why.name, why.version[0] ? " " : "", why.version);
+		return false;
+	}
+
+	if (!bind_core(c)) {
+		/* It loads and is not a libretro core: no retro_run, or the like */
+		note_failure(path, COREFAIL_OTHER, NULL, NULL);
+		return false;
+	}
 
 	return true;
 }
@@ -238,6 +277,17 @@ static diatom_core *resident_locked(const char *path)
 	snprintf(g_resident_path[g_nresident], sizeof g_resident_path[0], "%s", path);
 	g_resident[g_nresident].path = g_resident_path[g_nresident];
 	return &g_resident[g_nresident++];
+}
+
+bool diatom_core_failure(const char *path, corefail *out)
+{
+	bool is;
+
+	pthread_mutex_lock(&g_resident_lock);
+	is = path && !strcmp(path, g_fail_path) && g_fail_path[0];
+	if (is) *out = g_fail;
+	pthread_mutex_unlock(&g_resident_lock);
+	return is;
 }
 
 diatom_core *diatom_core_resident(const char *path)
