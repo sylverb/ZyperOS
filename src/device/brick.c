@@ -174,7 +174,56 @@ void plat_video_under(SDL_Texture *tex, const SDL_Rect *dst, SDL_Color bg)
 
 /* No ports on the Brick, and no splash --still to hold a picture */
 bool plat_save_screen(const char *path) { (void)path; return false; }
+
+#ifdef __linux__
+/* Flash Drive's pictures for usbdrive (src/usbdrive_screen.c): the frame
+ * just drawn, never shown, read back and made 640x480, the size usbdrive's
+ * atlas is laid out in on every device, landscape (the Brick's panel is not
+ * turned), as raw XRGB8888. usbdrive's page on the Brick (plastron's
+ * package/usbdrive/src/panel_fb.c) scales it up to the panel again. Each
+ * picture is the average of the 1.6 x 1.6 frame pixels under it, two taps a
+ * way, so text keeps its weight. A few frames at Flash Drive's start: a
+ * read back here costs nothing a game would see. */
+#define SAVE_W 640
+#define SAVE_H 480
+bool plat_save_screen_hidden(const char *path)
+{
+	const int w = ZYPEROS_SCREEN_W, h = ZYPEROS_SCREEN_H;
+	uint32_t *in = malloc((size_t)w * h * 4), *out = malloc((size_t)SAVE_W * SAVE_H * 4);
+	bool ok = false;
+	FILE *f;
+	int x, y;
+
+	if (in && out && SDL_RenderReadPixels(ren, NULL, SDL_PIXELFORMAT_XRGB8888, in, w * 4) == 0) {
+		for (y = 0; y < SAVE_H; y++) {
+			/* The source rows the picture's row covers: its two edges */
+			int y0 = y * h / SAVE_H, y1 = ((y + 1) * h - 1) / SAVE_H;
+
+			for (x = 0; x < SAVE_W; x++) {
+				int x0 = x * w / SAVE_W, x1 = ((x + 1) * w - 1) / SAVE_W;
+				uint32_t a = in[(size_t)y0 * w + x0], b = in[(size_t)y0 * w + x1];
+				uint32_t c = in[(size_t)y1 * w + x0], d = in[(size_t)y1 * w + x1];
+				uint32_t v = 0;
+				int k;
+
+				for (k = 0; k < 24; k += 8)
+					v |= (((a >> k & 255) + (b >> k & 255) + (c >> k & 255) + (d >> k & 255) + 2) / 4) << k;
+				out[(size_t)y * SAVE_W + x] = v;
+			}
+		}
+		if ((f = fopen(path, "wb"))) {
+			ok = fwrite(out, 4, (size_t)SAVE_W * SAVE_H, f) == (size_t)SAVE_W * SAVE_H;
+			if (fclose(f) != 0) ok = false;
+		}
+	}
+	free(in);
+	free(out);
+	return ok;
+}
+#else
+/* The host has no usbdrive to leave pictures for */
 bool plat_save_screen_hidden(const char *path) { (void)path; return false; }
+#endif
 SDL_Texture *plat_load_screen(const char *path) { (void)path; return NULL; }
 
 bool plat_video_init(void)
