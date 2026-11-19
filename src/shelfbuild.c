@@ -9,6 +9,7 @@
 #include "gamedel.h"
 #include "homesys.h"
 #include "musec.h"
+#include "pico8.h"
 #include "pminstall.h"
 #include "savedlib.h"
 #include "shelfdir.h"
@@ -1293,6 +1294,7 @@ static struct {
 	uint64_t saved;           /* and of the saved file's, when it had one */
 	bool     in_file;
 	bool     pm;              /* the Ports shelf, listed with PortMaster's entry */
+	bool     splore;          /* the PICO-8 shelf, listed with Splore's entry */
 } g_shown[CFG_MAX_SYSTEMS];
 static int g_nshown;
 static int g_saved_extra;     /* the file's shelves for folders no system has */
@@ -1384,7 +1386,10 @@ int pm_shelf_offers(const app *a, int sys)
 
 	const game_list *gl = sys_games_c(v);
 
-	if (!g_pm_offer || a->view[sys].owner || !is_ports(&a->sys.systems[sys])) return 0;
+	if (a->view[sys].owner) return 0;
+	/* Splore's entry is the PICO-8 shelf's own, never a game */
+	if (!strcmp(a->sys.systems[sys].tag, P8_TAG)) return splore_listing_has(gl) ? 1 : 0;
+	if (!g_pm_offer || !is_ports(&a->sys.systems[sys])) return 0;
 	for (int i = 0; i < gl->count; i++)
 		if (!strcasecmp(gl->items[i].file, PM_SCRIPT)) return 1;
 	return 0;
@@ -1393,6 +1398,53 @@ int pm_shelf_offers(const app *a, int sys)
 bool pm_only_offer(const app *a, int sys)
 {
 	return a->view[sys].list.count == 1 && pm_shelf_offers(a, sys) == 1;
+}
+
+/* ---------- Splore's entry on the PICO-8 shelf (src/pico8.h) --------------
+ *
+ * Wherever the card's ZyperOS has the script that runs your PICO-8 (the
+ * Pixel 2's, whose launch.sh runs a shelf's script), the PICO-8 shelf lists
+ * Splore first, PICO-8 on the card or not (Tarik's pick, 2026-11-19): A
+ * opens Splore once your PICO-8 is there, and until then a page that says
+ * how to add it. */
+
+static bool splore_here(void)
+{
+	char p[LIB_PATH];
+
+	snprintf(p, sizeof p, "%s/%s", P_ROOT, P8_SCRIPT);
+	return access(p, R_OK) == 0;
+}
+
+bool p8_on_card(const system_cfg *s)
+{
+	return core_ready(s, P8_CORE);
+}
+
+bool splore_is_entry(const app *a, int sys, const game_entry *g)
+{
+	return g && sys >= 0 && sys < a->sys.count && !strcmp(a->sys.systems[sys].tag, P8_TAG) &&
+	       splore_file(g->file);
+}
+
+bool splore_is_offer(const app *a, int sys, const game_entry *g)
+{
+	return splore_is_entry(a, sys, g) && !p8_on_card(&a->sys.systems[sys]);
+}
+
+bool splore_cover_path(const app *a, int sys, const game_entry *g, int theme_ix,
+                       char *out, size_t n)
+{
+	if (!splore_is_entry(a, sys, g)) return false;
+	snprintf(out, n, "%s/%s", P_ROOT, theme_ix == DS_DARK ? P8_COVER_DARK : P8_COVER_LIGHT);
+	return access(out, R_OK) == 0;
+}
+
+bool own_cover_path(const app *a, int sys, const game_entry *g, int theme_ix,
+                    char *out, size_t n)
+{
+	return pm_cover_path(a, sys, g, theme_ix, out, n) ||
+	       splore_cover_path(a, sys, g, theme_ix, out, n);
 }
 
 /* ---------- EmulationStation's folders (config/systems.cfg, es lines) ----
@@ -1555,6 +1607,7 @@ int scan_all_from(app *a, saved_lib *saved, bool save)
 {
 	int from_saved = 0;
 	bool pm_installer = pm_installer_here();
+	bool splore = splore_here();
 	roms_dirs dirs = { 0 };
 
 	SDL_AtomicIncRef(&g_lib_gen);
@@ -1566,6 +1619,7 @@ int scan_all_from(app *a, saved_lib *saved, bool save)
 		uint64_t digest;
 
 		bool pm = is_ports(sc) && pm_installer;
+		bool sp = splore && !strcmp(sc->tag, P8_TAG);
 
 		/* The saved library under one of its EmulationStation names: the
 		 * folder the last read of the card chose */
@@ -1583,6 +1637,7 @@ int scan_all_from(app *a, saved_lib *saved, bool save)
 			lib_scan_listing(P_ROMS, sc->folder, sc->exts, &v->list);
 		}
 		if (pm) pm_listing_add(&v->list);
+		if (sp) splore_listing_add(&v->list);
 		digest = lib_listing_digest(&v->list);
 		if (g_nshown < CFG_MAX_SYSTEMS) {
 			snprintf(g_shown[g_nshown].folder, sizeof g_shown[0].folder, "%s", sc->folder);
@@ -1593,6 +1648,7 @@ int scan_all_from(app *a, saved_lib *saved, bool save)
 			g_shown[g_nshown].saved = kept ? digest : 0;
 			g_shown[g_nshown].in_file = kept;
 			g_shown[g_nshown].pm = pm;
+			g_shown[g_nshown].splore = sp;
 			g_nshown++;
 		}
 		from_saved += kept;
@@ -1700,7 +1756,7 @@ struct lib_check {
 	saved_shelf fresh[CFG_MAX_SYSTEMS];
 	uint64_t    shown[CFG_MAX_SYSTEMS], saved[CFG_MAX_SYSTEMS];
 	bool        in_file[CFG_MAX_SYSTEMS];
-	bool        pm[CFG_MAX_SYSTEMS];
+	bool        pm[CFG_MAX_SYSTEMS], splore[CFG_MAX_SYSTEMS];
 	/* Each shelf's folder systems.cfg names and its EmulationStation names,
 	 * and whether the check chose another folder than the one shown */
 	char        home[CFG_MAX_SYSTEMS][LIB_NAME], es[CFG_MAX_SYSTEMS][160];
@@ -1731,6 +1787,7 @@ lib_check *lib_check_begin(void)
 		c->saved[k] = g_shown[k].saved;
 		c->in_file[k] = g_shown[k].in_file;
 		c->pm[k] = g_shown[k].pm;
+		c->splore[k] = g_shown[k].splore;
 		memcpy(c->home[k], g_shown[k].home, sizeof c->home[k]);
 		memcpy(c->es[k], g_shown[k].es, sizeof c->es[k]);
 	}
@@ -1763,6 +1820,7 @@ void lib_check_run(lib_check *c)
 			lib_scan_listing(P_ROMS, c->fresh[k].folder, c->fresh[k].exts, &c->fresh[k].list);
 		}
 		if (c->pm[k]) pm_listing_add(&c->fresh[k].list);
+		if (c->splore[k]) splore_listing_add(&c->fresh[k].list);
 		d = lib_listing_digest(&c->fresh[k].list);
 		if (!c->in_file[k] || d != c->saved[k]) c->rewrite = true;
 		if (d != c->shown[k] || c->moved[k]) {
@@ -1889,6 +1947,7 @@ static void rebuild(app *a, saved_lib *pre, bool keep_place)
 	 * listings are the file already (lib_check_run) */
 	scan_all_from(a, pre, !pre);
 	display_load(a);     /* indexes by tag, so it is safe to run again */
+	p8_take_now();       /* a PICO-8 zip copied since: Rescan takes it */
 	core_load(a);
 	sort_load(a);
 	view_load(a);

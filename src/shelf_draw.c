@@ -1243,6 +1243,8 @@ static void draw_games(app *a)
 				.has_achievements = g_game_page.valid && g_game_page.achievements,
 				.resumable = g_game_page.valid && g_game_page.resume,
 				.install = pm_is_offer(a, owner, g),
+				.howto = splore_is_offer(a, owner, g),
+				.opens = splore_is_entry(a, owner, g) && !splore_is_offer(a, owner, g),
 				.inside = v->dir[0] != '\0',
 				.earned = g_game_page.earned, .total = g_game_page.total,
 				.snap = si.snap, .snap_w = si.snap_w, .snap_h = si.snap_h,
@@ -1276,6 +1278,8 @@ static void draw_games(app *a)
 			.has_achievements = g_game_page.valid && g_game_page.achievements,
 			.resumable = g_game_page.valid && g_game_page.resume,
 			.install = pm_is_offer(a, owner, g),
+				.howto = splore_is_offer(a, owner, g),
+				.opens = splore_is_entry(a, owner, g) && !splore_is_offer(a, owner, g),
 			.inside = v->dir[0] != '\0',
 			.earned = g_game_page.earned, .total = g_game_page.total,
 			.snap = si.snap, .snap_w = si.snap_w, .snap_h = si.snap_h,
@@ -1302,6 +1306,8 @@ static void draw_games(app *a)
 		.resumable = g_game_page.valid && g_game_page.resume,
 		/* PortMaster's entry while it is not on the card: A installs it */
 		.install = pm_is_offer(a, owner, g),
+				.howto = splore_is_offer(a, owner, g),
+				.opens = splore_is_entry(a, owner, g) && !splore_is_offer(a, owner, g),
 		.origin = g && owner != a->sys_cursor ? a->sys.systems[owner].name : NULL,
 		.snap_of = game_has_snap,
 		/* The heart before the name, not on Favorites (2026-11-09), and on

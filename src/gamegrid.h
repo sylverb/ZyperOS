@@ -25,6 +25,7 @@
 #include "coverflow.h"
 
 #include <SDL.h>
+#include "ds/focus.h"
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -77,6 +78,7 @@ typedef struct {
 	float    top_from, top_to;     /* the first row in sight, in rows */
 	float    fx_from, fy_from;     /* the ring's cell when its glide began */
 	uint32_t moved, ring_moved;
+	ds_focus_weights fw;           /* each cover's weight in the focus's glide */
 	/* The shelf's shape: the one kept for it, or measured from its covers
 	 * as they arrive, until it settles (GG_SETTLE_MS after it opened, or
 	 * once every cover in sight is in); `measured` is what the covers in
@@ -124,6 +126,7 @@ typedef struct {
 	/* The focused entry's facts, as the cover row has them */
 	const char *played, *origin;
 	bool has_achievements, resumable, install, inside;
+	bool howto, opens;     /* Splore's entry (src/games.h) */
 	int earned, total;
 	/* START's word at the foot: what the shelf turns into next */
 	const char *start_word;

@@ -17,7 +17,7 @@
 	<span class="ver" id="ver" data-tauri-drag-region></span>
 </header>
 
-<!-- The choices: device, which ZyperOS, which card, what to do -->
+<!-- The choices: device, which ZyperOS, which card, the player's PICO-8, what to do -->
 <main class="screen" id="main">
 	<section class="group">
 		<h2>Device</h2>
@@ -55,10 +55,27 @@
 	</section>
 
 	<section class="group">
+		<h2>PICO-8</h2>
+		<!-- Optional: the PICO-8 for Raspberry Pi zip the player bought, read on
+		     this computer and copied to this card only, never downloaded or
+		     kept (app.js, renderPico8()) -->
+		<div class="list pico8">
+			<button class="row" id="pico8-row">
+				<span class="mark-glyph" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 3.5h12v17H6z M8.5 6.5h7v6h-7z M8.5 16h3"/></svg></span>
+				<span class="text"><b id="pico8-title">Your PICO-8</b><span id="pico8-what">Optional. The PICO-8 for Raspberry Pi zip you bought. You can drop it here.</span></span>
+				<span class="value" id="pico8-value">Choose</span>
+			</button>
+			<button class="x" id="pico8-clear" title="Remove" aria-label="Remove the PICO-8 zip" hidden>&times;</button>
+		</div>
+	</section>
+
+	<section class="group">
 		<h2>What to do</h2>
 		<div class="seg" data-group="action" role="radiogroup" aria-label="What to do">
 			<button class="opt" data-value="update" role="radio"><b>Update</b><span id="update-what">Keeps the games, music and saves.</span></button>
 			<button class="opt" data-value="fresh" role="radio"><b>Fresh install</b><span>Erases the whole card.</span></button>
+			<!-- A started card only: PICO-8 into its ZYPEROS volume, no system -->
+			<button class="opt" data-value="pico8" role="radio" hidden><b>Add PICO-8</b><span id="pico8-add-what">Choose your zip above first.</span></button>
 		</div>
 	</section>
 </main>
@@ -74,6 +91,7 @@
 	<p class="sub" id="working-card"></p>
 	<ol class="steps" id="steps">
 		<li data-step="get"><i></i><span id="step-get">Download</span></li>
+		<li data-step="pico8" hidden><i></i><span>PICO-8</span></li>
 		<li data-step="write"><i></i><span>Write</span></li>
 		<li data-step="check"><i></i><span>Read back</span></li>
 		<li data-step="eject"><i></i><span>Eject</span></li>
@@ -110,7 +128,7 @@
 	</div>
 </div>
 
-<div class="drop" id="drop" hidden><span>Drop the card image to use it</span></div>
+<div class="drop" id="drop" hidden><span id="drop-what">Drop the card image to use it</span></div>
 
 <script src="app.js"></script>
 </body>

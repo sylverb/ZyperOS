@@ -297,6 +297,11 @@ pub enum Progress {
     /// The Brick's closed files coming from their publisher, by count,
     /// before anything is written (closed.rs)
     Fetching { done: u64, total: u64 },
+    /// The player's PICO-8 going on the card (pico8.rs), by count of its two
+    /// files: into Bios/PICO-8, or into the image's boot partition
+    Pico8 { done: u64, total: u64 },
+    /// ...and read back from Bios/PICO-8
+    Pico8Check { done: u64, total: u64 },
 }
 
 /// The image, from its first byte, as many times as asked.
