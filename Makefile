@@ -1718,12 +1718,12 @@ check-artscrape: build-native/artscrape-check
 	@ART_SCORING=1 ./build-native/artscrape-check
 	@python3 tools/artscrape-check.py
 
-build-native/artscrape-check: tools/artscrape-check.c src/artscrape.c src/artscrape.h src/urlenc.c src/library.c src/db.c $(I18N_SRC) src/artsrc.c FORCE
+build-native/artscrape-check: tools/artscrape-check.c src/artscrape.c src/artscrape.h src/urlenc.c src/library.c src/sheet.c src/db.c $(I18N_SRC) src/artsrc.c FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Isrc \
 	      -DZYPEROS_VERSION='"check"' \
 	      -DINDEX_TMP='"$(CURDIR)/build-native/artscrape-check-artindex"' -DDAT_TMP='"$(CURDIR)/build-native/artscrape-check-artdat"' \
-	      -o $@ tools/artscrape-check.c src/artscrape.c src/artsrc.c src/net.c src/urlenc.c src/library.c src/db.c $(I18N_SRC) -lsqlite3
+	      -o $@ tools/artscrape-check.c src/artscrape.c src/artsrc.c src/net.c src/urlenc.c src/library.c src/sheet.c src/db.c $(I18N_SRC) -lsqlite3
 
 # Replace fetches over a cover rather than deleting it first. The real scraper
 # against a stubbed network, so a hit and a miss are both pinned with no device
@@ -1731,11 +1731,11 @@ build-native/artscrape-check: tools/artscrape-check.c src/artscrape.c src/artscr
 check-artrun: build-native/artrun-check
 	@./build-native/artrun-check
 
-build-native/artrun-check: tools/artrun-check.c src/artscrape.c src/artscrape.h src/urlenc.c src/library.c src/db.c $(I18N_SRC) src/artsrc.c FORCE
+build-native/artrun-check: tools/artrun-check.c src/artscrape.c src/artscrape.h src/urlenc.c src/library.c src/sheet.c src/db.c $(I18N_SRC) src/artsrc.c FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Isrc -DSS_BUSY_WAIT=0 -DSGDB_BUSY_WAIT=0 -DART_QUIET \
 	      -DINDEX_TMP='"$(CURDIR)/build-native/artrun-check-artindex"' -DDAT_TMP='"$(CURDIR)/build-native/artrun-check-artdat"' \
-	      -o $@ tools/artrun-check.c src/artscrape.c src/artsrc.c src/urlenc.c src/library.c src/db.c $(I18N_SRC) -lsqlite3
+	      -o $@ tools/artrun-check.c src/artscrape.c src/artsrc.c src/urlenc.c src/library.c src/sheet.c src/db.c $(I18N_SRC) -lsqlite3
 
 # SteamGridDB on the device (src/sgdb.h): the real client and a whole run
 # against a fake API - the key in a header and never a URL, the match, the
@@ -1745,14 +1745,14 @@ check-sgdb: build-native/sgdb-check
 	@./build-native/sgdb-check
 	@python3 tools/sgdb-check.py
 
-build-native/sgdb-check: tools/sgdb-check.c src/sgdb.c src/sgdb.h src/sgdbrun.c src/sgdbrun.h src/artscrape.c src/artscrape.h src/rajson.c src/urlenc.c src/library.c src/db.c $(I18N_SRC) src/artsrc.c FORCE
+build-native/sgdb-check: tools/sgdb-check.c src/sgdb.c src/sgdb.h src/sgdbrun.c src/sgdbrun.h src/artscrape.c src/artscrape.h src/rajson.c src/urlenc.c src/library.c src/sheet.c src/db.c $(I18N_SRC) src/artsrc.c FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Isrc \
 	      -DSGDB_GAP_MS=0 -DSGDB_BUSY_WAIT=0 -DART_QUIET -DSGDB_QUIET \
 	      -DSGDB_TMP='"build-native/sgdb-reply.json"' \
 	      -DINDEX_TMP='"$(CURDIR)/build-native/sgdb-check-artindex"' -DDAT_TMP='"$(CURDIR)/build-native/sgdb-check-artdat"' \
 	      -o $@ tools/sgdb-check.c src/sgdb.c src/sgdbrun.c src/artscrape.c src/artsrc.c src/rajson.c \
-	      src/urlenc.c src/library.c src/db.c $(I18N_SRC) -lsqlite3 -lpthread
+	      src/urlenc.c src/library.c src/sheet.c src/db.c $(I18N_SRC) -lsqlite3 -lpthread
 
 # Which systems get videos and for which games (src/snaps.h): off to start,
 # 1.0.4's setting kept, a system's own switch, Videos for.
@@ -1911,13 +1911,13 @@ build-native/dlq-check: tools/dlq-check.c src/dlq.c src/dlq.h src/net.c src/net.
 	      -DDLQ_FLOOR='(1ULL << 62)' -DDLQ_ROOM_MS=1 \
 	      -o $@ tools/dlq-check.c
 
-build-native/radl-check: tools/radl-check.c src/radl.c src/radl.h src/net.c src/net.h src/rafetch.c src/rajson.c src/cheevos.c src/library.c $(RAHASH_SRC) src/atomic.c src/db.c $(I18N_SRC) FORCE
+build-native/radl-check: tools/radl-check.c src/radl.c src/radl.h src/net.c src/net.h src/rafetch.c src/rajson.c src/cheevos.c src/library.c src/sheet.c $(RAHASH_SRC) src/atomic.c src/db.c $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -DZYPEROS_VERSION='"check"' \
 	      -DNET_TMP='"$(CURDIR)/build-native/radl-check-tmp"' \
 	      -DRADL_TMP='"$(CURDIR)/build-native"' \
 	      $(LZMA_CFLAGS) -o $@ tools/radl-check.c src/radl.c src/rafetch.c src/rajson.c src/cheevos.c \
-	      src/library.c $(RAHASH_SRC) src/atomic.c src/db.c $(I18N_SRC) -lsqlite3 -lz $(LZMA_LIBS) -lpthread
+	      src/library.c src/sheet.c $(RAHASH_SRC) src/atomic.c src/db.c $(I18N_SRC) -lsqlite3 -lz $(LZMA_LIBS) -lpthread
 
 # The two set converters - one C on the device, one Python in the bulk tool -
 # over real RetroAchievements responses. Needs credentials and a network;
@@ -1936,12 +1936,12 @@ build-native/raset-check: tools/raset-check.c src/rafetch.c src/rajson.c $(RAHAS
 check-ss: build-native/ss-check
 	@./build-native/ss-check
 
-build-native/ss-check: tools/ss-check.c src/ss.c src/ss.h src/ssfetch.c src/ssfetch.h src/db.c src/net.c src/urlenc.c src/rajson.c src/library.c $(I18N_SRC) FORCE
+build-native/ss-check: tools/ss-check.c src/ss.c src/ss.h src/ssfetch.c src/ssfetch.h src/db.c src/net.c src/urlenc.c src/rajson.c src/library.c src/sheet.c $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	@$(MAKE) -f mk/native.mk VERSION=$(VERSION) creds
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Ibuild-native \
 	      -DZYPEROS_VERSION='"check"' \
-	      -o $@ tools/ss-check.c src/ss.c src/ssfetch.c src/db.c src/net.c src/urlenc.c src/rajson.c src/library.c $(I18N_SRC) -lsqlite3 -lpthread
+	      -o $@ tools/ss-check.c src/ss.c src/ssfetch.c src/db.c src/net.c src/urlenc.c src/rajson.c src/library.c src/sheet.c $(I18N_SRC) -lsqlite3 -lpthread
 
 # Scraped display names: SQLite upgrade, real parser/runner, library fallback,
 # and the actual main.c refresh hooks with headless view stubs.
@@ -1950,24 +1950,24 @@ check-titles: build-native/title-check build-native/title-refresh-check build-na
 	@./build-native/title-refresh-check
 	@./build-native/title-bulk-check
 
-build-native/title-check: tools/title-check.c src/db.c src/library.c src/ssfetch.c src/ssrun.c src/rajson.c src/urlenc.c $(I18N_SRC) src/artsrc.c FORCE
+build-native/title-check: tools/title-check.c src/db.c src/library.c src/sheet.c src/ssfetch.c src/ssrun.c src/rajson.c src/urlenc.c $(I18N_SRC) src/artsrc.c FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Isrc \
 	      -DSS_TMP='"build-native/title-reply.json"' \
-	      -o $@ tools/title-check.c src/db.c src/library.c src/ssfetch.c src/ssrun.c src/artsrc.c src/rajson.c src/urlenc.c $(I18N_SRC) -lsqlite3
+	      -o $@ tools/title-check.c src/db.c src/library.c src/sheet.c src/ssfetch.c src/ssrun.c src/artsrc.c src/rajson.c src/urlenc.c $(I18N_SRC) -lsqlite3
 
-build-native/title-bulk-check: tools/title-bulk-check.c src/artscrape.c src/db.c src/library.c src/ssfetch.c src/ssrun.c src/rajson.c src/urlenc.c $(I18N_SRC) src/artsrc.c FORCE
+build-native/title-bulk-check: tools/title-bulk-check.c src/artscrape.c src/db.c src/library.c src/sheet.c src/ssfetch.c src/ssrun.c src/rajson.c src/urlenc.c $(I18N_SRC) src/artsrc.c FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Isrc -DSS_BUSY_WAIT=0 -DSGDB_BUSY_WAIT=0 -DART_QUIET \
 	      -DSS_TMP='"build-native/title-bulk-reply.json"' \
 	      -DINDEX_TMP='"$(CURDIR)/build-native/title-bulk-check-artindex"' -DDAT_TMP='"$(CURDIR)/build-native/title-bulk-check-artdat"' \
-	      -o $@ tools/title-bulk-check.c src/artscrape.c src/artsrc.c src/db.c src/library.c src/ssfetch.c src/ssrun.c src/rajson.c src/urlenc.c $(I18N_SRC) -lsqlite3
+	      -o $@ tools/title-bulk-check.c src/artscrape.c src/artsrc.c src/db.c src/library.c src/sheet.c src/ssfetch.c src/ssrun.c src/rajson.c src/urlenc.c $(I18N_SRC) -lsqlite3
 
-build-native/title-refresh-check: tools/title-refresh-check.c tools/title-refresh-hooks.py src/main.c src/scraper_screen.c src/library.c src/db.c src/stats.c $(I18N_SRC) FORCE
+build-native/title-refresh-check: tools/title-refresh-check.c tools/title-refresh-hooks.py src/main.c src/scraper_screen.c src/library.c src/sheet.c src/db.c src/stats.c $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	python3 tools/title-refresh-hooks.py src/main.c src/scraper_screen.c build-native/title-refresh-hooks.h
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Ibuild-native \
-	      -o $@ tools/title-refresh-check.c src/library.c src/db.c src/stats.c $(I18N_SRC) -lsqlite3
+	      -o $@ tools/title-refresh-check.c src/library.c src/sheet.c src/db.c src/stats.c $(I18N_SRC) -lsqlite3
 
 # Host build of the launcher, for working on how the shelf looks.
 native:
@@ -2070,11 +2070,11 @@ check-savedlib: build-native/savedlib-check
 	fi
 	@sh tools/savedlib-e2e.sh
 
-build-native/savedlib-check: tools/savedlib-check.c src/savedlib.c src/savedlib.h src/library.c src/library.h \
+build-native/savedlib-check: tools/savedlib-check.c src/savedlib.c src/savedlib.h src/library.c src/sheet.c src/library.h \
                              src/db.c src/db.h src/atomic.c FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
-	      -o $@ tools/savedlib-check.c src/savedlib.c src/library.c src/db.c src/atomic.c -lsqlite3 -lpthread
+	      -o $@ tools/savedlib-check.c src/savedlib.c src/library.c src/sheet.c src/db.c src/atomic.c -lsqlite3 -lpthread
 
 build-native/db-check: tools/db-check.c src/db.c src/db.h src/atomic.c src/strength.c src/strength.h FORCE
 	@mkdir -p build-native
@@ -2114,11 +2114,11 @@ build-native/gamern-check: tools/gamern-check.c src/gamern.c src/gamern.h src/ga
 check-esmedia: build-native/esmedia-check
 	@./build-native/esmedia-check
 
-build-native/esmedia-check: tools/esmedia-check.c src/esmedia.c src/esmedia.h src/library.c src/library.h \
+build-native/esmedia-check: tools/esmedia-check.c src/esmedia.c src/esmedia.h src/library.c src/sheet.c src/library.h \
                             src/db.c src/db.h FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Isrc \
-	      -o $@ tools/esmedia-check.c src/esmedia.c src/library.c src/db.c -lsqlite3 -lpthread
+	      -o $@ tools/esmedia-check.c src/esmedia.c src/library.c src/sheet.c src/db.c -lsqlite3 -lpthread
 	@if pkg-config --exists sdl2 SDL2_image SDL2_ttf 2>/dev/null; then \
 		$(MAKE) --no-print-directory native || exit 1; \
 	fi
@@ -2590,11 +2590,11 @@ build-native/randgame-check: tools/randgame-check.c src/randgame.c src/randgame.
 check-shelfdir: build-native/shelfdir-check
 	@./build-native/shelfdir-check
 
-build-native/shelfdir-check: tools/shelfdir-check.c src/shelfdir.c src/shelfdir.h src/library.c \
+build-native/shelfdir-check: tools/shelfdir-check.c src/shelfdir.c src/shelfdir.h src/library.c src/sheet.c \
                              src/library.h src/db.c src/atomic.c FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
-	      -o $@ tools/shelfdir-check.c src/shelfdir.c src/library.c src/db.c src/atomic.c \
+	      -o $@ tools/shelfdir-check.c src/shelfdir.c src/library.c src/sheet.c src/db.c src/atomic.c \
 	      -lsqlite3 -lpthread
 .PHONY: check-home
 check-home:

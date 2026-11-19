@@ -4059,6 +4059,25 @@ EmulationStation keeps a system's art in (images, videos, media, boxart,
 snaps, wheel, box3d and the rest, lib_es_media_dir) and MinUI's Imgs are
 never folders of games, and are not counted as left out.
 
+**A game with a loose `.m3u`** is one entry too, the `.m3u` *(metior and
+Davistoa on the Discord, 2026-11-19; my OK)*: the disc images it names are
+not entries, so they are off the shelf, the Grid, the list, Search Games and
+Random Game, and the `.m3u` starts the game with its discs to swap. Its names
+are read as Delete Game and File Transfer read them (src/sheet.c): relative
+to the `.m3u`'s folder, into the folders under it (a set folder whose launch
+disc it names goes whole; a folder of games keeps the games it does not
+name; discs kept in a hidden folder were never entries), `#` lines and CRLF
+ends skipped, matched without case. A disc no `.m3u` names stays, a name
+that is not on the card or that leaves the system's folder hides nothing,
+two `.m3u` may name one disc, and every `.m3u` stays. Disc images only
+(src/library.c's SET_EXTS): Doom's `.m3u` names WADs, and each is a game too.
+In the scan, once per read of the card (hide_m3u_discs, after the walk), so
+the saved library and the check have it, and a shelf with no `.m3u` pays
+nothing but a look at each entry's extension: on the Mac, 1,000 loose
+three-disc sets (4,000 files) read in 36-39 ms against 3.4 ms, and 4,000
+games with no `.m3u` in the same time as before. `check-titles` holds the
+cases.
+
 Everything about a system's games rather than what its shelf shows goes by
 all of them, in every folder: the home's count, Favorites, Search Games,
 Random Game (which opens the folder of the game it picked), Storage,
