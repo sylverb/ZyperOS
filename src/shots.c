@@ -12,6 +12,7 @@
 #include "ctltab_screen.h"
 #include "db.h"
 #include "devmode_screen.h"
+#include "dl_screen.h"
 #include "ds/page.h"
 #include "emptyhome.h"
 #include "gamedel_screen.h"
@@ -911,10 +912,12 @@ static int controls_fit_ports(app *a, const char *dev, int *pages)
 		np = ctl_game_pages(&g);
 		for (p = 0; p < np; p++) {
 			menu_row rows[CTL_MAX_ROWS];
+			char keys[CTL_MAX_ROWS][CTL_KEYS_MAX];
 			ctl_buf b;
 			int n = ctl_game_rows(&g, p, rows, &b);
 
 			if (ctl_game_prose(&g, p)) continue;
+			ctl_glyph_rows(rows, n, keys);
 			snprintf(where, sizeof where, "%s, the port %s page %d", dev, doc.title, p);
 			snprintf(count, sizeof count, "%d / %d", p + 1, np);
 			bad += controls_fit_one(a, where, b.head, np > 1 ? count : NULL, rows, n);
@@ -947,7 +950,11 @@ static void controls_fit_report(app *a)
 		if (seen) continue;
 		ctl_set_chords(&pd->chords);
 		for (p = 0; home && p < CTL_PAGES; p++) {
+			char keys[CTL_MAX_ROWS][CTL_KEYS_MAX];
 			int n = ctl_rows((ctl_page)p, rows);
+
+			/* measured as drawn, the buttons as glyphs */
+			ctl_glyph_rows(rows, n, keys);
 
 			snprintf(head, sizeof head, "Controls: %s", ctl_page_name((ctl_page)p));
 			snprintf(count, sizeof count, "%d / %d", p + 1, CTL_PAGES);
@@ -972,8 +979,11 @@ static void controls_fit_report(app *a)
 				g.stick = st;
 				np = ctl_game_known(s->tag) ? ctl_game_pages(&g) : 0;
 				for (p = 0; p < np; p++) {
+					char keys[CTL_MAX_ROWS][CTL_KEYS_MAX];
 					ctl_buf b;
 					int n = ctl_game_rows(&g, p, rows, &b);
+
+					if (!ctl_game_prose(&g, p)) ctl_glyph_rows(rows, n, keys);
 
 					snprintf(where, sizeof where, "%s, %s%s%s page %d",
 					         pd->name, s->tag, e ? " (fds)" : "",
@@ -1502,6 +1512,7 @@ static void shot_compose_once(app *a)
 		sysmenu_rows_report(a);
 		gm_rows_report(a);
 		snaps_rows_report(a);
+		downloads_rows_report(a);
 		bgm_rows_report(a);
 		hud_rows_report(a);
 		shot_rows_report = 0;   /* once: --flip composes the shot twice */
@@ -1565,8 +1576,11 @@ static void shot_compose_once(app *a)
 		float k = 1.0f;
 		int n;
 
+		char keys[CTL_MAX_ROWS][CTL_KEYS_MAX];
+
 		ctl_set_chords(&plat_profile()->chords);
 		n = ctl_rows(p, rows);
+		ctl_glyph_rows(rows, n, keys);
 
 		snprintf(head, sizeof head, T(S_CONTROLS_HEADING), ctl_page_name(p));
 		snprintf(count, sizeof count, "%d / %d", (int)p + 1, CTL_PAGES);
@@ -1623,6 +1637,11 @@ static void shot_compose_once(app *a)
 	}
 	if (shot_scraper_page >= 0) {
 		scraper_page_shot(a);
+		return;
+	}
+	/* MENU > Downloads (--downloads STATE) */
+	if (shot_downloads >= 0) {
+		downloads_shot(a);
 		return;
 	}
 	/* MENU > Achievements' page (--radl-page STATE) */
