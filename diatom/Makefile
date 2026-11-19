@@ -98,8 +98,10 @@ ifeq ($(PORT),brick)
   # controls, which need no library.
   PKG_CONFIG ?= pkg-config
   # The level bar, ZyperOS's own drawing of it (port/osdbar.c), and the theme
-  # file the launcher writes for it to read (port/themefile.c), as on the Pixel 2
-  SRC += port/osdbar.c port/themefile.c
+  # file the launcher writes for it to read (port/themefile.c), as on the Pixel 2;
+  # the Screen Colors' table math, which port/panelgamma_sunxi.h puts on the
+  # display (port/panelgamma.c)
+  SRC += port/osdbar.c port/themefile.c port/panelgamma.c
   CFLAGS  += $(shell $(PKG_CONFIG) --cflags sdl2)
   LDFLAGS += $(shell $(PKG_CONFIG) --libs sdl2) -lm -ldl -lpthread
 endif
