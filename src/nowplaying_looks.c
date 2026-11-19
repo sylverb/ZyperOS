@@ -40,8 +40,10 @@
 #include "ui.h"
 #include "vinyl.h"
 
+#include <SDL_image.h>
 #include <limits.h>
 #include <math.h>
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -81,6 +83,14 @@ mp4l_id np_look_for(void)
 
 /* ---- the motion --------------------------------------------------------------- */
 
+/* The bench's own clock (npl_bench), 0 for the real one */
+static unsigned g_clock;
+
+static unsigned clock_ms(void)
+{
+	return g_clock ? g_clock : plat_now_ms();
+}
+
 /* Levels older than this are not the sound any more: the daemon sends 30 a
  * second while it plays, and a gap this long is a pause or a stall */
 #define BANDS_STALE 150
@@ -114,7 +124,7 @@ static void show_bands(uint8_t *lv, unsigned t)
 /* One frame's step: `bands` the sound's levels, the show's, or NULL to fall */
 static void motion_step(mp4l_id look, const uint8_t *bands)
 {
-	unsigned now = plat_now_ms();
+	unsigned now = clock_ms();
 	float dt = M.at ? (float)(now - M.at) : 0.0f;
 
 	if ((int)look != M.look) {
@@ -715,7 +725,7 @@ static unsigned cassette(SDL_Renderer *r, const npl_frame *F, const mu_now *mn, 
 {
 	static ds_flex L;
 	const ds_theme *th = theme();
-	unsigned wait = (unsigned)-1, now = plat_now_ms();
+	unsigned wait = (unsigned)-1, now = clock_ms();
 	int root, cas, area, x, y, k;
 	SDL_Rect cr, ar, win;
 	unsigned stripe = g_np.rgb != CFG_NO_COLOR ? g_np.rgb : ui_rgb(th->accent);
@@ -911,7 +921,7 @@ static unsigned look_draw(app *a, mp4l_id look, const mu_now *mn, const uint8_t 
 	g_frame_no++;
 	{
 		/* What turns, before the bars' step moves M.at on */
-		unsigned now = plat_now_ms();
+		unsigned now = clock_ms();
 		float dt = M.at ? (float)(now - M.at) : 0.0f;
 		bool gap = !M.at || dt > 250.0f || M.still || (int)look != M.look;
 
@@ -944,29 +954,66 @@ unsigned npl_draw(app *a, mp4l_id look, const mu_now *mn)
 
 /* ---- the bench ---------------------------------------------------------------------- */
 
-void npl_bench(app *a, const mu_now *mn, int frames)
+/* The scene it plays, by its own clock at 60 frames a second: the song
+ * playing on, the next one at 2 s (the cassette rewinds, the needle glides,
+ * the label's words change), a pause at 3.5 s (what turns spins down, the
+ * bars fall), playing again at 5 s. With ZYPEROS_NP_FRAMES naming a folder,
+ * every second frame is written there as frame-NNNN.png, 30 a second, for
+ * a film of the motion. */
+void npl_bench(app *a, const mu_now *mn0, int frames)
 {
 	mp4l_id look = np_look_for();
+	const char *dir = getenv("ZYPEROS_NP_FRAMES");
 	static double ms[4096];
 	double sum = 0, worst = 0;
 	Uint64 f = SDL_GetPerformanceFrequency();
 	uint8_t lv[MP4L_BANDS];
 	int i, n = frames > 4096 ? 4096 : frames, k;
+	bool changed = false;
+	mu_now mn = *mn0;
 
 	if (look == MP4L_COVER || n <= 0) return;
 	M.shot = false;
+	M.at = 0;
 	for (i = 0; i < n; i++) {
-		Uint64 t0 = SDL_GetPerformanceCounter();
+		unsigned t = (unsigned)i * 1000 / 60;
+		Uint64 t0;
 
-		/* 60 frames a second of a song's bars, by the show's clock */
-		show_bands(lv, (unsigned)(i * 1000 / 60));
-		M.at = plat_now_ms() - 17;
-		look_draw(a, look, mn, lv);
+		g_clock = 100000 + t;
+		if (t >= 2000 && !changed) {
+			/* The next song, from its start */
+			changed = true;
+			mn.index++;
+			mn.at = 0;
+			if (g_song_al >= 0 && g_song_al < g_muse.nalbums) {
+				const ml_album *A = &g_muse.albums[g_song_al];
+
+				g_song_place = (g_song_place + 1) % (A->n > 0 ? A->n : 1);
+				snprintf(mn.title, sizeof mn.title, "%s", g_muse.tracks[A->first + g_song_place].name);
+			}
+		}
+		mn.state = t >= 3500 && t < 5000 ? MU_PAUSED : MU_PLAYING;
+		if (mn.state == MU_PLAYING) mn.at += 1.0 / 60;
+		show_bands(lv, t);
+		t0 = SDL_GetPerformanceCounter();
+		look_draw(a, look, &mn, mn.state == MU_PLAYING ? lv : NULL);
 		SDL_RenderFlush(a->r);
 		ms[i] = (double)(SDL_GetPerformanceCounter() - t0) * 1000.0 / (double)f;
 		sum += ms[i];
 		if (ms[i] > worst) worst = ms[i];
+		if (dir && i % 2 == 0) {
+			SDL_Surface *o = SDL_CreateRGBSurfaceWithFormat(0, ZYPEROS_SCREEN_W, ZYPEROS_SCREEN_H, 32,
+			                                                SDL_PIXELFORMAT_RGBA32);
+			char path[1024];
+
+			if (o && SDL_RenderReadPixels(a->r, NULL, SDL_PIXELFORMAT_RGBA32, o->pixels, o->pitch) == 0) {
+				snprintf(path, sizeof path, "%s/frame-%04d.png", dir, i / 2);
+				IMG_SavePNG(o, path);
+			}
+			if (o) SDL_FreeSurface(o);
+		}
 	}
+	g_clock = 0;
 	/* The 95th percentile: sorted by insertion, n is small */
 	for (i = 1; i < n; i++) {
 		double v = ms[i];
