@@ -11,6 +11,7 @@
 #include "clock.h"
 #include "clock_screen.h"
 #include "ctl_channel.h"
+#include "dlq.h"
 #include "emptyhome.h"
 #include "esmedia.h"
 #include "favorites.h"
@@ -281,6 +282,16 @@ bool tick_theme(app *a)
 {
 	bool turned;
 
+	/* The downloads' lanes as this screen draws (src/dlq.h): not while a
+	 * button is down, so a held direction scrolls without paying for a
+	 * step; a resting screen steps them from its input wait instead */
+	if (dlq_busy()) {
+		int b;
+		bool held = false;
+
+		for (b = 0; b < IN_COUNT && !held; b++) held = a->in.down[b];
+		if (!held) dlq_tick();
+	}
 	xs_tick_behind(a);
 	dev_ssh_tick();
 	/* NES Player 2's, in the screens over a paused game (its page, the
@@ -2244,6 +2255,9 @@ void anim_poweroff(app *a)
  * low-battery screen's from where Zyper already stands */
 void power_off_with(app *a, void (*anim)(app *a))
 {
+	/* The downloads going on behind the screens stop: the next run starts
+	 * from what is missing */
+	dlq_stop_all();
 	/* A File Transfer behind the shelf, and its hotspot, go with it */
 	xs_end();
 	snap_off();
@@ -2267,6 +2281,8 @@ void power_off_with(app *a, void (*anim)(app *a))
  * a charger, the charging screen in place of black (DESIGN.md 11.25) */
 void power_off(app *a)
 {
+	/* Off is off, the charging screen in its place too */
+	dlq_stop_all();
 	if (charge_instead(a)) return;
 	power_off_with(a, anim_poweroff);
 }
