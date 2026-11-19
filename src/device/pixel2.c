@@ -909,8 +909,9 @@ void plat_input_wait(unsigned ms)
 	if (fd_keys >= 0)  p[n++] = (struct pollfd){ .fd = fd_keys,  .events = POLLIN };
 	if (fd_power >= 0) p[n++] = (struct pollfd){ .fd = fd_power, .events = POLLIN };
 	/* POWER held in Hold mode: woken for the pill's next segment and the
-	 * hold's end, which no event marks */
-	ms = plat_power_wait(ms);
+	 * hold's end, which no event marks; and the work behind every screen
+	 * (the downloads' lanes, plat_on_input_wait) has its step */
+	ms = plat_input_wait_hook(plat_power_wait(ms));
 	if (!n) { SDL_Delay(ms); return; }
 	/* A signal ends it early too, which is what a stop should do */
 	poll(p, n, (int)ms);
