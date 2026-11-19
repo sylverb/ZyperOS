@@ -232,8 +232,24 @@ int ct_rows(const ct_model *m, ct_row *ids, menu_row *out, unsigned *vcol, ct_bu
 			ROW(CT_BUTTON + i, ((menu_row){ NAME[i], T(m->select_held_c ? S_CONTROLS_SELECT_C_BUTTONS
 			                                                       : S_CONTROLS_HELD_DPAD), false }), 0u);
 		} else {
+			const unsigned with = ct_partners(m, i);
+
 			if (ct_says_nothing(m, c)) snprintf(b->val[i], sizeof b->val[i], "%s", T(S_CONTROLS_NOTHING));
 			else ctl_remap_say(m->tag, m->ext, c, b->val[i], sizeof b->val[i]);
+			/* A game button another button gives too: its glyph after the
+			 * value, dim (MENU_PARTNER_MARK; my pick in the Controls lab,
+			 * 2026-11-19) */
+			if (with) {
+				char names[48] = "";
+				int j;
+
+				for (j = 0; j < RM_BUTTONS; j++)
+					if (with >> j & 1u)
+						snprintf(names + strlen(names), sizeof names - strlen(names), "%s%s",
+						         names[0] ? " " : "", NAME[j]);
+				snprintf(b->val[i] + strlen(b->val[i]), sizeof b->val[i] - strlen(b->val[i]),
+				         "%s%s", MENU_PARTNER_MARK, names);
+			}
 			ROW(CT_BUTTON + i, ((menu_row){ NAME[i], b->val[i], true }),
 			    rm_changed(&m->def, &m->cur, i) ? 1u : 0u);
 		}
@@ -266,7 +282,8 @@ unsigned ct_lit(const ct_model *m, ct_row id)
 		 * gave its old value to */
 		k = 1u << KEY[bt];
 		for (i = 0; i < RM_BUTTONS; i++)
-			if (i != bt && !same(m->cur.b[i], m->base.b[i])) k |= 1u << KEY[i];
+			if (i != bt && (!same(m->cur.b[i], m->base.b[i]) || (ct_partners(m, bt) >> i & 1u)))
+				k |= 1u << KEY[i];
 		return k;
 	}
 	switch (id) {
@@ -397,6 +414,68 @@ int ct_choices(const ct_model *m, int button, rm_choice *out, int max)
 	if (n < max) out[n++] = (rm_choice){ RM_STICK_TOGGLE, 0 };
 	if (n < max) out[n++] = (rm_choice){ RM_STICK_HOLD, 0 };
 	return n;
+}
+
+void ct_share(ct_model *m, int button, rm_choice c)
+{
+	if (button < 0 || button >= RM_BUTTONS || ct_dead(m, button)) return;
+	rm_share(&m->cur, &m->base, button, ct_taken(m, button, c));
+}
+
+unsigned ct_partners(const ct_model *m, int button)
+{
+	const rm_choice c = button >= 0 && button < RM_BUTTONS ? m->cur.b[button] : (rm_choice){ RM_NONE, 0 };
+	unsigned k = 0;
+	int i;
+
+	if (c.to == RM_NONE || ct_dead(m, button) || ct_says_nothing(m, c)) return 0;
+	for (i = 0; i < RM_BUTTONS; i++)
+		if (i != button && !ct_dead(m, i) && same(m->cur.b[i], c)) k |= 1u << i;
+	return k;
+}
+
+/* The live buttons other than `button` that give `c` in base */
+static unsigned givers(const ct_model *m, int button, rm_choice c)
+{
+	unsigned k = 0;
+	int i;
+
+	for (i = 0; i < RM_BUTTONS; i++)
+		if (i != button && !ct_dead(m, i) && same(m->base.b[i], c)) k |= 1u << i;
+	return k;
+}
+
+bool ct_can_share(const ct_model *m, int button, rm_choice c)
+{
+	if (c.to == RM_NONE || c.turbo || ct_says_nothing(m, c)) return false;
+	if (button < 0 || button >= RM_BUTTONS || same(m->base.b[button], c)) return false;
+	return givers(m, button, c) != 0;
+}
+
+void ct_pick_lines(const ct_model *m, int button, rm_choice c, char *a, size_t an, char *b, size_t bn)
+{
+	char said[64], now[64], with[96] = "";
+	unsigned g;
+	int i, first = -1;
+
+	if (c.to == RM_NONE) snprintf(said, sizeof said, "%s", T(S_CONTROLS_NOTHING));
+	else ctl_remap_say(m->tag, m->ext, c, said, sizeof said);
+	b[0] = '\0';
+	if (!ct_can_share(m, button, c)) {
+		snprintf(a, an, T(S_CONTROLS_PICK_GIVES), ct_button_name(button), said);
+		return;
+	}
+	g = givers(m, button, c);
+	for (i = 0; i < RM_BUTTONS; i++) {
+		if (!(g >> i & 1u)) continue;
+		if (first < 0) first = i;
+		snprintf(with + strlen(with), sizeof with - strlen(with), "%s%s", with[0] ? "/" : "", NAME[i]);
+	}
+	if (ct_says_nothing(m, m->base.b[button])) snprintf(now, sizeof now, "%s", T(S_CONTROLS_NOTHING));
+	else ctl_remap_say(m->tag, m->ext, m->base.b[button], now, sizeof now);
+	/* A: the swap, its partner taking this button's; Y: both */
+	snprintf(a, an, T(S_CONTROLS_PICK_SWAP), NAME[first], now);
+	snprintf(b, bn, T(S_CONTROLS_PICK_BOTH), ct_button_name(button), with, said);
 }
 
 bool ct_step(ct_model *m, ct_row id, int dir)

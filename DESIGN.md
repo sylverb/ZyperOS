@@ -4603,17 +4603,40 @@ stick: it holds the hotkeys, and a press of it is never a turn of the stick
 and a hotkey at once. A opens the same
 choices as a list of their own, headed "Y: PlayStation", the handheld still
 beside it, a tick on what the button does now and "default" in **text-dim**
-on the scope's default; A on a choice takes it and goes back, B goes back with
-no change. Each Left or Right works from the table as it was when the cursor
+on the scope's default; A on a choice takes it and goes back (Y too, on a
+choice another button gives: below), B goes back with no change. Each Left or Right works from the table as it was when the cursor
 came onto the row, so stepping through the list leaves the other buttons as
 they were except for the one swap at the value it stops on.
 
-**Swap, not copy.** When button P is given game button G, and another button
-Q already gives G, Q takes what P gave before: Y given Cross makes B give
-Square, and both rows show it. Turbo and Nothing never swap (Y can be Turbo
+**Swap, not copy**, unless the player asks for both. When button P is given
+game button G, and another button Q already gives G, Q takes what P gave
+before: Y given Cross makes B give Square, and both rows show it. Turbo and Nothing never swap (Y can be Turbo
 Cross while B stays Cross), and a swap never lands on a quiet row: it keeps
 what it gives. The stick's two swap as a game button does, so one button
-turns the stick unless the player gives the other one to a second button. SELECT keeps the hotkeys' rule whatever it gives: Diatom's
+turns the stick unless the player gives the other one to a second button.
+
+**Two buttons on one game button** *(issue #305, moroboshi69 on the Brick:
+"both A and Y on the NES's B"; my picks in the Controls lab, 2026-11-19)*.
+Diatom always ORs every handheld button that targets a game button; only
+the swap stopped it. Left and Right on a row still swap, so a quick look
+never leaves two buttons on one game button by surprise. **In a button's
+list, A swaps and Y shares**: on a choice another button already gives
+(`ct_can_share`: plainly, and not the row's own value or Nothing), **A**
+takes it with the swap and **Y** takes it as well, so both give it
+(`rm_share`). The list's foot, under a rule and kept still (pin_foot), says
+what the choice under the cursor does in two lines - "A: B takes Square." and
+"Y: Y and B give Cross." - and its keys as hints, "A Swap" and "Y Both";
+on any other choice one line, "Y gives Cross.", and "A Take". **A shared row
+carries its partner's glyph after the value** (`MENU_PARTNER_MARK`, 32
+units, at 70%: B, then a small Y), and the handheld lights both buttons while
+the cursor is on either row. **Removing one** is giving that row anything
+else (Left, Right, its list) or Nothing: the partner keeps the game button,
+so no warning row. A swap from a shared row hands its old value to the other
+button, which then shares it: still one rule. Reset Buttons removes every
+share. A share is stored as the pair it is (`y:b`), as every change. With the
+hotkeys (11.53) a chord does one action and an action has one chord, so a
+clash there offers Swap or Cancel, never Both; a handheld button can give a
+game button and be part of a chord, and SELECT's rule decides, as before. SELECT keeps the hotkeys' rule whatever it gives: Diatom's
 chord gives a lone SELECT to the game as it is let go, or once held 400 ms,
 and never under a shoulder (pressed after it, or up to 100 ms before it).
 
@@ -4694,7 +4717,8 @@ tutorial's front pose (10 degrees), lights the keys of the row under the
 cursor in the tutorial's lit look (accent fill, ring, halo): a button row its
 button; D-pad as Stick the d-pad (and SELECT on the N64 and the Dreamcast);
 Face Buttons the four faces; Reset Buttons every changed button; a swap
-both buttons while the cursor stays on the row; Applies To, Pak and Hotkeys
+both buttons while the cursor stays on the row, and a shared game button
+both buttons that give it; Applies To, Pak and Hotkeys
 nothing. A lit shoulder stands up out of the top edge. It **leans**
 toward the side of the keys lit: the faces (A, B, X, Y) turn it 12 degrees
 from the front pose to show its right side (22 degrees), the d-pad 22 the
