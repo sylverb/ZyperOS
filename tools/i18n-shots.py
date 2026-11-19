@@ -332,6 +332,14 @@ EXTRA = {
     # over a video, where the panel is the same and the picture is under it
     # MP4's menu on its shelf, which shows All (albums and videos mixed)
     "mp4-menu": ("media", "MUSE", ["--screen", "games", "--menu"]),
+    # MP4's Player Looks (DESIGN.md 11.14): each on Now Playing, Classic
+    # paused too (its panel says so where the time's words would), and
+    # MENU's Player Look list with its picture, the look under the cursor
+    "np-classic": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--np-look", "classic"]),
+    "np-classic-paused": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--np-look", "classic", "--paused"]),
+    "np-spectrum": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--np-look", "spectrum"]),
+    "mp4-look-list": ("media", "MUSE", ["--screen", "games", "--menu", "Player Look", "--press", "a",
+                                        "--pick-at", "1"]),
     "mp4-locked": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--locked"]),
     "mp4-locked-video": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--video", "hidden", "--locked"]),
     "tour-lang": ("demo", "PS1", ["--tour", "lang", "3500"]),

@@ -208,10 +208,14 @@ typedef enum {
  * card has songs, which are the two rows' only business.
  *
  * Lock Screen is the pocket lock, the way to find it without knowing X:
- * live while something plays, and saying so when nothing does. */
-typedef enum { SMM_COUNT, SMM_SHOW, SMM_SORT, SMM_SHUFFLE, SMM_LOCK, SMM_ART,
+ * live while something plays, and saying so when nothing does.
+ *
+ * Player Look, under Shuffle All where the songs are: how Now Playing draws
+ * a song (src/mp4look.h, DESIGN.md 11.14, 2026-11-19), its list showing the
+ * look under the cursor, playing. */
+typedef enum { SMM_COUNT, SMM_SHOW, SMM_SORT, SMM_SHUFFLE, SMM_LOOK, SMM_LOCK, SMM_ART,
                SMM_RESCAN } sm_muse_row;
-#define SM_MUSE_ROWS 7
+#define SM_MUSE_ROWS 8
 
 /* MP4's rows in order, for the kind its shelf shows - 0 music, 1 books,
  * 2 videos, muselib.h's ml_kind, and 3 all of them with music among them
@@ -286,6 +290,7 @@ typedef struct {
 	bool muse_songs;         /* and the card has music, for All's rows */
 	bool muse_both;          /* and the card has more than one kind */
 	bool muse_playing;       /* and music is playing, so it can lock */
+	const char *muse_look;   /* Player Look's value: the look that is on */
 
 	/* What the device HAS, rather than what state it is in. A radio that is
 	 * merely off keeps its rows, saying "needs Wi-Fi", because turning it on

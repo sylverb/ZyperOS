@@ -128,6 +128,7 @@ extern int shot_np_paused;
 extern int shot_np;
 extern int shot_np_track;
 extern int shot_locked;
+extern int shot_np_bench;
 extern int shot_video;
 extern float shot_np_at;
 extern const char *shot_mode;

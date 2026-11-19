@@ -24,14 +24,20 @@
  *        STATUS
  *        VIDEO   show=1|0                    whether anyone is watching: frames
  *                                            are decoded only while one is
+ *        BANDS   on=1|0                      whether anyone is looking at bars:
+ *                                            the sound is measured only while
+ *                                            one is (bands.h)
  *        COVER   path=  base=                write path's picture to base.jpg|png
  *        ARTIST  dir=                        who a folder of tracks is by
- *   out  READY   proto=4                     3 added CHANNELS, 4 VIDEO
+ *   out  READY   proto=5                     3 added CHANNELS, 4 VIDEO, 5 BANDS
  *        CHANNELS mode=                      the mix in force, after each CHANNELS
  *        STATE   state=playing|paused|stopped  path=
  *        META    title= artist= album= len= chapters= video=WxH|0
  *        CHAPTER i= at= title=                 one per chapter, after META
  *        POS     at= len=                      about once a second while playing
+ *        BANDS   v=                            32 levels of what is heard, two hex
+ *                                              digits each, 30 times a second
+ *                                              while playing and asked for
  *        END     path=                         the file ran out by itself
  *        SINK    device=                       the one in use, after each SINK
  *                                              and on STATUS; "default" when a
@@ -56,6 +62,7 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "bands.h"
 #include "cover.h"
 #include "dec.h"
 #include "pcm.h"
@@ -128,6 +135,9 @@ static int   g_wake[2] = { -1, -1 };   /* player -> main: something to say */
 static dec  *g_dec;                    /* player thread only */
 static char  g_dev[128] = "default";   /* player thread only */
 static volatile sig_atomic_t g_quit;
+/* Whether the launcher is showing bars: BANDS on=1. Set by the socket
+ * thread and read by it; nothing is measured while it is 0. */
+static int g_bands_on;
 
 /* Which ears hear what, for a listener who hears with one: CHANNELS, as
  * Diatom has it. Set by the socket thread, read by the player once a chunk;
@@ -200,6 +210,14 @@ static void say(const char *fmt, ...)
 
 /* ---- the player thread -------------------------------------------------- */
 
+/* The queue thrown away, and the bars' copy of it with it (bands.h): what
+ * was written before a pause or a seek is never heard, so never measured */
+static void drop(void)
+{
+	pcm_drop();
+	bands_drop();
+}
+
 static void fail(const char *why)
 {
 	snprintf(S.ev_err, sizeof S.ev_err, "%s", why);
@@ -267,7 +285,7 @@ static void handle(const qcmd *q)
 		 * rushed. Found on the device 2026-09-18, the first time the launcher
 		 * rather than a test drove it. */
 		S.speed = q->speed > 0 ? q->speed : 1.0;
-		pcm_drop();
+		drop();
 		if (reopen(q->at)) {
 			snapshot();
 			S.state = ST_PLAYING;
@@ -280,7 +298,7 @@ static void handle(const qcmd *q)
 		/* What has been HEARD, not what the decoder reached: the queue is
 		 * thrown away, so resuming from the decoder's position would skip
 		 * the 200 ms that never played - a word, in an audiobook. */
-		pcm_drop();
+		drop();
 		S.state = ST_PAUSED;
 		S.ev_state = 1;
 		wake();
@@ -291,7 +309,7 @@ static void handle(const qcmd *q)
 		break;
 	case C_SEEK:
 		if (S.state == ST_STOPPED) break;
-		pcm_drop();
+		drop();
 		if (!reopen(q->at)) break;
 		wake();
 		break;
@@ -299,7 +317,7 @@ static void handle(const qcmd *q)
 		if (q->speed < 0.5 || q->speed > 2.0) break;
 		S.speed = q->speed;
 		if (S.state == ST_STOPPED) break;
-		pcm_drop();
+		drop();
 		reopen(S.heard);
 		break;
 	case C_SINK: {
@@ -356,7 +374,7 @@ static void handle(const qcmd *q)
 		break;
 	}
 	case C_STOP:
-		pcm_drop();
+		drop();
 		dec_close(g_dec);
 		g_dec = NULL;
 		vid_close();
@@ -398,6 +416,9 @@ static void *player(void *arg)
 		n = dec_read(g_dec, buf, CHUNK);
 		if (n > 0) mix_channels(buf, n);
 		if (n > 0 && !pcm_write(buf, n)) { n = -1; lost = true; }
+		/* The bars' copy, with what is still ahead of the listener: a
+		 * copy of 1024 frames, measured or not (bands.h) */
+		if (n > 0) bands_feed(buf, n, pcm_queued());
 		pthread_mutex_lock(&S.mu);
 
 		/* A headset that went away mid-song: the default, and on from what was
@@ -578,6 +599,12 @@ static void command(int fd, const char *line)
 		snap_play(p, atoi(v), atoi(h) != 0);
 		return;
 	}
+	if (!strncmp(line, "BANDS", 5)) {
+		/* Here too: this thread's own flag, nothing to queue */
+		arg(line, "on", v, sizeof v);
+		g_bands_on = atoi(v) != 0;
+		return;
+	}
 	if (!strncmp(line, "VIDEO", 5)) {
 		/* Here too: a flag the video thread reads, nothing to queue. */
 		arg(line, "show", v, sizeof v);
@@ -627,6 +654,45 @@ static void command(int fd, const char *line)
 }
 
 static void on_term(int sig) { (void)sig; g_quit = 1; }
+
+static long mono_ms(void)
+{
+	struct timespec t;
+
+	clock_gettime(CLOCK_MONOTONIC, &t);
+	return (long)t.tv_sec * 1000 + t.tv_nsec / 1000000;
+}
+
+/* The bars' levels, BANDS_PERIOD apart while playing and asked for: what is
+ * heard at this moment (bands_now), as 64 hex digits. `playing` is the
+ * state as this thread last read it - with trylock, as watch reads it, so a
+ * player that holds its lock while it opens a file does not hold this
+ * thread too. Returns the poll's timeout: the time to the next, or 250. */
+#define BANDS_PERIOD 33
+static int bands_tick(int fd)
+{
+	static long due;
+	static bool playing;
+	long now = mono_ms();
+	uint8_t lv[BANDS_N];
+	char hex[BANDS_N * 2 + 1];
+	int i;
+
+	if (pthread_mutex_trylock(&S.mu) == 0) {
+		playing = S.state == ST_PLAYING;
+		pthread_mutex_unlock(&S.mu);
+	}
+	if (!g_bands_on || !playing || fd < 0) { due = 0; return 250; }
+	if (due && now < due) return (int)(due - now);
+	/* Late by more than a period (a long poll, a busy thread): from now,
+	 * rather than a burst to catch up */
+	due = due && now - due < BANDS_PERIOD ? due + BANDS_PERIOD : now + BANDS_PERIOD;
+	if (bands_now(lv)) {
+		for (i = 0; i < BANDS_N; i++) snprintf(hex + i * 2, 3, "%02x", lv[i]);
+		send_line(fd, "BANDS\tv=%s", hex);
+	}
+	return (int)(due - now);
+}
 
 /* Evidence for #42, and only that: nothing here changes what plays. */
 
@@ -776,7 +842,7 @@ int main(void)
 		struct pollfd p[3] = {
 			{ lfd, POLLIN, 0 }, { g_wake[0], POLLIN, 0 }, { cfd, POLLIN, 0 },
 		};
-		int r = poll(p, cfd >= 0 ? 3 : 2, 250);
+		int r = poll(p, cfd >= 0 ? 3 : 2, bands_tick(cfd));
 
 		if (r < 0 && errno != EINTR) break;
 
@@ -789,7 +855,8 @@ int main(void)
 				if (cfd >= 0) close(cfd);
 				cfd = n;
 				have = 0;
-				send_line(cfd, "READY\tproto=4");
+				g_bands_on = 0;           /* until this one asks */
+				send_line(cfd, "READY\tproto=5");
 				announce(cfd, 1);
 			}
 		}
@@ -803,6 +870,7 @@ int main(void)
 			if (got <= 0) {
 				/* The launcher gone: nobody is looking at a snap */
 				snap_play(NULL, 0, false);
+				g_bands_on = 0;           /* and at no bars */
 				close(cfd); cfd = -1; have = 0; continue;
 			}
 			have += (size_t)got;

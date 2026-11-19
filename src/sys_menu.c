@@ -285,6 +285,7 @@ int sys_menu_muse_rows(int kind, bool both, bool no_wifi, sm_muse_row *out)
 	if (both) out[n++] = SMM_SHOW;
 	out[n++] = SMM_SORT;
 	if (kind == 0 || kind == 3) out[n++] = SMM_SHUFFLE;
+	if (kind == 0 || kind == 3) out[n++] = SMM_LOOK;
 	out[n++] = SMM_LOCK;
 	if ((kind == 0 || kind == 3) && !no_wifi) out[n++] = SMM_ART;
 	out[n++] = SMM_RESCAN;
@@ -331,7 +332,7 @@ static const unsigned char SM_SOUND[SM_ROWS] = {
 };
 static unsigned char smm_sound(sm_muse_row r)
 {
-	return r == SMM_SHOW ? MENU_SND_RING
+	return r == SMM_SHOW || r == SMM_LOOK ? MENU_SND_RING
 	     : r == SMM_SORT ? MENU_SND_RING | MENU_SND_NO_A : 0;
 }
 
@@ -397,6 +398,10 @@ int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
 					break;
 				case SMM_SHUFFLE:
 					out[k] = (menu_row){ T(S_SYSMENU_MUSE_SHUFFLE), NULL, true };
+					break;
+				case SMM_LOOK:
+					out[k] = (menu_row){ T(S_SYSMENU_MUSE_LOOK), u->muse_look ? u->muse_look
+					                     : T(S_SYSMENU_LOOK_COVER), true };
 					break;
 				case SMM_LOCK:
 					out[k] = (menu_row){ T(S_SYSMENU_MUSE_LOCK),

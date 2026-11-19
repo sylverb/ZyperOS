@@ -930,6 +930,13 @@ SDL_Surface *ui_text_surface(TTF_Font *f, const char *s, SDL_Color col)
  * looks. A table string is known by where it lives (i18n_owns); in the
  * pseudo-locale, whose every string ends "·]", by that too, so a line
  * formatted from one is caught as well. */
+/* Drawing a picture of a screen into a texture, not the screen (ui_fit_away):
+ * its words are that screen's, which its own shots hold, and are not held
+ * against the screen it is drawn on */
+static int fit_away;
+
+void ui_fit_away(bool on) { fit_away += on ? 1 : -1; }
+
 #ifdef I18N_PSEUDO
 static bool i18n_watched(const char *s)
 {
@@ -938,6 +945,7 @@ static bool i18n_watched(const char *s)
 
 static void i18n_note(const char *what, const char *s)
 {
+	if (fit_away) return;
 	static unsigned said[256];
 	unsigned h = 5381;
 
@@ -997,7 +1005,11 @@ static int fit_marks;
 static struct { SDL_Rect r, dst; TTF_Font *f; char s[256]; char text[32]; } fit_ink[FIT_RECTS];
 static int fit_inks, fit_quiet;
 
-void ui_fit_frame(void) { fit_n = 0; fit_lines = 0; fit_marks = 0; fit_inks = 0; }
+void ui_fit_frame(void)
+{
+	if (fit_away) return;
+	fit_n = 0; fit_lines = 0; fit_marks = 0; fit_inks = 0;
+}
 
 /* Do `a` and `b` come within `m` of each other? How far, top to bottom */
 static bool fit_meet(const SDL_Rect *a, const SDL_Rect *b, int m, int *px)
@@ -1014,12 +1026,14 @@ static bool fit_meet(const SDL_Rect *a, const SDL_Rect *b, int m, int *px)
 
 static void fit_box(const SDL_Rect *q)
 {
+	if (fit_away) return;
 	if (fit_n < FIT_RECTS) fit_rect[fit_n++] = *q;
 }
 
 /* The text with its line ends as \n, on one line of the log */
 static void fit_say(const char *what, const char *head, const char *s)
 {
+	if (fit_away) return;
 	static unsigned said[4096];
 	char line[1100], *o = line;
 	unsigned h = 5381;
@@ -1095,6 +1109,7 @@ void ui_fit_mark(const SDL_Rect *q)
 	char head[96];
 	int i, px, rows;
 
+	if (fit_away) return;
 	for (i = 0; i < fit_inks; i++)
 		if (fit_meet(&fit_ink[i].r, q, FIT_MARGIN, &px) &&
 		    (rows = fit_ink_rows(fit_ink[i].f, fit_ink[i].s, &fit_ink[i].dst, q, FIT_MARGIN)) > 0) {
@@ -1111,6 +1126,7 @@ static void fit_ink_check(TTF_Font *f, const char *s, const SDL_Rect *dst, const
 	char head[96];
 	int i, px, rows;
 
+	if (fit_away) return;
 	for (i = 0; i < fit_marks; i++)
 		if (fit_meet(ink, &fit_mark[i], FIT_MARGIN, &px) &&
 		    (rows = fit_ink_rows(f, s, dst, &fit_mark[i], FIT_MARGIN)) > 0) {
@@ -1137,6 +1153,7 @@ static void fit_check(SDL_Renderer *r, const char *s, const SDL_Rect *dst, int a
 	int i, cy = dst->y + dst->h / 2, over;
 	long best = 0;
 
+	if (fit_away) return;
 	for (const char *p = s; *p; p++) hash = hash * 33 + (unsigned char)*p;
 
 	fit_say("drawn", "", s);
@@ -2505,6 +2522,11 @@ static TTF_Font *button_font(int pt, bool semibold)
 			best = i;
 	}
 	return best < 0 ? NULL : button_fonts[best].f;
+}
+
+TTF_Font *ui_face_at(int pt, bool semibold)
+{
+	return button_font(pt, semibold);
 }
 
 static void button_fonts_free(void)

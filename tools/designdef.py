@@ -186,6 +186,7 @@ TYPE = [
     ("support", 28, "Regular", "home counts, compact game metadata, and the action beside its button glyph (action 27 and support 29 until 1.0.6)"),
     ("game-title", 37, "SemiBold", "the full game name below its cover row: meta's size, title's weight; its lines 40 apart (38 and 44 until 1.0.6)"),
     ("card",  71, "Regular",  "the title drawn into a generated card (512 px wide)"),
+    ("clock", 120, "SemiBold", "MP4's Classic look: the time played, large; digits only, so Lexend in every language"),
 ]
 
 # ---- space and shape -----------------------------------------------------------
@@ -210,6 +211,7 @@ SHAPE = [
     ("rule",         2,  "a heading's rule, the keyboard field's edge"),
     ("caret",        3,  "the keyboard's caret"),
     ("ring",         4,  "a button glyph's ring"),
+    ("radius-bar",   4,  "MP4's bars (Player Look); a bar's cap is a pill"),
 ]
 
 # ---- layout --------------------------------------------------------------------
@@ -322,6 +324,17 @@ LAYOUT = [
     ("preview-col-min", 200, "...narrower where the list's choices run long, to this"),
     ("preview-gap",     32,  "the column to the list's rows"),
     ("preview-note-gap", 16, "the small screen's foot to its note's first line"),
+    # MP4's Player Looks (src/nowplaying_looks.c, DESIGN.md 11.14): every
+    # edge on the grid, so whole pixels on the Pixel 2 as on the Brick
+    ("look-bar-w",      16,  "a bar: 10 whole pixels on the Pixel 2"),
+    ("look-bar-gap",    8,   "between two bars: 5"),
+    ("look-cap",        4,   "a bar's cap: its height, and its gap over the bar"),
+    ("look-classic-w",  488, "Classic: the clock's panel, 18 bars and their pad wide, and the words under it"),
+    ("look-panel-pad",  32,  "Classic: the clock's panel's words and bars from its edges"),
+    ("look-list-row",   56,  "Classic: a row of the track list"),
+    ("look-list-num",   48,  "Classic: a row's number, tabular, before its name"),
+    ("line-clock",      128, "Classic: the clock's line, as a box"),
+    ("look-cover",      192, "Spectrum: the cover beside the names"),
 ]
 
 # ---- elevation -----------------------------------------------------------------
@@ -377,6 +390,8 @@ MOTION = [
     ("hold-power",  1000, "-",     "POWER held this long turns the handheld off with Power Button on Hold, and starts the charging screen's handheld"),
     ("hold-lock-lit", 4000, "-",   "MP4's lock screen, lit as it locks"),
     ("hold-controls", 3000, "-",   "MP4's video controls after the last press"),
+    ("peak-hold",   400,  "-",     "MP4's bars (Player Look): a bar's cap held where the bar last reached, before it drops with gravity"),
+    ("bar-fall",    140,  "follow", "MP4's bars falling to the sound: follow's tau, where a bar rises at once"),
     ("hold-snap",   1000, "-",     "a game focused on the shelf before its cover turns into its video snap"),
     ("sheen",       480,  "turn",  "one light crossing a game's card with no art, once, as the cover row stops on it"),
     ("sharpen",     200,  "fade",  "a played game's card with no art turning from its blurred frame of play to the sharp one, as the cover row stops on it"),

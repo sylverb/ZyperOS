@@ -94,5 +94,14 @@
 #define DS_PREVIEW_COL_MIN      200
 #define DS_PREVIEW_GAP          32
 #define DS_PREVIEW_NOTE_GAP     16
+#define DS_LOOK_BAR_W           16
+#define DS_LOOK_BAR_GAP         8
+#define DS_LOOK_CAP             4
+#define DS_LOOK_CLASSIC_W       488
+#define DS_LOOK_PANEL_PAD       32
+#define DS_LOOK_LIST_ROW        56
+#define DS_LOOK_LIST_NUM        48
+#define DS_LINE_CLOCK           128
+#define DS_LOOK_COVER           192
 
 #endif

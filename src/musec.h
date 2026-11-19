@@ -4,6 +4,7 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 
 #include "musequeue.h"
 
@@ -67,6 +68,21 @@ bool musec_video(void);
  * dark lock, costs what its sound does and no more. Sent when it changes,
  * and again to a daemon that has just started. */
 void musec_video_show(bool on);
+
+/* Bars on screen (MP4's Player Looks, src/mp4look.h): every frame that
+ * draws them keeps the daemon measuring the sound for MUSEC_BANDS_LEASE
+ * more ms, 30 times a second (BANDS, src/muse/bands.h). A lease and not a
+ * switch, so nothing has to remember to turn it off: a look left behind
+ * another screen, under the lock, paused and still, or on Cover draws no
+ * bars, and a moment later the daemon stops measuring. Sent when it
+ * changes, and again to a daemon that has just started, as
+ * musec_video_show is. */
+#define MUSEC_BANDS 32
+#define MUSEC_BANDS_LEASE 300
+void musec_bands_keep(void);
+/* The last levels the daemon sent, 0-255 from the lowest band up, and how
+ * long ago in `age_ms`; false when none has come since bars were asked for */
+bool musec_bands(uint8_t out[MUSEC_BANDS], unsigned *age_ms);
 
 /* A game's video snap on the shelf (src/muse/snap.h): `path` played from its
  * start and looped, its pictures in their own frames (src/snapview.h); NULL

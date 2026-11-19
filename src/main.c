@@ -36,6 +36,7 @@
 #include "storage_screen.h"
 #include "media_screen.h"
 #include "menu_panel.h"
+#include "nowplaying_looks.h"
 #include "nowplaying_screen.h"
 #include "bt.h"
 #include "btvol.h"
@@ -4826,7 +4827,7 @@ static int menu_shelf_width(app *a)
 	for (i = 0; i < a->sys.count; i++) {
 		bool muse = is_muse(&a->sys.systems[i]);
 		bool own  = muse || a->view[i].owner;
-		int  srow = own ? 1 : sm_pos(a, i, SM_SORT), show = -1;
+		int  srow = own ? 1 : sm_pos(a, i, SM_SORT), show = -1, lookrow = -1;
 		int  drow = own ? -1 : sm_pos(a, i, SM_DISPLAY);
 		int  hrow = own ? -1 : sm_pos(a, i, SM_SHADER);
 		int  crow = own ? -1 : sm_pos(a, i, SM_CORE);
@@ -4843,6 +4844,7 @@ static int menu_shelf_width(app *a)
 			for (k = 0; k < nn; k++) {
 				if (ids[k] == SMM_SORT) srow = k;
 				if (ids[k] == SMM_SHOW) show = k;
+				if (ids[k] == SMM_LOOK) lookrow = k;
 			}
 			/* The longer of Show's two values, so turning it over does not
 			 * change the menu's width under the cursor. */
@@ -4852,6 +4854,19 @@ static int menu_shelf_width(app *a)
 				rows[show].value = "Audiobooks";
 				mw = menu_measure(rows, n, heading);
 				if (mw > w) w = mw;
+			}
+			/* And Player Look's each look, for the same reason */
+			if (lookrow >= 0 && bufs.choice[lookrow].labels) {
+				const char *keep = rows[lookrow].value;
+
+				for (k = 0; k < bufs.choice[lookrow].n; k++) {
+					int mw;
+
+					rows[lookrow].value = bufs.choice[lookrow].labels[k];
+					mw = menu_measure(rows, n, heading);
+					if (mw > w) w = mw;
+				}
+				rows[lookrow].value = keep;
 			}
 		}
 		for (k = 0; drow >= 0 && k < DMODE_COUNT; k++) {
@@ -5403,6 +5418,11 @@ int main(int argc, char *argv[])
 				shot_np_at = (float)atof(argv[++i]);
 		}
 		else if (!strcmp(argv[i], "--paused")) shot_np_paused = 1;
+		/* --np-look cover|classic|spectrum...: Now Playing and MENU's
+		 * Player Look in that look, for the shot only, never saved */
+		else if (!strcmp(argv[i], "--np-look") && i + 1 < argc) np_look_shot(mp4l_from_key(argv[++i]));
+		/* --np-bench N: N frames of the look timed before the shot */
+		else if (!strcmp(argv[i], "--np-bench") && i + 1 < argc) shot_np_bench = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--locked")) shot_locked = 1;
 		else if (!strcmp(argv[i], "--video")) {
 			/* "controls": with the controls up; "hidden" ("full" before

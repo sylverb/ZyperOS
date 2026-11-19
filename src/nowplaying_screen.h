@@ -19,8 +19,11 @@ double seek_step(const in_state *in, in_button b);
 void mmss(char *out, size_t n, double sec);
 /* A chapter as Now Playing names it */
 void chapter_label(int i, char *out, size_t n);
-/* Now Playing drawn; when it next wants a frame */
+/* Now Playing drawn in Cover, the look it always had; when it next wants a
+ * frame */
 unsigned np_draw(app *a, const mu_now *mn, const char *next);
+/* Now Playing drawn in the look that is on (src/nowplaying_looks.h) */
+unsigned np_draw_now(app *a, const mu_now *mn, const char *next);
 
 /* MENU's Lock Screen and Shuffle All, asked from MP4's menu; whether a lock
  * can happen here */
