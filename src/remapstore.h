@@ -10,8 +10,7 @@
 
 /* What is kept on the card for button remapping, and what the game is sent.
  * It reads and writes the library database (db_lib) and nothing else: no
- * SDL. Design: docs/superpowers/specs/2026-11-13-button-remap-design.md,
- * sections 4, 5 and 9.
+ * SDL. Design: DESIGN.md 11.45.
  *
  *     map.<TAG>          the system's pairs that differ from ZyperOS's default
  *     map.<TAG>.<file>   a game's pairs that differ from ZyperOS's default, the whole

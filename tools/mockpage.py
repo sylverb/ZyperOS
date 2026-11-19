@@ -10,7 +10,7 @@ and res/web/zyper.svg in an SVG <symbol id="zyper">, and writes OUT. A page
 that links sounds.js, the sound lab's WAVs (tools/gensounds.py --lab), or
 menu-music.js, the menu music lab's tracks (tools/bgm-tracks.py lab), or
 portal.js, the File Transfer page's stylesheet and icons (tools/mockportal.py),
-or ideas.js, the ideas labs' 1.0.6 pieces and player, gets that inlined too; the music lab's MP3s stay files beside the page.
+or ideas.js, a local lab's 1.0.6 pieces and player (labs are kept outside the repo), gets that inlined too; the music lab's MP3s stay files beside the page.
 Standard library only.
 """
 import os

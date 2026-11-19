@@ -464,8 +464,7 @@ build links all of them and wears `desktop` unless told:
 profiles is taken the same. `make check-devices` holds each profile whole and
 no device guessed in `src/` (`tools/devices-lint.py`); `make
 check-device-compile` compiles every device file's Linux half, which the CI
-job `devices` runs on Ubuntu. The design and the order of work:
-`docs/superpowers/specs/2026-11-14-device-modular-design.md`.
+job `devices` runs on Ubuntu.
 
 ## On device
 

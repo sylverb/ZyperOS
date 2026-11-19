@@ -9,7 +9,7 @@
  * each of the handheld's buttons gives the core, in Diatom's map language
  * (diatom/src/env.c, diatom_input_set_map): `from:to`, `none`, a turbo
  * `x:a~3`, and a layer `held+from:to`. Design:
- * docs/superpowers/specs/2026-11-13-button-remap-design.md, sections 3 and 6. */
+ * DESIGN.md 11.45. */
 
 /* The handheld's buttons, in the order the Controls tab lists them */
 enum { RM_A, RM_B, RM_X, RM_Y, RM_L1, RM_R1, RM_L2, RM_R2, RM_START, RM_SELECT, RM_BUTTONS };

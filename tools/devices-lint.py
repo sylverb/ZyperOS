@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """No device guessed: the launcher asks the profile what the handheld has and
 the platform what the system has, never a file's presence or a stub's answer
-(docs/superpowers/specs/2026-11-14-device-modular-design.md, section 2).
+(docs/building.md, Devices).
 
 In src/*.c and src/*.h, outside src/device/ and src/profile.c, it fails on:
   - access("/usr/sbin/...") - what the system has is plat_system_has()'s;

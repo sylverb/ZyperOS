@@ -2,8 +2,8 @@
 #ifndef ZYPEROS_DEVICE_PROFILE_H
 #define ZYPEROS_DEVICE_PROFILE_H
 
-/* What a handheld is, stated once (docs/superpowers/specs/
- * 2026-11-14-device-modular-design.md, section 1): its name and folders, its
+/* What a handheld is, stated once (docs/building.md,
+ * Devices): its name and folders, its
  * screen as glass and pixels, its controls as they are printed, the chords it
  * needs because a button is missing or doubles as another, and what it has -
  * Bluetooth, a speaker or two, a GPU that draws the old screens. Facts, never

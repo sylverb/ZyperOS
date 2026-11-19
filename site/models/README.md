@@ -111,10 +111,8 @@ colours, the softbox, the clear coat) holds its face near that colour.
 
 `brick.glb`, `brick-poster.png` and `brick-thumb.png` are the TrimUI Brick, built by
 `tools/build-brick-model.py` from the published outline (73.2 x 109.9 mm; 11.8
-deep above the back ledge, 19.9 below) and the key places measured in
-`docs/superpowers/specs/2026-11-14-device-modular-design.md` (appendix
-"Measurements"), the numbers `src/device/brick_model.c` draws the launcher's
-own Brick with. The product images those were measured on are reference
+deep above the back ledge, 19.9 below) and the key places measured for `src/device/brick_model.c`, the numbers it
+draws the launcher's own Brick with. The product images those were measured on are reference
 only: nothing is traced from them, and none of TrimUI's marks is on the model.
 It is the purple Brick: the shell and keys purple, F1 and F2 light grey, as
 TrimUI's photo shows them. Its shell is plastic, so no metal: a satin finish

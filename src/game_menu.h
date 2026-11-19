@@ -271,8 +271,8 @@ const char *gm_disc_value(const gm_ui *u, char *out, size_t n, bool (*fits)(cons
 /* The disc `d` (+1 or -1) steps to from `disc` of `discs`, round */
 int gm_disc_step(int disc, int discs, int d);
 
-/* The in-game menu is in tabs, MENU's tab row (docs/superpowers/specs/
- * 2026-11-13-button-remap-design.md, section 1): Game, Display and Controls,
+/* The in-game menu is in tabs, MENU's tab row (DESIGN.md
+ * 11.45): Game, Display and Controls,
  * L1 and R1 going round them. gm_tab_name is a tab's name in the language
  * that is on, the first for a tab past the ends.
  *

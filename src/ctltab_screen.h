@@ -7,8 +7,7 @@
  * the tutorial's handheld beside the rows (and a button's choices), lit for
  * the row under the cursor and moving as the design says. main.c hooks it into the in-game menu's
  * build, keys and panel (gm_menu_build, gm_key, menu_style's side).
- * Design: docs/superpowers/specs/2026-11-13-button-remap-design.md,
- * sections 2 to 8. */
+ * Design: DESIGN.md 11.45. */
 
 #include <stdbool.h>
 #include <stddef.h>

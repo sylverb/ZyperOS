@@ -5,8 +5,7 @@
  * SHOULDER[], SH_TOP, the FRONT/RIGHT/LEFT/BOTH/TOP poses, the tutorial's
  * 304 x 382 box and the Controls tab's 256 x 332, 3.15 units a millimetre
  * turned 10 degrees), so the drawing that reads them draws the same pixels;
- * and the TrimUI Brick's as the plan measures them (docs/superpowers/plans/
- * 2026-11-15-brick-front-step5.md): its outline, its keys on their faces at
+ * and the TrimUI Brick's as src/device/brick_model.c measures them: its outline, its keys on their faces at
  * their places and sizes, the shoulders on the back ledge, and the back
  * view that shows them. No SDL. */
 #include <math.h>
