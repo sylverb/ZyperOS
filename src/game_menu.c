@@ -42,6 +42,9 @@ int gi_rows(menu_row *out, const game_info *gi, bool net)
 		out[n++] = (menu_row){ T(S_GAMEMENU_YEAR),  gi->year,  false };
 	if (gi->scraped && gi->genre[0])
 		out[n++] = (menu_row){ T(S_GAMEMENU_GENRE), gi->genre, false };
+	/* The core, a fact, where the shelf offers more than one (1.0.7) */
+	if (gi->core[0])
+		out[n++] = (menu_row){ T(S_SYSMENU_CORE), gi->core, false };
 	/* The count opens the same list the in-game menu opens - which is where it
 	 * comes from. Reading "4/54" and having nowhere to go with it is the
 	 * question half-answered: which four, and what are the other fifty. A game
