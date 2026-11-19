@@ -6,7 +6,8 @@
  * bytes as before; the TrimUI Brick's port includes it for its own GPU path.
  *
  * Not a header of declarations: definitions, static, for the one file that
- * includes it. That file has, before the include, the state they draw from:
+ * includes it. Its log lines start with PORT_NAME, the including port's
+ * name as a string ("pixel2"), so the Pixel 2's are the same strings. That file has, before the include, the state they draw from:
  * the GL objects (g_prog_*, g_*_tex), the panel and surface sizes, the
  * overlay, the level bar's and the HUD's state, the mailbox's frame type. */
 static const char *VERTEX_SHADER =
@@ -286,7 +287,7 @@ static GLuint compile(GLenum type, const char *src)
 	if (!ok) {
 		char log[512];
 		glGetShaderInfoLog(s, sizeof log, NULL, log);
-		port_logf(DIATOM_LOG_ERROR, "pixel2: shader: %s", log);
+		port_logf(DIATOM_LOG_ERROR, PORT_NAME ": shader: %s", log);
 		glDeleteShader(s);
 		return 0;
 	}
@@ -343,7 +344,7 @@ static GLuint link_program(const char *fragment)
 	glDeleteShader(fs);
 	glGetProgramiv(p, GL_LINK_STATUS, &ok);
 	if (!ok) {
-		diatom_port_log(DIATOM_LOG_ERROR, "pixel2: program did not link");
+		diatom_port_log(DIATOM_LOG_ERROR, PORT_NAME ": program did not link");
 		glDeleteProgram(p);
 		return 0;
 	}
@@ -572,7 +573,7 @@ static GLuint filter_prog(diatom_filter f, int strength, bool *soft)
 			g_prog_soft[f] = link_program(*SOFT_SHADER[f]);
 			g_soft_failed[f] = !g_prog_soft[f];
 			if (g_soft_failed[f])
-				port_logf(DIATOM_LOG_ERROR, "pixel2: filter %d's strength did not link; full", (int)f);
+				port_logf(DIATOM_LOG_ERROR, PORT_NAME ": filter %d's strength did not link; full", (int)f);
 		}
 		if (g_prog_soft[f]) {
 			*soft = true;
@@ -583,7 +584,7 @@ static GLuint filter_prog(diatom_filter f, int strength, bool *soft)
 		g_prog_filter[f] = link_program(*FILTER_SHADER[f]);
 		g_prog_failed[f] = !g_prog_filter[f];
 		if (g_prog_failed[f])
-			port_logf(DIATOM_LOG_ERROR, "pixel2: filter %d did not link; nearest", (int)f);
+			port_logf(DIATOM_LOG_ERROR, PORT_NAME ": filter %d did not link; nearest", (int)f);
 	}
 	return g_prog_filter[f] ? g_prog_filter[f] : g_prog_plain;
 }
