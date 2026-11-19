@@ -25,6 +25,7 @@
 #include "notice.h"
 #include "nowplaying_screen.h"
 #include "panel.h"
+#include "menumotion.h"
 #include "place.h"
 #include "powerscreens.h"
 #include "rahash.h"
@@ -390,6 +391,9 @@ static void draw_systems(app *a)
 	}
 	home_item items[CFG_MAX_SYSTEMS];
 	home_items(a, items);
+	/* A menu over the home: the Grid holds a glide to a new shape until the
+	 * menu goes, and starts it as the menu leaves (DESIGN.md 11.1) */
+	a->home.covered = mm_depth() > 0;
 	uint32_t now = g_home_phase >= 0 ? a->home.animation + (uint32_t)g_home_phase : anim_now();
 	uint32_t wait = home_draw(&a->home, a->r, a->home_layout, items,
 	                          a->sys.count, a->sys_cursor, line,

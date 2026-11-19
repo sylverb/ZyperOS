@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 /* A handheld's frame around its game: Border's Handheld and Handheld, Whole
- * (src/border.h, DESIGN.md 11.55), ZyperOS's own drawing of the real one at
+ * (src/border.h, DESIGN.md 11.59), ZyperOS's own drawing of the real one at
  * the game's own scale.
  *
  * The scale is the game's: one game pixel is one dot of the handheld's LCD,

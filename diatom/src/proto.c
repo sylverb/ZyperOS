@@ -172,6 +172,7 @@ static void parse_line(char *line, diatom_msg *out)
 	char *save = NULL, *field;
 
 	memset(out, 0, sizeof *out);
+	out->rumble = -1;   /* absent: as the core asks (diatom_env_rumble_scale) */
 	field = strtok_r(line, "\t", &save);
 	if (!field) { out->kind = DIATOM_MSG_NONE; return; }
 
@@ -220,6 +221,7 @@ static void parse_line(char *line, diatom_msg *out)
 	else if (!strcmp(field, "SETPLAYER2")) out->kind = DIATOM_MSG_SETPLAYER2;
 	else if (!strcmp(field, "SETPOWERHOLD")) out->kind = DIATOM_MSG_SETPOWERHOLD;
 	else if (!strcmp(field, "SETHUD"))       out->kind = DIATOM_MSG_SETHUD;
+	else if (!strcmp(field, "SETRUMBLE"))    out->kind = DIATOM_MSG_SETRUMBLE;
 	else {
 		log_(DIATOM_LOG_WARN, "proto: ignoring unknown verb '%s'", field);
 		out->kind = DIATOM_MSG_NONE;
@@ -491,6 +493,14 @@ diatom_msg_kind diatom_proto_poll(diatom_msg *out, int timeout_ms, bool running)
 		 * clock24=: On-Screen Stats over every game until said again
 		 * (diatom_port_hud_style). Additive, so proto stays 14: an old
 		 * Diatom ignores the verb, and nothing is drawn. */
+		/* SETRUMBLE rumble=N: the motor at N percent of what the core
+		 * asks from now (the in-game menu's Rumble row: the player's level
+		 * times the system's share), 0 Off, over a game that runs or is
+		 * paused; RUN rumble= says the same at a start, where 0 is now Off
+		 * too. And PAUSED says rumble=1 when the core asked for the motor,
+		 * so the row is for its games alone. Additive, so proto stays 14:
+		 * an old Diatom ignores the verb, and an old launcher reads PAUSED
+		 * by its first six letters. */
 		diatom_proto_send("READY\tproto=14\tstate=%s", running ? "running" : "idle");
 		/* A displaced launcher is a vanished one, and every loop already
 		 * knows what that means - the in-game menu resumes the game. Said

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The handheld frames' check sheet (src/handframe.h, DESIGN.md 11.55): every
+"""The handheld frames' check sheet (src/handframe.h, DESIGN.md 11.59): every
 frame at every placement on the Pixel 2's 640x480 and the Brick's 1024x768,
 a stand-in game in its window, and over it the model's own outlines one
 pixel wide (tools/handframe-sheet.c --outline), so an edge off its line

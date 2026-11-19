@@ -375,14 +375,21 @@ uint32_t diatom_port_input_state(void);
 void     diatom_port_input_reset(void);
 
 /* The rumble motor. `strong` and `weak` are the two motors a pad of the
- * DualShock kind has, 0 (still) to 65535 (full); a device with one motor runs
- * it from whichever is stronger. Both 0 stops it. The whole state each time,
- * not a change, so a call is never read against one that was missed.
+ * DualShock kind has, 0 (still) to 65535 (full), as the core asks; a device
+ * with one motor runs it from whichever is stronger. `scale`, 0 to 1, is how
+ * much of that reaches the hand: the player's Rumble level (MENU > Sound, or
+ * the game's own: Off 0, Low 0.35, Medium 0.65, Full 1) times the system's
+ * share (systems.cfg's rumble| lines, Doom's 0.35). Each port makes its
+ * motor's sense of it: the Pixel 2's force feedback runs at the strength
+ * times the scale; a motor whose strength is a voltage (the Brick's) may take
+ * the scale as its step. Both strengths 0, or a scale of 0, stops it. The
+ * whole state each time, not a change, so a call is never read against one
+ * that was missed.
  *
  * May be called from a core's own thread (flycast2021 rumbles from its
  * emulation thread), so a port serializes it. A port with no motor says so in
  * its caps (rumble = false) and returns false here. */
-bool     diatom_port_rumble(uint16_t strong, uint16_t weak);
+bool     diatom_port_rumble(uint16_t strong, uint16_t weak, float scale);
 
 /* Levels the user can change with the device's own keys while a game runs -
  * volume and brightness on the Brick and the GKD Pixel 2, nothing at all on

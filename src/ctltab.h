@@ -25,6 +25,10 @@
  *                     while it says the system and the game has its own
  *   [D-pad as Stick]  On or Off, always this game's
  *   [Pak]             an N64 game's, as before
+ *   [Rumble]          Off, Low, Medium or Full, for the scope Applies To
+ *                     shows, where the core asked for the motor and the
+ *                     handheld has one; in accent-ink when the scope has
+ *                     its own level (src/rumble.h)
  *   [Face Buttons]    By Letter, By Place, or Mixed
  *   A ... SELECT      the handheld's button, and what it gives the game;
  *                     a changed one in accent-ink. SELECT is a dead row on
@@ -41,7 +45,7 @@
 /* A row's identity, whatever its place: a warning is CT_WARN plus the
  * target (RT_*) it is about */
 typedef enum {
-	CT_SCOPE, CT_OWN_NOTE, CT_STICK, CT_PAK, CT_FACE, CT_BUTTON,
+	CT_SCOPE, CT_OWN_NOTE, CT_STICK, CT_PAK, CT_RUMBLE, CT_FACE, CT_BUTTON,
 	CT_WARN = CT_BUTTON + RM_BUTTONS, CT_RESET = CT_WARN + 16, CT_HOTKEYS, CT_MAX
 } ct_row;
 
@@ -66,6 +70,10 @@ typedef struct {
 	bool        stick_offered, stick_on;
 	/* The Pak row's value, as gm_pak_name says it; NULL for no row */
 	const char *pak;
+	/* The Rumble row's value, the scope's level by name (rumble_scope);
+	 * NULL for no row. And whether the scope has a level of its own. */
+	const char *rumble;
+	bool        rumble_own;
 	/* Face Buttons is offered (ctl_letter_layout), and its By Letter */
 	bool        face_offered;
 	rm_table    letters;

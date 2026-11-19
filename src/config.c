@@ -216,6 +216,12 @@ bool cfg_load_systems(const char *path, systems_cfg *out)
 
 void cfg_run_keys(const system_cfg *s, bool dual, const char *pace, char *out, int cap)
 {
+	cfg_run_keys_at(s, dual, pace, s->rumble ? s->rumble : 100, out, cap);
+}
+
+void cfg_run_keys_at(const system_cfg *s, bool dual, const char *pace, int rumble,
+                     char *out, int cap)
+{
 	int n = 0;
 
 	out[0] = '\0';
@@ -224,8 +230,9 @@ void cfg_run_keys(const system_cfg *s, bool dual, const char *pace, char *out, i
 		n += snprintf(out + n, (size_t)(cap - n), "%spower=%s", n ? "\t" : "", s->power);
 	if (s->controller && n < cap)
 		n += snprintf(out + n, (size_t)(cap - n), "%scontroller=%u", n ? "\t" : "", s->controller);
-	if (s->rumble && n < cap)
-		n += snprintf(out + n, (size_t)(cap - n), "%srumble=%d", n ? "\t" : "", s->rumble);
+	/* The motor's share in percent, 0 (Off) to 99; all of it says nothing */
+	if (rumble >= 0 && rumble < 100 && n < cap)
+		n += snprintf(out + n, (size_t)(cap - n), "%srumble=%d", n ? "\t" : "", rumble);
 	if (s->pace[0] && n < cap) {
 		if (!pace || (strcmp(pace, "smooth") && strcmp(pace, "exact"))) pace = s->pace;
 		n += snprintf(out + n, (size_t)(cap - n), "%space=%s", n ? "\t" : "", pace);

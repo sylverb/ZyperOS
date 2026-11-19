@@ -5,7 +5,7 @@
  * maker's name and no printed text (where a logo sits, the plastic is
  * plain).
  *
- * Where each number comes from (DESIGN.md 11.55 lists them with links):
+ * Where each number comes from (DESIGN.md 11.59 lists them with links):
  *
  *   published   Nintendo's: each body's size (Nintendo Japan's spec tables
  *               and Nintendo UK's history pages) and the LCD's screen size
