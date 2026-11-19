@@ -250,6 +250,9 @@ void bgm_hold(unsigned why, bool held);
  * onto it, for Audio Channels' mono on one side. `mono` with both sides is
  * the two mixed onto both: Audio Channels' mono, and Auto's on one speaker. */
 void bgm_route(const char *device, bool left, bool right, bool mono);
+/* The equalizer's bands for where the menu music plays (src/eq.h), dB each;
+ * sent on a change only (src/aout_route.c). All 0 is flat, no filter. */
+void bgm_eq(const int8_t db[5]);
 
 /* The next track now: in shuffle, the next of the deck; on one track, from
  * its start. */

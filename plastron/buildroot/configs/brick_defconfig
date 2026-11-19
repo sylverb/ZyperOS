@@ -93,6 +93,8 @@ BR2_PACKAGE_ZLIB=y
 BR2_PACKAGE_FFMPEG=y
 BR2_PACKAGE_FFMPEG_SWSCALE=y
 # BR2_PACKAGE_FFMPEG_FFMPEG is not set
+# dav1d, for MP4's AV1 videos, as on the Pixel 2 (board/zyperos/zyperos.config)
+BR2_PACKAGE_DAV1D=y
 
 # ZyperOS (the launcher and Muse) and Diatom, built for the Brick from their
 # own repositories
