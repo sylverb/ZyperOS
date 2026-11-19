@@ -77,12 +77,13 @@ class Run:
         self.windows = 0
         self.fps = self.speed = None                # their means
         self.now_speed = None                       # the now file's, the same stretch
-        self.clock = self.short = None              # the step's own report
+        self.clock = self.short = self.turns = None   # the step's own report: of the clock,
+                                                      # turns short, and over the turns' time
 
     def __repr__(self):
         return (f"fps {self.fps}, speed {self.speed}, now {self.now_speed}, "
                 f"{self.windows} windows, {self.pics:.1f} pictures, {self.frames:.1f} frames, "
-                f"step report {self.clock} with {self.short} turns short")
+                f"step report {self.clock}x of the clock, {self.turns}x of the turns, {self.short} turns short")
 
 def run(tag, stub_env, presses=0, seconds=5.0):
     """One game with On-Screen Stats on: `presses` times SELECT+R2 from poll 30,
@@ -169,10 +170,10 @@ def run(tag, stub_env, presses=0, seconds=5.0):
     if r.windows < 2 or r.secs <= 0: return None
     r.fps = r.pics / r.secs
     r.speed = r.frames / r.secs / CORE_FPS
-    rep = re.findall(r"diatom: speed ([\d.]+)x held [\d.]+s, reached [\d.]+x "
+    rep = re.findall(r"diatom: speed ([\d.]+)x held [\d.]+s, reached ([\d.]+)x "
                      r"\(([\d.]+)x of the clock\), \d+ audio frame\(s\) dropped, "
                      r"slept [\d.]+s \([\d.]+s after (\d+) of \d+ turns short", text)
-    if rep: r.clock, r.short = float(rep[-1][1]), int(rep[-1][2])
+    if rep: r.turns, r.clock, r.short = float(rep[-1][1]), float(rep[-1][2]), int(rep[-1][3])
     return r
 
 def say(name, r):
@@ -199,6 +200,39 @@ def upto(r, speed, fps):
     """Never over what the core allows, however fast the machine, and a
     speed at all"""
     return r is not None and 0.0 < r.speed <= speed and r.fps <= fps
+
+def kept_up(r):
+    """A run that held its step as a machine that keeps up does: no turn short
+    of the step's frames, and no time lost between turns, which the step's
+    report says in two figures: "reached" over the turns' time and "of the
+    clock" over the time held (diatom: speed ...). A runner that kept the loop
+    waiting after a sleep, or took the CPU for a moment, loses time there and
+    reads under the step with no turn short of it: GitHub's macOS runner at
+    2.0x, 1.5x of the clock with none short (2026-11-19). That is the machine's,
+    and the check says it could not tell."""
+    return (r is not None and r.short == 0 and r.clock is not None and r.turns is not None
+            and r.clock >= r.turns * 0.95)
+
+def reaches(r, want):
+    """What a run that kept up shows: near the step, and what the step's own
+    report says it reached"""
+    return r.speed >= want * 0.88 and abs(r.speed - r.clock) <= 0.2
+
+# That judgment, on runs made up from what the runner's log said, and from
+# what a machine that keeps up writes: the runner's 2.0x, with no turn short
+# and 1.5x of the clock against 2.1x of the turns, is not judged
+def made(speed, clock, turns, short):
+    r = Run()
+    r.speed, r.clock, r.turns, r.short = speed, clock, turns, short
+    return r
+check("a run with no turn short and time lost between turns is not judged (the runner's 2.0x)",
+      not kept_up(made(1.52, 1.5, 2.1, 0)), "judged")
+check("a run with a turn short is not judged", not kept_up(made(1.9, 1.9, 1.9, 1)), "judged")
+check("a run that kept up is judged, and 2.0x reaches 2.0x",
+      kept_up(made(1.99, 1.98, 1.99, 0)) and reaches(made(1.99, 1.98, 1.99, 0), 2.0), "not judged or not reached")
+check("a run that kept up and reached 1.5x of 2.0x is not near it",
+      kept_up(made(1.5, 1.5, 1.5, 0)) and not reaches(made(1.5, 1.5, 1.5, 0), 2.0), "reached")
+check("a run with no report is not judged", not kept_up(made(2.0, None, None, None)) and not kept_up(None), "judged")
 
 # The control: a core that draws every frame it runs
 r = run("plain", {})
@@ -243,8 +277,8 @@ check("and the now file says the same speed", same_now(r), r)
 
 # Fast forward: the step, dupes or not. A 1 ms core reaches it on a machine
 # that keeps up, and then the overlay says the step and what the step's own
-# report says it reached; on one that does not (turns short of the step), it
-# is under the step and still the now file's
+# report says it reached; on one that does not (kept_up), it is under the
+# step and still the now file's
 for presses, want in ((2, 2.0), (3, 3.0)):
     for tag, stub_env, k in (("every frame drawn", {}, 1), ("dupe", {"STUBCORE_DUPE": "2"}, 2)):
         r = run(f"ff{presses}{k}", dict(stub_env, STUBCORE_FRAME_US="1000"), presses)
@@ -252,11 +286,11 @@ for presses, want in ((2, 2.0), (3, 3.0)):
         check(f"fast forward at {want}x, {tag}: {k} frame(s) to a picture, not over the step",
               per_picture(r, k) and upto(r, want * 1.06, 1e9), r)
         check(f"fast forward at {want}x, {tag}: the now file says the same speed", same_now(r), r)
-        if r and r.short == 0 and r.clock is not None:
-            check(f"and with no turn short of the step, near {want}x and what its report says",
-                  r.speed >= want * 0.88 and abs(r.speed - r.clock) <= 0.15, r)
+        if kept_up(r):
+            check(f"and in a run that kept up, near {want}x and what its report says", reaches(r, want), r)
         elif r:
-            print(f"  --   not judged against {want}x: this machine could not keep the step")
+            print(f"  --   not judged against {want}x: this machine could not keep the step "
+                  f"({r.short} turns short; {r.clock}x of the clock against {r.turns}x of the turns)")
 
 shutil.rmtree(TMP, ignore_errors=True)
 if fails:

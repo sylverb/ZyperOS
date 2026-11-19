@@ -3,6 +3,8 @@
 #include "ctltab_screen.h"
 #include "hotkeys_screen.h"
 
+#include "rumble.h"
+
 #include <SDL.h>
 #include <math.h>
 #include <stdio.h>
@@ -40,8 +42,9 @@
  * with the rows, tab-move-in the press's way; out with the old tab's name,
  * tab-move-name the press's way */
 
-/* Which screen sets the handheld's lights: the tab, or a button's choices */
-typedef enum { CS_TAB, CS_PICK } cs_mode;
+/* Which screen sets the handheld's lights: the tab, a button's choices, or
+ * Rumble's levels (which light no key, and buzz as the cursor moves) */
+typedef enum { CS_TAB, CS_PICK, CS_RUMBLE } cs_mode;
 
 /* The handheld's lean toward the keys the focused row lights (ct_lean):
  * degrees off the front pose, turned (off its tab pose's) and tilted back */
@@ -79,6 +82,10 @@ static struct {
 	unsigned    press_t0[TD_KEYS];
 	cs_mode     mode;
 	int         pick_button;
+	/* Rumble's levels: the one last felt (-1 none yet: the list opening
+	 * is no step) and the system's share it is felt at */
+	int         rumble_felt;
+	int         rumble_share;
 	/* A button's choices open or close over the tab: the handheld holds
 	 * still over the panels' motion (MENU_SIDE_OVER) until a panel with it
 	 * is at rest */
@@ -157,6 +164,15 @@ static void refresh(const ctlscr_game *g)
 	m->stick_on = rms_stick_get(g->s, file);
 	m->stick_default = rms_stick_default(g->s);
 	m->pak = g->pak;
+	/* The scope's level: the system's under Applies To's system, else the
+	 * game's; each falls back as src/rumble.h says */
+	if (g->rumble) {
+		const char *rf = m->scope_all ? NULL : file;
+		rumble_level own_level;
+
+		m->rumble = rumble_level_name(rumble_scope(g->s->tag, rf));
+		m->rumble_own = rumble_own(g->s->tag, rf, &own_level);
+	}
 	m->face_offered = ctl_letter_layout(g->s->tag, &m->letters);
 	/* The N64's SELECT layer is its C buttons; the Dreamcast's stick rule
 	 * (mode dpad) takes SELECT for its own d-pad while it is on */
@@ -188,6 +204,28 @@ static void send_map(const ctlscr_game *g)
 	rm_format(&sent, map, sizeof map);
 	fprintf(stderr, "controls: map %s %s\n", g->s->tag, map);
 	plat_resident_line("SETMAP\tmap=%s", map);
+}
+
+/* The motor's share for the game running, at once: its own level over its
+ * system's over MENU's, times the system's share (src/rumble.h). No answer
+ * to wait for. */
+static void send_rumble(const ctlscr_game *g)
+{
+	const int pct = rumble_run_pct(g->s->rumble, rumble_scope(g->s->tag, g->file));
+
+	if (!g->running) return;
+	fprintf(stderr, "controls: rumble %s %d%%\n", g->s->tag, pct);
+	plat_resident_line("SETRUMBLE\trumble=%d", pct);
+}
+
+/* A level for the scope shown: kept, sent, and felt once at what the game
+ * will run at (its system's share too) */
+static void put_rumble(const ctlscr_game *g, rumble_level l)
+{
+	rumble_put(g->s->tag, g_cs.m.scope_all ? NULL : g->file, l);
+	send_rumble(g);
+	plat_rumble_buzz((float)rumble_run_pct(g->s->rumble, l) / 100.0f, RUMBLE_BUZZ_MS);
+	g_cs.stale = true;
 }
 
 /* The map and, on a system with a stick, the stick after it: a button
@@ -319,6 +357,17 @@ static bool lights_of(const menu_side *at, unsigned *target)
 	switch (g_cs.mode) {
 	case CS_PICK:
 		*target = ct_lit(&g_cs.m, (ct_row)(CT_BUTTON + g_cs.pick_button));
+		return true;
+	case CS_RUMBLE:
+		/* No key is the motor's; the level under the cursor is felt, once
+		 * a move (the live screen's frame is the list's) */
+		if (at->sel >= 0 && at->sel < RUMBLE_LEVELS && at->sel != g_cs.rumble_felt) {
+			if (g_cs.rumble_felt >= 0)
+				plat_rumble_buzz((float)rumble_run_pct(g_cs.rumble_share, (rumble_level)at->sel) / 100.0f,
+				                 RUMBLE_BUZZ_MS);
+			g_cs.rumble_felt = at->sel;
+		}
+		*target = 0;
 		return true;
 	default:
 		if (at->tab_at >= 0 && at->tab_at != GT_CONTROLS) return false;
@@ -753,6 +802,58 @@ static menu_result pick_key(app *a, void *ctx, in_button key, int sel)
 	return MENU_DONE;
 }
 
+/* The Rumble row's list: the four levels, a tick on the scope's and
+ * Default on what it falls back to (MENU's, or the system's for a game that
+ * has one); A takes one and goes back. The cursor's level is felt as it
+ * comes onto it. */
+typedef struct {
+	const ctlscr_game *g;
+	char               head[96];
+} cs_rumble_ctx;
+
+static int rumble_pick_build(void *ctx, menu_row *rows, int max, const char **heading)
+{
+	cs_rumble_ctx *c = ctx;
+	const char *rf = g_cs.m.scope_all ? NULL : c->g->file;
+	const rumble_level now = rumble_scope(c->g->s->tag, rf), def = rumble_fallback(c->g->s->tag, rf);
+	int i;
+
+	for (i = 0; i < RUMBLE_LEVELS && i < max; i++)
+		rows[i] = (menu_row){ rumble_level_name((rumble_level)i),
+		                      (rumble_level)i == now ? MENU_TICK
+		                      : (rumble_level)i == def ? T(S_CONTROLS_DEFAULT) : NULL, true };
+	*heading = c->head;
+	return i;
+}
+
+static menu_result rumble_pick_key(app *a, void *ctx, in_button key, int sel)
+{
+	cs_rumble_ctx *c = ctx;
+
+	(void)a;
+	if (key != IN_ACCEPT || sel < 0 || sel >= RUMBLE_LEVELS) return MENU_STAY;
+	put_rumble(c->g, (rumble_level)sel);
+	return MENU_DONE;
+}
+
+static void rumble_pick(app *a, const ctlscr_game *g)
+{
+	cs_rumble_ctx c;
+	menu_style st = cs_style(g, true);
+
+	memset(&c, 0, sizeof c);
+	c.g = g;
+	snprintf(c.head, sizeof c.head, T(S_RUMBLE_PICK_HEADING),
+	         g_cs.m.scope_all ? g->s->name : T(S_GAMEMENU_THIS_GAME));
+	st.start_sel = (int)rumble_scope(g->s->tag, g_cs.m.scope_all ? NULL : g->file);
+	g_cs.mode = CS_RUMBLE;
+	g_cs.rumble_felt = -1;
+	g_cs.rumble_share = g->s->rumble;
+	g_cs.steady = true;
+	menu_run(a, &st, rumble_pick_build, rumble_pick_key, &c);
+	back_to_tab();
+}
+
 static void pick(app *a, const ctlscr_game *g, int button)
 {
 	cs_ctx c;
@@ -857,6 +958,18 @@ menu_result ctlscr_key(app *a, const ctlscr_game *g, in_button key, int id)
 		g_cs.stale = true;
 		break;
 	}
+	case CT_RUMBLE:
+		if (!m->rumble) break;
+		if (side) {
+			const char *rf = m->scope_all ? NULL : g->file;
+			const rumble_level was = rumble_scope(g->s->tag, rf);
+			const rumble_level l = rumble_level_step(was, key == IN_LEFT ? -1 : 1);
+
+			if (l != was) put_rumble(g, l);
+		} else {
+			rumble_pick(a, g);
+		}
+		break;
 	case CT_FACE: {
 		rm_table t = m->cur;
 		int i;
@@ -903,8 +1016,26 @@ void ctlscr_shot_pick(app *a, const ctlscr_game *g, int id)
 
 	memset(&c, 0, sizeof c);
 	c.g = g;
-	if (bt < 0) bt = RM_A;
 	refresh(g);
+	/* Rumble's levels, as A on its row opens them */
+	if (id == CT_RUMBLE && g_cs.m.rumble) {
+		cs_rumble_ctx rc;
+		const char *heading;
+
+		memset(&rc, 0, sizeof rc);
+		rc.g = g;
+		snprintf(rc.head, sizeof rc.head, T(S_RUMBLE_PICK_HEADING),
+		         g_cs.m.scope_all ? g->s->name : T(S_GAMEMENU_THIS_GAME));
+		n = rumble_pick_build(&rc, rows, 32, &heading);
+		sel = (int)rumble_scope(g->s->tag, g_cs.m.scope_all ? NULL : g->file);
+		g_cs.mode = CS_RUMBLE;
+		g_cs.rumble_felt = sel;
+		st.backdrop(a, &c, 1.0f);
+		menu_draw_styled(a, &st, heading, rows, n, sel);
+		g_cs.mode = CS_TAB;
+		return;
+	}
+	if (bt < 0) bt = RM_A;
 	track(id);
 	c.nch = ct_choices(&g_cs.m, bt, c.ch, 32);
 	n = ct_pick_rows(&g_cs.m, bt, c.ch, c.nch, rows, &c.b, &sel);

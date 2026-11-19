@@ -424,6 +424,13 @@ EXTRA = {
     "scraper-page-done-full": ("demo", "PS1", ["--scraper-page", "15"]),
     # and the Video Snaps page it opens: how the shelf plays them, the room
     "scraper-video-snaps": ("demo", "PS1", ["--scraper", "3"]),
+    # MENU > Downloads (DESIGN.md 11.53): the plan, a run going on, every
+    # kind done or out, no network and nobody signed in, and its Settings
+    "downloads": ("demo", "PS1", ["--downloads", "0"]),
+    "downloads-running": ("demo", "PS1", ["--downloads", "1"]),
+    "downloads-done": ("demo", "PS1", ["--downloads", "2"]),
+    "downloads-offline": ("demo", "PS1", ["--downloads", "3"]),
+    "downloads-settings": ("demo", "PS1", ["--downloads", "4"]),
     # A game's Cover and Video (DESIGN.md 11.34) in every state, a tile of
     # each kind and region focused, Delete's question and the message of a
     # download that did not come; and the details row's other value
@@ -701,14 +708,36 @@ for _name, _tag, _flags in (
                      ("demo", _tag, ["--screen", "games", "--gm-tab", "2"] + _flags))
 # A Nintendo 64 game's Pak row, back in the Controls tab
 EXTRA.setdefault("gamemenu-pak", ("demo", "N64", ["--screen", "games", "--gm-tab", "2", "--gamemenu", "2"]))
+# Rumble, an N64 game's whose core asked for the motor: the row under the
+# Pak, and the list A opens there; and MENU > Sound's row and its list
+EXTRA.setdefault("gamemenu-rumble", ("demo", "N64", ["--screen", "games", "--gm-tab", "2",
+                                                     "--gamemenu", "3", "--gm-rumble"]))
+EXTRA.setdefault("gamemenu-rumble-list", ("demo", "N64", ["--screen", "games", "--gm-tab", "2",
+                                                          "--gamemenu", "3", "--gm-rumble", "--gm-pick"]))
+# The game's own level, Low: the row in accent-ink, the list's tick on Low and
+# Default on MENU's Full
+EXTRA.setdefault("gamemenu-rumble-own-list", ("demo", "N64", ["--screen", "games", "--gm-tab", "2",
+                                                              "--gamemenu", "3", "--gm-rumble", "--gm-pick"]))
+EXTRA.setdefault("menu-rumble", ("demo", "PS1", ["--menu", "Rumble"]))
+EXTRA.setdefault("menu-rumble-list", ("demo", "PS1", ["--menu", "Rumble", "--press", "a"]))
+# MENU's level at Low: the list opens on it, with the share's note
+EXTRA.setdefault("menu-rumble-list-low", ("demo", "PS1", ["--menu", "Rumble", "--press", "a"]))
+SHOT_SETTINGS["menu-rumble-list-low"] = {"rumble": "low"}
+# And at Off: the note that says so
+EXTRA.setdefault("menu-rumble-list-off", ("demo", "PS1", ["--menu", "Rumble", "--press", "a"]))
+SHOT_SETTINGS["menu-rumble-list-off"] = {"rumble": "off"}
 CTL_FOCUS = {"gamemenu-pak": "Mario Kart 64 (USA).z64",
+             "gamemenu-rumble": "Mario Kart 64 (USA).z64",
+             "gamemenu-rumble-list": "Mario Kart 64 (USA).z64",
+             "gamemenu-rumble-own-list": "Mario Kart 64 (USA).z64",
              "gamemenu-controls-n64-end": "Mario Kart 64 (USA).z64",
              **{"gamemenu-controls-" + _n: _SONIC for _n in ("dc", "dc-end", "dc-place", "dc-mixed")}}
 # A game's details with its own buttons (Buttons, This Game), and the page that
 # row opens
 EXTRA.setdefault("info-buttons", ("demo", "PS1", ["--screen", "games", "--info"]))
 EXTRA.setdefault("info-buttons-page", ("demo", "PS1", ["--screen", "games", "--info-buttons"]))
-SHOT_LIB = {"info-buttons": {_MGS: "1;b:y,y:b"},
+SHOT_LIB = {"gamemenu-rumble-own-list": {"rumble.N64.Mario Kart 64 (USA).z64": "low"},
+            "info-buttons": {_MGS: "1;b:y,y:b"},
             "info-buttons-page": {_MGS: "1;b:y,y:b"},
             "gamemenu-controls-all": {_MGS: "1;b:y,y:b"},
             "gamemenu-controls-pick": {_MGS: "1;b:y,y:b"},

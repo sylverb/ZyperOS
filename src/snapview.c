@@ -72,7 +72,7 @@ bool snapv_update(SDL_Renderer *r)
 {
 	const mpf_slot *sl;
 	const uint8_t *y;
-	uint32_t seq, w, h, cw;
+	uint32_t seq, w, h, st, cw;
 	int s;
 
 	if (!mapped() || (s = mpf_peek(g_head, g_seen, &seq)) < 0) return false;
@@ -81,6 +81,12 @@ bool snapv_update(SDL_Renderer *r)
 	if (sl->file == g_from) { g_seen = sl->serial; return false; }
 	w = sl->w;
 	h = sl->h;
+	st = sl->stride;                     /* w: snap.c packs a snap's rows */
+	/* Read once, and checked again after mpf_peek's look, as mp4video.c
+	 * does: a picture written meanwhile is caught by mpf_still_good, but its
+	 * sizes must still fit the slot (stride and height within the largest
+	 * picture keep all three planes inside MPF_SLOT_BYTES) */
+	if (w == 0 || h == 0 || h > MPF_MAX_H || st < w || st > MPF_MAX_W) return false;
 	if (!g_tex || g_tw != (int)w || g_th != (int)h) {
 		uint32_t xw, xh;
 
@@ -106,14 +112,14 @@ bool snapv_update(SDL_Renderer *r)
 		g_tw = (int)w;
 		g_th = (int)h;
 	}
-	cw = mpf_chroma(w);
+	cw = mpf_chroma(st);
 	y = mpf_slot_data(g_head, s);
 	{
 		SDL_Rect at = { 0, 0, (int)w, (int)h };
 
-		SDL_UpdateYUVTexture(g_tex, &at, y, (int)w,
-		                     y + (size_t)w * h, (int)cw,
-		                     y + (size_t)w * h + (size_t)cw * mpf_chroma(h), (int)cw);
+		SDL_UpdateYUVTexture(g_tex, &at, y, (int)st,
+		                     y + (size_t)st * h, (int)cw,
+		                     y + (size_t)st * h + (size_t)cw * mpf_chroma(h), (int)cw);
 	}
 	g_file = sl->file;
 	g_color = sl->color;

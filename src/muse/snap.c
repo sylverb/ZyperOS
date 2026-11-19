@@ -189,6 +189,7 @@ static void publish(sdec *d, double pts)
 		                      (int)h, dst, pitch);
 	}
 	g_shm->slot[s].w = ow;
+	g_shm->slot[s].stride = ow;     /* packed: a snap's texture is padded instead (snapview.c) */
 	g_shm->slot[s].h = oh;
 	g_shm->slot[s].color = f->color_range == AVCOL_RANGE_JPEG ? MPF_FULL : MPF_BT601;
 	g_shm->slot[s].serial = ++g_serial ? g_serial : ++g_serial;
