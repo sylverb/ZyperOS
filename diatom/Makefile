@@ -435,7 +435,9 @@ check-hotkeys:
 .PHONY: check-hotkeys
 
 # How a core's life ends, end to end (test/coreend.py): PrBoom opened afresh
-# for each game (core.c, one_game_per_load), and a core's own quit
+# for each game (core.c, one_game_per_load), and so is every core ZyperOS did
+# not ship, by the card's index (core_is_shipped), while a shipped one stays
+# open: no extra dlopen or retro_init. And a core's own quit
 # (RETRO_ENVIRONMENT_SHUTDOWN) ending its game as the player's would. On
 # check-stateplane's terms: a few seconds, skipped unbuilt.
 check-coreend:
