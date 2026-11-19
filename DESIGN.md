@@ -150,7 +150,7 @@ A system's color on the Beard ground is mixed a quarter of the way toward
 **text** before it is used as a mark (a rail), so a yellow
 like Game Boy Color's still reads on a light ground. Source console sprites
 and game covers are never recolored for a theme. Their dark outlines remain
-opaque. Focus uses the accent underline, size and text, not a tint of the art.
+opaque. Focus uses Highlight's mark (3.5), size and text, not a tint of the art.
 
 ### 3.4 Scrims
 
@@ -168,12 +168,13 @@ drew with no scrim at all, get **scrim.menu**.
 
 ### 3.5 Your look
 
-MENU > Display > Theme (11.42) changes five things, and nothing else: the
+MENU > Display > Theme (11.42) changes six things, and nothing else: the
 **accent**, one of ten, the same in both themes; a **background tone** for
 each theme; the **folders' color**, each system's own or one of the ten
-accents for every folder; **corners**, rounded or square; and **Zyper**, on
+accents for every folder; **corners**, rounded or square; **Highlight**, how
+the item in focus is marked on the home and the shelves; and **Zyper**, on
 or off. Each starts as the themes ship: lime, Warm (Beard's ground) and
-Black (Salt & Pepper's), System Colors, rounded, and Zyper on. *(My picks
+Black (Salt & Pepper's), System Colors, rounded, Bar, and Zyper on. *(My picks
 for the first version, 2026-11-12; the folders' color in 1.0.6 rc.3:
 "can we customize them in theme to be per system or a custom color for
 all?")*
@@ -222,8 +223,43 @@ all?")*
   a look of its own: `look_id` counts it, so a card drawn in another folder
   color is drawn again.
 - **Square** takes every radius under a pill's to 0: panels, the focus fill,
-  keys, chips. A pill stays a pill (the bar, a button glyph, the bar under a
-  tab), a circle a circle, and covers keep their own corners.
+  keys, chips, Highlight's ring. A pill stays a pill (the bar, a button
+  glyph, the bar under a tab, Highlight's bar), a circle a circle, and covers
+  keep their own corners.
+- **Highlight** (src/ds/focus.h; my picks in the focus lab, 2026-11-19: "can
+  we experiment with custom active bar in the theme settings? so users can
+  pick none, bar, border, and maybe other options?", then "the focuses on
+  grid mode look bad. We need something more polished, more professional.
+  attention to details") marks the item in focus on the home (Spotlight,
+  Gallery, the Grid) and the shelves (the Covers row, the Grid, the List)
+  one of four ways. Menus, option lists, the keyboard and the in-game menu
+  keep their fill whatever it says.
+  - **Bar**, as it ships: the item grows a little on a soft lift, and a
+    pill of **accent-ink**, focus-bar-w x focus-bar-h, sits focus-bar-under
+    under it (a system's under its name); on a row, the fill as always.
+  - **Border**: a ring of **accent-ink** round it, focus-ring wide past a
+    gap of focus-gap of ground, its corners the item's own plus the gap and
+    the ring, so the curves are parallel; on the home Grid round a
+    **surface** card under the system and its name; on a row, inside it.
+  - **Lift**: it grows more and rises on a deeper lift; a cover gets one
+    light across it as it lands (the **sheen** token, once).
+  - **None**: no mark; it grows, and on a row its name stands in a little.
+  In every one the items out of focus step back, drawn a fifth of the way
+  toward the ground (a system's still at 70%); names and their words keep
+  their contrast. Every mark sits on whole panel pixels (src/focusgeo.h):
+  the Pixel 2 shows the 1024 x 768 picture through linear filtering at
+  0.625, so a mark is laid out in its pixels - the ring and the gap 2 each,
+  3 and 3 on the Brick - and each pixel edge is drawn at the unit that lands
+  cleanest, and the focused item grows to where its edges and its marks'
+  land exact; check-focusgeo holds them to the filter. Every item has a 1-pixel
+  hairline inside its edge (ink at 16%, white at 10% on Salt & Pepper), so
+  very light art on Beard and very dark art on Salt & Pepper keep an edge.
+  The grow, the lift and the name's color move with each item's weight in
+  the focus's glide, and the mark glides from where it is, all in
+  **ms.quick** on **out**: one motion, nothing drawn twice. It costs no
+  frame: each mark is a few rects, the lift is the textures the lifts
+  already have, tinted, and a system's soft shadow is made once as its still
+  arrives.
 - **Zyper off** takes him out of the menus' corner, the song pop-up (11.22),
   the achievement notice (11.7), the Flash Drive pages and the Scraper page (the heading then
   starts where the tiles do). He stays where he is the moment itself:
@@ -479,9 +515,12 @@ its own says why beside it.
 | **line-chrome** | 32 | a chrome line: a key's word, the header |
 | **grid-gap** | 24 | between a grid's cells |
 | **grid-band-gap** | 24 | a grid's foot to the band under it: the name and its facts |
-| **focus-ring** | 4 | the ring round a focused cell |
-| **focus-gap** | 4 | the ground between that ring and the cell |
-| **radius-cell** | 14 | a grid cell's corners; its ring's are radius-card (14 + 4 + 4) |
+| **focus-ring** | 3 | Border's ring round the item in focus, as whole panel pixels |
+| **focus-gap** | 3 | the ground between that ring and the item, as whole panel pixels |
+| **focus-bar-w** | 40 | Bar's bar under the item in focus |
+| **focus-bar-h** | 6 | ...its height, a pill |
+| **focus-bar-under** | 8 | ...under the item's foot (a cover's, a still's name) |
+| **radius-cell** | 14 | a grid cell's corners; its ring's are the cell's, the gap's and the ring's added |
 | **preview-col-w** | 336 | the picture column at an option list's left: the screen in small and its note |
 | **preview-col-min** | 200 | ...narrower where the list's choices run long, to this |
 | **preview-gap** | 32 | the column to the list's rows |
@@ -526,7 +565,10 @@ pill. A pill is only ever a pill: the bar, button glyphs, chips.
 ## 7. Elevation
 
 Salt & Pepper lifts with light: the additive glow under a focused card, in
-the system's color, as the launcher has always done; a menu panel's light
+the system's color, as the launcher has always done (on the home and the
+shelves Highlight's lift is a light in the accent and an ink-black shadow
+under it, and in Beard a shadow leaning a third of the way to the accent's
+ink: `ui_lift_focus`, 3.5); a menu panel's light
 is the neutral one on every menu, a system's too (1.0.6 rc.2). Beard lifts with
 shadow: light on a light ground is invisible, so the same places get a soft
 shadow of ink instead, neutral, never tinted. In Beard the system's color is
@@ -828,27 +870,33 @@ would come nearer than 32 to it (Italian's "In evidenza" by the Grid's
 
 **Spotlight:** system name and count on the left, the console art on the
 right, five nearby sprites in an unframed dock below. The selected sprite
-has an **accent-ink** underline. Names use concise display labels such as
+has Highlight's mark (3.5): Bar's bar where the underline always was, 16
+under it, Border's ring round its 128-unit place, holding still as the dock
+slides under it, Lift's rise on its own shadow, or None's others a step
+back. Names use concise display labels such as
 GBA and N64 and remain on one line. These labels never change file identity.
 
 **Gallery:** large focused sprite with smaller neighbors, the full system
 name and count below. The full name stays on one line at a readable size.
 The focused sprite is one and a half times its 256-unit cell (384, at y 120 to 504);
-its underline sits a grid step under the whole cell, never on the art, and
+its mark (Highlight's, 3.5; Bar's bar where its underline was) sits a grid
+step under the whole cell, never on the art, and
 the name a little lower again, so tall art such as the Game Boy keeps its
 lower body clear.
 **Grid** *(2026-11-15, the dense layout, with the shelves' Grid, 11.47)*: the
 systems in a grid, more of them at once, each its still with its concise name
-under it, **text-soft**; the focus on a **surface** tile, 8
-round its cell and its underline, corners radius.card (square with Square
-corners), with a thumbnail's lift as the shelf grid's focused cover has
-(UI_LIFT_FOCUS_SMALL, in the system's color in Salt & Pepper), its name in
-**text** with the **accent-ink** underline (40 x DS_BAR) a grid step under it;
-tile and underline glide from cell to cell in **ms.quick**, the window of
-rows in **ms.move**. *(2026-11-15: a name and its underline alone were hard to
-find at arm's length among 21 systems; the tile makes the home's focus read as
-the shelf grid's.)* The focus is drawn in one place (src/home.c, `hg_focus`),
-so a look for it can be picked there one day. Only the
+under it, **text-soft**; the focus as Highlight marks it (3.5): the focused
+still grows (6% with Bar, 12% with Lift, 8% with None, 3% with Border) on its
+own soft shadow - its shape blurred, made once as it arrives, leaning to the
+accent's ink in Beard and a light in the accent in Salt & Pepper - its name
+following the still's foot and turning to **text**; Bar's bar 8 under the
+name's box, Border's **surface** card 8 round the cell, grown 3%, on a soft
+lift, with the ring round it; the others a step back. The marks glide from
+cell to cell in **ms.quick**, the window of rows in **ms.move**.
+*(2026-11-15: a name and its underline alone were hard to find at arm's
+length among 21 systems; 2026-11-19, the focus lab: the step back of the
+others and the still's own rise answer that now, with a mark of the player's
+choosing.)* The focus is drawn in one place (src/home.c, `hg_focus`). Only the
 focused system's sprite moves, as on the others.
 
 **The grid sizes itself** to how many systems the home shows *(2026-11-19:
@@ -4242,8 +4290,11 @@ The heading and the foot are the cover row's (START's word apart), so
 turning View moves only the middle:
 - Rows down the left: the focus plate from x 40, 552 wide, rows 56 tall
   from y 200, eight in sight; names in **meta** at x 120, **text-soft**,
-  the focused one on an **accent** plate in **on-accent** (radius.row),
-  sliding when too long; the others fitted. The plate and the window glide
+  the focused one on an **accent** plate in **on-accent** (radius.row) -
+  with Highlight's Bar, as it ships; with Border a ring of the row's corners
+  inside the plate's place, with Lift a plate of **surface** on a soft lift,
+  with None no plate and the name 12 in, each in **text** (3.5) - sliding
+  when too long; the others fitted. The plate and the window glide
   in **ms.move** and **out**; a jump of more than a row lands with a short
   glide, as the cover row's jumps do. More rows above or below: the menus'
   small triangle in **text-dim**.
@@ -4364,15 +4415,16 @@ Host shots: `--info-delete` shows the row above Delete Game.
 
 ### 11.42 Display's Theme, Screen Colors and Night Mode
 
-**Theme** (MENU > Display) is a menu panel of seven rows over the shelf:
+**Theme** (MENU > Display) is a menu panel of eight rows over the shelf:
 **Accent**, **Light Background**, **Dark Background**, **Folder Color**,
-**Corners**, **Zyper** and **Reset to Default** (3.5). Left and Right step a
+**Corners**, **Highlight**, **Zyper** and **Reset to Default** (3.5). Left and Right step a
 row round and apply it at once, saved; A opens a row's list (11.3), and on
 Reset to Default puts them all back as they ship. Between the heading's rule and the rows, both
 themes as the look has them, small, side by side, Light at the left
 whatever is on: each the home (its name and count, A, the art, the dock and
-its mark) with a menu over it (its heading and the tab bar, three rows, one
-in focus), drawn from shapes since text is never under 37 units. The whole
+its mark, as Highlight has it) with a menu over it (its heading and the tab
+bar, three rows, one in focus), drawn from shapes since text is never under
+37 units. The whole
 screen is in the theme that is on, so a change to that theme is seen on
 everything at once, and a change to the other in its picture. Before a
 value, a mark of what it is: the accent's dot on Accent, the theme's chip
@@ -4970,13 +5022,21 @@ table.
 - A **folder** is its pixel folder (11.39), whole, on the ground.
 - A cover still coming is its cell in **raised**.
 
-**The focus**: a ring of **accent-ink**, DS_FOCUS_RING (4), DS_FOCUS_GAP (4)
-of **ground** inside it, its corners nesting round the cell's (14 + 4 + 4 =
-radius.card), round the cell, or round a folder's picture; under it the lift
-of a thumbnail (UI_LIFT_FOCUS_SMALL). No cover is dimmed. The ring glides
-from cell to cell in **ms.quick** and the window of rows in **ms.move**, both
-**out**; a jump of more than a row lands with a short glide, as the row's
-jumps do. The rail at the right, 23 from the edge (11.2's, standing), when
+**The focus**: Highlight's (3.5; my picks in the focus lab, 2026-11-19).
+The focused cover grows - 4% with Bar, 3% with Border, 8% with Lift, 6% with
+None - to where its edges and its marks land on whole panel pixels, on a
+soft lift (Lift's deeper, one light crossing it as it lands); Bar's bar 8
+under it, Border's ring round it, focus-ring past a gap of focus-gap, its
+corners the cell's plus the gap plus the ring; round a folder's picture for a
+folder. Every cover has its hairline, and the covers out of focus step back,
+a fifth of the way to the ground. *(Until 1.0.6 a ring of 4 and a gap of 4,
+2.5 pixels on the Pixel 2, and no cover dimmed.)* A cover's grow, its lift
+and the step back move with its weight in the focus's glide, and the marks
+glide from cell to cell, all in **ms.quick**, the window of rows in
+**ms.move**, both **out**; a jump of more than a row lands with a short
+glide, as the row's jumps do. A game's card with no art is made at its
+cell's size and drawn at the grown one, so its name is not laid out again
+as it grows. The rail at the right, 23 from the edge (11.2's, standing), when
 the shelf has more rows than two.
 
 **The band** under the grid, DS_GRID_BAND_GAP (24) under its room: the
@@ -5224,6 +5284,7 @@ the tiles' style is read off a name.
 | Page frame | `src/ds/page.c`, `page.h` | `ds_page_frame_of`, one column of boxes on the layout engine (the heading's band **page-body-y** tall, the body with two tiles and a line of words **page-news-drop** under them, the line of marks **page-line-over** over the keys, the keys on the foot inset); the heading (`ds_page_head`: `DS_HEAD_BALANCED`, `DS_HEAD_TWO`, `DS_HEAD_SUB`); the line of marks over the keys (`ds_page_line`, its tones `DS_TONE_*`); a line of words under the tiles (`ds_page_meta`); the foot (`ds_page_foot`). `page_top` (`src/usbdrive_screen.c`) draws the ground and Zyper and hands back the frame. |
 | Tiles and the list | `src/ds/tiles.c`, `tiles.h` | `ds_tiles_draw`: `DS_TILES_ROW`, `DS_TILES_GRID`, `DS_TILES_LIST`. In `src/main.c`, `tiles_show` takes the style as the panel's kind (`PANEL_TILES`, `PANEL_TILES_GRID`, `PANEL_LIST`) and each tile's mark. |
 | The grid | `src/gamegrid.c`, `gamegrid.h`; the rule `src/gridrule.c`, `gridrule.h` | 11.47: the shape from the art, the cells, the covers in them, the band; `check-gridrule` |
+| The focus | `src/ds/focus.c`, `focus.h`; its pixels `src/focusgeo.c`, `focusgeo.h` | 3.5's Highlight on the home and the shelves: `ds_focus_marks_of` (what a choice draws for a cover or a still), `ds_focus_tile` (the focused item grown on whole pixels, or on its way), `ds_focus_ring`, `ds_focus_ring_in`, `ds_focus_bar`, `ds_focus_hairline`, `ds_focus_dim`, `ds_focus_sheen`, `ds_round_ring`, the glide's weights (`ds_focus_weights`); `ui_lift_focus` in `src/ui.c`. `check-focusgeo` holds the pixels to the Pixel 2's filter. |
 | Panel | `src/ds/panel.c`, `panel.h` | `ds_panel_open` / `ds_panel_close` (the slab and its lift, at rest or posed through the caller's `ds_pass`), `ds_panel_slab`, `ds_panel_rule`, `ds_panel_legend`: the menus, the tiles, the list, Player 2's panel, the hotspot |
 | Marks | `src/ds/mark.c`, `mark.h` | `ds_badge`, `ds_switch` (a switch as a mark), `ds_play_disc` (a cover's video snap), `ds_more` (more rows above or below, `DS_MORE_W` by `DS_MORE_H`, 24 by 12), `ds_bar` and `ds_bar_in` (a bar of any size and colors; one rule for a small fill: never shorter than its own round end) |
 | Distances | `src/ds/sdf.h` | the segment, polygon and rounded-box distances the distance-field marks share: the status corner, the cover badges |

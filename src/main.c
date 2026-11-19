@@ -6672,15 +6672,17 @@ int main(int argc, char *argv[])
 		look_load();
 		/* --look's, for a shot: ACCENT,LIGHT,DARK,CORNERS,ZYPER as the
 		 * database keeps them ("blue,cool,deepblue,square,off"), and
-		 * FOLDERS after them if given (",teal"; System Colors without) */
+		 * FOLDERS and HIGHLIGHT after them if given (",teal,border";
+		 * System Colors and Bar without) */
 		if (shot_path && shot_look) {
-			char w[6][16] = { "", "", "", "", "", "" };
+			char w[7][16] = { "", "", "", "", "", "", "" };
 			look l;
 
-			sscanf(shot_look, "%15[^,],%15[^,],%15[^,],%15[^,],%15[^,],%15s",
-			       w[0], w[1], w[2], w[3], w[4], w[5]);
+			sscanf(shot_look, "%15[^,],%15[^,],%15[^,],%15[^,],%15[^,],%15[^,],%15s",
+			       w[0], w[1], w[2], w[3], w[4], w[5], w[6]);
 			l = look_parse(w[0], w[1], w[2], w[3], w[4]);
 			l.folder = look_folder_parse(w[5]);
+			l.focus = look_focus_parse(w[6]);
 			look_set(&l);
 			look_bar_colors();
 		}
