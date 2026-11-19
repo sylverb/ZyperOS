@@ -7,6 +7,7 @@
 #include "ds/scale.h"
 
 #include "aout_route.h"
+#include "eq.h"
 #include "muselib.h"
 #include "audioout.h"
 #include "dslang.h"
@@ -141,6 +142,7 @@ static int nm_mode(void);
 static const char *nm_mode_name(int m);
 static void nm_keep(void);
 static void nm_warmth_focus(void *app, int k);
+static eq_out eq_out_now(void);
 
 /* ---------- option rows' choices (menu.h's menu_choice, DESIGN.md 9) ------ */
 
@@ -613,6 +615,7 @@ int menu_build(app *a, screen_id screen, int sys,
 		u.muse_songs = u.muse && ml_count_kind(&g_muse, ML_MUSIC) > 0;
 		u.muse_both  = u.muse && muse_kinds() > 1;
 		u.muse_playing = u.muse && lock_allowed();
+		u.eq         = eq_preset_name(eq_preset_get(eq_out_now()));
 		u.sort       = u.muse ? ml_order_label_kind((ml_order)a->view[sys].sort, muse_kind_shown())
 		                      : sort_label(a->view[sys].sort);
 	} else {
@@ -665,6 +668,7 @@ int menu_build(app *a, screen_id screen, int sys,
 		u.ui_sounds  = uisound_setting_name(uisound_setting());
 		u.menu_music = bgm_menu_value(bgm_on(), bgm_count());
 		u.rumble     = rumble_level_name(rumble_menu());
+		u.eq         = eq_preset_name(eq_preset_get(eq_out_now()));
 		u.auto_off  = a->auto_off;
 		u.power_hold = powerhold_mode();
 		u.saver     = g_saver_s;
@@ -1226,6 +1230,174 @@ static void screen_colors_screen(app *a)
 	plat_screen_colors_tick(true);
 }
 
+/* ---- MENU > Sound > Equalizer (src/eq.h, DESIGN.md 11.60) ----------------- */
+
+/* The output whose preset the page shows: where the system's sound goes */
+/* --eq-phones: a shot's headphones, for the computer has no jack */
+bool g_shot_eq_phones;
+
+static eq_out eq_out_now(void)
+{
+	aout_state s = aout_now();
+
+	if (shot_path && g_shot_eq_phones) return EQ_OUT_PHONES;
+	return eq_out_of(aout_resolve(&s));
+}
+
+/* The list's cursor, heard before it is chosen (-1: the list is shut) */
+static int g_eq_pv_k = -1;
+
+static void eq_preset_bands(eq_out o, int k, int8_t db[EQ_BANDS])
+{
+	if (k == EQ_CUSTOM) eq_custom_get(o, db);
+	else                memcpy(db, EQ_CURVE[k >= 0 && k < EQ_PRESETS ? k : EQ_OFF], EQ_BANDS);
+}
+
+/* A preset's picture, the lab's: its five gains joined by a line in the
+ * accent over the 0 dB line, a dot on each, the bands left to right as the
+ * page lists them (their names are the page's rows: a name at the menu's
+ * least size would not fit five across). And the preset under the cursor
+ * heard at once, on the output in use. */
+void eq_curve_preview(void *app_, int k, int x, int y, int w, int h)
+{
+	app *a = app_;
+	const SDL_Rect screen = { x, y, w, h };
+	const ds_theme *t = theme();
+	const eq_out o = eq_out_now();
+	int8_t db[EQ_BANDS];
+	SDL_Rect in;
+	int px[EQ_BANDS], py[EQ_BANDS], b, mid, span;
+
+	eq_preset_bands(o, k, db);
+	if (k != g_eq_pv_k) {
+		g_eq_pv_k = k;
+		eq_route_preview(o, db);
+	}
+	in = ds_preview_screen_begin(a->r, &screen);
+	mid = in.y + in.h / 2;
+	span = in.h / 2 - DS_GRID * 4;
+	for (b = 0; b < EQ_BANDS; b++) {
+		px[b] = in.x + in.w * (2 * b + 1) / (2 * EQ_BANDS);
+		py[b] = mid - db[b] * span / EQ_DB_MAX;
+	}
+	SDL_SetRenderDrawColor(a->r, t->edge.r, t->edge.g, t->edge.b, 255);
+	SDL_RenderFillRect(a->r, &(SDL_Rect){ in.x + DS_GRID * 2, mid - 1, in.w - DS_GRID * 4, 2 });
+	SDL_SetRenderDrawColor(a->r, t->accent.r, t->accent.g, t->accent.b, 255);
+	for (b = 0; b + 1 < EQ_BANDS; b++) {
+		int d;
+
+		/* Four units thick, the lab's stroke */
+		for (d = -2; d < 2; d++)
+			SDL_RenderDrawLine(a->r, px[b], py[b] + d, px[b + 1], py[b + 1] + d);
+	}
+	for (b = 0; b < EQ_BANDS; b++)
+		ui_round_rect(a->r, &(SDL_Rect){ px[b] - 7, py[b] - 7, 14, 14 }, 7, ui_col(t->accent, 255));
+	ds_preview_screen_end(a->r, &screen);
+}
+
+/* The page's rows by place: the preset, then the five bands. What plays
+ * goes on behind the panel (MP4's Now Playing, from its menu); six rows
+ * fill the panel, so there is no strip of its own under them. */
+#define EQ_PAGE_ROWS (1 + EQ_BANDS)
+static const unsigned char EQ_SOUND[EQ_PAGE_ROWS] = {
+	MENU_SND_RING,
+	/* The bands stop at -6 and +6, heard by whether they moved */
+	MENU_SND_NO_A, MENU_SND_NO_A, MENU_SND_NO_A, MENU_SND_NO_A, MENU_SND_NO_A,
+};
+static menu_choice g_eq_choice[EQ_PAGE_ROWS];
+static menu_style g_eq_style;
+
+int eq_page_build(void *ctx, menu_row *rows, int max, const char **heading)
+{
+	static char val[EQ_BANDS][DS_SCALE_VALUE], name[EQ_BANDS][16];
+	const eq_out o = eq_out_now();
+	int8_t db[EQ_BANDS];
+	int b, n = 0;
+
+	(void)ctx;
+	if (max < EQ_PAGE_ROWS) return 0;
+	*heading = T(S_SYSMENU_EQUALIZER);
+	eq_bands(o, db);
+	/* The preset of the output in use: its own list on A, with each
+	 * preset's picture (eq_preset_list) */
+	g_eq_choice[n] = (menu_choice){ .n = EQ_PRESETS, .cur = (unsigned char)eq_preset_get(o), .own = true };
+	rows[n++] = (menu_row){ eq_out_name(o), eq_preset_name(eq_preset_get(o)), true };
+	for (b = 0; b < EQ_BANDS; b++) {
+		eq_band_name(b, name[b], sizeof name[b]);
+		g_eq_choice[n] = (menu_choice){ 0 };
+		rows[n++] = (menu_row){ name[b], ds_scale_value(val[b], DS_SCALE_GAIN, db[b], EQ_DB_MAX), true };
+	}
+	return n;
+}
+
+/* The presets' list as the page opens it and the shots draw it */
+void eq_preset_choice(menu_choice *out)
+{
+	static const char *labels[EQ_PRESETS], *notes[EQ_PRESETS];
+	int k;
+
+	for (k = 0; k < EQ_PRESETS; k++) {
+		labels[k] = eq_preset_name((eq_preset)k);
+		notes[k] = eq_preset_note((eq_preset)k);
+	}
+	*out = (menu_choice){ .n = EQ_PRESETS, .cur = (unsigned char)eq_preset_get(eq_out_now()),
+	                      .labels = labels, .notes = notes, .preview = eq_curve_preview };
+}
+
+/* A on the preset row: the presets, each heard as the cursor reaches it
+ * (eq_curve_preview); A keeps one, B puts back what was set */
+static menu_result eq_preset_list(app *a)
+{
+	menu_choice ch;
+	const eq_out o = eq_out_now();
+	int k;
+
+	eq_preset_choice(&ch);
+	g_eq_pv_k = -1;
+	k = menu_pick_preview(a, &g_eq_style, NULL, eq_out_name(o), ch.labels, ch.notes, ch.preview,
+	                      ch.n, ch.cur, ch.cur);
+	g_eq_pv_k = -1;
+	eq_route_preview(o, NULL);
+	if (k >= 0 && k < EQ_PRESETS) eq_preset_set(o, (eq_preset)k);
+	eq_route_changed();
+	return k == MENU_PICK_POWER ? MENU_DONE : MENU_CHANGED;
+}
+
+static menu_result eq_page_key(app *a, void *ctx, in_button key, int sel)
+{
+	const int d = key == IN_RIGHT ? 1 : key == IN_LEFT ? -1 : 0;
+	const eq_out o = eq_out_now();
+
+	(void)ctx;
+	if (sel == 0 && key == IN_ACCEPT) return eq_preset_list(a);
+	if (!d) return MENU_STAY;
+	if (sel == 0) {
+		/* The presets round, as Audio Channels' choices go */
+		eq_preset_set(o, (eq_preset)((eq_preset_get(o) + d + EQ_PRESETS) % EQ_PRESETS));
+		eq_route_changed();
+		return MENU_CHANGED;
+	}
+	if (sel >= 1 && sel <= EQ_BANDS && eq_band_step(o, sel - 1, d)) {
+		eq_route_changed();
+		return MENU_CHANGED;
+	}
+	return MENU_STAY;
+}
+
+/* The page, from MENU and from MP4's menu: what plays goes on playing
+ * behind it, MP4 keeping little queued so each step is heard at once */
+void eq_screen(app *a)
+{
+	g_eq_style = (menu_style){ .fixed_w = menu_most_w(), .accent = MENU_ZYPEROS,
+	                           .sound = EQ_SOUND, .choices = g_eq_choice };
+	eq_route_live(true);
+	aout_apply(false);
+	menu_run(a, &g_eq_style, eq_page_build, eq_page_key, NULL);
+	eq_route_live(false);
+	eq_route_preview(eq_out_now(), NULL);
+	aout_apply(false);
+}
+
 /* A theme's chip, 64 by 36: its ground in its edge, its accent on it, so
  * the row says what the theme is now (DESIGN.md 11.42) */
 static void look_chip(app *a, const ds_theme *t, int x, int cy)
@@ -1595,6 +1767,19 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 			}
 			if (id == SMM_SORT) {
 				sel = SM_SORT;
+			} else if (id == SMM_EQ) {
+				/* MENU's Equalizer: the presets round, A its page, over
+				 * what plays */
+				const eq_out o = eq_out_now();
+
+				if (key == IN_ACCEPT) {
+					eq_screen(a);
+					return MENU_STAY;
+				}
+				if (!d) return MENU_STAY;
+				eq_preset_set(o, (eq_preset)((eq_preset_get(o) + d + EQ_PRESETS) % EQ_PRESETS));
+				eq_route_changed();
+				return MENU_STAY;
 			} else if (id == SMM_LOCK) {
 				/* Closes the menu; the screen underneath locks. */
 				if (key != IN_ACCEPT) return MENU_STAY;
@@ -1980,6 +2165,20 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 		                             % AOUT_CHANNELS_COUNT);
 		channels_save(g_channels);
 		aout_apply(false);
+		return MENU_CHANGED;
+	}
+
+	/* The output in use's preset, round either way as Audio Channels' choices
+	 * go, heard at once; A opens the page */
+	if (sel == PM_EQ && d) {
+		const eq_out o = eq_out_now();
+
+		eq_preset_set(o, (eq_preset)((eq_preset_get(o) + d + EQ_PRESETS) % EQ_PRESETS));
+		eq_route_changed();
+		return MENU_CHANGED;
+	}
+	if (sel == PM_EQ && key == IN_ACCEPT) {
+		eq_screen(a);
 		return MENU_CHANGED;
 	}
 

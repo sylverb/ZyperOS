@@ -19,7 +19,9 @@
 <!-- The PIN gate (DESIGN.md 11.15). Shown until /api/auth accepts, and the
      only thing a browser can reach without a session. Four boxes, one digit
      each; the PIN goes to the device as the fourth lands, so there is no
-     button. Zyper shuts his eyes while it is typed. -->
+     button. Zyper shuts his eyes while it is typed. The first box has the
+     cursor as the page comes up (autofocus), not only once the handheld has
+     said there is no session yet, so the PIN can be typed straight away. -->
 <section id="gate" class="gate">
   <div class="panel">
     <div id="gatezy" class="zy" aria-hidden="true">
@@ -30,7 +32,7 @@
     <p class="sub" data-t="gate.sub"></p>
     <form id="pinform" autocomplete="off">
       <div id="boxes" class="boxes" role="group" aria-label="PIN">
-        <input inputmode="numeric" maxlength="1" autocomplete="one-time-code">
+        <input inputmode="numeric" maxlength="1" autocomplete="one-time-code" autofocus>
         <input inputmode="numeric" maxlength="1">
         <input inputmode="numeric" maxlength="1">
         <input inputmode="numeric" maxlength="1">

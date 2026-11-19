@@ -73,6 +73,9 @@ static char     g_sink_said[128];   /* what it last reported, "" not yet */
 static unsigned g_sink_ms;          /* when the ask went */
 static bool     g_sink_waiting;     /* asked, and no answer yet */
 static char     g_chan_sent[8];     /* the channels last asked for, "" none yet */
+/* The equalizer last asked for, as EQ carries it ("5,2,0,0,1 live=1"); ""
+ * none yet */
+static char     g_eq_sent[40];
 static bool     g_asked;            /* PLAY or RESUME sent, not yet answered */
 static void   (*g_before_heard)(void);
 
@@ -113,6 +116,8 @@ static void drop(const char *why, int err)
 	/* And it starts in stereo, so whatever was asked of the old one has to
 	 * be asked again. */
 	g_chan_sent[0] = '\0';
+	/* And flat, so the equalizer is asked again too */
+	g_eq_sent[0] = '\0';
 	/* And with nobody watching. */
 	g_show = -1;
 }
@@ -577,6 +582,18 @@ void musec_channels(const char *mode)
 	snprintf(g_chan_sent, sizeof g_chan_sent, "%s", m);
 	sendf("CHANNELS\tmode=%s", m);
 	fprintf(stderr, "muse: channels -> %s\n", m);
+}
+
+void musec_eq(const int8_t db[5], bool live)
+{
+	char bands[32], said[40];
+
+	if (g_fd < 0 || !g_sink_said[0]) return;   /* not connected, or not heard from */
+	snprintf(bands, sizeof bands, "%d,%d,%d,%d,%d", db[0], db[1], db[2], db[3], db[4]);
+	snprintf(said, sizeof said, "%s live=%d", bands, live ? 1 : 0);
+	if (!strcmp(said, g_eq_sent)) return;
+	snprintf(g_eq_sent, sizeof g_eq_sent, "%s", said);
+	sendf("EQ\tbands=%s\tlive=%d", bands, live ? 1 : 0);
 }
 
 void musec_sink_again(void)
