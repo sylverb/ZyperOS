@@ -26,7 +26,7 @@ LDFLAGS += -lz
 # Objects live under build/$(PORT)/ so host and cross builds cannot collide:
 # a leftover x86 main.o in a device link fails late and confusingly.
 BUILD := build/$(PORT)
-SRC   := src/main.c src/cheevos.c src/core.c src/env.c src/scale.c src/audio.c src/save.c src/proto.c src/options.c src/zip.c src/levels.c src/screens.c src/chord.c src/stick.c src/hw.c src/now.c src/emumeter.c src/player2.c src/statefile.c src/pace.c src/flipwatch.c src/fdsdisk.c src/sgb.c src/border.c port/$(PORT).c
+SRC   := src/main.c src/cheevos.c src/core.c src/env.c src/scale.c src/audio.c src/save.c src/proto.c src/options.c src/zip.c src/levels.c src/screens.c src/chord.c src/stick.c src/hw.c src/now.c src/emumeter.c src/corefail.c src/player2.c src/statefile.c src/pace.c src/flipwatch.c src/fdsdisk.c src/sgb.c src/border.c port/$(PORT).c
 # Expanded where it is used, not here: a port's block below adds its own files
 # to SRC (the Pixel 2's bar, port/osdbar.c), and := took the list before they
 # were in it, so they were never built and the link failed.
@@ -161,7 +161,7 @@ $(BUILD)/%.o: %.c
 # backend exists. Cheap to check, so check it.
 # Mechanical checks, each guarding a rule that decays the moment nothing fails
 # when it is broken: check-seam has held since day one for exactly that reason.
-check: check-seam check-copies check-corefacts check-rates check-cheevos check-screens check-chord check-fdsdisk check-sgb check-fdssgb check-border check-border-e2e check-pace check-emumeter check-flipwatch check-stick check-bounds check-rumble check-statefile check-proto check-port check-power check-power-e2e check-flipwatch-e2e check-fastforward check-lateskip check-stateplane check-resident check-hotkeys check-coreend check-cardframe check-now check-hudspeed check-displaylock check-rumble-e2e check-player2 check-states check-statereads
+check: check-seam check-copies check-corefacts check-rates check-cheevos check-screens check-chord check-fdsdisk check-sgb check-fdssgb check-border check-border-e2e check-pace check-emumeter check-corefail check-corefail-e2e check-flipwatch check-stick check-bounds check-rumble check-statefile check-proto check-port check-power check-power-e2e check-flipwatch-e2e check-fastforward check-lateskip check-stateplane check-resident check-hotkeys check-coreend check-cardframe check-now check-hudspeed check-displaylock check-rumble-e2e check-player2 check-states check-statereads
 
 # Does a RetroAchievements address reach the byte it names? Offline, needs no
 # core and no ROM, and links only cheevos.c plus the vendored runtime - so it
@@ -280,6 +280,29 @@ $(EMUMETER_TEST): test/emumeter_test.c src/emumeter.c src/emumeter.h
 	@mkdir -p $(BUILD)
 	$(CC) -std=gnu11 -Wall -Wextra -Wno-unused-parameter -O2 \
 	      -Isrc -o $@ test/emumeter_test.c src/emumeter.c -lm
+
+# Why a core would not load, in words the launcher can say (src/corefail.h):
+# the file's ELF header and dlerror's text as glibc, musl and macOS write it.
+# Offline: src/corefail.c alone. The real dlopen, end to end, is
+# check-corefail-e2e.
+COREFAIL_TEST := $(BUILD)/corefail-test
+
+check-corefail: $(COREFAIL_TEST)
+	@./$(COREFAIL_TEST)
+
+$(COREFAIL_TEST): test/corefail_test.c src/corefail.c src/corefail.h
+	@mkdir -p $(BUILD)
+	$(CC) -std=gnu11 -Wall -Wextra -Wno-unused-parameter -O2 \
+	      -Isrc -o $@ test/corefail_test.c src/corefail.c
+
+# A core that would not load says why, end to end: cores built here (another
+# machine's ELF header, a library that is gone, a function nothing has) refused
+# by the real dlopen, each with its ERROR line's why= and name= (src/corefail.h).
+# On check-stateplane's terms: the stub core, a few seconds, skipped unbuilt.
+check-corefail-e2e:
+	$(FRESH_IF_BUILT)
+	@python3 test/corefail.py
+.PHONY: check-corefail-e2e
 
 # Refreshes missed with the frame ready (src/flipwatch.h): each climbs the
 # clocks one step, the power level, then the CPU and the GPU held at their
