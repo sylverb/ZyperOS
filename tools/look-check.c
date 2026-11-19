@@ -179,7 +179,7 @@ int main(void)
 				for (dk = 0; dk < DS_TONES; dk++)
 					for (sq = 0; sq < 2; sq++)
 						for (fo = 0; fo < LOOK_FOLDERS; fo++) {
-							look x = { ac, { lt, dk }, sq != 0, false, fo };
+							look x = { ac, { lt, dk }, sq != 0, false, fo, LOOK_FOCUS_BAR };
 							int id;
 
 							look_set(&x);
