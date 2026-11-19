@@ -66,7 +66,9 @@ for d in $(ls config/device/*.mk | sed 's|.*/||; s|\.mk$||'); do
 done
 
 # ---- 2. the hooks' files, without the define and with it ---------------------
-F="-std=gnu11 -D_GNU_SOURCE -O1 -Wall -Wextra -Wno-unused-parameter -Werror -Isrc"
+# The shared files as the device build compiles them (warnings are not
+# errors there); the kit's own file with -Werror, as it is new
+F="-std=gnu11 -D_GNU_SOURCE -O1 -Wall -Wextra -Wno-unused-parameter -Isrc"
 F="$F -DZYPEROS_VERSION=\"check\" -DZYPEROS_PROFILE=device_profile_brick"
 if SDL=$(pkg-config --cflags sdl2 SDL2_image SDL2_ttf 2> /dev/null); then
 	for mode in rel kit; do
@@ -80,7 +82,7 @@ if SDL=$(pkg-config --cflags sdl2 SDL2_image SDL2_ttf 2> /dev/null); then
 		done
 	done
 	# shellcheck disable=SC2086
-	$CC $F -DZYPEROS_KIT_BUILD $SDL -c -o "$T/kit/brick_kit.o" src/device/brick_kit.c 2> "$T/err" ||
+	$CC $F -Werror -DZYPEROS_KIT_BUILD $SDL -c -o "$T/kit/brick_kit.o" src/device/brick_kit.c 2> "$T/err" ||
 		ck 1 "kit: src/device/brick_kit.c compiles ($(head -3 "$T/err"))"
 	for o in "$T"/rel/*.o; do
 		! { nm "$o" 2> /dev/null | grep -Eq "$KIT_SYMBOLS" || strings -a "$o" | grep -Eq "$KIT_STRINGS"; }
@@ -92,7 +94,9 @@ if SDL=$(pkg-config --cflags sdl2 SDL2_image SDL2_ttf 2> /dev/null); then
 	ck $? "a kit's brick_hw.o reads its facts"
 	strings -a "$T/kit/hwreport.o" | grep -q 'PMIC registers'
 	ck $? "a kit's hwreport.o prints the PMIC's registers"
-	nm "$T/kit/brick_kit.o" | grep -Eq '[TD] _?kit_page$' && nm "$T/kit/brick_kit.o" | grep -Eq '[TD] _?kit_hw_facts$' &&
+	# Defined: T, or W where src/kit.h's weak declaration makes the definition
+	# weak too (GNU nm; the Mac's says T)
+	nm "$T/kit/brick_kit.o" | grep -Eq '[TW] _?kit_page$' && nm "$T/kit/brick_kit.o" | grep -Eq '[TW] _?kit_hw_facts$' &&
 		strings -a "$T/kit/brick_kit.o" | grep -q 'Hardware Check'
 	ck $? "a kit's brick_kit.o has its page and its facts"
 	# The Brick's profile, as devices-check builds every profile
