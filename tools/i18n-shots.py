@@ -1202,6 +1202,9 @@ def pico8_card(card):
 
 
 EXTRA["pico8-splore"] = ("pico8", "PICO8", ["--screen", "games"])
+# Splore on the Video view (DESIGN.md 11.57): A How to Add and no Y, as on
+# the other views
+EXTRA["pico8-splore-video"] = ("pico8", "PICO8", ["--screen", "games", "--view", "video"])
 EXTRA["pico8-page"] = ("pico8", "PICO8", ["--screen", "games", "--pico8-page"])
 for _k in range(7):
     EXTRA["pico8-said-%d" % _k] = ("pico8", "PICO8", ["--screen", "games", "--pico8-said", str(_k)])
