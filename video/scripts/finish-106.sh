@@ -8,7 +8,9 @@
 #     Nitro can upload: two-pass x264 at the bitrate that size leaves, 1080p
 #     (DISCORD_HEIGHT=720 for 720p), AAC at 96 kb/s
 #
-# Both limited range BT.709, as finish.sh says why.
+# Both limited range BT.709, as finish.sh says why, and each with its frame 0
+# checked (not blank: Discord and players show it before play) and saved
+# beside it as NAME-poster.jpg.
 #
 #   npx remotion render Release106 out/v106/zyperos-1.0.6-raw.mp4 --crf=6 --concurrency=4
 #   sh video/scripts/finish-106.sh [DIR]
@@ -53,3 +55,6 @@ done
 size=$(stat -f %z "$DISCORD")
 [ "$size" -le 10000000 ] || { echo "the Discord file is $size bytes, over 10 MB" >&2; exit 1; }
 ffmpeg -hide_banner -nostats -i "$DISCORD" -af ebur128=peak=true -f null - 2>&1 | sed -n '/Summary/,$p' | grep -E "I:|Peak:"
+# Frame 0 is the picture Discord shows before play: a designed frame, not a
+# blank one, each saved beside its video as its poster
+python3 "$VIDEO/scripts/check-first-frame.py" "$MASTER" "$DISCORD"

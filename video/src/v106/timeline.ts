@@ -31,9 +31,11 @@ const fit = (take: string, from: number, to: number): Step[] => [{ take, from, t
  * bar 72, where the music fades. The track's 56-bar loop comes round at bar 56
  * (Hold POWER), from its top again. */
 export const SCENES106: Scene106[] = [
-  // Both handhelds, each on its own home, the release's name beside them
+  // Both handhelds, each on its own home, the release's name beside them,
+  // all drawn at frame 0 (the poster before play), from just after Zyper's
+  // pop-up of the menu's song (2.6 s into a live take)
   { id: "open", bars: 4, pose: "hero", enter: "cut", screen: [],
-    pair: { pixel2: fit("home6", 1800, 7090), brick: fit("brick-home", 1800, 7090) } },
+    pair: { pixel2: fit("home6", 2700, 7990), brick: fit("brick-home", 2700, 7990) } },
   // The Brick alone: its home, into the SNES shelf, along it
   { id: "brick", bars: 4, pose: "main", device: "brick", enter: "whip", screen: fit("brick-home", 3000, 9490),
     label: "Now on the TrimUI Brick", sub: "From its own microSD card. Take it out, and the Brick is as it was." },
@@ -93,7 +95,7 @@ export const SCENES106: Scene106[] = [
     label: "Same ZyperOS on both", sub: "The GKD Pixel 2 and the TrimUI Brick" },
   // Six bars and two beats: the downbeat of bar 72 rings while the music fades
   { id: "end", bars: 6.5, pose: "hero", enter: "cut", screen: [],
-    pair: { pixel2: fit("home6", 2000, 9500), brick: fit("brick-home", 2000, 9500) } },
+    pair: { pixel2: fit("home6", 2700, 9500), brick: fit("brick-home", 2700, 9500) } },
 ];
 
 export const R106 = layout(SCENES106, BEAT106);

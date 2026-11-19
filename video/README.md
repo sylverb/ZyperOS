@@ -192,3 +192,15 @@ laid on another track's bars and still show the same thing.
 One thing the host cannot draw: a port's loading screen shows the last line the
 port prints only on the handheld, where plastron's splash draws it, so its scene
 shows the screen a minute in, which says how to go back.
+
+### Frame 0
+
+Discord, Reddit, most players and a page without a poster show a video's first
+frame until someone presses play, so frame 0 is a designed frame: `Release106`
+opens with its name, its version and both handhelds already drawn, with no fade
+in (the first copy posted opened on the bare ground colour), and its opening
+takes start after Zyper's song pop-up. `scripts/finish-106.sh` ends with
+`scripts/check-first-frame.py` on both files: it saves each frame 0 beside its
+video as `NAME-poster.jpg` and fails if it is blank. The tour and the Reddit cut
+still fade in from the ground colour; give them the same opening before
+rendering them again.

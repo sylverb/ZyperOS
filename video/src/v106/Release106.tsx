@@ -64,14 +64,16 @@ export const Release106: React.FC<Release106Props> = (props) => {
   const fadeOut = 1 - ease(frame, total - 12, total - 1);
   const whipOut = SCENES106[i + 1]?.enter === "whip" ? ease(frame, end - 8, end, Easing.in(Easing.cubic)) : 0;
 
-  // The pair: up from below as the release opens and on bar 52, then aside for the end card
+  // The pair: standing from frame 0 as the release opens, up from below when it comes back, then aside for the end card
   const pairShown = !!sc.pair;
   const firstPair = pairShown && !SCENES106[i - 1]?.pair;
   const toLeft = sc.id === "end" ? pop(frame, start, 140, 18) : 0;
 
   return (
     <AbsoluteFill style={{ background: LIGHT.ground, overflow: "hidden" }}>
-      <AbsoluteFill style={{ opacity: Math.min(ease(frame, 0, 4), fadeOut) }}>
+      {/* No fade in: frame 0 is the poster Discord, Reddit and players show
+       * before play, so it is the opening, fully drawn (Opening, the pair) */}
+      <AbsoluteFill style={{ opacity: fadeOut }}>
         {sc.pose !== "hero" && (
           <Device d={deviceOf(sc, props)} cam={cam}>
             <Screen clips={clips} d={deviceOf(sc, props)} zoom={zoom} />
@@ -80,7 +82,7 @@ export const Release106: React.FC<Release106Props> = (props) => {
 
         {pairShown && (["pixel2", "brick"] as const).map((which, n) => {
           const d = which === "brick" ? brick : device;
-          const rise = firstPair ? pop(frame, start + n * 3, 140, 15) : 1;
+          const rise = firstPair && i > 0 ? pop(frame, start + n * 3, 140, 15) : 1;
           const x = mix(SPOTS.right[which], SPOTS.left[which], toLeft);
           const c = pairCam(which, x, d, rise);
           return (
@@ -140,19 +142,20 @@ const Ask: React.FC<{ frame: number; at: number; end: number; kind: "asked" | "r
   );
 };
 
-/** The release's name beside both handhelds */
+/** The release's name beside both handhelds, drawn whole from frame 0 (the
+ * poster before play); only its last line arrives, two beats in */
 const Opening: React.FC<{ frame: number; start: number; out: number }> = ({ frame, start, out }) => {
-  const k = (d: number) => pop(frame, start + d, 180, 16);
+  const k = (d: number) => (d < 0 ? 1 : pop(frame, start + d, 180, 16));
   const rise = (d: number) => ({ opacity: Math.min(1, k(d) * 1.4), transform: `translateY(${(1 - k(d)) * 40}px)` });
   return (
     <div style={{ position: "absolute", left: 110 - out * WHIP, width: 700, top: 0, bottom: 0, display: "flex", flexDirection: "column",
       justifyContent: "center", fontFamily: FONT, filter: out ? `blur(${out * 22}px)` : undefined }}>
-      <Img src={staticFile("img/lockup-light.png")} style={{ ...rise(0), width: 400, marginLeft: -8 }} />
-      <div style={{ ...rise(BEAT), fontSize: 168, lineHeight: 1, fontWeight: 600, color: LIGHT.text, letterSpacing: -6, marginTop: 18 }}>1.0.6</div>
-      <div style={{ ...rise(3 * BEAT), fontSize: 46, lineHeight: 1.15, fontWeight: 600, color: LIGHT.text, marginTop: 30 }}>
+      <Img src={staticFile("img/lockup-light.png")} style={{ ...rise(-1), width: 400, marginLeft: -8 }} />
+      <div style={{ ...rise(-1), fontSize: 168, lineHeight: 1, fontWeight: 600, color: LIGHT.text, letterSpacing: -6, marginTop: 18 }}>1.0.6</div>
+      <div style={{ ...rise(-1), fontSize: 46, lineHeight: 1.15, fontWeight: 600, color: LIGHT.text, marginTop: 30 }}>
         Now on the TrimUI Brick, too.
       </div>
-      <div style={{ ...rise(5 * BEAT), fontSize: 30, lineHeight: 1.4, color: LIGHT.soft, marginTop: 16 }}>
+      <div style={{ ...rise(2 * BEAT), fontSize: 30, lineHeight: 1.4, color: LIGHT.soft, marginTop: 16 }}>
         Most of what's new was asked for on the Discord.
       </div>
     </div>
