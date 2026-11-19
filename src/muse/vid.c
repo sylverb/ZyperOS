@@ -290,18 +290,39 @@ static uint32_t color_of(const AVFrame *f)
 	return MPF_BT601;
 }
 
-static void copy_plane(uint8_t *dst, uint32_t w, uint32_t h, const uint8_t *src, int pitch)
+/* A plane's rows `stride` apart, each one's last pixel copied to its end:
+ * the texture is drawn from the picture's own width, and filtering at the
+ * right edge then meets the picture, not stale bytes (mpf_stride) */
+static void pad_plane(uint8_t *dst, uint32_t stride, uint32_t w, uint32_t h)
 {
 	uint32_t y;
 
-	for (y = 0; y < h; y++) memcpy(dst + (size_t)y * w, src + (size_t)y * pitch, w);
+	if (stride > w)
+		for (y = 0; y < h; y++) {
+			uint8_t *row = dst + (size_t)y * stride;
+
+			memset(row + w, row[w - 1], stride - w);
+		}
+}
+
+static void copy_plane(uint8_t *dst, uint32_t stride, uint32_t w, uint32_t h,
+                       const uint8_t *src, int pitch)
+{
+	uint32_t y;
+
+	for (y = 0; y < h; y++) {
+		uint8_t *row = dst + (size_t)y * stride;
+
+		memcpy(row, src + (size_t)y * pitch, w);
+		if (stride > w) memset(row + w, row[w - 1], stride - w);
+	}
 }
 
 /* d->fr into the next slot, and the launcher told. */
 static void publish(vdec *d, double pts)
 {
 	AVFrame *f = d->fr;
-	uint32_t w = (uint32_t)f->width, h = (uint32_t)f->height, ow = w, oh = h;
+	uint32_t w = (uint32_t)f->width, h = (uint32_t)f->height, ow = w, oh = h, st, cst;
 	bool direct = (f->format == AV_PIX_FMT_YUV420P || f->format == AV_PIX_FMT_YUVJ420P) &&
 	              w <= MPF_MAX_W && h <= MPF_MAX_H;
 	int s = mpf_begin(g_shm);
@@ -313,25 +334,31 @@ static void publish(vdec *d, double pts)
 		ow = (uint32_t)(w * k) & ~1u;
 		oh = (uint32_t)(h * k) & ~1u;
 	}
-	u = y + (size_t)ow * oh;
-	v = u + (size_t)mpf_chroma(ow) * mpf_chroma(oh);
+	st = mpf_stride(ow);
+	cst = mpf_chroma(st);
+	u = y + (size_t)st * oh;
+	v = u + (size_t)cst * mpf_chroma(oh);
 	if (direct) {
-		copy_plane(y, w, h, f->data[0], f->linesize[0]);
-		copy_plane(u, mpf_chroma(w), mpf_chroma(h), f->data[1], f->linesize[1]);
-		copy_plane(v, mpf_chroma(w), mpf_chroma(h), f->data[2], f->linesize[2]);
+		copy_plane(y, st, w, h, f->data[0], f->linesize[0]);
+		copy_plane(u, cst, mpf_chroma(w), mpf_chroma(h), f->data[1], f->linesize[1]);
+		copy_plane(v, cst, mpf_chroma(w), mpf_chroma(h), f->data[2], f->linesize[2]);
 	} else {
 		/* 10-bit HEVC, 4:2:2, NV12 and the rest: once through swscale. */
 		uint8_t *dst[4] = { y, u, v, NULL };
-		int pitch[4] = { (int)ow, (int)mpf_chroma(ow), (int)mpf_chroma(ow), 0 };
+		int pitch[4] = { (int)st, (int)cst, (int)cst, 0 };
 
 		d->sws = sws_getCachedContext(d->sws, (int)w, (int)h, (enum AVPixelFormat)f->format,
 		                              (int)ow, (int)oh, AV_PIX_FMT_YUV420P,
 		                              SWS_BILINEAR, NULL, NULL, NULL);
 		if (d->sws) sws_scale(d->sws, (const uint8_t *const *)f->data, f->linesize, 0,
 		                      (int)h, dst, pitch);
+		pad_plane(y, st, ow, oh);
+		pad_plane(u, cst, mpf_chroma(ow), mpf_chroma(oh));
+		pad_plane(v, cst, mpf_chroma(ow), mpf_chroma(oh));
 	}
 	g_shm->slot[s].w = ow;
 	g_shm->slot[s].h = oh;
+	g_shm->slot[s].stride = st;
 	g_shm->slot[s].color = color_of(f);
 	g_shm->slot[s].serial = ++g_serial ? g_serial : ++g_serial;
 	g_shm->slot[s].file = g_shm->file;

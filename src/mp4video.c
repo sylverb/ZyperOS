@@ -13,7 +13,8 @@
 static mpf_head    *g_head;          /* the frames, mapped read-only */
 static unsigned     g_tried_ms;      /* the last look for the file */
 static SDL_Texture *g_tex;
-static int          g_tw, g_th;      /* g_tex's size */
+static int          g_tw, g_th;      /* the picture's size, in g_tex's top-left corner */
+static int          g_xw, g_xh;      /* g_tex's own size: the frames' rows (mpf_stride) */
 static uint32_t     g_seen;          /* the serial of the picture in g_tex */
 static uint32_t     g_file;          /* the file it came from */
 static uint32_t     g_color = MPF_BT601;
@@ -44,34 +45,47 @@ bool mp4v_update(SDL_Renderer *r)
 {
 	const mpf_slot *sl;
 	const uint8_t *y;
-	uint32_t seq, w, h, cw;
+	uint32_t seq, w, h, st, cst;
 	int s;
 
 	if (!mapped() || (s = mpf_peek(g_head, g_seen, &seq)) < 0) return false;
 	sl = &g_head->slot[s];
 	w = sl->w;
 	h = sl->h;
-	if (!g_tex || g_tw != (int)w || g_th != (int)h) {
+	st = sl->stride;
+	/* Read again after mpf_peek's look: a picture written meanwhile is
+	 * caught by mpf_still_good, but its sizes must still fit the slot */
+	if (w == 0 || h == 0 || h > MPF_MAX_H || st < w || st > MPF_MAX_W) return false;
+	/* The texture as wide as the frame's rows, a multiple of 128 (mpf_stride:
+	 * the Pixel 2's Mesa ran past a texture's buffer when a plane's width was
+	 * not a multiple of 64), and as high as the picture, so each frame
+	 * overwrites all of it; drawn from the picture's own rectangle
+	 * (mp4v_texture) */
+	if (!g_tex || g_xw != (int)st || g_xh != (int)h) {
 		if (g_tex) SDL_DestroyTexture(g_tex);
 		g_tex = SDL_CreateTexture(r, SDL_PIXELFORMAT_IYUV, SDL_TEXTUREACCESS_STREAMING,
-		                          (int)w, (int)h);
+		                          (int)st, (int)h);
 		if (!g_tex) {
-			fprintf(stderr, "mp4: no %ux%u video texture: %s\n", w, h, SDL_GetError());
+			fprintf(stderr, "mp4: no %ux%u video texture: %s\n", st, h, SDL_GetError());
 			g_seen = sl->serial;          /* not tried again every pass */
+			g_tw = g_th = g_xw = g_xh = 0;
 			return false;
 		}
 		SDL_SetTextureBlendMode(g_tex, SDL_BLENDMODE_NONE);
-		g_tw = (int)w;
-		g_th = (int)h;
+		g_xw = (int)st;
+		g_xh = (int)h;
 	}
-	cw = mpf_chroma(w);
+	g_tw = (int)w;
+	g_th = (int)h;
+	cst = mpf_chroma(st);
 	y = mpf_slot_data(g_head, s);
-	/* Straight from the shared pages to the GPU, no copy of our own. A
-	 * picture overwritten while it went (mpf_still_good) is taken again on
-	 * the next pass; the texture shows it for one frame at most. */
-	SDL_UpdateYUVTexture(g_tex, NULL, y, (int)w,
-	                     y + (size_t)w * h, (int)cw,
-	                     y + (size_t)w * h + (size_t)cw * mpf_chroma(h), (int)cw);
+	/* Straight from the shared pages to the GPU, no copy of our own, the
+	 * whole texture each time. A picture overwritten while it went
+	 * (mpf_still_good) is taken again on the next pass; the texture shows
+	 * it for one frame at most. */
+	SDL_UpdateYUVTexture(g_tex, NULL, y, (int)st,
+	                     y + (size_t)st * h, (int)cst,
+	                     y + (size_t)st * h + (size_t)cst * mpf_chroma(h), (int)cst);
 	g_file = sl->file;
 	g_color = sl->color;
 	if (!mpf_still_good(g_head, s, seq)) return true;
@@ -79,8 +93,9 @@ bool mp4v_update(SDL_Renderer *r)
 	return true;
 }
 
-SDL_Texture *mp4v_texture(void)
+SDL_Texture *mp4v_texture(SDL_Rect *src)
 {
+	if (src) *src = (SDL_Rect){ 0, 0, g_tw, g_th };
 	if (g_test) return g_tex;
 	if (!g_tex || !g_head || g_file != g_head->file) return NULL;
 	/* The matrix the GPU's YUV shader uses, which SDL reads as it draws:
@@ -152,7 +167,7 @@ static void mp4v_release(void)
 {
 	if (g_tex) SDL_DestroyTexture(g_tex);
 	g_tex = NULL;
-	g_tw = g_th = 0;
+	g_tw = g_th = g_xw = g_xh = 0;
 	g_seen = 0;
 }
 
@@ -183,8 +198,8 @@ void mp4v_test_picture(SDL_Renderer *r, int w, int h)
 	g_tex = SDL_CreateTexture(r, SDL_PIXELFORMAT_IYUV, SDL_TEXTUREACCESS_STREAMING, w, h);
 	if (!g_tex) goto done;
 	SDL_UpdateYUVTexture(g_tex, NULL, yp, w, up, cw, vp, cw);
-	g_tw = w;
-	g_th = h;
+	g_tw = g_xw = w;
+	g_th = g_xh = h;
 	g_color = MPF_BT601;
 	g_test = true;
 done:
