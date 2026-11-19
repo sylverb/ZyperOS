@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "sysmenu_screen.h"
+#include "hotkeys_screen.h"
 #include "dmodepreview.h"
 #include "ds/preview.h"
 #include "ds/colorref.h"
@@ -1952,6 +1953,7 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 		return MENU_DONE;
 	case PM_XFER:         xfer_screen(a); break;
 	case PM_LIGHTS:       lights_screen(a); break;
+	case PM_HOTKEYS:      hotkeys_screen(a); break;
 	/* The shelves the home shows; the home built again as it closes */
 	case PM_HOMESYS:      homesys_screen(a); return MENU_CHANGED;
 	case PM_LANGUAGE:     language_screen(a); return MENU_CHANGED;

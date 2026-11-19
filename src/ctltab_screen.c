@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 /* See ctltab_screen.h. */
 #include "ctltab_screen.h"
+#include "hotkeys_screen.h"
 
 #include <SDL.h>
 #include <math.h>
@@ -733,8 +734,10 @@ static void pick(app *a, const ctlscr_game *g, int button)
 	back_to_tab();
 }
 
-/* The Hotkeys row's pages: the read-only Controls pages, at their own
- * width and with no handheld, less the system's buttons the tab shows */
+/* The Hotkeys row: the hotkeys of this game, its system or every game
+ * (src/hotkeys_screen.h), at their own width and with no handheld; its last
+ * row, All Controls, the read-only pages the row opened before, less the
+ * system's buttons the tab shows */
 static void pages(app *a, const ctlscr_game *g)
 {
 	cs_ctx c;
@@ -742,7 +745,7 @@ static void pages(app *a, const ctlscr_game *g)
 
 	memset(&c, 0, sizeof c);
 	c.g = g;
-	game_controls_pages(a, &st, &c);
+	hotkeys_ingame(a, &st, &c, g->s, g->file, g->title, g->running);
 	g_cs.stale = true;
 }
 

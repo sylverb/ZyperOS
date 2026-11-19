@@ -81,6 +81,7 @@ static bool row_is_scale(menu_row r)
 int menu_value_w(TTF_Font *fm, const char *v)
 {
 	if (v == MENU_TICK) return ui_cap_height(fm) * 6 / 5;
+	if (menu_keys_is(v)) return ui_button_width(menu_keys_names(v), MENU_KEYS_SIZE);
 	if (v == MENU_KEY_X) return ui_button_width("X", MENU_KEY_SIZE);
 	if (ds_scale_is(v)) return DS_SCALE_MIN_W + ds_scale_num_w();
 	if (v == MENU_KEY_Y_ON || v == MENU_KEY_Y_OFF)
@@ -1237,6 +1238,19 @@ void menu_panel(app *a, const char *heading, const menu_row *rows,
 				                content_w, mq_phase(slot, sel, i), lc);
 			}
 			notes_drawn++;
+		} else if (two_col && menu_keys_is(rows[i].value)) {
+			/* Buttons for a value (MENU_KEYS_MARK): the Hotkeys list's keys,
+			 * this handheld's glyphs where the value's right edge is, on the
+			 * fill as a selected key's, and the label in what they leave */
+			const char *keys = menu_keys_names(rows[i].value);
+			const int kw = ui_button_width(keys, MENU_KEYS_SIZE);
+			char lbl[192];
+
+			ui_button_pressed(a->r, keys, content_x + content_w - kw / 2, y + ROW_H(rows[i]) / 2,
+			                  MENU_KEYS_SIZE, sel_w >= 0.5f ? UI_BUTTON_ON_ACCENT : UI_BUTTON_PLAIN,
+			                  0.0f, 1.0f, lc.a / 255.0f);
+			ui_fit_text(fm, rows[i].label, lbl, sizeof lbl, content_w - kw - fit_gap);
+			ui_text(a->r, fm, lbl, content_x, ty, -1, lc);
 		} else if (two_col && menu_keys_is(rows[i].label)) {
 			/* Buttons for a label (MENU_KEYS_MARK): this handheld's glyphs
 			 * where the label goes, faded with the row, and the value at

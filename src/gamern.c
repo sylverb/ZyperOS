@@ -475,6 +475,10 @@ int gr_follow(const char *folder, const char *tag, const char *file, const char 
 	snprintf(a, sizeof a, "stick.%s.%s", tag, file);
 	snprintf(b, sizeof b, "stick.%s.%s", tag, new_file);
 	n += db_key_move(db_lib(), a, b);
+	/* and its own hotkeys (src/hkstore.h) */
+	snprintf(a, sizeof a, "hotkeys.%s.%s", tag, file);
+	snprintf(b, sizeof b, "hotkeys.%s.%s", tag, new_file);
+	n += db_key_move(db_lib(), a, b);
 	snprintf(a, sizeof a, "artsrc.%s/%s", folder, name);
 	snprintf(b, sizeof b, "artsrc.%s/%s", folder, new_name);
 	n += db_key_move(db_lib(), a, b);

@@ -7,6 +7,7 @@
 #include "biosfile.h"
 #include "gamefile.h"
 #include "ctl.h"
+#include "hkstore.h"
 #include "ctl_channel.h"
 #include "dsv.h"
 #include "ingame_screen.h"
@@ -656,7 +657,7 @@ void launch(app *a)
 		 * screens, the system's clock ceiling, controller type and d-pad
 		 * stick, and its button map (config.h: power, controller, stick,
 		 * map) */
-		char keys[128], stick[24];
+		char keys[1536], stick[24];
 		rm_table sent;
 		char map[320];
 		bool stick_on = rms_stick_get(s, romfile);
@@ -672,6 +673,34 @@ void launch(app *a)
 		if (stick[0] && strlen(keys) + strlen(stick) + 2 <= sizeof keys)
 			snprintf(keys + strlen(keys), sizeof keys - strlen(keys), "%s%s",
 			         keys[0] ? "\t" : "", stick);
+		/* The player's hotkeys for this game (src/hkstore.h), sent only
+		 * when they are not ZyperOS's own, so a player who never set one
+		 * sends what was always sent; and where a screenshot goes,
+		 * Screenshots/<System>/<Game>, Diatom adding the time, with every
+		 * game, so a key given in its Controls tab works at once */
+		{
+			hk_table hk, def;
+			char run[200], name[LIB_NAME], shots[CFG_STR * 4];
+			size_t i;
+
+			hks_get(HKS_GAME, s->tag, romfile, &hk);
+			hk_default(&def);
+			if (!hk_equal(&hk, &def)) {
+				hk_run(&hk, run, sizeof run);
+				if (strlen(keys) + strlen(run) + 10 <= sizeof keys)
+					snprintf(keys + strlen(keys), sizeof keys - strlen(keys), "%shotkeys=%s",
+					         keys[0] ? "\t" : "", run);
+			}
+			{
+				snprintf(name, sizeof name, "%s", v->list.items[v->cursor].name);
+				for (i = 0; name[i]; i++)
+					if (name[i] == '/' || name[i] == '\t' || name[i] == '\\') name[i] = '-';
+				snprintf(shots, sizeof shots, "%s/Screenshots/%s/%s", P_CARD, s->folder, name);
+				if (strlen(keys) + strlen(shots) + 8 <= sizeof keys)
+					snprintf(keys + strlen(keys), sizeof keys - strlen(keys), "%sshots=%s",
+					         keys[0] ? "\t" : "", shots);
+			}
+		}
 		if (keys[0]) plat_resident_run_keys(keys);
 		rm_format(&sent, map, sizeof map);
 		plat_resident_map(strcmp(map, "identity") ? map : "");
@@ -982,8 +1011,15 @@ void launch(app *a)
 			for (;;) {
 				r = plat_resident_wait();
 				if (r == RES_PAUSED) {
+					const char *why = plat_resident_paused_for();
+
 					g_ctl_game.paused = true;
-					game_menu(a);
+					/* A hotkey's pause (src/hotkeys.h): Quit stops the
+					 * game as MENU then X does, Reset Game asks first;
+					 * MENU's opens the menu */
+					if (!strcmp(why, "quit")) gm_quit();
+					else if (!strcmp(why, "reset")) game_reset_ask(a);
+					else game_menu(a);
 					g_ctl_game.paused = false;
 					continue;
 				}

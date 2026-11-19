@@ -19,6 +19,10 @@ slot's round trip as the launcher drives it.
     and keeps the d-pad on the joypad too: the d-pad is both.
   - SETMAP select:start does not touch SELECT's chords: SELECT+R1 still says
     HOTKEY key=save, and the core never reads START.
+  - RUN hotkeys= gives SELECT other keys: SELECT+Y writes a screenshot PNG
+    where RUN shots= says and answers SHOT path=, SELECT+X says HOTKEY
+    key=shader, SELECT+B pauses with PAUSED for=reset, and SELECT+R1 is the
+    game's when no hotkey is on R1; SETHOTKEYS changes them while it runs.
   - RUN stick=toggle (the PSP's) with the map's r2:stick: R2 turns the
     d-pad into the left stick and back, says STICK each time, and never
     reaches the game; with no such pair R2 is the game's and turns nothing.
@@ -100,7 +104,9 @@ def pump(seconds):
                 # As the launcher does (on_quick): the game as it is, for
                 # Undo Load, then the slot over it, back to back
                 s.sendall(f"SAVE\tpath={UNDO}\nLOAD\tpath={STATE}\n".encode())
-            elif l == "PAUSED":          # MENU let go opens the menu: close it
+            elif l == "PAUSED" or l.startswith("PAUSED\tfor="):
+                # MENU let go opens the menu, or a hotkey's pause (Reset
+                # Game's question, Quit): close it
                 s.sendall(b"RESUME\n")
 
 def frames_logged(path):
@@ -364,6 +370,34 @@ check("an unknown mode is an ERROR", any(l.startswith("ERROR\tcode=bad_stick") f
 check("and leaves the stick as it was (plain: the stick and the joypad's RIGHT)",
       any(ax[i] == FULL for i in range(41, 46)) and any(bits[i] & RIGHT for i in range(41, 46)),
       (ax[38:48], bits[38:48]))
+
+# The player's hotkeys (RUN hotkeys=, chord.h): SELECT+Y a screenshot into
+# RUN shots=, SELECT+X the next shader (the launcher steps it), SELECT+B
+# Reset Game's pause, and R1 no hotkey: SELECT then R1 the game's, both
+SHOTS = f"{TMP}/Screenshots/Stub/Game"
+Y, X, B = 1 << 9, 1 << 1, 1 << 0
+bits, ax = live_run("hk", "40:select;43:select+y;47:select;50:;70:select;73:select+x;77:;"
+                    "100:select;103:select+r1;108:;130:select;133:select+b;137:;",
+                    "", 170, f"\thotkeys=shot:y,shader:x,reset:b\tshots={SHOTS}")
+shot = [l for l in got if l.startswith("SHOT\tpath=")]
+check("hotkeys=: SELECT+Y answers SHOT path= under shots=", len(shot) == 1 and shot[0][10:].startswith(SHOTS + " "), got)
+if shot:
+    pth = shot[0][10:]
+    ok = os.path.exists(pth) and open(pth, "rb").read(8) == b"\x89PNG\r\n\x1a\n" and pth.endswith(".png")
+    check("and the file is a PNG in its own folder, made for it", ok, pth)
+check("the game never sees that SELECT or Y", not any(bits[i] & (Y | SEL) for i in range(40, 50)), bits[38:52])
+check("SELECT+X says HOTKEY key=shader", "HOTKEY\tkey=shader" in got, got)
+check("SELECT+B pauses for Reset Game's question: PAUSED for=reset", "PAUSED\tfor=reset" in got, got)
+check("R1 no hotkey: no save asked, and SELECT then R1 is the game's",
+      "HOTKEY\tkey=save" not in got and any(bits[i] & R1 and bits[i] & SEL for i in range(103, 108)), bits[100:110])
+
+# SETHOTKEYS while it runs: quit on START; SELECT+START pauses for=quit
+bits, ax = live_run("hkset", "60:select;63:select+start;67:;", "SETHOTKEYS\tkeys=quit:start\n", 100)
+check("SETHOTKEYS answers HOTKEYS ok=1", "HOTKEYS\tok=1" in got, got)
+check("SELECT+START, quit's: PAUSED for=quit", "PAUSED\tfor=quit" in got, got)
+bits, ax = live_run("hkbad", "60:select;63:select+r1;67:;", "SETHOTKEYS\tkeys=shot:select\n", 100)
+check("a bad SETHOTKEYS: ok=0, and the keys as they were (SELECT+R1 still saves)",
+      "HOTKEYS\tok=0" in got and "HOTKEY\tkey=save" in got, got)
 
 # A remapped SELECT (select:start): the chords go by the SELECT key, not by
 # what it is mapped to, so SELECT+R1 still saves and the core never reads START.

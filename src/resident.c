@@ -52,14 +52,16 @@ static void dclose(void)
 
 /* The next RUN's own keys, and the stylus and the swap Diatom reports. See
  * platform.h. */
-static char d_run_keys[128];
+/* RUN's keys beyond the usual: power, controller, stick, a DS game's
+ * screens, the hotkeys and the screenshots' folder (a path) */
+static char d_run_keys[1536];
 static char d_map[256];          /* plat_resident_map, for the next RUN */
 static char d_opt[128];         /* plat_resident_opt, "key\tvalue=..." */
 static bool d_stylus, d_swap;
 
 static bool dsend(const char *fmt, ...)
 {
-	char line[2048];
+	char line[4096];
 	va_list ap;
 	int n;
 
@@ -338,6 +340,19 @@ static void d_note_stick(const char *l)
 static void (*d_on_quick)(int what, const char *path);
 
 void plat_resident_on_quick(void (*fn)(int what, const char *path)) { d_on_quick = fn; }
+
+/* The player's hotkeys (src/hotkeys.h) that are the launcher's to carry
+ * out: a screenshot written (SHOT path=), the next shader or display mode
+ * (HOTKEY key=shader|display) */
+static void (*d_on_hotkey)(const char *key, const char *path);
+
+void plat_resident_on_hotkey(void (*fn)(const char *key, const char *path)) { d_on_hotkey = fn; }
+
+/* What the last PAUSED was for: "reset" or "quit" from a hotkey, "" for
+ * MENU's (plat_resident_paused_for) */
+static char d_pause_for[8];
+
+const char *plat_resident_paused_for(void) { return d_pause_for; }
 
 static void (*d_on_progress)(int id, const char *text, int value, int target);
 
@@ -950,7 +965,20 @@ static int diatom_wait(void)
 			 * the menu stepped from the level before the game - seen on the
 			 * GKD Pixel 2 2026-10-02, raised to 18 in a game, and the menu's
 			 * first press went to 3. */
-			else if (strncmp(l, "PAUSED", 6) == 0)  { d_apply_levels(); return RES_PAUSED; }
+			else if (strncmp(l, "PAUSED", 6) == 0)  {
+				snprintf(d_pause_for, sizeof d_pause_for, "%s",
+				         strncmp(l, "PAUSED\tfor=", 11) ? "" : l + 11);
+				d_apply_levels();
+				return RES_PAUSED;
+			}
+			/* A hotkey of the player's own: a screenshot written, the
+			 * next shader or display mode for the launcher to step */
+			else if (strncmp(l, "SHOT\tpath=", 10) == 0) {
+				if (d_on_hotkey) d_on_hotkey("shot", l + 10);
+			}
+			else if (strncmp(l, "HOTKEY\tkey=shader", 18) == 0 || strncmp(l, "HOTKEY\tkey=display", 19) == 0) {
+				if (d_on_hotkey) d_on_hotkey(l + 11, NULL);
+			}
 			else if (strncmp(l, "PREVIEW\tpath=", 13) == 0)
 				snprintf(d_preview, sizeof d_preview, "%s", l + 13);
 			else if (strncmp(l, "LEVEL\t", 6) == 0) d_note_level(l);

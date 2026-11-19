@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "about_screen.h"
+#include "hkstore.h"
 #include "ds/mark.h"   /* ds_bar_in */
 
 #include "about.h"
@@ -345,6 +346,13 @@ void controls_screen(app *a)
 	float k;
 
 	ctl_set_chords(&plat_profile()->chords);
+	{
+		/* Every Game's hotkeys, as MENU > System > Hotkeys sets them */
+		hk_table hk;
+
+		hks_get(HKS_EVERY, NULL, NULL, &hk);
+		ctl_set_hotkeys(&hk);
+	}
 
 	while (!done && !want_quit && a->running) {
 		menu_row rows[CTL_MAX_ROWS];
