@@ -14,8 +14,9 @@
  *                     whole step that fits: 3x for a Game Boy on the Pixel 2),
  *                     where Sharp Pixels puts it, the frame cut where the
  *                     panel ends
- *   Handheld, Whole   one whole step smaller (2x), placed so the lens is in
- *                     the middle of the panel: the whole lens and some body
+ *   Handheld, Whole   smaller by whole steps until the whole lens and some
+ *                     body fit (2x on the Pixel 2, 3x on the Brick), placed
+ *                     so the lens is in the middle of the panel
  *
  * Every straight edge is on whole pixels (each edge's millimetre place,
  * rounded once), so a line is one crisp pixel row at both resolutions; only a
@@ -79,10 +80,13 @@ typedef struct {
 
 typedef enum { HF_CUT, HF_WHOLE } hf_kind;
 
+/* Handheld, Whole's least body round the lens on each side, mm */
+#define HF_WHOLE_BODY_MM 1.5f
+
 /* Where the game goes for `kind` on a surface `w` x `h`: its rect, a whole
  * number of panel pixels a game pixel (`*scale`). False where the game does
- * not fit at 1x, and Whole where a step smaller than the full size would be
- * under 2x (the Advance on the Pixel 2's 640x480: 2x is its full size). */
+ * not fit at 1x, and Whole where the whole lens fits only under 2x (the
+ * Advance on the Pixel 2's 640x480: 2x is its full size). */
 bool hf_place(const hf_model *m, hf_kind kind, int w, int h, int *scale, int *gx, int *gy, int *gw, int *gh);
 
 /* The frame, `w` x `h` BGRA, opaque, around the game at gx, gy, gw x gh,

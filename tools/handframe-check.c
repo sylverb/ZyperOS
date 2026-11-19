@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 /* The handheld frames (src/handframe.h): each placement is where Sharp
- * Pixels puts the game (Handheld) or a step smaller with the lens in the
- * middle (Whole, never under 2x); one game pixel is one LCD dot; straight
+ * Pixels puts the game (Handheld) or the largest step smaller where the
+ * whole lens and some body fit, the lens in the middle (Whole, never under
+ * 2x): 2x on the Pixel 2, 3x on the Brick; one game pixel is one LCD dot; straight
  * edges are whole pixels, each side of an edge exactly one color; an arc
  * stands where the model says; every part is inside the one it sits in; the
  * Game Boy Color's six colors are named. On the Pixel 2's 640x480 and the
@@ -63,12 +64,31 @@ int main(void)
 				const float cx = wx + (m->lens.x0 + m->lens.x1) / 2 * ww / m->lcd_w;
 				const float cy = wy + (m->lens.y0 + m->lens.y1) / 2 * wh / m->lcd_h;
 
-				snprintf(what, sizeof what, "%s on %dx%d: Whole a step smaller, 2x or more, the lens in the middle",
-				         TAGS[t], w, h);
-				ck(wsc == sc - 1 && wsc >= 2 && fabsf(cx - w / 2.0f) <= 1.0f && fabsf(cy - h / 2.0f) <= 1.0f, what);
+				const float pw = (float)ww / m->lcd_w, ph = (float)wh / m->lcd_h;
+				int lx0, ly0, lx1, ly1;
+
+				snprintf(what, sizeof what, "%s on %dx%d: Whole at %dx (%s), 2x or more, the lens in the middle",
+				         TAGS[t], w, h, wsc, w == 640 ? "2x on the Pixel 2" : "3x on the Brick");
+				ck(wsc < sc && wsc >= 2 && wsc == (w == 640 ? 2 : 3) && fabsf(cx - w / 2.0f) <= 1.0f &&
+				   fabsf(cy - h / 2.0f) <= 1.0f, what);
+				/* the whole lens on the panel, with body round it */
+				hf_px_rect(m, &m->lens, wx, wy, ww, wh, &lx0, &ly0, &lx1, &ly1);
+				snprintf(what, sizeof what, "%s on %dx%d: Whole shows the whole lens and %.0f mm of body round it",
+				         TAGS[t], w, h, HF_WHOLE_BODY_MM);
+				ck(lx0 >= (int)(HF_WHOLE_BODY_MM * pw) && ly0 >= (int)(HF_WHOLE_BODY_MM * ph) &&
+				   w - lx1 >= (int)(HF_WHOLE_BODY_MM * pw) && h - ly1 >= (int)(HF_WHOLE_BODY_MM * ph), what);
+				/* and a step larger would not have */
+				if (wsc + 1 < sc) {
+					const float pw1 = (float)(m->cols * (wsc + 1)) / m->lcd_w;
+					const float ph1 = (float)(m->lines * (wsc + 1)) / m->lcd_h;
+
+					snprintf(what, sizeof what, "%s on %dx%d: a step larger would cut the lens", TAGS[t], w, h);
+					ck((m->lens.x1 - m->lens.x0 + 2 * HF_WHOLE_BODY_MM) * pw1 > (float)w ||
+					   (m->lens.y1 - m->lens.y0 + 2 * HF_WHOLE_BODY_MM) * ph1 > (float)h, what);
+				}
 			} else {
-				snprintf(what, sizeof what, "%s on %dx%d: no Whole only where it would be under 2x", TAGS[t], w, h);
-				ck(sc - 1 < 2, what);
+				snprintf(what, sizeof what, "%s on %dx%d: no Whole only for the Advance on the Pixel 2", TAGS[t], w, h);
+				ck(t == 2 && w == 640, what);
 			}
 			/* Crisp edges: the lens's left side, at its middle, one
 			 * pixel the body's color and the next the lens's */

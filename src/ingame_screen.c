@@ -1541,14 +1541,15 @@ static void gm_border_preview(void *app_, int k, int x, int y, int w, int h)
 	dmode_border_preview(a, g_gm_frame, sw, sh, aspect, v->dmode, (int)kind, own, path, NULL, x, y, w, h);
 }
 
-/* Handheld Color's list's picture: the frame kept for Border, in color k */
+/* Handheld Color's list's picture: the frame in color k, whole where it is
+ * offered (border_color_kind) */
 static void gm_color_preview(void *app_, int k, int x, int y, int w, int h)
 {
 	app *a = app_;
 	sysview *v = owner_view(a);
 	int sys = (int)(v - a->view), sw, sh;
 	double aspect;
-	border_kind kind = border_load(a, sys);
+	border_kind kind = border_color_kind(a, sys);
 	char key[96];
 	SDL_Surface *f;
 	SDL_Rect at;

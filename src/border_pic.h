@@ -62,6 +62,12 @@ const char *border_color_value(const app *a, int sys);
 /* Handheld Color stepped round the model's colors, kept for the system */
 void border_color_step(const app *a, int sys, int d);
 
+/* The frame Handheld Color's list pictures each color in: Handheld, Whole
+ * wherever it is offered, since Handheld at its full size can show the
+ * lens alone and no body (the Game Boy Color's at 5x on the Brick), else
+ * the kind kept */
+border_kind border_color_kind(const app *a, int sys);
+
 /* A handheld's frame for system `sys`, `kind` BORDER_HANDHELD or
  * BORDER_WHOLE, in color `color`, at the surface's size: a new surface the
  * caller frees and the game's rect in it (`gx`...), or NULL where the system

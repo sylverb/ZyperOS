@@ -11,10 +11,20 @@ bool hf_place(const hf_model *m, hf_kind kind, int w, int h, int *scale, int *gx
 
 	if (!m || m->cols <= 0 || m->lines <= 0 || w <= 0 || h <= 0) return false;
 	s = w / m->cols < h / m->lines ? w / m->cols : h / m->lines;
-	/* Whole is a step smaller, and never down to 1x: a game a quarter of
-	 * the screen is no game to play (the Advance on the Pixel 2) */
-	if (kind == HF_WHOLE) s = s >= 3 ? s - 1 : 0;
-	if (s < 1) return false;
+	/* Whole is the largest step under the full size where the whole lens
+	 * and HF_WHOLE_BODY_MM of body round it are on the panel: one step on
+	 * the Pixel 2 (2x), two on the Brick, where one step smaller (4x) still
+	 * cuts a Game Boy's lens. Never down to 1x: a game a quarter of the
+	 * screen is no game to play (the Advance on the Pixel 2) */
+	if (kind == HF_WHOLE)
+		for (s--; s >= 2; s--) {
+			const float pw = (float)(m->cols * s) / m->lcd_w, ph = (float)(m->lines * s) / m->lcd_h;
+
+			if ((m->lens.x1 - m->lens.x0 + 2 * HF_WHOLE_BODY_MM) * pw <= (float)w &&
+			    (m->lens.y1 - m->lens.y0 + 2 * HF_WHOLE_BODY_MM) * ph <= (float)h)
+				break;
+		}
+	if (s < (kind == HF_WHOLE ? 2 : 1)) return false;
 	*scale = s;
 	*gw = m->cols * s;
 	*gh = m->lines * s;

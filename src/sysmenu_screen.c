@@ -268,13 +268,14 @@ static void sm_border_preview(void *app_, int k, int x, int y, int w, int h)
 	dmode_border_preview(a, t, sw, sh, known ? aspect : 0.0, v->dmode, (int)kind, pic, own, NULL, x, y, w, h);
 }
 
-/* Handheld Color's list's picture: the frame kept for Border, in color k,
- * the game under the cursor's last picture in its window */
+/* Handheld Color's list's picture: the frame in color k, whole where it is
+ * offered (border_color_kind), the game under the cursor's last picture in
+ * its window */
 static void sm_color_preview(void *app_, int k, int x, int y, int w, int h)
 {
 	app *a = app_;
 	sysview *v = &a->view[a->sys_cursor];
-	border_kind kind = border_load(a, a->sys_cursor);
+	border_kind kind = border_color_kind(a, a->sys_cursor);
 	char key[96];
 	SDL_Rect at;
 	SDL_Surface *f = border_frame_cached(a, a->sys_cursor, kind, k, key, sizeof key, &at);

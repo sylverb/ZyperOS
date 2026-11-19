@@ -197,6 +197,11 @@ void border_color_step(const app *a, int sys, int d)
 	db_set_int(db_dev(), key, c);
 }
 
+border_kind border_color_kind(const app *a, int sys)
+{
+	return border_offer_for(a, sys).whole ? BORDER_WHOLE : border_load(a, sys);
+}
+
 int border_color_load(const app *a, int sys)
 {
 	const system_cfg *s = &a->sys.systems[sys];

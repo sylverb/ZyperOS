@@ -843,15 +843,15 @@ ja = 本体の表面をゲームの周りに原寸どおり表示し、画面の
 it = Il frontale della console intorno al gioco, in scala, tagliato al bordo.
 
 [gamemenu.border_whole_note]
-note = What Handheld, Whole does, under the picture beside Border's list: the whole face of the handheld, with the game one step smaller. Six short lines at most in a narrow column, about 70 letters
-en = The handheld's whole face; the game one step smaller.
-zh-Hans = 显示掌机的完整外观；游戏缩小一级。
-es = La cara entera de la portátil; el juego un paso más pequeño.
-pt-BR = A face inteira do portátil; o jogo um passo menor.
-fr = Toute la façade de la console ; le jeu un cran plus petit.
-de = Die ganze Front des Handhelds; das Spiel eine Stufe kleiner.
-ja = 本体の表面全体を表示し、ゲームは一段階小さくなります。
-it = L'intero frontale della console; il gioco un passo più piccolo.
+note = What Handheld, Whole does, under the picture beside Border's list: the whole face of the handheld, the whole screen glass and some body, with the game smaller (by as many steps as that takes). Six short lines at most in a narrow column, about 70 letters
+en = The handheld's whole face; the game smaller to fit it.
+zh-Hans = 显示掌机的完整外观；游戏缩小以容纳。
+es = La cara entera de la portátil; el juego más pequeño para que quepa.
+pt-BR = A face inteira do portátil; o jogo menor para caber.
+fr = Toute la façade de la console ; le jeu réduit pour qu'elle tienne.
+de = Die ganze Front des Handhelds; das Spiel kleiner, damit sie passt.
+ja = 本体の表面全体を表示し、収まるようにゲームを小さくします。
+it = L'intero frontale della console; il gioco più piccolo perché ci stia.
 
 [gamemenu.border_color]
 note = A row under Border on the Game Boy Color, while Border is a Handheld frame: the color of the handheld's body drawn around the game; its value is a color's plain name (gamemenu.color_*)
