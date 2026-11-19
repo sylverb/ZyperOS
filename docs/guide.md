@@ -732,7 +732,10 @@ The system menu opens on a shelf of games and applies to that system alone:
 | **Box Art** | fetch what this system is missing, and nothing else |
 | **Rescan Folder** | read the card again, for ROMs that arrived since boot |
 
-On Favorites and Recents the menu is only Games, Random Game, Sort By and View. On Collections it
+On Favorites and Recents the menu is only Games, Random Game, Sort By and View; Recents has
+**Card Picture** too: `Cover`, as it starts, or `Last Screen`, each card the screen where you left
+the game (the picture saved with its resume point) with its cover small in the corner. A game with
+no resume point shows its cover. A opens the two as a list with a picture of each. On Collections it
 is the collection's own (see [Collections](#collections)). The rest is about one
 console, and a game there takes its console's Display wherever it was
 started from.

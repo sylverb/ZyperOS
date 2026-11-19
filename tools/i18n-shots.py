@@ -784,14 +784,72 @@ for _name, _flags in (("collect-said-long", ["--screen", "games", "--collect-sai
 
 
 def set_text(card, files, on):
-    """A shot's files with their text (SHOT_TEXT) on the card, or off it"""
+    """A shot's files with their text or bytes (SHOT_TEXT) on the card, or off it"""
     for f, text in (files or {}).items():
         path = card / f
         if on:
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(text)
+            if isinstance(text, bytes):
+                path.write_bytes(text)
+            else:
+                path.write_text(text)
         elif path.exists():
             path.unlink()
+
+
+def scene_bmp(w, h, sky, ground, hue):
+    """A made-up frame of play, a 24-bit BMP of w x h drawn here (no Pillow):
+    a sky of `sky` fading to white, hills, `ground` at the foot and a block
+    of `hue` in the middle, as a game's resume picture stands in a shot"""
+    import struct
+    row = (w * 3 + 3) & ~3
+    out = bytearray()
+    for y in range(h - 1, -1, -1):       # a BMP's rows from the bottom
+        line = bytearray()
+        for x in range(w):
+            if y > h * 3 // 4:
+                c = ground
+            elif y > h * 3 // 4 - 2 - ((x // 8) % 5 == 0) * 6 and y > h // 2 + abs((x % 64) - 32) // 2:
+                c = tuple(max(0, v - 40) for v in ground)
+            elif w * 2 // 5 <= x < w * 3 // 5 and h * 2 // 5 <= y < h * 3 // 5:
+                c = hue
+            else:
+                k = y / h
+                c = tuple(int(v + (255 - v) * k * 0.6) for v in sky)
+            line += bytes((c[2], c[1], c[0]))
+        out += line + b"\0" * (row - w * 3)
+    head = struct.pack("<2sIHHI", b"BM", 54 + len(out), 0, 0, 54)
+    info = struct.pack("<IiiHHIIiiII", 40, w, h, 1, 24, 0, len(out), 2835, 2835, 0, 0)
+    return head + info + bytes(out)
+
+
+# Recents' Card Picture (DESIGN.md 11.48): the three games with a resume
+# point, each its state and the picture Diatom writes beside it, made up
+# here; Last Screen on the cover row and the grid, the row in its menu, and
+# its list with the picture of each choice
+_RECENT_SCREENS = {}
+for (_folder, _file, _wh, _sky, _ground, _hue) in (
+        ("Game Boy Advance", "The Legend of Zelda - The Minish Cap (USA).gba", (240, 160),
+         (64, 140, 220), (72, 150, 60), (230, 200, 60)),
+        ("SNES", "Super Metroid (USA).sfc", (256, 224), (40, 30, 90), (110, 70, 50), (220, 80, 60)),
+        ("PlayStation", "Metal Gear Solid (USA).chd", (320, 240), (60, 80, 90), (70, 80, 70), (200, 200, 210))):
+    _RECENT_SCREENS["shared/.zyperos/%s/%s.auto.state" % (_folder, _file)] = "state"
+    _RECENT_SCREENS["shared/.zyperos/%s/%s.auto.bmp" % (_folder, _file)] = scene_bmp(*_wh, _sky, _ground, _hue)
+for _name, _flags in (("shelf-recents-screen", ["--screen", "games"]),
+                      ("shelf-recents-screen-grid", ["--screen", "games", "--view", "grid"]),
+                      ("recents-menu-picture", ["--screen", "games", "--menu", "Card Picture"]),
+                      ("recents-picture-list", ["--screen", "games", "--menu", "Card Picture", "--press", "a"]),
+                      ("recents-picture-list-cover", ["--screen", "games", "--menu", "Card Picture", "--press", "a",
+                                                      "--pick-at", "0"])):
+    EXTRA.setdefault(_name, ("demo", "RECENT", _flags))
+    SHOT_LIB[_name] = _RECENT_LIB
+    SHOT_TEXT[_name] = _RECENT_SCREENS
+    # The grid's band has the name and Resume on one line: a name short
+    # enough for German's word there too
+    CTL_FOCUS[_name] = "Super Metroid (USA).sfc" if _name.endswith("-grid") else \
+        "The Legend of Zelda - The Minish Cap (USA).gba"
+    if _name != "recents-picture-list-cover":
+        SHOT_SETTINGS[_name] = {"recents.picture": "screen"}
 
 
 def set_lib(card, settings, on):

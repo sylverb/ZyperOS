@@ -555,6 +555,11 @@ int shelf_coll_at(const app *a)
 	return group_at(a, HOMESYS_COLL);
 }
 
+int shelf_recents_at(const app *a)
+{
+	return group_at(a, HOMESYS_RECENT);
+}
+
 /* How many games the collections hold on the shelves, each once however
  * many lists name it: the home's count under Collections */
 static int g_coll_games;

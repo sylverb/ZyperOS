@@ -5114,8 +5114,37 @@ as Favorites' heart beats (res/system-art/original/placeholders/recents.py).
 Its shelf's order is **Last Played** as it ships, so the game just played is
 first; it is built again when a game ends, and MENU > Sort By sorts it
 otherwise, kept by its tag as Favorites' is. Its MENU is Favorites': Games,
-Random Game, Sort By, View. With nothing played yet there is no Recents card,
-as an empty Favorites shows none: a card should lead somewhere.
+Random Game, Sort By, View, and one more, Card Picture (below). With nothing
+played yet there is no Recents card, as an empty Favorites shows none: a
+card should lead somewhere.
+
+**Card Picture** *(NextUI's top ten, and my pick in the Library lab,
+2026-11-19: covers on a new card, "allow the user to pick between the two by
+opening the menu in the recents page")*, the fifth row of Recents' MENU,
+under View: **Cover**, as it ships, or **Last Screen**. Two choices, and A
+opens them as a list all the same (11.3), the Recents game under the cursor
+as each one shows it in the picture beside them and a sentence under it
+("The screen where you stopped, the cover small in its corner."); Left and
+Right turn it over, and the shelf under the menu turns with it. Kept in the
+device's database, `recents.picture` ("screen"; absent is Cover).
+**Last Screen** is each card the screen the game was left on: the picture
+Diatom writes beside the resume point as the game ends (Quit, POWER, Auto
+Off: `<rom>.auto.bmp`, the core's own frame), scaled up whole by the
+nearest pixel toward 448 units high, its pixels kept sharp, with the
+game's cover in its lower left corner, 30% of the card's height, inset 4%,
+over a soft shadow (40% ink, down and right), its corners round by 5% of
+its height; a game with no cover file has its generated card there, as its
+shelf shows it (src/screencard.h). A card is as wide as its picture is:
+a Game Boy Advance's 3:2, a SNES's 8:7. A game with no resume point shows
+its cover. On the cover row, the Grid and the list alike. Nothing new is
+saved and nothing runs while a game plays: the picture is the resume
+point's own, and the card is made once on the art workers (texload's
+`texload_want_screen`), never on the frame. It is art of no theme, so a
+change of theme keeps it; it has no sheen or sharpen (8.2), which are a
+generated card's. Host shots: `shelf-recents-screen`,
+`shelf-recents-screen-grid`, `recents-menu-picture`, `recents-picture-list`
+and `recents-picture-list-cover`, each game's resume picture made up by
+tools/i18n-shots.py (`scene_bmp`).
 
 **Home Systems** in MENU's Display tab, under System Order: its value
 **All**, or how many of them are on ("8 of 10"); A opens its page. The page

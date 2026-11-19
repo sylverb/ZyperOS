@@ -21,6 +21,7 @@
 #include "clock_screen.h"
 #include "collect_screen.h"
 #include "devmode.h"
+#include "esmedia.h"
 #include "folderart.h"
 #include "homesys_screen.h"
 #include "hotspot.h"
@@ -40,8 +41,10 @@
 #include "radl_screen.h"
 #include "rafetch.h"
 #include "saver.h"
+#include "screencard.h"
 #include "search_screen.h"
 #include "sgdb.h"
+#include "shelf_draw.h"
 #include "shelfbuild.h"
 #include "sort.h"
 #include "stats_screen.h"
@@ -55,6 +58,7 @@
 #include "shaderdemo.h"
 
 #include <math.h>
+#include <sys/stat.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -153,6 +157,8 @@ typedef struct {
 } ch_pool;
 
 static menu_choice g_pm_choice[PM_ROWS], g_sm_choice[SM_ROWS], g_smm_choice[SM_MUSE_ROWS];
+/* Recents' Card Picture (DESIGN.md 11.48) */
+static menu_choice g_pic_choice;
 
 static menu_choice ch_make(const ch_pool *p, int n, int cur, bool none)
 {
@@ -223,6 +229,79 @@ static void sm_dmode_preview(void *app_, int k, int x, int y, int w, int h)
 	dmode_preview_draw(a, t, t ? tw : 0, t ? th : 0, aspect, fw, fh, k, x, y, w, h);
 }
 
+
+/* Card Picture's list's picture (DESIGN.md 11.48): the Recents game under
+ * the cursor as each choice shows it, its cover (k 0) or its Last Screen
+ * card (k 1), made once a game and kept while the list is open; a game with
+ * no resume point shows its cover for both, as its card would */
+static void sm_pic_preview(void *app_, int k, int x, int y, int w, int h)
+{
+	static SDL_Texture *t[2];
+	static char made[2][LIB_PATH * 2];
+	static int tw[2], th[2];
+	app *a = app_;
+	sysview *v = &a->view[a->sys_cursor];
+	const SDL_Rect screen = { x, y, w, h };
+	char frame[LIB_PATH * 2] = "", cover[LIB_PATH * 3] = "", st[LIB_PATH * 3], key[LIB_PATH * 2];
+	SDL_Rect in, to;
+	struct stat sb;
+	int o, which = k ? 1 : 0;
+
+	if (v->cursor >= 0 && v->cursor < v->list.count) {
+		const game_entry *g = &v->list.items[v->cursor];
+
+		o = shelf_owner(a, a->sys_cursor, v->cursor);
+		box_art_path(a->sys.systems[o].folder, g->name, cover, sizeof cover);
+		if ((stat(cover, &sb) != 0 || sb.st_size <= 0) &&
+		    !es_media(P_ROMS, a->sys.systems[o].folder, g->file, g->name, ES_COVER, true,
+		              cover, sizeof cover))
+			cover[0] = '\0';
+		if (which) {
+			state_path(a, o, g, st, sizeof st);
+			preview_path(a, o, g, frame, sizeof frame);
+			if (stat(st, &sb) != 0 || stat(frame, &sb) != 0) frame[0] = '\0';
+		}
+	}
+	snprintf(key, sizeof key, "%s|%s", frame, cover);
+	if (strcmp(key, made[which])) {
+		if (t[which]) SDL_DestroyTexture(t[which]);
+		t[which] = NULL;
+		ui_card_order card;
+		int cw, ch;
+
+		ui_card_order_set(&card, v->list.items[v->cursor].title,
+		                  a->sys.systems[shelf_owner(a, a->sys_cursor, v->cursor)].accent, false);
+		game_card_order(a, shelf_owner(a, a->sys_cursor, v->cursor), &v->list.items[v->cursor], &card);
+		if (frame[0]) {
+			SDL_Surface *sf = screen_card_make(frame, cover, &card, false);
+
+			if (sf) {
+				t[which] = SDL_CreateTextureFromSurface(a->r, sf);
+				tw[which] = sf->w;
+				th[which] = sf->h;
+				SDL_FreeSurface(sf);
+			}
+		}
+		if (!t[which] && cover[0]) t[which] = load_image(a->r, cover, &tw[which], &th[which], NULL);
+		/* No cover file: the generated card, as the shelf shows it */
+		if (!t[which] && (t[which] = ui_make_card_for(a->r, &card, &cw, &ch, NULL))) {
+			tw[which] = cw;
+			th[which] = ch;
+		}
+		snprintf(made[which], sizeof made[which], "%s", key);
+	}
+	in = ds_preview_screen_begin(a->r, &screen);
+	if (t[which] && tw[which] > 0 && th[which] > 0) {
+		/* Whole in the small screen, its shape kept */
+		to.w = in.w;
+		to.h = th[which] * in.w / tw[which];
+		if (to.h > in.h) { to.h = in.h; to.w = tw[which] * in.h / th[which]; }
+		to.x = in.x + (in.w - to.w) / 2;
+		to.y = in.y + (in.h - to.h) / 2;
+		SDL_RenderCopy(a->r, t[which], NULL, &to);
+	}
+	ds_preview_screen_end(a->r, &screen);
+}
 
 /* Timing's list's picture (menu_choice's preview, DESIGN.md 11.39): the two
  * ways, slowed down. A ball crosses a small screen a step a game frame, a
@@ -344,6 +423,21 @@ static void menu_choices(app *a, int sys, bool games)
 	memset(g_pm_choice, 0, sizeof g_pm_choice);
 	memset(g_sm_choice, 0, sizeof g_sm_choice);
 	memset(g_smm_choice, 0, sizeof g_smm_choice);
+	memset(&g_pic_choice, 0, sizeof g_pic_choice);
+	if (games && sys == shelf_recents_at(a)) {
+		/* Two, so A would turn it over: its list opens all the same, the
+		 * picture and a note telling them apart, as Timing's */
+		static const char *notes[2];
+
+		P[12].lab[0] = T(S_SYSMENU_CARD_PICTURE_COVER);
+		P[12].lab[1] = T(S_SYSMENU_CARD_PICTURE_SCREEN);
+		notes[0] = T(S_SYSMENU_CARD_PICTURE_COVER_NOTE);
+		notes[1] = T(S_SYSMENU_CARD_PICTURE_SCREEN_NOTE);
+		g_pic_choice = ch_make(&P[12], 2, g_recents_screen ? 1 : 0, false);
+		g_pic_choice.notes = notes;
+		g_pic_choice.preview = sm_pic_preview;
+		g_pic_choice.list = true;
+	}
 	if (games) {
 		const system_cfg *sc = &a->sys.systems[sys];
 		sysview *v = &a->view[sys];
@@ -572,6 +666,8 @@ int menu_build(app *a, screen_id screen, int sys,
 		 * over without inventing a flag day. */
 		u.muse       = is_muse(sc);
 		u.coll       = sys == shelf_coll_at(a);
+		u.recents    = sys == shelf_recents_at(a);
+		u.recents_screen = u.recents && g_recents_screen;
 		u.fav        = !u.muse && !u.coll && sc->core[0] == '\0' && sc->folder[0] == '\0';
 		if (u.coll) {
 			const sysview *cv = &a->view[sys];
@@ -692,6 +788,7 @@ int menu_build(app *a, screen_id screen, int sys,
 	u.pm_choice = g_pm_choice;
 	u.sm_choice = g_sm_choice;
 	u.smm_choice = g_smm_choice;
+	u.pic_choice = &g_pic_choice;
 	return sys_menu_build(&u, out, b, heading);
 }
 
@@ -1611,6 +1708,12 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 				return collect_delete_screen(a) ? MENU_DONE : MENU_STAY;
 			}
 			sel = id == SMC_RANDOM ? SM_RANDOM : id == SMC_SORT ? SM_SORT : id == SMC_VIEW ? SM_VIEW : SM_GAMES;
+		} else if (a->sys_cursor == shelf_recents_at(a) && sel == SM_FAV_ROWS) {
+			/* Recents' Card Picture: Left and Right turn it over (A opens
+			 * its list, which sends them); the shelf under the menu turns
+			 * with it */
+			if (d) recents_picture_turn(a);
+			return MENU_STAY;
 		} else if (a->view[a->sys_cursor].owner)
 			sel = sel == 1 ? SM_RANDOM : sel == 2 ? SM_SORT : sel == 3 ? SM_VIEW : SM_GAMES;
 		/* And a console's rows lose Box Art on a device with no radio, which

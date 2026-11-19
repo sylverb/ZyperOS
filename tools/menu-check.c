@@ -3197,6 +3197,16 @@ static void row_sounds(void)
 	ck(n == SM_FAV_ROWS && menu_sound_at(b.sound, n, 2) == (MENU_SND_RING | MENU_SND_NO_A) &&
 	   !menu_sound_at(b.sound, n, 0) && menu_sound_at(b.sound, n, 1) == MENU_SND_OWN,
 	   "Favorites' Sort By too, its count plain, Random Game heard by its pick");
+	/* Recents' fifth, Card Picture (DESIGN.md 11.48): Cover as it ships */
+	u.recents = true;
+	n = sys_menu_build(&u, rows, &b, &heading);
+	ck(n == SM_RECENTS_ROWS && !strcmp(rows[4].label, "Card Picture") && !strcmp(val(&rows[4]), "Cover") &&
+	   rows[4].live && menu_sound_at(b.sound, n, 4) == MENU_SND_RING,
+	   "Recents has Card Picture under View, Cover as it ships, stepped round");
+	u.recents_screen = true;
+	n = sys_menu_build(&u, rows, &b, &heading);
+	ck(!strcmp(val(&rows[4]), "Last Screen"), "and Last Screen when it is on");
+	u.recents = u.recents_screen = false;
 
 	/* Collections (src/collect.h): under the collection's name, its top's
 	 * four, and in one its count, Random Game and Remove from Collection */

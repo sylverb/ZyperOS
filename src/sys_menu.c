@@ -384,6 +384,14 @@ int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
 			b->sound[3] = SM_SOUND[SM_VIEW];
 			if (u->sm_choice) b->choice[2] = u->sm_choice[SM_SORT];
 			if (u->sm_choice) b->choice[3] = u->sm_choice[SM_VIEW];
+			if (u->recents) {
+				out[4] = (menu_row){ T(S_SYSMENU_CARD_PICTURE),
+				                     T(u->recents_screen ? S_SYSMENU_CARD_PICTURE_SCREEN
+				                                         : S_SYSMENU_CARD_PICTURE_COVER), true };
+				b->sound[4] = MENU_SND_RING;
+				if (u->pic_choice) b->choice[4] = *u->pic_choice;
+				return SM_RECENTS_ROWS;
+			}
 			return SM_FAV_ROWS;
 		}
 		/* Collections' own rows, under the collection's name: a game's

@@ -354,6 +354,13 @@ void core_load(app *a);
 void sort_load(app *a);
 /* MENU > View, each shelf's: its covers or a list (DESIGN.md 11.39) */
 void view_load(app *a);
+/* Recents' Card Picture (DESIGN.md 11.48): false its covers, as it ships;
+ * true the screen each game was left on, its cover small in a corner
+ * (src/screencard.h). recents_picture_turn turns it over, saves it, and has
+ * Recents' cards asked for again. */
+#define RECENTS_PICTURE_KEY "recents.picture"
+extern bool g_recents_screen;
+void recents_picture_turn(app *a);
 bool view_listed(const char *tag);
 bool view_grid(const char *tag);
 void sort_shelf(app *a, int sys);
