@@ -22,9 +22,9 @@ bool mp4v_update(SDL_Renderer *r);
 /* The picture to draw, or NULL when there is none yet for the file playing -
  * the daemon has opened it and not decoded its first frame, or it is another
  * file's picture still sitting in the frames. In `src` (which may be NULL)
- * the part of the texture the picture is in, to draw from: a picture smaller
- * than 640x480 is in the top-left corner of a texture of that size, as a
- * snap's is (src/mp4frame.h, mpf_tex_size). */
+ * the part of the texture the picture is in, to draw from: the texture is as
+ * wide as the frames' rows, a multiple of 128 (src/mp4frame.h, mpf_stride),
+ * and the picture is at its left. */
 SDL_Texture *mp4v_texture(SDL_Rect *src);
 
 /* The largest rectangle inside `box` with the picture's shape - its pixels'

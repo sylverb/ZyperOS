@@ -2242,12 +2242,14 @@ build-native/mp4frame-check: tools/mp4frame-check.c src/mp4frame.h FORCE
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O2 -g \
 	      -o $@ tools/mp4frame-check.c -lpthread
 
-# MP4's video picture of any shape - 4:3 (480x360, 320x240), odd, tiny, the
-# largest, the size changing inside one file - published as src/muse/vid.c
-# publishes it and read by src/mp4video.c into its texture: never under
-# 640x480 (src/mp4frame.h, mpf_tex_size: the Pixel 2's GPU faulted on
-# narrower ones), drawn whole from its own rectangle, nothing out of bounds
-# (UBSan where the compiler has it, and Guard Malloc on a Mac). Needs SDL2.
+# MP4's video picture of any shape - 4:3 (1440x1080, 480x360), 16:9, odd,
+# tiny, the largest, the size changing inside one file - published as
+# src/muse/vid.c publishes it and read by src/mp4video.c into its texture: as
+# wide as the frame's rows, a multiple of 128 (src/mp4frame.h, mpf_stride: the
+# Pixel 2's Mesa ran past a texture's buffer for other widths), each plane
+# fitting Mesa's tile buffer as rows, drawn whole from its own rectangle,
+# nothing out of bounds (UBSan where the compiler has it, and Guard Malloc on
+# a Mac). Needs SDL2.
 check-mp4size:
 	@if pkg-config --exists sdl2 2>/dev/null; then \
 		$(MAKE) --no-print-directory build-native/mp4size-check || exit 1; \
