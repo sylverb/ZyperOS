@@ -935,6 +935,28 @@ de = Das Cover des Albums, groß, neben dem Titel.
 ja = アルバムのジャケットを大きく、曲をその横に表示します。
 it = La copertina dell'album, grande, accanto al brano.
 
+[sysmenu.look_cassette]
+note = A Player Look: a cassette tape, its reels turning with the song through its window. Begun with a capital
+en = Cassette
+zh-Hans = 磁带
+es = Casete
+pt-BR = Fita cassete
+fr = Cassette
+de = Kassette
+ja = カセット
+it = Cassetta
+
+[sysmenu.look_cassette_note]
+note = Under Player Look's picture when Cassette is under the cursor: a narrow column, at most five short lines
+en = A cassette, its reels turning with the song. A new song rewinds it.
+zh-Hans = 一盘磁带，卷轴随歌曲转动；换歌时会倒带。
+es = Un casete cuyas bobinas giran con la canción; rebobina al cambiar.
+pt-BR = Uma fita com os carretéis girando com a música; rebobina a cada faixa.
+fr = Une cassette aux bobines qui tournent ; rembobinée à chaque titre.
+de = Eine Kassette, deren Spulen sich drehen; spult bei jedem Titel zurück.
+ja = 曲に合わせてリールが回るカセット。曲が変わると巻き戻します。
+it = Una cassetta con le bobine che girano; si riavvolge a ogni brano.
+
 [sysmenu.look_classic]
 note = A Player Look: a big clock, bars that move with the sound, and the album's track list (like an old desktop music player). Begun with a capital
 en = Classic

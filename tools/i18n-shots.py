@@ -335,6 +335,7 @@ EXTRA = {
     # MP4's Player Looks (DESIGN.md 11.14): each on Now Playing, Classic
     # paused too (its panel says so where the time's words would), and
     # MENU's Player Look list with its picture, the look under the cursor
+    "np-cassette": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--np-look", "cassette"]),
     "np-classic": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--np-look", "classic"]),
     "np-classic-paused": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--np-look", "classic", "--paused"]),
     "np-spectrum": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--np-look", "spectrum"]),

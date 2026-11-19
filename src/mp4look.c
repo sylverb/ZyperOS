@@ -9,6 +9,8 @@
 
 static const struct { const char *key; int bars; } LOOKS[MP4L_COUNT] = {
 	[MP4L_COVER]    = { "cover",    0 },
+	/* Under the cassette, as wide as it: 25 on the grid */
+	[MP4L_CASSETTE] = { "cassette", 25 },
 	/* A Winamp's window of bars, under the clock: as many as fit the
 	 * panel on the grid, 16 wide with 8 between (DESIGN.md 11.14) */
 	[MP4L_CLASSIC]  = { "classic",  18 },
@@ -115,4 +117,102 @@ bool mp4l_bars_rest(const mp4l_bars_t *b)
 	for (i = 0; i < b->n; i++)
 		if (b->lv[i] > 0.0f || b->cap[i] > 0.0f) return false;
 	return true;
+}
+
+/* ---- turning ---------------------------------------------------------------- */
+
+void mp4l_spin_to(mp4l_spin *s, bool on)
+{
+	float to = on ? 1.0f : 0.0f;
+
+	if (s->to == to && (s->t < s->dur || s->v == to)) return;
+	s->from = s->v;
+	s->to = to;
+	s->t = 0;
+	s->dur = (float)(on ? DS_MS_SPIN_UP : DS_MS_SPIN_DOWN);
+}
+
+void mp4l_spin_step(mp4l_spin *s, float dt)
+{
+	if (s->t >= s->dur) { s->v = s->to; return; }
+	s->t += dt;
+	s->v = s->from + (s->to - s->from) * ds_out(s->t / s->dur);
+	if (s->t >= s->dur) s->v = s->to;
+}
+
+bool mp4l_spin_moving(const mp4l_spin *s)
+{
+	return s->v > 0.0f || s->t < s->dur;
+}
+
+/* ---- the tape ----------------------------------------------------------------- */
+
+float mp4l_tape_r(float f, int reel, float hub_r, float full_r)
+{
+	float k = reel ? f : 1.0f - f;
+
+	if (k < 0) k = 0;
+	if (k > 1) k = 1;
+	return sqrtf(hub_r * hub_r + k * (full_r * full_r - hub_r * hub_r));
+}
+
+/* Under this the tape is where the song is */
+#define TAPE_NEAR 0.0005f
+
+void mp4l_tape_step(mp4l_tape *t, float dt, int song, float target, float spin, float speed,
+                    float hub_r, float full_r, float wind)
+{
+	float f0, moved = 0;
+	int k;
+
+	if (target < 0) target = 0;
+	if (target > 1) target = 1;
+	if (!t->known) {
+		t->known = true;
+		t->song = song;
+		t->f = target;
+		t->t = -1;
+	} else if (song != t->song) {
+		/* A new song: back to the start, from wherever the tape is */
+		t->song = song;
+		t->from = t->f;
+		t->t = 0;
+	}
+	f0 = t->f;
+	if (t->t >= 0) {
+		t->t += dt;
+		if (t->t >= (float)DS_MS_REWIND) {
+			t->t = -1;
+			t->f = 0;
+		} else {
+			t->f = t->from * (1.0f - ds_turn(t->t / (float)DS_MS_REWIND));
+		}
+		moved = t->f - f0;
+	}
+	if (t->t < 0) {
+		float gap = target - t->f;
+
+		/* Playing on, the tape is where the song is; a seek's jump is wound
+		 * on follow, which is all the tape the reels turn for past their
+		 * own speed */
+		if (fabsf(gap) < 0.002f) t->f = target;
+		else t->f += gap * (1.0f - expf(-dt / (float)DS_MS_WIND));
+		if (fabsf(target - t->f) < TAPE_NEAR) t->f = target;
+		if (fabsf(gap) >= 0.002f) moved = t->f - f0;
+	}
+	for (k = 0; k < 2; k++) {
+		float r = mp4l_tape_r(t->f, k, hub_r, full_r);
+		/* Playing, the tape leaves the left pack down its outer side and
+		 * climbs onto the right one: both turn counterclockwise, which is
+		 * back on SDL's clockwise angle. Wound, the reels turn for the tape
+		 * the wind moved, the same way for forward. */
+		float turn = (spin * speed * dt / 1000.0f + moved * wind) / r;
+
+		t->ang[k] = fmodf(t->ang[k] - turn * 57.29578f, 360.0f);
+	}
+}
+
+bool mp4l_tape_moving(const mp4l_tape *t, float target)
+{
+	return t->t >= 0 || fabsf(target - t->f) >= TAPE_NEAR;
 }

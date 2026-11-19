@@ -335,6 +335,7 @@ LAYOUT = [
     ("look-list-num",   48,  "Classic: a row's number, tabular, before its name"),
     ("line-clock",      128, "Classic: the clock's line, as a box"),
     ("look-cover",      192, "Spectrum: the cover beside the names"),
+    ("look-cassette-w", 592, "Cassette: a C-cassette, 100.4 x 63.8 mm, 74 x 47 grid steps (592 x 376), the nearest whole steps to its proportions"),
 ]
 
 # ---- elevation -----------------------------------------------------------------
@@ -392,6 +393,10 @@ MOTION = [
     ("hold-controls", 3000, "-",   "MP4's video controls after the last press"),
     ("peak-hold",   400,  "-",     "MP4's bars (Player Look): a bar's cap held where the bar last reached, before it drops with gravity"),
     ("bar-fall",    140,  "follow", "MP4's bars falling to the sound: follow's tau, where a bar rises at once"),
+    ("spin-up",     360,  "out",   "MP4's reels (Player Look) coming up to speed as the music plays"),
+    ("spin-down",   520,  "out",   "...and coming to a stop as it pauses; the sound stops at once"),
+    ("rewind",      700,  "turn",  "MP4's cassette winding back to the start for the next song"),
+    ("wind",        180,  "follow", "MP4's cassette winding to a seek's place: follow's tau"),
     ("hold-snap",   1000, "-",     "a game focused on the shelf before its cover turns into its video snap"),
     ("sheen",       480,  "turn",  "one light crossing a game's card with no art, once, as the cover row stops on it"),
     ("sharpen",     200,  "fade",  "a played game's card with no art turning from its blurred frame of play to the sharp one, as the cover row stops on it"),
