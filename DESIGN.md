@@ -1395,14 +1395,31 @@ glyph with the sign between them, "/" for either and "+" for together, in
 **meta** **text-dim**, 4 units either side at the hints' sizes and 8 at the
 tutorial's 64, so the chord reads as one hint. It was one pill with the
 whole name in it. A sign with nothing on one side is part of a name (VOL+).
-The rows of MENU > Controls write a chord as words ("L1/R1", src/controls.c), as they did.
+**The Controls pages in glyphs** *(2026-11-18: my review of the Controls
+ideas, "draw the Controls page with the buttons render component")*. The
+button column of MENU > Controls and of a game's Controls pages (11.28) is
+drawn as this handheld's glyphs, not words: the Pixel 2's SE and ST faces
+and MENU's dots, the Brick's square and play keys and its MENU word, "+" for
+held together, "," for one press after the other and "/" for either, at 44
+(the keyboard's line), where the label goes, the value at the right as
+ever. The d-pad's words are the d-pad's glyph ("Left/Right" its left and
+right arms lit, "Up/Down" its up and down, "D-pad" the whole cross with all
+four, "SELECT+D-pad" SELECT with it) and the volume keys' the rocker. The
+rows stay words in src/controls.c, which `make check-controls` reads; the
+screens turn each row whose label is buttons into a key label as they draw
+it (`ctl_glyph_rows`, `MENU_KEYS_MARK` in src/menu.h), and words that are no
+button (a port README's own) stay words. A glyph row is a row's height, so
+six rows a page stays, and `--controls-fit` measures every page with the
+glyphs. The comma sits close to the press before it, twice the chord's air
+after it.
 
 **In a menu row**, a glyph says a button does the row's job from anywhere on
 the page: the row's value is `MENU_KEY_X` (src/menu.h), and the glyph is
 drawn at 40, the keyboard's action keys' size, where the value's right edge
 is, plain off the fill and UI_BUTTON_ON_ACCENT on it. The in-game menu's Quit
-is the one (11.28). "MENU, X" names the press on a Controls page: a comma for
-one press after the other, as a plus is for held together.
+is the one (11.28). "MENU, X" names the press on a Controls page: MENU's
+glyph, a comma and X's, for one press after the other, as a plus is for held
+together.
 
 A pressed glyph is 92% size, its ring **accent**, with a soft **accent** halo
 (16 units of blur at three quarters), in **press**. A pressed arm of the
