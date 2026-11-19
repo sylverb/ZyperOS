@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <unistd.h>
 
 #include <arpa/inet.h>
@@ -114,6 +115,8 @@ static void serve_down(void)
 /* A console's art and color, as the launcher answers them from systems.cfg */
 static const char *icon_of(const char *folder) { return !strcmp(folder, "NES") ? "NES" : NULL; }
 static unsigned color_of(const char *folder) { return !strcmp(folder, "NES") ? 0xC4443Au : 0xFFFFFFFFu; }
+/* The card's systems, as xfer_set_systems asks: NES and SNES, in any case */
+static bool known_of(const char *folder) { return !strcasecmp(folder, "NES") || !strcasecmp(folder, "SNES"); }
 
 /* The update over the cable, as the launcher's hook takes it: release file
  * names into a folder of its own, everything else refused */
@@ -927,10 +930,58 @@ int main(void)
 		CHECK(post("/api/move?p=roms/NES/Hacks&to=roms/NES/Hacks", g_cookie) == 400,
 		      "a folder went onto itself");
 		CHECK(post("/api/move?p=roms&to=roms/NES", g_cookie) == 400, "A ROOT WAS MOVED");
-		/* A console's own folder stays where the shelf looks for it */
+		/* A console's own folder stays where the shelf looks for it: not
+		 * moved, not renamed, and not deleted even empty (1.0.6 rc.3) */
 		snprintf(p, sizeof p, "%s/SNES", g_roms); mkdir(p, 0755);
-		CHECK(post("/api/move?p=roms/SNES&to=roms/NES/Hacks", g_cookie) == 403,
-		      "A CONSOLE'S FOLDER WAS MOVED");
+		{
+			char body[512];
+
+			CHECK(req("POST", "/api/move?p=roms/SNES&to=roms/NES/Hacks", g_cookie,
+			          NULL, 0, body, sizeof body) == 403, "A CONSOLE'S FOLDER WAS MOVED");
+			CHECK(strstr(body, T(S_TRANSFER_WHY_CONSOLE)) != NULL,
+			      "a console's folder's move was refused without the reason: %s", body);
+		}
+		CHECK(post("/api/rename?p=roms/SNES&to=Super", g_cookie) == 403,
+		      "A CONSOLE'S FOLDER WAS RENAMED");
+		CHECK(post("/api/delete?p=roms/SNES", g_cookie) == 403,
+		      "AN EMPTY CONSOLE'S FOLDER WAS DELETED");
+		CHECK(post("/api/delete?p=roms/SNES&all=1", g_cookie) == 403,
+		      "AN EMPTY CONSOLE'S FOLDER WENT WITH all=1");
+		CHECK(stat(p, &st) == 0, "the console's folder is not there after the refusals");
+		snprintf(q, sizeof q, "%s/Super", g_roms);
+		CHECK(stat(q, &st) != 0, "a refused rename made the new name");
+		/* Nor a root's name */
+		CHECK(post("/api/rename?p=roms&to=Games", g_cookie) == 403, "A ROOT WAS RENAMED");
+		CHECK(post("/api/rename?p=music&to=Songs", g_cookie) == 403, "the Music root was renamed");
+		/* By systems.cfg's names, once the launcher has said them: a folder
+		 * at the top of ROMs that is no system's renames, and goes once it
+		 * is empty; a console's states folder is kept as its games' is; and
+		 * the listing says which is a console's, for the page */
+		xfer_set_systems(known_of);
+		snprintf(p, sizeof p, "%s/Mine", g_roms); mkdir(p, 0755);
+		CHECK(post("/api/rename?p=roms/Mine&to=Ours", g_cookie) == 200,
+		      "a folder at the top of ROMs that is no console's did not rename");
+		{
+			char b[4096];
+
+			CHECK(req("GET", "/api/list?p=roms", g_cookie, NULL, 0, b, sizeof b) == 200 &&
+			      strstr(b, "\"path\":\"roms/SNES\",\"console\":true") &&
+			      strstr(b, "\"path\":\"roms/NES\",\"console\":true") &&
+			      strstr(b, "\"path\":\"roms/Ours\",\"dir\":true"),
+			      "the listing does not say which folders are a console's: %s", b);
+			CHECK(req("GET", "/api/list?p=states", g_cookie, NULL, 0, b, sizeof b) == 200 &&
+			      strstr(b, "\"path\":\"states/NES\",\"console\":true"),
+			      "a console's states folder is not a console's: %s", b);
+			CHECK(req("GET", "/api/list?p=roms/NES", g_cookie, NULL, 0, b, sizeof b) == 200 &&
+			      !strstr(b, "\"console\""), "a folder in a console's is called a console's: %s", b);
+		}
+		CHECK(post("/api/delete?p=roms/Ours", g_cookie) == 200,
+		      "an empty folder at the top of ROMs that is no console's did not go");
+		CHECK(post("/api/rename?p=states/NES&to=Nintendo", g_cookie) == 403,
+		      "A CONSOLE'S STATES FOLDER WAS RENAMED");
+		CHECK(post("/api/rename?p=roms/SNES&to=Super", g_cookie) == 403,
+		      "a console's folder by systems.cfg's name was renamed");
+		xfer_set_systems(NULL);
 		/* Nothing crosses roots: not a game into the save states */
 		CHECK(post("/api/move?p=roms/NES/Contra.nes&to=states/NES", g_cookie) == 400,
 		      "A MOVE CROSSED INTO ANOTHER ROOT");
@@ -1117,8 +1168,8 @@ int main(void)
 		CHECK(stat(p, &st) != 0, "the artist's folder is still there");
 
 		CHECK(req("GET", "/api/count?p=roms/NES", g_cookie, NULL, 0, body, sizeof body) == 200 &&
-		      strstr(body, "\"rule\":\"empty\""), "a console's folder is empty-only: %s", body);
-		CHECK(post("/api/delete?p=roms/NES&all=1", g_cookie) == 409,
+		      strstr(body, "\"rule\":\"no\""), "a console's folder may go: %s", body);
+		CHECK(post("/api/delete?p=roms/NES&all=1", g_cookie) == 403,
 		      "A WHOLE CONSOLE'S GAMES WENT IN ONE CLICK");
 		snprintf(p, sizeof p, "%s/NES/Kept.nes", g_roms);
 		CHECK(stat(p, &st) == 0, "a game went with the refused console folder");

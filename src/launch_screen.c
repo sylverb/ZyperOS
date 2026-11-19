@@ -878,6 +878,7 @@ void launch(app *a)
 			/* What px2-open's status says from here to the wait's end */
 			memset(&g_ctl_game, 0, sizeof g_ctl_game);
 			g_ctl_game.on = true;
+			screen_shader_apply();   /* the screens' shader off over the game */
 			snprintf(g_ctl_game.tag, sizeof g_ctl_game.tag, "%s", s->tag);
 			snprintf(g_ctl_game.name, sizeof g_ctl_game.name, "%s", s->name);
 			snprintf(g_ctl_game.core, sizeof g_ctl_game.core, "%s", s->core);
@@ -988,6 +989,7 @@ void launch(app *a)
 				break;
 			}
 			g_ctl_game.on = false;
+			screen_shader_apply();
 			resident = (r == RES_EXIT);
 			/* The game is over, and however it ended it ended here: Quit,
 			 * a crash (EXIT reason=crash) or Diatom gone (RES_DEAD), POWER,
@@ -1150,6 +1152,7 @@ void launch(app *a)
 		memset(&g_ctl_game, 0, sizeof g_ctl_game);
 		g_ctl_game.on = true;
 		g_ctl_game.fallback = true;
+		screen_shader_apply();
 		snprintf(g_ctl_game.tag, sizeof g_ctl_game.tag, "%s", s->tag);
 		snprintf(g_ctl_game.name, sizeof g_ctl_game.name, "%s", s->name);
 		snprintf(g_ctl_game.core, sizeof g_ctl_game.core, "%s", s->core);
@@ -1159,6 +1162,7 @@ void launch(app *a)
 		fprintf(stderr, "diatom exited %d\n", plat_run(argv, NULL, P_ROOT));
 		plat_run_on_tick(NULL);
 		g_ctl_game.on = false;
+		screen_shader_apply();
 
 		if (!plat_video_init() || !plat_input_init()) { a->running = false; return; }
 		a->r = plat_renderer();

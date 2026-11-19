@@ -39,6 +39,13 @@ int menu_pick_focus(app *a, const menu_style *from, void *from_ctx, const char *
 int menu_pick_hover(app *a, const menu_style *from, void *from_ctx, const char *heading,
                     const char *const *labels, const char *const *notes, const struct ds_hover *hover,
                     int n, int ticked, int at);
+/* Both: the picture column, and the choice under the cursor shown on the
+ * whole screen, for a choice whose look is seen nowhere on the list itself
+ * (Theme's Folder Color: the folders, in a picture of the shelf) */
+int menu_pick_preview_hover(app *a, const menu_style *from, void *from_ctx, const char *heading,
+                            const char *const *labels, const char *const *notes,
+                            void (*preview)(void *app, int k, int x, int y, int w, int h),
+                            const struct ds_hover *hover, int n, int ticked, int at);
 /* The list's width: `base`, the menu it opens from's, or wider with a
  * picture column, to hold the column and the longest choice beside it
  * (`ticked` with its tick); and the column's width into `side_w` (0

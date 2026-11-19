@@ -63,18 +63,35 @@ bool xfer_resolve(const char *url_path, char *out, size_t outn);
  * enforced by the server rather than trusted to the page:
  *
  *   NO     a root itself, even empty: ZyperOS's own folders, and the ones
- *          Over The Hare recreates when it starts anyway
- *   EMPTY  only once it is empty: a console's folder under ROMs, so one click
- *          cannot take every game for a system; a console's save states; and
- *          anything in BIOS or Saves, which are flat by design
+ *          Over The Hare recreates when it starts anyway; and a console's
+ *          own folder (xfer_console), even empty
+ *   EMPTY  only once it is empty: another folder at the top of ROMs; a
+ *          folder in Save States that is no console's; and anything in BIOS
+ *          or Saves, which are flat by design
  *   ALL    with everything in it: a game's own folder inside a console, an
  *          artist, an album, a book - the things a person deletes whole
  *
  * Eric's, 2026-09-29. `why`, when not NULL, is set to a line the page can show
  * for NO and EMPTY. Pure, and decided on the resolved path, so no spelling of
- * a URL reaches a different answer. */
+ * a URL reaches a different answer. NO is also what may not be renamed or
+ * moved (src/hare.c): a root, and a console's folder. */
 typedef enum { XFER_DEL_NO, XFER_DEL_EMPTY, XFER_DEL_ALL } xfer_del;
 xfer_del xfer_delete_rule(const char *abs, const char **why);
+
+/* A CONSOLE'S OWN FOLDER, for a folder `abs` that resolved into a root: one
+ * directly in ROMs or in Save States (the launcher files a system's states
+ * under its folder's name) whose name is a system's. The shelf looks for a
+ * system's games there by that name, so the page never moves, renames or
+ * deletes it (1.0.6 rc.3, Tarik: "Can we not allow moving console folders in
+ * the file transfer portal?"); everything in it moves, renames and deletes as
+ * before, a person's own folders of games too. Pure. */
+bool xfer_console(const char *abs);
+
+/* Which names are a system's folder, as systems.cfg has them (the launcher's,
+ * src/xfer_screen.c). NULL, as it starts: every folder at the top of ROMs is
+ * a console's and none in Save States is, which is what the page assumed
+ * before it knew the systems. */
+void xfer_set_systems(bool (*known)(const char *folder));
 
 /* Percent-decoding on its own, for values that are NOT paths: a rename's
  * destination, a PIN. Same decoder xfer_resolve uses, exposed rather than

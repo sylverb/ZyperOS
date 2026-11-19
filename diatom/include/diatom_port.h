@@ -69,6 +69,11 @@ typedef enum {
 	DIATOM_FILTER_CRT_CURVED,
 	DIATOM_FILTER_SCANLINES,
 	DIATOM_FILTER_LCD,
+	/* The LCD's grid on a screen with no light behind it, as the Game Boy
+	 * Color's and the first Game Boy Advance's were: a light pixel shows
+	 * the screen's backing rather than glowing white. Which systems it is
+	 * for is the host's to say (ZyperOS: the Game Boy's three). */
+	DIATOM_FILTER_LCD_UNLIT,
 	DIATOM_FILTER_COUNT
 } diatom_filter;
 

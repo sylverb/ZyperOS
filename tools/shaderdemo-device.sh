@@ -94,7 +94,7 @@ cat > "$OUT/run.sh" <<EOF
 #!/bin/sh
 D=$D
 rm -rf \$D/out; mkdir -p \$D/out \$D/save \$D/sys
-for spec in nearest:100 shimmerless:100 crt:100 crt-curved:100 scanlines:100 lcd:100 crt:50 crt-curved:50 scanlines:50 lcd:50; do
+for spec in nearest:100 shimmerless:100 crt:100 crt-curved:100 scanlines:100 lcd:100 lcd-unlit:100 crt:50 crt-curved:50 scanlines:50 lcd:50 lcd-unlit:50; do
 	f=\${spec%:*}; s=\${spec#*:}; n=\$f; [ "\$s" = 100 ] || n=\$f-\$s
 	STUBCORE_IMAGE=\$D/scene.rgb565 /mnt/SDCARD/ZyperOS/diatom --core \$D/stubcore.so --display aspect \\
 		--filter \$f --strength \$s --frames 240 --save \$D/save --system \$D/sys > \$D/out/\$n.log 2>&1 &

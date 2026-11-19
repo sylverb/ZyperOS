@@ -657,6 +657,8 @@ static void shot_list_draw(app *a, const char *heading, const menu_choice *ch, i
 	if (ch->notes && !ch->preview) {   /* what the choice under the cursor does */
 		int nl = menu_pick_note(ch->notes[at], pn);
 
+		/* drawn in lines, said whole to the host's check, as menu_pick says it */
+		if (nl > 1) ui_fit_drawn(ch->notes[at]);
 		pr[np++] = MENU_RULE;
 		pr[np++] = MENU_BODY(nl > 0 ? pn[0] : "");
 		pr[np++] = MENU_BODY(nl > 1 ? pn[1] : "");
@@ -1302,9 +1304,9 @@ static void shot_compose_once(app *a)
 			 * a setting (Strength with the Shader) says whether the setting
 			 * was there to be read */
 			snprintf(key, sizeof key, "shader.%s", tag);
-			db_get_str(db_dev(), "shader", all, sizeof all, "(none)");
+			db_get_str(db_dev(), "launcher_shader", all, sizeof all, "(none)");
 			db_get_str(db_dev(), key, own, sizeof own, "(none)");
-			fprintf(stderr, "--menu: built with the settings %s, shader=%s, %s=%s, "
+			fprintf(stderr, "--menu: built with the settings %s, launcher_shader=%s, %s=%s, "
 			        "the shelf's shader %d, %d systems\n",
 			        db_dev() ? "open" : "NOT OPEN", all, key, own,
 			        a->sys.count > 0 ? a->view[a->sys_cursor].shader : -1, a->sys.count);
@@ -2434,9 +2436,20 @@ void shot_portload_take(app *a)
 	 * Zyper's frame */
 	if (!port_loading_draw(a, &a->sys.systems[shelf_owner(a, a->sys_cursor, gi)], gi))
 		shot_failed = 1;
+	/* ZYPEROS_PORTLOAD_OUT: the letters splash would draw the port's
+	 * output with, written there too (tools/portout-check.sh) */
+	{
+		const char *outp = getenv("ZYPEROS_PORTLOAD_OUT");
+
+		if (outp && *outp && !port_out_write(outp)) {
+			fprintf(stderr, "--portload: could not write %s\n", outp);
+			shot_failed = 1;
+		}
+	}
 	out = SDL_CreateRGBSurfaceWithFormat(0, ZYPEROS_SCREEN_W, ZYPEROS_SCREEN_H, 32,
 	                                     SDL_PIXELFORMAT_RGBA32);
 	if (!out) return;
+	plat_screen_finish();   /* the screens' shader, which the present would add */
 	SDL_RenderReadPixels(a->r, NULL, SDL_PIXELFORMAT_RGBA32, out->pixels, out->pitch);
 	plat_present();
 	IMG_SavePNG(out, shot_path);
@@ -2521,7 +2534,7 @@ static void shot_charging_draw(app *a)
 	ch_words(&g_chg.r, ch_eta_minutes(&g_chg.eta, T0, &g_chg.r), false, g_chg.speed,
 	         sizeof g_chg.speed, g_chg.when, sizeof g_chg.when);
 	if (shot_charging_kind == 1) {
-		ch_screen_tick(&g_chg.s, now - DS_MS_HOLD_UNLOCK / 2, true, true, true);
+		ch_screen_tick(&g_chg.s, now - DS_MS_HOLD_POWER / 2, true, true, true);
 		ch_screen_tick(&g_chg.s, now, false, true, true);
 	} else if (shot_charging_kind == 2)
 		ch_screen_tick(&g_chg.s, now, false, false, false);
@@ -2607,7 +2620,9 @@ void take_shot(app *a)
 		shot_compose(a);
 	}
 	if (out) {
-		/* Read BEFORE presenting: the backbuffer is invalid afterwards. */
+		/* Read BEFORE presenting: the backbuffer is invalid afterwards.
+		 * The screens' shader first, which the present would add. */
+		plat_screen_finish();
 		SDL_RenderReadPixels(a->r, NULL, SDL_PIXELFORMAT_RGBA32,
 		                     out->pixels, out->pitch);
 		plat_present();

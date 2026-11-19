@@ -811,6 +811,9 @@ static void route_list(httpd_req *r)
 					JLIT(&j, ",\"icon\":");
 					hj_str(&j, icon);
 				}
+				/* A console's own folder: the page offers no move, rename
+				 * or delete of it (the routes refuse them all the same) */
+				if (xfer_console(full)) JLIT(&j, ",\"console\":true");
 			}
 			/* And an album's or a book's, for a folder in Music or
 			 * Audiobooks. An artist's folder has none, and shows none. */
@@ -2055,6 +2058,19 @@ static void on_request(httpd_req *r, bool done, void *ctx)
 		if (!xfer_resolve(req, abs, sizeof abs)) {
 			httpd_reply_status(r, 403, T(S_HARE_CANNOT_WRITE));
 			return;
+		}
+		/* A folder a delete may never take keeps its name too: a root, and a
+		 * console's own folder, the name the shelf looks for its games by
+		 * (xfer_console). Its games and folders rename as before. */
+		{
+			const char *why = NULL;
+			struct stat st;
+
+			if (stat(abs, &st) == 0 && S_ISDIR(st.st_mode) &&
+			    xfer_delete_rule(abs, &why) == XFER_DEL_NO) {
+				httpd_reply_status(r, 403, why && why[0] ? why : T(S_HARE_CANNOT_RENAME));
+				return;
+			}
 		}
 		/* The destination is decoded HERE and checked as one name. It is not
 		 * run through xfer_resolve, because a rename names a sibling: letting

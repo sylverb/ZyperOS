@@ -9,7 +9,7 @@
         check check-cheevos check-hare check-portal check-httpd check-idle check-taskhold check-saver check-rahash check-flacdec check-achtab check-signin check-search \
         check-raset check-xfer check-sshlink check-usblink check-devmode check-devices check-devicegen check-model check-ctl check-menus check-status check-battery check-corner check-artscrape check-artrun check-sgdb check-snapshelf check-snaps check-audioout \
         check-db check-coreopts check-gpuframes check-gamedel check-gamern check-esmedia check-corepins check-targets yuvtarget check-storage check-stats check-sort check-bt check-ss check-titles check-dsv check-sidelights check-osdbar check-hud check-dmodefit check-themefile check-pkkeys check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-bios check-gamefile check-kbnav check-tween check-menumotion check-menusnap check-cardgen check-cardart check-focusfx check-blur check-gridrule check-roundrect check-rowmacro check-emptyhome check-zyperrig check-randgame check-shelfdir \
-        check-sysmark check-flip check-menushots check-controls-shots check-design check-systemart check-linebreak check-portload \
+        check-sysmark check-flip check-menushots check-controls-shots check-design check-systemart check-linebreak check-portload check-portout \
         check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-messages check-tour check-tour-shots check-textfade check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pmhelper check-portdoc check-boottheme check-splashbright check-bootbright check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr check-autozone \
         check-home check-home-shots check-games check-cardpaint check-putpace landbench check-favorites-shots check-np-footer check-menu-rows check-layout-shots check-artbadge check-artbadge-shots check-cardart-shots design sounds strings cjk-font check-strings check-i18n-shots check-rootswitch check-datapart check-brick-closed check-hwreport \
         check-tour-previews tour-previews check-prep check-diatom check-simulator check-px2sim check-building-doc check-blog check-discord-release \
@@ -50,8 +50,8 @@ CHECKS = check-cheevos check-hare check-portal check-httpd check-idle check-task
          check-muselib check-musequeue check-museart check-mp4lock check-mp4frame check-p2share check-webtheme check-p2ws check-p2codec check-p2d check-play check-p2 check-resident check-spawn check-controls check-remap check-controls-shots check-logpack \
          check-clock check-autozone check-status check-battery check-battery-eta check-dslang check-pacing check-gpuframes check-dsresume check-corestate check-core-stamp check-core-room check-px2-perf check-px2-snap check-px2 check-lowbatt check-powerhold check-homesys check-heat check-charging check-corner check-dsv check-sidelights check-osdbar check-hud check-dmodefit check-themefile check-pkkeys check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-bios check-gamefile check-kbnav check-randgame check-shelfdir check-look \
          check-tween check-menumotion check-menusnap check-cardgen check-cardart check-focusfx check-blur check-gridrule check-roundrect check-rowmacro check-emptyhome check-zyperrig check-sysmark check-flip check-menushots check-design \
-         check-systemart check-linebreak check-portload check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-messages \
-         check-tour check-tour-shots check-tour-previews check-textfade check-glyphs check-scale check-shaderdemo check-ds check-layout-ratchet check-flex check-hover check-hover-sweep check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pmhelper check-pmart check-portdoc check-boottheme check-splashbright check-bootbright check-panelgamma check-nightmode check-displayback check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-start-soc check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr \
+         check-systemart check-linebreak check-portload check-portout check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-messages \
+         check-tour check-tour-shots check-tour-previews check-textfade check-glyphs check-scale check-shaderdemo check-screenfx check-ds check-layout-ratchet check-flex check-hover check-hover-sweep check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pmhelper check-pmart check-portdoc check-boottheme check-splashbright check-bootbright check-panelgamma check-nightmode check-displayback check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-start-soc check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr \
          check-home check-home-shots check-games check-cardpaint check-putpace check-favorites-shots check-np-footer check-menu-rows check-layout-shots check-artbadge check-artbadge-shots check-cardart-shots checkmark \
          check-installer check-from-rogue check-importers check-diatom check-simulator check-px2sim check-building-doc check-blog check-discord-release \
          check-release-devices check-strings check-i18n-shots check-rootswitch check-datapart check-brick-closed check-hwreport
@@ -61,8 +61,12 @@ CHECKS = check-cheevos check-hare check-portal check-httpd check-idle check-task
 # prints a line as each ends and the whole log of any that failed. One after
 # another the suite took 167 s on an M3 (2026-11-06), with fifteen cores idle.
 .PHONY: $(CHECKS)
+# CHECKS_SKIP="check-a check-b" leaves those out: CI's Linux job names the
+# checks that do not pass on Linux yet, which its macOS job still runs.
+CHECKS_SKIP ?=
 check: check-prep
-	@python3 tools/check-run.py $(CHECKS)
+	@$(if $(strip $(CHECKS_SKIP)),echo "check: left out (CHECKS_SKIP): $(strip $(CHECKS_SKIP))")
+	@python3 tools/check-run.py $(filter-out $(CHECKS_SKIP),$(CHECKS))
 
 # What more than one check builds, built once before any of them starts: the
 # host launcher, which nine checks draw with, and the ScreenScraper header it
@@ -118,12 +122,13 @@ check-building-doc:
 
 # The simulator's tests (simulator/Tests: its VNC client, the px2sim link, the
 # state lines and the control socket's commands), with Swift's own build kept
-# in build-native/. Skipped where there is no Swift.
+# in build-native/. Skipped where there is no Swift, and off macOS: the
+# simulator is an AppKit app (Ubuntu's runner has Swift, and its build fails).
 check-simulator:
-	@if command -v swift > /dev/null 2>&1; then \
+	@if [ "$$(uname -s)" = Darwin ] && command -v swift > /dev/null 2>&1; then \
 		cd simulator && swift test --scratch-path ../build-native/simulator; \
 	else \
-		echo "check-simulator: skipped, no Swift"; \
+		echo "check-simulator: skipped, not macOS or no Swift"; \
 	fi
 
 # px2sim's choice of the keyboard it takes (plastron/.../px2sim/src/kbdsel.h):
@@ -221,12 +226,12 @@ build-native/hare-check: tools/hare-check.c src/hare.c src/sheet.c src/clients.c
 check-portal: build-native/portal-serve
 	@python3 tools/portal-check.py
 
-build-native/portal-serve: tools/portal-serve.c src/hare.c src/sheet.c src/clients.c src/httpd.c src/xfer.c src/muselib.c src/captive.c $(I18N_SRC) FORCE
+build-native/portal-serve: tools/portal-serve.c src/hare.c src/sheet.c src/clients.c src/httpd.c src/xfer.c src/muselib.c src/captive.c src/look.c $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -Wno-unused-parameter -D_GNU_SOURCE -O1 -g \
 	      -DHARE_PORTS=0 -DPICK_TMP='"$(CURDIR)/build-native/portal-serve-albumpick"' \
 	      -DART_NAMES_TMP='"$(CURDIR)/build-native/portal-serve-artnames"' \
-	      -o $@ tools/portal-serve.c src/hare.c src/sheet.c src/clients.c src/httpd.c src/xfer.c src/muselib.c src/captive.c $(I18N_SRC) -lz
+	      -o $@ tools/portal-serve.c src/hare.c src/sheet.c src/clients.c src/httpd.c src/xfer.c src/muselib.c src/captive.c src/look.c $(I18N_SRC) -lz -lm
 
 # Hare's transport, driven by a real client over a real socket. An HTTP parser
 # is where "looks right" and "is right" part company: every browser sends the
@@ -1112,6 +1117,24 @@ check-portload:
 	fi
 	@sh tools/portload-check.sh
 
+# The port's latest output at the foot of that screen, as plastron's splash
+# draws it (splash/src/portout.h): read as a terminal shows it, drawn over the
+# screen's own box, cut with an ellipsis, turned as the Pixel 2's panel is;
+# and the letters and the box the launcher writes for it (port_out_write), in
+# English and German, both themes, on the foot under Zyper's frame. The
+# letters need the host build, and are skipped cleanly without SDL2.
+# `sh tools/portout-check.sh --shots DIR` shoots the screen as the lines of a
+# stand-in port change.
+check-portout: build-native/portout-check
+	@if pkg-config --exists sdl2 SDL2_image SDL2_ttf 2>/dev/null; then \
+		$(MAKE) --no-print-directory native || exit 1; \
+	fi
+	@sh tools/portout-check.sh
+
+build-native/portout-check: tools/portout-check.c plastron/buildroot/package/splash/src/portout.h
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -o $@ tools/portout-check.c
+
 # Zyper as the launcher draws him (src/main.c): in the top ZyperOS menu and
 # no other, his tongue in after a failure, his eyes shut in a blink, and his
 # shadow on Beard - under his chin in the menu and on the power-off screen,
@@ -1238,14 +1261,26 @@ check-hwreport:
 	@$(CC) -std=gnu11 -Wall -Wextra -O1 -g -o build-native/hwreport-check tools/hwreport-check.c src/hwreport.c
 	@./build-native/hwreport-check
 
+# What the tools left in the temporary folder and the worktrees' gate frames
+# that nothing touched for a day (tools/clean-scratch.py; -n lists only):
+# scratch cards of runs stopped hard, about 250 MB a language
+.PHONY: clean-scratch
+clean-scratch:
+	@python3 tools/clean-scratch.py $(SCRATCH)
+
 # The same pixels, proved (tools/pixel-gate.py): every shot of check-i18n-shots
 # in every language and both themes, at BASE (origin/main) and here, compared
 # as decoded pixels, with sheets of what changed. Not in CHECKS: it builds the
-# launcher twice. One language or theme: make pixel-gate GATE='--lang en'.
+# launcher twice. One language or theme: make pixel-gate GATE='--lang en'; a
+# pull request's round, only what the change can touch: GATE=--targeted. The
+# base's frames are shared by every worktree (the tool says how);
+# pixel-gate-warm shoots BASE's and nothing else, once a main commit.
 BASE ?= origin/main
-.PHONY: pixel-gate
+.PHONY: pixel-gate pixel-gate-warm
 pixel-gate:
 	@'$(PYIMG)' tools/pixel-gate.py --base '$(BASE)' $(GATE)
+pixel-gate-warm:
+	@'$(PYIMG)' tools/pixel-gate.py --base '$(BASE)' --warm $(GATE)
 
 # The Chinese UI's cut of Noto Sans SC (tools/cjkfont.py), from the two OTFs
 # in CJK_SRC; needs fontTools. Only when check-strings says a character is
@@ -1902,6 +1937,12 @@ native:
 px2-payload:
 	sh tools/px2-payload.sh
 
+# The programs alone, for a change to the code: build/px2/programs/ZyperOS,
+# no cores (tools/px2-payload.sh --programs). tools/px2 deploy sends them.
+.PHONY: px2-programs
+px2-programs:
+	sh tools/px2-payload.sh --programs
+
 # The libretro cores ZyperOS redistributes, fetched from its own cores
 # release and hash-pinned (mk/fetch-vendor.sh). Needed once, before the first
 # payload. No runtime libraries: the cores need only what the device's
@@ -2332,6 +2373,20 @@ shaderdemo: build-native/shaderdemo
 
 check-shaderdemo: build-native/shaderdemo
 	@'$(PYIMG)' tools/shaderdemo-check.py
+
+# ZyperOS's own screens' shader (src/screenfx.h): its picture held to
+# Diatom's GLSL through tools/shaderdemo.c's port of it, at a game's size,
+# every pixel, what the Pixel 2 shows of each old screen, and the masks
+# kept and used again (src/screenfx_draw.c) on SDL's software renderer.
+build-native/screenfx-check: tools/screenfx-check.c tools/shaderdemo.c src/screenfx.c src/screenfx.h \
+                             src/screenfx_draw.c src/screenfx_draw.h
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -O2 -Wall -Wextra -Isrc $$(pkg-config --cflags sdl2 SDL2_image) \
+	  -o $@ tools/screenfx-check.c src/screenfx.c src/screenfx_draw.c $$(pkg-config --libs sdl2 SDL2_image) -lm
+
+.PHONY: check-screenfx
+check-screenfx: build-native/screenfx-check
+	@./build-native/screenfx-check
 
 # The graded bar (src/ds/scale.h): a scale value reads back as written and
 # keeps its range, words are never one, and the knob is drawn where the value

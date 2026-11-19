@@ -3,6 +3,8 @@
 
 #include "blur.h"
 #include "design.h"
+#include "ds/layout.h"  /* DS_FOOT_Y */
+#include "home.h"       /* page_font: **support** */
 #include "linebreak.h"
 #include "platform.h"   /* PLAT_TARGET_FORMAT */
 #include "shelfbuild.h"
@@ -14,6 +16,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 /* What the panel shows while a port loads, which can be a minute (Stardew
@@ -32,11 +35,22 @@
  * screen under the theme's ground. In units. */
 #define PORT_LOADING "/tmp/zyperos_loading.raw"
 /* The same screen with the line after a minute (portload.still_go_back):
- * tools/portkeys.c shows it when the port still holds no display then */
+ * splash writes it into its own buffer a minute in (SPLASH_LATER) */
 #define PORT_LOADING_LATER "/tmp/zyperos_loading_later.raw"
+/* The letters and the box splash draws the port's latest output with, at
+ * the screen's foot (port_out_write, plastron's splash/src/portout.h) */
+#define PORT_LOADING_OUT "/tmp/zyperos_loading_out"
+/* The still's landscape picture on the panel, plat_save_screen's 640 x 480:
+ * the pixels of a saved picture, which the letters are drawn at, not places
+ * on the screen */
+static const SDL_Point port_still = { 640, 480 };
 
 /* Which line the next draw writes: the start's, or the one after a minute */
 bool g_port_loading_later;
+/* The last draw's output box and the line its capitals are centered on, in
+ * units, for port_out_write */
+static SDL_Rect g_load_out;
+static int g_load_out_mid;
 
 #define LOAD_COVER_AREA (368 * 512)  /* the cover's area, any shape (equal area) */
 #define LOAD_COVER_CX   272          /* ...centered here */
@@ -75,6 +89,16 @@ bool g_port_loading_later;
 #define LOAD_ZYPER_Y    528
 #define LOAD_ZYPER_W    192
 #define LOAD_ZYPER_H    186
+
+/* The port's output (1.0.6: a first start that installed for five hours
+ * behind this screen showed no sign of it, and its player stopped it more
+ * than once): the latest line its script and PortMaster print, which splash
+ * draws as it comes (port_out_write). One line on the screen's foot, in
+ * **support** **text-dim**, from the cover's left edge to the column's
+ * right: its capitals centered on DS_FOOT_Y as every screen's foot, or just
+ * under Zyper's frame when they would reach it. Its box is the font's whole
+ * height, held to 4.5:1 for any letter in it as the words are. */
+#define LOAD_OUT_INK    (theme()->text_dim)
 
 /* The backdrop, option 3's: the cover a quarter larger than it takes to
  * cover the screen, blurred as the lab's CSS blur(40px) blurs it, under the
@@ -253,10 +277,17 @@ static const char *const LOAD_HELD_NAME[LOAD_HELD] = {
 typedef struct {
 	SDL_Rect cover;
 	SDL_Rect band;
+	SDL_Rect out;                    /* the output's box */
+	int out_mid;                     /* ...its capitals centered on this */
 	char line[LOAD_ROLES][LOAD_LINES][LB_LINE];
 	int  lines[LOAD_ROLES];
 	int  top[LOAD_ROLES];            /* the first line's capitals start here */
 } load_layout;
+
+static TTF_Font *load_out_font(void)
+{
+	return page_font(PAGE_META);
+}
 
 static TTF_Font *load_font(int role)
 {
@@ -370,6 +401,17 @@ static void load_layout_make(load_layout *L, const system_cfg *s, const char *ti
 			for (r = 0; r < LOAD_ROLES; r++) L->top[r] -= over;
 		}
 	}
+
+	/* The output's line on the foot, under Zyper's frame (LOAD_OUT_INK) */
+	{
+		TTF_Font *f = load_out_font();
+		const int cap = ui_cap_height(f), clear = LOAD_ZYPER_Y + LOAD_ZYPER_H;
+
+		L->out_mid = DS_FOOT_Y;
+		if (L->out_mid - cap / 2 < clear) L->out_mid = clear + (cap + 1) / 2;
+		L->out = (SDL_Rect){ L->cover.x, ui_cap_y(f, L->out_mid),
+		                     LOAD_COL_X + LOAD_COL_W - L->cover.x, TTF_FontHeight(f) };
+	}
 }
 
 /* The lowest contrast luminance `lt` has with any pixel of `q`, in `px`, the
@@ -422,6 +464,20 @@ static bool load_read_under(app *a, const load_layout *L, float worst[LOAD_ROLES
 	}
 	free(px);
 	return true;
+}
+
+/* The lowest contrast the output's ink has with any pixel of its box, read
+ * back from the frame: 0 when it cannot be read */
+static float load_read_out(app *a, const load_layout *L)
+{
+	const ds_rgb c = LOAD_OUT_INK;
+	Uint8 *px = malloc((size_t)L->out.w * L->out.h * 4);
+	float worst = 0.0f;
+
+	if (px && SDL_RenderReadPixels(a->r, &L->out, SDL_PIXELFORMAT_RGBA32, px, L->out.w * 4) == 0)
+		worst = load_worst_in(px, &L->out, &L->out, luminance(c.r, c.g, c.b), 21.0f);
+	free(px);
+	return worst;
 }
 
 /* The band's color over what is drawn under it now: the system's mark,
@@ -485,7 +541,7 @@ bool port_loading_draw(app *a, const system_cfg *s, int i)
 	const char *title = v->list.items[i].title;
 	int o = shelf_owner(a, a->sys_cursor, i), tw = 0, th = 0, role, k, steps = 0;
 	int moved = 0;
-	float cb = 1.0f, floor = 0.0f, top;
+	float cb = 1.0f, floor = 0.0f, top, out = 0.0f;
 	float worst[LOAD_HELD] = { 21.0f, 21.0f, 21.0f, 0.0f };
 	SDL_Texture *cover = game_get_tex(a, i, &tw, &th, &cb), *tex = NULL;
 	const unsigned mark = ui_sys_mark(s->accent);
@@ -540,18 +596,20 @@ bool port_loading_draw(app *a, const system_cfg *s, int i)
 	}
 
 	for (;;) {
-		bool short_of = false;
+		bool short_of = false, words_short = false;
 
 		back_draw(a, g, tex, floor);
 		ui_lift(a->r, &lifted, s->accent, UI_LIFT_FOCUS);
 		if (cover) SDL_RenderCopy(a->r, cover, NULL, &L.cover);
-		read = load_read_under(a, &L, worst);
+		read = load_read_under(a, &L, worst) && (out = load_read_out(a, &L)) > 0.0f;
 		for (k = 0; k < LOAD_ROLES; k++)
-			if (!read || worst[k] < LOAD_OWED[k]) short_of = true;
+			if (!read || worst[k] < LOAD_OWED[k]) words_short = true;
+		short_of = words_short || out < LOAD_OWED[LOAD_SAY];
 		if (!short_of || !g || !tex || floor >= 255.0f) break;
-		/* A step up from where the gradient is at the first line: under
-		 * that, a floor is not seen where the words are */
-		top = (float)load_line_rect(&L, LOAD_SYS, 0).y;
+		/* A step up from where the gradient is at the first line that is
+		 * short: under that, a floor is not seen where it is short (the
+		 * output's box alone, the foot's) */
+		top = (float)(words_short ? load_line_rect(&L, LOAD_SYS, 0).y : L.out.y);
 		if (floor < back_scrim(top, 0.0f)) floor = back_scrim(top, 0.0f);
 		floor = !read || floor + 6.0f > 255.0f ? 255.0f : floor + 6.0f;
 		steps++;
@@ -574,12 +632,17 @@ bool port_loading_draw(app *a, const system_cfg *s, int i)
 		fprintf(stderr, "port: loading screen in %.0f ms, the scrim from %d%% at the "
 		        "top (%d steps up); at their least the words at %.2f:1 (text-dim), "
 		        "%.2f:1 (text), %.2f:1 (text-soft), the band at %.2f:1 (%d/%d of the "
-		        "way to text)\n",
+		        "way to text), the output's box at %.2f:1 (text-dim)\n",
 		        (double)(SDL_GetPerformanceCounter() - t0) * 1000.0 /
 		        (double)SDL_GetPerformanceFrequency(),
 		        (int)lroundf(back_scrim(0.0f, floor) * 100.0f / 255.0f), steps,
 		        worst[LOAD_SYS], worst[LOAD_NAME], worst[LOAD_SAY], worst[LOAD_BAND],
-		        moved, LOAD_BAND_STEPS);
+		        moved, LOAD_BAND_STEPS, out);
+		if (out < LOAD_OWED[LOAD_SAY]) {
+			fprintf(stderr, "port: loading screen short: text-dim (the output's box) at "
+			        "%.2f:1, owed %.1f:1\n", out, LOAD_OWED[LOAD_SAY]);
+			held = false;
+		}
 		for (k = 0; k < LOAD_HELD; k++)
 			if (worst[k] < LOAD_OWED[k]) {
 				/* A contrast is never under 1:1, so a band at 0 was not
@@ -598,18 +661,221 @@ bool port_loading_draw(app *a, const system_cfg *s, int i)
 		fprintf(stderr, "port: loading screen short: nothing could be read back, so "
 		        "the scrim is whole and nothing was measured\n");
 	}
+	g_load_out = L.out;
+	g_load_out_mid = L.out_mid;
 	if (tex) SDL_DestroyTexture(tex);
 	free(g);
 	if (own) SDL_DestroyTexture(cover);
 	return held;
 }
 
+static void put16(Uint8 *p, unsigned v)
+{
+	p[0] = (Uint8)v;
+	p[1] = (Uint8)(v >> 8);
+}
+
+/* A growing buffer of bytes; `ok` false once one would not fit */
+typedef struct {
+	Uint8 *p;
+	size_t n, cap;
+	bool ok;
+} out_bytes;
+
+static void out_put(out_bytes *b, const void *src, size_t n)
+{
+	if (!b->ok) return;
+	if (b->n + n > b->cap) {
+		size_t cap = b->cap ? b->cap * 2 : 65536;
+		Uint8 *p;
+
+		while (cap < b->n + n) cap *= 2;
+		if (!(p = realloc(b->p, cap))) {
+			b->ok = false;
+			return;
+		}
+		b->p = p;
+		b->cap = cap;
+	}
+	memcpy(b->p + b->n, src, n);
+	b->n += n;
+}
+
+/* The letters, each splash may draw: printable ASCII, Latin-1 and the
+ * ellipsis, in `f`, each cell `h` high, into `b` as portout.h reads them
+ * after its header: the count, then each letter. Rendered by SDL_ttf as the
+ * screen's words are, one letter at a time. */
+static void out_letters(TTF_Font *f, int h, out_bytes *b)
+{
+	static const Uint32 ranges[][2] = { { 0x20, 0x7E }, { 0xA0, 0xFF }, { 0x2026, 0x2026 } };
+	const SDL_Color white = { 255, 255, 255, 255 };
+	Uint8 cell[10], *col = malloc(128);
+	size_t r, at = b->n;
+	int count = 0;
+
+	out_put(b, "\0\0", 2);
+	for (r = 0; col && b->ok && r < sizeof ranges / sizeof ranges[0]; r++)
+		for (Uint32 cp = ranges[r][0]; b->ok && cp <= ranges[r][1]; cp++) {
+			int minx, maxx, miny, maxy, adv, gy, gx;
+			SDL_Surface *g0, *g;
+
+			if (!TTF_GlyphIsProvided32(f, cp) ||
+			    TTF_GlyphMetrics32(f, cp, &minx, &maxx, &miny, &maxy, &adv) != 0 ||
+			    !(g0 = TTF_RenderGlyph32_Blended(f, cp, white)))
+				continue;
+			g = SDL_ConvertSurfaceFormat(g0, SDL_PIXELFORMAT_ARGB8888, 0);
+			SDL_FreeSurface(g0);
+			if (!g) continue;
+			if (g->w > 128 || adv < 0 || adv > 128) {
+				SDL_FreeSurface(g);
+				continue;
+			}
+			cell[0] = (Uint8)cp;
+			cell[1] = (Uint8)(cp >> 8);
+			cell[2] = (Uint8)(cp >> 16);
+			cell[3] = (Uint8)(cp >> 24);
+			put16(cell + 4, (unsigned)adv);
+			put16(cell + 6, (unsigned)(Uint16)(Sint16)(minx < 0 ? minx : 0));
+			put16(cell + 8, (unsigned)g->w);
+			out_put(b, cell, sizeof cell);
+			for (gy = 0; gy < h; gy++) {
+				const Uint32 *row = (const Uint32 *)((const Uint8 *)g->pixels + (size_t)gy * g->pitch);
+
+				for (gx = 0; gx < g->w; gx++) col[gx] = gy < g->h ? (Uint8)(row[gx] >> 24) : 0;
+				out_put(b, col, (size_t)g->w);
+			}
+			SDL_FreeSurface(g);
+			count++;
+		}
+	if (!col) b->ok = false;
+	free(col);
+	if (b->ok) put16(b->p + at, (unsigned)count);
+}
+
+/* `b` into `path`, whole, then renamed into place */
+static bool out_save(const char *path, const out_bytes *b)
+{
+	char tmp[LIB_PATH * 2];
+	FILE *o;
+	bool ok;
+
+	snprintf(tmp, sizeof tmp, "%s.tmp", path);
+	if (!b->ok || !(o = fopen(tmp, "wb"))) return false;
+	ok = fwrite(b->p, 1, b->n, o) == b->n;
+	if (fclose(o) != 0) ok = false;
+	if (!ok || rename(tmp, path) != 0) {
+		unlink(tmp);
+		return false;
+	}
+	return true;
+}
+
+/* The letters and the box splash draws the port's latest output with
+ * (plastron's splash/src/portout.h has the file's layout and what splash
+ * does with it): the last draw's output box at the still's panel size,
+ * port_still's 640 x 480, its capitals on the same line; the ink,
+ * **text-dim** of the theme that is on; and the letters (out_letters) in the
+ * language's Regular face at **support**'s size on the panel (28 units, 18
+ * pixels on the Pixel 2). Splash sets them side by side by their advances,
+ * with no kerning.
+ *
+ * The letters are drawn once and kept on the card, PORT_OUT_LETTERS in the
+ * handheld's .userdata folder, under a first line naming the face (its file,
+ * size and time) and the size: SDL_ttf draws the 191 of them in 14 ms on an
+ * M3, many times that on a Pixel 2, and a port's start is not to wait for it.
+ * Each start after reads them back, and only the box and the ink are new.
+ * False, and no file, when the face would not open or a file would not
+ * write. */
+#define PORT_OUT_LETTERS "portout-letters.bin"
+bool port_out_write(const char *path)
+{
+	const float k = (float)port_still.x / (float)ZYPEROS_SCREEN_W;
+	const int pt = (int)lroundf(DS_TYPE_SUPPORT * k);
+	const ds_rgb ink = LOAD_OUT_INK;
+	const Uint64 t0 = SDL_GetPerformanceCounter();
+	char face[LIB_PATH * 2], key[LIB_PATH * 3], kept[LIB_PATH * 2];
+	Uint8 head[24] = { 'Z', 'P', 'O', 'U' };
+	out_bytes cache = { NULL, 0, 0, true }, out = { NULL, 0, 0, true };
+	size_t kn, letters = 0;
+	struct stat st;
+	TTF_Font *f;
+	int x0, x1, y, h;
+	bool ok, made = false;
+	FILE *c;
+
+	unlink(path);
+	if (!ui_regular_font_path(face, sizeof face)[0] || stat(face, &st) != 0 ||
+	    !(f = ui_face_open(face, pt)))
+		return false;
+	h = TTF_FontHeight(f);
+	x0 = (int)lroundf((float)g_load_out.x * k);
+	x1 = (int)lroundf((float)(g_load_out.x + g_load_out.w) * k);
+	y = ui_cap_y(f, (int)lroundf((float)g_load_out_mid * k));
+	if (x0 < 0) x0 = 0;
+	if (x1 > port_still.x) x1 = port_still.x;
+	if (y + h > port_still.y) y = port_still.y - h;
+	if (y < 0 || x1 <= x0 || h > 128) {
+		ui_face_close(f);
+		return false;
+	}
+
+	/* The letters kept, when they are this face's at this size */
+	snprintf(key, sizeof key, "ZPOL 1 %d %d %lld %lld %s\n", pt, h, (long long)st.st_size,
+	         (long long)st.st_mtime, face);
+	kn = strlen(key);
+	snprintf(kept, sizeof kept, "%s/%s", P_USERDATA, PORT_OUT_LETTERS);
+	if ((c = fopen(kept, "rb"))) {
+		Uint8 chunk[16384];
+		size_t got;
+
+		while ((got = fread(chunk, 1, sizeof chunk, c)) > 0 && cache.n < (1u << 20))
+			out_put(&cache, chunk, got);
+		fclose(c);
+		if (cache.ok && cache.n > kn + 2 && !memcmp(cache.p, key, kn)) letters = kn;
+	}
+	if (!letters) {
+		cache.n = 0;
+		cache.ok = true;
+		out_put(&cache, key, kn);
+		out_letters(f, h, &cache);
+		letters = kn;
+		made = cache.ok;
+		if (made && !out_save(kept, &cache))
+			fprintf(stderr, "port: could not keep the output's letters in %s\n", kept);
+	}
+	ui_face_close(f);
+
+	put16(head + 4, 1);
+	put16(head + 6, (unsigned)port_still.x);
+	put16(head + 8, (unsigned)port_still.y);
+	put16(head + 10, (unsigned)x0);
+	put16(head + 12, (unsigned)y);
+	put16(head + 14, (unsigned)(x1 - x0));
+	put16(head + 16, (unsigned)h);
+	head[18] = ink.r;
+	head[19] = ink.g;
+	head[20] = ink.b;
+	out_put(&out, head, sizeof head);
+	if (cache.ok) out_put(&out, cache.p + letters, cache.n - letters);
+	ok = cache.ok && out_save(path, &out);
+	free(cache.p);
+	free(out.p);
+	if (!ok) return false;
+	fprintf(stderr, "port: the output's letters for splash in %.0f ms (%s), its box %dx%d at %d,%d\n",
+	        (double)(SDL_GetPerformanceCounter() - t0) * 1000.0 / (double)SDL_GetPerformanceFrequency(),
+	        made ? "drawn and kept" : "the kept ones", x1 - x0, h, x0, y);
+	return true;
+}
+
 /* The still for the game under the cursor, written for splash, and the same
- * with the line after a minute, for portkeys (1.0.6: a port that hung under
- * the still looked the same as one starting, and nothing said how to leave).
- * The later one first, so the screen ends on the start's. */
+ * with the line after a minute, for splash a minute in (1.0.6: a port that
+ * hung under the still looked the same as one starting, and nothing said how
+ * to leave). The later one first, so the screen ends on the start's. And the
+ * letters splash draws the port's output with, where there is a still. */
 void port_loading_screen(app *a, const system_cfg *s)
 {
+	bool held;
+
 	unlink(PORT_LOADING_LATER);
 	g_port_loading_later = true;
 	port_loading_draw(a, s, a->view[a->sys_cursor].cursor);
@@ -617,5 +883,7 @@ void port_loading_screen(app *a, const system_cfg *s)
 	g_port_loading_later = false;
 	port_loading_draw(a, s, a->view[a->sys_cursor].cursor);
 	unlink(PORT_LOADING);
-	if (!plat_save_screen(PORT_LOADING)) plat_present();
+	held = plat_save_screen(PORT_LOADING);
+	if (!held) plat_present();
+	if (!held || !port_out_write(PORT_LOADING_OUT)) unlink(PORT_LOADING_OUT);
 }

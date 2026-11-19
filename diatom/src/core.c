@@ -536,6 +536,15 @@ bool diatom_core_start(diatom_core *c, const char *rom_path)
  * rows, and a mod's episodes stayed in the next game's menu (1.0.5, Discord;
  * the first seen on a Mac with the pinned core and Freedoom).
  *
+ * blueMSX too. A second load_game in the same library, especially with
+ * bluemsx_additional_cart, SIGSEGVs in the SCC-plus mapper create path:
+ * the additional cart's chip object is left corrupt after unload. Cold
+ * retro_init after a process restart works. Unloading the .so between
+ * games does the same without leaving the shelf.
+ * A fix has been submitted in blueMSX core, but not yet merged:
+ * https://github.com/libretro/blueMSX-libretro/pull/213
+ * Once merged, this core will not need to unload between games.
+ *
  * By name, because nothing a core declares says so. */
 static bool one_game_per_load(diatom_core *c)
 {
@@ -547,7 +556,8 @@ static bool one_game_per_load(diatom_core *c)
 	                           !strcmp(si.library_name, "FreeJ2ME-Plus") ||
 	                           !strcmp(si.library_name, "ParaLLEl N64") ||
 	                           !strcmp(si.library_name, "Mupen64Plus-Next") ||
-	                           !strcmp(si.library_name, "PrBoom"));
+	                           !strcmp(si.library_name, "PrBoom") ||
+	                           !strcmp(si.library_name, "blueMSX"));
 }
 
 /* Stops the GAME, not the core. The core stays initialized and stays mapped -

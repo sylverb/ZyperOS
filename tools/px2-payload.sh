@@ -4,6 +4,14 @@
 # plastron's cross SDK, in Docker, without plastron's build volume:
 #
 #   tools/px2-payload.sh             (make px2-payload)
+#   tools/px2-payload.sh --programs  the programs alone (make px2-programs)
+#
+# --programs: build/px2/programs/ZyperOS with the launcher, Muse, portkeys,
+# zyhome, System Update's program, p2d and Diatom and nothing else, for a
+# change to the code: no cores, so no main checkout's vendor/ (whose patched
+# cores' stamps must be fresh for a whole payload), and tools/px2-deploy.sh
+# sends only those of them that changed. A change to res/ or launch.sh needs
+# the whole payload.
 #
 # Out: build/px2/payload/ZyperOS - the launcher, Muse, portkeys, System
 # Update's program and Diatom, with the cores, cards and fonts, as plastron's
@@ -25,6 +33,13 @@
 # .screenscraper.env, or ZYPEROS_SS_ENV, as plastron's build reads it - none
 # is a supported build. JOBS (4) is how many compilers run at once.
 set -eu
+
+PROGRAMS=
+case ${1:-} in
+--programs) PROGRAMS=1 ;;
+'') ;;
+*) echo "usage: tools/px2-payload.sh [--programs]" >&2; exit 2 ;;
+esac
 
 HERE=$(cd "$(dirname "$0")" && pwd)
 REPO=$(cd "$HERE/.." && pwd)
@@ -51,8 +66,8 @@ VENDOR=${ZYPEROS_VENDOR:-}
 if [ -z "$VENDOR" ]; then
 	if [ -f "$REPO/vendor/cores/fceumm_libretro.so" ]; then VENDOR=$REPO/vendor; else VENDOR=$main/vendor; fi
 fi
-[ -f "$VENDOR/cores/fceumm_libretro.so" ] ||
-	die "no cores in $VENDOR: make vendor in the main checkout (or set ZYPEROS_VENDOR)"
+[ -n "$PROGRAMS" ] || [ -f "$VENDOR/cores/fceumm_libretro.so" ] ||
+	die "no cores in $VENDOR: make vendor in the main checkout (or set ZYPEROS_VENDOR, or --programs)"
 SS_ENV=${ZYPEROS_SS_ENV:-$main/.screenscraper.env}
 
 # The string tables are the build's (src/i18n_tables.c, not committed), and
@@ -61,13 +76,17 @@ command -v python3 > /dev/null || die "needs python3 for the string tables (tool
 python3 "$REPO/tools/i18n.py" > /dev/null
 
 mkdir -p "$REPO/build/px2" "$REPO/diatom/build/pixel2"
-set -- --rm -e "JOBS=${JOBS:-4}" \
+set -- --rm -e "JOBS=${JOBS:-4}" -e "PROGRAMS_ONLY=$PROGRAMS" \
 	-v "$sdk:/sdk:ro" \
 	-v "$REPO:/zyperos:ro" \
 	-v "$REPO/build/px2:/zyperos/build/px2" \
-	-v "$REPO/diatom/build/pixel2:/zyperos/diatom/build/pixel2" \
-	-v "$VENDOR:/zyperos-vendor:ro"
+	-v "$REPO/diatom/build/pixel2:/zyperos/diatom/build/pixel2"
+[ -n "$PROGRAMS" ] || set -- "$@" -v "$VENDOR:/zyperos-vendor:ro"
 [ -f "$SS_ENV" ] && set -- "$@" -v "$SS_ENV:/zyperos-ss.env:ro"
 echo "px2-payload: against $sdk"
 docker run "$@" "$IMAGE" sh /zyperos/mk/px2-sdk-build.sh
-echo "px2-payload: $REPO/build/px2/payload/ZyperOS"
+if [ -n "$PROGRAMS" ]; then
+	echo "px2-payload: $REPO/build/px2/programs/ZyperOS"
+else
+	echo "px2-payload: $REPO/build/px2/payload/ZyperOS"
+fi

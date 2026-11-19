@@ -17,9 +17,10 @@ enum { NP_MODE, NP_WARMTH, NP_FROM, NP_UNTIL, NP_ROWS };
 typedef struct { app *a; char warmth[4], from[24], until[24]; } night_view;
 
 /* MENU > Display > Theme: Accent, Light Background, Dark Background,
- * Corners, Zyper and Reset to Default. Left and Right step a row round and
- * apply it at once; A steps forward, and on Reset puts all four back. */
-enum { LK_ACCENT, LK_LIGHT, LK_DARK, LK_CORNERS, LK_ZYPER, LK_RESET, LK_ROWS };
+ * Folder Color, Corners, Zyper and Reset to Default. Left and Right step a
+ * row round and apply it at once; A opens a row's list, and on Reset puts
+ * them all back. */
+enum { LK_ACCENT, LK_LIGHT, LK_DARK, LK_FOLDERS, LK_CORNERS, LK_ZYPER, LK_RESET, LK_ROWS };
 
 /* What main.c uses of it; each is described where it is defined */
 int usb_auto_lines(app *a, char lines[4][LB_LINE], menu_row rows[4]);

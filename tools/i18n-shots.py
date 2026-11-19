@@ -32,7 +32,12 @@ what a longer translation would meet, which fails only with --strict.
 
 Shots, not pictures held to a reference: what is drawn is the launcher's own,
 and English's frames are held by the other shot checks. Each language has its
-own scratch cards, so the five run at once. Needs the launcher built (SDL2);
+own scratch cards, cloned from one set made once a run, so they run at once,
+one launcher a language and handheld (--jobs says otherwise). Stopped
+(Ctrl-C, SIGTERM, a closed terminal), each language ends after its shot and
+every scratch card goes. A pass is kept by the launcher's bytes and the
+inputs its verdict is made of, and the same again prints it and passes at
+once (ZYPEROS_SHOTS_CACHE=0 shoots anyway). Needs the launcher built (SDL2);
 skips cleanly without SDL2.
 """
 import argparse
@@ -45,6 +50,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -564,11 +570,22 @@ EXTRA.setdefault("gamemenu-dual-stylus", ("demo", "PS1", ["--gamemenu", "4", "du
 # (src/shots.c's GM_SAID): four lines in English, German, French and
 # Portuguese, which three cut ("* ?...")
 EXTRA.setdefault("gm-said-7", ("demo", "PS1", ["--screen", "games", "--gm-said", "7"]))
-# MENU's Shader when a system has its own (SHOT_SETTINGS below): "per system"
+# MENU's Shader, ZyperOS's own screens' (src/screenfx.h, SHOT_SETTINGS
+# below): CRT Curved on the menu itself, a system's own shader beside it
+# changing nothing
 EXTRA.setdefault("menu-shader", ("demo", "PS1", ["--menu", "Shader"]))
+# The screens' shader on the home, a shelf and a menu, one old screen each
+# (the proof sheet has every one on each)
+EXTRA.setdefault("screens-crt-curved-home", ("demo", "PS1", ["--home", "spotlight"]))
+EXTRA.setdefault("screens-scanlines-shelf", ("demo", "PS1", ["--screen", "games"]))
+EXTRA.setdefault("screens-lcd-menu", ("demo", "PS1", ["--menu", "Search Games"]))
 
 # The README's shots' own settings, and these shots'
-SHOT_SETTINGS = {**R.SHOT_SETTINGS, "menu-shader": {"shader.PS1": "shimmerless"},
+SHOT_SETTINGS = {**R.SHOT_SETTINGS,
+                 "menu-shader": {"launcher_shader": "crt-curved", "shader.PS1": "shimmerless"},
+                 "screens-crt-curved-home": {"launcher_shader": "crt-curved"},
+                 "screens-scanlines-shelf": {"launcher_shader": "scanlines"},
+                 "screens-lcd-menu": {"launcher_shader": "lcd", "launcher_strength": "50"},
                  "menu-saver-off": {"saver": "0"}}
 
 # MENU > Menu Music with the card's own tracks in its Menu Music folder, at
@@ -606,8 +623,9 @@ for _s in ("shimmerless", "crt", "crt-curved", "scanlines", "lcd"):
 
 # The Shader list, each shader under its cursor beside its picture and its
 # note (src/shaderdemo.h); the Strength list beside its picture; MENU's
-# Shader list (the Pixel 2 offers all six; the Brick Off and
-# Sharp-Shimmerless, its list's last row standing in past them)
+# Shader list, the screens' own, its choice on the whole screen and its note
+# under it (the Pixel 2 offers Off and the four old screens; the Brick has no
+# such row, its list's last row standing in)
 for _k, _s in enumerate(["off", "shimmerless", "crt", "crt-curved", "scanlines", "lcd"]):
     EXTRA.setdefault("gamemenu-shader-list-" + _s,
                      ("demo", "PS1", ["--gamemenu", "1", "--gm-tab", "1", "--gm-choose", "--pick-at", str(_k)]))
@@ -615,17 +633,36 @@ EXTRA.setdefault("gamemenu-strength-list", ("demo", "PS1", ["--gamemenu", "2", "
                                                            "--pick-at", "4"]))
 SHOT_SETTINGS["gamemenu-strength-list"] = {"shader.PS1": "crt", "shader_strength.PS1": "50"}
 EXTRA.setdefault("menu-shader-list", ("demo", "PS1", ["--menu", "Shader", "--press", "a"]))
-SHOT_SETTINGS["menu-shader-list"] = {"shader": "scanlines"}
+SHOT_SETTINGS["menu-shader-list"] = {"launcher_shader": "scanlines"}
+
+# LCD No Backlight (src/app.h SHADERS' only), the Game Boy's three's alone:
+# in the in-game menu of a Game Boy Advance game, its row and its list under
+# the cursor; the GBA shelf's own Shader list with it; and where it is not
+# offered, with a card edited to name it: the SNES shelf's list (Off, the
+# SNES's default, and no such row) and MENU's, the screens' own (Off)
+EXTRA.setdefault("gamemenu-shader-lcd-unlit", ("demo", "GBA", ["--screen", "games", "--gamemenu", "1",
+                                                               "--gm-tab", "1"]))
+SHOT_SETTINGS["gamemenu-shader-lcd-unlit"] = {"shader.GBA": "lcd-unlit"}
+EXTRA.setdefault("gamemenu-shader-list-lcd-unlit",
+                 ("demo", "GBA", ["--gamemenu", "1", "--gm-tab", "1", "--gm-choose", "--pick-at", "6"]))
+EXTRA.setdefault("system-menu-shader-list-gba", ("demo", "GBA", ["--screen", "games", "--menu", "Shader",
+                                                                 "--press", "a"]))
+SHOT_SETTINGS["system-menu-shader-list-gba"] = {"shader.GBA": "lcd-unlit"}
+EXTRA.setdefault("system-menu-shader-list-snes", ("demo", "SNES", ["--screen", "games", "--menu", "Shader",
+                                                                   "--press", "a"]))
+SHOT_SETTINGS["system-menu-shader-list-snes"] = {"shader.SNES": "lcd-unlit"}
+EXTRA.setdefault("menu-shader-list-unlit", ("demo", "PS1", ["--menu", "Shader", "--press", "a"]))
+SHOT_SETTINGS["menu-shader-list-unlit"] = {"launcher_shader": "lcd-unlit"}
 
 # The Strength row under each Shader row while the shader is an old screen
-# (src/strength.h): in the game on it, in the system menu, and MENU's saying
-# "per system" when one system has its own
+# (src/strength.h): in the game on it, in the system menu, and MENU's, the
+# screens' own, a system's own beside it changing nothing
 EXTRA.setdefault("gamemenu-strength", ("demo", "PS1", ["--screen", "games", "--gamemenu", "2", "--gm-tab", "1"]))
 SHOT_SETTINGS["gamemenu-strength"] = {"shader.PS1": "lcd", "shader_strength.PS1": "50"}
 EXTRA.setdefault("system-menu-strength", ("demo", "PS1", ["--screen", "games", "--menu", "Strength"]))
 SHOT_SETTINGS["system-menu-strength"] = {"shader.PS1": "scanlines", "shader_strength.PS1": "20"}
 EXTRA.setdefault("menu-strength", ("demo", "PS1", ["--menu", "Strength"]))
-SHOT_SETTINGS["menu-strength"] = {"shader": "crt", "shader_strength.PS1": "60"}
+SHOT_SETTINGS["menu-strength"] = {"launcher_shader": "crt", "launcher_strength": "60", "shader_strength.PS1": "60"}
 SHOT_SETTINGS["screen-colors-vivid"] = {"screen_contrast": "3", "screen_saturation": "3", "screen_gamma": "-2"}
 SHOT_SETTINGS["screen-colors-custom"] = {"screen_temp": "4", "screen_tint": "-1", "screen_contrast": "3",
                                          "screen_saturation": "5", "screen_gamma": "-2"}
@@ -784,12 +821,20 @@ for _i, _acc in enumerate(("lime", "green", "teal", "blue", "purple", "pink", "r
 EXTRA.setdefault("theme-accent-list-teal", ("demo", "PS1", ["--look-page", "theme-list", "0", "--pick-at", "2"]))
 EXTRA.setdefault("theme-light-list-cool", ("demo", "PS1", ["--look-page", "theme-list", "1", "--pick-at", "2"]))
 EXTRA.setdefault("theme-dark-list-deepblue", ("demo", "PS1", ["--look-page", "theme-list", "2", "--pick-at", "1"]))
+# Folder Color (1.0.6 rc.3): its row in focus, System Colors and an accent,
+# and its list with the picture of the shelf's folders beside it, on System
+# Colors and on an accent under the cursor
+EXTRA.setdefault("theme-folders-system", ("demo", "PS1", ["--look-page", "theme", "3"]))
+EXTRA.setdefault("theme-folders-orange", ("demo", "PS1", ["--look", "lime,warm,black,rounded,on,orange",
+                                                          "--look-page", "theme", "3"]))
+EXTRA.setdefault("theme-folders-list-system", ("demo", "PS1", ["--look-page", "theme-list", "3", "--pick-at", "0"]))
+EXTRA.setdefault("theme-folders-list-teal", ("demo", "PS1", ["--look-page", "theme-list", "3", "--pick-at", "3"]))
 # Timing's list (src/pacing.h): two choices, opened on A all the same for
 # the picture beside it (the two ways, slowed) and what each does under it
 for _k, _p in enumerate(("smooth", "exact")):
     EXTRA.setdefault("system-menu-timing-list-" + _p, ("demo", "GBA", ["--screen", "games", "--menu", "Timing",
                                                                       "--press", "a", "--pick-at", str(_k)]))
-EXTRA.setdefault("theme-foot-on", ("demo", "PS1", ["--look-page", "theme", "5"]))
+EXTRA.setdefault("theme-foot-on", ("demo", "PS1", ["--look-page", "theme", "6"]))
 # MENU > Display > Screen Colors (src/panelgamma.h): its row, and its page
 # Standard as it ships, Vivid, and Custom with every row moved (the values
 # from the database, as the page reads them); and the Look's list with each
@@ -804,7 +849,7 @@ for _k, _l in enumerate(["standard", "vivid", "intense", "warm", "cool", "muted"
 EXTRA.setdefault("screen-colors-look-custom",
                  ("demo", "PS1", ["--look-page", "screen-looks", "0", "--pick-at", "6"]))
 EXTRA.setdefault("theme-foot-off", ("demo", "PS1", ["--look", "lime,warm,black,square,off",
-                                                    "--look-page", "theme", "5"]))
+                                                    "--look-page", "theme", "6"]))
 # MENU > Display > Night Mode (DESIGN.md 11.42), only where the display has a
 # table (not the Brick): its one row, By Hours; and its page, A on the row:
 # By Hours with every row live, Off and On with the rows they do not use
@@ -971,35 +1016,98 @@ def all_systems_card(card):
 KNOWN_KEYS = set()
 
 
-def run_language(code, shots, binary, keep, theme="light", device="pixel2", first=True):
+# The scratch cards every run shoots from, by name
+CARDS = ["demo", "empty", "scummvm", "openbor", "ports", "all", "portdocs", "media", "pmcard", "psp",
+         "es", "systems"]
+
+
+def make_cards(top):
+    """Every scratch card under top/: made once a run (about 250 MB, 4 s on
+    an idle M3 and 20 s on a loaded one), then cloned for each language and
+    handheld (clone_cards), since no card says a language"""
+    cards = {name: top / name for name in CARDS}
+    R.demo_card(cards["demo"], None, {"artwork": {}})
+    R.systems_card(cards["systems"])
+    R.media_card(cards["media"])
+    R.es_card(cards["es"])
+    R.ports_card(cards["ports"])
+    R.portdocs_card(cards["portdocs"])
+    R.portdocs_card(cards["pmcard"])
+    (cards["pmcard"] / "Roms/Ports/PortMaster").mkdir()
+    (cards["pmcard"] / "Roms/Ports/PortMaster/pugwash").touch()
+    (cards["pmcard"] / "Roms/Ports/PortMaster/version").write_text("2026.11.12-1059\n")
+    R.demo_card(cards["all"], None, {"artwork": {}})
+    all_systems_card(cards["all"])
+    R.scummvm_card(cards["scummvm"])
+    R.openbor_card(cards["openbor"])
+    R.psp_card(cards["psp"])
+    R.card_dirs(cards["empty"])
+
+
+def clone(src, dst):
+    """src's tree as dst: cloned where the file system can (APFS's
+    clonefile, cp -c; a reflink on Btrfs or XFS), so copies share their
+    blocks and cost next to nothing, and copied where it cannot"""
+    if sys.platform == "darwin":
+        cmd = ["cp", "-cR", str(src), str(dst)]
+    else:
+        cmd = ["cp", "-a", "--reflink=auto", str(src), str(dst)]
+    if subprocess.call(cmd, stderr=subprocess.DEVNULL) != 0:
+        shutil.rmtree(dst, ignore_errors=True)
+        shutil.copytree(src, dst, symlinks=True)
+
+
+def clone_cards(template, tmp):
+    """The cards of make_cards into tmp/, a run's own to write: eighteen
+    runs share one copy's blocks and take a quarter of a second each"""
+    for name in CARDS:
+        clone(template / name, Path(tmp) / name)
+    return {name: Path(tmp) / name for name in CARDS}
+
+
+# What the launcher writes on a card while it is shot: its settings database
+# and boot.env (userdata/) and the library it scans (shared/.zyperos/), and
+# nothing else (2026-11-18, every shot of a language against a copy of the
+# cards). Each shot starts from the cards' own: a shot's frame was the
+# shots' before it too (a per-game remap one left put a row on Game Info and
+# swapped the PlayStation's keys on Controls), so the same screen drew
+# otherwise in a run of some shots than in a run of all, and the pixel gate
+# compared the two.
+STATE = ("userdata", "shared/.zyperos")
+
+
+def reset_state(template, card):
+    for sub in STATE:
+        shutil.rmtree(card / sub, ignore_errors=True)
+        src = template / card.name / sub
+        if src.exists():
+            clone(src, card / sub)
+
+
+# Set when the run is stopped (Ctrl-C, SIGTERM, a closed terminal): each
+# language's run ends after the shot it is taking, and its scratch cards go
+STOP = threading.Event()
+# Every scratch folder this run made, deleted at its end whatever happens
+SCRATCH = []
+
+
+def run_language(code, shots, binary, keep, theme="light", device="pixel2", first=True, template=None):
     notes, failures, data, drawn = [], [], {}, set()
     small_said = set()      # a value said once a language, on the first screen it is on
     with tempfile.TemporaryDirectory(prefix="zyperos-i18n-%s-" % code) as tmp:
-        cards = {"demo": Path(tmp) / "demo", "empty": Path(tmp) / "empty", "scummvm": Path(tmp) / "scummvm",
-                 "openbor": Path(tmp) / "openbor", "ports": Path(tmp) / "ports", "all": Path(tmp) / "all",
-                 "portdocs": Path(tmp) / "portdocs", "media": Path(tmp) / "media",
-                 "pmcard": Path(tmp) / "pmcard", "psp": Path(tmp) / "psp", "es": Path(tmp) / "es",
-                 "systems": Path(tmp) / "systems"}
-        R.demo_card(cards["demo"], None, {"artwork": {}})
-        R.systems_card(cards["systems"])
-        R.media_card(cards["media"])
-        R.es_card(cards["es"])
-        R.ports_card(cards["ports"])
-        R.portdocs_card(cards["portdocs"])
-        R.portdocs_card(cards["pmcard"])
-        (cards["pmcard"] / "Roms/Ports/PortMaster").mkdir()
-        (cards["pmcard"] / "Roms/Ports/PortMaster/pugwash").touch()
-        (cards["pmcard"] / "Roms/Ports/PortMaster/version").write_text("2026.11.12-1059\n")
-        R.demo_card(cards["all"], None, {"artwork": {}})
-        all_systems_card(cards["all"])
-        R.scummvm_card(cards["scummvm"])
-        R.openbor_card(cards["openbor"])
-        R.psp_card(cards["psp"])
-        R.card_dirs(cards["empty"])
+        SCRATCH.append(tmp)
+        if template is None:
+            make_cards(Path(tmp) / "template")
+            cards = clone_cards(Path(tmp) / "template", tmp)
+        else:
+            cards = clone_cards(template, tmp)
         out = keep if keep else Path(tmp) / "out"
         out.mkdir(parents=True, exist_ok=True)
         for name, (card_name, tag, flags) in shots.items():
+            if STOP.is_set():
+                break
             card = cards[card_name]
+            reset_state(template if template is not None else Path(tmp) / "template", card)
             focus = PORT_FOCUS.get(name) or CTL_FOCUS.get(name) or R.SHOT_FOCUS.get(name) or \
                 {"PS1": R.FOCUS + ".chd", "SCUMMVM": R.SCUMMVM_FOCUS, "OPENBOR": R.OPENBOR[0],
                  "PRT": "PortMaster.sh"}.get(tag, "")
@@ -1111,7 +1219,134 @@ def run_language(code, shots, binary, keep, theme="light", device="pixel2", firs
     return device, code, notes, failures, data, drawn
 
 
+def shot_list(only=()):
+    """{name: (card, tag, flags)}: every shot, or those named. The README's
+    but those of one language (menu-pt is that language's own), and EXTRA's.
+    tools/pixel-gate.py keys its kept base frames by it."""
+    shots = {k: v for k, v in R.SHOTS.items() if "--lang" not in v[2]}
+    shots.update(EXTRA)
+    if only:
+        shots = {k: v for k, v in shots.items() if k in only}
+    return shots
+
+
+def cache_dir():
+    if os.environ.get("ZYPEROS_SHOTS_CACHE_DIR"):
+        return Path(os.environ["ZYPEROS_SHOTS_CACHE_DIR"]).expanduser()
+    if sys.platform == "darwin":
+        return Path.home() / "Library" / "Caches" / "ZyperOS" / "i18n-shots"
+    return Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache") / "zyperos" / "i18n-shots"
+
+
+# What a verdict is made of besides the launcher: the cards and their files
+# (res/, the fixtures, the systems), the strings this reads the drawn text
+# against (res/strings, tools/i18n.py), the list of strings no shot draws,
+# and this tool and the one it takes its cards and shots from
+VERDICT_INPUTS = ["res", "tools/i18n-shots.py", "tools/readme-shots.py", "tools/i18n.py",
+                  "tools/i18n-unshot.txt", "tools/fixtures", "config/systems.cfg"]
+
+
+def verdict_key(binary, argv):
+    """A pass's key: the launcher's own bytes (rebuilt from the same source,
+    the same bytes), VERDICT_INPUTS as this tree has them, committed or not
+    (their git hashes, staged into a copy of this worktree's index), the
+    host's SDL, and the arguments. None when git cannot say."""
+    import hashlib
+    h = hashlib.sha256()
+    h.update(binary.read_bytes())
+    paths = [p for p in VERDICT_INPUTS if (ROOT / p).exists()]
+    with tempfile.TemporaryDirectory(prefix="zyperos-i18n-index-") as tmp:
+        index = Path(tmp) / "index"
+        real = subprocess.run(["git", "rev-parse", "--path-format=absolute", "--git-path", "index"],
+                              cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL).stdout.strip()
+        if real and Path(real).is_file():
+            shutil.copyfile(real, index)
+        env = dict(os.environ, GIT_INDEX_FILE=str(index))
+        if subprocess.call(["git", "add", "-A", "--", *paths], cwd=ROOT, env=env,
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL):
+            return None
+        tree = subprocess.run(["git", "write-tree"], cwd=ROOT, env=env, text=True,
+                              stdout=subprocess.PIPE, stderr=subprocess.DEVNULL).stdout.strip()
+        listing = subprocess.run(["git", "ls-tree", tree, "--", *paths], cwd=ROOT, text=True,
+                                 stdout=subprocess.PIPE, stderr=subprocess.DEVNULL).stdout
+    if not tree:
+        return None
+    libs = subprocess.run(["pkg-config", "--modversion", "sdl2", "SDL2_image", "SDL2_ttf"],
+                          text=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL).stdout
+    h.update(("\n".join([listing, libs, sys.platform, repr(argv)])).encode())
+    return h.hexdigest()
+
+
+class Tee:
+    """What is printed, printed and kept: a pass's words are kept with it"""
+    def __init__(self, out):
+        self.out, self.kept = out, []
+
+    def write(self, text):
+        self.kept.append(text)
+        return self.out.write(text)
+
+    def flush(self):
+        self.out.flush()
+
+
 def main():
+    """check() with the run's stops and its kept passes around it: a pass is
+    kept by verdict_key (ZYPEROS_SHOTS_CACHE_DIR; ~/Library/Caches/ZyperOS/
+    i18n-shots on a Mac), and the same launcher and inputs again print it
+    and pass at once (make check run again after a change to a document,
+    a check or the device's system). ZYPEROS_SHOTS_CACHE=0 shoots anyway.
+    Kept only for a run that writes nothing (no --keep, --coverage or
+    --write-unshot)."""
+    import signal
+
+    def stop(signum, frame):
+        raise KeyboardInterrupt
+    signal.signal(signal.SIGTERM, stop)
+    signal.signal(signal.SIGHUP, stop)
+    argv = sys.argv[1:]
+    writes = any(a.startswith(("--keep", "--coverage", "--write-unshot")) for a in argv)
+    key = kept = None
+    binary = ROOT / "build-native" / "zyperos"
+    for i, a in enumerate(argv):
+        if a == "--binary" and i + 1 < len(argv):
+            binary = Path(argv[i + 1]).resolve()
+        elif a.startswith("--binary="):
+            binary = Path(a.split("=", 1)[1]).resolve()
+    if not writes and os.environ.get("ZYPEROS_SHOTS_CACHE", "1") != "0" and binary.is_file():
+        key = verdict_key(binary, argv)
+        if key:
+            kept = cache_dir() / (key + ".txt")
+            if kept.is_file():
+                sys.stdout.write(kept.read_text(encoding="utf-8"))
+                print("(kept: the same launcher and inputs passed on %s; ZYPEROS_SHOTS_CACHE=0 "
+                      "shoots them again)" % time.strftime("%Y-%m-%d %H:%M", time.localtime(kept.stat().st_mtime)))
+                os.utime(kept)
+                return 0
+    tee = Tee(sys.stdout)
+    sys.stdout = tee
+    try:
+        code = check()
+    except KeyboardInterrupt:
+        STOP.set()
+        print("i18n-shots: stopped", file=sys.stderr)
+        code = 130
+    finally:
+        sys.stdout = tee.out
+        for d in SCRATCH:
+            shutil.rmtree(d, ignore_errors=True)
+    if code == 0 and kept is not None:
+        kept.parent.mkdir(parents=True, exist_ok=True)
+        tmp = kept.with_suffix(".%d.tmp" % os.getpid())
+        tmp.write_text("".join(tee.kept), encoding="utf-8")
+        os.replace(tmp, kept)
+        # The 200 passes used last
+        for old in sorted(kept.parent.glob("*.txt"), key=lambda p: p.stat().st_mtime)[:-200]:
+            old.unlink(missing_ok=True)
+    return code
+
+
+def check():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--keep", type=Path, help="keep the frames in DIR/<code>/, or DIR/<device>/<code>/ "
                     "for more than one handheld")
@@ -1126,6 +1361,8 @@ def main():
     ap.add_argument("--jobs", type=int, help="launchers at once (one a language a handheld)")
     ap.add_argument("--device", action="append",
                     help="as this handheld only (more than once for more; all of DEVICES by default)")
+    ap.add_argument("--cards", type=Path, help="clone the cards from DIR, which make_cards made (tools/pixel-gate.py "
+                    "makes them once a gate), and leave it")
     ap.add_argument("only", nargs="*", help="shot names (default: all)")
     args = ap.parse_args()
     if subprocess.call(["pkg-config", "--exists", "sdl2", "SDL2_image", "SDL2_ttf"],
@@ -1137,24 +1374,35 @@ def main():
     if not binary.is_file():
         print("FAIL no build-native/zyperos: make native first", file=sys.stderr)
         return 1
-    # The README's shots of one language (menu-pt) are that language's own
-    shots = {k: v for k, v in R.SHOTS.items() if "--lang" not in v[2]}
-    shots.update(EXTRA)
-    if args.only:
-        shots = {k: v for k, v in shots.items() if k in args.only}
+    shots = shot_list(args.only)
     langs = args.lang or (i18n.CODES + [i18n.PSEUDO])
     keep = args.keep.resolve() if args.keep else None
     runs = [(d, c) for d in devices for c in langs]
 
+    # One launcher a language and handheld, as before 2026-11-18: fewer when
+    # the computer was loaded (its free cores) left a make check's run at two
+    # launchers under other sessions' load, 712.9 s where 18 at once took 166
+    jobs = max(1, min(args.jobs or len(runs), len(runs)))
+    results = {}
+    if args.cards:
+        template = args.cards.resolve()
+    else:
+        template = Path(tempfile.mkdtemp(prefix="zyperos-i18n-cards-"))
+        SCRATCH.append(str(template))
+        make_cards(template)
+
     def run(dc):
         d, c = dc
         out = None if not keep else keep / c if len(devices) == 1 else keep / d / c
-        return run_language(c, shots, binary, out, args.theme, d, d == devices[0])
-
-    results = {}
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, min(args.jobs or len(runs), len(runs)))) as pool:
-        for device, code, notes, failures, data, drawn in pool.map(run, runs):
-            results[(device, code)] = (notes, failures, data, drawn)
+        return run_language(c, shots, binary, out, args.theme, d, d == devices[0], template)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, min(jobs, len(runs)))) as pool:
+        try:
+            for device, code, notes, failures, data, drawn in pool.map(run, runs):
+                results[(device, code)] = (notes, failures, data, drawn)
+        except KeyboardInterrupt:
+            # Each run ends after its shot, and its cards go with it
+            STOP.set()
+            raise
 
     def texts(said):
         # the data each line names, whether it was cut or slides: a name

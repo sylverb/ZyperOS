@@ -107,6 +107,9 @@ int ui_font_set(void);
 /* The face's file of the set that is on (Chinese's while Lexend's is),
  * beside menu.ttf: the title's or the rest's */
 const char *ui_cjk_font_path(bool title, char *out, size_t n);
+/* The Regular face's file of the set that is on: menu.ttf, or 简体中文's or
+ * 日本語's cut beside it; "" before ui_init */
+const char *ui_regular_font_path(char *out, size_t n);
 /* `role`'s face for `l`'s words, whatever language is on: each language's
  * own name in the picker and in MENU > Language's panel */
 TTF_Font *ui_font_lang(ui_font_role role, lang l);
@@ -219,6 +222,13 @@ void ui_fit_text(TTF_Font *f, const char *src, char *dst, size_t dstn,
  * lb_balance, measured in `f`. 0 for no font. */
 int ui_balance_lines(TTF_Font *f, const char *text, int maxw, int cap,
                      char lines[][LB_LINE]);
+
+/* The same, filled: each line with as many words as fit (lb_fill), for a
+ * sentence set left in a list's place, which should reach the panel's right
+ * margin rather than stand in a narrow column (the in-game menu's
+ * Achievements tab) */
+int ui_fill_lines(TTF_Font *f, const char *text, int maxw, int cap,
+                  char lines[][LB_LINE]);
 
 /* Forget the widths, fits and balances remembered on the main thread (ui.c
  * keeps the last 64, as each is a pure function of the face, the text and the

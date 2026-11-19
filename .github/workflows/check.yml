@@ -44,6 +44,46 @@ jobs:
           name: check-logs
           path: build-native/check-logs/
 
+  # The same suite on Linux, beside the macOS job and not instead of it:
+  # Linux runners are many more than macOS ones, and this is the start of
+  # moving the suite there. Not trusted yet: the checks named in CHECKS_SKIP
+  # do not pass on Ubuntu (their first run, 2026-11-18: PNGs the shader demo
+  # writes otherwise, the portal and the play page in another Chrome, the
+  # shot checks' fonts, timing on four cores, Diatom's desktop port), so they
+  # run on macOS only until each is fixed and taken off the list.
+  check-linux:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: SDL2, SQLite, xz, ALSA, curl and OpenSSL for the host launcher, Diatom and the checks
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq pkg-config libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev \
+            libsqlite3-dev liblzma-dev zlib1g-dev libasound2-dev libcurl4-openssl-dev libssl-dev
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Pillow for the image checks
+        run: python -m pip install Pillow
+
+      - name: make check, but for the checks that do not pass on Linux yet
+        run: >
+          make check CHECKS_SKIP="check-hare check-portal check-raoffline check-radl
+          check-signin check-badges check-storage check-play check-spawn check-shaderdemo
+          check-wifi-watch check-launch-start check-putpace check-menu-rows check-diatom
+          check-i18n-shots"
+
+      - name: Keep the logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: check-logs-linux
+          path: build-native/check-logs/
+
   # The device files the macOS job never compiles: the launcher's for the
   # GKD Pixel 2 and the TrimUI Brick with their profiles, and Diatom's ports,
   # syntax only against Ubuntu's headers (make check-device-compile), so a

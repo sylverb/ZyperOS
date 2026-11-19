@@ -1406,6 +1406,9 @@ static int menu_waiting(void)
 		close(fd);
 		return 0;
 	}
+	/* For splash: what the log gets from here on is the menu's, not the
+	 * port's (PORT_MENU_UP), until the loading screen is back */
+	if ((i = open(PORT_MENU_UP, O_WRONLY | O_CREAT | O_CLOEXEC, 0644)) >= 0) close(i);
 	fprintf(stderr, "portkeys: MENU while the port starts (group %d); the menu over its loading screen\n",
 	        (int)pg);
 	if (pg > 1) kill(-pg, SIGSTOP);
@@ -1452,6 +1455,8 @@ static int menu_waiting(void)
 	G.fd = -1;
 	close(fd);
 	wait_released(1500);
+	/* The menu has ended: the port's lines again, from when it goes on */
+	unlink(PORT_MENU_UP);
 	if (pg > 1) {
 		port_input_flush(pg);
 		kill(-pg, SIGCONT);

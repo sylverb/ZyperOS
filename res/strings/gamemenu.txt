@@ -809,16 +809,16 @@ de = LCD-Raster
 ja = LCD グリッド
 it = Griglia LCD
 
-[gamemenu.shader_mixed]
-note = MENU's Shader row's value when the systems do not all have the same shader: each system has its own, chosen in its menu or in a game. Begun with a capital, as a status value.
-en = Per system
-zh-Hans = 按系统
-es = Por sistema
-pt-BR = Por sistema
-fr = Par système
-de = Je System
-ja = システムごと
-it = Per sistema
+[gamemenu.shader_lcd_unlit]
+note = The Shader row's value, on the Game Boy, Game Boy Color and Game Boy Advance only: their LCD grid as the screen looked with no light behind it (no backlight), so white shows the screen's own dull grey instead of glowing. Short, like LCD Grid's.
+en = LCD No Backlight
+zh-Hans = LCD 无背光
+es = LCD sin luz
+pt-BR = LCD sem luz
+fr = LCD sans éclairage
+de = LCD unbeleuchtet
+ja = 反射型 LCD
+it = LCD senza luce
 
 [gamemenu.shader_off_note]
 note = Under the Shader list's picture: what Off does to a game's pixels at a size the screen cannot divide evenly. One short line.
@@ -885,6 +885,28 @@ fr = L'écran d'une console portable : une grille autour de chaque pixel.
 de = Wie ein Handheld: ein Raster um jedes Pixel.
 ja = 携帯機の画面。画素ごとに格子。
 it = Lo schermo di una portatile: una griglia attorno a ogni pixel.
+
+[gamemenu.shader_lcd_unlit_note]
+note = Under the Shader list's picture: what LCD No Backlight looks like, the Game Boy's screen with no light behind it, where a white pixel shows the screen itself. One short line.
+en = No light behind it: white pixels show the screen.
+zh-Hans = 屏幕背后没有光：白色像素露出屏幕本身。
+es = Sin luz detrás: los píxeles blancos dejan ver la pantalla.
+pt-BR = Sem luz atrás: os pixels brancos mostram a própria tela.
+fr = Sans lumière derrière\u00a0: les pixels blancs montrent l'écran.
+de = Kein Licht dahinter: weiße Pixel zeigen den Bildschirm.
+ja = 背面の光なし。白い画素は画面そのもの。
+it = Senza luce dietro: i pixel bianchi mostrano lo schermo.
+
+[gamemenu.shader_screens_note]
+note = Under MENU's Shader list, the same for every choice: that row is for ZyperOS's own screens (the home, the shelves, the menus) while no game is on; each system chooses its games' shader in its own menu. The choice under the cursor shows on the whole screen. Two short lines at most.
+en = For the home and the menus. Each system has its own.
+zh-Hans = 用于主屏幕和菜单。
+es = Para el inicio y los menús. Cada sistema elige el suyo.
+pt-BR = Para o início e os menus. Cada sistema escolhe o seu.
+fr = Pour l'accueil et les menus. Chaque système choisit le sien.
+de = Für Start und Menüs. Jedes System wählt seinen eigenen.
+ja = ホームとメニュー用です。
+it = Per la Home e i menu. Ogni sistema sceglie il suo.
 
 [gamemenu.strength_note]
 note = Under the Strength list's picture, the same for every step: what the percentage sets. One short line.
