@@ -33,9 +33,17 @@ const device_profile device_profile_brick = {
 	.n_buttons = (int)(sizeof brick_buttons / sizeof brick_buttons[0]),
 	.model = &td_model_brick,
 	.bluetooth = true,
+#ifdef ZYPEROS_KIT_BUILD
+	/* A test kit (src/kit.h): the old screens' shaders and the GPU consoles
+	 * on the GPU path (#312), for its tester to try on a real Brick before
+	 * a release turns them on */
+	.gpu_shaders = true,
+	.gpu_frames = true,
+#else
 	.gpu_shaders = false,
 	/* Off until a GPU core runs on its PowerVR (the spec's section 6) */
 	.gpu_frames = false,
+#endif
 	/* The Pixel 2's, but its rumble, until a Brick's own are measured
 	 * (src/device/brick_coreopts.c) */
 	.coreopts = dev_coreopts_brick,
