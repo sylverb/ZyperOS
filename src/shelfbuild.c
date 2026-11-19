@@ -532,15 +532,16 @@ static void drop_recents_shelf(app *a)
  * itself, so its card wears the group's lime (and Folder Color) as a
  * system's folder wears its system's. In one (v->dir its name), its games,
  * each owned by its own system as on Favorites, in the shelf's Sort By; a
- * game's `added` is its line, for Added. A game off the card, or on a system
- * the home does not show, is not in it, and its line stays in the list. */
+ * game's `added` is its line, for Added. A game off the card is not in it,
+ * and its line stays in the list. A game of a system turned off the home
+ * stays, as it does on Favorites and Recents (app.parked). */
 
-/* The game a collection's line names, on a shelf the home shows: its shelf
- * and its place in every game of it (sys_games). Never a group's, never
- * Muse's. */
+/* The game a collection's line names, on a system's shelf, on the home or
+ * turned off it (sys_kept): its shelf and its place in every game of it
+ * (sys_games). Never a group's, never Muse's. */
 static bool coll_resolve(const app *a, const char *folder, const char *file, int *si, int *k)
 {
-	for (int i = 0; i < a->sys.count; i++) {
+	for (int i = 0; i < sys_kept(a); i++) {
 		const game_list *gl;
 
 		if (a->view[i].owner || is_muse(&a->sys.systems[i]) ||
@@ -599,7 +600,7 @@ static int coll_count_games(const app *a)
 	int at[CFG_MAX_SYSTEMS + 1], total = 0, n = 0, si, k;
 	unsigned char *seen;
 
-	for (si = 0; si < a->sys.count && si < CFG_MAX_SYSTEMS; si++) {
+	for (si = 0; si < sys_kept(a) && si < CFG_MAX_SYSTEMS; si++) {   /* off the home too */
 		at[si] = total;
 		total += sys_games_c(&a->view[si])->count;
 	}
@@ -647,8 +648,8 @@ static void build_collections_shelf(app *a)
 	game_entry *items;
 	int *owner, n, at, fav, rec;
 
-	if (coll_count() <= 0 || a->sys.count <= 0 || !homesys_shown(HOMESYS_COLL)) return;
-	if (a->sys.count >= CFG_MAX_SYSTEMS) {
+	if (coll_count() <= 0 || sys_kept(a) <= 0 || !homesys_shown(HOMESYS_COLL)) return;
+	if (sys_kept(a) >= CFG_MAX_SYSTEMS) {
 		fprintf(stderr, "scan: no room for a Collections shelf\n");
 		return;
 	}

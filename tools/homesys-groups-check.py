@@ -24,7 +24,10 @@ favorites and two games played, one of each on the SNES. Then:
 - Delete Game on the SNES game on Favorites takes it off the card and off
   Favorites; on the last one, on Recents, the SNES goes from the systems off
   the home as an emptied shelf goes from the home;
-- with Favorites and Recents off as well, nothing of the SNES is anywhere.
+- a collection naming the SNES game and a GBA one (DESIGN.md 11.54) keeps
+  both, and its shelf, opened on it, looks the same with the SNES off as on;
+- with Favorites, Recents and Collections off as well, nothing of the SNES
+  is anywhere.
 
 Shots of Favorites and Recents in both themes go to
 build-native/homesys-groups-shots/."""
@@ -53,7 +56,7 @@ PLAYED = [('SFC', 'Super Metroid (USA).sfc'), ('GBA', 'Golden Sun (USA).gba')]
 DIATOM = '#!/bin/sh\nprintf "%s\\n" "$@" -- >> "$(dirname "$0")/diatom-args.txt"\nexit 0\n'
 
 
-def card(name, hidden):
+def card(name, hidden, coll=None):
     base = OUT / name
     if base.exists():
         shutil.rmtree(base)
@@ -69,6 +72,9 @@ def card(name, hidden):
             for g in games:
                 (base / 'Roms' / folder / g).write_bytes(b'\0' * 4096)
     (base / 'root/systems.cfg').write_text('\n'.join(rows) + '\n')
+    if coll:
+        (base / 'Collections').mkdir()
+        (base / 'Collections/Couch.txt').write_text(coll)
     (base / 'root/system-icons').symlink_to(ROOT / 'res/system-icons', target_is_directory=True)
     (base / 'root/diatom').write_text(DIATOM)
     (base / 'root/diatom').chmod(0o755)
@@ -110,6 +116,15 @@ def games_on(log, shelf):
     for line in log.splitlines():
         if line.startswith('scan: ') and line[6:].split() [:1] == [shelf] and 'game' in line:
             return int(line.split()[2])
+    return 0
+
+
+def coll_games(log):
+    """'scan: Collections 1 collection, 2 games' -> 2; none -> 0"""
+    for line in log.splitlines():
+        f = line.split()
+        if f[:2] == ['scan:', 'Collections'] and len(f) > 4 and f[4].isdigit():
+            return int(f[4])
     return 0
 
 
@@ -219,12 +234,30 @@ assert 'delete: SFC has no games left, off the home' in log, log[-800:]
 log = run(env, '--shot', str(OUT / 'delete-after.png'), '--screen', 'systems', '--status', STATUS)
 assert games_on(log, 'Favorites') == 1 and games_on(log, 'Recents') == 1, log[-800:]
 
-# Favorites and Recents off as well: the SNES nowhere, the rest as it was
-base, env = card('all-off', 'SFC,FAV,RECENT')
+# A collection with the SNES game and a GBA one keeps both with the SNES off
+# the home, and its shelf, opened on it, is the same pixel for pixel
+COLL = '/Roms/SNES/Chrono Trigger (USA).sfc\n/Roms/Game Boy Advance/Metroid Fusion (USA).gba\n'
+for name, hidden in (('all-on', ''), ('snes-off', 'SFC')):
+    base, env = card(f'coll-{name}', hidden, COLL)
+    run(env, '--set', 'startup_system=Collections')
+    for theme in ('light', 'dark'):
+        log = run(env, '--shot', str(OUT / f'collection-{name}-{theme}.png'), '--screen', 'games',
+                  '--folder', 'Couch', '--phase', '3200', '--status', STATUS, '--theme', theme)
+        assert coll_games(log) == 2, f'the collection with {hidden or "every system"} off has not both games:\n' + log[-800:]
+for theme in ('light', 'dark'):
+    on = Image.open(OUT / f'collection-all-on-{theme}.png').convert('RGB')
+    off = Image.open(OUT / f'collection-snes-off-{theme}.png').convert('RGB')
+    box = ImageChops.difference(on, off).getbbox()
+    assert box is None, f'the collection ({theme}) with the SNES off the home differs from it on, at {box}'
+
+# Favorites, Recents and Collections off as well: the SNES nowhere, the rest
+# as it was
+base, env = card('all-off', 'SFC,FAV,RECENT,COLL', COLL)
 log = shot(base, env, 'home-groups-off', 'Game Boy Advance', 'light')
 assert games_on(log, 'Favorites') == 0 and games_on(log, 'Recents') == 0, log[-800:]
+assert coll_games(log) == 0, 'Collections is on the home with it off:\n' + log[-800:]
 for shelf, game in (('FAV', 'Chrono Trigger (USA).sfc'), ('SFC', 'Chrono Trigger (USA).sfc')):
     got, log = start(base, env, shelf, game)
     assert got is None, f'{shelf} {game} started with the SNES and the groups off'
-print('ok: a system off the home keeps its games on Favorites and Recents, the groups as they were, '
+print('ok: a system off the home keeps its games on Favorites, Recents and Collections, the groups as they were, '
       'and they start and resume there on its own core; off the home and off the groups, nowhere')

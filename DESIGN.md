@@ -5234,14 +5234,14 @@ the card has games for, in the home's order (a system with none is not on the ho
 the page either), each **On** or **Off**, Left, Right or A turning it over,
 heard as a ring, as Side Lights' parts are. Under a rule, the note: "Games
 stay on the card." All of them On as they ship. A system turned off leaves
-the home, and with it Random Game and Search; its games stay on Favorites and
-Recents, start from there on the system's own core and display, and resume
+the home, and with it Random Game and Search; its games stay on Favorites,
+Recents and Collections (11.54), start from there on the system's own core and display, and resume
 there at the next start after a power-off (on Recents, else Favorites), as
 they stay on the card and in File Transfer; its shelf comes back the moment it
 is on again. *(Davistoa on the Discord, 2026-11-19, hides every system and
 lives in Favorites; my OK.)* The systems turned off keep their listings after
-the home's shelves (`app.parked`, `sys_kept`), so Favorites and Recents
-resolve against them as against the home's; `make check-homesys-groups`
+the home's shelves (`app.parked`, `sys_kept`), so Favorites, Recents and
+Collections resolve against them as against the home's; `make check-homesys-groups`
 holds it on the host launcher. On a handheld without GPU frames (the Brick's profile today,
 `plat_gpu_frames`), a system whose cores need them (config/systems.cfg's
 `needs` lines: the Dreamcast, NAOMI, Atomiswave, the N64, the PSP and
@@ -5555,9 +5555,9 @@ the keyboard comes back on what was typed, as Rename's (11.41).
 
 **Collections on the home**, a group like Favorites and Recents, after them
 (first when there are neither), once a collection has a game on the
-shelves: a collection whose games are all off the card, or on systems the
-home does not show, is not there, as a folder with no game is left out
-(11.39). Its card is a placeholder until a real design comes: a stack of
+shelves: a collection whose games are all off the card is not there, as a
+folder with no game is left out (11.39). A game of a system turned off the
+home stays in its collections, as it stays on Favorites and Recents (11.48). Its card is a placeholder until a real design comes: a stack of
 three cartridges, the top one's label lime, lifted off the stack and put
 back in two poses of 400 ms each, as Favorites' heart beats
 (`res/system-art/original/placeholders/collections-card.py`). Under its
