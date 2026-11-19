@@ -372,7 +372,7 @@ void downloads_rows_report(app *a)
 
 /* ---- a shot (--downloads STATE) ------------------------------------------
  * The page on stand-in counts, nothing read: 0 the plan, 1 a run going on,
- * 2 every kind done or out (Videos off, Names needing an account,
+ * 2 every kind done or out (Videos needing an account, Names off,
  * achievements ready offline), 3 no network and nobody signed in, 4 its
  * Settings. The Scraper's and the achievements download's own estimates. */
 int shot_downloads = -1;
@@ -383,7 +383,7 @@ void downloads_shot(app *a)
 	menu_row rows[DSET_ROWS > DL_ROWS ? DSET_ROWS : DL_ROWS];
 	const char *h;
 	int st = shot_downloads, n;
-	dl_now now = { .net = st != 3, .k = { .covers = true, .videos = st != 2, .names = true }, .ach_in = true };
+	dl_now now = { .net = st != 3, .k = { .covers = true, .videos = true, .names = st != 2 }, .ach_in = true };
 
 	memset(&c, 0, sizeof c);
 	c.a = a;
@@ -415,5 +415,5 @@ void downloads_shot(app *a)
 	dl_values(&c, &now);
 	n = dl_rows(&c, rows, &h);
 	ui_scrim(a->r, 0);
-	menu_draw(a, h, rows, n, st == 2 ? DL_NAMES : DL_DOWNLOAD, menu_std_width(a), MENU_ZYPEROS);
+	menu_draw(a, h, rows, n, st == 2 ? DL_VIDEOS : DL_DOWNLOAD, menu_std_width(a), MENU_ZYPEROS);
 }

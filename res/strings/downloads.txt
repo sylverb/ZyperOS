@@ -34,7 +34,7 @@ es = Nada por descargar
 pt-BR = Nada a baixar
 fr = Rien à télécharger
 de = Nichts zu laden
-ja = 取得するものはありません
+ja = すべて取得済み
 it = Niente da scaricare
 
 [downloads.to_fetch_n]
