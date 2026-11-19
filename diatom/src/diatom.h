@@ -329,6 +329,9 @@ typedef struct {
 	char sgb[8];
 	/* SETBORDER: "1", the game's own picture blurred around it (src/border.h) */
 	char blur[4];
+	/* SETBORDER: "WxH+X+Y", where the game goes in the picture's frame,
+	 * in the surface's pixels (a handheld's window, src/border.h) */
+	char brect[32];
 	/* RUN: how hard the motor runs, in percent of what the core asks, 1 to
 	 * 99 (a system whose core shakes harder than the handheld wants:
 	 * PrBoom's every shot); 0, 100 or absent is as asked. See
