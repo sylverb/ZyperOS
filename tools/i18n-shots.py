@@ -852,6 +852,19 @@ for _name, _flags in (("shelf-recents-screen", ["--screen", "games"]),
         SHOT_SETTINGS[_name] = {"recents.picture": "screen"}
 
 
+# The Video view (DESIGN.md 11.54): a game with no snap, its card whole
+# above the band; its snap playing (the test picture), the band up; the band
+# down to its strip, and halfway there; MENU's View on Video and its list
+for _name, _flags in (("shelf-video", ["--screen", "games", "--view", "video"]),
+                      ("shelf-video-snap", ["--screen", "games", "--view", "video", "--snap", "1"]),
+                      ("shelf-video-strip", ["--screen", "games", "--view", "video", "--snap", "1", "--band", "1"]),
+                      ("shelf-video-half", ["--screen", "games", "--view", "video", "--snap", "1", "--band", ".5"]),
+                      ("system-menu-view-video", ["--screen", "games", "--view", "video", "--menu", "View"]),
+                      ("system-menu-view-video-list", ["--screen", "games", "--view", "video", "--menu", "View",
+                                                       "--press", "a"])):
+    EXTRA.setdefault(_name, ("demo", "PS1", _flags))
+
+
 def set_lib(card, settings, on):
     """A shot's keys (SHOT_LIB) into the card's library, or out of it"""
     if not settings:

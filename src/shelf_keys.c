@@ -256,6 +256,15 @@ void update_games(app *a)
 		muse_open(a, NULL, NULL);
 		return;
 	}
+	/* The Video view's band (src/videoview.h): any press, or a button
+	 * held, brings it back up and starts its rest again, and then does
+	 * what it does */
+	if (v->video) {
+		bool any = false;
+
+		for (int b = 0; b < IN_COUNT && !any; b++) any = a->in.pressed[b] || a->in.down[b];
+		if (any) vv_touch(&v->vm, plat_now_ms());
+	}
 	/* The two axes trade roles with the shelf rather than one of them being
 	 * reassigned onto the other: stepping always runs along the row, and the
 	 * letter jump always runs across it. Turning the shelf turns the d-pad
