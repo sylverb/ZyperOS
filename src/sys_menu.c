@@ -290,6 +290,7 @@ int sys_menu_muse_rows(int kind, bool both, bool no_wifi, sm_muse_row *out)
 	out[n++] = SMM_LOCK;
 	if ((kind == 0 || kind == 3) && !no_wifi) out[n++] = SMM_ART;
 	out[n++] = SMM_RESCAN;
+	out[n++] = SMM_QUIT;
 	return n;
 }
 
@@ -412,6 +413,10 @@ int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
 					break;
 				case SMM_RESCAN:
 					out[k] = (menu_row){ T(S_SYSMENU_RESCAN), NULL, true };
+					break;
+				/* X does it from any row, and its glyph says so */
+				case SMM_QUIT:
+					out[k] = (menu_row){ T(S_SYSMENU_MUSE_QUIT), MENU_KEY_X, true };
 					break;
 				}
 			return n;

@@ -33,7 +33,8 @@ void ds_switch(SDL_Renderer *r, int cx, int cy, int d, ui_glyph g, bool on)
 void ds_play_disc(SDL_Renderer *r, int x, int y, int d, Uint8 al)
 {
 	ui_round_rect(r, &(SDL_Rect){ x, y, d, d }, d / 2, ui_col(theme()->accent, al));
-	ui_glyph_draw(r, UI_GLYPH_PLAY, x + d / 2 + d / 16, y + d / 2, d / 2, ui_col(theme()->on_accent, al));
+	/* On the disc's middle: the glyph centers its triangle by its centroid */
+	ui_glyph_draw(r, UI_GLYPH_PLAY, x + d / 2, y + d / 2, d / 2, ui_col(theme()->on_accent, al));
 }
 
 void ds_more(SDL_Renderer *r, float cx, float top, bool up, SDL_Color c)
