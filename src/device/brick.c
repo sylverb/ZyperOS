@@ -184,6 +184,9 @@ bool plat_save_screen(const char *path) { (void)path; return false; }
  * picture is the average of the 1.6 x 1.6 frame pixels under it, two taps a
  * way, so text keeps its weight. A few frames at Flash Drive's start: a
  * read back here costs nothing a game would see. */
+/* usbdrive's pictures' size on every device: src/usbdrive_screen.c's
+ * UD_SAVE_W and UD_SAVE_H, the units its atlas is written in (a file's
+ * format, not a place on this screen) */
 #define SAVE_W 640
 #define SAVE_H 480
 bool plat_save_screen_hidden(const char *path)
