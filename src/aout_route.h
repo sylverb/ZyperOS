@@ -6,6 +6,7 @@
  * the setting, the cable, the headset - and tells Diatom, Muse and the
  * interface sounds. Each is described in src/aout_route.c. */
 #include "audioout.h"
+#include "eq.h"
 
 #include <stdbool.h>
 
@@ -28,6 +29,13 @@ aout_dest   aout_actual(const aout_state *s);
 
 /* Route Diatom, Muse and the interface sounds; on a change, or `force` */
 void aout_apply(bool force);
+/* The equalizer (src/eq.h), told with the routes: its settings changed, so
+ * the next aout_apply reads them again; the Equalizer page's list heard
+ * before it is chosen, the output in use on `db` (NULL: the settings
+ * again); and the page open, for MP4's short queue */
+void eq_route_changed(void);
+void eq_route_preview(eq_out o, const int8_t *db);
+void eq_route_live(bool on);
 /* The interface sounds alone, every frame of a screen that does not route */
 void ui_sounds_follow(void);
 /* musec's hook, just before a PLAY or RESUME */
