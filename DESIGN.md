@@ -5668,3 +5668,8 @@ Display, Shader and the buttons stay the system's, whatever the core.
 Gambatte is libretro/gambatte-libretro at 77f2567, built in the small
 cores' image (mk/build-small-cores.sh, Debian bullseye's GCC 10, checked for
 undefined symbols and pinned by sha256), the same binary for both handhelds.
+No machine has to remember to build it: tools/release.sh, tools/px2-payload.sh
+and plastron's card builds run `mk/build-small-cores.sh --missing` first,
+which builds a small core systems.cfg names and the vendor folder lacks and
+only looks when none is missing; mk/payload.sh, which refuses a card without
+it, names that command.

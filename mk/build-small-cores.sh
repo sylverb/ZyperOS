@@ -39,9 +39,19 @@
 # different binary into vendor/cores.
 #
 # Usage: mk/build-small-cores.sh [work dir] [core...]
-# With core names after the work dir, only those are built.
+#        mk/build-small-cores.sh --missing [work dir]
+# With core names after the work dir, only those are built. --missing builds
+# the ones config/systems.cfg names that the vendor folder does not have yet,
+# and when it has them all it is done at once, Docker never started:
+# tools/release.sh, tools/px2-payload.sh and plastron's card builds run it
+# first, so a core added here reaches every machine that makes a card with no
+# step to remember (gambatte, in 1.0.7). The cores go into ZYPEROS_VENDOR's
+# cores/ when it is set, else vendor/ beside this script.
 set -e
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
+VENDOR=${ZYPEROS_VENDOR:-$ROOT/vendor}
+MISSING=
+if [ "${1:-}" = --missing ]; then MISSING=1; shift; fi
 WORK=${1:-/tmp/zyperos-small-cores}
 [ $# -gt 0 ] && shift
 ONLY=" $* "
@@ -56,10 +66,23 @@ gambatte|libretro/gambatte-libretro|77f2567d718b8973d02caa2daa8dce4953faf811|45e
 prboom|libretro/libretro-prboom|4849268e7342494193f2bbf2d0128a751cf58da7|36a069cf09053388d719e2694a509cb8d2d152137b66adbef8fccba8373f8879|5acac01568c15e18ce4d590838c20bb86acf5f5bf03f28a394a324b87fe09e74|.|GIT_VERSION=4849268
 '
 
+if [ -n "$MISSING" ]; then
+	# the libretro cores the shelves name, as mk/payload.sh reads them
+	want=" $(awk -F'|' '$1=="sys"{n=split($4, c, ","); for (i = 1; i <= n; i++) {
+	             gsub(/^[ \t]+|[ \t]+$/,"",c[i]); print c[i] } }' "$ROOT/config/systems.cfg" | sort -u | tr '\n' ' ')"
+	ONLY=" "
+	for name in $(echo "$CORES" | cut -d'|' -f1); do
+		case $want in *" $name "*) ;; *) continue ;; esac
+		[ -f "$VENDOR/cores/${name}_libretro.so" ] || ONLY="$ONLY$name "
+	done
+	[ "$ONLY" != " " ] || exit 0
+	echo "build-small-cores: $VENDOR/cores lacks${ONLY% }; building it now"
+fi
+
 command -v docker >/dev/null || { echo "need docker" >&2; exit 1; }
 command -v curl   >/dev/null || { echo "need curl" >&2; exit 1; }
 docker build --platform linux/arm64 -q -f "$ROOT/mk/flycast2021.Dockerfile" -t zyperos-flycast2021 "$ROOT/mk" >/dev/null
-mkdir -p "$WORK" "$ROOT/vendor/cores"
+mkdir -p "$WORK" "$VENDOR/cores"
 
 echo "$CORES" | while IFS='|' read -r name repo pin tar_sha sha dir args; do
 	[ -n "$name" ] || continue
@@ -96,8 +119,8 @@ strip --strip-unneeded $SO
 		echo "  update its sha256 here." >&2
 		exit 1
 	fi
-	cp "$so" "$ROOT/vendor/cores/${name}_libretro.so"
+	cp "$so" "$VENDOR/cores/${name}_libretro.so"
 	echo "  built  $name ($pin)"
 	# Which patches are in it, for mk/payload.sh to hold it to
-	if [ -n "$patched" ]; then sh "$ROOT/mk/core-stamp.sh" write "$name"; fi
+	if [ -n "$patched" ]; then sh "$ROOT/mk/core-stamp.sh" write "$name" "$VENDOR"; fi
 done
