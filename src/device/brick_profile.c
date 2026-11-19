@@ -5,6 +5,9 @@
 #include "profile.h"
 #include "brick_buttons.h"
 
+/* Its core options (src/device/brick_coreopts.c), linked in its build alone */
+extern const dev_default dev_coreopts_brick[];
+
 /* The A133's sensors as its device tree names their zones
  * (plastron/buildroot/board/brick/dts/sun50iw10p1-trimui-brick.dts): the
  * CPU's, whose trips slow the CPU at 58 and 63 C and power the Brick off at
@@ -33,8 +36,9 @@ const device_profile device_profile_brick = {
 	.gpu_shaders = false,
 	/* Off until a GPU core runs on its PowerVR (the spec's section 6) */
 	.gpu_frames = false,
-	/* None measured on it yet: every device's alone */
-	.coreopts = NULL,
+	/* The Pixel 2's, but its rumble, until a Brick's own are measured
+	 * (src/device/brick_coreopts.c) */
+	.coreopts = dev_coreopts_brick,
 	.speaker_mono = false,
 	.player2 = false,
 	.usb_shared_port = false,

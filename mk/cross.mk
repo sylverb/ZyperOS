@@ -16,7 +16,8 @@ MCPU := -mcpu=$(ZYDEV_MCPU)
 SRC := $(I18N_TABLES) $(filter-out $(I18N_TABLES),$(wildcard src/*.c)) $(wildcard src/ds/*.c) src/device/$(DEVICE).c src/device/$(DEVICE)_profile.c \
        $(wildcard src/device/$(DEVICE)_hw.c) \
        src/device/td_model.c $(wildcard src/device/$(DEVICE)_model.c) \
-       src/device/pixel2_coreopts.c
+       src/device/pixel2_coreopts.c \
+       $(filter-out src/device/pixel2_coreopts.c,$(wildcard src/device/$(DEVICE)_coreopts.c))
 CC ?= aarch64-linux-gnu-gcc
 
 VERSION ?= 0.0
