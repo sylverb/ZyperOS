@@ -439,7 +439,8 @@ static bool pack_logs(char *path, size_t pn, char *name, size_t nn)
 	bt_device  bt[BT_MAX];
 	const char *secrets[WIFI_MAX_NETS + BT_MAX + 5];
 	char       now_ssid[WIFI_SSID_MAX] = "", ip[64], logs[CFG_STR * 2];
-	char       folder[64], about[8192], err[128], stamp[32], sysver[64] = "-", hw[3072];
+	char       folder[64], about[8192 + HWREPORT_KIT_ROOM], err[128], stamp[32], sysver[64] = "-",
+	           hw[3072 + HWREPORT_KIT_ROOM];
 	hw_facts   facts;
 	int        n = 0, saved, nb, i;
 	size_t     at = 0;

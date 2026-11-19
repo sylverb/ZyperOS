@@ -51,6 +51,16 @@ CFLAGS += -I$(BUILD)
 CFLAGS += -Isrc
 # The device's profile is the one in force (src/profile.c)
 CFLAGS += -DZYPEROS_PROFILE=device_profile_$(DEVICE)
+# A test kit's build (src/kit.h; docs/building.md, "Test kits"): a VERSION
+# with "-kit" in it (tools/release.sh --kit, such as 1.0.7-kit.1) defines
+# ZYPEROS_KIT_BUILD and links the device's kit file, src/device/<id>_kit.c,
+# where it has one. A release's VERSION never has it, so a release compiles
+# the same objects with the same line as if neither existed (make
+# check-kitbuild). The host's build (mk/native.mk) is never a kit.
+ifneq ($(findstring -kit,$(VERSION)),)
+CFLAGS += -DZYPEROS_KIT_BUILD
+SRC += $(wildcard src/device/$(DEVICE)_kit.c)
+endif
 
 .PHONY: creds
 creds:

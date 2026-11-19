@@ -54,7 +54,7 @@ CHECKS = check-cheevos check-hare check-portal check-httpd check-idle check-task
          check-tour check-tour-shots check-tour-previews check-textfade check-glyphs check-scale check-shaderdemo check-screenfx check-ds check-layout-ratchet check-flex check-hover check-hover-sweep check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pmhelper check-pmart check-portdoc check-boottheme check-splashbright check-bootbright check-panelgamma check-panelgamma-sunxi check-nightmode check-displayback check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-start-soc check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr \
          check-home check-home-shots check-games check-cardpaint check-putpace check-favorites-shots check-np-footer check-menu-rows check-layout-shots check-artbadge check-artbadge-shots check-cardart-shots checkmark \
          check-installer check-from-rogue check-importers check-diatom check-simulator check-px2sim check-building-doc check-blog check-discord-release \
-         check-release-devices check-strings check-i18n-shots check-rootswitch check-datapart check-brick-closed check-hwreport
+         check-release-devices check-strings check-i18n-shots check-rootswitch check-datapart check-brick-closed check-hwreport check-kitbuild
 
 # All of them at once, as many at a time as there are cores (CHECK_JOBS=1 for
 # one after another), each into build-native/check-logs/: tools/check-run.py
@@ -1279,6 +1279,13 @@ check-hwreport:
 	@$(CC) -std=gnu11 -Wall -Wextra -O1 -g -o build-native/hwreport-check tools/hwreport-check.c src/hwreport.c
 	@./build-native/hwreport-check
 
+# A test kit's code reaches a kit alone (src/kit.h, tools/kitbuild-check.sh):
+# mk/cross.mk adds ZYPEROS_KIT_BUILD and the device's kit file only for a
+# VERSION with "-kit", the hooks' objects have none of it without the define
+# and all of it with it, and the host launcher, never a kit, has none
+check-kitbuild:
+	@CC='$(CC)' DEVICE_PROFILES='$(DEVICE_PROFILES)' DEVICE_BUILDS='$(DEVICE_BUILDS)' sh tools/kitbuild-check.sh
+
 # What the tools left in the temporary folder and the worktrees' gate frames
 # that nothing touched for a day (tools/clean-scratch.py; -n lists only):
 # scratch cards of runs stopped hard, about 250 MB a language
@@ -1564,6 +1571,8 @@ check-device-compile:
 	$(CC) $$F $$D $$(pkg-config --cflags sdl2 egl glesv2) \
 		diatom/port/brick.c diatom/port/osdbar.c diatom/port/themefile.c diatom/port/hud.c \
 		diatom/port/panelgamma.c; \
+	echo "  launcher: a test kit's src/device/brick_kit.c and src/device/brick_hw.c (ZYPEROS_KIT_BUILD)"; \
+	$(CC) $$F -DZYPEROS_KIT_BUILD -Isrc $$S src/device/brick_kit.c src/device/brick_hw.c; \
 	echo "  diatom: port/pixel2.c"; \
 	$(CC) $$F $$D $$(pkg-config --cflags sdl2 egl glesv2 gbm libdrm) \
 		diatom/port/pixel2.c diatom/port/rumble_evdev.c diatom/port/panelgamma.c; \
