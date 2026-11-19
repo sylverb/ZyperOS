@@ -119,10 +119,10 @@ static SDL_Texture *stand_in(SDL_Renderer *r)
  * at the Super Game Boy's 256x224 around it: drawn once each. The border is
  * ours, a game's own kind of border (a pattern round a window), with the
  * 160x144 window at (48, 40) where the Super Game Boy puts the game. */
-#define GB_W 160
-#define GB_H 144
-#define SGB_W 256
-#define SGB_H 224
+#define GB_COLS 160
+#define GB_LINES 144
+#define SGB_COLS 256
+#define SGB_LINES 224
 static const Uint8 GB_SHADE[4][3] = {
 	{ 202, 220, 159 }, { 139, 172, 15 }, { 48, 98, 48 }, { 15, 56, 15 },
 };
@@ -131,7 +131,7 @@ static SDL_Texture *gb_stand_in(SDL_Renderer *r, bool border)
 {
 	static SDL_Texture *t[2];
 	static SDL_Renderer *made[2];
-	const int sw = border ? SGB_W : GB_W, sh = border ? SGB_H : GB_H;
+	const int sw = border ? SGB_COLS : GB_COLS, sh = border ? SGB_LINES : GB_LINES;
 	SDL_Surface *s;
 	int x, y;
 
@@ -196,16 +196,16 @@ void dmode_sgb_preview(app *a, int dmode, int k, int x, int y, int w, int h)
 	dmode_surface(&surf_w, &surf_h);
 	dmode = dmode >= 0 && dmode < DMODE_COUNT ? dmode : 0;
 	box = ds_preview_screen_begin(a->r, &screen);
-	fit = dmode_fit(DMODES[dmode].name, sgb ? SGB_W : GB_W, sgb ? SGB_H : GB_H, 0, surf_w, surf_h);
+	fit = dmode_fit(DMODES[dmode].name, sgb ? SGB_COLS : GB_COLS, sgb ? SGB_LINES : GB_LINES, 0, surf_w, surf_h);
 	if (fit.w > 0 && fit.h > 0) {
 		const SDL_Rect pic = in_box(&box, surf_w, surf_h, fit.x, fit.y, fit.w, fit.h);
 
 		SDL_RenderSetClipRect(a->r, &box);
 		if (sgb) {
 			/* The game's window, at the same scale as the frame */
-			const SDL_Rect win = in_box(&box, surf_w, surf_h, fit.x + 48 * fit.w / SGB_W,
-			                            fit.y + 40 * fit.h / SGB_H, GB_W * fit.w / SGB_W,
-			                            GB_H * fit.h / SGB_H);
+			const SDL_Rect win = in_box(&box, surf_w, surf_h, fit.x + 48 * fit.w / SGB_COLS,
+			                            fit.y + 40 * fit.h / SGB_LINES, GB_COLS * fit.w / SGB_COLS,
+			                            GB_LINES * fit.h / SGB_LINES);
 
 			SDL_Texture *bt = gb_stand_in(a->r, true);
 
