@@ -1,5 +1,5 @@
 #!/bin/sh
-# The equalizer over a port's sound (DESIGN.md 11.54). launch.sh runs it
+# The equalizer over a port's sound (DESIGN.md 11.55). launch.sh runs it
 # before each port:
 #
 #   eq-port.sh --on            exit 0 while the launcher's bands are not flat
