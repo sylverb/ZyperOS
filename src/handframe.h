@@ -35,14 +35,20 @@ typedef struct { uint8_t r, g, b; } hf_rgb;
 
 /* A rounded rectangle on the face, in millimetres from the LCD's active
  * area's top left (x right, y down), its corners' radii top left, top right,
- * bottom right, bottom left */
+ * bottom right, bottom left. Its top or bottom edge may be an arc instead
+ * of straight (the Game Boy Color's lens's bottom, the Advance's top and
+ * bottom): `sag_top`, `sag_bot` how far the arc's middle stands out past
+ * where its ends are, y0 and y1 being the arc's middle; the corners beside
+ * an arc are then fillets of their radius between the side and the arc. */
 typedef struct {
 	float x0, y0, x1, y1;
 	float r[4];
+	float sag_top, sag_bot;
 } hf_rrect;
 
 /* What a part of the face is filled with: one of the model's own colors, or
- * the body's color of the variant drawn (a Game Boy Color's Yellow, Teal...) */
+ * the body's color of the variant drawn (a Game Boy Color's Yellow, Teal...)
+ * or its shade (the body's edge, where it turns away) */
 typedef enum { HF_OWN, HF_BODY, HF_BODY_DARK } hf_paint;
 
 typedef struct {
@@ -51,7 +57,7 @@ typedef struct {
 	hf_rgb   color;     /* HF_OWN's */
 } hf_part;
 
-#define HF_PARTS 12
+#define HF_PARTS 16
 #define HF_COLORS 8
 
 typedef struct {
@@ -75,7 +81,8 @@ typedef enum { HF_CUT, HF_WHOLE } hf_kind;
 
 /* Where the game goes for `kind` on a surface `w` x `h`: its rect, a whole
  * number of panel pixels a game pixel (`*scale`). False where the game does
- * not fit at 1x (and Whole where the full size is 1x already). */
+ * not fit at 1x, and Whole where a step smaller than the full size would be
+ * under 2x (the Advance on the Pixel 2's 640x480: 2x is its full size). */
 bool hf_place(const hf_model *m, hf_kind kind, int w, int h, int *scale, int *gx, int *gy, int *gw, int *gh);
 
 /* The frame, `w` x `h` BGRA, opaque, around the game at gx, gy, gw x gh,

@@ -55,10 +55,8 @@ int border_offered(border_offer o, border_kind *out)
 
 	out[n++] = BORDER_OFF;
 	if (o.blur) out[n++] = BORDER_BLUR;
-	if (o.handheld) {
-		out[n++] = BORDER_HANDHELD;
-		out[n++] = BORDER_WHOLE;
-	}
+	if (o.handheld) out[n++] = BORDER_HANDHELD;
+	if (o.handheld && o.whole) out[n++] = BORDER_WHOLE;
 	if (o.own) out[n++] = BORDER_OWN;
 	return n;
 }
@@ -68,6 +66,7 @@ border_kind border_shown(border_kind kept, border_offer o)
 	if (kept == BORDER_BLUR && !o.blur) return BORDER_OFF;
 	if (kept == BORDER_OWN && !o.own) return BORDER_OFF;
 	if ((kept == BORDER_HANDHELD || kept == BORDER_WHOLE) && !o.handheld) return BORDER_OFF;
+	if (kept == BORDER_WHOLE && !o.whole) return BORDER_OFF;
 	return kept >= 0 && kept < BORDER_KINDS ? kept : BORDER_OFF;
 }
 

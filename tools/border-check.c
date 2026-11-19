@@ -32,13 +32,16 @@ int main(void)
 	border_key("GB", key, sizeof key);
 	ck(!strcmp(key, "border.GB"), "the system's own key, by its tag");
 
-	const border_offer all = { true, true, true }, blur_own = { true, false, true }, own_only = { false, false, true };
-	const border_offer blur_only = { true, false, false }, none = { false, false, false };
+	const border_offer all = { true, true, true, true }, blur_own = { true, false, false, true };
+	const border_offer own_only = { false, false, false, true }, blur_only = { true, false, false, false };
+	const border_offer none = { false, false, false, false }, cut_only = { true, true, false, true };
 
 	ck(border_offered(all, list) == 5 && list[0] == BORDER_OFF && list[1] == BORDER_BLUR &&
 	   list[2] == BORDER_HANDHELD && list[3] == BORDER_WHOLE && list[4] == BORDER_OWN,
 	   "Off, Blur, Handheld, Handheld Whole, Your Own, in that order");
 	ck(border_offered(blur_own, list) == 3 && list[2] == BORDER_OWN, "no Handheld frames where none is drawn");
+	ck(border_offered(cut_only, list) == 4 && list[2] == BORDER_HANDHELD && list[3] == BORDER_OWN &&
+	   border_shown(BORDER_WHOLE, cut_only) == BORDER_OFF, "Handheld without Whole where Whole has no placement");
 	ck(border_offered(own_only, list) == 2 && list[1] == BORDER_OWN, "no Blur where the device has none");
 	ck(border_offered(blur_only, list) == 2 && list[1] == BORDER_BLUR, "no Your Own without a picture");
 	ck(border_offered(none, list) == 1, "Off alone");

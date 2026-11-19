@@ -68,6 +68,7 @@ void border_key(const char *tag, char *out, size_t n);
 typedef struct {
 	bool blur;      /* the device draws Blur (border_blur_here) */
 	bool handheld;  /* a frame is drawn for the system and the mode is Sharp Pixels */
+	bool whole;     /* ...and Handheld, Whole has a placement here (2x or more) */
 	bool own;       /* the card has a picture for it */
 } border_offer;
 

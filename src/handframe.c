@@ -11,7 +11,9 @@ bool hf_place(const hf_model *m, hf_kind kind, int w, int h, int *scale, int *gx
 
 	if (!m || m->cols <= 0 || m->lines <= 0 || w <= 0 || h <= 0) return false;
 	s = w / m->cols < h / m->lines ? w / m->cols : h / m->lines;
-	if (kind == HF_WHOLE) s--;
+	/* Whole is a step smaller, and never down to 1x: a game a quarter of
+	 * the screen is no game to play (the Advance on the Pixel 2) */
+	if (kind == HF_WHOLE) s = s >= 3 ? s - 1 : 0;
 	if (s < 1) return false;
 	*scale = s;
 	*gw = m->cols * s;
@@ -48,31 +50,46 @@ void hf_px_rect(const hf_model *m, const hf_rrect *r, int gx, int gy, int gw, in
 	*y1 = gy + (int)lroundf(r->y1 * py);
 }
 
-/* How much of pixel (x, y) the rounded rect covers, 0 to 1: whole inside its
- * straight edges, by distance from the centre of a corner's arc in a corner */
-static float cover(int x, int y, int x0, int y0, int x1, int y1, const float rad[4])
+/* The signed distance, in pixels, from a point to a shape (negative inside):
+ * a box with rounded corners (Inigo Quilez's rounded box, a radius a
+ * corner), cut by an arc on its top or bottom where it has one, a fillet of
+ * the corner's radius between the side and the arc */
+typedef struct {
+	float cx, cy, hx, hy;   /* the box's centre and half sizes */
+	float r[4];             /* tl, tr, br, bl, pixels */
+	float ax, at_y, at_r;   /* top arc's centre y and radius (at_r 0: none) */
+	float ab_y, ab_r;       /* bottom arc's */
+	float ft, fb;           /* fillets beside the top and bottom arcs */
+} sdf_shape;
+
+static float box_d(const sdf_shape *s, float px, float py)
 {
-	const float cx = (float)x + 0.5f, cy = (float)y + 0.5f;
-	int k;
+	const float dx = px - s->cx, dy = py - s->cy;
+	const float r = dx >= 0 ? (dy >= 0 ? s->r[2] : s->r[1]) : (dy >= 0 ? s->r[3] : s->r[0]);
+	const float qx = fabsf(dx) - s->hx + r, qy = fabsf(dy) - s->hy + r;
+	const float mx = qx > 0 ? qx : 0, my = qy > 0 ? qy : 0;
 
-	if (x < x0 || x >= x1 || y < y0 || y >= y1) return 0.0f;
-	for (k = 0; k < 4; k++) {
-		const float r = rad[k];
-		/* The arc's centre for corner k: top left, top right, bottom right,
-		 * bottom left */
-		const float ax = k == 0 || k == 3 ? (float)x0 + r : (float)x1 - r;
-		const float ay = k < 2 ? (float)y0 + r : (float)y1 - r;
-		const bool in_x = k == 0 || k == 3 ? cx < ax : cx > ax;
-		const bool in_y = k < 2 ? cy < ay : cy > ay;
+	return fminf(fmaxf(qx, qy), 0.0f) + sqrtf(mx * mx + my * my) - r;
+}
 
-		if (r > 0.0f && in_x && in_y) {
-			const float d = sqrtf((cx - ax) * (cx - ax) + (cy - ay) * (cy - ay));
-			const float c = r - d + 0.5f;
+/* Two shapes' intersection with a fillet of radius r where they meet */
+static float round_cut(float a, float b, float r)
+{
+	const float ux = r + a > 0 ? r + a : 0, uy = r + b > 0 ? r + b : 0;
 
-			return c <= 0.0f ? 0.0f : c >= 1.0f ? 1.0f : c;
-		}
-	}
-	return 1.0f;
+	if (r <= 0) return fmaxf(a, b);
+	return fminf(-r, fmaxf(a, b)) + sqrtf(ux * ux + uy * uy);
+}
+
+static float shape_d(const sdf_shape *s, float px, float py)
+{
+	float d = box_d(s, px, py);
+
+	if (s->at_r > 0)   /* inside the disk under the top arc */
+		d = round_cut(d, sqrtf((px - s->ax) * (px - s->ax) + (py - s->at_y) * (py - s->at_y)) - s->at_r, s->ft);
+	if (s->ab_r > 0)
+		d = round_cut(d, sqrtf((px - s->ax) * (px - s->ax) + (py - s->ab_y) * (py - s->ab_y)) - s->ab_r, s->fb);
+	return d;
 }
 
 static hf_rgb paint_of(const hf_model *m, const hf_part *p, int color)
@@ -88,32 +105,60 @@ void hf_render(const hf_model *m, int color, int w, int h, int gx, int gy, int g
 	int i, x, y;
 
 	if (color < 0 || color >= m->ncolors) color = 0;
-	/* The body, the whole panel */
+	/* Black where the handheld is not: past its body's edge, as a handheld
+	 * shot on black is. The body is a part, the first. */
 	for (i = 0; i < w * h; i++) {
-		bgra[i * 4]     = m->body[color].b;
-		bgra[i * 4 + 1] = m->body[color].g;
-		bgra[i * 4 + 2] = m->body[color].r;
+		bgra[i * 4] = bgra[i * 4 + 1] = bgra[i * 4 + 2] = 0;
 		bgra[i * 4 + 3] = 255;
 	}
 	for (i = 0; i < m->nparts; i++) {
 		const hf_part *p = &m->part[i];
 		const hf_rgb c = paint_of(m, p, color);
+		const float rs = px < py ? px : py;
 		int x0, y0, x1, y1, k;
-		float rad[4];
+		sdf_shape sh;
 
 		hf_px_rect(m, &p->shape, gx, gy, gw, gh, &x0, &y0, &x1, &y1);
-		/* A radius in pixels, the smaller of its two scales (a corner is
-		 * round on the face), no larger than half the side */
+		if (x1 <= x0 || y1 <= y0) continue;
+		sh.cx = (float)(x0 + x1) / 2.0f;
+		sh.cy = (float)(y0 + y1) / 2.0f;
+		sh.hx = (float)(x1 - x0) / 2.0f;
+		sh.hy = (float)(y1 - y0) / 2.0f;
+		sh.ax = sh.cx;
+		/* A radius in pixels, at the smaller of the two scales (a corner is
+		 * round on the face), no more than half the shorter side; none at a
+		 * corner beside an arc, whose fillet it is instead */
 		for (k = 0; k < 4; k++) {
-			float r = p->shape.r[k] * (px < py ? px : py);
+			float r = p->shape.r[k] * rs;
 
-			if (r > (float)(x1 - x0) / 2.0f) r = (float)(x1 - x0) / 2.0f;
-			if (r > (float)(y1 - y0) / 2.0f) r = (float)(y1 - y0) / 2.0f;
-			rad[k] = r < 0.0f ? 0.0f : r;
+			if (r > sh.hx) r = sh.hx;
+			if (r > sh.hy) r = sh.hy;
+			sh.r[k] = r < 0 ? 0 : r;
+		}
+		sh.at_r = sh.ab_r = 0;
+		sh.ft = sh.fb = 0;
+		if (p->shape.sag_top > 0) {
+			const float sg = p->shape.sag_top * py, a = sh.hx;
+
+			sh.at_r = (a * a + sg * sg) / (2.0f * sg);
+			sh.at_y = (float)y0 + sh.at_r;
+			sh.ft = fmaxf(sh.r[0], sh.r[1]);
+			sh.r[0] = sh.r[1] = 0;
+		}
+		if (p->shape.sag_bot > 0) {
+			const float sg = p->shape.sag_bot * py, a = sh.hx;
+
+			sh.ab_r = (a * a + sg * sg) / (2.0f * sg);
+			sh.ab_y = (float)y1 - sh.ab_r;
+			sh.fb = fmaxf(sh.r[2], sh.r[3]);
+			sh.r[2] = sh.r[3] = 0;
 		}
 		for (y = y0 < 0 ? 0 : y0; y < y1 && y < h; y++)
 			for (x = x0 < 0 ? 0 : x0; x < x1 && x < w; x++) {
-				const float a = cover(x, y, x0, y0, x1, y1, rad);
+				/* Coverage from the distance at the pixel's centre: a straight
+				 * edge on a pixel boundary is 0 or 1, an arc is smoothed */
+				const float dd = shape_d(&sh, (float)x + 0.5f, (float)y + 0.5f);
+				const float a = 0.5f - dd < 0 ? 0 : 0.5f - dd > 1 ? 1 : 0.5f - dd;
 				uint8_t *d = bgra + ((size_t)y * w + x) * 4;
 
 				if (a <= 0.0f) continue;

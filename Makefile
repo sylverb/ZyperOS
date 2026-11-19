@@ -48,7 +48,7 @@ CHECKS = check-cheevos check-hare check-portal check-httpd check-idle check-task
          check-raset check-xfer check-sshlink check-usblink check-devmode check-devices check-devicegen check-model check-ctl check-menus check-artscrape check-artrun check-sgdb check-snapshelf check-snaps check-audioout \
          check-db check-coreopts check-gamedel check-gamern check-esmedia check-media check-snapsize check-corepins check-targets check-storage check-stats check-sort check-bt check-ss check-titles check-savedlib check-search \
          check-muselib check-musequeue check-museart check-mp4lock check-mp4frame check-mp4size check-p2share check-webtheme check-p2ws check-p2codec check-p2d check-play check-p2 check-resident check-spawn check-controls check-remap check-controls-shots check-logpack \
-         check-clock check-autozone check-status check-battery check-battery-eta check-dslang check-pacing check-sgbmode check-border check-gpuframes check-dsresume check-corestate check-core-stamp check-core-room check-px2-perf check-px2-snap check-px2 check-lowbatt check-powerhold check-homesys check-heat check-charging check-corner check-dsv check-sidelights check-osdbar check-hud check-dmodefit check-themefile check-pkkeys check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-bios check-gamefile check-kbnav check-randgame check-shelfdir check-look \
+         check-clock check-autozone check-status check-battery check-battery-eta check-dslang check-pacing check-sgbmode check-border check-handframe check-gpuframes check-dsresume check-corestate check-core-stamp check-core-room check-px2-perf check-px2-snap check-px2 check-lowbatt check-powerhold check-homesys check-heat check-charging check-corner check-dsv check-sidelights check-osdbar check-hud check-dmodefit check-themefile check-pkkeys check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-bios check-gamefile check-kbnav check-randgame check-shelfdir check-look \
          check-tween check-menumotion check-menusnap check-cardgen check-cardart check-focusfx check-blur check-gridrule check-roundrect check-rowmacro check-emptyhome check-zyperrig check-sysmark check-flip check-menushots check-design \
          check-systemart check-linebreak check-portload check-portout check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-messages \
          check-tour check-tour-shots check-tour-previews check-textfade check-glyphs check-scale check-shaderdemo check-screenfx check-ds check-layout-ratchet check-flex check-hover check-hover-sweep check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pmhelper check-pmart check-portdoc check-boottheme check-splashbright check-bootbright check-panelgamma check-panelgamma-sunxi check-nightmode check-displayback check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-start-soc check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr \
@@ -406,6 +406,19 @@ check-border: build-native/border-check
 build-native/border-check: tools/border-check.c src/border.c src/border.h src/dmodefit.c src/dmodefit.h src/i18n_ids.h FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -O1 -g -Isrc -o $@ tools/border-check.c src/border.c src/dmodefit.c -lm
+
+# The handheld frames (src/handframe.h): Handheld where Sharp Pixels puts the
+# game, Whole a step smaller with the lens in the middle and never under 2x,
+# a game pixel a dot, straight edges on whole pixels, the Color's arc where
+# its model has it, every part inside the body, the Color's six colors. On
+# 640x480 and 1024x768. The sheet that lays each frame under its outlines is
+# tools/handframe-sheet.py.
+check-handframe: build-native/handframe-check
+	@./build-native/handframe-check
+
+build-native/handframe-check: tools/handframe-check.c src/handframe.c src/handframe.h src/handframe_models.c src/dmodefit.c src/dmodefit.h FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -O1 -g -Isrc -o $@ tools/handframe-check.c src/handframe.c src/handframe_models.c src/dmodefit.c -lm
 
 # The Nintendo DS's language (src/dslang.h): every language MENU > Language has
 # maps to the DS's own or to English, the core's option and its values are the

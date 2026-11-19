@@ -68,8 +68,14 @@ border_offer border_offer_for(const app *a, int sys)
 	char own[CFG_STR * 3];
 	border_offer o;
 
+	const hf_model *m = hf_model_for(s->tag);
+	int w, h, sc, gx, gy, gw, gh;
+
+	dmode_surface(&w, &h);
 	o.blur = border_blur_here();
-	o.handheld = hf_model_for(s->tag) != NULL && !strcmp(DMODES[a->view[sys].dmode].name, "integer");
+	o.handheld = m && !strcmp(DMODES[a->view[sys].dmode].name, "integer") &&
+	             hf_place(m, HF_CUT, w, h, &sc, &gx, &gy, &gw, &gh);
+	o.whole = o.handheld && hf_place(m, HF_WHOLE, w, h, &sc, &gx, &gy, &gw, &gh);
 	o.own = border_own_path(s, own, sizeof own);
 	return o;
 }
