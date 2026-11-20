@@ -3,13 +3,15 @@ import AppKit
 import SimCore
 import SwiftUI
 
-/// ZyperOS Simulator: a GKD Pixel 2 on the Mac's screen, around ZyperOS
-/// running in QEMU, as Apple's Simulator does an iPhone. docs/simulator.md.
+/// ZyperOS Simulator: a handheld on the Mac's screen, around ZyperOS running
+/// in QEMU, as Apple's Simulator does an iPhone. docs/simulator.md.
 ///
-///   ZyperSimulator [--name NAME] [--qemu-run PATH] [--image DIR]
+///   ZyperSimulator [--name NAME] [--device ID] [--qemu-run PATH] [--image DIR]
 ///
 /// NAME is the VM's (tools/qemu-run.sh -n), "simulator" unless told; a VM by
 /// that name already running is shown as it is, otherwise one is started.
+/// ID is the handheld drawn round it (Handhelds.swift: "pixel2", the VM's
+/// own, unless told; $ZYPEROS_SIM_DEVICE too).
 @main
 struct ZyperSimulatorApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var delegate
@@ -43,7 +45,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // it into Info.plist), for its tools/qemu-run.sh
         let repo = Bundle.main.object(forInfoDictionaryKey: "ZyperOSRepo") as? String
         let qemuRun = value("--qemu-run") ?? repo.map { $0 + "/tools/qemu-run.sh" } ?? "tools/qemu-run.sh"
-        return Simulator(name: value("--name") ?? "simulator", qemuRun: qemuRun,
+        let device = value("--device") ?? ProcessInfo.processInfo.environment["ZYPEROS_SIM_DEVICE"]
+        var handheld = Handheld.standard
+        if let device {
+            if let h = Handheld.named(device) { handheld = h } else {
+                FileHandle.standardError.write(Data(
+                    "ZyperSimulator: no handheld \(device) (\(Handheld.all.map(\.id).joined(separator: ", "))); the \(handheld.name)\n".utf8))
+            }
+        }
+        return Simulator(name: value("--name") ?? "simulator", handheld: handheld, qemuRun: qemuRun,
                          image: value("--image") ?? ProcessInfo.processInfo.environment["ZYPEROS_QEMU_IMAGE"])
     }
 
@@ -73,7 +83,7 @@ struct ContentView: View {
     var body: some View {
         // The device's column sets the window's height; the panel scrolls
         // in it
-        let height = Geometry.height * Geometry.scale(zoom: sim.zoom) + 14 + 14 + 32 + 16
+        let height = Geometry(sim.handheld, zoom: sim.zoom).height + 14 + 14 + 32 + 16
         HStack(spacing: 0) {
             // The handheld on a dark desk, lit from above, and under it a
             // line on what it is doing
@@ -150,21 +160,22 @@ struct StatusBar: View {
         .padding(.vertical, 7)
         .background(Capsule().fill(.black.opacity(0.28)))
         .overlay(Capsule().stroke(.white.opacity(0.07), lineWidth: 1))
-        .frame(width: Geometry.width * Geometry.scale(zoom: sim.zoom))
+        .frame(width: Geometry(sim.handheld, zoom: sim.zoom).width)
     }
 }
 
-/// The keyboard as the Pixel 2's buttons, the same keys px2sim takes from
+/// The keyboard as the handheld's buttons, the same keys px2sim takes from
 /// QEMU's own window: arrows, x z s a (A B X Y), q w e r (L1 R1 L2 R2),
 /// Return (START), Right Shift or Delete (SELECT), Esc or m (MENU), = and -
-/// (volume), p (power), h (headphones). Keys with Command go to the menus.
+/// (volume), [ and ] (the brightness keys, where the handheld has them), p
+/// (power), h (headphones). Keys with Command go to the menus.
 enum Keyboard {
     private static let map: [UInt16: PadButton] = [
         126: .up, 125: .down, 123: .left, 124: .right,
         7: .a, 6: .b, 1: .x, 0: .y,
         12: .l1, 13: .r1, 14: .l2, 15: .r2,
         36: .start, 76: .start, 51: .select, 53: .menu, 46: .menu,
-        24: .volup, 27: .voldown, 35: .power,
+        24: .volup, 27: .voldown, 33: .brightdown, 30: .brightup, 35: .power,
     ]
     private static let rightShift: UInt16 = 60, h: UInt16 = 4
 
@@ -189,6 +200,31 @@ enum Keyboard {
         case .volup: return "="
         case .voldown: return "-"
         case .power: return "P"
+        case .brightdown: return "["
+        case .brightup: return "]"
+        }
+    }
+
+    /// A button's tooltip: what it is and every key that presses it
+    static func help(for button: PadButton) -> String {
+        switch button {
+        case .up, .down, .left, .right: return "D-pad (arrow keys)"
+        case .a: return "A (x)"
+        case .b: return "B (z)"
+        case .x: return "X (s)"
+        case .y: return "Y (a)"
+        case .l1: return "L1 (q)"
+        case .r1: return "R1 (w)"
+        case .l2: return "L2 (e)"
+        case .r2: return "R2 (r)"
+        case .start: return "START (Return)"
+        case .select: return "SELECT (Right Shift, Delete)"
+        case .menu: return "MENU (Esc, m)"
+        case .volup: return "Volume up (=)"
+        case .voldown: return "Volume down (-)"
+        case .power: return "POWER (p)"
+        case .brightdown: return "Brightness down, F1 ([)"
+        case .brightup: return "Brightness up, F2 (])"
         }
     }
 
@@ -210,7 +246,7 @@ enum Keyboard {
             if !event.isARepeat { sim.setHeadphones(!sim.state.headphones) }
             return true
         case .keyDown, .keyUp:
-            guard let button = map[event.keyCode] else { return false }
+            guard let button = map[event.keyCode], sim.handheld.has(button) else { return false }
             if event.type == .keyUp {
                 sim.release(button)
             } else if !event.isARepeat {

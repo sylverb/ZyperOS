@@ -147,6 +147,20 @@ The name is also two words in one: **zippy** and **hyper**. Games start the mome
 
 ZyperOS is C and SDL2, in two repositories that build together. [ZyperOS](https://github.com/tarikbc/ZyperOS) (this one) holds the launcher, the card's scripts and the tools, [`diatom/`](diatom/), the libretro frontend that starts once at boot (its own Makefile, under the Mozilla Public License 2.0), and [`installer/`](installer/), ZyperOS Installer (Rust and Tauri). [`plastron/`](plastron/) is the Linux under it, built with Buildroot in Docker, under the GNU GPL version 3. [Building](docs/building.md) covers the toolchain, the card, QEMU, the simulator, releasing, developer mode and the checks.
 
+### Try it without a handheld
+
+The launcher's menus, settings and games run in a window on your computer, drawn as the handheld itself. On a Mac with Xcode's command-line tools and [Homebrew](https://brew.sh) (Linux needs the same libraries from its own packages, as [Building](docs/building.md#work-on-the-ui-without-a-device) lists):
+
+```sh
+brew install sdl2 sdl2_image sdl2_ttf xz
+git clone https://github.com/tarikbc/ZyperOS && cd ZyperOS
+make desk          # the GKD Pixel 2; make desk-brick for the TrimUI Brick
+```
+
+The first run takes a few minutes: it builds the launcher, Diatom and a NES core, and makes a sample card with a game on each system. The keyboard is the buttons (arrows for the d-pad, X and Z for A and B, Return for START, Esc for MENU), the mouse presses the drawn keys, and F1 lists the rest. [Work on the UI without a device](docs/building.md#work-on-the-ui-without-a-device) says what it shows and what only a device can.
+
+For the whole system (the boot, first-boot setup, the battery and charger, System Update), the [ZyperOS Simulator](docs/simulator.md) runs ZyperOS in QEMU on a Mac, in a window drawn the same way. It needs a QEMU image from plastron (`make -C plastron qemu`, a few hours the first time, then minutes), so start with `make desk`.
+
 ## Credits
 
 ZyperOS stands on other people's work:
