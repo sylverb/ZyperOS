@@ -36,7 +36,8 @@ in a game opens the in-game menu over it, Core Settings and all.
 A running window is driven from a shell, as simulator/simctl drives the
 Simulator: one command, its JSON answer.
 
-    tools/desk state                     the handheld, the zoom, frames a second
+    tools/desk state                     the handheld, the zoom, frames a second,
+                                         the shelf's screen, cursor and focus
     tools/desk press|release BUTTON[+BUTTON]
     tools/desk tap BUTTON[+BUTTON] [MS]  (80 ms)
     tools/desk latency BUTTON            a tap, and ms from it to its frame

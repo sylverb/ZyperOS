@@ -204,15 +204,15 @@ ja = 何も押さずに B で戻る。
 it = B senza altri tasti: indietro.
 
 [hotkeys.swap_q]
-note = The question when the keys pressed are another hotkey's: the first %s the keys (SELECT+R2), the second that hotkey's name (Faster), the third its name again, the fourth where it goes (its keys, or hotkeys.none). Swap and Cancel under it, the cursor on Cancel. Wrapped to the panel.
-en = %s is %s now. %s moves to %s.
-zh-Hans = %s 现在是 %s。%s 将改为 %s。
-es = %s es %s ahora. %s pasa a %s.
-pt-BR = %s é %s agora. %s passa para %s.
-fr = %s est %s. %s passe sur %s.
-de = %s ist jetzt %s. %s wandert zu %s.
-ja = %s は今 %s です。%s は %s になります。
-it = %s ora è %s. %s passa a %s.
+note = The question when the keys pressed are already another hotkey's: it says they are taken and by which, then what Swap does. The first %s the keys (SELECT+R2), the second that hotkey's name (Faster), the third its name again, the fourth where it goes on Swap (the keys the row had, or hotkeys.none). Swap and Cancel under it, the cursor on Cancel. Wrapped to the panel.
+en = %s is already taken by %s. Swap them, and %s moves to %s.
+zh-Hans = %s 已被 %s 占用。交换后，%s 将改为 %s。
+es = %s ya está ocupado por %s. Al cambiarlos, %s pasa a %s.
+pt-BR = %s já está ocupado por %s. Ao trocar, %s passa para %s.
+fr = %s est déjà pris par %s. En échangeant, %s passe sur %s.
+de = %s ist schon mit %s belegt. Beim Tauschen wandert %s zu %s.
+ja = %s はすでに %s で使われています。入れ替えると %s は %s になります。
+it = %s è già occupato da %s. Scambiandoli, %s passa a %s.
 
 [hotkeys.swap]
 note = The yes of the swap question (hotkeys.swap_q): the two hotkeys trade keys. A button's word, short.

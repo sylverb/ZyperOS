@@ -41,7 +41,7 @@
 #include <unistd.h>
 
 static char root[] = "/tmp/zyperos-gamedel-check-XXXXXX";
-static char roms[256], saves[256], states[256];
+static char roms[256], saves[256], states[256], cheats[256];
 static int failures;
 
 #define CHECK(c) do { if (!(c)) { printf("  FAIL %s:%d: %s\n", __FILE__, __LINE__, #c); failures++; } } while (0)
@@ -252,6 +252,9 @@ static void rows_for(const shelf *s, const char *file, const char *title)
 	CHECK(db_set_str(db_lib(), key, "a:b"));
 	snprintf(key, sizeof key, "stick.%s.%s", s->tag, file);
 	CHECK(db_set_str(db_lib(), key, "1"));
+	/* and its cheats that are on (src/cheats.h) */
+	snprintf(key, sizeof key, "cheats.%s.%s", s->tag, file);
+	CHECK(db_set_str(db_lib(), key, "0badf00d"));
 }
 
 struct sess_count { const char *tag, *file; int n; };
@@ -296,7 +299,7 @@ static void rows_there(const char *what, const shelf *s, const char *file, bool 
 {
 	bool d = details(s, file), f = fav_row(s, file), fm;
 	char key[700];
-	bool mk, sk;
+	bool mk, sk, ck;
 	int n = sessions(s, file);
 
 	fav_load();
@@ -305,7 +308,13 @@ static void rows_there(const char *what, const shelf *s, const char *file, bool 
 	mk = db_has(db_lib(), key);
 	snprintf(key, sizeof key, "stick.%s.%s", s->tag, file);
 	sk = db_has(db_lib(), key);
+	snprintf(key, sizeof key, "cheats.%s.%s", s->tag, file);
+	ck = db_has(db_lib(), key);
 	if (want) {
+		if (!ck) {
+			printf("  FAIL %s: %s's cheats went\n", what, file);
+			failures++;
+		}
 		if (!mk || !sk) {
 			printf("  FAIL %s: %s's map/stick went (%d/%d)\n", what, file, mk, sk);
 			failures++;
@@ -317,6 +326,9 @@ static void rows_there(const char *what, const shelf *s, const char *file, bool 
 		}
 	} else if (mk || sk) {
 		printf("  FAIL delete_drops_map_and_stick: %s's map/stick stayed (%d/%d)\n", file, mk, sk);
+		failures++;
+	} else if (ck) {
+		printf("  FAIL delete_drops_cheats: %s's cheats stayed\n", file);
 		failures++;
 	} else if (d || f || fm || n) {
 		printf("  FAIL %s: %s's rows stayed (details %d, favorite %d/%d, sessions %d)\n",
@@ -335,7 +347,7 @@ static gd_other g_others[256];
 static bool delete_game(const shelf *s, const char *file, const char *name, gd_why *why,
                         gd_done *done)
 {
-	gd_card card = { roms, saves, states };
+	gd_card card = { roms, saves, states, cheats };
 	gd_game g = { s->folder, s->tag, s->core, s->exts, file, name, 0 };
 	int n = others_of(s->folder, file, g_others, 256);
 
@@ -473,6 +485,12 @@ static void make_card(void)
 	put("Roms/Game Boy/Tetris (World) (Rev 1).gb", "tetris 1.1");
 	put("Roms/Game Boy/.media/Tetris (World) (Rev 1).png", "png");
 	put("Roms/Game Boy/.cheevos/Tetris (World) (Rev 1).set", "set");
+	/* Its cheats (src/cheats.h): the player's file by the stem and by the
+	 * file's name, and libretro's folder for it; the Rev 1's stay */
+	put("Cheats/Game Boy/Tetris (World).cht", "cht");
+	put("Cheats/Game Boy/Tetris (World).gb.cht", "cht");
+	put("Cheats/Game Boy/.libretro/Tetris (World)/Tetris (World) (Game Genie).cht", "cht");
+	put("Cheats/Game Boy/Tetris (World) (Rev 1).cht", "cht");
 	put("Saves/Tetris (World) (Rev 1).srm", "srm");
 	put("shared/.zyperos/Game Boy/Tetris (World) (Rev 1).gb.auto.state", "state");
 
@@ -592,6 +610,7 @@ int main(void)
 	snprintf(roms, sizeof roms, "%s/Roms", root);
 	snprintf(saves, sizeof saves, "%s/Saves", root);
 	snprintf(states, sizeof states, "%s/shared/.zyperos", root);
+	snprintf(cheats, sizeof cheats, "%s/Cheats", root);
 	put("userdata/.keep", "");
 	put("shared/.zyperos/.keep", "");
 	snprintf(dev, sizeof dev, "%s/userdata/zyperos.db", root);
@@ -692,10 +711,15 @@ int main(void)
 			"shared/.zyperos/Game Boy/Tetris (World).gb.1.state",
 			"shared/.zyperos/Game Boy/Tetris (World).gb.1.bmp",
 			"shared/.zyperos/Game Boy/Tetris (World).gb.undo.state",
+			"Cheats/Game Boy/Tetris (World).cht",
+			"Cheats/Game Boy/Tetris (World).gb.cht",
+			"Cheats/Game Boy/.libretro/Tetris (World)/Tetris (World) (Game Genie).cht",
+			"Cheats/Game Boy/.libretro/Tetris (World)/",
+			"Cheats/Game Boy/.libretro/",
 			NULL
 		};
 		deleted("a cartridge: Tetris (World).gb, and not its Rev 1 beside it:",
-		        GB, "Tetris (World).gb", "Tetris (World)", gone, 12);
+		        GB, "Tetris (World).gb", "Tetris (World)", gone, 15);
 		rows_there("the cartridge's neighbour", GB, "Tetris (World) (Rev 1).gb", true);
 	}
 	{
@@ -788,10 +812,13 @@ int main(void)
 			"Saves/Tetris (World) (Rev 1).srm",
 			"shared/.zyperos/Game Boy/Tetris (World) (Rev 1).gb.auto.state",
 			"shared/.zyperos/Game Boy/",
+			/* its cheat file, the last in its console's Cheats folder */
+			"Cheats/Game Boy/Tetris (World) (Rev 1).cht",
+			"Cheats/Game Boy/",
 			NULL
 		};
 		deleted("the shelf's last game, with the folders it leaves empty:",
-		        GB, "Tetris (World) (Rev 1).gb", "Tetris (World) (Rev 1)", gone, 6);
+		        GB, "Tetris (World) (Rev 1).gb", "Tetris (World) (Rev 1)", gone, 7);
 		CHECK(there("Roms/Game Boy/"));          /* the console's folder stays */
 	}
 
@@ -864,7 +891,7 @@ int main(void)
 	        GD_PORT_UNKNOWN);
 	{
 		/* ...but PortMaster's plan is made, folder and all, for its size */
-		gd_card card = { roms, saves, states };
+		gd_card card = { roms, saves, states, cheats };
 		gd_game g = { PRT->folder, PRT->tag, PRT->core, PRT->exts, "PortMaster.sh", "PortMaster" };
 		int n = others_of(PRT->folder, "PortMaster.sh", g_others, 256);
 		char want[600];

@@ -223,6 +223,16 @@ if [ -n "$missing" ]; then
 	echo "payload: mk/build-small-cores.sh, mk/build-ppsspp.sh, mk/build-tic80.sh," >&2
 	echo "payload: mk/build-pcsx-rearmed.sh, mk/build-mupen64plus-next.sh, mk/build-parallel-n64.sh," >&2
 	echo "payload: mk/build-yabasanshiro.sh (and mk/build-openbor.sh for the Pixel 2)" >&2
+	# The small cores have one command for all of them; tools/release.sh,
+	# tools/px2-payload.sh and plastron's card builds run it before this
+	small=
+	for core in $missing; do
+		grep -q "^$core|" "$ROOT/mk/build-small-cores.sh" && small="$small $core"
+	done
+	if [ -n "$small" ]; then
+		echo "payload:$small: in the main checkout (or with ZYPEROS_VENDOR set to the vendor/ this build reads), run" >&2
+		echo "payload:   sh mk/build-small-cores.sh --missing" >&2
+	fi
 	exit 1
 fi
 

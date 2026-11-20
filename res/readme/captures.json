@@ -2944,6 +2944,37 @@
       "sha256": "57fbd10c79ae9b1f9b70d9e3194912f07de3ed923c9dbfaef3b5cca7cc796c66",
       "source_commit": "b34b588ee668212df3b125e0971d4e618b52365d",
       "note": "The blog index card for /blog/try-zyperos-on-mac/: the top 984x738 of desk-pixel2.png (magick -crop 984x738+0+0 +repage -strip), 4:3 as the card shows it."
+    },
+    {
+      "file": "simulator.png",
+      "card": "qemu",
+      "args": {
+        "app": "simulator/scripts/build-app.sh, then ZyperSimulator --qemu-run <PR #373 tools/qemu-run.sh> --image <its QEMU image> --name sim-docs",
+        "image": "plastron QEMU image from tools/qemu-image.sh at PR #373 head d107d24 (ZyperOS 1.0.6 plus main, not a release)",
+        "commands": [
+          "simulator/simctl -n sim-docs window-shot FILE"
+        ]
+      },
+      "sha256": "8826a1b4eb4478140b3abd8a5b82df4c6b4b6f70d207f71e10841373fe5b5593",
+      "source_commit": "e85b596f09ed1ca6f0bdfedea8391b378df77334",
+      "note": "The ZyperOS Simulator (docs/simulator.md): the whole system in QEMU on hvf, the device drawn from src/device/pixel2_model.c, taken with simctl window-shot (the device alone, on a clear background); a fresh card, light theme, the panel backlight at its default. The first-start language list while it cycles, at English; the side lights full on the cable."
+    },
+    {
+      "file": "simulator-charging.png",
+      "card": "qemu",
+      "args": {
+        "app": "simulator/scripts/build-app.sh, then ZyperSimulator --qemu-run <PR #373 tools/qemu-run.sh> --image <its QEMU image> --name sim-docs",
+        "image": "plastron QEMU image from tools/qemu-image.sh at PR #373 head d107d24 (ZyperOS 1.0.6 plus main, not a release)",
+        "commands": [
+          "simulator/simctl -n sim-docs tap start",
+          "simulator/simctl -n sim-docs battery 55",
+          "simulator/simctl -n sim-docs cable 1",
+          "simulator/simctl -n sim-docs window-shot FILE"
+        ]
+      },
+      "sha256": "091dbf19932af4c960a773010e92b1e40654043cec57a682f361fb2addf5fe7c",
+      "source_commit": "e85b596f09ed1ca6f0bdfedea8391b378df77334",
+      "note": "The ZyperOS Simulator (docs/simulator.md): the whole system in QEMU on hvf, the device drawn from src/device/pixel2_model.c, taken with simctl window-shot (the device alone, on a clear background); a fresh card, light theme, the panel backlight at its default. START skipped the setup; the home at 55% on the cable, the side lights filling."
     }
   ],
   "capture_note": "Screenshots refreshed separately record their own source_commit; other screenshots use the top-level source_commit."

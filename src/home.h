@@ -140,10 +140,11 @@ void home_focus_preview(home *h, SDL_Renderer *r, const home_item *items, SDL_Re
 void home_free(home *h);
 /* Spotlight's focused sprite alone, for a frame where nothing else on the
  * home has changed (main.c, focus frames): whether that is so - Spotlight,
- * the row still, and the sprite's atlas clear of the row in every frame -
- * the part of its square any of its frames can touch, which the caller lays
- * ground on, and the sprite drawn there at `now` as home_draw would. Returns
- * the delay to its next frame, as home_draw does. */
+ * the row still - the part of its square any of its frames can touch, which
+ * the caller clips to and lays ground on, and every layer home_draw lays
+ * there drawn at `now` as home_draw would (the sprite, then the row as
+ * Highlight marks it). Returns the delay to its next frame, as home_draw
+ * does. */
 #define HOME_FOCUS_GROUNDS 8
 bool home_focus_alone(const home *h, home_layout layout, int count, int cursor, uint32_t now);
 int home_focus_ground(const home *h, int count, int cursor, uint32_t now,

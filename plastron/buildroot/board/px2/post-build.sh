@@ -15,7 +15,11 @@ if [ "${PLASTRON_RELEASE:-0}" = 1 ]; then
 	# runs it while that screen is open, on the cable's address alone, with
 	# the screen's PIN as root's password in a mount namespace of its own
 	# (ZyperOS src/sshlink.h). Nothing else runs it.
-	rm -f "$TARGET_DIR/etc/init.d/S50dropbear"
+	# QEMU's image (px2sim's) keeps it: SSH is how ZyperOS's tools/qemu-run.sh
+	# drives the VM, with the key QEMU hands it at boot and no key in the
+	# image (board/qemu/post-build.sh)
+	grep -qx 'BR2_PACKAGE_PX2SIM=y' "$BR2_CONFIG" ||
+		rm -f "$TARGET_DIR/etc/init.d/S50dropbear"
 elif [ -f "$KEYS" ]; then
 	install -d -m 700 "$TARGET_DIR/root/.ssh"
 	install -m 600 "$KEYS" "$TARGET_DIR/root/.ssh/authorized_keys"

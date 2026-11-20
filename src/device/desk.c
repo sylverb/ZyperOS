@@ -960,6 +960,24 @@ static void held_json(char *out, size_t cap)
 			used += (size_t)snprintf(out + used, used < cap ? cap - used : 0, "%s\"%s\"", used ? "," : "", BTN_NAMES[b]);
 }
 
+static char g_focus_screen[16] = "", g_focus_name[96] = "";
+static int g_focus_cursor = -1;
+
+void desk_note_focus(const char *screen, int cursor, const char *name)
+{
+	size_t n = 0;
+
+	snprintf(g_focus_screen, sizeof g_focus_screen, "%s", screen ? screen : "");
+	g_focus_cursor = cursor;
+	/* JSON's string: a quote or a backslash escaped, a control byte left out */
+	for (const char *c = name ? name : ""; *c && n + 2 < sizeof g_focus_name; c++) {
+		if ((unsigned char)*c < 0x20) continue;
+		if (*c == '"' || *c == '\\') g_focus_name[n++] = '\\';
+		g_focus_name[n++] = *c;
+	}
+	g_focus_name[n] = '\0';
+}
+
 static void ctl_event(const SDL_Event *e, in_state *st)
 {
 	if (e->user.code == CTL_REDRAW) {
@@ -979,9 +997,9 @@ static void ctl_event(const SDL_Event *e, in_state *st)
 		char held[256];
 		held_json(held, sizeof held);
 		reply(fd, "{\"ok\":true,\"device\":\"%s\",\"panel\":[%d,%d],\"zoom\":%.2f,\"frame\":%s,"
-		          "\"hz\":%.0f,\"fps\":%.0f,\"held\":[%s]}",
+		          "\"hz\":%.0f,\"fps\":%.0f,\"held\":[%s],\"screen\":\"%s\",\"cursor\":%d,\"focus\":\"%s\"}",
 		      plat_profile()->id, g_pw, g_ph, g_zoom * g_ratio, face_on() ? "true" : "false", g_hz,
-		      fps_last_second(), held);
+		      fps_last_second(), held, g_focus_screen, g_focus_cursor, g_focus_name);
 	} else if (!strcmp(verb, "press") || !strcmp(verb, "release") || !strcmp(verb, "tap") ||
 	           !strcmp(verb, "latency")) {
 		Uint32 m = chord(a1);

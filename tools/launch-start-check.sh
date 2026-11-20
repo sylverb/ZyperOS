@@ -53,9 +53,11 @@ prepare() {
 		printf '#!/bin/sh\necho %s >> "%s/calls"\n' "$c" "$D" > "$D/bin/$c"
 	done
 	printf '#!/bin/sh\nexit 1\n' > "$D/bin/pidof"
-	# The kernel's log, with the gauge's line among others
-	printf '#!/bin/sh\necho "[    0.5] mmc0: new card"\necho "[    1.2] %s"\necho "[    1.3] usb 1-1: new device"\n' \
+	# The kernel's log, with the gauge's two lines among others: the level,
+	# and the full charge it measured (9-px2-rk817-wear.patch)
+	printf '#!/bin/sh\necho "[    0.5] mmc0: new card"\necho "[    1.2] %s"\necho "[    1.2] %s"\necho "[    1.3] usb 1-1: new device"\n' \
 	       'rk817-charger rk817-charger: battery at start: 49% from the voltage; off 120 min, on 0x80, sampled 3815 mV at -250 mA, at rest 3843 mV (49%), counter 85%' \
+	       'rk817-charger rk817-charger: battery at start: full charge 1565 mAh of the design'"'"'s 1730, was 1730, measures 1; measured now: 700 mAh out since full, to 49% at rest' \
 	       > "$D/bin/dmesg"
 	printf '#!/bin/sh\nexit 0\n' > "$D/card/ZyperOS/diatom"
 	chmod +x "$D"/bin/* "$D/card/ZyperOS/diatom"
@@ -102,6 +104,8 @@ for dev in pixel2 brick; do
 		done
 		[ "$(grep -c '^kernel: battery at start: 49% from the voltage; off 120 min, on 0x80, sampled 3815 mV at -250 mA, at rest 3843 mV (49%), counter 85%$' "$LOG")" = 1 ] ||
 			fail "the start's log has not the kernel's battery line once: $(grep battery "$LOG")"
+		[ "$(grep -c "^kernel: battery at start: full charge 1565 mAh of the design's 1730, was 1730, measures 1; measured now: 700 mAh out since full, to 49% at rest$" "$LOG")" = 1 ] ||
+			fail "the start's log has not the kernel's full charge line once: $(grep battery "$LOG")"
 	fi
 
 	# The next start's copy, as zyperos.init makes it: launch.sh back
