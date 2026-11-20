@@ -1412,6 +1412,19 @@ the card or not, and nothing moves when a fetch lands it. Badges are fetched
 on the shelf, never in a game, on a thread of their own in one curl for what
 is missing (src/rabadge.h); no frame waits on the network.
 
+**The achievement's card.** A on a row of the list (or of the Achievements
+tab, 11.46) opens the achievement's card: its title as the heading, then its
+badge under the heading's rule, the list's own picture of it (greyed and faded
+until earned, the plain badge while the card has no art), 96 on the grid
+(RetroAchievements' 64-pixel art at about its own size on the Pixel 2),
+centered over the description as the description is centered, with the
+rule's gap under it (the panel's header picture). The description is wrapped
+whole, never cut; where it is taller than the panel leaves it, it scrolls
+itself, as a card with no cursor does, and only it: the rule, **Points** and
+**Status** under it stay. *(My ask, testing 1.1.0, 2026-11-19: the
+card shows the achievement's picture, and a long description scrolls.)* Host shots: `--cheevo-card 0` to `3`, with
+`--cheevos-badge SET NAME` for art and `--phase MS` for the scroll.
+
 **Zyper on an unlock.** The notice an unlock makes, and the one for mastering
 a set, has Zyper at its right end, as tall as the badge, cocked and panting as
 he rests in the menus (10), in his own colors; on Beard with the

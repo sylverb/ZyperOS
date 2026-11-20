@@ -319,6 +319,19 @@ EXTRA = {
     "achtab-waiting": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "3", "--achtab", "waiting"]),
     "achtab-unchecked": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "3", "--achtab", "unchecked"]),
     "achtab-none": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "3", "--achtab", "none"]),
+    # An achievement's card, opened with A from its list (1.1.0): its badge
+    # under the heading's rule, its description whole. Earned; not earned,
+    # the longest description there is, which scrolls itself (and the same
+    # moved on); earned offline, waiting to send; none, with the plain badge
+    "cheevo-card": ("demo", "PS1", ["--cheevo-card", "0", "--cheevos-badge",
+                                    "{card}/Roms/PlayStation/.cheevos/Hagane.set", "b2"]),
+    "cheevo-card-long": ("demo", "PS1", ["--cheevo-card", "1", "--phase", "0", "--cheevos-badge",
+                                         "{card}/Roms/PlayStation/.cheevos/Hagane.set", "b4"]),
+    "cheevo-card-long-moved": ("demo", "PS1", ["--cheevo-card", "1", "--phase", "9000", "--cheevos-badge",
+                                               "{card}/Roms/PlayStation/.cheevos/Hagane.set", "b4"]),
+    "cheevo-card-waiting": ("demo", "PS1", ["--cheevo-card", "2", "--cheevos-badge",
+                                            "{card}/Roms/PlayStation/.cheevos/Hagane.set", "b3"]),
+    "cheevo-card-plain": ("demo", "PS1", ["--cheevo-card", "3"]),
     "info-nohash": ("demo", "PS1", ["--screen", "games", "--info", "--cheevos-no-hash", "file"]),
     "gamecontrols": ("demo", "PS1", ["--gamecontrols", "1", "MD"]),
     "slots": ("demo", "PS1", ["--slots", "0"]),
