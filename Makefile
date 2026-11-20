@@ -580,12 +580,16 @@ build-native/themefile-check: tools/themefile-check.c src/themefile.c src/themef
 # steps and saves ZyperOS's own levels: MENU+VOL is the backlight whichever of
 # the two devices is read first, the kernel's autorepeat is no step, a held key
 # repeats on the launcher's clock (src/keyrepeat.h), and the presses that once
-# saved 6 and 6 save 5 and 7 through the launcher's src/db.c. No SDL, no device.
+# saved 6 and 6 save 5 and 7 through the launcher's src/db.c. And the boost past
+# the top over a port (src/boost.h): three presses or a hold open it, its gain
+# goes in a scratch copy of the file the port's plugin reads (src/eqdsp.h), and
+# its cells are kept beside the levels. No SDL, no device.
 check-pkkeys: build-native/pkkeys-check
 	@./build-native/pkkeys-check
 
 build-native/pkkeys-check: tools/pkkeys-check.c tools/pkkeys.c tools/pkkeys.h src/keyrepeat.h \
                            src/device/pixel2_levels.h src/audioout.c src/audioout.h \
+                           src/boost.h src/osdbar.h src/design.h src/eqdsp.h \
                            src/db.c src/db.h src/atomic.c $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Isrc \
