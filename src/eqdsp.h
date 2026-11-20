@@ -27,7 +27,16 @@
  * A boost can take a loud song over full scale. Past 90% of it the samples
  * bend smoothly toward full scale (a soft knee) rather than being cut flat,
  * and only while a band is boosted: a cut never needs it. The level is not
- * pulled down for a boost, so Bass is more bass, not less of the rest. */
+ * pulled down for a boost, so Bass is more bass, not less of the rest.
+ *
+ * And the volume boost past the top (src/boost.h, DESIGN.md 11.6): a gain
+ * of up to EQ_GAIN_MAX dB after the bands, moving over EQ_RAMP_MS as they
+ * do, then a limiter that keeps every peak under EQ_LIM_T (-1 dB of full
+ * scale): the gain comes down at once where a sample would pass it and
+ * goes back up over EQ_LIM_REL_MS, both channels together. So a quiet film
+ * gets louder and a loud one gets no louder than full scale, only flatter.
+ * No gain, nothing of it runs. MP4 and a game take it; the menu music never
+ * does (its eq_state's gain stays 0). */
 
 #include <math.h>
 #include <stdint.h>
@@ -57,7 +66,16 @@ typedef struct {
 	/* Each filter's last two inputs and outputs, a channel each */
 	float   x1[EQ_BANDS][2], x2[EQ_BANDS][2], y1[EQ_BANDS][2], y2[EQ_BANDS][2];
 	int     boost;                  /* a band above 0 now or wanted: the knee */
+	/* The volume boost: its gain, linear (1 none), moving a frame at a time */
+	float   gain_now, gain_want, gain_step;
+	int     gain_left;              /* frames left in the move, 0 at rest */
+	float   lim;                    /* the limiter's envelope, 16-bit scale */
+	float   lim_rel;                /* how much of it is left after a frame */
 } eq_state;
+
+#define EQ_GAIN_MAX    12           /* dB: src/boost.h's six cells */
+#define EQ_LIM_T       (0.8913f * 32768.0f)   /* -1 dB of full scale */
+#define EQ_LIM_REL_MS  100
 
 /* Band `band`'s filter at `db`, its centre's cosine and sine at the rate
  * given (eq_init works them out once) */
@@ -117,6 +135,8 @@ static inline void eq_init(eq_state *e, int rate)
 	memset(e, 0, sizeof *e);
 	e->rate = rate > 0 ? rate : 48000;
 	e->tick = e->rate / 1000 > 0 ? e->rate / 1000 : 1;
+	e->gain_now = e->gain_want = 1.0f;
+	e->lim_rel = expf(-1000.0f / ((float)EQ_LIM_REL_MS * (float)e->rate));
 	for (b = 0; b < EQ_BANDS; b++) {
 		const float w0 = 2.0f * 3.14159265358979f * EQ_FREQ[b] / (float)e->rate;
 
@@ -126,8 +146,8 @@ static inline void eq_init(eq_state *e, int rate)
 	}
 }
 
-/* Whether eq_run would touch the samples: a band off 0, or a move */
-static inline int eq_active(const eq_state *e)
+/* Whether the bands would touch the samples: one off 0, or a move */
+static inline int eq_bands_active(const eq_state *e)
 {
 	int b;
 
@@ -135,6 +155,39 @@ static inline int eq_active(const eq_state *e)
 	for (b = 0; b < EQ_BANDS; b++)
 		if (e->now[b] != 0.0f) return 1;
 	return 0;
+}
+
+/* Whether the boost's gain would: some gain, or a move */
+static inline int eq_gain_active(const eq_state *e)
+{
+	return e->gain_left > 0 || e->gain_now != 1.0f;
+}
+
+/* Whether eq_run would touch the samples at all */
+static inline int eq_active(const eq_state *e)
+{
+	return eq_bands_active(e) || eq_gain_active(e);
+}
+
+/* The boost's gain to go to, dB (0..EQ_GAIN_MAX), over EQ_RAMP_MS */
+static inline void eq_gain(eq_state *e, int db)
+{
+	const int d = db < 0 ? 0 : db > EQ_GAIN_MAX ? EQ_GAIN_MAX : db;
+	const float want = d ? powf(10.0f, (float)d / 20.0f) : 1.0f;
+	const int frames = e->tick * EQ_RAMP_MS;
+
+	if (want == e->gain_want) return;
+	e->gain_want = want;
+	e->gain_step = (want - e->gain_now) / (float)frames;
+	e->gain_left = frames;
+}
+
+/* The same at once: for a stream that is starting */
+static inline void eq_gain_jump(eq_state *e, int db)
+{
+	eq_gain(e, db);
+	e->gain_now = e->gain_want;
+	e->gain_left = 0;
 }
 
 static inline void eq_boost_of(eq_state *e)
@@ -228,6 +281,35 @@ static inline void eq_band_run(eq_state *e, int b, float *f, int n)
 	e->x1[b][1] = rx1; e->x2[b][1] = rx2; e->y1[b][1] = ry1; e->y2[b][1] = ry2;
 }
 
+/* The boost's gain and the limiter over `n` frames of `f`, in place */
+static inline void eq_gain_run(eq_state *e, float *f, int n)
+{
+	float g = e->gain_now, env = e->lim;
+	const float rel = e->lim_rel;
+	int i;
+
+	for (i = 0; i < n; i++) {
+		float l, r, p;
+
+		if (e->gain_left > 0) g = --e->gain_left ? g + e->gain_step : e->gain_want;
+		l = f[i * 2] * g;
+		r = f[i * 2 + 1] * g;
+		p = fabsf(l) > fabsf(r) ? fabsf(l) : fabsf(r);
+		env *= rel;               /* never under the sample: |out| <= EQ_LIM_T */
+		if (p > env) env = p;
+		if (env > EQ_LIM_T) {
+			const float k = EQ_LIM_T / env;
+
+			l *= k;
+			r *= k;
+		}
+		f[i * 2] = l;
+		f[i * 2 + 1] = r;
+	}
+	e->gain_now = g;
+	e->lim = env < 1.0f ? 0.0f : env;
+}
+
 /* The float copy eq_run works through, in frames */
 #define EQ_SEG 256
 
@@ -241,7 +323,7 @@ static inline void eq_run_f(eq_state *e, float *f, int frames)
 	int at = 0, i, b;
 
 	if (!eq_active(e)) return;
-	while (at < frames) {
+	while (at < frames && eq_bands_active(e)) {
 		int n = frames - at;
 
 		if (e->steps > 0 && e->until <= 0) {
@@ -261,6 +343,7 @@ static inline void eq_run_f(eq_state *e, float *f, int frames)
 		if (e->steps > 0) e->until -= n;
 		at += n;
 	}
+	if (eq_gain_active(e)) eq_gain_run(e, f, frames);
 }
 
 /* `frames` interleaved stereo frames of `buf`, in place, through a float
@@ -288,7 +371,11 @@ static inline void eq_run(eq_state *e, int16_t *buf, int frames)
  * (plastron's zyperos-eq) maps it and reads it once a period. Fixed size,
  * written in place: `seq` is odd while the launcher writes and even after,
  * so a reader that sees it change, or odd, reads again. All bands 0 is
- * flat. $ZYPEROS_EQ_FILE stands for the path on a computer. */
+ * flat. $ZYPEROS_EQ_FILE stands for the path on a computer.
+ *
+ * `gain` is the volume boost's, dB (eq_gain): the launcher writes it with
+ * every change and portkeys while a port runs, the launcher being gone
+ * then. A file from before the boost has 0 there, its padding. */
 #define EQ_SHARE_PATH  "/run/zyperos/eq"
 #define EQ_SHARE_MAGIC 0x3151455aU    /* "ZEQ1" */
 
@@ -296,26 +383,45 @@ typedef struct {
 	uint32_t magic;
 	uint32_t seq;
 	int8_t   db[EQ_BANDS];
-	uint8_t  pad[3];
+	int8_t   gain;
+	uint8_t  pad[2];
 } eq_share;
 
-/* `s`'s bands into `db`, as a reader takes them: 0 (and `db` untouched)
- * while the launcher is writing, or for a file that is not one */
-static inline int eq_share_read(const volatile eq_share *s, int8_t db[EQ_BANDS])
+/* `s`'s bands into `db` and its gain into `*gain` (when not NULL), as a
+ * reader takes them: 0 (and nothing touched) while it is being written, or
+ * for a file that is not one */
+static inline int eq_share_read(const volatile eq_share *s, int8_t db[EQ_BANDS], int8_t *gain)
 {
 	uint32_t a, z;
-	int8_t got[EQ_BANDS];
+	int8_t got[EQ_BANDS], g;
 	int b;
 
 	if (!s || s->magic != EQ_SHARE_MAGIC) return 0;
 	a = __atomic_load_n(&s->seq, __ATOMIC_ACQUIRE);
 	if (a & 1) return 0;
 	for (b = 0; b < EQ_BANDS; b++) got[b] = s->db[b];
+	g = s->gain;
 	__atomic_thread_fence(__ATOMIC_ACQUIRE);
 	z = __atomic_load_n(&s->seq, __ATOMIC_RELAXED);
 	if (z != a) return 0;
 	memcpy(db, got, sizeof got);
+	if (gain) *gain = g;
 	return 1;
+}
+
+/* Written in place as a reader expects (seq odd, the change, seq even):
+ * the bands from `db` when not NULL, the gain when `gain` is 0 or more.
+ * For a mapped file of one writer at a time. */
+static inline void eq_share_put(volatile eq_share *s, const int8_t *db, int gain)
+{
+	int b;
+
+	__atomic_store_n(&s->seq, s->seq + 1, __ATOMIC_RELAXED);
+	__atomic_thread_fence(__ATOMIC_RELEASE);
+	if (db)
+		for (b = 0; b < EQ_BANDS; b++) s->db[b] = db[b];
+	if (gain >= 0) s->gain = (int8_t)(gain > EQ_GAIN_MAX ? EQ_GAIN_MAX : gain);
+	__atomic_store_n(&s->seq, s->seq + 1, __ATOMIC_RELEASE);
 }
 
 #endif

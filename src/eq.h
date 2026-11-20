@@ -75,4 +75,8 @@ bool      eq_band_step(eq_out o, int band, int dir);
  * the file could not be written. */
 bool      eq_share_write(const int8_t db[EQ_BANDS]);
 
+/* The volume boost's gain, dB (src/boost.h), into the same file, for a port
+ * started later: the plugin applies it as MP4 and Diatom do theirs. */
+bool      eq_share_gain(int db);
+
 #endif

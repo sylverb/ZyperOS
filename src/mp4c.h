@@ -173,6 +173,11 @@ void mp4c_channels(const char *mode);
  * whether its page is open (`live`: MP4 keeps only about 60 ms queued, so a
  * step is heard in under a tenth of a second). Sent on a change only. */
 void mp4c_eq(const int8_t db[5], bool live);
+
+/* The volume boost's gain for MP4's sound, dB (src/levels.c): MP4 applies
+ * it after the equalizer, with its limiter (src/eqdsp.h). Sent on a change,
+ * and again to an MP4 started anew. */
+void mp4c_gain(int db);
 /* Make the next mp4c_sink send even if the device has not changed: for a
  * headset that dropped and came back under the same name, which MP4 may
  * have fallen back from while it was gone. The daemon ignores a SINK for the

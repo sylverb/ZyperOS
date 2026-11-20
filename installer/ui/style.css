@@ -109,6 +109,10 @@
 	--t-tour-pulse: 440ms;
 	--t-hold-unlock: 2000ms;
 	--t-hold-power: 1000ms;
+	--t-hold-boost: 1000ms;
+	--t-tap-gap: 1000ms;
+	--t-boost-open: 240ms;
+	--t-boost-flash: 360ms;
 	--t-hold-lock-lit: 4000ms;
 	--t-hold-controls: 3000ms;
 	--t-peak-hold: 400ms;

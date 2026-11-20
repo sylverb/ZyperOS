@@ -134,13 +134,54 @@ int main(void)
 	for (i = 0; i < RATE * 2; i++) if (a[i] == 32767 || a[i] == -32768) k++;
 	report(k == 0, "the_knee_never_cuts_flat", k);
 
-	/* The shared file */
+	/* The volume boost: a quiet tone made louder by the gain, a loud one held
+	 * under -1 dB of full scale by the limiter, no gain touching nothing */
 	{
-		eq_share s = { EQ_SHARE_MAGIC, 2, { 5, 2, 0, 0, 1 }, { 0 } };
+		int16_t peak = 0;
 
-		same = eq_share_read(&s, back) && back[0] == 5 && back[4] == 1;
+		eq_init(&e, RATE);
+		eq_gain_jump(&e, 0);
+		report(!eq_active(&e), "no_gain_touches_nothing", 0);
+		eq_gain_jump(&e, 12);
+		tone(a, RATE, 440.0f, 0.1f);
+		eq_run(&e, a, RATE);
+		for (i = RATE; i < RATE * 2; i++) if (abs(a[i]) > peak) peak = (int16_t)abs(a[i]);
+		report(peak > 0.1f * 32767 * 3.8f && peak < 0.1f * 32767 * 4.1f, "twelve_db_is_four_times_a_quiet_tone", peak / 3276.7);
+		eq_init(&e, RATE);
+		eq_gain_jump(&e, 12);
+		tone(a, RATE, 440.0f, 0.9f);
+		eq_run(&e, a, RATE);
+		peak = 0;
+		for (i = 0; i < RATE * 2; i++) if (abs(a[i]) > peak) peak = (int16_t)abs(a[i]);
+		report(peak <= (int)EQ_LIM_T + 1, "the_limiter_holds_a_loud_tone_under_minus_1_db", peak / 32767.0);
+		eq_init(&e, RATE);
+		g[0] = 6; g[1] = 6; g[2] = 6; g[3] = 6; g[4] = 6;
+		eq_jump(&e, g);
+		eq_gain_jump(&e, 12);
+		tone(a, RATE, 60.0f, 0.95f);
+		eq_run(&e, a, RATE);
+		peak = 0;
+		for (i = 0; i < RATE * 2; i++) if (abs(a[i]) > peak) peak = (int16_t)abs(a[i]);
+		report(peak <= (int)EQ_LIM_T + 1, "and_with_every_band_boosted_too", peak / 32767.0);
+		eq_init(&e, RATE);
+		eq_gain_jump(&e, 6);
+		eq_gain(&e, 0);
+		tone(a, RATE, 440.0f, 0.1f);
+		eq_run(&e, a, RATE);
+		report(!eq_active(&e), "back_to_no_gain_in_20_ms_rests", e.gain_now);
+	}
+
+	/* The shared file, and its gain */
+	{
+		eq_share s = { EQ_SHARE_MAGIC, 2, { 5, 2, 0, 0, 1 }, 8, { 0 } };
+		int8_t gain = -1;
+
+		same = eq_share_read(&s, back, &gain) && back[0] == 5 && back[4] == 1 && gain == 8;
 		s.seq = 3;
-		report(same && !eq_share_read(&s, back), "the_shared_file_reads_whole_or_not", 0);
+		report(same && !eq_share_read(&s, back, NULL), "the_shared_file_reads_whole_or_not", 0);
+		s.seq = 2;
+		eq_share_put(&s, NULL, 4);
+		report(s.seq == 4 && s.gain == 4 && s.db[0] == 5, "the_gain_written_alone_keeps_the_bands", s.gain);
 	}
 
 	/* What it costs: a second of stereo through five boosted bands */

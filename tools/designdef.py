@@ -199,6 +199,10 @@ SPACE = [
     ("rail-inset",  23,  "the rail from the bottom edge"),
     ("rail-ends",   90,  "the rail's inset at both ends"),
     ("rail-min",    18,  "the rail marker's least length"),
+    ("level-mark",  42,  "the volume and brightness bar's mark: its middle, in from the pill's left end"),
+    ("boost-gap",   12,  "the bar's gap at the top, its thin mark in the middle, before the boost cells"),
+    ("boost-charge-w", 36, "the bar's charging cell before the boost opens, wide..."),
+    ("boost-charge-h", 30, "...and tall: big, so its fill is easy to see"),
 ]
 
 SHAPE = [
@@ -405,6 +409,10 @@ MOTION = [
     ("tour-pulse",  440,  "-",     "the right glyph's two pulses after a press of the wrong button"),
     ("hold-unlock", 2000, "-",     "MP4's lock: SELECT and START held together this long unlock it"),
     ("hold-power",  1000, "-",     "POWER held this long turns the handheld off with Power Button on Hold, and starts the charging screen's handheld"),
+    ("hold-boost",  1000, "-",     "a level key held this long on the top opens the boost past it; the charging cell fills over it, linearly, and drains back the same way when let go early"),
+    ("tap-gap",     1000, "-",     "the most time between two presses on the top that count toward the three that open the boost; the charge drains after it"),
+    ("boost-open",  240,  "out",   "the bar opening to its boost cells while the charging cell settles to a cell's size"),
+    ("boost-flash", 360,  "fade",  "the bar's rim in the boost color as the boost opens, going back to its edge"),
     ("hold-lock-lit", 4000, "-",   "MP4's lock screen, lit as it locks"),
     ("hold-controls", 3000, "-",   "MP4's video controls after the last press"),
     ("peak-hold",   400,  "-",     "MP4's bars (Player Look): a bar's cap held where the bar last reached, before it drops with gravity"),

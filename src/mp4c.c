@@ -86,6 +86,7 @@ static char     g_chan_sent[8];     /* the channels last asked for, "" none yet 
 /* The equalizer last asked for, as EQ carries it ("5,2,0,0,1 live=1"); ""
  * none yet */
 static char     g_eq_sent[40];
+static int      g_gain_sent = -1;   /* the boost's gain last sent, dB */
 static bool     g_asked;            /* PLAY or RESUME sent, not yet answered */
 static void   (*g_before_heard)(void);
 
@@ -128,6 +129,8 @@ static void drop(const char *why, int err)
 	g_chan_sent[0] = '\0';
 	/* And flat, so the equalizer is asked again too */
 	g_eq_sent[0] = '\0';
+	/* And with no boost */
+	g_gain_sent = -1;
 	/* And with nobody watching, or looking at bars. */
 	g_show = -1;
 	g_bands_sent = -1;
@@ -685,6 +688,14 @@ void mp4c_eq(const int8_t db[5], bool live)
 	if (!strcmp(said, g_eq_sent)) return;
 	snprintf(g_eq_sent, sizeof g_eq_sent, "%s", said);
 	sendf("EQ\tbands=%s\tlive=%d", bands, live ? 1 : 0);
+}
+
+void mp4c_gain(int db)
+{
+	if (g_fd < 0 || !g_sink_said[0]) return;   /* not connected, or not heard from */
+	if (db == g_gain_sent) return;
+	g_gain_sent = db;
+	sendf("GAIN\tdb=%d", db);
 }
 
 void mp4c_sink_again(void)

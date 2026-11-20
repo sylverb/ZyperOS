@@ -107,7 +107,17 @@ static void share(void)
 	report(eq_share_write(bass), "the_file_written");
 	f = fopen(path, "rb");
 	report(f && fread(&s, sizeof s, 1, f) == 1 && s.magic == EQ_SHARE_MAGIC && !(s.seq & 1) &&
-	       eq_share_read(&s, got) && same(got, bass), "and_read_back_whole");
+	       eq_share_read(&s, got, NULL) && same(got, bass), "and_read_back_whole");
+	if (f) fclose(f);
+	/* The volume boost's gain beside the bands, which it leaves as they are */
+	report(eq_share_gain(8), "the_boost_written");
+	f = fopen(path, "rb");
+	{
+		int8_t gain = -1;
+
+		report(f && fread(&s, sizeof s, 1, f) == 1 && eq_share_read(&s, got, &gain) && gain == 8 &&
+		       same(got, bass), "and_read_back_with_the_bands");
+	}
 	if (f) fclose(f);
 	unlink(path);
 }

@@ -114,6 +114,7 @@ extern const char *shot_wait;
 extern const char *shot_wait_msg;   /* NULL: library.scanning's */;
 extern int shot_osd_kind;
 extern int shot_osd_val; /* --osd volume|brightness LEVEL */;
+extern int shot_osd_boost; /* ... +CELLS, the boost open past the top */
 extern int shot_tour;
 extern int shot_tour_ms;
 extern int shot_tour_done;
