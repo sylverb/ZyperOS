@@ -82,8 +82,10 @@ def launch_sh(tmp):
         for pat in ('/mnt/SDCARD', '/tmp/', 'exec setsid /bin/bash', 'PORT_RESTART_FILE=/tmp/zyperos_port_restart'):
             if src.name == 'launch.sh' and pat not in text:
                 check(False, f'launch.sh has {pat!r}')
-        return (text.replace('/mnt/SDCARD', str(card)).replace('/usr/share/zyperos/card', str(d / 'seed'))
-                .replace('/tmp/', f'{d}/tmp/').replace('/dev/kmsg', str(d / 'kmsg')))
+        # /tmp/ first: the scratch folder is itself under /tmp on Linux, and
+        # the card's path put in first would be moved again
+        return (text.replace('/tmp/', f'{d}/tmp/').replace('/mnt/SDCARD', str(card))
+                .replace('/usr/share/zyperos/card', str(d / 'seed')).replace('/dev/kmsg', str(d / 'kmsg')))
 
     def put(path, text, run=True):
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -397,9 +399,14 @@ def launcher(tmp):
         return [l[len('fit: drawn: '):] for l in text.splitlines() if l.startswith('fit: drawn: ')]
 
     def keys(*names):
+        """each a tap and some frames; the last can end the menu, and with
+        it the desk's socket, before its frames are counted"""
         for k in names:
-            ask(dsock, f'tap {k}')
-            ask(dsock, 'wait-frames 6')
+            try:
+                ask(dsock, f'tap {k}')
+                ask(dsock, 'wait-frames 6')
+            except (OSError, ValueError):
+                return
 
     def ended(p, seconds=8):
         try:
