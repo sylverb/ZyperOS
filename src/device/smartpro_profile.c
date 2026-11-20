@@ -24,6 +24,11 @@
  * wait for the reference views (Task 5), so each shows its word. */
 #include "profile.h"
 
+/* The Brick's core options (src/device/brick_coreopts.c), which its build
+ * links too: the same A133P and PowerVR GE8300, and none measured on either
+ * yet */
+extern const dev_default dev_coreopts_brick[];
+
 static const dev_button smartpro_buttons[] = {
 	{ IN_UP,     "UP",     DEV_CAP_DPAD,     DEV_ICON_NONE, 0 },
 	{ IN_DOWN,   "DOWN",   DEV_CAP_DPAD,     DEV_ICON_NONE, 0 },
@@ -71,13 +76,25 @@ const device_profile device_profile_smartpro = {
 	.n_buttons = (int)(sizeof smartpro_buttons / sizeof smartpro_buttons[0]),
 	.model = NULL,
 	.bluetooth = true,
+#ifdef ZYPEROS_KIT_BUILD
+	/* A test kit (src/kit.h): the old screens' shaders and the GPU consoles
+	 * on the GPU path, as the Brick's kit has them */
+	.gpu_shaders = true,
+	.gpu_frames = true,
+#else
 	.gpu_shaders = false,
 	/* Off as on the Brick, whose PowerVR it shares */
 	.gpu_frames = false,
-	.coreopts = NULL,
+#endif
+	.coreopts = dev_coreopts_brick,
 	.speaker_mono = false,
+	/* GPIO 227 on bldo3, as the Brick's: not run until a tester has felt it */
+	.rumble = false,
 	.player2 = false,
 	.usb_shared_port = false,
+	/* The A133's TCON gamma table and its display engine's saturation, as
+	 * on the Brick (src/panelgamma_sunxi.h) */
+	.screen_colors = true,
 	.wifi = DEV_WIFI_BUILTIN,
 	.thermal_zones = smartpro_zones,
 };
