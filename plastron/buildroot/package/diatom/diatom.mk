@@ -12,10 +12,12 @@ DIATOM_PORT = $(ZYDEV_DIATOM_PORT)
 ifeq ($(DIATOM_PORT),brick)
 # pvr-ge8300: the PowerVR's EGL and GLES headers and pkg-config files, for
 # the GPU path (port/brick.c); its libraries are the player's own copy
-DIATOM_DEPENDENCIES = sdl2 zlib pvr-ge8300 host-pkgconf
+DIATOM_DEPENDENCIES = sdl2 zlib xz pvr-ge8300 host-pkgconf
 else
-DIATOM_DEPENDENCIES = sdl2 zlib mesa3d-px2 libdrm host-pkgconf
+DIATOM_DEPENDENCIES = sdl2 zlib xz mesa3d-px2 libdrm host-pkgconf
 endif
+# xz: liblzma, for a zip's LZMA entries (src/zip.c); the system has it
+# already for the launcher's CHD reader (the zyperos package)
 DIATOM_LICENSE = MPL-2.0
 DIATOM_LICENSE_FILES = LICENSE
 # Its source is public (github.com/tarikbc/ZyperOS, diatom/), so legal-info

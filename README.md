@@ -83,6 +83,7 @@ Each line has its details in [the guide](docs/guide.md).
 - **Your own PICO-8:** add the PICO-8 for Raspberry Pi zip you bought from Lexaloffle with ZyperOS Installer, or copy it to the card, and your PICO-8 plays the carts, with Splore, its online cart browser, first on the PICO-8 shelf. ZyperOS never ships or downloads PICO-8; without it, FAKE-08 plays the carts ([how](docs/guide.md#pico-8)).
 - **Nintendo DS your way:** [DSperate](https://github.com/beebono/DSperate) with three screen layouts, a d-pad stylus and a language you pick for each game ([notes](docs/guide.md#nintendo-ds)).
 - **Nintendo 64 and Dreamcast:** ParallelN64 with Glide64 holds Super Mario 64 and Mario Kart 64 at 30 frames a second on my Pixel 2, and flycast2021 runs the Dreamcast ([Dreamcast](docs/guide.md#dreamcast)).
+- **Zipped games** read stored, Deflate or LZMA, and a zip it cannot read says so on the shelf.
 - **Two Game Boy cores:** mGBA, or Gambatte from the Game Boy and Game Boy Color shelves' Core row.
 - **Smooth or exact timing** in the Game Boy, Game Boy Advance, DS and Genesis shelves: one game frame for each screen refresh, or the console's own speed for timers and rhythm games.
 - **A home in pixel art:** every system as its own animated console on a Spotlight, Gallery or Grid home, with Favorites, Recents and a choice of which systems show ([the shelf](docs/guide.md#the-shelf)).

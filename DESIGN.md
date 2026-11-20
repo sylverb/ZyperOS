@@ -6315,6 +6315,28 @@ which builds a small core systems.cfg names and the vendor folder lacks and
 only looks when none is missing; mk/payload.sh, which refuses a card without
 it, names that command.
 
+### 11.63 Zipped games
+*(NextUI's top ten; Tarik: "ok".)*
+
+A cartridge's game in a zip, one game a zip as No-Intro sets come: Diatom
+unpacks the zip's largest entry, the game, whatever else is beside it (a
+readme). It reads an entry that is stored, Deflate, or LZMA (method 14,
+7-Zip's option, through liblzma, which the system has for the CHD reader).
+The largest entry is the game whatever its method, so a zip whose game is
+compressed another way (bzip2, 12, or Zstandard, 93, whose libraries the
+system has not) is refused, never its readme handed to the core in its
+place; and the launcher says so before it starts anything, as a one-line
+message under the game's name (11.8): "This zip uses a compression ZyperOS
+can't read. Zip the game again with Deflate, the usual method."
+(`gamefile_zip_method`, from the zip's central directory alone, nothing
+unpacked). Not on a shelf whose core reads its zips itself (the arcades',
+which list 7z, and MAME's). RetroAchievements' hash takes the same entry
+(src/rahash.c), so a game unpacked is the game hashed.
+
+`.7z` stays on the shelves whose cores read it themselves (Arcade, Neo Geo,
+NAOMI, Atomiswave). A cartridge system's `.7z` would need a 7z reader in
+Diatom and in the launcher's hash, and is not done.
+
 ### 11.64 Player Looks
 
 **Player Look**, in MP4's MENU on the music shelf (and on All when the card
