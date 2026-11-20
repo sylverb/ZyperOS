@@ -11,6 +11,8 @@ static const struct { const char *key; int bars; } LOOKS[MP4L_COUNT] = {
 	[MP4L_COVER]    = { "cover",    0 },
 	/* Under the cassette, as wide as it: 25 on the grid */
 	[MP4L_CASSETTE] = { "cassette", 25 },
+	/* In the column beside the record, under the names */
+	[MP4L_VINYL]    = { "vinyl",    15 },
 	/* A Winamp's window of bars, under the clock: as many as fit the
 	 * panel on the grid, 16 wide with 8 between (DESIGN.md 11.64) */
 	[MP4L_CLASSIC]  = { "classic",  18 },
@@ -215,4 +217,49 @@ void mp4l_tape_step(mp4l_tape *t, float dt, int song, float target, float spin, 
 bool mp4l_tape_moving(const mp4l_tape *t, float target)
 {
 	return t->t >= 0 || fabsf(target - t->f) >= TAPE_NEAR;
+}
+
+/* ---- the record ---------------------------------------------------------------- */
+
+/* Under this the needle is where it goes: a tenth of a unit */
+#define ARM_NEAR 0.1f
+
+void mp4l_disc_step(mp4l_disc *d, float dt, float spin, float arm)
+{
+	if (!d->known) {
+		d->known = true;
+		d->arm = arm;
+	}
+	d->ang = fmodf(d->ang + spin * MP4L_RPM_DEG_S * dt / 1000.0f, 360.0f);
+	d->arm += (arm - d->arm) * (1.0f - expf(-dt / (float)DS_MS_ARM_GLIDE));
+	if (fabsf(arm - d->arm) < ARM_NEAR) d->arm = arm;
+}
+
+bool mp4l_disc_moving(const mp4l_disc *d, float arm)
+{
+	return fabsf(arm - d->arm) >= ARM_NEAR;
+}
+
+float mp4l_groove_r(int place, int n, float f, float out, float in)
+{
+	float k;
+
+	if (n < 1) n = 1;
+	if (place < 0) place = 0;
+	if (f < 0) f = 0;
+	if (f > 1) f = 1;
+	k = ((float)place + f) / (float)n;
+	if (k > 1) k = 1;
+	return out - (out - in) * k;
+}
+
+float mp4l_arm_angle(float r, float d, float pivot_deg, float len)
+{
+	const float deg = 180.0f / (float)M_PI;
+	float pa = pivot_deg / deg, phi = atan2f(-sinf(pa), -cosf(pa)) * deg;
+	float c = (len * len + d * d - r * r) / (2 * len * d);
+
+	if (c > 1) c = 1;
+	if (c < -1) c = -1;
+	return phi - acosf(c) * deg;
 }

@@ -1735,7 +1735,9 @@ playing.
 **Player Look** changes how Now Playing shows a song: **Cover**, the album's
 cover large, as it always was; **Cassette**, a tape whose reels turn with the
 song through its window, the next song rewinding it, the label in the
-cover's color; **Classic**, a big clock over bars that move with the music,
+cover's color; **Vinyl**, a record in the cover's color turning at 33⅓ with
+the cover as its label, its rings the album's songs and the tonearm's needle
+on the one playing; **Classic**, a big clock over bars that move with the music,
 and the album's tracks beside it; **Spectrum**, the music as 32 bars across
 the screen under the cover. A on it opens the list, with the
 look under the cursor playing in a small screen beside it; Left and Right
