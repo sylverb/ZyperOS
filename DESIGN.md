@@ -5478,6 +5478,10 @@ when its change lands.
   **text-dim** (2.7:1). A frame that bright in that corner is rare; holding
   them would take a shape behind the corner, which the lab did not pick.
 - Five one-line message holds (900 to 2200 ms), where 11.8 has two.
+- Over your PICO-8, MP4 plays on (11.55), but PICO-8's own sound is not
+  quieted while it plays, as a Diatom game's is (QUIET): PICO-8 runs as a
+  program of its own, its sound through the port's ALSA chain
+  (sd/zyperos/eq-port.sh), which nothing in it can cut yet.
 
 ### 11.23 File Transfer while files move
 File Transfer is a session of its own, and its screen (the transfer panel,
@@ -5682,8 +5686,9 @@ tools/i18n-shots.py (`scene_bmp`).
 
 **Home Systems** in MENU's Display tab, under System Order: its value
 **All**, or how many of them are on ("8 of 10"); A opens its page. The page
-lists Favorites, Recents and Collections (11.56; its row once the card has
-a collection, as a system has one only with games), a rule, then every system
+lists Favorites, Recents, Collections (11.56; its row once the card has
+a collection, as a system has one only with games) and Screenshots (11.68;
+its row once the card has a shot), a rule, then every system
 the card has games for, in the home's order (a system with none is not on the home, so not on
 the page either), each **On** or **Off**, Left, Right or A turning it over,
 heard as a ring, as Side Lights' parts are. Under a rule, the note: "Games
@@ -5706,7 +5711,7 @@ is the empty home's, which says the card has no games: its row is dead, and a
 second note says why ("One system stays on the home."). The home is built
 again once, as the page closes on a change, from the saved library, keeping
 the player's place (`shelves_reload`). The setting is one word in the device
-database, `home.hidden`: the tags that are off ("PRT,RECENT"; Collections' is COLL),
+database, `home.hidden`: the tags that are off ("PRT,RECENT"; Collections' is COLL, Screenshots' SHOT),
 so a new system is On without anyone saying so (src/homesys.h). Host shots:
 `--homesys-page ROW`.
 
@@ -6169,6 +6174,28 @@ held a second home even when it hangs, the volume keys and **MENU+VOL** over it,
 **POWER** its end and the power-off. No save states: PICO-8 has none, so Save,
 Load, Undo Load and Resume stay fake08's. Full clocks, as every program of its
 own.
+
+**MP4 over it** *(2026-11-20: "mp4 should keep playing while pico 8 is
+running like we do on other systems. and menu and select should open the mp4
+like other systems")*, as over a Diatom game. What plays when a cart opens
+plays on: launch.sh stops MP4 for every other program of its own (a port
+such as Stardew Valley needs the 1 GB) and not for this one, whose request
+says so (`port_keeps_mp4`, src/portmenu.h). Both sounds go into the same
+mix, the system's default being dmix, so neither keeps the other out. The
+queue goes from process to process in a file (src/mp4hand.h): the launcher
+writes it as it ends for PICO-8, a follower beside PICO-8 (`zyperos.elf
+--mp4-follow`, started and ended by launch.sh) plays the next track as each
+ends and keeps the resume row and a book's place, and the launcher after
+PICO-8 takes it on, the music going on with no gap and nothing opening by
+itself. **MENU, then SELECT** opens MP4 in the in-game menu as over a game:
+Now Playing of what plays, or MP4's shelf with nothing playing, the whole
+of MP4 there; SELECT let go or B closes it back to the menu, and Continue
+gives PICO-8 its frame and its keys as before (portkeys empties what was
+pressed). portkeys stops the follower while the menu is up, so the menu's
+MP4 is the one that talks to the daemon then, and the follower goes on from
+the queue the menu leaves. Where MP4's sound goes (a headset, a DAC) stays
+where the launcher left it until the menu opens MP4. PICO-8's own sound is
+not quieted while MP4 plays (section 14).
 
 **The picture** follows the shelf's **Display** row (launch.sh hands the
 row's name to the script): **Sharp Pixels** is whole multiples of 128, 3x on
@@ -6762,7 +6789,8 @@ where (RUN `shots=`, with every game, so a key set in the game works at
 once); Diatom adds the time. **The pop-up** *(my pick: the picture, small)*
 carries the shot itself beside "Screenshot saved", the folder under it,
 kept in its shape at the two lines' height (`NOTICE_PICTURE`), for
-**hold-short**, as every pop-up over a game.
+**hold-short**, as every pop-up over a game. The shots are on the home's
+Screenshots group (11.68), the first one making it as the game ends.
 
 ### 11.62 Two cores on a shelf: Gambatte
 *(DoctorIssa on the Discord asked for Gambatte; Tarik: "all good". mGBA
@@ -7160,3 +7188,97 @@ resumed: it was not heard.
   1.1.0-rc.3: "I powered off while having a video playing in mp4 and
   running a gbc game and when i clicked select in the menu after powering
   on again it didnt show the video playing that video paused".)*
+
+### 11.68 Screenshots
+*(Asked for as "a place in the launcher to view screenshots", and on
+1.1.0-rc.3: "I'm not seeing the screenshots option in home. Why?". My picks
+in the Screenshots lab, 2026-11-20; each pick is one place,
+src/shots_screen.h's list.)*
+
+**A group on the home**, like Favorites, Recents and Collections, after them
+(first when there are none of the three), once the card has a shot: no shot,
+no card, as an empty Favorites shows none. Named **Screenshots** in the
+language that is on, "5 screenshots" under its name, A's hint **Open**. Its
+card is a placeholder until a real design comes: a pixel camera, its lens
+ringed in lime, its flash firing, two poses of 400 ms each as Favorites'
+heart beats (`res/system-art/original/placeholders/screenshots-card.py`).
+Home Systems (11.48) has its row once the card has a shot, On as it ships;
+its tag is SHOT.
+
+**What it holds.** Every shot the Screenshot hotkey wrote (11.61),
+`Screenshots/<System>/<Game> 2026-11-18 21.40.05.png`, and OpenBOR's own
+*(my pick)*, which OpenBOR takes with SELECT and names itself,
+`Saves/openbor/ScreenShots/<module> - 0000.png` (its `screenshot()` at the
+pinned b8303cc: the module its `.pak`'s name, "Menu" in its own menu, the
+number the first free one), under OpenBOR - of a system the card has games
+for, on the home or turned off it: one stream, the newest first, the newest
+2000. An entry has its game's name and title, found by the name the shot was
+taken with (the hotkey's `shot_game_part`, OpenBOR's module; src/shotname.h),
+and is owned by its system as on Favorites; its file is the picture's own
+path. A shot of a game no longer on the card (renamed or deleted: Rename and
+Delete Game leave the shots alone) stays, under the name it was taken with.
+A file of another name is no shot. A hotkey shot's time is its name's wall
+clock, kept by the calendar alone, never through a time zone; OpenBOR's name
+has none, so its file's. Read once a scan, and again only after a game that
+took a shot (Diatom's SHOT); never in a game. OpenBOR runs as a program of
+its own, after which the launcher starts again and reads the card, so its
+shots are there when it comes back.
+
+**Its shelf** is a shelf's: Covers, Grid, List and Video, START stepping
+them, kept by its tag. Each card is Recents' Last Screen card (11.48,
+src/screencard.h): the shot at its own shape, scaled up whole by the nearest
+pixel toward 448, its game's cover small in its lower left corner (its own
+box art by the game's name; its generated card where it has none), made on
+the art workers. Under the name, the shot's system and when it was taken,
+"SNES · today 21:40", by the
+calendar's days as Played says them ("3d ago" past yesterday), the clock as
+MENU > Clock has it. No heart, no video snap and no snap mark. The foot: B
+Systems, START the next View, X Delete; A's word **View**.
+
+**A on a shot** opens it in the Video view (11.57), for as long as it is
+open; the View the shelf keeps does not change. The shot is whole on the
+screen at its own shape, as large as the screen holds it (on the Pixel 2 a
+SNES shot is 549 x 480 pixels), on ink; the name's card at the top left
+("Screenshots · 3 / 13", the game, its line); the band of shots at the foot,
+down to its strip after **hold-band** with no press. Until the picture is
+in, its card shows whole above the band, as a game's does until its snap.
+Left and Right step, L1 and R1 go to the next or the last game's first shot
+in the shelf's order, B goes back to the View it was opened from, X deletes;
+A and START play **deny**. The viewer is for looking *(my pick)*: no key
+starts the shot's game there, which starts from its own shelf. The picture
+is asked of the art workers apart from the cards
+(`SHOTS_VIEW_SYS`). On the shelf's own Video View (START) the same, with B
+Systems and START Covers. A still shot does not hold the screensaver, as a
+playing snap does.
+
+**Delete Screenshot** (X, on the shelf and in the viewer) asks first, as
+Delete Game does (11.31): "Delete this screenshot of Super Metroid? The game
+stays. This cannot be undone.", Delete over **Cancel**, the cursor on
+Cancel. Yes takes the file off the card and nothing else; the shelf is read
+again, on the shot that took its place; the last one deleted, the group
+goes and the home stands on what took its place. A card that will not let
+it go says so ("The screenshot was not deleted. Check the card and try
+again.").
+
+**Its menu** is two rows under its name: **Sort By**, its own three -
+**Recently Added** (the newest first, as it ships), **Name** and **System**
+(the home's order of the systems), each game's newest first in those two -
+and **View**. No count and no Random Game: a shot is no game.
+
+**What it costs.** Nothing per frame and nothing in a game: a scan reads
+`Screenshots/`, its systems' folders and OpenBOR's, names only (and a stat
+of each of OpenBOR's, for its time), and finds the games by
+name in the listings in memory (a sort of each folder's names, a look-up a
+game); a card is made once on the art workers; the viewer's picture is one
+texture, for the shot in focus.
+
+Host shots: `home-screenshots` (and `home-screenshots-one`), `shelf-screenshots`
+(and `shelf-screenshots-openbor`, OpenBOR's own),
+`shelf-screenshots-grid`, `shelf-screenshots-list`, `screenshots-viewer`,
+`screenshots-viewer-strip`, `screenshots-delete`, `screenshots-said`,
+`screenshots-menu`, `screenshots-menu-sort` and `homesys-page-shots` (tools/i18n-shots.py, the
+shots made up as PNGs), with `--shots-delete`, `--shots-said` and
+`--shots-delete-now`. `check-shotname` holds the names and the orders;
+`check-homesys-groups` the shelf with its system turned off, OpenBOR's shots
+by their files' times, A in the viewer starting nothing, and Delete
+Screenshot.

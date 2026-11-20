@@ -18,6 +18,16 @@
 
 #define MP4_SOCK "/tmp/mp4d.sock"
 
+/* The daemon's socket: its own, or $ZYPEROS_MP4_SOCKET's for a check on a
+ * computer, which talks to a stand-in daemon there (as
+ * ZYPEROS_DIATOM_SOCKET does Diatom's) */
+static const char *sock_path(void)
+{
+	const char *v = getenv("ZYPEROS_MP4_SOCKET");
+
+	return v && *v ? v : MP4_SOCK;
+}
+
 static char    g_bin[256], g_root[256];
 static int     g_fd = -1;
 static char    g_in[4096];
@@ -64,6 +74,9 @@ static bool    g_start_held;        /* and that it opens held, paused (mp4c_hold
 static bool    g_held_sent;         /* a held PLAY sent and not yet answered */
 static bool    g_ran_out;           /* see mp4c_take_ran_out */
 static double  g_speed = 1.0;       /* see mp4c_set_speed */
+/* A queue handed over (mp4c_hand_in) and waiting for the daemon's word on
+ * it: what the hand said, playing or paused, or 0 */
+static int     g_adopt;
 /* The playing file's chapters, from the daemon's CHAPTER lines. */
 #define MAX_CHAPTERS 256
 static double  g_ch_at[MAX_CHAPTERS];
@@ -182,7 +195,7 @@ static int connected(void)
 	int fd;
 
 	if (g_fd >= 0) return 1;
-	snprintf(sa.sun_path, sizeof sa.sun_path, "%s", MP4_SOCK);
+	snprintf(sa.sun_path, sizeof sa.sun_path, "%s", sock_path());
 	/* Non-blocking by fcntl rather than SOCK_NONBLOCK, which is Linux's: the
 	 * host build compiles this too, and a Unix-socket connect either answers
 	 * at once or fails at once either way. */
@@ -292,6 +305,8 @@ static void field(const char *line, const char *key, char *out, size_t n)
 	}
 }
 
+static bool adopt_state(const char *line, const char *state);
+
 static void event(const char *line)
 {
 	char v[256];
@@ -317,6 +332,7 @@ static void event(const char *line)
 		g_bands_ms = plat_now_ms() | 1;
 	} else if (!strncmp(line, "STATE", 5)) {
 		field(line, "state", v, sizeof v);
+		if (g_adopt && adopt_state(line, v)) return;
 		/* The track that ended says "stopped" AFTER its END, and by then the
 		 * next one has already been asked for. Taken at its word, the queue
 		 * reads as stopped for the moment between two tracks - and a game
@@ -430,6 +446,47 @@ static void event(const char *line)
 		else if (++g_skips < 8) advance(true);
 		else g_now.state = MU_STOPPED;
 	}
+}
+
+/* The daemon's first word on a queue handed over (mp4c_hand_in): which of
+ * its tracks plays now. The file the daemon names, found in the queue, is
+ * where it is, wherever the hand left it: a follower that moved on and
+ * ended before it could write the file, a menu that started another song.
+ * Stopped on the track the hand said was playing, it ran out while nobody
+ * listened (between two processes, or under the in-game menu), and the
+ * queue goes on to the next, as an END would have. True when that was done
+ * and the STATE is used up. */
+static bool adopt_state(const char *line, const char *state)
+{
+	char path[1100];
+	size_t root = strlen(g_root);
+	int said = g_adopt, i, at = -1;
+
+	g_adopt = 0;
+	field(line, "path", path, sizeof path);
+	if (!strncmp(path, g_root, root) && path[root] == '/')
+		for (i = 0; i < g_qn && at < 0; i++)
+			if (!strcmp(path + root + 1, g_q[g_order.order[i]])) at = i;
+	if (at >= 0 && at != g_order.pos) {
+		g_order.pos = at;
+		g_now.index = at;
+	}
+	if (!strcmp(state, "stopped") && said == MU_PLAYING && at >= 0) {
+		fprintf(stderr, "mp4: the track handed over ran out meanwhile; the next\n");
+		advance(false);
+		return true;
+	}
+	/* Playing a file the queue does not have: the queue is not the one
+	 * playing any more, and an END would go on into the wrong album */
+	if (at < 0 && strcmp(state, "stopped") && g_qn > 0) {
+		fprintf(stderr, "mp4: the daemon plays a file the queue handed over has not; no queue\n");
+		for (i = 0; i < g_qn; i++) free(g_q[i]);
+		free(g_q);
+		g_q = NULL;
+		g_qn = 0;
+		muq_free(&g_order);
+	}
+	return false;
 }
 
 /* A headset's own play, pause, next and previous, which btplayer reads off its
@@ -560,6 +617,87 @@ void mp4c_play(const char *const *paths, int n, int start, double at, bool book,
 }
 
 void mp4c_hold_next(void) { g_start_held = true; }
+
+bool mp4c_hand_out(mp4hand *h)
+{
+	int i;
+
+	memset(h, 0, sizeof *h);
+	if (g_qn <= 0 || !g_order.order || g_order.n != g_qn) return false;
+	h->order = calloc((size_t)g_qn, sizeof *h->order);
+	h->track = calloc((size_t)g_qn, sizeof *h->track);
+	if (!h->order || !h->track) { mp4hand_free(h); return false; }
+	h->n = g_qn;
+	for (i = 0; i < g_qn; i++) {
+		h->order[i] = g_order.order[i];
+		if (!(h->track[i] = strdup(g_q[i]))) { mp4hand_free(h); return false; }
+	}
+	h->pos = g_order.pos >= 0 && g_order.pos < g_qn ? g_order.pos : 0;
+	h->state = g_now.state == MU_PLAYING || g_asked ? MH_PLAYING
+	         : g_now.state == MU_PAUSED ? MH_PAUSED : MH_STOPPED;
+	h->at = g_now.state == MU_PLAYING ? mp4c_at_live() : g_now.at;
+	if (!(h->at >= 0)) h->at = 0;
+	h->mode = g_order.mode;
+	h->seed = g_order.seed;
+	h->book = g_book;
+	h->videos = g_videos;
+	h->names_each = g_names_each;
+	h->speed = g_speed;
+	snprintf(h->root, sizeof h->root, "%s", g_root);
+	snprintf(h->artist, sizeof h->artist, "%s", g_artist);
+	snprintf(h->album, sizeof h->album, "%s", g_album);
+	return true;
+}
+
+void mp4c_hand_in(const mp4hand *h)
+{
+	int i, k = 0;
+
+	for (i = 0; i < g_qn; i++) free(g_q[i]);
+	free(g_q);
+	g_q = NULL;
+	g_qn = 0;
+	muq_free(&g_order);
+	g_pending = 0;
+	g_adopt = 0;
+	g_advanced = g_start_held = g_held_sent = g_ran_out = false;
+	g_skips = 0;
+	g_start_at = 0;
+	g_nch = 0;
+	/* A whole announcement from the daemon, which only a new connection
+	 * gets: mp4c_poll connects again, as there is a queue to look after */
+	drop("a queue handed over", 0);
+	if (!h || h->n <= 0 || strcmp(h->root, g_root)) {
+		g_now.state = MU_OFF;
+		return;
+	}
+	g_q = calloc((size_t)h->n, sizeof *g_q);
+	if (g_q && muq_init(&g_order, h->n, 0, (muq_mode)h->mode, h->seed))
+		for (k = 0; k < h->n && (g_q[k] = strdup(h->track[k])); k++) ;
+	if (k < h->n) {
+		for (i = 0; i < k; i++) free(g_q[i]);
+		free(g_q);
+		g_q = NULL;
+		muq_free(&g_order);
+		return;
+	}
+	g_qn = h->n;
+	memcpy(g_order.order, h->order, (size_t)h->n * sizeof *h->order);
+	g_order.pos = h->pos;
+	g_order.seed = h->seed;
+	g_book = h->book;
+	g_videos = h->videos;
+	g_speed = h->speed >= 0.5 && h->speed <= 2.0 ? h->speed : 1.0;
+	g_names_each = h->names_each;
+	snprintf(g_artist, sizeof g_artist, "%s", h->artist);
+	snprintf(g_album, sizeof g_album, "%s", h->album);
+	g_start_at = h->at;
+	now_for(g_q[muq_current(&g_order)]);
+	g_start_at = 0;
+	g_now.state = h->state == MH_PLAYING ? MU_PLAYING : h->state == MH_PAUSED ? MU_PAUSED : MU_STOPPED;
+	g_at_ms = plat_now_ms();
+	if (h->state != MH_STOPPED) g_adopt = g_now.state;
+}
 
 void mp4c_play_videos(const char *const *paths, int n, int start, double at,
                        const char *artist, const char *album)

@@ -295,6 +295,10 @@ static const sa_frame SA_FRAMES_SAVES[] = {
     { 0, 0 },
 };
 
+static const sa_frame SA_FRAMES_SCREENSHOTS[] = {
+    { 0, 400 }, { 1, 400 },
+};
+
 static const sa_frame SA_FRAMES_SCUMMVM[] = {
     { 1, 400 }, { 0, 400 },
 };
@@ -415,6 +419,7 @@ static const sa_asset SA_ASSETS[] = {
     { "ROMS", "system-icons/ROMS.png", "system-icons/ROMS-still.png", 256, 0, 0, 1, 0, 0, 0, 0, 0, SA_FRAMES_ROMS },
     { "SATURN", "system-icons/SATURN.png", "system-icons/SATURN-still.png", 256, 3, 9, 27, 90, 15, 109, 101, 6000, SA_FRAMES_SATURN },
     { "SAVES", "system-icons/SAVES.png", "system-icons/SAVES-still.png", 256, 0, 0, 1, 0, 0, 0, 0, 0, SA_FRAMES_SAVES },
+    { "SCREENSHOTS", "system-icons/SCREENSHOTS.png", "system-icons/SCREENSHOTS-still.png", 256, 2, 1, 2, 8, 56, 112, 88, 800, SA_FRAMES_SCREENSHOTS },
     { "SCUMMVM", "system-icons/SCUMMVM.png", "system-icons/SCUMMVM-still.png", 256, 2, 1, 2, 46, 163, 31, 42, 800, SA_FRAMES_SCUMMVM },
     { "SEGACD", "system-icons/SEGACD.png", "system-icons/SEGACD-still.png", 256, 2, 17, 35, 26, 150, 111, 40, 6000, SA_FRAMES_SEGACD },
     { "SG1000", "system-icons/SG1000.png", "system-icons/SG1000-still.png", 256, 3, 1, 4, 30, 158, 82, 48, 2200, SA_FRAMES_SG1000 },

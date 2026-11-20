@@ -230,7 +230,12 @@ static void band(SDL_Renderer *r, const games_row *row, const vv_info *in, cf_te
 		SDL_SetTextureAlphaMod(t, was);
 	}
 	/* The keys, as every shelf's foot (DESIGN.md 11.4), with A's among them */
-	if (fade > 0) {
+	if (fade > 0 && in->foot) {
+		shelf_frame sf = games_frame();
+
+		keyhints_draw(r, in->foot, in->nfoot, sf.keys.x, sf.keys.x + sf.keys.w, sf.keys.y + sf.keys.h / 2 + dy,
+		              KEYHINTS_SPREAD, true, (Uint8)lroundf(255 * fade));
+	} else if (fade > 0) {
 		key_hint foot[5];
 		int nf = 0;
 		shelf_frame sf = games_frame();

@@ -114,6 +114,7 @@
 #include "mp4c.h"
 #include "mp4lock.h"
 #include "mp4resume.h"   /* MP4 back after a power-off (DESIGN.md 11.67) */
+#include "mp4hand.h"     /* MP4 handed over a program of its own (DESIGN.md 11.55) */
 #include "topbar.h"
 #include "mp4frame.h"  /* MPF_TOO_BIG, for --video-trouble */
 #include "mp4video.h"
@@ -176,6 +177,7 @@
 #include "raqueue.h"
 #include "shelfbuild.h"
 #include "shelfdir.h"
+#include "shots_screen.h"
 #include "esmedia.h"
 #include "gamern.h"
 #include "stats_screen.h"
@@ -1073,6 +1075,15 @@ void recents_picture_turn(app *a)
  * `frame` and `cover` ("" for none). False when it has no resume point, and
  * the card is its cover, as with Cover. Asked only while the card has no
  * texture (game_card_wanted). */
+/* Game `g` of system `o`'s cover on the card, its own or
+ * EmulationStation's, into `cover`; "" for none */
+static void game_cover_path(app *a, int o, const game_entry *g, char *cover, size_t cn)
+{
+	/* The one lookup the handheld and File Transfer's page share
+	 * (src/esmedia.h, game_media): "" for none */
+	game_media(P_ROMS, a->sys.systems[o].folder, g->file, g->name, ES_COVER, true, cover, cn);
+}
+
 static bool recents_screen_paths(app *a, int o, const game_entry *g, char *frame, size_t fn,
                                  char *cover, size_t cn)
 {
@@ -1082,8 +1093,33 @@ static bool recents_screen_paths(app *a, int o, const game_entry *g, char *frame
 	state_path(a, o, g, st, sizeof st);
 	preview_path(a, o, g, frame, fn);
 	if (stat(st, &sb) != 0 || stat(frame, &sb) != 0 || sb.st_size <= 0) return false;
-	game_media(P_ROMS, a->sys.systems[o].folder, g->file, g->name, ES_COVER, true, cover, cn);
+	game_cover_path(a, o, g, cover, cn);
 	return true;
+}
+
+/* A card made from a picture of play with the game's cover small in its
+ * corner (src/screencard.h), for entry `g` of shelf `s` (system `o`):
+ * Recents' Last Screen, and every shot on the Screenshots shelf (DESIGN.md
+ * 11.68: the shot, and its game's cover as SHOTS_CARD_COVER says). False
+ * for a card of another kind. */
+static bool screen_card_paths(app *a, int s, int o, const game_entry *g, char *frame, size_t fn,
+                              char *cover, size_t cn)
+{
+	if (shots_shelf(a, s)) {
+		struct stat sb;
+
+		/* The game's own cover by its name (a shot's file is its
+		 * picture's, so EmulationStation's, by the game's file, is not
+		 * looked for) */
+		shots_png(g, frame, fn);
+		cover[0] = '\0';
+		if (SHOTS_CARD_COVER) {
+			box_art_path(a->sys.systems[o].folder, g->name, cover, cn);
+			if (stat(cover, &sb) != 0 || sb.st_size <= 0) cover[0] = '\0';
+		}
+		return true;
+	}
+	return g_recents_screen && s == shelf_recents_at(a) && recents_screen_paths(a, o, g, frame, fn, cover, cn);
 }
 
 void view_load(app *a)
@@ -1209,6 +1245,8 @@ void sort_shelf(app *a, int sys)
 	sysview *v = &a->view[sys];
 
 	if (is_mp4(&a->sys.systems[sys])) { mp4_order_view(v); return; }
+	/* Screenshots' three, each game's newest first (src/shots_screen.h) */
+	if (shots_shelf(a, sys)) { shots_sort(a, sys); return; }
 	/* The added times this order reads, each game's from its own system's
 	 * folder (Favorites' from its owner's), where the scan left them unknown */
 	if (sort_needs_added(v->sort))
@@ -1731,6 +1769,84 @@ const mp4_mode_name MP4_MODES[MUQ_MODES] = {
 	[MUQ_SHUFFLE]    = { "shuffle",    UI_GLYPH_SHUFFLE },
 };
 
+/* MP4's side of this process: its daemon (none for a shot, which draws one
+ * frame and exits), the names a queue's tracks go by, and the play modes the
+ * player left (`mode`, a shot's --mode, for both). `route`: where its sound
+ * goes is followed before each PLAY (aout_before_mp4), as the launcher and
+ * the in-game menu over a port do; the follower beside a program of its own
+ * keeps MP4 where the launcher left it (src/mp4hand.h). */
+static void mp4_setup(bool shot, bool route, const char *mode)
+{
+	char bin[CFG_STR * 2], m[32];
+	int k;
+
+	snprintf(bin, sizeof bin, "%s/mp4d", P_ROOT);
+	/* A shot starts no daemon: a cover it would ask for is drawn as missing
+	 * instead - see mp4_covers_settle. */
+	mp4c_init(shot ? "" : bin, P_CARD);
+	mp4c_on_before_heard(route ? aout_before_mp4 : NULL);
+	mp4c_names_by(mp4_track_names);
+	/* The play mode the player left it in. */
+	db_get_str(db_dev(), "mp4.mode", m, sizeof m, "in order");
+	if (mode) snprintf(m, sizeof m, "%s", mode);
+	for (k = 0; k < MUQ_MODES; k++)
+		if (!strcmp(m, MP4_MODES[k].key)) mp4c_set_mode((muq_mode)k);
+	/* Videos' own, MENU > Repeat on MP4's video shelves */
+	db_get_str(db_dev(), "video.mode", m, sizeof m, "in order");
+	if (mode) snprintf(m, sizeof m, "%s", mode);
+	for (k = 0; k < MUQ_MODES; k++)
+		if (!strcmp(m, MP4_MODES[k].key)) mp4c_set_video_mode((muq_mode)k);
+}
+
+/* MP4'S QUEUE HANDED OVER A PROGRAM OF ITS OWN (src/mp4hand.h, DESIGN.md
+ * 11.55): your PICO-8 keeps MP4 playing, as a Diatom game does, and the
+ * queue goes from process to process in this file. Written as the launcher
+ * ends for the program (launch_port), as the in-game menu over it closes
+ * with MP4 opened, and as the follower beside it ends; with no queue, a
+ * file of no tracks, which still says MP4 is kept over this program. */
+bool mp4_hand_save(void)
+{
+	mp4hand h;
+	bool ok;
+
+	if (!mp4c_hand_out(&h)) {
+		memset(&h, 0, sizeof h);
+		h.speed = 1.0;
+		snprintf(h.root, sizeof h.root, "%s", P_CARD);
+	}
+	h.all = g_rs_queue == MR_ALL;
+	ok = mp4hand_write(plat_flag(MP4HAND_PATH), &h);
+	fprintf(stderr, "mp4: %s %d track%s, %s, at %d\n", ok ? "handed over" : "could not hand over",
+	        h.n, h.n == 1 ? "" : "s", h.state == MH_PLAYING ? "playing" : h.state == MH_PAUSED ? "paused" : "stopped",
+	        h.n ? h.pos + 1 : 0);
+	mp4hand_free(&h);
+	return ok;
+}
+
+/* ...and taken on: the queue the file holds made this process's, where the
+ * daemon says it is (mp4c_hand_in). True when a queue came with it. */
+bool mp4_hand_take(void)
+{
+	mp4hand h;
+	bool any;
+
+	if (!mp4hand_read(plat_flag(MP4HAND_PATH), &h)) return false;
+	/* No book_keep first, as a new queue has (mp4_play): this is the same
+	 * queue, and the process that wrote the file kept its places as it did */
+	mp4c_hand_in(&h);
+	g_bk.al = -1;
+	g_vk.track[0] = '\0';
+	/* Kept at its first poll, as a new queue is (resume_keep) */
+	g_rs = (mp4resume_seen){ 0 };
+	g_rs_queue = h.all ? MR_ALL : MR_ALBUM;
+	any = h.n > 0;
+	fprintf(stderr, "mp4: took over %d track%s, %s, at %d\n", h.n, h.n == 1 ? "" : "s",
+	        h.state == MH_PLAYING ? "playing" : h.state == MH_PAUSED ? "paused" : "stopped",
+	        h.n ? h.pos + 1 : 0);
+	mp4hand_free(&h);
+	return any;
+}
+
 /* The cover on the Now Playing screen, kept between visits so that opening it
  * is not a decode: the album it is for and its texture. `done` means this is
  * what the album will show - its art, or the card made for one with none - and
@@ -2159,17 +2275,19 @@ SDL_Texture *game_get_tex(void *ctx, int i, int *w, int *h, float *cb)
 				SDL_FreeSurface(sf);
 			}
 		}
-	} else if (g_recents_screen && s == shelf_recents_at(a) && game_card_wanted(v, i) &&
-	           recents_screen_paths(a, o, &v->list.items[i], pm, sizeof pm, pmc, sizeof pmc)) {
-		/* Recents' Last Screen (DESIGN.md 11.48): made on a worker, art
-		 * of no theme, so a change of theme keeps it; a game with no cover
-		 * has its generated card small in the corner, as its shelf shows it */
+	} else if (game_card_wanted(v, i) &&
+	           screen_card_paths(a, s, o, &v->list.items[i], pm, sizeof pm, pmc, sizeof pmc)) {
+		/* Recents' Last Screen (DESIGN.md 11.48), and a shot (11.68):
+		 * made on a worker, art of no theme, so a change of theme keeps
+		 * it; a game with no cover has its generated card small in the
+		 * corner, as its shelf shows it, unless the card has no cover */
 		ui_card_order card;
+		const ui_card_order *co = shots_shelf(a, s) && !SHOTS_CARD_COVER ? NULL : &card;
 
 		ui_card_order_set(&card, v->list.items[i].title, a->sys.systems[o].accent, false);
 		game_card_order(a, o, &v->list.items[i], &card);
-		if (!texload_want_screen(s, i, pm, pmc, &card) && !g_loads_held) {
-			SDL_Surface *sf = screen_card_make(pm, pmc, &card, false);
+		if (!texload_want_screen(s, i, pm, pmc, co) && !g_loads_held) {
+			SDL_Surface *sf = screen_card_make(pm, pmc, co, false);
 
 			if (v->tex[i]) SDL_DestroyTexture(v->tex[i]);
 			v->tex[i] = NULL;
@@ -2239,6 +2357,11 @@ void shelf_put(void *ctx, texload_got *g)
 	int s = g->sys, i = g->idx;
 	sysview *v;
 
+	/* The Screenshots viewer's picture (src/shots_screen.h), asked apart */
+	if (s == SHOTS_VIEW_SYS) {
+		shots_view_put(a, i, surf, g->card);
+		return;
+	}
 	/* The focused card's sharp one (src/focusfx.h), asked for apart */
 	if (s <= SHELF_SHARP_SYS(0)) {
 		shelf_focus_sharp_put(a, SHELF_SHARP_SYS(0) - s, i, surf, g->card, g->theme);
@@ -3221,6 +3344,8 @@ static void on_hotkey(const char *key, const char *path)
 		if (notice_render_ex(T(S_HOTKEYS_SHOT_SAVED), body, path, NOTICE_PICTURE, 0, 0, p, theme_index()))
 			plat_resident_line("OVERLAY\tpath=%s\tms=1500", p);
 		nq_hold(&g_nq, plat_now_ms(), 1500);
+		/* and the Screenshots shelf read again once the game ends */
+		shots_taken();
 		return;
 	}
 	if (!strcmp(key, "shader") || !strcmp(key, "display")) {
@@ -5124,7 +5249,9 @@ void refresh_game_titles(app *a)
 		int owner, selected;
 		bool changed = false;
 
-		if (is_mp4(&a->sys.systems[si]) || v->list.count <= 0) continue;
+		/* Not Screenshots: an entry's file is its picture's, and its title
+		 * is its game's as the shelf was read (DESIGN.md 11.68) */
+		if (is_mp4(&a->sys.systems[si]) || shots_shelf(a, si) || v->list.count <= 0) continue;
 		owner = shelf_owner(a, si, v->cursor);
 		snprintf(file, sizeof file, "%s", v->list.items[v->cursor].file);
 		/* A folder's name is its own (src/shelfdir.h); every game of a
@@ -5290,7 +5417,9 @@ static int menu_shelf_width(app *a)
 	for (i = 0; i < a->sys.count; i++) {
 		bool mp4 = is_mp4(&a->sys.systems[i]);
 		bool own  = mp4 || a->view[i].owner;
-		int  srow = own ? 1 : sm_pos(a, i, SM_SORT), show = -1, lookrow = -1;
+		/* Screenshots' Sort By and View are its first two (SM_SHOT_ROWS) */
+		bool shots = i == shelf_shots_at(a);
+		int  srow = shots ? 0 : own ? 1 : sm_pos(a, i, SM_SORT), show = -1, lookrow = -1;
 		int  drow = own ? -1 : sm_pos(a, i, SM_DISPLAY);
 		int  hrow = own ? -1 : sm_pos(a, i, SM_SHADER);
 		int  crow = own ? -1 : sm_pos(a, i, SM_CORE);
@@ -5299,7 +5428,7 @@ static int menu_shelf_width(app *a)
 		int  grow = own ? -1 : sm_pos(a, i, SM_SGB);
 		int  brow = own ? -1 : sm_pos(a, i, SM_BORDER);
 		int  bcrow = own ? -1 : sm_pos(a, i, SM_BORDER_COLOR);
-		int  vrow = mp4 ? -1 : a->view[i].owner ? 3 : sm_pos(a, i, SM_VIEW);
+		int  vrow = mp4 ? -1 : shots ? 1 : a->view[i].owner ? 3 : sm_pos(a, i, SM_VIEW);
 
 		n = menu_build(a, SCREEN_GAMES, i, rows, &bufs, &heading);
 		/* Recents' Card Picture at the longer of its two (DESIGN.md 11.48) */
@@ -5708,6 +5837,187 @@ static int scan_thread(void *ctx)
 	return 0;
 }
 
+/* MP4 in the in-game menu over a program of its own that keeps it playing
+ * (your PICO-8; src/mp4hand.h): SELECT there opens it as over a Diatom
+ * game, its shelf and Now Playing. Made ready at the first SELECT, not with
+ * the menu, which opens in the time it always did: the daemon, MP4's card
+ * read (its albums, the books' places), the covers' loader, where its sound
+ * goes, and the queue the file hands over. False over any other program:
+ * MP4 is stopped for those (launch.sh), and SELECT stays nothing there. */
+static bool g_port_mp4;          /* this program keeps MP4 (the file is there) */
+static bool g_port_mp4_up;       /* made ready, so the file is written back */
+
+bool port_mp4_ready(app *a)
+{
+	if (!g_port_menu || !g_port_mp4) return false;
+	if (g_port_mp4_up) return true;
+	g_port_mp4_up = true;
+	g_aout_policy = aout_load();
+	g_channels = channels_load();
+	mp4_setup(false, true, NULL);
+	texload_start();
+	mp4_shelf_alone(a);
+	mp4_hand_take();
+	fprintf(stderr, "port menu: MP4 ready, %d tracks on the card\n", g_mp4.ntracks);
+	return true;
+}
+
+/* The follower's lines into the log as "port: " lines, ZyperOS's own, which
+ * plastron's splash passes over (its portout.h): the follower starts while
+ * the program's loading screen shows the program's latest line at its foot,
+ * and "mp4: took over 3 tracks" there would be read as PICO-8's. stderr into
+ * a pipe, and a thread that writes each line to the log with the prefix;
+ * follow_log_end lets the last lines through before the process ends. */
+static int g_follow_log = -1;
+static SDL_Thread *g_follow_log_thread;
+
+static int follow_log_run(void *ctx)
+{
+	FILE *in = fdopen((int)(intptr_t)ctx, "r");
+	char line[1024];
+
+	while (in && fgets(line, sizeof line, in))
+		dprintf(g_follow_log, "port: %s%s", line, strchr(line, '\n') ? "" : "\n");
+	if (in) fclose(in);
+	return 0;
+}
+
+static void follow_log_start(void)
+{
+	int p[2];
+
+	if (pipe(p) < 0) return;
+	if ((g_follow_log = dup(2)) < 0 || dup2(p[1], 2) < 0) {
+		if (g_follow_log >= 0) close(g_follow_log);
+		g_follow_log = -1;
+		close(p[0]);
+		close(p[1]);
+		return;
+	}
+	close(p[1]);
+	setvbuf(stderr, NULL, _IOLBF, 0);
+	g_follow_log_thread = SDL_CreateThread(follow_log_run, "mp4-follow-log", (void *)(intptr_t)p[0]);
+	if (!g_follow_log_thread) {
+		dup2(g_follow_log, 2);
+		close(p[0]);
+	}
+}
+
+static void follow_log_end(void)
+{
+	if (g_follow_log < 0) return;
+	fflush(stderr);
+	dup2(g_follow_log, 2);              /* the pipe's last writer gone: EOF */
+	if (g_follow_log_thread) SDL_WaitThread(g_follow_log_thread, NULL);
+	g_follow_log_thread = NULL;
+}
+
+/* --mp4-follow (src/mp4hand.h): MP4 looked after beside a program of its own
+ * that keeps it playing, your PICO-8, as the launcher looks after it beside
+ * a Diatom game (on_game_tick): ten times a second, the daemon's word read,
+ * the next track sent when one ends, a book's place and the resume row kept
+ * (book_keep). launch.sh starts it with the program and ends it (TERM) after
+ * it; portkeys stops it (SIGSTOP) while the in-game menu is up, the menu
+ * then being the one that talks to the daemon, and lets it go on after. A
+ * file the menu wrote meanwhile (another inode or time) is taken again.
+ * Where MP4's sound goes stays where the launcher left it: this process
+ * reads no jack and no headset (no route). No display, no input, no sound of
+ * its own. The file is written as it ends, for the launcher after. */
+static volatile sig_atomic_t g_follow_cont;
+static void on_sigcont(int sig) { (void)sig; g_follow_cont = 1; }
+
+/* The file's bytes, to tell a queue the menu wrote from the one taken: a
+ * file written again in the same second at the same length looks the same
+ * to stat. NULL with none. */
+static char *hand_bytes(const char *path, size_t *n)
+{
+	FILE *f = fopen(path, "rb");
+	char *b = NULL;
+	long len;
+
+	*n = 0;
+	if (!f) return NULL;
+	if (fseek(f, 0, SEEK_END) == 0 && (len = ftell(f)) >= 0 && fseek(f, 0, SEEK_SET) == 0 &&
+	    (b = malloc((size_t)len + 1)) && fread(b, 1, (size_t)len, f) == (size_t)len) {
+		*n = (size_t)len;
+	} else {
+		free(b);
+		b = NULL;
+	}
+	fclose(f);
+	return b;
+}
+
+static int mp4_follow_main(void)
+{
+	static app a;
+	char path[CFG_STR * 2], hand[CFG_STR * 2];
+	char *taken;
+	size_t taken_n;
+	struct stat seen, st;
+
+	signal(SIGTERM, on_sigterm);
+	signal(SIGINT, on_sigterm);
+	/* Let go on after the in-game menu (portkeys's SIGCONT): the file
+	 * looked at at once */
+	signal(SIGCONT, on_sigcont);
+	follow_log_start();
+	paths_init();
+	{
+		char dev[CFG_STR * 2], lib[CFG_STR * 2], env[CFG_STR * 2];
+
+		db_paths_ready(dev, sizeof dev, lib, sizeof lib, env, sizeof env);
+		if (!db_init(dev, lib, env))
+			fprintf(stderr, "mp4 follow: no settings database; no places kept\n");
+	}
+	snprintf(path, sizeof path, "%s/systems.cfg", P_ROOT);
+	if (!cfg_load_systems(path, &a.sys))
+		fprintf(stderr, "mp4 follow: no usable %s; the queue alone\n", path);
+	mp4_setup(false, false, NULL);
+	mp4_shelf_alone(&a);
+	/* A copy: plat_flag's answer is one of a few it hands out in turn */
+	snprintf(hand, sizeof hand, "%s", plat_flag(MP4HAND_PATH));
+	if (stat(hand, &seen) != 0) memset(&seen, 0, sizeof seen);
+	taken = hand_bytes(hand, &taken_n);
+	mp4_hand_take();
+	fprintf(stderr, "mp4 follow: beside the program%s\n", taken ? "" : ", with no queue handed over");
+	while (!want_quit) {
+		struct timespec nap = { 0, 100 * 1000000L };
+		bool look = g_follow_cont;
+
+		/* The in-game menu's MP4 wrote the file as it closed: taken before
+		 * the daemon is read, as the menu's connection replaced this one
+		 * and the next word is about the menu's queue. Looked at as this
+		 * goes on after the menu, and whenever stat says it changed. */
+		g_follow_cont = 0;
+		if (stat(hand, &st) == 0 &&
+		    (look || st.st_ino != seen.st_ino || st.st_mtime != seen.st_mtime ||
+		     st.st_size != seen.st_size)) {
+			size_t n;
+			char *now = hand_bytes(hand, &n);
+
+			seen = st;
+			if (now && (!taken || n != taken_n || memcmp(now, taken, n))) {
+				free(taken);
+				taken = now;
+				taken_n = n;
+				fprintf(stderr, "mp4 follow: the queue again, from the in-game menu\n");
+				mp4_hand_take();
+			} else {
+				free(now);
+			}
+		}
+		mp4_poll();
+		nanosleep(&nap, NULL);
+	}
+	free(taken);
+	book_keep(true);
+	mp4_hand_save();
+	db_shutdown();
+	follow_log_end();
+	return 0;
+}
+
 /* --port-menu TAG GAME (src/portmenu.h): the in-game menu over a program of
  * its own (OpenBOR, the standalone Flycast, a port from the Ports
  * shelf and PortMaster itself, whose GAME is the port's script), and only
@@ -5759,6 +6069,8 @@ static int port_menu_main(int argc, char **argv)
 	}
 	g_port_menu = true;
 	g_port_waiting = argc > 4 && !strcmp(argv[4], PORT_MENU_WAITING);
+	/* MP4 kept over this program (src/mp4hand.h): SELECT opens it */
+	g_port_mp4 = access(plat_flag(MP4HAND_PATH), F_OK) == 0;
 	/* Its buttons when ZyperOS knows them (OpenBOR's); over the standalone
 	 * Flycast, In a game alone (port_menu_pads) */
 	g_port_ctl = (ctl_game){ port_menu_pads(s->tag) ? s->tag : "", s->name,
@@ -5818,6 +6130,12 @@ static int port_menu_main(int argc, char **argv)
 	levels_game_paused(false);
 	fprintf(stderr, "port menu: %s\n", how == PORT_MENU_QUIT ? "Quit" :
 	        how == PORT_MENU_POWER ? "POWER" : "Continue");
+	/* MP4 opened from it: its queue back to the follower, as it is now */
+	if (g_port_mp4_up) {
+		book_keep(true);
+		mp4_hand_save();
+		texload_stop();
+	}
 	/* The window closed, which puts back on the panel the frame SDL found
 	 * there - the port's - before the port has the display again */
 	uisound_release();
@@ -5837,8 +6155,10 @@ int main(int argc, char *argv[])
 	app a = { 0 };
 	char path[CFG_STR * 2];
 	char startup[CFG_STR];
+	bool hand_back = false;
 
 	if (argc > 1 && !strcmp(argv[1], PORT_MENU_ARG)) return port_menu_main(argc, argv);
+	if (argc > 1 && !strcmp(argv[1], MP4_FOLLOW_ARG)) return mp4_follow_main();
 
 	for (int i = 1; i < argc; i++) {
 		if (!strcmp(argv[i], "--shot") && i + 1 < argc) {
@@ -5991,6 +6311,10 @@ int main(int argc, char *argv[])
 		else if (!strcmp(argv[i], "--collect-page") && i + 1 < argc) shot_collect_page = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--collect-delete")) shot_collect_delete = 1;
 		else if (!strcmp(argv[i], "--collect-said") && i + 1 < argc) shot_collect_said = atoi(argv[++i]);
+		/* Delete Screenshot's question on the Screenshots shelf (DESIGN.md 11.68) */
+		else if (!strcmp(argv[i], "--shots-delete")) shot_shots_delete = 1;
+		else if (!strcmp(argv[i], "--shots-said")) shot_shots_said = 1;
+		else if (!strcmp(argv[i], "--shots-delete-now")) shot_shots_delete_now = 1;
 		else if (!strcmp(argv[i], "--zip-said")) shot_zip_said = 1;
 		else if (!strcmp(argv[i], "--info-art")) shot_info_art = true;
 		/* The Buttons page a game with its own buttons opens from its details */
@@ -7174,33 +7498,7 @@ int main(int argc, char *argv[])
 		ss_creds_load();
 		sgdb_key_load();
 		ss_run_videos(snap_wanted);
-		{
-			char bin[CFG_STR * 2], music[CFG_STR * 2];
-
-			snprintf(bin, sizeof bin, "%s/mp4d", P_ROOT);
-			snprintf(music, sizeof music, "%s", P_CARD);
-			/* A shot starts no daemon: it draws one frame and exits, and a
-			 * cover it would ask for is drawn as missing instead - see
-			 * mp4_covers_settle. */
-			mp4c_init(shot_path ? "" : bin, music);
-			mp4c_on_before_heard(aout_before_mp4);
-			mp4c_names_by(mp4_track_names);
-		}
-		/* The play mode the player left it in. */
-		{
-			char m[32];
-			int k;
-
-			db_get_str(db_dev(), "mp4.mode", m, sizeof m, "in order");
-			if (shot_mode) snprintf(m, sizeof m, "%s", shot_mode);
-			for (k = 0; k < MUQ_MODES; k++)
-				if (!strcmp(m, MP4_MODES[k].key)) mp4c_set_mode((muq_mode)k);
-			/* Videos' own, MENU > Repeat on MP4's video shelves */
-			db_get_str(db_dev(), "video.mode", m, sizeof m, "in order");
-			if (shot_mode) snprintf(m, sizeof m, "%s", shot_mode);
-			for (k = 0; k < MUQ_MODES; k++)
-				if (!strcmp(m, MP4_MODES[k].key)) mp4c_set_video_mode((muq_mode)k);
-		}
+		mp4_setup(shot_path != NULL, true, shot_mode);
 	}
 	t_mark("mp4+accounts");
 
@@ -7443,8 +7741,8 @@ int main(int argc, char *argv[])
 	 * a fallback to the shelf should find the right ones there. */
 	a.resume_menu = playing_restore(&a);
 	/* Back from a port: on its game list, as a Diatom game comes back. */
-	if (!access(PORT_RETURN, F_OK)) {
-		unlink(PORT_RETURN);
+	if (!access(plat_flag(PORT_RETURN), F_OK)) {
+		unlink(plat_flag(PORT_RETURN));
 		if (!a.resume_menu && a.view[a.sys_cursor].list.count > 0) {
 			a.screen = SCREEN_GAMES;
 			cf_reset(&a.view[a.sys_cursor].cf, a.view[a.sys_cursor].cursor);
@@ -7559,6 +7857,10 @@ int main(int argc, char *argv[])
 
 			fprintf(stderr, "delete: %s. %s\n", gone ? "deleted" : "kept", said);
 		}
+		/* --shots-delete-now: Delete Screenshot's yes on the shot under the
+		 * cursor (DESIGN.md 11.68) */
+		if (shot_shots_delete_now && shots_shelf(&a, a.sys_cursor) && a.view[a.sys_cursor].list.count > 0)
+			shots_delete_now(&a, &a.view[a.sys_cursor]);
 		if (a.screen == SCREEN_GAMES) prime_window(&a, a.sys_cursor);
 		if (shot_at >= 0 && !shot_launch && !shot_portload && !shot_poweroff &&
 		    (!shot_kb || shot_press != SHOT_STEP))
@@ -7621,6 +7923,15 @@ int main(int argc, char *argv[])
 	 * settle, so the press that switched the handheld on is no POWER. */
 	if (a.running && !lowbatt_gate(&a)) goto done;
 
+	/* Back from a program of its own that kept MP4 playing (your PICO-8):
+	 * its queue taken on, where the daemon is, and the file gone with it
+	 * (src/mp4hand.h). Whatever comes next, the music goes on. */
+	hand_back = !shot_path && access(plat_flag(MP4HAND_PATH), F_OK) == 0;
+	if (hand_back) {
+		mp4_hand_take();
+		unlink(plat_flag(MP4HAND_PATH));
+	}
+
 	/* Straight back into the game, before the shelf is ever drawn. After the
 	 * input grace above, so a wake press replayed by the boot does not land in
 	 * the menu that is about to open. */
@@ -7633,7 +7944,7 @@ int main(int argc, char *argv[])
 		 * the menu after powering on again it didnt show the video playing
 		 * that video paused". Before the launch, which only returns when
 		 * the game ends. */
-		if (!shot_path) resume_start();
+		if (!shot_path && !hand_back) resume_start();
 		a.screen = SCREEN_GAMES;
 		launch(&a);
 	}
@@ -7648,8 +7959,9 @@ int main(int argc, char *argv[])
 	/* Or MP4, where it was when the power went while it played: Now
 	 * Playing, paused at its second, over the shelf the start put back
 	 * (DESIGN.md 11.67). After the tutorial, which comes first; under a
-	 * game resumed at the start, above, it is held with no screen. */
-	else if (a.running && !shot_path && resume_start()) {
+	 * game resumed at the start, above, it is held with no screen. Not back
+	 * from a program that kept MP4 playing: no power-off came. */
+	else if (a.running && !shot_path && !hand_back && resume_start()) {
 		mp4_resume_open(&a);
 	}
 	/* Or, back from a PortMaster that closed with an error, its page with
