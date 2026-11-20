@@ -41,6 +41,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -2486,7 +2487,26 @@ static bool one_wants_video(const char *folder, const char *file)
 	       !strcmp(file, g_one->g->file);
 }
 
-/* What the card has for the game now, after a file landed */
+/* Whether the game's video is on the card: its own snap with something in
+ * it, else EmulationStation's (es_art_video), as the shelf plays them. Not
+ * the snap's path alone, which is always there to be had: taken for the
+ * snap, every game's Videos said On card once its panel looked again (a
+ * fetch, the Cover and Video page), and Get What's Missing asked for no
+ * video after that (one_wants_video). */
+static bool video_there(const system_cfg *sc, const dl_game *g)
+{
+	char dir[LIB_PATH * 2], p[LIB_PATH * 3];
+	struct stat st;
+
+	snprintf(dir, sizeof dir, "%s/%s", P_ROMS, sc->folder);
+	return (snaps_path(P_ROMS, sc->folder, g->name, p, sizeof p) && stat(p, &st) == 0 && st.st_size > 0) ||
+	       es_art_video(dir, g->file, g->name);
+}
+
+/* What the card has for the game now, after a file landed or its Cover and
+ * Video page closed. Its video as the list reads it (sysgames_load): on the
+ * card, else missing, or off for a system that gets none; one deleted on
+ * the Cover and Video page is missing again. */
 static void one_look(game_ctx *x)
 {
 	dl_game *g = x->g;
@@ -2494,8 +2514,7 @@ static void one_look(game_ctx *x)
 
 	snprintf(dir, sizeof dir, "%s/%s", P_ROMS, x->sc->folder);
 	if (has_box_art(x->sc->folder, g->name) || es_art_cover(dir, g->file, g->name)) g->st[DLK_COVERS] = GS_HAVE;
-	if (snaps_path(P_ROMS, x->sc->folder, g->name, p, sizeof p) || es_art_video(dir, g->file, g->name))
-		g->st[DLK_VIDEOS] = GS_HAVE;
+	g->st[DLK_VIDEOS] = video_there(x->sc, g) ? GS_HAVE : dl_sys_on(DLK_VIDEOS, x->sc->folder) ? GS_MISS : GS_OFF;
 	if (db_game_title(db_lib(), x->sc->folder, g->file, t, sizeof t) && t[0]) g->st[DLK_NAMES] = GS_HAVE;
 	chv_path(P_ROMS, x->sc->folder, g->name, p, sizeof p);
 	chv_none_path(p, np, sizeof np);
@@ -2949,7 +2968,9 @@ static void sysgames_keys(dl_view *v, dl_frame *f, unsigned now)
  * on behind it (downloads_test): away=MS, the lanes stepped as the shelf
  * steps them; game=MS, a game running, the lanes waiting; video-gone, the
  * renderer about to go as a game in the fallback takes it; open, the page
- * again.
+ * again. look=FOLDER|NAME: a game's panel looking at the card (one_look), the
+ * game as its system's list read it the first time its folder is looked at,
+ * each kind's mark said before and after.
  * Each step said on stderr with the page's state; the launcher quits at the
  * script's end. The real loop and the real card: what the shots' stand-in
  * counts cannot show. */
@@ -2996,6 +3017,40 @@ static void fake_start(dl_view *v, int n)
 	open_run(v);
 }
 
+/* look=FOLDER|NAME (see dl_test) */
+static void test_look(dl_view *v, const char *what)
+{
+	static const char *const ST[] = { "have", "miss", "none", "off" };
+	static char loaded[CFG_STR];
+	const char *bar = strchr(what, '|');
+	const system_cfg *sc = NULL;
+	char folder[CFG_STR];
+	int i, k;
+
+	if (!bar || (size_t)(bar - what) >= sizeof folder) return;
+	snprintf(folder, sizeof folder, "%.*s", (int)(bar - what), what);
+	for (i = 0; i < v->a->sys.count; i++)
+		if (!strcmp(v->a->sys.systems[i].folder, folder)) sc = &v->a->sys.systems[i];
+	if (sc && (strcmp(loaded, folder) || !v->games)) {
+		sysgames_load(v, folder);
+		snprintf(loaded, sizeof loaded, "%s", folder);
+	}
+	for (i = 0; sc && i < v->ngames; i++) {
+		game_ctx x = { .v = v, .g = &v->games[i], .sc = sc };
+		char was[96] = "", now[96] = "";
+
+		if (strcmp(v->games[i].name, bar + 1)) continue;
+		for (k = 0; k < DLK_KINDS; k++)
+			snprintf(was + strlen(was), sizeof was - strlen(was), " %d=%s", k, ST[v->games[i].st[k] & 3]);
+		one_look(&x);
+		for (k = 0; k < DLK_KINDS; k++)
+			snprintf(now + strlen(now), sizeof now - strlen(now), " %d=%s", k, ST[v->games[i].st[k] & 3]);
+		fprintf(stderr, "downloads-test: look %s videos=%d was%s now%s\n", what, DLK_VIDEOS, was, now);
+		return;
+	}
+	fprintf(stderr, "downloads-test: look %s not found\n", what);
+}
+
 /* list=NAME: what the page shows came, newest first, and each one's picture */
 static void test_list(dl_view *v, const char *name)
 {
@@ -3039,6 +3094,7 @@ static void dl_test(dl_view *v, app *a)
 	if (!strcmp(tok, "run")) g_dl_run_wait = true;
 	if (!strncmp(tok, "fake=", 5)) fake_start(v, atoi(tok + 5));
 	if (!strncmp(tok, "list=", 5)) test_list(v, tok + 5);
+	if (!strncmp(tok, "look=", 5)) test_look(v, tok + 5);
 	if (!strncmp(tok, "shot=", 5)) {
 		SDL_Surface *out = SDL_CreateRGBSurfaceWithFormat(0, ZYPEROS_SCREEN_W, ZYPEROS_SCREEN_H, 32,
 		                                                  SDL_PIXELFORMAT_RGBA32);
