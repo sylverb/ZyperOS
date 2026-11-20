@@ -452,6 +452,15 @@ its own says why beside it.
 | **page-line-gap** | 48 | between the line's marks and words |
 | **page-line-gap-tight** | 24 | ...where they are wider than the page |
 | **foot-y** | 720 | every screen's keys: the last row's middle, 32 from the screen's foot to the glyph's (one foot since 1.0.6; pages had 704, Cover and Video 724) |
+| **video-band-top** | 524 | the Video view's band of covers and keys: its top while it is up |
+| **video-step** | 108 | its covers a step apart |
+| **video-cover-w** | 90 | a cover's box in the band |
+| **video-cover-h** | 120 | ...its height |
+| **video-focus-w** | 108 | the focused cover's box |
+| **video-focus-h** | 144 | ...its height |
+| **video-card-y** | 96 | the name's card at the top left: its top, clear of the header row |
+| **video-card-pad-x** | 28 | the card's padding at its sides |
+| **video-card-pad-y** | 18 | ...at its top and foot |
 | **page-foot-gap** | 40 | between the hints at a page's foot |
 | **page-foot-gap-tight** | 20 | ...where they are wider than the page |
 | **page-tile-w** | 472 | a page's tile, two side by side from the insets |
@@ -653,6 +662,7 @@ beside a cubic one. One function each, in `src/design.h`.)*
 | **hold-lock-lit** | 4000 | - | MP4's lock screen, lit as it locks |
 | **hold-controls** | 3000 | - | MP4's video controls after the last press |
 | **hold-snap** | 1000 | - | a game focused on the shelf before its cover turns into its video snap |
+| **hold-band** | 2000 | - | the Video view's band of covers and keys, after the last press on a game whose snap plays, before it goes down to its strip |
 | **sheen** | 480 | turn | one light crossing a game's card with no art, once, as the cover row stops on it |
 | **sharpen** | 200 | fade | a played game's card with no art turning from its blurred frame of play to the sharp one, as the cover row stops on it |
 | **hold-low-battery** | 6000 | - | the low-battery start screen before the handheld powers off |
@@ -1010,7 +1020,7 @@ scraped title appears below, followed by play time and the achievement
 count. Missing metadata is omitted rather than invented.
 A is **Resume** only when the existing resume path is available, otherwise
 **Play**. B returns to systems, START steps the shelf's View on, Covers to Grid
-to List and round (11.39, 11.47), Y starts the game from the start, and X opens game details, whose
+to List to Video and round (11.39, 11.47, 11.57), Y starts the game from the start, and X opens game details, whose
 last row is Delete Game (11.31). The foot spreads their hints from B at the
 left to X at the right (11.4).
 Long titles wrap or fit within their region, clear of the action and footer.
@@ -4276,16 +4286,16 @@ name and its system's color.)*
 
 **The list** (MENU > View > List, src/gamelist.h). A system's menu has
 **View** under Sort By: **Covers**, the row as it always was, **Grid**
-(11.47), or **List**.
+(11.47), **List**, or **Video** (11.57).
 Each shelf keeps its own, Favorites too, in the device's database by the
 system's tag (`view.<tag>`): the choice belongs with Sort By and Display
 Mode, which are per shelf, because it follows what a shelf holds - a
 shelf with good covers reads as a row, an Arcade or a long library as a
-list. Right steps it on, Covers to Grid to List and round, Left back,
-and A opens the three as a list (11.3's option rows); the shelf under the
-menu turns with it, on the same entry.
+list. Right steps it on, Covers to Grid to List to Video and round, Left
+back, and A opens the four as a list (11.3's option rows); the shelf under
+the menu turns with it, on the same entry.
 
-**START** on the shelf steps it on too, Covers to Grid to List and round,
+**START** on the shelf steps it on too, Covers to Grid to List to Video and round,
 with no menu *(2026-11-13: "make clicking start in a system change view
 mode to list and vice versa"; the grid between them, 2026-11-15)*: the
 row's own setting, saved the same way, the shelf on the same entry, with
@@ -4295,7 +4305,8 @@ MENU + START is the way out (tools/zyhome.c) and SELECT + START MP4's lock.
 Before, START did nothing on a shelf. On the home it steps the Home
 Screen's layout the same way (11.1). The foot names where it goes:
 **START Grid** under the covers, **START List** under the grid, **START
-Covers** under the list; MENU > Controls has it
+Video** under the list, **START Covers** on the Video view (11.57); MENU >
+Controls has it
 on the shelf's page, as **Home Screen or View**: the two MENU rows START
 steps, the home's first, as A's **Open or play** puts the home's first. The tutorial is as it was: it teaches one button a
 step, its START skips it, and its last page sends you to MENU > Controls.
@@ -5955,6 +5966,76 @@ Host shots: `home-collections`, `shelf-collections`, `shelf-collection-in`,
 `collect-menu-sort`, `collect-delete`, `info-collect`, `collect-page` and
 `collect-page-none` (tools/i18n-shots.py), with `--info-collect`,
 `--collect-page K` and `--collect-delete`.
+
+### 11.57 The Video view
+*(metior on the Discord asked for a video-centered layout; Tarik: "perfect".
+My pick in the Library lab, 2026-11-19: the snap starts at once, and "when
+rested for more than 2s, the bottom bar goes down (into a compact mode) so
+you can see the full preview".)*
+
+The fourth **View** (11.39), after Covers, Grid and List, kept by the
+shelf's tag as the others are (`view.<tag>` = `video`); START steps to it
+from the list and on to the covers. The launcher only: nothing in a game
+changes. src/videoview.h.
+
+**The snap on the whole screen.** The focused game's video snap (11.19),
+whole at its own shape, as large as the screen holds it, on **ink**: a 4:3
+snap is the whole screen. It is asked for the frame the focus comes, not
+after **hold-snap**: no bar, no hold, and its sound, when Video Snaps has
+sound, with it (snapshelf's `at_once`). Not while a direction is held: a
+scroll opens no file, and the snap is asked when the press lets go. Until
+its first picture the game's card shows whole above the band, at its own
+shape; then the card turns into the snap over **turn**, as on the cover
+row. A game with no snap keeps its card. Over the snap the screen's
+**ground** fades down from the top, 80% to none over 150 units, so the
+header row (11.12) reads on any picture.
+
+**The name's card**, at the top left (24, 96), on **surface** at 92% in a
+3-unit **edge** frame, corners **radius.card**, padded 28 by 18: the shelf's
+mark color as a dot 14 across, then the heading and the place in **meta**,
+**text-soft** ("PlayStation · 3 / 6", the folder path in it as the heading
+has it); under it the game's name in **game-title**, **text**; under that,
+when there are any, its facts in **chrome**, **text-dim**: its own system on
+a shelf of many (Favorites, Recents, Collections), Played, achievements,
+apart by " · ". A name or a line wider than 640 slides (8 Principles).
+
+**The band** at the foot, from y 524, on **surface** at 92% so the snap
+shows through a little: the covers in a row, a step of 108 apart, the
+focused one's in a box of 108 x 144 and the others' 90 x 120, each whole at
+its own shape, their feet on one line at 692, the others at 80%; the
+focused cover ringed as the shelf grid's is (11.47: **accent-ink**, a focus
+gap of the band's ground). They glide as the cover row does, in **move**
+(the same motion, games_row). Under them, every shelf's foot (11.4): B
+Systems (Back in a folder), A Play, Resume, Open or Install, START Covers,
+Y From the Start when there is a resume point, X Details, spread from B to
+X. Left and Right step, Up and Down jump a letter, L1 and R1 a screenful,
+as on the cover row.
+
+**The strip.** After **hold-band** (2 s) with no press on a game whose snap
+plays, counted from the later of the last press and the snap's start (so a
+shelf come back to from a game keeps its band up as long), the band goes down in **move** (out) to a strip 48 high at the foot,
+and the covers and keys fade out as it goes, so the snap has the screen but
+for the strip. The strip holds the rail (11.2): a **track** from margin to
+margin, DS_BAR high, centered in the strip, with the focus's place on it in
+**accent-ink**, as wide as a share of the shelf (at least DS_RAIL_MIN), so
+where the game is in the shelf still shows. Any press brings the band back
+up in **quick** and does what it does: Right steps on as the band comes up.
+A game with no snap never goes down; the band comes back up by itself when
+the snap stops (a menu over the shelf, the dark screen).
+
+**What it costs.** The snap is Muse's daemon's, as on every view: one
+decoder thread, at most 640 x 480, its frames drawn only when a newer
+picture is out (snap_new_picture), so a still snap draws nothing. The band
+draws nothing of its own while it waits: the shelf asks for one frame at
+the end of hold-band (redraw_at), and draws while the band slides. What
+the view adds is a snap asked at every stop instead of after a second's
+rest; to measure on the Pixel 2 before it ships (a shelf of games with
+snaps, Left held then let go, Right pressed once a second).
+
+Host shots: `shelf-video` (no snap), `shelf-video-snap` (the test picture),
+`shelf-video-half` and `shelf-video-strip` (`--band F`, the band F of the
+way down), `system-menu-view-video` and `system-menu-view-video-list`
+(tools/i18n-shots.py).
 
 ### 11.60 Equalizer
 *(Asked for on the Discord after 1.0.6: more bass, and a system-wide

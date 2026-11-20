@@ -999,6 +999,7 @@ static bool view_is(const char *tag, const char *want)
 
 bool view_listed(const char *tag) { return view_is(tag, "list"); }
 bool view_grid(const char *tag)   { return view_is(tag, "grid"); }
+bool view_video(const char *tag)  { return view_is(tag, "video"); }
 
 /* Recents' Card Picture (DESIGN.md 11.48): its covers, as it ships, or the
  * screen each game was left on (src/screencard.h), kept in the device's
@@ -1050,8 +1051,10 @@ void view_load(app *a)
 	for (int i = 0; i < a->sys.count; i++) {
 		a->view[i].listed = view_listed(a->sys.systems[i].tag);
 		a->view[i].grid = !a->view[i].listed && view_grid(a->sys.systems[i].tag);
+		a->view[i].video = !a->view[i].listed && !a->view[i].grid && view_video(a->sys.systems[i].tag);
 		a->view[i].lm.set = false;
 		a->view[i].gm.set = false;
+		a->view[i].vm.set = false;
 	}
 }
 
@@ -1060,22 +1063,26 @@ static void view_save(app *a, int sys)
 	char key[CFG_STR + 16];
 
 	snprintf(key, sizeof key, "view.%s", a->sys.systems[sys].tag);
-	db_set_str(db_dev(), key, a->view[sys].listed ? "list" : a->view[sys].grid ? "grid" : "covers");
+	db_set_str(db_dev(), key, a->view[sys].listed ? "list" : a->view[sys].grid ? "grid"
+	                          : a->view[sys].video ? "video" : "covers");
 }
 
-/* View turned on shelf `sys`, `dir` 1 or -1 round Covers, Grid and List,
- * saved, the shelf on the same entry: START on the shelf goes forward, and
- * MENU's View row either way (2026-11-15: the grid between the two) */
+/* View turned on shelf `sys`, `dir` 1 or -1 round Covers, Grid, List and
+ * Video, saved, the shelf on the same entry: START on the shelf goes
+ * forward, and MENU's View row either way (2026-11-15: the grid between the
+ * two; 2026-11-19: Video, the fourth) */
 void view_turn(app *a, int sys, int dir)
 {
 	sysview *v = &a->view[sys];
-	int k = v->listed ? 2 : v->grid ? 1 : 0;
+	int k = view_index(v);
 
-	k = (k + (dir < 0 ? 2 : 1)) % 3;
-	v->listed = k == 2;
-	v->grid = k == 1;
+	k = (k + (dir < 0 ? VIEW_COUNT - 1 : 1)) % VIEW_COUNT;
+	v->listed = k == VIEW_LIST;
+	v->grid = k == VIEW_GRID;
+	v->video = k == VIEW_VIDEO;
 	v->lm.set = false;
 	v->gm.set = false;
+	v->vm.set = false;
 	view_save(a, sys);
 	cf_reset(&v->cf, v->cursor);
 	games_reset(&v->row, v->cursor, v->list.count, plat_now_ms());
@@ -5195,6 +5202,8 @@ static int menu_shelf_width(app *a)
 			if ((mw = menu_measure(rows, n, heading)) > w) w = mw;
 			rows[vrow].value = T(S_SYSMENU_VIEW_LIST);
 			if ((mw = menu_measure(rows, n, heading)) > w) w = mw;
+			rows[vrow].value = T(S_SYSMENU_VIEW_VIDEO);
+			if ((mw = menu_measure(rows, n, heading)) > w) w = mw;
 			rows[vrow].value = keep;
 		}
 		for (k = 0; k < (muse ? ML_ORDERS : SORT_COUNT); k++) {
@@ -5639,8 +5648,9 @@ int main(int argc, char *argv[])
 		else if (!strcmp(argv[i], "--game") && i + 1 < argc) shot_game = argv[++i];
 		else if (!strcmp(argv[i], "--view") && i + 1 < argc) {
 			shot_view = argv[++i];
-			if (strcmp(shot_view, "list") && strcmp(shot_view, "covers") && strcmp(shot_view, "grid")) {
-				fprintf(stderr, "--view needs list, grid or covers\n");
+			if (strcmp(shot_view, "list") && strcmp(shot_view, "covers") && strcmp(shot_view, "grid") &&
+			    strcmp(shot_view, "video")) {
+				fprintf(stderr, "--view needs list, grid, video or covers\n");
 				return 2;
 			}
 		}
@@ -6086,6 +6096,11 @@ int main(int argc, char *argv[])
 		}
 		/* --snap-wait F: the games shelf with the bar under its focused
 		 * cover F of the way through the wait for its snap, 0 to 1 */
+		else if (!strcmp(argv[i], "--band") && i + 1 < argc) {
+			g_shot_band = (float)atof(argv[++i]);
+			if (g_shot_band < 0) g_shot_band = 0;
+			if (g_shot_band > 1) g_shot_band = 1;
+		}
 		else if (!strcmp(argv[i], "--snap-wait") && i + 1 < argc) {
 			g_shot_snap_wait = (float)atof(argv[++i]);
 			if (g_shot_snap_wait < 0) g_shot_snap_wait = 0;
@@ -7167,6 +7182,7 @@ int main(int argc, char *argv[])
 		if (shot_view) {
 			a.view[a.sys_cursor].listed = !strcmp(shot_view, "list");
 			a.view[a.sys_cursor].grid = !strcmp(shot_view, "grid");
+			a.view[a.sys_cursor].video = !strcmp(shot_view, "video");
 		}
 		if (shot_folder) shelf_open_dir(&a, a.sys_cursor, shot_folder, NULL);
 		if (shot_game) shelf_reveal(&a, a.sys_cursor, shot_game);
