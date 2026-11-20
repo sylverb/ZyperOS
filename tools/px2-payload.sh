@@ -68,6 +68,11 @@ if [ -z "$VENDOR" ]; then
 fi
 [ -n "$PROGRAMS" ] || [ -f "$VENDOR/cores/fceumm_libretro.so" ] ||
 	die "no cores in $VENDOR: make vendor in the main checkout (or set ZYPEROS_VENDOR, or --programs)"
+# A small core systems.cfg names that $VENDOR lacks (mk/build-small-cores.sh)
+# is built into it first; with none missing this only looks. --programs
+# carries no cores
+[ -n "$PROGRAMS" ] || ZYPEROS_VENDOR="$VENDOR" sh "$REPO/mk/build-small-cores.sh" --missing ||
+	die "mk/build-small-cores.sh could not build the small cores $VENDOR lacks"
 SS_ENV=${ZYPEROS_SS_ENV:-$main/.screenscraper.env}
 
 # The string tables are the build's (src/i18n_tables.c, not committed), and

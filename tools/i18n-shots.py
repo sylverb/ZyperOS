@@ -355,6 +355,7 @@ EXTRA = {
     # paused too (its panel says so where the time's words would), and
     # MENU's Player Look list with its picture, the look under the cursor
     "np-cassette": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--np-look", "cassette"]),
+    "np-vinyl": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--np-look", "vinyl"]),
     "np-classic": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--np-look", "classic"]),
     "np-classic-paused": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--np-look", "classic", "--paused"]),
     "np-spectrum": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--np-look", "spectrum"]),
@@ -362,7 +363,7 @@ EXTRA = {
     # drawn in its picture's narrow column
     **{"mp4-look-list-%s" % _l: ("media", "MUSE", ["--screen", "games", "--menu", "Player Look", "--press",
                                                    "a", "--pick-at", str(_k)])
-       for _k, _l in enumerate(("cover", "cassette", "classic", "spectrum"))},
+       for _k, _l in enumerate(("cover", "cassette", "vinyl", "classic", "spectrum"))},
     # its Repeat row on One, the value no other shot has
     "mp4-menu-repeat-one": ("media", "MUSE", ["--screen", "games", "--menu", "--mode", "repeat one"]),
     # MP4's menu with its cursor on the Equalizer row, the same as MENU's
@@ -942,6 +943,12 @@ for _name, _flags in (("shelf-video", ["--screen", "games", "--view", "video"]),
     EXTRA.setdefault(_name, ("demo", "PS1", _flags))
 
 
+# Two cores on the Game Boy shelves (DESIGN.md 11.62): the GB shelf's menu
+# on Core, and a game's details with its Core fact
+EXTRA.setdefault("system-menu-core-gb", ("demo", "GB", ["--screen", "games", "--menu", "Core"]))
+EXTRA.setdefault("info-core-gb", ("demo", "GB", ["--screen", "games", "--info"]))
+
+
 def set_lib(card, settings, on):
     """A shot's keys (SHOT_LIB) into the card's library, or out of it"""
     if not settings:
@@ -1009,6 +1016,13 @@ EXTRA.setdefault("cheats-search-none", ("demo", "PS1", ["--gamemenu", "0", "--ch
 EXTRA.setdefault("cheats-crash", ("demo", "PS1", ["--cheats-crash"]))
 R.SHOT_FOCUS.setdefault("cheats-none-libretro", "Crash Bandicoot (USA).chd")
 R.SHOT_FOCUS.setdefault("cheats-not-checked", "Spyro the Dragon (USA).chd")
+# A name long enough to reach the screen's middle under the focused cover,
+# where Highlight's bar is (src/games.c): the bar clear of it, and the snap's
+# wait bar in the bar's place while it fills
+EXTRA.setdefault("games-long-title", ("demo", "PS1", ["--screen", "games"]))
+EXTRA.setdefault("games-long-title-wait", ("demo", "PS1", ["--screen", "games", "--snap-wait", "0.5"]))
+for _n in ("games-long-title", "games-long-title-wait"):
+    R.SHOT_FOCUS.setdefault(_n, "Tony Hawk's Pro Skater 2 (USA).chd")
 # On-Screen Stats' page (src/hudmenu_screen.h): its rows with three items
 # shown ("3 Items"), the Shows list (every item's name), and each row's list
 # of more than two (every corner, distance, opacity and color); Background

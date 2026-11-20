@@ -56,6 +56,12 @@ static void gi_gather(app *a, int owner, const game_entry *g, game_info *gi)
 	gi->can_rename = !is_muse(s) && gr_renames(s->core, g->file, g->dir);
 	gi->can_favorite = !is_muse(s);
 	gi->favorite = gi->can_favorite && fav_is(s->tag, g->file);
+	/* The core it starts on, where the shelf has more than one */
+	if (cfg_core_count(s) > 1) {
+		char lb[64];
+
+		snprintf(gi->core, sizeof gi->core, "%s", core_label(s->core, lb, sizeof lb));
+	}
 	/* Collections take every game a favorite can be (src/collect.h) */
 	gi->can_collect = gi->can_favorite && s->folder[0];
 	if (gi->can_collect) collect_value(s->folder, g->file, gi->collected, sizeof gi->collected);

@@ -174,7 +174,7 @@ Every system has a folder under `Roms/`, and a system with nothing in its folder
 | MSX2 | `Roms/MSX2` | `.rom` `.mx1` `.mx2` `.dsk` `.cas` `.zip` | blueMSX |
 | Atari 7800 | `Roms/Atari 7800` | `.a78` `.bin` `.zip` | ProSystem |
 | Master System | `Roms/Master System` | `.sms` `.zip` | Genesis Plus GX |
-| Game Boy | `Roms/Game Boy` | `.gb` `.dmg` `.zip` | mGBA |
+| Game Boy | `Roms/Game Boy` | `.gb` `.dmg` `.zip` | mGBA, or Gambatte |
 | Genesis | `Roms/Genesis` | `.md` `.gen` `.bin` `.smd` `.zip` | Genesis Plus GX |
 | TurboGrafx-16 and CD | `Roms/TurboGrafx-16` | `.pce` `.sgx` `.cue` `.ccd` `.chd` `.toc` `.m3u` `.zip` | Beetle PCE Fast |
 | Atari Lynx | `Roms/Atari Lynx` | `.lnx` `.o` `.zip` | Handy |
@@ -191,7 +191,7 @@ Every system has a folder under `Roms/`, and a system with nothing in its folder
 | Neo Geo CD | `Roms/Neo Geo CD` | `.chd` `.cue` | NeoCD |
 | Nintendo 64 | `Roms/Nintendo 64` | `.n64` `.z64` `.v64` `.zip` | ParallelN64, or Mupen64Plus-Next |
 | Neo Geo Pocket | `Roms/Neo Geo Pocket` | `.ngp` `.ngc` `.ngpc` `.npc` `.zip` | Beetle NeoPop |
-| Game Boy Color | `Roms/Game Boy Color` | `.gbc` `.cgb` `.zip` | mGBA |
+| Game Boy Color | `Roms/Game Boy Color` | `.gbc` `.cgb` `.zip` | mGBA, or Gambatte |
 | WonderSwan | `Roms/WonderSwan` | `.ws` `.wsc` `.zip` | Beetle WonderSwan |
 | Neo Geo Pocket Color | `Roms/Neo Geo Pocket Color` | `.ngp` `.ngc` `.ngpc` `.npc` `.zip` | Beetle NeoPop |
 | Dreamcast | `Roms/Dreamcast` | `.chd` `.cdi` `.gdi` `.cue` | flycast2021, or Flycast if you add it |
@@ -798,7 +798,7 @@ The system menu opens on a shelf of games and applies to that system alone:
 | | |
 |---|---|
 | **Games** | how many the shelf found |
-| **Core** | which core runs them; left/right/A choose on a shelf that has two (the Dreamcast's) |
+| **Core** | which core runs them; left/right/A choose on a shelf that has two (the Game Boy's and the Game Boy Color's, mGBA or Gambatte; the Nintendo 64's; the Dreamcast's). The next game started runs on it. A game left on the other core starts fresh and says so: a resume point is one core's own. Its battery save is the same file for both; a cartridge with a clock (Pokémon Gold, Silver and Crystal) keeps the clock apart on Gambatte, in a `.rtc` file beside the save, so after a change of core its clock may need setting again. A game's details (X) say which core it starts on while its shelf has two |
 | **Game Language** | the Nintendo DS shelf's: left/right/A go round `Auto`, English, Español, Français, Deutsch, Italiano, 日本語 and 简体中文, saved the moment it changes. `Auto` is the language of MENU > Language where the DS has it and English where it does not, and the row says which. The next game started speaks it, whatever the language of the `firmware.bin` in `Bios/`. A game whose resume point was left in another language starts fresh in this one, with a note that says so, its battery save kept; a save state you load keeps its own language until Reset |
 | **Timing** | the Game Boy, Game Boy Color, Game Boy Advance, Nintendo DS and Genesis shelves', under Core (and under Game Language on the DS's): `Smooth` to start with, or `Exact`, for this system alone; left/right/A flip it, saved the moment it changes, for the next game started. The screen refreshes 60.08 times a second and these consoles make 59.7 to 59.9 frames. `Smooth` shows one game frame each refresh, so motion is even, and the game runs up to 0.6% faster than the console: a GBA game 3.5 seconds fast in 10 minutes. `Exact` keeps the console's own speed, for timers and rhythm games, and about every 3 seconds one frame stays on the screen for two refreshes |
 | **Sort By** | left/right; `Name`, `Play Time`, `Last Played` or `Recently Added` |
@@ -1749,7 +1749,9 @@ playing.
 **Player Look** changes how Now Playing shows a song: **Cover**, the album's
 cover large, as it always was; **Cassette**, a tape whose reels turn with the
 song through its window, the next song rewinding it, the label in the
-cover's color; **Classic**, a big clock over bars that move with the music,
+cover's color; **Vinyl**, a record in the cover's color turning at 33⅓ with
+the cover as its label, its rings the album's songs and the tonearm's needle
+on the one playing; **Classic**, a big clock over bars that move with the music,
 and the album's tracks beside it; **Spectrum**, the music as 32 bars across
 the screen under the cover. A on it opens the list, with the
 look under the cursor playing in a small screen beside it; Left and Right
