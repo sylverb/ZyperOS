@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 /* MENU > Display > Home Systems (src/homesys.h, DESIGN.md 11.48): a switch
- * for Favorites, Recents and every system the card has games for, Left,
+ * for Favorites, Recents, Collections and Screenshots (each once the card
+ * has one) and every system the card has games for, Left,
  * Right or A turning one over, as Side Lights' are. The home is built again
  * once, as the page closes on a change, from the saved library
  * (shelves_reload): a system turned on comes back without a read of the
@@ -31,7 +32,7 @@ typedef struct {
 static int hs_build(void *ctx, menu_row *rows, int max, const char **heading)
 {
 	homesys_page *pg = ctx;
-	homesys_ui u = { pg->names, pg->tags, pg->n, coll_count() > 0 };
+	homesys_ui u = { pg->names, pg->tags, pg->n, coll_count() > 0, shelf_shots_have() };
 	const char *ids[HS_ROWS];
 	int n, i;
 
@@ -45,7 +46,7 @@ static int hs_build(void *ctx, menu_row *rows, int max, const char **heading)
 static menu_result hs_key(app *a, void *ctx, in_button key, int sel)
 {
 	homesys_page *pg = ctx;
-	homesys_ui u = { pg->names, pg->tags, pg->n, coll_count() > 0 };
+	homesys_ui u = { pg->names, pg->tags, pg->n, coll_count() > 0, shelf_shots_have() };
 	menu_row rows[HS_ROWS];
 	const char *ids[HS_ROWS];
 	int n = sys_menu_homesys_rows(&u, rows, ids);
@@ -95,12 +96,14 @@ void homesys_load(void)
 const char *homesys_value(char *out, size_t n)
 {
 	const shelf_have *have;
-	/* Collections is one of them once the card has a collection */
-	int groups = HS_GROUPS - (coll_count() > 0 ? 0 : 1);
+	/* Collections is one of them once the card has a collection, and
+	 * Screenshots once it has a shot */
+	bool shots = shelf_shots_have();
+	int groups = HS_GROUPS - (coll_count() > 0 ? 0 : 1) - (shots ? 0 : 1);
 	int total = shelf_have_list(&have) + groups, on = groups, i;
 
 	on -= !homesys_shown(HOMESYS_FAV) + !homesys_shown(HOMESYS_RECENT) +
-	      (coll_count() > 0 && !homesys_shown(HOMESYS_COLL));
+	      (coll_count() > 0 && !homesys_shown(HOMESYS_COLL)) + (shots && !homesys_shown(HOMESYS_SHOT));
 	for (i = 0; i < total - groups; i++) on += homesys_shown(have[i].tag);
 	if (on >= total) return T(S_SYSMENU_HOME_SYSTEMS_ALL);
 	snprintf(out, n, T(S_SYSMENU_HOME_SYSTEMS_SOME), on, total);

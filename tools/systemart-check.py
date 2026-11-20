@@ -168,6 +168,7 @@ class BuildTests(unittest.TestCase):
         export(art, "FAVORITES", moving, [(0, 400), (1, 400)])
         export(art, "RECENTS", moving, [(0, 400), (1, 400)])
         export(art, "COLLECTIONS", moving, [(0, 400), (1, 400)])
+        export(art, "SCREENSHOTS", moving, [(0, 400), (1, 400)])
         export(art, "MUSE", moving, [(0, 400), (1, 400)])
         export(art, "FOLDER_SMALL", [pose()], [(0, 1000)])
         for key in ("ROMS", "MUSIC", "BOOKS", "VIDEOS", "BIOS", "SAVES", "STATES", "BGM"):
@@ -181,7 +182,7 @@ class BuildTests(unittest.TestCase):
         program = r'''
 #include "systemart_data.h"
 #include <string.h>
-_Static_assert(SA_ASSET_COUNT == 14, "every shelf, the folder and the card's folders, nothing else");
+_Static_assert(SA_ASSET_COUNT == 15, "every shelf, the folder and the card's folders, nothing else");
 _Static_assert(SA_CELL == 256 && SA_STILL == 128, "cell and still sizes");
 int main(void) {
     const sa_asset *a = &SA_ASSETS[6], *f = &SA_ASSETS[5], *b = &SA_ASSETS[0];
@@ -200,6 +201,7 @@ int main(void) {
     if (strcmp(mp4->key, "MUSE") || mp4->nframes != 2) return 8;
     if (strcmp(SA_ASSETS[9].key, "RECENTS") || SA_ASSETS[9].nframes != 2) return 9;
     if (strcmp(SA_ASSETS[3].key, "COLLECTIONS") || SA_ASSETS[3].nframes != 2) return 10;
+    if (strcmp(SA_ASSETS[12].key, "SCREENSHOTS") || SA_ASSETS[12].nframes != 2) return 11;
     return 0;
 }
 '''

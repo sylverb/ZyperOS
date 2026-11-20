@@ -39,6 +39,8 @@
 #include "rumble.h"
 #include "remapstore.h"
 #include "shelfbuild.h"
+#include "shots_screen.h"
+#include "shotname.h"
 #include "startfail.h"
 #include "stats.h"
 #include "strength.h"
@@ -1038,7 +1040,6 @@ void launch(app *a)
 		{
 			hk_table hk, def;
 			char run[200], name[LIB_NAME], shots[CFG_STR * 4];
-			size_t i;
 
 			hks_get(HKS_GAME, s->tag, romfile, &hk);
 			hk_default(&def);
@@ -1049,10 +1050,10 @@ void launch(app *a)
 					         keys[0] ? "\t" : "", run);
 			}
 			{
-				snprintf(name, sizeof name, "%s", v->list.items[v->cursor].name);
-				for (i = 0; name[i]; i++)
-					if (name[i] == '/' || name[i] == '\t' || name[i] == '\\') name[i] = '-';
-				snprintf(shots, sizeof shots, "%s/Screenshots/%s/%s", P_CARD, s->folder, name);
+				/* The game's part of the name as src/shotname.h has it,
+				 * which the Screenshots shelf reads back */
+				shot_game_part(v->list.items[v->cursor].name, name, sizeof name);
+				snprintf(shots, sizeof shots, "%s/%s/%s/%s", P_CARD, SHOT_DIR, s->folder, name);
 				if (strlen(keys) + strlen(shots) + 8 <= sizeof keys)
 					snprintf(keys + strlen(keys), sizeof keys - strlen(keys), "%sshots=%s",
 					         keys[0] ? "\t" : "", shots);
@@ -1692,6 +1693,9 @@ void launch(app *a)
 		/* The game just played first on Recents (src/homesys.h) */
 		refresh_recents_shelf(a);
 	}
+	/* Its shots on the Screenshots shelf, the first one making it
+	 * (DESIGN.md 11.68): read again only after a game that took one */
+	if (shots_take_new()) refresh_shots_shelf(a);
 
 	tick_theme(a);
 	render(a);

@@ -66,6 +66,14 @@ extern int shot_delete_ask;
 extern int shot_collect_page, shot_collect_delete;
 /* --collect-said K: one of Collections' messages (0 to 2) */
 extern int shot_collect_said;
+/* --shots-delete: Delete Screenshot's question on the Screenshots shelf
+ * (src/shots_screen.h) */
+extern int shot_shots_delete;
+/* --shots-said: the message when the card would not let a shot go */
+extern int shot_shots_said;
+/* --shots-delete-now: Delete Screenshot's yes on the shot under the cursor,
+ * and the shot is the shelf after it (tools/homesys-groups-check.py) */
+extern int shot_shots_delete_now;
 /* --zip-said: the message for a zip Diatom cannot unpack (src/gamefile.h) */
 extern int shot_zip_said;
 extern int shot_gm_said;

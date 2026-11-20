@@ -72,6 +72,10 @@ typedef struct {
 	bool playing;
 	/* A shot's band, 0 up to 1 down; below 0 the band's own */
 	float band;
+	/* A shelf's own keys at the foot, A's among them (the Screenshots
+	 * shelf's, DESIGN.md 11.68); NULL and 0 for a games shelf's */
+	const key_hint *foot;
+	int nfoot;
 } vv_info;
 
 /* Reset: the band up, rested from `now` */

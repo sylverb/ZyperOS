@@ -1,0 +1,48 @@
+{
+  "key": "SCREENSHOTS",
+  "name": "Screenshots",
+  "description": "The camera's flash fires (a placeholder drawn by script)",
+  "cell": 256,
+  "cols": 2,
+  "rows": 1,
+  "unique": 2,
+  "duration_ms": 800,
+  "kind": "system",
+  "static": false,
+  "placeholder": true,
+  "expected_poses": 2,
+  "motion_bounds": [
+    8,
+    56,
+    112,
+    88
+  ],
+  "frames": [
+    {
+      "tile": 0,
+      "ms": 400
+    },
+    {
+      "tile": 1,
+      "ms": 400
+    }
+  ],
+  "still_time_ms": 0,
+  "decoded_atlas_bytes": 524288,
+  "inputs": [
+    "placeholders/screenshots-card.py"
+  ],
+  "renderers": [
+    "placeholders/screenshots-card.py"
+  ],
+  "input_sha256": {
+    "placeholders/screenshots-card.py": "d643210ec63d5ae5287721e5a8133cc20a69ee1dfac8027a56dab5679c978a03"
+  },
+  "renderer_sha256": {
+    "placeholders/screenshots-card.py": "d643210ec63d5ae5287721e5a8133cc20a69ee1dfac8027a56dab5679c978a03"
+  },
+  "atlas": "SCREENSHOTS.png",
+  "still": "SCREENSHOTS-still.png",
+  "atlas_sha256": "3b8cd2b6149e480ff1eb03f02503c3f112253b3a4451324c0827fa8f21189f50",
+  "still_sha256": "b00c819d3ba430ecfde22f29a1344246f0a8c7c1761749f767a694b5bd8b9efb"
+}

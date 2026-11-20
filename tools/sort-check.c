@@ -90,6 +90,12 @@ static void the_table_is_consistent(void)
 	ck(sort_step_in(true, SORT_LIST, -1) == SORT_SYSTEM, "and back from Added to System");
 	ck(sort_step_in(true, 1, 1) == 0, "an order it does not offer steps from its first");
 	ck(sort_choice_of(false, SORT_LIST) == 0, "and a games shelf's from Name");
+	ck(sort_choices(SORT_SET_SHOTS) == 3 && sort_choice(SORT_SET_SHOTS, 0) == sort_index("added") &&
+	   sort_step_in(SORT_SET_SHOTS, sort_index("added"), 1) == 0 &&
+	   sort_step_in(SORT_SET_SHOTS, 0, 1) == SORT_SYSTEM &&
+	   sort_step_in(SORT_SET_SHOTS, SORT_SYSTEM, 1) == sort_index("added"),
+	   "Screenshots steps round Recently Added, Name and System");
+	ck(sort_step_in(SORT_SET_SHOTS, 2, 1) == 0, "and from an order it does not offer, from its first");
 }
 
 static void by_name(void)

@@ -34,6 +34,17 @@ de = Sammlungen
 ja = コレクション
 it = Raccolte
 
+[library.screenshots]
+note = The name of the group of the Screenshot hotkey's pictures (Screenshots/<System>/ on the card), where a system's name goes over the shelf and on MENU > Display > Home Systems (after Collections). tight: as short as a system's name
+en = Screenshots
+zh-Hans = 截图
+es = Capturas
+pt-BR = Capturas
+fr = Captures
+de = Screenshots
+ja = スクショ
+it = Screenshot
+
 [library.scanning]
 note = A wait panel under a system's name (or "MP4") while its folder is read again (Rescan Folder)
 en = Scanning...
