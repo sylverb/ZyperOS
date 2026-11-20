@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "storage_screen.h"
+#include "menu_panel.h"
 
 #include "aout_route.h"
 #include "app.h"
@@ -1438,8 +1439,15 @@ void storage_shot(app *a)
 			nq = delete_ask_rows(a, sys_games(&a->view[sh])->items[v.rows[v.pg.sel].index].title, lines, rows, &heading);
 			rows[nq] = (menu_row){ T(S_GAMEMENU_DELETE_YES), NULL, true };
 			rows[nq + 1] = (menu_row){ T(S_PANEL_CANCEL), NULL, true };
-			/* delete-open: where the question is in its open (shot_motion) */
-			if (shot_lv) panel_frame(a, shot_lv, &k);
+			/* delete-open: where the question is in its open (shot_motion);
+			 * another menu than MENU's, drawn before it here, as on the
+			 * handheld Storage's own list is drawn between them: a MENU tab
+			 * with as many rows as the question must not hand it its
+			 * window's give */
+			if (shot_lv) {
+				panel_frame(a, shot_lv, &k);
+				g_menu_epoch++;
+			}
 			ui_scrim_k(a->r, 0, k);
 			menu_draw(a, heading, rows, nq + 2, nq + 1, menu_std_width(a), MENU_ZYPEROS);
 		}

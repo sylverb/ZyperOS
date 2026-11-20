@@ -324,6 +324,7 @@ Dreamcast games run on flycast2021, the 2021 libretro [Flycast](https://github.c
 | **SELECT+L1** (in game) | quick load: the state in the Quick Slot |
 | **SELECT+R2** (in game) | faster: 1.5x, 2x, 3x |
 | **SELECT+L2** (in game) | slower, a step a press, back to normal speed |
+| **SELECT + a button you choose** (in game) | your own hotkeys: Screenshot, Next Shader, Next Display, Reset Game and Quit, none until you set them in **Hotkeys** (below) |
 | **MENU** (inside any menu) | closes the whole menu, however deep in it you are. B goes back one screen |
 | **SELECT** | MP4, the music, audiobook and video player, from anywhere but a running game - the in-game menu included. Again to close it |
 | **POWER** | powers off. In a game, the game is saved first, and the next start goes straight back into it. After a crash or a power cut, the next start is the home instead. With **MENU > Power Button** on **Hold**, POWER has to be held for a second, and a press alone does nothing: a bar at the top of the screen fills while it is held, on the home, in a game and over a port |
@@ -438,13 +439,32 @@ faces at once: **By Letter**, each cap gives the button it names, or **By
 Place**, each cap gives the button in its place on the original pad. It reads
 Mixed after a change to one face.
 
-**Hotkeys**, the tab's last row, opens what you could always read here: what a
-system adds (the Nintendo 64's C buttons, hold SELECT and press X, A, B or Y,
-and which Pak is in; a DS game's two screens and the stylus), then SELECT
-with a shoulder, quick save and load, faster and slower, and under them
-"SELECT alone stays the game's", then the last page, In a game: MENU, MENU then X
-(Quit), volume, brightness and POWER. Left and right change the page, B goes
-back to the tab, and MENU goes back to the game.
+**Hotkeys.** Every hotkey is SELECT held and one more button, and you choose
+which: **MENU > System > Hotkeys** for every game, or the Controls tab's
+**Hotkeys** row in a game, where **Applies To** says This Game, the system or
+Every Game, as Changing a button does. Each row is an action and its buttons:
+**Quick Save** (SELECT+R1 to start with), **Quick Load** (SELECT+L1),
+**Faster** (SELECT+R2), **Slower** (SELECT+L2), and five that do nothing
+until you give them buttons: **Screenshot**, **Next Shader**, **Next
+Display**, **Reset Game** and **Quit**. Press A on a row, hold SELECT, press
+the button you want, and let go. If those buttons already do something else,
+ZyperOS asks whether to swap the two. Reset Game pauses and asks first, since
+a reset loses what you played since your last save. Quit leaves at once, and
+the game resumes where you left it next time. **Reset Hotkeys** puts them
+back. MENU+START, the way home, and POWER never change.
+
+A **screenshot** is the game's own picture, saved as a PNG in
+`Screenshots/<system>/` on the card, named after the game and the time; a
+pop-up shows it small. **Next Shader** and **Next Display** turn on the
+system's next shader or display mode and say which.
+
+The Hotkeys list's last row in a game, **All Controls**, opens what you could
+always read here: what a system adds (the Nintendo 64's C buttons, hold
+SELECT and press X, A, B or Y, and which Pak is in; a DS game's two screens
+and the stylus), then your hotkeys, and under them "SELECT alone stays the
+game's", then the last page, In a game: MENU, MENU then X (Quit), volume,
+brightness and POWER. Left and right change the page, B goes back, and MENU
+goes back to the game.
 
 **OpenBOR has the in-game menu too**, though it runs as a program of its
 own rather than a libretro core. MENU stops the game where it is and opens

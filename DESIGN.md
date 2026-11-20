@@ -1268,7 +1268,7 @@ where it was.)*
 | **Display** | Appearance, Theme, Home Screen, System Order, Home Systems, Battery Icon, Screensaver, Shader and Strength (ZyperOS's own screens', 11.50; not on the Brick), Screen Colors, Night Mode (its page: Night Mode, Night Warmth, Night From, Until) |
 | **Sound** | Audio Output, Audio Channels, Equalizer (11.60), UI Sounds, Menu Music, Rumble (a handheld with a motor ZyperOS runs, 11.54) |
 | **Connections** | USB Device (while a plug waits), Wi-Fi, Bluetooth, File Transfer, USB Accessories, Developer Mode |
-| **System** | Date & Time, Clock, Language, Power Button, Auto Off, Charge Limit, Side Lights, Storage, System Update |
+| **System** | Date & Time, Clock, Language, Hotkeys, Power Button, Auto Off, Charge Limit, Side Lights, Storage, System Update |
 | **About** | About ZyperOS, Controls, Show Tutorial |
 
 A row added to MENU goes into `pm_row` where its tab's rows are and into
@@ -3235,7 +3235,9 @@ screen), in this order, the rows in brackets only where they apply:
    asks first in the yes/cancel panel Delete Game uses, "Put back the
    PlayStation's buttons in Spyro the Dragon?" or "Put back ZyperOS's buttons
    for every PlayStation game?".
-9. **Hotkeys**: A opens the read-only pages below, as a panel of pages (11.3).
+9. **Hotkeys**: A opens the Hotkeys list (11.61), at its own width, Applies
+   To first; its last row, **All Controls**, opens the read-only pages
+   below, as a panel of pages (11.3).
 
 A row that cannot change here is a quiet row with its value: the N64's SELECT
 ("C buttons"), the Dreamcast's while D-pad as Stick is on ("Held: D-pad"), and
@@ -3267,10 +3269,11 @@ system's own buttons are the tab's rows, so they are not a page here.
   Pak row chooses it); the DS's two screens (L2 the other screen, R2 the
   stylus, then the d-pad moves it and A touches). An FDS game adds L1/R1, the
   disk's side and eject, and a pop-up says what each did (11.58).
-- **Hotkeys**, SELECT held with a shoulder (2026-11-07): SELECT+R1 quick
-  save and SELECT+L1 quick load (where the core keeps states), SELECT+R2
-  faster and SELECT+L2 slower, and under them "SELECT alone stays the
-  game's" where SELECT is one of the system's buttons.
+- **Hotkeys**, SELECT held with one more button (11.61): the game's own, as
+  the player set them (SELECT+R1 quick save and SELECT+L1 quick load where
+  the core keeps states, SELECT+R2 faster and SELECT+L2 slower until set
+  otherwise), a row each set one, and under them "SELECT alone stays the
+  game's" where SELECT is one of the system's buttons and the page has room.
 - **In a game** last: MENU (the menu), MENU then X (Quit), the volume
   rocker, brightness (MENU+VOL on the Pixel 2, F1/F2 on the Brick), POWER.
   The same rows as the home's pages, from one place in src/controls.c.
@@ -4956,10 +4959,11 @@ when it ends (8.2). The handheld is drawn into its kept texture when its view
 changes and copied otherwise; it is drawn only in the menu, never in a frame
 of the game.
 
-**What the Hotkeys row opens** is the read-only pages of 11.28: what a system
-adds, Hotkeys and In a game, at their own width and with no handheld.
-Hotkeys, SELECT with a shoulder, stay on the physical buttons whatever the map
-says; MENU, the volume keys and POWER cannot be remapped.
+**What the Hotkeys row opens** is the Hotkeys list of 11.61, and through its
+All Controls row the read-only pages of 11.28: what a system adds, Hotkeys
+and In a game, at their own width and with no handheld. Hotkeys, SELECT with
+one more button, stay on the physical buttons whatever the map says; MENU,
+the volume keys and POWER cannot be remapped.
 
 ### 11.47 The grid
 
@@ -6099,4 +6103,87 @@ Custom's five bands (no key when flat). Host shots: `menu-eq`, `eq-page`,
 `eq-page-custom`, `eq-presets` (and `eq-presets-off`, `-voice`, `-treble`,
 `-custom`: the cursor on each), `eq-page-phones` (`--eq-phones` stands in
 for a cable), `mp4-menu-eq` (tools/i18n-shots.py).
+
+### 11.61 Hotkeys
+
+The hotkeys a player sets *(2026-11-18: my review of the Controls ideas,
+"cover a way to change ZyperOS's hotkeys"; and NextUI's top ten, "a user can
+set a hotkey that takes a screenshot", "same as #1" for the next shader and
+display, reset and quit. Picked in the Controls lab, 2026-11-19)*. The rules
+are pure (src/hotkeys.c, what is kept src/hkstore.c, `make check-hotkeys`);
+Diatom's chord.h judges them, its keys from RUN `hotkeys=` and SETHOTKEYS.
+
+**Every hotkey is SELECT held and one more button** *(my pick: MENU is never
+a holder, so MENU stays one press that opens the menu, everywhere)*: A, B,
+X, Y, L1, R1, L2, R2 or START, never the d-pad (the game's, and the stick's
+SELECT rule) nor MENU. SELECT alone stays the game's, by chord.h's rule as
+before. An action has one chord and a chord does one action.
+
+| Action | From the start | What it does |
+|---|---|---|
+| Quick Save, Quick Load | SELECT+R1, SELECT+L1 | the quick slot, as they always did |
+| Faster, Slower | SELECT+R2, SELECT+L2 | the speed's steps |
+| Screenshot | None | the game's frame to `Screenshots/<System>/<Game> 2026-11-18 21.40.05.png` |
+| Next Shader, Next Display | None | the system's next shader or display mode, kept as the menu's rows keep them; a pop-up names it ("Shader / CRT Curved") |
+| Reset Game | None | asks first (below) |
+| Quit | None | leaves at once, as MENU then X; the resume point is kept |
+
+A player who sets none sends what was always sent: RUN carries `hotkeys=`
+only when the hotkeys in force differ from ZyperOS's own. Home (MENU+START
+held a second) and POWER are no hotkeys and never change.
+
+**The list** is **MENU > System > Hotkeys** (Every Game's, over the shelf)
+and a game's **Controls tab > Hotkeys** (over the paused game), in the widest
+panel (menu_most_w): a row an action, its keys at its right drawn as this
+handheld's glyphs (11.9, `MENU_KEYS_MARK` as a value), "+" between them, or
+**None**; a key that differs from what the scope falls back to in the
+**accent-ink**. Then **Home** with MENU+START's glyphs, a quiet row, and the
+line "Held 1 s. It never changes."; then **Reset Hotkeys**, live when the
+scope shown has keys of its own, which asks first, as Reset Buttons does. In
+a game **Applies To** comes first, round on Left and Right: **This Game** (as
+the Controls tab opens), the system by its home label, or **Every Game**, its
+value in the accent-ink where that scope has keys of its own; and last **All
+Controls**, the read-only pages of 11.28 that the Hotkeys row opened before
+the list. A change there reaches the paused game at once (SETHOTKEYS).
+
+**Scope and storage** are the buttons' (11.45): `hotkeys` for Every Game,
+`hotkeys.<TAG>` for a system, `hotkeys.<TAG>.<file>` for This Game, the
+whole table copied at its first change; a game plays with its own, else its
+system's, else Every Game's, else ZyperOS's own. Stored as `1;` and the
+actions that differ from ZyperOS's own (`shot:y,save:none`); no key equals
+what its scope falls back to. Rename and Delete Game take a game's key with
+them.
+
+**The capture screen** (A on an action's row), in the widest panel: the
+action's name as heading, then where the keys go, "Waiting for the keys",
+and under the rule "Hold SELECT, then press a button." and "B with nothing
+held goes back.". Every button is read as a key until SELECT is let go, A
+and B too: SELECT down lights its glyph at 112 (the tutorial's pressed look),
+a button with it lights beside it with "+", and the second line says "Let go
+to keep them.". SELECT let go alone waits again; MENU, or B with nothing
+held, leaves with no change. **A clash offers a swap**: the keys are another
+action's, so the yes/cancel panel asks "SELECT+R2 is Faster now. Faster moves
+to None." (or to the keys the row had), **Swap** and Cancel, the cursor on
+Cancel, so no hotkey is lost by accident. There is no Both: a chord does one
+action.
+
+**Reset Game asks first** *(my pick: a reset loses play, so one press is not
+enough)*. The chord pauses the game as MENU does (Diatom's PAUSED
+`for=reset`), and over the paused frame the yes/cancel panel Delete Game uses
+asks "Reset the game?", "Play since the last save is lost.", **Reset** and
+Cancel, the cursor on Cancel. Reset resets and the game goes on; Cancel or B
+goes back to it where it was. **Quit** pauses the same way (`for=quit`) and
+stops the game as the menu's Quit does.
+
+**The screenshot** is the game's own frame at its own size, as a save's
+picture is, not the screen with its shader and border: Diatom keeps that
+frame already (a GPU core's read back once, between frames, as a pause's
+preview is), copies it and writes the PNG on a thread of its own, so no
+frame waits on the card or the encoding; a press while one is being written
+is dropped. A DS game's is the two screens as laid out. The launcher says
+where (RUN `shots=`, with every game, so a key set in the game works at
+once); Diatom adds the time. **The pop-up** *(my pick: the picture, small)*
+carries the shot itself beside "Screenshot saved", the folder under it,
+kept in its shape at the two lines' height (`NOTICE_PICTURE`), for
+**hold-short**, as every pop-up over a game.
 
