@@ -22,6 +22,7 @@
 #include "border_pic.h"
 #include "panel.h"
 #include "pico8.h"
+#include "p8pad.h"
 #include "place.h"
 #include "pminstall.h"
 #include "portload.h"
@@ -205,6 +206,66 @@ static void pm_heal_config(const char *folder)
 	}
 }
 
+/* A file of a few lines written whole: a temporary beside it, renamed in */
+static bool write_whole(const char *path, const char *text)
+{
+	char tmp[LIB_PATH * 2];
+	FILE *f;
+	bool ok;
+
+	snprintf(tmp, sizeof tmp, "%s.tmp", path);
+	f = fopen(tmp, "w");
+	ok = f && fputs(text, f) >= 0;
+	if (f && fclose(f) != 0) ok = false;
+	if (!ok || rename(tmp, path) != 0) {
+		unlink(tmp);
+		return false;
+	}
+	return true;
+}
+
+void p8_keys_save(const system_cfg *s, const char *file, const char *shots)
+{
+	char text[CFG_STR * 6], run[200], kept[CFG_STR * 4] = "";
+	hk_table hk;
+
+	/* The folder the hand-over named, kept by the menu, which comes back to
+	 * a card with no shelf of its own */
+	if (!shots) {
+		FILE *f = fopen(plat_flag(PORT_KEYS_FILE), "r");
+		char line[CFG_STR * 4 + 16];
+
+		while (f && fgets(line, sizeof line, f))
+			if (!strncmp(line, "shots\t", 6)) {
+				line[strcspn(line, "\n")] = '\0';
+				snprintf(kept, sizeof kept, "%s", line + 6);
+			}
+		if (f) fclose(f);
+		shots = kept;
+	}
+	/* The table in force for the cart, as a Diatom game is sent it: This
+	 * Game's, PICO-8's, Every Game's or ZyperOS's own */
+	hks_get(HKS_GAME, s->tag, file, &hk);
+	hk_run(&hk, run, sizeof run);
+	snprintf(text, sizeof text, "hotkeys\t%s\nshots\t%s\n", run, shots);
+	if (!write_whole(plat_flag(PORT_KEYS_FILE), text))
+		fprintf(stderr, "port: couldn't write %s\n", PORT_KEYS_FILE);
+}
+
+void p8_pad_save(const system_cfg *s, const char *file)
+{
+	char line[600], text[610];
+	rm_table t;
+
+	/* The table a Diatom game of the shelf would be sent (rms_sent); the
+	 * PICO-8 has no stick */
+	rms_sent(s, file, false, &t);
+	if (!p8_pad_line(&t, line, sizeof line)) return;
+	snprintf(text, sizeof text, "%s\n", line);
+	if (!write_whole(plat_flag(P8_PAD_FILE), text))
+		fprintf(stderr, "port: couldn't write %s\n", P8_PAD_FILE);
+}
+
 /* `core` in place of the shelf's own: Splore runs on your PICO-8 whichever
  * core the shelf plays its carts on */
 static void launch_port_core(app *a, const system_cfg *s, const char *file, const char *core);
@@ -315,6 +376,29 @@ static void launch_port_core(app *a, const system_cfg *s, const char *file, cons
 	 * can turn it while the port runs */
 	notice_render_mark(HEAT_HEAD, HEAT_BODY, NOTICE_MARK_HEAT, PORT_HEAT_LIGHT, DS_LIGHT);
 	notice_render_mark(HEAT_HEAD, HEAT_BODY, NOTICE_MARK_HEAT, PORT_HEAT_DARK, DS_DARK);
+	/* Your PICO-8's hotkeys and buttons (src/portmenu.h, src/p8pad.h): what
+	 * portkeys and PICO-8.sh are handed, and "Screenshot saved" with room
+	 * for the shot, in both themes, as Diatom's pop-up has it (on_hotkey) */
+	unlink(plat_flag(PORT_KEYS_FILE));
+	unlink(plat_flag(P8_PAD_FILE));
+	if (!strcmp(core, P8_CORE) && port_hotkeys(s->tag)) {
+		char shots[CFG_STR * 4], name[LIB_NAME] = "PICO-8", folder[CFG_STR * 2];
+		const sysview *v = &a->view[a->sys_cursor];
+		size_t i;
+
+		/* The cart by the name its shelf shows, as a Diatom game's shot is;
+		 * Splore and PICO-8's own start are PICO-8's */
+		if (!splore_file(file) && v->list.count > 0 && !strcmp(v->list.items[v->cursor].file, file))
+			snprintf(name, sizeof name, "%s", v->list.items[v->cursor].name);
+		for (i = 0; name[i]; i++)
+			if (name[i] == '/' || name[i] == '\t' || name[i] == '\\') name[i] = '-';
+		snprintf(folder, sizeof folder, "Screenshots/%s", s->folder);
+		snprintf(shots, sizeof shots, "%s/%s/%s", P_CARD, folder, name);
+		p8_keys_save(s, file, shots);
+		p8_pad_save(s, file);
+		notice_render_ex(T(S_HOTKEYS_SHOT_SAVED), folder, NULL, NOTICE_SLOT, 0, 0, PORT_SHOT_LIGHT, DS_LIGHT);
+		notice_render_ex(T(S_HOTKEYS_SHOT_SAVED), folder, NULL, NOTICE_SLOT, 0, 0, PORT_SHOT_DARK, DS_DARK);
+	}
 	a->running = false;
 }
 

@@ -37,4 +37,14 @@ void pm_install_screen(app *a, const system_cfg *s, bool repair, const char *fai
 void pm_after_run(app *a);
 void launch(app *a);
 
+/* What your PICO-8's programs beside it are handed (src/portmenu.h,
+ * src/p8pad.h), for the cart `file` of the PICO-8 shelf `s` (its file in the
+ * shelf's folder, SPLORE_FILE for Splore): the hotkeys in force and where a
+ * screenshot goes, to PORT_KEYS_FILE for portkeys, `shots` NULL keeping the
+ * folder the file already says (the in-game menu, which has no shelf to
+ * name the cart by); and the pad's mapping line from the buttons in force,
+ * to P8_PAD_FILE for PICO-8.sh. Each written whole and renamed in. */
+void p8_keys_save(const system_cfg *s, const char *file, const char *shots);
+void p8_pad_save(const system_cfg *s, const char *file);
+
 #endif

@@ -111,5 +111,64 @@ static inline bool port_menu_pads(const char *tag)
 #define PORT_MENU_CONTINUE 10
 #define PORT_MENU_QUIT     11
 #define PORT_MENU_POWER    12
+/* Reset asked and answered Reset (your PICO-8's: port_resets): portkeys
+ * gives the program its display and its keys back, then CTRL-R on its
+ * keyboard, PICO-8's "Reload / Run / Restart cartridge" */
+#define PORT_MENU_RESET    13
+
+/* ---- your PICO-8's hotkeys, Reset and Auto Off ------------------------------
+ *
+ * Over your PICO-8 the hotkeys a player sets are SELECT held and one more
+ * button, as over a Diatom game (src/hotkeys.h, DESIGN.md 11.61), judged by
+ * portkeys with Diatom's own rule (diatom/src/chord.c, tools/pkhot.c), and
+ * never taken from PICO-8: portkeys grabs no pad, so SELECT and the button
+ * reach the cart as they always did. Screenshot, Reset Game and Quit are
+ * portkeys's to do; Next Shader and Next Display step the system's rows as
+ * the menu's do. Quick Save, Quick Load, Faster and Slower do nothing: PICO-8
+ * has no states and no speed, so their keys are PICO-8's under SELECT, as a
+ * core's that keeps no state are (chord_turn's `live`). Auto Off over it too
+ * (portkeys's idle clock), as over a game; no other program of its own has
+ * either: a port has its own hotkeys (gptokeyb's), and a long install or a
+ * cutscene is no player gone. */
+static inline bool port_hotkeys(const char *tag)
+{
+	return tag && !strcmp(tag, "PICO8");
+}
+/* Over which the menu has Reset, asked first (PORT_MENU_RESET): your
+ * PICO-8, which restarts a cart on CTRL-R. OpenBOR and a port have no such
+ * key ZyperOS can send. */
+static inline bool port_resets(const char *tag)
+{
+	return port_hotkeys(tag);
+}
+/* After the tag and the game, in place of PORT_MENU_WAITING: Reset Game's
+ * hotkey. The launcher asks the Reset question alone over the still (Diatom
+ * pauses for it the same way, PAUSED for=reset) and says PORT_MENU_RESET or
+ * PORT_MENU_CONTINUE */
+#define PORT_MENU_RESET_ARG "--reset"
+
+/* What the launcher hands portkeys for your PICO-8, written as it hands over
+ * (launch_port) and again as the in-game menu ends, where a Hotkeys change
+ * may have been made: tab-separated lines, a word and its value.
+ *
+ *   hotkeys  the table in force for the cart (hks_get: This Game, PICO-8,
+ *            Every Game, ZyperOS's own) in Diatom's RUN form, hk_run's
+ *            "save:r1,load:l1,shot:y", "none" for none at all
+ *   shots    where a screenshot goes, Screenshots/PICO-8/<the cart's name>,
+ *            or .../PICO-8 for Splore and PICO-8's own start; portkeys adds
+ *            the time and ".png", as Diatom does with RUN shots=
+ *
+ * Written whole and renamed in. Read by portkeys at its start and after each
+ * menu; a missing file is no hotkeys. */
+#define PORT_KEYS_FILE "/tmp/zyperos-port-keys"
+
+/* "Screenshot saved" over your PICO-8, in both themes, for portkeys to show
+ * with the shot itself in it (DESIGN.md 11.61's pop-up): the launcher cannot
+ * draw while PICO-8 runs, so it renders the slab with the folder under the
+ * heading and an empty square where the picture goes (notice.h's
+ * NOTICE_SLOT, its place after the pixels), and portkeys lays the shot
+ * there. DTOV as the heat notice's, with that trailer. */
+#define PORT_SHOT_LIGHT "/tmp/zyperos-port-shot-light.dtov"
+#define PORT_SHOT_DARK  "/tmp/zyperos-port-shot-dark.dtov"
 
 #endif
