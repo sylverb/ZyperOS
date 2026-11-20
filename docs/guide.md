@@ -1389,6 +1389,7 @@ The page that opens in the browser is the same for Wi-Fi File Transfer, the hand
 
 - **The PIN** goes in four boxes, and the page opens when the fourth digit lands; a paste fills all four. Zyper shuts his eyes while you type. Five wrong PINs and the page waits 30 seconds.
 - **The card's eight folders:** ROMs, Music, Audiobooks, Videos, Menu Music, BIOS, Saves and Save States. Every folder wears ZyperOS's pixel art: each console's folder its own picture from the home screen, on a tile in its color, and the others a cartridge, a vinyl album for Music, a book with headphones, a video tape, a cassette for Menu Music, a chip, a memory card and a floppy disk. Hidden folders such as `.media` stay out of the lists.
+- **Each game wears the cover the shelf shows for it:** its own from `.media`, or the one EmulationStation left beside it ([coming from EmulationStation](#coming-from-emulationstation)).
 - **Upload** by dropping files anywhere on the page, into the folder that is open, or onto a folder's row. A dropped folder keeps the folders inside it, and a console's `.media` folder of covers too. **Upload** and **Upload folder** use the file picker instead. The uploads under the folders say how much is left and about how long it takes, and each file shows its progress.
 - **The card's free space** is under the folders. Files that don't fit are caught before anything is sent, and the page offers to send the ones that fit.
 - **Drag to move:** drag a file or a folder onto a folder's row, or onto a folder above in the path at the top, and it moves there on the card. On a phone, hold a row still for a moment to lift it. A disc set's folder moves whole and a `.cue` takes its tracks with it; a game's covers, saves and save states stay where they are, since they go by its name. If the folder already has something of that name, nothing moves and the page says so.
@@ -2191,7 +2192,8 @@ Scraper or Cover and Video. A game with none uses ES's:
   `downloaded_videos/<game>.mp4`.
 
 A cover with an ES video has the play mark, and the video plays when you rest
-on the game, as a ZyperOS snap does. **Box Art** counts an ES cover as a
+on the game, as a ZyperOS snap does. The File Transfer page shows the same
+cover beside each game. **Box Art** counts an ES cover as a
 cover, so it fetches covers only for games with none. **Cover and Video**
 shows an ES cover as Now, from EmulationStation; a cover you choose there is
 ZyperOS's own, and shows from then on.

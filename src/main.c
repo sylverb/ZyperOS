@@ -1134,12 +1134,9 @@ void recents_picture_turn(app *a)
  * EmulationStation's, into `cover`; "" for none */
 static void game_cover_path(app *a, int o, const game_entry *g, char *cover, size_t cn)
 {
-	struct stat sb;
-
-	box_art_path(a->sys.systems[o].folder, g->name, cover, cn);
-	if ((stat(cover, &sb) != 0 || sb.st_size <= 0) &&
-	    !es_media(P_ROMS, a->sys.systems[o].folder, g->file, g->name, ES_COVER, true, cover, cn))
-		cover[0] = '\0';
+	/* The one lookup the handheld and File Transfer's page share
+	 * (src/esmedia.h, game_media): "" for none */
+	game_media(P_ROMS, a->sys.systems[o].folder, g->file, g->name, ES_COVER, true, cover, cn);
 }
 
 static bool recents_screen_paths(app *a, int o, const game_entry *g, char *frame, size_t fn,
@@ -2143,10 +2140,11 @@ sysview *owner_view(app *a)
  * screen, the replace action, and the return from a game - and the last of
  * those has to test exactly the file the card loads. Four hand-written copies
  * of the format string only have to drift once for it to ask about one file
- * and draw another. */
+ * and draw another. The File Transfer page's rows ask the same one
+ * (game_media_own, src/esmedia.h). */
 void box_art_path(const char *folder, const char *name, char *out, size_t n)
 {
-	snprintf(out, n, "%s/%s/.media/%s.png", P_ROMS, folder, name);
+	game_media_own(P_ROMS, folder, name, ES_COVER, out, n);
 }
 
 /* Whether it is there. An empty file is not art - the rule the info screen

@@ -284,12 +284,17 @@ build-native/cheevos-check: tools/cheevos-check.c src/cheevos.c src/cheevos.h \
 check-hare: build-native/hare-check
 	@./build-native/hare-check
 
-build-native/hare-check: tools/hare-check.c src/hare.c src/sheet.c src/clients.c src/httpd.c src/xfer.c src/mp4lib.c src/captive.c $(I18N_SRC) FORCE
+# A game's picture and video in a listing are the launcher's lookup
+# (src/esmedia.h's game_media), so the lookup is linked as the launcher has it.
+HARE_GAME_MEDIA = src/esmedia.c src/library.c src/snaps.c src/db.c
+
+build-native/hare-check: tools/hare-check.c src/hare.c src/sheet.c src/clients.c src/httpd.c src/xfer.c src/mp4lib.c src/captive.c $(HARE_GAME_MEDIA) $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -Wno-unused-parameter -D_GNU_SOURCE -O1 -g \
 	      -DHARE_PORTS=0 -DPICK_TMP='"$(CURDIR)/build-native/hare-check-albumpick"' \
 	      -DART_NAMES_TMP='"$(CURDIR)/build-native/hare-check-artnames"' -DREPO_WEB='"$(CURDIR)/res/web"' \
-	      -o $@ tools/hare-check.c src/hare.c src/sheet.c src/clients.c src/httpd.c src/xfer.c src/mp4lib.c src/captive.c $(I18N_SRC) -lz
+	      -o $@ tools/hare-check.c src/hare.c src/sheet.c src/clients.c src/httpd.c src/xfer.c src/mp4lib.c src/captive.c \
+	      $(HARE_GAME_MEDIA) $(I18N_SRC) -lz -lsqlite3 -lpthread
 
 # The File Transfer page on the host, over a scratch card: the same routes and
 # server, for a browser and for tools/readme-shots.py's pictures of the page.
@@ -300,12 +305,13 @@ build-native/hare-check: tools/hare-check.c src/hare.c src/sheet.c src/clients.c
 check-portal: build-native/portal-serve
 	@python3 tools/portal-check.py
 
-build-native/portal-serve: tools/portal-serve.c src/hare.c src/sheet.c src/clients.c src/httpd.c src/xfer.c src/mp4lib.c src/captive.c src/look.c $(I18N_SRC) FORCE
+build-native/portal-serve: tools/portal-serve.c src/hare.c src/sheet.c src/clients.c src/httpd.c src/xfer.c src/mp4lib.c src/captive.c src/look.c $(HARE_GAME_MEDIA) $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -Wno-unused-parameter -D_GNU_SOURCE -O1 -g \
 	      -DHARE_PORTS=0 -DPICK_TMP='"$(CURDIR)/build-native/portal-serve-albumpick"' \
 	      -DART_NAMES_TMP='"$(CURDIR)/build-native/portal-serve-artnames"' \
-	      -o $@ tools/portal-serve.c src/hare.c src/sheet.c src/clients.c src/httpd.c src/xfer.c src/mp4lib.c src/captive.c src/look.c $(I18N_SRC) -lz -lm
+	      -o $@ tools/portal-serve.c src/hare.c src/sheet.c src/clients.c src/httpd.c src/xfer.c src/mp4lib.c src/captive.c src/look.c \
+	      $(HARE_GAME_MEDIA) $(I18N_SRC) -lz -lm -lsqlite3 -lpthread
 
 # Hare's transport, driven by a real client over a real socket. An HTTP parser
 # is where "looks right" and "is right" part company: every browser sends the
@@ -2576,11 +2582,11 @@ check-gamern: build-native/gamern-check
 
 build-native/gamern-check: tools/gamern-check.c src/gamern.c src/gamern.h src/gamedel.c src/sheet.c src/gamedel.h \
                            src/esmedia.c src/esmedia.h src/library.c src/db.c src/favorites.c src/stats.c \
-                           src/portinfo.c src/atomic.c $(I18N_SRC) FORCE
+                           src/portinfo.c src/atomic.c src/snaps.c $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Isrc \
 	      -o $@ tools/gamern-check.c src/gamern.c src/gamedel.c src/sheet.c src/esmedia.c src/library.c src/db.c \
-	      src/favorites.c src/stats.c src/portinfo.c src/atomic.c $(I18N_SRC) -lsqlite3 -lpthread
+	      src/favorites.c src/stats.c src/portinfo.c src/atomic.c src/snaps.c $(I18N_SRC) -lsqlite3 -lpthread
 
 # EmulationStation's folders and media (src/esmedia.h): covers, videos,
 # details and the import on a card of small files in three ES layouts
@@ -2588,10 +2594,10 @@ check-esmedia: build-native/esmedia-check
 	@./build-native/esmedia-check
 
 build-native/esmedia-check: tools/esmedia-check.c src/esmedia.c src/esmedia.h src/library.c src/sheet.c src/library.h \
-                            src/db.c src/db.h FORCE
+                            src/db.c src/db.h src/snaps.c src/snaps.h FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Isrc \
-	      -o $@ tools/esmedia-check.c src/esmedia.c src/library.c src/sheet.c src/db.c -lsqlite3 -lpthread
+	      -o $@ tools/esmedia-check.c src/esmedia.c src/library.c src/sheet.c src/db.c src/snaps.c -lsqlite3 -lpthread
 	@if pkg-config --exists sdl2 SDL2_image SDL2_ttf 2>/dev/null; then \
 		$(MAKE) --no-print-directory native || exit 1; \
 	fi
