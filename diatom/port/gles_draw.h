@@ -445,33 +445,36 @@ static void upload_frame(const mailbox_frame *f)
  * is ZyperOS's src/osdbar.c), so a volume press looks the same in a game as on
  * the shelf and over a port. Drawn into pixels at the surface's scale - 0.625
  * of the launcher's 1024 on the 640x480 panel - and redrawn only when the
- * level, the fade or the theme moves; the slide is the quad's place. BGRA
+ * look (the level, its mark moving, the boost past the top), the fade or the
+ * theme moves; the slide is the quad's place. A change of the fade alone is
+ * osdbar_render_look's conversion of what it last painted, not a paint. BGRA
  * with straight alpha, the overlay's own layout, so it goes up the overlay's
  * way. */
 /* The look's colors as last handed to osdbar_colors, for draw_level_bar to
  * paint again when they move (render thread) */
 static unsigned g_osd_colors_seen;
 
-static void draw_level_bar(int kind, int level, int max, int theme, float alpha,
+static void draw_level_bar(const osdbar_look *look, int theme, float alpha,
                            float rise, bool turned)
 {
 	static uint32_t px[OSDBAR_W * OSDBAR_H];
-	static int drawn_kind = -1, drawn_level, drawn_max, drawn_theme, drawn_a, w, h;
+	static osdbar_look drawn;
+	static bool drawn_any;
+	static int drawn_theme, drawn_a, w, h;
 	static unsigned drawn_gen;
 	const float s = (float)g_surface_w / 1024.0f;
 	int a = (int)(alpha * 255 + 0.5f);
 
 	if (s <= 0 || s > 1) return;
-	if (kind != drawn_kind || level != drawn_level || max != drawn_max ||
+	if (!drawn_any || memcmp(look, &drawn, sizeof drawn) ||
 	    theme != drawn_theme || a != drawn_a || drawn_gen != g_osd_colors_seen) {
 		osdbar_size(s, &w, &h);
-		osdbar_render(px, w, h, w, s, theme,
-		              kind == 2 ? OSDBAR_POWER : kind ? OSDBAR_BRIGHT : OSDBAR_VOLUME,
-		              level, max, alpha, false);
+		osdbar_render_look(px, w, h, w, s, theme, look, alpha, false);
 		glBindTexture(GL_TEXTURE_2D, g_osdbar_tex);
 		glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, px);
-		drawn_kind = kind; drawn_level = level; drawn_max = max;
+		drawn = *look;
+		drawn_any = true;
 		drawn_theme = theme; drawn_a = a; drawn_gen = g_osd_colors_seen;
 	}
 	glBindTexture(GL_TEXTURE_2D, g_osdbar_tex);
@@ -610,7 +613,7 @@ static void quad_scale(diatom_filter filter, GLuint prog, float dw, float dh,
 
 /* Draw one frame and whatever is over it, onto the current target. */
 static void draw_scene(const mailbox_frame *f, bool overlay_live, bool osd_live,
-                       int osd_kind, int osd_level, int osd_max, int osd_theme,
+                       const osdbar_look *osd_look, int osd_theme,
                        float osd_alpha, float osd_rise, bool lowbat,
                        bool hud_live, bool hud_repaint, const char *hud_text_now,
                        const hud_style *hud_st, const ds_theme *hud_colors, bool turned)
@@ -697,9 +700,8 @@ static void draw_scene(const mailbox_frame *f, bool overlay_live, bool osd_live,
 		            (float)g_ov_w, (float)g_ov_h);
 		draw_quad(x0, y0, ow, oh, (float)g_ov_w, (float)g_ov_h, turned);
 	}
-	if (osd_live)
-		draw_level_bar(osd_kind, osd_level, osd_max, osd_theme, osd_alpha, osd_rise,
-		               turned);
+	if (osd_live && osd_look)
+		draw_level_bar(osd_look, osd_theme, osd_alpha, osd_rise, turned);
 	if (lowbat)
 		draw_low_battery(turned);
 	glDisable(GL_BLEND);

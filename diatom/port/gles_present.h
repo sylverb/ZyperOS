@@ -18,7 +18,9 @@
  *                          fence waited on the Brick
  *   PORT_FN(n)             the interface's names: diatom_port_<n> on the Pixel
  *                          2; the Brick's own names, as it keeps its CPU path
- *                          beside this one */
+ *                          beside this one
+ *   osd_look_now(l)        the level bar's look now, under g_mx: the host's
+ *                          (diatom_port_level_look) or the plain bar */
 
 static bool capture_front(int front, const char *path)
 {
@@ -43,7 +45,7 @@ static bool capture_front(int front, const char *path)
 	glViewport(0, 0, g_surface_w, g_surface_h);
 
 	upload_frame(&g_frames[front]);
-	draw_scene(&g_frames[front], false, false, 0, 0, 0, 0, 0, 0, false,
+	draw_scene(&g_frames[front], false, false, NULL, 0, 0, 0, false,
 	           false, false, NULL, NULL, NULL, false);
 	glReadPixels(0, 0, g_surface_w, g_surface_h, GL_RGBA, GL_UNSIGNED_BYTE, rgba);
 
@@ -81,7 +83,8 @@ static void *present_thread(void *arg)
 	while (!g_thread_stop) {
 		int frame;
 		bool ov_live, osd_live, lowbat, hud_live, hud_repaint;
-		int osd_kind, osd_level, osd_max, osd_theme;
+		int osd_theme;
+		osdbar_look osd_look;
 		float osd_alpha = 0, osd_rise = 0;
 		uint64_t now, t0 = 0;
 		EGLSyncKHR done;
@@ -144,9 +147,8 @@ static void *present_thread(void *arg)
 		                            (uint32_t)((now - g_osd_changed) / 1000),
 		                            &osd_alpha, &osd_rise);
 		if (!osd_live) g_osd_on = false;
-		osd_kind  = g_osd_kind;
-		osd_level = g_osd_level;
-		osd_max   = g_osd_max;
+		/* A copy, so the host's next look can land while this one draws */
+		osd_look_now(&osd_look);
 		osd_theme = g_osd_theme;
 		/* The look's colors for the bar, handed over once each time they
 		 * move, on this thread, which is the one that paints the bar */
@@ -188,8 +190,8 @@ static void *present_thread(void *arg)
 		}
 		PRESENT_TARGET();
 		upload_frame(&g_frames[frame]);
-		draw_scene(&g_frames[frame], ov_live, osd_live, osd_kind, osd_level,
-		           osd_max, osd_theme, osd_alpha, osd_rise, lowbat,
+		draw_scene(&g_frames[frame], ov_live, osd_live, &osd_look,
+		           osd_theme, osd_alpha, osd_rise, lowbat,
 		           hud_live, hud_repaint, hud_text_now, &hud_st, &hud_colors, g_turned);
 		/* The core may draw into this texture again once the GPU has read
 		 * it: a fence for diatom_port_gpu_target to wait on. */

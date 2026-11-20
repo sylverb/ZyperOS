@@ -2109,12 +2109,18 @@ static void gm_resume(app *a)
 		 * opens again: the output is let go the moment it ends. */
 		uisound_release();
 		plat_resident_line("RESUME");
+		/* Each with its boost past the top (src/levels.h), which this menu's
+		 * keys may have filled or folded: the brightness's opens here too,
+		 * and Diatom would go on with the one it had before the menu. */
 		{
-			int vol = plat_volume_get();
+			int vol = plat_volume_get(), bri = plat_brightness_get();
 
 			if (vol >= 0)
-				plat_resident_line("SETLEVEL\tkind=volume\tindex=%d\tcount=%d",
-				                   vol, PLAT_VOL_MAX + 1);
+				plat_resident_line("SETLEVEL\tkind=volume\tindex=%d\tcount=%d\tboost=%d",
+				                   vol, PLAT_VOL_MAX + 1, levels_boost(OSDBAR_VOLUME));
+			if (bri >= 0)
+				plat_resident_line("SETLEVEL\tkind=brightness\tindex=%d\tcount=%d\tboost=%d",
+				                   bri, PLAT_BRIGHT_MAX + 1, levels_boost(OSDBAR_BRIGHT));
 		}
 	}
 }

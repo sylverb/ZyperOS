@@ -53,6 +53,9 @@ bool plat_terminating(void) { return false; }
 const char *plat_turbo_map(const char *tag) { (void)tag; return NULL; }
 int  plat_volume_get(void) { return -1; }
 void plat_volume_set_pct(int pct) { (void)pct; }
+/* The boost past the top (src/levels.c): none kept, none taken back */
+int  levels_boost(int kind) { (void)kind; return 0; }
+void levels_from_game(int kind, int level, int boost) { (void)kind; (void)level; (void)boost; }
 int  side_lights_level_line(char *out, size_t cap, bool volume, int val, int max)
 {
 	(void)volume; (void)val; (void)max;
