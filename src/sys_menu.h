@@ -144,7 +144,7 @@ typedef enum {
 	/* Connections: USB Device first, while a plug waits for its answer */
 	PM_USB_WAIT, PM_WIFI, PM_BT, PM_XFER, PM_USB, PM_DEVELOPER,
 	/* System */
-	PM_CLOCK, PM_HOURS, PM_LANGUAGE, PM_POWER, PM_SLEEP, PM_CHARGE, PM_LIGHTS,
+	PM_CLOCK, PM_HOURS, PM_LANGUAGE, PM_HOTKEYS, PM_POWER, PM_SLEEP, PM_CHARGE, PM_LIGHTS,
 	PM_STORAGE, PM_UPDATE,
 	/* About */
 	PM_ABOUT, PM_CONTROLS, PM_TOUR,
@@ -210,19 +210,19 @@ typedef enum { SMC_GAMES, SMC_RANDOM, SMC_SORT, SMC_VIEW, SMC_RENAME, SMC_REMOVE
  * how many */
 int sys_menu_coll_rows(bool inside, sm_coll_row *out);
 
-/* What MP4's shelf menu is (Muse's, before it played video): how many
+/* What MP4's shelf menu is: how many
  * albums, Show - music, audiobooks or videos, the kinds its one shelf holds -
  * Shuffle All on music, every song on the card in a random order (
  * 2026-11-05) - Sort By - by artist or by album, its own
  * two orders, where a console's shelf has four - Album Art to fetch covers for
  * the albums that have none or only a small one, and Rescan Folder for music
- * copied onto the card while the Brick was on. Muse has no core, no ROM folder
+ * copied onto the card while the Brick was on. MP4 has no core, no ROM folder
  * and no display mode. Album order was Eric's, 2026-09-19; Show, 2026-09-27.
  *
  * On books the count is Books, Sort By is by author or title, and Album Art is
  * not there: MusicBrainz knows records. Show is there only when the card has
  * both kinds, since with one there is nothing to choose between. So the rows
- * move, and which one is where is sys_menu_muse_rows's to say.
+ * move, and which one is where is sys_menu_mp4_rows's to say.
  *
  * Videos are like books there: no Album Art, and the orders their own
  * (Folder and Title).
@@ -233,6 +233,10 @@ int sys_menu_coll_rows(bool inside, sm_coll_row *out);
  *
  * Lock Screen is the pocket lock, the way to find it without knowing X:
  * live while something plays, and saying so when nothing does.
+ *
+ * Player Look, under Shuffle All where the songs are: how Now Playing draws
+ * a song (src/mp4look.h, DESIGN.md 11.64, 2026-11-19), its list showing the
+ * look under the cursor, playing.
  *
  * Repeat, on the shelves with videos (Videos, and All), is videos' own play
  * mode: Off (in order, as before), One (the video playing, again and again)
@@ -250,19 +254,23 @@ int sys_menu_coll_rows(bool inside, sm_coll_row *out);
  * games (with the shortcut too)").
  *
  * Equalizer, over Lock Screen on every kind: the same row and page as
- * MENU's, there while music or a video plays (2026-11-19). */
-typedef enum { SMM_COUNT, SMM_SHOW, SMM_SORT, SMM_SHUFFLE, SMM_EQ, SMM_LOCK, SMM_ART,
-               SMM_RESCAN, SMM_QUIT, SMM_REPEAT } sm_muse_row;
-#define SM_MUSE_ROWS 10
+ * MENU's, there while music or a video plays (2026-11-19).
+ *
+ * View, under Sort By on every kind: the shelf's Covers, Grid or List, as a
+ * system's View row, START's turn of it on the shelf (DESIGN.md 11.67); no
+ * Video, which plays a game's snap. */
+typedef enum { SMM_COUNT, SMM_SHOW, SMM_SORT, SMM_SHUFFLE, SMM_LOOK, SMM_EQ, SMM_LOCK, SMM_ART,
+               SMM_RESCAN, SMM_QUIT, SMM_REPEAT, SMM_VIEW } sm_mp4_row;
+#define SM_MP4_ROWS 12
 
 /* MP4's rows in order, for the kind its shelf shows - 0 music, 1 books,
- * 2 videos, muselib.h's ml_kind, and 3 all of them with music among them
+ * 2 videos, mp4lib.h's ml_kind, and 3 all of them with music among them
  * (all of them with no music has the videos' rows) - and
  * whether the card has more than one kind. Returns how many. The build and
  * the key handler both ask this, so the two cannot disagree about what row 2
  * is. no_wifi: no radio and no other way out (a phone's tethering), so no
  * Album Art row. */
-int sys_menu_muse_rows(int kind, bool both, bool no_wifi, sm_muse_row *out);
+int sys_menu_mp4_rows(int kind, bool both, bool no_wifi, sm_mp4_row *out);
 
 /* 40: the ZyperOS menu reached 24 with Developer Mode, Random Game made 25,
  * and the two USB rows (USB Device, USB Accessories) 29 in all; 1.0.5's
@@ -328,14 +336,15 @@ typedef struct {
 	const struct menu_choice *pic_choice;
 	bool coll_inside;        /* and it shows one collection, coll_name */
 	const char *coll_name;   /* the collection under the cursor, or shown */
-	bool muse;               /* or Muse's; see SM_MUSE_ROWS */
-	bool muse_books;         /* and it shows books rather than music */
-	bool muse_videos;        /* or videos */
-	bool muse_all;           /* or every kind, mixed (ML_ALL) */
-	bool muse_songs;         /* and the card has music, for All's rows */
-	bool muse_both;          /* and the card has more than one kind */
-	bool muse_playing;       /* and music is playing, so it can lock */
-	const char *muse_repeat; /* videos' Repeat, as its row says it */
+	bool mp4;               /* or MP4's; see SM_MP4_ROWS */
+	bool mp4_books;         /* and it shows books rather than music */
+	bool mp4_videos;        /* or videos */
+	bool mp4_all;           /* or every kind, mixed (ML_ALL) */
+	bool mp4_songs;         /* and the card has music, for All's rows */
+	bool mp4_both;          /* and the card has more than one kind */
+	bool mp4_playing;       /* and music is playing, so it can lock */
+	const char *mp4_look;   /* Player Look's value: the look that is on */
+	const char *mp4_repeat; /* videos' Repeat, as its row says it */
 
 	/* What the device HAS, rather than what state it is in. A radio that is
 	 * merely off keeps its rows, saying "needs Wi-Fi", because turning it on
@@ -404,6 +413,7 @@ typedef struct {
 	/* The Scraper row's value: "142 missing", "complete", or NULL until a
 	 * count has been taken (art_count_missing, when its screen opens). */
 	const char *scraper;
+	const char *sys_downloads;  /* a console's Downloads row: its count, or NULL */
 	/* System Update (src/sysupdate.h): the row's value, or NULL on a device
 	 * or card without the update program, which has no row */
 	const char *update;
@@ -505,8 +515,9 @@ typedef struct {
 	/* The shelf shows a list rather than its covers (View, SM_VIEW) */
 	bool        listed;
 	bool        grid;       /* the shelf is a grid of covers (MENU > View) */
+	bool        video;      /* or its video snaps (MENU > View, DESIGN.md 11.57) */
 	/* Each option row's choices, by its row (MENU's by pm_row, the system
-	 * menu's by sm_row, the Muse shelf's by sm_muse_row), which the screen
+	 * menu's by sm_row, the MP4 shelf's by sm_mp4_row), which the screen
 	 * fills from what it knows and the build copies to its rows' places
 	 * (menu_bufs's choice). NULL: none. */
 	const menu_choice *pm_choice, *sm_choice, *smm_choice;
@@ -515,7 +526,7 @@ typedef struct {
 /* The ZyperOS menu's rows and the system menu's, in order, for what the device
  * has - see no_wifi in sys_ui. Return how many. The build and the key handler
  * both ask, so the two cannot disagree about what row 3 is, the same reason
- * sys_menu_muse_rows exists. */
+ * sys_menu_mp4_rows exists. */
 int sys_menu_zyperos_rows(const sys_ui *u, pm_row *out);
 int sys_menu_system_rows(const sys_ui *u, sm_row *out);
 

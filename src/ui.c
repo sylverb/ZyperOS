@@ -930,6 +930,13 @@ SDL_Surface *ui_text_surface(TTF_Font *f, const char *s, SDL_Color col)
  * looks. A table string is known by where it lives (i18n_owns); in the
  * pseudo-locale, whose every string ends "·]", by that too, so a line
  * formatted from one is caught as well. */
+/* Drawing a picture of a screen into a texture, not the screen (ui_fit_away):
+ * its words are that screen's, which its own shots hold, and are not held
+ * against the screen it is drawn on */
+static int fit_away;
+
+void ui_fit_away(bool on) { fit_away += on ? 1 : -1; }
+
 #ifdef I18N_PSEUDO
 static bool i18n_watched(const char *s)
 {
@@ -938,6 +945,7 @@ static bool i18n_watched(const char *s)
 
 static void i18n_note(const char *what, const char *s)
 {
+	if (fit_away) return;
 	static unsigned said[256];
 	unsigned h = 5381;
 
@@ -997,7 +1005,11 @@ static int fit_marks;
 static struct { SDL_Rect r, dst; TTF_Font *f; char s[256]; char text[32]; } fit_ink[FIT_RECTS];
 static int fit_inks, fit_quiet;
 
-void ui_fit_frame(void) { fit_n = 0; fit_lines = 0; fit_marks = 0; fit_inks = 0; }
+void ui_fit_frame(void)
+{
+	if (fit_away) return;
+	fit_n = 0; fit_lines = 0; fit_marks = 0; fit_inks = 0;
+}
 
 /* Do `a` and `b` come within `m` of each other? How far, top to bottom */
 static bool fit_meet(const SDL_Rect *a, const SDL_Rect *b, int m, int *px)
@@ -1014,12 +1026,14 @@ static bool fit_meet(const SDL_Rect *a, const SDL_Rect *b, int m, int *px)
 
 static void fit_box(const SDL_Rect *q)
 {
+	if (fit_away) return;
 	if (fit_n < FIT_RECTS) fit_rect[fit_n++] = *q;
 }
 
 /* The text with its line ends as \n, on one line of the log */
 static void fit_say(const char *what, const char *head, const char *s)
 {
+	if (fit_away) return;
 	static unsigned said[4096];
 	char line[1100], *o = line;
 	unsigned h = 5381;
@@ -1095,6 +1109,7 @@ void ui_fit_mark(const SDL_Rect *q)
 	char head[96];
 	int i, px, rows;
 
+	if (fit_away) return;
 	for (i = 0; i < fit_inks; i++)
 		if (fit_meet(&fit_ink[i].r, q, FIT_MARGIN, &px) &&
 		    (rows = fit_ink_rows(fit_ink[i].f, fit_ink[i].s, &fit_ink[i].dst, q, FIT_MARGIN)) > 0) {
@@ -1111,6 +1126,7 @@ static void fit_ink_check(TTF_Font *f, const char *s, const SDL_Rect *dst, const
 	char head[96];
 	int i, px, rows;
 
+	if (fit_away) return;
 	for (i = 0; i < fit_marks; i++)
 		if (fit_meet(ink, &fit_mark[i], FIT_MARGIN, &px) &&
 		    (rows = fit_ink_rows(f, s, dst, &fit_mark[i], FIT_MARGIN)) > 0) {
@@ -1137,6 +1153,7 @@ static void fit_check(SDL_Renderer *r, const char *s, const SDL_Rect *dst, int a
 	int i, cy = dst->y + dst->h / 2, over;
 	long best = 0;
 
+	if (fit_away) return;
 	for (const char *p = s; *p; p++) hash = hash * 33 + (unsigned char)*p;
 
 	fit_say("drawn", "", s);
@@ -2286,7 +2303,7 @@ static unsigned rail_hue_at(float x, int count, float blend,
 	 * The MARKS are blended, not the colors. Beard's quarter toward **text**
 	 * is a straight line, so for any two systems' colors it makes no
 	 * difference which is done first; for a system with no color it does,
-	 * since CFG_NO_COLOR is not a color to blend - and for Muse's lime, whose
+	 * since CFG_NO_COLOR is not a color to blend - and for MP4's lime, whose
 	 * mark is another color, blending the two marks is what shows the marks
 	 * at rest on either side. */
 	if (f < blend * 0.5f)
@@ -2547,6 +2564,11 @@ static TTF_Font *button_font(int pt, bool semibold)
 			best = i;
 	}
 	return best < 0 ? NULL : button_fonts[best].f;
+}
+
+TTF_Font *ui_face_at(int pt, bool semibold)
+{
+	return button_font(pt, semibold);
 }
 
 static void button_fonts_free(void)
@@ -3938,7 +3960,10 @@ static void card_cost(int kind, Uint64 t0)
 static SDL_Surface *game_art_card(card_faces *k, const ui_card_order *o)
 {
 	Uint64 t0 = SDL_GetPerformanceCounter();
-	SDL_Surface *s = SDL_CreateRGBSurfaceWithFormat(0, CARD_W, CARD_H, 32, SDL_PIXELFORMAT_ARGB8888);
+	/* An album's is square, as its cover is (MP4's shelf, DESIGN.md 11.67):
+	 * the same ground and name, the name's place by the card's height */
+	const int ch = o->album ? CARD_W : CARD_H;
+	SDL_Surface *s = SDL_CreateRGBSurfaceWithFormat(0, CARD_W, ch, 32, SDL_PIXELFORMAT_ARGB8888);
 	/* a system with no color: its marks' text-dim, of the dark theme the
 	 * card always is */
 	unsigned rgb = o->rgb == CFG_NO_COLOR ? ui_rgb(theme_at(DS_DARK)->text_dim) : o->rgb;
@@ -3956,7 +3981,7 @@ static SDL_Surface *game_art_card(card_faces *k, const ui_card_order *o)
 		/* painted at half the size and stretched: on the Pixel 2 a whole
 		 * one took 134 ms on the worker, and shown at a third of its size
 		 * nothing of it is lost */
-		SDL_Surface *half = SDL_CreateRGBSurfaceWithFormat(0, CARD_W / 2, CARD_H / 2, 32,
+		SDL_Surface *half = SDL_CreateRGBSurfaceWithFormat(0, CARD_W / 2, ch / 2, 32,
 		                                                   SDL_PIXELFORMAT_ARGB8888);
 		ca_ground g;
 
@@ -4057,8 +4082,10 @@ static SDL_Surface *game_card_surface(card_faces *k, const ui_card_order *o)
 static SDL_Surface *card_surface(card_faces *k, const ui_card_order *o)
 {
 	if (o->folder > 0) return folder_card_surface(k, o);
-	/* a game's is its own (game_art_card); an album's is today's */
-	return o->album ? game_card_surface(k, o) : game_art_card(k ? k : &frame_faces, o);
+	/* a game's is its own (game_art_card); an album's too, square, when its
+	 * order names its system (MP4's shelf, ui_card_order_game), and
+	 * otherwise today's */
+	return o->album && !o->tag[0] ? game_card_surface(k, o) : game_art_card(k ? k : &frame_faces, o);
 }
 
 void ui_card_order_set(ui_card_order *o, const char *title, unsigned rgb,

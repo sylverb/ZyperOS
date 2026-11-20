@@ -166,6 +166,18 @@ static bool bind_core(diatom_core *c)
 	BIND(get_memory_data,            "retro_get_memory_data");
 	BIND(get_memory_size,            "retro_get_memory_size");
 
+	/* Every core exports these, but nothing is lost when one does not: its
+	 * games run, and the cheats it is handed go nowhere (cheats.c) */
+	{
+		void *r = dlsym(c->handle, "retro_cheat_reset");
+		void *s = dlsym(c->handle, "retro_cheat_set");
+
+		if (r && s) {
+			memcpy(&c->cheat_reset, &r, sizeof r);
+			memcpy(&c->cheat_set, &s, sizeof s);
+		}
+	}
+
 	return true;
 }
 

@@ -1,4 +1,4 @@
-# MENU: the ZyperOS menu, a shelf's system menu and Muse's (src/sys_menu.c),
+# MENU: the ZyperOS menu, a shelf's system menu and MP4's (src/sys_menu.c),
 # in the order the rows are listed, then the pages under Scraper. Language's
 # row is language.txt's; on, off and needs Wi-Fi are menu.txt's.
 
@@ -834,17 +834,6 @@ ja = 並べ替え
 it = Ordina per
 
 
-[sysmenu.box_art]
-note = A system menu row: fetch covers for this system's games
-en = Box Art
-zh-Hans = 封面
-es = Carátulas
-pt-BR = Capas
-fr = Jaquettes
-de = Cover
-ja = パッケージ画像
-it = Copertine
-
 [sysmenu.rescan]
 note = A system menu row: look at the card's folders again
 en = Rescan Folder
@@ -856,10 +845,10 @@ de = Ordner neu einlesen
 ja = フォルダを再スキャン
 it = Ripeti scansione cartella
 
-# ---- Muse's shelf menu (MP4: music, audiobooks, videos) ---------------------
+# ---- MP4's shelf menu (music, audiobooks, videos) ---------------------------
 
-[sysmenu.muse_books]
-note = Muse's menu: how many books the shelf has
+[sysmenu.mp4_books]
+note = MP4's menu: how many books the shelf has
 en = Books
 zh-Hans = 书籍
 es = Libros
@@ -869,8 +858,8 @@ de = Hörbücher
 ja = 本
 it = Libri
 
-[sysmenu.muse_videos]
-note = Muse's menu: how many videos; also Show's value
+[sysmenu.mp4_videos]
+note = MP4's menu: how many videos; also Show's value
 en = Videos
 zh-Hans = 视频
 es = Videos
@@ -880,8 +869,8 @@ de = Videos
 ja = 動画
 it = Video
 
-[sysmenu.muse_albums]
-note = Muse's menu: how many albums
+[sysmenu.mp4_albums]
+note = MP4's menu: how many albums
 en = Albums
 zh-Hans = 专辑
 es = Álbumes
@@ -891,8 +880,8 @@ de = Alben
 ja = アルバム
 it = Album
 
-[sysmenu.muse_show]
-note = Muse's menu row: which kind of the card's files the shelf shows
+[sysmenu.mp4_show]
+note = MP4's menu row: which kind of the card's files the shelf shows
 en = Show
 zh-Hans = 显示
 es = Mostrar
@@ -902,7 +891,7 @@ de = Anzeigen
 ja = 表示
 it = Mostra
 
-[sysmenu.muse_all]
+[sysmenu.mp4_all]
 note = Show's value: every kind of the card's files on one shelf, albums, audiobooks and videos mixed
 en = All
 zh-Hans = 全部
@@ -913,8 +902,8 @@ de = Alle
 ja = すべて
 it = Tutto
 
-[sysmenu.muse_total]
-note = Muse's menu, when Show is All: how many albums, audiobooks and videos there are together
+[sysmenu.mp4_total]
+note = MP4's menu, when Show is All: how many albums, audiobooks and videos there are together
 en = Total
 zh-Hans = 总计
 es = Total
@@ -924,7 +913,7 @@ de = Gesamt
 ja = 合計
 it = Totale
 
-[sysmenu.muse_audiobooks]
+[sysmenu.mp4_audiobooks]
 note = Show's value
 en = Audiobooks
 zh-Hans = 有声书
@@ -935,7 +924,7 @@ de = Hörbücher
 ja = オーディオブック
 it = Audiolibri
 
-[sysmenu.muse_music]
+[sysmenu.mp4_music]
 note = Show's value
 en = Music
 zh-Hans = 音乐
@@ -946,7 +935,7 @@ de = Musik
 ja = 音楽
 it = Musica
 
-[sysmenu.muse_author]
+[sysmenu.mp4_author]
 note = Sort By's value on the books shelf
 en = Author
 zh-Hans = 作者
@@ -957,7 +946,7 @@ de = Autor
 ja = 著者
 it = Autore
 
-[sysmenu.muse_folder]
+[sysmenu.mp4_folder]
 note = Sort By's value on the videos shelf
 en = Folder
 zh-Hans = 文件夹
@@ -968,7 +957,7 @@ de = Ordner
 ja = フォルダ
 it = Cartella
 
-[sysmenu.muse_artist]
+[sysmenu.mp4_artist]
 note = Sort By's value on the music shelf
 en = Artist
 zh-Hans = 艺人
@@ -979,8 +968,8 @@ de = Künstler
 ja = アーティスト
 it = Artista
 
-[sysmenu.muse_shuffle]
-note = Muse's menu row: play every song in a random order
+[sysmenu.mp4_shuffle]
+note = MP4's menu row: play every song in a random order
 en = Shuffle All
 zh-Hans = 全部随机播放
 es = Todo aleatorio
@@ -990,8 +979,129 @@ de = Alle zufällig
 ja = すべてシャッフル
 it = Riproduzione casuale
 
-[sysmenu.muse_lock]
-note = Muse's menu row: turn the screen off and keep the music playing
+[sysmenu.mp4_look]
+note = MP4's menu row on the music shelf: how Now Playing draws a song (Cover, Classic, Spectrum...); A opens the list, its picture the look under the cursor playing
+en = Player Look
+zh-Hans = 播放器外观
+es = Aspecto
+pt-BR = Visual do player
+fr = Apparence du lecteur
+de = Player-Look
+ja = プレーヤーの見た目
+it = Aspetto del lettore
+
+[sysmenu.look_cover]
+note = Player Look's first choice and the default: the album's cover large beside the song, as Now Playing always was. Begun with a capital
+en = Cover
+zh-Hans = 封面
+es = Portada
+pt-BR = Capa
+fr = Pochette
+de = Cover
+ja = ジャケット
+it = Copertina
+
+[sysmenu.look_cover_note]
+note = Under Player Look's picture when Cover is under the cursor: one sentence, wrapped in a narrow column
+en = The album's cover, large, beside the song.
+zh-Hans = 专辑封面大图，歌曲信息在旁边。
+es = La portada del álbum, grande, junto a la canción.
+pt-BR = A capa do álbum, grande, ao lado da música.
+fr = La pochette de l'album en grand, à côté du titre.
+de = Das Cover des Albums, groß, neben dem Titel.
+ja = アルバムのジャケットを大きく、曲をその横に表示します。
+it = La copertina dell'album, grande, accanto al brano.
+
+[sysmenu.look_cassette]
+note = A Player Look: a cassette tape, its reels turning with the song through its window. Begun with a capital
+en = Cassette
+zh-Hans = 磁带
+es = Casete
+pt-BR = Fita cassete
+fr = Cassette
+de = Kassette
+ja = カセット
+it = Cassetta
+
+[sysmenu.look_cassette_note]
+note = Under Player Look's picture when Cassette is under the cursor: a narrow column, at most five short lines
+en = A cassette, its reels turning with the song. A new song rewinds it.
+zh-Hans = 一盘磁带，卷轴随歌曲转动；换歌时会倒带。
+es = Un casete cuyas bobinas giran con la canción; rebobina al cambiar.
+pt-BR = Uma fita com os carretéis girando com a música; rebobina a cada faixa.
+fr = Une cassette aux bobines qui tournent ; rembobinée à chaque titre.
+de = Eine Kassette, deren Spulen sich drehen; spult bei jedem Titel zurück.
+ja = 曲に合わせてリールが回るカセット。曲が変わると巻き戻します。
+it = Una cassetta con le bobine che girano; si riavvolge a ogni brano.
+
+[sysmenu.look_vinyl]
+note = A Player Look: a vinyl record turning on a turntable, the cover as its label, the tonearm on the song. Begun with a capital
+en = Vinyl
+zh-Hans = 黑胶唱片
+es = Vinilo
+pt-BR = Vinil
+fr = Vinyle
+de = Vinyl
+ja = レコード
+it = Vinile
+
+[sysmenu.look_vinyl_note]
+note = Under Player Look's picture when Vinyl is under the cursor: a narrow column, at most five short lines
+en = A record in the cover's color; the arm marks the song.
+zh-Hans = 封面颜色的黑胶唱片，唱臂停在当前歌曲上。
+es = Un disco del color de la portada; el brazo marca la canción.
+pt-BR = Um disco na cor da capa; o braço marca a música.
+fr = Un disque de la couleur de la pochette ; le bras marque le titre.
+de = Eine Platte in der Farbe des Covers; der Arm zeigt den Titel.
+ja = ジャケットの色のレコード。アームが今の曲を指します。
+it = Un disco del colore della copertina; il braccio segna il brano.
+
+[sysmenu.look_classic]
+note = A Player Look: a big clock, bars that move with the sound, and the album's track list (like an old desktop music player). Begun with a capital
+en = Classic
+zh-Hans = 经典
+es = Clásico
+pt-BR = Clássico
+fr = Classique
+de = Klassisch
+ja = クラシック
+it = Classico
+
+[sysmenu.look_classic_note]
+note = Under Player Look's picture when Classic is under the cursor
+en = A big clock, bars that move with the sound, and the album's track list.
+zh-Hans = 大时钟、随声音跳动的频谱条，以及专辑的曲目列表。
+es = Un reloj grande, barras que siguen el sonido y la lista de canciones del álbum.
+pt-BR = Um relógio grande, barras que seguem o som e a lista de faixas do álbum.
+fr = Une grande horloge, des barres qui suivent le son et la liste des titres de l'album.
+de = Eine große Uhr, Balken im Takt des Klangs und die Titelliste des Albums.
+ja = 大きな時計、音に合わせて動くバー、アルバムの曲リスト。
+it = Un grande orologio, barre che seguono il suono e l'elenco dei brani dell'album.
+
+[sysmenu.look_spectrum]
+note = A Player Look: the sound as 32 bars across the screen (a spectrum analyser), under the cover and the names. Begun with a capital
+en = Spectrum
+zh-Hans = 频谱
+es = Espectro
+pt-BR = Espectro
+fr = Spectre
+de = Spektrum
+ja = スペクトラム
+it = Spettro
+
+[sysmenu.look_spectrum_note]
+note = Under Player Look's picture when Spectrum is under the cursor
+en = The sound as 32 bars across the screen, under the cover.
+zh-Hans = 声音化作横跨屏幕的 32 根频谱条，位于封面下方。
+es = El sonido como 32 barras a lo ancho de la pantalla, bajo la portada.
+pt-BR = O som em 32 barras na largura da tela, sob a capa.
+fr = Le son en 32 barres sur toute la largeur de l'écran, sous la pochette.
+de = Der Klang als 32 Balken über den ganzen Bildschirm, unter dem Cover.
+ja = 音を画面いっぱいの 32 本のバーで表示します。ジャケットはその上に表示します。
+it = Il suono in 32 barre su tutto lo schermo, sotto la copertina.
+
+[sysmenu.mp4_lock]
+note = MP4's menu row: turn the screen off and keep the music playing
 en = Lock Screen
 zh-Hans = 锁屏
 es = Bloquear pantalla
@@ -1001,8 +1111,8 @@ de = Bildschirmsperre
 ja = 画面ロック
 it = Blocca schermo
 
-[sysmenu.muse_repeat]
-note = MP4's menu row on the shelves with videos (Videos, All): play videos again. Its values are Off (as before: each once), muse_repeat_one and muse_repeat_all
+[sysmenu.mp4_repeat]
+note = MP4's menu row on the shelves with videos (Videos, All): play videos again. Its values are Off (as before: each once), mp4_repeat_one and mp4_repeat_all
 en = Repeat
 zh-Hans = 重复播放
 es = Repetir
@@ -1012,7 +1122,7 @@ de = Wiederholen
 ja = リピート
 it = Ripeti
 
-[sysmenu.muse_repeat_one]
+[sysmenu.mp4_repeat_one]
 note = Repeat's value: the video playing, again and again (a video: masculine in es, pt-BR, it; feminine in fr). Begun with a capital
 en = One
 zh-Hans = 单个
@@ -1023,7 +1133,7 @@ de = Eins
 ja = 1本
 it = Uno
 
-[sysmenu.muse_repeat_all]
+[sysmenu.mp4_repeat_all]
 note = Repeat's value: every video in its folder, then round again (videos: masculine in es, pt-BR, it; feminine in fr). Begun with a capital
 en = All
 zh-Hans = 全部
@@ -1034,7 +1144,7 @@ de = Alle
 ja = すべて
 it = Tutti
 
-[sysmenu.muse_quit]
+[sysmenu.mp4_quit]
 note = MP4's menu row, its last, with X's glyph at its right (X does it from any row): leave MP4 for the screen it was opened from, as SELECT does; what plays keeps playing. The in-game menu's Quit (gamemenu.quit), the same word
 en = Quit
 zh-Hans = 退出
@@ -1045,7 +1155,7 @@ de = Beenden
 ja = 終了
 it = Esci
 
-[sysmenu.muse_lock_when]
+[sysmenu.mp4_lock_when]
 note = Lock Screen's value while nothing plays: it only works while music plays. Begun with a capital.
 en = While playing
 zh-Hans = 播放时可用
@@ -1056,8 +1166,8 @@ de = Bei Wiedergabe
 ja = 再生中のみ
 it = Solo con musica
 
-[sysmenu.muse_art]
-note = Muse's menu row: fetch album covers. tight: its value may be "needs Wi-Fi"
+[sysmenu.mp4_art]
+note = MP4's menu row: fetch album covers. tight: its value may be "needs Wi-Fi"
 en = Album Art
 zh-Hans = 专辑封面
 es = Portadas
@@ -1489,3 +1599,15 @@ fr = Liste
 de = Liste
 ja = リスト
 it = Elenco
+
+
+[sysmenu.view_video]
+note = View's value: the shelf shows the focused game's video snap on the whole screen, its covers in a row at the foot (DESIGN.md 11.57). A named choice.
+en = Video
+zh-Hans = 视频
+es = Video
+pt-BR = Vídeo
+fr = Vidéo
+de = Video
+ja = ビデオ
+it = Video

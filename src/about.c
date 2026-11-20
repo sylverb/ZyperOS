@@ -24,35 +24,42 @@ bool about_storage_counts(about_info *i, uint64_t unit, uint64_t blocks,
 	return true;
 }
 
-/* sysfs uses microamp-hours. Missing, zero, negative, overflowing and partial
- * numbers are all unavailable, rather than a claim about battery wear. */
-static uint64_t charge_read(const char *dir, const char *name)
+/* One whole number from a sysfs file. Missing, negative, overflowing and
+ * partial numbers are all false, rather than a claim about battery wear. */
+static bool number_read(const char *dir, const char *name, uint64_t *value)
 {
 	char path[1024], text[64], *start, *end;
-	uint64_t value;
 	size_t len;
 	FILE *f;
 	int n;
 
-	if (!dir) return 0;
+	if (!dir) return false;
 	n = snprintf(path, sizeof path, "%s/%s", dir, name);
-	if (n < 0 || (size_t)n >= sizeof path || !(f = fopen(path, "r"))) return 0;
+	if (n < 0 || (size_t)n >= sizeof path || !(f = fopen(path, "r"))) return false;
 	len = fread(text, 1, sizeof text - 1, f);
-	if (!len || memchr(text, '\0', len)) { fclose(f); return 0; }
+	if (!len || memchr(text, '\0', len)) { fclose(f); return false; }
 	text[len] = '\0';
 	/* Do not accept a truncated value or a second non-whitespace line. */
 	while ((n = fgetc(f)) != EOF)
-		if (!isspace((unsigned char)n)) { fclose(f); return 0; }
-	if (ferror(f)) { fclose(f); return 0; }
+		if (!isspace((unsigned char)n)) { fclose(f); return false; }
+	if (ferror(f)) { fclose(f); return false; }
 	fclose(f);
 	start = text;
 	while (isspace((unsigned char)*start)) start++;
-	if (!isdigit((unsigned char)*start)) return 0;
+	if (!isdigit((unsigned char)*start)) return false;
 	errno = 0;
-	value = strtoull(start, &end, 10);
-	if (errno == ERANGE) return 0;
+	*value = strtoull(start, &end, 10);
+	if (errno == ERANGE) return false;
 	while (isspace((unsigned char)*end)) end++;
-	return *end ? 0 : value;
+	return !*end;
+}
+
+/* sysfs uses microamp-hours; zero is unavailable too. */
+static uint64_t charge_read(const char *dir, const char *name)
+{
+	uint64_t value;
+
+	return number_read(dir, name, &value) ? value : 0;
 }
 
 void about_read(about_info *i, const char *card, const char *battery_dir)
@@ -65,6 +72,12 @@ void about_read(about_info *i, const char *card, const char *battery_dir)
 		                     st.f_blocks, st.f_bfree, st.f_bavail);
 	i->full_uah = charge_read(battery_dir, "charge_full");
 	i->design_uah = charge_read(battery_dir, "charge_full_design");
+	{
+		uint64_t n;
+
+		i->learned = number_read(battery_dir, "charge_full_learned", &n) ?
+		             (n > 1000 ? 1000 : (int)n) : -1;
+	}
 }
 
 static void storage_text(char *out, size_t cap, uint64_t bytes)
@@ -107,7 +120,12 @@ int about_detail_rows(const about_info *i, menu_row rows[ABOUT_DETAIL_ROWS], abo
 	}
 	if (i->full_uah) capacity_text(b->value[4], sizeof b->value[4], i->full_uah);
 	if (i->design_uah) capacity_text(b->value[5], sizeof b->value[5], i->design_uah);
-	if (i->full_uah && i->design_uah) {
+	/* Never measured: the full charge is the design's guess, so neither it
+	 * nor a health from it says anything about this battery */
+	if (i->learned == 0 && i->full_uah && i->design_uah && i->full_uah >= i->design_uah) {
+		snprintf(b->value[3], sizeof b->value[3], "%s", T(S_ABOUT_NOT_MEASURED));
+		snprintf(b->value[4], sizeof b->value[4], "%s", T(S_ABOUT_NOT_MEASURED));
+	} else if (i->full_uah && i->design_uah) {
 		long double pct = (long double)i->full_uah / (long double)i->design_uah * 100.0L;
 		unsigned health = pct >= 100.0L ? 100u : (unsigned)(pct + 0.5L);
 		snprintf(b->value[3], sizeof b->value[3], T(S_ABOUT_HEALTH_ESTIMATE), health);

@@ -169,6 +169,12 @@ unsigned plat_input_wait_hook(unsigned ms);
  * input arrives in bursts as it starts, settling means waiting them out. */
 void plat_input_settle(in_state *st);
 bool in_repeat(in_state *st, in_button b);
+/* A pair of opposite buttons, `neg` and `pos` (Up and Down, Left and Right),
+ * each read once this frame by in_repeat: -1 for `neg`'s press or repeat,
+ * +1 for `pos`'s (both: `pos`), 0 for neither. A repeat is true once: a
+ * second in_repeat of the same button in a frame is false, so a held
+ * direction read twice turns round */
+int in_repeat_axis(in_state *st, in_button neg, in_button pos);
 
 /* Tell the input layer the process is going away. The next plat_input_poll
  * raises quit_requested, which every loop already checks. */
@@ -287,6 +293,14 @@ enum {
 	PLAT_QUICK_SAVE_FAILED, PLAT_QUICK_LOAD_FAILED
 };
 void plat_resident_on_quick(void (*fn)(int what, const char *path));
+/* Called from inside plat_resident_wait for the player's hotkeys the
+ * launcher carries out (src/hotkeys.h): `key` "shot" with the PNG's path
+ * once Diatom wrote it, or "shader" or "display" (path NULL) for the next */
+void plat_resident_on_hotkey(void (*fn)(const char *key, const char *path));
+/* What the PAUSED that made plat_resident_wait return RES_PAUSED was for:
+ * "reset" (Reset Game's hotkey: ask first) or "quit" (Quit's: stop), ""
+ * for MENU's, the menu */
+const char *plat_resident_paused_for(void);
 
 /* Called from inside plat_resident_wait when Diatom reports an achievement's
  * count moving ("CHEEVO id=.. state=progress value=.. target=.. text=.."),
@@ -453,7 +467,7 @@ void plat_brightness_set(int level);
 int  plat_brightness_raw(int level);
 
 /* The panel's backlight off or on, leaving the brightness level as it was -
- * Muse's pocket lock. Off is the display engine's own switch, not a black
+ * MP4's pocket lock. Off is the display engine's own switch, not a black
  * frame: measured 2026-09-30, it takes a book playing from about 470 mA to
  * 300, where a dark picture would leave the light burning. On comes back at
  * the level it had. Nothing on the host. */

@@ -890,8 +890,8 @@ static void system_menu(void)
 	u.strength = NULL;
 	u.no_strength = true;
 	ck(sys_menu_build(&u, rows, &b, &heading) == n - 1 && sm_at(&u, SM_STRENGTH) < 0 &&
-	   !strcmp(rows[sm_at(&u, SM_SHADER) + 1].label, T(S_SYSMENU_BOX_ART)),
-	   "and gone while the shader is not an old screen, Box Art moving up");
+	   !strcmp(rows[sm_at(&u, SM_SHADER) + 1].label, T(S_DOWNLOADS_HEADING)),
+	   "and gone while the shader is not an old screen, Downloads moving up");
 	u.no_strength = false;
 	n = sys_menu_build(&u, rows, &b, &heading);
 	ck(rows[sm_at(&u, SM_DISPLAY)].live && rows[sm_at(&u, SM_RESCAN)].live, "the two live rows are live");
@@ -900,7 +900,13 @@ static void system_menu(void)
 	   !strcmp(rows[sm_at(&u, SM_COREOPTS)].label, "Core Settings") &&
 	   rows[sm_at(&u, SM_COREOPTS)].live,
 	   "Core Settings under Core (no Game Language here), a stop that opens its page");
-	ck(rows[sm_at(&u, SM_BOXART)].live, "Box Art is live on a network");
+	ck(rows[sm_at(&u, SM_BOXART)].live && !strcmp(rows[sm_at(&u, SM_BOXART)].label, T(S_DOWNLOADS_HEADING)),
+	   "Box Art is Downloads, this console's page, live on a network");
+	u.sys_downloads = "41 to fetch";
+	sys_menu_build(&u, rows, &b, &heading);
+	ck(!strcmp(val(&rows[sm_at(&u, SM_BOXART)]), "41 to fetch"), "its value is the console's count");
+	u.sys_downloads = NULL;
+	sys_menu_build(&u, rows, &b, &heading);
 
 
 	/* A shelf that lists two cores, the Dreamcast's: Core is a choice. */
@@ -912,11 +918,11 @@ static void system_menu(void)
 	u.core_choice = false;
 	u.sys_core = "gambatte";
 
-	/* The same menu with the radio down. Only Box Art changes. */
+	/* The same menu with the radio down: Downloads stays live, its page
+	 * counts and deletes with no network and says what Download needs */
 	u.wifi = WIFI_OFF;
 	sys_menu_build(&u, rows, &b, &heading);
-	ck(!rows[sm_at(&u, SM_BOXART)].live, "Box Art dies with the radio");
-	ck(!strcmp(val(&rows[sm_at(&u, SM_BOXART)]), "Needs Wi-Fi"), "and says why");
+	ck(rows[sm_at(&u, SM_BOXART)].live, "Downloads stays live with the radio down");
 	ck(rows[sm_at(&u, SM_RESCAN)].live, "Rescan does not need a network");
 
 	/* Favorites, which is not a system: no core and no folder, so four of the
@@ -954,7 +960,7 @@ static void system_menu(void)
 		}
 	}
 
-	/* Muse, which is not a system either: no core, no ROM folder, no display
+	/* MP4, which is not a system either: no core, no ROM folder, no display
 	 * mode. What it does have is a folder of music, two orders to see it in,
 	 * and Rescan Folder for music copied in. */
 	{
@@ -964,7 +970,7 @@ static void system_menu(void)
 		const char *mhead = NULL;
 		int mn, k;
 
-		m.muse = true;
+		m.mp4 = true;
 		m.sys_name = "MP4";
 		m.sys_core = "";
 		m.game_count = 7;
@@ -972,39 +978,58 @@ static void system_menu(void)
 		m.wifi = WIFI_CONNECTED;     /* the case above left the radio down */
 		mn = sys_menu_build(&m, mrows, &mb, &mhead);
 		printf("MP4's shelf menu:\n");
-		ck(mn == 8, "eight rows with only music, Quit last");
+		ck(mn == 10, "ten rows with only music, Quit last");
 		ck(!strcmp(mrows[0].label, "Albums") && !strcmp(val(&mrows[0]), "7"),
 		   "how many albums");
 		ck(!strcmp(mrows[1].label, "Sort By") && mrows[1].live &&
 		   !strcmp(val(&mrows[1]), "Artist"),
 		   "Sort By, and by artist when nothing says otherwise");
-		ck(!strcmp(mrows[2].label, "Shuffle All") && mrows[2].live && !val(&mrows[2])[0],
+		ck(!strcmp(mrows[2].label, "View") && mrows[2].live && !strcmp(val(&mrows[2]), "Covers") &&
+		   menu_sound_at(mb.sound, mn, 2) == MENU_SND_RING,
+		   "View, Covers when nothing says otherwise, turning over (DESIGN.md 11.67)");
+		ck(!strcmp(mrows[3].label, "Shuffle All") && mrows[3].live && !val(&mrows[3])[0],
 		   "Shuffle All, live whether or not anything plays");
-		ck(!strcmp(mrows[3].label, "Equalizer") && mrows[3].live && !strcmp(val(&mrows[3]), "Off"),
+		ck(!strcmp(mrows[4].label, "Player Look") && mrows[4].live &&
+		   !strcmp(val(&mrows[4]), "Cover"),
+		   "Player Look, Cover when nothing says otherwise (DESIGN.md 11.64)");
+		ck(!strcmp(mrows[5].label, "Equalizer") && mrows[5].live && !strcmp(val(&mrows[5]), "Off"),
 		   "Equalizer, MENU's own row, Off until it is set");
-		ck(!strcmp(mrows[4].label, "Lock Screen") && !mrows[4].live &&
-		   !strcmp(val(&mrows[4]), "While playing"),
+		ck(!strcmp(mrows[6].label, "Lock Screen") && !mrows[6].live &&
+		   !strcmp(val(&mrows[6]), "While playing"),
 		   "Lock Screen, dead and saying why with nothing playing");
-		ck(!strcmp(mrows[5].label, "Album Art") && mrows[5].live,
+		ck(!strcmp(mrows[7].label, "Album Art") && mrows[7].live,
 		   "covers to fetch, on a network");
-		ck(!strcmp(mrows[6].label, "Rescan Folder") && mrows[6].live,
+		ck(!strcmp(mrows[8].label, "Rescan Folder") && mrows[8].live,
 		   "and a rescan that works");
+		m.grid = true;
+		sys_menu_build(&m, mrows, &mb, &mhead);
+		ck(!strcmp(val(&mrows[2]), "Grid"), "View says the Grid");
+		m.grid = false;
+		m.listed = true;
+		sys_menu_build(&m, mrows, &mb, &mhead);
+		ck(!strcmp(val(&mrows[2]), "List"), "and the List");
+		m.listed = false;
+		m.mp4_look = "Spectrum";
+		sys_menu_build(&m, mrows, &mb, &mhead);
+		ck(!strcmp(val(&mrows[4]), "Spectrum"), "Player Look says the look that is on");
+		m.mp4_look = NULL;
 		m.eq = "Bass";
 		sys_menu_build(&m, mrows, &mb, &mhead);
-		ck(!strcmp(val(&mrows[3]), "Bass"), "the Equalizer says the preset in use");
+		ck(!strcmp(val(&mrows[5]), "Bass"), "the Equalizer says the preset in use");
 		m.eq = NULL;
-		m.muse_playing = true;
+		m.mp4_playing = true;
 		sys_menu_build(&m, mrows, &mb, &mhead);
-		ck(mrows[4].live && !val(&mrows[4])[0], "Lock Screen live while music plays");
-		m.muse_playing = false;
+		ck(mrows[6].live && !val(&mrows[6])[0], "Lock Screen live while music plays");
+		m.mp4_playing = false;
 		m.sort = "Album";
 		m.wifi = WIFI_OFF;
 		sys_menu_build(&m, mrows, &mb, &mhead);
 		ck(!strcmp(val(&mrows[1]), "Album"), "the order it is in");
-		ck(!mrows[5].live && !strcmp(val(&mrows[5]), "Needs Wi-Fi"),
+		ck(!mrows[7].live && !strcmp(val(&mrows[7]), "Needs Wi-Fi"),
 		   "Album Art says why it cannot, off the network");
-		ck(mrows[1].live && mrows[2].live && mrows[3].live && mrows[6].live,
-		   "and neither Sort By, Shuffle All, Equalizer nor Rescan Folder needs one");
+		ck(mrows[1].live && mrows[2].live && mrows[3].live && mrows[4].live && mrows[5].live &&
+		   mrows[8].live,
+		   "and neither Sort By, View, Shuffle All, Player Look, Equalizer nor Rescan Folder needs one");
 		for (k = 0; k < mn; k++) {
 			ck(strcmp(lbl(&mrows[k]), "Core") != 0, "no Core: it has none");
 			ck(strcmp(lbl(&mrows[k]), "Display Mode") != 0, "no Display Mode");
@@ -1014,91 +1039,108 @@ static void system_menu(void)
 		 * order, and on books no Album Art and the orders a book goes by. */
 		m.sort = NULL;
 		m.wifi = WIFI_CONNECTED;
-		m.muse_both = true;
+		m.mp4_both = true;
 		mn = sys_menu_build(&m, mrows, &mb, &mhead);
-		ck(mn == SM_MUSE_ROWS - 1, "nine rows with more than one kind on music (no Repeat)");
+		ck(mn == SM_MP4_ROWS - 1, "eleven rows with more than one kind on music (no Repeat)");
 		ck(!strcmp(mrows[1].label, "Show") && mrows[1].live &&
 		   !strcmp(val(&mrows[1]), "Music"), "Show, on music");
-		ck(!strcmp(mrows[2].label, "Sort By") && !strcmp(mrows[3].label, "Shuffle All") &&
-		   mrows[3].live && !strcmp(mrows[4].label, "Equalizer") &&
-		   !strcmp(mrows[5].label, "Lock Screen") && !strcmp(mrows[6].label, "Album Art"),
-		   "Sort By, Shuffle All, Equalizer, Lock Screen, then Album Art");
-		m.muse_books = true;
+		ck(!strcmp(mrows[2].label, "Sort By") && !strcmp(mrows[3].label, "View") &&
+		   !strcmp(mrows[4].label, "Shuffle All") &&
+		   mrows[4].live && !strcmp(mrows[5].label, "Player Look") &&
+		   !strcmp(mrows[6].label, "Equalizer") && !strcmp(mrows[7].label, "Lock Screen") &&
+		   !strcmp(mrows[8].label, "Album Art"),
+		   "Sort By, View, Shuffle All, Player Look, Equalizer, Lock Screen, then Album Art");
+		m.mp4_books = true;
 		m.game_count = 2;
 		mn = sys_menu_build(&m, mrows, &mb, &mhead);
-		ck(mn == 7 && !strcmp(mrows[3].label, "Equalizer"), "seven rows on books, the Equalizer among them");
+		ck(mn == 8 && !strcmp(mrows[3].label, "View") && !strcmp(mrows[4].label, "Equalizer"),
+		   "eight rows on books, View and the Equalizer among them");
 		ck(!strcmp(mrows[0].label, "Books") && !strcmp(val(&mrows[0]), "2"),
 		   "how many books");
 		ck(!strcmp(val(&mrows[1]), "Audiobooks"), "Show, on books");
 		ck(!strcmp(val(&mrows[2]), "Author"), "by author when nothing says otherwise");
 		for (k = 0; k < mn; k++)
 			ck(strcmp(lbl(&mrows[k]), "Album Art") != 0 &&
-			   strcmp(lbl(&mrows[k]), "Shuffle All") != 0,
-			   "no Album Art on books (MusicBrainz knows records), no Shuffle All");
+			   strcmp(lbl(&mrows[k]), "Shuffle All") != 0 &&
+			   strcmp(lbl(&mrows[k]), "Player Look") != 0,
+			   "no Album Art on books (MusicBrainz knows records), no Shuffle All, no Player Look");
 		/* Videos: their own count and orders, and like books no Album Art
 		 * and no Shuffle All. */
-		m.muse_books = false;
-		m.muse_videos = true;
+		m.mp4_books = false;
+		m.mp4_videos = true;
 		m.game_count = 3;
 		mn = sys_menu_build(&m, mrows, &mb, &mhead);
-		ck(mn == 8 && !strcmp(mrows[0].label, "Videos") && !strcmp(val(&mrows[0]), "3") &&
+		ck(mn == 9 && !strcmp(mrows[0].label, "Videos") && !strcmp(val(&mrows[0]), "3") &&
 		   !strcmp(val(&mrows[1]), "Videos") && !strcmp(val(&mrows[2]), "Folder"),
 		   "on videos: how many, Show, by folder");
-		ck(!strcmp(mrows[3].label, "Repeat") && !strcmp(val(&mrows[3]), "Off") && mrows[3].live &&
-		   menu_sound_at(mb.sound, mn, 3) == MENU_SND_RING,
+		ck(!strcmp(mrows[4].label, "Repeat") && !strcmp(val(&mrows[4]), "Off") && mrows[4].live &&
+		   menu_sound_at(mb.sound, mn, 4) == MENU_SND_RING,
 		   "on videos: Repeat, Off to start with, steps round");
-		m.muse_repeat = "One";
+		m.mp4_repeat = "One";
 		mn = sys_menu_build(&m, mrows, &mb, &mhead);
-		ck(!strcmp(val(&mrows[3]), "One"), "Repeat says what it is");
-		m.muse_repeat = NULL;
+		ck(!strcmp(val(&mrows[4]), "One"), "Repeat says what it is");
+		m.mp4_repeat = NULL;
 		for (k = 0; k < mn; k++)
 			ck(strcmp(lbl(&mrows[k]), "Album Art") != 0 &&
-			   strcmp(lbl(&mrows[k]), "Shuffle All") != 0,
-			   "no Album Art and no Shuffle All on videos");
+			   strcmp(lbl(&mrows[k]), "Shuffle All") != 0 &&
+			   strcmp(lbl(&mrows[k]), "Player Look") != 0,
+			   "no Album Art, Shuffle All or Player Look on videos");
 		/* All, where Show starts: the count is the Total, the orders the
 		 * videos', and Shuffle All and Album Art when there are songs */
-		m.muse_videos = false;
-		m.muse_all = true;
-		m.muse_songs = true;
+		m.mp4_videos = false;
+		m.mp4_all = true;
+		m.mp4_songs = true;
 		m.game_count = 7;
 		mn = sys_menu_build(&m, mrows, &mb, &mhead);
-		ck(mn == SM_MUSE_ROWS && !strcmp(mrows[0].label, "Total") &&
+		ck(mn == SM_MP4_ROWS && !strcmp(mrows[0].label, "Total") &&
 		   !strcmp(val(&mrows[0]), "7") && !strcmp(val(&mrows[1]), "All") &&
-		   !strcmp(val(&mrows[2]), "Folder") && !strcmp(mrows[3].label, "Shuffle All") &&
-		   !strcmp(mrows[4].label, "Repeat") && !strcmp(mrows[5].label, "Equalizer") &&
-		   !strcmp(mrows[7].label, "Album Art"),
-		   "on All: the Total, Show All, by folder, Shuffle All, Repeat, Equalizer and Album Art");
-		m.muse_songs = false;
+		   !strcmp(val(&mrows[2]), "Folder") && !strcmp(mrows[3].label, "View") &&
+		   !strcmp(mrows[4].label, "Shuffle All") &&
+		   !strcmp(mrows[5].label, "Player Look") && !strcmp(mrows[6].label, "Repeat") &&
+		   !strcmp(mrows[7].label, "Equalizer") && !strcmp(mrows[9].label, "Album Art"),
+		   "on All: the Total, Show All, by folder, View, Shuffle All, Player Look, Repeat, Equalizer and Album Art");
+		m.mp4_songs = false;
 		mn = sys_menu_build(&m, mrows, &mb, &mhead);
 		for (k = 0; k < mn; k++)
 			ck(strcmp(lbl(&mrows[k]), "Album Art") != 0 &&
-			   strcmp(lbl(&mrows[k]), "Shuffle All") != 0,
-			   "All with no songs: no Album Art and no Shuffle All");
-		m.muse_all = false;
-		m.muse_books = true;
+			   strcmp(lbl(&mrows[k]), "Shuffle All") != 0 &&
+			   strcmp(lbl(&mrows[k]), "Player Look") != 0,
+			   "All with no songs: no Album Art, Shuffle All or Player Look");
+		m.mp4_all = false;
+		m.mp4_books = true;
 		{
-			sm_muse_row ids[SM_MUSE_ROWS];
+			sm_mp4_row ids[SM_MP4_ROWS];
 
-			ck(sys_menu_muse_rows(3, true, false, ids) == SM_MUSE_ROWS && ids[3] == SMM_SHUFFLE,
-			   "All with songs has every row");
+			ck(sys_menu_mp4_rows(3, true, false, ids) == SM_MP4_ROWS && ids[3] == SMM_VIEW &&
+			   ids[4] == SMM_SHUFFLE,
+			   "All with songs has every row, View under Sort By");
+			/* View under Sort By on every shelf of MP4's (DESIGN.md 11.67) */
+			for (int kind = 0; kind <= 3; kind++)
+				for (int both = 0; both <= 1; both++) {
+					int q = sys_menu_mp4_rows(kind, both, false, ids), at = -1;
+
+					for (int j = 0; j < q; j++) if (ids[j] == SMM_VIEW) at = j;
+					ck(at > 0 && ids[at - 1] == SMM_SORT, "View under Sort By on every MP4 shelf");
+				}
 
 			/* Repeat on the shelves with videos (Videos, All), not on
 			 * music or books, after Shuffle All where that is */
 			for (int kind = 0; kind <= 3; kind++) {
-				int q = sys_menu_muse_rows(kind, true, false, ids), has = 0;
+				int q = sys_menu_mp4_rows(kind, true, false, ids), has = 0;
 
 				for (int j = 0; j < q; j++) if (ids[j] == SMM_REPEAT) has = 1;
 				ck(has == (kind == 2 || kind == 3), "Repeat on Videos and All alone");
 			}
-			ck(sys_menu_muse_rows(true, false, false, ids) == 6 && ids[1] == SMM_SORT &&
-			   ids[2] == SMM_EQ && ids[3] == SMM_LOCK && ids[4] == SMM_RESCAN && ids[5] == SMM_QUIT,
-			   "books alone: the count, Sort By, Equalizer, Lock Screen, Rescan Folder and Quit");
+			ck(sys_menu_mp4_rows(true, false, false, ids) == 7 && ids[1] == SMM_SORT &&
+			   ids[2] == SMM_VIEW && ids[3] == SMM_EQ && ids[4] == SMM_LOCK && ids[5] == SMM_RESCAN &&
+			   ids[6] == SMM_QUIT,
+			   "books alone: the count, Sort By, View, Equalizer, Lock Screen, Rescan Folder and Quit");
 			/* Quit last on every shelf of MP4's, live, X's glyph its
 			 * value: X does it from any row (DESIGN.md 11.14) */
 			for (int kind = 0; kind <= 3; kind++)
 				for (int both = 0; both <= 1; both++)
 					for (int nw = 0; nw <= 1; nw++) {
-						int q = sys_menu_muse_rows(kind, both, nw, ids);
+						int q = sys_menu_mp4_rows(kind, both, nw, ids);
 						ck(q > 0 && ids[q - 1] == SMM_QUIT,
 						   "Quit is the last row on every MP4 shelf");
 					}
@@ -1106,7 +1148,7 @@ static void system_menu(void)
 		{
 			int q;
 
-			m.muse_books = false;
+			m.mp4_books = false;
 			mn = sys_menu_build(&m, mrows, &mb, &mhead);
 			q = mn - 1;
 			ck(mn > 0 && !strcmp(mrows[q].label, "Quit") && mrows[q].value == MENU_KEY_X &&
@@ -1299,13 +1341,17 @@ static void cursor_reaches(void)
 	n = sys_menu_build(&u, rows, &b, &heading);
 	ck(!strcmp(val(&rows[sm_at(&u, SM_VIEW)]), "List"), "or a list");
 	u.listed = false;
+	u.video = true;
+	n = sys_menu_build(&u, rows, &b, &heading);
+	ck(!strcmp(val(&rows[sm_at(&u, SM_VIEW)]), "Video"), "or the Video view (DESIGN.md 11.57)");
+	u.video = false;
 	n = sys_menu_build(&u, rows, &b, &heading);
 	ck(holds(got, k, sm_at(&u, SM_DISPLAY)), "Display Mode");
 	ck(holds(got, k, sm_at(&u, SM_SHADER)), "Shader");
 	/* Live since sorting stopped being alphabetical-only. It was a
 	 * placeholder for long enough that this check counted three. */
 	ck(holds(got, k, sm_at(&u, SM_SORT)), "Sort By");
-	ck(holds(got, k, sm_at(&u, SM_BOXART)), "Box Art");
+	ck(holds(got, k, sm_at(&u, SM_BOXART)), "Downloads");
 	ck(holds(got, k, sm_at(&u, SM_RESCAN)), "Rescan Folder");
 	ck(!holds(got, k, sm_at(&u, SM_GAMES)) && !holds(got, k, sm_at(&u, SM_CORE)),
 	   "the reported facts are not stops");
@@ -1368,7 +1414,7 @@ static void radio_less(void)
 	menu_row rows[MENU_MAX_ROWS];
 	pm_row pm[PM_ROWS];
 	sm_row sm[SM_ROWS];
-	sm_muse_row mu[SM_MUSE_ROWS];
+	sm_mp4_row mu[SM_MP4_ROWS];
 	const char *heading;
 	int n, k, i;
 	bool ok;
@@ -1476,8 +1522,8 @@ static void radio_less(void)
 	k = sys_menu_system_rows(&u, sm);
 	printf("system menu, no radio, a phone's tethering:\n");
 	for (i = 0; i < k && sm[i] != SM_BOXART; i++) { }
-	ck(n == k && i < k && !strcmp(rows[i].label, "Box Art") && rows[i].live && !rows[i].value,
-	   "Box Art stays, live and not asking for Wi-Fi");
+	ck(n == k && i < k && !strcmp(rows[i].label, "Downloads") && rows[i].live && !rows[i].value,
+	   "Downloads stays, live and not asking for Wi-Fi");
 
 	memset(&u, 0, sizeof u);
 	u.games = true;
@@ -1487,14 +1533,14 @@ static void radio_less(void)
 	n = sys_menu_build(&u, rows, &b, &heading);
 	k = sys_menu_system_rows(&u, sm);
 	printf("system menu, no radio at all:\n");
-	ck(n == k && n == SM_ROWS - 3, "Box Art goes and nothing else");
-	ck(!has_label(rows, n, "Box Art"), "no Box Art");
+	ck(n == k && n == SM_ROWS - 2, "Downloads stays: its counts, Systems and deletes need no network");
+	ck(has_label(rows, n, "Downloads") && !has_label(rows, n, "Box Art"), "Downloads, no Box Art");
 	ck(sm[n - 1] == SM_RESCAN && !strcmp(rows[n - 1].label, "Rescan Folder"),
-	   "Rescan Folder moves up into its place");
+	   "Rescan Folder last");
 
-	k = sys_menu_muse_rows(false, false, true, mu);
+	k = sys_menu_mp4_rows(false, false, true, mu);
 	for (i = 0, ok = true; i < k; i++) if (mu[i] == SMM_ART) ok = false;
-	ck(ok, "Muse loses Album Art too");
+	ck(ok, "MP4 loses Album Art too");
 }
 
 /* The bound is the point. An all-dead menu must terminate, not spin. */
@@ -1818,9 +1864,9 @@ static void what_scrolls(void)
  * byte count, no Favorite, which Y does from the shelf, and no Saves, which
  * the carousel shows with the frames themselves. A row is easy to put back by
  * habit. */
-/* Every row of a scraped game but Rename, Buttons and Add to Collection:
- * GI_MAX less those three */
-#define INFO_FULL (GI_MAX - 3)
+/* Every row of a scraped game but Rename, Buttons, Add to Collection and
+ * Core: GI_MAX less those four */
+#define INFO_FULL (GI_MAX - 4)
 
 static void info_rows(void)
 {
@@ -1960,6 +2006,7 @@ static void info_rows(void)
 		rg.can_favorite = true;
 		rg.can_collect = true;
 		snprintf(rg.collected, sizeof rg.collected, "In 2");
+		snprintf(rg.core, sizeof rg.core, "gambatte");
 		rg.own_buttons = true;
 		rg.scraped = true;
 		rg.has_synopsis = true;
@@ -1974,6 +2021,9 @@ static void info_rows(void)
 		for (j = 0; j < rn && strcmp(rr[j].label, "Favorite"); j++) {}
 		ck(j + 1 < rn && !strcmp(rr[j + 1].label, "Add to Collection") && rr[j + 1].live &&
 		   !strcmp(val(&rr[j + 1]), "In 2"), "Add to Collection right after Favorite, live, its count");
+		for (j = 0; j < rn && strcmp(rr[j].label, "Core"); j++) {}
+		ck(j < rn && j > 0 && !strcmp(rr[j - 1].label, "Genre") && !rr[j].live && !strcmp(val(&rr[j]), "gambatte"),
+		   "the core, a fact after the genre, where the shelf has two");
 		rg.collected[0] = '\0';
 		rn = gi_rows(rr, &rg, true);
 		for (j = 0; j < rn && strcmp(rr[j].label, "Add to Collection"); j++) {}
@@ -2531,6 +2581,50 @@ static void ctl_tab(void)
 	k = ct_at(ids, n, CT_WARN + RT_Y);
 	ck(m.cur.b[RM_R2].to == RM_STICK_TOGGLE && k > 0 && ids[k - 1] == CT_BUTTON + RM_Y,
 	   "Y given Stick While Held: R2 keeps Stick On/Off (another choice), and square has no button now, under Y");
+
+	/* ct_share: two buttons on one game button (issue #305). On a PS1
+	 * game: Y's list on cross, which B gives, is one Y shares (A swaps and
+	 * Y gives both); Y takes it as well; B's row and Y's carry the other's
+	 * glyph after the value; the handheld lights both; the warning row is
+	 * the game button no button gives; Nothing, a turbo and the row's own
+	 * are A's alone */
+	memset(&m, 0, sizeof m);
+	m.tag = "PS1"; m.ext = "chd"; m.sys_label = "PS1"; m.sys_name = "PlayStation"; m.map = "";
+	rm_identity(&m.def);
+	m.cur = m.base = m.zdef = m.def;
+	{
+		char la[192], lb[192];
+
+		ck(ct_can_share(&m, RM_Y, (rm_choice){ RT_B, 0 }) && !ct_can_share(&m, RM_Y, (rm_choice){ RT_Y, 0 }) &&
+		   !ct_can_share(&m, RM_Y, (rm_choice){ RM_NONE, 0 }) &&
+		   !ct_can_share(&m, RM_Y, (rm_choice){ RT_B, RM_TURBO }),
+		   "ct_can_share: on cross (B's), not on its own, Nothing or a turbo");
+		ct_pick_lines(&m, RM_Y, (rm_choice){ RT_B, 0 }, la, sizeof la, lb, sizeof lb);
+		ck(!strcmp(la, "A: B takes " PAD_SQUARE ".") && !strcmp(lb, "Y: Y and B give " PAD_CROSS "."),
+		   "the foot says what A and Y do: B takes square; Y and B give cross");
+		ct_pick_lines(&m, RM_Y, (rm_choice){ RT_B, RM_TURBO }, la, sizeof la, lb, sizeof lb);
+		ck(!strcmp(lb, "") && !strcmp(la, "Y gives Turbo " PAD_CROSS "."),
+		   "a choice of A's alone (a turbo never swaps): one line, Y gives it");
+	}
+	ct_share(&m, RM_Y, (rm_choice){ RT_B, 0 });
+	ck(m.cur.b[RM_Y].to == RT_B && m.cur.b[RM_B].to == RT_B, "Y takes cross as well: both give it");
+	ck(ct_partners(&m, RM_Y) == 1u << RM_B && ct_partners(&m, RM_B) == 1u << RM_Y && ct_partners(&m, RM_A) == 0,
+	   "ct_partners: B and Y each other's, A none");
+	n = ct_rows(&m, ids, rows, vcol, &b);
+	k = ct_at(ids, n, CT_BUTTON + RM_Y);
+	ck(k > 0 && !strcmp(val(&rows[k]), PAD_CROSS MENU_PARTNER_MARK "B") && vcol[k] == 1u,
+	   "Y's row: cross, then B's glyph (MENU_PARTNER_MARK), changed");
+	k = ct_at(ids, n, CT_BUTTON + RM_B);
+	ck(k > 0 && !strcmp(val(&rows[k]), PAD_CROSS MENU_PARTNER_MARK "Y") && vcol[k] == 0,
+	   "B's row: cross, then Y's glyph, not changed");
+	k = ct_at(ids, n, CT_WARN + RT_Y);
+	ck(k > 0 && ids[k - 1] == CT_BUTTON + RM_Y, "square has no button now, under Y");
+	m.base = m.cur;
+	ck(ct_lit(&m, CT_BUTTON + RM_Y) == (1u << TD_Y | 1u << TD_B), "the handheld lights both, on Y's row");
+	/* removing one: B given L1, Y keeps cross alone */
+	ct_pick(&m, RM_B, (rm_choice){ RT_L1, 0 });
+	ck(m.cur.b[RM_B].to == RT_L1 && m.cur.b[RM_Y].to == RT_B && m.cur.b[RM_L1].to == RT_B &&
+	   ct_partners(&m, RM_Y) == 1u << RM_L1, "B given L1 swaps as ever: L1 takes cross, beside Y");
 
 	/* ct_held_nds: a DS game's L2 and R2 are Diatom's, the other screen and
 	 * the stylus */
@@ -3115,8 +3209,11 @@ static void power_row(void)
 	u.tab = PT_SYSTEM;
 	n = sys_menu_tab_rows(&u, PT_SYSTEM, tab);
 	for (k = 0; k < n && tab[k] != PM_POWER; k++) ;
-	ck(k < n && k + 1 < n && tab[k + 1] == PM_SLEEP && k > 0 && tab[k - 1] == PM_LANGUAGE,
-	   "on System's page between Language and Auto Off");
+	ck(k < n && k + 1 < n && tab[k + 1] == PM_SLEEP && k > 0 && tab[k - 1] == PM_HOTKEYS &&
+	   k > 1 && tab[k - 2] == PM_LANGUAGE,
+	   "on System's page between Hotkeys (after Language) and Auto Off");
+	ck(!strcmp(rows[PM_HOTKEYS].label, "Hotkeys") && rows[PM_HOTKEYS].live && !rows[PM_HOTKEYS].value,
+	   "Hotkeys: a row that opens its list");
 }
 
 /* Home Systems (1.0.6, src/homesys.h): on Display under System Order, All
@@ -3270,7 +3367,7 @@ static void row_sounds(void)
 	gm_bufs gb;
 	menu_row gr[GM_MAX_ROWS];
 	gm_row ids[GM_MAX_ROWS];
-	sm_muse_row mids[SM_MUSE_ROWS];
+	sm_mp4_row mids[SM_MP4_ROWS];
 	wifi_ui w;
 	menu_row wr[64];
 	int n, i;
@@ -3365,15 +3462,17 @@ static void row_sounds(void)
 	ck(!rows[1].live && !rows[5].live, "with no game, nothing to pick or take out");
 
 	memset(&u, 0, sizeof u);
-	u.games = true; u.muse = true; u.muse_both = true;
+	u.games = true; u.mp4 = true; u.mp4_both = true;
 	n = sys_menu_build(&u, rows, &b, &heading);
-	sys_menu_muse_rows(false, true, false, mids);
+	sys_menu_mp4_rows(false, true, false, mids);
 	for (i = 0; i < n; i++) {
 		if (mids[i] == SMM_SHOW)
-			ck(b.sound[i] == MENU_SND_RING, "Muse's Show turns over");
+			ck(b.sound[i] == MENU_SND_RING, "MP4's Show turns over");
 		if (mids[i] == SMM_SORT)
 			ck(b.sound[i] == (MENU_SND_RING | MENU_SND_NO_A),
-			   "Muse's Sort By steps round and does nothing with A");
+			   "MP4's Sort By steps round and does nothing with A");
+		if (mids[i] == SMM_VIEW)
+			ck(b.sound[i] == MENU_SND_RING, "MP4's View turns over, on A too");
 		if (mids[i] == SMM_LOCK)
 			ck(!b.sound[i], "Lock Screen is plain");
 	}

@@ -272,6 +272,14 @@ static void rdl_stats(app *a, int cx, int cy, int ready, int fetched, int none, 
 	}
 }
 
+static bool g_rdl_back;
+
+/* B's word: Close from MENU, Back from Downloads' Achievements row */
+static const char *rdl_close_word(void)
+{
+	return g_rdl_back ? T(S_DOWNLOADS_KEY_BACK) : T(S_SCRAPER_KEY_CLOSE);
+}
+
 /* A tree for a page's body (src/ds/flex.h), as the Scraper's */
 static int rdl_body(ds_flex *F, const ds_page_frame *pf, ds_dir dir, int gap)
 {
@@ -411,12 +419,12 @@ static void rdl_plan_draw(rdl_view *v)
 	}
 	if (nit) ds_page_line(a->r, &pf, it, nit);
 	if (!v->in) {
-		const char *K[2] = { "A", "B" }, *L[2] = { T(S_RADL_KEY_SIGN_IN), T(S_SCRAPER_KEY_CLOSE) };
+		const char *K[2] = { "A", "B" }, *L[2] = { T(S_RADL_KEY_SIGN_IN), rdl_close_word() };
 
 		ds_page_foot(a->r, &pf, K, L, 2, DS_PAGE_FOOT_GAP, DS_PAGE_FOOT_GAP_TIGHT);
 	} else {
 		const char *K[3] = { "A", "Y", "B" };
-		const char *L[3] = { T(S_RADL_KEY_DOWNLOAD), T(S_RADL_KEY_ACCOUNT), T(S_SCRAPER_KEY_CLOSE) };
+		const char *L[3] = { T(S_RADL_KEY_DOWNLOAD), T(S_RADL_KEY_ACCOUNT), rdl_close_word() };
 
 		ds_page_foot(a->r, &pf, K, L, 3, DS_PAGE_FOOT_GAP, DS_PAGE_FOOT_GAP_TIGHT);
 	}
@@ -539,7 +547,7 @@ static void rdl_done_draw(rdl_view *v)
 	char l1[96], l2[96];
 	const char *K[2] = { "A", "B" };
 	const char *L[2] = { v->ended == RDL_REFUSED ? T(S_RADL_KEY_SIGN_IN) : T(S_SCRAPER_KEY_AGAIN),
-	                     T(S_SCRAPER_KEY_CLOSE) };
+	                     rdl_close_word() };
 	/* Titled by what happened: a run that stopped does not say All done */
 	const char *head = v->ended == RDL_REFUSED ? T(S_RADL_SIGN_IN_AGAIN)
 	                 : v->ended == RDL_STOPPED ? T(S_RADL_STOPPED) : T(S_SCRAPER_ALL_DONE);
@@ -636,9 +644,11 @@ static unsigned g_rdl_seen;            /* the lane's ends this page has shown */
 static unsigned g_ra_t0;               /* its begin's clock */
 static int g_ra_badges;                /* badges the list was told of */
 
+static char g_ra_only[CFG_STR];        /* a console's run, or "" */
+
 static bool ra_lane_begin(void)
 {
-	return radl_begin(&g_ra_sys, P_ROMS, NULL, g_ra_t0);
+	return radl_begin(&g_ra_sys, P_ROMS, g_ra_only[0] ? g_ra_only : NULL, g_ra_t0);
 }
 
 static int ra_lane_step(unsigned now_ms)
@@ -685,6 +695,7 @@ static void rdl_start(rdl_view *v, unsigned now)
 	/* Its own network slot (src/dlq.h): an account's answer after a game,
 	 * on the screens' slot, goes on beside it */
 	g_ra_sys = v->a->sys;
+	g_ra_only[0] = '\0';
 	g_ra_t0 = now;
 	g_ra_badges = 0;
 	RA_LANE.card = P_ROMS;
@@ -780,7 +791,7 @@ static void rdl_page(app *a)
 		bool anim;
 
 		plat_input_poll(&a->in);
-		muse_poll();
+		mp4_poll();
 		aout_apply(false);
 		if (a->in.quit_requested) { a->running = false; break; }
 		if (a->in.pressed[IN_POWER] || idle_due(a)) {
@@ -927,6 +938,32 @@ menu_result radl_screen(app *a)
 {
 	rdl_page(a);
 	return MENU_STAY;
+}
+
+menu_result radl_screen_from_downloads(app *a)
+{
+	g_rdl_back = true;
+	rdl_page(a);
+	g_rdl_back = false;
+	return MENU_STAY;
+}
+
+bool radl_start_run(app *a, const systems_cfg *cfg, const char *only)
+{
+	if (dlq_running(DLQ_RA)) return true;
+	if (!ra_signed_in() || !net_online()) return false;
+	g_ra_sys = *cfg;
+	snprintf(g_ra_only, sizeof g_ra_only, "%s", only ? only : "");
+	g_ra_t0 = plat_now_ms();
+	g_ra_badges = 0;
+	RA_LANE.card = P_ROMS;
+	(void)a;
+	return dlq_start(DLQ_RA, &RA_LANE, ra_lane_begin);
+}
+
+void radl_last(radl_progress *out)
+{
+	*out = g_ra_last;
 }
 
 /* ---- a shot's page (--radl-page STATE) -------------------------------------

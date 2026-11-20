@@ -15,6 +15,7 @@
 #include "atomic.h"
 #include "autozone.h"
 #include "coreopts.h"   /* coreopts_migrate: 1.0.6's defaults at run time */
+#include "mp4keys.h"    /* mp4keys_migrate: MP4's settings under its name, once, from 1.1.0 */
 #include "about.h"
 #include "battery_eta.h"
 #include "battery_poll.h"
@@ -36,6 +37,7 @@
 #include "storage_screen.h"
 #include "media_screen.h"
 #include "menu_panel.h"
+#include "nowplaying_looks.h"
 #include "nowplaying_screen.h"
 #include "bt.h"
 #include "btvol.h"
@@ -105,13 +107,13 @@
 #include "menumotion.h"
 #include "message.h"
 #include "menusnap.h"
-#include "musec.h"
+#include "mp4c.h"
 #include "mp4lock.h"
 #include "topbar.h"
 #include "mp4frame.h"  /* MPF_TOO_BIG, for --video-trouble */
 #include "mp4video.h"
-#include "museart.h"
-#include "muselib.h"
+#include "mp4art.h"
+#include "mp4lib.h"
 #include "sgdb.h"
 #include "snaps.h"
 #include "snapshelf.h"
@@ -176,7 +178,7 @@
 #include "sysmenu_screen.h"
 #include "launch_screen.h"
 #include "saver_screen.h"
-#include "muse_screen.h"
+#include "mp4_screen.h"
 #include "player2_screen.h"
 #include "tour_screen.h"
 #include "devmode_screen.h"
@@ -971,7 +973,7 @@ void pak_put(const char *tag, const char *file, const char *value)
  * Loading does NOT re-sort: it runs before the scan on a rescan and after it
  * at startup, and the shelf is put in order by sort_all once both are done.
  *
- * Muse's shelf has orders of its own, by artist and by album, stored by their
+ * MP4's shelf has orders of its own, by artist and by album, stored by their
  * own names under the same key - sort.MUSE. */
 void sort_load(app *a)
 {
@@ -981,7 +983,7 @@ void sort_load(app *a)
 	for (i = 0; i < a->sys.count; i++) {
 		snprintf(key, sizeof key, "sort.%s", a->sys.systems[i].tag);
 		if (!db_get_str(db_dev(), key, name, sizeof name, NULL)) continue;
-		a->view[i].sort = is_muse(&a->sys.systems[i]) ? (int)ml_order_index(name)
+		a->view[i].sort = is_mp4(&a->sys.systems[i]) ? (int)ml_order_index(name)
 		                                              : sort_index(name);
 	}
 }
@@ -999,6 +1001,7 @@ static bool view_is(const char *tag, const char *want)
 
 bool view_listed(const char *tag) { return view_is(tag, "list"); }
 bool view_grid(const char *tag)   { return view_is(tag, "grid"); }
+bool view_video(const char *tag)  { return view_is(tag, "video"); }
 
 /* Recents' Card Picture (DESIGN.md 11.48): its covers, as it ships, or the
  * screen each game was left on (src/screencard.h), kept in the device's
@@ -1050,8 +1053,12 @@ void view_load(app *a)
 	for (int i = 0; i < a->sys.count; i++) {
 		a->view[i].listed = view_listed(a->sys.systems[i].tag);
 		a->view[i].grid = !a->view[i].listed && view_grid(a->sys.systems[i].tag);
+		/* Never MP4's (view_turn) */
+		a->view[i].video = !a->view[i].listed && !a->view[i].grid && view_video(a->sys.systems[i].tag) &&
+		                   !is_mp4(&a->sys.systems[i]);
 		a->view[i].lm.set = false;
 		a->view[i].gm.set = false;
+		a->view[i].vm.set = false;
 	}
 }
 
@@ -1060,22 +1067,29 @@ static void view_save(app *a, int sys)
 	char key[CFG_STR + 16];
 
 	snprintf(key, sizeof key, "view.%s", a->sys.systems[sys].tag);
-	db_set_str(db_dev(), key, a->view[sys].listed ? "list" : a->view[sys].grid ? "grid" : "covers");
+	db_set_str(db_dev(), key, a->view[sys].listed ? "list" : a->view[sys].grid ? "grid"
+	                          : a->view[sys].video ? "video" : "covers");
 }
 
-/* View turned on shelf `sys`, `dir` 1 or -1 round Covers, Grid and List,
- * saved, the shelf on the same entry: START on the shelf goes forward, and
- * MENU's View row either way (2026-11-15: the grid between the two) */
+/* View turned on shelf `sys`, `dir` 1 or -1 round Covers, Grid, List and
+ * Video, saved, the shelf on the same entry: START on the shelf goes
+ * forward, and MENU's View row either way (2026-11-15: the grid between the
+ * two; 2026-11-19: Video, the fourth) */
 void view_turn(app *a, int sys, int dir)
 {
 	sysview *v = &a->view[sys];
-	int k = v->listed ? 2 : v->grid ? 1 : 0;
+	int k = view_index(v);
 
-	k = (k + (dir < 0 ? 2 : 1)) % 3;
-	v->listed = k == 2;
-	v->grid = k == 1;
+	/* MP4's shelf has no Video view: an album has no snap to play
+	 * (DESIGN.md 11.67) */
+	do k = (k + (dir < 0 ? VIEW_COUNT - 1 : 1)) % VIEW_COUNT;
+	while (k == VIEW_VIDEO && is_mp4(&a->sys.systems[sys]));
+	v->listed = k == VIEW_LIST;
+	v->grid = k == VIEW_GRID;
+	v->video = k == VIEW_VIDEO;
 	v->lm.set = false;
 	v->gm.set = false;
+	v->vm.set = false;
 	view_save(a, sys);
 	cf_reset(&v->cf, v->cursor);
 	games_reset(&v->row, v->cursor, v->list.count, plat_now_ms());
@@ -1128,7 +1142,7 @@ void sort_save(app *a)
 	for (i = 0; i < a->sys.count; i++) {
 		snprintf(key, sizeof key, "sort.%s", a->sys.systems[i].tag);
 		db_set_str(db_dev(), key,
-		           is_muse(&a->sys.systems[i]) ? ml_order_name((ml_order)a->view[i].sort)
+		           is_mp4(&a->sys.systems[i]) ? ml_order_name((ml_order)a->view[i].sort)
 		                                       : SORTS[a->view[i].sort].name);
 	}
 }
@@ -1149,13 +1163,13 @@ void sort_save(app *a)
  * any other order would have launched some favorites under another system's
  * core.
  *
- * Muse by its own orders, in muse_order_view: its cards are albums, and which
+ * MP4 by its own orders, in mp4_order_view: its cards are albums, and which
  * album each card is has to move with it. */
 void sort_shelf(app *a, int sys)
 {
 	sysview *v = &a->view[sys];
 
-	if (is_muse(&a->sys.systems[sys])) { muse_order_view(v); return; }
+	if (is_mp4(&a->sys.systems[sys])) { mp4_order_view(v); return; }
 	/* The added times this order reads, each game's from its own system's
 	 * folder (Favorites' from its owner's), where the scan left them unknown */
 	if (sort_needs_added(v->sort))
@@ -1250,42 +1264,42 @@ SDL_Texture *load_image(SDL_Renderer *r, const char *path, int *w, int *h,
 }
 
 
-/* Muse: what the Music folder holds, read at boot and on every rescan.
+/* MP4: what the Music folder holds, read at boot and on every rescan.
  *
  * RECOGNIZED BY ITS TAG, not by what it lacks. Favorites is the shelf with no
- * core and no folder, and the system menu tells them apart that way; Muse has
+ * core and no folder, and the system menu tells them apart that way; MP4 has
  * neither either, but its music is not a ROM folder at all, so an empty folder
  * is the honest value and the tag is what says which of the two it is. */
-ml_lib g_muse;
+ml_lib g_mp4;
 home_song g_home_song;
 static int g_home_track = -1;
 /* Where the scan read it from: the card, which holds Music and Audiobooks. */
-char   g_muse_root[CFG_STR * 2];
-/* Bumped by every build of the library, so a Muse screen can tell that MENU's
- * Rescan Folder replaced it while its menu was open - see muse_menu. */
-unsigned g_muse_gen;
+char   g_mp4_root[CFG_STR * 2];
+/* Bumped by every build of the library, so an MP4 screen can tell that MENU's
+ * Rescan Folder replaced it while its menu was open - see mp4_menu. */
+unsigned g_mp4_gen;
 
-bool is_muse(const system_cfg *s)
+bool is_mp4(const system_cfg *s)
 {
 	return s && !strcmp(s->tag, "MUSE");
 }
 
-/* What is known about each album's cover: one per album in g_muse, rebuilt
+/* What is known about each album's cover: one per album in g_mp4, rebuilt
  * with it. ASKED carries when, because an answer can be lost with the daemon,
  * and an album is then asked about again rather than waited on for good.
  * The states, COV_*, and cover_state are in src/app.h. */
 cover_state *g_cov;
 
-/* ---- Muse: books ------------------------------------------------------------ */
+/* ---- MP4: books ------------------------------------------------------------ */
 
-/* Which kind Muse's shelf shows, music or books - and now videos, MP4's
- * third kind (ml_kind). Eric's, 2026-09-27: one Muse card and a Show row in
+/* Which kind MP4's shelf shows, music or books - and now videos, its
+ * third kind (ml_kind). Eric's, 2026-09-27: one MP4 card and a Show row in
  * its menu, rather than a card for books beside it - two ways into one player
  * read as two players. Kept across restarts. Or all three on one shelf,
  * ML_ALL, which is where it starts (2026-11-09). */
-int g_muse_kind = ML_ALL;
+int g_mp4_kind = ML_ALL;
 
-/* Whether each album is a book listened to the end: one per album in g_muse,
+/* Whether each album is a book listened to the end: one per album in g_mp4,
  * rebuilt with it, like g_cov. A finished book is marked and not forgotten,
  * and A on it starts it over. Eric's, 2026-09-27. */
 bool *g_book_done;
@@ -1294,45 +1308,45 @@ bool *g_book_done;
  * - then the first kind there is some of. All, on a card with one kind, is
  * that kind: the shelf and its menu say Albums, not All, when albums are all
  * there is. */
-ml_kind muse_kind_shown(void)
+ml_kind mp4_kind_shown(void)
 {
 	int k;
 
-	if (g_muse_kind == ML_ALL && muse_kinds() > 1) return ML_ALL;
-	if (g_muse_kind >= 0 && g_muse_kind < ML_KINDS && ml_count_kind(&g_muse, (ml_kind)g_muse_kind))
-		return (ml_kind)g_muse_kind;
+	if (g_mp4_kind == ML_ALL && mp4_kinds() > 1) return ML_ALL;
+	if (g_mp4_kind >= 0 && g_mp4_kind < ML_KINDS && ml_count_kind(&g_mp4, (ml_kind)g_mp4_kind))
+		return (ml_kind)g_mp4_kind;
 	for (k = 0; k < ML_KINDS; k++)
-		if (ml_count_kind(&g_muse, (ml_kind)k)) return (ml_kind)k;
+		if (ml_count_kind(&g_mp4, (ml_kind)k)) return (ml_kind)k;
 	return ML_MUSIC;
 }
 
-bool muse_books_shown(void) { return muse_kind_shown() == ML_BOOKS; }
+bool mp4_books_shown(void) { return mp4_kind_shown() == ML_BOOKS; }
 
-/* The kind MP4's menu has the rows of (sys_menu_muse_rows): the shelf's,
+/* The kind MP4's menu has the rows of (sys_menu_mp4_rows): the shelf's,
  * but All on a card with no songs has the videos' - no Shuffle All, no Album
  * Art - as sys_menu_build makes of the same facts */
-int muse_rows_kind(void)
+int mp4_rows_kind(void)
 {
-	ml_kind k = muse_kind_shown();
+	ml_kind k = mp4_kind_shown();
 
-	return k == ML_ALL && !ml_count_kind(&g_muse, ML_MUSIC) ? ML_VIDEOS : k;
+	return k == ML_ALL && !ml_count_kind(&g_mp4, ML_MUSIC) ? ML_VIDEOS : k;
 }
 
 /* How many kinds the card has: Show is in the menu only when it is two or
  * more. */
-int muse_kinds(void)
+int mp4_kinds(void)
 {
 	int k, n = 0;
 
 	for (k = 0; k < ML_KINDS; k++)
-		if (ml_count_kind(&g_muse, (ml_kind)k)) n++;
+		if (ml_count_kind(&g_mp4, (ml_kind)k)) n++;
 	return n;
 }
 
 /* Where book `al`'s place is kept: the settings, under its folder. */
 void book_key(int al, char *out, size_t n)
 {
-	const char *p = g_muse.tracks[g_muse.albums[al].first].path;
+	const char *p = g_mp4.tracks[g_mp4.albums[al].first].path;
 	const char *slash = strrchr(p, '/');
 
 	snprintf(out, n, "book.%.*s", slash ? (int)(slash - p) : 0, p);
@@ -1358,14 +1372,14 @@ static void book_finish(int al)
 	book_key(al, key, sizeof key);
 	db_set_str(db_dev(), key, "finished");
 	g_book_done[al] = true;
-	fprintf(stderr, "muse: finished %s\n", g_muse.albums[al].name);
+	fprintf(stderr, "mp4: finished %s\n", g_mp4.albums[al].name);
 }
 
 /* Where book `al` starts: its file, and `at` seconds into it. The beginning
  * for a book never started, or finished. */
 int book_place(int al, double *at)
 {
-	const ml_album *b = &g_muse.albums[al];
+	const ml_album *b = &g_mp4.albums[al];
 	char key[LIB_PATH + 8], val[LIB_PATH + 32];
 	const char *tab;
 	int i;
@@ -1375,7 +1389,7 @@ int book_place(int al, double *at)
 	db_get_str(db_dev(), key, val, sizeof val, "");
 	if (!(tab = strchr(val, '\t'))) return 0;
 	for (i = 0; i < b->n; i++) {
-		const char *p = g_muse.tracks[b->first + i].path;
+		const char *p = g_mp4.tracks[b->first + i].path;
 		const char *f = strrchr(p, '/');
 
 		if (!strcmp(f ? f + 1 : p, tab + 1)) { *at = atof(val); return i; }
@@ -1383,7 +1397,7 @@ int book_place(int al, double *at)
 	return 0;
 }
 
-/* KEEPING A BOOK'S PLACE, wherever Muse is polled: on its screens, over the
+/* KEEPING A BOOK'S PLACE, wherever MP4 is polled: on its screens, over the
  * shelf and the menus, and through a game, which is where a book is likely to
  * be heard.
  *
@@ -1425,10 +1439,10 @@ static void video_write(const char *track, double at, double len)
 
 static void video_keep(bool now, bool ran_out)
 {
-	const mu_now *mn = musec_now();
-	const char *track = musec_track(mn->index);
+	const mu_now *mn = mp4c_now();
+	const char *track = mp4c_track(mn->index);
 
-	if (!musec_is_videos() || !track) {
+	if (!mp4c_is_videos() || !track) {
 		g_vk.track[0] = '\0';
 		return;
 	}
@@ -1452,16 +1466,16 @@ static void video_keep(bool now, bool ran_out)
 
 void book_keep(bool now)
 {
-	const mu_now *mn = musec_now();
+	const mu_now *mn = mp4c_now();
 	const char *track;
-	bool ran_out = musec_take_ran_out();
+	bool ran_out = mp4c_take_ran_out();
 	int al;
 
 	video_keep(now, ran_out);
-	if (!musec_is_book() || !g_book_done) { g_bk.al = -1; return; }
-	track = musec_track(mn->index);
-	al = ml_album_of(&g_muse, track);
-	if (al < 0 || !g_muse.albums[al].book) { g_bk.al = -1; return; }
+	if (!mp4c_is_book() || !g_book_done) { g_bk.al = -1; return; }
+	track = mp4c_track(mn->index);
+	al = ml_album_of(&g_mp4, track);
+	if (al < 0 || !g_mp4.albums[al].book) { g_bk.al = -1; return; }
 	if (ran_out) { book_finish(al); g_bk.al = -1; return; }
 	if (mn->state != MU_PLAYING && mn->state != MU_PAUSED) return;
 	if (now || al != g_bk.al || mn->index != g_bk.index || mn->state != g_bk.st ||
@@ -1474,15 +1488,15 @@ void book_keep(bool now)
 	}
 }
 
-/* Muse, polled: what the daemon said, and a book's place kept. Everything that
- * polls Muse comes through here. */
-void muse_poll(void)
+/* MP4, polled: what the daemon said, and a book's place kept. Everything that
+ * polls MP4 comes through here. */
+void mp4_poll(void)
 {
-	musec_poll();
+	mp4c_poll();
 	book_keep(false);
-	/* Menu music is quiet while Muse is heard, or about to be */
-	bgm_hold(BGM_HOLD_MUSE, musec_heard());
-	const mu_now *mn = musec_now();
+	/* Menu music is quiet while MP4 is heard, or about to be */
+	bgm_hold(BGM_HOLD_MP4, mp4c_heard());
+	const mu_now *mn = mp4c_now();
 	if (home_song_update(&g_home_song,
 	                     mn->state == MU_PLAYING || mn->state == MU_PAUSED,
 	                     mn->state == MU_PAUSED, mn->title) || mn->index != g_home_track) redraw_now();
@@ -1494,7 +1508,7 @@ void muse_poll(void)
  * a place written before speeds existed still reads. */
 static void book_speed_key(int al, char *out, size_t n)
 {
-	const char *p = g_muse.tracks[g_muse.albums[al].first].path;
+	const char *p = g_mp4.tracks[g_mp4.albums[al].first].path;
 	const char *slash = strrchr(p, '/');
 
 	snprintf(out, n, "bookspeed.%.*s", slash ? (int)(slash - p) : 0, p);
@@ -1517,8 +1531,8 @@ double book_speed(int al)
 void book_cycle_speed(void)
 {
 	static const double STEPS[] = { 1.0, 1.25, 1.5, 1.75, 2.0, 0.75 };
-	int al = ml_album_of(&g_muse, musec_track(musec_now()->index));
-	double now = musec_speed(), next = STEPS[0];
+	int al = ml_album_of(&g_mp4, mp4c_track(mp4c_now()->index));
+	double now = mp4c_speed(), next = STEPS[0];
 	char key[LIB_PATH + 16], val[16];
 	size_t k;
 
@@ -1527,8 +1541,8 @@ void book_cycle_speed(void)
 			next = STEPS[(k + 1) % (sizeof STEPS / sizeof STEPS[0])];
 			break;
 		}
-	musec_set_speed(next);
-	if (al < 0 || !g_muse.albums[al].book) return;
+	mp4c_set_speed(next);
+	if (al < 0 || !g_mp4.albums[al].book) return;
 	book_speed_key(al, key, sizeof key);
 	snprintf(val, sizeof val, "%.2f", next);
 	db_set_str(db_dev(), key, val);
@@ -1536,37 +1550,37 @@ void book_cycle_speed(void)
 
 /* A new queue. Whatever book it replaces has its place written first, since
  * the queue is the only record of where that was. */
-void muse_play(const char *const *paths, int n, int start, double at,
+void mp4_play(const char *const *paths, int n, int start, double at,
                bool book, double speed, const char *artist, const char *album)
 {
 	book_keep(true);
 	g_bk.al = -1;
 	g_vk.track[0] = '\0';
-	musec_play(paths, n, start, at, book, speed, artist, album);
+	mp4c_play(paths, n, start, at, book, speed, artist, album);
 }
 
 /* A queue of videos, from `start`, at its file's kept place. */
-void muse_play_videos(const char *const *paths, int n, int start,
+void mp4_play_videos(const char *const *paths, int n, int start,
                       const char *artist, const char *album)
 {
 	book_keep(true);
 	g_bk.al = -1;
 	g_vk.track[0] = '\0';
-	musec_play_videos(paths, n, start, start >= 0 && start < n ? video_place(paths[start]) : 0,
+	mp4c_play_videos(paths, n, start, start >= 0 && start < n ? video_place(paths[start]) : 0,
 	                  artist, album);
 }
 
 /* A track's artist and album, as the shelf names them: for a queue drawn from
  * every album, Shuffle All's, which has no one album to name. */
-static void muse_track_names(const char *track, char *artist, size_t an,
+static void mp4_track_names(const char *track, char *artist, size_t an,
                              char *album, size_t aln)
 {
-	int al = ml_album_of(&g_muse, track);
+	int al = ml_album_of(&g_mp4, track);
 
 	artist[0] = album[0] = '\0';
 	if (al < 0) return;
-	snprintf(artist, an, "%s", g_muse.artists[muse_artist_of(al)].name);
-	snprintf(album, aln, "%s", g_muse.albums[al].name);
+	snprintf(artist, an, "%s", g_mp4.artists[mp4_artist_of(al)].name);
+	snprintf(album, aln, "%s", g_mp4.albums[al].name);
 }
 
 /* The play modes as the player meets them: the name saved in the settings and
@@ -1574,9 +1588,9 @@ static void muse_track_names(const char *track, char *artist, size_t an,
  * for, and a mark meaning "nothing special" is noise.
  *
  * The name each mode was SHOWN by went with the notice that showed it - see
- * muse_cycle_mode. Nothing spells a mode out now; the mark beside the track
+ * mp4_cycle_mode. Nothing spells a mode out now; the mark beside the track
  * count on Now Playing is the whole of it. */
-const muse_mode_name MUSE_MODES[MUQ_MODES] = {
+const mp4_mode_name MP4_MODES[MUQ_MODES] = {
 	[MUQ_IN_ORDER]   = { "in order",   -1 },
 	[MUQ_REPEAT_ALL] = { "repeat all", UI_GLYPH_REPEAT },
 	[MUQ_REPEAT_ONE] = { "repeat one", UI_GLYPH_REPEAT_ONE },
@@ -1587,7 +1601,7 @@ const muse_mode_name MUSE_MODES[MUQ_MODES] = {
  * is not a decode: the album it is for and its texture. `done` means this is
  * what the album will show - its art, or the card made for one with none - and
  * nothing more needs asking. */
-np_cover_state g_np = { .album = -1 };
+np_cover_state g_np = { .album = -1, .rgb = CFG_NO_COLOR };
 
 /* The menus' panel pass (panel_pass_begin): a screen, kept rather than made
  * per frame. */
@@ -1920,7 +1934,8 @@ void grid_note(app *a, int s, int i, SDL_Surface *surf, bool generated)
 {
 	sysview *v = &a->view[s];
 
-	if (is_muse(&a->sys.systems[s]) || i < 0 || i >= v->list.count || !v->tex[i]) return;
+	/* MP4's shelf too, since it has the Grid (DESIGN.md 11.67) */
+	if (i < 0 || i >= v->list.count || !v->tex[i]) return;
 	gg_note(&v->gart, a->r, v->list.count, i, v->tex[i], gg_key(v->list.items[i].file),
 	        surf, generated);
 }
@@ -1976,8 +1991,8 @@ SDL_Texture *game_get_tex(void *ctx, int i, int *w, int *h, float *cb)
 
 	char pm[LIB_PATH * 2], pmc[LIB_PATH * 3];
 
-	if (is_muse(&a->sys.systems[s]) && game_card_wanted(v, i)) {
-		muse_card_want(a, s, i);
+	if (is_mp4(&a->sys.systems[s]) && game_card_wanted(v, i)) {
+		mp4_card_want(a, s, i);
 	} else if (game_card_wanted(v, i) && v->list.items[i].folder) {
 		/* A folder on the shelf (src/shelfdir.h): its own card, no art, in
 		 * its system's color or Folder Color's (look_folder_rgb) */
@@ -2031,7 +2046,7 @@ SDL_Texture *game_get_tex(void *ctx, int i, int *w, int *h, float *cb)
 				SDL_FreeSurface(sf);
 			}
 		}
-	} else if (!is_muse(&a->sys.systems[s]) && game_card_wanted(v, i)) {
+	} else if (!is_mp4(&a->sys.systems[s]) && game_card_wanted(v, i)) {
 		char art[LIB_PATH * 3];
 		ui_card_order card;
 
@@ -2129,7 +2144,7 @@ void shelf_put(void *ctx, texload_got *g)
 	}
 	/* A cover is squared and given a card's corners, the way Now
 	 * Playing draws it, so one album looks the same in both places. */
-	if (surf && is_muse(&a->sys.systems[s])) cover_shape(&surf);
+	if (surf && is_mp4(&a->sys.systems[s])) cover_shape(&surf);
 	if (surf) {
 		v->cb[i] = content_bottom(surf);
 		/* Art drawn for one theme (PortMaster's cover) is kept as a card
@@ -2148,12 +2163,13 @@ void shelf_put(void *ctx, texload_got *g)
 		ui_card_order card;
 		SDL_Surface *ground = NULL;
 
-		ui_card_order_set(&card, v->list.items[i].title, a->sys.systems[o].accent, false);
-		game_card_order(a, o, &v->list.items[i], &card);
-		v->tex[i] = is_muse(&a->sys.systems[s])
-		          ? ui_make_cover(a->r, v->list.items[i].title,
-		                          a->sys.systems[o].accent, &v->tw[i], &v->th[i])
-		          : v->list.items[i].folder
+		if (is_mp4(&a->sys.systems[s])) {
+			mp4_album_card_order(a, s, i, a->sys.systems[o].accent, &card);
+		} else {
+			ui_card_order_set(&card, v->list.items[i].title, a->sys.systems[o].accent, false);
+			game_card_order(a, o, &v->list.items[i], &card);
+		}
+		v->tex[i] = v->list.items[i].folder
 		          ? ui_make_folder_card(a->r, v->list.items[i].title,
 		                                look_folder_rgb(a->sys.systems[o].accent),
 		                                v->list.items[i].folder, &v->tw[i], &v->th[i])
@@ -2362,17 +2378,17 @@ void shelf_up(app *a, sysview *v)
 	shelf_open_dir(a, a->sys_cursor, up, was);
 }
 
-/* Muse's shelf onto another kind: all of them, music, books or videos, from
+/* MP4's shelf onto another kind: all of them, music, books or videos, from
  * the first card. The textures go first, while the count is still the old
  * kind's, since every card is about to be a different album. */
-static const char *const MUSE_SHOW[ML_KINDS + 1] = { "music", "books", "videos", "all" };
+static const char *const MP4_SHOW[ML_KINDS + 1] = { "music", "books", "videos", "all" };
 
-void muse_show(sysview *v, ml_kind kind)
+void mp4_show(sysview *v, ml_kind kind)
 {
-	g_muse_kind = kind;
-	db_set_str(db_dev(), "muse.show", MUSE_SHOW[kind >= 0 && kind <= ML_ALL ? kind : ML_ALL]);
+	g_mp4_kind = kind;
+	db_set_str(db_dev(), "mp4.show", MP4_SHOW[kind >= 0 && kind <= ML_ALL ? kind : ML_ALL]);
 	free_view_textures(v);
-	muse_order_view(v);
+	mp4_order_view(v);
 	v->cursor = 0;
 	cf_reset(&v->cf, 0);
 }
@@ -2614,7 +2630,7 @@ bool g_pending_hashing;
  * for Diatom's bar but nobody has told the shelf: theme() is the new theme
  * and the cards kept are the old one's. tick_theme takes it as a change like
  * its own clock's, so the first screen to ask after on_game_tick set it
- * tells theme_changed - the in-game menu and Muse opened from it, during the
+ * tells theme_changed - the in-game menu and MP4 opened from it, during the
  * game, or the way back from it (launch) before its first frame - and
  * theme_changed puts it down. */
 bool g_theme_late;
@@ -2677,15 +2693,15 @@ static void on_game_tick(void)
 	if (g_ctl_app) ctl_poll(g_ctl_app, CTL_AT_GAME);
 	int rc;
 
-	/* Muse, bounded: read what has arrived, and send at most one PLAY when a
+	/* MP4, bounded: read what has arrived, and send at most one PLAY when a
 	 * track ends - which is what keeps an album going through a game.
 	 *
 	 * And the game goes quiet while it plays - Diatom's QUIET, followed
 	 * here at ten a second, which is how pausing the music or the album
 	 * ending brings the game's sound back within a tenth of a second. Only a
 	 * change is sent. */
-	muse_poll();
-	plat_resident_quiet(musec_playing());
+	mp4_poll();
+	plat_resident_quiet(mp4c_playing());
 	/* The next pop-up, once the one on screen has had its time */
 	notice_pump();
 	/* A computer on the cable that has not connected: said over the game
@@ -3030,6 +3046,11 @@ static void popup_now(const char *head, const char *body)
 	nq_hold(&g_nq, plat_now_ms(), 1500);
 }
 
+void popup_say(const char *head, const char *body)
+{
+	popup_now(head, body ? body : "");
+}
+
 /* Called from inside plat_resident_wait when Diatom says the speed step
  * changed (SELECT+R2, SELECT+L2), or that a game resumed fast: in halves, 3
  * is 1.5x. The step, not the speed reached: on a heavy SNES or GBA game the
@@ -3041,6 +3062,39 @@ static void on_speed(int half)
 	if (half % 2) snprintf(body, sizeof body, T(S_POPUP_SPEED_HALF), half / 2);
 	else          snprintf(body, sizeof body, T(S_POPUP_SPEED_WHOLE), half / 2);
 	popup_now(T(S_POPUP_SPEED), body);
+}
+
+/* Called from inside plat_resident_wait for the player's hotkeys the
+ * launcher carries out (src/hotkeys.h): a screenshot Diatom wrote, said
+ * over the game with the picture small beside "Screenshot saved" and where
+ * it went; the next shader or display mode, stepped and kept as the menu's
+ * rows do, and named over the game */
+static app *g_hotkey_app;   /* main's, for on_hotkey's steps */
+
+static void on_hotkey(const char *key, const char *path)
+{
+	char p[CFG_STR * 2], body[CFG_STR * 2];
+
+	if (!strcmp(key, "shot") && path) {
+		const char *folder = strstr(path, "/Screenshots/");
+		const char *end = folder ? strrchr(path, '/') : NULL;
+
+		/* "Screenshots/Nintendo 64", where the file is */
+		if (folder && end > folder) snprintf(body, sizeof body, "%.*s", (int)(end - folder - 1), folder + 1);
+		else snprintf(body, sizeof body, "%s", path);
+		snprintf(p, sizeof p, "%s", NOTICE_FILE);
+		if (notice_render_ex(T(S_HOTKEYS_SHOT_SAVED), body, path, NOTICE_PICTURE, 0, 0, p, theme_index()))
+			plat_resident_line("OVERLAY\tpath=%s\tms=1500", p);
+		nq_hold(&g_nq, plat_now_ms(), 1500);
+		return;
+	}
+	if (!strcmp(key, "shader") || !strcmp(key, "display")) {
+		const bool shader = key[1] == 'h';
+
+		if (!g_hotkey_app) return;
+		gm_hotkey_step(g_hotkey_app, shader, body, sizeof body);
+		popup_now(T(shader ? S_HOTKEYS_POPUP_SHADER : S_HOTKEYS_POPUP_DISPLAY), body);
+	}
 }
 
 /* Called from inside plat_resident_wait when a button given Stick On/Off
@@ -3594,10 +3648,10 @@ unsigned draw_topbar(SDL_Renderer *r, int theme, SDL_Color soft, bool moving)
 /* MP4's own shelf of albums. It has the home's header since 2026-11-09 (the
  * clock at the left, the rest at the right; draw_status), as every MP4 screen
  * has, but not the home's song line in it: MP4 is what plays there. */
-bool muse_shelf_shown(const app *a)
+bool mp4_shelf_shown(const app *a)
 {
 	return a->sys.count > 0 && a->screen == SCREEN_GAMES &&
-	       is_muse(&a->sys.systems[a->sys_cursor]);
+	       is_mp4(&a->sys.systems[a->sys_cursor]);
 }
 
 void draw_status(app *a)
@@ -3630,7 +3684,7 @@ int header_half(void)
  *
  * The one way in for the clock: a turn on_game_tick saw during a game
  * (g_theme_late) is a change here like the clock's own, so the in-game menu
- * and Muse opened from it draw their cards in the theme that is on, and the
+ * and MP4 opened from it draw their cards in the theme that is on, and the
  * way back from the game asks this before its first frame. */
 /* System Update's word that this version started (docs/updates.md): the
  * switch at boot (the image's update-apply.sh) puts a new ZyperOS folder on
@@ -4005,6 +4059,13 @@ static bool snap_wanted(const char *folder, const char *file)
 	return snaps_for_game(which, fav_is(tag, file), which == SNAPS_FOR_PLAYED);
 }
 
+/* The rule back after a game's own fetch asked for its video alone
+ * (Downloads' game panel) */
+void ss_run_videos_default(void)
+{
+	ss_run_videos(snap_wanted);
+}
+
 /* MENU > Scraper's value, from the last count of missing covers: taken as
  * its page closes (scraper_page), never per frame */
 char g_scraper_val[32];
@@ -4300,6 +4361,20 @@ static void ra_news_watch(void)
 	g_ra_news = 0;
 }
 
+/* A download that went on behind the screens has ended well: said once, in
+ * Zyper's bubble on the shelf ("Downloads done", "41 covers · 150 achievement
+ * sets"), as the update's news is; and the side lights' done (dlq's lanes) */
+static void dl_news_watch(void)
+{
+	char l1[96], l2[160];
+
+	if (g_heatpop.on || g_songpop.on || g_up_news[0][0]) return;
+	if (!downloads_news(l1, sizeof l1, l2, sizeof l2)) return;
+	heatpop_show(plat_now_ms());
+	snprintf(g_heatpop.line1, sizeof g_heatpop.line1, "%s", l1);
+	snprintf(g_heatpop.line2, sizeof g_heatpop.line2, "%s", l2);
+}
+
 /* The update's own clock, every 2 s, from every screen's loop through
  * tick_theme and from a game's tick: su_auto_step's looks and resumes
  * (src/sysupdate.h), and the news, once per release */
@@ -4353,10 +4428,10 @@ bool random_pick(app *a, bool all, int *shelf, int *game)
 		/* Every game of the system, in its folders too: the pick is an
 		 * index of sys_games, which pick_launch opens the folder of */
 		count[i] = sys_games(&a->view[i])->count;
-		/* Not Muse, whose cards are albums, nor - from every system -
+		/* Not MP4, whose cards are albums, nor - from every system -
 		 * Favorites, whose games are on their own shelves too */
-		use[i] = all ? !is_muse(s) && !a->view[i].owner && !pm_only_offer(a, i)
-		             : i == a->sys_cursor && !is_muse(s);
+		use[i] = all ? !is_mp4(s) && !a->view[i].owner && !pm_only_offer(a, i)
+		             : i == a->sys_cursor && !is_mp4(s);
 	}
 	/* Never an entry of a shelf's own that is no game (Splore's, PortMaster's
 	 * while it is not on the card): picked again, a few times */
@@ -4414,7 +4489,7 @@ void wait_panel(app *a, const char *heading, const char *msg)
  *
  * A menu screen that sees MENU raises this and leaves; every screen under it
  * then leaves on its next pass, until the one MENU opened is gone. It is put
- * down again only OUTSIDE the menus - the shelf's loop, game_menu, Muse - and
+ * down again only OUTSIDE the menus - the shelf's loop, game_menu, MP4 - and
  * never when a menu opens: a screen that opens a second one after the first
  * came back has to see it still up, or that second one would stay open. */
 bool g_menu_closing;
@@ -4494,7 +4569,7 @@ bool menu_leaving(app *a)
  * carries a copy of the motion: panel_open as the screen opens, panel_frame
  * before each frame it draws, panel_close on its way out. Whatever it goes
  * back to draws its panel leaving: the screen under it in its own next
- * frames (menu_draw_ex), the shelf and Muse's shelf after theirs
+ * frames (menu_draw_ex), the shelf and MP4's shelf after theirs
  * (panel_leave_draw), the paused game before it is handed back
  * (panel_leave_run). src/menumotion.h has the rules.
  *
@@ -4563,9 +4638,9 @@ void panel_close(app *a, int lv, bool cut)
 	panel_close_at(a, lv, cut, anim_now());
 }
 
-/* Muse's shelf, which has no panel and is drawn over everything: the panel on
+/* MP4's shelf, which has no panel and is drawn over everything: the panel on
  * screen leaves over it, and is given back as it opened when it closes.
- * Nothing Muse does closes the menu under it (muse_open), MENU included. */
+ * Nothing MP4 does closes the menu under it (mp4_open), MENU included. */
 int panel_base(void)
 {
 	return mm_base(anim_now(), panel_settle(mm_depth()) > 0);
@@ -4576,8 +4651,8 @@ void panel_base_close(int lv)
 	mm_close(lv, anim_now(), 0, false);
 }
 
-/* MENU closed the screens over the one on top, and stops there: Muse's
- * menu, which MENU closes and nothing under it (muse_menu). The screen on top
+/* MENU closed the screens over the one on top, and stops there: MP4's
+ * menu, which MENU closes and nothing under it (mp4_menu). The screen on top
  * comes back as after a back (mm_return). */
 void panel_return(void)
 {
@@ -4585,7 +4660,7 @@ void panel_return(void)
 	g_snap_next->ok = false;
 }
 
-/* After a base's own frame - the shelf's, Muse's shelf's - the last panel
+/* After a base's own frame - the shelf's, MP4's shelf's - the last panel
  * closed onto it leaving, and its scrim, while they last. A press there has
  * acted on the base already, and takes them off at once. True while they
  * are going, for the caller to draw the next frame. */
@@ -4903,7 +4978,7 @@ void refresh_game_titles(app *a)
 		int owner, selected;
 		bool changed = false;
 
-		if (is_muse(&a->sys.systems[si]) || v->list.count <= 0) continue;
+		if (is_mp4(&a->sys.systems[si]) || v->list.count <= 0) continue;
 		owner = shelf_owner(a, si, v->cursor);
 		snprintf(file, sizeof file, "%s", v->list.items[v->cursor].file);
 		/* A folder's name is its own (src/shelfdir.h); every game of a
@@ -5044,20 +5119,20 @@ static int menu_shelf_width(app *a)
 	 * Display Mode in that category the moment it stopped being a
 	 * placeholder - "Recently Added" is 187px wider than "Name".
 	 *
-	 * Muse's menu and Favorites' are their own rows, Sort By second and no
+	 * MP4's menu and Favorites' are their own rows, Sort By second and no
 	 * Display Mode, so the enum's row numbers are only the rest's. Written
-	 * through them on Muse's, this measured Rescan Folder carrying a sort
+	 * through them on MP4's, this measured Rescan Folder carrying a sort
 	 * order, a row no menu has. */
 	for (i = 0; i < a->sys.count; i++) {
-		bool muse = is_muse(&a->sys.systems[i]);
-		bool own  = muse || a->view[i].owner;
-		int  srow = own ? 1 : sm_pos(a, i, SM_SORT), show = -1;
+		bool mp4 = is_mp4(&a->sys.systems[i]);
+		bool own  = mp4 || a->view[i].owner;
+		int  srow = own ? 1 : sm_pos(a, i, SM_SORT), show = -1, lookrow = -1;
 		int  drow = own ? -1 : sm_pos(a, i, SM_DISPLAY);
 		int  hrow = own ? -1 : sm_pos(a, i, SM_SHADER);
 		int  crow = own ? -1 : sm_pos(a, i, SM_CORE);
 		int  lrow = own ? -1 : sm_pos(a, i, SM_DSLANG);
 		int  prow = own ? -1 : sm_pos(a, i, SM_PACE);
-		int  vrow = muse ? -1 : a->view[i].owner ? 3 : sm_pos(a, i, SM_VIEW);
+		int  vrow = mp4 ? -1 : a->view[i].owner ? 3 : sm_pos(a, i, SM_VIEW);
 
 		n = menu_build(a, SCREEN_GAMES, i, rows, &bufs, &heading);
 		/* Recents' Card Picture at the longer of its two (DESIGN.md 11.48) */
@@ -5071,14 +5146,15 @@ static int menu_shelf_width(app *a)
 			if ((mw = menu_measure(rows, n, heading)) > w) w = mw;
 			rows[SM_FAV_ROWS].value = keep;
 		}
-		if (muse) {
-			sm_muse_row ids[SM_MUSE_ROWS];
-			int nn = sys_menu_muse_rows(muse_rows_kind(), muse_kinds() > 1,
+		if (mp4) {
+			sm_mp4_row ids[SM_MP4_ROWS];
+			int nn = sys_menu_mp4_rows(mp4_rows_kind(), mp4_kinds() > 1,
 			                            !plat_has_wifi() && !net_internet(NULL), ids);
 
 			for (k = 0; k < nn; k++) {
 				if (ids[k] == SMM_SORT) srow = k;
 				if (ids[k] == SMM_SHOW) show = k;
+				if (ids[k] == SMM_LOOK) lookrow = k;
 			}
 			/* The longer of Show's two values, so turning it over does not
 			 * change the menu's width under the cursor. */
@@ -5088,6 +5164,19 @@ static int menu_shelf_width(app *a)
 				rows[show].value = "Audiobooks";
 				mw = menu_measure(rows, n, heading);
 				if (mw > w) w = mw;
+			}
+			/* And Player Look's each look, for the same reason */
+			if (lookrow >= 0 && bufs.choice[lookrow].labels) {
+				const char *keep = rows[lookrow].value;
+
+				for (k = 0; k < bufs.choice[lookrow].n; k++) {
+					int mw;
+
+					rows[lookrow].value = bufs.choice[lookrow].labels[k];
+					mw = menu_measure(rows, n, heading);
+					if (mw > w) w = mw;
+				}
+				rows[lookrow].value = keep;
 			}
 		}
 		for (k = 0; drow >= 0 && k < DMODE_COUNT; k++) {
@@ -5162,16 +5251,18 @@ static int menu_shelf_width(app *a)
 			if ((mw = menu_measure(rows, n, heading)) > w) w = mw;
 			rows[vrow].value = T(S_SYSMENU_VIEW_LIST);
 			if ((mw = menu_measure(rows, n, heading)) > w) w = mw;
+			rows[vrow].value = T(S_SYSMENU_VIEW_VIDEO);
+			if ((mw = menu_measure(rows, n, heading)) > w) w = mw;
 			rows[vrow].value = keep;
 		}
-		for (k = 0; k < (muse ? ML_ORDERS : SORT_COUNT); k++) {
+		for (k = 0; k < (mp4 ? ML_ORDERS : SORT_COUNT); k++) {
 			int mw;
 			/* Every order a shelf of either kind offers: Collections' two
 			 * too (src/sort.h), so its menu is no wider than this */
-			rows[srow].value = muse ? ml_order_label((ml_order)k, false) : sort_label(k);
+			rows[srow].value = mp4 ? ml_order_label((ml_order)k, false) : sort_label(k);
 			mw = menu_measure(rows, n, heading);
 			if (mw > w) w = mw;
-			if (muse) {
+			if (mp4) {
 				int kind;
 
 				for (kind = ML_BOOKS; kind < ML_KINDS; kind++) {
@@ -5610,8 +5701,9 @@ int main(int argc, char *argv[])
 		else if (!strcmp(argv[i], "--game") && i + 1 < argc) shot_game = argv[++i];
 		else if (!strcmp(argv[i], "--view") && i + 1 < argc) {
 			shot_view = argv[++i];
-			if (strcmp(shot_view, "list") && strcmp(shot_view, "covers") && strcmp(shot_view, "grid")) {
-				fprintf(stderr, "--view needs list, grid or covers\n");
+			if (strcmp(shot_view, "list") && strcmp(shot_view, "covers") && strcmp(shot_view, "grid") &&
+			    strcmp(shot_view, "video")) {
+				fprintf(stderr, "--view needs list, grid, video or covers\n");
 				return 2;
 			}
 		}
@@ -5628,6 +5720,8 @@ int main(int argc, char *argv[])
 			 * long ones rather than only the short one that fit. */
 			if (i + 1 < argc && argv[i + 1][0] != '-') shot_cheevos_game = argv[++i];
 		}
+		else if (!strcmp(argv[i], "--cheevo-card") && i + 1 < argc)
+			shot_cheevo_card = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--cheevos-badge") && i + 2 < argc) {
 			shot_badge_set = argv[++i];
 			shot_badge_name = argv[++i];
@@ -5645,6 +5739,11 @@ int main(int argc, char *argv[])
 				shot_np_at = (float)atof(argv[++i]);
 		}
 		else if (!strcmp(argv[i], "--paused")) shot_np_paused = 1;
+		/* --np-look cover|classic|spectrum...: Now Playing and MENU's
+		 * Player Look in that look, for the shot only, never saved */
+		else if (!strcmp(argv[i], "--np-look") && i + 1 < argc) np_look_shot(mp4l_from_key(argv[++i]));
+		/* --np-bench N: N frames of the look timed before the shot */
+		else if (!strcmp(argv[i], "--np-bench") && i + 1 < argc) shot_np_bench = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--locked")) shot_locked = 1;
 		else if (!strcmp(argv[i], "--video")) {
 			/* "controls": with the controls up; "hidden" ("full" before
@@ -5687,6 +5786,7 @@ int main(int argc, char *argv[])
 		else if (!strcmp(argv[i], "--collect-page") && i + 1 < argc) shot_collect_page = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--collect-delete")) shot_collect_delete = 1;
 		else if (!strcmp(argv[i], "--collect-said") && i + 1 < argc) shot_collect_said = atoi(argv[++i]);
+		else if (!strcmp(argv[i], "--zip-said")) shot_zip_said = 1;
 		else if (!strcmp(argv[i], "--info-art")) shot_info_art = true;
 		/* The Buttons page a game with its own buttons opens from its details */
 		else if (!strcmp(argv[i], "--info-buttons")) shot_info = 4;
@@ -5830,6 +5930,13 @@ int main(int argc, char *argv[])
 		 * --hud-items, its Shows list instead; --hud-pick ROW, that row's
 		 * list of choices; --hud-shows WORDS, the items it shows */
 		else if (!strcmp(argv[i], "--hud-page") && i + 1 < argc) shot_hud_page = atoi(argv[++i]);
+		else if (!strcmp(argv[i], "--cheats")) shot_cheats = true;
+		else if (!strcmp(argv[i], "--cheats-page") && i + 1 < argc) shot_cheats_page = atoi(argv[++i]);
+		else if (!strcmp(argv[i], "--cheats-ask")) shot_cheats_ask = true;
+		else if (!strcmp(argv[i], "--cheats-query") && i + 1 < argc) shot_cheats_query = argv[++i];
+		else if (!strcmp(argv[i], "--cheats-on-first")) shot_cheats_on_first = true;
+		else if (!strcmp(argv[i], "--cheats-note")) shot_cheats_note = true;
+		else if (!strcmp(argv[i], "--cheats-crash")) shot_cheats_crash = true;
 		else if (!strcmp(argv[i], "--hud-items")) shot_hud_items = true;
 		else if (!strcmp(argv[i], "--hud-pick") && i + 1 < argc) shot_hud_pick = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--hud-shows") && i + 1 < argc) shot_hud_shows = argv[++i];
@@ -5966,7 +6073,7 @@ int main(int argc, char *argv[])
 		else if (!strcmp(argv[i], "--achtab") && i + 1 < argc) {
 			static const char *const names[] = {
 				"list", "not-system", "not-file", "signed-out", "waiting",
-				"unchecked", "none", "all"
+				"unchecked", "none", "paused", "all"
 			};
 			const char *v = argv[++i];
 			int k;
@@ -6057,6 +6164,11 @@ int main(int argc, char *argv[])
 		}
 		/* --snap-wait F: the games shelf with the bar under its focused
 		 * cover F of the way through the wait for its snap, 0 to 1 */
+		else if (!strcmp(argv[i], "--band") && i + 1 < argc) {
+			g_shot_band = (float)atof(argv[++i]);
+			if (g_shot_band < 0) g_shot_band = 0;
+			if (g_shot_band > 1) g_shot_band = 1;
+		}
 		else if (!strcmp(argv[i], "--snap-wait") && i + 1 < argc) {
 			g_shot_snap_wait = (float)atof(argv[++i]);
 			if (g_shot_snap_wait < 0) g_shot_snap_wait = 0;
@@ -6085,6 +6197,12 @@ int main(int argc, char *argv[])
 			if (i + 1 < argc && argv[i + 1][0] >= '0' && argv[i + 1][0] <= '2')
 				shot_sgdb = atoi(argv[++i]);
 		}
+		else if (!strcmp(argv[i], "--hotkeys") && i + 1 < argc) shot_hotkeys = atoi(argv[++i]);
+		else if (!strcmp(argv[i], "--hk-game")) shot_hk_game = true;
+		else if (!strcmp(argv[i], "--hk-ask") && i + 1 < argc) shot_hk_ask = atoi(argv[++i]);
+		else if (!strcmp(argv[i], "--hk-scope") && i + 1 < argc) shot_hk_scope = atoi(argv[++i]);
+		else if (!strcmp(argv[i], "--hk-capture") && i + 1 < argc) shot_hk_capture = atoi(argv[++i]);
+		else if (!strcmp(argv[i], "--hk-key") && i + 1 < argc) shot_hk_key = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--controls")) {
 			shot_controls = 0;
 			if (i + 1 < argc && argv[i + 1][0] >= '0' && argv[i + 1][0] <= '9')
@@ -6758,6 +6876,11 @@ int main(int argc, char *argv[])
 			                "favorites, turbo and core options will be absent, "
 			                "and nothing set here will be remembered\n");
 		}
+		/* MP4's settings under its own name, from the "muse." a handheld
+		 * kept them under before 1.1.0 (src/mp4keys.h): before anything
+		 * reads them, and in a shot too, whose card may be an old one */
+		if (mp4keys_migrate(db_dev()))
+			fprintf(stderr, "mp4: settings moved under mp4., once\n");
 		/* Rewritten at every boot, not only on change: it is derived, so a
 		 * card that lost it or never had one gets a correct one for free. */
 		db_write_boot_env();
@@ -6810,6 +6933,8 @@ int main(int argc, char *argv[])
 		plat_resident_on_speed(on_speed);
 		plat_resident_on_stick(on_stick);
 		plat_resident_on_quick(on_quick);
+		plat_resident_on_hotkey(on_hotkey);
+		g_hotkey_app = &a;
 		plat_resident_on_tick(on_game_tick);
 		plat_resident_on_battery_empty(battery_empty);
 		/* The downloads' lanes go on behind every screen while it rests
@@ -6838,32 +6963,32 @@ int main(int argc, char *argv[])
 		{
 			char bin[CFG_STR * 2], music[CFG_STR * 2];
 
-			snprintf(bin, sizeof bin, "%s/muse", P_ROOT);
+			snprintf(bin, sizeof bin, "%s/mp4d", P_ROOT);
 			snprintf(music, sizeof music, "%s", P_CARD);
 			/* A shot starts no daemon: it draws one frame and exits, and a
 			 * cover it would ask for is drawn as missing instead - see
-			 * muse_covers_settle. */
-			musec_init(shot_path ? "" : bin, music);
-			musec_on_before_heard(aout_before_muse);
-			musec_names_by(muse_track_names);
+			 * mp4_covers_settle. */
+			mp4c_init(shot_path ? "" : bin, music);
+			mp4c_on_before_heard(aout_before_mp4);
+			mp4c_names_by(mp4_track_names);
 		}
 		/* The play mode the player left it in. */
 		{
 			char m[32];
 			int k;
 
-			db_get_str(db_dev(), "muse.mode", m, sizeof m, "in order");
+			db_get_str(db_dev(), "mp4.mode", m, sizeof m, "in order");
 			if (shot_mode) snprintf(m, sizeof m, "%s", shot_mode);
 			for (k = 0; k < MUQ_MODES; k++)
-				if (!strcmp(m, MUSE_MODES[k].key)) musec_set_mode((muq_mode)k);
+				if (!strcmp(m, MP4_MODES[k].key)) mp4c_set_mode((muq_mode)k);
 			/* Videos' own, MENU > Repeat on MP4's video shelves */
 			db_get_str(db_dev(), "video.mode", m, sizeof m, "in order");
 			if (shot_mode) snprintf(m, sizeof m, "%s", shot_mode);
 			for (k = 0; k < MUQ_MODES; k++)
-				if (!strcmp(m, MUSE_MODES[k].key)) musec_set_video_mode((muq_mode)k);
+				if (!strcmp(m, MP4_MODES[k].key)) mp4c_set_video_mode((muq_mode)k);
 		}
 	}
-	t_mark("muse+accounts");
+	t_mark("mp4+accounts");
 
 	/* Scan every system now, not when one is opened: it is three directory
 	 * reads, it happens behind the boot animation, and it means walking into
@@ -7130,6 +7255,7 @@ int main(int argc, char *argv[])
 		if (shot_view) {
 			a.view[a.sys_cursor].listed = !strcmp(shot_view, "list");
 			a.view[a.sys_cursor].grid = !strcmp(shot_view, "grid");
+			a.view[a.sys_cursor].video = !strcmp(shot_view, "video");
 		}
 		if (shot_folder) shelf_open_dir(&a, a.sys_cursor, shot_folder, NULL);
 		if (shot_game) shelf_reveal(&a, a.sys_cursor, shot_game);
@@ -7324,7 +7450,7 @@ int main(int argc, char *argv[])
 	 * every IDLE_POLL_MS was 58 wake-ups a second on the home with nothing
 	 * happening (2026-11-07). Only while nothing is under way that this loop
 	 * follows by looking rather than by being woken: art decoding
-	 * (texload_ready), MP4 playing (muse_poll answers a track's end with the
+	 * (texload_ready), MP4 playing (mp4_poll answers a track's end with the
 	 * next), File Transfer, a pop-up or the volume bar; a held button draws
 	 * every pass anyway. A press ends the rest at once all the same:
 	 * plat_input_wait polls the buttons' own devices. Under AWAY_MS, which a
@@ -7344,6 +7470,11 @@ int main(int argc, char *argv[])
 	 * card's empty .media folders go once the shelf is up (after_start_step). */
 	up_cable_tidy();
 
+	/* A test of MENU > Downloads (dl_test): the page at once */
+	if (getenv("ZYPEROS_DOWNLOADS_TEST")) {
+		downloads_screen(&a);
+		a.running = false;
+	}
 	/* A test of MENU > Scraper's page (scp_test): the page at once */
 	if (getenv("ZYPEROS_SCRAPER_TEST")) {
 		scraper_page(&a, NULL);
@@ -7392,19 +7523,19 @@ int main(int argc, char *argv[])
 		ra_flush_watch(plat_now_ms());
 		ra_sent_news(ra_flush_take_sent());
 
-		/* What Muse said since the last pass - including END, which is how
+		/* What MP4 said since the last pass - including END, which is how
 		 * the next track of an album starts while nobody is on its screen -
-		 * and the covers it was asked for by Muse's shelf, which that shelf
+		 * and the covers it was asked for by MP4's shelf, which that shelf
 		 * has to be drawn again to ask the worker for. */
-		muse_poll();
+		mp4_poll();
 		if (cover_answers()) redraw_now();
 
 		/* Albums straight in Music/ filed under their artists, from what the
 		 * player says their tags are; the shelf read again once anything
 		 * moved. See file_album. */
-		muse_file_albums();
-		if (g_muse_moved && !flat_albums_waiting()) {
-			g_muse_moved = false;
+		mp4_file_albums();
+		if (g_mp4_moved && !flat_albums_waiting()) {
+			g_mp4_moved = false;
 			rescan_all(&a);
 			redraw_now();
 		}
@@ -7435,7 +7566,7 @@ int main(int argc, char *argv[])
 			for (int b = 0; b < IN_COUNT && !any; b++)
 				any = a.in.pressed[b] || a.in.down[b];
 			switch (charge_dark_poll(&dark, a.auto_off, plat_now_ms(), any,
-			                         on_charger(), musec_playing())) {
+			                         on_charger(), mp4c_playing())) {
 			case CHARGE_GO_DARK:
 				saver_stop(&a, "the screen went dark on the cable");
 				snap_off(); plat_backlight(false); continue;
@@ -7506,7 +7637,7 @@ int main(int argc, char *argv[])
 		 * on_game_tick asks for the file while a game runs and leaves
 		 * g_theme_late for tick_theme to take. What does not ask is over in
 		 * a moment or draws nothing: the launch zoom, the power-off, the
-		 * frame a port loads behind, and Muse's lock, whose panel is dark
+		 * frame a port loads behind, and MP4's lock, whose panel is dark
 		 * until the screen it returns to asks for itself. */
 		/* px2-open's commands on the shelf, where an open is A on its game
 		 * (src/ctl.h), and tick_theme's turn then not a screen's */
@@ -7543,11 +7674,12 @@ int main(int argc, char *argv[])
 		heat_watch();
 		up_news_watch();
 		ra_news_watch();
+		dl_news_watch();
 
-		/* SELECT is Muse, on the shelf and on every screen but a running
-		 * game - see muse_open. Before the shelf's own keys, which do not use
+		/* SELECT is MP4, on the shelf and on every screen but a running
+		 * game - see mp4_open. Before the shelf's own keys, which do not use
 		 * it, so every layout gets it from this one line. */
-		if (a.in.pressed[IN_SELECT]) { muse_open(&a, NULL, NULL); continue; }
+		if (a.in.pressed[IN_SELECT]) { mp4_open(&a, NULL, NULL); continue; }
 
 		/* MENU on the shelf is ZyperOS's own menu, the counterpart to the one
 		 * MENU opens in a game. It draws over the shelf and returns here.
@@ -7601,7 +7733,7 @@ int main(int argc, char *argv[])
 				 * the moment it comes, not up to 16 ms later */
 				Uint32 rest = IDLE_POLL_MS;
 
-				if (texload_idle() && !musec_playing() && !g_xs.on && !g_songpop.on &&
+				if (texload_idle() && !mp4c_playing() && !g_xs.on && !g_songpop.on &&
 				    !g_heatpop.on && plat_osd_until() == UINT32_MAX) {
 					Uint32 due = g_redraw_at < g_focus_at ? g_redraw_at : g_focus_at;
 

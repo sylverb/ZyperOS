@@ -1,5 +1,5 @@
-# Muse's shelves (src/muselib.c): what MENU's Sort By row says for music,
-# books and videos; then why Album Art stopped early (src/museart.c).
+# MP4's shelves (src/mp4lib.c): what MENU's Sort By row says for music,
+# books and videos; then why Album Art stopped early (src/mp4art.c).
 
 [musiclib.sort_artist]
 note = Sort By's value on the music shelf: by artist

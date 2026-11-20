@@ -452,6 +452,34 @@ def card_dirs(card):
     shutil.copytree(ROOT/'res/system-icons',card/'ZyperOS/system-icons')
     (card/'ZyperOS/VERSION').write_text('0.1.0\n')
 
+# The cheat list's shots (src/cheats_screen.h): the focused game with a file
+# of the player's own and two of libretro's, as the Downloads page writes
+# them. Stand-ins with made-up codes, never sent to a game; a game libretro
+# has none for (.none), and the rest with no file at all.
+CHEATS_YOURS=[('Infinite Ammo','80078E8C 0000'),('Stealth Suit','800B6D74 0001'),('','800B6D78 0001')]
+CHEATS_LR=[('Infinite Health','800B6D70 0400'),('Infinite Rations','8009AE40 0005'),
+           ('Have All Weapons','800B7110 FFFF'),('Unlimited Time','80091B30 0000'),
+           ('Max Psyche','800B7230 0064'),('Nikita Missiles Never Run Out','80078EA0 0014')]
+CHEATS_GS=[('Codec Always Clear','D0070F50 1000'),('Moon Jump (Hold X)','D00B6D50 0040')]
+CHEATS_ON=[(FOCUS+'.cht',)+CHEATS_YOURS[0],(FOCUS+'.cht',)+CHEATS_LR[0]]
+def cheat_id(file,desc,code):
+    """src/cheats.c's cheats_id: FNV-1a over the three, 0xff between"""
+    h=2166136261
+    for part in (file,desc,code):
+        for b in part.encode(): h=((h^b)*16777619)&0xffffffff
+        h=((h^0xff)*16777619)&0xffffffff
+    return '%08x'%h
+def cht_text(cheats):
+    return 'cheats = %d\n\n'%len(cheats)+''.join(
+        'cheat%d_desc = "%s"\ncheat%d_code = "%s"\ncheat%d_enable = false\n\n'%(i,d,i,c,i)
+        for i,(d,c) in enumerate(cheats))
+def cheats_card(card):
+    d=card/'Cheats/PlayStation';lr=d/'.libretro'/FOCUS;lr.mkdir(parents=True)
+    (d/(FOCUS+'.cht')).write_text(cht_text(CHEATS_YOURS))
+    (lr/(FOCUS+'.cht')).write_text(cht_text(CHEATS_LR))
+    (lr/(FOCUS+' (GameShark).cht')).write_text(cht_text(CHEATS_GS))
+    none=d/'.libretro/Crash Bandicoot (USA)';none.mkdir(parents=True);(none/'.none').touch()
+
 def demo_card(card,art,manifest):
     """The demonstration card: LIBRARY's games as empty files, and with art
     (the cache --art fills) each game's box art in its folder's .media, where
@@ -481,6 +509,11 @@ def demo_card(card,art,manifest):
     with sqlite3.connect(dbdir/'library.db') as db:
         db.execute('CREATE TABLE games(folder TEXT NOT NULL,file TEXT NOT NULL,year TEXT,publisher TEXT,developer TEXT,players TEXT,genres TEXT,esrb TEXT,note TEXT,synopsis TEXT,scraped INTEGER,PRIMARY KEY(folder,file))')
         db.execute('INSERT INTO games VALUES(?,?,?,?,?,?,?,?,?,?,?)',('PlayStation',FOCUS+'.chd','1998','Konami','KCEJ','1','Action','','',SYNOPSIS,0))
+        # Two of the focused game's cheats on (src/cheats.h keeps their ids)
+        db.execute('CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY NOT NULL,value TEXT NOT NULL)')
+        db.execute('INSERT INTO settings VALUES(?,?)',('cheats.PS1.'+FOCUS+'.chd',
+                   ','.join(cheat_id(f,d,c) for f,d,c in CHEATS_ON)))
+    cheats_card(card)
     for album in ['First Light','Night Drive','Quiet Hours']:
         d=card/'Music/Demo Library'/album;d.mkdir(parents=True)
         for track in ['01 First Light.mp3','02 Open Road.mp3','03 Home Again.mp3']: (d/track).touch()
@@ -517,7 +550,7 @@ def media_card(card,art=None,manifest=None):
     """The demonstration card, a film, Blender's freely licensed Sintel as a
     stand-in name, and a book, Treasure Island, which is in the public domain:
     MP4's shelf shows All, the albums, the book and the video mixed
-    (src/muselib.h), each card with its kind's badge, and its menu has Show"""
+    (src/mp4lib.h), each card with its kind's badge, and its menu has Show"""
     demo_card(card,art,manifest if manifest is not None else {'artwork':{}})
     (card/'Videos').mkdir();(card/'Videos/Sintel.mp4').touch()
     book=card/'Audiobooks/Treasure Island';book.mkdir(parents=True)

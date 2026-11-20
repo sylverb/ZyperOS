@@ -791,7 +791,7 @@ static void ctl_set(const char *name, long val)
  * samples (see apply_volume), so the cut, which turns SPEAKER_CTL off, is only
  * safe while this one is on. TrimUI's system left it on; plastron's comes up
  * with it off, and there every mute and every level 0 stopped the sound
- * device instead of silencing it: Muse's clock stood still until the cut came
+ * device instead of silencing it: MP4's clock stood still until the cut came
  * off (found 2026-10-16). The speaker runs off this stage too, and with it
  * off after being on the speaker was weak. */
 static void mixer_defaults(void)
@@ -1705,6 +1705,12 @@ bool plat_charge_read(ch_reading *r)
  * can change while a game runs, and gone at power-off. */
 const char *plat_battery_info_path(void)
 {
+	/* ZYPEROS_BATTERY_DIR stands in for the gauge's folder: a host shot's
+	 * About with a battery in it (tools/i18n-shots.py's BATTERY_DIRS) */
+	const char *dir = getenv("ZYPEROS_BATTERY_DIR");
+
+	if (dir && *dir)
+		return dir;
 #ifdef __linux__
 	return AXP_BATTERY;
 #else

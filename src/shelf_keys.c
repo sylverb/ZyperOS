@@ -34,7 +34,7 @@
 void enter_system(app *a)
 {
 	sysview *v = &a->view[a->sys_cursor];
-	/* Muse too: its cards are albums, and opening one is the games shelf's
+	/* MP4 too: its cards are albums, and opening one is the games shelf's
 	 * own A - see update_games. */
 	if (v->list.count == 0) return;
 	a->screen = SCREEN_GAMES;
@@ -162,8 +162,12 @@ void update_systems(app *a)
 		int page = g.cols * g.win, to = a->sys_cursor;
 
 		if (sb != IN_NONE) a->home.grid_ax = -1;
-		if (in_repeat(&a->in, IN_UP) || in_repeat(&a->in, IN_DOWN)) {
-			int d = in_repeat(&a->in, IN_DOWN) ? 1 : -1, step;
+		/* Each button read once: a repeat is true once a frame, so a
+		 * second read of a held Down was false and turned it round */
+		int d = in_repeat_axis(&a->in, IN_UP, IN_DOWN);
+
+		if (d) {
+			int step;
 
 			if (a->home.grid_ax < 0) {
 				int x, y;
@@ -183,7 +187,7 @@ void update_systems(app *a)
 		if (dir) load_later(a);
 		if (sb != IN_NONE) step_sound(a, sb, was, a->sys_cursor);
 		if (a->in.pressed[IN_ACCEPT]) {
-			if (is_muse(&a->sys.systems[a->sys_cursor])) muse_open(a, NULL, NULL);
+			if (is_mp4(&a->sys.systems[a->sys_cursor])) mp4_open(a, NULL, NULL);
 			else { uisound_play(DS_SOUND_ACCEPT); enter_system(a); }
 		}
 		home_select(&a->home, a->sys_cursor, n, dir, plat_now_ms());
@@ -196,8 +200,10 @@ void update_systems(app *a)
 	/* Up and down do the same, one group at a time: three systems by release
 	 * date, and an initial by A to Z (home_letter_jump). Built on the press,
 	 * from the names in memory - nothing is read. */
-	if (in_repeat(&a->in, IN_UP) || in_repeat(&a->in, IN_DOWN)) {
-		int d = in_repeat(&a->in, IN_DOWN) ? +1 : -1;
+	int ud = in_repeat_axis(&a->in, IN_UP, IN_DOWN);
+
+	if (ud) {
+		int d = ud;
 
 		a->sys_cursor = g_order_release ? home_jump(a->sys_cursor, n, d)
 		                                : home_letter_at(a, d);
@@ -206,9 +212,9 @@ void update_systems(app *a)
 	if (a->sys_cursor == was) dir = 0;
 	if (dir) load_later(a);
 	if (sb != IN_NONE) step_sound(a, sb, was, a->sys_cursor);
-	/* Muse's card opens Muse, the one SELECT opens - see update_games. */
+	/* MP4's card opens MP4, the one SELECT opens - see update_games. */
 	if (a->in.pressed[IN_ACCEPT]) {
-		if (is_muse(&a->sys.systems[a->sys_cursor])) muse_open(a, NULL, NULL);
+		if (is_mp4(&a->sys.systems[a->sys_cursor])) mp4_open(a, NULL, NULL);
 		else { uisound_play(DS_SOUND_ACCEPT); enter_system(a); }
 	}
 	home_select(&a->home, a->sys_cursor, n, dir, plat_now_ms());
@@ -232,11 +238,11 @@ static char shelf_initial(const char *s)
 }
 
 /* The first game sharing idx's initial, walking backwards from it. */
-/* What the letter jump reads: the title, or on Muse's shelf the artist. */
+/* What the letter jump reads: the title, or on MP4's shelf the artist. */
 static const char *shelf_key(const sysview *v, int i)
 {
 	/* A film loose in Videos is under no name, and goes by its own: MP4's
-	 * All in folder order puts it where its title does (muselib.h) */
+	 * All in folder order puts it where its title does (mp4lib.h) */
 	return v->jump_by_name && v->list.items[i].name[0] ? v->list.items[i].name
 	                                                   : v->list.items[i].title;
 }
@@ -283,23 +289,16 @@ int shelf_letter_jump(sysview *v, int dir)
 	return shelf_group_start(v, i);
 }
 
-void update_games(app *a)
+/* A shelf's cursor moved by this pass's presses, in its View: along the row
+ * of covers, the list or the grid (DESIGN.md 11.39, 11.47), with the step's
+ * sound. The direction a step took, -1 or +1, and 0 for a jump or none. The
+ * games shelf's and MP4's (src/mp4_screen.c, 11.67), so MP4's shelf moves
+ * in each View exactly as a games shelf does. */
+int shelf_move(app *a, sysview *v)
 {
-	sysview *v = &a->view[a->sys_cursor];
 	int n = v->list.count;
-	if (n <= 0) { a->screen = SCREEN_SYSTEMS; return; }
-	/* MUSE HAS ONE DOOR. Its card used to open its shelf HERE, in the main
-	 * loop, as if it were a console: a second Muse beside the one SELECT
-	 * opens, so SELECT on it opened that one on top, and the two looked
-	 * alike. Eric's call, 2026-09-23: the card opens the same Muse SELECT
-	 * does. Whatever lands the main loop on Muse's shelf - A on its card, a
-	 * jump to it, a screen put back at boot - hands over to muse_open, which
-	 * comes back to the card on the systems row. */
-	if (is_muse(&a->sys.systems[a->sys_cursor])) {
-		a->screen = SCREEN_SYSTEMS;
-		muse_open(a, NULL, NULL);
-		return;
-	}
+
+	if (n <= 0) return 0;
 	/* The two axes trade roles with the shelf rather than one of them being
 	 * reassigned onto the other: stepping always runs along the row, and the
 	 * letter jump always runs across it. Turning the shelf turns the d-pad
@@ -354,6 +353,37 @@ void update_games(app *a)
 	}
 	if (sb != IN_NONE)
 		step_sound(a, sb, was, v->cursor);
+	return dir;
+}
+
+void update_games(app *a)
+{
+	sysview *v = &a->view[a->sys_cursor];
+	int n = v->list.count;
+	if (n <= 0) { a->screen = SCREEN_SYSTEMS; return; }
+	/* MP4 HAS ONE DOOR. Its card used to open its shelf HERE, in the main
+	 * loop, as if it were a console: a second MP4 beside the one SELECT
+	 * opens, so SELECT on it opened that one on top, and the two looked
+	 * alike. Eric's call, 2026-09-23: the card opens the same MP4 SELECT
+	 * does. Whatever lands the main loop on MP4's shelf - A on its card, a
+	 * jump to it, a screen put back at boot - hands over to mp4_open, which
+	 * comes back to the card on the systems row. */
+	if (is_mp4(&a->sys.systems[a->sys_cursor])) {
+		a->screen = SCREEN_SYSTEMS;
+		mp4_open(a, NULL, NULL);
+		return;
+	}
+	/* The Video view's band (src/videoview.h): any press, or a button
+	 * held, brings it back up and starts its rest again, and then does
+	 * what it does */
+	if (v->video) {
+		bool any = false;
+
+		for (int b = 0; b < IN_COUNT && !any; b++) any = a->in.pressed[b] || a->in.down[b];
+		if (any) vv_touch(&v->vm, plat_now_ms());
+	}
+	int dir = shelf_move(a, v);
+
 	/* HERE, AND NOT AT THE END OF THE PASS, because four of the handlers below
 	 * return without reaching the end.
 	 *

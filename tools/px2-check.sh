@@ -175,31 +175,31 @@ echo "old launcher" > "$C/ZyperOS/zyperos.elf"
 echo "old launch.sh" > "$C/ZyperOS/launch.sh"
 echo "a core" > "$C/ZyperOS/cores/a.so"
 echo "new launcher" > "$P/zyperos.elf"
-echo "new muse" > "$P/muse"
+echo "new mp4d" > "$P/mp4d"
 echo "a core" > "$P/cores/a.so"
 dep() { PX2_SCP="$D/scp" PX2_CARD="$C" PX2_DEVICE_TMP="$D/devtmp" "$PX2" "$@"; }
 rm -f "$D/restarts"
 out=$(dep deploy "$P" 2>&1); rc=$?
 check "deploy: what changed is sent, what did not stays" \
-	'[ $rc -eq 0 ] && [ "$(cat "$C/ZyperOS/zyperos.elf")" = "new launcher" ] && [ "$(cat "$C/ZyperOS/muse")" = "new muse" ] &&
+	'[ $rc -eq 0 ] && [ "$(cat "$C/ZyperOS/zyperos.elf")" = "new launcher" ] && [ "$(cat "$C/ZyperOS/mp4d")" = "new mp4d" ] &&
 	 printf "%s" "$out" | grep -qx "  sent zyperos.elf" && ! printf "%s" "$out" | grep -q "sent cores/a.so"'
-check "and the new programs are executable" '[ -x "$C/ZyperOS/zyperos.elf" ] && [ -x "$C/ZyperOS/muse" ]'
-check "the card's own launcher is kept, the added Muse named" \
-	'[ "$(cat "$C/.px2-deploy/orig/zyperos.elf")" = "old launcher" ] && [ "$(cat "$C/.px2-deploy/added")" = muse ]'
+check "and the new programs are executable" '[ -x "$C/ZyperOS/zyperos.elf" ] && [ -x "$C/ZyperOS/mp4d" ]'
+check "the card's own launcher is kept, the added MP4 named" \
+	'[ "$(cat "$C/.px2-deploy/orig/zyperos.elf")" = "old launcher" ] && [ "$(cat "$C/.px2-deploy/added")" = mp4d ]'
 check "ZyperOS restarted, not the device" 'grep -qx restart "$D/restarts" && ! grep -q reboot "$D/restarts"'
 check "the lock let go after a deploy" '[ ! -e "$D/lock" ]'
 echo "newer launcher" > "$P/zyperos.elf"
 dep deploy "$P" > /dev/null 2>&1
 check "a second deploy keeps the first one's kept file" \
 	'[ "$(cat "$C/ZyperOS/zyperos.elf")" = "newer launcher" ] && [ "$(cat "$C/.px2-deploy/orig/zyperos.elf")" = "old launcher" ] &&
-	 [ "$(cat "$C/.px2-deploy/added")" = muse ]'
+	 [ "$(cat "$C/.px2-deploy/added")" = mp4d ]'
 out=$(dep restore --status 2>&1)
 check "restore --status says what a restore puts back" \
-	'printf "%s" "$out" | grep -qx "  replaced zyperos.elf" && printf "%s" "$out" | grep -qx "  added muse"'
+	'printf "%s" "$out" | grep -qx "  replaced zyperos.elf" && printf "%s" "$out" | grep -qx "  added mp4d"'
 rm -f "$D/restarts"
 out=$(dep restore 2>&1); rc=$?
-check "restore: the card's own launcher back, Muse gone, the kept folder gone" \
-	'[ $rc -eq 0 ] && [ "$(cat "$C/ZyperOS/zyperos.elf")" = "old launcher" ] && [ ! -e "$C/ZyperOS/muse" ] &&
+check "restore: the card's own launcher back, MP4 gone, the kept folder gone" \
+	'[ $rc -eq 0 ] && [ "$(cat "$C/ZyperOS/zyperos.elf")" = "old launcher" ] && [ ! -e "$C/ZyperOS/mp4d" ] &&
 	 [ ! -e "$C/.px2-deploy" ] && [ "$(cat "$C/ZyperOS/cores/a.so")" = "a core" ] && grep -qx restart "$D/restarts" && ! grep -q reboot "$D/restarts"'
 dep restore > /dev/null 2>&1; rc=$?
 check "a restore with nothing kept is a refusal (3)" '[ $rc -eq 3 ]'

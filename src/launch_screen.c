@@ -7,13 +7,15 @@
 #include "biosfile.h"
 #include "gamefile.h"
 #include "ctl.h"
+#include "hkstore.h"
 #include "ctl_channel.h"
 #include "dlq.h"
 #include "dsv.h"
 #include "ingame_screen.h"
+#include "cheats_screen.h"
 #include "hudmenu_screen.h"
 #include "i18n.h"
-#include "musec.h"
+#include "mp4c.h"
 #include "net.h"
 #include "notice.h"
 #include "pacing.h"
@@ -248,7 +250,7 @@ static void launch_port_core(app *a, const system_cfg *s, const char *file, cons
 	 * launch.sh's process for its quit (src/ctl.h) */
 	ctl_port_write(ctl_dir(), (int)getppid(), (long)time(NULL), path);
 	/* The shelf comes back on this game, and an audiobook keeps its place:
-	 * launch.sh stops Muse too, as the port needs the sound card. */
+	 * launch.sh stops MP4 too, as the port needs the sound card. */
 	remember_place(a);
 	{
 		FILE *r = fopen(PORT_RETURN, "w");
@@ -284,11 +286,11 @@ static void p8_page_screen(app *a)
 	for (i = 0; i < P8_NOTES; i++) np[i] = notes[i];
 	while (!want_quit && a->running) {
 		plat_input_poll(&a->in);
-		muse_poll();
+		mp4_poll();
 		aout_apply(false);
 		if (a->in.quit_requested) { a->running = false; break; }
 		if (a->in.pressed[IN_POWER] || idle_due(a)) { power_off(a); break; }
-		if (a->in.pressed[IN_SELECT]) muse_open(a, NULL, NULL);
+		if (a->in.pressed[IN_SELECT]) mp4_open(a, NULL, NULL);
 		if (in_repeat(&a->in, IN_VOLUP))    plat_volume_nudge(+1);
 		if (in_repeat(&a->in, IN_VOLDN))    plat_volume_nudge(-1);
 		if (in_repeat(&a->in, IN_BRIGHTUP)) plat_brightness_nudge(+1);
@@ -586,11 +588,11 @@ static void pm_install_loop(app *a, const system_cfg *s, SDL_Texture *icon)
 			pm_offer_refresh(a);
 		}
 		plat_input_poll(&a->in);
-		muse_poll();
+		mp4_poll();
 		aout_apply(false);
 		if (a->in.quit_requested) { a->running = false; return; }
 		if (a->in.pressed[IN_POWER] || idle_due(a)) { power_off(a); return; }
-		if (a->in.pressed[IN_SELECT]) muse_open(a, NULL, NULL);
+		if (a->in.pressed[IN_SELECT]) mp4_open(a, NULL, NULL);
 		if (in_repeat(&a->in, IN_VOLUP))    plat_volume_nudge(+1);
 		if (in_repeat(&a->in, IN_VOLDN))    plat_volume_nudge(-1);
 		if (in_repeat(&a->in, IN_BRIGHTUP)) plat_brightness_nudge(+1);
@@ -805,6 +807,21 @@ void launch(app *a)
 			return;
 		}
 	}
+	/* A zip Diatom unpacks (a cartridge's: a shelf whose core takes no
+	 * archive itself, the arcades' listing 7z and MAME's) whose game is
+	 * compressed in a way it cannot read, bzip2 or Zstandard: said here,
+	 * where a start would have come back with nothing said (1.0.7) */
+	if (romfile && strlen(romfile) > 4 && !strcasecmp(romfile + strlen(romfile) - 4, ".zip") &&
+	    !strstr(s->exts, "7z") && strcmp(s->core, "mame2003_plus")) {
+		int m = gamefile_zip_method(rom);
+
+		if (m >= 0 && !gamefile_zip_reads(m)) {
+			fprintf(stderr, "launch: %s refused: %s is compressed by method %d\n", s->name, romfile, m);
+			if (a->in.pressed[IN_ACCEPT]) uisound_play(DS_SOUND_DENY);
+			result_message(a, v->list.items[v->cursor].title, T(S_LAUNCH_ZIP_METHOD));
+			return;
+		}
+	}
 
 	/* A DS game: two screens in one frame, a DraStic save (ROGUE OS's) to
 	 * take over the first time, and frames left undrawn when they run late -
@@ -813,12 +830,27 @@ void launch(app *a)
 	 * it. */
 	g_game_dual = two_screens(s);
 	if (g_game_dual) dsv_import(save, romfile);
+	/* The game stopped by itself last time while cheats were on: asked
+	 * first, the cursor on Without Cheats, which starts it with none this
+	 * time and keeps them set for later (DESIGN.md 11.66). B: not started. */
+	bool cheats_without = false;
+	if (cheats_crash_asks(s, romfile)) {
+		char q[480];
+		int r;
+
+		snprintf(q, sizeof q, "%s %s", T(S_CHEATS_CRASH_TITLE), T(S_CHEATS_CRASH_BODY));
+		ui_fit_drawn(T(S_CHEATS_CRASH_TITLE));
+		ui_fit_drawn(T(S_CHEATS_CRASH_BODY));
+		r = ask_two_panel(a, T(S_CHEATS_ROW), q, T(S_CHEATS_CRASH_WITHOUT), T(S_CHEATS_CRASH_WITH));
+		if (r == 0 || !a->running) return;
+		cheats_without = r == 1;
+	}
 	{
 		/* The RUN keys this game needs beyond the usual: a DS game's two
 		 * screens, the system's clock ceiling, controller type and d-pad
 		 * stick, and its button map (config.h: power, controller, stick,
 		 * map) */
-		char keys[128], stick[24];
+		char keys[1536], stick[24];
 		rm_table sent;
 		char map[320];
 		bool stick_on = rms_stick_get(s, romfile);
@@ -837,6 +869,37 @@ void launch(app *a)
 		if (stick[0] && strlen(keys) + strlen(stick) + 2 <= sizeof keys)
 			snprintf(keys + strlen(keys), sizeof keys - strlen(keys), "%s%s",
 			         keys[0] ? "\t" : "", stick);
+		/* The player's hotkeys for this game (src/hkstore.h), sent only
+		 * when they are not ZyperOS's own, so a player who never set one
+		 * sends what was always sent; and where a screenshot goes,
+		 * Screenshots/<System>/<Game>, Diatom adding the time, with every
+		 * game, so a key given in its Controls tab works at once */
+		{
+			hk_table hk, def;
+			char run[200], name[LIB_NAME], shots[CFG_STR * 4];
+			size_t i;
+
+			hks_get(HKS_GAME, s->tag, romfile, &hk);
+			hk_default(&def);
+			if (!hk_equal(&hk, &def)) {
+				hk_run(&hk, run, sizeof run);
+				if (strlen(keys) + strlen(run) + 10 <= sizeof keys)
+					snprintf(keys + strlen(keys), sizeof keys - strlen(keys), "%shotkeys=%s",
+					         keys[0] ? "\t" : "", run);
+			}
+			{
+				snprintf(name, sizeof name, "%s", v->list.items[v->cursor].name);
+				for (i = 0; name[i]; i++)
+					if (name[i] == '/' || name[i] == '\t' || name[i] == '\\') name[i] = '-';
+				snprintf(shots, sizeof shots, "%s/Screenshots/%s/%s", P_CARD, s->folder, name);
+				if (strlen(keys) + strlen(shots) + 8 <= sizeof keys)
+					snprintf(keys + strlen(keys), sizeof keys - strlen(keys), "%sshots=%s",
+					         keys[0] ? "\t" : "", shots);
+			}
+		}
+		/* The cheats that are on for this game, handed over as it loads
+		 * (src/cheats_screen.h): cheats= on RUN, none for most games */
+		cheats_game_begin(s, romfile, cheats_without, keys, sizeof keys);
 		if (keys[0]) plat_resident_run_keys(keys);
 		rm_format(&sent, map, sizeof map);
 		plat_resident_map(strcmp(map, "identity") ? map : "");
@@ -1011,9 +1074,9 @@ void launch(app *a)
 	/* Menu music fades out under the launch; the shelf lets it go again */
 	bgm_hold(BGM_HOLD_GAME, true);
 
-	/* Whether this game should be heard - quiet while Muse plays, Diatom's
+	/* Whether this game should be heard - quiet while MP4 plays, Diatom's
 	 * QUIET. Stated before the RUN goes out, which sends it. */
-	plat_resident_quiet(musec_playing());
+	plat_resident_quiet(mp4c_playing());
 	/* And whether the battery is low, so the disc is over its first frame. */
 	plat_resident_low_battery(battery_level());
 
@@ -1136,6 +1199,8 @@ void launch(app *a)
 			 * lands before the first frame the player could act on. */
 			if (want_menu) plat_resident_line("PAUSE");
 			g_menu_unasked = want_menu;
+			/* "2 cheats on" over the first frames, so none is forgotten */
+			if (!want_menu) cheats_game_started();
 			/* No launch animation, and it is a display-safety rule, not a
 			 * taste call: Diatom presents through fbdev, this process
 			 * through GL, and the handoff spike's one invariant is that
@@ -1150,8 +1215,15 @@ void launch(app *a)
 			for (;;) {
 				r = plat_resident_wait();
 				if (r == RES_PAUSED) {
+					const char *why = plat_resident_paused_for();
+
 					g_ctl_game.paused = true;
-					game_menu(a);
+					/* A hotkey's pause (src/hotkeys.h): Quit stops the
+					 * game as MENU then X does, Reset Game asks first;
+					 * MENU's opens the menu */
+					if (!strcmp(why, "quit")) gm_quit();
+					else if (!strcmp(why, "reset")) game_reset_ask(a);
+					else game_menu(a);
 					g_ctl_game.paused = false;
 					continue;
 				}
@@ -1161,6 +1233,9 @@ void launch(app *a)
 			g_ctl_game.on = false;
 			screen_shader_apply();
 			resident = (r == RES_EXIT);
+			/* A game that stopped by itself with cheats on asks at its next
+			 * start whether to start without them */
+			cheats_game_end(resident && plat_resident_crashed());
 			/* The game is over, and however it ended it ended here: Quit,
 			 * a crash (EXIT reason=crash) or Diatom gone (RES_DEAD), POWER,
 			 * the battery, Auto Off, px2-open's next game, a TERM. NES

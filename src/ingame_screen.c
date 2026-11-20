@@ -1,10 +1,12 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "ingame_screen.h"
+#include "hkstore.h"
 #include "hudmenu_screen.h"
 #include "dmodepreview.h"
 #include "menu_pick.h"
 
 #include "achtab_screen.h"
+#include "cheats_screen.h"
 #include "coreopts_page.h"
 #include "aout_route.h"
 #include "app.h"
@@ -13,7 +15,7 @@
 #include "ctltab.h"
 #include "game_menu.h"
 #include "look.h"
-#include "musec.h"
+#include "mp4c.h"
 #include "p2.h"
 #include "panel.h"
 #include "portmenu.h"
@@ -557,6 +559,13 @@ void gm_gather(app *a, gm_ui *out)
 		}
 		u.disc_fits = gm_disc_fits;
 	}
+	/* Cheats for every game Diatom runs (src/cheats_screen.h): how many are
+	 * on, and whether one has paused the game's achievements */
+	if (!u.port) {
+		u.cheats = true;
+		u.cheats_on = cheats_game_on();
+		u.cheats_paused = cheats_game_paused();
+	}
 	if (u.screens) {
 		const system_cfg *s = &a->sys.systems[shelf_owner(a, a->sys_cursor,
 		                                      a->view[a->sys_cursor].cursor)];
@@ -601,11 +610,6 @@ const char *gm_tab_name_i(int i) { return gm_tab_name(i); }
  * Earned rows are drawn live and unearned quiet - the same distinction
  * menu_draw makes for a placeholder, and it reads correctly here: what you
  * have is bright, what is still ahead of you is not. */
-/* 255 characters at ~30 to a line is nine, and a line of capitals is half
- * that. Twelve is past the worst real description with room over; the card
- * scrolls when the lines outrun the panel, so depth costs height rather
- * than text. */
-#define CHV_WRAP_LINES 12
 
 /* The code point that starts at p, and its bytes in *len */
 static unsigned wrap_cp(const char *p, int *len)
@@ -746,38 +750,84 @@ static void chv_backdrop(app *a, SDL_Texture *bg, bool over_shelf, float k)
 	ui_scrim_k(a->r, 0, k);
 }
 
-static bool cheevo_detail_screen(app *a, SDL_Texture *bg, bool over_shelf,
-                                 const cheevo *c)
-{
-	char lines[CHV_WRAP_LINES][CHV_WRAP_COLS];
-	menu_row rows[CHV_WRAP_LINES + 3];
-	unsigned vcols[CHV_WRAP_LINES + 3] = { 0 };
-	char pts[24];
-	bool got = c->earned || c->earned_now;
-	int fixed = menu_std_width(a);
-	int n = 0, nl, i, done = 0, lv;
-	bool close_all = false;
-	float k;
+/* The achievement's badge on its card: the list's own picture of it
+ * (src/rabadge.h), greyed and faded until earned, the plain trophy while the
+ * card has no art, drawn near the art's own size - RetroAchievements' 64
+ * pixels; CHV_CARD_BADGE, 96 on the grid, is 60 on the Pixel 2 - under the
+ * heading's rule, centered over the description, which the card centers,
+ * with the rule's gap under it. The panel's header picture (g_menu_header),
+ * set around the card's draw. */
+static SDL_Texture *g_card_badge;
 
+static void cheevo_card_header(app *a, const SDL_Rect *r)
+{
+	if (g_card_badge)
+		SDL_RenderCopy(a->r, g_card_badge, NULL,
+		               &(SDL_Rect){ r->x + (r->w - CHV_CARD_BADGE) / 2, r->y,
+		                            CHV_CARD_BADGE, CHV_CARD_BADGE });
+}
+
+/* The card's rows: the description wrapped whole, the rule, Points and
+ * Status. Shared by the screen and --cheevo-card, so a shot is the card the
+ * device draws. */
+int cheevo_card_rows(const cheevo *c, bool pending, int fixed, cheevo_card *k)
+{
+	bool got = c->earned || c->earned_now;
+	int n = 0, nl, i;
+
+	memset(k->vcols, 0, sizeof k->vcols);
+	/* WRAPPED WHOLE: as many lines as the description has. It was cut at
+	 * twelve, which no real description reaches, and a cut sentence on a
+	 * card is the one thing it must not do; every line takes at least one
+	 * byte of the description, so CHV_DESC lines hold any. The body scrolls
+	 * itself when the lines outrun the panel (menu_panel's card rule: no
+	 * cursor, so only the body moves, and the footer stays). */
 	nl = wrap_text(ui_font(UI_F_MENU),
 	               c->desc[0] ? c->desc : T(S_CHEEVOLIST_NO_DESCRIPTION),
-	               fixed, lines, CHV_WRAP_LINES);
+	               fixed, k->lines, CHV_CARD_LINES);
 	if (!c->desc[0]) ui_fit_drawn(T(S_CHEEVOLIST_NO_DESCRIPTION));    /* drawn in lines */
 	/* Live, unlike an ordinary note. A caption under a setting is a caption;
 	 * here the description IS the content, and UI_TEXT_DIM is too quiet to be
 	 * the only thing on the card worth reading. */
 	for (i = 0; i < nl; i++)
-		rows[n++] = (menu_row){ lines[i], MENU_NOTE_MARK, true };
-	rows[n++] = MENU_RULE;
-	snprintf(pts, sizeof pts, "%d", c->points);
-	rows[n++] = (menu_row){ T(S_CHEEVOLIST_POINTS), pts, true };
+		k->rows[n++] = (menu_row){ k->lines[i], MENU_NOTE_MARK, true };
+	k->rows[n++] = MENU_RULE;
+	snprintf(k->pts, sizeof k->pts, "%d", c->points);
+	k->rows[n++] = (menu_row){ T(S_CHEEVOLIST_POINTS), k->pts, true };
 	/* Earned and not on the account yet - earned offline - says so */
-	rows[n]   = (menu_row){ T(S_CHEEVOLIST_STATUS),
-	                        !got ? T(S_CHEEVOLIST_NOT_EARNED)
-	                        : chv_is_pending(c->id) ? T(S_CHEEVOLIST_EARNED_WAITING)
-	                        : T(S_CHEEVOLIST_EARNED), true };
-	vcols[n]  = got ? VCOL_EARNED : 0u;
+	k->rows[n] = (menu_row){ T(S_CHEEVOLIST_STATUS),
+	                         !got ? T(S_CHEEVOLIST_NOT_EARNED)
+	                         : pending ? T(S_CHEEVOLIST_EARNED_WAITING)
+	                         : T(S_CHEEVOLIST_EARNED), true };
+	k->vcols[n] = got ? VCOL_EARNED : 0u;
 	n++;
+	k->n = n;
+	return n;
+}
+
+void cheevo_card_draw(app *a, const cheevo_card *k, const char *title,
+                      SDL_Texture *badge, int fixed)
+{
+	g_card_badge = badge;
+	g_menu_header = badge ? cheevo_card_header : NULL;
+	g_menu_header_h = CHV_CARD_BADGE + menu_pad() / 2;
+	menu_draw_ex(a, title, k->rows, k->n, -1, fixed, a->tint, k->vcols, false, 0);
+	g_menu_header = NULL;
+	g_card_badge = NULL;
+}
+
+static bool cheevo_detail_screen(app *a, SDL_Texture *bg, bool over_shelf,
+                                 const cheevo *c)
+{
+	/* Kept off the stack: CHV_CARD_LINES lines are 24 KB */
+	static cheevo_card k;
+	bool got = c->earned || c->earned_now;
+	int fixed = menu_std_width(a);
+	int done = 0, lv;
+	bool close_all = false;
+	float k_scrim;
+
+	cheevo_card_rows(c, got && chv_is_pending(c->id), fixed, &k);
 
 	plat_input_flush();
 	memset(&a->in, 0, sizeof a->in);
@@ -796,9 +846,9 @@ static bool cheevo_detail_screen(app *a, SDL_Texture *bg, bool over_shelf,
 			done = 1; close_all = true; g_menu_closing = true;
 		}
 		/* Only over the shelf. Over a game this card is the in-game menu's,
-		 * and Muse would need that menu's power rule, which this screen does
+		 * and MP4 would need that menu's power rule, which this screen does
 		 * not have to give it. SELECT from the in-game menu itself works. */
-		if (over_shelf && a->in.pressed[IN_SELECT]) muse_open(a, NULL, NULL);
+		if (over_shelf && a->in.pressed[IN_SELECT]) mp4_open(a, NULL, NULL);
 		/* Same reasoning as the list below: this screen is not inside
 		 * plat_resident_wait, so nothing else is watching power for it. Over
 		 * the shelf there is no game to stop, and stopping one is not what
@@ -811,10 +861,13 @@ static bool cheevo_detail_screen(app *a, SDL_Texture *bg, bool over_shelf,
 			close_all = true;
 		}
 
-		if (!panel_frame(a, lv, &k)) continue;
+		if (!panel_frame(a, lv, &k_scrim)) continue;
 		tick_theme(a);
-		chv_backdrop(a, bg, over_shelf, k);
-		menu_draw_ex(a, c->title, rows, n, -1, fixed, a->tint, vcols, false, 0);
+		chv_backdrop(a, bg, over_shelf, k_scrim);
+		/* A badge that landed while the card is open is read on this frame */
+		rb_landed();
+		cheevo_card_draw(a, &k, c->title,
+		                 rb_icon(a->r, chv_source(), c->badge, !got, theme()), fixed);
 		plat_present();
 		ui_frame_rest(8);
 	}
@@ -920,7 +973,7 @@ void synopsis_screen(app *a, const char *title, const char *text,
 		if (a->in.quit_requested) break;
 		if (a->in.pressed[IN_ACCEPT] || a->in.pressed[IN_X]) uisound_play(DS_SOUND_BACK);
 		if (menu_leaving(a) || a->in.pressed[IN_ACCEPT] || a->in.pressed[IN_X]) done = 1;
-		if (a->in.pressed[IN_SELECT]) muse_open(a, NULL, NULL);
+		if (a->in.pressed[IN_SELECT]) mp4_open(a, NULL, NULL);
 		/* Nothing else watches power for this screen, the same as every other
 		 * loop the launcher runs outside plat_resident_wait. */
 		if (a->in.pressed[IN_POWER] || idle_due(a)) { power_off(a); break; }
@@ -1020,7 +1073,7 @@ void cheevos_screen(app *a, SDL_Texture *bg, bool over_shelf)
 			sel = sel < n - 9 ? sel + 8 : n - 1;
 		}
 		if (menu_leaving(a)) done = 1;
-		if (over_shelf && a->in.pressed[IN_SELECT]) muse_open(a, NULL, NULL);
+		if (over_shelf && a->in.pressed[IN_SELECT]) mp4_open(a, NULL, NULL);
 		/* A used to close this screen. It opens the achievement instead,
 		 * which is the only thing on it there was ever anything more to say
 		 * about; BACK and MENU still close, so nothing lost a way out. */
@@ -1211,6 +1264,18 @@ static void controls_pages(app *a, SDL_Texture *bg, const menu_style *over, void
 
 	g.no_buttons = over != NULL;
 	ctl_set_chords(&plat_profile()->chords);
+	{
+		/* The hotkeys this game plays with (src/hkstore.h) */
+		sysview *sv = &a->view[a->sys_cursor];
+		hk_table hk;
+
+		if (sv->list.count > 0 && sv->cursor >= 0 && sv->cursor < sv->list.count)
+			hks_get(HKS_GAME, a->sys.systems[shelf_owner(a, a->sys_cursor, sv->cursor)].tag,
+			        sv->list.items[sv->cursor].file, &hk);
+		else
+			hks_get(HKS_EVERY, NULL, NULL, &hk);
+		ctl_set_hotkeys(&hk);
+	}
 	pages = ctl_game_pages(&g);
 	width = game_controls_width(a, &g);
 	n = controls_page_rows(&g, page, width, &b, &rows, &loop_at);
@@ -1338,6 +1403,7 @@ void gm_at_facts(at_facts *f)
 		f->fetching = shot_achtab == AT_WAITING;
 		f->no_hash = shot_achtab == AT_NOT_SYSTEM ? RA_HASH_NO_SYSTEM
 		             : shot_achtab == AT_NOT_FILE ? RA_HASH_NO_FILE : RA_HASH_OK;
+		f->cheats_paused = shot_achtab == AT_PAUSED;
 		if (shot_achtab == AT_LIST || shot_achtab == AT_STATES) {
 			int i;
 
@@ -1363,6 +1429,7 @@ void gm_at_facts(at_facts *f)
 	f->fetching = g_pending_set[0] && !strcmp(g_pending_set, g_game_set);
 	f->set = chv_state_of(g_game_set, f->signed_in);
 	f->no_hash = g_port_menu ? RA_HASH_OK : g_game_no_hash;
+	f->cheats_paused = !g_port_menu && cheats_game_paused();
 }
 
 at_source gm_at_source(void)
@@ -1866,6 +1933,10 @@ static menu_result gm_key(app *a, void *ctx, in_button key, int sel)
 	case GM_PLAYER2:
 		player2_page(a, c->bg);
 		break;
+	/* The game's cheats, each on or off at once (DESIGN.md 11.66) */
+	case GM_CHEATS:
+		cheats_page(a, c->bg);
+		break;
 	/* The Achievements tab, one L1 away: the row turns to it, the list
 		 * or the sentence that says why there is none (1.0.5). It opened the
 		 * list as a screen of its own before the tab. */
@@ -1911,6 +1982,8 @@ static menu_result gm_key(app *a, void *ctx, in_button key, int sel)
 	if (plat_run_power_pressed()) return MENU_DONE;
 	return MENU_STAY;
 }
+
+static void gm_resume(app *a);
 
 /* The next in-game menu was asked for by the launcher, not by a press: the
  * PAUSE a game resumed from a shutdown is sent with (launch). */
@@ -2023,7 +2096,15 @@ void game_menu(app *a)
 	 * ends writes its state on the way out. */
 	if ((want_quit || !a->running) && !c.resume) plat_resident_line("STOP");
 
-	if (c.resume) {
+	if (c.resume) gm_resume(a);
+	/* Nothing presents from here: the next frame on screen is the game's. */
+}
+
+/* Back to the game from a panel over it (the menu, Reset Game's question):
+ * the pages handed back, the music, the mute and the level said, RESUME */
+static void gm_resume(app *a)
+{
+	{
 		/* Hand the pages back the way Diatom expects to find them.
 		 *
 		 * Diatom does not repaint the area outside its picture every frame -
@@ -2041,10 +2122,10 @@ void game_menu(app *a)
 		 * afterwards Diatom is drawing, and this would be a second presenter. */
 		present_clear(a, DIATOM_PAGE);
 		present_clear(a, DIATOM_PAGE);
-		/* SELECT in this menu opens Muse, so the music may have started or
+		/* SELECT in this menu opens MP4, so the music may have started or
 		 * stopped while the game was paused. Said before the game moves, not
 		 * a tick after it. */
-		plat_resident_quiet(musec_playing());
+		plat_resident_quiet(mp4c_playing());
 		/* And the volume and the mute switch, both of which this menu had.
 		 *
 		 * On RESUME Diatom forgets its volume and reads it back from the
@@ -2067,7 +2148,65 @@ void game_menu(app *a)
 				                   vol, PLAT_VOL_MAX + 1);
 		}
 	}
-	/* Nothing presents from here: the next frame on screen is the game's. */
+}
+
+/* Reset Game's hotkey (src/hotkeys.h): Diatom paused the game for it
+ * (PAUSED for=reset), and this asks, as Delete Game does, over the paused
+ * frame, the cursor on Cancel *(my pick in the Controls lab, 2026-11-19: a
+ * reset loses play, so one press is not enough)*. Reset resets and goes on;
+ * Cancel, or B, goes back to the game where it was. */
+void game_reset_ask(app *a)
+{
+	gm_ctx c = { 0 };
+	const char *pv = plat_resident_last_preview();
+	bool yes;
+
+	c.a = a;
+	if (pv && *pv) {
+		SDL_Surface *sf = IMG_Load(pv);
+
+		if (sf) {
+			c.bg = SDL_CreateTextureFromSurface(a->r, sf);
+			SDL_FreeSurface(sf);
+		}
+	}
+	gm_preview_frame(c.bg);
+	c.st.follow_tint = true;
+	c.st.backdrop = gm_backdrop;
+	c.st.on_power = gm_power;
+	uisound_play(DS_SOUND_ACCEPT);
+	yes = ask_panel(a, &c.st, &c, T(S_HOTKEYS_RESET_ASK), T(S_HOTKEYS_RESET_LOST), T(S_GAMEMENU_RESET));
+	gm_preview_frame(NULL);
+	if (c.bg) SDL_DestroyTexture(c.bg);
+	/* POWER while it asked stopped the game (gm_power); quitting the
+	 * launcher stops it as the menu does */
+	if (plat_run_power_pressed()) return;
+	if (want_quit || !a->running) {
+		plat_resident_line("STOP");
+		return;
+	}
+	if (yes) plat_resident_line("RESET");
+	gm_resume(a);
+}
+
+/* Next Shader and Next Display, the hotkeys (src/hotkeys.h), while the game
+ * runs: the system's own row stepped on, kept and sent as the menu's rows
+ * do; the name now on into `out`, for the pop-up */
+void gm_hotkey_step(app *a, bool shader, char *out, size_t n)
+{
+	sysview *v = owner_view(a);
+
+	if (shader) {
+		v->shader = shader_step(v->shader, +1, a->sys.systems[v - a->view].tag);
+		shader_save(a, (int)(v - a->view));
+		plat_resident_line("SETDISPLAY\tfilter=%s", SHADERS[v->shader].name);
+		snprintf(out, n, "%s", T(SHADERS[v->shader].text));
+	} else {
+		v->dmode = (v->dmode + 1) % DMODE_COUNT;
+		display_save(a);
+		plat_resident_line("SETDISPLAY\tmode=%s", DMODES[v->dmode].name);
+		snprintf(out, n, "%s", T(DMODES[v->dmode].text));
+	}
 }
 
 /* The in-game menu over a port (src/portmenu.h): this process started by

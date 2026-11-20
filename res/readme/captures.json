@@ -2863,6 +2863,118 @@
       "sha256": "cdab9b1fc742a333ada7cb4e580d149be91eaa02952b15da44e405d91f58fe89",
       "source_commit": "85cf8954bf19a6efb12428e5e35e870c96a4f3b2",
       "note": "The TrimUI Brick at its own 1024x768 screen, by the Pixel 2 shot's name: tools/readme-shots.py with DEVICE set to 'brick' (--device brick)"
+    },
+    {
+      "file": "desk-pixel2.png",
+      "card": "desk",
+      "args": {
+        "run": "tools/desk run --device pixel2 (make desk)",
+        "commands": [
+          "tools/desk -d pixel2 shot FILE window"
+        ]
+      },
+      "sha256": "595748e7f8e24396ebed21130ce8c5d638bb382b838e6ddd6b3b727e36678957",
+      "source_commit": "b34b588ee668212df3b125e0971d4e618b52365d",
+      "note": "Desk mode (docs/building.md, \"Work on the UI without a device\"): the host launcher in its window drawn as the handheld, on the sample card tools/desk makes, light theme (the default), SDL_MAC_BACKGROUND_APP=1, on a Retina display (one panel pixel a display pixel), taken with tools/desk's own window shot. The home after the start note faded."
+    },
+    {
+      "file": "desk-keys.png",
+      "card": "desk",
+      "args": {
+        "run": "tools/desk run --device pixel2 (make desk)",
+        "commands": [
+          "tools/desk -d pixel2 hints 1",
+          "tools/desk -d pixel2 shot FILE window"
+        ]
+      },
+      "sha256": "a6560ea92b8695f6716b10c59a7ce7f8d8a2af285212243d4ac02dc53d02921e",
+      "source_commit": "b34b588ee668212df3b125e0971d4e618b52365d",
+      "note": "Desk mode (docs/building.md, \"Work on the UI without a device\"): the host launcher in its window drawn as the handheld, on the sample card tools/desk makes, light theme (the default), SDL_MAC_BACKGROUND_APP=1, on a Retina display (one panel pixel a display pixel), taken with tools/desk's own window shot. Every key's keyboard key on it, as Option shows them."
+    },
+    {
+      "file": "desk-nes.png",
+      "card": "desk",
+      "args": {
+        "run": "tools/desk run --device pixel2 (make desk)",
+        "commands": [
+          "tools/desk -d pixel2 open \"NES/ZyperOS Test.nes\"",
+          "tools/desk -d pixel2 press a",
+          "tools/desk -d pixel2 shot FILE window"
+        ]
+      },
+      "sha256": "81e634d1d8f2c99a316e95c8bee8aeec9605ec9e8e06ffc02c1fed5d289b1106",
+      "source_commit": "b34b588ee668212df3b125e0971d4e618b52365d",
+      "note": "Desk mode (docs/building.md, \"Work on the UI without a device\"): the host launcher in its window drawn as the handheld, on the sample card tools/desk makes, light theme (the default), SDL_MAC_BACKGROUND_APP=1, on a Retina display (one panel pixel a display pixel), taken with tools/desk's own window shot. ZyperOS Test.nes (tools/qemu/make-test-nes.py) on FCEUmm 236ccdf built for the Mac, A held."
+    },
+    {
+      "file": "desk-game.png",
+      "card": "desk",
+      "args": {
+        "run": "tools/desk run --device pixel2 (make desk)",
+        "commands": [
+          "tools/desk -d pixel2 open \"NES/ZyperOS Test.nes\"",
+          "tools/desk -d pixel2 tap menu",
+          "tools/desk -d pixel2 shot FILE window"
+        ]
+      },
+      "sha256": "ab9e942ed11a1436714a1b3340284e9bc1bc756f9fd78509accd8e76a7b9f93c",
+      "source_commit": "b34b588ee668212df3b125e0971d4e618b52365d",
+      "note": "Desk mode (docs/building.md, \"Work on the UI without a device\"): the host launcher in its window drawn as the handheld, on the sample card tools/desk makes, light theme (the default), SDL_MAC_BACKGROUND_APP=1, on a Retina display (one panel pixel a display pixel), taken with tools/desk's own window shot. The in-game menu over ZyperOS Test.nes."
+    },
+    {
+      "file": "desk-brick.png",
+      "card": "desk",
+      "args": {
+        "run": "tools/desk run --device brick (make desk-brick)",
+        "commands": [
+          "tools/desk -d brick shot FILE window"
+        ]
+      },
+      "sha256": "b3329492dc1b9307eee38f30ac57ecae8cebf2e723d7f8b67862d6446703c937",
+      "source_commit": "b34b588ee668212df3b125e0971d4e618b52365d",
+      "note": "Desk mode (docs/building.md, \"Work on the UI without a device\"): the host launcher in its window drawn as the handheld, on the sample card tools/desk makes, light theme (the default), SDL_MAC_BACKGROUND_APP=1, on a Retina display (one panel pixel a display pixel), taken with tools/desk's own window shot. The home on the TrimUI Brick's 1024x768 screen."
+    },
+    {
+      "file": "desk-card.png",
+      "card": "desk",
+      "args": {
+        "from": "desk-pixel2.png",
+        "crop": "984x738+0+0"
+      },
+      "sha256": "57fbd10c79ae9b1f9b70d9e3194912f07de3ed923c9dbfaef3b5cca7cc796c66",
+      "source_commit": "b34b588ee668212df3b125e0971d4e618b52365d",
+      "note": "The blog index card for /blog/try-zyperos-on-mac/: the top 984x738 of desk-pixel2.png (magick -crop 984x738+0+0 +repage -strip), 4:3 as the card shows it."
+    },
+    {
+      "file": "simulator.png",
+      "card": "qemu",
+      "args": {
+        "app": "simulator/scripts/build-app.sh, then ZyperSimulator --qemu-run <PR #373 tools/qemu-run.sh> --image <its QEMU image> --name sim-docs",
+        "image": "plastron QEMU image from tools/qemu-image.sh at PR #373 head d107d24 (ZyperOS 1.0.6 plus main, not a release)",
+        "commands": [
+          "simulator/simctl -n sim-docs window-shot FILE"
+        ]
+      },
+      "sha256": "8826a1b4eb4478140b3abd8a5b82df4c6b4b6f70d207f71e10841373fe5b5593",
+      "source_commit": "e85b596f09ed1ca6f0bdfedea8391b378df77334",
+      "note": "The ZyperOS Simulator (docs/simulator.md): the whole system in QEMU on hvf, the device drawn from src/device/pixel2_model.c, taken with simctl window-shot (the device alone, on a clear background); a fresh card, light theme, the panel backlight at its default. The first-start language list while it cycles, at English; the side lights full on the cable."
+    },
+    {
+      "file": "simulator-charging.png",
+      "card": "qemu",
+      "args": {
+        "app": "simulator/scripts/build-app.sh, then ZyperSimulator --qemu-run <PR #373 tools/qemu-run.sh> --image <its QEMU image> --name sim-docs",
+        "image": "plastron QEMU image from tools/qemu-image.sh at PR #373 head d107d24 (ZyperOS 1.0.6 plus main, not a release)",
+        "commands": [
+          "simulator/simctl -n sim-docs tap start",
+          "simulator/simctl -n sim-docs battery 55",
+          "simulator/simctl -n sim-docs cable 1",
+          "simulator/simctl -n sim-docs window-shot FILE"
+        ]
+      },
+      "sha256": "091dbf19932af4c960a773010e92b1e40654043cec57a682f361fb2addf5fe7c",
+      "source_commit": "e85b596f09ed1ca6f0bdfedea8391b378df77334",
+      "note": "The ZyperOS Simulator (docs/simulator.md): the whole system in QEMU on hvf, the device drawn from src/device/pixel2_model.c, taken with simctl window-shot (the device alone, on a clear background); a fresh card, light theme, the panel backlight at its default. START skipped the setup; the home at 55% on the cable, the side lights filling."
     }
   ],
   "capture_note": "Screenshots refreshed separately record their own source_commit; other screenshots use the top-level source_commit."

@@ -61,7 +61,7 @@ de = Schnelltasten
 ja = ホットキー
 it = Scorciatoie
 
-[controls.page.muse]
+[controls.page.mp4]
 note = A page's name, in "Controls: In MP4": MP4 is the media player's name, never translated.
 en = In MP4
 zh-Hans = MP4 中
@@ -391,15 +391,15 @@ ja = 巻き戻し/早送り
 it = Avanti o indietro
 
 [controls.mode]
-note = What Y does in MP4: the play mode (repeat, shuffle), a book's speed, or a video's view.
-en = Mode, speed or view
-zh-Hans = 模式、速度或画面
-es = Modo, velocidad o vista
-pt-BR = Modo, velocidade ou tela
-fr = Mode, vitesse ou vue
-de = Modus, Tempo, Ansicht
-ja = モード、速度、表示
-it = Modalità, velocità o vista
+note = What Y does in MP4: the play mode (repeat, shuffle) on music, a book's speed, or a video's Repeat (Off, One, All; the word of MP4's menu row sysmenu.mp4_repeat).
+en = Mode, speed or repeat
+zh-Hans = 模式、速度或重复播放
+es = Modo, velocidad o repetir
+pt-BR = Modo, velocidade ou repetir
+fr = Mode, vitesse ou répétition
+de = Modus, Tempo, Wiederholen
+ja = モード、速度、リピート
+it = Modalità, velocità o ripeti
 
 [controls.lock]
 note = What X does in MP4: lock every button until SELECT and START are held.
@@ -1589,6 +1589,72 @@ fr = Stick si maintenu
 de = Stick beim Halten
 ja = 押す間スティック
 it = Levetta se tenuto
+
+[controls.pick_gives]
+note = The foot of a button's list of choices on the Controls tab, under a rule, for the choice under the cursor: the first %s the handheld's button as printed (Y), the second the choice (Cross, Turbo B, Nothing). One line, the panel's width (about 760 units).
+en = %s gives %s.
+zh-Hans = %s 对应 %s。
+es = %s da %s.
+pt-BR = %s vira %s.
+fr = %s donne %s.
+de = %s gibt %s.
+ja = %s で %s。
+it = %s dà %s.
+
+[controls.pick_swap]
+note = The foot's first line on a choice another button already gives (issue #305): A takes it with a swap, and the other button (the first %s, as printed) takes what this one gave (the second %s). "A:" is the button as printed. One line, about 760 units.
+en = A: %s takes %s.
+zh-Hans = A：%s 改为 %s。
+es = A: %s pasa a %s.
+pt-BR = A: %s passa a %s.
+fr = A : %s prend %s.
+de = A: %s übernimmt %s.
+ja = A：%s は %s に。
+it = A: %s prende %s.
+
+[controls.pick_both]
+note = The foot's second line on such a choice: Y gives it to both buttons. The first %s this button (Y), the second the other one or ones (B, or B/X, a pair written as the Controls pages write one), the third the choice (Cross). "Y:" is the button as printed. One line, about 760 units.
+en = Y: %s and %s give %s.
+zh-Hans = Y：%s 和 %s 都对应 %s。
+es = Y: %s y %s dan %s.
+pt-BR = Y: %s e %s viram %s.
+fr = Y : %s et %s donnent %s.
+de = Y: %s und %s geben %s.
+ja = Y：%s と %s で %s。
+it = Y: %s e %s danno %s.
+
+[controls.key_swap]
+note = The keys at the foot of a button's list, on a choice another button gives: A's word, the choice taken with a swap. One short word beside A's glyph.
+en = Swap
+zh-Hans = 交换
+es = Cambiar
+pt-BR = Trocar
+fr = Échanger
+de = Tauschen
+ja = 入れ替え
+it = Scambia
+
+[controls.key_both]
+note = Beside controls.key_swap: Y's word, the choice given to both buttons. One short word beside Y's glyph.
+en = Both
+zh-Hans = 两个都要
+es = Ambos
+pt-BR = Ambos
+fr = Les deux
+de = Beide
+ja = 両方
+it = Entrambi
+
+[controls.key_take]
+note = The keys at the foot of a button's list, on any other choice: A's word, the choice taken. One short word beside A's glyph.
+en = Take
+zh-Hans = 选择
+es = Elegir
+pt-BR = Escolher
+fr = Choisir
+de = Wählen
+ja = 選ぶ
+it = Scegli
 
 [controls.dpad_stick_title]
 note = The Controls tab's row: the d-pad turned into the game's left stick, On or Off (menu.on_title, menu.off_title), for this game (the N64, the Dreamcast, the PlayStation, the PSP); the handheld beside it lights the d-pad. controls.dpad_stick as a row's name, in Title Case where English writes one. A row's label in the 580-unit column: with its value and the 36-unit gap it has 575, so beside a long Off the phrase does not fit (es "Cruceta como palanca" 537 units beside "Desactivado" 298; pt-BR, fr and it the same) and the row says the stick as popup.stick's short form does (es Palanca, pt-BR Analógico, it Levetta; ja 十字 for 十字キー). fr has no short form there (popup.stick's Stick analogique is 401 units), so its row says Mode stick (256 beside Désactivé's 236). review: es, pt-BR and it name the stick alone; the whole phrase needs a shorter Off for this row, or the label on two lines.

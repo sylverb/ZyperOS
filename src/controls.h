@@ -8,14 +8,15 @@
 #include "menu.h"
 #include "portdoc.h"
 #include "remap.h"
+#include "hotkeys.h"
 #include "device/profile.h"   /* dev_chords */
 
 /* Every button, and what it does where: the one place ON THE DEVICE that says
  * so. Eric's, 2026-09-18.
  *
  * The controls that need it most are the ones no screen announces. SELECT
- * opens Muse from anywhere, the volume keys and F1/F2 work everywhere, and Y
- * sets the play mode on one Muse screen of four. Each of those is learned, or
+ * opens MP4 from anywhere, the volume keys and F1/F2 work everywhere, and Y
+ * sets the play mode on one MP4 screen of four. Each of those is learned, or
  * read in a README that is not on the Brick. This page is where a player who
  * has only the handheld can look them up.
  *
@@ -35,7 +36,7 @@
  * page of the six is said at the heading's right, "2 / 6", as every panel of
  * pages says it (DESIGN.md 11.3); there is no footer. */
 typedef enum {
-	CTL_MOVING, CTL_SHELF, CTL_GAME, CTL_HOTKEYS, CTL_MUSE, CTL_ANYWHERE, CTL_PAGES
+	CTL_MOVING, CTL_SHELF, CTL_GAME, CTL_HOTKEYS, CTL_MP4, CTL_ANYWHERE, CTL_PAGES
 } ctl_page;
 
 /* Room for the longest page and its footer, with a little spare. */
@@ -49,12 +50,12 @@ const char *ctl_page_name(ctl_page p);
  * Every button the Brick has is named on some page, and no page names one
  * twice - what tools/controls-check.c holds this to. A button can appear on
  * two pages when it does two things: A opens a game on the shelf and pauses a
- * track in Muse. */
+ * track in MP4. */
 int ctl_rows(ctl_page p, menu_row *out);
 
 /* The device's chords (its profile's, src/device/profile.h): brightness as
  * FUNCTION with the volume keys on a device with no brightness keys of its
- * own (the Pixel 2), where the Brick's pages say F1/F2 and Muse's lock is
+ * own (the Pixel 2), where the Brick's pages say F1/F2 and MP4's lock is
  * FUNCTION with both; MENU+START for Home where zyhome runs; and L2+R2
  * flashing the battery on lights of the device's own, which the shelf's
  * page then says. The Brick's until it is set. */
@@ -130,6 +131,11 @@ typedef struct {
 	char val[CTL_MAX_ROWS][64];
 	char note[96];
 } ctl_buf;
+
+/* The hotkeys the Hotkeys pages say, the player's (src/hotkeys.h): Every
+ * Game's on the home's page, the game's in force on a game's. NULL is
+ * ZyperOS's own, as before it is set. */
+void ctl_set_hotkeys(const hk_table *t);
 
 /* ---------- the pages in glyphs (DESIGN.md 11.9) ----------------------------
  *

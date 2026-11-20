@@ -229,6 +229,9 @@ void game_controls_pages(app *a, const menu_style *over, void *ctx);
 
 /* What a screen with a panel draws under it, and asks every frame */
 void draw_shelf(app *a);
+/* The shelf drawn by a loop of its own, as the main loop's render draws it
+ * (MP4's shelf): its focus effects live (src/shelf_draw.c) */
+void draw_shelf_live(app *a);
 void tick_tint(app *a);
 bool tick_theme(app *a);
 
@@ -323,7 +326,7 @@ void menu_draw_ex(app *a, const char *heading, const menu_row *rows,
 bool confirm_rows_over(app *a, const char *heading, menu_row *rows, int nq,
                        const char *yes_label, int fixed_w, int lv,
                        const menu_style *over, void *ctx);
-/* A screen that is a base for panels (Muse's shelf, Storage): its level,
+/* A screen that is a base for panels (MP4's shelf, Storage): its level,
  * and its own context while it is up */
 int  panel_base(void);
 extern void (*g_base_page)(app *, void *);
@@ -382,14 +385,14 @@ extern SDL_Rect g_corner_box, g_title_caps;
  * screens over the one on top closed by MENU, which stops there (main.c) */
 void mq_reset(int who);
 void panel_return(void);
-/* A result over Muse over a paused game stopped by that menu's power
+/* A result over MP4 over a paused game stopped by that menu's power
  * rule: every screen above unwinds (main.c, beside the runner) */
 extern bool g_message_stopped;
-/* What Muse is open over: NULL the shelf, else that menu's style and its
- * ctx; g_muse_gone when its power rule ended what was underneath */
-extern const menu_style *g_muse_over;
-extern void             *g_muse_over_ctx;
-extern bool              g_muse_gone;
+/* What MP4 is open over: NULL the shelf, else that menu's style and its
+ * ctx; g_mp4_gone when its power rule ended what was underneath */
+extern const menu_style *g_mp4_over;
+extern void             *g_mp4_over_ctx;
+extern bool              g_mp4_gone;
 
 /* ---- what src/shots.c calls of the launcher's; each is described where it
  * is defined ---- */
@@ -529,11 +532,14 @@ extern bool g_theme_late;
 void home_items(const app *a, home_item *items);
 void shelf_put(void *ctx, texload_got *g);
 void grid_note(app *a, int s, int i, SDL_Surface *surf, bool generated);
+/* Album i's card on MP4's shelf `s` where it has no cover: a game's card,
+ * square, MP4's art in its corner (src/mp4_screen.c) */
+void mp4_album_card_order(app *a, int s, int i, unsigned rgb, ui_card_order *card);
 void texload_drain(app *a);
 void prime_toward(app *a, int s, int center);
 void heat_said(const char *where);
 void usb_kept_save(void);
-bool muse_shelf_shown(const app *a);
+bool mp4_shelf_shown(const app *a);
 void draw_status(app *a);
 void tick_update_daily(bool in_game);
 bool usb_drive_offered(void);
@@ -543,20 +549,24 @@ void xs_tick_behind(app *a);
 void xs_end(void);
 void xfer_screen_way(app *a, int way);
 
-/* ---- what src/muse_screen.c calls of the launcher's; each is described where it
+/* ---- what src/mp4_screen.c calls of the launcher's; each is described where it
  * is defined ---- */
 #define TEX_KEEP_FAR    4   /* ...and around the cursor of a system you left  */
 extern app *g_logs_app;
 const char *b_legend(str_id word);
 int book_place(int al, double *at);
 double book_speed(int al);
-void muse_play_videos(const char *const *paths, int n, int start,
+void mp4_play_videos(const char *const *paths, int n, int start,
                       const char *artist, const char *album);
 void evict_far(sysview *v, int keep);
 /* The grid's: by rows round its window, or the rows in sight alone (main.c) */
 void evict_grid(sysview *v, int cols, bool in_sight);
 void panel_base_close(int lv);
 int shelf_letter_jump(sysview *v, int dir);
+/* A shelf's cursor moved by this pass's presses in its View, with the
+ * step's sound; the direction a step took, 0 for a jump or none
+ * (src/shelf_keys.c): the games shelf's and MP4's */
+int shelf_move(app *a, sysview *v);
 
 /* ---- what src/saver_screen.c calls of the launcher's; each is described where it
  * is defined ---- */
@@ -727,11 +737,11 @@ void home_turn(app *a, int dir);
 float grid_shape_load(const app *a, int sys);
 void grid_shape_save(const app *a, int sys, float shape);
 void sort_save(app *a);
-bool muse_books_shown(void);
-int muse_rows_kind(void);
-int muse_kinds(void);
+bool mp4_books_shown(void);
+int mp4_rows_kind(void);
+int mp4_kinds(void);
 void free_view_textures(sysview *v);
-void muse_show(sysview *v, ml_kind kind);
+void mp4_show(sysview *v, ml_kind kind);
 void auto_off_save(int seconds);
 void saver_save(int seconds);
 void charge_limit_apply(void);
@@ -750,6 +760,8 @@ bool xs_row_cable(void);
 const char *xs_row_value(void);
 void xfer_screen(app *a);
 void scraper_page(app *a, const char *only);
+/* ss_run_videos' own rule again (main.c's snap_wanted) */
+void ss_run_videos_default(void);
 menu_result scraper_screen(app *a);
 void language_screen(app *a);
 void lights_screen(app *a);
@@ -830,8 +842,8 @@ p2_state p2_row_state(void);
 void player2_page(app *a, SDL_Texture *bg);
 bool is_port(const system_cfg *s);
 
-/* SELECT: Muse, over whatever is on screen */
-bool muse_open(app *a, const menu_style *over, void *ctx);
+/* SELECT: MP4, over whatever is on screen */
+bool mp4_open(app *a, const menu_style *over, void *ctx);
 /* POWER, Auto Off, the battery empty */
 void power_off(app *a);
 /* Into the shelf of the system under the cursor */

@@ -699,21 +699,53 @@ static void late_tick(void)
 	for (i = 0; i < sizeof late_sram; i++) late_sram[i] = (uint8_t)(0x5a ^ i);
 }
 
+/* STUBCORE_RTC: a cartridge's clock kept apart from the battery RAM, as
+ * Gambatte keeps an MBC3's (RETRO_MEMORY_RTC): a count of the frames run,
+ * little-endian, so a frontend that reads it back in at the start and writes
+ * it out on the way out carries the count across runs (test/rtc.py) */
+static uint8_t rtc_mem[16];
+
+static bool rtc_here(void)
+{
+	return getenv("STUBCORE_RTC") != NULL;
+}
+
 void *retro_get_memory_data(unsigned id)
 {
+	if (id == RETRO_MEMORY_RTC) return rtc_here() ? rtc_mem : NULL;
 	if (id == RETRO_MEMORY_SAVE_RAM) return late_here() ? late_sram : NULL;
 	return id == RETRO_MEMORY_SYSTEM_RAM ? sysram : NULL;
 }
 
 size_t retro_get_memory_size(unsigned id)
 {
+	if (id == RETRO_MEMORY_RTC) return rtc_here() ? sizeof rtc_mem : 0;
 	if (id == RETRO_MEMORY_SAVE_RAM) return late_here() ? sizeof late_sram : 0;
 	return id == RETRO_MEMORY_SYSTEM_RAM ? sizeof sysram : 0;
 }
 void retro_reset(void) { frame = 0; }
-void retro_cheat_reset(void) { }
+/* Cheats, written down: STUBCORE_CHEAT_LOG=<file> gets "reset" for each
+ * retro_cheat_reset and "set <index> <enabled> <code>" for each
+ * retro_cheat_set, a line each, with the frame it came on, so
+ * test/cheats.py can see when Diatom sends them and that it sends none
+ * while frames merely run. Nothing else happens to a code: the stub has no
+ * memory to poke. */
+static void cheat_log(const char *what, unsigned i, bool e, const char *c)
+{
+	const char *path = getenv("STUBCORE_CHEAT_LOG");
+	FILE *f = path && *path ? fopen(path, "a") : NULL;
+
+	if (!f) return;
+	if (c) fprintf(f, "%u %s %u %d %s\n", frame, what, i, e ? 1 : 0, c);
+	else   fprintf(f, "%u %s\n", frame, what);
+	fclose(f);
+}
+
+void retro_cheat_reset(void) { cheat_log("reset", 0, false, NULL); }
 void retro_cheat_set(unsigned i, bool e, const char *c)
-{ (void)i; (void)e; (void)c; }
+{
+	cheat_log("set", i, e, c ? c : "(null)");
+}
 
 static uint16_t rgb565(int r, int g, int b)
 {
@@ -731,6 +763,14 @@ void retro_run(void)
 	 * gone out and the frontend is in its steady loop. Doing it on frame 0
 	 * would land during the warmup and prove less. */
 	if (crash_mode[0] && frame == crash_at) die(crash_mode);
+	if (rtc_here()) {
+		uint32_t t = (uint32_t)rtc_mem[0] | (uint32_t)rtc_mem[1] << 8 |
+		             (uint32_t)rtc_mem[2] << 16 | (uint32_t)rtc_mem[3] << 24;
+
+		t++;
+		rtc_mem[0] = (uint8_t)t; rtc_mem[1] = (uint8_t)(t >> 8);
+		rtc_mem[2] = (uint8_t)(t >> 16); rtc_mem[3] = (uint8_t)(t >> 24);
+	}
 	if (shown_log) {
 		struct timespec now;
 

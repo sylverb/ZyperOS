@@ -46,3 +46,53 @@ td_view td_view_mix(td_view a, td_view b, float k)
 	return (td_view){ a.deg + (b.deg - a.deg) * k, a.s + (b.s - a.s) * k,
 	                  a.pitch + (b.pitch - a.pitch) * k };
 }
+
+int td_flat_parts(const td_model *m, td_flat_part *out, int max)
+{
+	/* A key the flat drawing says nothing of: blank, its keyboard key
+	 * towards the body, or on it for a shoulder */
+	static const td_flat_key blank_front = { .hint = TD_HINT_BELOW }, blank_left = { .hint = TD_HINT_RIGHT },
+	                         blank_right = { .hint = TD_HINT_LEFT }, blank_top = { .hint = TD_HINT_ON };
+	const td_flat *f = m ? m->flat : NULL;
+	int i, j, n = 0;
+
+	if (!f) return 0;
+	for (i = 0; i < m->n_parts && n < max; i++) {
+		const td_part *p = &m->parts[i];
+		const td_flat_key *look = p->face == TD_FACE_FRONT ? &blank_front : p->face == TD_FACE_LEFT ? &blank_left
+		                        : p->face == TD_FACE_RIGHT ? &blank_right : &blank_top;
+		td_flat_part *o = &out[n++];
+
+		for (j = 0; j < f->n_keys; j++)
+			if (f->keys[j].key == p->key) look = &f->keys[j];
+		o->key = p->key;
+		o->look = look;
+		switch (p->face) {
+		case TD_FACE_FRONT:
+			o->kind = p->key == TD_DPAD ? TD_FLAT_DPAD : look->thick > 0 ? TD_FLAT_PILL : TD_FLAT_ROUND;
+			o->x = p->x;
+			o->y = p->z;
+			o->w = 2 * p->r;
+			o->h = look->thick > 0 ? look->thick : 2 * p->r;
+			break;
+		case TD_FACE_LEFT:
+		case TD_FACE_RIGHT:
+			o->kind = TD_FLAT_SIDE;
+			o->x = (p->face == TD_FACE_LEFT ? -1 : 1) * (m->body_w / 2 + f->side_out);
+			o->y = look->len > 0 ? look->y : p->z;
+			o->w = f->side_w;
+			o->h = look->len > 0 ? look->len : 2 * p->r;
+			break;
+		default:
+			/* The top edge and a back ledge: above the top edge either way,
+			 * as a front view sees them stand */
+			o->kind = TD_FLAT_SHOULDER;
+			o->x = p->x;
+			o->y = m->body_h / 2 + f->shoulder_rise;
+			o->w = 2 * p->r;
+			o->h = f->shoulder_h;
+			break;
+		}
+	}
+	return n;
+}

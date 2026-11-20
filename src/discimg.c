@@ -104,6 +104,26 @@ disc *disc_open_chd_cd(const char *path)
 	return d;
 }
 
+disc *disc_open_chd_track(const char *path, int want, chd_track *info)
+{
+	disc *d = disc_new(D_CHD_CD);
+	chd_track t;
+
+	if (!d) return NULL;
+	d->c = chd_open(path);
+	if (!d->c || chd_hunkbytes(d->c) % CD_FRAME || !chd_cd_track(d->c, want, &t)) {
+		disc_close(d);
+		return NULL;
+	}
+	d->start = t.start;
+	d->frames = t.frames;
+	d->datasize = t.datasize;
+	d->per = chd_hunkbytes(d->c) / CD_FRAME;
+	d->size = (uint64_t)d->frames * d->datasize;
+	if (info) *info = t;
+	return d;
+}
+
 disc *disc_open_chd_2048(const char *path)
 {
 	disc *d = disc_new(D_CHD_2048);

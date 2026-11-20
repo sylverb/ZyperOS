@@ -70,7 +70,7 @@ final class ControlServer {
         switch command {
         case .state:
             let s = sim.state
-            return json(["ok": true, "name": sim.name, "power": sim.power.rawValue,
+            return json(["ok": true, "name": sim.name, "device": sim.handheld.id, "power": sim.power.rawValue,
                          "ssh_port": sim.sshPort, "frames": sim.frameCount,
                          "screen_path": sim.screenPath, "fps": sim.frameLog.perSecond(),
                          "screen": [sim.frame?.width ?? 0, sim.frame?.height ?? 0],
@@ -79,7 +79,11 @@ final class ControlServer {
                          "headphones": s.headphones,
                          "rumble": [sim.rumble.strong, sim.rumble.weak],
                          "held": sim.held.map(\.rawValue).sorted()])
-        case let .press(buttons): buttons.forEach(sim.press)
+        case let .press(buttons):
+            if let b = buttons.first(where: { !sim.handheld.has($0) }) {
+                return json(["ok": false, "error": "the \(sim.handheld.name) has no \(b.rawValue)"])
+            }
+            buttons.forEach(sim.press)
         case let .release(buttons): buttons.forEach(sim.release)
         case let .battery(pct): sim.setBattery(pct)
         case let .cable(on): sim.setCable(on)

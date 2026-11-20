@@ -104,26 +104,67 @@ seed() {
 	# The files an older version left that this one doesn't: its notice, which
 	# moved to Licenses/ in 2.0.0, and the names cards had before ZyperOS had
 	# its own (Licenses/ZyperOS.md was another name), which a card updated
-	# from them would otherwise keep beside the new ones
+	# from them would otherwise keep beside the new ones, and MP4's daemon
+	# by its old name (mp4d was muse until 1.1.0)
 	rm -f "$CARD/ZyperOS/THIRD-PARTY-LICENSES.md" "$CARD/Licenses/TortOS.md" \
-		"$CARD/ZyperOS/portmaster/libgl_TortOS.txt"
+		"$CARD/ZyperOS/portmaster/libgl_TortOS.txt" "$CARD/ZyperOS/muse"
 	sync
 	cp "$SEED/ZyperOS/launch.sh" "$LAUNCH" || return 1
 	sync
 	echo "zyperos: ZyperOS copied onto the card" > /dev/kmsg
 }
 
-# The version in file $1 as one number in $v, 1.4.0 as 1004000, or false
-# when there is no file or it is not a version. Builtins only: this runs at
-# every boot, and a fork costs more than the whole check.
+# The version in file $1 as one number in $v, or false when there is no file
+# or it is not a version: three numbers of up to three digits (1.4 is 1.4.0),
+# then maybe a pre-release after a "-", below the release of the same
+# numbers, as in System Update's su_version_cmp (src/sysupdate.c):
+#
+#   1.4.0          10040009999   the release
+#   1.4.0-rc.2     10040003002   its release candidates, in order
+#   1.4.0-kit.1    10040002001   a device's test kits, below the RCs
+#   1.4.0-test.1   10040001001   a test image, below both, so the first
+#                                kit or RC to reach its card replaces it
+#   1.4.0-beta.1   10040000001   any other: below all of them
+#
+# The kind is the suffix's text up to its first dot, its number what follows
+# the last one (none or not a number is 0, up to 999). su_version_cmp orders
+# two pre-releases by their letters, which agrees for kit and rc and for
+# numbers up to 9; here a test image is below them (a local build, never a
+# release, that the next kit or RC pushed over it has to replace) and rc.10
+# is above rc.9. No leading zeros in the three numbers, nor a fourth: ash
+# stops the whole script at an arithmetic error, 1.08 (octal) or 1.2.3.4.
+# 64-bit numbers: BusyBox's FEATURE_SH_MATH_64 and FEATURE_TEST_64, on both
+# devices. Builtins only: this runs at every boot, and a fork costs more than
+# the whole check.
 version_of() {
+	local s p a b c n r
 	v=
 	[ -f "$1" ] || return 1
-	IFS=. read -r a b c < "$1"
-	case "$a.$b.${c:-0}" in
-	*[!0-9.]* | .* | *..*) return 1 ;;
-	esac
-	v=$((a * 1000000 + b * 1000 + ${c:-0}))
+	s=
+	read -r s < "$1"
+	p=
+	case $s in *-*) p=${s#*-}; s=${s%%-*}; [ -n "$p" ] || return 1 ;; esac
+	case $s in *.*) ;; *) return 1 ;; esac
+	a=${s%%.*}; s=${s#*.}
+	b=${s%%.*}
+	case $s in *.*) c=${s#*.} ;; *) c=0 ;; esac
+	for n in "$a" "$b" "$c"; do
+		case $n in '' | *[!0-9]* | 0?* | ????*) return 1 ;; esac
+	done
+	r=9999
+	if [ -n "$p" ]; then
+		case $p in *.*) n=${p##*.} ;; *) n=0 ;; esac
+		case $n in '' | *[!0-9]*) n=0 ;; esac
+		while :; do case $n in 0?*) n=${n#0} ;; *) break ;; esac; done
+		case $n in ????*) n=999 ;; esac
+		case ${p%%.*} in
+		rc) r=$((3000 + n)) ;;
+		kit) r=$((2000 + n)) ;;
+		test) r=$((1000 + n)) ;;
+		*) r=$n ;;
+		esac
+	fi
+	v=$((((a * 1000 + b) * 1000 + c) * 10000 + r))
 }
 
 # Whether the image carries a newer ZyperOS than the card. A card with no
@@ -316,7 +357,7 @@ steady_memory() {
 }
 
 # At shutdown, ahead of init's TERM to everything: launch.sh first, or it
-# starts ZyperOS again the moment ZyperOS goes, then ZyperOS, Muse and Diatom,
+# starts ZyperOS again the moment ZyperOS goes, then ZyperOS, MP4 and Diatom,
 # waiting up to 2 s for Diatom, which saves a running game on its TERM
 stop() {
 	local p kids
@@ -328,7 +369,7 @@ stop() {
 		kill "$p" 2>/dev/null
 		[ -n "$kids" ] && kill $kids 2>/dev/null
 	fi
-	killall -TERM zyperos.elf muse diatom 2>/dev/null
+	killall -TERM zyperos.elf mp4d diatom 2>/dev/null
 	for i in $(seq 1 20); do pidof diatom > /dev/null || break; sleep 0.1; done
 }
 

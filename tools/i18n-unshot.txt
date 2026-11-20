@@ -10,7 +10,6 @@
 # about: no shot draws it yet
 about.no_address_yet
 about.battery_charging
-about.health_estimate
 
 # audio: no shot draws it yet
 audio.wired
@@ -66,13 +65,7 @@ charging.to_full_almost
 charging.to_full_h
 
 # cheevolist: no shot draws it yet
-cheevolist.no_description
-cheevolist.points
-cheevolist.status
-cheevolist.earned
-cheevolist.not_earned
 cheevolist.unlocked
-cheevolist.earned_waiting
 
 # cheevos: no shot draws it yet
 cheevos.to_earn
@@ -254,20 +247,20 @@ lowbatt.charging
 # mp4: no shot draws it yet
 mp4.hold_unlock
 
-# muse: no shot draws it yet
-muse.chapter_of
-muse.chapter
-muse.paused
-muse.finished
-muse.hint_chapter
-muse.row_playing
-muse.row_paused
-muse.paused_note
-muse.art_starting  # Album Art's line before the first album is asked about, and no shot draws a run that has not begun; it was counted before only because the Phones row's "starting" had the same words, which row values now begin with a capital
-muse.art_all_crisp
-muse.art_albums
-muse.art_counts
-muse.art_counts_failed
+# mp4: no shot draws it yet
+mp4.chapter_of
+mp4.chapter
+mp4.paused
+mp4.finished
+mp4.hint_chapter
+mp4.row_playing
+mp4.row_paused
+mp4.paused_note
+mp4.art_starting  # Album Art's line before the first album is asked about, and no shot draws a run that has not begun; it was counted before only because the Phones row's "starting" had the same words, which row values now begin with a capital
+mp4.art_all_crisp
+mp4.art_albums
+mp4.art_counts
+mp4.art_counts_failed
 
 # musiclib: no shot draws it yet
 musiclib.sort_artist
@@ -398,10 +391,10 @@ sysmenu.wifi_connecting
 sysmenu.hotspot
 sysmenu.charge_limit
 sysmenu.dslang
-sysmenu.muse_books
-sysmenu.muse_albums
-sysmenu.muse_author
-sysmenu.muse_artist
+sysmenu.mp4_books
+sysmenu.mp4_albums
+sysmenu.mp4_author
+sysmenu.mp4_artist
 sysmenu.not_in_build
 sysmenu.sc_link
 sysmenu.status
@@ -535,3 +528,41 @@ xfer.scanning
 xfer.key_removed
 xfer.err_memory
 xfer.err_could_not_say
+
+# downloads: the questions and messages over the page, asked live (dl_screen.c's panels)
+downloads.sign_out_ask
+downloads.sign_out_body
+downloads.cover_where
+downloads.names_stay
+downloads.delete_videos_ask
+downloads.delete_videos_body
+downloads.delete_sys_videos_ask
+downloads.delete_sets_ask
+downloads.delete_sys_sets_ask
+downloads.delete_sets_body
+downloads.key_delete
+
+# downloads: Zyper's bubble on the shelf after a download that ended behind the screens
+downloads.done_news
+downloads.n_covers.one
+downloads.n_covers.other
+downloads.n_sets.one
+downloads.n_sets.other
+downloads.n_videos.one
+downloads.n_videos.other
+downloads.n_names.one
+downloads.n_names.other
+
+# downloads: a game's panel while its file comes, and a game, a tile or a row in a state no fixture has
+downloads.getting
+downloads.none
+downloads.none_yet
+downloads.all_off
+downloads.has_names
+downloads.w_video
+downloads.no_achievements
+downloads.from_ra
+downloads.for_on_n.one
+downloads.for_on_n.other
+downloads.names_requests.one
+downloads.n_games.one

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "ds/hover.h"
 #include "shots.h"
+#include "cheats_screen.h"
 #include "aout_route.h"
 #include "eq.h"
 
@@ -14,6 +15,7 @@
 #include "coreopts_page.h"
 #include "ctltab.h"
 #include "ctltab_screen.h"
+#include "hotkeys_screen.h"
 #include "db.h"
 #include "devmode_screen.h"
 #include "dl_screen.h"
@@ -32,8 +34,9 @@
 #include "mp4lock.h"
 #include "mp4frame.h"
 #include "mp4video.h"
-#include "musec.h"
+#include "mp4c.h"
 #include "notice.h"
+#include "nowplaying_looks.h"
 #include "nowplaying_screen.h"
 #include "homesys_screen.h"
 #include "osdbar.h"
@@ -129,11 +132,12 @@ nq_kind shot_notice_kind = NQ_SET;
 /* --notice-heat: the notice with the thermometer where a badge goes, as
  * "Getting hot" is over a game (DESIGN.md 11.23) */
 int shot_notice_mark;
-/* --popup saved|loaded|save_failed|load_failed|slot_empty|no_states|dslang|corestate|stick_on|stick_off|speed N:
+/* --popup saved|loaded|save_failed|load_failed|slot_empty|no_states|dslang|corestate|stick_on|stick_off|shot|shader|display|speed N:
  * the pop-up of the SELECT hotkeys, as on_quick and on_speed put it over a
  * game (notice_render, no badge, no Zyper); N is the step for speed, in
  * halves (3 is 1.5x) */
 const char *shot_popup;
+static const char *shot_popup_pic;   /* --popup shot: the picture in it */
 int shot_popup_half = 2;
 /* --lowbatt MS [charging|off]: the low-battery start screen MS ms in
  * (DESIGN.md 11.24); with charging, a charger plugged in at 2.4 s; with off,
@@ -157,6 +161,14 @@ const char *shot_upnews;
 int shot_charging = -1, shot_charging_kind;
 int shot_cheevos;
 int shot_cheevos_sel;
+/* --cheevo-card N: an achievement's card, opened with A from its list, as
+ * cheevo_card_rows and cheevo_card_draw make it on the device: 0 earned, a
+ * line of description; 1 not earned, the longest description
+ * RetroAchievements keeps (255 characters, in two paragraphs), which scrolls
+ * itself (--phase MS moves it on); 2 earned offline and waiting to send; 3
+ * one with no description. The plain badge, or --cheevos-badge SET NAME's.
+ * -1 without it. */
+int shot_cheevo_card = -1;
 /* --ingame: --cheevos-screen as the in-game menu opens it, over a paused
  * game (a made-up frame), rather than over the shelf */
 int shot_ingame;
@@ -211,6 +223,7 @@ int shot_syn;       /* --synopsis: the card a scraped game opens */
 int shot_info;
 int shot_delete_ask, shot_delete_now;
 int shot_collect_page = -1, shot_collect_delete, shot_collect_said = -1;
+int shot_zip_said;
 /* --gm-said K: one of Delete Game's and Rename's messages (GM_SAID) */
 int shot_gm_said = -1;
 
@@ -272,6 +285,9 @@ static void gm_said_preview(app *a, int k)
 }
 
 int shot_controls = -1;
+int shot_hotkeys = -1, shot_hk_scope = -1, shot_hk_capture, shot_hk_key = -1;
+bool shot_hk_game;
+int shot_hk_ask;
 /* --sgdb [0|1|2]: MENU > SteamGridDB with no key, a key that works, or one
  * they refused - a stand-in key, masked as a real one is */
 int shot_sgdb = -1;
@@ -486,6 +502,7 @@ int   shot_np = -1, shot_np_track, shot_np_paused;
 int   shot_locked, shot_video = -1, shot_video_w = 640, shot_video_h = 360;
 int   shot_video_trouble;
 float shot_video_k = -1, shot_video_grow = -1;
+int   shot_np_bench;                     /* --np-bench N: N frames timed */
 float shot_np_at = 83.0f;
 /* --mode NAME plays whatever the shot shows in that play mode: the mark beside
  * the track count is drawn from it. */
@@ -715,7 +732,21 @@ static void shot_draw_gamemenu(app *a)
 	menu_tabs tabs = { .count = GT_TABS, .name = gm_tab_name_i };
 	int n;
 
+	/* The cursor's game running with its cheats as the card keeps them
+	 * (src/cheats_screen.h): the Game tab's Cheats row, and its list */
+	if ((shot_cheats || shot_cheats_page >= 0) && a->view[a->sys_cursor].list.count > 0) {
+		const sysview *cv = &a->view[a->sys_cursor];
+
+		cheats_shot_game(&a->sys.systems[shelf_owner(a, a->sys_cursor, cv->cursor)],
+		                 cv->list.items[cv->cursor].file, false);
+	}
 	gm_gather(a, &u);
+	if (shot_cheats_page >= 0 && !u.port) {
+		cheats_page_shot(a, bg, &(cheats_shot){ shot_cheats_page, shot_cheats_ask, shot_cheats_query,
+		                                         shot_cheats_on_first, shot_cheats_note });
+		if (bg) SDL_DestroyTexture(bg);
+		return;
+	}
 	tabs.at = tabs.from = shot_gamemenu_tab % GT_TABS;
 	/* The tab move a shot pressed (shot_motion), from where it was */
 	if (shot_gm_t0 && shot_gm_from >= 0) {
@@ -1034,6 +1065,13 @@ static menu_choice shot_pick;          /* --press a on an option row: its list *
 static const char *shot_pick_heading;
 int shot_gm_choose;     /* --gm-choose: an option row's list, A pressed on it */
 int shot_hud_page = -1; /* --hud-page ROW: the On-Screen Stats page */
+bool shot_cheats;          /* --cheats: the cursor's game as the running one */
+int  shot_cheats_page = -1; /* --cheats-page ROW: its cheat list */
+bool shot_cheats_ask;      /* --cheats-ask: the first cheat's question */
+const char *shot_cheats_query;  /* --cheats-query WORD */
+bool shot_cheats_on_first;  /* --cheats-on-first */
+bool shot_cheats_note;      /* --cheats-note */
+bool shot_cheats_crash;     /* --cheats-crash */
 bool shot_hud_items;    /* --hud-items: its Shows list */
 int  shot_hud_pick = -1; /* --hud-pick ROW: that row's list of choices */
 const char *shot_hud_shows; /* --hud-shows WORDS: the items it shows */
@@ -1134,31 +1172,31 @@ static void np_shot(app *a)
 	char next[128] = "";
 	int ar, t;
 
-	if (shot_np < 0 || shot_np >= g_muse.nalbums) return;
-	al = &g_muse.albums[shot_np];
+	if (shot_np < 0 || shot_np >= g_mp4.nalbums) return;
+	al = &g_mp4.albums[shot_np];
 	t = shot_np_track < al->n ? shot_np_track : al->n - 1;
-	for (ar = 0; ar < g_muse.nartists - 1; ar++)
-		if (shot_np < g_muse.artists[ar].first + g_muse.artists[ar].n) break;
+	for (ar = 0; ar < g_mp4.nartists - 1; ar++)
+		if (shot_np < g_mp4.artists[ar].first + g_mp4.artists[ar].n) break;
 	mn.state = shot_np_paused ? MU_PAUSED : MU_PLAYING;
-	snprintf(mn.title, sizeof mn.title, "%s", g_muse.tracks[al->first + t].name);
-	snprintf(mn.artist, sizeof mn.artist, "%s", g_muse.artists[ar].name);
+	snprintf(mn.title, sizeof mn.title, "%s", g_mp4.tracks[al->first + t].name);
+	snprintf(mn.artist, sizeof mn.artist, "%s", g_mp4.artists[ar].name);
 	snprintf(mn.album, sizeof mn.album, "%s", al->name);
 	mn.at = shot_np_at;
 	mn.len = 236.0;
 	mn.index = t;
 	mn.count = al->n;
 	if (t + 1 < al->n)
-		snprintf(next, sizeof next, "%s", g_muse.tracks[al->first + t + 1].name);
+		snprintf(next, sizeof next, "%s", g_mp4.tracks[al->first + t + 1].name);
 
 	{
 		char base[LIB_PATH * 2], path[LIB_PATH * 2 + 8];
 
-		ml_cover_base(g_muse_root, &g_muse, shot_np, base, sizeof base);
+		ml_cover_base(g_mp4_root, &g_mp4, shot_np, base, sizeof base);
 		snprintf(path, sizeof path, "%s.jpg", base);
 		if (!file_nonempty(path)) {
 			snprintf(path, sizeof path, "%s.png", base);
 			if (!file_nonempty(path) && g_cov)
-				g_cov[shot_np].st = ml_folder_image(g_muse_root, &g_muse, shot_np,
+				g_cov[shot_np].st = ml_folder_image(g_mp4_root, &g_mp4, shot_np,
 				                                    path, sizeof path)
 				                  ? COV_FOLDER : COV_NONE;
 		}
@@ -1173,7 +1211,12 @@ static void np_shot(app *a)
 		np_draw_video(a, &mn, shot_video_k >= 0 ? shot_video_k : (float)shot_video,
 		              shot_video_grow >= 0 ? shot_video_grow : shot_video ? 0.0f : 1.0f);
 	} else {
-		np_draw(a, &mn, next);
+		/* A look's bars as a song has them, held; paused or locked they
+		 * are at rest, as they are then */
+		npl_song(shot_np, t);
+		if (shot_np_bench > 0) npl_bench(a, &mn, shot_np_bench);
+		if (!shot_np_paused && !shot_locked) npl_shot_bars();
+		np_draw_now(a, &mn, next);
 	}
 	if (shot_locked) {
 		mp4lock l = { 0 };
@@ -1189,18 +1232,18 @@ static void np_shot(app *a)
 /* For a shot: every cover not on the card is a cover the music does not
  * carry, since there is no daemon to ask - so those albums draw their
  * generated card rather than an empty slot. */
-static void muse_covers_settle(void)
+static void mp4_covers_settle(void)
 {
 	char base[LIB_PATH * 2], p[LIB_PATH * 2 + 8];
 	int i;
 
-	for (i = 0; g_cov && i < g_muse.nalbums; i++) {
-		ml_cover_base(g_muse_root, &g_muse, i, base, sizeof base);
+	for (i = 0; g_cov && i < g_mp4.nalbums; i++) {
+		ml_cover_base(g_mp4_root, &g_mp4, i, base, sizeof base);
 		snprintf(p, sizeof p, "%s.jpg", base);
 		if (file_nonempty(p)) continue;
 		snprintf(p, sizeof p, "%s.png", base);
 		if (!file_nonempty(p))
-			g_cov[i].st = ml_folder_image(g_muse_root, &g_muse, i, p, sizeof p)
+			g_cov[i].st = ml_folder_image(g_mp4_root, &g_mp4, i, p, sizeof p)
 			            ? COV_FOLDER : COV_NONE;
 	}
 }
@@ -1324,7 +1367,7 @@ static void shot_compose_once(app *a)
 		poweroff_frame(a, shot_at > 0 ? (unsigned)shot_at : 0u);
 		return;
 	}
-	muse_covers_settle();
+	mp4_covers_settle();
 	if (shot_menu && shot_menu_label) {
 		menu_row rows[MENU_MAX_ROWS];
 		menu_bufs b;
@@ -1557,6 +1600,7 @@ static void shot_compose_once(app *a)
 	if (shot_lights >= 0) lights_shot_draw(a, shot_lights);
 	if (shot_coreopts >= 0) coreopts_shot_draw(a, shot_coreopts);
 	if (shot_slots) shot_draw_slots(a);
+	if (shot_cheats_crash) cheats_crash_shot(a);
 	if (shot_gamemenu && a->sys.count > 0) shot_draw_gamemenu(a);
 	else if (g_shot_p2 && a->sys.count > 0) shot_draw_player2(a);
 	if (shot_gamecontrols >= 0 && a->sys.count > 0) shot_draw_gamecontrols(a);
@@ -1583,7 +1627,7 @@ static void shot_compose_once(app *a)
 
 		paused_backdrop(a, bg, 1.0f);
 		if (bg) SDL_DestroyTexture(bg);
-	} else if (shot_kb || shot_wait || shot_cheevos) {
+	} else if (shot_kb || shot_wait || shot_cheevos || shot_cheevo_card >= 0) {
 		ui_scrim(a->r, 0);
 	}
 	if (shot_cheer >= 0) {
@@ -1626,6 +1670,10 @@ static void shot_compose_once(app *a)
 	if (shot_collect_delete) collect_delete_preview(a);
 	if (shot_gm_said >= 0) gm_said_preview(a, shot_gm_said);
 	if (shot_collect_said >= 0) collect_said_preview(a, shot_collect_said);
+	/* --zip-said: a zip whose game Diatom cannot unpack, said under its name */
+	if (shot_zip_said && a->view[a->sys_cursor].list.count > 0)
+		result_preview(a, a->view[a->sys_cursor].list.items[a->view[a->sys_cursor].cursor].title,
+		               T(S_LAUNCH_ZIP_METHOD));
 	if (g_p8_said_shot >= 0) p8_said_shot(a, g_p8_said_shot);
 	if (shot_controls >= 0 && (shot_press != SHOT_SWAP || shot_pressed)) {
 		menu_row rows[CTL_MAX_ROWS];
@@ -1647,6 +1695,18 @@ static void shot_compose_once(app *a)
 		ui_scrim_k(a->r, 0, k);
 		menu_draw_caption(a, head, rows, n, -1, menu_std_width(a), MENU_ZYPEROS, NULL, false,
 		                  0, count);
+	}
+	if (shot_hotkeys >= 0) {
+		const system_cfg *hs = NULL;
+		const char *hf = NULL;
+		sysview *sv = &a->view[a->sys_cursor];
+
+		ctl_set_chords(&plat_profile()->chords);
+		if (shot_hk_game && sv->list.count > 0) {
+			hs = &a->sys.systems[shelf_owner(a, a->sys_cursor, sv->cursor)];
+			hf = sv->list.items[sv->cursor].file;
+		}
+		hotkeys_shot(a, hs, hf, shot_hotkeys, shot_hk_capture, shot_hk_key, shot_hk_ask, shot_hk_scope);
 	}
 	if (shot_sgdb >= 0) {
 		static const char *const st[] = { NULL, "works", "refused" };
@@ -2042,6 +2102,39 @@ static void shot_compose_once(app *a)
 		             a->tint, vcols, true, 0);
 		g_row_icon = NULL;
 	}
+	if (shot_cheevo_card >= 0) {
+		/* Real titles, from sets on this card, as the list's shot has */
+		static const struct {
+			const char *t, *d;
+			int p;
+			bool got, pending;
+		} card[] = {
+			{ "Hold On To Your Potatoes, We're In For A Bumpy Ride",
+			  "Clear the second stage without losing a life.", 10, true, false },
+			{ "I Am Not Left Handed Either, But I Can Still Beat You",
+			  "Beat the Koma Faction's general in the arena on Hard, with no "
+			  "continues, no items and no help from a second player, and do it "
+			  "before the timer reaches thirty seconds.\n\nYour score must be "
+			  "higher than the arena's own for the stage, or it does not count.",
+			  25, false, false },
+			{ "Violated Heavens", "Reach the fortress above the clouds.", 10, true, true },
+			{ "Storming The Fortress", "", 10, false, false },
+		};
+		static cheevo_card k;
+		int i = shot_cheevo_card % (int)(sizeof card / sizeof card[0]);
+		int fixed = menu_std_width(a);
+		cheevo c;
+
+		memset(&c, 0, sizeof c);
+		snprintf(c.title, sizeof c.title, "%s", card[i].t);
+		snprintf(c.desc, sizeof c.desc, "%s", card[i].d);
+		c.points = card[i].p;
+		c.earned = card[i].got;
+		cheevo_card_rows(&c, card[i].pending, fixed, &k);
+		cheevo_card_draw(a, &k, c.title,
+		                 rb_icon(a->r, shot_badge_set, shot_badge_name ? shot_badge_name : "",
+		                         !card[i].got, theme()), fixed);
+	}
 	if (shot_popup) {
 		static char pbody[96];
 		char slot[32];
@@ -2076,8 +2169,27 @@ static void shot_compose_once(app *a)
 			/* ...and Player 2 stopping by itself during the game */
 			shot_notice_head = T(S_PLAYER2_NOTICE);
 			snprintf(pbody, sizeof pbody, "%s", T(S_PLAYER2_STOPPED));
+		} else if (!strcmp(shot_popup, "cheats") || !strcmp(shot_popup, "cheats_one")) {
+			/* A game started with cheats on (cheats_game_started): two,
+			 * and one for the word's other form */
+			const int on = shot_popup[6] ? 1 : 2;
+
+			shot_notice_head = T(S_CHEATS_ROW);
+			snprintf(pbody, sizeof pbody, TN(S_CHEATS_POPUP, on), on);
+		} else if (!strcmp(shot_popup, "shot")) {
+			/* The screenshot hotkey's (on_hotkey): the picture small
+			 * beside its words, a made-up game's frame */
+			shot_notice_head = T(S_HOTKEYS_SHOT_SAVED);
+			snprintf(pbody, sizeof pbody, "%s", "Screenshots/Nintendo 64");
+			shot_popup_pic = "tools/fixtures/screenshot.png";
+		} else if (!strcmp(shot_popup, "shader") || !strcmp(shot_popup, "display")) {
+			/* Next Shader's and Next Display's hotkeys (on_hotkey) */
+			const bool sh = shot_popup[1] == 'h';
+
+			shot_notice_head = T(sh ? S_HOTKEYS_POPUP_SHADER : S_HOTKEYS_POPUP_DISPLAY);
+			snprintf(pbody, sizeof pbody, "%s", sh ? T(SHADERS[2].text) : T(DMODES[1].text));
 		} else if (!strcmp(shot_popup, "stick_on") || !strcmp(shot_popup, "stick_off")) {
-			/* R2 in a PSP game (on_stick) */
+			/* A Stick On/Off button in a game (on_stick) */
 			shot_notice_head = T(S_POPUP_STICK);
 			snprintf(pbody, sizeof pbody, "%s",
 			         T(!strcmp(shot_popup, "stick_on") ? S_POPUP_STICK_ON : S_POPUP_STICK_OFF));
@@ -2093,7 +2205,9 @@ static void shot_compose_once(app *a)
 		FILE *nf;
 
 		snprintf(dt, sizeof dt, "%s.dtov", shot_path);
-		if ((shot_popup ? notice_render(shot_notice_head, shot_notice, dt, theme_index())
+		if ((shot_popup_pic ? notice_render_ex(shot_notice_head, shot_notice, shot_popup_pic, NOTICE_PICTURE,
+		                                        0, 0, dt, theme_index())
+		     : shot_popup ? notice_render(shot_notice_head, shot_notice, dt, theme_index())
 		     : shot_notice_mark
 		     ? notice_render_mark(shot_notice_head, shot_notice, (notice_mark)shot_notice_mark,
 		                          dt, theme_index())
@@ -2418,7 +2532,7 @@ static void shot_launch_frame(app *a)
  * frame is drawn with the reads held (g_loads_held), and a slot in view with
  * no card in it fails the shot (BLANK): on the systems row, and on a shelf of
  * games, where the row is what was drawn - not under Now Playing, which
- * covers it, and not on Muse's shelf, whose cards are made on the frame. The
+ * covers it, and not on MP4's shelf, whose cards are made on the frame. The
  * shot itself is the frame after, every card read in the theme that is on. */
 static void shot_flip_theme(app *a)
 {
@@ -2445,7 +2559,7 @@ static void shot_flip_theme(app *a)
 	 * prime_window at the start and the frame drawn then, so an empty one is
 	 * one the turn emptied. */
 	if (a->screen != SCREEN_GAMES || shot_np >= 0 || v->list.count <= 0 ||
-	    is_muse(&a->sys.systems[a->sys_cursor]))
+	    is_mp4(&a->sys.systems[a->sys_cursor]))
 		return;
 	for (k = -CF_HALF_WINDOW; k <= CF_HALF_WINDOW; k++) {
 		n = v->list.count;

@@ -7,6 +7,7 @@
 
 #include "design.h"
 #include "sys_menu.h"
+#include "controls.h"
 #include "homesys.h"
 #include "i18n.h"
 #include "uisound.h"
@@ -87,7 +88,7 @@ pm_tab sys_menu_tab_of(pm_row r)
 	case PM_USB_WAIT: case PM_WIFI: case PM_BT: case PM_XFER: case PM_USB:
 	case PM_DEVELOPER:
 		return PT_CONNECTIONS;
-	case PM_CLOCK: case PM_HOURS: case PM_LANGUAGE: case PM_POWER: case PM_SLEEP:
+	case PM_CLOCK: case PM_HOURS: case PM_LANGUAGE: case PM_HOTKEYS: case PM_POWER: case PM_SLEEP:
 	case PM_CHARGE: case PM_LIGHTS: case PM_STORAGE: case PM_UPDATE:
 		return PT_SYSTEM;
 	case PM_ABOUT: case PM_CONTROLS: case PM_TOUR:
@@ -127,7 +128,6 @@ int sys_menu_system_rows(const sys_ui *u, sm_row *out)
 	int n = 0, r;
 
 	for (r = 0; r < SM_ROWS; r++) {
-		if (u->no_wifi && !u->online && r == SM_BOXART) continue;
 		if (!u->dslang && r == SM_DSLANG) continue;
 		if (!u->pace && r == SM_PACE) continue;
 		if (u->no_strength && r == SM_STRENGTH) continue;
@@ -281,14 +281,16 @@ int sys_menu_sgdb_rows(const char *masked, const char *state, menu_row *out,
 	return n;
 }
 
-int sys_menu_muse_rows(int kind, bool both, bool no_wifi, sm_muse_row *out)
+int sys_menu_mp4_rows(int kind, bool both, bool no_wifi, sm_mp4_row *out)
 {
 	int n = 0;
 
 	out[n++] = SMM_COUNT;
 	if (both) out[n++] = SMM_SHOW;
 	out[n++] = SMM_SORT;
+	out[n++] = SMM_VIEW;
 	if (kind == 0 || kind == 3) out[n++] = SMM_SHUFFLE;
+	if (kind == 0 || kind == 3) out[n++] = SMM_LOOK;
 	if (kind == 2 || kind == 3) out[n++] = SMM_REPEAT;
 	out[n++] = SMM_EQ;
 	out[n++] = SMM_LOCK;
@@ -338,9 +340,9 @@ static const unsigned char SM_SOUND[SM_ROWS] = {
 	[SM_STRENGTH] = MENU_SND_NO_A,
 	[SM_RANDOM]  = MENU_SND_OWN,
 };
-static unsigned char smm_sound(sm_muse_row r)
+static unsigned char smm_sound(sm_mp4_row r)
 {
-	return r == SMM_SHOW || r == SMM_REPEAT || r == SMM_EQ ? MENU_SND_RING
+	return r == SMM_SHOW || r == SMM_VIEW || r == SMM_LOOK || r == SMM_REPEAT || r == SMM_EQ ? MENU_SND_RING
 	     : r == SMM_SORT ? MENU_SND_RING | MENU_SND_NO_A : 0;
 }
 
@@ -382,7 +384,7 @@ int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
 			out[1] = (menu_row){ T(S_SYSMENU_RANDOM_GAME), NULL, u->game_count > 0 };
 			out[2] = (menu_row){ T(S_SYSMENU_SORT_BY), u->sort ? u->sort : T(S_SORT_NAME), true };
 			out[3] = (menu_row){ T(S_SYSMENU_VIEW),
-			                     T(u->listed ? S_SYSMENU_VIEW_LIST : u->grid ? S_SYSMENU_VIEW_GRID : S_SYSMENU_VIEW_COVERS), true };
+			                     T(u->listed ? S_SYSMENU_VIEW_LIST : u->grid ? S_SYSMENU_VIEW_GRID : u->video ? S_SYSMENU_VIEW_VIDEO : S_SYSMENU_VIEW_COVERS), true };
 			b->sound[1] = SM_SOUND[SM_RANDOM];
 			b->sound[2] = SM_SOUND[SM_SORT];
 			b->sound[3] = SM_SOUND[SM_VIEW];
@@ -422,7 +424,7 @@ int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
 				case SMC_VIEW:
 					out[k] = (menu_row){ T(S_SYSMENU_VIEW),
 					                     T(u->listed ? S_SYSMENU_VIEW_LIST : u->grid ? S_SYSMENU_VIEW_GRID
-					                       : S_SYSMENU_VIEW_COVERS), true };
+					                       : u->video ? S_SYSMENU_VIEW_VIDEO : S_SYSMENU_VIEW_COVERS), true };
 					b->sound[k] = SM_SOUND[SM_VIEW];
 					if (u->sm_choice) b->choice[k] = u->sm_choice[SM_VIEW];
 					break;
@@ -438,11 +440,11 @@ int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
 				}
 			return n;
 		}
-		if (u->muse) {
-			sm_muse_row ids[SM_MUSE_ROWS];
-			int k, n = sys_menu_muse_rows(u->muse_books ? 1 : u->muse_videos ? 2
-			                              : u->muse_all ? (u->muse_songs ? 3 : 2) : 0,
-			                              u->muse_both, u->no_wifi && !u->online, ids);
+		if (u->mp4) {
+			sm_mp4_row ids[SM_MP4_ROWS];
+			int k, n = sys_menu_mp4_rows(u->mp4_books ? 1 : u->mp4_videos ? 2
+			                              : u->mp4_all ? (u->mp4_songs ? 3 : 2) : 0,
+			                              u->mp4_both, u->no_wifi && !u->online, ids);
 
 			for (k = 0; k < n; k++) b->sound[k] = smm_sound(ids[k]);
 			if (u->smm_choice)
@@ -450,48 +452,56 @@ int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
 			for (k = 0; k < n; k++)
 				switch (ids[k]) {
 				case SMM_COUNT:
-					out[k] = (menu_row){ u->muse_books ? T(S_SYSMENU_MUSE_BOOKS)
-					                     : u->muse_videos ? T(S_SYSMENU_MUSE_VIDEOS)
-					                     : u->muse_all ? T(S_SYSMENU_MUSE_TOTAL)
-					                     : T(S_SYSMENU_MUSE_ALBUMS),
+					out[k] = (menu_row){ u->mp4_books ? T(S_SYSMENU_MP4_BOOKS)
+					                     : u->mp4_videos ? T(S_SYSMENU_MP4_VIDEOS)
+					                     : u->mp4_all ? T(S_SYSMENU_MP4_TOTAL)
+					                     : T(S_SYSMENU_MP4_ALBUMS),
 					                     b->a, false };
 					break;
 				case SMM_SHOW:
-					out[k] = (menu_row){ T(S_SYSMENU_MUSE_SHOW), u->muse_books ? T(S_SYSMENU_MUSE_AUDIOBOOKS)
-					                     : u->muse_videos ? T(S_SYSMENU_MUSE_VIDEOS)
-					                     : u->muse_all ? T(S_SYSMENU_MUSE_ALL)
-					                     : T(S_SYSMENU_MUSE_MUSIC), true };
+					out[k] = (menu_row){ T(S_SYSMENU_MP4_SHOW), u->mp4_books ? T(S_SYSMENU_MP4_AUDIOBOOKS)
+					                     : u->mp4_videos ? T(S_SYSMENU_MP4_VIDEOS)
+					                     : u->mp4_all ? T(S_SYSMENU_MP4_ALL)
+					                     : T(S_SYSMENU_MP4_MUSIC), true };
 					break;
 				case SMM_SORT:
 					out[k] = (menu_row){ T(S_SYSMENU_SORT_BY), u->sort ? u->sort
-					                     : u->muse_books ? T(S_SYSMENU_MUSE_AUTHOR)
-					                     : u->muse_videos || u->muse_all ? T(S_SYSMENU_MUSE_FOLDER)
-					                     : T(S_SYSMENU_MUSE_ARTIST), true };
+					                     : u->mp4_books ? T(S_SYSMENU_MP4_AUTHOR)
+					                     : u->mp4_videos || u->mp4_all ? T(S_SYSMENU_MP4_FOLDER)
+					                     : T(S_SYSMENU_MP4_ARTIST), true };
+					break;
+				case SMM_VIEW:
+					out[k] = (menu_row){ T(S_SYSMENU_VIEW), T(u->listed ? S_SYSMENU_VIEW_LIST
+					                     : u->grid ? S_SYSMENU_VIEW_GRID : S_SYSMENU_VIEW_COVERS), true };
 					break;
 				case SMM_SHUFFLE:
-					out[k] = (menu_row){ T(S_SYSMENU_MUSE_SHUFFLE), NULL, true };
+					out[k] = (menu_row){ T(S_SYSMENU_MP4_SHUFFLE), NULL, true };
+					break;
+				case SMM_LOOK:
+					out[k] = (menu_row){ T(S_SYSMENU_MP4_LOOK), u->mp4_look ? u->mp4_look
+					                     : T(S_SYSMENU_LOOK_COVER), true };
 					break;
 				case SMM_REPEAT:
-					out[k] = (menu_row){ T(S_SYSMENU_MUSE_REPEAT),
-					                     u->muse_repeat ? u->muse_repeat : T(S_MENU_OFF_TITLE), true };
+					out[k] = (menu_row){ T(S_SYSMENU_MP4_REPEAT),
+					                     u->mp4_repeat ? u->mp4_repeat : T(S_MENU_OFF_TITLE), true };
 					break;
 				case SMM_EQ:
 					out[k] = (menu_row){ T(S_SYSMENU_EQUALIZER), u->eq ? u->eq : T(S_MENU_OFF_TITLE), true };
 					break;
 				case SMM_LOCK:
-					out[k] = (menu_row){ T(S_SYSMENU_MUSE_LOCK),
-					                     u->muse_playing ? NULL : T(S_SYSMENU_MUSE_LOCK_WHEN),
-					                     u->muse_playing };
+					out[k] = (menu_row){ T(S_SYSMENU_MP4_LOCK),
+					                     u->mp4_playing ? NULL : T(S_SYSMENU_MP4_LOCK_WHEN),
+					                     u->mp4_playing };
 					break;
 				case SMM_ART:
-					out[k] = (menu_row){ T(S_SYSMENU_MUSE_ART), NEEDS_WIFI(fetch), fetch };
+					out[k] = (menu_row){ T(S_SYSMENU_MP4_ART), NEEDS_WIFI(fetch), fetch };
 					break;
 				case SMM_RESCAN:
 					out[k] = (menu_row){ T(S_SYSMENU_RESCAN), NULL, true };
 					break;
 				/* X does it from any row, and its glyph says so */
 				case SMM_QUIT:
-					out[k] = (menu_row){ T(S_SYSMENU_MUSE_QUIT), MENU_KEY_X, true };
+					out[k] = (menu_row){ T(S_SYSMENU_MP4_QUIT), MENU_KEY_X, true };
 					break;
 				}
 			return n;
@@ -512,7 +522,7 @@ int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
 		                              u->sort ? u->sort : T(S_SORT_NAME), true  };
 		/* The covers in a row, or a list of names (DESIGN.md 11.39) */
 		full[SM_VIEW]    = (menu_row){ T(S_SYSMENU_VIEW),
-		                              T(u->listed ? S_SYSMENU_VIEW_LIST : u->grid ? S_SYSMENU_VIEW_GRID : S_SYSMENU_VIEW_COVERS), true };
+		                              T(u->listed ? S_SYSMENU_VIEW_LIST : u->grid ? S_SYSMENU_VIEW_GRID : u->video ? S_SYSMENU_VIEW_VIDEO : S_SYSMENU_VIEW_COVERS), true };
 		/* "Display", as the in-game menu's row: "Display Mode" beside the
 		 * longest of the modes' names fitted the panel in no language with
 		 * Latin letters (1.0.6) */
@@ -538,10 +548,11 @@ int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
 		 * the core that will run it. The filter Show promised is on the shelf
 		 * already: Y marks a favorite and Favorites is its own shelf. */
 		/* full[SM_BUTTONS] = (menu_row){ "Button Mapping", NULL,    false }; */
-		/* Just this system. Needs the network like its counterpart in the
-		 * ZyperOS menu, and says so rather than opening a screen that can only
-		 * report the same thing. */
-		full[SM_BOXART]  = (menu_row){ T(S_SYSMENU_BOX_ART), NEEDS_WIFI(fetch), fetch };
+		/* Just this system: Downloads, the same page for this console (my
+		 * pick in the downloads lab: Box Art becomes Downloads). Live with no
+		 * network too, as MENU's row: its counts, Systems and deletes need
+		 * none, and its Download says what it needs. */
+		full[SM_BOXART]  = (menu_row){ T(S_DOWNLOADS_HEADING), u->sys_downloads, true };
 		/* Live now that there is something behind it. It rescans the whole
 		 * card rather than this one folder - the work is three directory reads
 		 * and the shared parts (hiding a system that emptied, rebuilding
@@ -653,6 +664,9 @@ int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
 	/* The language that is on, in its own words: a player who chose one they
 	 * cannot read finds their own name here (src/i18n.h) */
 	full[PM_LANGUAGE]     = (menu_row){ T(S_MENU_LANGUAGE), lang_name(i18n_lang()), true };
+	/* SELECT held and a button, for every game here (src/hotkeys.h): A
+	 * opens the list, its keys drawn as the buttons */
+	full[PM_HOTKEYS]      = (menu_row){ ctl_page_name(CTL_HOTKEYS), NULL, true };
 	/* Press or Hold: what turns the handheld off (src/powerhold.h) */
 	full[PM_POWER]        = (menu_row){ T(S_SYSMENU_POWER_BUTTON),
 	                                   u->power_hold ? T(S_SYSMENU_POWER_HOLD)
@@ -700,7 +714,7 @@ int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
 	                                   u->strength_screens ? u->strength_screens : "100%", true };
 	/* What every button does, per screen. Needs nothing of the device, which
 	 * is the point: it is the page you reach when the thing you have forgotten
-	 * is which button opens Muse. See src/controls.h. */
+	 * is which button opens MP4. See src/controls.h. */
 	full[PM_CONTROLS]     = (menu_row){ T(S_SYSMENU_CONTROLS), NULL, true  };
 	/* The first-launch tutorial again, as often as anyone likes. Needs
 	 * nothing either: it is drawn from shapes, not from the library. */

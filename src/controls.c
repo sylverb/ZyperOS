@@ -9,6 +9,7 @@
 
 #include "i18n.h"
 #include "padglyph.h"
+#include "hotkeys.h"
 
 /* The handheld's chords, by what they do (dev_role_keys): ctl_set_chords */
 static dev_chords chords;
@@ -118,7 +119,7 @@ static const str_id NAMES[CTL_PAGES] = {
 	[CTL_SHELF]    = S_CONTROLS_PAGE_SHELF,
 	[CTL_GAME]     = S_CONTROLS_PAGE_GAME,
 	[CTL_HOTKEYS]  = S_CONTROLS_PAGE_HOTKEYS,
-	[CTL_MUSE]     = S_CONTROLS_PAGE_MUSE,
+	[CTL_MP4]     = S_CONTROLS_PAGE_MP4,
 	[CTL_ANYWHERE] = S_CONTROLS_PAGE_ANYWHERE,
 };
 
@@ -205,22 +206,41 @@ static int game(menu_row *out)
 	return n;
 }
 
-/* The hotkeys: SELECT held and a shoulder (diatom/src/chord.h), in a game
- * whatever the system. The quick slot is the in-game menu's Quick Slot row,
- * one a system. The note is the rule that keeps SELECT a game button: a
- * press with no shoulder after it is the game's. Shared with a game's own
- * Hotkeys page (hotkeys_for). */
+/* The hotkeys the pages say (ctl_set_hotkeys): ZyperOS's own until set */
+static hk_table g_hotkeys;
+static bool g_hotkeys_set;
+
+void ctl_set_hotkeys(const hk_table *t)
+{
+	if (t) g_hotkeys = *t;
+	else hk_default(&g_hotkeys);
+	g_hotkeys_set = true;
+}
+
+/* The hotkeys: SELECT held and one more button (diatom/src/chord.h), in a
+ * game whatever the system, as the player set them (src/hotkeys.h; the
+ * shoulders' four until then), each set one a row in the list's order. The
+ * quick slot is the in-game menu's Quick Slot row, one a system. The note is
+ * the rule that keeps SELECT a game button, a press with nothing after it
+ * the game's, where the page has room: six rows a page. Shared with a
+ * game's own Hotkeys page (hotkeys_for). */
 static int hotkey_rows(menu_row *out, bool states, bool select_note)
 {
-	int n = 0;
+	static const str_id SAID[HK_ACTS] = {
+		S_CONTROLS_QUICK_SAVE, S_CONTROLS_QUICK_LOAD, S_CONTROLS_FASTER, S_CONTROLS_SLOWER,
+		S_HOTKEYS_SHOT, S_HOTKEYS_SHADER, S_HOTKEYS_DISPLAY, S_HOTKEYS_RESET, S_GAMEMENU_QUIT
+	};
+	static char keys[HK_ACTS][24];
+	int n = 0, i;
 
-	if (states) {
-		out[n++] = (menu_row){ "SELECT+R1", T(S_CONTROLS_QUICK_SAVE), false };
-		out[n++] = (menu_row){ "SELECT+L1", T(S_CONTROLS_QUICK_LOAD), false };
+	if (!g_hotkeys_set) ctl_set_hotkeys(NULL);
+	for (i = 0; i < HK_ACTS && n < 6; i++) {
+		if (!states && (i == HK_SAVE || i == HK_LOAD)) continue;
+		hk_chord(&g_hotkeys, (hk_act)i, keys[i], sizeof keys[i]);
+		if (!keys[i][0]) continue;
+		out[n++] = (menu_row){ keys[i], T(SAID[i]), false };
 	}
-	out[n++] = (menu_row){ "SELECT+R2", T(S_CONTROLS_FASTER), false };
-	out[n++] = (menu_row){ "SELECT+L2", T(S_CONTROLS_SLOWER), false };
-	if (select_note) out[n++] = MENU_NOTE(T(S_CONTROLS_NOTE_SELECT));
+	if (select_note && n < 6) out[n++] = MENU_NOTE(T(S_CONTROLS_NOTE_SELECT));
 	return n;
 }
 
@@ -229,7 +249,7 @@ static int hotkeys(menu_row *out)
 	return hotkey_rows(out, true, true);
 }
 
-static int muse(menu_row *out)
+static int mp4(menu_row *out)
 {
 	int n = 0;
 
@@ -245,8 +265,9 @@ static int muse(menu_row *out)
 	 * 2026-09-20 - the rest of that sentence was saying what the screen was
 	 * about to show anyway. "Or speed" since 2026-09-30: on a book, which
 	 * plays in order, Y is its speed instead. */
-	/* "Or view" since MP4 played video (2026-11-05): on a video, Y turns
-	 * between full screen and the view with its controls. */
+	/* "Or repeat" since 2026-11-19: on a video, Y turns MP4's Repeat
+	 * (Off, One, All), as its MENU's row does; it was the view, before the
+	 * controls came and went by themselves. */
 	out[n++] = (menu_row){ "Y",     T(S_CONTROLS_MODE), false };
 	/* B is not here. It goes back in MP4 exactly as it does everywhere else,
 	 * and the shelf's page already says so. */
@@ -288,7 +309,7 @@ int ctl_rows(ctl_page p, menu_row *out)
 	case CTL_SHELF:    n = shelf(out);  break;
 	case CTL_GAME:     n = game(out);        break;
 	case CTL_HOTKEYS:  n = hotkeys(out);     break;
-	case CTL_MUSE:     n = muse(out);        break;
+	case CTL_MP4:     n = mp4(out);        break;
 	case CTL_ANYWHERE: n = anywhere(out);    break;
 	default:           n = moving(out); break;
 	}

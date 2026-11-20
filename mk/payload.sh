@@ -4,7 +4,7 @@
 # on both, builds it into its card image and copies it onto the card on first
 # boot, so its build sets where the binaries are and where the payload goes:
 #
-#   DEVICE=brick ZYPEROS_ELF=... MUSE_ELF=... DIATOM_ELF=... VENDOR_DIR=... \
+#   DEVICE=brick ZYPEROS_ELF=... MP4D_ELF=... DIATOM_ELF=... VENDOR_DIR=... \
 #       BTPLAYER_ELF=... OUT=... mk/payload.sh
 #
 # BTPLAYER_ELF only for a device with Bluetooth: tools/btplayer.c, which
@@ -36,7 +36,7 @@ has_helper() { case $HELPERS in *" $1 "*) return 0 ;; esac; return 1; }
 if [ "$DEVICE" = brick ]; then OUT=${OUT:-$ROOT/out/sd}; else OUT=${OUT:-$ROOT/out/sd-$DEVICE}; fi
 P=$OUT/ZyperOS
 ZYPEROS_ELF=${ZYPEROS_ELF:-$ROOT/build/zyperos.elf}
-MUSE_ELF=${MUSE_ELF:-$ROOT/build/muse}
+MP4D_ELF=${MP4D_ELF:-$ROOT/build/mp4d}
 VENDOR_DIR=${VENDOR_DIR:-$ROOT/vendor}
 
 [ -f "$ZYPEROS_ELF" ] || { echo "run make first"; exit 1; }
@@ -54,7 +54,7 @@ mkdir -p "$P/system-icons" "$P/cores" "$P/res/web" \
          "$OUT/Menu Music"
 
 cp "$ZYPEROS_ELF" "$P/zyperos.elf"
-cp "$MUSE_ELF" "$P/muse"                  # the audio player's engine; Muse cannot play without it
+cp "$MP4D_ELF" "$P/mp4d"                  # the audio player's engine; MP4 cannot play without it
 [ -n "$BTPLAYER_ELF" ] && cp "$BTPLAYER_ELF" "$P/btplayer"   # a headset's keys and volume
 [ -n "${PORTKEYS_ELF:-}" ] && cp "$PORTKEYS_ELF" "$P/portkeys" # the volume keys during a port (Pixel 2)
 [ -n "${ZYHOME_ELF:-}" ] && cp "$ZYHOME_ELF" "$P/zyhome"     # MENU+START, back to the home (Pixel 2)
@@ -93,7 +93,7 @@ cp "$ROOT/res/fonts/zh-menu.otf" "$P/"    # 简体中文's faces and 日本語's
 cp "$ROOT/res/fonts/zh-title.otf" "$P/"   # them (tools/cjkfont.py), opened only
 cp "$ROOT/res/fonts/ja-menu.otf" "$P/"    # when Chinese or Japanese is drawn
 cp "$ROOT/res/fonts/ja-title.otf" "$P/"
-cp "$ROOT/res/singles.png" "$P/"          # Muse's cover for Singles, the loose songs
+cp "$ROOT/res/singles.png" "$P/"          # MP4's cover for Singles, the loose songs
 cp "$ROOT/res/zyper.png" "$P/"            # Zyper's photo, on About's The name page
 # The interface sounds, every voice (src/uisound.h): the launcher reads them
 # from res/sounds/<voice>/ beside res/web/, and plays nothing without them.
@@ -225,6 +225,16 @@ if [ -n "$missing" ]; then
 	echo "payload: mk/build-small-cores.sh, mk/build-ppsspp.sh, mk/build-tic80.sh," >&2
 	echo "payload: mk/build-pcsx-rearmed.sh, mk/build-mupen64plus-next.sh, mk/build-parallel-n64.sh," >&2
 	echo "payload: mk/build-yabasanshiro.sh (and mk/build-openbor.sh for the Pixel 2)" >&2
+	# The small cores have one command for all of them; tools/release.sh,
+	# tools/px2-payload.sh and plastron's card builds run it before this
+	small=
+	for core in $missing; do
+		grep -q "^$core|" "$ROOT/mk/build-small-cores.sh" && small="$small $core"
+	done
+	if [ -n "$small" ]; then
+		echo "payload:$small: in the main checkout (or with ZYPEROS_VENDOR set to the vendor/ this build reads), run" >&2
+		echo "payload:   sh mk/build-small-cores.sh --missing" >&2
+	fi
 	exit 1
 fi
 
@@ -239,7 +249,7 @@ if [ -z "$room" ] || [ "$ncores" -gt "$room" ]; then
 	exit 1
 fi
 
-chmod +x "$P/launch.sh" "$P/zyperos.elf" "$P/diatom" "$P/muse"
+chmod +x "$P/launch.sh" "$P/zyperos.elf" "$P/diatom" "$P/mp4d"
 [ -f "$P/btplayer" ] && chmod +x "$P/btplayer"
 [ -f "$P/portkeys" ] && chmod +x "$P/portkeys"
 [ -f "$P/zyhome" ] && chmod +x "$P/zyhome"
@@ -273,10 +283,13 @@ if has_helper ports; then
 	# Your PICO-8's script, which the PICO-8 shelf's first core names
 	# (config/systems.cfg), and Splore's entry art (tools/genpico8-art.py).
 	# Never PICO-8 itself: the player brings it into Bios/PICO-8 (src/pico8.h)
-	mkdir -p "$P/pico8"
+	mkdir -p "$P/pico8/bin"
 	cp "$ROOT/sd/pixel2/PICO-8.sh" "$ROOT/res/pico8/cover-light.png" \
 	   "$ROOT/res/pico8/cover-dark.png" "$ROOT/res/pico8/icon.png" "$P/pico8/"
-	chmod +x "$P/pico8/PICO-8.sh"
+	# and the wget its Splore downloads with: curl, with HTTPS, which the
+	# system's busybox wget lacks (sd/pixel2/PICO-8-wget.sh)
+	cp "$ROOT/sd/pixel2/PICO-8-wget.sh" "$P/pico8/bin/wget"
+	chmod +x "$P/pico8/PICO-8.sh" "$P/pico8/bin/wget"
 fi
 
 # One ROM folder per system. Read from systems.cfg (awk, not sed: folder names

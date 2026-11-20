@@ -297,6 +297,13 @@ bool in_repeat(in_state *st, in_button b)
 	return true;
 }
 
+int in_repeat_axis(in_state *st, in_button neg, in_button pos)
+{
+	bool n = in_repeat(st, neg), p = in_repeat(st, pos);
+
+	return p ? 1 : n ? -1 : 0;
+}
+
 /* Whether the last game ended because the player hit power rather than because
  * they quit. The launcher owns the shutdown sequence, so it has to be able to
  * tell the two apart when control comes back. */

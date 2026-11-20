@@ -85,6 +85,11 @@ bool rm_changed(const rm_table *def, const rm_table *t, int button);
  * base, the table when the cursor came onto the row, so steps never pile up. */
 void rm_set(rm_table *t, const rm_table *base, int button, rm_choice c);
 
+/* t becomes base with one change, button gives c, and no swap: a button
+ * that gives c already keeps it, so both give it (issue #305, Y in a
+ * button's list: DESIGN.md 11.45, "Two buttons on one game button") */
+void rm_share(rm_table *t, const rm_table *base, int button, rm_choice c);
+
 /* The targets def reaches, plain or turbo, that t reaches nowhere, in target
  * order, at most max. The count. */
 int rm_unreached(const rm_table *def, const rm_table *t, int *targets, int max);

@@ -780,10 +780,18 @@ static void kb_press_sound(const in_state *in, const kb_state *k, int cap)
 		uisound_play(DS_SOUND_ACCEPT);
 }
 
+static bool g_capital_next;
+
+void kb_capital_next(void)
+{
+	g_capital_next = true;
+}
+
 kb_result kb_prompt(SDL_Renderer *r, in_state *in, const char *title,
                     char *buf, int cap, kb_panel panel, kb_idle idle,
                     void *ctx)
 {
+	bool first;         /* the name's one-letter Shift, still waiting */
 	kb_state k;
 	kb_result result = KB_CANCEL;
 	bool done = false;
@@ -795,6 +803,10 @@ kb_result kb_prompt(SDL_Renderer *r, in_state *in, const char *title,
 	k.len = (int)strlen(k.buf);
 	k.cur = k.len;
 	k.row = 1;              /* open on the letters, not the digits */
+	/* A name's first letter a capital (kb_capital_next) */
+	first = g_capital_next && k.len == 0;
+	g_capital_next = false;
+	if (first) k.layer = 1;
 	if (panel) panel(ctx, KB_PANEL_OPEN, false);
 
 	for (;;) {
@@ -873,11 +885,17 @@ kb_result kb_prompt(SDL_Renderer *r, in_state *in, const char *title,
 			if (a) {
 				kb_press_sound(in, &k, cap);
 				done |= act(&k, (kb_action)k.col, cap, now);
+				if (k.col == KB_ACT_SHIFT || k.col == KB_ACT_SYMBOLS) first = false;
 			}
 		} else if (in->pressed[IN_ACCEPT]) {
 			kb_press_sound(in, &k, cap);
 			if (kb_room(&k, cap)) kb_pop_press(&k.pop[k.row][k.col], now);
-			ins(&k, LAYER[k.layer][k.row * KB_COLS + k.col], cap);
+			{
+				char c = LAYER[k.layer][k.row * KB_COLS + k.col];
+
+				ins(&k, c, cap);
+				k.layer = kb_layer_typed(k.layer, &first, c);
+			}
 		}
 		/* Repeating, so holding it clears a field instead of asking for
 		 * thirty presses. */
@@ -888,10 +906,12 @@ kb_result kb_prompt(SDL_Renderer *r, in_state *in, const char *title,
 		if (in->pressed[IN_X]) {
 			uisound_play(DS_SOUND_ACCEPT);
 			act(&k, KB_ACT_SHIFT, cap, now);
+			first = false;      /* a Shift by hand stays, as always */
 		}
 		if (in->pressed[IN_Y]) {
 			uisound_play(DS_SOUND_ACCEPT);
 			act(&k, KB_ACT_SYMBOLS, cap, now);
+			first = false;
 		}
 		if (in->pressed[IN_START]) {
 			uisound_play(DS_SOUND_ACCEPT);

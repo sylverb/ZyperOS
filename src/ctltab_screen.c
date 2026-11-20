@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 /* See ctltab_screen.h. */
 #include "ctltab_screen.h"
+#include "hotkeys_screen.h"
 
 #include "rumble.h"
 
@@ -15,8 +16,11 @@
 #include "game_menu.h"
 #include "home.h"
 #include "i18n.h"
+#include "keyhints.h"
 #include "platform.h"
 #include "remapstore.h"
+#include "shots.h"
+#include "uisound.h"
 #include "tourdevice.h"
 #include "tween.h"
 #include "ui.h"
@@ -692,6 +696,9 @@ typedef struct {
 	/* the button's choices (ct_choices), as its list shows them */
 	rm_choice          ch[32];
 	int                nch;
+	/* the cursor in the list (menu_style.sel_out), and its foot's lines */
+	int                sel;
+	char               line[2][192];
 } cs_ctx;
 
 static void cs_backdrop(app *a, void *ctx, float k)
@@ -737,6 +744,26 @@ static void back_to_tab(void)
 	g_cs.stale = true;
 }
 
+/* The list's foot, under a rule: what the choice under the cursor does in
+ * two lines, and its keys - "A Swap" and "Y Both" on a choice another button
+ * gives, "A Take" on any other (issue #305; my pick in the Controls lab,
+ * 2026-11-19) - kept still under the choices (pin_foot) */
+static int pick_foot(cs_ctx *c, menu_row *rows, int n, int max, int sel)
+{
+	const rm_choice ch = sel >= 0 && sel < c->nch ? c->ch[sel] : g_cs.m.cur.b[c->button];
+	const bool both = ct_can_share(&g_cs.m, c->button, ch);
+
+	if (n + 4 > max) return n;
+	ct_pick_lines(&g_cs.m, c->button, ch, c->line[0], sizeof c->line[0], c->line[1], sizeof c->line[1]);
+	rows[n++] = MENU_RULE;
+	rows[n++] = MENU_NOTE(c->line[0]);
+	rows[n++] = MENU_NOTE(c->line[1]);
+	rows[n++] = MENU_NOTE(both ? keyhints_legend((key_hint[]){ { "A", T(S_CONTROLS_KEY_SWAP) },
+	                                                           { "Y", T(S_CONTROLS_KEY_BOTH) } }, 2)
+	                           : keyhints_legend((key_hint[]){ { "A", T(S_CONTROLS_KEY_TAKE) } }, 1));
+	return n;
+}
+
 static int pick_build(void *ctx, menu_row *rows, int max, const char **heading)
 {
 	cs_ctx *c = ctx;
@@ -745,20 +772,31 @@ static int pick_build(void *ctx, menu_row *rows, int max, const char **heading)
 	refresh(c->g);
 	c->nch = ct_choices(&g_cs.m, c->button, c->ch, 32);
 	n = ct_pick_rows(&g_cs.m, c->button, c->ch, c->nch, rows, &c->b, &sel);
+	if (n > max) n = max;
 	*heading = c->b.head;
-	return n < max ? n : max;
+	return pick_foot(c, rows, n, max, c->sel >= 0 ? c->sel : sel);
 }
 
 /* A on a choice takes it and goes back: one swap, from the table as it was
- * when the cursor came onto the button's row */
+ * when the cursor came onto the button's row; Y on a choice another button
+ * gives takes it as well, no swap, so both give it */
 static menu_result pick_key(app *a, void *ctx, in_button key, int sel)
 {
 	cs_ctx *c = ctx;
 	rm_table t;
 
 	(void)a;
-	if (key != IN_ACCEPT || sel < 0 || sel >= c->nch) return MENU_STAY;
-	ct_pick(&g_cs.m, c->button, c->ch[sel]);
+	if ((key != IN_ACCEPT && key != IN_Y) || sel < 0 || sel >= c->nch) return MENU_STAY;
+	if (key == IN_Y) {
+		if (!ct_can_share(&g_cs.m, c->button, c->ch[sel])) {
+			uisound_play(DS_SOUND_DENY);
+			return MENU_STAY;
+		}
+		uisound_play(DS_SOUND_ACCEPT);
+		ct_share(&g_cs.m, c->button, c->ch[sel]);
+	} else {
+		ct_pick(&g_cs.m, c->button, c->ch[sel]);
+	}
 	t = g_cs.m.cur;
 	put(c->g, &t);
 	return MENU_DONE;
@@ -819,12 +857,15 @@ static void rumble_pick(app *a, const ctlscr_game *g)
 static void pick(app *a, const ctlscr_game *g, int button)
 {
 	cs_ctx c;
-	menu_row rows[32];
+	menu_row rows[40];
 	menu_style st = cs_style(g, true);
 
 	memset(&c, 0, sizeof c);
 	c.g = g;
 	c.button = button;
+	c.sel = -1;
+	st.sel_out = &c.sel;
+	st.pin_foot = true;
 	c.nch = ct_choices(&g_cs.m, button, c.ch, 32);
 	ct_pick_rows(&g_cs.m, button, c.ch, c.nch, rows, &c.b, &st.start_sel);
 	g_cs.mode = CS_PICK;
@@ -834,8 +875,10 @@ static void pick(app *a, const ctlscr_game *g, int button)
 	back_to_tab();
 }
 
-/* The Hotkeys row's pages: the read-only Controls pages, at their own
- * width and with no handheld, less the system's buttons the tab shows */
+/* The Hotkeys row: the hotkeys of this game, its system or every game
+ * (src/hotkeys_screen.h), at their own width and with no handheld; its last
+ * row, All Controls, the read-only pages the row opened before, less the
+ * system's buttons the tab shows */
 static void pages(app *a, const ctlscr_game *g)
 {
 	cs_ctx c;
@@ -843,7 +886,7 @@ static void pages(app *a, const ctlscr_game *g)
 
 	memset(&c, 0, sizeof c);
 	c.g = g;
-	game_controls_pages(a, &st, &c);
+	hotkeys_ingame(a, &st, &c, g->s, g->file, g->title, g->running);
 	g_cs.stale = true;
 }
 
@@ -967,7 +1010,7 @@ menu_result ctlscr_key(app *a, const ctlscr_game *g, in_button key, int id)
 void ctlscr_shot_pick(app *a, const ctlscr_game *g, int id)
 {
 	cs_ctx c;
-	menu_row rows[32];
+	menu_row rows[40];
 	menu_style st = cs_style(g, true);
 	int bt = ct_button_of((ct_row)id), sel, n;
 
@@ -996,6 +1039,11 @@ void ctlscr_shot_pick(app *a, const ctlscr_game *g, int id)
 	track(id);
 	c.nch = ct_choices(&g_cs.m, bt, c.ch, 32);
 	n = ct_pick_rows(&g_cs.m, bt, c.ch, c.nch, rows, &c.b, &sel);
+	c.button = bt;
+	/* --gm-pick-at K: the cursor on choice K, as a press would leave it */
+	if (shot_pick_at >= 0 && shot_pick_at < c.nch) sel = shot_pick_at;
+	n = pick_foot(&c, rows, n, 40, sel);
+	st.pin_foot = true;
 	g_cs.mode = CS_PICK;
 	g_cs.pick_button = bt;
 	/* Over the backdrop the choices' runner draws them over (the screen's

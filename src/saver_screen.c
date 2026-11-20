@@ -4,10 +4,11 @@
 #include "app.h"
 #include "ctl_channel.h"
 #include "mp4video.h"
-#include "musec.h"
+#include "mp4c.h"
 #include "panel.h"
 #include "randgame.h"
 #include "saver.h"
+#include "shelf_draw.h"
 #include "shelfbuild.h"
 #include "snaps.h"
 #include "snapview.h"
@@ -123,7 +124,7 @@ static char **saver_cover_stems(const char *folder, int *count)
 	return v;
 }
 
-/* The games it may show: those Random Game picks from every system (not Muse's
+/* The games it may show: those Random Game picks from every system (not MP4's
  * albums, not Favorites' copies, not a Ports shelf with only PortMaster's
  * offer) that have a snap on the card and on for their console with `video`
  * (snap_names_for), else a cover. One listing of each console's .media, here
@@ -141,7 +142,7 @@ static void saver_pool_build(app *a, bool video)
 		char **stems = NULL;
 		int n = 0;
 
-		if (is_muse(s) || a->view[i].owner || pm_only_offer(a, i) || !s->folder[0]) continue;
+		if (is_mp4(s) || a->view[i].owner || pm_only_offer(a, i) || !s->folder[0]) continue;
 		if (video) {
 			const snap_names *sn = snap_names_for(s->folder);
 
@@ -386,11 +387,11 @@ void saver_shot(app *a)
 
 	/* The game the shelf is on, else the first game on the first shelf */
 	i = a->sys_cursor;
-	if (i >= 0 && i < a->sys.count && !is_muse(&a->sys.systems[i]) && a->view[i].list.count > 0)
+	if (i >= 0 && i < a->sys.count && !is_mp4(&a->sys.systems[i]) && a->view[i].list.count > 0)
 		j = a->view[i].cursor;
 	else
 		for (i = 0; i < a->sys.count; i++)
-			if (!is_muse(&a->sys.systems[i]) && !a->view[i].owner && a->view[i].list.count > 0) break;
+			if (!is_mp4(&a->sys.systems[i]) && !a->view[i].owner && a->view[i].list.count > 0) break;
 	if (i < a->sys.count) {
 		const game_entry *g = &a->view[i].list.items[j < a->view[i].list.count ? j : 0];
 
@@ -433,8 +434,12 @@ bool saver_pass(app *a)
 	for (b = 0; b < IN_COUNT && !any; b++)
 		any = a->in.pressed[b] || a->in.down[b];
 	if (!battery_now(&pct, &charging)) pct = -1;
-	/* Not idle: music playing, File Transfer on, a long task at work */
-	busy = musec_playing() || g_xs.on || long_task_busy();
+	/* Not idle: music playing, File Transfer on, a long task at work, or
+	 * the Video view's snap playing on the shelf: a video somebody is
+	 * watching, which the screensaver's own would take the place of, and
+	 * whose first press it would eat (2026-11-19, on the 1.1.0 test build:
+	 * every key "just expands the collapsed bar") */
+	busy = mp4c_playing() || g_xs.on || long_task_busy() || shelf_video_playing();
 
 	if (!g_sv.on) {
 		if (!saver_due(&g_sv.st, now, g_saver_s, any, busy || saver_low_battery(pct, charging)))

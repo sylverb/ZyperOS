@@ -300,21 +300,27 @@ static void xfer_mark(canvas *cv, const status_marks *m, const ds_theme *th)
 	paint(cv, &dnh, ink);
 }
 
-/* System Update at work in its 24: an arrow down into a tray, in
- * **text-soft**, in the File Transfer mark's ring: **track**, swept
- * clockwise from the top in **accent-ink** as far as the download */
+/* System Update and the downloads at work, in the row's whole 24: an arrow
+ * down into a tray, in **text-soft**, in a ring of **text-dim** swept
+ * clockwise from the top in **accent-ink** as far as the download. The ring
+ * and the arrow take the battery outline's 3-unit stroke and fill the row,
+ * so the mark stands as tall and as heavy as the fan and the battery beside
+ * it (Tarik, 1.1.0: "Can we have the downloading topbar icon match the size
+ * of other icons?" - its 2-unit ring and small arrow read a size smaller). */
 static void update_mark(canvas *cv, const status_marks *m, const ds_theme *th)
 {
-	shape shaft = { .kind = SH_LINES, .n = 2, .p = { 12, 5, 12, 13 }, .w = 1.25f };
-	shape head  = { .kind = SH_POLY,  .n = 3, .p = { 12, 16.5f, 7.5f, 11.5f, 16.5f, 11.5f } };
-	shape tray  = { .kind = SH_LINES, .n = 4, .p = { 7, 15.5f, 7, 18.5f, 17, 18.5f, 17, 15.5f }, .w = 1.0f };
-	shape track = { .kind = SH_ARC, .a = 12, .b = 12, .c = 11, .d = (float)M_PI, .w = 1 };
+	shape shaft = { .kind = SH_LINES, .n = 2, .p = { 12, 5, 12, 12.5f }, .w = 1.5f };
+	shape head  = { .kind = SH_POLY,  .n = 3, .p = { 12, 16.5f, 7, 11, 17, 11 } };
+	shape tray  = { .kind = SH_LINES, .n = 4, .p = { 6.5f, 14.5f, 6.5f, 17.5f, 17.5f, 17.5f, 17.5f, 14.5f }, .w = 1.25f };
+	shape track = { .kind = SH_ARC, .a = 12, .b = 12, .c = 10.5f, .d = (float)M_PI, .w = 1.5f };
 	int pct = m->update_pct < 0 ? 0 : m->update_pct > 100 ? 100 : m->update_pct;
 
-	paint(cv, &track, th->track);
+	/* the ring whole in **text-dim**, so it reads as one round mark the
+	 * row's height, as the battery's outline reads as its body */
+	paint(cv, &track, th->text_dim);
 	if (pct > 0) {
-		shape sweep = { .kind = SH_SWEEP, .a = 12, .b = 12, .c = 11,
-		                .d = 2 * (float)M_PI * (float)pct / 100.0f, .w = 1 };
+		shape sweep = { .kind = SH_SWEEP, .a = 12, .b = 12, .c = 10.5f,
+		                .d = 2 * (float)M_PI * (float)pct / 100.0f, .w = 1.5f };
 
 		paint(cv, &sweep, th->accent_ink);
 	}

@@ -6,7 +6,7 @@
 #include <stdint.h>
 #include <string.h>
 
-/* MP4's pictures, on their way from the Muse daemon to the launcher.
+/* MP4's pictures, on their way from mp4d to the launcher.
  *
  * The daemon decodes a file's video next to its sound and knows when each
  * picture is due, because it is the one holding the sound's clock. The
@@ -29,12 +29,12 @@
  * pixel (MP4's pictures: mpf_stride; a snap's rows are packed, stride w).
  * Anything the decoder hands over in another layout is converted to this by
  * the daemon; anything bigger than 1920x1088 is scaled down to fit it (and
- * would not play at full speed on this CPU anyway; see src/muse/vid.c).
+ * would not play at full speed on this CPU anyway; see src/mp4d/vid.c).
  *
- * Shared by src/muse/vid.c (the writer) and src/mp4video.c (the reader), and
+ * Shared by src/mp4d/vid.c (the writer) and src/mp4video.c (the reader), and
  * by tools/mp4frame-check.c, which runs both against each other. */
 
-#define MPF_PATH      "/tmp/muse-video"
+#define MPF_PATH      "/tmp/mp4d-video"
 #define MPF_MAGIC     0x4d503446u           /* "MP4F" */
 #define MPF_VERSION   2u
 #define MPF_SLOTS     3
@@ -67,11 +67,11 @@ typedef struct {
 	uint32_t sar_num, sar_den; /* the pixels' own shape, 1:1 for most */
 	mpf_slot slot[MPF_SLOTS];
 	/* What became of the picture of the file open, for MP4 to say so rather
-	 * than show nothing or a slide show (MPF_FINE ...; src/muse/vid.c says
+	 * than show nothing or a slide show (MPF_FINE ...; src/mp4d/vid.c says
 	 * when). Written after `format` and `rate_milli`, which say what the
 	 * file is. After the slots, so a daemon older than these fields leaves
 	 * them 0 (MPF_FINE) and a launcher older than them reads past them;
-	 * snaps (src/muse/snap.c) never set them. */
+	 * snaps (src/mp4d/snap.c) never set them. */
 	uint32_t trouble;
 	uint32_t rate_milli;       /* its frames a second x 1000; 0 unknown */
 	char     format[16];       /* its codec's short name, FFmpeg's ("av1") */

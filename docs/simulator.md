@@ -16,13 +16,17 @@ battery and the charger, the side lights.
 ## Building and opening it
 
 ```sh
+brew install qemu
+tools/qemu-run.sh fetch
 simulator/scripts/build-app.sh
 open "simulator/build/ZyperOS Simulator.app"
 ```
 
-It needs plastron's QEMU image (`make qemu` there) and QEMU (`brew install
-qemu`), as `tools/qemu-run.sh` does: the window starts its VM with it, by the
-name `simulator` (`--args --name NAME` for another, `--image DIR` for an image
+It needs QEMU and a QEMU image, as `tools/qemu-run.sh` does: `fetch`
+downloads the latest release's (every release from 1.1.0 on has one),
+checked against its `SHA256SUMS`, or plastron's `make qemu` builds one
+([qemu.md](qemu.md), "Setting it up"). The window starts its VM with it, by
+the name `simulator` (`--args --name NAME` for another, `--image DIR` for an image
 somewhere else). A VM already running by that name is shown as it is, and
 stays running when the window closes; one the window started shuts down with
 it. The VM's sound plays on the Mac. It boots the fast way, its kernel on
@@ -137,8 +141,35 @@ each of QEMU's calls. `state` says which way the frames come
   leds=... backlight=... bl_power=... battery=... cable=... headphones=...`
   on every change, and `rumble STRONG WEAK MS` when the motor runs.
 
-The device is drawn from the same measurements as the website's 3D model
-(`tools/build-pixel2-model.py`, the dimensioned drawing's millimetres).
+The device is drawn from the device files (`src/device/<id>_model.c`), the
+same data desk mode draws from: `make handhelds` writes them into
+`simulator/Sources/SimCore/Handhelds.swift`, and the window draws whatever
+handheld it is given. The Pixel 2's are the measurements of the website's
+3D model (`tools/build-pixel2-model.py`, the dimensioned drawing's
+millimetres).
+
+## Another handheld
+
+`--device ID` (or `$ZYPEROS_SIM_DEVICE`) draws another handheld round the
+screen, any of `Handhelds.swift`'s (`pixel2`, `brick`):
+
+```sh
+"simulator/build/ZyperOS Simulator.app/Contents/MacOS/ZyperSimulator" --device brick
+```
+
+Its keys, their keyboard keys, the panel's lights and its keyboard list
+follow the handheld: the Brick has F1 and F2 (`[` and `]`, `brightdown` and
+`brightup` over the socket) and no side lights; a button it has not is
+refused (`simctl press` says so). [Building](building.md), "A handheld drawn
+on the computer", says how a new handheld gets there: its model file, then
+`make handhelds`.
+
+The VM is still the Pixel 2's: plastron's `qemu_defconfig` builds the Pixel
+2's system, and px2sim simulates the Pixel 2's parts. So today `--device
+brick` is the Brick's drawing round a Pixel 2's screen, for seeing the
+drawing; its picture is scaled to the Brick's glass. A VM for another
+handheld is plastron's: a QEMU image of that handheld's system, and px2sim
+taught its buttons and parts. Nothing in the window changes for it.
 
 `swift test` in `simulator/` checks the line protocol and the control
 commands.

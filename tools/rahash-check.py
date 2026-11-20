@@ -148,11 +148,11 @@ def disc_fixtures(rac):
 
 def named_and_refused(rac):
     """An arcade or Neo Geo set hashes as its name, md5("mslug") for
-    mslug.zip, whatever is in it; a Sega CD or Neo Geo CD disc, a Dreamcast
-    .cdi and a Saturn .mds are refused by both hashers without being read. A
-    PSP .cso that is not one is refused once read; a PSP .pbp is hashed
-    whole, whatever is in it (rc_hash_psp). Files made here, so this runs
-    with no library."""
+    mslug.zip, whatever is in it; a Sega CD or Neo Geo CD disc and a Saturn
+    .mds are refused by both hashers without being read. A PSP .cso or a
+    Dreamcast .cdi that is not one is refused once read; a PSP .pbp is
+    hashed whole, whatever is in it (rc_hash_psp). Files made here, so this
+    runs with no library."""
     import tempfile
     bad = 0
     tmp = tempfile.mkdtemp(prefix="rahash-")
@@ -271,15 +271,18 @@ def headers_and_orders(rac):
 
 
 def containers(rac):
-    """PlayStation and PSP discs in every container ZyperOS reads, held to
-    upstream rcheevos's hash of the plain image (tools/fixtures/rahash,
-    tools/rahash-fixtures.py). The images are built again here
-    (tools/discfix.py) and must be the bytes the fixtures were made from;
-    the .chd files are chdman's, committed; the .cso and .pbp files are made
-    here from the images. Python has no CHD reader: it must give None for a
-    .chd, and the C side the hash. Then broken containers - a CSO of
-    version 2, a CHD cut short, a CHD with a byte of its map changed, a PBP
-    whose index points past its end - which both must refuse, under
+    """PlayStation, PSP and Dreamcast discs in every container ZyperOS
+    reads, held to upstream rcheevos's hash of the plain image
+    (tools/fixtures/rahash, tools/rahash-fixtures.py), and a Dreamcast
+    .cdi to that same rcheevos through Flycast's own .cdi reader. The images
+    are built again here (tools/discfix.py) and must be the bytes the
+    fixtures were made from; the .chd files are chdman's, committed; the
+    .cso, .pbp and .cdi files are made here from the images. Python has no
+    CHD reader: it must give None for a .chd, and the C side the hash. Then
+    broken containers - a CSO of version 2, a CHD cut short, a CHD with a
+    byte of its map changed, a PBP whose index points past its end, a .cdi
+    cut short or with a track's mark changed, a Dreamcast disc with no
+    IP.BIN, no boot file or none named - which both must refuse, under
     AddressSanitizer where there is one."""
     import json
     import shutil
@@ -321,6 +324,25 @@ def containers(rac):
          H["psp"], H["psp"]),
         ("PSP", os.path.join(tmp, "psn.pbp"), H["psn"], H["psn"]),
     ]
+    # The Dreamcast: a GD-ROM by its .gdi and its Redump-style .cue (track
+    # 3 at 45000, which the .cue says only in its sectors' own headers), the
+    # same with its boot file on track 5, past the end of track 3; and a
+    # MIL-CD as each .cdi form. Each hash is also made here from its parts,
+    # IP.BIN's 256 bytes and the boot file (rc_hash_dreamcast), so neither
+    # hasher nor reference is the only word on it.
+    for sub, split, key in (("dc", False, "dc"), ("dcsplit", True, "dcsplit")):
+        parts = hashlib.md5(dfx.gdrom(split=split, small=True)[1]).hexdigest()
+        if parts != H[key]:
+            bad += 1
+            print(f"    {sub}: rcheevos's hash {H[key]}, its parts' md5 {parts}")
+        cases.append(("DC", os.path.join(tmp, sub, "disc.gdi"), H[key], H[key]))
+        cases.append(("DC", os.path.join(tmp, sub, "disc.cue"), H[key], H[key]))
+    if hashlib.md5(dfx.milcd()[1]).hexdigest() != H["dccdi"]:
+        bad += 1
+        print(f"    dc.cdi: the reference's hash {H['dccdi']} is not its parts' md5")
+    for ss, v in fx.CDIS:
+        cases.append(("DC", put(fx.cdi_name(ss, v), dfx.milcd(ss=ss, version=v)[0]),
+                      H["dccdi"], H["dccdi"]))
     for name, info in sorted(man["chd"].items()):
         p = os.path.join(tmp, name)
         shutil.copy(os.path.join(fixdir, name), p)
@@ -338,6 +360,61 @@ def containers(rac):
     # Block 1: sectors 16 to 31, the volume descriptor's (block 0 is never read)
     pbp[psar + 0x4020:psar + 0x4024] = (0x7ffffff0).to_bytes(4, "little")
     ps1chd = open(os.path.join(fixdir, "ps1-cd.chd"), "rb").read()
+    cdi = dfx.milcd()[0]
+    badmark = bytearray(cdi)
+    descat = len(cdi) - int.from_bytes(cdi[-4:], "little")
+    badmark[descat + 2 + 2 + 4 + 3] ^= 0xff        # session 1, track 1's mark
+    dcbad = os.path.join(tmp, "dcbad")
+    os.makedirs(dcbad, exist_ok=True)
+
+    def dc_variant(name, ip_change=None, drop=None):
+        """The GD-ROM again, IP.BIN changed or a track file left out"""
+        files, _ = dfx.gdrom(small=True)
+        for n, b in files.items():
+            if n == drop:
+                continue
+            if ip_change and n == "track03.bin":
+                raw = bytearray(b)
+                ip = bytearray(raw[16:16 + 2048])
+                ip_change(ip)
+                raw[0:2352] = dfx.mode1(dfx.GD_HD, bytes(ip))
+                b = bytes(raw)
+            with open(os.path.join(dcbad, f"{name}-{n}"), "wb") as f:
+                f.write(b)
+        gdi = files["disc.gdi"].decode().replace("track0", f"{name}-track0")
+        return put(os.path.join("dcbad", f"{name}.gdi"), gdi)
+
+    def no_katana(ip):
+        ip[0:16] = b"SEGA SEGASATURN "
+
+    def no_boot(ip):
+        ip[96:112] = b" " * 16
+
+    def missing_boot(ip):
+        ip[96:112] = b"2ND_READ.BIN    "
+    # A Redump .cue whose last track holds only its boot file of 11
+    # sectors: rcheevos's own reader looks for a sector header at the
+    # track's sector 16, finds none, and falls back to the sheet's place for
+    # the track, which is not the disc's, so it reads no file and gives no
+    # hash (checked against upstream, 2026-11-19). Both hashers give none.
+    short = os.path.join(tmp, "dcshort")
+    os.makedirs(short, exist_ok=True)
+    for n, b in dfx.gdrom(split=True, small=True, exe=0x5432)[0].items():
+        with open(os.path.join(short, n), "wb") as f:
+            f.write(b)
+    cases += [
+        ("DC", put("dc-cut.cdi", cdi[:-3]), None, None),
+        ("DC", put("dc-cutdesc.cdi", cdi[:descat + 40] + cdi[-8:]), None, None),
+        ("DC", put("dc-badmark.cdi", bytes(badmark)), None, None),
+        ("DC", put("dc-notacdi.cdi", b"not a disc" * 30), None, None),
+        ("DC", dc_variant("saturn", no_katana), None, None),
+        ("DC", dc_variant("noboot", no_boot), None, None),
+        ("DC", dc_variant("noexe", missing_boot), None, None),
+        ("DC", dc_variant("notrack3", drop="track03.bin"), None, None),
+        ("DC", os.path.join(short, "disc.cue"), None, None),
+        ("DC", put("dc-cut.chd", open(os.path.join(fixdir, "dc-gd.chd"), "rb").read()[:60000]), None, None),
+        ("DC", put("dc-ps1.chd", ps1chd), None, None),
+    ]
     cases += [
         ("PSP", put("v2.cso", bytes(v2)), None, None),
         ("PSP", put("cut.chd", chd[:len(chd) // 2]), None, None),
@@ -359,7 +436,7 @@ def containers(rac):
                   f"{out.stdout.strip()} {out.stderr[-500:]}")
         else:
             print(f"  ok  job  {os.path.basename(path):<16} {want}, on its own thread")
-    for tag in ("PS1", "PSP"):
+    for tag in ("PS1", "PSP", "DC"):
         mine = [c for c in cases if c[0] == tag]
         out = subprocess.run([binary, tag] + [c[1] for c in mine], capture_output=True, text=True)
         if "AddressSanitizer" in out.stderr or out.returncode not in (0, 1):
@@ -384,7 +461,7 @@ def containers(rac):
 # one has no hash, so its Achievements rows say "not for this system" rather
 # than "not checked yet" (src/rahash.h, ra_hash_support). A systems.cfg line
 # that changes the list has to change it here, on purpose.
-NO_SYSTEM = {"SEGACD", "3DO", "SATURN", "NEOCD", "DC"}
+NO_SYSTEM = {"SEGACD", "3DO", "SATURN", "NEOCD"}
 
 
 def support(rac):
@@ -441,6 +518,11 @@ def support(rac):
              ("PCE", "pce,sgx,cue,ccd,chd,toc,m3u,zip", "Bonk.pce", "ok"),
              ("NES", "nes,fds,unf,unif,zip", "Contra.nes", "ok"),
              ("NEOGEO", "zip,7z", "mslug.zip", "ok"),
+             ("DC", "chd,cdi,gdi,cue", "Crazy Taxi 2.chd", "ok"),
+             ("DC", "chd,cdi,gdi,cue", "Sonic Adventure 2.cdi", "ok"),
+             ("DC", "chd,cdi,gdi,cue", "Ikaruga.gdi", "ok"),
+             ("DC", "chd,cdi,gdi,cue", "Ikaruga.cue", "ok"),
+             ("DC", "chd,cdi,gdi,cue", "Shenmue.mds", "file"),
              ("SEGACD", "", "Sonic CD.chd", "file"))
     for tag, exts, name, want in cases:
         out = subprocess.run([BIN, "--support", tag, exts, name],
@@ -500,7 +582,7 @@ def main():
         for p in files:
             want = rac.ra_md5(tag, p)
             have = got.get(p)
-            if want is None and p.lower().endswith(".chd") and tag in ("PS1", "PSP"):
+            if want is None and p.lower().endswith(".chd") and tag in ("PS1", "PSP", "DC"):
                 # Python has no CHD reader; containers() holds the C one to
                 # rcheevos instead
                 continue

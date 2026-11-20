@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "about_screen.h"
+#include "hkstore.h"
 #include "ds/mark.h"   /* ds_bar_in */
 
 #include "about.h"
@@ -263,12 +264,12 @@ void about_screen(app *a)
 		 * A row that comes (Developer Mode) is measured too. */
 		if (refresh || v.nsystem != rows_was) v.width = about_width(a, &v);
 		plat_input_poll(&a->in);
-		muse_poll();
+		mp4_poll();
 		aout_apply(false);
 		if (a->in.quit_requested) { a->running = false; return; }
 		if (a->in.pressed[IN_POWER] || idle_due(a)) { power_off(a); return; }
 		if (menu_leaving(a)) done = true;
-		if (a->in.pressed[IN_SELECT]) muse_open(a, NULL, NULL);
+		if (a->in.pressed[IN_SELECT]) mp4_open(a, NULL, NULL);
 #ifdef ZYPEROS_KIT_BUILD
 		/* A test kit's own page (src/kit.h), where the device has one */
 		if (a->in.pressed[IN_Y] && kit_page) {
@@ -356,6 +357,13 @@ void controls_screen(app *a)
 	float k;
 
 	ctl_set_chords(&plat_profile()->chords);
+	{
+		/* Every Game's hotkeys, as MENU > System > Hotkeys sets them */
+		hk_table hk;
+
+		hks_get(HKS_EVERY, NULL, NULL, &hk);
+		ctl_set_hotkeys(&hk);
+	}
 
 	while (!done && !want_quit && a->running) {
 		menu_row rows[CTL_MAX_ROWS];
@@ -374,9 +382,9 @@ void controls_screen(app *a)
 		if (a->in.quit_requested) { a->running = false; return; }
 		if (a->in.pressed[IN_POWER] || idle_due(a)) { power_off(a); return; }
 		if (menu_leaving(a)) done = true;
-		/* SELECT opens Muse here as it does on every other menu screen -
+		/* SELECT opens MP4 here as it does on every other menu screen -
 		 * which is one of the things this page exists to tell you. */
-		if (a->in.pressed[IN_SELECT]) muse_open(a, NULL, NULL);
+		if (a->in.pressed[IN_SELECT]) mp4_open(a, NULL, NULL);
 
 		if (in_repeat(&a->in, IN_RIGHT)) {
 			step_sound(a, IN_RIGHT, page, (page + 1) % CTL_PAGES);

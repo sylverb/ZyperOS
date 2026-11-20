@@ -4,7 +4,7 @@
 
 /* File Transfer (DESIGN.md 11.35, src/hare.h): its way in (Wi-Fi, the cable,
  * the hotspot) and its steps, the loading bar, the session kept open or
- * behind the shelf, the moving page, its calls into Muse and the logs, and
+ * behind the shelf, the moving page, its calls into MP4 and the logs, and
  * System Update over the cable. The screens are src/xfer_screen.c. */
 #include "app.h"
 #include "panel.h"

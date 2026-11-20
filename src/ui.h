@@ -97,6 +97,11 @@ typedef enum {
  * says why. In the language that is on: Lexend, or in 简体中文 the cut of
  * Noto Sans SC (DESIGN.md 4). */
 TTF_Font *ui_font(ui_font_role role);
+/* Lexend at a size no role is, SemiBold or Regular: the button glyphs'
+ * letters, MP4's Classic clock (DS_TYPE_CLOCK). Opened the first time and
+ * kept until ui_quit, as the button letters' faces are; NULL if it would
+ * not open. */
+TTF_Font *ui_face_at(int pt, bool semibold);
 /* The faces ui_font answers with from now: `l`'s (src/i18n.h). Called with
  * i18n_set. The Chinese set opens the first time and is kept. */
 void ui_fonts_for(lang l);
@@ -255,6 +260,11 @@ void ui_fit_tight(const char *s, int w, int room, int row_w);
  * keys and the marks"), as the keys of a foot met a caption over them on
  * Cover and Video (1.0.6). Nothing on the device. */
 void ui_fit_mark(const SDL_Rect *q);
+/* Drawing a picture of a screen into a texture (MP4's Player Look list):
+ * on, nothing drawn is held against the screen it will be shown on or said
+ * to the host's check, and a clear does not start a new frame for it; off
+ * again after. That screen's own shots hold its words. */
+void ui_fit_away(bool on);
 #ifdef I18N_PSEUDO
 /* A cleared screen is a new frame for it too */
 #define SDL_RenderClear(r) (ui_fit_frame(), SDL_RenderClear(r))
@@ -340,7 +350,7 @@ int ui_scrollthrough(int cycle, unsigned phase);
  * the whole blurred rect, not a ring, and only what shows past `q` reads. */
 enum {
 	UI_LIFT_FOCUS,         /* a card on the shelf */
-	UI_LIFT_FOCUS_SMALL,   /* a thumbnail, Muse's cover */
+	UI_LIFT_FOCUS_SMALL,   /* a thumbnail, MP4's cover */
 	UI_LIFT_PANEL,         /* a menu panel, the keyboard */
 	UI_LIFT_WASH,          /* the system's light along the bottom of the shelf */
 	UI_LIFT_KINDS
@@ -369,7 +379,7 @@ void ui_lift_in(SDL_Renderer *r, const SDL_Rect *q, unsigned sys_rgb,
  * through this, so there is one copy of that rule, src/sysmark.c's.
  *
  * Two colors are not a system's own and are said by role instead:
- *   lime, the **accent**, which Muse and Favorites wear because they are
+ *   lime, the **accent**, which MP4 and Favorites wear because they are
  *   ZyperOS's, is **accent-ink**, lime's own mark (the fill's lime is 1.3:1
  *   on Beard's ground);
  *   CFG_NO_COLOR (src/config.h), a system whose line names no color, is

@@ -212,7 +212,7 @@ shots('home-dark', [(PS1, ['--home', 'spotlight', '--phase', '3200', '--theme', 
 shots('shelf-dark', [(PS1, ['--screen', 'games', '--theme', 'dark'], 100)])
 # v3: the power-off animation, and a video snap: the bar under the resting
 # cover fills (DESIGN.md 11.19), then the cover turns into the snap. The host
-# has no Muse to decode it, so rec/snapsub.c gives --snap's turn a frame of
+# has no MP4 to decode it, so rec/snapsub.c gives --snap's turn a frame of
 # Spyro's snap (its libretro screenshot) in place of the test picture. It
 # rests 600 ms first, so the video can start the wait where its beat needs.
 shots('poweroff', [(PS1, ['--screen', 'games', '--poweroff', '--shot-at', '{t}'], motion(0, 1600))])
