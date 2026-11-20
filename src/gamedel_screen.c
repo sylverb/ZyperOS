@@ -3,6 +3,7 @@
 
 #include "app.h"
 #include "artsrc.h"
+#include "collect.h"
 #include "gamedel.h"
 #include "panel.h"
 #include "pico8.h"
@@ -196,6 +197,9 @@ bool game_delete_now(app *a, int owner, const game_entry *g, bool wait,
 		return false;
 	}
 	fprintf(stderr, "delete: %d library rows\n", gd_forget(folder, tag, file));
+	/* and its lines in the collections (src/collect.h): a list naming a
+	 * game that is gone would be a line nothing can play */
+	fprintf(stderr, "delete: %d collection%s\n", coll_forget(folder, file), "s followed");
 	/* and where its cover and Before's came from (src/artsrc.h) */
 	artsrc_forget(folder, name);
 	shelf_drop_game(a, tag, file);

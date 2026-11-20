@@ -89,6 +89,14 @@ bool texload_want_art(int sys, int idx, const char *first, const char *second,
  *
  * False, as texload_want's, means no worker: the caller reads the file and
  * makes the card itself. */
+/* Recents' Last Screen card for slot (sys, idx): the picture at `frame` with
+ * the cover at `cover` small in its corner, or with no cover the generated
+ * card `card` describes, made on a worker (src/screencard.h); it comes back
+ * as art of no theme, NULL when the picture cannot be read. False with no
+ * workers. */
+bool texload_want_screen(int sys, int idx, const char *frame, const char *cover,
+                         const ui_card_order *card);
+
 bool texload_want_or_draw(int sys, int idx, const char *first,
                           const char *second, const ui_card_order *card);
 

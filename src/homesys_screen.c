@@ -8,6 +8,7 @@
  * they stood on went. */
 #include "homesys_screen.h"
 
+#include "collect.h"
 #include "db.h"
 #include "homesys.h"
 #include "menu_panel.h"
@@ -30,7 +31,7 @@ typedef struct {
 static int hs_build(void *ctx, menu_row *rows, int max, const char **heading)
 {
 	homesys_page *pg = ctx;
-	homesys_ui u = { pg->names, pg->tags, pg->n };
+	homesys_ui u = { pg->names, pg->tags, pg->n, coll_count() > 0 };
 	const char *ids[HS_ROWS];
 	int n, i;
 
@@ -44,7 +45,7 @@ static int hs_build(void *ctx, menu_row *rows, int max, const char **heading)
 static menu_result hs_key(app *a, void *ctx, in_button key, int sel)
 {
 	homesys_page *pg = ctx;
-	homesys_ui u = { pg->names, pg->tags, pg->n };
+	homesys_ui u = { pg->names, pg->tags, pg->n, coll_count() > 0 };
 	menu_row rows[HS_ROWS];
 	const char *ids[HS_ROWS];
 	int n = sys_menu_homesys_rows(&u, rows, ids);
@@ -94,10 +95,13 @@ void homesys_load(void)
 const char *homesys_value(char *out, size_t n)
 {
 	const shelf_have *have;
-	int total = shelf_have_list(&have) + 2, on = 2, i;
+	/* Collections is one of them once the card has a collection */
+	int groups = HS_GROUPS - (coll_count() > 0 ? 0 : 1);
+	int total = shelf_have_list(&have) + groups, on = groups, i;
 
-	on -= !homesys_shown(HOMESYS_FAV) + !homesys_shown(HOMESYS_RECENT);
-	for (i = 0; i < total - 2; i++) on += homesys_shown(have[i].tag);
+	on -= !homesys_shown(HOMESYS_FAV) + !homesys_shown(HOMESYS_RECENT) +
+	      (coll_count() > 0 && !homesys_shown(HOMESYS_COLL));
+	for (i = 0; i < total - groups; i++) on += homesys_shown(have[i].tag);
 	if (on >= total) return T(S_SYSMENU_HOME_SYSTEMS_ALL);
 	snprintf(out, n, T(S_SYSMENU_HOME_SYSTEMS_SOME), on, total);
 	return out;

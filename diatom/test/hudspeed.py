@@ -38,13 +38,20 @@ what a run says of itself, true however slow the machine is:
   - the overlay and the now file, over the same stretch (the windows that
     ended between two writings of it), say the same speed within the
     sampling's slack, since both are made of the same counters
+  - at a fast forward step, the step's own report (diatom: speed ..., "lost")
+    accounts for what the clock says it reached: the step less the time the
+    schedule gave up, to within a turn. A machine that loses time, as a busy
+    runner does, reads under the step with no turn short of it, so how near
+    the step a run reads is judged only where little was lost (kept_up), and
+    the loss is checked on a game made to lose time (stall): stopped for
+    about 90 ms about every 150 ms
 
 Needs build/desktop (diatom and stubcore.so) and SKIPS without it, as
 check-fastforward does. SDL's dummy drivers: no window, no sound.
 
     python3 test/hudspeed.py
 """
-import os, re, shutil, socket, subprocess, sys, tempfile, time
+import os, random, re, shutil, signal, socket, subprocess, sys, tempfile, threading, time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BIN = f"{ROOT}/build/desktop/diatom"
@@ -79,13 +86,32 @@ class Run:
         self.now_speed = None                       # the now file's, the same stretch
         self.clock = self.short = self.turns = None   # the step's own report: of the clock,
                                                       # turns short, and over the turns' time
+        self.held = self.lost = None                  # ... seconds held, and seconds the
+                                                      # schedule gave up (step_report)
 
     def __repr__(self):
         return (f"fps {self.fps}, speed {self.speed}, now {self.now_speed}, "
                 f"{self.windows} windows, {self.pics:.1f} pictures, {self.frames:.1f} frames, "
-                f"step report {self.clock}x of the clock, {self.turns}x of the turns, {self.short} turns short")
+                f"step report {self.clock}x of the clock, {self.turns}x of the turns, {self.short} turns short, "
+                f"{self.lost}s lost of {self.held}s held")
 
-def run(tag, stub_env, presses=0, seconds=5.0):
+def stall(pid, period, gap, stop):
+    """Takes the game's CPU away in bursts, as a runner busy with other work
+    does: stopped for about `gap` seconds about every `period` seconds, at
+    random (a fixed sequence), until `stop` is set. The process is this
+    test's own child."""
+    rnd = random.Random(7)
+    try:
+        while not stop.wait(rnd.uniform(0.5, 1.5) * period):
+            os.kill(pid, signal.SIGSTOP)
+            time.sleep(rnd.uniform(0.5, 1.5) * gap)
+            os.kill(pid, signal.SIGCONT)
+    except ProcessLookupError:      # the game is gone
+        pass
+    try: os.kill(pid, signal.SIGCONT)   # never leave it stopped
+    except ProcessLookupError: pass
+
+def run(tag, stub_env, presses=0, seconds=5.0, stalled=None):
     """One game with On-Screen Stats on: `presses` times SELECT+R2 from poll 30,
     then a second of the step to settle, the now file read, `seconds` more at
     the step, the now file read again, STOP. The overlay's windows that ended
@@ -139,8 +165,14 @@ def run(tag, stub_env, presses=0, seconds=5.0):
         pump(time.time() + 0.2)
     pump(time.time() + 1.0)
     a = kv(now)
+    stop, taker = threading.Event(), None
+    if stalled:     # (period, gap) in seconds, from the settled step to the second reading
+        taker = threading.Thread(target=stall, args=(p.pid, stalled[0], stalled[1], stop), daemon=True)
+        taker.start()
     pump(time.time() + seconds)
     b = kv(now)
+    stop.set()
+    if taker: taker.join(5)
     s.sendall(b"STOP\n")
     pump(time.time() + 1.5)
     s.sendall(b"QUIT\n")
@@ -170,10 +202,13 @@ def run(tag, stub_env, presses=0, seconds=5.0):
     if r.windows < 2 or r.secs <= 0: return None
     r.fps = r.pics / r.secs
     r.speed = r.frames / r.secs / CORE_FPS
-    rep = re.findall(r"diatom: speed ([\d.]+)x held [\d.]+s, reached ([\d.]+)x "
+    rep = re.findall(r"diatom: speed ([\d.]+)x held ([\d.]+)s, reached ([\d.]+)x "
                      r"\(([\d.]+)x of the clock\), \d+ audio frame\(s\) dropped, "
-                     r"slept [\d.]+s \([\d.]+s after (\d+) of \d+ turns short", text)
-    if rep: r.turns, r.clock, r.short = float(rep[-1][1]), float(rep[-1][2]), int(rep[-1][3])
+                     r"slept [\d.]+s \([\d.]+s after (\d+) of \d+ turns short of the step\), "
+                     r"lost ([\d.]+)s", text)
+    if rep:
+        r.held, r.turns, r.clock = float(rep[-1][1]), float(rep[-1][2]), float(rep[-1][3])
+        r.short, r.lost = int(rep[-1][4]), float(rep[-1][5])
     return r
 
 def say(name, r):
@@ -203,15 +238,26 @@ def upto(r, speed, fps):
 
 def kept_up(r):
     """A run that held its step as a machine that keeps up does: no turn short
-    of the step's frames, and no time lost between turns, which the step's
-    report says in two figures: "reached" over the turns' time and "of the
-    clock" over the time held (diatom: speed ...). A runner that kept the loop
-    waiting after a sleep, or took the CPU for a moment, loses time there and
-    reads under the step with no turn short of it: GitHub's macOS runner at
-    2.0x, 1.5x of the clock with none short (2026-11-19). That is the machine's,
-    and the check says it could not tell."""
-    return (r is not None and r.short == 0 and r.clock is not None and r.turns is not None
-            and r.clock >= r.turns * 0.95)
+    of the step's frames, and little time lost, which the step's report says
+    (diatom: speed ..., "lost"): the time the schedule gave up, being more
+    than one turn behind. A runner whose sleep woke late, or that took the CPU
+    for a moment, loses it there and reads under the step with no turn short
+    of it, and the same from the clock as from the turns: GitHub's macOS
+    runner at 2.0x, 1.5x of both with none short (2026-11-19, twice, the
+    second with the loss inside the turns, where no figure but this one sees
+    it). That is the machine's, and the check says it could not tell."""
+    return (r is not None and r.short == 0 and r.lost is not None and r.held is not None
+            and r.lost <= 0.03 * r.held)
+
+def accounted(r, want):
+    """What the step's own report says it reached, of the clock, is the step
+    less the time it says it lost: the schedule is the wall clock's, advanced
+    a turn's frames at a time, so what is not lost is run, to within the one
+    turn of debt it keeps and the report's rounding. True of any run, a
+    machine that stalls or not, and not of a loop that drops time and does not
+    say"""
+    return (r is not None and r.clock is not None and r.held and r.lost is not None
+            and abs(r.clock - want * (r.held - r.lost) / r.held) <= 0.06 * want)
 
 def reaches(r, want):
     """What a run that kept up shows: near the step, and what the step's own
@@ -220,19 +266,24 @@ def reaches(r, want):
 
 # That judgment, on runs made up from what the runner's log said, and from
 # what a machine that keeps up writes: the runner's 2.0x, with no turn short
-# and 1.5x of the clock against 2.1x of the turns, is not judged
-def made(speed, clock, turns, short):
+# and 1.5x of both the clock and the turns, is not judged
+def made(speed, clock, turns, short, held=6.4, lost=0.0):
     r = Run()
-    r.speed, r.clock, r.turns, r.short = speed, clock, turns, short
+    r.speed, r.clock, r.turns, r.short, r.held, r.lost = speed, clock, turns, short, held, lost
     return r
-check("a run with no turn short and time lost between turns is not judged (the runner's 2.0x)",
-      not kept_up(made(1.52, 1.5, 2.1, 0)), "judged")
+check("a run with no turn short and time lost inside the turns is not judged (the runner's 2.0x, twice)",
+      not kept_up(made(1.5, 1.5, 1.5, 0, lost=1.6)) and not kept_up(made(1.52, 1.5, 2.1, 0, lost=1.5)), "judged")
 check("a run with a turn short is not judged", not kept_up(made(1.9, 1.9, 1.9, 1)), "judged")
 check("a run that kept up is judged, and 2.0x reaches 2.0x",
       kept_up(made(1.99, 1.98, 1.99, 0)) and reaches(made(1.99, 1.98, 1.99, 0), 2.0), "not judged or not reached")
 check("a run that kept up and reached 1.5x of 2.0x is not near it",
       kept_up(made(1.5, 1.5, 1.5, 0)) and not reaches(made(1.5, 1.5, 1.5, 0), 2.0), "reached")
-check("a run with no report is not judged", not kept_up(made(2.0, None, None, None)) and not kept_up(None), "judged")
+check("a run with no report is not judged",
+      not kept_up(made(2.0, None, None, None, None, None)) and not kept_up(None), "judged")
+check("a run's own report accounts for what it reached: the step less what it lost",
+      accounted(made(1.5, 1.5, 1.5, 0, lost=1.6), 2.0) and accounted(made(1.99, 1.98, 1.99, 0), 2.0) and
+      not accounted(made(1.5, 1.5, 1.5, 0), 2.0) and not accounted(made(1.99, 1.98, 1.99, 0, lost=1.6), 2.0),
+      "not accounted")
 
 # The control: a core that draws every frame it runs
 r = run("plain", {})
@@ -290,7 +341,27 @@ for presses, want in ((2, 2.0), (3, 3.0)):
             check(f"and in a run that kept up, near {want}x and what its report says", reaches(r, want), r)
         elif r:
             print(f"  --   not judged against {want}x: this machine could not keep the step "
-                  f"({r.short} turns short; {r.clock}x of the clock against {r.turns}x of the turns)")
+                  f"({r.short} turns short; {r.lost}s lost of {r.held}s; "
+                  f"{r.clock}x of the clock against {r.turns}x of the turns)")
+        if r and r.lost is not None:
+            check(f"fast forward at {want}x, {tag}: the step's own report accounts for what it reached, "
+                  f"the step less what it lost", accounted(r, want), r)
+
+# A machine that loses time, made to: the game stopped for about 90 ms about
+# every 150 ms from the settled step on, as a runner busy with other work
+# takes it. It reads under the step, and the step's report says why (what it
+# lost, not a turn short of the step, which is where a stop in the last frame
+# or in the sleep leaves none: GitHub's macOS runner, 2.0x read 1.5x with none
+# short, 2026-11-19); the check does not judge it against the step, and the
+# overlay and the now file say the speed it ran at
+r = run("stalled", {"STUBCORE_FRAME_US": "1000"}, 2, stalled=(0.15, 0.09))
+say("2.0x, stopped for 90 ms every 150 ms", r)
+check("a game that loses time says so: a tenth of a second lost at least", r is not None and r.lost is not None and r.lost >= 0.1, r)
+check("and is not judged against the step", not kept_up(r), r)
+check("and its own report accounts for what it reached, the step less what it lost", accounted(r, 2.0), r)
+check("and the overlay says the speed it ran at, the report's", r is not None and r.clock is not None
+      and abs(r.speed - r.clock) <= 0.25, r)
+check("and the now file says the same speed", same_now(r), r)
 
 shutil.rmtree(TMP, ignore_errors=True)
 if fails:

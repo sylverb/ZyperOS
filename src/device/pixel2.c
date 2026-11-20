@@ -579,6 +579,9 @@ void plat_video_quit(void)
 }
 
 /* Diatom is about to present: it cannot while this process holds master. */
+/* Diatom draws on the panel itself: the launcher waits as long as it likes */
+unsigned device_game_wait(unsigned ms) { return ms; }
+
 void device_display_release(void)
 {
 	if (drm_fd >= 0) ioctl(drm_fd, PX_DRM_IOCTL_DROP_MASTER, 0);
