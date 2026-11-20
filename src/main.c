@@ -6079,14 +6079,40 @@ static int port_menu_main(int argc, char **argv)
 	unlink(plat_flag(PORT_RESTART_FILE));
 	fprintf(stderr, "port menu: %s, ready in %u ms\n", s->name, plat_now_ms() - t_boot0);
 
+	/* Your PICO-8's cart, as its shelf names it, for its Controls list and
+	 * its hotkeys (This Game's keys): the game's path in the shelf's folder;
+	 * Splore's entry for Splore and for PICO-8's own start */
+	{
+		static char file[LIB_PATH], title[LIB_PATH];
+		char dir[CFG_STR * 2];
+		const char *base = strrchr(game, '/');
+		size_t dn;
+
+		snprintf(dir, sizeof dir, "%s/%s/", P_ROMS, s->folder);
+		dn = strlen(dir);
+		snprintf(file, sizeof file, "%s", !strncmp(game, dir, dn) ? game + dn : base ? base + 1 : game);
+		if (!file[0]) snprintf(file, sizeof file, "%s", SPLORE_FILE);
+		snprintf(title, sizeof title, "%s", splore_file(file) ? SPLORE_NAME : base ? base + 1 : file);
+		if (!splore_file(file) && (base = strrchr(title, '.'))) title[base - title] = '\0';
+		g_port_file = file;
+		g_port_title = title;
+	}
+
 	/* Next Display over your PICO-8 (portkeys's hotkey): its question
-	 * alone, no menu */
+	 * alone, no menu; and Reset Game's, the same way */
 	if (argc > 4 && !strcmp(argv[4], PORT_MENU_DISPLAY_ARG) && port_menu_display(s->tag))
 		how = port_display_next(&a);
+	else if (argc > 4 && !strcmp(argv[4], PORT_MENU_RESET_ARG) && port_resets(s->tag))
+		how = port_reset_ask(&a);
 	else
 		how = port_menu(&a);
 	fprintf(stderr, "port menu: %s\n", how == PORT_MENU_QUIT ? "Quit" :
-	        how == PORT_MENU_POWER ? "POWER" : how == PORT_MENU_RESTART ? "start again" : "Continue");
+	        how == PORT_MENU_POWER ? "POWER" : how == PORT_MENU_RESTART ? "start again" :
+	        how == PORT_MENU_RESET ? "Reset" : "Continue");
+	/* Over your PICO-8, what portkeys reads again as the menu ends: the
+	 * hotkeys in force, which its Controls may have changed; the shot's
+	 * folder stays the one the hand-over named (src/portmenu.h) */
+	if (port_hotkeys(s->tag)) p8_keys_save(s, g_port_file, NULL);
 	/* MP4 opened from it: its queue back to the follower, as it is now */
 	if (g_port_mp4_up) {
 		book_keep(true);

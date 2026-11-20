@@ -5,6 +5,9 @@
 #include "dmodepreview.h"
 #include "menu_pick.h"
 #include "p8draw.h"
+#include "p8pad.h"
+#include "ctltab_screen.h"
+#include "launch_screen.h"
 
 #include "achtab_screen.h"
 #include "cheats_screen.h"
@@ -599,6 +602,9 @@ void gm_gather(app *a, gm_ui *out)
 	/* Over your PICO-8, whose picture follows the Display row */
 	u.port_display = g_port_menu && a->sys_cursor >= 0 && a->sys_cursor < a->sys.count &&
 	                 port_menu_display(a->sys.systems[a->sys_cursor].tag);
+	/* ...and restarts a cart on CTRL-R, once it has drawn (src/portmenu.h) */
+	u.port_reset = g_port_menu && !g_port_waiting && a->sys_cursor >= 0 && a->sys_cursor < a->sys.count &&
+	               port_resets(a->sys.systems[a->sys_cursor].tag);
 	/* The game's own system, on Favorites too (shelf_owner); none where its
 	 * core keeps no states, and none over a program of its own (a "run:"
 	 * one, src/portmenu.h), which has no states and no Pak */
@@ -1217,6 +1223,7 @@ bool ctl_head_fits(void *ctx, const char *head)
 
 /* The port's system and game, for its Controls page (port_menu_main) */
 ctl_game g_port_ctl;
+const char *g_port_file = "", *g_port_title = "";
 ctl_game game_controls_of(app *a)
 {
 	if (g_port_menu) return g_port_ctl;
@@ -2019,6 +2026,73 @@ int port_display_next(app *a)
 	return port_restart_write(a, k) ? PORT_MENU_RESTART : PORT_MENU_CONTINUE;
 }
 
+/* ---------- over your PICO-8: Reset, and its buttons ---------------------
+ *
+ * Reset Game's question, as over a game (game_reset_ask): "Reset the
+ * game?", what is lost, Reset and Cancel, the cursor on Cancel; over
+ * `over`'s backdrop with its power rule. True for Reset. portkeys does it,
+ * once PICO-8 has its display and keys back: CTRL-R, PICO-8's own "Reload /
+ * Run / Restart cartridge" (src/portmenu.h, PORT_MENU_RESET). */
+static bool reset_question(app *a, const menu_style *over, void *ctx)
+{
+	return ask_panel(a, over, ctx, T(S_HOTKEYS_RESET_ASK), T(S_HOTKEYS_RESET_LOST), T(S_GAMEMENU_RESET)) &&
+	       !plat_run_power_pressed();
+}
+
+int port_reset_ask(app *a)
+{
+	gm_ctx c = { 0 };
+	bool yes;
+
+	c.a = a;
+	c.bg = plat_load_screen(PORT_MENU_STILL);
+	c.st.follow_tint = true;
+	c.st.backdrop = gm_backdrop;
+	c.st.on_power = gm_power;
+	uisound_play(DS_SOUND_ACCEPT);
+	yes = reset_question(a, &c.st, &c);
+	if (c.bg) SDL_DestroyTexture(c.bg);
+	if (plat_run_power_pressed()) return PORT_MENU_POWER;
+	return yes && !want_quit ? PORT_MENU_RESET : PORT_MENU_CONTINUE;
+}
+
+/* Controls over your PICO-8: the Controls tab's list, Applies To, the
+ * buttons, Reset Buttons and Hotkeys, as a page over the frame
+ * (ctlscr_over), kept on the card as a game's are (src/remapstore.h).
+ * PICO-8's SDL reads its buttons as it starts (src/p8pad.h), so buttons that
+ * changed are written for its next start and asked about at once: Start
+ * Again starts PICO-8 again with them, in the Display mode on (true: the
+ * menu ends, PORT_MENU_RESTART), Cancel keeps them for the next start. */
+static bool port_controls(app *a, gm_ctx *c)
+{
+	const system_cfg *s = &a->sys.systems[a->sys_cursor];
+	char before[600] = "", after[600] = "";
+	ctlscr_game g;
+	rm_table t;
+
+	memset(&g, 0, sizeof g);
+	g.s = s;
+	g.file = g_port_file;
+	g.title = g_port_title;
+	g.scope_all = &g_gm_mem.scope_all;
+	g.running = false;           /* nothing to send: PICO-8 is stopped */
+	g.over = &c->st;
+	g.ctx = c;
+	rms_sent(s, g_port_file, false, &t);
+	p8_pad_line(&t, before, sizeof before);
+	ctlscr_over(a, &g, gm_tab_name(GT_CONTROLS));
+	rms_sent(s, g_port_file, false, &t);
+	p8_pad_line(&t, after, sizeof after);
+	if (plat_run_power_pressed()) return true;
+	if (!strcmp(before, after)) return false;
+	p8_pad_save(s, g_port_file);
+	fprintf(stderr, "port menu: new buttons for %s, for PICO-8's next start\n", g_port_file);
+	if (!port_restart_ask(a, &c->st, c, T(S_PICO8_RESTART_BUTTONS))) return plat_run_power_pressed();
+	if (!port_restart_write(a, owner_view(a)->dmode)) return false;
+	c->restart = true;
+	return true;
+}
+
 static menu_result gm_key(app *a, void *ctx, in_button key, int sel)
 {
 	gm_ctx *c = ctx;
@@ -2237,6 +2311,12 @@ static menu_result gm_key(app *a, void *ctx, in_button key, int sel)
 		gm_cycle_display(a, +1);
 		break;
 	case GM_CONTROLS:
+		/* Over your PICO-8 the buttons themselves, as a game's Controls
+		 * tab has them; a change asks to start PICO-8 again with them */
+		if (g_port_menu && port_resets(a->sys.systems[a->sys_cursor].tag)) {
+			if (port_controls(a, c)) return MENU_DONE;
+			break;
+		}
 		game_controls_screen(a, c->bg);
 		break;
 	case GM_PLAYER2:
@@ -2273,6 +2353,13 @@ static menu_result gm_key(app *a, void *ctx, in_button key, int sel)
 		return MENU_DONE;
 	}
 	case GM_RESET:
+		/* Over your PICO-8: asked first, as Reset Game's hotkey asks over
+		 * a game, and done by portkeys once PICO-8 goes on (CTRL-R) */
+		if (g_port_menu) {
+			if (!reset_question(a, &c->st, c)) return plat_run_power_pressed() ? MENU_DONE : MENU_STAY;
+			c->reset = c->resume = true;
+			return MENU_DONE;
+		}
 		plat_resident_line("RESET");
 		c->resume = true;
 		return MENU_DONE;
@@ -2561,6 +2648,8 @@ int port_menu(app *a)
 	if (plat_run_power_pressed()) return PORT_MENU_POWER;
 	/* A Display mode agreed to: the file is written, PICO-8 starts again */
 	if (c.restart && !want_quit) return PORT_MENU_RESTART;
+	/* Reset agreed to: PICO-8 goes on, and portkeys sends its CTRL-R */
+	if (c.reset && !want_quit) return PORT_MENU_RESET;
 	/* A TERM to this process is not the player's Quit: the game goes on, or
 	 * ends with the system that sent it */
 	return c.resume || want_quit ? PORT_MENU_CONTINUE : PORT_MENU_QUIT;

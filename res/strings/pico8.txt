@@ -204,6 +204,17 @@ de = PICO-8 startet neu mit %s. Alles seit dem letzten Speichern des Carts geht 
 ja = PICO-8 は「%s」で再起動します。カートの最後のセーブ以降の進行は失われます。
 it = PICO-8 si riavvia in %s. Si perde quanto giocato dall'ultimo salvataggio della cartuccia.
 
+[pico8.restart_buttons]
+note = Under pico8.restart_ask, after the player changed a button in the Controls list over their own PICO-8: PICO-8 reads its buttons only as it starts, so the new ones need a start again, which loses play since the cart's own last save (PICO-8 has no save states). Cancel keeps the new buttons for PICO-8's next start. Wrapped to the panel
+en = PICO-8 takes the new buttons as it starts again. Play since the cart last saved is lost.
+zh-Hans = PICO-8 重新启动后才会使用新的按键。卡带上次存档后的进度将会丢失。
+es = PICO-8 usa los botones nuevos al reiniciarse. Se pierde lo jugado desde el último guardado del cartucho.
+pt-BR = O PICO-8 usa os botões novos ao reiniciar. O que jogou desde o último save do cartucho se perde.
+fr = PICO-8 prend les nouveaux boutons en redémarrant. La partie depuis la dernière sauvegarde de la cartouche est perdue.
+de = PICO-8 übernimmt die neuen Tasten beim Neustart. Alles seit dem letzten Speichern des Carts geht verloren.
+ja = PICO-8 は再起動すると新しいボタンを使います。カートの最後のセーブ以降の進行は失われます。
+it = PICO-8 usa i nuovi tasti al riavvio. Si perde quanto giocato dall'ultimo salvataggio della cartuccia.
+
 [pico8.restart_yes]
 note = The yes of pico8.restart_ask: PICO-8 ends and starts again, the cart with it. A button, short
 en = Start Again

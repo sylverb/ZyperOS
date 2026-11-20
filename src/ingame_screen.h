@@ -38,6 +38,8 @@ typedef struct {
 	/* Over your PICO-8: a Display mode picked and agreed to, so the menu
 	 * ends with PORT_MENU_RESTART (port_restart_ask) */
 	bool         restart;
+	/* ...or Reset asked and agreed to: PORT_MENU_RESET, CTRL-R after it */
+	bool         reset;
 	menu_tabs    tabs;     /* Game, Display, Controls; none over a port */
 	int          seen;     /* the runner's cursor (menu_style.sel_out) */
 	/* The Controls tab's rows' value colors and sound classes, which are
@@ -59,6 +61,10 @@ extern const char *g_shot_disc_label;
 extern gm_mem_state g_gm_mem;
 extern SDL_Renderer *g_badge_r;
 extern ctl_game g_port_ctl;
+/* The program's game, for the Controls list over your PICO-8 (port_menu_main):
+ * its file as its shelf names it (in the shelf's folder; SPLORE_FILE for
+ * Splore) and its name, for Reset Buttons' question */
+extern const char *g_port_file, *g_port_title;
 extern int shot_achtab;
 extern bool g_menu_unasked;
 void slot_when(char *out, size_t n, const struct tm *tm);
@@ -128,6 +134,11 @@ bool port_restart_write(app *a, int k);
  * PORT_MENU_RESTART for Start Again, PORT_MENU_POWER for POWER, else
  * PORT_MENU_CONTINUE with nothing kept */
 int port_display_next(app *a);
+/* --reset (PORT_MENU_RESET_ARG): Reset Game's hotkey over your PICO-8, with
+ * no menu: Reset Game's question over the frame, as over a game
+ * (game_reset_ask). PORT_MENU_RESET for Reset, PORT_MENU_POWER for POWER,
+ * else PORT_MENU_CONTINUE */
+int port_reset_ask(app *a);
 /* PICO-8's 128 x 128 screen cut out of `frame` (the panel as the menu found
  * it) where Display mode `k` put it: the Display list's picture over it, and
  * its shot's. A texture to destroy, or NULL */
