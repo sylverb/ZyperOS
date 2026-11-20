@@ -5753,7 +5753,8 @@ value the console's count), its name as the heading.
 **The hub.** A list in rows DS_LINE_MENU tall on the ground, the focus fill
 (**accent**, **radius-row**) gliding over **quick**: **Download**, a rule,
 then each kind with its mark - **Covers** (a cover), **Videos** (a screen and
-a play mark), **Names and Details** (an open book), **Achievements** (a cup) -
+a play mark), **Names and Details** (an open book), **Achievements** (a cup),
+**Cheats** (a wand) -
 its name in **menu** and its value in **meta** **text-dim**: `41 missing`,
 `63 to fetch`, `199 to look up`, `150 to download`, `Complete`, `Ready
 offline`, `Off` (the row in **text-dim**), `Needs ScreenScraper`, `Sign in
@@ -5773,6 +5774,27 @@ Download (`dl.off.covers`, `dl.off.videos`, `dl.off.ach`; Names and Details is
 the Scraper's own `scraper.names`) and its size and time change at once; in
 with no system's switch on, every system's goes on (the lab's rule). The
 cursor opens on Download, so A, A from MENU gets everything.
+
+**Cheats**, the fifth kind (a wand): libretro's cheat list (src/cheatsdl.h),
+on its own lane and network slot beside the other two (DLQ_CHT,
+NET_SLOT_CHT). A run reads the last 64 KB of the buildbot's `cheats.zip`
+(where its index is), then the 4.3 MB index once a rebuild (kept on the card
+with its place and size), then only the entries that match the card's games,
+by byte ranges, each inflated and checked against the index's CRC-32. A game
+matches by its ROM's name, then that name with a code type after it, then
+libretro's loose title rule and the same region. The files are the in-game
+list's (11.66) contract: `Cheats/<Roms folder>/.libretro/<ROM base>/<the
+entry's name>` written as .part and renamed, `.none` for a game libretro has
+none for, your own `Cheats/<Roms folder>/<ROM base>.cht` never touched. Its
+row says `640 to check` or `Ready offline`; its page Ready Offline and To
+Download, `From libretro-database · CC BY-SA 4.0` or `CC BY-SA 4.0 · 19 games
+have none`; Systems has its column (`dl.off.cheats.<folder>`), a game its
+mark and its panel row; On the Card deletes the downloaded ones (and the
+in-game list's switches: cheats that were on turn off). In Download from the
+start (my pick: everything but videos). An update: Download runs the lane at
+least once a day while some games have cheats, and a game's files come again
+only when their checksums changed. `cheats_dl_one_begin` and `_step` get one
+game's, for the in-game list's empty state.
 
 **Loading.** The page draws at once. Its counts (src/dlcount.h) are the
 Scraper's and the achievements download's own, a system at a time, at most
@@ -5853,7 +5875,7 @@ done, 3 no network and nobody signed in, 4 Settings, 5 counting, 6 on
 Covers, 7 Covers out, 8 to 10 the kinds' pages, 11 Systems, 12 a system's
 games, 13 a game's panel, 14 the run, 15 waiting for Wi-Fi, 16 paused, 17
 done, 18 stopped, 19 On the Card, 20 RetroAchievements' account, 21 a
-console's page, 22 Videos for.
+console's page, 22 Videos for, 23 Cheats' page.
 
 ### 11.54 Rumble
 *(Asked for on the Discord after 1.0.6: turn the motor down or off. My picks
