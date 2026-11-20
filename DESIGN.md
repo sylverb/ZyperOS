@@ -1019,11 +1019,12 @@ opened sooner asks for its own as it draws.
 
 **Games:** the selected **Cover row** design has a straight horizontal row of
 real box art: the focused cover large and flat in its 384 x 328 box, and two
-covers either side of it, five in sight, turned as MP4's album row turns its
-side cards (src/coverflow.c): 0.82 radians, the near edge outward, seen
-through the same weak perspective, the far edge shorter. The near pair is at
-72% and 290 out, at MP4's side alpha (150), the far pair at 56% and 458 out,
-48%, standing partly past the screen's edge for the widest boxes as MP4's do;
+covers either side of it, five in sight, turned as MP4's album row turned
+its side cards (its coverflow, until MP4's shelf became a games shelf's in
+11.67): 0.82 radians, the near edge outward, seen through the same weak
+perspective, the far edge shorter. The near pair is at 72% and 290 out, at
+side alpha 150, the far pair at 56% and 458 out, 48%, standing partly past
+the screen's edge for the widest boxes;
 a cover sliding in comes from 560 out, unseen, its picture decoded before it
 shows (src/games.c's seats). A turned cover is narrower, which is what lets
 five fit with the focused one at its size, and the near pair stays clear of
