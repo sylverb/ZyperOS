@@ -550,6 +550,7 @@ static void gm_step_border(app *a, int d)
 	int sys = (int)(v - a->view);
 
 	if (border_choose(a, sys, d, gm_border_room(a))) {
+		display_save(a);
 		plat_resident_line("SETDISPLAY\tmode=%s", DMODES[v->dmode].name);
 		plat_resident_sync_rect(150);
 	}

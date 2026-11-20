@@ -13,7 +13,6 @@
 #include "i18n.h"
 #include "dmodepreview.h"
 #include "handframe.h"
-#include "panel.h"
 #include "platform.h"
 
 /* The first PNG by name in `dir`, or false */
@@ -123,7 +122,6 @@ bool border_choose(app *a, int sys, int d, bool room)
 	if (!border_is_frame(k) || !strcmp(DMODES[a->view[sys].dmode].name, "integer")) return false;
 	for (i = 0; i < DMODE_COUNT; i++)
 		if (!strcmp(DMODES[i].name, "integer")) a->view[sys].dmode = i;
-	display_save(a);
 	return true;
 }
 

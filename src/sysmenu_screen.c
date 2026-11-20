@@ -2328,7 +2328,7 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 		 * which comes back as steps. */
 		if (d && sel == SM_BORDER) {
 			/* A frame chosen turns Display to Sharp Pixels, its size */
-			border_choose(a, a->sys_cursor, d, border_room_kept(a, a->sys_cursor));
+			if (border_choose(a, a->sys_cursor, d, border_room_kept(a, a->sys_cursor))) display_save(a);
 			return MENU_STAY;
 		}
 		/* Sort order, on the same left/right idiom.

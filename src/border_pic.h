@@ -50,9 +50,11 @@ border_kind border_load_room(const app *a, int sys, bool room);
 border_kind border_load(const app *a, int sys);
 
 /* Border stepped by `d` among what system `sys`'s row offers with `room`,
- * and kept; a frame chosen turns the system's Display to Sharp Pixels (kept
- * too), the size it is drawn for. True when that turned Display, so a game
- * running is told its new mode before its border. */
+ * and kept; a frame chosen turns the system's Display to Sharp Pixels, the
+ * size it is drawn for. True when that turned Display: the caller keeps it
+ * (display_save, main.c's, which this file does not link to, so the checks
+ * that link it alone still do) and tells a game running its new mode before
+ * its border. */
 bool border_choose(app *a, int sys, int d, bool room);
 
 /* Tell the game running what to draw around it: SETBORDER for system
