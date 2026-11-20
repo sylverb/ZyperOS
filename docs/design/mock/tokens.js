@@ -90,6 +90,10 @@ window.ZYPER_TOKENS = {
     "card": {
       "px": 71,
       "weight": "Regular"
+    },
+    "clock": {
+      "px": 120,
+      "weight": "SemiBold"
     }
   },
   "space": {
@@ -110,7 +114,8 @@ window.ZYPER_TOKENS = {
     "frame": 3,
     "rule": 2,
     "caret": 3,
-    "ring": 4
+    "ring": 4,
+    "radius-bar": 4
   },
   "layout": {
     "page-zyper-x": 123,
@@ -210,7 +215,16 @@ window.ZYPER_TOKENS = {
     "preview-col-w": 336,
     "preview-col-min": 200,
     "preview-gap": 32,
-    "preview-note-gap": 16
+    "preview-note-gap": 16,
+    "look-bar-w": 16,
+    "look-bar-gap": 8,
+    "look-cap": 4,
+    "look-classic-w": 488,
+    "look-panel-pad": 32,
+    "look-list-row": 56,
+    "look-list-num": 48,
+    "line-clock": 128,
+    "look-cover": 192
   },
   "motion": {
     "press": {
@@ -328,6 +342,14 @@ window.ZYPER_TOKENS = {
     "hold-controls": {
       "ms": 3000,
       "curve": "-"
+    },
+    "peak-hold": {
+      "ms": 400,
+      "curve": "-"
+    },
+    "bar-fall": {
+      "ms": 140,
+      "curve": "follow"
     },
     "hold-snap": {
       "ms": 1000,
