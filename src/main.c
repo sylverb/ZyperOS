@@ -6438,7 +6438,15 @@ int main(int argc, char *argv[])
 		else if (!strcmp(argv[i], "--gm-choose")) shot_gm_choose = 1;
 		/* --gm-restart: over your PICO-8 (--gamemenu N port on its
 		 * shelf), the question a Display mode asks, --pick-at's mode */
-		else if (!strcmp(argv[i], "--gm-restart")) shot_gm_restart = 1;
+		else if (!strcmp(argv[i], "--gm-restart")) {
+			shot_gm_restart = 1;
+			/* --gm-restart buttons: the question for new buttons */
+			if (i + 1 < argc && !strcmp(argv[i + 1], "buttons")) shot_gm_restart = 2, i++;
+		}
+		/* --gm-reset: over your PICO-8, Reset's question; and
+		 * --gm-port-controls, the Controls list its row opens */
+		else if (!strcmp(argv[i], "--gm-reset")) shot_gm_reset = 1;
+		else if (!strcmp(argv[i], "--gm-port-controls")) shot_gm_port_controls = 1;
 		/* --hud-page ROW: the On-Screen Stats page (src/hudmenu_screen.h)
 		 * over the paused game, the cursor on ROW, with --gamemenu;
 		 * --hud-items, its Shows list instead; --hud-pick ROW, that row's
