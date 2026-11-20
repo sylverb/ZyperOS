@@ -24,6 +24,7 @@
 #include "rafetch.h"
 #include "remapstore.h"
 #include "strength.h"
+#include "sysmenu_screen.h"
 #include "ui.h"
 #include "uisound.h"
 #include "zyperdraw.h"
@@ -651,6 +652,9 @@ void gm_gather(app *a, gm_ui *out)
 		u.swap   = plat_resident_swap();
 		u.stylus = plat_resident_stylus();
 	}
+	/* Screen Colors' look, over a game Diatom runs, where the display has
+	 * a table (1.1.0): the Display tab's row, MENU's page behind it */
+	if (!u.port && plat_screen_colors_here()) u.screen_colors = screen_colors_value();
 	*out = u;
 }
 
@@ -2082,6 +2086,13 @@ static menu_result gm_key(app *a, void *ctx, in_button key, int sel)
 	/* The game's cheats, each on or off at once (DESIGN.md 11.66) */
 	case GM_CHEATS:
 		cheats_page(a, c->bg);
+		break;
+	/* Screen Colors (DESIGN.md 11.42): MENU > Display's own page, over the
+	 * paused game with this menu's backdrop and power rule, each step on
+	 * the panel and kept at once so it is judged on the game; B back here.
+	 * Night Mode stays on top, made in the same table (plat_screen_colors) */
+	case GM_SCREEN_COLORS:
+		screen_colors_page(a, gm_backdrop, gm_power, c);
 		break;
 	/* The Achievements tab, one L1 away: the row turns to it, the list
 		 * or the sentence that says why there is none (1.0.5). It opened the

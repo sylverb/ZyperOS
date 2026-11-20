@@ -1240,6 +1240,8 @@ On the GKD Pixel 2.
 
 **MENU > Display > Screen Colors** sets Temperature (cooler to warmer), Tint, Contrast, Saturation and Gamma, each from -10 to +10, or a ready-made look: Vivid, Intense, Warm, Cool or Muted. The Look list shows each look on the whole screen as you move to it. They change the whole screen, the shelf and every game alike, in the display itself, so no game slows down. Standard, as it ships, leaves every color as the game draws it.
 
+In a game, the in-game menu's **Display** tab has a **Screen Colors** row too: A opens the same page over the paused game, so you can fix colors or contrast while you look at the game behind it. A change is kept for the whole screen, as from MENU, and **B** goes back to the menu.
+
 ### Night Mode
 
 **MENU > Display > Night Mode** opens its page, which warms the whole screen for the night, on top of your Screen Colors: always, or **By Hours** between **Night From** and **Until** (9:00 PM to 7:00 AM as it ships). **Night Warmth** sets how warm, from 1 to 10. It turns on and off at the hour in games and ports too. **Appearance**'s `Auto` turns dark by the same Night From and Until, so with Appearance on Auto the two rows are there to set even while Night Mode is off.

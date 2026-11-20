@@ -261,6 +261,7 @@ something once broke in a way nothing noticed:
 | `check-panelgamma` | the display's gamma table (src/panelgamma.h), against a stand-in display with Linux's request numbers: an older splash's table emptied on its CRTC alone, an empty one left alone, a kernel with none, a refusal without DRM master; the dimming table under the backlight's floor; Screen Colors' Temperature, Tint, Contrast and Gamma per channel on every rung (every value of every row a rising table, black kept), Standard exactly as before, and the file the launcher leaves for Diatom and portkeys (a FIFO or a link at its name not followed) |
 | `check-panelgamma-sunxi` | the TrimUI Brick's display's gamma table (src/panelgamma_sunxi.h), against a stand-in `/dev/disp` with the disp2 driver's command numbers: Standard turns the table off and sends none; a look sends its 256 entries (the shared math's at the floor, red, green and blue in the TCON's 24 bits), then turns it on; Night Mode alone is a table; a refused table is never turned on; and Saturation's steps in the display engine's units (25 to 75, 50 the picture as drawn) |
 | `check-nightmode` | Night Mode (src/nightmode.h): its warmth in the display's table (Temperature's gains again, multiplied after the player's), the file's warmth and nights for Diatom and portkeys and the clock against them, the nights by the hours across midnight, on the same day, none for the same hour twice, On and Off, and in New York across both ends of summer time; and the first start's migration from 1.0.5's Appearance Auto, pure and on a scratch database: Auto kept, its hours kept as Night Hours (and as Auto's), Night Mode left Off, once a card |
+| `check-ingame-colors` | Screen Colors in a game (DESIGN.md 11.42): the real launcher in desk mode's dummy window, as the Pixel 2 and as the Brick, started back into a game against a Diatom of the check's own, the menu up: R1's Display tab has a Screen Colors row, A on it (right over On-Screen Stats) opens MENU's own page over the paused game, Right on its Look keeps Vivid in the database and puts it on the panel (desk mode's stand-in for the table, `tools/desk state`'s `colors`) with the game still paused and told nothing, B is back on the menu and B again resumes the game; as the host's own profile, which has no table, no row |
 | `check-displayback` | the display taken back after a game (src/displayback.h), against a stand-in display and clock with Linux's request numbers: a clean end (master at once, the game's last frame left up), a crash (master asked for again until the dying Diatom lets go, then a black picture put up on the CRTC it left empty, in SDL's own format so SDL's next flip is allowed, kept for the next crash), a crash that turned the CRTC off (the panel's preferred mode), QEMU's XRGB8888 frames, a panel listing more modes than it holds, a Diatom that never lets go (refused on the bound), the per-frame try, and a refusal without master |
 | `check-px2-push` | plastron's `make push` (scripts/px2-slot.sh): it writes the system slot the Pixel 2 is not running and never the running one, a card with one system or a command line that does not add up gets nothing, bootstate.txt edited as System Update does, and the device's script parses and writes no partition by number |
 | `check-wifi-watch` | the Pixel 2's Wi-Fi watcher (plastron's `/usr/lib/zyperos/wifi-watch`) against a stand-in wpa_cli and log: a signal line soon after a join, at once on a jump of 8 dB and every minute, none while not joined or for the drivers' -9999; a line with the last look when the link drops; after a drop that cut a handshake on a network that joined with its password, one retry (disable_network then enable_network) per join, never for a network that never joined or another reason; no network name in its lines; it ends with the supplicant |
@@ -884,7 +885,8 @@ tools/desk shot shot.png                 # the panel, at its own pixels
 tools/desk shot desk.png window          # the whole window, the drawn handheld too
 tools/desk latency down                  # a tap, and ms from it to its frame
 tools/desk hints 1                       # every key's name on its key, as Option
-tools/desk state | stats | close | quit   # state: the shelf's screen, cursor and focus too
+tools/desk state | stats | close | quit   # state: the shelf's screen, cursor and focus too,
+                                         # and the Screen Colors on the panel (colors)
 ```
 
 What desk mode cannot show you:
@@ -900,7 +902,8 @@ What desk mode cannot show you:
   shows them on a drawn Pixel 2; the rest is the device's.
 - **The panel.** Your display's pixels and colors, at the size you choose
   (Cmd 0 is the panel's real size): a word that is easy to read at your desk
-  may not be on the Pixel 2's 2.4-inch panel. Screen Colors and Night Mode have no panel to set.
+  may not be on the Pixel 2's 2.4-inch panel. Screen Colors and Night Mode have no panel to set:
+  `tools/desk state` says the colors the display's table would hold.
 - **The emulator's device side.** Games run on Diatom's desktop port and
   SDL's renderer: its old screens (CRT, LCD) are not drawn, and the scaling
   filters are near, not the same.

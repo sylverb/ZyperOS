@@ -405,6 +405,45 @@ static void gm_display_caption(void)
 	   "Display, Shader, then On-Screen Stats");
 }
 
+/* Screen Colors on the Display tab (1.1.0, DESIGN.md 11.42): where the
+ * display has a table, after the picture's rows and right over On-Screen
+ * Stats, its value the look, a plain row whose A opens MENU's page; on no
+ * other tab, none without a table, and none over a port */
+static void gm_screen_colors_row(void)
+{
+	gm_ui u = { 0 };
+	gm_row ids[GM_MAX_ROWS];
+	menu_row rows[GM_MAX_ROWS];
+	gm_bufs b;
+	int n, t, at;
+
+	printf("in-game menu, Screen Colors on the Display tab:\n");
+	u.dmode = "Full Screen"; u.quick = 2;
+	n = gm_tab_rows(&u, GT_DISPLAY, ids);
+	ck(n == 3 && gm_row_at(&u, GT_DISPLAY, GM_SCREEN_COLORS) < 0,
+	   "no table (screen_colors NULL): no row");
+	u.screen_colors = "Vivid";
+	n = gm_tab_rows(&u, GT_DISPLAY, ids);
+	ck(n == 4 && ids[0] == GM_DISPLAY && ids[1] == GM_SHADER && ids[2] == GM_SCREEN_COLORS &&
+	   ids[3] == GM_HUD, "Display, Shader, Screen Colors, then On-Screen Stats");
+	n = gm_rows(&u, GT_DISPLAY, rows, &b);
+	at = gm_row_at(&u, GT_DISPLAY, GM_SCREEN_COLORS);
+	ck(at == 2 && !strcmp(rows[at].label, "Screen Colors") && rows[at].value &&
+	   !strcmp(rows[at].value, "Vivid") && rows[at].live,
+	   "named as in MENU > Display, its value the look, a stop");
+	ck(b.sound[at] == 0 && !b.choice[at].n, "a plain row: A opens the page, Left and Right do nothing");
+	u.shader = "LCD Grid"; u.strength = "50%"; u.border = "Off"; u.screens = true;
+	n = gm_tab_rows(&u, GT_DISPLAY, ids);
+	ck(n == 9 && ids[6] == GM_STYLUS && ids[7] == GM_SCREEN_COLORS && ids[8] == GM_HUD,
+	   "a DS game with Border and an old screen: after Stylus, over On-Screen Stats");
+	for (t = 0; t < GT_TABS; t++)
+		if (t != GT_DISPLAY && gm_row_at(&u, (gm_tab)t, GM_SCREEN_COLORS) >= 0) break;
+	ck(t == GT_TABS, "on no other tab");
+	u.port = true;
+	ck(gm_row_at(&u, GT_GAME, GM_SCREEN_COLORS) < 0 && gm_row_at(&u, GT_DISPLAY, GM_SCREEN_COLORS) < 0,
+	   "and not over a port, whose menu has no Display tab");
+}
+
 /* Over a program still starting (PORT_MENU_WAITING, 1.0.6): the port's
  * three rows, Continue named Keep Waiting */
 static void gm_port_waiting(void)
@@ -3657,6 +3696,7 @@ int main(void)
 	gm_disc_row_only_with_discs();
 	gm_undo_row_only_with_undo();
 	gm_display_caption();
+	gm_screen_colors_row();
 	gm_port_waiting();
 	disc_value_check();
 	audio_row();

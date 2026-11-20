@@ -253,6 +253,11 @@ int gm_tab_rows(const gm_ui *u, gm_tab t, gm_row *ids)
 			ids[n++] = GM_SWAP;
 			ids[n++] = GM_STYLUS;
 		}
+		/* The whole screen's colors (DESIGN.md 11.42): after the game's
+		 * own picture rows, the last of the picture, since they are the
+		 * panel's and not this game's; a page, as On-Screen Stats under
+		 * it has one */
+		if (u->screen_colors) ids[n++] = GM_SCREEN_COLORS;
 		/* How fast it runs, over the game: last, as it is about the
 		 * game's speed and not its picture */
 		ids[n++] = GM_HUD;
@@ -306,6 +311,7 @@ int gm_rows(const gm_ui *u, gm_tab t, menu_row *out, gm_bufs *b)
 		S_GAMEMENU_QUIT, S_GAMEMENU_SCREENS, S_GAMEMENU_SWAP, S_GAMEMENU_STYLUS,
 		S_GAMEMENU_PAK, S_PLAYER2_ROW, S_GAMEMENU_DISC, S_GAMEMENU_STRENGTH,
 		S_GAMEMENU_UNDO, S_GAMEMENU_HUD, S_GAMEMENU_BORDER, S_GAMEMENU_BORDER_COLOR, S_CHEATS_ROW,
+		S_SCREEN_TITLE,
 	};
 	menu_row full[GM_MAX_ROWS];
 	gm_row ids[GM_MAX_ROWS];
@@ -318,6 +324,9 @@ int gm_rows(const gm_ui *u, gm_tab t, menu_row *out, gm_bufs *b)
 	full[GM_BORDER].value = u->border;
 	full[GM_BORDER_COLOR].value = u->border_color;
 	full[GM_HUD].value = T(u->hud ? S_MENU_ON_TITLE : S_MENU_OFF_TITLE);
+	/* The look, as MENU > Display's row says it; A opens the page, and
+	 * Left and Right do nothing, as there */
+	full[GM_SCREEN_COLORS].value = u->screen_colors;
 	/* A caption, left-aligned under its row as a paragraph's lines are */
 	/* The slot's number alone: the row says what it is */
 	snprintf(b->quick, sizeof b->quick, "%d", u->quick);

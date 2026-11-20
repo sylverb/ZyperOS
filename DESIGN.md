@@ -3352,7 +3352,7 @@ and R1 go round them, and the panel is the same size on every tab:
 | Tab | Rows |
 |---|---|
 | **Game** | Continue, Save, Load, Undo Load (after a load, below), Quick Slot, Disc (a game on more than one disc), Player 2 (an NES game, 11.43), Achievements, Reset, Quit |
-| **Display** | Display, Shader; a DS game's Screens, Swap Screens, Stylus |
+| **Display** | Display, Border and Handheld Color (11.59), Shader, Strength (11.50), a DS game's Screens, Swap Screens, Stylus, Screen Colors (a display with a table, 11.42), On-Screen Stats (11.52) |
 | **Controls** | Applies To, D-pad as Stick, Pak, Rumble (11.54), Face Buttons, one row a button, Reset Buttons, Hotkeys (11.45) |
 | **Achievements** | the game's achievements, or the sentence that says why it has none (11.46) |
 
@@ -4737,6 +4737,23 @@ the boot splash's first second and USB Drive's screen. *(Asked for on the
 Discord; the first page approved by Tarik, 2026-11-16, "All approved"; the
 second, with "more options and granularity", negative numbers and a
 preview on hover, approved the same day.)*
+
+**Screen Colors in a game** (1.1.0). The in-game menu's Display tab (11.28)
+has a **Screen Colors** row where the display has a table, after the game's
+own picture rows and right over On-Screen Stats: those are this game's, it
+is the whole panel's, and like On-Screen Stats it opens a page. Its value
+is the look, as MENU's row says it; Left and Right do nothing, and A opens
+MENU > Display's own page (the same code, `screen_colors_page`) over the
+paused game, as the in-game menu's other pages are: the paused frame
+behind it, the game's accent, POWER stopping the game. A step is on the
+panel and kept at once, the one setting it is everywhere, so the chart and
+the game round the panel show it before the game goes on, and the Look's
+list shows the look under its cursor there as over the shelf. B goes back
+to the menu, the game still paused. Night Mode's warmth stays on top, made
+in the same table in the same order as from MENU. Not in the menu over a
+port or your PICO-8, which has no Display tab. *(Asked for on the Discord,
+for a quick fix when a game's colors or contrast are off; mine for 1.1.0,
+2026-11-20.)*
 
 **Night Mode** (MENU > Display, under Screen Colors, where the display has
 a table) makes the whole screen warmer for the night, over the player's own
