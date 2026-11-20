@@ -34,7 +34,7 @@
 #include <unistd.h>
 
 static char root[] = "/tmp/zyperos-gamern-check-XXXXXX";
-static char roms[300], saves[300], states[300];
+static char roms[300], saves[300], states[300], cheats[300];
 static int failures;
 
 #define CHECK(c) do { if (!(c)) { printf("  FAIL %s:%d: %s\n", __FILE__, __LINE__, #c); failures++; } } while (0)
@@ -103,7 +103,7 @@ static bool rename_game(const shelf *s, const char *file, const char *to, gr_why
 	static game_list lists[NSHELVES];
 	static gd_other others[512];
 	int no = 0, i, k;
-	gd_card card = { roms, saves, states };
+	gd_card card = { roms, saves, states, cheats };
 	const game_entry *me = NULL;
 
 	for (i = 0; i < NSHELVES; i++) {
@@ -151,6 +151,7 @@ int main(void)
 	snprintf(roms, sizeof roms, "%s/Roms", root);
 	snprintf(saves, sizeof saves, "%s/Saves", root);
 	snprintf(states, sizeof states, "%s/shared/.zyperos", root);
+	snprintf(cheats, sizeof cheats, "%s/Cheats", root);
 	put("userdata/.keep", "");
 	put("shared/.zyperos/.keep", "");
 	snprintf(dev, sizeof dev, "%s/userdata/zyperos.db", root);
@@ -166,6 +167,11 @@ int main(void)
 	put("Roms/Game Boy/.media/Tetris (World).mp4", "mp4");
 	put("Roms/Game Boy/.media/.before/Tetris (World).png", "png");
 	put("Roms/Game Boy/.cheevos/Tetris (World).set", "set");
+	/* Its cheats (src/cheats.h), and the Rev 1's, which stay */
+	put("Cheats/Game Boy/Tetris (World).cht", "cht");
+	put("Cheats/Game Boy/Tetris (World).gb.cht", "cht");
+	put("Cheats/Game Boy/.libretro/Tetris (World)/Tetris (World) (Game Genie).cht", "cht");
+	put("Cheats/Game Boy/Tetris (World) (Rev 1).cht", "cht");
 	put("Roms/Game Boy Color/Tetris (World).gbc", "rom");
 	put("Saves/Tetris (World).srm", "save");
 	put("Saves/Tetris (World) (Rev 1).srm", "rev1");
@@ -231,6 +237,12 @@ int main(void)
 	CHECK(there("Roms/Game Boy/.media/Tetris DX Test.mp4"));
 	CHECK(there("Roms/Game Boy/.media/.before/Tetris DX Test.png"));
 	CHECK(there("Roms/Game Boy/.cheevos/Tetris DX Test.set"));
+	/* its cheats follow it; the Rev 1's stay */
+	CHECK(there("Cheats/Game Boy/Tetris DX Test.cht") && !there("Cheats/Game Boy/Tetris (World).cht"));
+	CHECK(there("Cheats/Game Boy/Tetris DX Test.gb.cht") && !there("Cheats/Game Boy/Tetris (World).gb.cht"));
+	CHECK(there("Cheats/Game Boy/.libretro/Tetris DX Test/Tetris (World) (Game Genie).cht") &&
+	      !there("Cheats/Game Boy/.libretro/Tetris (World)"));
+	CHECK(there("Cheats/Game Boy/Tetris (World) (Rev 1).cht"));
 	CHECK(there("shared/.zyperos/Game Boy/Tetris DX Test.gb.auto.state") &&
 	      there("shared/.zyperos/Game Boy/Tetris DX Test.gb.auto.bmp") &&
 	      there("shared/.zyperos/Game Boy/Tetris DX Test.gb.3.state") &&

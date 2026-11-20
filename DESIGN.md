@@ -6217,7 +6217,11 @@ ones that are on (a hash of the file's name, the description and the code,
 so an update that changes a code turns that cheat off and leaves the rest),
 gone when none is on; `cheats-asked.<TAG>.<file>` once the first cheat has
 asked; `cheats-crash.<TAG>.<file>` while the crash question waits. Nothing is
-written into a .cht file. Host shots: `cheats-row`, `cheats-page`,
+written into a .cht file. **Rename and Delete Game carry them**: the keys,
+and in `Cheats/<console>/` the player's file by the game's name and by its
+file's (NextUI's) and libretro's folder for it (11.31, 11.41). A file named
+by a stem another game of the shelf has (a .cue beside a .chd) stays for
+that game, and a rename takes a copy. Host shots: `cheats-row`, `cheats-page`,
 `cheats-page-end`, `cheats-ask`, `cheats-achtab`, `cheats-none-libretro`,
 `cheats-not-checked` (tools/i18n-shots.py; `--cheats` and `--cheats-page`
 stand in for a running game).

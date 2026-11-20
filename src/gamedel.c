@@ -192,6 +192,20 @@ static bool shares_name(const gd_other *o, int n, const char *folder, const char
 	return false;
 }
 
+/* A game on the same shelf of the same stem (a .cue and a .chd): its
+ * cheat file is this one's (src/cheats.h names them by the stem) */
+static bool shares_stem_in(const gd_other *o, int n, const char *folder, const char *stem)
+{
+	char s[LIB_NAME];
+
+	for (int i = 0; i < n; i++) {
+		if (strcmp(o[i].folder, folder)) continue;
+		stem_of(o[i].file, s, sizeof s);
+		if (!strcasecmp(s, stem)) return true;
+	}
+	return false;
+}
+
 static bool shares_state(const gd_other *o, int n, const char *folder, const char *base)
 {
 	for (int i = 0; i < n; i++)
@@ -270,7 +284,8 @@ static void plan_hold(gd_plan *p, const gd_card *card, const char *romdir)
 	for (i = 0; i < p->n && p->why == GD_OK; i++) {
 		const char *root = under(p->path[i], romdir) ? romdir
 		                 : under(p->path[i], card->states) ? card->states
-		                 : under(p->path[i], card->saves) ? card->saves : NULL;
+		                 : under(p->path[i], card->saves) ? card->saves
+		                 : card->cheats && under(p->path[i], card->cheats) ? card->cheats : NULL;
 		in_root r = root ? inside(root, p->path[i], p->kind[i] == GD_TREE) : IN_NO;
 
 		if (r == IN_NO) { outside(p, p->path[i]); break; }
@@ -543,6 +558,21 @@ bool gd_plan_make(const gd_card *card, const gd_game *g,
 		plan_add(p, GD_FILE, "%s/.cheevos/%s.set.part", romdir, g->name);
 		/* RetroAchievements' "nothing for it" (chv_none_mark) */
 		plan_add(p, GD_FILE, "%s/.cheevos/%s.none", romdir, g->name);
+	}
+	/* 6. Its cheats (src/cheats.h, DESIGN.md 11.66): the player's file by
+	 * the stem and by the file's own name (NextUI's), and libretro's folder
+	 * for it, in Cheats/<console>/; the stem's stay while a game of the same
+	 * stem is on the shelf */
+	if (card->cheats) {
+		if (shares_stem_in(others, nothers, g->folder, stem)) {
+			p->kept++;
+		} else {
+			plan_add(p, GD_FILE, "%s/%s/%s.cht", card->cheats, g->folder, stem);
+			plan_add(p, GD_TREE, "%s/%s/.libretro/%s", card->cheats, g->folder, stem);
+		}
+		plan_add(p, GD_FILE, "%s/%s/%s.cht", card->cheats, g->folder, base_of(g->file));
+		plan_add(p, GD_EMPTY_DIR, "%s/%s/.libretro", card->cheats, g->folder);
+		plan_add(p, GD_EMPTY_DIR, "%s/%s", card->cheats, g->folder);
 	}
 	plan_add(p, GD_EMPTY_DIR, "%s/.media/.before", romdir);
 	plan_add(p, GD_EMPTY_DIR, "%s/.media", romdir);
