@@ -2,7 +2,12 @@
  * program, which files it gives), a zip copied into Bios/PICO-8 by hand
  * taken out (zips this check writes itself, with made-up bytes: never
  * Lexaloffle's files), Splore's entry on the shelf, and the page's words.
- * No SDL, no device.
+ * And its picture (src/p8draw.h): every Display mode's rect is the one
+ * Diatom gives a 128 x 128 picture (diatom/src/scale.c), and
+ * sd/pixel2/PICO-8.sh hands that rect and filter to pico8_64 - the script
+ * run as it is, on a card in a scratch folder, with a stand-in pico8_64
+ * that writes down its arguments - on the Pixel 2's turned panel and on a
+ * landscape one, with NEG_OK as it ships and turned to 0. No SDL, no device.
  *
  *     make check-pico8 */
 #include <stdint.h>
@@ -17,6 +22,8 @@
 
 #include "../src/i18n.h"
 #include "../src/pico8.h"
+#include "../src/p8draw.h"
+#include "diatom.h"
 
 static int fails;
 
@@ -117,6 +124,208 @@ static void rmtree(const char *dir)
 
 	snprintf(cmd, sizeof cmd, "rm -rf '%s'", dir);
 	if (system(cmd) != 0) printf("  (could not remove %s)\n", dir);
+}
+
+
+/* ---------- the picture: PICO-8.sh's flags, mode by mode ------------------ */
+
+/* The script at `script`, a copy of PICO-8.sh with the card and the DRM
+ * folder in `root`, run for one Display word: its -draw_rect and
+ * -pixel_perfect, as the stand-in pico8_64 wrote them down */
+static bool script_flags(const char *root, const char *script, const char *display,
+                         dmode_rect *r, int *pp)
+{
+	char cmd[1024], line[256], args[512];
+	FILE *f;
+	bool got_r = false, got_p = false, next_r = false, next_p = false;
+
+	snprintf(args, sizeof args, "%s/args", root);
+	unlink(args);
+	snprintf(cmd, sizeof cmd, "cd '%s' && PATH='%s/bin':\"$PATH\" ZYPEROS_DISPLAY='%s' P8_ARGS='%s' "
+	         "sh '%s' '%s/card/Roms/PICO-8/x.p8' > '%s/out' 2>&1",
+	         root, root, display, args, script, root, root);
+	if (system(cmd) != 0 || !(f = fopen(args, "r"))) return false;
+	while (fgets(line, sizeof line, f)) {
+		line[strcspn(line, "\n")] = '\0';
+		if (next_r) got_r = sscanf(line, "%d,%d,%d,%d", &r->x, &r->y, &r->w, &r->h) == 4;
+		if (next_p) got_p = sscanf(line, "%d", pp) == 1;
+		next_r = !strcmp(line, "-draw_rect");
+		next_p = !strcmp(line, "-pixel_perfect");
+	}
+	fclose(f);
+	return got_r && got_p;
+}
+
+static void put_file(const char *path, const char *text, bool run)
+{
+	FILE *f = fopen(path, "w");
+
+	if (!f) return;
+	fputs(text, f);
+	fclose(f);
+	if (run) chmod(path, 0755);
+}
+
+/* PICO-8.sh with the card's and the DRM folder's paths moved into `root`,
+ * and with `neg` for NEG_OK; false when the script no longer says either */
+static bool script_copy(const char *root, const char *out, const char *neg)
+{
+	FILE *in = fopen("sd/pixel2/PICO-8.sh", "r"), *o = fopen(out, "w");
+	char line[1024];
+	bool card = false, drm = false, negs = false;
+
+	while (in && o && fgets(line, sizeof line, in)) {
+		char *at;
+
+		if (!strcmp(line, "CARD=/mnt/SDCARD\n")) {
+			fprintf(o, "CARD='%s/card'\n", root);
+			card = true;
+		} else if ((at = strstr(line, "/sys/class/drm/"))) {
+			fprintf(o, "%.*s%s/drm/%s", (int)(at - line), line, root, at + strlen("/sys/class/drm/"));
+			drm = true;
+		} else if (!strncmp(line, "NEG_OK=", 7)) {
+			if (neg) fprintf(o, "NEG_OK=%s\n", neg);
+			else fputs(line, o);
+			negs = true;
+		} else {
+			fputs(line, o);
+		}
+	}
+	if (in) fclose(in);
+	if (o) fclose(o);
+	return card && drm && negs;
+}
+
+static void display_flags(void)
+{
+	char root[] = "/tmp/zyperos-p8d-XXXXXX", p[512], text[512], script[512];
+	/* The panel as the DRM folder says, and the landscape window PICO-8
+	 * gets of it (SDL turns a portrait panel) */
+	static const struct { const char *mode; int w, h; } PANELS[] = {
+		{ "480x640", 640, 480 },      /* the Pixel 2's, turned */
+		{ "1024x768", 1024, 768 },    /* a landscape one */
+	};
+	static const char *const EXTRA[] = { "", "bogus" };   /* none, and a word no mode has */
+	int pn, m, n = 0;
+
+	printf("the picture, mode by mode (src/p8draw.h, sd/pixel2/PICO-8.sh):\n");
+	/* p8_draw_rect is Diatom's own rect for a 128 x 128 picture */
+	for (pn = 0; pn < 2; pn++)
+		for (m = 0; m < diatom_mode_count; m++) {
+			dmode_rect r;
+			diatom_rect d = diatom_scale_rect(diatom_modes[m].mode, P8_SCREEN, P8_SCREEN, 0.0,
+			                                  PANELS[pn].w, PANELS[pn].h);
+
+			p8_draw_rect(diatom_modes[m].name, PANELS[pn].w, PANELS[pn].h, true, &r);
+			snprintf(text, sizeof text, "%s on %dx%d is Diatom's rect for 128x128 (%d,%d %dx%d)",
+			         diatom_modes[m].name, PANELS[pn].w, PANELS[pn].h, d.x, d.y, d.w, d.h);
+			CHECK(r.x == d.x && r.y == d.y && r.w == d.w && r.h == d.h, text);
+		}
+	/* The table in src/p8draw.h, on the Pixel 2 */
+	{
+		static const struct { const char *mode; int x, y, w, h, pp; } T[] = {
+			{ "stretch", 0, 0, 640, 480, 0 },     { "aspect", 80, 0, 480, 480, 0 },
+			{ "square", 80, 0, 480, 480, 0 },     { "integer", 128, 48, 384, 384, 1 },
+			{ "integer-vertical", 128, 48, 384, 384, 1 },
+			{ "overscale", 0, -80, 640, 640, 1 }, { "fill", 0, -80, 640, 640, 1 },
+			{ "native", 256, 176, 128, 128, 1 },  { "bogus", 0, 0, 640, 480, 0 },
+		};
+		int i;
+
+		for (i = 0; i < (int)(sizeof T / sizeof T[0]); i++) {
+			dmode_rect r;
+			bool pp = p8_draw_rect(T[i].mode, 640, 480, true, &r);
+
+			snprintf(text, sizeof text, "the Pixel 2's %s: %d,%d %dx%d, %s", T[i].mode, T[i].x, T[i].y,
+			         T[i].w, T[i].h, T[i].pp ? "unfiltered" : "filtered");
+			CHECK(r.x == T[i].x && r.y == T[i].y && r.w == T[i].w && r.h == T[i].h && pp == T[i].pp, text);
+		}
+	}
+	/* With no negative offset: Zoomed is Sharp Pixels, Edges Cut is Original Shape */
+	{
+		dmode_rect a, b;
+
+		p8_draw_rect("overscale", 640, 480, false, &a);
+		p8_draw_rect("integer", 640, 480, true, &b);
+		CHECK(!memcmp(&a, &b, sizeof a) && !strcmp(p8_draw_mode("overscale", false), "integer"),
+		      "P8_NEG_OK 0: Zoomed draws as Sharp Pixels");
+		p8_draw_rect("fill", 640, 480, false, &a);
+		p8_draw_rect("aspect", 640, 480, true, &b);
+		CHECK(!memcmp(&a, &b, sizeof a) && !strcmp(p8_draw_mode("fill", false), "aspect"),
+		      "P8_NEG_OK 0: Edges Cut draws as Original Shape");
+		CHECK(!strcmp(p8_draw_mode("native", false), "native") && !strcmp(p8_draw_mode(NULL, true), "stretch"),
+		      "and every other mode is itself, none being Full Screen");
+	}
+
+	if (!mkdtemp(root)) {
+		CHECK(false, "a scratch folder");
+		return;
+	}
+	/* The card: your PICO-8's two files (pico8_64 a stand-in that writes
+	 * its arguments one a line), a cart, and a mount that binds nothing */
+	snprintf(p, sizeof p, "mkdir -p '%s/card/Bios/PICO-8' '%s/card/Roms/PICO-8' '%s/bin' '%s/drm/card0-DSI-1'",
+	         root, root, root, root);
+	CHECK(system(p) == 0, "the scratch card");
+	snprintf(p, sizeof p, "%s/card/Bios/PICO-8/pico8_64", root);
+	put_file(p, "#!/bin/sh\n: > \"$P8_ARGS\"\nfor a in \"$@\"; do printf '%s\\n' \"$a\" >> \"$P8_ARGS\"; done\n", true);
+	snprintf(p, sizeof p, "%s/card/Bios/PICO-8/pico8.dat", root);
+	put_file(p, "stand-in", false);
+	snprintf(p, sizeof p, "%s/card/Roms/PICO-8/x.p8", root);
+	put_file(p, "pico-8 cartridge\n", false);
+	snprintf(p, sizeof p, "%s/bin/mount", root);
+	put_file(p, "#!/bin/sh\nexit 0\n", true);
+
+	/* NEG_OK as it ships is P8_NEG_OK */
+	{
+		FILE *f = fopen("sd/pixel2/PICO-8.sh", "r");
+		char line[256];
+		int ships = -1;
+
+		while (f && fgets(line, sizeof line, f))
+			if (!strncmp(line, "NEG_OK=", 7)) ships = atoi(line + 7);
+		if (f) fclose(f);
+		snprintf(text, sizeof text, "PICO-8.sh's NEG_OK is src/p8draw.h's P8_NEG_OK (%d, %d)", ships, P8_NEG_OK);
+		CHECK(ships == P8_NEG_OK, text);
+	}
+	for (int neg = 0; neg < 2; neg++) {
+		snprintf(script, sizeof script, "%s/PICO-8.sh", root);
+		CHECK(script_copy(root, script, neg ? NULL : "0"),
+		      "PICO-8.sh still has its CARD line, the DRM folder and NEG_OK");
+		for (pn = 0; pn < 2; pn++) {
+			snprintf(p, sizeof p, "%s/drm/card0-DSI-1/modes", root);
+			snprintf(text, sizeof text, "%s\n", PANELS[pn].mode);
+			put_file(p, text, false);
+			for (m = 0; m < diatom_mode_count + 2; m++) {
+				const char *word = m < diatom_mode_count ? diatom_modes[m].name : EXTRA[m - diatom_mode_count];
+				bool ok = neg ? P8_NEG_OK : false;
+				dmode_rect want, got = { 0, 0, 0, 0 };
+				int pp = -1;
+				bool wpp = p8_draw_rect(word, PANELS[pn].w, PANELS[pn].h, ok, &want);
+				bool ran = script_flags(root, script, word, &got, &pp);
+
+				snprintf(text, sizeof text,
+				         "PICO-8.sh, NEG_OK=%d, Display \"%s\" on a %s panel: -draw_rect %d,%d,%d,%d "
+				         "-pixel_perfect %d (it said %d,%d,%d,%d and %d)",
+				         neg ? P8_NEG_OK : 0, word, PANELS[pn].mode, want.x, want.y, want.w, want.h, wpp,
+				         got.x, got.y, got.w, got.h, pp);
+				CHECK(ran && !memcmp(&want, &got, sizeof want) && pp == (int)wpp, text);
+				n++;
+			}
+		}
+	}
+	/* And with no panel the system names: the Pixel 2's 640 x 480 */
+	{
+		dmode_rect want, got = { 0, 0, 0, 0 };
+		int pp = -1;
+
+		snprintf(p, sizeof p, "%s/drm/card0-DSI-1/modes", root);
+		unlink(p);
+		p8_draw_rect("native", 640, 480, true, &want);
+		CHECK(script_flags(root, script, "native", &got, &pp) && !memcmp(&want, &got, sizeof want),
+		      "PICO-8.sh with no panel mode to read: 640 x 480");
+	}
+	printf("  %d runs of PICO-8.sh\n", n);
+	rmtree(root);
 }
 
 int main(void)
@@ -306,6 +515,8 @@ int main(void)
 	free(prog);
 	free(prog32);
 	free(x86);
+
+	display_flags();
 
 	if (fails) { printf("pico8: %d FAILED\n", fails); return 1; }
 	printf("pico8: ok\n");
