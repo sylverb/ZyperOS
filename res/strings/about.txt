@@ -163,7 +163,7 @@ zh-Hans = 约 %u%%
 es = %u%% estimado
 pt-BR = %u%% estimado
 fr = %u%% estimé
-de = ca. %u\u00a0%%
+de = Etwa %u\u00a0%%
 ja = 推定 %u%%
 it = %u%% stimato
 
@@ -172,11 +172,11 @@ note = The Battery health and Full charge rows' value while the battery's full c
 en = Not measured yet
 zh-Hans = 尚未测量
 es = Aún sin medir
-pt-BR = Ainda sem medição
-fr = Pas encore de mesure
-de = Noch nicht gemessen
+pt-BR = Sem medição
+fr = À mesurer
+de = Nicht gemessen
 ja = 未測定
-it = Ancora nessuna misura
+it = Da misurare
 
 [about.full_charge]
 note = About, page 2: what the battery holds when full now, "1,730 mAh".

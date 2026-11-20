@@ -10,7 +10,6 @@
 # about: no shot draws it yet
 about.no_address_yet
 about.battery_charging
-about.health_estimate
 
 # audio: no shot draws it yet
 audio.wired
