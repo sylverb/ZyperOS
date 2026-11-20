@@ -191,6 +191,11 @@ def run(cc, B):
 
     full = (80, 0, 480, 480)
     sharp = (128, 48, 384, 384)
+    # SDL's offscreen video with its OpenGL ES 2 renderer, or nothing here
+    # to check with (a Linux with no Mesa)
+    probe = subprocess.run([str(B / "standin"), str(B / "probe.ppm")], env=env0, capture_output=True, text=True)
+    if probe.returncode or "p8fx-standin: renderer opengles2" not in probe.stderr:
+        return skip("no OpenGL ES 2 renderer under SDL's offscreen video here (%s)" % probe.stderr.strip())
     base = frame("base", shim=False)
     base_sharp = frame("base-sharp", ["--sharp"], shim=False)
     base_fps = frame("base-fps", ["--fps"], shim=False)
@@ -222,6 +227,11 @@ def run(cc, B):
         ("lcd", 100, ["--sharp"], sharp), ("crt", 100, ["--sharp"], sharp),
         ("scanlines", 100, ["--sharp", "--preblit", "2"], sharp),
         ("lcd", 100, ["--rect", "64,-16,512,512"], (64, -16, 512, 512)),
+        # src/p8draw.h's Full Screen (the panel, its shape changed), Zoomed
+        # (5x, cut) and Actual Size (1x, sharp)
+        ("crt", 100, ["--rect", "0,0,640,480"], (0, 0, 640, 480)),
+        ("scanlines", 100, ["--sharp", "--rect", "0,-80,640,640"], (0, -80, 640, 640)),
+        ("lcd", 100, ["--sharp", "--rect", "256,176,128,128"], (256, 176, 128, 128)),
     ]:
         name = "%s-%d%s" % (shader, strength, "".join(args).replace(",", "_"))
         img = frame(name, args, text=lookt(shader, strength))
@@ -249,6 +259,10 @@ def run(cc, B):
         want = ((x * 255) // (W - 1), (y * 255) // (H - 1), 128)
         if max(abs(p - q) for p, q in zip(px(img, x, y), want)) > 1:
             bad.append("a picture border: (%d, %d) is %s, the picture's %s" % (x, y, px(img, x, y), want))
+    checked += 1
+    # Blur where the picture covers the screen: no room, SDL's own frame
+    same("Blur at Full Screen", frame("blur-full", ["--rect", "0,0,640,480"], text=lookt(border="blur")),
+         frame("base-full", ["--rect", "0,0,640,480"], shim=False))
     checked += 1
     # A shader and a border at once
     img = frame("lcd-blur", text=lookt("lcd", border="blur"))

@@ -10,7 +10,7 @@
         check-raset check-xfer check-sshlink check-usblink check-devmode check-devices check-devicegen check-model check-ctl check-menus check-status check-battery check-corner check-artscrape check-artrun check-sgdb check-snapshelf check-snaps check-audioout \
         check-db check-coreopts check-mp4keys check-gpuframes check-gamedel check-gamern check-esmedia check-corepins check-targets yuvtarget check-storage check-stats check-sort check-bt check-ss check-titles check-dsv check-sidelights check-osdbar check-boost check-hud check-dmodefit check-themefile check-pkkeys check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-bios check-gamefile check-startfail check-kbnav check-tween check-menumotion check-menusnap check-cardgen check-cardart check-focusfx check-blur check-gridrule check-screencard check-focusgeo check-roundrect check-rowmacro check-emptyhome check-zyperrig check-randgame check-shelfdir \
         check-sysmark check-flip check-menushots check-controls-shots check-design check-systemart check-linebreak check-portload check-portout \
-        check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-messages check-tour check-tour-shots check-textfade check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pico8 check-pico8-wget check-pico8-mp4 check-pico8-display check-pmhelper check-portdoc check-boottheme check-splashbright check-bootbright check-seed-version check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr check-autozone \
+        check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-messages check-tour check-tour-shots check-textfade check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pico8 check-pico8-wget check-pico8-mp4 check-pico8-display check-p8fx check-p8fx-gl check-pmhelper check-portdoc check-boottheme check-splashbright check-bootbright check-seed-version check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr check-autozone \
         check-home check-home-shots check-games check-cardpaint check-putpace landbench check-favorites-shots check-homesys-groups check-np-footer check-vidtry check-menu-rows check-layout-shots check-artbadge check-artbadge-shots check-cardart-shots design sounds strings cjk-font check-strings check-i18n-shots check-rootswitch check-datapart check-brick-closed check-hwreport \
         check-tour-previews tour-previews check-prep check-diatom check-simulator check-px2sim check-building-doc check-blog check-discord-release \
         check-release-devices check-installer release check-site-devices
@@ -51,7 +51,7 @@ CHECKS = check-cheevos check-hare check-portal check-httpd check-idle check-task
          check-clock check-autozone check-status check-battery check-battery-eta check-dslang check-pacing check-sgbmode check-border check-handframe check-gpuframes check-dsresume check-corestate check-core-stamp check-core-room check-px2-perf check-px2-snap check-px2 check-lowbatt check-powerhold check-homesys check-collect check-heat check-charging check-corner check-dsv check-sidelights check-osdbar check-boost check-hud check-dmodefit check-themefile check-pkkeys check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-bios check-gamefile check-startfail check-kbnav check-randgame check-shelfdir check-look \
          check-tween check-menumotion check-menusnap check-cardgen check-cardart check-focusfx check-blur check-gridrule check-screencard check-focusgeo check-roundrect check-rowmacro check-emptyhome check-zyperrig check-sysmark check-flip check-menushots check-design \
          check-systemart check-linebreak check-portload check-portout check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-messages \
-         check-tour check-tour-shots check-tour-previews check-textfade check-glyphs check-scale check-shaderdemo check-shaderpic check-screenfx check-ds check-layout-ratchet check-flex check-hover check-hover-sweep check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pico8 check-pico8-wget check-pico8-mp4 check-pico8-display check-pmhelper check-pmart check-portdoc check-boottheme check-splashbright check-bootbright check-seed-version check-panelgamma check-panelgamma-sunxi check-nightmode check-autotheme check-displayback check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-start-soc check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr \
+         check-tour check-tour-shots check-tour-previews check-textfade check-glyphs check-scale check-shaderdemo check-shaderpic check-screenfx check-ds check-layout-ratchet check-flex check-hover check-hover-sweep check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pico8 check-pico8-wget check-pico8-mp4 check-pico8-display check-p8fx check-p8fx-gl check-pmhelper check-pmart check-portdoc check-boottheme check-splashbright check-bootbright check-seed-version check-panelgamma check-panelgamma-sunxi check-nightmode check-autotheme check-displayback check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-start-soc check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr \
          check-home check-home-shots check-games check-cardpaint check-putpace check-favorites-shots check-homesys-groups check-np-footer check-vidtry check-menu-rows check-layout-shots check-artbadge check-artbadge-shots check-cardart-shots checkmark \
          check-installer check-from-rogue check-importers check-diatom check-simulator check-qemu-image check-desk check-homekeys check-videoview check-inrepeat check-keymap check-handhelds check-px2sim check-building-doc check-blog check-discord-release \
          check-release-devices check-strings check-i18n-shots check-rootswitch check-datapart check-brick-closed check-hwreport check-kitbuild
@@ -731,6 +731,32 @@ check-pico8-mp4: build-native/mp4hand-check native
 # question alone (tools/pico8-display-check.py)
 check-pico8-display: native
 	@python3 tools/pico8-display-check.py
+
+# Your PICO-8's Shader and Border (src/p8fx.h), all but the drawing: the
+# look file, the shaders PICO-8 is offered (the launcher's SHADERS for its
+# shelf) and Next Shader on a scratch database, its picture out of PICO-8's
+# preblit (build-native/p8fx-check); sd/pixel2/PICO-8.sh loading p8fx.so
+# first, with a stand-in pico8_64; and the real launcher in desk mode's dummy
+# window as portkeys starts it over PICO-8: the Border, Shader and Strength
+# rows in the Display tab's order, each kept and written for the shim, Your
+# Own's picture file, none over OpenBOR, and the look file written as a cart
+# opens from the shelf (tools/p8fx-check.py)
+check-p8fx: build-native/p8fx-check native
+	@python3 tools/p8fx-check.py
+
+build-native/p8fx-check: tools/p8fx-check.c src/p8fx.c src/p8fx_step.c src/p8fx.h src/strength.h src/i18n_ids.h
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -O1 -g -D_GNU_SOURCE -Isrc -o $@ tools/p8fx-check.c src/p8fx.c src/p8fx_step.c -lsqlite3
+
+# ...and the drawing: the shim (src/p8fx/shim.c) over a stand-in that calls
+# SDL as pico8_64 does (tools/p8fx-standin.c), on SDL's offscreen video and
+# Mesa's OpenGL ES: fail-safe to the pixel, each shader against Diatom's GLSL
+# in C (shaderdemo --image), Blur and a picture round the picture, PICO-8's
+# FPS line on top, a look changed while it runs. Linux only (LD_PRELOAD,
+# Mesa); elsewhere it says it skipped, and P8FX_DOCKER=1 runs it in
+# tools/p8fx-gl.Dockerfile's Linux (tools/p8fx-gl-check.py)
+check-p8fx-gl:
+	@python3 tools/p8fx-gl-check.py $(if $(P8FX_DOCKER),--docker)
 
 build-native/mp4hand-check: tools/mp4hand-check.c src/mp4hand.c src/mp4hand.h src/mp4queue.c src/mp4queue.h \
                             src/portmenu.h src/pico8.h FORCE

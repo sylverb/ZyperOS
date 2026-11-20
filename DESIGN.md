@@ -6175,7 +6175,7 @@ Original Shape. On the Brick 6x is its full height (768 x 768).
 
 **Display in the game.** The menu over it has a **Display** row, after
 Continue (where the Display tab is, after the Game tab's first row), its
-value the mode on: Continue, Display, Controls, Quit. PICO-8 draws its
+value the mode on, the picture's other rows after it (below). PICO-8 draws its
 picture where it was told as it started and cannot move it, so a mode is one
 it starts again in. A opens the Display list, each mode's picture beside it
 (PICO-8's own screen, cut out of the frame the menu is over, drawn in that
@@ -6188,6 +6188,36 @@ keeps the mode as the shelf's row keeps it (`display.PICO8`), and PICO-8 ends
 screen, MP4 playing on; Cancel, B or the mode on change nothing. The **Next
 Display** hotkey over it asks the same for the next mode, with no menu
 (`--display`). launch.sh does the start again (`port_quit`, src/portmenu.h).
+
+**Shader and Border** *(2026-11-20, "cover all those": the gap map's Shader
+and Border rows)*. The PICO-8 shelf's own **Shader**, **Strength** and
+**Border** rows (`shader.PICO8`, `shader_strength.PICO8`, `border.PICO8`, the
+rows fake08 plays with) draw over your PICO-8 as over a game in Diatom, and
+the menu over it has them after Display, in the Display tab's order:
+Continue, Display, Border (where the mode leaves room), Shader, Strength
+(under an old screen), Controls, Quit. These change the picture from
+PICO-8's next frame after Continue, with no start again. The shaders are
+fake08's on the Pixel 2: Off, Sharp-Shimmerless, CRT, CRT Curved, Scanlines
+and LCD Grid, Diatom's own (diatom/port/gles_shaders.h), so a cart looks the
+same on either player at the same size. Border is Off, Blur and Your Own
+(`Borders/PICO-8/`, or NextUI's `Overlays/PICO8/`); PICO-8 has no handheld
+to frame. **Next Shader** steps the shelf's shader live (portkeys,
+`p8fx_next_shader`).
+
+*How it is drawn* (src/p8fx.h). pico8_64 draws through the system's SDL2:
+its screen as a texture, copied each frame to where its mode puts it.
+PICO-8.sh loads ZyperOS's `ZyperOS/pico8/p8fx.so` before SDL (`LD_PRELOAD`),
+and it takes that one copy: the Border over SDL's black, then the picture
+through the shader in SDL's own GL context, with SDL's GL state put back
+after. With Off, SDL still draws the picture, to the pixel as without it.
+What it draws is `/tmp/zyperos-pico8fx`, which the launcher writes as it
+hands over to PICO-8 and the menu writes again; the library reads it again
+within a quarter of a second of a change. No change to the system image.
+Wherever the library cannot draw (no file, a GPU below OpenGL ES 3, a
+renderer that is not SDL's OpenGL ES one, anything it does not know), PICO-8
+draws as it always did, never a black screen. PICO-8's own screenshots and
+GIFs are of its 128 x 128, with no shader. `make check-p8fx` and
+`check-p8fx-gl` hold it.
 
 **A cart's own saves** are one set for both players: fake08's `Saves/cdata`,
 bound over PICO-8's `cdata` for the run. PICO-8's settings, Splore's downloads
@@ -6224,7 +6254,7 @@ shelf has no Splore and plays on fake08.
 
 Host shots: `make pico8-shots` (the shelf before and after, the Core row, the
 page in both themes). The rules: `make check-pico8`, `check-config`,
-`check-controls`.
+`check-controls`, `check-p8fx`, `check-p8fx-gl`.
 
 ### 11.56 Collections
 *(NextUI's top ten, and my picks in the Library lab, 2026-11-19: "Add to

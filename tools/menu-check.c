@@ -2288,20 +2288,41 @@ static void ingame_rows(void)
 	ck(reachable(rows, n, got, GM_MAX_ROWS) == 3, "every row a stop");
 	ck(gm_tab_rows(&u, GT_DISPLAY, ids) == 3, "whichever tab it is asked for");
 	/* Over your PICO-8 (src/portmenu.h's port_menu_display): Display after
-	 * Continue, its value the mode, A its list and Left and Right nothing */
+	 * Continue, its value the mode, A its list and Left and Right nothing;
+	 * then the Display tab's picture rows its shim draws (src/p8fx.h):
+	 * Shader always, Border where the mode leaves room, Strength under an
+	 * old screen */
 	printf("in-game menu over your PICO-8:\n");
 	u.port_display = true;
 	u.dmode = "Actual Size";
 	n = gm_rows(&u, GT_GAME, rows, &b);
-	ck(n == 4 && gm_tab_rows(&u, GT_GAME, ids) == 4 && ids[0] == GM_CONTINUE && ids[1] == GM_DISPLAY &&
-	   ids[2] == GM_CONTROLS && ids[3] == GM_QUIT, "Continue, Display, Controls and Quit");
+	ck(n == 5 && gm_tab_rows(&u, GT_GAME, ids) == 5 && ids[0] == GM_CONTINUE && ids[1] == GM_DISPLAY &&
+	   ids[2] == GM_SHADER && ids[3] == GM_CONTROLS && ids[4] == GM_QUIT,
+	   "Continue, Display, Shader, Controls and Quit");
 	ck(!strcmp(rows[1].label, "Display") && rows[1].value && !strcmp(rows[1].value, "Actual Size"),
 	   "Display, its value the mode it draws");
 	ck(!(b.sound[1] & MENU_SND_RING), "Left and Right step nothing on it (no ring)");
-	ck(rows[3].value == MENU_KEY_X && gm_row_at(&u, GT_GAME, gm_x_row()) == 3, "X is still Quit");
-	ck(reachable(rows, n, got, GM_MAX_ROWS) == 4, "every row a stop");
+	ck(!strcmp(rows[2].label, "Shader") && rows[2].value && !strcmp(rows[2].value, "Off") &&
+	   (b.sound[2] & MENU_SND_RING), "Shader, Off, stepping round as over a game");
+	ck(rows[4].value == MENU_KEY_X && gm_row_at(&u, GT_GAME, gm_x_row()) == 4, "X is still Quit");
+	ck(reachable(rows, n, got, GM_MAX_ROWS) == 5, "every row a stop");
+	u.border = "Blur";
+	u.shader = "CRT";
+	u.strength = "70%";
+	n = gm_rows(&u, GT_GAME, rows, &b);
+	ck(n == 7 && gm_tab_rows(&u, GT_GAME, ids) == 7 && ids[0] == GM_CONTINUE && ids[1] == GM_DISPLAY &&
+	   ids[2] == GM_BORDER && ids[3] == GM_SHADER && ids[4] == GM_STRENGTH && ids[5] == GM_CONTROLS &&
+	   ids[6] == GM_QUIT, "with room and an old screen: Continue, Display, Border, Shader, Strength, "
+	   "Controls and Quit, the Display tab's order");
+	ck(!strcmp(rows[2].value, "Blur") && !strcmp(rows[3].value, "CRT") && !strcmp(rows[4].value, "70%"),
+	   "each its value");
+	ck(gm_row_at(&u, GT_GAME, gm_x_row()) == 6 && reachable(rows, n, got, GM_MAX_ROWS) == 7,
+	   "X still Quit, every row a stop");
+	u.border = NULL;
+	u.shader = NULL;
+	u.strength = NULL;
 	u.port_display = false;
-	ck(gm_tab_rows(&u, GT_GAME, ids) == 3, "and no Display row over any other program");
+	ck(gm_tab_rows(&u, GT_GAME, ids) == 3, "and no Display, Border or Shader row over any other program");
 	u.port = false;
 }
 

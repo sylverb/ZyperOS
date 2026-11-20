@@ -117,6 +117,13 @@ int main(int argc, char **argv)
 		fprintf(stderr, "p8fx-standin: %s\n", SDL_GetError());
 		return 1;
 	}
+	/* Which renderer SDL gave, as pico8_64 asks (SDL_GetRendererInfo): the
+	 * check skips where it is not OpenGL ES's */
+	{
+		SDL_RendererInfo info;
+
+		if (SDL_GetRendererInfo(r, &info) == 0) fprintf(stderr, "p8fx-standin: renderer %s\n", info.name);
+	}
 	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, sharp ? "nearest" : "linear");
 	SDL_SetRenderDrawColor(r, 0, 0, 0, 255);
 	SDL_RenderClear(r);

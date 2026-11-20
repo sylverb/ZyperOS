@@ -325,8 +325,10 @@ int gm_disc_step(int disc, int discs, int d);
  * GM_CONTROLS and GM_PAK are in no tab: Controls is a tab now and Pak is one
  * of its rows. A port's menu (u->port) has no tabs and is Continue, Controls
  * and Quit whichever tab is asked for; over your PICO-8 (u->port_display)
- * Continue, Display, Controls and Quit, Display where the Display tab is,
- * after the Game tab's first row. */
+ * Continue, Display, Border, Shader, Strength, Controls and Quit, the four
+ * picture rows in the Display tab's order, after the Game tab's first row
+ * (Border and Strength where they would show in a game: u->border,
+ * u->strength). */
 typedef enum { GT_GAME, GT_DISPLAY, GT_CONTROLS, GT_ACHIEVEMENTS, GT_TABS } gm_tab;
 
 /* On-Screen Stats' switch in the device's database, kept per player and
