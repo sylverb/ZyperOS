@@ -798,6 +798,13 @@ void snap_ask(const char *req, bool hold)
 
 /* For the shelf's loop: a snap is asked for and the daemon has a newer
  * picture of it than the one on screen */
+static bool g_video_playing;
+
+bool shelf_video_playing(void)
+{
+	return g_video_playing;
+}
+
 bool snap_new_picture(void)
 {
 	return g_snap_asked[0] && snapv_pending();
@@ -821,6 +828,10 @@ static void shelf_snap(app *a, sysview *v, const game_entry *g, int owner, bool 
 	float k = 0;
 	int w = 0, h = 0;
 	bool front = g_home_live && settled && g, hold = false;
+
+	/* Under a page or a menu, which snapshelf holds the Video view's snap
+	 * through (snapshelf.h) */
+	g_snap_shelf.covered = !g_home_live;
 
 	/* Which file, worked out when the focus moves rather than every frame */
 	if (!g) {
@@ -1233,6 +1244,10 @@ static void draw_games(app *a)
 		g_snap_shelf.at_once = true;
 		shelf_snap(a, v, g && !g->folder ? g : NULL, owner, !held, &si);
 		g_snap_shelf.at_once = false;
+		/* A page or a menu over the view keeps its band up, as a press
+		 * does: the snap holds under it (snapshelf's `covered`) and would
+		 * otherwise rest the band down behind the page */
+		if (!g_home_live) vv_touch(&v->vm, now);
 		vi = (vv_info){
 			.heading = head, .title = g ? g->title : NULL,
 			.count = v->list.count, .cursor = v->cursor,
@@ -1253,6 +1268,7 @@ static void draw_games(app *a)
 			.playing = si.snap && si.snap_k >= 1,
 			.band = g_shot_band,
 		};
+		g_video_playing = vi.playing;
 		wait = vv_draw(&v->vm, &v->row, a->r, &vi, game_get_tex, a, now, title_phase(a));
 		if (wait != UINT32_MAX) redraw_at(plat_now_ms() + wait);
 		evict_far(v, TEX_KEEP_NEAR);
@@ -1636,6 +1652,7 @@ void draw_shelf(app *a)
 	texload_drain(a);
 	prime_home(a);
 	draw_background(a);
+	g_video_playing = false;           /* the Video view's, below, says otherwise */
 	/* MP4's shelf draws its header first: its album's title stands in the
 	 * header's row, between the clock and the marks (draw_game_text) */
 	if (muse_shelf_shown(a)) draw_status(a);

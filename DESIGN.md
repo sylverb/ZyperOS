@@ -4131,9 +4131,10 @@ Right; **1m** to start with, shorter than Auto Off's two minutes so that a
 handheld on battery shows it before it powers off. It starts only on the
 shelf, the home or a games shelf, once its delay has passed with no button
 down. Never in a game, over a menu, MP4, Muse's player or File Transfer, and
-not while music plays, File Transfer is on behind the shelf or a long task
-runs (11.38): the countdown does not run while any of them does, and a
-whole delay passes after it ends, as Auto Off's does on the charger. A game,
+not while music plays, File Transfer is on behind the shelf, a long task
+runs (11.38) or the Video view plays a snap (11.57: somebody watching it,
+whose first press the screensaver would take): the countdown does not run
+while any of them does, and a whole delay passes after it ends, as Auto Off's does on the charger. A game,
 a menu or any other screen in between restarts it. The charger does not
 hold it: a handheld on the cable shows it too. Under 20% on battery it does
 not start (src/saver.h).
@@ -6046,7 +6047,15 @@ margin, DS_BAR high, centered in the strip, with the focus's place on it in
 where the game is in the shelf still shows. Any press brings the band back
 up in **quick** and does what it does: Right steps on as the band comes up.
 A game with no snap never goes down; the band comes back up by itself when
-the snap stops (a menu over the shelf, the dark screen).
+the snap stops (the dark screen). The covers glide to their places drawn
+frame by frame to the end, as the cover row's do, whether or not the snap
+has a new picture.
+
+**Over it.** A page or a menu over the view (X's details, MENU) holds the
+snap on its picture, its daemon waiting, and brings the band up as a press
+does; it plays on from there when the shelf is in front again, so the
+game's card never shows through as the page comes. While the snap plays,
+the screensaver's countdown does not run (11.37).
 
 **What it costs.** The snap is Muse's daemon's, as on every view: one
 decoder thread, at most 640 x 480, its frames drawn only when a newer
