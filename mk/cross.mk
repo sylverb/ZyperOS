@@ -181,6 +181,23 @@ $(BUILD)/portkeys: $(PORTKEYS_SRC) tools/pkkeys.h src/keyrepeat.h tools/pkset.h 
 	$(CC) -O2 $(MCPU) -Wall -Wextra -std=gnu11 -Isrc -Idiatom/src -Idiatom/include -I$(SYSROOT)/usr/include \
 	      $(LDFLAGS) -o $@ $(PORTKEYS_SRC) -lsqlite3 -lz -lm
 
+# Your PICO-8's Shader and Border (src/p8fx.h, DESIGN.md 11.55): a library
+# pico8_64 loads before the system's SDL2 (LD_PRELOAD, sd/pixel2/PICO-8.sh),
+# which draws PICO-8's screen through Diatom's own shaders
+# (diatom/port/gles_shaders.h) with the Border under it (Diatom's blur and its
+# picture file, diatom/src/border.c), the shaders by Diatom's names for them
+# (diatom/src/scale.c). SDL's functions and GL's are looked up as it runs, as
+# SDL's renderer looks up GL's, so it links libdl alone: where SDL or GL is not
+# what it needs, it loads and does nothing. tools/p8fx-gl-check.py builds the
+# same files for the computer it runs on.
+P8FX_SRC := src/p8fx/shim.c src/p8fx.c diatom/src/scale.c diatom/src/border.c
+$(BUILD)/p8fx.so: $(P8FX_SRC) src/p8fx.h src/strength.h src/i18n_ids.h diatom/port/gles_shaders.h \
+                  diatom/src/border.h diatom/src/diatom.h diatom/include/diatom_port.h
+	mkdir -p $(BUILD)
+	$(CC) -shared -fPIC -fvisibility=hidden -O2 $(MCPU) -Wall -Wextra -Wno-unused-parameter -std=gnu11 -D_GNU_SOURCE \
+	      -Isrc -Idiatom/include -Idiatom/src -I$(SYSROOT)/usr/include/SDL2 -I$(SYSROOT)/usr/include \
+	      $(LDFLAGS) -o $@ $(P8FX_SRC) -ldl
+
 # MENU+START held a second, back to the home from anything (tools/zyhome.c),
 # run by launch.sh beside everything
 $(BUILD)/zyhome: tools/zyhome.c tools/zychord.h src/ctl.c src/ctl.h
