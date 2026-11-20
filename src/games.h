@@ -28,6 +28,7 @@ typedef struct {
     bool favorite;
     int count,cursor,earned,total;
     bool has_achievements,resumable;
+    const char *cheats;  /* "2 cheats on" (src/cheats_screen.h), NULL or "" for none */
     /* The focused entry is PortMaster while it is not on the card
      * (src/pminstall.h): A says Install, and the line under its name
      * that it is not installed */

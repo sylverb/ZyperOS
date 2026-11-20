@@ -1183,7 +1183,7 @@ Cheats are RetroArch's `.cht` files: libretro's cheat list, or a file of your ow
 
 **Achievements stop while a cheat is on.** From the first cheat you turn on, the game's achievements wait until the game starts again with every cheat off: the Achievements row says `Paused`, and the Achievements tab says why. Turning the cheats off again does not bring them back in the same session, because what a cheat changed in the game stays. Signed in to RetroAchievements, the first cheat in a game with achievements asks first, with the cursor on Cancel. It asks once a game.
 
-**Starting a game** with cheats on shows a pop-up, `2 cheats on`, so none is forgotten. A game that stopped by itself last time with cheats on asks whether to start without them; **Without Cheats** starts it with none this time and keeps them set for later.
+**On the shelf**, a game with cheats on says `2 cheats on` under its name, after its play time and achievements. **Starting a game** with cheats on shows a pop-up, `2 cheats on`, so none is forgotten. A game that stopped by itself last time with cheats on asks whether to start without them; **Without Cheats** starts it with none this time and keeps them set for later.
 
 Whether a code works is up to the game's emulator core: a cheat in the list that the core cannot use does nothing. A cheat can also break a game or its save, so save a state before you try one.
 

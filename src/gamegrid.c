@@ -948,8 +948,10 @@ static void band(SDL_Renderer *r, const gg_info *in, void *ctx, int games, int s
 	}
 	if (in->has_achievements) {
 		snprintf(line, sizeof line, T(S_GAMES_ACHIEVEMENTS), in->earned, in->total);
-		fact(r, line, x, fy, right);
+		x = fact(r, line, x, fy, right);
 	}
+	/* and how many of its cheats are on (DESIGN.md 11.66) */
+	if (in->cheats && *in->cheats) fact(r, in->cheats, x, fy, right);
 }
 
 /* The video snap: the focused cell opens to two cells across (no wider than

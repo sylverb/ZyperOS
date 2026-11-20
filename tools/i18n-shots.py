@@ -990,6 +990,15 @@ EXTRA.setdefault("cheats-on-first", ("demo", "PS1", ["--gamemenu", "0", "--cheat
 EXTRA.setdefault("cheats-search", ("demo", "PS1", ["--gamemenu", "0", "--cheats-page", "0", "--cheats-query", "infinite"]))
 EXTRA.setdefault("cheats-search-none", ("demo", "PS1", ["--gamemenu", "0", "--cheats-page", "0", "--cheats-query", "zzz"]))
 EXTRA.setdefault("cheats-crash", ("demo", "PS1", ["--cheats-crash"]))
+# The shelf's line under the game's name (the lab's): "2 cheats on" on the
+# covers and in the list, and after a crash with them on
+EXTRA.setdefault("cheats-shelf", ("demo", "PS1", ["--screen", "games"]))
+EXTRA.setdefault("cheats-shelf-crashed", ("demo", "PS1", ["--screen", "games", "--cheats-crashed"]))
+EXTRA.setdefault("cheats-shelf-list", ("demo", "PS1", ["--screen", "games", "--view", "list", "--cheats-crashed"]))
+for _n in ("cheats-row", "cheats-page", "cheats-page-end", "cheats-ask", "cheats-note", "cheats-note-end",
+           "cheats-on-first", "cheats-search", "cheats-search-none", "cheats-shelf", "cheats-shelf-crashed",
+           "cheats-shelf-list"):
+    R.SHOT_FOCUS.setdefault(_n, R.CHEATS_GAME + ".chd")
 R.SHOT_FOCUS.setdefault("cheats-none-libretro", "Crash Bandicoot (USA).chd")
 R.SHOT_FOCUS.setdefault("cheats-not-checked", "Spyro the Dragon (USA).chd")
 # On-Screen Stats' page (src/hudmenu_screen.h): its rows with three items

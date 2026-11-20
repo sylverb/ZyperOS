@@ -362,6 +362,10 @@ uint32_t gl_draw(gl_motion *m, SDL_Renderer *r, const gl_info *in,
 				snprintf(line, sizeof line, T(S_GAMES_ACHIEVEMENTS), in->earned, in->total);
 				y = gl_fact(r, line, y);
 			}
+			/* and how many of its cheats are on (DESIGN.md 11.66) */
+			if (in->cheats && *in->cheats) y = gl_fact(r, in->cheats, y);
+			if (in->cheats && *in->cheats && in->cheats_crashed)
+				y = gl_fact(r, T(S_CHEATS_SHELF_CRASHED_LINE), y);
 		}
 		page_hint(r, "A", T(games > 0 || in->opens ? S_GAMES_OPEN : in->howto ? S_PICO8_HOW_TO_ADD
 		                    : in->install ? S_PORTMASTER_INSTALL

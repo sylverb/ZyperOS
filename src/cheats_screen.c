@@ -196,6 +196,33 @@ bool cheats_crash_asks(const system_cfg *s, const char *file)
 	return db_get_str(db_lib(), key, st, sizeof st, "") && st[0];
 }
 
+bool g_shot_cheats_crashed;
+
+int cheats_shelf_line(const system_cfg *s, const char *file, char *out, size_t n, bool *crashed)
+{
+	static cheat_list L;
+	static char st[CHEATS_MAX * 9 + 1];
+	char key[CFG_STR + LIB_PATH + 24];
+	int c;
+
+	if (n) out[0] = '\0';
+	if (crashed) *crashed = false;
+	if (!s || !file || !n) return 0;
+	cheats_key(s->tag, file, key, sizeof key);
+	if (!db_get_str(db_lib(), key, st, sizeof st, "") || !st[0]) return 0;
+	/* Counted from the list, not the kept ids: an update may have taken a
+	 * cheat that was on out of its file */
+	cheats_load(&L, P_CARD, s->folder, s->tag, file);
+	cheats_state_apply(&L, st);
+	c = cheats_on_count(&L);
+	cheats_free(&L);
+	if (c <= 0) return 0;
+	snprintf(out, n, TN(S_CHEATS_POPUP, c), c);
+	crash_key(s->tag, file, key, sizeof key);
+	if (crashed) *crashed = db_has(db_lib(), key) || g_shot_cheats_crashed;
+	return c;
+}
+
 int  cheats_game_on(void)     { return g_cg.on ? g_cg.count : 0; }
 bool cheats_game_paused(void) { return g_cg.on && g_cg.paused; }
 

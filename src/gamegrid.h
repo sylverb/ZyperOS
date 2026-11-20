@@ -126,6 +126,7 @@ typedef struct {
 	/* The focused entry's facts, as the cover row has them */
 	const char *played, *origin;
 	bool has_achievements, resumable, install, inside;
+	const char *cheats;   /* "2 cheats on" (src/cheats_screen.h), NULL or "" for none */
 	bool howto, opens;     /* Splore's entry (src/games.h) */
 	int earned, total;
 	/* START's word at the foot: what the shelf turns into next */
