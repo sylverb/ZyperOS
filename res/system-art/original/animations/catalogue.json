@@ -1390,6 +1390,54 @@
       "still_sha256": "48460f84a7e1af9eefcb656c9c946795a9cc6b0cf7e3513d4e0eba4209b529af"
     },
     {
+      "key": "COLLECTIONS",
+      "name": "Collections",
+      "description": "Top cartridge lifts off the stack (a placeholder drawn by script)",
+      "cell": 256,
+      "cols": 2,
+      "rows": 1,
+      "unique": 2,
+      "duration_ms": 800,
+      "kind": "system",
+      "static": false,
+      "placeholder": true,
+      "expected_poses": 2,
+      "motion_bounds": [
+        56,
+        56,
+        160,
+        72
+      ],
+      "frames": [
+        {
+          "tile": 0,
+          "ms": 400
+        },
+        {
+          "tile": 1,
+          "ms": 400
+        }
+      ],
+      "still_time_ms": 0,
+      "decoded_atlas_bytes": 524288,
+      "inputs": [
+        "placeholders/collections-card.py"
+      ],
+      "renderers": [
+        "placeholders/collections-card.py"
+      ],
+      "input_sha256": {
+        "placeholders/collections-card.py": "d40ae9213cdb2adaa9d14dc9d086c1d2fc7cc5b5db0af11b66460d2f3dd2185b"
+      },
+      "renderer_sha256": {
+        "placeholders/collections-card.py": "d40ae9213cdb2adaa9d14dc9d086c1d2fc7cc5b5db0af11b66460d2f3dd2185b"
+      },
+      "atlas": "COLLECTIONS.png",
+      "still": "COLLECTIONS-still.png",
+      "atlas_sha256": "a6a896f381bdbd2af14fb3bf5ebfb35938de46a2d5ddae4b0c08ed41660c32c8",
+      "still_sha256": "3921aa7e2a4f1aa985c7954a4d9fdb9aeec527eda8e0e9e65634ae972c276eb3"
+    },
+    {
       "key": "DC",
       "name": "Sega Dreamcast",
       "description": "Disc lid opens and closes",

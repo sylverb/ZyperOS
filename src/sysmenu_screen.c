@@ -21,6 +21,7 @@
 #include "clamp.h"
 #include "clock.h"
 #include "clock_screen.h"
+#include "collect_screen.h"
 #include "devmode.h"
 #include "folderart.h"
 #include "homesys_screen.h"
@@ -427,8 +428,16 @@ static void menu_choices(app *a, int sys, bool games)
 			g_sm_choice[SM_PACE].preview = sm_pace_preview;
 			g_sm_choice[SM_PACE].list = true;
 		}
-		for (i = 0; i < SORT_COUNT; i++) P[4].lab[i] = sort_label(i);
-		g_sm_choice[SM_SORT] = ch_make(&P[4], SORT_COUNT, v->sort, false);
+		{
+			/* Collections has its own four, Added first (src/sort.h), in a
+			 * pool of their own: the menu's width is measured over every
+			 * shelf's rows, and the others' would be written over them */
+			bool coll = sys == shelf_coll_at(a);
+			ch_pool *sp = coll ? &P[11] : &P[4];
+
+			for (i = 0; i < sort_choices(coll); i++) sp->lab[i] = sort_label(sort_choice(coll, i));
+			g_sm_choice[SM_SORT] = ch_make(sp, sort_choices(coll), sort_choice_of(coll, v->sort), false);
+		}
 		{
 			static const char *notes[CH_MAX];
 
@@ -617,7 +626,15 @@ int menu_build(app *a, screen_id screen, int sys,
 		 * core and no folder is the built one, and a check can hand that
 		 * over without inventing a flag day. */
 		u.muse       = is_muse(sc);
-		u.fav        = !u.muse && sc->core[0] == '\0' && sc->folder[0] == '\0';
+		u.coll       = sys == shelf_coll_at(a);
+		u.fav        = !u.muse && !u.coll && sc->core[0] == '\0' && sc->folder[0] == '\0';
+		if (u.coll) {
+			const sysview *cv = &a->view[sys];
+
+			u.coll_inside = cv->dir[0] != '\0';
+			u.coll_name = u.coll_inside ? cv->dir
+			            : cv->cursor >= 0 && cv->cursor < cv->list.count ? cv->list.items[cv->cursor].name : "";
+		}
 		/* Every game of the system, in its folders too: the shelf's own
 		 * entries would count a folder as one. Not Splore's entry, nor
 		 * PortMaster's while it is not on the card: no game */
@@ -1908,7 +1925,23 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 		 * SM_FAV_ROWS - so its Sort By is row 1 and not SM_SORT. Nothing here
 		 * knew that from the day the menu was cut to two rows, and left and
 		 * right on Favorites' Sort By did nothing at all. */
-		if (a->view[a->sys_cursor].owner)
+		/* Collections' rows are its own (SM_COLL_ROWS): its Sort By and View
+		 * go on below as any shelf's; the three about a collection are
+		 * src/collect_screen.c's, and close the menu onto the shelf as it
+		 * is after them */
+		if (a->sys_cursor == shelf_coll_at(a)) {
+			sm_coll_row ids[SM_COLL_ROWS];
+			int n = sys_menu_coll_rows(a->view[a->sys_cursor].dir[0] != '\0', ids);
+			sm_coll_row id = sel >= 0 && sel < n ? ids[sel] : SMC_GAMES;
+
+			if (id == SMC_RENAME || id == SMC_REMOVE || id == SMC_DELETE) {
+				if (key != IN_ACCEPT) return MENU_STAY;
+				if (id == SMC_RENAME) return collect_rename_screen(a) ? MENU_DONE : MENU_STAY;
+				if (id == SMC_REMOVE) { collect_remove_game(a); return MENU_DONE; }
+				return collect_delete_screen(a) ? MENU_DONE : MENU_STAY;
+			}
+			sel = id == SMC_RANDOM ? SM_RANDOM : id == SMC_SORT ? SM_SORT : id == SMC_VIEW ? SM_VIEW : SM_GAMES;
+		} else if (a->view[a->sys_cursor].owner)
 			sel = sel == 1 ? SM_RANDOM : sel == 2 ? SM_SORT : sel == 3 ? SM_VIEW : SM_GAMES;
 		/* And a console's rows lose Box Art on a device with no radio, which
 		 * moves Rescan Folder up one: which row is which comes from the same
@@ -2011,7 +2044,7 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 
 			v->sort = is_muse(&a->sys.systems[a->sys_cursor])
 			        ? (v->sort + d + ML_ORDERS) % ML_ORDERS
-			        : sort_step(v->sort, d);
+			        : sort_step_in(a->sys_cursor == shelf_coll_at(a), v->sort, d);
 			sort_shelf(a, a->sys_cursor);
 			sort_save(a);
 

@@ -2,6 +2,7 @@
 #include "shelfbuild.h"
 
 #include "bgm.h"
+#include "collect.h"
 #include "db.h"
 #include "esmedia.h"
 #include "favorites.h"
@@ -22,6 +23,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
@@ -521,6 +523,286 @@ static void drop_recents_shelf(app *a)
 	group_drop(a, HOMESYS_RECENT);
 }
 
+/* ---- Collections (src/collect.h, DESIGN.md 11.56) -----------------------
+ *
+ * A group like Favorites and Recents, after them, once a collection has a
+ * game on the shelves. Its shelf is one folder deep. At its top, a folder
+ * card for each collection with a game on the shelves, A to Z: the first
+ * v->nfold entries, each one's `file`, `name` and `title` the collection's
+ * name and `folder` how many of its games are here, owned by the group
+ * itself, so its card wears the group's lime (and Folder Color) as a
+ * system's folder wears its system's. In one (v->dir its name), its games,
+ * each owned by its own system as on Favorites, in the shelf's Sort By; a
+ * game's `added` is its line, for Added. A game off the card is not in it,
+ * and its line stays in the list. A game of a system turned off the home
+ * stays, as it does on Favorites and Recents (app.parked). */
+
+/* The game a collection's line names, on a system's shelf, on the home or
+ * turned off it (sys_kept): its shelf and its place in every game of it
+ * (sys_games). Never a group's, never Muse's. */
+static bool coll_resolve(const app *a, const char *folder, const char *file, int *si, int *k)
+{
+	for (int i = 0; i < sys_kept(a); i++) {
+		const game_list *gl;
+
+		if (a->view[i].owner || is_muse(&a->sys.systems[i]) ||
+		    strcasecmp(a->sys.systems[i].folder, folder))
+			continue;
+		gl = sys_games_c(&a->view[i]);
+		for (int g = 0; g < gl->count; g++)
+			if (!gl->items[g].folder && !strcmp(gl->items[g].file, file)) {
+				*si = i;
+				*k = g;
+				return true;
+			}
+	}
+	return false;
+}
+
+/* Collection c's games on the shelves, into items and owner (up to max), in
+ * its list's order, each once; how many */
+static int coll_gather(const app *a, int c, game_entry *items, int *owner, int max)
+{
+	char folder[COLL_LINE], file[COLL_LINE];
+	int n = 0, si, k, j;
+
+	for (int l = 0; l < coll_lines(c) && (!items || n < max); l++) {
+		if (!coll_game(c, l, folder, sizeof folder, file, sizeof file) ||
+		    !coll_resolve(a, folder, file, &si, &k))
+			continue;
+		if (!items) { n++; continue; }
+		for (j = 0; j < n; j++)
+			if (owner[j] == si && !strcmp(items[j].file, file)) break;
+		if (j < n) continue;                       /* a list naming it twice */
+		items[n] = sys_games_c(&a->view[si])->items[k];
+		items[n].added = l;
+		owner[n++] = si;
+	}
+	return n;
+}
+
+int shelf_coll_at(const app *a)
+{
+	return group_at(a, HOMESYS_COLL);
+}
+
+/* How many games the collections hold on the shelves, each once however
+ * many lists name it: the home's count under Collections */
+static int g_coll_games;
+
+int shelf_coll_games(void)
+{
+	return g_coll_games;
+}
+
+static int coll_count_games(const app *a)
+{
+	char folder[COLL_LINE], file[COLL_LINE];
+	int at[CFG_MAX_SYSTEMS + 1], total = 0, n = 0, si, k;
+	unsigned char *seen;
+
+	for (si = 0; si < sys_kept(a) && si < CFG_MAX_SYSTEMS; si++) {   /* off the home too */
+		at[si] = total;
+		total += sys_games_c(&a->view[si])->count;
+	}
+	if (!(seen = calloc((size_t)(total ? total : 1), 1))) return 0;
+	for (int c = 0; c < coll_count(); c++)
+		for (int l = 0; l < coll_lines(c); l++)
+			if (coll_game(c, l, folder, sizeof folder, file, sizeof file) &&
+			    coll_resolve(a, folder, file, &si, &k) && si < CFG_MAX_SYSTEMS && !seen[at[si] + k]) {
+				seen[at[si] + k] = 1;
+				n++;
+			}
+	free(seen);
+	return n;
+}
+
+/* The top's entries, a folder card a collection with a game here, into a
+ * new list; how many, or -1 with no memory */
+static int coll_top(const app *a, int self, game_entry **items_out, int **owner_out)
+{
+	game_entry *items = calloc(COLL_MAX, sizeof *items);
+	int *owner = calloc(COLL_MAX, sizeof *owner), n = 0;
+
+	if (!items || !owner) { free(items); free(owner); return -1; }
+	for (int c = 0; c < coll_count(); c++) {
+		int games = coll_gather(a, c, NULL, NULL, COLL_LINES);
+
+		if (!games) continue;
+		snprintf(items[n].name, sizeof items[n].name, "%s", coll_name(c));
+		snprintf(items[n].title, sizeof items[n].title, "%s", coll_name(c));
+		snprintf(items[n].file, sizeof items[n].file, "%s", coll_name(c));
+		items[n].folder = games;
+		items[n].added = LIB_ADDED_UNKNOWN;
+		owner[n++] = self;
+	}
+	*items_out = items;
+	*owner_out = owner;
+	return n;
+}
+
+/* Build the Collections shelf, at its top: after Favorites and Recents,
+ * first when there are neither; none with no collection that has a game on
+ * the shelves, as an empty Favorites shows none */
+static void build_collections_shelf(app *a)
+{
+	game_entry *items;
+	int *owner, n, at, fav, rec;
+
+	if (coll_count() <= 0 || sys_kept(a) <= 0 || !homesys_shown(HOMESYS_COLL)) return;
+	if (sys_kept(a) >= CFG_MAX_SYSTEMS) {
+		fprintf(stderr, "scan: no room for a Collections shelf\n");
+		return;
+	}
+	fav = group_at(a, HOMESYS_FAV);
+	rec = group_at(a, HOMESYS_RECENT);
+	at = (fav > rec ? fav : rec) + 1;
+	if ((n = coll_top(a, at, &items, &owner)) <= 0) {
+		if (n == 0) { free(items); free(owner); }
+		fprintf(stderr, "scan: %-16s none with a game on the shelves (%d list%s)\n", "Collections",
+		        coll_count(), coll_count() == 1 ? "" : "s");
+		return;
+	}
+	shelf_insert(a, at);
+	if (!group_fill(a, at, T(S_LIBRARY_COLLECTIONS), HOMESYS_COLL, "COLLECTIONS.png", items, owner, n))
+		return;
+	a->view[at].nfold = n;
+	a->view[at].sort = SORT_LIST;
+	g_coll_games = coll_count_games(a);
+	fprintf(stderr, "scan: %-16s %d collection%s, %d game%s\n", "Collections", n, n == 1 ? "" : "s",
+	        g_coll_games, g_coll_games == 1 ? "" : "s");
+}
+
+static void drop_collections_shelf(app *a)
+{
+	int at = group_at(a, HOMESYS_COLL);
+
+	if (at >= 0) {
+		a->view[at].nfold = 0;
+		a->view[at].dir[0] = '\0';
+	}
+	group_drop(a, HOMESYS_COLL);
+}
+
+bool shelf_coll_show(app *a, int s, const char *dir)
+{
+	sysview *v = &a->view[s];
+	game_entry *items = NULL;
+	int *owner = NULL, n = -1, c = dir && dir[0] ? coll_find(dir) : -1, i;
+	bool inside;
+
+	if (s != group_at(a, HOMESYS_COLL)) return false;
+	if (c >= 0) {
+		int want = coll_gather(a, c, NULL, NULL, COLL_LINES);
+
+		if (want > 0 && (items = calloc((size_t)want, sizeof *items)) &&
+		    (owner = calloc((size_t)want, sizeof *owner)))
+			n = coll_gather(a, c, items, owner, want);
+		else { free(items); free(owner); items = NULL; owner = NULL; }
+	}
+	/* Its top: asked for, or the collection went (deleted, emptied) */
+	inside = n > 0;
+	if (!inside && (n = coll_top(a, s, &items, &owner)) < 0) return false;
+	for (i = 0; v->tex && i < v->list.count; i++)
+		if (v->tex[i]) SDL_DestroyTexture(v->tex[i]);
+	free(v->tex); free(v->tw); free(v->th); free(v->cb);
+	free(v->list.items); free(v->owner);
+	v->tex = calloc((size_t)(n ? n : 1), sizeof *v->tex);
+	v->tw = calloc((size_t)(n ? n : 1), sizeof *v->tw);
+	v->th = calloc((size_t)(n ? n : 1), sizeof *v->th);
+	v->cb = calloc((size_t)(n ? n : 1), sizeof *v->cb);
+	v->list.items = items;
+	v->list.count = n;
+	v->owner = owner;
+	if (!v->tex || !v->tw || !v->th || !v->cb) {
+		free(v->tex); free(v->tw); free(v->th); free(v->cb);
+		v->tex = NULL; v->tw = NULL; v->th = NULL; v->cb = NULL;
+		v->list.count = 0;
+		return false;
+	}
+	if (inside) {
+		snprintf(v->dir, sizeof v->dir, "%s", coll_name(c));
+		v->nfold = 0;
+	} else {
+		v->dir[0] = '\0';
+		v->nfold = n;
+	}
+	if (v->cursor >= v->list.count) v->cursor = v->list.count > 0 ? v->list.count - 1 : 0;
+	return true;
+}
+
+/* Where the Collections shelf was, to be put back once it is built again:
+ * its order, the collection it was in, and the entry it was on by name
+ * (and system), or its place */
+typedef struct {
+	bool had;
+	int sort, cursor;
+	char dir[COLL_NAME], tag[16], file[LIB_PATH];
+} coll_keep;
+
+static void coll_note(const app *a, coll_keep *k)
+{
+	int at = group_at(a, HOMESYS_COLL);
+	const sysview *v;
+
+	memset(k, 0, sizeof *k);
+	if (at < 0) return;
+	v = &a->view[at];
+	k->had = true;
+	k->sort = v->sort;
+	k->cursor = v->cursor;
+	snprintf(k->dir, sizeof k->dir, "%s", v->dir);
+	if (v->cursor >= 0 && v->cursor < v->list.count) {
+		snprintf(k->tag, sizeof k->tag, "%s", a->sys.systems[v->owner[v->cursor]].tag);
+		snprintf(k->file, sizeof k->file, "%s", v->list.items[v->cursor].file);
+	}
+}
+
+static void coll_put_back(app *a, const coll_keep *k)
+{
+	int at = group_at(a, HOMESYS_COLL), c = -1;
+	sysview *v;
+
+	if (at < 0) return;
+	v = &a->view[at];
+	if (k->had) v->sort = k->sort;
+	if (k->dir[0]) shelf_coll_show(a, at, k->dir);
+	sort_shelf(a, at);
+	for (int i = 0; k->file[0] && i < v->list.count; i++)
+		if (!strcmp(v->list.items[i].file, k->file) &&
+		    (v->list.items[i].folder || !strcmp(a->sys.systems[v->owner[i]].tag, k->tag)))
+			c = i;
+	if (c < 0 && k->had) c = k->cursor < v->list.count ? k->cursor : v->list.count - 1;
+	v->cursor = c > 0 ? c : 0;
+	cf_reset(&v->cf, v->cursor);
+}
+
+void refresh_collections_shelf(app *a)
+{
+	char tag[sizeof a->sys.systems[0].tag];
+	coll_keep k;
+	int i;
+
+	if (a->sys.count <= 0) return;
+	texload_bump();
+	snprintf(tag, sizeof tag, "%s", a->sys.systems[a->sys_cursor].tag);
+	coll_note(a, &k);
+	drop_collections_shelf(a);
+	build_collections_shelf(a);
+	coll_put_back(a, &k);
+	for (i = 0; i < a->sys.count; i++)
+		if (!strcmp(a->sys.systems[i].tag, tag)) break;
+	if (i < a->sys.count) {
+		a->sys_cursor = i;
+	} else {
+		/* Stood on Collections, and it went: its last game left it */
+		a->sys_cursor = 0;
+		a->screen = SCREEN_SYSTEMS;
+	}
+	if (a->sys.count > 0) a->tint = a->sys.systems[a->sys_cursor].accent;
+	home_reset(&a->home, a->sys_cursor, a->sys.count, plat_now_ms());
+}
+
 /* Rebuild the Favorites shelf in place, for use the moment a favorite
  * changes. Restarting the launcher to see a star take effect is not an
  * answer.
@@ -610,8 +892,9 @@ void refresh_recents_shelf(app *a)
 	home_reset(&a->home, a->sys_cursor, a->sys.count, plat_now_ms());
 }
 
-/* The names of the groups, Favorites and Recents, in the language that is on:
- * they are words, where every other shelf's name is a system's */
+/* The names of the groups, Favorites, Recents and Collections, in the
+ * language that is on: they are words, where every other shelf's name is a
+ * system's */
 void shelf_groups_rename(app *a)
 {
 	int i;
@@ -620,6 +903,8 @@ void shelf_groups_rename(app *a)
 		snprintf(a->sys.systems[i].name, sizeof a->sys.systems[i].name, "%s", T(S_LIBRARY_FAVORITES));
 	if ((i = group_at(a, HOMESYS_RECENT)) >= 0)
 		snprintf(a->sys.systems[i].name, sizeof a->sys.systems[i].name, "%s", T(S_LIBRARY_RECENTS));
+	if ((i = group_at(a, HOMESYS_COLL)) >= 0)
+		snprintf(a->sys.systems[i].name, sizeof a->sys.systems[i].name, "%s", T(S_LIBRARY_COLLECTIONS));
 }
 
 /* Muse's shelf: a card per album, and which album each card is. Built in the
@@ -1429,6 +1714,10 @@ int scan_all_from(app *a, saved_lib *saved, bool save)
 	hide_empty_systems(a);
 	build_favorites_shelf(a);
 	build_recents_shelf(a);
+	/* The lists read again at each scan: a list copied onto the card, or
+	 * written by hand, shows after a rescan as a game does */
+	coll_load(P_CARD);
+	build_collections_shelf(a);
 	build_muse_shelf(a);
 	pm_offer_refresh(a);
 	return from_saved;
@@ -1610,6 +1899,7 @@ static void rebuild(app *a, saved_lib *pre, bool keep_place)
 
 	/* First, and on their own: their lists and owner maps are this file's
 	 * allocations rather than lib_scan's, and their textures are their own. */
+	drop_collections_shelf(a);
 	drop_recents_shelf(a);
 	drop_favorites_shelf(a);
 
@@ -1676,8 +1966,10 @@ static void rebuild(app *a, saved_lib *pre, bool keep_place)
 		sysview *v = &a->view[a->sys_cursor];
 		int at = 0;
 
-		/* Into the folder again, or as near it as is still there */
-		if (dir[0] && v->all && i < a->sys.count) shelf_open_dir(a, a->sys_cursor, dir, NULL);
+		/* Into the folder again, or as near it as is still there; on
+		 * Collections, into the collection (src/collect.h) */
+		if (dir[0] && (v->all || a->sys_cursor == shelf_coll_at(a)) && i < a->sys.count)
+			shelf_open_dir(a, a->sys_cursor, dir, NULL);
 		for (int k = 0; file[0] && k < v->list.count; k++)
 			if (!strcmp(v->list.items[k].file, file)) { at = k; break; }
 		a->tint = a->sys.systems[a->sys_cursor].accent;
@@ -1788,6 +2080,7 @@ void shelf_drop_game(app *a, const char *tag, const char *file)
 {
 	char stand[sizeof a->sys.systems[0].tag], folder[CFG_STR] = "";
 	group_keep fav, rec;
+	coll_keep col;
 	int was_sys, si, k, i;
 
 	if (a->sys.count <= 0) return;
@@ -1799,6 +2092,8 @@ void shelf_drop_game(app *a, const char *tag, const char *file)
 
 	group_note(a, HOMESYS_FAV, &fav);
 	group_note(a, HOMESYS_RECENT, &rec);
+	coll_note(a, &col);
+	drop_collections_shelf(a);
 	drop_recents_shelf(a);
 	drop_favorites_shelf(a);
 
@@ -1856,8 +2151,10 @@ void shelf_drop_game(app *a, const char *tag, const char *file)
 	 * that was the game deleted */
 	build_favorites_shelf(a);
 	build_recents_shelf(a);
+	build_collections_shelf(a);
 	group_put_back(a, HOMESYS_FAV, &fav);
 	group_put_back(a, HOMESYS_RECENT, &rec);
+	coll_put_back(a, &col);
 
 	/* Back where the player stood. On the game's own shelf its cursor was
 	 * the game, and moved above to the next one or the one before at the
@@ -1930,6 +2227,8 @@ bool shelf_rename_game(app *a, const char *tag, const char *file, const char *ne
 	refresh_favorites_shelf(a);
 	/* Its sessions moved with it (src/gamern.c), so Recents has it again */
 	refresh_recents_shelf(a);
+	/* And its lines in the collections (src/collect.h) */
+	refresh_collections_shelf(a);
 	return true;
 }
 

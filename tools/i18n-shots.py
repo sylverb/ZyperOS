@@ -787,6 +787,59 @@ for _name, _flags in (("home-recents", []), ("shelf-recents", ["--screen", "game
     CTL_FOCUS[_name] = "The Legend of Zelda - The Minish Cap (USA).gba"
 
 
+# Collections (src/collect.h, DESIGN.md 11.56): three lists on the card, one
+# naming a game in a folder of games and one with a note line, as the files
+# a player keeps; the home on its group, its shelf's top, one opened, a
+# game's details on Add to Collection and its list, the shelf's menu at its
+# top and in one, and Delete Collection's question
+SHOT_TEXT = {}
+_COLL = {"Collections/Couch Co-op.txt": "/Roms/SNES/Super Mario World (USA).sfc\n"
+                                        "/Roms/Game Boy Advance/Mario Kart - Super Circuit (USA).gba\n"
+                                        "/Roms/PlayStation/Tekken 3 (USA).chd\n",
+         "Collections/RPGs to Finish.txt": "/Roms/SNES/Chrono Trigger (USA).sfc\n"
+                                           "/Roms/Game Boy Advance/Commercial Owned/Golden Sun (USA).gba\n"
+                                           "# after Golden Sun\n"
+                                           "/Roms/Game Boy/Pokemon - Red Version (USA, Europe).gb\n",
+         "Collections/For the Kids.txt": "/Roms/NES/Kirby's Adventure (USA).nes\n"}
+for _name, _flags in (("home-collections", []),
+                      ("shelf-collections", ["--screen", "games"]),
+                      ("shelf-collection-in", ["--screen", "games", "--folder", "RPGs to Finish"]),
+                      ("shelf-collection-list", ["--screen", "games", "--folder", "RPGs to Finish",
+                                                 "--view", "list"]),
+                      ("collect-menu-top", ["--screen", "games", "--menu", "Delete Collection"]),
+                      ("collect-menu-in", ["--screen", "games", "--folder", "RPGs to Finish",
+                                           "--menu", "Remove from Collection"]),
+                      ("collect-menu-sort", ["--screen", "games", "--folder", "RPGs to Finish",
+                                             "--menu", "Sort By", "--press", "a"]),
+                      ("collect-delete", ["--screen", "games", "--collect-delete"])):
+    EXTRA.setdefault(_name, ("demo", "COLL", _flags))
+    SHOT_TEXT[_name] = _COLL
+# Home Systems with a collection on the card: Collections' row after Recents
+EXTRA.setdefault("homesys-page-coll", ("demo", "PS1", ["--homesys-page", "2"]))
+SHOT_TEXT["homesys-page-coll"] = _COLL
+SHOT_SETTINGS["homesys-page-coll"] = {"home.hidden": "COLL"}
+for _name, _flags in (("collect-said-long", ["--screen", "games", "--collect-said", "0"]),
+                      ("collect-said-taken", ["--screen", "games", "--collect-said", "1"]),
+                      ("collect-said-failed", ["--screen", "games", "--collect-said", "2"]),
+                      ("info-collect", ["--screen", "games", "--info-collect"]),
+                      ("collect-page", ["--screen", "games", "--collect-page", "1"]),
+                      ("collect-page-none", ["--screen", "games", "--collect-page", "0"])):
+    EXTRA.setdefault(_name, ("demo", "SFC", _flags))
+    SHOT_TEXT[_name] = {} if _name == "collect-page-none" else _COLL
+    CTL_FOCUS[_name] = "Chrono Trigger (USA).sfc"
+
+
+def set_text(card, files, on):
+    """A shot's files with their text (SHOT_TEXT) on the card, or off it"""
+    for f, text in (files or {}).items():
+        path = card / f
+        if on:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(text)
+        elif path.exists():
+            path.unlink()
+
+
 def set_lib(card, settings, on):
     """A shot's keys (SHOT_LIB) into the card's library, or out of it"""
     if not settings:
@@ -1247,11 +1300,13 @@ def run_language(code, shots, binary, keep, theme="light", device="pixel2", firs
                 R.set_settings(card, SHOT_SETTINGS.get(name), True)
                 set_lib(card, SHOT_LIB.get(name), True)
                 set_files(card, SHOT_FILES.get(name), True)
+                set_text(card, SHOT_TEXT.get(name), True)
                 r = subprocess.run(command, cwd=ROOT, env=env, text=True, errors="replace",
                                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
                 R.set_settings(card, SHOT_SETTINGS.get(name), False)
                 set_lib(card, SHOT_LIB.get(name), False)
                 set_files(card, SHOT_FILES.get(name), False)
+                set_text(card, SHOT_TEXT.get(name), False)
                 return r
 
             def failed(r):
