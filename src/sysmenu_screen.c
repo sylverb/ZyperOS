@@ -528,6 +528,12 @@ static void menu_choices(app *a, int sys, bool games)
 			g_smm_choice[SMM_SHOW] = ch_make(&P[0], n, cur, false);
 			for (i = 0; i < ML_ORDERS; i++) P[1].lab[i] = ml_order_label_kind((ml_order)i, muse_kind_shown());
 			g_smm_choice[SMM_SORT] = ch_make(&P[1], ML_ORDERS, v->sort, false);
+			/* View: Covers, Grid, List, in START's order (view_turn); an
+			 * album has no snap for a Video view */
+			P[4].lab[0] = T(S_SYSMENU_VIEW_COVERS);
+			P[4].lab[1] = T(S_SYSMENU_VIEW_GRID);
+			P[4].lab[2] = T(S_SYSMENU_VIEW_LIST);
+			g_smm_choice[SMM_VIEW] = ch_make(&P[4], 3, v->listed ? 2 : v->grid ? 1 : 0, false);
 			{
 				static const char *notes[MP4L_COUNT];
 
@@ -2012,6 +2018,11 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 			}
 			if (id == SMM_SORT) {
 				sel = SM_SORT;
+			} else if (id == SMM_VIEW) {
+				/* Covers, Grid, List, round either way and on A as a
+				 * system's View, kept (view_turn) */
+				if (d || key == IN_ACCEPT) view_turn(a, a->sys_cursor, d < 0 ? -1 : 1);
+				return MENU_STAY;
 			} else if (id == SMM_EQ) {
 				/* MENU's Equalizer: the presets round, A its page, over
 				 * what plays */

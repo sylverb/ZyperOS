@@ -1052,7 +1052,9 @@ void view_load(app *a)
 	for (int i = 0; i < a->sys.count; i++) {
 		a->view[i].listed = view_listed(a->sys.systems[i].tag);
 		a->view[i].grid = !a->view[i].listed && view_grid(a->sys.systems[i].tag);
-		a->view[i].video = !a->view[i].listed && !a->view[i].grid && view_video(a->sys.systems[i].tag);
+		/* Never MP4's (view_turn) */
+		a->view[i].video = !a->view[i].listed && !a->view[i].grid && view_video(a->sys.systems[i].tag) &&
+		                   !is_muse(&a->sys.systems[i]);
 		a->view[i].lm.set = false;
 		a->view[i].gm.set = false;
 		a->view[i].vm.set = false;
@@ -1077,7 +1079,10 @@ void view_turn(app *a, int sys, int dir)
 	sysview *v = &a->view[sys];
 	int k = view_index(v);
 
-	k = (k + (dir < 0 ? VIEW_COUNT - 1 : 1)) % VIEW_COUNT;
+	/* MP4's shelf has no Video view: an album has no snap to play
+	 * (DESIGN.md 11.67) */
+	do k = (k + (dir < 0 ? VIEW_COUNT - 1 : 1)) % VIEW_COUNT;
+	while (k == VIEW_VIDEO && is_muse(&a->sys.systems[sys]));
 	v->listed = k == VIEW_LIST;
 	v->grid = k == VIEW_GRID;
 	v->video = k == VIEW_VIDEO;

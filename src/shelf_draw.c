@@ -1203,11 +1203,80 @@ static void grid_ask_ahead(app *a, sysview *v)
 	}
 }
 
+/* MP4's shelf in Grid or List (DESIGN.md 11.67): the games shelf's two
+ * Views, with an album's words. Each album is a cover and a name, as a game
+ * is, so the grid and the list draw it as they draw a game; what differs is
+ * what is said of it. The heading is MP4 and the kind Show shows, the
+ * artist (an author, a series) is the focused album's fact where a
+ * Favorites game's system is, and A opens an album (plays a film). No play
+ * time, achievements, resume or heart: those are a game's. The foot is B
+ * and START, as MP4's own screens have no X Details or Y. */
+static void draw_album_views(app *a, sysview *v, const system_cfg *s)
+{
+	static const str_id SHOW[ML_ALL + 1] = { S_SYSMENU_MUSE_MUSIC, S_SYSMENU_MUSE_AUDIOBOOKS,
+	                                         S_SYSMENU_MUSE_VIDEOS, S_SYSMENU_MUSE_ALL };
+	unsigned now = plat_now_ms();
+	const game_entry *g = v->list.count ? &v->list.items[v->cursor] : NULL;
+	int al = g && v->album ? v->album[v->cursor] : -1, kind = (int)muse_kind_shown();
+	bool film = al >= 0 && al < g_muse.nalbums && g_muse.albums[al].solo;
+	char head[CFG_STR + 64];
+	key_hint foot[2];
+	int nf = 0;
+	uint32_t wait;
+
+	/* "MP4 / Music", as a games shelf names the folder it is in, when the
+	 * card has more than one kind */
+	if (muse_kinds() > 1 && kind >= 0 && kind <= ML_ALL)
+		snprintf(head, sizeof head, "%s / %s", s->name, T(SHOW[kind]));
+	else
+		snprintf(head, sizeof head, "%s", s->name);
+	foot[nf++] = (key_hint){ "B", T(S_GAMES_BACK) };
+	if (v->list.count > 0)
+		foot[nf++] = (key_hint){ "START", T(v->grid ? S_GAMES_TO_LIST : S_GAMES_TO_COVERS) };
+	if (v->grid) {
+		gg_info gi;
+
+		/* Square cells, never measured: MP4 draws every cover square
+		 * (cover_shape), the art crops to it, and an album with none is a
+		 * square card as on the row */
+		gi = (gg_info){
+			.heading = head, .count = v->list.count, .cursor = v->cursor, .accent = s->accent,
+			.title_of = list_title, .folder_of = list_folder, .peek = grid_peek, .art_of = grid_art,
+			.kept = 1.0f, .played = "", .origin = g && g->name[0] ? g->name : NULL,
+			.a_word = T(film ? S_GAMES_PLAY : S_GAMES_OPEN), .foot = foot, .nfoot = nf,
+			.badge_of = album_badge,
+		};
+		wait = gg_draw(&v->gm, a->r, &gi, game_get_tex, a, now, title_phase(a));
+		if (wait != UINT32_MAX) redraw_at(plat_now_ms() + wait);
+		grid_ask_ahead(a, v);
+		evict_grid(v, gg_cols(&v->gm), false);
+		return;
+	}
+	wait = gl_draw(&v->lm, a->r, &(gl_info){
+		.heading = head, .count = v->list.count, .cursor = v->cursor, .accent = s->accent,
+		.title_of = list_title, .folder_of = list_folder, .played = "",
+		.origin = g && g->name[0] ? g->name : NULL,
+		.a_word = T(film ? S_GAMES_PLAY : S_GAMES_OPEN), .foot = foot, .nfoot = nf,
+		.badge_of = album_badge,
+	}, game_get_tex, a, now, title_phase(a));
+	if (wait != UINT32_MAX) redraw_at(plat_now_ms() + wait);
+	evict_far(v, TEX_KEEP_NEAR);
+}
+
 static void draw_games(app *a)
 {
 	sysview *v = &a->view[a->sys_cursor];
 	const system_cfg *s = &a->sys.systems[a->sys_cursor];
-	if (is_muse(s)) { snap_off(); draw_albums(a); return; }
+	if (is_muse(s)) {
+		snap_off();
+		if (v->grid || v->listed) {
+			draw_album_views(a, v, s);
+			g_title_caps = (SDL_Rect){ 0, 0, 0, 0 };
+		} else {
+			draw_albums(a);
+		}
+		return;
+	}
 	unsigned now = g_games_phase >= 0 ? v->row.moved + g_games_phase : plat_now_ms();
 	char head[LIB_PATH + CFG_STR + 64];
 

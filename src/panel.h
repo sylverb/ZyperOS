@@ -557,6 +557,10 @@ void evict_far(sysview *v, int keep);
 void evict_grid(sysview *v, int cols, bool in_sight);
 void panel_base_close(int lv);
 int shelf_letter_jump(sysview *v, int dir);
+/* A shelf's cursor moved by this pass's presses in its View, with the
+ * step's sound; the direction a step took, 0 for a jump or none
+ * (src/shelf_keys.c): the games shelf's and MP4's */
+int shelf_move(app *a, sysview *v);
 
 /* ---- what src/saver_screen.c calls of the launcher's; each is described where it
  * is defined ---- */

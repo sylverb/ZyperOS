@@ -2129,7 +2129,8 @@ Muse, so a card's saved places and modes still read.
   files like an album. A video's cover is a picture beside it with its name, else one of its
   own frames (src/muse/cover.c). On videos, Sort By is Folder or Title and
   there is no Album Art; Shuffle All and Album Art are on music, and on All
-  when the card has songs.
+  when the card has songs. MENU > View and START show the shelf in Covers,
+  Grid or List (11.67).
 - **Video.** On Now Playing, one view, as a phone's or a TV's player
   (1.0.6; before, two views Y turned between, the smaller one giving up
   nothing to the keys but its frame): the picture as wide as the screen at
@@ -4333,8 +4334,8 @@ the menu turns with it, on the same entry.
 with no menu *(2026-11-13: "make clicking start in a system change view
 mode to list and vice versa"; the grid between them, 2026-11-15)*: the
 row's own setting, saved the same way, the shelf on the same entry, with
-the move sound. Favorites, folders and Ports alike; MP4's shelf is MP4's
-own screen, where START does nothing alone. Not with MENU or SELECT held:
+the move sound. Favorites, folders and Ports alike; MP4's shelf too, as it
+is let go and round its three (11.67). Not with MENU or SELECT held:
 MENU + START is the way out (tools/zyhome.c) and SELECT + START MP4's lock.
 Before, START did nothing on a shelf. On the home it steps the Home
 Screen's layout the same way (11.1). The foot names where it goes:
@@ -6373,3 +6374,50 @@ video keep their own Now Playing.
   which stays the default; a clear smoke-grey shell for the cassette; bars
   with caps - a bar rising at once and falling on follow, its cap holding
   400 ms and then dropping with gravity.)*
+
+### 11.67 MP4's shelf in Grid and List, and START
+
+**View**, in MP4's MENU under Sort By on every kind, is how MP4's shelf
+shows its albums, as a system's View row (11.39, 11.47): **Covers**, the
+square covers in a row as it always was and the default; **Grid**; or
+**List**. No **Video** (11.57): it plays a game's video snap on the whole
+screen, and an album has none. Kept as `view.MUSE`, the key every shelf's
+View is kept under by its tag. Right and Left step it; A steps it on, as a
+system's View row does.
+
+**START** on MP4's shelf steps it on, Covers to Grid to List and round, as
+it steps any shelf's View; on a song's Now Playing it steps the **Player
+Look** round (11.64), kept at once, as MENU's row does. A book and a video
+have no look (their Now Playing shows the chapters, or the picture), so
+START there plays **deny**; the tracks list has one view, and START does
+nothing there. Both as START is let go, and only when SELECT never joined
+it: SELECT + START is MP4's lock (11.14) in either order, and a START
+pressed a moment before SELECT locks without turning anything first
+(src/mp4lock.h's mp4chord; check-mp4lock, and check-mp4views on the real
+launcher).
+
+- **The grid** is the games shelf's (11.47), with square cells: MP4 draws
+  every cover square (cover_shape), so the shape is not measured from the
+  art; four across, two rows. On All each cell carries its kind's art badge
+  (11.1) at its corner, as on the row. The band under it: the album's
+  title, then **MP4 / Music** (the kind Show shows, when the card has more
+  than one) and the artist (an author, a series) as its facts, and **A
+  Open** (**A Play** on a film).
+- **The list** is the games shelf's (11.39): a row an album, its kind's
+  badge in the mark's place on All (the letter's card otherwise), the cover
+  on the panel with the artist under it, and **A Open**.
+- **The foot**: **B Back**, and **START List** under the grid, **START
+  Covers** under the list. No X or Y there, and no play time, achievements,
+  resume or heart among the facts: those are a game's.
+- **Moving** is the games shelf's in each View (shelf_move,
+  src/shelf_keys.c), so MP4's shelf moves exactly as a games shelf does:
+  the d-pad turned with the list, the grid's four directions its own. On
+  opening, on the album that plays, the grid and the list are there at
+  once.
+- Now Playing's key line is full (A, B, X, Y, L1/R1, the seek), so START
+  is not named there; MENU's row is. MENU > Controls' shelf page already
+  names START (**Home Screen or View**), and MP4's page keeps the six rows
+  it holds without scrolling.
+- *(Mine, 2026-11-19, from my device test run: "Let's add other view modes
+  to mp4 main page and allow changing with start as we do on the launcher
+  / Also start to change player look".)*

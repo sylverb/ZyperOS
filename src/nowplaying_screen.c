@@ -345,6 +345,10 @@ void muse_input(app *a)
 /* SELECT alone, let go: MP4 closes */
 bool muse_select(void) { return g_muse_said == MP4C_SELECT; }
 
+/* START alone, let go: the screen turns - the shelf's View, Now Playing's
+ * Player Look (DESIGN.md 11.67) */
+bool muse_start(void) { return g_muse_said == MP4C_START; }
+
 /* A screen of MP4's coming up: a SELECT down already is not its own */
 void muse_input_reset(void)
 {
@@ -1111,6 +1115,19 @@ static muse_exit muse_now_screen_run(app *a)
 			if (video)                 ctl_y = true;
 			else if (musec_is_book())  book_cycle_speed();
 			else if (!musec_is_videos()) muse_cycle_mode();
+		}
+		/* START turns the Player Look, round as MENU's row does, kept at
+		 * once (DESIGN.md 11.67); as it is let go, since SELECT with START
+		 * locks (muse_input). A song's alone: a book shows its chapters
+		 * and a video its picture whatever the look (np_look_for). */
+		if (muse_start()) {
+			if (musec_is_book() || musec_is_videos() || video) {
+				uisound_play(DS_SOUND_DENY);
+			} else {
+				uisound_play(DS_SOUND_MOVE);
+				np_look_set((mp4l_id)((np_look() + 1) % MP4L_COUNT));
+				memset(&drawn, 0, sizeof drawn);
+			}
 		}
 		if (in_repeat(&a->in, IN_L1))       { moved_sound(a, IN_L1); musec_prev(); }
 		if (in_repeat(&a->in, IN_R1))       { moved_sound(a, IN_R1); musec_next(); }

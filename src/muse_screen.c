@@ -652,8 +652,6 @@ static int muse_card_of(const sysview *v, int album)
 void muse_shelf_screen(app *a, bool now)
 {
 	int prev_screen = a->screen, prev_sys = a->sys_cursor;
-	in_button back = IN_LEFT, fwd = IN_RIGHT;
-	in_button jup = IN_UP, jdn = IN_DOWN;
 	sysview *v;
 	int muse = -1, i, playing, base;
 	bool done = false;
@@ -677,7 +675,9 @@ void muse_shelf_screen(app *a, bool now)
 	if (playing >= 0) {
 		int k = muse_card_of(v, playing);
 
-		if (k >= 0) { v->cursor = k; cf_reset(&v->cf, k); }
+		/* There at once in every View: the grid and the list placed
+		 * again on it rather than gliding from where they were */
+		if (k >= 0) { v->cursor = k; cf_reset(&v->cf, k); v->lm.set = v->gm.set = false; }
 	}
 	if (now && playing >= 0) {
 		/* A film is its player, with no list of one under it. */
@@ -708,19 +708,18 @@ void muse_shelf_screen(app *a, bool now)
 			break;
 		}
 
+		/* Moved as a games shelf moves in the same View: the row of
+		 * covers, the grid or the list (DESIGN.md 11.67) */
 		if (n > 0) {
-			in_button sb = IN_NONE;          /* the step's button, for its sound */
-			int was = v->cursor;
-
-			if (in_repeat(&a->in, back)) { v->cursor = (v->cursor - 1 + n) % n; dir = -1; sb = back; }
-			if (in_repeat(&a->in, fwd))  { v->cursor = (v->cursor + 1) % n; dir = +1; sb = fwd; }
-			if (in_repeat(&a->in, jdn))  { v->cursor = shelf_letter_jump(v, +1); sb = jdn; }
-			if (in_repeat(&a->in, jup))  { v->cursor = shelf_letter_jump(v, -1); sb = jup; }
-			if (in_repeat(&a->in, IN_L1)) { v->cursor = ((v->cursor - CF_WINDOW) % n + n) % n; sb = IN_L1; }
-			if (in_repeat(&a->in, IN_R1)) { v->cursor = (v->cursor + CF_WINDOW) % n; sb = IN_R1; }
-			cf_set_cursor_dir(&v->cf, v->cursor, n, dir);
-			if (sb != IN_NONE)
-				step_sound(a, sb, was, v->cursor);
+			dir = shelf_move(a, v);
+			if (!v->listed && !v->grid) cf_set_cursor_dir(&v->cf, v->cursor, n, dir);
+		}
+		/* START turns the View, Covers to Grid to List and round, as it
+		 * does on every shelf; as it is let go, since SELECT with START
+		 * locks (muse_input) */
+		if (muse_start()) {
+			uisound_play(DS_SOUND_MOVE);
+			view_turn(a, muse, 1);
 		}
 		if (muse_keys(a)) {
 			muse_locked(a);

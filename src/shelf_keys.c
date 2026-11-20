@@ -283,32 +283,16 @@ int shelf_letter_jump(sysview *v, int dir)
 	return shelf_group_start(v, i);
 }
 
-void update_games(app *a)
+/* A shelf's cursor moved by this pass's presses, in its View: along the row
+ * of covers, the list or the grid (DESIGN.md 11.39, 11.47), with the step's
+ * sound. The direction a step took, -1 or +1, and 0 for a jump or none. The
+ * games shelf's and MP4's (src/muse_screen.c, 11.67), so MP4's shelf moves
+ * in each View exactly as a games shelf does. */
+int shelf_move(app *a, sysview *v)
 {
-	sysview *v = &a->view[a->sys_cursor];
 	int n = v->list.count;
-	if (n <= 0) { a->screen = SCREEN_SYSTEMS; return; }
-	/* MUSE HAS ONE DOOR. Its card used to open its shelf HERE, in the main
-	 * loop, as if it were a console: a second Muse beside the one SELECT
-	 * opens, so SELECT on it opened that one on top, and the two looked
-	 * alike. Eric's call, 2026-09-23: the card opens the same Muse SELECT
-	 * does. Whatever lands the main loop on Muse's shelf - A on its card, a
-	 * jump to it, a screen put back at boot - hands over to muse_open, which
-	 * comes back to the card on the systems row. */
-	if (is_muse(&a->sys.systems[a->sys_cursor])) {
-		a->screen = SCREEN_SYSTEMS;
-		muse_open(a, NULL, NULL);
-		return;
-	}
-	/* The Video view's band (src/videoview.h): any press, or a button
-	 * held, brings it back up and starts its rest again, and then does
-	 * what it does */
-	if (v->video) {
-		bool any = false;
 
-		for (int b = 0; b < IN_COUNT && !any; b++) any = a->in.pressed[b] || a->in.down[b];
-		if (any) vv_touch(&v->vm, plat_now_ms());
-	}
+	if (n <= 0) return 0;
 	/* The two axes trade roles with the shelf rather than one of them being
 	 * reassigned onto the other: stepping always runs along the row, and the
 	 * letter jump always runs across it. Turning the shelf turns the d-pad
@@ -363,6 +347,37 @@ void update_games(app *a)
 	}
 	if (sb != IN_NONE)
 		step_sound(a, sb, was, v->cursor);
+	return dir;
+}
+
+void update_games(app *a)
+{
+	sysview *v = &a->view[a->sys_cursor];
+	int n = v->list.count;
+	if (n <= 0) { a->screen = SCREEN_SYSTEMS; return; }
+	/* MUSE HAS ONE DOOR. Its card used to open its shelf HERE, in the main
+	 * loop, as if it were a console: a second Muse beside the one SELECT
+	 * opens, so SELECT on it opened that one on top, and the two looked
+	 * alike. Eric's call, 2026-09-23: the card opens the same Muse SELECT
+	 * does. Whatever lands the main loop on Muse's shelf - A on its card, a
+	 * jump to it, a screen put back at boot - hands over to muse_open, which
+	 * comes back to the card on the systems row. */
+	if (is_muse(&a->sys.systems[a->sys_cursor])) {
+		a->screen = SCREEN_SYSTEMS;
+		muse_open(a, NULL, NULL);
+		return;
+	}
+	/* The Video view's band (src/videoview.h): any press, or a button
+	 * held, brings it back up and starts its rest again, and then does
+	 * what it does */
+	if (v->video) {
+		bool any = false;
+
+		for (int b = 0; b < IN_COUNT && !any; b++) any = a->in.pressed[b] || a->in.down[b];
+		if (any) vv_touch(&v->vm, plat_now_ms());
+	}
+	int dir = shelf_move(a, v);
+
 	/* HERE, AND NOT AT THE END OF THE PASS, because four of the handlers below
 	 * return without reaching the end.
 	 *
