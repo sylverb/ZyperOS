@@ -26,6 +26,8 @@
 #include "../src/device/pixel2_levels.h"
 #include "../src/eqdsp.h"
 #include "../src/keyrepeat.h"
+#include "pkhot.h"
+#include "pkkbd.h"
 #include "pkkeys.h"
 
 #include <stdarg.h>
@@ -164,7 +166,7 @@ static void tap(rig *r, int code, int ms)
  *              joypad was still empty and gpio-keys had VOL+ (MENU comes in
  *              the next pass); read gpio-keys first, both were there by then */
 enum { BOTH, BETWEEN, PAD_EARLY };
-static void chord(rig *r, int vol_code, bool keys_first, int how)
+static void menu_chord(rig *r, int vol_code, bool keys_first, int how)
 {
 	int64_t t = r->now * 1000;
 	pk_key menu = ev(t, PK_BTN_MENU, 1), vol = ev(t + 5, vol_code, 1), two[2];
@@ -209,7 +211,7 @@ static void the_chord(void)
 
 				rig_init(&r, 4, 7);
 				r.now = 1000;
-				chord(&r, vc, kf, how);
+				menu_chord(&r, vc, kf, how);
 				ck(r.l.bright == want && r.l.vol == 4 && r.n == 1,
 				   "chord: menu+%s, %s, %s read first: brightness 7 -> %d and volume 4; got brightness %d, volume %d, %d step(s)",
 				   code ? "voldown" : "volup", how_name[how], kf ? "gpio-keys" : "the joypad",
@@ -220,7 +222,7 @@ static void the_chord(void)
 	/* VOL+ alone after a chord is the volume again */
 	rig_init(&r, 4, 7);
 	r.now = 1000;
-	chord(&r, PK_KEY_VOLUMEUP, true, BOTH);
+	menu_chord(&r, PK_KEY_VOLUMEUP, true, BOTH);
 	run_to(&r, r.now + 150);
 	tap(&r, PK_KEY_VOLUMEUP, 80);
 	ck(r.l.vol == 5 && r.l.bright == 8, "chord then volup: volume 4 -> 5, brightness 8 kept; got %d, %d", r.l.vol, r.l.bright);
@@ -649,8 +651,8 @@ static void the_database(bool boost)
 	tap(&r, PK_KEY_VOLUMEUP, 80);    run_to(&r, r.now + 150);
 	tap(&r, PK_KEY_VOLUMEDOWN, 80);  run_to(&r, r.now + 150);
 	tap(&r, PK_KEY_VOLUMEUP, 80);    run_to(&r, r.now + 150);
-	chord(&r, PK_KEY_VOLUMEUP, true, BOTH);     run_to(&r, r.now + 150);
-	chord(&r, PK_KEY_VOLUMEDOWN, true, BETWEEN);
+	menu_chord(&r, PK_KEY_VOLUMEUP, true, BOTH);     run_to(&r, r.now + 150);
+	menu_chord(&r, PK_KEY_VOLUMEDOWN, true, BETWEEN);
 	if (boost) {
 		ck(!r.did || r.did == BOOST_LEVEL, "db: through the boost, steps and nothing else; got %d", r.did);
 		ck(pk_db_get(r.db, PK_VOL_BOOST, -1) == -1 && pk_db_get(r.db, PK_BRIGHT_BOOST, -1) == -1,
@@ -1086,7 +1088,7 @@ static void the_boost_bright(void)
 		return;
 	}
 	for (i = 0; i < BOOST_TAPS; i++) {
-		chord(&r, PK_KEY_VOLUMEUP, i & 1, BOTH);
+		menu_chord(&r, PK_KEY_VOLUMEUP, i & 1, BOTH);
 		frames_to(&r, r.now + 200);
 	}
 	ck(r.opened == 1 && pk_boost_lift(&bo) == 1 && !pk_boost_cells(&bo, PK_VOLUME) &&
@@ -1141,6 +1143,103 @@ static void the_boost_closing(void)
 	scratch_drop(&sc);
 }
 
+/* ---- over your PICO-8: SELECT's hotkeys, and its keyboard ------------------
+ *
+ * tools/pkhot.c, Diatom's chord rule on the joypad's events with the table
+ * the launcher hands over: SELECT then the button is the act, the button a
+ * moment before SELECT too, the d-pad first makes SELECT the game's, the
+ * acts portkeys cannot do (Quick Save) are none, a SELECT held alone long is
+ * still a hotkey's holder, the kernel's autorepeat is nothing, and a resync
+ * that finds SELECT down starts no chord. And tools/pkkbd.c's CTRL-R as the
+ * kernel reads it from uinput: Left Ctrl down, R down, then R up and Left
+ * Ctrl up, each with a report, the keys held across the wait. */
+static unsigned hot_ev(pkhot *h, uint16_t code, int value, uint64_t ms)
+{
+	return pkhot_key(h, code, value, ms);
+}
+
+static void the_hotkeys(void)
+{
+	pkhot h;
+	unsigned a;
+
+	pkhot_init(&h);
+	a = hot_ev(&h, PKHOT_BTN_SELECT, 1, 1000) | hot_ev(&h, PKHOT_BTN_WEST, 1, 1050);
+	ck(a == 0, "hotkeys: none handed over, SELECT+Y is the game's");
+	ck(pkhot_set(&h, "save:r1,load:l1,faster:r2,slower:l2,shot:y,reset:b,quit:x"),
+	   "hotkeys: hk_run's form is read");
+	ck(!pkhot_set(&h, "shot:menu") && !h.on, "hotkeys: MENU as a key is refused, and none kept");
+	pkhot_init(&h);
+	pkhot_set(&h, "save:r1,load:l1,faster:r2,slower:l2,shot:y,reset:b,quit:x");
+	a = hot_ev(&h, PKHOT_BTN_SELECT, 1, 1000);
+	a |= hot_ev(&h, PKHOT_BTN_WEST, 1, 1050);
+	ck(a == (1u << CHORD_SHOT), "hotkeys: SELECT then Y is the screenshot (%x)", a);
+	a = hot_ev(&h, PKHOT_BTN_WEST, 0, 1100) | hot_ev(&h, PKHOT_BTN_EAST, 1, 1150);
+	ck(a == (1u << CHORD_RESET), "hotkeys: B under the same SELECT is Reset Game (%x)", a);
+	a = hot_ev(&h, PKHOT_BTN_EAST, 0, 1200) | hot_ev(&h, PKHOT_BTN_SELECT, 0, 1250);
+	ck(a == 0, "hotkeys: the let-goes are nothing");
+
+	a = hot_ev(&h, PKHOT_BTN_NORTH, 1, 2000) | hot_ev(&h, PKHOT_BTN_SELECT, 1, 2000 + CHORD_LEAD_MS);
+	ck(a == (1u << CHORD_QUIT), "hotkeys: X a moment before SELECT is Quit (%x)", a);
+	hot_ev(&h, PKHOT_BTN_NORTH, 0, 2200);
+	hot_ev(&h, PKHOT_BTN_SELECT, 0, 2210);
+	a = hot_ev(&h, PKHOT_BTN_NORTH, 1, 3000) | hot_ev(&h, PKHOT_BTN_SELECT, 1, 3000 + CHORD_LEAD_MS + 50);
+	ck(a == 0, "hotkeys: X held longer before SELECT is the game's");
+	hot_ev(&h, PKHOT_BTN_NORTH, 0, 3300);
+	hot_ev(&h, PKHOT_BTN_SELECT, 0, 3310);
+
+	a = hot_ev(&h, PKHOT_BTN_SELECT, 1, 4000) | hot_ev(&h, PKHOT_BTN_UP, 1, 4020) |
+	    hot_ev(&h, PKHOT_BTN_WEST, 1, 4040);
+	ck(a == 0, "hotkeys: SELECT with the d-pad first is the game's, Y after it too");
+	hot_ev(&h, PKHOT_BTN_UP, 0, 4100);
+	hot_ev(&h, PKHOT_BTN_WEST, 0, 4110);
+	hot_ev(&h, PKHOT_BTN_SELECT, 0, 4120);
+
+	a = hot_ev(&h, PKHOT_BTN_SELECT, 1, 5000) | hot_ev(&h, PKHOT_BTN_TR, 1, 5050);
+	ck(a == 0, "hotkeys: SELECT+R1, Quick Save, is no act over your PICO-8");
+	hot_ev(&h, PKHOT_BTN_TR, 0, 5100);
+	hot_ev(&h, PKHOT_BTN_SELECT, 0, 5110);
+
+	a = hot_ev(&h, PKHOT_BTN_SELECT, 1, 6000) | hot_ev(&h, PKHOT_BTN_SELECT, 2, 6300) |
+	    hot_ev(&h, PKHOT_BTN_WEST, 1, 6000 + CHORD_HOLD_MS + 200);
+	ck(a == (1u << CHORD_SHOT), "hotkeys: SELECT held alone long, then Y, is still the screenshot");
+	hot_ev(&h, PKHOT_BTN_WEST, 0, 7000);
+	hot_ev(&h, PKHOT_BTN_SELECT, 0, 7010);
+
+	pkhot_resync(&h, pkhot_bit(PKHOT_BTN_SELECT));
+	a = hot_ev(&h, PKHOT_BTN_WEST, 1, 8000);
+	ck(a == 0, "hotkeys: a SELECT a resync found down starts no chord");
+	hot_ev(&h, PKHOT_BTN_WEST, 0, 8050);
+	hot_ev(&h, PKHOT_BTN_SELECT, 0, 8060);
+	a = hot_ev(&h, PKHOT_BTN_SELECT, 1, 9000) | hot_ev(&h, PKHOT_BTN_WEST, 1, 9050);
+	ck(a == (1u << CHORD_SHOT), "hotkeys: and the next SELECT is one again");
+}
+
+static void the_keyboard(void)
+{
+	int fds[2], i;
+	struct { struct timeval t; uint16_t type, code; int32_t value; } e[8];
+	static const int want[8][3] = {
+		{ 1, PKKBD_KEY_LEFTCTRL, 1 }, { 0, 0, 0 }, { 1, PKKBD_KEY_R, 1 }, { 0, 0, 0 },
+		{ 1, PKKBD_KEY_R, 0 }, { 0, 0, 0 }, { 1, PKKBD_KEY_LEFTCTRL, 0 }, { 0, 0, 0 },
+	};
+	bool same = true;
+
+	ck(sizeof e[0] == 24, "keyboard: an input_event is 24 bytes, the kernel's on a 64-bit system");
+	if (pipe(fds) != 0) {
+		ck(0, "keyboard: a pipe");
+		return;
+	}
+	ck(pkkbd_ctrl_r(fds[1], NULL), "keyboard: CTRL-R written");
+	ck(!pkkbd_ctrl_r(-1, NULL), "keyboard: none to write on is false");
+	close(fds[1]);
+	ck(read(fds[0], e, sizeof e) == (ssize_t)sizeof e, "keyboard: eight events");
+	close(fds[0]);
+	for (i = 0; i < 8; i++)
+		if (e[i].type != want[i][0] || e[i].code != want[i][1] || e[i].value != want[i][2]) same = false;
+	ck(same, "keyboard: Left Ctrl, R, then R and Left Ctrl let go, each with a report");
+}
+
 int main(void)
 {
 	the_ladder();
@@ -1159,6 +1258,8 @@ int main(void)
 	the_boost_hold();
 	the_boost_bright();
 	the_boost_closing();
+	the_hotkeys();
+	the_keyboard();
 	if (fails) {
 		printf("pkkeys: %d of %d FAILED\n", fails, checks);
 		return 1;

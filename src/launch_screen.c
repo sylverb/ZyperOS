@@ -396,8 +396,10 @@ static void launch_port_core(app *a, const system_cfg *s, const char *file, cons
 		snprintf(shots, sizeof shots, "%s/%s/%s", P_CARD, folder, name);
 		p8_keys_save(s, file, shots);
 		p8_pad_save(s, file);
-		notice_render_ex(T(S_HOTKEYS_SHOT_SAVED), folder, NULL, NOTICE_SLOT, 0, 0, PORT_SHOT_LIGHT, DS_LIGHT);
-		notice_render_ex(T(S_HOTKEYS_SHOT_SAVED), folder, NULL, NOTICE_SLOT, 0, 0, PORT_SHOT_DARK, DS_DARK);
+		notice_render_ex(T(S_HOTKEYS_SHOT_SAVED), folder, NULL, NOTICE_SLOT, 0, 0, plat_flag(PORT_SHOT_LIGHT),
+		                 DS_LIGHT);
+		notice_render_ex(T(S_HOTKEYS_SHOT_SAVED), folder, NULL, NOTICE_SLOT, 0, 0, plat_flag(PORT_SHOT_DARK),
+		                 DS_DARK);
 	}
 	a->running = false;
 }
