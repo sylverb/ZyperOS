@@ -714,9 +714,10 @@ check-pico8-wget:
 # stand-in daemon: the queue taken on back from PICO-8, the request and the
 # file written as a cart opens, the follower's next track, and SELECT in the
 # in-game menu over it opening Now Playing; PICO-8 quiet while MP4 plays
-# (eq-port.sh's softvol stage, the launcher's control and mark, the
-# follower's and the menu's writes) and every port into a USB-C DAC's chain
-# while one is in (tools/pico8-mp4-check.py)
+# (the equalizer's file's cut, as the launcher, the follower and the menu
+# write it, and the chain every port has, unchanged) and PICO-8 into a
+# USB-C DAC's chain only where it opens as PICO-8 opens it (--alsa-try,
+# against alsa-lib on Linux) (tools/pico8-mp4-check.py)
 check-pico8-mp4: build-native/mp4hand-check native
 	@./build-native/mp4hand-check
 	@python3 tools/pico8-mp4-check.py
@@ -1694,7 +1695,8 @@ build-native/eqdsp-check: tools/eqdsp-check.c src/eqdsp.h FORCE
 
 # The ports' equalizer plugin (plastron's zyperos-eq), built for this computer
 # and loaded the way alsa-lib's ladspa PCM loads it: flat untouched, Voice
-# heard, the launcher's file followed, and its cost. tools/eqplugin-alsa.sh
+# heard, the launcher's file followed, its cut (your PICO-8 quiet while MP4
+# plays) faded to silence and back, and its cost. tools/eqplugin-alsa.sh
 # runs it through the handheld's own alsa-lib, by hand (it needs the SDK).
 check-eqplugin: build-native/eqplugin-check build-native/zyperos_eq.so
 	@./build-native/eqplugin-check build-native/zyperos_eq.so

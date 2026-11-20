@@ -3,7 +3,8 @@
  * S16 stereo, a second of a 1 kHz tone at a quarter of full scale. Then the
  * level of what reached the file the config writes (argv[1]), in dB against
  * the tone, and the check `argv[2]` names: "flat" within 0.05 dB of it,
- * "voice" about 3 dB over it. For tools/eqplugin-alsa.sh, run on the
+ * "voice" about 3 dB over it, "cut" silence (your PICO-8 quiet while MP4
+ * plays: the file's cut set). For tools/eqplugin-alsa.sh, run on the
  * handheld's own alsa-lib. */
 #include <alsa/asoundlib.h>
 #include <math.h>
@@ -79,8 +80,13 @@ int main(int argc, char **argv)
 	}
 	fclose(f);
 	{
-		const double db = 20.0 * log10(sqrt(sq / (n - RATE / 2)) / (0.25 * 32767.0 / sqrt(2.0)));
-		const int ok = !strcmp(argv[2], "flat") ? fabs(db) < 0.05 : db > 2.4 && db < 3.6;
+		const double rms = sqrt(sq / (n - RATE / 2));
+		const double db = rms > 0 ? 20.0 * log10(rms / (0.25 * 32767.0 / sqrt(2.0))) : -999.0;
+		/* "cut": the file's cut set, your PICO-8 quiet while MP4 plays, so
+		 * silence, a stream starting cut being silent from its first frame */
+		const int ok = !strcmp(argv[2], "flat") ? fabs(db) < 0.05
+		             : !strcmp(argv[2], "cut")  ? rms == 0.0
+		             : db > 2.4 && db < 3.6;
 
 		printf("  %s %s through the ladspa PCM: %ld frames, %.3f dB at 1 kHz\n", ok ? "PASS" : "FAIL",
 		       argv[2], n, db);

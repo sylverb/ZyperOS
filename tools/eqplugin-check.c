@@ -8,9 +8,12 @@
  *
  * No file and a flat file pass the sound through untouched; Voice lifts a
  * 1 kHz tone by about 3 dB; a change to the file is followed within a
- * period and 20 ms; and what it costs on a second of 48 kHz stereo. */
+ * period and 20 ms; the file's cut (your PICO-8 quiet while MP4 plays) is
+ * silence, faded, and cleared the sound as it came; and what it costs on a
+ * second of 48 kHz stereo. */
 #include <dlfcn.h>
 #include <math.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -43,6 +46,30 @@ static void put_bands(int seq, const int8_t db[EQ_BANDS])
 	if (!f) return;
 	fwrite(&s, sizeof s, 1, f);
 	fclose(f);
+}
+
+/* The cut byte, as MP4's follower writes it (eq_share_cut_put) */
+static void set_cut(int cut)
+{
+	FILE *f = fopen(share_file, "r+b");
+
+	if (!f) return;
+	fseek(f, (long)offsetof(eq_share, cut), SEEK_SET);
+	fputc(cut ? 1 : 0, f);
+	fclose(f);
+}
+
+/* A second through the plugin, a period at a time */
+static void run_through(const LADSPA_Descriptor *d, LADSPA_Handle h, float *il, float *ir, float *ol,
+                        float *or_)
+{
+	int at;
+
+	for (at = 0; at < RATE; at += PERIOD) {
+		d->connect_port(h, 0, il + at); d->connect_port(h, 1, ir + at);
+		d->connect_port(h, 2, ol + at); d->connect_port(h, 3, or_ + at);
+		d->run(h, (unsigned long)(RATE - at < PERIOD ? RATE - at : PERIOD));
+	}
 }
 
 static void tone(float *l, float *r, int n, float hz, int from)
@@ -137,6 +164,47 @@ int main(int argc, char **argv)
 	}
 	g = rms_db(ol + RATE / 2, RATE / 2);
 	report(g > 2.4, "a_file_half_written_is_not_taken", g);
+
+	/* Your PICO-8's quiet while MP4 plays (the file's `cut`, eqdsp.h): set
+	 * while it runs, silence from the next period, faded over 20 ms; cleared,
+	 * the sound back, faded the same; a stream that starts cut starts
+	 * silent; and flat with no cut, the sound as it came, to the bit */
+	{
+		static float fl[RATE], fr[RATE];
+		const int ramp = RATE / 1000 * EQ_RAMP_MS;
+		double before, during, tail;
+		int i, peak_ok = 1, quiet_ok = 1;
+
+		put_bands(8, flat);
+		run_through(d, h, il, ir, ol, or_);
+		set_cut(1);
+		run_through(d, h, il, ir, fl, fr);
+		before = rms_db(ol + RATE / 2, RATE / 2);
+		for (i = PERIOD + ramp; i < RATE && quiet_ok; i++)
+			if (fl[i] != 0.0f || fr[i] != 0.0f) quiet_ok = 0;
+		report(quiet_ok, "cut_written_while_it_runs_is_silence_after_a_period_and_20_ms", before);
+		for (i = 1; i < PERIOD + ramp && peak_ok; i++)
+			if (fabsf(fl[i]) > fabsf(il[i]) + 1e-6f) peak_ok = 0;
+		report(peak_ok && fl[12] != 0.0f && fabsf(fl[12]) < fabsf(il[12]), "faded_down_never_louder_than_it_came", 0);
+		set_cut(0);
+		run_through(d, h, il, ir, fl, fr);
+		during = rms_db(fl + RATE / 2, RATE / 2);
+		report(fabs(during) < 0.05 && !memcmp(fl + PERIOD + ramp, il + PERIOD + ramp,
+		                                    (size_t)(RATE - PERIOD - ramp) * sizeof *fl),
+		       "cleared_the_sound_back_as_it_came_after_the_fade", during);
+		set_cut(1);
+		d->deactivate(h);
+		d->activate(h);
+		run_through(d, h, il, ir, fl, fr);
+		tail = 0;
+		for (i = 0; i < RATE; i++) tail += fabsf(fl[i]) + fabsf(fr[i]);
+		report(tail == 0.0, "a_stream_starting_cut_starts_silent", tail);
+		set_cut(0);
+		d->deactivate(h);
+		d->activate(h);
+		run_through(d, h, il, ir, fl, fr);
+		report(!memcmp(fl, il, sizeof fl), "no_cut_flat_touches_nothing_again", 0);
+	}
 
 	/* What it costs: Voice over a second, a period at a time */
 	{

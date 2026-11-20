@@ -78,5 +78,11 @@ bool      eq_share_write(const int8_t db[EQ_BANDS]);
 /* The volume boost's gain, dB (src/boost.h), into the same file, for a port
  * started later: the plugin applies it as MP4 and Diatom do theirs. */
 bool      eq_share_gain(int db);
+/* Your PICO-8's quiet while MP4 plays (DESIGN.md 11.55): the shared file's
+ * cut, which the port's plugin plays silence for (eqdsp.h). Written by MP4's
+ * follower beside PICO-8 and by the in-game menu over it, and put back to 0
+ * by the launcher as it starts and as it hands over to any other program.
+ * False when the file could not be had. */
+bool      eq_share_cut(bool cut);
 
 #endif
