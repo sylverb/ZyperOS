@@ -47,7 +47,7 @@ src/i18n_tables.c: $(wildcard res/strings/*.txt) tools/i18n.py
 CHECKS = check-cheevos check-hare check-portal check-httpd check-idle check-taskhold check-saver check-rahash check-flacdec check-achtab check-rasubmit check-raoffline check-radl check-dlq check-signin check-noticeq check-badges check-badge-shots \
          check-raset check-xfer check-sshlink check-usblink check-devmode check-devices check-devicegen check-model check-ctl check-menus check-artscrape check-artrun check-sgdb check-snapshelf check-snaps check-audioout \
          check-db check-coreopts check-gamedel check-gamern check-esmedia check-media check-snapsize check-corepins check-targets check-storage check-stats check-sort check-bt check-ss check-titles check-savedlib check-search \
-         check-muselib check-musequeue check-museart check-mp4lock check-mp4frame check-mp4size check-p2share check-webtheme check-p2ws check-p2codec check-p2d check-play check-p2 check-resident check-spawn check-controls check-remap check-rumble check-eq check-eqdsp check-eqplugin check-controls-shots check-logpack \
+         check-muselib check-musequeue check-museart check-mp4lock check-mp4frame check-mp4size check-p2share check-webtheme check-p2ws check-p2codec check-p2d check-play check-p2 check-resident check-spawn check-controls check-remap check-hotkeys check-rumble check-eq check-eqdsp check-eqplugin check-controls-shots check-logpack \
          check-clock check-autozone check-status check-battery check-battery-eta check-dslang check-pacing check-gpuframes check-dsresume check-corestate check-core-stamp check-core-room check-px2-perf check-px2-snap check-px2 check-lowbatt check-powerhold check-homesys check-collect check-heat check-charging check-corner check-dsv check-sidelights check-osdbar check-hud check-dmodefit check-themefile check-pkkeys check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-bios check-gamefile check-startfail check-kbnav check-randgame check-shelfdir check-look \
          check-tween check-menumotion check-menusnap check-cardgen check-cardart check-focusfx check-blur check-gridrule check-screencard check-focusgeo check-roundrect check-rowmacro check-emptyhome check-zyperrig check-sysmark check-flip check-menushots check-design \
          check-systemart check-linebreak check-portload check-portout check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-messages \
@@ -668,7 +668,7 @@ build-native/portdoc-check: tools/portdoc-check.c src/portdoc.c src/portdoc.h sr
                            src/controls.c src/controls.h src/remap.c src/remap.h src/portmenu.h src/menu.h $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -o $@ tools/portdoc-check.c src/portdoc.c \
-	      src/rajson.c src/controls.c src/powerhold.c src/remap.c $(I18N_SRC)
+	      src/rajson.c src/controls.c src/hotkeys.c src/powerhold.c src/remap.c $(I18N_SRC)
 
 # plastron's make push writes the system slot the Pixel 2 is not running,
 # never the one it runs from (scripts/px2-slot.sh): the slot choice, the
@@ -1517,8 +1517,20 @@ build-native/remap-check: tools/remap-check.c src/remap.c src/remap.h src/remaps
                           $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
-	      -o $@ tools/remap-check.c src/remap.c src/remapstore.c src/controls.c src/powerhold.c src/config.c src/db.c src/atomic.c \
+	      -o $@ tools/remap-check.c src/remap.c src/remapstore.c src/controls.c src/hotkeys.c src/powerhold.c src/config.c src/db.c src/atomic.c \
 	      $(I18N_SRC) -lsqlite3
+
+# The player's hotkeys, pure: SELECT and a button for each action, the swap
+# that loses none, what is kept for Every Game, a system and a game, and
+# Diatom's RUN form (src/hotkeys.h, src/hkstore.h)
+check-hotkeys: build-native/hotkeys-check
+	@./build-native/hotkeys-check
+
+build-native/hotkeys-check: tools/hotkeys-check.c src/hotkeys.c src/hotkeys.h src/hkstore.c src/hkstore.h \
+                            src/db.c src/db.h src/atomic.c FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
+	      -o $@ tools/hotkeys-check.c src/hotkeys.c src/hkstore.c src/db.c src/atomic.c -lsqlite3
 
 # Rumble's levels, the share a game is sent, and what is kept for a game, a
 # system and MENU (src/rumble.h)
@@ -1580,7 +1592,7 @@ build-native/controls-check: tools/controls-check.c tools/legend.h src/controls.
                             $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
-	      -o $@ tools/controls-check.c src/controls.c src/powerhold.c src/remap.c src/config.c src/db.c src/atomic.c \
+	      -o $@ tools/controls-check.c src/controls.c src/hotkeys.c src/powerhold.c src/remap.c src/config.c src/db.c src/atomic.c \
 	      $(I18N_SRC) $(DEVICE_PROFILES) -lsqlite3
 
 build-native/menu-check: tools/menu-check.c tools/legend.h src/wifi_menu.c src/wifi.c \
@@ -1593,7 +1605,7 @@ build-native/menu-check: tools/menu-check.c tools/legend.h src/wifi_menu.c src/w
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -o $@ \
 	      tools/menu-check.c src/wifi_menu.c src/wifi.c src/sys_menu.c src/homesys.c \
-	      src/menu.c src/game_menu.c src/controls.c src/powerhold.c src/remap.c src/ctltab.c src/audioout.c \
+	      src/menu.c src/game_menu.c src/controls.c src/hotkeys.c src/powerhold.c src/remap.c src/ctltab.c src/audioout.c \
 	      src/sidelights.c src/keyhints.c src/spawn.c src/device/td_model.c src/device/pixel2_model.c \
 	      src/device/brick_model.c $(I18N_SRC)
 

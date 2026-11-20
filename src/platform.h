@@ -283,6 +283,14 @@ enum {
 	PLAT_QUICK_SAVE_FAILED, PLAT_QUICK_LOAD_FAILED
 };
 void plat_resident_on_quick(void (*fn)(int what, const char *path));
+/* Called from inside plat_resident_wait for the player's hotkeys the
+ * launcher carries out (src/hotkeys.h): `key` "shot" with the PNG's path
+ * once Diatom wrote it, or "shader" or "display" (path NULL) for the next */
+void plat_resident_on_hotkey(void (*fn)(const char *key, const char *path));
+/* What the PAUSED that made plat_resident_wait return RES_PAUSED was for:
+ * "reset" (Reset Game's hotkey: ask first) or "quit" (Quit's: stop), ""
+ * for MENU's, the menu */
+const char *plat_resident_paused_for(void);
 
 /* Called from inside plat_resident_wait when Diatom reports an achievement's
  * count moving ("CHEEVO id=.. state=progress value=.. target=.. text=.."),

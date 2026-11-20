@@ -1062,10 +1062,29 @@ SHOT_SETTINGS["night-from-list"] = {"night.mode": "hours", "night.from": "1260"}
 # friend's browser joining and leaving
 for _kind in ("saved", "loaded", "save_failed", "load_failed", "slot_empty", "no_states", "dslang",
               "corestate", "stick_on", "stick_off", "player2_joined", "player2_left",
-              "player2_stopped"):
+              "player2_stopped", "shot", "shader", "display"):
     EXTRA.setdefault("popup-" + _kind, ("demo", "PS1", ["--popup", _kind]))
 EXTRA.setdefault("popup-speed-half", ("demo", "PS1", ["--popup", "speed", "3"]))
 EXTRA.setdefault("popup-speed-whole", ("demo", "PS1", ["--popup", "speed", "4"]))
+# The Hotkeys list (src/hotkeys_screen.h): MENU > System's, at its top and its
+# end (Home, the line under it, Reset Hotkeys); a game's, Applies To on each
+# of its three and All Controls at the end; the capture screen waiting and
+# with SELECT and Y down; the swap question; Reset Hotkeys' question for each
+# scope; and Reset Game's question over the game
+for _name, _flags in (
+        ("top", ["--hotkeys", "4"]), ("end", ["--hotkeys", "103"]),
+        ("game", ["--screen", "games", "--hk-game", "--hotkeys", "100"]),
+        ("game-every", ["--screen", "games", "--hk-game", "--hk-scope", "0", "--hotkeys", "100"]),
+        ("game-system", ["--screen", "games", "--hk-game", "--hk-scope", "1", "--hotkeys", "100"]),
+        ("game-end", ["--screen", "games", "--hk-game", "--hotkeys", "104"]),
+        ("capture", ["--hotkeys", "4", "--hk-capture", "1"]),
+        ("capture-keys", ["--hotkeys", "4", "--hk-capture", "2", "--hk-key", "3"]),
+        ("swap", ["--hotkeys", "4", "--hk-ask", "1", "--hk-key", "7"]),
+        ("reset-every", ["--hotkeys", "103", "--hk-ask", "2"]),
+        ("reset-system", ["--screen", "games", "--hk-game", "--hk-scope", "1", "--hotkeys", "103", "--hk-ask", "2"]),
+        ("reset-game", ["--screen", "games", "--hk-game", "--hk-scope", "2", "--hotkeys", "103", "--hk-ask", "2"]),
+        ("reset-ask", ["--screen", "games", "--hk-game", "--hotkeys", "103", "--hk-ask", "3"])):
+    EXTRA.setdefault("hotkeys-" + _name, ("demo", "PS1", _flags))
 # NES Player 2 (src/p2.h): its page over a paused NES game in every state
 # (--player2), the code on the hotspot with nobody yet and its address under
 # it, a player connected, the cable, before A on each link, with neither
