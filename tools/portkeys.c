@@ -107,6 +107,7 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "battempty.h"
 #include "device/pixel2_levels.h"
 #include "heat.h"
 #include "hud.h"
@@ -612,13 +613,14 @@ static bool borrow(void)
 		release(false);
 		return false;
 	}
-	/* The cursor window, until it says otherwise - unless the driver padded
-	 * the rows after all, which only an overlay plane can be told of (ADDFB2
-	 * takes the pitch) */
-	G.cursor = G.pitch == (uint32_t)G.cw * 4 && !cursor_refused;
+	/* The cursor window, until it says otherwise (cursor_refused). A frame
+	 * on it (scene_put) is written in rows of its own width and the window
+	 * told that width, whatever rows the driver made the buffer with; only
+	 * the bar alone on an overlay plane goes by the buffer's (ADDFB2 takes
+	 * the pitch) */
+	G.cursor = !cursor_refused;
 	if (!G.cursor) {
-		fprintf(stderr, "portkeys: rows of %u bytes, not %d; using an overlay plane\n",
-		        G.pitch, G.cw * 4);
+		fprintf(stderr, "portkeys: no cursor window; the bar on an overlay plane\n");
 		if (!overlay_setup()) {
 			fprintf(stderr, "portkeys: no overlay plane either; no bar\n");
 			release(false);
@@ -793,7 +795,7 @@ static void bar_fade(void)
  * 5 s, so it costs the port nothing it was not already paying. */
 
 static int read_level(const char *path);   /* with the battery, below */
-static bool batt_now(int *pct, bool *charging);   /* the same */
+static bool batt_now(int *pct, bool *charging, int *mv);   /* the same */
 
 static heat_state H;
 static struct {
@@ -1097,8 +1099,9 @@ static void hud_update(int lw, int lh)
 	if (items & (1u << HUD_CLOCK) && (khz = read_level(PK_CPUFREQ)) > 0) v.cpu_mhz = (khz + 500) / 1000;
 	if (items & (1u << HUD_BATTERY)) {
 		bool charging;
+		int mv;
 
-		if (!batt_now(&v.battery_pct, &charging)) v.battery_pct = -1;
+		if (!batt_now(&v.battery_pct, &charging, &mv)) v.battery_pct = -1;
 	}
 	if (items & (1u << HUD_TIME)) {
 		time_t t = time(NULL);
@@ -1322,6 +1325,7 @@ static int bar_tick(void)
 	osdbar_look look;
 	int wait = -1, ow, lw = 640, lh = 480;
 
+	memset(&look, 0, sizeof look);
 	heat_check(now);
 	if (N.live && now >= N.until) N.live = false;
 	if (G.fd >= 0) {
@@ -1589,7 +1593,9 @@ static void boost_clock(const pkkeys *k)
  * the level from the fuel gauge, and for the charger the cable, not the
  * battery's status, which says Discharging on the cable too; the status only
  * when the charger has no online file. /tmp/zyperos_fake_batt, a level, stands
- * in for both, as it does for the launcher. False with no level to read. */
+ * in for both, as it does for the launcher. False with no level to read. And
+ * off the charger its voltage, voltage_avg in mV (plat_charge_read's), 0 for
+ * none: read with the fake level too, which says nothing of a voltage. */
 static int read_level(const char *path)
 {
 	char buf[16];
@@ -1604,7 +1610,7 @@ static int read_level(const char *path)
 	return atoi(buf);
 }
 
-static bool batt_now(int *pct, bool *charging)
+static bool batt_level(int *pct, bool *charging)
 {
 	char st[16];
 	int v = read_level("/tmp/zyperos_fake_batt"), fd;
@@ -1630,6 +1636,15 @@ static bool batt_now(int *pct, bool *charging)
 		}
 	}
 	return true;
+}
+
+static bool batt_now(int *pct, bool *charging, int *mv)
+{
+	bool ok = batt_level(pct, charging);
+	int uv = ok && !*charging ? read_level("/sys/class/power_supply/battery/voltage_avg") : -1;
+
+	*mv = uv > 0 ? uv / 1000 : 0;
+	return ok;
 }
 
 /* ---- the in-game menu, over a port that has one -----------------------------
@@ -2548,23 +2563,28 @@ static void end_port(void)
 }
 
 /* The battery run flat over a port, by the launcher's rule (battery_empty,
- * src/main.c): BATT_EMPTY_PCT or under, off the charger, on two readings in a
- * row 5 s apart, so one stray reading never powers off. It ends the port and
- * powers off as POWER does, while the card can still be let go of, where the
- * PMIC's own cut would leave it mounted. Auto Off runs over your PICO-8
- * alone (idle_tick): the launcher takes it over a game because the game
- * resumes where it was after the power-off (AUTO_OFF, src/main.c), and a
- * port has no resume, nor an install or a cutscene a player gone. */
+ * src/zyperdraw.c, and src/battempty.h): off the charger, BATT_EMPTY_PCT or
+ * under on two readings in a row 5 s apart, or the voltage under the Pixel
+ * 2's empty voltage (PX2_BATT_EMPTY_MV, src/device/pixel2_levels.h) on three
+ * whatever the level says, so one stray reading never powers off. It ends
+ * the port and powers off as POWER does, while the card can still be let go
+ * of, where the PMIC's own cut would leave it mounted. Auto Off runs over
+ * your PICO-8 alone (idle_tick): the launcher takes it over a game because
+ * the game resumes where it was after the power-off (AUTO_OFF, src/main.c),
+ * and a port has no resume, nor an install or a cutscene a player gone. */
 #define BATT_EVERY_MS 5000
 static long batt_next;
-static int batt_seen;
+static batt_empty batt_run;
+static batt_verdict batt_said;
 
-/* One reading: true on the second empty one in a row, and only then */
-static bool batt_empty(int pct, bool charging)
+/* One reading: the verdict on the reading that makes the battery empty, and
+ * only then; BATT_FINE on every other */
+static batt_verdict batt_flat(bool ok, int pct, bool charging, int mv)
 {
-	if (!charging && pct >= 0 && pct <= BATT_EMPTY_PCT) batt_seen++;
-	else batt_seen = 0;
-	return batt_seen == 2;
+	batt_verdict was = batt_said;
+
+	batt_said = batt_empty_note(&batt_run, ok, pct, charging, mv, PX2_BATT_EMPTY_MV);
+	return was == BATT_FINE ? batt_said : BATT_FINE;
 }
 
 /* Auto Off's look, once a pass of the loop (idle_c, over your PICO-8):
@@ -3036,22 +3056,26 @@ int main(int argc, char **argv)
 
 			if (nw >= 0 && (wait < 0 || nw < wait)) wait = nw;
 		}
-		/* The battery, every BATT_EVERY_MS (batt_empty) */
+		/* The battery, every BATT_EVERY_MS (batt_flat) */
 		{
 			long now = now_ms();
-			int pct;
-			bool charging;
+			int pct = -1, mv = 0;
+			bool charging = false, ok;
+			batt_verdict v;
 
 			if (now - batt_next >= 0) {
-				if (batt_now(&pct, &charging)) {
-					idle_charging = charging;
-					/* The low-battery disc's level (lowbat_reading) */
-					lowbat_reading(pct, charging);
-					if (batt_empty(pct, charging)) {
-						fprintf(stderr, "portkeys: battery %d%%, empty; the port ends\n", pct);
-						end_port();
-					}
-				}
+				ok = batt_now(&pct, &charging, &mv);
+				/* Auto Off's clock held on the charger (idle_tick) */
+				if (ok) idle_charging = charging;
+				/* The low-battery disc's level (lowbat_reading) */
+				if (ok) lowbat_reading(pct, charging);
+				v = batt_flat(ok, pct, charging, mv);
+				if (v == BATT_EMPTY_VOLTAGE)
+					fprintf(stderr, "portkeys: battery %d mV, under %d mV on %d readings in a row, at %d%%; empty, the port ends\n",
+					        mv, PX2_BATT_EMPTY_MV, BATT_EMPTY_MV_READINGS, pct);
+				else if (v == BATT_EMPTY_LEVEL)
+					fprintf(stderr, "portkeys: battery %d%%, empty; the port ends\n", pct);
+				if (v != BATT_FINE) end_port();
 				batt_next = now + BATT_EVERY_MS;
 			}
 			if (wait < 0 || wait > batt_next - now) wait = (int)(batt_next - now);

@@ -3,6 +3,8 @@
 #include "zyperplace.h"
 
 #include "battery_eta.h"
+#include "battempty.h"
+#include "charging.h"
 #include "artscrape.h"
 #include "radl.h"
 #include "cheatsdl.h"
@@ -278,29 +280,41 @@ int battery_minutes_left_with(int gauge_min)
 /* Too low to go on, cached as battery_level is. Asked by every screen through
  * idle_due, and by the game's wait loop (plat_resident_on_battery_empty), so
  * an empty battery ends things the way the power button does: a game saves
- * on its way out, and power_off follows. Twice in a row, five seconds apart,
- * so one stray reading never powers the device off. */
+ * on its way out, and power_off follows. A reading every five seconds, and
+ * the rule is src/battempty.h's: the level at BATT_EMPTY_PCT or under twice
+ * in a row, or the voltage under the device's empty voltage three times in a
+ * row whatever the level says, so one stray reading never powers the device
+ * off. The voltage is read only off the charger, and only where the device
+ * has an empty voltage: the charging screen's reading (plat_charge_read),
+ * the gauge's voltage_avg under the load of the moment. */
 bool battery_empty(void)
 {
-	static unsigned last;
-	static int      seen;
-	static bool     primed;
+	static unsigned     last;
+	static bool         primed;
+	static batt_empty   run;
+	static batt_verdict verdict;
 	unsigned now = plat_now_ms();
 
 	if (!primed || now - last >= 5000) {
-		int  pct;
-		bool charging;
+		int  pct = -1, mv = 0, empty_mv = plat_profile()->batt_empty_mv;
+		bool charging = false, ok;
+		batt_verdict was = verdict;
+		ch_reading r;
 
 		primed = true;
 		last = now;
-		if (plat_battery(&pct, &charging) && !charging && pct <= BATT_EMPTY_PCT)
-			seen++;
-		else
-			seen = 0;
-		if (seen == 2)
-			fprintf(stderr, "battery: %d%%, empty; powering off\n", pct);
+		ok = plat_battery(&pct, &charging);
+		if (ok && !charging && empty_mv > 0 && plat_charge_read(&r)) mv = r.mv;
+		verdict = batt_empty_note(&run, ok, pct, charging, mv, empty_mv);
+		if (verdict != BATT_FINE && was == BATT_FINE) {
+			if (verdict == BATT_EMPTY_VOLTAGE)
+				fprintf(stderr, "battery: %d mV, under %d mV on %d readings in a row, at %d%%; empty, powering off\n",
+				        mv, empty_mv, BATT_EMPTY_MV_READINGS, pct);
+			else
+				fprintf(stderr, "battery: %d%%, empty; powering off\n", pct);
+		}
 	}
-	return seen >= 2;
+	return verdict != BATT_FINE;
 }
 
 /* A long task is running, and Auto Off waits for it (src/taskhold.h).
