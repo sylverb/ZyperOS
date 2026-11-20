@@ -884,17 +884,42 @@ static void shot_draw_gamemenu(app *a)
 	/* The handheld leaving with the Controls tab's name */
 	g_menu_side = u.port ? NULL : ctlscr_side;
 	/* --gm-choose: A on the row, as the runner answers an option row of
-	 * more than two (menu_choose): its list over the paused game */
-	if (shot_gm_choose && !u.port) {
+	 * more than two (menu_choose): its list over the paused game. Over your
+	 * PICO-8 the Display row's own list (port_display_pick), its picture
+	 * PICO-8's screen cut out of the frame */
+	if (shot_gm_choose && (!u.port || u.port_display)) {
 		gm_row ids[GM_MAX_ROWS];
 		int ni = gm_tab_rows(&u, (gm_tab)tabs.at, ids), sel = shot_gamemenu_sel < n ? shot_gamemenu_sel : n - 1;
 		const menu_choice *ch = sel >= 0 && sel < ni ? &gm_choices(a, &u)[ids[sel]] : NULL;
 
 		if (ch && (ch->n > 2 || ch->list)) {
+			SDL_Texture *p8 = u.port ? port_screen_of(a, bg, owner_view(a)->dmode) : NULL;
+
+			if (p8) gm_preview_frame(p8);
 			shot_list_draw(a, rows[sel].label, ch, gm_width(a), a->tint);
+			gm_preview_frame(NULL);
+			if (p8) SDL_DestroyTexture(p8);
 			if (bg) SDL_DestroyTexture(bg);
 			return;
 		}
+	}
+	/* --gm-restart: over your PICO-8, the question a Display mode asks
+	 * before it starts again (port_restart_ask), the mode --pick-at names
+	 * (Actual Size without), the cursor on Cancel */
+	if (shot_gm_restart && u.port_display) {
+		char q[256], lines[DEL_ASK_LINES][CHV_WRAP_COLS];
+		menu_row ask[DEL_ASK_LINES + 2];
+		int k = shot_pick_at >= 0 && shot_pick_at < DMODE_COUNT ? shot_pick_at : DMODE_COUNT - 1, nq;
+
+		snprintf(q, sizeof q, T(S_PICO8_RESTART_DISPLAY), dmode_label(k));
+		nq = store_ask_rows(a, q, lines, ask);
+		ask[nq] = (menu_row){ T(S_PICO8_RESTART_YES), NULL, true };
+		ask[nq + 1] = (menu_row){ T(S_PANEL_CANCEL), NULL, true };
+		g_menu_tabs = NULL;
+		g_menu_side = NULL;
+		menu_draw(a, T(S_PICO8_RESTART_ASK), ask, nq + 2, nq + 1, menu_std_width(a), a->tint);
+		if (bg) SDL_DestroyTexture(bg);
+		return;
 	}
 	menu_draw(a, u.port ? NULL : gm_tab_name(tabs.at), rows, n,
 	          shot_gamemenu_sel < n ? shot_gamemenu_sel : n - 1,
@@ -1146,6 +1171,7 @@ int shot_key = -1;   /* not shot_press, which is --shot-at's */
 static menu_choice shot_pick;          /* --press a on an option row: its list */
 static const char *shot_pick_heading;
 int shot_gm_choose;     /* --gm-choose: an option row's list, A pressed on it */
+int shot_gm_restart;    /* --gm-restart: over your PICO-8, a Display mode's question */
 int shot_hud_page = -1; /* --hud-page ROW: the On-Screen Stats page */
 bool shot_cheats;          /* --cheats: the cursor's game as the running one */
 int  shot_cheats_page = -1; /* --cheats-page ROW: its cheat list */

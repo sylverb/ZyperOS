@@ -200,7 +200,7 @@ zh-Hans = PICO-8 将以“%s”重新启动。卡带上次存档后的进度将�
 es = PICO-8 se reinicia en %s. Se pierde lo jugado desde el último guardado del cartucho.
 pt-BR = O PICO-8 reinicia em %s. O que jogou desde o último save do cartucho se perde.
 fr = PICO-8 redémarre en %s. La partie depuis la dernière sauvegarde de la cartouche est perdue.
-de = PICO-8 startet neu mit %s. Alles seit dem letzten Speichern des Carts geht verloren.
+de = PICO-8 startet in „%s“ neu. Alles seit dem letzten Speichern des Carts geht verloren.
 ja = PICO-8 は「%s」で再起動します。カートの最後のセーブ以降の進行は失われます。
 it = PICO-8 si riavvia in %s. Si perde quanto giocato dall'ultimo salvataggio della cartuccia.
 
