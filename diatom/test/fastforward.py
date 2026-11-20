@@ -20,9 +20,10 @@ of its turns. A fast turn either runs the step's frames or stops short,
 when the next frame would not fit its two refreshes; a short turn is behind,
 so the loop must not sleep after it (the old pacing slept there a fifth of
 the time), and that is judged on any machine. Whether a core reaches its
-step is judged only in a run that kept up (kept_up): no short turn, and no
-time lost between turns, which a busy machine loses to a sleep that runs over
-or to the CPU taken for a moment; otherwise the check says it could not tell.
+step is judged only in a run that kept up (kept_up): no short turn, and little
+time lost (step_report's "lost": the time the schedule gave up), which a busy
+machine loses to a sleep that runs over or to the CPU taken for a moment, and
+not always with a turn short; otherwise the check says it could not tell.
 Never over the step, on any machine, and a slow core never over what its own
 sleep allows (a 9 ms core, 1.86x), not over the cost the run measured: that
 cost is the whole game's average, from its first frames, and on GitHub's
@@ -115,15 +116,16 @@ def run(tag, frame_us, presses, seconds=4.0, skippable=False):
     text = open(out, errors="replace").read()
     reps = re.findall(r"diatom: speed ([\d.]+)x held ([\d.]+)s, reached ([\d.]+)x "
                       r"\(([\d.]+)x of the clock\), (\d+) audio frame\(s\) dropped, "
-                      r"slept [\d.]+s \(([\d.]+)s after (\d+) of (\d+) turns short", text)
+                      r"slept [\d.]+s \(([\d.]+)s after (\d+) of (\d+) turns short of the step\), "
+                      r"lost ([\d.]+)s", text)
     # What a frame really cost in this run, drawn or not: on a busy machine
     # (make check runs many at once) more than the stub spends
     costs = [float(c) for c in re.findall(r"diatom: the core took ([\d.]+) ms a drawn frame", text)]
     costs += [float(c) for c in re.findall(r"diatom: and ([\d.]+) ms a frame run undrawn", text)]
     if not reps or not costs: return None
-    step, held, turn_speed, clock, dropped, short_s, short_n, turns = reps[-1]
+    step, held, turn_speed, clock, dropped, short_s, short_n, turns, lost = reps[-1]
     return (float(step), float(clock), int(dropped), sum(costs) / len(costs),
-            float(held), float(short_s), int(short_n), int(turns), float(turn_speed))
+            float(held), float(short_s), int(short_n), int(turns), float(turn_speed), float(lost))
 
 # What the core's own cost allows, flat out, as this run measured it: said
 # for the reader, not judged. The cost is the whole game's average, from the
@@ -148,12 +150,14 @@ def short_of(r):
 
 def kept_up(r):
     """A run that held its step as a machine that keeps up does: no turn short
-    of the step's frames, and no time lost between turns, which the clock's
-    speed against the turns' says (step_report: "reached" is over the turns'
-    time, "of the clock" over the time held). A runner that kept the loop
-    waiting after a sleep, or took the CPU for a moment, loses it there and
-    reads under the step with no turn short (1.31x at 1.5x, 2026-11-19)"""
-    return r is not None and r[6] == 0 and r[1] >= r[8] * 0.95
+    of the step's frames, and little time lost, which step_report says
+    ("lost"): what the schedule gave up, being more than one turn behind. A
+    runner that kept the loop waiting after a sleep, or took the CPU for a
+    moment, loses it there and reads under the step with no turn short, and
+    the same from the clock as from the turns (1.31x at 1.5x, 2026-11-19;
+    1.5x at 2.0x in test/hudspeed.py, the same day, with the loss inside the
+    turns, where the clock against the turns does not see it)"""
+    return r is not None and r[6] == 0 and r[9] <= 0.03 * r[4]
 
 def judged(name, r, want):
     """At the step, in a run that kept up; else not judged"""
@@ -161,7 +165,7 @@ def judged(name, r, want):
         check(name, r[1] >= want * 0.88, (r, short_of(r)))
     elif r is not None:
         print(f"  --   {name}: not judged, this machine could not keep the step ({short_of(r)}; "
-              f"{r[1]:.2f}x of the clock against {r[8]:.2f}x of the turns)")
+              f"{r[9]:.2f}s lost of {r[4]:.1f}s; {r[1]:.2f}x of the clock against {r[8]:.2f}x of the turns)")
 
 # A core that reaches every step: held to it, never over; on a machine too
 # busy for it, flat out

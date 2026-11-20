@@ -5414,24 +5414,54 @@ as Favorites' heart beats (res/system-art/original/placeholders/recents.py).
 Its shelf's order is **Last Played** as it ships, so the game just played is
 first; it is built again when a game ends, and MENU > Sort By sorts it
 otherwise, kept by its tag as Favorites' is. Its MENU is Favorites': Games,
-Random Game, Sort By, View. With nothing played yet there is no Recents card,
-as an empty Favorites shows none: a card should lead somewhere.
+Random Game, Sort By, View, and one more, Card Picture (below). With nothing
+played yet there is no Recents card, as an empty Favorites shows none: a
+card should lead somewhere.
+
+**Card Picture** *(NextUI's top ten, and my pick in the Library lab,
+2026-11-19: covers on a new card, "allow the user to pick between the two by
+opening the menu in the recents page")*, the fifth row of Recents' MENU,
+under View: **Cover**, as it ships, or **Last Screen**. Two choices, and A
+opens them as a list all the same (11.3), the Recents game under the cursor
+as each one shows it in the picture beside them and a sentence under it
+("The screen where you stopped, the cover small in its corner."); Left and
+Right turn it over, and the shelf under the menu turns with it. Kept in the
+device's database, `recents.picture` ("screen"; absent is Cover).
+**Last Screen** is each card the screen the game was left on: the picture
+Diatom writes beside the resume point as the game ends (Quit, POWER, Auto
+Off: `<rom>.auto.bmp`, the core's own frame), scaled up whole by the
+nearest pixel toward 448 units high, its pixels kept sharp, with the
+game's cover in its lower left corner, 30% of the card's height, inset 4%,
+over a soft shadow (40% ink, down and right), its corners round by 5% of
+its height; a game with no cover file has its generated card there, as its
+shelf shows it (src/screencard.h). A card is as wide as its picture is:
+a Game Boy Advance's 3:2, a SNES's 8:7. A game with no resume point shows
+its cover. On the cover row, the Grid and the list alike. Nothing new is
+saved and nothing runs while a game plays: the picture is the resume
+point's own, and the card is made once on the art workers (texload's
+`texload_want_screen`), never on the frame. It is art of no theme, so a
+change of theme keeps it; it has no sheen or sharpen (8.2), which are a
+generated card's. Host shots: `shelf-recents-screen`,
+`shelf-recents-screen-grid`, `recents-menu-picture`, `recents-picture-list`
+and `recents-picture-list-cover`, each game's resume picture made up by
+tools/i18n-shots.py (`scene_bmp`).
 
 **Home Systems** in MENU's Display tab, under System Order: its value
 **All**, or how many of them are on ("8 of 10"); A opens its page. The page
-lists Favorites and Recents, a rule, then every system the card has games
-for, in the home's order (a system with none is not on the home, so not on
+lists Favorites, Recents and Collections (11.56; its row once the card has
+a collection, as a system has one only with games), a rule, then every system
+the card has games for, in the home's order (a system with none is not on the home, so not on
 the page either), each **On** or **Off**, Left, Right or A turning it over,
 heard as a ring, as Side Lights' parts are. Under a rule, the note: "Games
 stay on the card." All of them On as they ship. A system turned off leaves
-the home, and with it Random Game and Search; its games stay on Favorites and
-Recents, start from there on the system's own core and display, and resume
+the home, and with it Random Game and Search; its games stay on Favorites,
+Recents and Collections (11.56), start from there on the system's own core and display, and resume
 there at the next start after a power-off (on Recents, else Favorites), as
 they stay on the card and in File Transfer; its shelf comes back the moment it
 is on again. *(Davistoa on the Discord, 2026-11-19, hides every system and
 lives in Favorites; my OK.)* The systems turned off keep their listings after
-the home's shelves (`app.parked`, `sys_kept`), so Favorites and Recents
-resolve against them as against the home's; `make check-homesys-groups`
+the home's shelves (`app.parked`, `sys_kept`), so Favorites, Recents and
+Collections resolve against them as against the home's; `make check-homesys-groups`
 holds it on the host launcher. On a handheld without GPU frames (the Brick's profile today,
 `plat_gpu_frames`), a system whose cores need them (config/systems.cfg's
 `needs` lines: the Dreamcast, NAOMI, Atomiswave, the N64, the PSP and
@@ -5442,8 +5472,8 @@ is the empty home's, which says the card has no games: its row is dead, and a
 second note says why ("One system stays on the home."). The home is built
 again once, as the page closes on a change, from the saved library, keeping
 the player's place (`shelves_reload`). The setting is one word in the device
-database, `home.hidden`: the tags that are off ("PRT,RECENT"), so a new
-system is On without anyone saying so (src/homesys.h). Host shots:
+database, `home.hidden`: the tags that are off ("PRT,RECENT"; Collections' is COLL),
+so a new system is On without anyone saying so (src/homesys.h). Host shots:
 `--homesys-page ROW`.
 
 
@@ -5835,6 +5865,86 @@ shelf has no Splore and plays on fake08.
 Host shots: `make pico8-shots` (the shelf before and after, the Core row, the
 page in both themes). The rules: `make check-pico8`, `check-config`,
 `check-controls`.
+
+### 11.56 Collections
+*(NextUI's top ten, and my picks in the Library lab, 2026-11-19: "Add to
+Collection" on a game, a group on the home after Favorites and Recents once
+there is one collection, Home Systems can hide it, and Delete Collection
+asks first.)*
+
+**On the card.** A collection is a list of games of your own, from every
+system: `Collections/<name>.txt` at the card's root, one game a line, its
+path from the card's root ("/Roms/SNES/Chrono Trigger (USA).sfc"), the plain
+format MinUI and NextUI write. A list written by hand, or on another
+handheld, shows up too: a line is read as "/Roms/...", "Roms/...", "GBA/..."
+(from Roms/ itself), with a card's mount before /Roms/ or \ for /; a line
+starting with # and an empty line are kept and are no game. A line is kept
+as it was written: a game off the card today keeps its line, and a list is
+rewritten only when ZyperOS changes it (src/collect.h). The lists are read
+at each scan, so one copied onto the card shows after a rescan as a game
+does. 36 collections at most, A to Z by name; 2000 lines in one.
+
+**Add to Collection**, a row of a game's details page (X on the shelf), right
+after Favorite, on every game a favorite can be: its value how many
+collections the game is in ("In 2"), none when it is in none. A opens its
+list under the heading Add to Collection: a row for each collection, A to
+Z, the ones the game is in ticked (11.3's tick); A puts it in, heard as the
+**reward**, or takes it out, heard as **back**, written through at once.
+Under a rule, **New Collection** opens the keyboard (11.5) for a name, the
+game its first; the cursor lands on it, ticked. A name a card's file cannot
+have, one too long or one another collection has (in any case) is said, and
+the keyboard comes back on what was typed, as Rename's (11.41).
+
+**Collections on the home**, a group like Favorites and Recents, after them
+(first when there are neither), once a collection has a game on the
+shelves: a collection whose games are all off the card is not there, as a
+folder with no game is left out (11.39). A game of a system turned off the
+home stays in its collections, as it stays on Favorites and Recents (11.48). Its card is a placeholder until a real design comes: a stack of
+three cartridges, the top one's label lime, lifted off the stack and put
+back in two poses of 400 ms each, as Favorites' heart beats
+(`res/system-art/original/placeholders/collections-card.py`). Under its
+name, its games, each once however many lists name it. Home Systems (11.48)
+can hide it, its row there once the card has a collection; it is On as it
+ships.
+
+**Its shelf** is one folder deep. At its top, each collection is a folder
+(11.39's card, in the group's lime, or Folder Color's, 3.5), its count on its
+label, A to Z; under the row its name and "3 games". A opens one, on its
+first game; the heading names the way down, "Collections / Couch Co-op",
+and B goes back to the top, on the collection it left. In a collection its
+games are of every system, each with its system under its name as on
+Favorites, launched by its own system's core; the cover row, the Grid and
+the List all show it (View is the shelf's, kept by its tag, COLL). X and Y
+on a collection have nothing to do and play **deny**.
+
+**Its menu** is headed by the collection's name: on the top, the one under
+the cursor's; in one, its own. On the top: **Sort By**, **View**,
+**Rename** and **Delete Collection**. In one: **Games** (its count),
+**Random Game** (one of its games), Sort By, View, Rename, **Remove from
+Collection** (the game under the cursor out of it; it stays on the card)
+and Delete Collection. Sort By is the shelf's, one for every collection,
+kept by its tag: **Added** (the list's order, the order its games went in;
+as it ships), **Name**, **Last Played** and **System** (the home's order of
+the systems, A to Z in each). Rename opens the keyboard on its name and
+renames its file. Delete Collection asks first, as Delete Game does (11.31):
+"Delete Couch Co-op? Its games stay on the card.", Delete over **Cancel**,
+the cursor on Cancel; the list goes, never a game. After Rename, Remove and
+Delete the menu closes onto the shelf as it is now: on the collection under
+its new name, on the next game, or on the collection after the one that went.
+
+**A game renamed or deleted** (11.41, 11.31) has its lines follow it in every
+list: its new name in each, or its lines gone.
+
+**What it costs.** Nothing per frame: the lists are read once a scan (a
+folder read and a line each), and a collection is resolved against the
+shelves already in memory when it opens. The shelf is a group's
+(src/shelfbuild.c), its folders made by the code, not read from the card.
+
+Host shots: `home-collections`, `shelf-collections`, `shelf-collection-in`,
+`shelf-collection-list`, `collect-menu-top`, `collect-menu-in`,
+`collect-menu-sort`, `collect-delete`, `info-collect`, `collect-page` and
+`collect-page-none` (tools/i18n-shots.py), with `--info-collect`,
+`--collect-page K` and `--collect-delete`.
 
 ### 11.60 Equalizer
 *(Asked for on the Discord after 1.0.6: more bass, and a system-wide
