@@ -7,6 +7,7 @@
 
 #include "design.h"
 #include "sys_menu.h"
+#include "controls.h"
 #include "homesys.h"
 #include "i18n.h"
 #include "uisound.h"
@@ -87,7 +88,7 @@ pm_tab sys_menu_tab_of(pm_row r)
 	case PM_USB_WAIT: case PM_WIFI: case PM_BT: case PM_XFER: case PM_USB:
 	case PM_DEVELOPER:
 		return PT_CONNECTIONS;
-	case PM_CLOCK: case PM_HOURS: case PM_LANGUAGE: case PM_POWER: case PM_SLEEP:
+	case PM_CLOCK: case PM_HOURS: case PM_LANGUAGE: case PM_HOTKEYS: case PM_POWER: case PM_SLEEP:
 	case PM_CHARGE: case PM_LIGHTS: case PM_STORAGE: case PM_UPDATE:
 		return PT_SYSTEM;
 	case PM_ABOUT: case PM_CONTROLS: case PM_TOUR:
@@ -656,6 +657,9 @@ int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
 	/* The language that is on, in its own words: a player who chose one they
 	 * cannot read finds their own name here (src/i18n.h) */
 	full[PM_LANGUAGE]     = (menu_row){ T(S_MENU_LANGUAGE), lang_name(i18n_lang()), true };
+	/* SELECT held and a button, for every game here (src/hotkeys.h): A
+	 * opens the list, its keys drawn as the buttons */
+	full[PM_HOTKEYS]      = (menu_row){ ctl_page_name(CTL_HOTKEYS), NULL, true };
 	/* Press or Hold: what turns the handheld off (src/powerhold.h) */
 	full[PM_POWER]        = (menu_row){ T(S_SYSMENU_POWER_BUTTON),
 	                                   u->power_hold ? T(S_SYSMENU_POWER_HOLD)

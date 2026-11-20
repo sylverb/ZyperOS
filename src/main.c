@@ -3044,6 +3044,39 @@ static void on_speed(int half)
 	popup_now(T(S_POPUP_SPEED), body);
 }
 
+/* Called from inside plat_resident_wait for the player's hotkeys the
+ * launcher carries out (src/hotkeys.h): a screenshot Diatom wrote, said
+ * over the game with the picture small beside "Screenshot saved" and where
+ * it went; the next shader or display mode, stepped and kept as the menu's
+ * rows do, and named over the game */
+static app *g_hotkey_app;   /* main's, for on_hotkey's steps */
+
+static void on_hotkey(const char *key, const char *path)
+{
+	char p[CFG_STR * 2], body[CFG_STR * 2];
+
+	if (!strcmp(key, "shot") && path) {
+		const char *folder = strstr(path, "/Screenshots/");
+		const char *end = folder ? strrchr(path, '/') : NULL;
+
+		/* "Screenshots/Nintendo 64", where the file is */
+		if (folder && end > folder) snprintf(body, sizeof body, "%.*s", (int)(end - folder - 1), folder + 1);
+		else snprintf(body, sizeof body, "%s", path);
+		snprintf(p, sizeof p, "%s", NOTICE_FILE);
+		if (notice_render_ex(T(S_HOTKEYS_SHOT_SAVED), body, path, NOTICE_PICTURE, 0, 0, p, theme_index()))
+			plat_resident_line("OVERLAY\tpath=%s\tms=1500", p);
+		nq_hold(&g_nq, plat_now_ms(), 1500);
+		return;
+	}
+	if (!strcmp(key, "shader") || !strcmp(key, "display")) {
+		const bool shader = key[1] == 'h';
+
+		if (!g_hotkey_app) return;
+		gm_hotkey_step(g_hotkey_app, shader, body, sizeof body);
+		popup_now(T(shader ? S_HOTKEYS_POPUP_SHADER : S_HOTKEYS_POPUP_DISPLAY), body);
+	}
+}
+
 /* Called from inside plat_resident_wait when a button given Stick On/Off
  * (the PSP's R2 by default, DESIGN.md 11.45) turned a game's d-pad into the
  * analog stick (on) or back: said over the game, and kept for the game
@@ -6101,6 +6134,12 @@ int main(int argc, char *argv[])
 			if (i + 1 < argc && argv[i + 1][0] >= '0' && argv[i + 1][0] <= '2')
 				shot_sgdb = atoi(argv[++i]);
 		}
+		else if (!strcmp(argv[i], "--hotkeys") && i + 1 < argc) shot_hotkeys = atoi(argv[++i]);
+		else if (!strcmp(argv[i], "--hk-game")) shot_hk_game = true;
+		else if (!strcmp(argv[i], "--hk-ask") && i + 1 < argc) shot_hk_ask = atoi(argv[++i]);
+		else if (!strcmp(argv[i], "--hk-scope") && i + 1 < argc) shot_hk_scope = atoi(argv[++i]);
+		else if (!strcmp(argv[i], "--hk-capture") && i + 1 < argc) shot_hk_capture = atoi(argv[++i]);
+		else if (!strcmp(argv[i], "--hk-key") && i + 1 < argc) shot_hk_key = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--controls")) {
 			shot_controls = 0;
 			if (i + 1 < argc && argv[i + 1][0] >= '0' && argv[i + 1][0] <= '9')
@@ -6826,6 +6865,8 @@ int main(int argc, char *argv[])
 		plat_resident_on_speed(on_speed);
 		plat_resident_on_stick(on_stick);
 		plat_resident_on_quick(on_quick);
+		plat_resident_on_hotkey(on_hotkey);
+		g_hotkey_app = &a;
 		plat_resident_on_tick(on_game_tick);
 		plat_resident_on_battery_empty(battery_empty);
 		/* The downloads' lanes go on behind every screen while it rests

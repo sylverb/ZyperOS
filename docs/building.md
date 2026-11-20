@@ -163,6 +163,7 @@ something once broke in a way nothing noticed:
 | `check-mp4frame` | MP4's video frames between the daemon and the launcher: a writer and a reader on two threads over the same pages, every picture the reader keeps whole |
 | `check-mp4size` | MP4's video picture of any shape (4:3 at 1440x1080, 480x360 and 320x240, 16:9, odd, tiny, the largest, the size changing inside one file) published as the daemon publishes it and read into the player's texture: a texture as wide as the frame's rows (a multiple of 128) and as high as the picture, each plane fitting the Pixel 2's Mesa tile buffer as rows (it ran past it, a crash or a green bottom edge, for 4:3 widths), the picture drawn whole from its own rectangle, its shape kept, nothing out of bounds under UBSan and, on a Mac, Guard Malloc (skips without SDL2) |
 | `check-controls` | what MENU > Controls says: every button on exactly one page, and rows short enough to sit still; and a game's Controls, for every system in systems.cfg: the core's names through its map and turbo, pages that fit |
+| `check-hotkeys` | the hotkeys a player sets: ZyperOS's own four, a key set, the swap that loses none, what is stored and read back, Diatom's RUN form, and the three scopes a game falls back through |
 | `check-remap` | the remap rules: Diatom's map language read and written, a button's change and its swap worked from the base, what is stored and loaded, the N64's layer kept, the choices a system offers and its letter layout |
 | `check-rumble` | Rumble's levels (Off, Low 35%, Medium 65%, Full), the share a game is sent (the level times the system's, `rumble=` on RUN), and what is kept for MENU, a system and a game, each falling back to the next |
 | `check-eq` | the equalizer's settings: its presets and their curves, each output's own (the speaker's, the headphones'), Custom's bands kept, a band's step making a preset Custom, the words SETEQ and MP4's EQ carry, and the file a port's plugin reads |
@@ -237,6 +238,7 @@ something once broke in a way nothing noticed:
 | `check-boottheme` | the boot screen's theme and language words (DESIGN.md 11.21) |
 | `check-splashbright` | the backlight value plastron's splash lights the panel at (`zybright` on the kernel's line, from theme.txt): within the backlight's maximum, and none for `-`, 0, a word or a value above it |
 | `check-bootbright` | plastron's init sets the backlight from the card's `boot-brightness` as soon as the card is mounted, within its maximum or through the Brick's tool, and leaves the kernel's level for anything else |
+| `check-seed-version` | the boot's ZyperOS version compare (plastron's `zyperos.init`, `version_of` and `newer_seed`, as each board's post-build.sh takes it for `SEED_V`): 1.1.0-rc.N, -kit.N and -test.N are versions below 1.1.0 and in order (test below kit below rc), the image's ZyperOS goes over an older card's and never over a newer one, and what is not a version (none, "", 1..2, x, 1.08.0, 1.2.3.4) is false without stopping the shell |
 | `check-panelgamma` | the display's gamma table (src/panelgamma.h), against a stand-in display with Linux's request numbers: an older splash's table emptied on its CRTC alone, an empty one left alone, a kernel with none, a refusal without DRM master; the dimming table under the backlight's floor; Screen Colors' Temperature, Tint, Contrast and Gamma per channel on every rung (every value of every row a rising table, black kept), Standard exactly as before, and the file the launcher leaves for Diatom and portkeys (a FIFO or a link at its name not followed) |
 | `check-panelgamma-sunxi` | the TrimUI Brick's display's gamma table (src/panelgamma_sunxi.h), against a stand-in `/dev/disp` with the disp2 driver's command numbers: Standard turns the table off and sends none; a look sends its 256 entries (the shared math's at the floor, red, green and blue in the TCON's 24 bits), then turns it on; Night Mode alone is a table; a refused table is never turned on; and Saturation's steps in the display engine's units (25 to 75, 50 the picture as drawn) |
 | `check-nightmode` | Night Mode (src/nightmode.h): its warmth in the display's table (Temperature's gains again, multiplied after the player's), the file's warmth and nights for Diatom and portkeys and the clock against them, the nights by the hours across midnight, on the same day, none for the same hour twice, On and Off, and in New York across both ends of summer time; and the first start's migration from Appearance's Auto, pure and on a scratch database: the theme Auto gave at that moment, its hours kept as Night Hours, Night Mode left Off, once |
@@ -281,6 +283,7 @@ something once broke in a way nothing noticed:
 | `check-diatom` | Diatom's own suite (diatom/Makefile's check) on its desktop port with the stub core: the port seam, core facts, achievements, screens, the protocol, the state plane, resident cores, save states packed and read back (old ones too), the card's frame of play written once a minute in and never again; then the launcher's own Diatom link against it (tools/gamezone-check.c): the zone chosen in Date & Time reaches a game's clock, a new zone the next game with no restart, and a Diatom started again its first game (skips without SDL2) |
 | `check-desk` | desk mode (tools/desk, src/device/desk.h) in SDL's dummy window, as the Pixel 2 and as the Brick on tools/desk's sample card, over its control socket: the panel its size (a shot is 640x480 or 1024x768), a press held until let go, a tap timed to its frame, the zoom and the drawn handheld on and off, an unknown button refused, quit |
 | `check-keymap` | one key map for a keyboard standing in for the buttons: src/device/keymap.h, the Simulator's (App.swift) and Diatom's own window's give each key the same button, and both docs point at it |
+| `check-handhelds` | the simulator's handhelds (simulator/Sources/SimCore/Handhelds.swift) are what `make handhelds` writes from the device files (each src/device/<id>_model.c's flat drawing), and those files whole: every flat key a key of the model, every key a button, the screen in its glass |
 | `check-simulator` | the simulator's Swift tests: its D-Bus display client (the wire format, and a fake QEMU's login, properties call, frame in shared memory and frame over the socket), its VNC client, the px2sim link, the state lines and the control socket's commands (skips without Swift) |
 | `check-px2sim` | px2sim's choice of the keyboard it takes in the QEMU image: QEMU's virtio or USB one, never a uinput one such as gptokeyb's Fake Keyboard (host compiler, no VM) |
 | `check-sidelights` | what the launcher tells the side lights' gauge: the lines as plastron's gauge reads them, the FIFO writer that never waits and never dies of SIGPIPE, when a File Transfer batch is over, and files moving on its page: a line at most every 500 ms with the speed over that time, a pause between two files kept, `move 0 0` a second after the last bytes and at once when the page closes, across the clock's wrap; and MENU > Side Lights' preview lines, said again each second, another row at once, `preview off` as the page closes |
@@ -481,6 +484,41 @@ profiles is taken the same. `make check-devices` holds each profile whole and
 no device guessed in `src/` (`tools/devices-lint.py`); `make
 check-device-compile` compiles every device file's Linux half, which the CI
 job `devices` runs on Ubuntu.
+
+### A handheld drawn on the computer
+
+Desk mode's window and the [simulator](simulator.md) draw the handheld from
+its own files, the same data both ways. `src/device/<id>_model.c` holds its
+model (`src/device/td_model.h`): where each key is, for the tutorial and the
+Controls tab, and `flat`, the handheld drawn flat for the two windows, its
+front straight on with the shoulders along the top and the side keys out of
+its sides. The keys' places and sizes are the model's; `flat` adds the look:
+the corners, the glass and the lit picture, what is printed on a key and
+under it, which side its keyboard key shows on, a well for SELECT and START,
+the side lights and which battery lights light them, and the colours. A key
+with nothing in `flat` is drawn blank; `y` and `len` move a side key along
+its edge where the flat drawing's differs from the model's (the Pixel 2's
+rocker halves meet).
+
+So a new handheld in the two windows is:
+
+1. its profile and its model, as for the tutorial, with `flat` in the model;
+2. its profile in `src/profile.c`'s list of the host's profiles;
+3. `make handhelds`, which writes the Simulator's copy,
+   `simulator/Sources/SimCore/Handhelds.swift`, from the device files
+   (`tools/handhelds-swift.c`, which also fails on a key the model has not,
+   a key with no button, or a screen outside its glass);
+4. `tools/desk run --device <id>` and `ZyperSimulator --device <id>` to see
+   it; `tools/desk shot FILE window` and `simulator/simctl window-shot FILE`
+   draw it to a file.
+
+Nothing in desk mode or the simulator names a handheld; `make check-handhelds`
+fails while the Swift copy is behind the device files, and the simulator's
+`HandheldTests` hold every handheld whole. A button no handheld had before
+needs its keyboard key in `src/device/keymap.h` and the simulator's
+`Keyboard` (`make check-keymap`). The simulator runs the Pixel 2's system in
+QEMU; another handheld's VM is plastron's to make ([simulator](simulator.md),
+"Another handheld").
 
 ## On device
 
@@ -740,6 +778,11 @@ credits there.
 
 ## Work on the UI without a device
 
+It needs SDL2 with SDL_image and SDL_ttf, and xz: `brew install sdl2 sdl2_image
+sdl2_ttf xz` on a Mac, and on Debian or Ubuntu `sudo apt install pkg-config
+libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev libsqlite3-dev liblzma-dev
+zlib1g-dev libasound2-dev libcurl4-openssl-dev libssl-dev`.
+
 `make desk` opens ZyperOS's launcher in a window on your computer as the GKD
 Pixel 2 itself, drawn to its measurements around its 640x480 panel, one panel
 pixel to a pixel of your display: on a Mac's Retina display, about the
@@ -811,6 +854,7 @@ tools/desk open "NES/ZyperOS Test.nes"   # a game, as A on it in its shelf opens
 tools/desk tap menu                      # buttons: up down left right a b x y l1 r1
                                          # l2 r2 select start menu volup voldown power
 tools/desk shot shot.png                 # the panel, at its own pixels
+tools/desk shot desk.png window          # the whole window, the drawn handheld too
 tools/desk latency down                  # a tap, and ms from it to its frame
 tools/desk hints 1                       # every key's name on its key, as Option
 tools/desk state | stats | close | quit

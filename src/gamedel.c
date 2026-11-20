@@ -637,6 +637,9 @@ int gd_forget(const char *folder, const char *tag, const char *file)
 	if (db_del(db_lib(), key)) n++;
 	snprintf(key, sizeof key, "stick.%s.%s", tag, file);
 	if (db_del(db_lib(), key)) n++;
+	/* and its own hotkeys (src/hkstore.h) */
+	snprintf(key, sizeof key, "hotkeys.%s.%s", tag, file);
+	if (db_del(db_lib(), key)) n++;
 	/* And its own Rumble level (src/rumble.h) */
 	snprintf(key, sizeof key, "rumble.%s.%s", tag, file);
 	if (db_del(db_lib(), key)) n++;

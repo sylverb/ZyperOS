@@ -5,12 +5,12 @@
 # the offline checks, a host build of the launcher, the cores, and the assets.
 # docs/building.md says how to work on a device.
 
-.PHONY: all clean native desk desk-brick px2-payload vendor boot system-art checkmark \
+.PHONY: all clean native desk desk-brick handhelds px2-payload vendor boot system-art checkmark \
         check check-cheevos check-hare check-portal check-httpd check-idle check-taskhold check-saver check-rahash check-flacdec check-achtab check-signin check-search \
         check-raset check-xfer check-sshlink check-usblink check-devmode check-devices check-devicegen check-model check-ctl check-menus check-status check-battery check-corner check-artscrape check-artrun check-sgdb check-snapshelf check-snaps check-audioout \
         check-db check-coreopts check-gpuframes check-gamedel check-gamern check-esmedia check-corepins check-targets yuvtarget check-storage check-stats check-sort check-bt check-ss check-titles check-dsv check-sidelights check-osdbar check-hud check-dmodefit check-themefile check-pkkeys check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-bios check-gamefile check-startfail check-kbnav check-tween check-menumotion check-menusnap check-cardgen check-cardart check-focusfx check-blur check-gridrule check-screencard check-focusgeo check-roundrect check-rowmacro check-emptyhome check-zyperrig check-randgame check-shelfdir \
         check-sysmark check-flip check-menushots check-controls-shots check-design check-systemart check-linebreak check-portload check-portout \
-        check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-messages check-tour check-tour-shots check-textfade check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pico8 check-pmhelper check-portdoc check-boottheme check-splashbright check-bootbright check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr check-autozone \
+        check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-messages check-tour check-tour-shots check-textfade check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pico8 check-pmhelper check-portdoc check-boottheme check-splashbright check-bootbright check-seed-version check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr check-autozone \
         check-home check-home-shots check-games check-cardpaint check-putpace landbench check-favorites-shots check-homesys-groups check-np-footer check-vidtry check-menu-rows check-layout-shots check-artbadge check-artbadge-shots check-cardart-shots design sounds strings cjk-font check-strings check-i18n-shots check-rootswitch check-datapart check-brick-closed check-hwreport \
         check-tour-previews tour-previews check-prep check-diatom check-simulator check-px2sim check-building-doc check-blog check-discord-release \
         check-release-devices check-installer release check-site-devices
@@ -47,13 +47,13 @@ src/i18n_tables.c: $(wildcard res/strings/*.txt) tools/i18n.py
 CHECKS = check-cheevos check-hare check-portal check-httpd check-idle check-taskhold check-saver check-rahash check-flacdec check-achtab check-rasubmit check-raoffline check-radl check-dlq check-signin check-noticeq check-badges check-badge-shots \
          check-raset check-xfer check-sshlink check-usblink check-devmode check-devices check-devicegen check-model check-ctl check-menus check-artscrape check-artrun check-sgdb check-snapshelf check-snaps check-audioout \
          check-db check-coreopts check-gamedel check-gamern check-esmedia check-media check-snapsize check-corepins check-targets check-storage check-stats check-sort check-bt check-ss check-titles check-savedlib check-search \
-         check-muselib check-musequeue check-museart check-mp4lock check-mp4look check-bands check-mp4frame check-mp4size check-p2share check-webtheme check-p2ws check-p2codec check-p2d check-play check-p2 check-resident check-spawn check-controls check-remap check-rumble check-eq check-eqdsp check-eqplugin check-controls-shots check-logpack \
+         check-muselib check-musequeue check-museart check-mp4lock check-mp4look check-bands check-mp4frame check-mp4size check-p2share check-webtheme check-p2ws check-p2codec check-p2d check-play check-p2 check-resident check-spawn check-controls check-remap check-hotkeys check-rumble check-eq check-eqdsp check-eqplugin check-controls-shots check-logpack \
          check-clock check-autozone check-status check-battery check-battery-eta check-dslang check-pacing check-gpuframes check-dsresume check-corestate check-core-stamp check-core-room check-px2-perf check-px2-snap check-px2 check-lowbatt check-powerhold check-homesys check-collect check-heat check-charging check-corner check-dsv check-sidelights check-osdbar check-hud check-dmodefit check-themefile check-pkkeys check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-bios check-gamefile check-startfail check-kbnav check-randgame check-shelfdir check-look \
          check-tween check-menumotion check-menusnap check-cardgen check-cardart check-focusfx check-blur check-gridrule check-screencard check-focusgeo check-roundrect check-rowmacro check-emptyhome check-zyperrig check-sysmark check-flip check-menushots check-design \
          check-systemart check-linebreak check-portload check-portout check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-messages \
-         check-tour check-tour-shots check-tour-previews check-textfade check-glyphs check-scale check-shaderdemo check-screenfx check-ds check-layout-ratchet check-flex check-hover check-hover-sweep check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pico8 check-pmhelper check-pmart check-portdoc check-boottheme check-splashbright check-bootbright check-panelgamma check-panelgamma-sunxi check-nightmode check-displayback check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-start-soc check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr \
+         check-tour check-tour-shots check-tour-previews check-textfade check-glyphs check-scale check-shaderdemo check-screenfx check-ds check-layout-ratchet check-flex check-hover check-hover-sweep check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pico8 check-pmhelper check-pmart check-portdoc check-boottheme check-splashbright check-bootbright check-seed-version check-panelgamma check-panelgamma-sunxi check-nightmode check-displayback check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-start-soc check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr \
          check-home check-home-shots check-games check-cardpaint check-putpace check-favorites-shots check-homesys-groups check-np-footer check-vidtry check-menu-rows check-layout-shots check-artbadge check-artbadge-shots check-cardart-shots checkmark \
-         check-installer check-from-rogue check-importers check-diatom check-simulator check-desk check-keymap check-px2sim check-building-doc check-blog check-discord-release \
+         check-installer check-from-rogue check-importers check-diatom check-simulator check-desk check-keymap check-handhelds check-px2sim check-building-doc check-blog check-discord-release \
          check-release-devices check-strings check-i18n-shots check-rootswitch check-datapart check-brick-closed check-hwreport check-kitbuild
 
 # All of them at once, as many at a time as there are cores (CHECK_JOBS=1 for
@@ -144,6 +144,36 @@ check-desk: native
 # One key map: src/device/keymap.h, the Simulator's and Diatom's window's
 check-keymap:
 	@python3 tools/keymap-check.py
+
+# The Simulator's handhelds (simulator/Sources/SimCore/Handhelds.swift), written
+# from the device files themselves (each src/device/<id>_model.c's flat
+# drawing, src/device/td_model.h) by tools/handhelds-swift.c, so the Simulator
+# draws every handheld as desk mode does, from the same numbers. `make
+# handhelds` writes it; check-handhelds fails while it is behind them.
+HANDHELDS_SRC := src/profile.c $(wildcard src/device/*_profile.c) src/device/td_model.c \
+                 $(filter-out src/device/td_model.c,$(wildcard src/device/*_model.c)) \
+                 $(wildcard src/device/*_coreopts.c)
+build-native/handhelds-swift: tools/handhelds-swift.c $(HANDHELDS_SRC) src/device/td_model.h \
+                              src/device/profile.h FORCE
+	@mkdir -p build-native
+	@$(CC) -std=gnu11 -Wall -Wextra -Wno-unused-parameter -D_GNU_SOURCE -O1 -Isrc \
+	      -DZYPEROS_PROFILE=device_profile_desktop -DZYPEROS_PROFILES_ALL \
+	      -o $@ tools/handhelds-swift.c $(HANDHELDS_SRC)
+
+handhelds: build-native/handhelds-swift
+	@./build-native/handhelds-swift > build-native/Handhelds.swift
+	@mv build-native/Handhelds.swift simulator/Sources/SimCore/Handhelds.swift
+	@echo "handhelds: wrote simulator/Sources/SimCore/Handhelds.swift"
+
+check-handhelds: build-native/handhelds-swift
+	@./build-native/handhelds-swift > build-native/Handhelds.swift
+	@if cmp -s build-native/Handhelds.swift simulator/Sources/SimCore/Handhelds.swift; then \
+		echo "handhelds: simulator/Sources/SimCore/Handhelds.swift is the device files' own"; \
+	else \
+		diff -u simulator/Sources/SimCore/Handhelds.swift build-native/Handhelds.swift | head -30; \
+		echo "check-handhelds: simulator/Sources/SimCore/Handhelds.swift is behind src/device/*_model.c: run make handhelds"; \
+		exit 1; \
+	fi
 
 # The simulator's tests (simulator/Tests: its D-Bus display and VNC clients, the px2sim link, the
 # state lines and the control socket's commands), with Swift's own build kept
@@ -638,7 +668,7 @@ build-native/portdoc-check: tools/portdoc-check.c src/portdoc.c src/portdoc.h sr
                            src/controls.c src/controls.h src/remap.c src/remap.h src/portmenu.h src/menu.h $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -o $@ tools/portdoc-check.c src/portdoc.c \
-	      src/rajson.c src/controls.c src/powerhold.c src/remap.c $(I18N_SRC)
+	      src/rajson.c src/controls.c src/hotkeys.c src/powerhold.c src/remap.c $(I18N_SRC)
 
 # plastron's make push writes the system slot the Pixel 2 is not running,
 # never the one it runs from (scripts/px2-slot.sh): the slot choice, the
@@ -728,6 +758,14 @@ build-native/splashbright-check: tools/splashbright-check.c plastron/buildroot/p
 
 check-bootbright:
 	@sh tools/bootbright-check.sh
+
+# The boot's ZyperOS version compare (plastron's zyperos.init, version_of and
+# newer_seed): a version with a suffix (1.1.0-rc.1, -kit.N, -test.N) is a
+# version, below its release, so an RC or kit pushed over an older card puts
+# its ZyperOS folder there; what is not a version is false and never stops
+# the shell
+check-seed-version:
+	@sh tools/seed-version-check.sh
 
 UPDATE_SRC = update/main.c update/manifest.c update/status.c update/slots.c
 build-native/zyperos-update: $(UPDATE_SRC) update/update.h FORCE
@@ -1487,8 +1525,20 @@ build-native/remap-check: tools/remap-check.c src/remap.c src/remap.h src/remaps
                           $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
-	      -o $@ tools/remap-check.c src/remap.c src/remapstore.c src/controls.c src/powerhold.c src/config.c src/db.c src/atomic.c \
+	      -o $@ tools/remap-check.c src/remap.c src/remapstore.c src/controls.c src/hotkeys.c src/powerhold.c src/config.c src/db.c src/atomic.c \
 	      $(I18N_SRC) -lsqlite3
+
+# The player's hotkeys, pure: SELECT and a button for each action, the swap
+# that loses none, what is kept for Every Game, a system and a game, and
+# Diatom's RUN form (src/hotkeys.h, src/hkstore.h)
+check-hotkeys: build-native/hotkeys-check
+	@./build-native/hotkeys-check
+
+build-native/hotkeys-check: tools/hotkeys-check.c src/hotkeys.c src/hotkeys.h src/hkstore.c src/hkstore.h \
+                            src/db.c src/db.h src/atomic.c FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
+	      -o $@ tools/hotkeys-check.c src/hotkeys.c src/hkstore.c src/db.c src/atomic.c -lsqlite3
 
 # Rumble's levels, the share a game is sent, and what is kept for a game, a
 # system and MENU (src/rumble.h)
@@ -1550,7 +1600,7 @@ build-native/controls-check: tools/controls-check.c tools/legend.h src/controls.
                             $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
-	      -o $@ tools/controls-check.c src/controls.c src/powerhold.c src/remap.c src/config.c src/db.c src/atomic.c \
+	      -o $@ tools/controls-check.c src/controls.c src/hotkeys.c src/powerhold.c src/remap.c src/config.c src/db.c src/atomic.c \
 	      $(I18N_SRC) $(DEVICE_PROFILES) -lsqlite3
 
 build-native/menu-check: tools/menu-check.c tools/legend.h src/wifi_menu.c src/wifi.c \
@@ -1563,7 +1613,7 @@ build-native/menu-check: tools/menu-check.c tools/legend.h src/wifi_menu.c src/w
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -o $@ \
 	      tools/menu-check.c src/wifi_menu.c src/wifi.c src/sys_menu.c src/homesys.c \
-	      src/menu.c src/game_menu.c src/controls.c src/powerhold.c src/remap.c src/ctltab.c src/audioout.c \
+	      src/menu.c src/game_menu.c src/controls.c src/hotkeys.c src/powerhold.c src/remap.c src/ctltab.c src/audioout.c \
 	      src/sidelights.c src/keyhints.c src/spawn.c src/device/td_model.c src/device/pixel2_model.c \
 	      src/device/brick_model.c $(I18N_SRC)
 
