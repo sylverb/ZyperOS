@@ -568,15 +568,21 @@ void usb_ask(app *a)
 		if (a->in.pressed[IN_POWER] || idle_due(a)) { panel_close(a, lv, true); power_off(a); return; }
 		if (menu_leaving(a)) choice = 0;
 		if (plat_usb_peer() != USB_PEER_COMPUTER) choice = 0;   /* unplugged */
-		if (in_repeat(&a->in, IN_LEFT) || in_repeat(&a->in, IN_RIGHT)) {
-			in_button b = in_repeat(&a->in, IN_LEFT) ? IN_LEFT : IN_RIGHT;
+		/* each button read once a frame: a second read of a held Left
+		 * was false and turned it Right (in_repeat_axis) */
+		int lr = in_repeat_axis(&a->in, IN_LEFT, IN_RIGHT);
+
+		if (lr) {
+			in_button b = lr < 0 ? IN_LEFT : IN_RIGHT;
 
 			moved_sound(a, b);
-			sel = (sel + (b == IN_LEFT ? -1 : 1) + n) % n;
+			sel = (sel + lr + n) % n;
 		}
 		/* Up and down between the grid's two rows */
-		if ((in_repeat(&a->in, IN_UP) || in_repeat(&a->in, IN_DOWN)) && n > 2) {
-			in_button b = in_repeat(&a->in, IN_UP) ? IN_UP : IN_DOWN;
+		int ud = in_repeat_axis(&a->in, IN_UP, IN_DOWN);
+
+		if (ud && n > 2) {
+			in_button b = ud < 0 ? IN_UP : IN_DOWN;
 			int to = sel >= 2 ? sel - 2 : sel + 2;
 
 			if (to >= n) to = n - 1;
@@ -728,10 +734,12 @@ void usb_power_ask(app *a, unsigned plug)
 			if (!plat_usb_power(&p) || p.plug != plug || !p.ask) choice = UP_GONE;
 		}
 		/* A list: Up and Down, and Left and Right as the tiles were */
-		if (in_repeat(&a->in, IN_UP) || in_repeat(&a->in, IN_DOWN) ||
-		    in_repeat(&a->in, IN_LEFT) || in_repeat(&a->in, IN_RIGHT)) {
-			in_button b = in_repeat(&a->in, IN_UP) ? IN_UP : in_repeat(&a->in, IN_DOWN) ? IN_DOWN
-			            : in_repeat(&a->in, IN_LEFT) ? IN_LEFT : IN_RIGHT;
+		/* each button read once a frame (in_repeat_axis): the second read
+		 * of a held one was false, and the step went the other way */
+		int v = in_repeat_axis(&a->in, IN_UP, IN_DOWN), h = in_repeat_axis(&a->in, IN_LEFT, IN_RIGHT);
+
+		if (v || h) {
+			in_button b = v < 0 ? IN_UP : v > 0 ? IN_DOWN : h < 0 ? IN_LEFT : IN_RIGHT;
 
 			moved_sound(a, b);
 			sel = (sel + (b == IN_UP || b == IN_LEFT ? -1 : 1) + UP_TILES) % UP_TILES;

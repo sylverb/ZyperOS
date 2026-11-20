@@ -5,6 +5,7 @@
 #include "battery_eta.h"
 #include "artscrape.h"
 #include "radl.h"
+#include "cheatsdl.h"
 #include "battery_poll.h"
 #include "blur.h"
 #include "design.h"
@@ -324,6 +325,7 @@ bool long_task_busy(void)
 	if (up_working())            what = "System Update";
 	else if (art_running())      what = "Scraper";
 	else if (radl_running())     what = "Achievements download";
+	else if (cheats_running())   what = "Cheats download";
 	else if (pm_installing())    what = "PortMaster install";
 	else if (task_noted(now, &which)) what = task_name(which);
 	if (what != said && (!what || !said || strcmp(what, said))) {

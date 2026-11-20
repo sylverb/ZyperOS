@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <strings.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -24,9 +25,10 @@ static bool size_good(const unsigned *want, off_t bytes)
 	return false;
 }
 
-bios_state bios_check(const system_cfg *s, const char *dir, bios_result *r)
+static bios_state check_names(const char *names, const unsigned (*bytes)[CFG_BIOS_SIZES],
+                              const char *dir, bios_result *r)
 {
-	const char *p = s->disc_bios;
+	const char *p = names;
 	int k;
 
 	memset(r, 0, sizeof *r);
@@ -38,7 +40,7 @@ bios_state bios_check(const system_cfg *s, const char *dir, bios_result *r)
 
 		snprintf(path, sizeof path, "%s/%.*s", dir, (int)n, p);
 		if (n && bios_there(path, &st)) {
-			const unsigned *want = k < CFG_BIOS_NAMES ? s->bios_bytes[k] : NULL;
+			const unsigned *want = k < CFG_BIOS_NAMES ? bytes[k] : NULL;
 
 			if (r->state == BIOS_WRONG_SIZE) {
 				/* After the bad file: the first name past it that is
@@ -57,8 +59,65 @@ bios_state bios_check(const system_cfg *s, const char *dir, bios_result *r)
 		if (*p) p++;
 	}
 	if (r->state == BIOS_WRONG_SIZE) return r->state;
-	snprintf(r->name, sizeof r->name, "%.*s", (int)strcspn(s->disc_bios, ","), s->disc_bios);
+	snprintf(r->name, sizeof r->name, "%.*s", (int)strcspn(names, ","), names);
 	return r->state = BIOS_MISSING;
+}
+
+bios_state bios_check(const system_cfg *s, const char *dir, bios_result *r)
+{
+	return check_names(s->disc_bios, (const unsigned (*)[CFG_BIOS_SIZES])s->bios_bytes, dir, r);
+}
+
+/* `file`'s extension is one of `exts` (commas), in any case */
+static bool type_of(const char *file, const char *exts)
+{
+	const char *dot = file ? strrchr(file, '.') : NULL, *p = exts;
+
+	if (!dot || !dot[1] || strchr(dot, '/')) return false;
+	dot++;
+	while (*p) {
+		size_t n = strcspn(p, ",");
+
+		if (n == strlen(dot) && !strncasecmp(p, dot, n)) return true;
+		p += n;
+		if (*p) p++;
+	}
+	return false;
+}
+
+/* The names `file` needs, and their sizes: see bios_needs */
+static const char *names_for(const system_cfg *s, const char *file, bool disc,
+                             const unsigned (**bytes)[CFG_BIOS_SIZES])
+{
+	if (s->type_bios[0] && type_of(file, s->type_exts)) {
+		*bytes = (const unsigned (*)[CFG_BIOS_SIZES])s->type_bios_bytes;
+		return s->type_bios;
+	}
+	if (s->disc_bios[0] && (s->bios_every || disc)) {
+		*bytes = (const unsigned (*)[CFG_BIOS_SIZES])s->bios_bytes;
+		return s->disc_bios;
+	}
+	return NULL;
+}
+
+bool bios_needs(const system_cfg *s, const char *file, bool disc)
+{
+	const unsigned (*bytes)[CFG_BIOS_SIZES];
+
+	return names_for(s, file, disc, &bytes) != NULL;
+}
+
+bios_state bios_check_file(const system_cfg *s, const char *file, bool disc, const char *dir,
+                           bios_result *r)
+{
+	const unsigned (*bytes)[CFG_BIOS_SIZES] = NULL;
+	const char *names = names_for(s, file, disc, &bytes);
+
+	if (!names) {
+		memset(r, 0, sizeof *r);
+		return r->state = BIOS_OK;
+	}
+	return check_names(names, bytes, dir, r);
 }
 
 static void size_bytes(unsigned long long bytes, char *out, size_t n)

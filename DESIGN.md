@@ -1223,7 +1223,8 @@ Video Snaps, Menu Music:
   its two places ringed in the accent - one refresh in four here, one in
   about 170 on the Pixel 2, so it can be seen at all. Under it, what each
   does in a sentence. *(Tarik's for 1.0.6 rc.2: "improve the timing screen
-  to explain/demonstrate that".)*
+  to explain/demonstrate that".)* **Super Game Boy**'s two open their list
+  the same way, a picture of each (11.58).
 - **Left and Right step every row**, as before, and show the change at
   once, so a look before choosing is one press away. A scale (minutes,
   percent, volume) stops at its ends; a set of names goes round.
@@ -3363,7 +3364,7 @@ system's own buttons are the tab's rows, so they are not a page here.
   Rumble Pak" under them, which Pak the controller holds (the Controls tab's
   Pak row chooses it); the DS's two screens (L2 the other screen, R2 the
   stylus, then the d-pad moves it and A touches). An FDS game adds L1/R1, the
-  disk's side and eject.
+  disk's side and eject, and a pop-up says what each did (11.58).
 - **Hotkeys**, SELECT held with one more button (11.61): the game's own, as
   the player set them (SELECT+R1 quick save and SELECT+L1 quick load where
   the core keeps states, SELECT+R2 faster and SELECT+L2 slower until set
@@ -5824,7 +5825,8 @@ value the console's count), its name as the heading.
 **The hub.** A list in rows DS_LINE_MENU tall on the ground, the focus fill
 (**accent**, **radius-row**) gliding over **quick**: **Download**, a rule,
 then each kind with its mark - **Covers** (a cover), **Videos** (a screen and
-a play mark), **Names and Details** (an open book), **Achievements** (a cup) -
+a play mark), **Names and Details** (an open book), **Achievements** (a cup),
+**Cheats** (a wand) -
 its name in **menu** and its value in **meta** **text-dim**: `41 missing`,
 `63 to fetch`, `199 to look up`, `150 to download`, `Complete`, `Ready
 offline`, `Off` (the row in **text-dim**), `Needs ScreenScraper`, `Sign in
@@ -5844,6 +5846,27 @@ Download (`dl.off.covers`, `dl.off.videos`, `dl.off.ach`; Names and Details is
 the Scraper's own `scraper.names`) and its size and time change at once; in
 with no system's switch on, every system's goes on (the lab's rule). The
 cursor opens on Download, so A, A from MENU gets everything.
+
+**Cheats**, the fifth kind (a wand): libretro's cheat list (src/cheatsdl.h),
+on its own lane and network slot beside the other two (DLQ_CHT,
+NET_SLOT_CHT). A run reads the last 64 KB of the buildbot's `cheats.zip`
+(where its index is), then the 4.3 MB index once a rebuild (kept on the card
+with its place and size), then only the entries that match the card's games,
+by byte ranges, each inflated and checked against the index's CRC-32. A game
+matches by its ROM's name, then that name with a code type after it, then
+libretro's loose title rule and the same region. The files are the in-game
+list's (11.66) contract: `Cheats/<Roms folder>/.libretro/<ROM base>/<the
+entry's name>` written as .part and renamed, `.none` for a game libretro has
+none for, your own `Cheats/<Roms folder>/<ROM base>.cht` never touched. Its
+row says `640 to check` or `Ready offline`; its page Ready Offline and To
+Download, `From libretro-database · CC BY-SA 4.0` or `CC BY-SA 4.0 · 19 games
+have none`; Systems has its column (`dl.off.cheats.<folder>`), a game its
+mark and its panel row; On the Card deletes the downloaded ones (and the
+in-game list's switches: cheats that were on turn off). In Download from the
+start (my pick: everything but videos). An update: Download runs the lane at
+least once a day while some games have cheats, and a game's files come again
+only when their checksums changed. `cheats_dl_one_begin` and `_step` get one
+game's, for the in-game list's empty state.
 
 **Loading.** The page draws at once. Its counts (src/dlcount.h) are the
 Scraper's and the achievements download's own, a system at a time, at most
@@ -5878,8 +5901,8 @@ videos or achievement sets after a question; Y opens its games.
 its games with a mark per kind at its right - lit (on the card), dim
 (missing), struck (RetroAchievements has none) - and under it what the game
 has and lacks. A opens **the game's panel** (11.3): Cover, Video, Names and
-Details, Achievements with their values (a video not on the card is `None`),
-a rule, **Get What's Missing**. A on
+Details, Achievements, Cheats with their values (a video not on the card is
+`None`), and **Get What's Missing** (no rule: six rows fill a panel). A on
 Cover or Video opens its Cover and Video page (11.34); A on Names or
 Achievements gets them, and Get What's Missing everything it lacks, in the
 panel, each value `Getting…` until its file lands: names with the cover and
@@ -5926,7 +5949,7 @@ done, 3 no network and nobody signed in, 4 Settings, 5 counting, 6 on
 Covers, 7 Covers out, 8 to 10 the kinds' pages, 11 Systems, 12 a system's
 games, 13 a game's panel, 14 the run, 15 waiting for Wi-Fi, 16 paused, 17
 done, 18 stopped, 19 On the Card, 20 RetroAchievements' account, 21 a
-console's page, 22 Videos for.
+console's page, 22 Videos for, 23 Cheats' page.
 
 ### 11.54 Rumble
 *(Asked for on the Discord after 1.0.6: turn the motor down or off. My picks
@@ -6219,6 +6242,203 @@ Host shots: `shelf-video` (no snap), `shelf-video-snap` (the test picture),
 `shelf-video-half` and `shelf-video-strip` (`--band F`, the band F of the
 way down), `system-menu-view-video` and `system-menu-view-video-list`
 (tools/i18n-shots.py).
+
+### 11.58 The Famicom Disk System and the Super Game Boy
+
+*(Tarik's picks in the Display lab, 2026-11-19: the FDS fix, a pop-up for
+the disk's side, and a Super Game Boy row of three: Off, Its Games, Every
+Game. Every Game dropped the same day, the coordinator's call: see below.)*
+
+**A Famicom Disk System game** (an `.fds` image on the NES shelf, FCEUmm)
+needs `disksys.rom` in `Bios/`; a cartridge beside it needs nothing. The
+firmware a type of file needs is a `bios` line with the types after the names
+(`bios|NES|disksys.rom|fds`, config/systems.cfg), held to its size as every
+firmware is (8 KB: a copy with a 16-byte header is refused, since FCEUmm
+reads its first 8192 bytes as they are). Without it:
+
+- the shelf says **Needs disksys.rom in Bios** under the name, in
+  **warning**, on the line of facts (first, before Played), in Covers, Grid
+  and List alike: read as the row stops, with the other facts, never in a
+  frame. Only a file that is not there; a file of the wrong size is said
+  when A is pressed, in full (11.3's message under the name).
+- A says it again (the same words, with the deny sound) instead of starting a
+  game that cannot run. The disc and ColecoVision firmware say it the same
+  way now ("Needs coleco.rom in Bios").
+
+In the game, L1 turns the disk to its next side while it is out of the drive,
+and R1 puts it in or takes it out, as FCEUmm has them (11.28). Each press is
+said in a pop-up (11.22's kind, at once, 1.5 s), a small line over a large
+one: **Disk side** over **Disk 1 · Side B** (L1), **Disk in** or **Disk
+out** over the side (R1), and **Disk side** over **Eject it first with R1**
+when L1 is pressed with the disk in, which turns nothing. The words are the
+core's (it says them in its own English, which Diatom reads, then sends as a
+DISK line: diatom/src/fdsdisk.h); the pop-up says them in the player's
+language. Nothing is done in a frame but what the core already did.
+
+**Super Game Boy**, a row of the Game Boy's and the Game Boy Color's system
+menus under Core, while mGBA runs them (Gambatte has no Super Game Boy). Its
+two, kept per system (`sgb.TAG`):
+
+- **Off**, the default: as before, the game in the shelf's colors with no
+  border. Nothing is sent, so a player who never turns it on starts every
+  game as before.
+- **Its Games**: a game made for the Super Game Boy (its header says so)
+  starts as one, in its own colors and its own border, which the game sends
+  itself: no BIOS needed. Others start as with Off.
+  A Game Boy Color only cartridge cannot run on one and starts as with Off.
+
+**No Every Game** (every game in the Super Game Boy's frame), though the lab
+had it: for a game made for none, the Super Game Boy's own frame and colors
+come from its SNES side (the cartridge ROM on the SNES), which mGBA does not
+run. `sgb_bios.bin` is the 256-byte boot ROM of its Game Boy side, the
+start-up logo and the header sent to the SNES, no frame; so with or without
+it mGBA would draw a plain frame in the game's lightest shade, which reads
+as a fault. The Border row is the place to frame every game. It can come
+back with a core that runs the SNES side.
+
+The picture with its border is 256x224: exactly 2x on the Pixel 2's 640x480
+(512x448) and 3x on the Brick's 1024x768 (768x672) at Sharp Pixels. A opens
+the two as a list, as Timing's (11.3): beside it the shelf's display mode
+with each choice, a Game Boy picture of our own in four greens, alone (Off)
+or in a border of our own of the kind a game sends (Its Games); under it
+what each does. The launcher sends `sgb=games` with RUN, and Diatom reads
+the game's header and sets mGBA's model and border for that game alone
+(diatom/src/sgb.h), since mGBA's own Autodetect would start a game that also
+has Game Boy Color colors as a Color.
+
+Host shots: `system-menu-sgb`, `system-menu-sgb-list-off|games`,
+`shelf-fds-needs-bios` (and `-list`, `-grid`), `popup-disk_side|in|out|first`.
+
+### 11.59 Border
+
+*(Tarik's picks in the Display lab, 2026-11-19: the row is called Border,
+its folder Borders/<System>/, NextUI's Overlays/<system>/ read too; the
+handheld frames come after, the three Game Boys first.)*
+
+**Border**, a row of a game's Display tab and of a system's menu, right under
+Display, kept per system (`border.TAG`): what fills the screen around the
+game where its display mode leaves room. The row shows only while the mode
+does: the GKD Pixel 2's panel is 4:3, so a 4:3 game at Full Screen or at
+Sharp Pixels 2x fills it, and the room is around the handhelds and a Sharp
+Pixels picture smaller than the panel. In a game Diatom's own size says so;
+on a system's menu the size its games last said (`display_source.TAG`), and
+for a system never played the mode alone (Full Screen, Fill and Sharp
+Pixels, Zoomed always cover). Not over a Super Game Boy game, whose own border fills the room
+(11.58), nor a DS game's two screens. A system with a handheld frame (the
+Game Boys, below) has the row in every mode, though, since its frames are
+offered in every mode.
+
+- **Off**, the default: black, as before.
+- **Blur**: the game's own picture, small, blurred and darker, made again ten
+  times a second as the game moves (Diatom makes a 32x24 from the frame it
+  keeps anyway, cut to the screen's shape, blurred twice, its colors a little
+  stronger, then 0.55 as bright, and the GPU stretches it smoothly). Only
+  where the GPU draws every frame, as the device profile's `gpu_shaders` says:
+  the Pixel 2, and a Brick test kit's GPU path. A released Brick's frames are
+  its CPU's until its GPU path draws them all (the Brick parity plan's kit A).
+- **Your Own**: the first PNG by name in `Borders/<the system's folder>/`
+  on the card (`Borders/Game Boy/`), else in NextUI's `Overlays/<its tag>/`
+  (`Overlays/GB/`; FC for the NES and PS for the PlayStation, as NextUI names
+  them), so a NextUI card's overlays work as they are. Shown only when there
+  is one. Made the screen's shape from its middle, never stretched out of its
+  own shape, and drawn under the game: a transparent window where a game was
+  meant to show is where the game is. ZyperOS ships none.
+
+A opens the list: beside it the game's picture where the mode puts it, each
+kind around it (the paused frame in a game; the game under the cursor's last
+picture on a system's menu, or a stand-in at its system's size), and under
+it what each does. Left and Right step it, and in a game it is around the
+game the moment the menu closes.
+
+**What it costs.** Drawn once: the launcher makes the picture the panel's
+size and writes it as Diatom's overlay file (DTOV), and Diatom uploads it
+once (`SETBORDER path=`); Blur sends `SETBORDER blur=1`. On the GPU it is one
+quad where the clear was, under the game, and none while the picture covers
+the panel; on the Brick's CPU path it is painted into the pages when they are
+painted, and put back wherever a notice, the level bar or the low battery's
+dot comes down off the bars. The volume bar, On-Screen Stats, the low
+battery's dot and every notice stay on top of it.
+
+#### The handheld frames
+
+*(Tarik's picks in the Display lab, 2026-11-19: two frames, Handheld and
+Handheld, Whole; the three Game Boys first; Handheld Color for the Game Boy
+Color in its six.)*
+
+Two more kinds in Border's list, for a system with a frame (the Game Boy,
+the Game Boy Color, the Game Boy Advance): ZyperOS's own drawing of the real
+handheld's face around its game, at the game's own scale.
+
+*(1.1.0's test run, 2026-11-20: Tarik saw no Border row and no frame. A
+system starts at Full Screen, which covers the screen, and the row hid with
+the mode, so on a card that never chose Sharp Pixels the frames could not be
+found.)* So the frames are offered in every display mode, and choosing one
+turns the system's Display to Sharp Pixels (kept, and told to a game
+running before its frame), the size a frame is drawn for; its note says so
+("Turns on Sharp Pixels"). At another mode a kept frame reads Off and is not
+drawn, and it comes back with Sharp Pixels. Blur and Your Own still need a
+mode that leaves room, where they show at all. `check-border` holds those
+rules, and the shot `system-menu-border-fullscreen` (a Game Boy at Full
+Screen, never played) fails if the row is gone. One game pixel is one dot of the handheld's LCD, so a millimetre of
+the face is (panel pixels a game pixel) / (the LCD's dot pitch), across and
+down each by its own pitch, never stretched. Nothing in them is a photo, a
+logo, a maker's name or printed text: where the real face has a logo or
+words, the plastic is plain.
+
+- **Handheld**: the game at its full Sharp Pixels size, where Sharp Pixels
+  puts it, the frame cut where the panel ends (on the Pixel 2 a Game Boy at
+  3x shows the lens's glass round it and the edge of its light).
+- **Handheld, Whole**: the game smaller by whole steps until the whole lens
+  and 1.5 mm of body round it are on the panel, the lens in the middle: 2x
+  on the Pixel 2, 3x on the Brick (one step smaller, 4x, still cuts a Game
+  Boy's lens there). Never under 2x, so the Advance on the Pixel 2, whose
+  full size is 2x, has Handheld only.
+- **Handheld Color**, a row under Border while it is a frame of a handheld
+  that came in more than one color (`border_color.TAG`): the Game Boy
+  Color's Yellow, Red, Purple, Green, Teal and Clear Purple. Its list
+  pictures each in the Whole frame, where the body shows.
+
+The game's window is the frame's: Diatom puts the game where the frame has
+it (`SETBORDER path= rect=WxH+X+Y`), so Whole's smaller game sits in its
+lens. Drawn once, as Your Own is, at the panel's size: 640x480 and
+1024x768. Every straight edge is on whole pixels (each edge's millimetre
+place rounded once, so two parts that share an edge share it in pixels and
+a line is one crisp pixel row); only a corner's or an arc's curve is
+smoothed, by how much of each pixel it covers (`src/handframe.c`). The
+colors are the plastic's own and do not follow the theme; Screen Colors at
+Standard leaves them as drawn.
+
+**Where each number comes from** (`src/handframe_models.c`, the face in
+millimetres from the LCD's active area's top left). Published sizes are
+used as published; the rest is measured from straight-on pictures, viewed in
+a browser and scaled by a published size, nothing saved:
+
+| | Published | Measured |
+|---|---|---|
+| Game Boy | body 90 x 148 mm ([Nintendo Japan](https://www.nintendo.co.jp/n02/dmg/hardware/gbtaihi/index.html), [Nintendo UK](https://www.nintendo.com/en-gb/Game-Boy/Game-Boy-627031.html)); LCD 47 x 43 mm, 160 x 144 (Nintendo UK's technical data; the 1989 manual) | from [DMG-01.jpg](https://commons.wikimedia.org/wiki/File:DMG-01.jpg), a flatbed scan, at 148 mm tall, about ±0.5 mm: the window 47.6 x 43.8; the lens 75.0 x 57.2 (a seller lists 75 x 57), its corners 2.55, 2.3, 11.5 (bottom right) and 2.6; the two lines 0.47 mm each, 1.5 mm apart; the light 2.26 across at 8.3 left of the active area and 14.7 down; the groove across the top 12.3 and 10.9 above it |
+| Game Boy Color | body 78 x 133.5 mm (Nintendo Japan's spec table; Nintendo UK says 75 x 133); screen 44 x 40 mm with its black mask (Nintendo UK) | from [Game Boy Color (green).png](https://commons.wikimedia.org/wiki/File:Game_Boy_Color_(green).png), a flatbed scan, at 133.5 mm tall, about ±0.5 mm: the dots 42.4 x 39.1 (RetroRGB measured 43 x 39) with 1.0 mm of mask; the lens 67.6 x 61.5 at its middle, top corners 2.2, its bottom an arc 1.34 mm below its ends with a 4 mm fillet each side; the light 1.3 across at 9.1 left of the dots and 12.2 down |
+| Game Boy Advance | body 144.5 x 82 mm, LCD 61.2 x 40.8 mm, 240 x 160 ([Nintendo Japan](https://www.nintendo.co.jp/n08/hardware/spec/index.html)) | from Nintendo Japan's [front drawing](https://www.nintendo.co.jp/n08/hardware/gba/zu.gif) and [Game Boy Advance front.jpg](https://commons.wikimedia.org/wiki/File:Game_Boy_Advance_front.jpg) corrected for its perspective on the LCD's published size, about ±1.5 mm (the photo's heights carry the LCD's depth under the lens, so its widths are used and the drawing's heights): the lens 75.2 wide, 6.4 over the dots and 13.6 under them at its middle, its top and bottom gently arched (1.5 and 2.0 mm), corners 3.7 at the top and 8 at the bottom; the light 2 across, 76.5 right of the dots' left edge and 2.5 over their top |
+
+Colors are sampled from the same pictures and from Nintendo's own
+(nintendo.co.jp's [Color](https://www.nintendo.co.jp/n02/dmg/hardware/color/index.html)
+and Advance pages), Yellow from
+[Game-Boy-Color-Yellow.jpg](https://commons.wikimedia.org/wiki/File:Game-Boy-Color-Yellow.jpg),
+Clear Purple from
+[Game-Boy-Color-Purple.jpg](https://commons.wikimedia.org/wiki/File:Game-Boy-Color-Purple.jpg),
+none under a grey card, so near and not exact. **Red** (Berry) is not
+measured: no straight-on picture was found, and its color is Nintendo's name
+only. The check sheet (`python3 tools/handframe-sheet.py OUT`) draws every
+frame at both sizes under its model's outlines, one pixel wide, so an edge
+off its line shows; `check-handframe` holds the placements, the pixel edges,
+the arc and the parts.
+
+Host shots: `system-menu-border`, `system-menu-border-list-off|blur|handheld|whole|own`,
+`gamemenu-border`, `gamemenu-border-list-off|blur|handheld|whole|own`,
+`system-menu-border-gbc|gba`, `system-menu-border-gbc|gba-list-handheld|whole`,
+`gamemenu-border-gbc|gba-list-handheld|whole`, `system-menu-border-color`,
+`system-menu-border-color-list-yellow|red|purple|green|teal|clear-purple`,
+`gamemenu-border-color-list`, and at Full Screen `system-menu-border-fullscreen`
+(and `-list`, `-chosen`: Right on it, Handheld and Sharp Pixels), `gamemenu-border-fullscreen-list`.
 
 ### 11.60 Equalizer
 *(Asked for on the Discord after 1.0.6: more bass, and a system-wide
@@ -6662,6 +6882,16 @@ game stopped last time with cheats on. Start it without them?",
 **Without Cheats** (the cursor's) and **With Cheats**; without, the game
 starts with none and they stay set for later. B leaves it unstarted.
 
+**On the shelf** *(the Library lab's start demo, my pick)*: a game with
+cheats on says so in the line under its name, after its play time and
+achievements: "2 cheats on", and "2 cheats on · the last session ended in a
+crash" while the crash question waits. On the covers, the grid and the Video
+view it is one part of the line, which takes the low slot when it is long,
+as every long line does; in the List view, whose panel is narrow, the crash
+is a line of its own, "Crashed last time". Read with the shelf's other facts
+once the cursor rests: one database read, and the game's .cht files only for
+a game that has some on.
+
 **What it costs.** Nothing a frame. The launcher hands Diatom the codes that
 are on, a file of one a line (RUN `cheats=`, and `SETCHEATS path=` at each
 switch); Diatom hands them to the core as RetroArch does, a reset and then
@@ -6683,7 +6913,8 @@ by a stem another game of the shelf has (a .cue beside a .chd) stays for
 that game, and a rename takes a copy. Host shots: `cheats-row`, `cheats-page`,
 `cheats-page-end`, `cheats-ask`, `cheats-note`, `cheats-note-end`, `cheats-on-first`,
 `cheats-search`, `cheats-search-none`, `cheats-achtab`,
-`cheats-none-libretro`, `cheats-not-checked`, `cheats-crash` and
+`cheats-none-libretro`, `cheats-not-checked`, `cheats-crash`,
+`cheats-shelf`, `cheats-shelf-crashed`, `cheats-shelf-list` and
 `popup-cheats` (tools/i18n-shots.py; `--cheats` and `--cheats-page` stand in
 for a running game).
 

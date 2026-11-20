@@ -172,8 +172,8 @@ typedef enum { PT_GAMES, PT_DISPLAY, PT_SOUND, PT_CONNECTIONS, PT_SYSTEM,
 #define SM_NOTE_W 760
 
 typedef enum {
-	SM_GAMES, SM_RANDOM, SM_CORE, SM_DSLANG, SM_PACE, SM_SORT, SM_VIEW,
-	SM_DISPLAY, SM_SHADER, SM_STRENGTH, /* SM_BUTTONS, */ SM_BOXART,
+	SM_GAMES, SM_RANDOM, SM_CORE, SM_DSLANG, SM_SGB, SM_PACE, SM_SORT, SM_VIEW,
+	SM_DISPLAY, SM_BORDER, SM_BORDER_COLOR, SM_SHADER, SM_STRENGTH, /* SM_BUTTONS, */ SM_BOXART,
 	SM_RESCAN, SM_ROWS
 } sm_row;
 
@@ -497,12 +497,21 @@ typedef struct {
 	 * the row's value, "Auto (English)" or a language's name. NULL: the
 	 * shelf has no such row, and every other shelf's menu is as it was. */
 	const char *dslang;
+	/* Super Game Boy, under Core, on the Game Boy and Game Boy Color shelves
+	 * on mGBA (src/sgbmode.h): "Off" or "Its Games". NULL: no
+	 * such row. */
+	const char *sgb;
 	/* Timing, under Core (and Game Language), on a shelf whose system has a
 	 * pace line in systems.cfg (src/pacing.h): "Smooth" or "Exact". NULL:
 	 * no such row. */
 	const char *pace;
 	int         game_count;
 	const char *dmode;
+	/* Border's value under Display (src/border.h) while the display mode
+	 * leaves room around the system's games; NULL: no such row */
+	const char *border;
+	/* Handheld Color's value under it (src/border_pic.h); NULL: no row */
+	const char *border_color;
 	/* This system's shader's label, after Display Mode; NULL reads Off */
 	const char *shader;
 	/* Its strength, "50%", when it is an old screen (no_strength says
