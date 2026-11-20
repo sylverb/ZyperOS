@@ -544,6 +544,7 @@ its own says why beside it.
 | **look-list-num** | 48 | Classic: a row's number, tabular, before its name |
 | **line-clock** | 128 | Classic: the clock's line, as a box |
 | **look-cover** | 192 | Spectrum: the cover beside the names |
+| **look-cassette-w** | 592 | Cassette: a C-cassette, 100.4 x 63.8 mm, 74 x 47 grid steps (592 x 376), the nearest whole steps to its proportions |
 <!-- /generated:layout -->
 
 ---
@@ -674,6 +675,10 @@ beside a cubic one. One function each, in `src/design.h`.)*
 | **hold-controls** | 3000 | - | MP4's video controls after the last press |
 | **peak-hold** | 400 | - | MP4's bars (Player Look): a bar's cap held where the bar last reached, before it drops with gravity |
 | **bar-fall** | 140 | follow | MP4's bars falling to the sound: follow's tau, where a bar rises at once |
+| **spin-up** | 360 | out | MP4's reels (Player Look) coming up to speed as the music plays |
+| **spin-down** | 520 | out | ...and coming to a stop as it pauses; the sound stops at once |
+| **rewind** | 700 | turn | MP4's cassette winding back to the start for the next song |
+| **wind** | 180 | follow | MP4's cassette winding to a seek's place: follow's tau |
 | **hold-snap** | 1000 | - | a game focused on the shelf before its cover turns into its video snap |
 | **hold-band** | 2000 | - | the Video view's band of covers and keys, after the last press on a game whose snap plays, before it goes down to its strip |
 | **sheen** | 480 | turn | one light crossing a game's card with no art, once, as the cover row stops on it |
@@ -1435,6 +1440,19 @@ as a badge is. So a list and a notice are the one shape whether the art is on
 the card or not, and nothing moves when a fetch lands it. Badges are fetched
 on the shelf, never in a game, on a thread of their own in one curl for what
 is missing (src/rabadge.h); no frame waits on the network.
+
+**The achievement's card.** A on a row of the list (or of the Achievements
+tab, 11.46) opens the achievement's card: its title as the heading, then its
+badge under the heading's rule, the list's own picture of it (greyed and faded
+until earned, the plain badge while the card has no art), 96 on the grid
+(RetroAchievements' 64-pixel art at about its own size on the Pixel 2),
+centered over the description as the description is centered, with the
+rule's gap under it (the panel's header picture). The description is wrapped
+whole, never cut; where it is taller than the panel leaves it, it scrolls
+itself, as a card with no cursor does, and only it: the rule, **Points** and
+**Status** under it stay. *(My ask, testing 1.1.0, 2026-11-19: the
+card shows the achievement's picture, and a long description scrolls.)* Host shots: `--cheevo-card 0` to `3`, with
+`--cheevos-badge SET NAME` for art and `--phase MS` for the scroll.
 
 **Zyper on an unlock.** The notice an unlock makes, and the one for mastering
 a set, has Zyper at its right end, as tall as the badge, cocked and panting as
@@ -5896,6 +5914,15 @@ Wi-Fi**, "Wi-Fi is off. Offline, Splore has only the carts it downloaded
 before.", **Turn On Wi-Fi** (on, and the saved network joined, up to 15 s) or
 **Open Offline**; B leaves it.
 
+**Splore's downloads.** PICO-8 for Raspberry Pi has no HTTP of its own: it
+runs `wget` for every list and cart. The system's wget is busybox's, which has
+no HTTPS, and every cart is HTTPS, so the lists came (plain HTTP) and no cart
+did: "could not connect to bbs" (device test, 2026-11-19). The script puts
+ZyperOS's own `wget` first on PICO-8's PATH (`ZyperOS/pico8/bin/wget`,
+`sd/pixel2/PICO-8-wget.sh`), which hands Splore's calls to the launcher's curl,
+the certificates checked against ZyperOS's bundle, a file there whole or not at
+all. No change to the system image.
+
 **The Brick** gets your PICO-8 with its ports (the parity plan's item 8):
 until then its script is not in the Brick's payload, so the Brick's PICO-8
 shelf has no Splore and plays on fake08.
@@ -6366,13 +6393,13 @@ kept in its shape at the two lines' height (`NOTICE_PICTURE`), for
 **Player Look**, in MP4's MENU on the music shelf (and on All when the card
 has songs) under Shuffle All, is how Now Playing shows a song
 (src/mp4look.h, src/nowplaying_looks.c). **Cover**, the cover large as it
-always was, is the default; **Classic** and **Spectrum** beside it. A opens
-the list, its picture the look under the cursor playing (src/ds/preview.h's
-column): Now Playing drawn whole at the screen's size into a texture,
-halved, then drawn into the box - the song that plays, or with none the
-shelf's album's first song in show, its clock running and its bars moving.
-Left and Right step it round. Kept as `muse.look`. A book and a video keep
-their own Now Playing.
+always was, is the default; **Cassette**, **Classic** and **Spectrum**
+beside it. A opens the list, its picture the look under the cursor playing
+(src/ds/preview.h's column): Now Playing drawn whole at the screen's size
+into a texture, halved, then drawn into the box - the song that plays, or
+with none the shelf's album's first song in show, its clock running and its
+bars moving. Left and Right step it round. Kept as `muse.look`. A book and a
+video keep their own Now Playing.
 
 - **The frame** every look shares: the top bar; the song's time, the bar
   from margin to margin with the time played and the time left under its
@@ -6382,6 +6409,39 @@ their own Now Playing.
   section, the times, a related step, the bar, a section; the look has the
   rest, from a section under the header. Six of the eight languages put
   the keys on two rows, and their looks are 48 shorter: nothing meets.
+- **Cassette**: a C-cassette at its real proportions, 100.4 x 63.8 mm,
+  **look-cassette-w** wide (592 x 376, 74 x 47 grid steps, the nearest
+  whole steps to its 1.5737), in a clear smoke-grey shell with the theme's
+  ground through it (my pick). Its parts are a drawing in millimetres
+  (src/cassette.h): the label in the theme's **surface**, the side's letter
+  in a **text** box, the song in **game-title** (sliding when long), its
+  place in the album in **chrome** **text-dim** with the play mode's mark,
+  the cover's main color as a stripe across it (src/covercolor.h: the hue
+  most of the cover is, gently weighed by how vivid; the accent for an
+  album with no cover), and under the window the artist and the album; the
+  window, a pill, its glass lit at the top; through it the reels, each hub
+  21.5 mm of white plastic with six teeth round the spindle's hole and the
+  clamp in its rim, each pack of tape up to 50.2 mm; the head end with its
+  three openings and the tape across them; five screws. The side is the
+  album's: its first half A, the rest B, as an album went onto a tape. 25
+  bars under it, as wide as it.
+- **The cassette's motion**: the packs trade their area over the song,
+  the left emptying and the right filling; each reel turns at the tape's
+  4.76 cm a second over its pack's radius, counterclockwise as the tape
+  leaves the left pack down its outer side and climbs onto the right, so
+  the near-empty one turns fast. Play and pause bring them up over
+  **spin-up** and down over **spin-down** (out, from wherever they are),
+  the sound stopping at once. A new song rewinds the tape over **rewind**
+  (turn), the reels turning back with it, the label's words leaving in
+  **exit** (in) up a grid step and the new ones arriving in **move** (out)
+  from one under; a seek winds the tape on follow (tau **wind**). The
+  rewind is a show, not the song's real tape: from a song's end it turns
+  the empty hub at most 4.3 times a second, 26 degrees a frame, under the
+  30 at which six teeth would seem to stand or turn back. Drawn once into
+  textures for the theme's colors - the shell and label, the window's
+  glass, a hub, a pack - so a frame only copies them: the packs scaled,
+  the hubs turned, the reels clipped to the window. Under Square the
+  cassette keeps its own corners: it is a thing, not the interface.
 - **Classic**: the clock's panel (**look-classic-w** wide, a panel's slab
   with its lift) - the play state's mark in **accent-ink** and its word
   (Playing, Paused, Stopped) in **meta** **text-dim**, where in the queue
@@ -6428,7 +6488,6 @@ their own Now Playing.
   does, on a change and once a second. Under the lock nothing moves: the
   bars are at rest from its first frame.
 - *(My picks in the Sound lab, 2026-11-19: the looks ship beside Cover,
-  which stays the default; bars with caps - a bar rising at once and
-  falling on follow, its cap holding 400 ms and then dropping with
-  gravity.)*
-
+  which stays the default; a clear smoke-grey shell for the cassette; bars
+  with caps - a bar rising at once and falling on follow, its cap holding
+  400 ms and then dropping with gravity.)*

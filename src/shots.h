@@ -48,6 +48,7 @@ extern int shot_charging;
 extern int shot_charging_kind;
 extern int shot_cheevos;
 extern int shot_cheevos_sel;
+extern int shot_cheevo_card;
 extern int shot_ingame;
 extern float shot_sysmove;
 extern float shot_gamemove;
