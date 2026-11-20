@@ -25,6 +25,7 @@
 #include "pico8.h"
 #include "p8fx.h"
 #include "p8pad.h"
+#include "p8fx_send.h"
 #include "place.h"
 #include "pminstall.h"
 #include "portload.h"
@@ -419,6 +420,10 @@ static void launch_port_core(app *a, const system_cfg *s, const char *file, cons
 		notice_render_ex(T(S_HOTKEYS_SHOT_SAVED), folder, NULL, NOTICE_SLOT, 0, 0, plat_flag(PORT_SHOT_DARK),
 		                 DS_DARK);
 	}
+	/* Your PICO-8: the PICO-8 shelf's Shader, Strength and Border, for the
+	 * library its script loads before SDL (src/p8fx.h), Off and no border
+	 * written too, so what is drawn is never an earlier start's */
+	if (!strcmp(core, P8_CORE)) p8fx_send(a, (int)(s - a->sys.systems));
 	a->running = false;
 }
 

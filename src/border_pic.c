@@ -293,7 +293,7 @@ SDL_Surface *border_frame_cached(const app *a, int sys, border_kind kind, int co
 }
 
 /* A surface as DTOV: "DTOV", width, height (16-bit LE), then BGRA rows */
-static bool write_dtov(SDL_Surface *s, const char *path)
+bool border_write_dtov(SDL_Surface *s, const char *path)
 {
 	FILE *f = fopen(path, "wb");
 	unsigned char hdr[8] = { 'D', 'T', 'O', 'V', (unsigned char)s->w, (unsigned char)(s->w >> 8),
@@ -323,7 +323,7 @@ void border_send(app *a, int sys)
 		SDL_Surface *pic = border_frame_surface(a, sys, k, border_color_load(a, sys), &gx, &gy, &gw, &gh);
 
 		if (pic) {
-			bool ok = write_dtov(pic, BORDER_FILE);
+			bool ok = border_write_dtov(pic, BORDER_FILE);
 
 			SDL_FreeSurface(pic);
 			/* The window with it: the game at the frame's own scale */
@@ -341,7 +341,7 @@ void border_send(app *a, int sys)
 
 		dmode_surface(&w, &h);
 		if (border_own_path(s, png, sizeof png) && (pic = border_own_surface(png, w, h))) {
-			bool ok = write_dtov(pic, BORDER_FILE);
+			bool ok = border_write_dtov(pic, BORDER_FILE);
 
 			SDL_FreeSurface(pic);
 			if (ok) {

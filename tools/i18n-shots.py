@@ -1524,11 +1524,21 @@ EXTRA["pico8-menu-hud"] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu",
 EXTRA["pico8-menu-hud-on"] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "2", "port"])
 SHOT_SETTINGS["pico8-menu-hud"] = {"display.PICO8": "integer"}
 SHOT_SETTINGS["pico8-menu-hud-on"] = {"display.PICO8": "integer", "hud": "1"}
+# ...and its picture's other rows, drawn by its shim (src/p8fx.h): Border,
+# Shader and Strength after On-Screen Stats in the Display tab's order, the
+# cursor on Shader at CRT 70% with Blur round it; and Border's list, the
+# cursor on Blur
+EXTRA["pico8-menu-shader"] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "4", "port"])
+EXTRA["pico8-border-list"] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "3", "port",
+                                                 "--gm-choose", "--pick-at", "1"])
+for _name in ("pico8-menu-shader", "pico8-border-list"):
+    SHOT_SETTINGS[_name] = {"display.PICO8": "integer", "shader.PICO8": "crt", "shader_strength.PICO8": "70",
+                            "border.PICO8": "blur"}
 # ...and its Reset row, the cursor on it, and the question it asks (the Reset
 # Game hotkey's too), the cursor on Cancel; the Controls list its Controls row
 # opens, the cursor on the A cap's row; and the start again new buttons ask for
-EXTRA["pico8-menu-reset"] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "4", "port"])
-EXTRA["pico8-reset-ask"] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "4", "port", "--gm-reset"])
+EXTRA["pico8-menu-reset"] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "6", "port"])
+EXTRA["pico8-reset-ask"] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "6", "port", "--gm-reset"])
 EXTRA["pico8-controls"] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "1", "port",
                                               "--gm-port-controls"])
 EXTRA["pico8-restart-buttons"] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "2", "port",

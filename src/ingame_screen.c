@@ -8,6 +8,8 @@
 #include "p8pad.h"
 #include "ctltab_screen.h"
 #include "launch_screen.h"
+#include "p8fx.h"
+#include "p8fx_send.h"
 
 #include "achtab_screen.h"
 #include "cheats_screen.h"
@@ -381,6 +383,15 @@ static void gm_cycle_display(app *a, int d)
 	plat_resident_sync_rect(150);
 }
 
+/* The in-game menu is over your PICO-8 (src/portmenu.h's port_menu_display):
+ * its Display, Border, Shader and Strength rows are the PICO-8 shelf's, and
+ * a change goes to the shim in PICO-8's process (src/p8fx.h), not to Diatom */
+static bool gm_over_pico8(const app *a)
+{
+	return g_port_menu && a->sys_cursor >= 0 && a->sys_cursor < a->sys.count &&
+	       port_menu_display(a->sys.systems[a->sys_cursor].tag);
+}
+
 /* The shader the same way, the owner's too: kept for the system and sent to
  * the game, which draws with it from the frame after Continue. The paused
  * picture under the menu is the core's frame, drawn by this process, so it
@@ -391,6 +402,11 @@ static void gm_cycle_shader(app *a, int d)
 
 	v->shader = shader_step(v->shader, d, a->sys.systems[v - a->view].tag);
 	shader_save(a, (int)(v - a->view));
+	/* Over your PICO-8: drawn with it from its next frame after Continue */
+	if (gm_over_pico8(a)) {
+		p8fx_send(a, (int)(v - a->view));
+		return;
+	}
 	plat_resident_line("SETDISPLAY\tfilter=%s", SHADERS[v->shader].name);
 	plat_resident_sync_rect(150);
 }
@@ -404,6 +420,10 @@ static void gm_step_strength(app *a, int d)
 	if (k == strength_clamp(v->strength)) return;
 	v->strength = k;
 	strength_write(db_dev(), a->sys.systems[v - a->view].tag, k);
+	if (gm_over_pico8(a)) {
+		p8fx_send(a, (int)(v - a->view));
+		return;
+	}
 	plat_resident_line("SETDISPLAY\tstrength=%d", k);
 	plat_resident_sync_rect(150);
 }
@@ -503,11 +523,19 @@ static bool gm_disc_fits(const char *label)
 	return ui_text_width(fm, label) <= room;
 }
 
+/* The menu over a port is over your PICO-8 (gm_over_pico8), for what has no
+ * app to ask: port_menu sets it */
+static bool g_gm_pico8;
+
 /* The picture Diatom said it is drawing, `sw` x `sh` with the shape `aspect`
  * (a shot's own when it asks for one); 0 x 0 when Diatom said none */
 static void gm_source(int *sw, int *sh, double *aspect)
 {
-	if (shot_path && shot_gm_src_w > 0) {
+	/* Over your PICO-8, whose screen is always its square 128 (src/p8draw.h) */
+	if (g_port_menu && g_gm_pico8) {
+		*sw = *sh = P8_SCREEN;
+		*aspect = 0.0;
+	} else if (shot_path && shot_gm_src_w > 0) {
 		*sw = shot_gm_src_w;
 		*sh = shot_gm_src_h;
 		*aspect = shot_gm_aspect;
@@ -518,12 +546,13 @@ static void gm_source(int *sw, int *sh, double *aspect)
 }
 
 /* Whether the game's display mode leaves room around it, by Diatom's own
- * size for it (gm_source) */
+ * size for it (gm_source); over your PICO-8, by where its script draws it */
 static bool gm_border_room(app *a)
 {
 	int sw, sh, fw, fh;
 	double aspect;
 
+	if (gm_over_pico8(a)) return p8fx_room(a, (int)(owner_view(a) - a->view));
 	gm_source(&sw, &sh, &aspect);
 	dmode_surface(&fw, &fh);
 	return border_room(DMODES[owner_view(a)->dmode].name, sw, sh, aspect, fw, fh);
@@ -542,7 +571,9 @@ static const char *gm_border_value(app *a)
 	double aspect;
 	bool room;
 
-	if (g_port_menu || g_game_dual) return NULL;
+	/* Over a program of its own, none: but over your PICO-8, whose shim
+	 * draws it (src/p8fx.h) */
+	if ((g_port_menu && !gm_over_pico8(a)) || g_game_dual) return NULL;
 	gm_source(&sw, &sh, &aspect);
 	room = gm_border_room(a);
 	if (!border_row_shows(border_offer_room(a, sys, room), room)) return NULL;
@@ -565,7 +596,9 @@ static void gm_step_border(app *a, int d)
 		plat_resident_line("SETDISPLAY\tmode=%s", DMODES[v->dmode].name);
 		plat_resident_sync_rect(150);
 	}
-	border_send(a, sys);
+	/* Over your PICO-8, round it from its next frame after Continue */
+	if (gm_over_pico8(a)) p8fx_send(a, sys);
+	else                  border_send(a, sys);
 }
 
 /* What the in-game menu needs from the app, handed to gm_rows to become rows.
@@ -1998,14 +2031,15 @@ static menu_result port_display_pick(app *a, gm_ctx *c)
 {
 	sysview *v = owner_view(a);
 	const menu_choice *ch = &g_gm_choice[GM_DISPLAY];
-	SDL_Texture *p8 = port_screen_of(a, c->bg, v->dmode);
+	SDL_Texture *p8 = port_screen_of(a, c->bg, v->dmode), *was = g_gm_frame;
 	char line[256];
 	int k;
 
 	gm_preview_frame(p8);
 	k = menu_pick_preview(a, &c->st, c, T(S_GAMEMENU_DISPLAY), ch->labels, ch->notes, ch->preview,
 	                      ch->n, ch->cur, ch->cur);
-	gm_preview_frame(NULL);
+	/* Back to the menu's own (port_menu: the Border list's picture) */
+	gm_preview_frame(was);
 	if (p8) SDL_DestroyTexture(p8);
 	if (k == MENU_PICK_POWER || plat_run_power_pressed()) return MENU_DONE;
 	if (k < 0 || k >= DMODE_COUNT || k == v->dmode) return MENU_STAY;
@@ -2625,10 +2659,18 @@ void gm_hotkey_step(app *a, bool shader, char *out, size_t n)
 int port_menu(app *a)
 {
 	gm_ctx c = { 0 };
+	SDL_Texture *p8 = NULL;
 
 	uisound_play(DS_SOUND_ACCEPT);
 	c.a = a;
 	c.bg = plat_load_screen(PORT_MENU_STILL);
+	/* Over your PICO-8: its 128x128 screen out of the frame, where the
+	 * Border list's picture draws it with each kind round it */
+	g_gm_pico8 = gm_over_pico8(a);
+	if (g_gm_pico8) {
+		p8 = port_screen_of(a, c.bg, owner_view(a)->dmode);
+		gm_preview_frame(p8);
+	}
 	c.st.fixed_w     = gm_width(a);
 	c.st.sound       = c.bufs.sound;
 	c.st.follow_tint = true;
@@ -2648,6 +2690,10 @@ int port_menu(app *a)
 		if (how == LEAVE_QUIT) c.resume = true;      /* asked to stop: the game goes on */
 	}
 	mm_leaving_cut();
+	if (p8) {
+		gm_preview_frame(NULL);
+		SDL_DestroyTexture(p8);
+	}
 	if (c.bg) SDL_DestroyTexture(c.bg);
 	if (plat_run_power_pressed()) return PORT_MENU_POWER;
 	/* A Display mode agreed to: the file is written, PICO-8 starts again */

@@ -225,6 +225,14 @@ int gm_tab_rows(const gm_ui *u, gm_tab t, gm_row *ids)
 		ids[n++] = GM_CONTINUE;
 		if (u->port_display) ids[n++] = GM_DISPLAY;
 		if (u->port_hud) ids[n++] = GM_HUD;
+		/* Over your PICO-8, the Display tab's picture rows after those, in
+		 * its order, drawn by its shim (src/p8fx.h): Border where the mode
+		 * leaves room, Shader, and Strength under an old screen */
+		if (u->port_display) {
+			if (u->border) ids[n++] = GM_BORDER;
+			ids[n++] = GM_SHADER;
+			if (u->strength) ids[n++] = GM_STRENGTH;
+		}
 		ids[n++] = GM_CONTROLS;
 		if (u->port_reset) ids[n++] = GM_RESET;
 		ids[n++] = GM_QUIT;

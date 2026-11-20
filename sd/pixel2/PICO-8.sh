@@ -161,6 +161,19 @@ if [ -n "$HERE" ] && [ -x "$HERE/bin/wget" ]; then
 else
 	echo "pico8: no bin/wget beside this script; Splore downloads with the system's wget, which has no HTTPS"
 fi
+# The shelf's Shader and Border (src/p8fx.h): ZyperOS's library beside this
+# script, loaded before the system's SDL in PICO-8's process, draws its
+# screen through the shader with the border round it, as the launcher and
+# the in-game menu write them in /tmp/zyperos-pico8fx. Wherever it cannot
+# (no file, no OpenGL ES 3, anything it does not know), PICO-8 draws as it
+# always did, and a library that will not load is passed over by the loader.
+# The programs PICO-8 runs (Splore's wget) load it too and never call it: it
+# does anything only inside SDL's calls
+if [ -n "$HERE" ] && [ -f "$HERE/p8fx.so" ]; then
+	export LD_PRELOAD="$HERE/p8fx.so${LD_PRELOAD:+ $LD_PRELOAD}"
+else
+	echo "pico8: no p8fx.so beside this script; no Shader or Border over PICO-8"
+fi
 
 cd "$HOME_DIR" || exit 1
 if [ "$RUN" = -run ]; then

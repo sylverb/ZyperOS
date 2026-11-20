@@ -232,11 +232,12 @@ $(BUILD)/zyperos-update: $(UPDATE_SRC) update/update.h
 	      $(LDFLAGS) -o $@ $(UPDATE_SRC) -lcurl -lcrypto -lz
 
 # The device's programs: the launcher, MP4, and its helpers' (ZYDEV_HELPERS;
-# ports and Bluetooth sound are files, no program)
+# ports and Bluetooth sound are files, no program; p8fx is a library)
 HELPER_ELF_portkeys := $(BUILD)/portkeys
 HELPER_ELF_zyhome := $(BUILD)/zyhome
 HELPER_ELF_update := $(BUILD)/zyperos-update
 HELPER_ELF_p2d := $(BUILD)/p2d
 HELPER_ELF_btplayer := $(BUILD)/btplayer
+HELPER_ELF_p8fx := $(BUILD)/p8fx.so
 .PHONY: device-programs
 device-programs: $(BUILD)/zyperos.elf $(BUILD)/mp4d $(foreach h,$(ZYDEV_HELPERS),$(HELPER_ELF_$(h)))
