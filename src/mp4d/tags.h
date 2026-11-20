@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-#ifndef MUSE_TAGS_H
-#define MUSE_TAGS_H
+#ifndef MP4D_TAGS_H
+#define MP4D_TAGS_H
 
 #include <stddef.h>
 
@@ -9,7 +9,7 @@
  * 2026-10-05).
  *
  * The album artist when the tracks that carry one all agree, which is how a
- * rip is tagged (TPE2 filled, TPE1 empty - see snapshot in muse.c); failing
+ * rip is tagged (TPE2 filled, TPE1 empty - see snapshot in mp4d.c); failing
  * that, the artist when every track has one and they all agree, so a mix of
  * many artists answers nothing rather than its first track's. "" when there
  * is no clear answer, and the album stays where it is.

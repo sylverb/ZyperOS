@@ -1,14 +1,14 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-#ifndef ZYPEROS_MUSEQUEUE_H
-#define ZYPEROS_MUSEQUEUE_H
+#ifndef ZYPEROS_MP4QUEUE_H
+#define ZYPEROS_MP4QUEUE_H
 
 #include <stdbool.h>
 
-/* The order Muse plays a queue in - the play modes, and what comes next.
+/* The order MP4 plays a queue in - the play modes, and what comes next.
  *
- * musec.c holds the tracks and talks to the daemon; this only says which track
+ * mp4c.c holds the tracks and talks to the daemon; this only says which track
  * plays when. Pure - an array of numbers and a place in it, no socket and no
- * clock - so tools/musequeue-check.c can walk every mode through its edges,
+ * clock - so tools/mp4queue-check.c can walk every mode through its edges,
  * which is where a player's bugs live: the last track, the first one, a mode
  * changed halfway through.
  *

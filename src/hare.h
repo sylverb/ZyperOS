@@ -61,7 +61,7 @@ void hare_stop(void);
 void hare_set_logs(bool (*pack)(char *path, size_t pn, char *name, size_t nn));
 
 /* Called with a folder's absolute path just before it is deleted with
- * everything in it, so the launcher can stop Muse if it is playing a file in
+ * everything in it, so the launcher can stop MP4 if it is playing a file in
  * there. Unset, nothing is told. */
 void hare_set_before_delete(void (*fn)(const char *abs));
 
@@ -99,7 +99,7 @@ void hare_set_art(char *(*wanted)(size_t *len, char *why, size_t wn),
  *   wanted  GET /api/albums/wanted, the albums Album Art would ask about, each
  *           with the MusicBrainz searches to try, in order, as JSON
  *   pick    POST /api/albums/pick?id=N, the body a search's reply: the release
- *           group by Muse's track-count rule and where its cover goes, as
+ *           group by MP4's track-count rule and where its cover goes, as
  *           JSON, or an empty "rg" when the reply is not the album
  *
  * Same contract as hare_set_art. */

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* Muse: the engine half of MP4, ZyperOS's media player (it was Muse, the
- * audio player, before it played video; the engine kept the name).
+/* mp4d: the engine half of MP4, ZyperOS's media player
+ * (once the audio player Muse, before it played video).
  *
  * A daemon over a Unix socket - the Diatom relationship again, and for the
  * same reason: an engine that does one thing, with the policy in the launcher.
@@ -77,7 +77,7 @@
 #include "vid.h"
 #include "snap.h"
 
-#define SOCK_PATH "/tmp/muse.sock"
+#define SOCK_PATH "/tmp/mp4d.sock"
 #define PATH_MAX_ 1024
 #define CHUNK     1024                   /* frames per write: ~21 ms */
 
@@ -256,7 +256,7 @@ static void say(const char *fmt, ...)
 {
 	va_list ap;
 
-	fprintf(stderr, "muse: ");
+	fprintf(stderr, "mp4d: ");
 	va_start(ap, fmt);
 	vfprintf(stderr, fmt, ap);
 	va_end(ap);
@@ -383,7 +383,7 @@ static void handle(const qcmd *q)
 		/* Tried for up to a second before falling back, because a headset
 		 * is handed over rather than shared. bluealsa 3.1 gives an A2DP PCM
 		 * to one client at a time - measured 2026-09-25, a second open fails
-		 * in hw_params - so Muse can only have it once Diatom has let go,
+		 * in hw_params - so MP4 can only have it once Diatom has let go,
 		 * and the launcher tells Diatom first but cannot see when it has.
 		 * `default` is dmix and always opens, so it is tried once. */
 		int tries = strcmp(q->dev, "default") ? 10 : 1, i;
@@ -802,7 +802,7 @@ static void save_syslog(void)
 	struct tm tm;
 
 	localtime_r(&now, &tm);
-	snprintf(path, sizeof path, "%s/muse-stall-%04d%02d%02d-%02d%02d%02d.txt",
+	snprintf(path, sizeof path, "%s/mp4d-stall-%04d%02d%02d-%02d%02d%02d.txt",
 	         dir && *dir ? dir : "/tmp", tm.tm_year + 1900, tm.tm_mon + 1,
 	         tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
 	snprintf(cmd, sizeof cmd, "logread > '%s' 2>&1", path);
@@ -830,7 +830,7 @@ static void stalled(const char *why)
 
 /* Once a second. Playing with a position that has not moved for five seconds
  * is a stall; so is a player that has held the lock for five, which would
- * otherwise freeze this thread in the lock along with it and make Muse look
+ * otherwise freeze this thread in the lock along with it and make MP4 look
  * dead to the launcher. Reported once each, and never acted on. Returns
  * whether the lock was free, so the caller does not wait on it either. */
 static bool watch(void)
@@ -865,11 +865,11 @@ static bool watch(void)
 }
 
 /* A fatal signal leaves one line and the record, then dies the same way. Only
- * write(): Muse B's predecessor vanished mid-song on 2026-09-25 with nothing
+ * write(): MP4 B's predecessor vanished mid-song on 2026-09-25 with nothing
  * in the log at all. */
 static void on_fatal(int sig)
 {
-	char line[80] = "muse: fatal signal ";
+	char line[80] = "mp4d: fatal signal ";
 	size_t n = strlen(line);
 	const char *tail = "; the last output calls:\n";
 
@@ -894,7 +894,7 @@ int main(void)
 	signal(SIGTERM, on_term);
 	signal(SIGINT, on_term);
 	signal(SIGCHLD, SIG_IGN);             /* save_syslog's child */
-	openlog("muse", LOG_PID, LOG_USER);
+	openlog("mp4d", LOG_PID, LOG_USER);
 	{
 		static const int fatal[] = { SIGSEGV, SIGBUS, SIGILL, SIGFPE, SIGABRT };
 		struct sigaction sa;
@@ -908,7 +908,7 @@ int main(void)
 	}
 	snprintf(sa.sun_path, sizeof sa.sun_path, "%s", SOCK_PATH);
 
-	/* One Muse. A second one started by a launcher that did not know the
+	/* One MP4. A second one started by a launcher that did not know the
 	 * first was alive finds it answering and leaves. */
 	lfd = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (connect(lfd, (struct sockaddr *)&sa, sizeof sa) == 0) {

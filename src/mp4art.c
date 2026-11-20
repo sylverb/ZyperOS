@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* See museart.h. */
-#include "museart.h"
+/* See mp4art.h. */
+#include "mp4art.h"
 
 #include <limits.h>
 #include <stdio.h>
@@ -21,7 +21,7 @@
 #define MB_GAP_MS  1100
 #define MB_BUSY_MS 3000
 
-bool museart_pick(const char *json, size_t len, int tracks, char *rg, size_t n)
+bool mp4art_pick(const char *json, size_t len, int tracks, char *rg, size_t n)
 {
 	jsv root, rels, it = { 0 }, r;
 	int best_d = INT_MAX, best_score = -1;
@@ -75,7 +75,7 @@ static bool phrase(const char *in, char *out, size_t n)
 	return true;
 }
 
-bool museart_search_url(const char *artist, const char *album, char *out, size_t n)
+bool mp4art_search_url(const char *artist, const char *album, char *out, size_t n)
 {
 	char a[300], b[300], q[700], enc[2200];
 	int k;
@@ -119,13 +119,13 @@ static void first_artist(const char *in, char *out, size_t n)
 	else     snprintf(out, n, "%s", in);
 }
 
-int museart_tries(const char *artist, const char *album,
+int mp4art_tries(const char *artist, const char *album,
                   char artists[][128], char albums[][128])
 {
 	char ar[128], al[128];
 	int n = 0, k, i;
 
-	for (k = 0; k < MUSEART_TRIES; k++) {
+	for (k = 0; k < MP4ART_TRIES; k++) {
 		if (k == 0) {
 			snprintf(ar, sizeof ar, "%s", artist);
 			snprintf(al, sizeof al, "%s", album);
@@ -149,7 +149,7 @@ int museart_tries(const char *artist, const char *album,
 
 static unsigned be16(const unsigned char *p) { return (unsigned)p[0] << 8 | p[1]; }
 
-bool museart_image_size(const char *path, int *w, int *h)
+bool mp4art_image_size(const char *path, int *w, int *h)
 {
 	unsigned char b[32];
 	FILE *f = fopen(path, "rb");
@@ -192,14 +192,14 @@ bool museart_image_size(const char *path, int *w, int *h)
 
 enum { S_NEXT, S_SEARCH, S_COVER, S_DONE };
 
-static museart_job   *g_jobs;
+static mp4art_job   *g_jobs;
 static int            g_n, g_i, g_state = S_DONE, g_retried, g_fails;
 static int            g_try, g_ntries;       /* which search of this album's */
-static char           g_try_artist[MUSEART_TRIES][128], g_try_album[MUSEART_TRIES][128];
+static char           g_try_artist[MP4ART_TRIES][128], g_try_album[MP4ART_TRIES][128];
 static bool           g_asked;
 static unsigned       g_last_ms, g_until;
 static char           g_reply[LIB_PATH], g_rg[64], g_cover[LIB_PATH * 2 + 8];
-static museart_status g_st = { .landed = -1 };
+static mp4art_status g_st = { .landed = -1 };
 
 static void finish(void)
 {
@@ -208,9 +208,9 @@ static void finish(void)
 	g_state = S_DONE;
 }
 
-bool museart_begin(const museart_job *jobs, int n, const char *reply)
+bool mp4art_begin(const mp4art_job *jobs, int n, const char *reply)
 {
-	museart_cancel();
+	mp4art_cancel();
 	memset(&g_st, 0, sizeof g_st);
 	g_st.landed = -1;
 	if (n <= 0) return false;
@@ -245,9 +245,9 @@ static void next(int *outcome)
 	}
 }
 
-int museart_step(unsigned now)
+int mp4art_step(unsigned now)
 {
-	museart_job *j;
+	mp4art_job *j;
 	char url[2400], dir[LIB_PATH * 2], *slash, *body;
 	size_t len;
 	int r, http;
@@ -265,9 +265,9 @@ int museart_step(unsigned now)
 		if (g_until && (int)(now - g_until) < 0) return 1;
 		g_until = 0;
 		if (!g_ntries)
-			g_ntries = museart_tries(j->artist, j->album, g_try_artist, g_try_album);
+			g_ntries = mp4art_tries(j->artist, j->album, g_try_artist, g_try_album);
 		if (g_try >= g_ntries ||
-		    !museart_search_url(g_try_artist[g_try], g_try_album[g_try], url, sizeof url) ||
+		    !mp4art_search_url(g_try_artist[g_try], g_try_album[g_try], url, sizeof url) ||
 		    !net_get_async(url, g_reply, 20)) {
 			next(&g_st.failed);
 			return g_state != S_DONE;
@@ -295,11 +295,11 @@ int museart_step(unsigned now)
 			return g_state != S_DONE;
 		}
 		remove(g_reply);
-		r = museart_pick(body, len, j->tracks, g_rg, sizeof g_rg);
+		r = mp4art_pick(body, len, j->tracks, g_rg, sizeof g_rg);
 		free(body);
 		if (!r) {
 			/* The next way of asking, a second on, before calling it
-			 * missing - see museart_tries. */
+			 * missing - see mp4art_tries. */
 			if (++g_try < g_ntries) { g_retried = 0; g_state = S_NEXT; return 1; }
 			fprintf(stderr, "album art: not found: %s - %s\n", j->album, j->artist);
 			next(&g_st.missing);
@@ -341,12 +341,12 @@ int museart_step(unsigned now)
 	return 1;
 }
 
-void museart_status_get(museart_status *st)
+void mp4art_status_get(mp4art_status *st)
 {
 	*st = g_st;
 }
 
-void museart_cancel(void)
+void mp4art_cancel(void)
 {
 	if (g_state == S_SEARCH || g_state == S_COVER) net_async_abort();
 	if (g_reply[0]) remove(g_reply);

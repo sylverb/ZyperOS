@@ -798,7 +798,7 @@ bool plat_rumble_buzz(float scale, int ms)
  * comes UP, unless a volume key came in between. That costs a tap's length
  * before a menu opens, accepted on 2026-10-01; in games MENU has always worked
  * this way. Holding both volume keys with FUNCTION is holding both brightness
- * keys, which is the Brick's pocket lock, so Muse's lock works unchanged. */
+ * keys, which is the Brick's pocket lock, so MP4's lock works unchanged. */
 static bool fn_down;            /* FUNCTION is held */
 static bool fn_chorded;         /* and a volume key was used under it */
 static bool menu_release_next;  /* a MENU tap reported last poll ends this one */
@@ -1099,7 +1099,7 @@ static void apply_volume(int v)
 }
 
 /* alsa-lib makes the USB control itself the first time something plays
- * through a DAC, at 0 dB, the loudest there is. Made here first, before Muse
+ * through a DAC, at 0 dB, the loudest there is. Made here first, before MP4
  * or a game can play, it is kept as it is, at the player's level. It has to
  * be the shape alsa-lib checks for, or it is replaced: two channels, 0-255,
  * and a dB scale. A control added by hand stays until the next boot, so a
@@ -1387,13 +1387,13 @@ void plat_settings_init(void)
 	if (cur_vol >= 0) apply_volume(cur_vol);
 	apply_brightness(cur_bright);
 	/* Lit, whatever the launcher before this one left: it turns the light off
-	 * for Muse's lock and for the shelf on the charger (src/chargedark.h),
+	 * for MP4's lock and for the shelf on the charger (src/chargedark.h),
 	 * and one killed in either kept the panel dark until the next boot. */
 	plat_backlight(true);
 }
 
 /* Off and back on at the same level: bl_power, the backlight's own switch, so
- * the brightness is not touched. Muse's pocket lock. */
+ * the brightness is not touched. MP4's pocket lock. */
 void plat_backlight(bool on)
 {
 	write_file(BACKLIGHT_POWER, on ? "0\n" : "4\n");

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-#ifndef MUSE_VID_H
-#define MUSE_VID_H
+#ifndef MP4D_VID_H
+#define MP4D_VID_H
 
 #include <stdbool.h>
 

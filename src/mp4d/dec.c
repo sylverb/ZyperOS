@@ -26,7 +26,7 @@
  * And 2 dB of headroom ahead of the resampler, in floating point. Loud masters
  * decode past full scale, and the drop to 16 bits cut those peaks off flat:
  * heard as a crackle on the GKD Pixel 2 at the same moments of a song every
- * time, found 2026-10-02 in a recording of what Muse handed the mixer. Through
+ * time, found 2026-10-02 in a recording of what MP4 handed the mixer. Through
  * this chain, 55 of the 69 tracks on the test card peaked over full scale, the
  * worst at +1.54 dB (Raphael Saadiq, "Let's Take A Walk"). 2 dB clears them
  * all, and costs 2 dB at the top of the volume scale and nothing else - a

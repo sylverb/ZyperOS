@@ -102,7 +102,7 @@ clip itself stays outside the repository.
 - `src/beats.tsx`: the boot race against stock firmware (a plain loading panel,
   nothing of its interface) and the power off and on, with their timers.
 - `rec/snapsub.c`: for the video snap beat, gives the host build's `--snap` turn a
-  frame of the game's snap in place of its test picture (no Muse on the host).
+  frame of the game's snap in place of its test picture (no MP4 on the host).
 - `src/Poster.tsx`: the site's poster, and the README's with a play button.
 - `device/render-device.py`: the Pixel 2 straight on, from
   `tools/build-pixel2-model.py`'s scene, with its screen cut out.

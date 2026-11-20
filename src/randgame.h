@@ -6,8 +6,8 @@
  * MENU > Random Game on the systems row picks from every system; the same
  * row in a system's own menu picks from that system. What is not on a shelf
  * is never picked: an empty system is not on the row (hide_empty_systems),
- * and a file the scan leaves out is on no shelf. Muse and Favorites are
- * left out of the systems row's pick - Muse's cards are albums, and a
+ * and a file the scan leaves out is on no shelf. MP4 and Favorites are
+ * left out of the systems row's pick - MP4's cards are albums, and a
  * favorite is already on its own system's shelf, where it would otherwise
  * count twice.
  *

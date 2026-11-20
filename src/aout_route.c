@@ -6,7 +6,7 @@
 #include "btvol.h"
 #include "db.h"
 #include "eq.h"
-#include "musec.h"
+#include "mp4c.h"
 #include "platform.h"
 #include "uisound.h"
 
@@ -74,17 +74,17 @@ void channels_save(aout_channels c)
 	db_set_str(db_dev(), "channels", aout_channels_wire(c));
 }
 
-/* Diatom and Muse each by the device they were just given, because the two
- * can be in different places: with Muse on a headset, Diatom is on the codec,
+/* Diatom and MP4 each by the device they were just given, because the two
+ * can be in different places: with MP4 on a headset, Diatom is on the codec,
  * and a side on the headset is still mono on the speaker. Both send only on a
  * change, so this is cheap every tick. */
 static void channels_tell(const aout_state *s, const char *diatom_dev,
-                          const char *muse_dev)
+                          const char *mp4_dev)
 {
 	plat_resident_channels(aout_channels_wire(
 		aout_channels_for(g_channels, aout_dest_of(s, diatom_dev), plat_speaker_mono())));
-	musec_channels(aout_channels_wire(
-		aout_channels_for(g_channels, aout_dest_of(s, muse_dev), plat_speaker_mono())));
+	mp4c_channels(aout_channels_wire(
+		aout_channels_for(g_channels, aout_dest_of(s, mp4_dev), plat_speaker_mono())));
 }
 
 /* ---- the equalizer's bands, to whatever makes the sound (src/eq.h) ----- */
@@ -125,17 +125,17 @@ static void eq_bands_for(aout_dest d, int8_t db[EQ_BANDS])
 	else                                          memcpy(db, g_eq_bands[o], EQ_BANDS);
 }
 
-/* Diatom and Muse by the device each was just given, as their channels are;
+/* Diatom and MP4 by the device each was just given, as their channels are;
  * the menu music, and a port's plugin through the shared file, by where the
  * system's sound goes. Each sends only on a change. */
-static void eq_tell(const aout_state *s, const char *diatom_dev, const char *muse_dev)
+static void eq_tell(const aout_state *s, const char *diatom_dev, const char *mp4_dev)
 {
 	int8_t db[EQ_BANDS];
 
 	eq_bands_for(aout_dest_of(s, diatom_dev), db);
 	plat_resident_eq(db);
-	eq_bands_for(aout_dest_of(s, muse_dev), db);
-	musec_eq(db, g_eq_live);
+	eq_bands_for(aout_dest_of(s, mp4_dev), db);
+	mp4c_eq(db, g_eq_live);
 	eq_bands_for(aout_resolve(s), db);
 	bgm_eq(db);
 	eq_share_write(db);
@@ -205,12 +205,12 @@ aout_state aout_now(void)
 aout_dest aout_actual(const aout_state *s)
 {
 	char at[128];
-	const char *muse = musec_sink_now();
+	const char *mp4 = mp4c_sink_now();
 
-	/* Muse holding the headset is where the sound is, whatever Diatom says:
-	 * Diatom was moved off it to let Muse have it. */
-	if (musec_heard() && muse[0] && strcmp(muse, "default"))
-		return strcmp(muse, AOUT_USB_DEVICE) ? AOUT_BT : AOUT_USB;
+	/* MP4 holding the headset is where the sound is, whatever Diatom says:
+	 * Diatom was moved off it to let MP4 have it. */
+	if (mp4c_heard() && mp4[0] && strcmp(mp4, "default"))
+		return strcmp(mp4, AOUT_USB_DEVICE) ? AOUT_BT : AOUT_USB;
 	if (!plat_resident_audio(at, sizeof at)) return aout_resolve(s);
 	if (at[0]) return strcmp(at, AOUT_USB_DEVICE) ? AOUT_BT : AOUT_USB;
 	return s->wired ? AOUT_WIRED : AOUT_SPK;
@@ -219,7 +219,7 @@ aout_dest aout_actual(const aout_state *s)
 /* SETAUDIO, after which Diatom's last report no longer counts until it has
  * answered this one. Reports are only read while a game runs, so at the shelf
  * the one held was from the last game: switching to Speaker there, or with
- * Muse on a headset, the Audio Output row went on saying "bluetooth" while the
+ * MP4 on a headset, the Audio Output row went on saying "bluetooth" while the
  * sound came out of the speaker - #45, 2026-09-26. Until the answer, the row
  * shows what was asked; after it, what happened, fallback included. */
 static bool aout_send(const char *dev)
@@ -232,7 +232,7 @@ static bool aout_send(const char *dev)
 /* Send only on a change. SETAUDIO reopens an audio device, which is cheap but
  * not free, and doing it every tick would be a reopen per tick. */
 static void aout_tell_diatom(const aout_state *s, const char *dev, bool force,
-                             bool muse_has_it)
+                             bool mp4_has_it)
 {
 	unsigned gen = plat_resident_generation();
 
@@ -270,7 +270,7 @@ static void aout_tell_diatom(const aout_state *s, const char *dev, bool force,
 	 * lines says both what was asked for and what happened. */
 	fprintf(stderr, "audio: %s -> %s%s\n",
 	        aout_dest_name(aout_resolve(s)), dev[0] ? dev : "default",
-	        muse_has_it ? " (Muse has the headset)" : "");
+	        mp4_has_it ? " (MP4 has the headset)" : "");
 }
 
 /* The headset's own volume, kept at the Brick's level while sound goes to one.
@@ -372,13 +372,13 @@ static void bt_volume_follow(const char *out, bool fresh)
  * On the speaker and the jack both simply open the default, which is dmix.
  * A Bluetooth headset cannot be shared - bluealsa 3.1 gives an A2DP PCM to one
  * client at a time, measured 2026-09-25 - so it is HANDED between them, and it
- * goes to whoever may be heard: Muse while it plays, which is exactly when
+ * goes to whoever may be heard: MP4 while it plays, which is exactly when
  * the game has already been quieted, and Diatom otherwise.
  *
  * Release before acquire, or the second open fails and falls back. Towards
- * Muse, Diatom is told first and Muse's SINK retries for a second while Diatom
+ * MP4, Diatom is told first and MP4's SINK retries for a second while Diatom
  * lets go, because at the shelf nothing here reads Diatom's answers. Back
- * towards Diatom, Muse is told first and Diatom is only told once Muse has
+ * towards Diatom, MP4 is told first and Diatom is only told once MP4 has
  * answered, because Diatom does not retry. */
 /* The interface sounds go where the system's sound goes, on the sides
  * Audio Channels says, and nowhere on a headset (src/uisound.h). Said by
@@ -409,62 +409,62 @@ void aout_apply(bool force)
 	static char  link_seen[32];
 	aout_state  s    = aout_now();
 	const char *out  = aout_device(&s);
-	bool        muse = out[0] && musec_heard();
+	bool        mp4 = out[0] && mp4c_heard();
 	/* A new connection under the same name - the headset dropped and came
 	 * back between two looks at it. Nothing else here can see that, and
 	 * whoever fell back to the speaker while it was gone would stay there:
-	 * seen 2026-09-25, a song in Muse. So the holder is told again, once.
-	 * Harmless when it never left: Diatom and Muse both ignore a device they
+	 * seen 2026-09-25, a song in MP4. So the holder is told again, once.
+	 * Harmless when it never left: Diatom and MP4 both ignore a device they
 	 * are already on. */
 	bool        fresh = out[0] && g_bt_link[0] && strcmp(g_bt_link, link_seen);
 
 	ui_sounds_route(&s);
 
 	/* A USB-C DAC is mixed (the system's "usb" device), so it is not handed
-	 * over: Diatom and Muse both have it at once, as both have the codec, and
+	 * over: Diatom and MP4 both have it at once, as both have the codec, and
 	 * the headset's volume has nothing to follow. */
 	if (aout_resolve(&s) == AOUT_USB) {
 		link_seen[0] = '\0';
 		aout_tell_diatom(&s, out, force, false);
-		musec_sink(out);
+		mp4c_sink(out);
 		channels_tell(&s, out, out);
 		eq_tell(&s, out, out);
 		bt_volume_follow("", false);
 		return;
 	}
-	if (!muse) {
-		musec_sink("");
-		if (out[0] && !musec_sink_settled()) return;    /* Muse is still letting go */
+	if (!mp4) {
+		mp4c_sink("");
+		if (out[0] && !mp4c_sink_settled()) return;    /* MP4 is still letting go */
 	}
 	if (fresh) {
 		fprintf(stderr, "audio: %s is a new connection (link %s)\n", out, g_bt_link);
-		if (muse) musec_sink_again();
+		if (mp4) mp4c_sink_again();
 	}
 	snprintf(link_seen, sizeof link_seen, "%s", out[0] ? g_bt_link : "");
-	aout_tell_diatom(&s, muse ? "" : out, force || (fresh && !muse), muse);
-	if (muse) musec_sink(out);
-	channels_tell(&s, muse ? "" : out, muse ? out : "");
-	eq_tell(&s, muse ? "" : out, muse ? out : "");
+	aout_tell_diatom(&s, mp4 ? "" : out, force || (fresh && !mp4), mp4);
+	if (mp4) mp4c_sink(out);
+	channels_tell(&s, mp4 ? "" : out, mp4 ? out : "");
+	eq_tell(&s, mp4 ? "" : out, mp4 ? out : "");
 	bt_volume_follow(out, fresh);
 }
 
-/* The hook musec calls just before a PLAY or RESUME, so the track starts on
+/* The hook mp4c calls just before a PLAY or RESUME, so the track starts on
  * the headset rather than reaching it a tick later. */
-void aout_before_muse(void)
+void aout_before_mp4(void)
 {
 	aout_apply(false);
 }
 
-/* Muse's own screens, each frame. They route only while music is heard: a
+/* MP4's own screens, each frame. They route only while music is heard: a
  * headset that connects mid-song takes the song there and then, where before
  * it stayed on the speaker until something new was played - seen 2026-09-25,
  * resume and R1 both went to the speaker right after a pairing. Paused, they
  * still leave the headset where it is; nothing else can be heard on these
  * screens, so handing it back on every pause would only be churn. */
-void muse_screen_poll(void)
+void mp4_screen_poll(void)
 {
-	muse_poll();
-	if (musec_heard()) aout_apply(false);
+	mp4_poll();
+	if (mp4c_heard()) aout_apply(false);
 	else               ui_sounds_follow();
 }
 

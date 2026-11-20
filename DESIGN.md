@@ -1,7 +1,7 @@
 # ZyperOS design
 
 This is the design system for everything ZyperOS puts on a screen: the shelf,
-the menus, Muse, the keyboard, the volume bar over a game or a port, the
+the menus, MP4, the keyboard, the volume bar over a game or a port, the
 notices Diatom shows, the loading screen, the tutorial, and the sounds they
 make. A screen that is not described here is described by the nearest thing
 that is, and then it is added here.
@@ -134,13 +134,13 @@ Each role has one value per theme. Code asks for the role, never the value.
 
 | Accent | Is | Never |
 |---|---|---|
-| lime (**accent**, **accent-ink**) | ZyperOS: focus, the system's chrome, volume, success, earned, Muse | a system's color, decoration |
+| lime (**accent**, **accent-ink**) | ZyperOS: focus, the system's chrome, volume, success, earned, MP4 | a system's color, decoration |
 | a system's color (systems.cfg) | its shelf's marks and lift and missing-cover fallback | focus, any menu (its heading rule, its frame, its light), source sprite colors, unrelated screens |
 | **light** | brightness | anything else |
 | **favorite** | the heart | anything else |
 | **warning** | low battery, an error a row reports | emphasis |
 
-*This document's calls, from the audit (2026-11-04):* Muse is no longer its
+*This document's calls, from the audit (2026-11-04):* MP4 is no longer its
 own green (0x9CD345 sat a few degrees from Zyper's lime and the two could not
 be told apart); it uses lime like the rest of the system. Volume is lime in
 both themes (Salt & Pepper is one-accent), and an earned achievement is lime
@@ -607,7 +607,7 @@ card's band and the rail.
 | Token | Salt & Pepper glow (alpha / spread) | Beard shadow (y / blur / opacity) | For |
 |---|---|---|---|
 | **focus** | 105 / 2.3 | 18 / 48 / 22% | a card on the shelf |
-| **focus-small** | 85 / 1.5 | 8 / 20 / 18% | a thumbnail, Muse's cover |
+| **focus-small** | 85 / 1.5 | 8 / 20 / 18% | a thumbnail, MP4's cover |
 | **panel** | 60 / 1.5 | 24 / 64 / 18% | a menu panel, the keyboard |
 | **wash** | 34 / 1.7 | the system's color at 16%, normal blend | the system's light along the bottom of the shelf |
 | **bar** | shadow 4 / 8 / 40% | 4 / 8 / 18% | the volume and brightness bar |
@@ -615,7 +615,7 @@ card's band and the rail.
 
 - *(The audit found four focus glows, 110/2.4, 100/2.3, 90/1.7 and 85/1.35,
   with no reason given for the differences. They become two: **focus** for a
-  card on the shelf, **focus.small** for a thumbnail or a cover in Muse.)*
+  card on the shelf, **focus.small** for a thumbnail or a cover in MP4.)*
 - Reflections under covers stay, at 90/255, fading to nothing; in Beard they
   fade toward the ground. A reflection ends 8 units above the line of text
   under its row, the shelf's count, so the words are never read through it:
@@ -761,7 +761,7 @@ clipped. They play through the system volume, so the volume keys and the
 mute switch set them too.
 
 They play on the speaker, the headphone jack and a USB-C DAC, through the
-same shared output Muse and Diatom use, in every screen the launcher draws,
+same shared output MP4 and Diatom use, in every screen the launcher draws,
 the in-game menu over a paused game included. With a Bluetooth headset as
 the output they are off: its A2DP stream is held by one player at a time,
 and its fifth of a second of delay would put every tick after the press it
@@ -813,7 +813,7 @@ audio rows.)*
   A menu the launcher opens itself, or a game it starts with nobody
   pressing (a resume at boot), plays nothing.
 - A press on a dead row, or of a button the screen has nothing for where it
-  usually acts (X or Y on Muse's albums), plays **deny**, and the row says
+  usually acts (X or Y on MP4's albums), plays **deny**, and the row says
   why.
 - **reward** is for something good: a tutorial step, a favorite added.
   Taking a favorite away plays **back**.
@@ -1153,7 +1153,7 @@ Opens and closes as 8.2 says.
 
 **Option rows, one rule (1.0.6).** A row whose value is one of several
 choices answers the same way on every page - MENU, a system's menu, the
-Muse shelf, the in-game menu's Game and Display tabs, Theme, Night Mode's page,
+MP4 shelf, the in-game menu's Game and Display tabs, Theme, Night Mode's page,
 Video Snaps, Menu Music:
 
 - **More than two choices: A opens their list**, a panel of its own under
@@ -1242,7 +1242,7 @@ something other than its row.
 
 **Lists go round.** Down on the last row that can be selected goes to the
 first, and Up on the first to the last, in every menu list - MENU, a
-system's menu, the in-game menu, a screen's rows, Muse's list, the
+system's menu, the in-game menu, a screen's rows, MP4's list, the
 achievement list, Storage, the yes/cancel panel. A **held** direction stops
 at the end and stays there, playing **edge** once (9); the next press goes
 round, heard as any step. It is one rule in one place, `menu_step_round`
@@ -1600,7 +1600,7 @@ for the reward, and a wrong press tilted, nudged and answered.)*
 | See the Details | X | the card turns into the details, the info screen in small: the game's name over a rule, Synopsis in focus, Year, and Favorite Off with Y's glyph | X |
 | Keep a Favorite | Y | in those details Favorite turns from Off to On, the row's own Y pressing with the glyph; the line says Y does it in the details | Y |
 | Settings | MENU | a menu panel opens over the shelf | MENU, which opens nothing here |
-| Music | SELECT, and L2/R2 lit on the handheld | Muse's Now Playing fades in; "L2/R2 play the previous or next song." under the line | SELECT, which opens nothing here |
+| Music | SELECT, and L2/R2 lit on the handheld | MP4's Now Playing fades in; "L2/R2 play the previous or next song." under the line | SELECT, which opens nothing here |
 | Volume | the VOL rocker | a stand-in bar slides onto the stage and steps up | VOL+ or VOL-, which change the real volume and show the real bar |
 | Brightness | MENU+VOL: the MENU pill, a plus and the rocker (F1 and F2 on the Brick) | the stand-in bar's sun steps up | the chord, which changes the real brightness |
 | Power | POWER | the shelf fades to the ground and the power-off's own frames play small, "Saved. See you soon." | POWER, which in this step only does not turn the handheld off; the line under it says so, and after the press it says to hold POWER for 10 s only if the screen stops answering |
@@ -1626,7 +1626,7 @@ handheld.)*
 The demonstrations are drawn from shapes and tokens on the stage - a little
 shelf of five system-colored cards (Game Boy, NES, SNES, Game Boy Color, Neo
 Geo Pocket Color, by systems.cfg's accents), a stand-in game in shades of the
-SNES's color, a menu and Muse whose words are bars, the details in the info
+SNES's color, a menu and MP4 whose words are bars, the details in the info
 screen's own words - never the player's
 library, so the tutorial is the same on a card with no games. Each plays as a
 loop half a second after its step comes on, pressing its own glyph; a press
@@ -2132,9 +2132,13 @@ uses the shared battery cache and follows the charging corner's timing.
 
 ### 11.14 MP4
 The media player, Muse until it played video (2026-11-05): "MP4" on
-its card, its Controls page, the tutorial and every line that names it. Code,
-settings keys (`muse.*`, `book.*`), the daemon and its socket keep the name
-Muse, so a card's saved places and modes still read.
+its card, its Controls page, the tutorial and every line that names it, and
+in the code from 1.1.0: `mp4` in its names, the daemon `mp4d` on
+/tmp/mp4d.sock, its settings under `mp4.*`. A handheld's `muse.*` settings move
+there once, at its first start (src/mp4keys.h). A book's and a video's places
+(`book.*`, `video.*`) and the shelf's tag, `MUSE` (a card's `.last`, its sort
+and view settings, the system art), keep their names, so a card's saved places
+and modes still read.
 
 - **Shelf.** One card, three kinds: MENU > Show steps All, Music,
   Audiobooks and Videos, only the kinds the card has, and is there with two
@@ -2144,7 +2148,7 @@ Muse, so a card's saved places and modes still read.
   badge (11.1) of its kind: an album, a book or a video. A film straight in
   `Videos/` is a card of its own and A plays it; a folder of videos lists its
   files like an album. A video's cover is a picture beside it with its name, else one of its
-  own frames (src/muse/cover.c). On videos, Sort By is Folder or Title and
+  own frames (src/mp4d/cover.c). On videos, Sort By is Folder or Title and
   there is no Album Art; Shuffle All and Album Art are on music, and on All
   when the card has songs. MENU > View and START show the shelf in Covers,
   Grid or List (11.67).
@@ -2189,7 +2193,7 @@ Muse, so a card's saved places and modes still read.
   stretches of 2 s running and it says the video is too big, two stretches
   under a tenth and it takes that back; the first stretch after an open, a
   seek, a pause or the screen coming back is not judged, as the decoder
-  catches up then on any file (src/muse/vidtry.h). A format nothing here
+  catches up then on any file (src/mp4d/vidtry.h). A format nothing here
   decodes, or a decoder that gives not one picture, it says there is no
   picture. MP4 says so in words rather than
   show a slide show or a black box (2026-11-19: "If a size cannot keep up,
@@ -2813,7 +2817,7 @@ nothing over it - the focused cover turns into its video snap: over
 grows from the cover's rect to the snap's own (4:3, inside the cover's
 384 x 328 box), never stretched; the cards either side stay where they
 are. It loops. A move takes it away at once, with the card; a menu, the
-dark screen or Muse fade it back over **quick**. It is muted to start.
+dark screen or MP4 fade it back over **quick**. It is muted to start.
 While it waits, a bar under the focused cover says the snap is coming: the
 cover's own width, 12 below it, **UI_BAR_H** tall and round-ended, a
 **track** that fills with **accent-ink** over **hold-snap**, held full
@@ -2825,7 +2829,7 @@ A snap's picture goes to the GPU in a texture never smaller than 640x480,
 in its corner when it is smaller, and is drawn from its own rectangle:
 the Pixel 2's GPU faulted, and the launcher with it, on narrower ones (a
 Nintendo DS game's 320x480, a Game Boy game's, 534x480), 2026-11-09.
-Halfway through **hold-snap** the snap is asked for held: Muse opens it and
+Halfway through **hold-snap** the snap is asked for held: MP4 opens it and
 puts out its first picture with no clock and no sound, so the cover turns
 the frame the bar is full, from the clip's first picture, and its sound
 starts then. Not sooner: a shelf being scrolled opens no file.
@@ -3612,7 +3616,7 @@ system's whole. *(2026-11-08, from Tarik's Pixel 2.)*
 its folder picture from the File Transfer page at the left (the first of its
 two frames), its size in **title** and its songs, videos or books at the
 right, and the bar its share of the card. Its rows are what MP4's shelf calls
-an album (src/muselib.h): an album or a book in an artist's or an author's
+an album (src/mp4lib.h): an album or a book in an artist's or an author's
 folder, a folder at the top with no folder inside or with tracks of its own,
 a track at the top; in Videos a film at the top, or a folder of them (a
 series) whole. Each by its folder's name or its file's without the
@@ -3647,7 +3651,7 @@ right, on the more-rows mark's line, X's glyph and the order it is now
 ("Size", "A to Z", "Last Played") in **meta** **text-dim**: the button and
 what it is, as the keyboard's action row names its keys (11.5).
 
-The page is a base, as Muse's shelf is: MENU's panel leaves over it as it
+The page is a base, as MP4's shelf is: MENU's panel leaves over it as it
 opens, and a panel opened on it - a question, "Deleting...", a result - comes
 from nothing, and leaves over it when it closes. *(2026-11-08, on the Pixel
 2: the question first opened as a swap from the last panel drawn, which left
@@ -4196,7 +4200,7 @@ of the videos, that game boots".)* Host shot: `--saver [cover]`, with
 Right; **1m** to start with, shorter than Auto Off's two minutes so that a
 handheld on battery shows it before it powers off. It starts only on the
 shelf, the home or a games shelf, once its delay has passed with no button
-down. Never in a game, over a menu, MP4, Muse's player or File Transfer, and
+down. Never in a game, over a menu, MP4's shelf, its Now Playing or File Transfer, and
 not while music plays, File Transfer is on behind the shelf, a long task
 runs (11.38) or the Video view plays a snap (11.57: somebody watching it,
 whose first press the screensaver would take): the countdown does not run
@@ -4262,7 +4266,7 @@ one starts when it ends. The jobs: the scraper's art and video downloads
 (a run of the Scraper's page, from MENU > Downloads or a console's Box Art),
 System Update's download, check of its files and install, PortMaster's install (whichever
 screen is up, or a game), Storage's walk of the card, File Transfer's copies
-and connected browsers, and Muse's album covers. A Scraper or Achievements
+and connected browsers, and MP4's album covers. A Scraper or Achievements
 run holds it behind the screens too, its page closed (11.19, src/dlq.h). The rule is one function,
 `long_task_busy` in src/zyperdraw.c, asked by `idle_due` for every screen
 and by the game's SETIDLE; a new long job is a line there or a `task_note`
@@ -6202,7 +6206,7 @@ does; it plays on from there when the shelf is in front again, so the
 game's card never shows through as the page comes. While the snap plays,
 the screensaver's countdown does not run (11.37).
 
-**What it costs.** The snap is Muse's daemon's, as on every view: one
+**What it costs.** The snap is MP4's daemon's, as on every view: one
 decoder thread, at most 640 x 480, its frames drawn only when a newer
 picture is out (snap_new_picture), so a still snap draws nothing. The band
 draws nothing of its own while it waits: the shelf asks for one frame at
@@ -6479,7 +6483,7 @@ cursor playing (src/ds/preview.h's column): Now Playing drawn whole at the
 screen's size into a texture, halved, then drawn into the box - the song
 that plays, or with none the shelf's album's first song in show, its clock
 running and its bars moving. Left and Right step it round. Kept as
-`muse.look`. A book and a video keep their own Now Playing.
+`mp4.look`. A book and a video keep their own Now Playing.
 
 - **The frame** every look shares: the top bar; the song's time, the bar
   from margin to margin with the time played and the time left under its
@@ -6579,7 +6583,7 @@ running and its bars moving. Left and Right step it round. Kept as
   667 ms. Paused, the bars fall to rest and the caps lie in a row on the
   floor. Every edge is on the grid, whole pixels on the Pixel 2 (a bar 10
   of them, 5 between); a bar's top and a cap move smoothly between them.
-- **The sound** is the daemon's (src/muse/bands.h): what is heard, not
+- **The sound** is the daemon's (src/mp4d/bands.h): what is heard, not
   what the decoder has reached - the frames written, less the 200 ms still
   queued, plus what played since - a 1024-point FFT under a Hann window
   (at 512 the nine bands under 200 Hz shared two bins), 32 bands spaced
@@ -6588,7 +6592,7 @@ running and its bars moving. Left and Right step it round. Kept as
   songs, from a quiet live recording to a loud electronic master
   (tools/bands-check.c --song). 30 times a second, and only while bars are
   drawn: every frame of bars keeps the daemon measuring for 300 ms more
-  (`musec_bands_keep`, BANDS on the socket), so behind a menu, under the
+  (`mp4c_bands_keep`, BANDS on the socket), so behind a menu, under the
   lock, paused and still, or on Cover it is not measuring. 5 to 34 us a
   window on an M3 Max (check-bands); the Pixel 2's is measured on the
   device.

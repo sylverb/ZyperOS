@@ -350,7 +350,7 @@ int ui_scrollthrough(int cycle, unsigned phase);
  * the whole blurred rect, not a ring, and only what shows past `q` reads. */
 enum {
 	UI_LIFT_FOCUS,         /* a card on the shelf */
-	UI_LIFT_FOCUS_SMALL,   /* a thumbnail, Muse's cover */
+	UI_LIFT_FOCUS_SMALL,   /* a thumbnail, MP4's cover */
 	UI_LIFT_PANEL,         /* a menu panel, the keyboard */
 	UI_LIFT_WASH,          /* the system's light along the bottom of the shelf */
 	UI_LIFT_KINDS
@@ -379,7 +379,7 @@ void ui_lift_in(SDL_Renderer *r, const SDL_Rect *q, unsigned sys_rgb,
  * through this, so there is one copy of that rule, src/sysmark.c's.
  *
  * Two colors are not a system's own and are said by role instead:
- *   lime, the **accent**, which Muse and Favorites wear because they are
+ *   lime, the **accent**, which MP4 and Favorites wear because they are
  *   ZyperOS's, is **accent-ink**, lime's own mark (the fill's lime is 1.3:1
  *   on Beard's ground);
  *   CFG_NO_COLOR (src/config.h), a system whose line names no color, is

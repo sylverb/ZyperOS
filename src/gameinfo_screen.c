@@ -53,8 +53,8 @@ static void gi_gather(app *a, int owner, const game_entry *g, game_info *gi)
 
 	memset(gi, 0, sizeof *gi);
 	gi->can_delete = gd_shelf_deletes(s->core);
-	gi->can_rename = !is_muse(s) && gr_renames(s->core, g->file, g->dir);
-	gi->can_favorite = !is_muse(s);
+	gi->can_rename = !is_mp4(s) && gr_renames(s->core, g->file, g->dir);
+	gi->can_favorite = !is_mp4(s);
 	gi->favorite = gi->can_favorite && fav_is(s->tag, g->file);
 	/* The core it starts on, where the shelf has more than one */
 	if (cfg_core_count(s) > 1) {
@@ -70,7 +70,7 @@ static void gi_gather(app *a, int owner, const game_entry *g, game_info *gi)
 	{
 		rm_table own;
 
-		gi->own_buttons = !is_muse(s) && rms_game(s, g->file, &own);
+		gi->own_buttons = !is_mp4(s) && rms_game(s, g->file, &own);
 	}
 
 	/* The save slots are not read here any more. The row that showed them went
