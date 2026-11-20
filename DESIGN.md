@@ -5829,7 +5829,8 @@ videos or achievement sets after a question; Y opens its games.
 its games with a mark per kind at its right - lit (on the card), dim
 (missing), struck (RetroAchievements has none) - and under it what the game
 has and lacks. A opens **the game's panel** (11.3): Cover, Video, Names and
-Details, Achievements with their values, a rule, **Get What's Missing**. A on
+Details, Achievements, Cheats with their values (a video not on the card is
+`None`), and **Get What's Missing** (no rule: six rows fill a panel). A on
 Cover or Video opens its Cover and Video page (11.34); A on Names or
 Achievements gets them, and Get What's Missing everything it lacks, in the
 panel, each value `Getting…` until its file lands: names with the cover and
@@ -5837,7 +5838,7 @@ the video in one ScreenScraper request, the set by the game's hash as a
 first play gets it.
 
 **Settings** (START), a panel: **ScreenScraper**, **RetroAchievements**,
-**SteamGridDB** with their accounts, a rule, **Video Snaps** (11.19's page),
+**SteamGridDB** with their accounts, **Video Snaps** (11.19's page),
 **Names and Details** (On or Off), **On the Card** (each kind's room; A on
 Videos or Achievements deletes them all after a question, cursor on Cancel;
 Covers and Names say why they are not deleted here). RetroAchievements' page
@@ -5851,8 +5852,9 @@ it its system's icon, the kind's mark, the source's mark (a cloud
 ScreenScraper, books on a shelf libretro, a grid SteamGridDB, the cup
 RetroAchievements), the bar and `214 / 573`. What came last lands big at the
 left over 520 ms while the six before it move one place along (the
-Scraper's run, 11.19): each is the game's cover (a tile of its name's hue
-when it has none) with a lime corner mark for what came - a play mark, the
+Scraper's run, 11.19): each is the game's cover, or its card with no art (11.1's
+one name treatment, painted on a thread of its own) when it has none, with a
+lime corner mark for what came - a play mark, the
 book, the cup and the set's count. Over the keys: the counts per kind as
 marks and the time left beside a clock, or in **warning** why it waits -
 `Waiting for Wi-Fi`, `RetroAchievements asked for a pause · 0:42`. B

@@ -129,6 +129,7 @@ typedef struct {
 	int kind;                /* dl_kind */
 	int count;               /* a set's achievements */
 	char game[128];
+	char folder[CFG_STR];    /* its system, for its name card */
 } dl_arrival;
 
 /* A game of a system's games list, as the card has it */
@@ -1261,6 +1262,134 @@ static void sysgames_draw(dl_view *v, dl_frame *f, unsigned now)
 
 /* ---- the run: one stream for every lane ------------------------------------------- */
 
+/* ---- a name card for an arrival with no picture ---------------------------------------
+ * ZyperOS's own card for a game with no art (src/cardart.h): its system's
+ * ground and its name in the one treatment, as the shelf has it. A card is
+ * tens of ms to paint on the Pixel 2, so it is painted here on a thread of
+ * its own (ui_card_paint's workers' faces) and taken as it is ready; an ask
+ * still waiting is replaced by the newer one, the arrival landing now. */
+static SDL_Thread *g_nc_thread;
+static SDL_mutex *g_nc_lock;
+static SDL_cond *g_nc_wake;
+static struct {
+	bool want, quit;
+	unsigned key, done_key;
+	ui_card_order o;
+	SDL_Surface *done;
+} g_nc;
+
+static int nc_worker(void *arg)
+{
+	(void)arg;
+	SDL_LockMutex(g_nc_lock);
+	while (!g_nc.quit) {
+		ui_card_order o;
+		unsigned key;
+		SDL_Surface *sf;
+
+		if (!g_nc.want) { SDL_CondWait(g_nc_wake, g_nc_lock); continue; }
+		o = g_nc.o;
+		key = g_nc.key;
+		g_nc.want = false;
+		SDL_UnlockMutex(g_nc_lock);
+		sf = ui_card_paint(&o, true);
+		SDL_LockMutex(g_nc_lock);
+		if (g_nc.done) ui_card_free(g_nc.done);   /* an older one nobody took */
+		g_nc.done = sf;
+		g_nc.done_key = key;
+	}
+	SDL_UnlockMutex(g_nc_lock);
+	return 0;
+}
+
+static void nc_start(void)
+{
+	if (g_nc_thread) return;
+	if (!g_nc_lock && !(g_nc_lock = SDL_CreateMutex())) return;
+	if (!g_nc_wake && !(g_nc_wake = SDL_CreateCond())) return;
+	g_nc.quit = false;
+	g_nc.want = false;
+	g_nc_thread = SDL_CreateThread(nc_worker, "zyperos-dl-card", NULL);
+}
+
+static void nc_stop(void)
+{
+	if (!g_nc_thread) return;
+	SDL_LockMutex(g_nc_lock);
+	g_nc.quit = true;
+	SDL_CondSignal(g_nc_wake);
+	SDL_UnlockMutex(g_nc_lock);
+	SDL_WaitThread(g_nc_thread, NULL);
+	g_nc_thread = NULL;
+	if (g_nc.done) ui_card_free(g_nc.done);
+	g_nc.done = NULL;
+}
+
+/* The order for an arrival's card: its name, its system's colour, era and art */
+static void nc_order(dl_view *v, const dl_arrival *it, ui_card_order *o)
+{
+	const system_cfg *sc = NULL;
+	char art[UI_CARD_PATH] = "";
+	int i;
+
+	for (i = 0; i < v->a->sys.count; i++) if (!strcmp(v->a->sys.systems[i].folder, it->folder)) sc = &v->a->sys.systems[i];
+	ui_card_order_set(o, it->game, sc ? sc->accent : CFG_NO_COLOR, false);
+	if (sc && home_art_key(sc->tag)[0])
+		snprintf(art, sizeof art, "%s/system-icons/%s-still.png", v->fixture ? "res" : P_ROOT, home_art_key(sc->tag));
+	ui_card_order_game(o, sc ? sc->tag : "", art, NULL);
+}
+
+static void nc_ask(dl_view *v, const dl_arrival *it)
+{
+	ui_card_order o;
+
+	nc_order(v, it, &o);
+	if (v->fixture) {
+		/* a shot draws one frame: the card now, on this thread */
+		SDL_Surface *sf = ui_card_paint(&o, false);
+
+		if (sf) {
+			dl_arrival *m = (dl_arrival *)it;
+
+			m->tex = ui_card_upload(v->a->r, sf, o.theme_ix);
+			m->w = sf->w;
+			m->h = sf->h;
+			ui_card_free(sf);
+		}
+		return;
+	}
+	if (!g_nc_thread) return;
+	SDL_LockMutex(g_nc_lock);
+	g_nc.o = o;
+	g_nc.key = it->key;
+	g_nc.want = true;
+	SDL_CondSignal(g_nc_wake);
+	SDL_UnlockMutex(g_nc_lock);
+}
+
+static bool nc_take(dl_view *v)
+{
+	SDL_Surface *sf = NULL;
+	unsigned key = 0;
+	int i;
+
+	if (!g_nc_thread) return false;
+	SDL_LockMutex(g_nc_lock);
+	if (g_nc.done) { sf = g_nc.done; key = g_nc.done_key; g_nc.done = NULL; }
+	SDL_UnlockMutex(g_nc_lock);
+	if (!sf) return false;
+	for (i = 0; i < v->nring; i++) {
+		if (v->ring[i].key != key || v->ring[i].tex) continue;
+		v->ring[i].tex = ui_card_upload(v->a->r, sf, theme_index());
+		v->ring[i].w = sf->w;
+		v->ring[i].h = sf->h;
+		if (i == 0) v->land_at = anim_now();
+		break;
+	}
+	ui_card_free(sf);
+	return i < v->nring;
+}
+
 static void ring_free(dl_view *v)
 {
 	int i;
@@ -1269,7 +1398,7 @@ static void ring_free(dl_view *v)
 	v->nring = 0;
 }
 
-static void ring_add(dl_view *v, int kind, const char *path, const char *game, int count)
+static void ring_add(dl_view *v, int kind, const char *path, const char *game, const char *folder, int count)
 {
 	dl_arrival *it;
 
@@ -1285,8 +1414,14 @@ static void ring_add(dl_view *v, int kind, const char *path, const char *game, i
 	it->count = count;
 	it->key = ++v->next_key;
 	snprintf(it->game, sizeof it->game, "%s", game ? game : "");
-	if (path && path[0] && !v->fixture) mt_ask((int)it->key, path, DL_BIG);
-	else v->land_at = anim_now();
+	snprintf(it->folder, sizeof it->folder, "%s", folder ? folder : "");
+	if (path && path[0] && !v->fixture) {
+		mt_ask((int)it->key, path, DL_BIG);
+	} else {
+		/* no picture: its name card, landing as it comes */
+		v->land_at = anim_now();
+		nc_ask(v, it);
+	}
 }
 
 static bool take_pictures(dl_view *v)
@@ -1297,7 +1432,8 @@ static bool take_pictures(dl_view *v)
 
 	while (mt_take(&key, &s)) {
 		for (i = 0; i < v->nring; i++) {
-			if (v->ring[i].key != (unsigned)key || v->ring[i].tex || !s) continue;
+			if (v->ring[i].key != (unsigned)key || v->ring[i].tex) continue;
+			if (!s) { nc_ask(v, &v->ring[i]); break; }    /* no picture after all */
 			v->ring[i].tex = SDL_CreateTextureFromSurface(v->a->r, s);
 			v->ring[i].w = s->w;
 			v->ring[i].h = s->h;
@@ -1306,6 +1442,7 @@ static bool take_pictures(dl_view *v)
 		}
 		if (s) SDL_FreeSurface(s);
 	}
+	if (nc_take(v)) any = true;
 	return any;
 }
 
@@ -1320,7 +1457,7 @@ static bool take_arrivals(dl_view *v)
 		int kind = v->ap.found_video ? DLK_VIDEOS : v->ap.found_names ? DLK_NAMES : DLK_COVERS;
 
 		v->art_seen = v->ap.found_seq;
-		ring_add(v, kind, v->ap.found_path, v->ap.found_game, 0);
+		ring_add(v, kind, v->ap.found_path, v->ap.found_game, v->ap.found_folder, 0);
 		any = true;
 	}
 	if (v->cht && dlq_running(DLQ_CHT)) cheats_status(&v->cp);
@@ -1330,7 +1467,7 @@ static bool take_arrivals(dl_view *v)
 		v->cht_seen = v->cp.seq;
 		if (has_box_art(v->cp.got_folder, v->cp.got_game))
 			box_art_path(v->cp.got_folder, v->cp.got_game, path, sizeof path);
-		ring_add(v, DLK_CHEATS, path, v->cp.got_game, v->cp.got_count);
+		ring_add(v, DLK_CHEATS, path, v->cp.got_game, v->cp.got_folder, v->cp.got_count);
 		any = true;
 	}
 	if (v->rp.set_seq != v->ra_seen) {
@@ -1343,7 +1480,7 @@ static bool take_arrivals(dl_view *v)
 		ln = strlen(name);
 		if (ln > 4 && !strcmp(name + ln - 4, ".set")) name[ln - 4] = '\0';
 		if (has_box_art(v->rp.folder_now, name)) box_art_path(v->rp.folder_now, name, path, sizeof path);
-		ring_add(v, DLK_ACH, path, v->rp.set_title[0] ? v->rp.set_title : name, v->rp.set_count);
+		ring_add(v, DLK_ACH, path, v->rp.set_title[0] ? v->rp.set_title : name, v->rp.folder_now, v->rp.set_count);
 		any = true;
 	}
 	return any;
@@ -2020,7 +2157,10 @@ static void on_the_card(dl_view *v)
 
 /* Settings (START): the three accounts, Video Snaps, Names and Details, and
  * On the Card */
-enum { SET_SS, SET_RA, SET_SG, SET_RULE, SET_SNAPS, SET_NAMES, SET_ROOM, SET_ROWS };
+/* Six rows and no rule between the accounts and the rest: at the menus' row
+ * height a rule is the room the sixth row needs, and On the Card would
+ * scroll out of sight (the lab's rows are shorter) */
+enum { SET_SS, SET_RA, SET_SG, SET_SNAPS, SET_NAMES, SET_ROOM, SET_ROWS };
 typedef struct {
 	dl_view *v;
 	char ss[64], ra[64], sg[32], room[32];
@@ -2064,7 +2204,6 @@ static int set_build(void *ctx, menu_row *rows, int max, const char **heading)
 	rows[SET_SS] = (menu_row){ "ScreenScraper", s->ss, true };
 	rows[SET_RA] = (menu_row){ "RetroAchievements", s->ra, true };
 	rows[SET_SG] = (menu_row){ "SteamGridDB", s->sg, true };
-	rows[SET_RULE] = MENU_RULE;
 	rows[SET_SNAPS] = (menu_row){ T(S_SNAPS_HEADING), NULL, true };
 	s->onoff[0] = T(S_SCRAPER_ON);
 	s->onoff[1] = T(S_SCRAPER_OFF);
@@ -2115,7 +2254,9 @@ static void settings(dl_view *v)
  * one after another, in the panel: each value says Getting and turns as its
  * file lands. Its own requests, beside no lane (the lanes ask the same
  * servers): with a download going on it waits for that. */
-enum { GP_ROWS = DLK_KINDS + 2, GP_GET = DLK_KINDS + 1 };
+/* Five kinds and Get What's Missing, no rule: as Settings, six rows are what
+ * a panel holds at the menus' row height */
+enum { GP_ROWS = DLK_KINDS + 1, GP_GET = DLK_KINDS };
 enum { ONE_IDLE, ONE_SS, ONE_HASH, ONE_SET, ONE_CHT };
 
 typedef struct {
@@ -2268,13 +2409,15 @@ static int game_build(void *ctx, menu_row *rows, int max, const char **heading)
 		} else switch (g->st[k]) {
 		case GS_HAVE: snprintf(x->val[k], sizeof x->val[k], "%s", k == DLK_ACH || k == DLK_CHEATS ? T(S_DOWNLOADS_READY) : T(S_DOWNLOADS_ON_CARD_SHORT)); break;
 		case GS_NONE: snprintf(x->val[k], sizeof x->val[k], "%s", T(S_DOWNLOADS_NONE)); break;
-		case GS_OFF:  snprintf(x->val[k], sizeof x->val[k], "%s", T(S_SCRAPER_OFF)); break;
-		default:      snprintf(x->val[k], sizeof x->val[k], "%s", k == DLK_ACH || k == DLK_CHEATS ? T(S_DOWNLOADS_NOT_CHECKED) : T(S_DOWNLOADS_MISSING)); break;
+		/* a video not on the card is None whether or not its system's
+		 * switch is on: A opens its Cover and Video page, where it can come */
+		case GS_OFF:  snprintf(x->val[k], sizeof x->val[k], "%s", k == DLK_VIDEOS ? T(S_DOWNLOADS_NONE) : T(S_SCRAPER_OFF)); break;
+		default:      snprintf(x->val[k], sizeof x->val[k], "%s", k == DLK_ACH || k == DLK_CHEATS ? T(S_DOWNLOADS_NOT_CHECKED)
+		                                                          : k == DLK_VIDEOS ? T(S_DOWNLOADS_NONE) : T(S_DOWNLOADS_MISSING)); break;
 		}
 		if (g->st[k] == GS_MISS) any = true;
 		rows[k] = (menu_row){ T(ROW[k]), x->val[k], true };
 	}
-	rows[DLK_KINDS] = MENU_RULE;
 	rows[GP_GET] = (menu_row){ T(S_DOWNLOADS_GET_MISSING), NULL, any && x->phase == ONE_IDLE };
 	return GP_ROWS;
 }
@@ -2675,6 +2818,7 @@ static void dl_page(app *a, const char *only)
 		push(v, V_DONE);
 	}
 	mt_start();
+	nc_start();
 	base = panel_base();
 	g_base_page = dl_base;
 	g_base_ctx = v;
@@ -2797,6 +2941,7 @@ static void dl_page(app *a, const char *only)
 		ui_frame_rest(8);
 	}
 	close_run_view();
+	nc_stop();
 	mt_stop();
 	mm_close(base, anim_now(), 0, g_menu_closing);
 	ring_free(v);
@@ -2898,7 +3043,7 @@ void downloads_rows_report(app *a)
  * The page on a stand-in library, nothing read (the lab's: 640 games on 9
  * systems):
  *   0 the hub          1 a run going on (the hub)  2 every kind done
- *   3 no network, nobody signed in or linked        4 Settings
+ *   3 no network (signed in and linked, as the lab) 4 Settings
  *   5 counting, nothing counted yet                 6 the hub on Covers
  *   7 Covers out (Left)                             8 Covers' page
  *   9 Videos' page    10 Names and Details' page   11 Systems
@@ -2907,7 +3052,8 @@ void downloads_rows_report(app *a)
  *  17 done            18 stopped                   19 On the Card
  *  20 RetroAchievements' account                    21 a console's page
  *  22 Videos For      23 Cheats' page          24 RetroAchievements' account, signed out
- *  25 the hub on Names and Details              26 Covers' page, nothing missing */
+ *  25 the hub on Names and Details              26 Covers' page, nothing missing
+ *  27 no network, nobody signed in or linked */
 int shot_downloads = -1;
 
 static void fixture(dl_counts *c, int st)
@@ -2934,8 +3080,8 @@ static void fixture(dl_counts *c, int st)
 	c->free = 11200000000ULL;
 	c->mb_cover = 0.25;
 	c->mb_video = 2.5;
-	c->ss_in = st != 3;
-	c->ra_in = st != 3;
+	c->ss_in = st != 27;
+	c->ra_in = st != 27;
 	for (k = 0; k < DLK_KINDS; k++) c->fx_in[k] = true;
 	if (st == 7) c->fx_in[DLK_COVERS] = false;
 	for (i = 0; i < 9; i++) {
@@ -2974,6 +3120,8 @@ static void fixture(dl_counts *c, int st)
 	}
 }
 
+static const char *const SHOT_SYS[9] = { "NES", "SNES", "Game Boy", "Game Boy Color", "Game Boy Advance", "Genesis",
+                                          "PlayStation", "Nintendo 64", "PC Engine" };
 static const char *const SHOT_GAMES[] = { "Kingdom Run", "Pocket Quest", "Night Drive", "Moon Base", "Sky Fort",
                                           "Turbo Tails", "Crystal Bay", "Iron Comet", "Lucky Lantern",
                                           "Pixel Knights", "Star Miner", "Frog Harbor", "Neon Alley", "Rocket Pals" };
@@ -2987,10 +3135,10 @@ void downloads_shot(app *a)
 
 	fixture(&c, st);
 	dl_count_fixture(st == 5 ? NULL : &c);
-	g_fx_net = st != 3;
+	g_fx_net = st != 3 && st != 27;
 	g_fx_art = g_fx_ra = g_fx_cht = st == 1 || (st >= 14 && st <= 16);
 	g_fx_pct = st == 1 ? 41 : -1;
-	g_fx_user = st == 3 || st == 24 ? NULL : "tarik";
+	g_fx_user = st == 27 || st == 24 ? NULL : "tarik";
 	memset(&v, 0, sizeof v);
 	v.a = a;
 	v.fixture = true;
@@ -3046,14 +3194,14 @@ void downloads_shot(app *a)
 		v.t0 = now;
 		for (i = 6; i >= 0; i--)
 			ring_add(&v, i == 0 ? DLK_CHEATS : i % 3 == 0 ? DLK_ACH : i % 3 == 1 ? DLK_COVERS : DLK_NAMES, NULL, SHOT_GAMES[i],
-			         i == 0 ? 129 : i % 3 ? 0 : 40 + i * 13);
+			         SHOT_SYS[i % 9], i == 0 ? 129 : i % 3 ? 0 : 40 + i * 13);
 		v.land_at = now - DL_LAND;
 	}
 	if (st >= 14 && st <= 16) push(&v, V_RUN);
 	if (st == 17 || st == 18) {
 		for (i = 13; i >= 7; i--)
 			ring_add(&v, i % 4 == 0 ? DLK_VIDEOS : i % 3 == 0 ? DLK_ACH : i % 5 == 0 ? DLK_CHEATS : DLK_COVERS, NULL,
-			         SHOT_GAMES[i], 0);
+			         SHOT_GAMES[i], SHOT_SYS[i % 9], 0);
 		v.end = st == 17 ? END_DONE : END_STOPPED;
 		if (st == 18) snprintf(v.why, sizeof v.why, "%s", T(S_DOWNLOADS_YOU_STOPPED));
 		v.ap.found = 41;
