@@ -6022,7 +6022,13 @@ book, the cup and the set's count. Over the keys: the counts per kind as
 marks and the time left beside a clock, or in **warning** why it waits -
 `Waiting for Wi-Fi`, `RetroAchievements asked for a pause · 0:42`. B
 Continue in background (the page closes, the corner's ring shows it, MENU's
-row says `Downloading · 41%`), Y Stop. **Done**: **All done**, **Stopped**
+row says `Downloading · 41%`), Y Stop. What came is the run's, not the
+page's (1.1.0-rc.3 opened again on empty tiles): the launcher keeps the
+newest fourteen for the session, with what lands while the page is closed
+or a game waits, and the page opened again shows the stream and the wall as
+they were, the pictures it showed at once and the others as they are read;
+a new run starts them again, and once its end has been seen they go. Not
+over a power-off: POWER stops the run. **Done**: **All done**, **Stopped**
 (why under it) or **Sign in again**; the wall of what came (fourteen at
 most), the counts, and over the keys `It all works offline now` or `The
 next download starts from what is missing`. A Again (from what is missing,

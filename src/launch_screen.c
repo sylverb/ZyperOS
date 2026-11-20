@@ -9,6 +9,7 @@
 #include "ctl.h"
 #include "hkstore.h"
 #include "ctl_channel.h"
+#include "dl_screen.h"
 #include "dlq.h"
 #include "dsv.h"
 #include "ingame_screen.h"
@@ -1381,6 +1382,7 @@ void launch(app *a)
 		 * the display, so this side tears its own down first. */
 		anim_launch(a);
 		free_all_textures(a);
+		downloads_video_gone();     /* the Downloads page's kept pictures */
 		page_fonts_quit();
 		ui_quit();
 		plat_input_quit();
