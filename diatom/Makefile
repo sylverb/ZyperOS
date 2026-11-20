@@ -161,7 +161,7 @@ $(BUILD)/%.o: %.c
 # backend exists. Cheap to check, so check it.
 # Mechanical checks, each guarding a rule that decays the moment nothing fails
 # when it is broken: check-seam has held since day one for exactly that reason.
-check: check-seam check-copies check-corefacts check-rates check-cheevos check-screens check-chord check-fdsdisk check-sgb check-fdssgb check-pace check-emumeter check-corefail check-corefail-e2e check-flipwatch check-stick check-bounds check-rumble check-statefile check-proto check-port check-power check-power-e2e check-flipwatch-e2e check-fastforward check-lateskip check-stateplane check-resident check-hotkeys check-coreend check-cardframe check-now check-hudspeed check-displaylock check-rumble-e2e check-player2 check-states check-statereads check-cheats
+check: check-seam check-copies check-corefacts check-rates check-cheevos check-screens check-chord check-fdsdisk check-sgb check-fdssgb check-pace check-emumeter check-corefail check-corefail-e2e check-flipwatch check-stick check-bounds check-rumble check-statefile check-proto check-port check-power check-power-e2e check-flipwatch-e2e check-fastforward check-lateskip check-stateplane check-resident check-hotkeys check-coreend check-rtc check-cardframe check-now check-hudspeed check-displaylock check-rumble-e2e check-player2 check-states check-statereads check-cheats
 
 # Does a RetroAchievements address reach the byte it names? Offline, needs no
 # core and no ROM, and links only cheevos.c plus the vendored runtime - so it
@@ -511,6 +511,13 @@ check-coreend:
 	$(FRESH_IF_BUILT)
 	@python3 test/coreend.py
 .PHONY: check-coreend
+
+# A cartridge's clock kept apart from its battery (RETRO_MEMORY_RTC, Gambatte's
+# MBC3): <rom>.rtc written on the way out and read in at the next start
+check-rtc:
+	$(FRESH_IF_BUILT)
+	@python3 test/rtc.py
+.PHONY: check-rtc
 
 # The frame for the launcher's card of a game with no art: written once, a
 # minute into play, never over one already there, and not before the minute

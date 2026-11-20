@@ -1839,9 +1839,9 @@ static void what_scrolls(void)
  * byte count, no Favorite, which Y does from the shelf, and no Saves, which
  * the carousel shows with the frames themselves. A row is easy to put back by
  * habit. */
-/* Every row of a scraped game but Rename, Buttons and Add to Collection:
- * GI_MAX less those three */
-#define INFO_FULL (GI_MAX - 3)
+/* Every row of a scraped game but Rename, Buttons, Add to Collection and
+ * Core: GI_MAX less those four */
+#define INFO_FULL (GI_MAX - 4)
 
 static void info_rows(void)
 {
@@ -1981,6 +1981,7 @@ static void info_rows(void)
 		rg.can_favorite = true;
 		rg.can_collect = true;
 		snprintf(rg.collected, sizeof rg.collected, "In 2");
+		snprintf(rg.core, sizeof rg.core, "gambatte");
 		rg.own_buttons = true;
 		rg.scraped = true;
 		rg.has_synopsis = true;
@@ -1995,6 +1996,9 @@ static void info_rows(void)
 		for (j = 0; j < rn && strcmp(rr[j].label, "Favorite"); j++) {}
 		ck(j + 1 < rn && !strcmp(rr[j + 1].label, "Add to Collection") && rr[j + 1].live &&
 		   !strcmp(val(&rr[j + 1]), "In 2"), "Add to Collection right after Favorite, live, its count");
+		for (j = 0; j < rn && strcmp(rr[j].label, "Core"); j++) {}
+		ck(j < rn && j > 0 && !strcmp(rr[j - 1].label, "Genre") && !rr[j].live && !strcmp(val(&rr[j]), "gambatte"),
+		   "the core, a fact after the genre, where the shelf has two");
 		rg.collected[0] = '\0';
 		rn = gi_rows(rr, &rg, true);
 		for (j = 0; j < rn && strcmp(rr[j].label, "Add to Collection"); j++) {}
