@@ -91,8 +91,11 @@ done
 [ "$H" -gt "$W" ] && { m=$W; W=$H; H=$m; }
 
 # The mode drawn, and its size: Diatom's arithmetic for a square 128-pixel
-# picture (src/dmodefit.c), a word it does not know being Full Screen
-MODE=${ZYPEROS_DISPLAY:-stretch}
+# picture (src/dmodefit.c). None, or a word it does not know, is Original
+# Shape, the 480 x 480 it drew before its Display modes came: the launcher
+# hands that for a shelf whose Display was never set (src/main.c's
+# dmode_default), and only a pick of Full Screen stretches it
+MODE=${ZYPEROS_DISPLAY:-aspect}
 if [ "$NEG_OK" = 0 ]; then
 	case $MODE in overscale) MODE=integer ;; fill) MODE=aspect ;; esac
 fi
@@ -111,8 +114,10 @@ aspect|square)
 	DW=$SMALL DH=$SMALL ;;
 fill)
 	DW=$BIG DH=$BIG ;;
+stretch)
+	DW=$W DH=$H ;;
 *)
-	MODE=stretch DW=$W DH=$H ;;
+	MODE=aspect DW=$SMALL DH=$SMALL ;;
 esac
 DRAW_RECT=$(((W - DW) / 2)),$(((H - DH) / 2)),$DW,$DH
 if [ $((DW % 128)) = 0 ] && [ $((DH % 128)) = 0 ]; then PIXEL_PERFECT=1; else PIXEL_PERFECT=0; fi

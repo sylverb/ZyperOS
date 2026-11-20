@@ -228,7 +228,8 @@ static void display_flags(void)
 			{ "square", 80, 0, 480, 480, 0 },     { "integer", 128, 48, 384, 384, 1 },
 			{ "integer-vertical", 128, 48, 384, 384, 1 },
 			{ "overscale", 0, -80, 640, 640, 1 }, { "fill", 0, -80, 640, 640, 1 },
-			{ "native", 256, 176, 128, 128, 1 },  { "bogus", 0, 0, 640, 480, 0 },
+			{ "native", 256, 176, 128, 128, 1 },  { "bogus", 80, 0, 480, 480, 0 },
+			{ "", 80, 0, 480, 480, 0 },
 		};
 		int i;
 
@@ -253,8 +254,11 @@ static void display_flags(void)
 		p8_draw_rect("aspect", 640, 480, true, &b);
 		CHECK(!memcmp(&a, &b, sizeof a) && !strcmp(p8_draw_mode("fill", false), "aspect"),
 		      "P8_NEG_OK 0: Edges Cut draws as Original Shape");
-		CHECK(!strcmp(p8_draw_mode("native", false), "native") && !strcmp(p8_draw_mode(NULL, true), "stretch"),
-		      "and every other mode is itself, none being Full Screen");
+		CHECK(!strcmp(p8_draw_mode("native", false), "native") && !strcmp(p8_draw_mode("stretch", true), "stretch"),
+		      "and every other mode is itself");
+		CHECK(!strcmp(p8_draw_mode(NULL, true), "aspect") && !strcmp(p8_draw_mode("", true), "aspect") &&
+		      !strcmp(p8_draw_mode("bogus", true), "aspect"),
+		      "none, or a word no mode has: Original Shape, 480 x 480, as a shelf never set");
 	}
 
 	if (!mkdtemp(root)) {

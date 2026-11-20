@@ -2306,18 +2306,38 @@ static void ingame_rows(void)
 	   (b.sound[2] & MENU_SND_RING), "Shader, Off, stepping round as over a game");
 	ck(rows[4].value == MENU_KEY_X && gm_row_at(&u, GT_GAME, gm_x_row()) == 4, "X is still Quit");
 	ck(reachable(rows, n, got, GM_MAX_ROWS) == 5, "every row a stop");
+	/* And On-Screen Stats after Display, as the Display tab's last row is
+	 * over a game: its words, On or Off, Left and Right turning it */
+	u.port_hud = true;
+	u.hud = true;
+	n = gm_rows(&u, GT_GAME, rows, &b);
+	ck(n == 6 && gm_tab_rows(&u, GT_GAME, ids) == 6 && ids[1] == GM_DISPLAY && ids[2] == GM_HUD &&
+	   ids[3] == GM_SHADER && ids[4] == GM_CONTROLS && ids[5] == GM_QUIT,
+	   "Continue, Display, On-Screen Stats, Shader, Controls and Quit");
+	ck(!strcmp(rows[2].label, "On-Screen Stats") && rows[2].value && !strcmp(rows[2].value, "On") &&
+	   (b.sound[2] & MENU_SND_RING), "On-Screen Stats, On, Left and Right turning it, as over a game");
+	u.hud = false;
+	gm_rows(&u, GT_GAME, rows, &b);
+	ck(rows[2].value && !strcmp(rows[2].value, "Off"), "Off when it is off");
+	ck(gm_row_at(&u, GT_GAME, gm_x_row()) == 5, "X still Quit");
+	/* With room round the picture and an old screen: Border before Shader
+	 * and Strength under it, after On-Screen Stats */
 	u.border = "Blur";
 	u.shader = "CRT";
 	u.strength = "70%";
 	n = gm_rows(&u, GT_GAME, rows, &b);
-	ck(n == 7 && gm_tab_rows(&u, GT_GAME, ids) == 7 && ids[0] == GM_CONTINUE && ids[1] == GM_DISPLAY &&
-	   ids[2] == GM_BORDER && ids[3] == GM_SHADER && ids[4] == GM_STRENGTH && ids[5] == GM_CONTROLS &&
-	   ids[6] == GM_QUIT, "with room and an old screen: Continue, Display, Border, Shader, Strength, "
-	   "Controls and Quit, the Display tab's order");
-	ck(!strcmp(rows[2].value, "Blur") && !strcmp(rows[3].value, "CRT") && !strcmp(rows[4].value, "70%"),
+	ck(n == 8 && gm_tab_rows(&u, GT_GAME, ids) == 8 && ids[0] == GM_CONTINUE && ids[1] == GM_DISPLAY &&
+	   ids[2] == GM_HUD && ids[3] == GM_BORDER && ids[4] == GM_SHADER && ids[5] == GM_STRENGTH &&
+	   ids[6] == GM_CONTROLS && ids[7] == GM_QUIT, "with room and an old screen: Continue, Display, "
+	   "On-Screen Stats, Border, Shader, Strength, Controls and Quit");
+	ck(!strcmp(rows[3].value, "Blur") && !strcmp(rows[4].value, "CRT") && !strcmp(rows[5].value, "70%"),
 	   "each its value");
-	ck(gm_row_at(&u, GT_GAME, gm_x_row()) == 6 && reachable(rows, n, got, GM_MAX_ROWS) == 7,
+	ck(gm_row_at(&u, GT_GAME, gm_x_row()) == 7 && reachable(rows, n, got, GM_MAX_ROWS) == 8,
 	   "X still Quit, every row a stop");
+	u.port_hud = false;
+	n = gm_rows(&u, GT_GAME, rows, &b);
+	ck(n == 7 && gm_tab_rows(&u, GT_GAME, ids) == 7 && ids[2] == GM_BORDER && ids[3] == GM_SHADER &&
+	   ids[4] == GM_STRENGTH, "with no On-Screen Stats row: Border, Shader and Strength after Display");
 	u.border = NULL;
 	u.shader = NULL;
 	u.strength = NULL;

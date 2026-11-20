@@ -1519,11 +1519,17 @@ for _k, _m in enumerate(("stretch", "aspect", "square", "integer", "tall", "over
 for _name in ["pico8-menu-display", "pico8-display-list"] + ["pico8-restart-" + _m for _m in (
         "stretch", "aspect", "square", "integer", "tall", "overscale", "fill", "native")]:
     SHOT_SETTINGS[_name] = {"display.PICO8": "integer"}
-# And its picture's other rows, drawn by its shim (src/p8fx.h): Border, Shader
-# and Strength after Display in the Display tab's order, the cursor on Shader
-# at CRT 70% with Blur round it; and Border's list, the cursor on Blur
-EXTRA["pico8-menu-shader"] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "3", "port"])
-EXTRA["pico8-border-list"] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "2", "port",
+# ...and its On-Screen Stats row, after Display, Off and On
+EXTRA["pico8-menu-hud"] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "2", "port"])
+EXTRA["pico8-menu-hud-on"] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "2", "port"])
+SHOT_SETTINGS["pico8-menu-hud"] = {"display.PICO8": "integer"}
+SHOT_SETTINGS["pico8-menu-hud-on"] = {"display.PICO8": "integer", "hud": "1"}
+# ...and its picture's other rows, drawn by its shim (src/p8fx.h): Border,
+# Shader and Strength after On-Screen Stats in the Display tab's order, the
+# cursor on Shader at CRT 70% with Blur round it; and Border's list, the
+# cursor on Blur
+EXTRA["pico8-menu-shader"] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "4", "port"])
+EXTRA["pico8-border-list"] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "3", "port",
                                                  "--gm-choose", "--pick-at", "1"])
 for _name in ("pico8-menu-shader", "pico8-border-list"):
     SHOT_SETTINGS[_name] = {"display.PICO8": "integer", "shader.PICO8": "crt", "shader_strength.PICO8": "70",

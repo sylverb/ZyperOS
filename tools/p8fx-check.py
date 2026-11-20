@@ -13,8 +13,8 @@
    says so.
 3. The real launcher in desk mode's dummy window (build-native/zyperos, make
    native), as portkeys starts it over the program (--port-menu PICO8 CART):
-   the rows Continue, Display, Border, Shader, Controls and Quit, Strength
-   under an old screen; Shader stepped is shader.PICO8 kept and the look
+   the rows Continue, Display, On-Screen Stats, Border, Shader, Controls and
+   Quit, Strength under an old screen; Shader stepped is shader.PICO8 kept and the look
    file written for the shim, Strength and Border the same; Your Own's
    picture made into its DTOV file; no Border where the mode covers the
    screen; over OpenBOR none of them. And a cart opened on your PICO-8 from
@@ -254,10 +254,10 @@ def launcher(tmp):
         m, ok = start('menu', ['--port-menu', 'PICO8', cart])
         check(ok, 'it is up')
         seen = drawn('menu')
-        check(order(seen, ['Continue', 'Display', 'Border', 'Shader', 'Controls', 'Quit']),
-              'Continue, Display, Border, Shader, Controls, Quit: the Display tab\'s order')
+        check(order(seen, ['Continue', 'Display', 'On-Screen Stats', 'Border', 'Shader', 'Controls', 'Quit']),
+              'Continue, Display, On-Screen Stats, Border, Shader, Controls, Quit: the Display tab\'s order')
         check('Strength' not in seen, 'no Strength while the shader is Off')
-        keys('down', 'down', 'down', 'right')                 # Shader: Off -> Sharp-Shimmerless
+        keys('down', 'down', 'down', 'down', 'right')         # Shader: Off -> Sharp-Shimmerless
         check(wait_for(lambda: value('shader.PICO8') == 'shimmerless', 3), f'Right on Shader: shader.PICO8 kept '
               f'({value("shader.PICO8")})')
         check(look_lines().get('shader') == 'shimmerless', f'...and the look file says it ({look_lines()})')
@@ -278,7 +278,7 @@ def launcher(tmp):
         (card / 'Borders/PICO-8').mkdir(parents=True, exist_ok=True)
         png(card / 'Borders/PICO-8/frame.png', 64, 48)
         m, ok = start('own', ['--port-menu', 'PICO8', cart])
-        keys('down', 'down', 'right')                         # Border: Blur -> Your Own
+        keys('down', 'down', 'down', 'right')                 # Border: Blur -> Your Own
         lines = look_lines()
         check(value('border.PICO8') == 'own' and lines.get('border') == 'picture' and
               lines.get('border_file') == str(picture), f'Your Own: the look file names its picture ({lines})')

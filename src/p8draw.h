@@ -45,14 +45,17 @@
 /* 1: pico8_64 takes a -draw_rect that starts off the panel (see above) */
 #define P8_NEG_OK 1
 
-/* The mode `display` (a display.<TAG> word, ZYPEROS_DISPLAY; NULL or a
- * word it does not know is stretch, as Diatom's default) on a landscape
+/* The mode `display` (a display.<TAG> word, ZYPEROS_DISPLAY; NULL, none or a
+ * word it does not know is Original Shape, the 480 x 480 your PICO-8 drew
+ * before its Display modes, as a shelf never set still does: main.c's
+ * dmode_default) on a landscape
  * surface `w` x `h`: the rect into `r`, and the return is whether it is
  * drawn unfiltered. `neg_ok` is P8_NEG_OK, a parameter for the check. */
 bool p8_draw_rect(const char *display, int w, int h, bool neg_ok, dmode_rect *r);
 
-/* The mode actually drawn for `display`: itself, or with `neg_ok` false
- * the nearest one on the panel (Zoomed's and Edges Cut's) */
+/* The mode actually drawn for `display`: itself, Original Shape for none or
+ * an unknown word, or with `neg_ok` false the nearest one on the panel
+ * (Zoomed's and Edges Cut's) */
 const char *p8_draw_mode(const char *display, bool neg_ok);
 
 #endif

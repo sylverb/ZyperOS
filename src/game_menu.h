@@ -267,6 +267,11 @@ typedef struct {
 	 * `dmode` its value. A picks a mode from its list, which starts the
 	 * program again after a question; Left and Right step nothing */
 	bool        port_display;
+	/* ...over which portkeys draws On-Screen Stats (your PICO-8,
+	 * port_menu_overlays): its row after Display, as over a game, On or
+	 * Off on Left and Right, A its page; portkeys reads it as the menu
+	 * closes */
+	bool        port_hud;
 	/* The quick slot, 1 to GM_SLOTS; 0 where the system keeps no states */
 	int         quick;
 	/* The game has a state from before its last load (SLOT_UNDO): the Undo
@@ -324,11 +329,11 @@ int gm_disc_step(int disc, int discs, int d);
  *             glance, and A on it turns to this tab, the one L1 would
  * GM_CONTROLS and GM_PAK are in no tab: Controls is a tab now and Pak is one
  * of its rows. A port's menu (u->port) has no tabs and is Continue, Controls
- * and Quit whichever tab is asked for; over your PICO-8 (u->port_display)
- * Continue, Display, Border, Shader, Strength, Controls and Quit, the four
- * picture rows in the Display tab's order, after the Game tab's first row
- * (Border and Strength where they would show in a game: u->border,
- * u->strength). */
+ * and Quit whichever tab is asked for; over your PICO-8 (u->port_display,
+ * u->port_hud) Continue, Display, On-Screen Stats, Border, Shader, Strength,
+ * Controls and Quit, the Display tab's rows where that tab is, after the
+ * Game tab's first row (Border and Strength where they would show in a
+ * game: u->border, u->strength). */
 typedef enum { GT_GAME, GT_DISPLAY, GT_CONTROLS, GT_ACHIEVEMENTS, GT_TABS } gm_tab;
 
 /* On-Screen Stats' switch in the device's database, kept per player and

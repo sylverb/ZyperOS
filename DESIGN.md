@@ -6195,15 +6195,24 @@ the whole panel, 640 x 480, its shape changed; **Original Shape** and
 Edges Cut** the full width, 640 x 640, both cut 80 rows at the top and the
 bottom; **Actual Size** 1x, 128 x 128 in the middle. Unfiltered where PICO-8's
 pixels are whole ones of the panel's, filtered where they are not (Full
-Screen, the full height). A shelf whose Display was never set is Full
-Screen, as every system's is. Zoomed and Edges Cut start above the panel's
+Screen, the full height). A shelf whose Display was never set plays your
+PICO-8 at **Original Shape**, the 480 x 480 it drew before its Display modes
+came, and only a pick of Full Screen stretches it *(2026-11-20: the default
+must not change under a player)*; fake08 on the same shelf keeps Full Screen,
+every system's default. So the default follows the core (`dmode_default`),
+the shelf's row says it, and a system's row is written only for a pick: any
+change of any shelf's Display wrote every system's row before, and a
+"stretch" your PICO-8's row holds from then is let go of once. Zoomed and
+Edges Cut start above the panel's
 top, which no device has shown 0.2.7 taking: if it does not, one constant
 (`NEG_OK` in PICO-8.sh, `P8_NEG_OK` beside it) draws them as Sharp Pixels and
 Original Shape. On the Brick 6x is its full height (768 x 768).
 
 **Display in the game.** The menu over it has a **Display** row, after
 Continue (where the Display tab is, after the Game tab's first row), its
-value the mode on, the picture's other rows after it (below). PICO-8 draws its
+value the mode on, and **On-Screen Stats** after it, as the Display tab's
+last row is over a game, then the picture's other rows (below): Continue,
+Display, On-Screen Stats, Border, Shader, Strength, Controls, Quit. PICO-8 draws its
 picture where it was told as it started and cannot move it, so a mode is one
 it starts again in. A opens the Display list, each mode's picture beside it
 (PICO-8's own screen, cut out of the frame the menu is over, drawn in that
@@ -6221,9 +6230,9 @@ Display** hotkey over it asks the same for the next mode, with no menu
 and Border rows)*. The PICO-8 shelf's own **Shader**, **Strength** and
 **Border** rows (`shader.PICO8`, `shader_strength.PICO8`, `border.PICO8`, the
 rows fake08 plays with) draw over your PICO-8 as over a game in Diatom, and
-the menu over it has them after Display, in the Display tab's order:
-Continue, Display, Border (where the mode leaves room), Shader, Strength
-(under an old screen), Controls, Quit. These change the picture from
+the menu over it has them after Display and On-Screen Stats, in the Display
+tab's order: Continue, Display, On-Screen Stats, Border (where the mode
+leaves room), Shader, Strength (under an old screen), Controls, Quit. These change the picture from
 PICO-8's next frame after Continue, with no start again. The shaders are
 fake08's on the Pixel 2: Off, Sharp-Shimmerless, CRT, CRT Curved, Scanlines
 and LCD Grid, Diatom's own (diatom/port/gles_shaders.h), so a cart looks the
@@ -6256,7 +6265,9 @@ Speed left out, as PICO-8 says nothing of it. portkeys draws both on the
 panel's cursor window with the volume bar and "Getting hot", in one frame
 (tools/pkover.h), and keeps PICO-8's display borrowed while they show (only
 over your PICO-8, whose script opens its display once). On-Screen Stats is
-turned on in a Diatom game's menu; the menu over PICO-8 has no row for it.
+turned on in the menu over it (its row: On or Off on Left and Right, A its
+page, the same one as over a game) or over a Diatom game; portkeys reads it as
+the menu closes.
 
 **A cart's own saves** are one set for both players: fake08's `Saves/cdata`,
 bound over PICO-8's `cdata` for the run. PICO-8's settings, Splore's downloads

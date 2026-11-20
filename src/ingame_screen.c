@@ -629,9 +629,12 @@ void gm_gather(app *a, gm_ui *out)
 	u.screens = g_game_dual;
 	u.port   = g_port_menu;
 	u.waiting = g_port_waiting;
-	/* Over your PICO-8, whose picture follows the Display row */
+	/* Over your PICO-8, whose picture follows the Display row, and over
+	 * which portkeys draws On-Screen Stats */
 	u.port_display = g_port_menu && a->sys_cursor >= 0 && a->sys_cursor < a->sys.count &&
 	                 port_menu_display(a->sys.systems[a->sys_cursor].tag);
+	u.port_hud = g_port_menu && a->sys_cursor >= 0 && a->sys_cursor < a->sys.count &&
+	             port_menu_overlays(a->sys.systems[a->sys_cursor].tag);
 	/* The game's own system, on Favorites too (shelf_owner); none where its
 	 * core keeps no states, and none over a program of its own (a "run:"
 	 * one, src/portmenu.h), which has no states and no Pak */
@@ -1999,6 +2002,7 @@ bool port_restart_write(app *a, int k)
 
 	k = k >= 0 && k < DMODE_COUNT ? k : 0;
 	v->dmode = k;
+	v->dmode_kept = true;
 	snprintf(key, sizeof key, "display.%s", s->tag);
 	db_set_str(db_dev(), key, DMODES[k].name);
 	/* Whole, then renamed into place, as the port request is: launch.sh

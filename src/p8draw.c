@@ -6,7 +6,12 @@
 
 const char *p8_draw_mode(const char *display, bool neg_ok)
 {
-	if (!display || !*display) return "stretch";
+	static const char *const KNOWN[] = { "stretch", "aspect", "square", "integer", "integer-vertical",
+	                                     "overscale", "fill", "native" };
+	size_t i;
+
+	for (i = 0; display && i < sizeof KNOWN / sizeof KNOWN[0] && strcmp(display, KNOWN[i]); i++) ;
+	if (!display || i == sizeof KNOWN / sizeof KNOWN[0]) return "aspect";
 	if (!neg_ok && !strcmp(display, "overscale")) return "integer";
 	if (!neg_ok && !strcmp(display, "fill")) return "aspect";
 	return display;
