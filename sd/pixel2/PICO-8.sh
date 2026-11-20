@@ -20,11 +20,14 @@
 # its own file list looks, is the PICO-8 shelf's folder.
 #
 # The picture: the shelf's Display row, as launch.sh hands it over in
-# ZYPEROS_DISPLAY (src/launch_screen.c): Sharp Pixels is whole multiples of
-# PICO-8's 128 pixels (3x, 384 x 384 on the Pixel 2's 640 x 480), every other
-# mode the panel's full height (480 x 480). SDL draws it with the GLES 2
-# renderer and turns it onto the Pixel 2's turned panel (launch.sh's
-# SDL_RENDER_DRIVER and SDL_KMSDRM_ROTATION).
+# ZYPEROS_DISPLAY (src/launch_screen.c), or the in-game menu's Display row,
+# which starts this again with the new one (launch.sh's port_quit). Each mode
+# is where Diatom puts a 128 x 128 picture in it, so the row means over your
+# PICO-8 what it means over fake08 (src/p8draw.h has the table): PICO-8's own
+# -draw_rect, the screen's place and size in its window, for every mode, and
+# -pixel_perfect 1, unfiltered, where the size is a whole multiple of 128.
+# SDL draws it with the GLES 2 renderer and turns it onto the Pixel 2's
+# turned panel (launch.sh's SDL_RENDER_DRIVER and SDL_KMSDRM_ROTATION).
 #
 # Leaving it: MENU is ZyperOS's in-game menu over it (portkeys), X there
 # Quit; MENU+START held a second goes home even when it hangs (zyhome); START
@@ -67,10 +70,53 @@ case $1 in
 esac
 [ -d "$ROOT" ] || ROOT="$CARD/Roms/PICO-8"
 
-case ${ZYPEROS_DISPLAY:-} in
-integer*|overscale) PIXEL_PERFECT=1 ;;
-*)                  PIXEL_PERFECT=0 ;;
+# 1 while pico8_64 takes a -draw_rect that starts above or left of the
+# panel: Sharp Pixels Zoomed and Fill Edges Cut do (y -80 on the Pixel 2).
+# 0.2.7 hands the x and y to SDL as they are on its GPU path, by a reading of
+# the program, but no device has shown it. If one shows PICO-8 refusing it,
+# 0 turns those two into the nearest mode on the panel, Zoomed into Sharp
+# Pixels and Edges Cut into Original Shape: src/p8draw.h's P8_NEG_OK goes with
+# it, and make check-pico8 holds the two the same.
+NEG_OK=1
+
+# The window PICO-8 gets: the panel's first mode, landscape, as SDL turns a
+# portrait panel (launch.sh); 640 x 480 when the system does not say
+W=640 H=480
+for m in /sys/class/drm/card*-*/modes; do
+	read -r m < "$m" 2> /dev/null || continue
+	case $m in
+	[0-9]*x[0-9]*) W=${m%%x*} H=${m#*x} H=${H%%[!0-9]*}; break ;;
+	esac
+done
+[ "$H" -gt "$W" ] && { m=$W; W=$H; H=$m; }
+
+# The mode drawn, and its size: Diatom's arithmetic for a square 128-pixel
+# picture (src/dmodefit.c), a word it does not know being Full Screen
+MODE=${ZYPEROS_DISPLAY:-stretch}
+if [ "$NEG_OK" = 0 ]; then
+	case $MODE in overscale) MODE=integer ;; fill) MODE=aspect ;; esac
+fi
+SMALL=$H BIG=$W
+[ "$W" -lt "$H" ] && { SMALL=$W; BIG=$H; }
+case $MODE in
+native)
+	DW=128 DH=128 ;;
+integer|integer-vertical)
+	F=$((SMALL / 128)); [ "$F" -lt 1 ] && F=1
+	DW=$((128 * F)) DH=$DW ;;
+overscale)
+	F=$(((BIG + 127) / 128)); [ "$F" -lt 1 ] && F=1
+	DW=$((128 * F)) DH=$DW ;;
+aspect|square)
+	DW=$SMALL DH=$SMALL ;;
+fill)
+	DW=$BIG DH=$BIG ;;
+*)
+	MODE=stretch DW=$W DH=$H ;;
 esac
+DRAW_RECT=$(((W - DW) / 2)),$(((H - DH) / 2)),$DW,$DH
+if [ $((DW % 128)) = 0 ] && [ $((DH % 128)) = 0 ]; then PIXEL_PERFECT=1; else PIXEL_PERFECT=0; fi
+echo "pico8: Display ${ZYPEROS_DISPLAY:-(none)}, drawn $MODE at $DRAW_RECT on ${W}x${H}"
 # SDL's video driver named, always: with -pixel_perfect 0, pico8_64 (0.2.7)
 # sets SDL_VIDEODRIVER to "rpi", the Raspberry Pi's, when nothing has set it
 # (its codo_init, setenv without overwrite), and SDL has no such driver here.
@@ -98,11 +144,11 @@ fi
 cd "$HOME_DIR" || exit 1
 if [ "$RUN" = -run ]; then
 	exec "$P8/pico8_64" -home "$HOME_DIR" -root_path "$ROOT" -desktop "$HOME_DIR/desktop" \
-		-windowed 0 -pixel_perfect "$PIXEL_PERFECT" -run "$1"
+		-windowed 0 -pixel_perfect "$PIXEL_PERFECT" -draw_rect "$DRAW_RECT" -run "$1"
 elif [ -n "$RUN" ]; then
 	exec "$P8/pico8_64" -home "$HOME_DIR" -root_path "$ROOT" -desktop "$HOME_DIR/desktop" \
-		-windowed 0 -pixel_perfect "$PIXEL_PERFECT" -splore
+		-windowed 0 -pixel_perfect "$PIXEL_PERFECT" -draw_rect "$DRAW_RECT" -splore
 else
 	exec "$P8/pico8_64" -home "$HOME_DIR" -root_path "$ROOT" -desktop "$HOME_DIR/desktop" \
-		-windowed 0 -pixel_perfect "$PIXEL_PERFECT"
+		-windowed 0 -pixel_perfect "$PIXEL_PERFECT" -draw_rect "$DRAW_RECT"
 fi

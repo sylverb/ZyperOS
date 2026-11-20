@@ -10,7 +10,7 @@
         check-raset check-xfer check-sshlink check-usblink check-devmode check-devices check-devicegen check-model check-ctl check-menus check-status check-battery check-corner check-artscrape check-artrun check-sgdb check-snapshelf check-snaps check-audioout \
         check-db check-coreopts check-mp4keys check-gpuframes check-gamedel check-gamern check-esmedia check-corepins check-targets yuvtarget check-storage check-stats check-sort check-bt check-ss check-titles check-dsv check-sidelights check-osdbar check-boost check-hud check-dmodefit check-themefile check-pkkeys check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-bios check-gamefile check-startfail check-kbnav check-tween check-menumotion check-menusnap check-cardgen check-cardart check-focusfx check-blur check-gridrule check-screencard check-focusgeo check-roundrect check-rowmacro check-emptyhome check-zyperrig check-randgame check-shelfdir \
         check-sysmark check-flip check-menushots check-controls-shots check-design check-systemart check-linebreak check-portload check-portout \
-        check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-messages check-tour check-tour-shots check-textfade check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pico8 check-pico8-wget check-pico8-mp4 check-pmhelper check-portdoc check-boottheme check-splashbright check-bootbright check-seed-version check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr check-autozone \
+        check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-messages check-tour check-tour-shots check-textfade check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pico8 check-pico8-wget check-pico8-mp4 check-pico8-display check-pmhelper check-portdoc check-boottheme check-splashbright check-bootbright check-seed-version check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr check-autozone \
         check-home check-home-shots check-games check-cardpaint check-putpace landbench check-favorites-shots check-homesys-groups check-np-footer check-vidtry check-menu-rows check-layout-shots check-artbadge check-artbadge-shots check-cardart-shots design sounds strings cjk-font check-strings check-i18n-shots check-rootswitch check-datapart check-brick-closed check-hwreport \
         check-tour-previews tour-previews check-prep check-diatom check-simulator check-px2sim check-building-doc check-blog check-discord-release \
         check-release-devices check-installer release check-site-devices
@@ -51,7 +51,7 @@ CHECKS = check-cheevos check-hare check-portal check-httpd check-idle check-task
          check-clock check-autozone check-status check-battery check-battery-eta check-dslang check-pacing check-sgbmode check-border check-handframe check-gpuframes check-dsresume check-corestate check-core-stamp check-core-room check-px2-perf check-px2-snap check-px2 check-lowbatt check-powerhold check-homesys check-collect check-heat check-charging check-corner check-dsv check-sidelights check-osdbar check-boost check-hud check-dmodefit check-themefile check-pkkeys check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-bios check-gamefile check-startfail check-kbnav check-randgame check-shelfdir check-look \
          check-tween check-menumotion check-menusnap check-cardgen check-cardart check-focusfx check-blur check-gridrule check-screencard check-focusgeo check-roundrect check-rowmacro check-emptyhome check-zyperrig check-sysmark check-flip check-menushots check-design \
          check-systemart check-linebreak check-portload check-portout check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-messages \
-         check-tour check-tour-shots check-tour-previews check-textfade check-glyphs check-scale check-shaderdemo check-shaderpic check-screenfx check-ds check-layout-ratchet check-flex check-hover check-hover-sweep check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pico8 check-pico8-wget check-pico8-mp4 check-pmhelper check-pmart check-portdoc check-boottheme check-splashbright check-bootbright check-seed-version check-panelgamma check-panelgamma-sunxi check-nightmode check-autotheme check-displayback check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-start-soc check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr \
+         check-tour check-tour-shots check-tour-previews check-textfade check-glyphs check-scale check-shaderdemo check-shaderpic check-screenfx check-ds check-layout-ratchet check-flex check-hover check-hover-sweep check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pico8 check-pico8-wget check-pico8-mp4 check-pico8-display check-pmhelper check-pmart check-portdoc check-boottheme check-splashbright check-bootbright check-seed-version check-panelgamma check-panelgamma-sunxi check-nightmode check-autotheme check-displayback check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-start-soc check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr \
          check-home check-home-shots check-games check-cardpaint check-putpace check-favorites-shots check-homesys-groups check-np-footer check-vidtry check-menu-rows check-layout-shots check-artbadge check-artbadge-shots check-cardart-shots checkmark \
          check-installer check-from-rogue check-importers check-diatom check-simulator check-qemu-image check-desk check-homekeys check-videoview check-inrepeat check-keymap check-handhelds check-px2sim check-building-doc check-blog check-discord-release \
          check-release-devices check-strings check-i18n-shots check-rootswitch check-datapart check-brick-closed check-hwreport check-kitbuild
@@ -695,7 +695,9 @@ build-native/sysupdate-check: tools/sysupdate-check.c src/sysupdate.c src/sysupd
 
 # Your PICO-8 (src/pico8.c): the zip's rules, a zip copied by hand taken
 # out (zips the check writes itself, never Lexaloffle's files), Splore's entry
-# and the page's words
+# and the page's words; and its picture (src/p8draw.h): each Display mode
+# Diatom's rect for a 128 x 128 picture, and sd/pixel2/PICO-8.sh, run with a
+# stand-in pico8_64, handing that rect (-draw_rect) and filter to it
 check-pico8: build-native/pico8-check
 	@./build-native/pico8-check
 
@@ -718,15 +720,30 @@ check-pico8-mp4: build-native/mp4hand-check native
 	@./build-native/mp4hand-check
 	@python3 tools/pico8-mp4-check.py
 
+# The in-game menu's Display row over your PICO-8 (src/portmenu.h's
+# port_menu_display): launch.sh's run_port with stand-ins, a start again from
+# the restart file and USR2 (the program ended and started again with the
+# new Display, portkeys and the follower going on, a bad word a plain Quit, a
+# file from before none, POWER meanwhile starting nothing), then the real
+# launcher in desk mode's dummy window as portkeys starts it: the row, its
+# list, the question with the cursor on Cancel, Start Again's exit and what
+# it keeps, none over OpenBOR, and --display, the Next Display hotkey's
+# question alone (tools/pico8-display-check.py)
+check-pico8-display: native
+	@python3 tools/pico8-display-check.py
+
 build-native/mp4hand-check: tools/mp4hand-check.c src/mp4hand.c src/mp4hand.h src/mp4queue.c src/mp4queue.h \
                             src/portmenu.h src/pico8.h FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g $(MEDIA_SAN) -Isrc \
 	      -o $@ tools/mp4hand-check.c src/mp4hand.c src/mp4queue.c -lm
 
-build-native/pico8-check: tools/pico8-check.c src/pico8.c src/pico8.h src/sysupdate.h src/library.h $(I18N_SRC) FORCE
+build-native/pico8-check: tools/pico8-check.c src/pico8.c src/pico8.h src/sysupdate.h src/library.h \
+                          src/p8draw.c src/p8draw.h src/dmodefit.c src/dmodefit.h diatom/src/scale.c \
+                          sd/pixel2/PICO-8.sh $(I18N_SRC) FORCE
 	@mkdir -p build-native
-	$(CC) -std=gnu11 -Wall -Wextra -O1 -g -o $@ tools/pico8-check.c src/pico8.c $(I18N_SRC) -lz
+	$(CC) -std=gnu11 -Wall -Wextra -O1 -g -Idiatom/src -Idiatom/include -o $@ tools/pico8-check.c src/pico8.c \
+	      src/p8draw.c src/dmodefit.c diatom/src/scale.c $(I18N_SRC) -lz
 
 # What the Install PortMaster page says in each state (src/pminstall.c,
 # DESIGN.md 11.32), and the Ports shelf's PortMaster entry
