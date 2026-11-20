@@ -81,6 +81,15 @@ static bool   g_prog_failed[DIATOM_FILTER_COUNT];
 static GLuint g_prog_soft[DIATOM_FILTER_COUNT];
 static bool   g_soft_failed[DIATOM_FILTER_COUNT];
 static GLuint g_frame_tex, g_overlay_tex, g_osdbar_tex, g_hud_tex;
+/* The Border (diatom_port_border): the host's picture, copied, uploaded on
+ * the presenting thread when it moved, drawn under the game while on. Under
+ * g_mx, as the overlay is. */
+static GLuint   g_border_tex;
+static uint8_t *g_bd;
+static int      g_bd_w, g_bd_h;
+static bool     g_bd_on, g_bd_dirty;
+/* The size the texture holds, the presenting thread's own (set as it uploads) */
+static int      g_bd_tex_w, g_bd_tex_h;
 static int    g_tex_w = -1, g_tex_h = -1;
 static diatom_pixfmt g_tex_fmt;
 

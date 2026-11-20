@@ -19,6 +19,7 @@
 #include "notice.h"
 #include "pacing.h"
 #include "sgbmode.h"
+#include "border_pic.h"
 #include "panel.h"
 #include "pico8.h"
 #include "place.h"
@@ -1181,6 +1182,10 @@ void launch(app *a)
 			                   DMODES[a->view[o].dmode].name,
 			                   SHADERS[a->view[o].shader].name,
 			                   strength_clamp(a->view[o].strength));
+			/* Its Border (src/border.h), the system's, after the mode it
+			 * fills around: Diatom drops it at each RUN, so a system with
+			 * none is black around as before. Off sends nothing more. */
+			if (border_load(a, o) != BORDER_OFF) border_send(a, o);
 			/* On-Screen Stats, the player's, the same way: Diatom keeps
 			 * it from game to game, and a new launcher's is the one kept */
 			{

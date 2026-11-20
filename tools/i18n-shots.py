@@ -695,12 +695,33 @@ for _name, _view in (("shelf-fds-needs-bios", None), ("shelf-fds-needs-bios-list
         SHOT_SETTINGS[_name] = {"view.NES": _view}
 
 
+def border_png(path):
+    """A picture of the player's own for Border's Your Own (src/border.h):
+    ours, diagonal bands in two blues round a plain middle, 320x240"""
+    rows = []
+    for y in range(240):
+        row = []
+        for x in range(320):
+            if 40 <= x < 280 and 24 <= y < 216:
+                row.append((28, 36, 64))
+            elif ((x + y) // 12) % 2:
+                row.append((60, 98, 168))
+            else:
+                row.append((44, 72, 132))
+        rows.append(row)
+    R.png_rgb(path, 320, 240, rows)
+
+
 def set_files(card, files, on):
-    """A shot's files (SHOT_FILES) on the card, empty, or off it"""
+    """A shot's files (SHOT_FILES) on the card, empty, or off it; a .png
+    under Borders/ a real picture (border_png)"""
     for f in files or []:
         path = card / f
         if on:
             path.parent.mkdir(parents=True, exist_ok=True)
+            if f.startswith("Borders/") and f.endswith(".png"):
+                border_png(path)
+                continue
             path.touch()
         elif path.exists():
             path.unlink()
@@ -960,9 +981,10 @@ for (_folder, _file, _wh, _sky, _ground, _hue) in (
 for _name, _flags in (("shelf-recents-screen", ["--screen", "games"]),
                       ("shelf-recents-screen-grid", ["--screen", "games", "--view", "grid"]),
                       ("recents-menu-picture", ["--screen", "games", "--menu", "Card Picture"]),
-                      ("recents-picture-list", ["--screen", "games", "--menu", "Card Picture", "--press", "a"]),
+                      ("recents-picture-list", ["--screen", "games", "--menu", "Card Picture", "--press", "a",
+                                                "--expect-en", "Cover|Last Screen"]),
                       ("recents-picture-list-cover", ["--screen", "games", "--menu", "Card Picture", "--press", "a",
-                                                      "--pick-at", "0"])):
+                                                      "--pick-at", "0", "--expect-en", "Cover|Last Screen"])):
     EXTRA.setdefault(_name, ("demo", "RECENT", _flags))
     SHOT_LIB[_name] = _RECENT_LIB
     SHOT_TEXT[_name] = _RECENT_SCREENS
@@ -1128,6 +1150,31 @@ EXTRA.setdefault("theme-folders-orange", ("demo", "PS1", ["--look", "lime,warm,b
                                                           "--look-page", "theme", "3"]))
 EXTRA.setdefault("theme-folders-list-system", ("demo", "PS1", ["--look-page", "theme-list", "3", "--pick-at", "0"]))
 EXTRA.setdefault("theme-folders-list-teal", ("demo", "PS1", ["--look-page", "theme-list", "3", "--pick-at", "3"]))
+# Border (src/border.h): the Game Boy's system menu at Sharp Pixels, a
+# Game Boy's 160x144 kept for it, at Blur; its list with each kind under the
+# cursor, a picture of the player's own on the card for Your Own; and the
+# in-game Display tab's row and list over a paused Game Boy game
+_BORDER_SET = {"display.GB": "integer", "display_source.GB": "160x144", "display_shape.GB": "1.11111"}
+_BORDER_PIC = ["Borders/Game Boy/Waves.png"]
+EXTRA.setdefault("system-menu-border", ("demo", "GB", ["--screen", "games", "--menu", "Border"]))
+SHOT_SETTINGS["system-menu-border"] = dict(_BORDER_SET, **{"border.GB": "blur"})
+SHOT_FILES["system-menu-border"] = _BORDER_PIC
+for _k, _p in enumerate(("off", "blur", "own")):
+    EXTRA.setdefault("system-menu-border-list-" + _p, ("demo", "GB", ["--screen", "games", "--menu", "Border",
+                                                                     "--press", "a", "--pick-at", str(_k),
+                                                                     "--expect-en", "Off|Blur?|Your Own"]))
+    SHOT_SETTINGS["system-menu-border-list-" + _p] = dict(_BORDER_SET)
+    SHOT_FILES["system-menu-border-list-" + _p] = _BORDER_PIC
+    EXTRA.setdefault("gamemenu-border-list-" + _p, ("demo", "GB", ["--gamemenu", "1", "--gm-tab", "1", "--gm-choose",
+                                                                  "--pick-at", str(_k), "--gm-source",
+                                                                  "160x144@1.11111", "--expect-en",
+                                                                  "Off|Blur?|Your Own"]))
+    SHOT_SETTINGS["gamemenu-border-list-" + _p] = dict(_BORDER_SET)
+    SHOT_FILES["gamemenu-border-list-" + _p] = _BORDER_PIC
+EXTRA.setdefault("gamemenu-border", ("demo", "GB", ["--gamemenu", "1", "--gm-tab", "1", "--gm-source",
+                                                    "160x144@1.11111"]))
+SHOT_SETTINGS["gamemenu-border"] = dict(_BORDER_SET, **{"border.GB": "own"})
+SHOT_FILES["gamemenu-border"] = _BORDER_PIC
 # Super Game Boy (src/sgbmode.h) on the Game Boy's system menu, at Its
 # Games, and its list with each choice under the cursor: the picture of each
 # at the shelf's display mode and what it does under it

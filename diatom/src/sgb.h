@@ -40,6 +40,10 @@ bool diatom_sgb_wanted(diatom_sgb_mode mode, const unsigned char *rom, size_t si
 /* The mode for the next game (RUN's), kept until the next RUN */
 void diatom_sgb_set(diatom_sgb_mode mode);
 
+/* Whether the game loaded last started as a Super Game Boy (its own border
+ * is in its picture): the Border is not drawn around it (src/border.h) */
+bool diatom_sgb_active(void);
+
 /* Before the core loads the game: the two options set for it when the mode
  * wants a Super Game Boy (diatom_options_set, dropped when the game ends as
  * every option the launcher sends is). Nothing for a ROM the core reads

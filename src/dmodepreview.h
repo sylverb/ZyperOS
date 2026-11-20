@@ -33,6 +33,17 @@ void dmode_preview_draw(app *a, SDL_Texture *frame, int src_w, int src_h, double
  * no Nintendo art. */
 void dmode_sgb_preview(app *a, int dmode, int k, int x, int y, int w, int h);
 
+/* The Border list's picture (src/border.h): the game's picture where display
+ * mode `dmode` puts it, as dmode_preview_draw draws it, with border `kind`
+ * around it: black (Off), the picture itself made small, stretched back and
+ * darkened, as Diatom's blur is (Blur), or the player's own picture made
+ * the surface's shape (`own`, a surface border_own_surface made, for Your
+ * Own; `own_key` its file, whose texture is kept while it is the same).
+ * `frame` NULL draws the stand-in, as there. */
+void dmode_border_preview(app *a, SDL_Texture *frame, int src_w, int src_h, double aspect,
+                          int dmode, int kind, SDL_Surface *own, const char *own_key,
+                          int x, int y, int w, int h);
+
 /* The surface Diatom draws on, as the last DISPLAY said, or the device's
  * panel before one did */
 void dmode_surface(int *w, int *h);
@@ -42,5 +53,8 @@ void dmode_surface(int *w, int *h);
  * kept (square pixels) and `known` false */
 void dmode_note_shape(const char *tag);
 double dmode_shape_of(const char *tag, bool *known);
+/* And the picture's size its games last said, kept with its shape: false,
+ * 0 x 0, for a system never played */
+bool dmode_source_of(const char *tag, int *w, int *h);
 
 #endif

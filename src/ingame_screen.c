@@ -9,6 +9,7 @@
 #include "cheats_screen.h"
 #include "aout_route.h"
 #include "app.h"
+#include "border_pic.h"
 #include "controls.h"
 #include "ctl_channel.h"
 #include "ctltab.h"
@@ -496,6 +497,54 @@ static bool gm_disc_fits(const char *label)
 	return ui_text_width(fm, label) <= room;
 }
 
+/* The picture Diatom said it is drawing, `sw` x `sh` with the shape `aspect`
+ * (a shot's own when it asks for one); 0 x 0 when Diatom said none */
+static void gm_source(int *sw, int *sh, double *aspect)
+{
+	if (shot_path && shot_gm_src_w > 0) {
+		*sw = shot_gm_src_w;
+		*sh = shot_gm_src_h;
+		*aspect = shot_gm_aspect;
+	} else if (!plat_resident_source(sw, sh, aspect)) {
+		*sw = *sh = 0;
+		*aspect = 0.0;
+	}
+}
+
+/* Border's row (src/border.h): its value while the display mode leaves room
+ * around the game, and no Super Game Boy border fills that room (its 256x224
+ * on a Game Boy shelf that turns it on); NULL, no row, else */
+static const char *gm_border_value(app *a)
+{
+	sysview *v = owner_view(a);
+	int sys = (int)(v - a->view), sw, sh, fw, fh;
+	const system_cfg *s = &a->sys.systems[sys];
+	double aspect;
+
+	if (g_port_menu || g_game_dual) return NULL;
+	gm_source(&sw, &sh, &aspect);
+	dmode_surface(&fw, &fh);
+	if (!border_room(DMODES[v->dmode].name, sw, sh, aspect, fw, fh)) return NULL;
+	if (sgbm_shelf(s->tag, s->core) && sgbm_load(s) == SGBM_GAMES && sw == 256 && sh == 224) return NULL;
+	return T(border_label_id(border_load(a, sys)));
+}
+
+/* Border stepped on left, right and A among what the row offers, kept for
+ * the owner's system and sent to the game at once: Diatom takes SETBORDER
+ * while paused, and the picture is around the game when it comes back */
+static void gm_step_border(app *a, int d)
+{
+	sysview *v = owner_view(a);
+	int sys = (int)(v - a->view);
+	const system_cfg *s = &a->sys.systems[sys];
+	char key[CFG_STR + 16], own[CFG_STR * 3];
+
+	border_key(s->tag, key, sizeof key);
+	db_set_str(db_dev(), key, border_id(border_step(border_load(a, sys), d, border_blur_here(),
+	                                                border_own_path(s, own, sizeof own))));
+	border_send(a, sys);
+}
+
 /* What the in-game menu needs from the app, handed to gm_rows to become rows.
  * Same split as everywhere else. */
 /* What the in-game menu shows, gathered: for its rows, and for where each
@@ -512,6 +561,7 @@ void gm_gather(app *a, gm_ui *out)
 	/* The owner's, which is the one its row sets (gm_cycle_shader) */
 	u.shader = shader_label(owner_view(a)->shader);
 	u.strength = strength_row_label(a, (int)(owner_view(a) - a->view));
+	u.border = gm_border_value(a);
 	u.hud = db_get_int(db_dev(), HUD_KEY, 0) == 1;
 	u.earned = chv_earned();
 	u.total  = chv_count();
@@ -1541,6 +1591,25 @@ static void gm_strength_preview(void *app_, int k, int x, int y, int w, int h)
 	shader_demo_draw(app_, g_gm_demo_shader, STRENGTH_MIN + k * STRENGTH_STEP, x, y, w, h);
 }
 
+/* Border's list's picture: the paused frame where the mode puts it, each
+ * kind the row offers around it (dmode_border_preview) */
+static border_kind g_gm_border_kinds[BORDER_KINDS];
+
+static void gm_border_preview(void *app_, int k, int x, int y, int w, int h)
+{
+	app *a = app_;
+	sysview *v = owner_view(a);
+	int sw, sh;
+	double aspect;
+	char path[CFG_STR * 3] = "";
+	SDL_Surface *own = NULL;
+	border_kind kind = k >= 0 && k < BORDER_KINDS ? g_gm_border_kinds[k] : BORDER_OFF;
+
+	gm_source(&sw, &sh, &aspect);
+	if (kind == BORDER_OWN) own = border_own_cached(&a->sys.systems[v - a->view], path, sizeof path);
+	dmode_border_preview(a, g_gm_frame, sw, sh, aspect, v->dmode, (int)kind, own, path, x, y, w, h);
+}
+
 static void gm_dmode_preview(void *app_, int k, int x, int y, int w, int h)
 {
 	app *a = app_;
@@ -1579,6 +1648,23 @@ const menu_choice *gm_choices(app *a, const gm_ui *u)
 		g_gm_choice[GM_DISPLAY] = (menu_choice){ .n = (unsigned char)DMODE_COUNT, .cur = (unsigned char)v->dmode,
 		                                         .labels = lab[0], .notes = notes,
 		                                         .preview = gm_dmode_preview };
+	}
+	{
+		/* Border's offered kinds, each with its note and picture */
+		static const char *labels[BORDER_KINDS], *notes[BORDER_KINDS];
+		const system_cfg *s = &a->sys.systems[v - a->view];
+		char own[CFG_STR * 3];
+		border_kind kept = border_load(a, (int)(v - a->view));
+
+		n = border_offered(border_blur_here(), border_own_path(s, own, sizeof own), g_gm_border_kinds);
+		for (i = 0, cur = 0; i < n; i++) {
+			labels[i] = T(border_label_id(g_gm_border_kinds[i]));
+			notes[i] = T(border_note_id(g_gm_border_kinds[i]));
+			if (g_gm_border_kinds[i] == kept) cur = i;
+		}
+		g_gm_choice[GM_BORDER] = (menu_choice){ .n = (unsigned char)n, .cur = (unsigned char)cur,
+		                                        .labels = labels, .notes = notes,
+		                                        .preview = gm_border_preview, .list = true };
 	}
 	g_gm_demo_tag = a->sys.systems[v - a->view].tag;
 	for (i = 0, n = 0, cur = 0; i < SHADER_COUNT && n < GM_CH_MAX; i++) {
@@ -1807,6 +1893,12 @@ static menu_result gm_key(app *a, void *ctx, in_button key, int sel)
 	 * into it. */
 	if (sel == GM_DISPLAY && (key == IN_LEFT || key == IN_RIGHT)) {
 		gm_cycle_display(a, key == IN_RIGHT ? 1 : -1);
+		return MENU_STAY;
+	}
+	/* Border, on left and right, sent to the game the same way; A opens its
+	 * list (its picture beside each), which comes back as steps */
+	if (sel == GM_BORDER && (key == IN_LEFT || key == IN_RIGHT)) {
+		gm_step_border(a, key == IN_LEFT ? -1 : 1);
 		return MENU_STAY;
 	}
 	/* The shader, on left, right and A, sent to the game the same way */

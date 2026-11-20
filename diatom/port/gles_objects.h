@@ -13,6 +13,21 @@
 	glGenTextures(1, &g_overlay_tex);
 	glGenTextures(1, &g_osdbar_tex);
 	glGenTextures(1, &g_hud_tex);
+	glGenTextures(1, &g_border_tex);
+	/* The Border: BGRA swizzled back, opaque whatever its alpha, smooth
+	 * both ways (the blur is 32x24 stretched to the panel) */
+	glBindTexture(GL_TEXTURE_2D, g_border_tex);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_R, GL_BLUE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_B, GL_RED);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_A, GL_ONE);
+	/* A Border set before this context was made (the Brick starts its GPU
+	 * path late), uploaded at its first frame */
+	g_bd_tex_w = g_bd_tex_h = 0;
+	g_bd_dirty = g_bd != NULL;
 	glBindTexture(GL_TEXTURE_2D, g_frame_tex);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);

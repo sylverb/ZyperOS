@@ -654,6 +654,66 @@ static void shot_draw_ctltab(app *a, menu_tabs *tabs)
 /* --pick-at K: the list's cursor on choice K, not on the one that is on */
 int shot_pick_at = -1;
 
+/* --expect-en "WORDS|WORDS?|...": the shot fails unless the open list's
+ * every choice is one of these, in English, in whatever language is on,
+ * and each one not marked "?" is there: a list built from another row's
+ * words shows (Recents' Card Picture said Border's Off and Blur when the two
+ * shared a pool slot, 1.1.0's test run) */
+const char *shot_expect_en;
+
+/* Whether `label` is word `w` (n bytes of it) in the language that is on */
+static bool shot_is_en(const char *label, const char *w, size_t n)
+{
+	int id;
+
+	for (id = 0; id < S_COUNT; id++) {
+		const char *en = T_en((str_id)id);
+
+		if (strlen(en) == n && !strncmp(en, w, n) && !strcmp(T((str_id)id), label)) return true;
+	}
+	return false;
+}
+
+static void shot_expect_list(const menu_choice *ch)
+{
+	const char *p = shot_expect_en, *e;
+	int k;
+	bool bad = false;
+
+	if (!p || !ch->labels) return;
+	for (k = 0; k < ch->n && !bad; k++) {
+		bool known = false;
+
+		for (p = shot_expect_en; *p && !known; p = *e ? e + 1 : e) {
+			size_t n;
+
+			e = strchr(p, '|');
+			if (!e) e = p + strlen(p);
+			n = (size_t)(e - p) - (e > p && e[-1] == '?');
+			known = shot_is_en(ch->labels[k], p, n);
+		}
+		if (!known) {
+			fprintf(stderr, "--expect-en: the list has \"%s\", which is not one of %s\n", ch->labels[k],
+			        shot_expect_en);
+			bad = true;
+		}
+	}
+	for (p = shot_expect_en; *p && !bad; p = *e ? e + 1 : e) {
+		bool there = false;
+
+		e = strchr(p, '|');
+		if (!e) e = p + strlen(p);
+		if (e > p && e[-1] == '?') continue;
+		for (k = 0; k < ch->n && !there; k++) there = ch->labels[k] && shot_is_en(ch->labels[k], p, (size_t)(e - p));
+		if (!there) {
+			fprintf(stderr, "--expect-en: the list has no %.*s\n", (int)(e - p), p);
+			bad = true;
+		}
+	}
+	if (bad) shot_failed = 1;
+	shot_expect_en = NULL;   /* once: the shot composes more than once */
+}
+
 /* An option row's list as menu_pick draws it: its choices, the one on
  * ticked, and what the one under the cursor does - in a picture column
  * beside them with its preview (menu_pick_preview), or under them */
@@ -682,6 +742,8 @@ static void shot_list_draw(app *a, const char *heading, const menu_choice *ch, i
 	static char pn[2][CHV_WRAP_COLS];
 	const int at = shot_pick_at >= 0 && shot_pick_at < ch->n ? shot_pick_at : ch->cur;
 	int k, np = ch->n, kept = ch->none ? -1 : ch->cur;
+
+	shot_expect_list(ch);
 
 	/* The choice under the cursor shown, as the list shows it: once, and
 	 * the shot composed again with it on (the tick on the one kept) */

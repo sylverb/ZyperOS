@@ -203,6 +203,8 @@ typedef enum {
 	/* On-Screen Stats over the game (src/hud.h), on or off, and A opens
 	 * its page (src/hudmenu.h): the Display tab's last row */
 	GM_HUD,
+	/* Border (src/border.h), under Display, while the mode leaves room */
+	GM_BORDER,
 	/* Cheats (src/cheats.h, DESIGN.md 11.66), on the Game tab right over
 	 * Achievements: how many are on, and A opens the game's list */
 	GM_CHEATS,
@@ -233,6 +235,9 @@ typedef struct {
 	const char *shader;   /* the shader's label; NULL reads Off */
 	/* Its strength, "50%", when it is an old screen; NULL: no Strength row */
 	const char *strength;
+	/* Border's value (src/border.h) while the display mode leaves room
+	 * around the game, and no Super Game Boy border fills it; NULL: no row */
+	const char *border;
 	/* On-Screen Stats, the player's (HUD_KEY), whatever the game */
 	bool        hud;
 	int         earned;

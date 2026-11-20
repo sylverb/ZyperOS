@@ -13,6 +13,7 @@
 #define HDR_END      0x150
 
 static diatom_sgb_mode g_mode;
+static bool            g_active;
 
 diatom_sgb_mode diatom_sgb_parse(const char *word)
 {
@@ -35,9 +36,15 @@ void diatom_sgb_set(diatom_sgb_mode mode)
 	g_mode = mode;
 }
 
+bool diatom_sgb_active(void)
+{
+	return g_active;
+}
+
 void diatom_sgb_apply(const unsigned char *rom, size_t size)
 {
-	if (!diatom_sgb_wanted(g_mode, rom, size)) return;
+	g_active = diatom_sgb_wanted(g_mode, rom, size);
+	if (!g_active) return;
 	diatom_options_set("mgba_gb_model", "Super Game Boy");
 	diatom_options_set("mgba_sgb_borders", "ON");
 }
