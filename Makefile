@@ -334,7 +334,8 @@ check-osdbar: build-native/osdbar-check
 	@./build-native/osdbar-check
 
 # The Display list's previews (src/dmodefit.h): each mode's rect as the
-# launcher works it out, against Diatom's own arithmetic (diatom/src/scale.c)
+# launcher works it out, against Diatom's own arithmetic (diatom/src/scale.c),
+# and Square Pixels' sizes for the systems #346 names, on both handhelds
 check-dmodefit: build-native/dmodefit-check
 	@./build-native/dmodefit-check
 
