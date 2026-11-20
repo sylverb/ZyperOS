@@ -85,6 +85,12 @@ void gm_preview_frame(SDL_Texture *bg);
 extern int    shot_gm_src_w, shot_gm_src_h;
 extern double shot_gm_aspect;
 void game_menu(app *a);
+/* Reset Game's hotkey: its question over the paused game, then RESET or
+ * not and back to the game (PAUSED for=reset) */
+void game_reset_ask(app *a);
+/* Next Shader (`shader`) or Next Display, the hotkeys, while the game runs:
+ * stepped, kept and sent; the name now on into out, for the pop-up */
+void gm_hotkey_step(app *a, bool shader, char *out, size_t n);
 int port_menu(app *a);
 
 /* The in-game menu's option rows' choices by gm_row, for the state `u`

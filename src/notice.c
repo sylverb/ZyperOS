@@ -98,6 +98,32 @@ static SDL_Surface *badge_load(const char *path, int size)
 	return out;
 }
 
+/* A picture `size` tall, as wide as its shape makes it (NOTICE_PICTURE) */
+static SDL_Surface *picture_load(const char *path, int size)
+{
+	SDL_Surface *img, *argb, *out;
+	int w;
+
+	if (!path || !*path || size <= 0) return NULL;
+	if (!(img = IMG_Load(path))) return NULL;
+	argb = SDL_ConvertSurfaceFormat(img, SDL_PIXELFORMAT_ARGB8888, 0);
+	SDL_FreeSurface(img);
+	if (!argb) return NULL;
+	w = argb->h > 0 ? (int)((long)size * argb->w / argb->h) : size;
+	if (w < 1) w = 1;
+	if (w > size * 3) w = size * 3;
+	out = SDL_CreateRGBSurfaceWithFormat(0, w, size, 32, SDL_PIXELFORMAT_ARGB8888);
+	if (out) {
+		SDL_SetSurfaceBlendMode(argb, SDL_BLENDMODE_NONE);
+		if (SDL_BlitScaled(argb, NULL, out, NULL) != 0) {
+			SDL_FreeSurface(out);
+			out = NULL;
+		}
+	}
+	SDL_FreeSurface(argb);
+	return out;
+}
+
 static void draw_badge(uint8_t *px, int w, int h, const SDL_Surface *b, int bx, int by)
 {
 	int corner = DS_RADIUS_ROW < b->w / 2 ? DS_RADIUS_ROW : b->w / 2, x, y;
@@ -312,7 +338,7 @@ static bool render(const char *heading, const char *body, const char *badge,
 	l2 = prog ? ui_font_line(UI_F_META) : ui_font_line(UI_F_LABEL);
 	th = l1 + l2 + (prog ? sh + pady * 2 : 0);
 	/* A mark is drawn here, as tall as a badge and as narrow as it is */
-	if (badge) bs = badge_load(badge, th - pady);
+	if (badge) bs = (look & NOTICE_PICTURE) ? picture_load(badge, th - pady) : badge_load(badge, th - pady);
 	if (!bs && mark == NOTICE_MARK_HEAT) bs = notice_heat_mark(th - pady, t->warning, t->warning);
 	/* No art on the card for it, or none yet: the plain badge, the badge's
 	 * own size and corners, so the slab is the same shape when the art lands.

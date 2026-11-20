@@ -64,11 +64,16 @@ struct HardwarePanel: View {
                             .frame(width: 90)
                     }
                 }
-                LabeledContent("Side lights") {
-                    HStack(spacing: 5) {
-                        ForEach([4, 3, 2], id: \.self) { i in light(sim.state.led(i) ? .green : nil) }
-                        light(sim.state.led(0) && sim.state.led(1) ? .orange
-                              : sim.state.led(0) ? .red : sim.state.led(1) ? .green : nil)
+                if !sim.handheld.lights.isEmpty {
+                    LabeledContent("Side lights") {
+                        HStack(spacing: 5) {
+                            ForEach(0..<sim.handheld.lights.count, id: \.self) { i in
+                                let l = sim.handheld.lights[i]
+                                let g = l.green.map { sim.state.led($0) } ?? false
+                                let r = l.red.map { sim.state.led($0) } ?? false
+                                light(g && r ? .orange : r ? .red : g ? .green : nil)
+                            }
+                        }
                     }
                 }
                 LabeledContent("Rumble") {
@@ -80,7 +85,7 @@ struct HardwarePanel: View {
             }
             Section {
                 Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 6) {
-                    ForEach(keys, id: \.1) { caps, button in
+                    ForEach(keys.filter { $0.2.allSatisfy(sim.handheld.has) }, id: \.1) { caps, button, _ in
                         GridRow {
                             HStack(spacing: 3) { ForEach(caps, id: \.self) { KeyCap(text: $0) } }
                             Text(button).foregroundStyle(.secondary)
@@ -125,10 +130,14 @@ struct HardwarePanel: View {
             .shadow(color: color ?? .clear, radius: color == nil ? 0 : 3)
     }
 
-    private let keys: [([String], String)] = [
-        (["\u{2190}", "\u{2191}", "\u{2193}", "\u{2192}"], "d-pad"), (["X", "Z", "S", "A"], "A B X Y"),
-        (["Q", "W", "E", "R"], "L1 R1 L2 R2"), (["Return"], "START"), (["R-Shift", "Delete"], "SELECT"),
-        (["Esc", "M"], "MENU"), (["-", "="], "volume"), (["P"], "POWER"), (["H"], "headphones"),
+    /// The keyboard's keys, what they press, and the buttons the handheld
+    /// needs for the row to show
+    private let keys: [([String], String, [PadButton])] = [
+        (["\u{2190}", "\u{2191}", "\u{2193}", "\u{2192}"], "d-pad", [.up]),
+        (["X", "Z", "S", "A"], "A B X Y", [.a]), (["Q", "W", "E", "R"], "L1 R1 L2 R2", [.l1]),
+        (["Return"], "START", [.start]), (["R-Shift", "Delete"], "SELECT", [.select]),
+        (["Esc", "M"], "MENU", [.menu]), (["-", "="], "volume", [.volup]),
+        (["[", "]"], "brightness (F1 F2)", [.brightdown]), (["P"], "POWER", [.power]), (["H"], "headphones", []),
     ]
 
     private var batterySymbol: String {

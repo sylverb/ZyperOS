@@ -3139,8 +3139,11 @@ static void power_row(void)
 	u.tab = PT_SYSTEM;
 	n = sys_menu_tab_rows(&u, PT_SYSTEM, tab);
 	for (k = 0; k < n && tab[k] != PM_POWER; k++) ;
-	ck(k < n && k + 1 < n && tab[k + 1] == PM_SLEEP && k > 0 && tab[k - 1] == PM_LANGUAGE,
-	   "on System's page between Language and Auto Off");
+	ck(k < n && k + 1 < n && tab[k + 1] == PM_SLEEP && k > 0 && tab[k - 1] == PM_HOTKEYS &&
+	   k > 1 && tab[k - 2] == PM_LANGUAGE,
+	   "on System's page between Hotkeys (after Language) and Auto Off");
+	ck(!strcmp(rows[PM_HOTKEYS].label, "Hotkeys") && rows[PM_HOTKEYS].live && !rows[PM_HOTKEYS].value,
+	   "Hotkeys: a row that opens its list");
 }
 
 /* Home Systems (1.0.6, src/homesys.h): on Display under System Order, All

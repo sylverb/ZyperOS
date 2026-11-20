@@ -339,6 +339,60 @@ static void presses(void)
 	ck(acts[8] == 1u << CHORD_SAVE, "MENU under a waiting SELECT does not give it to the game");
 }
 
+/* The keys from the launcher (chord_keys_parse, chord_set_keys): a face
+ * button as a hotkey's, a shoulder that is none any more is the game's
+ * under SELECT, and a bad spec changes nothing */
+static void keys_from_launcher(void)
+{
+	int key[CHORD_ACTS], def[CHORD_ACTS], i;
+	uint32_t h[MAXT] = { 0 };
+	chord c;
+	uint32_t was = 0;
+	unsigned got[MAXT];
+	uint32_t vis[MAXT];
+
+	chord_default_keys(def);
+	ck(def[CHORD_SAVE] == DIATOM_BTN_R1 && def[CHORD_SHOT] == -1 && def[CHORD_QUIT] == -1,
+	   "the keys from the start: the shoulders' four, none for the rest");
+	ck(chord_keys_parse("save:r1,load:l1,faster:r2,slower:l2,shot:y,quit:start", key) &&
+	   key[CHORD_SHOT] == DIATOM_BTN_Y && key[CHORD_QUIT] == DIATOM_BTN_START &&
+	   key[CHORD_SHADER] == -1, "a launcher's keys");
+	memcpy(key, def, sizeof key);
+	ck(!chord_keys_parse("shot:y,reset:y", key) && !chord_keys_parse("shot:select", key) &&
+	   !chord_keys_parse("shot:menu", key) && !chord_keys_parse("zoom:y", key) &&
+	   !chord_keys_parse("shot", key) && !chord_keys_parse("shot:y,shot:x", key) &&
+	   !memcmp(key, def, sizeof key), "a bad spec, SELECT, MENU or a button twice: refused, untouched");
+	ck(chord_keys_parse("none", key) && key[CHORD_SAVE] == -1 && key[CHORD_SLOWER] == -1,
+	   "none: no hotkey at all");
+
+	/* SELECT+Y with Y the screenshot's, and R1 no hotkey: SELECT then R1 is
+	 * the game's, R1 and SELECT both */
+	chord_keys_parse("shot:y", key);
+	chord_reset(&c);
+	chord_set_keys(&c, key);
+	fill(h, 2, 10, SEL);
+	fill(h, 5, 3, DIATOM_BIT(DIATOM_BTN_Y));
+	fill(h, 30, 10, SEL);
+	fill(h, 33, 3, R1);
+	for (i = 0; i < 45; i++) {
+		chord_out o = chord_turn(&c, h[i], was, (uint64_t)(1000 + i * TURN_MS), chord_keys(&c));
+
+		vis[i] = (h[i] & ~o.hide) | o.give;
+		got[i] = o.acts;
+		was = h[i];
+	}
+	ck(got[5] == 1u << CHORD_SHOT, "SELECT+Y: the screenshot, on Y's turn");
+	ck(!(vis[5] & DIATOM_BIT(DIATOM_BTN_Y)) && !(vis[6] & DIATOM_BIT(DIATOM_BTN_Y)),
+	   "and the game never sees that Y");
+	ck(!got[33] && (vis[33] & R1) && (vis[33] & SEL),
+	   "R1 no hotkey: SELECT then R1 is the game's, both");
+	ck(chord_keys(&c) == DIATOM_BIT(DIATOM_BTN_Y) && chord_key_of(&c, CHORD_SAVE) == 0,
+	   "chord_keys: Y alone");
+	/* a reset is the keys from the start again */
+	chord_reset(&c);
+	ck(chord_keys(&c) == CHORD_KEYS, "chord_reset: the shoulders' four again");
+}
+
 int main(void)
 {
 	tap();
@@ -347,6 +401,7 @@ int main(void)
 	together();
 	live_keys();
 	presses();
+	keys_from_launcher();
 	printf("chord: %d passed, %d failed\n", g_pass, g_fail);
 	return g_fail ? 1 : 0;
 }

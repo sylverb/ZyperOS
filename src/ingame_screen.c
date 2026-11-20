@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "ingame_screen.h"
+#include "hkstore.h"
 #include "hudmenu_screen.h"
 #include "dmodepreview.h"
 #include "menu_pick.h"
@@ -1258,6 +1259,18 @@ static void controls_pages(app *a, SDL_Texture *bg, const menu_style *over, void
 
 	g.no_buttons = over != NULL;
 	ctl_set_chords(&plat_profile()->chords);
+	{
+		/* The hotkeys this game plays with (src/hkstore.h) */
+		sysview *sv = &a->view[a->sys_cursor];
+		hk_table hk;
+
+		if (sv->list.count > 0 && sv->cursor >= 0 && sv->cursor < sv->list.count)
+			hks_get(HKS_GAME, a->sys.systems[shelf_owner(a, a->sys_cursor, sv->cursor)].tag,
+			        sv->list.items[sv->cursor].file, &hk);
+		else
+			hks_get(HKS_EVERY, NULL, NULL, &hk);
+		ctl_set_hotkeys(&hk);
+	}
 	pages = ctl_game_pages(&g);
 	width = game_controls_width(a, &g);
 	n = controls_page_rows(&g, page, width, &b, &rows, &loop_at);
@@ -1990,6 +2003,8 @@ static menu_result gm_key(app *a, void *ctx, in_button key, int sel)
 	return MENU_STAY;
 }
 
+static void gm_resume(app *a);
+
 /* The next in-game menu was asked for by the launcher, not by a press: the
  * PAUSE a game resumed from a shutdown is sent with (launch). */
 bool g_menu_unasked;
@@ -2100,7 +2115,15 @@ void game_menu(app *a)
 	 * ends writes its state on the way out. */
 	if ((want_quit || !a->running) && !c.resume) plat_resident_line("STOP");
 
-	if (c.resume) {
+	if (c.resume) gm_resume(a);
+	/* Nothing presents from here: the next frame on screen is the game's. */
+}
+
+/* Back to the game from a panel over it (the menu, Reset Game's question):
+ * the pages handed back, the music, the mute and the level said, RESUME */
+static void gm_resume(app *a)
+{
+	{
 		/* Hand the pages back the way Diatom expects to find them.
 		 *
 		 * Diatom does not repaint the area outside its picture every frame -
@@ -2144,7 +2167,65 @@ void game_menu(app *a)
 				                   vol, PLAT_VOL_MAX + 1);
 		}
 	}
-	/* Nothing presents from here: the next frame on screen is the game's. */
+}
+
+/* Reset Game's hotkey (src/hotkeys.h): Diatom paused the game for it
+ * (PAUSED for=reset), and this asks, as Delete Game does, over the paused
+ * frame, the cursor on Cancel *(my pick in the Controls lab, 2026-11-19: a
+ * reset loses play, so one press is not enough)*. Reset resets and goes on;
+ * Cancel, or B, goes back to the game where it was. */
+void game_reset_ask(app *a)
+{
+	gm_ctx c = { 0 };
+	const char *pv = plat_resident_last_preview();
+	bool yes;
+
+	c.a = a;
+	if (pv && *pv) {
+		SDL_Surface *sf = IMG_Load(pv);
+
+		if (sf) {
+			c.bg = SDL_CreateTextureFromSurface(a->r, sf);
+			SDL_FreeSurface(sf);
+		}
+	}
+	gm_preview_frame(c.bg);
+	c.st.follow_tint = true;
+	c.st.backdrop = gm_backdrop;
+	c.st.on_power = gm_power;
+	uisound_play(DS_SOUND_ACCEPT);
+	yes = ask_panel(a, &c.st, &c, T(S_HOTKEYS_RESET_ASK), T(S_HOTKEYS_RESET_LOST), T(S_GAMEMENU_RESET));
+	gm_preview_frame(NULL);
+	if (c.bg) SDL_DestroyTexture(c.bg);
+	/* POWER while it asked stopped the game (gm_power); quitting the
+	 * launcher stops it as the menu does */
+	if (plat_run_power_pressed()) return;
+	if (want_quit || !a->running) {
+		plat_resident_line("STOP");
+		return;
+	}
+	if (yes) plat_resident_line("RESET");
+	gm_resume(a);
+}
+
+/* Next Shader and Next Display, the hotkeys (src/hotkeys.h), while the game
+ * runs: the system's own row stepped on, kept and sent as the menu's rows
+ * do; the name now on into `out`, for the pop-up */
+void gm_hotkey_step(app *a, bool shader, char *out, size_t n)
+{
+	sysview *v = owner_view(a);
+
+	if (shader) {
+		v->shader = shader_step(v->shader, +1, a->sys.systems[v - a->view].tag);
+		shader_save(a, (int)(v - a->view));
+		plat_resident_line("SETDISPLAY\tfilter=%s", SHADERS[v->shader].name);
+		snprintf(out, n, "%s", T(SHADERS[v->shader].text));
+	} else {
+		v->dmode = (v->dmode + 1) % DMODE_COUNT;
+		display_save(a);
+		plat_resident_line("SETDISPLAY\tmode=%s", DMODES[v->dmode].name);
+		snprintf(out, n, "%s", T(DMODES[v->dmode].text));
+	}
 }
 
 /* The in-game menu over a port (src/portmenu.h): this process started by
