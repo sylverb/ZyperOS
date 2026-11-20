@@ -26,7 +26,7 @@
 #   tools/qemu-run.sh list
 #   tools/qemu-run.sh info  [-n NAME]                  (port, sockets, logs)
 #   tools/qemu-run.sh prune [NAME... | --all]          (stopped VMs' folders)
-#   tools/qemu-run.sh fetch [--force]                  (the published image,
+#   tools/qemu-run.sh fetch [--version V] [--force]    (a release's image,
 #                                                       into image/)
 #
 # NAME defaults to $ZYPEROS_QEMU_NAME, then "zyperos". The card copy and the
@@ -35,13 +35,16 @@
 # beside this repository's main checkout, or $ZYPEROS_QEMU_HOME/image, a copy
 # kept for every checkout on the Mac.
 #
-# fetch puts the published image in image/, for a Mac without plastron's
-# build: the release tools/qemu/image.pin names (tools/qemu-image.sh made
-# it), its archive checked against the pin's sha256 before anything is
-# unpacked. Again, it fetches only when the pin has changed. It never
-# replaces an image/ it did not put there, unless --force.
-# $ZYPEROS_QEMU_IMAGE_URL fetches the archive from another place, and
-# $ZYPEROS_QEMU_IMAGE_PIN reads another pin (tools/qemu-image-check.sh).
+# fetch puts a release's QEMU image in image/, for a Mac without plastron's
+# build: ZyperOS-v<version>-qemu.tar.xz from the latest release (--version
+# for another; every release from 1.1.0 on has one, tools/release.sh),
+# checked against that release's SHA256SUMS before anything is unpacked.
+# Again, it downloads only when the release has changed. It never replaces
+# an image/ it did not put there, unless --force.
+# $ZYPEROS_QEMU_RELEASE_URL takes a release's files from another place: a
+# folder holding its SHA256SUMS and the archive, as tools/qemu-image.sh
+# leaves in out/qemu-image (file://...), or tools/release.sh in its
+# out/release/v<version>.
 #
 # The SSH key: $PX2_KEY, else ~/.ssh/zyperos_pixel2, else one start makes
 # for the VMs, $ZYPEROS_QEMU_HOME/ssh/zyperos_qemu. start hands its public
@@ -101,8 +104,9 @@ elif [ -f "$HOME/.ssh/zyperos_pixel2" ]; then
 else
 	KEY=$VM_KEY
 fi
-# The published image (fetch): its release and its archive's sha256
-PIN=${ZYPEROS_QEMU_IMAGE_PIN:-$HERE/qemu/image.pin}
+# A release's QEMU image (fetch): where the releases are, and what the
+# archive holds
+RELEASES=https://github.com/tarikbc/ZyperOS/releases
 IMAGE_FILES="Image sdcard.img u-boot.bin"
 # dropbear makes a new host key at every boot of a read-only root: no key to check
 SSH_OPTS="-o ConnectTimeout=5 -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR"
@@ -271,7 +275,7 @@ cmd_start() {
 	done
 	[ -n "$IMAGE" ] || IMAGE=$(default_image)
 	[ -f "$IMAGE/sdcard.img" ] && [ -f "$IMAGE/Image" ] ||
-		die "no sdcard.img and Image in $IMAGE: 'tools/qemu-run.sh fetch' downloads the published image, 'make qemu' in plastron builds one, or pass --image DIR"
+		die "no sdcard.img and Image in $IMAGE: 'tools/qemu-run.sh fetch' downloads the latest release's, 'make qemu' in plastron builds one, or pass --image DIR"
 	command -v qemu-system-aarch64 > /dev/null || die "no qemu-system-aarch64: brew install qemu"
 	if [ ! -f "$KEY" ] && [ "$KEY" = "$VM_KEY" ]; then
 		mkdir -p "$(dirname "$KEY")"
@@ -498,45 +502,63 @@ cmd_prune() {
 	[ -z "$bad" ]
 }
 
-# The published image into image/ (see the top). The archive is downloaded
-# beside it (a download cut short goes on where it stopped), checked against
-# the pin, its names checked, unpacked into image.new/, and only then put in
+# A release's image into image/ (see the top). The release's SHA256SUMS
+# names the archive and its sha256; the archive is downloaded beside
+# image/ (a download cut short goes on where it stopped), checked against
+# it, its names checked, unpacked into image.new/, and only then put in
 # place of image/, with FETCHED saying which it is
 cmd_fetch() {
-	force=
-	for a in "$@"; do
-		case $a in
+	force= ver=
+	while [ $# -gt 0 ]; do
+		case $1 in
 		--force) force=1 ;;
-		*) die "fetch: unknown option $a" ;;
+		--version) ver=${2:?fetch --version needs a version, 1.1.0 say}; shift ;;
+		*) die "fetch: unknown option $1" ;;
 		esac
+		shift
 	done
-	tag=$(sed -n 's/^tag=//p' "$PIN")
-	sum=$(sed -n 's/^sha256=//p' "$PIN")
-	[ -n "$tag" ] && [ -n "$sum" ] ||
-		die "no published image yet ($PIN names none): build one with 'make qemu' in plastron (docs/qemu.md)"
-	printf '%s\n' "$sum" | grep -qx '[0-9a-f]\{64\}' || die "$PIN's sha256 is not one: $sum"
-	printf '%s\n' "$tag" | grep -qx 'qemu-[0-9A-Za-z.-]*' || die "$PIN's tag is not a qemu-<date> one: $tag"
-	url=${ZYPEROS_QEMU_IMAGE_URL:-https://github.com/tarikbc/ZyperOS/releases/download/$tag/zyperos-qemu.tar.xz}
+	command -v curl > /dev/null || die "no curl"
+	if [ -n "${ZYPEROS_QEMU_RELEASE_URL:-}" ]; then
+		base=$ZYPEROS_QEMU_RELEASE_URL
+	elif [ -n "$ver" ]; then
+		base=$RELEASES/download/v$ver
+	else
+		base=$RELEASES/latest/download
+	fi
+	mkdir -p "$STATE_HOME/download"
+	sums=$STATE_HOME/download/SHA256SUMS
+	curl -fsSL --retry 3 -o "$sums" "$base/SHA256SUMS" || { rm -f "$sums"; die "no SHA256SUMS at $base"; }
+	# The image's line: its sha256, two spaces, ZyperOS-v<version>-qemu.tar.xz
+	line=$(grep -E '^[0-9a-f]{64}  ZyperOS-v[0-9][0-9A-Za-z.+-]*-qemu\.tar\.xz$' "$sums" || true)
+	rm -f "$sums"
+	[ -n "$line" ] ||
+		die "the release at $base has no QEMU image (every one from 1.1.0 on has): build one with 'make qemu' in plastron (docs/qemu.md)"
+	[ "$(printf '%s\n' "$line" | wc -l | tr -d ' ')" = 1 ] || die "SHA256SUMS at $base names more than one QEMU image"
+	sum=${line%% *}
+	file=${line##* }
+	tag=${file#ZyperOS-}
+	tag=${tag%-qemu.tar.xz}
+	[ -z "$ver" ] || [ "$tag" = "v$ver" ] || die "SHA256SUMS at $base is $tag's, not v$ver's"
+	if [ -n "${ZYPEROS_QEMU_RELEASE_URL:-}" ]; then url=$base/$file; else url=$RELEASES/download/$tag/$file; fi
 	dest=$STATE_HOME/image
 	if [ -z "$force" ] && [ "$(cat "$dest/FETCHED" 2> /dev/null)" = "$tag $sum" ] &&
 		[ -f "$dest/sdcard.img" ] && [ -f "$dest/Image" ]; then
-		echo "qemu-run: $dest is $tag already"
+		echo "qemu-run: $dest is $tag's already"
 		return 0
 	fi
 	if [ -z "$force" ] && [ -e "$dest" ] && [ ! -f "$dest/FETCHED" ]; then
 		die "$dest holds an image fetch did not put there: 'fetch --force' replaces it"
 	fi
-	command -v curl > /dev/null || die "no curl"
-	mkdir -p "$STATE_HOME/download"
-	part=$STATE_HOME/download/$tag.tar.xz
-	echo "qemu-run: downloading $tag ($url)"
+	part=$STATE_HOME/download/$file
+	echo "qemu-run: downloading $tag's QEMU image ($url)"
 	curl -fL --retry 3 -C - -o "$part" "$url" ||
 		die "the download stopped; fetch again to go on from where it stopped"
 	got=$(shasum -a 256 "$part" | cut -c1-64)
 	if [ "$got" != "$sum" ]; then
 		rm -f "$part"
-		die "the archive is not the one $PIN names (sha256 $got, the pin's $sum): nothing changed"
+		die "$file is not the one $tag's SHA256SUMS names (sha256 $got, not $sum): nothing changed"
 	fi
+	echo "qemu-run: $file matches $tag's SHA256SUMS ($sum)"
 	# Exactly the image's files, and nothing else: no folder, no other name
 	names=$(tar -tf "$part" | LC_ALL=C sort | tr '\n' ' ')
 	[ "$names" = "$IMAGE_FILES " ] || { rm -f "$part"; die "the archive holds $names, not $IMAGE_FILES"; }
@@ -549,7 +571,7 @@ cmd_fetch() {
 	if [ -e "$dest" ]; then mv "$dest" "$dest.old"; fi
 	mv "$new" "$dest"
 	rm -rf "$dest.old" "$part"
-	echo "qemu-run: $dest is $tag: tools/qemu-run.sh start, or the simulator, boots it"
+	echo "qemu-run: $dest is $tag's: tools/qemu-run.sh start, or the simulator, boots it"
 }
 
 cmd_list() {

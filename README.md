@@ -159,7 +159,15 @@ make desk          # the GKD Pixel 2; make desk-brick for the TrimUI Brick
 
 The first run takes a few minutes: it builds the launcher, Diatom and a NES core, and makes a sample card with a game on each system. The keyboard is the buttons (arrows for the d-pad, X and Z for A and B, Return for START, Esc for MENU), the mouse presses the drawn keys, and F1 lists the rest. [Work on the UI without a device](docs/building.md#work-on-the-ui-without-a-device) says what it shows and what only a device can.
 
-For the whole system (the boot, first-boot setup, the battery and charger, System Update), the [ZyperOS Simulator](docs/simulator.md) runs ZyperOS in QEMU on a Mac, in a window drawn the same way. It needs a QEMU image from plastron (`make -C plastron qemu`, a few hours the first time, then minutes), so start with `make desk`.
+For the whole system (the boot, first-boot setup, the battery and charger, System Update), the [ZyperOS Simulator](docs/simulator.md) runs ZyperOS in QEMU on a Mac, in a window drawn the same way. Every release from 1.1.0 on has its QEMU image, which `tools/qemu-run.sh fetch` downloads and checks:
+
+```sh
+brew install qemu
+tools/qemu-run.sh fetch          # the latest release's QEMU image
+simulator/scripts/build-app.sh && open "simulator/build/ZyperOS Simulator.app"
+```
+
+Before 1.1.0 is out, the image comes from plastron (`make -C plastron qemu`, a few hours the first time, then minutes), so start with `make desk`.
 
 ## Credits
 

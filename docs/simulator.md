@@ -23,10 +23,10 @@ open "simulator/build/ZyperOS Simulator.app"
 ```
 
 It needs QEMU and a QEMU image, as `tools/qemu-run.sh` does: `fetch`
-downloads the published image, checked against `tools/qemu/image.pin`, or
-plastron's `make qemu` builds one ([qemu.md](qemu.md), "Setting it up";
-while the pin names no image, `fetch` says so). The window starts its VM
-with it, by the name `simulator` (`--args --name NAME` for another, `--image DIR` for an image
+downloads the latest release's (every release from 1.1.0 on has one),
+checked against its `SHA256SUMS`, or plastron's `make qemu` builds one
+([qemu.md](qemu.md), "Setting it up"). The window starts its VM with it, by
+the name `simulator` (`--args --name NAME` for another, `--image DIR` for an image
 somewhere else). A VM already running by that name is shown as it is, and
 stays running when the window closes; one the window started shuts down with
 it. The VM's sound plays on the Mac. It boots the fast way, its kernel on

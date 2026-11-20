@@ -101,7 +101,7 @@ make brick-kernel   # the Brick's kernel and modules, from all its patches
 make brick          # out/brick-sdcard.img: ZyperOS on the Brick's system
 make brick-bootloader  # U-Boot -> buildroot/board/brick/bootloader/
 make release        # both devices' release images and sources -> out/release
-make release-qemu   # QEMU's image to publish, with its sources -> out/release-qemu
+make release-qemu   # QEMU's image for a release -> out/release-qemu
 make third-party    # the package lists, from the last release build
 make sdk            # the last Pixel 2 build's toolchain and libraries, as an SDK volume
 make shell          # a shell in the build container
@@ -202,12 +202,12 @@ what that covers and what still needs the device. The first `make qemu` also
 builds LLVM, for llvmpipe.
 
 `make release-qemu` builds the same image as a release is built, from an
-empty output folder of its own, with its sources (`scripts/release-qemu.sh`),
-and stops if any key is in it (`scripts/qemu-key-check.sh`): no SSH key,
-no host key, no private key in any file. ZyperOS's `tools/qemu-image.sh`
-runs it from a clean worktree and publishes the result, which
-`tools/qemu-run.sh fetch` downloads, so a developer without this build runs
-ZyperOS in QEMU too.
+empty output folder of its own (`scripts/release-qemu.sh`), into
+`ZyperOS-v<version>-qemu.tar.xz`, and stops if any key is in it
+(`scripts/qemu-key-check.sh`): no SSH key, no host key, no private key in
+any file. ZyperOS's `tools/release.sh` builds it beside the devices' images
+and puts it on the release, and `tools/qemu-run.sh fetch` downloads it, so
+a developer without this build runs ZyperOS in QEMU too.
 
 ## On the device
 

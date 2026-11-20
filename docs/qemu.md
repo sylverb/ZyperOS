@@ -21,16 +21,17 @@ brew install qemu
 tools/qemu-run.sh fetch
 ```
 
-`fetch` downloads the published image into
-`~/Library/Caches/zyperos-qemu/image`, where every checkout on the Mac finds
-it: the release `tools/qemu/image.pin` names, checked against the pin's
-sha256 before anything is unpacked (about 1.1 GB unpacked). It downloads
-again only when the pin changes, goes on where a download cut short
-stopped, and never replaces an image there that it did not put there
-(`fetch --force` does). While the pin names no image, `fetch` says so, and
-the image comes from plastron (below). The image is ZyperOS as at the
-commit it was built from; a later ZyperOS of your own goes onto a VM with
-`deploy` (below), which needs the Pixel 2's SDK ([building.md](building.md)).
+`fetch` downloads the latest release's QEMU image,
+`ZyperOS-v<version>-qemu.tar.xz`, into `~/Library/Caches/zyperos-qemu/image`,
+where every checkout on the Mac finds it, after its sha256 matches the
+release's `SHA256SUMS` (about 1.1 GB unpacked). `--version 1.1.0` takes
+another release's. It downloads again only when the release has changed,
+goes on where a download cut short stopped, and never replaces an image
+there that it did not put there (`fetch --force` does). Every release from
+1.1.0 on has the image; before that, `fetch` says the release has none, and
+the image comes from plastron (below). The image is that release's
+ZyperOS; a later ZyperOS of your own goes onto a VM with `deploy` (below),
+which needs the Pixel 2's SDK ([building.md](building.md)).
 
 Or build the image yourself, with plastron (`make qemu` there: hours the
 first time, Buildroot's toolchain and then LLVM for Mesa's llvmpipe; minutes
@@ -54,21 +55,22 @@ else `~/.ssh/zyperos_pixel2`, else one the first `start` makes for the VMs,
 that has plastron's `local/authorized_keys` in it, and lets in that key
 alone.
 
-### Publishing an image
+### The release's image
 
-`tools/qemu-image.sh` builds the image as a release is built (plastron's
-`make release-qemu`: a clean worktree of a commit on main, an empty output
-folder, hours), stops if any key of any kind is in its root filesystem, and
-leaves it in `out/qemu-image/` with its sources and SHA256SUMS, unpacked in
-`out/qemu-image/image/` to try first (`start --fresh --image`).
-`tools/qemu-image.sh --publish` publishes those files as the GitHub
-pre-release `qemu-<date>`, each upload checked against GitHub's own sha256
-of it (`--rate 170k` holds the uploads under a slow uplink), and writes
-`tools/qemu/image.pin`, to commit: from then on `fetch` downloads it. Like
-the cores' release, it is not a ZyperOS version: its tag is never
-`v<number>` and it is never the latest, so System Update, the installer and
-the site pass it by. A new image is a new tag and a new pin, for a change to
-plastron's system that the VM needs; a ZyperOS change needs none.
+A release carries its QEMU image beside the devices' images
+([releases/README.md](releases/README.md)): `tools/release.sh` builds it
+with them (plastron's `make release-qemu`, from an empty output folder, as
+theirs are) and puts its sha256 in `SHA256SUMS`. The build stops if any key
+of any kind is in the image's root filesystem (plastron's
+`scripts/qemu-key-check.sh`). Before publishing,
+`ZYPEROS_QEMU_RELEASE_URL=file://$PWD/out/release/v<version> tools/qemu-run.sh fetch`
+takes it from the build as it would from the release. A test kit carries
+none, and `--no-qemu` leaves it out of a release.
+
+`tools/qemu-image.sh` builds the same image alone, from a clean worktree of
+HEAD, into `out/qemu-image/` with a `SHA256SUMS`, to try:
+`ZYPEROS_QEMU_RELEASE_URL=file://$PWD/out/qemu-image tools/qemu-run.sh fetch`,
+then `start --fresh`. It publishes nothing.
 
 ## Running it
 
@@ -269,7 +271,7 @@ is the next thing to try.
   `package/px2sim` (the parts), `package/mesa3d-px2`'s llvmpipe option,
   `make qemu`, `make release-qemu` (`scripts/release-qemu.sh`).
 - ZyperOS: `tools/qemu-run.sh`, `tools/qemu/make-test-nes.py`,
-  `tools/qemu-image.sh` and `tools/qemu/image.pin` (the published image);
+  `tools/qemu-image.sh` and `tools/release.sh` (the release's image);
   the Pixel 2's device files take a landscape display (`src/device/pixel2.c` draws
   unturned there, Diatom's port already did) and Diatom's falls back to
   XRGB8888 frames; `tools/px2-shot.c` writes a landscape display as it is;

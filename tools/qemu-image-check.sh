@@ -1,15 +1,17 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-3.0-only
-# The published QEMU image's way to a developer (docs/qemu.md, "Setting
+# A release's QEMU image on its way to a developer (docs/qemu.md, "Setting
 # it up"), without the network, QEMU or an image:
 #
-#  - tools/qemu-run.sh fetch, from a stand-in archive on this computer
-#    (file://): no pin says so and changes nothing; the pinned archive goes
-#    into image/ with FETCHED; again, nothing is downloaded; a download cut
-#    short goes on; an archive with another sha256, or with any other file
-#    in it, changes nothing; an image/ fetch did not put there stays unless
-#    --force.
-#  - tools/qemu/image.pin: empty, or a qemu-* tag and a sha256.
+#  - tools/qemu-run.sh fetch, from a stand-in release on this computer (a
+#    folder with SHA256SUMS and ZyperOS-v<version>-qemu.tar.xz, file://): a
+#    release without the image says so and changes nothing; the image goes
+#    into image/ with FETCHED once its sha256 matches the release's
+#    SHA256SUMS; again, nothing is downloaded; a download cut short goes on;
+#    another sha256, any other file in the archive, two images in one
+#    SHA256SUMS or another --version change nothing; an image/ fetch did not
+#    put there stays unless --force.
+#  - tools/release.sh puts the image in a release's files and its SHA256SUMS.
 #  - The key: start hands QEMU the public half of the key it uses, the
 #    VMs' own made on the first start when there is no other, as the fw_cfg
 #    file the image reads (a stand-in qemu-system-aarch64 records the
@@ -39,78 +41,101 @@ echo u-boot > "$T/src/u-boot.bin"
 echo extra > "$T/src/extra.txt"
 (cd "$T/src" && tar -cJf "$T/extra.tar.xz" sdcard.img Image u-boot.bin extra.txt)
 GOOD=$(sha "$T/good.tar.xz")
-pin() { printf 'tag=%s\nsha256=%s\n' "$1" "$2" > "$T/pin"; }
-fetch() { # fetch ARCHIVE [ARGS]: qemu-run.sh fetch, its output in $T/out
+IMG=ZyperOS-v9.9.9-qemu.tar.xz
+# release ARCHIVE [SHA256SUMS lines...]: the stand-in release's folder, the
+# archive as its image, and SHA256SUMS with the lines given (the archive's
+# own when none are)
+release() {
+	rm -rf "$T/rel"
+	mkdir -p "$T/rel"
+	[ -z "$1" ] || cp "$1" "$T/rel/$IMG"
 	a=$1
 	shift
-	ZYPEROS_QEMU_HOME=$T/home ZYPEROS_QEMU_IMAGE_PIN=$T/pin ZYPEROS_QEMU_IMAGE_URL=file://$a \
+	if [ $# -eq 0 ] && [ -n "$a" ]; then
+		printf '%s  %s\n' "$(sha "$a")" "$IMG" > "$T/rel/SHA256SUMS"
+	else
+		printf '%s\n' "$@" > "$T/rel/SHA256SUMS"
+	fi
+	printf '%s  ZyperOS-v9.9.9-pixel2.img.xz\n' "$(printf x | shasum -a 256 | cut -c1-64)" >> "$T/rel/SHA256SUMS"
+}
+fetch() { # fetch [ARGS]: qemu-run.sh fetch from the stand-in release, its output in $T/out
+	ZYPEROS_QEMU_HOME=$T/home ZYPEROS_QEMU_RELEASE_URL=file://$T/rel \
 		sh "$RUN" fetch "$@" > "$T/out" 2>&1
 }
 said() { grep -q "$1" "$T/out"; }
 same_image() { cmp -s "$T/src/sdcard.img" "$T/home/image/sdcard.img" && cmp -s "$T/src/Image" "$T/home/image/Image" &&
 	cmp -s "$T/src/u-boot.bin" "$T/home/image/u-boot.bin"; }
+nothing_left() { [ -z "$(ls "$T/home/download" 2> /dev/null)" ] && [ ! -e "$T/home/image.new" ]; }
 
 echo "fetch"
-pin '' ''
-if ! fetch "$T/good.tar.xz" && said "no published image yet" && [ ! -e "$T/home/image" ]; then
-	ok "no pin: says so, makes nothing"
-else bad "no pin: $(cat "$T/out")"; fi
+release '' '0000000000000000000000000000000000000000000000000000000000000000  ZyperOS-v9.9.9-brick.img.xz'
+if ! fetch && said "has no QEMU image" && [ ! -e "$T/home/image" ] && nothing_left; then
+	ok "a release without the image: says so, makes nothing"
+else bad "a release without the image: $(cat "$T/out")"; fi
 
-pin qemu-check 1234
-if ! fetch "$T/good.tar.xz" && said "is not one" && [ ! -e "$T/home/image" ]; then
-	ok "a pin whose sha256 is not one is refused"
-else bad "a bad sha256 in the pin: $(cat "$T/out")"; fi
+release '' "$GOOD  ZyperOS-v9.9.9/../x-qemu.tar.xz" "$GOOD  ../ZyperOS-v9.9.9-qemu.tar.xz"
+if ! fetch && said "has no QEMU image" && [ ! -e "$T/home/image" ]; then
+	ok "a name that is not ZyperOS-v<version>-qemu.tar.xz is no image"
+else bad "a strange name: $(cat "$T/out")"; fi
 
-pin '../x' "$GOOD"
-if ! fetch "$T/good.tar.xz" && said "not a qemu-<date> one" && [ ! -e "$T/home/image" ]; then
-	ok "a pin whose tag is not a qemu-* one is refused"
-else bad "a bad tag in the pin: $(cat "$T/out")"; fi
+release "$T/good.tar.xz"
+if fetch && same_image && [ "$(cat "$T/home/image/FETCHED")" = "v9.9.9 $GOOD" ] && nothing_left &&
+	said "matches v9.9.9's SHA256SUMS"; then
+	ok "the release's image: its sha256 checked, its three files in image/, FETCHED, nothing left over"
+else bad "the release's image: $(cat "$T/out")"; fi
 
-pin qemu-check "$GOOD"
-if fetch "$T/good.tar.xz" && same_image && [ "$(cat "$T/home/image/FETCHED")" = "qemu-check $GOOD" ] &&
-	[ -z "$(ls "$T/home/download")" ] && [ ! -e "$T/home/image.new" ]; then
-	ok "the pinned archive: its three files in image/, FETCHED, nothing left over"
-else bad "the pinned archive: $(cat "$T/out")"; fi
-
-if fetch "$T/nowhere.tar.xz" && said "is qemu-check already"; then
+rm -f "$T/rel/$IMG"
+if fetch && said "is v9.9.9's already"; then
 	ok "again: nothing downloaded"
 else bad "again: $(cat "$T/out")"; fi
 
 # Cut short: the first part already there, as curl left it
-head -c 1000 "$T/good.tar.xz" > "$T/home/download/qemu-check.tar.xz"
-if fetch "$T/good.tar.xz" --force && same_image && [ -z "$(ls "$T/home/download")" ]; then
+release "$T/good.tar.xz"
+head -c 1000 "$T/good.tar.xz" > "$T/home/download/$IMG"
+if fetch --force && same_image && nothing_left; then
 	ok "a download cut short goes on from where it stopped"
 else bad "a download cut short: $(cat "$T/out")"; fi
 
-pin qemu-other "$(sha "$T/extra.tar.xz" | tr 0-9a-f 1-9a-f0)"
-if ! fetch "$T/extra.tar.xz" && said "is not the one" && same_image &&
-	[ "$(cat "$T/home/image/FETCHED")" = "qemu-check $GOOD" ] && [ -z "$(ls "$T/home/download")" ]; then
-	ok "another sha256 than the pin's: refused, image/ as it was, the download gone"
+release "$T/extra.tar.xz" "$(sha "$T/good.tar.xz")  $IMG"
+if ! fetch --force && said "is not the one" && same_image &&
+	[ "$(cat "$T/home/image/FETCHED")" = "v9.9.9 $GOOD" ] && nothing_left; then
+	ok "another sha256 than SHA256SUMS's: refused, image/ as it was, the download gone"
 else bad "another sha256: $(cat "$T/out")"; fi
 
-pin qemu-other "$(sha "$T/extra.tar.xz")"
-if ! fetch "$T/extra.tar.xz" && said "not Image sdcard.img u-boot.bin" && same_image &&
-	[ ! -e "$T/home/image/extra.txt" ] && [ -z "$(ls "$T/home/download")" ]; then
+release "$T/extra.tar.xz"
+if ! fetch --force && said "not Image sdcard.img u-boot.bin" && same_image &&
+	[ ! -e "$T/home/image/extra.txt" ] && nothing_left; then
 	ok "an archive with another file in it: refused, image/ as it was"
 else bad "an archive with another file: $(cat "$T/out")"; fi
 
+release "$T/good.tar.xz" "$GOOD  $IMG" "$GOOD  ZyperOS-v9.9.8-qemu.tar.xz"
+if ! fetch --force && said "more than one QEMU image" && same_image; then
+	ok "two images in one SHA256SUMS: refused"
+else bad "two images: $(cat "$T/out")"; fi
+
+release "$T/good.tar.xz"
+if ! fetch --version 1.2.3 --force && said "not v1.2.3's" && same_image; then
+	ok "--version another release's: refused"
+else bad "--version: $(cat "$T/out")"; fi
+
 rm -f "$T/home/image/FETCHED"
-pin qemu-check "$GOOD"
-if ! fetch "$T/good.tar.xz" && said "fetch did not put there" && [ ! -e "$T/home/image/FETCHED" ]; then
+if ! fetch && said "fetch did not put there" && [ ! -e "$T/home/image/FETCHED" ]; then
 	ok "an image/ fetch did not put there stays"
 else bad "someone else's image/: $(cat "$T/out")"; fi
-if fetch "$T/good.tar.xz" --force && same_image && [ -f "$T/home/image/FETCHED" ]; then
+if fetch --force && same_image && [ -f "$T/home/image/FETCHED" ]; then
 	ok "--force replaces it"
 else bad "--force: $(cat "$T/out")"; fi
 
-echo "the pin"
-REAL=$ROOT/tools/qemu/image.pin
-tag=$(sed -n 's/^tag=//p' "$REAL")
-sum=$(sed -n 's/^sha256=//p' "$REAL")
-if { [ -z "$tag" ] && [ -z "$sum" ]; } ||
-	{ printf '%s\n' "$tag" | grep -qx 'qemu-[0-9A-Za-z.-]*' && printf '%s\n' "$sum" | grep -qx '[0-9a-f]\{64\}'; }; then
-	ok "tools/qemu/image.pin: ${tag:-no image published yet}"
-else bad "tools/qemu/image.pin names tag '$tag' and sha256 '$sum'"; fi
+echo "the release"
+REL=$ROOT/tools/release.sh
+grep -q 'qemu_image() { echo "ZyperOS-$TAG-qemu.tar.xz"; }' "$REL" &&
+	grep -q '\[ $QEMU = 0 \] || RELEASE_FILES="$RELEASE_FILES $(qemu_image)"' "$REL" &&
+	grep -q 'shasum -a 256 $RELEASE_FILES $UPDATE_FILES > SHA256SUMS' "$REL" &&
+	ok "tools/release.sh puts ZyperOS-v<version>-qemu.tar.xz in the release's files and SHA256SUMS" ||
+	bad "tools/release.sh does not put the QEMU image in the release's files and SHA256SUMS"
+grep -q 'release-qemu VERSION="$VERSION"' "$REL" && grep -q 'NAME=ZyperOS-v$VERSION-qemu.tar.xz' "$ROOT/plastron/scripts/release-qemu.sh" &&
+	ok "and builds it with plastron's release-qemu, which names it so" ||
+	bad "tools/release.sh and plastron's release-qemu.sh name the image differently"
 
 echo "the key"
 grep -qx 'CONFIG_FW_CFG_SYSFS=y' "$QEMU_BOARD/linux-qemu.fragment" &&

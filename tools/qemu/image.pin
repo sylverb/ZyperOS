@@ -1,7 +1,0 @@
-# The QEMU image `tools/qemu-run.sh fetch` downloads: the GitHub release
-# tools/qemu-image.sh --publish made (zyperos-qemu.tar.xz on it), and the
-# archive's sha256, which fetch checks before it unpacks anything. Written by
-# tools/qemu-image.sh --publish; a new image is a new release and a new pin.
-# Empty while no image is published: build one with plastron's make qemu.
-tag=
-sha256=
