@@ -9,6 +9,7 @@
 #include "keyhints_draw.h"
 #include "mp4frame.h"    /* MPF_TOO_BIG, MPF_NO_PICTURE */
 #include "mp4video.h"
+#include "nowplaying_looks.h"
 #include "panel.h"
 #include "topbar.h"
 #include "ui.h"
@@ -233,6 +234,16 @@ unsigned np_draw(app *a, const mu_now *mn, const char *next)
 		if (corner < wait) wait = corner;
 	}
 	return wait;
+}
+
+/* Now Playing in the look that is on (MENU > Player Look, DESIGN.md 11.64):
+ * Cover is np_draw above, as it always was; the others are
+ * src/nowplaying_looks.c's. A book and a video are always Cover's. */
+unsigned np_draw_now(app *a, const mu_now *mn, const char *next)
+{
+	mp4l_id look = np_look_for();
+
+	return look == MP4L_COVER ? np_draw(a, mn, next) : npl_draw(a, look, mn);
 }
 
 /* ---- MP4: the lock screen -------------------------------------------------
@@ -509,6 +520,9 @@ void muse_locked(app *a)
 	Uint32 osd_due = UINT32_MAX;            /* the volume bar's next look */
 
 	fprintf(stderr, "mp4: locked\n");
+	/* Under the lock nothing moves: a look's bars rest, and with no frame
+	 * of bars the daemon stops measuring (musec_bands_keep) */
+	npl_still(true);
 	mp4lock_engage(&l, plat_now_ms(), a->in.down[MP4_UNLOCK_A] && a->in.down[MP4_UNLOCK_B]);
 	plat_input_flush();
 	memset(&a->in, 0, sizeof a->in);
@@ -565,7 +579,7 @@ void muse_locked(app *a)
 				np_draw_video(a, mn, 0, 1);
 			} else {
 				np_next_name(next, sizeof next);
-				np_draw(a, mn, next);
+				np_draw_now(a, mn, next);
 			}
 			if (panel) {
 				ui_scrim(a->r, 0);
@@ -588,6 +602,7 @@ void muse_locked(app *a)
 		SDL_Delay(video || awake ? 8 : 30);
 	}
 	musec_video_show(false);
+	npl_still(false);
 	plat_backlight_dim(false);
 	plat_backlight(true);
 	fprintf(stderr, "mp4: unlocked\n");
@@ -722,7 +737,7 @@ static void np_next_name(char *next, size_t n)
 /* What the buttons do on Now Playing, listed most needed first: A, B, X,
  * then Y (music and books) and L1/R1, then the d-pad. `kind`: 0 music, 1 a
  * book. On a video Y has no hint: it only shows or hides the controls. */
-static int np_hint_list(key_hint *h, bool playing, int kind, int count, bool video)
+int np_hint_list(key_hint *h, bool playing, int kind, int count, bool video)
 {
 	int n = 0;
 
@@ -1210,7 +1225,7 @@ static muse_exit muse_now_screen_run(app *a)
 		if (!battery_now(&shown.battery_pct, &shown.charging)) shown.battery_pct = -1;
 
 		if (touched || memcmp(&shown, &drawn, sizeof shown) || (int)(now - due) >= 0) {
-			unsigned wait = np_draw(a, mn, next);
+			unsigned wait = np_draw_now(a, mn, next);
 			Uint32 osd;
 
 			/* Asked after the draw, which is what retires a line whose
@@ -1224,7 +1239,10 @@ static muse_exit muse_now_screen_run(app *a)
 			 * at the moment it is due to go. */
 			due = now + (wait < 1000 ? wait : 1000);
 			if (osd != UINT32_MAX && (int)(osd - due) < 0) due = osd;
-			SDL_Delay(8);
+			/* A look moving draws every frame, paced by the panel: a sleep
+			 * on top of the present's wait would halve it (ui_frame_rest) */
+			if (wait == 0) ui_frame_rest(16);
+			else SDL_Delay(8);
 		} else {
 			SDL_Delay(16);
 		}

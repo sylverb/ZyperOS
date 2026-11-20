@@ -35,6 +35,7 @@
 #include "ds/focus.h"
 #include "menu_panel.h"
 #include "menu_pick.h"
+#include "nowplaying_looks.h"
 #include "nowplaying_screen.h"
 #include "osdbar.h"
 #include "panel.h"
@@ -463,6 +464,37 @@ static void pm_screen_undo(void *app_, int kept)
 static const ds_hover PM_SHADER_HOVER = { .show = pm_shader_show, .undo = pm_screen_undo };
 static const ds_hover PM_STRENGTH_HOVER = { .show = pm_strength_show, .undo = pm_screen_undo };
 
+/* MP4's Player Look (src/mp4look.h, DESIGN.md 11.64): each look's name
+ * and what it is, and the list's picture, the look itself playing in the
+ * small screen */
+static const char *look_label(mp4l_id id)
+{
+	switch (id) {
+	case MP4L_CLASSIC:  return T(S_SYSMENU_LOOK_CLASSIC);
+	case MP4L_SPECTRUM: return T(S_SYSMENU_LOOK_SPECTRUM);
+	default:            return T(S_SYSMENU_LOOK_COVER);
+	}
+}
+
+static const char *look_note(mp4l_id id)
+{
+	switch (id) {
+	case MP4L_CLASSIC:  return T(S_SYSMENU_LOOK_CLASSIC_NOTE);
+	case MP4L_SPECTRUM: return T(S_SYSMENU_LOOK_SPECTRUM_NOTE);
+	default:            return T(S_SYSMENU_LOOK_COVER_NOTE);
+	}
+}
+
+static void smm_look_preview(void *app_, int k, int x, int y, int w, int h)
+{
+	app *a = app_;
+	const SDL_Rect screen = { x, y, w, h };
+	const SDL_Rect in = ds_preview_screen_begin(a->r, &screen);
+
+	npl_preview(a, (mp4l_id)k, in.x, in.y, in.w, in.h);
+	ds_preview_screen_end(a->r, &screen);
+}
+
 /* MP4's Repeat, videos' own mode (src/sys_menu.h): its values in the row's
  * order, Off first, which is how videos played before it */
 static const muq_mode REPEAT_MODE[3] = { MUQ_IN_ORDER, MUQ_REPEAT_ONE, MUQ_REPEAT_ALL };
@@ -498,7 +530,7 @@ static void pm_rumble_focus(void *app_, int k)
  * the thirteenth, and Card Picture's list said Border's Off and Blur
  * (1.1.0's test run). A new list takes a new name here. */
 enum {
-	PS_SHOW, PS_MSORT, PS_REPEAT,   /* Muse's shelf */
+	PS_SHOW, PS_MSORT, PS_LOOK, PS_REPEAT,   /* Muse's shelf */
 	PS_PICTURE,                     /* Recents' Card Picture */
 	PS_CORE, PS_DSLANG, PS_SGB, PS_PACE, PS_SORT, PS_CSORT, PS_DISPLAY, PS_BORDER,
 	PS_SHADER, PS_STRENGTH, PS_VIEW,
@@ -549,6 +581,18 @@ static void menu_choices(app *a, int sys, bool games)
 			g_smm_choice[SMM_SHOW] = ch_make(&P[PS_SHOW], n, cur, false);
 			for (i = 0; i < ML_ORDERS; i++) P[PS_MSORT].lab[i] = ml_order_label_kind((ml_order)i, muse_kind_shown());
 			g_smm_choice[SMM_SORT] = ch_make(&P[PS_MSORT], ML_ORDERS, v->sort, false);
+			{
+				static const char *notes[MP4L_COUNT];
+
+				for (i = 0; i < MP4L_COUNT; i++) {
+					P[PS_LOOK].lab[i] = look_label((mp4l_id)i);
+					notes[i] = look_note((mp4l_id)i);
+				}
+				g_smm_choice[SMM_LOOK] = ch_make(&P[PS_LOOK], MP4L_COUNT, np_look(), false);
+				g_smm_choice[SMM_LOOK].notes = notes;
+				g_smm_choice[SMM_LOOK].preview = smm_look_preview;
+				g_smm_choice[SMM_LOOK].list = true;
+			}
 			for (i = 0; i < 3; i++) P[PS_REPEAT].lab[i] = T(REPEAT_TEXT[i]);
 			g_smm_choice[SMM_REPEAT] = ch_make(&P[PS_REPEAT], 3, repeat_at(), false);
 			return;
@@ -654,7 +698,8 @@ static void menu_choices(app *a, int sys, bool games)
 		P[PS_VIEW].lab[0] = T(S_SYSMENU_VIEW_COVERS);
 		P[PS_VIEW].lab[1] = T(S_SYSMENU_VIEW_GRID);
 		P[PS_VIEW].lab[2] = T(S_SYSMENU_VIEW_LIST);
-		g_sm_choice[SM_VIEW] = ch_make(&P[PS_VIEW], 3, v->listed ? 2 : v->grid ? 1 : 0, false);
+		P[PS_VIEW].lab[3] = T(S_SYSMENU_VIEW_VIDEO);
+		g_sm_choice[SM_VIEW] = ch_make(&P[PS_VIEW], VIEW_COUNT, view_index(v), false);
 		return;
 	}
 	/* MENU */
@@ -833,12 +878,14 @@ int menu_build(app *a, screen_id screen, int sys,
 		u.no_strength = !u.strength;
 		u.listed     = a->view[sys].listed;
 		u.grid       = a->view[sys].grid;
+		u.video      = a->view[sys].video;
 		u.muse_books = u.muse && muse_books_shown();
 		u.muse_videos = u.muse && muse_kind_shown() == ML_VIDEOS;
 		u.muse_all   = u.muse && muse_kind_shown() == ML_ALL;
 		u.muse_songs = u.muse && ml_count_kind(&g_muse, ML_MUSIC) > 0;
 		u.muse_both  = u.muse && muse_kinds() > 1;
 		u.muse_playing = u.muse && lock_allowed();
+		u.muse_look  = u.muse ? look_label(np_look()) : NULL;
 		u.muse_repeat = u.muse ? T(REPEAT_TEXT[repeat_at()]) : NULL;
 		u.eq         = eq_preset_name(eq_preset_get(eq_out_now()));
 		u.sort       = u.muse ? ml_order_label_kind((ml_order)a->view[sys].sort, muse_kind_shown())
@@ -2086,6 +2133,12 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 				if (key != IN_ACCEPT) return MENU_STAY;
 				muse_ask_shuffle();
 				return MENU_DONE;
+			} else if (id == SMM_LOOK) {
+				/* Round the looks either way, kept at once; A opens their
+				 * list, the picture the look under the cursor
+				 * (menu_choose) */
+				if (d) np_look_set((mp4l_id)((np_look() + d + MP4L_COUNT) % MP4L_COUNT));
+				return MENU_STAY;
 			} else if (id == SMM_SHOW) {
 				/* All, then the kinds the card has, round in either
 				 * direction (A opens their list, menu_choose). ML_ALL is the

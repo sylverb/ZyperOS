@@ -224,6 +224,7 @@ static void parse_line(char *line, diatom_msg *out)
 	else if (!strcmp(field, "SETHUD"))       out->kind = DIATOM_MSG_SETHUD;
 	else if (!strcmp(field, "SETRUMBLE"))    out->kind = DIATOM_MSG_SETRUMBLE;
 	else if (!strcmp(field, "SETEQ"))        out->kind = DIATOM_MSG_SETEQ;
+	else if (!strcmp(field, "SETCHEATS"))    out->kind = DIATOM_MSG_SETCHEATS;
 	else {
 		log_(DIATOM_LOG_WARN, "proto: ignoring unknown verb '%s'", field);
 		out->kind = DIATOM_MSG_NONE;
@@ -278,6 +279,10 @@ static void parse_line(char *line, diatom_msg *out)
 		 * the launcher already passes paths for save states. */
 		else if (!strcmp(field, "cheevos"))
 			snprintf(out->cheevos, sizeof out->cheevos, "%s", v);
+		/* `cheats=` is a path for cheevos='s reason: one N64 code alone
+		 * can outrun a line (cheats.h) */
+		else if (!strcmp(field, "cheats"))
+			snprintf(out->cheats, sizeof out->cheats, "%s", v);
 		else if (!strcmp(field, "console")) out->console = (int)strtol(v, NULL, 10);
 		else if (!strcmp(field, "screens")) out->screens = (int)strtol(v, NULL, 10);
 		else if (!strcmp(field, "frameskip"))
@@ -520,6 +525,13 @@ diatom_msg_kind diatom_proto_poll(diatom_msg *out, int timeout_ms, bool running)
 		 * (ZyperOS's src/eq.h), all 0 flat, from the sound's next push,
 		 * over a game that runs or is paused. Additive, so proto stays 14:
 		 * an old Diatom ignores the verb and plays as it always did. */
+		/* RUN cheats=<path> and SETCHEATS path=<path>: the cheat codes
+		 * that are on, a file of one a line (cheats.h), handed to the core
+		 * once the game is loaded, at each SETCHEATS (answered CHEATS
+		 * count=N, or ERROR code=bad_cheats), and again after a reset and
+		 * a state load; while one has been on, achievements stop for the
+		 * game and CHEEVOS says paused=cheats. Additive, so proto stays
+		 * 14: an old Diatom ignores both, and a game starts with none. */
 		diatom_proto_send("READY\tproto=14\tstate=%s", running ? "running" : "idle");
 		/* A displaced launcher is a vanished one, and every loop already
 		 * knows what that means - the in-game menu resumes the game. Said
