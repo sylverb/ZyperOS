@@ -53,6 +53,14 @@ dmode_rect dmode_fit(const char *name, int src_w, int src_h, double aspect,
 			return centered(surf_w, (int)((double)surf_w / a + 0.5), surf_w, surf_h);
 		return centered((int)((double)surf_h * a + 0.5), surf_h, surf_w, surf_h);
 	}
+	if (!strcmp(name, "square")) {
+		/* Square pixels at the full height; wider than the surface, the
+		 * full width at the same factor */
+		const int w = (2 * src_w * surf_h + src_h) / (2 * src_h);
+
+		if (w <= surf_w) return centered(w, surf_h, surf_w, surf_h);
+		return centered(surf_w, (2 * src_h * surf_w + src_w) / (2 * src_w), surf_w, surf_h);
+	}
 	if (!strcmp(name, "fill")) {
 		a = shape(src_w, src_h, aspect);
 		if ((double)surf_w / a >= (double)surf_h)

@@ -29,7 +29,9 @@
  * picture on it for covers, a screen with a play triangle for video snaps,
  * its three sources' own marks, never their logos - a cloud for
  * ScreenScraper, an open book for libretro's catalog, a grid for
- * SteamGridDB - and a heart for the favorites. */
+ * SteamGridDB - and a heart for the favorites. And MENU > Downloads'
+ * (11.53): a cup with two handles for achievements, and books standing on a
+ * shelf for libretro, whose open book is now the names and details. */
 typedef enum {
 	UI_GLYPH_REPEAT, UI_GLYPH_REPEAT_ONE, UI_GLYPH_SHUFFLE,
 	UI_GLYPH_CHARGE, UI_GLYPH_TRANSFER, UI_GLYPH_TERMINAL,
@@ -40,6 +42,7 @@ typedef enum {
 	UI_GLYPH_TO_CARD, UI_GLYPH_FROM_CARD,
 	UI_GLYPH_COVER, UI_GLYPH_FILM,
 	UI_GLYPH_CLOUD, UI_GLYPH_BOOK, UI_GLYPH_GRID, UI_GLYPH_HEART, UI_GLYPH_CLOCK,
+	UI_GLYPH_TROPHY, UI_GLYPH_SHELF,
 	UI_GLYPH_COUNT
 } ui_glyph;
 void ui_glyph_draw(SDL_Renderer *r, ui_glyph g, int cx, int cy, int size,

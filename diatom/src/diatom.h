@@ -535,6 +535,7 @@ typedef enum {
 	DIATOM_SCALE_INTEGER_VERT,   /* whole factor down, shape-correct across   */
 	DIATOM_SCALE_INTEGER_OVER,   /* smallest whole factor that covers, cropped*/
 	DIATOM_SCALE_ASPECT_FIT,     /* fractional, shape kept, boxed             */
+	DIATOM_SCALE_SQUARE,         /* fractional, square pixels, full height    */
 	DIATOM_SCALE_ASPECT_FILL,    /* fractional, shape kept, cropped           */
 	DIATOM_SCALE_STRETCH         /* fills both axes, shape ignored            */
 } diatom_scale_mode;

@@ -240,7 +240,7 @@ EXTRA = {
     "system-menu-list": ("demo", "GBA", ["--screen", "games", "--view", "list", "--menu", "View"]),
     # ...and at its end: with View and Shader (1.0.5), Box Art is below the
     # first shot's rows
-    "system-menu-end": ("demo", "PS1", ["--screen", "games", "--menu", "Box Art"]),
+    "system-menu-end": ("demo", "PS1", ["--screen", "games", "--menu", "Downloads"]),
     "storage-art": ("demo", "PS1", ["--storage", "art"]),
     "storage-states": ("demo", "PS1", ["--storage", "states"]),
     "storage-delete": ("demo", "PS1", ["--storage", "delete"]),
@@ -292,6 +292,7 @@ EXTRA = {
     # Every display mode's name on the Display row (1.0.6; what each does is
     # in its list, beside its picture: gamemenu-display-list-*)
     "gamemenu-dmode-aspect": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "1", "--dmode", "aspect"]),
+    "gamemenu-dmode-square": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "1", "--dmode", "square"]),
     "gamemenu-dmode-integer": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "1", "--dmode", "integer"]),
     "gamemenu-dmode-tall": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "1", "--dmode", "integer-vertical"]),
     "gamemenu-dmode-overscale": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "1", "--dmode", "overscale"]),
@@ -463,13 +464,40 @@ EXTRA = {
     "scraper-page-done-full": ("demo", "PS1", ["--scraper-page", "15"]),
     # and the Video Snaps page it opens: how the shelf plays them, the room
     "scraper-video-snaps": ("demo", "PS1", ["--scraper", "3"]),
-    # MENU > Downloads (DESIGN.md 11.53): the plan, a run going on, every
-    # kind done or out, no network and nobody signed in, and its Settings
+    # MENU > Downloads (DESIGN.md 11.53), every screen and state of the
+    # downloads lab's picked design: the hub (its plan, a run going on, every
+    # kind done, no network and nobody signed in, counting, on a kind, a kind
+    # out), Settings, the kinds' pages, Systems, a system's games and a
+    # game's panel, the run (going, waiting for Wi-Fi, paused), done and
+    # stopped, On the Card, RetroAchievements' account, a console's page and
+    # Videos for
     "downloads": ("demo", "PS1", ["--downloads", "0"]),
     "downloads-running": ("demo", "PS1", ["--downloads", "1"]),
     "downloads-done": ("demo", "PS1", ["--downloads", "2"]),
     "downloads-offline": ("demo", "PS1", ["--downloads", "3"]),
     "downloads-settings": ("demo", "PS1", ["--downloads", "4"]),
+    "downloads-counting": ("demo", "PS1", ["--downloads", "5"]),
+    "downloads-on-covers": ("demo", "PS1", ["--downloads", "6"]),
+    "downloads-covers-out": ("demo", "PS1", ["--downloads", "7"]),
+    "downloads-covers": ("demo", "PS1", ["--downloads", "8"]),
+    "downloads-videos": ("demo", "PS1", ["--downloads", "9"]),
+    "downloads-names": ("demo", "PS1", ["--downloads", "10"]),
+    "downloads-systems": ("demo", "PS1", ["--downloads", "11"]),
+    "downloads-games": ("demo", "PS1", ["--downloads", "12"]),
+    "downloads-game": ("demo", "PS1", ["--downloads", "13"]),
+    "downloads-run": ("demo", "PS1", ["--downloads", "14"]),
+    "downloads-run-no-wifi": ("demo", "PS1", ["--downloads", "15"]),
+    "downloads-run-paused": ("demo", "PS1", ["--downloads", "16"]),
+    "downloads-all-done": ("demo", "PS1", ["--downloads", "17"]),
+    "downloads-stopped": ("demo", "PS1", ["--downloads", "18"]),
+    "downloads-on-the-card": ("demo", "PS1", ["--downloads", "19"]),
+    "downloads-ra-account": ("demo", "PS1", ["--downloads", "20"]),
+    "downloads-console": ("demo", "PS1", ["--downloads", "21"]),
+    "downloads-videos-for": ("demo", "PS1", ["--downloads", "22"]),
+    "downloads-ra-signed-out": ("demo", "PS1", ["--downloads", "24"]),
+    "downloads-on-names": ("demo", "PS1", ["--downloads", "25"]),
+    "downloads-covers-complete": ("demo", "PS1", ["--downloads", "26"]),
+    "downloads-no-accounts": ("demo", "PS1", ["--downloads", "27"]),
     # A game's Cover and Video (DESIGN.md 11.34) in every state, a tile of
     # each kind and region focused, Delete's question and the message of a
     # download that did not come; and the details row's other value
@@ -1030,9 +1058,16 @@ for _r, _n in ((2, "corner"), (3, "edge"), (5, "opacity"), (6, "color")):
                                                        "--hud-pick", str(_r)]))
 # Each mode under the list's cursor, its picture and its note beside the
 # list (src/ds/preview.h): every note in its room in every language
-for _k, _m in enumerate(["stretch", "aspect", "integer", "integer-vertical", "overscale", "fill", "native"]):
+for _k, _m in enumerate(["stretch", "aspect", "square", "integer", "integer-vertical", "overscale", "fill",
+                        "native"]):
     EXTRA.setdefault("gamemenu-display-list-" + _m,
                      ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "1", "--gm-choose", "--pick-at", str(_k)]))
+# Square Pixels over an NES game's 256x224, which fceumm asks to show wider
+# (1.3061, diatom/docs/reference/core-facts.md): the picture 8:7, as tall as
+# the screen, room at its sides (#346)
+EXTRA.setdefault("gamemenu-display-list-square-nes",
+                 ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "1", "--gm-choose", "--pick-at", "2",
+                                  "--gm-source", "256x224@1.3061"]))
 # Display's Theme page (DESIGN.md 11.42) in each of the ten accents, the
 # tones going round in both themes and the corners turning over, so every
 # accent's, tone's and value's name is drawn; its foot, Zyper and Reset to
@@ -1200,6 +1235,20 @@ UPDATE_STATES = {
     "update-ready": ("state ready\nversion 0.1.1\nkind system\ntime {now}\n", True),
 }
 EXTRA.update({name: ("demo", "PS1", ["--update"]) for name in UPDATE_STATES})
+
+# About's Details with a battery (src/about.c): the full charge never measured
+# (charge_full_learned 0, as the Pixel 2's kernel says until its first
+# measure: "Not measured yet") and measured worn ("81% estimate"). The
+# launcher reads these files for the gauge's folder (ZYPEROS_BATTERY_DIR,
+# plat_battery_info_path), made for the shot.
+BATTERY_DIRS = {
+    "about-1-unmeasured": {"charge_full": "1730000\n", "charge_full_design": "1730000\n",
+                           "charge_full_learned": "0\n"},
+    "about-1-measured": {"charge_full": "1400000\n", "charge_full_design": "1730000\n",
+                         "charge_full_learned": "3\n"},
+}
+for _name in BATTERY_DIRS:
+    EXTRA.setdefault(_name, ("demo", "PS1", ["--about", "1"]))
 
 # The Install PortMaster page (src/pminstall.c) in its states with the
 # longest words: its status as res/portmaster/pm-install.py writes it, and
@@ -1454,6 +1503,12 @@ def run_language(code, shots, binary, keep, theme="light", device="pixel2", firs
                 pm.mkdir(exist_ok=True)
                 (pm / "status").write_text(PM_STATES[name][0])
                 env["ZYPEROS_PM_STATUS"] = str(pm / "status")
+            if name in BATTERY_DIRS:
+                bat = Path(tmp) / ("battery-" + name)
+                bat.mkdir(exist_ok=True)
+                for _f, _text in BATTERY_DIRS[name].items():
+                    (bat / _f).write_text(_text)
+                env["ZYPEROS_BATTERY_DIR"] = str(bat)
 
             def shoot():
                 # A shot's own settings (readme-shots' SHOT_SETTINGS), only while

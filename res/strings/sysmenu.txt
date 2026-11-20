@@ -856,17 +856,6 @@ ja = 並べ替え
 it = Ordina per
 
 
-[sysmenu.box_art]
-note = A system menu row: fetch covers for this system's games
-en = Box Art
-zh-Hans = 封面
-es = Carátulas
-pt-BR = Capas
-fr = Jaquettes
-de = Cover
-ja = パッケージ画像
-it = Copertine
-
 [sysmenu.rescan]
 note = A system menu row: look at the card's folders again
 en = Rescan Folder

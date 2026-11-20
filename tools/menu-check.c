@@ -891,13 +891,19 @@ static void system_menu(void)
 	u.strength = NULL;
 	u.no_strength = true;
 	ck(sys_menu_build(&u, rows, &b, &heading) == n - 1 && sm_at(&u, SM_STRENGTH) < 0 &&
-	   !strcmp(rows[sm_at(&u, SM_SHADER) + 1].label, T(S_SYSMENU_BOX_ART)),
-	   "and gone while the shader is not an old screen, Box Art moving up");
+	   !strcmp(rows[sm_at(&u, SM_SHADER) + 1].label, T(S_DOWNLOADS_HEADING)),
+	   "and gone while the shader is not an old screen, Downloads moving up");
 	u.no_strength = false;
 	n = sys_menu_build(&u, rows, &b, &heading);
 	ck(rows[sm_at(&u, SM_DISPLAY)].live && rows[sm_at(&u, SM_RESCAN)].live, "the two live rows are live");
 	ck(!rows[sm_at(&u, SM_GAMES)].live && !rows[sm_at(&u, SM_CORE)].live, "reported facts are not rows to press");
-	ck(rows[sm_at(&u, SM_BOXART)].live, "Box Art is live on a network");
+	ck(rows[sm_at(&u, SM_BOXART)].live && !strcmp(rows[sm_at(&u, SM_BOXART)].label, T(S_DOWNLOADS_HEADING)),
+	   "Box Art is Downloads, this console's page, live on a network");
+	u.sys_downloads = "41 to fetch";
+	sys_menu_build(&u, rows, &b, &heading);
+	ck(!strcmp(val(&rows[sm_at(&u, SM_BOXART)]), "41 to fetch"), "its value is the console's count");
+	u.sys_downloads = NULL;
+	sys_menu_build(&u, rows, &b, &heading);
 
 	/* A shelf that lists two cores, the Dreamcast's: Core is a choice. */
 	u.sys_core = "Flycast";
@@ -908,11 +914,11 @@ static void system_menu(void)
 	u.core_choice = false;
 	u.sys_core = "gambatte";
 
-	/* The same menu with the radio down. Only Box Art changes. */
+	/* The same menu with the radio down: Downloads stays live, its page
+	 * counts and deletes with no network and says what Download needs */
 	u.wifi = WIFI_OFF;
 	sys_menu_build(&u, rows, &b, &heading);
-	ck(!rows[sm_at(&u, SM_BOXART)].live, "Box Art dies with the radio");
-	ck(!strcmp(val(&rows[sm_at(&u, SM_BOXART)]), "Needs Wi-Fi"), "and says why");
+	ck(rows[sm_at(&u, SM_BOXART)].live, "Downloads stays live with the radio down");
 	ck(rows[sm_at(&u, SM_RESCAN)].live, "Rescan does not need a network");
 
 	/* Favorites, which is not a system: no core and no folder, so four of the
@@ -1333,7 +1339,7 @@ static void cursor_reaches(void)
 	/* Live since sorting stopped being alphabetical-only. It was a
 	 * placeholder for long enough that this check counted three. */
 	ck(holds(got, k, sm_at(&u, SM_SORT)), "Sort By");
-	ck(holds(got, k, sm_at(&u, SM_BOXART)), "Box Art");
+	ck(holds(got, k, sm_at(&u, SM_BOXART)), "Downloads");
 	ck(holds(got, k, sm_at(&u, SM_RESCAN)), "Rescan Folder");
 	ck(!holds(got, k, sm_at(&u, SM_GAMES)) && !holds(got, k, sm_at(&u, SM_CORE)),
 	   "the reported facts are not stops");
@@ -1497,8 +1503,8 @@ static void radio_less(void)
 	k = sys_menu_system_rows(&u, sm);
 	printf("system menu, no radio, a phone's tethering:\n");
 	for (i = 0; i < k && sm[i] != SM_BOXART; i++) { }
-	ck(n == k && i < k && !strcmp(rows[i].label, "Box Art") && rows[i].live && !rows[i].value,
-	   "Box Art stays, live and not asking for Wi-Fi");
+	ck(n == k && i < k && !strcmp(rows[i].label, "Downloads") && rows[i].live && !rows[i].value,
+	   "Downloads stays, live and not asking for Wi-Fi");
 
 	memset(&u, 0, sizeof u);
 	u.games = true;
@@ -1508,10 +1514,10 @@ static void radio_less(void)
 	n = sys_menu_build(&u, rows, &b, &heading);
 	k = sys_menu_system_rows(&u, sm);
 	printf("system menu, no radio at all:\n");
-	ck(n == k && n == SM_ROWS - 4, "Box Art goes and nothing else");
-	ck(!has_label(rows, n, "Box Art"), "no Box Art");
+	ck(n == k && n == SM_ROWS - 3, "Downloads stays: its counts, Systems and deletes need no network");
+	ck(has_label(rows, n, "Downloads") && !has_label(rows, n, "Box Art"), "Downloads, no Box Art");
 	ck(sm[n - 1] == SM_RESCAN && !strcmp(rows[n - 1].label, "Rescan Folder"),
-	   "Rescan Folder moves up into its place");
+	   "Rescan Folder last");
 
 	k = sys_menu_muse_rows(false, false, true, mu);
 	for (i = 0, ok = true; i < k; i++) if (mu[i] == SMM_ART) ok = false;
