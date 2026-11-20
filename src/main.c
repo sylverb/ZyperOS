@@ -6436,6 +6436,9 @@ int main(int argc, char *argv[])
 		else if (!strcmp(argv[i], "--gm-tab-from") && i + 1 < argc) shot_gm_from = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--gm-press") && i + 1 < argc) shot_gm_press = argv[++i];
 		else if (!strcmp(argv[i], "--gm-choose")) shot_gm_choose = 1;
+		/* --gm-restart: over your PICO-8 (--gamemenu N port on its
+		 * shelf), the question a Display mode asks, --pick-at's mode */
+		else if (!strcmp(argv[i], "--gm-restart")) shot_gm_restart = 1;
 		/* --hud-page ROW: the On-Screen Stats page (src/hudmenu_screen.h)
 		 * over the paused game, the cursor on ROW, with --gamemenu;
 		 * --hud-items, its Shows list instead; --hud-pick ROW, that row's

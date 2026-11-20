@@ -1505,6 +1505,20 @@ EXTRA["pico8-splore-video"] = ("pico8", "PICO8", ["--screen", "games", "--view",
 EXTRA["pico8-page"] = ("pico8", "PICO8", ["--screen", "games", "--pico8-page"])
 for _k in range(7):
     EXTRA["pico8-said-%d" % _k] = ("pico8", "PICO8", ["--screen", "games", "--pico8-said", str(_k)])
+# The in-game menu over your PICO-8 (src/portmenu.h's port_menu_display): its
+# Display row, on Sharp Pixels; the Display list A opens there, the cursor on
+# Actual Size; and the question a mode other than the one on asks before
+# PICO-8 starts again in it, the cursor on Cancel, for each mode it can name.
+# The Pixel 2's alone in effect: the Brick has no PICO-8 of its own yet
+EXTRA["pico8-menu-display"] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "1", "port"])
+EXTRA["pico8-display-list"] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "1", "port",
+                                                  "--gm-choose", "--pick-at", "7"])
+for _k, _m in enumerate(("stretch", "aspect", "square", "integer", "tall", "overscale", "fill", "native")):
+    EXTRA["pico8-restart-" + _m] = ("pico8", "PICO8", ["--screen", "games", "--gamemenu", "1", "port",
+                                                       "--gm-restart", "--pick-at", str(_k)])
+for _name in ["pico8-menu-display", "pico8-display-list"] + ["pico8-restart-" + _m for _m in (
+        "stretch", "aspect", "square", "integer", "tall", "overscale", "fill", "native")]:
+    SHOT_SETTINGS[_name] = {"display.PICO8": "integer"}
 
 
 # The demonstration card with one game in each system that has none (a name

@@ -6285,8 +6285,10 @@ until then its script is not in the Brick's payload, so the Brick's PICO-8
 shelf has no Splore and plays on fake08.
 
 Host shots: `make pico8-shots` (the shelf before and after, the Core row, the
-page in both themes). The rules: `make check-pico8`, `check-config`,
-`check-controls`.
+page in both themes), and tools/i18n-shots.py's `pico8-menu-display`,
+`pico8-display-list` and `pico8-restart-<mode>` (the menu's Display row, its
+list, the question for each mode). The rules: `make check-pico8`,
+`check-config`, `check-controls`, `check-pico8-display`, `check-pkover`.
 
 ### 11.56 Collections
 *(NextUI's top ten, and my picks in the Library lab, 2026-11-19: "Add to
