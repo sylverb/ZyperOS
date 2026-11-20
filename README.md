@@ -141,6 +141,7 @@ No handheld yet? ZyperOS runs on a Mac in a window drawn as the handheld itself,
 
 <table>
 <tr><td align="center"><img src="res/readme/desk-keys.png" width="240" alt="Desk mode: the ZyperOS home in a window drawn as a green GKD Pixel 2, each button labelled with its keyboard key: X on A, Z on B, Esc on MENU, Return on START"><br><sub>Desk mode, each key's letter on show</sub></td><td align="center"><img src="res/readme/desk-game.png" width="240" alt="Desk mode: the in-game menu's Game tab, Continue, Save and Load, over a NES game on the drawn Pixel 2"><br><sub>A game and its in-game menu</sub></td><td align="center"><img src="res/readme/desk-brick.png" width="240" alt="Desk mode as the TrimUI Brick: the ZyperOS home on its 1024x768 screen, with the Brick's F1, F2, MENU, SELECT and START keys drawn below"><br><sub>The same, as the TrimUI Brick</sub></td></tr>
+<tr><td align="center" colspan="3"><img src="res/readme/simulator.png" width="240" alt="The ZyperOS Simulator: a drawn GKD Pixel 2 at the first start, Zyper saying Hello! beside the language list, its four side lights lit green on the cable"> <img src="res/readme/simulator-charging.png" width="240" alt="The ZyperOS Simulator: the home on the drawn Pixel 2 while it charges, the charging mark in the top bar and the side lights filling from the bottom"><br><sub>The ZyperOS Simulator: the first start, and the side lights while it charges</sub></td></tr>
 </table>
 
 </div>
