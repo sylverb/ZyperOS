@@ -31,7 +31,7 @@ static int device_max(int k) { return k == 0 ? PLAT_VOL_MAX : PLAT_BRIGHT_MAX; }
 /* The boost's effect, wherever it goes: the volume's gain to MP4 and to the
  * file a port's plugin reads (each told only when it changes), the
  * brightness's lift to the display's table */
-static void apply(int k)
+static void levels_apply(int k)
 {
 	if (k == 0) {
 		const int db = boost_db(&L.bar[0]);
@@ -44,7 +44,7 @@ static void apply(int k)
 	}
 }
 
-static void keep(int k)
+static void levels_keep(int k)
 {
 	db_set_int(db_dev(), KEEP[k], L.bar[k].open ? L.bar[k].cells : 0);
 }
@@ -52,7 +52,7 @@ static void keep(int k)
 /* The level as the device has it now: another path may have moved it (a
  * route change, a game handing it back), and one under the top closes the
  * boost */
-static void sync(int k)
+static void levels_sync(int k)
 {
 	const int lv = device_level(k);
 	boost_bar *b = &L.bar[k];
@@ -60,8 +60,8 @@ static void sync(int k)
 	if (L.frozen || lv < 0 || lv == b->level) return;
 	if (b->open && lv < b->max) {
 		boost_set_level(b, lv);
-		apply(k);
-		keep(k);
+		levels_apply(k);
+		levels_keep(k);
 	} else {
 		boost_set_level(b, lv);
 	}
@@ -76,13 +76,13 @@ void levels_init(void)
 
 		boost_init(&L.bar[k], lv < 0 ? device_max(k) : lv, device_max(k), CELLS[k],
 		           db_get_int(db_dev(), KEEP[k], 0));
-		apply(k);
+		levels_apply(k);
 	}
 	L.where = BOOST_HIDE;
 	L.ready = true;
 }
 
-static void ensure(void)
+static void levels_ensure(void)
 {
 	if (!L.ready) levels_init();
 }
@@ -90,7 +90,7 @@ static void ensure(void)
 /* What a press or the clock did, done: the level by the device's own nudge
  * (which keeps it, shows the bar and says it on the side lights, as every
  * level press always has), the boost's effect, the rumble as it opens */
-static void act(int k, int dir, int did, unsigned now)
+static void levels_act(int k, int dir, int did, unsigned now)
 {
 	(void)now;
 	if ((did & BOOST_LEVEL) || !(did & BOOST_GAIN)) {
@@ -101,8 +101,8 @@ static void act(int k, int dir, int did, unsigned now)
 		plat_osd_show(kind_of(k), L.bar[k].level, L.bar[k].max);
 	}
 	if (did & BOOST_GAIN) {
-		apply(k);
-		keep(k);
+		levels_apply(k);
+		levels_keep(k);
 	}
 	if (did & BOOST_OPENED)
 		plat_rumble_buzz((float)rumble_level_pct(rumble_menu()) / 100.0f, 40);
@@ -115,7 +115,7 @@ bool levels_keys(in_state *in, int where)
 	bool acted = false;
 	int k;
 
-	ensure();
+	levels_ensure();
 	L.where = where;
 	for (k = 0; k < 2; k++) {
 		boost_bar *b = &L.bar[k];
@@ -123,23 +123,23 @@ bool levels_keys(in_state *in, int where)
 		int did;
 
 		if (k == 1 && where == BOOST_FILL) break;
-		sync(k);
+		levels_sync(k);
 		if (in_repeat(in, UP[k])) {
-			act(k, +1, boost_key(b, +1, !in->pressed[UP[k]], wh, now), now);
+			levels_act(k, +1, boost_key(b, +1, !in->pressed[UP[k]], wh, now), now);
 			acted = true;
 		}
 		if (in_repeat(in, DN[k])) {
-			act(k, -1, boost_key(b, -1, !in->pressed[DN[k]], wh, now), now);
+			levels_act(k, -1, boost_key(b, -1, !in->pressed[DN[k]], wh, now), now);
 			acted = true;
 		}
 		if (L.up_was[k] && !in->down[UP[k]]) boost_release(b, now);
 		L.up_was[k] = in->down[UP[k]];
 		did = boost_tick(b, in->down[UP[k]], wh, now);
-		if (did) act(k, +1, did & ~BOOST_LEVEL, now);
+		if (did) levels_act(k, +1, did & ~BOOST_LEVEL, now);
 	}
 	/* A port started later reads the gain from the file; MP4, started
 	 * again, has to be told again (both only on a change) */
-	if (L.db_told != boost_db(&L.bar[0])) apply(0);
+	if (L.db_told != boost_db(&L.bar[0])) levels_apply(0);
 	else mp4c_gain(L.db_told);
 	return acted;
 }
@@ -149,8 +149,8 @@ bool levels_look(int kind, osdbar_look *out)
 	const int k = k_of(kind);
 
 	if (k < 0) return false;
-	ensure();
-	sync(k);
+	levels_ensure();
+	levels_sync(k);
 	boost_look(&L.bar[k], kind, k == 0 ? L.where : BOOST_OPEN, plat_now_ms(), out);
 	return true;
 }
@@ -173,8 +173,8 @@ void levels_bar_gone(void)
 
 		boost_bar_gone(&L.bar[k]);
 		if (was && !L.bar[k].open) {
-			apply(k);
-			keep(k);
+			levels_apply(k);
+			levels_keep(k);
 		}
 	}
 }
@@ -183,8 +183,8 @@ void levels_output_changed(void)
 {
 	if (!L.ready || !L.bar[0].open) return;
 	boost_shut(&L.bar[0]);
-	apply(0);
-	keep(0);
+	levels_apply(0);
+	levels_keep(0);
 	fprintf(stderr, "levels: the output changed, so the volume boost is closed\n");
 }
 
@@ -194,7 +194,7 @@ void levels_from_game(int kind, int level, int boost)
 	boost_bar *b;
 
 	if (k < 0) return;
-	ensure();
+	levels_ensure();
 	b = &L.bar[k];
 	if (level < 0) return;
 	if (level > b->max) level = b->max;
@@ -205,8 +205,8 @@ void levels_from_game(int kind, int level, int boost)
 		if (b->open) boost_shut(b);
 	}
 	b->level = level;
-	apply(k);
-	keep(k);
+	levels_apply(k);
+	levels_keep(k);
 }
 
 int levels_boost(int kind)
@@ -214,7 +214,7 @@ int levels_boost(int kind)
 	const int k = k_of(kind);
 
 	if (k < 0) return 0;
-	ensure();
+	levels_ensure();
 	return L.bar[k].open ? L.bar[k].cells : 0;
 }
 
@@ -223,7 +223,7 @@ void levels_shot(int kind, int level, int cells)
 	const int k = k_of(kind);
 
 	if (k < 0) return;
-	ensure();
+	levels_ensure();
 	L.frozen = true;
 	L.where = BOOST_OPEN;
 	boost_init(&L.bar[k], level, L.bar[k].max, CELLS[k], cells);
