@@ -70,6 +70,16 @@ static void round_trip(void)
 
 	printf("written and read back:\n");
 	ck(mp4hand_write(path, &h), "an album, shuffled, playing, is written");
+	{
+		char first[4096] = "", second[4096] = "";
+		FILE *f = fopen(path, "r");
+
+		if (f) { if (fread(first, 1, sizeof first - 1, f)) {} fclose(f); }
+		ck(mp4hand_write(path, &h) && (f = fopen(path, "r")) != NULL, "and written again, the same");
+		if (f) { if (fread(second, 1, sizeof second - 1, f)) {} fclose(f); }
+		ck(strncmp(first, "ZMQ1\nid\t", 8) == 0 && strcmp(first, second) != 0,
+		   "each write with an id of its own, so the same queue twice is two files' bytes");
+	}
 	ck(mp4hand_read(path, &b), "and read back");
 	ck(b.state == MH_PLAYING && b.at > 83.39 && b.at < 83.41 && b.mode == 3 && b.seed == 4000000000u &&
 	   b.n == 3 && b.pos == 1 && !b.book && !b.videos && !b.names_each && !b.all && b.speed == 1.0,

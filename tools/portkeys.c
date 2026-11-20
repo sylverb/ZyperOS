@@ -477,6 +477,12 @@ static bool buffers(void)
 
 static bool overlay_setup(void);
 
+/* A program the in-game menu is starting again (PORT_MENU_RESTART), on its
+ * way out: never borrowed from, so no copy of this process's keeps its
+ * display, and the master with it, from the loading screen and the program
+ * that start next. 0 for none. */
+static pid_t gone_pid;
+
 /* Every process but this one with the display open, until one of the copies
  * is the master's: that copy, in G with the pid, its pidfd, the number the
  * port has it under and the CRTC lighting the panel. Nothing made on it yet. */
@@ -492,7 +498,7 @@ static bool master_copy(void)
 		DIR *fds;
 		struct dirent *fe;
 
-		if (pid <= 1 || pid == self) continue;
+		if (pid <= 1 || pid == self || pid == gone_pid) continue;
 		snprintf(dir, sizeof dir, "/proc/%d/fd", pid);
 		if (!(fds = opendir(dir))) continue;
 		pidfd = -1;
@@ -1649,7 +1655,8 @@ static int menu_waiting(void)
 	while (child > 0 && waitpid(child, &status, 0) < 0 && errno == EINTR && !g_term) {}
 	follow_hold(false);
 	if (child > 0 && WIFEXITED(status) &&
-	    (WEXITSTATUS(status) == PORT_MENU_QUIT || WEXITSTATUS(status) == PORT_MENU_POWER))
+	    (WEXITSTATUS(status) == PORT_MENU_QUIT || WEXITSTATUS(status) == PORT_MENU_POWER ||
+	     WEXITSTATUS(status) == PORT_MENU_RESTART))
 		how = WEXITSTATUS(status);
 
 	/* The loading screen back on the panel: the launcher's picture went
@@ -1679,8 +1686,11 @@ static int menu_waiting(void)
 	pk_levels_load(db, BACKLIGHT, &L);
 	pk_boost_load(db, &L, &BO);
 	fprintf(stderr, "portkeys: the menu was up %ld ms while the port started: %s\n", now_ms() - t0,
-	        how == PORT_MENU_QUIT ? "Quit" : how == PORT_MENU_POWER ? "POWER" : "Keep Waiting");
-	if (how == PORT_MENU_QUIT) {
+	        how == PORT_MENU_QUIT ? "Quit" : how == PORT_MENU_POWER ? "POWER" :
+	        how == PORT_MENU_RESTART ? "start again" : "Keep Waiting");
+	/* Quit, or a start again (a Display mode over your PICO-8): launch.sh
+	 * tells the two apart by the restart file the menu wrote (port_quit) */
+	if (how == PORT_MENU_QUIT || how == PORT_MENU_RESTART) {
 		pid_t parent = getppid();
 
 		if (parent > 1) kill(parent, SIGUSR2);
@@ -1756,7 +1766,7 @@ static int menu_show_as(const char *extra)
 	follow_hold(false);
 	if (child > 0 && WIFEXITED(status) &&
 	    (WEXITSTATUS(status) == PORT_MENU_QUIT || WEXITSTATUS(status) == PORT_MENU_POWER ||
-	     WEXITSTATUS(status) == PORT_MENU_RESET))
+	     WEXITSTATUS(status) == PORT_MENU_RESET || WEXITSTATUS(status) == PORT_MENU_RESTART))
 		how = WEXITSTATUS(status);
 	else if (child > 0 && !(WIFEXITED(status) && WEXITSTATUS(status) == PORT_MENU_CONTINUE))
 		fprintf(stderr, "portkeys: the menu ended with status %d; the game goes on\n", status);
@@ -1794,8 +1804,12 @@ static int menu_show_as(const char *extra)
 	keys_load();
 	fprintf(stderr, "portkeys: the menu was up %ld ms: %s\n", now_ms() - t0,
 	        how == PORT_MENU_QUIT ? "Quit" : how == PORT_MENU_POWER ? "POWER" :
-	        how == PORT_MENU_RESET ? "Reset" : "Continue");
-	if (how == PORT_MENU_QUIT) {
+	        how == PORT_MENU_RESET ? "Reset" : how == PORT_MENU_RESTART ? "start again" : "Continue");
+	/* Quit, or a start again (a Display mode over your PICO-8): launch.sh
+	 * tells the two apart by the restart file the menu wrote (port_quit).
+	 * The program going away is not borrowed from again (gone_pid) */
+	if (how == PORT_MENU_RESTART) gone_pid = pid;
+	if (how == PORT_MENU_QUIT || how == PORT_MENU_RESTART) {
 		pid_t parent = getppid();
 
 		if (parent > 1) kill(parent, SIGUSR2);
@@ -2100,13 +2114,14 @@ static void shader_next(void)
 }
 
 /* Next Display over your PICO-8: a new mode means PICO-8 starts again, so
- * the launcher steps the Display row and asks first, as the menu's Display
- * row does. Until this build has the question, said and nothing done. 1
- * when a menu was up. */
+ * PICO-8 is stopped as for the menu and the launcher steps the Display row
+ * and asks first, as the menu's Display row does (PORT_MENU_DISPLAY_ARG):
+ * Start Again is PORT_MENU_RESTART, the program started again in the new
+ * mode (launch.sh), Cancel the game on where it was. 1 when it was up. */
 static int display_next(void)
 {
-	fprintf(stderr, "portkeys: Next Display: no Display question over your PICO-8 in this build\n");
-	return 0;
+	fprintf(stderr, "portkeys: hotkey, Next Display: asked first\n");
+	return menu_show_as(PORT_MENU_DISPLAY_ARG);
 }
 
 /* What this pass's hotkeys asked for, in Diatom's order (diatom/src/main.c):

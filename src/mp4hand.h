@@ -31,7 +31,9 @@
  *
  * In /tmp, which is memory: a power-off takes it, and MP4's resume row
  * (src/mp4resume.h) is what comes back after one. Text, one field a line,
- * "key<TAB>value", written whole under another name and renamed into place.
+ * "key<TAB>value", written whole under another name and renamed into place,
+ * each write with an id of its own (the writer's pid and the time), so its
+ * bytes tell a new write from the one a process took, whatever stat says.
  * This file is the format and nothing else - no socket, no SDL, no database -
  * so tools/mp4hand-check.c can hold it to its word. */
 

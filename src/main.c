@@ -6073,11 +6073,20 @@ static int port_menu_main(int argc, char **argv)
 	a.tint = s->accent;
 	a.auto_off = 0;
 	a.running = true;
+	/* The systems' Display rows, for the row over your PICO-8 */
+	display_load(&a);
+	/* No start again asked for yet: a file left from before is no answer */
+	unlink(plat_flag(PORT_RESTART_FILE));
 	fprintf(stderr, "port menu: %s, ready in %u ms\n", s->name, plat_now_ms() - t_boot0);
 
-	how = port_menu(&a);
+	/* Next Display over your PICO-8 (portkeys's hotkey): its question
+	 * alone, no menu */
+	if (argc > 4 && !strcmp(argv[4], PORT_MENU_DISPLAY_ARG) && port_menu_display(s->tag))
+		how = port_display_next(&a);
+	else
+		how = port_menu(&a);
 	fprintf(stderr, "port menu: %s\n", how == PORT_MENU_QUIT ? "Quit" :
-	        how == PORT_MENU_POWER ? "POWER" : "Continue");
+	        how == PORT_MENU_POWER ? "POWER" : how == PORT_MENU_RESTART ? "start again" : "Continue");
 	/* MP4 opened from it: its queue back to the follower, as it is now */
 	if (g_port_mp4_up) {
 		book_keep(true);

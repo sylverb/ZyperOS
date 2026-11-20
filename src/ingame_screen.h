@@ -35,6 +35,9 @@ typedef struct {
 	gm_bufs      bufs;
 	menu_style   st;
 	bool         resume;
+	/* Over your PICO-8: a Display mode picked and agreed to, so the menu
+	 * ends with PORT_MENU_RESTART (port_restart_ask) */
+	bool         restart;
 	menu_tabs    tabs;     /* Game, Display, Controls; none over a port */
 	int          seen;     /* the runner's cursor (menu_style.sel_out) */
 	/* The Controls tab's rows' value colors and sound classes, which are
@@ -109,6 +112,26 @@ void game_reset_ask(app *a);
  * stepped, kept and sent; the name now on into out, for the pop-up */
 void gm_hotkey_step(app *a, bool shader, char *out, size_t n);
 int port_menu(app *a);
+/* Over your PICO-8 (src/portmenu.h's port_menu_display): the question before
+ * it starts again, as Reset Game's hotkey asks, over `over`'s backdrop with
+ * its power rule (NULL: the program's frame, POWER ending it), the cursor on
+ * Cancel. "Start the cart again?", `line` under it (pico8.restart_display
+ * for a Display mode), Start Again and Cancel. True for Start Again. */
+bool port_restart_ask(app *a, const menu_style *over, void *ctx, const char *line);
+/* Display mode `k` kept for the program's system (display.<TAG>) and, with
+ * it, written to PORT_RESTART_FILE for launch.sh to start it again in. The
+ * mode on already for a start again for another reason (new buttons).
+ * False when the file could not be written. */
+bool port_restart_write(app *a, int k);
+/* --display (PORT_MENU_DISPLAY_ARG): Next Display over your PICO-8, with no
+ * menu: the next mode, round, and the question over the frame.
+ * PORT_MENU_RESTART for Start Again, PORT_MENU_POWER for POWER, else
+ * PORT_MENU_CONTINUE with nothing kept */
+int port_display_next(app *a);
+/* PICO-8's 128 x 128 screen cut out of `frame` (the panel as the menu found
+ * it) where Display mode `k` put it: the Display list's picture over it, and
+ * its shot's. A texture to destroy, or NULL */
+SDL_Texture *port_screen_of(app *a, SDL_Texture *frame, int k);
 
 /* The in-game menu's option rows' choices by gm_row, for the state `u`
  * (menu.h's menu_choice): what gm_menu_build gives the runner */
