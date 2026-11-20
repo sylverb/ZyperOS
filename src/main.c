@@ -4333,6 +4333,20 @@ static void ra_news_watch(void)
 	g_ra_news = 0;
 }
 
+/* A download that went on behind the screens has ended well: said once, in
+ * Zyper's bubble on the shelf ("Downloads done", "41 covers · 150 achievement
+ * sets"), as the update's news is; and the side lights' done (dlq's lanes) */
+static void dl_news_watch(void)
+{
+	char l1[96], l2[160];
+
+	if (g_heatpop.on || g_songpop.on || g_up_news[0][0]) return;
+	if (!downloads_news(l1, sizeof l1, l2, sizeof l2)) return;
+	heatpop_show(plat_now_ms());
+	snprintf(g_heatpop.line1, sizeof g_heatpop.line1, "%s", l1);
+	snprintf(g_heatpop.line2, sizeof g_heatpop.line2, "%s", l2);
+}
+
 /* The update's own clock, every 2 s, from every screen's loop through
  * tick_theme and from a game's tick: su_auto_step's looks and resumes
  * (src/sysupdate.h), and the news, once per release */
@@ -7580,6 +7594,7 @@ int main(int argc, char *argv[])
 		heat_watch();
 		up_news_watch();
 		ra_news_watch();
+		dl_news_watch();
 
 		/* SELECT is Muse, on the shelf and on every screen but a running
 		 * game - see muse_open. Before the shelf's own keys, which do not use

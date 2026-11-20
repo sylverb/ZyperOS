@@ -259,9 +259,8 @@ static void art_lane_done(dlq_end how)
 	g_snap_run_off = false;
 	g_snap_sys = NULL;
 	scp_menu_value(&g_art_sys, g_art_only);
-	/* Its page open, the page takes it as it shows the end; closed, the
-	 * shelf takes it on its next pass */
-	if (!dlq_page_open(DLQ_ART)) g_art_after = true;
+	/* The shelf takes it on its next pass, whichever page showed the end */
+	g_art_after = true;
 }
 
 /* The covers part against the plan's count, then the details part against
@@ -338,6 +337,82 @@ static int scp_bsearch_cmp(const void *k, const void *e)
  * folder and one of its .media), its games with no video by each choice of
  * Videos for (one listing of the .mp4), the room its videos take, and its
  * two switches. When the page opens and after a run, never per frame. */
+/* Before a count's first system: the play times Videos For's Played reads */
+void scraper_count_begin(void)
+{
+	stats_summarize(STATS_ALL, false, (long)time(NULL));
+}
+
+/* One system's count (scraper_screen.h): a's i-th, false for one with no
+ * games to count (a folder of its own, MP4's, an empty one). `box_art`
+ * counts its covers whatever its switch says, as a console's Box Art did. */
+bool scraper_count_sys(app *a, int i, bool box_art, bool ss_in, long long now, scraper_sys_count *s)
+{
+	const system_cfg *sc = &a->sys.systems[i];
+	const game_list *gl;
+	char dir[LIB_PATH * 2], **mp4, **png;
+	int k, nmp4, npng;
+	db_titles titles = { 0 }, miss = { 0 };
+	bool named;
+
+	memset(s, 0, sizeof *s);
+	if (!sc->folder[0] || a->view[i].owner || is_muse(sc)) return false;
+	gl = sys_games(&a->view[i]);
+	if (!gl->count) return false;
+	s->games = gl->count;
+	snprintf(dir, sizeof dir, "%s/%s", P_ROMS, sc->folder);
+	s->miss = art_missing(dir, sc->exts, NULL, NULL);
+	s->cov = box_art ? true : snaps_covers(sc->folder);
+	s->vid = snaps_get(sc->folder);
+	s->vroom = snaps_bytes(P_ROMS, sc->folder);
+	mp4 = snaps_stems(P_ROMS, sc->folder, &nmp4);
+	png = snaps_cover_stems(P_ROMS, sc->folder, &npng);
+	s->nvideos = nmp4;
+	s->cover_bytes = snaps_cover_bytes(P_ROMS, sc->folder, &s->ncovers, 24);
+	/* The details part's games, as artscrape.c's details_count picks
+	 * them: a cover, no name, and no miss in its 30 days */
+	named = ss_in && ss_system_id(sc->folder);
+	s->ss_named = named;
+	if (named) {
+		db_titles_load(db_lib(), sc->folder, &titles);
+		db_ss_misses_load(db_lib(), sc->folder, now - 30 * 86400LL, now + 86400, &miss);
+	}
+	for (k = 0; k < gl->count; k++) {
+		const game_entry *g = &gl->items[k];
+		const char *stem = g->name, *t;
+		long secs = 0, last = 0;
+		bool name = false;
+		int w;
+
+		if (named && ((npng && bsearch(&stem, png, (size_t)npng, sizeof *png, scp_bsearch_cmp)) ||
+		              es_art_cover(dir, g->file, g->name))) {
+			t = db_titles_find(&titles, g->file);
+			if (t && *t) s->named++;
+			else if (!db_titles_find(&miss, g->file)) name = true;
+		}
+		if (name) s->names++;
+		if (nmp4 && bsearch(&stem, mp4, (size_t)nmp4, sizeof *mp4, scp_bsearch_cmp)) continue;
+		if (es_art_video(dir, g->file, g->name)) continue;
+		for (w = 0; w < SNAPS_FOR_COUNT; w++) {
+			bool in = w == SNAPS_FOR_ALL ||
+			          (w == SNAPS_FOR_FAVORITES && fav_is(sc->tag, g->file)) ||
+			          (w == SNAPS_FOR_PLAYED && stats_lookup(sc->tag, g->file, &secs, &last) &&
+			           (secs > 0 || last > 0));
+
+			if (!in) continue;
+			s->vneed[w]++;
+			if (name) s->both[w]++;
+		}
+	}
+	if (named) {
+		db_titles_free(&titles);
+		db_titles_free(&miss);
+	}
+	snaps_stems_free(mp4, nmp4);
+	snaps_stems_free(png, npng);
+	return true;
+}
+
 static void scp_count(scp_view *v)
 {
 	app *a = v->a;
@@ -350,77 +425,35 @@ static void scp_count(scp_view *v)
 	v->net = net_online();
 	v->ss_in = ss_signed_in();
 	v->free = statvfs(P_ROMS, &vfs) == 0 ? (unsigned long long)vfs.f_bavail * vfs.f_frsize : 0;
-	stats_summarize(STATS_ALL, false, (long)time(NULL));
+	scraper_count_begin();
 	for (i = 0; i < a->sys.count && v->n < CFG_MAX_SYSTEMS; i++) {
 		const system_cfg *sc = &a->sys.systems[i];
-		const game_list *gl;
+		scraper_sys_count c;
 		scp_sys *s;
-		char dir[LIB_PATH * 2], **mp4, **png;
-		int k, nmp4, npng, ncb;
-		db_titles titles = { 0 }, miss = { 0 };
-		bool named;
+		int w;
 
-		if (!sc->folder[0] || a->view[i].owner || is_muse(sc)) continue;
 		if (v->only[0] && strcmp(sc->folder, v->only)) continue;
-		gl = sys_games(&a->view[i]);
-		if (!gl->count) continue;
+		if (!scraper_count_sys(a, i, v->only[0] != '\0', v->ss_in, now, &c)) continue;
 		s = &v->s[v->n++];
 		memset(s, 0, sizeof *s);
 		snprintf(s->folder, sizeof s->folder, "%s", sc->folder);
 		snprintf(s->tag, sizeof s->tag, "%s", sc->tag);
 		snprintf(s->name, sizeof s->name, "%s", sc->name);
 		snprintf(s->key, sizeof s->key, "%s", home_art_key(sc->tag));
-		snprintf(dir, sizeof dir, "%s/%s", P_ROMS, sc->folder);
-		s->miss = art_missing(dir, sc->exts, NULL, NULL);
-		s->cov = v->only[0] ? true : snaps_covers(sc->folder);
-		s->vid = snaps_get(sc->folder);
-		s->vroom = snaps_bytes(P_ROMS, sc->folder);
-		mp4 = snaps_stems(P_ROMS, sc->folder, &nmp4);
-		png = snaps_cover_stems(P_ROMS, sc->folder, &npng);
-		s->nvideos = nmp4;
+		s->miss = c.miss;
+		s->cov = c.cov;
+		s->vid = c.vid;
+		s->vroom = c.vroom;
+		s->nvideos = c.nvideos;
+		s->names = c.names;
+		for (w = 0; w < SNAPS_FOR_COUNT; w++) {
+			s->vneed[w] = c.vneed[w];
+			s->both[w] = c.both[w];
+		}
 		all_bytes += s->vroom;
-		all_videos += nmp4;
-		cover_bytes += snaps_cover_bytes(P_ROMS, sc->folder, &ncb, 24);
-		all_covers += ncb;
-		/* The details part's games, as artscrape.c's details_count picks
-		 * them: a cover, no name, and no miss in its 30 days */
-		named = v->ss_in && ss_system_id(sc->folder);
-		if (named) {
-			db_titles_load(db_lib(), sc->folder, &titles);
-			db_ss_misses_load(db_lib(), sc->folder, now - 30 * 86400LL, now + 86400, &miss);
-		}
-		for (k = 0; k < gl->count; k++) {
-			const game_entry *g = &gl->items[k];
-			const char *stem = g->name, *t;
-			long secs = 0, last = 0;
-			bool name = false;
-			int w;
-
-			if (named && ((npng && bsearch(&stem, png, (size_t)npng, sizeof *png, scp_bsearch_cmp)) ||
-			              es_art_cover(dir, g->file, g->name)) && !db_titles_find(&miss, g->file)) {
-				t = db_titles_find(&titles, g->file);
-				name = !t || !*t;
-			}
-			if (name) s->names++;
-			if (nmp4 && bsearch(&stem, mp4, (size_t)nmp4, sizeof *mp4, scp_bsearch_cmp)) continue;
-			if (es_art_video(dir, g->file, g->name)) continue;
-			for (w = 0; w < SNAPS_FOR_COUNT; w++) {
-				bool in = w == SNAPS_FOR_ALL ||
-				          (w == SNAPS_FOR_FAVORITES && fav_is(sc->tag, g->file)) ||
-				          (w == SNAPS_FOR_PLAYED && stats_lookup(sc->tag, g->file, &secs, &last) &&
-				           (secs > 0 || last > 0));
-
-				if (!in) continue;
-				s->vneed[w]++;
-				if (name) s->both[w]++;
-			}
-		}
-		if (named) {
-			db_titles_free(&titles);
-			db_titles_free(&miss);
-		}
-		snaps_stems_free(mp4, nmp4);
-		snaps_stems_free(png, npng);
+		all_videos += c.nvideos;
+		cover_bytes += c.cover_bytes;
+		all_covers += c.ncovers;
 	}
 	/* A video's size and a cover's as the card's own say, once it has a few */
 	v->mb_video = all_videos >= 5 ? (double)all_bytes / all_videos / 1e6 : SCP_MB_PER_VIDEO;
@@ -1636,6 +1669,41 @@ bool scraper_run(app *a, scraper_kinds k)
 	ok = ok && dlq_running(DLQ_ART);
 	scp_plan_free(v);
 	return ok;
+}
+
+/* A run of the Downloads page (scraper_screen.h): scp_start's, with the
+ * page's own counts in place of a plan's */
+bool scraper_start_run(app *a, scraper_kinds k, const systems_cfg *cfg, const char *only, int covers)
+{
+	(void)a;
+	if (dlq_running(DLQ_ART)) return true;
+	g_art_sys = *cfg;
+	snprintf(g_art_only, sizeof g_art_only, "%s", only ? only : "");
+	g_art_total = k.covers ? covers : 0;
+	g_snap_sys = &g_art_sys;
+	art_covers_rule(k.covers ? art_lane_rule : art_lane_none);
+	art_names(scp_names_on() && k.names);
+	art_names_rule(k.covers ? NULL : art_lane_rule);
+	g_snap_run_off = !k.videos;
+	ART_LANE.card = P_ROMS;
+	if (!dlq_start(DLQ_ART, &ART_LANE, art_lane_begin)) {
+		art_covers_rule(NULL);
+		art_names_rule(NULL);
+		g_snap_run_off = false;
+		g_snap_sys = NULL;
+		return false;
+	}
+	return true;
+}
+
+void scraper_last(art_progress *out)
+{
+	*out = g_art_last;
+}
+
+int scraper_run_total(void)
+{
+	return g_art_total;
 }
 
 bool scraper_names_on(void) { return scp_names_on(); }

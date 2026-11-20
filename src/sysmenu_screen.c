@@ -736,6 +736,11 @@ int menu_build(app *a, screen_id screen, int sys,
 		 * entries would count a folder as one. Not Splore's entry, nor
 		 * PortMaster's while it is not on the card: no game */
 		u.game_count = sys_games(&a->view[sys])->count - pm_shelf_offers(a, sys);
+		{
+			static char dlv[48];
+
+			u.sys_downloads = downloads_menu_value(sc->folder, dlv, sizeof dlv);
+		}
 		u.dmode      = dmode_label(a->view[sys].dmode);
 		u.shader     = shader_label(a->view[sys].shader);
 		u.strength   = strength_row_label(a, sys);
@@ -764,12 +769,7 @@ int menu_build(app *a, screen_id screen, int sys,
 		{
 			static char dlv[48];
 
-			if (dlq_busy()) {
-				snprintf(dlv, sizeof dlv, T(S_DOWNLOADS_RUNNING), dlq_pct());
-				u.scraper = dlv;
-			} else {
-				u.scraper = g_scraper_val[0] ? g_scraper_val : NULL;
-			}
+			u.scraper = downloads_menu_value(NULL, dlv, sizeof dlv);
 		}
 		{
 			static char upv[48];
@@ -2179,7 +2179,7 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 		 * are looking at, and menu_draw already follows that rule everywhere
 		 * else. */
 		if (sel == SM_BOXART)
-			scraper_page(a, a->sys.systems[a->sys_cursor].folder);
+			downloads_page(a, a->sys.systems[a->sys_cursor].folder);
 		if (sel == SM_RESCAN) {
 			wait_panel(a, a->sys.systems[a->sys_cursor].name, T(S_LIBRARY_SCANNING));
 			rescan_all(a);

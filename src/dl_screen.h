@@ -14,6 +14,14 @@
 #include "panel.h"
 
 menu_result downloads_screen(app *a);
+/* The same page for one console (its menu's Downloads row): `only` its folder */
+void downloads_page(app *a, const char *only);
+/* MENU's row (and a console's, `only` its folder): how far a run behind the
+ * screens has got, else what the last count left; NULL before any count */
+const char *downloads_menu_value(const char *only, char *out, size_t n);
+/* The shelf's news when a run ended behind the screens, in two lines: false
+ * when there is none */
+bool downloads_news(char *l1, size_t n1, char *l2, size_t n2);
 
 /* A kind out of Download (dl.off.<kind> in the device's database; absent is
  * in): what the page's Download leaves out */

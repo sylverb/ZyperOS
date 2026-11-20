@@ -60,6 +60,20 @@ bool ra_creds_save(void)
 	       db_set_str(db_dev(), "ra.token", g_token);
 }
 
+/* Downloads > Settings > RetroAchievements > Sign Out: the account and its
+ * token gone from the device and from memory. Unlocks still waiting stay in
+ * their queue for the next sign-in (raqueue.c sends nothing signed out). */
+void ra_sign_out(void)
+{
+	volatile char *t = g_token;
+	size_t i;
+
+	for (i = 0; i < sizeof g_token; i++) t[i] = '\0';
+	g_user[0] = '\0';
+	db_del(db_dev(), "ra.token");
+	db_del(db_dev(), "ra.user");
+}
+
 bool ra_sign_in(const char *user, const char *password, char *err, size_t errn)
 {
 	char body[2048];
