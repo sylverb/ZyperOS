@@ -695,7 +695,9 @@ build-native/sysupdate-check: tools/sysupdate-check.c src/sysupdate.c src/sysupd
 
 # Your PICO-8 (src/pico8.c): the zip's rules, a zip copied by hand taken
 # out (zips the check writes itself, never Lexaloffle's files), Splore's entry
-# and the page's words
+# and the page's words; and its picture (src/p8draw.h): each Display mode
+# Diatom's rect for a 128 x 128 picture, and sd/pixel2/PICO-8.sh, run with a
+# stand-in pico8_64, handing that rect (-draw_rect) and filter to it
 check-pico8: build-native/pico8-check
 	@./build-native/pico8-check
 
@@ -724,9 +726,12 @@ build-native/mp4hand-check: tools/mp4hand-check.c src/mp4hand.c src/mp4hand.h sr
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g $(MEDIA_SAN) -Isrc \
 	      -o $@ tools/mp4hand-check.c src/mp4hand.c src/mp4queue.c -lm
 
-build-native/pico8-check: tools/pico8-check.c src/pico8.c src/pico8.h src/sysupdate.h src/library.h $(I18N_SRC) FORCE
+build-native/pico8-check: tools/pico8-check.c src/pico8.c src/pico8.h src/sysupdate.h src/library.h \
+                          src/p8draw.c src/p8draw.h src/dmodefit.c src/dmodefit.h diatom/src/scale.c \
+                          sd/pixel2/PICO-8.sh $(I18N_SRC) FORCE
 	@mkdir -p build-native
-	$(CC) -std=gnu11 -Wall -Wextra -O1 -g -o $@ tools/pico8-check.c src/pico8.c $(I18N_SRC) -lz
+	$(CC) -std=gnu11 -Wall -Wextra -O1 -g -Idiatom/src -Idiatom/include -o $@ tools/pico8-check.c src/pico8.c \
+	      src/p8draw.c src/dmodefit.c diatom/src/scale.c $(I18N_SRC) -lz
 
 # What the Install PortMaster page says in each state (src/pminstall.c,
 # DESIGN.md 11.32), and the Ports shelf's PortMaster entry

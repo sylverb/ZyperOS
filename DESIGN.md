@@ -6157,10 +6157,21 @@ where the launcher left it until the menu opens MP4. PICO-8's own sound is
 not quieted while MP4 plays (section 14).
 
 **The picture** follows the shelf's **Display** row (launch.sh hands the
-row's name to the script): **Sharp Pixels** is whole multiples of 128, 3x on
-the Pixel 2 (384 x 384); every other mode is the panel's full height
-(480 x 480), its pixels 3 or 4 of the panel's. On the Brick 6x is its full
-height (768 x 768).
+row's name to the script), each mode where Diatom puts a 128 x 128 picture,
+so a mode means over your PICO-8 what it means over fake08 *(2026-11-20:
+"cover all those", the gap map's Display rows)*: PICO-8's own `-draw_rect`
+for every mode (src/p8draw.h). On the Pixel 2's 640 x 480: **Full Screen**
+the whole panel, 640 x 480, its shape changed; **Original Shape** and
+**Square Pixels** the full height, 480 x 480; **Sharp Pixels** and its
+**Tall** 3x, 384 x 384; **Sharp Pixels, Zoomed** 5x, 640 x 640, and **Fill,
+Edges Cut** the full width, 640 x 640, both cut 80 rows at the top and the
+bottom; **Actual Size** 1x, 128 x 128 in the middle. Unfiltered where PICO-8's
+pixels are whole ones of the panel's, filtered where they are not (Full
+Screen, the full height). A shelf whose Display was never set is Full
+Screen, as every system's is. Zoomed and Edges Cut start above the panel's
+top, which no device has shown 0.2.7 taking: if it does not, one constant
+(`NEG_OK` in PICO-8.sh, `P8_NEG_OK` beside it) draws them as Sharp Pixels and
+Original Shape. On the Brick 6x is its full height (768 x 768).
 
 **A cart's own saves** are one set for both players: fake08's `Saves/cdata`,
 bound over PICO-8's `cdata` for the run. PICO-8's settings, Splore's downloads
