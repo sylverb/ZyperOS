@@ -3310,7 +3310,42 @@ static void homesys_rows(void)
 	n = sys_menu_homesys_rows(&hu, rows, ids);
 	ck(n == 8 && !strcmp(rows[1].label, "Recents") && !rows[2].label && !strcmp(ids[1], "RECENT") &&
 	   !strcmp(rows[3].label, "PlayStation"), "no collection: Favorites, Recents, a rule, the systems");
+	/* A shot on the card (DESIGN.md 11.68): Screenshots' row after
+	 * Collections, as Collections' after Recents */
+	hu.coll = true;
+	hu.shots = true;
+	homesys_parse("SHOT");
+	n = sys_menu_homesys_rows(&hu, rows, ids);
+	ck(n == 10 && !strcmp(rows[3].label, "Screenshots") && !strcmp(ids[3], "SHOT") && rows[3].live &&
+	   !strcmp(val(&rows[3]), "Off") && !rows[4].label && !strcmp(rows[5].label, "PlayStation"),
+	   "a shot on the card: Screenshots after Collections, Off as the word says");
 	homesys_parse("");
+}
+
+/* The Screenshots shelf's menu (DESIGN.md 11.68): Sort By, Recently Added
+ * as it ships, and View; no count and no Random Game */
+static void shots_menu(void)
+{
+	sys_ui u;
+	menu_row rows[MENU_MAX_ROWS];
+	menu_bufs b;
+	const char *heading;
+	int n;
+
+	printf("the Screenshots shelf's menu:\n");
+	memset(&u, 0, sizeof u);
+	u.games = true;
+	u.shots = true;
+	u.sys_name = "Screenshots";
+	n = sys_menu_build(&u, rows, &b, &heading);
+	ck(n == SM_SHOT_ROWS && n == 2 && !strcmp(heading, "Screenshots"), "two rows under its name");
+	ck(!strcmp(rows[0].label, "Sort By") && !strcmp(val(&rows[0]), "Recently Added") && rows[0].live,
+	   "Sort By first, Recently Added as it ships");
+	ck(!strcmp(rows[1].label, "View") && !strcmp(val(&rows[1]), "Covers") && rows[1].live, "then View, on Covers");
+	u.sort = "Name";
+	u.video = true;
+	n = sys_menu_build(&u, rows, &b, &heading);
+	ck(!strcmp(val(&rows[0]), "Name") && !strcmp(val(&rows[1]), "Video"), "each says what it is on");
 }
 
 static void lights_row(void)
@@ -3631,6 +3666,7 @@ int main(void)
 	charge_row();
 	power_row();
 	homesys_rows();
+	shots_menu();
 	lights_row();
 	row_sounds();
 	if (fails) { printf("\n%d menu check(s) failed\n", fails); return 1; }

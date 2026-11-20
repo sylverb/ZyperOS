@@ -1465,8 +1465,26 @@ starts at the top without it.
   over a port (the zyperos-eq plugin, now in every port's chain, the gain in
   the shared file that portkeys writes during the port). MP4's lock screen
   fills and empties an open one but never opens one: a held key in a pocket
-  must not. The menus show the bar as it was, the menu music is never
-  boosted, and a press under the top there folds a kept boost.
+  must not. While MP4 is heard behind the home, a shelf or a menu (playing,
+  the menu music quiet for it, as for L2 and R2 in 11.14), the boost there is
+  MP4's as on its own screens: the bar shows the cells, the hold or three
+  presses open them, a press down empties one before the level moves, and
+  each cell reaches the sound that plays. Over a paused game (the in-game
+  menu and what it opens, Reset Game's question, a port's menu) it is the
+  game's the same way, heard or not, and Continue hands the cells back with
+  the level (SETLEVEL): the menu's first VOL- empties one cell, as in the
+  game, and never throws the game's boost away. While a game runs with MP4's
+  music behind it (the game quiet for it), each cell the game opens, fills
+  or empties reaches MP4 at once, as Diatom's LEVEL line says it, not when
+  the game pauses or ends; a line from Diatom's first frames before it has
+  taken the launcher's cells is not passed on, so the music never ducks as
+  a game starts (src/levels.c, src/resident.c; `check-levels`,
+  `check-resident`). *(2026-11-20, on 1.1.0-rc.3: "if i'm playing something
+  that has the software audio boost, i should be able to still control that
+  audio boost from home". The paused game and the running one are this
+  document's call, from it.)* With neither, the menus show the bar as it
+  was, the menu music is never boosted, and a press under the top there
+  folds a kept boost.
 - **Brightness:** three cells, each a lift of the mid-tones on the display's
   gamma table after the player's Screen Colors, like Gamma +3: x^0.88,
   x^0.76, x^0.64 (mid grey 128 to 139, 151 and 164), black and white kept.
@@ -2339,6 +2357,10 @@ and modes still read.
   before and the next, or a book's chapter where its file has them, and
   the song pop-up (11.22) says what plays now. Paused or stopped, they are
   the menu music's again. *(The follow-up to #90.)*
+- **Its boost from anywhere.** While MP4 is heard behind the home, a shelf
+  or a menu, the volume keys there open, fill and empty its boost past the
+  top as on Now Playing; behind a running game, each cell the game's keys
+  move reaches MP4's sound at once (11.6).
 
 *(My picks, 2026-11-05: Now Playing keeps its large cover (A over a
 wider text column), video opens full screen (C over the view with
@@ -5652,8 +5674,9 @@ tools/i18n-shots.py (`scene_bmp`).
 
 **Home Systems** in MENU's Display tab, under System Order: its value
 **All**, or how many of them are on ("8 of 10"); A opens its page. The page
-lists Favorites, Recents and Collections (11.56; its row once the card has
-a collection, as a system has one only with games), a rule, then every system
+lists Favorites, Recents, Collections (11.56; its row once the card has
+a collection, as a system has one only with games) and Screenshots (11.68;
+its row once the card has a shot), a rule, then every system
 the card has games for, in the home's order (a system with none is not on the home, so not on
 the page either), each **On** or **Off**, Left, Right or A turning it over,
 heard as a ring, as Side Lights' parts are. Under a rule, the note: "Games
@@ -5676,7 +5699,7 @@ is the empty home's, which says the card has no games: its row is dead, and a
 second note says why ("One system stays on the home."). The home is built
 again once, as the page closes on a change, from the saved library, keeping
 the player's place (`shelves_reload`). The setting is one word in the device
-database, `home.hidden`: the tags that are off ("PRT,RECENT"; Collections' is COLL),
+database, `home.hidden`: the tags that are off ("PRT,RECENT"; Collections' is COLL, Screenshots' SHOT),
 so a new system is On without anyone saying so (src/homesys.h). Host shots:
 `--homesys-page ROW`.
 
@@ -6026,7 +6049,13 @@ book, the cup and the set's count. Over the keys: the counts per kind as
 marks and the time left beside a clock, or in **warning** why it waits -
 `Waiting for Wi-Fi`, `RetroAchievements asked for a pause · 0:42`. B
 Continue in background (the page closes, the corner's ring shows it, MENU's
-row says `Downloading · 41%`), Y Stop. **Done**: **All done**, **Stopped**
+row says `Downloading · 41%`), Y Stop. What came is the run's, not the
+page's (1.1.0-rc.3 opened again on empty tiles): the launcher keeps the
+newest fourteen for the session, with what lands while the page is closed
+or a game waits, and the page opened again shows the stream and the wall as
+they were, the pictures it showed at once and the others as they are read;
+a new run starts them again, and once its end has been seen they go. Not
+over a power-off: POWER stops the run. **Done**: **All done**, **Stopped**
 (why under it) or **Sign in again**; the wall of what came (fourteen at
 most), the counts, and over the keys `It all works offline now` or `The
 next download starts from what is missing`. A Again (from what is missing,
@@ -6164,7 +6193,7 @@ was opened there, before PICO-8 goes on, as Continue says QUIET over a
 game; the launcher sets it as it hands over and clears it as it starts and
 for any other program. Nothing is added to PICO-8's chain for it: rc.4 put
 a softvol stage there and PICO-8 could not open its sound at its own
-period, so the chain stays the one every port has had since rc.3. A plugin
+period, so the chain stays the one every port has. A plugin
 from before (an older system image) reads no cut, and PICO-8 is heard.
 
 **A USB-C DAC** takes your PICO-8's sound while it is in, as it takes
@@ -6658,7 +6687,11 @@ launch.sh starts a port with an ALSA config of its own
 (`sd/zyperos/eq-port.sh`): `default` is plug, then alsa-lib's ladspa PCM
 running the plugin, then plug into `EQ_SLAVE`, the dmix every program mixes
 into (`mixed` on the Pixel 2, the same `ipc_key`), so the port still plays
-over MP4 and under the volume bar. alsa-lib reads the files in
+over MP4 and under the volume bar. The first plug makes whatever the program
+asks the mix's 48 kHz stereo, so the plugin always runs at the mix's rate:
+left to the program's rate, the chain refused your PICO-8's 22050 Hz at its
+hardware parameters, and PICO-8 had no sound on 1.1.0-rc.5
+(`tools/eqchain-check.sh`, in check-eqplugin on Linux). alsa-lib reads the files in
 `ALSA_CONFIG_PATH` first and runs the hooks after, and `alsa.conf`'s own
 hook (0) loads `/etc/asound.conf`, whose `pcm.!default` would replace the
 port's: the image check found the port playing straight into the mix. So
@@ -6771,7 +6804,8 @@ where (RUN `shots=`, with every game, so a key set in the game works at
 once); Diatom adds the time. **The pop-up** *(my pick: the picture, small)*
 carries the shot itself beside "Screenshot saved", the folder under it,
 kept in its shape at the two lines' height (`NOTICE_PICTURE`), for
-**hold-short**, as every pop-up over a game.
+**hold-short**, as every pop-up over a game. The shots are on the home's
+Screenshots group (11.68), the first one making it as the game ends.
 
 ### 11.62 Two cores on a shelf: Gambatte
 *(DoctorIssa on the Discord asked for Gambatte; Tarik: "all good". mGBA
@@ -7169,3 +7203,97 @@ resumed: it was not heard.
   1.1.0-rc.3: "I powered off while having a video playing in mp4 and
   running a gbc game and when i clicked select in the menu after powering
   on again it didnt show the video playing that video paused".)*
+
+### 11.68 Screenshots
+*(Asked for as "a place in the launcher to view screenshots", and on
+1.1.0-rc.3: "I'm not seeing the screenshots option in home. Why?". My picks
+in the Screenshots lab, 2026-11-20; each pick is one place,
+src/shots_screen.h's list.)*
+
+**A group on the home**, like Favorites, Recents and Collections, after them
+(first when there are none of the three), once the card has a shot: no shot,
+no card, as an empty Favorites shows none. Named **Screenshots** in the
+language that is on, "5 screenshots" under its name, A's hint **Open**. Its
+card is a placeholder until a real design comes: a pixel camera, its lens
+ringed in lime, its flash firing, two poses of 400 ms each as Favorites'
+heart beats (`res/system-art/original/placeholders/screenshots-card.py`).
+Home Systems (11.48) has its row once the card has a shot, On as it ships;
+its tag is SHOT.
+
+**What it holds.** Every shot the Screenshot hotkey wrote (11.61),
+`Screenshots/<System>/<Game> 2026-11-18 21.40.05.png`, and OpenBOR's own
+*(my pick)*, which OpenBOR takes with SELECT and names itself,
+`Saves/openbor/ScreenShots/<module> - 0000.png` (its `screenshot()` at the
+pinned b8303cc: the module its `.pak`'s name, "Menu" in its own menu, the
+number the first free one), under OpenBOR - of a system the card has games
+for, on the home or turned off it: one stream, the newest first, the newest
+2000. An entry has its game's name and title, found by the name the shot was
+taken with (the hotkey's `shot_game_part`, OpenBOR's module; src/shotname.h),
+and is owned by its system as on Favorites; its file is the picture's own
+path. A shot of a game no longer on the card (renamed or deleted: Rename and
+Delete Game leave the shots alone) stays, under the name it was taken with.
+A file of another name is no shot. A hotkey shot's time is its name's wall
+clock, kept by the calendar alone, never through a time zone; OpenBOR's name
+has none, so its file's. Read once a scan, and again only after a game that
+took a shot (Diatom's SHOT); never in a game. OpenBOR runs as a program of
+its own, after which the launcher starts again and reads the card, so its
+shots are there when it comes back.
+
+**Its shelf** is a shelf's: Covers, Grid, List and Video, START stepping
+them, kept by its tag. Each card is Recents' Last Screen card (11.48,
+src/screencard.h): the shot at its own shape, scaled up whole by the nearest
+pixel toward 448, its game's cover small in its lower left corner (its own
+box art by the game's name; its generated card where it has none), made on
+the art workers. Under the name, the shot's system and when it was taken,
+"SNES · today 21:40", by the
+calendar's days as Played says them ("3d ago" past yesterday), the clock as
+MENU > Clock has it. No heart, no video snap and no snap mark. The foot: B
+Systems, START the next View, X Delete; A's word **View**.
+
+**A on a shot** opens it in the Video view (11.57), for as long as it is
+open; the View the shelf keeps does not change. The shot is whole on the
+screen at its own shape, as large as the screen holds it (on the Pixel 2 a
+SNES shot is 549 x 480 pixels), on ink; the name's card at the top left
+("Screenshots · 3 / 13", the game, its line); the band of shots at the foot,
+down to its strip after **hold-band** with no press. Until the picture is
+in, its card shows whole above the band, as a game's does until its snap.
+Left and Right step, L1 and R1 go to the next or the last game's first shot
+in the shelf's order, B goes back to the View it was opened from, X deletes;
+A and START play **deny**. The viewer is for looking *(my pick)*: no key
+starts the shot's game there, which starts from its own shelf. The picture
+is asked of the art workers apart from the cards
+(`SHOTS_VIEW_SYS`). On the shelf's own Video View (START) the same, with B
+Systems and START Covers. A still shot does not hold the screensaver, as a
+playing snap does.
+
+**Delete Screenshot** (X, on the shelf and in the viewer) asks first, as
+Delete Game does (11.31): "Delete this screenshot of Super Metroid? The game
+stays. This cannot be undone.", Delete over **Cancel**, the cursor on
+Cancel. Yes takes the file off the card and nothing else; the shelf is read
+again, on the shot that took its place; the last one deleted, the group
+goes and the home stands on what took its place. A card that will not let
+it go says so ("The screenshot was not deleted. Check the card and try
+again.").
+
+**Its menu** is two rows under its name: **Sort By**, its own three -
+**Recently Added** (the newest first, as it ships), **Name** and **System**
+(the home's order of the systems), each game's newest first in those two -
+and **View**. No count and no Random Game: a shot is no game.
+
+**What it costs.** Nothing per frame and nothing in a game: a scan reads
+`Screenshots/`, its systems' folders and OpenBOR's, names only (and a stat
+of each of OpenBOR's, for its time), and finds the games by
+name in the listings in memory (a sort of each folder's names, a look-up a
+game); a card is made once on the art workers; the viewer's picture is one
+texture, for the shot in focus.
+
+Host shots: `home-screenshots` (and `home-screenshots-one`), `shelf-screenshots`
+(and `shelf-screenshots-openbor`, OpenBOR's own),
+`shelf-screenshots-grid`, `shelf-screenshots-list`, `screenshots-viewer`,
+`screenshots-viewer-strip`, `screenshots-delete`, `screenshots-said`,
+`screenshots-menu`, `screenshots-menu-sort` and `homesys-page-shots` (tools/i18n-shots.py, the
+shots made up as PNGs), with `--shots-delete`, `--shots-said` and
+`--shots-delete-now`. `check-shotname` holds the names and the orders;
+`check-homesys-groups` the shelf with its system turned off, OpenBOR's shots
+by their files' times, A in the viewer starting nothing, and Delete
+Screenshot.

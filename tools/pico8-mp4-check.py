@@ -208,13 +208,19 @@ while :; do sleep 0.05; done
     check(chain() == rc3_chain('mixed'), 'its chain as before')
 
 
-# The PCMs every port has had since the volume boost (1.1.0-rc.3): plug ->
-# zyperos_eq (the plugin) -> plug -> the mix. No stage is ever added for
-# your PICO-8's quiet, which is the plugin's own (the shared file's cut).
-RC3_PCMS = """# The equalizer over this port's sound (ZyperOS's sd/zyperos/eq-port.sh)
+# The PCMs every port has: plug to the mix's 48 kHz stereo (#413: left to
+# the program's rate, PICO-8's 22050 Hz was refused) -> zyperos_eq (the
+# plugin) -> plug -> the mix. No stage is ever added for your PICO-8's
+# quiet, which is the plugin's own (the shared file's cut).
+RC3_PCMS = """# The equalizer over this port's sound (ZyperOS's sd/zyperos/eq-port.sh),
+# the program's rate and channels made the mix's first
 pcm.!default {
 	type plug
-	slave.pcm "zyperos_eq"
+	slave {
+		pcm "zyperos_eq"
+		rate 48000
+		channels 2
+	}
 }
 
 pcm.zyperos_eq {
@@ -237,11 +243,11 @@ def rc3_chain(slave):
 
 
 def eq_port(tmp):
-    """eq-port.sh's PCMs: 1.1.0-rc.3's, whatever is asked"""
+    """eq-port.sh's PCMs: every port's, whatever is asked"""
     print('eq-port.sh, the PCMs every port has:')
     out = subprocess.run(['sh', str(ROOT / 'sd/zyperos/eq-port.sh'), 'mixed'], capture_output=True,
                          text=True).stdout
-    check(out == rc3_chain('mixed'), 'plug, the plugin, plug, the mix: as in 1.1.0-rc.3, byte for byte')
+    check(out == rc3_chain('mixed'), 'plug to 48 kHz stereo, the plugin, plug, the mix: byte for byte')
     env = dict(os.environ, ZYPEROS_PORT_QUIET='Port Playback Volume')
     out = subprocess.run(['sh', str(ROOT / 'sd/zyperos/eq-port.sh'), 'mixed'], env=env, capture_output=True,
                          text=True).stdout

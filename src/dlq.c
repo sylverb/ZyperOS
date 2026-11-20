@@ -19,6 +19,8 @@ typedef struct {
 static lane g_lane[DLQ_LANES];
 static bool g_game;
 static bool g_page[DLQ_LANES];
+static void (*g_on_step)(dlq_lane l);
+static unsigned g_runs;
 
 /* The card below the floor: a lane writing it stops before it is full */
 static bool card_low(const char *card)
@@ -58,6 +60,7 @@ bool dlq_start(dlq_lane l, const dlq_lane_def *d, bool (*begin)(void))
 	ok = begin();
 	net_slot_use(was);
 	if (!ok) return false;
+	if (!dlq_busy()) g_runs++;
 	ln->d = d;
 	ln->running = true;
 	ln->last = 0;
@@ -118,6 +121,7 @@ void dlq_tick(void)
 		ln->last = now ? now : 1;
 		was = net_slot_use(ln->d->slot);
 		r = ln->d->step(now);
+		if (g_on_step) g_on_step((dlq_lane)l);
 		net_slot_use(was);
 		if (r != 1) {
 			finish((dlq_lane)l, r == 0 ? DLQ_ENDED : DLQ_STOPPED);
@@ -129,6 +133,10 @@ void dlq_tick(void)
 		}
 	}
 }
+
+void dlq_on_step(void (*fn)(dlq_lane l)) { g_on_step = fn; }
+
+unsigned dlq_runs(void) { return g_runs; }
 
 unsigned dlq_wait(unsigned ms)
 {
