@@ -422,7 +422,13 @@ run_port() {
 		done
 		diatom_running && kill -9 "$pid"
 	fi
-	killall -TERM mp4d 2> /dev/null
+	# MP4 too, for every program but one that keeps it playing (the
+	# request's fifth field, "mp4": your PICO-8, src/portmenu.h's
+	# port_keeps_mp4), as a Diatom game keeps it: it plays on, its sound in
+	# the same mix as the program's (the default is dmix), and the follower
+	# below sends the next track as each one ends
+	local follow=
+	[ "$5" = mp4 ] || killall -TERM mp4d 2> /dev/null
 	# PortMaster's install and its updates write a control.txt for whichever
 	# system they take this for; ours goes back before every port, with the
 	# gl4es settings PortMaster reads for CFW_NAME=ZyperOS (libgl_ZyperOS.txt)
@@ -493,6 +499,14 @@ run_port() {
 			/usr/bin/splash --still /tmp/zyperos_loading.raw &
 		still=$!
 	fi
+	# MP4 kept playing over it: the launcher's queue handed to a follower
+	# (zyperos.elf --mp4-follow, src/mp4hand.h), which does what the
+	# launcher does beside a Diatom game, and which portkeys stops while the
+	# in-game menu is up (--follow), the menu's MP4 being the one then
+	if [ "$5" = mp4 ]; then
+		"$ZYPEROS_DIR/zyperos.elf" --mp4-follow >> "$LOG" 2>&1 &
+		follow=$!
+	fi
 	# A program of its own (OpenBOR, the standalone Flycast, a port,
 	# PortMaster) has the in-game menu on MENU too: the launcher names the
 	# system's tag in the request, third, and portkeys shows the menu by
@@ -501,7 +515,8 @@ run_port() {
 	# game is its script, which its Controls pages are read beside
 	if [ "$HAS_PORTKEYS" = 1 ] && [ -x "$ZYPEROS_DIR/portkeys" ]; then
 		if [ -n "$3" ]; then
-			"$ZYPEROS_DIR/portkeys" --menu "$ZYPEROS_DIR/zyperos.elf" "$3" "${2:-$1}" \
+			"$ZYPEROS_DIR/portkeys" ${follow:+--follow "$follow"} \
+				--menu "$ZYPEROS_DIR/zyperos.elf" "$3" "${2:-$1}" \
 				"$USERDATA_PATH/zyperos.db" \
 				"$SHARED_USERDATA_PATH/.zyperos/library.db" 2>> "$LOG" &
 		else
@@ -576,6 +591,20 @@ run_port() {
 	# Waited for: while the bar is up it holds a copy of the port's display,
 	# and the launcher cannot take the display until that copy is gone
 	[ -n "$keys" ] && kill "$keys" 2> /dev/null && wait "$keys" 2> /dev/null
+	# The follower ends, its queue written for the launcher that comes next
+	# (a stopped one goes on to take the TERM), and is waited for, 2 s at
+	# most: before the menu's killall below, which would end it too
+	if [ -n "$follow" ]; then
+		kill -TERM "$follow" 2> /dev/null
+		kill -CONT "$follow" 2> /dev/null
+		i=0
+		while [ $i -lt 20 ] && kill -0 "$follow" 2> /dev/null; do
+			sleep 0.1
+			i=$((i + 1))
+		done
+		kill -KILL "$follow" 2> /dev/null
+		wait "$follow" 2> /dev/null
+	fi
 	# An in-game menu still up (a port that ended under it, the kernel's
 	# doing) would hold the display the launcher is about to take
 	[ -n "$3" ] && killall -TERM zyperos.elf 2> /dev/null
@@ -682,26 +711,31 @@ while : ; do
 		continue
 	fi
 	if [ "$HAS_PORTS" = 1 ] && [ -f "$PORT_REQUEST" ]; then
-		# The script, the game, the menu's tag and the system's Display row,
-		# a tab between each (launch_port). Split by hand: read would run the
-		# two tabs around a port's empty game together, as it does any
-		# whitespace in IFS
+		# The script, the game, the menu's tag, the system's Display row and
+		# whether MP4 plays on ("mp4", your PICO-8's), a tab between each
+		# (launch_port). Split by hand: read would run the two tabs around a
+		# port's empty game together, as it does any whitespace in IFS
 		TAB=$(printf '\t')
 		IFS= read -r REQ < "$PORT_REQUEST"
 		rm -f "$PORT_REQUEST"
-		PORT=${REQ%%"$TAB"*}; GAME=; TAG=; DISP=
+		PORT=${REQ%%"$TAB"*}; GAME=; TAG=; DISP=; KEEP=
 		case $REQ in *"$TAB"*)
 			REQ=${REQ#*"$TAB"}
 			GAME=${REQ%%"$TAB"*}
 			case $REQ in *"$TAB"*)
 				REQ=${REQ#*"$TAB"}
 				TAG=${REQ%%"$TAB"*}
-				case $REQ in *"$TAB"*) DISP=${REQ#*"$TAB"} ;; esac
+				case $REQ in *"$TAB"*)
+					REQ=${REQ#*"$TAB"}
+					DISP=${REQ%%"$TAB"*}
+					case $REQ in *"$TAB"*) KEEP=${REQ#*"$TAB"} ;; esac
+					;;
+				esac
 				;;
 			esac
 			;;
 		esac
-		run_port "$PORT" "$GAME" "$TAG" "$DISP"
+		run_port "$PORT" "$GAME" "$TAG" "$DISP" "$KEEP"
 		# POWER, or the battery run flat, over the port (port_power)
 		[ -f /tmp/zyperos_poweroff ] && break
 		cd "$ZYPEROS_DIR"

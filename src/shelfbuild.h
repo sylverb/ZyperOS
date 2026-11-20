@@ -13,6 +13,9 @@
 
 /* Every shelf read from the card again, keeping the system */
 void rescan_all(app *a);
+/* MP4's card alone, at the end of `a`'s systems: for a process with no other
+ * shelf (src/mp4hand.h) */
+void mp4_shelf_alone(app *a);
 
 /* EmulationStation's folders (config/systems.cfg, es lines): each system's
  * folder set to the one its shelf reads, after a load of

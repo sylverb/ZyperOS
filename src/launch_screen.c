@@ -27,6 +27,7 @@
 #include "pminstall.h"
 #include "portload.h"
 #include "portmenu.h"
+#include "mp4hand.h"
 #include "rabadge.h"
 #include "rafetch.h"
 #include "rahashjob.h"
@@ -260,22 +261,26 @@ static void launch_port_core(app *a, const system_cfg *s, const char *file, cons
 	/* PortMaster itself: its cached lists and settings as it can start on */
 	if (!strcmp(s->core, PORT_CORE) && !strcasecmp(file, PM_SCRIPT)) pm_heal_config(s->folder);
 	/* Written whole, then renamed into place: launch.sh reads it the moment
-	 * this process is gone, and half a path would run nothing. */
-	f = fopen(PORT_REQUEST ".tmp", "w");
+	 * this process is gone, and half a path would run nothing. (In
+	 * ZYPEROS_FLAG_DIR on a computer, plat_flag, where a check reads it.) */
+	f = fopen(plat_flag(PORT_REQUEST ".tmp"), "w");
 	/* A program of its own has the in-game menu over it: the system's tag,
 	 * the request's third field, says so to launch.sh, which gives it to
 	 * portkeys with --menu (src/portmenu.h). A standalone emulator's script
 	 * gets the game as its argument, the second field; a port's script is
-	 * the game, and its second field is empty (port_menu_for) */
+	 * the game, and its second field is empty (port_menu_for). The fifth,
+	 * "mp4", is for a program MP4 plays on over (port_keeps_mp4: your
+	 * PICO-8): launch.sh stops MP4 for every other */
 	if (!strncmp(core, RUN_PREFIX, strlen(RUN_PREFIX)))
-		ok = f && fprintf(f, "%s/%s\t%s\t%s\t%s\n", P_CARD, core + strlen(RUN_PREFIX), path,
-		                  port_menu_for(core) ? s->tag : "", dmode) > 0;
+		ok = f && fprintf(f, "%s/%s\t%s\t%s\t%s%s%s\n", P_CARD, core + strlen(RUN_PREFIX), path,
+		                  port_menu_for(core) ? s->tag : "", dmode,
+		                  port_keeps_mp4(core) ? "\t" : "", port_keeps_mp4(core) ? PORT_KEEPS_MP4 : "") > 0;
 	else
 		ok = f && fprintf(f, "%s\t\t%s\t%s\n", path, port_menu_for(core) ? s->tag : "", dmode) > 0;
 	if (f && fclose(f) != 0) ok = false;
-	if (!ok || rename(PORT_REQUEST ".tmp", PORT_REQUEST) != 0) {
+	if (!ok || rename(plat_flag(PORT_REQUEST ".tmp"), plat_flag(PORT_REQUEST)) != 0) {
 		fprintf(stderr, "port: couldn't write %s\n", PORT_REQUEST);
-		unlink(PORT_REQUEST ".tmp");
+		unlink(plat_flag(PORT_REQUEST ".tmp"));
 		if (a->in.pressed[IN_ACCEPT]) uisound_play(DS_SOUND_DENY);
 		result_message(a, s->name, T(S_LAUNCH_COULDNT_START));
 		return;
@@ -289,17 +294,23 @@ static void launch_port_core(app *a, const system_cfg *s, const char *file, cons
 	 * launch.sh's process for its quit (src/ctl.h) */
 	ctl_port_write(ctl_dir(), (int)getppid(), (long)time(NULL), path);
 	/* The shelf comes back on this game, and an audiobook keeps its place:
-	 * launch.sh stops MP4 too, as the port needs the sound card. */
+	 * launch.sh stops MP4 too, as the port needs the sound card and the
+	 * memory, but over your PICO-8 (below). */
 	remember_place(a);
 	{
-		FILE *r = fopen(PORT_RETURN, "w");
+		FILE *r = fopen(plat_flag(PORT_RETURN), "w");
 		if (r) fclose(r);
 	}
 	book_keep(true);
-	/* The port takes the sound (launch.sh stops MP4's daemon), and the
-	 * launcher that comes back after it is no start after a power-off:
-	 * nothing opens MP4 by itself then (src/mp4resume.h) */
-	resume_clear();
+	/* MP4 kept playing over it (your PICO-8): its queue to the follower
+	 * launch.sh starts beside it, and the resume row kept, for a power-off
+	 * over the program (src/mp4hand.h). Any other port takes the sound
+	 * (launch.sh stops MP4's daemon), and the launcher that comes back after
+	 * it is no start after a power-off: nothing opens MP4 by itself then
+	 * (src/mp4resume.h) */
+	unlink(plat_flag(MP4HAND_PATH));
+	if (port_keeps_mp4(core)) mp4_hand_save();
+	else                      resume_clear();
 	anim_launch(a);
 	port_loading_screen(a, s);
 	/* "Getting hot" for portkeys to show over the port, which this process
