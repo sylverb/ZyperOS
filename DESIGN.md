@@ -3392,7 +3392,9 @@ panel stands 24 units from the screen's sides, the most 11.3 allows, to make
 room for the handheld on the Controls tab: its content is 864 units wide
 (`menu_most_w`; 860, 26 from the sides, off the grid, until 1.0.6).
 Over a port (OpenBOR, PortMaster) the menu is as it was, Continue, Controls
-and Quit with no tabs, and there Controls is the read-only pages below.
+and Quit with no tabs, and there Controls is the read-only pages below. Over
+your PICO-8 it has Display and Reset too, and Controls is the Controls tab's
+list, the buttons themselves (11.55).
 
 **X is Quit** from any row of any tab (gm_x_row, src/game_menu.h), in every
 in-game menu ZyperOS draws: over a Diatom game, over a "run:" program or a

@@ -2146,7 +2146,12 @@ static int menu_show_as(const char *extra)
 	release(false);
 	vbl_close();
 	if (!master_copy()) {
-		/* Still starting, under its loading screen: the menu over that */
+		/* Still starting, under its loading screen: the menu over that;
+		 * a hotkey's question (`extra`) has no cart to be about yet */
+		if (extra) {
+			fprintf(stderr, "portkeys: a hotkey's question, but nothing on the display yet\n");
+			return 0;
+		}
 		if (menu_waiting()) return 1;
 		fprintf(stderr, "portkeys: MENU, but no program holds the display; no menu\n");
 		return 0;
