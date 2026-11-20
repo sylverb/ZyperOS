@@ -7102,10 +7102,21 @@ resumed: it was not heard.
   proto 7): the file at its second, nothing written to the device, a
   video's first picture there shown as after a seek - and Now Playing
   shows it paused at once, before the daemon has answered, with no sound
-  of its own (nothing was pressed). After a game resumed at the start or
-  the tutorial, which come first. In Shuffle All the songs after it are a
+  of its own (nothing was pressed). After the tutorial, which comes
+  first. In Shuffle All the songs after it are a
   new order: the order is not kept, Shuffle All being every song on the
   card. A held file that will not open stops there, rather than skipping
   to the next track, which would play.
+- **Over a game.** A start that goes straight back into a game (the power
+  went in it, MP4 playing over it) holds MP4's queue the same way, paused
+  at its second, before the game's RUN - but opens no screen of its own:
+  the game comes first, back with its menu up. SELECT in that menu is Now
+  Playing on it, paused, A to carry on, and the shelf the game comes back
+  to shows it paused, as all of it was before the power-off. The daemon
+  opens the file while the game waits under its menu, and the game is
+  heard: QUIET follows playing, and it is paused.
 - *(Mine, 2026-11-19: "make sure that if powered off while playing, when
-  powered on it turns on with the media paused where it was".)*
+  powered on it turns on with the media paused where it was". And from
+  1.1.0-rc.3: "I powered off while having a video playing in mp4 and
+  running a gbc game and when i clicked select in the menu after powering
+  on again it didnt show the video playing that video paused".)*
