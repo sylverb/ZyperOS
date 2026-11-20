@@ -62,13 +62,14 @@ static void pace_lines_check(void)
 }
 
 /* The shipped es lines: each name once in the file, none that the card's
- * file system would take as a shelf's own folder (exFAT ignores case), and
- * every line's tag a system's */
+ * file system would take as a shelf's own folder (exFAT ignores case),
+ * every line's tag a system's, and every line whole: the field holds 159
+ * characters, and a longer line would lose its last names */
 static void es_names_check(void)
 {
 	static systems_cfg c;
 	char names[512][CFG_STR], one[CFG_STR];
-	int n = 0, i, k, j, lines = 0, tags = 0, dup = 0, own = 0;
+	int n = 0, i, k, j, lines = 0, tags = 0, dup = 0, own = 0, cut = 0;
 	FILE *f;
 	char line[1024];
 
@@ -90,10 +91,93 @@ static void es_names_check(void)
 	ck(!dup, "an ES name belongs to one shelf");
 	ck(!own, "no ES name is a shelf's own folder in other capitals");
 	if (!(f = fopen("config/systems.cfg", "r"))) { ck(0, "systems.cfg opens"); return; }
-	while (fgets(line, sizeof line, f))
-		if (!strncmp(line, "es|", 3)) lines++;
+	while (fgets(line, sizeof line, f)) {
+		char *tag = line + 3, *list;
+
+		if (strncmp(line, "es|", 3)) continue;
+		lines++;
+		if (!(list = strchr(tag, '|'))) continue;
+		*list++ = '\0';
+		list[strcspn(list, "\r\n")] = '\0';
+		for (i = 0; i < c.count; i++)
+			if (!strcmp(c.systems[i].tag, tag) && strcmp(c.systems[i].es, list)) {
+				printf("    es|%s is cut to %s\n", tag, c.systems[i].es);
+				cut++;
+			}
+	}
 	fclose(f);
 	ck(lines == tags, "every es line's tag is a system's");
+	ck(!cut, "and every es line read whole");
+}
+
+/* The folders other systems keep a console's games in, each read on its
+ * shelf alone: ZyperOS's own folder in other capitals, or one of that
+ * shelf's es names. "playstation" first, which a player coming from
+ * ROCKNIX asked about (2026-11-20): it is Roms/PlayStation on the card,
+ * exFAT ignoring case. Then every folder under ROCKNIX's roms/ for a
+ * system ZyperOS has (its config/emulators, SYSTEM_PATH, read that day),
+ * and the folders Knulli and Batocera, ArkOS, RetroPie and Recalbox use
+ * for those systems where ROCKNIX's differ. AmberELEC's and JELOS's are
+ * all ROCKNIX's. */
+static void es_folders_check(void)
+{
+	static const struct { const char *folder, *tag; } TO[] = {
+		{ "playstation", "PS1" },
+		/* ROCKNIX */
+		{ "3do", "3DO" }, { "arcade", "ARCADE" }, { "atari2600", "A2600" },
+		{ "atari5200", "A5200" }, { "atari7800", "A7800" }, { "atarilynx", "LYNX" },
+		{ "atomiswave", "AW" }, { "coleco", "COLECO" }, { "cps1", "ARCADE" },
+		{ "cps2", "ARCADE" }, { "cps3", "ARCADE" }, { "doom", "DOOM" },
+		{ "dreamcast", "DC" }, { "famicom", "NES" }, { "fbneo", "ARCADE" },
+		{ "fds", "NES" }, { "gameandwatch", "GW" }, { "gamegear", "GG" },
+		{ "gamegearh", "GG" }, { "gb", "GB" }, { "gba", "GBA" }, { "gbah", "GBA" },
+		{ "gbav", "GBA" }, { "gbc", "GBC" }, { "gbch", "GBC" }, { "gbh", "GB" },
+		{ "genesis", "MD" }, { "genh", "MD" }, { "j2me", "J2ME" }, { "mame", "MAME" },
+		{ "mastersystem", "SMS" }, { "megacd", "SEGACD" }, { "megadrive", "MD" },
+		{ "megadrive-japan", "MD" }, { "megadriveh", "MD" }, { "msx", "MSX2" },
+		{ "msx2", "MSX2" }, { "n64", "N64" }, { "naomi", "NAOMI" }, { "nds", "NDS" },
+		{ "neocd", "NEOCD" }, { "neogeo", "NEOGEO" }, { "nes", "NES" },
+		{ "nesh", "NES" }, { "ngp", "NGP" }, { "ngpc", "NGPC" },
+		{ "openbor", "OPENBOR" }, { "pcengine", "PCE" }, { "pcenginecd", "PCE" },
+		{ "pico-8", "PICO8" }, { "pokemini", "PKMINI" }, { "ports", "PRT" },
+		{ "psp", "PSP" }, { "pspminis", "PSP" }, { "psx", "PS1" },
+		{ "saturn", "SATURN" }, { "sega32x", "32X" }, { "segacd", "SEGACD" },
+		{ "sfc", "SFC" }, { "sg-1000", "SG1000" }, { "sgfx", "PCE" },
+		{ "snes", "SFC" }, { "snesh", "SFC" }, { "tg16", "PCE" },
+		{ "tg16cd", "PCE" }, { "tic-80", "TIC80" }, { "vectrex", "VECTREX" },
+		{ "virtualboy", "VB" }, { "wonderswan", "WS" },
+		{ "wonderswancolor", "WSC" },
+		/* Knulli and Batocera, ArkOS, RetroPie, Recalbox */
+		{ "colecovision", "COLECO" }, { "fba", "ARCADE" }, { "gw", "GW" },
+		{ "lynx", "LYNX" }, { "mame-libretro", "MAME" }, { "mame2003", "MAME" },
+		{ "msx1", "MSX2" }, { "msx2+", "MSX2" }, { "neogeocd", "NEOCD" },
+		{ "pico8", "PICO8" }, { "prboom", "DOOM" }, { "scummvm", "SCUMMVM" },
+		{ "sg1000", "SG1000" }, { "sgb", "GB" }, { "snes-hacks", "SFC" },
+		{ "supergrafx", "PCE" }, { "tic80", "TIC80" }, { "turbografx", "PCE" },
+		{ "turbografxcd", "PCE" }, { "wswan", "WS" }, { "wswanc", "WSC" },
+	};
+	static systems_cfg c;
+	char one[CFG_STR];
+	int t, i, k, bad = 0;
+
+	ck(cfg_load_systems("config/systems.cfg", &c), "config/systems.cfg loads");
+	for (t = 0; t < (int)(sizeof TO / sizeof TO[0]); t++) {
+		const char *on = NULL;
+		int shelves = 0;
+
+		for (i = 0; i < c.count; i++) {
+			bool reads = !strcasecmp(c.systems[i].folder, TO[t].folder);
+
+			for (k = 0; !reads && cfg_es_at(&c.systems[i], k, one, sizeof one); k++)
+				if (!strcasecmp(one, TO[t].folder)) reads = true;
+			if (reads) { on = c.systems[i].tag; shelves++; }
+		}
+		if (shelves == 1 && !strcmp(on, TO[t].tag)) continue;
+		if (shelves > 1) printf("    %s reads on %d shelves, wanted %s alone\n", TO[t].folder, shelves, TO[t].tag);
+		else printf("    %s reads on %s, wanted %s\n", TO[t].folder, on ? on : "no shelf", TO[t].tag);
+		bad++;
+	}
+	ck(!bad, "playstation, ROCKNIX's every folder and the other systems' read on their shelves");
 }
 
 /* tools/from-rogue.sh's table, which copies ROGUE OS's folders into
@@ -363,6 +447,7 @@ int main(void)
 	}
 
 	es_names_check();
+	es_folders_check();
 	pace_lines_check();
 	from_rogue_check();
 
