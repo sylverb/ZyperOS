@@ -324,6 +324,7 @@ Lexend's time the first time it is drawn, then cached like any line.
 | **support** | 28 (18 px on the Pixel 2) | Regular | home counts, compact game metadata, and the action beside its button glyph (action 27 and support 29 until 1.0.6) |
 | **game-title** | 37 (23 px on the Pixel 2) | SemiBold | the full game name below its cover row: meta's size, title's weight; its lines 40 apart (38 and 44 until 1.0.6) |
 | **card** | 71 (44 px on the Pixel 2) | Regular | the title drawn into a generated card (512 px wide) |
+| **clock** | 120 (75 px on the Pixel 2) | SemiBold | MP4's Classic look: the time played, large; digits only, so Lexend in every language |
 <!-- /generated:type -->
 
 - Text is placed by its capitals, not its em box: centered on them in a row,
@@ -534,6 +535,15 @@ its own says why beside it.
 | **preview-col-min** | 200 | ...narrower where the list's choices run long, to this |
 | **preview-gap** | 32 | the column to the list's rows |
 | **preview-note-gap** | 16 | the small screen's foot to its note's first line |
+| **look-bar-w** | 16 | a bar: 10 whole pixels on the Pixel 2 |
+| **look-bar-gap** | 8 | between two bars: 5 |
+| **look-cap** | 4 | a bar's cap: its height, and its gap over the bar |
+| **look-classic-w** | 488 | Classic: the clock's panel, 18 bars and their pad wide, and the words under it |
+| **look-panel-pad** | 32 | Classic: the clock's panel's words and bars from its edges |
+| **look-list-row** | 56 | Classic: a row of the track list |
+| **look-list-num** | 48 | Classic: a row's number, tabular, before its name |
+| **line-clock** | 128 | Classic: the clock's line, as a box |
+| **look-cover** | 192 | Spectrum: the cover beside the names |
 <!-- /generated:layout -->
 
 ---
@@ -557,6 +567,7 @@ pill. A pill is only ever a pill: the bar, button glyphs, chips.
 | **rule** | 2 | a heading's rule, the keyboard field's edge |
 | **caret** | 3 | the keyboard's caret |
 | **ring** | 4 | a button glyph's ring |
+| **radius-bar** | 4 | MP4's bars (Player Look); a bar's cap is a pill |
 <!-- /generated:shape -->
 
 - A panel's frame is **edge**, 3 units, in both themes. *(The 12-unit cyan
@@ -661,6 +672,8 @@ beside a cubic one. One function each, in `src/design.h`.)*
 | **hold-power** | 1000 | - | POWER held this long turns the handheld off with Power Button on Hold, and starts the charging screen's handheld |
 | **hold-lock-lit** | 4000 | - | MP4's lock screen, lit as it locks |
 | **hold-controls** | 3000 | - | MP4's video controls after the last press |
+| **peak-hold** | 400 | - | MP4's bars (Player Look): a bar's cap held where the bar last reached, before it drops with gravity |
+| **bar-fall** | 140 | follow | MP4's bars falling to the sound: follow's tau, where a bar rises at once |
 | **hold-snap** | 1000 | - | a game focused on the shelf before its cover turns into its video snap |
 | **hold-band** | 2000 | - | the Video view's band of covers and keys, after the last press on a game whose snap plays, before it goes down to its strip |
 | **sheen** | 480 | turn | one light crossing a game's card with no art, once, as the cover row stops on it |
@@ -2182,6 +2195,9 @@ Muse, so a card's saved places and modes still read.
   with no panel.
 - **Shuffle All.** MENU on the music shelf: every song on the card, the mode
   set to shuffle and kept.
+- **Player Look.** MENU on the music shelf, under Shuffle All: how Now
+  Playing shows a song. Cover, the cover large as it always was, is the
+  default; the others are 11.64's.
 - **Repeat.** MP4's MENU on the shelves with videos (Videos, and All):
   videos' own play mode, **Off** (each once, in order, as before), **One**
   (the video playing, again and again) or **All** (its folder, round
@@ -6294,4 +6310,75 @@ once); Diatom adds the time. **The pop-up** *(my pick: the picture, small)*
 carries the shot itself beside "Screenshot saved", the folder under it,
 kept in its shape at the two lines' height (`NOTICE_PICTURE`), for
 **hold-short**, as every pop-up over a game.
+
+### 11.64 Player Looks
+
+**Player Look**, in MP4's MENU on the music shelf (and on All when the card
+has songs) under Shuffle All, is how Now Playing shows a song
+(src/mp4look.h, src/nowplaying_looks.c). **Cover**, the cover large as it
+always was, is the default; **Classic** and **Spectrum** beside it. A opens
+the list, its picture the look under the cursor playing (src/ds/preview.h's
+column): Now Playing drawn whole at the screen's size into a texture,
+halved, then drawn into the box - the song that plays, or with none the
+shelf's album's first song in show, its clock running and its bars moving.
+Left and Right step it round. Kept as `muse.look`. A book and a video keep
+their own Now Playing.
+
+- **The frame** every look shares: the top bar; the song's time, the bar
+  from margin to margin with the time played and the time left under its
+  two ends in **meta** **text-soft** (tabular) and the word for a pause
+  between them; the keys at the foot. Laid out from the foot up
+  (src/ds/flex.h): the keys' rows, their box rounded up to the grid, a
+  section, the times, a related step, the bar, a section; the look has the
+  rest, from a section under the header. Six of the eight languages put
+  the keys on two rows, and their looks are 48 shorter: nothing meets.
+- **Classic**: the clock's panel (**look-classic-w** wide, a panel's slab
+  with its lift) - the play state's mark in **accent-ink** and its word
+  (Playing, Paused, Stopped) in **meta** **text-dim**, where in the queue
+  and the mode's mark at its right, the time played in **clock** (tabular;
+  a time past an hour too wide for the panel comes down to **title**), and
+  18 bars in the room under it - and under the panel the song in **title**
+  and its artist in **meta** **text-soft**, sliding when long. On the right
+  the album's tracks in a panel of their own, **look-list-row** rows: the
+  number tabular in **text-dim**, the name fitted in **text-soft**, and the
+  song's row in the **accent** fill with **on-accent** words, kept in view
+  and as near the middle as the album allows. The word for a pause is the
+  panel's, so the times under the bar say none.
+- **Spectrum**: 32 bars, one a band, across the screen with their
+  reflection under them (22% at their feet, fading to nothing over three
+  tenths of their height), under the cover (**look-cover**, in the light a
+  cover in MP4 gets) and beside it where in the queue and the mode's mark,
+  the song in **title** and the artist in **menu** **text-soft**. 32 bars on
+  the grid are 760 wide; the column is the grid step nearest the middle,
+  128 to 888.
+- **The bars**: **look-bar-w** wide and **look-bar-gap** apart, in
+  **accent-ink**, round at the top (**radius-bar**) and flat on their
+  feet; over each a cap, a **text-dim** pill **look-cap** high and
+  **look-cap** over the bar. A bar rises at once and falls on **follow**
+  (tau **bar-fall**); its cap holds where the bar reached for
+  **peak-hold**, then drops with gravity, from the top to the floor in
+  667 ms. Paused, the bars fall to rest and the caps lie in a row on the
+  floor. Every edge is on the grid, whole pixels on the Pixel 2 (a bar 10
+  of them, 5 between); a bar's top and a cap move smoothly between them.
+- **The sound** is the daemon's (src/muse/bands.h): what is heard, not
+  what the decoder has reached - the frames written, less the 200 ms still
+  queued, plus what played since - a 1024-point FFT under a Hann window
+  (at 512 the nine bands under 200 Hz shared two bins), 32 bands spaced
+  evenly in pitch from 50 Hz to 12 kHz, each its loudest bin in dB from
+  -64 to -16, tilted 2 dB an octave about 1 kHz; the scale set on five
+  songs, from a quiet live recording to a loud electronic master
+  (tools/bands-check.c --song). 30 times a second, and only while bars are
+  drawn: every frame of bars keeps the daemon measuring for 300 ms more
+  (`musec_bands_keep`, BANDS on the socket), so behind a menu, under the
+  lock, paused and still, or on Cover it is not measuring. 5 to 34 us a
+  window on an M3 Max (check-bands); the Pixel 2's is measured on the
+  device.
+- **Power**: a look draws every frame while music plays, paced by the
+  panel (ui_frame_rest); paused, once its bars are down, it draws as Cover
+  does, on a change and once a second. Under the lock nothing moves: the
+  bars are at rest from its first frame.
+- *(My picks in the Sound lab, 2026-11-19: the looks ship beside Cover,
+  which stays the default; bars with caps - a bar rising at once and
+  falling on follow, its cap holding 400 ms and then dropping with
+  gravity.)*
 
