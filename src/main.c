@@ -1595,7 +1595,7 @@ const muse_mode_name MUSE_MODES[MUQ_MODES] = {
  * is not a decode: the album it is for and its texture. `done` means this is
  * what the album will show - its art, or the card made for one with none - and
  * nothing more needs asking. */
-np_cover_state g_np = { .album = -1 };
+np_cover_state g_np = { .album = -1, .rgb = CFG_NO_COLOR };
 
 /* The menus' panel pass (panel_pass_begin): a screen, kept rather than made
  * per frame. */
@@ -5703,6 +5703,8 @@ int main(int argc, char *argv[])
 			 * long ones rather than only the short one that fit. */
 			if (i + 1 < argc && argv[i + 1][0] != '-') shot_cheevos_game = argv[++i];
 		}
+		else if (!strcmp(argv[i], "--cheevo-card") && i + 1 < argc)
+			shot_cheevo_card = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--cheevos-badge") && i + 2 < argc) {
 			shot_badge_set = argv[++i];
 			shot_badge_name = argv[++i];
