@@ -2606,12 +2606,13 @@ static void shot_launch_frame(app *a)
 }
 
 /* --flip's turn: the whole shot drawn once in the theme it started in, then
- * Auto set a minute before the edge that ends that theme - 7:00 for Salt &
- * Pepper, 19:00 for Beard, today, where the same theme is still on - and its
- * clock read at the edge itself. theme_tick says the theme changed and
+ * Auto set a minute before the edge that ends that theme - the Night Hours'
+ * Until for Salt & Pepper, their From for Beard (theme_hours: 7:00 and 21:00
+ * as they ship), today, where the same theme is still on - and its clock
+ * read at the edge itself. theme_tick says the theme changed and
  * theme_changed is told, which is tick_theme's body with the clock's time
- * handed in: the path 7:00 and 19:00 take on a handheld, and not one written
- * for the shot.
+ * handed in: the path the edges take on a handheld, and not one written for
+ * the shot.
  *
  * Then the frame right after the turn, as the device draws it: there every
  * card is asked of a worker and nothing is read on the frame, so a card the
@@ -2627,17 +2628,20 @@ static void shot_flip_theme(app *a)
 	time_t now = time(NULL), edge;
 	struct tm tm;
 	sysview *v = &a->view[a->sys_cursor];
-	int n, i, k;
+	int n, i, k, light_min, dark_min, at_min;
 
 	shot_compose(a);
+	theme_hours(&light_min, &dark_min);
+	at_min = theme_index() == DS_DARK ? light_min : dark_min;
 	localtime_r(&now, &tm);
-	tm.tm_hour = theme_index() == DS_DARK ? 7 : 19;
-	tm.tm_min = tm.tm_sec = 0;
+	tm.tm_hour = at_min / 60;
+	tm.tm_min = at_min % 60;
+	tm.tm_sec = 0;
 	tm.tm_isdst = -1;
 	edge = mktime(&tm);
 	theme_init_at(APPEAR_AUTO, edge - 60);
 	if (theme_tick_at(edge)) theme_changed(a);
-	else fprintf(stderr, "--flip: the theme did not turn at %02d:00\n", tm.tm_hour);
+	else fprintf(stderr, "--flip: the theme did not turn at %02d:%02d\n", tm.tm_hour, tm.tm_min);
 
 	g_loads_held = true;
 	shot_compose(a);

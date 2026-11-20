@@ -18,6 +18,7 @@
 #include "../src/nightkeep.h"
 #include "../src/nightmode.h"
 #include "../src/panelgamma.h"
+#include "../src/theme.h"
 
 static int checks, fails;
 
@@ -203,23 +204,21 @@ static void migrate(void)
 
 	printf("the migration:\n");
 	zone("UTC");
-	m = night_migrate("auto", false, 0, false, 0, false, 1794916800);
-	ck(m.appearance && !strcmp(m.appearance, "light") && m.hours && m.from == 19 * 60 &&
-	   m.until == 7 * 60 && !m.drop_auto, "Auto at noon, hours never set: Light, Night Hours 19:00 to 7:00");
-	m = night_migrate("auto", false, 0, false, 0, false, 1794952800);
-	ck(m.appearance && !strcmp(m.appearance, "dark"), "Auto at 22:00: Dark");
-	m = night_migrate("Auto", true, 6 * 60, true, 21 * 60 + 30, false, 1794951900);
-	ck(m.appearance && !strcmp(m.appearance, "dark") && m.from == 21 * 60 + 30 && m.until == 6 * 60 &&
-	   m.drop_auto, "its own hours (6:00, 21:30) at 21:45: Dark, and those hours, the keys gone");
-	m = night_migrate("dark", false, 0, false, 0, false, 1794916800);
-	ck(!m.appearance && !m.hours && !m.drop_auto, "Dark and no hours: nothing");
-	m = night_migrate("light", true, 8 * 60, true, 20 * 60, false, 1794916800);
-	ck(!m.appearance && m.hours && m.from == 20 * 60 && m.until == 8 * 60 && m.drop_auto,
+	m = night_migrate("auto", false, 0, false, 0, false);
+	ck(m.hours && m.from == 19 * 60 && m.until == 7 * 60 && !m.drop_auto,
+	   "Auto, hours never set: Night Hours 19:00 to 7:00, 1.0.5's");
+	m = night_migrate("Auto", true, 6 * 60, true, 21 * 60 + 30, false);
+	ck(m.from == 21 * 60 + 30 && m.until == 6 * 60 && m.drop_auto,
+	   "its own hours (6:00, 21:30): those hours, the keys gone");
+	m = night_migrate("dark", false, 0, false, 0, false);
+	ck(!m.hours && !m.drop_auto, "Dark and no hours: nothing");
+	m = night_migrate("light", true, 8 * 60, true, 20 * 60, false);
+	ck(m.hours && m.from == 20 * 60 && m.until == 8 * 60 && m.drop_auto,
 	   "Light with hours set once: the hours kept as Night Hours");
-	m = night_migrate("auto", true, 8 * 60, true, 20 * 60, true, 1794916800);
-	ck(m.appearance && !m.hours && m.drop_auto, "Night Hours kept already: not overwritten");
-	m = night_migrate(NULL, false, 0, false, 0, false, 1794916800);
-	ck(!m.appearance && !m.hours && !m.drop_auto, "a new device: nothing");
+	m = night_migrate("auto", true, 8 * 60, true, 20 * 60, true);
+	ck(!m.hours && m.drop_auto, "Night Hours kept already: not overwritten");
+	m = night_migrate(NULL, false, 0, false, 0, false);
+	ck(!m.hours && !m.drop_auto, "a new device: nothing");
 }
 
 /* The same on a device database, as the launcher's start runs it */
@@ -244,21 +243,22 @@ static void migrate_db(void)
 	db_set_str(db_dev(), "appearance", "auto");
 	db_set_int(db_dev(), "auto.light", 7 * 60);
 	db_set_int(db_dev(), "auto.dark", 19 * 60);
-	night_migrate_db(1794952800);              /* 22:00 */
+	night_migrate_db();
 	db_get_str(db_dev(), "appearance", w, sizeof w, "");
-	ck(!strcmp(w, "dark"), "Auto at 22:00 is saved Dark");
+	ck(!strcmp(w, "auto"), "Auto stays Auto (1.1.0: a setting again)");
 	ck(db_get_int(db_dev(), "night.from", -1) == 19 * 60 && db_get_int(db_dev(), "night.until", -1) == 7 * 60,
 	   "Night Hours 19:00 to 7:00");
 	ck(!db_has(db_dev(), "auto.light") && !db_has(db_dev(), "auto.dark"), "auto.light and auto.dark gone");
 	ck(!db_has(db_dev(), "night.mode"), "Night Mode not written: Off");
+	ck(db_get_int(db_dev(), AUTO_MIGRATED_KEY, 0) == 1, "and the card marked done");
 	n = night_load();
 	ck(n.mode == NIGHT_OFF && n.warmth == NIGHT_WARMTH_DEFAULT && n.from == 19 * 60 && n.until == 7 * 60,
 	   "night_load: Off, warmth 8, 19:00 to 7:00");
 	/* A second start changes nothing */
-	night_migrate_db(1794916800);              /* noon */
+	night_migrate_db();
 	db_get_str(db_dev(), "appearance", w, sizeof w, "");
-	ck(!strcmp(w, "dark") && db_get_int(db_dev(), "night.from", -1) == 19 * 60,
-	   "a second start, at noon: still Dark, the same hours");
+	ck(!strcmp(w, "auto") && db_get_int(db_dev(), "night.from", -1) == 19 * 60,
+	   "a second start: still Auto, the same hours");
 	/* Kept from the menu, and back */
 	night_keep(&(night_cfg){ NIGHT_HOURS, 12, 22 * 60 + 10, 6 * 60 });
 	db_get_str(db_dev(), "night.mode", w, sizeof w, "");
@@ -267,6 +267,12 @@ static void migrate_db(void)
 	   "night_keep: hours, a warmth off the scale the default, 22:10 as it is");
 	ck(kept_calls == 1 && kept_on_display.mode == NIGHT_HOURS && kept_on_display.warmth == NIGHT_WARMTH_DEFAULT,
 	   "and on the display, put right");
+	{
+		int l, d;
+
+		theme_hours(&l, &d);
+		ck(l == 6 * 60 && d == 22 * 60 + 10, "and Auto's hours: light from 6:00, dark from 22:10");
+	}
 	n = night_load();
 	ck(n.mode == NIGHT_HOURS && n.from == 22 * 60 + 10 && n.until == 6 * 60, "night_load reads it back");
 	db_shutdown();

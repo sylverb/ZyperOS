@@ -51,7 +51,7 @@ CHECKS = check-cheevos check-hare check-portal check-httpd check-idle check-task
          check-clock check-autozone check-status check-battery check-battery-eta check-dslang check-pacing check-sgbmode check-border check-handframe check-gpuframes check-dsresume check-corestate check-core-stamp check-core-room check-px2-perf check-px2-snap check-px2 check-lowbatt check-powerhold check-homesys check-collect check-heat check-charging check-corner check-dsv check-sidelights check-osdbar check-hud check-dmodefit check-themefile check-pkkeys check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-bios check-gamefile check-startfail check-kbnav check-randgame check-shelfdir check-look \
          check-tween check-menumotion check-menusnap check-cardgen check-cardart check-focusfx check-blur check-gridrule check-screencard check-focusgeo check-roundrect check-rowmacro check-emptyhome check-zyperrig check-sysmark check-flip check-menushots check-design \
          check-systemart check-linebreak check-portload check-portout check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-messages \
-         check-tour check-tour-shots check-tour-previews check-textfade check-glyphs check-scale check-shaderdemo check-shaderpic check-screenfx check-ds check-layout-ratchet check-flex check-hover check-hover-sweep check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pico8 check-pico8-wget check-pmhelper check-pmart check-portdoc check-boottheme check-splashbright check-bootbright check-seed-version check-panelgamma check-panelgamma-sunxi check-nightmode check-displayback check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-start-soc check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr \
+         check-tour check-tour-shots check-tour-previews check-textfade check-glyphs check-scale check-shaderdemo check-shaderpic check-screenfx check-ds check-layout-ratchet check-flex check-hover check-hover-sweep check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pico8 check-pico8-wget check-pmhelper check-pmart check-portdoc check-boottheme check-splashbright check-bootbright check-seed-version check-panelgamma check-panelgamma-sunxi check-nightmode check-autotheme check-displayback check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-start-soc check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr \
          check-home check-home-shots check-games check-cardpaint check-putpace check-favorites-shots check-homesys-groups check-np-footer check-vidtry check-menu-rows check-layout-shots check-artbadge check-artbadge-shots check-cardart-shots checkmark \
          check-installer check-from-rogue check-importers check-diatom check-simulator check-qemu-image check-desk check-homekeys check-videoview check-inrepeat check-keymap check-handhelds check-px2sim check-building-doc check-blog check-discord-release \
          check-release-devices check-strings check-i18n-shots check-rootswitch check-datapart check-brick-closed check-hwreport check-kitbuild
@@ -784,10 +784,12 @@ check-nightmode: build-native/nightmode-check
 
 build-native/nightmode-check: tools/nightmode-check.c src/nightmode.c src/nightmode.h src/nightkeep.c \
                               src/nightkeep.h src/panelgamma.c src/panelgamma.h src/db.c src/db.h \
-                              src/atomic.c FORCE
+                              src/atomic.c src/theme.c src/theme.h src/themefile.c src/look.c \
+                              $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -Werror -D_GNU_SOURCE -O1 -g -o $@ tools/nightmode-check.c \
-	      src/nightmode.c src/nightkeep.c src/panelgamma.c src/db.c src/atomic.c -lsqlite3 -lpthread -lm
+	      src/nightmode.c src/nightkeep.c src/panelgamma.c src/db.c src/atomic.c \
+	      src/theme.c src/themefile.c src/look.c $(I18N_SRC) -lsqlite3 -lpthread -lm
 
 # The display taken back after a game, a crashed one too (src/displayback.h):
 # master asked for until a dying Diatom lets go, and a CRTC left with nothing
@@ -798,6 +800,27 @@ check-displayback: build-native/displayback-check
 build-native/displayback-check: tools/displayback-check.c src/displayback.c src/displayback.h FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -Werror -O1 -g -o $@ tools/displayback-check.c src/displayback.c
+
+# Appearance's Auto on Night Mode's Night Hours (src/theme.h, 1.1.0): light
+# in the day and dark in the night, across midnight and to the minute, dark
+# at exactly the minutes Night Mode's nights are on, the row's three, the
+# first start's migration once a card (a 1.0.5 Auto kept, a new Auto left
+# alone), and the boot screen's word with the hours, which plastron's splash
+# reads to the launcher's theme every minute of the day; and that it never
+# conflicts with Night Mode: no night.* key written, Night Mode the same under
+# all three, the theme turning on the warmth's own second, a 1.0.6 card's
+# Night Mode settings untouched
+check-autotheme: build-native/autotheme-check
+	@./build-native/autotheme-check
+
+build-native/autotheme-check: tools/autotheme-check.c src/theme.c src/theme.h src/nightmode.c src/nightmode.h \
+                              src/nightkeep.c src/nightkeep.h src/panelgamma.c src/panelgamma.h src/db.c \
+                              src/db.h src/atomic.c src/themefile.c src/look.c src/boottheme.c src/boottheme.h \
+                              plastron/buildroot/package/splash/src/zytheme.h $(I18N_SRC) FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -Werror -D_GNU_SOURCE -O1 -g -o $@ tools/autotheme-check.c \
+	      src/theme.c src/nightmode.c src/nightkeep.c src/panelgamma.c src/db.c src/atomic.c \
+	      src/themefile.c src/look.c src/boottheme.c $(I18N_SRC) -lsqlite3 -lpthread -lm
 
 # The boot screen's theme words (src/boottheme.h, DESIGN.md 11.21)
 check-boottheme: build-native/boottheme-check

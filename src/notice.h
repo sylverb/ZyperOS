@@ -28,7 +28,7 @@
  * Drawn in theme `theme_ix`, DS_LIGHT or DS_DARK (DESIGN.md 11.7: a slab of
  * **surface**, its heading **text-dim** and its body **text**), which the
  * caller reads as it asks: a notice is rendered while a game runs, and Auto
- * can have turned the theme at 7:00 or 19:00 since the game started, so the
+ * can have turned the theme at the Night Hours since the game started, so the
  * theme is the one on at this moment and never one this file kept. The
  * launcher's theme_index() is that, ticked through the game (on_game_tick),
  * and it is what THEME_FILE says to Diatom's bar beside the notice. */

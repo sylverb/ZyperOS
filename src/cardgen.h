@@ -9,7 +9,7 @@
  *
  * A card is pixels, not a role. Its slab and its title are baked into a
  * texture when it is made, so a card made in Beard would stay Beard's after
- * Auto turns the shelf to Salt & Pepper at 19:00. So each card is made for
+ * Auto turns the shelf to Salt & Pepper at night. So each card is made for
  * one theme, named by its index (DS_LIGHT or DS_DARK), and shown only while
  * that theme is on: a change of theme drops the others.
  *

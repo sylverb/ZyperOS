@@ -1310,6 +1310,23 @@ EXTRA.setdefault("night-warmth-list", ("demo", "PS1", ["--look-page", "night-lis
 SHOT_SETTINGS["night-warmth-list"] = {"night.mode": "on"}
 EXTRA.setdefault("night-from-list", ("demo", "PS1", ["--look-page", "night-list", "2"]))
 SHOT_SETTINGS["night-from-list"] = {"night.mode": "hours", "night.from": "1260"}
+# MENU > Display > Appearance's Auto (1.1.0, on the Night Hours): the row on
+# Auto, and its list, A on the row, with each choice's note under it, and the
+# list opened on Auto; and Night Mode's page Off with Appearance on Auto, its
+# hours live, on the 12-hour clock at their longest (10:30 PM, 11:30 AM). A card on Auto is
+# drawn in the shot's --theme at any hour (main.c), and is a 1.1.0 card
+# (appearance.auto_106), so the start's migration leaves its hours as they are
+_AUTO = {"appearance": "auto", "appearance.auto_106": "1"}
+EXTRA.setdefault("menu-look-auto", ("demo", "PS1", ["--menu", "Appearance"]))
+SHOT_SETTINGS["menu-look-auto"] = dict(_AUTO)
+for _k, _n in ((0, "light"), (1, "dark"), (2, "auto")):
+    EXTRA.setdefault("appearance-list-" + _n, ("demo", "PS1", ["--menu", "Appearance", "--press", "a",
+                                                               "--pick-at", str(_k)]))
+EXTRA.setdefault("appearance-list-on-auto", ("demo", "PS1", ["--menu", "Appearance", "--press", "a"]))
+SHOT_SETTINGS["appearance-list-on-auto"] = dict(_AUTO)
+EXTRA.setdefault("night-page-off-auto", ("demo", "PS1", ["--look-page", "night", "0"]))
+SHOT_SETTINGS["night-page-off-auto"] = dict(_AUTO, **{"night.from": "1350", "night.until": "690"})
+SHOT_STATUS["night-page-off-auto"] = "10:08 12h wifi=off batt=82"
 
 # The pop-ups the SELECT hotkeys put over a game (src/main.c, on_quick and
 # on_speed), each as it says: the slot saved, loaded, empty or failed, a game

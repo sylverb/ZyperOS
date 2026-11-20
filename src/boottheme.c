@@ -27,15 +27,24 @@ static int lang_ok(const char *l)
 	return 1;
 }
 
-void boottheme_words(const char *appearance, const char *zone, const char *lang, int bright,
-                     char *line, size_t n, char *file, size_t fn)
+/* A minute of the day, or `fallback` */
+static int day_minute(int m, int fallback)
 {
-	const char *t = appearance && (!strcmp(appearance, "dark") || !strcmp(appearance, "auto"))
-	                ? appearance : "light";
+	return m >= 0 && m < 24 * 60 ? m : fallback;
+}
+
+void boottheme_words(const char *appearance, int night_from, int night_until, const char *zone,
+                     const char *lang, int bright, char *line, size_t n, char *file, size_t fn)
+{
 	const char *z = zone_ok(zone) ? zone : "-";
 	const char *l = lang_ok(lang) ? lang : "en";
-	char b[16] = "-";
+	char b[16] = "-", t[24] = "light";
 
+	if (appearance && !strcmp(appearance, "dark"))
+		snprintf(t, sizeof t, "dark");
+	else if (appearance && !strcmp(appearance, "auto"))
+		snprintf(t, sizeof t, "auto-%d-%d", day_minute(night_from, 21 * 60),
+		         day_minute(night_until, 7 * 60));
 	if (bright >= 1) snprintf(b, sizeof b, "%d", bright);
 	if (line && n) snprintf(line, n, "zytheme=%s zyzone=%s zylang=%s zybright=%s", t, z, l, b);
 	if (file && fn) snprintf(file, fn, "zytheme=%s\nzyzone=%s\nzylang=%s\nzybright=%s\n", t, z, l, b);
@@ -62,7 +71,7 @@ static int word_of(const char *cmdline, const char *key, char *out, size_t n)
 
 void boottheme_from_cmdline(const char *cmdline, char *line, size_t n)
 {
-	char t[16] = "", z[64] = "", l[16] = "", b[16] = "";
+	char t[24] = "", z[64] = "", l[16] = "", b[16] = "";
 	int has_t = word_of(cmdline ? cmdline : "", "zytheme", t, sizeof t);
 	int has_z = word_of(cmdline ? cmdline : "", "zyzone", z, sizeof z);
 	int has_l = word_of(cmdline ? cmdline : "", "zylang", l, sizeof l);

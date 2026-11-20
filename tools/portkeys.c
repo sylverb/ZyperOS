@@ -50,7 +50,7 @@
  * the 480x640 panel. It is drawn in the theme the launcher would be in: the
  * Appearance setting in the launcher's database, with Auto resolved at every
  * press by the launcher's own rule (src/theme.c) in the handheld's zone, so
- * the bar turns at 7:00 and 19:00 over a port as the shelf would (pkset.c,
+ * the bar turns at the Night Hours' edges over a port as the shelf would (pkset.c,
  * which tools/portkeys-check.c holds). Only when the database cannot be read
  * is it what the launcher left in /tmp/zyperos-theme (src/themefile.h), which
  * nothing writes again while the port runs; so a hand edit of that file
@@ -178,13 +178,13 @@ static char appearance_word[16];
 static bool appearance_read;
 
 /* The look and Auto's hours from the device's database, as the launcher reads
- * them (src/sysmenu_screen.c, look_load): look.* words and auto.* minutes. The bar's colors
+ * them (src/sysmenu_screen.c, look_load): look.* words and the Night Hours' minutes. The bar's colors
  * for both themes are then the look's (osdbar_colors), or the tokens' for the
  * look as it ships. */
 static void look_load_db(sqlite3 *d)
 {
 	char ac[16] = "", li[16] = "", dk[16] = "", co[16] = "", zy[8] = "", m[16];
-	int lm = THEME_LIGHT_FROM, dm = THEME_DARK_FROM, t;
+	int lm = THEME_NIGHT_UNTIL, dm = THEME_NIGHT_FROM, t;
 	look l;
 
 	pkset_text(d, "look.accent", ac, sizeof ac);
@@ -196,8 +196,12 @@ static void look_load_db(sqlite3 *d)
 	look_set(&l);
 	for (t = 0; t < DS_THEMES; t++)
 		osdbar_colors(t, look_is_default(&l) ? NULL : theme_at(t));
-	if (pkset_text(d, "auto.light", m, sizeof m)) lm = atoi(m);
-	if (pkset_text(d, "auto.dark", m, sizeof m)) dm = atoi(m);
+	/* Auto's hours are the Night Hours (src/theme.h): light from
+	 * night.until, dark from night.from, as the launcher's night_theme_hours
+	 * hands them in. The launcher migrated 1.0.5's auto.light and auto.dark
+	 * into them before any port could run. */
+	if (pkset_text(d, "night.until", m, sizeof m)) lm = atoi(m);
+	if (pkset_text(d, "night.from", m, sizeof m)) dm = atoi(m);
 	theme_set_hours(lm, dm);
 }
 
@@ -615,7 +619,7 @@ static void bar_show(int kind, int level, int max)
 
 	if (!held() && !borrow()) return;
 	/* The theme is worked out here, on every press, and not once at start:
-	 * a port can run for hours, and Auto turns at 7:00 and 19:00 whether the
+	 * a port can run for hours, and Auto turns at the Night Hours whether the
 	 * launcher is there to say so or not. The setting, read at start, and
 	 * the clock, by the launcher's rule (pkset_bar_theme, theme_saved_at); a
 	 * word in capitals or none at all reads as the launcher reads it. With no

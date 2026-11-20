@@ -311,7 +311,7 @@ static menu_exit menu_run_body(app *a, const menu_style *st,
 		mp4_poll();
 		aout_apply(false);
 		/* Auto's clock, in every screen this runs - the menus, and the
-		 * in-game menu over a paused game too. 7:00 or 19:00 arriving while
+		 * in-game menu over a paused game too. A Night Hours edge arriving while
 		 * one is open is drawn from the next frame, which this loop draws
 		 * every pass, and the file Diatom and portkeys read follows. */
 		tick_theme(a);
