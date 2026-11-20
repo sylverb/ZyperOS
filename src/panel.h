@@ -750,6 +750,8 @@ bool xs_row_cable(void);
 const char *xs_row_value(void);
 void xfer_screen(app *a);
 void scraper_page(app *a, const char *only);
+/* ss_run_videos' own rule again (main.c's snap_wanted) */
+void ss_run_videos_default(void);
 menu_result scraper_screen(app *a);
 void language_screen(app *a);
 void lights_screen(app *a);

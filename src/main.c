@@ -4038,6 +4038,13 @@ static bool snap_wanted(const char *folder, const char *file)
 	return snaps_for_game(which, fav_is(tag, file), which == SNAPS_FOR_PLAYED);
 }
 
+/* The rule back after a game's own fetch asked for its video alone
+ * (Downloads' game panel) */
+void ss_run_videos_default(void)
+{
+	ss_run_videos(snap_wanted);
+}
+
 /* MENU > Scraper's value, from the last count of missing covers: taken as
  * its page closes (scraper_page), never per frame */
 char g_scraper_val[32];

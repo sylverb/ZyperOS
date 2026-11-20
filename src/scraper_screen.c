@@ -1673,7 +1673,8 @@ bool scraper_run(app *a, scraper_kinds k)
 
 /* A run of the Downloads page (scraper_screen.h): scp_start's, with the
  * page's own counts in place of a plan's */
-bool scraper_start_run(app *a, scraper_kinds k, const systems_cfg *cfg, const char *only, int covers)
+bool scraper_start_run(app *a, scraper_kinds k, const systems_cfg *cfg, const char *only, int covers,
+                       bool (*names_rule)(const char *folder))
 {
 	(void)a;
 	if (dlq_running(DLQ_ART)) return true;
@@ -1683,7 +1684,7 @@ bool scraper_start_run(app *a, scraper_kinds k, const systems_cfg *cfg, const ch
 	g_snap_sys = &g_art_sys;
 	art_covers_rule(k.covers ? art_lane_rule : art_lane_none);
 	art_names(scp_names_on() && k.names);
-	art_names_rule(k.covers ? NULL : art_lane_rule);
+	art_names_rule(names_rule ? names_rule : k.covers ? NULL : art_lane_rule);
 	g_snap_run_off = !k.videos;
 	ART_LANE.card = P_ROMS;
 	if (!dlq_start(DLQ_ART, &ART_LANE, art_lane_begin)) {

@@ -16,8 +16,11 @@
 #include "mediatex.h"
 #include "menu_pick.h"
 #include "net.h"
+#include "cheevos.h"
+#include "ssrun.h"
 #include "radl.h"
 #include "radl_screen.h"
+#include "rahashjob.h"
 #include "rafetch.h"
 #include "scraper_screen.h"
 #include "sgdb.h"
@@ -36,6 +39,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 /* ---------- MENU > Downloads: one page (DESIGN.md 11.53) ----------------------
  *
@@ -69,21 +73,24 @@
  * a new one goes. */
 
 #define DL_ROW      DS_LINE_MENU   /* a row of the hub's list */
-#define DL_RULE_H   14             /* the rule between Download and the kinds */
+#define DL_RULE_H   DS_LIST_PAD_Y  /* the rule between Download and the kinds */
 #define DL_MARK     40             /* a kind's mark before its name */
-#define DL_ROW_PAD  20             /* a row's words in from its fill */
+#define DL_ROW_PAD  DS_SECTION     /* a row's words in from its fill */
 #define DL_COUNT_MS 6              /* the count's share of a frame */
 #define DL_RING     14             /* arrivals kept: the run shows 7, done 14 */
 #define DL_LAND     520            /* an arrival's landing, ms (the Scraper's) */
 #define DL_BIG      360            /* the newest's square */
 #define DL_CELL     168            /* the six before it */
-#define DL_CELL_GAP 24
+#define DL_CELL_GAP DS_GRID_GAP
 #define DL_WALL     120            /* done's wall, two rows of seven */
-#define DL_SLOT_W   62             /* a kind page's system slot (the Scraper's) */
+/* A kind page's system slot and its tiles' height: the Scraper's and the
+ * achievements page's own (SCP_SLOT_W, RDL_SLOT_W...), typed in all three so
+ * the pages stay one picture; they move to tokens together */
+#define DL_SLOT_W   62
 #define DL_BAND     56
 #define DL_TILE_H   220
 #define DL_SYS_ROWS 5              /* Systems' rows on the screen */
-#define DL_CELL_W   96             /* a Systems column */
+#define DL_CELL_W   (DS_PAGE_TILE_W / DLK_KINDS)   /* a Systems column: the kinds share a tile's width */
 #define DL_GAME_ROWS 5             /* a system's games on the screen */
 
 static const ui_glyph KIND_MARK[DLK_KINDS] = { UI_GLYPH_COVER, UI_GLYPH_FILM, UI_GLYPH_BOOK, UI_GLYPH_TROPHY };
@@ -181,7 +188,7 @@ static const char *g_fx_user;
 
 static bool online(void)
 {
-	return g_fx_net >= 0 ? g_fx_net != 0 : online();
+	return g_fx_net >= 0 ? g_fx_net != 0 : net_online();
 }
 
 static bool lane_on(dlq_lane l)
@@ -429,7 +436,7 @@ static void rows_draw(dl_view *v, dl_frame *f, const dl_row *rows, int n, int ru
 		}
 		if (rows[i].mark != UI_GLYPH_COUNT) {
 			ui_glyph_draw(a->r, rows[i].mark, lx + DL_MARK / 2, cy, DL_MARK, ink);
-			lx += DL_MARK + 14;
+			lx += DL_MARK + DS_LIST_ROW_GAP;
 		}
 		ui_fit_text(fm, rows[i].label, lab, sizeof lab, x1 - DL_ROW_PAD - vw - 16 - lx);
 		ui_text(a->r, fm, lab, lx, ui_cap_y(fm, cy), -1, ink);
@@ -1193,10 +1200,6 @@ static bool take_pictures(dl_view *v)
 		}
 		if (s) SDL_FreeSurface(s);
 	}
-	if (!any) {
-		/* a picture that never comes: land the tile anyway */
-		if (v->nring && !v->ring[0].tex && anim_now() - v->land_at > 1500 && v->land_at) any = false;
-	}
 	return any;
 }
 
@@ -1473,6 +1476,12 @@ static void dl_base(app *a, void *ctx)
 
 /* ---- starting and ending a run ------------------------------------------------------- */
 
+/* The names part's systems: each one's Names switch (Systems' cell) */
+static bool names_rule(const char *folder)
+{
+	return dl_sys_on(DLK_NAMES, folder);
+}
+
 /* Download: each lane with what it has to do, side by side (src/dlq.h).
  * `only` one kind, or -1 for every kind that is in. */
 static bool run_start(dl_view *v, int only)
@@ -1522,7 +1531,7 @@ static bool run_start(dl_view *v, int only)
 			ra_cfg.systems[ra_cfg.count++] = *sc;
 	}
 	if (pl.covers + pl.videos + pl.looks > 0 && art_cfg.count)
-		art = scraper_start_run(v->a, k, &art_cfg, v->only[0] ? v->only : NULL, covers);
+		art = scraper_start_run(v->a, k, &art_cfg, v->only[0] ? v->only : NULL, covers, names_rule);
 	if ((only < 0 || only == DLK_ACH) && pl.ach > 0 && ra_cfg.count)
 		ra = radl_start_run(v->a, &ra_cfg, v->only[0] ? v->only : NULL);
 	if (!art && !ra) return false;
@@ -1870,13 +1879,135 @@ static void settings(dl_view *v)
 	         set_build, set_key, &s);
 }
 
-/* A game's panel: what it has of each kind; A on its cover or video opens
- * its Cover and Video page */
+/* A game's panel: what it has of each kind. A on its cover or its video
+ * opens its Cover and Video page (the picker, every source); A on its names
+ * or its achievements gets them, and Get What's Missing gets all it lacks,
+ * one after another, in the panel: each value says Getting and turns as its
+ * file lands. Its own requests, beside no lane (the lanes ask the same
+ * servers): with a download going on it waits for that. */
+enum { GP_ROWS = DLK_KINDS + 2, GP_GET = DLK_KINDS + 1 };
+enum { ONE_IDLE, ONE_SS, ONE_HASH, ONE_SET };
+
 typedef struct {
 	dl_view *v;
-	const dl_game *g;
+	dl_game *g;
+	const system_cfg *sc;
 	char val[DLK_KINDS][64];
+	int queue[DLK_KINDS], nq, at;
+	int phase;
+	char set[RADL_SET_PATH], hash[40];
+	bool video_asked;
 } game_ctx;
+
+static game_ctx *g_one;
+
+/* Asked by the ScreenScraper run for this game alone */
+static bool one_wants_video(const char *folder, const char *file)
+{
+	return g_one && g_one->g->st[DLK_VIDEOS] != GS_HAVE && !strcmp(folder, g_one->sc->folder) &&
+	       !strcmp(file, g_one->g->file);
+}
+
+/* What the card has for the game now, after a file landed */
+static void one_look(game_ctx *x)
+{
+	dl_game *g = x->g;
+	char dir[LIB_PATH * 2], p[LIB_PATH * 3], t[GAME_TITLE_MAX], np[RADL_SET_PATH + 16];
+
+	snprintf(dir, sizeof dir, "%s/%s", P_ROMS, x->sc->folder);
+	if (has_box_art(x->sc->folder, g->name) || es_art_cover(dir, g->file, g->name)) g->st[DLK_COVERS] = GS_HAVE;
+	if (snaps_path(P_ROMS, x->sc->folder, g->name, p, sizeof p) || es_art_video(dir, g->file, g->name))
+		g->st[DLK_VIDEOS] = GS_HAVE;
+	if (db_game_title(db_lib(), x->sc->folder, g->file, t, sizeof t) && t[0]) g->st[DLK_NAMES] = GS_HAVE;
+	chv_path(P_ROMS, x->sc->folder, g->name, p, sizeof p);
+	chv_none_path(p, np, sizeof np);
+	if (access(p, F_OK) == 0) g->st[DLK_ACH] = GS_HAVE;
+	else if (access(np, F_OK) == 0) g->st[DLK_ACH] = GS_NONE;
+}
+
+static void one_next(game_ctx *x);
+
+static void one_done(game_ctx *x)
+{
+	if (x->video_asked) ss_run_videos_default();
+	x->video_asked = false;
+	x->phase = ONE_IDLE;
+	one_look(x);
+	x->at++;
+	one_next(x);
+}
+
+/* The next kind in the queue, begun; none left: done, and the sound of it */
+static void one_next(game_ctx *x)
+{
+	char dir[LIB_PATH * 2], rom[LIB_PATH * 3];
+
+	snprintf(dir, sizeof dir, "%s/%s", P_ROMS, x->sc->folder);
+	while (x->at < x->nq) {
+		int k = x->queue[x->at];
+
+		if (x->g->st[k] == GS_HAVE || x->g->st[k] == GS_NONE) { x->at++; continue; }
+		if (k == DLK_ACH) {
+			snprintf(rom, sizeof rom, "%s/%s", dir, x->g->file);
+			chv_path(P_ROMS, x->sc->folder, x->g->name, x->set, sizeof x->set);
+			if (rhj_begin(rom, x->sc->tag, x->set)) { x->phase = ONE_HASH; return; }
+		} else {
+			bool ok;
+
+			/* covers and videos come with the names, one request */
+			if (k == DLK_VIDEOS || x->g->st[DLK_VIDEOS] == GS_MISS) {
+				ss_run_videos(one_wants_video);
+				x->video_asked = true;
+			}
+			ok = k == DLK_NAMES && x->g->st[DLK_COVERS] == GS_HAVE
+			   ? ss_run_begin_metadata(x->sc->folder, x->g->file, x->g->name, dir, x->sc->exts)
+			   : ss_run_begin(x->sc->folder, x->g->file, x->g->name, dir, x->sc->exts);
+			if (ok) { x->phase = ONE_SS; return; }
+			if (x->video_asked) ss_run_videos_default();
+			x->video_asked = false;
+		}
+		x->at++;
+	}
+	x->nq = x->at = 0;
+	x->phase = ONE_IDLE;
+}
+
+/* A frame of the game's own fetch */
+static void one_step(game_ctx *x)
+{
+	char h[40], set[RADL_SET_PATH];
+	int r;
+
+	switch (x->phase) {
+	case ONE_SS:
+		if ((r = ss_run_step()) == 1) return;
+		ss_run_cancel();
+		one_done(x);
+		return;
+	case ONE_HASH:
+		if ((r = rhj_poll(h, set, sizeof set)) == 0) return;
+		if (r == 1) {
+			snprintf(x->hash, sizeof x->hash, "%s", h);
+			ra_fetch_begin(x->hash, x->set);
+			x->phase = ONE_SET;
+			return;
+		}
+		one_done(x);
+		return;
+	case ONE_SET:
+		if ((r = ra_fetch_step()) == 0) return;
+		if (r == RA_FETCH_NOTHING) chv_none_mark(x->set, true);
+		one_done(x);
+		return;
+	default:
+		return;
+	}
+}
+
+static bool one_busy(const game_ctx *x, int k)
+{
+	return x->phase != ONE_IDLE && x->at < x->nq && x->queue[x->at] == k;
+}
 
 static int game_build(void *ctx, menu_row *rows, int max, const char **heading)
 {
@@ -1884,48 +2015,95 @@ static int game_build(void *ctx, menu_row *rows, int max, const char **heading)
 	const dl_game *g = x->g;
 	static const str_id ROW[DLK_KINDS] = { S_DOWNLOADS_HAS_COVER, S_DOWNLOADS_HAS_VIDEO, S_SCRAPER_NAMES_DETAILS,
 	                                       S_SYSMENU_CHEEVOS };
+	bool any = false;
 	int k;
 
 	(void)max;
+	one_step(x);
 	*heading = g->title;
 	for (k = 0; k < DLK_KINDS; k++) {
-		switch (g->st[k]) {
+		if (one_busy(x, k) || (k == DLK_VIDEOS && one_busy(x, DLK_COVERS) && g->st[k] == GS_MISS)) {
+			snprintf(x->val[k], sizeof x->val[k], "%s", T(S_DOWNLOADS_GETTING));
+		} else switch (g->st[k]) {
 		case GS_HAVE: snprintf(x->val[k], sizeof x->val[k], "%s", k == DLK_ACH ? T(S_DOWNLOADS_READY) : T(S_DOWNLOADS_ON_CARD_SHORT)); break;
 		case GS_NONE: snprintf(x->val[k], sizeof x->val[k], "%s", T(S_DOWNLOADS_NONE)); break;
 		case GS_OFF:  snprintf(x->val[k], sizeof x->val[k], "%s", T(S_SCRAPER_OFF)); break;
 		default:      snprintf(x->val[k], sizeof x->val[k], "%s", k == DLK_ACH ? T(S_DOWNLOADS_NOT_CHECKED) : T(S_DOWNLOADS_MISSING)); break;
 		}
+		if (g->st[k] == GS_MISS) any = true;
 		rows[k] = (menu_row){ T(ROW[k]), x->val[k], true };
 	}
-	return DLK_KINDS;
+	rows[DLK_KINDS] = MENU_RULE;
+	rows[GP_GET] = (menu_row){ T(S_DOWNLOADS_GET_MISSING), NULL, any && x->phase == ONE_IDLE };
+	return GP_ROWS;
+}
+
+/* What the game's own fetch can get now, or why not */
+static bool one_can(app *a, game_ctx *x, int k)
+{
+	if (!online()) {
+		result_message(a, x->g->title, MSG_NEEDS_WIFI);
+		return false;
+	}
+	if (dl_live() || x->phase != ONE_IDLE) return false;
+	if (k == DLK_ACH) return ra_signed_in() && x->v->c && sys_of(x->v, x->sc->folder) &&
+	                         sys_of(x->v, x->sc->folder)->ach_sys;
+	return ss_signed_in();
 }
 
 static menu_result game_key(app *a, void *ctx, in_button key, int sel)
 {
 	game_ctx *x = ctx;
-	int si;
+	int si, k;
 
 	if (key != IN_ACCEPT) return MENU_STAY;
-	if (sel != DLK_COVERS && sel != DLK_VIDEOS) return MENU_STAY;
-	for (si = 0; si < a->sys.count; si++) {
-		const game_list *gl;
+	if (sel == DLK_COVERS || sel == DLK_VIDEOS) {
+		if (x->phase != ONE_IDLE) return MENU_FAILED;
+		for (si = 0; si < a->sys.count; si++) {
+			const game_list *gl;
 
-		if (strcmp(a->sys.systems[si].folder, top_of(x->v)->sys)) continue;
-		gl = sys_games(&a->view[si]);
-		if (x->g->gi < gl->count) media_screen(a, si, &gl->items[x->g->gi]);
+			if (strcmp(a->sys.systems[si].folder, x->sc->folder)) continue;
+			gl = sys_games(&a->view[si]);
+			if (x->g->gi < gl->count) media_screen(a, si, &gl->items[x->g->gi]);
+			one_look(x);
+			return MENU_CHANGED;
+		}
+		return MENU_STAY;
+	}
+	if (sel == DLK_NAMES || sel == DLK_ACH) {
+		if (x->g->st[sel] != GS_MISS || !one_can(a, x, sel)) return MENU_FAILED;
+		x->queue[0] = sel;
+		x->nq = 1;
+		x->at = 0;
+		one_next(x);
+		return MENU_CHANGED;
+	}
+	if (sel == GP_GET) {
+		x->nq = x->at = 0;
+		for (k = 0; k < DLK_KINDS; k++)
+			if (x->g->st[k] == GS_MISS && one_can(a, x, k) && !(k == DLK_VIDEOS && x->g->st[DLK_COVERS] == GS_MISS))
+				x->queue[x->nq++] = k;
+		if (!x->nq) return MENU_FAILED;
+		one_next(x);
 		return MENU_CHANGED;
 	}
 	return MENU_STAY;
 }
 
-static void game_panel(dl_view *v, const dl_game *g)
+static void game_panel(dl_view *v, dl_game *g, const system_cfg *sc)
 {
 	static game_ctx x;
 
 	memset(&x, 0, sizeof x);
 	x.v = v;
 	x.g = g;
+	x.sc = sc;
+	g_one = &x;
 	menu_run(v->a, &(menu_style){ .accent = MENU_ZYPEROS, .fixed_w = menu_std_width(v->a) }, game_build, game_key, &x);
+	/* closed with a fetch going: let it go */
+	if (x.phase == ONE_SS) ss_run_cancel();
+	if (x.video_asked) ss_run_videos_default();
+	g_one = NULL;
 }
 
 /* ---- keys ---------------------------------------------------------------------------- */
@@ -2141,9 +2319,14 @@ static void sysgames_keys(dl_view *v, dl_frame *f, unsigned now)
 		if (f->sel >= f->win && f->sel < f->win + DL_GAME_ROWS) glide(f, DS_PAGE_BODY_Y + from * DL_ROW, now);
 	}
 	if (a->in.pressed[IN_ACCEPT]) {
+		const system_cfg *sc = NULL;
+		int i;
+
+		for (i = 0; i < a->sys.count; i++) if (!strcmp(a->sys.systems[i].folder, f->sys)) sc = &a->sys.systems[i];
+		if (!sc) return;
 		uisound_play(DS_SOUND_ACCEPT);
-		game_panel(v, &v->games[f->sel]);
-		sysgames_load(v, f->sys);
+		game_panel(v, &v->games[f->sel], sc);
+		dl_count_again(a, v->only);
 	}
 }
 
@@ -2574,10 +2757,13 @@ void downloads_shot(app *a)
 			sel = 1;
 		} else {
 			static game_ctx g;
+			static system_cfg sc;
 
 			memset(&g, 0, sizeof g);
+			snprintf(sc.folder, sizeof sc.folder, "NES");
 			g.v = &v;
 			g.g = &v.games[0];
+			g.sc = &sc;
 			n = game_build(&g, rows, 16, &h);
 		}
 		ui_scrim(a->r, 0);
