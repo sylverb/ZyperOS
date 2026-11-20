@@ -10,6 +10,7 @@ the boot loader and the closed parts.
 | alsa-lib | 1.2.15.3 | LGPL-2.1+ (library), GPL-2.0+ (aserver) | https://www.alsa-project.org/files/pub/lib |
 | bash | 5.2.37 | GPL-3.0+ | https://ftpmirror.gnu.org/bash |
 | busybox | 1.37.0 | GPL-2.0, bzip2-1.0.4 | https://www.busybox.net/downloads |
+| bzip2 | 1.0.8 | bzip2 license | https://sourceware.org/pub/bzip2 |
 | ca-certificates | 20260223 | GPL-2.0+ (script), MPL-2.0 (data) | https://snapshot.debian.org/archive/debian/20260223T202245Z/pool/main/c/ca-certificates |
 | dav1d | 1.5.3 | BSD-2-Clause | https://download.videolan.org/pub/videolan/dav1d/1.5.3 |
 | diatom | from its repository | MPL-2.0 | Diatom, https://github.com/tarikbc/ZyperOS (diatom/) |
@@ -26,6 +27,7 @@ the boot loader and the closed parts.
 | jpeg-turbo | 3.1.2 | IJG (libjpeg), BSD-3-Clause (TurboJPEG), Zlib (SIMD) | https://github.com/libjpeg-turbo/libjpeg-turbo/releases/download/3.1.2 |
 | libcurl | 8.20.0 | curl | https://curl.se/download |
 | libdrm | 2.4.131 | MIT | https://dri.freedesktop.org/libdrm |
+| libevdev | 1.13.5 | MIT | http://www.freedesktop.org/software/libevdev |
 | libffi | 3.4.8 | MIT | https://github.com/libffi/libffi/releases/download/v3.4.8 |
 | libnl | 3.11.0 | LGPL-2.1+ | https://github.com/thom311/libnl/releases/download/libnl3_11_0 |
 | libogg | 1.3.6 | BSD-3-Clause | http://downloads.xiph.org/releases/ogg |
