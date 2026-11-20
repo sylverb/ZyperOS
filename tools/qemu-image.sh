@@ -38,6 +38,12 @@ echo "QEMU's image of ZyperOS $VERSION at $(git rev-parse --short HEAD), plastro
 SRC=$(mktemp -d)/zyperos
 HAVE_LOCK=0
 cleanup() {
+	# plastron's log, which goes with the worktree: beside out/qemu-image
+	if [ -f "$SRC/plastron/out/release-qemu.log" ]; then
+		mkdir -p "$ROOT/out"
+		cp "$SRC/plastron/out/release-qemu.log" "$ROOT/out/qemu-image.log"
+		echo "qemu-image: plastron's log is in out/qemu-image.log"
+	fi
 	git worktree remove --force "$SRC" 2>/dev/null || true
 	if [ $HAVE_LOCK = 1 ]; then rm -rf $LOCK; echo "qemu-image: $LOCK released"; fi
 }
