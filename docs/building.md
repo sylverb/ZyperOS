@@ -159,6 +159,7 @@ something once broke in a way nothing noticed:
 | `check-museart` | album covers from MusicBrainz: the rule that picks the record, and a run on a stubbed network |
 | `check-mp4lock` | the play modes, and MP4's lock screen: every button blocked, power and volume too, and L1 + R1 held two seconds the one way out |
 | `check-mp4look` | MP4's Player Looks' motion: bars up at once and down on follow at any frame rate, caps held for peak-hold and down with gravity, at rest after, the bands over a look's bars |
+| `check-mp4views` | START on MP4's shelf, on the real launcher in desk mode's dummy window (no window opens), on the README's media card: SELECT opens MP4, START let go turns its View Covers, Grid, List and round (never Video), kept as `view.MUSE`; SELECT with START, at once or START first, turns nothing and closes nothing |
 | `check-covercolor` | an album cover's main color, the cassette's stripe and the vinyl's: one color, a title on a white sleeve, the larger of two, a gradient over a band, grey |
 | `check-bands` | the daemon's bands for the bars: each lit by a tone at its own middle, silence dark, the window where the listener is; `build-native/bands-check --song FILE` plays a song through it |
 | `check-mp4frame` | MP4's video frames between the daemon and the launcher: a writer and a reader on two threads over the same pages, every picture the reader keeps whole |

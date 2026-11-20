@@ -352,6 +352,10 @@ EXTRA = {
     # over a video, where the panel is the same and the picture is under it
     # MP4's menu on its shelf, which shows All (albums and videos mixed)
     "mp4-menu": ("media", "MUSE", ["--screen", "games", "--menu"]),
+    # MP4's shelf in its other two Views, START's turns (DESIGN.md 11.67);
+    # the README's mp4 is Covers
+    "mp4-grid": ("media", "MUSE", ["--screen", "games"]),
+    "mp4-list": ("media", "MUSE", ["--screen", "games"]),
     # MP4's Player Looks (DESIGN.md 11.64): each on Now Playing, Classic
     # paused too (its panel says so where the time's words would), and
     # MENU's Player Look list with its picture, the look under the cursor
@@ -660,7 +664,9 @@ SHOT_SETTINGS = {**R.SHOT_SETTINGS,
                  "screens-crt-curved-home": {"launcher_shader": "crt-curved"},
                  "screens-scanlines-shelf": {"launcher_shader": "scanlines"},
                  "screens-lcd-menu": {"launcher_shader": "lcd", "launcher_strength": "50"},
-                 "menu-saver-off": {"saver": "0"}}
+                 "menu-saver-off": {"saver": "0"},
+                 "mp4-grid": {"view.MUSE": "grid"},
+                 "mp4-list": {"view.MUSE": "list"}}
 
 # MENU > Menu Music with the card's own tracks in its Menu Music folder, at
 # the top of the card (src/bgm.h): ZyperOS Tracks and the note in each of its counts,
