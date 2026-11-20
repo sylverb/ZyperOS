@@ -290,6 +290,8 @@ static void parse_line(char *line, diatom_msg *out)
 			snprintf(out->power, sizeof out->power, "%s", v);
 		else if (!strcmp(field, "pace"))
 			snprintf(out->pace, sizeof out->pace, "%s", v);
+		else if (!strcmp(field, "sgb"))
+			snprintf(out->sgb, sizeof out->sgb, "%s", v);
 		else if (!strcmp(field, "rumble"))
 			out->rumble = (int)strtol(v, NULL, 10);
 		else if (!strcmp(field, "controller"))

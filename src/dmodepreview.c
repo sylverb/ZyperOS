@@ -96,6 +96,110 @@ static SDL_Texture *stand_in(SDL_Renderer *r)
 	return t;
 }
 
+/* A Game Boy game's stand-in at its 160x144, in four greens, and a border's
+ * at the Super Game Boy's 256x224 around it: drawn once each. The border is
+ * ours, a game's own kind of border (a pattern round a window), with the
+ * 160x144 window at (48, 40) where the Super Game Boy puts the game. */
+#define GB_COLS 160
+#define GB_LINES 144
+#define SGB_COLS 256
+#define SGB_LINES 224
+static const Uint8 GB_SHADE[4][3] = {
+	{ 202, 220, 159 }, { 139, 172, 15 }, { 48, 98, 48 }, { 15, 56, 15 },
+};
+
+static SDL_Texture *gb_stand_in(SDL_Renderer *r, bool border)
+{
+	static SDL_Texture *t[2];
+	static SDL_Renderer *made[2];
+	const int sw = border ? SGB_COLS : GB_COLS, sh = border ? SGB_LINES : GB_LINES;
+	SDL_Surface *s;
+	int x, y;
+
+	if (t[border] && made[border] == r) return t[border];
+	s = SDL_CreateRGBSurfaceWithFormat(0, sw, sh, 32, SDL_PIXELFORMAT_ARGB8888);
+	if (!s) return NULL;
+	for (y = 0; y < sh; y++) {
+		Uint32 *px = (Uint32 *)((Uint8 *)s->pixels + (size_t)y * s->pitch);
+
+		for (x = 0; x < sw; x++) {
+			Uint8 R, G, B;
+
+			if (border) {
+				/* Diamonds of two blues and a cream band round the
+				 * window, as a game's own border is a picture of its own */
+				const int dx = abs((x % 32) - 16), dy = abs((y % 32) - 16);
+				const bool band = x >= 40 && x < 216 && y >= 32 && y < 192;
+
+				if (band)               { R = 246; G = 226; B = 150; }
+				else if (dx + dy < 12)  { R = 84;  G = 132; B = 204; }
+				else                    { R = 52;  G = 92;  B = 166; }
+			} else {
+				const int dx = x - 116, dy = y - 40, sh_i =
+					dx * dx + dy * dy < 16 * 16 ? 1      /* sun */
+					: y < 96 ? 0                          /* sky */
+					: y < 102 + (x / 20 % 2) * 4 ? 2      /* hills */
+					: (((x / 16) + (y / 16)) & 1) ? 3 : 2;  /* ground */
+
+				R = GB_SHADE[sh_i][0]; G = GB_SHADE[sh_i][1]; B = GB_SHADE[sh_i][2];
+			}
+			px[x] = SDL_MapRGBA(s->format, R, G, B, 255);
+		}
+	}
+	if (t[border]) SDL_DestroyTexture(t[border]);
+	t[border] = SDL_CreateTextureFromSurface(r, s);
+	made[border] = r;
+	SDL_FreeSurface(s);
+	return t[border];
+}
+
+/* A rect of the surface in the box's units, edge to edge */
+static SDL_Rect in_box(const SDL_Rect *box, int surf_w, int surf_h, int fx, int fy, int fw, int fh)
+{
+	SDL_Rect d;
+
+	d.x = box->x + fx * box->w / surf_w;
+	d.y = box->y + fy * box->h / surf_h;
+	d.w = box->x + (fx + fw) * box->w / surf_w - d.x;
+	d.h = box->y + (fy + fh) * box->h / surf_h - d.y;
+	return d;
+}
+
+void dmode_sgb_preview(app *a, int dmode, int k, int x, int y, int w, int h)
+{
+	const SDL_Rect screen = { x, y, w, h };
+	const bool sgb = k != 0;
+	SDL_Texture *game = gb_stand_in(a->r, false);
+	SDL_Rect box;
+	dmode_rect fit;
+	int surf_w, surf_h;
+
+	dmode_surface(&surf_w, &surf_h);
+	dmode = dmode >= 0 && dmode < DMODE_COUNT ? dmode : 0;
+	box = ds_preview_screen_begin(a->r, &screen);
+	fit = dmode_fit(DMODES[dmode].name, sgb ? SGB_COLS : GB_COLS, sgb ? SGB_LINES : GB_LINES, 0, surf_w, surf_h);
+	if (fit.w > 0 && fit.h > 0) {
+		const SDL_Rect pic = in_box(&box, surf_w, surf_h, fit.x, fit.y, fit.w, fit.h);
+
+		SDL_RenderSetClipRect(a->r, &box);
+		if (sgb) {
+			/* The game's window, at the same scale as the frame */
+			const SDL_Rect win = in_box(&box, surf_w, surf_h, fit.x + 48 * fit.w / SGB_COLS,
+			                            fit.y + 40 * fit.h / SGB_LINES, GB_COLS * fit.w / SGB_COLS,
+			                            GB_LINES * fit.h / SGB_LINES);
+
+			SDL_Texture *bt = gb_stand_in(a->r, true);
+
+			if (bt) SDL_RenderCopy(a->r, bt, NULL, &pic);
+			if (game) SDL_RenderCopy(a->r, game, NULL, &win);
+		} else if (game) {
+			SDL_RenderCopy(a->r, game, NULL, &pic);
+		}
+		SDL_RenderSetClipRect(a->r, NULL);
+	}
+	ds_preview_screen_end(a->r, &screen);
+}
+
 void dmode_preview_draw(app *a, SDL_Texture *frame, int src_w, int src_h, double aspect,
                         int surf_w, int surf_h, int k, int x, int y, int w, int h)
 {

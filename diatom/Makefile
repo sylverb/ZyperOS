@@ -33,7 +33,7 @@ LDFLAGS += $(LZMA_LIBS)
 # Objects live under build/$(PORT)/ so host and cross builds cannot collide:
 # a leftover x86 main.o in a device link fails late and confusingly.
 BUILD := build/$(PORT)
-SRC   := src/main.c src/cheevos.c src/cheats.c src/core.c src/env.c src/scale.c src/audio.c src/save.c src/proto.c src/options.c src/zip.c src/levels.c src/screens.c src/chord.c src/stick.c src/hw.c src/now.c src/emumeter.c src/corefail.c src/player2.c src/statefile.c src/pace.c src/flipwatch.c port/$(PORT).c
+SRC   := src/main.c src/cheevos.c src/cheats.c src/core.c src/env.c src/scale.c src/audio.c src/save.c src/proto.c src/options.c src/zip.c src/levels.c src/screens.c src/chord.c src/stick.c src/hw.c src/now.c src/emumeter.c src/corefail.c src/player2.c src/statefile.c src/pace.c src/flipwatch.c src/fdsdisk.c src/sgb.c port/$(PORT).c
 # Expanded where it is used, not here: a port's block below adds its own files
 # to SRC (the Pixel 2's bar, port/osdbar.c), and := took the list before they
 # were in it, so they were never built and the link failed.
@@ -168,7 +168,7 @@ $(BUILD)/%.o: %.c
 # backend exists. Cheap to check, so check it.
 # Mechanical checks, each guarding a rule that decays the moment nothing fails
 # when it is broken: check-seam has held since day one for exactly that reason.
-check: check-seam check-copies check-corefacts check-rates check-cheevos check-screens check-chord check-pace check-emumeter check-corefail check-corefail-e2e check-flipwatch check-stick check-bounds check-zipmethods check-rumble check-statefile check-proto check-port check-power check-power-e2e check-flipwatch-e2e check-fastforward check-lateskip check-stateplane check-resident check-hotkeys check-coreend check-rtc check-cardframe check-now check-hudspeed check-displaylock check-rumble-e2e check-player2 check-states check-statereads check-cheats
+check: check-seam check-copies check-corefacts check-rates check-cheevos check-screens check-chord check-fdsdisk check-sgb check-fdssgb check-pace check-emumeter check-corefail check-corefail-e2e check-flipwatch check-stick check-bounds check-zipmethods check-rumble check-statefile check-proto check-port check-power check-power-e2e check-flipwatch-e2e check-fastforward check-lateskip check-stateplane check-resident check-hotkeys check-coreend check-rtc check-cardframe check-now check-hudspeed check-displaylock check-rumble-e2e check-player2 check-states check-statereads check-cheats
 
 # Does a RetroAchievements address reach the byte it names? Offline, needs no
 # core and no ROM, and links only cheevos.c plus the vendored runtime - so it
@@ -214,6 +214,34 @@ $(CHORD_TEST): test/chord_test.c src/chord.c src/chord.h include/diatom_port.h
 	@mkdir -p $(BUILD)
 	$(CC) -std=gnu11 -Wall -Wextra -Wno-unused-parameter -O2 \
 	      -Iinclude -Isrc -o $@ test/chord_test.c src/chord.c
+
+# A Famicom Disk System disk, as FCEUmm says what L1 and R1 did
+# (src/fdsdisk.h): the core's own words, each side of a two-disk game, read
+# into what the pop-up says, and every other text left alone. Offline:
+# src/fdsdisk.c alone.
+FDSDISK_TEST := $(BUILD)/fdsdisk-test
+
+check-fdsdisk: $(FDSDISK_TEST)
+	@./$(FDSDISK_TEST)
+
+$(FDSDISK_TEST): test/fdsdisk_test.c src/fdsdisk.c src/fdsdisk.h
+	@mkdir -p $(BUILD)
+	$(CC) -std=gnu11 -Wall -Wextra -Wno-unused-parameter -O2 \
+	      -Isrc -o $@ test/fdsdisk_test.c src/fdsdisk.c
+
+# The Super Game Boy per game (src/sgb.h): which cartridge headers start as
+# one under RUN sgb=games (mGBA's own test of the header), a Color only
+# cartridge never, and the two options set for that game alone.
+# Offline: src/sgb.c alone.
+SGB_TEST := $(BUILD)/sgb-test
+
+check-sgb: $(SGB_TEST)
+	@./$(SGB_TEST)
+
+$(SGB_TEST): test/sgb_test.c src/sgb.c src/sgb.h
+	@mkdir -p $(BUILD)
+	$(CC) -std=gnu11 -Wall -Wextra -Wno-unused-parameter -O2 \
+	      -Iinclude -Isrc -o $@ test/sgb_test.c src/sgb.c
 
 # The frame loop's rule for a late turn at 1x (src/pace.h): a debt kept, a
 # stall's dropped, and the rest of one dropped once the sound queue is back at
@@ -395,6 +423,16 @@ FRESH_IF_BUILT = @if [ -e $(BIN) ]; then $(MAKE) --no-print-directory $(BIN) $(S
 check-proto:
 	$(FRESH_IF_BUILT)
 	@python3 test/proto.py
+
+# The Famicom Disk System's disk messages (a core's SET_MESSAGE in FCEUmm's
+# words reaches the launcher as a DISK line, any other none) and the Super
+# Game Boy per game (RUN sgb=games sets mGBA's model and border for the games
+# made for it, and the next game loads with the launcher's values), end to
+# end against the stub core.
+check-fdssgb:
+	$(FRESH_IF_BUILT)
+	@python3 test/fdssgb.py
+.PHONY: check-fdssgb
 
 # The state plane, end to end against the stub core. On the same terms as
 # check-proto: a second of wall time, no core, no ROM, no network.

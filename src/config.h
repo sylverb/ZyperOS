@@ -70,6 +70,15 @@ typedef struct {
 	 * `firmware|name|bytes` line names it. src/biosfile.h says a file of
 	 * another size is not one the core can start. */
 	unsigned bios_bytes[CFG_BIOS_NAMES][CFG_BIOS_SIZES];
+	/* Firmware the files of some types need on a shelf whose other games
+	 * need none: the Famicom Disk System's BIOS, disksys.rom, for an .fds
+	 * image on the NES shelf, where a cartridge runs without it. From a
+	 * `bios|tag|names|extensions` line: the names as disc_bios's, with its
+	 * commas, and the types they are for, as the sys line's extensions.
+	 * Empty when the shelf has none. The sizes as bios_bytes's. */
+	char type_bios[CFG_STR];
+	char type_exts[CFG_STR];
+	unsigned type_bios_bytes[CFG_BIOS_NAMES][CFG_BIOS_SIZES];
 	/* How much clock its games get: "light" or "medium" caps the CPU, the
 	 * memory and the GPU for a system measured to keep its speed under that
 	 * ceiling, empty is full. From a `power|tag|level` line; sent to Diatom

@@ -452,6 +452,20 @@ def card_dirs(card):
     shutil.copytree(ROOT/'res/system-icons',card/'ZyperOS/system-icons')
     (card/'ZyperOS/VERSION').write_text('0.1.0\n')
 
+def stand_in_bios(card):
+    """Each LIBRARY system's BIOS as the player's card has it, so its games
+    show ready on the shelf and not "Needs scph5501.bin in Bios": a file of
+    zeros at the size config/systems.cfg's firmware line asks, which is all
+    the launcher checks. Made on the scratch card only; no BIOS ships"""
+    sizes,needs={},[]
+    for line in (ROOT/'config/systems.cfg').read_text().splitlines():
+        f=line.split('|')
+        if f[0]=='firmware' and len(f)>2: sizes[f[1]]=int(f[2].split(',')[0])
+        elif f[0]=='sys' and len(f)>8 and f[1] in LIBRARY and f[8]: needs.append(f[8].split(',')[0])
+    for name in needs:
+        path=card/'Bios'/name;path.parent.mkdir(parents=True,exist_ok=True)
+        with open(path,'wb') as out: out.truncate(sizes[name])
+
 # The cheat list's shots (src/cheats_screen.h): one PlayStation game with a
 # file of the player's own and two of libretro's, as the Downloads page
 # writes them, two of them on. Not the focused game (FOCUS): its shelf would
@@ -486,8 +500,9 @@ def cheats_card(card):
 def demo_card(card,art,manifest):
     """The demonstration card: LIBRARY's games as empty files, and with art
     (the cache --art fills) each game's box art in its folder's .media, where
-    the Scraper puts it"""
+    the Scraper puts it; the BIOS its systems need, as stand-ins"""
     card_dirs(card)
+    stand_in_bios(card)
     for folder,games in LIBRARY.items():
         d=card/'Roms'/folder;(d/'.media').mkdir(parents=True)
         for file,lr in games:
@@ -579,8 +594,10 @@ def es_card(card,art=None,manifest=None):
     11.40): every ZyperOS folder empty, as a new card has them, and the
     PlayStation's games in Knulli's psx/, with what its scraper left beside
     them - images/<game>-thumb.png, videos/<game>-video.mp4 and gamelist.xml
-    with their names and details. Nothing in .media: the shelf shows ES's."""
+    with their names and details. Nothing in .media: the shelf shows ES's.
+    The BIOS as stand-ins, as on the demonstration card."""
     card_dirs(card)
+    stand_in_bios(card)
     for line in (ROOT/'config/systems.cfg').read_text(encoding='utf-8').splitlines():
         if line.startswith('sys|'): (card/'Roms'/line.split('|')[2].strip()).mkdir(parents=True,exist_ok=True)
     d=card/'Roms/psx';(d/'images').mkdir(parents=True);(d/'videos').mkdir()

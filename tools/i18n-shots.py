@@ -684,6 +684,15 @@ for _name, _files, _off in (("music-page-mine", _THREE, False), ("music-page-min
     if _off:
         SHOT_SETTINGS[_name] = {"bgm.builtin": "off"}
 EXTRA.setdefault("music-page-none", ("demo", "PS1", ["--music-page", "foot"]))
+# A Famicom Disk System game with no disksys.rom (config/systems.cfg's
+# bios|NES|disksys.rom|fds), first on the NES shelf: the shelf says it under
+# the name, in **warning**, in each view
+for _name, _view in (("shelf-fds-needs-bios", None), ("shelf-fds-needs-bios-list", "list"),
+                     ("shelf-fds-needs-bios-grid", "grid")):
+    EXTRA.setdefault(_name, ("demo", "NES", ["--screen", "games"]))
+    SHOT_FILES[_name] = ["Roms/NES/Bio Miracle Bokutte Upa (Japan).fds"]
+    if _view:
+        SHOT_SETTINGS[_name] = {"view.NES": _view}
 
 
 def set_files(card, files, on):
@@ -1119,6 +1128,14 @@ EXTRA.setdefault("theme-folders-orange", ("demo", "PS1", ["--look", "lime,warm,b
                                                           "--look-page", "theme", "3"]))
 EXTRA.setdefault("theme-folders-list-system", ("demo", "PS1", ["--look-page", "theme-list", "3", "--pick-at", "0"]))
 EXTRA.setdefault("theme-folders-list-teal", ("demo", "PS1", ["--look-page", "theme-list", "3", "--pick-at", "3"]))
+# Super Game Boy (src/sgbmode.h) on the Game Boy's system menu, at Its
+# Games, and its list with each choice under the cursor: the picture of each
+# at the shelf's display mode and what it does under it
+EXTRA.setdefault("system-menu-sgb", ("demo", "GB", ["--screen", "games", "--menu", "Super Game Boy"]))
+SHOT_SETTINGS["system-menu-sgb"] = {"sgb.GB": "games"}
+for _k, _p in enumerate(("off", "games")):
+    EXTRA.setdefault("system-menu-sgb-list-" + _p, ("demo", "GB", ["--screen", "games", "--menu", "Super Game Boy",
+                                                                  "--press", "a", "--pick-at", str(_k)]))
 # Highlight (the focus lab, 2026-11-19): its row in focus on each choice,
 # the pictures over it showing the dock's mark as the choice has it, and its
 # list with the home's three systems beside it marked as the choice under
@@ -1197,6 +1214,9 @@ for _kind in ("saved", "loaded", "save_failed", "load_failed", "slot_empty", "no
               "corestate", "stick_on", "stick_off", "player2_joined", "player2_left",
               "player2_stopped", "shot", "shader", "display", "cheats", "cheats_one"):
     EXTRA.setdefault("popup-" + _kind, ("demo", "PS1", ["--popup", _kind]))
+# A Famicom Disk System game's disk as L1 and R1 move it (src/diskpopup.h)
+for _kind in ("disk_side", "disk_in", "disk_out", "disk_first"):
+    EXTRA.setdefault("popup-" + _kind, ("demo", "NES", ["--popup", _kind]))
 EXTRA.setdefault("popup-speed-half", ("demo", "PS1", ["--popup", "speed", "3"]))
 EXTRA.setdefault("popup-speed-whole", ("demo", "PS1", ["--popup", "speed", "4"]))
 # The Hotkeys list (src/hotkeys_screen.h): MENU > System's, at its top and its

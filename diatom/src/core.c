@@ -24,6 +24,7 @@
 #include "cheevos.h"
 #include "corefail.h"
 #include "diatom.h"
+#include "sgb.h"
 
 static bool bind_sym(void *h, void *slot, const char *name)
 {
@@ -600,6 +601,9 @@ bool diatom_core_start(diatom_core *c, const char *rom_path)
 		gi.size = len;
 	}
 
+	/* The Super Game Boy for this game, by its header, read in the bytes the
+	 * core is handed (src/sgb.h): its options are read at the load */
+	diatom_sgb_apply((const unsigned char *)gi.data, gi.data ? gi.size : 0);
 	if (have_ext) diatom_env_set_game_info_ext(&ext);
 	ok = c->load_game(&gi);
 	diatom_env_set_game_info_ext(NULL);

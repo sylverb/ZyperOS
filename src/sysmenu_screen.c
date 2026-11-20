@@ -13,6 +13,7 @@
 #include "audioout.h"
 #include "dslang.h"
 #include "pacing.h"
+#include "sgbmode.h"
 #include "app.h"
 #include "bgm.h"
 #include "bgm_menu.h"
@@ -375,6 +376,15 @@ static void sm_pace_preview(void *app_, int k, int x, int y, int w, int h)
 	if (!shot_path) redraw_at(now + PACE_DEMO_MS - now % PACE_DEMO_MS);
 }
 
+/* Super Game Boy's list's picture (src/dmodepreview.h): each choice at the
+ * shelf's own display mode, as its games would be drawn */
+static void sm_sgb_preview(void *app_, int k, int x, int y, int w, int h)
+{
+	app *a = app_;
+
+	dmode_sgb_preview(a, a->view[a->sys_cursor].dmode, k, x, y, w, h);
+}
+
 /* The Shader and Strength lists' picture (src/shaderdemo.h): a system's
  * menu with its own shader and strength, as the lists were made */
 static int g_sm_demo_shader, g_sm_demo_strength;
@@ -565,6 +575,20 @@ static void menu_choices(app *a, int sys, bool games)
 		if (n > 1) g_sm_choice[SM_CORE] = ch_make(&P[2], n, cur, false);
 		for (i = 0; i < DSL_CHOICES; i++) P[3].lab[i] = dslang_label((dsl_choice)i, P[3].buf[i], sizeof P[3].buf[i]);
 		g_sm_choice[SM_DSLANG] = ch_make(&P[3], DSL_CHOICES, dslang_load(), false);
+		{
+			/* Super Game Boy's two, a list with a picture of each and a
+			 * note telling them apart, as Timing's (src/sgbmode.h) */
+			static const char *notes[SGBM_CHOICES];
+
+			for (i = 0; i < SGBM_CHOICES; i++) {
+				P[11].lab[i] = T(sgbm_label_id((sgbm_choice)i));
+				notes[i] = T(sgbm_note_id((sgbm_choice)i));
+			}
+			g_sm_choice[SM_SGB] = ch_make(&P[11], SGBM_CHOICES, sgbm_load(sc), false);
+			g_sm_choice[SM_SGB].notes = notes;
+			g_sm_choice[SM_SGB].preview = sm_sgb_preview;
+			g_sm_choice[SM_SGB].list = true;
+		}
 		for (i = 0; i < PACING_CHOICES; i++) P[10].lab[i] = T(pacing_label_id((pacing_choice)i));
 		{
 			/* Two, so A would turn it over: its list opens all the same,
@@ -772,6 +796,7 @@ int menu_build(app *a, screen_id screen, int sys,
 
 			u.dslang = dslang_row_shown(a, sys) ? dslang_label(dslang_load(), dslbuf, sizeof dslbuf) : NULL;
 			u.pace = pacing_row_shown(a, sys) ? T(pacing_label_id(pacing_load(sc))) : NULL;
+			u.sgb = sgb_row_shown(a, sys) ? T(sgbm_label_id(sgbm_load(sc))) : NULL;
 		}
 		/* By what it HAS, not by its name or its position: a shelf with no
 		 * core and no folder is the built one, and a check can hand that
@@ -2123,6 +2148,7 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 			sys_ui dev = { .no_wifi = !plat_has_wifi(), .online = net_internet(NULL),
 			               .dslang = dslang_row_shown(a, a->sys_cursor) ? "" : NULL,
 			               .pace = pacing_row_shown(a, a->sys_cursor) ? "" : NULL,
+			               .sgb = sgb_row_shown(a, a->sys_cursor) ? "" : NULL,
 			               .no_strength = !shader_has_strength(a->view[a->sys_cursor].shader) };
 			sm_row ids[SM_ROWS];
 			int n = sys_menu_system_rows(&dev, ids);
@@ -2143,6 +2169,16 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 			dsl_choice c = dslang_step(dslang_load(), d ? d : 1);
 
 			db_set_str(db_dev(), DSLANG_SETTING, dslang_id(c));
+			return MENU_STAY;
+		}
+		/* Super Game Boy, this system's own, the same way: its next game
+		 * starts so (src/sgbmode.h) */
+		if ((d || key == IN_ACCEPT) && sel == SM_SGB) {
+			const system_cfg *sc = &a->sys.systems[a->sys_cursor];
+			char gkey[32];
+
+			sgbm_key(sc->tag, gkey, sizeof gkey);
+			db_set_str(db_dev(), gkey, sgbm_id(sgbm_step(sgbm_load(sc), d ? d : 1)));
 			return MENU_STAY;
 		}
 		/* Timing, Smooth or Exact, this system's own, the same way: its

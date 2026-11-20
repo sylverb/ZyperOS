@@ -1223,7 +1223,8 @@ Video Snaps, Menu Music:
   its two places ringed in the accent - one refresh in four here, one in
   about 170 on the Pixel 2, so it can be seen at all. Under it, what each
   does in a sentence. *(Tarik's for 1.0.6 rc.2: "improve the timing screen
-  to explain/demonstrate that".)*
+  to explain/demonstrate that".)* **Super Game Boy**'s two open their list
+  the same way, a picture of each (11.58).
 - **Left and Right step every row**, as before, and show the change at
   once, so a look before choosing is one press away. A scale (minutes,
   percent, volume) stops at its ends; a set of names goes round.
@@ -3363,7 +3364,7 @@ system's own buttons are the tab's rows, so they are not a page here.
   Rumble Pak" under them, which Pak the controller holds (the Controls tab's
   Pak row chooses it); the DS's two screens (L2 the other screen, R2 the
   stylus, then the d-pad moves it and A touches). An FDS game adds L1/R1, the
-  disk's side and eject.
+  disk's side and eject, and a pop-up says what each did (11.58).
 - **Hotkeys**, SELECT held with one more button (11.61): the game's own, as
   the player set them (SELECT+R1 quick save and SELECT+L1 quick load where
   the core keeps states, SELECT+R2 faster and SELECT+L2 slower until set
@@ -6241,6 +6242,73 @@ Host shots: `shelf-video` (no snap), `shelf-video-snap` (the test picture),
 `shelf-video-half` and `shelf-video-strip` (`--band F`, the band F of the
 way down), `system-menu-view-video` and `system-menu-view-video-list`
 (tools/i18n-shots.py).
+
+### 11.58 The Famicom Disk System and the Super Game Boy
+
+*(Tarik's picks in the Display lab, 2026-11-19: the FDS fix, a pop-up for
+the disk's side, and a Super Game Boy row of three: Off, Its Games, Every
+Game. Every Game dropped the same day, the coordinator's call: see below.)*
+
+**A Famicom Disk System game** (an `.fds` image on the NES shelf, FCEUmm)
+needs `disksys.rom` in `Bios/`; a cartridge beside it needs nothing. The
+firmware a type of file needs is a `bios` line with the types after the names
+(`bios|NES|disksys.rom|fds`, config/systems.cfg), held to its size as every
+firmware is (8 KB: a copy with a 16-byte header is refused, since FCEUmm
+reads its first 8192 bytes as they are). Without it:
+
+- the shelf says **Needs disksys.rom in Bios** under the name, in
+  **warning**, on the line of facts (first, before Played), in Covers, Grid
+  and List alike: read as the row stops, with the other facts, never in a
+  frame. Only a file that is not there; a file of the wrong size is said
+  when A is pressed, in full (11.3's message under the name).
+- A says it again (the same words, with the deny sound) instead of starting a
+  game that cannot run. The disc and ColecoVision firmware say it the same
+  way now ("Needs coleco.rom in Bios").
+
+In the game, L1 turns the disk to its next side while it is out of the drive,
+and R1 puts it in or takes it out, as FCEUmm has them (11.28). Each press is
+said in a pop-up (11.22's kind, at once, 1.5 s), a small line over a large
+one: **Disk side** over **Disk 1 · Side B** (L1), **Disk in** or **Disk
+out** over the side (R1), and **Disk side** over **Eject it first with R1**
+when L1 is pressed with the disk in, which turns nothing. The words are the
+core's (it says them in its own English, which Diatom reads, then sends as a
+DISK line: diatom/src/fdsdisk.h); the pop-up says them in the player's
+language. Nothing is done in a frame but what the core already did.
+
+**Super Game Boy**, a row of the Game Boy's and the Game Boy Color's system
+menus under Core, while mGBA runs them (Gambatte has no Super Game Boy). Its
+two, kept per system (`sgb.TAG`):
+
+- **Off**, the default: as before, the game in the shelf's colors with no
+  border. Nothing is sent, so a player who never turns it on starts every
+  game as before.
+- **Its Games**: a game made for the Super Game Boy (its header says so)
+  starts as one, in its own colors and its own border, which the game sends
+  itself: no BIOS needed. Others start as with Off.
+  A Game Boy Color only cartridge cannot run on one and starts as with Off.
+
+**No Every Game** (every game in the Super Game Boy's frame), though the lab
+had it: for a game made for none, the Super Game Boy's own frame and colors
+come from its SNES side (the cartridge ROM on the SNES), which mGBA does not
+run. `sgb_bios.bin` is the 256-byte boot ROM of its Game Boy side, the
+start-up logo and the header sent to the SNES, no frame; so with or without
+it mGBA would draw a plain frame in the game's lightest shade, which reads
+as a fault. The Border row is the place to frame every game. It can come
+back with a core that runs the SNES side.
+
+The picture with its border is 256x224: exactly 2x on the Pixel 2's 640x480
+(512x448) and 3x on the Brick's 1024x768 (768x672) at Sharp Pixels. A opens
+the two as a list, as Timing's (11.3): beside it the shelf's display mode
+with each choice, a Game Boy picture of our own in four greens, alone (Off)
+or in a border of our own of the kind a game sends (Its Games); under it
+what each does. The launcher sends `sgb=games` with RUN, and Diatom reads
+the game's header and sets mGBA's model and border for that game alone
+(diatom/src/sgb.h), since mGBA's own Autodetect would start a game that also
+has Game Boy Color colors as a Color.
+
+Host shots: `system-menu-sgb`, `system-menu-sgb-list-off|games`,
+`shelf-fds-needs-bios` (and `-list`, `-grid`), `popup-disk_side|in|out|first`.
+
 
 ### 11.60 Equalizer
 *(Asked for on the Discord after 1.0.6: more bass, and a system-wide

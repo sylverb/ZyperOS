@@ -222,15 +222,38 @@ static void gl_row(SDL_Renderer *r, const gl_info *in, void *ctx, int i, int y,
 }
 
 /* A fact under the cover, at most the panel wide */
-static int gl_fact(SDL_Renderer *r, const char *s, int y)
+static int gl_fact_in(SDL_Renderer *r, const char *s, int y, SDL_Color c)
 {
 	TTF_Font *f = page_font(PAGE_CHROME);
 	char fit[256];
 
 	if (!s || !*s) return y;
 	ui_fit_text(f, s, fit, sizeof fit, GL_PANEL_W);
-	ui_text(r, f, fit, GL_PANEL_X, ui_cap_y(f, y), -1, UI_TEXT_DIM);
+	ui_text(r, f, fit, GL_PANEL_X, ui_cap_y(f, y), -1, c);
 	return y + 32;
+}
+
+static int gl_fact(SDL_Renderer *r, const char *s, int y)
+{
+	return gl_fact_in(r, s, y, UI_TEXT_DIM);
+}
+
+/* A fact that may take two lines, balanced, in the panel's width: the
+ * firmware a game needs ("Nécessite disksys.rom dans Bios" is wider than
+ * the panel), never cut */
+static int gl_fact_lines(SDL_Renderer *r, const char *s, int y, SDL_Color c)
+{
+	TTF_Font *f = page_font(PAGE_CHROME);
+	char lines[2][LB_LINE];
+	int n, i;
+
+	if (!s || !*s) return y;
+	if (ui_text_width(f, s) <= GL_PANEL_W) return gl_fact_in(r, s, y, c);
+	n = ui_balance_lines(f, s, GL_PANEL_W, 2, lines);
+	if (n < 2) return gl_fact_in(r, s, y, c);
+	ui_fit_drawn(s);    /* drawn in lines, said whole to the host's check */
+	for (i = 0; i < n; i++) y = gl_fact_in(r, lines[i], y, c);
+	return y;
 }
 
 uint32_t gl_draw(gl_motion *m, SDL_Renderer *r, const gl_info *in,
@@ -359,6 +382,8 @@ uint32_t gl_draw(gl_motion *m, SDL_Renderer *r, const gl_info *in,
 		} else {
 			y = gl_fact(r, in->origin, y);
 			if (in->install || in->howto) y = gl_fact(r, T(S_PORTMASTER_NOT_INSTALLED), y);
+			/* Firmware it cannot start without, in **warning** */
+			y = gl_fact_lines(r, in->needs, y, ui_col(theme()->warning, 255));
 			if (in->played && *in->played) {
 				snprintf(line, sizeof line, T(S_GAMES_PLAYED), in->played);
 				y = gl_fact(r, line, y);
