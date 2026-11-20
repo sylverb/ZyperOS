@@ -26,12 +26,30 @@
 #   tools/qemu-run.sh list
 #   tools/qemu-run.sh info  [-n NAME]                  (port, sockets, logs)
 #   tools/qemu-run.sh prune [NAME... | --all]          (stopped VMs' folders)
+#   tools/qemu-run.sh fetch [--force]                  (the published image,
+#                                                       into image/)
 #
 # NAME defaults to $ZYPEROS_QEMU_NAME, then "zyperos". The card copy and the
 # sockets live in $ZYPEROS_QEMU_HOME/NAME (~/Library/Caches/zyperos-qemu).
 # The image comes from --image, $ZYPEROS_QEMU_IMAGE, plastron/out/qemu
 # beside this repository's main checkout, or $ZYPEROS_QEMU_HOME/image, a copy
 # kept for every checkout on the Mac.
+#
+# fetch puts the published image in image/, for a Mac without plastron's
+# build: the release tools/qemu/image.pin names (tools/qemu-image.sh made
+# it), its archive checked against the pin's sha256 before anything is
+# unpacked. Again, it fetches only when the pin has changed. It never
+# replaces an image/ it did not put there, unless --force.
+# $ZYPEROS_QEMU_IMAGE_URL fetches the archive from another place, and
+# $ZYPEROS_QEMU_IMAGE_PIN reads another pin (tools/qemu-image-check.sh).
+#
+# The SSH key: $PX2_KEY, else ~/.ssh/zyperos_pixel2, else one start makes
+# for the VMs, $ZYPEROS_QEMU_HOME/ssh/zyperos_qemu. start hands its public
+# half to QEMU (fw_cfg, opt/org.zyperos/authorized_keys) and the image lets
+# in that key at boot (plastron's board/qemu/rootfs-overlay/etc/init.d/
+# S49sshkey): it carries none of its own, so one image lets in whoever
+# starts it. An image from before that has plastron's local/authorized_keys
+# in it, and lets in that key alone.
 #
 # A card copy is gigabytes and stays when its VM stops. prune alone lists the
 # stopped VMs, with their size and when they were last used; with names it
@@ -73,7 +91,19 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 REPO=$(cd "$HERE/.." && pwd)
 STATE_HOME=${ZYPEROS_QEMU_HOME:-$HOME/Library/Caches/zyperos-qemu}
 NAME=${ZYPEROS_QEMU_NAME:-zyperos}
-KEY=${PX2_KEY:-$HOME/.ssh/zyperos_pixel2}
+# The SSH key (see the top): the one for the VMs, made by the first start,
+# when there is no other
+VM_KEY=$STATE_HOME/ssh/zyperos_qemu
+if [ -n "${PX2_KEY:-}" ]; then
+	KEY=$PX2_KEY
+elif [ -f "$HOME/.ssh/zyperos_pixel2" ]; then
+	KEY=$HOME/.ssh/zyperos_pixel2
+else
+	KEY=$VM_KEY
+fi
+# The published image (fetch): its release and its archive's sha256
+PIN=${ZYPEROS_QEMU_IMAGE_PIN:-$HERE/qemu/image.pin}
+IMAGE_FILES="Image sdcard.img u-boot.bin"
 # dropbear makes a new host key at every boot of a read-only root: no key to check
 SSH_OPTS="-o ConnectTimeout=5 -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR"
 # The image's boot and root partitions: everything from 16 MiB to the
@@ -241,9 +271,16 @@ cmd_start() {
 	done
 	[ -n "$IMAGE" ] || IMAGE=$(default_image)
 	[ -f "$IMAGE/sdcard.img" ] && [ -f "$IMAGE/Image" ] ||
-		die "no sdcard.img and Image in $IMAGE: run 'make qemu' in plastron, or pass --image DIR"
+		die "no sdcard.img and Image in $IMAGE: 'tools/qemu-run.sh fetch' downloads the published image, 'make qemu' in plastron builds one, or pass --image DIR"
 	command -v qemu-system-aarch64 > /dev/null || die "no qemu-system-aarch64: brew install qemu"
-	[ -f "$KEY" ] || die "no SSH key $KEY (PX2_KEY): plastron's image takes local/authorized_keys"
+	if [ ! -f "$KEY" ] && [ "$KEY" = "$VM_KEY" ]; then
+		mkdir -p "$(dirname "$KEY")"
+		chmod 700 "$(dirname "$KEY")"
+		ssh-keygen -q -t ed25519 -N '' -C zyperos-qemu -f "$KEY" < /dev/null ||
+			die "could not make an SSH key for the VMs in $KEY"
+		echo "qemu-run: made $KEY, the SSH key the VMs let in"
+	fi
+	[ -f "$KEY" ] || die "no SSH key $KEY (PX2_KEY)"
 	running && die "$NAME is running already (port $(port)); stop it first, or pick another -n NAME"
 
 	dir=$(vm_dir)
@@ -251,6 +288,11 @@ cmd_start() {
 	# QEMU's own sockets from a run before; the simulator window's app.sock
 	# is the window's, and stays
 	rm -f "$dir/vnc.sock" "$dir/qmp.sock" "$dir/serial.sock" "$dir/sim.sock"
+	# The key's public half, for QEMU to hand the VM (see the top): the .pub
+	# beside it, or read from the key, never asking for a passphrase
+	{ [ -f "$KEY.pub" ] && cat "$KEY.pub"; } > "$dir/authorized_keys" 2> /dev/null ||
+		ssh-keygen -y -P '' -f "$KEY" > "$dir/authorized_keys" 2> /dev/null ||
+		die "could not read the public key of $KEY (one with a passphrase needs its .pub beside it)"
 	prepare_card
 	# U-Boot only when asked for, and when the image has one (see the top)
 	[ -n "$UBOOT" ] && [ ! -f "$dir/u-boot.bin" ] &&
@@ -327,6 +369,7 @@ cmd_start() {
 		-chardev socket,id=serial,path="$dir/serial.sock",server=on,wait=off,logfile="$dir/serial.log" \
 		-serial chardev:serial \
 		-qmp unix:"$dir/qmp.sock",server=on,wait=off \
+		-fw_cfg name=opt/org.zyperos/authorized_keys,file="$dir/authorized_keys" \
 		-vnc unix:"$dir/vnc.sock" \
 		-monitor none -parallel none \
 		$display > "$dir/qemu.log" 2>&1 &
@@ -455,6 +498,60 @@ cmd_prune() {
 	[ -z "$bad" ]
 }
 
+# The published image into image/ (see the top). The archive is downloaded
+# beside it (a download cut short goes on where it stopped), checked against
+# the pin, its names checked, unpacked into image.new/, and only then put in
+# place of image/, with FETCHED saying which it is
+cmd_fetch() {
+	force=
+	for a in "$@"; do
+		case $a in
+		--force) force=1 ;;
+		*) die "fetch: unknown option $a" ;;
+		esac
+	done
+	tag=$(sed -n 's/^tag=//p' "$PIN")
+	sum=$(sed -n 's/^sha256=//p' "$PIN")
+	[ -n "$tag" ] && [ -n "$sum" ] ||
+		die "no published image yet ($PIN names none): build one with 'make qemu' in plastron (docs/qemu.md)"
+	printf '%s\n' "$sum" | grep -qx '[0-9a-f]\{64\}' || die "$PIN's sha256 is not one: $sum"
+	printf '%s\n' "$tag" | grep -qx 'qemu-[0-9A-Za-z.-]*' || die "$PIN's tag is not a qemu-<date> one: $tag"
+	url=${ZYPEROS_QEMU_IMAGE_URL:-https://github.com/tarikbc/ZyperOS/releases/download/$tag/zyperos-qemu.tar.xz}
+	dest=$STATE_HOME/image
+	if [ -z "$force" ] && [ "$(cat "$dest/FETCHED" 2> /dev/null)" = "$tag $sum" ] &&
+		[ -f "$dest/sdcard.img" ] && [ -f "$dest/Image" ]; then
+		echo "qemu-run: $dest is $tag already"
+		return 0
+	fi
+	if [ -z "$force" ] && [ -e "$dest" ] && [ ! -f "$dest/FETCHED" ]; then
+		die "$dest holds an image fetch did not put there: 'fetch --force' replaces it"
+	fi
+	command -v curl > /dev/null || die "no curl"
+	mkdir -p "$STATE_HOME/download"
+	part=$STATE_HOME/download/$tag.tar.xz
+	echo "qemu-run: downloading $tag ($url)"
+	curl -fL --retry 3 -C - -o "$part" "$url" ||
+		die "the download stopped; fetch again to go on from where it stopped"
+	got=$(shasum -a 256 "$part" | cut -c1-64)
+	if [ "$got" != "$sum" ]; then
+		rm -f "$part"
+		die "the archive is not the one $PIN names (sha256 $got, the pin's $sum): nothing changed"
+	fi
+	# Exactly the image's files, and nothing else: no folder, no other name
+	names=$(tar -tf "$part" | LC_ALL=C sort | tr '\n' ' ')
+	[ "$names" = "$IMAGE_FILES " ] || { rm -f "$part"; die "the archive holds $names, not $IMAGE_FILES"; }
+	new=$STATE_HOME/image.new
+	rm -rf "$new"
+	mkdir -p "$new"
+	tar -xf "$part" -C "$new" || { rm -rf "$new"; die "could not unpack $part (is the disk full?)"; }
+	echo "$tag $sum" > "$new/FETCHED"
+	rm -rf "$dest.old"
+	if [ -e "$dest" ]; then mv "$dest" "$dest.old"; fi
+	mv "$new" "$dest"
+	rm -rf "$dest.old" "$part"
+	echo "qemu-run: $dest is $tag: tools/qemu-run.sh start, or the simulator, boots it"
+}
+
 cmd_list() {
 	for d in "$STATE_HOME"/*/; do
 		[ -f "$d/ssh.port" ] || continue   # image/, and anything else not a VM
@@ -464,7 +561,7 @@ cmd_list() {
 	done
 }
 
-[ $# -gt 0 ] || { sed -n '3,69p' "$0"; exit 1; }
+[ $# -gt 0 ] || { sed -n '3,/^set -eu$/p' "$0" | sed '$d'; exit 1; }
 CMD=$1
 shift
 if [ "${1:-}" = -n ]; then NAME=${2:?-n needs a name}; shift 2; fi
@@ -485,6 +582,7 @@ stop) cmd_stop ;;
 kill) running && kill "$(cat "$(vm_dir)/qemu.pid")"; echo "qemu-run: $NAME killed" ;;
 list) cmd_list ;;
 prune) cmd_prune "$@" ;;
+fetch) cmd_fetch "$@" ;;
 info)
 	dir=$(vm_dir)
 	echo "ssh     127.0.0.1:$(port) (key $KEY)"
@@ -497,5 +595,5 @@ info)
 	echo "display $(cat "$dir/display" 2> /dev/null || echo vnc) (the simulator's way to the screen: dbus, through qmp.sock, or vnc)"
 	echo "qemu    $dir/qemu.log"
 	;;
-*) die "unknown command $CMD (start ssh shot dump input open quit status sim roms deploy stop kill list info prune)" ;;
+*) die "unknown command $CMD (start ssh shot dump input open quit status sim roms deploy stop kill list info prune fetch)" ;;
 esac
