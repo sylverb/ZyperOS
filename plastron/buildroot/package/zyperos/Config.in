@@ -10,6 +10,6 @@ config BR2_PACKAGE_ZYPEROS
 	select BR2_PACKAGE_LIBCURL
 	select BR2_PACKAGE_OPENSSL
 	help
-	  The ZyperOS launcher (zyperos) and its music engine (muse),
+	  The ZyperOS launcher (zyperos) and its music engine (mp4d),
 	  built from the ZyperOS repository, mounted at /zyperos in the
 	  build container.

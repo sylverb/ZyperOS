@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-#ifndef MUSE_SNAP_H
-#define MUSE_SNAP_H
+#ifndef MP4D_SNAP_H
+#define MP4D_SNAP_H
 
 #include <stdbool.h>
 
@@ -9,7 +9,7 @@
  * Beside MP4's video (vid.c) and never through it, because the two are
  * different things playing at the same time. MP4's picture follows its
  * sound's clock; a snap has no sound to follow and must not touch the one
- * Muse is playing, so it runs on the wall clock in a thread of its own, at
+ * MP4 is playing, so it runs on the wall clock in a thread of its own, at
  * a lower priority than both the sound and MP4's pictures, into frames of
  * its own (src/snapframe.h).
  *
@@ -27,7 +27,7 @@ void snap_quit(void);
  * 0 is muted (MENU > Scraper > Video Snaps > Sound, muted to start), and then
  * nothing of the sound is even decoded. Its sound goes to ALSA's "default",
  * the system's mix, beside whatever else is playing; the launcher sends 0
- * while Muse plays, so a snap never talks over music somebody chose.
+ * while MP4 plays, so a snap never talks over music somebody chose.
  *
  * `hold` opens it and puts out its first picture, then waits there with no
  * clock and no sound: the launcher asks for it held halfway through the

@@ -54,7 +54,7 @@ EXTRA = {"FOLDER": "FOLDER_SMALL", "ROMS": "ROMS", "MUSIC": "MUSIC", "BOOKS": "B
          "BIOS": "BIOS", "SAVES": "SAVES", "STATES": "STATES", "BGM": "BGM"}
 # Shelves that are not in config/systems.cfg
 SYNTHETIC = [("FAVORITES", "FAV", "Favorites"), ("RECENTS", "RECENT", "Recents"),
-             ("COLLECTIONS", "COLL", "Collections"), ("MUSE", "MUSE", "Muse")]
+             ("COLLECTIONS", "COLL", "Collections"), ("MUSE", "MUSE", "MP4")]
 
 
 class ArtError(ValueError):

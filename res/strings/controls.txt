@@ -61,7 +61,7 @@ de = Schnelltasten
 ja = ホットキー
 it = Scorciatoie
 
-[controls.page.muse]
+[controls.page.mp4]
 note = A page's name, in "Controls: In MP4": MP4 is the media player's name, never translated.
 en = In MP4
 zh-Hans = MP4 中
@@ -391,7 +391,7 @@ ja = 巻き戻し/早送り
 it = Avanti o indietro
 
 [controls.mode]
-note = What Y does in MP4: the play mode (repeat, shuffle) on music, a book's speed, or a video's Repeat (Off, One, All; the word of MP4's menu row sysmenu.muse_repeat).
+note = What Y does in MP4: the play mode (repeat, shuffle) on music, a book's speed, or a video's Repeat (Off, One, All; the word of MP4's menu row sysmenu.mp4_repeat).
 en = Mode, speed or repeat
 zh-Hans = 模式、速度或重复播放
 es = Modo, velocidad o repetir

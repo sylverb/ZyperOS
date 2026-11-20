@@ -119,7 +119,7 @@ static int store_shelf(app *a, const char *folder)
 	int i;
 
 	for (i = 0; i < a->sys.count; i++)
-		if (!a->view[i].owner && !is_muse(&a->sys.systems[i]) &&
+		if (!a->view[i].owner && !is_mp4(&a->sys.systems[i]) &&
 		    !strcmp(a->sys.systems[i].folder, folder))
 			return i;
 	return -1;
@@ -187,7 +187,7 @@ static void store_request(store_view *v)
 	v->games = NULL;
 	v->ngames = 0;
 	for (i = 0; i < a->sys.count; i++)
-		if (!a->view[i].owner && !is_muse(&a->sys.systems[i]) && a->sys.systems[i].folder[0])
+		if (!a->view[i].owner && !is_mp4(&a->sys.systems[i]) && a->sys.systems[i].folder[0])
 			n += sys_games(&a->view[i])->count;
 	if (n > 0 && !(v->games = malloc((size_t)n * sizeof *v->games))) n = 0;
 	stats_summarize(STATS_ALL, false, now);
@@ -195,7 +195,7 @@ static void store_request(store_view *v)
 		const system_cfg *s = &a->sys.systems[i];
 		bool hooked = lib_shelf_hooked(s->exts);
 
-		if (a->view[i].owner || is_muse(s) || !s->folder[0]) continue;
+		if (a->view[i].owner || is_mp4(s) || !s->folder[0]) continue;
 		const game_list *gl = sys_games(&a->view[i]);
 
 		for (k = 0; k < gl->count && v->ngames < n; k++) {
@@ -209,7 +209,7 @@ static void store_request(store_view *v)
 	}
 	v->sys.n = 0;
 	for (i = 0; v->cfg_ok && i < v->cfg.count && v->sys.n < ST_MAX_SYS; i++)
-		if (v->cfg.systems[i].folder[0] && !is_muse(&v->cfg.systems[i]))
+		if (v->cfg.systems[i].folder[0] && !is_mp4(&v->cfg.systems[i]))
 			v->sys.folders[v->sys.n++] = v->cfg.systems[i].folder;
 	v->sys.ports = NULL;
 	for (i = 0; v->cfg_ok && i < v->cfg.count; i++)
@@ -1069,7 +1069,7 @@ static void store_act(store_view *v)
 		/* MP4 lets go of it first, if it plays or holds it (File Transfer's
 		 * rule), and its shelf is read again after */
 		snprintf(abs, sizeof abs, "%s/%s/%s", P_CARD, st_media_root((st_media_kind)kind), rel);
-		muse_before_delete(abs);
+		mp4_before_delete(abs);
 		b = st_delete_media(&v->paths, (st_media_kind)kind, rel);
 		fprintf(stderr, "storage: media %s: %llu bytes\n", rel, b);
 		if (b) {
@@ -1147,7 +1147,7 @@ static void store_close(store_view *v)
 	v->med = NULL;
 }
 
-/* The page as a base, as Muse's shelf is: the screen's, and --storage
+/* The page as a base, as MP4's shelf is: the screen's, and --storage
  * delete-open's, which holds it to the panel that opens on it */
 int store_base_open(void)
 {
@@ -1163,7 +1163,7 @@ void storage_screen(app *a)
 	store_open(v, a);
 	store_request(v);
 	store_refresh(v);
-	/* The page is a base, as Muse's shelf is (panel_base): MENU's panel
+	/* The page is a base, as MP4's shelf is (panel_base): MENU's panel
 	 * leaves over it, and a panel opened on it - Delete Game's question,
 	 * a recommendation's, "Deleting...", a result - comes from nothing.
 	 * Without it the question opened as a swap from the last panel drawn,
@@ -1176,11 +1176,11 @@ void storage_screen(app *a)
 		st_card c;
 
 		plat_input_poll(&a->in);
-		muse_poll();
+		mp4_poll();
 		aout_apply(false);
 		if (a->in.quit_requested) { a->running = false; break; }
 		if (a->in.pressed[IN_POWER] || idle_due(a)) { st_stop(); power_off(a); break; }
-		if (a->in.pressed[IN_SELECT]) muse_open(a, NULL, NULL);
+		if (a->in.pressed[IN_SELECT]) mp4_open(a, NULL, NULL);
 		if (in_repeat(&a->in, IN_VOLUP))    plat_volume_nudge(+1);
 		if (in_repeat(&a->in, IN_VOLDN))    plat_volume_nudge(-1);
 		if (in_repeat(&a->in, IN_BRIGHTUP)) plat_brightness_nudge(+1);

@@ -7,8 +7,8 @@
 
 #include <SDL.h>
 
-/* MP4's video, the launcher's half: the newest picture the Muse daemon put in
- * the shared frames (src/mp4frame.h, written by src/muse/vid.c), as a YUV
+/* MP4's video, the launcher's half: the newest picture mp4d put in
+ * the shared frames (src/mp4frame.h, written by src/mp4d/vid.c), as a YUV
  * texture the GPU turns into color as it draws it.
  *
  * Polled from the player's loop, never waited on. The daemon decides when

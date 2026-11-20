@@ -17,8 +17,8 @@ static char       g_err[128];
 static int        g_last;        /* the last open's error, 0 when it worked */
 
 /* The last things done to the output, kept for when it goes wrong - #42.
- * Twice on 2026-09-25 Muse stalled inside bluealsa's plugin, and the second
- * time the Muse before it vanished with no line at all, so there was nothing
+ * Twice on 2026-09-25 MP4 stalled inside bluealsa's plugin, and the second
+ * time the MP4 before it vanished with no line at all, so there was nothing
  * to say which call it had been making. Each entry is formatted when it is
  * made, wall clock included to line up with the syslog, so that dumping them
  * is only write() and is safe from a signal handler. */
@@ -38,7 +38,7 @@ void pcm_note(const char *fmt, ...)
 
 	clock_gettime(CLOCK_REALTIME, &t);
 	localtime_r(&t.tv_sec, &tm);
-	n = snprintf(slot, sizeof g_trail[0], "muse:   %02d:%02d:%02d.%03ld ",
+	n = snprintf(slot, sizeof g_trail[0], "mp4d:   %02d:%02d:%02d.%03ld ",
 	             tm.tm_hour, tm.tm_min, tm.tm_sec, t.tv_nsec / 1000000);
 	va_start(ap, fmt);
 	vsnprintf(slot + n, sizeof g_trail[0] - n - 1, fmt, ap);
@@ -113,7 +113,7 @@ bool pcm_open(const char *device)
 		else
 			g_pcm = NULL;
 		if (r >= 0)
-			fprintf(stderr, "muse: %s is not at 48 kHz; ALSA resamples it\n", device);
+			fprintf(stderr, "mp4d: %s is not at 48 kHz; ALSA resamples it\n", device);
 	}
 	if (r < 0) {
 		snprintf(g_err, sizeof g_err, "set params on %s: %s", device,
@@ -178,7 +178,7 @@ void pcm_drop(void)
 	if (!g_pcm) return;
 	/* Nothing to drop on a device that has not been written to since it was
 	 * opened or last prepared - and on a bluealsa headset a drop there is
-	 * what stalled Muse. The drop makes bluealsa release the A2DP
+	 * what stalled MP4. The drop makes bluealsa release the A2DP
 	 * stream it acquired a millisecond earlier for the open, and the writes
 	 * that follow wait for a stream it never takes again. All three stalls on
 	 * 2026-09-25/26 were SINK then PLAY, the drop right behind the open; the

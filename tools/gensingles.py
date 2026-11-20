@@ -2,9 +2,9 @@
 """Draw the Singles cover: res/singles.png.
 
 Singles is Music/Singles, where the launcher moves songs left loose at the top
-of Music/ (src/muselib.h), and this is the cover it puts at
+of Music/ (src/mp4lib.h), and this is the cover it puts at
 Music/.media/Singles.png when Singles has none. There is no record to ask
-MusicBrainz about, so it gets a cover of its own, drawn here the way Muse's
+MusicBrainz about, so it gets a cover of its own, drawn here the way MP4's
 Plain Jane card was (that card and its generator went in 62b0c81): flat
 shapes, no strokes, the old cards' stock behind, the launcher's face. The
 label is ZyperOS's light green, the turtle's shell and the old wordmark's
@@ -15,10 +15,10 @@ step too loud beside the covers around it.
 THE MARK is a 7-inch single: a dark disc with two faint grooved bands, a green
 label, and the wide center hole a 45 has for a jukebox's spindle, which is what
 says "single" rather than "record". Everything is filled shapes punched
-through one another, as on the Muse card, because a stroked ring thins to
+through one another, as on the MP4 card, because a stroked ring thins to
 nothing at the size a cover is drawn on the shelf.
 
-SQUARE, 500px: Muse draws covers square and crops anything that is not, and
+SQUARE, 500px: MP4 draws covers square and crops anything that is not, and
 the Cover Art Archive's 500px is the size Album Art fetches.
 
     tools/gensingles.py

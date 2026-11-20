@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-#ifndef MUSE_BANDS_H
-#define MUSE_BANDS_H
+#ifndef MP4D_BANDS_H
+#define MP4D_BANDS_H
 
 /* The sound as 32 bands, for the bars of MP4's Player Looks (DESIGN.md
  * 11.64): what is HEARD at this moment, not what the decoder has reached.

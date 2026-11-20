@@ -54,7 +54,7 @@ char *hareart_wanted(size_t *len, char *why, size_t wn)
 		char dir[1100];
 		int missing;
 
-		/* A shelf libretro has no collection for (Muse, or one added to
+		/* A shelf libretro has no collection for (MP4, or one added to
 		 * systems.cfg later) has nothing to look in. */
 		if (!art_collection(sc->folder, 0) || !shelf_dir(sc, dir, sizeof dir)) continue;
 		if ((missing = art_missing(dir, sc->exts, NULL, NULL)) == 0) continue;
