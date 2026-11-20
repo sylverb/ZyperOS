@@ -53,8 +53,8 @@ static int night_is(const panelgamma_night *n, int i, long long from, long long 
 
 static void table(void)
 {
-	panelgamma_color temp8 = { 8, 0, 0, 0, 0 }, night8 = { 0, 0, 0, 0, 8 };
-	panelgamma_color both = { 5, 0, 0, 0, 8 }, none = { 0 };
+	panelgamma_color temp8 = { 8, 0, 0, 0, 0, 0 }, night8 = { 0, 0, 0, 0, 8, 0 };
+	panelgamma_color both = { 5, 0, 0, 0, 8, 0 }, none = { 0 };
 	int ch, same = 1;
 
 	printf("the table:\n");
@@ -79,7 +79,7 @@ static void table(void)
 static void file(void)
 {
 	char dir[] = "/tmp/nightmode-check-XXXXXX", path[64], line[256] = "";
-	panelgamma_color c = { 1, -2, 3, -4, 7 }, got;
+	panelgamma_color c = { 1, -2, 3, -4, 7, 0 }, got;
 	panelgamma_night n = { 8, 0, 2, { 1794949200, 1795035600 }, { 1794985200, 1795071600 } }, gn;
 	FILE *f;
 

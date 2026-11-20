@@ -83,9 +83,17 @@ typedef struct {
 	 * 0.56 = 0.41 of its light, warmer than either alone. Never in the
 	 * file: a reader works it out from the nights there (panelgamma_night). */
 	int night;
+	/* The brightness boost past the top rung (src/boost.h, DESIGN.md 11.6):
+	 * 0 none, up to PANELGAMMA_LIFT_MAX. The top rung is the backlight's
+	 * own maximum, so a step is a lift of the mid-tones, like Gamma +3,
+	 * applied after the player's colors: x^0.88, x^0.76, x^0.64, black and
+	 * white kept. Never in the file: each of the three that load the table
+	 * keeps it with the level (the launcher, Diatom, portkeys). */
+	int lift;
 } panelgamma_color;
 
 #define PANELGAMMA_RANGE 10
+#define PANELGAMMA_LIFT_MAX 3
 #define PANELGAMMA_NIGHT_MAX 10
 
 /* Where the launcher leaves them for Diatom and portkeys: a fact about this

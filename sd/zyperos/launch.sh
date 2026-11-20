@@ -520,9 +520,11 @@ run_port() {
 	# The equalizer over the port's sound (DESIGN.md 11.60): while the
 	# launcher's bands are not flat and the system has ZyperOS's plugin
 	# (plastron's zyperos-eq), the port gets an ALSA config of its own whose
-	# default runs through it into the same mix (eq-port.sh); flat, no
-	# bands file, no plugin (or an empty one), or no EQ_SLAVE, and the port
-	# starts as it always did, the plugin nowhere in its chain. Two files:
+	# default runs through it into the same mix (eq-port.sh), for the
+	# equalizer and the volume boost alike, the boost's gain coming from
+	# portkeys during the port; no bands file, no plugin (or an empty one),
+	# or no EQ_SLAVE, and the port starts as it always did, the plugin
+	# nowhere in its chain. Two files:
 	# its PCMs, and the one in its ALSA_CONFIG_PATH that loads them after
 	# /etc/asound.conf, whose default would replace them (eq-port.sh)
 	local eqcfg=

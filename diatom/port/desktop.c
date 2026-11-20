@@ -729,6 +729,9 @@ void diatom_port_level_shown(diatom_level_kind kind, int pos, int positions)
 {
 	(void)kind; (void)pos; (void)positions;
 }
+void diatom_port_level_look(const osdbar_look *look) { (void)look; }
+void diatom_port_level_lift(int lift) { (void)lift; }
+bool diatom_port_level_plugged(void) { return false; }
 void diatom_port_level_invalidate(void) { }
 
 /* No device UI drawn over the game on a desktop: the window is for iteration,

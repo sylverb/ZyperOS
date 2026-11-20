@@ -12,9 +12,19 @@
  * launcher's own src/db.c, 4 and 7 loaded and the presses of the report that
  * saved 6 and 6 fed, saves 5 and 7.
  *
+ * And the boost past the top (pk_boost, on src/boost.h), on the same loop:
+ * three presses on the top open it and write the gain to the file the port's
+ * plugin reads, a hold opens it after its time and a let-go before does not,
+ * the held key stops at the first cell and a let-go frees it, going down
+ * empties the cells and then folds them, the bar going away closes an empty
+ * one, a plug in or out closes the volume's, MENU+VOL+ opens the backlight's,
+ * and the cells are kept in the launcher's database and come back with the
+ * gain. A step that is no boost's is pk_apply's, line for line.
+ *
  * Links tools/pkkeys.c, src/db.c and SQLite, and NOT SDL. */
 #include "../src/db.h"
 #include "../src/device/pixel2_levels.h"
+#include "../src/eqdsp.h"
 #include "../src/keyrepeat.h"
 #include "pkkeys.h"
 
@@ -51,6 +61,9 @@ typedef struct {
 	pk_step   step[64];
 	int64_t   at[64];           /* when each was given */
 	char      log[4096];        /* the lines pk_apply wrote */
+	pk_boost *bo;               /* when set, the steps go through the boost (pk_press) */
+	int       did;              /* what the boost did, every step and tick ORed */
+	int       opened;           /* how often it opened */
 } rig;
 
 static void rig_init(rig *r, int vol, int bright)
@@ -67,7 +80,14 @@ static void take(rig *r, const pk_step *s, int m)
 	int i;
 
 	for (i = 0; i < m; i++) {
-		pk_apply(r->db, &r->l, &s[i], line, sizeof line);
+		if (r->bo) {
+			int did = pk_press(r->db, &r->l, r->bo, &s[i], (uint32_t)r->now, line, sizeof line);
+
+			r->did |= did;
+			r->opened += !!(did & BOOST_OPENED);
+		} else {
+			pk_apply(r->db, &r->l, &s[i], line, sizeof line);
+		}
 		strncat(r->log, line, sizeof r->log - strlen(r->log) - 1);
 		if (r->n < 64) {
 			r->step[r->n] = s[i];
@@ -78,13 +98,24 @@ static void take(rig *r, const pk_step *s, int m)
 }
 
 /* One pass of portkeys' loop at r->now: the events read, in the order read,
- * the pass begun at `cutoff` (µs on the events' clock); then the repeats due. */
+ * the pass begun at `cutoff` (µs on the events' clock); then the repeats due;
+ * then, through the boost, its clock for both levels (boost_clock). */
 static void pass(rig *r, const pk_key *ev, int n, int64_t cutoff)
 {
 	pk_step s[32];
 
 	take(r, s, pkkeys_pass(&r->k, ev, n, cutoff, r->now, s, 32));
 	take(r, s, pkkeys_tick(&r->k, r->now, s, 32));
+	if (r->bo) {
+		int kind;
+
+		for (kind = PK_VOLUME; kind <= PK_BRIGHT; kind++) {
+			int did = pk_boost_tick(r->db, r->bo, &r->k, (pk_kind)kind, (uint32_t)r->now);
+
+			r->did |= did;
+			r->opened += !!(did & BOOST_OPENED);
+		}
+	}
 }
 
 /* Time passes to `t` as it does for portkeys: poll sleeps for what
@@ -569,9 +600,12 @@ static void the_log(void)
 
 /* ---- through the launcher's database ------------------------------------------------ */
 
-static void the_database(void)
+/* `boost`: the same presses through the boost (pk_press), as portkeys makes
+ * them now, which saves and says the same, the top never reached */
+static void the_database(bool boost)
 {
-	char dir[] = "/tmp/zyperos-pkkeys-XXXXXX", path[128], bl[128];
+	char dir[] = "/tmp/zyperos-pkkeys-XXXXXX", path[128], bl[128], share[160];
+	pk_boost bo;
 	static const char *want =
 		"portkeys: volume 4 -> 5 (VOL+)\n"
 		"portkeys: volume 5 -> 4 (VOL-)\n"
@@ -588,6 +622,7 @@ static void the_database(void)
 	}
 	snprintf(path, sizeof path, "%s/zyperos.db", dir);
 	snprintf(bl, sizeof bl, "%s/brightness", dir);
+	snprintf(share, sizeof share, "%s/eq", dir);
 
 	/* The launcher saved 4 and 7, and exited for the port */
 	d = db_open(path, DB_DEVICE);
@@ -602,6 +637,11 @@ static void the_database(void)
 	ck(sqlite3_open_v2(path, &r.db, SQLITE_OPEN_READWRITE, NULL) == SQLITE_OK, "db: portkeys opens it");
 	pk_levels_load(r.db, bl, &r.l);
 	ck(r.l.vol == 4 && r.l.bright == 7, "db: portkeys loads 4 and 7; got %d and %d", r.l.vol, r.l.bright);
+	if (boost) {
+		pk_boost_init(&bo, share);
+		ck(pk_boost_load(r.db, &r.l, &bo), "db: the boost's file made beside it");
+		r.bo = &bo;
+	}
 
 	/* The presses of the report that saved 6 and 6: volup, voldown, volup,
 	 * menu+volup with gpio-keys read first, menu+voldown woken between */
@@ -611,6 +651,14 @@ static void the_database(void)
 	tap(&r, PK_KEY_VOLUMEUP, 80);    run_to(&r, r.now + 150);
 	chord(&r, PK_KEY_VOLUMEUP, true, BOTH);     run_to(&r, r.now + 150);
 	chord(&r, PK_KEY_VOLUMEDOWN, true, BETWEEN);
+	if (boost) {
+		ck(!r.did || r.did == BOOST_LEVEL, "db: through the boost, steps and nothing else; got %d", r.did);
+		ck(pk_db_get(r.db, PK_VOL_BOOST, -1) == -1 && pk_db_get(r.db, PK_BRIGHT_BOOST, -1) == -1,
+		   "db: no boost kept, none having opened");
+		pk_boost_free(&bo);
+		r.bo = NULL;
+		unlink(share);
+	}
 	sqlite3_close(r.db);
 
 	d = db_open(path, DB_DEVICE);
@@ -747,6 +795,352 @@ static void the_ladder(void)
 		   names[i], mine[i], define_in("diatom/port/pixel2.c", names[i]));
 }
 
+/* ---- the boost past the top ------------------------------------------------------ */
+
+/* The same as run_to while the bar moves: portkeys woken every frame
+ * (bar_tick's 16 ms) as well as for the repeats */
+static void frames_to(rig *r, int64_t t)
+{
+	int guard = 0;
+
+	while (r->now < t && guard++ < 100000) {
+		int w = pkkeys_wait(&r->k, r->now);
+		int64_t next = r->now + 16;
+
+		if (w >= 0 && r->now + w < next) next = r->now + w;
+		if (next > t) next = t;
+		r->now = next;
+		pass(r, NULL, 0, INT64_MAX);
+	}
+}
+
+/* A key down or up at r->now, in a pass of its own */
+static void key(rig *r, int code, int value)
+{
+	pk_key e = ev(r->now * 1000, code, value);
+
+	pass(r, &e, 1, r->now * 1000 + 100);
+}
+
+/* A key held `ms` and let go, the bar's frames between, then `gap` ms */
+static void hold(rig *r, int code, int ms, int gap)
+{
+	key(r, code, 1);
+	frames_to(r, r->now + ms);
+	key(r, code, 0);
+	frames_to(r, r->now + gap);
+}
+
+/* What a reader of the shared file sees there (eq_share_read): the gain, or
+ * -1 for no file or none whole; and the bands into `bands` */
+static int file_gain(const char *path, int8_t bands[EQ_BANDS])
+{
+	eq_share s;
+	int8_t got[EQ_BANDS], g = -1;
+	FILE *f = fopen(path, "rb");
+	size_t n;
+
+	if (!f) return -1;
+	n = fread(&s, 1, sizeof s, f);
+	fclose(f);
+	if (n != sizeof s || !eq_share_read(&s, got, &g)) return -1;
+	if (bands) memcpy(bands, got, sizeof got);
+	return g;
+}
+
+/* A launcher's database with the levels and boosts given (-1: not saved), and
+ * the shared file's place in a folder not made yet, as /run/zyperos can be */
+typedef struct {
+	char dir[64], db[128], run[128], share[160];
+} scratch;
+
+static bool scratch_make(scratch *sc, int vol, int bright, int vcells, int bcells)
+{
+	db *d;
+
+	snprintf(sc->dir, sizeof sc->dir, "/tmp/zyperos-pkboost-XXXXXX");
+	if (!mkdtemp(sc->dir)) return false;
+	snprintf(sc->db, sizeof sc->db, "%s/zyperos.db", sc->dir);
+	snprintf(sc->run, sizeof sc->run, "%s/run", sc->dir);
+	snprintf(sc->share, sizeof sc->share, "%s/eq", sc->run);
+	if (!(d = db_open(sc->db, DB_DEVICE))) return false;
+	if (vol >= 0) db_set_int(d, "volume", vol);
+	if (bright >= 0) db_set_int(d, "brightness", bright);
+	if (vcells >= 0) db_set_int(d, PK_VOL_BOOST, vcells);
+	if (bcells >= 0) db_set_int(d, PK_BRIGHT_BOOST, bcells);
+	db_close(d);
+	return true;
+}
+
+static void scratch_drop(scratch *sc)
+{
+	const char *suffix[] = { "", "-wal", "-shm", "-journal" };
+	char p[160];
+	unsigned i;
+
+	for (i = 0; i < sizeof suffix / sizeof suffix[0]; i++) {
+		snprintf(p, sizeof p, "%s%s", sc->db, suffix[i]);
+		unlink(p);
+	}
+	unlink(sc->share);
+	rmdir(sc->run);
+	rmdir(sc->dir);
+}
+
+/* portkeys as it starts over that database (main): the levels, the boosts */
+static bool rig_boost(rig *r, pk_boost *bo, const scratch *sc)
+{
+	rig_init(r, -1, -1);
+	if (sqlite3_open_v2(sc->db, &r->db, SQLITE_OPEN_READWRITE, NULL) != SQLITE_OK) return false;
+	pk_levels_load(r->db, "/nonexistent", &r->l);
+	pk_boost_init(bo, sc->share);
+	r->bo = bo;
+	r->now = 10000;
+	return pk_boost_load(r->db, &r->l, bo);
+}
+
+static void rig_done(rig *r)
+{
+	pk_boost_free(r->bo);
+	sqlite3_close(r->db);
+	r->db = NULL;
+}
+
+/* A step that is no boost's is pk_apply's: the same level, the same line, at
+ * every level the scale has an end or a middle at, both kinds, both ways, a
+ * press and a repeat; the gain's file one that cannot be had */
+static void the_boost_is_apply(void)
+{
+	static const int vols[] = { -1, 0, 1, VOL_MAX / 2, VOL_MAX - 1, VOL_MAX };
+	static const int brights[] = { 0, 1, BRIGHT_MAX - 1, BRIGHT_MAX };
+	unsigned v, b;
+	int kind, dir, held, bad = 0;
+
+	for (v = 0; v < sizeof vols / sizeof vols[0]; v++)
+		for (b = 0; b < sizeof brights / sizeof brights[0]; b++)
+			for (kind = 0; kind < 2; kind++)
+				for (dir = -1; dir <= 1; dir += 2)
+					for (held = 0; held < 2; held++) {
+						pk_levels a = { vols[v], brights[b] }, c = a;
+						pk_step s = { kind ? PK_BRIGHT : PK_VOLUME, dir, held };
+						pk_boost bo;
+						char la[128], lc[128];
+						bool moved;
+						int did;
+
+						pk_boost_init(&bo, "/dev/null/eq");
+						pk_boost_load(NULL, &c, &bo);
+						moved = pk_apply(NULL, &a, &s, la, sizeof la);
+						did = pk_press(NULL, &c, &bo, &s, 1000, lc, sizeof lc);
+						if (strcmp(la, lc) || a.vol != c.vol || a.bright != c.bright ||
+						    moved != !!(did & BOOST_LEVEL) || (did & ~BOOST_LEVEL)) {
+							if (!bad++)
+								ck(0, "boost: a step is pk_apply's: from %d/%d %s %+d%s, \"%s\" vs \"%s\"",
+								   vols[v], brights[b], kind ? "brightness" : "volume", dir,
+								   held ? " held" : "", la, lc);
+						}
+					}
+	ck(!bad, "boost: every plain step as pk_apply makes it (%d differ)", bad);
+}
+
+/* Three presses on the top: open, the gain in the file, kept; a held key
+ * then fills it, going down empties it and then folds it. `one_pass`: the
+ * third press and its release read in one pass, which must free the stop the
+ * opening left as a release of its own does. */
+static void the_boost_taps(bool one_pass)
+{
+	const char *how = one_pass ? " (third press and release in one pass)" : "";
+	static const int8_t bands[EQ_BANDS] = { 3, -2, 0, 1, 4 };
+	int8_t got[EQ_BANDS];
+	pk_boost bo;
+	scratch sc;
+	rig r;
+	db *d;
+	int i;
+
+	if (!scratch_make(&sc, VOL_MAX, 7, -1, -1)) {
+		ck(0, "boost: a scratch database");
+		return;
+	}
+	ck(rig_boost(&r, &bo, &sc), "boost: the file for the gain is made, its folder too%s", how);
+	ck(file_gain(sc.share, got) == 0 && !memcmp(got, (int8_t[EQ_BANDS]){ 0 }, sizeof got),
+	   "boost: a new file is whole, flat and 0 dB; got %d", file_gain(sc.share, NULL));
+	/* The launcher's bands, as if it had written them: the gain goes in
+	 * beside them and leaves them */
+	eq_share_put(bo.share, bands, -1);
+
+	hold(&r, PK_KEY_VOLUMEUP, 80, 200);
+	hold(&r, PK_KEY_VOLUMEUP, 80, 200);
+	ck(!r.opened && !pk_boost_cells(&bo, PK_VOLUME) && file_gain(sc.share, NULL) == 0,
+	   "boost: two presses on the top open nothing%s", how);
+	if (one_pass) {
+		pk_key two[2] = { ev(r.now * 1000, PK_KEY_VOLUMEUP, 1), ev(r.now * 1000 + 40000, PK_KEY_VOLUMEUP, 0) };
+
+		pass(&r, two, 2, r.now * 1000 + 50000);
+		frames_to(&r, r.now + 200);
+	} else {
+		hold(&r, PK_KEY_VOLUMEUP, 80, 200);
+	}
+	ck(r.opened == 1 && pk_boost_cells(&bo, PK_VOLUME) == 1 && r.l.vol == VOL_MAX,
+	   "boost: three presses on the top open it, one cell, the level at the top%s; got %d cells, volume %d",
+	   how, pk_boost_cells(&bo, PK_VOLUME), r.l.vol);
+	ck(file_gain(sc.share, got) == BOOST_DB_CELL && !memcmp(got, bands, sizeof got),
+	   "boost: its %d dB in the file, the bands left as they were%s; got %d", BOOST_DB_CELL, how,
+	   file_gain(sc.share, NULL));
+	ck(pk_db_get(r.db, PK_VOL_BOOST, -1) == 1 && pk_db_get(r.db, "volume", -1) == VOL_MAX,
+	   "boost: kept, one cell beside the top%s", how);
+	ck(strstr(r.log, "portkeys: volume boost +0 -> +2 dB (VOL+)\n") != NULL,
+	   "boost: the log says it opened; got\n%s", r.log);
+
+	/* A press and a held key fill it, each repeat a cell, to the last */
+	hold(&r, PK_KEY_VOLUMEUP, REPEAT_DELAY_MS + 3 * REPEAT_RATE_MS + 20, 200);
+	ck(pk_boost_cells(&bo, PK_VOLUME) == BOOST_VOL_CELLS &&
+	   file_gain(sc.share, NULL) == BOOST_VOL_CELLS * BOOST_DB_CELL,
+	   "boost: a held key fills it after a let-go, to %d cells, %d dB%s; got %d cells, %d dB",
+	   BOOST_VOL_CELLS, BOOST_VOL_CELLS * BOOST_DB_CELL, how, pk_boost_cells(&bo, PK_VOLUME),
+	   file_gain(sc.share, NULL));
+
+	/* Going down empties a cell and leaves the level */
+	hold(&r, PK_KEY_VOLUMEDOWN, 80, 200);
+	ck(pk_boost_cells(&bo, PK_VOLUME) == 5 && r.l.vol == VOL_MAX && file_gain(sc.share, NULL) == 10 &&
+	   pk_db_get(r.db, PK_VOL_BOOST, -1) == 5 && pk_db_get(r.db, "volume", -1) == VOL_MAX,
+	   "boost: VOL- takes a cell off and leaves the level; got %d cells, volume %d",
+	   pk_boost_cells(&bo, PK_VOLUME), r.l.vol);
+	ck(pk_boost_gone(r.db, &bo) == 0 && pk_boost_cells(&bo, PK_VOLUME) == 5,
+	   "boost: a filled one stays when the bar goes");
+	rig_done(&r);
+
+	/* Kept: portkeys started again, with the file gone, and the launcher */
+	unlink(sc.share);
+	ck(rig_boost(&r, &bo, &sc) && pk_boost_cells(&bo, PK_VOLUME) == 5 && file_gain(sc.share, NULL) == 10,
+	   "boost: kept, the five cells back as portkeys starts, their 10 dB in the file; got %d cells, %d dB",
+	   pk_boost_cells(&bo, PK_VOLUME), file_gain(sc.share, NULL));
+	if ((d = db_open(sc.db, DB_DEVICE))) {
+		ck(db_get_int(d, PK_VOL_BOOST, -1) == 5, "boost: and the launcher reads them (src/db.c)");
+		db_close(d);
+	}
+
+	/* Down to none, which waits at the top, then one more under it */
+	for (i = 0; i < 5; i++) hold(&r, PK_KEY_VOLUMEDOWN, 80, 150);
+	ck(bo.bar[PK_VOLUME].open && !pk_boost_cells(&bo, PK_VOLUME) && r.l.vol == VOL_MAX &&
+	   file_gain(sc.share, NULL) == 0, "boost: emptied, it waits at the top, 0 dB");
+	hold(&r, PK_KEY_VOLUMEDOWN, 80, 150);
+	ck(!bo.bar[PK_VOLUME].open && r.l.vol == VOL_MAX - 1 && pk_db_get(r.db, "volume", -1) == VOL_MAX - 1 &&
+	   pk_db_get(r.db, PK_VOL_BOOST, -1) == 0, "boost: one more press folds it and goes under the top; got volume %d",
+	   r.l.vol);
+	rig_done(&r);
+	scratch_drop(&sc);
+}
+
+/* A hold on the top: let go before its time, nothing; held its time, open,
+ * and the key still held stops at the first cell until let go */
+static void the_boost_hold(void)
+{
+	pk_boost bo;
+	scratch sc;
+	rig r;
+
+	if (!scratch_make(&sc, VOL_MAX, 7, -1, -1) || !rig_boost(&r, &bo, &sc)) {
+		ck(0, "boost: a scratch database");
+		return;
+	}
+	key(&r, PK_KEY_VOLUMEUP, 1);
+	frames_to(&r, r.now + BOOST_HOLD_MS / 2);
+	ck(pk_boost_moving(&bo, (uint32_t)r.now), "boost: a hold on the top charges, drawn every frame");
+	key(&r, PK_KEY_VOLUMEUP, 0);
+	frames_to(&r, r.now + BOOST_GAP_MS + BOOST_HOLD_MS);
+	ck(!r.opened && !bo.bar[PK_VOLUME].open && file_gain(sc.share, NULL) == 0 &&
+	   pk_db_get(r.db, PK_VOL_BOOST, -1) == -1,
+	   "boost: let go mid-charge, nothing opens, no gain, nothing kept");
+	ck(!pk_boost_moving(&bo, (uint32_t)r.now), "boost: and the charge has drained");
+
+	key(&r, PK_KEY_VOLUMEUP, 1);
+	frames_to(&r, r.now + BOOST_HOLD_MS + 20);
+	ck(r.opened == 1 && pk_boost_cells(&bo, PK_VOLUME) == 1 && file_gain(sc.share, NULL) == BOOST_DB_CELL &&
+	   pk_db_get(r.db, PK_VOL_BOOST, -1) == 1,
+	   "boost: held %d ms on the top it opens, %d dB, kept; got %d cells", BOOST_HOLD_MS, BOOST_DB_CELL,
+	   pk_boost_cells(&bo, PK_VOLUME));
+	frames_to(&r, r.now + 1000);
+	ck(pk_boost_cells(&bo, PK_VOLUME) == 1, "boost: the key still held stops at the first cell; got %d",
+	   pk_boost_cells(&bo, PK_VOLUME));
+	key(&r, PK_KEY_VOLUMEUP, 0);
+	frames_to(&r, r.now + 100);
+	hold(&r, PK_KEY_VOLUMEUP, 80, 100);
+	ck(pk_boost_cells(&bo, PK_VOLUME) == 2 && file_gain(sc.share, NULL) == 2 * BOOST_DB_CELL,
+	   "boost: let go, the next press is the next cell; got %d", pk_boost_cells(&bo, PK_VOLUME));
+	rig_done(&r);
+	scratch_drop(&sc);
+}
+
+/* MENU+VOL+ on the top rung, three times: the backlight's boost, its lift,
+ * kept apart from the volume's */
+static void the_boost_bright(void)
+{
+	pk_boost bo;
+	scratch sc;
+	rig r;
+	int i;
+
+	if (!scratch_make(&sc, 10, BRIGHT_MAX, -1, -1) || !rig_boost(&r, &bo, &sc)) {
+		ck(0, "boost: a scratch database");
+		return;
+	}
+	for (i = 0; i < BOOST_TAPS; i++) {
+		chord(&r, PK_KEY_VOLUMEUP, i & 1, BOTH);
+		frames_to(&r, r.now + 200);
+	}
+	ck(r.opened == 1 && pk_boost_lift(&bo) == 1 && !pk_boost_cells(&bo, PK_VOLUME) &&
+	   r.l.bright == BRIGHT_MAX && r.l.vol == 10,
+	   "boost: MENU+VOL+ three times on the top rung opens the backlight's, lift 1; got lift %d",
+	   pk_boost_lift(&bo));
+	ck(pk_db_get(r.db, PK_BRIGHT_BOOST, -1) == 1 && pk_db_get(r.db, PK_VOL_BOOST, -1) == -1 &&
+	   file_gain(sc.share, NULL) == 0, "boost: kept as the backlight's, no gain in the file");
+	ck(strstr(r.log, "portkeys: brightness boost 0 -> 1 (MENU+VOL+)\n") != NULL,
+	   "boost: the log says it; got\n%s", r.log);
+	rig_done(&r);
+	scratch_drop(&sc);
+}
+
+/* What closes one other than the keys: a plug in or out, the volume's; the
+ * bar going away, an empty one; and a boost kept under the top never opens */
+static void the_boost_closing(void)
+{
+	pk_boost bo;
+	scratch sc;
+	rig r;
+	int i;
+
+	if (!scratch_make(&sc, VOL_MAX, 7, 3, -1) || !rig_boost(&r, &bo, &sc)) {
+		ck(0, "boost: a scratch database");
+		return;
+	}
+	ck(pk_boost_cells(&bo, PK_VOLUME) == 3 && file_gain(sc.share, NULL) == 3 * BOOST_DB_CELL,
+	   "boost: three cells kept, %d dB written as portkeys starts; got %d", 3 * BOOST_DB_CELL,
+	   file_gain(sc.share, NULL));
+	ck(pk_boost_output_changed(r.db, &bo) && !bo.bar[PK_VOLUME].open && file_gain(sc.share, NULL) == 0 &&
+	   pk_db_get(r.db, PK_VOL_BOOST, -1) == 0 && r.l.vol == VOL_MAX,
+	   "boost: a plug in or out closes the volume's, 0 dB, kept closed, the level left");
+	ck(!pk_boost_output_changed(r.db, &bo), "boost: and with none open, it is no change");
+
+	for (i = 0; i < BOOST_TAPS; i++) hold(&r, PK_KEY_VOLUMEUP, 80, 200);
+	hold(&r, PK_KEY_VOLUMEDOWN, 80, 200);
+	ck(bo.bar[PK_VOLUME].open && !pk_boost_cells(&bo, PK_VOLUME), "boost: opened and emptied, it waits");
+	ck(pk_boost_gone(r.db, &bo) == 1 << PK_VOLUME && !bo.bar[PK_VOLUME].open &&
+	   pk_db_get(r.db, PK_VOL_BOOST, -1) == 0 && file_gain(sc.share, NULL) == 0,
+	   "boost: an empty one closes when the bar goes");
+	rig_done(&r);
+	scratch_drop(&sc);
+
+	if (!scratch_make(&sc, VOL_MAX - 5, 7, 3, -1) || !rig_boost(&r, &bo, &sc)) {
+		ck(0, "boost: a scratch database");
+		return;
+	}
+	ck(!bo.bar[PK_VOLUME].open && file_gain(sc.share, NULL) == 0,
+	   "boost: cells kept beside a level under the top do not open");
+	rig_done(&r);
+	scratch_drop(&sc);
+}
+
 int main(void)
 {
 	the_ladder();
@@ -756,8 +1150,15 @@ int main(void)
 	the_resync();
 	the_menu_tap();
 	the_log();
-	the_database();
+	the_database(false);
+	the_database(true);
 	the_pending_order();
+	the_boost_is_apply();
+	the_boost_taps(false);
+	the_boost_taps(true);
+	the_boost_hold();
+	the_boost_bright();
+	the_boost_closing();
 	if (fails) {
 		printf("pkkeys: %d of %d FAILED\n", fails, checks);
 		return 1;

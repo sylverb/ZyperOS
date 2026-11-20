@@ -234,6 +234,19 @@ bool diatom_audio_eq(const char *bands)
 	return true;
 }
 
+/* The volume boost's gain (diatom_audio_boost), dB: one int the message
+ * loop writes and the next push reads, so no lock and no count - an int is
+ * whole on its own. g_boost_took is what the filter's state was last given,
+ * the pushing thread's alone. */
+static volatile int g_boost_db;
+static int          g_boost_took;
+
+void diatom_audio_boost(int db)
+{
+	__atomic_store_n(&g_boost_db, db < 0 ? 0 : db > EQ_GAIN_MAX ? EQ_GAIN_MAX : db,
+	                 __ATOMIC_RELAXED);
+}
+
 /* What SETEQ gave, if it changed and is whole: true with it in `db` */
 static bool eq_taken(int8_t db[EQ_BANDS])
 {
@@ -252,8 +265,15 @@ static bool eq_taken(int8_t db[EQ_BANDS])
 static const int16_t *equalize(const int16_t *in, size_t n)
 {
 	int8_t db[EQ_BANDS];
+	const int gain = __atomic_load_n(&g_boost_db, __ATOMIC_RELAXED);
 
 	if (eq_taken(db)) eq_set(&g_eq, db);
+	/* Not before configure has given the filter its rate: eq_gain's ramp
+	 * is in its samples */
+	if (gain != g_boost_took && g_eq.rate > 0) {
+		eq_gain(&g_eq, gain);
+		g_boost_took = gain;
+	}
 	if (!eq_active(&g_eq) || n > OUT_CHUNK) return in;
 	memcpy(g_eq_buf, in, n * 2 * sizeof(int16_t));
 	eq_run(&g_eq, g_eq_buf, (int)n);
@@ -398,6 +418,10 @@ static void configure(double src_rate, int dst_rate, int capacity_frames)
 		(void)eq_taken(db);
 		memcpy(db, g_eq_want, EQ_BANDS);
 		eq_jump(&g_eq, db);
+		/* And the volume boost's gain, the same way: kept with the level
+		 * from the last game, so the first sample is as loud as it was */
+		g_boost_took = __atomic_load_n(&g_boost_db, __ATOMIC_RELAXED);
+		eq_gain_jump(&g_eq, g_boost_took);
 	}
 
 	if (src_rate <= 0.0 || dst_rate <= 0) {

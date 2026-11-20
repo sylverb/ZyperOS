@@ -93,7 +93,12 @@ static void bar_show(int kind, int level, int max)
 }
 static void bar_fade(void) { bar_fades++; }
 static void release(bool unused) { (void)unused; }
-static void apply_volume(void) {}
+/* A plug in or out (plug_changed, outside the extracted code: the output's
+ * window and the volume boost), and the boost's clock after each pass's
+ * steps (boost_clock): how often each was asked for */
+static int plugs, boost_clocks;
+static void plug_changed(void) { plugs++; }
+static void boost_clock(const pkkeys *k) { (void)k; boost_clocks++; }
 static int mock_close(int fd) { (void)fd; closes++; return 0; }
 static void press(const pk_step *s)
 {
@@ -223,6 +228,7 @@ static void reset(void)
 	menu_shows = 0; menu_answer = 1;
 	powerhold_set_mode(false); PW = (powerhold){ 0 }; pw_shown = false;
 	bar_shows = bar_level = bar_fades = 0;
+	plugs = boost_clocks = 0;
 	for (int i = 0; i < 8; i++) { clocks[i] = 1000100; times[i] = 1000; waits[i] = -99; }
 	wall_us = clocks[0]; mono_ms = times[0];
 	fds[0] = (struct pollfd){10, POLLIN, 0}; fds[1] = (struct pollfd){11, POLLIN, 0};
@@ -435,6 +441,19 @@ int main(void)
 		run_loop();
 		ck(menu_shows == 1 && queries == 0, "no menu over this port: nothing resynced");
 	}
+	/* A plug in or out is the jack's switch, read with the keys: one change
+	 * of output for the pass that read it, and the boost's clock runs after
+	 * every pass, a pass with nothing read too */
+	reset(); n = 1; has_vol[0] = true; limit = 2;
+	put(0, 1000000, EV_SW, SW_HEADPHONE_INSERT, 1);
+	put(0, 1000001, EV_SYN, SYN_REPORT, 0);
+	run_loop();
+	ck(plugs == 1 && steps == 0, "a plug in is one change of output, and no step");
+	ck(boost_clocks == 2, "the boost's clock runs after every pass");
+	reset(); n = 1; has_vol[0] = true;
+	put(0, 1000000, EV_KEY, PK_KEY_VOLUMEUP, 1);
+	run_loop();
+	ck(plugs == 0 && steps == 1 && boost_clocks == 1, "a key is no change of output");
 	printf("portkeys-flow: %d checks, %d failed\n", checks, failures);
 	return failures ? 1 : 0;
 }

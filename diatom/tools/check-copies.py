@@ -33,7 +33,7 @@ COPIES = (
     ("port", "osdbar.c"), ("port", "osdbar.h"), ("port", "themefile.c"),
     ("port", "themefile.h"), ("port", "design.h"), ("port", "panelgamma.c"),
     ("port", "panelgamma.h"), ("port", "panelgamma_sunxi.h"), ("src", "p2share.h"),
-    ("src", "eqdsp.h"),
+    ("src", "eqdsp.h"), ("port", "boost.h"),
 )
 
 if not SRC.is_dir():

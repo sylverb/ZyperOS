@@ -15,6 +15,7 @@
 #include "uisound.h"
 #include "zyperdraw.h"
 #include "zypermark.h"
+#include "levels.h"
 
 #include <SDL.h>
 #include <stdio.h>
@@ -386,10 +387,7 @@ static void update_screen_body(app *a)
 		if (a->in.quit_requested) { a->running = false; return; }
 		if (a->in.pressed[IN_POWER] || idle_due(a)) { power_off(a); return; }
 		if (a->in.pressed[IN_SELECT]) mp4_open(a, NULL, NULL);
-		if (in_repeat(&a->in, IN_VOLUP))    plat_volume_nudge(+1);
-		if (in_repeat(&a->in, IN_VOLDN))    plat_volume_nudge(-1);
-		if (in_repeat(&a->in, IN_BRIGHTUP)) plat_brightness_nudge(+1);
-		if (in_repeat(&a->in, IN_BRIGHTDN)) plat_brightness_nudge(-1);
+		levels_keys(&a->in, BOOST_HIDE);
 		/* What's New, a line at a time: up and down (held, it goes on) */
 		if (in_repeat(&a->in, IN_UP) && g_up_scroll > 0) { g_up_scroll--; moved_sound(a, IN_UP); }
 		if (in_repeat(&a->in, IN_DOWN) && g_up_more) { g_up_scroll++; moved_sound(a, IN_DOWN); }

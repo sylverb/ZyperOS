@@ -70,7 +70,10 @@ for path in sorted((ROOT / 'src').rglob('*.c')):
         print(f'FAIL {path.relative_to(ROOT)}:{l1} and {l2}: in_repeat({state}, {button}) read twice in one '
               f'step; the second read of a held button is false (use in_repeat_axis, or read it once)')
         fails += 1
-if reads < 100:
+# A floor that only proves the pattern still finds the reads: the volume and
+# brightness keys moved into one levels_keys (src/levels.c) and took the
+# screens' own reads with them, 88 left in 2026-11; a broken pattern finds few
+if reads < 50:
     print(f'FAIL only {reads} in_repeat reads found in src/: the check is not reading them')
     fails += 1
 if fails:

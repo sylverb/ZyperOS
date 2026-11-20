@@ -33,6 +33,16 @@
  * in use (the jack is watched, as the launcher does) and on "USB Playback
  * Volume" for a USB-C DAC, by ioctl: no alsa-lib, no amixer on the system.
  *
+ * AND THE BOOST PAST THE TOP, AS THE LAUNCHER'S (src/boost.h, DESIGN.md 11.6).
+ * At the top, VOL+ held a second more or pressed three more times opens cells
+ * past it: the volume's are software gain, which this writes to the file the
+ * port's ALSA plugin reads every period (src/eqdsp.h's eq_share, the launcher
+ * being gone), and the backlight's a lift of the mid-tones in the display's
+ * gamma table, loaded on the display borrowed for the bar. The cells are
+ * kept beside the levels in the same database, written as this starts, and
+ * drawn in the bar every frame while they charge, open, fill or fold;
+ * tools/pkkeys.c holds the rules, and a plug in or out closes the volume's.
+ *
  * THE BAR, ON THE PANEL'S CURSOR LAYER. The port owns the display: it is the
  * DRM master, and setting any plane is a master's ioctl, so no other process
  * can show anything while it runs - there is no compositor to ask. What this
@@ -171,6 +181,10 @@ struct pk_ctl_elem_value {
 
 static int mixer = -1, jack = -1;
 static pk_levels L = { -1, -1 };     /* positions; -1 not known yet */
+/* The boost past the top of each (pkkeys.h): its cells, kept beside the
+ * levels, the volume's as the gain in the file the port's plugin reads, the
+ * backlight's as the lift in the display's table (port_gamma) */
+static pk_boost BO;
 static sqlite3 *db;
 /* MENU > Appearance as the launcher saved it, "" for never; read once, since
  * nothing can change it while a port runs. appearance_read is whether the
@@ -241,6 +255,24 @@ static void apply_volume(void)
 	ctl_write(USB_CTL, px2_usb_raw(L.vol));
 }
 
+/* A plug in or out, or a resync that read the jack's switch again: the other
+ * output's window, as the launcher does (plat_audio_jack_poll), and an output
+ * that did change closes the volume boost, so the new one starts at the top
+ * without it (src/levels.c's levels_output_changed). The first reading is
+ * main's, as the port starts; a resync that finds the plug as it was is no
+ * change. */
+static int jack_was = -1;
+
+static void plug_changed(void)
+{
+	int in = jack_in();
+
+	if (jack_was >= 0 && in != jack_was && pk_boost_output_changed(db, &BO))
+		fprintf(stderr, "portkeys: the output changed, so the volume boost is closed\n");
+	jack_was = in;
+	apply_volume();
+}
+
 static void apply_brightness(void)
 {
 	FILE *f = fopen(BACKLIGHT, "w");
@@ -276,10 +308,11 @@ static struct {
 	bool live;
 	int theme;                   /* DS_LIGHT or DS_DARK, as bar_show resolved it at the last press */
 	float drawn_a, drawn_rise;   /* what is on the panel, to skip repeats */
-	int drawn_kind, drawn_level, drawn_theme;
+	osdbar_look drawn;           /* the same */
+	int drawn_theme;
 } B;
 
-static int bw, bh;               /* the bar as the player sees it: 298 x 58 */
+static int bw, bh;               /* the bar as the player sees it: 373 x 58 */
 
 /* The very ioctl the fallback needs, asked to set plane 0, which there is
  * none of: the master is refused for that (ENOENT), anyone else for not
@@ -336,6 +369,10 @@ static void release(bool port_gone)
 	if (G.pidfd >= 0) close(G.pidfd);
 	memset(&G, 0, sizeof G);
 	G.fd = G.pidfd = -1;
+	/* A bar cut short goes away as one that ran its time does: an empty
+	 * boost closes (bar_tick). It had no gain and no lift, so nothing is
+	 * loaded again for it. */
+	if (B.live) pk_boost_gone(db, &BO);
 	B.live = false;
 	fprintf(stderr, "portkeys: display let go%s\n", port_gone ? " (port ended)" : "");
 }
@@ -551,15 +588,16 @@ static bool overlay_setup(void)
  * landscape top along the panel's left edge): a landscape pixel (x, y) is the
  * panel's (y, W - 1 - x), W the landscape width, the panel's height. False
  * when the frame did not go up, and then the copy may have been let go of. */
-static bool put(float alpha, float rise)
+static bool put(const osdbar_look *look, float alpha, float rise)
 {
 	static uint32_t flat[OSDBAR_W * OSDBAR_H];
 	int next = G.cur ^ 1, x, y, lx, ly, px, py;
 	uint32_t *dst = G.map[next];
 
 	/* In the theme bar_show resolved at the last press, the one the shelf
-	 * would be in at that minute, so over a port the bar is the shelf's. */
-	osdbar_render(flat, bw, bh, bw, PANEL_S, B.theme, B.kind, B.level, B.max, alpha, true);
+	 * would be in at that minute, so over a port the bar is the shelf's.
+	 * The buffers are osdbar_size's, the boost's room included (buffers). */
+	osdbar_render_look(flat, bw, bh, bw, PANEL_S, B.theme, look, alpha, true);
 	for (y = 0; y < bh; y++)
 		for (x = 0; x < bw; x++)
 			dst[(size_t)(bw - 1 - x) * (G.pitch / 4) + y] = flat[(size_t)y * bw + x];
@@ -867,6 +905,27 @@ static int notice_tick(long now)
 	return (int)(N.until - now);
 }
 
+/* What the bar shows now: the level's as its boost has it (pkkeys.h), which
+ * moves while it charges, opens, fills or folds, and POWER's hold as it was */
+static void bar_look(osdbar_look *l, long now)
+{
+	if (B.kind == OSDBAR_VOLUME || B.kind == OSDBAR_BRIGHT)
+		pk_boost_look(&BO, B.kind == OSDBAR_BRIGHT ? PK_BRIGHT : PK_VOLUME, (uint32_t)now, l);
+	else
+		osdbar_look_plain(l, B.kind, B.level, B.max);
+}
+
+static void port_gamma(void);        /* with the keys, below */
+
+/* The bar gone, its time run: an empty boost closes with it and a filled one
+ * stays, as in the launcher (levels_bar_gone). Closing an empty one changes
+ * neither the gain nor the lift, but the table is asked for all the same, on
+ * the display still borrowed; it is left alone when it holds what is wanted. */
+static void bar_gone(void)
+{
+	if (pk_boost_gone(db, &BO) & (1 << PK_BRIGHT)) port_gamma();
+}
+
 /* One frame of the bar's life, if it changed; how long until the next. While
  * it slides or fades that is a refresh, 16 ms, and a frame the window did not
  * take is tried again at the next. Every frame first asks whether the copy is
@@ -881,6 +940,7 @@ static int bar_tick(void)
 	long now = now_ms();
 	float a, rise;
 	bool alive;
+	osdbar_look look;
 
 	heat_check(now);
 	if (!B.live) return notice_tick(now);
@@ -888,16 +948,17 @@ static int bar_tick(void)
 	N.drawn = false;             /* the bar has the window */
 	alive = osdbar_envelope((uint32_t)(now - B.shown), (uint32_t)(now - B.changed), &a, &rise);
 	if (!alive) a = 0, rise = 0;
-	if (a != B.drawn_a || rise != B.drawn_rise || B.kind != B.drawn_kind || B.level != B.drawn_level ||
+	bar_look(&look, now);
+	if (a != B.drawn_a || rise != B.drawn_rise || memcmp(&look, &B.drawn, sizeof look) ||
 	    B.theme != B.drawn_theme) {
-		if (!put(a, rise) && alive) return G.fd < 0 ? -1 : 16;
+		if (!put(&look, a, rise) && alive) return G.fd < 0 ? -1 : 16;
 		B.drawn_a = a;
 		B.drawn_rise = rise;
-		B.drawn_kind = B.kind;
-		B.drawn_level = B.level;
+		B.drawn = look;
 		B.drawn_theme = B.theme;
 	}
 	if (!alive) {
+		bar_gone();
 		/* The heat notice back on the window, if it is still up */
 		if (N.live && now < N.until) {
 			B.live = false;
@@ -906,6 +967,10 @@ static int bar_tick(void)
 		release(false);
 		return -1;
 	}
+	/* The boost charging, opening, filling or folding, or VOL+ held on the
+	 * top while its hold charges: every frame until it stops, as the
+	 * launcher draws it (plat_osd_until) */
+	if (B.kind != OSDBAR_POWER && pk_boost_moving(&BO, (uint32_t)now)) return 16;
 	{
 		uint32_t wait = osdbar_next_change((uint32_t)(now - B.shown), (uint32_t)(now - B.changed));
 		return wait ? (int)wait : 16;
@@ -938,12 +1003,14 @@ static void port_gamma(void)
 		return;
 	}
 	/* With the player's Screen Colors and Night Mode, as the launcher left
-	 * them */
+	 * them, and the brightness boost's lift, which is this one's (pkkeys.h) */
 	panelgamma_screen_read(PANELGAMMA_COLOR_FILE, &c, &night);
 	c.night = night_on = panelgamma_night_at(&night, (long long)time(NULL));
+	c.lift = pk_boost_lift(&BO);
 	n = panelgamma_apply_color(G.fd, raw, &c);
 	if (n > 0)
-		fprintf(stderr, "portkeys: the display's gamma table set for brightness %d\n", raw);
+		fprintf(stderr, "portkeys: the display's gamma table set for brightness %d, lift %d\n", raw,
+		        c.lift);
 	else if (n < 0)
 		fprintf(stderr, "portkeys: could not set the display's gamma table for brightness %d\n",
 		        raw);
@@ -973,6 +1040,7 @@ static void night_tick(void)
 	}
 	panelgamma_color_read(PANELGAMMA_COLOR_FILE, &c);
 	c.night = w;
+	c.lift = pk_boost_lift(&BO);
 	n = panelgamma_apply_color(G.fd, bright_ladder[L.bright], &c);
 	fprintf(stderr, "portkeys: Night Mode %s%s\n", w ? "on" : "off",
 	        n < 0 ? ": could not set the display's gamma table" : "");
@@ -988,22 +1056,49 @@ static int night_wait(void)
 	return next - now > 3600 ? 3600 * 1000 : (int)(next - now) * 1000 + 50;
 }
 
-/* One step from tools/pkkeys.c: the level, saved when it moved, its line in
- * the log, the hardware and the bar. A press writes the hardware even at an
- * end of the scale, as it always has, which puts the level back if the port
- * moved the mixer itself; a repeat that moved nothing writes nothing, and
- * keeps the bar up. */
+/* The brightness boost kept from before, on the display as portkeys starts.
+ * The launcher left its table with the lift as it handed over, so this is for
+ * a display that lost it meanwhile; it is left alone when it holds what is
+ * wanted. On a master's copy taken for the load and let go, as night_tick's;
+ * with no program on the display yet, the next step loads it. */
+static void lift_start(void)
+{
+	panelgamma_color c;
+	int n;
+
+	if (!pk_boost_lift(&BO)) return;
+	if (!master_copy()) {
+		fprintf(stderr, "portkeys: no display yet for the brightness boost's lift %d; the next step "
+		        "loads it\n", pk_boost_lift(&BO));
+		return;
+	}
+	panelgamma_color_read(PANELGAMMA_COLOR_FILE, &c);
+	c.night = night_on;
+	c.lift = pk_boost_lift(&BO);
+	n = panelgamma_apply_color(G.fd, bright_ladder[L.bright], &c);
+	fprintf(stderr, "portkeys: the brightness boost's lift %d%s\n", c.lift,
+	        n < 0 ? ": could not set the display's gamma table" : n ? ", loaded" : ", already on");
+	release(false);
+}
+
+/* One step from tools/pkkeys.c, through the boost past the top (pk_press):
+ * the level, saved when it moved, its line in the log, the hardware and the
+ * bar. A press writes the hardware even at an end of the scale, as it always
+ * has, which puts the level back if the port moved the mixer itself; a repeat
+ * that moved nothing writes nothing, and keeps the bar up. The boost's cells
+ * moving are kept, and the volume's gain written, by pk_press; their lift is
+ * loaded here, on the display the bar has just borrowed. */
 static void press(const pk_step *s)
 {
 	char line[96];
-	bool moved = pk_apply(db, &L, s, line, sizeof line);
-	bool vol = s->kind != PK_BRIGHT;
+	int did = pk_press(db, &L, &BO, s, (uint32_t)now_ms(), line, sizeof line);
+	bool moved = did & BOOST_LEVEL, vol = s->kind != PK_BRIGHT;
 
 	if (line[0]) fputs(line, stderr);
 	if (!vol) {
 		if (moved || !s->held) apply_brightness();
 		bar_show(OSDBAR_BRIGHT, L.bright, BRIGHT_MAX);
-		if (moved || !s->held) port_gamma();
+		if (moved || !s->held || (did & BOOST_GAIN)) port_gamma();
 	} else {
 		if (moved || !s->held) apply_volume();
 		bar_show(OSDBAR_VOLUME, L.vol, VOL_MAX);
@@ -1013,6 +1108,32 @@ static void press(const pk_step *s)
 		side_lights_level_line(line, sizeof line, vol, vol ? L.vol : L.bright,
 		                       vol ? VOL_MAX : BRIGHT_MAX);
 		side_lights_say_to(SIDE_LIGHTS_FIFO, line);
+	}
+}
+
+/* The boost's clock, on every pass of the loop after its steps
+ * (pk_boost_tick): VOL+ let go, a hold on the top charging and, held
+ * BOOST_HOLD_MS, opening; presses that stopped draining. A hold that opens it
+ * is shown and loaded as a press that does: the bar, and for the backlight
+ * the lift; the gain is in the file already. The launcher's rumble as it
+ * opens is not given over a port. */
+static void boost_clock(const pkkeys *k)
+{
+	const uint32_t now = (uint32_t)now_ms();
+	int i;
+
+	for (i = 0; i < 2; i++) {
+		const pk_kind kind = i ? PK_BRIGHT : PK_VOLUME;
+
+		if (!(pk_boost_tick(db, &BO, k, kind, now) & BOOST_GAIN)) continue;
+		if (kind == PK_BRIGHT) {
+			fprintf(stderr, "portkeys: brightness boost 0 -> %d (MENU+VOL+ held)\n", pk_boost_lift(&BO));
+			bar_show(OSDBAR_BRIGHT, L.bright, BRIGHT_MAX);
+			port_gamma();
+		} else {
+			fprintf(stderr, "portkeys: volume boost +0 -> +%d dB (VOL+ held)\n", pk_boost_gain(&BO));
+			bar_show(OSDBAR_VOLUME, L.vol, VOL_MAX);
+		}
 	}
 }
 
@@ -1474,6 +1595,7 @@ static int menu_waiting(void)
 		kill(-pg, SIGCONT);
 	}
 	pk_levels_load(db, BACKLIGHT, &L);
+	pk_boost_load(db, &L, &BO);
 	fprintf(stderr, "portkeys: the menu was up %ld ms while the port started: %s\n", now_ms() - t0,
 	        how == PORT_MENU_QUIT ? "Quit" : how == PORT_MENU_POWER ? "POWER" : "Keep Waiting");
 	if (how == PORT_MENU_QUIT) {
@@ -1576,8 +1698,10 @@ static int menu_show(void)
 	port_input_flush(pg);
 	release(false);
 	kill(-pg, SIGCONT);
-	/* The launcher's volume and brightness keys, saved where these are */
+	/* The launcher's volume and brightness keys, saved where these are, and
+	 * the boosts it kept beside them, its gain written again (pkkeys.h) */
 	pk_levels_load(db, BACKLIGHT, &L);
+	pk_boost_load(db, &L, &BO);
 	fprintf(stderr, "portkeys: the menu was up %ld ms: %s\n", now_ms() - t0,
 	        how == PORT_MENU_QUIT ? "Quit" : how == PORT_MENU_POWER ? "POWER" : "Continue");
 	if (how == PORT_MENU_QUIT) {
@@ -1943,6 +2067,15 @@ int main(int argc, char **argv)
 	 * rung nearest what the panel is at. A volume never saved stays
 	 * untouched until the first press, which starts from the middle. */
 	pk_levels_load(db, BACKLIGHT, &L);
+	/* And the boosts past the top kept beside them (pkkeys.h): the volume's
+	 * gain written to the file the port's plugin reads, so the port starts
+	 * with it; the backlight's lift below, with Night Mode's warmth */
+	pk_boost_init(&BO, NULL);
+	if (!pk_boost_load(db, &L, &BO))
+		fprintf(stderr, "portkeys: no file at %s for the volume boost's gain\n", BO.share_path);
+	if (pk_boost_cells(&BO, PK_VOLUME) || pk_boost_cells(&BO, PK_BRIGHT))
+		fprintf(stderr, "portkeys: kept from before, volume boost +%d dB, brightness boost %d\n",
+		        pk_boost_gain(&BO), pk_boost_lift(&BO));
 	/* Developer SSH for the port's length (pkssh.h), and TERM to end it */
 	pkssh_init(db, argc > 1 ? argv[1] : NULL);
 	{
@@ -1976,6 +2109,7 @@ int main(int argc, char **argv)
 		night_on = panelgamma_night_at(&night, (long long)time(NULL));
 		night_looked = time(NULL);
 	}
+	lift_start();
 	/* The heat notice the launcher left, in both themes (heat_check) */
 	heat_init(&H);
 	notice_load(DS_LIGHT, PORT_HEAT_LIGHT);
@@ -2017,6 +2151,9 @@ int main(int argc, char **argv)
 	if (d) closedir(d);
 	if (!n) return 1;
 	if (!event_clock_fallback(clk_err)) return 1;
+	/* The plug as the port starts: a plug in or out from here on is a
+	 * change of output (plug_changed) */
+	jack_was = jack_in();
 
 	for (;;) {
 		static pk_key keys[PK_PASS_MAX];
@@ -2129,10 +2266,12 @@ int main(int argc, char **argv)
 			resync_devices(&plugged);
 		}
 
-		if (plugged) apply_volume();
+		if (plugged) plug_changed();
 
 		/* A held key's repeats, on the launcher's clock */
 		m = pkkeys_tick(&K, now_ms(), s, 2);
 		for (i = 0; i < m; i++) press(&s[i]);
+		/* And the boost's, after this pass's steps (boost_clock) */
+		boost_clock(&K);
 	}
 }

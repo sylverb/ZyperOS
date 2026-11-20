@@ -1650,19 +1650,26 @@ static const char *const level_kind_name[DIATOM_LEVEL_COUNT] = {
 };
 static int g_last_index[DIATOM_LEVEL_COUNT];
 static int g_last_count[DIATOM_LEVEL_COUNT];
+static int g_last_boost[DIATOM_LEVEL_COUNT];
 
 static void levels_forget(void)
 {
 	int k;
-	for (k = 0; k < DIATOM_LEVEL_COUNT; k++) g_last_index[k] = g_last_count[k] = -1;
+	for (k = 0; k < DIATOM_LEVEL_COUNT; k++)
+		g_last_index[k] = g_last_count[k] = g_last_boost[k] = -1;
 }
 
+/* With the boost's cells past the top (levels.h), boost=0 when it is closed:
+ * a field more on the line, which a launcher from before it skips */
 static void level_emit(int k, int idx, int cnt)
 {
+	const int boost = diatom_levels_boost((diatom_level_kind)k);
+
 	g_last_index[k] = idx;
 	g_last_count[k] = cnt;
-	diatom_proto_send("LEVEL\tkind=%s\tindex=%d\tcount=%d",
-	                  level_kind_name[k], idx, cnt);
+	g_last_boost[k] = boost;
+	diatom_proto_send("LEVEL\tkind=%s\tindex=%d\tcount=%d\tboost=%d",
+	                  level_kind_name[k], idx, cnt, boost);
 }
 
 /* Polled with the input bitfield and emitted on change. The port cannot send
@@ -1676,20 +1683,25 @@ static void levels_tick(void)
 	if (!diatom_proto_connected()) return;
 	for (k = 0; k < DIATOM_LEVEL_COUNT; k++) {
 		if (!diatom_levels_get((diatom_level_kind)k, &idx, &cnt)) continue;
-		if (idx == g_last_index[k] && cnt == g_last_count[k]) continue;
+		if (idx == g_last_index[k] && cnt == g_last_count[k] &&
+		    diatom_levels_boost((diatom_level_kind)k) == g_last_boost[k]) continue;
 		level_emit(k, idx, cnt);
 	}
 }
 
 /* Did any level change since the last call? Separate from levels_tick, which
  * runs only with a launcher connected: the MENU chord it serves matters
- * standalone too, where MENU's release ends the session. */
+ * standalone too, where MENU's release ends the session. A level key acted on
+ * at all counts: with the boost past the top a press there moves no level -
+ * it charges the boost, or fills a cell - and was the chord all the same. */
 static bool levels_moved(void)
 {
 	static int seen[DIATOM_LEVEL_COUNT] = { -1, -1 };
-	bool moved = false;
+	static unsigned presses;
+	bool moved = diatom_levels_presses() != presses;
 	int k, idx, cnt;
 
+	presses = diatom_levels_presses();
 	for (k = 0; k < DIATOM_LEVEL_COUNT; k++) {
 		if (!diatom_levels_get((diatom_level_kind)k, &idx, &cnt)) continue;
 		if (seen[k] >= 0 && idx != seen[k]) moved = true;
@@ -1941,7 +1953,7 @@ static void level_set(const diatom_msg *m)
 		if (!strcmp(level_kind_name[k], m->lkind)) break;
 
 	if (k == DIATOM_LEVEL_COUNT || m->count <= 0 ||
-	    !diatom_levels_set((diatom_level_kind)k, m->index, m->count)) {
+	    !diatom_levels_set((diatom_level_kind)k, m->index, m->count, m->boost)) {
 		diatom_proto_send("ERROR\tcode=bad_level\tmsg=%s", m->lkind);
 		return;
 	}

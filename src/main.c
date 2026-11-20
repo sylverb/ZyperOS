@@ -202,6 +202,7 @@
 #include "shelf_draw.h"
 #include "zyperdraw.h"
 #include "zypermark.h"
+#include "levels.h"
 
 #include <SDL.h>
 #include <SDL_image.h>
@@ -5786,6 +5787,7 @@ static int port_menu_main(int argc, char **argv)
 	tour_hint_draw_set(keyhints_width, tour_hint);
 	plat_input_init();
 	plat_settings_init();
+	levels_init();   /* the boosts past the top kept from before (src/levels.c) */
 	if (!ui_init(a.r, P_FONT)) fprintf(stderr, "port menu: font init failed\n");
 	ui_fonts_for(i18n_lang());
 	page_fonts_init(P_FONT);
@@ -5983,14 +5985,17 @@ int main(int argc, char *argv[])
 		/* The game under the cursor deleted as Delete Game's yes deletes it,
 		 * then the shot: the shelf after, and what went on stderr */
 		else if (!strcmp(argv[i], "--delete-now")) shot_delete_now = 1;
-		/* --osd volume|brightness|power LEVEL: the settings bar at that
-		 * level, on top of the rest of the shot; power is POWER's hold, LEVEL
-		 * segments of OSDBAR_POWER_STEPS lit (MENU > Power Button on Hold). */
+		/* --osd volume|brightness|power LEVEL [+CELLS]: the settings bar at
+		 * that level, on top of the rest of the shot; power is POWER's hold,
+		 * LEVEL segments of OSDBAR_POWER_STEPS lit (MENU > Power Button on
+		 * Hold); +CELLS, the boost past the top open with that many filled
+		 * (src/boost.h). */
 		else if (!strcmp(argv[i], "--osd") && i + 2 < argc) {
 			shot_osd_kind = !strcmp(argv[i + 1], "brightness") ? OSDBAR_BRIGHT
 			              : !strcmp(argv[i + 1], "power") ? OSDBAR_POWER : OSDBAR_VOLUME;
 			shot_osd_val = atoi(argv[i + 2]);
 			i += 2;
+			if (i + 1 < argc && argv[i + 1][0] == '+') shot_osd_boost = atoi(argv[++i] + 1);
 		}
 		/* --theme light|dark: the shot in that theme, whatever the saved
 		 * Appearance is, so a screen can be looked at in both without a
@@ -7347,6 +7352,7 @@ int main(int argc, char *argv[])
 	 * of a bug it kept reintroducing: reapplying the config afterwards put
 	 * the shipped default ahead of the level the player last chose. */
 	plat_settings_init();
+	levels_init();   /* the boosts past the top kept from before (src/levels.c) */
 	t_mark("settings");
 
 	/* Before ui_init, which is where the sizes are decided; it persists across
@@ -7820,10 +7826,7 @@ int main(int argc, char *argv[])
 
 		if (a.in.pressed[IN_POWER] || idle_due(&a)) { power_off(&a); break; }
 
-		if (in_repeat(&a.in, IN_VOLUP))    plat_volume_nudge(+1);
-		if (in_repeat(&a.in, IN_VOLDN))    plat_volume_nudge(-1);
-		if (in_repeat(&a.in, IN_BRIGHTUP)) plat_brightness_nudge(+1);
-		if (in_repeat(&a.in, IN_BRIGHTDN)) plat_brightness_nudge(-1);
+		levels_keys(&a.in, BOOST_HIDE);
 
 		/* Auto's clock: 7:00 and 19:00 by the handheld, looked at once a
 		 * minute (theme_tick says why not every pass). Here for the shelf;

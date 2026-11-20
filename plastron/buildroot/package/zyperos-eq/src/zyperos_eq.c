@@ -5,11 +5,13 @@
  * Every program here plays through ALSA's `default`, ports too, with no
  * sound server between. ZyperOS shapes the sound of the programs it is
  * (MP4, the menu music, Diatom) in their own code; a port's is shaped here.
- * launch.sh starts a port with an ALSA config of its own, only while the
- * equalizer is on, whose `default` is plug -> alsa-lib's ladspa PCM (this
- * plugin) -> plug -> the same dmix every other program mixes into (the same
- * ipc_key). With the equalizer off the port starts as it always did: no
- * config, no plugin, nothing spent.
+ * launch.sh starts every port with an ALSA config of its own whose
+ * `default` is plug -> alsa-lib's ladspa PCM (this plugin) -> plug -> the
+ * same dmix every other program mixes into (the same ipc_key). Since the
+ * volume boost (src/boost.h) it is in every port's chain, as the boost may
+ * open during the port: flat and with no gain it copies the sound as it
+ * came. The boost's gain is read from the same file as the bands, written
+ * by portkeys while the port runs.
  *
  * The arithmetic is ZyperOS's src/eqdsp.h, the same file MP4, the menu
  * music and Diatom use (this package builds against the ZyperOS tree at
@@ -67,9 +69,11 @@ static const volatile eq_share *share_map(void)
 	return m == MAP_FAILED ? NULL : (const volatile eq_share *)m;
 }
 
-/* The launcher's bands, when it has some and they are whole: true with them
- * in `db`. Looked for about once a second while there is no file. */
-static int bands(zeq *z, unsigned long frames, int8_t db[EQ_BANDS])
+/* The launcher's bands and the volume boost's gain (which portkeys writes
+ * while the port runs), when there are some and they are whole: true with
+ * them in `db` and `*gain`. Looked for about once a second while there is
+ * no file. */
+static int bands(zeq *z, unsigned long frames, int8_t db[EQ_BANDS], int8_t *gain)
 {
 	if (!z->share) {
 		if (z->look_in > frames) {
@@ -79,7 +83,7 @@ static int bands(zeq *z, unsigned long frames, int8_t db[EQ_BANDS])
 		z->look_in = z->rate;
 		if (!(z->share = share_map())) return 0;
 	}
-	return eq_share_read(z->share, db);
+	return eq_share_read(z->share, db, gain);
 }
 
 static LADSPA_Handle instantiate(const LADSPA_Descriptor *d, unsigned long rate)
@@ -104,12 +108,13 @@ static void connect_port(LADSPA_Handle h, unsigned long port, LADSPA_Data *where
 static void activate(LADSPA_Handle h)
 {
 	zeq *z = h;
-	int8_t db[EQ_BANDS] = { 0 };
+	int8_t db[EQ_BANDS] = { 0 }, gain = 0;
 
 	z->look_in = 0;
-	bands(z, 0, db);
+	bands(z, 0, db, &gain);
 	eq_init(&z->eq, (int)z->rate);
 	eq_jump(&z->eq, db);
+	eq_gain_jump(&z->eq, gain);
 }
 
 static void run(LADSPA_Handle h, unsigned long frames)
@@ -117,13 +122,16 @@ static void run(LADSPA_Handle h, unsigned long frames)
 	zeq *z = h;
 	const LADSPA_Data *l = z->port[IN_L], *r = z->port[IN_R];
 	LADSPA_Data *ol = z->port[OUT_L], *or_ = z->port[OUT_R];
-	int8_t db[EQ_BANDS];
+	int8_t db[EQ_BANDS], gain = 0;
 	unsigned long at = 0, i;
 
 	if (!l || !r || !ol || !or_) return;
-	if (bands(z, frames, db)) eq_set(&z->eq, db);
+	if (bands(z, frames, db, &gain)) {
+		eq_set(&z->eq, db);
+		eq_gain(&z->eq, gain);
+	}
 	if (!eq_active(&z->eq)) {
-		/* Flat and at rest: the sound as it came */
+		/* Flat, no boost and at rest: the sound as it came */
 		if (ol != l) memmove(ol, l, frames * sizeof *ol);
 		if (or_ != r) memmove(or_, r, frames * sizeof *or_);
 		return;

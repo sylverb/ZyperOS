@@ -315,6 +315,9 @@ static int g_disp_fd = -1;
 static panelgamma_color g_gamma_color;
 static panelgamma_night g_gamma_night;
 static time_t           g_night_looked;
+/* The brightness boost's lift (diatom_port_level_lift), never in the file:
+ * put on what is read at each take */
+static int              g_gamma_lift;
 
 static void display_gamma(bool take)
 {
@@ -324,6 +327,7 @@ static void display_gamma(bool take)
 	if (take) {
 		panelgamma_screen_read(PANELGAMMA_COLOR_FILE, &g_gamma_color, &g_gamma_night);
 		g_gamma_color.night = panelgamma_night_at(&g_gamma_night, (long long)now);
+		g_gamma_color.lift = g_gamma_lift;
 	} else {
 		int w;
 
@@ -375,6 +379,11 @@ static int      g_osd_theme;    /* DS_LIGHT or DS_DARK */
  * file's second line, themefile_read_bar); the gen moves when they do */
 static ds_theme g_osd_colors;
 static unsigned g_osd_colors_gen;
+/* The level bar's look as the host's boost has it (diatom_port_level_look):
+ * drawn for the kind it is of, osd_look_now says. Written under g_mx, which
+ * the GPU path's thread reads it under; the CPU path reads it on the thread
+ * that writes it. */
+static osdbar_look g_osd_look;
 
 /* Is there a plug in the headphone jack?
  *
@@ -520,10 +529,16 @@ static void mixer_defaults(void)
  * game ends. */
 static int g_jack_was = -1;                /* last state written; -1 = never */
 static void gain_apply(void);
+/* A plug in or out seen here, not the first look after a handover
+ * (g_jack_was -1), for diatom_port_level_plugged. Atomic: this poll runs in
+ * the input poll, which a core with a thread of its own may call from there,
+ * and the host asks from the frame loop. */
+static bool g_jack_moved;
 
 static void gain_jack_poll(void)
 {
 	if (jack_present() == g_jack_was || g_level < 0) return;
+	if (g_jack_was >= 0) __atomic_store_n(&g_jack_moved, true, __ATOMIC_RELAXED);
 	gain_apply();
 }
 
@@ -609,6 +624,17 @@ static void osd_show(int kind, int level, int max)
 	g_osd_theme   = theme;
 	g_osd_changed = now;
 	pthread_mutex_unlock(&g_mx);
+}
+
+/* What the bar shows now: the host's look while it is the look of the bar's
+ * kind, else the plain bar (POWER's hold, a kind it has not given a look for
+ * yet). Under g_mx on the GPU path's thread (port/gles_present.h). */
+static void osd_look_now(osdbar_look *l)
+{
+	const int kind = g_osd_kind == 2 ? OSDBAR_POWER : g_osd_kind ? OSDBAR_BRIGHT : OSDBAR_VOLUME;
+
+	if (g_osd_kind != 2 && g_osd_look.kind == kind) *l = g_osd_look;
+	else osdbar_look_plain(l, kind, g_osd_level, g_osd_max);
 }
 
 /* The panel at a rung, and back as the nearest rung, so a level the launcher
@@ -866,11 +892,14 @@ static diatom_rect g_bar_painted[FB_PAGES];
  * starts black, as the page is where the picture does not reach. */
 static void bar_frame(void)
 {
-	static int drawn_kind = -1, drawn_level, drawn_max, drawn_theme;
+	static osdbar_look drawn;
+	static bool drawn_any;
+	static int drawn_theme;
 	static float drawn_alpha;
 	static unsigned colors_seen;
 	const float s = (float)g_vinfo.xres / 1024.0f;
 	const uint64_t now = diatom_port_now_us();
+	osdbar_look look;
 	float alpha, rise;
 	diatom_rect r;
 	size_t i, n;
@@ -888,16 +917,21 @@ static void bar_frame(void)
 	if (colors_seen != g_osd_colors_gen) {
 		osdbar_colors(g_osd_theme, &g_osd_colors);
 		colors_seen = g_osd_colors_gen;
-		drawn_kind = -1;
+		drawn_any = false;
 	}
-	if (g_osd_kind != drawn_kind || g_osd_level != drawn_level ||
-	    g_osd_max != drawn_max || g_osd_theme != drawn_theme || alpha != drawn_alpha) {
+	/* The look (the level, its mark moving, the boost past the top) painted
+	 * again when it moves; the fade alone is osdbar_render_look's
+	 * conversion of what it painted last */
+	osd_look_now(&look);
+	if (!drawn_any || memcmp(&look, &drawn, sizeof look) ||
+	    g_osd_theme != drawn_theme || alpha != drawn_alpha) {
 		osdbar_size(s, &g_bar_w, &g_bar_h);
-		osdbar_render(g_bar_px, g_bar_w, g_bar_h, g_bar_w, s, g_osd_theme,
-		              g_osd_kind == 2 ? OSDBAR_POWER : g_osd_kind ? OSDBAR_BRIGHT : OSDBAR_VOLUME,
-		              g_osd_level, g_osd_max, alpha, true);
-		drawn_kind = g_osd_kind; drawn_level = g_osd_level; drawn_max = g_osd_max;
-		drawn_theme = g_osd_theme; drawn_alpha = alpha;
+		osdbar_render_look(g_bar_px, g_bar_w, g_bar_h, g_bar_w, s, g_osd_theme, &look,
+		                   alpha, true);
+		drawn = look;
+		drawn_any = true;
+		drawn_theme = g_osd_theme;
+		drawn_alpha = alpha;
 	}
 	g_bar_x = (int)roundf(OSDBAR_X * s);
 	g_bar_y = (int)roundf((OSDBAR_Y - rise) * s);
@@ -2883,6 +2917,35 @@ uint32_t diatom_port_level_keys(void)
 void diatom_port_level_shown(diatom_level_kind kind, int pos, int positions)
 {
 	osd_show(kind == DIATOM_LEVEL_BRIGHTNESS ? 1 : 0, pos, positions - 1);
+}
+
+void diatom_port_level_look(const osdbar_look *look)
+{
+	pthread_mutex_lock(&g_mx);
+	if (look) g_osd_look = *look;
+	else memset(&g_osd_look, 0, sizeof g_osd_look);
+	pthread_mutex_unlock(&g_mx);
+}
+
+/* The table again at once, on the frame loop's thread as display_gamma is,
+ * while a game has the display; else at the take (display_gamma) */
+void diatom_port_level_lift(int lift)
+{
+	if (lift < 0) lift = 0;
+	if (lift > PANELGAMMA_LIFT_MAX) lift = PANELGAMMA_LIFT_MAX;
+	if (lift == g_gamma_lift) return;
+	g_gamma_lift = lift;
+	g_gamma_color.lift = lift;
+	if (g_disp_fd < 0 || !g_presented) return;
+	if (panelgamma_sunxi_apply(g_disp_fd, &g_gamma_color) == 0)
+		port_logf(DIATOM_LOG_INFO, "brick: the display's gamma table lifted %d", lift);
+	else
+		diatom_port_log(DIATOM_LOG_WARN, "brick: could not set the display's gamma table");
+}
+
+bool diatom_port_level_plugged(void)
+{
+	return __atomic_exchange_n(&g_jack_moved, false, __ATOMIC_RELAXED);
 }
 
 void diatom_port_power_hold(bool on, unsigned ms, unsigned at, bool done)

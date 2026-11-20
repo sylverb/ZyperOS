@@ -13,6 +13,7 @@
 #include "platform.h"
 #include "spawn.h"
 
+#include "levels.h"
 #include "osdbar.h" /* the volume and brightness bar, drawn here and elsewhere */
 #include "powerhold.h"
 #include "theme.h"  /* which theme the bar is drawn in */
@@ -526,6 +527,9 @@ Uint32 plat_osd_until(void)
 
 	if (!osd_kind || !osdbar_envelope(now - osd_shown_at, now - osd_changed_at, &a, &rise))
 		return UINT32_MAX;
+	/* The boost charging, opening or folding, and the mark following the
+	 * level: every frame until it stops (src/levels.c) */
+	if (osd_kind != OSDBAR_POWER && levels_moving()) return now;
 	if (g_power_pill) {
 		Uint32 next = now + osdbar_next_change(now - osd_shown_at, now - osd_changed_at);
 		Uint32 step = now + plat_power_wait(OSDBAR_HOLD_MS);
@@ -570,12 +574,15 @@ void plat_draw_osd(SDL_Renderer *r)
 	if (g_overlay) g_overlay(r);
 	osd_drawn = true;
 	static uint32_t px[OSDBAR_W * OSDBAR_H];
+	static osdbar_look drawn;
 	Uint32 now = SDL_GetTicks();
+	osdbar_look look;
 	float a, rise;
 
 	if (!osd_kind) return;
 	if (!osdbar_envelope(now - osd_shown_at, now - osd_changed_at, &a, &rise)) {
 		osd_kind = 0;
+		levels_bar_gone();
 		return;
 	}
 	if (osd_tex_for != r) {
@@ -594,11 +601,15 @@ void plat_draw_osd(SDL_Renderer *r)
 	 * the texture is only uploaded when something is dirty, and without this
 	 * the bar would hold the old theme until the level next moved. */
 	if (theme_index() != osd_theme) osd_dirty = true;
+	/* The level's bar as the boost has it now (src/levels.c), moving while
+	 * it charges or opens; POWER's as it was */
+	if (!levels_look(osd_kind, &look)) osdbar_look_plain(&look, osd_kind, osd_val, osd_max);
+	if (memcmp(&look, &drawn, sizeof look)) osd_dirty = true;
 	if (osd_dirty) {
 		osd_theme = theme_index();
-		osdbar_render(px, OSDBAR_W, OSDBAR_H, OSDBAR_W, 1.0f, osd_theme, osd_kind,
-		              osd_val, osd_max, 1.0f, false);
+		osdbar_render_look(px, OSDBAR_W, OSDBAR_H, OSDBAR_W, 1.0f, osd_theme, &look, 1.0f, false);
 		SDL_UpdateTexture(osd_tex, NULL, px, OSDBAR_W * 4);
+		drawn = look;
 		osd_dirty = false;
 	}
 	SDL_SetTextureAlphaMod(osd_tex, (Uint8)(a * 255 + 0.5f));

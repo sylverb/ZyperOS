@@ -26,12 +26,16 @@
  *
  * No SDL and no device: the evdev numbers are the kernel's, written out here
  * (portkeys.c holds them to <linux/input.h>), so tools/pkkeys-check.c feeds it
- * events on the host. SQLite only for the levels. */
+ * events on the host. SQLite only for the levels, and a mapped file for the
+ * volume boost's gain (pk_boost, below). */
 
 #include <sqlite3.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+
+#include "boost.h"
+#include "osdbar.h"
 
 /* <linux/input.h>'s numbers for the three keys */
 #define PK_KEY_VOLUMEDOWN 114
@@ -119,6 +123,10 @@ bool pkkeys_menu_tapped(pkkeys *k);
 void pkkeys_menu_state(pkkeys *k, bool down);
 void pkkeys_vol_state(pkkeys *k, bool up_down, bool down_down);
 
+/* VOL+ is down now as a step of `kind`: what it went down as, MENU let go
+ * since or not. What the boost's hold on the top goes by (pk_boost_tick). */
+bool pkkeys_up_held(const pkkeys *k, pk_kind kind);
+
 /* ---- the levels ------------------------------------------------------------
  *
  * ZyperOS's own, src/device/pixel2_levels.h's: 21 volume positions, 0 to
@@ -144,5 +152,87 @@ void pk_levels_load(sqlite3 *db, const char *backlight, pk_levels *l);
  * "portkeys: volume 5 -> 6 (VOL+)\n", or "" for a held key's repeat that did
  * not move (at an end of the scale). True when the level moved. */
 bool pk_apply(sqlite3 *db, pk_levels *l, const pk_step *s, char *line, size_t n);
+
+/* ---- the boost past the top --------------------------------------------------
+ *
+ * As the launcher has it (src/levels.c, on src/boost.h; DESIGN.md 11.6): at
+ * the top, VOL+ held BOOST_HOLD_MS more, or pressed BOOST_TAPS more times with
+ * no more than BOOST_GAP_MS between two, opens cells past it. The volume's are
+ * BOOST_DB_CELL dB of software gain each, which the port's ALSA plugin
+ * (plastron's zyperos-eq) reads every period from the shared file
+ * (src/eqdsp.h's eq_share); the launcher has exited, so the gain there is
+ * this one's to write, on every change and as portkeys starts. The
+ * backlight's are a lift of the mid-tones in the display's gamma table, which
+ * portkeys loads (its port_gamma, src/panelgamma.h's lift). The cells filled
+ * are kept in the database beside the level, under the launcher's own keys,
+ * so the shelf comes back with the boost the port was left at. Over a port
+ * both open (BOOST_OPEN), and a level step does what it did before (pk_apply).
+ *
+ * The functions that move the cells keep them and write the volume's gain
+ * themselves, and return src/boost.h's BOOST_LEVEL, BOOST_GAIN, BOOST_OPENED
+ * for portkeys to do the rest: the hardware's level, the lift, the bar. */
+#define PK_VOL_BOOST    "volume_boost"
+#define PK_BRIGHT_BOOST "brightness_boost"
+
+typedef struct {
+	boost_bar   bar[2];          /* [PK_VOLUME], [PK_BRIGHT] */
+	bool        up_was[2];       /* VOL+ held as that kind at the last pk_boost_tick */
+	bool        up_seen[2];      /* a step going up since then */
+	const char *share_path;      /* the file the gain goes in */
+	void       *share;           /* it, mapped; NULL until it maps */
+} pk_boost;
+
+/* Nothing open, the gain going to `share_path`, or for NULL to
+ * $ZYPEROS_EQ_FILE, else EQ_SHARE_PATH, as the launcher has it (src/eq.c) */
+void pk_boost_init(pk_boost *b, const char *share_path);
+
+/* As portkeys starts, after pk_levels_load, and again when the launcher's
+ * in-game menu has been up: each bar at its level (a volume never saved at
+ * the middle, as pk_apply starts it), with the cells kept beside it, which
+ * count only at the top; and the volume's gain written to the file. False
+ * when the file could not be had: the next change tries again. */
+bool pk_boost_load(sqlite3 *db, const pk_levels *l, pk_boost *b);
+
+/* The volume's gain into the file: mapped the first time, made as the
+ * launcher makes it when it is not there, written only when it differs.
+ * False when the file could not be had. */
+bool pk_boost_share(pk_boost *b);
+
+/* The mapping let go of, for a check that makes another */
+void pk_boost_free(pk_boost *b);
+
+/* One step through the boost (src/boost.h's boost_key) at `now` ms: a level
+ * step, or a press at an end that moved nothing, is pk_apply's, its saving
+ * and its line; the cells alone have a line of their own, "portkeys: volume
+ * boost +2 -> +4 dB (VOL+)", and are kept, with the gain written. */
+int pk_press(sqlite3 *db, pk_levels *l, pk_boost *b, const pk_step *s, uint32_t now,
+             char *line, size_t n);
+
+/* The clock, on every pass of portkeys' loop after its steps: VOL+ let go
+ * (seen down at the last pass, or pressed in this one and up already), a hold
+ * on the top charging and, BOOST_HOLD_MS on, opening; presses that stopped
+ * draining. For `kind`'s bar; an opening is kept, the gain written. */
+int pk_boost_tick(sqlite3 *db, pk_boost *b, const pkkeys *k, pk_kind kind, uint32_t now);
+
+/* Whether the bar should be drawn every frame: a boost charging, opening,
+ * filling or folding, or VOL+ held on the top of a closed one */
+bool pk_boost_moving(const pk_boost *b, uint32_t now);
+
+/* The bar went away: an empty boost closes, a filled one stays. Returns which
+ * closed, 1 << kind, each kept and the gain written. */
+int pk_boost_gone(sqlite3 *db, pk_boost *b);
+
+/* The output changed (a plug in or out): the volume boost closes, kept and
+ * its gain 0 in the file. True when one was open. */
+bool pk_boost_output_changed(sqlite3 *db, pk_boost *b);
+
+/* The cells filled of `kind` (0 closed), the volume's gain in dB, the
+ * backlight's lift (panelgamma_color's) */
+int pk_boost_cells(const pk_boost *b, pk_kind kind);
+int pk_boost_gain(const pk_boost *b);
+int pk_boost_lift(const pk_boost *b);
+
+/* The bar for `kind` at `now`, as osdbar_render_look draws it */
+void pk_boost_look(pk_boost *b, pk_kind kind, uint32_t now, osdbar_look *l);
 
 #endif
