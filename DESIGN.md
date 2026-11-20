@@ -6409,7 +6409,9 @@ launcher).
 - **The heading** is **MP4 / Music**, the kind Show shows, as a games shelf
   names the folder it is in (MP4 alone when the card has one kind); the
   focused album's fact is its artist (an author, a series), where a
-  Favorites game's system is; **A Open** (**A Play** on a film). On All
+  Favorites game's system is - a finished book says **Finished** there,
+  and a book or a folder of videos with nothing above it says nothing
+  rather than its name again; **A Open** (**A Play** on a film). On All
   each album carries its kind's art badge (11.1) in every View.
 - **The cover row** is the games shelf's (Games' **Cover row**): an
   album's square cover sits in the 384 x 328 box as a square box does.

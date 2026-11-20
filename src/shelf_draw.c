@@ -1017,11 +1017,30 @@ static void grid_ask_ahead(app *a, sysview *v)
  * their focus, Highlight, motion and no-art cards - given an album's facts.
  * Each album is a cover and a name, as a game is, so they draw it as they
  * draw a game; what differs is what is said of it. The heading is MP4 and
- * the kind Show shows, the artist (an author, a series) is the focused
- * album's fact where a Favorites game's system is, each album carries its
+ * the kind Show shows, the artist (an author, a series; album_fact) is the
+ * focused album's fact where a Favorites game's system is, each album carries its
  * kind's badge on All, and A opens an album (plays a film). No play time,
  * achievements, resume or heart: those are a game's. The foot is B and
  * START, as MP4 has no X Details or Y on its shelf. */
+/* What is said of album k under its name: its artist, whom the letter jump
+ * goes by; a finished book says so instead; and a book or a folder of
+ * videos with no author or series above it says nothing, rather than its
+ * own name again. NULL for nothing. */
+static const char *album_fact(const sysview *v, int k)
+{
+	const game_entry *g = k >= 0 && k < v->list.count ? &v->list.items[k] : NULL;
+	int al = g && v->album ? v->album[k] : -1;
+
+	if (!g || al < 0 || al >= g_muse.nalbums) return NULL;
+	if (g_muse.albums[al].book) {
+		if (g_book_done && g_book_done[al]) return T(S_BOOKS_FINISHED);
+		if (!strcmp(g->name, g->title)) return NULL;
+	} else if (g_muse.albums[al].kind == ML_VIDEOS && !strcmp(g->name, g->title)) {
+		return NULL;
+	}
+	return g->name[0] ? g->name : NULL;
+}
+
 static void draw_album_views(app *a, sysview *v, const system_cfg *s)
 {
 	static const str_id SHOW[ML_ALL + 1] = { S_SYSMENU_MUSE_MUSIC, S_SYSMENU_MUSE_AUDIOBOOKS,
@@ -1030,7 +1049,7 @@ static void draw_album_views(app *a, sysview *v, const system_cfg *s)
 	const game_entry *g = v->list.count ? &v->list.items[v->cursor] : NULL;
 	int al = g && v->album ? v->album[v->cursor] : -1, kind = (int)muse_kind_shown();
 	bool film = al >= 0 && al < g_muse.nalbums && g_muse.albums[al].solo;
-	const char *artist = g && g->name[0] ? g->name : NULL;
+	const char *artist = album_fact(v, v->cursor);
 	const char *a_word = T(film ? S_GAMES_PLAY : S_GAMES_OPEN);
 	char head[CFG_STR + 64];
 	key_hint foot[2];
