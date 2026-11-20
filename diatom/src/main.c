@@ -1351,8 +1351,19 @@ static double sound_rate(const struct retro_system_info *si,
  * next should start at once, so its sleep is the pacing's fault, whatever
  * the machine (until 2026-11-16 a slow core slept there a fifth of the
  * time). The turns short of the step say whether the machine could keep the
- * step at all. test/fastforward.py judges by these on any machine. */
-struct step_sleep { double us, short_us; long turns, short_turns; };
+ * step at all. test/fastforward.py judges by these on any machine.
+ *
+ * And the time the schedule gave up: a fast turn that ends more than one turn
+ * behind the schedule (a sleep that woke late, a stall in the last frame, the
+ * CPU taken between two turns) is repaid up to one turn, and the rest is
+ * dropped, so a core is never held to a step it missed. That is the one place
+ * a machine loses time without a turn short of the step: GitHub's macOS
+ * runner read 1.5x at 2.0x with none short, and the same figure from the
+ * turns and from the clock (2026-11-19). What the clock says is the step
+ * less what was lost: reached = step x (held - lost - at most one turn) /
+ * held. test/hudspeed.py and test/fastforward.py judge a step only where
+ * little was lost. */
+struct step_sleep { double us, short_us, lost_us; long turns, short_turns; };
 
 static void step_report(int half, long frames, double turns_us, uint64_t held_us,
                         uint64_t paused, double frame_us, uint64_t dropped,
@@ -1362,12 +1373,12 @@ static void step_report(int half, long frames, double turns_us, uint64_t held_us
 
 	printf("diatom: speed %.1fx held %.1fs, reached %.2fx (%.2fx of the clock), "
 	       "%llu audio frame(s) dropped, slept %.2fs (%.2fs after %ld of %ld turns short "
-	       "of the step)\n",
+	       "of the step), lost %.2fs\n",
 	       half / 2.0, held_us / 1000000.0,
 	       turns_us > 0.0 ? (double)frames * frame_us / turns_us : 0.0,
 	       ran_us > 0.0 ? (double)frames * frame_us / ran_us : 0.0,
 	       (unsigned long long)dropped, sl->us / 1000000.0, sl->short_us / 1000000.0,
-	       sl->short_turns, sl->turns);
+	       sl->short_turns, sl->turns, sl->lost_us / 1000000.0);
 	fflush(stdout);
 }
 
@@ -3588,7 +3599,10 @@ static int run_session_inner(const diatom_session *sn)
 			 * reaches the step holds it; no more, so a core short of the step
 			 * runs flat out and never sprints past the step later to repay
 			 * a slow stretch. */
-			if ((double)now - next_us > frame_us * periods) next_us = (double)now - frame_us * periods;
+			if ((double)now - next_us > frame_us * periods) {
+					step_sleep.lost_us += (double)now - next_us - frame_us * periods;
+					next_us = (double)now - frame_us * periods;
+				}
 		} else {
 			/* Behind at 1x (pace.h). The debt is kept and the next turns
 			 * repay it, unless it is more than four frames: something stalled

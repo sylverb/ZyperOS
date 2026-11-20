@@ -1,0 +1,103 @@
+# Collections (src/collect.h, DESIGN.md 11.56): the player's own lists of
+# games from every system, Collections/<name>.txt on the card. The group's
+# name is library.collections; Sort By's two orders are sort.added and
+# sort.system.
+
+[collect.add]
+note = A row of a game's details page (X on the shelf), after Favorite: A opens the list of the player's collections, a tick on each one the game is in. Also that list's heading. tight: a row label beside a short value ("In 2")
+en = Add to Collection
+zh-Hans = 加入合集
+es = Añadir a colección
+pt-BR = Adicionar à coleção
+fr = Ajouter à une collection
+de = Zu Sammlung hinzufügen
+ja = コレクションに追加
+it = Aggiungi a raccolta
+
+[collect.in]
+note = Add to Collection's value: how many of the player's collections the game is in (1 or more; no value when none)
+en = In %d
+zh-Hans = 已在 %d 个
+es = En %d
+pt-BR = Em %d
+fr = Dans %d
+de = In %d
+ja = %d 件
+it = In %d
+
+[collect.new]
+note = The last row of the Add to Collection list: A opens the keyboard for a new collection's name, and the game goes in it. Also the keyboard's title.
+en = New Collection
+zh-Hans = 新建合集
+es = Nueva colección
+pt-BR = Nova coleção
+fr = Nouvelle collection
+de = Neue Sammlung
+ja = 新しいコレクション
+it = Nuova raccolta
+
+[collect.delete]
+note = A row of the Collections shelf's menu, on a collection or in one: delete that collection (its list), never its games. Also the heading of its question.
+en = Delete Collection
+zh-Hans = 删除合集
+es = Eliminar colección
+pt-BR = Excluir coleção
+fr = Supprimer la collection
+de = Sammlung löschen
+ja = コレクションを削除
+it = Elimina raccolta
+
+[collect.delete_ask]
+note = The question Delete Collection asks, over its two answers (Delete, Cancel); %s is the collection's name. Says the games stay.
+en = Delete %s? Its games stay on the card.
+zh-Hans = 删除“%s”？其中的游戏会留在存储卡上。
+es = ¿Eliminar %s? Sus juegos se quedan en la tarjeta.
+pt-BR = Excluir %s? Os jogos dela ficam no cartão.
+fr = Supprimer %s ? Ses jeux restent sur la carte.
+de = %s löschen? Die Spiele bleiben auf der Karte.
+ja = 「%s」を削除しますか？ゲームはカードに残ります。
+it = Eliminare %s? I suoi giochi restano sulla scheda.
+
+[collect.remove]
+note = A row of the Collections shelf's menu inside a collection: take the game under the cursor out of it (the game stays on the card)
+en = Remove from Collection
+zh-Hans = 从合集中移除
+es = Quitar de la colección
+pt-BR = Remover da coleção
+fr = Retirer de la collection
+de = Aus Sammlung entfernen
+ja = コレクションから外す
+it = Rimuovi dalla raccolta
+
+[collect.name_long]
+note = The message when the name typed for a collection is longer than a file's name on the card can be. Nothing changed.
+en = That name is too long. Try a shorter one.
+zh-Hans = 这个名称太长了。请换一个短一些的。
+es = Ese nombre es demasiado largo. Prueba uno más corto.
+pt-BR = Esse nome é longo demais. Tente um mais curto.
+fr = Ce nom est trop long. Essayez-en un plus court.
+de = Dieser Name ist zu lang. Versuche einen kürzeren.
+ja = この名前は長すぎます。もっと短い名前にしてください。
+it = Questo nome è troppo lungo. Provane uno più corto.
+
+[collect.name_taken]
+note = The message when another collection already has the name typed (in any case). Nothing changed.
+en = Another collection already has that name.
+zh-Hans = 已有同名的合集。
+es = Otra colección ya tiene ese nombre.
+pt-BR = Outra coleção já tem esse nome.
+fr = Une autre collection porte déjà ce nom.
+de = Eine andere Sammlung hat schon diesen Namen.
+ja = 同じ名前のコレクションがすでにあります。
+it = Un'altra raccolta ha già questo nome.
+
+[collect.failed]
+note = The message when the card would not take a collection's change (a full card, a card read only, 36 collections already, or 2000 games in one). Nothing changed.
+en = The collection was not changed. Check the card and try again.
+zh-Hans = 合集没有更改。请检查存储卡后重试。
+es = La colección no cambió. Revisa la tarjeta e inténtalo de nuevo.
+pt-BR = A coleção não mudou. Verifique o cartão e tente de novo.
+fr = La collection n'a pas changé. Vérifiez la carte et réessayez.
+de = Die Sammlung wurde nicht geändert. Prüfe die Karte und versuche es erneut.
+ja = コレクションは変更されませんでした。カードを確認して、もう一度お試しください。
+it = La raccolta non è cambiata. Controlla la scheda e riprova.

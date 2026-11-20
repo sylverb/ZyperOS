@@ -1802,8 +1802,9 @@ static void what_scrolls(void)
  * byte count, no Favorite, which Y does from the shelf, and no Saves, which
  * the carousel shows with the frames themselves. A row is easy to put back by
  * habit. */
-/* Every row of a scraped game but Rename and Buttons: GI_MAX less those two */
-#define INFO_FULL (GI_MAX - 2)
+/* Every row of a scraped game but Rename, Buttons and Add to Collection:
+ * GI_MAX less those three */
+#define INFO_FULL (GI_MAX - 3)
 
 static void info_rows(void)
 {
@@ -1941,6 +1942,8 @@ static void info_rows(void)
 
 		rg.can_rename = true;
 		rg.can_favorite = true;
+		rg.can_collect = true;
+		snprintf(rg.collected, sizeof rg.collected, "In 2");
 		rg.own_buttons = true;
 		rg.scraped = true;
 		rg.has_synopsis = true;
@@ -1952,6 +1955,13 @@ static void info_rows(void)
 		for (j = 0; j < rn && strcmp(rr[j].label, "Rename"); j++) {}
 		ck(j == rn - 2 && rr[j].live && !rr[j].value, "Rename, live, just above Delete Game");
 		ck(!strcmp(rr[rn - 1].label, "Delete Game"), "and Delete Game still last");
+		for (j = 0; j < rn && strcmp(rr[j].label, "Favorite"); j++) {}
+		ck(j + 1 < rn && !strcmp(rr[j + 1].label, "Add to Collection") && rr[j + 1].live &&
+		   !strcmp(val(&rr[j + 1]), "In 2"), "Add to Collection right after Favorite, live, its count");
+		rg.collected[0] = '\0';
+		rn = gi_rows(rr, &rg, true);
+		for (j = 0; j < rn && strcmp(rr[j].label, "Add to Collection"); j++) {}
+		ck(j < rn && !rr[j].value, "in none: no value");
 	}
 }
 
@@ -3095,7 +3105,7 @@ static void homesys_rows(void)
 {
 	static const char *const names[3] = { "PlayStation", "Ports", "Game Boy" };
 	static const char *const tags[3] = { "PS1", "PRT", "GB" };
-	homesys_ui hu = { names, tags, 3 };
+	homesys_ui hu = { names, tags, 3, true };
 	menu_row rows[HS_ROWS], all[MENU_MAX_ROWS];
 	const char *ids[HS_ROWS];
 	menu_bufs b;
@@ -3117,23 +3127,30 @@ static void homesys_rows(void)
 
 	homesys_parse("");
 	n = sys_menu_homesys_rows(&hu, rows, ids);
-	ck(n == 8 && !strcmp(rows[0].label, "Favorites") && !strcmp(rows[1].label, "Recents") &&
-	   !rows[2].label && !strcmp(rows[3].label, "PlayStation") && !strcmp(rows[5].label, "Game Boy") &&
-	   !rows[6].label && ROW_IS_NOTE(rows[7]),
-	   "Favorites, Recents, a rule, the three systems, a rule, the note");
-	ck(!strcmp(ids[0], "FAV") && !strcmp(ids[1], "RECENT") && !ids[2] && !strcmp(ids[4], "PRT") && !ids[6] &&
-	   !ids[7],
+	ck(n == 9 && !strcmp(rows[0].label, "Favorites") && !strcmp(rows[1].label, "Recents") &&
+	   !strcmp(rows[2].label, "Collections") && !rows[3].label && !strcmp(rows[4].label, "PlayStation") &&
+	   !strcmp(rows[6].label, "Game Boy") && !rows[7].label && ROW_IS_NOTE(rows[8]),
+	   "Favorites, Recents, Collections, a rule, the three systems, a rule, the note");
+	ck(!strcmp(ids[0], "FAV") && !strcmp(ids[1], "RECENT") && !strcmp(ids[2], "COLL") && !ids[3] &&
+	   !strcmp(ids[5], "PRT") && !ids[7] && !ids[8],
 	   "each switch names its tag; the rule and the note none");
-	ck(!strcmp(val(&rows[0]), "On") && !strcmp(val(&rows[4]), "On") && rows[4].live,
-	   "all On as they ship");
-	homesys_parse("PRT,RECENT");
+	ck(!strcmp(val(&rows[0]), "On") && !strcmp(val(&rows[2]), "On") && !strcmp(val(&rows[5]), "On") &&
+	   rows[5].live, "all On as they ship");
+	homesys_parse("PRT,RECENT,COLL");
 	n = sys_menu_homesys_rows(&hu, rows, ids);
-	ck(!strcmp(val(&rows[1]), "Off") && !strcmp(val(&rows[4]), "Off") && !strcmp(val(&rows[3]), "On"),
-	   "Ports and Recents Off, as the word says");
+	ck(!strcmp(val(&rows[1]), "Off") && !strcmp(val(&rows[2]), "Off") && !strcmp(val(&rows[5]), "Off") &&
+	   !strcmp(val(&rows[4]), "On"), "Ports, Recents and Collections Off, as the word says");
 	homesys_parse("PRT,GB");
 	n = sys_menu_homesys_rows(&hu, rows, ids);
-	ck(n == 9 && !rows[3].live && rows[4].live && ROW_IS_NOTE(rows[8]),
+	ck(n == 10 && !rows[4].live && rows[5].live && ROW_IS_NOTE(rows[9]),
 	   "one system left on: its row is dead, and a second note says why");
+	/* With no collection on the card, no Collections row, as a system with
+	 * no games has none */
+	hu.coll = false;
+	homesys_parse("");
+	n = sys_menu_homesys_rows(&hu, rows, ids);
+	ck(n == 8 && !strcmp(rows[1].label, "Recents") && !rows[2].label && !strcmp(ids[1], "RECENT") &&
+	   !strcmp(rows[3].label, "PlayStation"), "no collection: Favorites, Recents, a rule, the systems");
 	homesys_parse("");
 }
 
@@ -3292,6 +3309,28 @@ static void row_sounds(void)
 	ck(n == SM_FAV_ROWS && menu_sound_at(b.sound, n, 2) == (MENU_SND_RING | MENU_SND_NO_A) &&
 	   !menu_sound_at(b.sound, n, 0) && menu_sound_at(b.sound, n, 1) == MENU_SND_OWN,
 	   "Favorites' Sort By too, its count plain, Random Game heard by its pick");
+
+	/* Collections (src/collect.h): under the collection's name, its top's
+	 * four, and in one its count, Random Game and Remove from Collection */
+	memset(&u, 0, sizeof u);
+	u.games = true; u.coll = true; u.coll_name = "Couch Co-op"; u.sys_name = "Collections";
+	u.game_count = 3;
+	n = sys_menu_build(&u, rows, &b, &heading);
+	ck(n == 4 && !strcmp(heading, "Couch Co-op") && !strcmp(rows[0].label, "Sort By") &&
+	   !strcmp(val(&rows[0]), "Added") && !strcmp(rows[1].label, "View") && !strcmp(rows[2].label, "Rename") &&
+	   !strcmp(rows[3].label, "Delete Collection") && rows[3].live,
+	   "Collections' top: Sort By (Added), View, Rename, Delete Collection, under the collection's name");
+	ck(menu_sound_at(b.sound, n, 0) == (MENU_SND_RING | MENU_SND_NO_A) && !menu_sound_at(b.sound, n, 2),
+	   "its Sort By steps round as any shelf's, Rename is plain");
+	u.coll_inside = true;
+	n = sys_menu_build(&u, rows, &b, &heading);
+	ck(n == SM_COLL_ROWS && !strcmp(rows[0].label, "Games") && !strcmp(val(&rows[0]), "3") && !rows[0].live &&
+	   !strcmp(rows[1].label, "Random Game") && !strcmp(rows[5].label, "Remove from Collection") &&
+	   rows[5].live && !strcmp(rows[6].label, "Delete Collection"),
+	   "in one: its count, Random Game, Sort By, View, Rename, Remove from Collection, Delete Collection");
+	u.game_count = 0;
+	n = sys_menu_build(&u, rows, &b, &heading);
+	ck(!rows[1].live && !rows[5].live, "with no game, nothing to pick or take out");
 
 	memset(&u, 0, sizeof u);
 	u.games = true; u.muse = true; u.muse_both = true;

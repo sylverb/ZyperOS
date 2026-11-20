@@ -1485,8 +1485,8 @@ void launch(app *a)
 	 * game; it was cleared below as a return to the shelf. Marked as asked
 	 * for (playing_mark_clean), as a crash or a power cut is not - except
 	 * MENU+START's TERM (tools/zyhome.c), which is the way to the home. */
-	if (access(ZYPEROS_POWEROFF_FLAG, F_OK) == 0 || want_quit) {
-		if (access(CTL_HOME_FLAG, F_OK) != 0) playing_mark_clean();
+	if (access(plat_flag(ZYPEROS_POWEROFF_FLAG), F_OK) == 0 || want_quit) {
+		if (access(plat_flag(CTL_HOME_FLAG), F_OK) != 0) playing_mark_clean();
 		a->running = false;
 		return;
 	}
