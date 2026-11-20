@@ -14,7 +14,9 @@
  * opens on the game list the port was started from rather than on the systems
  * shelf - which is where a game in Diatom comes back to, since this process
  * never stops for one. Under /tmp, so a boot never sees one: a power-off in the
- * middle of a port starts on the shelf, as every boot does. */
+ * middle of a port starts on the shelf, as every boot does. (In
+ * ZYPEROS_FLAG_DIR on a computer, plat_flag, so a check's port leaves the
+ * computer's /tmp alone.) */
 #define PORT_RETURN  "/tmp/zyperos_port_return"
 
 enum { PM_SHOT_RUNNING = 1, PM_SHOT_NONET = 2, PM_SHOT_NOPYTHON = 4, PM_SHOT_INSTALLED = 8,

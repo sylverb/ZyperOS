@@ -1207,7 +1207,7 @@ void mp4_file_albums(void)
  *
  * Hidden when the folder is empty or missing, the same rule an empty system
  * and an empty Favorites shelf follow: a card should lead somewhere. */
-static void build_mp4_shelf(app *a)
+static void build_mp4_shelf(app *a, bool tidy)
 {
 	system_cfg *s;
 	int i;
@@ -1223,7 +1223,9 @@ static void build_mp4_shelf(app *a)
 	g_book_done = NULL;
 	np_forget();
 	snprintf(g_mp4_root, sizeof g_mp4_root, "%s", P_CARD);
-	mp4_tidy_singles();
+	/* Loose songs into Singles at a start or a rescan, never from a process
+	 * beside a program (mp4_shelf_alone), which only reads the card */
+	if (tidy) mp4_tidy_singles();
 	if (!ml_scan_card(g_mp4_root, &g_mp4) || g_mp4.ntracks == 0) {
 		fprintf(stderr, "scan: %-16s no music, books or videos in %s\n", "MP4", g_mp4_root);
 		return;
@@ -1271,6 +1273,15 @@ static void build_mp4_shelf(app *a)
 	fprintf(stderr, "scan: %-16s %d artists, %d albums, %d books, %d videos, %d tracks\n", "MP4",
 	        g_mp4.nartists, ml_count(&g_mp4, false), ml_count(&g_mp4, true),
 	        ml_count_kind(&g_mp4, ML_VIDEOS), g_mp4.ntracks);
+}
+
+/* MP4's card alone, for a process that shows no other shelf: the in-game
+ * menu over a program of its own that keeps MP4 playing (SELECT there), and
+ * the follower beside it (src/mp4hand.h), which keeps a book's place by the
+ * same library. The card read and not written: no loose song moved */
+void mp4_shelf_alone(app *a)
+{
+	build_mp4_shelf(a, false);
 }
 
 /* ---------- the saved library (src/savedlib.h) ---------------------------
@@ -1724,7 +1735,7 @@ int scan_all_from(app *a, saved_lib *saved, bool save)
 	 * written by hand, shows after a rescan as a game does */
 	coll_load(P_CARD);
 	build_collections_shelf(a);
-	build_mp4_shelf(a);
+	build_mp4_shelf(a, true);
 	pm_offer_refresh(a);
 	return from_saved;
 }

@@ -339,9 +339,9 @@ static menu_exit menu_run_body(app *a, const menu_style *st,
 		 * borrows its backdrop and its power rule for as long as it is up.
 		 * Rebuilt on the way back, because anything may have changed while
 		 * MP4 covered it - a Bluetooth headset connecting, for one. */
-		/* Not over a port's: MP4 is stopped for a port (launch.sh), and
-		 * this process starts none for its menu */
-		if (a->in.pressed[IN_SELECT] && !g_port_menu) {
+		/* Over a port's only when MP4 is kept playing over it (your
+		 * PICO-8, port_mp4_ready): launch.sh stops MP4 for every other */
+		if (a->in.pressed[IN_SELECT] && (!g_port_menu || port_mp4_ready(a))) {
 			if (mp4_open(a, st, ctx)) return MENU_LEFT_GONE;
 			continue;
 		}

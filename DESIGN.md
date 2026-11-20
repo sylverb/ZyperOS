@@ -5466,6 +5466,10 @@ when its change lands.
   **text-dim** (2.7:1). A frame that bright in that corner is rare; holding
   them would take a shape behind the corner, which the lab did not pick.
 - Five one-line message holds (900 to 2200 ms), where 11.8 has two.
+- Over your PICO-8, MP4 plays on (11.55), but PICO-8's own sound is not
+  quieted while it plays, as a Diatom game's is (QUIET): PICO-8 runs as a
+  program of its own, its sound through the port's ALSA chain
+  (sd/zyperos/eq-port.sh), which nothing in it can cut yet.
 
 ### 11.23 File Transfer while files move
 File Transfer is a session of its own, and its screen (the transfer panel,
@@ -6157,6 +6161,28 @@ held a second home even when it hangs, the volume keys and **MENU+VOL** over it,
 **POWER** its end and the power-off. No save states: PICO-8 has none, so Save,
 Load, Undo Load and Resume stay fake08's. Full clocks, as every program of its
 own.
+
+**MP4 over it** *(2026-11-20: "mp4 should keep playing while pico 8 is
+running like we do on other systems. and menu and select should open the mp4
+like other systems")*, as over a Diatom game. What plays when a cart opens
+plays on: launch.sh stops MP4 for every other program of its own (a port
+such as Stardew Valley needs the 1 GB) and not for this one, whose request
+says so (`port_keeps_mp4`, src/portmenu.h). Both sounds go into the same
+mix, the system's default being dmix, so neither keeps the other out. The
+queue goes from process to process in a file (src/mp4hand.h): the launcher
+writes it as it ends for PICO-8, a follower beside PICO-8 (`zyperos.elf
+--mp4-follow`, started and ended by launch.sh) plays the next track as each
+ends and keeps the resume row and a book's place, and the launcher after
+PICO-8 takes it on, the music going on with no gap and nothing opening by
+itself. **MENU, then SELECT** opens MP4 in the in-game menu as over a game:
+Now Playing of what plays, or MP4's shelf with nothing playing, the whole
+of MP4 there; SELECT let go or B closes it back to the menu, and Continue
+gives PICO-8 its frame and its keys as before (portkeys empties what was
+pressed). portkeys stops the follower while the menu is up, so the menu's
+MP4 is the one that talks to the daemon then, and the follower goes on from
+the queue the menu leaves. Where MP4's sound goes (a headset, a DAC) stays
+where the launcher left it until the menu opens MP4. PICO-8's own sound is
+not quieted while MP4 plays (section 14).
 
 **The picture** follows the shelf's **Display** row (launch.sh hands the
 row's name to the script): **Sharp Pixels** is whole multiples of 128, 3x on
