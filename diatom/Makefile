@@ -26,7 +26,7 @@ LDFLAGS += -lz
 # Objects live under build/$(PORT)/ so host and cross builds cannot collide:
 # a leftover x86 main.o in a device link fails late and confusingly.
 BUILD := build/$(PORT)
-SRC   := src/main.c src/cheevos.c src/core.c src/env.c src/scale.c src/audio.c src/save.c src/proto.c src/options.c src/zip.c src/levels.c src/screens.c src/chord.c src/stick.c src/hw.c src/now.c src/emumeter.c src/corefail.c src/player2.c src/statefile.c src/pace.c src/flipwatch.c src/fdsdisk.c src/sgb.c src/border.c port/$(PORT).c
+SRC   := src/main.c src/cheevos.c src/cheats.c src/core.c src/env.c src/scale.c src/audio.c src/save.c src/proto.c src/options.c src/zip.c src/levels.c src/screens.c src/chord.c src/stick.c src/hw.c src/now.c src/emumeter.c src/corefail.c src/player2.c src/statefile.c src/pace.c src/flipwatch.c src/fdsdisk.c src/sgb.c src/border.c port/$(PORT).c
 # Expanded where it is used, not here: a port's block below adds its own files
 # to SRC (the Pixel 2's bar, port/osdbar.c), and := took the list before they
 # were in it, so they were never built and the link failed.
@@ -161,7 +161,7 @@ $(BUILD)/%.o: %.c
 # backend exists. Cheap to check, so check it.
 # Mechanical checks, each guarding a rule that decays the moment nothing fails
 # when it is broken: check-seam has held since day one for exactly that reason.
-check: check-seam check-copies check-corefacts check-rates check-cheevos check-screens check-chord check-fdsdisk check-sgb check-fdssgb check-border check-border-e2e check-pace check-emumeter check-corefail check-corefail-e2e check-flipwatch check-stick check-bounds check-rumble check-statefile check-proto check-port check-power check-power-e2e check-flipwatch-e2e check-fastforward check-lateskip check-stateplane check-resident check-hotkeys check-coreend check-cardframe check-now check-hudspeed check-displaylock check-rumble-e2e check-player2 check-states check-statereads
+check: check-seam check-copies check-corefacts check-rates check-cheevos check-screens check-chord check-fdsdisk check-sgb check-fdssgb check-border check-border-e2e check-pace check-emumeter check-corefail check-corefail-e2e check-flipwatch check-stick check-bounds check-rumble check-statefile check-proto check-port check-power check-power-e2e check-flipwatch-e2e check-fastforward check-lateskip check-stateplane check-resident check-hotkeys check-coreend check-cardframe check-now check-hudspeed check-displaylock check-rumble-e2e check-player2 check-states check-statereads check-cheats
 
 # Does a RetroAchievements address reach the byte it names? Offline, needs no
 # core and no ROM, and links only cheevos.c plus the vendored runtime - so it
@@ -513,6 +513,12 @@ check-statereads:
 # SELECT's hotkeys end to end (src/chord.h): the pad by script, what the stub
 # core read written down, the quick slot's SAVE and LOAD answered while the
 # game runs. On check-stateplane's terms: about eight seconds, skipped unbuilt.
+# Cheats, end to end against the stub core (test/cheats.py): what the core is
+# handed and when, never in a frame, and achievements paused while one is on.
+# Needs build/desktop, as check-proto does, and skips without it.
+check-cheats:
+	@python3 test/cheats.py
+
 check-hotkeys:
 	$(FRESH_IF_BUILT)
 	@python3 test/hotkeys.py

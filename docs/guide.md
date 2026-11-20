@@ -434,6 +434,13 @@ go (with D-pad as Stick on, the other way round). They are the last two of a
 button's choices. The PSP's R2 is Stick On/Off from the start; give it to
 another button, or make R2 something else.
 
+**Two buttons on one game button.** Giving a button what another button
+gives swaps the two, so nothing is lost by accident. To have both, open the
+button's list with A, move to the choice the other button gives, and press
+**Y** instead of A: the foot of the list says what each key does. Both rows
+then show the other button's small glyph after the value, and the handheld
+lights both. Give either row something else to undo it.
+
 **Face Buttons** (Dreamcast, Saturn and Neo Geo Pocket games) swaps all four
 faces at once: **By Letter**, each cap gives the button it names, or **By
 Place**, each cap gives the button in its place on the original pad. It reads
@@ -796,7 +803,7 @@ The system menu opens on a shelf of games and applies to that system alone:
 | **Super Game Boy** | the Game Boy and Game Boy Color shelves', under Core, on mGBA: `Off` to start with, as before, or `Its Games`, where a game made for the Super Game Boy starts as one, in its own colors and border (no BIOS needed; other games start as before). For this system alone, saved the moment it changes, for the next game started. With its border the picture is 256x224: 2x on the Pixel 2, 3x on the Brick at Sharp Pixels |
 | **Timing** | the Game Boy, Game Boy Color, Game Boy Advance, Nintendo DS and Genesis shelves', under Core (and under Game Language on the DS's): `Smooth` to start with, or `Exact`, for this system alone; left/right/A flip it, saved the moment it changes, for the next game started. The screen refreshes 60.08 times a second and these consoles make 59.7 to 59.9 frames. `Smooth` shows one game frame each refresh, so motion is even, and the game runs up to 0.6% faster than the console: a GBA game 3.5 seconds fast in 10 minutes. `Exact` keeps the console's own speed, for timers and rhythm games, and about every 3 seconds one frame stays on the screen for two refreshes |
 | **Sort By** | left/right; `Name`, `Play Time`, `Last Played` or `Recently Added` |
-| **View** | left/right, or A for the list; `Covers`, the row of covers, `Grid`, two rows of covers in cells shaped like the shelf's own art, or `List`, the games as a list of names with the focused one's cover beside it. START on the shelf steps it too, without the menu |
+| **View** | left/right, or A for the list; `Covers`, the row of covers, `Grid`, two rows of covers in cells shaped like the shelf's own art, `List`, the games as a list of names with the focused one's cover beside it, or `Video`, the focused game's video snap on the whole screen with the covers in a band at the foot; after 2 seconds with no press while a snap plays, the band goes down to a thin strip so the video has the screen, and any button brings it back. START on the shelf steps it too, without the menu |
 | **Display** | how the picture fills the screen: Full Screen, Original Shape, Sharp Pixels, Sharp Pixels, Tall, Sharp Pixels, Zoomed, Fill, Edges Cut or Actual Size; left/right cycles it, and A opens the list, with a small picture of your game in the mode under the cursor and a line that says what it does; saved the moment it changes |
 | **Border** | under Display, while the display mode leaves room around the system's games, and always on the Game Boys (the Game Boys and other handhelds, a Sharp Pixels picture smaller than the screen): `Off` to start with, black as before; `Blur`, the game's own picture blurred and darker around it (Pixel 2); on the Game Boy, Game Boy Color and Game Boy Advance, in any display mode, `Handheld`, a drawing of the handheld's own face around the game at its full size, cut at the screen's edge, and `Handheld, Whole`, the game smaller so the whole screen glass and some of the body show (not for the Advance on the Pixel 2, where the game would be tiny); choosing either turns the system's Display to Sharp Pixels, the size the frames are drawn for; or `Your Own`, the first PNG in `Borders/<the system's folder>/` on the card (or in NextUI's `Overlays/<tag>/`), shown only when there is one. For this system alone; the same row is in a game's Display tab, where it changes the game's at once |
 | **Handheld Color** | under Border while it is a Game Boy Color frame: the handheld's color, `Yellow`, `Red`, `Purple`, `Green`, `Teal` or `Clear Purple` |
@@ -1727,6 +1734,14 @@ something playing that the shelf does not show lands on that kind, on what is
 playing.
 
 **Shuffle All** plays every song on the card in a random order.
+
+**Player Look** changes how Now Playing shows a song: **Cover**, the album's
+cover large, as it always was; **Classic**, a big clock over bars that move
+with the music, and the album's tracks beside it; **Spectrum**, the music as
+32 bars across the screen under the cover. A on it opens the list, with the
+look under the cursor playing in a small screen beside it; Left and Right
+change it straight away. Paused, the bars come to rest. Books and videos
+keep their own screen.
 
 **Sort By** puts the shelf in order by artist, the way the folders are, or by
 album title, two of the same title going in their artists' order. The jump

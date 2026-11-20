@@ -87,6 +87,7 @@ Each line has its details in [the guide](docs/guide.md).
 - **A home in pixel art:** every system as its own animated console on a Spotlight, Gallery or Grid home, with Favorites, Recents and a choice of which systems show ([the shelf](docs/guide.md#the-shelf)).
 - **Recents where you stopped:** Recents can show each game's last screen, its cover small in the corner, instead of the cover.
 - **Your folders, a grid or a list:** folders on the card show as folders, a game on several discs shows once by its `.m3u`, and a system's games show as a row of covers, a grid shaped like the art, or a list.
+- **A Video view:** each game's video snap on the whole screen as you move, its cover in a row at the foot.
 - **Collections of your own:** put any game in a list from its details, mix systems, and find your lists in a group on the home ([collections](docs/guide.md#collections)).
 - **MENU in six tabs,** with **Search Games** and **Random Game** for any system ([menus](docs/guide.md#controls-and-menus)).
 - **Your look:** light and dark, ten accents, three backgrounds for each theme, a folder color, rounded or square corners, how the game or system in focus is marked (a bar, a border, a lift, or none), and Zyper on or off ([light and dark](docs/guide.md#light-and-dark)).
@@ -109,11 +110,11 @@ Each line has its details in [the guide](docs/guide.md).
 - **Autosave and resume,** six save slots, quick save and quick load on **SELECT + R1** and **L1**, **Undo Load**, and a **Disc** row for games on more than one disc ([in a game](docs/guide.md#in-a-game)).
 - **Faster and slower** (1.5x, 2x and 3x), **turbo** buttons and **On-Screen Stats** over the game ([in a game](docs/guide.md#in-a-game)).
 - **Hotkeys you choose,** SELECT and a button, for a screenshot, the next shader or display, reset and quit, for every game, a system or one game ([hotkeys](docs/guide.md#controls-and-menus)).
-- **Change what a button does,** for one game or a whole system, a button that turns the d-pad into the stick (each press, or while held) among the choices, with the handheld drawn beside the rows, and every control listed in the game with the handheld's own buttons ([controls](docs/guide.md#controls-and-menus)).
+- **Change what a button does,** for one game or a whole system, two buttons on one game button if you like, a button that turns the d-pad into the stick (each press, or while held) among the choices, with the handheld drawn beside the rows, and every control listed in the game with the handheld's own buttons ([controls](docs/guide.md#controls-and-menus)).
 - **Rumble** on the Pixel 2 for Dreamcast, PlayStation, Game Boy Color and Nintendo 64 games, Off, Low, Medium or Full for every game or one ([rumble](docs/guide.md#rumble)).
 - **Sound your way:** a USB-C headphone adapter on the Pixel 2, Bluetooth headphones on the Brick (untried so far), and mono audio for anyone who hears with one ear ([audio](docs/guide.md#audio)).
 - **An equalizer for everything you hear:** Bass, Voice, Treble or five bands of your own, one preset for the speaker and one for headphones, heard live as you tune it ([equalizer](docs/guide.md#equalizer)).
-- **MP4 and menu music:** a player for your music, audiobooks and videos that keeps playing behind the shelf, and ten free 8-bit tracks, or your own, behind the menus ([MP4](docs/guide.md#mp4)).
+- **MP4 and menu music:** a player for your music, audiobooks and videos that keeps playing behind the shelf, showing a song as its cover or as bars that move to the music, and ten free 8-bit tracks, or your own, behind the menus ([MP4](docs/guide.md#mp4)).
 - **The top bar and side lights:** the clock, Wi-Fi and the battery with its time left, and on the Pixel 2 side lights for the battery, volume, transfers and achievements.
 - **Battery care:** a charging screen while it is off, a charge limit of 80, 85 or 90%, a warning before it gets hot, a Power Button that asks for a hold, and clocks for each system that save battery ([battery and power](docs/guide.md#battery-and-power)).
 - **Play Time,** **Continue** or start from the start, favorites, sorting, a QWERTY keyboard that keeps up with the d-pad, and **MENU + START** for a way out of anything.
