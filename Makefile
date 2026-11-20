@@ -713,7 +713,10 @@ check-pico8-wget:
 # launcher) and the real launcher in desk mode's dummy window against a
 # stand-in daemon: the queue taken on back from PICO-8, the request and the
 # file written as a cart opens, the follower's next track, and SELECT in the
-# in-game menu over it opening Now Playing (tools/pico8-mp4-check.py)
+# in-game menu over it opening Now Playing; PICO-8 quiet while MP4 plays
+# (eq-port.sh's softvol stage, the launcher's control and mark, the
+# follower's and the menu's writes) and every port into a USB-C DAC's chain
+# while one is in (tools/pico8-mp4-check.py)
 check-pico8-mp4: build-native/mp4hand-check native
 	@./build-native/mp4hand-check
 	@python3 tools/pico8-mp4-check.py

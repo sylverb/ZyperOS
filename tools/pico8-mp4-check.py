@@ -81,7 +81,10 @@ def launch_sh(tmp):
         # /tmp/ first: the scratch folder is itself under /tmp on Linux, and
         # the card's path put in first would be moved again
         return (text.replace('/tmp/', f'{d}/tmp/').replace('/mnt/SDCARD', str(card))
-                .replace('/usr/share/zyperos/card', str(d / 'seed')).replace('/dev/kmsg', str(d / 'kmsg')))
+                .replace('/usr/share/zyperos/card', str(d / 'seed')).replace('/dev/kmsg', str(d / 'kmsg'))
+                .replace('/usr/lib/ladspa/zyperos_eq.so', str(d / 'zyperos_eq.so'))
+                .replace('/proc/asound/card1/usbid', str(d / 'card1-usbid'))
+                .replace('/etc/asound.conf', str(d / 'asound.conf')))
 
     def put(path, text, run=True):
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -89,11 +92,27 @@ def launch_sh(tmp):
         if run:
             path.chmod(0o755)
 
-    def run(request):
+    def run(request, quiet=None, dac=False, usb_pcm=True):
         shutil.rmtree(d, ignore_errors=True)
         for p in (zy, bin_, d / 'tmp', card / '.userdata/pixel2', card / 'Roms/PICO-8'):
             p.mkdir(parents=True, exist_ok=True)
         put(zy / 'launch.sh', edit(ROOT / 'sd/zyperos/launch.sh'), False)
+        # The equalizer's chain on, as on a card since 1.1.0: its plugin and
+        # the launcher's file; and the launcher's quiet mark when it made
+        # the control
+        put(zy / 'eq-port.sh', (ROOT / 'sd/zyperos/eq-port.sh').read_text(), False)
+        put(d / 'zyperos_eq.so', 'plugin', False)
+        (d / 'eq').write_bytes(b'ZEQ1' + bytes(12))
+        if quiet is not None:
+            put(d / 'tmp/zyperos_port_quiet', quiet + '\n', False)
+        # The system's ALSA config, the Pixel 2's (plastron's), with or
+        # without its DAC chain; and a DAC in, card 1 with a USB id
+        conf = (ROOT / 'plastron/buildroot/board/px2/rootfs-overlay/etc/asound.conf').read_text()
+        if not usb_pcm:
+            conf = '\n'.join(l for l in conf.splitlines() if not l.startswith('pcm.usb'))
+        put(d / 'asound.conf', conf, False)
+        if dac:
+            put(d / 'card1-usbid', '05ac:110a\n', False)
         put(zy / 'device.sh', edit(ROOT / 'sd/pixel2/device.sh') + '\ndevice_radios() { :; }\n', False)
         for c in ('poweroff', 'reboot'):
             put(bin_ / c, f'#!/bin/sh\necho {c} >> "{calls}"\n')
@@ -125,13 +144,22 @@ while :; do sleep 0.05; done
 ''')
         for script in ('pico8/PICO-8.sh', 'openbor/OpenBOR.sh'):
             put(zy / script, f'#!/bin/bash\necho "program {script} $*" >> "{calls}"\nsleep 0.3\nexit 0\n')
-        env = dict(os.environ, PATH=f'{bin_}:{os.environ["PATH"]}')
+        env = dict(os.environ, PATH=f'{bin_}:{os.environ["PATH"]}', ZYPEROS_EQ_FILE=str(d / 'eq'))
         try:
             subprocess.run(['sh', str(zy / 'launch.sh')], env=env, stdin=subprocess.DEVNULL,
                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=30)
         except subprocess.TimeoutExpired:
             check(False, 'launch.sh ended (it ran 30 s)')
         return calls.read_text().splitlines() if calls.exists() else []
+
+    def chain():
+        """the PCMs launch.sh gave the program"""
+        conf = d / 'tmp/zyperos_port_eq.conf'
+        return conf.read_text() if conf.exists() else ''
+
+    def has_quiet(text, name):
+        return (f'slave.pcm "plug:zyperos_quiet"' in text and 'pcm.zyperos_quiet {' in text and
+                'type softvol' in text and f'name "{name}"' in text and 'slave.pcm "mixed"' in text)
 
     print('launch.sh, your PICO-8 (a request with "mp4" fifth):')
     tab = '\t'
@@ -148,13 +176,68 @@ while :; do sleep 0.05; done
           lines.index('follow TERM') < lines.index('launcher 2'),
           'the follower is ended, and waited for, before the launcher comes back')
 
+    check('pcm.zyperos_eq' in chain() and 'zyperos_quiet' not in chain(),
+          'no quiet mark (no control made): the equalizer\'s chain as before, PICO-8 heard')
+    pico8 = tab.join((f'{zy}/pico8/PICO-8.sh', f'{card}/Roms/PICO-8/celeste.p8', 'PICO8', 'stretch', 'mp4'))
+    run(pico8, quiet='Port Playback Volume')
+    check(has_quiet(chain(), 'Port Playback Volume'),
+          'the launcher\'s quiet mark: a softvol stage on its control between the plugin and the mix')
+    log = (card / '.userdata/pixel2/logs/zyperos.log').read_text(errors='replace')
+    check('quiet while MP4 plays (Port Playback Volume)' in log, 'and the log says so')
+    run(pico8, quiet='Port "Playback" $(Volume)')
+    check('pcm.zyperos_eq' in chain() and 'zyperos_quiet' not in chain(),
+          'a mark that is no control\'s name: the chain as before')
+
+    print('launch.sh, a USB-C DAC in:')
+    run(pico8, quiet='Port Playback Volume', dac=True)
+    text = chain()
+    check('slave.pcm "plug:zyperos_quiet"' in text and 'slave.pcm "usb"' in text and
+          'slave.pcm "mixed"' not in text, 'PICO-8 into the DAC\'s chain, "usb", through the quiet stage')
+    log = (card / '.userdata/pixel2/logs/zyperos.log').read_text(errors='replace')
+    check('(into usb)' in log, 'and the log says so')
+    run(pico8, dac=True)
+    check('slave.pcm "plug:usb"' in chain() and 'mixed' not in chain(), 'with no quiet mark, straight into it')
+    run(pico8, dac=True, usb_pcm=False)
+    check('slave.pcm "plug:mixed"' in chain() and '"usb"' not in chain() and 'plug:usb' not in chain(),
+          'an image whose asound.conf has no DAC chain: the mix, as before')
+    run(pico8)
+    check('slave.pcm "plug:mixed"' in chain() and 'usb' not in chain(), 'no DAC: the mix, as before')
+    run(tab.join((f'{zy}/openbor/OpenBOR.sh', f'{card}/Roms/OPENBOR/x.pak', 'OPENBOR', 'stretch')), dac=True)
+    check('slave.pcm "plug:usb"' in chain(), 'and every port follows the DAC, OpenBOR too')
+
     print('launch.sh, OpenBOR (four fields):')
-    lines = run(tab.join((f'{zy}/openbor/OpenBOR.sh', f'{card}/Roms/OPENBOR/x.pak', 'OPENBOR', 'stretch')))
+    lines = run(tab.join((f'{zy}/openbor/OpenBOR.sh', f'{card}/Roms/OPENBOR/x.pak', 'OPENBOR', 'stretch')),
+                quiet='Port Playback Volume')
     check(any(l.startswith('program openbor/OpenBOR.sh ') for l in lines), 'the program ran')
     check('killall -TERM mp4d' in lines, 'MP4 is stopped for it, as before')
     check(not any(l.startswith('follow start') for l in lines), 'no follower')
     keys = next((l for l in lines if l.startswith('portkeys ')), '')
     check(keys.startswith(f'portkeys --menu {zy}/zyperos.elf OPENBOR '), f'portkeys as before ({keys!r})')
+    check('pcm.zyperos_eq' in chain() and 'zyperos_quiet' not in chain(),
+          'and no quiet stage, a mark there or not')
+
+
+def eq_port(tmp):
+    """eq-port.sh's PCMs with ZYPEROS_PORT_QUIET and without"""
+    def out(quiet=None):
+        env = dict(os.environ)
+        env.pop('ZYPEROS_PORT_QUIET', None)
+        if quiet is not None:
+            env['ZYPEROS_PORT_QUIET'] = quiet
+        return subprocess.run(['sh', str(ROOT / 'sd/zyperos/eq-port.sh'), 'mixed'], env=env,
+                              capture_output=True, text=True).stdout
+
+    print('eq-port.sh, the quiet stage:')
+    plain, quiet = out(), out('Port Playback Volume')
+    check('zyperos_quiet' not in plain and 'slave.pcm "plug:mixed"' in plain, 'none asked: as before')
+    stage = quiet[quiet.find('pcm.zyperos_quiet {'):]
+    check('slave.pcm "plug:zyperos_quiet"' in quiet and 'slave.pcm "plug:mixed"' not in quiet,
+          'asked: the plugin plays into the stage')
+    check(all(f in stage for f in ('type softvol', 'slave.pcm "mixed"', 'name "Port Playback Volume"',
+                                   'card 0', 'min_dB -95.625', 'max_dB 0.0', 'resolution 256')),
+          'a softvol on that control of card 0, with asound.conf\'s numbers for the USB one, into the mix')
+    for bad in ('', 'Port "Playback"', 'x$(reboot)', 'Port\tPlayback', 'P' * 44):
+        check(out(bad) == plain, f'{bad[:20]!r}: no stage, the PCMs byte for byte as before')
 
 
 # ---- 2. the launcher ------------------------------------------------------
@@ -229,6 +312,9 @@ class Daemon:
                 self.send(f'META\ttitle={Path(self.file).stem[3:]}\tartist=\talbum=\tlen={self.len:.1f}'
                           '\tchapters=0\tvideo=0x0')
                 self.send(f'STATE\tstate=playing\tpath={self.file}')
+            elif verb in ('PAUSE', 'RESUME') and self.state != 'stopped':
+                self.state = 'paused' if verb == 'PAUSE' else 'playing'
+                self.send(f'STATE\tstate={self.state}\tpath={self.file}')
             elif verb == 'SEEK':
                 self.at = float(f.get('at', 0))
                 self.send(f'POS\tat={self.at:.1f}\tlen={self.len:.1f}')
@@ -243,6 +329,12 @@ class Daemon:
             self.state = 'stopped'
             self.send(f'END\tpath={self.file}')
             self.send(f'STATE\tstate=stopped\tpath={self.file}')
+
+    def say(self, state):
+        """paused or played on by itself (a headset's key)"""
+        with self.lock:
+            self.state = state
+            self.send(f'STATE\tstate={state}\tpath={self.file}')
 
     def plays(self):
         return [l.split('\tpath=')[1].split('\t')[0] for l in self.got if l.startswith('PLAY\t')]
@@ -329,15 +421,23 @@ def launcher(tmp):
     env = desk.card_env(card, None)
     env.update(SDL_VIDEODRIVER='dummy', SDL_AUDIODRIVER='dummy', ZYPEROS_DESK_FORCE='1',
                ZYPEROS_DESK_SOCK=str(dsock), ZYPEROS_FLAG_DIR=str(flags), ZYPEROS_CTL_DIR=str(cdir),
-               ZYPEROS_MP4_SOCKET=str(msock))
+               ZYPEROS_MP4_SOCKET=str(msock), ZYPEROS_PORT_QUIET_CTL=str(tmp / 'quiet-control'))
     env.pop('ZYPEROS_HEADLESS', None)
     procs = []
+    quiet_mark, quiet_ctl = flags / 'zyperos_port_quiet', tmp / 'quiet-control'
 
-    def start(name, args):
+    def control():
+        """what the stand-in for PICO-8's quiet control holds"""
+        return quiet_ctl.read_text().strip() if quiet_ctl.exists() else None
+
+    def start(name, args, no_control=False):
         if dsock.exists():
             dsock.unlink()
         log = open(tmp / f'{name}.log', 'w')
-        p = subprocess.Popen([str(BINARY)] + args, env=env, stdout=log, stderr=subprocess.STDOUT)
+        e = dict(env)
+        if no_control:
+            e.pop('ZYPEROS_PORT_QUIET_CTL')
+        p = subprocess.Popen([str(BINARY)] + args, env=e, stdout=log, stderr=subprocess.STDOUT)
         procs.append(p)
         return p
 
@@ -390,15 +490,26 @@ def launcher(tmp):
         h = hand.read_text() if hand.exists() else ''
         check(field(h, 'pos') == '1' and field(h, 'state') == 'playing' and field(h, 'n') == '3',
               'the queue is in the file, on the song playing')
+        check(quiet_mark.exists() and quiet_mark.read_text().strip() == 'Port Playback Volume' and
+              control() == '0', f'PICO-8\'s quiet control made, at silence as MP4 plays, and the mark '
+              f'for launch.sh ({control()})')
 
         print('the follower beside it:')
         f = start('follow', ['--mp4-follow'])
         check(wait_for(lambda: 'mp4 follow: beside the program' in logged('follow'), 5) and
               'mp4: took over 3 tracks, playing, at 2' in logged('follow'), 'it takes the queue')
         check(wait_for(lambda: daemon.got.count('<connect>') == 2, 3), 'and talks to the daemon')
+        check('quiet: PICO-8 quiet, MP4 plays' in logged('follow') and control() == '0',
+              'PICO-8 quiet as MP4 plays')
+        t0 = time.time()
+        daemon.say('paused')
+        check(wait_for(lambda: control() == '255', 2), 'MP4 paused (a headset\'s key): PICO-8 heard')
+        check(time.time() - t0 < 0.5, f'at once ({time.time() - t0:.2f} s)')
+        daemon.say('playing')
+        check(wait_for(lambda: control() == '0', 2), 'MP4 played on: PICO-8 quiet again')
         daemon.end()
-        check(wait_for(lambda: daemon.plays()[-1:] == [str(card / TRACKS[2])], 3),
-              'an END: the next track')
+        check(wait_for(lambda: daemon.plays()[-1:] == [str(card / TRACKS[2])], 3) and control() == '0',
+              'an END: the next track, PICO-8 still quiet')
 
         print('MENU over PICO-8, the follower stopped as portkeys stops it:')
         f.send_signal(signal.SIGSTOP)
@@ -419,6 +530,12 @@ def launcher(tmp):
         ask(dsock, 'wait-frames 4')
         check(wait_for(lambda: daemon.plays()[n:] == [str(card / TRACKS[1])], 3),
               f'L1: the song before ({[g[:40] for g in daemon.got[-6:]]})')
+        # A pauses it; PICO-8 is stopped under the menu, and the control is
+        # left until the menu closes, as Diatom's QUIET is said at Continue
+        ask(dsock, 'tap a')
+        ask(dsock, 'wait-frames 6')
+        check(wait_for(lambda: daemon.state == 'paused', 2) and control() == '0',
+              'A in Now Playing pauses MP4; the control as it was while the menu is up')
         ask(dsock, 'press select')
         ask(dsock, 'wait-frames 3')
         ask(dsock, 'release select')
@@ -428,14 +545,18 @@ def launcher(tmp):
         check(rc == 10, f'SELECT let go closes MP4, and B is Continue ({rc})')
         h = hand.read_text() if hand.exists() else ''
         check(field(h, 'pos') == '1', f'the menu writes the queue back, on the song before ({field(h, "pos")})')
+        check(control() == '255' and 'quiet: PICO-8 heard' in logged('menu'),
+              'and PICO-8 heard, MP4 paused, written as the menu closes, before PICO-8 goes on')
         f.send_signal(signal.SIGCONT)
         check(wait_for(lambda: 'the queue again, from the in-game menu' in logged('follow'), 3),
               'the follower, let go on, takes the queue again')
+        time.sleep(0.3)
+        check(control() == '255', 'and leaves PICO-8 heard, MP4 still paused')
         n = len(daemon.plays())
-        time.sleep(0.4)
         daemon.end()
         check(wait_for(lambda: daemon.plays()[n:] == [str(card / TRACKS[2])], 3),
               'and plays on from it: an END, the next track')
+        check(wait_for(lambda: control() == '0', 2), 'MP4 playing again: PICO-8 quiet')
         f.send_signal(signal.SIGTERM)
         check(ended(f) == 0, 'TERM ends it')
         h = hand.read_text() if hand.exists() else ''
@@ -457,6 +578,22 @@ def launcher(tmp):
         log = logged('menu-other')
         check(rc == 10 and 'MP4 ready' not in log and '<connect>' not in daemon.got[n:],
               f'SELECT opens nothing, and B is Continue ({rc})')
+        check('quiet:' not in log, 'and writes no quiet control')
+
+        print('PICO-8 opened where its quiet control cannot be made:')
+        hand.write_text(hand_text(card, 0))
+        daemon.say('playing')
+        p = start('start-nocontrol', ['--device', 'pixel2'], no_control=True)
+        check(desk_up(p), 'the launcher started')
+        s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        s.settimeout(10)
+        s.connect(str(cdir / 'ctl.sock'))
+        s.sendall(f'open\tpath={card}/Roms/PICO-8/celeste.p8\n'.encode())
+        s.makefile().readline()
+        s.close()
+        check(ended(p) == 0, 'the launcher ends for it')
+        check(not quiet_mark.exists() and 'quiet: no Port Playback Volume' in logged('start-nocontrol'),
+              'no mark: launch.sh leaves PICO-8\'s chain as before, PICO-8 heard')
     finally:
         for p in procs:
             if p.poll() is None:
@@ -472,6 +609,7 @@ def launcher(tmp):
 def main():
     tmp = Path(tempfile.mkdtemp(prefix='zyperos-pico8-mp4-'))
     try:
+        eq_port(tmp)
         launch_sh(tmp)
         if BINARY.is_file():
             launcher(tmp)

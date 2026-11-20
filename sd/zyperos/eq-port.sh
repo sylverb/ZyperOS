@@ -5,13 +5,15 @@
 #   eq-port.sh --on            exit 0 when the launcher's file is there and
 #                              whole (/run/zyperos/eq: src/eqdsp.h's eq_share,
 #                              "ZEQ1", a count, five signed bytes, the boost)
-#   eq-port.sh SLAVE [PLUGIN]  the port's own PCMs, on stdout
+#   eq-port.sh SLAVE [PLUGIN]  the port's own PCMs, on stdout (with
+#                              ZYPEROS_PORT_QUIET, the quiet stage, below)
 #   eq-port.sh --after FILE    the file for the port's ALSA_CONFIG_PATH, on
 #                              stdout: a hook that loads FILE (the PCMs)
 #
 # The config's "default" is plug -> alsa-lib's ladspa PCM, running ZyperOS's
 # plugin (plastron's zyperos-eq, PLUGIN) -> plug -> SLAVE, the dmix every
-# other program mixes into ("mixed" on the Pixel 2, its ipc_key the same), so
+# other program mixes into ("mixed" on the Pixel 2, its ipc_key the same; or
+# with a USB-C DAC in, "usb", the DAC's own chain, launch.sh's choice), so
 # the port still plays over MP4 and under the volume bar as before. The
 # plugin reads the bands from the same file once a period, so a change in
 # the port's in-game menu reaches it.
@@ -23,6 +25,15 @@
 # in the port's ALSA_CONFIG_PATH, after alsa.conf, only adds hook 1, which
 # loads the PCMs after /etc/asound.conf. errors false: a PCM file that cannot
 # be read leaves the port on the system's default, never without sound.
+#
+# Your PICO-8 quiet while MP4 plays, as a Diatom game is (DESIGN.md 11.55):
+# with ZYPEROS_PORT_QUIET naming a control (launch.sh gives it for PICO-8
+# alone, once the launcher has made the control: src/main.c's
+# port_quiet_hand), a softvol stage between the plugin and the mix, on that
+# control of card 0, with asound.conf's numbers for the USB one: MP4's
+# follower writes it, silence while MP4 plays, 0 dB otherwise. Any other
+# value, or none, and the PCMs are exactly as before, so a control that
+# could not be made never costs PICO-8 its sound.
 #
 # On for every port since the volume boost (src/boost.h, DESIGN.md 11.6):
 # its gain is in the same file, portkeys writes it as the keys open the boost
@@ -52,6 +63,13 @@ fi
 
 slave=${1:?eq-port.sh: which PCM the port mixes into}
 plugin=${2:-/usr/lib/ladspa/zyperos_eq.so}
+# The quiet stage's control: letters, digits and spaces, a control name's
+# 43 at most, else none
+quiet=${ZYPEROS_PORT_QUIET:-}
+case $quiet in *[!A-Za-z0-9\ ]*) quiet= ;; esac
+[ ${#quiet} -le 43 ] || quiet=
+into=$slave
+[ -n "$quiet" ] && into=zyperos_quiet
 cat <<CONF
 # The equalizer over this port's sound (ZyperOS's sd/zyperos/eq-port.sh)
 pcm.!default {
@@ -61,7 +79,7 @@ pcm.!default {
 
 pcm.zyperos_eq {
 	type ladspa
-	slave.pcm "plug:$slave"
+	slave.pcm "plug:$into"
 	path "${plugin%/*}"
 	plugins [ {
 		label zyperos_eq
@@ -70,5 +88,22 @@ pcm.zyperos_eq {
 		input { bindings { 0 "Input L" 1 "Input R" } }
 		output { bindings { 0 "Output L" 1 "Output R" } }
 	} ]
+}
+CONF
+[ -n "$quiet" ] || exit 0
+cat <<CONF
+
+# Quiet while MP4 plays (your PICO-8): the launcher's control, written by
+# MP4's follower, 0 silence and 255 0 dB, in front of the mix
+pcm.zyperos_quiet {
+	type softvol
+	slave.pcm "$slave"
+	control {
+		name "$quiet"
+		card 0
+	}
+	min_dB -95.625
+	max_dB 0.0
+	resolution 256
 }
 CONF

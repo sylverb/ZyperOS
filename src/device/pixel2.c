@@ -1073,19 +1073,22 @@ static int jack_present(void)
 	return BIT_IS_SET(bits, SW_HEADPHONE_INSERT) ? 1 : 0;
 }
 
-static void ctl_write(const char *name, long raw)
+static bool ctl_write(const char *name, long raw)
 {
 	struct px_ctl_elem_value c;
 
-	if (mixer_fd < 0) return;
+	if (mixer_fd < 0) return false;
 	memset(&c, 0, sizeof c);
 	c.id.iface = 2;                                 /* SNDRV_CTL_ELEM_IFACE_MIXER */
 	snprintf((char *)c.id.name, sizeof c.id.name, "%s", name);
 	/* Both channels: one written alone reads as a balance problem. */
 	c.value.integer.value[0] = raw;
 	c.value.integer.value[1] = raw;
-	if (ioctl(mixer_fd, PX_CTL_ELEM_WRITE, &c) < 0)
+	if (ioctl(mixer_fd, PX_CTL_ELEM_WRITE, &c) < 0) {
 		fprintf(stderr, "settings: mixer rejected '%s' = %ld\n", name, raw);
+		return false;
+	}
+	return true;
 }
 
 static void apply_volume(int v)
@@ -1099,6 +1102,43 @@ static void apply_volume(int v)
 	ctl_write(USB_CTL, px2_usb_raw(v));
 }
 
+/* `name` added in the shape alsa-lib's softvol checks for, or it puts its
+ * own in its place: two channels, 0-255, and a dB scale of USB_DB_MIN by
+ * USB_DB_STEP. False when it could not be added. */
+static bool ctl_volume_add(const char *name)
+{
+	struct px_ctl_elem_info info;
+	unsigned int tlv[6];
+
+	memset(&info, 0, sizeof info);
+	info.id.iface = 2;                              /* SNDRV_CTL_ELEM_IFACE_MIXER */
+	snprintf((char *)info.id.name, sizeof info.id.name, "%s", name);
+	info.type   = 2;                                /* SNDRV_CTL_ELEM_TYPE_INTEGER */
+	info.access = 0x3 | 0x20;                       /* READWRITE, TLV_WRITE */
+	info.count  = 2;
+	info.owner  = 1;                                /* one element, on adding */
+	info.value.integer.max = USB_RAW_MAX;
+	if (ioctl(mixer_fd, PX_CTL_ELEM_ADD, &info) < 0) {
+		fprintf(stderr, "settings: could not add '%s'\n", name);
+		return false;
+	}
+	tlv[0] = info.id.numid;
+	tlv[1] = 4 * sizeof tlv[0];
+	tlv[2] = 1;                                     /* SNDRV_CTL_TLVT_DB_SCALE */
+	tlv[3] = 2 * sizeof tlv[0];
+	tlv[4] = (unsigned int)USB_DB_MIN;
+	tlv[5] = USB_DB_STEP;
+	if (ioctl(mixer_fd, PX_CTL_TLV_WRITE, tlv) < 0)
+		fprintf(stderr, "settings: no dB scale for '%s'\n", name);
+	/* The kernel locks a control added by hand to whoever added it, for as
+	 * long as they hold the card open, and the launcher holds it open for
+	 * good: a game's volume presses, written by Diatom, were refused until
+	 * the menu had the launcher write the level (seen 2026-10-05). */
+	if (ioctl(mixer_fd, PX_CTL_ELEM_UNLOCK, &info.id) < 0)
+		fprintf(stderr, "settings: could not unlock '%s'\n", name);
+	return true;
+}
+
 /* alsa-lib makes the USB control itself the first time something plays
  * through a DAC, at 0 dB, the loudest there is. Made here first, before MP4
  * or a game can play, it is kept as it is, at the player's level. It has to
@@ -1108,38 +1148,58 @@ static void apply_volume(int v)
 static void usb_volume_create(void)
 {
 	struct px_ctl_elem_info info;
-	unsigned int tlv[6];
 
 	if (mixer_fd < 0) return;
 	memset(&info, 0, sizeof info);
 	info.id.iface = 2;                              /* SNDRV_CTL_ELEM_IFACE_MIXER */
 	snprintf((char *)info.id.name, sizeof info.id.name, "%s", USB_CTL);
 	if (ioctl(mixer_fd, PX_CTL_ELEM_INFO, &info) == 0) return;
-	info.type   = 2;                                /* SNDRV_CTL_ELEM_TYPE_INTEGER */
-	info.access = 0x3 | 0x20;                       /* READWRITE, TLV_WRITE */
-	info.count  = 2;
-	info.owner  = 1;                                /* one element, on adding */
-	info.value.integer.max = USB_RAW_MAX;
-	if (ioctl(mixer_fd, PX_CTL_ELEM_ADD, &info) < 0) {
-		fprintf(stderr, "settings: could not add '%s'\n", USB_CTL);
-		return;
-	}
-	tlv[0] = info.id.numid;
-	tlv[1] = 4 * sizeof tlv[0];
-	tlv[2] = 1;                                     /* SNDRV_CTL_TLVT_DB_SCALE */
-	tlv[3] = 2 * sizeof tlv[0];
-	tlv[4] = (unsigned int)USB_DB_MIN;
-	tlv[5] = USB_DB_STEP;
-	if (ioctl(mixer_fd, PX_CTL_TLV_WRITE, tlv) < 0)
-		fprintf(stderr, "settings: no dB scale for '%s'\n", USB_CTL);
-	/* The kernel locks a control added by hand to whoever added it, for as
-	 * long as they hold the card open, and this holds it open for good: a
-	 * game's volume presses, written by Diatom, were refused until the menu
-	 * had the launcher write the level (seen 2026-10-05). */
-	if (ioctl(mixer_fd, PX_CTL_ELEM_UNLOCK, &info.id) < 0)
-		fprintf(stderr, "settings: could not unlock '%s'\n", USB_CTL);
+	if (!ctl_volume_add(USB_CTL)) return;
 	/* Added at 0, silence: the middle until a level is known. */
 	ctl_write(USB_CTL, px2_usb_raw(VOL_MAX / 2));
+}
+
+/* PICO-8's quiet while MP4 plays (platform.h): "Port Playback Volume", the
+ * USB control's twin, which sd/zyperos/eq-port.sh's softvol stage names with
+ * asound.conf's numbers for the USB one (min_dB -95.625, resolution 256).
+ * Made by the launcher as it hands over to PICO-8, written by MP4's
+ * follower beside it and by the in-game menu over it; each opens the card
+ * for it if it has not. Found in another shape, it is not used: alsa-lib
+ * would put its own in its place as PICO-8 opens its sound, and a stage that
+ * cannot have its control is no sound at all. */
+static bool port_quiet_card(void)
+{
+	if (mixer_fd < 0) mixer_fd = open("/dev/snd/controlC0", O_RDWR | O_CLOEXEC);
+	return mixer_fd >= 0;
+}
+
+bool plat_port_quiet_make(void)
+{
+	struct px_ctl_elem_info info;
+
+	if (!port_quiet_card()) return false;
+	memset(&info, 0, sizeof info);
+	info.id.iface = 2;                              /* SNDRV_CTL_ELEM_IFACE_MIXER */
+	snprintf((char *)info.id.name, sizeof info.id.name, "%s", PORT_QUIET_CTL);
+	if (ioctl(mixer_fd, PX_CTL_ELEM_INFO, &info) < 0) {
+		if (!ctl_volume_add(PORT_QUIET_CTL)) return false;
+		memset(&info, 0, sizeof info);
+		info.id.iface = 2;
+		snprintf((char *)info.id.name, sizeof info.id.name, "%s", PORT_QUIET_CTL);
+		if (ioctl(mixer_fd, PX_CTL_ELEM_INFO, &info) < 0) return false;
+	}
+	if (info.type != 2 || info.count != 2 || info.value.integer.min != 0 ||
+	    info.value.integer.max != USB_RAW_MAX) {
+		fprintf(stderr, "settings: '%s' is there in another shape (type %d, %u, %ld-%ld)\n",
+		        PORT_QUIET_CTL, info.type, info.count, info.value.integer.min, info.value.integer.max);
+		return false;
+	}
+	return true;
+}
+
+bool plat_port_quiet(bool quiet)
+{
+	return port_quiet_card() && ctl_write(PORT_QUIET_CTL, quiet ? 0 : USB_RAW_MAX);
 }
 
 /* MENU > Display > Screen Colors as the table carries them (panelgamma.h),

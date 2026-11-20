@@ -35,7 +35,9 @@ SDCARD=/mnt/SDCARD
 #                    started for (plastron's lastoff, the power-off's last step)
 #
 # EQ_SLAVE, the dmix a port mixes into, for the equalizer over a port's
-# sound (eq-port.sh): unset, a port plays as it always did.
+# sound (eq-port.sh): unset, a port plays as it always did. EQ_SLAVE_USB,
+# the PCM in /etc/asound.conf a port plays into instead while a USB-C DAC
+# is in (run_port): unset, the DAC is not followed.
 #
 # BACKLIGHT, the system's tool that lights the panel at each start of the
 # launcher, where the launcher does not light it itself; WIFI_DOWN, what the
@@ -542,13 +544,32 @@ run_port() {
 	# nowhere in its chain. Two files:
 	# its PCMs, and the one in its ALSA_CONFIG_PATH that loads them after
 	# /etc/asound.conf, whose default would replace them (eq-port.sh)
-	local eqcfg=
-	if [ -n "${EQ_SLAVE:-}" ] && [ -s /usr/lib/ladspa/zyperos_eq.so ] &&
+	# Your PICO-8 (fifth field "mp4") quiet while MP4 plays, as a Diatom game
+	# is: a softvol stage in the same chain, on the control the launcher
+	# made as it handed over and named in /tmp/zyperos_port_quiet (src/main.c's
+	# port_quiet_hand); MP4's follower writes it. No mark, a control that
+	# could not be made: the chain as before, PICO-8 heard
+	local eqcfg= quiet= into=${EQ_SLAVE:-}
+	[ "$5" = mp4 ] && [ -s /tmp/zyperos_port_quiet ] && read -r quiet < /tmp/zyperos_port_quiet
+	# A USB-C DAC in (card 1 with a USB id, as the launcher tells one,
+	# plat_usb_audio_present): every port's sound into it, as Diatom's and
+	# MP4's go, a cable winning in every Audio Output policy (src/audioout.c);
+	# through the system's own chain for it (EQ_SLAVE_USB, device.sh's), so
+	# its volume is "USB Playback Volume", which portkeys writes with every
+	# step. Only when /etc/asound.conf has that PCM: else, and with no DAC,
+	# the mix as before. Chosen as the port starts: a DAC plugged in or out
+	# while it plays is heard at the next start. A Bluetooth headset stays
+	# MP4's, as bluealsa gives a headset to one program at a time
+	if [ -n "${EQ_SLAVE_USB:-}" ] && [ -e /proc/asound/card1/usbid ] &&
+	   grep -q "^pcm\.$EQ_SLAVE_USB[ {]" /etc/asound.conf 2> /dev/null; then
+		into=$EQ_SLAVE_USB
+	fi
+	if [ -n "$into" ] && [ -n "${EQ_SLAVE:-}" ] && [ -s /usr/lib/ladspa/zyperos_eq.so ] &&
 	   sh "$ZYPEROS_DIR/eq-port.sh" --on; then
 		eqcfg=/tmp/zyperos_port_eq.hook
-		if sh "$ZYPEROS_DIR/eq-port.sh" "$EQ_SLAVE" > /tmp/zyperos_port_eq.conf &&
+		if ZYPEROS_PORT_QUIET=$quiet sh "$ZYPEROS_DIR/eq-port.sh" "$into" > /tmp/zyperos_port_eq.conf &&
 		   sh "$ZYPEROS_DIR/eq-port.sh" --after /tmp/zyperos_port_eq.conf > "$eqcfg"; then
-			echo "port: the equalizer over its sound (into $EQ_SLAVE)" >> "$LOG"
+			echo "port: the equalizer over its sound (into $into)${quiet:+, quiet while MP4 plays ($quiet)}" >> "$LOG"
 		else
 			eqcfg=
 		fi

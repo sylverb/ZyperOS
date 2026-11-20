@@ -330,6 +330,20 @@ bool plat_resident_line(const char *fmt, ...);
  * before every RUN whether it changed or not, so it is safe to call as often
  * as the answer might have moved. */
 void plat_resident_quiet(bool on);
+/* The same for your PICO-8, a program of its own MP4 plays on over
+ * (DESIGN.md 11.55): a softvol control on the sound card that the port's
+ * ALSA chain puts in front of the mix for PICO-8 alone (sd/zyperos/eq-port.sh),
+ * in the shape alsa-lib's softvol takes as its own (two channels, 0-255, the
+ * dB scale of "USB Playback Volume"). plat_port_quiet_make makes it, or
+ * finds it in that shape, true when it can be used: only then does launch.sh
+ * put the stage in PICO-8's chain, so a control that cannot be made leaves
+ * the chain as it was, PICO-8 heard. plat_port_quiet writes it: silence
+ * while MP4 plays, else 0 dB; false when it could not. None on the Brick,
+ * which runs no port. On a computer, $ZYPEROS_PORT_QUIET_CTL names a file
+ * that stands for the control, for check-pico8-mp4. */
+#define PORT_QUIET_CTL "Port Playback Volume"
+bool plat_port_quiet_make(void);
+bool plat_port_quiet(bool quiet);
 /* Whether Diatom draws the low-battery disc over the game - its LOWBATTERY:
  * 0 none, 1 steady, 2 blinking. Sent like quiet: on a change, and before
  * every RUN. */

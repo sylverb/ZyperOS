@@ -308,6 +308,8 @@ static void launch_port_core(app *a, const system_cfg *s, const char *file, cons
 	unlink(plat_flag(MP4HAND_PATH));
 	if (port_keeps_mp4(core)) mp4_hand_save();
 	else                      resume_clear();
+	/* And PICO-8 quiet while MP4 plays, where its control can be made */
+	port_quiet_hand(port_keeps_mp4(core));
 	anim_launch(a);
 	port_loading_screen(a, s);
 	/* "Getting hot" for portkeys to show over the port, which this process

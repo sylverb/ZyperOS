@@ -1789,6 +1789,58 @@ bool mp4_hand_save(void)
 	return ok;
 }
 
+/* YOUR PICO-8 QUIET WHILE MP4 PLAYS, as a Diatom game is (QUIET, DESIGN.md
+ * 11.55): the port's softvol control (platform.h's plat_port_quiet) at
+ * silence while MP4 plays and at 0 dB otherwise. launch.sh puts the stage in
+ * PICO-8's ALSA chain only when PORT_QUIET_MARK is there, which
+ * port_quiet_hand writes once the control is made and written; with no mark
+ * the chain is as it was, and PICO-8 is heard. */
+#define PORT_QUIET_MARK "/tmp/zyperos_port_quiet"
+static int g_port_quiet_said = -1;
+
+static bool port_quiet_on(void)
+{
+	return access(plat_flag(PORT_QUIET_MARK), F_OK) == 0;
+}
+
+/* Said when MP4's playing changes, or at once with `force`: by the follower
+ * ten times a second, as the launcher says QUIET over a game, and by the
+ * in-game menu over PICO-8 as it closes, before PICO-8 goes on. Nothing
+ * with no stage in the chain. */
+static void port_quiet_follow(bool force)
+{
+	int q = mp4c_playing() ? 1 : 0;
+
+	if (!port_quiet_on() || (!force && q == g_port_quiet_said)) return;
+	g_port_quiet_said = q;
+	if (plat_port_quiet(q)) fprintf(stderr, "quiet: PICO-8 %s\n", q ? "quiet, MP4 plays" : "heard");
+	else                    fprintf(stderr, "quiet: could not write %s\n", PORT_QUIET_CTL);
+}
+
+/* As the launcher hands over to your PICO-8 (launch_port): the control made
+ * and set for what MP4 does now, then the mark; none when the control could
+ * not be made or written, and none for any other program */
+void port_quiet_hand(bool pico8)
+{
+	FILE *f;
+
+	unlink(plat_flag(PORT_QUIET_MARK));
+	g_port_quiet_said = -1;
+	if (!pico8) return;
+	if (!plat_port_quiet_make() || !plat_port_quiet(mp4c_playing())) {
+		fprintf(stderr, "quiet: no %s; PICO-8 heard over MP4 as before\n", PORT_QUIET_CTL);
+		return;
+	}
+	if (!(f = fopen(plat_flag(PORT_QUIET_MARK), "w"))) return;
+	fprintf(f, "%s\n", PORT_QUIET_CTL);
+	if (fclose(f) != 0) {
+		unlink(plat_flag(PORT_QUIET_MARK));
+		return;
+	}
+	fprintf(stderr, "quiet: PICO-8 %s, by %s\n", mp4c_playing() ? "quiet, MP4 plays" : "heard",
+	        PORT_QUIET_CTL);
+}
+
 /* ...and taken on: the queue the file holds made this process's, where the
  * daemon says it is (mp4c_hand_in). True when a queue came with it. */
 bool mp4_hand_take(void)
@@ -5933,6 +5985,7 @@ static int mp4_follow_main(void)
 	taken = hand_bytes(hand, &taken_n);
 	mp4_hand_take();
 	fprintf(stderr, "mp4 follow: beside the program%s\n", taken ? "" : ", with no queue handed over");
+	port_quiet_follow(true);
 	while (!want_quit) {
 		struct timespec nap = { 0, 100 * 1000000L };
 		bool look = g_follow_cont;
@@ -5955,11 +6008,14 @@ static int mp4_follow_main(void)
 				taken_n = n;
 				fprintf(stderr, "mp4 follow: the queue again, from the in-game menu\n");
 				mp4_hand_take();
+				port_quiet_follow(true);
 			} else {
 				free(now);
 			}
 		}
 		mp4_poll();
+		/* PICO-8 quiet while MP4 plays, heard again at a pause or the end */
+		port_quiet_follow(false);
 		nanosleep(&nap, NULL);
 	}
 	free(taken);
@@ -6083,6 +6139,9 @@ static int port_menu_main(int argc, char **argv)
 		book_keep(true);
 		mp4_hand_save();
 		texload_stop();
+		/* And PICO-8 quiet or heard for what MP4 does now, before it goes
+		 * on: Continue's QUIET over a Diatom game (gm_resume) */
+		port_quiet_follow(true);
 	}
 	/* The window closed, which puts back on the panel the frame SDL found
 	 * there - the port's - before the port has the display again */

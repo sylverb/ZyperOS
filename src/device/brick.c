@@ -906,6 +906,7 @@ bool plat_headphones_present(void) { return jack_present() != 0; }
  * hand risks supplying power into a charger: not worth a board. 2026-10-05. */
 bool plat_usb_audio_present(void) { return false; }
 
+
 /* Files over the USB cable while a computer has the Brick on it, Down To The
  * Wire as on the Pixel 2, and over Wi-Fi by Over The Hare otherwise. A
  * computer is one that has brought up the cable's network link (its carrier):
@@ -1518,6 +1519,42 @@ void plat_settings_init(void)
 }
 
 #endif  /* __linux__ */
+
+/* PICO-8's quiet under MP4 (platform.h). The Brick runs no port, so there is
+ * no control, and PICO-8's chain is never given the stage. On a computer
+ * (desk mode's build, Linux or a Mac), $ZYPEROS_PORT_QUIET_CTL is a file
+ * that stands for the control, made at 0 dB and holding the value last
+ * written, so check-pico8-mp4 can read what the launcher, MP4's follower and
+ * the in-game menu wrote; unset, there is none, as on a card whose control
+ * could not be made. */
+#ifdef ZYPEROS_DESK
+static bool quiet_put(const char *path, int raw)
+{
+	FILE *f = fopen(path, "w");
+
+	if (!f) return false;
+	fprintf(f, "%d\n", raw);
+	return fclose(f) == 0;
+}
+
+bool plat_port_quiet_make(void)
+{
+	const char *path = getenv("ZYPEROS_PORT_QUIET_CTL");
+
+	if (!path || !*path) return false;
+	return access(path, F_OK) == 0 || quiet_put(path, 255);
+}
+
+bool plat_port_quiet(bool quiet)
+{
+	const char *path = getenv("ZYPEROS_PORT_QUIET_CTL");
+
+	return path && *path && access(path, F_OK) == 0 && quiet_put(path, quiet ? 0 : 255);
+}
+#else
+bool plat_port_quiet_make(void) { return false; }
+bool plat_port_quiet(bool quiet) { (void)quiet; return false; }
+#endif
 
 /* Called by the transport the moment a game hands input back: whatever this
  * side remembers about the jack and the switch was formed while something
