@@ -127,6 +127,7 @@
 	--t-rewind: 700ms;
 	--t-wind: 180ms;
 	--t-hold-snap: 1000ms;
+	--t-hold-band: 2000ms;
 	--t-sheen: 480ms;
 	--t-sharpen: 200ms;
 	--t-hold-low-battery: 6000ms;

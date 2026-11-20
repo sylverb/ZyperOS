@@ -78,9 +78,35 @@ static bool row_is_scale(menu_row r)
 
 /* What a row's value takes at the right of the rows, for the measures:
  * its text, a tick (MENU_TICK) or X's glyph (MENU_KEY_X) */
+/* A value's partners' glyphs (MENU_PARTNER_MARK): their width with the gap
+ * before each, 0 for a value with none; *words_n the words' length */
+static int partner_w(const char *v, size_t *words_n)
+{
+	const char *m = v ? strstr(v, MENU_PARTNER_MARK) : NULL;
+	char names[64], *tok, *save = NULL;
+	int w = 0;
+
+	if (words_n) *words_n = v ? strlen(v) : 0;
+	if (!m) return 0;
+	if (words_n) *words_n = (size_t)(m - v);
+	snprintf(names, sizeof names, "%s", m + strlen(MENU_PARTNER_MARK));
+	for (tok = strtok_r(names, " ", &save); tok; tok = strtok_r(NULL, " ", &save))
+		w += DS_GRID * 2 + ui_button_width(tok, MENU_PARTNER_SIZE);
+	return w;
+}
+
 int menu_value_w(TTF_Font *fm, const char *v)
 {
 	if (v == MENU_TICK) return ui_cap_height(fm) * 6 / 5;
+	if (menu_keys_is(v)) return ui_button_width(menu_keys_names(v), MENU_KEYS_SIZE);
+	if (v && strstr(v, MENU_PARTNER_MARK)) {
+		size_t wn;
+		int pw = partner_w(v, &wn);
+		char words[192];
+
+		snprintf(words, sizeof words, "%.*s", (int)wn, v);
+		return ui_text_width(fm, words) + pw;
+	}
 	if (v == MENU_KEY_X) return ui_button_width("X", MENU_KEY_SIZE);
 	if (ds_scale_is(v)) return DS_SCALE_MIN_W + ds_scale_num_w();
 	if (v == MENU_KEY_Y_ON || v == MENU_KEY_Y_OFF)
@@ -617,8 +643,15 @@ void menu_panel(app *a, const char *heading, const menu_row *rows,
 				for (j = k + 1; k > sel && j < n; j++)
 					if (rows[j].live || (rows[j].label && !ROW_IS_NOTE(rows[j]))) k = -1;
 				if (k > sel) {
+					/* A panel with a picture beside its rows holds the
+					 * height its pages have (below), so its footer comes
+					 * out of that: their rows, and of the bottom pad all
+					 * but a note's own air, which its last note keeps
+					 * (a button's list on the Controls tab, 11.45) */
+					int room = g_menu_side ? avail / row_h * row_h + pad - pad / 3 : avail;
+
 					for (j = k; j < n; j++) foot_h += ROW_H(rows[j]);
-					if (avail - foot_h >= row_h) { nl = k; avail -= foot_h; }
+					if (room - foot_h >= row_h) { nl = k; avail = room - foot_h; }
 					else foot_h = 0;
 				}
 			}
@@ -756,7 +789,10 @@ void menu_panel(app *a, const char *heading, const menu_row *rows,
 		int most = (MENU_AVAIL_H - content_off - pad) / row_h;
 		int tall = content_off + most * row_h + pad;
 
-		if (panel.h < tall) panel.h = tall;
+		/* and no taller with a footer kept under its rows: the footer
+		 * stands in the bottom pad (above) rather than the panel growing
+		 * as a button's list opens over its page */
+		if (panel.h < tall || (g_menu_side && foot_h)) panel.h = tall;
 	}
 	panel.x = (ZYPEROS_SCREEN_W - panel.w) / 2;
 	panel.y = (ZYPEROS_SCREEN_H - panel.h) / 2;
@@ -1237,6 +1273,42 @@ void menu_panel(app *a, const char *heading, const menu_row *rows,
 				                content_w, mq_phase(slot, sel, i), lc);
 			}
 			notes_drawn++;
+		} else if (two_col && rows[i].value && strstr(rows[i].value, MENU_PARTNER_MARK)) {
+			/* A value and its partners' glyphs after it, dim: the
+			 * Controls tab's game button another button gives too */
+			size_t wn;
+			const int pw = partner_w(rows[i].value, &wn);
+			char words[192], names[64], lbl[192], *tok, *save = NULL;
+			int x = content_x + content_w - pw;
+
+			snprintf(words, sizeof words, "%.*s", (int)wn, rows[i].value);
+			snprintf(names, sizeof names, "%s", strstr(rows[i].value, MENU_PARTNER_MARK) + strlen(MENU_PARTNER_MARK));
+			ui_fit_text(fm, rows[i].label, lbl, sizeof lbl,
+			            content_w - menu_value_w(fm, rows[i].value) - gap);
+			ui_text(a->r, fm, lbl, content_x, ty, -1, lc);
+			ui_text(a->r, fm, words, x, ty, 1, vc);
+			for (tok = strtok_r(names, " ", &save); tok; tok = strtok_r(NULL, " ", &save)) {
+				const int bw = ui_button_width(tok, MENU_PARTNER_SIZE);
+
+				x += DS_GRID * 2;
+				ui_button_pressed(a->r, tok, x + bw / 2, y + ROW_H(rows[i]) / 2, MENU_PARTNER_SIZE,
+				                  sel_w >= 0.5f ? UI_BUTTON_ON_ACCENT : UI_BUTTON_PLAIN, 0.0f, 1.0f,
+				                  lc.a / 255.0f * 0.7f);
+				x += bw;
+			}
+		} else if (two_col && menu_keys_is(rows[i].value)) {
+			/* Buttons for a value (MENU_KEYS_MARK): the Hotkeys list's keys,
+			 * this handheld's glyphs where the value's right edge is, on the
+			 * fill as a selected key's, and the label in what they leave */
+			const char *keys = menu_keys_names(rows[i].value);
+			const int kw = ui_button_width(keys, MENU_KEYS_SIZE);
+			char lbl[192];
+
+			ui_button_pressed(a->r, keys, content_x + content_w - kw / 2, y + ROW_H(rows[i]) / 2,
+			                  MENU_KEYS_SIZE, sel_w >= 0.5f ? UI_BUTTON_ON_ACCENT : UI_BUTTON_PLAIN,
+			                  0.0f, 1.0f, lc.a / 255.0f);
+			ui_fit_text(fm, rows[i].label, lbl, sizeof lbl, content_w - kw - fit_gap);
+			ui_text(a->r, fm, lbl, content_x, ty, -1, lc);
 		} else if (two_col && menu_keys_is(rows[i].label)) {
 			/* Buttons for a label (MENU_KEYS_MARK): this handheld's glyphs
 			 * where the label goes, faded with the row, and the value at

@@ -2,11 +2,10 @@
 #ifndef ZYPEROS_DESKFACE_H
 #define ZYPEROS_DESKFACE_H
 
-/* Desk mode's handheld (src/device/desk.h): the GKD Pixel 2 or the TrimUI
- * Brick drawn around the window's screen, to their measurements (the Pixel
- * 2's from the simulator's DeviceView, the dimensioned drawing that
- * tools/build-pixel2-model.py measures; the Brick's from
- * src/device/brick_model.c), in the simulator's materials: a body lit from
+/* Desk mode's handheld (src/device/desk.h): the handheld of the profile
+ * drawn around the window's screen, from its model's flat drawing
+ * (td_model.h's td_flat, in src/device/<id>_model.c), the same data the
+ * Simulator draws from, in the Simulator's materials: a body lit from
  * above with a soft shadow, a glass bezel, keys that stand up and go down
  * when pressed. Clicked with the mouse; each key names its keyboard key on a
  * small keycap when the pointer is over it, or all of them while Option is
@@ -16,11 +15,12 @@
 #include <stdbool.h>
 
 #include "../inbutton.h"
+#include "td_model.h"
 
-/* The face of a handheld by its profile id ("pixel2", "brick"); false for
- * one with no drawing (the host's desktop), which desk mode shows as its
- * screen alone */
-bool face_init(const char *device_id);
+/* The face of a handheld's model; false for none or one with no flat
+ * drawing (the host's desktop, which borrows a model), which desk mode
+ * shows as its screen alone */
+bool face_init(const td_model *m);
 
 /* The window around a face at s points a millimetre, and where the screen's
  * picture goes in it, in points */

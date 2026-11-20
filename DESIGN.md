@@ -453,6 +453,15 @@ its own says why beside it.
 | **page-line-gap** | 48 | between the line's marks and words |
 | **page-line-gap-tight** | 24 | ...where they are wider than the page |
 | **foot-y** | 720 | every screen's keys: the last row's middle, 32 from the screen's foot to the glyph's (one foot since 1.0.6; pages had 704, Cover and Video 724) |
+| **video-band-top** | 524 | the Video view's band of covers and keys: its top while it is up |
+| **video-step** | 108 | its covers a step apart |
+| **video-cover-w** | 90 | a cover's box in the band |
+| **video-cover-h** | 120 | ...its height |
+| **video-focus-w** | 108 | the focused cover's box |
+| **video-focus-h** | 144 | ...its height |
+| **video-card-y** | 96 | the name's card at the top left: its top, clear of the header row |
+| **video-card-pad-x** | 28 | the card's padding at its sides |
+| **video-card-pad-y** | 18 | ...at its top and foot |
 | **page-foot-gap** | 40 | between the hints at a page's foot |
 | **page-foot-gap-tight** | 20 | ...where they are wider than the page |
 | **page-tile-w** | 472 | a page's tile, two side by side from the insets |
@@ -671,6 +680,7 @@ beside a cubic one. One function each, in `src/design.h`.)*
 | **rewind** | 700 | turn | MP4's cassette winding back to the start for the next song |
 | **wind** | 180 | follow | MP4's cassette winding to a seek's place: follow's tau |
 | **hold-snap** | 1000 | - | a game focused on the shelf before its cover turns into its video snap |
+| **hold-band** | 2000 | - | the Video view's band of covers and keys, after the last press on a game whose snap plays, before it goes down to its strip |
 | **sheen** | 480 | turn | one light crossing a game's card with no art, once, as the cover row stops on it |
 | **sharpen** | 200 | fade | a played game's card with no art turning from its blurred frame of play to the sharp one, as the cover row stops on it |
 | **hold-low-battery** | 6000 | - | the low-battery start screen before the handheld powers off |
@@ -1028,7 +1038,7 @@ scraped title appears below, followed by play time and the achievement
 count. Missing metadata is omitted rather than invented.
 A is **Resume** only when the existing resume path is available, otherwise
 **Play**. B returns to systems, START steps the shelf's View on, Covers to Grid
-to List and round (11.39, 11.47), Y starts the game from the start, and X opens game details, whose
+to List to Video and round (11.39, 11.47, 11.57), Y starts the game from the start, and X opens game details, whose
 last row is Delete Game (11.31). The foot spreads their hints from B at the
 left to X at the right (11.4).
 Long titles wrap or fit within their region, clear of the action and footer.
@@ -1285,7 +1295,7 @@ where it was.)*
 | **Display** | Appearance, Theme, Home Screen, System Order, Home Systems, Battery Icon, Screensaver, Shader and Strength (ZyperOS's own screens', 11.50; not on the Brick), Screen Colors, Night Mode (its page: Night Mode, Night Warmth, Night From, Until) |
 | **Sound** | Audio Output, Audio Channels, Equalizer (11.60), UI Sounds, Menu Music, Rumble (a handheld with a motor ZyperOS runs, 11.54) |
 | **Connections** | USB Device (while a plug waits), Wi-Fi, Bluetooth, File Transfer, USB Accessories, Developer Mode |
-| **System** | Date & Time, Clock, Language, Power Button, Auto Off, Charge Limit, Side Lights, Storage, System Update |
+| **System** | Date & Time, Clock, Language, Hotkeys, Power Button, Auto Off, Charge Limit, Side Lights, Storage, System Update |
 | **About** | About ZyperOS, Controls, Show Tutorial |
 
 A row added to MENU goes into `pm_row` where its tab's rows are and into
@@ -3255,7 +3265,9 @@ screen), in this order, the rows in brackets only where they apply:
    asks first in the yes/cancel panel Delete Game uses, "Put back the
    PlayStation's buttons in Spyro the Dragon?" or "Put back ZyperOS's buttons
    for every PlayStation game?".
-9. **Hotkeys**: A opens the read-only pages below, as a panel of pages (11.3).
+9. **Hotkeys**: A opens the Hotkeys list (11.61), at its own width, Applies
+   To first; its last row, **All Controls**, opens the read-only pages
+   below, as a panel of pages (11.3).
 
 A row that cannot change here is a quiet row with its value: the N64's SELECT
 ("C buttons"), the Dreamcast's while D-pad as Stick is on ("Held: D-pad"), and
@@ -3287,10 +3299,11 @@ system's own buttons are the tab's rows, so they are not a page here.
   Pak row chooses it); the DS's two screens (L2 the other screen, R2 the
   stylus, then the d-pad moves it and A touches). An FDS game adds L1/R1, the
   disk's side and eject.
-- **Hotkeys**, SELECT held with a shoulder (2026-11-07): SELECT+R1 quick
-  save and SELECT+L1 quick load (where the core keeps states), SELECT+R2
-  faster and SELECT+L2 slower, and under them "SELECT alone stays the
-  game's" where SELECT is one of the system's buttons.
+- **Hotkeys**, SELECT held with one more button (11.61): the game's own, as
+  the player set them (SELECT+R1 quick save and SELECT+L1 quick load where
+  the core keeps states, SELECT+R2 faster and SELECT+L2 slower until set
+  otherwise), a row each set one, and under them "SELECT alone stays the
+  game's" where SELECT is one of the system's buttons and the page has room.
 - **In a game** last: MENU (the menu), MENU then X (Quit), the volume
   rocker, brightness (MENU+VOL on the Pixel 2, F1/F2 on the Brick), POWER.
   The same rows as the home's pages, from one place in src/controls.c.
@@ -4294,16 +4307,16 @@ name and its system's color.)*
 
 **The list** (MENU > View > List, src/gamelist.h). A system's menu has
 **View** under Sort By: **Covers**, the row as it always was, **Grid**
-(11.47), or **List**.
+(11.47), **List**, or **Video** (11.57).
 Each shelf keeps its own, Favorites too, in the device's database by the
 system's tag (`view.<tag>`): the choice belongs with Sort By and Display
 Mode, which are per shelf, because it follows what a shelf holds - a
 shelf with good covers reads as a row, an Arcade or a long library as a
-list. Right steps it on, Covers to Grid to List and round, Left back,
-and A opens the three as a list (11.3's option rows); the shelf under the
-menu turns with it, on the same entry.
+list. Right steps it on, Covers to Grid to List to Video and round, Left
+back, and A opens the four as a list (11.3's option rows); the shelf under
+the menu turns with it, on the same entry.
 
-**START** on the shelf steps it on too, Covers to Grid to List and round,
+**START** on the shelf steps it on too, Covers to Grid to List to Video and round,
 with no menu *(2026-11-13: "make clicking start in a system change view
 mode to list and vice versa"; the grid between them, 2026-11-15)*: the
 row's own setting, saved the same way, the shelf on the same entry, with
@@ -4313,7 +4326,8 @@ MENU + START is the way out (tools/zyhome.c) and SELECT + START MP4's lock.
 Before, START did nothing on a shelf. On the home it steps the Home
 Screen's layout the same way (11.1). The foot names where it goes:
 **START Grid** under the covers, **START List** under the grid, **START
-Covers** under the list; MENU > Controls has it
+Video** under the list, **START Covers** on the Video view (11.57); MENU >
+Controls has it
 on the shelf's page, as **Home Screen or View**: the two MENU rows START
 steps, the home's first, as A's **Open or play** puts the home's first. The tutorial is as it was: it teaches one button a
 step, its START skips it, and its last page sends you to MENU > Controls.
@@ -4844,17 +4858,43 @@ stick: it holds the hotkeys, and a press of it is never a turn of the stick
 and a hotkey at once. A opens the same
 choices as a list of their own, headed "Y: PlayStation", the handheld still
 beside it, a tick on what the button does now and "default" in **text-dim**
-on the scope's default; A on a choice takes it and goes back, B goes back with
-no change. Each Left or Right works from the table as it was when the cursor
+on the scope's default; A on a choice takes it and goes back (Y too, on a
+choice another button gives: below), B goes back with no change. Each Left or Right works from the table as it was when the cursor
 came onto the row, so stepping through the list leaves the other buttons as
 they were except for the one swap at the value it stops on.
 
-**Swap, not copy.** When button P is given game button G, and another button
-Q already gives G, Q takes what P gave before: Y given Cross makes B give
-Square, and both rows show it. Turbo and Nothing never swap (Y can be Turbo
+**Swap, not copy**, unless the player asks for both. When button P is given
+game button G, and another button Q already gives G, Q takes what P gave
+before: Y given Cross makes B give Square, and both rows show it. Turbo and Nothing never swap (Y can be Turbo
 Cross while B stays Cross), and a swap never lands on a quiet row: it keeps
 what it gives. The stick's two swap as a game button does, so one button
-turns the stick unless the player gives the other one to a second button. SELECT keeps the hotkeys' rule whatever it gives: Diatom's
+turns the stick unless the player gives the other one to a second button.
+
+**Two buttons on one game button** *(issue #305, moroboshi69 on the Brick:
+"both A and Y on the NES's B"; my picks in the Controls lab, 2026-11-19)*.
+Diatom always ORs every handheld button that targets a game button; only
+the swap stopped it. Left and Right on a row still swap, so a quick look
+never leaves two buttons on one game button by surprise. **In a button's
+list, A swaps and Y shares**: on a choice another button already gives
+(`ct_can_share`: plainly, and not the row's own value or Nothing), **A**
+takes it with the swap and **Y** takes it as well, so both give it
+(`rm_share`). The list's foot, under a rule and kept still (pin_foot), says
+what the choice under the cursor does in two lines - "A: B takes Square." and
+"Y: Y and B give Cross." - and its keys as hints, "A Swap" and "Y Both";
+on any other choice one line, "Y gives Cross.", and "A Take". The list is
+as tall as the page it opens over, so the panel holds still: the foot comes
+out of the page's rows (three choices show, and scroll) and stands in the
+bottom pad down to a note's own air (`pad / 3`). **A shared row
+carries its partner's glyph after the value** (`MENU_PARTNER_MARK`, 32
+units, at 70%: B, then a small Y), and the handheld lights both buttons while
+the cursor is on either row. **Removing one** is giving that row anything
+else (Left, Right, its list) or Nothing: the partner keeps the game button,
+so no warning row. A swap from a shared row hands its old value to the other
+button, which then shares it: still one rule. Reset Buttons removes every
+share. A share is stored as the pair it is (`y:b`), as every change. With the
+hotkeys (11.61) a chord does one action and an action has one chord, so a
+clash there offers Swap or Cancel, never Both; a handheld button can give a
+game button and be part of a chord, and SELECT's rule decides, as before. SELECT keeps the hotkeys' rule whatever it gives: Diatom's
 chord gives a lone SELECT to the game as it is let go, or once held 400 ms,
 and never under a shoulder (pressed after it, or up to 100 ms before it).
 
@@ -4935,8 +4975,9 @@ tutorial's front pose (10 degrees), lights the keys of the row under the
 cursor in the tutorial's lit look (accent fill, ring, halo): a button row its
 button; D-pad as Stick the d-pad (and SELECT on the N64 and the Dreamcast);
 Face Buttons the four faces; Reset Buttons every changed button; a swap
-both buttons while the cursor stays on the row; Applies To, Pak, Rumble and
-Hotkeys nothing. A lit shoulder stands up out of the top edge. It **leans**
+both buttons while the cursor stays on the row, and a shared game button
+both buttons that give it; Applies To, Pak, Rumble and Hotkeys nothing. A
+lit shoulder stands up out of the top edge. It **leans**
 toward the side of the keys lit: the faces (A, B, X, Y) turn it 12 degrees
 from the front pose to show its right side (22 degrees), the d-pad 22 the
 other way (-12). A shoulder row turns it 12 toward its side (R1 and R2 to 22
@@ -4976,10 +5017,11 @@ when it ends (8.2). The handheld is drawn into its kept texture when its view
 changes and copied otherwise; it is drawn only in the menu, never in a frame
 of the game.
 
-**What the Hotkeys row opens** is the read-only pages of 11.28: what a system
-adds, Hotkeys and In a game, at their own width and with no handheld.
-Hotkeys, SELECT with a shoulder, stay on the physical buttons whatever the map
-says; MENU, the volume keys and POWER cannot be remapped.
+**What the Hotkeys row opens** is the Hotkeys list of 11.61, and through its
+All Controls row the read-only pages of 11.28: what a system adds, Hotkeys
+and In a game, at their own width and with no handheld. Hotkeys, SELECT with
+one more button, stay on the physical buttons whatever the map says; MENU,
+the volume keys and POWER cannot be remapped.
 
 ### 11.47 The grid
 
@@ -5946,6 +5988,76 @@ Host shots: `home-collections`, `shelf-collections`, `shelf-collection-in`,
 `collect-page-none` (tools/i18n-shots.py), with `--info-collect`,
 `--collect-page K` and `--collect-delete`.
 
+### 11.57 The Video view
+*(metior on the Discord asked for a video-centered layout; Tarik: "perfect".
+My pick in the Library lab, 2026-11-19: the snap starts at once, and "when
+rested for more than 2s, the bottom bar goes down (into a compact mode) so
+you can see the full preview".)*
+
+The fourth **View** (11.39), after Covers, Grid and List, kept by the
+shelf's tag as the others are (`view.<tag>` = `video`); START steps to it
+from the list and on to the covers. The launcher only: nothing in a game
+changes. src/videoview.h.
+
+**The snap on the whole screen.** The focused game's video snap (11.19),
+whole at its own shape, as large as the screen holds it, on **ink**: a 4:3
+snap is the whole screen. It is asked for the frame the focus comes, not
+after **hold-snap**: no bar, no hold, and its sound, when Video Snaps has
+sound, with it (snapshelf's `at_once`). Not while a direction is held: a
+scroll opens no file, and the snap is asked when the press lets go. Until
+its first picture the game's card shows whole above the band, at its own
+shape; then the card turns into the snap over **turn**, as on the cover
+row. A game with no snap keeps its card. Over the snap the screen's
+**ground** fades down from the top, 80% to none over 150 units, so the
+header row (11.12) reads on any picture.
+
+**The name's card**, at the top left (24, 96), on **surface** at 92% in a
+3-unit **edge** frame, corners **radius.card**, padded 28 by 18: the shelf's
+mark color as a dot 14 across, then the heading and the place in **meta**,
+**text-soft** ("PlayStation · 3 / 6", the folder path in it as the heading
+has it); under it the game's name in **game-title**, **text**; under that,
+when there are any, its facts in **chrome**, **text-dim**: its own system on
+a shelf of many (Favorites, Recents, Collections), Played, achievements,
+apart by " · ". A name or a line wider than 640 slides (8 Principles).
+
+**The band** at the foot, from y 524, on **surface** at 92% so the snap
+shows through a little: the covers in a row, a step of 108 apart, the
+focused one's in a box of 108 x 144 and the others' 90 x 120, each whole at
+its own shape, their feet on one line at 692, the others at 80%; the
+focused cover ringed as the shelf grid's is (11.47: **accent-ink**, a focus
+gap of the band's ground). They glide as the cover row does, in **move**
+(the same motion, games_row). Under them, every shelf's foot (11.4): B
+Systems (Back in a folder), A Play, Resume, Open or Install, START Covers,
+Y From the Start when there is a resume point, X Details, spread from B to
+X. Left and Right step, Up and Down jump a letter, L1 and R1 a screenful,
+as on the cover row.
+
+**The strip.** After **hold-band** (2 s) with no press on a game whose snap
+plays, counted from the later of the last press and the snap's start (so a
+shelf come back to from a game keeps its band up as long), the band goes down in **move** (out) to a strip 48 high at the foot,
+and the covers and keys fade out as it goes, so the snap has the screen but
+for the strip. The strip holds the rail (11.2): a **track** from margin to
+margin, DS_BAR high, centered in the strip, with the focus's place on it in
+**accent-ink**, as wide as a share of the shelf (at least DS_RAIL_MIN), so
+where the game is in the shelf still shows. Any press brings the band back
+up in **quick** and does what it does: Right steps on as the band comes up.
+A game with no snap never goes down; the band comes back up by itself when
+the snap stops (a menu over the shelf, the dark screen).
+
+**What it costs.** The snap is Muse's daemon's, as on every view: one
+decoder thread, at most 640 x 480, its frames drawn only when a newer
+picture is out (snap_new_picture), so a still snap draws nothing. The band
+draws nothing of its own while it waits: the shelf asks for one frame at
+the end of hold-band (redraw_at), and draws while the band slides. What
+the view adds is a snap asked at every stop instead of after a second's
+rest; to measure on the Pixel 2 before it ships (a shelf of games with
+snaps, Left held then let go, Right pressed once a second).
+
+Host shots: `shelf-video` (no snap), `shelf-video-snap` (the test picture),
+`shelf-video-half` and `shelf-video-strip` (`--band F`, the band F of the
+way down), `system-menu-view-video` and `system-menu-view-video-list`
+(tools/i18n-shots.py).
+
 ### 11.60 Equalizer
 *(Asked for on the Discord after 1.0.6: more bass, and a system-wide
 equalizer. My picks in the Sound lab, 2026-11-19: one preset for the speaker
@@ -6052,6 +6164,89 @@ Custom's five bands (no key when flat). Host shots: `menu-eq`, `eq-page`,
 `eq-page-custom`, `eq-presets` (and `eq-presets-off`, `-voice`, `-treble`,
 `-custom`: the cursor on each), `eq-page-phones` (`--eq-phones` stands in
 for a cable), `mp4-menu-eq` (tools/i18n-shots.py).
+
+### 11.61 Hotkeys
+
+The hotkeys a player sets *(2026-11-18: my review of the Controls ideas,
+"cover a way to change ZyperOS's hotkeys"; and NextUI's top ten, "a user can
+set a hotkey that takes a screenshot", "same as #1" for the next shader and
+display, reset and quit. Picked in the Controls lab, 2026-11-19)*. The rules
+are pure (src/hotkeys.c, what is kept src/hkstore.c, `make check-hotkeys`);
+Diatom's chord.h judges them, its keys from RUN `hotkeys=` and SETHOTKEYS.
+
+**Every hotkey is SELECT held and one more button** *(my pick: MENU is never
+a holder, so MENU stays one press that opens the menu, everywhere)*: A, B,
+X, Y, L1, R1, L2, R2 or START, never the d-pad (the game's, and the stick's
+SELECT rule) nor MENU. SELECT alone stays the game's, by chord.h's rule as
+before. An action has one chord and a chord does one action.
+
+| Action | From the start | What it does |
+|---|---|---|
+| Quick Save, Quick Load | SELECT+R1, SELECT+L1 | the quick slot, as they always did |
+| Faster, Slower | SELECT+R2, SELECT+L2 | the speed's steps |
+| Screenshot | None | the game's frame to `Screenshots/<System>/<Game> 2026-11-18 21.40.05.png` |
+| Next Shader, Next Display | None | the system's next shader or display mode, kept as the menu's rows keep them; a pop-up names it ("Shader / CRT Curved") |
+| Reset Game | None | asks first (below) |
+| Quit | None | leaves at once, as MENU then X; the resume point is kept |
+
+A player who sets none sends what was always sent: RUN carries `hotkeys=`
+only when the hotkeys in force differ from ZyperOS's own. Home (MENU+START
+held a second) and POWER are no hotkeys and never change.
+
+**The list** is **MENU > System > Hotkeys** (Every Game's, over the shelf)
+and a game's **Controls tab > Hotkeys** (over the paused game), in the widest
+panel (menu_most_w): a row an action, its keys at its right drawn as this
+handheld's glyphs (11.9, `MENU_KEYS_MARK` as a value), "+" between them, or
+**None**; a key that differs from what the scope falls back to in the
+**accent-ink**. Then **Home** with MENU+START's glyphs, a quiet row, and the
+line "Held 1 s. It never changes."; then **Reset Hotkeys**, live when the
+scope shown has keys of its own, which asks first, as Reset Buttons does. In
+a game **Applies To** comes first, round on Left and Right: **This Game** (as
+the Controls tab opens), the system by its home label, or **Every Game**, its
+value in the accent-ink where that scope has keys of its own; and last **All
+Controls**, the read-only pages of 11.28 that the Hotkeys row opened before
+the list. A change there reaches the paused game at once (SETHOTKEYS).
+
+**Scope and storage** are the buttons' (11.45): `hotkeys` for Every Game,
+`hotkeys.<TAG>` for a system, `hotkeys.<TAG>.<file>` for This Game, the
+whole table copied at its first change; a game plays with its own, else its
+system's, else Every Game's, else ZyperOS's own. Stored as `1;` and the
+actions that differ from ZyperOS's own (`shot:y,save:none`); no key equals
+what its scope falls back to. Rename and Delete Game take a game's key with
+them.
+
+**The capture screen** (A on an action's row), in the widest panel: the
+action's name as heading, then where the keys go, "Waiting for the keys",
+and under the rule "Hold SELECT, then press a button." and "B with nothing
+held goes back.". Every button is read as a key until SELECT is let go, A
+and B too: SELECT down lights its glyph at 112 (the tutorial's pressed look),
+a button with it lights beside it with "+", and the second line says "Let go
+to keep them.". SELECT let go alone waits again; MENU, or B with nothing
+held, leaves with no change. **A clash offers a swap**: the keys are another
+action's, so the yes/cancel panel asks "SELECT+R2 is Faster now. Faster moves
+to None." (or to the keys the row had), **Swap** and Cancel, the cursor on
+Cancel, so no hotkey is lost by accident. There is no Both: a chord does one
+action.
+
+**Reset Game asks first** *(my pick: a reset loses play, so one press is not
+enough)*. The chord pauses the game as MENU does (Diatom's PAUSED
+`for=reset`), and over the paused frame the yes/cancel panel Delete Game uses
+asks "Reset the game?", "Play since the last save is lost.", **Reset** and
+Cancel, the cursor on Cancel. Reset resets and the game goes on; Cancel or B
+goes back to it where it was. **Quit** pauses the same way (`for=quit`) and
+stops the game as the menu's Quit does.
+
+**The screenshot** is the game's own frame at its own size, as a save's
+picture is, not the screen with its shader and border: Diatom keeps that
+frame already (a GPU core's read back once, between frames, as a pause's
+preview is), copies it and writes the PNG on a thread of its own, so no
+frame waits on the card or the encoding; a press while one is being written
+is dropped. A DS game's is the two screens as laid out. The launcher says
+where (RUN `shots=`, with every game, so a key set in the game works at
+once); Diatom adds the time. **The pop-up** *(my pick: the picture, small)*
+carries the shot itself beside "Screenshot saved", the folder under it,
+kept in its shape at the two lines' height (`NOTICE_PICTURE`), for
+**hold-short**, as every pop-up over a game.
 
 ### 11.64 Player Looks
 

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "sysmenu_screen.h"
+#include "hotkeys_screen.h"
 #include "dmodepreview.h"
 #include "ds/preview.h"
 #include "ds/colorref.h"
@@ -611,7 +612,8 @@ static void menu_choices(app *a, int sys, bool games)
 		P[8].lab[0] = T(S_SYSMENU_VIEW_COVERS);
 		P[8].lab[1] = T(S_SYSMENU_VIEW_GRID);
 		P[8].lab[2] = T(S_SYSMENU_VIEW_LIST);
-		g_sm_choice[SM_VIEW] = ch_make(&P[8], 3, v->listed ? 2 : v->grid ? 1 : 0, false);
+		P[8].lab[3] = T(S_SYSMENU_VIEW_VIDEO);
+		g_sm_choice[SM_VIEW] = ch_make(&P[8], VIEW_COUNT, view_index(v), false);
 		return;
 	}
 	/* MENU */
@@ -788,6 +790,7 @@ int menu_build(app *a, screen_id screen, int sys,
 		u.no_strength = !u.strength;
 		u.listed     = a->view[sys].listed;
 		u.grid       = a->view[sys].grid;
+		u.video      = a->view[sys].video;
 		u.muse_books = u.muse && muse_books_shown();
 		u.muse_videos = u.muse && muse_kind_shown() == ML_VIDEOS;
 		u.muse_all   = u.muse && muse_kind_shown() == ML_ALL;
@@ -2498,6 +2501,7 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 		return MENU_DONE;
 	case PM_XFER:         xfer_screen(a); break;
 	case PM_LIGHTS:       lights_screen(a); break;
+	case PM_HOTKEYS:      hotkeys_screen(a); break;
 	/* The shelves the home shows; the home built again as it closes */
 	case PM_HOMESYS:      homesys_screen(a); return MENU_CHANGED;
 	case PM_LANGUAGE:     language_screen(a); return MENU_CHANGED;

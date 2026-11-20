@@ -276,6 +276,8 @@ typedef enum {
 	DIATOM_MSG_SETSCREENS, /* set it: `layout`, `swap` = 1 | 0 */
 	DIATOM_MSG_STYLUS,     /* report whether stylus mode is on */
 	DIATOM_MSG_SETSTYLUS,  /* turn it on or off: `on` = 1 | 0 */
+	DIATOM_MSG_SETHOTKEYS, /* SELECT's hotkeys: `hotkeys` (sent as `keys=`),
+	 * chord.h's chord_keys_parse form; answered HOTKEYS ok=1|0 */
 	DIATOM_MSG_SETSTICK,   /* the d-pad as the stick: `dmode` (sent as `mode=`)
 	 * = dpad | plain | toggle | toggle-stick | off; answered STICK on=1|0 */
 	/* Guest players, NES player 2 first (player2.h): the frames out and
@@ -355,6 +357,14 @@ typedef struct {
 	 * as the stick (the PSP's, whose games play with one or the other);
 	 * empty or anything else, the joypad's d-pad as ever. */
 	char stick[16];
+	/* RUN hotkeys= and SETHOTKEYS keys=: which button SELECT is held with for
+	 * each hotkey, "save:r1,load:l1,shot:y" or "none" (chord.h); absent on
+	 * RUN, the shoulders' four as ever */
+	char hotkeys[160];
+	/* RUN shots=: where a screenshot goes, a path and the start of a file's
+	 * name ("/mnt/SDCARD/Screenshots/NES/Zelda"), the time and ".png" added;
+	 * absent, no screenshot */
+	char shots[1024];
 	char layout[16];       /* SETSCREENS: a name from scr_layout_names */
 	char swap[4];          /* SETSCREENS: "1" | "0"; empty leaves it */
 	int  console;          /* RUN / SETCHEEVOS */
