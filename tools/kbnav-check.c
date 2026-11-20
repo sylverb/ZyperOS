@@ -352,6 +352,23 @@ int main(void)
 		   "a press let go within one frame still deletes once");
 	}
 
+	/* A name's keyboard (a collection's): Shift for its first letter only */
+	{
+		bool first = true;
+		int layer = 1;
+
+		layer = kb_layer_typed(layer, &first, '2');
+		ck(layer == 1 && first, "a digit first keeps the name's Shift for its first letter");
+		layer = kb_layer_typed(layer, &first, 'R');
+		ck(layer == 0 && !first, "the first letter typed a capital, the rest in the letters");
+		layer = kb_layer_typed(layer, &first, 'p');
+		ck(layer == 0 && !first, "and the second letter stays a small one");
+		first = false;
+		ck(kb_layer_typed(1, &first, 'A') == 1, "a Shift by hand (no first-letter wait) stays on");
+		first = true;
+		ck(kb_layer_typed(2, &first, '#') == 2 && first, "a symbol keeps the symbols and the wait");
+	}
+
 	check_pop();
 	if (fails) { printf("kbnav: %d FAILED\n", fails); return 1; }
 	printf("kbnav: ok\n");

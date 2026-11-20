@@ -7,6 +7,9 @@
 
 at_state at_state_of(const at_facts *f)
 {
+	/* A cheat has been on: whatever the set, nothing is evaluated until the
+	 * next start with none (Diatom's cheats.h), and that is what is said */
+	if (f->cheats_paused) return AT_PAUSED;
 	/* A set on the card is the list, whatever else is true: a card can
 	 * carry sets from tools/ra-sets.py with nobody signed in */
 	if (f->count > 0) return AT_LIST;
@@ -29,6 +32,7 @@ str_id at_message(at_state s)
 	case AT_SIGNED_OUT: return S_ACHTAB_SIGNED_OUT;
 	case AT_WAITING:    return S_ACHTAB_WAITING;
 	case AT_UNCHECKED:  return S_CHEEVOS_UNCHECKED_SAID;
+	case AT_PAUSED:     return S_CHEATS_ACH_WHY;
 	default:            return S_ACHTAB_NONE;
 	}
 }

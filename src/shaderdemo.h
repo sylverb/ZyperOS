@@ -27,4 +27,10 @@ void shader_demo_strength_notes(const char **out, int steps);
  * Curved's is its whole screen, its curve made larger to read that small */
 void shader_demo_draw(app *a, int shader, int strength, int x, int y, int w, int h);
 
+/* Its picture for a panel of `sw` x `sh` (res/shaderdemo/<sw>x<sh>/), read
+ * once of the last few and kept: a texture with an alpha channel, opaque
+ * (PLAT_TARGET_FORMAT), or NULL when the picture is not on the card, which
+ * is said once on stderr */
+SDL_Texture *shader_demo_texture(SDL_Renderer *r, int shader, int strength, int sw, int sh);
+
 #endif

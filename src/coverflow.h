@@ -55,7 +55,6 @@ typedef struct {
 } cf_layout;
 
 extern const cf_layout CF_LAYOUT_GAMES;
-extern const cf_layout CF_LAYOUT_ALBUMS;
 /* Where the focused card's frame sits on screen, so the caller can lay text
  * out against it, or start a launch from it, without duplicating the
  * geometry. What lifts the card is cf_draw's to place (cf_lift_fn), under
@@ -94,47 +93,17 @@ typedef struct {
 	bool  cutting;
 } coverflow;
 
-/* The index a pending cut will land on, or -1 when none is pending. The caller
- * uses it to decode that window while the departure is still being drawn, so
- * the move lands on a card that is already there. */
-int cf_landing(const coverflow *cf, int count);
-
 
 /* Stage a horizontal move for the headless screenshot harness. */
 void cf_stage(coverflow *cf, float from, float to, float u);
-
-/* Whether a cut is in flight. The caller holds off evicting while it is, or it
- * would free the very cards the departure is still drawing: the cursor is
- * already at the destination and eviction is measured from the cursor. */
-bool cf_cutting(const coverflow *cf);
 
 /* Texture for item index; w/h receive its pixel size. May return NULL.
  *
  * `content_bottom` receives how far down the texture its opaque pixels reach,
  * as a fraction of height: 1.0 for art that fills its canvas, less for art
- * padded with transparency below the subject. The reflection is drawn from
- * there rather than from the card's edge - see draw_card. */
+ * padded with transparency below the subject: where a lift under it stops. */
 typedef SDL_Texture *(*cf_tex_fn)(void *ctx, int index, int *w, int *h,
                                   float *content_bottom);
-
-/* What lifts a card off the ground, DESIGN.md 7, for cf_draw to put under a
- * card: `index` is the card's item, `art` the rect its whole texture covers
- * on screen (the bounds of it, turned as it is turned), `content` the same
- * down to where its opaque pixels stop (cf_tex_fn's content_bottom), and
- * `focus` how far it is in focus, 1 at the center falling to 0 a step out -
- * the weight the row already gives its size and its opacity. So the lift goes
- * with the card as the row moves, out of focus with the one leaving and into
- * it with the one arriving, and at rest is under the focused card alone.
- * Called only for a card with a texture and some focus, and before any card
- * is drawn. */
-typedef void (*cf_lift_fn)(void *ctx, int index, const SDL_Rect *art,
-                           const SDL_Rect *content, float focus);
-
-/* The badge on card `index`'s art (src/artbadge.h), or AB_NONE: asked for
- * every card with a texture, every frame, and drawn at the art's top left
- * corner as the card is turned and scaled, right after the card, so a nearer
- * card covers it as it covers the card. */
-typedef int (*cf_badge_fn)(void *ctx, int index);
 
 /* The clock every move is measured on: SDL_GetTicks, or `now` once given
  * one, and SDL_GetTicks again for NULL. The shot harness gives it a clock
@@ -149,10 +118,5 @@ void cf_reset(coverflow *cf, int cursor);
  * two has both neighbors one step away, so it is the only size where the
  * shortest-path arithmetic cannot work out which way to turn. */
 void cf_set_cursor_dir(coverflow *cf, int cursor, int count, int dir);
-/* Step animation and draw. Returns true while still animating. `lift` and
- * `badge` may be NULL; `ctx` is handed to them as it is to `get_tex`. */
-bool cf_draw(coverflow *cf, SDL_Renderer *r, int screen_w, int screen_h,
-             int count, cf_tex_fn get_tex, cf_lift_fn lift, cf_badge_fn badge,
-             void *ctx, const cf_layout *lay);
 
 #endif

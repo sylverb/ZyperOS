@@ -203,6 +203,9 @@ typedef enum {
 	/* On-Screen Stats over the game (src/hud.h), on or off, and A opens
 	 * its page (src/hudmenu.h): the Display tab's last row */
 	GM_HUD,
+	/* Cheats (src/cheats.h, DESIGN.md 11.66), on the Game tab right over
+	 * Achievements: how many are on, and A opens the game's list */
+	GM_CHEATS,
 	GM_MAX_ROWS
 } gm_row;
 
@@ -269,6 +272,14 @@ typedef struct {
 	int         disc;
 	const char *disc_label;
 	bool      (*disc_fits)(const char *label);
+	/* The Cheats row: there for every game Diatom runs (not a port), and
+	 * how many of the game's cheats are on now, 0 for None */
+	bool        cheats;
+	int         cheats_on;
+	/* A cheat has been on in this game since it started: its achievements
+	 * stop until the next start with none (Diatom's cheats.h), and the
+	 * Achievements row says Paused */
+	bool        cheats_paused;
 	/* Each option row's choices by its gm_row (menu.h's menu_choice), which
 	 * the screen fills and gm_rows copies to its rows' places. NULL: none. */
 	const menu_choice *choice;
@@ -288,7 +299,7 @@ int gm_disc_step(int disc, int discs, int d);
  * gm_tab_rows says which rows a tab has, in the order shown:
  *   Game      Continue, Save, Load, Quick Slot (a system that keeps states),
  *             Disc (a game on more than one disc), Player 2 (an NES game),
- *             Achievements, Reset, Quit
+ *             Cheats, Achievements, Reset, Quit
  *   Display   Display, Shader, Strength (an old screen's shader), and a DS
  *             game's Screens, Swap Screens, Stylus
  *   Controls  none from here: its rows are src/ctltab.c's
@@ -324,6 +335,7 @@ typedef struct {
 	char cheevos[64];   /* as game_info's: a value in any language, whole */
 	char quick[8];
 	char disc[160];
+	char cheats[32];
 	unsigned char sound[GM_MAX_ROWS];
 	menu_choice choice[GM_MAX_ROWS];   /* by place, from gm_ui's choice */
 } gm_bufs;

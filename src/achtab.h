@@ -33,6 +33,8 @@ typedef enum {
 	AT_WAITING,       /* the set is being looked for, behind the game */
 	AT_UNCHECKED,     /* never played with a network: not asked yet */
 	AT_NONE,          /* asked: RetroAchievements has none for this copy */
+	AT_PAUSED,        /* a cheat has been on in this game: they wait for the
+	                   * next start with none (src/cheats_screen.h) */
 	AT_STATES
 } at_state;
 
@@ -47,6 +49,7 @@ typedef struct {
 	bool fetching;         /* this game's set is being fetched now */
 	chv_state set;         /* chv_state_of the game's set path */
 	ra_hash_kind no_hash;  /* ra_hash_support of the game's file */
+	bool cheats_paused;    /* a cheat has been on since the game started */
 } at_facts;
 
 at_state at_state_of(const at_facts *f);
