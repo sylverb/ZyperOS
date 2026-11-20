@@ -2398,7 +2398,12 @@ block. *(My picks in the File Transfer lab, 2026-11-05:
   Settings is behind a **⋯** at the top.
 - **Rows**: a game's cover, an album's, an artist's four; a folder's pixel
   art; or a file's line mark; the name; the size in **meta** **text-dim**; a
-  **⋯**. Under the pointer a row is **raised** (its size steps up to
+  **⋯**. A game's cover is the one the shelf shows, found by the launcher's
+  own lookup (src/esmedia.h's `game_media`): its own in its console's
+  `.media`, a game in a folder of games too, else EmulationStation's (11.40);
+  a disc set's folder or a ScummVM game's wears its game's. The listing
+  names the game's video the same way (`video`), which the page does not
+  draw yet. Under the pointer a row is **raised** (its size steps up to
   **text-soft**, since **text-dim** misses 4.5:1 on Salt & Pepper's raised);
   keyboard focus is the **accent** fill with **on-accent**.
 - **Folder art** *(My pick, File Transfer 2 lab, 2026-11-06: "Pixel art
@@ -4567,7 +4572,14 @@ library's rows, so the card still works in the other system.
   `videos/` and `media/videos/` (src/esmedia.h has the whole order). Found on
   the cover worker, never on the frame: a folder's `gamelist.xml` is read
   once, the first time one of its games asks. A cover with an ES video has
-  the play mark, and the video plays as a snap does.
+  the play mark, and the video plays as a snap does. The File Transfer page
+  (11.15) gives each game the same cover beside it, by the same lookup
+  *(2026-11-20, from metior: "The web interface doesn't read from the
+  EmulationStation folder structure for images and video like the OS itself
+  does")*; a `gamelist.xml`, or a file in one of ES's media folders, sent
+  from the page has the folder read again for its next listing. The page
+  draws no video in 1.1.0 *(my call, 2026-11-20)*: the listing names each
+  game's video (`video`), found the same way, for a later design.
 - **Box Art** counts an ES cover as a cover: it fetches only for games with
   neither, and **Cover and Video** (11.34) shows an ES cover as Now,
   credited "EmulationStation". A cover chosen there is ZyperOS's own, and
