@@ -6294,7 +6294,8 @@ shelf has no Splore and plays on fake08.
 Host shots: `make pico8-shots` (the shelf before and after, the Core row, the
 page in both themes), and tools/i18n-shots.py's `pico8-menu-display`,
 `pico8-display-list` and `pico8-restart-<mode>` (the menu's Display row, its
-list, the question for each mode). The rules: `make check-pico8`,
+list, the question for each mode), `pico8-menu-shader` and `pico8-border-list`
+(Border, Shader and Strength in it, and Border's list). The rules: `make check-pico8`,
 `check-config`, `check-controls`, `check-pico8-display`, `check-pkover`,
 `check-p8fx`, `check-p8fx-gl`.
 
