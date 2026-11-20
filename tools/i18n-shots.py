@@ -354,6 +354,7 @@ EXTRA = {
     # MP4's Player Looks (DESIGN.md 11.64): each on Now Playing, Classic
     # paused too (its panel says so where the time's words would), and
     # MENU's Player Look list with its picture, the look under the cursor
+    "np-cassette": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--np-look", "cassette"]),
     "np-classic": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--np-look", "classic"]),
     "np-classic-paused": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--np-look", "classic", "--paused"]),
     "np-spectrum": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--np-look", "spectrum"]),
@@ -361,7 +362,7 @@ EXTRA = {
     # drawn in its picture's narrow column
     **{"mp4-look-list-%s" % _l: ("media", "MUSE", ["--screen", "games", "--menu", "Player Look", "--press",
                                                    "a", "--pick-at", str(_k)])
-       for _k, _l in enumerate(("cover", "classic", "spectrum"))},
+       for _k, _l in enumerate(("cover", "cassette", "classic", "spectrum"))},
     # its Repeat row on One, the value no other shot has
     "mp4-menu-repeat-one": ("media", "MUSE", ["--screen", "games", "--menu", "--mode", "repeat one"]),
     # MP4's menu with its cursor on the Equalizer row, the same as MENU's
