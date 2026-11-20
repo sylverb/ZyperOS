@@ -560,10 +560,16 @@ static void pm_rumble_focus(void *app_, int k)
 enum {
 	PS_SHOW, PS_MSORT, PS_MVIEW, PS_LOOK, PS_REPEAT,   /* MP4's shelf */
 	PS_PICTURE,                     /* Recents' Card Picture */
-	PS_CORE, PS_DSLANG, PS_SGB, PS_PACE, PS_SORT, PS_CSORT, PS_DISPLAY, PS_BORDER, PS_BORDER_COLOR,
+	PS_CORE, PS_DSLANG, PS_SGB, PS_PACE, PS_SORT, PS_CSORT, PS_SSORT, PS_DISPLAY, PS_BORDER, PS_BORDER_COLOR,
 	PS_SHADER, PS_STRENGTH, PS_VIEW,
 	PS_SLOTS
 };
+
+/* Which orders shelf `sys`'s Sort By steps round (src/sort.h) */
+static int sort_set_of(app *a, int sys)
+{
+	return sys == shelf_coll_at(a) ? SORT_SET_COLL : sys == shelf_shots_at(a) ? SORT_SET_SHOTS : SORT_SET_SHELF;
+}
 
 static void menu_choices(app *a, int sys, bool games)
 {
@@ -672,14 +678,16 @@ static void menu_choices(app *a, int sys, bool games)
 			g_sm_choice[SM_PACE].list = true;
 		}
 		{
-			/* Collections has its own four, Added first (src/sort.h), in a
-			 * pool of their own: the menu's width is measured over every
-			 * shelf's rows, and the others' would be written over them */
-			bool coll = sys == shelf_coll_at(a);
-			ch_pool *sp = coll ? &P[PS_CSORT] : &P[PS_SORT];
+			/* Collections has its own four, Added first (src/sort.h), and
+			 * Screenshots its three, each in a pool of their own: the
+			 * menu's width is measured over every shelf's rows, and the
+			 * others' would be written over them */
+			int set = sort_set_of(a, sys);
+			ch_pool *sp = set == SORT_SET_COLL ? &P[PS_CSORT] : set == SORT_SET_SHOTS ? &P[PS_SSORT]
+			            : &P[PS_SORT];
 
-			for (i = 0; i < sort_choices(coll); i++) sp->lab[i] = sort_label(sort_choice(coll, i));
-			g_sm_choice[SM_SORT] = ch_make(sp, sort_choices(coll), sort_choice_of(coll, v->sort), false);
+			for (i = 0; i < sort_choices(set); i++) sp->lab[i] = sort_label(sort_choice(set, i));
+			g_sm_choice[SM_SORT] = ch_make(sp, sort_choices(set), sort_choice_of(set, v->sort), false);
 		}
 		{
 			static const char *notes[CH_MAX];
@@ -913,9 +921,10 @@ int menu_build(app *a, screen_id screen, int sys,
 		 * over without inventing a flag day. */
 		u.mp4       = is_mp4(sc);
 		u.coll       = sys == shelf_coll_at(a);
+		u.shots      = sys == shelf_shots_at(a);
 		u.recents    = sys == shelf_recents_at(a);
 		u.recents_screen = u.recents && g_recents_screen;
-		u.fav        = !u.mp4 && !u.coll && sc->core[0] == '\0' && sc->folder[0] == '\0';
+		u.fav        = !u.mp4 && !u.coll && !u.shots && sc->core[0] == '\0' && sc->folder[0] == '\0';
 		if (u.coll) {
 			const sysview *cv = &a->view[sys];
 
@@ -2264,7 +2273,10 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 			 * with it */
 			if (d) recents_picture_turn(a);
 			return MENU_STAY;
-		} else if (a->view[a->sys_cursor].owner)
+		} else if (a->sys_cursor == shelf_shots_at(a))
+			/* Screenshots' two (SM_SHOT_ROWS) */
+			sel = sel == 0 ? SM_SORT : SM_VIEW;
+		else if (a->view[a->sys_cursor].owner)
 			sel = sel == 1 ? SM_RANDOM : sel == 2 ? SM_SORT : sel == 3 ? SM_VIEW : SM_GAMES;
 		/* And a console's rows lose Box Art on a device with no radio, which
 		 * moves Rescan Folder up one: which row is which comes from the same
@@ -2393,7 +2405,7 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 
 			v->sort = is_mp4(&a->sys.systems[a->sys_cursor])
 			        ? (v->sort + d + ML_ORDERS) % ML_ORDERS
-			        : sort_step_in(a->sys_cursor == shelf_coll_at(a), v->sort, d);
+			        : sort_step_in(sort_set_of(a, a->sys_cursor), v->sort, d);
 			sort_shelf(a, a->sys_cursor);
 			sort_save(a);
 

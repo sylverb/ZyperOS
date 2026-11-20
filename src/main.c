@@ -177,6 +177,7 @@
 #include "raqueue.h"
 #include "shelfbuild.h"
 #include "shelfdir.h"
+#include "shots_screen.h"
 #include "esmedia.h"
 #include "gamern.h"
 #include "stats_screen.h"
@@ -1074,6 +1075,18 @@ void recents_picture_turn(app *a)
  * `frame` and `cover` ("" for none). False when it has no resume point, and
  * the card is its cover, as with Cover. Asked only while the card has no
  * texture (game_card_wanted). */
+/* Game `g` of system `o`'s cover on the card, its own or
+ * EmulationStation's, into `cover`; "" for none */
+static void game_cover_path(app *a, int o, const game_entry *g, char *cover, size_t cn)
+{
+	struct stat sb;
+
+	box_art_path(a->sys.systems[o].folder, g->name, cover, cn);
+	if ((stat(cover, &sb) != 0 || sb.st_size <= 0) &&
+	    !es_media(P_ROMS, a->sys.systems[o].folder, g->file, g->name, ES_COVER, true, cover, cn))
+		cover[0] = '\0';
+}
+
 static bool recents_screen_paths(app *a, int o, const game_entry *g, char *frame, size_t fn,
                                  char *cover, size_t cn)
 {
@@ -1083,11 +1096,33 @@ static bool recents_screen_paths(app *a, int o, const game_entry *g, char *frame
 	state_path(a, o, g, st, sizeof st);
 	preview_path(a, o, g, frame, fn);
 	if (stat(st, &sb) != 0 || stat(frame, &sb) != 0 || sb.st_size <= 0) return false;
-	box_art_path(a->sys.systems[o].folder, g->name, cover, cn);
-	if ((stat(cover, &sb) != 0 || sb.st_size <= 0) &&
-	    !es_media(P_ROMS, a->sys.systems[o].folder, g->file, g->name, ES_COVER, true, cover, cn))
-		cover[0] = '\0';
+	game_cover_path(a, o, g, cover, cn);
 	return true;
+}
+
+/* A card made from a picture of play with the game's cover small in its
+ * corner (src/screencard.h), for entry `g` of shelf `s` (system `o`):
+ * Recents' Last Screen, and every shot on the Screenshots shelf (DESIGN.md
+ * 11.68: the shot, and its game's cover as SHOTS_CARD_COVER says). False
+ * for a card of another kind. */
+static bool screen_card_paths(app *a, int s, int o, const game_entry *g, char *frame, size_t fn,
+                              char *cover, size_t cn)
+{
+	if (shots_shelf(a, s)) {
+		struct stat sb;
+
+		/* The game's own cover by its name (a shot's file is its
+		 * picture's, so EmulationStation's, by the game's file, is not
+		 * looked for) */
+		shots_png(g, frame, fn);
+		cover[0] = '\0';
+		if (SHOTS_CARD_COVER) {
+			box_art_path(a->sys.systems[o].folder, g->name, cover, cn);
+			if (stat(cover, &sb) != 0 || sb.st_size <= 0) cover[0] = '\0';
+		}
+		return true;
+	}
+	return g_recents_screen && s == shelf_recents_at(a) && recents_screen_paths(a, o, g, frame, fn, cover, cn);
 }
 
 void view_load(app *a)
@@ -1213,6 +1248,8 @@ void sort_shelf(app *a, int sys)
 	sysview *v = &a->view[sys];
 
 	if (is_mp4(&a->sys.systems[sys])) { mp4_order_view(v); return; }
+	/* Screenshots' three, each game's newest first (src/shots_screen.h) */
+	if (shots_shelf(a, sys)) { shots_sort(a, sys); return; }
 	/* The added times this order reads, each game's from its own system's
 	 * folder (Favorites' from its owner's), where the scan left them unknown */
 	if (sort_needs_added(v->sort))
@@ -2240,17 +2277,19 @@ SDL_Texture *game_get_tex(void *ctx, int i, int *w, int *h, float *cb)
 				SDL_FreeSurface(sf);
 			}
 		}
-	} else if (g_recents_screen && s == shelf_recents_at(a) && game_card_wanted(v, i) &&
-	           recents_screen_paths(a, o, &v->list.items[i], pm, sizeof pm, pmc, sizeof pmc)) {
-		/* Recents' Last Screen (DESIGN.md 11.48): made on a worker, art
-		 * of no theme, so a change of theme keeps it; a game with no cover
-		 * has its generated card small in the corner, as its shelf shows it */
+	} else if (game_card_wanted(v, i) &&
+	           screen_card_paths(a, s, o, &v->list.items[i], pm, sizeof pm, pmc, sizeof pmc)) {
+		/* Recents' Last Screen (DESIGN.md 11.48), and a shot (11.68):
+		 * made on a worker, art of no theme, so a change of theme keeps
+		 * it; a game with no cover has its generated card small in the
+		 * corner, as its shelf shows it, unless the card has no cover */
 		ui_card_order card;
+		const ui_card_order *co = shots_shelf(a, s) && !SHOTS_CARD_COVER ? NULL : &card;
 
 		ui_card_order_set(&card, v->list.items[i].title, a->sys.systems[o].accent, false);
 		game_card_order(a, o, &v->list.items[i], &card);
-		if (!texload_want_screen(s, i, pm, pmc, &card) && !g_loads_held) {
-			SDL_Surface *sf = screen_card_make(pm, pmc, &card, false);
+		if (!texload_want_screen(s, i, pm, pmc, co) && !g_loads_held) {
+			SDL_Surface *sf = screen_card_make(pm, pmc, co, false);
 
 			if (v->tex[i]) SDL_DestroyTexture(v->tex[i]);
 			v->tex[i] = NULL;
@@ -2320,6 +2359,11 @@ void shelf_put(void *ctx, texload_got *g)
 	int s = g->sys, i = g->idx;
 	sysview *v;
 
+	/* The Screenshots viewer's picture (src/shots_screen.h), asked apart */
+	if (s == SHOTS_VIEW_SYS) {
+		shots_view_put(a, i, surf, g->card);
+		return;
+	}
 	/* The focused card's sharp one (src/focusfx.h), asked for apart */
 	if (s <= SHELF_SHARP_SYS(0)) {
 		shelf_focus_sharp_put(a, SHELF_SHARP_SYS(0) - s, i, surf, g->card, g->theme);
@@ -3302,6 +3346,8 @@ static void on_hotkey(const char *key, const char *path)
 		if (notice_render_ex(T(S_HOTKEYS_SHOT_SAVED), body, path, NOTICE_PICTURE, 0, 0, p, theme_index()))
 			plat_resident_line("OVERLAY\tpath=%s\tms=1500", p);
 		nq_hold(&g_nq, plat_now_ms(), 1500);
+		/* and the Screenshots shelf read again once the game ends */
+		shots_taken();
 		return;
 	}
 	if (!strcmp(key, "shader") || !strcmp(key, "display")) {
@@ -5205,7 +5251,9 @@ void refresh_game_titles(app *a)
 		int owner, selected;
 		bool changed = false;
 
-		if (is_mp4(&a->sys.systems[si]) || v->list.count <= 0) continue;
+		/* Not Screenshots: an entry's file is its picture's, and its title
+		 * is its game's as the shelf was read (DESIGN.md 11.68) */
+		if (is_mp4(&a->sys.systems[si]) || shots_shelf(a, si) || v->list.count <= 0) continue;
 		owner = shelf_owner(a, si, v->cursor);
 		snprintf(file, sizeof file, "%s", v->list.items[v->cursor].file);
 		/* A folder's name is its own (src/shelfdir.h); every game of a
@@ -5371,7 +5419,9 @@ static int menu_shelf_width(app *a)
 	for (i = 0; i < a->sys.count; i++) {
 		bool mp4 = is_mp4(&a->sys.systems[i]);
 		bool own  = mp4 || a->view[i].owner;
-		int  srow = own ? 1 : sm_pos(a, i, SM_SORT), show = -1, lookrow = -1;
+		/* Screenshots' Sort By and View are its first two (SM_SHOT_ROWS) */
+		bool shots = i == shelf_shots_at(a);
+		int  srow = shots ? 0 : own ? 1 : sm_pos(a, i, SM_SORT), show = -1, lookrow = -1;
 		int  drow = own ? -1 : sm_pos(a, i, SM_DISPLAY);
 		int  hrow = own ? -1 : sm_pos(a, i, SM_SHADER);
 		int  crow = own ? -1 : sm_pos(a, i, SM_CORE);
@@ -5380,7 +5430,7 @@ static int menu_shelf_width(app *a)
 		int  grow = own ? -1 : sm_pos(a, i, SM_SGB);
 		int  brow = own ? -1 : sm_pos(a, i, SM_BORDER);
 		int  bcrow = own ? -1 : sm_pos(a, i, SM_BORDER_COLOR);
-		int  vrow = mp4 ? -1 : a->view[i].owner ? 3 : sm_pos(a, i, SM_VIEW);
+		int  vrow = mp4 ? -1 : shots ? 1 : a->view[i].owner ? 3 : sm_pos(a, i, SM_VIEW);
 
 		n = menu_build(a, SCREEN_GAMES, i, rows, &bufs, &heading);
 		/* Recents' Card Picture at the longer of its two (DESIGN.md 11.48) */
@@ -6263,6 +6313,10 @@ int main(int argc, char *argv[])
 		else if (!strcmp(argv[i], "--collect-page") && i + 1 < argc) shot_collect_page = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--collect-delete")) shot_collect_delete = 1;
 		else if (!strcmp(argv[i], "--collect-said") && i + 1 < argc) shot_collect_said = atoi(argv[++i]);
+		/* Delete Screenshot's question on the Screenshots shelf (DESIGN.md 11.68) */
+		else if (!strcmp(argv[i], "--shots-delete")) shot_shots_delete = 1;
+		else if (!strcmp(argv[i], "--shots-said")) shot_shots_said = 1;
+		else if (!strcmp(argv[i], "--shots-delete-now")) shot_shots_delete_now = 1;
 		else if (!strcmp(argv[i], "--zip-said")) shot_zip_said = 1;
 		else if (!strcmp(argv[i], "--info-art")) shot_info_art = true;
 		/* The Buttons page a game with its own buttons opens from its details */
@@ -7805,6 +7859,10 @@ int main(int argc, char *argv[])
 
 			fprintf(stderr, "delete: %s. %s\n", gone ? "deleted" : "kept", said);
 		}
+		/* --shots-delete-now: Delete Screenshot's yes on the shot under the
+		 * cursor (DESIGN.md 11.68) */
+		if (shot_shots_delete_now && shots_shelf(&a, a.sys_cursor) && a.view[a.sys_cursor].list.count > 0)
+			shots_delete_now(&a, &a.view[a.sys_cursor]);
 		if (a.screen == SCREEN_GAMES) prime_window(&a, a.sys_cursor);
 		if (shot_at >= 0 && !shot_launch && !shot_portload && !shot_poweroff &&
 		    (!shot_kb || shot_press != SHOT_STEP))

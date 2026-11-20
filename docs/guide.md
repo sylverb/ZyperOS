@@ -464,7 +464,8 @@ back. MENU+START, the way home, and POWER never change.
 
 A **screenshot** is the game's own picture, saved as a PNG in
 `Screenshots/<system>/` on the card, named after the game and the time; a
-pop-up shows it small. **Next Shader** and **Next Display** turn on the
+pop-up shows it small, and the home's **Screenshots** group has it (see
+[Screenshots](#screenshots)). **Next Shader** and **Next Display** turn on the
 system's next shader or display mode and say which.
 
 The Hotkeys list's last row in a game, **All Controls**, opens what you could
@@ -517,7 +518,7 @@ than any one console:
 | **Screensaver** | `Off`, `30s`, `1m`, `2m`, `5m` or `10m` with nothing pressed on the shelf before the video snaps of random games play over the whole screen, each with its game's name and system. START boots the game on screen; any other button goes back. `1m` on a new device. It never starts in a game, a menu, MP4 or File Transfer, while music plays or a long job runs, or under 20% on battery; on battery it ends by itself after 10 minutes, and Auto Off still powers the device off at its own time. With no video snaps on the card it shows covers instead, and with neither, nothing - see **Screensaver** below |
 | **Side Lights** | the Pixel 2 only: a page of switches for what the side lights show on their own, `Charging Bar`, `Low Battery`, `Volume and Brightness`, `Files and Covers` and `Achievements`, each `On` or `Off`, and the row under the cursor plays its pattern on the lights; the row says how many are on. L2+R2 shows the level in all four. `All on` on a new device |
 | **System Order** | the home's systems `A to Z` by name, on a new device and after an upgrade, or by `Release Date`. Favorites stays first, then Recents, and Ports and MP4 stay last |
-| **Home Systems** | which shelves the home shows: `All`, or how many are on. A opens a switch for Favorites, Recents (the ten games played last), Collections (once you have one) and every system with games; Left, Right or A turns one on or off. A hidden system leaves the home, Random Game and Search; its games stay on Favorites, Recents, Collections and the card. The last system on stays on |
+| **Home Systems** | which shelves the home shows: `All`, or how many are on. A opens a switch for Favorites, Recents (the ten games played last), Collections (once you have one), Screenshots (once you have one) and every system with games; Left, Right or A turns one on or off. A hidden system leaves the home, Random Game and Search; its games stay on Favorites, Recents, Collections and the card. The last system on stays on |
 | **Appearance** | `Light`, `Dark` or `Auto`, which is dark in Night Mode's hours (**Night From** to **Until**, 9:00 PM to 7:00 AM to start) and light the rest of the day. `Light` on a new device. A handheld that had `Auto` in 1.0.5 keeps it, on the hours it had; one that 1.0.6 turned to `Light` or `Dark` keeps that - see [Light and dark](#light-and-dark) |
 | **Theme** | your look, in Display: **Accent** (ten colors, the same in both themes), **Light Background** and **Dark Background** (three tones each), **Folder Color**, **Corners** (`Rounded` or `Square`), **Highlight**, **Zyper** (`On` or `Off`) and **Reset to Default**. Left and right change a row at once; A opens its list, where the whole screen shows the choice under the cursor and B puts back what you had. **Folder Color** is the color of the folders of games on the shelves and of the consoles' folders on the File Transfer page: `System Colors`, each folder in its own system's color, or one of the ten accents for every folder. Its list shows three folders in the color under the cursor. **Highlight** is how the game or system in focus is marked on the home and the shelves: `Bar` (it grows a little, a short bar under it), `Border` (a ring in the accent round it), `Lift` (it rises on a soft shadow) or `None` (it grows, nothing else); in each, the others step back a little. Its list shows three of your systems marked that way. Menus keep their highlight bar whatever it says. `Lime`, `Warm`, `Black`, `System Colors`, `Rounded`, `Bar` and Zyper `On` on a new device and after an upgrade |
 | **Scraper** | box art, its sources and video snaps - see below. Its value is how many games have no cover, or `Complete` |
@@ -884,6 +885,24 @@ path from the card's root: `/Roms/SNES/Chrono Trigger (USA).sfc`. This is the fo
 NextUI use, so a list from another handheld, or one you write by hand, shows up after a rescan.
 A line for a game that is not on the card stays in the file and comes back with the game. Lines
 starting with `#` are notes. ZyperOS reads up to 36 collections.
+
+### Screenshots
+
+Once you have taken a screenshot (a Screenshot hotkey, under Hotkeys above),
+the home has a **Screenshots** group after Favorites, Recents and
+Collections. Its shelf holds every shot, the newest first, each with its
+game's cover small in its corner, and under its name the system and when you
+took it. **A** opens a shot on the whole screen: Left and Right step through
+them, L1 and R1 go to the next or the last game's shots, and B goes back. The
+game itself starts from its own shelf. **X** deletes the shot after asking,
+the cursor on **Cancel**; the game stays. MENU on the shelf has
+**Sort By** (`Recently Added` to start with, `Name` or `System`) and **View**,
+as on any shelf. MENU > Home Systems can hide the group.
+
+The shots stay on the card in `Screenshots/<system>/`, where File Transfer
+shows them too. A shot of a game you renamed or deleted stays. OpenBOR's own
+screenshots, which it takes with SELECT into `Saves/openbor/ScreenShots`, are
+on the shelf too, under OpenBOR.
 
 Display is per-system, because a Game Boy and a Genesis do not want the
 same answer. Set here it applies from the next launch; the same row in the

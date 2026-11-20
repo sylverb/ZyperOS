@@ -39,6 +39,7 @@
 #include "nowplaying_looks.h"
 #include "nowplaying_screen.h"
 #include "homesys_screen.h"
+#include "shots_screen.h"
 #include "levels.h"
 #include "osdbar.h"
 #include "panel.h"
@@ -225,6 +226,7 @@ int shot_syn;       /* --synopsis: the card a scraped game opens */
 int shot_info;
 int shot_delete_ask, shot_delete_now;
 int shot_collect_page = -1, shot_collect_delete, shot_collect_said = -1;
+int shot_shots_delete, shot_shots_said, shot_shots_delete_now;
 int shot_zip_said;
 /* --gm-said K: one of Delete Game's and Rename's messages (GM_SAID) */
 int shot_gm_said = -1;
@@ -1749,6 +1751,8 @@ static void shot_compose_once(app *a)
 	if (shot_delete_ask) delete_ask_preview(a);
 	if (shot_collect_page >= 0) collect_page_preview(a, shot_collect_page);
 	if (shot_collect_delete) collect_delete_preview(a);
+	if (shot_shots_delete) shots_delete_preview(a);
+	if (shot_shots_said) result_preview(a, T(S_SHOTS_DELETE), T(S_SHOTS_FAILED));
 	if (shot_gm_said >= 0) gm_said_preview(a, shot_gm_said);
 	if (shot_collect_said >= 0) collect_said_preview(a, shot_collect_said);
 	/* --zip-said: a zip whose game Diatom cannot unpack, said under its name */

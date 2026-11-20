@@ -1,7 +1,7 @@
 # Original ZyperOS system art
 
 The set contains 61 designs: 50 systems and shelves, PortMaster, two generic folders, and eight card folders.
-Three of them, Recents, Collections and the SG-1000, are placeholders drawn by scripts (see Placeholders).
+Four of them, Recents, Collections, Screenshots and the SG-1000, are placeholders drawn by scripts (see Placeholders).
 Every animated design has a 256 × 256 atlas and a separate still image.
 The folders also have standalone PNGs for their actual display sizes.
 
@@ -97,7 +97,7 @@ Their pixel regression check protects nearby lettering and the symbols' colors.
 
 ## Placeholders
 
-A placeholder holds a shelf's place until it has a design made like the others. There are three.
+A placeholder holds a shelf's place until it has a design made like the others. There are four.
 Recents (`RECENTS`), the home's shelf of the games played last, is one.
 `placeholders/recents.py` draws it with Python and Pillow on a 32-cell grid, each cell 8 pixels, from simple shapes.
 It uses no image generation, no other artist's work, and no photograph.
@@ -114,7 +114,15 @@ Its name is not `collections.py`, which would hide Python's own `collections` mo
 /usr/bin/python3 res/system-art/original/placeholders/collections-card.py res/system-art/original/animations
 ```
 
-The SG-1000 (`SG1000`) is the other.
+Screenshots (`SCREENSHOTS`), the home's group of the Screenshot hotkey's pictures, is another, made the same way.
+`placeholders/screenshots-card.py` draws it on the same grid: a camera, its lens ringed in ZyperOS's lime.
+Its two poses, 400 ms each, fire the camera's flash.
+
+```sh
+/usr/bin/python3 res/system-art/original/placeholders/screenshots-card.py res/system-art/original/animations
+```
+
+The SG-1000 (`SG1000`) is the last.
 `placeholders/sg1000.py` draws it with Python and Pillow, pixel by pixel on a 128-pixel grid, from simple shapes.
 It uses no image generation, no other artist's work, and no photograph.
 The drawing shows a dark angular console with a red stripe, a cartridge in its top slot, and its joystick controller.
