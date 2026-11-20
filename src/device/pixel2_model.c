@@ -29,6 +29,50 @@ static const td_part pixel2_parts[] = {
 	{ TD_R2,     TD_FACE_TOP,   12.6f,  41.7f, 3.7f },
 };
 
+/* Drawn flat (td_model.h): desk mode's window and the Simulator's */
+static const td_flat_key pixel2_flat_keys[] = {
+	{ .key = TD_X, .label = "X", .hint = TD_HINT_ABOVE },
+	{ .key = TD_Y, .label = "Y", .hint = TD_HINT_LEFT },
+	{ .key = TD_A, .label = "A", .hint = TD_HINT_RIGHT },
+	{ .key = TD_B, .label = "B", .hint = TD_HINT_BELOW },
+	{ .key = TD_SELECT, .label = "SE", .hint = TD_HINT_BELOW, .hint_dx = -14 },
+	{ .key = TD_START, .label = "ST", .hint = TD_HINT_BELOW, .hint_dx = 14 },
+	{ .key = TD_L1, .label = "L1", .hint = TD_HINT_ON },
+	{ .key = TD_L2, .label = "L2", .hint = TD_HINT_ON },
+	{ .key = TD_R2, .label = "R2", .hint = TD_HINT_ON },
+	{ .key = TD_R1, .label = "R1", .hint = TD_HINT_ON },
+	/* The rocker's two halves, meeting in its middle */
+	{ .key = TD_VOLUP, .label = "+", .hint = TD_HINT_RIGHT, .y = 15.75f, .len = 8.0f },
+	{ .key = TD_VOLDN, .label = "-", .hint = TD_HINT_RIGHT, .y = 7.65f, .len = 8.0f },
+	{ .key = TD_MENU, .hint = TD_HINT_LEFT },
+	/* The 45-degree capsule, as tall as it stands on the edge */
+	{ .key = TD_POWER, .hint = TD_HINT_LEFT, .y = 6.65f, .len = 7.2f },
+};
+static const td_flat_label pixel2_flat_labels[] = {
+	{ "VOL", -34.6f, 11.7f, true }, { "MENU", 34.6f, 17.1f, true }, { "POWER", 34.6f, 6.65f, true },
+};
+/* Under POWER, top to bottom: battery4, battery3, battery2, and the bottom
+ * one, red (battery0) or green (battery1) */
+static const td_flat_light pixel2_flat_lights[] = {
+	{ 1.4f, 4, -1 }, { -4.03f, 3, -1 }, { -9.67f, 2, -1 }, { -15.3f, 1, 0 },
+};
+static const td_flat pixel2_flat = {
+	.corner = 3.9f,
+	.margin_x = 6.0f, .margin_top = 4.0f, .margin_bottom = 2.5f,
+	.glass = { 0, 14.2f, 55.1f, 43.8f }, .glass_r = 1.2f,
+	.screen = { 0, 15.55f, 48.8f, 36.6f },
+	.word = "ZyperOS", .word_y = -5.5f,
+	.recess = { 0.1f, -29.6f, 16.4f, 7.6f }, .recess_r = 3.8f,
+	.dpad_arm = 3.2f,
+	.side_out = 0.3f, .side_w = 3.0f, .shoulder_rise = 0.4f, .shoulder_h = 3.6f,
+	.light_x = 32.0f, .light_w = 1.3f, .light_h = 3.4f,
+	.lights = pixel2_flat_lights, .n_lights = (int)(sizeof pixel2_flat_lights / sizeof pixel2_flat_lights[0]),
+	.body_hi = 0xB4CC6C, .body = 0x9CB849, .body_lo = 0x83A03A, .recess_c = 0x708B32,
+	.cap = 0x3A3C3F, .cap_down = 0x1E2021, .marking = 0xA4A7AA, .glass_c = 0x0B0E0E, .light_off = 0x56723A,
+	.keys = pixel2_flat_keys, .n_keys = (int)(sizeof pixel2_flat_keys / sizeof pixel2_flat_keys[0]),
+	.labels = pixel2_flat_labels, .n_labels = (int)(sizeof pixel2_flat_labels / sizeof pixel2_flat_labels[0]),
+};
+
 const td_model td_model_pixel2 = {
 	.name = "GKD Pixel 2",
 	.art = TD_ART_PIXEL2,
@@ -50,4 +94,5 @@ const td_model td_model_pixel2 = {
 	 * --handheld-box measures it (src/tourdevice.c, td_box_holds) */
 	.keep_tour = { 0, 66, 304, 382 },
 	.keep_tab = { 128, 176, 256, 332 },
+	.flat = &pixel2_flat,
 };

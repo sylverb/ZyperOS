@@ -5,7 +5,7 @@ import ImageIO
 import SimCore
 import UniformTypeIdentifiers
 
-/// One simulated Pixel 2: the QEMU VM behind it (tools/qemu-run.sh, by name),
+/// One simulated handheld: the QEMU VM behind it (tools/qemu-run.sh, by name),
 /// its screen from QEMU's D-Bus display (or VNC), and its parts over
 /// px2sim's link.
 @MainActor
@@ -25,6 +25,9 @@ final class Simulator: ObservableObject {
     @Published var zoom: Double = 0.75
 
     let name: String
+    /// The handheld drawn round the screen, from the device files
+    /// (Handhelds.swift, `make handhelds`)
+    let handheld: Handheld
     let qemuRun: String
     let image: String?
     let vmDir: String
@@ -52,8 +55,9 @@ final class Simulator: ObservableObject {
     private var attaching = false
     private var rumbleOff: DispatchWorkItem?
 
-    init(name: String, qemuRun: String, image: String?) {
+    init(name: String, handheld: Handheld = .standard, qemuRun: String, image: String?) {
         self.name = name
+        self.handheld = handheld
         self.qemuRun = qemuRun
         self.image = image
         let home = ProcessInfo.processInfo.environment["ZYPEROS_QEMU_HOME"] ??
@@ -282,6 +286,7 @@ final class Simulator: ObservableObject {
     // ---- the buttons and the parts ----------------------------------------
 
     func press(_ button: PadButton) {
+        guard handheld.has(button) else { return }
         if button == .power && power == .off {
             start()
             return

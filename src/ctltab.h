@@ -112,7 +112,7 @@ bool ct_dead(const ct_model *m, int button);
 /* What the rows point into: the caller's, as menu_row holds pointers */
 typedef struct {
 	char scope[64];
-	char val[RM_BUTTONS][48];
+	char val[RM_BUTTONS][80];
 	char warn[16][96];
 } ct_bufs;
 
@@ -213,6 +213,24 @@ bool ct_step(ct_model *m, ct_row id, int dir);
  * never a dead row (ct_dead): a held SELECT, or a button Diatom keeps,
  * keeps what it gives, and the two give the same. */
 void ct_pick(ct_model *m, int button, rm_choice c);
+
+/* Y on a choice in a button's list (issue #305): `cur` becomes `base` with
+ * `button` given `c` and no swap, so the button that gave `c` keeps it and
+ * both give it. A dead row is left as it was. */
+void ct_share(ct_model *m, int button, rm_choice c);
+
+/* The other buttons that give what `button` gives in `cur`, 1u << RM_*:
+ * live rows with the same choice, Nothing never shared */
+unsigned ct_partners(const ct_model *m, int button);
+
+/* Whether choice `c` in `button`'s list is one Y shares: another button
+ * gives it, plainly, and it is not what `button` gives now nor Nothing.
+ * Then A swaps and Y gives it to both; otherwise A takes it. */
+bool ct_can_share(const ct_model *m, int button, rm_choice c);
+
+/* What the foot of `button`'s list says for the choice under the cursor,
+ * into a and b (two lines, b "" for one) */
+void ct_pick_lines(const ct_model *m, int button, rm_choice c, char *a, size_t an, char *b, size_t bn);
 
 /* Face Buttons' value: 0 By Letter, 1 By Place, 2 Mixed, over the faces
  * By Letter moves (a Pocket's two, a Dreamcast's four), the rest left out */

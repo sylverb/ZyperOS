@@ -444,10 +444,12 @@ int main(void)
 	/* ---- the in-game menu, in src/ingame_screen.c, and its leaving, in src/main.c ---- */
 	{
 		char *gm = main_fn("src/ingame_screen.c", "void game_menu(app *a)\n{");
+		/* the hand back, shared with Reset Game's question (gm_resume) */
+		char *gr = main_fn("src/ingame_screen.c", "static void gm_resume(app *a)\n{");
 		char *pl = main_fn("src/main.c", "leave_end panel_leave_run(");
 
-		ck(gm && pl, "src/ingame_screen.c has game_menu and src/main.c panel_leave_run "
-		             "(run from the top of the tree)");
+		ck(gm && gr && pl, "src/ingame_screen.c has game_menu and gm_resume, and src/main.c "
+		                   "panel_leave_run (run from the top of the tree)");
 		if (pl) {
 			long poll = first(pl, "plat_input_poll(&a->in)");
 			long power = first(pl, "a->in.pressed[IN_POWER] || idle_due(a)");
@@ -460,27 +462,30 @@ int main(void)
 			   "Auto Off back, and a press ends it before the frame is drawn");
 			ck(first(pl, "LEAVE_POWER") > poll, "and says when power came");
 		}
-		if (gm) {
+		if (gm && gr) {
 			long leave = first(gm, "panel_leave_run(");
 			long power = first(gm, "LEAVE_POWER");
 			long stop = first(gm, "gm_power(");
 			long cut = first(gm, "mm_leaving_cut();");
-			long pages = first(gm, "present_clear(a, DIATOM_PAGE);");
-			long resume = first(gm, "plat_resident_line(\"RESUME\");");
-			const char *after = resume >= 0 ? gm + resume : "";
+			long back = first(gm, "if (c.resume) gm_resume(a);");
+			long pages = first(gr, "present_clear(a, DIATOM_PAGE);");
+			long resume = first(gr, "plat_resident_line(\"RESUME\");");
+			const char *after = resume >= 0 ? gr + resume : "";
 			const char *no = leave >= 0 ? strstr(gm + leave, "c.resume = false") : NULL;
 
 			ck(leave >= 0 && power > leave && stop > power && cut > stop &&
-			   pages > cut && resume > pages,
+			   back > cut && pages >= 0 && resume > pages,
 			   "game_menu draws its close, stops the game on power in it, then drops "
 			   "what is left of it, then hands the pages back, then sends RESUME");
-			ck(no && no - gm < pages, "and does not resume a game power stopped");
+			ck(no && no - gm < back, "and does not resume a game power stopped");
 			ck(!strstr(after, "plat_present") && !strstr(after, "present_clear") &&
 			   !strstr(after, "panel_leave") && !strstr(after, "menu_draw") &&
-			   !strstr(after, "render("),
+			   !strstr(after, "render(") && !strstr(gm + back, "plat_present") &&
+			   !strstr(gm + back, "menu_draw"),
 			   "and draws nothing after RESUME");
 		}
 		free(gm);
+		free(gr);
 		free(pl);
 	}
 
