@@ -475,9 +475,9 @@ unsigned title_phase(app *a)
 }
 
 
-/* cf_badge_fn on MP4's shelf: on All, what each card is - an album, a book or
- * a video - since the shelf mixes them; on one kind alone the shelf says it
- * and the cards carry none. */
+/* The badge_of on MP4's shelf (games_info, gg_info, gl_info): on All, what
+ * each card is - an album, a book or a video - since the shelf mixes them;
+ * on one kind alone the shelf says it and the cards carry none. */
 static int album_badge(void *ctx, int i)
 {
 	app *a = ctx;

@@ -826,9 +826,15 @@ void muse_album_dir(int al, char *out, size_t n)
  * rule, 2026-09-19. A cover the service gave is remembered, because its own
  * can be small too - La Strada's is 360px - and asking again would only fetch
  * the same one; an album it could not find is asked about on every run. */
+/* The short side a cover must have not to be asked about again: the height
+ * MP4's album row drew one, 461px, before its shelf was a games shelf's
+ * (DESIGN.md 11.67), kept as Album Art's rule; larger than any cover is drawn
+ * now (Now Playing's, NP_SIDE 432) */
+#define ALBUM_CRISP 461
+
 static int museart_jobs(museart_job *jobs, int max)
 {
-	int crisp = (int)(ZYPEROS_SCREEN_H * CF_LAYOUT_ALBUMS.size + 0.5f);
+	int crisp = ALBUM_CRISP;
 	int i, n = 0;
 
 	for (i = 0; i < g_muse.nalbums && n < max; i++) {
