@@ -7116,8 +7116,8 @@ int main(int argc, char *argv[])
 	}
 	/* MENU+START (tools/zyhome.c): the home, whatever was running and
 	 * whatever the records say */
-	if (!access(CTL_HOME_FLAG, F_OK)) {
-		unlink(CTL_HOME_FLAG);
+	if (!access(plat_flag(CTL_HOME_FLAG), F_OK)) {
+		unlink(plat_flag(CTL_HOME_FLAG));
 		a.resume_menu = false;
 		playing_clear();
 		a.screen = SCREEN_SYSTEMS;

@@ -1,9 +1,10 @@
 # Native dev build (macOS/Linux host): make -f mk/native.mk
 #
-# Drivable with the arrow keys, Return and Escape. Point it at a staging tree:
-#   ZYPEROS_ROOT=... ZYPEROS_ROMS=... ZYPEROS_FONT=res/fonts/menu.ttf build-native/zyperos
-# There is no emulator on the host, so launching a game does nothing useful --
-# this build is for looking at the shelf while changing how it looks.
+# A window run is desk mode (src/device/desk.h): tools/desk runs it on a
+# sample card, as the Pixel 2 or the Brick, with the keyboard, the mouse and a
+# game controller as the handheld's buttons (docs/building.md, "Work on the UI
+# without a device"). A headless run (ZYPEROS_HEADLESS) is the shots' and the
+# checks'.
 BUILD := build-native
 # The Brick's device file, whose hardware is behind __linux__ with a host stub
 # beside it: that is what this build has always run.
@@ -19,6 +20,9 @@ SRC := $(I18N_TABLES) $(filter-out $(I18N_TABLES),$(wildcard src/*.c)) $(wildcar
        $(wildcard src/device/*_profile.c) \
        src/device/td_model.c $(filter-out src/device/td_model.c,$(wildcard src/device/*_model.c)) \
        src/device/pixel2_coreopts.c $(filter-out src/device/pixel2_coreopts.c,$(wildcard src/device/*_coreopts.c))
+# Desk mode (src/device/desk.h): the host build's window as a handheld. Here
+# alone: no device builds it.
+SRC += src/device/desk.c src/device/deskface.c
 # src/main.c and the files split from it, which call into one another: the
 # checks that link the rest of src/ leave them all out.
 MAIN_SRC := src/main.c src/about_screen.c src/aout_route.c src/bgm_screen.c \
@@ -50,6 +54,10 @@ LDLIBS := $(shell pkg-config --libs $(PKGS)) -lsqlite3 -lz \
 ifeq ($(shell uname -s),Linux)
   LDLIBS += -lasound
 endif
+# Desk mode's real-size zoom asks the display its millimetres (desk.c)
+ifeq ($(shell uname -s),Darwin)
+  LDLIBS += -framework CoreGraphics
+endif
 
 # The same generated header the device build uses, for the same reason, so the
 # host build can talk to ScreenScraper too. See mk/cross.mk.
@@ -62,6 +70,7 @@ CFLAGS += -Isrc
 CFLAGS += -DI18N_PSEUDO
 # The profile the host wears unless told (--device), and all of them linked
 CFLAGS += -DZYPEROS_PROFILE=device_profile_desktop -DZYPEROS_PROFILES_ALL
+CFLAGS += -DZYPEROS_DESK
 
 .PHONY: all creds
 all: $(BUILD)/zyperos

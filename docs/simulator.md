@@ -7,6 +7,12 @@ the parts a player can't press - the battery, the charging cable, the
 headphones - set from a panel beside it. What the device shows of them shows
 too: the side lights, the backlight, the motor.
 
+For the launcher's menus alone, desk mode is quicker: `make desk` runs the
+launcher itself in a window as the Pixel 2, at 60 frames a second, a game and
+its in-game menu included ([building.md](building.md), "Work on the UI without
+a device"). The simulator is for the whole system: the boot, the setup, the
+battery and the charger, the side lights.
+
 ## Building and opening it
 
 ```sh
@@ -31,9 +37,10 @@ Update, are `tools/qemu-run.sh start --uboot`, several times slower
   keys along the top, the volume rocker on the left side, MENU and POWER on
   the right. The keyboard: arrows, x z s a (A B X Y), q w e r (L1 R1 L2 R2),
   Return (START), Right Shift or Delete (SELECT), Esc or m (MENU), = and -
-  (volume), p (power), h (headphones). A key held is a button held. The
-  pointer over a button shows its key on a small keycap beside it, and
-  holding Option shows every one.
+  (volume), p (power), h (headphones). A key held is a button held. It is
+  the one key map of `src/device/keymap.h`, desk mode's too, by the keys'
+  places on a US keyboard. The pointer over a button shows its key on a
+  small keycap beside it, and holding Option shows every one.
 - **Power.** POWER is ZyperOS's power button. When the VM is off (after Power
   Off, or Auto Off), POWER turns it on again.
 - **The panel** (View > Hardware Panel, ⌘I, or the sidebar button under the
@@ -130,8 +137,35 @@ each of QEMU's calls. `state` says which way the frames come
   leds=... backlight=... bl_power=... battery=... cable=... headphones=...`
   on every change, and `rumble STRONG WEAK MS` when the motor runs.
 
-The device is drawn from the same measurements as the website's 3D model
-(`tools/build-pixel2-model.py`, the dimensioned drawing's millimetres).
+The device is drawn from the device files (`src/device/<id>_model.c`), the
+same data desk mode draws from: `make handhelds` writes them into
+`simulator/Sources/SimCore/Handhelds.swift`, and the window draws whatever
+handheld it is given. The Pixel 2's are the measurements of the website's
+3D model (`tools/build-pixel2-model.py`, the dimensioned drawing's
+millimetres).
+
+## Another handheld
+
+`--device ID` (or `$ZYPEROS_SIM_DEVICE`) draws another handheld round the
+screen, any of `Handhelds.swift`'s (`pixel2`, `brick`):
+
+```sh
+"simulator/build/ZyperOS Simulator.app/Contents/MacOS/ZyperSimulator" --device brick
+```
+
+Its keys, their keyboard keys, the panel's lights and its keyboard list
+follow the handheld: the Brick has F1 and F2 (`[` and `]`, `brightdown` and
+`brightup` over the socket) and no side lights; a button it has not is
+refused (`simctl press` says so). [Building](building.md), "A handheld drawn
+on the computer", says how a new handheld gets there: its model file, then
+`make handhelds`.
+
+The VM is still the Pixel 2's: plastron's `qemu_defconfig` builds the Pixel
+2's system, and px2sim simulates the Pixel 2's parts. So today `--device
+brick` is the Brick's drawing round a Pixel 2's screen, for seeing the
+drawing; its picture is scaled to the Brick's glass. A VM for another
+handheld is plastron's: a QEMU image of that handheld's system, and px2sim
+taught its buttons and parts. Nothing in the window changes for it.
 
 `swift test` in `simulator/` checks the line protocol and the control
 commands.
