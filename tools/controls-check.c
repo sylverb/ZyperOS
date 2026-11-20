@@ -610,6 +610,21 @@ static void in_a_game(void)
 			ck(says(all, n, MUST[k].key, MUST[k].val), msg);
 		}
 	}
+	/* The Saturn's page from systems.cfg's own map|SATURN, not a copy: each
+	 * face cap its letter, and C on R1 and Z on L1 as YabaSanshiro's
+	 * standalone and Beetle Saturn put them (check-remap holds the table) */
+	for (i = 0; i < sys.count; i++)
+		if (!strcmp(sys.systems[i].tag, "SATURN")) {
+			const system_cfg *s = &sys.systems[i];
+			ctl_game g = { s->tag, s->name, s->tag, s->map, turbo_of(s->tag), "chd" };
+			seen_row all[64];
+			int n = game_rows(&g, all, 64, NULL);
+
+			ck(says(all, n, "A", "A") && says(all, n, "B", "B") && says(all, n, "X/Y", "X/Y") &&
+			   says(all, n, "L1/R1", "Z/C") && says(all, n, "L2/R2", "L/R") &&
+			   says(all, n, "START", "Start"),
+			   "Saturn: each face cap its letter, L1/R1 Z/C, L2/R2 L/R (map|SATURN)");
+		}
 
 	/* A long name gives way to the home's short one, beside the page count */
 	{
