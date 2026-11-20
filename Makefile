@@ -363,8 +363,10 @@ check-boost: build-native/boost-check
 # device, the database and MP4 stubbed (tools/levels-check.c): with MP4 heard
 # behind the home, a shelf or a menu, its boost works there as on its own
 # screens (the cells on the bar, the hold and the presses that open it, a
-# press down emptying a cell first, each cell told to MP4); with nothing
-# heard, the menus' own. SDL's headers for platform.h; skipped without them.
+# press down emptying a cell first, each cell told to MP4); over a paused
+# game, the game's the same way; a running game's steps told to MP4 at once;
+# with neither, the menus' own. SDL's headers for platform.h; skipped
+# without them.
 check-levels:
 	@if command -v sdl2-config > /dev/null 2>&1; then \
 		$(MAKE) --no-print-directory build-native/levels-check && ./build-native/levels-check; \
@@ -1957,8 +1959,10 @@ check-clock: build-native/clock-check
 # The launcher's reader of Diatom's answers (src/resident.c), the device
 # stubbed, against a made-up Diatom on a socket of its own
 # (tools/resident-check.c): SETPLAYER2's answer read while paused, the
-# picture on the way noted, and a game's EXIT before it left for the wait
-# loop rather than eaten. SDL for SDL_GetTicks alone; skipped without it.
+# picture on the way noted, a game's EXIT before it left for the wait
+# loop rather than eaten, and a running game's volume boost said to MP4 at
+# each LEVEL line, none from before its SETLEVEL. SDL for SDL_GetTicks
+# alone; skipped without it.
 check-resident:
 	@if command -v sdl2-config > /dev/null 2>&1; then \
 		$(MAKE) --no-print-directory build-native/resident-check && ./build-native/resident-check; \

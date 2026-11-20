@@ -1137,7 +1137,10 @@ does, also after a restart, until you turn it down under the top. MP4's lock
 screen never opens it, so a key held in a pocket cannot. While MP4 plays
 behind the home or a menu, the volume keys there work on its boost exactly as
 in the player: the bar shows the cells, and you open, fill and empty them the
-same way. With nothing playing, the bar in the menus is the plain one and the
+same way. In a game's menu the keys work on the game's boost the same way, so
+VOL- there empties one cell, as in the game. With music playing behind a
+game, each boost step you make in the game is heard in the music at once.
+With nothing playing, the bar in the other menus is the plain one and the
 menu music is never boosted. Plugging headphones in or out closes it.
 
 Brightness works the same way (**F2** on the Brick, **MENU+VOL+** on the

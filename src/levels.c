@@ -18,6 +18,7 @@ static struct {
 	bool up_was[2];       /* the key going up was down last frame */
 	int where;            /* the volume's place, last frame */
 	int db_told;          /* the gain last given to MP4 and the file */
+	bool game;            /* a game paused under the screens (levels_game_paused) */
 } L = { .db_told = -1 };
 
 static const char *const KEEP[2] = { "volume_boost", "brightness_boost" };
@@ -109,18 +110,33 @@ static void levels_act(int k, int dir, int did, unsigned now)
 }
 
 /* Where the volume's keys are, as the boost takes it: a menu's place (the
- * home, a shelf, a menu, the in-game menu: BOOST_HIDE) is MP4's while MP4 is
- * heard behind it - playing, or asked to, the menu music quiet for it
- * (src/bgm.h), as L2 and R2 are MP4's there then. The boost on what plays is
- * the same wherever the keys are pressed: the bar shows its cells, a hold or
- * three presses open it, a press down empties a cell before the level moves,
- * and each cell reaches MP4. Paused or stopped, the menus' own again: the
- * menu music is never boosted (2026-11-20, on 1.1.0-rc.3: "if i'm playing
- * something that has the software audio boost, i should be able to still
- * control that audio boost from home"). MP4's lock screen stays FILL. */
+ * home, a shelf, a menu: BOOST_HIDE) is MP4's while MP4 is heard behind it -
+ * playing, or asked to, the menu music quiet for it (src/bgm.h), as L2 and
+ * R2 are MP4's there then - and the game's while a game is paused under it
+ * (the in-game menu and what it opens, the Reset Game question, a port's
+ * menu). The boost on what plays, or goes on playing, is the same wherever
+ * the keys are pressed: the bar shows its cells, a hold or three presses
+ * open it, a press down empties a cell before the level moves, and each cell
+ * reaches MP4 and the ports' file, and the game at RESUME. With neither, the
+ * menus' own: the menu music is never boosted (2026-11-20, on 1.1.0-rc.3:
+ * "if i'm playing something that has the software audio boost, i should be
+ * able to still control that audio boost from home"). MP4's lock screen
+ * stays FILL. */
 static int levels_where(int where)
 {
-	return where == BOOST_HIDE && mp4c_heard() ? BOOST_OPEN : where;
+	return where == BOOST_HIDE && (L.game || mp4c_heard()) ? BOOST_OPEN : where;
+}
+
+void levels_game_paused(bool on) { L.game = on; }
+
+/* MP4 alone: the level, the cells kept and the ports' file are the game's
+ * until it pauses or ends (levels_from_game), and no port runs beside it */
+void levels_game_boost(int kind, int boost)
+{
+	if (k_of(kind) != 0) return;
+	if (boost < 0) boost = 0;
+	if (boost > BOOST_VOL_CELLS) boost = BOOST_VOL_CELLS;
+	mp4c_gain(boost * BOOST_DB_CELL);
 }
 
 bool levels_keys(in_state *in, int where)

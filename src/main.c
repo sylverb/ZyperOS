@@ -5813,7 +5813,11 @@ static int port_menu_main(int argc, char **argv)
 	a.running = true;
 	fprintf(stderr, "port menu: %s, ready in %u ms\n", s->name, plat_now_ms() - t_boot0);
 
+	/* The port is stopped under it: the volume keys are its own, as over a
+	 * paused game (src/levels.h), and portkeys reads the cells back */
+	levels_game_paused(true);
 	how = port_menu(&a);
+	levels_game_paused(false);
 	fprintf(stderr, "port menu: %s\n", how == PORT_MENU_QUIT ? "Quit" :
 	        how == PORT_MENU_POWER ? "POWER" : "Continue");
 	/* The window closed, which puts back on the panel the frame SDL found

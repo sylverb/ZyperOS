@@ -16,6 +16,13 @@
  * was, nothing opens, a press under the top folds a kept boost. MP4's lock
  * screen never opens one, heard or not.
  *
+ * And the two beside it (the same day): the in-game menu over a paused game
+ * is the game's place, so VOL- there empties one cell, as in the game, where
+ * it threw the game's whole boost away in one press; and MP4 behind a
+ * running game hears each step of the game's boost at once
+ * (levels_game_boost, from Diatom's LEVEL lines: tools/resident-check.c),
+ * not when the game pauses or ends.
+ *
  *   levels-check     checks
  *
  * SDL's headers for platform.h's types; nothing of SDL is called. */
@@ -159,6 +166,7 @@ static void start(int level, int kept)
 	kept_boost[0] = kept;
 	mp4_gain = port_gain = -1;
 	buzzes = 0;
+	levels_game_paused(false);
 	levels_init();
 	idle(BOOST_HIDE, 100);
 }
@@ -233,6 +241,46 @@ int main(void)
 	start(PLAT_VOL_MAX, 0);
 	for (int i = 0; i < BOOST_TAPS; i++) press(IN_VOLUP, BOOST_OPEN);
 	ck(levels_boost(OSDBAR_VOLUME) == 1 && mp4_gain == 2, "MP4's own screens open it with nothing heard");
+
+	/* the in-game menu over a paused game, nothing heard: the game's place */
+	heard = false;
+	start(PLAT_VOL_MAX, 0);
+	levels_from_game(OSDBAR_VOLUME, PLAT_VOL_MAX, 3);   /* PAUSED: the game's three cells */
+	levels_game_paused(true);
+	idle(BOOST_HIDE, 100);
+	l = look();
+	ck(cells_shown(&l) == 3, "the in-game menu's bar shows the game's three cells");
+	press(IN_VOLDN, BOOST_HIDE);
+	ck(vol == PLAT_VOL_MAX && levels_boost(OSDBAR_VOLUME) == 2,
+	   "VOL- in the in-game menu empties one cell, as in the game; the level stays at the top");
+	ck(kept_boost[0] == 2 && mp4_gain == 4, "  ...two kept, the two RESUME hands the game (levels_boost)");
+	press(IN_VOLUP, BOOST_HIDE);
+	ck(levels_boost(OSDBAR_VOLUME) == 3, "VOL+ there fills one again");
+	start(PLAT_VOL_MAX, 0);
+	levels_game_paused(true);
+	for (int i = 0; i < BOOST_TAPS; i++) press(IN_VOLUP, BOOST_HIDE);
+	ck(levels_boost(OSDBAR_VOLUME) == 1, "three presses on the top of the in-game menu open it");
+	levels_game_paused(false);
+	press(IN_VOLDN, BOOST_HIDE);
+	ck(vol == PLAT_VOL_MAX - 1 && levels_boost(OSDBAR_VOLUME) == 0,
+	   "the game over, the home with nothing heard is the menus' own again");
+
+	/* MP4 behind a running game: each step of its boost said to MP4 at once */
+	heard = true;
+	start(PLAT_VOL_MAX, 0);
+	levels_game_boost(OSDBAR_VOLUME, 1);
+	ck(mp4_gain == 2, "a game's hold opens its boost: MP4 at +2 dB at once");
+	levels_game_boost(OSDBAR_VOLUME, 2);
+	levels_game_boost(OSDBAR_VOLUME, 3);
+	ck(mp4_gain == 6, "each press in the game: +4, then +6 dB");
+	levels_game_boost(OSDBAR_VOLUME, 2);
+	ck(mp4_gain == 4, "VOL- in the game: +4 dB");
+	ck(kept_boost[0] == 0 && levels_boost(OSDBAR_VOLUME) == 0 && port_gain == 0,
+	   "  ...nothing kept and the ports' file left until the game pauses or ends");
+	levels_game_boost(OSDBAR_BRIGHT, 2);
+	ck(mp4_gain == 4, "the brightness's is Diatom's own: MP4 not told");
+	levels_from_game(OSDBAR_VOLUME, PLAT_VOL_MAX, 2);
+	ck(kept_boost[0] == 2 && mp4_gain == 4 && port_gain == 4, "the end hands the two back: kept, the same gain");
 
 	if (fails) { printf("levels: %d FAILED\n", fails); return 1; }
 	printf("levels: ok\n");

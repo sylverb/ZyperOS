@@ -1266,12 +1266,16 @@ void launch(app *a)
 					const char *why = plat_resident_paused_for();
 
 					g_ctl_game.paused = true;
+					/* The volume keys over it are the game's (src/levels.h):
+					 * a press down empties a cell, as in the game */
+					levels_game_paused(true);
 					/* A hotkey's pause (src/hotkeys.h): Quit stops the
 					 * game as MENU then X does, Reset Game asks first;
 					 * MENU's opens the menu */
 					if (!strcmp(why, "quit")) gm_quit();
 					else if (!strcmp(why, "reset")) game_reset_ask(a);
 					else game_menu(a);
+					levels_game_paused(false);
 					g_ctl_game.paused = false;
 					continue;
 				}
