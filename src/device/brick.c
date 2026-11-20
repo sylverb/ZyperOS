@@ -1705,6 +1705,12 @@ bool plat_charge_read(ch_reading *r)
  * can change while a game runs, and gone at power-off. */
 const char *plat_battery_info_path(void)
 {
+	/* ZYPEROS_BATTERY_DIR stands in for the gauge's folder: a host shot's
+	 * About with a battery in it (tools/i18n-shots.py's BATTERY_DIRS) */
+	const char *dir = getenv("ZYPEROS_BATTERY_DIR");
+
+	if (dir && *dir)
+		return dir;
 #ifdef __linux__
 	return AXP_BATTERY;
 #else

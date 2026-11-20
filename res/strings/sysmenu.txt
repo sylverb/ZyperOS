@@ -812,17 +812,6 @@ ja = 並べ替え
 it = Ordina per
 
 
-[sysmenu.box_art]
-note = A system menu row: fetch covers for this system's games
-en = Box Art
-zh-Hans = 封面
-es = Carátulas
-pt-BR = Capas
-fr = Jaquettes
-de = Cover
-ja = パッケージ画像
-it = Copertine
-
 [sysmenu.rescan]
 note = A system menu row: look at the card's folders again
 en = Rescan Folder
@@ -1022,6 +1011,28 @@ fr = Une cassette aux bobines qui tournent ; rembobinée à chaque titre.
 de = Eine Kassette, deren Spulen sich drehen; spult bei jedem Titel zurück.
 ja = 曲に合わせてリールが回るカセット。曲が変わると巻き戻します。
 it = Una cassetta con le bobine che girano; si riavvolge a ogni brano.
+
+[sysmenu.look_vinyl]
+note = A Player Look: a vinyl record turning on a turntable, the cover as its label, the tonearm on the song. Begun with a capital
+en = Vinyl
+zh-Hans = 黑胶唱片
+es = Vinilo
+pt-BR = Vinil
+fr = Vinyle
+de = Vinyl
+ja = レコード
+it = Vinile
+
+[sysmenu.look_vinyl_note]
+note = Under Player Look's picture when Vinyl is under the cursor: a narrow column, at most five short lines
+en = A record in the cover's color; the arm marks the song.
+zh-Hans = 封面颜色的黑胶唱片，唱臂停在当前歌曲上。
+es = Un disco del color de la portada; el brazo marca la canción.
+pt-BR = Um disco na cor da capa; o braço marca a música.
+fr = Un disque de la couleur de la pochette ; le bras marque le titre.
+de = Eine Platte in der Farbe des Covers; der Arm zeigt den Titel.
+ja = ジャケットの色のレコード。アームが今の曲を指します。
+it = Un disco del colore della copertina; il braccio segna il brano.
 
 [sysmenu.look_classic]
 note = A Player Look: a big clock, bars that move with the sound, and the album's track list (like an old desktop music player). Begun with a capital

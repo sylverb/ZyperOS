@@ -5,7 +5,7 @@
  * Performing the blit is hardware, so it belongs to the port. Put both in the
  * port and the math gets duplicated per device and drifts.
  *
- * Seven modes, because "how big should the picture be" has that many
+ * Eight modes, because "how big should the picture be" has that many
  * defensible answers and no universally right one. The default is `stretch`,
  * chosen by cycling them on a real panel rather than by argument.
  *
@@ -19,8 +19,9 @@
 
 /* The comparison set, in cycle order on device. Ordered by how much of the
  * panel gets used, so stepping through is a single monotonic story rather than
- * a shuffle: boxed, boxed-but-shape-correct, shape-correct, that cropped to
- * cover, stretched, uniform-cropped, then 1:1 as a reference.
+ * a shuffle: boxed, square pixels at full height, boxed-but-shape-correct,
+ * shape-correct, that cropped to cover, stretched, uniform-cropped, then 1:1
+ * as a reference.
  *
  * Geometry and filter are cycled separately (mode on the shoulders, filter on
  * A) because the question worth answering is what a given geometry looks like
@@ -29,6 +30,8 @@
 const diatom_display_mode_info diatom_modes[] = {
 	{ "integer",   DIATOM_SCALE_INTEGER,
 	  "largest whole factor, letterboxed" },
+	{ "square",    DIATOM_SCALE_SQUARE,
+	  "square pixels at full height, no whole steps" },
 	{ "integer-vertical", DIATOM_SCALE_INTEGER_VERT,
 	  "whole factor down, shape correct across" },
 	{ "aspect",    DIATOM_SCALE_ASPECT_FIT,
@@ -102,7 +105,7 @@ diatom_rect diatom_scale_rect(diatom_scale_mode mode, int src_w, int src_h,
                               double aspect, int surf_w, int surf_h)
 {
 	double a;
-	int f, fx, fy;
+	int f, fx, fy, w;
 
 	if (src_w <= 0 || src_h <= 0 || surf_w <= 0 || surf_h <= 0) {
 		diatom_rect z = { 0, 0, 0, 0 };
@@ -166,6 +169,28 @@ diatom_rect diatom_scale_rect(diatom_scale_mode mode, int src_w, int src_h,
 			return centered(surf_w, (int)((double)surf_w / a + 0.5),
 			               surf_w, surf_h);
 		return centered((int)((double)surf_h * a + 0.5), surf_h,
+		               surf_w, surf_h);
+
+	case DIATOM_SCALE_SQUARE:
+		/* Square pixels at the surface's full height, whatever shape the core
+		 * asks for: RetroArch's 1:1 PAR with integer scaling off (ZyperOS
+		 * #346). A core's base geometry is the picture its pixels were drawn
+		 * for, so NES and SNES games come out 8:7 (their 256x224) where their
+		 * cores ask for a CRT's wider shape, the Game Gear 10:9 where its core
+		 * asks for 4:3, the PC Engine 16:15 (docs/reference/core-facts.md).
+		 * Wider than the surface (the GBA and the PSP on a 4:3 panel), the
+		 * width fills it with the same factor instead, so the pixels stay
+		 * square.
+		 *
+		 * No whole step: a 224-line game on 768 lines is about 3.4x, so under
+		 * nearest some rows are three lines and some four. Sharp-Shimmerless
+		 * is what evens them out, and it is the filter's axis, not this one.
+		 *
+		 * Rounded in integers rather than doubles, so the launcher's copy of
+		 * this arithmetic lands on the same pixel without a float in sight. */
+		w = (2 * src_w * surf_h + src_h) / (2 * src_h);
+		if (w <= surf_w) return centered(w, surf_h, surf_w, surf_h);
+		return centered(surf_w, (2 * src_h * surf_w + src_w) / (2 * src_w),
 		               surf_w, surf_h);
 
 	case DIATOM_SCALE_ASPECT_FILL:

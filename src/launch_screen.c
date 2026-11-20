@@ -843,6 +843,21 @@ void launch(app *a)
 			return;
 		}
 	}
+	/* A zip Diatom unpacks (a cartridge's: a shelf whose core takes no
+	 * archive itself, the arcades' listing 7z and MAME's) whose game is
+	 * compressed in a way it cannot read, bzip2 or Zstandard: said here,
+	 * where a start would have come back with nothing said (1.0.7) */
+	if (romfile && strlen(romfile) > 4 && !strcasecmp(romfile + strlen(romfile) - 4, ".zip") &&
+	    !strstr(s->exts, "7z") && strcmp(s->core, "mame2003_plus")) {
+		int m = gamefile_zip_method(rom);
+
+		if (m >= 0 && !gamefile_zip_reads(m)) {
+			fprintf(stderr, "launch: %s refused: %s is compressed by method %d\n", s->name, romfile, m);
+			if (a->in.pressed[IN_ACCEPT]) uisound_play(DS_SOUND_DENY);
+			result_message(a, v->list.items[v->cursor].title, T(S_LAUNCH_ZIP_METHOD));
+			return;
+		}
+	}
 
 	/* A DS game: two screens in one frame, a DraStic save (ROGUE OS's) to
 	 * take over the first time, and frames left undrawn when they run late -

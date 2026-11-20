@@ -17,6 +17,7 @@ int main(void)
 {
 	about_info a = {0}; about_values b; menu_row r[ABOUT_DETAIL_ROWS];
 	char dir[]="/tmp/zyperos-about-XXXXXX", p[512];
+	a.learned=-1; /* a gauge that does not say whether it measured */
 	CK(about_storage_counts(&a,1024,30817792,9068000,9068000),"card counts accepted");
 	a.full_uah=a.design_uah=1730000;
 	CK(about_detail_rows(&a,r,&b)==6,"six detail rows");
@@ -71,10 +72,35 @@ int main(void)
 	CK(!a.full_uah&&a.design_uah==1730000&&!strcmp(r[3].value,"Unknown"),"removed full reading clears stale health");
 	put(dir,"charge_full"," 1730500 \n");about_read(&a,dir,dir);about_detail_rows(&a,r,&b);
 	CK(!strcmp(r[4].value,"1,731 mAh"),"capacity rounds to nearest mAh");
+	/* The Pixel 2's gauge says how many times it measured the full charge
+	 * (charge_full_learned): never, and the full charge is the design's guess */
+	put(dir,"charge_full","1730000\n");put(dir,"charge_full_learned","0\n");
+	about_read(&a,dir,dir);about_detail_rows(&a,r,&b);
+	CK(a.learned==0&&!strcmp(r[3].value,"Not measured yet")&&!strcmp(r[4].value,"Not measured yet")&&!strcmp(r[5].value,"1,730 mAh"),
+	   "a full charge never measured says so, for health and full charge, not 100%");
+	put(dir,"charge_full_learned","2\n");about_read(&a,dir,dir);about_detail_rows(&a,r,&b);
+	CK(a.learned==2&&!strcmp(r[3].value,"100% estimate")&&!strcmp(r[4].value,"1,730 mAh"),"measured as new: 100%");
+	put(dir,"charge_full","1400000\n");put(dir,"charge_full_learned","3\n");
+	about_read(&a,dir,dir);about_detail_rows(&a,r,&b);
+	CK(!strcmp(r[3].value,"81% estimate")&&!strcmp(r[4].value,"1,400 mAh"),"measured worn: 1400 of 1730 mAh is 81%");
+	put(dir,"charge_full_learned","0\n");about_read(&a,dir,dir);about_detail_rows(&a,r,&b);
+	CK(!strcmp(r[3].value,"81% estimate"),"a full charge under the design's is a measure even with no count (an older kernel cleared it)");
+	put(dir,"charge_full","1730000\n");put(dir,"charge_full_learned","junk\n");
+	about_read(&a,dir,dir);about_detail_rows(&a,r,&b);
+	CK(a.learned==-1&&!strcmp(r[3].value,"100% estimate"),"an unreadable count is a gauge that does not say");
+	snprintf(p,sizeof p,"%s/charge_full_learned",dir);unlink(p);
+	about_read(&a,dir,dir);about_detail_rows(&a,r,&b);
+	CK(a.learned==-1&&!strcmp(r[3].value,"100% estimate"),"no count (the Brick, an older kernel): the estimate as before");
+	put(dir,"charge_full_learned","0\n");
+	snprintf(p,sizeof p,"%s/charge_full_design",dir);unlink(p);
+	about_read(&a,dir,dir);about_detail_rows(&a,r,&b);
+	CK(!strcmp(r[3].value,"Unknown")&&!strcmp(r[5].value,"Unknown"),"never measured with no design reading: unknown");
+	put(dir,"charge_full_design","1730000\n");
+	snprintf(p,sizeof p,"%s/charge_full_learned",dir);unlink(p);
 	about_read(&a,"/path/that/does/not/exist/zyperos-about",NULL);
-	CK(!a.storage_known&&!a.full_uah&&!a.design_uah,"missing sources clear old data");
+	CK(!a.storage_known&&!a.full_uah&&!a.design_uah&&a.learned==-1,"missing sources clear old data");
 	snprintf(p,sizeof p,"%s/charge_full",dir);unlink(p);
 	snprintf(p,sizeof p,"%s/charge_full_design",dir);unlink(p);rmdir(dir);
-	if(!fails)puts("ok: About storage, battery estimates and missing readings");
+	if(!fails)puts("ok: About storage, battery estimates, the full charge not measured yet and missing readings");
 	return fails?1:0;
 }

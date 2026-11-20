@@ -3960,7 +3960,10 @@ static void card_cost(int kind, Uint64 t0)
 static SDL_Surface *game_art_card(card_faces *k, const ui_card_order *o)
 {
 	Uint64 t0 = SDL_GetPerformanceCounter();
-	SDL_Surface *s = SDL_CreateRGBSurfaceWithFormat(0, CARD_W, CARD_H, 32, SDL_PIXELFORMAT_ARGB8888);
+	/* An album's is square, as its cover is (MP4's shelf, DESIGN.md 11.67):
+	 * the same ground and name, the name's place by the card's height */
+	const int ch = o->album ? CARD_W : CARD_H;
+	SDL_Surface *s = SDL_CreateRGBSurfaceWithFormat(0, CARD_W, ch, 32, SDL_PIXELFORMAT_ARGB8888);
 	/* a system with no color: its marks' text-dim, of the dark theme the
 	 * card always is */
 	unsigned rgb = o->rgb == CFG_NO_COLOR ? ui_rgb(theme_at(DS_DARK)->text_dim) : o->rgb;
@@ -3978,7 +3981,7 @@ static SDL_Surface *game_art_card(card_faces *k, const ui_card_order *o)
 		/* painted at half the size and stretched: on the Pixel 2 a whole
 		 * one took 134 ms on the worker, and shown at a third of its size
 		 * nothing of it is lost */
-		SDL_Surface *half = SDL_CreateRGBSurfaceWithFormat(0, CARD_W / 2, CARD_H / 2, 32,
+		SDL_Surface *half = SDL_CreateRGBSurfaceWithFormat(0, CARD_W / 2, ch / 2, 32,
 		                                                   SDL_PIXELFORMAT_ARGB8888);
 		ca_ground g;
 
@@ -4079,8 +4082,10 @@ static SDL_Surface *game_card_surface(card_faces *k, const ui_card_order *o)
 static SDL_Surface *card_surface(card_faces *k, const ui_card_order *o)
 {
 	if (o->folder > 0) return folder_card_surface(k, o);
-	/* a game's is its own (game_art_card); an album's is today's */
-	return o->album ? game_card_surface(k, o) : game_art_card(k ? k : &frame_faces, o);
+	/* a game's is its own (game_art_card); an album's too, square, when its
+	 * order names its system (MP4's shelf, ui_card_order_game), and
+	 * otherwise today's */
+	return o->album && !o->tag[0] ? game_card_surface(k, o) : game_art_card(k ? k : &frame_faces, o);
 }
 
 void ui_card_order_set(ui_card_order *o, const char *title, unsigned rgb,

@@ -70,6 +70,10 @@ cd ZyperOS</code></pre></li>
 
 <h2>The ZyperOS Simulator, step by step</h2>
 <p>Desk mode is the launcher alone. The ZyperOS Simulator runs everything: the Pixel 2's system, Linux and all, in QEMU on Apple's hypervisor, in a window drawn as the Pixel 2. It boots as the handheld does and runs the first-start setup. A panel beside the handheld sets what a player can't press, the battery level, the charging cable and the headphones, and the window shows what the handheld does with them: the side lights, the backlight and rumble. ZyperOS's first frame comes less than a second after QEMU starts, and a NES game runs at its full 60 frames a second.</p>
+<div class="pair">
+<figure class="shot"><img src="/img/simulator.png" alt="The ZyperOS Simulator at the first start: a drawn GKD Pixel 2, Zyper saying Hello! beside the language list, its four side lights lit green on the cable"><figcaption>The first start, as on a new card.</figcaption></figure>
+<figure class="shot"><img src="/img/simulator-charging.png" alt="The ZyperOS Simulator charging at 55%: the home with the charging mark in the top bar, and the side lights filling from the bottom"><figcaption>On the cable at 55%: the side lights fill as they charge.</figcaption></figure>
+</div>
 <p>It needs a Mac with Apple silicon and macOS 14 or later, Xcode's command-line tools, QEMU, and a QEMU image of ZyperOS. Today you build that image yourself with plastron, ZyperOS's Linux, in Docker. The first build takes a few hours, as it builds a whole toolchain and then LLVM for the graphics. After that, a build takes minutes.</p>
 <ol>
   <li>Install <a href="https://www.docker.com/products/docker-desktop/">Docker Desktop</a> and start it.</li>

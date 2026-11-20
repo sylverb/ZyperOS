@@ -16,6 +16,7 @@
 #ifndef ZYPEROS_GAMEFILE_H
 #define ZYPEROS_GAMEFILE_H
 
+#include <stdbool.h>
 #include <stddef.h>
 
 typedef enum {
@@ -36,5 +37,19 @@ gamefile_state gamefile_check(const char *path, unsigned long long *have);
 /* What the shelf says under the game: "This game file is empty", "This game
  * file is cut short: 10 bytes". Empty for GAMEFILE_OK. */
 void gamefile_message(gamefile_state st, unsigned long long have, char *out, size_t n);
+
+/* A zip's game, as Diatom picks it (diatom/src/zip.c): its largest entry.
+ * How that entry is compressed, the zip's own method number (0 stored, 8
+ * Deflate, 12 bzip2, 14 LZMA, 93 Zstandard), from its central directory
+ * alone, nothing unpacked; -1 for a file that is no zip or has no entry. */
+int gamefile_zip_method(const char *path);
+
+/* Whether Diatom unpacks an entry compressed so: stored, Deflate and LZMA
+ * (1.0.7). A zip of bzip2 or Zstandard is said on the shelf (launch) rather
+ * than failing with nothing said. */
+static inline bool gamefile_zip_reads(int method)
+{
+	return method == 0 || method == 8 || method == 14;
+}
 
 #endif

@@ -104,6 +104,9 @@ typedef struct {
  * read and an access() or two a game, for when a page opens - never a
  * frame. Returns how many were written to `out`. */
 int radl_plan(const systems_cfg *sys, const char *roms_dir, radl_sys *out, int max);
+/* One system's line (radl_plan's): false for one with no such games. Its
+ * .cheevos folder is read once, not a look a game. */
+bool radl_plan_one(const system_cfg *s, const char *roms_dir, radl_sys *out);
 
 /* ---- the run --------------------------------------------------------------- */
 
