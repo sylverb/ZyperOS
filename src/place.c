@@ -5,6 +5,7 @@
 #include "config.h"
 #include "homesys.h"
 #include "platform.h"
+#include "shelfbuild.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -193,6 +194,11 @@ void restore_place(app *a)
 		if (a->view[i].all) {
 			if (dir[0]) shelf_open_dir(a, i, dir, file);
 			else shelf_reveal(a, i, file);
+			return;
+		}
+		/* Collections' folders are its collections (src/collect.h) */
+		if (dir[0] && i == shelf_coll_at(a)) {
+			shelf_open_dir(a, i, dir, file);
 			return;
 		}
 		for (int k = 0; k < a->view[i].list.count; k++)

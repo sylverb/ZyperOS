@@ -223,12 +223,14 @@ int sys_menu_lights_rows(side_lights on, menu_row *out, side_light_part *ids)
 
 int sys_menu_homesys_rows(const homesys_ui *u, menu_row *out, const char **ids)
 {
-	static const char *const groups[2] = { HOMESYS_FAV, HOMESYS_RECENT };
+	static const char *const groups[HS_GROUPS] = { HOMESYS_FAV, HOMESYS_RECENT, HOMESYS_COLL };
+	static const str_id names[HS_GROUPS] = { S_LIBRARY_FAVORITES, S_LIBRARY_RECENTS, S_LIBRARY_COLLECTIONS };
 	int n = 0, i, on = 0;
 
-	for (i = 0; i < 2; i++) {
+	for (i = 0; i < HS_GROUPS; i++) {
+		if (!u->coll && !strcmp(groups[i], HOMESYS_COLL)) continue;
 		ids[n] = groups[i];
-		out[n++] = (menu_row){ T(i ? S_LIBRARY_RECENTS : S_LIBRARY_FAVORITES),
+		out[n++] = (menu_row){ T(names[i]),
 		                       homesys_shown(groups[i]) ? T(S_MENU_ON_TITLE) : T(S_MENU_OFF_TITLE),
 		                       true };
 	}
@@ -346,6 +348,22 @@ static unsigned char smm_sound(sm_muse_row r)
 	     : r == SMM_SORT ? MENU_SND_RING | MENU_SND_NO_A : 0;
 }
 
+int sys_menu_coll_rows(bool inside, sm_coll_row *out)
+{
+	int n = 0;
+
+	if (inside) {
+		out[n++] = SMC_GAMES;
+		out[n++] = SMC_RANDOM;
+	}
+	out[n++] = SMC_SORT;
+	out[n++] = SMC_VIEW;
+	out[n++] = SMC_RENAME;
+	if (inside) out[n++] = SMC_REMOVE;
+	out[n++] = SMC_DELETE;
+	return n;
+}
+
 int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
                    const char **heading)
 {
@@ -374,7 +392,55 @@ int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
 			b->sound[3] = SM_SOUND[SM_VIEW];
 			if (u->sm_choice) b->choice[2] = u->sm_choice[SM_SORT];
 			if (u->sm_choice) b->choice[3] = u->sm_choice[SM_VIEW];
+			if (u->recents) {
+				out[4] = (menu_row){ T(S_SYSMENU_CARD_PICTURE),
+				                     T(u->recents_screen ? S_SYSMENU_CARD_PICTURE_SCREEN
+				                                         : S_SYSMENU_CARD_PICTURE_COVER), true };
+				b->sound[4] = MENU_SND_RING;
+				if (u->pic_choice) b->choice[4] = *u->pic_choice;
+				return SM_RECENTS_ROWS;
+			}
 			return SM_FAV_ROWS;
+		}
+		/* Collections' own rows, under the collection's name: a game's
+		 * system decides its core and its display, as on Favorites */
+		if (u->coll) {
+			sm_coll_row ids[SM_COLL_ROWS];
+			int k, n = sys_menu_coll_rows(u->coll_inside, ids);
+
+			*heading = u->coll_name && u->coll_name[0] ? u->coll_name : u->sys_name;
+			for (k = 0; k < n; k++)
+				switch (ids[k]) {
+				case SMC_GAMES:
+					out[k] = (menu_row){ T(S_SYSMENU_GAMES), b->a, false };
+					break;
+				case SMC_RANDOM:
+					out[k] = (menu_row){ T(S_SYSMENU_RANDOM_GAME), NULL, u->game_count > 0 };
+					b->sound[k] = SM_SOUND[SM_RANDOM];
+					break;
+				case SMC_SORT:
+					out[k] = (menu_row){ T(S_SYSMENU_SORT_BY), u->sort ? u->sort : T(S_SORT_ADDED), true };
+					b->sound[k] = SM_SOUND[SM_SORT];
+					if (u->sm_choice) b->choice[k] = u->sm_choice[SM_SORT];
+					break;
+				case SMC_VIEW:
+					out[k] = (menu_row){ T(S_SYSMENU_VIEW),
+					                     T(u->listed ? S_SYSMENU_VIEW_LIST : u->grid ? S_SYSMENU_VIEW_GRID
+					                       : S_SYSMENU_VIEW_COVERS), true };
+					b->sound[k] = SM_SOUND[SM_VIEW];
+					if (u->sm_choice) b->choice[k] = u->sm_choice[SM_VIEW];
+					break;
+				case SMC_RENAME:
+					out[k] = (menu_row){ T(S_GAMEMENU_RENAME), NULL, true };
+					break;
+				case SMC_REMOVE:
+					out[k] = (menu_row){ T(S_COLLECT_REMOVE), NULL, u->game_count > 0 };
+					break;
+				case SMC_DELETE:
+					out[k] = (menu_row){ T(S_COLLECT_DELETE), NULL, true };
+					break;
+				}
+			return n;
 		}
 		if (u->muse) {
 			sm_muse_row ids[SM_MUSE_ROWS];

@@ -6,6 +6,8 @@
 #include <SDL.h>
 #include <SDL_image.h>
 #include "texload.h"
+
+#include "screencard.h"
 #include "cardgen.h"   /* cardgen_kept: a card is shown in its own theme only */
 #include "putpace.h"
 
@@ -33,6 +35,9 @@ typedef struct {
 	 * a copy, as the paths are; `theme` is its theme. */
 	bool          carded;
 	ui_card_order card;
+	/* Recents' Last Screen card (texload_want_screen): `first` the picture,
+	 * `second` the cover, made one card (src/screencard.h) */
+	bool          screen;
 } req;
 
 typedef struct {
@@ -204,8 +209,12 @@ static int worker(void *arg)
 		g_cur_theme[me] = job.theme;
 		SDL_UnlockMutex(g_lock);
 
-		s = decode(job.first);
-		if (!s) s = decode_second(job.second);
+		if (job.screen) {
+			s = screen_card_make(job.first, job.second, job.carded ? &job.card : NULL, true);
+		} else {
+			s = decode(job.first);
+			if (!s) s = decode_second(job.second);
+		}
 		/* No file, so the card in its place, here rather than on the frame:
 		 * several times an upload, and a shelf of games with no art asks for
 		 * a window of them at once. Not for a shelf that has gone since it
@@ -336,7 +345,7 @@ void texload_forget(void)
 /* texload_want, texload_want_art and texload_want_or_draw: one queue, with
  * or without a theme, with or without a card. */
 static bool ask(int sys, int idx, const char *first, const char *second,
-                int theme_ix, bool themed, const ui_card_order *card)
+                int theme_ix, bool themed, const ui_card_order *card, bool screen)
 {
 	req *q;
 	int at;
@@ -375,6 +384,7 @@ static bool ask(int sys, int idx, const char *first, const char *second,
 	q->themed = themed;
 	q->carded = card != NULL;
 	if (card) q->card = *card;
+	q->screen = screen;
 	SDL_CondSignal(g_wake);
 	SDL_UnlockMutex(g_lock);
 	return true;
@@ -382,19 +392,25 @@ static bool ask(int sys, int idx, const char *first, const char *second,
 
 bool texload_want(int sys, int idx, const char *first, const char *second)
 {
-	return ask(sys, idx, first, second, -1, false, NULL);
+	return ask(sys, idx, first, second, -1, false, NULL, false);
 }
 
 bool texload_want_art(int sys, int idx, const char *first, const char *second,
                       int theme_ix)
 {
-	return ask(sys, idx, first, second, theme_ix, theme_ix >= 0, NULL);
+	return ask(sys, idx, first, second, theme_ix, theme_ix >= 0, NULL, false);
 }
 
 bool texload_want_or_draw(int sys, int idx, const char *first,
                           const char *second, const ui_card_order *card)
 {
-	return ask(sys, idx, first, second, card ? card->theme_ix : -1, false, card);
+	return ask(sys, idx, first, second, card ? card->theme_ix : -1, false, card, false);
+}
+
+bool texload_want_screen(int sys, int idx, const char *frame, const char *cover,
+                         const ui_card_order *card)
+{
+	return ask(sys, idx, frame, cover, -1, false, card, true);
 }
 
 /* The result `at` places from the oldest, taken out of the ring, the older
