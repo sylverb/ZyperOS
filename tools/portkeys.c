@@ -12,7 +12,9 @@
  *   MENU on its own      with --menu (OpenBOR, a port), the in-game menu (menu_show)
  *
  * And over any port, "Getting hot" when the chip passes the kernel's trip, as
- * over a game (heat_check), and POWER and a battery run flat (end_port).
+ * over a game (heat_check), and POWER and a battery run flat (end_port); over
+ * your PICO-8 the low-battery disc and On-Screen Stats too (over_tick), all
+ * of it in one frame on the cursor window (scene_put).
  *
  * WHAT A KEY MEANS is tools/pkkeys.c's, which tools/pkkeys-check.c holds:
  * the events of every device are handled in the order of their times, so
@@ -102,13 +104,17 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "battempty.h"
 #include "device/pixel2_levels.h"
 #include "heat.h"
+#include "hud.h"
+#include "hudmenu.h"
 #include "look.h"
 #include "theme.h"
 #include "osdbar.h"
 #include "panelgamma.h"
 #include "pkkeys.h"
+#include "pkover.h"
 #include "pkset.h"
 #include "pkssh.h"
 #include "powerhold.h"
@@ -317,6 +323,49 @@ static struct {
 
 static int bw, bh;               /* the bar as the player sees it: 373 x 58 */
 
+/* The low-battery disc and On-Screen Stats' line over your PICO-8, and what
+ * is on the window: see "the disc and the stats line", below */
+#define PK_HUD_KEY "hud"       /* src/game_menu.h's HUD_KEY, the switch */
+#define PK_CPUFREQ "/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq"
+
+static struct {
+	bool allowed;                /* the --menu tag's program (port_menu_overlays) */
+	int lowbat;                  /* status_batt_level's: 0, 1 low, 2 critical */
+	bool hud_on, clock24;        /* On-Screen Stats, the player's, and MENU > Clock */
+	hud_style st;
+	char text[192];              /* the line now, "" for none */
+	int theme;                   /* the theme it was drawn in */
+	int hw, hh, hx, hy;          /* its pixels' size and place, landscape */
+	unsigned gen;                /* a new one at each new drawing of it */
+	long hud_next;               /* its next half second */
+	long retry;                  /* the next borrow while wanted and not held */
+	uint32_t crtc;               /* the panel's CRTC, its place in the list */
+	int crtc_index;
+	int vfd;                     /* a display file of this process's own, or -1 */
+	bool vbl_pending;            /* a blank's event asked for on it */
+	pk_fps fps;
+	unsigned long long cpu_busy, cpu_all;
+} O = { .vfd = -1 };
+static uint32_t hud_px[640 * 160];
+
+/* The cursor window refused a frame of everything (scene_put): the bar alone
+ * on an overlay plane from then on, and no notice, disc or line */
+static bool cursor_refused;
+
+/* What is on the window, to draw again only for a change. `on`: a frame of
+ * this process's is up on the window now. */
+static struct {
+	bool on;
+	bool bar;
+	float a, rise;
+	osdbar_look look;
+	int theme;
+	const uint32_t *note;
+	bool disc;
+	unsigned hud;                /* O.gen drawn, 0 for none */
+} S;
+
+
 /* The very ioctl the fallback needs, asked to set plane 0, which there is
  * none of: the master is refused for that (ENOENT), anyone else for not
  * being master (EACCES), before the plane is even looked for. */
@@ -372,6 +421,7 @@ static void release(bool port_gone)
 	if (G.pidfd >= 0) close(G.pidfd);
 	memset(&G, 0, sizeof G);
 	G.fd = G.pidfd = -1;
+	memset(&S, 0, sizeof S);         /* nothing of ours on the window */
 	/* A bar cut short goes away as one that ran its time does: an empty
 	 * boost closes (bar_tick). It had no gain and no lift, so nothing is
 	 * loaded again for it. */
@@ -444,9 +494,24 @@ static bool buffers(void)
 	int i, rows;
 
 	G.cw = (bh + 15) / 16 * 16;
-	/* Rows enough for the heat notice as well (notice_put), which goes up on
-	 * the same buffers in rows of its own width */
-	rows = (int)((notice_bytes() + (size_t)G.cw * 4 - 1) / ((size_t)G.cw * 4));
+	/* Rows enough for the heat notice as well, which goes up on the same
+	 * buffers in rows of its own width (scene_put), and over your PICO-8 for
+	 * the whole panel's picture, the disc and the line far apart with the
+	 * bar (and its slide) between: the cursor window reads its rows as the
+	 * frame's width says, whatever the buffer was made as */
+	{
+		size_t most = notice_bytes();
+
+		if (O.allowed) {
+			const bool turned = G.ph > G.pw;
+			const int lw = turned ? G.ph : G.pw, lh = turned ? G.pw : G.ph;
+			size_t all = turned ? (size_t)((lh + 16 + 15) / 16 * 16) * 4 * lw
+			                    : (size_t)((lw + 15) / 16 * 16) * 4 * (lh + 16);
+
+			if (all > most) most = all;
+		}
+		rows = (int)((most + (size_t)G.cw * 4 - 1) / ((size_t)G.cw * 4));
+	}
 	if (rows < bw) rows = bw;
 	for (i = 0; i < 2; i++) {
 		struct drm_mode_create_dumb c = { .width = (uint32_t)G.cw, .height = (uint32_t)rows, .bpp = 32 };
@@ -531,18 +596,22 @@ static bool master_copy(void)
 static bool borrow(void)
 {
 	if (!master_copy()) return false;
+	/* The CRTC the blanks are counted on, kept past the copy (vbl_arm) */
+	O.crtc = G.crtc;
+	O.crtc_index = G.crtc_index;
 	if (!buffers()) {
 		fprintf(stderr, "portkeys: no buffers for the bar\n");
 		release(false);
 		return false;
 	}
-	/* The cursor window, until it says otherwise - unless the driver padded
-	 * the rows after all, which only an overlay plane can be told of (ADDFB2
-	 * takes the pitch) */
-	G.cursor = G.pitch == (uint32_t)G.cw * 4;
+	/* The cursor window, until it says otherwise (cursor_refused). A frame
+	 * on it (scene_put) is written in rows of its own width and the window
+	 * told that width, whatever rows the driver made the buffer with; only
+	 * the bar alone on an overlay plane goes by the buffer's (ADDFB2 takes
+	 * the pitch) */
+	G.cursor = !cursor_refused;
 	if (!G.cursor) {
-		fprintf(stderr, "portkeys: rows of %u bytes, not %d; using an overlay plane\n",
-		        G.pitch, G.cw * 4);
+		fprintf(stderr, "portkeys: no cursor window; the bar on an overlay plane\n");
 		if (!overlay_setup()) {
 			fprintf(stderr, "portkeys: no overlay plane either; no bar\n");
 			release(false);
@@ -712,19 +781,24 @@ static void bar_fade(void)
  * two readings at 85 C or more, 5 s apart, then quiet until the chip has
  * cooled under 80 C and five minutes have passed - it goes up for
  * DS_MS_HOLD_HEAT where Diatom puts it, at the bottom, centered, on the
- * cursor window the bar uses: the bar, when a volume key is pressed under it,
- * takes the window and gives it back. The chip is read with the battery, every
+ * cursor window the bar uses, in the same frame as the bar when a volume key
+ * is pressed under it (scene_put). The chip is read with the battery, every
  * 5 s, so it costs the port nothing it was not already paying. */
 
 static int read_level(const char *path);   /* with the battery, below */
+static bool batt_level(int *pct, bool *charging);   /* the same */
 
 static heat_state H;
 static struct {
 	uint32_t *px[DS_THEMES];     /* premultiplied ARGB, landscape, panel pixels */
 	int w[DS_THEMES], h[DS_THEMES];
-	bool live, drawn;            /* up (or under the bar), and on the window now */
+	bool live;                   /* up */
 	long until;
 	int theme;                   /* the theme it went up in */
+	/* Another notice's pixels in its place (notice_show), NULL for the heat
+	 * notice's */
+	const uint32_t *own;
+	int own_w, own_h;
 } N;
 
 /* The chip's temperature in mC, as the launcher reads it (plat_chip_temp):
@@ -831,46 +905,6 @@ static size_t notice_bytes(void)
 	return most;
 }
 
-/* The notice on the cursor window, where Diatom puts it on the landscape
- * screen: centered, its bottom a 24th of the height up. Turned onto the
- * portrait panel as the bar is (put); as it is on a landscape display (QEMU's).
- * False when it did not go up. */
-static bool notice_put(void)
-{
-	int t = N.theme, w = N.w[t], h = N.h[t], x, y;
-	bool turned = G.ph > G.pw;
-	int lw = turned ? G.ph : G.pw, lh = turned ? G.pw : G.ph;
-	int lx = (lw - w) / 2, ly = lh - h - lh / 24;
-	int bw_ = turned ? (h + 15) / 16 * 16 : (w + 15) / 16 * 16, bh_ = turned ? w : h;
-	int next = G.cur ^ 1;
-	uint32_t *dst = G.map[next];
-	struct drm_mode_cursor c;
-
-	if (!N.px[t] || !G.cursor || (size_t)bw_ * 4 * bh_ > G.size) return false;
-	memset(dst, 0, (size_t)bw_ * 4 * bh_);
-	for (y = 0; y < h; y++)
-		for (x = 0; x < w; x++) {
-			uint32_t v = N.px[t][(size_t)y * w + x];
-
-			if (turned) dst[(size_t)(w - 1 - x) * bw_ + y] = v;
-			else        dst[(size_t)y * bw_ + x] = v;
-		}
-	memset(&c, 0, sizeof c);
-	c.flags = DRM_MODE_CURSOR_BO | DRM_MODE_CURSOR_MOVE;
-	c.crtc_id = G.crtc;
-	c.x = turned ? ly : lx;
-	c.y = turned ? G.ph - lx - w : ly;
-	c.width = (uint32_t)bw_;
-	c.height = (uint32_t)bh_;
-	c.handle = G.handle[next];
-	if (ioctl(G.fd, DRM_IOCTL_MODE_CURSOR, &c) < 0) {
-		fprintf(stderr, "portkeys: the heat notice did not go up (%s)\n", strerror(errno));
-		return false;
-	}
-	G.cur = next;
-	return true;
-}
-
 /* The chip read, with the battery's cadence (heat_poll keeps HEAT_POLL_MS),
  * and the notice up when it is due */
 static void heat_check(long now)
@@ -884,34 +918,21 @@ static void heat_check(long now)
 	}
 	fprintf(stderr, "portkeys: getting hot (%d mC); the notice over the port\n", H.mc);
 	N.live = true;
-	N.drawn = false;
+	N.own = NULL;
 	N.until = now + DS_MS_HOLD_HEAT;
 }
 
-/* The notice's life, when the bar is not on the window: how long until the
- * next look, -1 for nothing up */
-static int notice_tick(long now)
+/* Another notice at the heat notice's place for `ms`, the next one taking
+ * its place: premultiplied ARGB, landscape, in the panel's pixels, which the
+ * caller keeps for that long (the frame copies nothing). NULL takes it down.
+ * For the program's own pop-ups over it (a screenshot's). */
+__attribute__((unused)) static void notice_show(const uint32_t *px, int w, int h, long ms)
 {
-	if (!N.live) return -1;
-	if (now >= N.until) {
-		N.live = false;
-		if (N.drawn) release(false);
-		N.drawn = false;
-		return -1;
-	}
-	if (!N.drawn) {
-		if ((!held() && !borrow()) || !notice_put()) {
-			N.live = false;
-			release(false);
-			return -1;
-		}
-		N.drawn = true;
-		B.drawn_a = -1;      /* the bar's next frame goes up whatever it was */
-	} else if (!held()) {
-		N.live = N.drawn = false;
-		return -1;
-	}
-	return (int)(N.until - now);
+	N.own = px;
+	N.own_w = w;
+	N.own_h = h;
+	N.live = px && w > 0 && h > 0;
+	N.until = now_ms() + ms;
 }
 
 /* What the bar shows now: the level's as its boost has it (pkkeys.h), which
@@ -935,55 +956,450 @@ static void bar_gone(void)
 	if (pk_boost_gone(db, &BO) & (1 << PK_BRIGHT)) port_gamma();
 }
 
-/* One frame of the bar's life, if it changed; how long until the next. While
- * it slides or fades that is a refresh, 16 ms, and a frame the window did not
- * take is tried again at the next. Every frame first asks whether the copy is
- * still the port's file and still the master. When the bar has gone, a clear
- * frame, then the window off and the copy let go of: the next press borrows
- * it again. Turning the window off and on again is an ordinary commit at each
- * end of a show, where a window kept on with nothing in it would have cost
- * none after the first; but a copy kept between shows keeps the port's
- * master with it (see the top of this file). */
+/* ---- the disc and the stats line over your PICO-8 ---------------------------
+ *
+ * Diatom draws two things over a game that no port had: the low-battery
+ * disc (red, top right, blinking when critical) and On-Screen Stats' line
+ * (src/hud.h), the player's items in the player's corner and style, while
+ * the in-game menu's On-Screen Stats is on. Over your PICO-8 (the --menu tag,
+ * src/portmenu.h's port_menu_overlays) this draws both on the cursor window
+ * the bar uses, the bar and the notice in the same frame (scene_put,
+ * tools/pkover.h), for as long as they are wanted:
+ *
+ *   the disc, by the battery's level at each reading (every 5 s, with the
+ *   empty one): status.h's rule, the launcher's and Diatom's;
+ *   the line, every half second as Diatom makes it: the frames a second
+ *   counted here, Speed left out (PICO-8 says nothing of it), the chip's
+ *   temperature, the CPU's load and clock, the battery and the time, in the
+ *   look's colors of the theme the shelf would be in.
+ *
+ * The frames a second, as px2-shot --fps counts them: at every vertical
+ * blank, whether the panel shows a new framebuffer. The blank is an event on
+ * a display file of this process's own (O.vfd), never on the copy of the
+ * program's, whose page flips' events the program reads itself; asked for
+ * one blank at a time, and only while the line shows FPS.
+ *
+ * WHY ONLY YOUR PICO-8. Both stay up, so the copy of the program's display is
+ * held for as long as they show, and with it its master (the top of this
+ * file). A port's script can start one program after another, each wanting
+ * the master; PICO-8.sh execs pico8_64, which opens its display once and
+ * keeps it. The copy is let go of all the same when the program ends (its
+ * pidfd), gives the master up, or the in-game menu opens, and borrowed
+ * again a second later at the most. */
+
+/* On-Screen Stats as the in-game menu keeps it (src/hudmenu.h), and the
+ * clock's 12 or 24 hours: read at the start and after every menu */
+static void over_load(void)
+{
+	char v[64];
+	int k;
+
+	O.hud_on = pkset_text(db, PK_HUD_KEY, v, sizeof v) && !strcmp(v, "1");
+	O.st = hud_default;
+	if (pkset_text(db, HM_KEY_ITEMS, v, sizeof v)) O.st.items = hud_items_parse(v);
+	if (pkset_text(db, HM_KEY_CORNER, v, sizeof v) && (k = hm_parse(HM_CORNER, v)) >= 0) O.st.corner = (uint8_t)k;
+	if (pkset_text(db, HM_KEY_EDGE, v, sizeof v) && (k = hm_parse(HM_EDGE, v)) >= 0) O.st.edge = (uint8_t)k;
+	if (pkset_text(db, HM_KEY_BACKGROUND, v, sizeof v) && (k = hm_parse(HM_BACKGROUND, v)) >= 0)
+		O.st.background = (uint8_t)k;
+	if (pkset_text(db, HM_KEY_OPACITY, v, sizeof v) && (k = hm_parse(HM_OPACITY, v)) >= 0) O.st.opacity = (uint8_t)k;
+	if (pkset_text(db, HM_KEY_COLOR, v, sizeof v) && (k = hm_parse(HM_COLOR, v)) >= 0) O.st.color = (uint8_t)k;
+	if (pkset_text(db, HM_KEY_SIZE, v, sizeof v) && (k = hm_parse(HM_SIZE, v)) >= 0) O.st.size = (uint8_t)k;
+	hud_clamp(&O.st);
+	O.clock24 = pkset_text(db, "clock", v, sizeof v) && !strcmp(v, "24h");
+	O.hud_next = 0;
+	O.text[0] = '\0';
+	O.gen++;
+	if (O.allowed)
+		fprintf(stderr, "portkeys: On-Screen Stats %s over the program\n", O.hud_on ? "on" : "off");
+}
+
+/* A battery reading, every BATT_EVERY_MS: the disc's level */
+static void lowbat_reading(int pct, bool charging)
+{
+	int level = status_batt_level(pct, charging);
+
+	if (O.allowed && level != O.lowbat)
+		fprintf(stderr, "portkeys: battery %d%%%s, %s\n", pct, charging ? ", charging" : "",
+		        level == 2 ? "the low-battery disc over the program, blinking"
+		        : level ? "the low-battery disc over the program" : "no low-battery disc");
+	O.lowbat = level;
+}
+
+static bool over_wanted(void)
+{
+	return O.allowed && !cursor_refused && (O.lowbat > 0 || O.hud_on);
+}
+
+static bool hud_fps(void)
+{
+	return O.allowed && O.hud_on && (O.st.items & (1u << HUD_FPS));
+}
+
+/* Busy against idle since the last look, from /proc/stat's first line, as
+ * Diatom's line counts it; -1 the first time */
+static int cpu_pct(void)
+{
+	unsigned long long v[10] = { 0 }, all = 0, idle, busy;
+	char line[256] = "";
+	FILE *f = fopen("/proc/stat", "re");
+	int i, pct = -1;
+
+	if (!f) return -1;
+	if (!fgets(line, sizeof line, f)) line[0] = '\0';
+	fclose(f);
+	if (sscanf(line, "cpu %llu %llu %llu %llu %llu %llu %llu %llu %llu %llu", &v[0], &v[1], &v[2],
+	           &v[3], &v[4], &v[5], &v[6], &v[7], &v[8], &v[9]) < 4)
+		return -1;
+	for (i = 0; i < 8; i++) all += v[i];      /* guest time is in user's already */
+	idle = v[3] + v[4];
+	busy = all - idle;
+	if (O.cpu_all && all > O.cpu_all) pct = (int)((busy - O.cpu_busy) * 100 / (all - O.cpu_all));
+	O.cpu_busy = busy;
+	O.cpu_all = all;
+	return pct;
+}
+
+/* The line's numbers now, and its pixels when it says something new or the
+ * theme turned: the items asked for and only those */
+static void hud_update(int lw, int lh)
+{
+	hud_values v = { O.fps.fps, -1.0, -1, -1, -1, -1, -1, -1, O.clock24 };
+	const uint8_t items = O.st.items;
+	char text[sizeof O.text];
+	int theme, mc, khz, w, h;
+
+	if (items & (1u << HUD_TEMP) && chip_temp(&mc)) v.temp_c = (mc + 500) / 1000;
+	if (items & (1u << HUD_CPU)) v.cpu_pct = cpu_pct();
+	if (items & (1u << HUD_CLOCK) && (khz = read_level(PK_CPUFREQ)) > 0) v.cpu_mhz = (khz + 500) / 1000;
+	if (items & (1u << HUD_BATTERY)) {
+		bool charging;
+
+		if (!batt_level(&v.battery_pct, &charging)) v.battery_pct = -1;
+	}
+	if (items & (1u << HUD_TIME)) {
+		time_t t = time(NULL);
+		struct tm tm;
+
+		if (localtime_r(&t, &tm)) {
+			v.hour = tm.tm_hour;
+			v.min = tm.tm_min;
+		}
+	}
+	hud_text(text, sizeof text, &v, items);
+	theme = pkset_bar_theme(appearance_read ? appearance_word : NULL, time(NULL), THEME_FILE);
+	if (!strcmp(text, O.text) && theme == O.theme && O.hw) return;
+	snprintf(O.text, sizeof O.text, "%s", text);
+	O.theme = theme;
+	O.hw = O.hh = 0;
+	O.gen++;
+	if (!text[0]) return;
+	hud_size(text, PANEL_S, &O.st, &w, &h);
+	if (w <= 0 || h <= 0 || (size_t)w * h > sizeof hud_px / sizeof hud_px[0]) return;
+	{
+		ds_theme c;
+		const ds_theme *colors = theme_at(theme);
+
+		/* With no database, the colors the launcher left, as Diatom
+		 * reads them (themefile_read_bar) */
+		if (!appearance_read && themefile_read_bar(THEME_FILE, &c) == theme) colors = &c;
+		hud_render(hud_px, w, h, w, PANEL_S, text, &O.st, colors, true);
+	}
+	hud_place(&O.st, PANEL_S, w, h, lw, lh, &O.hx, &O.hy);
+	O.hw = w;
+	O.hh = h;
+}
+
+/* The blanks' file: this process's own, never the master (let go of at
+ * once, as menu_waiting's: opened while nobody is master, a file becomes it) */
+static void vbl_close(void)
+{
+	if (O.vfd >= 0) close(O.vfd);
+	O.vfd = -1;
+	O.vbl_pending = false;
+	pkover_fps_lost(&O.fps);
+}
+
+static void vbl_arm(void)
+{
+	union drm_wait_vblank w;
+
+	if (O.vfd < 0) {
+		if (!O.crtc || (O.vfd = open(CARD, O_RDWR | O_CLOEXEC | O_NONBLOCK)) < 0) return;
+		ioctl(O.vfd, DRM_IOCTL_DROP_MASTER, 0);
+		pkover_fps_init(&O.fps);
+	}
+	if (O.vbl_pending) return;
+	memset(&w, 0, sizeof w);
+	w.request.type = _DRM_VBLANK_RELATIVE | _DRM_VBLANK_EVENT;
+	if (O.crtc_index == 1) w.request.type |= _DRM_VBLANK_SECONDARY;
+	else if (O.crtc_index > 1)
+		w.request.type |= ((unsigned)O.crtc_index << _DRM_VBLANK_HIGH_CRTC_SHIFT) & _DRM_VBLANK_HIGH_CRTC_MASK;
+	w.request.sequence = 1;
+	if (ioctl(O.vfd, DRM_IOCTL_WAIT_VBLANK, &w) == 0) {
+		O.vbl_pending = true;
+	} else {
+		fprintf(stderr, "portkeys: no vertical blanks to count (%s); no FPS\n", strerror(errno));
+		vbl_close();
+		O.crtc = 0;                  /* found again at the next borrow */
+	}
+}
+
+/* The file the main loop polls for the blanks, -1 for none */
+static int over_poll_fd(void)
+{
+	return O.vbl_pending ? O.vfd : -1;
+}
+
+/* A blank came: the framebuffer the panel shows now, counted, and the next
+ * blank asked for */
+static void over_vblank(void)
+{
+	char buf[256];
+	ssize_t r;
+	bool blank = false;
+
+	while ((r = read(O.vfd, buf, sizeof buf)) > 0) {
+		ssize_t i = 0;
+
+		while (i + (ssize_t)sizeof(struct drm_event) <= r) {
+			const struct drm_event *e = (const void *)(buf + i);
+
+			if (e->length < sizeof *e) break;
+			if (e->type == DRM_EVENT_VBLANK) blank = true;
+			i += e->length;
+		}
+	}
+	if (!blank) return;
+	O.vbl_pending = false;
+	{
+		struct drm_mode_crtc c = { .crtc_id = O.crtc };
+
+		if (ioctl(O.vfd, DRM_IOCTL_MODE_GETCRTC, &c) == 0)
+			pkover_fps_blank(&O.fps, c.fb_id, (uint64_t)now_ms());
+	}
+	if (hud_fps()) vbl_arm();
+}
+
+/* The disc's and the line's state at `now`, and how long until either
+ * changes by itself: the next half second, the next blink */
+static int over_tick(long now, int lw, int lh)
+{
+	int wait = -1;
+
+	if (!O.allowed) return -1;
+	if (O.hud_on && now >= O.hud_next) {
+		O.hud_next = now + HUD_EVERY_MS;
+		hud_update(lw, lh);
+	}
+	if (O.hud_on) wait = (int)(O.hud_next - now);
+	if (O.lowbat == 2) {
+		int b = (int)(1000 - now % 1000);
+
+		if (wait < 0 || b < wait) wait = b;
+	}
+	if (hud_fps() && O.crtc) vbl_arm();
+	else if (O.vfd >= 0) vbl_close();
+	return wait;
+}
+
+/* Everything up into one frame on the cursor window (tools/pkover.h): the
+ * line, the notice, the bar at `a` and `rise` when `look` is given, the disc.
+ * False when it did not go up (and then the copy may have been let go of). */
+static bool scene_put(const osdbar_look *look, float a, float rise, bool disc)
+{
+	static uint32_t flat[OSDBAR_W * OSDBAR_H];
+	static uint32_t *scratch;
+	const bool turned = G.ph > G.pw;
+	const int lw = turned ? G.ph : G.pw, lh = turned ? G.pw : G.ph;
+	int next = G.cur ^ 1;
+	pk_scene sc;
+	pk_rect u;
+	pk_window w;
+	struct drm_mode_cursor c;
+
+	if (!scratch && !(scratch = malloc((size_t)(lw + 64) * (lh + 64) * 4))) return false;
+	memset(&sc, 0, sizeof sc);
+	sc.lw = lw;
+	sc.lh = lh;
+	if (O.allowed && O.hud_on && O.hw)
+		sc.layer[PK_LAYER_HUD] = (pk_layer){ hud_px, O.hx, O.hy, O.hw, O.hh };
+	if (N.live) {
+		const uint32_t *px = N.own ? N.own : N.px[N.theme];
+		int nw = N.own ? N.own_w : N.w[N.theme], nh = N.own ? N.own_h : N.h[N.theme];
+
+		if (px) sc.layer[PK_LAYER_NOTICE] = (pk_layer){ px, (lw - nw) / 2, lh - nh - lh / 24, nw, nh };
+	}
+	if (look && a > 0) {
+		/* In the theme bar_show resolved at the last press, the one the
+		 * shelf would be in at that minute, so over a port the bar is the
+		 * shelf's */
+		osdbar_render_look(flat, bw, bh, bw, PANEL_S, B.theme, look, a, true);
+		sc.layer[PK_LAYER_BAR] = (pk_layer){ flat, (int)(OSDBAR_X * PANEL_S + 0.5f),
+		                                     (int)((OSDBAR_Y - rise) * PANEL_S + 0.5f), bw, bh };
+	}
+	sc.disc = disc;
+	u = pkover_union(&sc);
+	if (!u.w) return false;
+	if (u.w > lw + 64 || u.h > lh + 64) return false;
+	w = pkover_window(u, turned, G.ph);
+	if ((size_t)w.bw * 4 * w.bh > G.size) {
+		fprintf(stderr, "portkeys: a frame of %dx%d is more than the buffers hold\n", w.bw, w.bh);
+		return false;
+	}
+	pkover_render(&sc, u, w, turned, G.map[next], scratch);
+	memset(&c, 0, sizeof c);
+	c.flags = DRM_MODE_CURSOR_BO | DRM_MODE_CURSOR_MOVE;
+	c.crtc_id = G.crtc;
+	c.x = w.x;
+	c.y = w.y;
+	c.width = (uint32_t)w.bw;
+	c.height = (uint32_t)w.bh;
+	c.handle = G.handle[next];
+	if (ioctl(G.fd, DRM_IOCTL_MODE_CURSOR, &c) < 0) {
+		/* Not master now (EACCES): the copy goes. No cursor window
+		 * (ENXIO), or one that will not take this buffer (EINVAL): the
+		 * bar alone on an overlay plane for the rest of this show (put).
+		 * Anything else is this frame's, tried again at the next. */
+		if (errno == EACCES) {
+			release(false);
+			return false;
+		}
+		if (errno != ENXIO && errno != EINVAL) return false;
+		fprintf(stderr, "portkeys: no cursor window (%s), the bar alone on an overlay plane\n",
+		        strerror(errno));
+		G.cursor = false;
+		cursor_refused = true;
+		if (!overlay_setup()) {
+			fprintf(stderr, "portkeys: no overlay plane either; no bar\n");
+			release(false);
+		}
+		return false;
+	}
+	G.cur = next;
+	return true;
+}
+
+/* One frame of everything's life, if it changed; how long until the next.
+ * While the bar slides or fades that is a refresh, 16 ms, and a frame the
+ * window did not take is tried again at the next. Every frame first asks
+ * whether the copy is still the port's file and still the master. When the
+ * last thing up has gone, the window off and the copy let go of: the next
+ * press borrows it again, and the disc or the line a second later at most.
+ * Turning the window off and on again is an ordinary commit at each end of a
+ * show, where a window kept on with nothing in it would have cost none after
+ * the first; but a copy kept between shows keeps the port's master with it
+ * (see the top of this file), which only the disc and the line over your
+ * PICO-8 do. */
 static int bar_tick(void)
 {
 	long now = now_ms();
-	float a, rise;
-	bool alive;
+	float a = 0, rise = 0;
+	bool alive = false, disc, changed;
 	osdbar_look look;
+	int wait = -1, ow, lw = 640, lh = 480;
 
+	memset(&look, 0, sizeof look);
 	heat_check(now);
-	if (!B.live) return notice_tick(now);
-	if (!held()) return -1;
-	N.drawn = false;             /* the bar has the window */
-	alive = osdbar_envelope((uint32_t)(now - B.shown), (uint32_t)(now - B.changed), &a, &rise);
-	if (!alive) a = 0, rise = 0;
-	bar_look(&look, now);
-	if (a != B.drawn_a || rise != B.drawn_rise || memcmp(&look, &B.drawn, sizeof look) ||
-	    B.theme != B.drawn_theme) {
-		if (!put(&look, a, rise) && alive) return G.fd < 0 ? -1 : 16;
-		B.drawn_a = a;
-		B.drawn_rise = rise;
-		B.drawn = look;
-		B.drawn_theme = B.theme;
+	if (N.live && now >= N.until) N.live = false;
+	if (G.fd >= 0) {
+		lw = G.ph > G.pw ? G.ph : G.pw;
+		lh = G.ph > G.pw ? G.pw : G.ph;
 	}
-	if (!alive) {
-		bar_gone();
-		/* The heat notice back on the window, if it is still up */
-		if (N.live && now < N.until) {
-			B.live = false;
-			return notice_tick(now);
-		}
-		release(false);
+	ow = over_tick(now, lw, lh);
+	disc = O.allowed && pkover_disc_on(O.lowbat, (uint64_t)now);
+	if (!B.live && !N.live && !over_wanted()) {
+		if (G.fd >= 0) release(false);
 		return -1;
 	}
-	/* The boost charging, opening, filling or folding, or VOL+ held on the
-	 * top while its hold charges: every frame until it stops, as the
-	 * launcher draws it (plat_osd_until) */
-	if (B.kind != OSDBAR_POWER && pk_boost_moving(&BO, (uint32_t)now)) return 16;
-	{
-		uint32_t wait = osdbar_next_change((uint32_t)(now - B.shown), (uint32_t)(now - B.changed));
-		return wait ? (int)wait : 16;
+	if (G.fd < 0) {
+		/* The bar borrows at its press (bar_show); the notice, the disc
+		 * and the line here */
+		if (!N.live && now < O.retry) return (int)(O.retry - now);
+		if (!borrow()) {
+			N.live = false;          /* a notice with no display to go on */
+			O.retry = now + 1000;
+			return over_wanted() ? 1000 : -1;
+		}
+	} else if (!held()) {
+		O.retry = now + 1000;
+		return over_wanted() || N.live ? 200 : -1;
 	}
+	if (B.live) {
+		alive = osdbar_envelope((uint32_t)(now - B.shown), (uint32_t)(now - B.changed), &a, &rise);
+		if (!alive) a = 0, rise = 0;
+		bar_look(&look, now);
+	}
+	if (!G.cursor) {
+		/* The overlay plane's fallback: the bar alone, as before the
+		 * window held more; a notice has nowhere to go */
+		N.live = false;
+		if (B.live && (a != B.drawn_a || rise != B.drawn_rise || memcmp(&look, &B.drawn, sizeof look) ||
+		               B.theme != B.drawn_theme)) {
+			if (!put(&look, a, rise) && alive) return G.fd < 0 ? -1 : 16;
+			B.drawn_a = a;
+			B.drawn_rise = rise;
+			B.drawn = look;
+			B.drawn_theme = B.theme;
+		}
+	} else {
+		const uint32_t *note = N.live ? (N.own ? N.own : N.px[N.theme]) : NULL;
+		bool bar = B.live && a > 0;
+
+		changed = !S.on || bar != S.bar || note != S.note || disc != S.disc ||
+		          (O.hud_on && O.hw ? O.gen : 0) != S.hud;
+		if (bar && !changed)
+			changed = a != S.a || rise != S.rise || memcmp(&look, &S.look, sizeof look) || B.theme != S.theme;
+		if (changed) {
+			if (!bar && !note && !disc && !(O.hud_on && O.hw)) {
+				/* Nothing to show this frame (the line has nothing to
+				 * say yet, the disc blinks off): the window empty */
+				if (S.on) {
+					struct drm_mode_cursor c = { .flags = DRM_MODE_CURSOR_BO, .crtc_id = G.crtc };
+
+					ioctl(G.fd, DRM_IOCTL_MODE_CURSOR, &c);
+				}
+				S.on = false;
+			} else if (scene_put(B.live ? &look : NULL, a, rise, disc)) {
+				S.on = true;
+			} else if (G.fd < 0) {
+				return -1;
+			} else if (alive) {
+				return 16;
+			}
+			S.bar = bar;
+			S.a = a;
+			S.rise = rise;
+			S.look = look;
+			S.theme = B.theme;
+			S.note = note;
+			S.disc = disc;
+			S.hud = O.hud_on && O.hw ? O.gen : 0;
+		}
+	}
+	if (B.live && !alive) {
+		bar_gone();
+		B.live = false;
+		/* The others go on; nothing else up, and the window goes off now */
+		if (!N.live && !over_wanted()) {
+			release(false);
+			return -1;
+		}
+		return 0;
+	}
+	if (B.live) {
+		/* The boost charging, opening, filling or folding, or VOL+ held on
+		 * the top while its hold charges: every frame until it stops, as
+		 * the launcher draws it (plat_osd_until) */
+		if (B.kind != OSDBAR_POWER && pk_boost_moving(&BO, (uint32_t)now)) return 16;
+		{
+			uint32_t bw_ = osdbar_next_change((uint32_t)(now - B.shown), (uint32_t)(now - B.changed));
+
+			wait = bw_ ? (int)bw_ : 16;
+		}
+	}
+	if (N.live && (wait < 0 || N.until - now < wait)) wait = (int)(N.until - now);
+	if (ow >= 0 && (wait < 0 || ow < wait)) wait = ow;
+	return wait;
 }
 
 /* ---- the keys ---------------------------------------------------------------- */
@@ -1150,7 +1566,9 @@ static void boost_clock(const pkkeys *k)
  * the level from the fuel gauge, and for the charger the cable, not the
  * battery's status, which says Discharging on the cable too; the status only
  * when the charger has no online file. /tmp/zyperos_fake_batt, a level, stands
- * in for both, as it does for the launcher. False with no level to read. */
+ * in for both, as it does for the launcher. False with no level to read. And
+ * off the charger its voltage, voltage_avg in mV (plat_charge_read's), 0 for
+ * none: read with the fake level too, which says nothing of a voltage. */
 static int read_level(const char *path)
 {
 	char buf[16];
@@ -1165,7 +1583,7 @@ static int read_level(const char *path)
 	return atoi(buf);
 }
 
-static bool batt_now(int *pct, bool *charging)
+static bool batt_level(int *pct, bool *charging)
 {
 	char st[16];
 	int v = read_level("/tmp/zyperos_fake_batt"), fd;
@@ -1191,6 +1609,15 @@ static bool batt_now(int *pct, bool *charging)
 		}
 	}
 	return true;
+}
+
+static bool batt_now(int *pct, bool *charging, int *mv)
+{
+	bool ok = batt_level(pct, charging);
+	int uv = ok && !*charging ? read_level("/sys/class/power_supply/battery/voltage_avg") : -1;
+
+	*mv = uv > 0 ? uv / 1000 : 0;
+	return ok;
 }
 
 /* ---- the in-game menu, over a port that has one -----------------------------
@@ -1634,8 +2061,10 @@ static int menu_show(void)
 	int pid, status = 0, how = PORT_MENU_CONTINUE, i;
 
 	if (!menu_elf) return 0;
-	/* The bar down and let go of, and the display found afresh */
+	/* The bar down and let go of, and the display found afresh; the blanks
+	 * are the menu's while it is up, not the program's */
 	release(false);
+	vbl_close();
 	if (!master_copy()) {
 		/* Still starting, under its loading screen: the menu over that */
 		if (menu_waiting()) return 1;
@@ -1719,9 +2148,11 @@ static int menu_show(void)
 	release(false);
 	kill(-pg, SIGCONT);
 	/* The launcher's volume and brightness keys, saved where these are, and
-	 * the boosts it kept beside them, its gain written again (pkkeys.h) */
+	 * the boosts it kept beside them, its gain written again (pkkeys.h);
+	 * and On-Screen Stats, as the menu left it */
 	pk_levels_load(db, BACKLIGHT, &L);
 	pk_boost_load(db, &L, &BO);
+	over_load();
 	fprintf(stderr, "portkeys: the menu was up %ld ms: %s\n", now_ms() - t0,
 	        how == PORT_MENU_QUIT ? "Quit" : how == PORT_MENU_POWER ? "POWER" :
 	        how == PORT_MENU_RESTART ? "start again" : "Continue");
@@ -1743,7 +2174,7 @@ static int menu_show(void)
  * or the volume keys, whether the kernel's queue for it overflowed
  * (SYN_DROPPED) and what it sent since is still to be skipped, and whether
  * what is down on it must be queried after discarding this pass. */
-static struct pollfd fds[9];
+static struct pollfd fds[10];
 static bool has_menu[8], has_vol[8], dropped[8], resync[8];
 static int n;
 static pkkeys K;
@@ -1806,22 +2237,27 @@ static void end_port(void)
 }
 
 /* The battery run flat over a port, by the launcher's rule (battery_empty,
- * src/main.c): BATT_EMPTY_PCT or under, off the charger, on two readings in a
- * row 5 s apart, so one stray reading never powers off. It ends the port and
- * powers off as POWER does, while the card can still be let go of, where the
- * PMIC's own cut would leave it mounted. Auto Off does not run over a port:
- * the launcher takes it only because a game resumes where it was after the
- * power-off (AUTO_OFF, src/main.c), and a port has no resume. */
+ * src/zyperdraw.c, and src/battempty.h): off the charger, BATT_EMPTY_PCT or
+ * under on two readings in a row 5 s apart, or the voltage under the Pixel
+ * 2's empty voltage (PX2_BATT_EMPTY_MV, src/device/pixel2_levels.h) on three
+ * whatever the level says, so one stray reading never powers off. It ends
+ * the port and powers off as POWER does, while the card can still be let go
+ * of, where the PMIC's own cut would leave it mounted. Auto Off does not run
+ * over a port: the launcher takes it only because a game resumes where it
+ * was after the power-off (AUTO_OFF, src/main.c), and a port has no resume. */
 #define BATT_EVERY_MS 5000
 static long batt_next;
-static int batt_seen;
+static batt_empty batt_run;
+static batt_verdict batt_said;
 
-/* One reading: true on the second empty one in a row, and only then */
-static bool batt_empty(int pct, bool charging)
+/* One reading: the verdict on the reading that makes the battery empty, and
+ * only then; BATT_FINE on every other */
+static batt_verdict batt_flat(bool ok, int pct, bool charging, int mv)
 {
-	if (!charging && pct >= 0 && pct <= BATT_EMPTY_PCT) batt_seen++;
-	else batt_seen = 0;
-	return batt_seen == 2;
+	batt_verdict was = batt_said;
+
+	batt_said = batt_empty_note(&batt_run, ok, pct, charging, mv, PX2_BATT_EMPTY_MV);
+	return was == BATT_FINE ? batt_said : BATT_FINE;
 }
 
 /* A press, or with MENU > Power Button on Hold a hold of POWERHOLD_MS, as
@@ -2141,6 +2577,10 @@ int main(int argc, char **argv)
 	heat_init(&H);
 	notice_load(DS_LIGHT, PORT_HEAT_LIGHT);
 	notice_load(DS_DARK, PORT_HEAT_DARK);
+	/* The low-battery disc and On-Screen Stats over your PICO-8 (over_tick) */
+	O.allowed = menu_tag && port_menu_overlays(menu_tag);
+	pkover_fps_init(&O.fps);
+	over_load();
 
 	/* Every event device with a volume key or MENU (BTN_TRIGGER_HAPPY1, on
 	 * the joypad), and the headphone switch: found by what they report
@@ -2186,7 +2626,7 @@ int main(int argc, char **argv)
 		static pk_key keys[PK_PASS_MAX];
 		pk_step s[2];
 		int wait = bar_tick(), rep = pkkeys_wait(&K, now_ms()), m, nk = 0;
-		int pi = -1, pw = -1;
+		int pi = -1, pw = -1, vi = -1;
 		bool plugged = false, unreliable = false;
 		int64_t cutoff;
 
@@ -2229,17 +2669,24 @@ int main(int argc, char **argv)
 
 			if (nw >= 0 && (wait < 0 || nw < wait)) wait = nw;
 		}
-		/* The battery, every BATT_EVERY_MS (batt_empty) */
+		/* The battery, every BATT_EVERY_MS (batt_flat) */
 		{
 			long now = now_ms();
-			int pct;
-			bool charging;
+			int pct = -1, mv = 0;
+			bool charging = false, ok;
+			batt_verdict v;
 
 			if (now - batt_next >= 0) {
-				if (batt_now(&pct, &charging) && batt_empty(pct, charging)) {
+				ok = batt_now(&pct, &charging, &mv);
+				/* The low-battery disc's level (lowbat_reading) */
+				if (ok) lowbat_reading(pct, charging);
+				v = batt_flat(ok, pct, charging, mv);
+				if (v == BATT_EMPTY_VOLTAGE)
+					fprintf(stderr, "portkeys: battery %d mV, under %d mV on %d readings in a row, at %d%%; empty, the port ends\n",
+					        mv, PX2_BATT_EMPTY_MV, BATT_EMPTY_MV_READINGS, pct);
+				else if (v == BATT_EMPTY_LEVEL)
 					fprintf(stderr, "portkeys: battery %d%%, empty; the port ends\n", pct);
-					end_port();
-				}
+				if (v != BATT_FINE) end_port();
 				batt_next = now + BATT_EVERY_MS;
 			}
 			if (wait < 0 || wait > batt_next - now) wait = (int)(batt_next - now);
@@ -2257,9 +2704,17 @@ int main(int argc, char **argv)
 			fds[m].fd = powfd;
 			fds[m++].events = POLLIN;
 		}
+		/* And the next vertical blank, while On-Screen Stats counts the
+		 * frames (over_vblank) */
+		if (over_poll_fd() >= 0) {
+			vi = m;
+			fds[m].fd = over_poll_fd();
+			fds[m++].events = POLLIN;
+		}
 		if (poll(fds, (nfds_t)m, wait) < 0) continue;
 		if (pi >= 0 && (fds[pi].revents & (POLLIN | POLLHUP | POLLERR))) release(true);
 		if (pw >= 0 && fds[pw].revents) power_read();
+		if (vi >= 0 && fds[vi].revents) over_vblank();
 		power_due();
 		night_tick();
 

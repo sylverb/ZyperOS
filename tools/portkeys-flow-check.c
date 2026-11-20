@@ -15,6 +15,8 @@
 #include <time.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#include "battempty.h"
+#include "device/pixel2_levels.h"
 #include "osdbar.h"
 #include "pkkeys.h"
 #include "powerhold.h"
@@ -106,13 +108,17 @@ static void press(const pk_step *s)
 	repeats += s->held;
 	pk_apply(NULL, &levels, s, line, sizeof line);
 }
-/* The battery's readings, one per call, the last one repeated */
-static int batt_seq[4], batt_len, batt_i;
+/* The battery's readings, one per call, the last one repeated: the level,
+ * and the voltage (3800 mV, a battery far from empty, unless a test says) */
+static int batt_seq[4], batt_mv_seq[4], batt_len, batt_i;
 static bool batt_charging;
-static bool batt_now(int *pct, bool *charging)
+static bool batt_now(int *pct, bool *charging, int *mv)
 {
+	int i = batt_i < batt_len ? batt_i : batt_len - 1;
+
 	if (!batt_len) return false;
-	*pct = batt_seq[batt_i < batt_len ? batt_i : batt_len - 1];
+	*pct = batt_seq[i];
+	*mv = batt_mv_seq[i] ? batt_mv_seq[i] : 3800;
 	batt_i++;
 	*charging = batt_charging;
 	return true;
@@ -186,6 +192,21 @@ static int mock_clock_gettime(clockid_t id, struct timespec *t)
 	t->tv_nsec = (wall_us % 1000000) * 1000;
 	return 0;
 }
+/* The low-battery disc's readings (lowbat_reading) and On-Screen Stats'
+ * vertical blanks (over_poll_fd, over_vblank), outside the extracted code:
+ * every reading the loop passed on, and whether the blanks' file was polled
+ * and read when it was ready */
+static int lowbat_calls, lowbat_pct;
+static bool lowbat_charging;
+static void lowbat_reading(int pct, bool charging)
+{
+	lowbat_calls++;
+	lowbat_pct = pct;
+	lowbat_charging = charging;
+}
+static int vbl_fd = -1, vbl_reads;
+static int over_poll_fd(void) { return vbl_fd; }
+static void over_vblank(void) { vbl_reads++; }
 static int mock_poll(struct pollfd *, nfds_t, int);
 #define read mock_read
 #define close mock_close
@@ -217,8 +238,10 @@ static void reset(void)
 	memset(dropped, 0, sizeof dropped); memset(resync, 0, sizeof resync);
 	lost_menu = lost_vol = false; ev_clock = CLOCK_MONOTONIC;
 	powfd = -1; kills = kill_sig = 0; kill_pid = 0; parent_pid = 4242;
-	batt_next = 0; batt_seen = 0; batt_len = batt_i = 0; batt_charging = false;
+	batt_next = 0; batt_run = (batt_empty){ 0 }; batt_said = BATT_FINE;
+	batt_len = batt_i = 0; batt_charging = false; memset(batt_mv_seq, 0, sizeof batt_mv_seq);
 	menu_shows = 0; menu_answer = 1;
+	lowbat_calls = lowbat_pct = 0; lowbat_charging = false; vbl_fd = -1; vbl_reads = 0;
 	powerhold_set_mode(false); PW = (powerhold){ 0 }; pw_shown = false;
 	bar_shows = bar_level = bar_fades = 0;
 	plugs = boost_clocks = 0;
@@ -382,9 +405,47 @@ int main(void)
 		   c == 2 ? "a point above empty powers nothing off" :
 		            "one stray empty reading powers nothing off");
 	}
+	/* And by the voltage, whatever the level says (src/battempty.h): three
+	 * readings in a row under the Pixel 2's empty voltage at 50%, off the
+	 * charger, are one USR1; two and then one at the voltage itself, or on
+	 * the charger, nothing */
+	for (int c = 0; c < 3; c++) {
+		reset(); has_vol[0] = has_menu[1] = true; limit = 3;
+		times[0] = 6000; times[1] = 11000; times[2] = 16000;
+		batt_len = 1; batt_seq[0] = 50; batt_mv_seq[0] = PX2_BATT_EMPTY_MV - 1;
+		if (c == 1) {
+			batt_len = 3; batt_seq[1] = batt_seq[2] = 50;
+			batt_mv_seq[1] = PX2_BATT_EMPTY_MV - 1; batt_mv_seq[2] = PX2_BATT_EMPTY_MV;
+		}
+		if (c == 2) batt_charging = true;
+		run_loop();
+		ck(c == 0 ? kills == 1 && kill_pid == 4242 && kill_sig == SIGUSR1 && batt_i >= 3 : kills == 0,
+		   c == 0 ? "three readings under the empty voltage at 50% over a port are one USR1 to launch.sh" :
+		   c == 1 ? "two readings under the empty voltage and one at it power nothing off" :
+		            "on the charger, a voltage under empty powers nothing off");
+	}
 	reset(); batt_len = 1; batt_seq[0] = 50;
 	run_loop();
 	ck(waits[0] == 5000, "the loop wakes for the battery every 5 s when nothing else wakes it");
+	/* The low-battery disc over your PICO-8: every reading goes to it, the
+	 * charger with it, once a look, low or not (lowbat_reading) */
+	reset(); has_vol[0] = has_menu[1] = true; limit = 3;
+	times[0] = 6000; times[1] = 7000; times[2] = 11000;
+	batt_len = 2; batt_seq[0] = 8; batt_seq[1] = 4; batt_charging = true;
+	run_loop();
+	ck(lowbat_calls == 3 && lowbat_pct == 4 && lowbat_charging && kills == 0,
+	   "every 5 s look at the battery is a reading for the disc, the charger with it");
+	reset(); batt_len = 0;
+	run_loop();
+	ck(lowbat_calls == 0, "and no reading, no disc's");
+	/* On-Screen Stats' blanks: the file polled with the keys, and read when
+	 * it is ready, not before */
+	reset(); vbl_fd = 20; ready = 1 << 2;
+	run_loop();
+	ck(vbl_reads == 1, "a vertical blank ready is read (over_vblank)");
+	reset(); vbl_fd = 20; ready = 1;
+	run_loop();
+	ck(vbl_reads == 0, "and a pass with none ready reads none");
 	/* MENU on its own asks for the in-game menu once, in the pass that reads
 	 * its release; MENU+VOL+ (the backlight) does not. After a menu that was
 	 * up, the power key's file is drained unread, so a POWER pressed in the

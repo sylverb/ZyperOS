@@ -6,6 +6,7 @@
  * with a volume key, as it has no keys of its own; L2 and R2 are taps, so
  * that both together can show the battery on its four side lights. */
 #include "profile.h"
+#include "pixel2_levels.h"   /* PX2_BATT_EMPTY_MV */
 
 static const dev_button pixel2_buttons[] = {
 	{ IN_UP,     "UP",     DEV_CAP_DPAD,     DEV_ICON_NONE, 0 },
@@ -68,4 +69,6 @@ const device_profile device_profile_pixel2 = {
 	.screen_colors = true,
 	.wifi = DEV_WIFI_ADAPTER,
 	.thermal_zones = pixel2_zones,
+	/* 3.45 V: 50 mV over its battery's 3.40 V design minimum (pixel2_levels.h) */
+	.batt_empty_mv = PX2_BATT_EMPTY_MV,
 };
