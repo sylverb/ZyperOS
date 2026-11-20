@@ -6,6 +6,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "mp4hand.h"
 #include "mp4queue.h"
 
 /* The launcher's side of MP4: the connection to its daemon, mp4d, and the
@@ -64,6 +65,18 @@ void mp4c_hold_next(void);
  * a file has them. */
 void mp4c_names_by(void (*fn)(const char *track, char *artist, size_t an,
                                char *album, size_t aln));
+
+/* The queue handed to the next process while a program of its own plays
+ * over MP4 (src/mp4hand.h). mp4c_hand_out copies the queue, where it is and
+ * what this process last heard of it into `h` (mp4hand_free it after); false
+ * when there is no queue. mp4c_hand_in makes `h` this process's queue with
+ * no PLAY - the daemon plays it already - and drops any connection, so the
+ * daemon's next word is a whole announcement: the queue is put on the
+ * track the daemon says it plays, and moved on to the next if the one `h`
+ * said was playing has run out with nobody listening. An `h` with no tracks
+ * leaves no queue. */
+bool mp4c_hand_out(mp4hand *h);
+void mp4c_hand_in(const mp4hand *h);
 
 /* Whether the file playing has a picture: MP4's video. */
 bool mp4c_video(void);

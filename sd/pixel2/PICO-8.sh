@@ -30,6 +30,12 @@
 # Quit; MENU+START held a second goes home even when it hangs (zyhome); START
 # is PICO-8's own pause menu. Quit and POWER send TERM, which SDL turns into
 # a quit, so PICO-8 saves its settings as it ends: hence exec, below.
+#
+# MP4 plays on over it, as over a Diatom game, and SELECT in that menu opens
+# it (DESIGN.md 11.55): launch.sh leaves MP4's daemon running for this
+# script alone and starts its follower beside it (src/mp4hand.h). PICO-8's
+# sound goes to its ALSA default, through the equalizer's plugin into the
+# same dmix MP4 plays into (sd/zyperos/eq-port.sh), so the two mix.
 CARD=/mnt/SDCARD
 P8="$CARD/Bios/PICO-8"
 HOME_DIR="$CARD/Saves/PICO-8"

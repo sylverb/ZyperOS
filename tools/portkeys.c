@@ -1210,7 +1210,9 @@ static bool batt_now(int *pct, bool *charging)
  *      from the boot splash, shows the in-game menu over the saved frame and
  *      exits with what was chosen. It reads the keys itself meanwhile, the
  *      volume ones too, and saves the levels in the same database; this
- *      process waits for it and reads nothing.
+ *      process waits for it and reads nothing. Over a program MP4 plays on
+ *      over (your PICO-8), MP4's follower is stopped meanwhile (--follow,
+ *      follow_hold), as SELECT there opens MP4 in the menu.
  *   4. The display goes back to the port (SET_MASTER on the same copy), its
  *      frame is put back on the panel if the launcher left another, what was
  *      pressed for the menu is emptied out of the input queues of every
@@ -1225,6 +1227,17 @@ static bool batt_now(int *pct, bool *charging)
  * read here like any other, and the port's frames are its own. */
 
 static const char *menu_elf, *menu_tag, *menu_game;   /* --menu ELF TAG GAME */
+/* --follow PID: MP4's follower beside a program that keeps MP4 playing
+ * (your PICO-8; zyperos.elf --mp4-follow, src/mp4hand.h), stopped while the
+ * menu is up, the menu's MP4 being the one that talks to MP4's daemon then
+ * (SELECT there), and let go on after it, when it takes the queue the menu
+ * left. 0 for every other program. */
+static pid_t follow_pid;
+
+static void follow_hold(bool hold)
+{
+	if (follow_pid > 0) kill(follow_pid, hold ? SIGSTOP : SIGCONT);
+}
 
 static void end_port(void);          /* with the power key, below */
 static void wait_released(int ms);   /* with the keys, below */
@@ -1544,6 +1557,7 @@ static int menu_waiting(void)
 	if (c.fb_id) still_save(c.fb_id);
 	conn = crtc_connector();
 
+	follow_hold(true);
 	child = fork();
 	if (child == 0) {
 		int o = open("/proc/self/oom_score_adj", O_WRONLY | O_CLOEXEC);
@@ -1558,6 +1572,7 @@ static int menu_waiting(void)
 	}
 	if (child < 0) fprintf(stderr, "portkeys: cannot start the menu (%s)\n", strerror(errno));
 	while (child > 0 && waitpid(child, &status, 0) < 0 && errno == EINTR && !g_term) {}
+	follow_hold(false);
 	if (child > 0 && WIFEXITED(status) &&
 	    (WEXITSTATUS(status) == PORT_MENU_QUIT || WEXITSTATUS(status) == PORT_MENU_POWER))
 		how = WEXITSTATUS(status);
@@ -1647,6 +1662,7 @@ static int menu_show(void)
 	 * little, and the menu, not the stopped game, is what the kernel takes
 	 * if it runs out (the child's oom_score_adj, src/portmenu.h) */
 	fprintf(stderr, "portkeys: %ld MB free for the menu\n", mem_available_mb());
+	follow_hold(true);
 	child = fork();
 	if (child == 0) {
 		int fd = open("/proc/self/oom_score_adj", O_WRONLY | O_CLOEXEC);
@@ -1660,6 +1676,7 @@ static int menu_show(void)
 	}
 	if (child < 0) fprintf(stderr, "portkeys: cannot start the menu (%s)\n", strerror(errno));
 	while (child > 0 && waitpid(child, &status, 0) < 0 && errno == EINTR) {}
+	follow_hold(false);
 	if (child > 0 && WIFEXITED(status) &&
 	    (WEXITSTATUS(status) == PORT_MENU_QUIT || WEXITSTATUS(status) == PORT_MENU_POWER))
 		how = WEXITSTATUS(status);
@@ -2022,7 +2039,14 @@ int main(int argc, char **argv)
 	DIR *d = opendir("/dev/input");
 	struct dirent *e;
 
-	/* --menu ELF TAG GAME first, from launch.sh for a port with the in-game
+	/* --follow PID first, from launch.sh for a program MP4 plays on over
+	 * (follow_hold) */
+	if (argc > 2 && !strcmp(argv[1], "--follow")) {
+		follow_pid = (pid_t)atoi(argv[2]);
+		argv += 2;
+		argc -= 2;
+	}
+	/* --menu ELF TAG GAME next, from launch.sh for a port with the in-game
 	 * menu (OpenBOR, a port, PortMaster): the launcher to show it, the system's tag and the
 	 * game, for menu_show */
 	if (argc > 4 && !strcmp(argv[1], "--menu")) {
