@@ -13,6 +13,8 @@
 #include "pminstall.h"
 #include "savedlib.h"
 #include "shelfdir.h"
+#include "shots_screen.h"
+#include "shotname.h"
 #include "sort.h"
 #include "stats.h"
 #include "texload.h"
@@ -809,6 +811,273 @@ void refresh_collections_shelf(app *a)
 	home_reset(&a->home, a->sys_cursor, a->sys.count, plat_now_ms());
 }
 
+/* ---- Screenshots (src/shotname.h, DESIGN.md 11.68) ----------------------
+ *
+ * A group like Collections, after it (first when there are none of the
+ * three), once the card has a shot: the Screenshot hotkey's pictures,
+ * Screenshots/<System>/<Game> 2026-11-18 21.40.05.png, one entry a picture.
+ * An entry is its game's own entry, copied as Favorites copies them, owned by
+ * its system, so A plays the game from it as from Favorites and the shelf's
+ * facts are the game's; its `added` is the shot's time (src/shotname.h's
+ * seconds), which is the newest-first order and, with the game's part of
+ * its name, the picture's file again (shots_png). A shot whose game is not
+ * on the card any more (deleted, renamed: a picture is the player's, and
+ * Delete Game leaves it) stays, with no file: it has a picture and no game.
+ *
+ * Read once a scan and again after a game that took a shot
+ * (refresh_shots_shelf): a folder read of Screenshots/ and of each system's
+ * folder in it, names only, no file opened; the games found by name against
+ * the listings in memory, a sort of each folder's names and a look-up a
+ * game. The systems turned off the home too (app.parked), as Favorites. */
+#define SHOTS_MAX 2000          /* the newest on the shelf; a game_entry each */
+#define SHOTS_READ_MAX 20000    /* names read at most, newest kept */
+
+typedef struct {
+	char game[LIB_NAME];
+	long when;
+	int owner, at;              /* its system, and its game in sys_games or -1 */
+} shot_found;
+
+/* Whether the card had a shot at the last scan, on the shelf or not: Home
+ * Systems' row for it (src/homesys_screen.c) */
+static bool g_shots_have;
+
+bool shelf_shots_have(void)
+{
+	return g_shots_have;
+}
+
+int shelf_shots_at(const app *a)
+{
+	return group_at(a, HOMESYS_SHOT);
+}
+
+static int shot_by_game(const void *x, const void *y)
+{
+	return strcmp(((const shot_found *)x)->game, ((const shot_found *)y)->game);
+}
+
+static int shot_by_when(const void *x, const void *y)
+{
+	const shot_found *a = x, *b = y;
+
+	return a->when != b->when ? (a->when > b->when ? -1 : 1) : strcmp(a->game, b->game);
+}
+
+/* Every shot on the card of a system with games, into *out (malloc'd, the
+ * caller's), its game found where it is on the card; how many. `any`: stop
+ * at the first, for whether there is one. */
+static int shots_read(const app *a, shot_found **out, bool any)
+{
+	char top[CFG_STR * 2], dir[CFG_STR * 4];
+	shot_found *f = NULL;
+	int n = 0, cap = 0, si;
+	DIR *d;
+	struct dirent *e;
+
+	*out = NULL;
+	snprintf(top, sizeof top, "%s/%s", P_CARD, SHOT_DIR);
+	if (access(top, F_OK) != 0) return 0;
+	for (si = 0; si < sys_kept(a) && (!any || !n); si++) {
+		const system_cfg *sc = &a->sys.systems[si];
+		const game_list *gl;
+		int from = n, k;
+
+		/* Never a group's, never MP4's, and a folder read once when two
+		 * systems share it */
+		if (a->view[si].owner || is_mp4(sc) || !sc->folder[0]) continue;
+		for (k = 0; k < si; k++)
+			if (!a->view[k].owner && !strcmp(a->sys.systems[k].folder, sc->folder)) break;
+		if (k < si) continue;
+		snprintf(dir, sizeof dir, "%s/%s", top, sc->folder);
+		if (!(d = opendir(dir))) continue;
+		while ((e = readdir(d)) && n < SHOTS_READ_MAX) {
+			char game[LIB_NAME];
+			long when;
+
+			if (e->d_name[0] == '.' || !shot_parse(e->d_name, game, sizeof game, &when)) continue;
+			if (n == cap) {
+				shot_found *g = realloc(f, (size_t)(cap ? cap * 2 : 64) * sizeof *f);
+
+				if (!g) break;
+				f = g;
+				cap = cap ? cap * 2 : 64;
+			}
+			snprintf(f[n].game, sizeof f[n].game, "%s", game);
+			f[n].when = when;
+			f[n].owner = si;
+			f[n].at = -1;
+			n++;
+			if (any) break;
+		}
+		closedir(d);
+		if (any || n == from) continue;
+		/* Its games by the name the hotkey wrote (shot_game_part) */
+		qsort(f + from, (size_t)(n - from), sizeof *f, shot_by_game);
+		gl = sys_games_c(&a->view[si]);
+		for (k = 0; k < gl->count; k++) {
+			shot_found key, *hit;
+
+			if (gl->items[k].folder) continue;
+			shot_game_part(gl->items[k].name, key.game, sizeof key.game);
+			if (!(hit = bsearch(&key, f + from, (size_t)(n - from), sizeof *f, shot_by_game))) continue;
+			while (hit > f + from && !strcmp(hit[-1].game, key.game)) hit--;
+			for (; hit < f + n && !strcmp(hit->game, key.game); hit++)
+				if (hit->at < 0) hit->at = k;
+		}
+	}
+	*out = f;
+	return n;
+}
+
+/* Build the Screenshots shelf: after Favorites, Recents and Collections,
+ * first when there are none of them; none with no shot on the card, as an
+ * empty Favorites shows none. Recently Added as it ships, the newest
+ * first. */
+static void build_shots_shelf(app *a)
+{
+	shot_found *f;
+	game_entry *items;
+	int *owner, n, i, at, fav, rec, col;
+
+	g_shots_have = false;
+	if (sys_kept(a) <= 0) return;
+	if (!homesys_shown(HOMESYS_SHOT)) {
+		/* Off the home: whether there is one, for its row there */
+		g_shots_have = shots_read(a, &f, true) > 0;
+		free(f);
+		return;
+	}
+	if (sys_kept(a) >= CFG_MAX_SYSTEMS) {
+		fprintf(stderr, "scan: no room for a Screenshots shelf\n");
+		return;
+	}
+	if ((n = shots_read(a, &f, false)) <= 0) { free(f); return; }
+	g_shots_have = true;
+	qsort(f, (size_t)n, sizeof *f, shot_by_when);
+	if (n > SHOTS_MAX) n = SHOTS_MAX;
+	items = calloc((size_t)n, sizeof *items);
+	owner = calloc((size_t)n, sizeof *owner);
+	if (!items || !owner) { free(items); free(owner); free(f); return; }
+	for (i = 0; i < n; i++) {
+		const system_cfg *sc = &a->sys.systems[f[i].owner];
+
+		if (f[i].at >= 0) {
+			items[i] = sys_games(&a->view[f[i].owner])->items[f[i].at];
+		} else {
+			/* No game of that name on the card: the picture alone */
+			snprintf(items[i].name, sizeof items[i].name, "%s", f[i].game);
+			lib_display_title(db_lib(), sc->folder, "", f[i].game, items[i].title,
+			                  sizeof items[i].title);
+		}
+		items[i].added = f[i].when;
+		owner[i] = f[i].owner;
+	}
+	free(f);
+	fav = group_at(a, HOMESYS_FAV);
+	rec = group_at(a, HOMESYS_RECENT);
+	col = group_at(a, HOMESYS_COLL);
+	at = fav > rec ? fav : rec;
+	at = (at > col ? at : col) + 1;
+	shelf_insert(a, at);
+	for (i = 0; i < n; i++)
+		if (owner[i] >= at) owner[i]++;
+	if (!group_fill(a, at, T(S_LIBRARY_SCREENSHOTS), HOMESYS_SHOT, "SCREENSHOTS.png", items, owner, n))
+		return;
+	a->view[at].sort = sort_index("added");
+	fprintf(stderr, "scan: %-16s %d screenshot%s\n", "Screenshots", n, n == 1 ? "" : "s");
+}
+
+static void drop_shots_shelf(app *a)
+{
+	shots_view_drop();
+	group_drop(a, HOMESYS_SHOT);
+}
+
+/* Where the Screenshots shelf was, to be put back once it is built again:
+ * its order, its View as the player left it (the viewer A opens included),
+ * and the shot it was on, by its system, game and time, or its place */
+typedef struct {
+	bool had, listed, grid, video;
+	int sort, cursor;
+	char tag[16], name[LIB_NAME];
+	long when;
+} shots_keep;
+
+static void shots_note(const app *a, shots_keep *k)
+{
+	int at = group_at(a, HOMESYS_SHOT);
+	const sysview *v;
+
+	memset(k, 0, sizeof *k);
+	if (at < 0) return;
+	v = &a->view[at];
+	k->had = true;
+	k->sort = v->sort;
+	k->cursor = v->cursor;
+	k->listed = v->listed;
+	k->grid = v->grid;
+	k->video = v->video;
+	if (v->cursor >= 0 && v->cursor < v->list.count) {
+		snprintf(k->tag, sizeof k->tag, "%s", a->sys.systems[v->owner[v->cursor]].tag);
+		snprintf(k->name, sizeof k->name, "%s", v->list.items[v->cursor].name);
+		k->when = v->list.items[v->cursor].added;
+	}
+}
+
+static void shots_put_back(app *a, const shots_keep *k)
+{
+	int at = group_at(a, HOMESYS_SHOT), c = -1;
+	sysview *v;
+
+	if (at < 0) return;
+	v = &a->view[at];
+	if (k->had) {
+		v->sort = k->sort;
+		v->listed = k->listed;
+		v->grid = k->grid;
+		v->video = k->video;
+	}
+	sort_shelf(a, at);
+	for (int i = 0; k->name[0] && i < v->list.count; i++)
+		if (v->list.items[i].added == k->when && !strcmp(v->list.items[i].name, k->name) &&
+		    !strcmp(a->sys.systems[v->owner[i]].tag, k->tag))
+			c = i;
+	/* The shot it was on gone (deleted): the one that took its place */
+	if (c < 0 && k->had) c = k->cursor < v->list.count ? k->cursor : v->list.count - 1;
+	v->cursor = c > 0 ? c : 0;
+	cf_reset(&v->cf, v->cursor);
+	games_reset(&v->row, v->cursor, v->list.count, plat_now_ms());
+}
+
+void refresh_shots_shelf(app *a)
+{
+	char tag[sizeof a->sys.systems[0].tag];
+	shots_keep k;
+	int i, was = a->sys_cursor;
+
+	if (a->sys.count <= 0) return;
+	texload_bump();
+	snprintf(tag, sizeof tag, "%s", a->sys.systems[a->sys_cursor].tag);
+	shots_note(a, &k);
+	drop_shots_shelf(a);
+	build_shots_shelf(a);
+	shots_put_back(a, &k);
+	for (i = 0; i < a->sys.count; i++)
+		if (!strcmp(a->sys.systems[i].tag, tag)) break;
+	if (i < a->sys.count) {
+		a->sys_cursor = i;
+	} else {
+		/* Stood on Screenshots, and it went (its last shot deleted): the
+		 * home, on what took its place */
+		a->sys_cursor = was < a->sys.count ? was : a->sys.count - 1;
+		if (a->sys_cursor < 0) a->sys_cursor = 0;
+		a->screen = SCREEN_SYSTEMS;
+	}
+	if (a->sys.count > 0) a->tint = a->sys.systems[a->sys_cursor].accent;
+	home_reset(&a->home, a->sys_cursor, a->sys.count, plat_now_ms());
+}
+
 /* Rebuild the Favorites shelf in place, for use the moment a favorite
  * changes. Restarting the launcher to see a star take effect is not an
  * answer.
@@ -911,6 +1180,8 @@ void shelf_groups_rename(app *a)
 		snprintf(a->sys.systems[i].name, sizeof a->sys.systems[i].name, "%s", T(S_LIBRARY_RECENTS));
 	if ((i = group_at(a, HOMESYS_COLL)) >= 0)
 		snprintf(a->sys.systems[i].name, sizeof a->sys.systems[i].name, "%s", T(S_LIBRARY_COLLECTIONS));
+	if ((i = group_at(a, HOMESYS_SHOT)) >= 0)
+		snprintf(a->sys.systems[i].name, sizeof a->sys.systems[i].name, "%s", T(S_LIBRARY_SCREENSHOTS));
 }
 
 /* MP4's shelf: a card per album, and which album each card is. Built in the
@@ -1724,6 +1995,7 @@ int scan_all_from(app *a, saved_lib *saved, bool save)
 	 * written by hand, shows after a rescan as a game does */
 	coll_load(P_CARD);
 	build_collections_shelf(a);
+	build_shots_shelf(a);
 	build_mp4_shelf(a);
 	pm_offer_refresh(a);
 	return from_saved;
@@ -1905,6 +2177,7 @@ static void rebuild(app *a, saved_lib *pre, bool keep_place)
 
 	/* First, and on their own: their lists and owner maps are this file's
 	 * allocations rather than lib_scan's, and their textures are their own. */
+	drop_shots_shelf(a);
 	drop_collections_shelf(a);
 	drop_recents_shelf(a);
 	drop_favorites_shelf(a);
@@ -2087,6 +2360,7 @@ void shelf_drop_game(app *a, const char *tag, const char *file)
 	char stand[sizeof a->sys.systems[0].tag], folder[CFG_STR] = "";
 	group_keep fav, rec;
 	coll_keep col;
+	shots_keep shot;
 	int was_sys, si, k, i;
 
 	if (a->sys.count <= 0) return;
@@ -2099,6 +2373,8 @@ void shelf_drop_game(app *a, const char *tag, const char *file)
 	group_note(a, HOMESYS_FAV, &fav);
 	group_note(a, HOMESYS_RECENT, &rec);
 	coll_note(a, &col);
+	shots_note(a, &shot);
+	drop_shots_shelf(a);
 	drop_collections_shelf(a);
 	drop_recents_shelf(a);
 	drop_favorites_shelf(a);
@@ -2158,9 +2434,12 @@ void shelf_drop_game(app *a, const char *tag, const char *file)
 	build_favorites_shelf(a);
 	build_recents_shelf(a);
 	build_collections_shelf(a);
+	/* its shots stay, with no game (a picture is the player's) */
+	build_shots_shelf(a);
 	group_put_back(a, HOMESYS_FAV, &fav);
 	group_put_back(a, HOMESYS_RECENT, &rec);
 	coll_put_back(a, &col);
+	shots_put_back(a, &shot);
 
 	/* Back where the player stood. On the game's own shelf its cursor was
 	 * the game, and moved above to the next one or the one before at the
@@ -2235,6 +2514,8 @@ bool shelf_rename_game(app *a, const char *tag, const char *file, const char *ne
 	refresh_recents_shelf(a);
 	/* And its lines in the collections (src/collect.h) */
 	refresh_collections_shelf(a);
+	/* Its shots keep their names, with no game now (DESIGN.md 11.68) */
+	refresh_shots_shelf(a);
 	return true;
 }
 

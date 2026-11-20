@@ -27,7 +27,12 @@ favorites and two games played, one of each on the SNES. Then:
 - a collection naming the SNES game and a GBA one (DESIGN.md 11.56) keeps
   both, and its shelf, opened on it, looks the same with the SNES off as on;
 - with Favorites, Recents and Collections off as well, nothing of the SNES
-  is anywhere.
+  is anywhere;
+- Screenshots (DESIGN.md 11.68): with the SNES off, a shot of its game is on
+  the Screenshots shelf with the others, the newest first, and A on it in the
+  viewer plays the game on the SNES's core; a shot of a game gone from the
+  card stays, with no game; Delete Screenshot takes its file, the last one
+  the shelf; no shot, or the group turned off, no shelf.
 
 Shots of Favorites and Recents in both themes go to
 build-native/homesys-groups-shots/."""
@@ -259,5 +264,55 @@ assert coll_games(log) == 0, 'Collections is on the home with it off:\n' + log[-
 for shelf, game in (('FAV', 'Chrono Trigger (USA).sfc'), ('SFC', 'Chrono Trigger (USA).sfc')):
     got, log = start(base, env, shelf, game)
     assert got is None, f'{shelf} {game} started with the SNES and the groups off'
+
+# Screenshots (DESIGN.md 11.68): three shots, as the hotkey names them, one of
+# the SNES game, one of a GBA game and one of a game no longer on the card
+SHOTS = ['SNES/Chrono Trigger (USA) 2026-11-20 09.12.40.png',
+         'Game Boy Advance/Metroid Fusion (USA) 2026-11-19 22.05.11.png',
+         'SNES/Gone Game (USA) 2026-11-18 21.40.05.png']
+
+
+def shots_on(log):
+    """'scan: Screenshots 3 screenshots' -> 3; no line -> 0 (no shelf)"""
+    for line in log.splitlines():
+        f = line.split()
+        if f[:2] == ['scan:', 'Screenshots'] and len(f) > 2 and f[2].isdigit():
+            return int(f[2])
+    return 0
+
+
+base, env = card('shots', 'SFC')
+log = run(env, '--shot', str(OUT / 'shots-none.png'), '--screen', 'systems', '--status', STATUS)
+assert shots_on(log) == 0, 'a Screenshots shelf with no shot on the card:\n' + log[-800:]
+for k, f in enumerate(SHOTS):
+    (base / 'Screenshots' / f).parent.mkdir(parents=True, exist_ok=True)
+    Image.new('RGB', (256 if f.startswith('SNES') else 240, 224 if f.startswith('SNES') else 160),
+              (40 * k, 90, 160)).save(base / 'Screenshots' / f)
+(base / 'Screenshots/SNES/ScreenShot - 0000.png').write_bytes(b'not a shot of the hotkey')
+run(env, '--set', 'startup_system=Screenshots')
+log = run(env, '--shot', str(OUT / 'shots-shelf.png'), '--screen', 'games', '--shelf-press', 'a',
+          '--status', STATUS)
+assert shots_on(log) == 3, 'the SNES off the home, its shot not on Screenshots:\n' + log[-800:]
+assert 'shelf-press: a -> top [Chrono Trigger (USA).sfc] 1/3' in log, \
+    'Screenshots is not newest first, or A did not open its shot:\n' + log[-800:]
+got, log = start(base, env, 'SHOT', 'Chrono Trigger (USA).sfc')
+assert got and got.get('--rom') == str(base / 'Roms/SNES/Chrono Trigger (USA).sfc') and \
+    got.get('--core', '').endswith(f'/cores/{core}_libretro.so'), \
+    'A on the SNES game\'s shot did not start it on the SNES\'s core:\n' + log[-800:]
+for n in (2, 1, 0):
+    log = run(env, '--shot', str(OUT / f'shots-delete-{n}.png'), '--screen', 'games', '--shots-delete-now',
+              '--status', STATUS)
+    assert 'shots: deleted' in log, 'Delete Screenshot deleted nothing:\n' + log[-800:]
+    assert len(list((base / 'Screenshots').rglob('* 2026-*.png'))) == n, f'{n} shots should be left'
+log = run(env, '--shot', str(OUT / 'shots-gone.png'), '--screen', 'systems', '--status', STATUS)
+assert shots_on(log) == 0 and (base / 'Screenshots/SNES/ScreenShot - 0000.png').exists(), \
+    'the last shot deleted, Screenshots is still on the home, or another file went:\n' + log[-800:]
+base, env = card('shots-off', 'SHOT')
+(base / 'Screenshots' / SHOTS[0]).parent.mkdir(parents=True, exist_ok=True)
+Image.new('RGB', (256, 224), (40, 90, 160)).save(base / 'Screenshots' / SHOTS[0])
+log = run(env, '--shot', str(OUT / 'shots-off.png'), '--screen', 'systems', '--status', STATUS)
+assert shots_on(log) == 0, 'Screenshots turned off is on the home:\n' + log[-800:]
+
 print('ok: a system off the home keeps its games on Favorites, Recents and Collections, the groups as they were, '
-      'and they start and resume there on its own core; off the home and off the groups, nowhere')
+      'and they start and resume there on its own core; off the home and off the groups, nowhere; its shots on '
+      'Screenshots, played from there, deleted from there')

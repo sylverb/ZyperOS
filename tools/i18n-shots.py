@@ -942,30 +942,52 @@ def set_text(card, files, on):
             path.unlink()
 
 
+def scene_rgb(x, y, w, h, sky, ground, hue):
+    """A made-up frame of play's pixel at x, y (y from the top): a sky of
+    `sky` fading to white, hills, `ground` at the foot and a block of `hue`
+    in the middle"""
+    if y > h * 3 // 4:
+        return ground
+    if y > h * 3 // 4 - 2 - ((x // 8) % 5 == 0) * 6 and y > h // 2 + abs((x % 64) - 32) // 2:
+        return tuple(max(0, v - 40) for v in ground)
+    if w * 2 // 5 <= x < w * 3 // 5 and h * 2 // 5 <= y < h * 3 // 5:
+        return hue
+    k = y / h
+    return tuple(int(v + (255 - v) * k * 0.6) for v in sky)
+
+
 def scene_bmp(w, h, sky, ground, hue):
-    """A made-up frame of play, a 24-bit BMP of w x h drawn here (no Pillow):
-    a sky of `sky` fading to white, hills, `ground` at the foot and a block
-    of `hue` in the middle, as a game's resume picture stands in a shot"""
+    """The frame of play, a 24-bit BMP of w x h drawn here (no Pillow), as a
+    game's resume picture stands in a shot"""
     import struct
     row = (w * 3 + 3) & ~3
     out = bytearray()
     for y in range(h - 1, -1, -1):       # a BMP's rows from the bottom
         line = bytearray()
         for x in range(w):
-            if y > h * 3 // 4:
-                c = ground
-            elif y > h * 3 // 4 - 2 - ((x // 8) % 5 == 0) * 6 and y > h // 2 + abs((x % 64) - 32) // 2:
-                c = tuple(max(0, v - 40) for v in ground)
-            elif w * 2 // 5 <= x < w * 3 // 5 and h * 2 // 5 <= y < h * 3 // 5:
-                c = hue
-            else:
-                k = y / h
-                c = tuple(int(v + (255 - v) * k * 0.6) for v in sky)
+            c = scene_rgb(x, y, w, h, sky, ground, hue)
             line += bytes((c[2], c[1], c[0]))
         out += line + b"\0" * (row - w * 3)
     head = struct.pack("<2sIHHI", b"BM", 54 + len(out), 0, 0, 54)
     info = struct.pack("<IiiHHIIiiII", 40, w, h, 1, 24, 0, len(out), 2835, 2835, 0, 0)
     return head + info + bytes(out)
+
+
+def scene_png(w, h, sky, ground, hue):
+    """The same frame as an 8-bit RGB PNG (no Pillow), as the Screenshot
+    hotkey writes a game's frame (diatom/src/main.c's png_encode)"""
+    import struct
+    import zlib
+    raw = bytearray()
+    for y in range(h):
+        raw.append(0)                    # every row's filter none
+        for x in range(w):
+            raw += bytes(scene_rgb(x, y, w, h, sky, ground, hue))
+
+    def chunk(kind, data):
+        return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data))
+    return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0)) +
+            chunk(b"IDAT", zlib.compress(bytes(raw), 6)) + chunk(b"IEND", b""))
 
 
 # Recents' Card Picture (DESIGN.md 11.48): the three games with a resume
@@ -1009,6 +1031,44 @@ for _name, _flags in (("shelf-video", ["--screen", "games", "--view", "video"]),
                       ("system-menu-view-video-list", ["--screen", "games", "--view", "video", "--menu", "View",
                                                        "--press", "a"])):
     EXTRA.setdefault(_name, ("demo", "PS1", _flags))
+
+
+# Screenshots (src/shotname.h, DESIGN.md 11.68): the Screenshot hotkey's
+# pictures on the card, each a PNG made up here as Diatom names them, at its
+# game's own size, and one of a game no longer on the card. The home on the
+# group, its shelf in Covers, Grid and List, a shot opened with A (the Video
+# view) and its band down to the strip, Delete Screenshot's question and its
+# message, MENU's Sort By list, and Home Systems with the group's row Off
+_SHOTS = {}
+for (_folder, _game, _when, _wh, _sky, _ground, _hue) in (
+        ("SNES", "Super Metroid (USA)", "2026-11-20 09.12.40", (256, 224), (40, 30, 90), (110, 70, 50), (220, 80, 60)),
+        ("Game Boy Advance", "The Legend of Zelda - The Minish Cap (USA)", "2026-11-19 22.05.11", (240, 160),
+         (64, 140, 220), (72, 150, 60), (230, 200, 60)),
+        ("PlayStation", "Metal Gear Solid (USA)", "2026-11-19 12.44.09", (320, 240),
+         (60, 80, 90), (70, 80, 70), (200, 200, 210)),
+        ("SNES", "Super Metroid (USA)", "2026-11-18 21.40.05", (256, 224), (90, 40, 30), (60, 50, 110), (80, 220, 90)),
+        ("SNES", "A Game Since Deleted (USA)", "2026-11-16 17.20.48", (256, 224), (30, 90, 60), (90, 90, 40), (60, 120, 220))):
+    _SHOTS["Screenshots/%s/%s %s.png" % (_folder, _game, _when)] = scene_png(*_wh, _sky, _ground, _hue)
+for _name, _flags in (("home-screenshots", []),
+                      ("shelf-screenshots", ["--screen", "games"]),
+                      ("shelf-screenshots-grid", ["--screen", "games", "--view", "grid"]),
+                      ("shelf-screenshots-list", ["--screen", "games", "--view", "list"]),
+                      ("screenshots-viewer", ["--screen", "games", "--shelf-press", "a"]),
+                      ("screenshots-viewer-strip", ["--screen", "games", "--shelf-press", "a", "--band", "1"]),
+                      ("screenshots-delete", ["--screen", "games", "--shots-delete"]),
+                      ("screenshots-said", ["--screen", "games", "--shots-said"]),
+                      ("screenshots-menu", ["--screen", "games", "--menu", "Sort By"]),
+                      ("screenshots-menu-sort", ["--screen", "games", "--menu", "Sort By", "--press", "a"])):
+    EXTRA.setdefault(_name, ("demo", "SHOT", _flags))
+    SHOT_TEXT[_name] = _SHOTS
+    CTL_FOCUS[_name] = "Super Metroid (USA).sfc"       # the newest shot, first
+# and one shot alone, its count said in the singular
+EXTRA.setdefault("home-screenshots-one", ("demo", "SHOT", []))
+SHOT_TEXT["home-screenshots-one"] = {"Screenshots/SNES/Super Metroid (USA) 2026-11-20 09.12.40.png":
+                                     _SHOTS["Screenshots/SNES/Super Metroid (USA) 2026-11-20 09.12.40.png"]}
+EXTRA.setdefault("homesys-page-shots", ("demo", "PS1", ["--homesys-page", "2"]))
+SHOT_TEXT["homesys-page-shots"] = _SHOTS
+SHOT_SETTINGS["homesys-page-shots"] = {"home.hidden": "SHOT"}
 
 
 # A zip whose game Diatom cannot unpack (DESIGN.md 11.63): its message

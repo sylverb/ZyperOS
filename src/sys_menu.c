@@ -224,12 +224,14 @@ int sys_menu_lights_rows(side_lights on, menu_row *out, side_light_part *ids)
 
 int sys_menu_homesys_rows(const homesys_ui *u, menu_row *out, const char **ids)
 {
-	static const char *const groups[HS_GROUPS] = { HOMESYS_FAV, HOMESYS_RECENT, HOMESYS_COLL };
-	static const str_id names[HS_GROUPS] = { S_LIBRARY_FAVORITES, S_LIBRARY_RECENTS, S_LIBRARY_COLLECTIONS };
+	static const char *const groups[HS_GROUPS] = { HOMESYS_FAV, HOMESYS_RECENT, HOMESYS_COLL, HOMESYS_SHOT };
+	static const str_id names[HS_GROUPS] = { S_LIBRARY_FAVORITES, S_LIBRARY_RECENTS, S_LIBRARY_COLLECTIONS,
+	                                         S_LIBRARY_SCREENSHOTS };
 	int n = 0, i, on = 0;
 
 	for (i = 0; i < HS_GROUPS; i++) {
 		if (!u->coll && !strcmp(groups[i], HOMESYS_COLL)) continue;
+		if (!u->shots && !strcmp(groups[i], HOMESYS_SHOT)) continue;
 		ids[n] = groups[i];
 		out[n++] = (menu_row){ T(names[i]),
 		                       homesys_shown(groups[i]) ? T(S_MENU_ON_TITLE) : T(S_MENU_OFF_TITLE),
@@ -382,6 +384,19 @@ int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
 		snprintf(b->a, sizeof b->a, "%d", u->game_count);
 		snprintf(b->b, sizeof b->b, "%s", u->sys_core ? u->sys_core : "");
 		*heading = u->sys_name;
+		/* Screenshots' two (SM_SHOT_ROWS): its Sort By, Recently Added as
+		 * it ships, and View */
+		if (u->shots) {
+			out[0] = (menu_row){ T(S_SYSMENU_SORT_BY), u->sort ? u->sort : T(S_SORT_RECENTLY_ADDED), true };
+			out[1] = (menu_row){ T(S_SYSMENU_VIEW),
+			                     T(u->listed ? S_SYSMENU_VIEW_LIST : u->grid ? S_SYSMENU_VIEW_GRID
+			                       : u->video ? S_SYSMENU_VIEW_VIDEO : S_SYSMENU_VIEW_COVERS), true };
+			b->sound[0] = SM_SOUND[SM_SORT];
+			b->sound[1] = SM_SOUND[SM_VIEW];
+			if (u->sm_choice) b->choice[0] = u->sm_choice[SM_SORT];
+			if (u->sm_choice) b->choice[1] = u->sm_choice[SM_VIEW];
+			return SM_SHOT_ROWS;
+		}
 		/* A shelf of favorites gets the two rows that are true of it and
 		 * nothing else - not even the enum's order, since Core sits between
 		 * them and it has none. See SM_FAV_ROWS. */
