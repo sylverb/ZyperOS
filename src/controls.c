@@ -479,8 +479,9 @@ static const ctl_pad PADS[] = {
 	{ "3DO", NULL, { [P_A] = BTN("C"), [P_B] = BTN("B"), [P_Y] = BTN("A"), [P_L1] = BTN("L"),
 	                 [P_R1] = BTN("R"), [P_START] = SAYS(S_CONTROLS_PLAY),
 	                 [P_SELECT] = SAYS(S_CONTROLS_STOP) } },
-	/* YabaSanshiro by position, the south button the Saturn's A; with
-	 * map|SATURN each cap is the button it names, C and Z on L1 and R1 */
+	/* YabaSanshiro by position, the south button the Saturn's A, and C and Z
+	 * on the RetroPad's L and R; with map|SATURN each cap is the button it
+	 * names, C on R1 and Z on L1 (as the standalone and Beetle Saturn) */
 	{ "SATURN", NULL, { [P_A] = BTN("B"), [P_B] = BTN("A"), [P_X] = BTN("Y"), [P_Y] = BTN("X"),
 	                    [P_L1] = BTN("C"), [P_R1] = BTN("Z"), [P_L2] = BTN("L"),
 	                    [P_R2] = BTN("R"), [P_START] = BTN("Start") } },
