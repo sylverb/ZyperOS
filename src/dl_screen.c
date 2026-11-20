@@ -166,6 +166,7 @@ typedef struct {
 	unsigned rec_key;        /* the newest arrival it has taken */
 	unsigned open_key;       /* the newest when it opened: older ones do not land again */
 	unsigned land_at;
+	unsigned test_pass;      /* its loop's passes since it opened (dl_test) */
 	unsigned t0;
 	int done0;
 	int end;
@@ -224,12 +225,15 @@ static dlq_lane_def CHT_LANE = {
  * N arrivals on the art lane, one every DL_FAKE_MS, of the card's own games
  * in shelf order: a cover where the game has one, else its names (a card).
  * The page, the queue and what the page keeps run as they do, with no
- * network; only what the art run would have said comes from here. */
+ * network; only what the art run would have said comes from here. It can
+ * hold after its Kth (hold=K) and go on (away=), so a test knows what the
+ * page had when it was left by what it did, not by a clock. */
 #define DL_FAKE_MS   150
 #define DL_FAKE_MAX  40
 static struct {
 	bool on, was;            /* running; ran since the launcher started */
-	int n, i, ngames;
+	bool held;               /* holding after its hold_at'th arrival */
+	int n, i, ngames, hold_at;
 	unsigned at;
 	art_progress ap, last;
 	struct { char folder[CFG_STR], name[LIB_NAME]; } g[DL_FAKE_MAX];
@@ -247,6 +251,8 @@ static bool fake_begin(void)
 	g_fake.i = 0;
 	g_fake.at = plat_now_ms();
 	g_fake.on = g_fake.was = true;
+	g_fake.held = false;
+	g_fake.hold_at = 0;
 	fake_next();
 	return true;
 }
@@ -257,7 +263,8 @@ static int fake_step(unsigned now_ms)
 	const char *folder, *name;
 
 	(void)now_ms;
-	if (plat_now_ms() - g_fake.at < DL_FAKE_MS) return 1;
+	if (g_fake.held) g_fake.at = plat_now_ms();
+	if (g_fake.held || plat_now_ms() - g_fake.at < DL_FAKE_MS) return 1;
 	g_fake.at = plat_now_ms();
 	folder = g_fake.g[g_fake.i % g_fake.ngames].folder;
 	name = g_fake.g[g_fake.i % g_fake.ngames].name;
@@ -271,6 +278,7 @@ static int fake_step(unsigned now_ms)
 	g_fake.ap.looked++;
 	g_fake.i++;
 	if (g_fake.i >= g_fake.n) return 0;
+	if (g_fake.i == g_fake.hold_at) g_fake.held = true;
 	fake_next();
 	return 1;
 }
@@ -2944,18 +2952,33 @@ static void sysgames_keys(dl_view *v, dl_frame *f, unsigned now)
  * script, commas between its steps: a button (A B X Y START UP DOWN LEFT
  * RIGHT), wait=MS, count (until the count ends), run (until the run ends),
  * shot=PATH (the page as drawn now), fake=N (a stand-in run of N arrivals
- * on the art lane, g_fake), list=NAME (what the page shows came, a line
- * each). Once the page has closed (B on a run, B on the hub), the steps go
- * on behind it (downloads_test): away=MS, the lanes stepped as the shelf
- * steps them; game=MS, a game running, the lanes waiting; video-gone, the
- * renderer about to go as a game in the fallback takes it; open, the page
- * again.
+ * on the art lane, g_fake), hold=K (until it holds after its Kth), pics
+ * (until every arrival kept has its picture), list=NAME (what the page
+ * shows came, a line each, with the page's pass since it opened: 0 is its
+ * first, before it has read any picture). Once the page has closed (B on a
+ * run, B on the hub), the steps go on behind it (downloads_test): away=K,
+ * the stand-in going on and the lanes stepped as the shelf steps them until
+ * K more have come or the run ends; game=MS, a game running, the lanes
+ * waiting; video-gone, the renderer about to go as a game in the fallback
+ * takes it; open, the page again, its first step on its first pass. The
+ * waits are for what they name, each at most DL_TEST_WAIT_MS, never a
+ * guess at how long a loaded machine takes.
  * Each step said on stderr with the page's state; the launcher quits at the
  * script's end. The real loop and the real card: what the shots' stand-in
  * counts cannot show. */
 static const char *g_dl_test;
-static unsigned g_dl_until;
-static bool g_dl_count_wait, g_dl_run_wait;
+static unsigned g_dl_until, g_dl_wait_end;
+static bool g_dl_count_wait, g_dl_run_wait, g_dl_hold_wait, g_dl_pics_wait;
+#define DL_TEST_WAIT_MS 30000
+
+/* An arrival kept with no picture yet */
+static bool test_pics_missing(void)
+{
+	int i;
+
+	for (i = 0; i < g_rec.n; i++) if (!g_rec.it[i].tex) return true;
+	return false;
+}
 
 /* fake=N: the stand-in run started as Download starts one (run_start) */
 static void fake_start(dl_view *v, int n)
@@ -3001,7 +3024,8 @@ static void test_list(dl_view *v, const char *name)
 {
 	int i;
 
-	fprintf(stderr, "downloads-test: came %s view=%d n=%d arrived=%d\n", name, top_of(v)->v, g_rec.n, g_fake.i);
+	fprintf(stderr, "downloads-test: came %s view=%d n=%d arrived=%d pass=%u\n", name, top_of(v)->v, g_rec.n, g_fake.i,
+	        v->test_pass);
 	for (i = 0; i < g_rec.n; i++) {
 		const dl_arrival *it = &g_rec.it[i];
 
@@ -3027,6 +3051,10 @@ static void dl_test(dl_view *v, app *a)
 	g_dl_count_wait = false;
 	if (g_dl_run_wait && dl_live()) return;
 	g_dl_run_wait = false;
+	if (g_dl_hold_wait && g_fake.on && !g_fake.held && now < g_dl_wait_end) return;
+	g_dl_hold_wait = false;
+	if (g_dl_pics_wait && test_pics_missing() && now < g_dl_wait_end) return;
+	g_dl_pics_wait = false;
 	if (!*g_dl_test) { want_quit = 1; return; }
 	n = strcspn(g_dl_test, ",");
 	snprintf(tok, sizeof tok, "%.*s", (int)n, g_dl_test);
@@ -3037,6 +3065,16 @@ static void dl_test(dl_view *v, app *a)
 	if (!strncmp(tok, "wait=", 5)) g_dl_until = now + (unsigned)atoi(tok + 5);
 	if (!strcmp(tok, "count")) g_dl_count_wait = true;
 	if (!strcmp(tok, "run")) g_dl_run_wait = true;
+	if (!strncmp(tok, "hold=", 5)) {
+		g_fake.hold_at = atoi(tok + 5);
+		g_fake.held = g_fake.on && g_fake.i >= g_fake.hold_at;
+		g_dl_hold_wait = true;
+		g_dl_wait_end = now + DL_TEST_WAIT_MS;
+	}
+	if (!strcmp(tok, "pics")) {
+		g_dl_pics_wait = true;
+		g_dl_wait_end = now + DL_TEST_WAIT_MS;
+	}
 	if (!strncmp(tok, "fake=", 5)) fake_start(v, atoi(tok + 5));
 	if (!strncmp(tok, "list=", 5)) test_list(v, tok + 5);
 	if (!strncmp(tok, "shot=", 5)) {
@@ -3103,6 +3141,7 @@ static void dl_page(app *a, const char *only)
 
 		plat_input_poll(&a->in);
 		dl_test(v, a);
+		v->test_pass++;
 		mp4_poll();
 		aout_apply(false);
 		if (a->in.quit_requested) { a->running = false; break; }
@@ -3245,19 +3284,30 @@ void downloads_test(app *a)
 		g_dl_test += n + (g_dl_test[n] == ',');
 		if (!strcmp(tok, "open")) {
 			fprintf(stderr, "downloads-test: open live=%d\n", dl_live());
+			g_dl_until = 0;
 			dl_page(a, NULL);
 			continue;
 		}
-		if (!strncmp(tok, "away=", 5) || !strncmp(tok, "game=", 5)) {
-			unsigned t0 = plat_now_ms(), ms = (unsigned)atoi(tok + 5);
-			bool game = tok[0] == 'g';
+		if (!strncmp(tok, "away=", 5)) {
+			unsigned t0 = plat_now_ms();
+			int until = g_fake.i + atoi(tok + 5);
 
-			if (game) dlq_game(true);
+			g_fake.held = false;
+			g_fake.hold_at = 0;
+			while (dl_live() && g_fake.i < until && plat_now_ms() - t0 < DL_TEST_WAIT_MS) {
+				dlq_tick();
+				SDL_Delay(4);
+			}
+		}
+		if (!strncmp(tok, "game=", 5)) {
+			unsigned t0 = plat_now_ms(), ms = (unsigned)atoi(tok + 5);
+
+			dlq_game(true);
 			while (plat_now_ms() - t0 < ms) {
 				dlq_tick();
 				SDL_Delay(4);
 			}
-			if (game) dlq_game(false);
+			dlq_game(false);
 		}
 		if (!strcmp(tok, "video-gone")) downloads_video_gone();
 		fprintf(stderr, "downloads-test: %s (behind the page) live=%d arrived=%d kept=%d\n", tok, dl_live(), g_fake.i,
