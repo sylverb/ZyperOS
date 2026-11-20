@@ -13,6 +13,7 @@
 #include "collect_screen.h"
 #include "ctltab.h"
 #include "ctltab_screen.h"
+#include "hotkeys_screen.h"
 #include "db.h"
 #include "devmode_screen.h"
 #include "diskpopup.h"
@@ -130,11 +131,12 @@ nq_kind shot_notice_kind = NQ_SET;
  * "Getting hot" is over a game (DESIGN.md 11.23) */
 int shot_notice_mark;
 /* --popup saved|loaded|save_failed|load_failed|slot_empty|no_states|dslang|corestate|stick_on|stick_off|
- * disk_side|disk_in|disk_out|disk_first|speed N:
+ * shot|shader|display|disk_side|disk_in|disk_out|disk_first|speed N:
  * the pop-up of the SELECT hotkeys, as on_quick and on_speed put it over a
  * game (notice_render, no badge, no Zyper); N is the step for speed, in
  * halves (3 is 1.5x) */
 const char *shot_popup;
+static const char *shot_popup_pic;   /* --popup shot: the picture in it */
 int shot_popup_half = 2;
 /* --lowbatt MS [charging|off]: the low-battery start screen MS ms in
  * (DESIGN.md 11.24); with charging, a charger plugged in at 2.4 s; with off,
@@ -273,6 +275,9 @@ static void gm_said_preview(app *a, int k)
 }
 
 int shot_controls = -1;
+int shot_hotkeys = -1, shot_hk_scope = -1, shot_hk_capture, shot_hk_key = -1;
+bool shot_hk_game;
+int shot_hk_ask;
 /* --sgdb [0|1|2]: MENU > SteamGridDB with no key, a key that works, or one
  * they refused - a stand-in key, masked as a real one is */
 int shot_sgdb = -1;
@@ -1665,6 +1670,18 @@ static void shot_compose_once(app *a)
 		menu_draw_caption(a, head, rows, n, -1, menu_std_width(a), MENU_ZYPEROS, NULL, false,
 		                  0, count);
 	}
+	if (shot_hotkeys >= 0) {
+		const system_cfg *hs = NULL;
+		const char *hf = NULL;
+		sysview *sv = &a->view[a->sys_cursor];
+
+		ctl_set_chords(&plat_profile()->chords);
+		if (shot_hk_game && sv->list.count > 0) {
+			hs = &a->sys.systems[shelf_owner(a, a->sys_cursor, sv->cursor)];
+			hf = sv->list.items[sv->cursor].file;
+		}
+		hotkeys_shot(a, hs, hf, shot_hotkeys, shot_hk_capture, shot_hk_key, shot_hk_ask, shot_hk_scope);
+	}
 	if (shot_sgdb >= 0) {
 		static const char *const st[] = { NULL, "works", "refused" };
 		menu_row rows[SG_ROWS];
@@ -2102,8 +2119,20 @@ static void shot_compose_once(app *a)
 			               : !strcmp(shot_popup, "disk_out") ? "out" : "eject-first";
 
 			disk_popup_words(st, 1, 'B', &shot_notice_head, pbody, sizeof pbody);
+		} else if (!strcmp(shot_popup, "shot")) {
+			/* The screenshot hotkey's (on_hotkey): the picture small
+			 * beside its words, a made-up game's frame */
+			shot_notice_head = T(S_HOTKEYS_SHOT_SAVED);
+			snprintf(pbody, sizeof pbody, "%s", "Screenshots/Nintendo 64");
+			shot_popup_pic = "tools/fixtures/screenshot.png";
+		} else if (!strcmp(shot_popup, "shader") || !strcmp(shot_popup, "display")) {
+			/* Next Shader's and Next Display's hotkeys (on_hotkey) */
+			const bool sh = shot_popup[1] == 'h';
+
+			shot_notice_head = T(sh ? S_HOTKEYS_POPUP_SHADER : S_HOTKEYS_POPUP_DISPLAY);
+			snprintf(pbody, sizeof pbody, "%s", sh ? T(SHADERS[2].text) : T(DMODES[1].text));
 		} else if (!strcmp(shot_popup, "stick_on") || !strcmp(shot_popup, "stick_off")) {
-			/* R2 in a PSP game (on_stick) */
+			/* A Stick On/Off button in a game (on_stick) */
 			shot_notice_head = T(S_POPUP_STICK);
 			snprintf(pbody, sizeof pbody, "%s",
 			         T(!strcmp(shot_popup, "stick_on") ? S_POPUP_STICK_ON : S_POPUP_STICK_OFF));
@@ -2119,7 +2148,9 @@ static void shot_compose_once(app *a)
 		FILE *nf;
 
 		snprintf(dt, sizeof dt, "%s.dtov", shot_path);
-		if ((shot_popup ? notice_render(shot_notice_head, shot_notice, dt, theme_index())
+		if ((shot_popup_pic ? notice_render_ex(shot_notice_head, shot_notice, shot_popup_pic, NOTICE_PICTURE,
+		                                        0, 0, dt, theme_index())
+		     : shot_popup ? notice_render(shot_notice_head, shot_notice, dt, theme_index())
 		     : shot_notice_mark
 		     ? notice_render_mark(shot_notice_head, shot_notice, (notice_mark)shot_notice_mark,
 		                          dt, theme_index())

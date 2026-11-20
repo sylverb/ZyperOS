@@ -10,7 +10,8 @@
 #include <stdio.h>
 #include <string.h>
 
-/* ---- the two faces, in millimetres from the middle of the body, up positive */
+/* ---- the face: the handheld's model drawn flat (td_model.h), in
+ * millimetres from the middle of the body, up positive ------------------- */
 
 enum { K_ROUND, K_PILL, K_SIDE, K_SHOULDER, K_DPAD };
 /* Where a key's name goes beside it */
@@ -25,117 +26,121 @@ typedef struct {
 	const char *under;        /* printed on the body under it, or NULL */
 } fkey;
 
-typedef struct { const char *text; float x, y; bool turned; } flabel;
-
 typedef struct {
-	const char *id;
 	float body_w, body_h, corner;
 	float margin_x, margin_top, margin_bottom;
 	SDL_FRect glass;          /* centre x, centre y, w, h */
 	float glass_r;
 	SDL_FRect screen;
 	float screen_mm;          /* its lit width */
-	float word_y;             /* "ZyperOS" under the picture; NAN none */
+	const char *word;         /* under the picture, or NULL */
+	float word_y;
 	SDL_FRect recess;         /* SELECT and START's well; w 0 none */
 	float recess_r;
 	float dpad_x, dpad_y, dpad_span, dpad_arm;   /* half the cross, half an arm */
-	float led_x, led_w, led_h, led_y[4];         /* the side lights; led_w 0 none */
+	float led_x, led_w, led_h;                   /* the side lights */
 	Uint32 body_hi, body, body_lo, recess_c, cap, cap_down, marking, glass_c, led_off;
-	const fkey *keys;
+	const td_flat_light *leds;
+	int n_leds;
+	fkey keys[TD_KEYS + 4];
 	int n_keys;
-	const flabel *labels;
+	const td_flat_label *labels;
 	int n_labels;
 } face_def;
 
-static const fkey pixel2_keys[] = {
-	{ IN_UP,     K_DPAD, 0, 0, 0, 0, "", H_ABOVE, NULL },
-	{ IN_DOWN,   K_DPAD, 0, 0, 0, 0, "", H_BELOW, NULL },
-	{ IN_LEFT,   K_DPAD, 0, 0, 0, 0, "", H_LEFT,  NULL },
-	{ IN_RIGHT,  K_DPAD, 0, 0, 0, 0, "", H_RIGHT, NULL },
-	{ IN_X,      K_ROUND,  16.9f, -14.8f, 6.1f, 6.1f, "X", H_ABOVE, NULL },
-	{ IN_Y,      K_ROUND,  10.2f, -21.5f, 6.1f, 6.1f, "Y", H_LEFT,  NULL },
-	{ IN_ACCEPT, K_ROUND,  23.6f, -21.5f, 6.1f, 6.1f, "A", H_RIGHT, NULL },
-	{ IN_BACK,   K_ROUND,  16.9f, -28.2f, 6.1f, 6.1f, "B", H_BELOW, NULL },
-	{ IN_SELECT, K_ROUND,  -3.8f, -29.6f, 5.7f, 5.7f, "SE", H_BELOW, NULL },
-	{ IN_START,  K_ROUND,   4.0f, -29.6f, 5.7f, 5.7f, "ST", H_BELOW, NULL },
-	{ IN_L1,     K_SHOULDER, -23.9f, 40.9f, 15.1f, 3.6f, "L1", H_ON, NULL },
-	{ IN_L2,     K_SHOULDER, -12.6f, 40.9f,  7.4f, 3.6f, "L2", H_ON, NULL },
-	{ IN_R2,     K_SHOULDER,  12.6f, 40.9f,  7.4f, 3.6f, "R2", H_ON, NULL },
-	{ IN_R1,     K_SHOULDER,  23.9f, 40.9f, 15.1f, 3.6f, "R1", H_ON, NULL },
-	{ IN_VOLUP,  K_SIDE, -31.8f, 15.75f, 3.0f, 8.0f, "+", H_RIGHT, NULL },
-	{ IN_VOLDN,  K_SIDE, -31.8f,  7.65f, 3.0f, 8.0f, "-", H_RIGHT, NULL },
-	{ IN_MENU,   K_SIDE,  31.8f, 17.1f,  3.0f, 5.3f, "", H_LEFT, NULL },
-	{ IN_POWER,  K_SIDE,  31.8f,  6.65f, 3.0f, 7.2f, "", H_LEFT, NULL },
-};
-static const flabel pixel2_labels[] = {
-	{ "VOL", -34.6f, 11.7f, true }, { "MENU", 34.6f, 17.1f, true }, { "POWER", 34.6f, 6.65f, true },
-};
-
-static const fkey brick_keys[] = {
-	{ IN_UP,     K_DPAD, 0, 0, 0, 0, "", H_ABOVE, NULL },
-	{ IN_DOWN,   K_DPAD, 0, 0, 0, 0, "", H_BELOW, NULL },
-	{ IN_LEFT,   K_DPAD, 0, 0, 0, 0, "", H_LEFT,  NULL },
-	{ IN_RIGHT,  K_DPAD, 0, 0, 0, 0, "", H_RIGHT, NULL },
-	{ IN_X,      K_ROUND, 19.7f,  -9.55f, 7.7f, 7.7f, "X", H_ABOVE, NULL },
-	{ IN_Y,      K_ROUND, 12.1f, -17.15f, 7.7f, 7.7f, "Y", H_LEFT,  NULL },
-	{ IN_ACCEPT, K_ROUND, 27.3f, -17.15f, 7.7f, 7.7f, "A", H_RIGHT, NULL },
-	{ IN_BACK,   K_ROUND, 19.7f, -24.75f, 7.7f, 7.7f, "B", H_BELOW, NULL },
-	{ IN_BRIGHTDN, K_PILL, -5.7f, -8.65f, 7.1f, 2.6f, "", H_ABOVE, "F1" },
-	{ IN_BRIGHTUP, K_PILL,  5.0f, -8.65f, 7.1f, 2.6f, "", H_ABOVE, "F2" },
-	{ IN_MENU,   K_ROUND, -10.5f, -46.45f, 5.4f, 5.4f, "MENU", H_ABOVE, NULL },
-	{ IN_SELECT, K_ROUND,  -0.5f, -46.45f, 5.4f, 5.4f, "\xE2\x96\xA0", H_ABOVE, "SELECT" },
-	{ IN_START,  K_ROUND,   9.6f, -46.45f, 5.4f, 5.4f, "\xE2\x96\xB6", H_ABOVE, "START" },
-	{ IN_L1,     K_SHOULDER, -27.85f, 55.6f, 17.5f, 3.6f, "L1", H_ON, NULL },
-	{ IN_L2,     K_SHOULDER, -12.3f,  55.6f, 11.0f, 3.6f, "L2", H_ON, NULL },
-	{ IN_R2,     K_SHOULDER,  12.3f,  55.6f, 11.0f, 3.6f, "R2", H_ON, NULL },
-	{ IN_R1,     K_SHOULDER,  27.85f, 55.6f, 17.5f, 3.6f, "R1", H_ON, NULL },
-	{ IN_VOLUP,  K_SIDE, -37.4f, 44.65f, 3.0f, 7.7f, "+", H_RIGHT, NULL },
-	{ IN_VOLDN,  K_SIDE, -37.4f, 33.55f, 3.0f, 7.7f, "-", H_RIGHT, NULL },
-	{ IN_POWER,  K_SIDE,  37.4f, 15.65f, 3.0f, 7.1f, "", H_LEFT, NULL },
-};
-static const flabel brick_labels[] = {
-	{ "VOL", -40.2f, 39.1f, true }, { "POWER", 40.2f, 15.65f, true },
-};
-
-static const face_def faces[] = {
-	{
-		.id = "pixel2", .body_w = 63.0f, .body_h = 81.0f, .corner = 3.9f,
-		.margin_x = 6.0f, .margin_top = 4.0f, .margin_bottom = 2.5f,
-		.glass = { 0, 14.2f, 55.1f, 43.8f }, .glass_r = 1.2f,
-		.screen = { 0, 15.55f, 48.8f, 36.6f }, .screen_mm = 48.8f,
-		.word_y = -5.5f,
-		.recess = { 0.1f, -29.6f, 16.4f, 7.6f }, .recess_r = 3.8f,
-		.dpad_x = -16.9f, .dpad_y = -21.0f, .dpad_span = 9.0f, .dpad_arm = 3.2f,
-		.led_x = 32.0f, .led_w = 1.3f, .led_h = 3.4f, .led_y = { 1.4f, -4.03f, -9.67f, -15.3f },
-		.body_hi = 0xB4CC6C, .body = 0x9CB849, .body_lo = 0x83A03A, .recess_c = 0x708B32,
-		.cap = 0x3A3C3F, .cap_down = 0x1E2021, .marking = 0xA4A7AA, .glass_c = 0x0B0E0E,
-		.led_off = 0x56723A,
-		.keys = pixel2_keys, .n_keys = (int)(sizeof pixel2_keys / sizeof pixel2_keys[0]),
-		.labels = pixel2_labels, .n_labels = (int)(sizeof pixel2_labels / sizeof pixel2_labels[0]),
-	},
-	{
-		.id = "brick", .body_w = 73.2f, .body_h = 109.9f, .corner = 5.5f,
-		.margin_x = 6.0f, .margin_top = 4.0f, .margin_bottom = 2.5f,
-		.glass = { 0, 25.4f, 69.6f, 55.6f }, .glass_r = 1.6f,
-		.screen = { 0, 26.4f, 65.0f, 48.8f }, .screen_mm = 65.0f,
-		.word_y = -0.3f,
-		.recess = { 0, 0, 0, 0 },
-		.dpad_x = -20.7f, .dpad_y = -17.35f, .dpad_span = 9.65f, .dpad_arm = 3.5f,
-		.body_hi = 0x4B4F56, .body = 0x3B3E44, .body_lo = 0x2C2E33, .recess_c = 0x26282C,
-		.cap = 0x232427, .cap_down = 0x121315, .marking = 0xA2A6AC, .glass_c = 0x07080A,
-		.keys = brick_keys, .n_keys = (int)(sizeof brick_keys / sizeof brick_keys[0]),
-		.labels = brick_labels, .n_labels = (int)(sizeof brick_labels / sizeof brick_labels[0]),
-	},
-};
-
+static face_def        g_def;
 static const face_def *F;
 
-bool face_init(const char *device_id)
+/* The launcher's button each key of a handheld is (the d-pad's four ways
+ * are its own) */
+static in_button key_button(td_key k)
 {
+	switch (k) {
+	case TD_A:      return IN_ACCEPT;
+	case TD_B:      return IN_BACK;
+	case TD_X:      return IN_X;
+	case TD_Y:      return IN_Y;
+	case TD_SELECT: return IN_SELECT;
+	case TD_START:  return IN_START;
+	case TD_MENU:   return IN_MENU;
+	case TD_VOLUP:  return IN_VOLUP;
+	case TD_VOLDN:  return IN_VOLDN;
+	case TD_POWER:  return IN_POWER;
+	case TD_L1:     return IN_L1;
+	case TD_R1:     return IN_R1;
+	case TD_L2:     return IN_L2;
+	case TD_R2:     return IN_R2;
+	case TD_F1:     return IN_BRIGHTDN;
+	case TD_F2:     return IN_BRIGHTUP;
+	default:        return IN_NONE;
+	}
+}
+
+static SDL_FRect frect(td_rect r) { return (SDL_FRect){ r.x, r.y, r.w, r.h }; }
+
+bool face_init(const td_model *m)
+{
+	static const int KIND[] = { [TD_FLAT_ROUND] = K_ROUND, [TD_FLAT_PILL] = K_PILL, [TD_FLAT_DPAD] = K_DPAD,
+	                            [TD_FLAT_SIDE] = K_SIDE, [TD_FLAT_SHOULDER] = K_SHOULDER };
+	static const int HINT[] = { [TD_HINT_BELOW] = H_BELOW, [TD_HINT_RIGHT] = H_RIGHT, [TD_HINT_LEFT] = H_LEFT,
+	                            [TD_HINT_ABOVE] = H_ABOVE, [TD_HINT_ON] = H_ON };
+	td_flat_part parts[TD_KEYS];
+	const td_flat *f = m ? m->flat : NULL;
+	face_def *d = &g_def;
+	int n, i;
+
 	F = NULL;
-	for (size_t i = 0; i < sizeof faces / sizeof faces[0]; i++)
-		if (device_id && !strcmp(device_id, faces[i].id)) F = &faces[i];
-	return F != NULL;
+	if (!f || (n = td_flat_parts(m, parts, TD_KEYS)) == 0) return false;
+	memset(d, 0, sizeof *d);
+	d->body_w = m->body_w;
+	d->body_h = m->body_h;
+	d->corner = f->corner;
+	d->margin_x = f->margin_x;
+	d->margin_top = f->margin_top;
+	d->margin_bottom = f->margin_bottom;
+	d->glass = frect(f->glass);
+	d->glass_r = f->glass_r;
+	d->screen = frect(f->screen);
+	d->screen_mm = f->screen.w;
+	d->word = f->word;
+	d->word_y = f->word_y;
+	d->recess = frect(f->recess);
+	d->recess_r = f->recess_r;
+	d->dpad_arm = f->dpad_arm;
+	d->led_x = f->light_x;
+	d->led_w = f->light_w;
+	d->led_h = f->light_h;
+	d->leds = f->lights;
+	d->n_leds = f->n_lights;
+	d->body_hi = f->body_hi;
+	d->body = f->body;
+	d->body_lo = f->body_lo;
+	d->recess_c = f->recess_c;
+	d->cap = f->cap;
+	d->cap_down = f->cap_down;
+	d->marking = f->marking;
+	d->glass_c = f->glass_c;
+	d->led_off = f->light_off;
+	d->labels = f->labels;
+	d->n_labels = f->n_labels;
+	for (i = 0; i < n; i++) {
+		const td_flat_part *p = &parts[i];
+		if (p->kind == TD_FLAT_DPAD) {
+			static const in_button ways[4] = { IN_UP, IN_DOWN, IN_LEFT, IN_RIGHT };
+			static const int hints[4] = { H_ABOVE, H_BELOW, H_LEFT, H_RIGHT };
+			d->dpad_x = p->x;
+			d->dpad_y = p->y;
+			d->dpad_span = p->w / 2;
+			for (int w = 0; w < 4; w++)
+				d->keys[d->n_keys++] = (fkey){ ways[w], K_DPAD, 0, 0, 0, 0, "", hints[w], NULL };
+			continue;
+		}
+		if (key_button(p->key) == IN_NONE) continue;
+		d->keys[d->n_keys++] = (fkey){ key_button(p->key), KIND[p->kind], p->x, p->y, p->w, p->h,
+		                               p->look->label ? p->look->label : "", HINT[p->look->hint], p->look->under };
+	}
+	F = d;
+	return true;
 }
 
 float face_screen_mm(void) { return F ? F->screen_mm : 1; }
@@ -582,8 +587,8 @@ void face_draw(SDL_Renderer *r, float s, float ratio, Uint32 held)
 	band_px(glass, rad, 0, 0.35f * s * RT, (SDL_Color){ 0, 0, 0, 70 }, (SDL_Color){ 0, 0, 0, 0 }, 1, 1);
 	fill_px(glass, rad, shade(F->glass_c, 14, 255), rgb(F->glass_c, 255), glass.y, glass.y + glass.h);
 	band_px(glass, rad, -0.5f, -0.25f * s * RT, (SDL_Color){ 255, 255, 255, 34 }, (SDL_Color){ 255, 255, 255, 0 }, 1, 0);
-	if (!isnan(F->word_y))
-		text_px(r, "ZyperOS", 1.9f * s * RT, (SDL_Color){ 255, 255, 255, 205 }, glass.x + glass.w / 2,
+	if (F->word)
+		text_px(r, F->word, 1.9f * s * RT, (SDL_Color){ 255, 255, 255, 205 }, glass.x + glass.w / 2,
 		        py_mm(F->word_y, s) * RT, true, 0);
 
 	/* SELECT and START's well */
@@ -600,15 +605,15 @@ void face_draw(SDL_Renderer *r, float s, float ratio, Uint32 held)
 		if (F->keys[i].kind == K_ROUND || F->keys[i].kind == K_PILL) key_px(&F->keys[i], s, held);
 
 	/* The side lights, unlit: the host has no gauge to light them */
-	for (int i = 0; F->led_w > 0 && i < 4; i++) {
-		SDL_FRect l = to_px(box_mm(F->led_x, F->led_y[i], F->led_w, F->led_h, s));
+	for (int i = 0; i < F->n_leds; i++) {
+		SDL_FRect l = to_px(box_mm(F->led_x, F->leds[i].y, F->led_w, F->led_h, s));
 		radii(l.w / 2, rad);
 		fill_px(l, rad, shade(F->led_off, -14, 255), shade(F->led_off, 10, 255), l.y, l.y + l.h);
 		band_px(l, rad, 0, 0.12f * s * RT, (SDL_Color){ 0, 0, 0, 90 }, (SDL_Color){ 0, 0, 0, 0 }, 1, 1);
 	}
 	/* The side keys' names, turned along the edges */
 	for (int i = 0; i < F->n_labels; i++) {
-		const flabel *l = &F->labels[i];
+		const td_flat_label *l = &F->labels[i];
 		text_px(r, l->text, 1.3f * s * RT, (SDL_Color){ 120, 122, 128, 255 }, px_mm(l->x, s) * RT,
 		        py_mm(l->y, s) * RT, true, l->turned ? -90 : 0);
 	}

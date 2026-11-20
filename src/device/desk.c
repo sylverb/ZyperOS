@@ -295,6 +295,31 @@ static bool g_dirty;    /* desk mode's own picture changed: help, lights, zoom *
  * launcher's present, or from desk mode itself when only its own parts
  * changed while the launcher rests (the screen texture holds the last whole
  * frame then) */
+/* A shot of the whole window asked for over the socket (`shot FILE window`):
+ * taken as the next frame is drawn, then answered */
+static char g_wshot[512];
+static int  g_wshot_fd = -1;
+static void reply(int fd, const char *fmt, ...);
+
+static void window_shot(SDL_Renderer *r)
+{
+	int w = 0, h = 0;
+	SDL_Surface *s;
+	bool ok = false;
+
+	SDL_GetRendererOutputSize(r, &w, &h);
+	if ((s = SDL_CreateRGBSurfaceWithFormat(0, w, h, 32, SDL_PIXELFORMAT_RGBA32))) {
+		if (SDL_RenderReadPixels(r, NULL, SDL_PIXELFORMAT_RGBA32, s->pixels, s->pitch) == 0) {
+			for (int i = 0; i < w * h; i++) ((Uint8 *)s->pixels)[i * 4 + 3] = 255;
+			ok = IMG_SavePNG(s, g_wshot) == 0;
+		}
+		SDL_FreeSurface(s);
+	}
+	reply(g_wshot_fd, "{\"ok\":%s,\"file\":\"%s\",\"w\":%d,\"h\":%d}", ok ? "true" : "false", g_wshot, w, h);
+	g_wshot[0] = 0;
+	g_wshot_fd = -1;
+}
+
 static void compose(SDL_Renderer *r, bool launcher)
 {
 	Uint8 cr, cg, cb, ca;
@@ -348,6 +373,7 @@ static void compose(SDL_Renderer *r, bool launcher)
 	/* A game's frames come at the core's own rate, Diatom's pacing: each
 	 * goes up as it comes */
 	if (!g_game) pace();
+	if (g_wshot[0] && g_wshot_fd >= 0) window_shot(r);
 	SDL_RenderPresent(r);
 	g_dirty = false;
 	g_last_present = SDL_GetPerformanceCounter();
@@ -400,7 +426,7 @@ bool desk_video_init(SDL_Window **win, SDL_Renderer **ren)
 	if ((e = getenv("ZYPEROS_DESK_ZOOM")) && atof(e) >= 0.25 && atof(e) <= 6) want = (float)atof(e);
 	if ((e = getenv("ZYPEROS_DESK_FRAME"))) g_face = atoi(e) != 0;
 	if ((e = getenv("ZYPEROS_DESK_HZ"))) g_hz = atof(e);
-	g_has_face = face_init(p->id);
+	g_has_face = face_init(p->model_borrowed ? NULL : p->model);
 	snprintf(title, sizeof title, "ZyperOS - %s", p->name);
 
 	/* A controller's buttons by their place, never their printed letters:
@@ -973,6 +999,12 @@ static void ctl_event(const SDL_Event *e, in_state *st)
 			else
 				reply(fd, "{\"ok\":true}");
 		}
+	} else if (!strcmp(verb, "shot") && *a1 && !strcmp(a2, "window") && g_wshot_fd < 0) {
+		/* The whole window, the drawn handheld round the panel: at the next
+		 * frame drawn */
+		snprintf(g_wshot, sizeof g_wshot, "%s", a1);
+		g_wshot_fd = fd;
+		g_dirty = true;
 	} else if (!strcmp(verb, "shot") && *a1) {
 		bool ok = save_panel(a1);
 		reply(fd, "{\"ok\":%s,\"file\":\"%s\"}", ok ? "true" : "false", a1);
@@ -1011,7 +1043,7 @@ static void ctl_event(const SDL_Event *e, in_state *st)
 		reply(fd, "{\"ok\":true}");
 	} else {
 		reply(fd, "{\"ok\":false,\"error\":\"state | press|release|tap BUTTON[+BUTTON] [MS] | latency BUTTON | "
-		          "shot FILE.png | wait-frames N | stats | zoom N | frame 0|1 | hints [0|1] | help [0|1] | quit\"}");
+		          "shot FILE.png [window] | wait-frames N | stats | zoom N | frame 0|1 | hints [0|1] | help [0|1] | quit\"}");
 	}
 	free(line);
 }

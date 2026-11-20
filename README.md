@@ -21,7 +21,7 @@
 </p>
 
 <p align="center">
-  <a href="https://zyperos.com"><b>zyperos.com</b></a> &nbsp;·&nbsp; <a href="#why-zyperos">Why ZyperOS</a> &nbsp;·&nbsp; <a href="#features">Features</a> &nbsp;·&nbsp; <a href="#how-it-compares">Compare</a> &nbsp;·&nbsp;
+  <a href="https://zyperos.com"><b>zyperos.com</b></a> &nbsp;·&nbsp; <a href="#why-zyperos">Why ZyperOS</a> &nbsp;·&nbsp; <a href="#features">Features</a> &nbsp;·&nbsp;
   <a href="#supported-systems">Systems</a> &nbsp;·&nbsp; <a href="docs/guide.md">Guide</a> &nbsp;·&nbsp; <a href="https://discord.gg/Ust8sE22Tm">Discord</a>
 </p>
 
@@ -108,6 +108,7 @@ Each line has its details in [the guide](docs/guide.md).
 - **Player 2 on a friend's phone,** in NES games on the Pixel 2, with no app and no account ([how](docs/guide.md#player-2)).
 - **Autosave and resume,** six save slots, quick save and quick load on **SELECT + R1** and **L1**, **Undo Load**, and a **Disc** row for games on more than one disc ([in a game](docs/guide.md#in-a-game)).
 - **Faster and slower** (1.5x, 2x and 3x), **turbo** buttons and **On-Screen Stats** over the game ([in a game](docs/guide.md#in-a-game)).
+- **Hotkeys you choose,** SELECT and a button, for a screenshot, the next shader or display, reset and quit, for every game, a system or one game ([hotkeys](docs/guide.md#controls-and-menus)).
 - **Change what a button does,** for one game or a whole system, a button that turns the d-pad into the stick (each press, or while held) among the choices, with the handheld drawn beside the rows, and every control listed in the game with the handheld's own buttons ([controls](docs/guide.md#controls-and-menus)).
 - **Rumble** on the Pixel 2 for Dreamcast, PlayStation, Game Boy Color and Nintendo 64 games, Off, Low, Medium or Full for every game or one ([rumble](docs/guide.md#rumble)).
 - **Sound your way:** a USB-C headphone adapter on the Pixel 2, Bluetooth headphones on the Brick (untried so far), and mono audio for anyone who hears with one ear ([audio](docs/guide.md#audio)).
@@ -130,31 +131,6 @@ Each line has its details in [the guide](docs/guide.md).
 
 Each system's games go in its folder under `Roms/`, and EmulationStation's folder names (`nds`, `gba`, `psx`, `megadrive` and the rest) work as they are. BIOS files go loose in `Bios/`; a Famicom Disk System game (`.fds`) needs `disksys.rom` there. A picture of your own in `Borders/<system>/` fills the space around a handheld game (NextUI's `Overlays/` work too). [The guide](docs/guide.md#supported-systems) has every folder, file type and core, and [each BIOS file](docs/guide.md#bios-files).
 
-## How it compares
-
-The GKD Pixel 2 has several operating systems to choose from. This is ZyperOS beside the one it comes with and four others, from what each one's own pages, code and releases say in November 2026. ROGUE OS set the bar for this handheld, and ZyperOS set out to match it.
-
-| | ZyperOS | Stock<sup>1</sup> | ROGUE OS | TortOS | ROCKNIX | plumOS Pixel2 |
-|---|---|---|---|---|---|---|
-| **Systems** | 45, and Ports | Over 100 folders | 117<sup>2</sup> | 11 | 120<sup>2</sup> | 86<sup>2</sup> |
-| **Games without taking the card out** | Wi-Fi or USB web page at zyperos.local, its own hotspot, SSH | Samba | USB cable, SSH | Wi-Fi or USB web page | Samba, SFTP, USB cable | Samba, SFTP, FTP |
-| **Box art on the device** | libretro, ScreenScraper<sup>3</sup>, SteamGridDB | On a computer (Skraper) | ScreenScraper | libretro, ScreenScraper | ScreenScraper | libretro |
-| **RetroAchievements** | Yes | — | — | Yes | Yes | — |
-| **System updates** | Over Wi-Fi or the USB cable, A/B with roll back | — | Copy the new files | TortOS Installer, on a computer | Over the air, or a file | A file you copy, A/B with roll back |
-| **Languages** | 8: English, 简体中文, Español, Português (Brasil), Français, Deutsch, 日本語, Italiano | — | 21, in its launcher | English | 36 | 6 |
-| **PortMaster** | Yes, installed from the Ports shelf with one press, with the in-game menu over every port | Yes | Yes | — | Yes | Yes |
-| **Boot time** | 1.6 s<sup>4</sup>, about 2 s from power on<sup>5</sup> | 30 to 40 s from power on<sup>5</sup> | — | 2.2 s<sup>4</sup> | — | — |
-
-— means none of [the sources](docs/guide.md#how-it-compares) says either way. The Pixel 2 has no Wi-Fi of its own, so on every system a Wi-Fi feature needs a USB Wi-Fi adapter. Knulli, muOS, twigUI (spruceOS) and a MinUI port run on the Pixel 2 too.
-
-1. GameKiddy publishes no documentation for the stock firmware. Its column is from Retro Game Corps' review of February 2025, and the firmware may have changed since.
-2. No count is published, so this is the systems in its own list, counted without tools, media players and ports. Hacks and regions can be entries of their own.
-3. In builds made with ScreenScraper's developer key.
-4. Each project's own number, and not measured the same way: ZyperOS's from the kernel's start to the home screen, on the Pixel 2 (mean of 10 starts), and TortOS's from power on to its shelf.
-5. My own count on my Pixel 2, from power on until it can be used, with the stock card it came with and with ZyperOS: the stock firmware takes over 30 seconds, usually close to 40; ZyperOS about 2.
-
-Every row of the comparison, and where each one comes from: [the guide](docs/guide.md#how-it-compares).
-
 ## More
 
 - **[The guide](docs/guide.md):** installing, every system's folder and BIOS, every control, menu and setting, File Transfer, System Update, PortMaster and the questions people ask.
@@ -172,6 +148,20 @@ The name is also two words in one: **zippy** and **hyper**. Games start the mome
 ## For developers
 
 ZyperOS is C and SDL2, in two repositories that build together. [ZyperOS](https://github.com/tarikbc/ZyperOS) (this one) holds the launcher, the card's scripts and the tools, [`diatom/`](diatom/), the libretro frontend that starts once at boot (its own Makefile, under the Mozilla Public License 2.0), and [`installer/`](installer/), ZyperOS Installer (Rust and Tauri). [`plastron/`](plastron/) is the Linux under it, built with Buildroot in Docker, under the GNU GPL version 3. [Building](docs/building.md) covers the toolchain, the card, QEMU, the simulator, releasing, developer mode and the checks.
+
+### Try it without a handheld
+
+The launcher's menus, settings and games run in a window on your computer, drawn as the handheld itself. On a Mac with Xcode's command-line tools and [Homebrew](https://brew.sh) (Linux needs the same libraries from its own packages, as [Building](docs/building.md#work-on-the-ui-without-a-device) lists):
+
+```sh
+brew install sdl2 sdl2_image sdl2_ttf xz
+git clone https://github.com/tarikbc/ZyperOS && cd ZyperOS
+make desk          # the GKD Pixel 2; make desk-brick for the TrimUI Brick
+```
+
+The first run takes a few minutes: it builds the launcher, Diatom and a NES core, and makes a sample card with a game on each system. The keyboard is the buttons (arrows for the d-pad, X and Z for A and B, Return for START, Esc for MENU), the mouse presses the drawn keys, and F1 lists the rest. [Work on the UI without a device](docs/building.md#work-on-the-ui-without-a-device) says what it shows and what only a device can.
+
+For the whole system (the boot, first-boot setup, the battery and charger, System Update), the [ZyperOS Simulator](docs/simulator.md) runs ZyperOS in QEMU on a Mac, in a window drawn the same way. It needs a QEMU image from plastron (`make -C plastron qemu`, a few hours the first time, then minutes), so start with `make desk`.
 
 ## Credits
 
