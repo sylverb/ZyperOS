@@ -1432,7 +1432,8 @@ check-strings:
 	@python3 tools/i18n.py --check
 
 # The launcher's main screens in each language and the pseudo-locale, from the
-# host build, as the Pixel 2 and as the Brick (tools/i18n-shots.py, DEVICES):
+# host build, as the Pixel 2, the Brick and the Smart Pro (tools/i18n-shots.py,
+# DEVICES; the Smart Pro on its 1368-unit canvas):
 # fails where a string from res/strings is cut, broken past its lines or drawn
 # off the screen in any language on either handheld (src/ui.c says so on
 # stderr; the Brick's MENU is a word, wider than the Pixel 2's three dots),
