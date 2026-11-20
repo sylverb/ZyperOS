@@ -29,10 +29,11 @@ favorites and two games played, one of each on the SNES. Then:
 - with Favorites, Recents and Collections off as well, nothing of the SNES
   is anywhere;
 - Screenshots (DESIGN.md 11.68): with the SNES off, a shot of its game is on
-  the Screenshots shelf with the others, the newest first, and A on it in the
-  viewer plays the game on the SNES's core; a shot of a game gone from the
-  card stays, with no game; Delete Screenshot takes its file, the last one
-  the shelf; no shot, or the group turned off, no shelf.
+  the Screenshots shelf with the others and OpenBOR's own, the newest first
+  (OpenBOR's by its file's time); A opens one, and A again in the viewer
+  starts nothing; a shot of a game gone from the card stays, with no game;
+  Delete Screenshot takes its file, OpenBOR's too, the last one the shelf;
+  no shot, or the group turned off, no shelf.
 
 Shots of Favorites and Recents in both themes go to
 build-native/homesys-groups-shots/."""
@@ -61,7 +62,7 @@ PLAYED = [('SFC', 'Super Metroid (USA).sfc'), ('GBA', 'Golden Sun (USA).gba')]
 DIATOM = '#!/bin/sh\nprintf "%s\\n" "$@" -- >> "$(dirname "$0")/diatom-args.txt"\nexit 0\n'
 
 
-def card(name, hidden, coll=None):
+def card(name, hidden, coll=None, games=GAMES):
     base = OUT / name
     if base.exists():
         shutil.rmtree(base)
@@ -70,11 +71,11 @@ def card(name, hidden, coll=None):
     rows = []
     for line in (ROOT / 'config/systems.cfg').read_text().splitlines():
         f = line.split('|')
-        if line.startswith('sys|') and f[4] in GAMES:
+        if line.startswith('sys|') and f[4] in games:
             rows.append(line)
-            folder, games = GAMES[f[4]]
+            folder, files = games[f[4]]
             (base / 'Roms' / folder).mkdir(parents=True, exist_ok=True)
-            for g in games:
+            for g in files:
                 (base / 'Roms' / folder / g).write_bytes(b'\0' * 4096)
     (base / 'root/systems.cfg').write_text('\n'.join(rows) + '\n')
     if coll:
@@ -281,7 +282,10 @@ def shots_on(log):
     return 0
 
 
-base, env = card('shots', 'SFC')
+# and OpenBOR's own, as OpenBOR names them, its time its file's: one of its
+# game, the newest of all, and one taken in its menu
+OPENBOR_SHOTS = [('Streets Demo - 0000.png', 1795300000), ('Menu - 0000.png', 1795000000)]
+base, env = card('shots', 'SFC', games=GAMES | {'OPENBOR': ('OpenBOR', ['Streets Demo.pak'])})
 log = run(env, '--shot', str(OUT / 'shots-none.png'), '--screen', 'systems', '--status', STATUS)
 assert shots_on(log) == 0, 'a Screenshots shelf with no shot on the card:\n' + log[-800:]
 for k, f in enumerate(SHOTS):
@@ -289,21 +293,26 @@ for k, f in enumerate(SHOTS):
     Image.new('RGB', (256 if f.startswith('SNES') else 240, 224 if f.startswith('SNES') else 160),
               (40 * k, 90, 160)).save(base / 'Screenshots' / f)
 (base / 'Screenshots/SNES/ScreenShot - 0000.png').write_bytes(b'not a shot of the hotkey')
+obor = base / 'Saves/openbor/ScreenShots'
+obor.mkdir(parents=True)
+for f, when in OPENBOR_SHOTS:
+    Image.new('RGB', (320, 240), (200, 60, 40)).save(obor / f)
+    os.utime(obor / f, (when, when))
 run(env, '--set', 'startup_system=Screenshots')
-log = run(env, '--shot', str(OUT / 'shots-shelf.png'), '--screen', 'games', '--shelf-press', 'a',
+log = run(env, '--shot', str(OUT / 'shots-shelf.png'), '--screen', 'games', '--shelf-press', 'a,right,a',
           '--status', STATUS)
-assert shots_on(log) == 3, 'the SNES off the home, its shot not on Screenshots:\n' + log[-800:]
-assert 'shelf-press: a -> top [Chrono Trigger (USA).sfc] 1/3' in log, \
-    'Screenshots is not newest first, or A did not open its shot:\n' + log[-800:]
-got, log = start(base, env, 'SHOT', 'Chrono Trigger (USA).sfc')
-assert got and got.get('--rom') == str(base / 'Roms/SNES/Chrono Trigger (USA).sfc') and \
-    got.get('--core', '').endswith(f'/cores/{core}_libretro.so'), \
-    'A on the SNES game\'s shot did not start it on the SNES\'s core:\n' + log[-800:]
-for n in (2, 1, 0):
+assert shots_on(log) == 5, 'the SNES off the home, its shot, or OpenBOR\'s, not on Screenshots:\n' + log[-800:]
+assert 'shelf-press: a -> top [Saves/openbor/ScreenShots/Streets Demo - 0000.png] 1/5' in log and \
+    'shelf-press: right -> top [Screenshots/SNES/Chrono Trigger (USA) 2026-11-20 09.12.40.png] 2/5' in log, \
+    'Screenshots is not newest first, OpenBOR\'s by its file\'s time, or A did not open a shot:\n' + log[-800:]
+args = base / 'root/diatom-args.txt'
+assert not args.exists() or '--rom' not in args.read_text(), 'A in the viewer started a game'
+for n in (4, 3, 2, 1, 0):
     log = run(env, '--shot', str(OUT / f'shots-delete-{n}.png'), '--screen', 'games', '--shots-delete-now',
               '--status', STATUS)
     assert 'shots: deleted' in log, 'Delete Screenshot deleted nothing:\n' + log[-800:]
-    assert len(list((base / 'Screenshots').rglob('* 2026-*.png'))) == n, f'{n} shots should be left'
+    left = list((base / 'Screenshots').rglob('* 2026-*.png')) + list(obor.glob('* - 0*.png'))
+    assert len(left) == n, f'{n} shots should be left, not {len(left)}'
 log = run(env, '--shot', str(OUT / 'shots-gone.png'), '--screen', 'systems', '--status', STATUS)
 assert shots_on(log) == 0 and (base / 'Screenshots/SNES/ScreenShot - 0000.png').exists(), \
     'the last shot deleted, Screenshots is still on the home, or another file went:\n' + log[-800:]
@@ -314,5 +323,5 @@ log = run(env, '--shot', str(OUT / 'shots-off.png'), '--screen', 'systems', '--s
 assert shots_on(log) == 0, 'Screenshots turned off is on the home:\n' + log[-800:]
 
 print('ok: a system off the home keeps its games on Favorites, Recents and Collections, the groups as they were, '
-      'and they start and resume there on its own core; off the home and off the groups, nowhere; its shots on '
-      'Screenshots, played from there, deleted from there')
+      'and they start and resume there on its own core; off the home and off the groups, nowhere; its shots, and '
+      'OpenBOR\'s, on Screenshots, opened and deleted from there')

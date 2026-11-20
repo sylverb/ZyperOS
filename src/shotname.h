@@ -45,6 +45,19 @@ void shot_parts(long when, int *year, int *mon, int *day, int *hour, int *min, i
  * shot_parse read. Into out (n bytes); false when it does not fit. */
 bool shot_file_name(const char *game, long when, char *out, size_t n);
 
+/* OpenBOR's own shots (DESIGN.md 11.68), which OpenBOR takes with SELECT and
+ * names itself, in the folder it is started in (sd/pixel2/OpenBOR.sh:
+ * Saves/openbor on the card): its engine/source/utils.c's screenshot(), at
+ * the pinned b8303cc (mk/build-openbor.sh), writes
+ * ScreenShots/<module> - 0000.png, the module its .pak's name without the
+ * extension ("Menu" for one taken in OpenBOR's own menu), the number the
+ * first free one from 0000 to 9999. No time in the name: the file's own. */
+#define SHOT_OPENBOR_DIR "Saves/openbor/ScreenShots"
+#define SHOT_OPENBOR_TAIL_LEN 11              /* " - 0000.png" */
+/* True when `file` is one: its module into `game` (n bytes), cut there, and
+ * its number into *num (NULL for none) */
+bool shot_parse_openbor(const char *file, char *game, size_t n, int *num);
+
 /* How many whole days `then` is before `now` on the calendar (0 the same
  * day, 1 the day before), both as shot_secs keeps them */
 long shot_days_before(long then, long now);

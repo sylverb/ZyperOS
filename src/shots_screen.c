@@ -26,13 +26,9 @@ bool shots_shelf(app *a, int s)
 	return s >= 0 && s == shelf_shots_at(a);
 }
 
-void shots_png(app *a, int o, const game_entry *g, char *out, size_t n)
+void shots_png(const game_entry *g, char *out, size_t n)
 {
-	char part[LIB_NAME], file[LIB_NAME + SHOT_TAIL_LEN + 1];
-
-	shot_game_part(g->name, part, sizeof part);
-	if (!shot_file_name(part, g->added, file, sizeof file)) file[0] = '\0';
-	snprintf(out, n, "%s/%s/%s/%s", P_CARD, SHOT_DIR, a->sys.systems[o].folder, file);
+	snprintf(out, n, "%s/%s", P_CARD, g->file);
 }
 
 /* ---- the line under a shot's name ---------------------------------------- */
@@ -94,14 +90,9 @@ void shots_hints(app *a, sysview *v, bool video, key_hint *foot, int *nfoot, con
 	(void)a;
 	*a_word = T(S_GAMES_VIEW);
 	if (video) {
+		/* No A: the viewer is for looking (pick 6) */
 		foot[n++] = (key_hint){ "B", T(viewer_by_a(v) ? S_GAMES_BACK : S_GAMES_SYSTEMS) };
-		/* A plays the shot's game where it is on the card, Resume where it
-		 * has a resume point, as on any shelf */
 		*a_word = NULL;
-		if (SHOTS_VIEW_PLAYS && g && g->file[0]) {
-			*a_word = T(g_game_page.valid && g_game_page.resume ? S_GAMES_RESUME : S_GAMES_PLAY);
-			foot[n++] = (key_hint){ "A", *a_word };
-		}
 		if (!viewer_by_a(v)) foot[n++] = (key_hint){ "START", T(S_GAMES_TO_COVERS) };
 	} else {
 		foot[n++] = (key_hint){ "B", T(S_GAMES_SYSTEMS) };
@@ -153,7 +144,7 @@ SDL_Texture *shots_view_tex(app *a, sysview *v, int *w, int *h)
 	/* Asked of the art workers until it is in, as a card is (asking again
 	 * is ignored while it is on its way): the picture alone, scaled up
 	 * whole by the nearest pixel (src/screencard.h) */
-	shots_png(a, shelf_owner(a, a->sys_cursor, i), &v->list.items[i], png, sizeof png);
+	shots_png(&v->list.items[i], png, sizeof png);
 	if (!texload_want_screen(SHOTS_VIEW_SYS, i, png, NULL, NULL))
 		shots_view_put(a, i, screen_card_make(png, NULL, NULL, false), false);   /* no workers: a shot */
 	if (g_view && g_view_idx == i) {
@@ -226,7 +217,7 @@ bool shots_delete_now(app *a, sysview *v)
 {
 	char png[LIB_PATH * 2];
 
-	shots_png(a, shelf_owner(a, a->sys_cursor, v->cursor), &v->list.items[v->cursor], png, sizeof png);
+	shots_png(&v->list.items[v->cursor], png, sizeof png);
 	if (unlink(png) != 0 && errno != ENOENT) {
 		fprintf(stderr, "shots: could not delete %s: %s\n", png, strerror(errno));
 		return false;
@@ -303,13 +294,10 @@ bool shots_keys(app *a, sysview *v)
 		games_reset(&v->row, v->cursor, v->list.count, plat_now_ms());
 		return true;
 	}
-	/* A in the viewer: its game, where it is on the card (the shelf's own
-	 * A, launch); none to play, nothing to do */
-	if (!SHOTS_VIEW_PLAYS || !g->file[0]) {
-		uisound_play(DS_SOUND_DENY);
-		return true;
-	}
-	return false;
+	/* A in the viewer: nothing to do there; the shot's game starts from
+	 * its own shelf (pick 6) */
+	uisound_play(DS_SOUND_DENY);
+	return true;
 }
 
 /* ---- the rest ------------------------------------------------------------ */

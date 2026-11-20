@@ -543,14 +543,11 @@ static void game_page_facts(app *a, bool settled)
 	snprintf(g_game_page.file, sizeof g_game_page.file, "%s", g->file);
 	g_game_page.played[0] = '\0';
 	/* A shot (DESIGN.md 11.68): its line is its system and when it was
-	 * taken (shots_facts); of its game, whether A resumes it, and no more */
+	 * taken (shots_facts), none of its game's; nothing read */
 	if (shots_shelf(a, a->sys_cursor)) {
-		g_game_page.achievements = false;
+		g_game_page.achievements = g_game_page.resume = g_game_page.crashed = false;
 		g_game_page.earned = g_game_page.total = 0;
 		g_game_page.needs[0] = g_game_page.cheats[0] = g_game_page.cheats_on[0] = '\0';
-		g_game_page.crashed = false;
-		state_path(a, owner, g, path, sizeof path);
-		g_game_page.resume = g->file[0] && !is_port(system) && file_nonempty(path) && access(path, R_OK) == 0;
 		g_game_page.valid = true;
 		return;
 	}

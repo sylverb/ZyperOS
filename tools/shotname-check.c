@@ -69,6 +69,29 @@ int main(void)
 		   !strcmp(small, "Super"), "a game's name cut to what holds it, never past it");
 	}
 
+	/* OpenBOR's own, as its screenshot() names them */
+	{
+		int num = -1;
+
+		ck(shot_parse_openbor("Streets of Rage Remake - 0000.png", game, sizeof game, &num) &&
+		   !strcmp(game, "Streets of Rage Remake") && num == 0, "OpenBOR's: the module before \" - 0000.png\"");
+		ck(shot_parse_openbor("Menu - 0042.PNG", game, sizeof game, &num) && !strcmp(game, "Menu") && num == 42,
+		   "one taken in its menu is Menu's, .PNG too, its number read");
+		ck(shot_parse_openbor("Final Fight - LNS - 9999.png", game, sizeof game, &num) &&
+		   !strcmp(game, "Final Fight - LNS") && num == 9999, "a module with \" - \" of its own: the number is the last part");
+		ck(!shot_parse_openbor("Super Metroid 2026-11-18 21.40.05.png", game, sizeof game, NULL),
+		   "the hotkey's names are not OpenBOR's");
+		ck(!shot_parse_openbor(" - 0000.png", game, sizeof game, NULL) &&
+		   !shot_parse_openbor("Game - 000.png", game, sizeof game, NULL) &&
+		   !shot_parse_openbor("Game - 00a0.png", game, sizeof game, NULL) &&
+		   !shot_parse_openbor("Game-0000.png", game, sizeof game, NULL) &&
+		   !shot_parse_openbor("Game - 0000.bmp", game, sizeof game, NULL) &&
+		   !shot_parse_openbor(NULL, game, sizeof game, NULL),
+		   "nor no module, three digits, a letter, no spaces, another picture, or no name");
+		ck(!shot_parse("Streets of Rage Remake - 0000.png", game, sizeof game, NULL),
+		   "and OpenBOR's are not the hotkey's");
+	}
+
 	/* The game's part, as the launcher writes it */
 	shot_game_part("Doom/Doom 2\tbeta\\1", game, sizeof game);
 	ck(!strcmp(game, "Doom-Doom 2-beta-1"), "a name's '/', tab and '\\' each written '-'");

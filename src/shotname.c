@@ -120,6 +120,27 @@ bool shot_file_name(const char *game, long when, char *out, size_t n)
 	return k >= 0 && (size_t)k < n;
 }
 
+bool shot_parse_openbor(const char *file, char *game, size_t n, int *num)
+{
+	size_t len = file ? strlen(file) : 0;
+	const char *t;
+	int k;
+
+	/* the module, " - ", four digits, ".png" */
+	if (len <= SHOT_OPENBOR_TAIL_LEN || strcasecmp(file + len - 4, ".png")) return false;
+	t = file + len - SHOT_OPENBOR_TAIL_LEN;
+	if (t[0] != ' ' || t[1] != '-' || t[2] != ' ' || (k = digits(t + 3, 4)) < 0) return false;
+	if (game && n) {
+		size_t g = (size_t)(t - file);
+
+		if (g >= n) g = n - 1;
+		memcpy(game, file, g);
+		game[g] = '\0';
+	}
+	if (num) *num = k;
+	return true;
+}
+
 long shot_days_before(long then, long now)
 {
 	return now / 86400 - then / 86400;

@@ -893,16 +893,16 @@ the home has a **Screenshots** group after Favorites, Recents and
 Collections. Its shelf holds every shot, the newest first, each with its
 game's cover small in its corner, and under its name the system and when you
 took it. **A** opens a shot on the whole screen: Left and Right step through
-them, L1 and R1 go to the next or the last game's shots, A plays its game
-(Resume where it has a resume point), and B goes back. **X** deletes the shot
-after asking, the cursor on **Cancel**; the game stays. MENU on the shelf has
+them, L1 and R1 go to the next or the last game's shots, and B goes back. The
+game itself starts from its own shelf. **X** deletes the shot after asking,
+the cursor on **Cancel**; the game stays. MENU on the shelf has
 **Sort By** (`Recently Added` to start with, `Name` or `System`) and **View**,
 as on any shelf. MENU > Home Systems can hide the group.
 
 The shots stay on the card in `Screenshots/<system>/`, where File Transfer
-shows them too. A shot of a game you renamed or deleted stays, with no game
-to play. OpenBOR saves its own screenshots in `Saves/openbor/ScreenShots`;
-they are not on the shelf.
+shows them too. A shot of a game you renamed or deleted stays. OpenBOR's own
+screenshots, which it takes with SELECT into `Saves/openbor/ScreenShots`, are
+on the shelf too, under OpenBOR.
 
 Display is per-system, because a Game Boy and a Genesis do not want the
 same answer. Set here it applies from the next launch; the same row in the

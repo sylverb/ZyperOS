@@ -1062,6 +1062,12 @@ for _name, _flags in (("home-screenshots", []),
     EXTRA.setdefault(_name, ("demo", "SHOT", _flags))
     SHOT_TEXT[_name] = _SHOTS
     CTL_FOCUS[_name] = "Super Metroid (USA).sfc"       # the newest shot, first
+# OpenBOR's own (my pick: under OpenBOR, by their file names and times), on
+# the card with an OpenBOR module: one of its game and one of its menu
+_OBOR_PNG = scene_png(320, 240, (200, 90, 40), (60, 50, 70), (240, 220, 80))
+EXTRA.setdefault("shelf-screenshots-openbor", ("openbor", "SHOT", ["--screen", "games"]))
+SHOT_TEXT["shelf-screenshots-openbor"] = {"Saves/openbor/ScreenShots/Beats of Rage - 0000.png": _OBOR_PNG,
+                                          "Saves/openbor/ScreenShots/Menu - 0000.png": _OBOR_PNG}
 # and one shot alone, its count said in the singular
 EXTRA.setdefault("home-screenshots-one", ("demo", "SHOT", []))
 SHOT_TEXT["home-screenshots-one"] = {"Screenshots/SNES/Super Metroid (USA) 2026-11-20 09.12.40.png":

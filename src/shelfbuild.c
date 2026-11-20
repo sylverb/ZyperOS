@@ -815,25 +815,30 @@ void refresh_collections_shelf(app *a)
  *
  * A group like Collections, after it (first when there are none of the
  * three), once the card has a shot: the Screenshot hotkey's pictures,
- * Screenshots/<System>/<Game> 2026-11-18 21.40.05.png, one entry a picture.
- * An entry is its game's own entry, copied as Favorites copies them, owned by
- * its system, so A plays the game from it as from Favorites and the shelf's
- * facts are the game's; its `added` is the shot's time (src/shotname.h's
- * seconds), which is the newest-first order and, with the game's part of
- * its name, the picture's file again (shots_png). A shot whose game is not
- * on the card any more (deleted, renamed: a picture is the player's, and
- * Delete Game leaves it) stays, with no file: it has a picture and no game.
+ * Screenshots/<System>/<Game> 2026-11-18 21.40.05.png, and OpenBOR's own,
+ * Saves/openbor/ScreenShots/<module> - 0000.png, one entry a picture. An
+ * entry is its game's name and title, owned by its system as on Favorites,
+ * so the card has the game's cover and the facts its system; its `file` is
+ * the picture's own path from the card's root, and its `added` the time it
+ * was taken (src/shotname.h's seconds), the newest-first order. A shot whose
+ * game is not on the card any more (deleted, renamed: a picture is the
+ * player's, and Delete Game leaves it) stays, under the name it was taken
+ * with.
  *
  * Read once a scan and again after a game that took a shot
  * (refresh_shots_shelf): a folder read of Screenshots/ and of each system's
- * folder in it, names only, no file opened; the games found by name against
- * the listings in memory, a sort of each folder's names and a look-up a
- * game. The systems turned off the home too (app.parked), as Favorites. */
+ * folder in it, and OpenBOR's, names only (OpenBOR's time is its file's);
+ * the games found by name against the listings in memory, a sort of each
+ * folder's names and a look-up a game. The systems turned off the home too
+ * (app.parked), as Favorites. */
 #define SHOTS_MAX 2000          /* the newest on the shelf; a game_entry each */
-#define SHOTS_READ_MAX 20000    /* names read at most, newest kept */
+#define SHOTS_READ_MAX 8000     /* names read at most, newest kept */
+#define SHOTS_OPENBOR "OPENBOR" /* the OpenBOR shelf's tag (config/systems.cfg) */
 
 typedef struct {
-	char game[LIB_NAME];
+	char file[256];             /* its name in its folder */
+	unsigned short glen;        /* the game's part, the name's first glen bytes */
+	bool openbor;               /* in OpenBOR's folder, not Screenshots/ */
 	long when;
 	int owner, at;              /* its system, and its game in sys_games or -1 */
 } shot_found;
@@ -852,16 +857,75 @@ int shelf_shots_at(const app *a)
 	return group_at(a, HOMESYS_SHOT);
 }
 
+static int shot_game_cmp(const char *a, size_t na, const char *b, size_t nb)
+{
+	int c = memcmp(a, b, na < nb ? na : nb);
+
+	return c ? c : na < nb ? -1 : na > nb;
+}
+
 static int shot_by_game(const void *x, const void *y)
 {
-	return strcmp(((const shot_found *)x)->game, ((const shot_found *)y)->game);
+	const shot_found *a = x, *b = y;
+
+	return shot_game_cmp(a->file, a->glen, b->file, b->glen);
 }
 
 static int shot_by_when(const void *x, const void *y)
 {
 	const shot_found *a = x, *b = y;
 
-	return a->when != b->when ? (a->when > b->when ? -1 : 1) : strcmp(a->game, b->game);
+	return a->when != b->when ? (a->when > b->when ? -1 : 1) : strcmp(a->file, b->file);
+}
+
+/* The shots of one folder (`dir`, `openbor` its kind) of system `si` added
+ * to f[*n..]; false when the read should stop (`any` and one found) */
+static bool shots_read_dir(const char *dir, bool openbor, int si, shot_found **f, int *n, int *cap, bool any)
+{
+	DIR *d = opendir(dir);
+	struct dirent *e;
+
+	if (!d) return true;
+	while ((e = readdir(d)) && *n < SHOTS_READ_MAX) {
+		char game[LIB_NAME], path[CFG_STR * 4 + 256];
+		long when;
+		size_t len = strlen(e->d_name);
+
+		if (e->d_name[0] == '.' || len >= sizeof (*f)->file) continue;
+		if (openbor) {
+			/* No time in OpenBOR's name: its file's, as its wall clock */
+			struct stat st;
+			struct tm tm;
+			time_t t;
+
+			if (!shot_parse_openbor(e->d_name, game, sizeof game, NULL)) continue;
+			snprintf(path, sizeof path, "%s/%s", dir, e->d_name);
+			if (stat(path, &st) != 0) continue;
+			t = st.st_mtime;
+			localtime_r(&t, &tm);
+			when = shot_secs(tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
+			if (when < 0) when = 0;
+		} else if (!shot_parse(e->d_name, game, sizeof game, &when)) {
+			continue;
+		}
+		if (*n == *cap) {
+			shot_found *g = realloc(*f, (size_t)(*cap ? *cap * 2 : 64) * sizeof **f);
+
+			if (!g) break;
+			*f = g;
+			*cap = *cap ? *cap * 2 : 64;
+		}
+		memcpy((*f)[*n].file, e->d_name, len + 1);
+		(*f)[*n].glen = (unsigned short)strlen(game);
+		(*f)[*n].openbor = openbor;
+		(*f)[*n].when = when;
+		(*f)[*n].owner = si;
+		(*f)[*n].at = -1;
+		(*n)++;
+		if (any) break;
+	}
+	closedir(d);
+	return !(any && *n);
 }
 
 /* Every shot on the card of a system with games, into *out (malloc'd, the
@@ -869,16 +933,12 @@ static int shot_by_when(const void *x, const void *y)
  * at the first, for whether there is one. */
 static int shots_read(const app *a, shot_found **out, bool any)
 {
-	char top[CFG_STR * 2], dir[CFG_STR * 4];
+	char dir[CFG_STR * 4];
 	shot_found *f = NULL;
 	int n = 0, cap = 0, si;
-	DIR *d;
-	struct dirent *e;
 
 	*out = NULL;
-	snprintf(top, sizeof top, "%s/%s", P_CARD, SHOT_DIR);
-	if (access(top, F_OK) != 0) return 0;
-	for (si = 0; si < sys_kept(a) && (!any || !n); si++) {
+	for (si = 0; si < sys_kept(a); si++) {
 		const system_cfg *sc = &a->sys.systems[si];
 		const game_list *gl;
 		int from = n, k;
@@ -889,40 +949,27 @@ static int shots_read(const app *a, shot_found **out, bool any)
 		for (k = 0; k < si; k++)
 			if (!a->view[k].owner && !strcmp(a->sys.systems[k].folder, sc->folder)) break;
 		if (k < si) continue;
-		snprintf(dir, sizeof dir, "%s/%s", top, sc->folder);
-		if (!(d = opendir(dir))) continue;
-		while ((e = readdir(d)) && n < SHOTS_READ_MAX) {
-			char game[LIB_NAME];
-			long when;
-
-			if (e->d_name[0] == '.' || !shot_parse(e->d_name, game, sizeof game, &when)) continue;
-			if (n == cap) {
-				shot_found *g = realloc(f, (size_t)(cap ? cap * 2 : 64) * sizeof *f);
-
-				if (!g) break;
-				f = g;
-				cap = cap ? cap * 2 : 64;
-			}
-			snprintf(f[n].game, sizeof f[n].game, "%s", game);
-			f[n].when = when;
-			f[n].owner = si;
-			f[n].at = -1;
-			n++;
-			if (any) break;
+		snprintf(dir, sizeof dir, "%s/%s/%s", P_CARD, SHOT_DIR, sc->folder);
+		if (!shots_read_dir(dir, false, si, &f, &n, &cap, any)) break;
+		/* OpenBOR's own, under OpenBOR (my pick in the Screenshots lab) */
+		if (!strcmp(sc->tag, SHOTS_OPENBOR)) {
+			snprintf(dir, sizeof dir, "%s/%s", P_CARD, SHOT_OPENBOR_DIR);
+			if (!shots_read_dir(dir, true, si, &f, &n, &cap, any)) break;
 		}
-		closedir(d);
-		if (any || n == from) continue;
-		/* Its games by the name the hotkey wrote (shot_game_part) */
+		if (n == from) continue;
+		/* Its games by the name the shot was taken with: the hotkey's
+		 * shot_game_part, OpenBOR's module (its .pak's name) */
 		qsort(f + from, (size_t)(n - from), sizeof *f, shot_by_game);
 		gl = sys_games_c(&a->view[si]);
 		for (k = 0; k < gl->count; k++) {
 			shot_found key, *hit;
 
 			if (gl->items[k].folder) continue;
-			shot_game_part(gl->items[k].name, key.game, sizeof key.game);
+			shot_game_part(gl->items[k].name, key.file, sizeof key.file);
+			key.glen = (unsigned short)strlen(key.file);
 			if (!(hit = bsearch(&key, f + from, (size_t)(n - from), sizeof *f, shot_by_game))) continue;
-			while (hit > f + from && !strcmp(hit[-1].game, key.game)) hit--;
-			for (; hit < f + n && !strcmp(hit->game, key.game); hit++)
+			while (hit > f + from && !shot_by_game(hit - 1, &key)) hit--;
+			for (; hit < f + n && !shot_by_game(hit, &key); hit++)
 				if (hit->at < 0) hit->at = k;
 		}
 	}
@@ -961,16 +1008,21 @@ static void build_shots_shelf(app *a)
 	if (!items || !owner) { free(items); free(owner); free(f); return; }
 	for (i = 0; i < n; i++) {
 		const system_cfg *sc = &a->sys.systems[f[i].owner];
+		game_entry *e = &items[i];
 
 		if (f[i].at >= 0) {
-			items[i] = sys_games(&a->view[f[i].owner])->items[f[i].at];
+			const game_entry *g = &sys_games(&a->view[f[i].owner])->items[f[i].at];
+
+			snprintf(e->name, sizeof e->name, "%s", g->name);
+			snprintf(e->title, sizeof e->title, "%s", g->title);
 		} else {
 			/* No game of that name on the card: the picture alone */
-			snprintf(items[i].name, sizeof items[i].name, "%s", f[i].game);
-			lib_display_title(db_lib(), sc->folder, "", f[i].game, items[i].title,
-			                  sizeof items[i].title);
+			snprintf(e->name, sizeof e->name, "%.*s", (int)f[i].glen, f[i].file);
+			lib_display_title(db_lib(), sc->folder, "", e->name, e->title, sizeof e->title);
 		}
-		items[i].added = f[i].when;
+		if (f[i].openbor) snprintf(e->file, sizeof e->file, "%s/%s", SHOT_OPENBOR_DIR, f[i].file);
+		else snprintf(e->file, sizeof e->file, "%s/%s/%s", SHOT_DIR, sc->folder, f[i].file);
+		e->added = f[i].when;
 		owner[i] = f[i].owner;
 	}
 	free(f);
@@ -996,12 +1048,11 @@ static void drop_shots_shelf(app *a)
 
 /* Where the Screenshots shelf was, to be put back once it is built again:
  * its order, its View as the player left it (the viewer A opens included),
- * and the shot it was on, by its system, game and time, or its place */
+ * and the shot it was on, by its file, or its place */
 typedef struct {
 	bool had, listed, grid, video;
 	int sort, cursor;
-	char tag[16], name[LIB_NAME];
-	long when;
+	char file[LIB_PATH];
 } shots_keep;
 
 static void shots_note(const app *a, shots_keep *k)
@@ -1018,11 +1069,8 @@ static void shots_note(const app *a, shots_keep *k)
 	k->listed = v->listed;
 	k->grid = v->grid;
 	k->video = v->video;
-	if (v->cursor >= 0 && v->cursor < v->list.count) {
-		snprintf(k->tag, sizeof k->tag, "%s", a->sys.systems[v->owner[v->cursor]].tag);
-		snprintf(k->name, sizeof k->name, "%s", v->list.items[v->cursor].name);
-		k->when = v->list.items[v->cursor].added;
-	}
+	if (v->cursor >= 0 && v->cursor < v->list.count)
+		snprintf(k->file, sizeof k->file, "%s", v->list.items[v->cursor].file);
 }
 
 static void shots_put_back(app *a, const shots_keep *k)
@@ -1039,10 +1087,8 @@ static void shots_put_back(app *a, const shots_keep *k)
 		v->video = k->video;
 	}
 	sort_shelf(a, at);
-	for (int i = 0; k->name[0] && i < v->list.count; i++)
-		if (v->list.items[i].added == k->when && !strcmp(v->list.items[i].name, k->name) &&
-		    !strcmp(a->sys.systems[v->owner[i]].tag, k->tag))
-			c = i;
+	for (int i = 0; k->file[0] && i < v->list.count; i++)
+		if (!strcmp(v->list.items[i].file, k->file)) c = i;
 	/* The shot it was on gone (deleted): the one that took its place */
 	if (c < 0 && k->had) c = k->cursor < v->list.count ? k->cursor : v->list.count - 1;
 	v->cursor = c > 0 ? c : 0;

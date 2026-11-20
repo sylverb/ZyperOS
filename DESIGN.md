@@ -7153,9 +7153,9 @@ resumed: it was not heard.
 
 ### 11.68 Screenshots
 *(Asked for as "a place in the launcher to view screenshots", and on
-1.1.0-rc.3: "I'm not seeing the screenshots option in home. Why?". Built on
-the Screenshots lab's recommended options, 2026-11-20, before my picks;
-each pick is one place, src/shots_screen.h's list.)*
+1.1.0-rc.3: "I'm not seeing the screenshots option in home. Why?". My picks
+in the Screenshots lab, 2026-11-20; each pick is one place,
+src/shots_screen.h's list.)*
 
 **A group on the home**, like Favorites, Recents and Collections, after them
 (first when there are none of the three), once the card has a shot: no shot,
@@ -7168,24 +7168,31 @@ Home Systems (11.48) has its row once the card has a shot, On as it ships;
 its tag is SHOT.
 
 **What it holds.** Every shot the Screenshot hotkey wrote (11.61),
-`Screenshots/<System>/<Game> 2026-11-18 21.40.05.png`, of a system the card
-has games for, on the home or turned off it: one stream, the newest first,
-the newest 2000. An entry is its game's own, found by the name the hotkey
-wrote (`shot_game_part`, src/shotname.h) and owned by its system as on
-Favorites, so A plays it on its own core. A shot of a game no longer on the
-card (renamed or deleted: Rename and Delete Game leave the shots alone)
-stays, with no game. A file of another name is no shot: OpenBOR's own, in
-`Saves/openbor/ScreenShots`, are not read in 1.1.0. A shot's time is its
-name's wall clock, kept by the calendar alone, never through a time zone, so
-its file is found again from it. Read once a scan, and again only after a
-game that took a shot (Diatom's SHOT); never in a game.
+`Screenshots/<System>/<Game> 2026-11-18 21.40.05.png`, and OpenBOR's own
+*(my pick)*, which OpenBOR takes with SELECT and names itself,
+`Saves/openbor/ScreenShots/<module> - 0000.png` (its `screenshot()` at the
+pinned b8303cc: the module its `.pak`'s name, "Menu" in its own menu, the
+number the first free one), under OpenBOR - of a system the card has games
+for, on the home or turned off it: one stream, the newest first, the newest
+2000. An entry has its game's name and title, found by the name the shot was
+taken with (the hotkey's `shot_game_part`, OpenBOR's module; src/shotname.h),
+and is owned by its system as on Favorites; its file is the picture's own
+path. A shot of a game no longer on the card (renamed or deleted: Rename and
+Delete Game leave the shots alone) stays, under the name it was taken with.
+A file of another name is no shot. A hotkey shot's time is its name's wall
+clock, kept by the calendar alone, never through a time zone; OpenBOR's name
+has none, so its file's. Read once a scan, and again only after a game that
+took a shot (Diatom's SHOT); never in a game. OpenBOR runs as a program of
+its own, after which the launcher starts again and reads the card, so its
+shots are there when it comes back.
 
 **Its shelf** is a shelf's: Covers, Grid, List and Video, START stepping
 them, kept by its tag. Each card is Recents' Last Screen card (11.48,
 src/screencard.h): the shot at its own shape, scaled up whole by the nearest
-pixel toward 448, its game's cover small in its lower left corner (its
-generated card where it has no cover), made on the art workers. Under the
-name, the shot's system and when it was taken, "SNES · today 21:40", by the
+pixel toward 448, its game's cover small in its lower left corner (its own
+box art by the game's name; its generated card where it has none), made on
+the art workers. Under the name, the shot's system and when it was taken,
+"SNES · today 21:40", by the
 calendar's days as Played says them ("3d ago" past yesterday), the clock as
 MENU > Clock has it. No heart, no video snap and no snap mark. The foot: B
 Systems, START the next View, X Delete; A's word **View**.
@@ -7198,10 +7205,10 @@ SNES shot is 549 x 480 pixels), on ink; the name's card at the top left
 down to its strip after **hold-band** with no press. Until the picture is
 in, its card shows whole above the band, as a game's does until its snap.
 Left and Right step, L1 and R1 go to the next or the last game's first shot
-in the shelf's order, A plays the shot's game (**Resume** where it has a
-resume point; a shot with no game on the card has no A and plays **deny**),
-B goes back to the View it was opened from, X deletes, START plays **deny**.
-The picture is asked of the art workers apart from the cards
+in the shelf's order, B goes back to the View it was opened from, X deletes;
+A and START play **deny**. The viewer is for looking *(my pick)*: no key
+starts the shot's game there, which starts from its own shelf. The picture
+is asked of the art workers apart from the cards
 (`SHOTS_VIEW_SYS`). On the shelf's own Video View (START) the same, with B
 Systems and START Covers. A still shot does not hold the screensaver, as a
 playing snap does.
@@ -7221,16 +7228,19 @@ again.").
 and **View**. No count and no Random Game: a shot is no game.
 
 **What it costs.** Nothing per frame and nothing in a game: a scan reads
-`Screenshots/` and its systems' folders, names only, and finds the games by
+`Screenshots/`, its systems' folders and OpenBOR's, names only (and a stat
+of each of OpenBOR's, for its time), and finds the games by
 name in the listings in memory (a sort of each folder's names, a look-up a
 game); a card is made once on the art workers; the viewer's picture is one
 texture, for the shot in focus.
 
-Host shots: `home-screenshots` (and `home-screenshots-one`), `shelf-screenshots`,
+Host shots: `home-screenshots` (and `home-screenshots-one`), `shelf-screenshots`
+(and `shelf-screenshots-openbor`, OpenBOR's own),
 `shelf-screenshots-grid`, `shelf-screenshots-list`, `screenshots-viewer`,
 `screenshots-viewer-strip`, `screenshots-delete`, `screenshots-said`,
 `screenshots-menu`, `screenshots-menu-sort` and `homesys-page-shots` (tools/i18n-shots.py, the
 shots made up as PNGs), with `--shots-delete`, `--shots-said` and
 `--shots-delete-now`. `check-shotname` holds the names and the orders;
-`check-homesys-groups` the shelf with its system turned off, A playing from
-it and Delete Screenshot.
+`check-homesys-groups` the shelf with its system turned off, OpenBOR's shots
+by their files' times, A in the viewer starting nothing, and Delete
+Screenshot.

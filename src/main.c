@@ -1082,8 +1082,7 @@ static void game_cover_path(app *a, int o, const game_entry *g, char *cover, siz
 
 	box_art_path(a->sys.systems[o].folder, g->name, cover, cn);
 	if ((stat(cover, &sb) != 0 || sb.st_size <= 0) &&
-	    (!g->file[0] ||
-	     !es_media(P_ROMS, a->sys.systems[o].folder, g->file, g->name, ES_COVER, true, cover, cn)))
+	    !es_media(P_ROMS, a->sys.systems[o].folder, g->file, g->name, ES_COVER, true, cover, cn))
 		cover[0] = '\0';
 }
 
@@ -1109,9 +1108,17 @@ static bool screen_card_paths(app *a, int s, int o, const game_entry *g, char *f
                               char *cover, size_t cn)
 {
 	if (shots_shelf(a, s)) {
-		shots_png(a, o, g, frame, fn);
-		if (SHOTS_CARD_COVER) game_cover_path(a, o, g, cover, cn);
-		else cover[0] = '\0';
+		struct stat sb;
+
+		/* The game's own cover by its name (a shot's file is its
+		 * picture's, so EmulationStation's, by the game's file, is not
+		 * looked for) */
+		shots_png(g, frame, fn);
+		cover[0] = '\0';
+		if (SHOTS_CARD_COVER) {
+			box_art_path(a->sys.systems[o].folder, g->name, cover, cn);
+			if (stat(cover, &sb) != 0 || sb.st_size <= 0) cover[0] = '\0';
+		}
 		return true;
 	}
 	return g_recents_screen && s == shelf_recents_at(a) && recents_screen_paths(a, o, g, frame, fn, cover, cn);
@@ -5165,7 +5172,9 @@ void refresh_game_titles(app *a)
 		int owner, selected;
 		bool changed = false;
 
-		if (is_mp4(&a->sys.systems[si]) || v->list.count <= 0) continue;
+		/* Not Screenshots: an entry's file is its picture's, and its title
+		 * is its game's as the shelf was read (DESIGN.md 11.68) */
+		if (is_mp4(&a->sys.systems[si]) || shots_shelf(a, si) || v->list.count <= 0) continue;
 		owner = shelf_owner(a, si, v->cursor);
 		snprintf(file, sizeof file, "%s", v->list.items[v->cursor].file);
 		/* A folder's name is its own (src/shelfdir.h); every game of a
