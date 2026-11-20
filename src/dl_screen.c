@@ -2075,9 +2075,10 @@ static int room_build(void *ctx, menu_row *rows, int max, const char **heading)
 		else bytes_text((double)s.bytes, x->val[k], sizeof x->val[k]);
 		rows[k] = (menu_row){ kind_name((dl_kind)k), x->val[k], true };
 	}
-	rows[DLK_KINDS] = MENU_RULE;
-	rows[DLK_KINDS + 1] = (menu_row){ T(S_DOWNLOADS_STORAGE_TOO), MENU_NOTE_MARK, false };
-	return DLK_KINDS + 2;
+	/* the note under the five kinds, no rule: a rule would push it out of the
+	 * panel at the menus' row height */
+	rows[DLK_KINDS] = (menu_row){ T(S_DOWNLOADS_STORAGE_TOO), MENU_NOTE_MARK, false };
+	return DLK_KINDS + 1;
 }
 
 static void delete_sets(const dl_counts *c)
