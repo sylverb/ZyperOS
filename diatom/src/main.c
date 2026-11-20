@@ -22,6 +22,7 @@
 #include <sys/stat.h>
 #include <zlib.h>
 
+#include "cheats.h"
 #include "cheevos.h"
 #include "chord.h"
 #include "diatom.h"
@@ -53,6 +54,7 @@ typedef struct diatom_session {
 	                           * into play, if there is none there yet */
 	const char   *firmware;   /* what the launcher says this content needs */
 	const char   *cheevos;    /* an achievement set to watch */
+	const char   *cheats;     /* the cheat codes that are on (cheats.h) */
 	int           console;    /* which console's address space it is written against */
 	long          limit;
 	int           mode;
@@ -2213,6 +2215,16 @@ static bool state_plane_msg(const diatom_msg *m)
 		                  m->path);
 		return true;
 	case DIATOM_MSG_CHEEVOS: diatom_cheevos_emit(); return true;
+	case DIATOM_MSG_SETCHEATS:
+		/* A switch in the in-game menu: the codes on from now. A file
+		 * that will not read changes nothing, and says so. */
+		if (diatom_cheats_read(m->path) < 0) {
+			diatom_proto_send("ERROR\tcode=bad_cheats\tmsg=%s", m->path);
+			return true;
+		}
+		diatom_cheats_apply(g_core);
+		diatom_proto_send("CHEATS\tcount=%d", diatom_cheats_count());
+		return true;
 	case DIATOM_MSG_SETCHEEVOS:
 		if (m->console) diatom_cheevos_set_console((unsigned)m->console);
 		diatom_cheevos_load(m->path);
@@ -2252,6 +2264,8 @@ static void bg_report(bool wait, bool apply)
 		break;
 	case DIATOM_BG_LOAD:
 		if (apply && ok) diatom_rumble_forget();
+		/* A state may carry the core's codes away: handed again */
+		if (apply && ok) diatom_cheats_apply(g_core);
 		if (apply)
 			diatom_proto_send(ok ? "LOADED\tpath=%s" : "ERROR\tcode=state_rejected\tmsg=%s",
 			                  path);
@@ -2294,6 +2308,7 @@ static bool game_msg(const diatom_msg *m)
 		}
 		if (diatom_state_load(g_core, m->path)) {
 			diatom_rumble_forget();
+			diatom_cheats_apply(g_core);
 			diatom_proto_send("LOADED\tpath=%s", m->path);
 		} else {
 			diatom_proto_send("ERROR\tcode=state_rejected\tmsg=%s", m->path);
@@ -2308,6 +2323,8 @@ static bool game_msg(const diatom_msg *m)
 		 * the title screen and nothing in progress survived. */
 		diatom_cheevos_runtime_reset();
 		diatom_rumble_forget();
+		/* A core may clear its codes with the reset: handed again */
+		diatom_cheats_apply(g_core);
 		diatom_proto_send("RESETDONE");
 		return true;
 	case DIATOM_MSG_OPTIONS:
@@ -2826,6 +2843,11 @@ static int run_session_inner(const diatom_session *sn)
 	 * still fetching one sends SETCHEEVOS when it arrives; both paths run the
 	 * same loader. */
 	if (sn->cheevos) diatom_cheevos_load(sn->cheevos);
+	/* The cheats that are on, handed to the core now the game and its state
+	 * are in (a GPU core's state comes after the warmup, and they are handed
+	 * again then). A core that holds the last game's is reset, and while one
+	 * is on the set above is not evaluated (cheats.h). */
+	diatom_cheats_begin(g_core, sn->cheats);
 
 	/* Warm up before starting the clock. The first frames create the texture,
 	 * fault in code paths and prime the audio device; measured on a COLD
@@ -2905,7 +2927,9 @@ static int run_session_inner(const diatom_session *sn)
 		printf("diatom: warmup 3 frames in %.1f ms\n",
 		       (diatom_port_now_us() - w0) / 1000.0);
 	}
-	if (sn->state_load && diatom_hw_active() && !diatom_state_load(g_core, sn->state_load))
+	if (sn->state_load && diatom_hw_active() && diatom_state_load(g_core, sn->state_load))
+		diatom_cheats_apply(g_core);
+	else if (sn->state_load && diatom_hw_active())
 		printf("diatom: no usable state at %s; starting the game normally\n",
 		       sn->state_load);
 	/* A core that keeps no state (FreeJ2ME-Plus, ScummVM) has no quick save
@@ -4075,6 +4099,7 @@ int main(int argc, char **argv)
 			sn.preview    = m.preview[0]    ? m.preview    : NULL;
 			sn.card       = m.card[0]       ? m.card       : NULL;
 			sn.cheevos    = m.cheevos[0]    ? m.cheevos    : NULL;
+			sn.cheats     = m.cheats[0]     ? m.cheats     : NULL;
 			sn.console    = m.console;
 			sn.screens    = m.screens;
 			sn.late_skip  = !strcmp(m.frameskip, "late") || !strcmp(m.frameskip, "steady");
