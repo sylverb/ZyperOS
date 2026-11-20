@@ -177,9 +177,11 @@ static void list(void)
 	int order[CHEATS_MAX], n, i;
 	FILE *f;
 
-	snprintf(card, sizeof card, "%s/card-%d", CHEATS_TMP, (int)getpid());
+	/* A card of its own each run: a folder named by the process id met an
+	 * old run's card when the id came round again, files and all */
+	snprintf(card, sizeof card, "%s/card-XXXXXX", CHEATS_TMP);
 	mkdir(CHEATS_TMP, 0755);
-	mkdir(card, 0755);
+	if (!mkdtemp(card)) { printf("  FAIL: no card folder\n"); failures++; return; }
 
 	/* Nothing on the card for it */
 	CHECK(!cheats_load(&L, card, "SNES", "SFC", "Kingdom Run.sfc") && L.where == CHEATS_NOT_CHECKED,
