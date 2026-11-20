@@ -48,6 +48,7 @@
 #include "nightkeep.h"
 #include "platform.h"
 #include "texload.h"
+#include "screencard.h"
 #include "tween.h"
 #include "artshrink.h"
 #include "artbadge.h"
@@ -999,8 +1000,53 @@ static bool view_is(const char *tag, const char *want)
 bool view_listed(const char *tag) { return view_is(tag, "list"); }
 bool view_grid(const char *tag)   { return view_is(tag, "grid"); }
 
+/* Recents' Card Picture (DESIGN.md 11.48): its covers, as it ships, or the
+ * screen each game was left on (src/screencard.h), kept in the device's
+ * database as RECENTS_PICTURE_KEY's "screen" */
+bool g_recents_screen;
+
+static void recents_picture_load(void)
+{
+	char v[16];
+
+	g_recents_screen = db_get_str(db_dev(), RECENTS_PICTURE_KEY, v, sizeof v, NULL) &&
+	                   !strcmp(v, "screen");
+}
+
+void recents_picture_turn(app *a)
+{
+	int r = shelf_recents_at(a);
+
+	g_recents_screen = !g_recents_screen;
+	db_set_str(db_dev(), RECENTS_PICTURE_KEY, g_recents_screen ? "screen" : "cover");
+	/* Every card of it asked for again, the other picture */
+	if (r >= 0) free_view_textures(&a->view[r]);
+}
+
+/* Recents' Last Screen for game `g` of system `o`: its resume point's
+ * picture, written beside its state as the game ended, and its cover, into
+ * `frame` and `cover` ("" for none). False when it has no resume point, and
+ * the card is its cover, as with Cover. Asked only while the card has no
+ * texture (game_card_wanted). */
+static bool recents_screen_paths(app *a, int o, const game_entry *g, char *frame, size_t fn,
+                                 char *cover, size_t cn)
+{
+	char st[LIB_PATH * 3];
+	struct stat sb;
+
+	state_path(a, o, g, st, sizeof st);
+	preview_path(a, o, g, frame, fn);
+	if (stat(st, &sb) != 0 || stat(frame, &sb) != 0 || sb.st_size <= 0) return false;
+	box_art_path(a->sys.systems[o].folder, g->name, cover, cn);
+	if ((stat(cover, &sb) != 0 || sb.st_size <= 0) &&
+	    !es_media(P_ROMS, a->sys.systems[o].folder, g->file, g->name, ES_COVER, true, cover, cn))
+		cover[0] = '\0';
+	return true;
+}
+
 void view_load(app *a)
 {
+	recents_picture_load();
 	for (int i = 0; i < a->sys.count; i++) {
 		a->view[i].listed = view_listed(a->sys.systems[i].tag);
 		a->view[i].grid = !a->view[i].listed && view_grid(a->sys.systems[i].tag);
@@ -1125,7 +1171,9 @@ void sort_shelf(app *a, int sys)
 		/* Every owner's, the systems off the home too (app.parked) */
 		for (i = 0; i < sys_kept(a) && i < CFG_MAX_SYSTEMS; i++)
 			tags[i] = a->sys.systems[i].tag;
-		sort_apply_owned(v->list.items, v->owner, v->list.count, v->sort, tags);
+		/* Collections' top is its folders alone, A to Z (src/collect.h) */
+		sort_apply_owned(v->list.items + v->nfold, v->owner + v->nfold,
+		                 v->list.count - v->nfold, v->sort, tags);
 		return;
 	}
 	/* A shelf's folders stay first, A to Z (src/shelfdir.h): the order is
@@ -1926,7 +1974,7 @@ SDL_Texture *game_get_tex(void *ctx, int i, int *w, int *h, float *cb)
 	 * folder, the wrong state directory and the wrong accent. */
 	int o = shelf_owner(a, s, i);
 
-	char pm[LIB_PATH * 2];
+	char pm[LIB_PATH * 2], pmc[LIB_PATH * 3];
 
 	if (is_muse(&a->sys.systems[s]) && game_card_wanted(v, i)) {
 		muse_card_want(a, s, i);
@@ -1957,6 +2005,28 @@ SDL_Texture *game_get_tex(void *ctx, int i, int *w, int *h, float *cb)
 				v->cb[i] = content_bottom(sf);
 				v->tex[i] = ui_card_upload(a->r, sf, theme_index());
 				if (v->tex[i]) { v->tw[i] = sf->w; v->th[i] = sf->h; }
+				grid_note(a, s, i, sf, false);
+				SDL_FreeSurface(sf);
+			}
+		}
+	} else if (g_recents_screen && s == shelf_recents_at(a) && game_card_wanted(v, i) &&
+	           recents_screen_paths(a, o, &v->list.items[i], pm, sizeof pm, pmc, sizeof pmc)) {
+		/* Recents' Last Screen (DESIGN.md 11.48): made on a worker, art
+		 * of no theme, so a change of theme keeps it; a game with no cover
+		 * has its generated card small in the corner, as its shelf shows it */
+		ui_card_order card;
+
+		ui_card_order_set(&card, v->list.items[i].title, a->sys.systems[o].accent, false);
+		game_card_order(a, o, &v->list.items[i], &card);
+		if (!texload_want_screen(s, i, pm, pmc, &card) && !g_loads_held) {
+			SDL_Surface *sf = screen_card_make(pm, pmc, &card, false);
+
+			if (v->tex[i]) SDL_DestroyTexture(v->tex[i]);
+			v->tex[i] = NULL;
+			if (sf) {
+				v->cb[i] = 1.0f;
+				if ((v->tex[i] = SDL_CreateTextureFromSurface(a->r, sf)))
+					SDL_QueryTexture(v->tex[i], NULL, NULL, &v->tw[i], &v->th[i]);
 				grid_note(a, s, i, sf, false);
 				SDL_FreeSurface(sf);
 			}
@@ -2240,9 +2310,15 @@ void shelf_open_dir(app *a, int s, const char *dir, const char *select)
 	sysview *v = &a->view[s];
 	int i;
 
-	if (!v->all) return;
-	texload_bump();
-	shelf_show_dir(v, dir);
+	/* Collections' folders are its collections (src/collect.h) */
+	if (s == shelf_coll_at(a)) {
+		texload_bump();
+		if (!shelf_coll_show(a, s, dir)) return;
+	} else {
+		if (!v->all) return;
+		texload_bump();
+		shelf_show_dir(v, dir);
+	}
 	sort_shelf(a, s);
 	v->cursor = 0;
 	for (i = 0; select && i < v->list.count; i++)
@@ -4984,6 +5060,17 @@ static int menu_shelf_width(app *a)
 		int  vrow = muse ? -1 : a->view[i].owner ? 3 : sm_pos(a, i, SM_VIEW);
 
 		n = menu_build(a, SCREEN_GAMES, i, rows, &bufs, &heading);
+		/* Recents' Card Picture at the longer of its two (DESIGN.md 11.48) */
+		if (i == shelf_recents_at(a) && n > SM_FAV_ROWS) {
+			const char *keep = rows[SM_FAV_ROWS].value;
+			int mw;
+
+			rows[SM_FAV_ROWS].value = T(S_SYSMENU_CARD_PICTURE_SCREEN);
+			if ((mw = menu_measure(rows, n, heading)) > w) w = mw;
+			rows[SM_FAV_ROWS].value = T(S_SYSMENU_CARD_PICTURE_COVER);
+			if ((mw = menu_measure(rows, n, heading)) > w) w = mw;
+			rows[SM_FAV_ROWS].value = keep;
+		}
 		if (muse) {
 			sm_muse_row ids[SM_MUSE_ROWS];
 			int nn = sys_menu_muse_rows(muse_rows_kind(), muse_kinds() > 1,
@@ -5079,6 +5166,8 @@ static int menu_shelf_width(app *a)
 		}
 		for (k = 0; k < (muse ? ML_ORDERS : SORT_COUNT); k++) {
 			int mw;
+			/* Every order a shelf of either kind offers: Collections' two
+			 * too (src/sort.h), so its menu is no wider than this */
 			rows[srow].value = muse ? ml_order_label((ml_order)k, false) : sort_label(k);
 			mw = menu_measure(rows, n, heading);
 			if (mw > w) w = mw;
@@ -5587,6 +5676,13 @@ int main(int argc, char *argv[])
 		 * over the shelf (DESIGN.md 11.31) */
 		else if (!strcmp(argv[i], "--info-delete")) shot_info = 2;
 		else if (!strcmp(argv[i], "--info-rename")) shot_info = 3;
+		/* Collections (src/collect_screen.h): the details page on Add to
+		 * Collection, its list with the cursor on row K, and Delete
+		 * Collection's question on the Collections shelf */
+		else if (!strcmp(argv[i], "--info-collect")) shot_info = 5;
+		else if (!strcmp(argv[i], "--collect-page") && i + 1 < argc) shot_collect_page = atoi(argv[++i]);
+		else if (!strcmp(argv[i], "--collect-delete")) shot_collect_delete = 1;
+		else if (!strcmp(argv[i], "--collect-said") && i + 1 < argc) shot_collect_said = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--info-art")) shot_info_art = true;
 		/* The Buttons page a game with its own buttons opens from its details */
 		else if (!strcmp(argv[i], "--info-buttons")) shot_info = 4;

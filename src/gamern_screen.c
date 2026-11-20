@@ -2,6 +2,7 @@
 #include "gamern_screen.h"
 
 #include "app.h"
+#include "collect.h"
 #include "gamedel.h"
 #include "gamern.h"
 #include "panel.h"
@@ -114,6 +115,8 @@ bool game_rename(app *a, int owner, const game_entry *g, char *said, size_t n)
 	}
 	fprintf(stderr, "rename: %d library rows\n",
 	        gr_follow(folder, tag, file, name, plan->new_file, plan->new_name));
+	/* and its lines in the collections (src/collect.h) */
+	fprintf(stderr, "rename: %d collection%s\n", coll_follow(folder, file, plan->new_file), "s followed");
 	shelf_rename_game(a, tag, file, plan->new_file, plan->new_name);
 	/* On Favorites, the game where its copy went */
 	{

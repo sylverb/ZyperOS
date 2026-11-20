@@ -76,14 +76,20 @@ static void the_table_is_consistent(void)
 	int i;
 
 	printf("the table of orders:\n");
-	ck(SORT_COUNT == 4, "four orders");
+	ck(SORT_COUNT == 6 && SORT_SHELF == 4, "six orders, four of them a games shelf's");
 	ck(!strcmp(SORTS[0].name, "name"), "name is index 0, the untouched default");
 	for (i = 0; i < SORT_COUNT; i++)
 		ck(sort_index(SORTS[i].name) == i, SORTS[i].label);
 	ck(sort_index("nonsense") == 0, "an unknown setting falls back to name");
 	ck(sort_index(NULL) == 0, "and so does a missing one");
-	ck(sort_step(0, -1) == SORT_COUNT - 1, "stepping back from the first wraps");
-	ck(sort_step(SORT_COUNT - 1, 1) == 0, "and forward from the last wraps");
+	ck(sort_step(0, -1) == SORT_SHELF - 1, "stepping back from the first wraps");
+	ck(sort_step(SORT_SHELF - 1, 1) == 0, "and forward from the last wraps");
+	ck(sort_step_in(true, SORT_LIST, 1) == 0 && sort_step_in(true, 0, 1) == 2 &&
+	   sort_step_in(true, 2, 1) == SORT_SYSTEM && sort_step_in(true, SORT_SYSTEM, 1) == SORT_LIST,
+	   "a collection steps round Added, Name, Last Played and System");
+	ck(sort_step_in(true, SORT_LIST, -1) == SORT_SYSTEM, "and back from Added to System");
+	ck(sort_step_in(true, 1, 1) == 0, "an order it does not offer steps from its first");
+	ck(sort_choice_of(false, SORT_LIST) == 0, "and a games shelf's from Name");
 }
 
 static void by_name(void)
@@ -231,6 +237,30 @@ static void favorites_carry_their_owners(void)
 	}
 }
 
+/* A collection's own two: its list's order, and the systems' */
+static void collections_orders(void)
+{
+	const char *tags[] = { "COLL", "NES", "SNES", "GB" };
+	game_entry v[4];
+	int owner[4] = { 3, 1, 2, 1 };
+
+	printf("a collection:\n");
+	scrub();
+	put(&v[0], "Tetris", 0);
+	put(&v[1], "Zelda", 1);
+	put(&v[2], "Contra", 2);
+	put(&v[3], "Alpha", 3);
+	sort_apply_owned(v, owner, 4, SORT_SYSTEM, tags);
+	ck(!strcmp(v[0].name, "Alpha") && !strcmp(v[1].name, "Zelda") && !strcmp(v[2].name, "Contra") &&
+	   !strcmp(v[3].name, "Tetris") && owner[0] == 1 && owner[1] == 1 && owner[2] == 2 && owner[3] == 3,
+	   "System: by the home's order of the systems, A to Z in each, the owners with them");
+	sort_apply_owned(v, owner, 4, SORT_LIST, tags);
+	ck(!strcmp(v[0].name, "Tetris") && !strcmp(v[3].name, "Alpha") && owner[0] == 3 && owner[3] == 1,
+	   "Added: the list's own order, first line first");
+	sort_apply(v, 4, SORT_LIST, "NES");
+	ck(!strcmp(v[0].name, "Tetris") && !strcmp(v[2].name, "Contra"), "and so on a shelf of one system");
+}
+
 static void by_display_title(void)
 {
 	game_entry v[3];
@@ -260,6 +290,7 @@ int main(void)
 	sorting_twice_changes_nothing();
 	nothing_to_sort();
 	favorites_carry_their_owners();
+	collections_orders();
 	db_shutdown();
 
 	if (fails) { printf("\n%d sort check(s) failed\n", fails); return 1; }
