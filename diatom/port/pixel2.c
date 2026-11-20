@@ -71,7 +71,7 @@
  * on a recording, none of them in what Diatom handed over, no underruns, the
  * Brick clean with the same game. Two volume steps lower still crackled, so
  * the clipping comes before the volume; 2 dB less going in did not crackle
- * (2026-10-30). Muse plays everything 2 dB down too (for its own overs, in
+ * (2026-10-30). MP4 plays everything 2 dB down too (for its own overs, in
  * October), so a game and a song sound alike. Not a USB-C DAC, which has its
  * own path and has not been heard to clip. */
 #define RK817_HEADROOM 0.7943f

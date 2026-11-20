@@ -217,7 +217,7 @@ static void channels(void)
 	ck(aout_dest_of(&s, BT) == AOUT_BT, "a sink's name is the sink");
 	ck(aout_dest_of(&s, AOUT_USB_DEVICE) == AOUT_USB, "the system's usb is the DAC");
 
-	/* Names, both ways. The wire names are Diatom's and Muse's; a stored value
+	/* Names, both ways. The wire names are Diatom's and MP4's; a stored value
 	 * nobody recognizes is stereo, what every output did before. */
 	for (c = 0; c < AOUT_CHANNELS_COUNT; c++)
 		ck(aout_channels_parse(aout_channels_wire((aout_channels)c)) == (aout_channels)c,

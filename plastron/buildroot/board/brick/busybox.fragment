@@ -3,7 +3,7 @@
 #
 # No kernel logger or cron, as on the Pixel. A system logger, but only while
 # Bluetooth is on (/etc/init.d/bluetooth): bluetoothd and bluealsa log nowhere
-# else, and Muse's stall report saves what logread prints. Kept in a ring in
+# else, and MP4's stall report saves what logread prints. Kept in a ring in
 # memory, 64 KB, never on the card.
 # CONFIG_KLOGD is not set
 # CONFIG_CROND is not set

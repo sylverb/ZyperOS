@@ -955,7 +955,7 @@ static void system_menu(void)
 		}
 	}
 
-	/* Muse, which is not a system either: no core, no ROM folder, no display
+	/* MP4, which is not a system either: no core, no ROM folder, no display
 	 * mode. What it does have is a folder of music, two orders to see it in,
 	 * and Rescan Folder for music copied in. */
 	{
@@ -965,7 +965,7 @@ static void system_menu(void)
 		const char *mhead = NULL;
 		int mn, k;
 
-		m.muse = true;
+		m.mp4 = true;
 		m.sys_name = "MP4";
 		m.sys_core = "";
 		m.game_count = 7;
@@ -1004,18 +1004,18 @@ static void system_menu(void)
 		sys_menu_build(&m, mrows, &mb, &mhead);
 		ck(!strcmp(val(&mrows[2]), "List"), "and the List");
 		m.listed = false;
-		m.muse_look = "Spectrum";
+		m.mp4_look = "Spectrum";
 		sys_menu_build(&m, mrows, &mb, &mhead);
 		ck(!strcmp(val(&mrows[4]), "Spectrum"), "Player Look says the look that is on");
-		m.muse_look = NULL;
+		m.mp4_look = NULL;
 		m.eq = "Bass";
 		sys_menu_build(&m, mrows, &mb, &mhead);
 		ck(!strcmp(val(&mrows[5]), "Bass"), "the Equalizer says the preset in use");
 		m.eq = NULL;
-		m.muse_playing = true;
+		m.mp4_playing = true;
 		sys_menu_build(&m, mrows, &mb, &mhead);
 		ck(mrows[6].live && !val(&mrows[6])[0], "Lock Screen live while music plays");
-		m.muse_playing = false;
+		m.mp4_playing = false;
 		m.sort = "Album";
 		m.wifi = WIFI_OFF;
 		sys_menu_build(&m, mrows, &mb, &mhead);
@@ -1034,9 +1034,9 @@ static void system_menu(void)
 		 * order, and on books no Album Art and the orders a book goes by. */
 		m.sort = NULL;
 		m.wifi = WIFI_CONNECTED;
-		m.muse_both = true;
+		m.mp4_both = true;
 		mn = sys_menu_build(&m, mrows, &mb, &mhead);
-		ck(mn == SM_MUSE_ROWS - 1, "eleven rows with more than one kind on music (no Repeat)");
+		ck(mn == SM_MP4_ROWS - 1, "eleven rows with more than one kind on music (no Repeat)");
 		ck(!strcmp(mrows[1].label, "Show") && mrows[1].live &&
 		   !strcmp(val(&mrows[1]), "Music"), "Show, on music");
 		ck(!strcmp(mrows[2].label, "Sort By") && !strcmp(mrows[3].label, "View") &&
@@ -1045,7 +1045,7 @@ static void system_menu(void)
 		   !strcmp(mrows[6].label, "Equalizer") && !strcmp(mrows[7].label, "Lock Screen") &&
 		   !strcmp(mrows[8].label, "Album Art"),
 		   "Sort By, View, Shuffle All, Player Look, Equalizer, Lock Screen, then Album Art");
-		m.muse_books = true;
+		m.mp4_books = true;
 		m.game_count = 2;
 		mn = sys_menu_build(&m, mrows, &mb, &mhead);
 		ck(mn == 8 && !strcmp(mrows[3].label, "View") && !strcmp(mrows[4].label, "Equalizer"),
@@ -1061,8 +1061,8 @@ static void system_menu(void)
 			   "no Album Art on books (MusicBrainz knows records), no Shuffle All, no Player Look");
 		/* Videos: their own count and orders, and like books no Album Art
 		 * and no Shuffle All. */
-		m.muse_books = false;
-		m.muse_videos = true;
+		m.mp4_books = false;
+		m.mp4_videos = true;
 		m.game_count = 3;
 		mn = sys_menu_build(&m, mrows, &mb, &mhead);
 		ck(mn == 9 && !strcmp(mrows[0].label, "Videos") && !strcmp(val(&mrows[0]), "3") &&
@@ -1071,10 +1071,10 @@ static void system_menu(void)
 		ck(!strcmp(mrows[4].label, "Repeat") && !strcmp(val(&mrows[4]), "Off") && mrows[4].live &&
 		   menu_sound_at(mb.sound, mn, 4) == MENU_SND_RING,
 		   "on videos: Repeat, Off to start with, steps round");
-		m.muse_repeat = "One";
+		m.mp4_repeat = "One";
 		mn = sys_menu_build(&m, mrows, &mb, &mhead);
 		ck(!strcmp(val(&mrows[4]), "One"), "Repeat says what it is");
-		m.muse_repeat = NULL;
+		m.mp4_repeat = NULL;
 		for (k = 0; k < mn; k++)
 			ck(strcmp(lbl(&mrows[k]), "Album Art") != 0 &&
 			   strcmp(lbl(&mrows[k]), "Shuffle All") != 0 &&
@@ -1082,37 +1082,37 @@ static void system_menu(void)
 			   "no Album Art, Shuffle All or Player Look on videos");
 		/* All, where Show starts: the count is the Total, the orders the
 		 * videos', and Shuffle All and Album Art when there are songs */
-		m.muse_videos = false;
-		m.muse_all = true;
-		m.muse_songs = true;
+		m.mp4_videos = false;
+		m.mp4_all = true;
+		m.mp4_songs = true;
 		m.game_count = 7;
 		mn = sys_menu_build(&m, mrows, &mb, &mhead);
-		ck(mn == SM_MUSE_ROWS && !strcmp(mrows[0].label, "Total") &&
+		ck(mn == SM_MP4_ROWS && !strcmp(mrows[0].label, "Total") &&
 		   !strcmp(val(&mrows[0]), "7") && !strcmp(val(&mrows[1]), "All") &&
 		   !strcmp(val(&mrows[2]), "Folder") && !strcmp(mrows[3].label, "View") &&
 		   !strcmp(mrows[4].label, "Shuffle All") &&
 		   !strcmp(mrows[5].label, "Player Look") && !strcmp(mrows[6].label, "Repeat") &&
 		   !strcmp(mrows[7].label, "Equalizer") && !strcmp(mrows[9].label, "Album Art"),
 		   "on All: the Total, Show All, by folder, View, Shuffle All, Player Look, Repeat, Equalizer and Album Art");
-		m.muse_songs = false;
+		m.mp4_songs = false;
 		mn = sys_menu_build(&m, mrows, &mb, &mhead);
 		for (k = 0; k < mn; k++)
 			ck(strcmp(lbl(&mrows[k]), "Album Art") != 0 &&
 			   strcmp(lbl(&mrows[k]), "Shuffle All") != 0 &&
 			   strcmp(lbl(&mrows[k]), "Player Look") != 0,
 			   "All with no songs: no Album Art, Shuffle All or Player Look");
-		m.muse_all = false;
-		m.muse_books = true;
+		m.mp4_all = false;
+		m.mp4_books = true;
 		{
-			sm_muse_row ids[SM_MUSE_ROWS];
+			sm_mp4_row ids[SM_MP4_ROWS];
 
-			ck(sys_menu_muse_rows(3, true, false, ids) == SM_MUSE_ROWS && ids[3] == SMM_VIEW &&
+			ck(sys_menu_mp4_rows(3, true, false, ids) == SM_MP4_ROWS && ids[3] == SMM_VIEW &&
 			   ids[4] == SMM_SHUFFLE,
 			   "All with songs has every row, View under Sort By");
 			/* View under Sort By on every shelf of MP4's (DESIGN.md 11.67) */
 			for (int kind = 0; kind <= 3; kind++)
 				for (int both = 0; both <= 1; both++) {
-					int q = sys_menu_muse_rows(kind, both, false, ids), at = -1;
+					int q = sys_menu_mp4_rows(kind, both, false, ids), at = -1;
 
 					for (int j = 0; j < q; j++) if (ids[j] == SMM_VIEW) at = j;
 					ck(at > 0 && ids[at - 1] == SMM_SORT, "View under Sort By on every MP4 shelf");
@@ -1121,12 +1121,12 @@ static void system_menu(void)
 			/* Repeat on the shelves with videos (Videos, All), not on
 			 * music or books, after Shuffle All where that is */
 			for (int kind = 0; kind <= 3; kind++) {
-				int q = sys_menu_muse_rows(kind, true, false, ids), has = 0;
+				int q = sys_menu_mp4_rows(kind, true, false, ids), has = 0;
 
 				for (int j = 0; j < q; j++) if (ids[j] == SMM_REPEAT) has = 1;
 				ck(has == (kind == 2 || kind == 3), "Repeat on Videos and All alone");
 			}
-			ck(sys_menu_muse_rows(true, false, false, ids) == 7 && ids[1] == SMM_SORT &&
+			ck(sys_menu_mp4_rows(true, false, false, ids) == 7 && ids[1] == SMM_SORT &&
 			   ids[2] == SMM_VIEW && ids[3] == SMM_EQ && ids[4] == SMM_LOCK && ids[5] == SMM_RESCAN &&
 			   ids[6] == SMM_QUIT,
 			   "books alone: the count, Sort By, View, Equalizer, Lock Screen, Rescan Folder and Quit");
@@ -1135,7 +1135,7 @@ static void system_menu(void)
 			for (int kind = 0; kind <= 3; kind++)
 				for (int both = 0; both <= 1; both++)
 					for (int nw = 0; nw <= 1; nw++) {
-						int q = sys_menu_muse_rows(kind, both, nw, ids);
+						int q = sys_menu_mp4_rows(kind, both, nw, ids);
 						ck(q > 0 && ids[q - 1] == SMM_QUIT,
 						   "Quit is the last row on every MP4 shelf");
 					}
@@ -1143,7 +1143,7 @@ static void system_menu(void)
 		{
 			int q;
 
-			m.muse_books = false;
+			m.mp4_books = false;
 			mn = sys_menu_build(&m, mrows, &mb, &mhead);
 			q = mn - 1;
 			ck(mn > 0 && !strcmp(mrows[q].label, "Quit") && mrows[q].value == MENU_KEY_X &&
@@ -1405,7 +1405,7 @@ static void radio_less(void)
 	menu_row rows[MENU_MAX_ROWS];
 	pm_row pm[PM_ROWS];
 	sm_row sm[SM_ROWS];
-	sm_muse_row mu[SM_MUSE_ROWS];
+	sm_mp4_row mu[SM_MP4_ROWS];
 	const char *heading;
 	int n, k, i;
 	bool ok;
@@ -1522,9 +1522,9 @@ static void radio_less(void)
 	ck(sm[n - 1] == SM_RESCAN && !strcmp(rows[n - 1].label, "Rescan Folder"),
 	   "Rescan Folder last");
 
-	k = sys_menu_muse_rows(false, false, true, mu);
+	k = sys_menu_mp4_rows(false, false, true, mu);
 	for (i = 0, ok = true; i < k; i++) if (mu[i] == SMM_ART) ok = false;
-	ck(ok, "Muse loses Album Art too");
+	ck(ok, "MP4 loses Album Art too");
 }
 
 /* The bound is the point. An all-dead menu must terminate, not spin. */
@@ -3342,7 +3342,7 @@ static void row_sounds(void)
 	gm_bufs gb;
 	menu_row gr[GM_MAX_ROWS];
 	gm_row ids[GM_MAX_ROWS];
-	sm_muse_row mids[SM_MUSE_ROWS];
+	sm_mp4_row mids[SM_MP4_ROWS];
 	wifi_ui w;
 	menu_row wr[64];
 	int n, i;
@@ -3437,17 +3437,17 @@ static void row_sounds(void)
 	ck(!rows[1].live && !rows[5].live, "with no game, nothing to pick or take out");
 
 	memset(&u, 0, sizeof u);
-	u.games = true; u.muse = true; u.muse_both = true;
+	u.games = true; u.mp4 = true; u.mp4_both = true;
 	n = sys_menu_build(&u, rows, &b, &heading);
-	sys_menu_muse_rows(false, true, false, mids);
+	sys_menu_mp4_rows(false, true, false, mids);
 	for (i = 0; i < n; i++) {
 		if (mids[i] == SMM_SHOW)
-			ck(b.sound[i] == MENU_SND_RING, "Muse's Show turns over");
+			ck(b.sound[i] == MENU_SND_RING, "MP4's Show turns over");
 		if (mids[i] == SMM_SORT)
 			ck(b.sound[i] == (MENU_SND_RING | MENU_SND_NO_A),
-			   "Muse's Sort By steps round and does nothing with A");
+			   "MP4's Sort By steps round and does nothing with A");
 		if (mids[i] == SMM_VIEW)
-			ck(b.sound[i] == MENU_SND_RING, "Muse's View turns over, on A too");
+			ck(b.sound[i] == MENU_SND_RING, "MP4's View turns over, on A too");
 		if (mids[i] == SMM_LOCK)
 			ck(!b.sound[i], "Lock Screen is plain");
 	}

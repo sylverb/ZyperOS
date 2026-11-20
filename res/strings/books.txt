@@ -1,4 +1,4 @@
-# Muse's books (audiobooks) on MP4's shelf.
+# The books (audiobooks) on MP4's shelf.
 
 [books.finished]
 note = MP4's shelf: under an audiobook's title, where its author goes, once it has been listened to the end.

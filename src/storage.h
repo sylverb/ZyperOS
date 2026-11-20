@@ -131,7 +131,7 @@ typedef struct {
 } st_orphan;
 
 /* What a media folder holds, item by item, for its page, read as MP4's
- * shelf reads the folder (src/muselib.h): in Music and Audiobooks an album
+ * shelf reads the folder (src/mp4lib.h): in Music and Audiobooks an album
  * or a book - a folder in an artist's or an author's, a folder at the top
  * with no folder inside or with tracks of its own, or a track at the top;
  * in Videos a film at the top or a folder of them (a series), whole. What

@@ -1,6 +1,6 @@
 ################################################################################
 #
-# zyperos: the launcher and Muse, from the ZyperOS repository
+# zyperos: the launcher and MP4, from the ZyperOS repository
 #
 ################################################################################
 
@@ -35,7 +35,7 @@ ZYPEROS_OVERRIDE_SRCDIR_RSYNC_EXCLUSIONS = \
 #
 # Into build-<device>/, never build/: the source used to be copied in whole,
 # ignored files and all, so a Brick build sitting in the worktree's build/
-# came along and make took its muse as up to date. The Brick's binary shipped
+# came along and make took its mp4d as up to date. The Brick's binary shipped
 # as the Pixel's, caught 2026-10-01 by its size. The copy leaves build/ behind
 # now (above), and a directory of its own makes sure of it.
 ZYPEROS_BUILD_DIR = build-$(ZYPEROS_DEVICE)
@@ -61,9 +61,9 @@ define ZYPEROS_BUILD_CMDS
 		device-programs
 endef
 #
-# device-programs is the launcher, Muse and the device's helpers
+# device-programs is the launcher, MP4 and the device's helpers
 # (mk/cross.mk, config/device/<id>.mk's ZYDEV_HELPERS): on the Brick btplayer
-# (tools/btplayer.c, a headset's keys and volume for Muse); on the Pixel 2
+# (tools/btplayer.c, a headset's keys and volume for MP4); on the Pixel 2
 # portkeys, System Update (update/), zyhome (MENU+START home) and p2d (NES
 # Player 2's server, src/p2d/; zlib, which it links, is in the dependencies
 # above). Each helper's program goes into the payload the same way:
@@ -75,7 +75,7 @@ ZYPEROS_HELPER_ENV_btplayer = BTPLAYER_ELF=$(@D)/$(ZYPEROS_BUILD_DIR)/btplayer
 
 # ZyperOS runs from the card's games partition, as on the Brick, so it can be
 # updated by copying files onto the card. What goes there is ZyperOS's own
-# payload (mk/payload.sh, for the device): the launcher, Muse, diatom, the
+# payload (mk/payload.sh, for the device): the launcher, MP4, diatom, the
 # cores, cards and fonts, and the empty Roms, Music, Audiobooks, Bios, Saves
 # and Menu Music folders. The
 # image keeps a copy in /usr/share/zyperos/card, laid out as on the card, and
@@ -88,7 +88,7 @@ ZYPEROS_CARD = $(TARGET_DIR)/usr/share/zyperos/card
 define ZYPEROS_INSTALL_TARGET_CMDS
 	DEVICE=$(ZYPEROS_DEVICE) OUT=$(ZYPEROS_CARD) VERSION="$(ZYPEROS_VERSION_NUMBER)" \
 		ZYPEROS_ELF=$(@D)/$(ZYPEROS_BUILD_DIR)/zyperos.elf \
-		MUSE_ELF=$(@D)/$(ZYPEROS_BUILD_DIR)/muse \
+		MP4D_ELF=$(@D)/$(ZYPEROS_BUILD_DIR)/mp4d \
 		$(foreach h,$(ZYDEV_HELPERS),$(ZYPEROS_HELPER_ENV_$(h))) \
 		DIATOM_ELF=$(DIATOM_DIR)/build/$(ZYDEV_DIATOM_PORT)/diatom \
 		VENDOR_DIR=/zyperos-vendor \

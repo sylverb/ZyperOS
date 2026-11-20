@@ -24,7 +24,7 @@
  * one place they are paired. src/ui.c makes its lifts' shadows from this
  * table and tools/blur-check.c tests every row of it, so a kind given another
  * corner is tested with that corner. A thumbnail's corner is a chip's, since
- * a slot's frame and Muse's square cover are near enough to square that under
+ * a slot's frame and MP4's square cover are near enough to square that under
  * a 20-unit blur the two cannot be told apart. */
 enum { BLUR_FOCUS, BLUR_FOCUS_SMALL, BLUR_PANEL, BLUR_KINDS };
 

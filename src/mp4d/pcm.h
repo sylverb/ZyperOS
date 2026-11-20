@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-#ifndef MUSE_PCM_H
-#define MUSE_PCM_H
+#ifndef MP4D_PCM_H
+#define MP4D_PCM_H
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -10,7 +10,7 @@
  * libasound directly rather than through SDL, because Diatom found SDL cannot
  * drive a bluealsa device string and a headset is a requirement.
  *
- * `default` goes through the Brick's dmix, which is what lets Muse play over a
+ * `default` goes through the Brick's dmix, which is what lets MP4 play over a
  * running game without either of them knowing. It NEVER touches the mixer:
  * the launcher owns the mute switch and cuts HpSpeaker Switch below the mix,
  * and a producer that writes that control to turn the speaker on is exactly

@@ -37,7 +37,7 @@ typedef enum {
  * has to be able to say which one you are hearing. */
 /* USB is a fourth: a USB-C DAC, on a device whose port can be a host (the
  * GKD Pixel 2). Its device string is the system's "usb", a mixed device in
- * front of the DAC, so unlike a Bluetooth sink it is not handed between Muse
+ * front of the DAC, so unlike a Bluetooth sink it is not handed between MP4
  * and Diatom: both have it at once, as both have the codec. */
 typedef enum { AOUT_SPK = 0, AOUT_WIRED, AOUT_BT, AOUT_USB } aout_dest;
 
@@ -76,7 +76,7 @@ const char *aout_dest_label(aout_dest d);
  * (Eric, 2026-10-11). Stereo as things were made; mono, the two channels as
  * one in both ears, which on its own puts everything in the ear that hears;
  * and mono on one side only, with silence on the other, for a player who would
- * rather have nothing in the other ear. Diatom and Muse do the mixing, each in
+ * rather have nothing in the other ear. Diatom and MP4 do the mixing, each in
  * its own stream - the codec has no mono, the Brick's ALSA chain is TrimUI's,
  * and a Bluetooth sink bypasses any chain - so this side only decides. */
 /* AUTO, the default since 2026-11-09, is a choice and not a mix: mono on
@@ -100,7 +100,7 @@ typedef enum {
 
 /* Where a device string reaches. "" is the codec, so the jack decides between
  * wired and the speaker; the system's "usb" is the DAC; anything else is a
- * sink. Each program asks for its own: with Muse on a headset, Diatom is on
+ * sink. Each program asks for its own: with MP4 on a headset, Diatom is on
  * the codec, and the two need different mixes. */
 aout_dest     aout_dest_of(const aout_state *s, const char *dev);
 
@@ -114,7 +114,7 @@ aout_dest     aout_dest_of(const aout_state *s, const char *dev);
 aout_channels aout_channels_for(aout_channels chosen, aout_dest d, bool one_speaker);
 
 /* The menu's names - "stereo", "mono", "mono left", "mono right", in the
- * language that is on - and the ones on the wire to Diatom and Muse and in the settings database: "stereo",
+ * language that is on - and the ones on the wire to Diatom and MP4 and in the settings database: "stereo",
  * "mono", "left", "right", and "auto", which only the settings hold: the
  * programs are told the mix it makes (aout_channels_for). Parsing takes the
  * wire names; anything else is stereo, which is what every output did before

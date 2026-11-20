@@ -105,7 +105,7 @@ static sdec *sdec_open(const char *path)
 	if (!(d->pkt = av_packet_alloc()) || !(d->fr = av_frame_alloc())) goto fail;
 	d->tb = av_q2d(st->time_base);
 	d->fdur = st->avg_frame_rate.num > 0 ? 1.0 / av_q2d(st->avg_frame_rate) : 1.0 / 30;
-	fprintf(stderr, "muse: snap: %s %dx%d %.2f fps\n", codec->name,
+	fprintf(stderr, "mp4d: snap: %s %dx%d %.2f fps\n", codec->name,
 	        d->cc->width, d->cc->height, 1.0 / d->fdur);
 	return d;
 fail:
@@ -243,7 +243,7 @@ static void *sthread(void *arg)
 			pthread_mutex_unlock(&S.mu);
 			sdec_close(d);
 			d = path[0] ? sdec_open(path) : NULL;
-			if (path[0] && !d) fprintf(stderr, "muse: snap: cannot play it\n");
+			if (path[0] && !d) fprintf(stderr, "mp4d: snap: cannot play it\n");
 			g_shm->file++;
 			__atomic_store_n(&g_shm->active, d ? 1u : 0u, __ATOMIC_RELEASE);
 			start = mono();
@@ -379,7 +379,7 @@ bool snap_init(void)
 
 	fd = open(SNAP_FRAMES, O_RDWR | O_CREAT | O_CLOEXEC, 0644);
 	if (fd < 0 || ftruncate(fd, MPF_SIZE) != 0) {
-		fprintf(stderr, "muse: snap: cannot make %s\n", SNAP_FRAMES);
+		fprintf(stderr, "mp4d: snap: cannot make %s\n", SNAP_FRAMES);
 		if (fd >= 0) close(fd);
 		return false;
 	}
@@ -403,7 +403,7 @@ bool snap_init(void)
 	g_started = true;
 	/* No sound thread: snaps play muted, which is how they start anyway */
 	g_sound = pthread_create(&g_ath, NULL, athread, NULL) == 0;
-	if (!g_sound) fprintf(stderr, "muse: snap: no sound thread\n");
+	if (!g_sound) fprintf(stderr, "mp4d: snap: no sound thread\n");
 	return true;
 }
 

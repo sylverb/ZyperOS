@@ -12,7 +12,7 @@
  * clear to whole and opaque; it leaves in **exit** on **in**, back the same
  * way. One panel at a time: a screen opened over a panel waits for that one
  * to leave and then arrives, the scrim as it is, and going back is the same
- * the other way. Only a panel opened on a base - the shelf, Muse's shelf -
+ * the other way. Only a panel opened on a base - the shelf, MP4's shelf -
  * brings the scrim in with it, and only one closed onto a base takes it out.
  *
  * The screens with a panel are modal loops, each nested in the one under it,
@@ -57,7 +57,7 @@ typedef struct {
  * on its way over the shelf goes on. */
 void mm_reset(void);
 
-/* How many screens are open, Muse's shelf counted; the level of the top one. */
+/* How many screens are open, MP4's shelf counted; the level of the top one. */
 int mm_depth(void);
 
 /* A screen with a panel opens at `now`. On a base its panel and the scrim
@@ -67,7 +67,7 @@ int mm_depth(void);
  * stack is full: level 0 is always at rest. */
 int mm_open(unsigned now, bool shown);
 
-/* A screen with no panel of its own that panels open on, Muse's shelf. Over
+/* A screen with no panel of its own that panels open on, MP4's shelf. Over
  * a panel on screen (`shown`), that panel leaves over it with the scrim, as
  * over the shelf. Returns its level, for mm_close. */
 int mm_base(unsigned now, bool shown);
@@ -101,7 +101,7 @@ void mm_press(int lv);
 int mm_settle(int lv, unsigned now, int shown);
 
 /* Level `lv` is the top again: the screens over it were closed with MENU
- * (`all`), and MENU stops here - Muse's menu, which MENU closes and nothing
+ * (`all`), and MENU stops here - MP4's menu, which MENU closes and nothing
  * under it. As after a back: the panel on screen (`shown`) leaves and `lv`'s
  * arrives, or `lv`'s is the one on screen and stays. A base brings nothing
  * back. */

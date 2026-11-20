@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* See muselib.h. */
-#include "muselib.h"
+/* See mp4lib.h. */
+#include "mp4lib.h"
 
 #include <ctype.h>
 #include <dirent.h>

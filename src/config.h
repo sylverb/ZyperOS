@@ -5,17 +5,17 @@
 #include <stdbool.h>
 
 /* Fifteen systems on 2026-11-03, with the Atari 2600, Atari 7800, Game &
- * Watch and arcade shelves, and Favorites and Muse added at runtime: 17, one
+ * Watch and arcade shelves, and Favorites and MP4 added at runtime: 17, one
  * past the 16 this was. Every one of those adds stops at the cap, so whichever
  * came last would have been left off the shelf with at most a line in the
  * log. 24 leaves room for Ports and the PlayStation and DS shelves on their
  * way. 12 was exact once too.
  *
  * And 24 was exact again on 2026-11-03: Neo Geo, Sega CD, 32X, Neo Geo CD
- * and PICO-8 made 23 rows, 25 with Favorites and Muse, so PICO-8 and Arcade
+ * and PICO-8 made 23 rows, 25 with Favorites and MP4, so PICO-8 and Arcade
  * would have fallen off the end. 32 leaves room for the next few.
  * The next few were thirteen: ROGUE OS's other systems on 2026-11-04 made 37
- * rows, 39 with Favorites and Muse. 48 again leaves room. */
+ * rows, 39 with Favorites and MP4. 48 again leaves room. */
 #define CFG_MAX_SYSTEMS 48
 #define CFG_STR 256
 /* A shelf's disc bios names (the Saturn's and the ColecoVision's are three)
