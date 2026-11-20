@@ -2,7 +2,9 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """check-desk: desk mode (src/device/desk.h, tools/desk), in SDL's dummy
 window, so no window opens: the host launcher as the Pixel 2 and as the
-Brick on tools/desk's sample card, driven over its control socket. Each one's
+Brick on tools/desk's sample card, driven over its control socket. The card
+has the interface sounds (res/sounds, as mk/payload.sh puts them on a card),
+and the launcher reads every one. Each one's
 panel is its size (a shot is the panel's pixels, 640x480 or 1024x768), the
 zoom and the handheld around the screen change the window and come back in `state`, a
 press is held until let go, a tap's frame is timed, and `quit` ends it.
@@ -63,6 +65,11 @@ def png_size(path):
 def run(desk, tmp, device, size):
     card = tmp / device
     desk.make_card(card, device, False)
+    # The interface sounds: without them the menus are silent
+    # (src/uisound_out.c's "sounds missing or unreadable")
+    wavs = sorted(w.relative_to(ROOT / 'res/sounds') for w in (ROOT / 'res/sounds').glob('*/*.wav'))
+    check(wavs and all((card / 'ZyperOS/res/sounds' / w).is_file() for w in wavs),
+          f'{device}: the card has the interface sounds ({len(wavs)} in res/sounds)')
     sock = Path(tempfile.gettempdir()) / f'zyperos-deskcheck-{os.getpid()}-{device}.sock'
     flags = tmp / f'{device}-flags'
     flags.mkdir()
@@ -86,6 +93,13 @@ def run(desk, tmp, device, size):
         st = ask(sock, 'state')
         check(st.get('device') == device and st.get('panel') == list(size),
               f'{device}: state says the {size[0]}x{size[1]} panel ({st})')
+        for _ in range(100):
+            if st.get('screen'):
+                break
+            time.sleep(0.05)
+            st = ask(sock, 'state')
+        check(st.get('screen') == 'systems' and isinstance(st.get('cursor'), int) and st['cursor'] >= 0
+              and st.get('focus'), f'{device}: state names the shelf\'s screen, cursor and focus ({st})')
         shot = tmp / f'{device}.png'
         r = ask(sock, f'shot {shot}')
         check(r.get('ok') and png_size(shot) == size, f'{device}: a shot is the panel, {png_size(shot)}')
@@ -109,6 +123,10 @@ def run(desk, tmp, device, size):
         except subprocess.TimeoutExpired:
             pass
         check(p.poll() == 0, f'{device}: quit ends it (exit {p.poll()})')
+        log.flush()
+        missing = [line for line in (tmp / f'{device}.log').read_text(errors='replace').splitlines()
+                   if line.startswith('uisound:') and 'missing' in line]
+        check(not missing, f'{device}: the launcher reads every interface sound ({missing[0] if missing else "none missing"})')
     finally:
         if p.poll() is None:
             p.kill()

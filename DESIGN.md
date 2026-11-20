@@ -236,7 +236,11 @@ all?")*
   keep their fill whatever it says.
   - **Bar**, as it ships: the item grows a little on a soft lift, and a
     pill of **accent-ink**, focus-bar-w x focus-bar-h, sits focus-bar-under
-    under it (a system's under its name); on a row, the fill as always.
+    under it (a system's under its name); on a row, the fill as always. On
+    the Covers row it gives way to the video snap's wait bar while that
+    fills, in the same place: both mark the cover. *(Until 1.1.0 the Covers
+    row's sat 16 lower, under the wait bar's place, and a name long enough
+    to reach the screen's middle ran into it.)*
   - **Border**: a ring of **accent-ink** round it, focus-ring wide past a
     gap of focus-gap of ground, its corners the item's own plus the gap and
     the ring, so the curves are parallel; on the home Grid round a
@@ -544,6 +548,8 @@ its own says why beside it.
 | **look-list-num** | 48 | Classic: a row's number, tabular, before its name |
 | **line-clock** | 128 | Classic: the clock's line, as a box |
 | **look-cover** | 192 | Spectrum: the cover beside the names |
+| **look-record** | 448 | Vinyl: the platter, a 12-inch record and its rim, 424 and 12 each side |
+| **look-cassette-w** | 592 | Cassette: a C-cassette, 100.4 x 63.8 mm, 74 x 47 grid steps (592 x 376), the nearest whole steps to its proportions |
 <!-- /generated:layout -->
 
 ---
@@ -674,6 +680,11 @@ beside a cubic one. One function each, in `src/design.h`.)*
 | **hold-controls** | 3000 | - | MP4's video controls after the last press |
 | **peak-hold** | 400 | - | MP4's bars (Player Look): a bar's cap held where the bar last reached, before it drops with gravity |
 | **bar-fall** | 140 | follow | MP4's bars falling to the sound: follow's tau, where a bar rises at once |
+| **spin-up** | 360 | out | MP4's reels (Player Look) coming up to speed as the music plays |
+| **spin-down** | 520 | out | ...and coming to a stop as it pauses; the sound stops at once |
+| **rewind** | 700 | turn | MP4's cassette winding back to the start for the next song |
+| **wind** | 180 | follow | MP4's cassette winding to a seek's place: follow's tau |
+| **arm-glide** | 180 | follow | MP4's tonearm gliding to the song's place on the record: follow's tau |
 | **hold-snap** | 1000 | - | a game focused on the shelf before its cover turns into its video snap |
 | **hold-band** | 2000 | - | the Video view's band of covers and keys, after the last press on a game whose snap plays, before it goes down to its strip |
 | **sheen** | 480 | turn | one light crossing a game's card with no art, once, as the cover row stops on it |
@@ -1014,11 +1025,12 @@ opened sooner asks for its own as it draws.
 
 **Games:** the selected **Cover row** design has a straight horizontal row of
 real box art: the focused cover large and flat in its 384 x 328 box, and two
-covers either side of it, five in sight, turned as MP4's album row turns its
-side cards (src/coverflow.c): 0.82 radians, the near edge outward, seen
-through the same weak perspective, the far edge shorter. The near pair is at
-72% and 290 out, at MP4's side alpha (150), the far pair at 56% and 458 out,
-48%, standing partly past the screen's edge for the widest boxes as MP4's do;
+covers either side of it, five in sight, turned as MP4's album row turned
+its side cards (its coverflow, until MP4's shelf became a games shelf's in
+11.67): 0.82 radians, the near edge outward, seen through the same weak
+perspective, the far edge shorter. The near pair is at 72% and 290 out, at
+side alpha 150, the far pair at 56% and 458 out, 48%, standing partly past
+the screen's edge for the widest boxes;
 a cover sliding in comes from 560 out, unseen, its picture decoded before it
 shows (src/games.c's seats). A turned cover is narrower, which is what lets
 five fit with the focused one at its size, and the near pair stays clear of
@@ -1434,6 +1446,19 @@ as a badge is. So a list and a notice are the one shape whether the art is on
 the card or not, and nothing moves when a fetch lands it. Badges are fetched
 on the shelf, never in a game, on a thread of their own in one curl for what
 is missing (src/rabadge.h); no frame waits on the network.
+
+**The achievement's card.** A on a row of the list (or of the Achievements
+tab, 11.46) opens the achievement's card: its title as the heading, then its
+badge under the heading's rule, the list's own picture of it (greyed and faded
+until earned, the plain badge while the card has no art), 96 on the grid
+(RetroAchievements' 64-pixel art at about its own size on the Pixel 2),
+centered over the description as the description is centered, with the
+rule's gap under it (the panel's header picture). The description is wrapped
+whole, never cut; where it is taller than the panel leaves it, it scrolls
+itself, as a card with no cursor does, and only it: the rule, **Points** and
+**Status** under it stay. *(My ask, testing 1.1.0, 2026-11-19: the
+card shows the achievement's picture, and a long description scrolls.)* Host shots: `--cheevo-card 0` to `3`, with
+`--cheevos-badge SET NAME` for art and `--phase MS` for the scroll.
 
 **Zyper on an unlock.** The notice an unlock makes, and the one for mastering
 a set, has Zyper at its right end, as tall as the badge, cocked and panting as
@@ -1930,9 +1955,9 @@ header, clock at the left and marks at the right, is on every screen over a
 paused game (PR #40) and every MP4 screen (2026-11-09): its shelf, an album's
 tracks, Now Playing, a video with its controls and the lock screen over them,
 each in its own theme. The second layout, the clock beside the marks at the
-right, which Now Playing, a video's controls and MP4's shelf drew, is gone. MP4's shelf puts its album's title in the
-row between the clock and the marks, 24 clear of each, sliding when it is
-longer, and a video with its controls puts its title there in **action**
+right, which Now Playing, a video's controls and MP4's shelf drew, is gone. MP4's shelf puts nothing in the
+row between the clock and the marks since it is a games shelf's (11.67), and
+a video with its controls puts its title there in **action**
 **text**, centered, or sliding when it is longer, as a long name slides
 everywhere (2026-11-18: it was cut). A background track
 occupies only the space between the logo and the measured status corner. Its
@@ -2091,7 +2116,17 @@ space; used excludes reserved blocks. Capacity comes from the battery
 controller's charge_full and charge_full_design in microamp-hours, displayed
 as whole mAh with grouped thousands. Health is their ratio, rounded to a whole
 percent and capped at 100, explicitly "100% estimate" rather than a measured
-wear claim. Missing, zero or invalid capacity readings show "unknown". Storage
+wear claim. Missing, zero or invalid capacity readings show "unknown". On the
+GKD Pixel 2 the full charge was only ever the design's 1730 mAh, so health was
+100% on any battery. Its kernel now measures it (plastron's
+9-px2-rk817-wear.patch): a full charge marks the gauge's counter, and the next
+start after 30 minutes or more off, at 50% or under at rest, compares what went
+out with that level and moves the full charge half way to the measure, kept in
+the PMIC over updates, slots and cards. It says how many times it measured
+(charge_full_learned); until the first, Battery health and Full charge both
+read "Not measured yet", not a 100% that says nothing. The Brick's gauge does
+not say, and shows the estimate as before. *(On 2026-11-19 I asked whether
+updates lose the battery's health; they did not: it had never been measured.)* Storage
 and capacity refresh every two seconds while About is open. The charge row
 uses the shared battery cache and follows the charging corner's timing.
 
@@ -2111,7 +2146,8 @@ Muse, so a card's saved places and modes still read.
   files like an album. A video's cover is a picture beside it with its name, else one of its
   own frames (src/muse/cover.c). On videos, Sort By is Folder or Title and
   there is no Album Art; Shuffle All and Album Art are on music, and on All
-  when the card has songs.
+  when the card has songs. MENU > View and START show the shelf in Covers,
+  Grid or List (11.67).
 - **Video.** On Now Playing, one view, as a phone's or a TV's player
   (1.0.6; before, two views Y turned between, the smaller one giving up
   nothing to the keys but its frame): the picture as wide as the screen at
@@ -2123,8 +2159,12 @@ Muse, so a card's saved places and modes still read.
   makes it taller, never the picture smaller. The controls come up on any
   key, which also does what it does (the first press too, as a remote's
   would), stay for **hold-controls** after the last press and for as long
-  as it is paused, in over **quick** and out over **fade-out**; Y shows
-  them, or hides them at once. The header goes and comes with them, at the
+  as it is paused, in over **quick** and out over **fade-out**. Y turns
+  **Repeat** (MP4's MENU > Repeat on Videos and All: Off, One, All and
+  round), kept, and brings the controls up as any key does, Repeat's mark
+  beside the time when it is not Off; the keys say "Y Repeat" between X and
+  L1/R1 (2026-11-19: "Make the y button change it"; it showed or hid the
+  controls before). The header goes and comes with them, at the
   same pace, and the ground around the picture eases with them from
   **ground** to pure black (#000): hidden, there is the picture and black,
   as a TV's player has it (2026-11-18: "when the footer times out and
@@ -2777,8 +2817,10 @@ dark screen or Muse fade it back over **quick**. It is muted to start.
 While it waits, a bar under the focused cover says the snap is coming: the
 cover's own width, 12 below it, **UI_BAR_H** tall and round-ended, a
 **track** that fills with **accent-ink** over **hold-snap**, held full
-while the first picture comes, and fading with the cover as it turns. Only
-a game that has a snap shows it. Host shot: `--snap-wait F`.
+while the first picture comes, and fading with the cover as it turns.
+Highlight's bar gives way to it meanwhile (3.5). Only a game that has a
+snap shows it. Host shots: `--snap-wait F`; `games-long-title` and
+`games-long-title-wait`, a name that reaches under the cover.
 A snap's picture goes to the GPU in a texture never smaller than 640x480,
 in its corner when it is smaller, and is drawn from its own rectangle:
 the Pixel 2's GPU faulted, and the launcher with it, on narrower ones (a
@@ -3202,9 +3244,10 @@ back to the same moment, and the next load replaces it. Delete Game, Rename
 and Storage count it with the game's slots.
 
 **Display's names and picture** (1.0.6). The modes say what they do: Full
-Screen, Original Shape, Sharp Pixels, Sharp Pixels, Tall, Sharp Pixels,
-Zoomed, Fill, Edges Cut and Actual Size (the card keeps display.<TAG>'s old
-names: stretch, aspect, integer, integer-vertical, overscale, fill, native).
+Screen, Original Shape, Square Pixels (1.1.0), Sharp Pixels, Sharp Pixels,
+Tall, Sharp Pixels, Zoomed, Fill, Edges Cut and Actual Size (the card keeps
+display.<TAG>'s old names: stretch, aspect, square, integer,
+integer-vertical, overscale, fill, native).
 The Display row, on the Display tab and in the shelf's menu, says only the
 mode; A opens their list, and beside it a picture of what the mode under the
 cursor does with its sentence under it (11.3, a choice with a picture). In
@@ -3216,6 +3259,29 @@ it until the list did (1.0.6's first builds): they pushed Shader down, and
 said the mode in words where a picture shows it. The row is named Display, as
 in game: "Display Mode" beside the longest names fitted in no Latin-letter
 language.
+
+**Square Pixels** (1.1.0). Every pixel of the game square, whatever shape
+its core reports: the picture as tall as Diatom's surface, its width in
+proportion, centred; a picture wider than the surface at that height (the
+GBA's, the PSP's) fills the width at the same factor instead. It is
+RetroArch's 1:1 PAR with integer scaling off: NES and SNES games at 8:7,
+their 256x224, where fceumm and snes9x2010 ask for a CRT's wider shape; the
+Game Gear at 10:9 where genesis_plus_gx asks for 4:3; the PC Engine at
+16:15 (the shapes the cores ask for: diatom/docs/reference/core-facts.md).
+Sharp Pixels draws square pixels too, but at whole multiples, so
+it can leave a border all round; this is the full-height one, with no whole
+step. The card's name is `square`. In the list it sits between Original
+Shape and Sharp Pixels, the step between them: the one's height, the
+other's square pixels. The filter stays the Shader row's, as for every
+mode (mode and filter are two axes, diatom/src/diatom.h): at about 3.4
+times (224 lines on 768) Off draws some rows three lines and some four, and
+Sharp-Shimmerless evens them out, which the guide's Shaders part says. The
+arithmetic is Diatom's (diatom/src/scale.c, `square`), written again in
+src/dmodefit.c for the list's picture and in integers in both, so the two
+agree to the pixel: make check-dmodefit holds the four systems above on the
+Pixel 2's 640x480 and the Brick's 1024x768 (an NES game's 256x224 on the
+Brick: 878x768), and diatom's check-stateplane the rect DISPLAY says.
+*(moroboshi69's ask on the Brick, #346; my yes for 1.1.0 on 2026-11-19.)*
 
 **Where it opens.** The first MENU of a game opens on Game, on Continue.
 After that it opens on the tab and the row it was left on, until the game
@@ -4131,9 +4197,10 @@ Right; **1m** to start with, shorter than Auto Off's two minutes so that a
 handheld on battery shows it before it powers off. It starts only on the
 shelf, the home or a games shelf, once its delay has passed with no button
 down. Never in a game, over a menu, MP4, Muse's player or File Transfer, and
-not while music plays, File Transfer is on behind the shelf or a long task
-runs (11.38): the countdown does not run while any of them does, and a
-whole delay passes after it ends, as Auto Off's does on the charger. A game,
+not while music plays, File Transfer is on behind the shelf, a long task
+runs (11.38) or the Video view plays a snap (11.57: somebody watching it,
+whose first press the screensaver would take): the countdown does not run
+while any of them does, and a whole delay passes after it ends, as Auto Off's does on the charger. A game,
 a menu or any other screen in between restarts it. The charger does not
 hold it: a handheld on the cable shows it too. Under 20% on battery it does
 not start (src/saver.h).
@@ -4315,8 +4382,8 @@ the menu turns with it, on the same entry.
 with no menu *(2026-11-13: "make clicking start in a system change view
 mode to list and vice versa"; the grid between them, 2026-11-15)*: the
 row's own setting, saved the same way, the shelf on the same entry, with
-the move sound. Favorites, folders and Ports alike; MP4's shelf is MP4's
-own screen, where START does nothing alone. Not with MENU or SELECT held:
+the move sound. Favorites, folders and Ports alike; MP4's shelf too, as it
+is let go and round its three (11.67). Not with MENU or SELECT held:
 MENU + START is the way out (tools/zyhome.c) and SELECT + START MP4's lock.
 Before, START did nothing on a shelf. On the home it steps the Home
 Screen's layout the same way (11.1). The foot names where it goes:
@@ -5993,6 +6060,15 @@ Wi-Fi**, "Wi-Fi is off. Offline, Splore has only the carts it downloaded
 before.", **Turn On Wi-Fi** (on, and the saved network joined, up to 15 s) or
 **Open Offline**; B leaves it.
 
+**Splore's downloads.** PICO-8 for Raspberry Pi has no HTTP of its own: it
+runs `wget` for every list and cart. The system's wget is busybox's, which has
+no HTTPS, and every cart is HTTPS, so the lists came (plain HTTP) and no cart
+did: "could not connect to bbs" (device test, 2026-11-19). The script puts
+ZyperOS's own `wget` first on PICO-8's PATH (`ZyperOS/pico8/bin/wget`,
+`sd/pixel2/PICO-8-wget.sh`), which hands Splore's calls to the launcher's curl,
+the certificates checked against ZyperOS's bundle, a file there whole or not at
+all. No change to the system image.
+
 **The Brick** gets your PICO-8 with its ports (the parity plan's item 8):
 until then its script is not in the Brick's payload, so the Brick's PICO-8
 shelf has no Splore and plays on fake08.
@@ -6026,7 +6102,10 @@ list under the heading Add to Collection: a row for each collection, A to
 Z, the ones the game is in ticked (11.3's tick); A puts it in, heard as the
 **reward**, or takes it out, heard as **back**, written through at once.
 Under a rule, **New Collection** opens the keyboard (11.5) for a name, the
-game its first; the cursor lands on it, ticked. A name a card's file cannot
+game its first; the cursor lands on it, ticked. The keyboard opens with
+Shift on for the name's first letter, as a phone's does, and goes back to
+the small letters once one is typed (a Shift chosen with X stays, as
+always; 2026-11-19: "Name input should have the keyboard start with shift on"). A name a card's file cannot
 have, one too long or one another collection has (in any case) is said, and
 the keyboard comes back on what was typed, as Rename's (11.41).
 
@@ -6135,7 +6214,15 @@ margin, DS_BAR high, centered in the strip, with the focus's place on it in
 where the game is in the shelf still shows. Any press brings the band back
 up in **quick** and does what it does: Right steps on as the band comes up.
 A game with no snap never goes down; the band comes back up by itself when
-the snap stops (a menu over the shelf, the dark screen).
+the snap stops (the dark screen). The covers glide to their places drawn
+frame by frame to the end, as the cover row's do, whether or not the snap
+has a new picture.
+
+**Over it.** A page or a menu over the view (X's details, MENU) holds the
+snap on its picture, its daemon waiting, and brings the band up as a press
+does; it plays on from there when the shelf is in front again, so the
+game's card never shows through as the page comes. While the snap plays,
+the screensaver's countdown does not run (11.37).
 
 **What it costs.** The snap is Muse's daemon's, as on every view: one
 decoder thread, at most 640 x 480, its frames drawn only when a newer
@@ -6315,10 +6402,13 @@ held goes back.". Every button is read as a key until SELECT is let go, A
 and B too: SELECT down lights its glyph at 112 (the tutorial's pressed look),
 a button with it lights beside it with "+", and the second line says "Let go
 to keep them.". SELECT let go alone waits again; MENU, or B with nothing
-held, leaves with no change. **A clash offers a swap**: the keys are another
-action's, so the yes/cancel panel asks "SELECT+R2 is Faster now. Faster moves
-to None." (or to the keys the row had), **Swap** and Cancel, the cursor on
-Cancel, so no hotkey is lost by accident. There is no Both: a chord does one
+held, leaves with no change. **A clash says so, and offers a swap**: the
+keys are another action's, so the yes/cancel panel says "SELECT+R2 is
+already taken by Faster. Swap them, and Faster moves to None." (or to the
+keys the row had), **Swap** and Cancel, the cursor on Cancel, so no hotkey
+is lost by accident (2026-11-19: "If a hotkey is taken, we should
+show a message saying it"; it read "SELECT+R2 is Faster now", which did not
+say it was taken). There is no Both: a chord does one
 action.
 
 **Reset Game asks first** *(my pick: a reset loses play, so one press is not
@@ -6341,18 +6431,77 @@ carries the shot itself beside "Screenshot saved", the folder under it,
 kept in its shape at the two lines' height (`NOTICE_PICTURE`), for
 **hold-short**, as every pop-up over a game.
 
+### 11.62 Two cores on a shelf: Gambatte
+*(DoctorIssa on the Discord asked for Gambatte; Tarik: "all good". mGBA
+stays the default.)*
+
+A system's menu has **Core** where its shelf lists more than one core in
+config/systems.cfg, the first its default: the Game Boy's and the Game Boy
+Color's, **mgba** or **gambatte** (1.0.7), beside the Nintendo 64's and the
+Dreamcast's. Two choices, so Left, Right or A turns it over; kept by the
+shelf's tag (`core.<TAG>`), and the next game started runs on it. Timing,
+Display, Shader and the buttons stay the system's, whatever the core.
+
+- **A resume point is one core's own.** A game left on the other core
+  starts fresh, and says so, as the N64's do (src/corestate.h: the state's
+  header names the core that wrote it, "mGBA" or "Gambatte"). Save slots of
+  the other core stay on the card.
+- **The battery save is one file**, `<rom>.srm`, for both. Gambatte keeps a
+  cartridge's clock apart (MBC3: Pokémon Gold, Silver and Crystal), and
+  Diatom keeps it as RetroArch does, `<rom>.rtc` beside the save, read at
+  the start and written on every way out (diatom/src/save.c), for every
+  core that keeps one apart (Snes9x's S-RTC too). mGBA keeps its clock in
+  the save itself, so after a change of core a clock may need setting again.
+- **A game's details say the core** while its shelf has two: a **Core** fact
+  after Genre, in the facts' quiet style, so a person asking for help can
+  say which one ran.
+- **The same look.** Gambatte's defaults are mGBA's on the Game Boy shelf
+  (src/coreopts.c): the first Game Boy's green ("Internal", GB - DMG) where
+  the core's own default is no color, and the shelf's hardware a Game Boy.
+
+Gambatte is libretro/gambatte-libretro at 77f2567, built in the small
+cores' image (mk/build-small-cores.sh, Debian bullseye's GCC 10, checked for
+undefined symbols and pinned by sha256), the same binary for both handhelds.
+No machine has to remember to build it: tools/release.sh, tools/px2-payload.sh
+and plastron's card builds run `mk/build-small-cores.sh --missing` first,
+which builds a small core systems.cfg names and the vendor folder lacks and
+only looks when none is missing; mk/payload.sh, which refuses a card without
+it, names that command.
+
+### 11.63 Zipped games
+*(NextUI's top ten; Tarik: "ok".)*
+
+A cartridge's game in a zip, one game a zip as No-Intro sets come: Diatom
+unpacks the zip's largest entry, the game, whatever else is beside it (a
+readme). It reads an entry that is stored, Deflate, or LZMA (method 14,
+7-Zip's option, through liblzma, which the system has for the CHD reader).
+The largest entry is the game whatever its method, so a zip whose game is
+compressed another way (bzip2, 12, or Zstandard, 93, whose libraries the
+system has not) is refused, never its readme handed to the core in its
+place; and the launcher says so before it starts anything, as a one-line
+message under the game's name (11.8): "This zip uses a compression ZyperOS
+can't read. Zip the game again with Deflate, the usual method."
+(`gamefile_zip_method`, from the zip's central directory alone, nothing
+unpacked). Not on a shelf whose core reads its zips itself (the arcades',
+which list 7z, and MAME's). RetroAchievements' hash takes the same entry
+(src/rahash.c), so a game unpacked is the game hashed.
+
+`.7z` stays on the shelves whose cores read it themselves (Arcade, Neo Geo,
+NAOMI, Atomiswave). A cartridge system's `.7z` would need a 7z reader in
+Diatom and in the launcher's hash, and is not done.
+
 ### 11.64 Player Looks
 
 **Player Look**, in MP4's MENU on the music shelf (and on All when the card
 has songs) under Shuffle All, is how Now Playing shows a song
 (src/mp4look.h, src/nowplaying_looks.c). **Cover**, the cover large as it
-always was, is the default; **Classic** and **Spectrum** beside it. A opens
-the list, its picture the look under the cursor playing (src/ds/preview.h's
-column): Now Playing drawn whole at the screen's size into a texture,
-halved, then drawn into the box - the song that plays, or with none the
-shelf's album's first song in show, its clock running and its bars moving.
-Left and Right step it round. Kept as `muse.look`. A book and a video keep
-their own Now Playing.
+always was, is the default; **Cassette**, **Vinyl**, **Classic** and
+**Spectrum** beside it. A opens the list, its picture the look under the
+cursor playing (src/ds/preview.h's column): Now Playing drawn whole at the
+screen's size into a texture, halved, then drawn into the box - the song
+that plays, or with none the shelf's album's first song in show, its clock
+running and its bars moving. Left and Right step it round. Kept as
+`muse.look`. A book and a video keep their own Now Playing.
 
 - **The frame** every look shares: the top bar; the song's time, the bar
   from margin to margin with the time played and the time left under its
@@ -6362,6 +6511,68 @@ their own Now Playing.
   section, the times, a related step, the bar, a section; the look has the
   rest, from a section under the header. Six of the eight languages put
   the keys on two rows, and their looks are 48 shorter: nothing meets.
+- **Cassette**: a C-cassette at its real proportions, 100.4 x 63.8 mm,
+  **look-cassette-w** wide (592 x 376, 74 x 47 grid steps, the nearest
+  whole steps to its 1.5737), in a clear smoke-grey shell with the theme's
+  ground through it (my pick). Its parts are a drawing in millimetres
+  (src/cassette.h): the label in the theme's **surface**, the side's letter
+  in a **text** box, the song in **game-title** (sliding when long), its
+  place in the album in **chrome** **text-dim** with the play mode's mark,
+  the cover's main color as a stripe across it (src/covercolor.h: the hue
+  most of the cover is, gently weighed by how vivid; the accent for an
+  album with no cover), and under the window the artist and the album; the
+  window, a pill, its glass lit at the top; through it the reels, each hub
+  21.5 mm of white plastic with six teeth round the spindle's hole and the
+  clamp in its rim, each pack of tape up to 50.2 mm; the head end with its
+  three openings and the tape across them; five screws. The side is the
+  album's: its first half A, the rest B, as an album went onto a tape. 25
+  bars under it, as wide as it.
+- **The cassette's motion**: the packs trade their area over the song,
+  the left emptying and the right filling; each reel turns at the tape's
+  4.76 cm a second over its pack's radius, counterclockwise as the tape
+  leaves the left pack down its outer side and climbs onto the right, so
+  the near-empty one turns fast. Play and pause bring them up over
+  **spin-up** and down over **spin-down** (out, from wherever they are),
+  the sound stopping at once. A new song rewinds the tape over **rewind**
+  (turn), the reels turning back with it, the label's words leaving in
+  **exit** (in) up a grid step and the new ones arriving in **move** (out)
+  from one under; a seek winds the tape on follow (tau **wind**). The
+  rewind is a show, not the song's real tape: from a song's end it turns
+  the empty hub at most 4.3 times a second, 26 degrees a frame, under the
+  30 at which six teeth would seem to stand or turn back. Drawn once into
+  textures for the theme's colors - the shell and label, the window's
+  glass, a hub, a pack - so a frame only copies them: the packs scaled,
+  the hubs turned, the reels clipped to the window. Under Square the
+  cassette keeps its own corners: it is a thing, not the interface.
+- **Vinyl**: a 12-inch record, 302 mm across, on its platter
+  (**look-record**, the theme's **raised** in its **edge**), pressed in
+  the cover's main color darkened to a fifth of its lightness and its
+  saturation held to 55%, so its grooves read (my pick; the accent's for
+  an album with no cover), the cover itself its label. Its face is a
+  drawing in millimetres (src/vinyl.h): the lead-in, the grooves from 146
+  to 60 mm out, satin with a fine ring every 5 units (under 4%, so it never
+  moires at 0.625), the album's songs shared evenly over them with a gap
+  of smooth dark vinyl between each two, the lead-out, the label 100 mm
+  across with its edge's shadow, the spindle's steel. The light on it, a
+  bow tie of two opposite wedges brightest four fifths out, stays where it
+  is while the record turns under it. The tonearm has a Technics'
+  geometry, its pivot 215 mm from the spindle up and right at 40 degrees
+  and its needle 230 mm from the pivot, so the needle goes from four
+  o'clock at the edge to five near the label; on its base, its
+  counterweight behind the pivot. The names beside it: where in the queue
+  and the mode's mark, the song in **title**, the artist in **menu**
+  **text-soft**, from a section past the arm's base on the grid; 15 bars at
+  the column's foot.
+- **The record's motion**: it turns clockwise at 33 1/3 a minute, 200
+  degrees a second, up over **spin-up** and down over **spin-down** as the
+  cassette's reels do; the label turns with it (the cover drawn as a disc
+  of 96 triangles whose picture turns, so it is round with no mask), the
+  grooves and the light do not need to. The needle is on the song's place:
+  the song's own ring, moving in as it plays (about 15 units a song on an
+  album of eight, 9 pixels on the Pixel 2), gliding to a new song's ring or
+  a seek's place on follow (tau **arm-glide**). The platter, the face, the
+  light, the arm and its base are drawn once into textures; a frame copies
+  them and turns the arm on its pivot.
 - **Classic**: the clock's panel (**look-classic-w** wide, a panel's slab
   with its lift) - the play state's mark in **accent-ink** and its word
   (Playing, Paused, Stopped) in **meta** **text-dim**, where in the queue
@@ -6408,7 +6619,157 @@ their own Now Playing.
   does, on a change and once a second. Under the lock nothing moves: the
   bars are at rest from its first frame.
 - *(My picks in the Sound lab, 2026-11-19: the looks ship beside Cover,
-  which stays the default; bars with caps - a bar rising at once and
-  falling on follow, its cap holding 400 ms and then dropping with
-  gravity.)*
+  which stays the default; a clear smoke-grey shell for the cassette; each
+  album's record pressed in its cover's main color, darkened; bars
+  with caps - a bar rising at once and falling on follow, its cap holding
+  400 ms and then dropping with gravity.)*
+
+### 11.66 Cheats
+*(Asked for on the Discord after 1.0.6, and NextUI's top ten's second: "ok".
+The design and its mocks liked on 2026-11-18; my picks in the Library lab,
+2026-11-19: cheats from libretro's list, achievements pause, a file of my
+own in the game's own list. In 1.1.0.)* The files and the list are
+src/cheats.h's (`make check-cheats`), the page and the questions
+src/cheats_screen.c's, the cheats' download the Downloads page's (11.53);
+Diatom's side is its cheats.h (`make -C diatom check-cheats`).
+
+**Where they are.** `Cheats/` at the card's top, a folder a system named as
+its Roms folder: `Cheats/SNES/<game>.cht` is the player's own file, named
+as the game without its extension (as a save is, so Rename and Delete Game
+can carry it). NextUI's names count too (the file with its extension, and
+the tag's folder, `Cheats/SFC/`), so a card moves over as it is. libretro's
+files, as the Downloads page fetches them from libretro's cheat list
+(libretro-database, CC BY-SA 4.0: ZyperOS ships none of it), go in
+`Cheats/<System>/.libretro/<game>/`, a file each as in libretro's zip; an
+empty `.none` there says libretro has none for the game. RetroArch's format,
+old and new: a cheat RetroArch pokes into memory itself every frame
+(handler 1) has no code for a core and is left out.
+
+**In the game, the Game tab's Cheats row**, right over Achievements, for
+every game Diatom runs: "2 On", or None. A opens the list over the paused
+game, headed "Cheats · 2 On": the player's files first (one group, whatever
+their names), then libretro's, each file under a seam named for its code type, the part of its
+name after the game's ("GameShark"), or libretro. A, Left or Right turns a
+cheat over at once; its On is in **accent-ink**. Turn All Off is the last
+row. Under them, pinned: **Y Search** (the keyboard; the list shows what
+matches, its heading the word in quotes) and **X On First** (the ones that
+are on move to the top; again for In Order). B goes back.
+
+**A game with none** says why, where the list would be: "libretro has no
+cheats for this game." when the Downloads page looked, or "No cheats on the
+card for this game. Downloads in MENU gets them from libretro." when it has
+not; under a rule, how a file goes on by hand, with the folder and the name
+it needs.
+
+**Achievements stop while a cheat is on** *(my pick: pause)*. From the first
+cheat on in a game until the game starts again with every cheat off: Diatom
+evaluates nothing (CHEEVOS says `paused=cheats`), the Achievements row says
+**Paused** and the Achievements tab says why in a sentence. Turning them all
+off again does not bring them back: what a cheat changed in the game's
+memory stays. While signed in, for a game with achievements, the list's top
+line says "Achievements wait while a cheat is on.", and **the first cheat
+asks first**, once a game: "Turn on a cheat?", "Achievements stop for this
+game until it starts again with every cheat off.", **Turn On** and Cancel,
+the cursor on Cancel, as Delete Game asks.
+
+**The start.** A game starts with what was on when it was last left: the
+pop-up "Cheats" / "2 cheats on" over its first frames, for **hold-short**, so
+nobody plays an evening with a cheat they forgot. A game that stopped by
+itself with cheats on (EXIT `reason=crash`) asks at its next start: "This
+game stopped last time with cheats on. Start it without them?",
+**Without Cheats** (the cursor's) and **With Cheats**; without, the game
+starts with none and they stay set for later. B leaves it unstarted.
+
+**What it costs.** Nothing a frame. The launcher hands Diatom the codes that
+are on, a file of one a line (RUN `cheats=`, and `SETCHEATS path=` at each
+switch); Diatom hands them to the core as RetroArch does, a reset and then
+each code, once the game is loaded, at each switch, and again after a reset
+and each state load. A core that holds the last game's codes is reset
+before the next game; one that never had any is never touched, so a game
+without cheats runs as it did before cheats existed. Whether a core takes a
+code is the core's: a cheat it cannot use does nothing.
+
+**Kept** in the library's database: `cheats.<TAG>.<file>`, the ids of the
+ones that are on (a hash of the file's name, the description and the code,
+so an update that changes a code turns that cheat off and leaves the rest),
+gone when none is on; `cheats-asked.<TAG>.<file>` once the first cheat has
+asked; `cheats-crash.<TAG>.<file>` while the crash question waits. Nothing is
+written into a .cht file. **Rename and Delete Game carry them**: the keys,
+and in `Cheats/<console>/` the player's file by the game's name and by its
+file's (NextUI's) and libretro's folder for it (11.31, 11.41). A file named
+by a stem another game of the shelf has (a .cue beside a .chd) stays for
+that game, and a rename takes a copy. Host shots: `cheats-row`, `cheats-page`,
+`cheats-page-end`, `cheats-ask`, `cheats-note`, `cheats-note-end`, `cheats-on-first`,
+`cheats-search`, `cheats-search-none`, `cheats-achtab`,
+`cheats-none-libretro`, `cheats-not-checked`, `cheats-crash` and
+`popup-cheats` (tools/i18n-shots.py; `--cheats` and `--cheats-page` stand in
+for a running game).
+
+### 11.67 MP4's shelf in Covers, Grid and List, and START
+
+**View**, in MP4's MENU under Sort By on every kind, is how MP4's shelf
+shows its albums, as a system's View row (11.39, 11.47): **Covers**, the
+default, **Grid** or **List**. No **Video** (11.57): it plays a game's
+video snap on the whole screen, and an album has none.
+
+**One shelf, the games shelf's.** MP4's shelf draws with a games shelf's own
+three Views - the cover row (src/games.c), the grid (src/gamegrid.c) and the
+list (src/gamelist.c), with their focus, Highlight, motion, band and no-art
+cards - and gives them an album's facts (src/shelf_draw.c's
+draw_album_views): it is a shelf of covers and names, as a games shelf is,
+and only what is said of each differs. *(Mine, 2026-11-19, on seeing MP4's
+first Grid and List beside its own covers: "Can we reutilize the same view
+components we do for systems in mp4? As those are more polished?")* Before,
+its covers were a shelf of their own, square cards turning in a coverflow
+with the album's title in the header. Kept as `view.MUSE`, the key every shelf's
+View is kept under by its tag. Right and Left step it; A steps it on, as a
+system's View row does.
+
+**START** on MP4's shelf steps it on, Covers to Grid to List and round, as
+it steps any shelf's View; on a song's Now Playing it steps the **Player
+Look** round (11.64), kept at once, as MENU's row does. A book and a video
+have no look (their Now Playing shows the chapters, or the picture), so
+START there plays **deny**; the tracks list has one view, and START does
+nothing there. Both as START is let go, and only when SELECT never joined
+it: SELECT + START is MP4's lock (11.14) in either order, and a START
+pressed a moment before SELECT locks without turning anything first
+(src/mp4lock.h's mp4chord; check-mp4lock, and check-mp4views on the real
+launcher).
+
+- **The heading** is **MP4 / Music**, the kind Show shows, as a games shelf
+  names the folder it is in (MP4 alone when the card has one kind); the
+  focused album's fact is its artist (an author, a series), where a
+  Favorites game's system is - a finished book says **Finished** there,
+  and a book or a folder of videos with nothing above it says nothing
+  rather than its name again; **A Open** (**A Play** on a film). On All
+  each album carries its kind's art badge (11.1) in every View.
+- **The cover row** is the games shelf's (Games' **Cover row**): an
+  album's square cover sits in the 384 x 328 box as a square box does.
+- **No-art cards** are a game's card (src/cardart.h), square: the ground in
+  MP4's color, MP4's art faint in its corner, the name in its one treatment
+  (an album order carrying its system's tag, src/ui.c's game_art_card).
+- **The grid** is the games shelf's (11.47), with square cells: MP4 draws
+  every cover square (cover_shape), so the shape is not measured from the
+  art; four across, two rows, a no-art album's name set at the cell's size
+  on its card's ground as a game's is.
+- **The list** is the games shelf's (11.39): a row an album, its kind's
+  badge in the mark's place on All (the letter's card otherwise), the cover
+  on the panel with the artist under it.
+- **The foot**: **B Back**, and **START Grid** under the covers, **START
+  List** under the grid, **START Covers** under the list. No X or Y there,
+  and no play time, achievements, resume or heart among the facts: those
+  are a game's.
+- **Moving** is the games shelf's in each View (shelf_move,
+  src/shelf_keys.c), so MP4's shelf moves exactly as a games shelf does:
+  the d-pad turned with the list, the grid's four directions its own. On
+  opening, on the album that plays, every View is there at once. It is
+  drawn as the main loop draws a shelf (draw_shelf_live), so the cover
+  row's no-art sweep plays on it too.
+- Now Playing's key line is full (A, B, X, Y, L1/R1, the seek), so START
+  is not named there; MENU's row is. MENU > Controls' shelf page already
+  names START (**Home Screen or View**), and MP4's page keeps the six rows
+  it holds without scrolling.
+- *(Mine, 2026-11-19, from my device test run: "Let's add other view modes
+  to mp4 main page and allow changing with start as we do on the launcher
+  / Also start to change player look".)*
 

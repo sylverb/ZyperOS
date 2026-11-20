@@ -48,6 +48,7 @@ extern int shot_charging;
 extern int shot_charging_kind;
 extern int shot_cheevos;
 extern int shot_cheevos_sel;
+extern int shot_cheevo_card;
 extern int shot_ingame;
 extern float shot_sysmove;
 extern float shot_gamemove;
@@ -65,6 +66,8 @@ extern int shot_delete_ask;
 extern int shot_collect_page, shot_collect_delete;
 /* --collect-said K: one of Collections' messages (0 to 2) */
 extern int shot_collect_said;
+/* --zip-said: the message for a zip Diatom cannot unpack (src/gamefile.h) */
+extern int shot_zip_said;
 extern int shot_gm_said;
 extern int shot_delete_now;
 extern int shot_controls;
@@ -170,6 +173,13 @@ extern bool shot_hud_items;    /* --hud-items */
 extern int  shot_hud_pick;     /* --hud-pick ROW */
 extern const char *shot_hud_shows; /* --hud-shows WORDS */
 extern bool shot_hud_alt;      /* --hud-alt */
+extern bool shot_cheats;       /* --cheats: the cursor's game runs with its cheats */
+extern int  shot_cheats_page;  /* --cheats-page ROW: its list, -1 for none */
+extern bool shot_cheats_ask;   /* --cheats-ask: the first cheat's question over it */
+extern const char *shot_cheats_query; /* --cheats-query WORD: a search's word */
+extern bool shot_cheats_on_first;     /* --cheats-on-first: X pressed */
+extern bool shot_cheats_note;  /* --cheats-note: the top line, as signed in */
+extern bool shot_cheats_crash; /* --cheats-crash: the crash question over the shelf */
 extern int shot_pick_at;       /* --pick-at K */
 extern int shot_rows_report;   /* --rows-report */
 extern int shot_hover_sweep;   /* --hover-sweep */

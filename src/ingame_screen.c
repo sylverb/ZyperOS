@@ -6,6 +6,7 @@
 #include "menu_pick.h"
 
 #include "achtab_screen.h"
+#include "cheats_screen.h"
 #include "aout_route.h"
 #include "app.h"
 #include "controls.h"
@@ -557,6 +558,13 @@ void gm_gather(app *a, gm_ui *out)
 		}
 		u.disc_fits = gm_disc_fits;
 	}
+	/* Cheats for every game Diatom runs (src/cheats_screen.h): how many are
+	 * on, and whether one has paused the game's achievements */
+	if (!u.port) {
+		u.cheats = true;
+		u.cheats_on = cheats_game_on();
+		u.cheats_paused = cheats_game_paused();
+	}
 	if (u.screens) {
 		const system_cfg *s = &a->sys.systems[shelf_owner(a, a->sys_cursor,
 		                                      a->view[a->sys_cursor].cursor)];
@@ -599,11 +607,6 @@ const char *gm_tab_name_i(int i) { return gm_tab_name(i); }
  * Earned rows are drawn live and unearned quiet - the same distinction
  * menu_draw makes for a placeholder, and it reads correctly here: what you
  * have is bright, what is still ahead of you is not. */
-/* 255 characters at ~30 to a line is nine, and a line of capitals is half
- * that. Twelve is past the worst real description with room over; the card
- * scrolls when the lines outrun the panel, so depth costs height rather
- * than text. */
-#define CHV_WRAP_LINES 12
 
 /* The code point that starts at p, and its bytes in *len */
 static unsigned wrap_cp(const char *p, int *len)
@@ -744,38 +747,84 @@ static void chv_backdrop(app *a, SDL_Texture *bg, bool over_shelf, float k)
 	ui_scrim_k(a->r, 0, k);
 }
 
-static bool cheevo_detail_screen(app *a, SDL_Texture *bg, bool over_shelf,
-                                 const cheevo *c)
-{
-	char lines[CHV_WRAP_LINES][CHV_WRAP_COLS];
-	menu_row rows[CHV_WRAP_LINES + 3];
-	unsigned vcols[CHV_WRAP_LINES + 3] = { 0 };
-	char pts[24];
-	bool got = c->earned || c->earned_now;
-	int fixed = menu_std_width(a);
-	int n = 0, nl, i, done = 0, lv;
-	bool close_all = false;
-	float k;
+/* The achievement's badge on its card: the list's own picture of it
+ * (src/rabadge.h), greyed and faded until earned, the plain trophy while the
+ * card has no art, drawn near the art's own size - RetroAchievements' 64
+ * pixels; CHV_CARD_BADGE, 96 on the grid, is 60 on the Pixel 2 - under the
+ * heading's rule, centered over the description, which the card centers,
+ * with the rule's gap under it. The panel's header picture (g_menu_header),
+ * set around the card's draw. */
+static SDL_Texture *g_card_badge;
 
+static void cheevo_card_header(app *a, const SDL_Rect *r)
+{
+	if (g_card_badge)
+		SDL_RenderCopy(a->r, g_card_badge, NULL,
+		               &(SDL_Rect){ r->x + (r->w - CHV_CARD_BADGE) / 2, r->y,
+		                            CHV_CARD_BADGE, CHV_CARD_BADGE });
+}
+
+/* The card's rows: the description wrapped whole, the rule, Points and
+ * Status. Shared by the screen and --cheevo-card, so a shot is the card the
+ * device draws. */
+int cheevo_card_rows(const cheevo *c, bool pending, int fixed, cheevo_card *k)
+{
+	bool got = c->earned || c->earned_now;
+	int n = 0, nl, i;
+
+	memset(k->vcols, 0, sizeof k->vcols);
+	/* WRAPPED WHOLE: as many lines as the description has. It was cut at
+	 * twelve, which no real description reaches, and a cut sentence on a
+	 * card is the one thing it must not do; every line takes at least one
+	 * byte of the description, so CHV_DESC lines hold any. The body scrolls
+	 * itself when the lines outrun the panel (menu_panel's card rule: no
+	 * cursor, so only the body moves, and the footer stays). */
 	nl = wrap_text(ui_font(UI_F_MENU),
 	               c->desc[0] ? c->desc : T(S_CHEEVOLIST_NO_DESCRIPTION),
-	               fixed, lines, CHV_WRAP_LINES);
+	               fixed, k->lines, CHV_CARD_LINES);
 	if (!c->desc[0]) ui_fit_drawn(T(S_CHEEVOLIST_NO_DESCRIPTION));    /* drawn in lines */
 	/* Live, unlike an ordinary note. A caption under a setting is a caption;
 	 * here the description IS the content, and UI_TEXT_DIM is too quiet to be
 	 * the only thing on the card worth reading. */
 	for (i = 0; i < nl; i++)
-		rows[n++] = (menu_row){ lines[i], MENU_NOTE_MARK, true };
-	rows[n++] = MENU_RULE;
-	snprintf(pts, sizeof pts, "%d", c->points);
-	rows[n++] = (menu_row){ T(S_CHEEVOLIST_POINTS), pts, true };
+		k->rows[n++] = (menu_row){ k->lines[i], MENU_NOTE_MARK, true };
+	k->rows[n++] = MENU_RULE;
+	snprintf(k->pts, sizeof k->pts, "%d", c->points);
+	k->rows[n++] = (menu_row){ T(S_CHEEVOLIST_POINTS), k->pts, true };
 	/* Earned and not on the account yet - earned offline - says so */
-	rows[n]   = (menu_row){ T(S_CHEEVOLIST_STATUS),
-	                        !got ? T(S_CHEEVOLIST_NOT_EARNED)
-	                        : chv_is_pending(c->id) ? T(S_CHEEVOLIST_EARNED_WAITING)
-	                        : T(S_CHEEVOLIST_EARNED), true };
-	vcols[n]  = got ? VCOL_EARNED : 0u;
+	k->rows[n] = (menu_row){ T(S_CHEEVOLIST_STATUS),
+	                         !got ? T(S_CHEEVOLIST_NOT_EARNED)
+	                         : pending ? T(S_CHEEVOLIST_EARNED_WAITING)
+	                         : T(S_CHEEVOLIST_EARNED), true };
+	k->vcols[n] = got ? VCOL_EARNED : 0u;
 	n++;
+	k->n = n;
+	return n;
+}
+
+void cheevo_card_draw(app *a, const cheevo_card *k, const char *title,
+                      SDL_Texture *badge, int fixed)
+{
+	g_card_badge = badge;
+	g_menu_header = badge ? cheevo_card_header : NULL;
+	g_menu_header_h = CHV_CARD_BADGE + menu_pad() / 2;
+	menu_draw_ex(a, title, k->rows, k->n, -1, fixed, a->tint, k->vcols, false, 0);
+	g_menu_header = NULL;
+	g_card_badge = NULL;
+}
+
+static bool cheevo_detail_screen(app *a, SDL_Texture *bg, bool over_shelf,
+                                 const cheevo *c)
+{
+	/* Kept off the stack: CHV_CARD_LINES lines are 24 KB */
+	static cheevo_card k;
+	bool got = c->earned || c->earned_now;
+	int fixed = menu_std_width(a);
+	int done = 0, lv;
+	bool close_all = false;
+	float k_scrim;
+
+	cheevo_card_rows(c, got && chv_is_pending(c->id), fixed, &k);
 
 	plat_input_flush();
 	memset(&a->in, 0, sizeof a->in);
@@ -809,10 +858,13 @@ static bool cheevo_detail_screen(app *a, SDL_Texture *bg, bool over_shelf,
 			close_all = true;
 		}
 
-		if (!panel_frame(a, lv, &k)) continue;
+		if (!panel_frame(a, lv, &k_scrim)) continue;
 		tick_theme(a);
-		chv_backdrop(a, bg, over_shelf, k);
-		menu_draw_ex(a, c->title, rows, n, -1, fixed, a->tint, vcols, false, 0);
+		chv_backdrop(a, bg, over_shelf, k_scrim);
+		/* A badge that landed while the card is open is read on this frame */
+		rb_landed();
+		cheevo_card_draw(a, &k, c->title,
+		                 rb_icon(a->r, chv_source(), c->badge, !got, theme()), fixed);
 		plat_present();
 		ui_frame_rest(8);
 	}
@@ -1349,6 +1401,7 @@ void gm_at_facts(at_facts *f)
 		f->fetching = shot_achtab == AT_WAITING;
 		f->no_hash = shot_achtab == AT_NOT_SYSTEM ? RA_HASH_NO_SYSTEM
 		             : shot_achtab == AT_NOT_FILE ? RA_HASH_NO_FILE : RA_HASH_OK;
+		f->cheats_paused = shot_achtab == AT_PAUSED;
 		if (shot_achtab == AT_LIST || shot_achtab == AT_STATES) {
 			int i;
 
@@ -1374,6 +1427,7 @@ void gm_at_facts(at_facts *f)
 	f->fetching = g_pending_set[0] && !strcmp(g_pending_set, g_game_set);
 	f->set = chv_state_of(g_game_set, f->signed_in);
 	f->no_hash = g_port_menu ? RA_HASH_OK : g_game_no_hash;
+	f->cheats_paused = !g_port_menu && cheats_game_paused();
 }
 
 at_source gm_at_source(void)
@@ -1865,6 +1919,10 @@ static menu_result gm_key(app *a, void *ctx, in_button key, int sel)
 		break;
 	case GM_PLAYER2:
 		player2_page(a, c->bg);
+		break;
+	/* The game's cheats, each on or off at once (DESIGN.md 11.66) */
+	case GM_CHEATS:
+		cheats_page(a, c->bg);
 		break;
 	/* The Achievements tab, one L1 away: the row turns to it, the list
 		 * or the sentence that says why there is none (1.0.5). It opened the

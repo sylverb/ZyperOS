@@ -12,6 +12,7 @@
 #include "dlq.h"
 #include "dsv.h"
 #include "ingame_screen.h"
+#include "cheats_screen.h"
 #include "hudmenu_screen.h"
 #include "musec.h"
 #include "net.h"
@@ -839,6 +840,21 @@ void launch(app *a)
 			return;
 		}
 	}
+	/* A zip Diatom unpacks (a cartridge's: a shelf whose core takes no
+	 * archive itself, the arcades' listing 7z and MAME's) whose game is
+	 * compressed in a way it cannot read, bzip2 or Zstandard: said here,
+	 * where a start would have come back with nothing said (1.0.7) */
+	if (romfile && strlen(romfile) > 4 && !strcasecmp(romfile + strlen(romfile) - 4, ".zip") &&
+	    !strstr(s->exts, "7z") && strcmp(s->core, "mame2003_plus")) {
+		int m = gamefile_zip_method(rom);
+
+		if (m >= 0 && !gamefile_zip_reads(m)) {
+			fprintf(stderr, "launch: %s refused: %s is compressed by method %d\n", s->name, romfile, m);
+			if (a->in.pressed[IN_ACCEPT]) uisound_play(DS_SOUND_DENY);
+			result_message(a, v->list.items[v->cursor].title, T(S_LAUNCH_ZIP_METHOD));
+			return;
+		}
+	}
 
 	/* A DS game: two screens in one frame, a DraStic save (ROGUE OS's) to
 	 * take over the first time, and frames left undrawn when they run late -
@@ -847,6 +863,21 @@ void launch(app *a)
 	 * it. */
 	g_game_dual = two_screens(s);
 	if (g_game_dual) dsv_import(save, romfile);
+	/* The game stopped by itself last time while cheats were on: asked
+	 * first, the cursor on Without Cheats, which starts it with none this
+	 * time and keeps them set for later (DESIGN.md 11.66). B: not started. */
+	bool cheats_without = false;
+	if (cheats_crash_asks(s, romfile)) {
+		char q[480];
+		int r;
+
+		snprintf(q, sizeof q, "%s %s", T(S_CHEATS_CRASH_TITLE), T(S_CHEATS_CRASH_BODY));
+		ui_fit_drawn(T(S_CHEATS_CRASH_TITLE));
+		ui_fit_drawn(T(S_CHEATS_CRASH_BODY));
+		r = ask_two_panel(a, T(S_CHEATS_ROW), q, T(S_CHEATS_CRASH_WITHOUT), T(S_CHEATS_CRASH_WITH));
+		if (r == 0 || !a->running) return;
+		cheats_without = r == 1;
+	}
 	{
 		/* The RUN keys this game needs beyond the usual: a DS game's two
 		 * screens, the system's clock ceiling, controller type and d-pad
@@ -899,6 +930,9 @@ void launch(app *a)
 					         keys[0] ? "\t" : "", shots);
 			}
 		}
+		/* The cheats that are on for this game, handed over as it loads
+		 * (src/cheats_screen.h): cheats= on RUN, none for most games */
+		cheats_game_begin(s, romfile, cheats_without, keys, sizeof keys);
 		if (keys[0]) plat_resident_run_keys(keys);
 		rm_format(&sent, map, sizeof map);
 		plat_resident_map(strcmp(map, "identity") ? map : "");
@@ -1198,6 +1232,8 @@ void launch(app *a)
 			 * lands before the first frame the player could act on. */
 			if (want_menu) plat_resident_line("PAUSE");
 			g_menu_unasked = want_menu;
+			/* "2 cheats on" over the first frames, so none is forgotten */
+			if (!want_menu) cheats_game_started();
 			/* No launch animation, and it is a display-safety rule, not a
 			 * taste call: Diatom presents through fbdev, this process
 			 * through GL, and the handoff spike's one invariant is that
@@ -1230,6 +1266,9 @@ void launch(app *a)
 			g_ctl_game.on = false;
 			screen_shader_apply();
 			resident = (r == RES_EXIT);
+			/* A game that stopped by itself with cheats on asks at its next
+			 * start whether to start without them */
+			cheats_game_end(resident && plat_resident_crashed());
 			/* The game is over, and however it ended it ended here: Quit,
 			 * a crash (EXIT reason=crash) or Diatom gone (RES_DEAD), POWER,
 			 * the battery, Auto Off, px2-open's next game, a TERM. NES

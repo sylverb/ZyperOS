@@ -9,7 +9,7 @@
 # screen that has one - the shelf, every MP4 screen, over a paused game: the
 # clock from x 64, the marks back from x 960, on y 52 to 76. What stands near
 # it is laid out elsewhere: the systems card by the horizontal layout
-# (src/coverflow.c), MP4's album title by TITLE_TOP and topbar_half, a panel
+# (src/coverflow.c), MP4's shelf as a games shelf's (src/games.c), a panel
 # by menu_draw_ex's MENU_TOP. A shot checks its own frame for all of them
 # (shot_corner_clear: the clock at 64 and the marks ending at 960, the marks
 # off the focused card, the title's capitals clear of the clock and the

@@ -87,6 +87,11 @@ CONFIG_BACKLIGHT_CLASS_DEVICE=y
 CONFIG_NEW_LEDS=y
 CONFIG_LEDS_CLASS=y
 
+# QEMU's fw_cfg files in sysfs: root's SSH key comes in that way at every boot
+# (tools/qemu-run.sh -fw_cfg opt/org.zyperos/authorized_keys, read by
+# rootfs-overlay/etc/init.d/S49sshkey), so the image carries none of its own
+CONFIG_FW_CFG_SYSFS=y
+
 # Networking for SSH and ZyperOS's file transfer page: IPv4 and v6, Unix
 # sockets (Diatom's), packet sockets (udhcpc)
 CONFIG_NET=y

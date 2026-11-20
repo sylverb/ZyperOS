@@ -78,6 +78,16 @@ export SDL_VIDEODRIVER="${SDL_VIDEODRIVER:-kmsdrm}"
 # cap (device test, 2026-11-19). The same mapping with the two swapped, for
 # this pad's id, which SDL reads before any mapping of PICO-8's own
 export SDL_GAMECONTROLLERCONFIG="190043d2010000000221000000010000,gkd_pixel2_joypad,a:b1,b:b0,x:b2,y:b3,back:b8,start:b9,leftshoulder:b4,rightshoulder:b5,dpup:b10,dpdown:b11,dpleft:b12,dpright:b13,lefttrigger:b6,righttrigger:b7,crc:d243,platform:Linux,"
+# Splore's downloads: pico8_64 runs `wget` for every list and cart, and the
+# system's wget (busybox's) has no HTTPS, which every cart is. Ours, in bin/
+# beside this script, hands them to curl (PICO-8-wget.sh says how), so it
+# goes first on PICO-8's PATH
+case $0 in */*) HERE=$(cd "${0%/*}" 2> /dev/null && pwd) ;; *) HERE=$(pwd) ;; esac
+if [ -n "$HERE" ] && [ -x "$HERE/bin/wget" ]; then
+	export PATH="$HERE/bin:$PATH"
+else
+	echo "pico8: no bin/wget beside this script; Splore downloads with the system's wget, which has no HTTPS"
+fi
 
 cd "$HOME_DIR" || exit 1
 if [ "$RUN" = -run ]; then

@@ -3,6 +3,7 @@ config BR2_PACKAGE_DIATOM
 	depends on BR2_PACKAGE_SDL2
 	depends on BR2_PACKAGE_MESA3D_PX2 || BR2_PACKAGE_PVR_GE8300
 	select BR2_PACKAGE_ZLIB
+	select BR2_PACKAGE_XZ
 	help
 	  Diatom, the libretro frontend ZyperOS runs games with, built
 	  from ZyperOS's diatom/ folder (/zyperos/diatom in the build

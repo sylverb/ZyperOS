@@ -1,0 +1,29 @@
+#!/bin/sh
+# root's SSH key in QEMU, before dropbear starts (S50dropbear): the public key
+# ZyperOS's tools/qemu-run.sh hands the VM at every start, as the QEMU fw_cfg
+# file opt/org.zyperos/authorized_keys, into /run/ssh-root, where /root/.ssh
+# points (board/qemu/post-build.sh). The image itself carries no key, so the
+# same image lets in whoever starts it, with their own key, and can be
+# published: a QEMU started without the file leaves SSH with no key at all
+# (the serial console still has a shell, on the VM's own socket).
+# FWCFG_KEY and SSH_ROOT are for ZyperOS's tools/qemu-image-check.sh.
+KEY=${FWCFG_KEY:-/sys/firmware/qemu_fw_cfg/by_name/opt/org.zyperos/authorized_keys/raw}
+DIR=${SSH_ROOT:-/run/ssh-root}
+
+case "$1" in
+start)
+	mkdir -p "$DIR"
+	chmod 700 "$DIR"
+	if [ -r "$KEY" ]; then
+		(umask 077 && cat "$KEY" > "$DIR/authorized_keys")
+		echo "sshkey: $(grep -c . "$DIR/authorized_keys") key(s) from QEMU"
+	else
+		echo "sshkey: QEMU handed no key (opt/org.zyperos/authorized_keys): no SSH login"
+	fi
+	;;
+stop | restart | reload) ;;
+*)
+	echo "Usage: $0 {start|stop}"
+	exit 1
+	;;
+esac

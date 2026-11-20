@@ -36,6 +36,7 @@ bool lock_allowed(void);
  * and the volume, brightness, X and SELECT with START keys (true: lock) */
 void muse_input(app *a);
 bool muse_select(void);
+bool muse_start(void);    /* START alone, let go: the screen turns (11.67) */
 void muse_input_reset(void);
 bool muse_keys(app *a);
 /* The lock screen: its panel, and the screen until it is let go */

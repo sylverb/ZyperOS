@@ -161,3 +161,12 @@ int muq_upcoming(const muq *q)
 	if (q->mode == MUQ_REPEAT_ALL) return q->order[0];
 	return -1;
 }
+
+muq_mode muq_video_repeat_next(muq_mode m)
+{
+	switch (m) {
+	case MUQ_REPEAT_ONE: return MUQ_REPEAT_ALL;
+	case MUQ_REPEAT_ALL: return MUQ_IN_ORDER;
+	default:             return MUQ_REPEAT_ONE;
+	}
+}

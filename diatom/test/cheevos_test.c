@@ -422,6 +422,69 @@ static void test_end_to_end(void)
 	CHECK(sent("CHEEVO\tid=76195\tstate=unlocked"), "76195 not enumerated as unlocked");
 }
 
+/* ---- 5a. the Dreamcast, as flycast2021 gives its memory ------------------- */
+
+/* flycast2021 (mk/build-flycast2021.sh, metallic77/flycast 603814c) declares
+ * no memory map and answers retro_get_memory_data(SYSTEM_RAM) with its main
+ * RAM, mem_b, 16 MB, from retro_load_game on (dc_init); every other kind is
+ * NULL. RetroAchievements lays the Dreamcast out as that RAM alone, 0x000000
+ * to 0xFFFFFF for the real 0x0C000000 (rc_consoles.h). So the whole space is
+ * one span, read where the core keeps it, and a set's 32-bit counter there
+ * unlocks on the frame it moves. */
+#define DC_RAM (16u * 1024 * 1024)
+static uint8_t *g_dcram;
+
+static void *dc_data(unsigned id)
+{
+	mem_calls++;
+	return id == RETRO_MEMORY_SYSTEM_RAM ? g_dcram : NULL;
+}
+
+static size_t dc_size(unsigned id)
+{
+	return id == RETRO_MEMORY_SYSTEM_RAM ? DC_RAM : 0;
+}
+
+static void test_dreamcast(void)
+{
+	printf("  the Dreamcast, flycast2021's way (no map, 16 MB of system RAM):\n");
+	g_dcram = calloc(1, DC_RAM);
+	if (!g_dcram) { printf("  FAIL: no 16 MB here\n"); failures++; return; }
+	console_reset();
+	g_core.get_memory_data = dc_data;
+	g_core.get_memory_size = dc_size;
+	diatom_cheevos_set_console(RC_CONSOLE_DREAMCAST);
+
+	CHECK(diatom_cheevos_resolve(&g_core) == DC_RAM,
+	      "all 16 MB should be readable; got %zu", diatom_cheevos_resolve(&g_core));
+	CHECK(diatom_cheevos_total_bytes() == DC_RAM,
+	      "the Dreamcast's space is 16 MB; got %zu", diatom_cheevos_total_bytes());
+	CHECK(diatom_cheevos_span_count() == 1, "one span; got %d", diatom_cheevos_span_count());
+
+	g_dcram[0x1a2b3c] = 5;
+	g_dcram[0xfffffc] = 0x78; g_dcram[0xfffffd] = 0x56;
+	g_dcram[0xfffffe] = 0x34; g_dcram[0xffffff] = 0x12;
+	CHECK(diatom_cheevos_peek(0x1a2b3c, 1, NULL) == 5, "RAM is not at 0x1a2b3c");
+	CHECK(diatom_cheevos_peek(0xfffffc, 4, NULL) == 0x12345678,
+	      "the last word of RAM, little-endian as the SH-4 keeps it");
+
+	/* A score at the top of RAM going up while a flag holds */
+	write_set("910001\t0xH1a2b3c=5_0xXfffffc>d0xXfffffc\n");
+	CHECK(diatom_cheevos_load(g_set_path) == 1, "the set should load");
+	sent_clear();
+	diatom_cheevos_frame();
+	diatom_cheevos_frame();
+	CHECK(!sent_starting("CHEEVO\tid=910001"), "fired before the score moved");
+	g_dcram[0xfffffc] = 0x79;
+	diatom_cheevos_frame();
+	CHECK(sent("CHEEVO\tid=910001\tstate=unlocked"),
+	      "the launcher was never told 910001 unlocked");
+
+	diatom_cheevos_reset();
+	free(g_dcram);
+	g_dcram = NULL;
+}
+
 /* ---- 5b. memory the core maps late ---------------------------------------- */
 
 /* PPSSPP maps the PSP's memory in its first frames, after the load Diatom
@@ -756,6 +819,7 @@ int main(void)
 	test_condition();
 	test_set_file();
 	test_end_to_end();
+	test_dreamcast();
 	test_late_memory();
 	test_runtime_reset();
 	test_progress_kept();

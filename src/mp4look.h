@@ -20,6 +20,8 @@
 
 typedef enum {
 	MP4L_COVER,
+	MP4L_CASSETTE,
+	MP4L_VINYL,
 	MP4L_CLASSIC,
 	MP4L_SPECTRUM,
 	MP4L_COUNT
@@ -59,5 +61,83 @@ void mp4l_bars_step(mp4l_bars_t *b, float dt, const uint8_t *bands);
 
 /* Every bar and every cap down: nothing to draw again */
 bool mp4l_bars_rest(const mp4l_bars_t *b);
+
+/* ---- turning: the reels, the record ---------------------------------------------
+ *
+ * How fast what turns is turning, 0 stopped to 1 at its speed: up to it over
+ * **spin-up** as the music plays, down over **spin-down** as it stops, both
+ * on **out**, and from wherever it is when the other comes (interruptible).
+ * The sound stops at once; only the turning runs on. */
+typedef struct {
+	float v;                 /* now */
+	float from, to;          /* the move under way */
+	float t, dur;            /* ms into it, and its length; t >= dur at rest */
+} mp4l_spin;
+
+void mp4l_spin_to(mp4l_spin *s, bool on);
+void mp4l_spin_step(mp4l_spin *s, float dt);
+/* Turning, or on its way to or from it */
+bool mp4l_spin_moving(const mp4l_spin *s);
+
+/* ---- the cassette's tape ---------------------------------------------------------
+ *
+ * Where the tape is (0 the song's start, 1 its end) and each reel's angle.
+ * Playing it follows the song; a seek's jump it winds to on **follow** (tau
+ * DS_MS_WIND), the reels spinning with it; a new song rewinds it to the
+ * start over **rewind** (on **turn**). Each reel turns at the tape's speed
+ * over its pack's radius, so the near-empty one turns fast: the left pack
+ * empties as the song plays, the right one fills, the pack's area going
+ * with the tape. Radii and the tape's speed in the caller's units. */
+typedef struct {
+	float f;                 /* the tape where it is shown */
+	float from;              /* a rewind's start */
+	float t;                 /* ms into a rewind; < 0 none */
+	float ang[2];            /* the reels' angles, degrees clockwise */
+	int   song;              /* the song the tape is on (its place in the queue) */
+	bool  known;
+} mp4l_tape;
+
+/* A pack's radius with the tape at `f`: reel 0 the left (full at the
+ * start), 1 the right */
+float mp4l_tape_r(float f, int reel, float hub_r, float full_r);
+
+/* One frame, `dt` ms: `song` and `target` where the music is, `spin` how
+ * fast the reels turn playing (mp4l_spin's v), `speed` the tape's in units
+ * a second, `wind` the units of tape a whole song is when winding, for the
+ * reels' turn as the tape winds */
+void mp4l_tape_step(mp4l_tape *t, float dt, int song, float target, float spin, float speed,
+                    float hub_r, float full_r, float wind);
+
+/* Rewinding or winding: the tape not yet where the song is */
+bool mp4l_tape_moving(const mp4l_tape *t, float target);
+
+/* ---- the record ------------------------------------------------------------------
+ *
+ * The record's angle, turning clockwise at 33 1/3 a minute (200 degrees a
+ * second) times mp4l_spin's v; and the tonearm's needle, its radius, gliding
+ * to the song's place on **follow** (tau DS_MS_ARM_GLIDE). */
+#define MP4L_RPM_DEG_S 200.0f
+
+typedef struct {
+	float ang;               /* degrees clockwise */
+	float arm;               /* the needle's radius, the caller's units */
+	bool  known;
+} mp4l_disc;
+
+/* The needle's radius for song `place` of `n`, `f` into it: the grooves from
+ * `out` to `in` shared out evenly, the first song's start at `out` */
+float mp4l_groove_r(int place, int n, float f, float out, float in);
+
+/* The tonearm's angle (degrees, clockwise from pointing right) that puts its
+ * needle `r` from the spindle: the pivot `d` from it at `pivot_deg` (up and
+ * right is negative), the needle `len` from the pivot; on the side of the
+ * line from the pivot to the spindle that keeps the arm over the record's
+ * right, as a turntable's sweeps */
+float mp4l_arm_angle(float r, float d, float pivot_deg, float len);
+
+/* One frame, `dt` ms: `spin` mp4l_spin's v, `arm` where the needle goes */
+void mp4l_disc_step(mp4l_disc *d, float dt, float spin, float arm);
+/* The needle not yet where it goes */
+bool mp4l_disc_moving(const mp4l_disc *d, float arm);
 
 #endif

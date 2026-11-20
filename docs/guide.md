@@ -174,7 +174,7 @@ Every system has a folder under `Roms/`, and a system with nothing in its folder
 | MSX2 | `Roms/MSX2` | `.rom` `.mx1` `.mx2` `.dsk` `.cas` `.zip` | blueMSX |
 | Atari 7800 | `Roms/Atari 7800` | `.a78` `.bin` `.zip` | ProSystem |
 | Master System | `Roms/Master System` | `.sms` `.zip` | Genesis Plus GX |
-| Game Boy | `Roms/Game Boy` | `.gb` `.dmg` `.zip` | mGBA |
+| Game Boy | `Roms/Game Boy` | `.gb` `.dmg` `.zip` | mGBA, or Gambatte |
 | Genesis | `Roms/Genesis` | `.md` `.gen` `.bin` `.smd` `.zip` | Genesis Plus GX |
 | TurboGrafx-16 and CD | `Roms/TurboGrafx-16` | `.pce` `.sgx` `.cue` `.ccd` `.chd` `.toc` `.m3u` `.zip` | Beetle PCE Fast |
 | Atari Lynx | `Roms/Atari Lynx` | `.lnx` `.o` `.zip` | Handy |
@@ -191,7 +191,7 @@ Every system has a folder under `Roms/`, and a system with nothing in its folder
 | Neo Geo CD | `Roms/Neo Geo CD` | `.chd` `.cue` | NeoCD |
 | Nintendo 64 | `Roms/Nintendo 64` | `.n64` `.z64` `.v64` `.zip` | ParallelN64, or Mupen64Plus-Next |
 | Neo Geo Pocket | `Roms/Neo Geo Pocket` | `.ngp` `.ngc` `.ngpc` `.npc` `.zip` | Beetle NeoPop |
-| Game Boy Color | `Roms/Game Boy Color` | `.gbc` `.cgb` `.zip` | mGBA |
+| Game Boy Color | `Roms/Game Boy Color` | `.gbc` `.cgb` `.zip` | mGBA, or Gambatte |
 | WonderSwan | `Roms/WonderSwan` | `.ws` `.wsc` `.zip` | Beetle WonderSwan |
 | Neo Geo Pocket Color | `Roms/Neo Geo Pocket Color` | `.ngp` `.ngc` `.ngpc` `.npc` `.zip` | Beetle NeoPop |
 | Dreamcast | `Roms/Dreamcast` | `.chd` `.cdi` `.gdi` `.cue` | flycast2021, or Flycast if you add it |
@@ -224,6 +224,8 @@ A PC Engine CD will not start without `syscard3.pce`, and ZyperOS says so by nam
 Nintendo DS runs on DSperate, which ZyperOS ships, with ZyperOS's own in-game menu. A game starts with the top screen alone. While it runs, DSperate gives its threads a core each, as its own frontend does, and the CPU stays at its top clock. On my Pixel 2, light scenes hold 60 frames a second, and a busy Mario Kart DS race drops to about 40: the game keeps its speed and sound, and the frames it cannot draw in time are left out. **L1** and **R1** are the DS's L and R. **L2** shows the other screen. **R2** shows the bottom screen and turns the stylus on: the d-pad moves a cursor and **A** touches. **R2** again turns the stylus off and goes back. The in-game menu's Display tab also has **Screens** (Single, Stacked or Top Focus), **Swap Screens** and **Stylus**. A DraStic save (`Saves/<game>.dsv`, from ROGUE OS or another system) is taken over the first time a game runs on DSperate. Encrypted ROM dumps need `bios7.bin`, `bios9.bin` and `firmware.bin` in `Bios/`. A DS game reads its language from the firmware, and a `firmware.bin` carries the language of the console it was dumped from, so ZyperOS tells DSperate which language to use with each game and leaves the file alone. **Game Language** in the console's menu, under **Core**, is **Auto** to start with (the language of **MENU > Language** where the DS has it, English where it doesn't, as Português (Brasil) and 简体中文 are not on a DS) or one of English, Español, Français, Deutsch, Italiano, 日本語 and 简体中文 outright; 简体中文 is for the iQue DS's games, which are the only ones that have it. A game resumes where you left it only in the language it was left in: after a change of **Game Language** it starts fresh, in the new one, with a note that says why, and its battery save keeps your progress. A save state you load yourself keeps the language it was saved in, and **Reset** in the in-game menu starts the game again in the row's language.
 
 ### Arcade and Neo Geo
+
+A cartridge game can be zipped, one game a zip, as No-Intro sets come: ZyperOS unpacks its largest file, the game, whether the zip stores it, or compresses it with Deflate (every zip tool's usual way) or LZMA (7-Zip's option). A zip compressed with bzip2 or Zstandard is not read; the shelf says so under the game, and zipping it again with Deflate fixes it. Its saves are named after the zip, as before.
 
 Arcade games are ROM sets, one `.zip` per game, named the way FinalBurn Neo names it (`ssf2.zip` is Super Street Fighter II). Keep the name and keep the zip whole: the name says which game it is, and the core checks every chip inside. Vertical games such as 1941 are turned upright on their own. **Neo Geo games** are FinalBurn Neo sets too (`mslug.zip` is Metal Slug), and every one needs `neogeo.zip`, the Neo Geo's own BIOS set, in `Bios/` or beside the game.
 
@@ -653,7 +655,7 @@ Covers go over USB or Wi-Fi File Transfer too: drag a console's `.media` folder 
 
 Sign in under **MENU > Downloads > Settings > RetroAchievements** with your RetroAchievements account. A game's first start needs Wi-Fi, to identify the game and fetch its achievements. From then on it plays offline too: what you unlock without Wi-Fi shows at once, with its notice and Zyper, and waits on the card. When the handheld is on Wi-Fi again, on the shelf, the waiting unlocks go to your account by themselves, and Zyper says how many went. Each one is dated when you earned it, up to 14 days back, the most RetroAchievements takes.
 
-While some wait, the game's list says how many under its name, and an achievement opened with A says "earned, not sent yet". A game you have never played with Wi-Fi says "not checked yet" on its Achievements row, and A on the row says how it gets its achievements. A game ZyperOS cannot identify says so instead, with or without Wi-Fi: "not for this system" for systems whose games are all discs it has no reader for (Sega CD, Saturn, Dreamcast, 3DO, Neo Geo CD), and "not for this file" for a kind of file it cannot read where another works, like a PlayStation `.ccd` (a `.cue` and `.bin` gets its achievements). Offline unlocks are softcore, the only mode ZyperOS plays.
+While some wait, the game's list says how many under its name, and an achievement opened with A says "earned, not sent yet". A game you have never played with Wi-Fi says "not checked yet" on its Achievements row, and A on the row says how it gets its achievements. A game ZyperOS cannot identify says so instead, with or without Wi-Fi: "not for this system" for systems whose games are all discs it has no reader for (Sega CD, Saturn, 3DO, Neo Geo CD), and "not for this file" for a kind of file it cannot read where another works, like a PlayStation `.ccd` (a `.cue` and `.bin` gets its achievements). Offline unlocks are softcore, the only mode ZyperOS plays.
 
 **MENU > Downloads > Achievements** gets them for every game at once, ahead of time, so a game you first play on a plane has its achievements too.
 
@@ -681,7 +683,7 @@ for a Scraper run.
 
 In a game, **MENU** has an **Achievements** tab, one **L1** from Game: the game's list with your count and points on top, each achievement with its badge, its points (or its count while it moves) and, once you have it, the earned color. **A** opens one, and the list goes round. A game with no list says why there: not signed in, never played with Wi-Fi, on their way, none on RetroAchievements, or a system or kind of file ZyperOS cannot identify. The Game tab's Achievements row keeps the count, and **A** on it turns to the tab.
 
-**Which files.** A PlayStation game is identified by its boot program on the disc, as RetroAchievements does, so a `.cue` and `.bin`, an `.iso`, a `.chd`, a `.pbp` (PSone Classics, its first disc) and an `.m3u` (its first disc) of the same game get the same achievements. A PSP game is identified by its `PARAM.SFO` and `EBOOT.BIN`, from an `.iso`, a `.cso` or a `.chd` alike; a PSP `.pbp` (a PSN game) is identified by the whole file, as RetroAchievements does. ZyperOS reads only the part of the disc it needs, never the whole image, except a PSP `.pbp`, which it reads once, in the background, the first time you play it with Wi-Fi. A CHD made with zstd (`chdman -c cdzs`) can't be read yet; chdman's usual CHD (`createcd`, `createdvd`) can.
+**Which files.** A PlayStation game is identified by its boot program on the disc, as RetroAchievements does, so a `.cue` and `.bin`, an `.iso`, a `.chd`, a `.pbp` (PSone Classics, its first disc) and an `.m3u` (its first disc) of the same game get the same achievements. A PSP game is identified by its `PARAM.SFO` and `EBOOT.BIN`, from an `.iso`, a `.cso` or a `.chd` alike; a PSP `.pbp` (a PSN game) is identified by the whole file, as RetroAchievements does. A Dreamcast game is identified by its `IP.BIN` and the boot program it names, from a `.gdi`, a `.cue`, a `.chd` or a `.cdi` alike. ZyperOS reads only the part of the disc it needs, never the whole image, except a PSP `.pbp`, which it reads once, in the background, the first time you play it with Wi-Fi. A CHD made with zstd (`chdman -c cdzs`) can't be read yet; chdman's usual CHD (`createcd`, `createdvd`) can.
 
 <img src="../res/readme/cheevos-waiting.png" width="400" alt="A game's achievements list, its heading saying '3 / 36 · 2 waiting to send': two achievements earned offline, not sent yet">
 
@@ -830,12 +832,12 @@ The system menu opens on a shelf of games and applies to that system alone:
 | | |
 |---|---|
 | **Games** | how many the shelf found |
-| **Core** | which core runs them; left/right/A choose on a shelf that has two (the Dreamcast's) |
+| **Core** | which core runs them; left/right/A choose on a shelf that has two (the Game Boy's and the Game Boy Color's, mGBA or Gambatte; the Nintendo 64's; the Dreamcast's). The next game started runs on it. A game left on the other core starts fresh and says so: a resume point is one core's own. Its battery save is the same file for both; a cartridge with a clock (Pokémon Gold, Silver and Crystal) keeps the clock apart on Gambatte, in a `.rtc` file beside the save, so after a change of core its clock may need setting again. A game's details (X) say which core it starts on while its shelf has two |
 | **Game Language** | the Nintendo DS shelf's: left/right/A go round `Auto`, English, Español, Français, Deutsch, Italiano, 日本語 and 简体中文, saved the moment it changes. `Auto` is the language of MENU > Language where the DS has it and English where it does not, and the row says which. The next game started speaks it, whatever the language of the `firmware.bin` in `Bios/`. A game whose resume point was left in another language starts fresh in this one, with a note that says so, its battery save kept; a save state you load keeps its own language until Reset |
 | **Timing** | the Game Boy, Game Boy Color, Game Boy Advance, Nintendo DS and Genesis shelves', under Core (and under Game Language on the DS's): `Smooth` to start with, or `Exact`, for this system alone; left/right/A flip it, saved the moment it changes, for the next game started. The screen refreshes 60.08 times a second and these consoles make 59.7 to 59.9 frames. `Smooth` shows one game frame each refresh, so motion is even, and the game runs up to 0.6% faster than the console: a GBA game 3.5 seconds fast in 10 minutes. `Exact` keeps the console's own speed, for timers and rhythm games, and about every 3 seconds one frame stays on the screen for two refreshes |
 | **Sort By** | left/right; `Name`, `Play Time`, `Last Played` or `Recently Added` |
 | **View** | left/right, or A for the list; `Covers`, the row of covers, `Grid`, two rows of covers in cells shaped like the shelf's own art, `List`, the games as a list of names with the focused one's cover beside it, or `Video`, the focused game's video snap on the whole screen with the covers in a band at the foot; after 2 seconds with no press while a snap plays, the band goes down to a thin strip so the video has the screen, and any button brings it back. START on the shelf steps it too, without the menu |
-| **Display** | how the picture fills the screen: Full Screen, Original Shape, Sharp Pixels, Sharp Pixels, Tall, Sharp Pixels, Zoomed, Fill, Edges Cut or Actual Size; left/right cycles it, and A opens the list, with a small picture of your game in the mode under the cursor and a line that says what it does; saved the moment it changes |
+| **Display** | how the picture fills the screen: Full Screen, Original Shape, Square Pixels, Sharp Pixels, Sharp Pixels, Tall, Sharp Pixels, Zoomed, Fill, Edges Cut or Actual Size; left/right cycles it, and A opens the list, with a small picture of your game in the mode under the cursor and a line that says what it does; saved the moment it changes. `Square Pixels` (1.1.0) draws every pixel of the game square, whatever shape its core asks for, as tall as the screen (as wide, for a wide game such as the GBA's): an NES or SNES game at 8:7, a Game Gear game at 10:9, a PC Engine game at 16:15, as RetroArch's 1:1 PAR does with integer scaling off. `Sharp Pixels` draws them square too, at a whole number of times their size, so it can leave a border all round |
 | **Shader** | `Off`, `Sharp-Shimmerless`, `CRT`, `CRT Curved`, `Scanlines` or `LCD Grid`, and on the Game Boy, Game Boy Color and Game Boy Advance `LCD No Backlight` too, for this system alone: left, right or A steps it, saved the moment it changes. The next game started plays with it |
 | **Strength** | right under Shader while it is `CRT`, `CRT Curved`, `Scanlines`, `LCD Grid` or `LCD No Backlight`: `10%` to `100%`, for this system alone. Left and right step it 10% at a time and stop at the ends |
 | **Downloads** | MENU > Downloads for this system alone (below): what it is missing, and **Download** gets it |
@@ -942,7 +944,9 @@ screen pixel inside one of the game's pixels is that pixel exactly, and only
 one that falls across two of them mixes the two, by how much of it each
 covers. The picture stays as sharp as it can at that size and a scroll stays
 steady. At a whole number of times (Sharp Pixels, Actual Size) the two are the
-same.
+same. Square Pixels is seldom a whole number of times (a 224-line NES picture on
+the Brick's 768 lines is about 3.4 times), so it looks its best with
+Sharp-Shimmerless.
 
 The other four draw an old screen. `CRT` is Timothy Lottes's CRT shader: a
 dark line between the picture's lines, and one of each three columns of the
@@ -1204,6 +1208,20 @@ A battery too low to start says so and charges first; a charger plugged in while
 Dreamcast games, PlayStation games (as a DualShock) and Game Boy Color rumble cartridges shake the handheld, and Nintendo 64 games get a Rumble Pak. (The Controller Pak is under [In a game](#in-a-game).) The motor stops while the in-game menu is open.
 
 **How strong.** **MENU > Sound > Rumble** is `Off`, `Low`, `Medium` or `Full` for every game: none, 35%, 65% or all of what a game asks the motor for. `Full` on a new card, as ZyperOS always ran it. Each step buzzes the motor once at its level, so you feel it before you leave the row; in its list, the level under the cursor buzzes as you reach it. In a game whose core uses the motor, the in-game menu's Controls tab has a **Rumble** row too, for **This Game** or the whole system, as **Applies To** says: a game without its own level follows its system's, and a system without its own follows MENU's, which its list marks `Default`. A change reaches the paused game at once. A system that shakes harder than the handheld wants keeps its own share under every level: Doom's rumble is 35%, so `Low` there is 12%. The Pixel 2 only for now: the TrimUI Brick's motor waits for its first test on the Brick.
+
+## Cheats
+
+Cheats are RetroArch's `.cht` files: libretro's cheat list, or a file of your own. They are switched on and off per game in the in-game menu.
+
+**Getting them.** **MENU > Downloads** fetches libretro's cheats for the games on your card, only their files, a few KB each (libretro-database, CC BY-SA 4.0). After that they work with no Wi-Fi. A file of your own goes in `Cheats/<System>/` on the card, named as the game without its extension: `Cheats/SNES/Super Metroid (USA).cht` for `Roms/SNES/Super Metroid (USA).sfc`. A card from NextUI moves over as it is: its names (`Super Metroid (USA).sfc.cht`) and its tag folders (`Cheats/SFC/`) count too. Your file is shown first, and a download never replaces it.
+
+**In a game**, the Game tab's **Cheats** row says how many are on (`2 On`, or `None`). A opens the game's list: your file first, then libretro's files, each under its code type (`Game Genie`, `GameShark`). A, left or right turns a cheat on or off at once. **Turn All Off** is the last row. **Y** searches the list with the keyboard, and **X** puts the ones that are on first. A game with no cheats says why: libretro has none for it, or Downloads has not looked yet, and how to add a file by hand.
+
+**Achievements stop while a cheat is on.** From the first cheat you turn on, the game's achievements wait until the game starts again with every cheat off: the Achievements row says `Paused`, and the Achievements tab says why. Turning the cheats off again does not bring them back in the same session, because what a cheat changed in the game stays. Signed in to RetroAchievements, the first cheat in a game with achievements asks first, with the cursor on Cancel. It asks once a game.
+
+**Starting a game** with cheats on shows a pop-up, `2 cheats on`, so none is forgotten. A game that stopped by itself last time with cheats on asks whether to start without them; **Without Cheats** starts it with none this time and keeps them set for later.
+
+Whether a code works is up to the game's emulator core: a cheat in the list that the core cannot use does nothing. A cheat can also break a game or its save, so save a state before you try one.
 
 ## File transfer
 
@@ -1765,12 +1783,23 @@ playing.
 **Shuffle All** plays every song on the card in a random order.
 
 **Player Look** changes how Now Playing shows a song: **Cover**, the album's
-cover large, as it always was; **Classic**, a big clock over bars that move
-with the music, and the album's tracks beside it; **Spectrum**, the music as
-32 bars across the screen under the cover. A on it opens the list, with the
+cover large, as it always was; **Cassette**, a tape whose reels turn with the
+song through its window, the next song rewinding it, the label in the
+cover's color; **Vinyl**, a record in the cover's color turning at 33⅓ with
+the cover as its label, its rings the album's songs and the tonearm's needle
+on the one playing; **Classic**, a big clock over bars that move with the music,
+and the album's tracks beside it; **Spectrum**, the music as 32 bars across
+the screen under the cover. A on it opens the list, with the
 look under the cursor playing in a small screen beside it; Left and Right
-change it straight away. Paused, the bars come to rest. Books and videos
-keep their own screen.
+change it straight away. START on a song's Now Playing changes it too, one
+look at a time. Paused, the bars come to rest. Books and videos keep their
+own screen.
+
+**View** shows the shelf as **Covers**, the covers in a row as it always
+was, as a **Grid** of covers, or as a **List** of names with the cover beside
+it, the way a game shelf's View does. START on the shelf turns between them,
+Covers to Grid to List. On All, each album, book or video is marked with
+what it is in every view.
 
 **Sort By** puts the shelf in order by artist, the way the folders are, or by
 album title, two of the same title going in their artists' order. The jump

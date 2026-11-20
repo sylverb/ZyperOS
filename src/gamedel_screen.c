@@ -116,6 +116,7 @@ bool game_delete_now(app *a, int owner, const game_entry *g, bool wait,
 	const system_cfg *s = &a->sys.systems[owner];
 	char tag[sizeof s->tag], folder[CFG_STR], core[CFG_STR], exts[CFG_STR];
 	char file[LIB_PATH], name[LIB_NAME], card_saves[CFG_STR * 2], card_states[CFG_STR * 2];
+	char card_cheats[CFG_STR * 2];
 	gd_card card;
 	gd_game gg;
 	gd_other *others = NULL;
@@ -156,7 +157,8 @@ bool game_delete_now(app *a, int owner, const game_entry *g, bool wait,
 		}
 	}
 
-	card = (gd_card){ P_ROMS, card_saves, card_states };
+	snprintf(card_cheats, sizeof card_cheats, "%s/Cheats", P_CARD);
+	card = (gd_card){ P_ROMS, card_saves, card_states, card_cheats };
 	gg = (gd_game){ folder, tag, core, exts, file, name, g->dir };
 	if (!(plan = malloc(sizeof *plan)) || (cap > 0 && !others)) {
 		free(others);

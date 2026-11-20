@@ -1052,7 +1052,9 @@ void view_load(app *a)
 	for (int i = 0; i < a->sys.count; i++) {
 		a->view[i].listed = view_listed(a->sys.systems[i].tag);
 		a->view[i].grid = !a->view[i].listed && view_grid(a->sys.systems[i].tag);
-		a->view[i].video = !a->view[i].listed && !a->view[i].grid && view_video(a->sys.systems[i].tag);
+		/* Never MP4's (view_turn) */
+		a->view[i].video = !a->view[i].listed && !a->view[i].grid && view_video(a->sys.systems[i].tag) &&
+		                   !is_muse(&a->sys.systems[i]);
 		a->view[i].lm.set = false;
 		a->view[i].gm.set = false;
 		a->view[i].vm.set = false;
@@ -1077,7 +1079,10 @@ void view_turn(app *a, int sys, int dir)
 	sysview *v = &a->view[sys];
 	int k = view_index(v);
 
-	k = (k + (dir < 0 ? VIEW_COUNT - 1 : 1)) % VIEW_COUNT;
+	/* MP4's shelf has no Video view: an album has no snap to play
+	 * (DESIGN.md 11.67) */
+	do k = (k + (dir < 0 ? VIEW_COUNT - 1 : 1)) % VIEW_COUNT;
+	while (k == VIEW_VIDEO && is_muse(&a->sys.systems[sys]));
 	v->listed = k == VIEW_LIST;
 	v->grid = k == VIEW_GRID;
 	v->video = k == VIEW_VIDEO;
@@ -1595,7 +1600,7 @@ const muse_mode_name MUSE_MODES[MUQ_MODES] = {
  * is not a decode: the album it is for and its texture. `done` means this is
  * what the album will show - its art, or the card made for one with none - and
  * nothing more needs asking. */
-np_cover_state g_np = { .album = -1 };
+np_cover_state g_np = { .album = -1, .rgb = CFG_NO_COLOR };
 
 /* The menus' panel pass (panel_pass_begin): a screen, kept rather than made
  * per frame. */
@@ -1928,7 +1933,8 @@ void grid_note(app *a, int s, int i, SDL_Surface *surf, bool generated)
 {
 	sysview *v = &a->view[s];
 
-	if (is_muse(&a->sys.systems[s]) || i < 0 || i >= v->list.count || !v->tex[i]) return;
+	/* MP4's shelf too, since it has the Grid (DESIGN.md 11.67) */
+	if (i < 0 || i >= v->list.count || !v->tex[i]) return;
 	gg_note(&v->gart, a->r, v->list.count, i, v->tex[i], gg_key(v->list.items[i].file),
 	        surf, generated);
 }
@@ -2156,12 +2162,13 @@ void shelf_put(void *ctx, texload_got *g)
 		ui_card_order card;
 		SDL_Surface *ground = NULL;
 
-		ui_card_order_set(&card, v->list.items[i].title, a->sys.systems[o].accent, false);
-		game_card_order(a, o, &v->list.items[i], &card);
-		v->tex[i] = is_muse(&a->sys.systems[s])
-		          ? ui_make_cover(a->r, v->list.items[i].title,
-		                          a->sys.systems[o].accent, &v->tw[i], &v->th[i])
-		          : v->list.items[i].folder
+		if (is_muse(&a->sys.systems[s])) {
+			muse_album_card_order(a, s, i, a->sys.systems[o].accent, &card);
+		} else {
+			ui_card_order_set(&card, v->list.items[i].title, a->sys.systems[o].accent, false);
+			game_card_order(a, o, &v->list.items[i], &card);
+		}
+		v->tex[i] = v->list.items[i].folder
 		          ? ui_make_folder_card(a->r, v->list.items[i].title,
 		                                look_folder_rgb(a->sys.systems[o].accent),
 		                                v->list.items[i].folder, &v->tw[i], &v->th[i])
@@ -3036,6 +3043,11 @@ static void popup_now(const char *head, const char *body)
 	if (notice_render(head, body, p, theme_index()))
 		plat_resident_line("OVERLAY\tpath=%s\tms=1500", p);
 	nq_hold(&g_nq, plat_now_ms(), 1500);
+}
+
+void popup_say(const char *head, const char *body)
+{
+	popup_now(head, body ? body : "");
 }
 
 /* Called from inside plat_resident_wait when Diatom says the speed step
@@ -5703,6 +5715,8 @@ int main(int argc, char *argv[])
 			 * long ones rather than only the short one that fit. */
 			if (i + 1 < argc && argv[i + 1][0] != '-') shot_cheevos_game = argv[++i];
 		}
+		else if (!strcmp(argv[i], "--cheevo-card") && i + 1 < argc)
+			shot_cheevo_card = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--cheevos-badge") && i + 2 < argc) {
 			shot_badge_set = argv[++i];
 			shot_badge_name = argv[++i];
@@ -5767,6 +5781,7 @@ int main(int argc, char *argv[])
 		else if (!strcmp(argv[i], "--collect-page") && i + 1 < argc) shot_collect_page = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--collect-delete")) shot_collect_delete = 1;
 		else if (!strcmp(argv[i], "--collect-said") && i + 1 < argc) shot_collect_said = atoi(argv[++i]);
+		else if (!strcmp(argv[i], "--zip-said")) shot_zip_said = 1;
 		else if (!strcmp(argv[i], "--info-art")) shot_info_art = true;
 		/* The Buttons page a game with its own buttons opens from its details */
 		else if (!strcmp(argv[i], "--info-buttons")) shot_info = 4;
@@ -5910,6 +5925,13 @@ int main(int argc, char *argv[])
 		 * --hud-items, its Shows list instead; --hud-pick ROW, that row's
 		 * list of choices; --hud-shows WORDS, the items it shows */
 		else if (!strcmp(argv[i], "--hud-page") && i + 1 < argc) shot_hud_page = atoi(argv[++i]);
+		else if (!strcmp(argv[i], "--cheats")) shot_cheats = true;
+		else if (!strcmp(argv[i], "--cheats-page") && i + 1 < argc) shot_cheats_page = atoi(argv[++i]);
+		else if (!strcmp(argv[i], "--cheats-ask")) shot_cheats_ask = true;
+		else if (!strcmp(argv[i], "--cheats-query") && i + 1 < argc) shot_cheats_query = argv[++i];
+		else if (!strcmp(argv[i], "--cheats-on-first")) shot_cheats_on_first = true;
+		else if (!strcmp(argv[i], "--cheats-note")) shot_cheats_note = true;
+		else if (!strcmp(argv[i], "--cheats-crash")) shot_cheats_crash = true;
 		else if (!strcmp(argv[i], "--hud-items")) shot_hud_items = true;
 		else if (!strcmp(argv[i], "--hud-pick") && i + 1 < argc) shot_hud_pick = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--hud-shows") && i + 1 < argc) shot_hud_shows = argv[++i];
@@ -6046,7 +6068,7 @@ int main(int argc, char *argv[])
 		else if (!strcmp(argv[i], "--achtab") && i + 1 < argc) {
 			static const char *const names[] = {
 				"list", "not-system", "not-file", "signed-out", "waiting",
-				"unchecked", "none", "all"
+				"unchecked", "none", "paused", "all"
 			};
 			const char *v = argv[++i];
 			int k;

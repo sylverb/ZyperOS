@@ -22,7 +22,7 @@
 
 <p align="center">
   <a href="https://zyperos.com"><b>zyperos.com</b></a> &nbsp;·&nbsp; <a href="#why-zyperos">Why ZyperOS</a> &nbsp;·&nbsp; <a href="#features">Features</a> &nbsp;·&nbsp;
-  <a href="#supported-systems">Systems</a> &nbsp;·&nbsp; <a href="docs/guide.md">Guide</a> &nbsp;·&nbsp; <a href="https://discord.gg/Ust8sE22Tm">Discord</a>
+  <a href="#supported-systems">Systems</a> &nbsp;·&nbsp; <a href="#try-it-on-your-mac">Try it on a Mac</a> &nbsp;·&nbsp; <a href="docs/guide.md">Guide</a> &nbsp;·&nbsp; <a href="https://discord.gg/Ust8sE22Tm">Discord</a>
 </p>
 
 <p align="center">
@@ -83,6 +83,8 @@ Each line has its details in [the guide](docs/guide.md).
 - **Your own PICO-8:** add the PICO-8 for Raspberry Pi zip you bought from Lexaloffle with ZyperOS Installer, or copy it to the card, and your PICO-8 plays the carts, with Splore, its online cart browser, first on the PICO-8 shelf. ZyperOS never ships or downloads PICO-8; without it, FAKE-08 plays the carts ([how](docs/guide.md#pico-8)).
 - **Nintendo DS your way:** [DSperate](https://github.com/beebono/DSperate) with three screen layouts, a d-pad stylus and a language you pick for each game ([notes](docs/guide.md#nintendo-ds)).
 - **Nintendo 64 and Dreamcast:** ParallelN64 with Glide64 holds Super Mario 64 and Mario Kart 64 at 30 frames a second on my Pixel 2, and flycast2021 runs the Dreamcast ([Dreamcast](docs/guide.md#dreamcast)).
+- **Zipped games** read stored, Deflate or LZMA, and a zip it cannot read says so on the shelf.
+- **Two Game Boy cores:** mGBA, or Gambatte from the Game Boy and Game Boy Color shelves' Core row.
 - **Smooth or exact timing** in the Game Boy, Game Boy Advance, DS and Genesis shelves: one game frame for each screen refresh, or the console's own speed for timers and rhythm games.
 - **A home in pixel art:** every system as its own animated console on a Spotlight, Gallery or Grid home, with Favorites, Recents and a choice of which systems show ([the shelf](docs/guide.md#the-shelf)).
 - **Recents where you stopped:** Recents can show each game's last screen, its cover small in the corner, instead of the cover.
@@ -110,10 +112,11 @@ Each line has its details in [the guide](docs/guide.md).
 - **Faster and slower** (1.5x, 2x and 3x), **turbo** buttons and **On-Screen Stats** over the game ([in a game](docs/guide.md#in-a-game)).
 - **Hotkeys you choose,** SELECT and a button, for a screenshot, the next shader or display, reset and quit, for every game, a system or one game ([hotkeys](docs/guide.md#controls-and-menus)).
 - **Change what a button does,** for one game or a whole system, two buttons on one game button if you like, a button that turns the d-pad into the stick (each press, or while held) among the choices, with the handheld drawn beside the rows, and every control listed in the game with the handheld's own buttons ([controls](docs/guide.md#controls-and-menus)).
+- **Cheats** from libretro's cheat list or a `.cht` file of your own, on and off per game in the in-game menu; achievements wait while one is on ([cheats](docs/guide.md#cheats)).
 - **Rumble** on the Pixel 2 for Dreamcast, PlayStation, Game Boy Color and Nintendo 64 games, Off, Low, Medium or Full for every game or one ([rumble](docs/guide.md#rumble)).
 - **Sound your way:** a USB-C headphone adapter on the Pixel 2, Bluetooth headphones on the Brick (untried so far), and mono audio for anyone who hears with one ear ([audio](docs/guide.md#audio)).
 - **An equalizer for everything you hear:** Bass, Voice, Treble or five bands of your own, one preset for the speaker and one for headphones, heard live as you tune it ([equalizer](docs/guide.md#equalizer)).
-- **MP4 and menu music:** a player for your music, audiobooks and videos that keeps playing behind the shelf, showing a song as its cover or as bars that move to the music, and ten free 8-bit tracks, or your own, behind the menus ([MP4](docs/guide.md#mp4)).
+- **MP4 and menu music:** a player for your music, audiobooks and videos that keeps playing behind the shelf, its albums as covers, a grid or a list (START turns them), showing a song as its cover, a cassette whose reels turn, a record in the cover's color, or bars that move to the music, and ten free 8-bit tracks, or your own, behind the menus ([MP4](docs/guide.md#mp4)).
 - **The top bar and side lights:** the clock, Wi-Fi and the battery with its time left, and on the Pixel 2 side lights for the battery, volume, transfers and achievements.
 - **Battery care:** a charging screen while it is off, a charge limit of 80, 85 or 90%, a warning before it gets hot, a Power Button that asks for a hold, and clocks for each system that save battery ([battery and power](docs/guide.md#battery-and-power)).
 - **Play Time,** **Continue** or start from the start, favorites, sorting, a QWERTY keyboard that keeps up with the d-pad, and **MENU + START** for a way out of anything.
@@ -130,6 +133,38 @@ Each line has its details in [the guide](docs/guide.md).
 | **Arcade and more** | Arcade, MAME, NAOMI, Atomiswave, Doom, ScummVM, PICO-8, TIC-80, OpenBOR, J2ME, and PortMaster's ports |
 
 Each system's games go in its folder under `Roms/`, and EmulationStation's folder names (`nds`, `gba`, `psx`, `megadrive` and the rest) work as they are. BIOS files go loose in `Bios/`. [The guide](docs/guide.md#supported-systems) has every folder, file type and core, and [each BIOS file](docs/guide.md#bios-files).
+
+## Try it on your Mac
+
+No handheld yet? ZyperOS runs on a Mac in a window drawn as the handheld itself, in two ways. [The full walk-through](https://zyperos.com/blog/try-zyperos-on-mac/) is on the blog.
+
+<div align="center">
+
+<table>
+<tr><td align="center"><img src="res/readme/desk-keys.png" width="240" alt="Desk mode: the ZyperOS home in a window drawn as a green GKD Pixel 2, each button labelled with its keyboard key: X on A, Z on B, Esc on MENU, Return on START"><br><sub>Desk mode, each key's letter on show</sub></td><td align="center"><img src="res/readme/desk-game.png" width="240" alt="Desk mode: the in-game menu's Game tab, Continue, Save and Load, over a NES game on the drawn Pixel 2"><br><sub>A game and its in-game menu</sub></td><td align="center"><img src="res/readme/desk-brick.png" width="240" alt="Desk mode as the TrimUI Brick: the ZyperOS home on its 1024x768 screen, with the Brick's F1, F2, MENU, SELECT and START keys drawn below"><br><sub>The same, as the TrimUI Brick</sub></td></tr>
+<tr><td align="center" colspan="3"><img src="res/readme/simulator.png" width="240" alt="The ZyperOS Simulator: a drawn GKD Pixel 2 at the first start, Zyper saying Hello! beside the language list, its four side lights lit green on the cable"> <img src="res/readme/simulator-charging.png" width="240" alt="The ZyperOS Simulator: the home on the drawn Pixel 2 while it charges, the charging mark in the top bar and the side lights filling from the bottom"><br><sub>The ZyperOS Simulator: the first start, and the side lights while it charges</sub></td></tr>
+</table>
+
+</div>
+
+**Desk mode** is the launcher itself, built for your Mac: the menus, the settings, the themes and a game, at 60 frames a second. With Xcode's command-line tools and [Homebrew](https://brew.sh):
+
+```sh
+brew install sdl2 sdl2_image sdl2_ttf xz
+git clone https://github.com/tarikbc/ZyperOS && cd ZyperOS
+make desk          # the GKD Pixel 2; make desk-brick for the TrimUI Brick
+```
+
+The first run takes a few minutes: it builds the launcher, Diatom and a NES core, and makes a sample card with a game on each system. The keyboard is the buttons: the arrows for the d-pad, X Z S A for A B X Y, Q W E R for L1 R1 L2 R2, Return for START, Right Shift for SELECT and Esc for MENU. The mouse presses the drawn keys, Option shows each key's letter, and F1 lists the rest. Linux works too ([Building](docs/building.md#work-on-the-ui-without-a-device)).
+
+**The [ZyperOS Simulator](docs/simulator.md)** is the whole system in QEMU on a Mac with Apple silicon: the boot, the first-start setup, the battery, the charger and the side lights, with a panel for what a player can't press. Every release from 1.1.0 on has its QEMU image, and `tools/qemu-run.sh fetch` downloads it and checks it against the release's `SHA256SUMS`. Until 1.1.0 is out, you build the image with plastron, in Docker (`make -C plastron qemu`, [how](docs/qemu.md#setting-it-up)): a few hours the first time, then minutes. Either way there is no SSH key to set up: `tools/qemu-run.sh` hands the VM yours, or makes one for it.
+
+```sh
+brew install qemu
+tools/qemu-run.sh fetch          # from 1.1.0 on; until then, make -C plastron qemu
+simulator/scripts/build-app.sh
+open "simulator/build/ZyperOS Simulator.app"
+```
 
 ## More
 
@@ -149,19 +184,7 @@ The name is also two words in one: **zippy** and **hyper**. Games start the mome
 
 ZyperOS is C and SDL2, in two repositories that build together. [ZyperOS](https://github.com/tarikbc/ZyperOS) (this one) holds the launcher, the card's scripts and the tools, [`diatom/`](diatom/), the libretro frontend that starts once at boot (its own Makefile, under the Mozilla Public License 2.0), and [`installer/`](installer/), ZyperOS Installer (Rust and Tauri). [`plastron/`](plastron/) is the Linux under it, built with Buildroot in Docker, under the GNU GPL version 3. [Building](docs/building.md) covers the toolchain, the card, QEMU, the simulator, releasing, developer mode and the checks.
 
-### Try it without a handheld
-
-The launcher's menus, settings and games run in a window on your computer, drawn as the handheld itself. On a Mac with Xcode's command-line tools and [Homebrew](https://brew.sh) (Linux needs the same libraries from its own packages, as [Building](docs/building.md#work-on-the-ui-without-a-device) lists):
-
-```sh
-brew install sdl2 sdl2_image sdl2_ttf xz
-git clone https://github.com/tarikbc/ZyperOS && cd ZyperOS
-make desk          # the GKD Pixel 2; make desk-brick for the TrimUI Brick
-```
-
-The first run takes a few minutes: it builds the launcher, Diatom and a NES core, and makes a sample card with a game on each system. The keyboard is the buttons (arrows for the d-pad, X and Z for A and B, Return for START, Esc for MENU), the mouse presses the drawn keys, and F1 lists the rest. [Work on the UI without a device](docs/building.md#work-on-the-ui-without-a-device) says what it shows and what only a device can.
-
-For the whole system (the boot, first-boot setup, the battery and charger, System Update), the [ZyperOS Simulator](docs/simulator.md) runs ZyperOS in QEMU on a Mac, in a window drawn the same way. It needs a QEMU image from plastron (`make -C plastron qemu`, a few hours the first time, then minutes), so start with `make desk`.
+To run it on your computer first, see [Try it on your Mac](#try-it-on-your-mac).
 
 ## Credits
 

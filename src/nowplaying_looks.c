@@ -18,7 +18,9 @@
 #include "nowplaying_looks.h"
 
 #include "app.h"
+#include "cassette.h"
 #include "config.h"
+#include "covercolor.h"
 #include "db.h"
 #include "design.h"
 #include "ds/flex.h"
@@ -26,6 +28,7 @@
 #include "ds/layout.h"
 #include "ds/mark.h"
 #include "ds/panel.h"
+#include "home.h"
 #include "i18n.h"
 #include "keyhints_draw.h"
 #include "muselib.h"
@@ -35,9 +38,12 @@
 #include "shots.h"
 #include "theme.h"
 #include "ui.h"
+#include "vinyl.h"
 
+#include <SDL_image.h>
 #include <limits.h>
 #include <math.h>
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -77,6 +83,14 @@ mp4l_id np_look_for(void)
 
 /* ---- the motion --------------------------------------------------------------- */
 
+/* The bench's own clock (npl_bench), 0 for the real one */
+static unsigned g_clock;
+
+static unsigned clock_ms(void)
+{
+	return g_clock ? g_clock : plat_now_ms();
+}
+
 /* Levels older than this are not the sound any more: the daemon sends 30 a
  * second while it plays, and a gap this long is a pause or a stall */
 #define BANDS_STALE 150
@@ -110,7 +124,7 @@ static void show_bands(uint8_t *lv, unsigned t)
 /* One frame's step: `bands` the sound's levels, the show's, or NULL to fall */
 static void motion_step(mp4l_id look, const uint8_t *bands)
 {
-	unsigned now = plat_now_ms();
+	unsigned now = clock_ms();
 	float dt = M.at ? (float)(now - M.at) : 0.0f;
 
 	if ((int)look != M.look) {
@@ -556,6 +570,343 @@ static unsigned spectrum(SDL_Renderer *r, const npl_frame *F, const mu_now *mn, 
 	return wait;
 }
 
+/* ---- Cassette --------------------------------------------------------------------- */
+
+/* Where the song is, as a fraction, for what moves with it every frame: the
+ * daemon's live position for the song that plays (musec_at_live, between
+ * its once-a-second reports), the given one for a shot's or the list's */
+static float song_frac(const mu_now *mn)
+{
+	double at = mn == musec_now() ? musec_at_live() : mn->at;
+
+	return mn->len > 0 ? (float)(at / mn->len) : 0.0f;
+}
+
+/* What turns: the reels' speed, and the tape (src/mp4look.h). Stepped once
+ * a frame by turn_step for the look that has them. */
+static mp4l_spin g_spin;
+static mp4l_tape g_tape;
+static mp4l_disc g_disc;
+static cas_tex   g_cas;
+static vin_tex   g_vin;
+
+/* The label's words, and the last song's leaving as a new one's arrive:
+ * they go in **exit** (in), up a grid step and out, and the new ones come
+ * in **move** (out), up from a grid step under; the cassette rewinds over
+ * both */
+typedef struct {
+	char title[128], under[260], place[24];
+	char side;
+} cas_words;
+
+static struct {
+	cas_words now, was;
+	unsigned  t0;            /* the change, while `moving` */
+	bool      moving;
+	int       song;
+	bool      known;
+} g_lab;
+
+/* The tape's wind: as much tape as a whole song is, in units, for the
+ * reels' turn as it winds or rewinds. Not the song's real tape - 10 m at
+ * 4.76 cm a second, which would spin the hubs too fast to see a tooth -
+ * but enough that a rewind from a song's end turns the empty hub 4.3 times
+ * a second at its fastest, 26 degrees a frame at 60: under the 30 at which
+ * six teeth would seem to stand or turn back. */
+#define CAS_WIND 800.0f
+
+static int song_album(const mu_now *mn, int *place);
+
+/* The tonearm's needle for the song: its place on the album's grooves */
+static float arm_target(const mu_now *mn)
+{
+	int place, al = song_album(mn, &place), n = al >= 0 ? g_muse.albums[al].n : mn->count;
+
+	if (place < 0) place = mn->index;
+	return vin_groove_r(place, n, song_frac(mn));
+}
+
+/* What turns, for this frame: the reels and the tape, or the record and its
+ * arm. `gap` says the last frame was long ago (a menu, the lock, Now
+ * Playing opening), and then the tape and the needle are where the song is
+ * with no rewind or glide to get there */
+static void turn_step(mp4l_id look, const mu_now *mn, float dt, bool gap)
+{
+	float target = song_frac(mn);
+
+	if (gap) {
+		g_tape.known = false;
+		g_disc.known = false;
+		g_spin = (mp4l_spin){ .v = mn->state == MU_PLAYING ? 1.0f : 0.0f,
+		                      .to = mn->state == MU_PLAYING ? 1.0f : 0.0f };
+		dt = 0;
+	}
+	mp4l_spin_to(&g_spin, mn->state == MU_PLAYING);
+	mp4l_spin_step(&g_spin, dt);
+	if (look == MP4L_CASSETTE)
+		mp4l_tape_step(&g_tape, dt, mn->index, target, g_spin.v, CAS_TAPE_SPEED, CAS_HUB_R,
+		               CAS_PACK_R, CAS_WIND);
+	else
+		mp4l_disc_step(&g_disc, dt, g_spin.v, arm_target(mn));
+}
+
+static bool turn_moving(mp4l_id look, const mu_now *mn)
+{
+	float target = song_frac(mn);
+
+	if (mp4l_spin_moving(&g_spin)) return true;
+	if (look == MP4L_CASSETTE) return mp4l_tape_moving(&g_tape, target) || g_lab.moving;
+	return mp4l_disc_moving(&g_disc, arm_target(mn));
+}
+
+/* The label's words for the song: the side its place in the album puts it
+ * on (the first half A, the rest B, as an album went onto a tape), the
+ * song, its place, and who and what album under the window */
+static void cas_words_of(const mu_now *mn, cas_words *w)
+{
+	int place, al = song_album(mn, &place), n = al >= 0 ? g_muse.albums[al].n : mn->count;
+
+	if (place < 0) place = mn->index;
+	snprintf(w->title, sizeof w->title, "%s", mn->title);
+	if (mn->artist[0] && mn->album[0] && strcmp(mn->artist, mn->album))
+		snprintf(w->under, sizeof w->under, "%s \xc2\xb7 %s", mn->artist, mn->album);
+	else
+		snprintf(w->under, sizeof w->under, "%s", mn->artist[0] ? mn->artist : mn->album);
+	w->place[0] = '\0';
+	if (n > 1) snprintf(w->place, sizeof w->place, "%d / %d", place + 1, n);
+	w->side = place < (n + 1) / 2 ? 'A' : 'B';
+}
+
+/* One set of the label's words at `alpha`, `dy` off their places */
+static void cas_words_draw(SDL_Renderer *r, const cas_words *w, int x, int y, float alpha, int dy,
+                           unsigned phase, unsigned *wait)
+{
+	const ds_theme *th = theme();
+	TTF_Font *ft = page_font(PAGE_GAME_TITLE), *fs = page_font(PAGE_CHROME), *fl = ui_face_at(DS_TYPE_SUPPORT, true);
+	SDL_Color text = ui_col(th->text, (Uint8)(255 * alpha)), dim = ui_col(th->text_dim, (Uint8)(255 * alpha));
+	int mid = y + CAS_ROW_MID + dy, pw = 0, tx = x + CAS_TITLE_X0, tw;
+	char side[2] = { w->side, 0 }, fit[260];
+
+	if (alpha <= 0) return;
+	/* The side's letter in its box: text's ink, the paper's letter */
+	ui_round_rect(r, &(SDL_Rect){ x + CAS_SIDE_X0, y + CAS_SIDE_Y0 + dy, CAS_SIDE, CAS_SIDE }, DS_RADIUS_CHIP,
+	              text);
+	if (fl) ui_text(r, fl, side, x + CAS_SIDE_X0 + CAS_SIDE / 2, ui_cap_y(fl, mid), 0,
+	                ui_col(th->surface, (Uint8)(255 * alpha)));
+	/* Its place and the play mode's mark, at the label's right */
+	if (w->place[0]) {
+		int g = MUSE_MODES[musec_mode()].glyph, gs = DS_HINT_GLYPH * 3 / 4;
+		int right = x + CAS_LABEL_X1 - CAS_LABEL_PAD;
+
+		if (g >= 0) {
+			ui_glyph_draw(r, (ui_glyph)g, right - gs / 2, mid, gs, ui_col(th->accent_ink, (Uint8)(255 * alpha)));
+			right -= gs + DS_RELATED;
+		}
+		pw = x + CAS_LABEL_X1 - CAS_LABEL_PAD - right + ui_text(r, fs, w->place, right, ui_cap_y(fs, mid), 1, dim);
+	}
+	/* The song, sliding when it is longer than the label */
+	tw = x + CAS_LABEL_X1 - CAS_LABEL_PAD - pw - DS_SECTION - tx;
+	{
+		unsigned wt = ui_pingpong_wait(ui_text_width(ft, w->title) - tw, phase);
+
+		ui_text_marquee(r, ft, w->title, tx, ui_cap_y(ft, mid), tw, phase, text);
+		if (wt < *wait) *wait = wt;
+	}
+	/* Who and the album, under the window */
+	ui_fit_text(fs, w->under, fit, sizeof fit, CAS_LABEL_X1 - CAS_LABEL_X0 - 2 * CAS_LABEL_PAD);
+	ui_text(r, fs, fit, x + CAS_W / 2, ui_cap_y(fs, y + CAS_UNDER_MID + dy), 0, dim);
+}
+
+/* A C-cassette at its real proportions in a clear smoke-grey shell (the
+ * lab's, my pick), its reels turning through the window, the label saying
+ * the side, the song and its place, the cover's stripe across it; the bars
+ * under it, as wide as it. */
+static unsigned cassette(SDL_Renderer *r, const npl_frame *F, const mu_now *mn, unsigned phase)
+{
+	static ds_flex L;
+	const ds_theme *th = theme();
+	unsigned wait = (unsigned)-1, now = clock_ms();
+	int root, cas, area, x, y, k;
+	SDL_Rect cr, ar, win;
+	unsigned stripe = g_np.rgb != CFG_NO_COLOR ? g_np.rgb : ui_rgb(th->accent);
+
+	root = ds_flex_begin(&L, F->content.w, F->content.h,
+	                     &(ds_box){ .dir = DS_COL, .gap = DS_SECTION, .align = DS_A_CENTER });
+	cas = ds_flex_add(&L, root, &(ds_box){ .w = DS_LOOK_CASSETTE_W, .h = CAS_H });
+	area = ds_flex_add(&L, root, &(ds_box){ .w = DS_LOOK_CASSETTE_W, .grow = 1 });
+	ds_flex_solve(&L);
+	cr = at(&L, cas, F->content.x, F->content.y);
+	ar = at(&L, area, F->content.x, F->content.y);
+	/* On the grid, whatever the column's middle came to */
+	cr.x = cr.x / DS_GRID * DS_GRID;
+	ar.x = cr.x;
+	x = cr.x;
+	y = cr.y;
+	if (!cas_ready(r, &g_cas, th, theme_index() == DS_DARK)) return wait;
+
+	SDL_RenderCopy(r, g_cas.shell, NULL, &(SDL_Rect){ x, y, CAS_W, CAS_H });
+	/* The cover's stripe across the label */
+	SDL_SetRenderDrawColor(r, (Uint8)(stripe >> 16), (Uint8)(stripe >> 8), (Uint8)stripe, 255);
+	SDL_RenderFillRect(r, &(SDL_Rect){ x + CAS_LABEL_X0, y + CAS_STRIPE_Y0, CAS_LABEL_X1 - CAS_LABEL_X0,
+	                                   CAS_STRIPE_Y1 - CAS_STRIPE_Y0 });
+	/* The reels through the window: each pack its radius, each hub its
+	 * angle, the window's box their clip and its glass over them */
+	win = (SDL_Rect){ x + CAS_WIN_X0, y + CAS_WIN_Y0, CAS_WIN_X1 - CAS_WIN_X0, CAS_WIN_Y1 - CAS_WIN_Y0 };
+	SDL_RenderSetClipRect(r, &win);
+	for (k = 0; k < 2; k++) {
+		float cx = (float)x + CAS_W / 2.0f + (k ? CAS_REEL_DX : -CAS_REEL_DX), cy = (float)y + CAS_REEL_Y;
+		float pr = mp4l_tape_r(g_tape.f, k, CAS_HUB_R, CAS_PACK_R);
+		float hr = (float)((int)ceilf(CAS_HUB_R));
+
+		SDL_RenderCopyF(r, g_cas.pack, NULL, &(SDL_FRect){ cx - pr, cy - pr, 2 * pr, 2 * pr });
+		SDL_RenderCopyExF(r, g_cas.hub, NULL, &(SDL_FRect){ cx - hr, cy - hr, 2 * hr, 2 * hr },
+		                  (double)g_tape.ang[k], NULL, SDL_FLIP_NONE);
+	}
+	SDL_RenderSetClipRect(r, NULL);
+	SDL_RenderCopy(r, g_cas.glass, NULL, &win);
+
+	/* The label's words: a new song's coming in after the last's left */
+	{
+		cas_words w;
+		unsigned t;
+
+		cas_words_of(mn, &w);
+		if (!g_lab.known || M.shot) {
+			g_lab.now = w;
+			g_lab.song = mn->index;
+			g_lab.known = true;
+			g_lab.moving = false;
+		} else if (mn->index != g_lab.song) {
+			g_lab.was = g_lab.now;
+			g_lab.song = mn->index;
+			g_lab.t0 = now;
+			g_lab.moving = true;
+		}
+		g_lab.now = w;
+		t = g_lab.moving ? now - g_lab.t0 : DS_MS_EXIT + DS_MS_MOVE;
+		if (t >= DS_MS_EXIT + DS_MS_MOVE) {
+			g_lab.moving = false;
+			cas_words_draw(r, &g_lab.now, x, y, 1.0f, 0, phase, &wait);
+		} else if (t < DS_MS_EXIT) {
+			float k = ds_in((float)t / DS_MS_EXIT);
+
+			cas_words_draw(r, &g_lab.was, x, y, 1.0f - k, -(int)(DS_GRID * k + 0.5f), phase, &wait);
+		} else {
+			float k = ds_out((float)(t - DS_MS_EXIT) / DS_MS_MOVE);
+
+			cas_words_draw(r, &g_lab.now, x, y, k, (int)(DS_GRID * (1.0f - k) + 0.5f), phase, &wait);
+		}
+	}
+
+	/* The bars under it, as wide as it, their room theirs */
+	bars(r, &M.bars, ar.x, ar.y + ar.h, ar.h, 0);
+	return wait;
+}
+
+/* ---- Vinyl ------------------------------------------------------------------------ */
+
+/* The label: the cover itself as a disc of triangles round (cx, cy), its
+ * picture turned `ang` degrees clockwise - the record's angle - by turning
+ * where each edge point reads it from, inside the picture's square so its
+ * corners never show. The light's shadow round the label's edge, over it,
+ * softens the triangles' straight sides. */
+#define LABEL_STEPS 96
+
+static void label_draw(SDL_Renderer *r, SDL_Texture *cover, float cx, float cy, float rad, float ang)
+{
+	SDL_Vertex v[LABEL_STEPS + 1];
+	int idx[LABEL_STEPS * 3], i;
+	float turn = ang * (float)M_PI / 180.0f;
+	const SDL_Color white = { 255, 255, 255, 255 };
+
+	v[0] = (SDL_Vertex){ { cx, cy }, white, { 0.5f, 0.5f } };
+	for (i = 0; i < LABEL_STEPS; i++) {
+		float a = 2.0f * (float)M_PI * (float)i / LABEL_STEPS;
+
+		v[i + 1] = (SDL_Vertex){ { cx + rad * cosf(a), cy + rad * sinf(a) }, white,
+		                         { 0.5f + 0.5f * cosf(a - turn), 0.5f + 0.5f * sinf(a - turn) } };
+		idx[i * 3] = 0;
+		idx[i * 3 + 1] = 1 + i;
+		idx[i * 3 + 2] = 1 + (i + 1) % LABEL_STEPS;
+	}
+	SDL_RenderGeometry(r, cover, v, LABEL_STEPS + 1, idx, LABEL_STEPS * 3);
+}
+
+/* A record turning at 33 1/3, pressed in the cover's main color and
+ * darkened, the cover its label, the album's songs its rings; the tonearm's
+ * needle on the song's place among them; the names and the bars beside it
+ * (the lab's, my pick). */
+static unsigned vinyl(SDL_Renderer *r, const npl_frame *F, const mu_now *mn, unsigned phase)
+{
+	static ds_flex L;
+	const ds_theme *th = theme();
+	unsigned wait = (unsigned)-1, rgb = g_np.rgb != CFG_NO_COLOR ? g_np.rgb : ui_rgb(th->accent);
+	int root, rec, col, names, count, title, artist, area, place, al, n;
+	SDL_Rect rr, cr, ct, tt, wr, ar;
+	float cx, cy, px, py, a = VIN_PIVOT_A * (float)M_PI / 180.0f;
+	int col_x;
+	const int plate = (int)ceilf(VIN_PLATTER_R) * 2 + 4, face = (int)ceilf(VIN_R) * 2 + 4;
+
+	al = song_album(mn, &place);
+	n = al >= 0 ? g_muse.albums[al].n : mn->count;
+	/* The record left in the room and on its middle; the column from a
+	 * section past the tonearm's base, on the grid */
+	root = ds_flex_begin(&L, F->content.w, F->content.h, &(ds_box){ .dir = DS_ROW, .align = DS_A_CENTER });
+	rec = ds_flex_add(&L, root, &(ds_box){ .w = DS_LOOK_RECORD, .h = DS_LOOK_RECORD });
+	ds_flex_solve(&L);
+	rr = at(&L, rec, F->content.x, F->content.y);
+	rr.y = rr.y / DS_GRID * DS_GRID;
+	cx = (float)rr.x + DS_LOOK_RECORD / 2.0f;
+	cy = (float)rr.y + DS_LOOK_RECORD / 2.0f;
+	px = cx + VIN_PIVOT_D * cosf(a);
+	py = cy + VIN_PIVOT_D * sinf(a);
+	col_x = ((int)ceilf(px) + 38 + DS_SECTION + DS_GRID - 1) / DS_GRID * DS_GRID;
+
+	root = ds_flex_begin(&L, F->content.x + F->content.w - col_x, DS_LOOK_RECORD,
+	                     &(ds_box){ .dir = DS_COL, .justify = DS_J_BETWEEN,
+	                                .pad = { 0, DS_SECTION, 0, DS_SECTION } });
+	names = ds_flex_add(&L, root, &(ds_box){ .dir = DS_COL });
+	count = ds_flex_add(&L, names, &(ds_box){ .h = DS_LINE_META });
+	title = ds_flex_add(&L, names, &(ds_box){ .h = DS_LINE_TITLE });
+	artist = ds_flex_add(&L, names, &(ds_box){ .h = DS_LINE_MENU });
+	area = ds_flex_add(&L, root, &(ds_box){ .h = DS_LOOK_LIST_ROW * 2 });
+	ds_flex_solve(&L);
+	col = 0;
+	(void)col;
+	cr = at(&L, root, col_x, rr.y);
+	ct = at(&L, count, col_x, rr.y);
+	tt = at(&L, title, col_x, rr.y);
+	wr = at(&L, artist, col_x, rr.y);
+	ar = at(&L, area, col_x, rr.y);
+	(void)cr;
+
+	if (!vin_ready(r, &g_vin, th, theme_index() == DS_DARK, cover_rgb_darken(rgb, 0.20f, 0.55f), n))
+		return wait;
+	/* The platter, the record's face, its label turning, the light that
+	 * does not, the spindle */
+	SDL_RenderCopyF(r, g_vin.deck, NULL, &(SDL_FRect){ cx - plate / 2.0f, cy - plate / 2.0f, plate, plate });
+	SDL_RenderCopyF(r, g_vin.face, NULL, &(SDL_FRect){ cx - face / 2.0f, cy - face / 2.0f, face, face });
+	if (g_np.tex) label_draw(r, g_np.tex, cx, cy, VIN_LABEL_R, g_disc.ang);
+	SDL_RenderCopyF(r, g_vin.light, NULL, &(SDL_FRect){ cx - face / 2.0f, cy - face / 2.0f, face, face });
+	/* The tonearm on its base, turned to put its needle on the song */
+	{
+		int bw, bh, aw, ah;
+
+		SDL_QueryTexture(g_vin.base, NULL, NULL, &bw, &bh);
+		SDL_QueryTexture(g_vin.arm, NULL, NULL, &aw, &ah);
+		SDL_RenderCopyF(r, g_vin.base, NULL, &(SDL_FRect){ px - bw / 2.0f, py - bh / 2.0f, bw, bh });
+		SDL_RenderCopyExF(r, g_vin.arm, NULL, &(SDL_FRect){ px - VIN_ARM_PX, py - VIN_ARM_PY, aw, ah },
+		                  vin_arm_angle(g_disc.arm), &(SDL_FPoint){ VIN_ARM_PX, VIN_ARM_PY }, SDL_FLIP_NONE);
+	}
+
+	/* The names, and the bars at the column's foot */
+	count_mark(r, mn, ct.x, ct.y, -1);
+	line(r, UI_F_TITLE, mn->title, tt.x, tt.y, tt.w, phase, UI_TEXT, &wait);
+	line(r, UI_F_MENU, mn->artist, wr.x, wr.y, wr.w, phase, UI_TEXT_SOFT, &wait);
+	bars(r, &M.bars, ar.x, ar.y + ar.h, ar.h, 0);
+	return wait;
+}
+
 /* ---- the look --------------------------------------------------------------------- */
 
 /* Now Playing in `look`, its bars stepped to `bands` (NULL: falling) */
@@ -568,16 +919,30 @@ static unsigned look_draw(app *a, mp4l_id look, const mu_now *mn, const uint8_t 
 	unsigned wait, phase = mq_phase(MQ_NP, mn->index, (int)strlen(mn->title)), corner;
 
 	g_frame_no++;
+	{
+		/* What turns, before the bars' step moves M.at on */
+		unsigned now = clock_ms();
+		float dt = M.at ? (float)(now - M.at) : 0.0f;
+		bool gap = !M.at || dt > 250.0f || M.still || (int)look != M.look;
+
+		/* A shot's tape where its song is, the hubs at rest */
+		if (look == MP4L_CASSETTE || look == MP4L_VINYL)
+			turn_step(look, mn, gap || M.shot ? 0 : dt, gap || M.still || M.shot);
+	}
 	motion_step(look, bands);
 	frame_layout(&F, h, nh);
 	ground(r);
-	wait = look == MP4L_CLASSIC ? classic(r, &F, mn, phase)
+	wait = look == MP4L_CASSETTE ? cassette(r, &F, mn, phase)
+	     : look == MP4L_VINYL ? vinyl(r, &F, mn, phase)
+	     : look == MP4L_CLASSIC ? classic(r, &F, mn, phase)
 	     : look == MP4L_SPECTRUM ? spectrum(r, &F, mn, phase) : (unsigned)-1;
 	frame_time(r, &F, mn, look == MP4L_CLASSIC);
 	keyhints_draw(r, h, nh, DS_MARGIN, ZYPEROS_SCREEN_W - DS_MARGIN, F.keys_cy, KEYHINTS_SPREAD,
 	              true, 255);
 	/* Music playing moves every frame; paused, until the bars are down */
-	if (!M.still && !M.shot && (mn->state == MU_PLAYING || !mp4l_bars_rest(&M.bars))) wait = 0;
+	if (!M.still && !M.shot && (mn->state == MU_PLAYING || !mp4l_bars_rest(&M.bars) ||
+	                            ((look == MP4L_CASSETTE || look == MP4L_VINYL) && turn_moving(look, mn))))
+		wait = 0;
 	corner = draw_topbar(r, theme_index(), UI_TEXT_SOFT, wait <= 50 || frames_wanted());
 	return corner < wait ? corner : wait;
 }
@@ -589,29 +954,66 @@ unsigned npl_draw(app *a, mp4l_id look, const mu_now *mn)
 
 /* ---- the bench ---------------------------------------------------------------------- */
 
-void npl_bench(app *a, const mu_now *mn, int frames)
+/* The scene it plays, by its own clock at 60 frames a second: the song
+ * playing on, the next one at 2 s (the cassette rewinds, the needle glides,
+ * the label's words change), a pause at 3.5 s (what turns spins down, the
+ * bars fall), playing again at 5 s. With ZYPEROS_NP_FRAMES naming a folder,
+ * every second frame is written there as frame-NNNN.png, 30 a second, for
+ * a film of the motion. */
+void npl_bench(app *a, const mu_now *mn0, int frames)
 {
 	mp4l_id look = np_look_for();
+	const char *dir = getenv("ZYPEROS_NP_FRAMES");
 	static double ms[4096];
 	double sum = 0, worst = 0;
 	Uint64 f = SDL_GetPerformanceFrequency();
 	uint8_t lv[MP4L_BANDS];
 	int i, n = frames > 4096 ? 4096 : frames, k;
+	bool changed = false;
+	mu_now mn = *mn0;
 
 	if (look == MP4L_COVER || n <= 0) return;
 	M.shot = false;
+	M.at = 0;
 	for (i = 0; i < n; i++) {
-		Uint64 t0 = SDL_GetPerformanceCounter();
+		unsigned t = (unsigned)i * 1000 / 60;
+		Uint64 t0;
 
-		/* 60 frames a second of a song's bars, by the show's clock */
-		show_bands(lv, (unsigned)(i * 1000 / 60));
-		M.at = plat_now_ms() - 17;
-		look_draw(a, look, mn, lv);
+		g_clock = 100000 + t;
+		if (t >= 2000 && !changed) {
+			/* The next song, from its start */
+			changed = true;
+			mn.index++;
+			mn.at = 0;
+			if (g_song_al >= 0 && g_song_al < g_muse.nalbums) {
+				const ml_album *A = &g_muse.albums[g_song_al];
+
+				g_song_place = (g_song_place + 1) % (A->n > 0 ? A->n : 1);
+				snprintf(mn.title, sizeof mn.title, "%s", g_muse.tracks[A->first + g_song_place].name);
+			}
+		}
+		mn.state = t >= 3500 && t < 5000 ? MU_PAUSED : MU_PLAYING;
+		if (mn.state == MU_PLAYING) mn.at += 1.0 / 60;
+		show_bands(lv, t);
+		t0 = SDL_GetPerformanceCounter();
+		look_draw(a, look, &mn, mn.state == MU_PLAYING ? lv : NULL);
 		SDL_RenderFlush(a->r);
 		ms[i] = (double)(SDL_GetPerformanceCounter() - t0) * 1000.0 / (double)f;
 		sum += ms[i];
 		if (ms[i] > worst) worst = ms[i];
+		if (dir && i % 2 == 0) {
+			SDL_Surface *o = SDL_CreateRGBSurfaceWithFormat(0, ZYPEROS_SCREEN_W, ZYPEROS_SCREEN_H, 32,
+			                                                SDL_PIXELFORMAT_RGBA32);
+			char path[1024];
+
+			if (o && SDL_RenderReadPixels(a->r, NULL, SDL_PIXELFORMAT_RGBA32, o->pixels, o->pitch) == 0) {
+				snprintf(path, sizeof path, "%s/frame-%04d.png", dir, i / 2);
+				IMG_SavePNG(o, path);
+			}
+			if (o) SDL_FreeSurface(o);
+		}
 	}
+	g_clock = 0;
 	/* The 95th percentile: sorted by insertion, n is small */
 	for (i = 1; i < n; i++) {
 		double v = ms[i];
@@ -689,7 +1091,7 @@ void npl_preview(app *a, mp4l_id look, int x, int y, int w, int h)
 		}
 		show.state = MU_PLAYING;
 		show.len = 214.0;
-		show.at = shot_path ? 83.0 : (double)((now - since) / 1000);
+		show.at = shot_path ? 83.0 : (double)(now - since) / 1000.0;
 		mn = &show;
 	} else {
 		np_cover(a, ml_album_of(&g_muse, musec_track(live->index)));

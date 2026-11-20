@@ -10,7 +10,6 @@
 # about: no shot draws it yet
 about.no_address_yet
 about.battery_charging
-about.health_estimate
 
 # audio: no shot draws it yet
 audio.wired
@@ -66,13 +65,7 @@ charging.to_full_almost
 charging.to_full_h
 
 # cheevolist: no shot draws it yet
-cheevolist.no_description
-cheevolist.points
-cheevolist.status
-cheevolist.earned
-cheevolist.not_earned
 cheevolist.unlocked
-cheevolist.earned_waiting
 
 # cheevos: no shot draws it yet
 cheevos.to_earn

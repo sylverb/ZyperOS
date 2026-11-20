@@ -84,6 +84,17 @@ de = Start fehlgeschlagen
 ja = 起動できませんでした
 it = avvio non riuscito
 
+[launch.zip_method]
+note = A message under a game's name when its zip is compressed in a way ZyperOS cannot unpack (bzip2, Zstandard): nothing started. Says how to make one that works: zip it again with Deflate, the usual method of every zip tool
+en = This zip uses a compression ZyperOS can't read. Zip the game again with Deflate, the usual method.
+zh-Hans = 这个 zip 使用了 ZyperOS 无法读取的压缩方式。请用 Deflate（常用方式）重新压缩游戏。
+es = Este zip usa una compresión que ZyperOS no puede leer. Vuelve a comprimir el juego con Deflate, el método habitual.
+pt-BR = Este zip usa uma compressão que o ZyperOS não consegue ler. Compacte o jogo de novo com Deflate, o método comum.
+fr = Ce zip utilise une compression que ZyperOS ne sait pas lire. Recompressez le jeu avec Deflate, la méthode habituelle.
+de = Dieses Zip nutzt eine Kompression, die ZyperOS nicht lesen kann. Packe das Spiel mit Deflate neu, der üblichen Methode.
+ja = この zip は ZyperOS が読めない圧縮方式です。一般的な Deflate でゲームを圧縮し直してください。
+it = Questo zip usa una compressione che ZyperOS non sa leggere. Comprimi di nuovo il gioco con Deflate, il metodo usuale.
+
 [launch.core_machine]
 note = A message under the game's name when its core's file would not load because it is a build for another kind of computer (an x86-64 or 32-bit one: an added core). %s is the core's file name (bsnes_libretro.so), never translated. Linux, ARM and the numbers are as written. Drawn on up to five lines
 en = %s could not be loaded: it is not a 64-bit ARM Linux build

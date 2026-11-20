@@ -63,6 +63,23 @@ void slot_draw(app *a, const slot_view *sv, int sel);
 void gm_gather(app *a, gm_ui *out);
 void gm_mem_reset(void);
 const char *gm_tab_name_i(int i);
+/* An achievement's card, opened with A from its list (src/ingame_screen.c):
+ * its rows, made once, and its draw, the badge in the panel's header. Shared
+ * with --cheevo-card. CHV_CARD_LINES is the description's bytes, more lines
+ * than any description can make, so nothing is cut. */
+#define CHV_CARD_LINES CHV_DESC
+#define CHV_CARD_BADGE (12 * DS_GRID)
+typedef struct {
+	char lines[CHV_CARD_LINES][CHV_WRAP_COLS];
+	menu_row rows[CHV_CARD_LINES + 3];
+	unsigned vcols[CHV_CARD_LINES + 3];
+	char pts[24];
+	int n;
+} cheevo_card;
+int cheevo_card_rows(const cheevo *c, bool pending, int fixed, cheevo_card *k);
+void cheevo_card_draw(app *a, const cheevo_card *k, const char *title,
+                      SDL_Texture *badge, int fixed);
+
 int syn_layout(const char *text, int fixed,
                char (*lines)[CHV_WRAP_COLS], menu_row *rows,
                int *loop_at);

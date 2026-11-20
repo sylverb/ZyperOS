@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "ds/hover.h"
 #include "shots.h"
+#include "cheats_screen.h"
 #include "aout_route.h"
 #include "eq.h"
 
@@ -158,6 +159,14 @@ const char *shot_upnews;
 int shot_charging = -1, shot_charging_kind;
 int shot_cheevos;
 int shot_cheevos_sel;
+/* --cheevo-card N: an achievement's card, opened with A from its list, as
+ * cheevo_card_rows and cheevo_card_draw make it on the device: 0 earned, a
+ * line of description; 1 not earned, the longest description
+ * RetroAchievements keeps (255 characters, in two paragraphs), which scrolls
+ * itself (--phase MS moves it on); 2 earned offline and waiting to send; 3
+ * one with no description. The plain badge, or --cheevos-badge SET NAME's.
+ * -1 without it. */
+int shot_cheevo_card = -1;
 /* --ingame: --cheevos-screen as the in-game menu opens it, over a paused
  * game (a made-up frame), rather than over the shelf */
 int shot_ingame;
@@ -212,6 +221,7 @@ int shot_syn;       /* --synopsis: the card a scraped game opens */
 int shot_info;
 int shot_delete_ask, shot_delete_now;
 int shot_collect_page = -1, shot_collect_delete, shot_collect_said = -1;
+int shot_zip_said;
 /* --gm-said K: one of Delete Game's and Rename's messages (GM_SAID) */
 int shot_gm_said = -1;
 
@@ -720,7 +730,21 @@ static void shot_draw_gamemenu(app *a)
 	menu_tabs tabs = { .count = GT_TABS, .name = gm_tab_name_i };
 	int n;
 
+	/* The cursor's game running with its cheats as the card keeps them
+	 * (src/cheats_screen.h): the Game tab's Cheats row, and its list */
+	if ((shot_cheats || shot_cheats_page >= 0) && a->view[a->sys_cursor].list.count > 0) {
+		const sysview *cv = &a->view[a->sys_cursor];
+
+		cheats_shot_game(&a->sys.systems[shelf_owner(a, a->sys_cursor, cv->cursor)],
+		                 cv->list.items[cv->cursor].file, false);
+	}
 	gm_gather(a, &u);
+	if (shot_cheats_page >= 0 && !u.port) {
+		cheats_page_shot(a, bg, &(cheats_shot){ shot_cheats_page, shot_cheats_ask, shot_cheats_query,
+		                                         shot_cheats_on_first, shot_cheats_note });
+		if (bg) SDL_DestroyTexture(bg);
+		return;
+	}
 	tabs.at = tabs.from = shot_gamemenu_tab % GT_TABS;
 	/* The tab move a shot pressed (shot_motion), from where it was */
 	if (shot_gm_t0 && shot_gm_from >= 0) {
@@ -1039,6 +1063,13 @@ static menu_choice shot_pick;          /* --press a on an option row: its list *
 static const char *shot_pick_heading;
 int shot_gm_choose;     /* --gm-choose: an option row's list, A pressed on it */
 int shot_hud_page = -1; /* --hud-page ROW: the On-Screen Stats page */
+bool shot_cheats;          /* --cheats: the cursor's game as the running one */
+int  shot_cheats_page = -1; /* --cheats-page ROW: its cheat list */
+bool shot_cheats_ask;      /* --cheats-ask: the first cheat's question */
+const char *shot_cheats_query;  /* --cheats-query WORD */
+bool shot_cheats_on_first;  /* --cheats-on-first */
+bool shot_cheats_note;      /* --cheats-note */
+bool shot_cheats_crash;     /* --cheats-crash */
 bool shot_hud_items;    /* --hud-items: its Shows list */
 int  shot_hud_pick = -1; /* --hud-pick ROW: that row's list of choices */
 const char *shot_hud_shows; /* --hud-shows WORDS: the items it shows */
@@ -1566,6 +1597,7 @@ static void shot_compose_once(app *a)
 	if (shot_homesys >= 0) homesys_shot_draw(a, shot_homesys);
 	if (shot_lights >= 0) lights_shot_draw(a, shot_lights);
 	if (shot_slots) shot_draw_slots(a);
+	if (shot_cheats_crash) cheats_crash_shot(a);
 	if (shot_gamemenu && a->sys.count > 0) shot_draw_gamemenu(a);
 	else if (g_shot_p2 && a->sys.count > 0) shot_draw_player2(a);
 	if (shot_gamecontrols >= 0 && a->sys.count > 0) shot_draw_gamecontrols(a);
@@ -1592,7 +1624,7 @@ static void shot_compose_once(app *a)
 
 		paused_backdrop(a, bg, 1.0f);
 		if (bg) SDL_DestroyTexture(bg);
-	} else if (shot_kb || shot_wait || shot_cheevos) {
+	} else if (shot_kb || shot_wait || shot_cheevos || shot_cheevo_card >= 0) {
 		ui_scrim(a->r, 0);
 	}
 	if (shot_cheer >= 0) {
@@ -1635,6 +1667,10 @@ static void shot_compose_once(app *a)
 	if (shot_collect_delete) collect_delete_preview(a);
 	if (shot_gm_said >= 0) gm_said_preview(a, shot_gm_said);
 	if (shot_collect_said >= 0) collect_said_preview(a, shot_collect_said);
+	/* --zip-said: a zip whose game Diatom cannot unpack, said under its name */
+	if (shot_zip_said && a->view[a->sys_cursor].list.count > 0)
+		result_preview(a, a->view[a->sys_cursor].list.items[a->view[a->sys_cursor].cursor].title,
+		               T(S_LAUNCH_ZIP_METHOD));
 	if (g_p8_said_shot >= 0) p8_said_shot(a, g_p8_said_shot);
 	if (shot_controls >= 0 && (shot_press != SHOT_SWAP || shot_pressed)) {
 		menu_row rows[CTL_MAX_ROWS];
@@ -2063,6 +2099,39 @@ static void shot_compose_once(app *a)
 		             a->tint, vcols, true, 0);
 		g_row_icon = NULL;
 	}
+	if (shot_cheevo_card >= 0) {
+		/* Real titles, from sets on this card, as the list's shot has */
+		static const struct {
+			const char *t, *d;
+			int p;
+			bool got, pending;
+		} card[] = {
+			{ "Hold On To Your Potatoes, We're In For A Bumpy Ride",
+			  "Clear the second stage without losing a life.", 10, true, false },
+			{ "I Am Not Left Handed Either, But I Can Still Beat You",
+			  "Beat the Koma Faction's general in the arena on Hard, with no "
+			  "continues, no items and no help from a second player, and do it "
+			  "before the timer reaches thirty seconds.\n\nYour score must be "
+			  "higher than the arena's own for the stage, or it does not count.",
+			  25, false, false },
+			{ "Violated Heavens", "Reach the fortress above the clouds.", 10, true, true },
+			{ "Storming The Fortress", "", 10, false, false },
+		};
+		static cheevo_card k;
+		int i = shot_cheevo_card % (int)(sizeof card / sizeof card[0]);
+		int fixed = menu_std_width(a);
+		cheevo c;
+
+		memset(&c, 0, sizeof c);
+		snprintf(c.title, sizeof c.title, "%s", card[i].t);
+		snprintf(c.desc, sizeof c.desc, "%s", card[i].d);
+		c.points = card[i].p;
+		c.earned = card[i].got;
+		cheevo_card_rows(&c, card[i].pending, fixed, &k);
+		cheevo_card_draw(a, &k, c.title,
+		                 rb_icon(a->r, shot_badge_set, shot_badge_name ? shot_badge_name : "",
+		                         !card[i].got, theme()), fixed);
+	}
 	if (shot_popup) {
 		static char pbody[96];
 		char slot[32];
@@ -2097,6 +2166,13 @@ static void shot_compose_once(app *a)
 			/* ...and Player 2 stopping by itself during the game */
 			shot_notice_head = T(S_PLAYER2_NOTICE);
 			snprintf(pbody, sizeof pbody, "%s", T(S_PLAYER2_STOPPED));
+		} else if (!strcmp(shot_popup, "cheats") || !strcmp(shot_popup, "cheats_one")) {
+			/* A game started with cheats on (cheats_game_started): two,
+			 * and one for the word's other form */
+			const int on = shot_popup[6] ? 1 : 2;
+
+			shot_notice_head = T(S_CHEATS_ROW);
+			snprintf(pbody, sizeof pbody, TN(S_CHEATS_POPUP, on), on);
 		} else if (!strcmp(shot_popup, "shot")) {
 			/* The screenshot hotkey's (on_hotkey): the picture small
 			 * beside its words, a made-up game's frame */

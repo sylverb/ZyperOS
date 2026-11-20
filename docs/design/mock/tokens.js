@@ -224,7 +224,9 @@ window.ZYPER_TOKENS = {
     "look-list-row": 56,
     "look-list-num": 48,
     "line-clock": 128,
-    "look-cover": 192
+    "look-cover": 192,
+    "look-record": 448,
+    "look-cassette-w": 592
   },
   "motion": {
     "press": {
@@ -349,6 +351,26 @@ window.ZYPER_TOKENS = {
     },
     "bar-fall": {
       "ms": 140,
+      "curve": "follow"
+    },
+    "spin-up": {
+      "ms": 360,
+      "curve": "out"
+    },
+    "spin-down": {
+      "ms": 520,
+      "curve": "out"
+    },
+    "rewind": {
+      "ms": 700,
+      "curve": "turn"
+    },
+    "wind": {
+      "ms": 180,
+      "curve": "follow"
+    },
+    "arm-glide": {
+      "ms": 180,
       "curve": "follow"
     },
     "hold-snap": {

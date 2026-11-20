@@ -36,7 +36,8 @@ in a game opens the in-game menu over it, Core Settings and all.
 A running window is driven from a shell, as simulator/simctl drives the
 Simulator: one command, its JSON answer.
 
-    tools/desk state                     the handheld, the zoom, frames a second
+    tools/desk state                     the handheld, the zoom, frames a second,
+                                         the shelf's screen, cursor and focus
     tools/desk press|release BUTTON[+BUTTON]
     tools/desk tap BUTTON[+BUTTON] [MS]  (80 ms)
     tools/desk latency BUTTON            a tap, and ms from it to its frame
@@ -230,10 +231,25 @@ def make_card(card, device, tour):
     nes = card / 'Roms/NES/ZyperOS Test.nes'
     subprocess.run([sys.executable, str(ROOT / 'tools/qemu/make-test-nes.py'), str(nes)], check=True,
                    stdout=subprocess.DEVNULL)
+    card_sounds(card)
     (card / '.desk').write_text(f'device {device}\n')
     if not tour:
         subprocess.run([str(ROOT / 'build-native/zyperos'), '--set', 'tour.done=1'], env=card_env(card, None),
                        check=True, stdout=subprocess.DEVNULL)
+
+
+def card_sounds(card):
+    """The interface sounds (src/uisound.h), which mk/payload.sh puts on a
+    card: the launcher reads res/sounds/<voice>/ and plays nothing without
+    them. A link to this repository's, so a changed sound is heard on the next
+    run, and a card made before it had them gets it too."""
+    link = card / 'ZyperOS/res/sounds'
+    if link.exists() and not link.is_symlink():
+        return
+    if link.is_symlink():
+        link.unlink()
+    link.parent.mkdir(parents=True, exist_ok=True)
+    link.symlink_to(ROOT / 'res/sounds')
 
 
 def card_env(card, roms):
@@ -261,6 +277,7 @@ def run(args):
             shutil.rmtree(card)
         print(f'desk: a sample card in {card.relative_to(ROOT)}', file=sys.stderr)
         make_card(card, args.device, args.tour)
+    card_sounds(card)
     env = card_env(card, args.roms)
     diatom = start_diatom(args, card, env)
     sock = sock_path(args.device)
