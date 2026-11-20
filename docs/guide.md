@@ -1873,7 +1873,9 @@ the battery runs out, you hold POWER down, or you turn it off - MP4 opens by
 itself at the next start, on Now Playing, paused at the same second: the same
 song in the same album (in Shuffle All, the songs after it come in a new
 order), the same book at its place and speed, the same video at its picture.
-Press A to carry on. It keeps that place every thirty seconds while it plays,
+Press A to carry on. If a game was running too, the game comes back first,
+with its menu up: press SELECT there for Now Playing, paused at the same
+place. It keeps that place every thirty seconds while it plays,
 and at once when the launcher turns the handheld off, so after a sudden power
 cut it goes back at most half a minute. Something paused when the power went
 stays where it is, and MP4 waits to be opened.

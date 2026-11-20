@@ -7621,6 +7621,15 @@ int main(int argc, char *argv[])
 	 * input grace above, so a wake press replayed by the boot does not land in
 	 * the menu that is about to open. */
 	if (a.resume_menu && a.running) {
+		/* And MP4 where it was, when the power went while it played over the
+		 * game (DESIGN.md 11.67): held under it, paused at its second, with
+		 * no screen of its own - the game comes first - so that SELECT in
+		 * the menu the game comes back with is Now Playing on it, as it was
+		 * before the power-off. Mine, 1.1.0-rc.3: "when i clicked select in
+		 * the menu after powering on again it didnt show the video playing
+		 * that video paused". Before the launch, which only returns when
+		 * the game ends. */
+		if (!shot_path) resume_start();
 		a.screen = SCREEN_GAMES;
 		launch(&a);
 	}
@@ -7634,7 +7643,8 @@ int main(int argc, char *argv[])
 	}
 	/* Or MP4, where it was when the power went while it played: Now
 	 * Playing, paused at its second, over the shelf the start put back
-	 * (DESIGN.md 11.67). After a game or the tutorial, which come first. */
+	 * (DESIGN.md 11.67). After the tutorial, which comes first; under a
+	 * game resumed at the start, above, it is held with no screen. */
 	else if (a.running && !shot_path && resume_start()) {
 		mp4_resume_open(&a);
 	}
