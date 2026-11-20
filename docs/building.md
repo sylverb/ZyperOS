@@ -56,6 +56,19 @@ that failed at the end. About 46 s on an M3; one after another it was 167 s.
 Two runs at once, in two worktrees, do not meet: every check writes its own
 files and Hare's checks listen on a port the kernel picks.
 
+On a fresh Ubuntu 24.04 machine (a container, a VM, a cloud workspace),
+`tools/ubuntu-setup.sh` installs what CI's Linux jobs install, with the
+GitHub runner's own tools a plain Ubuntu lacks; it installs only what is
+missing, so it can run at every start, and a cloud workspace can take the file
+whole as its setup script. Then, from a git checkout (`check-np-footer` reads
+`HEAD`), `make native`, `make check` with check-linux's `CHECKS_SKIP` and
+`make check-device-compile` run there as on CI. In an `ubuntu:24.04` container
+on 4 cores the first setup took 2 minutes and a second one a tenth of a
+second, and the Linux list passed: 238 checks in 250 s, two at a time; on a
+4-core x86_64 cloud VM, as root, 238 in 211 s. The
+card image (plastron in Docker, the device SDKs) and anything that talks to a
+handheld stay on the Mac.
+
 Each part can be run alone (`make check-NAME`), and each exists because
 something once broke in a way nothing noticed:
 
@@ -809,7 +822,8 @@ credits there.
 It needs SDL2 with SDL_image and SDL_ttf, and xz: `brew install sdl2 sdl2_image
 sdl2_ttf xz` on a Mac, and on Debian or Ubuntu `sudo apt install pkg-config
 libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev libsqlite3-dev liblzma-dev
-zlib1g-dev libasound2-dev libcurl4-openssl-dev libssl-dev`.
+zlib1g-dev libasound2-dev libcurl4-openssl-dev libssl-dev` (or
+`tools/ubuntu-setup.sh`, which installs those and the rest the checks use).
 
 `make desk` opens ZyperOS's launcher in a window on your computer as the GKD
 Pixel 2 itself, drawn to its measurements around its 640x480 panel, one panel
