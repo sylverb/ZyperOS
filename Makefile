@@ -1739,10 +1739,14 @@ build-native/eqdsp-check: tools/eqdsp-check.c src/eqdsp.h FORCE
 
 # The ports' equalizer plugin (plastron's zyperos-eq), built for this computer
 # and loaded the way alsa-lib's ladspa PCM loads it: flat untouched, Voice
-# heard, the launcher's file followed, and its cost. tools/eqplugin-alsa.sh
+# heard, the launcher's file followed, and its cost; then, on Linux, a port's
+# whole chain (eq-port.sh) opened as SDL opens it at every rate a program
+# asks, over a stand-in for the dmix (tools/eqchain-check.sh: PICO-8's
+# 22050 Hz was refused on 1.1.0-rc.5, with no sound). tools/eqplugin-alsa.sh
 # runs it through the handheld's own alsa-lib, by hand (it needs the SDK).
 check-eqplugin: build-native/eqplugin-check build-native/zyperos_eq.so
 	@./build-native/eqplugin-check build-native/zyperos_eq.so
+	@sh tools/eqchain-check.sh
 
 build-native/zyperos_eq.so: plastron/buildroot/package/zyperos-eq/src/zyperos_eq.c \
                             plastron/buildroot/package/zyperos-eq/src/ladspa.h src/eqdsp.h FORCE
