@@ -42,6 +42,12 @@ void canvas_init(const device_profile *p);
  * screen may lay its parts out side by side */
 static inline int canvas_wide(void) { return canvas_w > 1024; }
 
+/* The widest a panel over the screen is: the 4:3 canvas's width. A panel
+ * over a game or a page (the in-game menu, MENU's pages) keeps its 4:3
+ * width on a wider canvas, in the middle (Tarik's pick, 2026-11-20); a
+ * narrower canvas gives it what it has. */
+static inline int canvas_panel_room(void) { return canvas_w < 1024 ? canvas_w : 1024; }
+
 /* The 4:3 column in the canvas's middle: its left edge. A composition made
  * as one piece for 1024 units (a page's picture beside its words, a
  * dialog's stage) goes there whole on a wider canvas; 0 on a 4:3 one. */

@@ -789,8 +789,8 @@ static void kind_draw(dl_view *v, dl_frame *f, unsigned now)
 		}
 		tiles = ds_flex_add(&F, root, &(ds_box){ .dir = DS_ROW, .justify = DS_J_BETWEEN, .pad = { 0, 8, 0, 0 },
 		                                         .h = 8 + DL_TILE_H });
-		tile0 = ds_flex_add(&F, tiles, &(ds_box){ .w = DS_PAGE_TILE_W, .h = DL_TILE_H });
-		ds_flex_add(&F, tiles, &(ds_box){ .w = DS_PAGE_TILE_W, .h = DL_TILE_H });
+		tile0 = ds_flex_add(&F, tiles, &(ds_box){ .w = ds_page_tile_w(), .h = DL_TILE_H });
+		ds_flex_add(&F, tiles, &(ds_box){ .w = ds_page_tile_w(), .h = DL_TILE_H });
 		ds_flex_solve(&F);
 		for (i = 0; i < 9; i++) sr[i] = ds_flex_rect(&F, slot0 + i);
 		tq[0] = ds_flex_rect(&F, tile0);
