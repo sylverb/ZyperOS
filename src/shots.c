@@ -10,6 +10,7 @@
 #include "bgm_screen.h"
 #include "clock.h"
 #include "clock_screen.h"
+#include "collect_screen.h"
 #include "coreopts_page.h"
 #include "ctltab.h"
 #include "ctltab_screen.h"
@@ -209,6 +210,7 @@ static SDL_Texture *shot_row_badge(int row)
 int shot_syn;       /* --synopsis: the card a scraped game opens */
 int shot_info;
 int shot_delete_ask, shot_delete_now;
+int shot_collect_page = -1, shot_collect_delete, shot_collect_said = -1;
 /* --gm-said K: one of Delete Game's and Rename's messages (GM_SAID) */
 int shot_gm_said = -1;
 
@@ -225,6 +227,17 @@ static const str_id GM_SAID[] = {
 	S_GAMEMENU_RENAME_PARTLY,
 };
 #define GM_SAID_RENAME 7    /* GM_SAID's first of Rename's */
+
+/* --collect-said K: one of Collections' messages (src/collect_screen.c):
+ * 0 a name too long and 1 one another collection has, over the keyboard's
+ * New Collection, and 2 a change the card did not take */
+static const str_id COLLECT_SAID[] = { S_COLLECT_NAME_LONG, S_COLLECT_NAME_TAKEN, S_COLLECT_FAILED };
+
+static void collect_said_preview(app *a, int k)
+{
+	if (k < 0 || k >= (int)(sizeof COLLECT_SAID / sizeof COLLECT_SAID[0])) return;
+	result_preview(a, T(k < 2 ? S_COLLECT_NEW : S_COLLECT_ADD), T(COLLECT_SAID[k]));
+}
 
 static void gm_said_preview(app *a, int k)
 {
@@ -1606,9 +1619,13 @@ static void shot_compose_once(app *a)
 	}
 	if (shot_info == 4) info_buttons_preview(a, shot_gm_pick);
 	else if (shot_info) info_preview(a, true, shot_info == 2 ? T(S_GAMEMENU_DELETE)
-	                                     : shot_info == 3 ? T(S_GAMEMENU_RENAME) : NULL);
+	                                     : shot_info == 3 ? T(S_GAMEMENU_RENAME)
+	                                     : shot_info == 5 ? T(S_COLLECT_ADD) : NULL);
 	if (shot_delete_ask) delete_ask_preview(a);
+	if (shot_collect_page >= 0) collect_page_preview(a, shot_collect_page);
+	if (shot_collect_delete) collect_delete_preview(a);
 	if (shot_gm_said >= 0) gm_said_preview(a, shot_gm_said);
+	if (shot_collect_said >= 0) collect_said_preview(a, shot_collect_said);
 	if (g_p8_said_shot >= 0) p8_said_shot(a, g_p8_said_shot);
 	if (shot_controls >= 0 && (shot_press != SHOT_SWAP || shot_pressed)) {
 		menu_row rows[CTL_MAX_ROWS];

@@ -1,14 +1,14 @@
 # Original ZyperOS system art
 
-The set contains 60 designs: 49 systems and shelves, PortMaster, two generic folders, and eight card folders.
-Two of them, Recents and the SG-1000, are placeholders drawn by scripts (see Placeholders).
+The set contains 61 designs: 50 systems and shelves, PortMaster, two generic folders, and eight card folders.
+Three of them, Recents, Collections and the SG-1000, are placeholders drawn by scripts (see Placeholders).
 Every animated design has a 256 × 256 atlas and a separate still image.
 The folders also have standalone PNGs for their actual display sizes.
 
 ## View
 
 Open `gallery.html` through a local HTTP server to view the exported animations.
-The gallery includes all 60 designs, pause, and a dark background.
+The gallery includes all 61 designs, pause, and a dark background.
 It starts paused when the system requests reduced motion.
 
 ```sh
@@ -89,7 +89,7 @@ Run `check.js` through the Playwright `browser_run_code` tool against `index.htm
 The browser check covers every system, fixed case pixels, moving regions, clipping, loop return, controls, narrow layout, and reduced motion.
 The PNG check covers full catalogue coverage, every unique pose, alpha, source hashes, renderer hashes, dimensions, and frame budgets.
 
-The PNG check covers all 60 designs.
+The PNG check covers all 61 designs.
 The independent visual review has no remaining material findings. It did not include the placeholders.
 The review corrected controller colors, cable plugs, screen proportions, and the TurboGrafx-16 regional model.
 PICO-8 and TIC-80 use isolated symbols and whole-pixel motion.
@@ -97,13 +97,22 @@ Their pixel regression check protects nearby lettering and the symbols' colors.
 
 ## Placeholders
 
-A placeholder holds a shelf's place until it has a design made like the others. There are two.
+A placeholder holds a shelf's place until it has a design made like the others. There are three.
 Recents (`RECENTS`), the home's shelf of the games played last, is one.
 `placeholders/recents.py` draws it with Python and Pillow on a 32-cell grid, each cell 8 pixels, from simple shapes.
 It uses no image generation, no other artist's work, and no photograph.
 It is a clock with ZyperOS's lime rim; its two poses, 400 ms each as Favorites' heart, move the minute hand from twelve to one.
 The catalogue records the script as its input and renderer, with its hash, and marks the design `placeholder`.
 Change the script, and run it into `animations/` again before the PNG check: the check compares the script's hash.
+
+Collections (`COLLECTIONS`), the home's group of the player's own lists of games, is another, made the same way.
+`placeholders/collections-card.py` draws it on the same grid: a stack of three cartridges, the top one's label in ZyperOS's lime.
+Its two poses, 400 ms each, lift the top cartridge off the stack.
+Its name is not `collections.py`, which would hide Python's own `collections` module from the script.
+
+```sh
+/usr/bin/python3 res/system-art/original/placeholders/collections-card.py res/system-art/original/animations
+```
 
 The SG-1000 (`SG1000`) is the other.
 `placeholders/sg1000.py` draws it with Python and Pillow, pixel by pixel on a 128-pixel grid, from simple shapes.

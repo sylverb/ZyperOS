@@ -115,7 +115,24 @@ void refresh_favorites_shelf(app *a);
 /* Recents, the games played last (src/homesys.h), built again after a game
  * ended, keeping the shelf stood on */
 void refresh_recents_shelf(app *a);
-/* The two groups' names, Favorites and Recents, in the language that is on */
+/* Collections (src/collect.h, DESIGN.md 11.56), the group after them, made
+ * again after a collection or a game in one changed, keeping the shelf stood
+ * on and its place in Collections */
+void refresh_collections_shelf(app *a);
+/* The Collections shelf's index, or -1 when the home has none */
+int shelf_coll_at(const app *a);
+/* Recents' (src/homesys.h), the same */
+int shelf_recents_at(const app *a);
+/* How many games its collections hold on the shelves, each once: the home's
+ * count under it */
+int shelf_coll_games(void);
+/* Shelf `s`, when it is Collections, on collection `dir`, or on its top
+ * ("", or a collection with no game here any more): its list, owners and
+ * textures made again, its cursor kept in range, not sorted (sort_shelf).
+ * False when `s` is not Collections or there was no memory. */
+bool shelf_coll_show(app *a, int s, const char *dir);
+/* The groups' names, Favorites, Recents and Collections, in the language
+ * that is on */
 void shelf_groups_rename(app *a);
 /* Every shelf built again from the saved library, keeping the place: MENU >
  * Display > Home Systems, after a change */

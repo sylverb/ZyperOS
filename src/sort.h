@@ -48,8 +48,21 @@ static const sort_order SORTS[] = {
 	{ "played", "Play Time",      S_SYSMENU_PLAY_TIME   },
 	{ "recent", "Last Played",    S_SORT_LAST_PLAYED    },
 	{ "added",  "Recently Added", S_SORT_RECENTLY_ADDED },
+	/* A collection's own two (DESIGN.md 11.56): Added, its list's order,
+	 * the order its games were put in it, and System, by the home's order
+	 * of the systems, A to Z in each. No games shelf offers them. */
+	{ "list",   "Added",          S_SORT_ADDED          },
+	{ "system", "System",         S_SORT_SYSTEM         },
 };
 #define SORT_COUNT ((int)(sizeof SORTS / sizeof SORTS[0]))
+/* The orders a games shelf steps round: the first four */
+#define SORT_SHELF  4
+#define SORT_LIST   4
+#define SORT_SYSTEM 5
+/* Collections' (src/collect.h), in their row's order: Added first, its
+ * default, as a list reads; then Name, Last Played and System */
+static const int SORT_COLL_ORDERS[] = { SORT_LIST, 0, 2, SORT_SYSTEM };
+#define SORT_COLL ((int)(sizeof SORT_COLL_ORDERS / sizeof SORT_COLL_ORDERS[0]))
 
 /* Order i's label in the language that is on, what the row shows; past the
  * ends, by name's */
@@ -68,9 +81,39 @@ static inline int sort_index(const char *name)
 	return 0;                                   /* by name, as it always was */
 }
 
+/* How many orders the shelf's Sort By offers: a collection's own, or every
+ * games shelf's */
+static inline int sort_choices(bool coll)
+{
+	return coll ? SORT_COLL : SORT_SHELF;
+}
+
+/* Its k-th, the order's index in SORTS */
+static inline int sort_choice(bool coll, int k)
+{
+	int n = sort_choices(coll);
+
+	k = (k % n + n) % n;
+	return coll ? SORT_COLL_ORDERS[k] : k;
+}
+
+/* Where order `i` is in the shelf's row; its first when it offers none */
+static inline int sort_choice_of(bool coll, int i)
+{
+	for (int k = 0; k < sort_choices(coll); k++)
+		if (sort_choice(coll, k) == i) return k;
+	return 0;
+}
+
+/* The order after `i` (`d` 1) or before it (-1), round the shelf's own */
+static inline int sort_step_in(bool coll, int i, int d)
+{
+	return sort_choice(coll, sort_choice_of(coll, i) + d);
+}
+
 static inline int sort_step(int i, int d)
 {
-	return (i + d % SORT_COUNT + SORT_COUNT) % SORT_COUNT;
+	return sort_step_in(false, i, d);
 }
 
 /* Whether an order needs the session rows read before it can be applied. */
@@ -124,6 +167,17 @@ static int sort_by_added(const void *pa, const void *pb)
 	return sort_by_name(pa, pb);
 }
 
+/* A collection's Added: its list's order, which its shelf puts in `added`
+ * (the game's line), first line first */
+static int sort_by_list(const void *pa, const void *pb)
+{
+	const game_entry *a = pa, *b = pb;
+
+	if (a->added != b->added)
+		return a->added < b->added ? -1 : 1;
+	return sort_by_name(pa, pb);
+}
+
 /* Put `n` entries in `order`.
  *
  * The play-time and last-played keys are read ONCE PER GAME into the entry
@@ -156,6 +210,7 @@ static inline void sort_apply(game_entry *v, int n, int order, const char *tag)
 	case 1:  qsort(v, (size_t)n, sizeof *v, sort_by_played); break;
 	case 2:  qsort(v, (size_t)n, sizeof *v, sort_by_recent); break;
 	case 3:  qsort(v, (size_t)n, sizeof *v, sort_by_added);  break;
+	case SORT_LIST: qsort(v, (size_t)n, sizeof *v, sort_by_list); break;
 	default: qsort(v, (size_t)n, sizeof *v, sort_by_name);   break;
 	}
 }
@@ -173,10 +228,22 @@ static inline void sort_apply(game_entry *v, int n, int order, const char *tag)
  * rides in a pair with its owner, the game first - which is what lets the
  * ordinary comparators read a pair as the game it starts with. False when
  * there was no memory, and nothing moved. */
+struct sort_pair { game_entry e; int owner; };
+
+/* A collection's System: by the home's order of the games' systems, which
+ * is their owners' order on it, A to Z in each */
+static int sort_by_system(const void *pa, const void *pb)
+{
+	const struct sort_pair *a = pa, *b = pb;
+
+	if (a->owner != b->owner) return a->owner < b->owner ? -1 : 1;
+	return sort_by_name(pa, pb);
+}
+
 static inline bool sort_apply_owned(game_entry *v, int *owner, int n, int order,
                                     const char *const *tags)
 {
-	struct pair { game_entry e; int owner; } *p;
+	struct sort_pair *p;
 	int i;
 
 	if (!v || !owner || n <= 0) return true;
@@ -197,7 +264,8 @@ static inline bool sort_apply_owned(game_entry *v, int *owner, int n, int order,
 	for (i = 0; i < n; i++) { p[i].e = v[i]; p[i].owner = owner[i]; }
 	qsort(p, (size_t)n, sizeof *p,
 	      order == 1 ? sort_by_played : order == 2 ? sort_by_recent
-	    : order == 3 ? sort_by_added  : sort_by_name);
+	    : order == 3 ? sort_by_added  : order == SORT_LIST ? sort_by_list
+	    : order == SORT_SYSTEM ? sort_by_system : sort_by_name);
 	for (i = 0; i < n; i++) { v[i] = p[i].e; owner[i] = p[i].owner; }
 	free(p);
 	return true;

@@ -33,3 +33,26 @@ fr = Ajouts récents
 de = Zuletzt hinzugefügt
 ja = 追加日
 it = Aggiunti di recente
+
+
+[sort.added]
+note = Sort By's value on the Collections shelf: each collection's games in the order they were added to it, first added first
+en = Added
+zh-Hans = 添加顺序
+es = Agregados
+pt-BR = Adicionados
+fr = Ordre d'ajout
+de = Hinzugefügt
+ja = 追加順
+it = Ordine di aggiunta
+
+[sort.system]
+note = Sort By's value on the Collections shelf: the games by their system, in the home's order of the systems, A to Z in each
+en = System
+zh-Hans = 系统
+es = Sistema
+pt-BR = Sistema
+fr = Système
+de = System
+ja = システム
+it = Sistema

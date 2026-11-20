@@ -1112,7 +1112,7 @@ static int diatom_wait(void)
 		 * below the mixer: measured 2026-09-16 by muting a tone played from a
 		 * second process while Diatom held the dmix slave. */
 		plat_mute_poll(false);
-		while ((l = dline(100))) {
+		while ((l = dline((int)device_game_wait(100)))) {
 			if      (strncmp(l, "RUNNING", 7) == 0) d_got_running = 1;
 			/* The menu is the launcher's, and so are the levels while it is
 			 * up: taken at PAUSED as at EXIT. Taken only at EXIT, a press in
