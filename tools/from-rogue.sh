@@ -74,7 +74,7 @@
 #            scripts at the top.
 #   bgm      ROGUE's menu music, into Menu Music, the folder ZyperOS plays
 #            its menu music from (src/bgm.h); Roms/BGM is not read since 1.0.5.
-#   music    ROGUE's music folder into Muse's Music/; a song loose at its top
+#   music    ROGUE's music folder into MP4's Music/; a song loose at its top
 #            into Music/Singles, where the launcher would move it anyway.
 #   skip     a folder left behind by decision, all of it, with the reason.
 #            The check fails the day such a folder's system becomes a shelf.

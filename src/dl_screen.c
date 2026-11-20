@@ -2615,7 +2615,7 @@ static void dl_page(app *a, const char *only)
 
 		plat_input_poll(&a->in);
 		dl_test(v, a);
-		muse_poll();
+		mp4_poll();
 		aout_apply(false);
 		if (a->in.quit_requested) { a->running = false; break; }
 		if (a->in.pressed[IN_POWER] || idle_due(a)) {

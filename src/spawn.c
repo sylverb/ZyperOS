@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 /* See spawn.h. The Wi-Fi's wpa_cli and Bluetooth's bluetoothctl, NES
- * Player 2's p2d, and the launcher's detached children (Muse, a resident
+ * Player 2's p2d, and the launcher's detached children (MP4, a resident
  * Diatom started again). */
 #include "spawn.h"
 
@@ -142,10 +142,10 @@ static ssize_t read_all(int fd, void *buf, size_t n)
  * program asked for.
  *
  * Fork hands a child every descriptor this process has open: the resident
- * emulator's socket, Muse's, the display, the GPU, four input devices, the
+ * emulator's socket, MP4's, the display, the GPU, four input devices, the
  * font. A short-lived child drops them when it exits. A DAEMON keeps them for
- * as long as it lives, and Muse is meant to outlive the launcher. That froze
- * the Brick on 2026-09-18: Muse held a dead launcher's end of Diatom's socket,
+ * as long as it lives, and MP4 is meant to outlive the launcher. That froze
+ * the Brick on 2026-09-18: MP4 held a dead launcher's end of Diatom's socket,
  * so Diatom never saw it close, and the restarted launcher blocked in connect
  * before its first frame. Diatom's half is that the newest connection wins;
  * this is ours.

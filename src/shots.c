@@ -32,7 +32,7 @@
 #include "mp4lock.h"
 #include "mp4frame.h"
 #include "mp4video.h"
-#include "musec.h"
+#include "mp4c.h"
 #include "notice.h"
 #include "nowplaying_looks.h"
 #include "nowplaying_screen.h"
@@ -1148,31 +1148,31 @@ static void np_shot(app *a)
 	char next[128] = "";
 	int ar, t;
 
-	if (shot_np < 0 || shot_np >= g_muse.nalbums) return;
-	al = &g_muse.albums[shot_np];
+	if (shot_np < 0 || shot_np >= g_mp4.nalbums) return;
+	al = &g_mp4.albums[shot_np];
 	t = shot_np_track < al->n ? shot_np_track : al->n - 1;
-	for (ar = 0; ar < g_muse.nartists - 1; ar++)
-		if (shot_np < g_muse.artists[ar].first + g_muse.artists[ar].n) break;
+	for (ar = 0; ar < g_mp4.nartists - 1; ar++)
+		if (shot_np < g_mp4.artists[ar].first + g_mp4.artists[ar].n) break;
 	mn.state = shot_np_paused ? MU_PAUSED : MU_PLAYING;
-	snprintf(mn.title, sizeof mn.title, "%s", g_muse.tracks[al->first + t].name);
-	snprintf(mn.artist, sizeof mn.artist, "%s", g_muse.artists[ar].name);
+	snprintf(mn.title, sizeof mn.title, "%s", g_mp4.tracks[al->first + t].name);
+	snprintf(mn.artist, sizeof mn.artist, "%s", g_mp4.artists[ar].name);
 	snprintf(mn.album, sizeof mn.album, "%s", al->name);
 	mn.at = shot_np_at;
 	mn.len = 236.0;
 	mn.index = t;
 	mn.count = al->n;
 	if (t + 1 < al->n)
-		snprintf(next, sizeof next, "%s", g_muse.tracks[al->first + t + 1].name);
+		snprintf(next, sizeof next, "%s", g_mp4.tracks[al->first + t + 1].name);
 
 	{
 		char base[LIB_PATH * 2], path[LIB_PATH * 2 + 8];
 
-		ml_cover_base(g_muse_root, &g_muse, shot_np, base, sizeof base);
+		ml_cover_base(g_mp4_root, &g_mp4, shot_np, base, sizeof base);
 		snprintf(path, sizeof path, "%s.jpg", base);
 		if (!file_nonempty(path)) {
 			snprintf(path, sizeof path, "%s.png", base);
 			if (!file_nonempty(path) && g_cov)
-				g_cov[shot_np].st = ml_folder_image(g_muse_root, &g_muse, shot_np,
+				g_cov[shot_np].st = ml_folder_image(g_mp4_root, &g_mp4, shot_np,
 				                                    path, sizeof path)
 				                  ? COV_FOLDER : COV_NONE;
 		}
@@ -1208,18 +1208,18 @@ static void np_shot(app *a)
 /* For a shot: every cover not on the card is a cover the music does not
  * carry, since there is no daemon to ask - so those albums draw their
  * generated card rather than an empty slot. */
-static void muse_covers_settle(void)
+static void mp4_covers_settle(void)
 {
 	char base[LIB_PATH * 2], p[LIB_PATH * 2 + 8];
 	int i;
 
-	for (i = 0; g_cov && i < g_muse.nalbums; i++) {
-		ml_cover_base(g_muse_root, &g_muse, i, base, sizeof base);
+	for (i = 0; g_cov && i < g_mp4.nalbums; i++) {
+		ml_cover_base(g_mp4_root, &g_mp4, i, base, sizeof base);
 		snprintf(p, sizeof p, "%s.jpg", base);
 		if (file_nonempty(p)) continue;
 		snprintf(p, sizeof p, "%s.png", base);
 		if (!file_nonempty(p))
-			g_cov[i].st = ml_folder_image(g_muse_root, &g_muse, i, p, sizeof p)
+			g_cov[i].st = ml_folder_image(g_mp4_root, &g_mp4, i, p, sizeof p)
 			            ? COV_FOLDER : COV_NONE;
 	}
 }
@@ -1343,7 +1343,7 @@ static void shot_compose_once(app *a)
 		poweroff_frame(a, shot_at > 0 ? (unsigned)shot_at : 0u);
 		return;
 	}
-	muse_covers_settle();
+	mp4_covers_settle();
 	if (shot_menu && shot_menu_label) {
 		menu_row rows[MENU_MAX_ROWS];
 		menu_bufs b;
@@ -2499,7 +2499,7 @@ static void shot_launch_frame(app *a)
  * frame is drawn with the reads held (g_loads_held), and a slot in view with
  * no card in it fails the shot (BLANK): on the systems row, and on a shelf of
  * games, where the row is what was drawn - not under Now Playing, which
- * covers it, and not on Muse's shelf, whose cards are made on the frame. The
+ * covers it, and not on MP4's shelf, whose cards are made on the frame. The
  * shot itself is the frame after, every card read in the theme that is on. */
 static void shot_flip_theme(app *a)
 {
@@ -2526,7 +2526,7 @@ static void shot_flip_theme(app *a)
 	 * prime_window at the start and the frame drawn then, so an empty one is
 	 * one the turn emptied. */
 	if (a->screen != SCREEN_GAMES || shot_np >= 0 || v->list.count <= 0 ||
-	    is_muse(&a->sys.systems[a->sys_cursor]))
+	    is_mp4(&a->sys.systems[a->sys_cursor]))
 		return;
 	for (k = -CF_HALF_WINDOW; k <= CF_HALF_WINDOW; k++) {
 		n = v->list.count;

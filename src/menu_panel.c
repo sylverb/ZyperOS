@@ -1487,7 +1487,7 @@ void menu_panel(app *a, const char *heading, const menu_row *rows,
 			 * to an ellipsis. Left-aligned while it slides, the way a long
 			 * note is - wider than the box, it has nothing to be centered in.
 			 *
-			 * This branch only ever cut. Found on Muse's track list
+			 * This branch only ever cut. Found on MP4's track list
 			 * 2026-09-19: "Bird Dream Of The Olympus Mons" ended in "M..."
 			 * - and slid the moment a track of that album was playing,
 			 * because the "playing" value put the list in two columns. */

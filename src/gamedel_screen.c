@@ -139,13 +139,13 @@ bool game_delete_now(app *a, int owner, const game_entry *g, bool wait,
 	 * home (app.parked) - not Favorites', whose games are on them too, and
 	 * not MP4's albums */
 	for (i = 0; i < sys_kept(a); i++)
-		if (!a->view[i].owner && !is_muse(&a->sys.systems[i])) cap += sys_games(&a->view[i])->count;
+		if (!a->view[i].owner && !is_mp4(&a->sys.systems[i])) cap += sys_games(&a->view[i])->count;
 	if (cap > 0 && !(others = malloc((size_t)cap * sizeof *others))) cap = 0;
 	for (i = 0; i < sys_kept(a) && others; i++) {
 		const system_cfg *o = &a->sys.systems[i];
 		bool hooked = lib_shelf_hooked(o->exts);
 
-		if (a->view[i].owner || is_muse(o) || !o->folder[0]) continue;
+		if (a->view[i].owner || is_mp4(o) || !o->folder[0]) continue;
 		const game_list *gl = sys_games(&a->view[i]);
 
 		for (k = 0; k < gl->count && no < cap; k++) {

@@ -170,7 +170,7 @@ bool stats_screen(app *a)
 		if (a->in.quit_requested) { a->running = false; return false; }
 		if (a->in.pressed[IN_POWER] || idle_due(a)) { power_off(a); return false; }
 		if (menu_leaving(a)) done = true;
-		if (a->in.pressed[IN_SELECT]) muse_open(a, NULL, NULL);
+		if (a->in.pressed[IN_SELECT]) mp4_open(a, NULL, NULL);
 
 		/* A goes to the row under the cursor: the game on its own shelf, or in
 		 * by-system mode that system's. Not a launch.

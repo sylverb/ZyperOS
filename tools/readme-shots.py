@@ -517,7 +517,7 @@ def media_card(card,art=None,manifest=None):
     """The demonstration card, a film, Blender's freely licensed Sintel as a
     stand-in name, and a book, Treasure Island, which is in the public domain:
     MP4's shelf shows All, the albums, the book and the video mixed
-    (src/muselib.h), each card with its kind's badge, and its menu has Show"""
+    (src/mp4lib.h), each card with its kind's badge, and its menu has Show"""
     demo_card(card,art,manifest if manifest is not None else {'artwork':{}})
     (card/'Videos').mkdir();(card/'Videos/Sintel.mp4').touch()
     book=card/'Audiobooks/Treasure Island';book.mkdir(parents=True)

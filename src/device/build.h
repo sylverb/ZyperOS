@@ -12,7 +12,7 @@
  * launcher never links this: it is the build's, and keeping it out keeps the
  * launcher's own binary the same. No SDL. */
 
-/* The programs a device's payload carries beside the launcher, Muse and
+/* The programs a device's payload carries beside the launcher, MP4 and
  * Diatom (mk/payload.sh), in the order config/device/<id>.mk lists them */
 typedef enum {
 	DEV_HELPER_PORTKEYS = 1u << 0,   /* tools/portkeys.c: a port's keys and MENU */

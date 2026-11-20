@@ -13,7 +13,7 @@
 #include "ctltab.h"
 #include "game_menu.h"
 #include "look.h"
-#include "musec.h"
+#include "mp4c.h"
 #include "p2.h"
 #include "panel.h"
 #include "portmenu.h"
@@ -835,9 +835,9 @@ static bool cheevo_detail_screen(app *a, SDL_Texture *bg, bool over_shelf,
 			done = 1; close_all = true; g_menu_closing = true;
 		}
 		/* Only over the shelf. Over a game this card is the in-game menu's,
-		 * and Muse would need that menu's power rule, which this screen does
+		 * and MP4 would need that menu's power rule, which this screen does
 		 * not have to give it. SELECT from the in-game menu itself works. */
-		if (over_shelf && a->in.pressed[IN_SELECT]) muse_open(a, NULL, NULL);
+		if (over_shelf && a->in.pressed[IN_SELECT]) mp4_open(a, NULL, NULL);
 		/* Same reasoning as the list below: this screen is not inside
 		 * plat_resident_wait, so nothing else is watching power for it. Over
 		 * the shelf there is no game to stop, and stopping one is not what
@@ -962,7 +962,7 @@ void synopsis_screen(app *a, const char *title, const char *text,
 		if (a->in.quit_requested) break;
 		if (a->in.pressed[IN_ACCEPT] || a->in.pressed[IN_X]) uisound_play(DS_SOUND_BACK);
 		if (menu_leaving(a) || a->in.pressed[IN_ACCEPT] || a->in.pressed[IN_X]) done = 1;
-		if (a->in.pressed[IN_SELECT]) muse_open(a, NULL, NULL);
+		if (a->in.pressed[IN_SELECT]) mp4_open(a, NULL, NULL);
 		/* Nothing else watches power for this screen, the same as every other
 		 * loop the launcher runs outside plat_resident_wait. */
 		if (a->in.pressed[IN_POWER] || idle_due(a)) { power_off(a); break; }
@@ -1062,7 +1062,7 @@ void cheevos_screen(app *a, SDL_Texture *bg, bool over_shelf)
 			sel = sel < n - 9 ? sel + 8 : n - 1;
 		}
 		if (menu_leaving(a)) done = 1;
-		if (over_shelf && a->in.pressed[IN_SELECT]) muse_open(a, NULL, NULL);
+		if (over_shelf && a->in.pressed[IN_SELECT]) mp4_open(a, NULL, NULL);
 		/* A used to close this screen. It opens the achievement instead,
 		 * which is the only thing on it there was ever anything more to say
 		 * about; BACK and MENU still close, so nothing lost a way out. */
@@ -2093,10 +2093,10 @@ static void gm_resume(app *a)
 		 * afterwards Diatom is drawing, and this would be a second presenter. */
 		present_clear(a, DIATOM_PAGE);
 		present_clear(a, DIATOM_PAGE);
-		/* SELECT in this menu opens Muse, so the music may have started or
+		/* SELECT in this menu opens MP4, so the music may have started or
 		 * stopped while the game was paused. Said before the game moves, not
 		 * a tick after it. */
-		plat_resident_quiet(musec_playing());
+		plat_resident_quiet(mp4c_playing());
 		/* And the volume and the mute switch, both of which this menu had.
 		 *
 		 * On RESUME Diatom forgets its volume and reads it back from the
