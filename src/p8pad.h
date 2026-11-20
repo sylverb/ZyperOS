@@ -24,11 +24,12 @@
  * button itself, and a layer (the N64's held+ pairs) is not sent. The d-pad
  * is never a button of the table and keeps its own four.
  *
- * The launcher writes the line to P8_PAD_FILE as it hands over to PICO-8
- * (src/launch_screen.c) and again when the in-game menu over it changed a
- * button; PICO-8.sh exports it, and the fixed line when the file is not
- * there or not this pad's. SDL reads it once, at its start, so a change in
- * the menu reaches PICO-8 when it starts again. */
+ * The launcher writes the two lines, the joypad's and portkeys's pad's, to
+ * P8_PAD_FILE as it hands over to PICO-8 (src/launch_screen.c) and again
+ * when the in-game menu over it changed a button; PICO-8.sh exports them,
+ * and the fixed ones when the file is not there or not these pads'. SDL
+ * reads them once, at its start, so a change in the menu reaches PICO-8
+ * when it starts again. */
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -38,11 +39,19 @@
 /* The Pixel 2's pad as SDL names it (its GUID, its name) */
 #define P8_PAD_GUID "190043d2010000000221000000010000"
 #define P8_PAD_NAME "gkd_pixel2_joypad"
+/* And the pad portkeys gives PICO-8 while it holds the joypad for the
+ * hotkeys (tools/pkvpad.h): bus BUS_VIRTUAL, vendor "ZY", product 9, version
+ * 1, the name's checksum left out (0000), which SDL matches whatever the
+ * name's is. Its buttons are numbered as the joypad's, so the same body. */
+#define P8_VPAD_GUID "06000000595a00000900000001000000"
+#define P8_VPAD_NAME "ZyperOS pad for PICO-8"
 /* Where the line goes, for PICO-8.sh (plat_flag on a computer) */
 #define P8_PAD_FILE "/tmp/zyperos-pico8-pad"
 
-/* The mapping line for `t`, SDL_GAMECONTROLLERCONFIG's form, into `out`.
- * False when it does not fit (`out` is then ""). */
+/* The mapping line for `t`, SDL_GAMECONTROLLERCONFIG's form, into `out`:
+ * the joypad's (p8_pad_line), or portkeys's pad's (p8_vpad_line). False when
+ * it does not fit (`out` is then ""). */
 bool p8_pad_line(const rm_table *t, char *out, size_t n);
+bool p8_vpad_line(const rm_table *t, char *out, size_t n);
 
 #endif

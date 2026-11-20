@@ -25,13 +25,14 @@ static const struct { const char *name; int target, own; } OUT[] = {
 	{ "lefttrigger", RT_L2, -1 }, { "righttrigger", RT_R2, -1 },
 };
 
-bool p8_pad_line(const rm_table *t, char *out, size_t n)
+/* The body for `t` after `guid` and `name`, then `tail`: SDL's own fields */
+static bool line(const rm_table *t, const char *guid, const char *name, const char *tail, char *out, size_t n)
 {
 	size_t at, i;
 	int b;
 
 	if (!n) return false;
-	at = (size_t)snprintf(out, n, "%s,%s,", P8_PAD_GUID, P8_PAD_NAME);
+	at = (size_t)snprintf(out, n, "%s,%s,", guid, name);
 	for (i = 0; i < sizeof OUT / sizeof OUT[0] && at < n; i++) {
 		if (OUT[i].own >= 0)
 			at += (size_t)snprintf(out + at, n - at, "%s:b%d,", OUT[i].name, OUT[i].own);
@@ -39,11 +40,22 @@ bool p8_pad_line(const rm_table *t, char *out, size_t n)
 			if (t->b[b].to == OUT[i].target)
 				at += (size_t)snprintf(out + at, n - at, "%s:b%d,", OUT[i].name, SDL_BUTTON[b]);
 	}
-	/* SDL's own fields for this pad: its name's checksum, and the system */
-	if (at < n) at += (size_t)snprintf(out + at, n - at, "crc:d243,platform:Linux,");
+	if (at < n) at += (size_t)snprintf(out + at, n - at, "%s", tail);
 	if (at >= n) {
 		out[0] = '\0';
 		return false;
 	}
 	return true;
+}
+
+bool p8_pad_line(const rm_table *t, char *out, size_t n)
+{
+	/* SDL's own fields for the joypad: its name's checksum, and the system */
+	return line(t, P8_PAD_GUID, P8_PAD_NAME, "crc:d243,platform:Linux,", out, n);
+}
+
+bool p8_vpad_line(const rm_table *t, char *out, size_t n)
+{
+	/* portkeys's pad: no checksum, which SDL matches with any (P8_VPAD_GUID) */
+	return line(t, P8_VPAD_GUID, P8_VPAD_NAME, "platform:Linux,", out, n);
 }

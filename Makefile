@@ -678,7 +678,9 @@ build-native/themefile-check: tools/themefile-check.c src/themefile.c src/themef
 # hotkeys by Diatom's chord rule (tools/pkhot.c), the keyboard's CTRL-R
 # (tools/pkkbd.c), written into a pipe, and the screenshot (tools/pkshot.c):
 # PICO-8's 128 out of the panel in every Display mode's rect, the PNG, the
-# pop-up. No SDL, no device.
+# pop-up; and what PICO-8 reads while portkeys holds the joypad for the
+# hotkeys (a chord never, every other press at once) and that pad's writes
+# (tools/pkvpad.c), into a pipe. No SDL, no device.
 check-pkkeys: build-native/pkkeys-check
 	@./build-native/pkkeys-check
 
@@ -687,12 +689,14 @@ build-native/pkkeys-check: tools/pkkeys-check.c tools/pkkeys.c tools/pkkeys.h sr
                            src/boost.h src/osdbar.h src/design.h src/eqdsp.h \
                            tools/pkhot.c tools/pkhot.h diatom/src/chord.c diatom/src/chord.h \
                            tools/pkkbd.c tools/pkkbd.h tools/pkshot.c tools/pkshot.h src/p8draw.c src/p8draw.h \
+                           tools/pkvpad.c tools/pkvpad.h \
                            src/dmodefit.c src/dmodefit.h \
                            src/db.c src/db.h src/atomic.c $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Isrc -Idiatom/src -Idiatom/include \
 	      -o $@ tools/pkkeys-check.c tools/pkkeys.c tools/pkhot.c diatom/src/chord.c tools/pkkbd.c \
-	      tools/pkshot.c src/p8draw.c src/dmodefit.c src/audioout.c src/db.c src/atomic.c $(I18N_SRC) -lsqlite3 -lz -lm
+	      tools/pkshot.c tools/pkvpad.c src/p8draw.c src/dmodefit.c src/audioout.c src/db.c src/atomic.c $(I18N_SRC) \
+	      -lsqlite3 -lz -lm
 
 # Which theme is on: MENU > Appearance's three settings, Auto's seven to seven
 # by the handheld's clock and the minute it may be late by, and the file the

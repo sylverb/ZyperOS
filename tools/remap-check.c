@@ -790,6 +790,12 @@ static void pico8_pad_line(void)
 	report(p8_pad_line(&t, line, sizeof line) && !strchr(line, '+'), "pico8 pad: a layer is not sent");
 	rm_identity(&t);
 	report(!p8_pad_line(&t, small, sizeof small) && !small[0], "pico8 pad: a line that does not fit is none");
+	/* portkeys's pad (tools/pkvpad.h): its GUID and name, the same body,
+	 * no checksum */
+	p8_vpad_line(&t, line, sizeof line);
+	report(!strncmp(line, "06000000595a00000900000001000000,ZyperOS pad for PICO-8,a:b1,b:b0,x:b2,", 71) &&
+	       !strstr(line, "crc:") && strstr(line, ",dpright:b13,lefttrigger:b6,righttrigger:b7,platform:Linux,"),
+	       "pico8 pad: portkeys's pad's line, the joypad's body under its own GUID");
 }
 
 int main(void)

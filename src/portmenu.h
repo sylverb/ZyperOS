@@ -159,8 +159,9 @@ static inline bool port_menu_pads(const char *tag)
  * Over your PICO-8 the hotkeys a player sets are SELECT held and one more
  * button, as over a Diatom game (src/hotkeys.h, DESIGN.md 11.61), judged by
  * portkeys with Diatom's own rule (diatom/src/chord.c, tools/pkhot.c), and
- * never taken from PICO-8: portkeys grabs no pad, so SELECT and the button
- * reach the cart as they always did. Screenshot, Reset Game and Quit are
+ * never the cart's, as over a Diatom game: while a hotkey has a key,
+ * portkeys holds the joypad and gives PICO-8 a pad of its own, fed every
+ * other press at once (tools/pkvpad.h). Screenshot, Reset Game and Quit are
  * portkeys's to do; Next Shader and Next Display step the system's rows as
  * the menu's do. Quick Save, Quick Load, Faster and Slower do nothing: PICO-8
  * has no states and no speed, so their keys are PICO-8's under SELECT, as a

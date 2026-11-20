@@ -53,6 +53,11 @@ GUID = '190043d2010000000221000000010000,gkd_pixel2_joypad,'
 SHIPS = (GUID + 'a:b1,b:b0,x:b2,y:b3,back:b8,start:b9,leftshoulder:b4,rightshoulder:b5,dpup:b10,'
          'dpdown:b11,dpleft:b12,dpright:b13,lefttrigger:b6,righttrigger:b7,crc:d243,platform:Linux,')
 SWAPPED = SHIPS.replace('a:b1,b:b0,', 'a:b0,b:b1,')
+# The pad portkeys gives PICO-8 while it holds the joypad (tools/pkvpad.h):
+# its own GUID and name, the same body, no checksum
+VGUID = '06000000595a00000900000001000000,ZyperOS pad for PICO-8,'
+VSHIPS = VGUID + SHIPS[len(GUID):].replace('crc:d243,', '')
+VSWAPPED = VSHIPS.replace('a:b1,b:b0,', 'a:b0,b:b1,')
 RESET, RESTART = 13, 14
 # The menu's rows over your PICO-8, whichever it has, in its order
 MENU_ROWS = ('Continue', 'Display', 'On-Screen Stats', 'Border', 'Shader', 'Strength', 'Controls', 'Reset',
@@ -96,21 +101,31 @@ def script(tmp):
         (card / 'Roms/PICO-8/celeste.p8').write_text('pico-8 cartridge\n')
         if line is not None:
             (flags / 'zyperos-pico8-pad').write_text(line + '\n')
+        # PICO-8's settings as it left them, a merge_joysticks of its own
+        (card / 'Saves/PICO-8').mkdir(parents=True, exist_ok=True)
+        (card / 'Saves/PICO-8/config.txt').write_text('// a comment\nwindow_size 0 0\nmerge_joysticks 0\n')
         env = dict(os.environ, ZYPEROS_FLAG_DIR=str(flags), ZYPEROS_DISPLAY='stretch')
         env.pop('SDL_GAMECONTROLLERCONFIG', None)
         out = subprocess.run(['sh', str(sh), str(card / 'Roms/PICO-8/celeste.p8')], env=env,
                              stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=20)
-        return (said.read_text().rstrip('\n') if said.exists() else None), out.stdout + out.stderr
+        cfg = (card / 'Saves/PICO-8/config.txt').read_text()
+        return (said.read_text().rstrip('\n') if said.exists() else None), out.stdout + out.stderr + '\n' + cfg
 
-    print('PICO-8.sh, the pad\'s mapping line:')
+    print('PICO-8.sh, the pads\' mapping lines:')
     got, log = run(None)
-    check(got == SHIPS, f'no line in /tmp: the one that ships ({got})')
+    check(got == SHIPS + '\n' + VSHIPS, f'no lines in /tmp: the joypad\'s and portkeys\'s pad\'s that ship ({got})')
+    check(log.count('merge_joysticks') == 1 and 'merge_joysticks 2' in log and 'window_size 0 0' in log and
+          '// a comment' in log, 'PICO-8\'s first two controllers one player 1 (merge_joysticks 2), its other '
+          'settings as they were')
+    got, log = run(SWAPPED + '\n' + VSWAPPED)
+    check(got == SWAPPED + '\n' + VSWAPPED and 'the player\'s buttons' in log,
+          'the launcher\'s two lines: both taken')
     got, log = run(SWAPPED)
-    check(got == SWAPPED and 'the player\'s buttons' in log, 'the launcher\'s line for this pad: taken')
+    check(got == SWAPPED + '\n' + VSHIPS, 'the joypad\'s line alone: taken, portkeys\'s pad\'s as it ships')
     got, log = run('030000005e0400008e02000014010000,xbox,a:b0,')
-    check(got == SHIPS and 'not this pad\'s' in log, 'another pad\'s line: the one that ships')
+    check(got == SHIPS + '\n' + VSHIPS and 'another pad' in log, 'another pad\'s line: the ones that ship')
     got, log = run(GUID + 'a:b1;reboot,b:b0,')
-    check(got == SHIPS and 'no mapping line' in log, 'a line with what no mapping has: the one that ships')
+    check(got == SHIPS + '\n' + VSHIPS and 'no mapping' in log, 'a line with what no mapping has: the ones that ship')
 
 
 # ---- 2. the launcher ------------------------------------------------------
@@ -260,7 +275,8 @@ def launcher(tmp):
         check(shots.startswith(f'{card}/Screenshots/PICO-8/') and shots.rsplit('/', 1)[-1].lower().startswith('celeste'),
               f'and where a screenshot goes, the cart by its name ({shots})')
         pad = pad_file.read_text().rstrip('\n') if pad_file.exists() else ''
-        check(pad == SWAPPED, f'PICO-8.sh gets the pad\'s line from map.PICO8 ({pad})')
+        check(pad == SWAPPED + '\n' + VSWAPPED,
+              f'PICO-8.sh gets the joypad\'s and portkeys\'s pad\'s lines from map.PICO8 ({pad})')
         for theme in ('light', 'dark'):
             sl = dtov_slot(flags / f'zyperos-port-shot-{theme}.dtov')
             ok = sl is not None and sl[2] is not None
@@ -332,7 +348,8 @@ def launcher(tmp):
                        any('new buttons' in l for l in drawn('ctl')[n:]), 3),
               'B back asks to start PICO-8 again for the new buttons')
         pad = pad_file.read_text().rstrip('\n') if pad_file.exists() else ''
-        check(pad.startswith(GUID) and pad != SWAPPED, f'and the pad\'s new line is written ({pad})')
+        check(pad.startswith(GUID) and pad.split('\n')[0] != SWAPPED and len(pad.split('\n')) == 2 and
+              pad.split('\n')[1].startswith(VGUID), f'and the pads\' new lines are written ({pad})')
         keys('a')
         check(m.poll() is None and not restart.exists(), 'Cancel: the menu again, no start again')
         keys('b')

@@ -9,10 +9,10 @@
  * is not is not: SELECT then the button, or the button a moment before
  * SELECT; SELECT then any other button, the d-pad too, is the game's.
  *
- * Nothing is taken from PICO-8: portkeys grabs no pad, so SELECT and the
- * button reach the cart all the same. Diatom hides them from its core; here
- * that half of chord.h's answer (hide, give) has no use and is dropped.
- * Only the acts portkeys can do are live (PKHOT_LIVE): the keys of Quick
+ * And what the cart is to see of the pad, as Diatom's core sees it: a chord
+ * hidden, SELECT alone given back (chord.h's hide and give, pkhot_out),
+ * which portkeys forwards to the pad PICO-8 reads while it holds the joypad
+ * (tools/pkvpad.h). Only the acts portkeys can do are live (PKHOT_LIVE): the keys of Quick
  * Save, Quick Load, Faster and Slower are PICO-8's under SELECT, as a core's
  * that keeps no state are in Diatom.
  *
@@ -49,7 +49,16 @@ typedef struct {
 	uint32_t held;               /* the pad now, DIATOM_BIT(DIATOM_BTN_*) */
 	uint32_t live;               /* the keys of PKHOT_LIVE's acts */
 	bool     on;                 /* a table was given */
+	uint32_t out;                /* what the game is to see now (pkhot_out) */
+	uint64_t turn_ms;            /* when chord.h last took a turn */
 } pkhot;
+
+/* SELECT's rule takes its turns as the events come, and between them while
+ * it waits to see whose a SELECT is, or gives one back (chord.h's CS_WAIT,
+ * owed): every PKHOT_TICK_MS, where Diatom has a frame. chord.h gives a
+ * SELECT let go at least two turns: 50 ms, more than a frame of a 30 fps
+ * cart, which PICO-8 reads its pad once a frame for. */
+#define PKHOT_TICK_MS 25
 
 /* No hotkeys: every key the game's */
 void pkhot_init(pkhot *h);
@@ -66,6 +75,24 @@ uint32_t pkhot_bit(uint16_t code);
  * were set to): the acts it made, 1u << chord_act, only PKHOT_LIVE's. The
  * kernel's autorepeat (value 2) is no event. */
 unsigned pkhot_key(pkhot *h, uint16_t code, int32_t value, uint64_t ms);
+
+/* What the game is to see of the pad now, as Diatom's core sees it under
+ * chord.h's rule: every button as it is, but SELECT while it waits (given
+ * back as it is let go, or held on past CHORD_HOLD_MS), and SELECT and a
+ * hotkey's button while they are a chord, until each is let go; MENU never,
+ * which is ZyperOS's. With no live hotkeys, the pad as it is but MENU.
+ * portkeys forwards this to the pad PICO-8 reads (tools/pkvpad.h), so a
+ * chord never reaches the cart, as over a Diatom game. */
+uint32_t pkhot_out(const pkhot *h);
+
+/* A turn between events when one is due (pkhot_wait 0): the acts it made,
+ * none in practice, and pkhot_out moved on (a SELECT given back, or held
+ * long enough to be the game's) */
+unsigned pkhot_tick(pkhot *h, uint64_t ms);
+
+/* How long until pkhot_tick has a turn to take: -1 for none (nothing
+ * waits), else the ms, 0 for now */
+int pkhot_wait(const pkhot *h, uint64_t ms);
 
 /* What is down on the joypad when its events cannot be trusted (after a
  * SYN_DROPPED, or the device gone, `held` 0): taken as it is, with no act,

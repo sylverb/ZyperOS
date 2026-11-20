@@ -139,18 +139,40 @@ export SDL_VIDEODRIVER="${SDL_VIDEODRIVER:-kmsdrm}"
 # launcher turns the PICO-8 shelf's remap rows for this cart into the same
 # line, each button on what it gives, and leaves it in /tmp as it hands over
 # (or again when the in-game menu changed a button, for PICO-8's next
-# start). Only a line for this pad, of the characters a mapping has, is
-# taken; with none, the line of nothing changed
-PAD="190043d2010000000221000000010000,gkd_pixel2_joypad,a:b1,b:b0,x:b2,y:b3,back:b8,start:b9,leftshoulder:b4,rightshoulder:b5,dpup:b10,dpdown:b11,dpleft:b12,dpright:b13,lefttrigger:b6,righttrigger:b7,crc:d243,platform:Linux,"
+# start). Two lines: the joypad's, and the pad portkeys gives PICO-8 while
+# it holds the joypad for the player's hotkeys (tools/pkvpad.h), whose
+# buttons SDL numbers as the joypad's. Only a line for one of these pads, of
+# the characters a mapping has, is taken; with none, the lines of nothing
+# changed
+JOY="190043d2010000000221000000010000,gkd_pixel2_joypad,"
+VPAD="06000000595a00000900000001000000,ZyperOS pad for PICO-8,"
+BODY="a:b1,b:b0,x:b2,y:b3,back:b8,start:b9,leftshoulder:b4,rightshoulder:b5,dpup:b10,dpdown:b11,dpleft:b12,dpright:b13,lefttrigger:b6,righttrigger:b7,"
+PAD="${JOY}${BODY}crc:d243,platform:Linux,"
+VPADLINE="${VPAD}${BODY}platform:Linux,"
 PADFILE=${ZYPEROS_FLAG_DIR:-/tmp}/zyperos-pico8-pad
-if [ -f "$PADFILE" ] && read -r LINE < "$PADFILE"; then
-	case $LINE in
-	190043d2010000000221000000010000,gkd_pixel2_joypad,*[!A-Za-z0-9:,_.+~-]*) echo "pico8: $PADFILE is no mapping line; the buttons as they ship" ;;
-	190043d2010000000221000000010000,gkd_pixel2_joypad,*) PAD=$LINE; echo "pico8: the player's buttons: ${LINE#*_joypad,}" ;;
-	*) echo "pico8: $PADFILE is not this pad's; the buttons as they ship" ;;
-	esac
+BAD='*[!A-Za-z0-9:,_.+~ -]*'
+if [ -f "$PADFILE" ]; then
+	while IFS= read -r LINE || [ -n "$LINE" ]; do
+		case $LINE in
+		"") ;;
+		$BAD) echo "pico8: $PADFILE has a line that is no mapping; the buttons as they ship for it" ;;
+		"$JOY"*) PAD=$LINE; echo "pico8: the player's buttons: ${LINE#"$JOY"}" ;;
+		"$VPAD"*) VPADLINE=$LINE ;;
+		*) echo "pico8: $PADFILE has a line for another pad; the buttons as they ship for it" ;;
+		esac
+	done < "$PADFILE"
 fi
-export SDL_GAMECONTROLLERCONFIG="$PAD"
+export SDL_GAMECONTROLLERCONFIG="$PAD
+$VPADLINE"
+# PICO-8's first two controllers as one player 1 (its merge_joysticks, a
+# setting of config.txt with no flag): the joypad, and portkeys's pad when
+# there is one, which PICO-8 may count first or second. Silent while
+# portkeys holds the joypad, the joypad takes over from its pad if portkeys
+# ends, so the player has a pad either way. With the one joypad it changes
+# nothing. Every other line of config.txt as PICO-8 left it
+CFG="$HOME_DIR/config.txt"
+{ grep -v '^merge_joysticks ' "$CFG" 2> /dev/null; echo "merge_joysticks 2"; } > "$CFG.tmp" &&
+	mv -f "$CFG.tmp" "$CFG"
 # Splore's downloads: pico8_64 runs `wget` for every list and cart, and the
 # system's wget (busybox's) has no HTTPS, which every cart is. Ours, in bin/
 # beside this script, hands them to curl (PICO-8-wget.sh says how), so it

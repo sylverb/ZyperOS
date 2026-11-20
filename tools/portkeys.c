@@ -126,8 +126,11 @@
 #include "pkset.h"
 #include "pkshot.h"
 #include "pkssh.h"
+#include "pkvpad.h"
 #include "powerhold.h"
 #include "portmenu.h"
+#include "ctl.h"
+#include "zychord.h"
 #include "sidelights.h"
 #include "status.h"
 #include "themefile.h"
@@ -1703,6 +1706,9 @@ static void follow_hold(bool hold)
  * menu (keys_load, with the hotkeys below) */
 static int kbd = -1;
 static void keys_load(void);
+/* The joypad let go of, and the pad PICO-8 reads all up (tools/pkvpad.h),
+ * before anything else may read it: the launcher's menu */
+static void vpad_let_go(void);
 
 static void nap_ms(int ms)
 {
@@ -2141,9 +2147,11 @@ static int menu_show_as(const char *extra)
 
 	if (!menu_elf) return 0;
 	/* The bar down and let go of, and the display found afresh; the blanks
-	 * are the menu's while it is up, not the program's */
+	 * are the menu's while it is up, not the program's; and the joypad the
+	 * launcher's again, nothing held on PICO-8's pad (vpad_let_go) */
 	release(false);
 	vbl_close();
+	vpad_let_go();
 	if (!master_copy()) {
 		/* Still starting, under its loading screen: the menu over that;
 		 * a hotkey's question (`extra`) has no cart to be about yet */
@@ -2274,8 +2282,8 @@ static int menu_show(void)
  * hands over the table in force for the cart (src/portmenu.h's
  * PORT_KEYS_FILE), the joypad's events go through Diatom's chord rule as
  * they are read (key_seen, tools/pkhot.c), and what they ask for is done
- * here after the pass (hot_do). PICO-8 sees SELECT and the button all the
- * same: nothing is grabbed.
+ * here after the pass (hot_do). PICO-8 sees neither SELECT nor the button
+ * of a chord: it reads the pad portkeys gives it (below, vpad_*).
  *
  *   Screenshot     PICO-8's own 128 x 128 picture, as Diatom writes fake08's,
  *                  to Screenshots/PICO-8/<the cart> <time>.png, and the
@@ -2300,6 +2308,7 @@ static char shots[1024];         /* PORT_KEYS_FILE's shots: the folder and the c
  * POWER. idle_c.seconds is 0 over every other program (keys_load). */
 static idle_clock idle_c;
 static bool idle_input, idle_charging, idle_fired;
+static void vpad_update(void);
 
 static void keys_load(void)
 {
@@ -2324,6 +2333,8 @@ static void keys_load(void)
 	 * (src/main.c's auto_off_load) */
 	idle_c.seconds = pk_db_get(db, "autooff", 120);
 	fprintf(stderr, "portkeys: hotkeys %s, Auto Off %d s\n", HOT.on ? run : "none", idle_c.seconds);
+	/* The pad PICO-8 reads, for as long as a hotkey has a key (vpad_update) */
+	vpad_update();
 }
 
 /* ---- the screenshot (tools/pkshot.h) ---- */
@@ -2498,6 +2509,219 @@ static int hot_do(unsigned acts)
 		menu |= menu_show_as(PORT_MENU_RESET_ARG);
 	}
 	return menu;
+}
+
+/* ---- the pad PICO-8 reads, while it has hotkeys (tools/pkvpad.h) ----------
+ *
+ * portkeys grabbed no pad: SELECT and a chord's button reached the cart as
+ * they reached portkeys, so SELECT+A for a screenshot was A, New Game, too
+ * (device test, rc.5). So while a hotkey has a key over your PICO-8,
+ * portkeys holds the joypad (EVIOCGRAB: its events come here alone) and
+ * gives PICO-8 a pad of its own, fed the joypad's buttons as Diatom's core
+ * is fed them under chord.h's rule (pkhot_out), each as it is read: a chord
+ * never reaches the cart, every other press does, in its order.
+ *
+ * Never a dead pad. The joypad is held only once PICO-8 has this pad open
+ * (looked for among the files of the program's group) and nothing is down on
+ * it, so no press is half PICO-8's; and let go of at once when PICO-8 closes
+ * the pad, before the in-game menu (whose launcher reads the joypad), when
+ * the hotkeys go, and as this ends. The kernel lets go of a grab and takes a
+ * uinput pad away with the process, so a crash leaves PICO-8 the joypad as
+ * before (it has it open all along, merged with this one into its player 1:
+ * merge_joysticks 2, sd/pixel2/PICO-8.sh). While it holds the joypad,
+ * zyhome, which reads it, hears nothing, so MENU+START held is this
+ * process's then: zyhome's way out for a port (CTL_HOME_FLAG, USR2). An
+ * injected press (px2-input) still comes here: a write to the joypad's node
+ * reaches the one holding it. */
+static int vpad_fd = -1, vpad_pad = -1;   /* the pad PICO-8 reads; the joypad, held */
+static char vpad_node[64];
+static bool vpad_held, vpad_home;
+static uint32_t vpad_sent;                /* what the pad PICO-8 reads shows */
+static long vpad_looked, vpad_since;      /* PICO-8's files last looked at; the pad made */
+static int64_t vpad_grab_ms;              /* when the joypad was taken, on the devices' clock */
+static pid_t vpad_reader;                 /* the process of PICO-8's that has it open */
+static zychord ZC;
+static int vpad_wait = -1;                /* vpad_poll's last answer, for the loop's poll */
+
+static void vpad_forward(void)
+{
+	const uint32_t out = pkhot_out(&HOT);
+
+	if (!vpad_held || out == vpad_sent) return;
+	if (pkvpad_put(vpad_fd, vpad_sent, out)) vpad_sent = out;
+}
+
+static void vpad_let_go(void)
+{
+	if (!vpad_held) return;
+	pkvpad_put(vpad_fd, vpad_sent, 0);
+	vpad_sent = 0;
+	if (vpad_pad >= 0) ioctl(vpad_pad, EVIOCGRAB, 0);
+	vpad_held = false;
+	vpad_pad = -1;
+	vpad_looked = 0;             /* looked at again at the next pass */
+	fprintf(stderr, "portkeys: the joypad let go of, PICO-8 reads it again\n");
+}
+
+static void vpad_update(void)
+{
+	const bool want = menu_tag && port_hotkeys(menu_tag) && HOT.on && HOT.live;
+
+	if (want && vpad_fd < 0) {
+		vpad_fd = pkvpad_open("/dev/uinput", vpad_node, sizeof vpad_node);
+		vpad_since = now_ms();
+		vpad_reader = 0;
+	} else if (!want && vpad_fd >= 0) {
+		vpad_let_go();
+		pkvpad_close(vpad_fd);
+		vpad_fd = -1;
+		vpad_node[0] = '\0';
+	}
+}
+
+/* Whether process `pid` has `node` open */
+static bool pid_has_open(pid_t pid, const char *node)
+{
+	char dir[64];
+	DIR *fds;
+	struct dirent *fe;
+	bool found = false;
+
+	snprintf(dir, sizeof dir, "/proc/%d/fd", (int)pid);
+	if (!(fds = opendir(dir))) return false;
+	while (!found && (fe = readdir(fds))) {
+		char link[352], target[64];
+		ssize_t r;
+
+		if (fe->d_name[0] == '.') continue;
+		snprintf(link, sizeof link, "%s/%s", dir, fe->d_name);
+		if ((r = readlink(link, target, sizeof target - 1)) <= 0) continue;
+		target[r] = '\0';
+		found = !strcmp(target, node);
+	}
+	closedir(fds);
+	return found;
+}
+
+/* Whether PICO-8 reads the pad: the process of the program's group found
+ * with it open before, while it still has it, else a look through the group */
+static bool vpad_read(void)
+{
+	pid_t pg;
+	DIR *proc;
+	struct dirent *pe;
+
+	if (!vpad_node[0]) return false;
+	if (vpad_reader > 0 && pid_has_open(vpad_reader, vpad_node)) return true;
+	vpad_reader = 0;
+	if ((pg = port_group()) <= 1 || !(proc = opendir("/proc"))) return false;
+	while (!vpad_reader && (pe = readdir(proc))) {
+		const int pid = atoi(pe->d_name);
+
+		if (pid > 1 && pgrp_of(pid) == pg && pid_has_open(pid, vpad_node)) vpad_reader = pid;
+	}
+	closedir(proc);
+	return vpad_reader > 0;
+}
+
+/* Nothing of PICO-8's pad down on the joypad (MENU is none of it), as the
+ * events read say: no EVIOCGKEY, which would take this process's queued
+ * events of the joypad away with its answer */
+static bool pad_all_up(void)
+{
+	return !(HOT.held & ~DIATOM_BIT(DIATOM_BTN_MENU));
+}
+
+/* MENU+START held while the joypad is held: zyhome's way out for a port */
+static void pad_home(void)
+{
+	FILE *f = fopen(CTL_HOME_FLAG, "w");
+	pid_t parent = getppid();
+
+	if (f) fclose(f);
+	fprintf(stderr, "portkeys: MENU+START held, back to the home\n");
+	vpad_home = true;
+	if (parent > 1) kill(parent, SIGUSR2);
+}
+
+/* A joypad event, after pkhot_key took it (key_seen), `ms` its time on the
+ * devices' clock: forwarded, and MENU and START for MENU+START, while the
+ * joypad is held. A press stamped before the joypad was taken may have
+ * reached PICO-8 through it too, its let-go not: the joypad is let go of
+ * again, PICO-8 has it whole, and it is taken at a later look. */
+static void vpad_event(uint16_t code, int32_t value, int64_t ms)
+{
+	if (!vpad_held || value == 2) return;
+	if (value == 1 && ms <= vpad_grab_ms && code != PK_BTN_MENU && pkhot_bit(code)) {
+		fprintf(stderr, "portkeys: a press as the joypad was taken; let go of it again\n");
+		vpad_let_go();
+		return;
+	}
+	vpad_forward();
+	if (code == PK_BTN_MENU || code == PKHOT_BTN_START)
+		zychord_key(&ZC, code == PK_BTN_MENU, value != 0, now_ms());
+}
+
+/* After a resync of the joypad (resync_devices): the pad PICO-8 reads as
+ * chord.h has the joypad now */
+static void vpad_resync(void)
+{
+	vpad_forward();
+}
+
+/* The joypad gone (drop_device): its grab went with its file */
+static void vpad_pad_gone(void)
+{
+	if (vpad_held) pkvpad_put(vpad_fd, vpad_sent, 0);
+	vpad_sent = 0;
+	vpad_held = false;
+	vpad_pad = -1;
+}
+
+/* Once a pass: chord.h's turn between events (`chord_ms` on the devices'
+ * clock), MENU+START's hold, and the joypad held or let go of as PICO-8
+ * reads the pad or not. `pad` is the joypad's file, -1 for none; `clk` the
+ * devices' clock. How long until it has more to do, -1 for nothing. */
+static int vpad_poll(long now, int64_t chord_ms, int pad, clockid_t clk)
+{
+	int wait = -1, w, every;
+
+	if (vpad_fd < 0) return -1;
+	if (vpad_held) {
+		pkhot_tick(&HOT, (uint64_t)chord_ms);
+		vpad_forward();
+		if (zychord_due(&ZC, now)) pad_home();
+		if ((w = pkhot_wait(&HOT, (uint64_t)chord_ms)) >= 0) wait = w;
+		if ((w = zychord_wait(&ZC, now)) >= 0 && (wait < 0 || w < wait)) wait = w;
+	}
+	/* Held: PICO-8 still reads the pad, every 2 s. Not yet: five looks a
+	 * second for its first 10 s, as PICO-8 starts, then every 2 s */
+	every = vpad_held || now - vpad_since > 10000 ? 2000 : 200;
+	if (now - vpad_looked >= every) {
+		const bool reads = vpad_read();
+
+		vpad_looked = now;
+		if (!vpad_held && reads && pad >= 0 && pad_all_up() && ioctl(pad, EVIOCGRAB, 1) == 0) {
+			struct timespec t;
+
+			clock_gettime(clk, &t);
+			vpad_grab_ms = (int64_t)t.tv_sec * 1000 + t.tv_nsec / 1000000;
+			vpad_held = true;
+			vpad_pad = pad;
+			vpad_sent = 0;
+			pkhot_resync(&HOT, 0);
+			zychord_init(&ZC);
+			fprintf(stderr, "portkeys: the joypad held; PICO-8 (pid %d) reads its pad through portkeys\n",
+			        (int)vpad_reader);
+		} else if (vpad_held && !reads) {
+			fprintf(stderr, "portkeys: PICO-8 closed its pad\n");
+			vpad_let_go();
+		}
+	}
+	w = (int)(vpad_looked + every - now);
+	if (w < 0) w = 0;
+	if (wait < 0 || w < wait) wait = w;
+	return wait;
 }
 
 /* Devices: the poll set's first n entries, and for each whether it has MENU
@@ -2733,7 +2957,10 @@ static void drop_device(int i)
 	/* Discard its pending events with this pass; it cannot release its keys. */
 	lost_menu |= has_menu[i];
 	lost_vol |= has_vol[i];
-	if (has_menu[i]) pkhot_resync(&HOT, 0);
+	if (has_menu[i]) {
+		pkhot_resync(&HOT, 0);
+		vpad_pad_gone();
+	}
 	close(fds[i].fd);
 	n--;
 	fds[i] = fds[n];
@@ -2762,9 +2989,22 @@ static bool keys_pass(const pk_key *keys, int nk, int64_t cutoff)
 static void key_seen(int i, const struct input_event *e)
 {
 	idle_input = true;
-	if (has_menu[i])
-		hot_pending |= pkhot_key(&HOT, e->code, e->value,
-		                         (uint64_t)((int64_t)e->input_event_sec * 1000 + e->input_event_usec / 1000));
+	if (!has_menu[i]) return;
+	hot_pending |= pkhot_key(&HOT, e->code, e->value,
+	                         (uint64_t)((int64_t)e->input_event_sec * 1000 + e->input_event_usec / 1000));
+	/* ...and, while portkeys holds the joypad, to the pad PICO-8 reads at
+	 * once (vpad_event); START under MENU there is MENU+START's, so MENU let
+	 * go after it opens no menu */
+	vpad_event(e->code, e->value, (int64_t)e->input_event_sec * 1000 + e->input_event_usec / 1000);
+	if (vpad_held && e->code == PKHOT_BTN_START && e->value == 1 && K.menu_held) pkkeys_menu_state(&K, true);
+}
+
+/* The joypad's file (the device with MENU), -1 when it is gone */
+static int joypad_fd(void)
+{
+	for (int i = 0; i < n; i++)
+		if (has_menu[i]) return fds[i].fd;
+	return -1;
 }
 
 /* The joypad's buttons down, as pkhot counts them, from EVIOCGKEY's bits */
@@ -2861,6 +3101,7 @@ static void resync_devices(bool *plugged)
 				pkkeys_menu_state(&K, K.menu_held || HAS(down, BTN_TRIGGER_HAPPY1));
 				/* and SELECT's rule from what is down now (pkhot_resync) */
 				pkhot_resync(&HOT, pad_held(down));
+				vpad_resync();
 			}
 		}
 		if (fds[i].fd == jack) *plugged = true;
@@ -3086,6 +3327,8 @@ int main(int argc, char **argv)
 		}
 		/* Auto Off counting: a look well inside its gap (idle_tick) */
 		if (idle_c.seconds > 0 && (wait < 0 || wait > (int)IDLE_GAP_MS - 100)) wait = (int)IDLE_GAP_MS - 100;
+		/* The pad PICO-8 reads: chord.h's next turn, or the next look at it */
+		if (vpad_wait >= 0 && (wait < 0 || vpad_wait < wait)) wait = vpad_wait;
 		m = n;
 		/* The port's end, while its display is borrowed */
 		if (G.pidfd >= 0) {
@@ -3133,7 +3376,7 @@ int main(int argc, char **argv)
 		 * (menu_show). What was pressed while it was up was the launcher's,
 		 * POWER and the volume keys too, so this side's keys start again
 		 * from what is down now. */
-		if (pkkeys_menu_tapped(&K) && menu_show()) {
+		if (pkkeys_menu_tapped(&K) && !vpad_home && menu_show()) {
 			power_drain();
 			resync_devices(&plugged);
 		}
@@ -3149,6 +3392,10 @@ int main(int argc, char **argv)
 			}
 		}
 		idle_tick(now_ms());
+		/* The pad PICO-8 reads: chord.h between events, MENU+START's hold,
+		 * the joypad held or let go of (vpad_poll); its next look bounds
+		 * the next poll's wait */
+		vpad_wait = vpad_poll(now_ms(), cutoff / 1000, joypad_fd(), ev_clock);
 
 		if (plugged) plug_changed();
 

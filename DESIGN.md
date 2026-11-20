@@ -6237,8 +6237,16 @@ rows)* are the player's own, SELECT held and one more button as over a
 Diatom game (11.61), the table in force for the cart (This Game's, PICO-8's,
 Every Game's, ZyperOS's own), judged by Diatom's own chord rule
 (diatom/src/chord.c) in portkeys, which reads the joypad already for MENU.
-Nothing is taken from PICO-8: portkeys grabs no pad, so SELECT and the button
-reach the cart all the same. **Screenshot** is PICO-8's own 128 x 128 picture,
+A chord never reaches the cart, as over a Diatom game *(device test, rc.5:
+SELECT+A for a screenshot was A, New Game, too)*: while a hotkey has a key,
+portkeys holds the joypad (EVIOCGRAB) and gives PICO-8 a pad of its own
+(uinput, tools/pkvpad.h), fed every other press at once, in its order, and
+SELECT alone as Diatom gives it, as it is let go or held past 400 ms. PICO-8
+merges the two into its player 1 (`merge_joysticks 2`, which PICO-8.sh sets),
+and the joypad is held only once PICO-8 has the pad open and nothing is down,
+let go of before the menu and as portkeys ends; a crash lets go of it too,
+so PICO-8 is never left with no pad. MENU+START held is portkeys's while it
+holds the joypad (zyhome hears nothing then). **Screenshot** is PICO-8's own 128 x 128 picture,
 as fake08's is, read out of the panel where the Display mode in force draws
 it (src/p8draw.h), to `Screenshots/PICO-8/<the cart> 2026-11-20 14.05.31.png`
 (`PICO-8` for Splore), and the same pop-up as over a game, "Screenshot saved"

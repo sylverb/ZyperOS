@@ -138,6 +138,26 @@ static int hot_dos;
 static int hot_do(unsigned acts) { hot_dos++; hot_done |= acts; return 0; }
 static idle_clock idle_c;
 static bool idle_input, idle_charging, idle_fired;
+/* The pad PICO-8 reads while portkeys holds the joypad (vpad_*, outside the
+ * extracted code): the joypad's events handed to it, in order, and the
+ * loop's asks */
+static bool vpad_held, vpad_home;
+static int vpad_wait = -1, vpad_polls, vpad_resyncs, vpad_gone, vpad_events;
+static uint16_t vpad_codes[16];
+static void vpad_event(uint16_t code, int32_t value, int64_t ms)
+{
+	(void)value; (void)ms;
+	if (vpad_events < 16) vpad_codes[vpad_events] = code;
+	vpad_events++;
+}
+static int vpad_poll(long now, int64_t chord_ms, int pad, clockid_t clk)
+{
+	(void)now; (void)chord_ms; (void)pad; (void)clk;
+	vpad_polls++;
+	return -1;
+}
+static void vpad_resync(void) { vpad_resyncs++; }
+static void vpad_pad_gone(void) { vpad_gone++; }
 /* Developer SSH over the port (tools/pkssh.c, outside the extracted code):
  * nothing to look at, and the TERM flag never set */
 static volatile sig_atomic_t g_term;
@@ -248,6 +268,7 @@ static void reset(void)
 	memset(reads, 0, sizeof reads); memset(menu_down, 0, sizeof menu_down);
 	memset(sel_down, 0, sizeof sel_down);
 	pkhot_init(&HOT); hot_pending = hot_done = 0; hot_dos = 0;
+	vpad_held = vpad_home = false; vpad_wait = -1; vpad_polls = vpad_resyncs = vpad_gone = vpad_events = 0;
 	idle_c = (idle_clock){ 0 }; idle_input = idle_charging = idle_fired = false;
 	memset(has_menu, 0, sizeof has_menu); memset(has_vol, 0, sizeof has_vol);
 	memset(dropped, 0, sizeof dropped); memset(resync, 0, sizeof resync);
@@ -554,6 +575,28 @@ int main(void)
 		               "Auto Off: the loop looks well inside its gap while it counts");
 		if (c == 3) ck(waits[0] == 5000, "Auto Off at Never: the loop is not woken for it");
 	}
+	/* The pad PICO-8 reads: every joypad event handed to it in the order
+	 * read, none from another device; a pass asks vpad_poll each time; a
+	 * resync of the joypad resyncs it, the joypad gone tells it; and while
+	 * MENU+START has sent the port home, a MENU let go opens no menu */
+	reset(); has_menu[0] = has_vol[1] = true; ready = 3;
+	put(0, 1000000, EV_KEY, PKHOT_BTN_SELECT, 1); put(0, 1000010, EV_KEY, PKHOT_BTN_SOUTH, 1);
+	put(0, 1000020, EV_KEY, PKHOT_BTN_SOUTH, 0); put(1, 1000005, EV_KEY, PK_KEY_VOLUMEUP, 1);
+	run_loop();
+	ck(vpad_events == 3 && vpad_codes[0] == PKHOT_BTN_SELECT && vpad_codes[1] == PKHOT_BTN_SOUTH &&
+	   vpad_codes[2] == PKHOT_BTN_SOUTH, "the joypad's events reach the pad PICO-8 reads, in order, and only its");
+	ck(vpad_polls == 1, "each pass asks the pad PICO-8 reads for its turn");
+	reset(); n = 1; has_menu[0] = true; limit = 2;
+	put(0, 900000, EV_SYN, SYN_DROPPED, 0); put(0, 900001, EV_SYN, SYN_REPORT, 0);
+	run_loop();
+	ck(vpad_resyncs >= 1, "a resync of the joypad resyncs the pad PICO-8 reads");
+	reset(); has_menu[0] = has_vol[1] = true; eof_device = 0;
+	run_loop();
+	ck(vpad_gone == 1, "the joypad gone, the pad PICO-8 reads is told");
+	reset(); has_menu[0] = has_vol[1] = true; ready = 1; vpad_home = true;
+	put(0, 1000000, EV_KEY, PK_BTN_MENU, 1); put(0, 1000050, EV_KEY, PK_BTN_MENU, 0);
+	run_loop();
+	ck(menu_shows == 0, "after MENU+START sent the port home, MENU let go opens no menu");
 	printf("portkeys-flow: %d checks, %d failed\n", checks, failures);
 	return failures ? 1 : 0;
 }

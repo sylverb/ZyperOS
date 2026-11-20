@@ -30,6 +30,7 @@
 #include "pkkbd.h"
 #include "pkkeys.h"
 #include "pkshot.h"
+#include "pkvpad.h"
 #include "../src/p8draw.h"
 
 #include <zlib.h>
@@ -1219,6 +1220,137 @@ static void the_hotkeys(void)
 	ck(a == (1u << CHORD_SHOT), "hotkeys: and the next SELECT is one again");
 }
 
+/* What PICO-8 reads while portkeys holds the joypad (pkhot_out, fed to
+ * tools/pkvpad.c's pad): every button at once, MENU never; with hotkeys, a
+ * chord never (SELECT and its button, the button a moment before SELECT
+ * too), SELECT alone given back as it is let go for at least two turns, or
+ * the game's once held CHORD_HOLD_MS or pressed with another button; and the
+ * pad's writes, one event a button that changed and a report */
+#define B_(x) DIATOM_BIT(DIATOM_BTN_##x)
+
+/* Turns between events up to `until`, as portkeys's loop takes them */
+static void pad_ticks_to(pkhot *h, uint64_t *t, uint64_t until)
+{
+	while (*t < until) {
+		int w = pkhot_wait(h, *t);
+
+		if (w < 0) {
+			*t = until;
+			break;
+		}
+		*t += (uint64_t)(w > 0 ? w : 1);
+		if (*t > until) *t = until;
+		pkhot_tick(h, *t);
+	}
+}
+
+static void the_game_pad(void)
+{
+	pkhot h;
+	uint64_t t;
+	bool given = false;
+
+	pkhot_init(&h);
+	pkhot_key(&h, PKHOT_BTN_SELECT, 1, 1000);
+	ck(pkhot_out(&h) == B_(SELECT), "game pad: no hotkeys, SELECT at once");
+	pkhot_key(&h, 0x2c0, 1, 1010);
+	ck(pkhot_out(&h) == B_(SELECT), "game pad: MENU never reaches the game");
+	pkhot_key(&h, 0x2c0, 0, 1020);
+	pkhot_key(&h, PKHOT_BTN_SELECT, 0, 1030);
+	ck(pkhot_out(&h) == 0 && pkhot_wait(&h, 1030) < 0, "game pad: no hotkeys, nothing waits");
+
+	pkhot_set(&h, "save:r1,load:l1,faster:r2,slower:l2,shot:y,quit:x");
+	t = 2000;
+	pkhot_key(&h, PKHOT_BTN_SOUTH, 1, t);
+	ck(pkhot_out(&h) == B_(A), "game pad: A at once, the event it came in");
+	pkhot_key(&h, PKHOT_BTN_SOUTH, 0, t += 30);
+	ck(pkhot_out(&h) == 0, "game pad: and let go at once");
+
+	t = 3000;
+	pkhot_key(&h, PKHOT_BTN_SELECT, 1, t);
+	ck(pkhot_out(&h) == 0 && pkhot_wait(&h, t) == PKHOT_TICK_MS, "game pad: SELECT waits to see whose it is");
+	pad_ticks_to(&h, &t, 3050);
+	ck(pkhot_key(&h, PKHOT_BTN_WEST, 1, t) == (1u << CHORD_SHOT) && pkhot_out(&h) == 0,
+	   "game pad: SELECT+Y is the screenshot, and the game sees neither");
+	pkhot_key(&h, PKHOT_BTN_WEST, 0, t += 40);
+	pad_ticks_to(&h, &t, 3150);
+	pkhot_key(&h, PKHOT_BTN_SELECT, 0, t);
+	pad_ticks_to(&h, &t, 3400);
+	ck(pkhot_out(&h) == 0 && pkhot_wait(&h, t) < 0, "game pad: nor SELECT after the chord, nothing owed");
+
+	t = 4000;
+	pkhot_key(&h, PKHOT_BTN_SELECT, 1, t);
+	pad_ticks_to(&h, &t, 4120);
+	pkhot_key(&h, PKHOT_BTN_SELECT, 0, t);
+	{
+		int turns = 0;
+
+		while (pkhot_wait(&h, t) >= 0 && turns < 40) {
+			t += (uint64_t)PKHOT_TICK_MS;
+			pkhot_tick(&h, t);
+			if (pkhot_out(&h) & B_(SELECT)) given = true, turns++;
+			else if (given) break;
+		}
+		ck(given && turns >= 2, "game pad: SELECT alone given as it is let go, two turns at least (%d)", turns);
+	}
+	ck(pkhot_out(&h) == 0 && pkhot_wait(&h, t) < 0, "game pad: and taken back after");
+
+	t = 5000;
+	pkhot_key(&h, PKHOT_BTN_SELECT, 1, t);
+	pkhot_key(&h, PKHOT_BTN_UP, 1, t += 20);
+	ck(pkhot_out(&h) == (B_(SELECT) | B_(UP)), "game pad: SELECT with the d-pad, both the game's at once");
+	pkhot_key(&h, PKHOT_BTN_UP, 0, t += 20);
+	pkhot_key(&h, PKHOT_BTN_SELECT, 0, t += 20);
+	ck(pkhot_out(&h) == 0, "game pad: and let go");
+
+	t = 6000;
+	pkhot_key(&h, PKHOT_BTN_NORTH, 1, t);
+	ck(pkhot_out(&h) == B_(X), "game pad: X alone, the game's at once");
+	ck(pkhot_key(&h, PKHOT_BTN_SELECT, 1, t += 60) == (1u << CHORD_QUIT) && pkhot_out(&h) == 0,
+	   "game pad: SELECT a moment after it, Quit, and X taken back from the game");
+	pkhot_key(&h, PKHOT_BTN_NORTH, 0, t += 30);
+	pkhot_key(&h, PKHOT_BTN_SELECT, 0, t += 30);
+	pad_ticks_to(&h, &t, 6400);
+	ck(pkhot_out(&h) == 0, "game pad: nothing after");
+
+	t = 7000;
+	pkhot_key(&h, PKHOT_BTN_SELECT, 1, t);
+	pad_ticks_to(&h, &t, 7000 + CHORD_HOLD_MS + 2 * PKHOT_TICK_MS);
+	ck(pkhot_out(&h) == B_(SELECT), "game pad: SELECT held alone past CHORD_HOLD_MS is the game's, held");
+	ck(pkhot_key(&h, PKHOT_BTN_WEST, 1, t += 10) == (1u << CHORD_SHOT) && !(pkhot_out(&h) & B_(Y)),
+	   "game pad: Y then is still the screenshot, and hidden");
+	pkhot_key(&h, PKHOT_BTN_WEST, 0, t += 30);
+	pkhot_key(&h, PKHOT_BTN_SELECT, 0, t += 30);
+	ck(pkhot_out(&h) == 0, "game pad: let go");
+}
+
+static void the_vpad_writes(void)
+{
+	int fds[2];
+	struct { struct timeval t; uint16_t type, code; int32_t value; } e[4];
+	ssize_t r;
+
+	if (pipe(fds) != 0) {
+		ck(0, "vpad: a pipe");
+		return;
+	}
+	ck(pkvpad_put(fds[1], 0, B_(A) | B_(SELECT)), "vpad: A and SELECT written");
+	r = read(fds[0], e, sizeof e);
+	ck(r == 3 * (ssize_t)sizeof e[0] && e[0].type == 1 && e[0].code == PKHOT_BTN_SOUTH && e[0].value == 1 &&
+	   e[1].type == 1 && e[1].code == PKHOT_BTN_SELECT && e[1].value == 1 && e[2].type == 0 && e[2].code == 0,
+	   "vpad: each button pressed, then a report");
+	ck(pkvpad_put(fds[1], B_(A), B_(A)), "vpad: nothing changed is no write");
+	ck(pkvpad_put(fds[1], B_(A) | B_(SELECT), B_(A)), "vpad: SELECT let go");
+	r = read(fds[0], e, sizeof e);
+	ck(r == 2 * (ssize_t)sizeof e[0] && e[0].code == PKHOT_BTN_SELECT && e[0].value == 0 && e[1].type == 0,
+	   "vpad: only what changed, let go, and a report");
+	ck(pkvpad_put(fds[1], 0, B_(MENU)) && !pkvpad_put(-1, 0, B_(A)), "vpad: MENU is no button of it; none to write on is false");
+	close(fds[1]);
+	r = read(fds[0], e, sizeof e);
+	ck(r == 0, "vpad: and MENU wrote nothing");
+	close(fds[0]);
+}
+
 static void the_keyboard(void)
 {
 	int fds[2], i;
@@ -1377,6 +1509,8 @@ int main(void)
 	the_boost_closing();
 	the_hotkeys();
 	the_keyboard();
+	the_game_pad();
+	the_vpad_writes();
 	the_screenshot();
 	if (fails) {
 		printf("pkkeys: %d of %d FAILED\n", fails, checks);

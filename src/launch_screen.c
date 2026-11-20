@@ -273,14 +273,15 @@ void p8_keys_save(const system_cfg *s, const char *file, const char *shots)
 
 void p8_pad_save(const system_cfg *s, const char *file)
 {
-	char line[600], text[610];
+	char line[600], vline[600], text[1220];
 	rm_table t;
 
 	/* The table a Diatom game of the shelf would be sent (rms_sent); the
-	 * PICO-8 has no stick */
+	 * PICO-8 has no stick. For the joypad, and for the pad portkeys gives
+	 * PICO-8 while it holds the joypad for the hotkeys (tools/pkvpad.h) */
 	rms_sent(s, file, false, &t);
-	if (!p8_pad_line(&t, line, sizeof line)) return;
-	snprintf(text, sizeof text, "%s\n", line);
+	if (!p8_pad_line(&t, line, sizeof line) || !p8_vpad_line(&t, vline, sizeof vline)) return;
+	snprintf(text, sizeof text, "%s\n%s\n", line, vline);
 	if (!write_whole(plat_flag(P8_PAD_FILE), text))
 		fprintf(stderr, "port: couldn't write %s\n", P8_PAD_FILE);
 }
