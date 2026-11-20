@@ -57,17 +57,6 @@ de = Erfolge pausieren, solange ein Cheat an ist.
 ja = チートがオンの間、実績は止まります。
 it = Gli obiettivi aspettano finché un trucco è attivo.
 
-[cheats.your_file]
-note = The seam over the cheats from the player's own .cht file on the card, first in the list.
-en = Your File
-zh-Hans = 你的文件
-es = Tu archivo
-pt-BR = Seu arquivo
-fr = Votre fichier
-de = Deine Datei
-ja = あなたのファイル
-it = Il tuo file
-
 [cheats.libretro]
 note = The seam over the cheats from libretro's own file for the game, when its name gives no code type. libretro is a name: unchanged in every language.
 en = libretro
@@ -136,10 +125,10 @@ it = In ordine
 
 [cheats.found]
 note = The list's heading part while it shows a search's matches: %s is what was typed, after cheats.row and " · ". In quotes as the language writes a quotation.
-en = "%s"
+en = “%s”
 zh-Hans = “%s”
 es = «%s»
-pt-BR = "%s"
+pt-BR = “%s”
 fr = « %s »
 de = „%s“
 ja = 「%s」

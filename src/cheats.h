@@ -20,8 +20,8 @@
  *                                             in it says libretro has none
  *
  * <game> is the game's file name without its folders and its extension, so
- * a game's cheats go with it as its saves do. The player's own files are shown first ("Your
- * File") and nothing but the player writes them. libretro's files follow, a
+ * a game's cheats go with it as its saves do. The player's own files are shown first (all
+ * of them one group) and nothing but the player writes them. libretro's files follow, a
  * group a file, each under a seam named for its code type, the part of the
  * file's name after the game's ("Game Genie").
  *

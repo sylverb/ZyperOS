@@ -231,9 +231,10 @@ static bool ask_first(app *a)
 
 /* ---- the page ----------------------------------------------------------- */
 
+/* A seam's name: libretro's file's code type, or libretro. The player's own
+ * files are one group, always first, so never under a seam. */
 static const char *group_label(const cheat_group *g)
 {
-	if (g->yours) return T(S_CHEATS_YOUR_FILE);
 	return g->label[0] ? g->label : T(S_CHEATS_LIBRETRO);
 }
 
@@ -310,7 +311,7 @@ static int build(void *ctx, menu_row *rows, int max, const char **heading)
 	if (g_L.n == 0) return empty_rows(rows);
 
 	/* A quiet line first while the first cheat would stop achievements */
-	if (g_note) rows[n++] = MENU_BODY(T(S_CHEATS_ACH_NOTE));
+	if (g_note) n = wrapped(T(S_CHEATS_ACH_NOTE), 0, rows, n);
 
 	no = cheats_order(&g_L, g_on_first, order);
 	for (k = 0; k < no && n < max - 6; k++) {
@@ -449,16 +450,20 @@ void cheats_rows_report(app *a)
 	cheats_free(&g_L);
 }
 
-void cheats_page_shot(app *a, SDL_Texture *bg, int sel, bool ask)
+void cheats_page_shot(app *a, SDL_Texture *bg, const cheats_shot *o)
 {
 	static menu_row rows[MENU_RUN_ROWS];
 	const char *h;
-	int n;
+	int n, sel = o->sel;
+	bool ask = o->ask;
 
 	g_app = a;
 	g_bg = bg;
 	load_list();
 	note_now();
+	g_note = g_note || o->note;
+	g_on_first = o->on_first;
+	snprintf(g_query, sizeof g_query, "%s", o->query ? o->query : "");
 	style(a);
 	n = build(NULL, rows, MENU_RUN_ROWS, &h);
 	backdrop(a, NULL, 1.0f);
@@ -482,4 +487,20 @@ void cheats_page_shot(app *a, SDL_Texture *bg, int sel, bool ask)
 	}
 	cheats_free(&g_L);
 	g_bg = NULL;
+	g_on_first = false;
+	g_query[0] = '\0';
+}
+
+void cheats_crash_shot(app *a)
+{
+	char q[480], lines[ASK_TWO_LINES][CHV_WRAP_COLS];
+	menu_row rows[ASK_TWO_LINES + 2];
+	int n;
+
+	snprintf(q, sizeof q, "%s %s", T(S_CHEATS_CRASH_TITLE), T(S_CHEATS_CRASH_BODY));
+	n = ask_two_rows(a, q, T(S_CHEATS_CRASH_WITHOUT), T(S_CHEATS_CRASH_WITH), lines, rows);
+	/* over the shelf's scrim, the cursor on the first answer, Without
+	 * Cheats, as ask_two_panel starts */
+	ui_scrim(a->r, 0);
+	menu_draw(a, T(S_CHEATS_ROW), rows, n + 2, n, menu_std_width(a), a->tint);
 }

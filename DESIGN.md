@@ -6170,8 +6170,8 @@ old and new: a cheat RetroArch pokes into memory itself every frame
 
 **In the game, the Game tab's Cheats row**, right over Achievements, for
 every game Diatom runs: "2 On", or None. A opens the list over the paused
-game, headed "Cheats · 2 On": the player's file first, then libretro's, each
-file after the first under a seam named for its code type, the part of its
+game, headed "Cheats · 2 On": the player's files first (one group, whatever
+their names), then libretro's, each file under a seam named for its code type, the part of its
 name after the game's ("GameShark"), or libretro. A, Left or Right turns a
 cheat over at once; its On is in **accent-ink**. Turn All Off is the last
 row. Under them, pinned: **Y Search** (the keyboard; the list shows what
@@ -6222,6 +6222,8 @@ and in `Cheats/<console>/` the player's file by the game's name and by its
 file's (NextUI's) and libretro's folder for it (11.31, 11.41). A file named
 by a stem another game of the shelf has (a .cue beside a .chd) stays for
 that game, and a rename takes a copy. Host shots: `cheats-row`, `cheats-page`,
-`cheats-page-end`, `cheats-ask`, `cheats-achtab`, `cheats-none-libretro`,
-`cheats-not-checked` (tools/i18n-shots.py; `--cheats` and `--cheats-page`
-stand in for a running game).
+`cheats-page-end`, `cheats-ask`, `cheats-note`, `cheats-on-first`,
+`cheats-search`, `cheats-search-none`, `cheats-achtab`,
+`cheats-none-libretro`, `cheats-not-checked`, `cheats-crash` and
+`popup-cheats` (tools/i18n-shots.py; `--cheats` and `--cheats-page` stand in
+for a running game).

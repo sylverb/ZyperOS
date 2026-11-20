@@ -41,10 +41,18 @@ bool cheats_crash_asks(const system_cfg *s, const char *file);
 void cheats_page(app *a, SDL_Texture *bg);
 
 /* For a check and the shots: the list's rows for the running game as
- * menu_rows_print says them, and the list drawn over `bg` with row `sel`
- * focused (`ask`: the first cheat's question over it) */
+ * menu_rows_print says them; the list drawn over `bg` as `o` says; and the
+ * crash question over the shelf */
+typedef struct {
+	int         sel;        /* the row focused */
+	bool        ask;        /* the first cheat's question over it */
+	const char *query;      /* a search's word, or NULL */
+	bool        on_first;   /* X: the ones that are on first */
+	bool        note;       /* the top line, as signed in with a set */
+} cheats_shot;
 void cheats_rows_report(app *a);
-void cheats_page_shot(app *a, SDL_Texture *bg, int sel, bool ask);
+void cheats_page_shot(app *a, SDL_Texture *bg, const cheats_shot *o);
+void cheats_crash_shot(app *a);
 
 /* The shots' running game, with no launch: `s`'s game `file`, its cheats
  * as the card has them, `paused` as if one had been on */

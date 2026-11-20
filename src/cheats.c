@@ -101,10 +101,11 @@ static void add_file(cheat_list *L, const char *path, const char *name,
 
 	x.L = L;
 	x.file = name;
-	x.group = L->ng;
+	/* The player's own files are one group, whichever names they have */
+	x.group = yours && L->ng > 0 && L->g[L->ng - 1].yours ? L->ng - 1 : L->ng;
 	cht_parse(text, got, add_one, &x);
 	free(text);
-	if (L->n == before) return;
+	if (L->n == before || x.group < L->ng) return;
 	snprintf(L->g[L->ng].label, sizeof L->g[L->ng].label, "%s", label ? label : "");
 	L->g[L->ng].yours = yours;
 	L->ng++;

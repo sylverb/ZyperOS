@@ -257,8 +257,9 @@ static void list(void)
 	put1("Cheats/SFC/Kingdom Run.sfc.cht", "NextUI folder", "CCCC");
 	put1("Cheats/SFC/Kingdom Run.cht", "NextUI folder, no extension", "DDDD");
 	cheats_load(&L, card, "SNES", "SFC", "Hacks/Kingdom Run.sfc");
-	CHECK(L.ng == 6 && L.g[0].yours && L.g[1].yours && L.g[2].yours && L.g[3].yours,
-	      "a game in a subfolder: its four own files, then libretro's: %d groups", L.ng);
+	CHECK(L.ng == 3 && L.g[0].yours && !L.g[1].yours && L.n == 7,
+	      "a game in a subfolder: its four own files one group, then libretro's two: %d groups, %d cheats",
+	      L.ng, L.n);
 	CHECK(!strcmp(L.c[1].desc, "NextUI name") && !strcmp(L.c[2].desc, "NextUI folder, no extension"),
 	      "in their order: '%s' '%s'", L.c[1].desc, L.c[2].desc);
 	cheats_free(&L);

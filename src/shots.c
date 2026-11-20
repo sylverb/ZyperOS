@@ -729,7 +729,8 @@ static void shot_draw_gamemenu(app *a)
 	}
 	gm_gather(a, &u);
 	if (shot_cheats_page >= 0 && !u.port) {
-		cheats_page_shot(a, bg, shot_cheats_page, shot_cheats_ask);
+		cheats_page_shot(a, bg, &(cheats_shot){ shot_cheats_page, shot_cheats_ask, shot_cheats_query,
+		                                         shot_cheats_on_first, shot_cheats_note });
 		if (bg) SDL_DestroyTexture(bg);
 		return;
 	}
@@ -1054,6 +1055,10 @@ int shot_hud_page = -1; /* --hud-page ROW: the On-Screen Stats page */
 bool shot_cheats;          /* --cheats: the cursor's game as the running one */
 int  shot_cheats_page = -1; /* --cheats-page ROW: its cheat list */
 bool shot_cheats_ask;      /* --cheats-ask: the first cheat's question */
+const char *shot_cheats_query;  /* --cheats-query WORD */
+bool shot_cheats_on_first;  /* --cheats-on-first */
+bool shot_cheats_note;      /* --cheats-note */
+bool shot_cheats_crash;     /* --cheats-crash */
 bool shot_hud_items;    /* --hud-items: its Shows list */
 int  shot_hud_pick = -1; /* --hud-pick ROW: that row's list of choices */
 const char *shot_hud_shows; /* --hud-shows WORDS: the items it shows */
@@ -1576,6 +1581,7 @@ static void shot_compose_once(app *a)
 	if (shot_homesys >= 0) homesys_shot_draw(a, shot_homesys);
 	if (shot_lights >= 0) lights_shot_draw(a, shot_lights);
 	if (shot_slots) shot_draw_slots(a);
+	if (shot_cheats_crash) cheats_crash_shot(a);
 	if (shot_gamemenu && a->sys.count > 0) shot_draw_gamemenu(a);
 	else if (g_shot_p2 && a->sys.count > 0) shot_draw_player2(a);
 	if (shot_gamecontrols >= 0 && a->sys.count > 0) shot_draw_gamecontrols(a);
@@ -2107,6 +2113,10 @@ static void shot_compose_once(app *a)
 			/* ...and Player 2 stopping by itself during the game */
 			shot_notice_head = T(S_PLAYER2_NOTICE);
 			snprintf(pbody, sizeof pbody, "%s", T(S_PLAYER2_STOPPED));
+		} else if (!strcmp(shot_popup, "cheats")) {
+			/* A game started with cheats on (cheats_game_started) */
+			shot_notice_head = T(S_CHEATS_ROW);
+			snprintf(pbody, sizeof pbody, TN(S_CHEATS_POPUP, 2), 2);
 		} else if (!strcmp(shot_popup, "shot")) {
 			/* The screenshot hotkey's (on_hotkey): the picture small
 			 * beside its words, a made-up game's frame */

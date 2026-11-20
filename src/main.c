@@ -5867,6 +5867,10 @@ int main(int argc, char *argv[])
 		else if (!strcmp(argv[i], "--cheats")) shot_cheats = true;
 		else if (!strcmp(argv[i], "--cheats-page") && i + 1 < argc) shot_cheats_page = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--cheats-ask")) shot_cheats_ask = true;
+		else if (!strcmp(argv[i], "--cheats-query") && i + 1 < argc) shot_cheats_query = argv[++i];
+		else if (!strcmp(argv[i], "--cheats-on-first")) shot_cheats_on_first = true;
+		else if (!strcmp(argv[i], "--cheats-note")) shot_cheats_note = true;
+		else if (!strcmp(argv[i], "--cheats-crash")) shot_cheats_crash = true;
 		else if (!strcmp(argv[i], "--hud-items")) shot_hud_items = true;
 		else if (!strcmp(argv[i], "--hud-pick") && i + 1 < argc) shot_hud_pick = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--hud-shows") && i + 1 < argc) shot_hud_shows = argv[++i];

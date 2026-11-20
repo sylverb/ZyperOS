@@ -960,6 +960,11 @@ EXTRA.setdefault("cheats-ask", ("demo", "PS1", ["--gamemenu", "0", "--cheats-pag
 EXTRA.setdefault("cheats-achtab", ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "3", "--achtab", "paused"]))
 EXTRA.setdefault("cheats-none-libretro", ("demo", "PS1", ["--gamemenu", "0", "--cheats-page", "0"]))
 EXTRA.setdefault("cheats-not-checked", ("demo", "PS1", ["--gamemenu", "0", "--cheats-page", "0"]))
+EXTRA.setdefault("cheats-note", ("demo", "PS1", ["--gamemenu", "0", "--cheats-page", "1", "--cheats-note"]))
+EXTRA.setdefault("cheats-on-first", ("demo", "PS1", ["--gamemenu", "0", "--cheats-page", "0", "--cheats-on-first"]))
+EXTRA.setdefault("cheats-search", ("demo", "PS1", ["--gamemenu", "0", "--cheats-page", "0", "--cheats-query", "infinite"]))
+EXTRA.setdefault("cheats-search-none", ("demo", "PS1", ["--gamemenu", "0", "--cheats-page", "0", "--cheats-query", "zzz"]))
+EXTRA.setdefault("cheats-crash", ("demo", "PS1", ["--cheats-crash"]))
 R.SHOT_FOCUS.setdefault("cheats-none-libretro", "Crash Bandicoot (USA).chd")
 R.SHOT_FOCUS.setdefault("cheats-not-checked", "Spyro the Dragon (USA).chd")
 # On-Screen Stats' page (src/hudmenu_screen.h): its rows with three items
@@ -1081,7 +1086,7 @@ SHOT_SETTINGS["night-from-list"] = {"night.mode": "hours", "night.from": "1260"}
 # friend's browser joining and leaving
 for _kind in ("saved", "loaded", "save_failed", "load_failed", "slot_empty", "no_states", "dslang",
               "corestate", "stick_on", "stick_off", "player2_joined", "player2_left",
-              "player2_stopped", "shot", "shader", "display"):
+              "player2_stopped", "shot", "shader", "display", "cheats"):
     EXTRA.setdefault("popup-" + _kind, ("demo", "PS1", ["--popup", _kind]))
 EXTRA.setdefault("popup-speed-half", ("demo", "PS1", ["--popup", "speed", "3"]))
 EXTRA.setdefault("popup-speed-whole", ("demo", "PS1", ["--popup", "speed", "4"]))

@@ -172,6 +172,10 @@ extern bool shot_hud_alt;      /* --hud-alt */
 extern bool shot_cheats;       /* --cheats: the cursor's game runs with its cheats */
 extern int  shot_cheats_page;  /* --cheats-page ROW: its list, -1 for none */
 extern bool shot_cheats_ask;   /* --cheats-ask: the first cheat's question over it */
+extern const char *shot_cheats_query; /* --cheats-query WORD: a search's word */
+extern bool shot_cheats_on_first;     /* --cheats-on-first: X pressed */
+extern bool shot_cheats_note;  /* --cheats-note: the top line, as signed in */
+extern bool shot_cheats_crash; /* --cheats-crash: the crash question over the shelf */
 extern int shot_pick_at;       /* --pick-at K */
 extern int shot_rows_report;   /* --rows-report */
 extern int shot_hover_sweep;   /* --hover-sweep */

@@ -456,7 +456,7 @@ def card_dirs(card):
 # of the player's own and two of libretro's, as the Downloads page writes
 # them. Stand-ins with made-up codes, never sent to a game; a game libretro
 # has none for (.none), and the rest with no file at all.
-CHEATS_YOURS=[('Infinite Ammo','80078E8C 0000'),('Stealth Suit','800B6D74 0001')]
+CHEATS_YOURS=[('Infinite Ammo','80078E8C 0000'),('Stealth Suit','800B6D74 0001'),('','800B6D78 0001')]
 CHEATS_LR=[('Infinite Health','800B6D70 0400'),('Infinite Rations','8009AE40 0005'),
            ('Have All Weapons','800B7110 FFFF'),('Unlimited Time','80091B30 0000'),
            ('Max Psyche','800B7230 0064'),('Nikita Missiles Never Run Out','80078EA0 0014')]
