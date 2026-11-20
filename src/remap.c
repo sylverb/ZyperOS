@@ -251,6 +251,14 @@ void rm_set(rm_table *t, const rm_table *base, int button, rm_choice c)
 	*t = next;
 }
 
+void rm_share(rm_table *t, const rm_table *base, int button, rm_choice c)
+{
+	rm_table next = *base;
+
+	next.b[button] = c;
+	*t = next;
+}
+
 int rm_unreached(const rm_table *def, const rm_table *t, int *targets, int max)
 {
 	bool in_def[RT_COUNT] = { false }, in_t[RT_COUNT] = { false };

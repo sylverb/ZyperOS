@@ -51,8 +51,13 @@ const char *snapshelf_step(snapshelf *s, const char *path, bool front,
 	switch (s->phase) {
 	case SNS_WAIT:
 		/* The bar full: the snap goes, and if its first picture came while
-		 * it was held, the cover starts to turn this same frame */
-		if (now - s->t >= SNAPS_WAIT_MS) {
+		 * it was held, the cover starts to turn this same frame. At once
+		 * (the Video view): no bar, no hold, asked this frame. */
+		if (s->at_once) {
+			/* the picture in hand is the game's before, until this ask
+			 * says otherwise: the turn waits for this one's */
+			go(s, SNS_ASKED, now);
+		} else if (now - s->t >= SNAPS_WAIT_MS) {
 			go(s, picture ? SNS_IN : SNS_ASKED, now);
 		} else if (now - s->t >= SNAPS_ASK_MS) {
 			held = true;
