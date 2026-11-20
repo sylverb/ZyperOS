@@ -82,8 +82,24 @@ export SDL_VIDEODRIVER="${SDL_VIDEODRIVER:-kmsdrm}"
 # mapping of the Pixel 2's joypad (its log.txt) has "a" on BTN_SOUTH, which
 # this pad sends from the A cap, on the right: so O was the A cap and X the B
 # cap (device test, 2026-11-19). The same mapping with the two swapped, for
-# this pad's id, which SDL reads before any mapping of PICO-8's own
-export SDL_GAMECONTROLLERCONFIG="190043d2010000000221000000010000,gkd_pixel2_joypad,a:b1,b:b0,x:b2,y:b3,back:b8,start:b9,leftshoulder:b4,rightshoulder:b5,dpup:b10,dpdown:b11,dpleft:b12,dpright:b13,lefttrigger:b6,righttrigger:b7,crc:d243,platform:Linux,"
+# this pad's id, which SDL reads before any mapping of PICO-8's own.
+#
+# And the player's buttons over that (DESIGN.md 11.45, src/p8pad.h): the
+# launcher turns the PICO-8 shelf's remap rows for this cart into the same
+# line, each button on what it gives, and leaves it in /tmp as it hands over
+# (or again when the in-game menu changed a button, for PICO-8's next
+# start). Only a line for this pad, of the characters a mapping has, is
+# taken; with none, the line of nothing changed
+PAD="190043d2010000000221000000010000,gkd_pixel2_joypad,a:b1,b:b0,x:b2,y:b3,back:b8,start:b9,leftshoulder:b4,rightshoulder:b5,dpup:b10,dpdown:b11,dpleft:b12,dpright:b13,lefttrigger:b6,righttrigger:b7,crc:d243,platform:Linux,"
+PADFILE=${ZYPEROS_FLAG_DIR:-/tmp}/zyperos-pico8-pad
+if [ -f "$PADFILE" ] && read -r LINE < "$PADFILE"; then
+	case $LINE in
+	190043d2010000000221000000010000,gkd_pixel2_joypad,*[!A-Za-z0-9:,_.+~-]*) echo "pico8: $PADFILE is no mapping line; the buttons as they ship" ;;
+	190043d2010000000221000000010000,gkd_pixel2_joypad,*) PAD=$LINE; echo "pico8: the player's buttons: ${LINE#*_joypad,}" ;;
+	*) echo "pico8: $PADFILE is not this pad's; the buttons as they ship" ;;
+	esac
+fi
+export SDL_GAMECONTROLLERCONFIG="$PAD"
 # Splore's downloads: pico8_64 runs `wget` for every list and cart, and the
 # system's wget (busybox's) has no HTTPS, which every cart is. Ours, in bin/
 # beside this script, hands them to curl (PICO-8-wget.sh says how), so it
