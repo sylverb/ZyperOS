@@ -123,6 +123,9 @@ $(BUILD)/home-check: tools/home-check.c $(CHECK_OBJS) FORCE
 $(BUILD)/games-check: tools/games-check.c $(CHECK_OBJS) FORCE
 	$(CC) $(CFLAGS) -o $@ tools/games-check.c $(CHECK_OBJS) $(LDLIBS)
 
+$(BUILD)/shaderpic-check: tools/shaderpic-check.c $(CHECK_OBJS) FORCE
+	$(CC) $(CFLAGS) -o $@ tools/shaderpic-check.c $(CHECK_OBJS) $(LDLIBS)
+
 # The card with no art drawn on the art workers, against the frame's own
 # (tools/cardpaint-check.c), and finished pictures handed to the frame a few
 # a frame (tools/putpace-check.c): both need the workers, the fonts and a
