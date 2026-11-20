@@ -1036,8 +1036,14 @@ static void late_look(void)
 	if (before && g_rt_live) rc_runtime_reset(&g_rt);
 }
 
+/* A cheat has been on in this game (cheats.h): nothing is evaluated */
+static bool g_paused_cheats;
+
+void diatom_cheevos_pause(bool on) { g_paused_cheats = on; }
+
 void diatom_cheevos_frame(void)
 {
+	if (g_paused_cheats) return;
 	/* Both guards matter. Without a set there is nothing to do; without
 	 * memory, every peek returns zero and the runtime would happily conclude
 	 * things about a console that is not there. Between them, a core that
@@ -1065,8 +1071,9 @@ void diatom_cheevos_emit(void)
 	 * reporting trigger_count would tell a launcher the set shrank every time
 	 * the player earned something. */
 	diatom_proto_send("CHEEVOS\tconsole=%u\tcount=%d\tunlocked=%d"
-	                  "\tmemory=%zu\tspans=%d",
-	                  g_console, g_nloaded, g_nfired, g_mapped, g_nspan);
+	                  "\tmemory=%zu\tspans=%d%s",
+	                  g_console, g_nloaded, g_nfired, g_mapped, g_nspan,
+	                  g_paused_cheats ? "\tpaused=cheats" : "");
 
 	for (i = 0; i < n; i++) {
 		const rc_runtime_trigger_t *rt = &g_rt.triggers[i];
