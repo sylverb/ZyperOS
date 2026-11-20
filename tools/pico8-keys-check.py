@@ -55,7 +55,8 @@ SHIPS = (GUID + 'a:b1,b:b0,x:b2,y:b3,back:b8,start:b9,leftshoulder:b4,rightshoul
 SWAPPED = SHIPS.replace('a:b1,b:b0,', 'a:b0,b:b1,')
 RESET, RESTART = 13, 14
 # The menu's rows over your PICO-8, whichever it has, in its order
-MENU_ROWS = ('Continue', 'Display', 'On-Screen Stats', 'Controls', 'Reset', 'Quit')
+MENU_ROWS = ('Continue', 'Display', 'On-Screen Stats', 'Border', 'Shader', 'Strength', 'Controls', 'Reset',
+             'Quit')
 fails = []
 
 
