@@ -35,6 +35,12 @@ extern const char MENU_KEY_X[];
  * Controls pages' (src/controls.c, ctl_glyph_rows). Text, so a panel's
  * snapshot keeps it as it keeps any label. */
 #define MENU_KEYS_MARK "\x1bK"
+/* A value with buttons after it: the value's words, MENU_PARTNER_MARK, then
+ * buttons by name with a space between ("B\x1bPY"), drawn as their glyphs
+ * at MENU_PARTNER_SIZE in the dim look after the words: the Controls tab's
+ * mark of a game button another button gives too (DESIGN.md 11.45) */
+#define MENU_PARTNER_MARK "\x1bP"
+#define MENU_PARTNER_SIZE 32
 #define MENU_KEYS_SIZE 44
 bool menu_keys_is(const char *label);
 /* The buttons after the mark, or `label` itself when it has none */

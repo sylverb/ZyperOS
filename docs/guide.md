@@ -434,6 +434,13 @@ go (with D-pad as Stick on, the other way round). They are the last two of a
 button's choices. The PSP's R2 is Stick On/Off from the start; give it to
 another button, or make R2 something else.
 
+**Two buttons on one game button.** Giving a button what another button
+gives swaps the two, so nothing is lost by accident. To have both, open the
+button's list with A, move to the choice the other button gives, and press
+**Y** instead of A: the foot of the list says what each key does. Both rows
+then show the other button's small glyph after the value, and the handheld
+lights both. Give either row something else to undo it.
+
 **Face Buttons** (Dreamcast, Saturn and Neo Geo Pocket games) swaps all four
 faces at once: **By Letter**, each cap gives the button it names, or **By
 Place**, each cap gives the button in its place on the original pad. It reads

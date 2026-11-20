@@ -154,6 +154,41 @@ static void stick_choices(void)
 	       "stick_choices");
 }
 
+/* Two buttons on one game button (issue #305): rm_share gives a button a
+ * target with no swap, a step off a shared row swaps as ever, and a game
+ * button no button gives still warns */
+static void share_rules(void)
+{
+	rm_table def, t, u;
+	int targets[RT_COUNT], n;
+	char out[100];
+	bool ok;
+
+	rm_identity(&def);
+	/* Y given B as well: both give B, and Y's own Y has no button now */
+	rm_share(&t, &def, RM_Y, (rm_choice){ RT_B, 0 });
+	ok = t.b[RM_Y].to == RT_B && t.b[RM_B].to == RT_B;
+	n = rm_unreached(&def, &t, targets, RT_COUNT);
+	ok = ok && n == 1 && targets[0] == RT_Y;
+	/* kept as the pair it is, and read back */
+	rm_store(&def, &t, out, sizeof out);
+	ok = ok && !strcmp(out, "1;y:b") && rm_load(&def, out, &u) && rm_equal(&t, &u);
+	/* X given A as well, the issue's own: A+X give A, B+Y give B */
+	rm_share(&t, &t, RM_X, (rm_choice){ RT_A, 0 });
+	ok = ok && t.b[RM_X].to == RT_A && t.b[RM_A].to == RT_A && t.b[RM_B].to == RT_B;
+	/* the shared row unshared: B steps to X, and A, which gives... nothing
+	 * gives X now but the swap's partner: X (the handheld's) keeps A, and
+	 * the swap finds no one with X, so B gives X alone */
+	rm_set(&u, &t, RM_B, (rm_choice){ RT_X, 0 });
+	ok = ok && u.b[RM_B].to == RT_X && u.b[RM_Y].to == RT_B;
+	/* a swap from a shared row hands its old value to the other button,
+	 * which then shares it: Y (B, shared with B) given A swaps with A, so A
+	 * gives B beside the B button */
+	rm_set(&u, &t, RM_Y, (rm_choice){ RT_A, 0 });
+	ok = ok && u.b[RM_Y].to == RT_A && u.b[RM_A].to == RT_B && u.b[RM_B].to == RT_B;
+	report(ok, "share_rules");
+}
+
 static void store_equal_is_empty(void)
 {
 	rm_table def = parsed(DC_MAP);
@@ -729,6 +764,7 @@ int main(void)
 	steps_do_not_pile();
 	none_warns();
 	stick_choices();
+	share_rules();
 	store_equal_is_empty();
 	store_load_roundtrip();
 	stored_bad_version_falls_back();

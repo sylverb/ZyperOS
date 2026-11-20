@@ -2507,6 +2507,50 @@ static void ctl_tab(void)
 	ck(m.cur.b[RM_R2].to == RM_STICK_TOGGLE && k > 0 && ids[k - 1] == CT_BUTTON + RM_Y,
 	   "Y given Stick While Held: R2 keeps Stick On/Off (another choice), and square has no button now, under Y");
 
+	/* ct_share: two buttons on one game button (issue #305). On a PS1
+	 * game: Y's list on cross, which B gives, is one Y shares (A swaps and
+	 * Y gives both); Y takes it as well; B's row and Y's carry the other's
+	 * glyph after the value; the handheld lights both; the warning row is
+	 * the game button no button gives; Nothing, a turbo and the row's own
+	 * are A's alone */
+	memset(&m, 0, sizeof m);
+	m.tag = "PS1"; m.ext = "chd"; m.sys_label = "PS1"; m.sys_name = "PlayStation"; m.map = "";
+	rm_identity(&m.def);
+	m.cur = m.base = m.zdef = m.def;
+	{
+		char la[192], lb[192];
+
+		ck(ct_can_share(&m, RM_Y, (rm_choice){ RT_B, 0 }) && !ct_can_share(&m, RM_Y, (rm_choice){ RT_Y, 0 }) &&
+		   !ct_can_share(&m, RM_Y, (rm_choice){ RM_NONE, 0 }) &&
+		   !ct_can_share(&m, RM_Y, (rm_choice){ RT_B, RM_TURBO }),
+		   "ct_can_share: on cross (B's), not on its own, Nothing or a turbo");
+		ct_pick_lines(&m, RM_Y, (rm_choice){ RT_B, 0 }, la, sizeof la, lb, sizeof lb);
+		ck(!strcmp(la, "A: B takes " PAD_SQUARE ".") && !strcmp(lb, "Y: Y and B give " PAD_CROSS "."),
+		   "the foot says what A and Y do: B takes square; Y and B give cross");
+		ct_pick_lines(&m, RM_Y, (rm_choice){ RT_B, RM_TURBO }, la, sizeof la, lb, sizeof lb);
+		ck(!strcmp(lb, "") && !strcmp(la, "Y gives Turbo " PAD_CROSS "."),
+		   "a choice of A's alone (a turbo never swaps): one line, Y gives it");
+	}
+	ct_share(&m, RM_Y, (rm_choice){ RT_B, 0 });
+	ck(m.cur.b[RM_Y].to == RT_B && m.cur.b[RM_B].to == RT_B, "Y takes cross as well: both give it");
+	ck(ct_partners(&m, RM_Y) == 1u << RM_B && ct_partners(&m, RM_B) == 1u << RM_Y && ct_partners(&m, RM_A) == 0,
+	   "ct_partners: B and Y each other's, A none");
+	n = ct_rows(&m, ids, rows, vcol, &b);
+	k = ct_at(ids, n, CT_BUTTON + RM_Y);
+	ck(k > 0 && !strcmp(val(&rows[k]), PAD_CROSS MENU_PARTNER_MARK "B") && vcol[k] == 1u,
+	   "Y's row: cross, then B's glyph (MENU_PARTNER_MARK), changed");
+	k = ct_at(ids, n, CT_BUTTON + RM_B);
+	ck(k > 0 && !strcmp(val(&rows[k]), PAD_CROSS MENU_PARTNER_MARK "Y") && vcol[k] == 0,
+	   "B's row: cross, then Y's glyph, not changed");
+	k = ct_at(ids, n, CT_WARN + RT_Y);
+	ck(k > 0 && ids[k - 1] == CT_BUTTON + RM_Y, "square has no button now, under Y");
+	m.base = m.cur;
+	ck(ct_lit(&m, CT_BUTTON + RM_Y) == (1u << TD_Y | 1u << TD_B), "the handheld lights both, on Y's row");
+	/* removing one: B given L1, Y keeps cross alone */
+	ct_pick(&m, RM_B, (rm_choice){ RT_L1, 0 });
+	ck(m.cur.b[RM_B].to == RT_L1 && m.cur.b[RM_Y].to == RT_B && m.cur.b[RM_L1].to == RT_B &&
+	   ct_partners(&m, RM_Y) == 1u << RM_L1, "B given L1 swaps as ever: L1 takes cross, beside Y");
+
 	/* ct_held_nds: a DS game's L2 and R2 are Diatom's, the other screen and
 	 * the stylus */
 	memset(&m, 0, sizeof m);
