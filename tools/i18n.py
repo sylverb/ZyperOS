@@ -103,7 +103,7 @@ RULE = {l[0]: l[3] for l in LANGS}
 PSEUDO = "xx"
 
 # An area and a name at least, so every enum name has an underscore after
-# S_: one without (S_ISDIR, a museart.c enum's S_NEXT) is never this table's
+# S_: one without (S_ISDIR, an mp4art.c enum's S_NEXT) is never this table's
 ID_RE = re.compile(r"^[a-z][a-z0-9_]*(\.[a-z0-9_]+)+$")
 FMT_RE = re.compile(r"%(?:(\d+)\$)?([-+ #0]*)(\d+|\*)?(?:\.(\d+|\*))?(hh|h|ll|l|z|j|t)?([diouxXeEfgGcspn%])")
 

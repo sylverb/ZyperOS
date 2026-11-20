@@ -875,7 +875,7 @@ static void rail(SDL_Renderer *r, const gg_geom *g, float top, int count)
 
 /* A part of the facts' line at x in support type, or nothing once a part did
  * not fit (x < 0): returns where the next one starts */
-static int fact(SDL_Renderer *r, const char *s, int x, int cy, int right)
+static int fact_in(SDL_Renderer *r, const char *s, int x, int cy, int right, SDL_Color c)
 {
 	TTF_Font *f = page_font(PAGE_META);
 	int w;
@@ -883,8 +883,13 @@ static int fact(SDL_Renderer *r, const char *s, int x, int cy, int right)
 	if (x < 0 || !s || !*s) return x;
 	w = ui_text_width(f, s);
 	if (x + w > right) return -1;
-	ui_text(r, f, s, x, ui_cap_y(f, cy), -1, UI_TEXT_DIM);
+	ui_text(r, f, s, x, ui_cap_y(f, cy), -1, c);
 	return x + w + 32;
+}
+
+static int fact(SDL_Renderer *r, const char *s, int x, int cy, int right)
+{
+	return fact_in(r, s, x, cy, right, UI_TEXT_DIM);
 }
 
 static const char *a_word(const gg_info *in, int games)
@@ -949,14 +954,18 @@ static void band(SDL_Renderer *r, const gg_info *in, void *ctx, int games, int s
 	if (!in->count) return;
 	x = fact(r, in->origin, x, fy, right);
 	if (in->install || in->howto) x = fact(r, T(S_PORTMASTER_NOT_INSTALLED), x, fy, right);
+	/* Firmware it cannot start without, in **warning** */
+	x = fact_in(r, in->needs, x, fy, right, ui_col(theme()->warning, 255));
 	if (in->played && *in->played) {
 		snprintf(line, sizeof line, T(S_GAMES_PLAYED), in->played);
 		x = fact(r, line, x, fy, right);
 	}
 	if (in->has_achievements) {
 		snprintf(line, sizeof line, T(S_GAMES_ACHIEVEMENTS), in->earned, in->total);
-		fact(r, line, x, fy, right);
+		x = fact(r, line, x, fy, right);
 	}
+	/* and how many of its cheats are on (DESIGN.md 11.66) */
+	if (in->cheats && *in->cheats) fact(r, in->cheats, x, fy, right);
 }
 
 /* The video snap: the focused cell opens to two cells across (no wider than

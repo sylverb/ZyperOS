@@ -11,7 +11,7 @@
 # row's system is not a shelf either (there is none now). A pending
 # row's folder is NOT a shelf yet: the day it is, the check fails, and the row
 # becomes a game row. Menu Music and Music are the folders src/bgm.h and
-# src/muselib.c read, in types they play. Every disc BIOS systems.cfg names
+# src/mp4lib.c read, in types they play. Every disc BIOS systems.cfg names
 # comes over by a bios row, and every bios row serves folders the table has.
 # Every folder that holds files on my ROGUE card (tools/fixtures/
 # rogue-card.txt) has a row, so nothing on it is left out unless the table
@@ -40,7 +40,7 @@ TABLE=$(sh "$T" --table) || { echo "FAIL $T --table" >&2; exit 1; }
 SHELVES=$(awk -F'|' '$1 == "sys" { print $3 "|" $8 "|" $9 }' "$CFG")
 shelf_exts() { printf '%s\n' "$SHELVES" | awk -F'|' -v f="$1" '$1 == f { gsub(/,/, " ", $2); print " " $2 " " }'; }
 bgm_dir=$(sed -n 's/^#define BGM_CARD_DIR "\(.*\)"/\1/p' src/bgm.h)
-music_types=$(awk '/static const char \*AUDIO\[\]/,/NULL/' src/muselib.c | tr -c 'a-z0-9\n' ' ')
+music_types=$(awk '/static const char \*AUDIO\[\]/,/NULL/' src/mp4lib.c | tr -c 'a-z0-9\n' ' ')
 
 mkdir -p build-native
 printf '%s\n' "$TABLE" | grep -v '^#' > build-native/from-rogue-table.txt
@@ -75,9 +75,9 @@ while IFS='|' read -r kind rogue place types also; do
 		[ "$place" = "$bgm_dir" ] || fail "$rogue: $place is not src/bgm.h's $bgm_dir"
 		for t in $types; do case $t in mp3|ogg) ;; *) fail "$rogue: the menu music plays no .$t" ;; esac; done ;;
 	music)
-		grep -q '"%s/Music"' src/muselib.c || fail "$rogue: src/muselib.c reads no Music folder"
+		grep -q '"%s/Music"' src/mp4lib.c || fail "$rogue: src/mp4lib.c reads no Music folder"
 		for t in $types; do
-			case " $music_types " in *" $t "*) ;; *) fail "$rogue: Muse plays no .$t" ;; esac
+			case " $music_types " in *" $t "*) ;; *) fail "$rogue: MP4 plays no .$t" ;; esac
 		done ;;
 	bios)
 		for r in $also; do

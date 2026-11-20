@@ -8,11 +8,14 @@
 
 #include "aout_route.h"
 #include "eq.h"
-#include "muselib.h"
-#include "musec.h"
+#include "mp4lib.h"
+#include "mp4c.h"
 #include "audioout.h"
 #include "dslang.h"
 #include "pacing.h"
+#include "sgbmode.h"
+#include "border_pic.h"
+#include "handframe.h"
 #include "app.h"
 #include "bgm.h"
 #include "bgm_menu.h"
@@ -155,7 +158,7 @@ static eq_out eq_out_now(void);
 /* ---------- option rows' choices (menu.h's menu_choice, DESIGN.md 9) ------ */
 
 /* Each option row of more than two choices in MENU, a system's menu and the
- * Muse shelf, and the Muse shelf's Sort By (two A did not turn), as their
+ * MP4 shelf, and the MP4 shelf's Sort By (two A did not turn), as their
  * key handlers step them: in the order Left and Right go, so the runner
  * applies a choice by sending them. The words live here until the next
  * build. */
@@ -165,7 +168,7 @@ typedef struct {
 	char buf[CH_MAX][48];
 } ch_pool;
 
-static menu_choice g_pm_choice[PM_ROWS], g_sm_choice[SM_ROWS], g_smm_choice[SM_MUSE_ROWS];
+static menu_choice g_pm_choice[PM_ROWS], g_sm_choice[SM_ROWS], g_smm_choice[SM_MP4_ROWS];
 /* Recents' Card Picture (DESIGN.md 11.48) */
 static menu_choice g_pic_choice;
 
@@ -238,6 +241,61 @@ static void sm_dmode_preview(void *app_, int k, int x, int y, int w, int h)
 	dmode_preview_draw(a, t, t ? tw : 0, t ? th : 0, aspect, fw, fh, k, x, y, w, h);
 }
 
+/* Border's list's picture: the game under the cursor's last frame, as
+ * Display's list has it, where the system's mode puts it, each kind the row
+ * offers around it (dmode_border_preview) */
+static border_kind g_sm_border_kinds[BORDER_KINDS];
+
+static void sm_border_preview(void *app_, int k, int x, int y, int w, int h)
+{
+	static SDL_Texture *t;
+	static char made[LIB_PATH * 2];
+	static int tw, th;
+	app *a = app_;
+	sysview *v = &a->view[a->sys_cursor];
+	const system_cfg *s = &a->sys.systems[a->sys_cursor];
+	char path[LIB_PATH * 2] = "", own[CFG_STR * 3] = "";
+	double aspect = 0.0;
+	bool known = false;
+	int sw = 0, sh = 0;
+	border_kind kind = k >= 0 && k < BORDER_KINDS ? g_sm_border_kinds[k] : BORDER_OFF;
+	SDL_Surface *pic = NULL;
+
+	if (v->cursor >= 0 && v->cursor < v->list.count)
+		preview_path(a, a->sys_cursor, &v->list.items[v->cursor], path, sizeof path);
+	if (strcmp(path, made)) {
+		if (t) SDL_DestroyTexture(t);
+		t = path[0] ? load_image(a->r, path, &tw, &th, NULL) : NULL;
+		snprintf(made, sizeof made, "%s", path);
+	}
+	aspect = dmode_shape_of(s->tag, &known);
+	if (!dmode_source_of(s->tag, &sw, &sh) && t) { sw = tw; sh = th; }
+	if (kind == BORDER_OWN) pic = border_own_cached(s, own, sizeof own);
+	if (kind == BORDER_HANDHELD || kind == BORDER_WHOLE) {
+		SDL_Rect at;
+
+		pic = border_frame_cached(a, a->sys_cursor, kind, -1, own, sizeof own, &at);
+		dmode_border_preview(a, t, sw, sh, known ? aspect : 0.0, v->dmode, (int)kind, pic, own,
+		                     pic ? &at : NULL, x, y, w, h);
+		return;
+	}
+	dmode_border_preview(a, t, sw, sh, known ? aspect : 0.0, v->dmode, (int)kind, pic, own, NULL, x, y, w, h);
+}
+
+/* Handheld Color's list's picture: the frame in color k, whole where it is
+ * offered (border_color_kind), the game under the cursor's last picture in
+ * its window */
+static void sm_color_preview(void *app_, int k, int x, int y, int w, int h)
+{
+	app *a = app_;
+	sysview *v = &a->view[a->sys_cursor];
+	border_kind kind = border_color_kind(a, a->sys_cursor);
+	char key[96];
+	SDL_Rect at;
+	SDL_Surface *f = border_frame_cached(a, a->sys_cursor, kind, k, key, sizeof key, &at);
+
+	dmode_border_preview(a, NULL, 0, 0, 0.0, v->dmode, (int)kind, f, key, f ? &at : NULL, x, y, w, h);
+}
 
 /* Card Picture's list's picture (DESIGN.md 11.48): the Recents game under
  * the cursor as each choice shows it, its cover (k 0) or its Last Screen
@@ -375,6 +433,15 @@ static void sm_pace_preview(void *app_, int k, int x, int y, int w, int h)
 	if (!shot_path) redraw_at(now + PACE_DEMO_MS - now % PACE_DEMO_MS);
 }
 
+/* Super Game Boy's list's picture (src/dmodepreview.h): each choice at the
+ * shelf's own display mode, as its games would be drawn */
+static void sm_sgb_preview(void *app_, int k, int x, int y, int w, int h)
+{
+	app *a = app_;
+
+	dmode_sgb_preview(a, a->view[a->sys_cursor].dmode, k, x, y, w, h);
+}
+
 /* The Shader and Strength lists' picture (src/shaderdemo.h): a system's
  * menu with its own shader and strength, as the lists were made */
 static int g_sm_demo_shader, g_sm_demo_strength;
@@ -459,15 +526,15 @@ static void smm_look_preview(void *app_, int k, int x, int y, int w, int h)
 /* MP4's Repeat, videos' own mode (src/sys_menu.h): its values in the row's
  * order, Off first, which is how videos played before it */
 static const muq_mode REPEAT_MODE[3] = { MUQ_IN_ORDER, MUQ_REPEAT_ONE, MUQ_REPEAT_ALL };
-static const str_id REPEAT_TEXT[3] = { S_MENU_OFF_TITLE, S_SYSMENU_MUSE_REPEAT_ONE,
-                                       S_SYSMENU_MUSE_REPEAT_ALL };
+static const str_id REPEAT_TEXT[3] = { S_MENU_OFF_TITLE, S_SYSMENU_MP4_REPEAT_ONE,
+                                       S_SYSMENU_MP4_REPEAT_ALL };
 
 static int repeat_at(void)
 {
 	int i;
 
 	for (i = 0; i < 3; i++)
-		if (REPEAT_MODE[i] == musec_video_mode()) return i;
+		if (REPEAT_MODE[i] == mp4c_video_mode()) return i;
 	return 0;
 }
 
@@ -486,11 +553,23 @@ static void pm_rumble_focus(void *app_, int k)
 	last = k;
 }
 
+/* The games menu's lists, each its own slot in its pool, so no two that one
+ * pass builds share words: Recents' Card Picture and Border once both took
+ * the thirteenth, and Card Picture's list said Border's Off and Blur
+ * (1.1.0's test run). A new list takes a new name here. */
+enum {
+	PS_SHOW, PS_MSORT, PS_MVIEW, PS_LOOK, PS_REPEAT,   /* MP4's shelf */
+	PS_PICTURE,                     /* Recents' Card Picture */
+	PS_CORE, PS_DSLANG, PS_SGB, PS_PACE, PS_SORT, PS_CSORT, PS_DISPLAY, PS_BORDER, PS_BORDER_COLOR,
+	PS_SHADER, PS_STRENGTH, PS_VIEW,
+	PS_SLOTS
+};
+
 static void menu_choices(app *a, int sys, bool games)
 {
 	/* A system's menu and MENU each their own words: the shelf under MENU
 	 * builds a system's rows too, and must not write over MENU's */
-	static ch_pool PS[13], PM[14];
+	static ch_pool PS[PS_SLOTS], PM[14];
 	ch_pool *P = games ? PS : PM;
 	int i, n, cur;
 
@@ -503,11 +582,11 @@ static void menu_choices(app *a, int sys, bool games)
 		 * picture and a note telling them apart, as Timing's */
 		static const char *notes[2];
 
-		P[12].lab[0] = T(S_SYSMENU_CARD_PICTURE_COVER);
-		P[12].lab[1] = T(S_SYSMENU_CARD_PICTURE_SCREEN);
+		P[PS_PICTURE].lab[0] = T(S_SYSMENU_CARD_PICTURE_COVER);
+		P[PS_PICTURE].lab[1] = T(S_SYSMENU_CARD_PICTURE_SCREEN);
 		notes[0] = T(S_SYSMENU_CARD_PICTURE_COVER_NOTE);
 		notes[1] = T(S_SYSMENU_CARD_PICTURE_SCREEN_NOTE);
-		g_pic_choice = ch_make(&P[12], 2, g_recents_screen ? 1 : 0, false);
+		g_pic_choice = ch_make(&P[PS_PICTURE], 2, g_recents_screen ? 1 : 0, false);
 		g_pic_choice.notes = notes;
 		g_pic_choice.preview = sm_pic_preview;
 		g_pic_choice.list = true;
@@ -516,41 +595,40 @@ static void menu_choices(app *a, int sys, bool games)
 		const system_cfg *sc = &a->sys.systems[sys];
 		sysview *v = &a->view[sys];
 
-		if (is_muse(sc)) {
+		if (is_mp4(sc)) {
 			/* Show: the kinds the card has, then All, round (ML_ALL is
 			 * the number after the three) */
-			static const int show_text[ML_ALL + 1] = { S_SYSMENU_MUSE_MUSIC, S_SYSMENU_MUSE_AUDIOBOOKS,
-			                                           S_SYSMENU_MUSE_VIDEOS, S_SYSMENU_MUSE_ALL };
+			static const int show_text[ML_ALL + 1] = { S_SYSMENU_MP4_MUSIC, S_SYSMENU_MP4_AUDIOBOOKS,
+			                                           S_SYSMENU_MP4_VIDEOS, S_SYSMENU_MP4_ALL };
 
 			for (i = 0, n = 0, cur = 0; i <= ML_ALL; i++) {
-				if (!ml_count_kind(&g_muse, (ml_kind)i)) continue;
-				if (i == (int)muse_kind_shown()) cur = n;
-				P[0].lab[n++] = T(show_text[i]);
+				if (!ml_count_kind(&g_mp4, (ml_kind)i)) continue;
+				if (i == (int)mp4_kind_shown()) cur = n;
+				P[PS_SHOW].lab[n++] = T(show_text[i]);
 			}
-			g_smm_choice[SMM_SHOW] = ch_make(&P[0], n, cur, false);
-			for (i = 0; i < ML_ORDERS; i++) P[1].lab[i] = ml_order_label_kind((ml_order)i, muse_kind_shown());
-			g_smm_choice[SMM_SORT] = ch_make(&P[1], ML_ORDERS, v->sort, false);
+			g_smm_choice[SMM_SHOW] = ch_make(&P[PS_SHOW], n, cur, false);
+			for (i = 0; i < ML_ORDERS; i++) P[PS_MSORT].lab[i] = ml_order_label_kind((ml_order)i, mp4_kind_shown());
+			g_smm_choice[SMM_SORT] = ch_make(&P[PS_MSORT], ML_ORDERS, v->sort, false);
 			/* View: Covers, Grid, List, in START's order (view_turn); an
 			 * album has no snap for a Video view */
-			P[4].lab[0] = T(S_SYSMENU_VIEW_COVERS);
-			P[4].lab[1] = T(S_SYSMENU_VIEW_GRID);
-			P[4].lab[2] = T(S_SYSMENU_VIEW_LIST);
-			g_smm_choice[SMM_VIEW] = ch_make(&P[4], 3, v->listed ? 2 : v->grid ? 1 : 0, false);
+			P[PS_MVIEW].lab[0] = T(S_SYSMENU_VIEW_COVERS);
+			P[PS_MVIEW].lab[1] = T(S_SYSMENU_VIEW_GRID);
+			P[PS_MVIEW].lab[2] = T(S_SYSMENU_VIEW_LIST);
+			g_smm_choice[SMM_VIEW] = ch_make(&P[PS_MVIEW], 3, v->listed ? 2 : v->grid ? 1 : 0, false);
 			{
 				static const char *notes[MP4L_COUNT];
 
-				/* Its own pool: Repeat's is P[2] */
 				for (i = 0; i < MP4L_COUNT; i++) {
-					P[3].lab[i] = look_label((mp4l_id)i);
+					P[PS_LOOK].lab[i] = look_label((mp4l_id)i);
 					notes[i] = look_note((mp4l_id)i);
 				}
-				g_smm_choice[SMM_LOOK] = ch_make(&P[3], MP4L_COUNT, np_look(), false);
+				g_smm_choice[SMM_LOOK] = ch_make(&P[PS_LOOK], MP4L_COUNT, np_look(), false);
 				g_smm_choice[SMM_LOOK].notes = notes;
 				g_smm_choice[SMM_LOOK].preview = smm_look_preview;
 				g_smm_choice[SMM_LOOK].list = true;
 			}
-			for (i = 0; i < 3; i++) P[2].lab[i] = T(REPEAT_TEXT[i]);
-			g_smm_choice[SMM_REPEAT] = ch_make(&P[2], 3, repeat_at(), false);
+			for (i = 0; i < 3; i++) P[PS_REPEAT].lab[i] = T(REPEAT_TEXT[i]);
+			g_smm_choice[SMM_REPEAT] = ch_make(&P[PS_REPEAT], 3, repeat_at(), false);
 			return;
 		}
 		n = core_offered_count(sc);
@@ -559,13 +637,28 @@ static void menu_choices(app *a, int sys, bool games)
 
 			if (!core_offered_at(sc, i, core, sizeof core)) core[0] = '\0';
 			if (!strcmp(core, sc->core)) cur = i;
-			core_label(core, P[2].buf[i], sizeof P[2].buf[i]);
-			P[2].lab[i] = P[2].buf[i];
+			core_label(core, P[PS_CORE].buf[i], sizeof P[PS_CORE].buf[i]);
+			P[PS_CORE].lab[i] = P[PS_CORE].buf[i];
 		}
-		if (n > 1) g_sm_choice[SM_CORE] = ch_make(&P[2], n, cur, false);
-		for (i = 0; i < DSL_CHOICES; i++) P[3].lab[i] = dslang_label((dsl_choice)i, P[3].buf[i], sizeof P[3].buf[i]);
-		g_sm_choice[SM_DSLANG] = ch_make(&P[3], DSL_CHOICES, dslang_load(), false);
-		for (i = 0; i < PACING_CHOICES; i++) P[10].lab[i] = T(pacing_label_id((pacing_choice)i));
+		if (n > 1) g_sm_choice[SM_CORE] = ch_make(&P[PS_CORE], n, cur, false);
+		for (i = 0; i < DSL_CHOICES; i++)
+			P[PS_DSLANG].lab[i] = dslang_label((dsl_choice)i, P[PS_DSLANG].buf[i], sizeof P[PS_DSLANG].buf[i]);
+		g_sm_choice[SM_DSLANG] = ch_make(&P[PS_DSLANG], DSL_CHOICES, dslang_load(), false);
+		{
+			/* Super Game Boy's two, a list with a picture of each and a
+			 * note telling them apart, as Timing's (src/sgbmode.h) */
+			static const char *notes[SGBM_CHOICES];
+
+			for (i = 0; i < SGBM_CHOICES; i++) {
+				P[PS_SGB].lab[i] = T(sgbm_label_id((sgbm_choice)i));
+				notes[i] = T(sgbm_note_id((sgbm_choice)i));
+			}
+			g_sm_choice[SM_SGB] = ch_make(&P[PS_SGB], SGBM_CHOICES, sgbm_load(sc), false);
+			g_sm_choice[SM_SGB].notes = notes;
+			g_sm_choice[SM_SGB].preview = sm_sgb_preview;
+			g_sm_choice[SM_SGB].list = true;
+		}
+		for (i = 0; i < PACING_CHOICES; i++) P[PS_PACE].lab[i] = T(pacing_label_id((pacing_choice)i));
 		{
 			/* Two, so A would turn it over: its list opens all the same,
 			 * the picture and a note telling them apart (DESIGN.md 9) */
@@ -573,7 +666,7 @@ static void menu_choices(app *a, int sys, bool games)
 
 			notes[PACING_SMOOTH] = T(S_SYSMENU_PACE_SMOOTH_NOTE);
 			notes[PACING_EXACT] = T(S_SYSMENU_PACE_EXACT_NOTE);
-			g_sm_choice[SM_PACE] = ch_make(&P[10], PACING_CHOICES, pacing_load(sc), false);
+			g_sm_choice[SM_PACE] = ch_make(&P[PS_PACE], PACING_CHOICES, pacing_load(sc), false);
 			g_sm_choice[SM_PACE].notes = notes;
 			g_sm_choice[SM_PACE].preview = sm_pace_preview;
 			g_sm_choice[SM_PACE].list = true;
@@ -583,7 +676,7 @@ static void menu_choices(app *a, int sys, bool games)
 			 * pool of their own: the menu's width is measured over every
 			 * shelf's rows, and the others' would be written over them */
 			bool coll = sys == shelf_coll_at(a);
-			ch_pool *sp = coll ? &P[11] : &P[4];
+			ch_pool *sp = coll ? &P[PS_CSORT] : &P[PS_SORT];
 
 			for (i = 0; i < sort_choices(coll); i++) sp->lab[i] = sort_label(sort_choice(coll, i));
 			g_sm_choice[SM_SORT] = ch_make(sp, sort_choices(coll), sort_choice_of(coll, v->sort), false);
@@ -592,12 +685,42 @@ static void menu_choices(app *a, int sys, bool games)
 			static const char *notes[CH_MAX];
 
 			for (i = 0; i < DMODE_COUNT && i < CH_MAX; i++) {
-				P[5].lab[i] = dmode_label(i);
+				P[PS_DISPLAY].lab[i] = dmode_label(i);
 				notes[i] = dmode_note(i);
 			}
-			g_sm_choice[SM_DISPLAY] = ch_make(&P[5], DMODE_COUNT, v->dmode, false);
+			g_sm_choice[SM_DISPLAY] = ch_make(&P[PS_DISPLAY], DMODE_COUNT, v->dmode, false);
 			g_sm_choice[SM_DISPLAY].notes = notes;
 			g_sm_choice[SM_DISPLAY].preview = sm_dmode_preview;
+		}
+		if (border_row_value(a, sys)) {
+			/* Border's offered kinds, each with its picture and note:
+			 * only where the row is (no Favorites, Recents or Collections,
+			 * whose games are many systems') */
+			static const char *notes[BORDER_KINDS];
+			border_kind kept = border_load(a, sys);
+
+			n = border_offered(border_offer_for(a, sys), g_sm_border_kinds);
+			for (i = 0, cur = 0; i < n; i++) {
+				P[PS_BORDER].lab[i] = T(border_label_id(g_sm_border_kinds[i]));
+				notes[i] = T(border_note_id(g_sm_border_kinds[i]));
+				if (g_sm_border_kinds[i] == kept) cur = i;
+			}
+			g_sm_choice[SM_BORDER] = ch_make(&P[PS_BORDER], n, cur, false);
+			g_sm_choice[SM_BORDER].notes = notes;
+			g_sm_choice[SM_BORDER].preview = sm_border_preview;
+			g_sm_choice[SM_BORDER].list = true;
+		}
+		{
+			/* Handheld Color's colors, each with the frame in it */
+			const hf_model *m = hf_model_for(sc->tag);
+
+			if (m && m->ncolors > 1) {
+				for (i = 0; i < m->ncolors && i < CH_MAX; i++)
+					P[PS_BORDER_COLOR].lab[i] = border_color_label(m->color_name[i]);
+				g_sm_choice[SM_BORDER_COLOR] = ch_make(&P[PS_BORDER_COLOR], m->ncolors, border_color_load(a, sys),
+				                                       false);
+				g_sm_choice[SM_BORDER_COLOR].preview = sm_color_preview;
+			}
 		}
 		{
 			static const char *snotes[CH_MAX], *tnotes[CH_MAX];
@@ -605,23 +728,23 @@ static void menu_choices(app *a, int sys, bool games)
 			g_sm_demo_shader = v->shader;
 			g_sm_demo_strength = strength_clamp(v->strength);
 			g_sm_demo_tag = a->sys.systems[a->sys_cursor].tag;
-			n = ch_shaders(&P[6], v->shader, &cur, g_sm_demo_tag);
-			g_sm_choice[SM_SHADER] = ch_make(&P[6], n, cur, false);
+			n = ch_shaders(&P[PS_SHADER], v->shader, &cur, g_sm_demo_tag);
+			g_sm_choice[SM_SHADER] = ch_make(&P[PS_SHADER], n, cur, false);
 			shader_demo_notes(snotes, n, g_sm_demo_tag);
 			g_sm_choice[SM_SHADER].notes = snotes;
 			g_sm_choice[SM_SHADER].preview = sm_shader_preview;
-			n = ch_strengths(&P[7], strength_clamp(v->strength), &cur);
-			g_sm_choice[SM_STRENGTH] = ch_make(&P[7], n, cur, false);
+			n = ch_strengths(&P[PS_STRENGTH], strength_clamp(v->strength), &cur);
+			g_sm_choice[SM_STRENGTH] = ch_make(&P[PS_STRENGTH], n, cur, false);
 			shader_demo_strength_notes(tnotes, n);
 			g_sm_choice[SM_STRENGTH].notes = tnotes;
 			g_sm_choice[SM_STRENGTH].preview = sm_strength_preview;
 		}
 		/* View: in the order Right steps it (view_turn) */
-		P[8].lab[0] = T(S_SYSMENU_VIEW_COVERS);
-		P[8].lab[1] = T(S_SYSMENU_VIEW_GRID);
-		P[8].lab[2] = T(S_SYSMENU_VIEW_LIST);
-		P[8].lab[3] = T(S_SYSMENU_VIEW_VIDEO);
-		g_sm_choice[SM_VIEW] = ch_make(&P[8], VIEW_COUNT, view_index(v), false);
+		P[PS_VIEW].lab[0] = T(S_SYSMENU_VIEW_COVERS);
+		P[PS_VIEW].lab[1] = T(S_SYSMENU_VIEW_GRID);
+		P[PS_VIEW].lab[2] = T(S_SYSMENU_VIEW_LIST);
+		P[PS_VIEW].lab[3] = T(S_SYSMENU_VIEW_VIDEO);
+		g_sm_choice[SM_VIEW] = ch_make(&P[PS_VIEW], VIEW_COUNT, view_index(v), false);
 		return;
 	}
 	/* MENU */
@@ -772,15 +895,18 @@ int menu_build(app *a, screen_id screen, int sys,
 
 			u.dslang = dslang_row_shown(a, sys) ? dslang_label(dslang_load(), dslbuf, sizeof dslbuf) : NULL;
 			u.pace = pacing_row_shown(a, sys) ? T(pacing_label_id(pacing_load(sc))) : NULL;
+			u.sgb = sgb_row_shown(a, sys) ? T(sgbm_label_id(sgbm_load(sc))) : NULL;
+			u.border = border_row_value(a, sys);
+			u.border_color = u.border ? border_color_value(a, sys) : NULL;
 		}
 		/* By what it HAS, not by its name or its position: a shelf with no
 		 * core and no folder is the built one, and a check can hand that
 		 * over without inventing a flag day. */
-		u.muse       = is_muse(sc);
+		u.mp4       = is_mp4(sc);
 		u.coll       = sys == shelf_coll_at(a);
 		u.recents    = sys == shelf_recents_at(a);
 		u.recents_screen = u.recents && g_recents_screen;
-		u.fav        = !u.muse && !u.coll && sc->core[0] == '\0' && sc->folder[0] == '\0';
+		u.fav        = !u.mp4 && !u.coll && sc->core[0] == '\0' && sc->folder[0] == '\0';
 		if (u.coll) {
 			const sysview *cv = &a->view[sys];
 
@@ -804,16 +930,16 @@ int menu_build(app *a, screen_id screen, int sys,
 		u.listed     = a->view[sys].listed;
 		u.grid       = a->view[sys].grid;
 		u.video      = a->view[sys].video;
-		u.muse_books = u.muse && muse_books_shown();
-		u.muse_videos = u.muse && muse_kind_shown() == ML_VIDEOS;
-		u.muse_all   = u.muse && muse_kind_shown() == ML_ALL;
-		u.muse_songs = u.muse && ml_count_kind(&g_muse, ML_MUSIC) > 0;
-		u.muse_both  = u.muse && muse_kinds() > 1;
-		u.muse_playing = u.muse && lock_allowed();
-		u.muse_look  = u.muse ? look_label(np_look()) : NULL;
-		u.muse_repeat = u.muse ? T(REPEAT_TEXT[repeat_at()]) : NULL;
+		u.mp4_books = u.mp4 && mp4_books_shown();
+		u.mp4_videos = u.mp4 && mp4_kind_shown() == ML_VIDEOS;
+		u.mp4_all   = u.mp4 && mp4_kind_shown() == ML_ALL;
+		u.mp4_songs = u.mp4 && ml_count_kind(&g_mp4, ML_MUSIC) > 0;
+		u.mp4_both  = u.mp4 && mp4_kinds() > 1;
+		u.mp4_playing = u.mp4 && lock_allowed();
+		u.mp4_look  = u.mp4 ? look_label(np_look()) : NULL;
+		u.mp4_repeat = u.mp4 ? T(REPEAT_TEXT[repeat_at()]) : NULL;
 		u.eq         = eq_preset_name(eq_preset_get(eq_out_now()));
-		u.sort       = u.muse ? ml_order_label_kind((ml_order)a->view[sys].sort, muse_kind_shown())
+		u.sort       = u.mp4 ? ml_order_label_kind((ml_order)a->view[sys].sort, mp4_kind_shown())
 		                      : sort_label(a->view[sys].sort);
 	} else {
 		aout_state ao = aout_now();
@@ -1999,23 +2125,23 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 	(void)ctx;
 
 	if (a->screen == SCREEN_GAMES) {
-		/* Muse's menu is its own rows - see SM_MUSE_ROWS - and which is
+		/* MP4's menu is its own rows - see SM_MP4_ROWS - and which is
 		 * where depends on what its shelf shows, so the enum's row numbers
-		 * below mean nothing on it: sys_menu_muse_rows says. Sort By goes on
+		 * below mean nothing on it: sys_menu_mp4_rows says. Sort By goes on
 		 * to the Sort By below like any shelf's. Album Art is a dead row off
 		 * the network, and the runner does not land on dead rows. */
-		if (is_muse(&a->sys.systems[a->sys_cursor])) {
-			sm_muse_row ids[SM_MUSE_ROWS];
-			int n = sys_menu_muse_rows(muse_rows_kind(), muse_kinds() > 1,
+		if (is_mp4(&a->sys.systems[a->sys_cursor])) {
+			sm_mp4_row ids[SM_MP4_ROWS];
+			int n = sys_menu_mp4_rows(mp4_rows_kind(), mp4_kinds() > 1,
 			                           !plat_has_wifi() && !net_internet(NULL), ids);
-			sm_muse_row id = sel >= 0 && sel < n ? ids[sel] : SMM_COUNT;
+			sm_mp4_row id = sel >= 0 && sel < n ? ids[sel] : SMM_COUNT;
 
 			/* Quit, or X from any row (DESIGN.md 11.14): closes the menu,
 			 * and MP4 after it, as the in-game menu's Quit and its X. A is
 			 * heard from the runner; X, which it leaves alone, here. */
 			if (key == IN_X || (id == SMM_QUIT && key == IN_ACCEPT)) {
 				if (key == IN_X) uisound_play(DS_SOUND_ACCEPT);
-				muse_ask_quit();
+				mp4_ask_quit();
 				return MENU_DONE;
 			}
 			if (id == SMM_SORT) {
@@ -2041,7 +2167,7 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 			} else if (id == SMM_LOCK) {
 				/* Closes the menu; the screen underneath locks. */
 				if (key != IN_ACCEPT) return MENU_STAY;
-				muse_ask_lock();
+				mp4_ask_lock();
 				return MENU_DONE;
 			} else if (id == SMM_REPEAT) {
 				/* Off, One, All, round either way (A opens their list,
@@ -2049,14 +2175,14 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 				if (d) {
 					int i = (repeat_at() + d + 3) % 3;
 
-					musec_set_video_mode(REPEAT_MODE[i]);
-					db_set_str(db_dev(), "video.mode", MUSE_MODES[REPEAT_MODE[i]].key);
+					mp4c_set_video_mode(REPEAT_MODE[i]);
+					db_set_str(db_dev(), "video.mode", MP4_MODES[REPEAT_MODE[i]].key);
 				}
 				return MENU_STAY;
 			} else if (id == SMM_SHUFFLE) {
 				/* Closes the menu; Now Playing opens on the first song. */
 				if (key != IN_ACCEPT) return MENU_STAY;
-				muse_ask_shuffle();
+				mp4_ask_shuffle();
 				return MENU_DONE;
 			} else if (id == SMM_LOOK) {
 				/* Round the looks either way, kept at once; A opens their
@@ -2070,13 +2196,13 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 				 * number after the three, so the round is All, Music,
 				 * Audiobooks, Videos. */
 				if (d || key == IN_ACCEPT) {
-					int k = muse_kind_shown(), step = d < 0 ? ML_ALL : 1, t;
+					int k = mp4_kind_shown(), step = d < 0 ? ML_ALL : 1, t;
 
 					for (t = 0; t <= ML_ALL; t++) {
 						k = (k + step) % (ML_ALL + 1);
-						if (ml_count_kind(&g_muse, (ml_kind)k)) break;
+						if (ml_count_kind(&g_mp4, (ml_kind)k)) break;
 					}
-					muse_show(&a->view[a->sys_cursor], (ml_kind)k);
+					mp4_show(&a->view[a->sys_cursor], (ml_kind)k);
 				}
 				return MENU_STAY;
 			} else {
@@ -2119,10 +2245,13 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 		/* And a console's rows lose Box Art on a device with no radio, which
 		 * moves Rescan Folder up one: which row is which comes from the same
 		 * list the build used. */
-		else if (!is_muse(&a->sys.systems[a->sys_cursor])) {
+		else if (!is_mp4(&a->sys.systems[a->sys_cursor])) {
 			sys_ui dev = { .no_wifi = !plat_has_wifi(), .online = net_internet(NULL),
 			               .dslang = dslang_row_shown(a, a->sys_cursor) ? "" : NULL,
 			               .pace = pacing_row_shown(a, a->sys_cursor) ? "" : NULL,
+			               .sgb = sgb_row_shown(a, a->sys_cursor) ? "" : NULL,
+			               .border = border_row_value(a, a->sys_cursor),
+			               .border_color = border_color_value(a, a->sys_cursor),
 			               .no_strength = !shader_has_strength(a->view[a->sys_cursor].shader) };
 			sm_row ids[SM_ROWS];
 			int n = sys_menu_system_rows(&dev, ids);
@@ -2143,6 +2272,16 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 			dsl_choice c = dslang_step(dslang_load(), d ? d : 1);
 
 			db_set_str(db_dev(), DSLANG_SETTING, dslang_id(c));
+			return MENU_STAY;
+		}
+		/* Super Game Boy, this system's own, the same way: its next game
+		 * starts so (src/sgbmode.h) */
+		if ((d || key == IN_ACCEPT) && sel == SM_SGB) {
+			const system_cfg *sc = &a->sys.systems[a->sys_cursor];
+			char gkey[32];
+
+			sgbm_key(sc->tag, gkey, sizeof gkey);
+			db_set_str(db_dev(), gkey, sgbm_id(sgbm_step(sgbm_load(sc), d ? d : 1)));
 			return MENU_STAY;
 		}
 		/* Timing, Smooth or Exact, this system's own, the same way: its
@@ -2192,6 +2331,19 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 			display_save(a);
 			return MENU_STAY;
 		}
+		/* Handheld Color, the same way */
+		if (d && sel == SM_BORDER_COLOR) {
+			border_color_step(a, a->sys_cursor, d);
+			return MENU_STAY;
+		}
+		/* Border, stepped among what the row offers, kept for this system
+		 * at once: its next game has it (src/border.h). A opens its list,
+		 * which comes back as steps. */
+		if (d && sel == SM_BORDER) {
+			/* A frame chosen turns Display to Sharp Pixels, its size */
+			if (border_choose(a, a->sys_cursor, d, border_room_kept(a, a->sys_cursor))) display_save(a);
+			return MENU_STAY;
+		}
 		/* Sort order, on the same left/right idiom.
 		 *
 		 * The cursor follows the GAME, not its index. Re-sorting under a
@@ -2199,7 +2351,7 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 		 * game than the one that was selected when it opened - the shelf
 		 * would appear to have jumped on its own. Which game you were
 		 * looking at is the thing that survives a reorder; where it happened
-		 * to sit in the old order is not. On Muse's shelf the same goes for
+		 * to sit in the old order is not. On MP4's shelf the same goes for
 		 * the album, whose folder is its `file`. */
 		if (d && sel == SM_SORT) {
 			sysview *v = &a->view[a->sys_cursor];
@@ -2215,7 +2367,7 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 				if (v->owner) keep_owner = v->owner[v->cursor];
 			}
 
-			v->sort = is_muse(&a->sys.systems[a->sys_cursor])
+			v->sort = is_mp4(&a->sys.systems[a->sys_cursor])
 			        ? (v->sort + d + ML_ORDERS) % ML_ORDERS
 			        : sort_step_in(a->sys_cursor == shelf_coll_at(a), v->sort, d);
 			sort_shelf(a, a->sys_cursor);
@@ -2454,7 +2606,7 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 
 	/* Five positions, Auto after mono right and before stereo, stepped either
 	 * way like the card sets (A opens their list).
-	 * Applied at once, to Muse and to Diatom if they are there to be told, so
+	 * Applied at once, to MP4 and to Diatom if they are there to be told, so
 	 * a player trying them over music hears each as it is chosen. */
 	if (sel == PM_CHANNELS && (d || key == IN_ACCEPT)) {
 		g_channels = (aout_channels)((g_channels + (d ? d : 1) + AOUT_CHANNELS_COUNT)

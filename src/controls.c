@@ -119,7 +119,7 @@ static const str_id NAMES[CTL_PAGES] = {
 	[CTL_SHELF]    = S_CONTROLS_PAGE_SHELF,
 	[CTL_GAME]     = S_CONTROLS_PAGE_GAME,
 	[CTL_HOTKEYS]  = S_CONTROLS_PAGE_HOTKEYS,
-	[CTL_MUSE]     = S_CONTROLS_PAGE_MUSE,
+	[CTL_MP4]     = S_CONTROLS_PAGE_MP4,
 	[CTL_ANYWHERE] = S_CONTROLS_PAGE_ANYWHERE,
 };
 
@@ -249,7 +249,7 @@ static int hotkeys(menu_row *out)
 	return hotkey_rows(out, true, true);
 }
 
-static int muse(menu_row *out)
+static int mp4(menu_row *out)
 {
 	int n = 0;
 
@@ -309,7 +309,7 @@ int ctl_rows(ctl_page p, menu_row *out)
 	case CTL_SHELF:    n = shelf(out);  break;
 	case CTL_GAME:     n = game(out);        break;
 	case CTL_HOTKEYS:  n = hotkeys(out);     break;
-	case CTL_MUSE:     n = muse(out);        break;
+	case CTL_MP4:     n = mp4(out);        break;
 	case CTL_ANYWHERE: n = anywhere(out);    break;
 	default:           n = moving(out); break;
 	}

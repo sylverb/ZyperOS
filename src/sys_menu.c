@@ -129,8 +129,11 @@ int sys_menu_system_rows(const sys_ui *u, sm_row *out)
 
 	for (r = 0; r < SM_ROWS; r++) {
 		if (!u->dslang && r == SM_DSLANG) continue;
+		if (!u->sgb && r == SM_SGB) continue;
 		if (!u->pace && r == SM_PACE) continue;
 		if (u->no_strength && r == SM_STRENGTH) continue;
+		if (!u->border && r == SM_BORDER) continue;
+		if ((!u->border || !u->border_color) && r == SM_BORDER_COLOR) continue;
 		out[n++] = (sm_row)r;
 	}
 	return n;
@@ -281,7 +284,7 @@ int sys_menu_sgdb_rows(const char *masked, const char *state, menu_row *out,
 	return n;
 }
 
-int sys_menu_muse_rows(int kind, bool both, bool no_wifi, sm_muse_row *out)
+int sys_menu_mp4_rows(int kind, bool both, bool no_wifi, sm_mp4_row *out)
 {
 	int n = 0;
 
@@ -327,20 +330,23 @@ static const unsigned char PM_SOUND[PM_ROWS] = {
 	/* A pick is heard as reward, or deny with nothing to pick */
 	[PM_RANDOM]     = MENU_SND_OWN,
 };
-/* Core, Game Language, Timing, View and Shader step on A as well; Sort By,
+/* Core, Game Language, Super Game Boy, Timing, View and Shader step on A as well; Sort By,
  * Display Mode and Strength do nothing with it. */
 static const unsigned char SM_SOUND[SM_ROWS] = {
 	[SM_CORE]    = MENU_SND_RING,
 	[SM_DSLANG]  = MENU_SND_RING,
+	[SM_SGB]     = MENU_SND_RING,
 	[SM_PACE]    = MENU_SND_RING,
 	[SM_SORT]    = MENU_SND_RING | MENU_SND_NO_A,
 	[SM_VIEW]    = MENU_SND_RING,
 	[SM_DISPLAY] = MENU_SND_RING | MENU_SND_NO_A,
+	[SM_BORDER]  = MENU_SND_RING,
+	[SM_BORDER_COLOR] = MENU_SND_RING,
 	[SM_SHADER]  = MENU_SND_RING,
 	[SM_STRENGTH] = MENU_SND_NO_A,
 	[SM_RANDOM]  = MENU_SND_OWN,
 };
-static unsigned char smm_sound(sm_muse_row r)
+static unsigned char smm_sound(sm_mp4_row r)
 {
 	return r == SMM_SHOW || r == SMM_VIEW || r == SMM_LOOK || r == SMM_REPEAT || r == SMM_EQ ? MENU_SND_RING
 	     : r == SMM_SORT ? MENU_SND_RING | MENU_SND_NO_A : 0;
@@ -440,11 +446,11 @@ int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
 				}
 			return n;
 		}
-		if (u->muse) {
-			sm_muse_row ids[SM_MUSE_ROWS];
-			int k, n = sys_menu_muse_rows(u->muse_books ? 1 : u->muse_videos ? 2
-			                              : u->muse_all ? (u->muse_songs ? 3 : 2) : 0,
-			                              u->muse_both, u->no_wifi && !u->online, ids);
+		if (u->mp4) {
+			sm_mp4_row ids[SM_MP4_ROWS];
+			int k, n = sys_menu_mp4_rows(u->mp4_books ? 1 : u->mp4_videos ? 2
+			                              : u->mp4_all ? (u->mp4_songs ? 3 : 2) : 0,
+			                              u->mp4_both, u->no_wifi && !u->online, ids);
 
 			for (k = 0; k < n; k++) b->sound[k] = smm_sound(ids[k]);
 			if (u->smm_choice)
@@ -452,56 +458,56 @@ int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
 			for (k = 0; k < n; k++)
 				switch (ids[k]) {
 				case SMM_COUNT:
-					out[k] = (menu_row){ u->muse_books ? T(S_SYSMENU_MUSE_BOOKS)
-					                     : u->muse_videos ? T(S_SYSMENU_MUSE_VIDEOS)
-					                     : u->muse_all ? T(S_SYSMENU_MUSE_TOTAL)
-					                     : T(S_SYSMENU_MUSE_ALBUMS),
+					out[k] = (menu_row){ u->mp4_books ? T(S_SYSMENU_MP4_BOOKS)
+					                     : u->mp4_videos ? T(S_SYSMENU_MP4_VIDEOS)
+					                     : u->mp4_all ? T(S_SYSMENU_MP4_TOTAL)
+					                     : T(S_SYSMENU_MP4_ALBUMS),
 					                     b->a, false };
 					break;
 				case SMM_SHOW:
-					out[k] = (menu_row){ T(S_SYSMENU_MUSE_SHOW), u->muse_books ? T(S_SYSMENU_MUSE_AUDIOBOOKS)
-					                     : u->muse_videos ? T(S_SYSMENU_MUSE_VIDEOS)
-					                     : u->muse_all ? T(S_SYSMENU_MUSE_ALL)
-					                     : T(S_SYSMENU_MUSE_MUSIC), true };
+					out[k] = (menu_row){ T(S_SYSMENU_MP4_SHOW), u->mp4_books ? T(S_SYSMENU_MP4_AUDIOBOOKS)
+					                     : u->mp4_videos ? T(S_SYSMENU_MP4_VIDEOS)
+					                     : u->mp4_all ? T(S_SYSMENU_MP4_ALL)
+					                     : T(S_SYSMENU_MP4_MUSIC), true };
 					break;
 				case SMM_SORT:
 					out[k] = (menu_row){ T(S_SYSMENU_SORT_BY), u->sort ? u->sort
-					                     : u->muse_books ? T(S_SYSMENU_MUSE_AUTHOR)
-					                     : u->muse_videos || u->muse_all ? T(S_SYSMENU_MUSE_FOLDER)
-					                     : T(S_SYSMENU_MUSE_ARTIST), true };
+					                     : u->mp4_books ? T(S_SYSMENU_MP4_AUTHOR)
+					                     : u->mp4_videos || u->mp4_all ? T(S_SYSMENU_MP4_FOLDER)
+					                     : T(S_SYSMENU_MP4_ARTIST), true };
 					break;
 				case SMM_VIEW:
 					out[k] = (menu_row){ T(S_SYSMENU_VIEW), T(u->listed ? S_SYSMENU_VIEW_LIST
 					                     : u->grid ? S_SYSMENU_VIEW_GRID : S_SYSMENU_VIEW_COVERS), true };
 					break;
 				case SMM_SHUFFLE:
-					out[k] = (menu_row){ T(S_SYSMENU_MUSE_SHUFFLE), NULL, true };
+					out[k] = (menu_row){ T(S_SYSMENU_MP4_SHUFFLE), NULL, true };
 					break;
 				case SMM_LOOK:
-					out[k] = (menu_row){ T(S_SYSMENU_MUSE_LOOK), u->muse_look ? u->muse_look
+					out[k] = (menu_row){ T(S_SYSMENU_MP4_LOOK), u->mp4_look ? u->mp4_look
 					                     : T(S_SYSMENU_LOOK_COVER), true };
 					break;
 				case SMM_REPEAT:
-					out[k] = (menu_row){ T(S_SYSMENU_MUSE_REPEAT),
-					                     u->muse_repeat ? u->muse_repeat : T(S_MENU_OFF_TITLE), true };
+					out[k] = (menu_row){ T(S_SYSMENU_MP4_REPEAT),
+					                     u->mp4_repeat ? u->mp4_repeat : T(S_MENU_OFF_TITLE), true };
 					break;
 				case SMM_EQ:
 					out[k] = (menu_row){ T(S_SYSMENU_EQUALIZER), u->eq ? u->eq : T(S_MENU_OFF_TITLE), true };
 					break;
 				case SMM_LOCK:
-					out[k] = (menu_row){ T(S_SYSMENU_MUSE_LOCK),
-					                     u->muse_playing ? NULL : T(S_SYSMENU_MUSE_LOCK_WHEN),
-					                     u->muse_playing };
+					out[k] = (menu_row){ T(S_SYSMENU_MP4_LOCK),
+					                     u->mp4_playing ? NULL : T(S_SYSMENU_MP4_LOCK_WHEN),
+					                     u->mp4_playing };
 					break;
 				case SMM_ART:
-					out[k] = (menu_row){ T(S_SYSMENU_MUSE_ART), NEEDS_WIFI(fetch), fetch };
+					out[k] = (menu_row){ T(S_SYSMENU_MP4_ART), NEEDS_WIFI(fetch), fetch };
 					break;
 				case SMM_RESCAN:
 					out[k] = (menu_row){ T(S_SYSMENU_RESCAN), NULL, true };
 					break;
 				/* X does it from any row, and its glyph says so */
 				case SMM_QUIT:
-					out[k] = (menu_row){ T(S_SYSMENU_MUSE_QUIT), MENU_KEY_X, true };
+					out[k] = (menu_row){ T(S_SYSMENU_MP4_QUIT), MENU_KEY_X, true };
 					break;
 				}
 			return n;
@@ -514,6 +520,8 @@ int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
 		full[SM_CORE]    = (menu_row){ T(S_SYSMENU_CORE),         b->b, u->core_choice };
 		/* The Nintendo DS's game language, a choice stepped like the core */
 		full[SM_DSLANG]  = (menu_row){ T(S_SYSMENU_DSLANG), u->dslang, u->dslang != NULL };
+		/* Off or Its Games, the Game Boys' on mGBA (src/sgbmode.h) */
+		full[SM_SGB]     = (menu_row){ T(S_SYSMENU_SGB), u->sgb, u->sgb != NULL };
 		/* Smooth or Exact, how its games meet the screen (src/pacing.h) */
 		full[SM_PACE]    = (menu_row){ T(S_SYSMENU_PACE), u->pace, u->pace != NULL };
 		full[SM_SORT]    = (menu_row){ T(S_SYSMENU_SORT_BY),
@@ -525,6 +533,11 @@ int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
 		 * longest of the modes' names fitted the panel in no language with
 		 * Latin letters (1.0.6) */
 		full[SM_DISPLAY] = (menu_row){ T(S_GAMEMENU_DISPLAY), u->dmode, true  };
+		/* What fills the room the mode leaves around its games, under it
+		 * (src/border.h) */
+		full[SM_BORDER]  = (menu_row){ T(S_GAMEMENU_BORDER), u->border, u->border != NULL };
+		/* Its frame's color, under it, where the handheld came in several */
+		full[SM_BORDER_COLOR] = (menu_row){ T(S_GAMEMENU_BORDER_COLOR), u->border_color, u->border_color != NULL };
 		/* How the picture is drawn at its last step, Off or a shader: this
 		 * system's, as Display Mode is (src/app.h SHADERS) */
 		full[SM_SHADER]  = (menu_row){ T(S_GAMEMENU_SHADER),
@@ -712,7 +725,7 @@ int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
 	                                   u->strength_screens ? u->strength_screens : "100%", true };
 	/* What every button does, per screen. Needs nothing of the device, which
 	 * is the point: it is the page you reach when the thing you have forgotten
-	 * is which button opens Muse. See src/controls.h. */
+	 * is which button opens MP4. See src/controls.h. */
 	full[PM_CONTROLS]     = (menu_row){ T(S_SYSMENU_CONTROLS), NULL, true  };
 	/* The first-launch tutorial again, as often as anyone likes. Needs
 	 * nothing either: it is drawn from shapes, not from the library. */

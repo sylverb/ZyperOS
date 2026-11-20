@@ -428,7 +428,7 @@ static void ss_done(int r)
 	g_src = PH_SG_SEARCH;
 }
 
-static bool is_mp4(const char *path)
+static bool is_mp4_file(const char *path)
 {
 	unsigned char h[8];
 	FILE *f = fopen(path, "rb");
@@ -445,7 +445,7 @@ static void video_done(int r)
 	char dest[MF_PATH];
 
 	S.video_coming = false;
-	if (r > 0 && is_mp4(G.pending) &&
+	if (r > 0 && is_mp4_file(G.pending) &&
 	    mf_media_path(G.roms, G.folder, G.stem, ".mp4", dest, sizeof dest) &&
 	    rename(G.pending, dest) == 0) {
 		S.video_done = 1;
@@ -529,7 +529,7 @@ bool mf_step(void)
 
 	if (g_fly != F_NONE) return poll_flight();
 	if (S.offline) return false;
-	/* Another's request in the slot (an account answer, Muse's cover): its
+	/* Another's request in the slot (an account answer, MP4's cover): its
 	 * turn first, a few seconds at most, after which net_get_async clears a
 	 * slot its owner walked away from */
 	if (net_async_held()) {

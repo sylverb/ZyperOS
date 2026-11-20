@@ -25,6 +25,28 @@
 void dmode_preview_draw(app *a, SDL_Texture *frame, int src_w, int src_h, double aspect,
                         int surf_w, int surf_h, int k, int x, int y, int w, int h);
 
+/* The Super Game Boy list's picture (src/sgbmode.h) for choice `k` (Off,
+ * Its Games), at display mode `dmode` on this handheld's screen, sized as
+ * Diatom would size it: a Game Boy game's 160x144 alone for Off, the Super
+ * Game Boy's 256x224 for Its Games, the game in its middle and around it a
+ * stand-in of a game's own border. Drawn frames, ours: no game's border and
+ * no Nintendo art. */
+void dmode_sgb_preview(app *a, int dmode, int k, int x, int y, int w, int h);
+
+/* The Border list's picture (src/border.h): the game's picture where display
+ * mode `dmode` puts it, as dmode_preview_draw draws it, with border `kind`
+ * around it: black (Off), the picture itself made small, stretched back and
+ * darkened, as Diatom's blur is (Blur), or the player's own picture made
+ * the surface's shape (`own`, a surface border_own_surface made, for Your
+ * Own; `own_key` its file, whose texture is kept while it is the same), or
+ * a handheld's frame made the surface's size (`own` too, `own_key` naming
+ * the frame) with the game at `game_at` in it, in the surface's pixels,
+ * rather than where the mode puts it. `frame` NULL draws the stand-in, as
+ * there. */
+void dmode_border_preview(app *a, SDL_Texture *frame, int src_w, int src_h, double aspect,
+                          int dmode, int kind, SDL_Surface *own, const char *own_key,
+                          const SDL_Rect *game_at, int x, int y, int w, int h);
+
 /* The surface Diatom draws on, as the last DISPLAY said, or the device's
  * panel before one did */
 void dmode_surface(int *w, int *h);
@@ -34,5 +56,8 @@ void dmode_surface(int *w, int *h);
  * kept (square pixels) and `known` false */
 void dmode_note_shape(const char *tag);
 double dmode_shape_of(const char *tag, bool *known);
+/* And the picture's size its games last said, kept with its shape: false,
+ * 0 x 0, for a system never played */
+bool dmode_source_of(const char *tag, int *w, int *h);
 
 #endif

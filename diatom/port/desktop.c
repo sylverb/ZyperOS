@@ -384,6 +384,31 @@ void diatom_port_overlay(const uint8_t *bgra, int w, int h, unsigned ms)
 	g_ov_until = diatom_port_now_us() + (uint64_t)ms * 1000ull;
 }
 
+/* The Border (diatom_port_border): a texture made once a call, from a copy
+ * (SDL copies the pixels in), stretched under the game, smooth */
+static SDL_Texture *g_bd_tex;
+
+void diatom_port_border(const uint8_t *bgra, int w, int h)
+{
+	if (g_bd_tex && bgra && w > 0 && h > 0) {
+		int tw, th;
+
+		/* The same size again (the blur): the texture that is there */
+		if (SDL_QueryTexture(g_bd_tex, NULL, NULL, &tw, &th) == 0 && tw == w && th == h) {
+			SDL_UpdateTexture(g_bd_tex, NULL, bgra, w * 4);
+			return;
+		}
+	}
+	if (g_bd_tex) { SDL_DestroyTexture(g_bd_tex); g_bd_tex = NULL; }
+	if (!bgra || w <= 0 || h <= 0) return;
+	g_bd_tex = SDL_CreateTexture(g_renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STATIC, w, h);
+	if (!g_bd_tex) return;
+	SDL_SetTextureScaleMode(g_bd_tex, SDL_ScaleModeLinear);
+	/* Opaque whatever its alpha: no blending, so it covers */
+	SDL_SetTextureBlendMode(g_bd_tex, SDL_BLENDMODE_NONE);
+	SDL_UpdateTexture(g_bd_tex, NULL, bgra, w * 4);
+}
+
 static void draw_overlay(void)
 {
 	SDL_Rect r;
@@ -449,6 +474,7 @@ void diatom_port_present(const void *src, int w, int h, size_t pitch,
 	if (src && g_texture) SDL_UpdateTexture(g_texture, NULL, src, (int)pitch);
 
 	SDL_RenderClear(g_renderer);
+	if (g_bd_tex) SDL_RenderCopy(g_renderer, g_bd_tex, NULL, NULL);
 	if (g_texture && g_nplanes) {
 		for (i = 0; i < g_nplanes; i++) {
 			sr.x = g_planes[i].src.x; sr.y = g_planes[i].src.y;

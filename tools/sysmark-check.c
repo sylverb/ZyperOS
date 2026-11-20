@@ -11,7 +11,7 @@
  *
  *   a system whose line names no color drawn in some color all the same is a
  *   system that looks like it belongs to another;
- *   lime on Beard's ground is 1.3:1, so Muse's and Favorites' rail would all
+ *   lime on Beard's ground is 1.3:1, so MP4's and Favorites' rail would all
  *   but vanish on the light shelf, where accent-ink reads;
  *   a yellow like Game Boy Color's, unmixed on Beard, is a mark nobody can
  *   find, and one mixed on Salt & Pepper is a system's color it does not
@@ -137,7 +137,7 @@ static void ends(void)
 }
 
 /* The band table: the mark of every card's color in each theme, for
- * tools/cards-check.py. Favorites and Muse have no color of their own and are
+ * tools/cards-check.py. Favorites and MP4 have no color of their own and are
  * given ZYPEROS_ACCENT (src/main.c), the theme's accent, which sysmark turns
  * into accent-ink. */
 static int band_table(const char *path)

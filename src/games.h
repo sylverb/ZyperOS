@@ -29,10 +29,15 @@ typedef struct {
     bool favorite;
     int count,cursor,earned,total;
     bool has_achievements,resumable;
+    const char *cheats;  /* "2 cheats on" (src/cheats_screen.h), NULL or "" for none */
     /* The focused entry is PortMaster while it is not on the card
      * (src/pminstall.h): A says Install, and the line under its name
      * that it is not installed */
     bool install;
+    /* The firmware the focused game needs and the card lacks, in
+     * **warning** first on the line under its name ("Needs disksys.rom in
+     * Bios"); NULL or "" for none */
+    const char *needs;
     /* Splore's entry on the PICO-8 shelf (src/pico8.h): while your PICO-8 is
      * not on the card, A says How to Add and the line Not installed
      * (`howto`); once it is, A says Open (`opens`). Neither resumes. */

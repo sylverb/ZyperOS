@@ -16,7 +16,7 @@
  * closes, and pick_launch puts the shelf on it and starts it, as A there
  * would. B on the list goes back to the keyboard with the query still in it,
  * to change it; B on the keyboard back to the menu. The query is kept for
- * the next search. Every system's shelf but Muse's, whose cards are albums,
+ * the next search. Every system's shelf but MP4's, whose cards are albums,
  * and Favorites', whose games are on their own systems' shelves too. */
 typedef struct {
 	app       *a;
@@ -77,7 +77,7 @@ bool search_screen(app *a, int *shelf, int *game)
 	for (i = 0; i < a->sys.count; i++) {
 		const sysview *sv = &a->view[i];
 
-		if (is_muse(&a->sys.systems[i]) || sv->owner) continue;
+		if (is_mp4(&a->sys.systems[i]) || sv->owner) continue;
 		const game_list *gl = sys_games_c(sv);
 
 		/* Every game, in its folders too: the hit is an index of

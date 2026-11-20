@@ -224,7 +224,6 @@ keyhint.by_system
 tour.lang.hello
 
 # launch: no shot draws it yet
-launch.needs_bios
 launch.bios_size  # wrapped onto balanced lines (result_message), so no drawn line is the string
 launch.bios_hides  # wrapped onto balanced lines, as launch.bios_size
 launch.bios_bytes.one  # a piece of launch.bios_size's line
@@ -247,20 +246,20 @@ lowbatt.charging
 # mp4: no shot draws it yet
 mp4.hold_unlock
 
-# muse: no shot draws it yet
-muse.chapter_of
-muse.chapter
-muse.paused
-muse.finished
-muse.hint_chapter
-muse.row_playing
-muse.row_paused
-muse.paused_note
-muse.art_starting  # Album Art's line before the first album is asked about, and no shot draws a run that has not begun; it was counted before only because the Phones row's "starting" had the same words, which row values now begin with a capital
-muse.art_all_crisp
-muse.art_albums
-muse.art_counts
-muse.art_counts_failed
+# mp4: no shot draws it yet
+mp4.chapter_of
+mp4.chapter
+mp4.paused
+mp4.finished
+mp4.hint_chapter
+mp4.row_playing
+mp4.row_paused
+mp4.paused_note
+mp4.art_starting  # Album Art's line before the first album is asked about, and no shot draws a run that has not begun; it was counted before only because the Phones row's "starting" had the same words, which row values now begin with a capital
+mp4.art_all_crisp
+mp4.art_albums
+mp4.art_counts
+mp4.art_counts_failed
 
 # musiclib: no shot draws it yet
 musiclib.sort_artist
@@ -391,10 +390,10 @@ sysmenu.wifi_connecting
 sysmenu.hotspot
 sysmenu.charge_limit
 sysmenu.dslang
-sysmenu.muse_books
-sysmenu.muse_albums
-sysmenu.muse_author
-sysmenu.muse_artist
+sysmenu.mp4_books
+sysmenu.mp4_albums
+sysmenu.mp4_author
+sysmenu.mp4_artist
 sysmenu.not_in_build
 sysmenu.sc_link
 sysmenu.status
@@ -541,6 +540,9 @@ downloads.delete_sets_ask
 downloads.delete_sys_sets_ask
 downloads.delete_sets_body
 downloads.key_delete
+downloads.delete_cheats_ask
+downloads.delete_cheats_body
+downloads.delete_sys_cheats_ask
 
 # downloads: Zyper's bubble on the shelf after a download that ended behind the screens
 downloads.done_news
@@ -552,6 +554,8 @@ downloads.n_videos.one
 downloads.n_videos.other
 downloads.n_names.one
 downloads.n_names.other
+downloads.n_cheats.one
+downloads.n_cheats.other
 
 # downloads: a game's panel while its file comes, and a game, a tile or a row in a state no fixture has
 downloads.getting
@@ -561,6 +565,8 @@ downloads.all_off
 downloads.has_names
 downloads.w_video
 downloads.no_achievements
+downloads.no_cheats
+downloads.libretro_no_answer
 downloads.from_ra
 downloads.for_on_n.one
 downloads.for_on_n.other

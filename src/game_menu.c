@@ -235,11 +235,15 @@ int gm_tab_rows(const gm_ui *u, gm_tab t, gm_row *ids)
 		if (u->quick) ids[n++] = GM_QUICK;
 		if (u->discs > 1) ids[n++] = GM_DISC;
 		if (u->player2) ids[n++] = GM_PLAYER2;
+		if (u->cheats) ids[n++] = GM_CHEATS;
 		ids[n++] = GM_CHEEVOS;
 		ids[n++] = GM_RESET;
 		ids[n++] = GM_QUIT;
 	} else if (t == GT_DISPLAY) {
 		ids[n++] = GM_DISPLAY;
+		/* What fills the room the mode leaves, under it (src/border.h) */
+		if (u->border) ids[n++] = GM_BORDER;
+		if (u->border && u->border_color) ids[n++] = GM_BORDER_COLOR;
 		ids[n++] = GM_SHADER;
 		/* Under its shader, and only while that is an old screen */
 		if (u->strength) ids[n++] = GM_STRENGTH;
@@ -301,7 +305,7 @@ int gm_rows(const gm_ui *u, gm_tab t, menu_row *out, gm_bufs *b)
 		S_GAMEMENU_RESET,
 		S_GAMEMENU_QUIT, S_GAMEMENU_SCREENS, S_GAMEMENU_SWAP, S_GAMEMENU_STYLUS,
 		S_GAMEMENU_PAK, S_PLAYER2_ROW, S_GAMEMENU_DISC, S_GAMEMENU_STRENGTH,
-		S_GAMEMENU_UNDO, S_GAMEMENU_HUD,
+		S_GAMEMENU_UNDO, S_GAMEMENU_HUD, S_GAMEMENU_BORDER, S_GAMEMENU_BORDER_COLOR, S_CHEATS_ROW,
 	};
 	menu_row full[GM_MAX_ROWS];
 	gm_row ids[GM_MAX_ROWS];
@@ -311,6 +315,8 @@ int gm_rows(const gm_ui *u, gm_tab t, menu_row *out, gm_bufs *b)
 	full[GM_DISPLAY].value = u->dmode;
 	full[GM_SHADER].value  = u->shader ? u->shader : T(S_MENU_OFF_TITLE);
 	full[GM_STRENGTH].value = u->strength;
+	full[GM_BORDER].value = u->border;
+	full[GM_BORDER_COLOR].value = u->border_color;
 	full[GM_HUD].value = T(u->hud ? S_MENU_ON_TITLE : S_MENU_OFF_TITLE);
 	/* A caption, left-aligned under its row as a paragraph's lines are */
 	/* The slot's number alone: the row says what it is */
@@ -339,7 +345,17 @@ int gm_rows(const gm_ui *u, gm_tab t, menu_row *out, gm_bufs *b)
 	} else {
 		snprintf(b->cheevos, sizeof b->cheevos, "%s", T(S_GAMEMENU_CHEEVOS_NONE));
 	}
+	/* While a cheat has been on in this game, its achievements wait for
+	 * the next start with none, and the row says so over its count */
+	if (u->cheats_paused)
+		snprintf(b->cheevos, sizeof b->cheevos, "%s", T(S_CHEATS_ACH_PAUSED));
 	full[GM_CHEEVOS].value = b->cheevos;
+	/* How many cheats are on, or None */
+	if (u->cheats_on > 0)
+		snprintf(b->cheats, sizeof b->cheats, TN(S_CHEATS_ROW_ON, u->cheats_on), u->cheats_on);
+	else
+		snprintf(b->cheats, sizeof b->cheats, "%s", T(S_CHEATS_NONE));
+	full[GM_CHEATS].value = b->cheats;
 	full[GM_SCREENS].value = gm_layout_label(u->layout);
 	full[GM_SWAP].value    = u->swap ? T(S_MENU_ON_TITLE) : T(S_MENU_OFF_TITLE);
 	full[GM_STYLUS].value  = u->stylus ? T(S_MENU_ON_TITLE) : T(S_MENU_OFF_TITLE);
@@ -361,7 +377,7 @@ int gm_rows(const gm_ui *u, gm_tab t, menu_row *out, gm_bufs *b)
 		b->sound[i] = ids[i] == GM_DISPLAY || ids[i] == GM_SHADER || ids[i] == GM_QUICK ||
 		              ids[i] == GM_SCREENS || ids[i] == GM_DISC ||
 		              ids[i] == GM_SWAP || ids[i] == GM_STYLUS || ids[i] == GM_PAK ||
-		              ids[i] == GM_HUD
+		              ids[i] == GM_HUD || ids[i] == GM_BORDER || ids[i] == GM_BORDER_COLOR
 		              ? MENU_SND_RING
 		              /* Strength stops at 10% and 100%, heard by whether it
 		               * moved, and A does nothing on it */

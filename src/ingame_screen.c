@@ -6,14 +6,17 @@
 #include "menu_pick.h"
 
 #include "achtab_screen.h"
+#include "cheats_screen.h"
 #include "aout_route.h"
 #include "app.h"
+#include "border_pic.h"
+#include "handframe.h"
 #include "controls.h"
 #include "ctl_channel.h"
 #include "ctltab.h"
 #include "game_menu.h"
 #include "look.h"
-#include "musec.h"
+#include "mp4c.h"
 #include "p2.h"
 #include "panel.h"
 #include "portmenu.h"
@@ -311,8 +314,13 @@ static int slot_strip(app *a, SDL_Texture *bg, int saving)
 		plat_input_poll(&a->in);
 		ui_sounds_follow();
 
-		if (in_repeat(&a->in, IN_LEFT) || in_repeat(&a->in, IN_RIGHT)) {
-			int dir = in_repeat(&a->in, IN_RIGHT) ? 1 : -1, next = sel;
+		/* Each button read once a frame (in_repeat_axis): a repeat is
+		 * true once, so a second read of a held Right was false and the
+		 * carousel stepped back left on every repeat */
+		int dir = in_repeat_axis(&a->in, IN_LEFT, IN_RIGHT);
+
+		if (dir) {
+			int next = sel;
 			do {
 				next = (next + dir + GM_SLOTS + 1) % (GM_SLOTS + 1);
 			} while ((saving ? next == 0 : !sv.have[next]) && next != sel);
@@ -490,6 +498,71 @@ static bool gm_disc_fits(const char *label)
 	return ui_text_width(fm, label) <= room;
 }
 
+/* The picture Diatom said it is drawing, `sw` x `sh` with the shape `aspect`
+ * (a shot's own when it asks for one); 0 x 0 when Diatom said none */
+static void gm_source(int *sw, int *sh, double *aspect)
+{
+	if (shot_path && shot_gm_src_w > 0) {
+		*sw = shot_gm_src_w;
+		*sh = shot_gm_src_h;
+		*aspect = shot_gm_aspect;
+	} else if (!plat_resident_source(sw, sh, aspect)) {
+		*sw = *sh = 0;
+		*aspect = 0.0;
+	}
+}
+
+/* Whether the game's display mode leaves room around it, by Diatom's own
+ * size for it (gm_source) */
+static bool gm_border_room(app *a)
+{
+	int sw, sh, fw, fh;
+	double aspect;
+
+	gm_source(&sw, &sh, &aspect);
+	dmode_surface(&fw, &fh);
+	return border_room(DMODES[owner_view(a)->dmode].name, sw, sh, aspect, fw, fh);
+}
+
+/* Border's row (src/border.h): its value while the display mode leaves room
+ * around the game, or in any mode where a handheld's frame is drawn for its
+ * system (choosing one turns Display to Sharp Pixels), and no Super Game Boy
+ * border fills that room (its 256x224 on a Game Boy shelf that turns it on);
+ * NULL, no row, else */
+static const char *gm_border_value(app *a)
+{
+	sysview *v = owner_view(a);
+	int sys = (int)(v - a->view), sw, sh;
+	const system_cfg *s = &a->sys.systems[sys];
+	double aspect;
+	bool room;
+
+	if (g_port_menu || g_game_dual) return NULL;
+	gm_source(&sw, &sh, &aspect);
+	room = gm_border_room(a);
+	if (!border_row_shows(border_offer_room(a, sys, room), room)) return NULL;
+	if (sgbm_shelf(s->tag, s->core) && sgbm_load(s) == SGBM_GAMES && sw == 256 && sh == 224) return NULL;
+	return T(border_label_id(border_load_room(a, sys, room)));
+}
+
+/* Border stepped on left, right and A among what the row offers, kept for
+ * the owner's system and sent to the game at once: Diatom takes SETBORDER
+ * while paused, and the picture is around the game when it comes back. A
+ * frame chosen at another mode turns Display to Sharp Pixels first, told to
+ * the game before its frame, as the Display row tells it. */
+static void gm_step_border(app *a, int d)
+{
+	sysview *v = owner_view(a);
+	int sys = (int)(v - a->view);
+
+	if (border_choose(a, sys, d, gm_border_room(a))) {
+		display_save(a);
+		plat_resident_line("SETDISPLAY\tmode=%s", DMODES[v->dmode].name);
+		plat_resident_sync_rect(150);
+	}
+	border_send(a, sys);
+}
+
 /* What the in-game menu needs from the app, handed to gm_rows to become rows.
  * Same split as everywhere else. */
 /* What the in-game menu shows, gathered: for its rows, and for where each
@@ -506,6 +579,8 @@ void gm_gather(app *a, gm_ui *out)
 	/* The owner's, which is the one its row sets (gm_cycle_shader) */
 	u.shader = shader_label(owner_view(a)->shader);
 	u.strength = strength_row_label(a, (int)(owner_view(a) - a->view));
+	u.border = gm_border_value(a);
+	u.border_color = u.border ? border_color_value(a, (int)(owner_view(a) - a->view)) : NULL;
 	u.hud = db_get_int(db_dev(), HUD_KEY, 0) == 1;
 	u.earned = chv_earned();
 	u.total  = chv_count();
@@ -556,6 +631,13 @@ void gm_gather(app *a, gm_ui *out)
 			u.disc_label = g_gm_disc.label;
 		}
 		u.disc_fits = gm_disc_fits;
+	}
+	/* Cheats for every game Diatom runs (src/cheats_screen.h): how many are
+	 * on, and whether one has paused the game's achievements */
+	if (!u.port) {
+		u.cheats = true;
+		u.cheats_on = cheats_game_on();
+		u.cheats_paused = cheats_game_paused();
 	}
 	if (u.screens) {
 		const system_cfg *s = &a->sys.systems[shelf_owner(a, a->sys_cursor,
@@ -835,9 +917,9 @@ static bool cheevo_detail_screen(app *a, SDL_Texture *bg, bool over_shelf,
 			done = 1; close_all = true; g_menu_closing = true;
 		}
 		/* Only over the shelf. Over a game this card is the in-game menu's,
-		 * and Muse would need that menu's power rule, which this screen does
+		 * and MP4 would need that menu's power rule, which this screen does
 		 * not have to give it. SELECT from the in-game menu itself works. */
-		if (over_shelf && a->in.pressed[IN_SELECT]) muse_open(a, NULL, NULL);
+		if (over_shelf && a->in.pressed[IN_SELECT]) mp4_open(a, NULL, NULL);
 		/* Same reasoning as the list below: this screen is not inside
 		 * plat_resident_wait, so nothing else is watching power for it. Over
 		 * the shelf there is no game to stop, and stopping one is not what
@@ -962,7 +1044,7 @@ void synopsis_screen(app *a, const char *title, const char *text,
 		if (a->in.quit_requested) break;
 		if (a->in.pressed[IN_ACCEPT] || a->in.pressed[IN_X]) uisound_play(DS_SOUND_BACK);
 		if (menu_leaving(a) || a->in.pressed[IN_ACCEPT] || a->in.pressed[IN_X]) done = 1;
-		if (a->in.pressed[IN_SELECT]) muse_open(a, NULL, NULL);
+		if (a->in.pressed[IN_SELECT]) mp4_open(a, NULL, NULL);
 		/* Nothing else watches power for this screen, the same as every other
 		 * loop the launcher runs outside plat_resident_wait. */
 		if (a->in.pressed[IN_POWER] || idle_due(a)) { power_off(a); break; }
@@ -1062,7 +1144,7 @@ void cheevos_screen(app *a, SDL_Texture *bg, bool over_shelf)
 			sel = sel < n - 9 ? sel + 8 : n - 1;
 		}
 		if (menu_leaving(a)) done = 1;
-		if (over_shelf && a->in.pressed[IN_SELECT]) muse_open(a, NULL, NULL);
+		if (over_shelf && a->in.pressed[IN_SELECT]) mp4_open(a, NULL, NULL);
 		/* A used to close this screen. It opens the achievement instead,
 		 * which is the only thing on it there was ever anything more to say
 		 * about; BACK and MENU still close, so nothing lost a way out. */
@@ -1393,6 +1475,7 @@ void gm_at_facts(at_facts *f)
 		f->fetching = shot_achtab == AT_WAITING;
 		f->no_hash = shot_achtab == AT_NOT_SYSTEM ? RA_HASH_NO_SYSTEM
 		             : shot_achtab == AT_NOT_FILE ? RA_HASH_NO_FILE : RA_HASH_OK;
+		f->cheats_paused = shot_achtab == AT_PAUSED;
 		if (shot_achtab == AT_LIST || shot_achtab == AT_STATES) {
 			int i;
 
@@ -1418,6 +1501,7 @@ void gm_at_facts(at_facts *f)
 	f->fetching = g_pending_set[0] && !strcmp(g_pending_set, g_game_set);
 	f->set = chv_state_of(g_game_set, f->signed_in);
 	f->no_hash = g_port_menu ? RA_HASH_OK : g_game_no_hash;
+	f->cheats_paused = !g_port_menu && cheats_game_paused();
 }
 
 at_source gm_at_source(void)
@@ -1526,6 +1610,51 @@ static void gm_strength_preview(void *app_, int k, int x, int y, int w, int h)
 	shader_demo_draw(app_, g_gm_demo_shader, STRENGTH_MIN + k * STRENGTH_STEP, x, y, w, h);
 }
 
+/* Border's list's picture: the paused frame where the mode puts it, each
+ * kind the row offers around it (dmode_border_preview) */
+static border_kind g_gm_border_kinds[BORDER_KINDS];
+
+static void gm_border_preview(void *app_, int k, int x, int y, int w, int h)
+{
+	app *a = app_;
+	sysview *v = owner_view(a);
+	int sw, sh;
+	double aspect;
+	char path[CFG_STR * 3] = "";
+	SDL_Surface *own = NULL;
+	border_kind kind = k >= 0 && k < BORDER_KINDS ? g_gm_border_kinds[k] : BORDER_OFF;
+
+	gm_source(&sw, &sh, &aspect);
+	if (kind == BORDER_OWN) own = border_own_cached(&a->sys.systems[v - a->view], path, sizeof path);
+	if (kind == BORDER_HANDHELD || kind == BORDER_WHOLE) {
+		SDL_Rect at;
+
+		own = border_frame_cached(a, (int)(v - a->view), kind, -1, path, sizeof path, &at);
+		dmode_border_preview(a, g_gm_frame, sw, sh, aspect, v->dmode, (int)kind, own, path, own ? &at : NULL,
+		                     x, y, w, h);
+		return;
+	}
+	dmode_border_preview(a, g_gm_frame, sw, sh, aspect, v->dmode, (int)kind, own, path, NULL, x, y, w, h);
+}
+
+/* Handheld Color's list's picture: the frame in color k, whole where it is
+ * offered (border_color_kind) */
+static void gm_color_preview(void *app_, int k, int x, int y, int w, int h)
+{
+	app *a = app_;
+	sysview *v = owner_view(a);
+	int sys = (int)(v - a->view), sw, sh;
+	double aspect;
+	border_kind kind = border_color_kind(a, sys);
+	char key[96];
+	SDL_Surface *f;
+	SDL_Rect at;
+
+	gm_source(&sw, &sh, &aspect);
+	f = border_frame_cached(a, sys, kind, k, key, sizeof key, &at);
+	dmode_border_preview(a, g_gm_frame, sw, sh, aspect, v->dmode, (int)kind, f, key, f ? &at : NULL, x, y, w, h);
+}
+
 static void gm_dmode_preview(void *app_, int k, int x, int y, int w, int h)
 {
 	app *a = app_;
@@ -1564,6 +1693,34 @@ const menu_choice *gm_choices(app *a, const gm_ui *u)
 		g_gm_choice[GM_DISPLAY] = (menu_choice){ .n = (unsigned char)DMODE_COUNT, .cur = (unsigned char)v->dmode,
 		                                         .labels = lab[0], .notes = notes,
 		                                         .preview = gm_dmode_preview };
+	}
+	{
+		/* Border's offered kinds, each with its note and picture */
+		static const char *labels[BORDER_KINDS], *notes[BORDER_KINDS];
+		const bool room = gm_border_room(a);
+		border_kind kept = border_load_room(a, (int)(v - a->view), room);
+
+		n = border_offered(border_offer_room(a, (int)(v - a->view), room), g_gm_border_kinds);
+		for (i = 0, cur = 0; i < n; i++) {
+			labels[i] = T(border_label_id(g_gm_border_kinds[i]));
+			notes[i] = T(border_note_id(g_gm_border_kinds[i]));
+			if (g_gm_border_kinds[i] == kept) cur = i;
+		}
+		g_gm_choice[GM_BORDER] = (menu_choice){ .n = (unsigned char)n, .cur = (unsigned char)cur,
+		                                        .labels = labels, .notes = notes,
+		                                        .preview = gm_border_preview, .list = true };
+	}
+	{
+		/* Handheld Color's colors, each with the frame in it */
+		static const char *labels[HF_COLORS];
+		const hf_model *m = hf_model_for(a->sys.systems[v - a->view].tag);
+
+		if (m && m->ncolors > 1) {
+			for (i = 0; i < m->ncolors && i < HF_COLORS; i++) labels[i] = border_color_label(m->color_name[i]);
+			g_gm_choice[GM_BORDER_COLOR] = (menu_choice){
+				.n = (unsigned char)m->ncolors, .cur = (unsigned char)border_color_load(a, (int)(v - a->view)),
+				.labels = labels, .preview = gm_color_preview };
+		}
 	}
 	g_gm_demo_tag = a->sys.systems[v - a->view].tag;
 	for (i = 0, n = 0, cur = 0; i < SHADER_COUNT && n < GM_CH_MAX; i++) {
@@ -1794,6 +1951,20 @@ static menu_result gm_key(app *a, void *ctx, in_button key, int sel)
 		gm_cycle_display(a, key == IN_RIGHT ? 1 : -1);
 		return MENU_STAY;
 	}
+	/* Handheld Color the same way, the frame sent again in its color */
+	if (sel == GM_BORDER_COLOR && (key == IN_LEFT || key == IN_RIGHT)) {
+		int sys = (int)(owner_view(a) - a->view);
+
+		border_color_step(a, sys, key == IN_LEFT ? -1 : 1);
+		border_send(a, sys);
+		return MENU_STAY;
+	}
+	/* Border, on left and right, sent to the game the same way; A opens its
+	 * list (its picture beside each), which comes back as steps */
+	if (sel == GM_BORDER && (key == IN_LEFT || key == IN_RIGHT)) {
+		gm_step_border(a, key == IN_LEFT ? -1 : 1);
+		return MENU_STAY;
+	}
 	/* The shader, on left, right and A, sent to the game the same way */
 	if (sel == GM_SHADER && (key == IN_LEFT || key == IN_RIGHT || key == IN_ACCEPT)) {
 		gm_cycle_shader(a, key == IN_LEFT ? -1 : 1);
@@ -1909,6 +2080,10 @@ static menu_result gm_key(app *a, void *ctx, in_button key, int sel)
 		break;
 	case GM_PLAYER2:
 		player2_page(a, c->bg);
+		break;
+	/* The game's cheats, each on or off at once (DESIGN.md 11.66) */
+	case GM_CHEATS:
+		cheats_page(a, c->bg);
 		break;
 	/* The Achievements tab, one L1 away: the row turns to it, the list
 		 * or the sentence that says why there is none (1.0.5). It opened the
@@ -2093,10 +2268,10 @@ static void gm_resume(app *a)
 		 * afterwards Diatom is drawing, and this would be a second presenter. */
 		present_clear(a, DIATOM_PAGE);
 		present_clear(a, DIATOM_PAGE);
-		/* SELECT in this menu opens Muse, so the music may have started or
+		/* SELECT in this menu opens MP4, so the music may have started or
 		 * stopped while the game was paused. Said before the game moves, not
 		 * a tick after it. */
-		plat_resident_quiet(musec_playing());
+		plat_resident_quiet(mp4c_playing());
 		/* And the volume and the mute switch, both of which this menu had.
 		 *
 		 * On RESUME Diatom forgets its volume and reads it back from the

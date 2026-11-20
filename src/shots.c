@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "ds/hover.h"
 #include "shots.h"
+#include "cheats_screen.h"
 #include "aout_route.h"
 #include "eq.h"
 
@@ -16,6 +17,7 @@
 #include "hotkeys_screen.h"
 #include "db.h"
 #include "devmode_screen.h"
+#include "diskpopup.h"
 #include "dl_screen.h"
 #include "ds/page.h"
 #include "emptyhome.h"
@@ -32,7 +34,7 @@
 #include "mp4lock.h"
 #include "mp4frame.h"
 #include "mp4video.h"
-#include "musec.h"
+#include "mp4c.h"
 #include "notice.h"
 #include "nowplaying_looks.h"
 #include "nowplaying_screen.h"
@@ -52,6 +54,7 @@
 #include "storage_screen.h"
 #include "sysmenu_screen.h"
 #include "devmode_screen.h"
+#include "diskpopup.h"
 #include "topbar.h"
 #include "tour_screen.h"
 #include "tourdevice.h"
@@ -129,7 +132,8 @@ nq_kind shot_notice_kind = NQ_SET;
 /* --notice-heat: the notice with the thermometer where a badge goes, as
  * "Getting hot" is over a game (DESIGN.md 11.23) */
 int shot_notice_mark;
-/* --popup saved|loaded|save_failed|load_failed|slot_empty|no_states|dslang|corestate|stick_on|stick_off|shot|shader|display|speed N:
+/* --popup saved|loaded|save_failed|load_failed|slot_empty|no_states|dslang|corestate|stick_on|stick_off|
+ * shot|shader|display|disk_side|disk_in|disk_out|disk_first|speed N:
  * the pop-up of the SELECT hotkeys, as on_quick and on_speed put it over a
  * game (notice_render, no badge, no Zyper); N is the step for speed, in
  * halves (3 is 1.5x) */
@@ -647,8 +651,85 @@ static void shot_draw_ctltab(app *a, menu_tabs *tabs)
 	menu_draw_styled(a, &st, gm_tab_name(tabs->at), rows, n, sel);
 }
 
-/* --pick-at K: the list's cursor on choice K, not on the one that is on */
+/* --pick-at K: the list's cursor on choice K, not on the one that is on;
+ * --pick-en WORDS: on the choice whose words are WORDS in English, in
+ * whatever language is on, for a list whose choices differ by device
+ * (Border's: no Blur on the Brick) */
 int shot_pick_at = -1;
+const char *shot_pick_en;
+
+static int shot_pick_index(const menu_choice *ch)
+{
+	int id, k;
+
+	if (shot_pick_en && ch->labels)
+		for (id = 0; id < S_COUNT; id++) {
+			if (strcmp(T_en((str_id)id), shot_pick_en)) continue;
+			for (k = 0; k < ch->n; k++)
+				if (ch->labels[k] && !strcmp(ch->labels[k], T((str_id)id))) return k;
+		}
+	return shot_pick_at >= 0 && shot_pick_at < ch->n ? shot_pick_at : ch->cur;
+}
+
+/* --expect-en "WORDS|WORDS?|...": the shot fails unless the open list's
+ * every choice is one of these, in English, in whatever language is on,
+ * and each one not marked "?" is there: a list built from another row's
+ * words shows (Recents' Card Picture said Border's Off and Blur when the two
+ * shared a pool slot, 1.1.0's test run) */
+const char *shot_expect_en;
+
+/* Whether `label` is word `w` (n bytes of it) in the language that is on */
+static bool shot_is_en(const char *label, const char *w, size_t n)
+{
+	int id;
+
+	for (id = 0; id < S_COUNT; id++) {
+		const char *en = T_en((str_id)id);
+
+		if (strlen(en) == n && !strncmp(en, w, n) && !strcmp(T((str_id)id), label)) return true;
+	}
+	return false;
+}
+
+static void shot_expect_list(const menu_choice *ch)
+{
+	const char *p = shot_expect_en, *e;
+	int k;
+	bool bad = false;
+
+	if (!p || !ch->labels) return;
+	for (k = 0; k < ch->n && !bad; k++) {
+		bool known = false;
+
+		for (p = shot_expect_en; *p && !known; p = *e ? e + 1 : e) {
+			size_t n;
+
+			e = strchr(p, '|');
+			if (!e) e = p + strlen(p);
+			n = (size_t)(e - p) - (e > p && e[-1] == '?');
+			known = shot_is_en(ch->labels[k], p, n);
+		}
+		if (!known) {
+			fprintf(stderr, "--expect-en: the list has \"%s\", which is not one of %s\n", ch->labels[k],
+			        shot_expect_en);
+			bad = true;
+		}
+	}
+	for (p = shot_expect_en; *p && !bad; p = *e ? e + 1 : e) {
+		bool there = false;
+
+		e = strchr(p, '|');
+		if (!e) e = p + strlen(p);
+		if (e > p && e[-1] == '?') continue;
+		for (k = 0; k < ch->n && !there; k++) there = ch->labels[k] && shot_is_en(ch->labels[k], p, (size_t)(e - p));
+		if (!there) {
+			fprintf(stderr, "--expect-en: the list has no %.*s\n", (int)(e - p), p);
+			bad = true;
+		}
+	}
+	if (bad) shot_failed = 1;
+	shot_expect_en = NULL;   /* once: the shot composes more than once */
+}
 
 /* An option row's list as menu_pick draws it: its choices, the one on
  * ticked, and what the one under the cursor does - in a picture column
@@ -676,8 +757,10 @@ static void shot_list_draw(app *a, const char *heading, const menu_choice *ch, i
 	menu_row pr[MENU_CHOICES_MAX + 3];
 	static char pw[MENU_CHOICES_MAX][64];
 	static char pn[2][CHV_WRAP_COLS];
-	const int at = shot_pick_at >= 0 && shot_pick_at < ch->n ? shot_pick_at : ch->cur;
+	const int at = shot_pick_index(ch);
 	int k, np = ch->n, kept = ch->none ? -1 : ch->cur;
+
+	shot_expect_list(ch);
 
 	/* The choice under the cursor shown, as the list shows it: once, and
 	 * the shot composed again with it on (the tick on the one kept) */
@@ -729,7 +812,21 @@ static void shot_draw_gamemenu(app *a)
 	menu_tabs tabs = { .count = GT_TABS, .name = gm_tab_name_i };
 	int n;
 
+	/* The cursor's game running with its cheats as the card keeps them
+	 * (src/cheats_screen.h): the Game tab's Cheats row, and its list */
+	if ((shot_cheats || shot_cheats_page >= 0) && a->view[a->sys_cursor].list.count > 0) {
+		const sysview *cv = &a->view[a->sys_cursor];
+
+		cheats_shot_game(&a->sys.systems[shelf_owner(a, a->sys_cursor, cv->cursor)],
+		                 cv->list.items[cv->cursor].file, false);
+	}
 	gm_gather(a, &u);
+	if (shot_cheats_page >= 0 && !u.port) {
+		cheats_page_shot(a, bg, &(cheats_shot){ shot_cheats_page, shot_cheats_ask, shot_cheats_query,
+		                                         shot_cheats_on_first, shot_cheats_note });
+		if (bg) SDL_DestroyTexture(bg);
+		return;
+	}
 	tabs.at = tabs.from = shot_gamemenu_tab % GT_TABS;
 	/* The tab move a shot pressed (shot_motion), from where it was */
 	if (shot_gm_t0 && shot_gm_from >= 0) {
@@ -1048,6 +1145,13 @@ static menu_choice shot_pick;          /* --press a on an option row: its list *
 static const char *shot_pick_heading;
 int shot_gm_choose;     /* --gm-choose: an option row's list, A pressed on it */
 int shot_hud_page = -1; /* --hud-page ROW: the On-Screen Stats page */
+bool shot_cheats;          /* --cheats: the cursor's game as the running one */
+int  shot_cheats_page = -1; /* --cheats-page ROW: its cheat list */
+bool shot_cheats_ask;      /* --cheats-ask: the first cheat's question */
+const char *shot_cheats_query;  /* --cheats-query WORD */
+bool shot_cheats_on_first;  /* --cheats-on-first */
+bool shot_cheats_note;      /* --cheats-note */
+bool shot_cheats_crash;     /* --cheats-crash */
 bool shot_hud_items;    /* --hud-items: its Shows list */
 int  shot_hud_pick = -1; /* --hud-pick ROW: that row's list of choices */
 const char *shot_hud_shows; /* --hud-shows WORDS: the items it shows */
@@ -1148,31 +1252,31 @@ static void np_shot(app *a)
 	char next[128] = "";
 	int ar, t;
 
-	if (shot_np < 0 || shot_np >= g_muse.nalbums) return;
-	al = &g_muse.albums[shot_np];
+	if (shot_np < 0 || shot_np >= g_mp4.nalbums) return;
+	al = &g_mp4.albums[shot_np];
 	t = shot_np_track < al->n ? shot_np_track : al->n - 1;
-	for (ar = 0; ar < g_muse.nartists - 1; ar++)
-		if (shot_np < g_muse.artists[ar].first + g_muse.artists[ar].n) break;
+	for (ar = 0; ar < g_mp4.nartists - 1; ar++)
+		if (shot_np < g_mp4.artists[ar].first + g_mp4.artists[ar].n) break;
 	mn.state = shot_np_paused ? MU_PAUSED : MU_PLAYING;
-	snprintf(mn.title, sizeof mn.title, "%s", g_muse.tracks[al->first + t].name);
-	snprintf(mn.artist, sizeof mn.artist, "%s", g_muse.artists[ar].name);
+	snprintf(mn.title, sizeof mn.title, "%s", g_mp4.tracks[al->first + t].name);
+	snprintf(mn.artist, sizeof mn.artist, "%s", g_mp4.artists[ar].name);
 	snprintf(mn.album, sizeof mn.album, "%s", al->name);
 	mn.at = shot_np_at;
 	mn.len = 236.0;
 	mn.index = t;
 	mn.count = al->n;
 	if (t + 1 < al->n)
-		snprintf(next, sizeof next, "%s", g_muse.tracks[al->first + t + 1].name);
+		snprintf(next, sizeof next, "%s", g_mp4.tracks[al->first + t + 1].name);
 
 	{
 		char base[LIB_PATH * 2], path[LIB_PATH * 2 + 8];
 
-		ml_cover_base(g_muse_root, &g_muse, shot_np, base, sizeof base);
+		ml_cover_base(g_mp4_root, &g_mp4, shot_np, base, sizeof base);
 		snprintf(path, sizeof path, "%s.jpg", base);
 		if (!file_nonempty(path)) {
 			snprintf(path, sizeof path, "%s.png", base);
 			if (!file_nonempty(path) && g_cov)
-				g_cov[shot_np].st = ml_folder_image(g_muse_root, &g_muse, shot_np,
+				g_cov[shot_np].st = ml_folder_image(g_mp4_root, &g_mp4, shot_np,
 				                                    path, sizeof path)
 				                  ? COV_FOLDER : COV_NONE;
 		}
@@ -1208,18 +1312,18 @@ static void np_shot(app *a)
 /* For a shot: every cover not on the card is a cover the music does not
  * carry, since there is no daemon to ask - so those albums draw their
  * generated card rather than an empty slot. */
-static void muse_covers_settle(void)
+static void mp4_covers_settle(void)
 {
 	char base[LIB_PATH * 2], p[LIB_PATH * 2 + 8];
 	int i;
 
-	for (i = 0; g_cov && i < g_muse.nalbums; i++) {
-		ml_cover_base(g_muse_root, &g_muse, i, base, sizeof base);
+	for (i = 0; g_cov && i < g_mp4.nalbums; i++) {
+		ml_cover_base(g_mp4_root, &g_mp4, i, base, sizeof base);
 		snprintf(p, sizeof p, "%s.jpg", base);
 		if (file_nonempty(p)) continue;
 		snprintf(p, sizeof p, "%s.png", base);
 		if (!file_nonempty(p))
-			g_cov[i].st = ml_folder_image(g_muse_root, &g_muse, i, p, sizeof p)
+			g_cov[i].st = ml_folder_image(g_mp4_root, &g_mp4, i, p, sizeof p)
 			            ? COV_FOLDER : COV_NONE;
 	}
 }
@@ -1343,7 +1447,7 @@ static void shot_compose_once(app *a)
 		poweroff_frame(a, shot_at > 0 ? (unsigned)shot_at : 0u);
 		return;
 	}
-	muse_covers_settle();
+	mp4_covers_settle();
 	if (shot_menu && shot_menu_label) {
 		menu_row rows[MENU_MAX_ROWS];
 		menu_bufs b;
@@ -1575,6 +1679,7 @@ static void shot_compose_once(app *a)
 	if (shot_homesys >= 0) homesys_shot_draw(a, shot_homesys);
 	if (shot_lights >= 0) lights_shot_draw(a, shot_lights);
 	if (shot_slots) shot_draw_slots(a);
+	if (shot_cheats_crash) cheats_crash_shot(a);
 	if (shot_gamemenu && a->sys.count > 0) shot_draw_gamemenu(a);
 	else if (g_shot_p2 && a->sys.count > 0) shot_draw_player2(a);
 	if (shot_gamecontrols >= 0 && a->sys.count > 0) shot_draw_gamecontrols(a);
@@ -2143,6 +2248,22 @@ static void shot_compose_once(app *a)
 			/* ...and Player 2 stopping by itself during the game */
 			shot_notice_head = T(S_PLAYER2_NOTICE);
 			snprintf(pbody, sizeof pbody, "%s", T(S_PLAYER2_STOPPED));
+		} else if (!strncmp(shot_popup, "disk_", 5)) {
+			/* L1 or R1 moving a Famicom Disk System game's disk (on_disk):
+			 * disk_side, disk_in, disk_out on disk 1's side B, disk_first
+			 * L1 with the disk in */
+			const char *st = !strcmp(shot_popup, "disk_side") ? "selected"
+			               : !strcmp(shot_popup, "disk_in") ? "in"
+			               : !strcmp(shot_popup, "disk_out") ? "out" : "eject-first";
+
+			disk_popup_words(st, 1, 'B', &shot_notice_head, pbody, sizeof pbody);
+		} else if (!strcmp(shot_popup, "cheats") || !strcmp(shot_popup, "cheats_one")) {
+			/* A game started with cheats on (cheats_game_started): two,
+			 * and one for the word's other form */
+			const int on = shot_popup[6] ? 1 : 2;
+
+			shot_notice_head = T(S_CHEATS_ROW);
+			snprintf(pbody, sizeof pbody, TN(S_CHEATS_POPUP, on), on);
 		} else if (!strcmp(shot_popup, "shot")) {
 			/* The screenshot hotkey's (on_hotkey): the picture small
 			 * beside its words, a made-up game's frame */
@@ -2499,7 +2620,7 @@ static void shot_launch_frame(app *a)
  * frame is drawn with the reads held (g_loads_held), and a slot in view with
  * no card in it fails the shot (BLANK): on the systems row, and on a shelf of
  * games, where the row is what was drawn - not under Now Playing, which
- * covers it, and not on Muse's shelf, whose cards are made on the frame. The
+ * covers it, and not on MP4's shelf, whose cards are made on the frame. The
  * shot itself is the frame after, every card read in the theme that is on. */
 static void shot_flip_theme(app *a)
 {
@@ -2526,7 +2647,7 @@ static void shot_flip_theme(app *a)
 	 * prime_window at the start and the frame drawn then, so an empty one is
 	 * one the turn emptied. */
 	if (a->screen != SCREEN_GAMES || shot_np >= 0 || v->list.count <= 0 ||
-	    is_muse(&a->sys.systems[a->sys_cursor]))
+	    is_mp4(&a->sys.systems[a->sys_cursor]))
 		return;
 	for (k = -CF_HALF_WINDOW; k <= CF_HALF_WINDOW; k++) {
 		n = v->list.count;

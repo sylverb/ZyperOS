@@ -1487,7 +1487,7 @@ void menu_panel(app *a, const char *heading, const menu_row *rows,
 			 * to an ellipsis. Left-aligned while it slides, the way a long
 			 * note is - wider than the box, it has nothing to be centered in.
 			 *
-			 * This branch only ever cut. Found on Muse's track list
+			 * This branch only ever cut. Found on MP4's track list
 			 * 2026-09-19: "Bird Dream Of The Olympus Mons" ended in "M..."
 			 * - and slid the moment a track of that album was playing,
 			 * because the "playing" value put the list in two columns. */
@@ -1556,8 +1556,12 @@ void menu_panel(app *a, const char *heading, const menu_row *rows,
 		/* a list that goes round carries on both ways, always */
 		if (first > 0 || loop)
 			ds_more(a->r, (float)cx, (float)(content_y - off - DS_MORE_H), true, dim);
+		/* Under the window's rows as drawn: over a pinned footer, its
+		 * window's height (shorter than its slots when a note is among
+		 * them), so the mark never lands on the footer's first row */
 		if (first + vis < n || loop)
-			ds_more(a->r, (float)cx, (float)(content_y + vis * row_h + off), false, dim);
+			ds_more(a->r, (float)cx, (float)(content_y + (foot_h ? list_h : vis * row_h) + off),
+			        false, dim);
 	}
 	if (posed) {
 		panel_pass_end(a, &panel, pose);

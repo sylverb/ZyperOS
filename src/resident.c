@@ -344,6 +344,21 @@ static void d_note_stick(const char *l)
 	if (d_on_stick) d_on_stick(l[9] == '1');
 }
 
+static void (*d_on_disk)(const char *state, int disk, char side);
+
+void plat_resident_on_disk(void (*fn)(const char *state, int disk, char side)) { d_on_disk = fn; }
+
+/* "DISK\tstate=selected\tdisk=1\tof=2\tside=B", or "DISK\tstate=eject-first" */
+static void d_note_disk(const char *l)
+{
+	const char *st = strstr(l, "state="), *dk = strstr(l, "\tdisk="), *sd = strstr(l, "\tside=");
+	char state[16];
+
+	if (!st || !d_on_disk) return;
+	snprintf(state, sizeof state, "%.*s", (int)strcspn(st + 6, "\t\r\n"), st + 6);
+	d_on_disk(state, dk ? atoi(dk + 6) : 0, sd ? sd[6] : 0);
+}
+
 static void (*d_on_quick)(int what, const char *path);
 
 void plat_resident_on_quick(void (*fn)(int what, const char *path)) { d_on_quick = fn; }
@@ -1072,6 +1087,8 @@ static int diatom_wait(void)
 			/* R2 in a PSP game: "STICK\ton=1" while the d-pad is the stick;
 			 * or the answer to the menu's own SETSTICK (d_note_stick) */
 			else if (strncmp(l, "STICK\ton=", 9) == 0) d_note_stick(l);
+			/* L1 or R1 moved a Famicom Disk System game's disk */
+			else if (strncmp(l, "DISK\t", 5) == 0) d_note_disk(l);
 			/* SELECT's quick slot: the hotkey, and what came of the SAVE or
 			 * LOAD the launcher sent for it (and of the menu's, which are
 			 * answered the same way and are no business of the callback's

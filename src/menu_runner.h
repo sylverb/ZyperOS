@@ -8,6 +8,7 @@
  * the on-screen keyboard's prompt, and the Wi-Fi screen. The code is
  * src/menu_runner.c; panel.h declares the runner's types. */
 #include "app.h"
+#include "cheats.h"
 #include "panel.h"
 #include "zyperrig.h"
 
@@ -18,7 +19,12 @@
 #define MENU_RUN_ROWS_ (WIFI_MAX_NETS + 8 > SN_ROWS ? WIFI_MAX_NETS + 8 : SN_ROWS)
 
 /* And the Achievements tab, a row an achievement: a set's whole list */
-#define MENU_RUN_ROWS (MENU_RUN_ROWS_ > CHV_MAX ? MENU_RUN_ROWS_ : CHV_MAX)
+#define MENU_RUN_ROWS_A (MENU_RUN_ROWS_ > CHV_MAX ? MENU_RUN_ROWS_ : CHV_MAX)
+
+/* And a game's cheats (src/cheats_screen.c): a row a cheat, a seam and a
+ * name a group, Turn All Off and the foot */
+#define MENU_RUN_ROWS_CHEATS (CHEATS_MAX + 2 * CHEATS_GROUPS + 8)
+#define MENU_RUN_ROWS (MENU_RUN_ROWS_A > MENU_RUN_ROWS_CHEATS ? MENU_RUN_ROWS_A : MENU_RUN_ROWS_CHEATS)
 
 /* The shelf under the keyboard and the sign-in messages. kb_prompt's loop is
  * src/keyboard.c's, which knows no app and so no theme_changed; it calls this

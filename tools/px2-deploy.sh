@@ -133,7 +133,7 @@ find . -type f ! -name '._*' ! -name .DS_Store | sort | while read -r f; do
 		fi
 		mkdir -p \"$DEST/\$(dirname '$rel')\"
 		mv -f $DTMP/file '$DEST/$rel'
-		case '$rel' in *.sh|zyperos.elf|diatom|muse|btplayer|p2d|portkeys|zyhome|zyperos-update|openbor/OpenBOR) chmod +x '$DEST/$rel' ;; esac" < /dev/null
+		case '$rel' in *.sh|zyperos.elf|diatom|mp4d|btplayer|p2d|portkeys|zyhome|zyperos-update|openbor/OpenBOR) chmod +x '$DEST/$rel' ;; esac" < /dev/null
 	echo "  sent $rel"
 	echo "$rel" >> "$LIST"
 done

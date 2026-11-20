@@ -6,12 +6,12 @@
 
 /* Milliseconds on CLOCK_MONOTONIC, for what times sockets, children and
  * replies rather than frames: httpd.c's idle connections, Hare's lockout, the
- * hotspot's log, curl's requests, the scrapers' log lines, Muse's writes.
+ * hotspot's log, curl's requests, the scrapers' log lines, MP4's writes.
  *
  * Not plat_now_ms, which is SDL_GetTicks: that would drag SDL into every
- * check that links these, and Muse has no SDL at all. Header-only for the
- * same reason: a check needs no source of its own for it, and Muse, a
- * separate program, includes it by path (src/muse/pcm.c). */
+ * check that links these, and MP4 has no SDL at all. Header-only for the
+ * same reason: a check needs no source of its own for it, and MP4, a
+ * separate program, includes it by path (src/mp4d/pcm.c). */
 static inline long now_ms(void)
 {
 	struct timespec ts;

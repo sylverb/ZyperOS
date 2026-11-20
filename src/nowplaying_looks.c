@@ -31,7 +31,7 @@
 #include "home.h"
 #include "i18n.h"
 #include "keyhints_draw.h"
-#include "muselib.h"
+#include "mp4lib.h"
 #include "nowplaying_screen.h"
 #include "panel.h"
 #include "platform.h"
@@ -58,7 +58,7 @@ mp4l_id np_look(void)
 
 	if (g_look_shot < MP4L_COUNT) return (mp4l_id)g_look_shot;
 	if (g_look < 0) {
-		db_get_str(db_dev(), "muse.look", k, sizeof k, mp4l_key(MP4L_COVER));
+		db_get_str(db_dev(), "mp4.look", k, sizeof k, mp4l_key(MP4L_COVER));
 		g_look = mp4l_from_key(k);
 	}
 	return (mp4l_id)g_look;
@@ -68,7 +68,7 @@ void np_look_set(mp4l_id id)
 {
 	if (id < 0 || id >= MP4L_COUNT) return;
 	g_look = id;
-	db_set_str(db_dev(), "muse.look", mp4l_key(id));
+	db_set_str(db_dev(), "mp4.look", mp4l_key(id));
 }
 
 void np_look_shot(mp4l_id id) { g_look_shot = id; }
@@ -77,7 +77,7 @@ mp4l_id np_look_for(void)
 {
 	/* A book has its chapters and speed, a video its picture: Cover's
 	 * screen, or the video player, says them; a look is for a song */
-	if (musec_is_book() || musec_is_videos() || musec_video()) return MP4L_COVER;
+	if (mp4c_is_book() || mp4c_is_videos() || mp4c_video()) return MP4L_COVER;
 	return np_look();
 }
 
@@ -149,12 +149,12 @@ static void motion_step(mp4l_id look, const uint8_t *bands)
  * NULL otherwise */
 static const uint8_t *sound_bands(bool playing)
 {
-	static uint8_t lv[MUSEC_BANDS];
+	static uint8_t lv[MP4C_BANDS];
 	unsigned age;
 
 	if (!playing || M.still || !M.bars.n) return NULL;
-	musec_bands_keep();
-	return musec_bands(lv, &age) && age < BANDS_STALE ? lv : NULL;
+	mp4c_bands_keep();
+	return mp4c_bands(lv, &age) && age < BANDS_STALE ? lv : NULL;
 }
 
 void npl_still(bool still)
@@ -242,7 +242,7 @@ static void frame_time(SDL_Renderer *r, const npl_frame *F, const mu_now *mn, bo
 	SDL_Color acc = ui_col(theme()->accent_ink, 255);
 	double k = mn->len > 0 ? mn->at / mn->len : 0;
 	const char *state = mn->state == MU_PLAYING ? NULL
-	                  : mn->state == MU_PAUSED  ? T(S_MUSE_PAUSED) : T(S_MUSE_STOPPED);
+	                  : mn->state == MU_PAUSED  ? T(S_MP4_PAUSED) : T(S_MP4_STOPPED);
 	char t0[16], t1[16], line[20];
 	int ty = ui_line_y(UI_F_META, F->times.y), left, right;
 
@@ -278,7 +278,7 @@ static void line(SDL_Renderer *r, ui_font_role role, const char *s, int x, int t
 static int count_mark(SDL_Renderer *r, const mu_now *mn, int x, int top, int anchor)
 {
 	TTF_Font *fs = ui_font(UI_F_META);
-	int th = ui_font_line(UI_F_META), gs = th * 3 / 2, g = MUSE_MODES[musec_mode()].glyph;
+	int th = ui_font_line(UI_F_META), gs = th * 3 / 2, g = MP4_MODES[mp4c_mode()].glyph;
 	char s[32] = "";
 	int tw = 0, w;
 
@@ -378,16 +378,16 @@ static int song_album(const mu_now *mn, int *place)
 	const char *path;
 	int al, t;
 
-	if (g_song_al >= 0 && g_song_al < g_muse.nalbums) {
+	if (g_song_al >= 0 && g_song_al < g_mp4.nalbums) {
 		*place = g_song_place;
 		return g_song_al;
 	}
-	path = musec_track(mn->index);
-	al = path && path[0] ? ml_album_of(&g_muse, path) : -1;
+	path = mp4c_track(mn->index);
+	al = path && path[0] ? ml_album_of(&g_mp4, path) : -1;
 	*place = -1;
-	if (al < 0 || al >= g_muse.nalbums) return -1;
-	for (t = 0; t < g_muse.albums[al].n; t++)
-		if (!strcmp(g_muse.tracks[g_muse.albums[al].first + t].path, path)) { *place = t; break; }
+	if (al < 0 || al >= g_mp4.nalbums) return -1;
+	for (t = 0; t < g_mp4.albums[al].n; t++)
+		if (!strcmp(g_mp4.tracks[g_mp4.albums[al].first + t].path, path)) { *place = t; break; }
 	return al;
 }
 
@@ -458,8 +458,8 @@ static unsigned classic(SDL_Renderer *r, const npl_frame *F, const mu_now *mn, u
 	ds_panel_slab(r, &pr, CFG_NO_COLOR, true);
 	{
 		int th = ui_font_line(UI_F_META), ms = th * 3 / 5, x = sr.x;
-		const char *word = mn->state == MU_PLAYING ? T(S_MUSE_PLAYING)
-		                 : mn->state == MU_PAUSED  ? T(S_MUSE_PAUSED) : T(S_MUSE_STOPPED);
+		const char *word = mn->state == MU_PLAYING ? T(S_MP4_PLAYING)
+		                 : mn->state == MU_PAUSED  ? T(S_MP4_PAUSED) : T(S_MP4_STOPPED);
 		int cw = count_mark(r, mn, sr.x + sr.w, sr.y, 1);
 
 		state_mark(r, mn->state, x + ms / 2, sr.y + th * 2 / 5, ms, ui_col(theme()->accent_ink, 255));
@@ -493,7 +493,7 @@ static unsigned classic(SDL_Renderer *r, const npl_frame *F, const mu_now *mn, u
 	ds_panel_slab(r, &lr, CFG_NO_COLOR, true);
 	al = song_album(mn, &place);
 	if (al >= 0) {
-		const ml_album *A = &g_muse.albums[al];
+		const ml_album *A = &g_mp4.albums[al];
 		int rows = (lr.h - 2 * DS_SECTION) / DS_LOOK_LIST_ROW, first, i;
 		int top = lr.y + (lr.h - rows * DS_LOOK_LIST_ROW) / 2 / DS_GRID * DS_GRID;
 		int x = lr.x + DS_SECTION, w = lr.w - 2 * DS_SECTION;
@@ -515,7 +515,7 @@ static unsigned classic(SDL_Renderer *r, const npl_frame *F, const mu_now *mn, u
 			snprintf(num, sizeof num, "%d", k + 1);
 			ui_text_tabular(r, fs, num, x + DS_LOOK_LIST_NUM - DS_GRID * 2, ty, 1,
 			                on ? c : UI_TEXT_DIM);
-			ui_fit_text(fs, g_muse.tracks[A->first + k].name, fit, sizeof fit,
+			ui_fit_text(fs, g_mp4.tracks[A->first + k].name, fit, sizeof fit,
 			            w - DS_LOOK_LIST_NUM);
 			ui_text(r, fs, fit, x + DS_LOOK_LIST_NUM, ty, -1, c);
 		}
@@ -573,11 +573,11 @@ static unsigned spectrum(SDL_Renderer *r, const npl_frame *F, const mu_now *mn, 
 /* ---- Cassette --------------------------------------------------------------------- */
 
 /* Where the song is, as a fraction, for what moves with it every frame: the
- * daemon's live position for the song that plays (musec_at_live, between
+ * daemon's live position for the song that plays (mp4c_at_live, between
  * its once-a-second reports), the given one for a shot's or the list's */
 static float song_frac(const mu_now *mn)
 {
-	double at = mn == musec_now() ? musec_at_live() : mn->at;
+	double at = mn == mp4c_now() ? mp4c_at_live() : mn->at;
 
 	return mn->len > 0 ? (float)(at / mn->len) : 0.0f;
 }
@@ -620,7 +620,7 @@ static int song_album(const mu_now *mn, int *place);
 /* The tonearm's needle for the song: its place on the album's grooves */
 static float arm_target(const mu_now *mn)
 {
-	int place, al = song_album(mn, &place), n = al >= 0 ? g_muse.albums[al].n : mn->count;
+	int place, al = song_album(mn, &place), n = al >= 0 ? g_mp4.albums[al].n : mn->count;
 
 	if (place < 0) place = mn->index;
 	return vin_groove_r(place, n, song_frac(mn));
@@ -664,7 +664,7 @@ static bool turn_moving(mp4l_id look, const mu_now *mn)
  * song, its place, and who and what album under the window */
 static void cas_words_of(const mu_now *mn, cas_words *w)
 {
-	int place, al = song_album(mn, &place), n = al >= 0 ? g_muse.albums[al].n : mn->count;
+	int place, al = song_album(mn, &place), n = al >= 0 ? g_mp4.albums[al].n : mn->count;
 
 	if (place < 0) place = mn->index;
 	snprintf(w->title, sizeof w->title, "%s", mn->title);
@@ -695,7 +695,7 @@ static void cas_words_draw(SDL_Renderer *r, const cas_words *w, int x, int y, fl
 	                ui_col(th->surface, (Uint8)(255 * alpha)));
 	/* Its place and the play mode's mark, at the label's right */
 	if (w->place[0]) {
-		int g = MUSE_MODES[musec_mode()].glyph, gs = DS_HINT_GLYPH * 3 / 4;
+		int g = MP4_MODES[mp4c_mode()].glyph, gs = DS_HINT_GLYPH * 3 / 4;
 		int right = x + CAS_LABEL_X1 - CAS_LABEL_PAD;
 
 		if (g >= 0) {
@@ -848,7 +848,7 @@ static unsigned vinyl(SDL_Renderer *r, const npl_frame *F, const mu_now *mn, uns
 	const int plate = (int)ceilf(VIN_PLATTER_R) * 2 + 4, face = (int)ceilf(VIN_R) * 2 + 4;
 
 	al = song_album(mn, &place);
-	n = al >= 0 ? g_muse.albums[al].n : mn->count;
+	n = al >= 0 ? g_mp4.albums[al].n : mn->count;
 	/* The record left in the room and on its middle; the column from a
 	 * section past the tonearm's base, on the grid */
 	root = ds_flex_begin(&L, F->content.w, F->content.h, &(ds_box){ .dir = DS_ROW, .align = DS_A_CENTER });
@@ -985,11 +985,11 @@ void npl_bench(app *a, const mu_now *mn0, int frames)
 			changed = true;
 			mn.index++;
 			mn.at = 0;
-			if (g_song_al >= 0 && g_song_al < g_muse.nalbums) {
-				const ml_album *A = &g_muse.albums[g_song_al];
+			if (g_song_al >= 0 && g_song_al < g_mp4.nalbums) {
+				const ml_album *A = &g_mp4.albums[g_song_al];
 
 				g_song_place = (g_song_place + 1) % (A->n > 0 ? A->n : 1);
-				snprintf(mn.title, sizeof mn.title, "%s", g_muse.tracks[A->first + g_song_place].name);
+				snprintf(mn.title, sizeof mn.title, "%s", g_mp4.tracks[A->first + g_song_place].name);
 			}
 		}
 		mn.state = t >= 3500 && t < 5000 ? MU_PAUSED : MU_PLAYING;
@@ -1046,9 +1046,9 @@ void npl_preview(app *a, mp4l_id look, int x, int y, int w, int h)
 	static unsigned since, seen;
 	SDL_Renderer *r = a->r;
 	SDL_Texture *was = SDL_GetRenderTarget(r);
-	const mu_now *live = musec_now();
+	const mu_now *live = mp4c_now();
 	bool playing_music = (live->state == MU_PLAYING || live->state == MU_PAUSED) &&
-	                     !musec_is_book() && !musec_is_videos() && !musec_video();
+	                     !mp4c_is_book() && !mp4c_is_videos() && !mp4c_video();
 	mu_now show;
 	/* A shot's moment, held (src/shots.h) */
 	unsigned now = shot_path ? 0 : plat_now_ms();
@@ -1072,18 +1072,18 @@ void npl_preview(app *a, mp4l_id look, int x, int y, int w, int h)
 		const sysview *v = &a->view[s];
 
 		if (v->album && v->cursor >= 0 && v->cursor < v->list.count) al = v->album[v->cursor];
-		if (al < 0 || al >= g_muse.nalbums || g_muse.albums[al].kind != ML_MUSIC)
-			for (i = 0, al = -1; i < g_muse.nalbums && al < 0; i++)
-				if (g_muse.albums[i].kind == ML_MUSIC && g_muse.albums[i].n > 0) al = i;
+		if (al < 0 || al >= g_mp4.nalbums || g_mp4.albums[al].kind != ML_MUSIC)
+			for (i = 0, al = -1; i < g_mp4.nalbums && al < 0; i++)
+				if (g_mp4.albums[i].kind == ML_MUSIC && g_mp4.albums[i].n > 0) al = i;
 		memset(&show, 0, sizeof show);
 		if (al >= 0) {
-			const ml_album *A = &g_muse.albums[al];
+			const ml_album *A = &g_mp4.albums[al];
 			int ar;
 
-			for (ar = 0; ar < g_muse.nartists - 1; ar++)
-				if (al < g_muse.artists[ar].first + g_muse.artists[ar].n) break;
-			snprintf(show.title, sizeof show.title, "%s", g_muse.tracks[A->first].name);
-			snprintf(show.artist, sizeof show.artist, "%s", g_muse.artists[ar].name);
+			for (ar = 0; ar < g_mp4.nartists - 1; ar++)
+				if (al < g_mp4.artists[ar].first + g_mp4.artists[ar].n) break;
+			snprintf(show.title, sizeof show.title, "%s", g_mp4.tracks[A->first].name);
+			snprintf(show.artist, sizeof show.artist, "%s", g_mp4.artists[ar].name);
 			snprintf(show.album, sizeof show.album, "%s", A->name);
 			show.count = A->n;
 			np_cover(a, al);
@@ -1094,7 +1094,7 @@ void npl_preview(app *a, mp4l_id look, int x, int y, int w, int h)
 		show.at = shot_path ? 83.0 : (double)(now - since) / 1000.0;
 		mn = &show;
 	} else {
-		np_cover(a, ml_album_of(&g_muse, musec_track(live->index)));
+		np_cover(a, ml_album_of(&g_mp4, mp4c_track(live->index)));
 	}
 
 	SDL_RenderGetScale(r, &sx, &sy);
