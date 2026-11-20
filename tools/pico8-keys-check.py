@@ -216,9 +216,16 @@ def launcher(tmp):
         return [l[len('fit: drawn: '):] for l in text.splitlines() if l.startswith('fit: drawn: ')]
 
     def keys(*names):
+        """each a tap and some frames; the last can end the menu, and with
+        it the desk's socket, before its frames are counted (Linux says so
+        at once: ECONNRESET); the exit status the walk checks next says
+        whether it ended where it should"""
         for k in names:
-            ask(dsock, f'tap {k}')
-            ask(dsock, 'wait-frames 6')
+            try:
+                ask(dsock, f'tap {k}')
+                ask(dsock, 'wait-frames 6')
+            except (OSError, ValueError):
+                return
 
     def ended(p, seconds=8):
         try:
