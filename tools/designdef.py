@@ -354,6 +354,7 @@ LAYOUT = [
     ("look-list-num",   48,  "Classic: a row's number, tabular, before its name"),
     ("line-clock",      128, "Classic: the clock's line, as a box"),
     ("look-cover",      192, "Spectrum: the cover beside the names"),
+    ("look-record",     448, "Vinyl: the platter, a 12-inch record and its rim, 424 and 12 each side"),
     ("look-cassette-w", 592, "Cassette: a C-cassette, 100.4 x 63.8 mm, 74 x 47 grid steps (592 x 376), the nearest whole steps to its proportions"),
 ]
 
@@ -420,6 +421,7 @@ MOTION = [
     ("spin-down",   520,  "out",   "...and coming to a stop as it pauses; the sound stops at once"),
     ("rewind",      700,  "turn",  "MP4's cassette winding back to the start for the next song"),
     ("wind",        180,  "follow", "MP4's cassette winding to a seek's place: follow's tau"),
+    ("arm-glide",   180,  "follow", "MP4's tonearm gliding to the song's place on the record: follow's tau"),
     ("hold-snap",   1000, "-",     "a game focused on the shelf before its cover turns into its video snap"),
     ("hold-band",   2000, "-",     "the Video view's band of covers and keys, after the last press on a game whose snap plays, before it goes down to its strip"),
     ("sheen",       480,  "turn",  "one light crossing a game's card with no art, once, as the cover row stops on it"),

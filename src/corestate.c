@@ -37,6 +37,10 @@ bool cst_writer(const char *state_path, char *buf, size_t n)
 static const struct { const char *core, *library; } LIBRARY[] = {
 	{ "parallel_n64",     "ParaLLEl N64" },
 	{ "mupen64plus_next", "Mupen64Plus-Next" },
+	/* The Game Boy shelves' two (1.0.7): each core's retro_get_system_info
+	 * library_name, as it writes it in a state's header */
+	{ "mgba",             "mGBA" },
+	{ "gambatte",         "Gambatte" },
 };
 
 const char *cst_library(const char *core)

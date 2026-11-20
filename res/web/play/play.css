@@ -144,6 +144,7 @@
 	--t-spin-down: 520ms;
 	--t-rewind: 700ms;
 	--t-wind: 180ms;
+	--t-arm-glide: 180ms;
 	--t-hold-snap: 1000ms;
 	--t-hold-band: 2000ms;
 	--t-sheen: 480ms;
