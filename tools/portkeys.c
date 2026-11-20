@@ -603,13 +603,14 @@ static bool borrow(void)
 		release(false);
 		return false;
 	}
-	/* The cursor window, until it says otherwise - unless the driver padded
-	 * the rows after all, which only an overlay plane can be told of (ADDFB2
-	 * takes the pitch) */
-	G.cursor = G.pitch == (uint32_t)G.cw * 4 && !cursor_refused;
+	/* The cursor window, until it says otherwise (cursor_refused). A frame
+	 * on it (scene_put) is written in rows of its own width and the window
+	 * told that width, whatever rows the driver made the buffer with; only
+	 * the bar alone on an overlay plane goes by the buffer's (ADDFB2 takes
+	 * the pitch) */
+	G.cursor = !cursor_refused;
 	if (!G.cursor) {
-		fprintf(stderr, "portkeys: rows of %u bytes, not %d; using an overlay plane\n",
-		        G.pitch, G.cw * 4);
+		fprintf(stderr, "portkeys: no cursor window; the bar on an overlay plane\n");
 		if (!overlay_setup()) {
 			fprintf(stderr, "portkeys: no overlay plane either; no bar\n");
 			release(false);
@@ -1296,6 +1297,7 @@ static int bar_tick(void)
 	osdbar_look look;
 	int wait = -1, ow, lw = 640, lh = 480;
 
+	memset(&look, 0, sizeof look);
 	heat_check(now);
 	if (N.live && now >= N.until) N.live = false;
 	if (G.fd >= 0) {
