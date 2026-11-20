@@ -17,6 +17,7 @@
 #include "usblink.h"
 #include "webtheme.h"
 #include "zyperdraw.h"
+#include "levels.h"
 
 #include <SDL.h>
 #include <SDL_image.h>
@@ -229,10 +230,7 @@ void player2_page(app *a, SDL_Texture *bg)
 		plat_input_poll(&a->in);
 		ui_sounds_follow();
 		if (menu_leaving(a)) done = 1;
-		if (in_repeat(&a->in, IN_VOLUP))    plat_volume_nudge(+1);
-		if (in_repeat(&a->in, IN_VOLDN))    plat_volume_nudge(-1);
-		if (in_repeat(&a->in, IN_BRIGHTUP)) plat_brightness_nudge(+1);
-		if (in_repeat(&a->in, IN_BRIGHTDN)) plat_brightness_nudge(-1);
+		levels_keys(&a->in, BOOST_HIDE);
 		/* Power stops the game from here, as from the in-game menu's
 		 * other pages; the game's end stops Player 2 */
 		if (a->in.pressed[IN_POWER] || idle_due(a)) {

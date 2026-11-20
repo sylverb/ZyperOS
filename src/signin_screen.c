@@ -9,6 +9,7 @@
 #include "rafetch.h"
 #include "sgdb.h"
 #include "ss.h"
+#include "levels.h"
 
 #include <SDL.h>
 #include <SDL_image.h>
@@ -187,10 +188,7 @@ static sgdb_try sgdb_wait(app *a)
 		ui_sounds_follow();
 		if (a->in.quit_requested) { a->running = false; break; }
 		if (a->in.pressed[IN_POWER]) { power_off(a); break; }
-		if (in_repeat(&a->in, IN_VOLUP))    plat_volume_nudge(+1);
-		if (in_repeat(&a->in, IN_VOLDN))    plat_volume_nudge(-1);
-		if (in_repeat(&a->in, IN_BRIGHTUP)) plat_brightness_nudge(+1);
-		if (in_repeat(&a->in, IN_BRIGHTDN)) plat_brightness_nudge(-1);
+		levels_keys(&a->in, BOOST_HIDE);
 		wait_panel(a, "SteamGridDB", sgdb_try_said());
 		ui_frame_rest(16);
 	}

@@ -442,6 +442,9 @@ void plat_volume_nudge(int delta);
 void plat_brightness_nudge(int delta);
 void plat_volume_set_pct(int pct);
 void plat_brightness_set(int level);
+/* The brightness boost past the top rung (src/levels.c): 0 none, up to
+ * PANELGAMMA_LIFT_MAX steps of a mid-tone lift on the display's table */
+void plat_brightness_lift(int lift);
 /* The backlight's own value at rung `level` (its ladder), -1 where there is
  * none to hand to another program: Flash Drive's usbdrive steps the same
  * rungs, and the boot screens light at the player's (src/boottheme.h) */

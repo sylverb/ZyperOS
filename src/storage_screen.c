@@ -21,6 +21,7 @@
 #include "uisound.h"
 #include "zyperdraw.h"
 #include "zypermark.h"
+#include "levels.h"
 
 #include <SDL_image.h>
 #include <stdio.h>
@@ -1181,10 +1182,7 @@ void storage_screen(app *a)
 		if (a->in.quit_requested) { a->running = false; break; }
 		if (a->in.pressed[IN_POWER] || idle_due(a)) { st_stop(); power_off(a); break; }
 		if (a->in.pressed[IN_SELECT]) muse_open(a, NULL, NULL);
-		if (in_repeat(&a->in, IN_VOLUP))    plat_volume_nudge(+1);
-		if (in_repeat(&a->in, IN_VOLDN))    plat_volume_nudge(-1);
-		if (in_repeat(&a->in, IN_BRIGHTUP)) plat_brightness_nudge(+1);
-		if (in_repeat(&a->in, IN_BRIGHTDN)) plat_brightness_nudge(-1);
+		levels_keys(&a->in, BOOST_HIDE);
 
 		/* The walk's latest numbers, and the rows from them when they moved */
 		st_snapshot(&c);

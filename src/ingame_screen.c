@@ -31,6 +31,7 @@
 #include <sys/stat.h>
 
 #include "shaderdemo.h"
+#include "levels.h"
 #include <unistd.h>
 
 /* ---------- launching ----------------------------------------------------- */
@@ -1296,10 +1297,7 @@ static void controls_pages(app *a, SDL_Texture *bg, const menu_style *over, void
 		}
 		/* which page of how many, at the heading's right (DESIGN.md 11.3) */
 		if (pages > 1) snprintf(count, sizeof count, "%d / %d", page + 1, pages);
-		if (in_repeat(&a->in, IN_VOLUP))    plat_volume_nudge(+1);
-		if (in_repeat(&a->in, IN_VOLDN))    plat_volume_nudge(-1);
-		if (in_repeat(&a->in, IN_BRIGHTUP)) plat_brightness_nudge(+1);
-		if (in_repeat(&a->in, IN_BRIGHTDN)) plat_brightness_nudge(-1);
+		levels_keys(&a->in, BOOST_HIDE);
 		/* Power stops the game from here, as from the achievements */
 		if (a->in.pressed[IN_POWER] || idle_due(a)) {
 			if (over && over->on_power) {

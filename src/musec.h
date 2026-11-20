@@ -168,6 +168,11 @@ void musec_channels(const char *mode);
  * whether its page is open (`live`: Muse keeps only about 60 ms queued, so a
  * step is heard in under a tenth of a second). Sent on a change only. */
 void musec_eq(const int8_t db[5], bool live);
+
+/* The volume boost's gain for MP4's sound, dB (src/levels.c): Muse applies
+ * it after the equalizer, with its limiter (src/eqdsp.h). Sent on a change,
+ * and again to a Muse started anew. */
+void musec_gain(int db);
 /* Make the next musec_sink send even if the device has not changed: for a
  * headset that dropped and came back under the same name, which Muse may
  * have fallen back from while it was gone. The daemon ignores a SINK for the

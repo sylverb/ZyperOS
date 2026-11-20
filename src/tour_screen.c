@@ -11,6 +11,7 @@
 #include "uisound.h"
 #include "zyperdraw.h"
 #include "zypermark.h"
+#include "levels.h"
 
 #include <SDL.h>
 #include <SDL_image.h>
@@ -87,10 +88,7 @@ static void tour_skip_message(app *a)
 		aout_apply(false);
 		if (a->in.quit_requested) { a->running = false; return; }
 		if (a->in.pressed[IN_POWER] || idle_due(a)) { power_off(a); return; }
-		if (in_repeat(&a->in, IN_VOLUP))    plat_volume_nudge(+1);
-		if (in_repeat(&a->in, IN_VOLDN))    plat_volume_nudge(-1);
-		if (in_repeat(&a->in, IN_BRIGHTUP)) plat_brightness_nudge(+1);
-		if (in_repeat(&a->in, IN_BRIGHTDN)) plat_brightness_nudge(-1);
+		levels_keys(&a->in, BOOST_HIDE);
 		for (b = 0; b < IN_COUNT; b++)
 			if (a->in.pressed[b] && b != IN_VOLUP && b != IN_VOLDN &&
 			    b != IN_BRIGHTUP && b != IN_BRIGHTDN && (int32_t)(now - out) < 0) {
@@ -195,10 +193,7 @@ void tour_run(app *a, bool first)
 		}
 		/* The levels' keys work in every step, as on every screen, and
 		 * answer their own. */
-		if (in_repeat(&a->in, IN_VOLUP))    plat_volume_nudge(+1);
-		if (in_repeat(&a->in, IN_VOLDN))    plat_volume_nudge(-1);
-		if (in_repeat(&a->in, IN_BRIGHTUP)) plat_brightness_nudge(+1);
-		if (in_repeat(&a->in, IN_BRIGHTDN)) plat_brightness_nudge(-1);
+		levels_keys(&a->in, BOOST_HIDE);
 		tour_set_music(&t, bgm_count() > 0);
 		n = tour_buttons(&t, a->in.pressed, now, snd);
 		/* A choice looked at is applied before its press is heard, so the

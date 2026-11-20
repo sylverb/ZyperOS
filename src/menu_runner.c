@@ -19,6 +19,7 @@
 #include "wifi_menu.h"
 #include "zyperdraw.h"
 #include "zyperrig.h"
+#include "levels.h"
 
 #include <SDL.h>
 #include <SDL_image.h>
@@ -367,10 +368,7 @@ static menu_exit menu_run_body(app *a, const menu_style *st,
 		 * impossible, arriving by the one route it could still come from: the
 		 * runner forgetting, rather than a screen forgetting. Every other loop
 		 * in this file carries these four lines by hand. */
-		if (in_repeat(&a->in, IN_VOLUP))    plat_volume_nudge(+1);
-		if (in_repeat(&a->in, IN_VOLDN))    plat_volume_nudge(-1);
-		if (in_repeat(&a->in, IN_BRIGHTUP)) plat_brightness_nudge(+1);
-		if (in_repeat(&a->in, IN_BRIGHTDN)) plat_brightness_nudge(-1);
+		levels_keys(&a->in, BOOST_HIDE);
 
 		/* Left and right reach the screen on REPEAT, not just on press, so a
 		 * row whose value cycles can be held down. Everything else is edge
@@ -585,10 +583,7 @@ bool timed_message(app *a, const char *heading, const menu_row *rows,
 			mm_leaving_cut();
 			break;
 		}
-		if (in_repeat(&a->in, IN_VOLUP))    plat_volume_nudge(+1);
-		if (in_repeat(&a->in, IN_VOLDN))    plat_volume_nudge(-1);
-		if (in_repeat(&a->in, IN_BRIGHTUP)) plat_brightness_nudge(+1);
-		if (in_repeat(&a->in, IN_BRIGHTDN)) plat_brightness_nudge(-1);
+		levels_keys(&a->in, BOOST_HIDE);
 		if (phase != MESSAGE_SHOW && !closed) {
 			if (back) panel_settle(lv);
 			panel_close_at(a, lv, false, clock.close_at);

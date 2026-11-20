@@ -21,6 +21,7 @@
 #include "uisound.h"
 #include "usbdrive_screen.h"
 #include "zyperdraw.h"
+#include "levels.h"
 
 #include <SDL.h>
 #include <SDL_image.h>
@@ -787,10 +788,7 @@ static void rdl_page(app *a)
 			power_off(a);              /* the run with everything else */
 			break;
 		}
-		if (in_repeat(&a->in, IN_VOLUP))    plat_volume_nudge(+1);
-		if (in_repeat(&a->in, IN_VOLDN))    plat_volume_nudge(-1);
-		if (in_repeat(&a->in, IN_BRIGHTUP)) plat_brightness_nudge(+1);
-		if (in_repeat(&a->in, IN_BRIGHTDN)) plat_brightness_nudge(-1);
+		levels_keys(&a->in, BOOST_HIDE);
 		for (int b = 0; b < IN_COUNT; b++) if (a->in.pressed[b] || a->in.down[b]) dirty = true;
 		if (a->in.pressed[IN_MENU]) {
 			menu_leaving(a);           /* a run goes on behind the screens */

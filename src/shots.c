@@ -37,6 +37,7 @@
 #include "nowplaying_looks.h"
 #include "nowplaying_screen.h"
 #include "homesys_screen.h"
+#include "levels.h"
 #include "osdbar.h"
 #include "panel.h"
 #include "player2_screen.h"
@@ -345,6 +346,7 @@ const char *shot_steps_way, *shot_steps_state, *shot_steps_addr;
 bool shot_steps_noname;      /* ... noname: as when mDNS could not start */
 const char *shot_wait, *shot_wait_msg;   /* NULL: library.scanning's */
 int shot_osd_kind, shot_osd_val; /* --osd volume|brightness|power LEVEL */
+int shot_osd_boost;              /* ... +CELLS: the boost open past the top */
 /* --tour STEP [MS [DONE]]: one frame of the tutorial, src/tour.h's step by
  * its name (or "skip", the shelf with the message a skip leaves), MS into
  * it, its press landed DONE ms ago or not at all (-1). --tour-wrong KEY [MS]
@@ -2238,6 +2240,7 @@ static void shot_compose_once(app *a)
 	/* The volume or brightness bar over whatever else was asked for, held
 	 * until it has slid all the way in. */
 	if (shot_osd_kind) {
+		levels_shot(shot_osd_kind, shot_osd_val, shot_osd_boost);
 		plat_osd_show(shot_osd_kind, shot_osd_val,
 		              shot_osd_kind == OSDBAR_BRIGHT ? PLAT_BRIGHT_MAX
 		              : shot_osd_kind == OSDBAR_POWER ? OSDBAR_POWER_STEPS : PLAT_VOL_MAX);
@@ -2652,6 +2655,7 @@ static void shot_tour_draw(app *a)
 		tour_draw(a->r, &t, now, &hk);
 	}
 	if (shot_osd_kind) {
+		levels_shot(shot_osd_kind, shot_osd_val, shot_osd_boost);
 		plat_osd_show(shot_osd_kind, shot_osd_val,
 		              shot_osd_kind == OSDBAR_BRIGHT ? PLAT_BRIGHT_MAX
 		              : shot_osd_kind == OSDBAR_POWER ? OSDBAR_POWER_STEPS : PLAT_VOL_MAX);

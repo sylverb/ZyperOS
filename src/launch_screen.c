@@ -38,6 +38,7 @@
 #include "uisound.h"
 #include "update_screen.h"
 #include "zyperdraw.h"
+#include "levels.h"
 
 #include <SDL.h>
 #include <SDL_image.h>
@@ -323,10 +324,7 @@ static void p8_page_screen(app *a)
 		if (a->in.quit_requested) { a->running = false; break; }
 		if (a->in.pressed[IN_POWER] || idle_due(a)) { power_off(a); break; }
 		if (a->in.pressed[IN_SELECT]) muse_open(a, NULL, NULL);
-		if (in_repeat(&a->in, IN_VOLUP))    plat_volume_nudge(+1);
-		if (in_repeat(&a->in, IN_VOLDN))    plat_volume_nudge(-1);
-		if (in_repeat(&a->in, IN_BRIGHTUP)) plat_brightness_nudge(+1);
-		if (in_repeat(&a->in, IN_BRIGHTDN)) plat_brightness_nudge(-1);
+		levels_keys(&a->in, BOOST_HIDE);
 		if (a->in.pressed[IN_BACK] || a->in.pressed[IN_MENU]) {
 			uisound_play(DS_SOUND_BACK);
 			break;
@@ -625,10 +623,7 @@ static void pm_install_loop(app *a, const system_cfg *s, SDL_Texture *icon)
 		if (a->in.quit_requested) { a->running = false; return; }
 		if (a->in.pressed[IN_POWER] || idle_due(a)) { power_off(a); return; }
 		if (a->in.pressed[IN_SELECT]) muse_open(a, NULL, NULL);
-		if (in_repeat(&a->in, IN_VOLUP))    plat_volume_nudge(+1);
-		if (in_repeat(&a->in, IN_VOLDN))    plat_volume_nudge(-1);
-		if (in_repeat(&a->in, IN_BRIGHTUP)) plat_brightness_nudge(+1);
-		if (in_repeat(&a->in, IN_BRIGHTDN)) plat_brightness_nudge(-1);
+		levels_keys(&a->in, BOOST_HIDE);
 		if (a->in.pressed[IN_ACCEPT]) act = update_page_key(&p, "A");
 		if (a->in.pressed[IN_BACK] || a->in.pressed[IN_MENU]) {
 			uisound_play(DS_SOUND_BACK);
