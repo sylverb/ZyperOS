@@ -1,0 +1,195 @@
+From: plastron
+Subject: [PATCH] power: supply: rk817: a charger's start is over 300 mA, and keeps the level from before the power-off
+
+A Pixel 2 at 93% by its voltage read 64%, 38% and 30% at three starts, and
+once 0% at 79%, which powered it off at the start (a player's logs on
+ZyperOS 1.0.6, 2026-11-20: "lost 30% in 4 hours" off).
+
+Its starts from POWER sample +108 to +114 mA into the battery, at every
+level (79 to 95% at rest), with no cable in: the launcher read "off the
+charger" at the start that read 0%. Another Pixel 2 reads -55 mA there, the
+SoC's draw. That is over the 100 mA of a charger's start
+(9-px2-rk817-start-soc.patch), so each start after 30 minutes or more off
+kept the counter instead of making the level again from the voltage. And
+the counter falls about 100 mA while the RK817 is off, which the voltage
+start used to set right. Start to start, with a few minutes of play
+between: 93% to 64% over 260 minutes off, 64% to 38% over 280, 38% to 30%
+over 70, 37% to 0% over 640, 89 to 111 mA with the play taken out, while
+the voltage at rest moved a point or two. So the drift piled up.
+
+Now:
+
+- A charger's start is over 300 mA into the battery, the charger's own end
+  of a charge (the device tree's charge-term-current): a charger at work
+  pushes more, 1.5 to 1.8 A at a start (1796 mA in the same logs), and
+  under it the charge is over. Under it, the sample is the battery's, and
+  the drop the device tree's 111 mOhm does not take out is 33 mV at most
+  were the path's resistance twice that. Those starts all come from the
+  voltage now: 93%, 93%, 93% and 79%.
+- A charger's start keeps the level kept at the last update before the
+  power-off (the nvram's remaining capacity, DATA0), not the counter, which
+  drifted down for the 30 minutes or more off: 3 points after 30 minutes,
+  35 after six hours. Rockchip's own driver keeps that level over a
+  power-off too. The 1.0.5 case stays as it was: a cable's start at 1.5 A
+  or more does not take the level from its sample.
+- The start's line says the level kept beside the counter's ("counter 64%,
+  kept 90%"), so a drift shows in the log.
+
+A start after less than 30 minutes off keeps the counter, as before.
+
+Named to sort after 9-px2-rk817-wear2-empty.patch in LC_ALL=C order, as
+Buildroot applies them; start-soc-check fails if the order is ever wrong.
+---
+ drivers/power/supply/rk817_charger.c | 81 ++++++++++++++++++++++++++++++------
+ 1 file changed, 68 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/power/supply/rk817_charger.c b/drivers/power/supply/rk817_charger.c
+index 0563994..f9a8ec1 100644
+--- a/drivers/power/supply/rk817_charger.c
++++ b/drivers/power/supply/rk817_charger.c
+@@ -1012,9 +1012,24 @@ static int rk817_rest_uv(int boot_uv, int boot_ua, int r_uohm)
+  * rest, after 30 minutes or more off, finds the truth. The level seems to
+  * fall by tens of points over the time off, with no charge lost (a report
+  * on ZyperOS 1.0.5: 85% when turned off, 49% two hours later). So a
+- * charger's start keeps the counter, as a start after a short time off
+- * does. A drift in the counter is set right at the next start from rest or
+- * at the next full charge.
++ * charger's start keeps the level it had before the power-off
++ * (rk817_start_level). A drift in it is set right at the next start from
++ * rest or at the next full charge.
++ *
++ * 300 mA: the charger's own end of a charge (the device tree's
++ * charge-term-current). A charger at work pushes more, 1.5 to 1.8 A at a
++ * start (1796 mA in a player's log), and under it the charge is over. It
++ * was 100 mA, and a start from POWER reads over that on some Pixel 2s with
++ * no cable in: one sampled +108 to +114 mA at every start from POWER,
++ * whatever its level (79 to 95% at rest), with the launcher seeing no cable,
++ * where another reads -55 mA (the SoC's draw). Each of its starts after 30
++ * minutes or more off was then a charger's start, and kept the counter,
++ * which falls about 100 mA while the RK817 is off (rk817_start_from): its
++ * battery, at 93% at rest each time, read 64%, 38% and 30% at three starts,
++ * and once 0%, which powered it off at the start (a player's logs, ZyperOS
++ * 1.0.6, 2026-11-20). Under 300 mA the sample is the battery's, and the
++ * drop the device tree's resistance does not take out is small: 33 mV at
++ * most were the path's resistance twice the device tree's.
+  *
+  * The rule is only for current into the battery. A start from POWER takes
+  * its sample while the SoC begins to draw current, and the resistance
+@@ -1022,13 +1037,13 @@ static int rk817_rest_uv(int boot_uv, int boot_ua, int r_uohm)
+  * from making the level again from the voltage. Besides a full charge, that
+  * is the only correction the counter gets.
+  */
+-#define RK817_START_CHARGING_UA	100000
++#define RK817_START_CHARGING_UA	300000
+ 
+ /* Where a start's level comes from */
+ enum rk817_start_from {
+ 	RK817_START_VOLTAGE,	/* off 30 min or more: the sample, at rest */
+ 	RK817_START_COUNTER,	/* off less: the counter, kept */
+-	RK817_START_CHARGER,	/* a charger's start: the counter, kept */
++	RK817_START_CHARGER,	/* a charger's start: the level before it, kept */
+ 	RK817_START_NEW,	/* a battery new to the gauge: the sample */
+ };
+ 
+@@ -1036,8 +1051,12 @@ enum rk817_start_from {
+  * off_min: the minutes OFF_CNT counted before this start (it counts tens of
+  * minutes, and stops at 2550). After 30 minutes or more off, the level is
+  * made again from the sample, as before: the driver's first author found
+- * that the counter drifts down when the RK817 is off for long. A battery
+- * new to the gauge has no counter to keep.
++ * that the counter drifts down when the RK817 is off for long. About 100 mA:
++ * 89 to 111 mA over 70 to 280 minutes off in a player's logs, while the
++ * battery's voltage at rest moved a point or two (as much as the sleep
++ * current the device tree gives the gauge,
++ * rockchip,sleep-filter-current-microamp, 100 mA). A battery new to the
++ * gauge has no counter to keep.
+  */
+ static enum rk817_start_from rk817_start_from(bool new_battery, int off_min,
+ 					      int boot_ua)
+@@ -1060,6 +1079,37 @@ static enum rk817_start_from rk817_start_from(bool new_battery, int off_min,
+  */
+ #define RK817_LEARN_MAX_SOC	50000
+ 
++/*
++ * The level a start begins from, in thousandths of a percent, by where it
++ * comes from (rk817_start_from): the voltage's at rest; after a short time
++ * off, the counter (Q_PRES), which drifted down a few minutes' worth at most;
++ * and at a charger's start the level kept at the last update before the
++ * power-off (left_mah, the nvram's remaining capacity, over fcc_mah). A
++ * charger's start comes after 30 minutes or more off, and the counter has
++ * drifted down for all of it, about 100 mA: 50 mAh, 3 points, after 30
++ * minutes, and 600 mAh, 35 points, after six hours. The level kept has not,
++ * as Rockchip's own driver keeps it over a power-off. With none kept
++ * (left_mah < 0), the counter's.
++ */
++static int rk817_start_level(enum rk817_start_from from, int voltage_soc,
++			     int counter_soc, int left_mah, int fcc_mah)
++{
++	int kept;
++
++	switch (from) {
++	case RK817_START_VOLTAGE:
++	case RK817_START_NEW:
++		return voltage_soc;
++	case RK817_START_CHARGER:
++		if (left_mah < 0 || fcc_mah <= 0)
++			return counter_soc;
++		kept = (int)div_s64((s64)left_mah * 100000, fcc_mah);
++		return kept > 100000 ? 100000 : kept;
++	default:
++		return counter_soc;
++	}
++}
++
+ /*
+  * The full charge a start measures (RK817_NV_FULL), in mAh, or 0 when this
+  * start cannot measure it.
+@@ -1102,7 +1152,7 @@ rk817_read_or_set_full_charge_on_boot(struct rk817_charger *charger,
+ 	static const char *const from_text[] = {
+ 		[RK817_START_VOLTAGE] = "the voltage",
+ 		[RK817_START_COUNTER] = "the counter, off under 30 min",
+-		[RK817_START_CHARGER] = "the counter, a charger's start",
++		[RK817_START_CHARGER] = "the level before the power-off, a charger's start",
+ 		[RK817_START_NEW] = "the voltage, a battery new to the gauge",
+ 	};
+ 	struct rk808 *rk808 = charger->rk808;
+@@ -1112,7 +1162,7 @@ rk817_read_or_set_full_charge_on_boot(struct rk817_charger *charger,
+ 	int boot_ua, rest_uv, voltage_soc, counter_soc = -1;
+ 	int left_mah = -1, was_fcc, learned = 0, learns;
+ 	enum rk817_start_from from;
+-	char counter[16] = "none", wear[96];
++	char counter[16] = "none", kept[16] = "none", wear[96];
+ 	bool first_boot;
+ 
+ 	/*
+@@ -1209,8 +1259,8 @@ rk817_read_or_set_full_charge_on_boot(struct rk817_charger *charger,
+ 
+ 	from = rk817_start_from(first_boot, off_time * 10, boot_ua);
+ 	if (!first_boot)
+-		charger->soc = from == RK817_START_VOLTAGE ? voltage_soc :
+-							     counter_soc;
++		charger->soc = rk817_start_level(from, voltage_soc, counter_soc,
++						 left_mah, charger->fcc_mah);
+ 
+ 	/*
+ 	 * The full charge, measured at a start from the voltage at rest when
+@@ -1250,12 +1300,17 @@ rk817_read_or_set_full_charge_on_boot(struct rk817_charger *charger,
+ 	if (counter_soc >= 0)
+ 		snprintf(counter, sizeof(counter), "%d%%",
+ 			 (counter_soc + 500) / 1000);
++	/* The level kept before the power-off, beside the counter's drift */
++	if (left_mah >= 0)
++		snprintf(kept, sizeof(kept), "%d%%",
++			 (rk817_start_level(RK817_START_CHARGER, 0, 0, left_mah,
++					    was_fcc) + 500) / 1000);
+ 	dev_info(charger->dev,
+-		 "battery at start: %d%% from %s; off %d%s min, on 0x%02x, sampled %d mV at %d mA, at rest %d mV (%d%%), counter %s\n",
++		 "battery at start: %d%% from %s; off %d%s min, on 0x%02x, sampled %d mV at %d mA, at rest %d mV (%d%%), counter %s, kept %s\n",
+ 		 (charger->soc + 500) / 1000, from_text[from], off_time * 10,
+ 		 off_time >= 0xff ? "+" : "", on_source,
+ 		 (int)boot_voltage / 1000, boot_ua / 1000, rest_uv / 1000,
+-		 (voltage_soc + 500) / 1000, counter);
++		 (voltage_soc + 500) / 1000, counter, kept);
+ 	/* Copied into the start's log with the line above (its "battery at start: ") */
+ 	dev_info(charger->dev,
+ 		 "battery at start: full charge %d mAh of the design's %d, was %d, measures %d; %s\n",
