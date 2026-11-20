@@ -236,7 +236,7 @@ static shape line(float x0, float y0, float x1, float y1)
  * own parts in the boost color (`bf`, the share of the boost filled), so the
  * mark keeps its color: a fourth wave, and eight short rays between the
  * sun's. */
-#define MARK_CX 42.0f
+#define MARK_CX ((float)DS_LEVEL_MARK)
 #define DEG     ((float)M_PI / 180)
 
 static void wave(canvas *cv, float cx, float cy, float r, float half_deg, const float *col, float px)
@@ -350,9 +350,9 @@ void osdbar_look_plain(osdbar_look *l, int kind, int level, int max)
  * its mark, the big charging cell, and how far the end pushes out for it in
  * the first 30% of the charge, on out, so a press shows at once and a hold
  * reads as a fill. */
-#define TOP_GAP  12.0f
-#define CHARGE_W 36.0f
-#define CHARGE_H 30.0f
+#define TOP_GAP  ((float)DS_BOOST_GAP)
+#define CHARGE_W ((float)DS_BOOST_CHARGE_W)
+#define CHARGE_H ((float)DS_BOOST_CHARGE_H)
 static float stretch(float charge) { return ds_out(clampf(charge / 0.3f, 0, 1)); }
 
 static void mixc(float out[3], const float a[3], const float b[3], float t)

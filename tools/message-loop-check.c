@@ -73,6 +73,19 @@ static void tick_tint(app *a) { (void)a; }
 static void power_off(app *a) { power_calls++; a->running = false; }
 static void plat_volume_nudge(int d) { nudges[0] += d; }
 static void plat_brightness_nudge(int d) { nudges[1] += d; }
+/* The level keys as src/levels.c takes them: each press still a nudge */
+enum { BOOST_OPEN, BOOST_FILL, BOOST_HIDE };
+static bool levels_keys(in_state *in, int where)
+{
+	bool any = false;
+
+	(void)where;
+	if (in_repeat(in, IN_VOLUP)) { plat_volume_nudge(+1); any = true; }
+	if (in_repeat(in, IN_VOLDN)) { plat_volume_nudge(-1); any = true; }
+	if (in_repeat(in, IN_BRIGHTUP)) { plat_brightness_nudge(+1); any = true; }
+	if (in_repeat(in, IN_BRIGHTDN)) { plat_brightness_nudge(-1); any = true; }
+	return any;
+}
 static void draw_shelf(app *a) { (void)a; shelf_frames++; g_frame_no++; }
 static void ui_scrim_k(void *r, int game, float k)
 { (void)r; (void)game; assert(k >= 0 && k <= 1); }

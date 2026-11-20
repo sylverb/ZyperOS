@@ -103,7 +103,11 @@ window.ZYPER_TOKENS = {
     "bar": 8,
     "rail-inset": 23,
     "rail-ends": 90,
-    "rail-min": 18
+    "rail-min": 18,
+    "level-mark": 42,
+    "boost-gap": 12,
+    "boost-charge-w": 36,
+    "boost-charge-h": 30
   },
   "shape": {
     "radius-card": 22,

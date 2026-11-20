@@ -1241,7 +1241,7 @@ void plat_screen_colors_tick(bool now)
 
 void plat_screen_colors(const screen_colors *c, bool keep)
 {
-	panelgamma_color want = { c->temp, c->tint, c->contrast, c->gamma, 0 };
+	panelgamma_color want = { c->temp, c->tint, c->contrast, c->gamma, 0, 0 };
 
 	panelgamma_color_clamp(&want);
 	if (keep) {

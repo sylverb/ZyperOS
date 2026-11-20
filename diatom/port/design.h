@@ -138,6 +138,10 @@ static const char *const DS_TONE_ID[DS_THEMES][DS_TONES] = {
 #define DS_RAIL_INSET 23
 #define DS_RAIL_ENDS 90
 #define DS_RAIL_MIN 18
+#define DS_LEVEL_MARK 42
+#define DS_BOOST_GAP 12
+#define DS_BOOST_CHARGE_W 36
+#define DS_BOOST_CHARGE_H 30
 #define DS_RADIUS_CARD 22
 #define DS_RADIUS_PANEL 28
 #define DS_RADIUS_ROW 14

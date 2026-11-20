@@ -199,6 +199,10 @@ SPACE = [
     ("rail-inset",  23,  "the rail from the bottom edge"),
     ("rail-ends",   90,  "the rail's inset at both ends"),
     ("rail-min",    18,  "the rail marker's least length"),
+    ("level-mark",  42,  "the volume and brightness bar's mark: its middle, in from the pill's left end"),
+    ("boost-gap",   12,  "the bar's gap at the top, its thin mark in the middle, before the boost cells"),
+    ("boost-charge-w", 36, "the bar's charging cell before the boost opens, wide..."),
+    ("boost-charge-h", 30, "...and tall: big, so its fill is easy to see"),
 ]
 
 SHAPE = [
