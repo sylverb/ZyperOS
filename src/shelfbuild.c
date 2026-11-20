@@ -8,7 +8,7 @@
 #include "favorites.h"
 #include "gamedel.h"
 #include "homesys.h"
-#include "musec.h"
+#include "mp4c.h"
 #include "pico8.h"
 #include "pminstall.h"
 #include "savedlib.h"
@@ -278,7 +278,7 @@ static bool group_fill(app *a, int at, const char *name, const char *tag, const 
 	snprintf(a->sys.systems[at].name, CFG_STR, "%s", name);
 	snprintf(a->sys.systems[at].tag, sizeof a->sys.systems[at].tag, "%s", tag);
 	snprintf(a->sys.systems[at].card, CFG_STR, "%s", card);
-	/* ZyperOS's, not a console's: lime, as Muse is (see ZYPEROS_ACCENT) */
+	/* ZyperOS's, not a console's: lime, as MP4 is (see ZYPEROS_ACCENT) */
 	a->sys.systems[at].accent = ZYPEROS_ACCENT;
 	v->list.items = items;
 	v->list.count = n;
@@ -540,13 +540,13 @@ static void drop_recents_shelf(app *a)
 
 /* The game a collection's line names, on a system's shelf, on the home or
  * turned off it (sys_kept): its shelf and its place in every game of it
- * (sys_games). Never a group's, never Muse's. */
+ * (sys_games). Never a group's, never MP4's. */
 static bool coll_resolve(const app *a, const char *folder, const char *file, int *si, int *k)
 {
 	for (int i = 0; i < sys_kept(a); i++) {
 		const game_list *gl;
 
-		if (a->view[i].owner || is_muse(&a->sys.systems[i]) ||
+		if (a->view[i].owner || is_mp4(&a->sys.systems[i]) ||
 		    strcasecmp(a->sys.systems[i].folder, folder))
 			continue;
 		gl = sys_games_c(&a->view[i]);
@@ -913,12 +913,12 @@ void shelf_groups_rename(app *a)
 		snprintf(a->sys.systems[i].name, sizeof a->sys.systems[i].name, "%s", T(S_LIBRARY_COLLECTIONS));
 }
 
-/* Muse's shelf: a card per album, and which album each card is. Built in the
+/* MP4's shelf: a card per album, and which album each card is. Built in the
  * folder's own order, by artist; the order chosen for it is put on it by
  * sort_all once the setting has been read, the way every shelf's is. */
-static void muse_fill_view(sysview *v)
+static void mp4_fill_view(sysview *v)
 {
-	int n = g_muse.nalbums;
+	int n = g_mp4.nalbums;
 
 	if (n <= 0) return;
 	v->list.items = calloc((size_t)n, sizeof *v->list.items);
@@ -935,30 +935,30 @@ static void muse_fill_view(sysview *v)
 	}
 	v->list.count = n;
 	v->list.scanned = true;
-	muse_order_view(v);
+	mp4_order_view(v);
 }
 
-/* Muse's shelf in its order, v->sort: which album each card is, and each
+/* MP4's shelf in its order, v->sort: which album each card is, and each
  * card's entry from its album - the artist in `name`, the album in `title`,
  * which the card is called, and its folder in `file`, which is how a change
  * of order finds the album that was selected. Filled afresh rather than
  * sorted in place: an entry is only ever a copy of the library's names. The
  * letter jump goes by whatever the shelf is in order of. */
-void muse_order_view(sysview *v)
+void mp4_order_view(sysview *v)
 {
 	int k;
 
 	/* The arrays hold every album; the shelf is the kind it shows. */
 	if (!v->album) return;
-	v->list.count = ml_shelf_order_kind(&g_muse, (ml_order)v->sort, muse_kind_shown(),
+	v->list.count = ml_shelf_order_kind(&g_mp4, (ml_order)v->sort, mp4_kind_shown(),
 	                                    v->album);
 	for (k = 0; k < v->list.count; k++) {
 		game_entry *e = &v->list.items[k];
 		int al = v->album[k];
 
-		snprintf(e->name, sizeof e->name, "%s", g_muse.artists[muse_artist_of(al)].name);
-		snprintf(e->title, sizeof e->title, "%s", g_muse.albums[al].name);
-		muse_album_dir(al, e->file, sizeof e->file);
+		snprintf(e->name, sizeof e->name, "%s", g_mp4.artists[mp4_artist_of(al)].name);
+		snprintf(e->title, sizeof e->title, "%s", g_mp4.albums[al].name);
+		mp4_album_dir(al, e->file, sizeof e->file);
 	}
 	v->jump_by_name = v->sort == ML_BY_ARTIST;
 }
@@ -981,13 +981,13 @@ static bool free_name(const char *dir, const char *name, char *out, size_t n)
 }
 
 /* Songs loose at the top of Music/, in no folder, moved into Music/Singles,
- * where Muse reads them as an album (ml_album's `singles`): loose, they were
+ * where MP4 reads them as an album (ml_album's `singles`): loose, they were
  * on no shelf. Eric's call, 2026-10-05. A name already taken there gets " (2)"
  * and on, so nothing is overwritten. And Singles gets its cover, shipped with
  * ZyperOS (tools/gensingles.py), at Music/.media/Singles.png, where every
  * album's is kept, unless it already has one. A rename on the same card, so
  * it costs a folder read when there is nothing to move. */
-static void muse_tidy_singles(void)
+static void mp4_tidy_singles(void)
 {
 	char music[LIB_PATH], singles[LIB_PATH + 16];
 	char from[LIB_PATH * 2], to[LIB_PATH * 2 + 16];
@@ -1022,11 +1022,11 @@ static void muse_tidy_singles(void)
 		mkdir(singles, 0755);
 		snprintf(from, sizeof from, "%s/%s", music, loose[i]);
 		if (free_name(singles, loose[i], to, sizeof to) && rename(from, to) == 0) moved++;
-		else fprintf(stderr, "muse: could not move %s into %s\n", loose[i], ML_SINGLES);
+		else fprintf(stderr, "mp4: could not move %s into %s\n", loose[i], ML_SINGLES);
 	}
 	free(loose);
 	if (moved)
-		fprintf(stderr, "muse: moved %d loose song%s into Music/%s\n",
+		fprintf(stderr, "mp4: moved %d loose song%s into Music/%s\n",
 		        moved, moved == 1 ? "" : "s", ML_SINGLES);
 	singles_cover();
 }
@@ -1053,23 +1053,23 @@ void singles_cover(void)
 	copy_file(src, cover);
 }
 
-/* ---- Muse: albums filed under their artists -----------------------------
+/* ---- MP4: albums filed under their artists -----------------------------
  *
  * An album folder straight in Music/ is its own artist on the shelf, so
  * Trompe Le Monde sorted under T rather than with the Pixies. Its tags say who
- * it is by, and Muse's player reads them (src/muse/tags.h): with a clear
+ * it is by, and MP4's player reads them (src/mp4d/tags.h): with a clear
  * answer it moves to Music/<artist>/<album>, its cover and Album Art's memory
  * of it with it, and the shelf is read again once. Eric's call, 2026-10-05.
  *
  * Left where it is when the tags give no clear answer (a podcast, a mix), when
  * the answer is its own name, when Music/<artist>/<album> is already there,
- * and for now when Muse is playing from it. Never Singles, never a book. The
+ * and for now when MP4 is playing from it. Never Singles, never a book. The
  * player is not up at the first scan of a boot, so this happens a moment
  * after, one album at a time, from the main loop. */
 typedef struct { char dir[LIB_PATH]; unsigned asked; bool done; } flat_album;
 static flat_album *g_flat;
 static int         g_nflat;
-bool        g_muse_moved;            /* something moved: read it again */
+bool        g_mp4_moved;            /* something moved: read it again */
 
 /* The albums straight in Music/, after a scan. */
 static void flat_albums_find(void)
@@ -1078,14 +1078,14 @@ static void flat_albums_find(void)
 
 	free(g_flat);
 	g_nflat = 0;
-	g_flat = calloc((size_t)(g_muse.nalbums > 0 ? g_muse.nalbums : 1), sizeof *g_flat);
+	g_flat = calloc((size_t)(g_mp4.nalbums > 0 ? g_mp4.nalbums : 1), sizeof *g_flat);
 	if (!g_flat) return;
-	for (i = 0; i < g_muse.nalbums; i++) {
-		const ml_album *al = &g_muse.albums[i];
+	for (i = 0; i < g_mp4.nalbums; i++) {
+		const ml_album *al = &g_mp4.albums[i];
 		const char *p, *slash;
 
 		if (al->book || al->singles || al->n <= 0) continue;
-		p = g_muse.tracks[al->first].path;            /* Music/<album>/<track> */
+		p = g_mp4.tracks[al->first].path;            /* Music/<album>/<track> */
 		if (strncmp(p, "Music/", 6) || !(slash = strchr(p + 6, '/')) ||
 		    strchr(slash + 1, '/'))
 			continue;
@@ -1107,7 +1107,7 @@ static void folder_name(const char *in, char *out, size_t n)
 }
 
 /* Move Music/<album> under its artist. 1 moved, 0 left where it is, -1 not
- * now (Muse is playing from it). */
+ * now (MP4 is playing from it). */
 static int file_album(const char *rel, const char *artist)
 {
 	const char *album = strrchr(rel, '/') + 1;
@@ -1120,20 +1120,20 @@ static int file_album(const char *rel, const char *artist)
 
 	folder_name(artist, who, sizeof who);
 	if (!who[0] || !strcmp(who, album) || !strcmp(who, ML_SINGLES)) return 0;
-	for (k = 0; (t = musec_track(k)); k++)
+	for (k = 0; (t = mp4c_track(k)); k++)
 		if (!strncmp(t, rel, rl) && t[rl] == '/') return -1;
 
 	snprintf(from, sizeof from, "%s/%s", P_CARD, rel);
 	snprintf(dir, sizeof dir, "%s/Music/%s", P_CARD, who);
 	snprintf(to, sizeof to, "%s/%s", dir, album);
 	if (access(to, F_OK) == 0) {
-		fprintf(stderr, "muse: Music/%s stays: Music/%s/%s is there already\n",
+		fprintf(stderr, "mp4: Music/%s stays: Music/%s/%s is there already\n",
 		        album, who, album);
 		return 0;
 	}
 	mkdir(dir, 0755);
 	if (rename(from, to) != 0) {
-		fprintf(stderr, "muse: could not move Music/%s under Music/%s\n", album, who);
+		fprintf(stderr, "mp4: could not move Music/%s under Music/%s\n", album, who);
 		return 0;
 	}
 	/* Its cover, from Music/.media to the artist's. */
@@ -1146,13 +1146,13 @@ static int file_album(const char *rel, const char *artist)
 		rename(cfrom, cto);
 	}
 	/* And what Album Art remembers of it, so it is not fetched again. */
-	snprintf(key, sizeof key, "museart.%s", rel);
+	snprintf(key, sizeof key, "mp4art.%s", rel);
 	if (db_get_str(db_lib(), key, val, sizeof val, "") && val[0]) {
 		db_del(db_lib(), key);
-		snprintf(key, sizeof key, "museart.Music/%s/%s", who, album);
+		snprintf(key, sizeof key, "mp4art.Music/%s/%s", who, album);
 		db_set_str(db_lib(), key, val);
 	}
-	fprintf(stderr, "muse: filed Music/%s under Music/%s\n", album, who);
+	fprintf(stderr, "mp4: filed Music/%s under Music/%s\n", album, who);
 	return 1;
 }
 
@@ -1169,13 +1169,13 @@ bool flat_albums_waiting(void)
 
 /* One step: take what the player has answered, and ask about the next album.
  * From the main loop and the transfer screen's. */
-void muse_file_albums(void)
+void mp4_file_albums(void)
 {
 	char dir[LIB_PATH * 2], name[256];
 	unsigned now = plat_now_ms();
 	int i;
 
-	while (musec_artist_take(dir, sizeof dir, name, sizeof name))
+	while (mp4c_artist_take(dir, sizeof dir, name, sizeof name))
 		for (i = 0; i < g_nflat; i++) {
 			int r;
 
@@ -1183,7 +1183,7 @@ void muse_file_albums(void)
 			r = name[0] ? file_album(dir, name) : 0;
 			if (r < 0) { g_flat[i].asked = 0; break; }   /* playing: ask later */
 			g_flat[i].done = true;
-			if (r > 0) g_muse_moved = true;
+			if (r > 0) g_mp4_moved = true;
 			break;
 		}
 	/* One at a time: the next once this one is answered, or after five
@@ -1191,51 +1191,51 @@ void muse_file_albums(void)
 	for (i = 0; i < g_nflat; i++) {
 		if (g_flat[i].done) continue;
 		if (g_flat[i].asked && now - g_flat[i].asked < 5000) return;
-		if (musec_artist_ask(g_flat[i].dir)) g_flat[i].asked = now ? now : 1;
+		if (mp4c_artist_ask(g_flat[i].dir)) g_flat[i].asked = now ? now : 1;
 		return;
 	}
 }
 
-/* Muse's card, at the end of the shelf, when there is music to play.
+/* MP4's card, at the end of the shelf, when there is music to play.
  *
  * After Favorites and after the empty systems are hidden, so it is neither
  * compacted away for having no games nor shifted by Favorites being inserted
  * in front: it is appended, and every later insertion moves it along with
- * everything else. Its view holds the albums - see muse_fill_view - so A on
+ * everything else. Its view holds the albums - see mp4_fill_view - so A on
  * the card opens a shelf of their covers, the way a console's opens its
  * games.
  *
  * Hidden when the folder is empty or missing, the same rule an empty system
  * and an empty Favorites shelf follow: a card should lead somewhere. */
-static void build_muse_shelf(app *a)
+static void build_mp4_shelf(app *a)
 {
 	system_cfg *s;
 	int i;
 
 	/* Everything indexed by album goes with the albums: a rescan can put a
 	 * different album at every index. */
-	g_muse_gen++;
+	g_mp4_gen++;
 	g_nflat = 0;
-	ml_free(&g_muse);
+	ml_free(&g_mp4);
 	free(g_cov);
 	g_cov = NULL;
 	free(g_book_done);
 	g_book_done = NULL;
 	np_forget();
-	snprintf(g_muse_root, sizeof g_muse_root, "%s", P_CARD);
-	muse_tidy_singles();
-	if (!ml_scan_card(g_muse_root, &g_muse) || g_muse.ntracks == 0) {
-		fprintf(stderr, "scan: %-16s no music, books or videos in %s\n", "MP4", g_muse_root);
+	snprintf(g_mp4_root, sizeof g_mp4_root, "%s", P_CARD);
+	mp4_tidy_singles();
+	if (!ml_scan_card(g_mp4_root, &g_mp4) || g_mp4.ntracks == 0) {
+		fprintf(stderr, "scan: %-16s no music, books or videos in %s\n", "MP4", g_mp4_root);
 		return;
 	}
-	g_cov = calloc((size_t)g_muse.nalbums, sizeof *g_cov);
-	g_book_done = calloc((size_t)g_muse.nalbums, sizeof *g_book_done);
-	if (!g_book_done) { ml_free(&g_muse); return; }
+	g_cov = calloc((size_t)g_mp4.nalbums, sizeof *g_cov);
+	g_book_done = calloc((size_t)g_mp4.nalbums, sizeof *g_book_done);
+	if (!g_book_done) { ml_free(&g_mp4); return; }
 	flat_albums_find();
-	for (i = 0; i < g_muse.nalbums; i++) {
+	for (i = 0; i < g_mp4.nalbums; i++) {
 		char key[LIB_PATH + 8], val[16];
 
-		if (!g_muse.albums[i].book) continue;
+		if (!g_mp4.albums[i].book) continue;
 		book_key(i, key, sizeof key);
 		db_get_str(db_dev(), key, val, sizeof val, "");
 		g_book_done[i] = !strcmp(val, "finished");
@@ -1247,12 +1247,12 @@ static void build_muse_shelf(app *a)
 		 * before kept "music" or "videos" - often not chosen at all but
 		 * left by the shelf following what played - so it starts on All
 		 * once, and a kind chosen after that is kept. */
-		if (!db_has(db_dev(), "muse.show_all_once")) {
-			db_set_str(db_dev(), "muse.show", "all");
-			db_set_str(db_dev(), "muse.show_all_once", "1");
+		if (!db_has(db_dev(), "mp4.show_all_once")) {
+			db_set_str(db_dev(), "mp4.show", "all");
+			db_set_str(db_dev(), "mp4.show_all_once", "1");
 		}
-		db_get_str(db_dev(), "muse.show", show, sizeof show, "all");
-		g_muse_kind = !strcmp(show, "books") ? ML_BOOKS : !strcmp(show, "videos") ? ML_VIDEOS
+		db_get_str(db_dev(), "mp4.show", show, sizeof show, "all");
+		g_mp4_kind = !strcmp(show, "books") ? ML_BOOKS : !strcmp(show, "videos") ? ML_VIDEOS
 		            : !strcmp(show, "music") ? ML_MUSIC : ML_ALL;
 	}
 	if (sys_kept(a) >= CFG_MAX_SYSTEMS) return;
@@ -1260,17 +1260,17 @@ static void build_muse_shelf(app *a)
 	i = a->sys.count;
 	shelf_insert(a, i);
 	s = &a->sys.systems[i];
-	/* MP4, the media player, which was Muse when it played sound alone
-	 * (2026-11-05). The tag and the card's file keep the old name:
-	 * settings and themes are keyed by them. */
+	/* MP4, the media player, once the audio player Muse (until 2026-11-05).
+	 * The tag and the card's file keep that name, MUSE: settings and themes
+	 * are keyed by them, and a card's .last. */
 	snprintf(s->name, CFG_STR, "%s", "MP4");
 	snprintf(s->tag, sizeof s->tag, "%s", "MUSE");
 	snprintf(s->card, CFG_STR, "%s", "MUSE.png");
 	s->accent = ZYPEROS_ACCENT;
-	muse_fill_view(&a->view[i]);
+	mp4_fill_view(&a->view[i]);
 	fprintf(stderr, "scan: %-16s %d artists, %d albums, %d books, %d videos, %d tracks\n", "MP4",
-	        g_muse.nartists, ml_count(&g_muse, false), ml_count(&g_muse, true),
-	        ml_count_kind(&g_muse, ML_VIDEOS), g_muse.ntracks);
+	        g_mp4.nartists, ml_count(&g_mp4, false), ml_count(&g_mp4, true),
+	        ml_count_kind(&g_mp4, ML_VIDEOS), g_mp4.ntracks);
 }
 
 /* ---------- the saved library (src/savedlib.h) ---------------------------
@@ -1724,7 +1724,7 @@ int scan_all_from(app *a, saved_lib *saved, bool save)
 	 * written by hand, shows after a rescan as a game does */
 	coll_load(P_CARD);
 	build_collections_shelf(a);
-	build_muse_shelf(a);
+	build_mp4_shelf(a);
 	pm_offer_refresh(a);
 	return from_saved;
 }
@@ -1915,7 +1915,7 @@ static void rebuild(app *a, saved_lib *pre, bool keep_place)
 	for (i = 0; i < sys_kept(a); i++) {
 		free(a->view[i].tex); free(a->view[i].tw); free(a->view[i].th);
 		free(a->view[i].cb);
-		free(a->view[i].album);                         /* Muse's, else NULL */
+		free(a->view[i].album);                         /* MP4's, else NULL */
 		lib_free(&a->view[i].list);
 		shelf_dirs_free(&a->view[i]);
 		memset(&a->view[i], 0, sizeof a->view[i]);

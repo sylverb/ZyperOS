@@ -1,6 +1,6 @@
 # ZyperOS. The device builds, for the TrimUI Brick and the GKD Pixel 2, are
 # plastron's (plastron/ in this repository): its Buildroot builds the
-# launcher and Muse with mk/cross.mk and lays out the card with mk/payload.sh,
+# launcher and MP4 with mk/cross.mk and lays out the card with mk/payload.sh,
 # and the version below is read from here. What this Makefile does is the rest:
 # the offline checks, a host build of the launcher, the cores, and the assets.
 # docs/building.md says how to work on a device.
@@ -8,7 +8,7 @@
 .PHONY: all clean native desk desk-brick handhelds px2-payload vendor boot system-art checkmark \
         check check-cheevos check-hare check-portal check-httpd check-idle check-taskhold check-saver check-rahash check-flacdec check-achtab check-signin check-search \
         check-raset check-xfer check-sshlink check-usblink check-devmode check-devices check-devicegen check-model check-ctl check-menus check-status check-battery check-corner check-artscrape check-artrun check-sgdb check-snapshelf check-snaps check-audioout \
-        check-db check-coreopts check-gpuframes check-gamedel check-gamern check-esmedia check-corepins check-targets yuvtarget check-storage check-stats check-sort check-bt check-ss check-titles check-dsv check-sidelights check-osdbar check-boost check-hud check-dmodefit check-themefile check-pkkeys check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-bios check-gamefile check-startfail check-kbnav check-tween check-menumotion check-menusnap check-cardgen check-cardart check-focusfx check-blur check-gridrule check-screencard check-focusgeo check-roundrect check-rowmacro check-emptyhome check-zyperrig check-randgame check-shelfdir \
+        check-db check-coreopts check-mp4keys check-gpuframes check-gamedel check-gamern check-esmedia check-corepins check-targets yuvtarget check-storage check-stats check-sort check-bt check-ss check-titles check-dsv check-sidelights check-osdbar check-boost check-hud check-dmodefit check-themefile check-pkkeys check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-bios check-gamefile check-startfail check-kbnav check-tween check-menumotion check-menusnap check-cardgen check-cardart check-focusfx check-blur check-gridrule check-screencard check-focusgeo check-roundrect check-rowmacro check-emptyhome check-zyperrig check-randgame check-shelfdir \
         check-sysmark check-flip check-menushots check-controls-shots check-design check-systemart check-linebreak check-portload check-portout \
         check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-messages check-tour check-tour-shots check-textfade check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pico8 check-pico8-wget check-pmhelper check-portdoc check-boottheme check-splashbright check-bootbright check-seed-version check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr check-autozone \
         check-home check-home-shots check-games check-cardpaint check-putpace landbench check-favorites-shots check-homesys-groups check-np-footer check-vidtry check-menu-rows check-layout-shots check-artbadge check-artbadge-shots check-cardart-shots design sounds strings cjk-font check-strings check-i18n-shots check-rootswitch check-datapart check-brick-closed check-hwreport \
@@ -46,8 +46,8 @@ src/i18n_tables.c: $(wildcard res/strings/*.txt) tools/i18n.py
 # exist, and check-menus was about to join eight others in that state.
 CHECKS = check-cheevos check-hare check-portal check-httpd check-idle check-taskhold check-saver check-rahash check-flacdec check-achtab check-rasubmit check-raoffline check-radl check-dlq check-cheats check-signin check-noticeq check-badges check-badge-shots \
          check-raset check-xfer check-sshlink check-usblink check-devmode check-devices check-devicegen check-model check-ctl check-menus check-artscrape check-artrun check-sgdb check-snapshelf check-snaps check-audioout \
-         check-db check-coreopts check-gamedel check-gamern check-esmedia check-media check-snapsize check-corepins check-targets check-storage check-stats check-sort check-bt check-ss check-titles check-savedlib check-search \
-         check-muselib check-musequeue check-museart check-mp4lock check-mp4look check-mp4views check-bands check-covercolor check-mp4frame check-mp4size check-p2share check-webtheme check-p2ws check-p2codec check-p2d check-play check-p2 check-resident check-spawn check-controls check-remap check-hotkeys check-rumble check-eq check-eqdsp check-eqplugin check-controls-shots check-logpack \
+         check-db check-coreopts check-mp4keys check-gamedel check-gamern check-esmedia check-media check-snapsize check-corepins check-targets check-storage check-stats check-sort check-bt check-ss check-titles check-savedlib check-search \
+         check-mp4lib check-mp4queue check-mp4art check-mp4lock check-mp4look check-mp4views check-bands check-covercolor check-mp4frame check-mp4size check-p2share check-webtheme check-p2ws check-p2codec check-p2d check-play check-p2 check-resident check-spawn check-controls check-remap check-hotkeys check-rumble check-eq check-eqdsp check-eqplugin check-controls-shots check-logpack \
          check-clock check-autozone check-status check-battery check-battery-eta check-dslang check-pacing check-gpuframes check-dsresume check-corestate check-core-stamp check-core-room check-px2-perf check-px2-snap check-px2 check-lowbatt check-powerhold check-homesys check-collect check-heat check-charging check-corner check-dsv check-sidelights check-osdbar check-boost check-hud check-dmodefit check-themefile check-pkkeys check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-bios check-gamefile check-startfail check-kbnav check-randgame check-shelfdir check-look \
          check-tween check-menumotion check-menusnap check-cardgen check-cardart check-focusfx check-blur check-gridrule check-screencard check-focusgeo check-roundrect check-rowmacro check-emptyhome check-zyperrig check-sysmark check-flip check-menushots check-design \
          check-systemart check-linebreak check-portload check-portout check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-messages \
@@ -280,12 +280,12 @@ build-native/cheevos-check: tools/cheevos-check.c src/cheevos.c src/cheevos.h \
 check-hare: build-native/hare-check
 	@./build-native/hare-check
 
-build-native/hare-check: tools/hare-check.c src/hare.c src/sheet.c src/clients.c src/httpd.c src/xfer.c src/muselib.c src/captive.c $(I18N_SRC) FORCE
+build-native/hare-check: tools/hare-check.c src/hare.c src/sheet.c src/clients.c src/httpd.c src/xfer.c src/mp4lib.c src/captive.c $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -Wno-unused-parameter -D_GNU_SOURCE -O1 -g \
 	      -DHARE_PORTS=0 -DPICK_TMP='"$(CURDIR)/build-native/hare-check-albumpick"' \
 	      -DART_NAMES_TMP='"$(CURDIR)/build-native/hare-check-artnames"' -DREPO_WEB='"$(CURDIR)/res/web"' \
-	      -o $@ tools/hare-check.c src/hare.c src/sheet.c src/clients.c src/httpd.c src/xfer.c src/muselib.c src/captive.c $(I18N_SRC) -lz
+	      -o $@ tools/hare-check.c src/hare.c src/sheet.c src/clients.c src/httpd.c src/xfer.c src/mp4lib.c src/captive.c $(I18N_SRC) -lz
 
 # The File Transfer page on the host, over a scratch card: the same routes and
 # server, for a browser and for tools/readme-shots.py's pictures of the page.
@@ -296,12 +296,12 @@ build-native/hare-check: tools/hare-check.c src/hare.c src/sheet.c src/clients.c
 check-portal: build-native/portal-serve
 	@python3 tools/portal-check.py
 
-build-native/portal-serve: tools/portal-serve.c src/hare.c src/sheet.c src/clients.c src/httpd.c src/xfer.c src/muselib.c src/captive.c src/look.c $(I18N_SRC) FORCE
+build-native/portal-serve: tools/portal-serve.c src/hare.c src/sheet.c src/clients.c src/httpd.c src/xfer.c src/mp4lib.c src/captive.c src/look.c $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -Wno-unused-parameter -D_GNU_SOURCE -O1 -g \
 	      -DHARE_PORTS=0 -DPICK_TMP='"$(CURDIR)/build-native/portal-serve-albumpick"' \
 	      -DART_NAMES_TMP='"$(CURDIR)/build-native/portal-serve-artnames"' \
-	      -o $@ tools/portal-serve.c src/hare.c src/sheet.c src/clients.c src/httpd.c src/xfer.c src/muselib.c src/captive.c src/look.c $(I18N_SRC) -lz -lm
+	      -o $@ tools/portal-serve.c src/hare.c src/sheet.c src/clients.c src/httpd.c src/xfer.c src/mp4lib.c src/captive.c src/look.c $(I18N_SRC) -lz -lm
 
 # Hare's transport, driven by a real client over a real socket. An HTTP parser
 # is where "looks right" and "is right" part company: every browser sends the
@@ -929,7 +929,7 @@ build-native/message-check: tools/message-check.c src/message.c src/message.h sr
 # still waiting for the panel before it, makes its own the one that leaves
 # next - and a held d-pad that starts nothing over (REPEAT_RATE_MS, read from
 # src/keyrepeat.h), MENU deep in a submenu unwinding every level with the
-# panel on screen leaving once, and MENU in Muse's menu bringing back what is
+# panel on screen leaving once, and MENU in MP4's menu bringing back what is
 # under it; and, read from src/main.c with its comments taken out, the
 # in-game menu's close reading input, ended by a press, stopping the game on
 # power, drawn before RESUME and nothing after. No SDL.
@@ -2273,6 +2273,19 @@ build-native/coreopts-check: tools/coreopts-check.c src/coreopts.c src/coreopts.
 	      -o $@ tools/coreopts-check.c src/coreopts.c src/db.c src/atomic.c src/strength.c \
 	      src/device/pixel2_coreopts.c -lsqlite3 -lpthread
 
+# MP4's settings under its own name (src/mp4keys.h): a handheld's "muse."
+# settings from before 1.1.0 moved under "mp4." at its first start, each
+# value kept; the new one kept where both are; nothing for a second start
+check-mp4keys: build-native/mp4keys-check
+	@./build-native/mp4keys-check
+
+build-native/mp4keys-check: tools/mp4keys-check.c src/mp4keys.c src/mp4keys.h src/db.c src/db.h \
+                            src/atomic.c src/strength.c FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Isrc \
+	      -o $@ tools/mp4keys-check.c src/mp4keys.c src/db.c src/atomic.c src/strength.c \
+	      -lsqlite3 -lpthread
+
 # The saved library a start shows before it reads the card (src/savedlib.h):
 # a listing written, read and finished is lib_scan's, the check's digest sees
 # changes and not order, and nothing but a whole file is read as one; then
@@ -2428,15 +2441,15 @@ build-native/bt-check: tools/bt-check.c tools/legend.h src/bt.c src/bt.h src/bt_
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
 	      -o $@ tools/bt-check.c src/bt.c src/bt_menu.c src/keyhints.c src/spawn.c $(I18N_SRC)
 
-# Muse's view of the Music folder: the two shapes it reads, the litter a Mac
+# MP4's view of the Music folder: the two shapes it reads, the litter a Mac
 # leaves beside every track, and where an album's cover is kept.
-check-muselib: build-native/muselib-check
-	@./build-native/muselib-check
+check-mp4lib: build-native/mp4lib-check
+	@./build-native/mp4lib-check
 
-build-native/muselib-check: tools/muselib-check.c src/muselib.c src/muselib.h $(I18N_SRC) FORCE
+build-native/mp4lib-check: tools/mp4lib-check.c src/mp4lib.c src/mp4lib.h $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
-	      -o $@ tools/muselib-check.c src/muselib.c $(I18N_SRC)
+	      -o $@ tools/mp4lib-check.c src/mp4lib.c $(I18N_SRC)
 
 # The logs pack: names and Bluetooth addresses masked, and a whole pack
 # unpacked with the same tar and read back.
@@ -2483,17 +2496,17 @@ build-native/covercolor-check: tools/covercolor-check.c src/covercolor.c src/cov
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
 	      -o $@ tools/covercolor-check.c src/covercolor.c -lm
 
-# The daemon's bands for the bars (src/muse/bands.h): each band lit by a tone
+# The daemon's bands for the bars (src/mp4d/bands.h): each band lit by a tone
 # at its own middle, silence dark, the window where the listener is and not
 # where the decoder got to, and its time. `build-native/bands-check --song
 # FILE` plays a song through it, which is how its scale was set.
 check-bands: build-native/bands-check
 	@./build-native/bands-check
 
-build-native/bands-check: tools/bands-check.c src/muse/bands.c src/muse/bands.h FORCE
+build-native/bands-check: tools/bands-check.c src/mp4d/bands.c src/mp4d/bands.h FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O2 -g \
-	      -o $@ tools/bands-check.c src/muse/bands.c -lm -lpthread
+	      -o $@ tools/bands-check.c src/mp4d/bands.c -lm -lpthread
 
 build-native/mp4lock-check: tools/mp4lock-check.c src/mp4lock.c src/mp4lock.h src/inbutton.h FORCE
 	@mkdir -p build-native
@@ -2521,7 +2534,7 @@ build-native/mp4frame-check: tools/mp4frame-check.c src/mp4frame.h FORCE
 
 # MP4's video picture of any shape - 4:3 (1440x1080, 480x360), 16:9, odd,
 # tiny, the largest, the size changing inside one file - published as
-# src/muse/vid.c publishes it and read by src/mp4video.c into its texture: as
+# src/mp4d/vid.c publishes it and read by src/mp4video.c into its texture: as
 # wide as the frame's rows, a multiple of 128 (src/mp4frame.h, mpf_stride: the
 # Pixel 2's Mesa ran past a texture's buffer for other widths), each plane
 # fitting Mesa's tile buffer as rows, drawn whole from its own rectangle,
@@ -2647,24 +2660,24 @@ build-native/p2-check: tools/p2-check.c src/p2.c src/p2.h src/hotspot.h src/p2sh
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
 	      -o $@ tools/p2-check.c src/p2.c
 
-check-musequeue: build-native/musequeue-check
-	@./build-native/musequeue-check
+check-mp4queue: build-native/mp4queue-check
+	@./build-native/mp4queue-check
 
-build-native/musequeue-check: tools/musequeue-check.c src/musequeue.c src/musequeue.h FORCE
+build-native/mp4queue-check: tools/mp4queue-check.c src/mp4queue.c src/mp4queue.h FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
-	      -o $@ tools/musequeue-check.c src/musequeue.c
+	      -o $@ tools/mp4queue-check.c src/mp4queue.c
 
 # Album covers from MusicBrainz: the rule that picks the record, against what
 # MusicBrainz said about the first card's albums, and a run on stubbed network.
-check-museart: build-native/museart-check
-	@./build-native/museart-check
+check-mp4art: build-native/mp4art-check
+	@./build-native/mp4art-check
 
-build-native/museart-check: tools/museart-check.c src/museart.c src/museart.h \
+build-native/mp4art-check: tools/mp4art-check.c src/mp4art.c src/mp4art.h \
                             src/urlenc.c src/rajson.c tools/fixtures/musicbrainz/*.json $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
-	      -o $@ tools/museart-check.c src/museart.c src/urlenc.c src/rajson.c $(I18N_SRC)
+	      -o $@ tools/mp4art-check.c src/mp4art.c src/urlenc.c src/rajson.c $(I18N_SRC)
 
 # src/zypermark.h is Zyper as triangles, generated from tools/zyperdef.py
 # because C cannot import it; this proves it is current, and that the ground
@@ -2884,7 +2897,7 @@ check-homesys-groups: native
 check-np-footer: native
 	@'$(PYIMG)' tools/np-footer-check.py
 
-# Whether a video is too big for the CPU, which MP4 then says (src/muse/vidtry.h):
+# Whether a video is too big for the CPU, which MP4 then says (src/mp4d/vidtry.h):
 # the pictures shown and dropped the Pixel 2 measured with dav1d (720p60 and
 # 1080p30 AV1 never, 1080p60 within 6 s), taken back when it turns light, a
 # seek's catch-up not counted
@@ -2892,7 +2905,7 @@ check-np-footer: native
 check-vidtry: build-native/vidtry-check
 	@./build-native/vidtry-check
 
-build-native/vidtry-check: tools/vidtry-check.c src/muse/vidtry.h src/mp4frame.h FORCE
+build-native/vidtry-check: tools/vidtry-check.c src/mp4d/vidtry.h src/mp4frame.h FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -o $@ tools/vidtry-check.c
 
@@ -2948,7 +2961,7 @@ check-tour-previews: native
 
 .PHONY: check-games
 # A video snap of any shape - 640x480, a Nintendo DS game's 320x480, a Game
-# Boy game's, 534x480, a width of 1, odd ones - published as Muse publishes
+# Boy game's, 534x480, a width of 1, odd ones - published as MP4 publishes
 # it, read into its texture and drawn on the shelf and on a game's Cover and
 # Video page: its own shape where it is drawn, a texture never under 640x480
 # (src/mp4frame.h, mpf_tex_size: the Pixel 2's GPU faulted on narrower ones),

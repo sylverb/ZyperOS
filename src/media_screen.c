@@ -13,7 +13,7 @@
 #include "mediapage.h"
 #include "mediatex.h"
 #include "menumotion.h"
-#include "musec.h"
+#include "mp4c.h"
 #include "net.h"
 #include "panel.h"
 #include "snaps.h"
@@ -515,7 +515,7 @@ static void media_watch(media_view *v)
 	app *a = v->a;
 
 	snap_ask("", false);
-	g_snap_force_vol = musec_heard() ? 0 : 100;
+	g_snap_force_vol = mp4c_heard() ? 0 : 100;
 	snap_ask(v->snap, false);
 	g_snap_force_vol = -1;
 	while (!want_quit && a->running) {
@@ -669,7 +669,7 @@ void media_screen(app *a, int owner, const game_entry *g)
 		int nt;
 
 		plat_input_poll(&a->in);
-		muse_poll();
+		mp4_poll();
 		aout_apply(false);
 		if (a->in.quit_requested) { a->running = false; break; }
 		if (a->in.pressed[IN_POWER] || idle_due(a)) { mf_end(); snap_off(); power_off(a); break; }

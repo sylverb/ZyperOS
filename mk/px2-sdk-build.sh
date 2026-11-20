@@ -4,7 +4,7 @@
 # diatom/build/pixel2, and the cores at /zyperos-vendor. The same steps as
 # plastron's zyperos and diatom packages (buildroot/package/zyperos,
 # buildroot/package/diatom), with the SDK's compiler and sysroot in place of
-# Buildroot's: mk/cross.mk for the launcher, Muse, portkeys, System
+# Buildroot's: mk/cross.mk for the launcher, MP4, portkeys, System
 # Update's program and p2d (NES Player 2's server), Diatom's own Makefile,
 # then mk/payload.sh.
 set -eu
@@ -40,7 +40,7 @@ fi
 SS_DEVID="$(sed -n 's/^SS_DEVID=//p' /zyperos-ss.env 2> /dev/null | head -1)" \
 SS_DEVPASS="$(sed -n 's/^SS_DEVPASS=//p' /zyperos-ss.env 2> /dev/null | head -1)" \
 	make -s -f mk/cross.mk BUILD=$B creds
-# The Pixel 2's programs (mk/cross.mk's device-programs: the launcher, Muse
+# The Pixel 2's programs (mk/cross.mk's device-programs: the launcher, MP4
 # and the helpers config/device/pixel2.mk lists), and Diatom for its port
 make -j"$JOBS" -f mk/cross.mk CC="$CC" SYSROOT="$SYSROOT" DEVICE=pixel2 BUILD=$B \
 	VERSION="$VERSION" device-programs
@@ -53,7 +53,7 @@ if [ -n "${PROGRAMS_ONLY:-}" ]; then
 	P=$B/programs/ZyperOS
 	rm -rf "$B/programs"
 	mkdir -p "$P"
-	for f in zyperos.elf muse portkeys zyperos-update zyhome p2d; do
+	for f in zyperos.elf mp4d portkeys zyperos-update zyhome p2d; do
 		[ -f "$B/$f" ] && "$STRIP" -o "$P/$f" "$B/$f"
 	done
 	"$STRIP" -o "$P/diatom" "diatom/build/$PORT/diatom"
@@ -62,7 +62,7 @@ if [ -n "${PROGRAMS_ONLY:-}" ]; then
 fi
 
 DEVICE=pixel2 OUT=/zyperos/$B/payload VERSION="$VERSION" \
-	ZYPEROS_ELF=$B/zyperos.elf MUSE_ELF=$B/muse PORTKEYS_ELF=$B/portkeys ZYHOME_ELF=$B/zyhome \
+	ZYPEROS_ELF=$B/zyperos.elf MP4D_ELF=$B/mp4d PORTKEYS_ELF=$B/portkeys ZYHOME_ELF=$B/zyhome \
 	UPDATE_ELF=$B/zyperos-update P2D_ELF=$B/p2d DIATOM_ELF="diatom/build/$PORT/diatom" \
 	VENDOR_DIR=/zyperos-vendor sh mk/payload.sh
 # The image's tools for SSH (plastron's zyperos.mk builds them for /usr/bin),
@@ -73,6 +73,6 @@ for t in px2-shot px2-input px2-perf; do
 	"$STRIP" "$B/$t"
 done
 # Stripped, as plastron's image strips every program it carries
-for f in zyperos.elf muse portkeys zyperos-update zyhome p2d diatom; do
+for f in zyperos.elf mp4d portkeys zyperos-update zyhome p2d diatom; do
 	"$STRIP" "$B/payload/ZyperOS/$f"
 done

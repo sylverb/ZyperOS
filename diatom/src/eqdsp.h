@@ -6,7 +6,7 @@
 #define ZYPEROS_EQDSP_H
 
 /* The equalizer's sound: five bands, one filter each, the same everywhere
- * ZyperOS makes or passes on sound - MP4 (src/muse/muse.c), the menu music
+ * ZyperOS makes or passes on sound - MP4 (src/mp4d/mp4d.c), the menu music
  * (src/bgm_out.c), a game (Diatom's src/audio.c, a copy of this file) and a
  * port (plastron's zyperos-eq LADSPA plugin, a copy too). The settings and
  * the presets are the launcher's (src/eq.h); this is the arithmetic alone,

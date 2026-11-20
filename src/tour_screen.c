@@ -84,7 +84,7 @@ static void tour_skip_message(app *a)
 
 		plat_input_poll(&a->in);
 		/* As tour_run follows them, and menu_run_body */
-		muse_poll();
+		mp4_poll();
 		aout_apply(false);
 		if (a->in.quit_requested) { a->running = false; return; }
 		if (a->in.pressed[IN_POWER] || idle_due(a)) { power_off(a); return; }
@@ -175,12 +175,12 @@ void tour_run(app *a, bool first)
 		uint32_t now;
 
 		plat_input_poll(&a->in);
-		/* Where the sound goes, and Muse's answers, as menu_run_body follows
+		/* Where the sound goes, and MP4's answers, as menu_run_body follows
 		 * them: a cable or a headset during the tour is heard at once - its
 		 * sounds' route is set here before its first press, at boot too -
 		 * and an album playing under MENU > Show Tutorial goes on to its
 		 * next track (#45). */
-		muse_poll();
+		mp4_poll();
 		aout_apply(false);
 		if (a->in.quit_requested) { a->running = false; break; }
 		now = plat_now_ms();

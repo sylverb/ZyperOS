@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-#ifndef ZYPEROS_MUSELIB_H
-#define ZYPEROS_MUSELIB_H
+#ifndef ZYPEROS_MP4LIB_H
+#define ZYPEROS_MP4LIB_H
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -8,7 +8,7 @@
 #include "library.h"
 
 /* What is in /mnt/SDCARD/Music, /mnt/SDCARD/Audiobooks and /mnt/SDCARD/Videos,
- * as MP4's shelf (once Muse's) browses it: artists, their albums, and each
+ * as MP4's shelf browses it: artists, their albums, and each
  * album's tracks. A book is an album that came from Audiobooks - an author,
  * the book, its files - and is read by the same two shapes; what differs is
  * what the launcher does with it. So is a folder of videos - a series and its
@@ -29,7 +29,7 @@
  *
  * Tracks sort by file name, which puts "01 ..." before "02 ..."; the number
  * is then taken off the name that is shown. Pure: directory reads and nothing
- * else, so tools/muselib-check.c can hand it a folder and look. */
+ * else, so tools/mp4lib-check.c can hand it a folder and look. */
 
 typedef struct { char name[128]; char path[LIB_PATH]; } ml_track;
 
@@ -80,7 +80,7 @@ void ml_free(ml_lib *lib);
 bool ml_is_audio(const char *name);
 /* Whether a file name is a video MP4 plays, by extension: what Videos lists.
  * Which of them play at full speed is a matter of size and codec, not of
- * name; see src/muse/vid.c. */
+ * name; see src/mp4d/vid.c. */
 bool ml_is_video(const char *name);
 
 /* The name a track is shown by: no extension, and no leading track number -
@@ -123,14 +123,14 @@ void ml_cover_base(const char *root, const ml_lib *l, int al, char *out, size_t 
  * files carry no picture of their own. */
 bool ml_folder_image(const char *root, const ml_lib *l, int al, char *out, size_t n);
 
-/* The orders Muse's shelf can be in, which its menu's Sort By steps through.
+/* The orders MP4's shelf can be in, which its menu's Sort By steps through.
  *
  * By artist is the folder's own order, the scan's: artists alphabetically,
  * then each one's albums. By album is the same albums by their own titles, the
  * artist breaking a tie - two artists can each have a "Greatest Hits". Case
  * does not count and leading articles do, in both, as on a games shelf.
  *
- * Nothing here orders by date or by listening. Muse keeps no record of what
+ * Nothing here orders by date or by listening. MP4 keeps no record of what
  * was played, and the card knows no release years - the tags that carry them
  * are read by the daemon, not the scan. */
 typedef enum { ML_BY_ARTIST, ML_BY_ALBUM, ML_ORDERS } ml_order;

@@ -5,7 +5,7 @@
 #include "boost.h"
 #include "db.h"
 #include "eq.h"
-#include "musec.h"
+#include "mp4c.h"
 #include "rumble.h"
 
 #include <stdio.h>
@@ -17,7 +17,7 @@ static struct {
 	boost_bar bar[2];
 	bool up_was[2];       /* the key going up was down last frame */
 	int where;            /* the volume's place, last frame */
-	int db_told;          /* the gain last given to Muse and the file */
+	int db_told;          /* the gain last given to MP4 and the file */
 } L = { .db_told = -1 };
 
 static const char *const KEEP[2] = { "volume_boost", "brightness_boost" };
@@ -28,7 +28,7 @@ static int kind_of(int k) { return k == 0 ? OSDBAR_VOLUME : OSDBAR_BRIGHT; }
 static int device_level(int k) { return k == 0 ? plat_volume_get() : plat_brightness_get(); }
 static int device_max(int k) { return k == 0 ? PLAT_VOL_MAX : PLAT_BRIGHT_MAX; }
 
-/* The boost's effect, wherever it goes: the volume's gain to Muse and to the
+/* The boost's effect, wherever it goes: the volume's gain to MP4 and to the
  * file a port's plugin reads (each told only when it changes), the
  * brightness's lift to the display's table */
 static void apply(int k)
@@ -36,7 +36,7 @@ static void apply(int k)
 	if (k == 0) {
 		const int db = boost_db(&L.bar[0]);
 
-		musec_gain(db);
+		mp4c_gain(db);
 		eq_share_gain(db);
 		L.db_told = db;
 	} else {
@@ -137,10 +137,10 @@ bool levels_keys(in_state *in, int where)
 		did = boost_tick(b, in->down[UP[k]], wh, now);
 		if (did) act(k, +1, did & ~BOOST_LEVEL, now);
 	}
-	/* A port started later reads the gain from the file; Muse, started
+	/* A port started later reads the gain from the file; MP4, started
 	 * again, has to be told again (both only on a change) */
 	if (L.db_told != boost_db(&L.bar[0])) apply(0);
-	else musec_gain(L.db_told);
+	else mp4c_gain(L.db_told);
 	return acted;
 }
 

@@ -7,7 +7,7 @@
 
 /* A stereo S16 output, for menu music (src/bgm_out.c) and the interface
  * sounds (src/uisound_out.c). On a device it is ALSA's, opened by name:
- * "default" is the system's dmix, so the two mix with each other, with Muse
+ * "default" is the system's dmix, so the two mix with each other, with MP4
  * and with a paused game without any of them knowing. On the desktop build
  * it is SDL's default audio device, so the host build is heard too.
  *

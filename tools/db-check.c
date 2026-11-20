@@ -246,7 +246,7 @@ static void boot_env_says_what_the_shell_needs(void)
 	/* seen_bright and seen_tz: neither must be in it any more. Only TrimUI's
 	 * launch.sh read the brightness, to set the panel before its boot
 	 * animation, and nothing read the timezone: the launcher sets TZ itself,
-	 * and Muse inherits it. */
+	 * and MP4 inherits it. */
 	FILE *f;
 
 	printf("boot.env carries the values launch.sh reads:\n");

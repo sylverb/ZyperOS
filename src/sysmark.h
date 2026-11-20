@@ -11,7 +11,7 @@
  * **text** on Beard, so a yellow like Game Boy Color's still reads on a light
  * ground. Two colors are not a system's own and are said by role instead:
  *
- *   lime, the **accent**, which Muse and Favorites wear because they are
+ *   lime, the **accent**, which MP4 and Favorites wear because they are
  *   ZyperOS's, is **accent-ink**, lime's own mark (the fill's lime is 1.3:1
  *   on Beard's ground). Asked for by value, since a color has nothing else
  *   to say whose it is; tools/designdef.py --check holds the accent to one

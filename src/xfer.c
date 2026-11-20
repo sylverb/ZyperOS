@@ -39,7 +39,7 @@ void xfer_init(const char *roms_dir, const char *card_dir,
 	 * a launcher that does not start, and the way to recover it is the card
 	 * reader this feature exists to avoid needing. */
 	add_root("roms",  S_TRANSFER_ROOT_ROMS,  "%s", roms_dir, false);
-	/* Muse reads nothing but these two folders, and the card's top level is
+	/* MP4 reads nothing but these two folders, and the card's top level is
 	 * not a root, so without them music and books were the one thing on the
 	 * card that still needed the card pulled. */
 	add_root("music", S_TRANSFER_ROOT_MUSIC, "%s/Music", card_dir, false);

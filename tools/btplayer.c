@@ -53,7 +53,7 @@
  * measured 2026-09-26. Gestures are the headset's own business and cannot be
  * seen from here; only what they mean arrives. Any `(AVRCP)` keyboard is
  * watched, and a press is written to /tmp/zyperos_btkey as `<action> <stamp>`
- * for the launcher to hand to Muse: toggle, pause, next or prev.
+ * for the launcher to hand to MP4: toggle, pause, next or prev.
  */
 #include <dbus/dbus.h>
 #include <errno.h>
@@ -322,7 +322,7 @@ static void find_keyboards(void)
 	fclose(f);
 }
 
-/* Which of Muse's actions a key is. PLAYCD toggles, because the OpenRun sends
+/* Which of MP4's actions a key is. PLAYCD toggles, because the OpenRun sends
  * nothing else for play and for pause; PAUSECD and STOPCD only pause, so the
  * OpenFit, which says which it means, never starts music it meant to stop.
  * FASTFORWARD and REWIND are next and previous, for a headset that sends a

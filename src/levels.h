@@ -9,7 +9,7 @@
  * level stays the device's (src/device/: its nudge applies it, keeps it,
  * shows the bar and says it on the side lights, as before); the boost's
  * cells are kept here, in the database beside the level, and become MP4's
- * gain (Muse), a port's (the shared file portkeys and the plugin read) and
+ * gain (MP4), a port's (the shared file portkeys and the plugin read) and
  * the gamma table's lift. Diatom keeps its own while a game runs and hands
  * it back (src/resident.c). */
 

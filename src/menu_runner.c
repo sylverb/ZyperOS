@@ -73,7 +73,7 @@ _Static_assert(MENU_RUN_ROWS >= CT_MAX_ROWS, "MENU_RUN_ROWS < CT_MAX_ROWS");
  * really one thing. */
 /* menu_build_fn, in src/panel.h */
 
-/* A result can be reached through Muse over a paused game. Keep that
+/* A result can be reached through MP4 over a paused game. Keep that
  * menu's backdrop and power rule through nested menus, until it returns.
  * A stop inside a result must unwind even if its caller returns FAILED or
  * CHANGED, rather than DONE. */
@@ -305,11 +305,11 @@ static menu_exit menu_run_body(app *a, const menu_style *st,
 		/* Where the sound goes, followed in the menus too: a headset connected
 		 * from the Bluetooth screen, or a cable plugged in, only took the sound
 		 * once the menus were left - seen 2026-09-26. It sends only on a change.
-		 * And Muse is read here as well: its answers - where it now is, and the
+		 * And MP4 is read here as well: its answers - where it now is, and the
 		 * end of a track, which is when the next is sent - waited for the menus
 		 * to be left, so the row read stale and an album stopped at the end of a
 		 * song while a menu was open. #45. */
-		muse_poll();
+		mp4_poll();
 		aout_apply(false);
 		/* Auto's clock, in every screen this runs - the menus, and the
 		 * in-game menu over a paused game too. 7:00 or 19:00 arriving while
@@ -335,14 +335,14 @@ static menu_exit menu_run_body(app *a, const menu_style *st,
 			g_menu_closing = true;
 			return MENU_LEFT_BACK;
 		}
-		/* The in-game menu too: its game is paused underneath, and Muse
+		/* The in-game menu too: its game is paused underneath, and MP4
 		 * borrows its backdrop and its power rule for as long as it is up.
 		 * Rebuilt on the way back, because anything may have changed while
-		 * Muse covered it - a Bluetooth headset connecting, for one. */
+		 * MP4 covered it - a Bluetooth headset connecting, for one. */
 		/* Not over a port's: MP4 is stopped for a port (launch.sh), and
 		 * this process starts none for its menu */
 		if (a->in.pressed[IN_SELECT] && !g_port_menu) {
-			if (muse_open(a, st, ctx)) return MENU_LEFT_GONE;
+			if (mp4_open(a, st, ctx)) return MENU_LEFT_GONE;
 			continue;
 		}
 
@@ -563,7 +563,7 @@ bool timed_message(app *a, const char *heading, const menu_row *rows,
 		float k;
 
 		plat_input_poll(&a->in);
-		muse_poll();
+		mp4_poll();
 		aout_apply(false);
 		tick_theme(a);
 		now = anim_now();

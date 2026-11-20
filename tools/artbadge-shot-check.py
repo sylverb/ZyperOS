@@ -106,7 +106,7 @@ def card(name):
 def shot(base, env, name, shelf, theme, game='', show=None):
     (base / 'root/.last').write_text(f'{shelf}\n{game}\n')
     if show:
-        run(env, '--set', f'muse.show={show}')
+        run(env, '--set', f'mp4.show={show}')
     file = OUT / f'{name}-{theme}.png'
     run(env, '--shot', str(file), '--screen', 'games', '--phase', '3200', '--status', STATUS,
         '--theme', theme)
@@ -216,6 +216,6 @@ for theme in ('light', 'dark'):
     im = shot(base, env, 'mp4-music', 'MUSE', theme, show='music')
     got = mp4_kind(im, ink)
     assert got is None, f'{theme}: a badge on Music alone ({got})'
-run(env, '--set', 'muse.show=all')
+run(env, '--set', 'mp4.show=all')
 print('ok: a heart before a favorite\'s name, on no cover and not on Favorites; '
       'on MP4\'s All an album, a book and a video each badged, and none on Music alone')

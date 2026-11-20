@@ -122,17 +122,17 @@ $(BUILD)/zyperos.elf: $(OBJS)
 .PHONY: FORCE
 FORCE:
 
-# Muse, the engine of MP4 (the media player, once the audio player Muse): a
+# mp4d, the engine of MP4 (the media player, once the audio player Muse): a
 # second binary, not part of zyperos.elf - SRC above is src/*.c, which does not
-# descend into src/muse/. Linked against the FFmpeg and ALSA in SYSROOT;
-# swscale for the odd video whose pictures are not 8-bit 4:2:0 (src/muse/vid.c),
+# descend into src/mp4d/. Linked against the FFmpeg and ALSA in SYSROOT;
+# swscale for the odd video whose pictures are not 8-bit 4:2:0 (src/mp4d/vid.c),
 # and src/mp4frame.h, the pictures' shared layout, is the launcher's too, as
 # src/eqdsp.h, the equalizer's five bands, is.
-MUSE_SRC := $(wildcard src/muse/*.c)
-$(BUILD)/muse: $(MUSE_SRC) $(wildcard src/muse/*.h) src/mp4frame.h src/monoclock.h src/eqdsp.h
+MP4D_SRC := $(wildcard src/mp4d/*.c)
+$(BUILD)/mp4d: $(MP4D_SRC) $(wildcard src/mp4d/*.h) src/mp4frame.h src/monoclock.h src/eqdsp.h
 	mkdir -p $(BUILD)
 	$(CC) -O2 $(MCPU) -Wall -Wextra -Wno-unused-parameter -std=gnu11 \
-	      -D_GNU_SOURCE -I$(SYSROOT)/usr/include $(LDFLAGS) -o $@ $(MUSE_SRC) \
+	      -D_GNU_SOURCE -I$(SYSROOT)/usr/include $(LDFLAGS) -o $@ $(MP4D_SRC) \
 	      -lavformat -lavcodec -lavfilter -lswscale -lswresample -lavutil -lasound -lpthread -lm
 
 # p2d, NES player 2's server (src/p2d/main.c): a program of its own beside
@@ -148,7 +148,7 @@ $(BUILD)/p2d: $(P2D_SRC) $(wildcard src/p2d/*.h) src/httpd.h src/captive.h src/p
 	      -D_GNU_SOURCE -I$(SYSROOT)/usr/include $(LDFLAGS) -o $@ $(P2D_SRC) -lz
 
 # Registers a do-nothing media player with BlueZ so a headset's absolute
-# volume is not dropped, and hands a headset's keys to Muse; see the file.
+# volume is not dropped, and hands a headset's keys to MP4; see the file.
 # Linked against SYSROOT's libdbus, whose arch header lives under lib.
 # The Pixel 2's volume keys while a port runs, ZyperOS and Diatom being
 # stopped then, and the volume bar over the port (tools/portkeys.c, started by
@@ -201,7 +201,7 @@ $(BUILD)/zyperos-update: $(UPDATE_SRC) update/update.h
 	      -DZYPEROS_VERSION='"$(VERSION)"' -I$(SYSROOT)/usr/include \
 	      $(LDFLAGS) -o $@ $(UPDATE_SRC) -lcurl -lcrypto -lz
 
-# The device's programs: the launcher, Muse, and its helpers' (ZYDEV_HELPERS;
+# The device's programs: the launcher, MP4, and its helpers' (ZYDEV_HELPERS;
 # ports and Bluetooth sound are files, no program)
 HELPER_ELF_portkeys := $(BUILD)/portkeys
 HELPER_ELF_zyhome := $(BUILD)/zyhome
@@ -209,4 +209,4 @@ HELPER_ELF_update := $(BUILD)/zyperos-update
 HELPER_ELF_p2d := $(BUILD)/p2d
 HELPER_ELF_btplayer := $(BUILD)/btplayer
 .PHONY: device-programs
-device-programs: $(BUILD)/zyperos.elf $(BUILD)/muse $(foreach h,$(ZYDEV_HELPERS),$(HELPER_ELF_$(h)))
+device-programs: $(BUILD)/zyperos.elf $(BUILD)/mp4d $(foreach h,$(ZYDEV_HELPERS),$(HELPER_ELF_$(h)))

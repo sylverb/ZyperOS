@@ -422,7 +422,7 @@ run_port() {
 		done
 		diatom_running && kill -9 "$pid"
 	fi
-	killall -TERM muse 2> /dev/null
+	killall -TERM mp4d 2> /dev/null
 	# PortMaster's install and its updates write a control.txt for whichever
 	# system they take this for; ours goes back before every port, with the
 	# gl4es settings PortMaster reads for CFW_NAME=ZyperOS (libgl_ZyperOS.txt)

@@ -110,7 +110,7 @@ static void legends_are_one_form(void)
 }
 
 /* How many pages name this button. A button belongs to as many pages as it has meanings - A opens a
- * game on the shelf and pauses a track in Muse - so what matters is that it is
+ * game on the shelf and pauses a track in MP4 - so what matters is that it is
  * on at least one. Written as "exactly one" first, which failed on eight
  * buttons and was the check being wrong about the feature rather than the
  * other way round. */

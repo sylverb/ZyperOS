@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-#ifndef ZYPEROS_MUSE_VIDTRY_H
-#define ZYPEROS_MUSE_VIDTRY_H
+#ifndef ZYPEROS_MP4_VIDTRY_H
+#define ZYPEROS_MP4_VIDTRY_H
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -10,7 +10,7 @@
 
 /* WHETHER A VIDEO IS TOO BIG FOR THIS CPU (mpf_head.trouble's MPF_TOO_BIG,
  * which MP4 says in words; 2026-11-19: "If a size cannot keep up, MP4 must
- * say so plainly"). src/muse/vid.c notes every picture it shows or drops
+ * say so plainly"). src/mp4d/vid.c notes every picture it shows or drops
  * while playing, and this judges them in stretches of VIDTRY_STRETCH:
  *
  *   bad   more than a quarter of a stretch's pictures dropped

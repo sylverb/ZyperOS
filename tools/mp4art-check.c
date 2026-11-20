@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* Does Muse pick the right record, and ask for it the way MusicBrainz asks?
+/* Does MP4 pick the right record, and ask for it the way MusicBrainz asks?
  *
- *     make check-museart
+ *     make check-mp4art
  *
  * THE RULE, against what MusicBrainz actually said about the first card's
  * seven albums on 2026-09-19 (tools/fixtures/musicbrainz, trimmed to the fields
@@ -21,7 +21,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include "../src/museart.h"
+#include "../src/mp4art.h"
 #include "../src/net.h"
 
 static int failures;
@@ -81,16 +81,16 @@ static void the_rule(void)
 		j = slurp(path, &len);
 		CHECK(j != NULL, "fixture %s", path);
 		if (!j) continue;
-		CHECK(museart_pick(j, len, t[i].tracks, rg, sizeof rg) && !strcmp(rg, t[i].rg),
+		CHECK(mp4art_pick(j, len, t[i].tracks, rg, sizeof rg) && !strcmp(rg, t[i].rg),
 		      "%s: got %s", t[i].why, rg);
 		free(j);
 	}
-	CHECK(!museart_pick("{\"releases\":[]}", 15, 5, rg, sizeof rg),
+	CHECK(!mp4art_pick("{\"releases\":[]}", 15, 5, rg, sizeof rg),
 	      "no releases is no album");
-	CHECK(!museart_pick("{\"releases\":[{\"score\":60,\"track-count\":5,"
+	CHECK(!mp4art_pick("{\"releases\":[{\"score\":60,\"track-count\":5,"
 	                    "\"release-group\":{\"id\":\"x\"}}]}", 77, 5, rg, sizeof rg),
 	      "a match MusicBrainz is not sure of is no match");
-	CHECK(!museart_pick("not json", 8, 5, rg, sizeof rg), "and a reply that is not JSON");
+	CHECK(!mp4art_pick("not json", 8, 5, rg, sizeof rg), "and a reply that is not JSON");
 }
 
 static void the_url(void)
@@ -98,46 +98,46 @@ static void the_url(void)
 	char u[2400];
 
 	printf("the search\n");
-	CHECK(museart_search_url("Radiohead", "The Bends", u, sizeof u) &&
+	CHECK(mp4art_search_url("Radiohead", "The Bends", u, sizeof u) &&
 	      !strcmp(u, "https://musicbrainz.org/ws/2/release/?query=release%3A%22The%20"
 	                 "Bends%22%20AND%20artist%3A%22Radiohead%22&fmt=json&limit=25"),
 	      "a release by its title and artist: %s", u);
-	CHECK(museart_search_url("A \"Band\"", "Back\\slash (Deluxe)", u, sizeof u) &&
+	CHECK(mp4art_search_url("A \"Band\"", "Back\\slash (Deluxe)", u, sizeof u) &&
 	      strstr(u, "%5C%22Band%5C%22") && strstr(u, "Back%5C%5Cslash%20%28Deluxe%29"),
 	      "quotes and backslashes escaped inside the phrase, parentheses left: %s", u);
-	CHECK(!museart_search_url("x", "y", u, 40), "a URL that does not fit is refused");
-	CHECK(museart_search_url("", "Trompe Le Monde", u, sizeof u) &&
+	CHECK(!mp4art_search_url("x", "y", u, 40), "a URL that does not fit is refused");
+	CHECK(mp4art_search_url("", "Trompe Le Monde", u, sizeof u) &&
 	      strstr(u, "query=release%3A%22Trompe%20Le%20Monde%22&") && !strstr(u, "artist"),
 	      "no artist is the title alone: %s", u);
 }
 
 /* The three albums that missed on the card, 2026-09-28, and what each is asked
- * as after its folder names find nothing. See museart_tries. */
+ * as after its folder names find nothing. See mp4art_tries. */
 static void the_tries(void)
 {
-	char ar[MUSEART_TRIES][128], al[MUSEART_TRIES][128];
+	char ar[MP4ART_TRIES][128], al[MP4ART_TRIES][128];
 	int n;
 
 	printf("the ways of asking\n");
-	n = museart_tries("Son Little", "Son Little (Deluxe Edition)", ar, al);
+	n = mp4art_tries("Son Little", "Son Little (Deluxe Edition)", ar, al);
 	CHECK(n == 2 && !strcmp(al[1], "Son Little") && !strcmp(ar[1], "Son Little"),
 	      "an edition dropped from the title: %d, \"%s\"", n, n > 1 ? al[1] : "");
-	n = museart_tries("Yo-Yo Ma, Stuart Duncan, Edgar Meyer, Chris Thile",
+	n = mp4art_tries("Yo-Yo Ma, Stuart Duncan, Edgar Meyer, Chris Thile",
 	                  "The Goat Rodeo Sessions", ar, al);
 	CHECK(n == 2 && !strcmp(ar[1], "Yo-Yo Ma") && !strcmp(al[1], "The Goat Rodeo Sessions"),
 	      "the first of several artists: %d, \"%s\"", n, n > 1 ? ar[1] : "");
-	n = museart_tries("Trompe Le Monde", "Trompe Le Monde", ar, al);
+	n = mp4art_tries("Trompe Le Monde", "Trompe Le Monde", ar, al);
 	CHECK(n == 2 && !ar[1][0] && !strcmp(al[1], "Trompe Le Monde"),
 	      "a folder with no artist above it: the title alone: %d", n);
-	n = museart_tries("Simon & Garfunkel", "Bookends", ar, al);
+	n = mp4art_tries("Simon & Garfunkel", "Bookends", ar, al);
 	CHECK(n == 2 && !strcmp(ar[0], "Simon & Garfunkel") && !strcmp(ar[1], "Simon"),
 	      "the names as typed are always asked first: %d", n);
-	n = museart_tries("Radiohead", "The Bends", ar, al);
+	n = mp4art_tries("Radiohead", "The Bends", ar, al);
 	CHECK(n == 1, "nothing to drop, nothing asked twice: %d", n);
-	n = museart_tries("Talking Heads", "Fear Of Music [Bonus Tracks]", ar, al);
+	n = mp4art_tries("Talking Heads", "Fear Of Music [Bonus Tracks]", ar, al);
 	CHECK(n == 2 && !strcmp(al[1], "Fear Of Music"), "brackets as well: \"%s\"",
 	      n > 1 ? al[1] : "");
-	n = museart_tries("X", "(Untitled)", ar, al);
+	n = mp4art_tries("X", "(Untitled)", ar, al);
 	CHECK(n == 1, "a title that is all parentheses is left whole: %d", n);
 }
 
@@ -160,14 +160,14 @@ static void the_sizes(void)
 
 	printf("a cover's size, from its header\n");
 	/* This run's own file: two runs at once never read each other's */
-	snprintf(p, sizeof p, "/tmp/museart-check-%ld.img", (long)getpid());
+	snprintf(p, sizeof p, "/tmp/mp4art-check-%ld.img", (long)getpid());
 	f = fopen(p, "wb"); fwrite(png, 1, sizeof png, f); fclose(f);
-	CHECK(museart_image_size(p, &w, &h) && w == 300 && h == 225, "PNG: %dx%d", w, h);
+	CHECK(mp4art_image_size(p, &w, &h) && w == 300 && h == 225, "PNG: %dx%d", w, h);
 	f = fopen(p, "wb"); fwrite(jpg, 1, sizeof jpg, f); fclose(f);
-	CHECK(museart_image_size(p, &w, &h) && w == 499 && h == 500,
+	CHECK(mp4art_image_size(p, &w, &h) && w == 499 && h == 500,
 	      "JPEG, past the segments before its frame: %dx%d", w, h);
 	f = fopen(p, "wb"); fputs("GIF89a....................", f); fclose(f);
-	CHECK(!museart_image_size(p, &w, &h), "anything else is no size");
+	CHECK(!mp4art_image_size(p, &w, &h), "anything else is no size");
 	remove(p);
 }
 
@@ -217,24 +217,24 @@ void net_async_abort(void) { }
 static const char *ONE = "{\"releases\":[{\"score\":100,\"track-count\":3,"
                          "\"release-group\":{\"id\":\"rg-one\"}}]}";
 
-static void run(unsigned step_ms, museart_status *st, int *landed, int nl)
+static void run(unsigned step_ms, mp4art_status *st, int *landed, int nl)
 {
 	int k = 0;
 
-	while (museart_step(g_now)) {
-		museart_status_get(st);
+	while (mp4art_step(g_now)) {
+		mp4art_status_get(st);
 		if (st->landed >= 0 && k < nl) landed[k++] = st->landed;
 		g_now += step_ms;
 	}
-	museart_status_get(st);
+	mp4art_status_get(st);
 }
 
 static void the_run(void)
 {
-	museart_job jobs[4];
-	museart_status st;
+	mp4art_job jobs[4];
+	mp4art_status st;
 	int landed[4] = { -1, -1, -1, -1 }, i;
-	char dir[] = "/tmp/museart-check.XXXXXX";
+	char dir[] = "/tmp/mp4art-check.XXXXXX";
 	char reply[64];
 
 	printf("a run, on a network of stubs\n");
@@ -268,7 +268,7 @@ static void the_run(void)
 	g_at = g_nurls = 0;
 	g_now = 5000;
 
-	CHECK(museart_begin(jobs, 4, reply), "a run starts");
+	CHECK(mp4art_begin(jobs, 4, reply), "a run starts");
 	run(50, &st, landed, 4);
 	CHECK(st.found == 2 && st.missing == 2 && st.failed == 0,
 	      "two found, two missing: %d found, %d missing, %d failed",
@@ -300,7 +300,7 @@ static void the_run(void)
 	/* A miss, and the next way of asking finds it: two searches a second
 	 * apart, then the cover. */
 	{
-		museart_job one = jobs[0];
+		mp4art_job one = jobs[0];
 
 		snprintf(one.artist, sizeof one.artist, "Son Little");
 		snprintf(one.album, sizeof one.album, "Son Little (Deluxe Edition)");
@@ -309,7 +309,7 @@ static void the_run(void)
 		g_script[g_nscript++] = (answer){ 200, ONE };
 		g_script[g_nscript++] = (answer){ 200, NULL };
 		g_at = g_nurls = 0;
-		museart_begin(&one, 1, reply);
+		mp4art_begin(&one, 1, reply);
 		run(50, &st, landed, 0);
 		CHECK(st.found == 1 && st.missing == 0 && g_nurls == 3,
 		      "found on the second search: %d found, %d requests", st.found, g_nurls);
@@ -322,7 +322,7 @@ static void the_run(void)
 	g_nscript = 0;
 	for (i = 0; i < 4; i++) g_script[g_nscript++] = (answer){ 0, NULL };
 	g_at = g_nurls = 0;
-	museart_begin(jobs, 4, reply);
+	mp4art_begin(jobs, 4, reply);
 	run(50, &st, landed, 0);
 	CHECK(st.failed == 3 && st.problem[0], "stops after three failures: %d, \"%s\"",
 	      st.failed, st.problem);
@@ -337,7 +337,7 @@ static void the_run(void)
 
 int main(void)
 {
-	printf("museart: album covers from MusicBrainz and the Cover Art Archive\n");
+	printf("mp4art: album covers from MusicBrainz and the Cover Art Archive\n");
 	the_rule();
 	the_url();
 	the_tries();

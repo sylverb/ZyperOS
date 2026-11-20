@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* Whether a video is too big for the CPU (src/muse/vidtry.h), driven with
+/* Whether a video is too big for the CPU (src/mp4d/vidtry.h), driven with
  * the pictures shown and dropped that the Pixel 2 measured with dav1d on
  * 2026-11-19, a second at a time: what MP4 is told, and when.
  *
@@ -16,7 +16,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "../src/muse/vidtry.h"
+#include "../src/mp4d/vidtry.h"
 
 static int fails;
 

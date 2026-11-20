@@ -66,7 +66,7 @@ static void plat_input_poll(in_state *in)
 }
 static bool in_repeat(in_state *in, in_button b) { return in->pressed[b]; }
 static bool idle_due(app *a) { (void)a; return idle && now >= event_at; }
-static void muse_poll(void) { services[0]++; }
+static void mp4_poll(void) { services[0]++; }
 static void aout_apply(bool force) { (void)force; services[1]++; }
 static void tick_theme(app *a) { (void)a; services[2]++; }
 static void tick_tint(app *a) { (void)a; }
