@@ -225,6 +225,7 @@ window.ZYPER_TOKENS = {
     "look-list-num": 48,
     "line-clock": 128,
     "look-cover": 192,
+    "look-record": 448,
     "look-cassette-w": 592
   },
   "motion": {
@@ -365,6 +366,10 @@ window.ZYPER_TOKENS = {
       "curve": "turn"
     },
     "wind": {
+      "ms": 180,
+      "curve": "follow"
+    },
+    "arm-glide": {
       "ms": 180,
       "curve": "follow"
     },

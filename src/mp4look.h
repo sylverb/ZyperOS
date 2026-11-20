@@ -21,6 +21,7 @@
 typedef enum {
 	MP4L_COVER,
 	MP4L_CASSETTE,
+	MP4L_VINYL,
 	MP4L_CLASSIC,
 	MP4L_SPECTRUM,
 	MP4L_COUNT
@@ -109,5 +110,34 @@ void mp4l_tape_step(mp4l_tape *t, float dt, int song, float target, float spin, 
 
 /* Rewinding or winding: the tape not yet where the song is */
 bool mp4l_tape_moving(const mp4l_tape *t, float target);
+
+/* ---- the record ------------------------------------------------------------------
+ *
+ * The record's angle, turning clockwise at 33 1/3 a minute (200 degrees a
+ * second) times mp4l_spin's v; and the tonearm's needle, its radius, gliding
+ * to the song's place on **follow** (tau DS_MS_ARM_GLIDE). */
+#define MP4L_RPM_DEG_S 200.0f
+
+typedef struct {
+	float ang;               /* degrees clockwise */
+	float arm;               /* the needle's radius, the caller's units */
+	bool  known;
+} mp4l_disc;
+
+/* The needle's radius for song `place` of `n`, `f` into it: the grooves from
+ * `out` to `in` shared out evenly, the first song's start at `out` */
+float mp4l_groove_r(int place, int n, float f, float out, float in);
+
+/* The tonearm's angle (degrees, clockwise from pointing right) that puts its
+ * needle `r` from the spindle: the pivot `d` from it at `pivot_deg` (up and
+ * right is negative), the needle `len` from the pivot; on the side of the
+ * line from the pivot to the spindle that keeps the arm over the record's
+ * right, as a turntable's sweeps */
+float mp4l_arm_angle(float r, float d, float pivot_deg, float len);
+
+/* One frame, `dt` ms: `spin` mp4l_spin's v, `arm` where the needle goes */
+void mp4l_disc_step(mp4l_disc *d, float dt, float spin, float arm);
+/* The needle not yet where it goes */
+bool mp4l_disc_moving(const mp4l_disc *d, float arm);
 
 #endif

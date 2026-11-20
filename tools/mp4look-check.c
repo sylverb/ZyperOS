@@ -186,13 +186,42 @@ int main(void)
 		near("a seek wound a tau's way", 0.3 - tp.f, 0.1 * exp(-1.0), 0.002);
 	}
 
+	/* The record: 33 1/3 a minute is 200 degrees a second, clockwise; the
+	 * needle glides on follow; and the arm's angle puts the needle on the
+	 * radius asked, on the record's right, at every song's ring */
+	{
+		mp4l_disc dk = { 0 };
+		const float d = 302.0f, pa = -40.0f, len = 323.0f, out = 205.0f, in = 84.0f;
+		int place;
+
+		mp4l_disc_step(&dk, 0, 1.0f, 150.0f);
+		mp4l_disc_step(&dk, 1000, 1.0f, 150.0f);
+		near("the record's turn in a second", dk.ang, 200.0, 1e-3);
+		dk.known = true;
+		dk.arm = 150.0f;
+		for (int k = 0; k < 18; k++) mp4l_disc_step(&dk, (float)DS_MS_ARM_GLIDE / 18, 0, 120.0f);
+		near("the needle a tau's way to the next song", dk.arm - 120.0f, 30.0 * exp(-1.0), 0.05);
+		near("the first song's start at the grooves' edge", mp4l_groove_r(0, 8, 0, out, in), out, 1e-4);
+		near("the last song's end at their inner edge", mp4l_groove_r(7, 8, 1, out, in), in, 1e-4);
+		near("song 3 of 8 halfway", mp4l_groove_r(2, 8, 0.5f, out, in), out - (out - in) * 2.5 / 8, 1e-3);
+		for (place = 0; place <= 8; place++) {
+			float r = mp4l_groove_r(place, 8, 0, out, in), a = mp4l_arm_angle(r, d, pa, len) * (float)M_PI / 180;
+			float px = d * cosf(pa * (float)M_PI / 180), py = d * sinf(pa * (float)M_PI / 180);
+			float nx = px + len * cosf(a), ny = py + len * sinf(a), at = atan2f(ny, nx) * 180 / (float)M_PI;
+
+			near("the needle on its song's ring", hypotf(nx, ny), r, 0.01);
+			if (at < 20 || at > 75) fail("the needle off the record's lower right (degrees)", at, 45);
+		}
+	}
+
 	if (fails) {
 		printf("mp4look-check: %d failed\n", fails);
 		return 1;
 	}
 	printf("mp4look-check: bars up at once and down on follow at any rate, caps held %d ms and down in %d,"
 	       " at rest after, bands over the bars, the setting's words; reels up in %d ms and down in %d from"
-	       " wherever they are, each at the tape's speed over its pack, a rewind in %d ms, a seek wound\n",
+	       " wherever they are, each at the tape's speed over its pack, a rewind in %d ms, a seek wound; the record at"
+	       " 33 1/3, the needle gliding and on every song's ring\n",
 	       DS_MS_PEAK_HOLD, MP4L_CAP_DROP_MS, DS_MS_SPIN_UP, DS_MS_SPIN_DOWN, DS_MS_REWIND);
 	return 0;
 }
