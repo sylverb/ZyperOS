@@ -313,8 +313,13 @@ static int slot_strip(app *a, SDL_Texture *bg, int saving)
 		plat_input_poll(&a->in);
 		ui_sounds_follow();
 
-		if (in_repeat(&a->in, IN_LEFT) || in_repeat(&a->in, IN_RIGHT)) {
-			int dir = in_repeat(&a->in, IN_RIGHT) ? 1 : -1, next = sel;
+		/* Each button read once a frame (in_repeat_axis): a repeat is
+		 * true once, so a second read of a held Right was false and the
+		 * carousel stepped back left on every repeat */
+		int dir = in_repeat_axis(&a->in, IN_LEFT, IN_RIGHT);
+
+		if (dir) {
+			int next = sel;
 			do {
 				next = (next + dir + GM_SLOTS + 1) % (GM_SLOTS + 1);
 			} while ((saving ? next == 0 : !sv.have[next]) && next != sel);

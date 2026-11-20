@@ -37,6 +37,15 @@ bool cheats_game_paused(void);
  * its start asks "Start it without them?" */
 bool cheats_crash_asks(const system_cfg *s, const char *file);
 
+/* The shelf's line for `s`'s game `file` (the lab's, under the game's name):
+ * "2 cheats on" into `out` ("" for none), and `crashed` when it stopped by
+ * itself last time with them on (the line adds "the last session ended in
+ * a crash"). How many are on. A database read, and the game's .cht files
+ * only when some are kept on. */
+int  cheats_shelf_line(const system_cfg *s, const char *file, char *out, size_t n, bool *crashed);
+/* --cheats-crashed: a shot's game stopped last time with its cheats on */
+extern bool g_shot_cheats_crashed;
+
 /* The list over the paused game `bg` */
 void cheats_page(app *a, SDL_Texture *bg);
 
