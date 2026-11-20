@@ -435,15 +435,28 @@ bool plat_spawn_detached(char *const argv[], const char *const envkv[],
 	return plat_spawn_detached_pid(argv, envkv, workdir) > 0;
 }
 
+const char *plat_flag(const char *path)
+{
+	static char buf[4][512];
+	static unsigned n;
+	const char *dir = getenv("ZYPEROS_FLAG_DIR"), *base = strrchr(path, '/');
+	char *b;
+
+	if (!dir || !*dir) return path;
+	b = buf[n++ % 4];
+	snprintf(b, sizeof buf[0], "%s/%s", dir, base ? base + 1 : path);
+	return b;
+}
+
 void plat_request_poweroff(void)
 {
-	FILE *f = fopen(ZYPEROS_POWEROFF_FLAG, "w");
+	FILE *f = fopen(plat_flag(ZYPEROS_POWEROFF_FLAG), "w");
 	if (f) fclose(f);
 }
 
 void plat_request_reboot(void)
 {
-	FILE *f = fopen(ZYPEROS_REBOOT_FLAG, "w");
+	FILE *f = fopen(plat_flag(ZYPEROS_REBOOT_FLAG), "w");
 	if (f) fclose(f);
 }
 

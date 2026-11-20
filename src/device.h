@@ -31,6 +31,13 @@ void device_levels_forget(void);
 void device_display_release(void);
 void device_display_take(void);
 
+/* How long the launcher may wait for Diatom's next line while a game runs, ms
+ * the launcher would wait. A device whose panel Diatom draws on returns them;
+ * the host's desk mode, which shows the game's frames in its own window
+ * (src/device/desk.h), shows the newest one here, takes the keys, and asks
+ * for a few ms only. */
+unsigned device_game_wait(unsigned ms);
+
 /* Shared by the portable half, for the device file. */
 void plat_set_btn(in_state *st, in_button b, bool down);   /* a button's edge */
 bool plat_terminating(void);                    /* SIGTERM arrived */
