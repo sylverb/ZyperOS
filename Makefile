@@ -779,7 +779,8 @@ check-pico8-wget:
 # launcher) and the real launcher in desk mode's dummy window against a
 # stand-in daemon: the queue taken on back from PICO-8, the request and the
 # file written as a cart opens, the follower's next track, and SELECT in the
-# in-game menu over it opening Now Playing (tools/pico8-mp4-check.py)
+# in-game menu over it opening Now Playing (tools/pico8-mp4-check.py). Each
+# wait is for an event, never for a time.
 check-pico8-mp4: build-native/mp4hand-check native
 	@./build-native/mp4hand-check
 	@python3 tools/pico8-mp4-check.py
@@ -2742,7 +2743,8 @@ check-mp4views: native
 # mode's dummy window: Now Playing paused at its second, only for a row that
 # says playing, and nothing for one whose file is gone. And a start back into
 # a game, against a Diatom of the check's own: the game first, MP4 held under
-# it, and SELECT in the game's menu Now Playing on it, paused.
+# it, and SELECT in the game's menu Now Playing on it, paused. Each wait is
+# for the screen or the row it names, never for a time.
 check-mp4resume: build-native/mp4resume-check native
 	@./build-native/mp4resume-check
 	@python3 tools/mp4resume-start.py

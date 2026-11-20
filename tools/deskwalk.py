@@ -55,7 +55,11 @@ def ask(sock, line, timeout=10):
 
 def drawn_lines(log):
     """Every string the launcher says it drew (src/ui.c's "fit: drawn: "),
-    in order, wherever its line begins"""
+    in order, wherever its line begins: on Linux with no sound card, ALSA's
+    complaints from the interface sounds' thread come out on the same
+    stderr in pieces, and one can land before it on its line ("ALSA lib
+    confmisc.c:1342:(snd_func_refer) fit: drawn: Paused", check-mp4resume's
+    CI run of #406). check-mp4resume and check-pico8-mp4 read with it too."""
     return [part.split('\n', 1)[0] for part in log.split('fit: drawn: ')[1:]]
 
 
