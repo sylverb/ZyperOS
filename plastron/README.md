@@ -253,8 +253,9 @@ buildroot/                  a Buildroot external tree (BR2_EXTERNAL)
                             buttons, power, nothing ZyperOS-specific
   configs/brick_defconfig   the Brick's system, ZyperOS included
   board/zyperos/             ZyperOS on the Pixel 2's base: zyperos.config
-                            (merged into the base config) and its rootfs
-                            overlay
+                            (merged into the base config), its rootfs
+                            overlay, and ports-libs.txt (the libraries
+                            PortMaster's ports load from the system)
   package/                  our packages (splash, Panfrost, jackswitch, the
                             Brick's GPU, firmware and kernel modules, ...)
   board/px2/
@@ -278,6 +279,8 @@ docker/                     the build containers: Buildroot's, and the
                             Brick's kernel and bootloader
 scripts/build.sh            runs Buildroot inside it
 scripts/release.sh          builds a release, image and sources
+scripts/ports-libs.sh       whether a built root has every library in
+                            ports-libs.txt (release.sh, the Pixel 2's)
 scripts/third-party.py      writes the package lists from the release build
 scripts/make-logo.py        draws docs/plastron.svg and the card above
 ```

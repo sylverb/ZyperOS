@@ -1,0 +1,38 @@
+# The libraries PortMaster's ports and their runtimes load from the system
+# rather than from their own folders: each one's soname, the package that
+# puts it in the image (by its name in the image's package list,
+# board/px2/third-party-packages.md), the option that asks for that package
+# ("-" where another package's option brings it in), and what loads it.
+#
+# scripts/ports-libs.sh checks a built root has each one, and
+# scripts/release.sh runs it over the Pixel 2's image. ZyperOS's
+# make check-portlibs checks each option is set and each package listed for
+# every device whose ZyperOS runs ports (HAS_PORTS=1 in its
+# sd/<device>/device.sh): the Pixel 2 only, so far.
+#
+# The Westonpack lines are what PortMaster's weston_pkg_0.2.squashfs
+# (PortMaster-New's release 2025-07-24_0745, md5
+# 0a761c28877625861d9c9c4326664428, its version.txt wp_version=271) needs
+# beyond its own lib_aarch64: the NEEDED entries of its weston (wp_weston),
+# the modules a port's westonwrap.sh line loads (DRM backend, GL renderer,
+# kiosk shell, Xwayland), seatd, Xwayland, xkbcomp and weston-keyboard, each
+# looked up in the folders westonwrap.sh puts first (Crusty's crusty_gbm,
+# lib_aarch64, mesa_x11_stub), and the ones its start looks for by name
+# (tools/findlib, Crusty). glibc's own are left out.
+#
+# soname            package      option                  loaded by
+libopenal.so.1      openal       BR2_PACKAGE_OPENAL      Stardew Valley's MonoGame, for its sound
+libvorbisfile.so.3  libvorbis    BR2_PACKAGE_LIBVORBIS   PortMaster's LOVE 11.5 runtime
+libtheoradec.so.1   libtheora    BR2_PACKAGE_LIBTHEORA   the LOVE 11.5 runtime (board/px2/post-build.sh's link to libtheoradec.so.2)
+libmpg123.so.0      mpg123       BR2_PACKAGE_MPG123      the LOVE 11.5 runtime
+libevdev.so.2       libevdev     BR2_PACKAGE_LIBEVDEV    Westonpack's weston (its libexec_weston) and its libinput
+libbz2.so.1.0       bzip2        BR2_PACKAGE_BZIP2       Westonpack's Xwayland, through its libXfont2
+libjpeg.so.8        jpeg-turbo   BR2_PACKAGE_JPEG        Westonpack's weston, its Xwayland module
+libz.so.1           libzlib      BR2_PACKAGE_ZLIB        Westonpack's FreeType, cairo, libpng and libXfont2
+libexpat.so.1       expat        -                       Westonpack's fontconfig, and its Mesa stand-in's libgbm
+libuuid.so.1        util-linux   -                       Westonpack's fontconfig and libSM
+libgbm.so.1         mesa3d-px2   BR2_PACKAGE_MESA3D_PX2  Westonpack's Crusty (without it, westonwrap.sh makes a pretend DRM device)
+libEGL.so           mesa3d-px2   BR2_PACKAGE_MESA3D_PX2  Westonpack's Crusty, which passes EGL on to the system's
+libGLESv2.so        mesa3d-px2   BR2_PACKAGE_MESA3D_PX2  Westonpack's Crusty, under weston and seatd
+libdrm.so           libdrm       BR2_PACKAGE_LIBDRM      Westonpack's Crusty
+libSDL2-2.0.so.0    sdl2         BR2_PACKAGE_SDL2        Westonpack's Crusty, the first SDL2 it finds by its four names
