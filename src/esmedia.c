@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "esmedia.h"
+#include "snaps.h"
 #include "titletext.h"
 
 #include <ctype.h>
@@ -608,10 +609,11 @@ void es_forget(void)
 	}
 }
 
-static void forget_one(const char *folder)
+void es_forget_folder(const char *folder)
 {
 	es_index **at, *x = NULL;
 
+	if (!folder) return;
 	pthread_mutex_lock(&g_lock);
 	for (at = &g_idx; *at; at = &(*at)->next)
 		if (!strcmp((*at)->folder, folder)) { x = *at; *at = x->next; break; }
@@ -716,6 +718,30 @@ bool es_has_video(const char *folder, const char *file, const char *name)
 	}
 	pthread_mutex_unlock(&g_lock);
 	return has;
+}
+
+/* ---- the game's own, then EmulationStation's ------------------------------ */
+
+bool game_media_own(const char *roms, const char *folder, const char *name, es_kind kind,
+                    char *out, size_t n)
+{
+	bool fits;
+
+	if (!out || !n) return false;
+	out[0] = '\0';
+	if (!roms || !folder || !name) return false;
+	fits = kind == ES_VIDEO ? snaps_path(roms, folder, name, out, n)
+	                        : snprintf(out, n, "%s/%s/.media/%s.png", roms, folder, name) < (int)n;
+	/* a path cut short names another file */
+	if (!fits) out[0] = '\0';
+	return fits;
+}
+
+bool game_media(const char *roms, const char *folder, const char *file, const char *name,
+                es_kind kind, bool wait, char *out, size_t n)
+{
+	if (game_media_own(roms, folder, name, kind, out, n) && is_file(out)) return true;
+	return es_media(roms, folder, file, name, kind, wait, out, n);
 }
 
 /* ---- the details --------------------------------------------------------- */
@@ -1036,7 +1062,7 @@ bool es_list_rename(const char *roms, const char *folder, const char *file, cons
 		if (ed[i].ve < ed[i].vb || ed[i].vb < gs || ed[i].ve > ge || (i && ed[i].vb < ed[i - 1].ve)) {
 			free(ed);
 			free(buf);
-			forget_one(folder);
+			es_forget_folder(folder);
 			return false;
 		}
 	snprintf(p, sizeof p, "%s/%s/gamelist.xml", roms, folder);
@@ -1058,6 +1084,6 @@ bool es_list_rename(const char *roms, const char *folder, const char *file, cons
 	}
 	free(ed);
 	free(buf);
-	forget_one(folder);
+	es_forget_folder(folder);
 	return ok;
 }

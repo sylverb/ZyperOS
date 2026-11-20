@@ -2398,7 +2398,12 @@ block. *(My picks in the File Transfer lab, 2026-11-05:
   Settings is behind a **⋯** at the top.
 - **Rows**: a game's cover, an album's, an artist's four; a folder's pixel
   art; or a file's line mark; the name; the size in **meta** **text-dim**; a
-  **⋯**. Under the pointer a row is **raised** (its size steps up to
+  **⋯**. A game's cover is the one the shelf shows, found by the launcher's
+  own lookup (src/esmedia.h's `game_media`): its own in its console's
+  `.media`, a game in a folder of games too, else EmulationStation's (11.40);
+  a disc set's folder or a ScummVM game's wears its game's. The listing
+  names the game's video the same way (`video`), which the page does not
+  draw yet. Under the pointer a row is **raised** (its size steps up to
   **text-soft**, since **text-dim** misses 4.5:1 on Salt & Pepper's raised);
   keyboard focus is the **accent** fill with **on-accent**.
 - **Folder art** *(My pick, File Transfer 2 lab, 2026-11-06: "Pixel art
@@ -3119,6 +3124,21 @@ it would have. The power-off is decided by a second, fresh reading at the
 end of the hold; a battery that reads over the line then goes on to the
 home, where the empty battery's own watch goes on. src/lowbatt.h has the
 rules; a host shot: `--lowbatt MS [charging|off]`.
+
+The level a start reads is the battery gauge's. On the GKD Pixel 2 it is its
+kernel's (plastron's rk817 patches): after 30 minutes or more off, the
+battery's voltage at rest, with its current's drop taken out; after less, the
+gauge's counter; and at a charger's start, over 300 mA into the battery (the
+charger's own end of a charge), the level kept before the power-off. A sample
+under a charger's current reads high (1.0.5: 85% at the power-off, 49% two
+hours later), and the counter falls about 100 mA while the handheld is off.
+The line was 100 mA, and a Pixel 2 whose starts from POWER read +110 mA with
+no cable in kept a falling counter at every start: at 93% by its voltage it
+read 64%, 38% and 30%, and once 0%, and this screen powered it off *(a
+player's logs, 1.0.6, 2026-11-20: "lost 30% in 4 hours" off)*. Near empty the
+kernel sets the level from the voltage too (9-px2-rk817-wear2-empty.patch),
+and the launcher powers off under the device's empty voltage whatever the
+level says (src/battempty.h).
 
 ### 11.25 Charging while off
 The screen of a handheld that is off and on a charger *(2026-11-06:
@@ -4567,7 +4587,14 @@ library's rows, so the card still works in the other system.
   `videos/` and `media/videos/` (src/esmedia.h has the whole order). Found on
   the cover worker, never on the frame: a folder's `gamelist.xml` is read
   once, the first time one of its games asks. A cover with an ES video has
-  the play mark, and the video plays as a snap does.
+  the play mark, and the video plays as a snap does. The File Transfer page
+  (11.15) gives each game the same cover beside it, by the same lookup
+  *(2026-11-20, from metior: "The web interface doesn't read from the
+  EmulationStation folder structure for images and video like the OS itself
+  does")*; a `gamelist.xml`, or a file in one of ES's media folders, sent
+  from the page has the folder read again for its next listing. The page
+  draws no video in 1.1.0 *(my call, 2026-11-20)*: the listing names each
+  game's video (`video`), found the same way, for a later design.
 - **Box Art** counts an ES cover as a cover: it fetches only for games with
   neither, and **Cover and Video** (11.34) shows an ES cover as Now,
   credited "EmulationStation". A cover chosen there is ZyperOS's own, and

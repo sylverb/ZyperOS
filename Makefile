@@ -44,7 +44,7 @@ src/i18n_tables.c: $(wildcard res/strings/*.txt) tools/i18n.py
 # had to be remembered by name, which is a suite in the same sense that a list
 # of good intentions is a plan. A check nobody runs is a check that does not
 # exist, and check-menus was about to join eight others in that state.
-CHECKS = check-cheevos check-hare check-portal check-httpd check-idle check-taskhold check-saver check-rahash check-flacdec check-achtab check-rasubmit check-raoffline check-radl check-dlq check-dl-recent check-cheatsdl check-cheats check-signin check-noticeq check-badges check-badge-shots \
+CHECKS = check-cheevos check-hare check-portal check-httpd check-idle check-taskhold check-saver check-rahash check-flacdec check-achtab check-rasubmit check-raoffline check-radl check-dlq check-dl-recent check-dl-look check-cheatsdl check-cheats check-signin check-noticeq check-badges check-badge-shots \
          check-raset check-xfer check-sshlink check-usblink check-devmode check-devices check-devicegen check-model check-ctl check-menus check-artscrape check-artrun check-sgdb check-snapshelf check-snaps check-audioout \
          check-db check-coreopts check-mp4keys check-gamedel check-gamern check-esmedia check-media check-snapsize check-corepins check-targets check-storage check-stats check-sort check-bt check-ss check-titles check-savedlib check-search \
          check-mp4lib check-mp4queue check-mp4art check-mp4lock check-mp4look check-mp4views check-mp4resume check-bands check-covercolor check-mp4frame check-mp4size check-p2share check-webtheme check-p2ws check-p2codec check-p2d check-play check-p2 check-resident check-spawn check-controls check-remap check-hotkeys check-rumble check-eq check-eqdsp check-eqplugin check-controls-shots check-logpack \
@@ -284,12 +284,17 @@ build-native/cheevos-check: tools/cheevos-check.c src/cheevos.c src/cheevos.h \
 check-hare: build-native/hare-check
 	@./build-native/hare-check
 
-build-native/hare-check: tools/hare-check.c src/hare.c src/sheet.c src/clients.c src/httpd.c src/xfer.c src/mp4lib.c src/captive.c $(I18N_SRC) FORCE
+# A game's picture and video in a listing are the launcher's lookup
+# (src/esmedia.h's game_media), so the lookup is linked as the launcher has it.
+HARE_GAME_MEDIA = src/esmedia.c src/library.c src/snaps.c src/db.c
+
+build-native/hare-check: tools/hare-check.c src/hare.c src/sheet.c src/clients.c src/httpd.c src/xfer.c src/mp4lib.c src/captive.c $(HARE_GAME_MEDIA) $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -Wno-unused-parameter -D_GNU_SOURCE -O1 -g \
 	      -DHARE_PORTS=0 -DPICK_TMP='"$(CURDIR)/build-native/hare-check-albumpick"' \
 	      -DART_NAMES_TMP='"$(CURDIR)/build-native/hare-check-artnames"' -DREPO_WEB='"$(CURDIR)/res/web"' \
-	      -o $@ tools/hare-check.c src/hare.c src/sheet.c src/clients.c src/httpd.c src/xfer.c src/mp4lib.c src/captive.c $(I18N_SRC) -lz
+	      -o $@ tools/hare-check.c src/hare.c src/sheet.c src/clients.c src/httpd.c src/xfer.c src/mp4lib.c src/captive.c \
+	      $(HARE_GAME_MEDIA) $(I18N_SRC) -lz -lsqlite3 -lpthread
 
 # The File Transfer page on the host, over a scratch card: the same routes and
 # server, for a browser and for tools/readme-shots.py's pictures of the page.
@@ -300,12 +305,13 @@ build-native/hare-check: tools/hare-check.c src/hare.c src/sheet.c src/clients.c
 check-portal: build-native/portal-serve
 	@python3 tools/portal-check.py
 
-build-native/portal-serve: tools/portal-serve.c src/hare.c src/sheet.c src/clients.c src/httpd.c src/xfer.c src/mp4lib.c src/captive.c src/look.c $(I18N_SRC) FORCE
+build-native/portal-serve: tools/portal-serve.c src/hare.c src/sheet.c src/clients.c src/httpd.c src/xfer.c src/mp4lib.c src/captive.c src/look.c $(HARE_GAME_MEDIA) $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -Wno-unused-parameter -D_GNU_SOURCE -O1 -g \
 	      -DHARE_PORTS=0 -DPICK_TMP='"$(CURDIR)/build-native/portal-serve-albumpick"' \
 	      -DART_NAMES_TMP='"$(CURDIR)/build-native/portal-serve-artnames"' \
-	      -o $@ tools/portal-serve.c src/hare.c src/sheet.c src/clients.c src/httpd.c src/xfer.c src/mp4lib.c src/captive.c src/look.c $(I18N_SRC) -lz -lm
+	      -o $@ tools/portal-serve.c src/hare.c src/sheet.c src/clients.c src/httpd.c src/xfer.c src/mp4lib.c src/captive.c src/look.c \
+	      $(HARE_GAME_MEDIA) $(I18N_SRC) -lz -lm -lsqlite3 -lpthread
 
 # Hare's transport, driven by a real client over a real socket. An HTTP parser
 # is where "looks right" and "is right" part company: every browser sends the
@@ -763,7 +769,8 @@ check-pico8-wget:
 # (the equalizer's file's cut, as the launcher, the follower and the menu
 # write it, and the chain every port has, unchanged) and PICO-8 into a
 # USB-C DAC's chain only where it opens as PICO-8 opens it (--alsa-try,
-# against alsa-lib on Linux) (tools/pico8-mp4-check.py)
+# against alsa-lib on Linux) (tools/pico8-mp4-check.py). Each wait is for
+# an event, never for a time.
 check-pico8-mp4: build-native/mp4hand-check native
 	@./build-native/mp4hand-check
 	@python3 tools/pico8-mp4-check.py
@@ -2148,7 +2155,7 @@ build-native/rahash-check: tools/rahash-check.c $(RAHASH_SRC) src/rahashjob.c sr
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g $(LZMA_CFLAGS) \
 	      -o $@ tools/rahash-check.c $(RAHASH_SRC) -lz $(LZMA_LIBS) -lpthread
 
-.PHONY: check-noticeq check-badges check-badge-shots check-radl check-dlq check-dl-recent check-cheatsdl check-cheats check-rasubmit check-lowbatt check-battempty check-powerhold check-homesys check-collect check-shotname check-heat check-charging
+.PHONY: check-noticeq check-badges check-badge-shots check-radl check-dlq check-dl-recent check-dl-look check-cheatsdl check-cheats check-rasubmit check-lowbatt check-battempty check-powerhold check-homesys check-collect check-shotname check-heat check-charging
 
 # The pop-ups over a game, one after another (src/noticeq.h)
 check-noticeq: build-native/noticeq-check
@@ -2277,6 +2284,16 @@ check-dl-recent:
 		$(MAKE) --no-print-directory native || exit 1; \
 	fi
 	@python3 tools/dl-recent-check.py
+
+# A game's panel in MENU > Downloads looking at the card (src/dl_screen.c's
+# one_look), on the real launcher: Videos is On card only for a game whose
+# video is there, its own snap or EmulationStation's, and not for one with
+# none, an empty snap or a snap deleted after a look
+check-dl-look:
+	@if pkg-config --exists sdl2 SDL2_image SDL2_ttf 2>/dev/null; then \
+		$(MAKE) --no-print-directory native || exit 1; \
+	fi
+	@python3 tools/dl-look-check.py
 
 # The cheats download (src/cheatsdl.h): a zip made in the check, read, matched,
 # written and counted, with no network
@@ -2493,11 +2510,11 @@ check-gamern: build-native/gamern-check
 
 build-native/gamern-check: tools/gamern-check.c src/gamern.c src/gamern.h src/gamedel.c src/sheet.c src/gamedel.h \
                            src/esmedia.c src/esmedia.h src/library.c src/db.c src/favorites.c src/stats.c \
-                           src/portinfo.c src/atomic.c $(I18N_SRC) FORCE
+                           src/portinfo.c src/atomic.c src/snaps.c $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Isrc \
 	      -o $@ tools/gamern-check.c src/gamern.c src/gamedel.c src/sheet.c src/esmedia.c src/library.c src/db.c \
-	      src/favorites.c src/stats.c src/portinfo.c src/atomic.c $(I18N_SRC) -lsqlite3 -lpthread
+	      src/favorites.c src/stats.c src/portinfo.c src/atomic.c src/snaps.c $(I18N_SRC) -lsqlite3 -lpthread
 
 # EmulationStation's folders and media (src/esmedia.h): covers, videos,
 # details and the import on a card of small files in three ES layouts
@@ -2505,10 +2522,10 @@ check-esmedia: build-native/esmedia-check
 	@./build-native/esmedia-check
 
 build-native/esmedia-check: tools/esmedia-check.c src/esmedia.c src/esmedia.h src/library.c src/sheet.c src/library.h \
-                            src/db.c src/db.h FORCE
+                            src/db.c src/db.h src/snaps.c src/snaps.h FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Isrc \
-	      -o $@ tools/esmedia-check.c src/esmedia.c src/library.c src/sheet.c src/db.c -lsqlite3 -lpthread
+	      -o $@ tools/esmedia-check.c src/esmedia.c src/library.c src/sheet.c src/db.c src/snaps.c -lsqlite3 -lpthread
 	@if pkg-config --exists sdl2 SDL2_image SDL2_ttf 2>/dev/null; then \
 		$(MAKE) --no-print-directory native || exit 1; \
 	fi
@@ -2649,7 +2666,8 @@ check-mp4views: native
 # mode's dummy window: Now Playing paused at its second, only for a row that
 # says playing, and nothing for one whose file is gone. And a start back into
 # a game, against a Diatom of the check's own: the game first, MP4 held under
-# it, and SELECT in the game's menu Now Playing on it, paused.
+# it, and SELECT in the game's menu Now Playing on it, paused. Each wait is
+# for the screen or the row it names, never for a time.
 check-mp4resume: build-native/mp4resume-check native
 	@./build-native/mp4resume-check
 	@python3 tools/mp4resume-start.py

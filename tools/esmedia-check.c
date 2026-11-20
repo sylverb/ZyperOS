@@ -23,11 +23,17 @@
  * and gamelist.xml are not games it left out, and lib_folder_pick and the
  * folder table answer as the shelf needs.
  *
- * Links src/esmedia.c, src/library.c and src/db.c, and not SDL.
+ * And the one lookup everything that shows a game's picture asks, the shelf
+ * and the File Transfer page alike (game_media): the game's own in .media
+ * first, an empty one not counted, then ES's; and one folder's index
+ * forgotten (es_forget_folder) reads the folder again.
+ *
+ * Links src/esmedia.c, src/library.c, src/snaps.c and src/db.c, and not SDL.
  */
 #include "../src/db.h"
 #include "../src/esmedia.h"
 #include "../src/library.h"
+#include "../src/snaps.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -208,6 +214,58 @@ int main(void)
 	CHECK(es_has_video("psx", "Crash (USA).chd", "crash (usa)"));
 	CHECK(!es_has_video("nds", "Tetris DS (Europe).nds", "Tetris DS (Europe)"));
 	CHECK(!es_has_video("GB", "Tetris (World).gb", "Tetris (World)"));
+
+	printf("the game's own first, then ES's (game_media):\n");
+	{
+		char snap[ES_PATH], want[ES_PATH];
+
+		CHECK(game_media_own(roms, "nds", "Picross DS (Europe)", ES_COVER, out, sizeof out) &&
+		      ends(out, "/Roms/nds/.media/Picross DS (Europe).png"));
+		CHECK(game_media_own(roms, "nds", "Picross DS (Europe)", ES_VIDEO, out, sizeof out) &&
+		      snaps_path(roms, "nds", "Picross DS (Europe)", snap, sizeof snap) && !strcmp(out, snap));
+		CHECK(!game_media_own(roms, "nds", "Picross DS (Europe)", ES_COVER, out, 10) && !out[0]);
+		/* none of its own: ES's */
+		CHECK(game_media(roms, "nds", "Picross DS (Europe).nds", "Picross DS (Europe)", ES_COVER, true,
+		                 out, sizeof out) && ends(out, "/nds/images/Picross DS (Europe)-image.jpg"));
+		put("Roms/nds/.media/Picross DS (Europe).png", "png");
+		snprintf(want, sizeof want, "%s/nds/.media/Picross DS (Europe).png", roms);
+		CHECK(game_media(roms, "nds", "Picross DS (Europe).nds", "Picross DS (Europe)", ES_COVER, true,
+		                 out, sizeof out) && !strcmp(out, want));
+		/* an empty one is none */
+		put("Roms/nds/.media/Tetris DS (Europe).png", "");
+		CHECK(game_media(roms, "nds", "Tetris DS (Europe).nds", "Tetris DS (Europe)", ES_COVER, true,
+		                 out, sizeof out) && ends(out, "/nds/images/Tetris DS (Europe)-image.png"));
+		CHECK(game_media(roms, "psx", "Crash (USA).chd", "Crash (USA)", ES_VIDEO, true, out, sizeof out) &&
+		      ends(out, "/psx/media/videos/Crash (USA).mp4"));
+		put("Roms/psx/.media/Crash (USA).mp4", "mp4");
+		snprintf(want, sizeof want, "%s/psx/.media/Crash (USA).mp4", roms);
+		CHECK(game_media(roms, "psx", "Crash (USA).chd", "Crash (USA)", ES_VIDEO, true, out, sizeof out) &&
+		      !strcmp(out, want));
+		/* neither */
+		CHECK(!game_media(roms, "GB", "Tetris (World).gb", "Tetris (World)", ES_COVER, true, out, sizeof out) &&
+		      !out[0]);
+		CHECK(!game_media(roms, "GB", "Tetris (World).gb", "Tetris (World)", ES_VIDEO, true, out, sizeof out) &&
+		      !out[0]);
+		snprintf(want, sizeof want, "%s/psx/.media/Crash (USA).mp4", roms);
+		unlink(want);
+		snprintf(want, sizeof want, "%s/nds/.media/Picross DS (Europe).png", roms);
+		unlink(want);
+		snprintf(want, sizeof want, "%s/nds/.media/Tetris DS (Europe).png", roms);
+		unlink(want);
+	}
+
+	printf("one folder read again:\n");
+	/* GB's index has no media folder; pictures copied in later are found
+	 * once it is forgotten (the File Transfer page's writes, src/hare.c) */
+	CHECK(es_ready("GB"));
+	put("Roms/GB/images/Tetris (World).png", "png");
+	CHECK(!es_media(roms, "GB", "Tetris (World).gb", "Tetris (World)", ES_COVER, true, out, sizeof out));
+	es_forget_folder("GB");
+	CHECK(!es_ready("GB") && es_ready("nds"));
+	CHECK(es_media(roms, "GB", "Tetris (World).gb", "Tetris (World)", ES_COVER, true, out, sizeof out) &&
+	      ends(out, "/GB/images/Tetris (World).png"));
+	es_forget_folder("no such folder");
+	es_forget_folder(NULL);
 
 	printf("details:\n");
 	CHECK(es_details(roms, "nds", "Mario Kart DS (USA).nds", "Mario Kart DS (USA)", &m, &fav));
