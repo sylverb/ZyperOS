@@ -21,6 +21,11 @@ typedef struct {
 	/* The firmware it needs and the card lacks, said under its name
 	 * ("Needs disksys.rom in Bios"); "" when it has what it needs */
 	char needs[CFG_STR + 64];
+	/* Its cheats (src/cheats_screen.h): "2 cheats on" alone, and with
+	 * " · the last session ended in a crash" when it stopped with them on;
+	 * "" for none */
+	char cheats_on[64], cheats[160];
+	bool crashed;
 } game_page_state;
 
 /* Zyper in the cheer, posed by the rig at the cheer's clock */

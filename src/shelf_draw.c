@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "ds/hover.h"
 #include "shelf_draw.h"
+#include "cheats_screen.h"
 #include "homesys.h"
 
 #include "app.h"
@@ -549,6 +550,22 @@ static void game_page_facts(app *a, bool settled)
 		snprintf(bios, sizeof bios, "%s/Bios", P_CARD);
 		if (bios_check_file(system, g->file, lib_is_disc(g->file), bios, &br) == BIOS_MISSING)
 			bios_message(&br, g_game_page.needs, sizeof g_game_page.needs);
+	}
+	/* How many of its cheats are on, and whether it stopped last time with
+	 * them on (the lab's shelf line; src/cheats_screen.h): a database read,
+	 * and its .cht files only for a game that has some on */
+	g_game_page.crashed = false;
+	g_game_page.cheats[0] = g_game_page.cheats_on[0] = '\0';
+	if (cheats_shelf_line(system, g->file, g_game_page.cheats_on, sizeof g_game_page.cheats_on,
+	                      &g_game_page.crashed) > 0) {
+		if (g_game_page.crashed) {
+			snprintf(g_game_page.cheats, sizeof g_game_page.cheats, "%s · %s",
+			         g_game_page.cheats_on, T(S_CHEATS_SHELF_CRASHED));
+			/* joined on the line, so said to the host's check apart */
+			ui_fit_drawn(T(S_CHEATS_SHELF_CRASHED));
+		}
+		else
+			snprintf(g_game_page.cheats, sizeof g_game_page.cheats, "%s", g_game_page.cheats_on);
 	}
 	g_game_page.valid = true;
 }
@@ -1176,6 +1193,7 @@ static void draw_games(app *a)
 			.played = g_game_page.valid ? g_game_page.played : "",
 			.origin = g && owner != a->sys_cursor ? a->sys.systems[owner].name : NULL,
 			.has_achievements = g_game_page.valid && g_game_page.achievements,
+			.cheats = g_game_page.valid ? g_game_page.cheats : "",
 			.resumable = g_game_page.valid && g_game_page.resume,
 			.install = pm_is_offer(a, owner, g),
 			.howto = splore_is_offer(a, owner, g),
@@ -1226,6 +1244,7 @@ static void draw_games(app *a)
 				.played = g_game_page.valid ? g_game_page.played : "",
 				.origin = g && owner != a->sys_cursor ? a->sys.systems[owner].name : NULL,
 				.has_achievements = g_game_page.valid && g_game_page.achievements,
+				.cheats = g_game_page.valid ? g_game_page.cheats : "",
 				.resumable = g_game_page.valid && g_game_page.resume,
 				.install = pm_is_offer(a, owner, g),
 				.needs = g_game_page.valid ? g_game_page.needs : "",
@@ -1262,6 +1281,10 @@ static void draw_games(app *a)
 			.played = g_game_page.valid ? g_game_page.played : "",
 			.origin = g && owner != a->sys_cursor ? a->sys.systems[owner].name : NULL,
 			.has_achievements = g_game_page.valid && g_game_page.achievements,
+			/* the list's panel is narrow: the count, and the crash on a line
+			 * of its own in its short words */
+			.cheats = g_game_page.valid ? g_game_page.cheats_on : "",
+			.cheats_crashed = g_game_page.valid && g_game_page.crashed,
 			.resumable = g_game_page.valid && g_game_page.resume,
 			.install = pm_is_offer(a, owner, g),
 			.needs = g_game_page.valid ? g_game_page.needs : "",
@@ -1289,6 +1312,7 @@ static void draw_games(app *a)
 		.count = v->list.count, .cursor = v->cursor,
 		.played = g_game_page.valid ? g_game_page.played : "",
 		.has_achievements = g_game_page.valid && g_game_page.achievements,
+		.cheats = g_game_page.valid ? g_game_page.cheats : "",
 		.earned = g_game_page.earned, .total = g_game_page.total,
 		.resumable = g_game_page.valid && g_game_page.resume,
 		/* PortMaster's entry while it is not on the card: A installs it */

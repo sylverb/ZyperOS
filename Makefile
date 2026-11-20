@@ -44,7 +44,7 @@ src/i18n_tables.c: $(wildcard res/strings/*.txt) tools/i18n.py
 # had to be remembered by name, which is a suite in the same sense that a list
 # of good intentions is a plan. A check nobody runs is a check that does not
 # exist, and check-menus was about to join eight others in that state.
-CHECKS = check-cheevos check-hare check-portal check-httpd check-idle check-taskhold check-saver check-rahash check-flacdec check-achtab check-rasubmit check-raoffline check-radl check-dlq check-cheats check-signin check-noticeq check-badges check-badge-shots \
+CHECKS = check-cheevos check-hare check-portal check-httpd check-idle check-taskhold check-saver check-rahash check-flacdec check-achtab check-rasubmit check-raoffline check-radl check-dlq check-cheatsdl check-cheats check-signin check-noticeq check-badges check-badge-shots \
          check-raset check-xfer check-sshlink check-usblink check-devmode check-devices check-devicegen check-model check-ctl check-menus check-artscrape check-artrun check-sgdb check-snapshelf check-snaps check-audioout \
          check-db check-coreopts check-mp4keys check-gamedel check-gamern check-esmedia check-media check-snapsize check-corepins check-targets check-storage check-stats check-sort check-bt check-ss check-titles check-savedlib check-search \
          check-mp4lib check-mp4queue check-mp4art check-mp4lock check-mp4look check-mp4views check-bands check-covercolor check-mp4frame check-mp4size check-p2share check-webtheme check-p2ws check-p2codec check-p2d check-play check-p2 check-resident check-spawn check-controls check-remap check-hotkeys check-rumble check-eq check-eqdsp check-eqplugin check-controls-shots check-logpack \
@@ -53,7 +53,7 @@ CHECKS = check-cheevos check-hare check-portal check-httpd check-idle check-task
          check-systemart check-linebreak check-portload check-portout check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-messages \
          check-tour check-tour-shots check-tour-previews check-textfade check-glyphs check-scale check-shaderdemo check-shaderpic check-screenfx check-ds check-layout-ratchet check-flex check-hover check-hover-sweep check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pico8 check-pico8-wget check-pmhelper check-pmart check-portdoc check-boottheme check-splashbright check-bootbright check-seed-version check-panelgamma check-panelgamma-sunxi check-nightmode check-displayback check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-start-soc check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr \
          check-home check-home-shots check-games check-cardpaint check-putpace check-favorites-shots check-homesys-groups check-np-footer check-vidtry check-menu-rows check-layout-shots check-artbadge check-artbadge-shots check-cardart-shots checkmark \
-         check-installer check-from-rogue check-importers check-diatom check-simulator check-qemu-image check-desk check-homekeys check-videoview check-keymap check-handhelds check-px2sim check-building-doc check-blog check-discord-release \
+         check-installer check-from-rogue check-importers check-diatom check-simulator check-qemu-image check-desk check-homekeys check-videoview check-inrepeat check-keymap check-handhelds check-px2sim check-building-doc check-blog check-discord-release \
          check-release-devices check-strings check-i18n-shots check-rootswitch check-datapart check-brick-closed check-hwreport check-kitbuild
 
 # All of them at once, as many at a time as there are cores (CHECK_JOBS=1 for
@@ -149,6 +149,10 @@ check-homekeys: native
 # The Video view in desk mode: its snap playing holds the screensaver
 check-videoview: native
 	@python3 tools/videoview-check.py
+
+# No button read twice by in_repeat in one step (a held one turned round)
+check-inrepeat:
+	@python3 tools/inrepeat-check.py
 
 # One key map: src/device/keymap.h, the Simulator's and Diatom's window's
 check-keymap:
@@ -2004,7 +2008,7 @@ build-native/rahash-check: tools/rahash-check.c $(RAHASH_SRC) src/rahashjob.c sr
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g $(LZMA_CFLAGS) \
 	      -o $@ tools/rahash-check.c $(RAHASH_SRC) -lz $(LZMA_LIBS) -lpthread
 
-.PHONY: check-noticeq check-badges check-badge-shots check-radl check-dlq check-cheats check-rasubmit check-lowbatt check-powerhold check-homesys check-collect check-heat check-charging
+.PHONY: check-noticeq check-badges check-badge-shots check-radl check-dlq check-cheatsdl check-cheats check-rasubmit check-lowbatt check-powerhold check-homesys check-collect check-heat check-charging
 
 # The pop-ups over a game, one after another (src/noticeq.h)
 check-noticeq: build-native/noticeq-check
@@ -2122,6 +2126,16 @@ build-native/dlq-check: tools/dlq-check.c src/dlq.c src/dlq.h src/net.c src/net.
 	      -DNET_TMP='"$(CURDIR)/build-native/dlq-check-tmp"' \
 	      -DDLQ_FLOOR='(1ULL << 62)' -DDLQ_ROOM_MS=1 \
 	      -o $@ tools/dlq-check.c
+
+# The cheats download (src/cheatsdl.h): a zip made in the check, read, matched,
+# written and counted, with no network
+check-cheatsdl: build-native/cheatsdl-check
+	@./build-native/cheatsdl-check
+
+build-native/cheatsdl-check: tools/cheatsdl-check.c src/cheatsdl.c src/cheatsdl.h FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Isrc $(shell pkg-config --cflags sdl2 2>/dev/null) \
+	      -o $@ tools/cheatsdl-check.c -lz
 
 build-native/radl-check: tools/radl-check.c src/radl.c src/radl.h src/net.c src/net.h src/rafetch.c src/rajson.c src/cheevos.c src/library.c src/sheet.c $(RAHASH_SRC) src/atomic.c src/db.c $(I18N_SRC) FORCE
 	@mkdir -p build-native

@@ -473,8 +473,8 @@ EXTRA = {
     # kind done, no network and nobody signed in, counting, on a kind, a kind
     # out), Settings, the kinds' pages, Systems, a system's games and a
     # game's panel, the run (going, waiting for Wi-Fi, paused), done and
-    # stopped, On the Card, RetroAchievements' account, a console's page and
-    # Videos for
+    # stopped, On the Card, RetroAchievements' account, a console's page,
+    # Videos for and Cheats' page
     "downloads": ("demo", "PS1", ["--downloads", "0"]),
     "downloads-running": ("demo", "PS1", ["--downloads", "1"]),
     "downloads-done": ("demo", "PS1", ["--downloads", "2"]),
@@ -498,6 +498,7 @@ EXTRA = {
     "downloads-ra-account": ("demo", "PS1", ["--downloads", "20"]),
     "downloads-console": ("demo", "PS1", ["--downloads", "21"]),
     "downloads-videos-for": ("demo", "PS1", ["--downloads", "22"]),
+    "downloads-cheats": ("demo", "PS1", ["--downloads", "23"]),
     "downloads-ra-signed-out": ("demo", "PS1", ["--downloads", "24"]),
     "downloads-on-names": ("demo", "PS1", ["--downloads", "25"]),
     "downloads-covers-complete": ("demo", "PS1", ["--downloads", "26"]),
@@ -1059,6 +1060,15 @@ EXTRA.setdefault("cheats-on-first", ("demo", "PS1", ["--gamemenu", "0", "--cheat
 EXTRA.setdefault("cheats-search", ("demo", "PS1", ["--gamemenu", "0", "--cheats-page", "0", "--cheats-query", "infinite"]))
 EXTRA.setdefault("cheats-search-none", ("demo", "PS1", ["--gamemenu", "0", "--cheats-page", "0", "--cheats-query", "zzz"]))
 EXTRA.setdefault("cheats-crash", ("demo", "PS1", ["--cheats-crash"]))
+# The shelf's line under the game's name (the lab's): "2 cheats on" on the
+# covers and in the list, and after a crash with them on
+EXTRA.setdefault("cheats-shelf", ("demo", "PS1", ["--screen", "games"]))
+EXTRA.setdefault("cheats-shelf-crashed", ("demo", "PS1", ["--screen", "games", "--cheats-crashed"]))
+EXTRA.setdefault("cheats-shelf-list", ("demo", "PS1", ["--screen", "games", "--view", "list", "--cheats-crashed"]))
+for _n in ("cheats-row", "cheats-page", "cheats-page-end", "cheats-ask", "cheats-note", "cheats-note-end",
+           "cheats-on-first", "cheats-search", "cheats-search-none", "cheats-shelf", "cheats-shelf-crashed",
+           "cheats-shelf-list"):
+    R.SHOT_FOCUS.setdefault(_n, R.CHEATS_GAME + ".chd")
 R.SHOT_FOCUS.setdefault("cheats-none-libretro", "Crash Bandicoot (USA).chd")
 R.SHOT_FOCUS.setdefault("cheats-not-checked", "Spyro the Dragon (USA).chd")
 # A name long enough to reach the screen's middle under the focused cover,

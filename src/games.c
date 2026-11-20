@@ -434,6 +434,7 @@ uint32_t games_draw(games_row *row,SDL_Renderer *r,const games_info *info,
         if(info->needs && *info->needs) { w+=ui_text_width(chrome,info->needs); parts++; }
         if(info->played && *info->played) { snprintf(pt,sizeof pt,T(S_GAMES_PLAYED),info->played); w+=ui_text_width(chrome,pt); parts++; }
         if(info->has_achievements) { char at[64]; snprintf(at,sizeof at,T(S_GAMES_ACHIEVEMENTS),info->earned,info->total); w+=ui_text_width(chrome,at); parts++; }
+        if(info->cheats && *info->cheats) { w+=ui_text_width(chrome,info->cheats); parts++; }
         if(parts) w+=(parts-1)*32;
         if(sf.title.x+w<=GAMES_ORIGIN_RIGHT) my=GAMES_SUBLINE_Y;
     }
@@ -448,8 +449,10 @@ uint32_t games_draw(games_row *row,SDL_Renderer *r,const games_info *info,
     }
     if(info->has_achievements) {
         char text[64]; snprintf(text,sizeof text,T(S_GAMES_ACHIEVEMENTS),info->earned,info->total);
-        meta_part(r,chrome,text,x,my);
+        x=meta_part(r,chrome,text,x,my);
     }
+    /* and how many of its cheats are on (DESIGN.md 11.66), last */
+    if(info->cheats && *info->cheats) meta_part(r,chrome,info->cheats,x,my);
     if(info->count) page_hint(r,"A",info->a_word?info->a_word:
                               T(info->folder>0||info->opens?S_GAMES_OPEN:info->howto?S_PICO8_HOW_TO_ADD:info->install?S_PORTMASTER_INSTALL:
                                 info->resumable?S_GAMES_RESUME:S_GAMES_PLAY),SHELF_HINT_X,GAMES_TITLE_Y+SHELF_HINT_DY,true,false);

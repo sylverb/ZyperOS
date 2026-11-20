@@ -2,6 +2,7 @@
 /* What MENU > Downloads counts: src/dlcount.h */
 #include "dlcount.h"
 
+#include "cheatsdl.h"
 #include "db.h"
 #include "home.h"
 #include "platform.h"
@@ -83,6 +84,15 @@ static void count_one(app *a, int i)
 	g_cov_n += c.ncovers;
 	g_vid_bytes += c.vroom;
 	g_vid_n += c.nvideos;
+	{
+		cheats_count cc;
+
+		cheats_count_sys(sc->folder, sys_games(&a->view[i]), &cc);
+		s->cht_sys = cc.mapped;
+		s->cht_have = cc.have;
+		s->cht_none = cc.none;
+		s->cht_todo = cc.todo;
+	}
 	if (radl_plan_one(sc, P_ROMS, &r)) {
 		s->ach_sys = true;
 		s->ach_games = r.games;
@@ -157,7 +167,7 @@ bool dl_count_is_stale(void) { return g_stale || !g_lib_ok; }
 
 /* ---- the switches ---------------------------------------------------------------- */
 
-static const char *const KIND_KEY[DLK_KINDS] = { "covers", "videos", "names", "ach" };
+static const char *const KIND_KEY[DLK_KINDS] = { "covers", "videos", "names", "ach", "cheats" };
 
 static bool db_flag(const char *key, const char *want)
 {
@@ -205,7 +215,8 @@ bool dl_sys_on(dl_kind k, const char *folder)
 		if (db_flag(key, "off")) return false;
 		return snaps_covers(folder);
 	case DLK_ACH:
-		snprintf(key, sizeof key, "dl.off.ach.%s", folder);
+	case DLK_CHEATS:
+		snprintf(key, sizeof key, "dl.off.%s.%s", KIND_KEY[k], folder);
 		return !db_flag(key, "1");
 	default: return false;
 	}
@@ -223,7 +234,8 @@ void dl_sys_set(dl_kind k, const char *folder, bool on)
 		db_set_str(db_dev(), key, on ? "on" : "off");
 		break;
 	case DLK_ACH:
-		snprintf(key, sizeof key, "dl.off.ach.%s", folder);
+	case DLK_CHEATS:
+		snprintf(key, sizeof key, "dl.off.%s.%s", KIND_KEY[k], folder);
 		if (on) db_del(db_dev(), key);
 		else db_set_str(db_dev(), key, "1");
 		break;
@@ -254,6 +266,7 @@ int dl_sys_todo(const dl_counts *c, int i, dl_kind k, bool *on)
 		/* a system whose covers are out asks its games with no cover too */
 		return s->names_todo + (dl_sys_on(DLK_COVERS, s->folder) && dl_kind_in(DLK_COVERS) ? 0 : s->cov_miss);
 	case DLK_ACH: return s->ach_sys ? s->ach_todo : 0;
+	case DLK_CHEATS: return s->cht_sys ? s->cht_todo : 0;
 	default: return 0;
 	}
 }
@@ -261,6 +274,7 @@ int dl_sys_todo(const dl_counts *c, int i, dl_kind k, bool *on)
 static bool kind_of_sys(const dl_sys *s, dl_kind k)
 {
 	if (k == DLK_ACH) return s->ach_sys;
+	if (k == DLK_CHEATS) return s->cht_sys;
 	if (k == DLK_NAMES) return s->names_ok;
 	return true;
 }
@@ -282,6 +296,7 @@ void dl_sum_of(const dl_counts *c, dl_kind k, dl_sum *o)
 		case DLK_VIDEOS: have = s->vid_have; o->bytes += s->vid_bytes; break;
 		case DLK_NAMES:  have = s->names_have; break;
 		case DLK_ACH:    have = s->ach_ready; o->none += s->ach_none; break;
+		case DLK_CHEATS: have = s->cht_have; o->none += s->cht_none; break;
 		default: break;
 		}
 		o->have += have;
@@ -293,6 +308,7 @@ void dl_sum_of(const dl_counts *c, dl_kind k, dl_sum *o)
 	}
 	if (k == DLK_COVERS) o->bytes = (unsigned long long)(o->have * c->mb_cover * 1e6);
 	if (k == DLK_ACH) o->bytes = (unsigned long long)(o->have * DL_MB_SET * 1e6);
+	if (k == DLK_CHEATS) o->bytes = (unsigned long long)(o->have * CHT_MB_FILE * 1e6);
 }
 
 void dl_plan_of(const dl_counts *c, int only, dl_plan *o)
@@ -320,12 +336,18 @@ void dl_plan_of(const dl_counts *c, int only, dl_plan *o)
 			o->ach += s->ach_todo;
 			o->ach_sys++;
 		}
+		if (in[DLK_CHEATS] && s->cht_sys && dl_sys_on(DLK_CHEATS, s->folder)) o->cheats += s->cht_todo;
 	}
-	o->n = o->covers + o->videos + o->names + o->ach;
+	o->n = o->covers + o->videos + o->names + o->ach + o->cheats;
 	o->bytes = (o->covers * c->mb_cover + o->videos * c->mb_video + o->ach * DL_MB_SET) * 1e6;
+	/* cheats: the list's index once, then a few KB a game that has some
+	 * (about six in ten, the lab's measure) */
+	if (o->cheats) o->bytes += (CHT_MB_INDEX + o->cheats * DL_CHT_HITS * CHT_MB_FILE) * 1e6;
 	o->art_secs = o->covers * (c->ss_in ? DL_S_SS : DL_S_LR) + o->looks * DL_S_SS + o->videos * DL_S_VIDEO;
 	o->ra_secs = o->ach ? o->ach * DL_S_SET + o->ach_sys * DL_S_SYSTEM : 0;
-	/* side by side: the longer lane is the time */
+	o->cht_secs = o->cheats ? DL_S_CHT_INDEX + o->cheats * DL_CHT_HITS * DL_S_CHT : 0;
+	/* side by side: the longest lane is the time */
 	o->secs = o->art_secs > o->ra_secs ? o->art_secs : o->ra_secs;
+	if (o->cht_secs > o->secs) o->secs = o->cht_secs;
 	o->fits = !c->free || o->bytes + (double)DL_RESERVE <= (double)c->free;
 }

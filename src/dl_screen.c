@@ -16,6 +16,7 @@
 #include "mediatex.h"
 #include "menu_pick.h"
 #include "net.h"
+#include "cheatsdl.h"
 #include "cheevos.h"
 #include "ssrun.h"
 #include "radl.h"
@@ -94,7 +95,8 @@
 #define DL_CELL_W   (DS_PAGE_TILE_W / DLK_KINDS)   /* a Systems column: the kinds share a tile's width */
 #define DL_GAME_ROWS 5             /* a system's games on the screen */
 
-static const ui_glyph KIND_MARK[DLK_KINDS] = { UI_GLYPH_COVER, UI_GLYPH_FILM, UI_GLYPH_BOOK, UI_GLYPH_TROPHY };
+static const ui_glyph KIND_MARK[DLK_KINDS] = { UI_GLYPH_COVER, UI_GLYPH_FILM, UI_GLYPH_BOOK, UI_GLYPH_TROPHY,
+                                               UI_GLYPH_WAND };
 
 static const char *kind_name(dl_kind k)
 {
@@ -102,6 +104,7 @@ static const char *kind_name(dl_kind k)
 	case DLK_COVERS: return T(S_SCRAPER_PAGE_COVERS);
 	case DLK_VIDEOS: return T(S_SCRAPER_PAGE_VIDEOS);
 	case DLK_NAMES:  return T(S_SCRAPER_NAMES_DETAILS);
+	case DLK_CHEATS: return T(S_DOWNLOADS_KIND_CHEATS);
 	default:         return T(S_SYSMENU_CHEEVOS);
 	}
 }
@@ -151,10 +154,11 @@ typedef struct {
 	int nicon;
 	/* the run this page shows */
 	int run_kind;            /* -1 every kind that is in, else the one */
-	bool art, ra;            /* its lanes */
-	unsigned art_seen, ra_seen;
+	bool art, ra, cht;       /* its lanes */
+	unsigned art_seen, ra_seen, cht_seen;
 	art_progress ap;
 	radl_progress rp;
+	cheats_progress cp;
 	int art_total, art_looks;
 	dl_arrival ring[DL_RING];
 	int nring;
@@ -171,7 +175,47 @@ typedef struct {
 } dl_view;
 
 /* The lanes' ends this page (or the news) has already said */
-static unsigned g_shown_art, g_shown_ra;
+static unsigned g_shown_art, g_shown_ra, g_shown_cht;
+
+/* ---- the cheats' lane (src/dlq.h): cheatsdl.c's run, stepped on its own
+ * network slot, side by side with the other two ---- */
+static systems_cfg g_cht_sys;
+static char g_cht_only[CFG_STR];
+static cheats_progress g_cht_last;
+
+static int g_cht_games;
+
+static bool cht_lane_begin(void)
+{
+	return cheats_begin(&g_cht_sys, g_cht_only[0] ? g_cht_only : NULL, g_cht_games);
+}
+
+static int cht_lane_step(unsigned now_ms)
+{
+	(void)now_ms;
+	return cheats_step();
+}
+
+static void cht_lane_done(dlq_end how)
+{
+	(void)how;
+	cheats_status(&g_cht_last);
+	if (cheats_running()) cheats_cancel();
+}
+
+static int cht_lane_pct(void)
+{
+	cheats_progress p;
+
+	cheats_status(&p);
+	return p.games > 0 ? (int)((long long)p.games_done * 100 / p.games) : 0;
+}
+
+static dlq_lane_def CHT_LANE = {
+	.name = "cheats", .slot = NET_SLOT_CHT,
+	.step = cht_lane_step, .done = cht_lane_done, .pct = cht_lane_pct,
+	.every_ms = 8,
+};
 
 static dl_frame *top_of(dl_view *v) { return &v->st[v->depth - 1]; }
 
@@ -185,7 +229,7 @@ static void push(dl_view *v, int view)
 }
 
 /* A shot's network, lanes and progress (downloads_shot), -1 the real ones */
-static int g_fx_net = -1, g_fx_art = -1, g_fx_ra = -1, g_fx_pct = -1;
+static int g_fx_net = -1, g_fx_art = -1, g_fx_ra = -1, g_fx_cht = -1, g_fx_pct = -1;
 static const char *g_fx_user;
 
 static bool online(void)
@@ -195,14 +239,14 @@ static bool online(void)
 
 static bool lane_on(dlq_lane l)
 {
-	int fx = l == DLQ_ART ? g_fx_art : g_fx_ra;
+	int fx = l == DLQ_ART ? g_fx_art : l == DLQ_RA ? g_fx_ra : g_fx_cht;
 
 	return fx >= 0 ? fx != 0 : dlq_running(l);
 }
 
 static bool dl_live(void)
 {
-	return lane_on(DLQ_ART) || lane_on(DLQ_RA);
+	return lane_on(DLQ_ART) || lane_on(DLQ_RA) || lane_on(DLQ_CHT);
 }
 
 /* ---- the systems' icons --------------------------------------------------------- */
@@ -291,7 +335,7 @@ static int run_pct(void)
 
 static int lane_pct(dlq_lane l)
 {
-	return g_fx_pct >= 0 ? (l == DLQ_ART ? 37 : 52) : dlq_lane_pct(l);
+	return g_fx_pct >= 0 ? (l == DLQ_ART ? 37 : l == DLQ_RA ? 52 : 64) : dlq_lane_pct(l);
 }
 
 /* The Download row's value and MENU's (downloads_menu_value) */
@@ -311,9 +355,14 @@ static void download_value(const dl_counts *c, char *out, size_t n)
 }
 
 /* The lane a kind goes on, and whether it runs */
+static dlq_lane lane_of(dl_kind k)
+{
+	return k == DLK_ACH ? DLQ_RA : k == DLK_CHEATS ? DLQ_CHT : DLQ_ART;
+}
+
 static bool kind_running(dl_kind k)
 {
-	return lane_on(k == DLK_ACH ? DLQ_RA : DLQ_ART);
+	return lane_on(lane_of(k));
 }
 
 static void kind_value(const dl_counts *c, dl_kind k, char *out, size_t n)
@@ -328,17 +377,18 @@ static void kind_value(const dl_counts *c, dl_kind k, char *out, size_t n)
 	if (!s.on) { snprintf(out, n, "%s", T(S_SCRAPER_OFF)); return; }
 	if (kind_running(k)) {
 		/* the number alone: Download's row over it says what goes on */
-		snprintf(out, n, "%d%%", lane_pct(k == DLK_ACH ? DLQ_RA : DLQ_ART));
+		snprintf(out, n, "%d%%", lane_pct(lane_of(k)));
 		return;
 	}
 	if (!s.todo) {
-		snprintf(out, n, "%s", k == DLK_ACH ? T(S_DOWNLOADS_READY) : T(S_SCRAPER_COMPLETE));
+		snprintf(out, n, "%s", k == DLK_ACH || k == DLK_CHEATS ? T(S_DOWNLOADS_READY) : T(S_SCRAPER_COMPLETE));
 		return;
 	}
 	switch (k) {
 	case DLK_COVERS: snprintf(out, n, TN(S_DOWNLOADS_MISSING_N, s.todo), s.todo); break;
 	case DLK_VIDEOS: snprintf(out, n, TN(S_DOWNLOADS_TO_FETCH_N, s.todo), s.todo); break;
 	case DLK_NAMES:  snprintf(out, n, TN(S_DOWNLOADS_TO_LOOK_UP_N, s.todo), s.todo); break;
+	case DLK_CHEATS: snprintf(out, n, TN(S_DOWNLOADS_TO_CHECK_N, s.todo), s.todo); break;
 	default:         snprintf(out, n, TN(S_DOWNLOADS_TO_DOWNLOAD_N, s.todo), s.todo); break;
 	}
 }
@@ -372,6 +422,9 @@ static void kind_facts(const dl_counts *c, dl_kind k, char *out, size_t n)
 	}
 	case DLK_NAMES:
 		snprintf(out, n, "%s", T(S_DOWNLOADS_ONE_REQUEST));
+		break;
+	case DLK_CHEATS:
+		snprintf(out, n, "%s", T(S_DOWNLOADS_FROM_LIBRETRO_DB));
 		break;
 	default:
 		snprintf(out, n, "%s \xc2\xb7 %s", T(S_DOWNLOADS_FROM_RA), oc);
@@ -709,9 +762,9 @@ static void kind_draw(dl_view *v, dl_frame *f, unsigned now)
 	int i, shown, more, slot0 = 0, tile0 = 0, n = v->c ? v->c->n : 0;
 	const char *blocked = v->c ? dl_kind_blocked(v->c, k) : NULL;
 	static const str_id LEFT[DLK_KINDS] = { S_DOWNLOADS_TILE_ON_CARD, S_DOWNLOADS_TILE_ON_CARD,
-	                                        S_DOWNLOADS_TILE_NAMED, S_RADL_READY };
+	                                        S_DOWNLOADS_TILE_NAMED, S_RADL_READY, S_RADL_READY };
 	static const str_id RIGHT[DLK_KINDS] = { S_DOWNLOADS_TILE_MISSING, S_RADL_TO_DOWNLOAD,
-	                                         S_DOWNLOADS_TILE_TO_LOOK_UP, S_RADL_TO_DOWNLOAD };
+	                                         S_DOWNLOADS_TILE_TO_LOOK_UP, S_RADL_TO_DOWNLOAD, S_RADL_TO_DOWNLOAD };
 
 	sub_of(v, k, sub, sizeof sub, &mark);
 	if (blocked && !dl_live()) { snprintf(sub, sizeof sub, "%s", blocked); mark = UI_GLYPH_COUNT; }
@@ -752,6 +805,7 @@ static void kind_draw(dl_view *v, dl_frame *f, unsigned now)
 			const dl_sys *d = &v->c->s[i];
 
 			if (k == DLK_ACH && !d->ach_sys) continue;
+			if (k == DLK_CHEATS && !d->cht_sys) continue;
 			if (k == DLK_NAMES && !d->names_ok && v->c->ss_in) continue;
 			idx[m++] = i;
 		}
@@ -787,12 +841,12 @@ static void kind_draw(dl_view *v, dl_frame *f, unsigned now)
 	if (s.have_sys) snprintf(ts[0], sizeof ts[0], TN(S_SCRAPER_ON_N_SYSTEMS, s.have_sys), s.have_sys);
 	else snprintf(ts[0], sizeof ts[0], "%s", T(S_DOWNLOADS_NONE_YET));
 	if (!s.on) snprintf(ts[1], sizeof ts[1], "%s", T(S_DOWNLOADS_ALL_OFF));
-	else if (!s.todo) snprintf(ts[1], sizeof ts[1], "%s", k == DLK_ACH ? T(S_RADL_ALL_CHECKED) : T(S_DOWNLOADS_COMPLETE_LOW));
+	else if (!s.todo) snprintf(ts[1], sizeof ts[1], "%s", k == DLK_ACH || k == DLK_CHEATS ? T(S_RADL_ALL_CHECKED) : T(S_DOWNLOADS_COMPLETE_LOW));
 	else if (k == DLK_VIDEOS) {
 		static const str_id FOR[SNAPS_FOR_COUNT] = { S_SCRAPER_ALL_GAMES, S_LIBRARY_FAVORITES, S_SCRAPER_PLAYED };
 
 		snprintf(ts[1], sizeof ts[1], "%s", T(FOR[snaps_for()]));
-	} else if (k == DLK_ACH) snprintf(ts[1], sizeof ts[1], "%s", T(S_RADL_NEVER_CHECKED));
+	} else if (k == DLK_ACH || k == DLK_CHEATS) snprintf(ts[1], sizeof ts[1], "%s", T(S_RADL_NEVER_CHECKED));
 	else snprintf(ts[1], sizeof ts[1], TN(S_SCRAPER_ON_N_SYSTEMS, s.todo_sys), s.todo_sys);
 	for (i = 0; i < 2; i++) {
 		SDL_Rect q = tq[i];
@@ -833,6 +887,17 @@ static void kind_draw(dl_view *v, dl_frame *f, unsigned now)
 			snprintf(f2, sizeof f2, T(S_STORAGE_FREE), fr);
 			snprintf(line, sizeof line, "%s \xc2\xb7 %s", tf, f2);
 			it = (ds_line_item){ UI_GLYPH_TO_CARD, line, pl.fits ? DS_TONE_INFO : DS_TONE_WARN };
+		} else if (k == DLK_CHEATS) {
+			/* the source and its license, and the games it has none for */
+			if (s.none) {
+				char nn[96];
+
+				snprintf(nn, sizeof nn, TN(S_RADL_HAVE_NONE, s.none), s.none);
+				snprintf(line, sizeof line, "CC BY-SA 4.0 \xc2\xb7 %s", nn);
+			} else {
+				snprintf(line, sizeof line, "%s", T(S_DOWNLOADS_FROM_LIBRETRO_DB));
+			}
+			it = (ds_line_item){ UI_GLYPH_COUNT, line, DS_TONE_INFO };
 		} else {
 			snprintf(line, sizeof line, TN(S_DOWNLOADS_NAMES_REQUESTS, s.todo), s.todo);
 			it = (ds_line_item){ UI_GLYPH_BOOK, line, DS_TONE_INFO };
@@ -845,7 +910,12 @@ static void kind_draw(dl_view *v, dl_frame *f, unsigned now)
 		                     T(S_DOWNLOADS_KEY_SYSTEMS), T(S_DOWNLOADS_KEY_BACK) };
 
 		if (k == DLK_VIDEOS) foot(v, &pf, K, W, 4);
-		else {
+		else if (k == DLK_CHEATS) {
+			const char *K2[2] = { "A", "B" };
+			const char *W2[2] = { W[0], W[3] };
+
+			foot(v, &pf, K2, W2, 2);
+		} else {
 			const char *K3[3] = { "A", "Y", "B" };
 			const char *W3[3] = { W[0], W[2], W[3] };
 
@@ -864,12 +934,19 @@ static void cell_words(dl_view *v, int i, dl_kind k, char *out, size_t n)
 
 	if (b) { snprintf(out, n, "%s", b); return; }
 	if (!on || !dl_kind_in(k)) { snprintf(out, n, "%s", T(S_SCRAPER_OFF)); return; }
-	if (k == DLK_ACH && !v->c->s[i].ach_sys) { snprintf(out, n, "%s", T(S_SCRAPER_OFF)); return; }
-	if (!todo) { snprintf(out, n, "%s", k == DLK_ACH ? T(S_DOWNLOADS_READY) : T(S_SCRAPER_COMPLETE)); return; }
+	if ((k == DLK_ACH && !v->c->s[i].ach_sys) || (k == DLK_CHEATS && !v->c->s[i].cht_sys)) {
+		snprintf(out, n, "%s", T(S_SCRAPER_OFF));
+		return;
+	}
+	if (!todo) {
+		snprintf(out, n, "%s", k == DLK_ACH || k == DLK_CHEATS ? T(S_DOWNLOADS_READY) : T(S_SCRAPER_COMPLETE));
+		return;
+	}
 	switch (k) {
 	case DLK_COVERS: snprintf(out, n, TN(S_DOWNLOADS_MISSING_N, todo), todo); break;
 	case DLK_VIDEOS: snprintf(out, n, TN(S_DOWNLOADS_TO_FETCH_N, todo), todo); break;
 	case DLK_NAMES:  snprintf(out, n, TN(S_DOWNLOADS_TO_LOOK_UP_N, todo), todo); break;
+	case DLK_CHEATS: snprintf(out, n, TN(S_DOWNLOADS_TO_CHECK_N, todo), todo); break;
 	default:         snprintf(out, n, TN(S_DOWNLOADS_TO_DOWNLOAD_N, todo), todo); break;
 	}
 }
@@ -881,6 +958,7 @@ static bool cell_lit(dl_view *v, int i, dl_kind k, int *todo)
 	*todo = dl_sys_todo(v->c, i, k, &on);
 	if (dl_kind_blocked(v->c, k) || !dl_kind_in(k) || !on) return false;
 	if (k == DLK_ACH && !v->c->s[i].ach_sys) return false;
+	if (k == DLK_CHEATS && !v->c->s[i].cht_sys) return false;
 	if (k == DLK_NAMES && !v->c->s[i].names_ok) return false;
 	return true;
 }
@@ -956,7 +1034,8 @@ static void systems_draw(dl_view *v, dl_frame *f, unsigned now)
 		}
 	}
 	{
-		bool del = cur && (f->col == DLK_VIDEOS ? cur->vid_have > 0 : f->col == DLK_ACH ? cur->ach_ready > 0 : false);
+		bool del = cur && (f->col == DLK_VIDEOS ? cur->vid_have > 0 : f->col == DLK_ACH ? cur->ach_ready > 0
+		                   : f->col == DLK_CHEATS ? cur->cht_have + cur->cht_none > 0 : false);
 		const char *K[4] = { "A", "X", "Y", "B" };
 		const char *W[4] = { T(S_DOWNLOADS_KEY_ON_OFF), T(S_DOWNLOADS_KEY_DELETE), T(S_DOWNLOADS_KEY_GAMES),
 		                     T(S_DOWNLOADS_KEY_BACK) };
@@ -1065,6 +1144,12 @@ static void sysgames_load(dl_view *v, const char *folder)
 		else d->st[DLK_VIDEOS] = dl_sys_on(DLK_VIDEOS, folder) ? GS_MISS : GS_OFF;
 		t = db_titles_find(&titles, g->file);
 		d->st[DLK_NAMES] = t && *t ? GS_HAVE : GS_MISS;
+		if (!s || !s->cht_sys) d->st[DLK_CHEATS] = GS_OFF;
+		else {
+			int cs = cheats_game_state(folder, g->name);
+
+			d->st[DLK_CHEATS] = cs > 0 ? GS_HAVE : cs < 0 ? GS_NONE : GS_MISS;
+		}
 		if (!s || !s->ach_sys) d->st[DLK_ACH] = GS_OFF;
 		else if (listed(sets, nset, g->name, ".set")) d->st[DLK_ACH] = GS_HAVE;
 		else if (listed(sets, nset, g->name, ".none")) d->st[DLK_ACH] = GS_NONE;
@@ -1080,7 +1165,7 @@ static void sysgames_load(dl_view *v, const char *folder)
 static void game_facts(const dl_game *g, char *l1, size_t n1, char *l2, size_t n2)
 {
 	static const str_id MISS[DLK_KINDS] = { S_DOWNLOADS_W_COVER, S_DOWNLOADS_W_VIDEO, S_DOWNLOADS_W_NAMES,
-	                                        S_DOWNLOADS_W_ACHIEVEMENTS };
+	                                        S_DOWNLOADS_W_ACHIEVEMENTS, S_DOWNLOADS_W_CHEATS };
 	char have[192] = "", miss[160] = "";
 	size_t o = 0, m = 0;
 	int k;
@@ -1092,6 +1177,8 @@ static void game_facts(const dl_game *g, char *l1, size_t n1, char *l2, size_t n
 		o += (size_t)snprintf(have + o, sizeof have - o, "%s%s", o ? " \xc2\xb7 " : "", T(S_DOWNLOADS_HAS_NAMES));
 	if (g->st[DLK_ACH] == GS_HAVE && o < sizeof have)
 		o += (size_t)snprintf(have + o, sizeof have - o, "%s%s", o ? " \xc2\xb7 " : "", T(S_DOWNLOADS_HAS_ACHIEVEMENTS));
+	if (g->st[DLK_CHEATS] == GS_HAVE && o < sizeof have)
+		o += (size_t)snprintf(have + o, sizeof have - o, "%s%s", o ? " \xc2\xb7 " : "", T(S_DOWNLOADS_KIND_CHEATS));
 	for (k = 0; k < DLK_KINDS; k++)
 		if (g->st[k] == GS_MISS && m < sizeof miss)
 			m += (size_t)snprintf(miss + m, sizeof miss - m, "%s%s", m ? ", " : "", T(MISS[k]));
@@ -1106,6 +1193,8 @@ static void game_facts(const dl_game *g, char *l1, size_t n1, char *l2, size_t n
 		ui_fit_drawn(T(S_DOWNLOADS_MISSING_LIST));
 	} else if (g->st[DLK_ACH] == GS_NONE) {
 		snprintf(l2, n2, "%s", T(S_DOWNLOADS_NO_ACHIEVEMENTS));
+	} else if (g->st[DLK_CHEATS] == GS_NONE) {
+		snprintf(l2, n2, "%s", T(S_DOWNLOADS_NO_CHEATS));
 	} else {
 		snprintf(l2, n2, "%s", T(S_DOWNLOADS_EVERYTHING_HERE));
 	}
@@ -1371,6 +1460,16 @@ static bool take_arrivals(dl_view *v)
 		ring_add(v, kind, v->ap.found_path, v->ap.found_game, v->ap.found_folder, 0);
 		any = true;
 	}
+	if (v->cht && dlq_running(DLQ_CHT)) cheats_status(&v->cp);
+	if (v->cp.seq != v->cht_seen) {
+		char path[LIB_PATH * 3] = "";
+
+		v->cht_seen = v->cp.seq;
+		if (has_box_art(v->cp.got_folder, v->cp.got_game))
+			box_art_path(v->cp.got_folder, v->cp.got_game, path, sizeof path);
+		ring_add(v, DLK_CHEATS, path, v->cp.got_game, v->cp.got_folder, v->cp.got_count);
+		any = true;
+	}
 	if (v->rp.set_seq != v->ra_seen) {
 		char path[LIB_PATH * 3] = "", name[LIB_NAME];
 		const char *b = strrchr(v->rp.set_path, '/');
@@ -1393,13 +1492,15 @@ static void run_counts(const dl_view *v, int got[DLK_KINDS])
 	got[DLK_VIDEOS] = v->ap.snaps;
 	got[DLK_NAMES] = v->ap.named;
 	got[DLK_ACH] = v->rp.fetched + v->rp.updated;
+	got[DLK_CHEATS] = v->cp.fetched + v->cp.updated;
 }
 
 static void run_shown(const dl_view *v, bool shown[DLK_KINDS])
 {
 	int k;
 
-	for (k = 0; k < DLK_KINDS; k++) shown[k] = v->run_kind < 0 ? (k == DLK_ACH ? v->ra : v->art) : v->run_kind == k;
+	for (k = 0; k < DLK_KINDS; k++)
+		shown[k] = v->run_kind < 0 ? (k == DLK_ACH ? v->ra : k == DLK_CHEATS ? v->cht : v->art) : v->run_kind == k;
 	if (v->run_kind < 0 && v->art) {
 		shown[DLK_COVERS] = dl_kind_in(DLK_COVERS);
 		shown[DLK_VIDEOS] = dl_kind_in(DLK_VIDEOS) && v->c && v->c->ss_in;
@@ -1410,7 +1511,7 @@ static void run_shown(const dl_view *v, bool shown[DLK_KINDS])
 /* Done and to do, across the lanes */
 static void run_progress(const dl_view *v, int *done, int *total)
 {
-	int ad = 0, at = 0, rd = 0, rt = 0;
+	int ad = 0, at = 0, rd = 0, rt = 0, cd = 0, ct = 0;
 
 	if (v->art) {
 		ad = v->ap.looked + v->ap.dlooked;
@@ -1421,14 +1522,18 @@ static void run_progress(const dl_view *v, int *done, int *total)
 		rd = v->rp.games_done;
 		rt = v->rp.games > rd ? v->rp.games : rd;
 	}
-	*done = ad + rd;
-	*total = at + rt;
+	if (v->cht) {
+		cd = v->cp.games_done;
+		ct = v->cp.games > cd ? v->cp.games : cd;
+	}
+	*done = ad + rd + cd;
+	*total = at + rt + ct;
 }
 
 static double run_eta(const dl_view *v, unsigned now)
 {
 	int done, total;
-	double art = 0, ra = 0, el = (now - v->t0) / 1000.0;
+	double art = 0, ra = 0, cht = 0, el = (now - v->t0) / 1000.0;
 
 	run_progress(v, &done, &total);
 	if (v->art) {
@@ -1441,9 +1546,15 @@ static double run_eta(const dl_view *v, unsigned now)
 
 		ra = (left > 0 ? left : 0) * DL_S_SET;
 	}
+	if (v->cht) {
+		int left = v->cp.games - v->cp.games_done;
+
+		cht = (left > 0 ? left : 0) * DL_CHT_HITS * DL_S_CHT;
+	}
 	/* the run's own pace once it has one */
 	if (done - v->done0 >= 6 && el >= 15 && total > done)
 		return el / (done - v->done0) * (total - done);
+	if (cht > art) art = cht;
 	return art > ra ? art : ra;
 }
 
@@ -1470,11 +1581,16 @@ static void run_draw(dl_view *v, unsigned now)
 		folder = v->ap.folder_now;
 		km = v->ap.details ? (dl_kind_in(DLK_NAMES) ? UI_GLYPH_BOOK : UI_GLYPH_FILM) : UI_GLYPH_COVER;
 		src = v->ap.src == ART_SRC_SG ? UI_GLYPH_GRID : v->ap.src == ART_SRC_LR ? UI_GLYPH_SHELF : UI_GLYPH_CLOUD;
-	} else {
+	} else if (v->ra && lane_on(DLQ_RA)) {
 		title = v->rp.now[0] ? v->rp.now : v->rp.folder_now;
 		folder = v->rp.folder_now;
 		km = UI_GLYPH_TROPHY;
 		src = UI_GLYPH_TROPHY;
+	} else {
+		title = v->cp.now[0] ? v->cp.now : v->cp.folder_now;
+		folder = v->cp.folder_now;
+		km = UI_GLYPH_WAND;
+		src = UI_GLYPH_SHELF;
 	}
 	s = sys_of(v, folder);
 	ui_fit_text(ft, title, fit, sizeof fit, pf.x1 - hx);
@@ -1546,7 +1662,8 @@ static void run_draw(dl_view *v, unsigned now)
 		arrival_draw(v, &v->ring[0], b, (Uint8)(255 * e), true);
 	}
 	/* Over the keys: why it waits, or the counts per kind and the time left */
-	if (!online() || (v->ra && lane_on(DLQ_RA) && v->rp.state == RADL_NO_NETWORK)) {
+	if (!online() || (v->ra && lane_on(DLQ_RA) && v->rp.state == RADL_NO_NETWORK) ||
+	    (v->cht && lane_on(DLQ_CHT) && v->cp.state == CHT_NO_NETWORK)) {
 		ds_line_item it = { UI_GLYPH_WIFI, T(S_RADL_WAITING_WIFI), DS_TONE_WARN };
 
 		ds_page_line(a->r, &pf, &it, 1);
@@ -1557,6 +1674,15 @@ static void run_draw(dl_view *v, unsigned now)
 
 		snprintf(w, sizeof w, "%u:%02u", sec / 60, sec % 60);
 		snprintf(line, sizeof line, v->rp.state == RADL_SLOWED ? T(S_RADL_PAUSED) : T(S_RADL_RETRYING), w);
+		it = (ds_line_item){ UI_GLYPH_CLOCK, line, DS_TONE_WARN };
+		ds_page_line(a->r, &pf, &it, 1);
+	} else if (v->cht && lane_on(DLQ_CHT) && v->cp.state == CHT_RETRYING) {
+		unsigned pn = plat_now_ms(), left = v->cp.resume_at > pn ? v->cp.resume_at - pn : 0, sec = (left + 999) / 1000;
+		char w[24], line[160];
+		ds_line_item it;
+
+		snprintf(w, sizeof w, "%u:%02u", sec / 60, sec % 60);
+		snprintf(line, sizeof line, T(S_RADL_RETRYING), w);
 		it = (ds_line_item){ UI_GLYPH_CLOCK, line, DS_TONE_WARN };
 		ds_page_line(a->r, &pf, &it, 1);
 	} else {
@@ -1657,6 +1783,30 @@ static void ra_checked(void)
 	db_set_str(db_dev(), "dl.checked.ra", v);
 }
 
+/* The same for cheats: libretro rebuilds its list every day; a run asks its
+ * last 64 KB, and fetches only the games whose files changed */
+static bool cht_check_due(const dl_counts *c)
+{
+	char v[24];
+	long long last = 0, now = (long long)time(NULL);
+	int i;
+	bool any = false;
+
+	if (!c || !dl_kind_in(DLK_CHEATS)) return false;
+	for (i = 0; i < c->n; i++) if (c->s[i].cht_sys && c->s[i].cht_have) any = true;
+	if (!any) return false;
+	if (db_get_str(db_dev(), "dl.checked.cht", v, sizeof v, NULL)) last = atoll(v);
+	return now - last >= DL_CHECK_S || now < last;
+}
+
+static void cht_checked(void)
+{
+	char v[24];
+
+	snprintf(v, sizeof v, "%lld", (long long)time(NULL));
+	db_set_str(db_dev(), "dl.checked.cht", v);
+}
+
 /* The names part's systems: each one's Names switch (Systems' cell) */
 static bool names_rule(const char *folder)
 {
@@ -1671,7 +1821,7 @@ static bool run_start(dl_view *v, int only)
 	dl_plan pl;
 	systems_cfg art_cfg, ra_cfg;
 	scraper_kinds k;
-	bool art = false, ra = false, due;
+	bool art = false, ra = false, cht = false, due, cdue;
 	int i, j, covers = 0;
 
 	if (!c) return false;
@@ -1681,7 +1831,8 @@ static bool run_start(dl_view *v, int only)
 	}
 	dl_plan_of(c, only, &pl);
 	due = (only < 0 || only == DLK_ACH) && ra_check_due(c);
-	if (!pl.n && !due) return false;
+	cdue = (only < 0 || only == DLK_CHEATS) && cht_check_due(c);
+	if (!pl.n && !due && !cdue) return false;
 	if (!pl.fits) {
 		result_message(v->a, T(S_DOWNLOADS_HEADING), T(S_SCRAPER_NO_ROOM));
 		return false;
@@ -1697,6 +1848,8 @@ static bool run_start(dl_view *v, int only)
 	}
 	memset(&art_cfg, 0, sizeof art_cfg);
 	memset(&ra_cfg, 0, sizeof ra_cfg);
+	memset(&g_cht_sys, 0, sizeof g_cht_sys);
+	g_cht_games = 0;
 	for (i = 0; i < c->n; i++) {
 		const dl_sys *s = &c->s[i];
 		const system_cfg *sc = NULL;
@@ -1711,19 +1864,30 @@ static bool run_start(dl_view *v, int only)
 		}
 		if (s->ach_sys && dl_sys_on(DLK_ACH, s->folder) && ra_cfg.count < CFG_MAX_SYSTEMS)
 			ra_cfg.systems[ra_cfg.count++] = *sc;
+		if (s->cht_sys && dl_sys_on(DLK_CHEATS, s->folder) && g_cht_sys.count < CFG_MAX_SYSTEMS) {
+			g_cht_sys.systems[g_cht_sys.count++] = *sc;
+			g_cht_games += s->games;
+		}
 	}
 	if (pl.covers + pl.videos + pl.looks > 0 && art_cfg.count)
 		art = scraper_start_run(v->a, k, &art_cfg, v->only[0] ? v->only : NULL, covers, names_rule);
 	if ((only < 0 || only == DLK_ACH) && (pl.ach > 0 || due) && ra_cfg.count &&
 	    (ra = radl_start_run(v->a, &ra_cfg, v->only[0] ? v->only : NULL)))
 		ra_checked();
-	if (!art && !ra) return false;
+	if ((only < 0 || only == DLK_CHEATS) && (pl.cheats > 0 || cdue) && g_cht_sys.count && !dlq_running(DLQ_CHT)) {
+		snprintf(g_cht_only, sizeof g_cht_only, "%s", v->only);
+		CHT_LANE.card = P_CARD;
+		if ((cht = dlq_start(DLQ_CHT, &CHT_LANE, cht_lane_begin))) cht_checked();
+	}
+	if (!art && !ra && !cht) return false;
 	ring_free(v);
 	memset(&v->ap, 0, sizeof v->ap);
 	memset(&v->rp, 0, sizeof v->rp);
+	memset(&v->cp, 0, sizeof v->cp);
 	v->art = art;
 	v->ra = ra;
-	v->art_seen = v->ra_seen = 0;
+	v->cht = cht;
+	v->art_seen = v->ra_seen = v->cht_seen = 0;
 	v->art_total = covers;
 	v->art_looks = pl.looks;
 	v->run_kind = only;
@@ -1739,10 +1903,13 @@ static void run_rejoin(dl_view *v)
 	ring_free(v);
 	v->art = dlq_running(DLQ_ART);
 	v->ra = dlq_running(DLQ_RA);
+	v->cht = dlq_running(DLQ_CHT);
 	if (v->art) art_status(&v->ap);
 	if (v->ra) radl_status(&v->rp);
+	if (v->cht) cheats_status(&v->cp);
 	v->art_seen = v->ap.found_seq;
 	v->ra_seen = v->rp.set_seq;
+	v->cht_seen = v->cp.seq;
 	v->art_total = scraper_run_total();
 	v->art_looks = v->ap.dtotal;
 	v->run_kind = -1;
@@ -1760,17 +1927,23 @@ static void run_rejoin(dl_view *v)
 static void run_finish(dl_view *v)
 {
 	dlq_end ea = v->art ? dlq_last(DLQ_ART) : DLQ_NONE, er = v->ra ? dlq_last(DLQ_RA) : DLQ_NONE;
+	dlq_end ec = v->cht ? dlq_last(DLQ_CHT) : DLQ_NONE;
 
 	if (v->art) scraper_last(&v->ap);
 	if (v->ra) radl_last(&v->rp);
+	if (v->cht) v->cp = g_cht_last;
 	v->end = END_DONE;
 	if (v->ra && v->rp.problem == RADL_SIGN_IN) {
 		v->end = END_SIGN_IN;
 		snprintf(v->why, sizeof v->why, "%s", T(S_RADL_REFUSED));
-	} else if (ea == DLQ_FULL || er == DLQ_FULL || (v->ra && v->rp.problem == RADL_NO_ROOM)) {
+	} else if (ea == DLQ_FULL || er == DLQ_FULL || ec == DLQ_FULL || (v->ra && v->rp.problem == RADL_NO_ROOM)) {
 		v->end = END_STOPPED;
 		snprintf(v->why, sizeof v->why, "%s", T(S_SCRAPER_NO_ROOM));
-	} else if (ea == DLQ_STOPPED || er == DLQ_STOPPED) {
+	} else if (v->cht && v->cp.problem != CHT_OK && !v->why[0]) {
+		/* libretro's list would not come: the rest still did */
+		v->end = END_STOPPED;
+		snprintf(v->why, sizeof v->why, "%s", T(S_DOWNLOADS_LIBRETRO_NO_ANSWER));
+	} else if (ea == DLQ_STOPPED || er == DLQ_STOPPED || ec == DLQ_STOPPED) {
 		v->end = END_STOPPED;
 		if (!v->why[0]) snprintf(v->why, sizeof v->why, "%s", T(S_DOWNLOADS_YOU_STOPPED));
 	} else if (v->ra && v->rp.problem == RADL_NO_ANSWER) {
@@ -1781,6 +1954,7 @@ static void run_finish(dl_view *v)
 	}
 	g_shown_art = dlq_ends(DLQ_ART);
 	g_shown_ra = dlq_ends(DLQ_RA);
+	g_shown_cht = dlq_ends(DLQ_CHT);
 	dl_count_stale();
 	dl_count_again(v->a, v->only);
 }
@@ -1896,13 +2070,15 @@ static int room_build(void *ctx, menu_row *rows, int max, const char **heading)
 		dl_sum s = { 0 };
 
 		if (c) dl_sum_of(c, (dl_kind)k, &s);
-		if (k == DLK_NAMES) snprintf(x->val[k], sizeof x->val[k], "%s", T(S_DOWNLOADS_UNDER_1MB));
+		if (k == DLK_NAMES || (k == DLK_CHEATS && s.bytes && s.bytes < 1000000ULL))
+			snprintf(x->val[k], sizeof x->val[k], "%s", T(S_DOWNLOADS_UNDER_1MB));
 		else bytes_text((double)s.bytes, x->val[k], sizeof x->val[k]);
 		rows[k] = (menu_row){ kind_name((dl_kind)k), x->val[k], true };
 	}
-	rows[DLK_KINDS] = MENU_RULE;
-	rows[DLK_KINDS + 1] = (menu_row){ T(S_DOWNLOADS_STORAGE_TOO), MENU_NOTE_MARK, false };
-	return DLK_KINDS + 2;
+	/* the note under the five kinds, no rule: a rule would push it out of the
+	 * panel at the menus' row height */
+	rows[DLK_KINDS] = (menu_row){ T(S_DOWNLOADS_STORAGE_TOO), MENU_NOTE_MARK, false };
+	return DLK_KINDS + 1;
 }
 
 static void delete_sets(const dl_counts *c)
@@ -1942,12 +2118,19 @@ static menu_result room_key(app *a, void *ctx, in_button key, int sel)
 		return MENU_STAY;
 	}
 	if (c) dl_sum_of(c, (dl_kind)sel, &s);
-	if (!s.have) return MENU_FAILED;
+	if (!s.have && !(sel == DLK_CHEATS && s.none)) return MENU_FAILED;
 	bytes_text((double)s.bytes, sz, sizeof sz);
 	if (sel == DLK_VIDEOS) {
 		snprintf(body, sizeof body, T(S_DOWNLOADS_DELETE_VIDEOS_BODY), sz);
 		if (confirm_panel(a, T(S_DOWNLOADS_DELETE_VIDEOS_ASK), body, T(S_DOWNLOADS_KEY_DELETE))) {
 			for (int i = 0; i < c->n; i++) snaps_delete(P_ROMS, c->s[i].folder);
+			dl_count_stale();
+			dl_count_again(a, c->only);
+			return MENU_CHANGED;
+		}
+	} else if (sel == DLK_CHEATS) {
+		if (confirm_panel(a, T(S_DOWNLOADS_DELETE_CHEATS_ASK), T(S_DOWNLOADS_DELETE_CHEATS_BODY), T(S_DOWNLOADS_KEY_DELETE))) {
+			cheats_delete_all(&a->sys);
 			dl_count_stale();
 			dl_count_again(a, c->only);
 			return MENU_CHANGED;
@@ -2072,8 +2255,10 @@ static void settings(dl_view *v)
  * one after another, in the panel: each value says Getting and turns as its
  * file lands. Its own requests, beside no lane (the lanes ask the same
  * servers): with a download going on it waits for that. */
-enum { GP_ROWS = DLK_KINDS + 2, GP_GET = DLK_KINDS + 1 };
-enum { ONE_IDLE, ONE_SS, ONE_HASH, ONE_SET };
+/* Five kinds and Get What's Missing, no rule: as Settings, six rows are what
+ * a panel holds at the menus' row height */
+enum { GP_ROWS = DLK_KINDS + 1, GP_GET = DLK_KINDS };
+enum { ONE_IDLE, ONE_SS, ONE_HASH, ONE_SET, ONE_CHT };
 
 typedef struct {
 	dl_view *v;
@@ -2110,6 +2295,11 @@ static void one_look(game_ctx *x)
 	chv_none_path(p, np, sizeof np);
 	if (access(p, F_OK) == 0) g->st[DLK_ACH] = GS_HAVE;
 	else if (access(np, F_OK) == 0) g->st[DLK_ACH] = GS_NONE;
+	if (g->st[DLK_CHEATS] != GS_OFF) {
+		int cs = cheats_game_state(x->sc->folder, g->name);
+
+		g->st[DLK_CHEATS] = cs > 0 ? GS_HAVE : cs < 0 ? GS_NONE : GS_MISS;
+	}
 }
 
 static void one_next(game_ctx *x);
@@ -2134,7 +2324,9 @@ static void one_next(game_ctx *x)
 		int k = x->queue[x->at];
 
 		if (x->g->st[k] == GS_HAVE || x->g->st[k] == GS_NONE) { x->at++; continue; }
-		if (k == DLK_ACH) {
+		if (k == DLK_CHEATS) {
+			if (cheats_dl_one_begin(x->sc->folder, x->g->file)) { x->phase = ONE_CHT; return; }
+		} else if (k == DLK_ACH) {
 			snprintf(rom, sizeof rom, "%s/%s", dir, x->g->file);
 			chv_path(P_ROMS, x->sc->folder, x->g->name, x->set, sizeof x->set);
 			if (rhj_begin(rom, x->sc->tag, x->set)) { x->phase = ONE_HASH; return; }
@@ -2186,6 +2378,10 @@ static void one_step(game_ctx *x)
 		if (r == RA_FETCH_NOTHING) chv_none_mark(x->set, true);
 		one_done(x);
 		return;
+	case ONE_CHT:
+		if (cheats_dl_one_step() == 1) return;
+		one_done(x);
+		return;
 	default:
 		return;
 	}
@@ -2201,7 +2397,7 @@ static int game_build(void *ctx, menu_row *rows, int max, const char **heading)
 	game_ctx *x = ctx;
 	const dl_game *g = x->g;
 	static const str_id ROW[DLK_KINDS] = { S_DOWNLOADS_HAS_COVER, S_DOWNLOADS_HAS_VIDEO, S_SCRAPER_NAMES_DETAILS,
-	                                       S_SYSMENU_CHEEVOS };
+	                                       S_SYSMENU_CHEEVOS, S_DOWNLOADS_KIND_CHEATS };
 	bool any = false;
 	int k;
 
@@ -2212,18 +2408,17 @@ static int game_build(void *ctx, menu_row *rows, int max, const char **heading)
 		if (one_busy(x, k) || (k == DLK_VIDEOS && one_busy(x, DLK_COVERS) && g->st[k] == GS_MISS)) {
 			snprintf(x->val[k], sizeof x->val[k], "%s", T(S_DOWNLOADS_GETTING));
 		} else switch (g->st[k]) {
-		case GS_HAVE: snprintf(x->val[k], sizeof x->val[k], "%s", k == DLK_ACH ? T(S_DOWNLOADS_READY) : T(S_DOWNLOADS_ON_CARD_SHORT)); break;
+		case GS_HAVE: snprintf(x->val[k], sizeof x->val[k], "%s", k == DLK_ACH || k == DLK_CHEATS ? T(S_DOWNLOADS_READY) : T(S_DOWNLOADS_ON_CARD_SHORT)); break;
 		case GS_NONE: snprintf(x->val[k], sizeof x->val[k], "%s", T(S_DOWNLOADS_NONE)); break;
 		/* a video not on the card is None whether or not its system's
 		 * switch is on: A opens its Cover and Video page, where it can come */
 		case GS_OFF:  snprintf(x->val[k], sizeof x->val[k], "%s", k == DLK_VIDEOS ? T(S_DOWNLOADS_NONE) : T(S_SCRAPER_OFF)); break;
-		default:      snprintf(x->val[k], sizeof x->val[k], "%s", k == DLK_ACH ? T(S_DOWNLOADS_NOT_CHECKED)
+		default:      snprintf(x->val[k], sizeof x->val[k], "%s", k == DLK_ACH || k == DLK_CHEATS ? T(S_DOWNLOADS_NOT_CHECKED)
 		                                                          : k == DLK_VIDEOS ? T(S_DOWNLOADS_NONE) : T(S_DOWNLOADS_MISSING)); break;
 		}
 		if (g->st[k] == GS_MISS) any = true;
 		rows[k] = (menu_row){ T(ROW[k]), x->val[k], true };
 	}
-	rows[DLK_KINDS] = MENU_RULE;
 	rows[GP_GET] = (menu_row){ T(S_DOWNLOADS_GET_MISSING), NULL, any && x->phase == ONE_IDLE };
 	return GP_ROWS;
 }
@@ -2236,6 +2431,8 @@ static bool one_can(app *a, game_ctx *x, int k)
 		return false;
 	}
 	if (dl_live() || x->phase != ONE_IDLE) return false;
+	if (k == DLK_CHEATS) return x->v->c && sys_of(x->v, x->sc->folder) && sys_of(x->v, x->sc->folder)->cht_sys &&
+	                            !cheats_running();
 	if (k == DLK_ACH) return ra_signed_in() && x->v->c && sys_of(x->v, x->sc->folder) &&
 	                         sys_of(x->v, x->sc->folder)->ach_sys;
 	return ss_signed_in();
@@ -2261,7 +2458,7 @@ static menu_result game_key(app *a, void *ctx, in_button key, int sel)
 		}
 		return MENU_STAY;
 	}
-	if (sel == DLK_NAMES || sel == DLK_ACH) {
+	if (sel == DLK_NAMES || sel == DLK_ACH || sel == DLK_CHEATS) {
 		if (x->g->st[sel] != GS_MISS || !one_can(a, x, sel)) return MENU_FAILED;
 		x->queue[0] = sel;
 		x->nq = 1;
@@ -2293,6 +2490,7 @@ static void game_panel(dl_view *v, dl_game *g, const system_cfg *sc)
 	menu_run(v->a, &(menu_style){ .accent = MENU_ZYPEROS, .fixed_w = menu_std_width(v->a) }, game_build, game_key, &x);
 	/* closed with a fetch going: let it go */
 	if (x.phase == ONE_SS) ss_run_cancel();
+	if (x.phase == ONE_CHT) cheats_cancel();
 	if (x.video_asked) ss_run_videos_default();
 	g_one = NULL;
 }
@@ -2326,12 +2524,14 @@ static void open_run(dl_view *v)
 	push(v, V_RUN);
 	dlq_page(DLQ_ART, true);
 	dlq_page(DLQ_RA, true);
+	dlq_page(DLQ_CHT, true);
 }
 
 static void close_run_view(void)
 {
 	dlq_page(DLQ_ART, false);
 	dlq_page(DLQ_RA, false);
+	dlq_page(DLQ_CHT, false);
 }
 
 /* A: Download, or the run that goes on */
@@ -2340,7 +2540,8 @@ static void download(dl_view *v, int only)
 	if (dl_live()) {
 		uisound_play(DS_SOUND_ACCEPT);
 		/* a run this page does not follow yet (started elsewhere, or again) */
-		if ((dlq_running(DLQ_ART) && !v->art) || (dlq_running(DLQ_RA) && !v->ra) || (!v->art && !v->ra))
+		if ((dlq_running(DLQ_ART) && !v->art) || (dlq_running(DLQ_RA) && !v->ra) ||
+		    (dlq_running(DLQ_CHT) && !v->cht) || (!v->art && !v->ra && !v->cht))
 			run_rejoin(v);
 		open_run(v);
 		return;
@@ -2445,7 +2646,8 @@ static void systems_keys(dl_view *v, dl_frame *f)
 		dl_kind k = (dl_kind)f->col;
 		const dl_sys *s = &v->c->s[f->row];
 
-		if (dl_kind_blocked(v->c, k) || (k == DLK_ACH && !s->ach_sys) || (k == DLK_NAMES && !s->names_ok)) {
+		if (dl_kind_blocked(v->c, k) || (k == DLK_ACH && !s->ach_sys) || (k == DLK_NAMES && !s->names_ok) ||
+		    (k == DLK_CHEATS && !s->cht_sys)) {
 			uisound_play(DS_SOUND_DENY);
 		} else if (!dl_kind_in(k)) {
 			/* the kind was out: in, for this system alone */
@@ -2484,6 +2686,14 @@ static void systems_keys(dl_view *v, dl_frame *f)
 				one.s[0] = *s;
 				one.n = 1;
 				delete_sets(&one);
+				dl_count_stale();
+				dl_count_again(a, v->only);
+			}
+		} else if (f->col == DLK_CHEATS && s->cht_have + s->cht_none) {
+			uisound_play(DS_SOUND_ACCEPT);
+			snprintf(head, sizeof head, T(S_DOWNLOADS_DELETE_SYS_CHEATS_ASK), s->name);
+			if (confirm_panel(a, head, T(S_DOWNLOADS_DELETE_CHEATS_BODY), T(S_DOWNLOADS_KEY_DELETE))) {
+				cheats_delete_sys(s->folder);
 				dl_count_stale();
 				dl_count_again(a, v->only);
 			}
@@ -2526,13 +2736,14 @@ static void sysgames_keys(dl_view *v, dl_frame *f, unsigned now)
 /* ---- a test of the page on a host -------------------------------------------------------
  * ZYPEROS_DOWNLOADS_TEST: the launcher opens the page at once and plays a
  * script, commas between its steps: a button (A B X Y START UP DOWN LEFT
- * RIGHT), wait=MS, count (until the count ends), shot=PATH (the page as
+ * RIGHT), wait=MS, count (until the count ends), run (until the run ends),
+ * shot=PATH (the page as
  * drawn now). Each step said on stderr with the page's state; the launcher
  * quits at the script's end. The real loop and the real card: what the
  * shots' stand-in counts cannot show. */
 static const char *g_dl_test;
 static unsigned g_dl_until;
-static bool g_dl_count_wait;
+static bool g_dl_count_wait, g_dl_run_wait;
 
 static void dl_test(dl_view *v, app *a)
 {
@@ -2548,6 +2759,8 @@ static void dl_test(dl_view *v, app *a)
 	if (now < g_dl_until) return;
 	if (g_dl_count_wait && dl_counting()) return;
 	g_dl_count_wait = false;
+	if (g_dl_run_wait && dl_live()) return;
+	g_dl_run_wait = false;
 	if (!*g_dl_test) { want_quit = 1; return; }
 	n = strcspn(g_dl_test, ",");
 	snprintf(tok, sizeof tok, "%.*s", (int)n, g_dl_test);
@@ -2557,6 +2770,7 @@ static void dl_test(dl_view *v, app *a)
 		if (!strcmp(tok, BTN[i].name)) a->in.pressed[BTN[i].b] = true;
 	if (!strncmp(tok, "wait=", 5)) g_dl_until = now + (unsigned)atoi(tok + 5);
 	if (!strcmp(tok, "count")) g_dl_count_wait = true;
+	if (!strcmp(tok, "run")) g_dl_run_wait = true;
 	if (!strncmp(tok, "shot=", 5)) {
 		SDL_Surface *out = SDL_CreateRGBSurfaceWithFormat(0, ZYPEROS_SCREEN_W, ZYPEROS_SCREEN_H, 32,
 		                                                  SDL_PIXELFORMAT_RGBA32);
@@ -2595,9 +2809,11 @@ static void dl_page(app *a, const char *only)
 	if (dl_live()) {
 		run_rejoin(v);
 		open_run(v);
-	} else if (dlq_ends(DLQ_ART) != g_shown_art || dlq_ends(DLQ_RA) != g_shown_ra) {
+	} else if (dlq_ends(DLQ_ART) != g_shown_art || dlq_ends(DLQ_RA) != g_shown_ra ||
+	           dlq_ends(DLQ_CHT) != g_shown_cht) {
 		v->art = dlq_ends(DLQ_ART) != g_shown_art;
 		v->ra = dlq_ends(DLQ_RA) != g_shown_ra;
+		v->cht = dlq_ends(DLQ_CHT) != g_shown_cht;
 		v->run_kind = -1;
 		run_finish(v);
 		push(v, V_DONE);
@@ -2671,6 +2887,7 @@ static void dl_page(app *a, const char *only)
 				snprintf(v->why, sizeof v->why, "%s", T(S_DOWNLOADS_YOU_STOPPED));
 				dlq_stop(DLQ_ART);
 				dlq_stop(DLQ_RA);
+				dlq_stop(DLQ_CHT);
 				run_finish(v);
 				close_run_view();
 				f->v = V_DONE;
@@ -2778,16 +2995,19 @@ bool downloads_news(char *l1, size_t n1, char *l2, size_t n2)
 	static bool was;
 	art_progress ap;
 	radl_progress rp;
-	bool art, ra, busy = dlq_busy();
+	bool art, ra, cht, busy = dlq_busy();
 	char parts[2][48];
 	int np = 0;
 
 	if (busy) { was = true; return false; }
 	art = dlq_ends(DLQ_ART) != g_shown_art;
 	ra = dlq_ends(DLQ_RA) != g_shown_ra;
-	if (!was || (!art && !ra)) return false;
+	cht = dlq_ends(DLQ_CHT) != g_shown_cht;
+	if (!was || (!art && !ra && !cht)) return false;
 	was = false;
-	if ((art && dlq_last(DLQ_ART) != DLQ_ENDED) || (ra && dlq_last(DLQ_RA) != DLQ_ENDED)) return false;
+	if ((art && dlq_last(DLQ_ART) != DLQ_ENDED) || (ra && dlq_last(DLQ_RA) != DLQ_ENDED) ||
+	    (cht && dlq_last(DLQ_CHT) != DLQ_ENDED))
+		return false;
 	scraper_last(&ap);
 	radl_last(&rp);
 	if (art && ap.found && np < 2) snprintf(parts[np++], sizeof parts[0], TN(S_DOWNLOADS_N_COVERS, ap.found), ap.found);
@@ -2795,6 +3015,9 @@ bool downloads_news(char *l1, size_t n1, char *l2, size_t n2)
 		snprintf(parts[np++], sizeof parts[0], TN(S_DOWNLOADS_N_SETS, rp.fetched + rp.updated), rp.fetched + rp.updated);
 	if (art && ap.snaps && np < 2) snprintf(parts[np++], sizeof parts[0], TN(S_DOWNLOADS_N_VIDEOS, ap.snaps), ap.snaps);
 	if (art && ap.named && np < 2) snprintf(parts[np++], sizeof parts[0], TN(S_DOWNLOADS_N_NAMES, ap.named), ap.named);
+	if (cht && g_cht_last.fetched + g_cht_last.updated && np < 2)
+		snprintf(parts[np++], sizeof parts[0], TN(S_DOWNLOADS_N_CHEATS, g_cht_last.fetched + g_cht_last.updated),
+		         g_cht_last.fetched + g_cht_last.updated);
 	snprintf(l1, n1, "%s", T(S_DOWNLOADS_DONE_NEWS));
 	if (np == 2) snprintf(l2, n2, "%s \xc2\xb7 %s", parts[0], parts[1]);
 	else if (np == 1) snprintf(l2, n2, "%s", parts[0]);
@@ -2829,7 +3052,7 @@ void downloads_rows_report(app *a)
  *  15 the run waiting for Wi-Fi                     16 the run paused
  *  17 done            18 stopped                   19 On the Card
  *  20 RetroAchievements' account                    21 a console's page
- *  22 Videos For      24 RetroAchievements' account, signed out
+ *  22 Videos For      23 Cheats' page          24 RetroAchievements' account, signed out
  *  25 the hub on Names and Details              26 Covers' page, nothing missing
  *  27 no network, nobody signed in or linked */
 int shot_downloads = -1;
@@ -2884,7 +3107,11 @@ static void fixture(dl_counts *c, int st)
 		s->ach_ready = SYS[i].ach_ready + (done ? SYS[i].ach_todo : 0);
 		s->ach_none = SYS[i].ach_none;
 		s->ach_games = s->ach_todo + s->ach_ready + s->ach_none;
-		s->fx_on[DLK_COVERS] = s->fx_on[DLK_NAMES] = s->fx_on[DLK_ACH] = true;
+		s->cht_sys = true;
+		s->cht_have = done ? SYS[i].games * 7 / 10 : 0;
+		s->cht_none = done ? SYS[i].games - s->cht_have : 0;
+		s->cht_todo = done ? 0 : SYS[i].games;
+		s->fx_on[DLK_COVERS] = s->fx_on[DLK_NAMES] = s->fx_on[DLK_ACH] = s->fx_on[DLK_CHEATS] = true;
 		s->fx_on[DLK_VIDEOS] = SYS[i].vid;
 	}
 	if (st == 21) {
@@ -2910,7 +3137,7 @@ void downloads_shot(app *a)
 	fixture(&c, st);
 	dl_count_fixture(st == 5 ? NULL : &c);
 	g_fx_net = st != 3 && st != 27;
-	g_fx_art = g_fx_ra = st == 1 || (st >= 14 && st <= 16);
+	g_fx_art = g_fx_ra = g_fx_cht = st == 1 || (st >= 14 && st <= 16);
 	g_fx_pct = st == 1 ? 41 : -1;
 	g_fx_user = st == 27 || st == 24 ? NULL : "tarik";
 	memset(&v, 0, sizeof v);
@@ -2922,9 +3149,9 @@ void downloads_shot(app *a)
 	if (st == 6 || st == 7) top_of(&v)->sel = 1;
 	if (st == 25) top_of(&v)->sel = 1 + DLK_NAMES;
 	if (st == 21) snprintf(v.only, sizeof v.only, "SNES");
-	if (st == 8 || st == 9 || st == 10 || st == 26) {
+	if (st == 8 || st == 9 || st == 10 || st == 23 || st == 26) {
 		push(&v, V_KIND);
-		top_of(&v)->kind = st == 9 ? DLK_VIDEOS : st == 10 ? DLK_NAMES : DLK_COVERS;
+		top_of(&v)->kind = st == 9 ? DLK_VIDEOS : st == 10 ? DLK_NAMES : st == 23 ? DLK_CHEATS : DLK_COVERS;
 	}
 	if (st == 11) {
 		push(&v, V_SYSTEMS);
@@ -2943,10 +3170,14 @@ void downloads_shot(app *a)
 			g->st[DLK_VIDEOS] = GS_OFF;
 			g->st[DLK_NAMES] = i % 3 ? GS_HAVE : GS_MISS;
 			g->st[DLK_ACH] = i % 7 == 6 ? GS_NONE : i < 4 ? GS_MISS : GS_HAVE;
+			g->st[DLK_CHEATS] = i % 5 == 4 ? GS_NONE : i < 3 ? GS_MISS : GS_HAVE;
 		}
 	}
 	if (st == 1 || (st >= 14 && st <= 18)) {
-		v.art = v.ra = true;
+		v.art = v.ra = v.cht = true;
+		v.cp.games = 640;
+		v.cp.games_done = 300;
+		v.cp.fetched = 174;
 		v.art_total = 41;
 		v.art_looks = 262;
 		v.ap.looked = 33;
@@ -2963,20 +3194,22 @@ void downloads_shot(app *a)
 		v.run_kind = -1;
 		v.t0 = now;
 		for (i = 6; i >= 0; i--)
-			ring_add(&v, i % 3 == 0 ? DLK_ACH : i % 3 == 1 ? DLK_COVERS : DLK_NAMES, NULL, SHOT_GAMES[i],
-			         SHOT_SYS[i % 9], i % 3 ? 0 : 40 + i * 13);
+			ring_add(&v, i == 0 ? DLK_CHEATS : i % 3 == 0 ? DLK_ACH : i % 3 == 1 ? DLK_COVERS : DLK_NAMES, NULL, SHOT_GAMES[i],
+			         SHOT_SYS[i % 9], i == 0 ? 129 : i % 3 ? 0 : 40 + i * 13);
 		v.land_at = now - DL_LAND;
 	}
 	if (st >= 14 && st <= 16) push(&v, V_RUN);
 	if (st == 17 || st == 18) {
 		for (i = 13; i >= 7; i--)
-			ring_add(&v, i % 4 == 0 ? DLK_VIDEOS : i % 3 == 0 ? DLK_ACH : DLK_COVERS, NULL, SHOT_GAMES[i], SHOT_SYS[i % 9], 0);
+			ring_add(&v, i % 4 == 0 ? DLK_VIDEOS : i % 3 == 0 ? DLK_ACH : i % 5 == 0 ? DLK_CHEATS : DLK_COVERS, NULL,
+			         SHOT_GAMES[i], SHOT_SYS[i % 9], 0);
 		v.end = st == 17 ? END_DONE : END_STOPPED;
 		if (st == 18) snprintf(v.why, sizeof v.why, "%s", T(S_DOWNLOADS_YOU_STOPPED));
 		v.ap.found = 41;
 		v.ap.snaps = 63;
 		v.ap.named = 199;
 		v.rp.fetched = 137;
+		v.cp.fetched = 428;
 		push(&v, V_DONE);
 	}
 	g_base_page = dl_base;
@@ -3031,7 +3264,7 @@ void downloads_shot(app *a)
 	g_base_page = NULL;
 	g_base_ctx = NULL;
 	dl_count_fixture(NULL);
-	g_fx_net = g_fx_art = g_fx_ra = g_fx_pct = -1;
+	g_fx_net = g_fx_art = g_fx_ra = g_fx_cht = g_fx_pct = -1;
 	g_fx_user = NULL;
 	ring_free(&v);
 	icons_free(&v);
