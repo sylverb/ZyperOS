@@ -466,16 +466,19 @@ def stand_in_bios(card):
         path=card/'Bios'/name;path.parent.mkdir(parents=True,exist_ok=True)
         with open(path,'wb') as out: out.truncate(sizes[name])
 
-# The cheat list's shots (src/cheats_screen.h): the focused game with a file
-# of the player's own and two of libretro's, as the Downloads page writes
-# them. Stand-ins with made-up codes, never sent to a game; a game libretro
-# has none for (.none), and the rest with no file at all.
-CHEATS_YOURS=[('Infinite Ammo','80078E8C 0000'),('Stealth Suit','800B6D74 0001'),('','800B6D78 0001')]
-CHEATS_LR=[('Infinite Health','800B6D70 0400'),('Infinite Rations','8009AE40 0005'),
-           ('Have All Weapons','800B7110 FFFF'),('Unlimited Time','80091B30 0000'),
-           ('Max Psyche','800B7230 0064'),('Nikita Missiles Never Run Out','80078EA0 0014')]
-CHEATS_GS=[('Codec Always Clear','D0070F50 1000'),('Moon Jump (Hold X)','D00B6D50 0040')]
-CHEATS_ON=[(FOCUS+'.cht',)+CHEATS_YOURS[0],(FOCUS+'.cht',)+CHEATS_LR[0]]
+# The cheat list's shots (src/cheats_screen.h): one PlayStation game with a
+# file of the player's own and two of libretro's, as the Downloads page
+# writes them, two of them on. Not the focused game (FOCUS): its shelf would
+# say "2 cheats on" in every shot of it. Stand-ins with made-up codes, never
+# sent to a game; a game libretro has none for (.none), and the rest with no
+# file at all.
+CHEATS_GAME=GAMES[5]   # Tony Hawk's Pro Skater 2
+CHEATS_YOURS=[('Max Stats','80078E8C 000A'),('Special Always Full','800B6D74 0FFF'),('','800B6D78 0001')]
+CHEATS_LR=[('Infinite Time','800B6D70 0400'),('All Levels Open','8009AE40 00FF'),
+           ('All Gaps Found','800B7110 FFFF'),('Perfect Balance','80091B30 0001'),
+           ('Big Head Mode','800B7230 0001'),('Max Cash','80078EA0 FFFF')]
+CHEATS_GS=[('Moon Physics','D0070F50 1000'),('Slow-Nic Mode','D00B6D50 0040')]
+CHEATS_ON=[(CHEATS_GAME+'.cht',)+CHEATS_YOURS[0],(CHEATS_GAME+'.cht',)+CHEATS_LR[0]]
 def cheat_id(file,desc,code):
     """src/cheats.c's cheats_id: FNV-1a over the three, 0xff between"""
     h=2166136261
@@ -488,10 +491,10 @@ def cht_text(cheats):
         'cheat%d_desc = "%s"\ncheat%d_code = "%s"\ncheat%d_enable = false\n\n'%(i,d,i,c,i)
         for i,(d,c) in enumerate(cheats))
 def cheats_card(card):
-    d=card/'Cheats/PlayStation';lr=d/'.libretro'/FOCUS;lr.mkdir(parents=True)
-    (d/(FOCUS+'.cht')).write_text(cht_text(CHEATS_YOURS))
-    (lr/(FOCUS+'.cht')).write_text(cht_text(CHEATS_LR))
-    (lr/(FOCUS+' (GameShark).cht')).write_text(cht_text(CHEATS_GS))
+    d=card/'Cheats/PlayStation';lr=d/'.libretro'/CHEATS_GAME;lr.mkdir(parents=True)
+    (d/(CHEATS_GAME+'.cht')).write_text(cht_text(CHEATS_YOURS))
+    (lr/(CHEATS_GAME+'.cht')).write_text(cht_text(CHEATS_LR))
+    (lr/(CHEATS_GAME+' (GameShark).cht')).write_text(cht_text(CHEATS_GS))
     none=d/'.libretro/Crash Bandicoot (USA)';none.mkdir(parents=True);(none/'.none').touch()
 
 def demo_card(card,art,manifest):
@@ -526,7 +529,7 @@ def demo_card(card,art,manifest):
         db.execute('INSERT INTO games VALUES(?,?,?,?,?,?,?,?,?,?,?)',('PlayStation',FOCUS+'.chd','1998','Konami','KCEJ','1','Action','','',SYNOPSIS,0))
         # Two of the focused game's cheats on (src/cheats.h keeps their ids)
         db.execute('CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY NOT NULL,value TEXT NOT NULL)')
-        db.execute('INSERT INTO settings VALUES(?,?)',('cheats.PS1.'+FOCUS+'.chd',
+        db.execute('INSERT INTO settings VALUES(?,?)',('cheats.PS1.'+CHEATS_GAME+'.chd',
                    ','.join(cheat_id(f,d,c) for f,d,c in CHEATS_ON)))
     cheats_card(card)
     for album in ['First Light','Night Drive','Quiet Hours']:

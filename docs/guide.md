@@ -550,13 +550,22 @@ behind it.
 | Row | What it is |
 |---|---|
 | **Download** | first, so **A**, **A** from MENU gets everything: every kind that is in it, the servers at the same time. Its value says how much and how long (`186 MB · about 12 min`), `Nothing to fetch`, `Needs Wi-Fi`, or how far a download has got (`Downloading · 41%`); over the keys, what it adds and what the card has (`186 MB to fetch · 11.2 GB free`), in red when the card would keep less than 200 MB, and then **A** says `Not enough room on the card` |
-| **Covers**, **Videos**, **Names and Details**, **Achievements** | each kind with its mark and what is still missing (`41 missing`, `63 to fetch`, `199 to look up`, `150 to download`), `Complete`, `Ready offline`, `Off`, `Needs ScreenScraper` or `Sign in first`. **LEFT** and **RIGHT** take a kind in or out of **Download**, and its size and time change at once. Over the keys, where it comes from and its room on the card. **A** opens the kind's own page, below |
+| **Covers**, **Videos**, **Names and Details**, **Achievements**, **Cheats** | each kind with its mark and what is still missing (`41 missing`, `63 to fetch`, `199 to look up`, `150 to download`, `640 to check`), `Complete`, `Ready offline`, `Off`, `Needs ScreenScraper` or `Sign in first`. **LEFT** and **RIGHT** take a kind in or out of **Download**, and its size and time change at once. Over the keys, where it comes from and its room on the card. **A** opens the kind's own page, below |
 | **Y** Systems | a table: a row per system, a column per kind. A cell says what is missing, a tick when nothing is, or a dash when it is off for that system. **A** switches the cell, **X** deletes its videos or achievement sets (after a question), **Y** opens the system's games |
 | **START** Settings | **ScreenScraper**, **RetroAchievements** and **SteamGridDB**, each with its account; **Video Snaps**; **Names and Details** (`On` or `Off`, the same as its row); and **On the Card**, each kind's room, where **A** deletes every video snap or every achievement set, after a question |
 
 Every kind is in **Download** to start, but each system's videos stay off
 until you switch them on (a snap is a megabyte or three), and achievements
 need a RetroAchievements sign-in.
+
+**Cheats** come from libretro's cheat list (libretro-database, CC BY-SA 4.0):
+a download reads the list's index once (about 4 MB) and then takes only the
+files of the games on your card, a few KB each, so the game's Cheats list
+has them with no network. Your own `.cht` file in `Cheats/<console>/` is never
+replaced. libretro rebuilds its list every day; **Download** looks for
+changes once a day and takes again only the games whose files changed. On the
+Card deletes the downloaded cheats; your own files stay, and cheats that were
+on turn off.
 
 **A kind's page** has each system's icon over a tick, lit when the system
 lacks nothing (dim when its switch is off), and two tiles: what the card
@@ -1213,7 +1222,7 @@ Cheats are RetroArch's `.cht` files: libretro's cheat list, or a file of your ow
 
 **Achievements stop while a cheat is on.** From the first cheat you turn on, the game's achievements wait until the game starts again with every cheat off: the Achievements row says `Paused`, and the Achievements tab says why. Turning the cheats off again does not bring them back in the same session, because what a cheat changed in the game stays. Signed in to RetroAchievements, the first cheat in a game with achievements asks first, with the cursor on Cancel. It asks once a game.
 
-**Starting a game** with cheats on shows a pop-up, `2 cheats on`, so none is forgotten. A game that stopped by itself last time with cheats on asks whether to start without them; **Without Cheats** starts it with none this time and keeps them set for later.
+**On the shelf**, a game with cheats on says `2 cheats on` under its name, after its play time and achievements. **Starting a game** with cheats on shows a pop-up, `2 cheats on`, so none is forgotten. A game that stopped by itself last time with cheats on asks whether to start without them; **Without Cheats** starts it with none this time and keeps them set for later.
 
 Whether a code works is up to the game's emulator core: a cheat in the list that the core cannot use does nothing. A cheat can also break a game or its save, so save a state before you try one.
 

@@ -129,8 +129,11 @@ static uint32_t name_card(SDL_Renderer *r, const vv_info *in, uint32_t phase)
 			char p[96];
 
 			snprintf(p, sizeof p, T(S_GAMES_ACHIEVEMENTS), in->earned, in->total);
-			snprintf(facts + at, sizeof facts - at, "%s%s", at ? "  \xc2\xb7  " : "", p);
+			at += (size_t)snprintf(facts + at, sizeof facts - at, "%s%s", at ? "  \xc2\xb7  " : "", p);
 		}
+		/* and how many of its cheats are on (DESIGN.md 11.66) */
+		if (in->cheats && *in->cheats && at < sizeof facts)
+			snprintf(facts + at, sizeof facts - at, "%s%s", at ? "  \xc2\xb7  " : "", in->cheats);
 	}
 	tw = ui_text_width(title, name);
 	if (tw > VV_CARD_TEXT) tw = VV_CARD_TEXT;
