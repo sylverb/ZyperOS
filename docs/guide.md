@@ -1734,6 +1734,14 @@ playing.
 
 **Shuffle All** plays every song on the card in a random order.
 
+**Player Look** changes how Now Playing shows a song: **Cover**, the album's
+cover large, as it always was; **Classic**, a big clock over bars that move
+with the music, and the album's tracks beside it; **Spectrum**, the music as
+32 bars across the screen under the cover. A on it opens the list, with the
+look under the cursor playing in a small screen beside it; Left and Right
+change it straight away. Paused, the bars come to rest. Books and videos
+keep their own screen.
+
 **Sort By** puts the shelf in order by artist, the way the folders are, or by
 album title, two of the same title going in their artists' order. The jump
 goes by the initial of whichever it is: an artist's, or an album's. On `All`

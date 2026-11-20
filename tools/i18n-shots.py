@@ -339,6 +339,17 @@ EXTRA = {
     # over a video, where the panel is the same and the picture is under it
     # MP4's menu on its shelf, which shows All (albums and videos mixed)
     "mp4-menu": ("media", "MUSE", ["--screen", "games", "--menu"]),
+    # MP4's Player Looks (DESIGN.md 11.64): each on Now Playing, Classic
+    # paused too (its panel says so where the time's words would), and
+    # MENU's Player Look list with its picture, the look under the cursor
+    "np-classic": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--np-look", "classic"]),
+    "np-classic-paused": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--np-look", "classic", "--paused"]),
+    "np-spectrum": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--np-look", "spectrum"]),
+    # ...its list with the cursor on each look, so every look's note is
+    # drawn in its picture's narrow column
+    **{"mp4-look-list-%s" % _l: ("media", "MUSE", ["--screen", "games", "--menu", "Player Look", "--press",
+                                                   "a", "--pick-at", str(_k)])
+       for _k, _l in enumerate(("cover", "classic", "spectrum"))},
     # its Repeat row on One, the value no other shot has
     "mp4-menu-repeat-one": ("media", "MUSE", ["--screen", "games", "--menu", "--mode", "repeat one"]),
     # MP4's menu with its cursor on the Equalizer row, the same as MENU's
