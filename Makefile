@@ -53,7 +53,7 @@ CHECKS = check-cheevos check-hare check-portal check-httpd check-idle check-task
          check-systemart check-linebreak check-portload check-portout check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-messages \
          check-tour check-tour-shots check-tour-previews check-textfade check-glyphs check-scale check-shaderdemo check-shaderpic check-screenfx check-ds check-layout-ratchet check-flex check-hover check-hover-sweep check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pico8 check-pico8-wget check-pmhelper check-pmart check-portdoc check-boottheme check-splashbright check-bootbright check-seed-version check-panelgamma check-panelgamma-sunxi check-nightmode check-displayback check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-start-soc check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr \
          check-home check-home-shots check-games check-cardpaint check-putpace check-favorites-shots check-homesys-groups check-np-footer check-vidtry check-menu-rows check-layout-shots check-artbadge check-artbadge-shots check-cardart-shots checkmark \
-         check-installer check-from-rogue check-importers check-diatom check-simulator check-desk check-homekeys check-videoview check-keymap check-handhelds check-px2sim check-building-doc check-blog check-discord-release \
+         check-installer check-from-rogue check-importers check-diatom check-simulator check-qemu-image check-desk check-homekeys check-videoview check-keymap check-handhelds check-px2sim check-building-doc check-blog check-discord-release \
          check-release-devices check-strings check-i18n-shots check-rootswitch check-datapart check-brick-closed check-hwreport check-kitbuild
 
 # All of them at once, as many at a time as there are cores (CHECK_JOBS=1 for
@@ -194,6 +194,12 @@ check-simulator:
 	else \
 		echo "check-simulator: skipped, not macOS or no Swift"; \
 	fi
+
+# The published QEMU image's way to a developer, offline on a stand-in
+# archive: tools/qemu-run.sh fetch and its pin, and the SSH key QEMU hands
+# the VM in place of one in the image (tools/qemu-image-check.sh)
+check-qemu-image:
+	@sh tools/qemu-image-check.sh
 
 # px2sim's choice of the keyboard it takes (plastron/.../px2sim/src/kbdsel.h):
 # QEMU's, never a program's uinput one (gptokeyb's Fake Keyboard). Host
