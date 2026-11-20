@@ -87,6 +87,7 @@
 #include <linux/dma-buf.h>
 #include <linux/input.h>
 #include <linux/kcmp.h>
+#include <math.h>
 #include <poll.h>
 #include <signal.h>
 #include <sqlite3.h>
@@ -99,15 +100,21 @@
 #include <sys/mman.h>
 #include <sys/syscall.h>
 #include <sys/wait.h>
+#include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
+#include <zlib.h>
 
 #include "device/pixel2_levels.h"
 #include "heat.h"
+#include "idle.h"
 #include "look.h"
 #include "theme.h"
 #include "osdbar.h"
 #include "panelgamma.h"
+#include "p8draw.h"
+#include "pkhot.h"
+#include "pkkbd.h"
 #include "pkkeys.h"
 #include "pkset.h"
 #include "pkssh.h"
@@ -757,17 +764,20 @@ static bool chip_temp(int *mc)
 	return true;
 }
 
-/* One theme's notice from the launcher's file: scaled by PANEL_S with a
- * bilinear sample of the premultiplied pixels, which keeps the text's edges
- * as Diatom's GPU does */
-static void notice_load(int theme, const char *path)
+/* A notice from the launcher's file: scaled by PANEL_S with a bilinear
+ * sample of the premultiplied pixels, which keeps the text's edges as
+ * Diatom's GPU does; malloc'd, NULL when there is none. With `slot`, the
+ * empty square a "SLOT" trailer names (notice.h's NOTICE_SLOT: x, y, side,
+ * corner), scaled the same way, or all 0 for none. */
+static uint32_t *dtov_read(const char *path, int *pw, int *ph, int slot[4])
 {
 	FILE *f = fopen(path, "rb");
-	uint8_t hdr[8];
-	uint32_t *src = NULL, *dst;
+	uint8_t hdr[8], tr[12];
+	uint32_t *src = NULL, *dst = NULL;
 	int sw, sh, w, h, x, y;
 
-	if (!f) return;
+	if (slot) memset(slot, 0, 4 * sizeof *slot);
+	if (!f) return NULL;
 	if (fread(hdr, 1, 8, f) != 8 || memcmp(hdr, "DTOV", 4)) goto done;
 	sw = hdr[4] | hdr[5] << 8;
 	sh = hdr[6] | hdr[7] << 8;
@@ -775,6 +785,8 @@ static void notice_load(int theme, const char *path)
 	h = (int)(sh * PANEL_S + 0.5f);
 	if (sw <= 0 || sh <= 0 || w < 2 || h < 2 || sw > 1024 || sh > 768) goto done;
 	if (!(src = malloc((size_t)sw * sh * 4)) || fread(src, 4, (size_t)sw * sh, f) != (size_t)sw * sh) goto done;
+	if (slot && fread(tr, 1, sizeof tr, f) == sizeof tr && !memcmp(tr, "SLOT", 4))
+		for (x = 0; x < 4; x++) slot[x] = (int)((tr[4 + x * 2] | tr[5 + x * 2] << 8) * PANEL_S + 0.5f);
 	for (x = 0; x < sw * sh; x++) {              /* BGRA bytes are ARGB words: premultiplied */
 		uint32_t c = src[x], a = c >> 24;
 
@@ -802,12 +814,24 @@ static void notice_load(int theme, const char *path)
 			}
 			dst[(size_t)y * w + x] = out;
 		}
-	N.px[theme] = dst;
-	N.w[theme] = w;
-	N.h[theme] = h;
+	*pw = w;
+	*ph = h;
 done:
 	free(src);
 	fclose(f);
+	return dst;
+}
+
+/* One theme's heat notice */
+static void notice_load(int theme, const char *path)
+{
+	int w = 0, h = 0;
+	uint32_t *px = dtov_read(path, &w, &h, NULL);
+
+	if (!px) return;
+	N.px[theme] = px;
+	N.w[theme] = w;
+	N.h[theme] = h;
 }
 
 /* The most either theme's notice needs of a buffer, turned, in rows of its own
@@ -1239,6 +1263,19 @@ static void follow_hold(bool hold)
 	if (follow_pid > 0) kill(follow_pid, hold ? SIGSTOP : SIGCONT);
 }
 
+/* Over your PICO-8 (port_hotkeys): the keyboard for CTRL-R (pkkbd.h), made
+ * as this starts; and what the launcher handed over, read again after each
+ * menu (keys_load, with the hotkeys below) */
+static int kbd = -1;
+static void keys_load(void);
+
+static void nap_ms(int ms)
+{
+	struct timespec t = { ms / 1000, (long)(ms % 1000) * 1000000L };
+
+	nanosleep(&t, NULL);
+}
+
 static void end_port(void);          /* with the power key, below */
 static void wait_released(int ms);   /* with the keys, below */
 
@@ -1275,85 +1312,123 @@ static bool write_all(int fd, const void *buf, size_t n)
 	return true;
 }
 
-/* The frame on the panel, framebuffer `fb_id`, saved to PORT_MENU_STILL as
- * the panel shows it. Its buffer is mapped as the card's own dumb buffer,
- * which Mesa makes a scanout buffer as on this panel, or else as the dma-buf
- * it is; a frame in any other form than plain 32-bit rows is not saved, and
- * the menu then sits on the theme's ground instead. Read once, 1.2 MB of
- * write-combined memory on the Pixel 2. */
-static bool still_save(uint32_t fb_id)
+/* The frame on the panel, framebuffer `fb_id`, as the panel shows it. Its
+ * buffer is mapped as the card's own dumb buffer, which Mesa makes a scanout
+ * buffer as on this panel, or else as the dma-buf it is; a frame in any other
+ * form than plain 32-bit rows is not read, and the menu then sits on the
+ * theme's ground instead. Write-combined memory on the Pixel 2: still_save
+ * copies its 1.2 MB once, a screenshot reads 128 x 128 of its pixels and no
+ * more (shot_take). */
+typedef struct {
+	const uint8_t *px;           /* the first row */
+	uint8_t       *map;
+	size_t         size;
+	uint32_t       w, h, pitch, handle;
+	int            dmabuf;
+} frame_map;
+
+static void frame_close(frame_map *m)
+{
+	if (m->dmabuf >= 0) {
+		struct dma_buf_sync sy = { DMA_BUF_SYNC_END | DMA_BUF_SYNC_READ };
+
+		ioctl(m->dmabuf, DMA_BUF_IOCTL_SYNC, &sy);
+		close(m->dmabuf);
+	}
+	if (m->map && m->map != MAP_FAILED) munmap(m->map, m->size);
+	/* The handle GETFB2 made, in the port's file: a new one of its own, so
+	 * closing it leaves the port's handles to the same buffer as they were */
+	if (m->handle) {
+		struct drm_gem_close gc = { .handle = m->handle };
+
+		ioctl(G.fd, DRM_IOCTL_GEM_CLOSE, &gc);
+	}
+	memset(m, 0, sizeof *m);
+	m->dmabuf = -1;
+}
+
+static bool frame_open(uint32_t fb_id, frame_map *m)
 {
 	struct drm_mode_fb_cmd2 f;
-	struct drm_mode_map_dumb m;
-	uint8_t *map = MAP_FAILED, *out = NULL, hdr[8];
-	size_t size = 0, row;
-	int dmabuf = -1, fd;
-	uint32_t y;
-	bool ok = false;
+	struct drm_mode_map_dumb md;
+	size_t row;
 
+	memset(m, 0, sizeof *m);
+	m->dmabuf = -1;
 	memset(&f, 0, sizeof f);
 	f.fb_id = fb_id;
 	if (ioctl(G.fd, DRM_IOCTL_MODE_GETFB2, &f) < 0 || !f.handles[0]) {
 		fprintf(stderr, "portkeys: the port's frame cannot be read (%s)\n", strerror(errno));
 		return false;
 	}
+	m->handle = f.handles[0];
 	row = (size_t)f.width * 4;
 	if ((f.pixel_format != 0x34325258 && f.pixel_format != 0x34325241) ||   /* XRGB8888, ARGB8888 */
 	    ((f.flags & DRM_MODE_FB_MODIFIERS) && f.modifier[0] != 0) ||          /* not linear */
 	    !f.width || !f.height || f.width > 4096 || f.height > 4096 || f.pitches[0] < row) {
-		fprintf(stderr, "portkeys: the port's frame is format %08x, modifier %llx; not saved\n",
+		fprintf(stderr, "portkeys: the port's frame is format %08x, modifier %llx; not read\n",
 		        f.pixel_format, (unsigned long long)f.modifier[0]);
-		goto done;
+		frame_close(m);
+		return false;
 	}
-	size = (size_t)f.offsets[0] + (size_t)f.pitches[0] * f.height;
-	memset(&m, 0, sizeof m);
-	m.handle = f.handles[0];
-	if (ioctl(G.fd, DRM_IOCTL_MODE_MAP_DUMB, &m) == 0)
-		map = mmap(NULL, size, PROT_READ, MAP_SHARED, G.fd, (off_t)m.offset);
-	if (map == MAP_FAILED) {
+	m->size = (size_t)f.offsets[0] + (size_t)f.pitches[0] * f.height;
+	m->map = MAP_FAILED;
+	memset(&md, 0, sizeof md);
+	md.handle = f.handles[0];
+	if (ioctl(G.fd, DRM_IOCTL_MODE_MAP_DUMB, &md) == 0)
+		m->map = mmap(NULL, m->size, PROT_READ, MAP_SHARED, G.fd, (off_t)md.offset);
+	if (m->map == MAP_FAILED) {
 		struct drm_prime_handle ph = { .handle = f.handles[0], .flags = DRM_CLOEXEC };
 
 		if (ioctl(G.fd, DRM_IOCTL_PRIME_HANDLE_TO_FD, &ph) == 0) {
-			dmabuf = ph.fd;
-			map = mmap(NULL, size, PROT_READ, MAP_SHARED, dmabuf, 0);
+			m->dmabuf = ph.fd;
+			m->map = mmap(NULL, m->size, PROT_READ, MAP_SHARED, m->dmabuf, 0);
 		}
 	}
-	if (map == MAP_FAILED) {
-		fprintf(stderr, "portkeys: the port's frame cannot be mapped (%s); not saved\n", strerror(errno));
-		goto done;
+	if (m->map == MAP_FAILED) {
+		fprintf(stderr, "portkeys: the port's frame cannot be mapped (%s); not read\n", strerror(errno));
+		frame_close(m);
+		return false;
 	}
-	if (!(out = malloc(row * f.height))) goto done;
-	if (dmabuf >= 0) {
+	if (m->dmabuf >= 0) {
 		struct dma_buf_sync sy = { DMA_BUF_SYNC_START | DMA_BUF_SYNC_READ };
 
-		ioctl(dmabuf, DMA_BUF_IOCTL_SYNC, &sy);
+		ioctl(m->dmabuf, DMA_BUF_IOCTL_SYNC, &sy);
 	}
-	for (y = 0; y < f.height; y++)
-		memcpy(out + y * row, map + f.offsets[0] + (size_t)y * f.pitches[0], row);
-	if (dmabuf >= 0) {
-		struct dma_buf_sync sy = { DMA_BUF_SYNC_END | DMA_BUF_SYNC_READ };
+	m->px = m->map + f.offsets[0];
+	m->w = f.width;
+	m->h = f.height;
+	m->pitch = f.pitches[0];
+	return true;
+}
 
-		ioctl(dmabuf, DMA_BUF_IOCTL_SYNC, &sy);
+/* Saved to PORT_MENU_STILL, for the menu's backdrop */
+static bool still_save(uint32_t fb_id)
+{
+	frame_map m;
+	uint8_t *out, hdr[8];
+	size_t row;
+	uint32_t y;
+	int fd;
+	bool ok;
+
+	if (!frame_open(fb_id, &m)) return false;
+	row = (size_t)m.w * 4;
+	if (!(out = malloc(row * m.h))) {
+		frame_close(&m);
+		return false;
 	}
+	for (y = 0; y < m.h; y++) memcpy(out + y * row, m.px + (size_t)y * m.pitch, row);
 	memcpy(hdr, PORT_MENU_MAGIC, 4);
-	hdr[4] = (uint8_t)f.width;  hdr[5] = (uint8_t)(f.width >> 8);
-	hdr[6] = (uint8_t)f.height; hdr[7] = (uint8_t)(f.height >> 8);
+	hdr[4] = (uint8_t)m.w;  hdr[5] = (uint8_t)(m.w >> 8);
+	hdr[6] = (uint8_t)m.h;  hdr[7] = (uint8_t)(m.h >> 8);
+	frame_close(&m);
 	fd = open(PORT_MENU_STILL ".tmp", O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0600);
-	ok = fd >= 0 && write_all(fd, hdr, sizeof hdr) && write_all(fd, out, row * f.height);
+	ok = fd >= 0 && write_all(fd, hdr, sizeof hdr) && write_all(fd, out, row * (size_t)(hdr[6] | hdr[7] << 8));
 	if (fd >= 0 && close(fd)) ok = false;
 	ok = ok && rename(PORT_MENU_STILL ".tmp", PORT_MENU_STILL) == 0;
 	if (!ok) unlink(PORT_MENU_STILL ".tmp");
-done:
-	if (map != MAP_FAILED) munmap(map, size);
-	if (dmabuf >= 0) close(dmabuf);
 	free(out);
-	/* The handle GETFB2 made, in the port's file: a new one of its own, so
-	 * closing it leaves the port's handles to the same buffer as they were */
-	{
-		struct drm_gem_close gc = { .handle = f.handles[0] };
-
-		ioctl(G.fd, DRM_IOCTL_GEM_CLOSE, &gc);
-	}
 	return ok;
 }
 
@@ -1615,7 +1690,9 @@ static int menu_waiting(void)
 	return 1;
 }
 
-static int menu_show(void)
+/* `extra` after the tag and the game, NULL for none: PORT_MENU_RESET_ARG for
+ * Reset Game's hotkey, which asks its question alone (hot_do) */
+static int menu_show_as(const char *extra)
 {
 	struct drm_mode_crtc c;
 	uint32_t conn;
@@ -1671,14 +1748,15 @@ static int menu_show(void)
 			if (write(fd, PORT_MENU_OOM, strlen(PORT_MENU_OOM)) < 0) {}
 			close(fd);
 		}
-		execl(menu_elf, menu_elf, PORT_MENU_ARG, menu_tag, menu_game, (char *)NULL);
+		execl(menu_elf, menu_elf, PORT_MENU_ARG, menu_tag, menu_game, extra, (char *)NULL);
 		_exit(127);
 	}
 	if (child < 0) fprintf(stderr, "portkeys: cannot start the menu (%s)\n", strerror(errno));
 	while (child > 0 && waitpid(child, &status, 0) < 0 && errno == EINTR) {}
 	follow_hold(false);
 	if (child > 0 && WIFEXITED(status) &&
-	    (WEXITSTATUS(status) == PORT_MENU_QUIT || WEXITSTATUS(status) == PORT_MENU_POWER))
+	    (WEXITSTATUS(status) == PORT_MENU_QUIT || WEXITSTATUS(status) == PORT_MENU_POWER ||
+	     WEXITSTATUS(status) == PORT_MENU_RESET))
 		how = WEXITSTATUS(status);
 	else if (child > 0 && !(WIFEXITED(status) && WEXITSTATUS(status) == PORT_MENU_CONTINUE))
 		fprintf(stderr, "portkeys: the menu ended with status %d; the game goes on\n", status);
@@ -1711,16 +1789,349 @@ static int menu_show(void)
 	 * the boosts it kept beside them, its gain written again (pkkeys.h) */
 	pk_levels_load(db, BACKLIGHT, &L);
 	pk_boost_load(db, &L, &BO);
+	/* And the hotkeys, which the menu's Controls may have changed, with
+	 * Auto Off's time (keys_load) */
+	keys_load();
 	fprintf(stderr, "portkeys: the menu was up %ld ms: %s\n", now_ms() - t0,
-	        how == PORT_MENU_QUIT ? "Quit" : how == PORT_MENU_POWER ? "POWER" : "Continue");
+	        how == PORT_MENU_QUIT ? "Quit" : how == PORT_MENU_POWER ? "POWER" :
+	        how == PORT_MENU_RESET ? "Reset" : "Continue");
 	if (how == PORT_MENU_QUIT) {
 		pid_t parent = getppid();
 
 		if (parent > 1) kill(parent, SIGUSR2);
 	} else if (how == PORT_MENU_POWER) {
 		end_port();
+	} else if (how == PORT_MENU_RESET) {
+		/* PICO-8 going on, its queues emptied of the menu's presses: its
+		 * own key for a restart of the cart (pkkbd.h) */
+		if (pkkbd_ctrl_r(kbd, nap_ms)) fprintf(stderr, "portkeys: CTRL-R, the cart starts again\n");
+		else fprintf(stderr, "portkeys: Reset, but no keyboard to send CTRL-R on\n");
 	}
 	return 1;
+}
+
+static int menu_show(void)
+{
+	return menu_show_as(NULL);
+}
+
+/* ---- your PICO-8's hotkeys -------------------------------------------------
+ *
+ * SELECT held and one more button, the player's own (src/hotkeys.h,
+ * DESIGN.md 11.61), over your PICO-8 as over a Diatom game: the launcher
+ * hands over the table in force for the cart (src/portmenu.h's
+ * PORT_KEYS_FILE), the joypad's events go through Diatom's chord rule as
+ * they are read (key_seen, tools/pkhot.c), and what they ask for is done
+ * here after the pass (hot_do). PICO-8 sees SELECT and the button all the
+ * same: nothing is grabbed.
+ *
+ *   Screenshot     PICO-8's own 128 x 128 picture, as Diatom writes fake08's,
+ *                  to Screenshots/PICO-8/<the cart> <time>.png, and the
+ *                  pop-up with the shot in it (shot_take)
+ *   Reset Game     asked first, as over a game: PICO-8 stopped and the
+ *                  launcher's question over its frame (menu_show_as with
+ *                  PORT_MENU_RESET_ARG); Reset is CTRL-R (pkkbd.h)
+ *   Quit           as the menu's Quit: USR2 to launch.sh
+ *   Next Shader,   the system's rows stepped (shader_next, display_next)
+ *   Next Display
+ *
+ * Quick Save, Quick Load, Faster and Slower are no acts here (PKHOT_LIVE). */
+static pkhot HOT;
+static unsigned hot_pending;     /* the acts this pass's events made */
+static char shots[1024];         /* PORT_KEYS_FILE's shots: the folder and the cart's name */
+
+/* Auto Off over your PICO-8 (src/idle.h, the launcher's own clock): MENU >
+ * Auto Off's time with no key pressed on any device, the charger holding it,
+ * and the program ends and the handheld powers off as for POWER (end_port).
+ * A game resumes where it was after Diatom's Auto Off; PICO-8 has no state
+ * to come back to, so play since the cart's last save is lost, as with
+ * POWER. idle_c.seconds is 0 over every other program (keys_load). */
+static idle_clock idle_c;
+static bool idle_input, idle_charging, idle_fired;
+
+static void keys_load(void)
+{
+	char line[1100], run[256] = "";
+	FILE *f;
+
+	pkhot_set(&HOT, NULL);
+	idle_c.seconds = 0;
+	shots[0] = '\0';
+	if (!menu_tag || !port_hotkeys(menu_tag)) return;
+	if ((f = fopen(PORT_KEYS_FILE, "r"))) {
+		while (fgets(line, sizeof line, f)) {
+			line[strcspn(line, "\n")] = '\0';
+			if (!strncmp(line, "hotkeys\t", 8)) snprintf(run, sizeof run, "%.255s", line + 8);
+			else if (!strncmp(line, "shots\t", 6)) snprintf(shots, sizeof shots, "%.1023s", line + 6);
+		}
+		fclose(f);
+	}
+	if (run[0] && !pkhot_set(&HOT, run))
+		fprintf(stderr, "portkeys: hotkeys \"%s\" not read; none\n", run);
+	/* The launcher's MENU > Auto Off: two minutes until the player sets it
+	 * (src/main.c's auto_off_load) */
+	idle_c.seconds = pk_db_get(db, "autooff", 120);
+	fprintf(stderr, "portkeys: hotkeys %s, Auto Off %d s\n", HOT.on ? run : "none", idle_c.seconds);
+}
+
+/* ---- the screenshot ---- */
+
+static void png_u32(uint8_t *p, uint32_t v)
+{
+	p[0] = (uint8_t)(v >> 24); p[1] = (uint8_t)(v >> 16); p[2] = (uint8_t)(v >> 8); p[3] = (uint8_t)v;
+}
+
+/* A chunk at out: its length, type, data and CRC; the new end */
+static uint8_t *png_chunk(uint8_t *out, const char *type, const uint8_t *data, uint32_t n)
+{
+	png_u32(out, n);
+	memcpy(out + 4, type, 4);
+	if (n) memcpy(out + 8, data, n);
+	png_u32(out + 8 + n, (uint32_t)crc32(0L, out + 4, 4 + n));
+	return out + 12 + n;
+}
+
+/* `rgb`, w x h, as an 8-bit RGB PNG, every row filter none, as Diatom
+ * writes its screenshots; malloc'd */
+static uint8_t *png_rgb(const uint8_t *rgb, int w, int h, size_t *len)
+{
+	static const uint8_t SIG[8] = { 137, 'P', 'N', 'G', 13, 10, 26, 10 };
+	const size_t row = (size_t)w * 3 + 1, raw_n = row * (size_t)h;
+	uint8_t *raw, *out, *o, ihdr[13];
+	uLongf zn;
+	int y;
+
+	*len = 0;
+	if (!(raw = malloc(raw_n))) return NULL;
+	for (y = 0; y < h; y++) {
+		raw[(size_t)y * row] = 0;
+		memcpy(raw + (size_t)y * row + 1, rgb + (size_t)y * w * 3, (size_t)w * 3);
+	}
+	zn = compressBound((uLong)raw_n);
+	if (!(out = malloc(8 + 25 + 12 + zn + 12))) {
+		free(raw);
+		return NULL;
+	}
+	memcpy(out, SIG, 8);
+	png_u32(ihdr, (uint32_t)w);
+	png_u32(ihdr + 4, (uint32_t)h);
+	ihdr[8] = 8; ihdr[9] = 2; ihdr[10] = 0; ihdr[11] = 0; ihdr[12] = 0;
+	o = png_chunk(out + 8, "IHDR", ihdr, 13);
+	if (compress2(o + 8, &zn, raw, (uLong)raw_n, 6) != Z_OK) {
+		free(raw);
+		free(out);
+		return NULL;
+	}
+	free(raw);
+	png_u32(o, (uint32_t)zn);
+	memcpy(o + 4, "IDAT", 4);
+	png_u32(o + 8 + zn, (uint32_t)crc32(0L, o + 4, (uInt)(4 + zn)));
+	o += 12 + zn;
+	o = png_chunk(o, "IEND", NULL, 0);
+	*len = (size_t)(o - out);
+	return out;
+}
+
+/* Every folder of `path` but its last part, made as needed */
+static void make_dirs(const char *path)
+{
+	char d[1300];
+	size_t i;
+
+	snprintf(d, sizeof d, "%s", path);
+	for (i = 1; d[i]; i++) {
+		if (d[i] != '/') continue;
+		d[i] = '\0';
+		mkdir(d, 0755);
+		d[i] = '/';
+	}
+}
+
+/* PICO-8's 128 x 128 out of the frame on the panel: each of its pixels read
+ * at its middle, in the rect it is drawn in for the Display mode in force
+ * (src/p8draw.h, display.PICO8 read now: a restart can have changed it),
+ * turned back to the landscape window PICO-8 drew on as the bar is turned
+ * onto the panel (put). A middle off the panel (Zoomed, Edges Cut) is
+ * black: that much of the picture was never on the screen. Sharp at any
+ * factor: PICO-8's filtered modes are linear, and a pixel's middle is its
+ * own color. */
+static uint8_t g_shot[P8_SCREEN * P8_SCREEN * 3];
+
+static void shot_pick(const frame_map *m)
+{
+	char key[64], mode[32];
+	const bool turned = m->h > m->w;
+	const int lw = (int)(turned ? m->h : m->w), lh = (int)(turned ? m->w : m->h);
+	dmode_rect r;
+	int i, j;
+
+	snprintf(key, sizeof key, "display.%s", menu_tag);
+	pkset_text(db, key, mode, sizeof mode);
+	p8_draw_rect(mode[0] ? mode : NULL, lw, lh, P8_NEG_OK, &r);
+	for (j = 0; j < P8_SCREEN; j++)
+		for (i = 0; i < P8_SCREEN; i++) {
+			int lx = r.x + (int)((i + 0.5) * r.w / P8_SCREEN), ly = r.y + (int)((j + 0.5) * r.h / P8_SCREEN);
+			uint8_t *d = g_shot + ((size_t)j * P8_SCREEN + i) * 3;
+			uint32_t v = 0;
+
+			if (lx >= 0 && lx < lw && ly >= 0 && ly < lh) {
+				int px = turned ? ly : lx, py = turned ? lw - 1 - lx : ly;
+
+				memcpy(&v, m->px + (size_t)py * m->pitch + (size_t)px * 4, 4);
+			}
+			d[0] = (uint8_t)(v >> 16); d[1] = (uint8_t)(v >> 8); d[2] = (uint8_t)v;
+		}
+}
+
+/* The pop-up, "Screenshot saved" and the folder, with the shot laid in the
+ * square the launcher left for it (PORT_SHOT_LIGHT, NOTICE_SLOT): nearest
+ * pixels, and the badge's own rounded corners (src/notice.c's draw_badge)
+ * cut over the slab, at the theme the bar would be in now */
+static struct {
+	uint32_t *px[DS_THEMES], *show;
+	int w[DS_THEMES], h[DS_THEMES], slot[DS_THEMES][4];
+} SN;
+
+static void shot_notice_load(void)
+{
+	SN.px[DS_LIGHT] = dtov_read(PORT_SHOT_LIGHT, &SN.w[DS_LIGHT], &SN.h[DS_LIGHT], SN.slot[DS_LIGHT]);
+	SN.px[DS_DARK] = dtov_read(PORT_SHOT_DARK, &SN.w[DS_DARK], &SN.h[DS_DARK], SN.slot[DS_DARK]);
+}
+
+/* The pop-up on the cursor window, composed with the bar (until this build
+ * has the window's composition: said) */
+static void notice_show(const uint32_t *px, int w, int h, long ms)
+{
+	(void)px;
+	fprintf(stderr, "portkeys: the pop-up, %d x %d, %ld ms\n", w, h, ms);
+}
+
+static void shot_popup(void)
+{
+	const int t = pkset_bar_theme(appearance_read ? appearance_word : NULL, time(NULL), THEME_FILE);
+	const int *sl = SN.slot[t], side = sl[2], corner = sl[3];
+	const int w = SN.w[t], h = SN.h[t];
+	int x, y;
+
+	if (!SN.px[t] || side <= 0 || sl[0] + side > w || sl[1] + side > h) {
+		fprintf(stderr, "portkeys: no pop-up for the screenshot\n");
+		return;
+	}
+	free(SN.show);
+	if (!(SN.show = malloc((size_t)w * h * 4))) return;
+	memcpy(SN.show, SN.px[t], (size_t)w * h * 4);
+	for (y = 0; y < side; y++)
+		for (x = 0; x < side; x++) {
+			int dx = x < corner ? corner - x : (x >= side - corner ? x - (side - corner - 1) : 0);
+			int dy = y < corner ? corner - y : (y >= side - corner ? y - (side - corner - 1) : 0);
+			const uint8_t *c = g_shot + ((size_t)(y * P8_SCREEN / side) * P8_SCREEN + x * P8_SCREEN / side) * 3;
+			uint32_t *d = SN.show + (size_t)(sl[1] + y) * w + sl[0] + x, under = *d, a = 255, k, o = 0;
+
+			if (dx || dy) {
+				double dd = sqrt((double)dx * dx + (double)dy * dy) - corner;
+
+				if (dd > 0.5) continue;
+				if (dd > -0.5) a = (uint32_t)(255 * (0.5 - dd));
+			}
+			/* Over the slab, premultiplied: the shot's color at `a` */
+			for (k = 0; k < 32; k += 8) {
+				uint32_t src = k == 24 ? 255 : c[2 - k / 8];
+
+				o |= ((src * a + ((under >> k) & 255) * (255 - a) + 127) / 255) << k;
+			}
+			*d = o;
+		}
+	notice_show(SN.show, w, h, 1500);
+}
+
+static void shot_take(void)
+{
+	char when[32], path[1200], tmp[1210];
+	struct drm_mode_crtc c;
+	time_t now = time(NULL);
+	struct tm tm;
+	frame_map m;
+	uint8_t *png;
+	size_t len = 0;
+	bool mine, ok;
+	int fd;
+
+	if (!shots[0]) {
+		fprintf(stderr, "portkeys: screenshot: no folder handed over\n");
+		return;
+	}
+	/* The display borrowed for the bar, or a master's copy for the read */
+	mine = !held();
+	if (mine && !master_copy()) {
+		fprintf(stderr, "portkeys: screenshot: no program holds the display\n");
+		return;
+	}
+	memset(&c, 0, sizeof c);
+	c.crtc_id = G.crtc;
+	ok = ioctl(G.fd, DRM_IOCTL_MODE_GETCRTC, &c) == 0 && c.fb_id && frame_open(c.fb_id, &m);
+	if (ok) {
+		shot_pick(&m);
+		frame_close(&m);
+	}
+	if (mine) release(false);
+	if (!ok) return;
+	localtime_r(&now, &tm);
+	strftime(when, sizeof when, "%Y-%m-%d %H.%M.%S", &tm);
+	snprintf(path, sizeof path, "%s %s.png", shots, when);
+	snprintf(tmp, sizeof tmp, "%s.tmp", path);
+	make_dirs(path);
+	png = png_rgb(g_shot, P8_SCREEN, P8_SCREEN, &len);
+	fd = png ? open(tmp, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644) : -1;
+	ok = fd >= 0 && write_all(fd, png, len);
+	if (fd >= 0 && close(fd)) ok = false;
+	ok = ok && rename(tmp, path) == 0;
+	if (!ok) unlink(tmp);
+	free(png);
+	fprintf(stderr, "portkeys: screenshot %s %s\n", ok ? "written" : "failed", path);
+	if (ok) shot_popup();
+}
+
+/* Next Shader over your PICO-8: the shaders over it are drawn by a program
+ * beside it that reads its settings from a file (src/p8fx.h). Until this
+ * build has them, said and nothing done. */
+static void shader_next(void)
+{
+	fprintf(stderr, "portkeys: Next Shader: no shaders over your PICO-8 in this build\n");
+}
+
+/* Next Display over your PICO-8: a new mode means PICO-8 starts again, so
+ * the launcher steps the Display row and asks first, as the menu's Display
+ * row does. Until this build has the question, said and nothing done. 1
+ * when a menu was up. */
+static int display_next(void)
+{
+	fprintf(stderr, "portkeys: Next Display: no Display question over your PICO-8 in this build\n");
+	return 0;
+}
+
+/* What this pass's hotkeys asked for, in Diatom's order (diatom/src/main.c):
+ * the screenshot, the next shader and display, then Reset Game and Quit. 1
+ * when a menu was up, and the keys here are then to be read again. */
+static int hot_do(unsigned acts)
+{
+	int menu = 0;
+
+	if (acts & (1u << CHORD_SHOT)) {
+		fprintf(stderr, "portkeys: hotkey, Screenshot\n");
+		shot_take();
+	}
+	if (acts & (1u << CHORD_SHADER)) shader_next();
+	if (acts & (1u << CHORD_DISPLAY)) menu |= display_next();
+	if (acts & (1u << CHORD_QUIT)) {
+		pid_t parent = getppid();
+
+		fprintf(stderr, "portkeys: hotkey, Quit\n");
+		if (parent > 1) kill(parent, SIGUSR2);
+	} else if (acts & (1u << CHORD_RESET)) {
+		fprintf(stderr, "portkeys: hotkey, Reset Game: asked first\n");
+		menu |= menu_show_as(PORT_MENU_RESET_ARG);
+	}
+	return menu;
 }
 
 /* Devices: the poll set's first n entries, and for each whether it has MENU
@@ -1806,6 +2217,23 @@ static bool batt_empty(int pct, bool charging)
 	if (!charging && pct >= 0 && pct <= BATT_EMPTY_PCT) batt_seen++;
 	else batt_seen = 0;
 	return batt_seen == 2;
+}
+
+/* Auto Off's look, once a pass of the loop (idle_c, over your PICO-8):
+ * whether a key came since the last (key_seen), the charger as the battery
+ * was last read. The clock starts again after a gap of more than
+ * IDLE_GAP_MS between two looks, as the launcher's does after a time nobody
+ * read the pad: the loop wakes at least that often while it counts, so a
+ * gap is the in-game menu, whose launcher has the keys meanwhile. Once,
+ * then launch.sh ends this process. */
+static void idle_tick(long now)
+{
+	if (idle_check(&idle_c, (unsigned)now, idle_input, idle_charging) && !idle_fired) {
+		idle_fired = true;
+		fprintf(stderr, "portkeys: no key for %d s (Auto Off); the port ends\n", idle_c.seconds);
+		end_port();
+	}
+	idle_input = false;
 }
 
 /* A press, or with MENU > Power Button on Hold a hold of POWERHOLD_MS, as
@@ -1933,6 +2361,7 @@ static void drop_device(int i)
 	/* Discard its pending events with this pass; it cannot release its keys. */
 	lost_menu |= has_menu[i];
 	lost_vol |= has_vol[i];
+	if (has_menu[i]) pkhot_resync(&HOT, 0);
 	close(fds[i].fd);
 	n--;
 	fds[i] = fds[n];
@@ -1951,6 +2380,35 @@ static bool keys_pass(const pk_key *keys, int nk, int64_t cutoff)
 	if (m < 0) return false;
 	for (i = 0; i < m; i++) press(&s[i]);
 	return true;
+}
+
+/* Every key event of every device, before pkkeys picks its own: somebody is
+ * there (Auto Off's clock, idle_tick), and on the joypad, SELECT's hotkeys
+ * over your PICO-8, judged in the order the kernel queued them (pkhot.h) and
+ * done after the pass (hot_do). The joypad's state is followed with no
+ * hotkeys too, so a table given after a menu starts from the pad as it is. */
+static void key_seen(int i, const struct input_event *e)
+{
+	idle_input = true;
+	if (has_menu[i])
+		hot_pending |= pkhot_key(&HOT, e->code, e->value,
+		                         (uint64_t)((int64_t)e->input_event_sec * 1000 + e->input_event_usec / 1000));
+}
+
+/* The joypad's buttons down, as pkhot counts them, from EVIOCGKEY's bits */
+static uint32_t pad_held(const unsigned long *down)
+{
+	static const uint16_t codes[] = {
+		PKHOT_BTN_SOUTH, PKHOT_BTN_EAST, PKHOT_BTN_NORTH, PKHOT_BTN_WEST, PKHOT_BTN_TL, PKHOT_BTN_TR,
+		PKHOT_BTN_TL2, PKHOT_BTN_TR2, PKHOT_BTN_SELECT, PKHOT_BTN_START, PKHOT_BTN_UP,
+		PKHOT_BTN_UP + 1, PKHOT_BTN_UP + 2, PKHOT_BTN_UP + 3, PK_BTN_MENU,
+	};
+	uint32_t held = 0;
+	size_t k;
+
+	for (k = 0; k < sizeof codes / sizeof codes[0]; k++)
+		if (HAS(down, codes[k])) held |= pkhot_bit(codes[k]);
+	return held;
 }
 
 /* Bound raw reads too: irrelevant events and EINTR must not keep this loop
@@ -1996,6 +2454,7 @@ static bool read_device(int i, pk_key *keys, int *nk, bool *unreliable, bool *pl
 				*plugged = true;
 				continue;
 			}
+			if (ev[k].type == EV_KEY) key_seen(i, &ev[k]);
 			if (ev[k].type != EV_KEY || !pkkeys_relevant(ev[k].code, ev[k].value)) continue;
 			if (*nk == PK_PASS_MAX) {
 				*unreliable = true;
@@ -2026,7 +2485,11 @@ static void resync_devices(bool *plugged)
 				drop_device(i--);
 				continue;
 			}
-			if (has_menu[i]) pkkeys_menu_state(&K, K.menu_held || HAS(down, BTN_TRIGGER_HAPPY1));
+			if (has_menu[i]) {
+				pkkeys_menu_state(&K, K.menu_held || HAS(down, BTN_TRIGGER_HAPPY1));
+				/* and SELECT's rule from what is down now (pkhot_resync) */
+				pkhot_resync(&HOT, pad_held(down));
+			}
 		}
 		if (fds[i].fd == jack) *plugged = true;
 	}
@@ -2056,8 +2519,12 @@ int main(int argc, char **argv)
 		argv += 4;
 		argc -= 4;
 	}
+	/* Over your PICO-8, its keyboard for CTRL-R first of all, so PICO-8's
+	 * SDL finds it as it starts (SDL watches for one made later too) */
+	if (menu_tag && port_resets(menu_tag)) kbd = pkkbd_open("/dev/uinput");
 	osdbar_size(PANEL_S, &bw, &bh);
 	pkkeys_init(&K);
+	pkhot_init(&HOT);
 	mixer = open("/dev/snd/controlC0", O_RDWR | O_CLOEXEC);
 	/* The launcher's device database, from launch.sh: $USERDATA_PATH/zyperos.db */
 	if (argc > 1 && sqlite3_open_v2(argv[1], &db, SQLITE_OPEN_READWRITE, NULL) != SQLITE_OK) {
@@ -2125,6 +2592,10 @@ int main(int argc, char **argv)
 	heat_init(&H);
 	notice_load(DS_LIGHT, PORT_HEAT_LIGHT);
 	notice_load(DS_DARK, PORT_HEAT_DARK);
+	/* Over your PICO-8: the hotkeys and Auto Off's time, and the
+	 * screenshot's pop-up the launcher left (keys_load, shot_take) */
+	keys_load();
+	if (menu_tag && port_hotkeys(menu_tag)) shot_notice_load();
 
 	/* Every event device with a volume key or MENU (BTN_TRIGGER_HAPPY1, on
 	 * the joypad), and the headphone switch: found by what they report
@@ -2220,14 +2691,19 @@ int main(int argc, char **argv)
 			bool charging;
 
 			if (now - batt_next >= 0) {
-				if (batt_now(&pct, &charging) && batt_empty(pct, charging)) {
-					fprintf(stderr, "portkeys: battery %d%%, empty; the port ends\n", pct);
-					end_port();
+				if (batt_now(&pct, &charging)) {
+					idle_charging = charging;
+					if (batt_empty(pct, charging)) {
+						fprintf(stderr, "portkeys: battery %d%%, empty; the port ends\n", pct);
+						end_port();
+					}
 				}
 				batt_next = now + BATT_EVERY_MS;
 			}
 			if (wait < 0 || wait > batt_next - now) wait = (int)(batt_next - now);
 		}
+		/* Auto Off counting: a look well inside its gap (idle_tick) */
+		if (idle_c.seconds > 0 && (wait < 0 || wait > (int)IDLE_GAP_MS - 100)) wait = (int)IDLE_GAP_MS - 100;
 		m = n;
 		/* The port's end, while its display is borrowed */
 		if (G.pidfd >= 0) {
@@ -2271,6 +2747,18 @@ int main(int argc, char **argv)
 			power_drain();
 			resync_devices(&plugged);
 		}
+		/* SELECT's hotkeys over your PICO-8 (hot_do): Reset Game's question
+		 * is a menu too, after which the keys start again in the same way */
+		if (hot_pending) {
+			const unsigned acts = hot_pending;
+
+			hot_pending = 0;
+			if (hot_do(acts)) {
+				power_drain();
+				resync_devices(&plugged);
+			}
+		}
+		idle_tick(now_ms());
 
 		if (plugged) plug_changed();
 

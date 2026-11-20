@@ -15,7 +15,9 @@
 #include <time.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#include "idle.h"
 #include "osdbar.h"
+#include "pkhot.h"
 #include "pkkeys.h"
 #include "powerhold.h"
 #include "status.h"
@@ -51,7 +53,7 @@ static int64_t wall_us, mono_ms, clocks[8], times[8];
 static int calls, limit, steps, repeats, reads[3], queries, closes, waits[8];
 static int ready, fail_read, fail_key_query, fail_clock_reset, fail_clock_read;
 static int eof_device, short_device, interrupts, noisy, inject_menu;
-static bool menu_down[2];
+static bool menu_down[2], sel_down[2];
 static pk_levels levels;
 static pk_kind first_kind;
 static struct input_event queued[3][4096];
@@ -121,6 +123,15 @@ static bool batt_now(int *pct, bool *charging)
  * asked for, what it answers, and the power key's file read after it */
 static int menu_shows, menu_answer;
 static int menu_show(void) { menu_shows++; return menu_answer; }
+/* Over your PICO-8 (outside the extracted code): SELECT's hotkeys, judged
+ * by the real tools/pkhot.c as the reader reads the joypad, and what they
+ * ask for, here only counted; and Auto Off's clock, the real src/idle.c */
+static pkhot HOT;
+static unsigned hot_pending, hot_done;
+static int hot_dos;
+static int hot_do(unsigned acts) { hot_dos++; hot_done |= acts; return 0; }
+static idle_clock idle_c;
+static bool idle_input, idle_charging, idle_fired;
 /* Developer SSH over the port (tools/pkssh.c, outside the extracted code):
  * nothing to look at, and the TERM flag never set */
 static volatile sig_atomic_t g_term;
@@ -171,6 +182,7 @@ static int mock_ioctl(int fd, unsigned long request, void *data)
 	unsigned long *bits = data;
 	memset(bits, 0, NLONGS(KEY_MAX + 1) * sizeof *bits);
 	if (menu_down[id]) bits[PK_BTN_MENU / BITS_PER_LONG] |= 1UL << (PK_BTN_MENU % BITS_PER_LONG);
+	if (sel_down[id]) bits[PKHOT_BTN_SELECT / BITS_PER_LONG] |= 1UL << (PKHOT_BTN_SELECT % BITS_PER_LONG);
 	/* EVIOCGKEY removes queued EV_KEY events represented by the snapshot. */
 	int end = qpos[id];
 	for (int i = end; i < qlen[id]; i++)
@@ -213,6 +225,9 @@ static void reset(void)
 	fail_clock_read = interrupts = noisy = inject_menu = 0;
 	memset(qlen, 0, sizeof qlen); memset(qpos, 0, sizeof qpos);
 	memset(reads, 0, sizeof reads); memset(menu_down, 0, sizeof menu_down);
+	memset(sel_down, 0, sizeof sel_down);
+	pkhot_init(&HOT); hot_pending = hot_done = 0; hot_dos = 0;
+	idle_c = (idle_clock){ 0 }; idle_input = idle_charging = idle_fired = false;
 	memset(has_menu, 0, sizeof has_menu); memset(has_vol, 0, sizeof has_vol);
 	memset(dropped, 0, sizeof dropped); memset(resync, 0, sizeof resync);
 	lost_menu = lost_vol = false; ev_clock = CLOCK_MONOTONIC;
@@ -428,6 +443,56 @@ int main(void)
 	put(0, 1000000, EV_KEY, PK_KEY_VOLUMEUP, 1);
 	run_loop();
 	ck(plugs == 0 && steps == 1 && boost_clocks == 1, "a key is no change of output");
+	/* SELECT's hotkeys over your PICO-8: the joypad's events, read with the
+	 * rest, go through Diatom's chord rule in the order they came, and what
+	 * they ask for is done once after the pass; never from another device,
+	 * never with no table, never for SELECT that went with the d-pad first,
+	 * and never for a SELECT a resync found down (its press was not seen) */
+	for (int c = 0; c < 6; c++) {
+		reset(); has_menu[0] = has_vol[1] = true; ready = 1;
+		if (c != 2) pkhot_set(&HOT, "save:r1,load:l1,faster:r2,slower:l2,shot:y,quit:x");
+		const int dev = c == 1 ? 1 : 0;
+		if (c == 4) put(dev, 1000000, EV_SYN, SYN_DROPPED, 0), put(dev, 1000001, EV_SYN, SYN_REPORT, 0);
+		if (c == 4) sel_down[dev] = true, limit = 2;
+		if (c != 4) put(dev, 1000010, EV_KEY, PKHOT_BTN_SELECT, 1);
+		if (c == 3) put(dev, 1000020, EV_KEY, PKHOT_BTN_UP, 1);
+		put(dev, 1000050, EV_KEY, c == 5 ? PKHOT_BTN_TR : PKHOT_BTN_WEST, 1);
+		run_loop();
+		ck(c == 0 ? hot_dos == 1 && hot_done == (1u << CHORD_SHOT) && steps == 0 : hot_dos == 0,
+		   c == 0 ? "SELECT+Y over your PICO-8: the screenshot, once, after the pass" :
+		   c == 1 ? "SELECT and Y from a device that is not the joypad: nothing" :
+		   c == 2 ? "no hotkeys handed over: nothing" :
+		   c == 3 ? "SELECT with the d-pad first is the game's: nothing" :
+		   c == 4 ? "a SELECT found down at a resync is no chord's" :
+		            "SELECT+R1, Quick Save, is no act over your PICO-8: nothing");
+	}
+	reset(); has_menu[0] = true; n = 1; ready = 1;
+	pkhot_set(&HOT, "quit:x");
+	put(0, 1000000, EV_KEY, PKHOT_BTN_NORTH, 1);
+	put(0, 1000060, EV_KEY, PKHOT_BTN_SELECT, 1);
+	run_loop();
+	ck(hot_done == (1u << CHORD_QUIT), "X a moment before SELECT is the same chord: Quit");
+	/* Auto Off over your PICO-8 (src/idle.h): its time with no key, the
+	 * looks under IDLE_GAP_MS apart, is one USR1 to launch.sh, as POWER;
+	 * the charger holds it, a longer gap (the in-game menu was up) starts it
+	 * again, and with Auto Off at Never the loop is not woken for it */
+	for (int c = 0; c < 4; c++) {
+		reset(); n = 1; has_vol[0] = true; limit = 6; ready = 0;
+		idle_c.seconds = c == 3 ? 0 : 2;
+		for (int i = 0; i < 6; i++) times[i] = 1000 + 800 * i;
+		if (c == 1) { batt_len = 1; batt_seq[0] = 50; batt_charging = true; }
+		/* 2.4 s after its first look without the gap, 1.6 s after the gap */
+		if (c == 2) { limit = 4; for (int i = 1; i < 6; i++) times[i] += 1500; }
+		run_loop();
+		ck(c == 0 ? kills == 1 && kill_sig == SIGUSR1 && kill_pid == 4242 && idle_fired : kills == 0,
+		   c == 0 ? "Auto Off: no key for its time is one USR1 to launch.sh" :
+		   c == 1 ? "Auto Off: the charger holds the clock" :
+		   c == 2 ? "Auto Off: a gap past IDLE_GAP_MS starts the clock again" :
+		            "Auto Off at Never ends nothing");
+		if (c == 0) ck(waits[0] > 0 && waits[0] <= (int)IDLE_GAP_MS - 100,
+		               "Auto Off: the loop looks well inside its gap while it counts");
+		if (c == 3) ck(waits[0] == 5000, "Auto Off at Never: the loop is not woken for it");
+	}
 	printf("portkeys-flow: %d checks, %d failed\n", checks, failures);
 	return failures ? 1 : 0;
 }
