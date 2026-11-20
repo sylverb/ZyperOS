@@ -41,6 +41,7 @@ Simulator: one command, its JSON answer.
     tools/desk tap BUTTON[+BUTTON] [MS]  (80 ms)
     tools/desk latency BUTTON            a tap, and ms from it to its frame
     tools/desk shot FILE.png             the panel, at its own pixels
+    tools/desk shot FILE.png window      the whole window, the drawn handheld too
     tools/desk wait-frames N
     tools/desk stats                     frames a second, the last presses' ms
     tools/desk zoom N | frame 0|1 | hints 0|1 | help [0|1] | quit

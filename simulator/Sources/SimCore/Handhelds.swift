@@ -1,0 +1,75 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// The handhelds the Simulator draws, from the device files themselves
+// (src/device/<id>_model.c, td_model.h's td_flat), as desk mode draws them.
+// Written by `make handhelds` (tools/handhelds-swift.c): do not edit. Change
+// the model file and run `make handhelds`; `make check-handhelds` fails while
+// this is behind it.
+
+extension Handheld {
+    public static let all: [Handheld] = [
+        Handheld(
+            id: "pixel2", name: "GKD Pixel 2", panel: Size(w: 640, h: 480),
+            body: Size(w: 63, h: 81), corner: 3.9,
+            margin: Margins(x: 6, top: 4, bottom: 2.5),
+            glass: Rect(x: 0, y: 14.2, w: 55.1, h: 43.8), glassRadius: 1.2,
+            screen: Rect(x: 0, y: 15.55, w: 48.8, h: 36.6),
+            word: "ZyperOS", wordY: -5.5,
+            recess: Rect(x: 0.1, y: -29.6, w: 16.4, h: 7.6), recessRadius: 3.8, dpadArm: 3.2,
+            lightX: 32, light: Size(w: 1.3, h: 3.4),
+            lights: [Light(y: 1.4, green: 4, red: nil), Light(y: -4.03, green: 3, red: nil), Light(y: -9.67, green: 2, red: nil), Light(y: -15.3, green: 1, red: 0)],
+            colors: Colors(bodyHi: 0xB4CC6C, body: 0x9CB849, bodyLo: 0x83A03A, recess: 0x708B32,
+                           cap: 0x3A3C3F, capDown: 0x1E2021, marking: 0xA4A7AA, glass: 0x0B0E0E,
+                           lightOff: 0x56723A),
+            keys: [
+                Key(button: nil, kind: .dpad, x: -16.9, y: -21, w: 18, h: 18, label: "", under: nil, hint: .below, hintDX: 0),
+                Key(button: .a, kind: .round, x: 23.6, y: -21.5, w: 6.1, h: 6.1, label: "A", under: nil, hint: .right, hintDX: 0),
+                Key(button: .b, kind: .round, x: 16.9, y: -28.2, w: 6.1, h: 6.1, label: "B", under: nil, hint: .below, hintDX: 0),
+                Key(button: .x, kind: .round, x: 16.9, y: -14.8, w: 6.1, h: 6.1, label: "X", under: nil, hint: .above, hintDX: 0),
+                Key(button: .y, kind: .round, x: 10.2, y: -21.5, w: 6.1, h: 6.1, label: "Y", under: nil, hint: .left, hintDX: 0),
+                Key(button: .select, kind: .round, x: -3.8, y: -29.6, w: 5.7, h: 5.7, label: "SE", under: nil, hint: .below, hintDX: -14),
+                Key(button: .start, kind: .round, x: 4, y: -29.6, w: 5.7, h: 5.7, label: "ST", under: nil, hint: .below, hintDX: 14),
+                Key(button: .menu, kind: .side, x: 31.8, y: 17.13, w: 3, h: 5.3, label: "", under: nil, hint: .left, hintDX: 0),
+                Key(button: .power, kind: .side, x: 31.8, y: 6.65, w: 3, h: 7.2, label: "", under: nil, hint: .left, hintDX: 0),
+                Key(button: .volup, kind: .side, x: -31.8, y: 15.75, w: 3, h: 8, label: "+", under: nil, hint: .right, hintDX: 0),
+                Key(button: .voldown, kind: .side, x: -31.8, y: 7.65, w: 3, h: 8, label: "-", under: nil, hint: .right, hintDX: 0),
+                Key(button: .l1, kind: .shoulder, x: -23.9, y: 40.9, w: 15.1, h: 3.6, label: "L1", under: nil, hint: .on, hintDX: 0),
+                Key(button: .r1, kind: .shoulder, x: 23.9, y: 40.9, w: 15.1, h: 3.6, label: "R1", under: nil, hint: .on, hintDX: 0),
+                Key(button: .l2, kind: .shoulder, x: -12.6, y: 40.9, w: 7.4, h: 3.6, label: "L2", under: nil, hint: .on, hintDX: 0),
+                Key(button: .r2, kind: .shoulder, x: 12.6, y: 40.9, w: 7.4, h: 3.6, label: "R2", under: nil, hint: .on, hintDX: 0),
+            ],
+            labels: [Label(text: "VOL", x: -34.6, y: 11.7, turned: true), Label(text: "MENU", x: 34.6, y: 17.1, turned: true), Label(text: "POWER", x: 34.6, y: 6.65, turned: true)]),
+        Handheld(
+            id: "brick", name: "TrimUI Brick", panel: Size(w: 1024, h: 768),
+            body: Size(w: 73.2, h: 109.9), corner: 5.5,
+            margin: Margins(x: 6, top: 4, bottom: 2.5),
+            glass: Rect(x: 0, y: 25.4, w: 69.6, h: 55.6), glassRadius: 1.6,
+            screen: Rect(x: 0, y: 26.4, w: 65, h: 48.8),
+            word: "ZyperOS", wordY: -0.3,
+            recess: nil, recessRadius: 0, dpadArm: 3.5,
+            lightX: 0, light: Size(w: 0, h: 0),
+            lights: [],
+            colors: Colors(bodyHi: 0x4B4F56, body: 0x3B3E44, bodyLo: 0x2C2E33, recess: 0x26282C,
+                           cap: 0x232427, capDown: 0x121315, marking: 0xA2A6AC, glass: 0x07080A,
+                           lightOff: 0x26282C),
+            keys: [
+                Key(button: nil, kind: .dpad, x: -20.7, y: -17.35, w: 19.3, h: 19.3, label: "", under: nil, hint: .below, hintDX: 0),
+                Key(button: .a, kind: .round, x: 27.3, y: -17.15, w: 7.7, h: 7.7, label: "A", under: nil, hint: .right, hintDX: 0),
+                Key(button: .b, kind: .round, x: 19.7, y: -24.75, w: 7.7, h: 7.7, label: "B", under: nil, hint: .below, hintDX: 0),
+                Key(button: .x, kind: .round, x: 19.7, y: -9.55, w: 7.7, h: 7.7, label: "X", under: nil, hint: .above, hintDX: 0),
+                Key(button: .y, kind: .round, x: 12.1, y: -17.15, w: 7.7, h: 7.7, label: "Y", under: nil, hint: .left, hintDX: 0),
+                Key(button: .brightdown, kind: .pill, x: -5.7, y: -8.65, w: 7.1, h: 2.6, label: "", under: "F1", hint: .above, hintDX: 0),
+                Key(button: .brightup, kind: .pill, x: 5, y: -8.65, w: 7.1, h: 2.6, label: "", under: "F2", hint: .above, hintDX: 0),
+                Key(button: .menu, kind: .round, x: -10.5, y: -46.45, w: 5.4, h: 5.4, label: "MENU", under: nil, hint: .above, hintDX: 0),
+                Key(button: .select, kind: .round, x: -0.5, y: -46.45, w: 5.4, h: 5.4, label: "■", under: "SELECT", hint: .above, hintDX: 0),
+                Key(button: .start, kind: .round, x: 9.6, y: -46.45, w: 5.4, h: 5.4, label: "▶", under: "START", hint: .above, hintDX: 0),
+                Key(button: .volup, kind: .side, x: -37.4, y: 44.65, w: 3, h: 7.7, label: "+", under: nil, hint: .right, hintDX: 0),
+                Key(button: .voldown, kind: .side, x: -37.4, y: 33.55, w: 3, h: 7.7, label: "-", under: nil, hint: .right, hintDX: 0),
+                Key(button: .power, kind: .side, x: 37.4, y: 15.65, w: 3, h: 7.1, label: "", under: nil, hint: .left, hintDX: 0),
+                Key(button: .l1, kind: .shoulder, x: -27.85, y: 55.6, w: 17.5, h: 3.6, label: "L1", under: nil, hint: .on, hintDX: 0),
+                Key(button: .l2, kind: .shoulder, x: -12.3, y: 55.6, w: 11, h: 3.6, label: "L2", under: nil, hint: .on, hintDX: 0),
+                Key(button: .r2, kind: .shoulder, x: 12.3, y: 55.6, w: 11, h: 3.6, label: "R2", under: nil, hint: .on, hintDX: 0),
+                Key(button: .r1, kind: .shoulder, x: 27.85, y: 55.6, w: 17.5, h: 3.6, label: "R1", under: nil, hint: .on, hintDX: 0),
+            ],
+            labels: [Label(text: "VOL", x: -40.2, y: 39.1, turned: true), Label(text: "POWER", x: 40.2, y: 15.65, turned: true)]),
+    ]
+}

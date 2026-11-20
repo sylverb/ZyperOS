@@ -22,11 +22,11 @@
 #
 # NAME is the window's VM, "simulator" unless told (ZYPEROS_QEMU_NAME).
 # Buttons: up down left right a b x y l1 r1 l2 r2 select start menu volup
-# voldown power.
+# voldown power, and brightdown brightup on a handheld with them (--device).
 set -eu
 NAME=${ZYPEROS_QEMU_NAME:-simulator}
 if [ "${1:-}" = -n ]; then NAME=$2; shift 2; fi
-[ $# -gt 0 ] || { sed -n '3,24p' "$0"; exit 1; }
+[ $# -gt 0 ] || { sed -n '3,25p' "$0"; exit 1; }
 SOCK=${ZYPEROS_QEMU_HOME:-$HOME/Library/Caches/zyperos-qemu}/$NAME/app.sock
 [ -S "$SOCK" ] || { echo "simctl: no simulator window for $NAME ($SOCK)" >&2; exit 1; }
 # Paths as the window sees them: absolute

@@ -9,7 +9,8 @@ computer's keyboard stands in for them. The tables, read from their sources:
 
 Each key the Simulator or Diatom has must be the same button in keymap.h, and
 keymap.h may have more only where a device has buttons the others' Pixel 2
-has not (the Brick's brightness keys, [ and ]). The docs print the map:
+has not (the Brick's brightness keys, [ and ], which the Simulator has too,
+for a handheld that has them). The docs print the map:
 docs/building.md and docs/simulator.md each name every one of keymap.h's
 keys' buttons."""
 import re
@@ -22,7 +23,8 @@ ROOT = Path(__file__).resolve().parents[1]
 # SDL scancode names
 MAC = {126: 'UP', 125: 'DOWN', 123: 'LEFT', 124: 'RIGHT', 7: 'X', 6: 'Z', 1: 'S', 0: 'A',
        12: 'Q', 13: 'W', 14: 'E', 15: 'R', 36: 'RETURN', 76: 'KP_ENTER', 51: 'BACKSPACE',
-       53: 'ESCAPE', 46: 'M', 24: 'EQUALS', 27: 'MINUS', 35: 'P', 60: 'RSHIFT'}
+       53: 'ESCAPE', 46: 'M', 24: 'EQUALS', 27: 'MINUS', 35: 'P', 60: 'RSHIFT',
+       33: 'LEFTBRACKET', 30: 'RIGHTBRACKET'}
 IN = {'IN_UP': 'up', 'IN_DOWN': 'down', 'IN_LEFT': 'left', 'IN_RIGHT': 'right', 'IN_ACCEPT': 'a',
       'IN_BACK': 'b', 'IN_X': 'x', 'IN_Y': 'y', 'IN_L1': 'l1', 'IN_R1': 'r1', 'IN_L2': 'l2',
       'IN_R2': 'r2', 'IN_START': 'start', 'IN_SELECT': 'select', 'IN_MENU': 'menu',
