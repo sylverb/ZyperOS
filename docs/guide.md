@@ -2131,23 +2131,28 @@ ZyperOS writes nothing in them but its own covers in `.media/`.
 | ZyperOS folder | ES folders it also reads |
 |---|---|
 | `Nintendo DS` | `nds` |
-| `Game Boy Advance`, `Game Boy Color`, `Game Boy` | `gba`, `gbc`, `gb` |
+| `Game Boy Advance`, `Game Boy Color`, `Game Boy` | `gba`, `gbav`, `gbc`, `gb`, `sgb` |
 | `SNES` | `snes`, `sfc`, `superfamicom` |
 | `NES` | `nes`, `famicom`, `fds` |
-| `Genesis` | `genesis`, `megadrive`, `md` |
-| `PlayStation` | `psx`, `ps1` |
+| `Genesis` | `genesis`, `megadrive`, `md`, `megadrive-japan` |
+| `PlayStation`, `PSP` | `playstation`, `psx`, `ps1`; `psp`, `pspminis` |
 | `Nintendo 64` | `n64` |
-| `TurboGrafx-16` | `pcengine`, `tg16`, `pcenginecd`, `tg16cd`, `tg-cd`, `supergrafx` |
+| `TurboGrafx-16` | `pcengine`, `tg16`, `turbografx`, `pcenginecd`, `tg16cd`, `turbografxcd`, `tg-cd`, `supergrafx`, `sgfx` |
 | `Sega CD`, `32X`, `Master System`, `Game Gear` | `segacd`, `megacd`, `sega32x`, `mastersystem`, `sms`, `gamegear`, `gg` |
 | `Neo Geo`, `Neo Geo CD`, `Neo Geo Pocket (Color)` | `neogeo`, `neocd`, `neogeocd`, `ngp`, `ngpc` |
 | `Arcade`, `MAME` | `fbneo`, `fba`, `cps1`, `cps2`, `cps3`; `mame2003`, `mame2003plus` |
 
-The rest are in `ZyperOS/systems.cfg` on the card, on its `es|` lines (Atari
-2600 is `atari2600`, WonderSwan is `wswan`, and so on). Capitals do not
-count. A shelf reads one folder: its ZyperOS folder while that has a game,
-and otherwise the ES folder with the most games. A new ZyperOS card has
-every ZyperOS folder, empty, so a copied ES folder is read. When both have
-games, the ZyperOS folder is read: move the games into one of them.
+ROCKNIX's and AmberELEC's hacks folders are read too: `nesh`, `snesh`,
+`gbh`, `gbch`, `gbah`, `genh`, `megadriveh` and `gamegearh`, and ArkOS's
+`snes-hacks`. The rest are in `ZyperOS/systems.cfg` on the card, on its
+`es|` lines (Atari 2600 is `atari2600`, WonderSwan is `wswan`, and so on).
+Capitals do not count, so `playstation` is the `PlayStation` folder and
+`wonderswan` the `WonderSwan` one. A shelf reads one folder: its ZyperOS
+folder while that has a game, and otherwise the ES folder with the most
+games. A new ZyperOS card has every ZyperOS folder, empty, so a copied ES
+folder is read. When both have games, the ZyperOS folder is read: move the
+games into one of them. Two ES folders of one system count the same way:
+of `nes` and `nesh`, the one with more games is read.
 
 **What ZyperOS reads, in order.** ZyperOS's own cover and video snap come
 first: `.media/<game>.png` and `.media/<game>.mp4`, from Box Art, the

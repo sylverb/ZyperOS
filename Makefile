@@ -939,7 +939,9 @@ build-native/portkeys-check: tools/portkeys-check.c tools/pkset.c tools/pkset.h 
 # systems.cfg's accent field: six hex digits are that color, and anything else
 # - an empty field, a line that stops before it, a word - is no color at all
 # (CFG_NO_COLOR), which the screens draw by role and never as a color some
-# system has. No SDL; one scratch file under a directory of its own.
+# system has. And its es lines: the folders other systems keep games in,
+# ROCKNIX's all, each read on its own shelf. No SDL; one scratch file under a
+# directory of its own.
 check-config: build-native/config-check
 	@./build-native/config-check
 
