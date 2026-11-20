@@ -2300,8 +2300,18 @@ static void ingame_rows(void)
 	ck(!(b.sound[1] & MENU_SND_RING), "Left and Right step nothing on it (no ring)");
 	ck(rows[3].value == MENU_KEY_X && gm_row_at(&u, GT_GAME, gm_x_row()) == 3, "X is still Quit");
 	ck(reachable(rows, n, got, GM_MAX_ROWS) == 4, "every row a stop");
+	/* ...and Reset before Quit, once it has drawn (port_resets), asked
+	 * first: a stop like the rest */
+	u.port_reset = true;
+	n = gm_rows(&u, GT_GAME, rows, &b);
+	ck(n == 5 && gm_tab_rows(&u, GT_GAME, ids) == 5 && ids[2] == GM_CONTROLS && ids[3] == GM_RESET &&
+	   ids[4] == GM_QUIT, "Continue, Display, Controls, Reset and Quit");
+	ck(!strcmp(rows[3].label, "Reset") && rows[3].live, "Reset, as a game's Game tab says it");
+	ck(rows[4].value == MENU_KEY_X && gm_row_at(&u, GT_GAME, gm_x_row()) == 4, "X is still Quit, after it");
+	ck(reachable(rows, n, got, GM_MAX_ROWS) == 5, "every row a stop, Reset too");
+	u.port_reset = false;
 	u.port_display = false;
-	ck(gm_tab_rows(&u, GT_GAME, ids) == 3, "and no Display row over any other program");
+	ck(gm_tab_rows(&u, GT_GAME, ids) == 3, "and no Display or Reset row over any other program");
 	u.port = false;
 }
 

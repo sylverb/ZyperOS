@@ -12,7 +12,9 @@
  *   MENU on its own      with --menu (OpenBOR, a port), the in-game menu (menu_show)
  *
  * And over any port, "Getting hot" when the chip passes the kernel's trip, as
- * over a game (heat_check), and POWER and a battery run flat (end_port).
+ * over a game (heat_check), and POWER and a battery run flat (end_port). Over
+ * your PICO-8 too the player's hotkeys, SELECT and a button (hot_do), and
+ * Auto Off (idle_tick).
  *
  * WHAT A KEY MEANS is tools/pkkeys.c's, which tools/pkkeys-check.c holds:
  * the events of every device are handled in the order of their times, so
@@ -2237,9 +2239,10 @@ static void end_port(void)
  * src/main.c): BATT_EMPTY_PCT or under, off the charger, on two readings in a
  * row 5 s apart, so one stray reading never powers off. It ends the port and
  * powers off as POWER does, while the card can still be let go of, where the
- * PMIC's own cut would leave it mounted. Auto Off does not run over a port:
- * the launcher takes it only because a game resumes where it was after the
- * power-off (AUTO_OFF, src/main.c), and a port has no resume. */
+ * PMIC's own cut would leave it mounted. Auto Off runs over your PICO-8
+ * alone (idle_tick): the launcher takes it over a game because the game
+ * resumes where it was after the power-off (AUTO_OFF, src/main.c), and a
+ * port has no resume, nor an install or a cutscene a player gone. */
 #define BATT_EVERY_MS 5000
 static long batt_next;
 static int batt_seen;

@@ -1666,17 +1666,20 @@ check-controls: build-native/controls-check
 
 # The remap rules, pure: Diatom's map language read and written, the swap rule
 # of a button's change, what is stored for a scope, and the choices a system
-# offers (DESIGN.md 11.45).
+# offers (DESIGN.md 11.45). And your PICO-8's table as SDL's mapping line
+# (src/p8pad.h).
 check-remap: build-native/remap-check
 	@./build-native/remap-check
 
 build-native/remap-check: tools/remap-check.c src/remap.c src/remap.h src/remapstore.c src/remapstore.h src/controls.c \
+                          src/p8pad.c src/p8pad.h \
                           src/controls.h src/padglyph.h src/menu.h src/config.c src/config.h \
                           src/db.c src/db.h src/atomic.c config/systems.cfg \
                           $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
 	      -o $@ tools/remap-check.c src/remap.c src/remapstore.c src/controls.c src/hotkeys.c src/powerhold.c src/config.c src/db.c src/atomic.c \
+	      src/p8pad.c \
 	      $(I18N_SRC) -lsqlite3
 
 # The player's hotkeys, pure: SELECT and a button for each action, the swap
