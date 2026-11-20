@@ -690,11 +690,13 @@ SHOT_SETTINGS["menu-shader-list"] = {"launcher_shader": "scanlines"}
 # the cursor; the GBA shelf's own Shader list with it; and where it is not
 # offered, with a card edited to name it: the SNES shelf's list (Off, the
 # SNES's default, and no such row) and MENU's, the screens' own (Off)
-EXTRA.setdefault("gamemenu-shader-lcd-unlit", ("demo", "GBA", ["--screen", "games", "--gamemenu", "1",
+# The Advance's Display tab has Border under Display (its frames are offered
+# in every mode), so Shader is its third row
+EXTRA.setdefault("gamemenu-shader-lcd-unlit", ("demo", "GBA", ["--screen", "games", "--gamemenu", "2",
                                                                "--gm-tab", "1"]))
 SHOT_SETTINGS["gamemenu-shader-lcd-unlit"] = {"shader.GBA": "lcd-unlit"}
 EXTRA.setdefault("gamemenu-shader-list-lcd-unlit",
-                 ("demo", "GBA", ["--gamemenu", "1", "--gm-tab", "1", "--gm-choose", "--pick-at", "6"]))
+                 ("demo", "GBA", ["--gamemenu", "2", "--gm-tab", "1", "--gm-choose", "--pick-at", "6"]))
 EXTRA.setdefault("system-menu-shader-list-gba", ("demo", "GBA", ["--screen", "games", "--menu", "Shader",
                                                                  "--press", "a"]))
 SHOT_SETTINGS["system-menu-shader-list-gba"] = {"shader.GBA": "lcd-unlit"}
@@ -914,9 +916,10 @@ for (_folder, _file, _wh, _sky, _ground, _hue) in (
 for _name, _flags in (("shelf-recents-screen", ["--screen", "games"]),
                       ("shelf-recents-screen-grid", ["--screen", "games", "--view", "grid"]),
                       ("recents-menu-picture", ["--screen", "games", "--menu", "Card Picture"]),
-                      ("recents-picture-list", ["--screen", "games", "--menu", "Card Picture", "--press", "a"]),
+                      ("recents-picture-list", ["--screen", "games", "--menu", "Card Picture", "--press", "a",
+                                                "--expect-en", "Cover|Last Screen"]),
                       ("recents-picture-list-cover", ["--screen", "games", "--menu", "Card Picture", "--press", "a",
-                                                      "--pick-at", "0"])):
+                                                      "--pick-at", "0", "--expect-en", "Cover|Last Screen"])):
     EXTRA.setdefault(_name, ("demo", "RECENT", _flags))
     SHOT_LIB[_name] = _RECENT_LIB
     SHOT_TEXT[_name] = _RECENT_SCREENS
@@ -1027,6 +1030,9 @@ EXTRA.setdefault("theme-folders-list-teal", ("demo", "PS1", ["--look-page", "the
 # Color's Handheld Color list, each of its six under the cursor
 _BORDER_SET = {"display.GB": "integer", "display_source.GB": "160x144", "display_shape.GB": "1.11111"}
 _BORDER_PIC = ["Borders/Game Boy/Waves.png"]
+# Border's lists say only its own kinds (--expect-en): Blur where the device
+# draws it (not the Brick), the rest on both
+_BORDER_EXPECT = "Off|Blur?|Handheld|Handheld, Whole|Your Own"
 _BORDER_WORDS = (("off", "Off"), ("blur", "Blur"), ("handheld", "Handheld"), ("whole", "Handheld, Whole"),
                  ("own", "Your Own"))
 EXTRA.setdefault("system-menu-border", ("demo", "GB", ["--screen", "games", "--menu", "Border"]))
@@ -1034,12 +1040,13 @@ SHOT_SETTINGS["system-menu-border"] = dict(_BORDER_SET, **{"border.GB": "blur"})
 SHOT_FILES["system-menu-border"] = _BORDER_PIC
 for _p, _w in _BORDER_WORDS:
     EXTRA.setdefault("system-menu-border-list-" + _p, ("demo", "GB", ["--screen", "games", "--menu", "Border",
-                                                                     "--press", "a", "--pick-en", _w]))
+                                                                     "--press", "a", "--pick-en", _w,
+                                                                     "--expect-en", _BORDER_EXPECT]))
     SHOT_SETTINGS["system-menu-border-list-" + _p] = dict(_BORDER_SET)
     SHOT_FILES["system-menu-border-list-" + _p] = _BORDER_PIC
     EXTRA.setdefault("gamemenu-border-list-" + _p, ("demo", "GB", ["--gamemenu", "1", "--gm-tab", "1", "--gm-choose",
                                                                   "--pick-en", _w, "--gm-source",
-                                                                  "160x144@1.11111"]))
+                                                                  "160x144@1.11111", "--expect-en", _BORDER_EXPECT]))
     SHOT_SETTINGS["gamemenu-border-list-" + _p] = dict(_BORDER_SET)
     SHOT_FILES["gamemenu-border-list-" + _p] = _BORDER_PIC
 EXTRA.setdefault("gamemenu-border", ("demo", "GB", ["--gamemenu", "1", "--gm-tab", "1", "--gm-source",

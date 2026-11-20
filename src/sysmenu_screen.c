@@ -517,11 +517,23 @@ static void pm_rumble_focus(void *app_, int k)
 	last = k;
 }
 
+/* The games menu's lists, each its own slot in its pool, so no two that one
+ * pass builds share words: Recents' Card Picture and Border once both took
+ * the thirteenth, and Card Picture's list said Border's Off and Blur
+ * (1.1.0's test run). A new list takes a new name here. */
+enum {
+	PS_SHOW, PS_MSORT, PS_REPEAT,   /* Muse's shelf */
+	PS_PICTURE,                     /* Recents' Card Picture */
+	PS_CORE, PS_DSLANG, PS_SGB, PS_PACE, PS_SORT, PS_CSORT, PS_DISPLAY, PS_BORDER, PS_BORDER_COLOR,
+	PS_SHADER, PS_STRENGTH, PS_VIEW,
+	PS_SLOTS
+};
+
 static void menu_choices(app *a, int sys, bool games)
 {
 	/* A system's menu and MENU each their own words: the shelf under MENU
 	 * builds a system's rows too, and must not write over MENU's */
-	static ch_pool PS[13], PM[14];
+	static ch_pool PS[PS_SLOTS], PM[14];
 	ch_pool *P = games ? PS : PM;
 	int i, n, cur;
 
@@ -534,11 +546,11 @@ static void menu_choices(app *a, int sys, bool games)
 		 * picture and a note telling them apart, as Timing's */
 		static const char *notes[2];
 
-		P[12].lab[0] = T(S_SYSMENU_CARD_PICTURE_COVER);
-		P[12].lab[1] = T(S_SYSMENU_CARD_PICTURE_SCREEN);
+		P[PS_PICTURE].lab[0] = T(S_SYSMENU_CARD_PICTURE_COVER);
+		P[PS_PICTURE].lab[1] = T(S_SYSMENU_CARD_PICTURE_SCREEN);
 		notes[0] = T(S_SYSMENU_CARD_PICTURE_COVER_NOTE);
 		notes[1] = T(S_SYSMENU_CARD_PICTURE_SCREEN_NOTE);
-		g_pic_choice = ch_make(&P[12], 2, g_recents_screen ? 1 : 0, false);
+		g_pic_choice = ch_make(&P[PS_PICTURE], 2, g_recents_screen ? 1 : 0, false);
 		g_pic_choice.notes = notes;
 		g_pic_choice.preview = sm_pic_preview;
 		g_pic_choice.list = true;
@@ -556,13 +568,13 @@ static void menu_choices(app *a, int sys, bool games)
 			for (i = 0, n = 0, cur = 0; i <= ML_ALL; i++) {
 				if (!ml_count_kind(&g_muse, (ml_kind)i)) continue;
 				if (i == (int)muse_kind_shown()) cur = n;
-				P[0].lab[n++] = T(show_text[i]);
+				P[PS_SHOW].lab[n++] = T(show_text[i]);
 			}
-			g_smm_choice[SMM_SHOW] = ch_make(&P[0], n, cur, false);
-			for (i = 0; i < ML_ORDERS; i++) P[1].lab[i] = ml_order_label_kind((ml_order)i, muse_kind_shown());
-			g_smm_choice[SMM_SORT] = ch_make(&P[1], ML_ORDERS, v->sort, false);
-			for (i = 0; i < 3; i++) P[2].lab[i] = T(REPEAT_TEXT[i]);
-			g_smm_choice[SMM_REPEAT] = ch_make(&P[2], 3, repeat_at(), false);
+			g_smm_choice[SMM_SHOW] = ch_make(&P[PS_SHOW], n, cur, false);
+			for (i = 0; i < ML_ORDERS; i++) P[PS_MSORT].lab[i] = ml_order_label_kind((ml_order)i, muse_kind_shown());
+			g_smm_choice[SMM_SORT] = ch_make(&P[PS_MSORT], ML_ORDERS, v->sort, false);
+			for (i = 0; i < 3; i++) P[PS_REPEAT].lab[i] = T(REPEAT_TEXT[i]);
+			g_smm_choice[SMM_REPEAT] = ch_make(&P[PS_REPEAT], 3, repeat_at(), false);
 			return;
 		}
 		n = core_offered_count(sc);
@@ -571,27 +583,28 @@ static void menu_choices(app *a, int sys, bool games)
 
 			if (!core_offered_at(sc, i, core, sizeof core)) core[0] = '\0';
 			if (!strcmp(core, sc->core)) cur = i;
-			core_label(core, P[2].buf[i], sizeof P[2].buf[i]);
-			P[2].lab[i] = P[2].buf[i];
+			core_label(core, P[PS_CORE].buf[i], sizeof P[PS_CORE].buf[i]);
+			P[PS_CORE].lab[i] = P[PS_CORE].buf[i];
 		}
-		if (n > 1) g_sm_choice[SM_CORE] = ch_make(&P[2], n, cur, false);
-		for (i = 0; i < DSL_CHOICES; i++) P[3].lab[i] = dslang_label((dsl_choice)i, P[3].buf[i], sizeof P[3].buf[i]);
-		g_sm_choice[SM_DSLANG] = ch_make(&P[3], DSL_CHOICES, dslang_load(), false);
+		if (n > 1) g_sm_choice[SM_CORE] = ch_make(&P[PS_CORE], n, cur, false);
+		for (i = 0; i < DSL_CHOICES; i++)
+			P[PS_DSLANG].lab[i] = dslang_label((dsl_choice)i, P[PS_DSLANG].buf[i], sizeof P[PS_DSLANG].buf[i]);
+		g_sm_choice[SM_DSLANG] = ch_make(&P[PS_DSLANG], DSL_CHOICES, dslang_load(), false);
 		{
 			/* Super Game Boy's two, a list with a picture of each and a
 			 * note telling them apart, as Timing's (src/sgbmode.h) */
 			static const char *notes[SGBM_CHOICES];
 
 			for (i = 0; i < SGBM_CHOICES; i++) {
-				P[11].lab[i] = T(sgbm_label_id((sgbm_choice)i));
+				P[PS_SGB].lab[i] = T(sgbm_label_id((sgbm_choice)i));
 				notes[i] = T(sgbm_note_id((sgbm_choice)i));
 			}
-			g_sm_choice[SM_SGB] = ch_make(&P[11], SGBM_CHOICES, sgbm_load(sc), false);
+			g_sm_choice[SM_SGB] = ch_make(&P[PS_SGB], SGBM_CHOICES, sgbm_load(sc), false);
 			g_sm_choice[SM_SGB].notes = notes;
 			g_sm_choice[SM_SGB].preview = sm_sgb_preview;
 			g_sm_choice[SM_SGB].list = true;
 		}
-		for (i = 0; i < PACING_CHOICES; i++) P[10].lab[i] = T(pacing_label_id((pacing_choice)i));
+		for (i = 0; i < PACING_CHOICES; i++) P[PS_PACE].lab[i] = T(pacing_label_id((pacing_choice)i));
 		{
 			/* Two, so A would turn it over: its list opens all the same,
 			 * the picture and a note telling them apart (DESIGN.md 9) */
@@ -599,7 +612,7 @@ static void menu_choices(app *a, int sys, bool games)
 
 			notes[PACING_SMOOTH] = T(S_SYSMENU_PACE_SMOOTH_NOTE);
 			notes[PACING_EXACT] = T(S_SYSMENU_PACE_EXACT_NOTE);
-			g_sm_choice[SM_PACE] = ch_make(&P[10], PACING_CHOICES, pacing_load(sc), false);
+			g_sm_choice[SM_PACE] = ch_make(&P[PS_PACE], PACING_CHOICES, pacing_load(sc), false);
 			g_sm_choice[SM_PACE].notes = notes;
 			g_sm_choice[SM_PACE].preview = sm_pace_preview;
 			g_sm_choice[SM_PACE].list = true;
@@ -609,7 +622,7 @@ static void menu_choices(app *a, int sys, bool games)
 			 * pool of their own: the menu's width is measured over every
 			 * shelf's rows, and the others' would be written over them */
 			bool coll = sys == shelf_coll_at(a);
-			ch_pool *sp = coll ? &P[11] : &P[4];
+			ch_pool *sp = coll ? &P[PS_CSORT] : &P[PS_SORT];
 
 			for (i = 0; i < sort_choices(coll); i++) sp->lab[i] = sort_label(sort_choice(coll, i));
 			g_sm_choice[SM_SORT] = ch_make(sp, sort_choices(coll), sort_choice_of(coll, v->sort), false);
@@ -618,25 +631,27 @@ static void menu_choices(app *a, int sys, bool games)
 			static const char *notes[CH_MAX];
 
 			for (i = 0; i < DMODE_COUNT && i < CH_MAX; i++) {
-				P[5].lab[i] = dmode_label(i);
+				P[PS_DISPLAY].lab[i] = dmode_label(i);
 				notes[i] = dmode_note(i);
 			}
-			g_sm_choice[SM_DISPLAY] = ch_make(&P[5], DMODE_COUNT, v->dmode, false);
+			g_sm_choice[SM_DISPLAY] = ch_make(&P[PS_DISPLAY], DMODE_COUNT, v->dmode, false);
 			g_sm_choice[SM_DISPLAY].notes = notes;
 			g_sm_choice[SM_DISPLAY].preview = sm_dmode_preview;
 		}
-		{
-			/* Border's offered kinds, each with its picture and note */
+		if (border_row_value(a, sys)) {
+			/* Border's offered kinds, each with its picture and note:
+			 * only where the row is (no Favorites, Recents or Collections,
+			 * whose games are many systems') */
 			static const char *notes[BORDER_KINDS];
 			border_kind kept = border_load(a, sys);
 
 			n = border_offered(border_offer_for(a, sys), g_sm_border_kinds);
 			for (i = 0, cur = 0; i < n; i++) {
-				P[12].lab[i] = T(border_label_id(g_sm_border_kinds[i]));
+				P[PS_BORDER].lab[i] = T(border_label_id(g_sm_border_kinds[i]));
 				notes[i] = T(border_note_id(g_sm_border_kinds[i]));
 				if (g_sm_border_kinds[i] == kept) cur = i;
 			}
-			g_sm_choice[SM_BORDER] = ch_make(&P[12], n, cur, false);
+			g_sm_choice[SM_BORDER] = ch_make(&P[PS_BORDER], n, cur, false);
 			g_sm_choice[SM_BORDER].notes = notes;
 			g_sm_choice[SM_BORDER].preview = sm_border_preview;
 			g_sm_choice[SM_BORDER].list = true;
@@ -647,8 +662,9 @@ static void menu_choices(app *a, int sys, bool games)
 
 			if (m && m->ncolors > 1) {
 				for (i = 0; i < m->ncolors && i < CH_MAX; i++)
-					P[9].lab[i] = border_color_label(m->color_name[i]);
-				g_sm_choice[SM_BORDER_COLOR] = ch_make(&P[9], m->ncolors, border_color_load(a, sys), false);
+					P[PS_BORDER_COLOR].lab[i] = border_color_label(m->color_name[i]);
+				g_sm_choice[SM_BORDER_COLOR] = ch_make(&P[PS_BORDER_COLOR], m->ncolors, border_color_load(a, sys),
+				                                       false);
 				g_sm_choice[SM_BORDER_COLOR].preview = sm_color_preview;
 			}
 		}
@@ -658,22 +674,22 @@ static void menu_choices(app *a, int sys, bool games)
 			g_sm_demo_shader = v->shader;
 			g_sm_demo_strength = strength_clamp(v->strength);
 			g_sm_demo_tag = a->sys.systems[a->sys_cursor].tag;
-			n = ch_shaders(&P[6], v->shader, &cur, g_sm_demo_tag);
-			g_sm_choice[SM_SHADER] = ch_make(&P[6], n, cur, false);
+			n = ch_shaders(&P[PS_SHADER], v->shader, &cur, g_sm_demo_tag);
+			g_sm_choice[SM_SHADER] = ch_make(&P[PS_SHADER], n, cur, false);
 			shader_demo_notes(snotes, n, g_sm_demo_tag);
 			g_sm_choice[SM_SHADER].notes = snotes;
 			g_sm_choice[SM_SHADER].preview = sm_shader_preview;
-			n = ch_strengths(&P[7], strength_clamp(v->strength), &cur);
-			g_sm_choice[SM_STRENGTH] = ch_make(&P[7], n, cur, false);
+			n = ch_strengths(&P[PS_STRENGTH], strength_clamp(v->strength), &cur);
+			g_sm_choice[SM_STRENGTH] = ch_make(&P[PS_STRENGTH], n, cur, false);
 			shader_demo_strength_notes(tnotes, n);
 			g_sm_choice[SM_STRENGTH].notes = tnotes;
 			g_sm_choice[SM_STRENGTH].preview = sm_strength_preview;
 		}
 		/* View: in the order Right steps it (view_turn) */
-		P[8].lab[0] = T(S_SYSMENU_VIEW_COVERS);
-		P[8].lab[1] = T(S_SYSMENU_VIEW_GRID);
-		P[8].lab[2] = T(S_SYSMENU_VIEW_LIST);
-		g_sm_choice[SM_VIEW] = ch_make(&P[8], 3, v->listed ? 2 : v->grid ? 1 : 0, false);
+		P[PS_VIEW].lab[0] = T(S_SYSMENU_VIEW_COVERS);
+		P[PS_VIEW].lab[1] = T(S_SYSMENU_VIEW_GRID);
+		P[PS_VIEW].lab[2] = T(S_SYSMENU_VIEW_LIST);
+		g_sm_choice[SM_VIEW] = ch_make(&P[PS_VIEW], 3, v->listed ? 2 : v->grid ? 1 : 0, false);
 		return;
 	}
 	/* MENU */
