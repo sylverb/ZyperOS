@@ -29,6 +29,10 @@
 #include "pkhot.h"
 #include "pkkbd.h"
 #include "pkkeys.h"
+#include "pkshot.h"
+#include "../src/p8draw.h"
+
+#include <zlib.h>
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -1240,6 +1244,119 @@ static void the_keyboard(void)
 	ck(same, "keyboard: Left Ctrl, R, then R and Left Ctrl let go, each with a report");
 }
 
+/* tools/pkshot.c: PICO-8's own 128 x 128 out of a frame of the panel,
+ * turned as the Pixel 2's is and as a landscape one, in every rect the
+ * Display modes draw it in (src/p8draw.h), the cut rows of Zoomed and Edges
+ * Cut black; the PNG whole (its chunks' CRCs, its pixels back through
+ * zlib); and the shot laid into the pop-up's square, the corners left to
+ * the slab */
+static uint8_t cell(int i, int j, int k)
+{
+	return (uint8_t)(k == 0 ? i * 2 : k == 1 ? j * 2 : (i ^ j) | 1);
+}
+
+static bool shot_mode(const char *mode, bool turned)
+{
+	const int lw = 640, lh = 480, fw = turned ? lh : lw, fh = turned ? lw : lh;
+	uint32_t *f = calloc((size_t)fw * fh, 4);
+	uint8_t out[PKSHOT_BYTES];
+	dmode_rect r;
+	int x, y, i, j;
+	bool ok = true;
+
+	if (!f) return false;
+	p8_draw_rect(mode, lw, lh, true, &r);
+	/* PICO-8's pixels on the landscape window where the mode draws them,
+	 * each a block, and the window turned onto the panel */
+	for (y = 0; y < lh; y++)
+		for (x = 0; x < lw; x++) {
+			uint32_t v = 0x00101010;
+
+			if (x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h) {
+				i = (int)((long)(x - r.x) * PKSHOT_SIDE / r.w);
+				j = (int)((long)(y - r.y) * PKSHOT_SIDE / r.h);
+				v = (uint32_t)cell(i, j, 0) << 16 | (uint32_t)cell(i, j, 1) << 8 | cell(i, j, 2);
+			}
+			if (turned) f[(size_t)(lw - 1 - x) * fw + y] = v;
+			else        f[(size_t)y * fw + x] = v;
+		}
+	pkshot_pick((const uint8_t *)f, fw, fh, (size_t)fw * 4, &r, out);
+	for (j = 0; j < PKSHOT_SIDE; j++)
+		for (i = 0; i < PKSHOT_SIDE; i++) {
+			const uint8_t *d = out + ((size_t)j * PKSHOT_SIDE + i) * 3;
+			const int cy = r.y + (int)((j + 0.5) * r.h / PKSHOT_SIDE);
+			const bool on = cy >= 0 && cy < lh;
+
+			if (on ? d[0] != cell(i, j, 0) || d[1] != cell(i, j, 1) || d[2] != cell(i, j, 2)
+			       : d[0] || d[1] || d[2])
+				ok = false;
+		}
+	free(f);
+	return ok;
+}
+
+static uint32_t be32(const uint8_t *p)
+{
+	return (uint32_t)p[0] << 24 | (uint32_t)p[1] << 16 | (uint32_t)p[2] << 8 | p[3];
+}
+
+static void the_screenshot(void)
+{
+	static const char *const modes[] = { "stretch", "aspect", "square", "integer", "integer-vertical", "overscale",
+	                                     "fill", "native" };
+	static uint8_t rgb[PKSHOT_BYTES], back[PKSHOT_BYTES + PKSHOT_SIDE];
+	uint8_t *png;
+	size_t len = 0, at;
+	uLongf bn = sizeof back;
+	bool crcs = true, inflated = false;
+	uint32_t notice[60 * 30];
+	const int slot[4] = { 10, 5, 20, 6 };
+	int k, i, j;
+
+	for (k = 0; k < (int)(sizeof modes / sizeof modes[0]); k++) {
+		ck(shot_mode(modes[k], true), "screenshot: %s, PICO-8's 128 out of the turned panel", modes[k]);
+		ck(shot_mode(modes[k], false), "screenshot: %s, out of a landscape one", modes[k]);
+	}
+	for (j = 0; j < PKSHOT_SIDE; j++)
+		for (i = 0; i < PKSHOT_SIDE; i++)
+			for (k = 0; k < 3; k++) rgb[((size_t)j * PKSHOT_SIDE + i) * 3 + k] = cell(i, j, k);
+	png = pkshot_png(rgb, PKSHOT_SIDE, PKSHOT_SIDE, &len);
+	ck(png && len > 8 + 25 + 12 && !memcmp(png, "\x89PNG\r\n\x1a\n", 8) && !memcmp(png + 12, "IHDR", 4) &&
+	   be32(png + 16) == PKSHOT_SIDE && be32(png + 20) == PKSHOT_SIDE && png[24] == 8 && png[25] == 2,
+	   "screenshot: a PNG, 128 x 128, 8-bit RGB");
+	for (at = 8; png && at + 12 <= len;) {
+		const uint32_t n = be32(png + at);
+
+		if (at + 12 + n > len || (uint32_t)crc32(0L, png + at + 4, 4 + n) != be32(png + at + 8 + n)) {
+			crcs = false;
+			break;
+		}
+		if (!memcmp(png + at + 4, "IDAT", 4))
+			inflated = uncompress(back, &bn, png + at + 8, n) == Z_OK && bn == sizeof back;
+		at += 12 + n;
+	}
+	ck(crcs && png && at == len && !memcmp(png + len - 8, "IEND", 4), "screenshot: every chunk's CRC, IEND last");
+	for (j = 0; inflated && j < PKSHOT_SIDE; j++)
+		if (back[(size_t)j * (PKSHOT_SIDE * 3 + 1)] != 0 ||
+		    memcmp(back + (size_t)j * (PKSHOT_SIDE * 3 + 1) + 1, rgb + (size_t)j * PKSHOT_SIDE * 3, PKSHOT_SIDE * 3))
+			inflated = false;
+	ck(inflated, "screenshot: its pixels, row by row, filter none");
+	free(png);
+
+	for (i = 0; i < 60 * 30; i++) notice[i] = 0xd9202020;
+	pkshot_lay(notice, 60, 30, slot, rgb);
+	{
+		const uint32_t mid = notice[(5 + 10) * 60 + 10 + 10];
+		const uint8_t *c = rgb + ((size_t)(10 * PKSHOT_SIDE / 20) * PKSHOT_SIDE + 10 * PKSHOT_SIDE / 20) * 3;
+
+		ck(mid == (0xff000000u | (uint32_t)c[0] << 16 | (uint32_t)c[1] << 8 | c[2]),
+		   "screenshot: the shot laid in the pop-up's square, opaque, its nearest pixel");
+		ck(notice[5 * 60 + 10] == 0xd9202020 && notice[4 * 60 + 15] == 0xd9202020 &&
+		   notice[(5 + 19) * 60 + 10 + 19] == 0xd9202020,
+		   "screenshot: its corners rounded and the rest of the slab left as it was");
+	}
+}
+
 int main(void)
 {
 	the_ladder();
@@ -1260,6 +1377,7 @@ int main(void)
 	the_boost_closing();
 	the_hotkeys();
 	the_keyboard();
+	the_screenshot();
 	if (fails) {
 		printf("pkkeys: %d of %d FAILED\n", fails, checks);
 		return 1;

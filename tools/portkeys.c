@@ -106,7 +106,6 @@
 #include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
-#include <zlib.h>
 
 #include "device/pixel2_levels.h"
 #include "heat.h"
@@ -124,6 +123,7 @@
 #include "pkkeys.h"
 #include "pkover.h"
 #include "pkset.h"
+#include "pkshot.h"
 #include "pkssh.h"
 #include "powerhold.h"
 #include "portmenu.h"
@@ -2307,63 +2307,7 @@ static void keys_load(void)
 	fprintf(stderr, "portkeys: hotkeys %s, Auto Off %d s\n", HOT.on ? run : "none", idle_c.seconds);
 }
 
-/* ---- the screenshot ---- */
-
-static void png_u32(uint8_t *p, uint32_t v)
-{
-	p[0] = (uint8_t)(v >> 24); p[1] = (uint8_t)(v >> 16); p[2] = (uint8_t)(v >> 8); p[3] = (uint8_t)v;
-}
-
-/* A chunk at out: its length, type, data and CRC; the new end */
-static uint8_t *png_chunk(uint8_t *out, const char *type, const uint8_t *data, uint32_t n)
-{
-	png_u32(out, n);
-	memcpy(out + 4, type, 4);
-	if (n) memcpy(out + 8, data, n);
-	png_u32(out + 8 + n, (uint32_t)crc32(0L, out + 4, 4 + n));
-	return out + 12 + n;
-}
-
-/* `rgb`, w x h, as an 8-bit RGB PNG, every row filter none, as Diatom
- * writes its screenshots; malloc'd */
-static uint8_t *png_rgb(const uint8_t *rgb, int w, int h, size_t *len)
-{
-	static const uint8_t SIG[8] = { 137, 'P', 'N', 'G', 13, 10, 26, 10 };
-	const size_t row = (size_t)w * 3 + 1, raw_n = row * (size_t)h;
-	uint8_t *raw, *out, *o, ihdr[13];
-	uLongf zn;
-	int y;
-
-	*len = 0;
-	if (!(raw = malloc(raw_n))) return NULL;
-	for (y = 0; y < h; y++) {
-		raw[(size_t)y * row] = 0;
-		memcpy(raw + (size_t)y * row + 1, rgb + (size_t)y * w * 3, (size_t)w * 3);
-	}
-	zn = compressBound((uLong)raw_n);
-	if (!(out = malloc(8 + 25 + 12 + zn + 12))) {
-		free(raw);
-		return NULL;
-	}
-	memcpy(out, SIG, 8);
-	png_u32(ihdr, (uint32_t)w);
-	png_u32(ihdr + 4, (uint32_t)h);
-	ihdr[8] = 8; ihdr[9] = 2; ihdr[10] = 0; ihdr[11] = 0; ihdr[12] = 0;
-	o = png_chunk(out + 8, "IHDR", ihdr, 13);
-	if (compress2(o + 8, &zn, raw, (uLong)raw_n, 6) != Z_OK) {
-		free(raw);
-		free(out);
-		return NULL;
-	}
-	free(raw);
-	png_u32(o, (uint32_t)zn);
-	memcpy(o + 4, "IDAT", 4);
-	png_u32(o + 8 + zn, (uint32_t)crc32(0L, o + 4, (uInt)(4 + zn)));
-	o += 12 + zn;
-	o = png_chunk(o, "IEND", NULL, 0);
-	*len = (size_t)(o - out);
-	return out;
-}
+/* ---- the screenshot (tools/pkshot.h) ---- */
 
 /* Every folder of `path` but its last part, made as needed */
 static void make_dirs(const char *path)
@@ -2380,40 +2324,21 @@ static void make_dirs(const char *path)
 	}
 }
 
-/* PICO-8's 128 x 128 out of the frame on the panel: each of its pixels read
- * at its middle, in the rect it is drawn in for the Display mode in force
- * (src/p8draw.h, display.PICO8 read now: a restart can have changed it),
- * turned back to the landscape window PICO-8 drew on as the bar is turned
- * onto the panel (put). A middle off the panel (Zoomed, Edges Cut) is
- * black: that much of the picture was never on the screen. Sharp at any
- * factor: PICO-8's filtered modes are linear, and a pixel's middle is its
- * own color. */
-static uint8_t g_shot[P8_SCREEN * P8_SCREEN * 3];
+/* PICO-8's 128 x 128 out of the frame on the panel (pkshot_pick), in the
+ * rect the Display mode in force draws it in (src/p8draw.h, display.PICO8
+ * read now: a start again can have changed it) */
+static uint8_t g_shot[PKSHOT_BYTES];
 
 static void shot_pick(const frame_map *m)
 {
 	char key[64], mode[32];
 	const bool turned = m->h > m->w;
-	const int lw = (int)(turned ? m->h : m->w), lh = (int)(turned ? m->w : m->h);
 	dmode_rect r;
-	int i, j;
 
 	snprintf(key, sizeof key, "display.%s", menu_tag);
 	pkset_text(db, key, mode, sizeof mode);
-	p8_draw_rect(mode[0] ? mode : NULL, lw, lh, P8_NEG_OK, &r);
-	for (j = 0; j < P8_SCREEN; j++)
-		for (i = 0; i < P8_SCREEN; i++) {
-			int lx = r.x + (int)((i + 0.5) * r.w / P8_SCREEN), ly = r.y + (int)((j + 0.5) * r.h / P8_SCREEN);
-			uint8_t *d = g_shot + ((size_t)j * P8_SCREEN + i) * 3;
-			uint32_t v = 0;
-
-			if (lx >= 0 && lx < lw && ly >= 0 && ly < lh) {
-				int px = turned ? ly : lx, py = turned ? lw - 1 - lx : ly;
-
-				memcpy(&v, m->px + (size_t)py * m->pitch + (size_t)px * 4, 4);
-			}
-			d[0] = (uint8_t)(v >> 16); d[1] = (uint8_t)(v >> 8); d[2] = (uint8_t)v;
-		}
+	p8_draw_rect(mode[0] ? mode : NULL, (int)(turned ? m->h : m->w), (int)(turned ? m->w : m->h), P8_NEG_OK, &r);
+	pkshot_pick(m->px, (int)m->w, (int)m->h, m->pitch, &r, g_shot);
 }
 
 /* The pop-up, "Screenshot saved" and the folder, with the shot laid in the
@@ -2434,9 +2359,8 @@ static void shot_notice_load(void)
 static void shot_popup(void)
 {
 	const int t = pkset_bar_theme(appearance_read ? appearance_word : NULL, time(NULL), THEME_FILE);
-	const int *sl = SN.slot[t], side = sl[2], corner = sl[3];
+	const int *sl = SN.slot[t], side = sl[2];
 	const int w = SN.w[t], h = SN.h[t];
-	int x, y;
 
 	if (!SN.px[t] || side <= 0 || sl[0] + side > w || sl[1] + side > h) {
 		fprintf(stderr, "portkeys: no pop-up for the screenshot\n");
@@ -2445,27 +2369,7 @@ static void shot_popup(void)
 	free(SN.show);
 	if (!(SN.show = malloc((size_t)w * h * 4))) return;
 	memcpy(SN.show, SN.px[t], (size_t)w * h * 4);
-	for (y = 0; y < side; y++)
-		for (x = 0; x < side; x++) {
-			int dx = x < corner ? corner - x : (x >= side - corner ? x - (side - corner - 1) : 0);
-			int dy = y < corner ? corner - y : (y >= side - corner ? y - (side - corner - 1) : 0);
-			const uint8_t *c = g_shot + ((size_t)(y * P8_SCREEN / side) * P8_SCREEN + x * P8_SCREEN / side) * 3;
-			uint32_t *d = SN.show + (size_t)(sl[1] + y) * w + sl[0] + x, under = *d, a = 255, k, o = 0;
-
-			if (dx || dy) {
-				double dd = sqrt((double)dx * dx + (double)dy * dy) - corner;
-
-				if (dd > 0.5) continue;
-				if (dd > -0.5) a = (uint32_t)(255 * (0.5 - dd));
-			}
-			/* Over the slab, premultiplied: the shot's color at `a` */
-			for (k = 0; k < 32; k += 8) {
-				uint32_t src = k == 24 ? 255 : c[2 - k / 8];
-
-				o |= ((src * a + ((under >> k) & 255) * (255 - a) + 127) / 255) << k;
-			}
-			*d = o;
-		}
+	pkshot_lay(SN.show, w, h, sl, g_shot);
 	notice_show(SN.show, w, h, 1500);
 }
 
@@ -2505,7 +2409,7 @@ static void shot_take(void)
 	snprintf(path, sizeof path, "%s %s.png", shots, when);
 	snprintf(tmp, sizeof tmp, "%s.tmp", path);
 	make_dirs(path);
-	png = png_rgb(g_shot, P8_SCREEN, P8_SCREEN, &len);
+	png = pkshot_png(g_shot, P8_SCREEN, P8_SCREEN, &len);
 	fd = png ? open(tmp, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644) : -1;
 	ok = fd >= 0 && write_all(fd, png, len);
 	if (fd >= 0 && close(fd)) ok = false;

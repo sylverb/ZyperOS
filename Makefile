@@ -640,8 +640,10 @@ build-native/themefile-check: tools/themefile-check.c src/themefile.c src/themef
 # the top over a port (src/boost.h): three presses or a hold open it, its gain
 # goes in a scratch copy of the file the port's plugin reads (src/eqdsp.h), and
 # its cells are kept beside the levels. And over your PICO-8, SELECT's
-# hotkeys by Diatom's chord rule (tools/pkhot.c) and the keyboard's CTRL-R
-# (tools/pkkbd.c), written into a pipe. No SDL, no device.
+# hotkeys by Diatom's chord rule (tools/pkhot.c), the keyboard's CTRL-R
+# (tools/pkkbd.c), written into a pipe, and the screenshot (tools/pkshot.c):
+# PICO-8's 128 out of the panel in every Display mode's rect, the PNG, the
+# pop-up. No SDL, no device.
 check-pkkeys: build-native/pkkeys-check
 	@./build-native/pkkeys-check
 
@@ -649,12 +651,13 @@ build-native/pkkeys-check: tools/pkkeys-check.c tools/pkkeys.c tools/pkkeys.h sr
                            src/device/pixel2_levels.h src/audioout.c src/audioout.h \
                            src/boost.h src/osdbar.h src/design.h src/eqdsp.h \
                            tools/pkhot.c tools/pkhot.h diatom/src/chord.c diatom/src/chord.h \
-                           tools/pkkbd.c tools/pkkbd.h \
+                           tools/pkkbd.c tools/pkkbd.h tools/pkshot.c tools/pkshot.h src/p8draw.c src/p8draw.h \
+                           src/dmodefit.c src/dmodefit.h \
                            src/db.c src/db.h src/atomic.c $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Isrc -Idiatom/src -Idiatom/include \
 	      -o $@ tools/pkkeys-check.c tools/pkkeys.c tools/pkhot.c diatom/src/chord.c tools/pkkbd.c \
-	      src/audioout.c src/db.c src/atomic.c $(I18N_SRC) -lsqlite3
+	      tools/pkshot.c src/p8draw.c src/dmodefit.c src/audioout.c src/db.c src/atomic.c $(I18N_SRC) -lsqlite3 -lz -lm
 
 # Which theme is on: MENU > Appearance's three settings, Auto's seven to seven
 # by the handheld's clock and the minute it may be late by, and the file the
