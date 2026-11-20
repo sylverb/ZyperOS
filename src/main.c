@@ -1082,10 +1082,7 @@ static bool recents_screen_paths(app *a, int o, const game_entry *g, char *frame
 	state_path(a, o, g, st, sizeof st);
 	preview_path(a, o, g, frame, fn);
 	if (stat(st, &sb) != 0 || stat(frame, &sb) != 0 || sb.st_size <= 0) return false;
-	box_art_path(a->sys.systems[o].folder, g->name, cover, cn);
-	if ((stat(cover, &sb) != 0 || sb.st_size <= 0) &&
-	    !es_media(P_ROMS, a->sys.systems[o].folder, g->file, g->name, ES_COVER, true, cover, cn))
-		cover[0] = '\0';
+	game_media(P_ROMS, a->sys.systems[o].folder, g->file, g->name, ES_COVER, true, cover, cn);
 	return true;
 }
 
@@ -1972,10 +1969,11 @@ sysview *owner_view(app *a)
  * screen, the replace action, and the return from a game - and the last of
  * those has to test exactly the file the card loads. Four hand-written copies
  * of the format string only have to drift once for it to ask about one file
- * and draw another. */
+ * and draw another. The File Transfer page's rows ask the same one
+ * (game_media_own, src/esmedia.h). */
 void box_art_path(const char *folder, const char *name, char *out, size_t n)
 {
-	snprintf(out, n, "%s/%s/.media/%s.png", P_ROMS, folder, name);
+	game_media_own(P_ROMS, folder, name, ES_COVER, out, n);
 }
 
 /* Whether it is there. An empty file is not art - the rule the info screen

@@ -58,6 +58,17 @@ protocol. What it holds, each a thing I asked for on 2026-11-06:
     or a finger held on it says the same and nothing moves, Cmd+A leaves it
     out, the device refuses its move, rename and delete itself, and a
     folder of games in it still moves
+  - each game wears the picture the handheld shows for it, and the listing
+    names its video, as the launcher's own lookup finds them (2026-11-20,
+    metior on the Discord: "The web interface doesn't read from the
+    EmulationStation folder structure for images and video like the OS
+    itself does"): on a card with EmulationStation's layouts (Knulli's
+    gamelist.xml, images/ and videos/, Skraper's media/, ArkOS's and ROGUE
+    OS's downloaded_images/ and downloaded_videos/) and ZyperOS's own
+    .media, every game's answers on the page are build-native/portal-serve
+    games' (the shelf's scan and src/esmedia.h's game_media), a disc set's
+    folder and a game in a folder of games too, each picture comes, and a
+    picture or a gamelist.xml sent from the page shows on the next listing
 
 No device is touched and nothing is fetched from the internet: the release
 GitHub would answer is given to the page. Chrome is needed; without it the
@@ -196,6 +207,82 @@ def signed_in(page, server, path='roms'):
                       "(document.querySelectorAll('#list li').length > 0 || !document.getElementById('settings').hidden)")
 
 
+# EmulationStation's layouts beside ZyperOS's own (DESIGN.md 11.40), with
+# pictures a browser draws: the shelf's own pixel art and a photo
+ES_PNG = ROOT / 'res/system-icons/NDS.png'
+ES_JPG = ROOT / 'res/readme/zyper-photo.jpg'
+ES_LIST = '''<?xml version="1.0"?>
+<gameList>
+	<game>
+		<path>./Mario Kart DS (USA).nds</path>
+		<name>Mario Kart DS</name>
+		<image>./images/mkds-box.png</image>
+		<video>./videos/mkds.mp4</video>
+	</game>
+</gameList>
+'''
+
+
+def es_card(card):
+    """Each layout's games, and what the shelf shows for each:
+    nds is Knulli's and Batocera's (gamelist.xml naming files no name rule
+    finds, images/<name>-thumb.jpg and videos/<name>.mp4 by name, a game in
+    a folder of games, one with ZyperOS's own cover over ES's, one with
+    nothing); psx Skraper's media/ and, for a disc set in its own folder,
+    ArkOS's and ROGUE OS's downloaded_images/ and downloaded_videos/; SNES
+    ZyperOS's own .media, a game in a folder of games with its cover in its
+    console's .media; gba a game whose picture comes from the page later"""
+    roms = card / 'Roms'
+    png, jpg = ES_PNG.read_bytes(), ES_JPG.read_bytes()
+
+    def put(rel, data=b'game'):
+        path = roms / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+
+    put('nds/Mario Kart DS (USA).nds')
+    put('nds/gamelist.xml', ES_LIST.encode())
+    put('nds/images/mkds-box.png', png)
+    put('nds/videos/mkds.mp4', b'mp4')
+    put('nds/Tetris DS (Europe).nds')
+    put('nds/images/Tetris DS (Europe)-thumb.jpg', jpg)
+    put('nds/videos/Tetris DS (Europe).mp4', b'mp4')
+    put('nds/Picross DS (Europe).nds')
+    put('nds/images/Picross DS (Europe)-image.jpg', jpg)
+    put('nds/.media/Picross DS (Europe).png', png)
+    put('nds/Hacks/Hack DS.nds')
+    put('nds/images/Hack DS-image.png', png)
+    put('nds/Bare DS.nds')
+    put('psx/Crash (USA).chd')
+    put('psx/media/box2dfront/Crash (USA).png', png)
+    put('psx/media/videos/Crash (USA).mp4', b'mp4')
+    put('psx/Spyro (USA)/Spyro (USA).cue', b'FILE "Spyro (USA).bin" BINARY\n')
+    put('psx/Spyro (USA)/Spyro (USA).bin')
+    put('psx/downloaded_images/Spyro (USA).png', png)
+    put('psx/downloaded_videos/Spyro (USA).mp4', b'mp4')
+    put('SNES/Own Game.sfc')
+    put('SNES/.media/Own Game.png', png)
+    put('SNES/.media/Own Game.mp4', b'mp4')
+    put('SNES/Hacks/Own Hack.sfc')
+    put('SNES/.media/Own Hack.png', png)
+    put('gba/Later.gba')
+
+
+def shelf_games(card, web):
+    """What the handheld shows for each game on the card, by its own scan and
+    lookup (portal-serve games): {(folder, file): (dir, cover, video)}, the
+    picture and the video as the page's paths, None for none"""
+    out = subprocess.run([str(ROOT / 'build-native/portal-serve'), str(card), str(web), 'games'],
+                         capture_output=True, text=True, check=True).stdout
+    roms = str(card / 'Roms') + '/'
+    page_path = lambda p: 'roms/' + p[len(roms):] if p.startswith(roms) else (p or None)
+    games = {}
+    for line in out.splitlines():
+        folder, file, d, cover, video = line.split('\t')
+        games[(folder, file)] = (int(d), page_path(cover), page_path(video))
+    return games
+
+
 RELEASE = {'tag_name': 'v0.4.1', 'assets': [
     {'name': 'ZyperOS-pixel2-update.txt', 'size': 18000, 'browser_download_url': 'https://example.invalid/a'},
     {'name': 'ZyperOS-v0.4.1-pixel2-update.zpk', 'size': 38000000, 'browser_download_url': 'https://example.invalid/b'}]}
@@ -267,6 +354,81 @@ def main():
             check(page.until("[...document.querySelectorAll('#list .name')].some((n) => n.textContent === '.media')"),
                   'Show hidden folders lists it')
             page.js("document.getElementById('showhidden').click()")
+
+            print("each game's picture and video, as the handheld finds them:")
+            es_card(card)
+            server.stop()
+            server = Server(card, web, 'usb', 'update=off')
+            check(signed_in(page, server), 'the page came up over a card with EmulationStation folders')
+            listing = lambda path: page.js(f"api('GET', '/api/list?p=' + enc({json.dumps(path)}))"
+                                           ".then((r) => r.json())")['entries']
+            # A folder listed before it has ES's media, and a picture and a
+            # gamelist.xml sent from the page: on the next listing
+            check(not any(e.get('cover') for e in listing('roms/gba')), 'gba has no picture yet')
+            sent = page.js("""(async () => {
+                await api('POST', '/api/mkdir?p=' + enc('roms/gba/images'));
+                await api('POST', '/api/mkdir?p=' + enc('roms/gba/clips'));
+                await putFile('roms/gba/images/Later-image.png', await (await fetch('/icons/GBA.png')).blob());
+                await putFile('roms/gba/clips/Later.mp4', new Blob(['mp4']));
+                await putFile('roms/gba/gamelist.xml', new Blob(['<gameList><game><path>./Later.gba</path>' +
+                    '<video>./clips/Later.mp4</video></game></gameList>']));
+                return 'sent'; })().catch((e) => e.message)""")
+            check(sent == 'sent', f'the picture and the list went: {sent}')
+            later = {e['name']: e for e in listing('roms/gba')}.get('Later.gba', {})
+            check(later.get('cover') == 'roms/gba/images/Later-image.png' and
+                  later.get('video') == 'roms/gba/clips/Later.mp4',
+                  f'and the next listing has them: {later}')
+            games = shelf_games(card, web)
+            want = {('nds', 'Mario Kart DS (USA).nds'): ('roms/nds/images/mkds-box.png', 'roms/nds/videos/mkds.mp4'),
+                    ('nds', 'Tetris DS (Europe).nds'): ('roms/nds/images/Tetris DS (Europe)-thumb.jpg',
+                                                         'roms/nds/videos/Tetris DS (Europe).mp4'),
+                    ('nds', 'Picross DS (Europe).nds'): ('roms/nds/.media/Picross DS (Europe).png', None),
+                    ('nds', 'Hacks/Hack DS.nds'): ('roms/nds/images/Hack DS-image.png', None),
+                    ('nds', 'Bare DS.nds'): (None, None),
+                    ('psx', 'Crash (USA).chd'): ('roms/psx/media/box2dfront/Crash (USA).png',
+                                                 'roms/psx/media/videos/Crash (USA).mp4'),
+                    ('psx', 'Spyro (USA)/Spyro (USA).cue'): ('roms/psx/downloaded_images/Spyro (USA).png',
+                                                            'roms/psx/downloaded_videos/Spyro (USA).mp4'),
+                    ('SNES', 'Own Game.sfc'): ('roms/SNES/.media/Own Game.png', 'roms/SNES/.media/Own Game.mp4'),
+                    ('SNES', 'Hacks/Own Hack.sfc'): ('roms/SNES/.media/Own Hack.png', None),
+                    ('gba', 'Later.gba'): ('roms/gba/images/Later-image.png', 'roms/gba/clips/Later.mp4')}
+            got = {k: games.get(k, (0, 'not a game', ''))[1:] for k in want}
+            check(got == want, f"the handheld's lookup finds each layout's: {got}")
+            # Every game on the card, the page's answers against the handheld's:
+            # a game is the entry its launch path names in the folder it is in
+            place = lambda folder, file, d: (f'roms/{folder}' + (f'/{file[:d]}' if d else ''),
+                                             file[d + 1 if d else 0:].split('/')[0])
+            lists, wrong = {}, []
+            for (folder, file), (d, cover, video) in sorted(games.items()):
+                where, entry = place(folder, file, d)
+                if where not in lists:
+                    lists[where] = {e['name']: e for e in listing(where)}
+                row = lists[where].get(entry, {})
+                if (row.get('cover'), row.get('video')) != (cover, video):
+                    wrong.append(f"{folder}/{file}: page {row.get('cover')}, {row.get('video')}; "
+                                 f"handheld {cover}, {video}")
+            check(len(games) >= len(want) and not wrong,
+                  f"every game's picture and video on the page are the handheld's ({len(games)} games): {wrong}")
+            # And drawn: each row's picture is the one named, and it came
+            for where in ['roms/nds', 'roms/nds/Hacks', 'roms/psx', 'roms/SNES', 'roms/SNES/Hacks', 'roms/gba']:
+                page.js(f"go({json.dumps(where)}, 'none')")
+                page.until(f"cwd === {json.dumps(where)}")
+                shown = lambda: page.js("""Object.fromEntries([...document.querySelectorAll('#list li')].map((li) => {
+                    const i = li.querySelector('img.cover');
+                    return [li.querySelector('.name').textContent,
+                            i ? [new URL(i.src).searchParams.get('p'), i.complete && i.naturalWidth > 0] : null]; }))""")
+                expect = {}
+                for (folder, file), (d, cover, video) in games.items():
+                    at, entry = place(folder, file, d)
+                    if at == where:
+                        expect[entry] = [cover, True] if cover else None
+                page.until(f"(() => {{ const want = {json.dumps(expect)}; "
+                           "return [...document.querySelectorAll('#list li')].every((li) => { "
+                           "const w = want[li.querySelector('.name').textContent]; const i = li.querySelector('img.cover'); "
+                           "return !w || (i && i.complete && i.naturalWidth > 0); }); })()")
+                rows = shown()
+                bad = {n: (rows.get(n), w) for n, w in expect.items() if rows.get(n) != w}
+                check(not bad, f'{where}: each game wears its picture, and it came: {bad or sorted(expect)}')
 
             print("a console's .media, dropped or picked, and nothing else hidden:")
             # A picked folder as the Upload folder picker hands it over, each
@@ -885,7 +1047,8 @@ def main():
     if failures:
         print(f'\n{failures} check(s) failed')
         return 1
-    print('\nok: the page wears its art, hides dot folders, counts the room, says the time, '
+    print('\nok: the page wears its art, gives each game the handheld\'s picture and video, hides dot folders, '
+          'counts the room, says the time, '
           'follows the handheld\'s stop, updates over the cable, moves files by dragging, '
           'speaks its language, is named after its link and goes on after a drop')
     return 0

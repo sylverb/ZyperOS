@@ -691,7 +691,6 @@ static void shelf_snap(app *a, sysview *v, const game_entry *g, int owner, bool 
 	                             (snapshelf_at){ a->sys_cursor, v->cursor, g->file, snapshelf_media_gen() }) ||
 	           (g_snap_focus.es_wait && es_ready(a->sys.systems[owner].folder))) {
 		const char *folder = a->sys.systems[owner].folder;
-		struct stat st;
 		bool on = snaps_play() && folder[0] && snaps_console_on(folder);
 
 		g_snap_focus.sys = a->sys_cursor;
@@ -700,16 +699,11 @@ static void shelf_snap(app *a, sysview *v, const game_entry *g, int owner, bool 
 		snprintf(g_snap_focus.file, sizeof g_snap_focus.file, "%s", g->file);
 		g_snap_focus.path[0] = '\0';
 		g_snap_focus.es_wait = false;
-		if (on &&
-		    snaps_path(P_ROMS, folder, g->name, g_snap_focus.path, sizeof g_snap_focus.path) &&
-		    (stat(g_snap_focus.path, &st) != 0 || st.st_size <= 0))
-			g_snap_focus.path[0] = '\0';
-		/* No snap of its own: EmulationStation's video, if its folder has
-		 * one (src/esmedia.h). Not built on the frame: asked again once
-		 * the covers' worker has built the folder's index. */
-		if (on && !g_snap_focus.path[0] &&
-		    !es_media(P_ROMS, folder, g->file, g->name, ES_VIDEO, false,
-		              g_snap_focus.path, sizeof g_snap_focus.path))
+		/* Its own snap, else EmulationStation's video if its folder has
+		 * one (src/esmedia.h's game_media). ES's index is not built on the
+		 * frame: asked again once the covers' worker has built it. */
+		if (on && !game_media(P_ROMS, folder, g->file, g->name, ES_VIDEO, false,
+		                      g_snap_focus.path, sizeof g_snap_focus.path))
 			g_snap_focus.es_wait = !es_ready(folder);
 	}
 	req = snapshelf_step(&g_snap_shelf, g ? g_snap_focus.path : "", front,

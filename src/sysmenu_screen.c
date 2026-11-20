@@ -318,11 +318,8 @@ static void sm_pic_preview(void *app_, int k, int x, int y, int w, int h)
 		const game_entry *g = &v->list.items[v->cursor];
 
 		o = shelf_owner(a, a->sys_cursor, v->cursor);
-		box_art_path(a->sys.systems[o].folder, g->name, cover, sizeof cover);
-		if ((stat(cover, &sb) != 0 || sb.st_size <= 0) &&
-		    !es_media(P_ROMS, a->sys.systems[o].folder, g->file, g->name, ES_COVER, true,
-		              cover, sizeof cover))
-			cover[0] = '\0';
+		game_media(P_ROMS, a->sys.systems[o].folder, g->file, g->name, ES_COVER, true,
+		           cover, sizeof cover);
 		if (which) {
 			state_path(a, o, g, st, sizeof st);
 			preview_path(a, o, g, frame, sizeof frame);
