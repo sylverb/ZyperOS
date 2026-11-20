@@ -140,14 +140,19 @@ void theme_init_at(appearance a, time_t now);
 /* Auto's clock, from the main loop: true when the theme changed since it
  * was last asked, and then the file says so too; the caller redraws.
  *
- * Reads the clock at most once a minute. The main loop passes every 16 ms
- * when nothing is drawn and the answer changes twice a day, so a read and a
- * localtime_r on every pass would be asked a question whose answer is "no"
- * nearly four thousand times for each time it is "yes". The price is that Auto
- * is up to a minute late at its edges, which is not a thing anyone sees.
- * A clock that moved back, as it does when the time is set by hand in Date &
- * Time, is looked at at once, as is one that moved forward by more than the
- * minute. Light and Dark have nothing to look at and are never true. */
+ * Turns at the second of the edge itself: each look works out when the
+ * next edge of the Night Hours is (a local From or Until, through mktime as
+ * night_schedule finds the nights), and a pass at or past it looks again.
+ * So the theme turns on the same pass as Night Mode's warmth, which
+ * plat_night_tick loads at that second too: one frame, the table loaded
+ * once by Night Mode and none by the theme (1.1.0; up to 1.0.5 Auto could
+ * be a minute late, alone).
+ *
+ * Between edges it compares one number a pass and reads the clock in full
+ * at most once a minute, for what the edge cannot foresee: a clock that
+ * moved back, as it does when the time is set by hand in Date & Time, is
+ * looked at at once, as is one that moved forward by more than the minute.
+ * Light and Dark have nothing to look at and are never true. */
 bool theme_tick(void);
 
 /* theme_tick at `now`, for the check. */

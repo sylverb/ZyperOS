@@ -806,7 +806,10 @@ build-native/displayback-check: tools/displayback-check.c src/displayback.c src/
 # at exactly the minutes Night Mode's nights are on, the row's three, the
 # first start's migration once a card (a 1.0.5 Auto kept, a new Auto left
 # alone), and the boot screen's word with the hours, which plastron's splash
-# reads to the launcher's theme every minute of the day
+# reads to the launcher's theme every minute of the day; and that it never
+# conflicts with Night Mode: no night.* key written, Night Mode the same under
+# all three, the theme turning on the warmth's own second, a 1.0.6 card's
+# Night Mode settings untouched
 check-autotheme: build-native/autotheme-check
 	@./build-native/autotheme-check
 

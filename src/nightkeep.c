@@ -52,7 +52,7 @@ void night_migrate_db(void)
 	bool have_ap, have_light, have_dark;
 	night_migration m;
 
-	if (!d || db_get_int(d, NIGHT_MIGRATED_KEY, 0) == 1) return;
+	if (!d || db_get_int(d, AUTO_MIGRATED_KEY, 0) == 1) return;
 	have_ap = db_has(d, "appearance");
 	have_light = db_has(d, "auto.light");
 	have_dark = db_has(d, "auto.dark");
@@ -70,5 +70,5 @@ void night_migrate_db(void)
 		db_del(d, "auto.light");
 		db_del(d, "auto.dark");
 	}
-	db_set_str(d, NIGHT_MIGRATED_KEY, "1");
+	db_set_str(d, AUTO_MIGRATED_KEY, "1");
 }

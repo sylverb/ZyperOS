@@ -250,7 +250,7 @@ static void migrate_db(void)
 	   "Night Hours 19:00 to 7:00");
 	ck(!db_has(db_dev(), "auto.light") && !db_has(db_dev(), "auto.dark"), "auto.light and auto.dark gone");
 	ck(!db_has(db_dev(), "night.mode"), "Night Mode not written: Off");
-	ck(db_get_int(db_dev(), NIGHT_MIGRATED_KEY, 0) == 1, "and the card marked done");
+	ck(db_get_int(db_dev(), AUTO_MIGRATED_KEY, 0) == 1, "and the card marked done");
 	n = night_load();
 	ck(n.mode == NIGHT_OFF && n.warmth == NIGHT_WARMTH_DEFAULT && n.from == 19 * 60 && n.until == 7 * 60,
 	   "night_load: Off, warmth 8, 19:00 to 7:00");

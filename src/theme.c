@@ -11,9 +11,9 @@
 #include "look.h"
 #include "themefile.h"
 
-/* How long the clock is trusted for, in seconds: Auto's hours are minutes of
- * the day, so a theme a minute out of date at an edge is the same theme to
- * anybody who is looking. */
+/* How long the clock is trusted for between edges, in seconds: the edges
+ * themselves are foreseen (next_edge), and this is for a clock that moved
+ * under them. */
 #define RECHECK_S 60
 
 /* The state, which is three facts and the place the fourth is written. Static
@@ -25,6 +25,7 @@ static int idx = DS_LIGHT;
 /* Auto's hours, minutes into the local day: the Night Hours' (theme_set_hours) */
 static int light_from = THEME_NIGHT_UNTIL, dark_from = THEME_NIGHT_FROM;
 static time_t looked;          /* when the clock was last read, for Auto */
+static time_t edge;            /* the next turn after `looked` (next_edge), 0 none */
 static const char *file = THEME_FILE;
 
 int theme_resolve_min(appearance a, int minute)
@@ -60,10 +61,16 @@ static int hours_clamp(int m, int fallback)
 	return m >= 0 && m < 24 * 60 ? m : fallback;
 }
 
+static time_t next_edge(time_t t);
+
 void theme_set_hours(int light_min, int dark_min)
 {
 	light_from = hours_clamp(light_min, THEME_NIGHT_UNTIL);
 	dark_from = hours_clamp(dark_min, THEME_NIGHT_FROM);
+	/* New hours, new edges: the next from the last look, which a tick at or
+	 * past it looks at again (the caller that changed them calls
+	 * theme_refresh, to turn it at once) */
+	if (cur == APPEAR_AUTO) edge = next_edge(looked);
 }
 
 void theme_hours(int *light_min, int *dark_min)
@@ -124,6 +131,42 @@ static int minute_of(time_t t)
 	return tm.tm_hour * 60 + tm.tm_min;
 }
 
+/* The first time after `t` that Auto's theme can turn: the next local
+ * light_from or dark_from, today, tomorrow or the day after, each through
+ * mktime (tm_isdst -1) as night_schedule finds Night Mode's nights, so the two
+ * meet at the same second across summer time's ends too. 0 for none: the same
+ * two hours never turn it. */
+static time_t next_edge(time_t t)
+{
+	struct tm today;
+	time_t best = 0;
+	int d, k;
+
+	if (light_from == dark_from || !localtime_r(&t, &today)) return 0;
+	for (d = 0; d <= 2; d++)
+		for (k = 0; k < 2; k++) {
+			const int m = k ? dark_from : light_from;
+			struct tm x = today;
+			time_t e;
+
+			x.tm_mday += d;
+			x.tm_hour = m / 60;
+			x.tm_min = m % 60;
+			x.tm_sec = 0;
+			x.tm_isdst = -1;
+			e = mktime(&x);
+			if (e != (time_t)-1 && e > t && (!best || e < best)) best = e;
+		}
+	return best;
+}
+
+/* A look at the clock: when, and the next edge from there */
+static void look_at(time_t now)
+{
+	looked = now;
+	edge = cur == APPEAR_AUTO ? next_edge(now) : 0;
+}
+
 int theme_saved_at(const char *saved, time_t now)
 {
 	/* theme_init_at's reading, without its state: the word as the launcher
@@ -158,7 +201,7 @@ void theme_init_at(appearance a, time_t now)
 	 * as, so theme_appearance() never hands the menu a number it has no name
 	 * for. */
 	cur = a == APPEAR_DARK || a == APPEAR_AUTO ? a : APPEAR_LIGHT;
-	looked = now;
+	look_at(now);
 	idx = theme_resolve_min(cur, cur == APPEAR_AUTO ? minute_of(now) : 0);
 	publish();
 }
@@ -177,7 +220,7 @@ void theme_show(int ix)
 	/* Back: Auto's hour may have turned while a theme was shown, the
 	 * screens' tick waiting (ds_hover_showing), so the file is said again
 	 * where it is behind */
-	looked = time(NULL);
+	look_at(time(NULL));
 	idx = theme_resolve_min(cur, cur == APPEAR_AUTO ? minute_of(looked) : 0);
 	if (said >= 0 && idx != said) publish();
 }
@@ -188,7 +231,7 @@ bool theme_refresh_at(time_t now)
 
 	if (cur != APPEAR_AUTO) return false;
 
-	looked = now;
+	look_at(now);
 	next = theme_resolve_min(cur, minute_of(now));
 	if (next == idx) return false;
 	idx = next;
@@ -204,11 +247,12 @@ bool theme_refresh(void)
 bool theme_tick_at(time_t now)
 {
 	if (cur != APPEAR_AUTO) return false;
-	/* Trusted for a minute from the last look. A time before the last look
-	 * is a clock that was set back, by hand in Date & Time: the minute it
-	 * was trusted for belongs to a time that has not come, so it is read
-	 * again. */
-	if (now >= looked && now - looked < RECHECK_S) return false;
+	/* Trusted for a minute from the last look, but never past the next
+	 * edge: at its second the theme turns, on the pass Night Mode's warmth
+	 * does. A time before the last look is a clock that was set back, by
+	 * hand in Date & Time: the minute it was trusted for belongs to a time
+	 * that has not come, so it is read again. */
+	if (now >= looked && now - looked < RECHECK_S && !(edge && now >= edge)) return false;
 	return theme_refresh_at(now);
 }
 

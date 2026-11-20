@@ -1315,8 +1315,8 @@ SHOT_SETTINGS["night-from-list"] = {"night.mode": "hours", "night.from": "1260"}
 # list opened on Auto; and Night Mode's page Off with Appearance on Auto, its
 # hours live, on the 12-hour clock at their longest (10:30 PM, 11:30 AM). A card on Auto is
 # drawn in the shot's --theme at any hour (main.c), and is a 1.1.0 card
-# (night.auto_106), so the start's migration leaves its hours as they are
-_AUTO = {"appearance": "auto", "night.auto_106": "1"}
+# (appearance.auto_106), so the start's migration leaves its hours as they are
+_AUTO = {"appearance": "auto", "appearance.auto_106": "1"}
 EXTRA.setdefault("menu-look-auto", ("demo", "PS1", ["--menu", "Appearance"]))
 SHOT_SETTINGS["menu-look-auto"] = dict(_AUTO)
 for _k, _n in ((0, "light"), (1, "dark"), (2, "auto")):

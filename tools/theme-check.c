@@ -233,28 +233,30 @@ int main(void)
 	ck(theme_index() == DS_LIGHT && on_file() == DS_LIGHT, "at 7:00 it starts light");
 	ck(theme_appearance() == APPEAR_AUTO, "and is still Auto");
 
-	/* The tick: once a minute at most, true only when the theme changed */
+	/* The tick: at the edge's own second (1.1.0, with Night Mode's warmth),
+	 * else a full look once a minute at most; true only when the theme
+	 * changed */
 	printf("theme_tick:\n");
 	theme_init_at(APPEAR_AUTO, at(18, 59, 30));
 	ck(theme_index() == DS_LIGHT, "18:59:30 starts light");
 	ck(!theme_tick_at(at(18, 59, 40)), "ten seconds on, nothing changed");
-	/* 19:00:10 is past the edge, and 40 seconds after the last look: not
-	 * looked at again yet, so the theme is as it was - the throttle is
-	 * what makes the cost one clock read a minute and not one per frame */
-	ck(!theme_tick_at(at(19, 0, 10)), "past 19:00 but inside the minute: not looked at");
+	ck(!theme_tick_at(at(18, 59, 59)), "18:59:59, the second before the edge: nothing");
 	ck(theme_index() == DS_LIGHT && on_file() == DS_LIGHT, "still light, and the file with it");
-	ck(theme_tick_at(at(19, 0, 30)), "a minute after the start: it looks, and says it changed");
+	ck(theme_tick_at(at(19, 0, 0)), "19:00:00, the edge, 30 s after the last look: it turns at once");
 	ck(theme_index() == DS_DARK && on_file() == DS_DARK, "dark, and the file says so");
-	ck(!theme_tick_at(at(19, 0, 31)), "and one second on it says nothing");
-	ck(!theme_tick_at(at(19, 1, 29)), "just under another minute: nothing");
-	ck(!theme_tick_at(at(19, 1, 30)), "a minute on and the same theme: looked at, unchanged, false");
+	ck(!theme_tick_at(at(19, 0, 1)), "and one second on it says nothing");
+	ck(!theme_tick_at(at(19, 0, 59)), "just under a minute: nothing");
+	ck(!theme_tick_at(at(19, 1, 0)), "a minute on and the same theme: looked at, unchanged, false");
 	ck(on_file() == DS_DARK, "the file keeps saying dark");
+	theme_init_at(APPEAR_AUTO, at(18, 59, 50));
+	ck(theme_tick_at(at(19, 0, 10)), "a pass that comes only at 19:00:10: past the edge, it turns then");
 
 	/* The other edge, from night into day */
 	theme_init_at(APPEAR_AUTO, at(6, 58, 0));
 	ck(theme_index() == DS_DARK, "6:58 starts dark");
 	ck(!theme_tick_at(at(6, 59, 30)), "6:59:30: a minute on, still night");
-	ck(theme_tick_at(at(7, 0, 30)), "7:00:30: day, changed");
+	ck(!theme_tick_at(at(6, 59, 59)), "6:59:59: still night");
+	ck(theme_tick_at(at(7, 0, 0)), "7:00:00: day, changed at the second");
 	ck(theme_index() == DS_LIGHT && on_file() == DS_LIGHT, "light, and the file says so");
 
 	/* A clock set by hand: Date & Time on a handheld with no network is

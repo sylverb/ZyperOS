@@ -90,7 +90,7 @@ void night_schedule(const night_cfg *n, time_t now, panelgamma_night *out);
  *   - Night Mode stays Off: nothing is written for it.
  *   - The auto.light and auto.dark keys go.
  *
- * Once a card: night_migrate_db (src/nightkeep.h) keeps NIGHT_MIGRATED_KEY
+ * Once a card: night_migrate_db (src/nightkeep.h) keeps AUTO_MIGRATED_KEY
  * after it and does
  * nothing where it is, so Auto picked in 1.1.0 is never taken for a 1.0.5
  * card's (whose hours would be 19:00). `appearance` is the saved word (NULL:

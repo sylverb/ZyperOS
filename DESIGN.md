@@ -4572,8 +4572,12 @@ with what it does under it (Light and Dark day and night; Auto dark in Night
 Mode's hours, light the rest of the day), and Left and Right step them round.
 Auto is Salt & Pepper from **Night From** up to **Until**, Night Mode's own
 two times below, by the handheld's clock to the minute, and Beard the rest of
-the day: one schedule for both, each on its own setting, so Night Mode Off,
-On or By Hours goes with any Appearance. The theme turns at the minute on
+the day: one schedule for both, set in one place (Night Mode's page), each
+on its own setting. Auto only reads the Night Hours and never writes a
+Night Mode setting; Night Mode decides the warmth on its own and is the
+same under Light, Dark or Auto. At From and Until the theme turns on the
+same second as the warmth, on the same pass of the launcher's loop, with
+the one table load Night Mode makes and none of the theme's. It turns on
 every screen and over a game (the bar's file, the in-game menu when it
 opens), with no redraw while the game runs, and on the Pixel 2 the boot
 screen follows it (11.21). *(1.0.6: Auto, light from 7:00 to 19:00, went,

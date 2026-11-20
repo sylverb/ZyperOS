@@ -226,7 +226,7 @@ static void beside(const char *path, const char *name, char *out, size_t n)
  * it and not in English; and its Appearance, which the launcher notes beside
  * it for the boot screen ("boot-theme", src/boottheme.h's line:
  * zytheme=light|dark|auto-FROM-UNTIL first), Auto with its Night Hours, so a
- * new database is not taken for a 1.0.5 card's (night.auto_106,
+ * new database is not taken for a 1.0.5 card's (appearance.auto_106,
  * src/nightkeep.h). The rest is back to the shipped defaults. */
 static void carry_over(db *d, const char *path)
 {
