@@ -5947,6 +5947,7 @@ int main(int argc, char *argv[])
 		 * WxH[@ASPECT]: the core's picture the in-game menu's frame stands
 		 * for, which the Display list's picture draws with */
 		else if (!strcmp(argv[i], "--pick-at") && i + 1 < argc) shot_pick_at = atoi(argv[++i]);
+		else if (!strcmp(argv[i], "--expect-en") && i + 1 < argc) shot_expect_en = argv[++i];
 		else if (!strcmp(argv[i], "--gm-source") && i + 1 < argc) {
 			const char *v = argv[++i], *at = strchr(v, '@');
 

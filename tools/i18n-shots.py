@@ -914,9 +914,10 @@ for (_folder, _file, _wh, _sky, _ground, _hue) in (
 for _name, _flags in (("shelf-recents-screen", ["--screen", "games"]),
                       ("shelf-recents-screen-grid", ["--screen", "games", "--view", "grid"]),
                       ("recents-menu-picture", ["--screen", "games", "--menu", "Card Picture"]),
-                      ("recents-picture-list", ["--screen", "games", "--menu", "Card Picture", "--press", "a"]),
+                      ("recents-picture-list", ["--screen", "games", "--menu", "Card Picture", "--press", "a",
+                                                "--expect-en", "Cover|Last Screen"]),
                       ("recents-picture-list-cover", ["--screen", "games", "--menu", "Card Picture", "--press", "a",
-                                                      "--pick-at", "0"])):
+                                                      "--pick-at", "0", "--expect-en", "Cover|Last Screen"])):
     EXTRA.setdefault(_name, ("demo", "RECENT", _flags))
     SHOT_LIB[_name] = _RECENT_LIB
     SHOT_TEXT[_name] = _RECENT_SCREENS
@@ -1027,12 +1028,14 @@ SHOT_SETTINGS["system-menu-border"] = dict(_BORDER_SET, **{"border.GB": "blur"})
 SHOT_FILES["system-menu-border"] = _BORDER_PIC
 for _k, _p in enumerate(("off", "blur", "own")):
     EXTRA.setdefault("system-menu-border-list-" + _p, ("demo", "GB", ["--screen", "games", "--menu", "Border",
-                                                                     "--press", "a", "--pick-at", str(_k)]))
+                                                                     "--press", "a", "--pick-at", str(_k),
+                                                                     "--expect-en", "Off|Blur?|Your Own"]))
     SHOT_SETTINGS["system-menu-border-list-" + _p] = dict(_BORDER_SET)
     SHOT_FILES["system-menu-border-list-" + _p] = _BORDER_PIC
     EXTRA.setdefault("gamemenu-border-list-" + _p, ("demo", "GB", ["--gamemenu", "1", "--gm-tab", "1", "--gm-choose",
                                                                   "--pick-at", str(_k), "--gm-source",
-                                                                  "160x144@1.11111"]))
+                                                                  "160x144@1.11111", "--expect-en",
+                                                                  "Off|Blur?|Your Own"]))
     SHOT_SETTINGS["gamemenu-border-list-" + _p] = dict(_BORDER_SET)
     SHOT_FILES["gamemenu-border-list-" + _p] = _BORDER_PIC
 EXTRA.setdefault("gamemenu-border", ("demo", "GB", ["--gamemenu", "1", "--gm-tab", "1", "--gm-source",
