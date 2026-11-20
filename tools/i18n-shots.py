@@ -986,6 +986,13 @@ EXTRA.setdefault("system-menu-view-list", ("demo", "NES", ["--screen", "games", 
 # Home Screen's three (Spotlight, Gallery, Grid) over the Grid home
 EXTRA.setdefault("menu-home-list", ("demo", "PS1", ["--home", "grid", "--menu-tab", "1", "--menu", "Home Screen", "--press", "a"]))
 EXTRA.setdefault("gamemenu-display-list", ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "1", "--gm-choose"]))
+# A name long enough to reach the screen's middle under the focused cover,
+# where Highlight's bar is (src/games.c): the bar clear of it, and the snap's
+# wait bar in the bar's place while it fills
+EXTRA.setdefault("games-long-title", ("demo", "PS1", ["--screen", "games"]))
+EXTRA.setdefault("games-long-title-wait", ("demo", "PS1", ["--screen", "games", "--snap-wait", "0.5"]))
+for _n in ("games-long-title", "games-long-title-wait"):
+    R.SHOT_FOCUS.setdefault(_n, "Tony Hawk's Pro Skater 2 (USA).chd")
 # On-Screen Stats' page (src/hudmenu_screen.h): its rows with three items
 # shown ("3 Items"), the Shows list (every item's name), and each row's list
 # of more than two (every corner, distance, opacity and color); Background
