@@ -50,4 +50,37 @@ const uint8_t *chd_hunk(chd *c, uint32_t n);
  * hard disk. */
 bool chd_cd_track1(chd *c, uint32_t *start, uint32_t *frames, uint32_t *datasize);
 
+/* Any track of a CD or GD-ROM image, as libretro-common's CHD reader
+ * (chdstream) finds and places it, which is what RetroArch hands rcheevos:
+ * `want` is a track's number, or CHD_TRACK_FIRST_DATA (the first that is not
+ * audio) or CHD_TRACK_LAST (the last one).
+ *
+ *   number    the track's own number
+ *   audio     an AUDIO track
+ *   start     the frame of the image its first stored frame is: every track
+ *             before, each padded to a multiple of 4 frames as chdman stores
+ *             it, then a pregap the image holds ("V" before its type)
+ *   frames    its frames from there
+ *   datasize  the bytes of each frame that are the sector (2352 raw, 2048
+ *             cooked, 2336 Mode 2)
+ *   lba       the disc sector it starts at, chdstream's count: every track
+ *             before's frames, with no padding. On a GD-ROM that is 45000
+ *             for track 3, because chdman pads track 2 out to there as the
+ *             .gdi it came from says (MAME's GDI reader, padframes), and the
+ *             disc's file system counts its sectors from there.
+ *
+ * Reads the CD forms (CHT2, CHTR) and the GD-ROM's (CHGD, and the older
+ * CHGT the standalone Flycast also takes). False when there is no such
+ * track. */
+#define CHD_TRACK_FIRST_DATA (-1)
+#define CHD_TRACK_LAST       (-2)
+
+typedef struct {
+	int number;
+	bool audio;
+	uint32_t start, frames, datasize, lba;
+} chd_track;
+
+bool chd_cd_track(chd *c, int want, chd_track *t);
+
 #endif

@@ -281,10 +281,13 @@ if has_helper ports; then
 	# Your PICO-8's script, which the PICO-8 shelf's first core names
 	# (config/systems.cfg), and Splore's entry art (tools/genpico8-art.py).
 	# Never PICO-8 itself: the player brings it into Bios/PICO-8 (src/pico8.h)
-	mkdir -p "$P/pico8"
+	mkdir -p "$P/pico8/bin"
 	cp "$ROOT/sd/pixel2/PICO-8.sh" "$ROOT/res/pico8/cover-light.png" \
 	   "$ROOT/res/pico8/cover-dark.png" "$ROOT/res/pico8/icon.png" "$P/pico8/"
-	chmod +x "$P/pico8/PICO-8.sh"
+	# and the wget its Splore downloads with: curl, with HTTPS, which the
+	# system's busybox wget lacks (sd/pixel2/PICO-8-wget.sh)
+	cp "$ROOT/sd/pixel2/PICO-8-wget.sh" "$P/pico8/bin/wget"
+	chmod +x "$P/pico8/PICO-8.sh" "$P/pico8/bin/wget"
 fi
 
 # One ROM folder per system. Read from systems.cfg (awk, not sed: folder names

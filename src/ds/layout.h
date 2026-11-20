@@ -115,5 +115,6 @@
 #define DS_LOOK_LIST_NUM        48
 #define DS_LINE_CLOCK           128
 #define DS_LOOK_COVER           192
+#define DS_LOOK_CASSETTE_W      592
 
 #endif

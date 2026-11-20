@@ -5,6 +5,7 @@
 #include "app.h"
 #include "hareart.h"
 #include "i18n.h"
+#include "covercolor.h"
 #include "museart.h"
 #include "musec.h"
 #include "net.h"
@@ -173,8 +174,9 @@ void cover_shape(SDL_Surface **ps)
 	}
 }
 
-/* A cover as Now Playing draws it. NULL when the file will not decode. */
-static SDL_Texture *load_cover(SDL_Renderer *r, const char *path)
+/* A cover as Now Playing draws it, and its main color into `rgb` (the
+ * Player Looks', src/covercolor.h). NULL when the file will not decode. */
+static SDL_Texture *load_cover(SDL_Renderer *r, const char *path, unsigned *rgb)
 {
 	SDL_Surface *raw = IMG_Load(path), *s;
 	SDL_Texture *t;
@@ -184,6 +186,10 @@ static SDL_Texture *load_cover(SDL_Renderer *r, const char *path)
 	SDL_FreeSurface(raw);
 	if (!s) return NULL;
 	cover_shape(&s);
+	if (rgb && SDL_LockSurface(s) == 0) {
+		*rgb = cover_main_rgb(s->pixels, s->w, s->h, s->pitch);
+		SDL_UnlockSurface(s);
+	}
 	t = SDL_CreateTextureFromSurface(r, s);
 	SDL_FreeSurface(s);
 	if (t) SDL_SetTextureBlendMode(t, SDL_BLENDMODE_BLEND);
@@ -196,6 +202,7 @@ void np_forget(void)
 	g_np.tex = NULL;
 	g_np.album = -1;
 	g_np.done = false;
+	g_np.rgb = CFG_NO_COLOR;
 }
 
 /* Bring the Now Playing cover up to date with album `al`, which may be -1 for
@@ -210,7 +217,7 @@ void np_cover(app *a, int al)
 	if (cover_file(al, path, sizeof path)) {
 		unsigned t0 = plat_now_ms();
 
-		g_np.tex = load_cover(a->r, path);
+		g_np.tex = load_cover(a->r, path, &g_np.rgb);
 		fprintf(stderr, "muse: cover for %s in %u ms\n", g_muse.albums[al].name,
 		        plat_now_ms() - t0);
 		/* There, and not a picture: the card, as for an album with none. */
@@ -248,7 +255,7 @@ void muse_card_want(app *a, int s, int i)
 		if (texload_want_or_draw(s, i, path, NULL, &card)) return;
 		/* No worker - a shot - so here, as game_get_tex does without one. */
 		if (v->tex[i]) SDL_DestroyTexture(v->tex[i]);
-		v->tex[i] = load_cover(a->r, path);
+		v->tex[i] = load_cover(a->r, path, NULL);
 		if (v->tex[i]) {
 			SDL_QueryTexture(v->tex[i], NULL, NULL, &v->tw[i], &v->th[i]);
 			v->cb[i] = 1.0f;
