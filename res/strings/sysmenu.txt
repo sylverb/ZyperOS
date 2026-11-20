@@ -968,6 +968,83 @@ de = Alle zufällig
 ja = すべてシャッフル
 it = Riproduzione casuale
 
+[sysmenu.muse_look]
+note = MP4's menu row on the music shelf: how Now Playing draws a song (Cover, Classic, Spectrum...); A opens the list, its picture the look under the cursor playing
+en = Player Look
+zh-Hans = 播放器外观
+es = Aspecto
+pt-BR = Visual do player
+fr = Apparence du lecteur
+de = Player-Look
+ja = プレーヤーの見た目
+it = Aspetto del lettore
+
+[sysmenu.look_cover]
+note = Player Look's first choice and the default: the album's cover large beside the song, as Now Playing always was. Begun with a capital
+en = Cover
+zh-Hans = 封面
+es = Portada
+pt-BR = Capa
+fr = Pochette
+de = Cover
+ja = ジャケット
+it = Copertina
+
+[sysmenu.look_cover_note]
+note = Under Player Look's picture when Cover is under the cursor: one sentence, wrapped in a narrow column
+en = The album's cover, large, beside the song.
+zh-Hans = 专辑封面大图，歌曲信息在旁边。
+es = La portada del álbum, grande, junto a la canción.
+pt-BR = A capa do álbum, grande, ao lado da música.
+fr = La pochette de l'album en grand, à côté du titre.
+de = Das Cover des Albums, groß, neben dem Titel.
+ja = アルバムのジャケットを大きく、曲をその横に表示します。
+it = La copertina dell'album, grande, accanto al brano.
+
+[sysmenu.look_classic]
+note = A Player Look: a big clock, bars that move with the sound, and the album's track list (like an old desktop music player). Begun with a capital
+en = Classic
+zh-Hans = 经典
+es = Clásico
+pt-BR = Clássico
+fr = Classique
+de = Klassisch
+ja = クラシック
+it = Classico
+
+[sysmenu.look_classic_note]
+note = Under Player Look's picture when Classic is under the cursor
+en = A big clock, bars that move with the sound, and the album's track list.
+zh-Hans = 大时钟、随声音跳动的频谱条，以及专辑的曲目列表。
+es = Un reloj grande, barras que siguen el sonido y la lista de canciones del álbum.
+pt-BR = Um relógio grande, barras que seguem o som e a lista de faixas do álbum.
+fr = Une grande horloge, des barres qui suivent le son et la liste des titres de l'album.
+de = Eine große Uhr, Balken im Takt des Klangs und die Titelliste des Albums.
+ja = 大きな時計、音に合わせて動くバー、アルバムの曲リスト。
+it = Un grande orologio, barre che seguono il suono e l'elenco dei brani dell'album.
+
+[sysmenu.look_spectrum]
+note = A Player Look: the sound as 32 bars across the screen (a spectrum analyser), under the cover and the names. Begun with a capital
+en = Spectrum
+zh-Hans = 频谱
+es = Espectro
+pt-BR = Espectro
+fr = Spectre
+de = Spektrum
+ja = スペクトラム
+it = Spettro
+
+[sysmenu.look_spectrum_note]
+note = Under Player Look's picture when Spectrum is under the cursor
+en = The sound as 32 bars across the screen, under the cover.
+zh-Hans = 声音化作横跨屏幕的 32 根频谱条，位于封面下方。
+es = El sonido como 32 barras a lo ancho de la pantalla, bajo la portada.
+pt-BR = O som em 32 barras na largura da tela, sob a capa.
+fr = Le son en 32 barres sur toute la largeur de l'écran, sous la pochette.
+de = Der Klang als 32 Balken über den ganzen Bildschirm, unter dem Cover.
+ja = 音を画面いっぱいの 32 本のバーで表示します。ジャケットはその上に表示します。
+it = Il suono in 32 barre su tutto lo schermo, sotto la copertina.
+
 [sysmenu.muse_lock]
 note = Muse's menu row: turn the screen off and keep the music playing
 en = Lock Screen
@@ -1467,3 +1544,15 @@ fr = Liste
 de = Liste
 ja = リスト
 it = Elenco
+
+
+[sysmenu.view_video]
+note = View's value: the shelf shows the focused game's video snap on the whole screen, its covers in a row at the foot (DESIGN.md 11.57). A named choice.
+en = Video
+zh-Hans = 视频
+es = Video
+pt-BR = Vídeo
+fr = Vidéo
+de = Video
+ja = ビデオ
+it = Video

@@ -375,7 +375,8 @@ uint32_t gl_draw(gl_motion *m, SDL_Renderer *r, const gl_info *in,
 		int nf = 0, games = in->count > 0 && in->folder_of ? in->folder_of(ctx, in->cursor) : 0;
 
 		foot[nf++] = (key_hint){ "B", T(in->inside ? S_GAMES_BACK : S_GAMES_SYSTEMS) };
-		if (in->count > 0) foot[nf++] = (key_hint){ "START", T(S_GAMES_TO_COVERS) };
+		/* START on to the Video view, the fourth (DESIGN.md 11.57) */
+		if (in->count > 0) foot[nf++] = (key_hint){ "START", T(S_GAMES_TO_VIDEO) };
 		if (in->count > 0 && in->resumable && !in->install && !in->howto && !in->opens && !games)
 			foot[nf++] = (key_hint){ "Y", T(S_GAMES_FRESH) };
 		if (in->count > 0 && !games) foot[nf++] = (key_hint){ "X", T(S_GAMES_DETAILS) };

@@ -216,12 +216,14 @@ static void parse_line(char *line, diatom_msg *out)
 	else if (!strcmp(field, "STYLUS"))     out->kind = DIATOM_MSG_STYLUS;
 	else if (!strcmp(field, "SETSTYLUS"))  out->kind = DIATOM_MSG_SETSTYLUS;
 	else if (!strcmp(field, "SETSTICK"))   out->kind = DIATOM_MSG_SETSTICK;
+	else if (!strcmp(field, "SETHOTKEYS")) out->kind = DIATOM_MSG_SETHOTKEYS;
 	else if (!strcmp(field, "PLAYER2"))    out->kind = DIATOM_MSG_PLAYER2;
 	else if (!strcmp(field, "SETPLAYER2")) out->kind = DIATOM_MSG_SETPLAYER2;
 	else if (!strcmp(field, "SETPOWERHOLD")) out->kind = DIATOM_MSG_SETPOWERHOLD;
 	else if (!strcmp(field, "SETHUD"))       out->kind = DIATOM_MSG_SETHUD;
 	else if (!strcmp(field, "SETRUMBLE"))    out->kind = DIATOM_MSG_SETRUMBLE;
 	else if (!strcmp(field, "SETEQ"))        out->kind = DIATOM_MSG_SETEQ;
+	else if (!strcmp(field, "SETCHEATS"))    out->kind = DIATOM_MSG_SETCHEATS;
 	else {
 		log_(DIATOM_LOG_WARN, "proto: ignoring unknown verb '%s'", field);
 		out->kind = DIATOM_MSG_NONE;
@@ -276,6 +278,10 @@ static void parse_line(char *line, diatom_msg *out)
 		 * the launcher already passes paths for save states. */
 		else if (!strcmp(field, "cheevos"))
 			snprintf(out->cheevos, sizeof out->cheevos, "%s", v);
+		/* `cheats=` is a path for cheevos='s reason: one N64 code alone
+		 * can outrun a line (cheats.h) */
+		else if (!strcmp(field, "cheats"))
+			snprintf(out->cheats, sizeof out->cheats, "%s", v);
 		else if (!strcmp(field, "console")) out->console = (int)strtol(v, NULL, 10);
 		else if (!strcmp(field, "screens")) out->screens = (int)strtol(v, NULL, 10);
 		else if (!strcmp(field, "frameskip"))
@@ -290,6 +296,11 @@ static void parse_line(char *line, diatom_msg *out)
 			out->controller = (unsigned)strtoul(v, NULL, 10);
 		else if (!strcmp(field, "stick"))
 			snprintf(out->stick, sizeof out->stick, "%s", v);
+		/* RUN's hotkeys= and SETHOTKEYS' keys=, one slot */
+		else if (!strcmp(field, "hotkeys") || !strcmp(field, "keys"))
+			snprintf(out->hotkeys, sizeof out->hotkeys, "%s", v);
+		else if (!strcmp(field, "shots"))
+			snprintf(out->shots, sizeof out->shots, "%s", v);
 		else if (!strcmp(field, "layout"))
 			snprintf(out->layout, sizeof out->layout, "%s", v);
 		else if (!strcmp(field, "swap")) snprintf(out->swap, sizeof out->swap, "%s", v);
@@ -463,6 +474,15 @@ diatom_msg_kind diatom_proto_poll(diatom_msg *out, int timeout_ms, bool running)
 		 * starting on the d-pad's side, and what turns the side is a
 		 * button the map gives `stick` or `stickhold`, the PSP's R2
 		 * among them, no longer R2 by itself under toggle. */
+		/* SETHOTKEYS keys= (later, with RUN hotkeys= and shots=): which
+		 * button SELECT is held with for each hotkey, the four the
+		 * shoulders had and five more (shot, shader, display, reset,
+		 * quit), answered HOTKEYS ok=1, or ok=0 with the keys as they
+		 * were. A hotkey of the five says HOTKEY key=shader|display, a
+		 * screenshot SHOT path= once written (or ERROR code=shot_failed),
+		 * and reset and quit pause the game as MENU does, PAUSED for=reset
+		 * or for=quit, for the launcher to ask or to stop. Additive:
+		 * an old Diatom ignores all of it and keeps the shoulders' four. */
 		/* proto=13 moves the speed and adds the quick slot: SELECT+R2 and
 		 * SELECT+L2 step it in halves, so SPEED's x may be "1.5", and MENU+R1
 		 * does nothing; SELECT+R1 and SELECT+L1 send HOTKEY key=save|load,
@@ -500,6 +520,13 @@ diatom_msg_kind diatom_proto_poll(diatom_msg *out, int timeout_ms, bool running)
 		 * (ZyperOS's src/eq.h), all 0 flat, from the sound's next push,
 		 * over a game that runs or is paused. Additive, so proto stays 14:
 		 * an old Diatom ignores the verb and plays as it always did. */
+		/* RUN cheats=<path> and SETCHEATS path=<path>: the cheat codes
+		 * that are on, a file of one a line (cheats.h), handed to the core
+		 * once the game is loaded, at each SETCHEATS (answered CHEATS
+		 * count=N, or ERROR code=bad_cheats), and again after a reset and
+		 * a state load; while one has been on, achievements stop for the
+		 * game and CHEEVOS says paused=cheats. Additive, so proto stays
+		 * 14: an old Diatom ignores both, and a game starts with none. */
 		diatom_proto_send("READY\tproto=14\tstate=%s", running ? "running" : "idle");
 		/* A displaced launcher is a vanished one, and every loop already
 		 * knows what that means - the in-game menu resumes the game. Said

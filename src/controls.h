@@ -8,6 +8,7 @@
 #include "menu.h"
 #include "portdoc.h"
 #include "remap.h"
+#include "hotkeys.h"
 #include "device/profile.h"   /* dev_chords */
 
 /* Every button, and what it does where: the one place ON THE DEVICE that says
@@ -130,6 +131,11 @@ typedef struct {
 	char val[CTL_MAX_ROWS][64];
 	char note[96];
 } ctl_buf;
+
+/* The hotkeys the Hotkeys pages say, the player's (src/hotkeys.h): Every
+ * Game's on the home's page, the game's in force on a game's. NULL is
+ * ZyperOS's own, as before it is set. */
+void ctl_set_hotkeys(const hk_table *t);
 
 /* ---------- the pages in glyphs (DESIGN.md 11.9) ----------------------------
  *

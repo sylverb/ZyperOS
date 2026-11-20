@@ -7,6 +7,7 @@
 
 #include "design.h"
 #include "sys_menu.h"
+#include "controls.h"
 #include "homesys.h"
 #include "i18n.h"
 #include "uisound.h"
@@ -87,7 +88,7 @@ pm_tab sys_menu_tab_of(pm_row r)
 	case PM_USB_WAIT: case PM_WIFI: case PM_BT: case PM_XFER: case PM_USB:
 	case PM_DEVELOPER:
 		return PT_CONNECTIONS;
-	case PM_CLOCK: case PM_HOURS: case PM_LANGUAGE: case PM_POWER: case PM_SLEEP:
+	case PM_CLOCK: case PM_HOURS: case PM_LANGUAGE: case PM_HOTKEYS: case PM_POWER: case PM_SLEEP:
 	case PM_CHARGE: case PM_LIGHTS: case PM_STORAGE: case PM_UPDATE:
 		return PT_SYSTEM;
 	case PM_ABOUT: case PM_CONTROLS: case PM_TOUR:
@@ -289,6 +290,7 @@ int sys_menu_muse_rows(int kind, bool both, bool no_wifi, sm_muse_row *out)
 	if (both) out[n++] = SMM_SHOW;
 	out[n++] = SMM_SORT;
 	if (kind == 0 || kind == 3) out[n++] = SMM_SHUFFLE;
+	if (kind == 0 || kind == 3) out[n++] = SMM_LOOK;
 	if (kind == 2 || kind == 3) out[n++] = SMM_REPEAT;
 	out[n++] = SMM_EQ;
 	out[n++] = SMM_LOCK;
@@ -340,7 +342,7 @@ static const unsigned char SM_SOUND[SM_ROWS] = {
 };
 static unsigned char smm_sound(sm_muse_row r)
 {
-	return r == SMM_SHOW || r == SMM_REPEAT || r == SMM_EQ ? MENU_SND_RING
+	return r == SMM_SHOW || r == SMM_LOOK || r == SMM_REPEAT || r == SMM_EQ ? MENU_SND_RING
 	     : r == SMM_SORT ? MENU_SND_RING | MENU_SND_NO_A : 0;
 }
 
@@ -382,7 +384,7 @@ int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
 			out[1] = (menu_row){ T(S_SYSMENU_RANDOM_GAME), NULL, u->game_count > 0 };
 			out[2] = (menu_row){ T(S_SYSMENU_SORT_BY), u->sort ? u->sort : T(S_SORT_NAME), true };
 			out[3] = (menu_row){ T(S_SYSMENU_VIEW),
-			                     T(u->listed ? S_SYSMENU_VIEW_LIST : u->grid ? S_SYSMENU_VIEW_GRID : S_SYSMENU_VIEW_COVERS), true };
+			                     T(u->listed ? S_SYSMENU_VIEW_LIST : u->grid ? S_SYSMENU_VIEW_GRID : u->video ? S_SYSMENU_VIEW_VIDEO : S_SYSMENU_VIEW_COVERS), true };
 			b->sound[1] = SM_SOUND[SM_RANDOM];
 			b->sound[2] = SM_SOUND[SM_SORT];
 			b->sound[3] = SM_SOUND[SM_VIEW];
@@ -422,7 +424,7 @@ int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
 				case SMC_VIEW:
 					out[k] = (menu_row){ T(S_SYSMENU_VIEW),
 					                     T(u->listed ? S_SYSMENU_VIEW_LIST : u->grid ? S_SYSMENU_VIEW_GRID
-					                       : S_SYSMENU_VIEW_COVERS), true };
+					                       : u->video ? S_SYSMENU_VIEW_VIDEO : S_SYSMENU_VIEW_COVERS), true };
 					b->sound[k] = SM_SOUND[SM_VIEW];
 					if (u->sm_choice) b->choice[k] = u->sm_choice[SM_VIEW];
 					break;
@@ -471,6 +473,10 @@ int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
 				case SMM_SHUFFLE:
 					out[k] = (menu_row){ T(S_SYSMENU_MUSE_SHUFFLE), NULL, true };
 					break;
+				case SMM_LOOK:
+					out[k] = (menu_row){ T(S_SYSMENU_MUSE_LOOK), u->muse_look ? u->muse_look
+					                     : T(S_SYSMENU_LOOK_COVER), true };
+					break;
 				case SMM_REPEAT:
 					out[k] = (menu_row){ T(S_SYSMENU_MUSE_REPEAT),
 					                     u->muse_repeat ? u->muse_repeat : T(S_MENU_OFF_TITLE), true };
@@ -510,7 +516,7 @@ int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
 		                              u->sort ? u->sort : T(S_SORT_NAME), true  };
 		/* The covers in a row, or a list of names (DESIGN.md 11.39) */
 		full[SM_VIEW]    = (menu_row){ T(S_SYSMENU_VIEW),
-		                              T(u->listed ? S_SYSMENU_VIEW_LIST : u->grid ? S_SYSMENU_VIEW_GRID : S_SYSMENU_VIEW_COVERS), true };
+		                              T(u->listed ? S_SYSMENU_VIEW_LIST : u->grid ? S_SYSMENU_VIEW_GRID : u->video ? S_SYSMENU_VIEW_VIDEO : S_SYSMENU_VIEW_COVERS), true };
 		/* "Display", as the in-game menu's row: "Display Mode" beside the
 		 * longest of the modes' names fitted the panel in no language with
 		 * Latin letters (1.0.6) */
@@ -651,6 +657,9 @@ int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
 	/* The language that is on, in its own words: a player who chose one they
 	 * cannot read finds their own name here (src/i18n.h) */
 	full[PM_LANGUAGE]     = (menu_row){ T(S_MENU_LANGUAGE), lang_name(i18n_lang()), true };
+	/* SELECT held and a button, for every game here (src/hotkeys.h): A
+	 * opens the list, its keys drawn as the buttons */
+	full[PM_HOTKEYS]      = (menu_row){ ctl_page_name(CTL_HOTKEYS), NULL, true };
 	/* Press or Hold: what turns the handheld off (src/powerhold.h) */
 	full[PM_POWER]        = (menu_row){ T(S_SYSMENU_POWER_BUTTON),
 	                                   u->power_hold ? T(S_SYSMENU_POWER_HOLD)

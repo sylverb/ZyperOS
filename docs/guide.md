@@ -324,6 +324,7 @@ Dreamcast games run on flycast2021, the 2021 libretro [Flycast](https://github.c
 | **SELECT+L1** (in game) | quick load: the state in the Quick Slot |
 | **SELECT+R2** (in game) | faster: 1.5x, 2x, 3x |
 | **SELECT+L2** (in game) | slower, a step a press, back to normal speed |
+| **SELECT + a button you choose** (in game) | your own hotkeys: Screenshot, Next Shader, Next Display, Reset Game and Quit, none until you set them in **Hotkeys** (below) |
 | **MENU** (inside any menu) | closes the whole menu, however deep in it you are. B goes back one screen |
 | **SELECT** | MP4, the music, audiobook and video player, from anywhere but a running game - the in-game menu included. Again to close it |
 | **POWER** | powers off. In a game, the game is saved first, and the next start goes straight back into it. After a crash or a power cut, the next start is the home instead. With **MENU > Power Button** on **Hold**, POWER has to be held for a second, and a press alone does nothing: a bar at the top of the screen fills while it is held, on the home, in a game and over a port |
@@ -433,18 +434,44 @@ go (with D-pad as Stick on, the other way round). They are the last two of a
 button's choices. The PSP's R2 is Stick On/Off from the start; give it to
 another button, or make R2 something else.
 
+**Two buttons on one game button.** Giving a button what another button
+gives swaps the two, so nothing is lost by accident. To have both, open the
+button's list with A, move to the choice the other button gives, and press
+**Y** instead of A: the foot of the list says what each key does. Both rows
+then show the other button's small glyph after the value, and the handheld
+lights both. Give either row something else to undo it.
+
 **Face Buttons** (Dreamcast, Saturn and Neo Geo Pocket games) swaps all four
 faces at once: **By Letter**, each cap gives the button it names, or **By
 Place**, each cap gives the button in its place on the original pad. It reads
 Mixed after a change to one face.
 
-**Hotkeys**, the tab's last row, opens what you could always read here: what a
-system adds (the Nintendo 64's C buttons, hold SELECT and press X, A, B or Y,
-and which Pak is in; a DS game's two screens and the stylus), then SELECT
-with a shoulder, quick save and load, faster and slower, and under them
-"SELECT alone stays the game's", then the last page, In a game: MENU, MENU then X
-(Quit), volume, brightness and POWER. Left and right change the page, B goes
-back to the tab, and MENU goes back to the game.
+**Hotkeys.** Every hotkey is SELECT held and one more button, and you choose
+which: **MENU > System > Hotkeys** for every game, or the Controls tab's
+**Hotkeys** row in a game, where **Applies To** says This Game, the system or
+Every Game, as Changing a button does. Each row is an action and its buttons:
+**Quick Save** (SELECT+R1 to start with), **Quick Load** (SELECT+L1),
+**Faster** (SELECT+R2), **Slower** (SELECT+L2), and five that do nothing
+until you give them buttons: **Screenshot**, **Next Shader**, **Next
+Display**, **Reset Game** and **Quit**. Press A on a row, hold SELECT, press
+the button you want, and let go. If those buttons already do something else,
+ZyperOS asks whether to swap the two. Reset Game pauses and asks first, since
+a reset loses what you played since your last save. Quit leaves at once, and
+the game resumes where you left it next time. **Reset Hotkeys** puts them
+back. MENU+START, the way home, and POWER never change.
+
+A **screenshot** is the game's own picture, saved as a PNG in
+`Screenshots/<system>/` on the card, named after the game and the time; a
+pop-up shows it small. **Next Shader** and **Next Display** turn on the
+system's next shader or display mode and say which.
+
+The Hotkeys list's last row in a game, **All Controls**, opens what you could
+always read here: what a system adds (the Nintendo 64's C buttons, hold
+SELECT and press X, A, B or Y, and which Pak is in; a DS game's two screens
+and the stylus), then your hotkeys, and under them "SELECT alone stays the
+game's", then the last page, In a game: MENU, MENU then X (Quit), volume,
+brightness and POWER. Left and right change the page, B goes back, and MENU
+goes back to the game.
 
 **OpenBOR has the in-game menu too**, though it runs as a program of its
 own rather than a libretro core. MENU stops the game where it is and opens
@@ -775,7 +802,7 @@ The system menu opens on a shelf of games and applies to that system alone:
 | **Game Language** | the Nintendo DS shelf's: left/right/A go round `Auto`, English, Español, Français, Deutsch, Italiano, 日本語 and 简体中文, saved the moment it changes. `Auto` is the language of MENU > Language where the DS has it and English where it does not, and the row says which. The next game started speaks it, whatever the language of the `firmware.bin` in `Bios/`. A game whose resume point was left in another language starts fresh in this one, with a note that says so, its battery save kept; a save state you load keeps its own language until Reset |
 | **Timing** | the Game Boy, Game Boy Color, Game Boy Advance, Nintendo DS and Genesis shelves', under Core (and under Game Language on the DS's): `Smooth` to start with, or `Exact`, for this system alone; left/right/A flip it, saved the moment it changes, for the next game started. The screen refreshes 60.08 times a second and these consoles make 59.7 to 59.9 frames. `Smooth` shows one game frame each refresh, so motion is even, and the game runs up to 0.6% faster than the console: a GBA game 3.5 seconds fast in 10 minutes. `Exact` keeps the console's own speed, for timers and rhythm games, and about every 3 seconds one frame stays on the screen for two refreshes |
 | **Sort By** | left/right; `Name`, `Play Time`, `Last Played` or `Recently Added` |
-| **View** | left/right, or A for the list; `Covers`, the row of covers, `Grid`, two rows of covers in cells shaped like the shelf's own art, or `List`, the games as a list of names with the focused one's cover beside it. START on the shelf steps it too, without the menu |
+| **View** | left/right, or A for the list; `Covers`, the row of covers, `Grid`, two rows of covers in cells shaped like the shelf's own art, `List`, the games as a list of names with the focused one's cover beside it, or `Video`, the focused game's video snap on the whole screen with the covers in a band at the foot; after 2 seconds with no press while a snap plays, the band goes down to a thin strip so the video has the screen, and any button brings it back. START on the shelf steps it too, without the menu |
 | **Display** | how the picture fills the screen: Full Screen, Original Shape, Sharp Pixels, Sharp Pixels, Tall, Sharp Pixels, Zoomed, Fill, Edges Cut or Actual Size; left/right cycles it, and A opens the list, with a small picture of your game in the mode under the cursor and a line that says what it does; saved the moment it changes |
 | **Shader** | `Off`, `Sharp-Shimmerless`, `CRT`, `CRT Curved`, `Scanlines` or `LCD Grid`, and on the Game Boy, Game Boy Color and Game Boy Advance `LCD No Backlight` too, for this system alone: left, right or A steps it, saved the moment it changes. The next game started plays with it |
 | **Strength** | right under Shader while it is `CRT`, `CRT Curved`, `Scanlines`, `LCD Grid` or `LCD No Backlight`: `10%` to `100%`, for this system alone. Left and right step it 10% at a time and stop at the ends |
@@ -1704,6 +1731,14 @@ something playing that the shelf does not show lands on that kind, on what is
 playing.
 
 **Shuffle All** plays every song on the card in a random order.
+
+**Player Look** changes how Now Playing shows a song: **Cover**, the album's
+cover large, as it always was; **Classic**, a big clock over bars that move
+with the music, and the album's tracks beside it; **Spectrum**, the music as
+32 bars across the screen under the cover. A on it opens the list, with the
+look under the cursor playing in a small screen beside it; Left and Right
+change it straight away. Paused, the bars come to rest. Books and videos
+keep their own screen.
 
 **Sort By** puts the shelf in order by artist, the way the folders are, or by
 album title, two of the same title going in their artists' order. The jump

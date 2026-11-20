@@ -43,6 +43,11 @@ bool notice_render(const char *heading, const char *body, const char *path,
                           * not load, so the slab has the badge's shape
                           * whether the card has the art or not */
 #define NOTICE_ZYPER 2   /* Zyper at the right end, DESIGN.md 11.7 */
+#define NOTICE_PICTURE 4 /* `badge` is a picture, a screenshot: kept in its
+                          * own shape, as tall as the two lines, where a
+                          * badge is made square (my pick in the Controls
+                          * lab, 2026-11-19: the shot itself, small, beside
+                          * "Screenshot saved") */
 
 /* The same slab with an achievement's badge at its left, the lines
  * left-aligned beside it - `badge` a PNG, NULL or one that will not load for
