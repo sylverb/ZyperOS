@@ -375,7 +375,8 @@ void usb_drive_draw(app *a, int which)
 		                            OSDBAR_H))) {
 			SDL_SetTextureBlendMode(tx, SDL_BLENDMODE_BLEND);
 			SDL_UpdateTexture(tx, NULL, px, OSDBAR_W * 4);
-			SDL_RenderCopy(a->r, tx, NULL, &(SDL_Rect){ OSDBAR_X, OSDBAR_Y, OSDBAR_W, OSDBAR_H });
+			SDL_RenderCopy(a->r, tx, NULL, &(SDL_Rect){ (ZYPEROS_SCREEN_W - OSDBAR_W) / 2, OSDBAR_Y, OSDBAR_W,
+			                                           OSDBAR_H });
 			SDL_DestroyTexture(tx);
 		}
 	}

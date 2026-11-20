@@ -19,6 +19,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "canvas.h"      /* canvas_w */
 #include "design.h"      /* DS_INSET */
 #include "ds/layout.h"   /* DS_PAGE_*: the page frame the empty home stands in */
 
@@ -87,7 +88,7 @@ void eh_cheer_draw(SDL_Renderer *r, int games, unsigned t, eh_pose_fn zyper, voi
 #define EH_CARD_H   368
 #define EH_CARD_Y   DS_PAGE_BODY_Y      /* 256: the page frame's body (src/ds/page.h) */
 #define EH_CARD_X0  DS_INSET            /* 24 */
-#define EH_CARD_X1  (1024 - 24 - EH_CARD_W)
+#define EH_CARD_X1  (canvas_w - 24 - EH_CARD_W)
 #define EH_PAD_X    28
 #define EH_BIOS_CY  660
 

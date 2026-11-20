@@ -13,6 +13,7 @@
 #include <string.h>
 #include <sys/stat.h>
 
+#include "../src/canvas.h"
 #include "../src/device/profile.h"
 #include "../src/ds/button.h"
 #include "../src/thermal.h"
@@ -548,6 +549,36 @@ static void choosing(void)
 	}
 }
 
+/* The canvas (src/canvas.h): 768 high, as wide as the panel's shape, on the
+ * 8-unit grid; a 4:3 handheld's is the 1024 every screen was made in */
+static void canvas(void)
+{
+	static const struct { int aw, ah, w; } shapes[] = {
+		{ 4, 3, 1024 }, { 16, 9, 1368 }, { 3, 2, 1152 }, { 1, 1, 768 }, { 5, 3, 1280 },
+		{ 16, 10, 1232 }, { 0, 0, 1024 }, { 4, 0, 1024 }, { 1, 4, CANVAS_W_MIN }, { 4, 1, CANVAS_W_MAX },
+	};
+	size_t i;
+	char what[96];
+
+	for (i = 0; i < sizeof shapes / sizeof shapes[0]; i++) {
+		int w = canvas_w_for(shapes[i].aw, shapes[i].ah);
+
+		snprintf(what, sizeof what, "canvas: %d:%d is %d units wide (got %d)", shapes[i].aw, shapes[i].ah,
+		         shapes[i].w, w);
+		ck(w == shapes[i].w && w % 8 == 0, what);
+	}
+	canvas_init(&device_profile_pixel2);
+	ck(canvas_w == 1024 && !canvas_wide() && canvas_col_x() == 0, "canvas: the Pixel 2's is 1024, as it was");
+	canvas_init(&device_profile_brick);
+	ck(canvas_w == 1024 && !canvas_wide(), "canvas: the Brick's is 1024, as it was");
+	canvas_init(&device_profile_desktop);
+	ck(canvas_w == 1024, "canvas: the host's desktop is 1024");
+	canvas_init(&device_profile_smartpro);
+	ck(canvas_w == 1368 && canvas_wide() && canvas_col_x() == 172, "canvas: the Smart Pro's is 1368, its 4:3 column at 172");
+	canvas_init(NULL);
+	ck(canvas_w == 1024, "canvas: no profile is 4:3");
+}
+
 int main(void)
 {
 	whole(&device_profile_pixel2);
@@ -567,6 +598,7 @@ int main(void)
 	builds();
 	menu_look();
 	choosing();
+	canvas();
 	if (fails) {
 		printf("devices: %d of %d checks failed\n", fails, checks);
 		return 1;

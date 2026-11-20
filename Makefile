@@ -422,7 +422,7 @@ build-native/status-check: tools/status-check.c src/status.c src/status.h \
                           src/design.h FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
-	      -o $@ tools/status-check.c src/status.c src/look.c -lm
+	      -o $@ tools/status-check.c src/status.c src/look.c src/canvas.c -lm
 
 # Charger changes reach the shared battery cache within 250 ms at the shelf's
 # 16 ms poll rate. Stable samples request no redraw; capacity stays at 5 s.
@@ -585,7 +585,7 @@ check-lowbatt: build-native/lowbatt-check
 build-native/lowbatt-check: tools/lowbatt-check.c src/lowbatt.c src/lowbatt.h src/status.h src/design.h FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -Werror -O1 -g \
-	      -o $@ tools/lowbatt-check.c src/lowbatt.c
+	      -o $@ tools/lowbatt-check.c src/lowbatt.c src/canvas.c
 
 # The charging screen (src/charging.h): the charger's kind, its lines, the
 # time to full through CC and CV, and its rules. Plain C, no device.
@@ -1055,7 +1055,7 @@ check-emptyhome: build-native/emptyhome-check
 build-native/emptyhome-check: tools/emptyhome-check.c src/emptyhome.c src/emptyhome.h $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g $$(pkg-config --cflags sdl2) -Isrc \
-	      -o $@ tools/emptyhome-check.c src/emptyhome.c $(I18N_SRC)
+	      -o $@ tools/emptyhome-check.c src/emptyhome.c src/canvas.c $(I18N_SRC)
 
 check-roundrect: build-native/roundrect-check
 	@./build-native/roundrect-check | tail -1
@@ -1793,12 +1793,12 @@ check-devicegen: build-native/devicegen
 	done; done; \
 	[ $$bad = 0 ] && echo "ok: config/device holds each device's build as its _build.c says"
 
-build-native/devices-check: tools/devices-check.c src/profile.c src/device/profile.h src/device/build.h src/device/brick_buttons.h src/inbutton.h \
+build-native/devices-check: tools/devices-check.c src/profile.c src/canvas.c src/canvas.h src/device/profile.h src/device/build.h src/device/brick_buttons.h src/inbutton.h \
                             src/thermal.c src/thermal.h src/ds/button.c src/ds/button.h $(DEVICE_PROFILES) $(DEVICE_BUILDS) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Isrc \
 	      -DZYPEROS_PROFILE=device_profile_desktop -DZYPEROS_PROFILES_ALL \
-	      -o $@ tools/devices-check.c src/profile.c src/thermal.c src/ds/button.c $(DEVICE_PROFILES) $(DEVICE_BUILDS)
+	      -o $@ tools/devices-check.c src/profile.c src/thermal.c src/ds/button.c src/canvas.c $(DEVICE_PROFILES) $(DEVICE_BUILDS)
 
 # Every device file compiled, the Linux halves the Mac's build never sees (CI
 # job "devices", .github/workflows/check.yml): the launcher's device files
