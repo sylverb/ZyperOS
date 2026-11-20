@@ -39,6 +39,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 
 /* ---------- MENU > Downloads: one page (DESIGN.md 11.53) ----------------------
@@ -1476,6 +1477,31 @@ static void dl_base(app *a, void *ctx)
 
 /* ---- starting and ending a run ------------------------------------------------------- */
 
+/* Updates join Download (my pick in the lab): the achievements lane asks
+ * RetroAchievements for each system's published counts and fetches again
+ * every set that changed (radl.c), so Download runs it at least once a day
+ * while achievements are in, even with nothing missing. dl.checked.ra is
+ * the day's last check. */
+#define DL_CHECK_S (24 * 60 * 60)
+
+static bool ra_check_due(const dl_counts *c)
+{
+	char v[24];
+	long long last = 0, now = (long long)time(NULL);
+
+	if (!c || !c->ra_in || !dl_kind_in(DLK_ACH)) return false;
+	if (db_get_str(db_dev(), "dl.checked.ra", v, sizeof v, NULL)) last = atoll(v);
+	return now - last >= DL_CHECK_S || now < last;
+}
+
+static void ra_checked(void)
+{
+	char v[24];
+
+	snprintf(v, sizeof v, "%lld", (long long)time(NULL));
+	db_set_str(db_dev(), "dl.checked.ra", v);
+}
+
 /* The names part's systems: each one's Names switch (Systems' cell) */
 static bool names_rule(const char *folder)
 {
@@ -1490,7 +1516,7 @@ static bool run_start(dl_view *v, int only)
 	dl_plan pl;
 	systems_cfg art_cfg, ra_cfg;
 	scraper_kinds k;
-	bool art = false, ra = false;
+	bool art = false, ra = false, due;
 	int i, j, covers = 0;
 
 	if (!c) return false;
@@ -1499,7 +1525,8 @@ static bool run_start(dl_view *v, int only)
 		return false;
 	}
 	dl_plan_of(c, only, &pl);
-	if (!pl.n) return false;
+	due = (only < 0 || only == DLK_ACH) && ra_check_due(c);
+	if (!pl.n && !due) return false;
 	if (!pl.fits) {
 		result_message(v->a, T(S_DOWNLOADS_HEADING), T(S_SCRAPER_NO_ROOM));
 		return false;
@@ -1532,8 +1559,9 @@ static bool run_start(dl_view *v, int only)
 	}
 	if (pl.covers + pl.videos + pl.looks > 0 && art_cfg.count)
 		art = scraper_start_run(v->a, k, &art_cfg, v->only[0] ? v->only : NULL, covers, names_rule);
-	if ((only < 0 || only == DLK_ACH) && pl.ach > 0 && ra_cfg.count)
-		ra = radl_start_run(v->a, &ra_cfg, v->only[0] ? v->only : NULL);
+	if ((only < 0 || only == DLK_ACH) && (pl.ach > 0 || due) && ra_cfg.count &&
+	    (ra = radl_start_run(v->a, &ra_cfg, v->only[0] ? v->only : NULL)))
+		ra_checked();
 	if (!art && !ra) return false;
 	ring_free(v);
 	memset(&v->ap, 0, sizeof v->ap);
@@ -2065,6 +2093,7 @@ static menu_result game_key(app *a, void *ctx, in_button key, int sel)
 			if (strcmp(a->sys.systems[si].folder, x->sc->folder)) continue;
 			gl = sys_games(&a->view[si]);
 			if (x->g->gi < gl->count) media_screen(a, si, &gl->items[x->g->gi]);
+			mt_start();               /* the Cover and Video page stopped it */
 			one_look(x);
 			return MENU_CHANGED;
 		}
@@ -2330,6 +2359,55 @@ static void sysgames_keys(dl_view *v, dl_frame *f, unsigned now)
 	}
 }
 
+/* ---- a test of the page on a host -------------------------------------------------------
+ * ZYPEROS_DOWNLOADS_TEST: the launcher opens the page at once and plays a
+ * script, commas between its steps: a button (A B X Y START UP DOWN LEFT
+ * RIGHT), wait=MS, count (until the count ends), shot=PATH (the page as
+ * drawn now). Each step said on stderr with the page's state; the launcher
+ * quits at the script's end. The real loop and the real card: what the
+ * shots' stand-in counts cannot show. */
+static const char *g_dl_test;
+static unsigned g_dl_until;
+static bool g_dl_count_wait;
+
+static void dl_test(dl_view *v, app *a)
+{
+	static const struct { const char *name; in_button b; } BTN[] = {
+		{ "A", IN_ACCEPT }, { "B", IN_BACK }, { "X", IN_X }, { "Y", IN_Y }, { "START", IN_START },
+		{ "UP", IN_UP }, { "DOWN", IN_DOWN }, { "LEFT", IN_LEFT }, { "RIGHT", IN_RIGHT },
+	};
+	char tok[512];
+	unsigned now = plat_now_ms();
+	size_t n, i;
+
+	if (!g_dl_test) return;
+	if (now < g_dl_until) return;
+	if (g_dl_count_wait && dl_counting()) return;
+	g_dl_count_wait = false;
+	if (!*g_dl_test) { want_quit = 1; return; }
+	n = strcspn(g_dl_test, ",");
+	snprintf(tok, sizeof tok, "%.*s", (int)n, g_dl_test);
+	g_dl_test += n + (g_dl_test[n] == ',');
+	g_dl_until = now + 300;
+	for (i = 0; i < sizeof BTN / sizeof BTN[0]; i++)
+		if (!strcmp(tok, BTN[i].name)) a->in.pressed[BTN[i].b] = true;
+	if (!strncmp(tok, "wait=", 5)) g_dl_until = now + (unsigned)atoi(tok + 5);
+	if (!strcmp(tok, "count")) g_dl_count_wait = true;
+	if (!strncmp(tok, "shot=", 5)) {
+		SDL_Surface *out = SDL_CreateRGBSurfaceWithFormat(0, ZYPEROS_SCREEN_W, ZYPEROS_SCREEN_H, 32,
+		                                                  SDL_PIXELFORMAT_RGBA32);
+
+		dl_draw(v, anim_now());
+		if (out) {
+			SDL_RenderReadPixels(a->r, NULL, SDL_PIXELFORMAT_RGBA32, out->pixels, out->pitch);
+			IMG_SavePNG(out, tok + 5);
+			SDL_FreeSurface(out);
+		}
+	}
+	fprintf(stderr, "downloads-test: %s view=%d depth=%d counted=%s systems=%d counting=%d live=%d\n", tok,
+	        top_of(v)->v, v->depth, v->c ? "yes" : "no", v->c ? v->c->n : 0, dl_counting(), dl_live());
+}
+
 /* ---- the page ------------------------------------------------------------------------- */
 
 static void dl_page(app *a, const char *only)
@@ -2360,15 +2438,18 @@ static void dl_page(app *a, const char *only)
 		run_finish(v);
 		push(v, V_DONE);
 	}
+	mt_start();
 	base = panel_base();
 	g_base_page = dl_base;
 	g_base_ctx = v;
+	g_dl_test = getenv("ZYPEROS_DOWNLOADS_TEST");
 	while (!want_quit && a->running) {
 		unsigned now = anim_now();
 		dl_frame *f = top_of(v);
 		bool anim;
 
 		plat_input_poll(&a->in);
+		dl_test(v, a);
 		muse_poll();
 		aout_apply(false);
 		if (a->in.quit_requested) { a->running = false; break; }
@@ -2479,6 +2560,7 @@ static void dl_page(app *a, const char *only)
 		ui_frame_rest(8);
 	}
 	close_run_view();
+	mt_stop();
 	mm_close(base, anim_now(), 0, g_menu_closing);
 	ring_free(v);
 	icons_free(v);

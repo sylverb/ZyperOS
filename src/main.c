@@ -7438,6 +7438,11 @@ int main(int argc, char *argv[])
 	 * card's empty .media folders go once the shelf is up (after_start_step). */
 	up_cable_tidy();
 
+	/* A test of MENU > Downloads (dl_test): the page at once */
+	if (getenv("ZYPEROS_DOWNLOADS_TEST")) {
+		downloads_screen(&a);
+		a.running = false;
+	}
 	/* A test of MENU > Scraper's page (scp_test): the page at once */
 	if (getenv("ZYPEROS_SCRAPER_TEST")) {
 		scraper_page(&a, NULL);
