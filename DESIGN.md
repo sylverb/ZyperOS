@@ -2091,7 +2091,17 @@ space; used excludes reserved blocks. Capacity comes from the battery
 controller's charge_full and charge_full_design in microamp-hours, displayed
 as whole mAh with grouped thousands. Health is their ratio, rounded to a whole
 percent and capped at 100, explicitly "100% estimate" rather than a measured
-wear claim. Missing, zero or invalid capacity readings show "unknown". Storage
+wear claim. Missing, zero or invalid capacity readings show "unknown". On the
+GKD Pixel 2 the full charge was only ever the design's 1730 mAh, so health was
+100% on any battery. Its kernel now measures it (plastron's
+9-px2-rk817-wear.patch): a full charge marks the gauge's counter, and the next
+start after 30 minutes or more off, at 50% or under at rest, compares what went
+out with that level and moves the full charge half way to the measure, kept in
+the PMIC over updates, slots and cards. It says how many times it measured
+(charge_full_learned); until the first, Battery health and Full charge both
+read "Not measured yet", not a 100% that says nothing. The Brick's gauge does
+not say, and shows the estimate as before. *(On 2026-11-19 I asked whether
+updates lose the battery's health; they did not: it had never been measured.)* Storage
 and capacity refresh every two seconds while About is open. The charge row
 uses the shared battery cache and follows the charging corner's timing.
 

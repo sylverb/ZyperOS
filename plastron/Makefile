@@ -275,17 +275,22 @@ charge-limit-check:
 # The Pixel 2's battery level at a start (board/px2/start-soc-check.c): the
 # voltage at rest and where a start's level comes from, taken out of its
 # kernel patch as they stand (rk817_rest_uv, rk817_start_from and
-# RK817_START_CHARGING_UA), and the OCV table and internal resistance out of
+# RK817_START_CHARGING_UA), the full charge a start measures out of the wear
+# patch (rk817_learn_fcc), and the OCV table and internal resistance out of
 # its device tree. No Docker, no kernel, no device. Into out/.
 START_SOC_PATCH := buildroot/board/px2/patches/linux/9-px2-rk817-start-soc.patch
 START_SOC_DTS := buildroot/board/px2/dts/rk3326s-gkd-pixel2.dts
 START_SOC_OUT := out/start-soc-check
+# and the full charge a start measures (rk817_learn_fcc, RK817_LEARN_MAX_SOC)
+WEAR_PATCH := buildroot/board/px2/patches/linux/9-px2-rk817-wear.patch
 start-soc-check:
 	@mkdir -p $(START_SOC_OUT) && \
 		{ sed -n 's/^+\(#define RK817_START_CHARGING_UA\)/\1/p' $(START_SOC_PATCH) && \
 		  sed -n '/^+enum rk817_start_from {/,/^+};/s/^+//p' $(START_SOC_PATCH) && \
 		  sed -n '/^+static int rk817_rest_uv(/,/^+}/s/^+//p' $(START_SOC_PATCH) && \
-		  sed -n '/^+static enum rk817_start_from rk817_start_from(/,/^+}/s/^+//p' $(START_SOC_PATCH); \
+		  sed -n '/^+static enum rk817_start_from rk817_start_from(/,/^+}/s/^+//p' $(START_SOC_PATCH) && \
+		  sed -n 's/^+\(#define RK817_LEARN_MAX_SOC\)/\1/p' $(WEAR_PATCH) && \
+		  sed -n '/^+static int rk817_learn_fcc(/,/^+}/s/^+//p' $(WEAR_PATCH); \
 		} > $(START_SOC_OUT)/rule.c && \
 		{ sed -n 's/.*factory-internal-resistance-micro-ohms = <\([0-9]*\)>;.*/#define PX2_R_UOHM \1/p' $(START_SOC_DTS) && \
 		  echo 'static const int PX2_OCV[][2] = {' && \

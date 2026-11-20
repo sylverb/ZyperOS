@@ -1,0 +1,304 @@
+From: plastron
+Subject: [PATCH] power: supply: rk817: the full charge measured, the battery's wear
+
+charge_full was always the design's (1730 mAh on a GKD Pixel 2): the driver
+never measured what the battery holds when full, so ZyperOS's About said a
+battery health of 100% on every battery, however old, and the level counted
+down from a full charge the battery may no longer hold.
+
+Now a start measures it. A full charge (CHARGE_FINISH, not while the charge
+limit holds the battery) sets the counter to the full charge and marks the
+counter as counting from it. The next start after 30 minutes or more off
+makes the level again from the voltage at rest, as before. If the counter
+was counting from a full charge, what it says went out since, against that
+level at rest, measures the full charge: 980 mAh out to 30% at rest is
+980 / 0.7 = 1400 mAh. Taken only at 50% or under at rest (half the battery or
+more out, so the OCV table's error moves the measure little), and not at 0%,
+where the table cannot see the end. A measure under half the design's or
+over 6/5 of it is not taken; one over the design's counts as the design's.
+The full charge moves half way to each measure, so a few starts settle it.
+The level after the start is then made from the measured full charge.
+
+Kept in the PMIC's nvram with the rest, which the PMIC holds as long as it
+has a battery, so over updates, slots and cards. The mark and the count of
+measures sit in DATA2, the top byte of the BSP's 24-bit remaining capacity,
+which no battery's mAh needs. An older kernel writes that byte as 0 (nothing
+measured, no mark) and keeps using a measured full charge from DATA3.
+
+charge_full_learned, on the battery, says how many times it was measured,
+so ZyperOS can tell "not measured yet" from a battery as good as new. A
+second "battery at start:" line gives the full charge, the design's, the
+measure count and what this start did, for the start's own log.
+---
+ drivers/power/supply/rk817_charger.c | 161 ++++++++++++++++++++++++++++++++++-
+ 1 file changed, 158 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/power/supply/rk817_charger.c b/drivers/power/supply/rk817_charger.c
+index 42b8eab..c8443d8 100644
+--- a/drivers/power/supply/rk817_charger.c
++++ b/drivers/power/supply/rk817_charger.c
+@@ -120,6 +120,12 @@ struct rk817_charger {
+ 	 */
+ 	bool soc_cal;
+ 
++	/*
++	 * The battery's wear, kept in the PMIC's nvram with the rest: DATA2's
++	 * flags (RK817_NV_FULL, RK817_NV_LEARNS_SHIFT)
++	 */
++	u8 nv_flags;
++
+ 	/* Implementation specific immutable properties from device tree */
+ 	int res_div;
+ 	int sleep_enter_current_ua;
+@@ -259,6 +265,32 @@ static void rk817_bat_calib_cur(struct rk817_charger *charger)
+ 			  bulk_reg, 2);
+ }
+ 
++/*
++ * The battery's wear: the full charge it holds now, measured. Before, the
++ * driver only ever had the design's, so charge_full was charge_full_design
++ * and a "battery health" of charge_full over the design's was 100% on any
++ * battery, however old.
++ *
++ * A full charge (CHARGE_FINISH, rk817_bat_calib_cap) sets the counter to the
++ * full charge, and from there the counter counts what goes out and in. The
++ * next start after 30 minutes or more off makes the level again from the
++ * voltage at rest (rk817_start_from). When the counter has counted from a
++ * full charge until then, what it says went out, against that level at rest,
++ * measures the full charge: a battery at rest at 30% that gave 980 mAh since
++ * it was full holds 980 / 0.7 = 1400 mAh (rk817_learn_fcc). That level then
++ * becomes the counter's new start, and the next full charge sets the mark
++ * again.
++ *
++ * Kept in the PMIC's nvram with the rest, which the PMIC holds as long as it
++ * has a battery: over updates, either slot and any card. DATA0..2 is the
++ * BSP's remaining capacity in mAh, 24 bits where 16 hold any battery, so its
++ * top byte, DATA2, holds the wear's flags. A kernel before these wrote that
++ * byte as 0: no mark, nothing measured, which is what it knew.
++ */
++#define RK817_NV_FULL		BIT(0)	/* the counter counts from a full charge */
++#define RK817_NV_LEARNS_SHIFT	1	/* bits 1..7: times the full charge was measured */
++#define RK817_NV_LEARNS_MAX	127
++
+ /*
+  * note that only the fcc_mah is really used by this driver, the other values
+  * are to ensure we can remain backwards compatible with the BSP kernel.
+@@ -282,7 +314,9 @@ static int rk817_record_battery_nvram_values(struct rk817_charger *charger)
+ 	 * the BSP kernel for the rsoc value.
+ 	 */
+ 	rsoc = (charger->soc * charger->fcc_mah) / 100000;
+-	put_unaligned_le24(rsoc, bulk_reg);
++	put_unaligned_le16(clamp(rsoc, 0, 0xffff), bulk_reg);
++	/* The top byte, which no battery's mAh needs: the wear's flags */
++	bulk_reg[2] = charger->nv_flags;
+ 	ret = regmap_bulk_write(charger->rk808->regmap, RK817_GAS_GAUGE_DATA0,
+ 				bulk_reg, 3);
+ 	if (ret < 0)
+@@ -352,6 +386,8 @@ static int rk817_bat_calib_cap(struct rk817_charger *charger)
+ 				  bulk_reg, 4);
+ 
+ 		charger->soc_cal = 1;
++		/* The counter counts from a full charge now (rk817_learn_fcc) */
++		charger->nv_flags |= RK817_NV_FULL;
+ 		dev_dbg(charger->dev,
+ 			"Fully charged. SOC is %d, full capacity is %d\n",
+ 			charger->soc, charger->fcc_mah * 1000);
+@@ -805,6 +841,8 @@ static int rk817_bat_set_prop(struct power_supply *ps,
+ 			(val->intval > charger->bat_charge_full_design_uah))
+ 			return -EINVAL;
+ 		charger->fcc_mah = val->intval / 1000;
++		/* Not the full charge the counter counted from any more */
++		charger->nv_flags &= ~RK817_NV_FULL;
+ 		return rk817_bat_calib_cap(charger);
+ 	case POWER_SUPPLY_PROP_CHARGE_CONTROL_END_THRESHOLD:
+ 		/* The start follows the end, RK817_CHARGE_LIMIT_GAP under it */
+@@ -1002,6 +1040,50 @@ static enum rk817_start_from rk817_start_from(bool new_battery, int off_min,
+ 	return RK817_START_VOLTAGE;
+ }
+ 
++/*
++ * The level at rest a start may measure the full charge at: 50% or under, so
++ * half the battery or more went out since it was full. The more went out,
++ * the less the OCV table's error moves the measure: 3 points at 50% are 6%
++ * of it, at 25% 4%. And over 0%: under the table's last voltage the level
++ * reads 0% however low it is, so the end of the battery is not seen there.
++ */
++#define RK817_LEARN_MAX_SOC	50000
++
++/*
++ * The full charge a start measures (RK817_NV_FULL), in mAh, or 0 when this
++ * start cannot measure it.
++ *
++ * fcc_mah: the full charge the counter counted from. left_mah: what the
++ * counter said was left at its last update before the time off, from the
++ * nvram, not from the counter itself, which drifts while the RK817 is off.
++ * rest_soc: the level the voltage at rest gives, in thousandths of a percent.
++ * design_mah: the design's.
++ *
++ * The result is half way from the full charge it had to the one measured,
++ * so one start's error moves it half as far, and a few starts settle it. A
++ * measure over the design's counts as the design's: charge_full is never
++ * more, and a health over 100% tells the player nothing. A measure under
++ * half the design's, or over 6/5 of it, is one the counter or the table got
++ * wrong, and it is not taken.
++ */
++static int rk817_learn_fcc(int fcc_mah, int left_mah, int rest_soc,
++			   int design_mah)
++{
++	int used, measured;
++
++	if (rest_soc <= 0 || rest_soc > RK817_LEARN_MAX_SOC || left_mah < 0)
++		return 0;
++	used = fcc_mah - left_mah;
++	if (used <= 0)
++		return 0;
++	measured = (int)div_s64((s64)used * 100000, 100000 - rest_soc);
++	if (measured < design_mah / 2 || measured > design_mah * 6 / 5)
++		return 0;
++	if (measured > design_mah)
++		measured = design_mah;
++	return (fcc_mah + measured + 1) / 2;
++}
++
+ static int
+ rk817_read_or_set_full_charge_on_boot(struct rk817_charger *charger,
+ 				struct power_supply_battery_info *bat_info)
+@@ -1017,8 +1099,9 @@ rk817_read_or_set_full_charge_on_boot(struct rk817_charger *charger,
+ 	u32 boot_voltage, boot_charge_mah;
+ 	int ret, reg, off_time = 0, tmp, on_source = 0;
+ 	int boot_ua, rest_uv, voltage_soc, counter_soc = -1;
++	int left_mah = -1, was_fcc, learned = 0, learns;
+ 	enum rk817_start_from from;
+-	char counter[16] = "none";
++	char counter[16] = "none", wear[96];
+ 	bool first_boot;
+ 
+ 	/*
+@@ -1064,6 +1147,8 @@ rk817_read_or_set_full_charge_on_boot(struct rk817_charger *charger,
+ 
+ 		/* Guess that full charge capacity is the design capacity */
+ 		charger->fcc_mah = charger->bat_charge_full_design_uah / 1000;
++		/* Nothing measured of a battery new to the gauge */
++		charger->nv_flags = 0;
+ 		/*
+ 		 * Set battery as "set up". BSP driver uses this value even
+ 		 * though datasheet claims it's a read-only value.
+@@ -1078,6 +1163,16 @@ rk817_read_or_set_full_charge_on_boot(struct rk817_charger *charger,
+ 		ret = rk817_read_battery_nvram_values(charger);
+ 		if (ret < 0)
+ 			return ret;
++		/*
++		 * What was left at the last update before this start, and the
++		 * wear's flags (rk817_record_battery_nvram_values)
++		 */
++		ret = regmap_bulk_read(rk808->regmap, RK817_GAS_GAUGE_DATA0,
++				       bulk_reg, 3);
++		if (ret < 0)
++			return ret;
++		left_mah = get_unaligned_le16(bulk_reg);
++		charger->nv_flags = bulk_reg[2];
+ 
+ 		regmap_bulk_read(rk808->regmap, RK817_GAS_GAUGE_Q_PRES_H3,
+ 				 bulk_reg, 4);
+@@ -1106,6 +1201,35 @@ rk817_read_or_set_full_charge_on_boot(struct rk817_charger *charger,
+ 		charger->soc = from == RK817_START_VOLTAGE ? voltage_soc :
+ 							     counter_soc;
+ 
++	/*
++	 * The full charge, measured at a start from the voltage at rest when
++	 * the counter counted to it from a full charge (rk817_learn_fcc). From
++	 * the voltage, the counter starts from that level now, not from a full
++	 * charge, whether this start measured or not.
++	 */
++	was_fcc = charger->fcc_mah;
++	learns = charger->nv_flags >> RK817_NV_LEARNS_SHIFT;
++	if (from == RK817_START_VOLTAGE && (charger->nv_flags & RK817_NV_FULL)) {
++		learned = rk817_learn_fcc(charger->fcc_mah, left_mah, voltage_soc,
++					  charger->bat_charge_full_design_uah / 1000);
++		if (learned) {
++			charger->fcc_mah = learned;
++			learns = min(learns + 1, RK817_NV_LEARNS_MAX);
++		}
++		snprintf(wear, sizeof(wear),
++			 "%s: %d mAh out since full, to %d%% at rest",
++			 learned ? "measured now" : "not measured",
++			 was_fcc - left_mah, (voltage_soc + 500) / 1000);
++	} else {
++		snprintf(wear, sizeof(wear), "%s",
++			 (charger->nv_flags & RK817_NV_FULL) ?
++			 "counting from a full charge" : "not counting from a full charge");
++	}
++	if (from == RK817_START_VOLTAGE || from == RK817_START_NEW)
++		charger->nv_flags &= ~RK817_NV_FULL;
++	charger->nv_flags = (charger->nv_flags & RK817_NV_FULL) |
++			    (learns << RK817_NV_LEARNS_SHIFT);
++
+ 	/*
+ 	 * One line for each start, with all that the level came from: ZyperOS
+ 	 * copies it into the start's own log, so a report of a level that
+@@ -1121,6 +1245,11 @@ rk817_read_or_set_full_charge_on_boot(struct rk817_charger *charger,
+ 		 off_time >= 0xff ? "+" : "", on_source,
+ 		 (int)boot_voltage / 1000, boot_ua / 1000, rest_uv / 1000,
+ 		 (voltage_soc + 500) / 1000, counter);
++	/* Copied into the start's log with the line above (its "battery at start: ") */
++	dev_info(charger->dev,
++		 "battery at start: full charge %d mAh of the design's %d, was %d, measures %d; %s\n",
++		 charger->fcc_mah, charger->bat_charge_full_design_uah / 1000,
++		 was_fcc, learns, wear);
+ 
+ 	/*
+ 	 * Now we have our full charge capacity and soc, init the columb
+@@ -1145,7 +1274,8 @@ rk817_read_or_set_full_charge_on_boot(struct rk817_charger *charger,
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	return 0;
++	/* The full charge and the wear's flags, kept now, not at the first update */
++	return rk817_record_battery_nvram_values(charger);
+ }
+ 
+ static int rk817_battery_init(struct rk817_charger *charger,
+@@ -1327,6 +1457,28 @@ static void rk817_charging_monitor(struct work_struct *work)
+ 	queue_delayed_work(system_percpu_wq, &charger->work, msecs_to_jiffies(8000));
+ }
+ 
++/*
++ * charge_full_learned: how many times the full charge was measured, 0 to
++ * 127 (RK817_NV_FULL). 0 says charge_full is still the design's, a guess,
++ * not a battery as good as new.
++ */
++static ssize_t charge_full_learned_show(struct device *dev,
++					struct device_attribute *attr, char *buf)
++{
++	struct power_supply *psy = dev_get_drvdata(dev);
++	struct rk817_charger *charger = power_supply_get_drvdata(psy);
++
++	return sysfs_emit(buf, "%u\n",
++			  charger->nv_flags >> RK817_NV_LEARNS_SHIFT);
++}
++static DEVICE_ATTR_RO(charge_full_learned);
++
++static struct attribute *rk817_bat_attrs[] = {
++	&dev_attr_charge_full_learned.attr,
++	NULL
++};
++ATTRIBUTE_GROUPS(rk817_bat);
++
+ static void rk817_cleanup_node(void *data)
+ {
+ 	struct device_node *node = data;
+@@ -1443,11 +1595,14 @@ static int rk817_charger_probe(struct platform_device *pdev)
+ 
+ 	charger->sleep_filter_current_ua = of_value;
+ 
++	/* The battery's own: charge_full_learned */
++	pscfg.attr_grp = rk817_bat_groups;
+ 	charger->bat_ps = devm_power_supply_register(&pdev->dev,
+ 						     &rk817_bat_desc, &pscfg);
+ 	if (IS_ERR(charger->bat_ps))
+ 		return dev_err_probe(dev, -EINVAL,
+ 				     "Battery failed to probe\n");
++	pscfg.attr_grp = NULL;
+ 
+ 	charger->chg_ps = devm_power_supply_register(&pdev->dev,
+ 						     &rk817_chg_desc, &pscfg);

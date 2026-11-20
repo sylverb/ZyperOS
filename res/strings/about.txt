@@ -167,6 +167,17 @@ de = ca. %u\u00a0%%
 ja = 推定 %u%%
 it = %u%% stimato
 
+[about.not_measured]
+note = The Battery health and Full charge rows' value while the battery's full charge was never measured: the handheld measures it after a full charge, at a later start after time off, and until then knows only the design's. A value, begun with a capital; it stands beside rows of either gender, so a form that does not agree is best. tight: beside About's longest labels (Battery health)
+en = Not measured yet
+zh-Hans = 尚未测量
+es = Aún sin medir
+pt-BR = Ainda sem medição
+fr = Pas encore de mesure
+de = Noch nicht gemessen
+ja = 未測定
+it = Ancora nessuna misura
+
 [about.full_charge]
 note = About, page 2: what the battery holds when full now, "1,730 mAh".
 en = Full charge
