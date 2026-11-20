@@ -541,6 +541,9 @@ downloads.delete_sets_ask
 downloads.delete_sys_sets_ask
 downloads.delete_sets_body
 downloads.key_delete
+downloads.delete_cheats_ask
+downloads.delete_cheats_body
+downloads.delete_sys_cheats_ask
 
 # downloads: Zyper's bubble on the shelf after a download that ended behind the screens
 downloads.done_news
@@ -552,6 +555,8 @@ downloads.n_videos.one
 downloads.n_videos.other
 downloads.n_names.one
 downloads.n_names.other
+downloads.n_cheats.one
+downloads.n_cheats.other
 
 # downloads: a game's panel while its file comes, and a game, a tile or a row in a state no fixture has
 downloads.getting
@@ -561,6 +566,8 @@ downloads.all_off
 downloads.has_names
 downloads.w_video
 downloads.no_achievements
+downloads.no_cheats
+downloads.libretro_no_answer
 downloads.from_ra
 downloads.for_on_n.one
 downloads.for_on_n.other

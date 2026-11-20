@@ -550,13 +550,22 @@ behind it.
 | Row | What it is |
 |---|---|
 | **Download** | first, so **A**, **A** from MENU gets everything: every kind that is in it, the servers at the same time. Its value says how much and how long (`186 MB · about 12 min`), `Nothing to fetch`, `Needs Wi-Fi`, or how far a download has got (`Downloading · 41%`); over the keys, what it adds and what the card has (`186 MB to fetch · 11.2 GB free`), in red when the card would keep less than 200 MB, and then **A** says `Not enough room on the card` |
-| **Covers**, **Videos**, **Names and Details**, **Achievements** | each kind with its mark and what is still missing (`41 missing`, `63 to fetch`, `199 to look up`, `150 to download`), `Complete`, `Ready offline`, `Off`, `Needs ScreenScraper` or `Sign in first`. **LEFT** and **RIGHT** take a kind in or out of **Download**, and its size and time change at once. Over the keys, where it comes from and its room on the card. **A** opens the kind's own page, below |
+| **Covers**, **Videos**, **Names and Details**, **Achievements**, **Cheats** | each kind with its mark and what is still missing (`41 missing`, `63 to fetch`, `199 to look up`, `150 to download`, `640 to check`), `Complete`, `Ready offline`, `Off`, `Needs ScreenScraper` or `Sign in first`. **LEFT** and **RIGHT** take a kind in or out of **Download**, and its size and time change at once. Over the keys, where it comes from and its room on the card. **A** opens the kind's own page, below |
 | **Y** Systems | a table: a row per system, a column per kind. A cell says what is missing, a tick when nothing is, or a dash when it is off for that system. **A** switches the cell, **X** deletes its videos or achievement sets (after a question), **Y** opens the system's games |
 | **START** Settings | **ScreenScraper**, **RetroAchievements** and **SteamGridDB**, each with its account; **Video Snaps**; **Names and Details** (`On` or `Off`, the same as its row); and **On the Card**, each kind's room, where **A** deletes every video snap or every achievement set, after a question |
 
 Every kind is in **Download** to start, but each system's videos stay off
 until you switch them on (a snap is a megabyte or three), and achievements
 need a RetroAchievements sign-in.
+
+**Cheats** come from libretro's cheat list (libretro-database, CC BY-SA 4.0):
+a download reads the list's index once (about 4 MB) and then takes only the
+files of the games on your card, a few KB each, so the game's Cheats list
+has them with no network. Your own `.cht` file in `Cheats/<console>/` is never
+replaced. libretro rebuilds its list every day; **Download** looks for
+changes once a day and takes again only the games whose files changed. On the
+Card deletes the downloaded cheats; your own files stay, and cheats that were
+on turn off.
 
 **A kind's page** has each system's icon over a tick, lit when the system
 lacks nothing (dim when its switch is off), and two tiles: what the card

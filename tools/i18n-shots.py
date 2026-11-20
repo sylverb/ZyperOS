@@ -473,8 +473,8 @@ EXTRA = {
     # kind done, no network and nobody signed in, counting, on a kind, a kind
     # out), Settings, the kinds' pages, Systems, a system's games and a
     # game's panel, the run (going, waiting for Wi-Fi, paused), done and
-    # stopped, On the Card, RetroAchievements' account, a console's page and
-    # Videos for
+    # stopped, On the Card, RetroAchievements' account, a console's page,
+    # Videos for and Cheats' page
     "downloads": ("demo", "PS1", ["--downloads", "0"]),
     "downloads-running": ("demo", "PS1", ["--downloads", "1"]),
     "downloads-done": ("demo", "PS1", ["--downloads", "2"]),
@@ -498,6 +498,7 @@ EXTRA = {
     "downloads-ra-account": ("demo", "PS1", ["--downloads", "20"]),
     "downloads-console": ("demo", "PS1", ["--downloads", "21"]),
     "downloads-videos-for": ("demo", "PS1", ["--downloads", "22"]),
+    "downloads-cheats": ("demo", "PS1", ["--downloads", "23"]),
     "downloads-ra-signed-out": ("demo", "PS1", ["--downloads", "24"]),
     "downloads-on-names": ("demo", "PS1", ["--downloads", "25"]),
     "downloads-covers-complete": ("demo", "PS1", ["--downloads", "26"]),

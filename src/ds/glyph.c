@@ -301,6 +301,18 @@ static void g_build(ui_glyph g, g_shape *s)
 		g_line(s, 0.74f, 0.81f, 0.60f, 0.27f, G_W);
 		return;
 	}
+	if (g == UI_GLYPH_WAND) {
+		/* A wand from the bottom left, a star at its tip and two sparkles -
+		 * cheats */
+		g_line(s, 0.19f, 0.81f, 0.58f, 0.42f, G_W);
+		g_line(s, 0.69f, 0.13f, 0.69f, 0.41f, G_W);
+		g_line(s, 0.55f, 0.27f, 0.83f, 0.27f, G_W);
+		g_line(s, 0.31f, 0.17f, 0.31f, 0.27f, G_W);
+		g_line(s, 0.26f, 0.22f, 0.36f, 0.22f, G_W);
+		g_line(s, 0.81f, 0.54f, 0.81f, 0.64f, G_W);
+		g_line(s, 0.76f, 0.59f, 0.86f, 0.59f, G_W);
+		return;
+	}
 	if (g == UI_GLYPH_GRID) {
 		/* Four squares, two by two - SteamGridDB */
 		static const float o[4][2] = { { 0.14f, 0.14f }, { 0.56f, 0.14f }, { 0.14f, 0.56f }, { 0.56f, 0.56f } };

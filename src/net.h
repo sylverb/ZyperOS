@@ -103,7 +103,7 @@ int net_get_pngs(const char *const *urls, const char *const *paths, int n,
  *
  * Everything runs on the screens' thread, so the slot in use is plain
  * state: whoever selects one puts the old one back before returning. */
-typedef enum { NET_SLOT_MAIN, NET_SLOT_ART, NET_SLOT_RA, NET_SLOTS } net_slot;
+typedef enum { NET_SLOT_MAIN, NET_SLOT_ART, NET_SLOT_RA, NET_SLOT_CHT, NET_SLOTS } net_slot;
 net_slot net_slot_use(net_slot s);
 
 /* The same request, started and left to run. Nothing waits for it.

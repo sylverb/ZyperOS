@@ -180,6 +180,11 @@ static const char *remote_nth(const char *folder, int n)
 	return NULL;
 }
 
+const char *art_lr_collection(const char *folder, int n)
+{
+	return remote_nth(folder, n);
+}
+
 static const char *remote_for(const char *folder)
 {
 	return remote_nth(folder, 0);
