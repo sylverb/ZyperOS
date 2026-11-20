@@ -44,6 +44,18 @@ typedef struct {
  * no disc bios is BIOS_OK. */
 bios_state bios_check(const system_cfg *s, const char *dir, bios_result *r);
 
+/* Whether `file`, a game on shelf `s`, needs firmware: a file of a type a
+ * `bios|tag|names|extensions` line names needs that line's (an .fds image
+ * on the NES shelf, disksys.rom), and a disc (`disc`, lib_is_disc's
+ * answer, which this file does not decide) or any game on a shelf whose
+ * whole library needs it (bios_every) the disc bios */
+bool bios_needs(const system_cfg *s, const char *file, bool disc);
+
+/* bios_check for the firmware `file` needs, as bios_needs picks it. A
+ * file that needs none is BIOS_OK. */
+bios_state bios_check_file(const system_cfg *s, const char *file, bool disc, const char *dir,
+                           bios_result *r);
+
 /* A file's size for a player, in the language that is on: "0 bytes",
  * "10 bytes", "8 KB", "512 KB", "2 MB" (1024s, as firmware sizes are said).
  * KB and MB round down. */

@@ -858,20 +858,37 @@ static void system_menu(void)
 	u.sys_core = "gambatte";
 	u.game_count = 412;
 	u.dmode = "Sharp";
+	u.border = "Blur";
 	n = sys_menu_build(&u, rows, &b, &heading);
 
 	printf("system menu:\n");
-	ck(n == SM_ROWS - 2, "every row is filled, but Game Language, which only the Nintendo DS has, and Timing");
+	ck(n == SM_ROWS - 4, "every row is filled, but Game Language, which only the Nintendo DS has, Super Game Boy, "
+	   "Timing and Handheld Color");
 	ck(!strcmp(heading, "Game Boy"), "heading is the system, not ZyperOS");
 	ck(!strcmp(val(&rows[sm_at(&u, SM_GAMES)]), "412"), "the count is the real one");
 	ck(!strcmp(val(&rows[sm_at(&u, SM_CORE)]), "gambatte"), "the core is the real one");
 	ck(!strcmp(val(&rows[sm_at(&u, SM_DISPLAY)]), "Sharp"), "display mode is passed through");
+	/* Border (src/border.h) right under Display, while the mode leaves room */
+	ck(sm_at(&u, SM_BORDER) == sm_at(&u, SM_DISPLAY) + 1 && !strcmp(rows[sm_at(&u, SM_BORDER)].label, "Border") &&
+	   !strcmp(val(&rows[sm_at(&u, SM_BORDER)]), "Blur") && rows[sm_at(&u, SM_BORDER)].live &&
+	   menu_sound_at(b.sound, n, sm_at(&u, SM_BORDER)) == MENU_SND_RING,
+	   "Border right under Display, its value, a row that steps round, on A too");
+	{
+		sys_ui nb = u;
+		menu_row r2[MENU_MAX_ROWS];
+		menu_bufs b2;
+		const char *h2;
+
+		nb.border = NULL;
+		ck(sys_menu_build(&nb, r2, &b2, &h2) == n - 1 && !has_label(r2, n - 1, "Border"),
+		   "and no Border row where the mode leaves no room");
+	}
 	/* Shader right under Display, no caption between (what a mode does is
 	 * said in its list, beside a picture of it) */
-	ck(sm_at(&u, SM_SHADER) == sm_at(&u, SM_DISPLAY) + 1 &&
+	ck(sm_at(&u, SM_SHADER) == sm_at(&u, SM_BORDER) + 1 &&
 	   !strcmp(rows[sm_at(&u, SM_SHADER)].label, "Shader") &&
 	   !strcmp(val(&rows[sm_at(&u, SM_SHADER)]), "Off") && rows[sm_at(&u, SM_SHADER)].live,
-	   "Shader right after Display, Off when nothing is said, a stop");
+	   "Shader right after Display and its Border, Off when nothing is said, a stop");
 	ck(b.sound[sm_at(&u, SM_SHADER)] == MENU_SND_RING, "and it steps round, on A too");
 	u.shader = "Sharp-Shimmerless";
 	sys_menu_build(&u, rows, &b, &heading);
@@ -1193,20 +1210,20 @@ static void dslang_row(void)
 	u.games = true;
 	u.wifi = WIFI_CONNECTED;
 	u.sys_name = "Nintendo DS"; u.sys_core = "dsperate"; u.core_choice = false;
-	u.game_count = 20; u.dmode = "Native";
+	u.game_count = 20; u.dmode = "Native"; u.border = "Off";
 	np = sys_menu_build(&u, plain, &b, &heading);
 
 	printf("system menu, Game Language:\n");
 	ck(!has_label(plain, np, "Game Language"), "no Game Language row unless the shelf says so");
 	ck(!has_label(plain, np, "Timing"), "nor Timing");
-	ck(np == SM_ROWS - 2, "and every other row is there");
+	ck(np == SM_ROWS - 4, "and every other row is there");
 	ck(!plain[sm_at(&u, SM_CORE)].live && !strcmp(val(&plain[sm_at(&u, SM_CORE)]), "dsperate"),
 	   "one core: the DS's Core row names DSperate and is no row to press");
 
 	u.dslang = "Auto (English)";
 	n = sys_menu_build(&u, rows, &b, &heading);
 	at = sm_at(&u, SM_DSLANG);
-	ck(n == np + 1 && n == SM_ROWS - 1, "one row more, every row but Timing");
+	ck(n == np + 1 && n == SM_ROWS - 3, "one row more, every row but Super Game Boy, Timing and Handheld Color");
 	ck(at == sm_at(&u, SM_CORE) + 1, "right under Core");
 	ck(!strcmp(rows[at].label, "Game Language"), "named Game Language");
 	ck(!strcmp(val(&rows[at]), "Auto (English)"), "saying what it is set to");
@@ -1239,7 +1256,7 @@ static void dslang_row(void)
 	{
 		int gl = sm_at(&u, SM_DSLANG), tr = sm_at(&u, SM_PACE);
 
-		ck(n == SM_ROWS, "with Timing too, every row");
+		ck(n == SM_ROWS - 2, "with Timing too, every row but the Game Boys' Super Game Boy and Handheld Color");
 		ck(tr == gl + 1, "right under Game Language");
 		ck(!strcmp(rows[tr].label, "Timing"), "named Timing");
 		ck(!strcmp(val(&rows[tr]), "Smooth"), "saying what it is set to");
@@ -1259,10 +1276,46 @@ static void dslang_row(void)
 	{
 		int tr = sm_at(&u, SM_PACE);
 
-		ck(n == SM_ROWS - 1, "on a shelf without the DS's row, one row more than its own");
+		ck(n == SM_ROWS - 3, "on a shelf without the DS's row, one row more than its own");
 		ck(tr == sm_at(&u, SM_CORE) + 1 && !strcmp(rows[tr].label, "Timing"), "Timing right under Core");
 		ck(!has_label(rows, n, "Game Language"), "and no DS row with it");
+		ck(!has_label(rows, n, "Super Game Boy"), "nor the Game Boys' Super Game Boy");
 	}
+
+	/* Super Game Boy (src/sgbmode.h): under Core on the Game Boy's and the
+	 * Color's shelves, Timing under it */
+	printf("system menu, Super Game Boy:\n");
+	u.sys_name = "Game Boy";
+	u.sgb = "Its Games";
+	n = sys_menu_build(&u, rows, &b, &heading);
+	{
+		int sg = sm_at(&u, SM_SGB), tr = sm_at(&u, SM_PACE);
+
+		ck(n == SM_ROWS - 2, "with Timing, every row but the DS's and Handheld Color");
+		ck(sg == sm_at(&u, SM_CORE) + 1, "right under Core");
+		ck(tr == sg + 1 && !strcmp(rows[tr].label, "Timing"), "Timing under it");
+		ck(!strcmp(rows[sg].label, "Super Game Boy"), "named Super Game Boy");
+		ck(!strcmp(val(&rows[sg]), "Its Games"), "saying what it is set to");
+		ck(rows[sg].live, "a row to press");
+		ck(menu_sound_at(b.sound, n, sg) == MENU_SND_RING, "that steps round, on A too");
+		ck(sys_menu_system_rows(&u, sm) == n && sm[sg] == SM_SGB, "the build and the list agree");
+	}
+	/* Handheld Color (src/border_pic.h): right under Border, while it is a
+	 * frame that comes in more than one color */
+	printf("system menu, Handheld Color:\n");
+	u.border = "Handheld";
+	u.border_color = "Teal";
+	n = sys_menu_build(&u, rows, &b, &heading);
+	{
+		int bo = sm_at(&u, SM_BORDER), co = sm_at(&u, SM_BORDER_COLOR);
+
+		ck(n == SM_ROWS - 1 && co == bo + 1 && !strcmp(rows[co].label, "Handheld Color") &&
+		   !strcmp(val(&rows[co]), "Teal") && rows[co].live &&
+		   menu_sound_at(b.sound, n, co) == MENU_SND_RING, "right under Border, its color, a row that steps round");
+		ck(sys_menu_system_rows(&u, sm) == n && sm[co] == SM_BORDER_COLOR, "the build and the list agree");
+	}
+	u.border_color = NULL;
+	u.sgb = NULL;
 	u.pace = NULL;
 }
 
@@ -1418,8 +1471,20 @@ static void radio_less(void)
 	for (i = 0, ok = true; i < k; i++) if (pm[i] != (pm_row)i) ok = false;
 	ck(k == PM_ROWS && ok, "every ZyperOS row, in the enum's order");
 	k = sys_menu_system_rows(&u, sm);
-	for (i = 0, ok = true; i < k; i++) if (sm[i] != (sm_row)(i + (i >= SM_DSLANG ? 2 : 0))) ok = false;
-	ck(k == SM_ROWS - 2 && ok, "every system row but Game Language and Timing, in the enum's order");
+	{
+		/* Every row but the four that only some shelves have, in order */
+		int j = 0;
+
+		ok = true;
+		for (i = 0; i < SM_ROWS; i++) {
+			if (i == SM_DSLANG || i == SM_SGB || i == SM_PACE || i == SM_BORDER || i == SM_BORDER_COLOR)
+				continue;
+			if (j >= k || sm[j] != (sm_row)i) ok = false;
+			j++;
+		}
+	}
+	ck(k == SM_ROWS - 5 && ok, "every system row but Game Language, Super Game Boy, Timing, Border and Handheld "
+	   "Color, in the enum's order");
 
 	u.no_wifi = true;
 	u.no_bt = true;
@@ -1513,11 +1578,11 @@ static void radio_less(void)
 	u.games = true;
 	u.no_wifi = true;
 	u.sys_name = "NES"; u.sys_core = "nestopia";
-	u.game_count = 3; u.dmode = "Native";
+	u.game_count = 3; u.dmode = "Native"; u.border = "Off";
 	n = sys_menu_build(&u, rows, &b, &heading);
 	k = sys_menu_system_rows(&u, sm);
 	printf("system menu, no radio at all:\n");
-	ck(n == k && n == SM_ROWS - 2, "Downloads stays: its counts, Systems and deletes need no network");
+	ck(n == k && n == SM_ROWS - 4, "Downloads stays: its counts, Systems and deletes need no network");
 	ck(has_label(rows, n, "Downloads") && !has_label(rows, n, "Box Art"), "Downloads, no Box Art");
 	ck(sm[n - 1] == SM_RESCAN && !strcmp(rows[n - 1].label, "Rescan Folder"),
 	   "Rescan Folder last");

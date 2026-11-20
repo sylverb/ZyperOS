@@ -181,6 +181,8 @@ extern bool shot_cheats_on_first;     /* --cheats-on-first: X pressed */
 extern bool shot_cheats_note;  /* --cheats-note: the top line, as signed in */
 extern bool shot_cheats_crash; /* --cheats-crash: the crash question over the shelf */
 extern int shot_pick_at;       /* --pick-at K */
+extern const char *shot_pick_en; /* --pick-en WORDS */
+extern const char *shot_expect_en; /* --expect-en WORDS|WORDS?|... */
 extern int shot_rows_report;   /* --rows-report */
 extern int shot_hover_sweep;   /* --hover-sweep */
 extern const char *shot_menu_label;

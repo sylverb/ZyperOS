@@ -23,7 +23,7 @@
 
 #include <stdbool.h>
 
-typedef enum { DLK_COVERS, DLK_VIDEOS, DLK_NAMES, DLK_ACH, DLK_KINDS } dl_kind;
+typedef enum { DLK_COVERS, DLK_VIDEOS, DLK_NAMES, DLK_ACH, DLK_CHEATS, DLK_KINDS } dl_kind;
 
 typedef struct {
 	char folder[CFG_STR], tag[8], name[CFG_STR], key[CFG_STR];
@@ -35,6 +35,8 @@ typedef struct {
 	bool names_ok;            /* an account and ScreenScraper knows the system */
 	bool ach_sys;             /* RetroAchievements has games of it on the card */
 	int  ach_games, ach_ready, ach_todo, ach_none;
+	bool cht_sys;             /* libretro's cheat list has a folder for it */
+	int  cht_have, cht_none, cht_todo;
 	bool fx_on[DLK_KINDS];    /* a shot's switches (dl_count_fixture) */
 } dl_sys;
 
@@ -74,7 +76,7 @@ void dl_count_fixture(const dl_counts *fx);
 /* ---- the switches ------------------------------------------------------------- */
 
 /* A kind in Download or out of it (Left and Right on its row): Covers,
- * Videos and Achievements are dl.off.<kind> (absent is in); Names and
+ * Videos, Achievements and Cheats are dl.off.<kind> (absent is in); Names and
  * Details is the Scraper's own switch (scraper.names) */
 bool dl_kind_in(dl_kind k);
 void dl_kind_set(dl_kind k, bool in);
@@ -110,9 +112,9 @@ int dl_sys_todo(const dl_counts *c, int i, dl_kind k, bool *on);
  * servers side by side (the longer of the two); whether it fits with
  * DL_RESERVE to spare; and `n`, the things it would get (MENU's row) */
 typedef struct {
-	int covers, videos, names, looks, ach, ach_sys;
+	int covers, videos, names, looks, ach, ach_sys, cheats;
 	int n;
-	double bytes, art_secs, ra_secs, secs;
+	double bytes, art_secs, ra_secs, cht_secs, secs;
 	bool fits;
 } dl_plan;
 void dl_plan_of(const dl_counts *c, int only, dl_plan *o);
@@ -126,5 +128,9 @@ void dl_plan_of(const dl_counts *c, int only, dl_plan *o);
 #define DL_S_SS     2.0
 #define DL_S_LR     1.0
 #define DL_S_VIDEO  2.0
+/* Cheats: the index's request, a game's file, the share of games that have one */
+#define DL_S_CHT_INDEX 10.0
+#define DL_S_CHT    0.15
+#define DL_CHT_HITS 0.6
 
 #endif

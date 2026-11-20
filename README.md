@@ -95,6 +95,7 @@ Each line has its details in [the guide](docs/guide.md).
 - **Your look:** light and dark, ten accents, three backgrounds for each theme, a folder color, rounded or square corners, how the game or system in focus is marked (a bar, a border, a lift, or none), and Zyper on or off ([light and dark](docs/guide.md#light-and-dark)).
 - **Screen Colors and Night Mode** on the Pixel 2: temperature, tint, contrast, saturation and gamma, ready-made looks, and a warm screen for the night ([how](docs/guide.md#screen-colors-and-night-mode)).
 - **Shaders:** Sharp-Shimmerless for even pixels, and CRT, CRT Curved, Scanlines and LCD Grid for an old screen, each at a strength you set ([how they look](docs/guide.md#shaders)).
+- **Borders round a handheld game:** the three Game Boys' own faces drawn around the game at its scale (the Game Boy Color in its six colors), the game blurred, or a picture of your own ([Border](docs/guide.md#the-system-menu)).
 - **Eight languages,** chosen on the first start or in **MENU > Language**, with every word following it, down to the charging screen ([languages](docs/guide.md#languages)).
 - **A first start that asks:** Zyper teaches each button, then asks for the theme, the home screen, the button sounds and the menu music ([the first start](docs/guide.md#the-first-start)).
 - **Box art the device finds itself** from libretro, ScreenScraper and SteamGridDB, with **Cover and Video** to pick a cover and see it first ([Scraper](docs/guide.md#scraper)).
@@ -132,7 +133,7 @@ Each line has its details in [the guide](docs/guide.md).
 | **Others** | TurboGrafx-16 and CD, Neo Geo, Neo Geo CD, Neo Geo Pocket and Color, WonderSwan and Color, ColecoVision, Vectrex, MSX2, 3DO |
 | **Arcade and more** | Arcade, MAME, NAOMI, Atomiswave, Doom, ScummVM, PICO-8, TIC-80, OpenBOR, J2ME, and PortMaster's ports |
 
-Each system's games go in its folder under `Roms/`, and EmulationStation's folder names (`nds`, `gba`, `psx`, `megadrive` and the rest) work as they are. BIOS files go loose in `Bios/`. [The guide](docs/guide.md#supported-systems) has every folder, file type and core, and [each BIOS file](docs/guide.md#bios-files).
+Each system's games go in its folder under `Roms/`, and EmulationStation's folder names (`nds`, `gba`, `psx`, `megadrive` and the rest) work as they are. BIOS files go loose in `Bios/`; a Famicom Disk System game (`.fds`) needs `disksys.rom` there. A picture of your own in `Borders/<system>/` fills the space around a handheld game (NextUI's `Overlays/` work too). [The guide](docs/guide.md#supported-systems) has every folder, file type and core, and [each BIOS file](docs/guide.md#bios-files).
 
 ## Try it on your Mac
 

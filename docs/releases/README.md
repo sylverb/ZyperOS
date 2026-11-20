@@ -25,6 +25,7 @@ and once for the release:
 | `ZyperOS-Installer-<version>-Windows.exe.sig` | The Windows exe's signature, for the installer's own update |
 | `latest.json` | What the installer's own update reads (`releases/latest/download/latest.json`): the version, and each update file with its signature |
 | `ZyperOS-v<version>-qemu.tar.xz` | The release in QEMU, for the [Simulator](../simulator.md) without plastron's build: `sdcard.img`, `Image` and `u-boot.bin`, with no SSH key in it (from 1.1.0; never in a test kit). `tools/qemu-run.sh fetch` downloads the latest release's, checked against `SHA256SUMS` ([qemu.md](../qemu.md)) |
+| `ZyperOS-v<version>-qemu-sources.tar` | The sources of what only the QEMU image has: px2sim, and the kernel's and U-Boot's configuration for QEMU. Its other packages' are the Pixel 2's sources tar's, at the same versions; `tools/qemu-sources-check.sh` makes sure of it before the release is written |
 | `SHA256SUMS` | The checksums of all of them |
 
 The installer has ZyperOS's version and downloads the newest published

@@ -11,7 +11,14 @@
 #    another sha256, any other file in the archive, two images in one
 #    SHA256SUMS or another --version change nothing; an image/ fetch did not
 #    put there stays unless --force.
-#  - tools/release.sh puts the image in a release's files and its SHA256SUMS.
+#  - tools/release.sh puts the image and its sources tar in a release's files
+#    and its SHA256SUMS.
+#  - The sources tar (plastron's scripts/qemu-sources.sh, on a stand-in
+#    legal-info and the real plastron files) lists px2sim's source, license
+#    and package and the QEMU kernel's and U-Boot's configuration, and is
+#    refused without px2sim's source; tools/qemu-sources-check.sh passes it
+#    beside a Pixel 2 sources tar with the same packages, and names a
+#    copyleft package whose version the Pixel 2's does not have.
 #  - The key: start hands QEMU the public half of the key it uses, the
 #    VMs' own made on the first start when there is no other, as the fw_cfg
 #    file the image reads (a stand-in qemu-system-aarch64 records the
@@ -129,13 +136,67 @@ else bad "--force: $(cat "$T/out")"; fi
 echo "the release"
 REL=$ROOT/tools/release.sh
 grep -q 'qemu_image() { echo "ZyperOS-$TAG-qemu.tar.xz"; }' "$REL" &&
-	grep -q '\[ $QEMU = 0 \] || RELEASE_FILES="$RELEASE_FILES $(qemu_image)"' "$REL" &&
+	grep -q '\[ $QEMU = 0 \] || RELEASE_FILES="$RELEASE_FILES $(qemu_image) ' "$REL" &&
 	grep -q 'shasum -a 256 $RELEASE_FILES $UPDATE_FILES > SHA256SUMS' "$REL" &&
 	ok "tools/release.sh puts ZyperOS-v<version>-qemu.tar.xz in the release's files and SHA256SUMS" ||
 	bad "tools/release.sh does not put the QEMU image in the release's files and SHA256SUMS"
 grep -q 'release-qemu VERSION="$VERSION"' "$REL" && grep -q 'NAME=ZyperOS-v$VERSION-qemu.tar.xz' "$ROOT/plastron/scripts/release-qemu.sh" &&
 	ok "and builds it with plastron's release-qemu, which names it so" ||
 	bad "tools/release.sh and plastron's release-qemu.sh name the image differently"
+
+grep -q 'RELEASE_FILES="$RELEASE_FILES $(qemu_image) $(qemu_sources)"' "$REL" &&
+	grep -q 'GET="$GET $(qemu_image) $(qemu_sources)"' "$REL" &&
+	grep -q 'SOURCES_NAME=ZyperOS-v$VERSION-qemu-sources.tar' "$ROOT/plastron/scripts/release-qemu.sh" &&
+	grep -q 'qemu_sources() { echo "ZyperOS-$TAG-qemu-sources.tar"; }' "$REL" &&
+	ok "and its sources tar, ZyperOS-v<version>-qemu-sources.tar, beside it" ||
+	bad "tools/release.sh does not put the QEMU sources tar in the release, under the name release-qemu.sh gives it"
+
+echo "the sources"
+QS=$ROOT/plastron/scripts/qemu-sources.sh
+QC=$ROOT/tools/qemu-sources-check.sh
+L=$T/legal
+mkdir -p "$L/sources/px2sim-1.0" "$L/licenses/px2sim-1.0"
+cat > "$L/manifest.csv" <<-'EOF2'
+	"PACKAGE","VERSION","LICENSE","LICENSE FILES","SOURCE ARCHIVE","SOURCE SITE","DEPENDENCIES WITH LICENSES"
+	"busybox","1.37.0","GPL-2.0","LICENSE","busybox-1.37.0.tar.bz2","https://busybox.net","gcc-final [GPL-3.0]"
+	"linux","7.1.2","GPL-2.0","COPYING","linux-7.1.2.tar.xz","https://cdn.kernel.org","gcc-final [GPL-3.0]"
+	"llvm","21.1.8","Apache-2.0 with exceptions","LICENSE.TXT","llvm-21.1.8.src.tar.xz","https://github.com","gcc-final [GPL-3.0]"
+	"px2sim","1.0","GPL-3.0+ (px2sim), GPL-2.0 (px2sim_hw)","LICENSE","px2sim-1.0.tar.gz","/src","linux [GPL-2.0]"
+EOF2
+(cd "$T" && mkdir -p px2sim-1.0 && echo src > px2sim-1.0/px2sim.c && tar -czf "$L/sources/px2sim-1.0/px2sim-1.0.tar.gz" px2sim-1.0)
+echo "GPL-3.0" > "$L/licenses/px2sim-1.0/LICENSE"
+if sh "$QS" 9.9.9 "$L" "$ROOT/plastron" "$T/qs.tar" > "$T/out" 2>&1 &&
+	tar -tf "$T/qs.tar" | grep -qx 'qemu-sources/px2sim-1.0/px2sim-1.0.tar.gz' &&
+	tar -tf "$T/qs.tar" | grep -qx 'qemu-sources/plastron/package/px2sim/src/kmod/px2sim_hw.c' &&
+	tar -tf "$T/qs.tar" | grep -qx 'qemu-sources/plastron/board/qemu/linux.config' &&
+	tar -tf "$T/qs.tar" | grep -qx 'qemu-sources/plastron/board/qemu/u-boot.fragment' &&
+	tar -xOf "$T/qs.tar" qemu-sources/README.txt | grep -q 'ZyperOS-v9.9.9-pixel2-sources.tar'; then
+	ok "qemu-sources.sh: px2sim's source, license and package, the QEMU kernel's and U-Boot's configuration, a README"
+else bad "qemu-sources.sh: $(cat "$T/out")"; fi
+mv "$L/sources/px2sim-1.0" "$T/px2sim-src-away"
+if ! sh "$QS" 9.9.9 "$L" "$ROOT/plastron" "$T/qs-none.tar" > "$T/out" 2>&1 && said "no px2sim source archive"; then
+	ok "qemu-sources.sh without px2sim's source: refused"
+else bad "qemu-sources.sh without px2sim's source: $(cat "$T/out")"; fi
+mv "$T/px2sim-src-away" "$L/sources/px2sim-1.0"
+pixel2() { # pixel2 "PKG VER LICENSE"...: a stand-in Pixel 2 sources tar
+	rm -rf "$T/p2"
+	mkdir -p "$T/p2/legal-info"
+	echo '"PACKAGE","VERSION","LICENSE"' > "$T/p2/legal-info/manifest.csv"
+	for r in "$@"; do
+		set -- $r
+		printf '"%s","%s","%s"\n' "$1" "$2" "$3" >> "$T/p2/legal-info/manifest.csv"
+	done
+	(cd "$T/p2" && tar -cf "$T/p2.tar" legal-info)
+}
+pixel2 "busybox 1.37.0 GPL-2.0" "linux 7.1.2 GPL-2.0" "jackswitch 1.0 GPL-3.0"
+if sh "$QC" "$T/qs.tar" "$T/p2.tar" > "$T/out" 2>&1 &&
+	said "4 packages: 2 with the Pixel 2's sources, 1 in the QEMU sources, 1 under licenses that ask for no source"; then
+	ok "qemu-sources-check: every package's source in one of the two tars"
+else bad "qemu-sources-check, all there: $(cat "$T/out")"; fi
+pixel2 "busybox 1.36.1 GPL-2.0" "linux 7.1.2 GPL-2.0"
+if ! sh "$QC" "$T/qs.tar" "$T/p2.tar" > "$T/out" 2>&1 && said "busybox 1.37.0 (GPL-2.0)"; then
+	ok "qemu-sources-check: a GPL package the Pixel 2's has at another version is named"
+else bad "qemu-sources-check, another version: $(cat "$T/out")"; fi
 
 echo "the key"
 grep -qx 'CONFIG_FW_CFG_SYSFS=y' "$QEMU_BOARD/linux-qemu.fragment" &&

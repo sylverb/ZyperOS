@@ -251,7 +251,8 @@ release-smartpro: brick-inputs cores
 	$(BRICK_RUN) sh /src/scripts/release.sh $(VERSION) smartpro > out/release-smartpro.log 2>&1 || \
 		{ tail -30 out/release-smartpro.log; exit 1; }
 
-# QEMU's image for a release, ZyperOS-v<VERSION>-qemu.tar.xz
+# QEMU's image for a release, ZyperOS-v<VERSION>-qemu.tar.xz, and the
+# sources of what only it has, ZyperOS-v<VERSION>-qemu-sources.tar
 # (scripts/release-qemu.sh): built from empty as the devices' release images
 # are, with no SSH key in it, into the volume's release/ beside theirs and
 # out/release-qemu. ZyperOS's tools/release.sh builds it with the devices;
@@ -264,7 +265,7 @@ release-qemu: builder volume
 	rm -rf out/release-qemu
 	mkdir -p out/release-qemu
 	docker run --rm -v $(VOLUME):/work -v $(CURDIR)/out:/out --user root $(IMAGE) \
-		sh -c 'cp /work/release/ZyperOS-v$(VERSION)-qemu.tar.xz /out/release-qemu/ && chown -R $(shell id -u):$(shell id -g) /out/release-qemu'
+		sh -c 'cp /work/release/ZyperOS-v$(VERSION)-qemu.tar.xz /work/release/ZyperOS-v$(VERSION)-qemu-sources.tar /out/release-qemu/ && chown -R $(shell id -u):$(shell id -g) /out/release-qemu'
 	@ls -l out/release-qemu
 
 OUTPUT ?= output

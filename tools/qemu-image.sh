@@ -9,8 +9,8 @@
 # plastron's make release-qemu from a clean worktree of HEAD, as
 # tools/release.sh runs it: an empty output folder, hours, with
 # /tmp/plastron-build-lock held all the while. Into out/qemu-image/:
-# ZyperOS-v<VERSION>-qemu.tar.xz and SHA256SUMS, a release's files as fetch
-# reads them, so
+# ZyperOS-v<VERSION>-qemu.tar.xz, its sources tar and SHA256SUMS, a
+# release's files as fetch reads them, so
 #
 #   ZYPEROS_QEMU_RELEASE_URL=file://$PWD/out/qemu-image tools/qemu-run.sh fetch
 #
@@ -23,6 +23,7 @@ ROOT=$PWD
 VENDOR=${ZYPEROS_VENDOR:-$(git worktree list --porcelain | sed -n '1s/^worktree //p')/vendor}
 VERSION=$(sed -n 's/^VERSION ?= //p' Makefile)
 NAME=ZyperOS-v$VERSION-qemu.tar.xz
+SOURCES=ZyperOS-v$VERSION-qemu-sources.tar
 OUT=$ROOT/out/qemu-image
 LOCK=/tmp/plastron-build-lock
 
@@ -60,7 +61,7 @@ date
 make -C "$SRC/plastron" release-qemu VERSION="$VERSION" ZYPEROS_SRC="$SRC" ZYPEROS_VENDOR="$VENDOR"
 rm -rf "$OUT"
 mkdir -p "$OUT"
-cp "$SRC/plastron/out/release-qemu/$NAME" "$OUT/"
+cp "$SRC/plastron/out/release-qemu/$NAME" "$SRC/plastron/out/release-qemu/$SOURCES" "$OUT/"
 rm -rf $LOCK
 HAVE_LOCK=0
 echo "qemu-image: $LOCK released"
@@ -70,7 +71,8 @@ cd "$OUT"
 xz -t "$NAME"
 names=$(tar -tf "$NAME" | LC_ALL=C sort | tr '\n' ' ')
 [ "$names" = "Image sdcard.img u-boot.bin " ] || stop "$NAME holds $names"
-shasum -a 256 "$NAME" > SHA256SUMS
+tar -tf "$SOURCES" | grep -q '^qemu-sources/px2sim-' || stop "$SOURCES holds no px2sim"
+shasum -a 256 "$NAME" "$SOURCES" > SHA256SUMS
 printf 'ZyperOS %s (%s), plastron/ included\n' "$VERSION" "$HEAD" > BUILT-FROM
 cat SHA256SUMS
 echo "Built in $OUT. Fetch it as a release's: ZYPEROS_QEMU_RELEASE_URL=file://$OUT tools/qemu-run.sh fetch"
