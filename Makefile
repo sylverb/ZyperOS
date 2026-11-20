@@ -47,7 +47,7 @@ src/i18n_tables.c: $(wildcard res/strings/*.txt) tools/i18n.py
 CHECKS = check-cheevos check-hare check-portal check-httpd check-idle check-taskhold check-saver check-rahash check-flacdec check-achtab check-rasubmit check-raoffline check-radl check-dlq check-cheats check-signin check-noticeq check-badges check-badge-shots \
          check-raset check-xfer check-sshlink check-usblink check-devmode check-devices check-devicegen check-model check-ctl check-menus check-artscrape check-artrun check-sgdb check-snapshelf check-snaps check-audioout \
          check-db check-coreopts check-gamedel check-gamern check-esmedia check-media check-snapsize check-corepins check-targets check-storage check-stats check-sort check-bt check-ss check-titles check-savedlib check-search \
-         check-muselib check-musequeue check-museart check-mp4lock check-mp4frame check-mp4size check-p2share check-webtheme check-p2ws check-p2codec check-p2d check-play check-p2 check-resident check-spawn check-controls check-remap check-hotkeys check-rumble check-eq check-eqdsp check-eqplugin check-controls-shots check-logpack \
+         check-muselib check-musequeue check-museart check-mp4lock check-mp4look check-bands check-mp4frame check-mp4size check-p2share check-webtheme check-p2ws check-p2codec check-p2d check-play check-p2 check-resident check-spawn check-controls check-remap check-hotkeys check-rumble check-eq check-eqdsp check-eqplugin check-controls-shots check-logpack \
          check-clock check-autozone check-status check-battery check-battery-eta check-dslang check-pacing check-gpuframes check-dsresume check-corestate check-core-stamp check-core-room check-px2-perf check-px2-snap check-px2 check-lowbatt check-powerhold check-homesys check-collect check-heat check-charging check-corner check-dsv check-sidelights check-osdbar check-hud check-dmodefit check-themefile check-pkkeys check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-bios check-gamefile check-startfail check-kbnav check-randgame check-shelfdir check-look \
          check-tween check-menumotion check-menusnap check-cardgen check-cardart check-focusfx check-blur check-gridrule check-screencard check-focusgeo check-roundrect check-rowmacro check-emptyhome check-zyperrig check-sysmark check-flip check-menushots check-design \
          check-systemart check-linebreak check-portload check-portout check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-messages \
@@ -2417,6 +2417,29 @@ build-native/logpack-check: tools/logpack-check.c src/logpack.c src/logpack.h FO
 # held two seconds the one way out.
 check-mp4lock: build-native/mp4lock-check
 	@./build-native/mp4lock-check
+
+# MP4's Player Looks' motion (src/mp4look.h): bars up at once and down on
+# follow's tau at any frame rate, caps held for peak-hold and down with
+# gravity, every bar at rest after, the bands over a look's bars.
+check-mp4look: build-native/mp4look-check
+	@./build-native/mp4look-check
+
+build-native/mp4look-check: tools/mp4look-check.c src/mp4look.c src/mp4look.h src/design.h FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
+	      -o $@ tools/mp4look-check.c src/mp4look.c -lm
+
+# The daemon's bands for the bars (src/muse/bands.h): each band lit by a tone
+# at its own middle, silence dark, the window where the listener is and not
+# where the decoder got to, and its time. `build-native/bands-check --song
+# FILE` plays a song through it, which is how its scale was set.
+check-bands: build-native/bands-check
+	@./build-native/bands-check
+
+build-native/bands-check: tools/bands-check.c src/muse/bands.c src/muse/bands.h FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O2 -g \
+	      -o $@ tools/bands-check.c src/muse/bands.c -lm -lpthread
 
 build-native/mp4lock-check: tools/mp4lock-check.c src/mp4lock.c src/mp4lock.h src/inbutton.h FORCE
 	@mkdir -p build-native

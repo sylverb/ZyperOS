@@ -338,6 +338,17 @@ EXTRA = {
     # over a video, where the panel is the same and the picture is under it
     # MP4's menu on its shelf, which shows All (albums and videos mixed)
     "mp4-menu": ("media", "MUSE", ["--screen", "games", "--menu"]),
+    # MP4's Player Looks (DESIGN.md 11.64): each on Now Playing, Classic
+    # paused too (its panel says so where the time's words would), and
+    # MENU's Player Look list with its picture, the look under the cursor
+    "np-classic": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--np-look", "classic"]),
+    "np-classic-paused": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--np-look", "classic", "--paused"]),
+    "np-spectrum": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--np-look", "spectrum"]),
+    # ...its list with the cursor on each look, so every look's note is
+    # drawn in its picture's narrow column
+    **{"mp4-look-list-%s" % _l: ("media", "MUSE", ["--screen", "games", "--menu", "Player Look", "--press",
+                                                   "a", "--pick-at", str(_k)])
+       for _k, _l in enumerate(("cover", "classic", "spectrum"))},
     # its Repeat row on One, the value no other shot has
     "mp4-menu-repeat-one": ("media", "MUSE", ["--screen", "games", "--menu", "--mode", "repeat one"]),
     # MP4's menu with its cursor on the Equalizer row, the same as MENU's
@@ -904,6 +915,19 @@ for _name, _flags in (("shelf-recents-screen", ["--screen", "games"]),
         SHOT_SETTINGS[_name] = {"recents.picture": "screen"}
 
 
+# The Video view (DESIGN.md 11.57): a game with no snap, its card whole
+# above the band; its snap playing (the test picture), the band up; the band
+# down to its strip, and halfway there; MENU's View on Video and its list
+for _name, _flags in (("shelf-video", ["--screen", "games", "--view", "video"]),
+                      ("shelf-video-snap", ["--screen", "games", "--view", "video", "--snap", "1"]),
+                      ("shelf-video-strip", ["--screen", "games", "--view", "video", "--snap", "1", "--band", "1"]),
+                      ("shelf-video-half", ["--screen", "games", "--view", "video", "--snap", "1", "--band", ".5"]),
+                      ("system-menu-view-video", ["--screen", "games", "--view", "video", "--menu", "View"]),
+                      ("system-menu-view-video-list", ["--screen", "games", "--view", "video", "--menu", "View",
+                                                       "--press", "a"])):
+    EXTRA.setdefault(_name, ("demo", "PS1", _flags))
+
+
 def set_lib(card, settings, on):
     """A shot's keys (SHOT_LIB) into the card's library, or out of it"""
     if not settings:
@@ -1232,6 +1256,9 @@ def pico8_card(card):
 
 
 EXTRA["pico8-splore"] = ("pico8", "PICO8", ["--screen", "games"])
+# Splore on the Video view (DESIGN.md 11.57): A How to Add and no Y, as on
+# the other views
+EXTRA["pico8-splore-video"] = ("pico8", "PICO8", ["--screen", "games", "--view", "video"])
 EXTRA["pico8-page"] = ("pico8", "PICO8", ["--screen", "games", "--pico8-page"])
 for _k in range(7):
     EXTRA["pico8-said-%d" % _k] = ("pico8", "PICO8", ["--screen", "games", "--pico8-said", str(_k)])

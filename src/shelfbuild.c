@@ -287,6 +287,7 @@ static bool group_fill(app *a, int at, const char *name, const char *tag, const 
 	/* Its View, which it keeps as a console's shelf does (MENU > View) */
 	v->listed = view_listed(tag);
 	v->grid = !v->listed && view_grid(tag);
+	v->video = !v->listed && !v->grid && view_video(tag);
 	v->tex = calloc((size_t)n, sizeof *v->tex);
 	v->tw  = calloc((size_t)n, sizeof *v->tw);
 	v->th  = calloc((size_t)n, sizeof *v->th);

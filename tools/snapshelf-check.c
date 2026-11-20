@@ -146,6 +146,22 @@ int main(void)
 	CHECK(!strcmp(at(A, true, false, SNAPS_WAIT_MS + 60000), A) && k == 0,
 	      "the cover turned into nothing");
 
+	printf("  at once (the Video view): asked the frame the focus comes, not held:\n");
+	memset(&s, 0, sizeof s);
+	s.at_once = true;
+	CHECK(!strcmp(at(A, true, true, 5000), A) && !held && k == 0 && s.phase == SNS_ASKED,
+	      "not asked at once, or the game before's picture was taken for this one's");
+	at(A, true, false, 5010);
+	CHECK(s.phase == SNS_ASKED && k == 0, "turned before this game's picture came");
+	at(A, true, true, 5050);
+	CHECK(s.phase == SNS_IN && k == 0, "its picture came and the turn did not start");
+	at(A, true, true, 5050 + DS_MS_TURN);
+	CHECK(s.phase == SNS_PLAY && k == 1, "not playing at the end of turn");
+	CHECK(!strcmp(at(B, true, true, 5600), B) && s.phase == SNS_ASKED && k == 0,
+	      "the next game not asked at once, or its card skipped");
+	CHECK(!*at(B, false, true, 5610), "asked while a direction is held (not in front)");
+	s.at_once = false;
+
 	printf("  a snap that came under the same focus is looked for again:\n");
 	{
 		snapshelf_at was = { 3, 7, "Super Metroid.sfc", snapshelf_media_gen() };
