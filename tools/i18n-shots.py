@@ -355,6 +355,7 @@ EXTRA = {
     # paused too (its panel says so where the time's words would), and
     # MENU's Player Look list with its picture, the look under the cursor
     "np-cassette": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--np-look", "cassette"]),
+    "np-vinyl": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--np-look", "vinyl"]),
     "np-classic": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--np-look", "classic"]),
     "np-classic-paused": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--np-look", "classic", "--paused"]),
     "np-spectrum": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--np-look", "spectrum"]),
@@ -362,7 +363,7 @@ EXTRA = {
     # drawn in its picture's narrow column
     **{"mp4-look-list-%s" % _l: ("media", "MUSE", ["--screen", "games", "--menu", "Player Look", "--press",
                                                    "a", "--pick-at", str(_k)])
-       for _k, _l in enumerate(("cover", "cassette", "classic", "spectrum"))},
+       for _k, _l in enumerate(("cover", "cassette", "vinyl", "classic", "spectrum"))},
     # its Repeat row on One, the value no other shot has
     "mp4-menu-repeat-one": ("media", "MUSE", ["--screen", "games", "--menu", "--mode", "repeat one"]),
     # MP4's menu with its cursor on the Equalizer row, the same as MENU's
@@ -940,6 +941,12 @@ for _name, _flags in (("shelf-video", ["--screen", "games", "--view", "video"]),
                       ("system-menu-view-video-list", ["--screen", "games", "--view", "video", "--menu", "View",
                                                        "--press", "a"])):
     EXTRA.setdefault(_name, ("demo", "PS1", _flags))
+
+
+# Two cores on the Game Boy shelves (DESIGN.md 11.62): the GB shelf's menu
+# on Core, and a game's details with its Core fact
+EXTRA.setdefault("system-menu-core-gb", ("demo", "GB", ["--screen", "games", "--menu", "Core"]))
+EXTRA.setdefault("info-core-gb", ("demo", "GB", ["--screen", "games", "--info"]))
 
 
 def set_lib(card, settings, on):

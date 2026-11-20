@@ -544,6 +544,7 @@ its own says why beside it.
 | **look-list-num** | 48 | Classic: a row's number, tabular, before its name |
 | **line-clock** | 128 | Classic: the clock's line, as a box |
 | **look-cover** | 192 | Spectrum: the cover beside the names |
+| **look-record** | 448 | Vinyl: the platter, a 12-inch record and its rim, 424 and 12 each side |
 | **look-cassette-w** | 592 | Cassette: a C-cassette, 100.4 x 63.8 mm, 74 x 47 grid steps (592 x 376), the nearest whole steps to its proportions |
 <!-- /generated:layout -->
 
@@ -679,6 +680,7 @@ beside a cubic one. One function each, in `src/design.h`.)*
 | **spin-down** | 520 | out | ...and coming to a stop as it pauses; the sound stops at once |
 | **rewind** | 700 | turn | MP4's cassette winding back to the start for the next song |
 | **wind** | 180 | follow | MP4's cassette winding to a seek's place: follow's tau |
+| **arm-glide** | 180 | follow | MP4's tonearm gliding to the song's place on the record: follow's tau |
 | **hold-snap** | 1000 | - | a game focused on the shelf before its cover turns into its video snap |
 | **hold-band** | 2000 | - | the Video view's band of covers and keys, after the last press on a game whose snap plays, before it goes down to its strip |
 | **sheen** | 480 | turn | one light crossing a game's card with no art, once, as the cover row stops on it |
@@ -6270,18 +6272,55 @@ carries the shot itself beside "Screenshot saved", the folder under it,
 kept in its shape at the two lines' height (`NOTICE_PICTURE`), for
 **hold-short**, as every pop-up over a game.
 
+### 11.62 Two cores on a shelf: Gambatte
+*(DoctorIssa on the Discord asked for Gambatte; Tarik: "all good". mGBA
+stays the default.)*
+
+A system's menu has **Core** where its shelf lists more than one core in
+config/systems.cfg, the first its default: the Game Boy's and the Game Boy
+Color's, **mgba** or **gambatte** (1.0.7), beside the Nintendo 64's and the
+Dreamcast's. Two choices, so Left, Right or A turns it over; kept by the
+shelf's tag (`core.<TAG>`), and the next game started runs on it. Timing,
+Display, Shader and the buttons stay the system's, whatever the core.
+
+- **A resume point is one core's own.** A game left on the other core
+  starts fresh, and says so, as the N64's do (src/corestate.h: the state's
+  header names the core that wrote it, "mGBA" or "Gambatte"). Save slots of
+  the other core stay on the card.
+- **The battery save is one file**, `<rom>.srm`, for both. Gambatte keeps a
+  cartridge's clock apart (MBC3: Pokémon Gold, Silver and Crystal), and
+  Diatom keeps it as RetroArch does, `<rom>.rtc` beside the save, read at
+  the start and written on every way out (diatom/src/save.c), for every
+  core that keeps one apart (Snes9x's S-RTC too). mGBA keeps its clock in
+  the save itself, so after a change of core a clock may need setting again.
+- **A game's details say the core** while its shelf has two: a **Core** fact
+  after Genre, in the facts' quiet style, so a person asking for help can
+  say which one ran.
+- **The same look.** Gambatte's defaults are mGBA's on the Game Boy shelf
+  (src/coreopts.c): the first Game Boy's green ("Internal", GB - DMG) where
+  the core's own default is no color, and the shelf's hardware a Game Boy.
+
+Gambatte is libretro/gambatte-libretro at 77f2567, built in the small
+cores' image (mk/build-small-cores.sh, Debian bullseye's GCC 10, checked for
+undefined symbols and pinned by sha256), the same binary for both handhelds.
+No machine has to remember to build it: tools/release.sh, tools/px2-payload.sh
+and plastron's card builds run `mk/build-small-cores.sh --missing` first,
+which builds a small core systems.cfg names and the vendor folder lacks and
+only looks when none is missing; mk/payload.sh, which refuses a card without
+it, names that command.
+
 ### 11.64 Player Looks
 
 **Player Look**, in MP4's MENU on the music shelf (and on All when the card
 has songs) under Shuffle All, is how Now Playing shows a song
 (src/mp4look.h, src/nowplaying_looks.c). **Cover**, the cover large as it
-always was, is the default; **Cassette**, **Classic** and **Spectrum**
-beside it. A opens the list, its picture the look under the cursor playing
-(src/ds/preview.h's column): Now Playing drawn whole at the screen's size
-into a texture, halved, then drawn into the box - the song that plays, or
-with none the shelf's album's first song in show, its clock running and its
-bars moving. Left and Right step it round. Kept as `muse.look`. A book and a
-video keep their own Now Playing.
+always was, is the default; **Cassette**, **Vinyl**, **Classic** and
+**Spectrum** beside it. A opens the list, its picture the look under the
+cursor playing (src/ds/preview.h's column): Now Playing drawn whole at the
+screen's size into a texture, halved, then drawn into the box - the song
+that plays, or with none the shelf's album's first song in show, its clock
+running and its bars moving. Left and Right step it round. Kept as
+`muse.look`. A book and a video keep their own Now Playing.
 
 - **The frame** every look shares: the top bar; the song's time, the bar
   from margin to margin with the time played and the time left under its
@@ -6324,6 +6363,35 @@ video keep their own Now Playing.
   glass, a hub, a pack - so a frame only copies them: the packs scaled,
   the hubs turned, the reels clipped to the window. Under Square the
   cassette keeps its own corners: it is a thing, not the interface.
+- **Vinyl**: a 12-inch record, 302 mm across, on its platter
+  (**look-record**, the theme's **raised** in its **edge**), pressed in
+  the cover's main color darkened to a fifth of its lightness and its
+  saturation held to 55%, so its grooves read (my pick; the accent's for
+  an album with no cover), the cover itself its label. Its face is a
+  drawing in millimetres (src/vinyl.h): the lead-in, the grooves from 146
+  to 60 mm out, satin with a fine ring every 5 units (under 4%, so it never
+  moires at 0.625), the album's songs shared evenly over them with a gap
+  of smooth dark vinyl between each two, the lead-out, the label 100 mm
+  across with its edge's shadow, the spindle's steel. The light on it, a
+  bow tie of two opposite wedges brightest four fifths out, stays where it
+  is while the record turns under it. The tonearm has a Technics'
+  geometry, its pivot 215 mm from the spindle up and right at 40 degrees
+  and its needle 230 mm from the pivot, so the needle goes from four
+  o'clock at the edge to five near the label; on its base, its
+  counterweight behind the pivot. The names beside it: where in the queue
+  and the mode's mark, the song in **title**, the artist in **menu**
+  **text-soft**, from a section past the arm's base on the grid; 15 bars at
+  the column's foot.
+- **The record's motion**: it turns clockwise at 33 1/3 a minute, 200
+  degrees a second, up over **spin-up** and down over **spin-down** as the
+  cassette's reels do; the label turns with it (the cover drawn as a disc
+  of 96 triangles whose picture turns, so it is round with no mask), the
+  grooves and the light do not need to. The needle is on the song's place:
+  the song's own ring, moving in as it plays (about 15 units a song on an
+  album of eight, 9 pixels on the Pixel 2), gliding to a new song's ring or
+  a seek's place on follow (tau **arm-glide**). The platter, the face, the
+  light, the arm and its base are drawn once into textures; a frame copies
+  them and turns the arm on its pivot.
 - **Classic**: the clock's panel (**look-classic-w** wide, a panel's slab
   with its lift) - the play state's mark in **accent-ink** and its word
   (Playing, Paused, Stopped) in **meta** **text-dim**, where in the queue
@@ -6370,6 +6438,7 @@ video keep their own Now Playing.
   does, on a change and once a second. Under the lock nothing moves: the
   bars are at rest from its first frame.
 - *(My picks in the Sound lab, 2026-11-19: the looks ship beside Cover,
-  which stays the default; a clear smoke-grey shell for the cassette; bars
+  which stays the default; a clear smoke-grey shell for the cassette; each
+  album's record pressed in its cover's main color, darkened; bars
   with caps - a bar rising at once and falling on follow, its cap holding
   400 ms and then dropping with gravity.)*
