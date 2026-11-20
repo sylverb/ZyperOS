@@ -76,6 +76,10 @@
 #include "devmode.h"
 #include "dl_screen.h"
 #include "dlq.h"
+#include "diskpopup.h"
+#include "border_pic.h"
+#include "handframe.h"
+#include "dmodepreview.h"
 #include "sshlink.h"
 #include "mdns.h"
 #include "linksteps.h"
@@ -109,6 +113,7 @@
 #include "menusnap.h"
 #include "mp4c.h"
 #include "mp4lock.h"
+#include "mp4resume.h"   /* MP4 back after a power-off (DESIGN.md 11.67) */
 #include "topbar.h"
 #include "mp4frame.h"  /* MPF_TOO_BIG, for --video-trouble */
 #include "mp4video.h"
@@ -191,6 +196,7 @@
 #include "gameinfo_screen.h"
 #include "lights_screen.h"
 #include "shots.h"
+#include "cheats_screen.h"
 #include "menu_runner.h"
 #include "shelf_keys.h"
 #include "shelf_draw.h"
@@ -726,6 +732,41 @@ bool pacing_row_shown(const app *a, int sys)
 	const system_cfg *s = &a->sys.systems[sys];
 
 	return s->pace[0] && strncmp(s->core, "run:", 4) != 0 && strcmp(s->core, "port") != 0;
+}
+
+/* Super Game Boy (src/sgbmode.h): the system's own, as the device's
+ * database keeps it, Off until the player picks */
+sgbm_choice sgbm_load(const system_cfg *s)
+{
+	char key[32], v[16];
+
+	sgbm_key(s->tag, key, sizeof key);
+	db_get_str(db_dev(), key, v, sizeof v, sgbm_id(SGBM_OFF));
+	return sgbm_parse(v);
+}
+
+/* Border's row on a system's menu (src/border.h): its value while the
+ * system's display mode leaves room around its games, by the size they
+ * last said (border_room_kept), or in any mode where a handheld's frame is
+ * drawn for it (the Game Boys: choosing one turns Display to Sharp Pixels);
+ * NULL, no row, else, and on a shelf of no console (Favorites, MP4, ports) */
+const char *border_row_value(const app *a, int sys)
+{
+	const system_cfg *s = &a->sys.systems[sys];
+	bool room;
+
+	if (!s->core[0] || is_mp4(s) || is_port(s) || a->view[sys].owner) return NULL;
+	room = border_room_kept(a, sys);
+	if (!border_row_shows(border_offer_room(a, sys, room), room)) return NULL;
+	return T(border_label_id(border_load_room(a, sys, room)));
+}
+
+/* The Game Boy's and the Game Boy Color's shelves, while mGBA runs them */
+bool sgb_row_shown(const app *a, int sys)
+{
+	const system_cfg *s = &a->sys.systems[sys];
+
+	return sgbm_shelf(s->tag, s->core);
 }
 
 bool dslang_row_shown(const app *a, int sys)
@@ -1464,6 +1505,37 @@ static void video_keep(bool now, bool ran_out)
 	g_vk.len = mn->len;
 }
 
+/* MP4 BACK AFTER A POWER-OFF (src/mp4resume.h, DESIGN.md 11.67): what plays,
+ * kept in one row the way a book's place is, by the same calls - when a
+ * queue starts, when its file changes, when it pauses or plays, every thirty
+ * seconds of playing, and at once at a power-off or a restart (book_keep's
+ * `now`). The queue it is, set by whoever starts one (mp4_play): Shuffle
+ * All's names no album. A queue that plays out to its end leaves none. */
+static mp4resume_seen g_rs;
+static mr_queue g_rs_queue = MR_ALBUM;
+
+void resume_clear(void)
+{
+	db_del(db_dev(), MP4RESUME_KEY);
+	g_rs = (mp4resume_seen){ 0 };
+}
+
+static void resume_keep(bool now, bool ran_out)
+{
+	const mu_now *mn = mp4c_now();
+	const char *track = mp4c_track(mn->index);
+	bool playing = mn->state == MU_PLAYING, heard = playing || mn->state == MU_PAUSED;
+	double at = playing ? mp4c_at_live() : mn->at;
+	mp4resume r = { .playing = playing, .queue = g_rs_queue, .at = at > 0 ? at : 0 };
+	char v[MP4RESUME_PATH + 64];
+
+	if (ran_out) { resume_clear(); return; }
+	if (!mp4resume_due(&g_rs, heard, playing, track, at, now)) return;
+	snprintf(r.track, sizeof r.track, "%s", track);
+	if (mp4resume_format(&r, v, sizeof v)) db_set_str(db_dev(), MP4RESUME_KEY, v);
+	mp4resume_wrote(&g_rs, playing, track, at);
+}
+
 void book_keep(bool now)
 {
 	const mu_now *mn = mp4c_now();
@@ -1472,6 +1544,7 @@ void book_keep(bool now)
 	int al;
 
 	video_keep(now, ran_out);
+	resume_keep(now, ran_out);
 	if (!mp4c_is_book() || !g_book_done) { g_bk.al = -1; return; }
 	track = mp4c_track(mn->index);
 	al = ml_album_of(&g_mp4, track);
@@ -1556,6 +1629,9 @@ void mp4_play(const char *const *paths, int n, int start, double at,
 	book_keep(true);
 	g_bk.al = -1;
 	g_vk.track[0] = '\0';
+	/* A new queue: kept at once (resume_keep), Shuffle All's naming no album */
+	g_rs = (mp4resume_seen){ 0 };
+	g_rs_queue = !artist && !album ? MR_ALL : MR_ALBUM;
 	mp4c_play(paths, n, start, at, book, speed, artist, album);
 }
 
@@ -1566,8 +1642,68 @@ void mp4_play_videos(const char *const *paths, int n, int start,
 	book_keep(true);
 	g_bk.al = -1;
 	g_vk.track[0] = '\0';
+	g_rs = (mp4resume_seen){ 0 };
+	g_rs_queue = MR_ALBUM;
 	mp4c_play_videos(paths, n, start, start >= 0 && start < n ? video_place(paths[start]) : 0,
 	                  artist, album);
+}
+
+/* What the row says played when the power went, back on Now Playing, paused
+ * at its second, with no sound (mp4c_hold_next): an album's, a book's or a
+ * series' files from the one it was on, or Shuffle All again from that song
+ * (the songs after it a new order: the order is not kept, Shuffle All being
+ * every song on the card). Nothing when the row says paused - it was not
+ * heard - or when its file is not on the card any more, which takes the row
+ * away. False when nothing was resumed. */
+static bool resume_start(void)
+{
+	char v[MP4RESUME_PATH + 64];
+	const char **paths = NULL;
+	mp4resume r;
+	int al, i, t, n = 0, start = -1;
+
+	if (!db_get_str(db_dev(), MP4RESUME_KEY, v, sizeof v, NULL) || !mp4resume_parse(v, &r) || !r.playing)
+		return false;
+	al = ml_album_of(&g_mp4, r.track);
+	if (al < 0 || !(paths = calloc((size_t)(g_mp4.ntracks > 0 ? g_mp4.ntracks : 1), sizeof *paths))) {
+		fprintf(stderr, "mp4: %s is not on the card, nothing to resume\n", r.track);
+		free(paths);
+		resume_clear();
+		return false;
+	}
+	if (r.queue == MR_ALL) {
+		for (i = 0; i < g_mp4.nalbums; i++)
+			if (g_mp4.albums[i].kind == ML_MUSIC)
+				for (t = 0; t < g_mp4.albums[i].n; t++)
+					paths[n++] = g_mp4.tracks[g_mp4.albums[i].first + t].path;
+	} else {
+		for (t = 0; t < g_mp4.albums[al].n; t++)
+			paths[n++] = g_mp4.tracks[g_mp4.albums[al].first + t].path;
+	}
+	for (i = 0; i < n && start < 0; i++)
+		if (!strcmp(paths[i], r.track)) start = i;
+	if (start < 0) { free(paths); resume_clear(); return false; }
+	mp4c_hold_next();
+	if (r.queue == MR_ALL) {
+		mp4_play(paths, n, start, r.at, false, 1.0, NULL, NULL);
+	} else {
+		const ml_album *b = &g_mp4.albums[al];
+		const char *artist = b->solo ? "" : g_mp4.artists[mp4_artist_of(al)].name;
+
+		if (b->kind == ML_VIDEOS) {
+			book_keep(true);
+			g_bk.al = -1;
+			g_vk.track[0] = '\0';
+			g_rs = (mp4resume_seen){ 0 };
+			g_rs_queue = MR_ALBUM;
+			mp4c_play_videos(paths, n, start, r.at, artist, b->name);
+		} else {
+			mp4_play(paths, n, start, r.at, b->book, b->book ? book_speed(al) : 1.0, artist, b->name);
+		}
+	}
+	free(paths);
+	fprintf(stderr, "mp4: resumed %s at %.1f, paused, after a power-off\n", r.track, r.at);
+	return true;
 }
 
 /* A track's artist and album, as the shelf names them: for a queue drawn from
@@ -3106,6 +3242,17 @@ static void on_stick(bool on)
 {
 	popup_now(T(S_POPUP_STICK), T(on ? S_POPUP_STICK_ON : S_POPUP_STICK_OFF));
 	if (g_quick.tag[0] && g_quick.file[0]) rms_stick_put(&g_quick.sys, g_quick.file, on);
+}
+
+/* Called from inside plat_resident_wait as L1 or R1 moves a Famicom Disk
+ * System game's disk (src/diskpopup.h): said over the game, as the speed
+ * step is */
+static void on_disk(const char *state, int disk, char side)
+{
+	const char *head;
+	char body[64];
+
+	if (disk_popup_words(state, disk, side, &head, body, sizeof body)) popup_now(head, body);
 }
 
 /* Called from inside plat_resident_wait for the quick slot (platform.h's
@@ -5051,6 +5198,9 @@ static int sm_pos(const app *a, int sys, sm_row which)
 {
 	sys_ui dev = { .no_wifi = !plat_has_wifi(), .online = net_internet(NULL),
 	               .dslang = dslang_row_shown(a, sys) ? "" : NULL,
+	               .sgb = sgb_row_shown(a, sys) ? "" : NULL,
+	               .border = border_row_value(a, sys),
+	               .border_color = border_color_value(a, sys),
 	               .pace = pacing_row_shown(a, sys) ? "" : NULL,
 	               .no_strength = !shader_has_strength(a->view[sys].shader) };
 	sm_row ids[SM_ROWS];
@@ -5132,6 +5282,9 @@ static int menu_shelf_width(app *a)
 		int  crow = own ? -1 : sm_pos(a, i, SM_CORE);
 		int  lrow = own ? -1 : sm_pos(a, i, SM_DSLANG);
 		int  prow = own ? -1 : sm_pos(a, i, SM_PACE);
+		int  grow = own ? -1 : sm_pos(a, i, SM_SGB);
+		int  brow = own ? -1 : sm_pos(a, i, SM_BORDER);
+		int  bcrow = own ? -1 : sm_pos(a, i, SM_BORDER_COLOR);
 		int  vrow = mp4 ? -1 : a->view[i].owner ? 3 : sm_pos(a, i, SM_VIEW);
 
 		n = menu_build(a, SCREEN_GAMES, i, rows, &bufs, &heading);
@@ -5227,6 +5380,43 @@ static int menu_shelf_width(app *a)
 				if (mw > w) w = mw;
 			}
 			rows[lrow].value = keep;
+		}
+		/* Border's kinds */
+		if (brow >= 0 && brow < n) {
+			const char *keep = rows[brow].value;
+
+			for (k = 0; k < BORDER_KINDS; k++) {
+				int mw;
+				rows[brow].value = T(border_label_id((border_kind)k));
+				mw = menu_measure(rows, n, heading);
+				if (mw > w) w = mw;
+			}
+			rows[brow].value = keep;
+		}
+		/* Handheld Color's colors */
+		if (bcrow >= 0 && bcrow < n) {
+			const hf_model *m = hf_model_for(a->sys.systems[i].tag);
+			const char *keep = rows[bcrow].value;
+
+			for (k = 0; m && k < m->ncolors; k++) {
+				int mw;
+				rows[bcrow].value = border_color_label(m->color_name[k]);
+				mw = menu_measure(rows, n, heading);
+				if (mw > w) w = mw;
+			}
+			rows[bcrow].value = keep;
+		}
+		/* Super Game Boy's two */
+		if (grow >= 0 && grow < n) {
+			const char *keep = rows[grow].value;
+
+			for (k = 0; k < SGBM_CHOICES; k++) {
+				int mw;
+				rows[grow].value = T(sgbm_label_id((sgbm_choice)k));
+				mw = menu_measure(rows, n, heading);
+				if (mw > w) w = mw;
+			}
+			rows[grow].value = keep;
 		}
 		/* Timing's two */
 		if (prow >= 0 && prow < n) {
@@ -5937,6 +6127,7 @@ int main(int argc, char *argv[])
 		else if (!strcmp(argv[i], "--cheats-on-first")) shot_cheats_on_first = true;
 		else if (!strcmp(argv[i], "--cheats-note")) shot_cheats_note = true;
 		else if (!strcmp(argv[i], "--cheats-crash")) shot_cheats_crash = true;
+		else if (!strcmp(argv[i], "--cheats-crashed")) g_shot_cheats_crashed = true;
 		else if (!strcmp(argv[i], "--hud-items")) shot_hud_items = true;
 		else if (!strcmp(argv[i], "--hud-pick") && i + 1 < argc) shot_hud_pick = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--hud-shows") && i + 1 < argc) shot_hud_shows = argv[++i];
@@ -5945,6 +6136,8 @@ int main(int argc, char *argv[])
 		 * WxH[@ASPECT]: the core's picture the in-game menu's frame stands
 		 * for, which the Display list's picture draws with */
 		else if (!strcmp(argv[i], "--pick-at") && i + 1 < argc) shot_pick_at = atoi(argv[++i]);
+		else if (!strcmp(argv[i], "--pick-en") && i + 1 < argc) shot_pick_en = argv[++i];
+		else if (!strcmp(argv[i], "--expect-en") && i + 1 < argc) shot_expect_en = argv[++i];
 		else if (!strcmp(argv[i], "--gm-source") && i + 1 < argc) {
 			const char *v = argv[++i], *at = strchr(v, '@');
 
@@ -6932,6 +7125,7 @@ int main(int argc, char *argv[])
 		plat_resident_on_progress(on_cheevo_progress);
 		plat_resident_on_speed(on_speed);
 		plat_resident_on_stick(on_stick);
+		plat_resident_on_disk(on_disk);
 		plat_resident_on_quick(on_quick);
 		plat_resident_on_hotkey(on_hotkey);
 		g_hotkey_app = &a;
@@ -7412,6 +7606,12 @@ int main(int argc, char *argv[])
 	else if (a.running && tour_wanted(db_dev())) {
 		fprintf(stderr, "tour: %s is not set, so the tutorial comes first\n", TOUR_DONE_KEY);
 		tour_run(&a, true);
+	}
+	/* Or MP4, where it was when the power went while it played: Now
+	 * Playing, paused at its second, over the shelf the start put back
+	 * (DESIGN.md 11.67). After a game or the tutorial, which come first. */
+	else if (a.running && !shot_path && resume_start()) {
+		mp4_resume_open(&a);
 	}
 	/* Or, back from a PortMaster that closed with an error, its page with
 	 * what happened and Reinstall PortMaster */

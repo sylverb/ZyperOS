@@ -271,6 +271,7 @@ typedef enum {
 	DIATOM_MSG_DISPLAY,    /* report the display mode and filter */
 	DIATOM_MSG_SETDISPLAY, /* set them: `dmode`, `dfilter`, `dstrength` */
 	DIATOM_MSG_OVERLAY,    /* composite `path` over the game for `count` ms */
+	DIATOM_MSG_SETBORDER,  /* the picture around the game: `path`, `blur`, or black (src/border.h) */
 	DIATOM_MSG_CHEEVOS,    /* report the achievement set and what has fired */
 	DIATOM_MSG_SETCHEEVOS, /* load a set from `path`; empty unloads */
 	DIATOM_MSG_AUDIO,      /* report where sound is going */
@@ -366,6 +367,14 @@ typedef struct {
 	 * close (src/pace.h, DISPLAY LOCK); empty or anything else ("exact"),
 	 * the core's own rate, as before */
 	char pace[8];
+	/* RUN: "games", the Super Game Boy for this game when its header says
+	 * it is made for one (src/sgb.h); empty or anything else, none */
+	char sgb[8];
+	/* SETBORDER: "1", the game's own picture blurred around it (src/border.h) */
+	char blur[4];
+	/* SETBORDER: "WxH+X+Y", where the game goes in the picture's frame,
+	 * in the surface's pixels (a handheld's window, src/border.h) */
+	char brect[32];
 	/* RUN and SETRUMBLE: how hard the motor runs, in percent of what the
 	 * core asks: the player's Rumble level times the system's share (a
 	 * system whose core shakes harder than the handheld wants: PrBoom's

@@ -9,6 +9,7 @@
 #include "app.h"
 #include "dslang.h"
 #include "pacing.h"
+#include "sgbmode.h"
 #include "game_menu.h"
 #include "hare.h"
 #include "heat.h"
@@ -730,6 +731,9 @@ void core_step(app *a, int sys, int d);
 dsl_choice dslang_load(void);
 pacing_choice pacing_load(const system_cfg *s);
 bool pacing_row_shown(const app *a, int sys);
+sgbm_choice sgbm_load(const system_cfg *s);
+const char *border_row_value(const app *a, int sys);
+bool sgb_row_shown(const app *a, int sys);
 bool dslang_row_shown(const app *a, int sys);
 const char *dslang_label(dsl_choice c, char *buf, size_t n);
 void view_turn(app *a, int sys, int dir);
@@ -844,6 +848,9 @@ bool is_port(const system_cfg *s);
 
 /* SELECT: MP4, over whatever is on screen */
 bool mp4_open(app *a, const menu_style *over, void *ctx);
+/* MP4 opening by itself on what a start resumed: Now Playing, paused, with
+ * no sound (src/mp4_screen.c, src/mp4resume.h) */
+void mp4_resume_open(app *a);
 /* POWER, Auto Off, the battery empty */
 void power_off(app *a);
 /* Into the shelf of the system under the cursor */

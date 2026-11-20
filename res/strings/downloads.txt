@@ -883,3 +883,125 @@ fr = Récupération…
 de = Wird geholt…
 ja = 取得中…
 it = Download…
+
+[downloads.kind_cheats]
+note = The Cheats kind: its row on the page (codes for games, from libretro's cheat list), its page's heading, a game's panel's row, and what a game has under a system's games.
+en = Cheats
+zh-Hans = 金手指
+es = Trucos
+pt-BR = Trapaças
+fr = Codes de triche
+de = Cheats
+ja = チート
+it = Trucchi
+
+[downloads.to_check_n]
+note = The Cheats row's value: how many games a download would look up in libretro's cheat list. %d is the count. A value, begun with a capital. Short: it shares the row.
+en.one = %d to check
+en.other = %d to check
+zh-Hans = 待检查 %d
+es.one = %d por revisar
+es.other = %d por revisar
+pt-BR.one = %d a verificar
+pt-BR.other = %d a verificar
+fr.one = %d à vérifier
+fr.other = %d à vérifier
+de.one = %d zu prüfen
+de.other = %d zu prüfen
+ja = 確認予定 %d
+it.one = %d da controllare
+it.other = %d da controllare
+
+[downloads.from_libretro_db]
+note = The line over the keys on Cheats: where the cheats come from and their license. libretro-database is a name; CC BY-SA 4.0 is a license's name: neither is translated.
+en = From libretro-database · CC BY-SA 4.0
+zh-Hans = 来自 libretro-database · CC BY-SA 4.0
+es = De libretro-database · CC BY-SA 4.0
+pt-BR = Do libretro-database · CC BY-SA 4.0
+fr = De libretro-database · CC BY-SA 4.0
+de = Von libretro-database · CC BY-SA 4.0
+ja = libretro-database から · CC BY-SA 4.0
+it = Da libretro-database · CC BY-SA 4.0
+
+[downloads.w_cheats]
+note = One of what a game lacks, in "Missing: cheats" (downloads.missing_list).
+en = cheats
+zh-Hans = 金手指
+es = trucos
+pt-BR = trapaças
+fr = codes de triche
+de = Cheats
+ja = チート
+it = trucchi
+
+[downloads.no_cheats]
+note = Under a system's games: libretro's cheat list has nothing for the game under the cursor.
+en = libretro has no cheats for it
+zh-Hans = libretro 没有这个游戏的金手指
+es = libretro no tiene trucos para él
+pt-BR = O libretro não tem trapaças para ele
+fr = libretro n'a pas de codes pour lui
+de = libretro hat keine Cheats dafür
+ja = libretro にはこのゲームのチートがありません
+it = libretro non ha trucchi per questo gioco
+
+[downloads.libretro_no_answer]
+note = The second line of a download's end page when libretro's cheat list did not come (no answer, or not a list it can read); the other kinds still came.
+en = libretro's cheat list did not answer.
+zh-Hans = libretro 的金手指列表没有响应。
+es = La lista de trucos de libretro no respondió.
+pt-BR = A lista de trapaças do libretro não respondeu.
+fr = La liste de codes de libretro n'a pas répondu.
+de = Die Cheat-Liste von libretro hat nicht geantwortet.
+ja = libretro のチート一覧から応答がありません。
+it = L'elenco dei trucchi di libretro non ha risposto.
+
+[downloads.delete_cheats_ask]
+note = The question on A on On the Card's Cheats: every cheat file the download brought.
+en = Delete the downloaded cheats?
+zh-Hans = 要删除下载的金手指吗？
+es = ¿Borrar los trucos descargados?
+pt-BR = Apagar as trapaças baixadas?
+fr = Supprimer les codes téléchargés ?
+de = Die geladenen Cheats löschen?
+ja = ダウンロードしたチートを削除しますか？
+it = Eliminare i trucchi scaricati?
+
+[downloads.delete_sys_cheats_ask]
+note = The question on X on a Cheats cell of Systems: %s is the system's name.
+en = Delete the %s cheats?
+zh-Hans = 要删除 %s 的金手指吗？
+es = ¿Borrar los trucos de %s?
+pt-BR = Apagar as trapaças de %s?
+fr = Supprimer les codes de %s ?
+de = Die Cheats von %s löschen?
+ja = %s のチートを削除しますか？
+it = Eliminare i trucchi di %s?
+
+[downloads.delete_cheats_body]
+note = Under a question that deletes downloaded cheats: your own .cht files stay; a cheat that was on turns off.
+en = Your own files stay. Cheats that are on turn off.
+zh-Hans = 你自己的文件会保留。已开启的金手指会关闭。
+es = Tus propios archivos se quedan. Los trucos activos se desactivan.
+pt-BR = Seus próprios arquivos ficam. As trapaças ligadas se desligam.
+fr = Vos propres fichiers restent. Les codes actifs se désactivent.
+de = Deine eigenen Dateien bleiben. Aktive Cheats gehen aus.
+ja = 自分のファイルは残ります。オンのチートはオフになります。
+it = I tuoi file restano. I trucchi attivi si spengono.
+
+[downloads.n_cheats]
+note = Zyper's bubble's second line after a download: games whose cheats came. %d is the count.
+en.one = %d game's cheats
+en.other = %d games' cheats
+zh-Hans = %d 个游戏的金手指
+es.one = trucos de %d juego
+es.other = trucos de %d juegos
+pt-BR.one = trapaças de %d jogo
+pt-BR.other = trapaças de %d jogos
+fr.one = codes de %d jeu
+fr.other = codes de %d jeux
+de.one = Cheats für %d Spiel
+de.other = Cheats für %d Spiele
+ja = チート %d 本分
+it.one = trucchi per %d gioco
+it.other = trucchi per %d giochi

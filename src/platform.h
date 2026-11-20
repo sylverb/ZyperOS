@@ -278,6 +278,12 @@ void plat_resident_on_speed(void (*fn)(int half));
  * STICK line. Not for the answer to a SETSTICK sent by
  * plat_resident_set_stick. NULL to stop. */
 void plat_resident_on_stick(void (*fn)(bool on));
+/* Called from inside plat_resident_wait as L1 or R1 moves a Famicom Disk
+ * System game's disk (Diatom's DISK line, diatom/src/fdsdisk.h): `state`
+ * "selected" (L1 turned it), "in", "out" (R1) or "eject-first" (L1 with the
+ * disk in, which turns nothing), the disk 1 to 4 and its side 'A' or 'B'
+ * (0 and 0 for eject-first). NULL to stop. */
+void plat_resident_on_disk(void (*fn)(const char *state, int disk, char side));
 /* SETSTICK mode=..., the d-pad as the stick at once (the Controls tab's
  * row), counted so that its STICK answer reaches no on_stick callback */
 bool plat_resident_set_stick(const char *mode);

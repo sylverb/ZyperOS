@@ -135,6 +135,28 @@ static struct retro_core_option_v2_definition probe_defs[] = {
 	{ NULL, NULL, NULL, NULL, NULL, NULL, { { NULL, NULL } }, NULL },
 };
 static struct retro_core_options_v2 probe_opts = { NULL, probe_defs };
+/* STUBCORE_MGBA: the probe and mGBA's two Super Game Boy options too, as
+ * libretro/mgba e31759b declares them (values and defaults), for
+ * test/sgb.py, which reads what each game loaded with */
+static struct retro_core_option_v2_definition mgba_defs[] = {
+	{ "stubcore_probe", "Probe", NULL, "Read back as each game loads", NULL, NULL,
+	  { { "probe-default", NULL }, { "probe-other", NULL }, { NULL, NULL } },
+	  "probe-default" },
+	{ "mgba_gb_model", "Game Boy Model (Restart)", NULL, NULL, NULL, NULL,
+	  { { "Autodetect", NULL }, { "Game Boy", NULL }, { "Super Game Boy", NULL },
+	    { "Game Boy Color", NULL }, { "Super Game Boy Color", NULL }, { "Game Boy Advance", NULL },
+	    { NULL, NULL } },
+	  "Autodetect" },
+	{ "mgba_sgb_borders", "Use Super Game Boy Borders (Restart)", NULL, NULL, NULL, NULL,
+	  { { "ON", "enabled" }, { "OFF", "disabled" }, { NULL, NULL } },
+	  "ON" },
+	{ NULL, NULL, NULL, NULL, NULL, NULL, { { NULL, NULL } }, NULL },
+};
+static struct retro_core_options_v2 mgba_opts = { NULL, mgba_defs };
+/* STUBCORE_MESSAGE "F:text": the core says `text` on frame F with
+ * RETRO_ENVIRONMENT_SET_MESSAGE, as FCEUmm says what an FDS disk did */
+static long message_at = -1;
+static char message_text[128];
 
 void retro_set_environment(retro_environment_t cb)
 {
@@ -146,7 +168,7 @@ void retro_set_environment(retro_environment_t cb)
 	env = cb;
 	cb(RETRO_ENVIRONMENT_SET_SUPPORT_NO_GAME, &no_game);
 	/* As real cores declare theirs, from inside this call */
-	cb(RETRO_ENVIRONMENT_SET_CORE_OPTIONS_V2, &probe_opts);
+	cb(RETRO_ENVIRONMENT_SET_CORE_OPTIONS_V2, getenv("STUBCORE_MGBA") ? &mgba_opts : &probe_opts);
 	if (np && *np) {
 		int n = atoi(np);
 
@@ -332,6 +354,14 @@ static void report_load(const struct retro_game_info *game)
 
 	if (!env || !env(RETRO_ENVIRONMENT_GET_VARIABLE, &v)) v.value = NULL;
 	fprintf(stderr, "stubcore: probe=%s\n", v.value ? v.value : "(none)");
+	if (getenv("STUBCORE_MGBA")) {
+		struct retro_variable m = { "mgba_gb_model", NULL }, b = { "mgba_sgb_borders", NULL };
+
+		if (!env || !env(RETRO_ENVIRONMENT_GET_VARIABLE, &m)) m.value = NULL;
+		if (!env || !env(RETRO_ENVIRONMENT_GET_VARIABLE, &b)) b.value = NULL;
+		fprintf(stderr, "stubcore: model=%s borders=%s\n", m.value ? m.value : "(none)",
+		        b.value ? b.value : "(none)");
+	}
 	if (game)
 		fprintf(stderr, "stubcore: path=%s size=%zu head=%.4s\n",
 		        game->path ? game->path : "(none)", game->size,
@@ -482,6 +512,12 @@ bool retro_load_game(const struct retro_game_info *game)
 		late_at = e && *e ? strtol(e, NULL, 10) : -1;
 	}
 	rumble_configure();
+	{
+		const char *e = getenv("STUBCORE_MESSAGE"), *colon = e ? strchr(e, ':') : NULL;
+
+		message_at = colon ? strtol(e, NULL, 10) : -1;
+		snprintf(message_text, sizeof message_text, "%s", colon ? colon + 1 : "");
+	}
 	{
 		const char *e = getenv("STUBCORE_IMAGE");
 		FILE *f = e && *e ? fopen(e, "rb") : NULL;
@@ -763,6 +799,11 @@ void retro_run(void)
 	 * gone out and the frontend is in its steady loop. Doing it on frame 0
 	 * would land during the warmup and prove less. */
 	if (crash_mode[0] && frame == crash_at) die(crash_mode);
+	if (message_at >= 0 && (long)frame == message_at && env) {
+		struct retro_message m = { message_text, 120 };
+
+		env(RETRO_ENVIRONMENT_SET_MESSAGE, &m);
+	}
 	if (rtc_here()) {
 		uint32_t t = (uint32_t)rtc_mem[0] | (uint32_t)rtc_mem[1] << 8 |
 		             (uint32_t)rtc_mem[2] << 16 | (uint32_t)rtc_mem[3] << 24;
