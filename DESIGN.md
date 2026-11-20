@@ -6242,10 +6242,13 @@ held goes back.". Every button is read as a key until SELECT is let go, A
 and B too: SELECT down lights its glyph at 112 (the tutorial's pressed look),
 a button with it lights beside it with "+", and the second line says "Let go
 to keep them.". SELECT let go alone waits again; MENU, or B with nothing
-held, leaves with no change. **A clash offers a swap**: the keys are another
-action's, so the yes/cancel panel asks "SELECT+R2 is Faster now. Faster moves
-to None." (or to the keys the row had), **Swap** and Cancel, the cursor on
-Cancel, so no hotkey is lost by accident. There is no Both: a chord does one
+held, leaves with no change. **A clash says so, and offers a swap**: the
+keys are another action's, so the yes/cancel panel says "SELECT+R2 is
+already taken by Faster. Swap them, and Faster moves to None." (or to the
+keys the row had), **Swap** and Cancel, the cursor on Cancel, so no hotkey
+is lost by accident (2026-11-19: "If a hotkey is taken, we should
+show a message saying it"; it read "SELECT+R2 is Faster now", which did not
+say it was taken). There is no Both: a chord does one
 action.
 
 **Reset Game asks first** *(my pick: a reset loses play, so one press is not
