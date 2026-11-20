@@ -39,6 +39,11 @@ static int     g_art_head, g_art_n;
 
 static int     g_show = -1;         /* VIDEO show= last sent, -1 none yet */
 static bool    g_show_want;         /* what it should be */
+static int     g_bands_sent = -1;   /* BANDS on= last sent, -1 none yet */
+static bool    g_bands_want;        /* what it should be */
+static unsigned g_bands_until;      /* ...until then, if no frame keeps it */
+static uint8_t g_bands[MUSEC_BANDS];  /* the last levels, and when they came */
+static unsigned g_bands_ms;
 static bool    g_names_each;        /* the queue names each track's own; see musec_names_by */
 static void  (*g_names_fn)(const char *, char *, size_t, char *, size_t);
 static char  **g_q;                 /* the queue, relative paths, ours */
@@ -119,14 +124,20 @@ static void drop(const char *why, int err)
 	g_chan_sent[0] = '\0';
 	/* And flat, so the equalizer is asked again too */
 	g_eq_sent[0] = '\0';
-	/* And with nobody watching. */
+	/* And with nobody watching, or looking at bars. */
 	g_show = -1;
+	g_bands_sent = -1;
+	g_bands_ms = 0;
 }
 
 static void sendf(const char *fmt, ...);
 
 static void show_send(void)
 {
+	if (g_fd >= 0 && g_bands_sent != (int)g_bands_want) {
+		g_bands_sent = g_bands_want;
+		sendf("BANDS\ton=%d", g_bands_sent);
+	}
 	if (g_fd < 0 || g_show == (int)g_show_want) return;
 	g_show = g_show_want;
 	sendf("VIDEO\tshow=%d", g_show);
@@ -269,6 +280,22 @@ static void event(const char *line)
 	if (!strncmp(line, "READY", 5)) {
 		show_send();
 		if (g_pending) play_current();
+	} else if (!strncmp(line, "BANDS", 5)) {
+		/* 32 levels, two hex digits each: anything else is not taken */
+		const char *v = strstr(line, "\tv=");
+		uint8_t lv[MUSEC_BANDS];
+		int i;
+
+		if (!v || strlen(v + 3) < MUSEC_BANDS * 2) return;
+		for (i = 0; i < MUSEC_BANDS; i++) {
+			char h[3] = { v[3 + i * 2], v[4 + i * 2], 0 };
+			char *end;
+
+			lv[i] = (uint8_t)strtoul(h, &end, 16);
+			if (*end) return;
+		}
+		memcpy(g_bands, lv, sizeof g_bands);
+		g_bands_ms = plat_now_ms() | 1;
 	} else if (!strncmp(line, "STATE", 5)) {
 		field(line, "state", v, sizeof v);
 		/* The track that ended says "stopped" AFTER its END, and by then the
@@ -420,12 +447,14 @@ static void headset_keys(void)
 }
 
 static void snap_send(void);
+static void bands_lapse(void);
 
 void musec_poll(void)
 {
 	ssize_t got;
 
 	headset_keys();
+	bands_lapse();
 
 	/* Reconnect whenever there is a queue to look after, not only when a
 	 * play is waiting: a daemon that restarts mid-album would otherwise
@@ -517,6 +546,33 @@ void musec_video_show(bool on)
 {
 	g_show_want = on;
 	show_send();
+}
+
+void musec_bands_keep(void)
+{
+	g_bands_until = plat_now_ms() + MUSEC_BANDS_LEASE;
+	if (!g_bands_want) {
+		g_bands_want = true;
+		g_bands_ms = 0;
+		show_send();
+	}
+}
+
+/* The lease run out: no frame of bars for a while, so nobody is looking */
+static void bands_lapse(void)
+{
+	if (!g_bands_want || (int)(plat_now_ms() - g_bands_until) < 0) return;
+	g_bands_want = false;
+	g_bands_ms = 0;
+	show_send();
+}
+
+bool musec_bands(uint8_t out[MUSEC_BANDS], unsigned *age_ms)
+{
+	if (!g_bands_ms || !g_bands_want) return false;
+	memcpy(out, g_bands, sizeof g_bands);
+	if (age_ms) *age_ms = plat_now_ms() - g_bands_ms;
+	return true;
 }
 
 /* What is wanted, sent once there is a daemon to send it to: the first snap

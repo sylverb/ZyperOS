@@ -34,6 +34,7 @@
 #include "mp4video.h"
 #include "musec.h"
 #include "notice.h"
+#include "nowplaying_looks.h"
 #include "nowplaying_screen.h"
 #include "homesys_screen.h"
 #include "osdbar.h"
@@ -489,6 +490,7 @@ int   shot_np = -1, shot_np_track, shot_np_paused;
 int   shot_locked, shot_video = -1, shot_video_w = 640, shot_video_h = 360;
 int   shot_video_trouble;
 float shot_video_k = -1, shot_video_grow = -1;
+int   shot_np_bench;                     /* --np-bench N: N frames timed */
 float shot_np_at = 83.0f;
 /* --mode NAME plays whatever the shot shows in that play mode: the mark beside
  * the track count is drawn from it. */
@@ -1176,7 +1178,12 @@ static void np_shot(app *a)
 		np_draw_video(a, &mn, shot_video_k >= 0 ? shot_video_k : (float)shot_video,
 		              shot_video_grow >= 0 ? shot_video_grow : shot_video ? 0.0f : 1.0f);
 	} else {
-		np_draw(a, &mn, next);
+		/* A look's bars as a song has them, held; paused or locked they
+		 * are at rest, as they are then */
+		npl_song(shot_np, t);
+		if (shot_np_bench > 0) npl_bench(a, &mn, shot_np_bench);
+		if (!shot_np_paused && !shot_locked) npl_shot_bars();
+		np_draw_now(a, &mn, next);
 	}
 	if (shot_locked) {
 		mp4lock l = { 0 };
