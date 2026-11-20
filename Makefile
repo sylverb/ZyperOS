@@ -765,7 +765,8 @@ check-pico8-wget:
 # launcher) and the real launcher in desk mode's dummy window against a
 # stand-in daemon: the queue taken on back from PICO-8, the request and the
 # file written as a cart opens, the follower's next track, and SELECT in the
-# in-game menu over it opening Now Playing (tools/pico8-mp4-check.py)
+# in-game menu over it opening Now Playing (tools/pico8-mp4-check.py). Each
+# wait is for an event, never for a time.
 check-pico8-mp4: build-native/mp4hand-check native
 	@./build-native/mp4hand-check
 	@python3 tools/pico8-mp4-check.py
