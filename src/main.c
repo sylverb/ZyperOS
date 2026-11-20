@@ -6079,12 +6079,16 @@ static int port_menu_main(int argc, char **argv)
 	unlink(plat_flag(PORT_RESTART_FILE));
 	fprintf(stderr, "port menu: %s, ready in %u ms\n", s->name, plat_now_ms() - t_boot0);
 
+	/* The port is stopped under it: the volume keys are its own, as over a
+	 * paused game (src/levels.h), and portkeys reads the cells back */
+	levels_game_paused(true);
 	/* Next Display over your PICO-8 (portkeys's hotkey): its question
 	 * alone, no menu */
 	if (argc > 4 && !strcmp(argv[4], PORT_MENU_DISPLAY_ARG) && port_menu_display(s->tag))
 		how = port_display_next(&a);
 	else
 		how = port_menu(&a);
+	levels_game_paused(false);
 	fprintf(stderr, "port menu: %s\n", how == PORT_MENU_QUIT ? "Quit" :
 	        how == PORT_MENU_POWER ? "POWER" : how == PORT_MENU_RESTART ? "start again" : "Continue");
 	/* MP4 opened from it: its queue back to the follower, as it is now */
@@ -7430,8 +7434,10 @@ int main(int argc, char *argv[])
 		plat_resident_on_tick(on_game_tick);
 		plat_resident_on_battery_empty(battery_empty);
 		/* The downloads' lanes go on behind every screen while it rests
-		 * (src/dlq.h); tick_theme steps them as one draws */
+		 * (src/dlq.h); tick_theme steps them as one draws. What each step
+		 * brings is kept for MENU > Downloads, open or not. */
 		plat_on_input_wait(dlq_wait);
+		dlq_on_step(downloads_stepped);
 		p2_setup();
 		heat_init(&g_heat);
 
@@ -7971,9 +7977,10 @@ int main(int argc, char *argv[])
 	 * card's empty .media folders go once the shelf is up (after_start_step). */
 	up_cable_tidy();
 
-	/* A test of MENU > Downloads (dl_test): the page at once */
+	/* A test of MENU > Downloads (dl_test): the page at once, and the steps
+	 * behind it once it closes */
 	if (getenv("ZYPEROS_DOWNLOADS_TEST")) {
-		downloads_screen(&a);
+		downloads_test(&a);
 		a.running = false;
 	}
 	/* A test of MENU > Scraper's page (scp_test): the page at once */

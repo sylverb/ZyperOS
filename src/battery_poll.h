@@ -6,7 +6,8 @@
 #include <stdint.h>
 
 /* One reading shared by the corner, Diatom's warning and Auto Off. Zero-init.
- * Shutdown deliberately keeps its own two fresh readings in battery_empty. */
+ * Shutdown deliberately keeps its own fresh readings in battery_empty
+ * (src/battempty.h: two of the level, three of the voltage). */
 typedef struct {
 	uint32_t capacity_at, charger_at;
 	int pct;

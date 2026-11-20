@@ -33,6 +33,14 @@ static int    d_pend_bri = -1, d_pend_bri_n;      /* EXIT hands levels back  */
 /* ...and each one's boost past the top (src/levels.h), its cells filled: 0
  * from a Diatom that does not say it */
 static int    d_pend_vol_boost, d_pend_bri_boost;
+/* Whether this stretch of the game says its volume boost to MP4 as it moves
+ * (levels_game_boost): from Diatom's first LEVEL with the cells the launcher
+ * keeps, which is the one SETLEVEL gave it. A RUN or a RESUME makes Diatom
+ * say its levels again in the first frames, and it reads one message a
+ * frame, so a line before its SETLEVEL can carry the cells it had before
+ * (another game's, or none): heard behind the game, that would duck MP4 for
+ * a frame or two. Off again at RUN, PAUSED and EXIT. */
+static bool   d_boost_live;
 /* Diatom's QUIET: what the launcher wants, and what this connection was last
  * told. -1 is "never told", which a new connection is. */
 static int    d_quiet, d_quiet_said = -1;
@@ -486,6 +494,7 @@ bool plat_resident_send(const plat_game_run *run)
 		d_rect_known = false;
 		d_pend_vol = d_pend_bri = -1;
 		d_pend_vol_boost = d_pend_bri_boost = 0;
+		d_boost_live = false;
 		d_stick_asked = 0;
 
 		/* Before RUN, not after. mgba_sgb_borders and mgba_use_bios are both
@@ -752,6 +761,12 @@ static void d_note_level(const char *l)
 	if (strncmp(k + 5, "volume", 6) == 0) {
 		level_lit(true, idx, d_pend_vol >= 0 ? d_pend_vol : plat_volume_get(), cnt);
 		d_pend_vol = idx; d_pend_vol_n = cnt; d_pend_vol_boost = boost;
+		/* ...and its boost to MP4 at once, music behind a game being what
+		 * is heard then (the game is quiet for it): a hold, a press or VOL-
+		 * in the game is heard in the same step, where the level and the
+		 * cells kept wait for the pause or the end below */
+		if (!d_boost_live && boost == levels_boost(OSDBAR_VOLUME)) d_boost_live = true;
+		if (d_boost_live) levels_game_boost(OSDBAR_VOLUME, boost);
 	} else if (strncmp(k + 5, "brightness", 10) == 0) {
 		level_lit(false, idx, d_pend_bri >= 0 ? d_pend_bri : plat_brightness_get(), cnt);
 		d_pend_bri = idx; d_pend_bri_n = cnt; d_pend_bri_boost = boost;
@@ -1009,6 +1024,7 @@ static void d_apply_levels(void)
 	}
 	d_pend_vol = d_pend_bri = -1;
 	d_pend_vol_boost = d_pend_bri_boost = 0;
+	d_boost_live = false;
 }
 
 /* POWER held over a game, with MENU > Power Button on Hold (src/powerhold.h):

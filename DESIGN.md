@@ -1465,8 +1465,26 @@ starts at the top without it.
   over a port (the zyperos-eq plugin, now in every port's chain, the gain in
   the shared file that portkeys writes during the port). MP4's lock screen
   fills and empties an open one but never opens one: a held key in a pocket
-  must not. The menus show the bar as it was, the menu music is never
-  boosted, and a press under the top there folds a kept boost.
+  must not. While MP4 is heard behind the home, a shelf or a menu (playing,
+  the menu music quiet for it, as for L2 and R2 in 11.14), the boost there is
+  MP4's as on its own screens: the bar shows the cells, the hold or three
+  presses open them, a press down empties one before the level moves, and
+  each cell reaches the sound that plays. Over a paused game (the in-game
+  menu and what it opens, Reset Game's question, a port's menu) it is the
+  game's the same way, heard or not, and Continue hands the cells back with
+  the level (SETLEVEL): the menu's first VOL- empties one cell, as in the
+  game, and never throws the game's boost away. While a game runs with MP4's
+  music behind it (the game quiet for it), each cell the game opens, fills
+  or empties reaches MP4 at once, as Diatom's LEVEL line says it, not when
+  the game pauses or ends; a line from Diatom's first frames before it has
+  taken the launcher's cells is not passed on, so the music never ducks as
+  a game starts (src/levels.c, src/resident.c; `check-levels`,
+  `check-resident`). *(2026-11-20, on 1.1.0-rc.3: "if i'm playing something
+  that has the software audio boost, i should be able to still control that
+  audio boost from home". The paused game and the running one are this
+  document's call, from it.)* With neither, the menus show the bar as it
+  was, the menu music is never boosted, and a press under the top there
+  folds a kept boost.
 - **Brightness:** three cells, each a lift of the mid-tones on the display's
   gamma table after the player's Screen Colors, like Gamma +3: x^0.88,
   x^0.76, x^0.64 (mid grey 128 to 139, 151 and 164), black and white kept.
@@ -2339,6 +2357,10 @@ and modes still read.
   before and the next, or a book's chapter where its file has them, and
   the song pop-up (11.22) says what plays now. Paused or stopped, they are
   the menu music's again. *(The follow-up to #90.)*
+- **Its boost from anywhere.** While MP4 is heard behind the home, a shelf
+  or a menu, the volume keys there open, fill and empty its boost past the
+  top as on Now Playing; behind a running game, each cell the game's keys
+  move reaches MP4's sound at once (11.6).
 
 *(My picks, 2026-11-05: Now Playing keeps its large cover (A over a
 wider text column), video opens full screen (C over the view with
@@ -6026,7 +6048,13 @@ book, the cup and the set's count. Over the keys: the counts per kind as
 marks and the time left beside a clock, or in **warning** why it waits -
 `Waiting for Wi-Fi`, `RetroAchievements asked for a pause · 0:42`. B
 Continue in background (the page closes, the corner's ring shows it, MENU's
-row says `Downloading · 41%`), Y Stop. **Done**: **All done**, **Stopped**
+row says `Downloading · 41%`), Y Stop. What came is the run's, not the
+page's (1.1.0-rc.3 opened again on empty tiles): the launcher keeps the
+newest fourteen for the session, with what lands while the page is closed
+or a game waits, and the page opened again shows the stream and the wall as
+they were, the pictures it showed at once and the others as they are read;
+a new run starts them again, and once its end has been seen they go. Not
+over a power-off: POWER stops the run. **Done**: **All done**, **Stopped**
 (why under it) or **Sign in again**; the wall of what came (fourteen at
 most), the counts, and over the keys `It all works offline now` or `The
 next download starts from what is missing`. A Again (from what is missing,

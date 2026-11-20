@@ -8,7 +8,7 @@
 .PHONY: all clean native desk desk-brick handhelds px2-payload vendor boot system-art checkmark \
         check check-cheevos check-hare check-portal check-httpd check-idle check-taskhold check-saver check-rahash check-flacdec check-achtab check-signin check-search \
         check-raset check-xfer check-sshlink check-usblink check-devmode check-devices check-devicegen check-model check-ctl check-menus check-status check-battery check-corner check-artscrape check-artrun check-sgdb check-snapshelf check-snaps check-audioout \
-        check-db check-coreopts check-mp4keys check-gpuframes check-gamedel check-gamern check-esmedia check-corepins check-targets yuvtarget check-storage check-stats check-sort check-bt check-ss check-titles check-dsv check-sidelights check-osdbar check-boost check-hud check-dmodefit check-themefile check-pkkeys check-pkover check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-bios check-gamefile check-startfail check-kbnav check-tween check-menumotion check-menusnap check-cardgen check-cardart check-focusfx check-blur check-gridrule check-screencard check-focusgeo check-roundrect check-rowmacro check-emptyhome check-zyperrig check-randgame check-shelfdir \
+        check-db check-coreopts check-mp4keys check-gpuframes check-gamedel check-gamern check-esmedia check-corepins check-targets yuvtarget check-storage check-stats check-sort check-bt check-ss check-titles check-dsv check-sidelights check-osdbar check-boost check-levels check-hud check-dmodefit check-themefile check-pkkeys check-pkover check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-bios check-gamefile check-startfail check-kbnav check-tween check-menumotion check-menusnap check-cardgen check-cardart check-focusfx check-blur check-gridrule check-screencard check-focusgeo check-roundrect check-rowmacro check-emptyhome check-zyperrig check-randgame check-shelfdir \
         check-sysmark check-flip check-menushots check-controls-shots check-design check-systemart check-linebreak check-portload check-portout \
         check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-messages check-tour check-tour-shots check-textfade check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pico8 check-pico8-wget check-pico8-mp4 check-pico8-display check-pmhelper check-portdoc check-boottheme check-splashbright check-bootbright check-seed-version check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr check-autozone \
         check-home check-home-shots check-games check-cardpaint check-putpace landbench check-favorites-shots check-homesys-groups check-np-footer check-vidtry check-menu-rows check-layout-shots check-artbadge check-artbadge-shots check-cardart-shots design sounds strings cjk-font check-strings check-i18n-shots check-rootswitch check-datapart check-brick-closed check-hwreport \
@@ -44,11 +44,11 @@ src/i18n_tables.c: $(wildcard res/strings/*.txt) tools/i18n.py
 # had to be remembered by name, which is a suite in the same sense that a list
 # of good intentions is a plan. A check nobody runs is a check that does not
 # exist, and check-menus was about to join eight others in that state.
-CHECKS = check-cheevos check-hare check-portal check-httpd check-idle check-taskhold check-saver check-rahash check-flacdec check-achtab check-rasubmit check-raoffline check-radl check-dlq check-cheatsdl check-cheats check-signin check-noticeq check-badges check-badge-shots \
+CHECKS = check-cheevos check-hare check-portal check-httpd check-idle check-taskhold check-saver check-rahash check-flacdec check-achtab check-rasubmit check-raoffline check-radl check-dlq check-dl-recent check-cheatsdl check-cheats check-signin check-noticeq check-badges check-badge-shots \
          check-raset check-xfer check-sshlink check-usblink check-devmode check-devices check-devicegen check-model check-ctl check-menus check-artscrape check-artrun check-sgdb check-snapshelf check-snaps check-audioout \
          check-db check-coreopts check-mp4keys check-gamedel check-gamern check-esmedia check-media check-snapsize check-corepins check-targets check-storage check-stats check-sort check-bt check-ss check-titles check-savedlib check-search \
          check-mp4lib check-mp4queue check-mp4art check-mp4lock check-mp4look check-mp4views check-mp4resume check-bands check-covercolor check-mp4frame check-mp4size check-p2share check-webtheme check-p2ws check-p2codec check-p2d check-play check-p2 check-resident check-spawn check-controls check-remap check-hotkeys check-rumble check-eq check-eqdsp check-eqplugin check-controls-shots check-logpack \
-         check-clock check-autozone check-status check-battery check-battery-eta check-dslang check-pacing check-sgbmode check-border check-handframe check-gpuframes check-dsresume check-corestate check-core-stamp check-core-room check-px2-perf check-px2-snap check-px2 check-lowbatt check-powerhold check-homesys check-collect check-heat check-charging check-corner check-dsv check-sidelights check-osdbar check-boost check-hud check-dmodefit check-themefile check-pkkeys check-pkover check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-bios check-gamefile check-startfail check-kbnav check-randgame check-shelfdir check-look \
+         check-clock check-autozone check-status check-battery check-battery-eta check-dslang check-pacing check-sgbmode check-border check-handframe check-gpuframes check-dsresume check-corestate check-core-stamp check-core-room check-px2-perf check-px2-snap check-px2 check-lowbatt check-battempty check-powerhold check-homesys check-collect check-heat check-charging check-corner check-dsv check-sidelights check-osdbar check-boost check-levels check-hud check-dmodefit check-themefile check-pkkeys check-pkover check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-bios check-gamefile check-startfail check-kbnav check-randgame check-shelfdir check-look \
          check-tween check-menumotion check-menusnap check-cardgen check-cardart check-focusfx check-blur check-gridrule check-screencard check-focusgeo check-roundrect check-rowmacro check-emptyhome check-zyperrig check-sysmark check-flip check-menushots check-design \
          check-systemart check-linebreak check-portload check-portout check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-messages \
          check-tour check-tour-shots check-tour-previews check-textfade check-glyphs check-scale check-shaderdemo check-shaderpic check-screenfx check-ds check-layout-ratchet check-flex check-hover check-hover-sweep check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pico8 check-pico8-wget check-pico8-mp4 check-pico8-display check-pmhelper check-pmart check-portdoc check-boottheme check-splashbright check-bootbright check-seed-version check-panelgamma check-panelgamma-sunxi check-nightmode check-autotheme check-displayback check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-start-soc check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr \
@@ -359,6 +359,21 @@ check-osdbar: build-native/osdbar-check
 check-boost: build-native/boost-check
 	@./build-native/boost-check
 
+# The launcher's level keys (src/levels.c) as the screens call them, the
+# device, the database and MP4 stubbed (tools/levels-check.c): with MP4 heard
+# behind the home, a shelf or a menu, its boost works there as on its own
+# screens (the cells on the bar, the hold and the presses that open it, a
+# press down emptying a cell first, each cell told to MP4); over a paused
+# game, the game's the same way; a running game's steps told to MP4 at once;
+# with neither, the menus' own. SDL's headers for platform.h; skipped
+# without them.
+check-levels:
+	@if command -v sdl2-config > /dev/null 2>&1; then \
+		$(MAKE) --no-print-directory build-native/levels-check && ./build-native/levels-check; \
+	else \
+		echo "check-levels: skipped, no SDL2"; \
+	fi
+
 # The Display list's previews (src/dmodefit.h): each mode's rect as the
 # launcher works it out, against Diatom's own arithmetic (diatom/src/scale.c),
 # and Square Pixels' sizes for the systems #346 names, on both handhelds
@@ -417,6 +432,12 @@ build-native/hud-check: tools/hud-check.c src/hud.c src/hud.h src/hudglyphs.h sr
 build-native/boost-check: tools/boost-check.c src/boost.h src/osdbar.h src/design.h FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -o $@ tools/boost-check.c -lm
+
+build-native/levels-check: tools/levels-check.c src/levels.c src/levels.h src/boost.h src/osdbar.h \
+                           src/design.h src/platform.h src/mp4c.h FORCE
+	@mkdir -p build-native
+	@$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g $$(sdl2-config --cflags) \
+	      -o $@ tools/levels-check.c src/levels.c -lm
 
 build-native/osdbar-check: tools/osdbar-check.c src/osdbar.c src/osdbar.h FORCE
 	@mkdir -p build-native
@@ -597,6 +618,20 @@ build-native/lowbatt-check: tools/lowbatt-check.c src/lowbatt.c src/lowbatt.h sr
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -Werror -O1 -g \
 	      -o $@ tools/lowbatt-check.c src/lowbatt.c
+
+# The battery run flat while the handheld runs (src/battempty.h), the rule
+# battery_empty and portkeys go by: the level at BATT_EMPTY_PCT or under
+# twice in a row, or the voltage under the device's empty voltage three times
+# in a row whatever the level says; never on the cable, never on one stray
+# reading. Plain C, no device.
+check-battempty: build-native/battempty-check
+	@./build-native/battempty-check
+
+build-native/battempty-check: tools/battempty-check.c src/battempty.c src/battempty.h src/status.h \
+                              src/device/pixel2_levels.h FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -Werror -O1 -g \
+	      -o $@ tools/battempty-check.c src/battempty.c
 
 # The charging screen (src/charging.h): the charger's kind, its lines, the
 # time to full through CC and CV, and its rules. Plain C, no device.
@@ -1974,8 +2009,10 @@ check-clock: build-native/clock-check
 # The launcher's reader of Diatom's answers (src/resident.c), the device
 # stubbed, against a made-up Diatom on a socket of its own
 # (tools/resident-check.c): SETPLAYER2's answer read while paused, the
-# picture on the way noted, and a game's EXIT before it left for the wait
-# loop rather than eaten. SDL for SDL_GetTicks alone; skipped without it.
+# picture on the way noted, a game's EXIT before it left for the wait
+# loop rather than eaten, and a running game's volume boost said to MP4 at
+# each LEVEL line, none from before its SETLEVEL. SDL for SDL_GetTicks
+# alone; skipped without it.
 check-resident:
 	@if command -v sdl2-config > /dev/null 2>&1; then \
 		$(MAKE) --no-print-directory build-native/resident-check && ./build-native/resident-check; \
@@ -2120,7 +2157,7 @@ build-native/rahash-check: tools/rahash-check.c $(RAHASH_SRC) src/rahashjob.c sr
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g $(LZMA_CFLAGS) \
 	      -o $@ tools/rahash-check.c $(RAHASH_SRC) -lz $(LZMA_LIBS) -lpthread
 
-.PHONY: check-noticeq check-badges check-badge-shots check-radl check-dlq check-cheatsdl check-cheats check-rasubmit check-lowbatt check-powerhold check-homesys check-collect check-heat check-charging
+.PHONY: check-noticeq check-badges check-badge-shots check-radl check-dlq check-dl-recent check-cheatsdl check-cheats check-rasubmit check-lowbatt check-battempty check-powerhold check-homesys check-collect check-heat check-charging
 
 # The pop-ups over a game, one after another (src/noticeq.h)
 check-noticeq: build-native/noticeq-check
@@ -2216,8 +2253,9 @@ check-radl: build-native/radl-check
 	@./build-native/radl-check
 
 # The downloads' queue (src/dlq.h) and net.c's slots: two lanes side by side,
-# a game, a stop, the card's floor, against this check's own curl. The floor
-# is past any disk so the room rule fires on its first look.
+# a game, a stop, the card's floor, the step hook and the runs, against this
+# check's own curl. The floor is past any disk so the room rule fires on its
+# first look.
 # A game's cheats with no device: the .cht reader and the list (src/cht.h,
 # src/cheats.h) on a card in a folder of its own
 check-cheats: build-native/cheats-check
@@ -2238,6 +2276,16 @@ build-native/dlq-check: tools/dlq-check.c src/dlq.c src/dlq.h src/net.c src/net.
 	      -DNET_TMP='"$(CURDIR)/build-native/dlq-check-tmp"' \
 	      -DDLQ_FLOOR='(1ULL << 62)' -DDLQ_ROOM_MS=1 \
 	      -o $@ tools/dlq-check.c
+
+# MENU > Downloads left with B and opened again (src/dl_screen.c), on the real
+# launcher with a stand-in run: what came is listed as it was, its pictures
+# with it, what came behind the page too, nothing in a game, the wall of a run
+# that ended behind it, the pictures read again after the renderer went
+check-dl-recent:
+	@if pkg-config --exists sdl2 SDL2_image SDL2_ttf 2>/dev/null; then \
+		$(MAKE) --no-print-directory native || exit 1; \
+	fi
+	@python3 tools/dl-recent-check.py
 
 # The cheats download (src/cheatsdl.h): a zip made in the check, read, matched,
 # written and counted, with no network
