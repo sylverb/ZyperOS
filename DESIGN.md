@@ -1948,9 +1948,9 @@ header, clock at the left and marks at the right, is on every screen over a
 paused game (PR #40) and every MP4 screen (2026-11-09): its shelf, an album's
 tracks, Now Playing, a video with its controls and the lock screen over them,
 each in its own theme. The second layout, the clock beside the marks at the
-right, which Now Playing, a video's controls and MP4's shelf drew, is gone. MP4's shelf puts its album's title in the
-row between the clock and the marks, 24 clear of each, sliding when it is
-longer, and a video with its controls puts its title there in **action**
+right, which Now Playing, a video's controls and MP4's shelf drew, is gone. MP4's shelf puts nothing in the
+row between the clock and the marks since it is a games shelf's (11.67), and
+a video with its controls puts its title there in **action**
 **text**, centered, or sliding when it is longer, as a long name slides
 everywhere (2026-11-18: it was cut). A background track
 occupies only the space between the logo and the measured status corner. Its
@@ -6375,13 +6375,23 @@ video keep their own Now Playing.
   with caps - a bar rising at once and falling on follow, its cap holding
   400 ms and then dropping with gravity.)*
 
-### 11.67 MP4's shelf in Grid and List, and START
+### 11.67 MP4's shelf in Covers, Grid and List, and START
 
 **View**, in MP4's MENU under Sort By on every kind, is how MP4's shelf
 shows its albums, as a system's View row (11.39, 11.47): **Covers**, the
-square covers in a row as it always was and the default; **Grid**; or
-**List**. No **Video** (11.57): it plays a game's video snap on the whole
-screen, and an album has none. Kept as `view.MUSE`, the key every shelf's
+default, **Grid** or **List**. No **Video** (11.57): it plays a game's
+video snap on the whole screen, and an album has none.
+
+**One shelf, the games shelf's.** MP4's shelf draws with a games shelf's own
+three Views - the cover row (src/games.c), the grid (src/gamegrid.c) and the
+list (src/gamelist.c), with their focus, Highlight, motion, band and no-art
+cards - and gives them an album's facts (src/shelf_draw.c's
+draw_album_views): it is a shelf of covers and names, as a games shelf is,
+and only what is said of each differs. *(Mine, 2026-11-19, on seeing MP4's
+first Grid and List beside its own covers: "Can we reutilize the same view
+components we do for systems in mp4? As those are more polished?")* Before,
+its covers were a shelf of their own, square cards turning in a coverflow
+with the album's title in the header. Kept as `view.MUSE`, the key every shelf's
 View is kept under by its tag. Right and Left step it; A steps it on, as a
 system's View row does.
 
@@ -6396,24 +6406,33 @@ pressed a moment before SELECT locks without turning anything first
 (src/mp4lock.h's mp4chord; check-mp4lock, and check-mp4views on the real
 launcher).
 
+- **The heading** is **MP4 / Music**, the kind Show shows, as a games shelf
+  names the folder it is in (MP4 alone when the card has one kind); the
+  focused album's fact is its artist (an author, a series), where a
+  Favorites game's system is; **A Open** (**A Play** on a film). On All
+  each album carries its kind's art badge (11.1) in every View.
+- **The cover row** is the games shelf's (Games' **Cover row**): an
+  album's square cover sits in the 384 x 328 box as a square box does.
+- **No-art cards** are a game's card (src/cardart.h), square: the ground in
+  MP4's color, MP4's art faint in its corner, the name in its one treatment
+  (an album order carrying its system's tag, src/ui.c's game_art_card).
 - **The grid** is the games shelf's (11.47), with square cells: MP4 draws
   every cover square (cover_shape), so the shape is not measured from the
-  art; four across, two rows. On All each cell carries its kind's art badge
-  (11.1) at its corner, as on the row. The band under it: the album's
-  title, then **MP4 / Music** (the kind Show shows, when the card has more
-  than one) and the artist (an author, a series) as its facts, and **A
-  Open** (**A Play** on a film).
+  art; four across, two rows, a no-art album's name set at the cell's size
+  on its card's ground as a game's is.
 - **The list** is the games shelf's (11.39): a row an album, its kind's
   badge in the mark's place on All (the letter's card otherwise), the cover
-  on the panel with the artist under it, and **A Open**.
-- **The foot**: **B Back**, and **START List** under the grid, **START
-  Covers** under the list. No X or Y there, and no play time, achievements,
-  resume or heart among the facts: those are a game's.
+  on the panel with the artist under it.
+- **The foot**: **B Back**, and **START Grid** under the covers, **START
+  List** under the grid, **START Covers** under the list. No X or Y there,
+  and no play time, achievements, resume or heart among the facts: those
+  are a game's.
 - **Moving** is the games shelf's in each View (shelf_move,
   src/shelf_keys.c), so MP4's shelf moves exactly as a games shelf does:
   the d-pad turned with the list, the grid's four directions its own. On
-  opening, on the album that plays, the grid and the list are there at
-  once.
+  opening, on the album that plays, every View is there at once. It is
+  drawn as the main loop draws a shelf (draw_shelf_live), so the cover
+  row's no-art sweep plays on it too.
 - Now Playing's key line is full (A, B, X, Y, L1/R1, the seek), so START
   is not named there; MENU's row is. MENU > Controls' shelf page already
   names START (**Home Screen or View**), and MP4's page keeps the six rows

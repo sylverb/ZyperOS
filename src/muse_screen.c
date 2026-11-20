@@ -4,6 +4,7 @@
 #include "aout_route.h"
 #include "app.h"
 #include "hareart.h"
+#include "home.h"
 #include "i18n.h"
 #include "covercolor.h"
 #include "museart.h"
@@ -237,6 +238,20 @@ void np_cover(app *a, int al)
  * few milliseconds later. Asked for while the slot is empty or holds the card
  * of the theme that was, which it shows until its replacement lands, as a
  * game's slot does. */
+/* An album's card where it has no cover, or one that will not decode: a
+ * game's card (src/cardart.h), square - its ground, MP4's art faint in its
+ * corner, and its name as every game's is - so a shelf of albums with no
+ * art reads as a games shelf of them does (DESIGN.md 11.67) */
+void muse_album_card_order(app *a, int s, int i, unsigned rgb, ui_card_order *card)
+{
+	const char *tag = a->sys.systems[s].tag, *key = home_art_key(tag);
+	char art[UI_CARD_PATH] = "";
+
+	ui_card_order_set(card, a->view[s].list.items[i].title, rgb, true);
+	if (key && key[0]) snprintf(art, sizeof art, "%s/system-icons/%s-still.png", P_ROOT, key);
+	ui_card_order_game(card, tag, art, NULL);
+}
+
 void muse_card_want(app *a, int s, int i)
 {
 	sysview *v = &a->view[s];
@@ -250,8 +265,7 @@ void muse_card_want(app *a, int s, int i)
 	if (cover_file(al, path, sizeof path)) {
 		/* A cover that will not decode is the card in the shelf's color,
 		 * as shelf_put has always made it */
-		ui_card_order_set(&card, v->list.items[i].title,
-		                  a->sys.systems[shelf_owner(a, s, i)].accent, true);
+		muse_album_card_order(a, s, i, a->sys.systems[shelf_owner(a, s, i)].accent, &card);
 		if (texload_want_or_draw(s, i, path, NULL, &card)) return;
 		/* No worker - a shot - so here, as game_get_tex does without one. */
 		if (v->tex[i]) SDL_DestroyTexture(v->tex[i]);
@@ -264,11 +278,16 @@ void muse_card_want(app *a, int s, int i)
 		g_cov[al].st = COV_NONE;             /* there, and not a picture */
 	}
 	if (g_cov && g_cov[al].st == COV_NONE) {
-		ui_card_order_set(&card, v->list.items[i].title, ZYPEROS_ACCENT, true);
+		SDL_Surface *ground;
+
+		muse_album_card_order(a, s, i, ZYPEROS_ACCENT, &card);
 		if (texload_want_or_draw(s, i, NULL, NULL, &card)) return;
+		/* No worker (a shot): made here, its ground noted for the Grid to
+		 * set the name on at the cell's size, as game_get_tex does */
 		if (v->tex[i]) SDL_DestroyTexture(v->tex[i]);
-		v->tex[i] = ui_make_cover(a->r, v->list.items[i].title, ZYPEROS_ACCENT,
-		                          &v->tw[i], &v->th[i]);
+		v->tex[i] = ui_make_card_for(a->r, &card, &v->tw[i], &v->th[i], &ground);
+		grid_note(a, s, i, ground, true);
+		if (ground) SDL_FreeSurface(ground);
 		v->cb[i] = 1.0f;
 	}
 }
@@ -677,7 +696,12 @@ void muse_shelf_screen(app *a, bool now)
 
 		/* There at once in every View: the grid and the list placed
 		 * again on it rather than gliding from where they were */
-		if (k >= 0) { v->cursor = k; cf_reset(&v->cf, k); v->lm.set = v->gm.set = false; }
+		if (k >= 0) {
+			v->cursor = k;
+			cf_reset(&v->cf, k);
+			games_reset(&v->row, k, v->list.count, plat_now_ms());
+			v->lm.set = v->gm.set = false;
+		}
 	}
 	if (now && playing >= 0) {
 		/* A film is its player, with no list of one under it. */
@@ -711,8 +735,13 @@ void muse_shelf_screen(app *a, bool now)
 		/* Moved as a games shelf moves in the same View: the row of
 		 * covers, the grid or the list (DESIGN.md 11.67) */
 		if (n > 0) {
+			int was = v->cursor;
+
 			dir = shelf_move(a, v);
-			if (!v->listed && !v->grid) cf_set_cursor_dir(&v->cf, v->cursor, n, dir);
+			games_select(&v->row, v->cursor, n, dir, plat_now_ms());
+			/* where it lands asked for at once, as the main loop's
+			 * window is (asking only queues) */
+			if (v->cursor != was) prime_toward(a, muse, v->cursor);
 		}
 		/* START turns the View, Covers to Grid to List and round, as it
 		 * does on every shelf; as it is let go, since SELECT with START
@@ -754,7 +783,9 @@ void muse_shelf_screen(app *a, bool now)
 
 		tick_tint(a);
 		tick_theme(a);
-		draw_shelf(a);
+		/* As the main loop draws a shelf: the cover row's no-art sweep
+		 * plays here as on any shelf (draw_shelf_live) */
+		draw_shelf_live(a);
 		panel_leave_draw(a, 0);
 		plat_draw_osd(a->r);
 		plat_present();

@@ -1933,7 +1933,8 @@ void grid_note(app *a, int s, int i, SDL_Surface *surf, bool generated)
 {
 	sysview *v = &a->view[s];
 
-	if (is_muse(&a->sys.systems[s]) || i < 0 || i >= v->list.count || !v->tex[i]) return;
+	/* MP4's shelf too, since it has the Grid (DESIGN.md 11.67) */
+	if (i < 0 || i >= v->list.count || !v->tex[i]) return;
 	gg_note(&v->gart, a->r, v->list.count, i, v->tex[i], gg_key(v->list.items[i].file),
 	        surf, generated);
 }
@@ -2161,12 +2162,13 @@ void shelf_put(void *ctx, texload_got *g)
 		ui_card_order card;
 		SDL_Surface *ground = NULL;
 
-		ui_card_order_set(&card, v->list.items[i].title, a->sys.systems[o].accent, false);
-		game_card_order(a, o, &v->list.items[i], &card);
-		v->tex[i] = is_muse(&a->sys.systems[s])
-		          ? ui_make_cover(a->r, v->list.items[i].title,
-		                          a->sys.systems[o].accent, &v->tw[i], &v->th[i])
-		          : v->list.items[i].folder
+		if (is_muse(&a->sys.systems[s])) {
+			muse_album_card_order(a, s, i, a->sys.systems[o].accent, &card);
+		} else {
+			ui_card_order_set(&card, v->list.items[i].title, a->sys.systems[o].accent, false);
+			game_card_order(a, o, &v->list.items[i], &card);
+		}
+		v->tex[i] = v->list.items[i].folder
 		          ? ui_make_folder_card(a->r, v->list.items[i].title,
 		                                look_folder_rgb(a->sys.systems[o].accent),
 		                                v->list.items[i].folder, &v->tw[i], &v->th[i])

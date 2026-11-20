@@ -2,6 +2,7 @@
 #ifndef ZYPEROS_GAMES_H
 #define ZYPEROS_GAMES_H
 #include "coverflow.h"
+#include "keyhints.h"
 #include "rowmotion.h"
 #include <stdint.h>
 #define GAMES_WINDOW ROW_SLOTS
@@ -67,6 +68,12 @@ typedef struct {
     int folder;
     /* The shelf shows a folder of its games, not its top: B says Back */
     bool inside;
+    /* A shelf of another kind's own words (MP4's albums, DESIGN.md 11.67):
+     * A's word for the focused entry, and the foot's hints whole; NULL and
+     * 0 for a games shelf's */
+    const char *a_word;
+    const key_hint *foot;
+    int nfoot;
 } games_info;
 void games_reset(games_row *row,int cursor,int count,uint32_t now);
 void games_select(games_row *row,int cursor,int count,int direction,uint32_t now);
