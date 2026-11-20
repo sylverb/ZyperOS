@@ -789,7 +789,11 @@ int cheats_step(void)
 		if (!b || !tail_parse(b, n)) { free(b); stop(CHT_BAD_LIST); return 1; }
 		free(b);
 		remove(tmp);
-		if (index_cached()) { g.phase = P_SYSTEM; return 1; }
+		if (index_cached()) {
+			fprintf(stderr, "cheats: the index kept on the card is the list's own: not read again\n");
+			g.phase = P_SYSTEM;
+			return 1;
+		}
 		if (!ask_range(g.cd_off, (unsigned long long)g.cd_off + g.cd_size - 1)) {
 			if (!retry_later()) stop(CHT_NO_ANSWER);
 			g.phase = P_TAIL;
