@@ -22,6 +22,12 @@ enum { PM_SHOT_RUNNING = 1, PM_SHOT_NONET = 2, PM_SHOT_NOPYTHON = 4, PM_SHOT_INS
 
 /* What main.c uses of it; each is described where it is defined */
 extern int g_pm_shot;
+/* --pico8-page: a host shot of the page A opens on Splore while your PICO-8
+ * is not on the card */
+extern bool g_p8_shot;
+void p8_page_shot(app *a);
+extern int g_p8_said_shot;
+void p8_said_shot(app *a, int k);
 const pm_view *pm_view_read(const system_cfg *s, bool now);
 SDL_Texture *pm_icon_tex(app *a);
 void pm_install_screen(app *a, const system_cfg *s, bool repair, const char *failed,

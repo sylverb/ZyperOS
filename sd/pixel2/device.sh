@@ -18,6 +18,18 @@ HAS_PORT_TURN=1
 HAS_ZYHOME=1
 HAS_USBDRIVE=1
 HAS_OFF_PENDING=1
+# The equalizer over a port's sound runs into the RK817's dmix, the one
+# every program mixes into (plastron's /etc/asound.conf)
+EQ_SLAVE=mixed
+
+# The boot partition, read-only, for what ZyperOS Installer left there for a
+# card's first start (launch.sh: your PICO-8)
+device_boot_mount() {
+	mkdir -p /tmp/zyperos-boot &&
+		mount -t vfat -o ro,noatime,nosuid,nodev /dev/mmcblk0p1 /tmp/zyperos-boot 2> /dev/null &&
+		BOOT_DIR=/tmp/zyperos-boot
+}
+device_boot_unmount() { umount /tmp/zyperos-boot 2> /dev/null; }
 
 WIFI_DOWN="no adapter, or it did not come up"
 

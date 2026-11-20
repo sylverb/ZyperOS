@@ -8,6 +8,7 @@
 #include "aout_route.h"
 #include "eq.h"
 #include "muselib.h"
+#include "musec.h"
 #include "audioout.h"
 #include "dslang.h"
 #include "pacing.h"
@@ -26,6 +27,7 @@
 #include "hotspot.h"
 #include "linebreak.h"
 #include "look.h"
+#include "ds/focus.h"
 #include "menu_panel.h"
 #include "menu_pick.h"
 #include "nowplaying_screen.h"
@@ -337,6 +339,21 @@ static void pm_screen_undo(void *app_, int kept)
 static const ds_hover PM_SHADER_HOVER = { .show = pm_shader_show, .undo = pm_screen_undo };
 static const ds_hover PM_STRENGTH_HOVER = { .show = pm_strength_show, .undo = pm_screen_undo };
 
+/* MP4's Repeat, videos' own mode (src/sys_menu.h): its values in the row's
+ * order, Off first, which is how videos played before it */
+static const muq_mode REPEAT_MODE[3] = { MUQ_IN_ORDER, MUQ_REPEAT_ONE, MUQ_REPEAT_ALL };
+static const str_id REPEAT_TEXT[3] = { S_MENU_OFF_TITLE, S_SYSMENU_MUSE_REPEAT_ONE,
+                                       S_SYSMENU_MUSE_REPEAT_ALL };
+
+static int repeat_at(void)
+{
+	int i;
+
+	for (i = 0; i < 3; i++)
+		if (REPEAT_MODE[i] == musec_video_mode()) return i;
+	return 0;
+}
+
 /* Rumble's list: the level under the cursor buzzes once as the cursor
  * comes onto it, so each is felt before it is chosen (the lab's) */
 static void pm_rumble_focus(void *app_, int k)
@@ -381,13 +398,15 @@ static void menu_choices(app *a, int sys, bool games)
 			g_smm_choice[SMM_SHOW] = ch_make(&P[0], n, cur, false);
 			for (i = 0; i < ML_ORDERS; i++) P[1].lab[i] = ml_order_label_kind((ml_order)i, muse_kind_shown());
 			g_smm_choice[SMM_SORT] = ch_make(&P[1], ML_ORDERS, v->sort, false);
+			for (i = 0; i < 3; i++) P[2].lab[i] = T(REPEAT_TEXT[i]);
+			g_smm_choice[SMM_REPEAT] = ch_make(&P[2], 3, repeat_at(), false);
 			return;
 		}
-		n = cfg_core_count(sc);
+		n = core_offered_count(sc);
 		for (i = 0, cur = 0; i < n && i < CH_MAX; i++) {
 			char core[CFG_STR];
 
-			if (!cfg_core_at(sc, i, core, sizeof core)) core[0] = '\0';
+			if (!core_offered_at(sc, i, core, sizeof core)) core[0] = '\0';
 			if (!strcmp(core, sc->core)) cur = i;
 			core_label(core, P[2].buf[i], sizeof P[2].buf[i]);
 			P[2].lab[i] = P[2].buf[i];
@@ -587,7 +606,7 @@ int menu_build(app *a, screen_id screen, int sys,
 
 		u.sys_name   = sc->name;
 		u.sys_core   = core_label(sc->core, corebuf, sizeof corebuf);
-		u.core_choice = cfg_core_count(sc) > 1;
+		u.core_choice = core_offered_count(sc) > 1;
 		{
 			static char dslbuf[64];
 
@@ -600,8 +619,9 @@ int menu_build(app *a, screen_id screen, int sys,
 		u.muse       = is_muse(sc);
 		u.fav        = !u.muse && sc->core[0] == '\0' && sc->folder[0] == '\0';
 		/* Every game of the system, in its folders too: the shelf's own
-		 * entries would count a folder as one */
-		u.game_count = sys_games(&a->view[sys])->count;
+		 * entries would count a folder as one. Not Splore's entry, nor
+		 * PortMaster's while it is not on the card: no game */
+		u.game_count = sys_games(&a->view[sys])->count - pm_shelf_offers(a, sys);
 		u.dmode      = dmode_label(a->view[sys].dmode);
 		u.shader     = shader_label(a->view[sys].shader);
 		u.strength   = strength_row_label(a, sys);
@@ -614,6 +634,7 @@ int menu_build(app *a, screen_id screen, int sys,
 		u.muse_songs = u.muse && ml_count_kind(&g_muse, ML_MUSIC) > 0;
 		u.muse_both  = u.muse && muse_kinds() > 1;
 		u.muse_playing = u.muse && lock_allowed();
+		u.muse_repeat = u.muse ? T(REPEAT_TEXT[repeat_at()]) : NULL;
 		u.eq         = eq_preset_name(eq_preset_get(eq_out_now()));
 		u.sort       = u.muse ? ml_order_label_kind((ml_order)a->view[sys].sort, muse_kind_shown())
 		                      : sort_label(a->view[sys].sort);
@@ -745,7 +766,7 @@ void look_bar_colors(void)
  * changes. Words for the look, minutes for the hours. */
 void look_load(void)
 {
-	char ac[16], li[16], dk[16], co[16], zy[8], fo[16];
+	char ac[16], li[16], dk[16], co[16], zy[8], fo[16], hl[16];
 	look l;
 
 	db_get_str(db_dev(), "look.accent", ac, sizeof ac, DS_ACCENT_ID[0]);
@@ -754,8 +775,10 @@ void look_load(void)
 	db_get_str(db_dev(), "look.corners", co, sizeof co, "rounded");
 	db_get_str(db_dev(), "look.zyper", zy, sizeof zy, "on");
 	db_get_str(db_dev(), "look.folders", fo, sizeof fo, "system");
+	db_get_str(db_dev(), "look.focus", hl, sizeof hl, "bar");
 	l = look_parse(ac, li, dk, co, zy);
 	l.folder = look_folder_parse(fo);
+	l.focus = look_focus_parse(hl);
 	look_set(&l);
 	look_bar_colors();
 	theme_set_hours(db_get_int(db_dev(), "auto.light", THEME_LIGHT_FROM),
@@ -775,6 +798,7 @@ static void look_change(app *a, const look *l)
 	db_set_str(db_dev(), "look.corners", l->square ? "square" : "rounded");
 	db_set_str(db_dev(), "look.zyper", l->zyper_off ? "off" : "on");
 	db_set_str(db_dev(), "look.folders", look_folder_word(l->folder));
+	db_set_str(db_dev(), "look.focus", look_focus_word(l->focus));
 	theme_init(theme_appearance());
 	theme_changed(a);
 }
@@ -1518,6 +1542,31 @@ static void look_folder_preview(void *app_, int k, int x, int y, int w, int h)
 	ds_preview_screen_end(a->r, &screen);
 }
 
+/* Highlight's picture (DESIGN.md 11.42): three of the home's systems, the
+ * one in focus and one either side, on the theme's ground, the middle one
+ * marked as the choice under the cursor marks it and the others a step
+ * back - the home Grid's own tiles, small. The list shows the choice on the
+ * whole screen too, but the screen under it is MENU: the picture is where
+ * the mark is seen. */
+static void look_focus_preview(void *app_, int k, int x, int y, int w, int h)
+{
+	app *a = app_;
+	const SDL_Rect screen = { x, y, w, h };
+	const ds_rgb g = theme()->ground;
+	home_item all[CFG_MAX_SYSTEMS], three[3];
+	const int n = a->sys.count, c = a->sys_cursor;
+	SDL_Rect in;
+
+	home_items(a, all);
+	for (int i = 0; i < 3; i++)
+		three[i] = n > 0 ? all[((c + i - 1) % n + n) % n] : (home_item){ "", "", 0 };
+	in = ds_preview_screen_begin(a->r, &screen);
+	SDL_SetRenderDrawColor(a->r, g.r, g.g, g.b, 255);
+	SDL_RenderFillRect(a->r, &in);
+	home_focus_preview(&a->home, a->r, three, in, k);
+	ds_preview_screen_end(a->r, &screen);
+}
+
 /* The marks before Theme's values: the accent's dot on Accent, each theme's
  * chip on its background's row, the folders on Folder Color, and both
  * chips on MENU's Theme row */
@@ -1565,10 +1614,25 @@ static void look_thumb(app *a, const ds_theme *t, const SDL_Rect *q)
 	BAR(bx + 22, q->y + 64, q->w * 11 / 100, 8, t->text_soft);
 	ui_round_rect(r, &(SDL_Rect){ q->x + q->w * 27 / 100, q->y + 14, q->w * 16 / 100, q->w * 12 / 100 },
 	              6, ui_col(t->raised, 255));
-	for (i = 0; i < 4; i++)
-		ui_round_rect(r, &(SDL_Rect){ bx + i * (q->w / 10), q->y + q->h - 46, q->w / 14, q->w / 14 },
-		              4, ui_col(i == 2 ? t->text_soft : t->text_dim, 255));
-	BAR(bx + 2 * (q->w / 10), q->y + q->h - 14, q->w / 14, 4, t->accent_ink);
+	/* the dock's mark as Highlight has it (src/ds/focus.h): Bar's bar,
+	 * Border's ring, Lift's rise on a shadow, None's step back alone */
+	{
+		const int f = look_focus(), s = q->w / 14, fx = bx + 2 * (q->w / 10), fy = q->y + q->h - 46;
+
+		for (i = 0; i < 4; i++) {
+			SDL_Rect d = { bx + i * (q->w / 10), fy, s, s };
+
+			if (i == 2 && f == LOOK_FOCUS_LIFT) {
+				ui_round_rect(r, &(SDL_Rect){ d.x + 1, d.y + 2, s, s }, 4, ui_col(t->ink, 70));
+				d.y -= 3;
+			}
+			ui_round_rect(r, &d, 4, ui_col(i == 2 ? t->text_soft : t->text_dim, i == 2 || f != LOOK_FOCUS_NONE ? 255 : 150));
+		}
+		if (f == LOOK_FOCUS_BAR) BAR(fx, q->y + q->h - 14, s, 4, t->accent_ink);
+		if (f == LOOK_FOCUS_BORDER)
+			ds_round_ring(r, (SDL_Rect){ fx - 5, fy - 5, s + 10, s + 10 }, (SDL_Rect){ fx - 2, fy - 2, s + 4, s + 4 },
+			              9, 6, ui_col(t->accent_ink, 255));
+	}
 	/* a menu over it: its heading, rule and bar, three rows, one in focus */
 	ui_round_rect(r, &(SDL_Rect){ mx, my, mw, mh }, 12, ui_col(t->edge, 255));
 	ui_round_rect(r, &(SDL_Rect){ mx + 2, my + 2, mw - 4, mh - 4 }, 10, ui_col(t->surface, 255));
@@ -1598,7 +1662,8 @@ void look_header(app *a, const SDL_Rect *q)
 }
 
 static const unsigned char LOOK_SOUND[LK_ROWS] = {
-	MENU_SND_RING, MENU_SND_RING, MENU_SND_RING, MENU_SND_RING, MENU_SND_RING, MENU_SND_RING, 0 };
+	MENU_SND_RING, MENU_SND_RING, MENU_SND_RING, MENU_SND_RING, MENU_SND_RING, MENU_SND_RING,
+	MENU_SND_RING, 0 };
 static const int ACCENT_NAME[DS_ACCENTS] = {
 	S_LOOK_ACCENT_LIME, S_LOOK_ACCENT_GREEN, S_LOOK_ACCENT_TEAL, S_LOOK_ACCENT_BLUE,
 	S_LOOK_ACCENT_PURPLE, S_LOOK_ACCENT_PINK, S_LOOK_ACCENT_RED, S_LOOK_ACCENT_ORANGE,
@@ -1638,6 +1703,7 @@ static void look_show(app *a, int row, int k)
 	if (row == LK_LIGHT && k >= 0 && k < DS_TONES) l.tone[DS_LIGHT] = k;
 	if (row == LK_DARK && k >= 0 && k < DS_TONES) l.tone[DS_DARK] = k;
 	if (row == LK_FOLDERS && k >= 0 && k < LOOK_FOLDERS) l.folder = k;
+	if (row == LK_HIGHLIGHT && k >= 0 && k < LOOK_FOCUSES) l.focus = k;
 	look_set(&l);
 	theme_show(row == LK_LIGHT ? DS_LIGHT : row == LK_DARK ? DS_DARK : -1);
 	theme_changed(a);
@@ -1657,11 +1723,19 @@ static void accent_show(void *app_, int k) { look_show(app_, LK_ACCENT, k); }
 static void light_show(void *app_, int k) { look_show(app_, LK_LIGHT, k); }
 static void dark_show(void *app_, int k) { look_show(app_, LK_DARK, k); }
 static void folder_show(void *app_, int k) { look_show(app_, LK_FOLDERS, k); }
+static void focus_show(void *app_, int k) { look_show(app_, LK_HIGHLIGHT, k); }
 
 static const ds_hover LK_ACCENT_HOVER = { .show = accent_show, .undo = look_undo };
 static const ds_hover LK_LIGHT_HOVER = { .show = light_show, .undo = look_undo };
 static const ds_hover LK_DARK_HOVER = { .show = dark_show, .undo = look_undo };
 static const ds_hover LK_FOLDER_HOVER = { .show = folder_show, .undo = look_undo };
+static const ds_hover LK_FOCUS_HOVER = { .show = focus_show, .undo = look_undo };
+
+/* Highlight's choices, their words and what each does (DESIGN.md 3.5) */
+static const int FOCUS_NAME[LOOK_FOCUSES] = {
+	S_LOOK_FOCUS_BAR, S_LOOK_FOCUS_BORDER, S_LOOK_FOCUS_LIFT, S_LOOK_FOCUS_NONE };
+static const int FOCUS_NOTE[LOOK_FOCUSES] = {
+	S_LOOK_FOCUS_BAR_NOTE, S_LOOK_FOCUS_BORDER_NOTE, S_LOOK_FOCUS_LIFT_NOTE, S_LOOK_FOCUS_NONE_NOTE };
 
 /* Theme's rows' choices (menu.h's menu_choice): the accents, each theme's
  * grounds and the folders' colors, as look_key steps them, so A opens
@@ -1677,12 +1751,14 @@ const menu_choice *theme_choices(void)
 int look_build(void *ctx, menu_row *rows, int max, const char **heading)
 {
 	static const char *acc[DS_ACCENTS], *tone[DS_THEMES][DS_TONES], *fold[LOOK_FOLDERS];
+	static const char *foc[LOOK_FOCUSES], *focn[LOOK_FOCUSES];
 	const look *l = look_now();
 	int i, t;
 
 	(void)ctx; (void)max;
 	for (i = 0; i < DS_ACCENTS; i++) acc[i] = T(ACCENT_NAME[i]);
 	for (i = 0; i < LOOK_FOLDERS; i++) fold[i] = look_folder_name(i);
+	for (i = 0; i < LOOK_FOCUSES; i++) { foc[i] = T(FOCUS_NAME[i]); focn[i] = T(FOCUS_NOTE[i]); }
 	for (t = 0; t < DS_THEMES; t++)
 		for (i = 0; i < DS_TONES; i++) tone[t][i] = T(TONE_NAME[t][i]);
 	memset(g_lk_choice, 0, sizeof g_lk_choice);
@@ -1695,12 +1771,16 @@ int look_build(void *ctx, menu_row *rows, int max, const char **heading)
 	g_lk_choice[LK_FOLDERS] = (menu_choice){ .n = LOOK_FOLDERS, .cur = (unsigned char)l->folder,
 	                                         .labels = fold, .preview = look_folder_preview,
 	                                         .hover = &LK_FOLDER_HOVER };
+	g_lk_choice[LK_HIGHLIGHT] = (menu_choice){ .n = LOOK_FOCUSES, .cur = (unsigned char)l->focus,
+	                                           .labels = foc, .notes = focn, .preview = look_focus_preview,
+	                                           .hover = &LK_FOCUS_HOVER };
 	*heading = T(S_SYSMENU_THEME);
 	rows[LK_ACCENT]  = (menu_row){ T(S_LOOK_ACCENT), T(ACCENT_NAME[l->accent]), true };
 	rows[LK_LIGHT]   = (menu_row){ T(S_LOOK_BG_LIGHT), T(TONE_NAME[DS_LIGHT][l->tone[DS_LIGHT]]), true };
 	rows[LK_DARK]    = (menu_row){ T(S_LOOK_BG_DARK), T(TONE_NAME[DS_DARK][l->tone[DS_DARK]]), true };
 	rows[LK_FOLDERS] = (menu_row){ T(S_LOOK_FOLDERS), look_folder_name(l->folder), true };
 	rows[LK_CORNERS] = (menu_row){ T(S_LOOK_CORNERS), T(l->square ? S_LOOK_SQUARE : S_LOOK_ROUNDED), true };
+	rows[LK_HIGHLIGHT] = (menu_row){ T(S_LOOK_HIGHLIGHT), T(FOCUS_NAME[l->focus]), true };
 	rows[LK_ZYPER]   = (menu_row){ T(S_LOOK_ZYPER), T(l->zyper_off ? S_MENU_OFF_TITLE : S_MENU_ON_TITLE), true };
 	rows[LK_RESET]   = (menu_row){ T(S_LOOK_RESET), NULL, true };
 	return LK_ROWS;
@@ -1719,6 +1799,7 @@ static menu_result look_key(app *a, void *ctx, in_button key, int sel)
 	case LK_DARK:    l.tone[DS_DARK] = (l.tone[DS_DARK] + d + DS_TONES) % DS_TONES; break;
 	case LK_FOLDERS: l.folder = (l.folder + d + LOOK_FOLDERS) % LOOK_FOLDERS; break;
 	case LK_CORNERS: l.square = !l.square; break;
+	case LK_HIGHLIGHT: l.focus = (l.focus + d + LOOK_FOCUSES) % LOOK_FOCUSES; break;
 	case LK_ZYPER:   l.zyper_off = !l.zyper_off; break;
 	case LK_RESET:
 		if (key != IN_ACCEPT) return MENU_STAY;
@@ -1784,6 +1865,16 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 				if (key != IN_ACCEPT) return MENU_STAY;
 				muse_ask_lock();
 				return MENU_DONE;
+			} else if (id == SMM_REPEAT) {
+				/* Off, One, All, round either way (A opens their list,
+				 * menu_choose), applied to videos playing now and kept */
+				if (d) {
+					int i = (repeat_at() + d + 3) % 3;
+
+					musec_set_video_mode(REPEAT_MODE[i]);
+					db_set_str(db_dev(), "video.mode", MUSE_MODES[REPEAT_MODE[i]].key);
+				}
+				return MENU_STAY;
 			} else if (id == SMM_SHUFFLE) {
 				/* Closes the menu; Now Playing opens on the first song. */
 				if (key != IN_ACCEPT) return MENU_STAY;
@@ -1836,7 +1927,7 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 		 * steps to the next, saved at once like the display mode. The next
 		 * game launched from here runs on it. */
 		if ((d || key == IN_ACCEPT) && sel == SM_CORE &&
-		    cfg_core_count(&a->sys.systems[a->sys_cursor]) > 1) {
+		    core_offered_count(&a->sys.systems[a->sys_cursor]) > 1) {
 			core_step(a, a->sys_cursor, d ? d : 1);
 			return MENU_STAY;
 		}
