@@ -5875,16 +5875,44 @@ static void follow_log_end(void)
  * Where MP4's sound goes stays where the launcher left it: this process
  * reads no jack and no headset (no route). No display, no input, no sound of
  * its own. The file is written as it ends, for the launcher after. */
+static volatile sig_atomic_t g_follow_cont;
+static void on_sigcont(int sig) { (void)sig; g_follow_cont = 1; }
+
+/* The file's bytes, to tell a queue the menu wrote from the one taken: a
+ * file written again in the same second at the same length looks the same
+ * to stat. NULL with none. */
+static char *hand_bytes(const char *path, size_t *n)
+{
+	FILE *f = fopen(path, "rb");
+	char *b = NULL;
+	long len;
+
+	*n = 0;
+	if (!f) return NULL;
+	if (fseek(f, 0, SEEK_END) == 0 && (len = ftell(f)) >= 0 && fseek(f, 0, SEEK_SET) == 0 &&
+	    (b = malloc((size_t)len + 1)) && fread(b, 1, (size_t)len, f) == (size_t)len) {
+		*n = (size_t)len;
+	} else {
+		free(b);
+		b = NULL;
+	}
+	fclose(f);
+	return b;
+}
+
 static int mp4_follow_main(void)
 {
 	static app a;
-	char path[CFG_STR * 2];
-	const char *hand;
+	char path[CFG_STR * 2], hand[CFG_STR * 2];
+	char *taken;
+	size_t taken_n;
 	struct stat seen, st;
-	bool have;
 
 	signal(SIGTERM, on_sigterm);
 	signal(SIGINT, on_sigterm);
+	/* Let go on after the in-game menu (portkeys's SIGCONT): the file
+	 * looked at at once */
+	signal(SIGCONT, on_sigcont);
 	follow_log_start();
 	paths_init();
 	{
@@ -5899,27 +5927,42 @@ static int mp4_follow_main(void)
 		fprintf(stderr, "mp4 follow: no usable %s; the queue alone\n", path);
 	mp4_setup(false, false, NULL);
 	mp4_shelf_alone(&a);
-	hand = plat_flag(MP4HAND_PATH);
-	have = stat(hand, &seen) == 0;
+	/* A copy: plat_flag's answer is one of a few it hands out in turn */
+	snprintf(hand, sizeof hand, "%s", plat_flag(MP4HAND_PATH));
+	if (stat(hand, &seen) != 0) memset(&seen, 0, sizeof seen);
+	taken = hand_bytes(hand, &taken_n);
 	mp4_hand_take();
-	fprintf(stderr, "mp4 follow: beside the program%s\n", have ? "" : ", with no queue handed over");
+	fprintf(stderr, "mp4 follow: beside the program%s\n", taken ? "" : ", with no queue handed over");
 	while (!want_quit) {
 		struct timespec nap = { 0, 100 * 1000000L };
+		bool look = g_follow_cont;
 
 		/* The in-game menu's MP4 wrote the file as it closed: taken before
 		 * the daemon is read, as the menu's connection replaced this one
-		 * and the next word is about the menu's queue */
+		 * and the next word is about the menu's queue. Looked at as this
+		 * goes on after the menu, and whenever stat says it changed. */
+		g_follow_cont = 0;
 		if (stat(hand, &st) == 0 &&
-		    (!have || st.st_ino != seen.st_ino || st.st_mtime != seen.st_mtime ||
+		    (look || st.st_ino != seen.st_ino || st.st_mtime != seen.st_mtime ||
 		     st.st_size != seen.st_size)) {
+			size_t n;
+			char *now = hand_bytes(hand, &n);
+
 			seen = st;
-			have = true;
-			fprintf(stderr, "mp4 follow: the queue again, from the in-game menu\n");
-			mp4_hand_take();
+			if (now && (!taken || n != taken_n || memcmp(now, taken, n))) {
+				free(taken);
+				taken = now;
+				taken_n = n;
+				fprintf(stderr, "mp4 follow: the queue again, from the in-game menu\n");
+				mp4_hand_take();
+			} else {
+				free(now);
+			}
 		}
 		mp4_poll();
 		nanosleep(&nap, NULL);
 	}
+	free(taken);
 	book_keep(true);
 	mp4_hand_save();
 	db_shutdown();

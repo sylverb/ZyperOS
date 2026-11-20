@@ -78,8 +78,10 @@ def launch_sh(tmp):
         for pat in ('/mnt/SDCARD', '/tmp/', 'exec setsid /bin/bash', 'killall -TERM mp4d'):
             if src.name == 'launch.sh' and pat not in text:
                 check(False, f'launch.sh no longer has {pat!r}')
-        return (text.replace('/mnt/SDCARD', str(card)).replace('/usr/share/zyperos/card', str(d / 'seed'))
-                .replace('/tmp/', f'{d}/tmp/').replace('/dev/kmsg', str(d / 'kmsg')))
+        # /tmp/ first: the scratch folder is itself under /tmp on Linux, and
+        # the card's path put in first would be moved again
+        return (text.replace('/tmp/', f'{d}/tmp/').replace('/mnt/SDCARD', str(card))
+                .replace('/usr/share/zyperos/card', str(d / 'seed')).replace('/dev/kmsg', str(d / 'kmsg')))
 
     def put(path, text, run=True):
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -246,11 +248,13 @@ class Daemon:
         return [l.split('\tpath=')[1].split('\t')[0] for l in self.got if l.startswith('PLAY\t')]
 
     def tick(self):
+        """POS while playing, the second held where PLAY put it, so what L1
+        does (the song before, under 3 s) is the same however slow the
+        computer draws"""
         while not self.stop:
             time.sleep(0.25)
             with self.lock:
                 if self.state == 'playing':
-                    self.at += 0.25
                     self.send(f'POS\tat={self.at:.1f}\tlen={self.len:.1f}')
 
     def close(self):
@@ -409,10 +413,8 @@ def launcher(tmp):
               'SELECT: MP4 made ready, the queue taken from the file')
         drawn = [l[len('fit: drawn: '):] for l in log.splitlines() if l.startswith('fit: drawn: ')]
         check('Home Again' in drawn and '3 / 3' in drawn, 'and Now Playing on the song the daemon plays')
-        # L1 more than 3 s into a song starts it again; the second, the one before
+        # L1 under 3 s into a song: the one before
         n = len(daemon.plays())
-        ask(dsock, 'tap l1')
-        ask(dsock, 'wait-frames 8')
         ask(dsock, 'tap l1')
         ask(dsock, 'wait-frames 4')
         check(wait_for(lambda: daemon.plays()[n:] == [str(card / TRACKS[1])], 3),
