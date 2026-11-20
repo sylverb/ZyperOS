@@ -323,7 +323,15 @@ static void show_screen(void)
 		SDL_SetTextureBlendMode(screen_tex, premul);
 		/* A video plays as it is, at the panel's pixels: no shader */
 		draw_picture(&dest, false);
-		SDL_SetTextureBlendMode(screen_tex, SDL_BLENDMODE_BLEND);
+		/* ...and back to opaque, as it was made (below), for every frame
+		 * without a video. It was left blending: after the first MP4 video
+		 * every frame went over the black with its alpha, and whatever the
+		 * screen held at alpha 0 - an RGB texture's pixels, which this SDL
+		 * writes so, the Shader list's picture and the paused game's - came
+		 * out black until the launcher started again (2026-11-19, on the
+		 * 1.1.0 test build: "Shaders preview box is not working. It's
+		 * rendering black", after MP4's videos) */
+		SDL_SetTextureBlendMode(screen_tex, SDL_BLENDMODE_NONE);
 		under.on = false;
 	} else {
 		SDL_SetRenderDrawColor(ren, 0, 0, 0, 255);
@@ -530,6 +538,9 @@ bool plat_video_init(void)
 		fprintf(stderr, "screen texture: %s\n", SDL_GetError());
 		return false;
 	}
+	/* Onto the panel opaque, whatever its alpha says (show_screen); a
+	 * video's frame alone goes over its picture blended */
+	SDL_SetTextureBlendMode(screen_tex, SDL_BLENDMODE_NONE);
 	SDL_SetRenderTarget(ren, screen_tex);
 	SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_BLEND);
 
@@ -2216,7 +2227,11 @@ void plat_charge_limit_set(int pct)
  * can change while a game runs, and gone at power-off. */
 const char *plat_battery_info_path(void)
 {
-	return "/sys/class/power_supply/battery";
+	/* ZYPEROS_BATTERY_DIR stands in for the gauge's folder: a host shot's
+	 * About with a battery in it (tools/i18n-shots.py's BATTERY_DIRS) */
+	const char *dir = getenv("ZYPEROS_BATTERY_DIR");
+
+	return dir && *dir ? dir : "/sys/class/power_supply/battery";
 }
 
 bool plat_battery(int *pct, bool *charging)

@@ -265,8 +265,9 @@ static int muse(menu_row *out)
 	 * 2026-09-20 - the rest of that sentence was saying what the screen was
 	 * about to show anyway. "Or speed" since 2026-09-30: on a book, which
 	 * plays in order, Y is its speed instead. */
-	/* "Or view" since MP4 played video (2026-11-05): on a video, Y turns
-	 * between full screen and the view with its controls. */
+	/* "Or repeat" since 2026-11-19: on a video, Y turns MP4's Repeat
+	 * (Off, One, All), as its MENU's row does; it was the view, before the
+	 * controls came and went by themselves. */
 	out[n++] = (menu_row){ "Y",     T(S_CONTROLS_MODE), false };
 	/* B is not here. It goes back in MP4 exactly as it does everywhere else,
 	 * and the shelf's page already says so. */

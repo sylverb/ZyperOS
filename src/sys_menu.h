@@ -409,6 +409,7 @@ typedef struct {
 	/* The Scraper row's value: "142 missing", "complete", or NULL until a
 	 * count has been taken (art_count_missing, when its screen opens). */
 	const char *scraper;
+	const char *sys_downloads;  /* a console's Downloads row: its count, or NULL */
 	/* System Update (src/sysupdate.h): the row's value, or NULL on a device
 	 * or card without the update program, which has no row */
 	const char *update;

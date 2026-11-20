@@ -68,4 +68,9 @@ void muq_set_mode(muq *q, muq_mode m);
  * there. */
 int muq_upcoming(const muq *q);
 
+/* Videos' Repeat (MP4's MENU > Repeat, Y on a video): the mode after `m`,
+ * Off (in order), One, All and round, the row's own order; a mode Repeat
+ * has not (shuffle, music's) goes on to One */
+muq_mode muq_video_repeat_next(muq_mode m);
+
 #endif

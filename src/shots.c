@@ -221,6 +221,7 @@ int shot_syn;       /* --synopsis: the card a scraped game opens */
 int shot_info;
 int shot_delete_ask, shot_delete_now;
 int shot_collect_page = -1, shot_collect_delete, shot_collect_said = -1;
+int shot_zip_said;
 /* --gm-said K: one of Delete Game's and Rename's messages (GM_SAID) */
 int shot_gm_said = -1;
 
@@ -1666,6 +1667,10 @@ static void shot_compose_once(app *a)
 	if (shot_collect_delete) collect_delete_preview(a);
 	if (shot_gm_said >= 0) gm_said_preview(a, shot_gm_said);
 	if (shot_collect_said >= 0) collect_said_preview(a, shot_collect_said);
+	/* --zip-said: a zip whose game Diatom cannot unpack, said under its name */
+	if (shot_zip_said && a->view[a->sys_cursor].list.count > 0)
+		result_preview(a, a->view[a->sys_cursor].list.items[a->view[a->sys_cursor].cursor].title,
+		               T(S_LAUNCH_ZIP_METHOD));
 	if (g_p8_said_shot >= 0) p8_said_shot(a, g_p8_said_shot);
 	if (shot_controls >= 0 && (shot_press != SHOT_SWAP || shot_pressed)) {
 		menu_row rows[CTL_MAX_ROWS];

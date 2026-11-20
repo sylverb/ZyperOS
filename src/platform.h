@@ -169,6 +169,12 @@ unsigned plat_input_wait_hook(unsigned ms);
  * input arrives in bursts as it starts, settling means waiting them out. */
 void plat_input_settle(in_state *st);
 bool in_repeat(in_state *st, in_button b);
+/* A pair of opposite buttons, `neg` and `pos` (Up and Down, Left and Right),
+ * each read once this frame by in_repeat: -1 for `neg`'s press or repeat,
+ * +1 for `pos`'s (both: `pos`), 0 for neither. A repeat is true once: a
+ * second in_repeat of the same button in a frame is false, so a held
+ * direction read twice turns round */
+int in_repeat_axis(in_state *st, in_button neg, in_button pos);
 
 /* Tell the input layer the process is going away. The next plat_input_poll
  * raises quit_requested, which every loop already checks. */

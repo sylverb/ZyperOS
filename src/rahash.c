@@ -2,11 +2,13 @@
 /* See rahash.h. Three pieces: MD5, enough zip to reach the ROM, and
  * RetroAchievements' per-console rule about how much of it counts. */
 #include <ctype.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <lzma.h>
 #include <zlib.h>
 #include <fcntl.h>
 
@@ -146,8 +148,36 @@ static bool is_zip(const char *path)
 	return n > 4 && strcasecmp(path + n - 4, ".zip") == 0;
 }
 
+/* A zip's LZMA entry (method 14): its 4-byte header, the 5 bytes of LZMA1
+ * properties, then the raw stream, decoded until it holds `usize` bytes, as
+ * Diatom's zip.c decodes it */
+static bool zip_lzma(const unsigned char *comp, size_t csize, unsigned char *out, size_t usize)
+{
+	lzma_stream z = LZMA_STREAM_INIT;
+	lzma_filter filters[2] = { { LZMA_FILTER_LZMA1, NULL }, { LZMA_VLI_UNKNOWN, NULL } };
+	size_t props;
+	lzma_ret rc;
+
+	if (csize < 4) return false;
+	props = (size_t)comp[2] | (size_t)comp[3] << 8;
+	if (props != 5 || csize < 4 + props) return false;
+	if (lzma_properties_decode(&filters[0], NULL, comp + 4, props) != LZMA_OK) return false;
+	rc = lzma_raw_decoder(&z, filters);
+	free(filters[0].options);
+	if (rc != LZMA_OK) return false;
+	z.next_in = comp + 4 + props;
+	z.avail_in = csize - 4 - props;
+	z.next_out = out;
+	z.avail_out = usize;
+	do rc = lzma_code(&z, LZMA_FINISH);
+	while (rc == LZMA_OK && z.avail_out > 0 && z.avail_in > 0);
+	lzma_end(&z);
+	return z.total_out == usize && (rc == LZMA_OK || rc == LZMA_STREAM_END || rc == LZMA_BUF_ERROR);
+}
+
 /* The largest entry, whole. Deliberately the same choice Diatom's zip.c
- * makes - see rahash.h for why that coupling matters. */
+ * makes - see rahash.h for why that coupling matters: the largest whatever
+ * its method, stored, Deflate or LZMA unpacked, any other refused. */
 static unsigned char *zip_largest(const char *path, size_t *out_len)
 {
 	FILE *f = fopen(path, "rb");
@@ -198,7 +228,6 @@ static unsigned char *zip_largest(const char *path, size_t *out_len)
 		fseek(f, elen + clen, SEEK_CUR);
 
 		if (usize == 0 || (nlen && en[nlen - 1] == '/')) continue;
-		if (method != 0 && method != 8) continue;
 		if (usize > best_u) {
 			best_u = usize;
 			best_c = rd32(hdr + 20);
@@ -206,7 +235,7 @@ static unsigned char *zip_largest(const char *path, size_t *out_len)
 			best_lho = rd32(hdr + 42);
 		}
 	}
-	if (!best_u) { fclose(f); return NULL; }
+	if (!best_u || (best_m != 0 && best_m != 8 && best_m != 14)) { fclose(f); return NULL; }
 
 	fseek(f, (long)best_lho, SEEK_SET);
 	if (fread(lh, 1, 30, f) != 30 || rd32(lh) != 0x04034b50) { fclose(f); return NULL; }
@@ -221,6 +250,8 @@ static unsigned char *zip_largest(const char *path, size_t *out_len)
 
 	if (best_m == 0) {
 		memcpy(un, comp, best_u);
+	} else if (best_m == 14) {
+		if (!zip_lzma(comp, best_c, un, best_u)) goto fail;
 	} else {
 		z_stream z;
 		int rc;

@@ -13,6 +13,7 @@
 #include "rajson.h"
 
 #include <ctype.h>
+#include <dirent.h>
 #include <limits.h>
 #include <pthread.h>
 #include <stdio.h>
@@ -150,35 +151,97 @@ static bool game_asked(const system_cfg *s, const game_entry *e)
 	return ra_hash_support(s->tag, e->file, s->exts) == RA_HASH_OK;
 }
 
+static int name_cmp(const void *a, const void *b)
+{
+	return strcmp(*(char *const *)a, *(char *const *)b);
+}
+
+/* The names in a folder, sorted, for bsearch: one directory read in place
+ * of a look for each game's file. On a FAT card every look for a name walks
+ * the folder, so a look a game cost the folder's length a game, and opening
+ * MENU > Downloads waited on it (Tarik, 1.1.0: "It took a while to open"). */
+static char **dir_names(const char *dir, int *n)
+{
+	DIR *d = opendir(dir);
+	struct dirent *e;
+	char **v = NULL;
+	int cap = 0;
+
+	*n = 0;
+	if (!d) return NULL;
+	while ((e = readdir(d))) {
+		if (e->d_name[0] == '.') continue;
+		if (*n == cap) {
+			char **nv = realloc(v, (size_t)(cap = cap ? cap * 2 : 64) * sizeof *v);
+
+			if (!nv) break;
+			v = nv;
+		}
+		if (!(v[*n] = strdup(e->d_name))) break;
+		(*n)++;
+	}
+	closedir(d);
+	if (*n) qsort(v, (size_t)*n, sizeof *v, name_cmp);
+	return v;
+}
+
+static bool dir_has(char **v, int n, const char *name)
+{
+	return n && bsearch(&name, v, (size_t)n, sizeof *v, name_cmp);
+}
+
+bool radl_plan_one(const system_cfg *s, const char *roms_dir, radl_sys *o)
+{
+	game_list l;
+	char dir[RADL_SET_PATH], **names;
+	int k, nn = 0;
+
+	memset(o, 0, sizeof *o);
+	if (!s || !radl_consoles(s->tag, NULL)) return false;
+	memset(&l, 0, sizeof l);
+	if (!lib_scan_listing(roms_dir, s->folder, s->exts, &l)) return false;
+	snprintf(o->folder, sizeof o->folder, "%s", s->folder);
+	snprintf(o->tag, sizeof o->tag, "%s", s->tag);
+	snprintf(dir, sizeof dir, "%s/%s/.cheevos", roms_dir, s->folder);
+	names = dir_names(dir, &nn);
+	for (k = 0; k < l.count; k++) {
+		const char *name = l.items[k].name;
+		bool set, none;
+
+		if (!game_asked(s, &l.items[k])) continue;
+		o->games++;
+		if (strchr(name, '/')) {
+			/* a game in a folder of its own: its set is in one too */
+			char sp[RADL_SET_PATH], np[RADL_SET_PATH + 16];
+
+			chv_path(roms_dir, s->folder, name, sp, sizeof sp);
+			chv_none_path(sp, np, sizeof np);
+			set = exists(sp);
+			none = !set && exists(np);
+		} else {
+			char f[LIB_NAME + 8];
+
+			snprintf(f, sizeof f, "%s.set", name);
+			set = dir_has(names, nn, f);
+			snprintf(f, sizeof f, "%s.none", name);
+			none = !set && dir_has(names, nn, f);
+		}
+		if (set) o->ready++;
+		else if (none) o->none++;
+		else o->todo++;
+	}
+	for (k = 0; k < nn; k++) free(names[k]);
+	free(names);
+	lib_free(&l);
+	return o->games > 0;
+}
+
 int radl_plan(const systems_cfg *sys, const char *roms_dir, radl_sys *out, int max)
 {
-	int i, k, n = 0;
+	int i, n = 0;
 
-	for (i = 0; sys && i < sys->count && n < max; i++) {
-		const system_cfg *s = &sys->systems[i];
-		game_list l;
-		radl_sys *o = &out[n];
-
-		if (!radl_consoles(s->tag, NULL)) continue;
-		memset(&l, 0, sizeof l);
-		if (!lib_scan_listing(roms_dir, s->folder, s->exts, &l)) continue;
-		memset(o, 0, sizeof *o);
-		snprintf(o->folder, sizeof o->folder, "%s", s->folder);
-		snprintf(o->tag, sizeof o->tag, "%s", s->tag);
-		for (k = 0; k < l.count; k++) {
-			char set[RADL_SET_PATH], none[RADL_SET_PATH + 16];
-
-			if (!game_asked(s, &l.items[k])) continue;
-			o->games++;
-			chv_path(roms_dir, s->folder, l.items[k].name, set, sizeof set);
-			chv_none_path(set, none, sizeof none);
-			if (exists(set)) o->ready++;
-			else if (exists(none)) o->none++;
-			else o->todo++;
-		}
-		lib_free(&l);
-		if (o->games) n++;
-	}
+	for (i = 0; sys && i < sys->count && n < max; i++)
+		if (radl_plan_one(&sys->systems[i], roms_dir, &out[n])) n++;
 	return n;
 }
 

@@ -8,6 +8,7 @@
 #include "panel.h"
 #include "randgame.h"
 #include "saver.h"
+#include "shelf_draw.h"
 #include "shelfbuild.h"
 #include "snaps.h"
 #include "snapview.h"
@@ -433,8 +434,12 @@ bool saver_pass(app *a)
 	for (b = 0; b < IN_COUNT && !any; b++)
 		any = a->in.pressed[b] || a->in.down[b];
 	if (!battery_now(&pct, &charging)) pct = -1;
-	/* Not idle: music playing, File Transfer on, a long task at work */
-	busy = musec_playing() || g_xs.on || long_task_busy();
+	/* Not idle: music playing, File Transfer on, a long task at work, or
+	 * the Video view's snap playing on the shelf: a video somebody is
+	 * watching, which the screensaver's own would take the place of, and
+	 * whose first press it would eat (2026-11-19, on the 1.1.0 test build:
+	 * every key "just expands the collapsed bar") */
+	busy = musec_playing() || g_xs.on || long_task_busy() || shelf_video_playing();
 
 	if (!g_sv.on) {
 		if (!saver_due(&g_sv.st, now, g_saver_s, any, busy || saver_low_battery(pct, charging)))
