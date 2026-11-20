@@ -76,22 +76,38 @@ def card(base, n):
     return env
 
 
-def hold(sock, button, ms):
-    """`button` held `ms`, the cursor read as it goes: each one it showed"""
+def hold(sock, button, done, limit=10.0, on_frames=12, on_ms=700):
+    """`button` held until done(seen) is true or `limit` seconds, the cursor
+    read as it goes; then held on through `on_frames` more frames and at
+    least `on_ms` (a repeat is due every 90 ms after 300: several, on any
+    computer, and as many frames as a slow one draws). Each cursor it showed,
+    and how many of them there were when done() came true: any more came
+    while it was held on past it. No wall clock decides where it ends, so a
+    slow runner holds longer, not differently."""
     seen = [ask(sock, 'state')['cursor']]
     ask(sock, f'press {button}')
-    end = time.monotonic() + ms / 1000
-    while time.monotonic() < end:
+
+    def look():
         c = ask(sock, 'state')['cursor']
         if c != seen[-1]:
             seen.append(c)
-        time.sleep(0.012)
+
+    t0 = time.monotonic()
+    while not done(seen) and time.monotonic() - t0 < limit:
+        look()
+        time.sleep(0.01)
+    reached = len(seen) if done(seen) else -1
+    t1 = time.monotonic()
+    if on_frames > 0:
+        ask(sock, f'wait-frames {on_frames}', timeout=30)
+    while time.monotonic() - t1 < on_ms / 1000:
+        look()
+        time.sleep(0.01)
+    look()
     ask(sock, f'release {button}')
     time.sleep(0.15)
-    c = ask(sock, 'state')['cursor']
-    if c != seen[-1]:
-        seen.append(c)
-    return seen
+    look()
+    return seen, reached
 
 
 def settle(sock):
@@ -127,38 +143,39 @@ def run(tmp, n, cols):
         last_row = (rows - 1) * cols
         settle(sock)
 
-        seen = hold(sock, 'left', 2500)
-        check(seen[-1] == 0, f'{n} systems, Grid: a held Left stops at the first system ({seen})')
+        seen, at = hold(sock, 'left', lambda v: v[-1] == 0)
+        check(at > 0 and seen[-1] == 0 and all(b - a == -1 for a, b in zip(seen, seen[1:])),
+              f'{n} systems, Grid: a held Left walks to the first system and stops there ({seen})')
 
-        seen = hold(sock, 'down', 300 + 150 * (rows + 2))
+        seen, at = hold(sock, 'down', lambda v: v[-1] == last_row)
         steps = [b - a for a, b in zip(seen, seen[1:])]
-        check(all(s == cols for s in steps) and seen[-1] == last_row,
+        check(at > 0 and all(s == cols for s in steps[:at - 1]),
               f'{n} systems, Grid: a held Down walks a row at a time to the last row ({seen})')
-        seen = hold(sock, 'down', 700)
-        check(seen == [last_row], f'{n} systems, Grid: held at the last row, Down stays there ({seen})')
+        check(at > 0 and len(seen) == at, f'{n} systems, Grid: held on at the last row, Down stays there ({seen})')
 
-        seen = hold(sock, 'up', 300 + 150 * (rows + 2))
+        seen, at = hold(sock, 'up', lambda v: v[-1] == 0)
         steps = [b - a for a, b in zip(seen, seen[1:])]
-        check(all(s == -cols for s in steps) and seen[-1] == 0,
+        check(at > 0 and all(s == -cols for s in steps[:at - 1]),
               f'{n} systems, Grid: a held Up walks a row at a time to the first row ({seen})')
-        seen = hold(sock, 'up', 700)
-        check(seen == [0], f'{n} systems, Grid: held at the first row, Up stays there ({seen})')
+        check(at > 0 and len(seen) == at, f'{n} systems, Grid: held on at the first row, Up stays there ({seen})')
 
         # START: the Grid's next layout, Spotlight. Its Down jumps a group
         # (three by release date, an initial A to Z) and goes round the end,
-        # so the held walk is held to Down tapped as often from the same place
+        # so the held walk is held to Down tapped as often from the same
+        # place: three repeats after the press, however long they take
         ask(sock, 'tap start')
         settle(sock)
-        held = hold(sock, 'down', 300 + 90 * 3)
+        held, _ = hold(sock, 'down', lambda v: len(v) >= 4, on_frames=0, on_ms=0)
         for layout in ('gallery', 'grid', 'spotlight'):
             ask(sock, 'tap start')
             settle(sock)
             if layout == 'grid':
-                hold(sock, 'left', 2500)        # back to the first system
+                hold(sock, 'left', lambda v: v[-1] == 0, on_frames=0, on_ms=0)   # back to the first system
         tapped = [ask(sock, 'state')['cursor']]
         for _ in range(len(held) - 1):
             ask(sock, 'tap down 40')
-            time.sleep(0.25)
+            ask(sock, 'wait-frames 4', timeout=30)
+            time.sleep(0.15)
             tapped.append(ask(sock, 'state')['cursor'])
         check(len(held) >= 3 and held == tapped,
               f'{n} systems, Spotlight: a held Down jumps forward as taps of it do (held {held}, tapped {tapped})')
