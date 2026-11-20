@@ -897,9 +897,11 @@ static void route_list(httpd_req *r)
 			hj_str(&j, child);
 
 			/* A game's cover and video, where the shelf finds them
-			 * (game_art), named so the page can draw them beside it: a
-			 * file's, and a folder's that is a game of its own. Not a dot
-			 * folder's, nor one of EmulationStation's media folders. */
+			 * (game_art): a file's, and a folder's that is a game of its
+			 * own. Not a dot folder's, nor one of EmulationStation's media
+			 * folders. The page draws the cover beside the game; the video
+			 * it does not draw in 1.1.0 (my call, 2026-11-20): it is named
+			 * for a later design (DESIGN.md 11.40). */
 			if (games && (S_ISREG(st.st_mode) ||
 			              (S_ISDIR(st.st_mode) && e->d_name[0] != '.' && !lib_es_media_dir(e->d_name)))) {
 				char art[XFER_PATH_MAX];

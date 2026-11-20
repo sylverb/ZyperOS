@@ -4577,7 +4577,9 @@ library's rows, so the card still works in the other system.
   *(2026-11-20, from metior: "The web interface doesn't read from the
   EmulationStation folder structure for images and video like the OS itself
   does")*; a `gamelist.xml`, or a file in one of ES's media folders, sent
-  from the page has the folder read again for its next listing.
+  from the page has the folder read again for its next listing. The page
+  draws no video in 1.1.0 *(my call, 2026-11-20)*: the listing names each
+  game's video (`video`), found the same way, for a later design.
 - **Box Art** counts an ES cover as a cover: it fetches only for games with
   neither, and **Cover and Video** (11.34) shows an ES cover as Now,
   credited "EmulationStation". A cover chosen there is ZyperOS's own, and
