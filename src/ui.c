@@ -2303,7 +2303,7 @@ static unsigned rail_hue_at(float x, int count, float blend,
 	 * The MARKS are blended, not the colors. Beard's quarter toward **text**
 	 * is a straight line, so for any two systems' colors it makes no
 	 * difference which is done first; for a system with no color it does,
-	 * since CFG_NO_COLOR is not a color to blend - and for Muse's lime, whose
+	 * since CFG_NO_COLOR is not a color to blend - and for MP4's lime, whose
 	 * mark is another color, blending the two marks is what shows the marks
 	 * at rest on either side. */
 	if (f < blend * 0.5f)

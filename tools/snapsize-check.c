@@ -6,7 +6,7 @@
  * A snap is whatever ScreenScraper encoded: 640x480 for most, but a Nintendo
  * DS game's is its two screens stacked (320x480), a Game Boy's 320x288, and
  * some are odd (534x480, 333x481, a width of 1). For each size, pictures are
- * published into a frames file exactly as src/muse/snap.c publishes them
+ * published into a frames file exactly as src/mp4d/snap.c publishes them
  * (src/mp4frame.h), read back by src/snapview.c into its texture, and drawn
  * on the shelf (games_draw, the cover turning into the snap) and on a game's
  * Cover and Video page (mpg_draw, its video tile), in a software renderer,
@@ -46,7 +46,7 @@ static int failures;
 static mpf_head *g_shm;
 static uint32_t  g_serial;
 
-/* One picture of w x h, as src/muse/snap.c's publish() writes it: luma a
+/* One picture of w x h, as src/mp4d/snap.c's publish() writes it: luma a
  * ramp, chroma grey, the last byte of each plane written */
 static void publish(uint32_t w, uint32_t h, uint32_t file)
 {

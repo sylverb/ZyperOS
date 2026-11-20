@@ -3,7 +3,7 @@
 #define ZYPEROS_AOUT_ROUTE_H
 
 /* Where the system's sound goes: the half of src/audioout.h that gathers -
- * the setting, the cable, the headset - and tells Diatom, Muse and the
+ * the setting, the cable, the headset - and tells Diatom, MP4 and the
  * interface sounds. Each is described in src/aout_route.c. */
 #include "audioout.h"
 #include "eq.h"
@@ -27,7 +27,7 @@ aout_state  aout_now(void);
 /* Where Diatom actually is */
 aout_dest   aout_actual(const aout_state *s);
 
-/* Route Diatom, Muse and the interface sounds; on a change, or `force` */
+/* Route Diatom, MP4 and the interface sounds; on a change, or `force` */
 void aout_apply(bool force);
 /* The equalizer (src/eq.h), told with the routes: its settings changed, so
  * the next aout_apply reads them again; the Equalizer page's list heard
@@ -38,10 +38,10 @@ void eq_route_preview(eq_out o, const int8_t *db);
 void eq_route_live(bool on);
 /* The interface sounds alone, every frame of a screen that does not route */
 void ui_sounds_follow(void);
-/* musec's hook, just before a PLAY or RESUME */
-void aout_before_muse(void);
-/* Muse's own screens, each frame */
-void muse_screen_poll(void);
+/* mp4c's hook, just before a PLAY or RESUME */
+void aout_before_mp4(void);
+/* MP4's own screens, each frame */
+void mp4_screen_poll(void);
 /* Just before a game is handed over, and while it runs */
 void aout_before_launch(void);
 void aout_retry_in_game(void);

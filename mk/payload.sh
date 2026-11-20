@@ -4,7 +4,7 @@
 # on both, builds it into its card image and copies it onto the card on first
 # boot, so its build sets where the binaries are and where the payload goes:
 #
-#   DEVICE=brick ZYPEROS_ELF=... MUSE_ELF=... DIATOM_ELF=... VENDOR_DIR=... \
+#   DEVICE=brick ZYPEROS_ELF=... MP4D_ELF=... DIATOM_ELF=... VENDOR_DIR=... \
 #       BTPLAYER_ELF=... OUT=... mk/payload.sh
 #
 # BTPLAYER_ELF only for a device with Bluetooth: tools/btplayer.c, which
@@ -36,7 +36,7 @@ has_helper() { case $HELPERS in *" $1 "*) return 0 ;; esac; return 1; }
 if [ "$DEVICE" = brick ]; then OUT=${OUT:-$ROOT/out/sd}; else OUT=${OUT:-$ROOT/out/sd-$DEVICE}; fi
 P=$OUT/ZyperOS
 ZYPEROS_ELF=${ZYPEROS_ELF:-$ROOT/build/zyperos.elf}
-MUSE_ELF=${MUSE_ELF:-$ROOT/build/muse}
+MP4D_ELF=${MP4D_ELF:-$ROOT/build/mp4d}
 VENDOR_DIR=${VENDOR_DIR:-$ROOT/vendor}
 
 [ -f "$ZYPEROS_ELF" ] || { echo "run make first"; exit 1; }
@@ -54,7 +54,7 @@ mkdir -p "$P/system-icons" "$P/cores" "$P/res/web" \
          "$OUT/Menu Music"
 
 cp "$ZYPEROS_ELF" "$P/zyperos.elf"
-cp "$MUSE_ELF" "$P/muse"                  # the audio player's engine; Muse cannot play without it
+cp "$MP4D_ELF" "$P/mp4d"                  # the audio player's engine; MP4 cannot play without it
 [ -n "$BTPLAYER_ELF" ] && cp "$BTPLAYER_ELF" "$P/btplayer"   # a headset's keys and volume
 [ -n "${PORTKEYS_ELF:-}" ] && cp "$PORTKEYS_ELF" "$P/portkeys" # the volume keys during a port (Pixel 2)
 [ -n "${ZYHOME_ELF:-}" ] && cp "$ZYHOME_ELF" "$P/zyhome"     # MENU+START, back to the home (Pixel 2)
@@ -91,7 +91,7 @@ cp "$ROOT/res/fonts/zh-menu.otf" "$P/"    # 简体中文's faces and 日本語's
 cp "$ROOT/res/fonts/zh-title.otf" "$P/"   # them (tools/cjkfont.py), opened only
 cp "$ROOT/res/fonts/ja-menu.otf" "$P/"    # when Chinese or Japanese is drawn
 cp "$ROOT/res/fonts/ja-title.otf" "$P/"
-cp "$ROOT/res/singles.png" "$P/"          # Muse's cover for Singles, the loose songs
+cp "$ROOT/res/singles.png" "$P/"          # MP4's cover for Singles, the loose songs
 cp "$ROOT/res/zyper.png" "$P/"            # Zyper's photo, on About's The name page
 # The interface sounds, every voice (src/uisound.h): the launcher reads them
 # from res/sounds/<voice>/ beside res/web/, and plays nothing without them.
@@ -247,7 +247,7 @@ if [ -z "$room" ] || [ "$ncores" -gt "$room" ]; then
 	exit 1
 fi
 
-chmod +x "$P/launch.sh" "$P/zyperos.elf" "$P/diatom" "$P/muse"
+chmod +x "$P/launch.sh" "$P/zyperos.elf" "$P/diatom" "$P/mp4d"
 [ -f "$P/btplayer" ] && chmod +x "$P/btplayer"
 [ -f "$P/portkeys" ] && chmod +x "$P/portkeys"
 [ -f "$P/zyhome" ] && chmod +x "$P/zyhome"

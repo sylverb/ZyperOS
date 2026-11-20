@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-#ifndef MUSE_COVER_H
-#define MUSE_COVER_H
+#ifndef MP4D_COVER_H
+#define MP4D_COVER_H
 
 #include <stddef.h>
 

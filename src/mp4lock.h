@@ -11,7 +11,7 @@
  *
  * mine, 2026-11-05: while locked every button is blocked, POWER included,
  * and one clear gesture unlocks - SELECT and START held together for
- * hold-unlock (MP4_UNLOCK_MS). Muse's pocket lock before it let power and
+ * hold-unlock (MP4_UNLOCK_MS). MP4's pocket lock before it let power and
  * volume through (Eric's call, 2026-09-30: powering off is far more common
  * than pocketing a handheld). A pocket presses power as easily as anything
  * else, so now it does not get through; what cannot be stopped is the power

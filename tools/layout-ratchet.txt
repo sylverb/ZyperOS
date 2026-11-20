@@ -23,7 +23,7 @@
 2 mediapage.h
 2 menu_panel.c
 2 mp4frame.h
-2 muse/snap.c
+2 mp4d/snap.c
 2 notice.c
 9 nowplaying_screen.c
 5 osdbar.c

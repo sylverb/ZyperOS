@@ -8,7 +8,7 @@
 #include "battery_poll.h"
 #include "blur.h"
 #include "design.h"
-#include "musec.h"
+#include "mp4c.h"
 #include "status.h"
 #include "taskhold.h"
 #include "theme.h"
@@ -306,7 +306,7 @@ bool battery_empty(void)
  *
  * THE ONE PLACE. The jobs the device was asked to do - the scraper's art and
  * video downloads, System Update's download, PortMaster's install, Storage's
- * walk, File Transfer's copies, Muse's covers - hold Auto Off the way the
+ * walk, File Transfer's copies, MP4's covers - hold Auto Off the way the
  * charger does, and this is the whole list. A new long job is a line here (or
  * a task_note from its loop), never a clock reset of its own: three of them
  * held the clock each their own way and the rest did not hold it at all.
@@ -374,5 +374,5 @@ bool idle_due(app *a)
 	 * counting as input: an album is somebody using the device with nobody
 	 * touching it, and when it stops the countdown starts fresh. */
 	return idle_check(&a->idle, plat_now_ms(), b < IN_COUNT,
-	                  idle_held() || musec_playing());
+	                  idle_held() || mp4c_playing());
 }

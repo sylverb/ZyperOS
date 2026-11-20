@@ -2,7 +2,7 @@
 /* snapsub.dylib: a game's video snap picture in place of the host build's test
  * picture, for a --snap shot of the launcher (build-native/zyperos).
  *
- * The host build has no Muse to decode a snap, so `--snap K` turns the cover
+ * The host build has no MP4 to decode a snap, so `--snap K` turns the cover
  * into a test picture (src/mp4video.c, mp4v_test_picture), a 320x240 IYUV
  * texture filled with SDL_UpdateYUVTexture. Loaded with DYLD_INSERT_LIBRARIES,
  * this hands that call the planes of SNAP_I420 instead: raw 320x240 yuv420p

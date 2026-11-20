@@ -9,11 +9,11 @@
 #include "app.h"
 #include "keyhints.h"
 #include "mp4look.h"
-#include "musec.h"
+#include "mp4c.h"
 
 #include <stdbool.h>
 
-/* The look that is on (the setting muse.look, Cover until it is changed),
+/* The look that is on (the setting mp4.look, Cover until it is changed),
  * and setting it */
 mp4l_id np_look(void);
 void    np_look_set(mp4l_id id);

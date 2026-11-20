@@ -14,7 +14,7 @@
 #include "ingame_screen.h"
 #include "cheats_screen.h"
 #include "hudmenu_screen.h"
-#include "musec.h"
+#include "mp4c.h"
 #include "net.h"
 #include "notice.h"
 #include "pacing.h"
@@ -283,7 +283,7 @@ static void launch_port_core(app *a, const system_cfg *s, const char *file, cons
 	 * launch.sh's process for its quit (src/ctl.h) */
 	ctl_port_write(ctl_dir(), (int)getppid(), (long)time(NULL), path);
 	/* The shelf comes back on this game, and an audiobook keeps its place:
-	 * launch.sh stops Muse too, as the port needs the sound card. */
+	 * launch.sh stops MP4 too, as the port needs the sound card. */
 	remember_place(a);
 	{
 		FILE *r = fopen(PORT_RETURN, "w");
@@ -319,11 +319,11 @@ static void p8_page_screen(app *a)
 	for (i = 0; i < P8_NOTES; i++) np[i] = notes[i];
 	while (!want_quit && a->running) {
 		plat_input_poll(&a->in);
-		muse_poll();
+		mp4_poll();
 		aout_apply(false);
 		if (a->in.quit_requested) { a->running = false; break; }
 		if (a->in.pressed[IN_POWER] || idle_due(a)) { power_off(a); break; }
-		if (a->in.pressed[IN_SELECT]) muse_open(a, NULL, NULL);
+		if (a->in.pressed[IN_SELECT]) mp4_open(a, NULL, NULL);
 		if (in_repeat(&a->in, IN_VOLUP))    plat_volume_nudge(+1);
 		if (in_repeat(&a->in, IN_VOLDN))    plat_volume_nudge(-1);
 		if (in_repeat(&a->in, IN_BRIGHTUP)) plat_brightness_nudge(+1);
@@ -621,11 +621,11 @@ static void pm_install_loop(app *a, const system_cfg *s, SDL_Texture *icon)
 			pm_offer_refresh(a);
 		}
 		plat_input_poll(&a->in);
-		muse_poll();
+		mp4_poll();
 		aout_apply(false);
 		if (a->in.quit_requested) { a->running = false; return; }
 		if (a->in.pressed[IN_POWER] || idle_due(a)) { power_off(a); return; }
-		if (a->in.pressed[IN_SELECT]) muse_open(a, NULL, NULL);
+		if (a->in.pressed[IN_SELECT]) mp4_open(a, NULL, NULL);
 		if (in_repeat(&a->in, IN_VOLUP))    plat_volume_nudge(+1);
 		if (in_repeat(&a->in, IN_VOLDN))    plat_volume_nudge(-1);
 		if (in_repeat(&a->in, IN_BRIGHTUP)) plat_brightness_nudge(+1);
@@ -1107,9 +1107,9 @@ void launch(app *a)
 	/* Menu music fades out under the launch; the shelf lets it go again */
 	bgm_hold(BGM_HOLD_GAME, true);
 
-	/* Whether this game should be heard - quiet while Muse plays, Diatom's
+	/* Whether this game should be heard - quiet while MP4 plays, Diatom's
 	 * QUIET. Stated before the RUN goes out, which sends it. */
-	plat_resident_quiet(musec_playing());
+	plat_resident_quiet(mp4c_playing());
 	/* And whether the battery is low, so the disc is over its first frame. */
 	plat_resident_low_battery(battery_level());
 

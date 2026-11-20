@@ -16,7 +16,7 @@ ja = ROMs
 it = ROMs
 
 [transfer.root_music]
-note = Muse's music folder in the page's sidebar
+note = MP4's music folder in the page's sidebar
 en = Music
 zh-Hans = 音乐
 es = Música
@@ -27,7 +27,7 @@ ja = 音楽
 it = Musica
 
 [transfer.root_books]
-note = Muse's audiobooks folder in the page's sidebar
+note = MP4's audiobooks folder in the page's sidebar
 en = Audiobooks
 zh-Hans = 有声书
 es = Audiolibros

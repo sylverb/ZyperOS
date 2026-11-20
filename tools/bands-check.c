@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* MP4's bars, held (src/muse/bands.h): each band lit by a tone at its own
+/* MP4's bars, held (src/mp4d/bands.h): each band lit by a tone at its own
  * middle and not by one an octave off, silence dark, the window taken where
  * the listener is and not where the decoder got to, and the time it takes.
  *
@@ -8,7 +8,7 @@
  *                                          song (ffmpeg decodes it): the
  *                                          scale in bands.c is set by this
  */
-#include "../src/muse/bands.h"
+#include "../src/mp4d/bands.h"
 
 #include <math.h>
 #include <stdio.h>
