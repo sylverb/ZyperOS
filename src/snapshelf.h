@@ -33,11 +33,19 @@ typedef struct {
 	/* The Video view's (DESIGN.md 11.57): no rest, the snap asked for the
 	 * frame the focus comes, not held, its sound with it */
 	bool      at_once;
+	/* This frame, something is over the shelf: a page (X's details) or a
+	 * menu. On the Video view (`at_once`) a snap turning in or playing
+	 * then stays, held on its picture (asked for held: the daemon waits),
+	 * rather than going and leaving the game's card to show through as
+	 * the page comes; it plays on from there when the shelf is in front
+	 * again. A move, the dark screen and a game still take it away. */
+	bool      covered;
 } snapshelf;
 
 /* One frame. `path` is the focused game's snap file, or "" when it has none
  * (or snaps are off, or the console's are). `front` says the shelf is what
- * is on screen, still, lit and with nothing over it. `picture` says the snap
+ * is on screen, still, lit and with nothing over it (and `covered` why not,
+ * when it is a page or a menu). `picture` says the snap
  * asked for has its first picture. Returns the snap to ask the daemon for,
  * "" for none, puts in *hold whether it is asked for held (its first picture
  * only, while the bar still fills), and in *k how far the cover has turned

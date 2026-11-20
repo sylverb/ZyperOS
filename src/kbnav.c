@@ -148,6 +148,14 @@ int kb_layer_after(int layer, kb_action a)
 	return layer;
 }
 
+int kb_layer_typed(int layer, bool *first, char c)
+{
+	if (!first || !*first) return layer;
+	if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'))) return layer;
+	*first = false;
+	return layer == 1 ? 0 : layer;
+}
+
 /* Copy as DESIGN.md 12 has it: lowercase verbs, as the action row of the
  * keyboard lab says them. Shift's and symbols' name the layer the press goes
  * to, so they are worked out from kb_layer_after and cannot disagree with

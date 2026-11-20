@@ -521,6 +521,7 @@ void book_cycle_speed(void);
 void muse_play(const char *const *paths, int n, int start, double at,
                bool book, double speed, const char *artist, const char *album);
 void muse_cycle_mode(void);
+void video_cycle_repeat(void);   /* Y on a video: MP4's Repeat, Off, One, All */
 typedef struct { const char *key; int glyph; } muse_mode_name;
 extern const muse_mode_name MUSE_MODES[MUQ_MODES];
 void muse_power(app *a);

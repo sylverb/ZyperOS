@@ -162,8 +162,12 @@ void update_systems(app *a)
 		int page = g.cols * g.win, to = a->sys_cursor;
 
 		if (sb != IN_NONE) a->home.grid_ax = -1;
-		if (in_repeat(&a->in, IN_UP) || in_repeat(&a->in, IN_DOWN)) {
-			int d = in_repeat(&a->in, IN_DOWN) ? 1 : -1, step;
+		/* Each button read once: a repeat is true once a frame, so a
+		 * second read of a held Down was false and turned it round */
+		int d = in_repeat_axis(&a->in, IN_UP, IN_DOWN);
+
+		if (d) {
+			int step;
 
 			if (a->home.grid_ax < 0) {
 				int x, y;
@@ -196,8 +200,10 @@ void update_systems(app *a)
 	/* Up and down do the same, one group at a time: three systems by release
 	 * date, and an initial by A to Z (home_letter_jump). Built on the press,
 	 * from the names in memory - nothing is read. */
-	if (in_repeat(&a->in, IN_UP) || in_repeat(&a->in, IN_DOWN)) {
-		int d = in_repeat(&a->in, IN_DOWN) ? +1 : -1;
+	int ud = in_repeat_axis(&a->in, IN_UP, IN_DOWN);
+
+	if (ud) {
+		int d = ud;
 
 		a->sys_cursor = g_order_release ? home_jump(a->sys_cursor, n, d)
 		                                : home_letter_at(a, d);

@@ -5755,6 +5755,7 @@ int main(int argc, char *argv[])
 		else if (!strcmp(argv[i], "--collect-page") && i + 1 < argc) shot_collect_page = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--collect-delete")) shot_collect_delete = 1;
 		else if (!strcmp(argv[i], "--collect-said") && i + 1 < argc) shot_collect_said = atoi(argv[++i]);
+		else if (!strcmp(argv[i], "--zip-said")) shot_zip_said = 1;
 		else if (!strcmp(argv[i], "--info-art")) shot_info_art = true;
 		/* The Buttons page a game with its own buttons opens from its details */
 		else if (!strcmp(argv[i], "--info-buttons")) shot_info = 4;
