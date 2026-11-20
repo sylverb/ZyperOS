@@ -15,6 +15,7 @@
 #include "../src/db.h"
 #include "../src/i18n.h"
 #include "../src/library.h"
+#include "../src/p8pad.h"
 #include "../src/padglyph.h"
 #include "../src/remap.h"
 #include "../src/remapstore.h"
@@ -271,16 +272,16 @@ static bool c_buttons(const rm_table *t)
 	       under_select(t, RM_Y) == RT_Y;
 }
 
-/* The N64's map| line as config/systems.cfg has it, not a copy of it, so a
+/* A system's map| line as config/systems.cfg has it, not a copy of it, so a
  * change there is what this holds */
-static bool n64_map_of_cfg(char *out, size_t n)
+static bool map_of_cfg(const char *tag, char *out, size_t n)
 {
 	static systems_cfg all;
 	int i;
 
 	if (!cfg_load_systems("config/systems.cfg", &all)) return false;
 	for (i = 0; i < all.count; i++)
-		if (!strcmp(all.systems[i].tag, "N64")) {
+		if (!strcmp(all.systems[i].tag, tag)) {
 			snprintf(out, n, "%s", all.systems[i].map);
 			return true;
 		}
@@ -291,7 +292,7 @@ static void n64_layer_survives_change(void)
 {
 	char map[160];
 	rm_table def, t;
-	bool ok = n64_map_of_cfg(map, sizeof map);
+	bool ok = map_of_cfg("N64", map, sizeof map);
 
 	ok = ok && !strcmp(map, N64_MAP);
 	if (!ok) printf("    systems.cfg's map|N64 is \"%s\", this check's copy \"%s\"\n", map, N64_MAP);
@@ -308,6 +309,58 @@ static void n64_layer_survives_change(void)
 	rm_set(&t, &def, RM_X, (rm_choice){ RT_L2, 0 });
 	ok = ok && t.b[RM_X].to == RT_L2 && t.b[RM_L2].to == RT_X && c_buttons(&t);
 	report(ok, "n64_layer_survives_change");
+}
+
+/* What each handheld button gives in a game of tag, by the core's own name
+ * for it, with t as the table */
+static bool gives(const char *tag, const rm_table *t, int button, const char *want)
+{
+	static const char *const NAME[RM_BUTTONS] = {
+		"A", "B", "X", "Y", "L1", "R1", "L2", "R2", "START", "SELECT"
+	};
+	char s[64];
+
+	ctl_remap_say(tag, NULL, t->b[button], s, sizeof s);
+	if (strcmp(s, want)) printf("    %s: %s gives \"%s\", wanted \"%s\"\n", tag, NAME[button], s, want);
+	return !strcmp(s, want);
+}
+
+/* The Saturn's pad on the handheld, from systems.cfg's own map|SATURN:
+ * each face cap the button it names, and the shoulders as YabaSanshiro's
+ * standalone and Beetle Saturn put them, the Saturn's C on R1 and its Z on
+ * L1. With C on L1 (1.0.0 to 1.1.0), Virtua Fighter 2's kick was on no
+ * button a player tried: its Guard, Punch and Kick are the pad's A, B and C,
+ * and R1 gave the Z it does not use (r00zxx, 2026-11-20). */
+static void saturn_buttons(void)
+{
+	char map[160];
+	rm_table def, letters, t;
+	bool ok = map_of_cfg("SATURN", map, sizeof map);
+
+	if (!ok) printf("    no map|SATURN in config/systems.cfg\n");
+	def = parsed(map);
+	ok = ok && gives("SATURN", &def, RM_A, "A") && gives("SATURN", &def, RM_B, "B");
+	ok = ok && gives("SATURN", &def, RM_X, "X") && gives("SATURN", &def, RM_Y, "Y");
+	ok = ok && gives("SATURN", &def, RM_L1, "Z") && gives("SATURN", &def, RM_R1, "C");
+	ok = ok && gives("SATURN", &def, RM_L2, "L") && gives("SATURN", &def, RM_R2, "R");
+	ok = ok && gives("SATURN", &def, RM_START, "Start");
+	/* Face Buttons still reads By Letter, and By Place moves the faces alone */
+	ok = ok && ctl_letter_layout("SATURN", &letters) && rm_faces_of(&def, &letters) == 0;
+	t = def;
+	rm_identity(&letters);
+	rm_faces(&t, &letters);
+	ok = ok && gives("SATURN", &t, RM_A, "B") && gives("SATURN", &t, RM_B, "A") &&
+	     gives("SATURN", &t, RM_R1, "C") && gives("SATURN", &t, RM_L1, "Z");
+	/* A player's own pairs hold over the new default: the faces they set
+	 * stay theirs, the shoulders they never set follow it */
+	ok = ok && rm_load(&def, "1;a:x,x:b", &t);
+	ok = ok && gives("SATURN", &t, RM_A, "Y") && gives("SATURN", &t, RM_X, "A") &&
+	     gives("SATURN", &t, RM_R1, "C") && gives("SATURN", &t, RM_L1, "Z");
+	/* and one who had put C on R1 under the old default keeps it there */
+	ok = ok && rm_load(&def, "1;l1:r1,r1:l1", &t) && rm_equal(&t, &def);
+	/* the core's C is the RetroPad's L, its Z the RetroPad's R (libretro.c) */
+	ok = ok && def.b[RM_R1].to == RT_L1 && def.b[RM_L1].to == RT_R1;
+	report(ok, "saturn_buttons");
 }
 
 static void letters_dc_place_identity(void)
@@ -754,6 +807,49 @@ static int store_checks(void)
 	return 0;
 }
 
+/* Your PICO-8's buttons as SDL's mapping line (src/p8pad.h): the table of
+ * nothing changed is the line PICO-8.sh shipped fixed, to the byte; a swap,
+ * a button on None, two on one target, a turbo, the N64's layer */
+#define P8_SHIPS "190043d2010000000221000000010000,gkd_pixel2_joypad,a:b1,b:b0,x:b2,y:b3,back:b8," \
+                 "start:b9,leftshoulder:b4,rightshoulder:b5,dpup:b10,dpdown:b11,dpleft:b12," \
+                 "dpright:b13,lefttrigger:b6,righttrigger:b7,crc:d243,platform:Linux,"
+static void pico8_pad_line(void)
+{
+	char line[600], small[40];
+	rm_table t;
+
+	rm_identity(&t);
+	report(p8_pad_line(&t, line, sizeof line) && !strcmp(line, P8_SHIPS),
+	       "pico8 pad: nothing changed is the line that shipped (O on the B cap, X on the A cap)");
+	t = parsed("a:b,b:a");
+	p8_pad_line(&t, line, sizeof line);
+	report(strstr(line, ",a:b0,b:b1,x:b2,") != NULL, "pico8 pad: A and B swapped: O on the A cap");
+	t = parsed("start:none,select:start");
+	p8_pad_line(&t, line, sizeof line);
+	report(!strstr(line, "start:b9") && strstr(line, "back:") == NULL && strstr(line, "start:b8,") != NULL,
+	       "pico8 pad: START on None is on nothing, SELECT on the pause menu is");
+	t = parsed("y:b");
+	p8_pad_line(&t, line, sizeof line);
+	report(strstr(line, ",a:b1,a:b3,") != NULL && !strstr(line, "y:b3"), "pico8 pad: two buttons on O, both SDL's a");
+	t = parsed("x:a~3");
+	p8_pad_line(&t, line, sizeof line);
+	report(strstr(line, ",b:b0,b:b2,") != NULL, "pico8 pad: a turbo is the plain button");
+	t = parsed("l1:up");
+	p8_pad_line(&t, line, sizeof line);
+	report(strstr(line, "dpup:b10,dpup:b4,") != NULL && !strstr(line, "leftshoulder"),
+	       "pico8 pad: a button on Up, the d-pad's own Up kept");
+	t = parsed(N64_MAP);
+	report(p8_pad_line(&t, line, sizeof line) && !strchr(line, '+'), "pico8 pad: a layer is not sent");
+	rm_identity(&t);
+	report(!p8_pad_line(&t, small, sizeof small) && !small[0], "pico8 pad: a line that does not fit is none");
+	/* portkeys's pad (tools/pkvpad.h): its GUID and name, the same body,
+	 * no checksum */
+	p8_vpad_line(&t, line, sizeof line);
+	report(!strncmp(line, "06000000595a00000900000001000000,ZyperOS pad for PICO-8,a:b1,b:b0,x:b2,", 71) &&
+	       !strstr(line, "crc:") && strstr(line, ",dpright:b13,lefttrigger:b6,righttrigger:b7,platform:Linux,"),
+	       "pico8 pad: portkeys's pad's line, the joypad's body under its own GUID");
+}
+
 int main(void)
 {
 	printf("remap: the rules\n");
@@ -770,10 +866,12 @@ int main(void)
 	stored_bad_version_falls_back();
 	stored_bad_pair_falls_back();
 	n64_layer_survives_change();
+	saturn_buttons();
 	letters_dc_place_identity();
 	letters_per_system();
 	choices_dc();
 	choices_others();
+	pico8_pad_line();
 	printf("remap: kept on the card\n");
 	fails += store_checks();
 	if (fails) {

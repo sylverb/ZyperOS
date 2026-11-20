@@ -683,6 +683,16 @@ static void input_scan(void)
 		memset(sw, 0, sizeof sw);
 		ioctl(fd, EVIOCGBIT(EV_KEY, sizeof keys), keys);
 		ioctl(fd, EVIOCGBIT(EV_SW, sizeof sw), sw);
+		/* Not the pad portkeys gives your PICO-8 while it holds the
+		 * joypad (tools/pkvpad.h, "ZyperOS pad for PICO-8"), which is
+		 * there while the in-game menu over PICO-8 runs: its devices are
+		 * named so, and the joypad is the menu's then */
+		if (BIT_IS_SET(keys, BTN_SOUTH)) {
+			char name[64] = "";
+
+			ioctl(fd, EVIOCGNAME(sizeof name), name);
+			if (!strncmp(name, "ZyperOS ", 8)) keys[BTN_SOUTH / BITS_PER_LONG] &= ~(1UL << (BTN_SOUTH % BITS_PER_LONG));
+		}
 		if      (fd_pad < 0   && BIT_IS_SET(keys, BTN_SOUTH))           { fd_pad = fd; pad_node = i; }
 		else if (fd_keys < 0  && BIT_IS_SET(keys, KEY_VOLUMEUP))        fd_keys = fd;
 		else if (fd_power < 0 && BIT_IS_SET(keys, KEY_POWER))           fd_power = fd;

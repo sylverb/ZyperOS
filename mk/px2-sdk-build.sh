@@ -5,8 +5,8 @@
 # plastron's zyperos and diatom packages (buildroot/package/zyperos,
 # buildroot/package/diatom), with the SDK's compiler and sysroot in place of
 # Buildroot's: mk/cross.mk for the launcher, MP4, portkeys, System
-# Update's program and p2d (NES Player 2's server), Diatom's own Makefile,
-# then mk/payload.sh.
+# Update's program, p2d (NES Player 2's server) and p8fx.so (your PICO-8's
+# Shader and Border), Diatom's own Makefile, then mk/payload.sh.
 set -eu
 
 MANIFEST=/sdk/share/plastron/sdk
@@ -56,6 +56,9 @@ if [ -n "${PROGRAMS_ONLY:-}" ]; then
 	for f in zyperos.elf mp4d portkeys zyperos-update zyhome p2d; do
 		[ -f "$B/$f" ] && "$STRIP" -o "$P/$f" "$B/$f"
 	done
+	# Your PICO-8's library, where the payload has it, its exported calls kept
+	mkdir -p "$P/pico8"
+	"$STRIP" --strip-unneeded -o "$P/pico8/p8fx.so" "$B/p8fx.so"
 	"$STRIP" -o "$P/diatom" "diatom/build/$PORT/diatom"
 	chmod +x "$P"/*
 	exit 0
@@ -63,7 +66,7 @@ fi
 
 DEVICE=pixel2 OUT=/zyperos/$B/payload VERSION="$VERSION" \
 	ZYPEROS_ELF=$B/zyperos.elf MP4D_ELF=$B/mp4d PORTKEYS_ELF=$B/portkeys ZYHOME_ELF=$B/zyhome \
-	UPDATE_ELF=$B/zyperos-update P2D_ELF=$B/p2d DIATOM_ELF="diatom/build/$PORT/diatom" \
+	UPDATE_ELF=$B/zyperos-update P2D_ELF=$B/p2d P8FX_SO=$B/p8fx.so DIATOM_ELF="diatom/build/$PORT/diatom" \
 	VENDOR_DIR=/zyperos-vendor sh mk/payload.sh
 # The image's tools for SSH (plastron's zyperos.mk builds them for /usr/bin),
 # beside the payload rather than in it: tools/px2 copies px2-perf to a device
@@ -76,3 +79,4 @@ done
 for f in zyperos.elf mp4d portkeys zyperos-update zyhome p2d diatom; do
 	"$STRIP" "$B/payload/ZyperOS/$f"
 done
+"$STRIP" --strip-unneeded "$B/payload/ZyperOS/pico8/p8fx.so"

@@ -11,7 +11,9 @@
 # file, so what the port would have sent to the mix is written down (a WAV,
 # in the format the chain settled on): a 1 kHz tone through flat bands, then
 # through Voice (+3 dB there). The port's PCMs only win over that default
-# when loaded after it; this is what shows they are. Needs Docker,
+# when loaded after it; this is what shows they are. Then
+# tools/eqchain-check.sh on the same alsa-lib: the chain opened as SDL opens
+# it at every rate a program asks, over a stand-in for the dmix. Needs Docker,
 # plastron's builder image and an SDK volume (make sdk in plastron); skips
 # without them. Not in make check: CI has no SDK.
 #
@@ -63,4 +65,9 @@ CONF
 	printf "ZEQ1\004\000\000\000\376\000\003\003\000\000\000\000" > $W/eq
 	run $W/out.wav voice
 	echo "eqplugin-alsa: the port config:"; sed "s/^/  /" $W/port.hook $W/port.conf
+	# And the chain opened as SDL opens it at every rate a program asks,
+	# over a stand-in for the dmix, on the same alsa-lib (tools/eqchain-check.sh)
+	EQCHAIN_SDK=1 CC=$CC ALSA_CONF=$S/usr/share/alsa/alsa.conf \
+	RUN="$S/lib/ld-linux-aarch64.so.1 --library-path $S/lib:$S/usr/lib" \
+		sh /zyperos/tools/eqchain-check.sh
 '

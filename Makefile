@@ -8,9 +8,9 @@
 .PHONY: all clean native desk desk-brick handhelds px2-payload vendor boot system-art checkmark \
         check check-cheevos check-hare check-portal check-httpd check-idle check-taskhold check-saver check-rahash check-flacdec check-achtab check-signin check-search \
         check-raset check-xfer check-sshlink check-usblink check-devmode check-devices check-devicegen check-model check-ctl check-menus check-status check-battery check-corner check-artscrape check-artrun check-sgdb check-snapshelf check-snaps check-audioout \
-        check-db check-coreopts check-mp4keys check-gpuframes check-gamedel check-gamern check-esmedia check-corepins check-targets yuvtarget check-storage check-stats check-sort check-bt check-ss check-titles check-dsv check-sidelights check-osdbar check-boost check-levels check-hud check-dmodefit check-themefile check-pkkeys check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-bios check-gamefile check-startfail check-kbnav check-tween check-menumotion check-menusnap check-cardgen check-cardart check-focusfx check-blur check-gridrule check-screencard check-focusgeo check-roundrect check-rowmacro check-emptyhome check-zyperrig check-randgame check-shelfdir \
+        check-db check-coreopts check-mp4keys check-gpuframes check-gamedel check-gamern check-esmedia check-corepins check-targets yuvtarget check-storage check-stats check-sort check-bt check-ss check-titles check-dsv check-sidelights check-osdbar check-boost check-levels check-hud check-dmodefit check-themefile check-pkkeys check-pkover check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-bios check-gamefile check-startfail check-kbnav check-tween check-menumotion check-menusnap check-cardgen check-cardart check-focusfx check-blur check-gridrule check-screencard check-focusgeo check-roundrect check-rowmacro check-emptyhome check-zyperrig check-randgame check-shelfdir \
         check-sysmark check-flip check-menushots check-controls-shots check-design check-systemart check-linebreak check-portload check-portout \
-        check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-messages check-tour check-tour-shots check-textfade check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pico8 check-pico8-wget check-pico8-mp4 check-pmhelper check-portdoc check-boottheme check-splashbright check-bootbright check-seed-version check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr check-autozone \
+        check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-messages check-tour check-tour-shots check-textfade check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pico8 check-pico8-wget check-pico8-mp4 check-pico8-display check-pico8-keys check-p8fx check-p8fx-gl check-pmhelper check-portdoc check-boottheme check-splashbright check-bootbright check-seed-version check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr check-autozone \
         check-home check-home-shots check-games check-cardpaint check-putpace landbench check-favorites-shots check-homesys-groups check-lateskip-launch check-np-footer check-vidtry check-menu-rows check-layout-shots check-artbadge check-artbadge-shots check-cardart-shots design sounds strings cjk-font check-strings check-i18n-shots check-rootswitch check-datapart check-brick-closed check-hwreport \
         check-tour-previews tour-previews check-prep check-diatom check-simulator check-px2sim check-building-doc check-blog check-discord-release \
         check-release-devices check-installer release check-site-devices
@@ -44,14 +44,14 @@ src/i18n_tables.c: $(wildcard res/strings/*.txt) tools/i18n.py
 # had to be remembered by name, which is a suite in the same sense that a list
 # of good intentions is a plan. A check nobody runs is a check that does not
 # exist, and check-menus was about to join eight others in that state.
-CHECKS = check-cheevos check-hare check-portal check-httpd check-idle check-taskhold check-saver check-rahash check-flacdec check-achtab check-rasubmit check-raoffline check-radl check-dlq check-dl-recent check-cheatsdl check-cheats check-signin check-noticeq check-badges check-badge-shots \
+CHECKS = check-cheevos check-hare check-portal check-httpd check-idle check-taskhold check-saver check-rahash check-flacdec check-achtab check-rasubmit check-raoffline check-radl check-dlq check-dl-recent check-dl-look check-cheatsdl check-cheats check-signin check-noticeq check-badges check-badge-shots \
          check-raset check-xfer check-sshlink check-usblink check-devmode check-devices check-devicegen check-model check-ctl check-menus check-artscrape check-artrun check-sgdb check-snapshelf check-snaps check-audioout \
          check-db check-coreopts check-mp4keys check-gamedel check-gamern check-esmedia check-media check-snapsize check-corepins check-targets check-storage check-stats check-sort check-bt check-ss check-titles check-savedlib check-search \
          check-mp4lib check-mp4queue check-mp4art check-mp4lock check-mp4look check-mp4views check-mp4resume check-bands check-covercolor check-mp4frame check-mp4size check-p2share check-webtheme check-p2ws check-p2codec check-p2d check-play check-p2 check-resident check-spawn check-controls check-remap check-hotkeys check-rumble check-eq check-eqdsp check-eqplugin check-controls-shots check-logpack \
-         check-clock check-autozone check-status check-battery check-battery-eta check-dslang check-pacing check-sgbmode check-border check-handframe check-gpuframes check-dsresume check-corestate check-core-stamp check-core-room check-px2-perf check-px2-snap check-px2 check-lowbatt check-battempty check-powerhold check-homesys check-collect check-shotname check-heat check-charging check-corner check-dsv check-sidelights check-osdbar check-boost check-levels check-hud check-dmodefit check-themefile check-pkkeys check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-bios check-gamefile check-startfail check-kbnav check-randgame check-shelfdir check-look \
+         check-clock check-autozone check-status check-battery check-battery-eta check-dslang check-pacing check-sgbmode check-border check-handframe check-gpuframes check-dsresume check-corestate check-core-stamp check-core-room check-px2-perf check-px2-snap check-px2 check-lowbatt check-battempty check-powerhold check-homesys check-collect check-shotname check-heat check-charging check-corner check-dsv check-sidelights check-osdbar check-boost check-levels check-hud check-dmodefit check-themefile check-pkkeys check-pkover check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-bios check-gamefile check-startfail check-kbnav check-randgame check-shelfdir check-look \
          check-tween check-menumotion check-menusnap check-cardgen check-cardart check-focusfx check-blur check-gridrule check-screencard check-focusgeo check-roundrect check-rowmacro check-emptyhome check-zyperrig check-sysmark check-flip check-menushots check-design \
          check-systemart check-linebreak check-portload check-portout check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-messages \
-         check-tour check-tour-shots check-tour-previews check-textfade check-glyphs check-scale check-shaderdemo check-shaderpic check-screenfx check-ds check-layout-ratchet check-flex check-hover check-hover-sweep check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pico8 check-pico8-wget check-pico8-mp4 check-pmhelper check-pmart check-portdoc check-boottheme check-splashbright check-bootbright check-seed-version check-panelgamma check-panelgamma-sunxi check-nightmode check-autotheme check-displayback check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-start-soc check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr \
+         check-tour check-tour-shots check-tour-previews check-textfade check-glyphs check-scale check-shaderdemo check-shaderpic check-screenfx check-ds check-layout-ratchet check-flex check-hover check-hover-sweep check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pico8 check-pico8-wget check-pico8-mp4 check-pico8-display check-pico8-keys check-p8fx check-p8fx-gl check-pmhelper check-portlibs check-pmart check-portdoc check-boottheme check-splashbright check-bootbright check-seed-version check-panelgamma check-panelgamma-sunxi check-nightmode check-autotheme check-displayback check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-start-soc check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr \
          check-home check-home-shots check-games check-cardpaint check-putpace check-favorites-shots check-homesys-groups check-lateskip-launch check-np-footer check-vidtry check-menu-rows check-layout-shots check-artbadge check-artbadge-shots check-cardart-shots checkmark \
          check-installer check-from-rogue check-importers check-diatom check-simulator check-qemu-image check-desk check-homekeys check-videoview check-inrepeat check-keymap check-handhelds check-px2sim check-building-doc check-blog check-discord-release \
          check-release-devices check-strings check-i18n-shots check-rootswitch check-datapart check-brick-closed check-hwreport check-kitbuild
@@ -284,12 +284,17 @@ build-native/cheevos-check: tools/cheevos-check.c src/cheevos.c src/cheevos.h \
 check-hare: build-native/hare-check
 	@./build-native/hare-check
 
-build-native/hare-check: tools/hare-check.c src/hare.c src/sheet.c src/clients.c src/httpd.c src/xfer.c src/mp4lib.c src/captive.c $(I18N_SRC) FORCE
+# A game's picture and video in a listing are the launcher's lookup
+# (src/esmedia.h's game_media), so the lookup is linked as the launcher has it.
+HARE_GAME_MEDIA = src/esmedia.c src/library.c src/snaps.c src/db.c
+
+build-native/hare-check: tools/hare-check.c src/hare.c src/sheet.c src/clients.c src/httpd.c src/xfer.c src/mp4lib.c src/captive.c $(HARE_GAME_MEDIA) $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -Wno-unused-parameter -D_GNU_SOURCE -O1 -g \
 	      -DHARE_PORTS=0 -DPICK_TMP='"$(CURDIR)/build-native/hare-check-albumpick"' \
 	      -DART_NAMES_TMP='"$(CURDIR)/build-native/hare-check-artnames"' -DREPO_WEB='"$(CURDIR)/res/web"' \
-	      -o $@ tools/hare-check.c src/hare.c src/sheet.c src/clients.c src/httpd.c src/xfer.c src/mp4lib.c src/captive.c $(I18N_SRC) -lz
+	      -o $@ tools/hare-check.c src/hare.c src/sheet.c src/clients.c src/httpd.c src/xfer.c src/mp4lib.c src/captive.c \
+	      $(HARE_GAME_MEDIA) $(I18N_SRC) -lz -lsqlite3 -lpthread
 
 # The File Transfer page on the host, over a scratch card: the same routes and
 # server, for a browser and for tools/readme-shots.py's pictures of the page.
@@ -300,12 +305,13 @@ build-native/hare-check: tools/hare-check.c src/hare.c src/sheet.c src/clients.c
 check-portal: build-native/portal-serve
 	@python3 tools/portal-check.py
 
-build-native/portal-serve: tools/portal-serve.c src/hare.c src/sheet.c src/clients.c src/httpd.c src/xfer.c src/mp4lib.c src/captive.c src/look.c $(I18N_SRC) FORCE
+build-native/portal-serve: tools/portal-serve.c src/hare.c src/sheet.c src/clients.c src/httpd.c src/xfer.c src/mp4lib.c src/captive.c src/look.c $(HARE_GAME_MEDIA) $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -Wno-unused-parameter -D_GNU_SOURCE -O1 -g \
 	      -DHARE_PORTS=0 -DPICK_TMP='"$(CURDIR)/build-native/portal-serve-albumpick"' \
 	      -DART_NAMES_TMP='"$(CURDIR)/build-native/portal-serve-artnames"' \
-	      -o $@ tools/portal-serve.c src/hare.c src/sheet.c src/clients.c src/httpd.c src/xfer.c src/mp4lib.c src/captive.c src/look.c $(I18N_SRC) -lz -lm
+	      -o $@ tools/portal-serve.c src/hare.c src/sheet.c src/clients.c src/httpd.c src/xfer.c src/mp4lib.c src/captive.c src/look.c \
+	      $(HARE_GAME_MEDIA) $(I18N_SRC) -lz -lm -lsqlite3 -lpthread
 
 # Hare's transport, driven by a real client over a real socket. An HTTP parser
 # is where "looks right" and "is right" part company: every browser sends the
@@ -685,17 +691,29 @@ build-native/themefile-check: tools/themefile-check.c src/themefile.c src/themef
 # saved 6 and 6 save 5 and 7 through the launcher's src/db.c. And the boost past
 # the top over a port (src/boost.h): three presses or a hold open it, its gain
 # goes in a scratch copy of the file the port's plugin reads (src/eqdsp.h), and
-# its cells are kept beside the levels. No SDL, no device.
+# its cells are kept beside the levels. And over your PICO-8, SELECT's
+# hotkeys by Diatom's chord rule (tools/pkhot.c), the keyboard's CTRL-R
+# (tools/pkkbd.c), written into a pipe, and the screenshot (tools/pkshot.c):
+# PICO-8's 128 out of the panel in every Display mode's rect, the PNG, the
+# pop-up; and what PICO-8 reads while portkeys holds the joypad for the
+# hotkeys (a chord never, every other press at once) and that pad's writes
+# (tools/pkvpad.c), into a pipe. No SDL, no device.
 check-pkkeys: build-native/pkkeys-check
 	@./build-native/pkkeys-check
 
 build-native/pkkeys-check: tools/pkkeys-check.c tools/pkkeys.c tools/pkkeys.h src/keyrepeat.h \
                            src/device/pixel2_levels.h src/audioout.c src/audioout.h \
                            src/boost.h src/osdbar.h src/design.h src/eqdsp.h \
+                           tools/pkhot.c tools/pkhot.h diatom/src/chord.c diatom/src/chord.h \
+                           tools/pkkbd.c tools/pkkbd.h tools/pkshot.c tools/pkshot.h src/p8draw.c src/p8draw.h \
+                           tools/pkvpad.c tools/pkvpad.h \
+                           src/dmodefit.c src/dmodefit.h \
                            src/db.c src/db.h src/atomic.c $(I18N_SRC) FORCE
 	@mkdir -p build-native
-	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Isrc \
-	      -o $@ tools/pkkeys-check.c tools/pkkeys.c src/audioout.c src/db.c src/atomic.c $(I18N_SRC) -lsqlite3
+	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Isrc -Idiatom/src -Idiatom/include \
+	      -o $@ tools/pkkeys-check.c tools/pkkeys.c tools/pkhot.c diatom/src/chord.c tools/pkkbd.c \
+	      tools/pkshot.c tools/pkvpad.c src/p8draw.c src/dmodefit.c src/audioout.c src/db.c src/atomic.c $(I18N_SRC) \
+	      -lsqlite3 -lz -lm
 
 # Which theme is on: MENU > Appearance's three settings, Auto's seven to seven
 # by the handheld's clock and the minute it may be late by, and the file the
@@ -741,7 +759,9 @@ build-native/sysupdate-check: tools/sysupdate-check.c src/sysupdate.c src/sysupd
 
 # Your PICO-8 (src/pico8.c): the zip's rules, a zip copied by hand taken
 # out (zips the check writes itself, never Lexaloffle's files), Splore's entry
-# and the page's words
+# and the page's words; and its picture (src/p8draw.h): each Display mode
+# Diatom's rect for a 128 x 128 picture, and sd/pixel2/PICO-8.sh, run with a
+# stand-in pico8_64, handing that rect (-draw_rect) and filter to it
 check-pico8: build-native/pico8-check
 	@./build-native/pico8-check
 
@@ -759,10 +779,59 @@ check-pico8-wget:
 # launcher) and the real launcher in desk mode's dummy window against a
 # stand-in daemon: the queue taken on back from PICO-8, the request and the
 # file written as a cart opens, the follower's next track, and SELECT in the
-# in-game menu over it opening Now Playing (tools/pico8-mp4-check.py)
+# in-game menu over it opening Now Playing (tools/pico8-mp4-check.py). Each
+# wait is for an event, never for a time.
 check-pico8-mp4: build-native/mp4hand-check native
 	@./build-native/mp4hand-check
 	@python3 tools/pico8-mp4-check.py
+
+# The in-game menu's Display row over your PICO-8 (src/portmenu.h's
+# port_menu_display): launch.sh's run_port with stand-ins, a start again from
+# the restart file and USR2 (the program ended and started again with the
+# new Display, portkeys and the follower going on, a bad word a plain Quit, a
+# file from before none, POWER meanwhile starting nothing), then the real
+# launcher in desk mode's dummy window as portkeys starts it: the row, its
+# list, the question with the cursor on Cancel, Start Again's exit and what
+# it keeps, none over OpenBOR, and --display, the Next Display hotkey's
+# question alone (tools/pico8-display-check.py)
+check-pico8-display: native
+	@python3 tools/pico8-display-check.py
+
+# Your PICO-8's hotkeys, Reset and buttons as the launcher and PICO-8.sh do
+# them (src/portmenu.h, src/p8pad.h): PICO-8.sh's pad line against a
+# stand-in pico8_64; then the real launcher in desk mode's dummy window: a
+# cart opened handing portkeys the hotkeys and the screenshot's folder,
+# PICO-8.sh the pad's line and the pop-up's slab with its empty square; the
+# menu's Reset row and question, --reset's question alone, and Controls over
+# it changing a button, with the start again it asks for
+check-pico8-keys: native
+	@python3 tools/pico8-keys-check.py
+
+# Your PICO-8's Shader and Border (src/p8fx.h), all but the drawing: the
+# look file, the shaders PICO-8 is offered (the launcher's SHADERS for its
+# shelf) and Next Shader on a scratch database, its picture out of PICO-8's
+# preblit (build-native/p8fx-check); sd/pixel2/PICO-8.sh loading p8fx.so
+# first, with a stand-in pico8_64; and the real launcher in desk mode's dummy
+# window as portkeys starts it over PICO-8: the Border, Shader and Strength
+# rows in the Display tab's order, each kept and written for the shim, Your
+# Own's picture file, none over OpenBOR, and the look file written as a cart
+# opens from the shelf (tools/p8fx-check.py)
+check-p8fx: build-native/p8fx-check native
+	@python3 tools/p8fx-check.py
+
+build-native/p8fx-check: tools/p8fx-check.c src/p8fx.c src/p8fx_step.c src/p8fx.h src/strength.h src/i18n_ids.h
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -O1 -g -D_GNU_SOURCE -Isrc -o $@ tools/p8fx-check.c src/p8fx.c src/p8fx_step.c -lsqlite3
+
+# ...and the drawing: the shim (src/p8fx/shim.c) over a stand-in that calls
+# SDL as pico8_64 does (tools/p8fx-standin.c), on SDL's offscreen video and
+# Mesa's OpenGL ES: fail-safe to the pixel, each shader against Diatom's GLSL
+# in C (shaderdemo --image), Blur and a picture round the picture, PICO-8's
+# FPS line on top, a look changed while it runs. Linux only (LD_PRELOAD,
+# Mesa); elsewhere it says it skipped, and P8FX_DOCKER=1 runs it in
+# tools/p8fx-gl.Dockerfile's Linux (tools/p8fx-gl-check.py)
+check-p8fx-gl:
+	@python3 tools/p8fx-gl-check.py $(if $(P8FX_DOCKER),--docker)
 
 build-native/mp4hand-check: tools/mp4hand-check.c src/mp4hand.c src/mp4hand.h src/mp4queue.c src/mp4queue.h \
                             src/portmenu.h src/pico8.h FORCE
@@ -770,9 +839,12 @@ build-native/mp4hand-check: tools/mp4hand-check.c src/mp4hand.c src/mp4hand.h sr
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g $(MEDIA_SAN) -Isrc \
 	      -o $@ tools/mp4hand-check.c src/mp4hand.c src/mp4queue.c -lm
 
-build-native/pico8-check: tools/pico8-check.c src/pico8.c src/pico8.h src/sysupdate.h src/library.h $(I18N_SRC) FORCE
+build-native/pico8-check: tools/pico8-check.c src/pico8.c src/pico8.h src/sysupdate.h src/library.h \
+                          src/p8draw.c src/p8draw.h src/dmodefit.c src/dmodefit.h diatom/src/scale.c \
+                          sd/pixel2/PICO-8.sh $(I18N_SRC) FORCE
 	@mkdir -p build-native
-	$(CC) -std=gnu11 -Wall -Wextra -O1 -g -o $@ tools/pico8-check.c src/pico8.c $(I18N_SRC) -lz
+	$(CC) -std=gnu11 -Wall -Wextra -O1 -g -Idiatom/src -Idiatom/include -o $@ tools/pico8-check.c src/pico8.c \
+	      src/p8draw.c src/dmodefit.c diatom/src/scale.c $(I18N_SRC) -lz
 
 # What the Install PortMaster page says in each state (src/pminstall.c,
 # DESIGN.md 11.32), and the Ports shelf's PortMaster entry
@@ -798,6 +870,13 @@ check-pmart:
 # PortMaster/, a release list that makes no sense, runtimes kept
 check-pmhelper:
 	@python3 -I tools/pminstall-run.py
+
+# The libraries PortMaster's ports and their runtimes load from the system
+# (plastron's board/zyperos/ports-libs.txt) asked for in the image of each
+# device that runs ports, and plastron's release check of a built root
+# (scripts/ports-libs.sh) over made-up roots. No image is built.
+check-portlibs:
+	@sh tools/portlibs-check.sh
 
 # What a port's own files say for its Controls pages over it (src/portdoc.c:
 # port.json, its gptokeyb keymap, its README's controls), and the pages they
@@ -954,6 +1033,20 @@ check-zyhome: build-native/zyhome-check
 build-native/zyhome-check: tools/zyhome-check.c tools/zychord.h
 	@mkdir -p build-native
 	@$(CC) -Wall -Wextra -Werror -std=gnu11 -o $@ tools/zyhome-check.c
+
+# portkeys's picture on the cursor window (tools/pkover.h): the bar alone and
+# the heat notice alone where and as they went before, the low-battery disc
+# Diatom's to the pixel and its blink, On-Screen Stats' line where hud_place
+# puts it, clear of the disc, all of them in one buffer turned and not, and
+# the frames a second counted from the framebuffer at each blank. No DRM.
+check-pkover: build-native/pkover-check
+	@./build-native/pkover-check
+
+build-native/pkover-check: tools/pkover-check.c tools/pkover.c tools/pkover.h src/hud.c src/hud.h \
+                           src/hudglyphs.h src/osdbar.c src/osdbar.h FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Isrc \
+	      -o $@ tools/pkover-check.c tools/pkover.c src/hud.c src/osdbar.c -lm
 
 check-portkeys: build-native/portkeys-check
 	@./build-native/portkeys-check
@@ -1682,17 +1775,20 @@ check-controls: build-native/controls-check
 
 # The remap rules, pure: Diatom's map language read and written, the swap rule
 # of a button's change, what is stored for a scope, and the choices a system
-# offers (DESIGN.md 11.45).
+# offers (DESIGN.md 11.45). And your PICO-8's table as SDL's mapping line
+# (src/p8pad.h).
 check-remap: build-native/remap-check
 	@./build-native/remap-check
 
 build-native/remap-check: tools/remap-check.c src/remap.c src/remap.h src/remapstore.c src/remapstore.h src/controls.c \
+                          src/p8pad.c src/p8pad.h \
                           src/controls.h src/padglyph.h src/menu.h src/config.c src/config.h \
                           src/db.c src/db.h src/atomic.c config/systems.cfg \
                           $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
 	      -o $@ tools/remap-check.c src/remap.c src/remapstore.c src/controls.c src/hotkeys.c src/powerhold.c src/config.c src/db.c src/atomic.c \
+	      src/p8pad.c \
 	      $(I18N_SRC) -lsqlite3
 
 # The player's hotkeys, pure: SELECT and a button for each action, the swap
@@ -1739,10 +1835,14 @@ build-native/eqdsp-check: tools/eqdsp-check.c src/eqdsp.h FORCE
 
 # The ports' equalizer plugin (plastron's zyperos-eq), built for this computer
 # and loaded the way alsa-lib's ladspa PCM loads it: flat untouched, Voice
-# heard, the launcher's file followed, and its cost. tools/eqplugin-alsa.sh
+# heard, the launcher's file followed, and its cost; then, on Linux, a port's
+# whole chain (eq-port.sh) opened as SDL opens it at every rate a program
+# asks, over a stand-in for the dmix (tools/eqchain-check.sh: PICO-8's
+# 22050 Hz was refused on 1.1.0-rc.5, with no sound). tools/eqplugin-alsa.sh
 # runs it through the handheld's own alsa-lib, by hand (it needs the SDK).
 check-eqplugin: build-native/eqplugin-check build-native/zyperos_eq.so
 	@./build-native/eqplugin-check build-native/zyperos_eq.so
+	@sh tools/eqchain-check.sh
 
 build-native/zyperos_eq.so: plastron/buildroot/package/zyperos-eq/src/zyperos_eq.c \
                             plastron/buildroot/package/zyperos-eq/src/ladspa.h src/eqdsp.h FORCE
@@ -2139,7 +2239,7 @@ build-native/rahash-check: tools/rahash-check.c $(RAHASH_SRC) src/rahashjob.c sr
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g $(LZMA_CFLAGS) \
 	      -o $@ tools/rahash-check.c $(RAHASH_SRC) -lz $(LZMA_LIBS) -lpthread
 
-.PHONY: check-noticeq check-badges check-badge-shots check-radl check-dlq check-dl-recent check-cheatsdl check-cheats check-rasubmit check-lowbatt check-battempty check-powerhold check-homesys check-collect check-shotname check-heat check-charging
+.PHONY: check-noticeq check-badges check-badge-shots check-radl check-dlq check-dl-recent check-dl-look check-cheatsdl check-cheats check-rasubmit check-lowbatt check-battempty check-powerhold check-homesys check-collect check-shotname check-heat check-charging
 
 # The pop-ups over a game, one after another (src/noticeq.h)
 check-noticeq: build-native/noticeq-check
@@ -2268,6 +2368,16 @@ check-dl-recent:
 		$(MAKE) --no-print-directory native || exit 1; \
 	fi
 	@python3 tools/dl-recent-check.py
+
+# A game's panel in MENU > Downloads looking at the card (src/dl_screen.c's
+# one_look), on the real launcher: Videos is On card only for a game whose
+# video is there, its own snap or EmulationStation's, and not for one with
+# none, an empty snap or a snap deleted after a look
+check-dl-look:
+	@if pkg-config --exists sdl2 SDL2_image SDL2_ttf 2>/dev/null; then \
+		$(MAKE) --no-print-directory native || exit 1; \
+	fi
+	@python3 tools/dl-look-check.py
 
 # The cheats download (src/cheatsdl.h): a zip made in the check, read, matched,
 # written and counted, with no network
@@ -2484,11 +2594,11 @@ check-gamern: build-native/gamern-check
 
 build-native/gamern-check: tools/gamern-check.c src/gamern.c src/gamern.h src/gamedel.c src/sheet.c src/gamedel.h \
                            src/esmedia.c src/esmedia.h src/library.c src/db.c src/favorites.c src/stats.c \
-                           src/portinfo.c src/atomic.c $(I18N_SRC) FORCE
+                           src/portinfo.c src/atomic.c src/snaps.c $(I18N_SRC) FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Isrc \
 	      -o $@ tools/gamern-check.c src/gamern.c src/gamedel.c src/sheet.c src/esmedia.c src/library.c src/db.c \
-	      src/favorites.c src/stats.c src/portinfo.c src/atomic.c $(I18N_SRC) -lsqlite3 -lpthread
+	      src/favorites.c src/stats.c src/portinfo.c src/atomic.c src/snaps.c $(I18N_SRC) -lsqlite3 -lpthread
 
 # EmulationStation's folders and media (src/esmedia.h): covers, videos,
 # details and the import on a card of small files in three ES layouts
@@ -2496,10 +2606,10 @@ check-esmedia: build-native/esmedia-check
 	@./build-native/esmedia-check
 
 build-native/esmedia-check: tools/esmedia-check.c src/esmedia.c src/esmedia.h src/library.c src/sheet.c src/library.h \
-                            src/db.c src/db.h FORCE
+                            src/db.c src/db.h src/snaps.c src/snaps.h FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g -Isrc \
-	      -o $@ tools/esmedia-check.c src/esmedia.c src/library.c src/sheet.c src/db.c -lsqlite3 -lpthread
+	      -o $@ tools/esmedia-check.c src/esmedia.c src/library.c src/sheet.c src/db.c src/snaps.c -lsqlite3 -lpthread
 	@if pkg-config --exists sdl2 SDL2_image SDL2_ttf 2>/dev/null; then \
 		$(MAKE) --no-print-directory native || exit 1; \
 	fi
@@ -2640,7 +2750,8 @@ check-mp4views: native
 # mode's dummy window: Now Playing paused at its second, only for a row that
 # says playing, and nothing for one whose file is gone. And a start back into
 # a game, against a Diatom of the check's own: the game first, MP4 held under
-# it, and SELECT in the game's menu Now Playing on it, paused.
+# it, and SELECT in the game's menu Now Playing on it, paused. Each wait is
+# for the screen or the row it names, never for a time.
 check-mp4resume: build-native/mp4resume-check native
 	@./build-native/mp4resume-check
 	@python3 tools/mp4resume-start.py

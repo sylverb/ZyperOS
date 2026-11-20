@@ -48,6 +48,15 @@ bool notice_render(const char *heading, const char *body, const char *path,
                           * badge is made square (my pick in the Controls
                           * lab, 2026-11-19: the shot itself, small, beside
                           * "Screenshot saved") */
+#define NOTICE_SLOT 8    /* a square of the picture's size left empty where
+                          * `badge` would go, for another program to fill:
+                          * portkeys puts your PICO-8's screenshot there over
+                          * the program, where this process cannot draw
+                          * (src/portmenu.h, PORT_SHOT_LIGHT). The file gets
+                          * the square's place after its pixels: "SLOT", then
+                          * x, y, the side and the corner's radius as uint16
+                          * little-endian, in the notice's pixels. `badge` is
+                          * not read. */
 
 /* The same slab with an achievement's badge at its left, the lines
  * left-aligned beside it - `badge` a PNG, NULL or one that will not load for

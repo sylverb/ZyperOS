@@ -49,7 +49,6 @@ static void gi_gather(app *a, int owner, const game_entry *g, game_info *gi)
 {
 	const system_cfg *s = &a->sys.systems[owner];
 	char p[LIB_PATH * 3];
-	struct stat st;
 
 	memset(gi, 0, sizeof *gi);
 	gi->can_delete = gd_shelf_deletes(s->core);
@@ -77,12 +76,8 @@ static void gi_gather(app *a, int owner, const game_entry *g, game_info *gi)
 	 * on 2026-09-17 - the carousel shows them when you load, with the frames
 	 * rather than a count - and with it went a stat of every slot plus the
 	 * autosave each time this screen opened. */
-	box_art_path(s->folder, g->name, p, sizeof p);
-	gi->has_art = (stat(p, &st) == 0 && st.st_size > 0) ||
-	              es_media(P_ROMS, s->folder, g->file, g->name, ES_COVER, true, p, sizeof p);
-	gi->has_snap = (snaps_path(P_ROMS, s->folder, g->name, p, sizeof p) &&
-	                stat(p, &st) == 0 && st.st_size > 0) ||
-	               es_media(P_ROMS, s->folder, g->file, g->name, ES_VIDEO, true, p, sizeof p);
+	gi->has_art = game_media(P_ROMS, s->folder, g->file, g->name, ES_COVER, true, p, sizeof p);
+	gi->has_snap = game_media(P_ROMS, s->folder, g->file, g->name, ES_VIDEO, true, p, sizeof p);
 	gi->own_art = own_cover_path(a, owner, g, theme_index(), p, sizeof p);
 	/* PortMaster's entry with PortMaster on the card: Reinstall PortMaster */
 	gi->can_reinstall = pm_is_entry(a, owner, g) && pm_on_card(s->folder);

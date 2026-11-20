@@ -28,6 +28,13 @@ over a Diatom game: it keeps playing, and MENU then SELECT opens it.
      Continue, and the file is written back; the follower, let go on, takes
      that queue and plays on from it;
    - and over a program MP4 is stopped for (no file), SELECT opens nothing.
+Every wait is for an event, never a time: the program stand-in runs until
+portkeys and the follower beside it have said they are up; a start until
+its screen is drawn; a key until the launcher has taken it and drawn the
+frame after; Now Playing until the daemon's song is drawn; the daemon and
+the follower until they have said or done the thing waited for. Each with a
+ceiling (CEILING) reached only when it never comes. A string drawn is found
+wherever its line begins (drawn_lines: ALSA's lines on Linux).
 """
 import importlib.machinery
 import importlib.util
@@ -48,6 +55,9 @@ BINARY = ROOT / 'build-native/zyperos'
 ALBUM = 'Music/Demo Library/First Light/'
 TRACKS = [ALBUM + t for t in ('01 First Light.mp3', '02 Open Road.mp3', '03 Home Again.mp3')]
 fails = []
+# The most any wait waits for its event (wait_for): far past what a step
+# takes on the busiest runner, and reached only when the event never comes
+CEILING = 30
 
 
 def check(ok, what):
@@ -108,8 +118,8 @@ def launch_sh(tmp):
         put(zy / 'zyperos.elf', f'''#!/bin/sh
 case $1 in
 --mp4-follow)
-	echo "follow start $$" >> "{calls}"
 	trap 'echo "follow TERM" >> "{calls}"; exit 0' TERM
+	echo "follow start $$" >> "{calls}"
 	while :; do sleep 0.05; done ;;
 --port-menu) exit 10 ;;
 esac
@@ -119,18 +129,30 @@ if [ $n = 1 ]; then printf '%s\\n' '{request}' > "{d}/tmp/zyperos_port"; else : 
 exit 0
 ''')
         put(zy / 'portkeys', f'''#!/bin/sh
-echo "portkeys $*" >> "{calls}"
 trap 'exit 0' TERM
+echo "portkeys $*" >> "{calls}"
 while :; do sleep 0.05; done
 ''')
-        for script in ('pico8/PICO-8.sh', 'openbor/OpenBOR.sh'):
-            put(zy / script, f'#!/bin/bash\necho "program {script} $*" >> "{calls}"\nsleep 0.3\nexit 0\n')
+        # The program runs until what launch.sh starts beside it has said it
+        # is up (portkeys, and your PICO-8's follower), its TERM trap set
+        # first, at most CEILING: an event, not a time, so a busy runner
+        # cannot end the program before they start
+        for script, beside in (('pico8/PICO-8.sh', '^portkeys |^follow start '), ('openbor/OpenBOR.sh', '^portkeys ')):
+            need = len(beside.split('|'))
+            put(zy / script, f'''#!/bin/bash
+echo "program {script} $*" >> "{calls}"
+for i in $(seq {CEILING * 20}); do
+	[ "$(grep -cE '{beside}' "{calls}")" -ge {need} ] && break
+	sleep 0.05
+done
+exit 0
+''')
         env = dict(os.environ, PATH=f'{bin_}:{os.environ["PATH"]}')
         try:
             subprocess.run(['sh', str(zy / 'launch.sh')], env=env, stdin=subprocess.DEVNULL,
-                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=30)
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=2 * CEILING)
         except subprocess.TimeoutExpired:
-            check(False, 'launch.sh ended (it ran 30 s)')
+            check(False, f'launch.sh ended (it ran {2 * CEILING} s)')
         return calls.read_text().splitlines() if calls.exists() else []
 
     print('launch.sh, your PICO-8 (a request with "mp4" fifth):')
@@ -264,7 +286,7 @@ class Daemon:
             os.unlink(self.path)
 
 
-def ask(sock, line, timeout=10):
+def ask(sock, line, timeout=CEILING):
     s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     s.settimeout(timeout)
     s.connect(str(sock))
@@ -279,13 +301,21 @@ def ask(sock, line, timeout=10):
     return json.loads(out.decode() or '{}')
 
 
-def wait_for(cond, seconds=5):
-    until = time.time() + seconds
-    while time.time() < until:
+def wait_for(cond, seconds=CEILING):
+    """A wait for an event, never for a time: until cond() says so, looked
+    at every 50 ms, False only at the ceiling"""
+    until = time.monotonic() + seconds
+    while time.monotonic() < until:
         if cond():
             return True
         time.sleep(0.05)
     return cond()
+
+
+# Every string the launcher says it drew, wherever its line begins: the
+# reading the desk walks share (tools/deskwalk.py's drawn_lines; ALSA's lines
+# on a runner with no sound card can come first on a drawn string's line)
+drawn_lines = module('deskwalk', ROOT / 'tools/deskwalk.py').drawn_lines
 
 
 def hand_text(card, pos):
@@ -344,13 +374,27 @@ def launcher(tmp):
     def logged(name):
         return (tmp / f'{name}.log').read_text(errors='replace')
 
-    def desk_up(p):
-        ok = wait_for(lambda: dsock.exists() or p.poll() is not None, 10) and dsock.exists()
-        if ok:
-            ask(dsock, 'wait-frames 3')
-        return ok
+    def desk_up(p, name, ready):
+        """Its control socket, then `ready` drawn: the screen it starts on is
+        up and reads keys"""
+        return (wait_for(lambda: dsock.exists() or p.poll() is not None) and dsock.exists() and
+                wait_for(lambda: ready in drawn_lines(logged(name))))
 
-    def ended(p, seconds=8):
+    def key(k, last=False):
+        """`k` pressed and let go, each said back once the launcher's loop
+        has taken it, then the next frame drawn: the pass that read them is
+        over, whatever it did, before anything more is sent. Without that a
+        press sent at once could be read on the same pass as this let-go -
+        Now Playing reads B before SELECT's let-go, the menu B before SELECT
+        - and no press is still down at the next. Events, not a time.
+        `last`: the key that ends the launcher (B, Continue), whose event is
+        its end (ended), with no frame after it to wait for"""
+        ask(dsock, f'press {k}')
+        ask(dsock, f'release {k}')
+        if not last:
+            ask(dsock, 'wait-frames 1')
+
+    def ended(p, seconds=CEILING):
         try:
             p.wait(timeout=seconds)
         except subprocess.TimeoutExpired:
@@ -363,20 +407,21 @@ def launcher(tmp):
         print('the launcher back from your PICO-8, a queue handed over:')
         hand.write_text(hand_text(card, 0))
         p = start('start', ['--device', 'pixel2'])
-        check(desk_up(p), 'the launcher started')
+        # The home's A drawn: the start is over (a queue taken on, a resume)
+        check(desk_up(p, 'start', 'Open games'), 'the launcher started')
         log = logged('start')
         check('mp4: took over 3 tracks, playing, at 1' in log, 'it takes the queue on')
         check(not hand.exists(), 'and removes the file')
         check('mp4: resumed' not in log, 'and resumes nothing: no power-off came')
-        check(wait_for(lambda: '<connect>' in daemon.got, 3) and not daemon.plays(),
+        check(wait_for(lambda: '<connect>' in daemon.got) and not daemon.plays(),
               'it talks to the daemon and sends no PLAY: the song plays on')
         daemon.end()
-        check(wait_for(lambda: daemon.plays() == [str(card / TRACKS[1])], 3),
+        check(wait_for(lambda: daemon.plays() == [str(card / TRACKS[1])]),
               f'an END: the next track, from the queue taken on ({daemon.plays()})')
 
         print('a PICO-8 cart opened:')
         s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        s.settimeout(10)
+        s.settimeout(CEILING)
         s.connect(str(cdir / 'ctl.sock'))
         s.sendall(f'open\tpath={card}/Roms/PICO-8/celeste.p8\n'.encode())
         said = s.makefile().readline().strip()
@@ -393,48 +438,54 @@ def launcher(tmp):
 
         print('the follower beside it:')
         f = start('follow', ['--mp4-follow'])
-        check(wait_for(lambda: 'mp4 follow: beside the program' in logged('follow'), 5) and
+        check(wait_for(lambda: 'mp4 follow: beside the program' in logged('follow')) and
               'mp4: took over 3 tracks, playing, at 2' in logged('follow'), 'it takes the queue')
-        check(wait_for(lambda: daemon.got.count('<connect>') == 2, 3), 'and talks to the daemon')
+        check(wait_for(lambda: daemon.got.count('<connect>') == 2), 'and talks to the daemon')
         daemon.end()
-        check(wait_for(lambda: daemon.plays()[-1:] == [str(card / TRACKS[2])], 3),
+        check(wait_for(lambda: daemon.plays()[-1:] == [str(card / TRACKS[2])]),
               'an END: the next track')
 
         print('MENU over PICO-8, the follower stopped as portkeys stops it:')
         f.send_signal(signal.SIGSTOP)
         m = start('menu', ['--port-menu', 'PICO8', f'{card}/Roms/PICO-8/celeste.p8'])
-        check(desk_up(m), 'the in-game menu is up')
-        ask(dsock, 'tap select')
-        ask(dsock, 'wait-frames 8')
+        check(desk_up(m, 'menu', 'Continue'), 'the in-game menu is up')
+        key('select')
+        # Now Playing first says the song the file handed over, then the one
+        # the daemon says it plays: that one drawn is the event
+        check(wait_for(lambda: {'Home Again', '3 / 3'} <= set(drawn_lines(logged('menu')))),
+              'and Now Playing on the song the daemon plays')
         log = logged('menu')
         # The file says the song the launcher handed over, the second; the
         # follower went on to the third, which the daemon says it plays
         check('port menu: MP4 ready' in log and 'mp4: took over 3 tracks, playing, at 2' in log,
               'SELECT: MP4 made ready, the queue taken from the file')
-        drawn = [l[len('fit: drawn: '):] for l in log.splitlines() if l.startswith('fit: drawn: ')]
-        check('Home Again' in drawn and '3 / 3' in drawn, 'and Now Playing on the song the daemon plays')
-        # L1 under 3 s into a song: the one before
+        # L1 under 3 s into a song: the one before. Let go at the
+        # launcher's next pass (desk's tap, 1 ms), not when this script gets
+        # round to it: L1 held 300 ms repeats. The PLAY it sends comes from
+        # the pass that read it, so SELECT below is read on a later one
         n = len(daemon.plays())
-        ask(dsock, 'tap l1')
-        ask(dsock, 'wait-frames 4')
-        check(wait_for(lambda: daemon.plays()[n:] == [str(card / TRACKS[1])], 3),
+        ask(dsock, 'tap l1 1')
+        check(wait_for(lambda: daemon.plays()[n:] == [str(card / TRACKS[1])]),
               f'L1: the song before ({[g[:40] for g in daemon.got[-6:]]})')
-        ask(dsock, 'press select')
-        ask(dsock, 'wait-frames 3')
-        ask(dsock, 'release select')
-        ask(dsock, 'wait-frames 8')
-        ask(dsock, 'tap b')
+        # SELECT let go closes MP4 on the pass that reads the let-go; B on a
+        # pass after it is Continue, not Now Playing's way back
+        key('select')
+        key('b', last=True)
         rc = ended(m)
         check(rc == 10, f'SELECT let go closes MP4, and B is Continue ({rc})')
         h = hand.read_text() if hand.exists() else ''
         check(field(h, 'pos') == '1', f'the menu writes the queue back, on the song before ({field(h, "pos")})')
+        # The follower's connection went to the menu's (the stand-in keeps
+        # the newest), so an END reaches it once it has taken the queue again
+        # and connected again
+        connects = daemon.got.count('<connect>')
         f.send_signal(signal.SIGCONT)
-        check(wait_for(lambda: 'the queue again, from the in-game menu' in logged('follow'), 3),
+        check(wait_for(lambda: 'the queue again, from the in-game menu' in logged('follow')),
               'the follower, let go on, takes the queue again')
+        check(wait_for(lambda: daemon.got.count('<connect>') > connects), 'and talks to the daemon again')
         n = len(daemon.plays())
-        time.sleep(0.4)
         daemon.end()
-        check(wait_for(lambda: daemon.plays()[n:] == [str(card / TRACKS[2])], 3),
+        check(wait_for(lambda: daemon.plays()[n:] == [str(card / TRACKS[2])]),
               'and plays on from it: an END, the next track')
         f.send_signal(signal.SIGTERM)
         check(ended(f) == 0, 'TERM ends it')
@@ -448,11 +499,12 @@ def launcher(tmp):
         print('MENU over a program MP4 is stopped for (no file):')
         hand.unlink()
         m = start('menu-other', ['--port-menu', 'PICO8', f'{card}/Roms/PICO-8/celeste.p8'])
-        check(desk_up(m), 'the in-game menu is up')
+        check(desk_up(m, 'menu-other', 'Continue'), 'the in-game menu is up')
         n = len(daemon.got)
-        ask(dsock, 'tap select')
-        ask(dsock, 'wait-frames 6')
-        ask(dsock, 'tap b')
+        # SELECT read and done with on its pass, B on a later one (the menu
+        # reads B first)
+        key('select')
+        key('b', last=True)
         rc = ended(m)
         log = logged('menu-other')
         check(rc == 10 and 'MP4 ready' not in log and '<connect>' not in daemon.got[n:],
