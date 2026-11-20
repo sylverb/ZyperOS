@@ -2300,6 +2300,20 @@ static void ingame_rows(void)
 	ck(!(b.sound[1] & MENU_SND_RING), "Left and Right step nothing on it (no ring)");
 	ck(rows[3].value == MENU_KEY_X && gm_row_at(&u, GT_GAME, gm_x_row()) == 3, "X is still Quit");
 	ck(reachable(rows, n, got, GM_MAX_ROWS) == 4, "every row a stop");
+	/* And On-Screen Stats after Display, as the Display tab's last row is
+	 * over a game: its words, On or Off, Left and Right turning it */
+	u.port_hud = true;
+	u.hud = true;
+	n = gm_rows(&u, GT_GAME, rows, &b);
+	ck(n == 5 && gm_tab_rows(&u, GT_GAME, ids) == 5 && ids[1] == GM_DISPLAY && ids[2] == GM_HUD &&
+	   ids[3] == GM_CONTROLS && ids[4] == GM_QUIT, "Continue, Display, On-Screen Stats, Controls and Quit");
+	ck(!strcmp(rows[2].label, "On-Screen Stats") && rows[2].value && !strcmp(rows[2].value, "On") &&
+	   (b.sound[2] & MENU_SND_RING), "On-Screen Stats, On, Left and Right turning it, as over a game");
+	u.hud = false;
+	gm_rows(&u, GT_GAME, rows, &b);
+	ck(rows[2].value && !strcmp(rows[2].value, "Off"), "Off when it is off");
+	ck(gm_row_at(&u, GT_GAME, gm_x_row()) == 4, "X still Quit");
+	u.port_hud = false;
 	u.port_display = false;
 	ck(gm_tab_rows(&u, GT_GAME, ids) == 3, "and no Display row over any other program");
 	u.port = false;

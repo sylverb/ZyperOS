@@ -40,8 +40,11 @@ typedef struct {
 	int cursor;
 	/* Index into DMODES. Zero-initialized like the rest of this struct, so
 	 * whatever sits at index 0 is what an untouched card plays at - see the
-	 * note on DMODES itself. */
+	 * note on DMODES itself. While the system's row was never set
+	 * (dmode_kept false) it is its default (dmode_default), which follows
+	 * its core: Original Shape for your PICO-8. */
 	int dmode;
+	bool dmode_kept;   /* display.<TAG> holds a pick */
 	/* Index into SHADERS, this system's: its own choice, or the one MENU set
 	 * for every system (shader_load). Zero is Off. */
 	int shader;
@@ -392,6 +395,11 @@ void snap_off(void);
 /* Each system's display mode, core and sort order, loaded; a shelf sorted */
 void display_load(app *a);
 void core_load(app *a);
+/* The Display mode a system plays at while its row was never set, by its
+ * core (main.c says why), and that mode put on the system's view while it
+ * still has no pick */
+int  dmode_default(const system_cfg *s);
+void dmode_settle(app *a, int sys);
 void sort_load(app *a);
 /* MENU > View, each shelf's: its covers or a list (DESIGN.md 11.39) */
 void view_load(app *a);
