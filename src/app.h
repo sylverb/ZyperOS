@@ -358,6 +358,9 @@ SDL_Texture *game_get_tex(void *ctx, int i, int *w, int *h, float *cb);
 
 /* MP4: the place in a book or a film kept, and the player polled */
 void book_keep(bool now);
+/* MP4's resume row gone (src/mp4resume.h): a port about to take the sound,
+ * after which nothing should open by itself */
+void resume_clear(void);
 void mp4_poll(void);
 
 /* Charge Limit, and the one full charge asked for past it */
