@@ -198,5 +198,10 @@ static inline bool port_resets(const char *tag)
  * there. DTOV as the heat notice's, with that trailer. */
 #define PORT_SHOT_LIGHT "/tmp/zyperos-port-shot-light.dtov"
 #define PORT_SHOT_DARK  "/tmp/zyperos-port-shot-dark.dtov"
+/* And "Shader / CRT", Next Shader's pop-up (DESIGN.md 11.61), one for each
+ * shader your PICO-8 is offered (src/p8fx.h's p8fx_shaders) in each theme,
+ * rendered when the hotkey has a key: the SHADERS name, then "light" or
+ * "dark". portkeys shows the one for the shader it stepped to. */
+#define PORT_SHADER_POPUP "/tmp/zyperos-port-shader-%s-%s.dtov"
 
 #endif

@@ -16,8 +16,9 @@ CTRL-R, Auto Off) is check-pkkeys's and check-portkeys-flow's.
    - a cart opened (px2-open's channel) leaves portkeys the hotkeys in force
      in Diatom's RUN form and the screenshot's folder and name
      (Screenshots/PICO-8/<the cart>), PICO-8.sh the pad's line from
-     map.PICO8, and "Screenshot saved" in both themes with an empty square
-     and its place after the pixels (NOTICE_SLOT);
+     map.PICO8, "Screenshot saved" in both themes with an empty square
+     and its place after the pixels (NOTICE_SLOT), and with Next Shader on
+     a key, "Shader / <name>" for each of PICO-8's shaders;
    - the in-game menu over it (--port-menu PICO8 CART) has Reset between
      Controls and Quit; A asks "Reset the game?" with "Play since the last
      save is lost.", the cursor on Cancel: A there is the menu again; Reset
@@ -184,7 +185,7 @@ def launcher(tmp):
         return
     # The player's hotkeys for PICO-8 and its buttons swapped, as the
     # Controls tab over a fake08 game keeps them (src/hkstore.h, remapstore.h)
-    settings(lib, {'hotkeys.PICO8': '1;shot:y,reset:b,quit:x', 'map.PICO8': '1;a:b,b:a'})
+    settings(lib, {'hotkeys.PICO8': '1;shot:y,shader:a,reset:b,quit:x', 'map.PICO8': '1;a:b,b:a'})
     keys_file, pad_file = flags / 'zyperos-port-keys', flags / 'zyperos-pico8-pad'
     restart = flags / 'zyperos_port_restart'
     short = Path(tempfile.gettempdir())
@@ -243,7 +244,7 @@ def launcher(tmp):
               f'it opens on your PICO-8 ({said[:60]!r})')
         check(ended(p) == 0, 'the launcher ends for it')
         k = lines(keys_file)
-        check(k.get('hotkeys') == 'save:r1,load:l1,faster:r2,slower:l2,shot:y,reset:b,quit:x',
+        check(k.get('hotkeys') == 'save:r1,load:l1,faster:r2,slower:l2,shot:y,shader:a,reset:b,quit:x',
               f'portkeys gets the hotkeys in force, in Diatom\'s RUN form ({k.get("hotkeys")})')
         shots = k.get('shots', '')
         check(shots.startswith(f'{card}/Screenshots/PICO-8/') and shots.rsplit('/', 1)[-1].lower().startswith('celeste'),
@@ -263,6 +264,11 @@ def launcher(tmp):
                     edge = 8 + ((y + side // 2) * w + x + side + 4) * 4
                     ok = b[mid:mid + 4] == b[edge:edge + 4]
             check(ok, f'"Screenshot saved" in {theme}, with an empty square and its place ({sl})')
+
+        names = ('nearest', 'shimmerless', 'crt', 'crt-curved', 'scanlines', 'lcd')
+        pops = [flags / f'zyperos-port-shader-{n}-{t}.dtov' for n in names for t in ('light', 'dark')]
+        check(all(dtov_slot(f) is not None for f in pops),
+              'Next Shader has a key: "Shader / <name>" for each of PICO-8\'s shaders, in both themes')
 
         print('the in-game menu over it, Reset:')
         m, ok = start('menu', ['--port-menu', 'PICO8', cart])
@@ -322,7 +328,7 @@ def launcher(tmp):
         keys('b')
         rc = ended(m)
         k = lines(keys_file)
-        check(rc == 10 and k.get('hotkeys') == 'save:r1,load:l1,faster:r2,slower:l2,shot:y,reset:b,quit:x'
+        check(rc == 10 and k.get('hotkeys') == 'save:r1,load:l1,faster:r2,slower:l2,shot:y,shader:a,reset:b,quit:x'
               and k.get('shots') == shots,
               f'as the menu ends the hotkeys are written again, the folder kept ({rc}, {k})')
 

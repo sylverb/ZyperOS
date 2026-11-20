@@ -22,6 +22,7 @@
 #include "border_pic.h"
 #include "panel.h"
 #include "pico8.h"
+#include "p8fx.h"
 #include "p8pad.h"
 #include "place.h"
 #include "pminstall.h"
@@ -250,6 +251,22 @@ void p8_keys_save(const system_cfg *s, const char *file, const char *shots)
 	snprintf(text, sizeof text, "hotkeys\t%s\nshots\t%s\n", run, shots);
 	if (!write_whole(plat_flag(PORT_KEYS_FILE), text))
 		fprintf(stderr, "port: couldn't write %s\n", PORT_KEYS_FILE);
+	/* Next Shader's pop-ups, "Shader / CRT", where it has a key: each
+	 * shader's in both themes, made as the hand-over is (`kept` NULL), and
+	 * by the menu only where one is missing (a key given in it) */
+	if (hk.key[HK_SHADER] != HK_NONE) {
+		const char *names[16];
+		int n = p8fx_shaders(names, 16), i, t;
+
+		for (i = 0; i < n; i++)
+			for (t = 0; t < DS_THEMES; t++) {
+				char path[LIB_PATH];
+
+				snprintf(path, sizeof path, PORT_SHADER_POPUP, names[i], t == DS_DARK ? "dark" : "light");
+				if (shots == kept && access(plat_flag(path), F_OK) == 0) continue;
+				notice_render(T(S_HOTKEYS_POPUP_SHADER), T(p8fx_shader_text(names[i])), plat_flag(path), t);
+			}
+	}
 }
 
 void p8_pad_save(const system_cfg *s, const char *file)

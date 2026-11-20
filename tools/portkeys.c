@@ -113,6 +113,7 @@
 #include "osdbar.h"
 #include "panelgamma.h"
 #include "p8draw.h"
+#include "p8fx.h"
 #include "pkhot.h"
 #include "pkkbd.h"
 #include "pkkeys.h"
@@ -2105,12 +2106,29 @@ static void shot_take(void)
 	if (ok) shot_popup();
 }
 
-/* Next Shader over your PICO-8: the shaders over it are drawn by a program
- * beside it that reads its settings from a file (src/p8fx.h). Until this
- * build has them, said and nothing done. */
+/* Next Shader over your PICO-8: the shader its library draws (src/p8fx.h)
+ * stepped on round the ones PICO-8 is offered, kept as the shelf's Shader
+ * row keeps it (shader.PICO8) and in the file the library reads, so it
+ * shows at once; and named over the game as Diatom's is ("Shader / CRT"),
+ * the pop-up the launcher rendered for each as it handed over
+ * (PORT_SHADER_POPUP), at the theme the bar would be in now */
+static uint32_t *shader_px;
+
 static void shader_next(void)
 {
-	fprintf(stderr, "portkeys: Next Shader: no shaders over your PICO-8 in this build\n");
+	char name[32], path[128];
+	int t, w = 0, h = 0;
+
+	if (!p8fx_next_shader(db, name, sizeof name)) {
+		fprintf(stderr, "portkeys: Next Shader, but the settings cannot be written\n");
+		return;
+	}
+	fprintf(stderr, "portkeys: hotkey, Next Shader: %s\n", name);
+	t = pkset_bar_theme(appearance_read ? appearance_word : NULL, time(NULL), THEME_FILE);
+	snprintf(path, sizeof path, PORT_SHADER_POPUP, name, t == DS_DARK ? "dark" : "light");
+	free(shader_px);
+	if ((shader_px = dtov_read(path, &w, &h, NULL))) notice_show(shader_px, w, h, 1500);
+	else fprintf(stderr, "portkeys: no pop-up for %s\n", name);
 }
 
 /* Next Display over your PICO-8: a new mode means PICO-8 starts again, so
