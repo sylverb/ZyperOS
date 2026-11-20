@@ -22,6 +22,13 @@ CFLAGS  += -Iinclude -Isrc -Ivendor/rcheevos/include -Ivendor/lz4
 CFLAGS  += -MMD -MP
 # zlib for zipped ROMs (src/zip.c), on every port
 LDFLAGS += -lz
+# liblzma, for a zip's LZMA entries (src/zip.c): the system's own, which
+# plastron has for the CHD reader; pkg-config answers for the device's
+# sysroot in a device build, for Homebrew's xz on a Mac
+LZMA_CFLAGS := $(shell $(or $(PKG_CONFIG),pkg-config) --cflags liblzma 2>/dev/null)
+LZMA_LIBS   := $(or $(shell $(or $(PKG_CONFIG),pkg-config) --libs liblzma 2>/dev/null),-llzma)
+CFLAGS  += $(LZMA_CFLAGS)
+LDFLAGS += $(LZMA_LIBS)
 
 # Objects live under build/$(PORT)/ so host and cross builds cannot collide:
 # a leftover x86 main.o in a device link fails late and confusingly.
@@ -161,7 +168,7 @@ $(BUILD)/%.o: %.c
 # backend exists. Cheap to check, so check it.
 # Mechanical checks, each guarding a rule that decays the moment nothing fails
 # when it is broken: check-seam has held since day one for exactly that reason.
-check: check-seam check-copies check-corefacts check-rates check-cheevos check-screens check-chord check-fdsdisk check-sgb check-fdssgb check-pace check-emumeter check-corefail check-corefail-e2e check-flipwatch check-stick check-bounds check-rumble check-statefile check-proto check-port check-power check-power-e2e check-flipwatch-e2e check-fastforward check-lateskip check-stateplane check-resident check-hotkeys check-coreend check-rtc check-cardframe check-now check-hudspeed check-displaylock check-rumble-e2e check-player2 check-states check-statereads check-cheats
+check: check-seam check-copies check-corefacts check-rates check-cheevos check-screens check-chord check-fdsdisk check-sgb check-fdssgb check-pace check-emumeter check-corefail check-corefail-e2e check-flipwatch check-stick check-bounds check-zipmethods check-rumble check-statefile check-proto check-port check-power check-power-e2e check-flipwatch-e2e check-fastforward check-lateskip check-stateplane check-resident check-hotkeys check-coreend check-rtc check-cardframe check-now check-hudspeed check-displaylock check-rumble-e2e check-player2 check-states check-statereads check-cheats
 
 # Does a RetroAchievements address reach the byte it names? Offline, needs no
 # core and no ROM, and links only cheevos.c plus the vendored runtime - so it
@@ -355,7 +362,21 @@ check-bounds: $(BOUNDS_TEST)
 $(BOUNDS_TEST): test/bounds_test.c src/zip.c src/proto.c src/diatom.h
 	@mkdir -p $(BUILD)
 	$(CC) -std=gnu11 -Wall -Wextra -Wno-unused-parameter -O1 -g $(BOUNDS_SAN) \
-	      -Iinclude -Isrc -o $@ test/bounds_test.c src/zip.c src/proto.c -lz
+	      -Iinclude -Isrc $(LZMA_CFLAGS) -o $@ test/bounds_test.c src/zip.c src/proto.c -lz $(LZMA_LIBS)
+
+# Zipped games by each method a zip tool offers (src/zip.c): stored, Deflate
+# and LZMA read whole, bzip2 refused rather than its readme handed over.
+# Python's zipfile writes the zips, so it needs no file from anywhere.
+ZIPLOAD := $(BUILD)/zipload
+
+check-zipmethods: $(ZIPLOAD)
+	@python3 test/zipmethods.py $(ZIPLOAD)
+.PHONY: check-zipmethods
+
+$(ZIPLOAD): test/zipload.c src/zip.c src/diatom.h
+	@mkdir -p $(BUILD)
+	$(CC) -std=gnu11 -Wall -Wextra -Wno-unused-parameter -O1 -g -Iinclude -Isrc $(LZMA_CFLAGS) \
+	      -o $@ test/zipload.c src/zip.c -lz $(LZMA_LIBS)
 
 # A save state's file (src/statefile.h): packed and read back byte for byte,
 # with its achievement trailer; a version 1 state, unpacked, as every Diatom

@@ -32,6 +32,42 @@ static void ck(int cond, const char *what)
 
 static char dir[64];
 
+/* A zip's directory as a zip tool writes it, its entries' data left empty:
+ * gamefile_zip_method reads the directory alone */
+typedef struct { const char *name; int method; unsigned usize; } zent;
+
+static void le16(FILE *f, unsigned v) { fputc(v & 0xff, f); fputc(v >> 8 & 0xff, f); }
+static void le32(FILE *f, unsigned v) { le16(f, v & 0xffff); le16(f, v >> 16); }
+
+static void write_zip(const char *path, const zent *e, int n)
+{
+	FILE *f = fopen(path, "wb");
+	unsigned off[8], cd, i;
+
+	for (i = 0; i < (unsigned)n; i++) {
+		off[i] = (unsigned)ftell(f);
+		le32(f, 0x04034b50); le16(f, 20); le16(f, 0); le16(f, (unsigned)e[i].method);
+		le32(f, 0); le32(f, 0); le32(f, 0); le32(f, e[i].usize);
+		le16(f, (unsigned)strlen(e[i].name)); le16(f, 0);
+		fputs(e[i].name, f);
+	}
+	cd = (unsigned)ftell(f);
+	for (i = 0; i < (unsigned)n; i++) {
+		le32(f, 0x02014b50); le16(f, 20); le16(f, 20); le16(f, 0); le16(f, (unsigned)e[i].method);
+		le32(f, 0); le32(f, 0); le32(f, 0); le32(f, e[i].usize);
+		le16(f, (unsigned)strlen(e[i].name)); le16(f, 0); le16(f, 0); le16(f, 0); le16(f, 0);
+		le32(f, 0); le32(f, off[i]);
+		fputs(e[i].name, f);
+	}
+	{
+		unsigned end = (unsigned)ftell(f);
+
+		le32(f, 0x06054b50); le16(f, 0); le16(f, 0); le16(f, (unsigned)n); le16(f, (unsigned)n);
+		le32(f, end - cd); le32(f, cd); le16(f, 0);
+	}
+	fclose(f);
+}
+
 /* `name` in the scratch folder with `bytes` bytes; its path in `out` */
 static void make(const char *name, size_t bytes, char *out, size_t n)
 {
@@ -120,6 +156,41 @@ int main(void)
 	gamefile_message(GAMEFILE_SHORT, 10, msg, sizeof msg);
 	ck(!strcmp(msg, "Ce fichier de jeu est incomplet : 10 octets"), "French: its own word for bytes");
 	i18n_set(LANG_EN);
+
+	/* ---- a zip's game and how it is compressed (1.0.7) ---- */
+	{
+		const zent lzma[] = { { "readme.txt", 8, 120 }, { "Pocket Quest (World).gb", 14, 65536 } };
+		const zent bz[] = { { "Pocket Quest (World).gb", 12, 65536 }, { "readme.txt", 8, 120 } };
+		const zent zs[] = { { "Games/", 0, 0 }, { "Games/Night Drive.gba", 93, 4194304 } };
+		const zent plain[] = { { "Kingdom Run.sfc", 8, 1048576 } };
+		const char *names[] = { "lzma.zip", "bzip2.zip", "zstd.zip", "plain.zip", "none.zip" };
+
+		mkdir(dir, 0755);
+
+		snprintf(path, sizeof path, "%s/lzma.zip", dir);
+		write_zip(path, lzma, 2);
+		ck(gamefile_zip_method(path) == 14 && gamefile_zip_reads(14), "an LZMA zip's game: LZMA, which Diatom reads");
+		snprintf(path, sizeof path, "%s/bzip2.zip", dir);
+		write_zip(path, bz, 2);
+		ck(gamefile_zip_method(path) == 12 && !gamefile_zip_reads(12),
+		   "a bzip2 zip's game is its largest entry, not its readme, and is not read");
+		snprintf(path, sizeof path, "%s/zstd.zip", dir);
+		write_zip(path, zs, 2);
+		ck(gamefile_zip_method(path) == 93 && !gamefile_zip_reads(93), "a folder is no game; Zstandard is not read");
+		snprintf(path, sizeof path, "%s/plain.zip", dir);
+		write_zip(path, plain, 1);
+		ck(gamefile_zip_method(path) == 8 && gamefile_zip_reads(8) && gamefile_zip_reads(0), "Deflate and stored are read");
+		snprintf(path, sizeof path, "%s/none.zip", dir);
+		write_zip(path, plain, 0);
+		ck(gamefile_zip_method(path) == -1, "a zip with no entry has no method");
+		snprintf(path, sizeof path, "%s/missing.zip", dir);
+		ck(gamefile_zip_method(path) == -1, "nor a zip that is not there");
+		for (unsigned i = 0; i < sizeof names / sizeof names[0]; i++) {
+			snprintf(path, sizeof path, "%s/%s", dir, names[i]);
+			unlink(path);
+		}
+		rmdir(dir);
+	}
 
 	if (fails) { printf("gamefile-check: %d FAILED\n", fails); return 1; }
 	printf("ok: an empty game file of any kind, and a zip, 7z, CHD, CSO, PBP or iso shorter than its kind can be, "

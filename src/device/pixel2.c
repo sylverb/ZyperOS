@@ -323,7 +323,15 @@ static void show_screen(void)
 		SDL_SetTextureBlendMode(screen_tex, premul);
 		/* A video plays as it is, at the panel's pixels: no shader */
 		draw_picture(&dest, false);
-		SDL_SetTextureBlendMode(screen_tex, SDL_BLENDMODE_BLEND);
+		/* ...and back to opaque, as it was made (below), for every frame
+		 * without a video. It was left blending: after the first MP4 video
+		 * every frame went over the black with its alpha, and whatever the
+		 * screen held at alpha 0 - an RGB texture's pixels, which this SDL
+		 * writes so, the Shader list's picture and the paused game's - came
+		 * out black until the launcher started again (2026-11-19, on the
+		 * 1.1.0 test build: "Shaders preview box is not working. It's
+		 * rendering black", after MP4's videos) */
+		SDL_SetTextureBlendMode(screen_tex, SDL_BLENDMODE_NONE);
 		under.on = false;
 	} else {
 		SDL_SetRenderDrawColor(ren, 0, 0, 0, 255);
@@ -530,6 +538,9 @@ bool plat_video_init(void)
 		fprintf(stderr, "screen texture: %s\n", SDL_GetError());
 		return false;
 	}
+	/* Onto the panel opaque, whatever its alpha says (show_screen); a
+	 * video's frame alone goes over its picture blended */
+	SDL_SetTextureBlendMode(screen_tex, SDL_BLENDMODE_NONE);
 	SDL_SetRenderTarget(ren, screen_tex);
 	SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_BLEND);
 

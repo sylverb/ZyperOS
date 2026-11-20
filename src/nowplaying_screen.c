@@ -735,8 +735,9 @@ static void np_next_name(char *next, size_t n)
 #define NPV_BAR_GAP  16
 
 /* What the buttons do on Now Playing, listed most needed first: A, B, X,
- * then Y (music and books) and L1/R1, then the d-pad. `kind`: 0 music, 1 a
- * book. On a video Y has no hint: it only shows or hides the controls. */
+ * then Y and L1/R1, then the d-pad. `kind`: 0 music, 1 a book. On a video
+ * Y is Repeat (MP4's MENU > Repeat: Off, One, All), its mark beside the
+ * time when it is not Off. */
 int np_hint_list(key_hint *h, bool playing, int kind, int count, bool video)
 {
 	int n = 0;
@@ -745,6 +746,7 @@ int np_hint_list(key_hint *h, bool playing, int kind, int count, bool video)
 	h[n].key = "B";  h[n++].label = T(S_CONTROLS_BACK);
 	h[n].key = "X";  h[n++].label = T(S_MP4_HINT_LOCK);
 	if (video) {
+		h[n].key = "Y"; h[n++].label = T(S_SYSMENU_MUSE_REPEAT);
 		if (count > 1) { h[n].key = "L1/R1"; h[n++].label = T(S_MP4_HINT_VIDEO); }
 	} else {
 		h[n].key = "Y";     h[n++].label = kind == 1 ? T(S_MUSE_HINT_SPEED) : T(S_MUSE_HINT_MODE);
@@ -1077,7 +1079,7 @@ static muse_exit muse_now_screen_run(app *a)
 		const mu_now *mn;
 		char next[128] = "";
 		unsigned now;
-		bool touched = false, video, fresh = false, ctl_y = false, up;
+		bool touched = false, video, fresh = false;
 		int b;
 
 		muse_screen_poll();
@@ -1105,10 +1107,12 @@ static muse_exit muse_now_screen_run(app *a)
 		 * now, on every MP4 screen. Eric's call, 2026-09-19; X, 2026-11-05. */
 		if (a->in.pressed[IN_ACCEPT])       { uisound_play(DS_SOUND_ACCEPT); musec_toggle(); }
 		/* The mode, on music; on a book, which plays in order whatever the
-		 * mode says, its speed; on a video, the view. */
+		 * mode says, its speed; on a video, Repeat: Off, One, All and round,
+		 * as MP4's MENU > Repeat turns it, kept, its mark beside the time as
+		 * the controls come up (2026-11-19: "Make the y button change it") */
 		if (a->in.pressed[IN_Y]) {
 			uisound_play(DS_SOUND_ACCEPT);
-			if (video)                 ctl_y = true;
+			if (video)                 video_cycle_repeat();
 			else if (musec_is_book())  book_cycle_speed();
 			else if (!musec_is_videos()) muse_cycle_mode();
 		}
@@ -1151,12 +1155,10 @@ static muse_exit muse_now_screen_run(app *a)
 				trouble_seen = tr;
 				ctl_drawn = -1;
 			}
-			/* Y shows them, or hides them at once if they were up; any
-			 * other key shows them and does what it does */
-			up = (int)(ctl_until - now) > 0;
+			/* Any key shows them and does what it does: Y too, which
+			 * turns Repeat, whose mark is in them */
 			for (b = 0; b < IN_COUNT; b++)
-				if (b != IN_Y && a->in.pressed[b]) { ctl_until = now + DS_MS_HOLD_CONTROLS; break; }
-			if (ctl_y) ctl_until = up ? now : now + DS_MS_HOLD_CONTROLS;
+				if (a->in.pressed[b]) { ctl_until = now + DS_MS_HOLD_CONTROLS; break; }
 			want = mn->state != MU_PLAYING || (int)(ctl_until - now) > 0;
 			grows = np_video_grows();
 			dt = (float)(now - ctl_at);

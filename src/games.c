@@ -367,8 +367,12 @@ uint32_t games_draw(games_row *row,SDL_Renderer *r,const games_info *info,
     }
     /* Highlight's marks round the cover in the middle, holding still as the
      * row slides under them, as Spotlight's do: Border's ring (its corners
-     * the cover's own, square), Bar's bar under the snap's wait bar; both
-     * gone as a snap takes the cover's place */
+     * the cover's own, square), Bar's bar right under the cover; both gone
+     * as a snap takes the cover's place. The bar gives way to the snap's
+     * wait bar while that fills, in the same place: both mark this cover.
+     * It sat under the wait bar's place until 1.1.0, 16 lower, and a name
+     * long enough to reach the middle ran into it (Tony Hawk's Pro Skater 2:
+     * the bar on its "2") */
     if((marks.ring || marks.bar) && info->count>0) {
         int w=0,h=0; float cb=1;
         SDL_Texture *t=texture(ctx,info->cursor,&w,&h,&cb);
@@ -377,7 +381,7 @@ uint32_t games_draw(games_row *row,SDL_Renderer *r,const games_info *info,
             SDL_FRect c=games_cover_rect(w,h,0);
             Uint8 al=(Uint8)lroundf(255*(1-k));
             if(marks.ring) ds_focus_ring(r,c,0,al);
-            if(marks.bar) ds_focus_bar(r,(SDL_FRect){c.x,c.y,c.w,c.h+16},al);
+            if(marks.bar && !(info->snap_wait>0)) ds_focus_bar(r,c,al);
         }
     }
     TTF_Font *title=page_font(PAGE_GAME_TITLE);

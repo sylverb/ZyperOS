@@ -171,6 +171,17 @@ static void empty(void)
 	muq_free(&q);
 }
 
+/* Y on a video turns MP4's Repeat as its MENU's row does (2026-11-19: "Make
+ * the y button change it"): Off, One, All and round */
+static void video_repeat(void)
+{
+	printf("videos' Repeat, Y on a video\n");
+	CHECK(muq_video_repeat_next(MUQ_IN_ORDER) == MUQ_REPEAT_ONE, "Off goes to One");
+	CHECK(muq_video_repeat_next(MUQ_REPEAT_ONE) == MUQ_REPEAT_ALL, "One goes to All");
+	CHECK(muq_video_repeat_next(MUQ_REPEAT_ALL) == MUQ_IN_ORDER, "All goes round to Off");
+	CHECK(muq_video_repeat_next(MUQ_SHUFFLE) == MUQ_REPEAT_ONE, "a mode Repeat has not goes to One");
+}
+
 int main(void)
 {
 	printf("musequeue: the play modes\n");
@@ -180,6 +191,7 @@ int main(void)
 	shuffle();
 	changing_mode();
 	empty();
+	video_repeat();
 	if (failures) {
 		printf("\n%d failure%s\n", failures, failures == 1 ? "" : "s");
 		return 1;
