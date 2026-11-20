@@ -336,6 +336,22 @@ window.ZYPER_TOKENS = {
       "ms": 1000,
       "curve": "-"
     },
+    "hold-boost": {
+      "ms": 1000,
+      "curve": "-"
+    },
+    "tap-gap": {
+      "ms": 1000,
+      "curve": "-"
+    },
+    "boost-open": {
+      "ms": 240,
+      "curve": "out"
+    },
+    "boost-flash": {
+      "ms": 360,
+      "curve": "fade"
+    },
     "hold-lock-lit": {
       "ms": 4000,
       "curve": "-"

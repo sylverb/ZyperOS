@@ -278,7 +278,7 @@ static struct {
 	int drawn_kind, drawn_level, drawn_theme;
 } B;
 
-static int bw, bh;               /* the bar as the player sees it: 298 x 58 */
+static int bw, bh;               /* the bar as the player sees it: 373 x 58 */
 
 /* The very ioctl the fallback needs, asked to set plane 0, which there is
  * none of: the master is refused for that (ENOENT), anyone else for not
