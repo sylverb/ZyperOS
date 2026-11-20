@@ -236,7 +236,11 @@ all?")*
   keep their fill whatever it says.
   - **Bar**, as it ships: the item grows a little on a soft lift, and a
     pill of **accent-ink**, focus-bar-w x focus-bar-h, sits focus-bar-under
-    under it (a system's under its name); on a row, the fill as always.
+    under it (a system's under its name); on a row, the fill as always. On
+    the Covers row it gives way to the video snap's wait bar while that
+    fills, in the same place: both mark the cover. *(Until 1.1.0 the Covers
+    row's sat 16 lower, under the wait bar's place, and a name long enough
+    to reach the screen's middle ran into it.)*
   - **Border**: a ring of **accent-ink** round it, focus-ring wide past a
     gap of focus-gap of ground, its corners the item's own plus the gap and
     the ring, so the curves are parallel; on the home Grid round a
@@ -2797,8 +2801,10 @@ dark screen or Muse fade it back over **quick**. It is muted to start.
 While it waits, a bar under the focused cover says the snap is coming: the
 cover's own width, 12 below it, **UI_BAR_H** tall and round-ended, a
 **track** that fills with **accent-ink** over **hold-snap**, held full
-while the first picture comes, and fading with the cover as it turns. Only
-a game that has a snap shows it. Host shot: `--snap-wait F`.
+while the first picture comes, and fading with the cover as it turns.
+Highlight's bar gives way to it meanwhile (3.5). Only a game that has a
+snap shows it. Host shots: `--snap-wait F`; `games-long-title` and
+`games-long-title-wait`, a name that reaches under the cover.
 A snap's picture goes to the GPU in a texture never smaller than 640x480,
 in its corner when it is smaller, and is drawn from its own rectangle:
 the Pixel 2's GPU faulted, and the launcher with it, on narrower ones (a
