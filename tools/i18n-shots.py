@@ -240,7 +240,7 @@ EXTRA = {
     "system-menu-list": ("demo", "GBA", ["--screen", "games", "--view", "list", "--menu", "View"]),
     # ...and at its end: with View and Shader (1.0.5), Box Art is below the
     # first shot's rows
-    "system-menu-end": ("demo", "PS1", ["--screen", "games", "--menu", "Box Art"]),
+    "system-menu-end": ("demo", "PS1", ["--screen", "games", "--menu", "Downloads"]),
     "storage-art": ("demo", "PS1", ["--storage", "art"]),
     "storage-states": ("demo", "PS1", ["--storage", "states"]),
     "storage-delete": ("demo", "PS1", ["--storage", "delete"]),
@@ -478,6 +478,9 @@ EXTRA = {
     "downloads-ra-account": ("demo", "PS1", ["--downloads", "20"]),
     "downloads-console": ("demo", "PS1", ["--downloads", "21"]),
     "downloads-videos-for": ("demo", "PS1", ["--downloads", "22"]),
+    "downloads-ra-signed-out": ("demo", "PS1", ["--downloads", "24"]),
+    "downloads-on-names": ("demo", "PS1", ["--downloads", "25"]),
+    "downloads-covers-complete": ("demo", "PS1", ["--downloads", "26"]),
     # A game's Cover and Video (DESIGN.md 11.34) in every state, a tile of
     # each kind and region focused, Delete's question and the message of a
     # download that did not come; and the details row's other value

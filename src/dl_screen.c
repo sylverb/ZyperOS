@@ -352,9 +352,12 @@ static void kind_facts(const dl_counts *c, dl_kind k, char *out, size_t n)
 	dl_sum_of(c, k, &s);
 	bytes_text((double)s.bytes, sz, sizeof sz);
 	snprintf(oc, sizeof oc, T(S_DOWNLOADS_ON_CARD), sz);
+	/* a line of two facts: each said drawn, for the shots' check */
+	ui_fit_drawn(oc);
 	switch (k) {
 	case DLK_COVERS:
 		snprintf(out, n, "%s \xc2\xb7 %s", oc, T(S_DOWNLOADS_LIBRETRO_FIRST));
+		ui_fit_drawn(T(S_DOWNLOADS_LIBRETRO_FIRST));
 		break;
 	case DLK_VIDEOS: {
 		static const str_id FOR[SNAPS_FOR_COUNT] = { S_SCRAPER_ALL_GAMES, S_LIBRARY_FAVORITES, S_SCRAPER_PLAYED };
@@ -363,6 +366,7 @@ static void kind_facts(const dl_counts *c, dl_kind k, char *out, size_t n)
 		if (!s.on) { snprintf(out, n, "%s", oc); break; }
 		snprintf(on, sizeof on, TN(S_DOWNLOADS_FOR_ON_N, s.on), T(FOR[snaps_for()]), s.on);
 		snprintf(out, n, "%s \xc2\xb7 %s", on, oc);
+		ui_fit_drawn(on);
 		break;
 	}
 	case DLK_NAMES:
@@ -370,6 +374,7 @@ static void kind_facts(const dl_counts *c, dl_kind k, char *out, size_t n)
 		break;
 	default:
 		snprintf(out, n, "%s \xc2\xb7 %s", T(S_DOWNLOADS_FROM_RA), oc);
+		ui_fit_drawn(T(S_DOWNLOADS_FROM_RA));
 		break;
 	}
 }
@@ -818,6 +823,7 @@ static void kind_draw(dl_view *v, dl_frame *f, unsigned now)
 		snprintf(tf, sizeof tf, T(S_SCRAPER_TO_FETCH), pl.bytes > 0 ? b : "0 MB");
 		if (k == DLK_COVERS) {
 			snprintf(line, sizeof line, "%s \xc2\xb7 %s", tf, T(S_DOWNLOADS_LIBRETRO_FIRST));
+			ui_fit_drawn(T(S_DOWNLOADS_LIBRETRO_FIRST));
 			it = (ds_line_item){ UI_GLYPH_TO_CARD, line, DS_TONE_INFO };
 		} else if (k == DLK_VIDEOS) {
 			char fr[24], f2[48];
@@ -1089,9 +1095,19 @@ static void game_facts(const dl_game *g, char *l1, size_t n1, char *l2, size_t n
 		if (g->st[k] == GS_MISS && m < sizeof miss)
 			m += (size_t)snprintf(miss + m, sizeof miss - m, "%s%s", m ? ", " : "", T(MISS[k]));
 	snprintf(l1, n1, "%s", o ? have : T(S_DOWNLOADS_NOTHING_YET));
-	if (m) snprintf(l2, n2, T(S_DOWNLOADS_MISSING_LIST), miss);
-	else if (g->st[DLK_ACH] == GS_NONE) snprintf(l2, n2, "%s", T(S_DOWNLOADS_NO_ACHIEVEMENTS));
-	else snprintf(l2, n2, "%s", T(S_DOWNLOADS_EVERYTHING_HERE));
+	/* lists of facts: each part said drawn, for the shots' check */
+	for (k = 0; k < DLK_KINDS; k++) if (g->st[k] == GS_MISS) ui_fit_drawn(T(MISS[k]));
+	if (g->st[DLK_COVERS] == GS_HAVE) ui_fit_drawn(T(S_DOWNLOADS_HAS_COVER));
+	if (g->st[DLK_NAMES] == GS_HAVE) ui_fit_drawn(T(S_DOWNLOADS_HAS_NAMES));
+	if (g->st[DLK_ACH] == GS_HAVE) ui_fit_drawn(T(S_DOWNLOADS_HAS_ACHIEVEMENTS));
+	if (m) {
+		snprintf(l2, n2, T(S_DOWNLOADS_MISSING_LIST), miss);
+		ui_fit_drawn(T(S_DOWNLOADS_MISSING_LIST));
+	} else if (g->st[DLK_ACH] == GS_NONE) {
+		snprintf(l2, n2, "%s", T(S_DOWNLOADS_NO_ACHIEVEMENTS));
+	} else {
+		snprintf(l2, n2, "%s", T(S_DOWNLOADS_EVERYTHING_HERE));
+	}
 }
 
 static void sysgames_draw(dl_view *v, dl_frame *f, unsigned now)
@@ -2669,7 +2685,8 @@ void downloads_rows_report(app *a)
  *  15 the run waiting for Wi-Fi                     16 the run paused
  *  17 done            18 stopped                   19 On the Card
  *  20 RetroAchievements' account                    21 a console's page
- *  22 Videos For */
+ *  22 Videos For      24 RetroAchievements' account, signed out
+ *  25 the hub on Names and Details              26 Covers' page, nothing missing */
 int shot_downloads = -1;
 
 static void fixture(dl_counts *c, int st)
@@ -2690,7 +2707,7 @@ static void fixture(dl_counts *c, int st)
 		{ "PC Engine", "PC Engine", "PCE", 60, 4, 20, 18, 0, 15, 34, 11, false },
 	};
 	int i, k, w;
-	bool done = st == 2;
+	bool done = st == 2 || st == 26;
 
 	memset(c, 0, sizeof *c);
 	c->free = 11200000000ULL;
@@ -2748,8 +2765,7 @@ void downloads_shot(app *a)
 	g_fx_net = st != 3;
 	g_fx_art = g_fx_ra = st == 1 || (st >= 14 && st <= 16);
 	g_fx_pct = st == 1 ? 41 : -1;
-	g_fx_user = st == 3 ? NULL : "tarik";
-	if (st == 20) g_fx_user = "tarik";
+	g_fx_user = st == 3 || st == 24 ? NULL : "tarik";
 	memset(&v, 0, sizeof v);
 	v.a = a;
 	v.fixture = true;
@@ -2757,10 +2773,11 @@ void downloads_shot(app *a)
 	v.pending = -2;
 	push(&v, V_HUB);
 	if (st == 6 || st == 7) top_of(&v)->sel = 1;
+	if (st == 25) top_of(&v)->sel = 1 + DLK_NAMES;
 	if (st == 21) snprintf(v.only, sizeof v.only, "SNES");
-	if (st == 8 || st == 9 || st == 10) {
+	if (st == 8 || st == 9 || st == 10 || st == 26) {
 		push(&v, V_KIND);
-		top_of(&v)->kind = st == 8 ? DLK_COVERS : st == 9 ? DLK_VIDEOS : DLK_NAMES;
+		top_of(&v)->kind = st == 9 ? DLK_VIDEOS : st == 10 ? DLK_NAMES : DLK_COVERS;
 	}
 	if (st == 11) {
 		push(&v, V_SYSTEMS);
@@ -2815,7 +2832,7 @@ void downloads_shot(app *a)
 	}
 	g_base_page = dl_base;
 	g_base_ctx = &v;
-	if (st == 4 || st == 19 || st == 20 || st == 22 || st == 13) {
+	if (st == 4 || st == 19 || st == 20 || st == 22 || st == 13 || st == 24) {
 		menu_row rows[16];
 		const char *h;
 		int n = 0, sel = 0;
@@ -2833,7 +2850,7 @@ void downloads_shot(app *a)
 			memset(&r, 0, sizeof r);
 			r.c = v.c;
 			n = room_build(&r, rows, 16, &h);
-		} else if (st == 20) {
+		} else if (st == 20 || st == 24) {
 			static ra_ctx r;
 
 			memset(&r, 0, sizeof r);
@@ -2853,7 +2870,7 @@ void downloads_shot(app *a)
 			memset(&g, 0, sizeof g);
 			snprintf(sc.folder, sizeof sc.folder, "NES");
 			g.v = &v;
-			g.g = &v.games[0];
+			g.g = &v.games[3];
 			g.sc = &sc;
 			n = game_build(&g, rows, 16, &h);
 		}
