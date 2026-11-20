@@ -3412,7 +3412,10 @@ panel stands 24 units from the screen's sides, the most 11.3 allows, to make
 room for the handheld on the Controls tab: its content is 864 units wide
 (`menu_most_w`; 860, 26 from the sides, off the grid, until 1.0.6).
 Over a port (OpenBOR, PortMaster) the menu is as it was, Continue, Controls
-and Quit with no tabs, and there Controls is the read-only pages below.
+and Quit with no tabs, and there Controls is the read-only pages below. Over
+your PICO-8 it has Display, On-Screen Stats, Border, Shader, Strength and Reset too, and
+Controls is the Controls tab's
+list, the buttons themselves (11.55).
 
 **X is Quit** from any row of any tab (gm_x_row, src/game_menu.h), in every
 in-game menu ZyperOS draws: over a Diatom game, over a "run:" program or a
@@ -6183,8 +6186,10 @@ So once they are, carts open in it, and the shelf's **Core** row offers it
 beside fake08; before, the row names fake08 alone, as today. *(2026-11-19:
 adding it is the choice.)* It runs as OpenBOR does, a program of its own:
 the loading screen (11.11) until it draws, **MENU** ZyperOS's menu over it
-(Continue, Controls, Quit, **X** Quit from any row, 11.28), its Controls pages
-the PICO-8 shelf's buttons, **START** PICO-8's own pause menu, **MENU+START**
+(Continue, Display, On-Screen Stats, Border, Shader, Strength, Controls,
+Reset, Quit, **X** Quit from any row, 11.28),
+its Controls the PICO-8 shelf's buttons (below), **START** PICO-8's own pause
+menu, the player's hotkeys (below), **MENU+START**
 held a second home even when it hangs, the volume keys and **MENU+VOL** over it,
 **POWER** its end and the power-off. No save states: PICO-8 has none, so Save,
 Load, Undo Load and Resume stay fake08's. Full clocks, as every program of its
@@ -6236,10 +6241,148 @@ its next start. A Bluetooth headset stays MP4's: bluealsa gives a headset
 to one program at a time.
 
 **The picture** follows the shelf's **Display** row (launch.sh hands the
-row's name to the script): **Sharp Pixels** is whole multiples of 128, 3x on
-the Pixel 2 (384 x 384); every other mode is the panel's full height
-(480 x 480), its pixels 3 or 4 of the panel's. On the Brick 6x is its full
-height (768 x 768).
+row's name to the script), each mode where Diatom puts a 128 x 128 picture,
+so a mode means over your PICO-8 what it means over fake08 *(2026-11-20:
+"cover all those", the gap map's Display rows)*: PICO-8's own `-draw_rect`
+for every mode (src/p8draw.h). On the Pixel 2's 640 x 480: **Full Screen**
+the whole panel, 640 x 480, its shape changed; **Original Shape** and
+**Square Pixels** the full height, 480 x 480; **Sharp Pixels** and its
+**Tall** 3x, 384 x 384; **Sharp Pixels, Zoomed** 5x, 640 x 640, and **Fill,
+Edges Cut** the full width, 640 x 640, both cut 80 rows at the top and the
+bottom; **Actual Size** 1x, 128 x 128 in the middle. Unfiltered where PICO-8's
+pixels are whole ones of the panel's, filtered where they are not (Full
+Screen, the full height). A shelf whose Display was never set plays your
+PICO-8 at **Original Shape**, the 480 x 480 it drew before its Display modes
+came, and only a pick of Full Screen stretches it *(2026-11-20: the default
+must not change under a player)*; fake08 on the same shelf keeps Full Screen,
+every system's default. So the default follows the core (`dmode_default`),
+the shelf's row says it, and a system's row is written only for a pick: any
+change of any shelf's Display wrote every system's row before, and a
+"stretch" your PICO-8's row holds from then is let go of once. Zoomed and
+Edges Cut start above the panel's
+top, which no device has shown 0.2.7 taking: if it does not, one constant
+(`NEG_OK` in PICO-8.sh, `P8_NEG_OK` beside it) draws them as Sharp Pixels and
+Original Shape. On the Brick 6x is its full height (768 x 768).
+
+**Display in the game.** The menu over it has a **Display** row, after
+Continue (where the Display tab is, after the Game tab's first row), its
+value the mode on, and **On-Screen Stats** after it, as the Display tab's
+last row is over a game, then the picture's other rows (below): Continue,
+Display, On-Screen Stats, Border, Shader, Strength, Controls, Reset,
+Quit. PICO-8 draws its
+picture where it was told as it started and cannot move it, so a mode is one
+it starts again in. A opens the Display list, each mode's picture beside it
+(PICO-8's own screen, cut out of the frame the menu is over, drawn in that
+mode); Left and Right step nothing, as a step would start it again. A mode
+other than the one on asks first, as Reset Game's hotkey asks, the cursor on
+Cancel: **Start the cart again?**, "PICO-8 starts again in Actual Size. Play
+since the cart last saved is lost.", **Start Again** and Cancel. Start Again
+keeps the mode as the shelf's row keeps it (`display.PICO8`), and PICO-8 ends
+(saving its settings) and starts again in it, behind the cart's loading
+screen, MP4 playing on; Cancel, B or the mode on change nothing. The **Next
+Display** hotkey over it asks the same for the next mode, with no menu
+(`--display`). launch.sh does the start again (`port_quit`, src/portmenu.h).
+
+**Hotkeys over it** *(2026-11-20: "cover all those", the gap map's hotkey
+rows)* are the player's own, SELECT held and one more button as over a
+Diatom game (11.61), the table in force for the cart (This Game's, PICO-8's,
+Every Game's, ZyperOS's own), judged by Diatom's own chord rule
+(diatom/src/chord.c) in portkeys, which reads the joypad already for MENU.
+A chord never reaches the cart, as over a Diatom game *(device test, rc.5:
+SELECT+A for a screenshot was A, New Game, too)*: while a hotkey has a key,
+portkeys holds the joypad (EVIOCGRAB) and gives PICO-8 a pad of its own
+(uinput, tools/pkvpad.h), fed every other press at once, in its order, and
+SELECT alone as Diatom gives it, as it is let go or held past 400 ms. PICO-8
+merges the two into its player 1 (`merge_joysticks 2`, which PICO-8.sh sets),
+and the joypad is held only once PICO-8 has the pad open and nothing is down,
+let go of before the menu and as portkeys ends; a crash lets go of it too,
+so PICO-8 is never left with no pad. MENU+START held is portkeys's while it
+holds the joypad (zyhome hears nothing then). **Screenshot** is PICO-8's own 128 x 128 picture,
+as fake08's is, read out of the panel where the Display mode in force draws
+it (src/p8draw.h), to `Screenshots/PICO-8/<the cart> 2026-11-20 14.05.31.png`
+(`PICO-8` for Splore), and the same pop-up as over a game, "Screenshot saved"
+and the folder with the shot small beside them: the launcher renders the slab
+as it hands over with an empty square (`NOTICE_SLOT`), and portkeys lays the
+shot in it on the cursor window. **Reset Game** asks first, as over a game
+(below). **Quit** ends PICO-8 as the menu's Quit. **Next Shader** steps the
+Shader row and shows it at once (PICO-8's shader library reads its file), with
+"Shader / CRT" over the cart; **Next Display** asks to start again in the next
+mode (above). Quick Save, Quick Load, Faster and Slower do nothing over it:
+PICO-8 has no states and no speed, so their keys stay PICO-8's under SELECT.
+
+**Reset** is a row of the menu over it, before Quit, once PICO-8 has drawn,
+and the Reset Game hotkey's: both ask first, over the frame, as Reset Game's
+hotkey asks over a game, the cursor on Cancel: **Reset the game?**, "Play
+since the last save is lost.", **Reset** and Cancel. Reset is PICO-8's own
+CTRL-R ("Reload / Run / Restart cartridge", its manual): portkeys keeps a
+keyboard of its own for the run (uinput, which plastron's kernel has built in,
+as gptokeyb's keyboard is made) and presses CTRL and R on it once PICO-8 has
+its display and keys back. Cancel or B goes back to the menu, or with the
+hotkey to the cart.
+
+**Its buttons** are the PICO-8 shelf's, as fake08's are (11.45): Controls in
+the menu over it opens the Controls tab's list itself, over the frame, the
+handheld beside it: Applies To (This Game, or every PICO-8 cart), the buttons
+with what each gives (O, X, the pause menu), Reset Buttons and Hotkeys. PICO-8
+reads its pad through SDL's mapping, which SDL takes as it starts, so the
+table in force becomes the pad's mapping line (src/p8pad.h: O on SDL's a, X
+on its b), which PICO-8.sh exports, the line that shipped when nothing is
+changed. A change cannot reach a PICO-8 that is running, so leaving the list
+with new buttons asks the Display row's question, "PICO-8 takes the new
+buttons as it starts again. Play since the cart last saved is lost.": **Start
+Again** starts it again with them, in the mode on; Cancel keeps them for its
+next start. A turbo is the plain button over it, and the N64's layer is no
+PICO-8's.
+
+**Auto Off** runs over it as over a game, MENU > Auto Off's time with no key
+pressed, the charger holding the clock: portkeys counts it (the launcher's own
+src/idle.c) and ends PICO-8 and powers off as POWER does. A game resumes
+after Diatom's Auto Off; PICO-8 has no state, so play since the cart last
+saved is lost, as with POWER. No other program of its own gets it: an install
+or a cutscene is no player gone.
+
+**Shader and Border** *(2026-11-20, "cover all those": the gap map's Shader
+and Border rows)*. The PICO-8 shelf's own **Shader**, **Strength** and
+**Border** rows (`shader.PICO8`, `shader_strength.PICO8`, `border.PICO8`, the
+rows fake08 plays with) draw over your PICO-8 as over a game in Diatom, and
+the menu over it has them after Display and On-Screen Stats, in the Display
+tab's order: Continue, Display, On-Screen Stats, Border (where the mode
+leaves room), Shader, Strength (under an old screen), Controls, Reset, Quit. These change the picture from
+PICO-8's next frame after Continue, with no start again. The shaders are
+fake08's on the Pixel 2: Off, Sharp-Shimmerless, CRT, CRT Curved, Scanlines
+and LCD Grid, Diatom's own (diatom/port/gles_shaders.h), so a cart looks the
+same on either player at the same size. Border is Off, Blur and Your Own
+(`Borders/PICO-8/`, or NextUI's `Overlays/PICO8/`); PICO-8 has no handheld
+to frame. **Next Shader** steps the shelf's shader live (portkeys,
+`p8fx_next_shader`).
+
+*How it is drawn* (src/p8fx.h). pico8_64 draws through the system's SDL2:
+its screen as a texture, copied each frame to where its mode puts it.
+PICO-8.sh loads ZyperOS's `ZyperOS/pico8/p8fx.so` before SDL (`LD_PRELOAD`),
+and it takes that one copy: the Border over SDL's black, then the picture
+through the shader in SDL's own GL context, with SDL's GL state put back
+after. With Off, SDL still draws the picture, to the pixel as without it.
+What it draws is `/tmp/zyperos-pico8fx`, which the launcher writes as it
+hands over to PICO-8 and the menu writes again; the library reads it again
+within a quarter of a second of a change. No change to the system image.
+Wherever the library cannot draw (no file, a GPU below OpenGL ES 3, a
+renderer that is not SDL's OpenGL ES one, anything it does not know), PICO-8
+draws as it always did, never a black screen. PICO-8's own screenshots and
+GIFs are of its 128 x 128, with no shader. `make check-p8fx` and
+`check-p8fx-gl` hold it.
+
+**Over the picture**, as over a Diatom game: the **low-battery disc**
+(11.24's red disc, 34 px in from the top right, blinking at critical) at
+each battery reading, and **On-Screen Stats** (11.52) while the player has it
+on, the line in their corner and style: FPS the frames PICO-8 puts on the
+panel, counted at each vertical blank as `px2-shot --fps` counts them, and
+Speed left out, as PICO-8 says nothing of it. portkeys draws both on the
+panel's cursor window with the volume bar and "Getting hot", in one frame
+(tools/pkover.h), and keeps PICO-8's display borrowed while they show (only
+over your PICO-8, whose script opens its display once). On-Screen Stats is
+turned on in the menu over it (its row: On or Off on Left and Right, A its
+page, the same one as over a game) or over a Diatom game; portkeys reads it as
+the menu closes.
 
 **A cart's own saves** are one set for both players: fake08's `Saves/cdata`,
 bound over PICO-8's `cdata` for the run. PICO-8's settings, Splore's downloads
@@ -6275,8 +6418,12 @@ until then its script is not in the Brick's payload, so the Brick's PICO-8
 shelf has no Splore and plays on fake08.
 
 Host shots: `make pico8-shots` (the shelf before and after, the Core row, the
-page in both themes). The rules: `make check-pico8`, `check-config`,
-`check-controls`.
+page in both themes), and tools/i18n-shots.py's `pico8-menu-display`,
+`pico8-display-list` and `pico8-restart-<mode>` (the menu's Display row, its
+list, the question for each mode), `pico8-menu-shader` and `pico8-border-list`
+(Border, Shader and Strength in it, and Border's list). The rules: `make check-pico8`,
+`check-config`, `check-controls`, `check-pico8-display`, `check-pkover`,
+`check-p8fx`, `check-p8fx-gl`.
 
 ### 11.56 Collections
 *(NextUI's top ten, and my picks in the Library lab, 2026-11-19: "Add to
@@ -6820,6 +6967,10 @@ asks "Reset the game?", "Play since the last save is lost.", **Reset** and
 Cancel, the cursor on Cancel. Reset resets and the game goes on; Cancel or B
 goes back to it where it was. **Quit** pauses the same way (`for=quit`) and
 stops the game as the menu's Quit does.
+
+**Over your PICO-8** the same hotkeys, judged in portkeys by the same chord
+rule (11.55): Screenshot, Reset Game (asked first), Quit, Next Shader and Next
+Display, the first four doing nothing, as PICO-8 has no states and no speed.
 
 **The screenshot** is the game's own frame at its own size, as a save's
 picture is, not the screen with its shader and border: Diatom keeps that

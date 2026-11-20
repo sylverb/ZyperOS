@@ -253,6 +253,8 @@ OpenBOR games are modules, one `.pak` file each, run by OpenBOR itself rather th
 
 Saturn games run on YabaSanshiro and need the Saturn's BIOS in `Bios/` (above). The Saturn is the most a Pixel 2 is asked to run: it runs some games, and not at full speed. Flicky's Flock, a homebrew game, ran at about 37 frames a second of 60.
 
+The Saturn pad has six face buttons, A, B and C in a row with X, Y and Z over them, and L and R on top. Each face cap is the Saturn button it names (A, B, X, Y), **R1** is **C**, **L1** is **Z**, and L2 and R2 are the Saturn's L and R, as most Saturn emulators lay them out. In a game played on A, B and C, such as Virtua Fighter 2, the third one is on R1. The Controls tab in the game's menu changes any of them.
+
 ### PICO-8
 
 PICO-8 carts are `.p8` files or `.p8.png` images. Copy them into `Roms/PICO-8`. They run on FAKE-08, an open reimplementation, so you don't need Lexaloffle's PICO-8.
@@ -269,8 +271,12 @@ Once your PICO-8 is on the card:
 - **Carts open in it.** MENU on the PICO-8 shelf, **Core**, goes back to fake08 and forward again. FAKE-08 keeps save states, Resume and Undo Load; PICO-8 has no save states.
 - **Splore** is the PICO-8 shelf's first entry. It needs Wi-Fi to list and download carts. With Wi-Fi off, ZyperOS asks first: **Turn On Wi-Fi** joins your saved network, and **Open Offline** opens Splore with the carts it downloaded before. Its favourites stay in Splore.
 - **A cart's own saves** (high scores, progress) are one set for both players, in `Saves/cdata`, so you can switch players and keep them. PICO-8's settings and Splore's downloads are in `Saves/PICO-8`.
-- **The picture** follows the shelf's **Display** row: **Sharp Pixels** is three times PICO-8's 128 pixels, 384 x 384, and every other mode fills the screen's height, 480 x 480.
+- **The picture** follows the shelf's **Display** row, as FAKE-08's does: **Full Screen** fills the screen, **Original Shape** and **Square Pixels** fill its height (480 x 480), **Sharp Pixels** is three times PICO-8's 128 pixels (384 x 384), **Sharp Pixels, Zoomed** and **Fill, Edges Cut** fill its width and cut the top and the bottom, and **Actual Size** is 128 x 128. Until you pick a mode, your PICO-8 plays at **Original Shape**. **MENU** in a cart has **Display** too: a new mode starts the cart again (play since its last save is lost), so ZyperOS asks first. **On-Screen Stats** there shows the frames a second and the rest of its line over PICO-8, and the low-battery dot shows as over any game.
 - **Its buttons:** the d-pad is PICO-8's arrows, **B** its O button, **A** its X button, and **START** its own pause menu (its **shutdown** ends it). **MENU** opens ZyperOS's menu over it, and **X** there quits. **MENU+START** held for a second goes back home, even when PICO-8 stops answering. The volume keys and **MENU+VOL** work as in any game, and **POWER** ends PICO-8 before the handheld turns off.
+- **Your own buttons:** **MENU**, **Controls** over it gives each button what you choose, for this cart or every PICO-8 cart, as in any game. PICO-8 takes new buttons only as it starts, so ZyperOS asks to start it again: **Start Again** does it now (play since the cart last saved is lost), **Cancel** keeps them for the next start.
+- **Reset:** **MENU**, **Reset** starts the cart again, after a question.
+- **Hotkeys:** the ones you set (SELECT and a button, in **MENU** > **System** > **Hotkeys** or **Controls** > **Hotkeys**) work over it too: **Screenshot** saves PICO-8's own 128 x 128 picture in `Screenshots/PICO-8`, and **Reset Game**, **Quit**, **Next Shader** and **Next Display** do what they do in a game. Quick Save, Quick Load, Faster and Slower do nothing, as PICO-8 has no save states. As in a game, the cart never sees a hotkey's buttons; SELECT alone still reaches it.
+- **Auto Off** turns the handheld off after its time with no button pressed, as in a game (not on the charger). Play since the cart last saved is lost.
 
 Before your PICO-8 is on the card, Splore shows **Not installed**, and **A** opens a page that says how to add it. The TrimUI Brick gets your own PICO-8 together with its ports ([the Brick](#the-trimui-brick)); until then its PICO-8 shelf plays on FAKE-08.
 
