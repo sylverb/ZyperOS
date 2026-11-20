@@ -177,6 +177,10 @@ const char *art_answer(void);
  * real library and compares, the same way the two ROM hashers are checked
  * against each other. */
 void art_norm(const char *in, char *out, size_t outn);
+/* libretro's name for a shelf's games (its nth collection, 0 or 1), as its
+ * thumbnails, its databases and its cheat list file them: "Nintendo - Super
+ * Nintendo Entertainment System"; NULL when it has no more */
+const char *art_lr_collection(const char *folder, int n);
 
 /* How well `cand`'s region and language tags match `want`'s. Higher is better
  * and it may go negative.
