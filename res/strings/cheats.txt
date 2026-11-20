@@ -47,12 +47,12 @@ ja = なし
 it = Nessuno
 
 [cheats.ach_note]
-note = A quiet line at the top of the cheat list while signed in to RetroAchievements and the game has achievements: a cheat that is on stops them.
+note = A quiet line under the heading of the cheat list, in the small face, on one line (keep it short: about 40 characters) while signed in to RetroAchievements and the game has achievements: a cheat that is on stops them.
 en = Achievements wait while a cheat is on.
 zh-Hans = 作弊码开启时，成就会暂停。
-es = Los logros esperan mientras haya un truco activado.
-pt-BR = As conquistas esperam enquanto uma trapaça estiver ativada.
-fr = Les succès attendent tant qu'une triche est activée.
+es = Los logros esperan con un truco activado.
+pt-BR = As conquistas param com uma trapaça ativa.
+fr = Les succès attendent avec une triche activée.
 de = Erfolge pausieren, solange ein Cheat an ist.
 ja = チートがオンの間、実績は止まります。
 it = Gli obiettivi aspettano finché un trucco è attivo.

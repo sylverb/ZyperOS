@@ -45,7 +45,6 @@ static char          g_state[CHEATS_MAX * 9 + 1];
 static SDL_Texture  *g_bg;
 static bool          g_on_first;
 static char          g_query[64];
-static menu_style    g_st;
 
 /* What each row of the page is: a cheat by its place in g_L, or one of
  * these; and each row's value color and sound */
@@ -66,6 +65,32 @@ static bool          g_note;
 static void note_now(void)
 {
 	g_note = !g_cg.paused && ra_signed_in() && chv_count() > 0;
+}
+
+/* The top line, under the heading's rule in the quiet line's face, as the
+ * Achievements tab's counts: a band of its own, not a row of the list, so
+ * it costs the list no row (the mock's small line over the cheats) */
+#define NOTE_HEADER_H (3 * DS_GRID + 32)
+
+static void note_header(app *a, const SDL_Rect *q)
+{
+	TTF_Font *fm = ui_font(UI_F_META);
+	const char *s = T(S_CHEATS_ACH_NOTE);
+	int cy = q->y + q->h / 2 - DS_GRID;
+
+	if (ui_text_width(fm, s) <= q->w)
+		ui_text(a->r, fm, s, q->x, ui_cap_y(fm, cy), -1, UI_TEXT_SOFT);
+	else
+		ui_text_marquee(a->r, fm, s, q->x, ui_cap_y(fm, cy), q->w, SDL_GetTicks(), UI_TEXT_SOFT);
+}
+
+static menu_style g_st;
+
+/* The header band while the top line is said, and none after */
+static void note_band(void)
+{
+	g_st.header = g_note ? note_header : NULL;
+	g_st.header_h = g_note ? NOTE_HEADER_H : 0;
 }
 
 /* ---- the running game -------------------------------------------------- */
@@ -202,6 +227,7 @@ static void keep_and_send(void)
 	g_cg.count = n;
 	if (n > 0) g_cg.paused = true;
 	note_now();
+	note_band();
 }
 
 /* The first cheat of a game asks first while its achievements would stop
@@ -311,7 +337,6 @@ static int build(void *ctx, menu_row *rows, int max, const char **heading)
 	if (g_L.n == 0) return empty_rows(rows);
 
 	/* A quiet line first while the first cheat would stop achievements */
-	if (g_note) n = wrapped(T(S_CHEATS_ACH_NOTE), 0, rows, n);
 
 	no = cheats_order(&g_L, g_on_first, order);
 	for (k = 0; k < no && n < max - 6; k++) {
@@ -421,6 +446,7 @@ static void style(app *a)
 	g_st.sound = g_sound;
 	g_st.vcolors = g_vcol;
 	g_st.pin_foot = true;
+	note_band();
 }
 
 void cheats_page(app *a, SDL_Texture *bg)
