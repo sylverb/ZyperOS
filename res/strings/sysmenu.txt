@@ -734,6 +734,61 @@ de = Pro Bildaufbau ein neues Bild: gleichmäßig, das Spiel etwas schnell.
 ja = 更新ごとに新しいフレーム：動きが均一、ゲームは少し速め。
 it = Un fotogramma nuovo a ogni ciclo: moto uniforme, gioco un po' veloce.
 
+[sysmenu.card_picture]
+note = A row of the Recents shelf's menu, under View: what each of its cards shows, the game's cover or the screen it was left on. Two values (sysmenu.card_picture_cover, sysmenu.card_picture_screen); A opens them as a list with a picture
+en = Card Picture
+zh-Hans = 卡片图片
+es = Imagen
+pt-BR = Imagem de cada jogo
+fr = Image
+de = Bild der Spiele
+ja = ゲームの画像
+it = Immagine
+
+[sysmenu.card_picture_cover]
+note = Card Picture's first value: each Recents card is the game's cover (box art), as before
+en = Cover
+zh-Hans = 封面
+es = Carátula
+pt-BR = Capa
+fr = Jaquette
+de = Cover
+ja = パッケージ
+it = Copertina
+
+[sysmenu.card_picture_screen]
+note = Card Picture's second value: each Recents card is the screen the game was left on, its resume point's picture
+en = Last Screen
+zh-Hans = 最后画面
+es = Última pantalla
+pt-BR = Última tela
+fr = Dernier écran
+de = Letzter Bildschirm
+ja = 最後の画面
+it = Ultima schermata
+
+[sysmenu.card_picture_cover_note]
+note = What Cover does, under the picture beside Card Picture's list. Six short lines at most in a narrow column, about 70 letters
+en = Each card is the game's cover, as before.
+zh-Hans = 每个游戏显示其封面，与以前相同。
+es = Cada juego muestra su carátula, como antes.
+pt-BR = Cada jogo mostra a capa, como antes.
+fr = Chaque jeu montre sa jaquette, comme avant.
+de = Jedes Spiel zeigt sein Cover, wie bisher.
+ja = 各ゲームのパッケージを表示します（これまでどおり）。
+it = Ogni gioco mostra la copertina, come prima.
+
+[sysmenu.card_picture_screen_note]
+note = What Last Screen does, under the picture beside Card Picture's list: the screen where the player stopped, the cover small in its corner; a game with no resume point shows its cover. Six short lines at most, about 70 letters
+en = The screen where you stopped, the cover small in its corner.
+zh-Hans = 显示你停下时的画面，角落有小封面。
+es = La pantalla donde lo dejaste, con la carátula pequeña en la esquina.
+pt-BR = A tela onde você parou, com a capa pequena no canto.
+fr = L'écran où vous vous êtes arrêté, la jaquette en petit dans le coin.
+de = Der Bildschirm, an dem du aufgehört hast, das Cover klein in der Ecke.
+ja = やめたところの画面。隅に小さくパッケージ。
+it = La schermata dove ti sei fermato, la copertina piccola nell'angolo.
+
 [sysmenu.pace_exact_note]
 note = What Exact does, under the picture beside Timing's list (sysmenu.pace_exact): the console's own speed, for timers and rhythm games, and now and then one frame shown twice. Six short lines at most in a narrow column, about 70 letters: keep it short, no long words
 en = The console's own speed, for timers and rhythm: now and then a frame repeats.

@@ -121,6 +121,8 @@ void refresh_recents_shelf(app *a);
 void refresh_collections_shelf(app *a);
 /* The Collections shelf's index, or -1 when the home has none */
 int shelf_coll_at(const app *a);
+/* Recents' (src/homesys.h), the same */
+int shelf_recents_at(const app *a);
 /* How many games its collections hold on the shelves, each once: the home's
  * count under it */
 int shelf_coll_games(void);

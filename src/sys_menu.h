@@ -193,6 +193,9 @@ typedef enum {
  * own question, and it is between the two as it is on a console's menu. View
  * (1.0.5) is the shelf's, under Sort By as on a console's. */
 #define SM_FAV_ROWS 4
+/* Recents' has a fifth, Card Picture (DESIGN.md 11.48): each card its cover,
+ * as it ships, or the screen the game was left on */
+#define SM_RECENTS_ROWS (SM_FAV_ROWS + 1)
 
 /* What the Collections shelf's menu is (src/collect.h, DESIGN.md 11.56),
  * headed by the collection's name: on its top, the collection under the
@@ -319,6 +322,10 @@ typedef struct {
 	bool games;              /* the system menu, rather than ZyperOS's own */
 	bool fav;                /* and that shelf is Favorites; see SM_FAV_ROWS */
 	bool coll;               /* or Collections; see SM_COLL_ROWS */
+	bool recents;            /* or Recents, whose fifth row is Card Picture */
+	bool recents_screen;     /* and its value Last Screen, not Cover */
+	/* Card Picture's two, as a list with a picture (A opens it) */
+	const struct menu_choice *pic_choice;
 	bool coll_inside;        /* and it shows one collection, coll_name */
 	const char *coll_name;   /* the collection under the cursor, or shown */
 	bool muse;               /* or Muse's; see SM_MUSE_ROWS */

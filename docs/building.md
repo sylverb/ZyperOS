@@ -184,6 +184,7 @@ something once broke in a way nothing noticed:
 | `check-powerhold` | MENU > Power Button's rule: a press turns the handheld off on Press, a hold of one second on Hold, once per time down, a hold the charging screen took never, even one it took after the second, and the pill's segments and the waits that move them |
 | `check-homesys` | MENU > Display > Home Systems' setting: the word of the shelves that are off, read and written back, a hand edit's spaces and repeats, whole tags only when it is cut |
 | `check-collect` | Collections on the card (src/collect.h): the lists read in their every form and kept as written, added to and taken from, made, renamed and deleted, a game's rename and delete followed into every list |
+| `check-screencard` | Recents' Last Screen card (src/screencard.h): the resume picture scaled up whole toward its height, the cover in its lower left corner over its shadow, a wide box held to its share, no picture no card |
 | `check-lowbatt` | the start with a battery too low to play: which start shows the screen, its hold, POWER, the charger's moment, and the reading that decides the power-off |
 | `check-heat` | "Getting hot": the 85 C trip, two readings in a row, the hysteresis under 80 C, five quiet minutes, the poll's clock |
 | `check-charging` | the charging screen: the charger's kind, its lines, the time to full through CC and CV, and its rules, POWER held a second (hold-power) to start |
