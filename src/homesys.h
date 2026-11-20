@@ -17,8 +17,8 @@
  *
  * The setting is one word in the device database, HOMESYS_KEY: the tags that
  * are off, with commas ("PRT,RECENT"), so a card with none off has no row at
- * all and a new system is On without anyone saying so. Favorites and Recents
- * are in it by their shelves' tags, FAV and RECENT.
+ * all and a new system is On without anyone saying so. Favorites, Recents
+ * and Collections are in it by their shelves' tags, FAV, RECENT and COLL.
  *
  * Plain C, no SDL and no database: the launcher reads and writes the word
  * (src/homesys_screen.c), and tools/homesys-check.c holds this. */
@@ -31,6 +31,8 @@
 #define HOMESYS_KEY     "home.hidden"
 #define HOMESYS_FAV     "FAV"
 #define HOMESYS_RECENT  "RECENT"
+/* Collections (src/collect.h, 1.0.7): the player's own lists, after Recents */
+#define HOMESYS_COLL    "COLL"
 /* What Recents holds: the games played last, newest first */
 #define HOMESYS_RECENTS 10
 /* Tags the word can hold, and the word's longest */

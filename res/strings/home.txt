@@ -57,6 +57,17 @@ de = Zuletzt
 ja = 最近
 it = Recenti
 
+[home.collections]
+note = The Collections group's name on the home: the player's own lists of games (after Favorites and Recents)
+en = Collections
+zh-Hans = 合集
+es = Colecciones
+pt-BR = Coleções
+fr = Collections
+de = Sammlungen
+ja = コレクション
+it = Raccolte
+
 [home.system]
 note = A system's name on the home when it has none of its own
 en = System
