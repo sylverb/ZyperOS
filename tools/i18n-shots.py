@@ -354,6 +354,7 @@ EXTRA = {
     # MP4's Player Looks (DESIGN.md 11.64): each on Now Playing, Classic
     # paused too (its panel says so where the time's words would), and
     # MENU's Player Look list with its picture, the look under the cursor
+    "np-cassette": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--np-look", "cassette"]),
     "np-classic": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--np-look", "classic"]),
     "np-classic-paused": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--np-look", "classic", "--paused"]),
     "np-spectrum": ("demo", "MUSE", ["--nowplaying", "0", "0", "83", "--np-look", "spectrum"]),
@@ -361,7 +362,7 @@ EXTRA = {
     # drawn in its picture's narrow column
     **{"mp4-look-list-%s" % _l: ("media", "MUSE", ["--screen", "games", "--menu", "Player Look", "--press",
                                                    "a", "--pick-at", str(_k)])
-       for _k, _l in enumerate(("cover", "classic", "spectrum"))},
+       for _k, _l in enumerate(("cover", "cassette", "classic", "spectrum"))},
     # its Repeat row on One, the value no other shot has
     "mp4-menu-repeat-one": ("media", "MUSE", ["--screen", "games", "--menu", "--mode", "repeat one"]),
     # MP4's menu with its cursor on the Equalizer row, the same as MENU's
@@ -972,7 +973,10 @@ EXTRA.setdefault("menu-autooff-list", ("demo", "PS1", ["--menu", "Auto Off", "--
 # --status, SHOT_STATUS), Auto Off off, and the systems in release order
 SHOT_STATUS = {}
 EXTRA.setdefault("menu-hours-12h", ("demo", "PS1", ["--menu", "Language"]))
-SHOT_STATUS["menu-hours-12h"] = "10:08 12h wifi=off batt=82"
+# On a day of two digits, as the Date & Time row's widest: with no date= it
+# was the day the check ran, so the row fitted on the 19th and was tight on
+# the 20th (German on the Brick, 2026-11-20)
+SHOT_STATUS["menu-hours-12h"] = "10:08 12h wifi=off batt=82 date=2026-11-28"
 for _icon in ("percentage", "time"):
     EXTRA.setdefault("menu-battery-" + _icon, ("demo", "PS1", ["--menu-tab", "1", "--menu", "Battery Icon"]))
     SHOT_STATUS["menu-battery-" + _icon] = "10:08 24h wifi=off batt=82 eta=95 icon=" + _icon

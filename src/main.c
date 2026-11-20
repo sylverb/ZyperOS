@@ -1595,7 +1595,7 @@ const muse_mode_name MUSE_MODES[MUQ_MODES] = {
  * is not a decode: the album it is for and its texture. `done` means this is
  * what the album will show - its art, or the card made for one with none - and
  * nothing more needs asking. */
-np_cover_state g_np = { .album = -1 };
+np_cover_state g_np = { .album = -1, .rgb = CFG_NO_COLOR };
 
 /* The menus' panel pass (panel_pass_begin): a screen, kept rather than made
  * per frame. */
