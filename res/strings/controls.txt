@@ -391,15 +391,15 @@ ja = 巻き戻し/早送り
 it = Avanti o indietro
 
 [controls.mode]
-note = What Y does in MP4: the play mode (repeat, shuffle), a book's speed, or a video's view.
-en = Mode, speed or view
-zh-Hans = 模式、速度或画面
-es = Modo, velocidad o vista
-pt-BR = Modo, velocidade ou tela
-fr = Mode, vitesse ou vue
-de = Modus, Tempo, Ansicht
-ja = モード、速度、表示
-it = Modalità, velocità o vista
+note = What Y does in MP4: the play mode (repeat, shuffle) on music, a book's speed, or a video's Repeat (Off, One, All; the word of MP4's menu row sysmenu.muse_repeat).
+en = Mode, speed or repeat
+zh-Hans = 模式、速度或重复播放
+es = Modo, velocidad o repetir
+pt-BR = Modo, velocidade ou repetir
+fr = Mode, vitesse ou répétition
+de = Modus, Tempo, Wiederholen
+ja = モード、速度、リピート
+it = Modalità, velocità o ripeti
 
 [controls.lock]
 note = What X does in MP4: lock every button until SELECT and START are held.

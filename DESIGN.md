@@ -2147,8 +2147,12 @@ Muse, so a card's saved places and modes still read.
   makes it taller, never the picture smaller. The controls come up on any
   key, which also does what it does (the first press too, as a remote's
   would), stay for **hold-controls** after the last press and for as long
-  as it is paused, in over **quick** and out over **fade-out**; Y shows
-  them, or hides them at once. The header goes and comes with them, at the
+  as it is paused, in over **quick** and out over **fade-out**. Y turns
+  **Repeat** (MP4's MENU > Repeat on Videos and All: Off, One, All and
+  round), kept, and brings the controls up as any key does, Repeat's mark
+  beside the time when it is not Off; the keys say "Y Repeat" between X and
+  L1/R1 (2026-11-19: "Make the y button change it"; it showed or hid the
+  controls before). The header goes and comes with them, at the
   same pace, and the ground around the picture eases with them from
   **ground** to pure black (#000): hidden, there is the picture and black,
   as a TV's player has it (2026-11-18: "when the footer times out and
@@ -4157,9 +4161,10 @@ Right; **1m** to start with, shorter than Auto Off's two minutes so that a
 handheld on battery shows it before it powers off. It starts only on the
 shelf, the home or a games shelf, once its delay has passed with no button
 down. Never in a game, over a menu, MP4, Muse's player or File Transfer, and
-not while music plays, File Transfer is on behind the shelf or a long task
-runs (11.38): the countdown does not run while any of them does, and a
-whole delay passes after it ends, as Auto Off's does on the charger. A game,
+not while music plays, File Transfer is on behind the shelf, a long task
+runs (11.38) or the Video view plays a snap (11.57: somebody watching it,
+whose first press the screensaver would take): the countdown does not run
+while any of them does, and a whole delay passes after it ends, as Auto Off's does on the charger. A game,
 a menu or any other screen in between restarts it. The charger does not
 hold it: a handheld on the cable shows it too. Under 20% on battery it does
 not start (src/saver.h).
@@ -5963,7 +5968,10 @@ list under the heading Add to Collection: a row for each collection, A to
 Z, the ones the game is in ticked (11.3's tick); A puts it in, heard as the
 **reward**, or takes it out, heard as **back**, written through at once.
 Under a rule, **New Collection** opens the keyboard (11.5) for a name, the
-game its first; the cursor lands on it, ticked. A name a card's file cannot
+game its first; the cursor lands on it, ticked. The keyboard opens with
+Shift on for the name's first letter, as a phone's does, and goes back to
+the small letters once one is typed (a Shift chosen with X stays, as
+always; 2026-11-19: "Name input should have the keyboard start with shift on"). A name a card's file cannot
 have, one too long or one another collection has (in any case) is said, and
 the keyboard comes back on what was typed, as Rename's (11.41).
 
@@ -6072,7 +6080,15 @@ margin, DS_BAR high, centered in the strip, with the focus's place on it in
 where the game is in the shelf still shows. Any press brings the band back
 up in **quick** and does what it does: Right steps on as the band comes up.
 A game with no snap never goes down; the band comes back up by itself when
-the snap stops (a menu over the shelf, the dark screen).
+the snap stops (the dark screen). The covers glide to their places drawn
+frame by frame to the end, as the cover row's do, whether or not the snap
+has a new picture.
+
+**Over it.** A page or a menu over the view (X's details, MENU) holds the
+snap on its picture, its daemon waiting, and brings the band up as a press
+does; it plays on from there when the shelf is in front again, so the
+game's card never shows through as the page comes. While the snap plays,
+the screensaver's countdown does not run (11.37).
 
 **What it costs.** The snap is Muse's daemon's, as on every view: one
 decoder thread, at most 640 x 480, its frames drawn only when a newer
@@ -6252,10 +6268,13 @@ held goes back.". Every button is read as a key until SELECT is let go, A
 and B too: SELECT down lights its glyph at 112 (the tutorial's pressed look),
 a button with it lights beside it with "+", and the second line says "Let go
 to keep them.". SELECT let go alone waits again; MENU, or B with nothing
-held, leaves with no change. **A clash offers a swap**: the keys are another
-action's, so the yes/cancel panel asks "SELECT+R2 is Faster now. Faster moves
-to None." (or to the keys the row had), **Swap** and Cancel, the cursor on
-Cancel, so no hotkey is lost by accident. There is no Both: a chord does one
+held, leaves with no change. **A clash says so, and offers a swap**: the
+keys are another action's, so the yes/cancel panel says "SELECT+R2 is
+already taken by Faster. Swap them, and Faster moves to None." (or to the
+keys the row had), **Swap** and Cancel, the cursor on Cancel, so no hotkey
+is lost by accident (2026-11-19: "If a hotkey is taken, we should
+show a message saying it"; it read "SELECT+R2 is Faster now", which did not
+say it was taken). There is no Both: a chord does one
 action.
 
 **Reset Game asks first** *(my pick: a reset loses play, so one press is not

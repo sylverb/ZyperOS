@@ -61,6 +61,11 @@ typedef bool (*kb_idle)(void *ctx);
  * failed association with no way to tell a typo from a weak signal or a
  * supplicant that never came up. Hiding it would protect against a shoulder,
  * at the cost of the one thing the user needs to see. */
+/* The next kb_prompt is a name's: on an empty field it opens with Shift on
+ * for the first letter, and goes back to the letters once one is typed
+ * (kb_layer_typed). Once: the prompt after it opens as every other does. */
+void kb_capital_next(void);
+
 kb_result kb_prompt(SDL_Renderer *r, in_state *in, const char *title,
                     char *buf, int cap, kb_panel panel, kb_idle idle,
                     void *ctx);
