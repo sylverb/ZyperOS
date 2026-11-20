@@ -731,7 +731,9 @@ static void size_game(const st_paths *p, const st_game_in *g, const gd_other *ot
 	snprintf(states, sizeof states, "%s/.zyperos", p->shared);
 	snprintf(romdir, sizeof romdir, "%s/%s", p->roms, g->folder);
 	snprintf(media, sizeof media, "%s/.media", romdir);
-	card = (gd_card){ p->roms, saves, states };
+	/* No Cheats/ root: a game's cheat files are a few KB, not a size the
+	 * page has a part of its bar for (src/cheats.h) */
+	card = (gd_card){ p->roms, saves, states, NULL };
 	gg = (gd_game){ g->folder, g->tag, g->core, g->exts, g->file, g->name, g->dir };
 	if (!gd_plan_make(&card, &gg, others, no, plan) &&
 	    plan->why != GD_RUNTIME && plan->why != GD_PORT_UNKNOWN) {
