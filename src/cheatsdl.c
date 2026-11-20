@@ -373,6 +373,10 @@ static void match_loose(int coll, const char *rom)
 	art_norm(rom, norm, sizeof norm);
 	if (!norm[0]) return;
 	if (o && c && c - o < (int)sizeof region) snprintf(region, sizeof region, "%.*s", (int)(c - o + 1), o);
+	/* the old short tags as No-Intro writes them: "(U)" is "(USA" */
+	if (!strcmp(region, "(U)")) snprintf(region, sizeof region, "(USA");
+	else if (!strcmp(region, "(E)")) snprintf(region, sizeof region, "(Europe");
+	else if (!strcmp(region, "(J)")) snprintf(region, sizeof region, "(Japan");
 	for (i = lower_bound(coll, ""); i < g.ne && g.e[i].coll == coll && g.nm < MAX_MATCH; i++) {
 		entry *e = &g.e[i];
 
