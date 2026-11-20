@@ -57,9 +57,11 @@ int cheats_game_state(const char *folder, const char *rom_name);
 enum { CHT_WORKING, CHT_NO_NETWORK, CHT_RETRYING };
 enum { CHT_OK, CHT_NO_ANSWER, CHT_BAD_LIST, CHT_NO_ROOM };
 
-/* Start, on `sys`'s systems (`only` one console's folder, or NULL). False
- * when one is going. Step a frame's work: 1 going, 0 done, -1 not going. */
-bool cheats_begin(const systems_cfg *sys, const char *only);
+/* Start, on `sys`'s systems (`only` one console's folder, or NULL), with
+ * `games` the games it will look at (the page's count; 0: each folder is
+ * listed for it). False when one is going. Step a frame's work: 1 going, 0
+ * done, -1 not going. */
+bool cheats_begin(const systems_cfg *sys, const char *only, int games);
 int  cheats_step(void);
 void cheats_cancel(void);
 bool cheats_running(void);

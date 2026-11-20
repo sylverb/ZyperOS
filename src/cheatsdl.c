@@ -467,7 +467,11 @@ static void game_none(void)
 
 	game_dir(g.folder, g.rom, d, sizeof d);
 	snprintf(p, sizeof p, "%s/.none", d);
-	if (access(p, F_OK) == 0 && !g.had) return;
+	if (access(p, F_OK) == 0) {
+		/* checked before: none still, only files libretro dropped go */
+		game_tidy(true);
+		return;
+	}
 	mkdirs(d);
 	game_tidy(true);
 	if ((f = fopen(p, "w"))) fclose(f);
@@ -630,7 +634,7 @@ static void begin_common(void)
 	g.tries = g.fail_row = 0;
 }
 
-bool cheats_begin(const systems_cfg *sys, const char *only)
+bool cheats_begin(const systems_cfg *sys, const char *only, int games)
 {
 	int i;
 
@@ -646,11 +650,13 @@ bool cheats_begin(const systems_cfg *sys, const char *only)
 		if (g.only[0] && strcmp(s->folder, g.only)) continue;
 		if (!cheats_mapped(s->folder) || g.sys.count >= CFG_MAX_SYSTEMS) continue;
 		g.sys.systems[g.sys.count++] = *s;
-		/* the games to look at, for the bar */
+		/* the games to look at, for the bar: the page counted them */
+		if (games > 0) continue;
 		memset(&l, 0, sizeof l);
 		if (lib_scan_listing(P_ROMS, s->folder, s->exts, &l)) g.p.games += l.count;
 		lib_free(&l);
 	}
+	if (games > 0) g.p.games = games;
 	if (!g.sys.count) return false;
 	begin_common();
 	return true;
@@ -710,6 +716,12 @@ static void game_look(void)
 	if (g.gi >= g.games.count) { g.phase = P_SYSTEM; return; }
 	snprintf(g.rom, sizeof g.rom, "%s", g.games.items[g.gi].name);
 	snprintf(g.p.now, sizeof g.p.now, "%s", g.rom);
+	{
+		char d[1024];
+
+		game_dir(g.folder, g.rom, d, sizeof d);
+		g.had = access(d, F_OK) == 0;
+	}
 	match_game(g.rom);
 	g.got = 0;
 	g.range_extra = 0;
@@ -802,9 +814,13 @@ int cheats_step(void)
 		next_system();
 		return 1;
 	case P_GAME:
-		/* several games a step while they need no request: a whole system
-		 * checked costs only reads */
-		for (int k = 0; k < 8 && g.phase == P_GAME; k++) game_look();
+		/* a few games a step while they need no request: a system already
+		 * checked costs only reads, and a step stays short (it runs between
+		 * a menu's frames) */
+		for (int k = 0; k < 4 && g.phase == P_GAME; k++) {
+			game_look();
+			if (g.had) break;       /* its files were read for their checksums */
+		}
 		return 1;
 	case P_FETCH: {
 		const entry *e;

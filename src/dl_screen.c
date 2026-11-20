@@ -182,9 +182,11 @@ static systems_cfg g_cht_sys;
 static char g_cht_only[CFG_STR];
 static cheats_progress g_cht_last;
 
+static int g_cht_games;
+
 static bool cht_lane_begin(void)
 {
-	return cheats_begin(&g_cht_sys, g_cht_only[0] ? g_cht_only : NULL);
+	return cheats_begin(&g_cht_sys, g_cht_only[0] ? g_cht_only : NULL, g_cht_games);
 }
 
 static int cht_lane_step(unsigned now_ms)
@@ -1693,6 +1695,7 @@ static bool run_start(dl_view *v, int only)
 	memset(&art_cfg, 0, sizeof art_cfg);
 	memset(&ra_cfg, 0, sizeof ra_cfg);
 	memset(&g_cht_sys, 0, sizeof g_cht_sys);
+	g_cht_games = 0;
 	for (i = 0; i < c->n; i++) {
 		const dl_sys *s = &c->s[i];
 		const system_cfg *sc = NULL;
@@ -1707,8 +1710,10 @@ static bool run_start(dl_view *v, int only)
 		}
 		if (s->ach_sys && dl_sys_on(DLK_ACH, s->folder) && ra_cfg.count < CFG_MAX_SYSTEMS)
 			ra_cfg.systems[ra_cfg.count++] = *sc;
-		if (s->cht_sys && dl_sys_on(DLK_CHEATS, s->folder) && g_cht_sys.count < CFG_MAX_SYSTEMS)
+		if (s->cht_sys && dl_sys_on(DLK_CHEATS, s->folder) && g_cht_sys.count < CFG_MAX_SYSTEMS) {
 			g_cht_sys.systems[g_cht_sys.count++] = *sc;
+			g_cht_games += s->games;
+		}
 	}
 	if (pl.covers + pl.videos + pl.looks > 0 && art_cfg.count)
 		art = scraper_start_run(v->a, k, &art_cfg, v->only[0] ? v->only : NULL, covers, names_rule);
