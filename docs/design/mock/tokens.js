@@ -103,7 +103,11 @@ window.ZYPER_TOKENS = {
     "bar": 8,
     "rail-inset": 23,
     "rail-ends": 90,
-    "rail-min": 18
+    "rail-min": 18,
+    "level-mark": 42,
+    "boost-gap": 12,
+    "boost-charge-w": 36,
+    "boost-charge-h": 30
   },
   "shape": {
     "radius-card": 22,
@@ -336,6 +340,22 @@ window.ZYPER_TOKENS = {
     "hold-power": {
       "ms": 1000,
       "curve": "-"
+    },
+    "hold-boost": {
+      "ms": 1000,
+      "curve": "-"
+    },
+    "tap-gap": {
+      "ms": 1000,
+      "curve": "-"
+    },
+    "boost-open": {
+      "ms": 240,
+      "curve": "out"
+    },
+    "boost-flash": {
+      "ms": 360,
+      "curve": "fade"
     },
     "hold-lock-lit": {
       "ms": 4000,

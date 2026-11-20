@@ -116,8 +116,8 @@
  * (sys_menu_homesys_rows). 1.0.6, asked for on the Discord. */
 /* PM_THEME is Theme, under Appearance: the accent, a background tone for
  * each theme, the corners and Zyper (src/look.h, DESIGN.md 3.5). My picks
- * 2026-11-12. Appearance is Light or Dark (1.0.6: Auto went, its hours
- * became Night Hours). */
+ * 2026-11-12. Appearance is Light, Dark or Auto (1.0.6: Auto went, its
+ * hours became Night Hours; 1.1.0: Auto back, on those Night Hours). */
 /* PM_SCREEN is Screen Colors, Display's last row: Temperature, Tint,
  * Contrast, Saturation, Gamma and the looks for the whole screen, in the
  * display's own table
@@ -126,7 +126,8 @@
 /* PM_NIGHT is Night Mode, under Screen Colors: warmer colors for the night,
  * its value Off, On or By Hours; A opens its page, as Screen Colors' does:
  * Night Mode, Night Warmth (1 to 10, 8 as it ships), Night From and Until
- * by the half hour (21:00 and 7:00 as it ships; 1.0.5's Auto Hours). Only
+ * by the half hour (21:00 and 7:00 as it ships; 1.0.5's Auto Hours), which
+ * Appearance's Auto turns the theme by too. Only
  * where the display has a table (no_night, plat_night_here). Tarik's move,
  * approved on the sheet 2026-11-16; one row and its page, his for 1.0.6
  * rc.2 (DESIGN.md 11.42). */

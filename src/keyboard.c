@@ -38,6 +38,7 @@
 #include "platform.h"   /* PLAT_TARGET_FORMAT */
 #include "ui.h"
 #include "uisound.h"
+#include "levels.h"
 
 /* Four rows of ten, three layers. Digits are row 0 of every layer so they
  * never cost a switch. The letters are QWERTY, the layout a hand already
@@ -832,10 +833,7 @@ kb_result kb_prompt(SDL_Renderer *r, in_state *in, const char *title,
 		}
 		for (b = 0; b < IN_COUNT; b++)
 			if (in->pressed[b]) { pressed = true; break; }
-		if (in_repeat(in, IN_VOLUP))    plat_volume_nudge(+1);
-		if (in_repeat(in, IN_VOLDN))    plat_volume_nudge(-1);
-		if (in_repeat(in, IN_BRIGHTUP)) plat_brightness_nudge(+1);
-		if (in_repeat(in, IN_BRIGHTDN)) plat_brightness_nudge(-1);
+		levels_keys(in, BOOST_HIDE);
 		if (closing) goto draw;
 
 		/* Wrapping in both axes, and through the action row: the grid is a

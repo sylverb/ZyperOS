@@ -318,6 +318,9 @@ static void parse_line(char *line, diatom_msg *out)
 		else if (!strcmp(field, "kind")) snprintf(out->lkind, sizeof out->lkind, "%s", v);
 		else if (!strcmp(field, "index")) out->index = (int)strtol(v, NULL, 10);
 		else if (!strcmp(field, "count")) out->count = (int)strtol(v, NULL, 10);
+		/* SETLEVEL's boost past the top, added in proto 14 as unknown keys
+		 * are: an older Diatom ignores it and keeps no boost */
+		else if (!strcmp(field, "boost")) out->boost = (int)strtol(v, NULL, 10);
 		/* OVERLAY's duration, into the same int. A second integer field whose
 		 * only difference is which verb reads it would be two names for one
 		 * slot, which is how the launcher ends up setting the wrong one. */

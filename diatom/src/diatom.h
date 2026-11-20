@@ -436,6 +436,9 @@ typedef struct {
 	                        * OVERLAY: `count` is the duration in ms, sent as
 	                        * `ms=`. One slot, two verbs, no second name.
 	                        * SETDISC: `index` is the disc, from 0. */
+	int  boost;            /* SETLEVEL: the boost's cells filled past the top
+	                        * (levels.h), 0 none, as a launcher from before
+	                        * the boost says by not sending it */
 } diatom_msg;
 
 /* Input mapping and labels live in env.c, the one layer a remap touches. */
@@ -479,6 +482,11 @@ void diatom_input_emit_labels(void);
 void diatom_rumble_hold(bool held);
 void diatom_rumble_forget(void);
 void diatom_rumble_reset(void);
+/* The boost's buzz as it opens (levels.c): the motor full at the game's
+ * rumble level while on, over whatever the core asked, back to the core's
+ * when off. Nothing while the game is held or rumble is Off; a hold or a
+ * reset ends it. */
+void diatom_rumble_buzz(bool on);
 
 bool diatom_proto_listen(const char *path);
 void diatom_proto_close(void);
@@ -657,5 +665,12 @@ diatom_channels diatom_audio_channels_get(void);
  * a session starting at them with no move. Flat costs nothing. False, and
  * nothing changed, for anything but five whole numbers from -6 to 6. */
 bool diatom_audio_eq(const char *bands);
+
+/* The volume boost past the top (levels.h): `db` of gain, 0 to 12, with the
+ * equalizer's limiter keeping every peak under full scale (eqdsp.h's
+ * eq_gain). Taken by the sound's next push, on whatever thread pushes, and
+ * moved to over 20 ms, so a step never clicks; held across sessions like the
+ * bands, a session starting at it with no move. */
+void diatom_audio_boost(int db);
 
 #endif /* DIATOM_H */

@@ -12,6 +12,7 @@
 #include "device.h"
 #include "fileio.h"
 #include "nightkeep.h"
+#include "levels.h"
 #include "panelgamma.h"
 #include "panelgamma_sunxi.h"
 #include "platform.h"
@@ -1155,6 +1156,9 @@ void plat_audio_jack_poll(void)
 {
 	if (!aout_should_reapply(jack_was, jack_present() != 0, cur_vol >= 0))
 		return;
+	/* A plug in or out closes the volume boost: the new output starts at
+	 * the top without it (src/levels.c), the first poll aside */
+	if (jack_was >= 0) levels_output_changed();
 	apply_volume(cur_vol);
 }
 
@@ -1345,7 +1349,7 @@ void plat_screen_colors_tick(bool now)
 
 void plat_screen_colors(const screen_colors *c, bool keep)
 {
-	panelgamma_color want = { c->temp, c->tint, c->contrast, c->gamma, 0 };
+	panelgamma_color want = { c->temp, c->tint, c->contrast, c->gamma, 0, 0 };
 
 	panelgamma_color_clamp(&want);
 	if (keep) {
@@ -1354,9 +1358,23 @@ void plat_screen_colors(const screen_colors *c, bool keep)
 	}
 	screen_saturation_apply(c->saturation);
 	want.night = night_now(time(NULL));
+	want.lift = screen_want.lift;   /* the brightness boost's, kept across */
 	screen_want = want;
 	screen_held = memcmp(&want, &screen_color, sizeof want) != 0;
 	plat_screen_colors_tick(false);
+}
+
+/* The brightness boost's lift (src/levels.c, DESIGN.md 11.6): on the
+ * display's table with the player's colors, at once - the step's one-frame
+ * blink on the Pixel 2, none on the Brick, whose table loads at vblank */
+void plat_brightness_lift(int lift)
+{
+	if (lift < 0) lift = 0;
+	if (lift > PANELGAMMA_LIFT_MAX) lift = PANELGAMMA_LIFT_MAX;
+	if (screen_want.lift == lift) return;
+	screen_want.lift = lift;
+	screen_held = memcmp(&screen_want, &screen_color, sizeof screen_want) != 0;
+	plat_screen_colors_tick(true);
 }
 
 /* The warmth wanted now on the display, loaded at once (`at_once`: a kept
@@ -1482,6 +1500,7 @@ void plat_backlight(bool on) { (void)on; }
 void plat_backlight_dim(bool dim) { (void)dim; }
 void plat_display_plain(void) { }
 void plat_screen_colors(const screen_colors *c, bool keep) { (void)c; (void)keep; }
+void plat_brightness_lift(int lift) { (void)lift; }
 void plat_screen_colors_tick(bool now) { (void)now; }
 void plat_night(const struct night_cfg *n) { (void)n; }
 void plat_night_preview(int warmth) { (void)warmth; }

@@ -78,9 +78,10 @@ charcoal of his nose and eyes as the ground (the same 17,19,16 the power-off
 screen has always cleared to, so the two grounds of ZyperOS become one), the
 dark cap for surfaces, beard white for text.
 
-MENU > Appearance chooses: **Light**, **Dark**, or **Auto**, which is Light
-from 7:00 to 19:00 by the handheld's clock. *(The setting's name and Auto's
-hours are this document's call.)* A shelf shows its games as a row of covers, a grid of them
+MENU > Appearance chooses: **Light**, **Dark**, or **Auto**, which is Dark
+in Night Mode's Night Hours by the handheld's clock (21:00 to 7:00 as they
+ship) and Light the rest of the day (11.42). *(The setting's name is this
+document's call; Auto's hours are the Night Hours since 1.1.0.)* A shelf shows its games as a row of covers, a grid of them
 (11.47) or a list of names (11.39), each in one style.
 
 ### 3.2 Roles
@@ -379,6 +380,10 @@ Lexend's time the first time it is drawn, then cached like any line.
 | **rail-inset** | 23 | the rail from the bottom edge |
 | **rail-ends** | 90 | the rail's inset at both ends |
 | **rail-min** | 18 | the rail marker's least length |
+| **level-mark** | 42 | the volume and brightness bar's mark: its middle, in from the pill's left end |
+| **boost-gap** | 12 | the bar's gap at the top, its thin mark in the middle, before the boost cells |
+| **boost-charge-w** | 36 | the bar's charging cell before the boost opens, wide... |
+| **boost-charge-h** | 30 | ...and tall: big, so its fill is easy to see |
 <!-- /generated:space -->
 
 ### The system (round 3)
@@ -676,6 +681,10 @@ beside a cubic one. One function each, in `src/design.h`.)*
 | **tour-pulse** | 440 | - | the right glyph's two pulses after a press of the wrong button |
 | **hold-unlock** | 2000 | - | MP4's lock: SELECT and START held together this long unlock it |
 | **hold-power** | 1000 | - | POWER held this long turns the handheld off with Power Button on Hold, and starts the charging screen's handheld |
+| **hold-boost** | 1000 | - | a level key held this long on the top opens the boost past it; the charging cell fills over it, linearly, and drains back the same way when let go early |
+| **tap-gap** | 1000 | - | the most time between two presses on the top that count toward the three that open the boost; the charge drains after it |
+| **boost-open** | 240 | out | the bar opening to its boost cells while the charging cell settles to a cell's size |
+| **boost-flash** | 360 | fade | the bar's rim in the boost color as the boost opens, going back to its edge |
 | **hold-lock-lit** | 4000 | - | MP4's lock screen, lit as it locks |
 | **hold-controls** | 3000 | - | MP4's video controls after the last press |
 | **peak-hold** | 400 | - | MP4's bars (Player Look): a bar's cap held where the bar last reached, before it drops with gravity |
@@ -1388,8 +1397,11 @@ in **press** and plays **accept**; a delete plays **back**.
 
 ### 11.6 Volume and brightness bar
 A pill (src/osdbar.c) 452 x 64 at the top center, 22 below the top edge:
-**surface** at 93%, **edge**, **elevation.bar**. The mark - a speaker with one
-to three waves and a cross at silence, or a sun whose rays grow - in
+**surface** at 93%, **edge**, **elevation.bar**. The mark - a speaker whose
+three waves grow arc by arc, each over its third of the scale, with a cross
+at silence, or a sun whose disc and rays grow - in a 52-unit box 42 units in
+from the pill's left end, 13 units clear of the first segment at its
+largest; it follows the level in **quick** (out), up and down. It is in
 **accent-ink** for volume and **light** for brightness, and one segment per
 step in the same color over **track**. In **quick** (out) sliding down 14,
 held **hold.bar** after the last press, out in **fade.out**. The same pixels
@@ -1410,6 +1422,65 @@ PX30 loads its table with the table off. A rung kept before 1.0.6 moved once
 to the new rung nearest its light. The player's Screen Colors (11.42) go in
 the same table, on every rung. *(Discord, 1.0.6: "one or two dimmer
 steps"; Tarik, 2026-11-15, after a 20 kHz backlight went black under 17.)*
+
+**The boost past the top** (src/boost.h, src/levels.c). Some films and
+games are quiet even at volume 20, and the top rung of brightness is already
+the backlight's own maximum. At the top, the up key held **hold-boost** (1 s)
+more, or pressed three more times with no more than **tap-gap** (1 s)
+between two presses, opens cells past it. While it charges, the pill's end
+pushes out by one big charging cell (36 x 30 units, in the first 30% of the
+charge, on out) and the cell fills in the theme's **warning**: linearly with
+a hold, a third with each press; let go early, or the presses stop for
+longer than tap-gap, and it drains back at the speed and on the curve it
+filled. Full, it settles to a cell's size in **boost-open** (240 ms, out)
+while the pill grows both ways, staying centered, and the other cells come
+out of its end; a thin mark in **text-dim** at 70% stands at the top between
+the steps and the cells; the rim flashes in **warning** and fades back to
+**edge** over **boost-flash** (360 ms, fade); and a 40 ms rumble at the
+player's Rumble level is felt, with no sound - a volume press never makes a
+UI sound, the media's own is the feedback. The opening fills the first cell
+and a key still held stops there: each further cell is a press. Each cell is
+a little taller than the one before, 16 to 28 units, so the boost reads by
+its shape too, with any accent (a Red, Orange or Pink accent's ink is near
+**warning**) and to a color-blind player. A cell fills from its left in
+**quick** and empties in **exit**; a press on a full boost pushes the end 6
+units out and back (**press**, then **exit**). The boost's parts of the mark
+are in **warning** too, so the mark keeps its color: a fourth wave, and
+eight short rays between the sun's, growing with the cells filled.
+
+Going down empties the cells one by one; at the top they wait, empty; the
+next press goes under the top and folds them back into the end in **exit**.
+An empty boost closes with the bar; a filled one stays, kept on the card
+beside the level (`volume_boost`, `brightness_boost`), so it is there at the
+next start. A plug going in or out closes the volume boost: the new output
+starts at the top without it.
+
+- **Volume:** six cells of 2 dB, up to +12 dB, near a step under the top
+  (1.8 dB on the Pixel 2's speaker, 2.3 on the Brick). The gain is software,
+  in src/eqdsp.h after the equalizer's bands, moving over 20 ms, with a
+  limiter that keeps every peak under -1 dB of full scale (down at once, back
+  over 100 ms, both channels together): a quiet film gets louder, a loud one
+  only flatter, and the speaker never gets more than a loud game gives it at
+  20. It opens in MP4 (MP4, told with a GAIN line), in a game (Diatom) and
+  over a port (the zyperos-eq plugin, now in every port's chain, the gain in
+  the shared file that portkeys writes during the port). MP4's lock screen
+  fills and empties an open one but never opens one: a held key in a pocket
+  must not. The menus show the bar as it was, the menu music is never
+  boosted, and a press under the top there folds a kept boost.
+- **Brightness:** three cells, each a lift of the mid-tones on the display's
+  gamma table after the player's Screen Colors, like Gamma +3: x^0.88,
+  x^0.76, x^0.64 (mid grey 128 to 139, 151 and 164), black and white kept.
+  No more light, no frame and no battery: a bright scene looks flatter. It
+  opens anywhere. On the Pixel 2 each step blinks one frame as any table
+  load; the Brick loads it at vblank. Screenshots never show it.
+
+My picks in the volume boost lab, 2026-11-19: the hold of 1 s and three
+presses each within 1 s, the big charging cell, marks that grow with the
+level, rising warning cells, the pill growing both ways, six cells, the end
+pushing out, a held key stopping at the first cell, a short rumble, the
+boost kept like the level, games, MP4 and ports, headphones the same (a plug
+closes it), a mid-tone lift for brightness. A host shot: `--osd volume 20
++4`.
 
 **POWER held** (MENU > Power Button on **Hold**, 11.47) is the same pill with
 the power mark - a ring open at the top and the line down into it, as every
@@ -2896,7 +2967,10 @@ The boot animation is in the theme MENU > Appearance chose: Salt & Pepper's
 as it was, Zyper on his dark ground; Beard's on its ground, the word in the
 cap's dark with the Z in accent-ink (the README's light lockup), and Zyper with the
 focus-small shadow under him, as the light loading loop has it (10). Auto is
-Beard from 7:00 to 19:00 by the clock and its zone, as in the launcher. A
+Salt & Pepper in the Night Hours by the clock and its zone, as in the
+launcher: its word carries them (`zytheme=auto-1260-420`, 21:00 to 7:00), and
+a 1.0.5 launcher's plain `auto` is 19:00 to 7:00 until the launcher writes
+the file again. A
 card with no choice yet starts in Beard, the launcher's own default. *(
 2026-11-06: the boot follows the setting; the Beard version approved from
 a mockup.)* The animation plays before the card is mounted, so the choice
@@ -4563,10 +4637,24 @@ we have the theme accent preview on hover? same for all other theme
 options"; Folder Color for rc.3: "What sets the folders colors? can we
 customize them in theme to be per system or a custom color for all?")*
 
-**Appearance** is Light or Dark, two, so A turns it over. *(1.0.6: Auto,
-light from 7:00 to 19:00, went, and its hours became Night Mode's below; a
-1.0.5 player on Auto gets the theme the hour gave at the first start of
-1.0.6.)*
+**Appearance** is Light, Dark or Auto, three, so A opens their list, each
+with what it does under it (Light and Dark day and night; Auto dark in Night
+Mode's hours, light the rest of the day), and Left and Right step them round.
+Auto is Salt & Pepper from **Night From** up to **Until**, Night Mode's own
+two times below, by the handheld's clock to the minute, and Beard the rest of
+the day: one schedule for both, set in one place (Night Mode's page), each
+on its own setting. Auto only reads the Night Hours and never writes a
+Night Mode setting; Night Mode decides the warmth on its own and is the
+same under Light, Dark or Auto. At From and Until the theme turns on the
+same second as the warmth, on the same pass of the launcher's loop, with
+the one table load Night Mode makes and none of the theme's. It turns on
+every screen and over a game (the bar's file, the in-game menu when it
+opens), with no redraw while the game runs, and on the Pixel 2 the boot
+screen follows it (11.21). *(1.0.6: Auto, light from 7:00 to 19:00, went,
+and its hours became Night Mode's below. 1.1.0: back on those hours. A 1.0.5
+player on Auto keeps Auto, the hours it had becoming the Night Hours; one
+whose Auto 1.0.6 turned into Light or Dark keeps that until they pick Auto.)*
+*(On 2026-11-20 a player missed Auto; I brought it back, on the Night Hours.)*
 
 **Screen Colors** (MENU > Display, its last row; where the display has a
 gamma table, `plat_screen_colors_here`: the Pixel 2's VOP, the Brick's TCON) is a page of six rows beside a color chart (the
@@ -4612,7 +4700,9 @@ into the player's, so it adds warmth to their colors, never clips against
 their Temperature and changes nothing else; and **Night From** and
 **Until**, each a time of day by the half hour, written as MENU > Clock
 says; 9:00 PM and 7:00 AM as it ships, and a 1.0.5 player's Auto hours
-carry over. A row the mode does not use is quiet, its value still read:
+carry over. They are Appearance's Auto's too: with Appearance on Auto they
+are never quiet, and a change turns the theme at once where the new hours
+say. A row the mode does not use is quiet, its value still read:
 Night Warmth and the hours while Off, the hours while On. So the page holds
 its shape as the mode changes, and says what On or By Hours would use;
 the cursor passes the quiet rows, as any quiet row. Night Warmth's list
@@ -4621,7 +4711,8 @@ does, with no picture beside it (menu_choice's `focus`), whatever the hour;
 B puts back what was set. A change is on the
 display at once, and By Hours turns at the hour in games and ports too:
 one frame's blink, as any table load, and no fade, whose every step would
-blink. Night Mode never changes the theme, and the Look list has no Night
+blink. Night Mode never changes the theme (Appearance's Auto does, by the
+same hours), and the Look list has no Night
 look. *(Tarik's move from Screen Colors' Night look and Appearance's Auto,
 approved on the sheet 2026-11-16; one row and its page for 1.0.6 rc.2, his:
 "Can the night mode settings be all in night mode row".)*

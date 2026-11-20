@@ -10,7 +10,8 @@
 #include <string.h>
 
 /* The pill inside the buffer, in units, and what is in it. */
-#define PILL_X0  12.0f
+#define PILL_CX  (OSDBAR_W / 2.0f)   /* the pill's middle, at every width */
+#define PILL_X0  (PILL_CX - PILL_W / 2)
 #define PILL_Y0  12.0f
 #define PILL_W   452.0f
 #define PILL_H   64.0f
@@ -52,10 +53,12 @@ static void rgb3(float out[3], ds_rgb c)
  * is all the antialiasing there is, and it is the same at every scale. */
 
 typedef struct {
-	enum { SH_RBOX, SH_CIRCLE, SH_SEGMENT, SH_ARC, SH_QUAD } kind;
+	enum { SH_RBOX, SH_CIRCLE, SH_SEGMENT, SH_ARC, SH_QUAD, SH_RING } kind;
 	float a, b, c, d, r;           /* box x0 y0 x1 y1 r; circle cx cy r;
 	                                  segment x0 y0 x1 y1 half-width;
-	                                  arc cx cy radius half-angle half-width */
+	                                  arc cx cy radius half-angle half-width;
+	                                  quad r rounds it; ring = box x0 y0 x1 y1 r,
+	                                  the band of q[0] units inside its edge */
 	float q[8];                    /* quad, four corners, clockwise on screen */
 } shape;
 
@@ -66,6 +69,11 @@ static float clampf(float v, float lo, float hi)
 
 static float sd_rbox(const shape *s, float x, float y)
 {
+	/* Beside the straight edges, which are most of the pill, the nearest
+	 * edge is a straight one: no square root. The bar repaints every frame
+	 * while the boost moves, on the thread Diatom presents from. */
+	if (x >= s->a + s->r && x <= s->c - s->r) return fmaxf(s->b - y, y - s->d);
+	if (y >= s->b + s->r && y <= s->d - s->r) return fmaxf(s->a - x, x - s->c);
 	float cx = (s->a + s->c) / 2, cy = (s->b + s->d) / 2;
 	float hx = (s->c - s->a) / 2 - s->r, hy = (s->d - s->b) / 2 - s->r;
 	float qx = fabsf(x - cx) - hx, qy = fabsf(y - cy) - hy;
@@ -90,6 +98,8 @@ static float sd(const shape *s, float x, float y)
 	switch (s->kind) {
 	case SH_RBOX:
 		return sd_rbox(s, x, y);
+	case SH_RING:
+		return fabsf(sd_rbox(s, x, y) + s->q[0] / 2) - s->q[0] / 2;
 	case SH_CIRCLE:
 		return sqrtf((x - s->a) * (x - s->a) + (y - s->b) * (y - s->b)) - s->c;
 	case SH_SEGMENT:
@@ -126,7 +136,7 @@ static float sd(const shape *s, float x, float y)
 			float e = l > 0 ? ((x - x0) * nx + (y - y0) * ny) / l : 0;
 			if (e > m) m = e;
 		}
-		return m;
+		return m - s->r;
 	}
 	}
 	return 1e9f;
@@ -135,7 +145,7 @@ static float sd(const shape *s, float x, float y)
 /* ---- painting ---------------------------------------------------------------
  *
  * Into a float buffer of premultiplied RGBA, one shape at a time over its own
- * bounds, with "over". The bar is small - 298 x 58 pixels on the panel - and
+ * bounds, with "over". The bar is small - 373 x 58 pixels on the panel - and
  * painted only when what it shows changes: a fade, which Diatom and portkeys
  * make by asking for the same bar at a new opacity every frame, only turns
  * the painted buffer into pixels again (osdbar_render). */
@@ -149,7 +159,8 @@ typedef struct {
 static void bounds(const shape *s, float *x0, float *y0, float *x1, float *y1)
 {
 	switch (s->kind) {
-	case SH_RBOX:    *x0 = s->a; *y0 = s->b; *x1 = s->c; *y1 = s->d; break;
+	case SH_RBOX:
+	case SH_RING:    *x0 = s->a; *y0 = s->b; *x1 = s->c; *y1 = s->d; break;
 	case SH_CIRCLE:  *x0 = s->a - s->c; *y0 = s->b - s->c;
 	                 *x1 = s->a + s->c; *y1 = s->b + s->c; break;
 	case SH_SEGMENT: *x0 = fminf(s->a, s->c) - s->r; *y0 = fminf(s->b, s->d) - s->r;
@@ -163,6 +174,7 @@ static void bounds(const shape *s, float *x0, float *y0, float *x1, float *y1)
 			*x0 = fminf(*x0, s->q[i * 2]); *x1 = fmaxf(*x1, s->q[i * 2]);
 			*y0 = fminf(*y0, s->q[i * 2 + 1]); *y1 = fmaxf(*y1, s->q[i * 2 + 1]);
 		}
+		*x0 -= s->r; *y0 -= s->r; *x1 += s->r; *y1 += s->r;
 		break;
 	}
 	}
@@ -216,52 +228,74 @@ static shape line(float x0, float y0, float x1, float y1)
 	return (shape){ .kind = SH_SEGMENT, .a = x0, .b = y0, .c = x1, .d = y1, .r = STROKE / 2 };
 }
 
-/* The speaker: a box and its cone, then up to three waves, one more for each
- * third of the way up; a cross where the waves would be at silence. */
-static void speaker(canvas *cv, float cx, float cy, int level, int max, const float *col, float px)
+/* The marks, redrawn for the boost (DESIGN.md 11.6): each in a 52-unit box
+ * centered MARK_CX in from the pill's left end, 13 units clear of the first
+ * cell at its largest. They follow the level as it moves (`f`, 0..1, which a
+ * host animates in quick): the speaker's waves grow arc by arc, each over its
+ * third of the scale, and the sun's disc and rays grow. The boost adds its
+ * own parts in the boost color (`bf`, the share of the boost filled), so the
+ * mark keeps its color: a fourth wave, and eight short rays between the
+ * sun's. */
+#define MARK_CX ((float)DS_LEVEL_MARK)
+#define DEG     ((float)M_PI / 180)
+
+static void wave(canvas *cv, float cx, float cy, float r, float half_deg, const float *col, float px)
 {
-	const float s = ICON_S;
-	shape body = rbox(cx - 0.55f * s, cy - 0.22f * s, cx - 0.25f * s, cy + 0.22f * s, 2);
-	shape cone = { .kind = SH_QUAD, .q = {
-		cx - 0.30f * s, cy - 0.22f * s,  cx + 0.05f * s, cy - 0.55f * s,
-		cx + 0.05f * s, cy + 0.55f * s,  cx - 0.30f * s, cy + 0.22f * s } };
-	int i, waves;
+	shape w = { .kind = SH_ARC, .a = cx, .b = cy, .c = r, .d = half_deg * DEG, .r = STROKE / 2 };
+
+	paint(cv, &w, col, 1, px, NULL, 0);
+}
+
+static void speaker(canvas *cv, float cx, float cy, float f, float cut, float bf,
+                    const float *col, const float *boost, float px)
+{
+	const float mx = cx - 2;   /* the cone's mouth, where the waves are centered */
+	shape body = rbox(cx - 20.25f, cy - 8.25f, cx - 10.75f, cy + 8.25f, 1.25f);
+	shape cone = { .kind = SH_QUAD, .r = 1.25f, .q = {
+		cx - 12, cy - 7,  cx - 2, cy - 17,  cx - 2, cy + 17,  cx - 12, cy + 7 } };
+	int i;
 
 	paint(cv, &body, col, 1, px, NULL, 0);
 	paint(cv, &cone, col, 1, px, NULL, 0);
-	if (level <= 0) {
-		float x0 = cx + 0.27f * s;
-		shape a = line(x0, cy - 0.2f * s, x0 + 0.4f * s, cy + 0.2f * s);
-		shape b = line(x0, cy + 0.2f * s, x0 + 0.4f * s, cy - 0.2f * s);
-		paint(cv, &a, col, 1, px, NULL, 0);
-		paint(cv, &b, col, 1, px, NULL, 0);
-		return;
+	for (i = 0; i < 3; i++) {
+		float loc = clampf(f * 3 - i, 0, 1);
+
+		if (loc > 0.002f) wave(cv, mx, cy, 8.0f + 7.0f * i, 5 + 45 * loc, col, px);
 	}
-	waves = max > 0 ? 1 + (level * 3 - 1) / max : 3;
-	if (waves > 3) waves = 3;
-	for (i = 0; i < waves; i++) {
-		shape w = { .kind = SH_ARC, .a = cx + 0.05f * s, .b = cy,
-		            .c = (0.28f + 0.24f * i) * s, .d = (float)M_PI / 4, .r = STROKE / 2 };
-		paint(cv, &w, col, 1, px, NULL, 0);
+	if (bf > 0.002f) wave(cv, mx, cy, 29, 5 + 41 * clampf(bf, 0, 1), boost, px);
+	if (cut > 0.01f) {
+		shape a = line(cx + 4, cy - 6, cx + 16, cy + 6);
+		shape b = line(cx + 4, cy + 6, cx + 16, cy - 6);
+
+		paint(cv, &a, col, clampf(cut, 0, 1), px, NULL, 0);
+		paint(cv, &b, col, clampf(cut, 0, 1), px, NULL, 0);
 	}
 }
 
-/* The sun: a disc and eight rays, longer the brighter. */
-static void sun(canvas *cv, float cx, float cy, int level, int max, const float *col, float px)
+static void sun(canvas *cv, float cx, float cy, float f, float bf, const float *col,
+                const float *boost, float px)
 {
-	const float s = ICON_S;
-	shape disc = { .kind = SH_CIRCLE, .a = cx, .b = cy, .c = 0.24f * s };
-	float ray = s * (0.12f + 0.16f * (max > 0 ? (float)level / max : 1));
+	const float d = 6.5f + 1.5f * f, r0 = d + 4.5f;
+	const float len = 1 + 6 * f + 3 * clampf(bf, 0, 1);
+	shape disc = { .kind = SH_CIRCLE, .a = cx, .b = cy, .c = d };
 	int i;
 
 	paint(cv, &disc, col, 1, px, NULL, 0);
 	for (i = 0; i < 8; i++) {
-		float ang = i * (float)M_PI / 4, c = cosf(ang), sn = sinf(ang);
-		float r0 = 0.36f * s + STROKE / 2;
-		shape r = line(cx + c * r0, cy + sn * r0, cx + c * (r0 + ray - STROKE / 2),
-		               cy + sn * (r0 + ray - STROKE / 2));
+		float ang = i * (float)M_PI / 4, c = cosf(ang), s = sinf(ang);
+		shape r = line(cx + c * r0, cy + s * r0, cx + c * (r0 + len), cy + s * (r0 + len));
+
 		paint(cv, &r, col, 1, px, NULL, 0);
 	}
+	if (bf > 0.002f)
+		for (i = 0; i < 8; i++) {
+			float ang = (i + 0.5f) * (float)M_PI / 4, c = cosf(ang), s = sinf(ang);
+			float l = 4 * clampf(bf, 0, 1);
+			shape r = { .kind = SH_SEGMENT, .a = cx + c * (r0 + 1), .b = cy + s * (r0 + 1),
+			            .c = cx + c * (r0 + 1 + l), .d = cy + s * (r0 + 1 + l), .r = 1.75f };
+
+			paint(cv, &r, boost, 1, px, NULL, 0);
+		}
 }
 
 /* The power mark: a ring open at the top, and the line down into the gap,
@@ -299,72 +333,171 @@ void osdbar_colors(int theme, const ds_theme *t)
 	colors_gen++;
 }
 
-void osdbar_render(uint32_t *px, int w, int h, int stride, float scale,
-                   int theme, int kind, int level, int max, float alpha, bool premul)
+void osdbar_look_plain(osdbar_look *l, int kind, int level, int max)
 {
-	/* The largest the bar is ever drawn, at scale 1: 476 x 92 pixels. Kept
-	 * from one call to the next with what it was painted for, so a call that
-	 * asks for the same bar - the same theme, kind, level, steps, scale and
-	 * size - at another opacity, or premultiplied where it was straight, is
-	 * only the conversion at the end: about twenty a show, each a whole
-	 * paint before, on the thread Diatom presents from. */
+	memset(l, 0, sizeof *l);
+	if (max < 1) max = 1;
+	if (level < 0) level = 0;
+	if (level > max) level = max;
+	l->kind = kind;
+	l->level = level;
+	l->max = max;
+	l->mark = (float)level / max;
+	l->cut = level == 0 ? 1 : 0;
+}
+
+/* The boost's geometry (DESIGN.md 11.6), in units: the gap at the top with
+ * its mark, the big charging cell, and how far the end pushes out for it in
+ * the first 30% of the charge, on out, so a press shows at once and a hold
+ * reads as a fill. */
+#define TOP_GAP  ((float)DS_BOOST_GAP)
+#define CHARGE_W ((float)DS_BOOST_CHARGE_W)
+#define CHARGE_H ((float)DS_BOOST_CHARGE_H)
+static float stretch(float charge) { return ds_out(clampf(charge / 0.3f, 0, 1)); }
+
+static void mixc(float out[3], const float a[3], const float b[3], float t)
+{
+	int k;
+
+	for (k = 0; k < 3; k++) out[k] = a[k] + (b[k] - a[k]) * t;
+}
+
+/* How much wider than 452 the pill is for this look, the push included */
+static float look_ext(const osdbar_look *l, float sw)
+{
+	float g = 0, ext = 0;
+
+	if (l->ncells > 0 && l->kind != OSDBAR_POWER) {
+		g = TOP_GAP + l->ncells * sw + (l->ncells - 1) * SEG_GAP;
+		ext = fmaxf(clampf(l->grow, 0, 1) * g, stretch(l->charge) * (TOP_GAP + CHARGE_W));
+	}
+	return ext + clampf(l->push, 0, 1) * 6;
+}
+
+void osdbar_render_look(uint32_t *px, int w, int h, int stride, float scale,
+                        int theme, const osdbar_look *look, float alpha, bool premul)
+{
+	/* The largest the bar is ever drawn, at scale 1. Kept from one call to
+	 * the next with what it was painted for, so a call that asks for the
+	 * same bar - the same theme, look, scale and size - at another opacity,
+	 * or premultiplied where it was straight, is only the conversion at the
+	 * end: about twenty a show, each a whole paint before, on the thread
+	 * Diatom presents from. While the boost moves, every frame is a paint. */
 	static float f[OSDBAR_W * OSDBAR_H * 4];
 	static struct {
 		bool valid;
-		int theme, kind, level, max, w, h;
+		int theme, w, h;
 		float scale;
 		unsigned gen;
+		osdbar_look look;
 	} painted;
+	osdbar_look L = *look;
 	int x, y;
 
 	if ((size_t)w * h > sizeof f / sizeof f[0] / 4) return;
 	if (theme < 0 || theme >= DS_THEMES) theme = DS_LIGHT;
-	if (max < 1) max = 1;
-	if (level < 0) level = 0;
-	if (level > max) level = max;
-	if (!painted.valid || painted.theme != theme || painted.kind != kind ||
-	    painted.level != level || painted.max != max || painted.w != w || painted.h != h ||
-	    painted.scale != scale || painted.gen != colors_gen) {
+	if (L.max < 1) L.max = 1;
+	if (L.level < 0) L.level = 0;
+	if (L.level > L.max) L.level = L.max;
+	if (L.ncells < 0) L.ncells = 0;
+	if (L.ncells > OSDBAR_BOOST_MAX) L.ncells = OSDBAR_BOOST_MAX;
+	if (!painted.valid || painted.theme != theme || painted.w != w || painted.h != h ||
+	    painted.scale != scale || painted.gen != colors_gen || memcmp(&painted.look, &L, sizeof L)) {
 		canvas cv = { f, w, h, scale };
 		const ds_theme *th = colors_on[theme] ? &colors[theme] : &DS_THEME[theme];
-		float col[3], track[3], surface[3], edge[3], ink[3];
+		float col[3], track[3], surface[3], edge[3], ink[3], warn[3], dim[3], btrack[3];
 		const float pix = 1.0f / scale;            /* a pixel, in units */
 		const float cy = PILL_Y0 + PILL_H / 2;
-		shape sh = rbox(PILL_X0, PILL_Y0 + SHADOW_DY, PILL_X0 + PILL_W,
-		                PILL_Y0 + PILL_H + SHADOW_DY, PILL_R);
-		shape body = rbox(PILL_X0, PILL_Y0, PILL_X0 + PILL_W, PILL_Y0 + PILL_H, PILL_R);
-		float sw;
+		const float sw = (SEG_X1 - SEG_X0 - SEG_GAP * (L.max - 1)) / L.max;
+		const float ext = look_ext(&L, sw);
+		const float x0 = PILL_X0 - ext / 2, x1 = PILL_X0 + PILL_W + ext / 2;
+		const float seg0 = SEG_X0 - ext / 2;
+		shape sh = rbox(x0, PILL_Y0 + SHADOW_DY, x1, PILL_Y0 + PILL_H + SHADOW_DY, PILL_R);
+		shape body = rbox(x0, PILL_Y0, x1, PILL_Y0 + PILL_H, PILL_R);
 		int i;
 
-		rgb3(col, kind == OSDBAR_BRIGHT ? th->light : th->accent_ink);
+		rgb3(col, L.kind == OSDBAR_BRIGHT ? th->light : th->accent_ink);
 		rgb3(track, th->track);
 		rgb3(surface, th->surface);
 		rgb3(edge, th->edge);
 		rgb3(ink, th->ink);
+		rgb3(warn, th->warning);
+		rgb3(dim, th->text_dim);
+		mixc(btrack, warn, track, 0.72f);
 		memset(f, 0, (size_t)w * h * 4 * sizeof f[0]);
 
 		paint(&cv, &sh, ink, th->bar_shadow / 255.0f, SHADOW_SOFT, NULL, 0);
 		paint(&cv, &body, edge, BODY_A, pix, surface, BORDER);
-		if (kind == OSDBAR_BRIGHT)     sun(&cv, ICON_CX, cy, level, max, col, pix);
-		else if (kind == OSDBAR_POWER) power_mark(&cv, ICON_CX, cy, col, pix);
-		else                           speaker(&cv, ICON_CX, cy, level, max, col, pix);
+		if (L.flash > 0.004f) {
+			shape rim = { .kind = SH_RING, .a = x0, .b = PILL_Y0, .c = x1, .d = PILL_Y0 + PILL_H,
+			              .r = PILL_R, .q = { BORDER } };
+			paint(&cv, &rim, warn, clampf(L.flash, 0, 1) * BODY_A, pix, NULL, 0);
+		}
+		{
+			float bf = 0;
+
+			for (i = 0; i < L.ncells; i++) bf += clampf(L.fill[i], 0, 1);
+			bf = L.ncells ? bf / L.ncells : 0;
+			if (L.kind == OSDBAR_BRIGHT)
+				sun(&cv, x0 + MARK_CX, cy, clampf(L.mark, 0, 1), bf, col, warn, pix);
+			else if (L.kind == OSDBAR_POWER)
+				power_mark(&cv, x0 + 40, cy, col, pix);
+			else
+				speaker(&cv, x0 + MARK_CX, cy, clampf(L.mark, 0, 1), L.cut, bf, col, warn, pix);
+		}
 
 		/* One segment per step, widths shared out evenly across the track. */
-		sw = (SEG_X1 - SEG_X0 - SEG_GAP * (max - 1)) / max;
-		for (i = 0; i < max; i++) {
-			float x0 = SEG_X0 + i * (sw + SEG_GAP);
-			shape seg = rbox(x0, cy - SEG_H / 2, x0 + sw, cy + SEG_H / 2, SEG_R);
-			paint(&cv, &seg, i < level ? col : track, 1, pix, NULL, 0);
+		for (i = 0; i < L.max; i++) {
+			float sx = seg0 + i * (sw + SEG_GAP);
+			shape seg = rbox(sx, cy - SEG_H / 2, sx + sw, cy + SEG_H / 2, SEG_R);
+			paint(&cv, &seg, i < L.level ? col : track, 1, pix, NULL, 0);
+		}
+
+		/* Past the top: its mark, then each boost cell coming out of the
+		 * end as the pill grows (its share of the growth past its place),
+		 * the first the big charging cell until it settles */
+		if (L.ncells > 0 && L.kind != OSDBAR_POWER) {
+			const float xb = seg0 + L.max * (sw + SEG_GAP) - SEG_GAP + TOP_GAP;
+			const float tick = fmaxf(clampf(L.tick, 0, 1), stretch(L.charge) * 0.6f) * 0.7f;
+			const float big = 1 - clampf(L.morph, 0, 1);
+			float off = 0;
+
+			if (tick > 0.004f) {
+				shape t = rbox(xb - TOP_GAP / 2 - 1, cy - 15, xb - TOP_GAP / 2 + 1, cy + 15, 1);
+				paint(&cv, &t, dim, tick, pix, NULL, 0);
+			}
+			for (i = 0; i < L.ncells; i++) {
+				float cw = sw, ch = SEG_H + 12.0f * (i + 1) / L.ncells, r = SEG_R;
+				float rev, fv;
+
+				if (i == 0) {
+					cw = sw + (CHARGE_W - sw) * big;
+					ch += (CHARGE_H - ch) * big;
+					r = SEG_R + 3 * big;
+				}
+				rev = clampf((ext - clampf(L.push, 0, 1) * 6 - (TOP_GAP + off)) / cw, 0, 1);
+				fv = clampf(L.fill[i], 0, 1);
+				if (i == 0) fv = fmaxf(fv, clampf(L.charge, 0, 1));
+				if (rev > 0.004f) {
+					float rw = cw * rev;
+					shape tr = rbox(xb + off, cy - ch / 2, xb + off + rw, cy + ch / 2, fminf(r, rw / 2));
+					paint(&cv, &tr, btrack, 1, pix, NULL, 0);
+					if (fv > 0.004f) {
+						float fw = cw * fminf(rev, fv);
+						shape fl = rbox(xb + off, cy - ch / 2, xb + off + fw, cy + ch / 2, fminf(r, fw / 2));
+						paint(&cv, &fl, warn, 1, pix, NULL, 0);
+					}
+				}
+				off += cw + SEG_GAP;
+			}
 		}
 		painted.valid = true;
 		painted.theme = theme;
-		painted.kind = kind;
-		painted.level = level;
-		painted.max = max;
 		painted.w = w;
 		painted.h = h;
 		painted.scale = scale;
 		painted.gen = colors_gen;
+		painted.look = L;
 	}
 
 	if (alpha < 0) alpha = 0;
@@ -379,6 +512,15 @@ void osdbar_render(uint32_t *px, int w, int h, int stride, float scale,
 			uint32_t A = (uint32_t)(clampf(a, 0, 1) * 255 + 0.5f);
 			px[(size_t)y * stride + x] = A << 24 | r << 16 | g << 8 | b;
 		}
+}
+
+void osdbar_render(uint32_t *px, int w, int h, int stride, float scale,
+                   int theme, int kind, int level, int max, float alpha, bool premul)
+{
+	osdbar_look l;
+
+	osdbar_look_plain(&l, kind, level, max);
+	osdbar_render_look(px, w, h, stride, scale, theme, &l, alpha, premul);
 }
 
 /* The way in is the design's `out` curve, the quintic ease-out every arrival

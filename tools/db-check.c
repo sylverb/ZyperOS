@@ -469,7 +469,7 @@ static void a_broken_database_is_set_aside(void)
 	printf("a database a power cut broke is set aside, and a new one made:\n");
 	snprintf(broken, sizeof broken, "%s.broken", DEV);
 	snprintf(wal, sizeof wal, "%s-wal", DEV);
-	for (pass = 0; pass < 2; pass++) {
+	for (pass = 0; pass < 3; pass++) {
 		scrub();
 		unlink(broken);
 		f = fopen(DEV, "wb");
@@ -495,7 +495,8 @@ static void a_broken_database_is_set_aside(void)
 			/* and the Appearance it notes for the boot screen (boottheme.h) */
 			snprintf(lang, sizeof lang, "%s/boot-theme", test_dir);
 			if ((l = fopen(lang, "w"))) {
-				fputs(pass ? "zytheme=darkish zyzone=-\n" : "zytheme=dark zyzone=Europe/Berlin zylang=pt-BR\n", l);
+				fputs(pass == 2 ? "zytheme=auto-1290-390 zyzone=UTC zylang=en zybright=74\n"
+				      : pass ? "zytheme=darkish zyzone=-\n" : "zytheme=dark zyzone=Europe/Berlin zylang=pt-BR\n", l);
 				fclose(l);
 			}
 		}
@@ -509,9 +510,14 @@ static void a_broken_database_is_set_aside(void)
 		ck(!strcmp(page, pass ? "en" : "pt-BR"),
 		   pass ? "a language file that says no code leaves English" : "and the language kept on the card beside it");
 		db_get_str(d, "appearance", page, sizeof page, "");
-		ck(pass ? !db_has(d, "appearance") : !strcmp(page, "dark"),
-		   pass ? "a boot-theme note that says no Appearance leaves the default"
-		        : "and the Appearance the boot-theme note keeps");
+		if (pass == 2)
+			ck(!strcmp(page, "auto") && db_get_int(d, "night.from", -1) == 1290 &&
+			   db_get_int(d, "night.until", -1) == 390,
+			   "1.1.0's Auto in the note: Auto, and its Night Hours, 21:30 to 6:30");
+		else
+			ck(pass ? !db_has(d, "appearance") : !strcmp(page, "dark"),
+			   pass ? "a boot-theme note that says no Appearance leaves the default"
+			        : "and the Appearance the boot-theme note keeps");
 		ck(db_set_int(d, "volume", 11), "and takes a setting");
 		db_close(d);
 		d = db_open(DEV, DB_DEVICE);

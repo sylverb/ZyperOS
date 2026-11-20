@@ -17,6 +17,7 @@
 #include "ui.h"
 #include "uisound.h"
 #include "zyperdraw.h"
+#include "levels.h"
 
 #include <SDL.h>
 #include <SDL_image.h>
@@ -1102,10 +1103,7 @@ void album_art_screen(app *a)
 			return;
 		}
 		if (menu_leaving(a)) done = true;
-		if (in_repeat(&a->in, IN_VOLUP))    plat_volume_nudge(+1);
-		if (in_repeat(&a->in, IN_VOLDN))    plat_volume_nudge(-1);
-		if (in_repeat(&a->in, IN_BRIGHTUP)) plat_brightness_nudge(+1);
-		if (in_repeat(&a->in, IN_BRIGHTDN)) plat_brightness_nudge(-1);
+		levels_keys(&a->in, BOOST_OPEN);
 
 		/* Idle does not count while covers are arriving: it is the device
 		 * doing what it was asked, and powering off halfway loses the rest.

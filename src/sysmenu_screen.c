@@ -749,10 +749,19 @@ static void menu_choices(app *a, int sys, bool games)
 		return;
 	}
 	/* MENU */
-	/* Light and Dark: two, so A turns it over (1.0.6, Auto went) */
-	P[0].lab[0] = appearance_name(APPEAR_LIGHT);
-	P[0].lab[1] = appearance_name(APPEAR_DARK);
-	g_pm_choice[PM_APPEARANCE] = ch_make(&P[0], 2, theme_appearance() == APPEAR_DARK, false);
+	/* Light, Dark and Auto (back in 1.1.0), so A opens their list, each
+	 * with what it does under it: Auto's says it is Night Mode's hours,
+	 * which that page sets */
+	{
+		static const char *anotes[APPEARANCES];
+
+		for (i = 0; i < APPEARANCES; i++) P[0].lab[i] = appearance_name((appearance)i);
+		anotes[APPEAR_LIGHT] = T(S_THEME_LIGHT_NOTE);
+		anotes[APPEAR_DARK] = T(S_THEME_DARK_NOTE);
+		anotes[APPEAR_AUTO] = T(S_THEME_AUTO_NOTE);
+		g_pm_choice[PM_APPEARANCE] = ch_make(&P[0], APPEARANCES, (int)theme_appearance(), false);
+		g_pm_choice[PM_APPEARANCE].notes = anotes;
+	}
 	P[1].lab[BATT_BARS] = T(S_PANEL_BATTERY_BARS);
 	P[1].lab[BATT_PCT] = T(S_PANEL_BATTERY_PERCENTAGE);
 	P[1].lab[BATT_TIME] = T(S_PANEL_BATTERY_TIME);
@@ -1063,7 +1072,9 @@ void look_bar_colors(void)
 
 /* The look and Auto's hours as the database keeps them (src/look.h,
  * src/theme.h): read at start before theme_init, and written as a row
- * changes. Words for the look, minutes for the hours. */
+ * changes. Words for the look; Auto's hours are the Night Hours
+ * (night.from, night.until: src/nightkeep.h), which Night Mode's page
+ * changes. */
 void look_load(void)
 {
 	char ac[16], li[16], dk[16], co[16], zy[8], fo[16], hl[16];
@@ -1081,8 +1092,11 @@ void look_load(void)
 	l.focus = look_focus_parse(hl);
 	look_set(&l);
 	look_bar_colors();
-	theme_set_hours(db_get_int(db_dev(), "auto.light", THEME_LIGHT_FROM),
-	                db_get_int(db_dev(), "auto.dark", THEME_DARK_FROM));
+	{
+		const night_cfg n = night_load();
+
+		night_theme_hours(&n);
+	}
 }
 
 /* A new look: on, kept, and every screen told. The bar's other programs read
@@ -1200,7 +1214,9 @@ int night_row_widest(menu_row *out)
  * list shows the warmth under its cursor on the whole screen. A row the
  * mode does not use is quiet, its value still read - Night Warmth and the
  * hours while Off, the hours while On - so the page holds its shape and
- * says what On or By Hours would use. */
+ * says what On or By Hours would use. The hours are Appearance Auto's too
+ * (src/theme.h): with Appearance on Auto they are never quiet, whatever the
+ * mode, since the theme turns by them. */
 static const unsigned char NIGHT_SOUND[NP_ROWS] = {
 	[NP_MODE] = MENU_SND_RING,
 	/* Stops at 1 and 10, as Strength */
@@ -1220,6 +1236,8 @@ int night_page_build(void *ctx, menu_row *rows, int max, const char **heading)
 	night_view *v = ctx;
 	const night_cfg *c = nm_cfg();
 	const int m = nm_mode(), hours = 24 * 60 / NM_STEP;
+	/* By Hours uses them, and Appearance's Auto whatever the mode */
+	const bool timed = m == NIGHT_HOURS || theme_appearance() == APPEAR_AUTO;
 	int i;
 
 	(void)max;
@@ -1239,8 +1257,8 @@ int night_page_build(void *ctx, menu_row *rows, int max, const char **heading)
 	*heading = T(S_SYSMENU_NIGHT_MODE);
 	rows[NP_MODE]   = (menu_row){ T(S_SYSMENU_NIGHT_MODE), mode[m], true };
 	rows[NP_WARMTH] = (menu_row){ T(S_SYSMENU_NIGHT_WARMTH), v->warmth, m != NIGHT_OFF };
-	rows[NP_FROM]   = (menu_row){ T(S_LOOK_NIGHT_FROM), v->from, m == NIGHT_HOURS };
-	rows[NP_UNTIL]  = (menu_row){ T(S_LOOK_NIGHT_UNTIL), v->until, m == NIGHT_HOURS };
+	rows[NP_FROM]   = (menu_row){ T(S_LOOK_NIGHT_FROM), v->from, timed };
+	rows[NP_UNTIL]  = (menu_row){ T(S_LOOK_NIGHT_UNTIL), v->until, timed };
 	g_np_choice[NP_MODE] = (menu_choice){ .n = NM_MODES, .cur = (unsigned char)m, .labels = mode };
 	g_np_choice[NP_WARMTH] = (menu_choice){ .n = NM_WARMTH_MAX, .cur = (unsigned char)(c->warmth - NM_WARMTH_MIN),
 	                                        .labels = warm_lab, .focus = nm_warmth_focus };
@@ -1259,14 +1277,16 @@ const menu_choice *night_page_choices(void)
 /* Night Mode round Off, On and By Hours; Night Warmth on Strength's idiom,
  * a step past either end changing nothing; the hours round the day by the
  * half hour. Kept, and on the display at once, so a mode or an hour that
- * turns the warmth on or off shows. */
+ * turns the warmth on or off shows; an hour that turns Appearance's Auto
+ * turns the theme at once too, and is the boot screen's (its words carry
+ * Auto's hours, src/boottheme.h). */
 static menu_result night_page_key(app *a, void *ctx, in_button key, int sel)
 {
 	int d = key == IN_RIGHT ? 1 : key == IN_LEFT ? -1 : 0;
 	night_cfg *c = nm_cfg();
 	const int day = 24 * 60;
 
-	(void)a; (void)ctx;
+	(void)ctx;
 	if (sel == NP_MODE && (d || key == IN_ACCEPT)) {
 		c->mode = (night_mode)((nm_mode() + (d ? d : 1) + NM_MODES) % NM_MODES);
 	} else if (sel == NP_WARMTH && d) {
@@ -1278,6 +1298,10 @@ static menu_result night_page_key(app *a, void *ctx, in_button key, int sel)
 		int *t = sel == NP_FROM ? &c->from : &c->until;
 
 		*t = ((*t + (d ? d : 1) * NM_STEP) % day + day) % day;
+		nm_keep();   /* and Auto's hours (night_keep) */
+		boot_theme_changed();
+		if (theme_refresh()) theme_changed(a);
+		return MENU_CHANGED;
 	} else {
 		return MENU_STAY;
 	}
@@ -2522,13 +2546,15 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 		redraw_now();
 		return MENU_CHANGED;
 	}
-	/* Light or Dark, so left, right and A all turn it over, applied the
-	 * moment it changes: saved as its word, and the theme file the bar's
+	/* Light, Dark and Auto round (A opens their list, menu_choose), applied
+	 * the moment it changes: saved as its word, and the theme file the bar's
 	 * other programs read is rewritten by theme_init - so the next frame is
 	 * drawn from the new theme(), and the next bar over a game or a port is
-	 * drawn in it */
+	 * drawn in it. Saved even when the theme it comes to is the one already
+	 * on: Auto at noon is Beard and so is Light, and they are still two
+	 * settings. */
 	if (sel == PM_APPEARANCE && (d || key == IN_ACCEPT)) {
-		appearance k = theme_appearance() == APPEAR_DARK ? APPEAR_LIGHT : APPEAR_DARK;
+		appearance k = appearance_step(theme_appearance(), d ? d : 1);
 		int was = theme_index();
 
 		theme_init(k);
