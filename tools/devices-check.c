@@ -157,6 +157,8 @@ static void smartpro(void)
 	ck(!p->model && !p->model_borrowed && p->bluetooth && !p->gpu_shaders && !p->gpu_frames &&
 	   !p->speaker_mono && !p->player2 && !p->usb_shared_port && p->wifi == DEV_WIFI_BUILTIN,
 	   "smartpro: no drawing yet (never another's), the Brick's board's answers");
+	ck(p->coreopts == device_profile_brick.coreopts && p->screen_colors && !p->rumble,
+	   "smartpro: the Brick's core options and Screen Colors, its motor not run yet");
 	ck(menu && !strcmp(menu->label, "MENU") && menu->icon == DEV_ICON_NONE,
 	   "smartpro: MENU is the word (no vendor mark as an icon)");
 	ck(!dev_button_of(p, IN_BRIGHTUP) && !dev_button_of(p, IN_BRIGHTDN),

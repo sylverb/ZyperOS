@@ -19,7 +19,7 @@ SRC := $(I18N_TABLES) $(filter-out $(I18N_TABLES),$(wildcard src/*.c)) $(wildcar
        $(wildcard src/device/$(ZYDEV_BACKEND)_hw.c) \
        src/device/td_model.c $(wildcard src/device/$(DEVICE)_model.c) \
        src/device/pixel2_coreopts.c \
-       $(filter-out src/device/pixel2_coreopts.c,$(wildcard src/device/$(DEVICE)_coreopts.c))
+       $(filter-out src/device/pixel2_coreopts.c,$(wildcard src/device/$(ZYDEV_BACKEND)_coreopts.c))
 CC ?= aarch64-linux-gnu-gcc
 
 VERSION ?= 0.0
