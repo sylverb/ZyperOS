@@ -1801,8 +1801,10 @@ build-native/devices-check: tools/devices-check.c src/profile.c src/device/profi
 	      -o $@ tools/devices-check.c src/profile.c src/thermal.c src/ds/button.c $(DEVICE_PROFILES) $(DEVICE_BUILDS)
 
 # Every device file compiled, the Linux halves the Mac's build never sees (CI
-# job "devices", .github/workflows/check.yml): the launcher's device files,
-# src/profile.c with each device's profile and model, and Diatom's two ports. Syntax
+# job "devices", .github/workflows/check.yml): the launcher's device files
+# (the Smart Pro's are the Brick's platform layer with its own folder),
+# src/profile.c with each device's profile and model, the Smart Pro's pads
+# reader, and Diatom's two ports. Syntax
 # only, so it needs the headers and no device. Elsewhere it says it skipped,
 # so it is not in CHECKS (the macOS job would only ever skip it).
 .PHONY: check-device-compile
@@ -1810,9 +1812,10 @@ check-device-compile:
 	@if [ "$$(uname -s)" != Linux ]; then echo "skipped: device files compile on Linux (CI job devices)"; exit 0; fi; \
 	set -e; F="-std=gnu11 -D_GNU_SOURCE -fsyntax-only -Wall -Wextra -Wno-unused-parameter"; \
 	S="$$(pkg-config --cflags sdl2)"; \
-	for d in pixel2 brick; do \
-		echo "  launcher: src/device/$$d.c and its hardware report"; \
-		$(CC) $$F -Isrc $$S src/device/$$d.c $$(ls src/device/$${d}_hw.c 2>/dev/null); \
+	for d in pixel2 brick smartpro; do \
+		b=$$(sed -n 's/^ZYDEV_BACKEND = //p' config/device/$$d.mk); \
+		echo "  launcher: src/device/$$b.c and its hardware report, for $$d"; \
+		$(CC) $$F -Isrc $$S -DZYPEROS_DEVICE_ID=\"$$d\" src/device/$$b.c $$(ls src/device/$${b}_hw.c 2>/dev/null); \
 		echo "  launcher: src/profile.c with src/device/$${d}_profile.c and its model"; \
 		$(CC) $$F -Isrc -DZYPEROS_PROFILE=device_profile_$$d src/profile.c src/device/$${d}_profile.c \
 			src/device/td_model.c $$(ls src/device/$${d}_model.c 2>/dev/null); \
@@ -1824,6 +1827,8 @@ check-device-compile:
 		diatom/port/panelgamma.c; \
 	echo "  launcher: a test kit's src/device/brick_kit.c and src/device/brick_hw.c (ZYPEROS_KIT_BUILD)"; \
 	$(CC) $$F -DZYPEROS_KIT_BUILD -Isrc $$S src/device/brick_kit.c src/device/brick_hw.c; \
+	echo "  sppad: the Smart Pro's pads reader (tools/sppad.c)"; \
+	$(CC) $$F tools/sppad.c tools/sppad_frame.c; \
 	echo "  diatom: port/pixel2.c"; \
 	$(CC) $$F $$D $$(pkg-config --cflags sdl2 egl glesv2 gbm libdrm) \
 		diatom/port/pixel2.c diatom/port/rumble_evdev.c diatom/port/panelgamma.c; \
