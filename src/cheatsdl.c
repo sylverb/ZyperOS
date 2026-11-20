@@ -22,6 +22,7 @@
 #define MAX_COLL   64
 #define LOCAL_PAD  1024           /* a local header's name and extra, generously */
 #define ASK_S      60             /* a request's time limit; the index is 4 MB */
+#define ENTRY_MAX  (4u * 1024 * 1024)   /* a cheat file is a few KB: anything past this is no cheat file */
 static const unsigned BACKOFF[] = { 5000, 15000, 30000 };
 
 typedef struct {
@@ -205,6 +206,19 @@ static int coll_of(const char *name, size_t n)
 	return -1;
 }
 
+/* A file name the card can take as it is: one name with no folder in it,
+ * not hidden (so never "." or ".."), no NUL - a list that said "../x" or
+ * "a/b" would otherwise write outside the game's folder */
+static bool base_ok(const char *b, size_t n)
+{
+	size_t i;
+
+	if (!n || b[0] == '.') return false;
+	for (i = 0; i < n; i++)
+		if (b[i] == '/' || b[i] == '\\' || b[i] == '\0') return false;
+	return true;
+}
+
 static int entry_cmp(const void *a, const void *b)
 {
 	const entry *x = a, *y = b;
@@ -227,7 +241,8 @@ static bool index_parse(const unsigned char *cd, size_t n)
 		if (at + 46 + nlen > n) break;
 		slash = memchr(name, '/', nlen);
 		if (slash && nlen > 4 && !memcmp(name + nlen - 4, ".cht", 4) &&
-		    (c = coll_of(name, (size_t)(slash - name))) >= 0) {
+		    (c = coll_of(name, (size_t)(slash - name))) >= 0 && base_ok(slash + 1, (size_t)(name + nlen - slash - 1)) &&
+		    le32(cd + at + 20) <= ENTRY_MAX && le32(cd + at + 24) <= ENTRY_MAX) {
 			entry *grown = g.ne % 256 ? g.e : realloc(g.e, sizeof *g.e * (size_t)(g.ne + 256));
 			entry *e;
 
@@ -495,7 +510,7 @@ static int entry_take(const entry *e, const unsigned char *b, size_t n)
 		g.range_extra = (int)elen + (int)nlen + 64;
 		return 0;
 	}
-	if (!(out = malloc(e->usize + 1))) return -1;
+	if (e->usize > ENTRY_MAX || e->csize > ENTRY_MAX || !(out = malloc((size_t)e->usize + 1))) return -1;
 	if (e->method == 0 && e->csize == e->usize) {
 		memcpy(out, b + data, e->usize);
 		ok = true;
