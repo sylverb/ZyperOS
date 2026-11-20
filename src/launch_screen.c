@@ -293,6 +293,10 @@ static void launch_port_core(app *a, const system_cfg *s, const char *file, cons
 		if (r) fclose(r);
 	}
 	book_keep(true);
+	/* The port takes the sound (launch.sh stops MP4's daemon), and the
+	 * launcher that comes back after it is no start after a power-off:
+	 * nothing opens MP4 by itself then (src/mp4resume.h) */
+	resume_clear();
 	anim_launch(a);
 	port_loading_screen(a, s);
 	/* "Getting hot" for portkeys to show over the port, which this process

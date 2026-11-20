@@ -53,6 +53,11 @@ void mp4c_poll(void);
 void mp4c_play(const char *const *paths, int n, int start, double at, bool book,
                 double speed, const char *artist, const char *album);
 
+/* The next queue (mp4c_play, mp4c_play_videos) opens held: its file at its
+ * place, paused, with no sound at all - PLAY's paused=1 - and Now Playing
+ * shows it paused at once. MP4 back after a power-off (src/mp4resume.h). */
+void mp4c_hold_next(void);
+
 /* Where a queue whose tracks are from many albums - Shuffle All - finds each
  * track's artist and album: mp4c_play with NULL for both asks this for every
  * track, where one album's queue names its own once. The tags still win where

@@ -6988,7 +6988,7 @@ that game, and a rename takes a copy. Host shots: `cheats-row`, `cheats-page`,
 `popup-cheats` (tools/i18n-shots.py; `--cheats` and `--cheats-page` stand in
 for a running game).
 
-### 11.67 MP4's shelf in Covers, Grid and List, and START
+### 11.67 MP4's shelf in Covers, Grid and List, START, and back after a power-off
 
 **View**, in MP4's MENU under Sort By on every kind, is how MP4's shelf
 shows its albums, as a system's View row (11.39, 11.47): **Covers**, the
@@ -7056,3 +7056,35 @@ launcher).
   to mp4 main page and allow changing with start as we do on the launcher
   / Also start to change player look".)*
 
+**Back after a power-off.** If the handheld goes off while MP4 plays - the
+battery empty, POWER held down, a power cut, or the launcher's own
+power-off - the next start opens MP4 by itself on Now Playing, paused at
+the same second (src/mp4resume.h): the same song in the same queue, the
+same book at its place and speed, the same video with its picture at that
+second. A to carry on. Something paused when the power went is not
+resumed: it was not heard.
+
+- **Kept** in one row of the handheld's database, `mp4.resume`, beside a
+  book's and a video's places: playing or paused, the queue (an album's,
+  a book's or a series' files, or Shuffle All's), the second, the file by
+  its path on the card, so a file added later moves nothing.
+- **Written** as a book's place is, by the same calls (book_keep): when a
+  queue starts, when its file changes, when it pauses or plays, every 30 s
+  of playing, and at once when the launcher powers off or restarts - so a
+  cut goes back half a minute at most, and the launcher's power-off (an
+  empty battery's too) not at all. About two one-row writes a minute of
+  playing, none while paused.
+- **Gone** when a queue plays out to its end, when its file is no longer
+  on the card at a start, and when a port starts: the port stops the
+  daemon, and the launcher after it is no start after a power-off.
+- **The start** opens the queue held - PLAY's paused=1 (the daemon's
+  proto 7): the file at its second, nothing written to the device, a
+  video's first picture there shown as after a seek - and Now Playing
+  shows it paused at once, before the daemon has answered, with no sound
+  of its own (nothing was pressed). After a game resumed at the start or
+  the tutorial, which come first. In Shuffle All the songs after it are a
+  new order: the order is not kept, Shuffle All being every song on the
+  card. A held file that will not open stops there, rather than skipping
+  to the next track, which would play.
+- *(Mine, 2026-11-19: "make sure that if powered off while playing, when
+  powered on it turns on with the media paused where it was".)*
