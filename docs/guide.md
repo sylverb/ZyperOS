@@ -174,7 +174,7 @@ Every system has a folder under `Roms/`, and a system with nothing in its folder
 | MSX2 | `Roms/MSX2` | `.rom` `.mx1` `.mx2` `.dsk` `.cas` `.zip` | blueMSX |
 | Atari 7800 | `Roms/Atari 7800` | `.a78` `.bin` `.zip` | ProSystem |
 | Master System | `Roms/Master System` | `.sms` `.zip` | Genesis Plus GX |
-| Game Boy | `Roms/Game Boy` | `.gb` `.dmg` `.zip` | mGBA |
+| Game Boy | `Roms/Game Boy` | `.gb` `.dmg` `.zip` | mGBA, or Gambatte |
 | Genesis | `Roms/Genesis` | `.md` `.gen` `.bin` `.smd` `.zip` | Genesis Plus GX |
 | TurboGrafx-16 and CD | `Roms/TurboGrafx-16` | `.pce` `.sgx` `.cue` `.ccd` `.chd` `.toc` `.m3u` `.zip` | Beetle PCE Fast |
 | Atari Lynx | `Roms/Atari Lynx` | `.lnx` `.o` `.zip` | Handy |
@@ -191,7 +191,7 @@ Every system has a folder under `Roms/`, and a system with nothing in its folder
 | Neo Geo CD | `Roms/Neo Geo CD` | `.chd` `.cue` | NeoCD |
 | Nintendo 64 | `Roms/Nintendo 64` | `.n64` `.z64` `.v64` `.zip` | ParallelN64, or Mupen64Plus-Next |
 | Neo Geo Pocket | `Roms/Neo Geo Pocket` | `.ngp` `.ngc` `.ngpc` `.npc` `.zip` | Beetle NeoPop |
-| Game Boy Color | `Roms/Game Boy Color` | `.gbc` `.cgb` `.zip` | mGBA |
+| Game Boy Color | `Roms/Game Boy Color` | `.gbc` `.cgb` `.zip` | mGBA, or Gambatte |
 | WonderSwan | `Roms/WonderSwan` | `.ws` `.wsc` `.zip` | Beetle WonderSwan |
 | Neo Geo Pocket Color | `Roms/Neo Geo Pocket Color` | `.ngp` `.ngc` `.ngpc` `.npc` `.zip` | Beetle NeoPop |
 | Dreamcast | `Roms/Dreamcast` | `.chd` `.cdi` `.gdi` `.cue` | flycast2021, or Flycast if you add it |
@@ -224,6 +224,8 @@ A PC Engine CD will not start without `syscard3.pce`, and ZyperOS says so by nam
 Nintendo DS runs on DSperate, which ZyperOS ships, with ZyperOS's own in-game menu. A game starts with the top screen alone. While it runs, DSperate gives its threads a core each, as its own frontend does, and the CPU stays at its top clock. On my Pixel 2, light scenes hold 60 frames a second, and a busy Mario Kart DS race drops to about 40: the game keeps its speed and sound, and the frames it cannot draw in time are left out. **L1** and **R1** are the DS's L and R. **L2** shows the other screen. **R2** shows the bottom screen and turns the stylus on: the d-pad moves a cursor and **A** touches. **R2** again turns the stylus off and goes back. The in-game menu's Display tab also has **Screens** (Single, Stacked or Top Focus), **Swap Screens** and **Stylus**. A DraStic save (`Saves/<game>.dsv`, from ROGUE OS or another system) is taken over the first time a game runs on DSperate. Encrypted ROM dumps need `bios7.bin`, `bios9.bin` and `firmware.bin` in `Bios/`. A DS game reads its language from the firmware, and a `firmware.bin` carries the language of the console it was dumped from, so ZyperOS tells DSperate which language to use with each game and leaves the file alone. **Game Language** in the console's menu, under **Core**, is **Auto** to start with (the language of **MENU > Language** where the DS has it, English where it doesn't, as Português (Brasil) and 简体中文 are not on a DS) or one of English, Español, Français, Deutsch, Italiano, 日本語 and 简体中文 outright; 简体中文 is for the iQue DS's games, which are the only ones that have it. A game resumes where you left it only in the language it was left in: after a change of **Game Language** it starts fresh, in the new one, with a note that says why, and its battery save keeps your progress. A save state you load yourself keeps the language it was saved in, and **Reset** in the in-game menu starts the game again in the row's language.
 
 ### Arcade and Neo Geo
+
+A cartridge game can be zipped, one game a zip, as No-Intro sets come: ZyperOS unpacks its largest file, the game, whether the zip stores it, or compresses it with Deflate (every zip tool's usual way) or LZMA (7-Zip's option). A zip compressed with bzip2 or Zstandard is not read; the shelf says so under the game, and zipping it again with Deflate fixes it. Its saves are named after the zip, as before.
 
 Arcade games are ROM sets, one `.zip` per game, named the way FinalBurn Neo names it (`ssf2.zip` is Super Street Fighter II). Keep the name and keep the zip whole: the name says which game it is, and the core checks every chip inside. Vertical games such as 1941 are turned upright on their own. **Neo Geo games** are FinalBurn Neo sets too (`mslug.zip` is Metal Slug), and every one needs `neogeo.zip`, the Neo Geo's own BIOS set, in `Bios/` or beside the game.
 
@@ -528,55 +530,77 @@ than any one console:
 | **About ZyperOS** | two pages: version, address, charge and uptime; then storage and estimated battery health |
 
 The Pixel 2 has no radio, so the rows that need Wi-Fi show only while a
-USB Wi-Fi adapter is plugged in: Wi-Fi, Achievements and Wi-Fi
-File Transfer here (USB File Transfer stays, with a computer on the cable), Box
-Art in a console's menu, and Album Art in MP4's. Scraper stays: its fetch says
-it needs Wi-Fi, and its video snaps and sources need none. Bluetooth is never
+USB Wi-Fi adapter is plugged in: Wi-Fi and Wi-Fi File Transfer here (USB
+File Transfer stays, with a computer on the cable), and Album Art in MP4's.
+Downloads stays, here and in a console's menu: its download says it needs
+Wi-Fi, and its counts, Systems and accounts need none. Bluetooth is never
 there. A phone's USB tethering is internet too (see **File transfer**):
-while it is on, Achievements, Box Art and Album Art are back, and Scraper's
-fetch works.
+while it is on, Album Art is back, and Downloads' download works.
 
 ### Downloads
 
 MENU > **Downloads** is every download of game data in one place: covers,
-video snaps, names and details, and achievements.
+video snaps, names and details, and achievements. It is a page of its own,
+with Zyper beside its heading; under the heading, about how long a download
+takes (`about 12 min`), `Needs Wi-Fi`, or `Everything is here`. The page
+draws at once and says `Counting…` while it looks at the card, a system at a
+time; the next time it opens it shows what it counted and counts again
+behind it.
 
 | Row | What it is |
 |---|---|
-| **Download** | gets every kind that is in it, both servers at the same time; its value says how much and how long (`186 MB · 15 min`), `Nothing to fetch`, or how far a download has got |
-| **Covers**, **Videos**, **Names and Details** | what is still missing (`41 missing`, `63 to fetch`, `199 names`); **A** opens the Scraper page, below |
-| **Achievements** | the games whose achievements are not on the card yet; **A** opens the Achievements download, below, or the sign-in |
-| **Settings** | your ScreenScraper, RetroAchievements and SteamGridDB accounts; whether **Download** gets Covers, Videos, Names and Details and Achievements (all **On** to start, each system's own videos switch still off until you turn it on); and Video Snaps |
+| **Download** | first, so **A**, **A** from MENU gets everything: every kind that is in it, the servers at the same time. Its value says how much and how long (`186 MB · about 12 min`), `Nothing to fetch`, `Needs Wi-Fi`, or how far a download has got (`Downloading · 41%`); over the keys, what it adds and what the card has (`186 MB to fetch · 11.2 GB free`), in red when the card would keep less than 200 MB, and then **A** says `Not enough room on the card` |
+| **Covers**, **Videos**, **Names and Details**, **Achievements** | each kind with its mark and what is still missing (`41 missing`, `63 to fetch`, `199 to look up`, `150 to download`), `Complete`, `Ready offline`, `Off`, `Needs ScreenScraper` or `Sign in first`. **LEFT** and **RIGHT** take a kind in or out of **Download**, and its size and time change at once. Over the keys, where it comes from and its room on the card. **A** opens the kind's own page, below |
+| **Y** Systems | a table: a row per system, a column per kind. A cell says what is missing, a tick when nothing is, or a dash when it is off for that system. **A** switches the cell, **X** deletes its videos or achievement sets (after a question), **Y** opens the system's games |
+| **START** Settings | **ScreenScraper**, **RetroAchievements** and **SteamGridDB**, each with its account; **Video Snaps**; **Names and Details** (`On` or `Off`, the same as its row); and **On the Card**, each kind's room, where **A** deletes every video snap or every achievement set, after a question |
 
-### Scraper
+Every kind is in **Download** to start, but each system's videos stay off
+until you switch them on (a snap is a megabyte or three), and achievements
+need a RetroAchievements sign-in.
 
-The Scraper page (**MENU > Downloads > Covers**) is box art and video snaps in one page. It says first
-what a run will get, then gets it, with each cover on the screen as it
-lands. A console's own menu keeps its **Box Art** row, which opens the same
-page for that console alone.
+**A kind's page** has each system's icon over a tick, lit when the system
+lacks nothing (dim when its switch is off), and two tiles: what the card
+has, and what a download adds. **A** downloads that kind alone. Videos' page
+has **X** Videos For: **All Games**, **Favorites** or **Played**, for every
+system with videos on, each with how many and how much. **Achievements**
+opens its own page, below.
 
-| On the page | What it is |
-|---|---|
-| **Covers** | the covers a run will look for, the room they will add (`+131 MB`), and on how many systems |
-| **Videos** | the video snaps it will get, the room they will add (`+525 MB`) and on how many systems; `all off` to start, `needs ScreenScraper` with no account |
-| under the heading | about how long the run will take (`about 35 min`), or `Needs Wi-Fi` |
-| over the keys | the names a run will look up for games that have a cover but no name (`199 names`, gone with **Names and Details** off), then the room: what the run will add and what the card has (`656 MB to fetch · 11.2 GB free`). In red when the run would leave less than 200 MB free; then **A** does not start it, and says `Not enough room on the card` |
-| **A** Fetch | runs it over Wi-Fi: the game it is asking about, its system, the source it asks and how many games it has looked at (`31 / 142`). Each cover found lands big, beside the six before it, and the time left is beside a clock. **B** continues in the background: the page closes and the run goes on (below); **Y** stops, and so does a card down to its last 100 MB. Then **All done**: the covers found, how many came, how many are still missing, and the room the videos take |
-| **Y** Systems | a tile for each system with two marks, covers and videos, and under them the focused system's covers missing and videos to fetch. **A** turns the system's covers on or off (on to start), **X** its videos (off to start: a snap is a megabyte or three), and **Y** picks **Videos for**: **All Games**, **Favorites** or **Played**, for every system with videos on, each with how many videos and how much to fetch |
-| **START** Settings | **ScreenScraper**, **SteamGridDB**, **Videos** and **Names and Details**, below |
+**A system's games** (**Y** on Systems) lists them with a mark per kind:
+lit when the card has it, dim when it does not, struck through when
+RetroAchievements has nothing for the game. Under the list, what the game
+under the cursor has and lacks. **A** opens the game's panel: its cover,
+video, names and achievements, each with its value. **A** on the cover or the
+video opens its **Cover and Video** page; **A** on the names or the
+achievements gets them, and **Get What's Missing** gets everything it lacks,
+one after another, each value turning as its file lands.
 
-A run gets every system's covers first, then the names, years and synopses
+**The download** shows one stream: the game it is asking about beside Zyper,
+its system, its kind and its source, a bar and how far (`214 / 573`). What
+came last lands big, the six before it move along, each with its kind's mark
+(a set has its count). Over the keys, how many of each kind came and the time
+left, or why it waits: `Waiting for Wi-Fi`, or `RetroAchievements asked for a
+pause · 0:42`. **B** continues in the background; **Y** stops. Then **All
+done** (or **Stopped**, and why): what came, as a wall, the counts, and **A**
+again for what is missing.
+
+A console's own menu has **Downloads** where Box Art was: the same page for
+that console alone, its name as the heading.
+
+### Where covers, names and videos come from
+
+A download gets every system's covers first, then the names, years and synopses
 of games that already have a cover but no name, unless **Names and Details**
 is off: then a run fetches only what is missing, the covers and the videos. It asks ScreenScraper first when it is
 linked, libretro right after each game ScreenScraper does not have, and
 SteamGridDB last. A game ScreenScraper does not know is not asked about
 again for 30 days.
 
-| In Settings | What it is |
+| In Downloads' Settings | What it is |
 |---|---|
-| **ScreenScraper** | `Linked as` its account, `Link`, or `Not in this build`. Its page links the account (user, then password, checked once), says how many requests are left today, and unlinks it. It brings covers with each game's year, genre and synopsis, and the video snaps. A build needs ScreenScraper's developer pair for any of it |
+| **ScreenScraper** | its account, `Link`, or `Not in this build`. Its page links the account (user, then password, checked once), says how many requests are left today, and unlinks it. It brings covers with each game's year, genre and synopsis, and the video snaps. A build needs ScreenScraper's developer pair for any of it |
+| **RetroAchievements** | its account, or `Sign in`. Its page signs in again or signs out, after a question: what you earned stays on your account, and unlocks still waiting are kept for your next sign-in |
 | **SteamGridDB** | the API key as its last four characters (`••••1a2b`), `Key refused`, or `Link`. Its page types a key in, checks it once, and unlinks it; the File Transfer page takes one pasted. Covers the other two do not have |
-| **Videos** | the Video Snaps page, below |
+| **Video Snaps** | the Video Snaps page, below |
 | **Names and Details** | `On` to start: a run also looks up the names, years and synopses of games that have a cover and no name, one ScreenScraper request each. Covers that came by File Transfer or from libretro have none, so on a card full of them that is the long part of a run. `Off` skips it; **A** switches it |
 
 libretro needs no account: covers by file name, and for zipped games by
@@ -596,16 +620,17 @@ it goes back to the cover when the focus moves or a menu opens. Its page:
 A snap is `Roms/<console>/.media/<name>.mp4`, beside its cover, so one put
 there by hand plays too.
 
-**A run goes on behind the menus.** **B** on a Scraper run, or on an
-Achievements download, closes its page and the run goes on: the corner by
-the battery shows an arrow into a tray with a ring that fills as it goes,
-and the two runs can go at the same time, each asking its own servers.
-Open the page again to see it where it is, or how it ended. While you play a
-game the runs wait, and they go on when you leave the game. Powering off
-stops them; the next run starts from what is missing.
+**A download goes on behind the menus.** **B** on a download closes the
+page and it goes on: the corner by the battery shows an arrow into a tray in
+a ring that fills as it goes, and MENU's Downloads row says how far. Open
+the page again to see it where it is, or how it ended. While you play a game
+it waits, and it goes on when you leave the game. When it ends well behind
+the screens, Zyper says so on the shelf (`Downloads done`, `41 covers · 150
+achievement sets`). Powering off stops it; the next one starts from what is
+missing.
 
-**Auto Off waits for a fetch.** While a Scraper run, from MENU or a
-console's Box Art, is fetching covers or video snaps, Auto Off does not count, so a library left to
+**Auto Off waits for a download.** While a download, from MENU or a
+console's menu, is fetching, Auto Off does not count, so a library left to
 scrape overnight is not cut short; the count starts again, whole, when the run
 ends. The power button still powers the device off, and so does the battery
 running flat. System Update's download, PortMaster's install, Storage
@@ -621,7 +646,7 @@ Covers go over USB or Wi-Fi File Transfer too: drag a console's `.media` folder 
 
 Sign in under **MENU > Downloads > Settings > RetroAchievements** with your RetroAchievements account. A game's first start needs Wi-Fi, to identify the game and fetch its achievements. From then on it plays offline too: what you unlock without Wi-Fi shows at once, with its notice and Zyper, and waits on the card. When the handheld is on Wi-Fi again, on the shelf, the waiting unlocks go to your account by themselves, and Zyper says how many went. Each one is dated when you earned it, up to 14 days back, the most RetroAchievements takes.
 
-While some wait, the game's list says how many under its name, and an achievement opened with A says "earned, not sent yet". A game you have never played with Wi-Fi says "not checked yet" on its Achievements row, and A on the row says how it gets its achievements. A game ZyperOS cannot identify says so instead, with or without Wi-Fi: "not for this system" for systems whose games are all discs it has no reader for (Sega CD, Saturn, Dreamcast, 3DO, Neo Geo CD), and "not for this file" for a kind of file it cannot read where another works, like a PlayStation `.ccd` (a `.cue` and `.bin` gets its achievements). Offline unlocks are softcore, the only mode ZyperOS plays.
+While some wait, the game's list says how many under its name, and an achievement opened with A says "earned, not sent yet". A game you have never played with Wi-Fi says "not checked yet" on its Achievements row, and A on the row says how it gets its achievements. A game ZyperOS cannot identify says so instead, with or without Wi-Fi: "not for this system" for systems whose games are all discs it has no reader for (Sega CD, Saturn, 3DO, Neo Geo CD), and "not for this file" for a kind of file it cannot read where another works, like a PlayStation `.ccd` (a `.cue` and `.bin` gets its achievements). Offline unlocks are softcore, the only mode ZyperOS plays.
 
 **MENU > Downloads > Achievements** gets them for every game at once, ahead of time, so a game you first play on a plane has its achievements too.
 
@@ -649,7 +674,7 @@ for a Scraper run.
 
 In a game, **MENU** has an **Achievements** tab, one **L1** from Game: the game's list with your count and points on top, each achievement with its badge, its points (or its count while it moves) and, once you have it, the earned color. **A** opens one, and the list goes round. A game with no list says why there: not signed in, never played with Wi-Fi, on their way, none on RetroAchievements, or a system or kind of file ZyperOS cannot identify. The Game tab's Achievements row keeps the count, and **A** on it turns to the tab.
 
-**Which files.** A PlayStation game is identified by its boot program on the disc, as RetroAchievements does, so a `.cue` and `.bin`, an `.iso`, a `.chd`, a `.pbp` (PSone Classics, its first disc) and an `.m3u` (its first disc) of the same game get the same achievements. A PSP game is identified by its `PARAM.SFO` and `EBOOT.BIN`, from an `.iso`, a `.cso` or a `.chd` alike; a PSP `.pbp` (a PSN game) is identified by the whole file, as RetroAchievements does. ZyperOS reads only the part of the disc it needs, never the whole image, except a PSP `.pbp`, which it reads once, in the background, the first time you play it with Wi-Fi. A CHD made with zstd (`chdman -c cdzs`) can't be read yet; chdman's usual CHD (`createcd`, `createdvd`) can.
+**Which files.** A PlayStation game is identified by its boot program on the disc, as RetroAchievements does, so a `.cue` and `.bin`, an `.iso`, a `.chd`, a `.pbp` (PSone Classics, its first disc) and an `.m3u` (its first disc) of the same game get the same achievements. A PSP game is identified by its `PARAM.SFO` and `EBOOT.BIN`, from an `.iso`, a `.cso` or a `.chd` alike; a PSP `.pbp` (a PSN game) is identified by the whole file, as RetroAchievements does. A Dreamcast game is identified by its `IP.BIN` and the boot program it names, from a `.gdi`, a `.cue`, a `.chd` or a `.cdi` alike. ZyperOS reads only the part of the disc it needs, never the whole image, except a PSP `.pbp`, which it reads once, in the background, the first time you play it with Wi-Fi. A CHD made with zstd (`chdman -c cdzs`) can't be read yet; chdman's usual CHD (`createcd`, `createdvd`) can.
 
 <img src="../res/readme/cheevos-waiting.png" width="400" alt="A game's achievements list, its heading saying '3 / 36 · 2 waiting to send': two achievements earned offline, not sent yet">
 
@@ -798,15 +823,15 @@ The system menu opens on a shelf of games and applies to that system alone:
 | | |
 |---|---|
 | **Games** | how many the shelf found |
-| **Core** | which core runs them; left/right/A choose on a shelf that has two (the Dreamcast's) |
+| **Core** | which core runs them; left/right/A choose on a shelf that has two (the Game Boy's and the Game Boy Color's, mGBA or Gambatte; the Nintendo 64's; the Dreamcast's). The next game started runs on it. A game left on the other core starts fresh and says so: a resume point is one core's own. Its battery save is the same file for both; a cartridge with a clock (Pokémon Gold, Silver and Crystal) keeps the clock apart on Gambatte, in a `.rtc` file beside the save, so after a change of core its clock may need setting again. A game's details (X) say which core it starts on while its shelf has two |
 | **Game Language** | the Nintendo DS shelf's: left/right/A go round `Auto`, English, Español, Français, Deutsch, Italiano, 日本語 and 简体中文, saved the moment it changes. `Auto` is the language of MENU > Language where the DS has it and English where it does not, and the row says which. The next game started speaks it, whatever the language of the `firmware.bin` in `Bios/`. A game whose resume point was left in another language starts fresh in this one, with a note that says so, its battery save kept; a save state you load keeps its own language until Reset |
 | **Timing** | the Game Boy, Game Boy Color, Game Boy Advance, Nintendo DS and Genesis shelves', under Core (and under Game Language on the DS's): `Smooth` to start with, or `Exact`, for this system alone; left/right/A flip it, saved the moment it changes, for the next game started. The screen refreshes 60.08 times a second and these consoles make 59.7 to 59.9 frames. `Smooth` shows one game frame each refresh, so motion is even, and the game runs up to 0.6% faster than the console: a GBA game 3.5 seconds fast in 10 minutes. `Exact` keeps the console's own speed, for timers and rhythm games, and about every 3 seconds one frame stays on the screen for two refreshes |
 | **Sort By** | left/right; `Name`, `Play Time`, `Last Played` or `Recently Added` |
 | **View** | left/right, or A for the list; `Covers`, the row of covers, `Grid`, two rows of covers in cells shaped like the shelf's own art, `List`, the games as a list of names with the focused one's cover beside it, or `Video`, the focused game's video snap on the whole screen with the covers in a band at the foot; after 2 seconds with no press while a snap plays, the band goes down to a thin strip so the video has the screen, and any button brings it back. START on the shelf steps it too, without the menu |
-| **Display** | how the picture fills the screen: Full Screen, Original Shape, Sharp Pixels, Sharp Pixels, Tall, Sharp Pixels, Zoomed, Fill, Edges Cut or Actual Size; left/right cycles it, and A opens the list, with a small picture of your game in the mode under the cursor and a line that says what it does; saved the moment it changes |
+| **Display** | how the picture fills the screen: Full Screen, Original Shape, Square Pixels, Sharp Pixels, Sharp Pixels, Tall, Sharp Pixels, Zoomed, Fill, Edges Cut or Actual Size; left/right cycles it, and A opens the list, with a small picture of your game in the mode under the cursor and a line that says what it does; saved the moment it changes. `Square Pixels` (1.1.0) draws every pixel of the game square, whatever shape its core asks for, as tall as the screen (as wide, for a wide game such as the GBA's): an NES or SNES game at 8:7, a Game Gear game at 10:9, a PC Engine game at 16:15, as RetroArch's 1:1 PAR does with integer scaling off. `Sharp Pixels` draws them square too, at a whole number of times their size, so it can leave a border all round |
 | **Shader** | `Off`, `Sharp-Shimmerless`, `CRT`, `CRT Curved`, `Scanlines` or `LCD Grid`, and on the Game Boy, Game Boy Color and Game Boy Advance `LCD No Backlight` too, for this system alone: left, right or A steps it, saved the moment it changes. The next game started plays with it |
 | **Strength** | right under Shader while it is `CRT`, `CRT Curved`, `Scanlines`, `LCD Grid` or `LCD No Backlight`: `10%` to `100%`, for this system alone. Left and right step it 10% at a time and stop at the ends |
-| **Box Art** | fetch what this system is missing, and nothing else |
+| **Downloads** | MENU > Downloads for this system alone (below): what it is missing, and **Download** gets it |
 | **Rescan Folder** | read the card again, for ROMs that arrived since boot |
 
 On Favorites and Recents the menu is only Games, Random Game, Sort By and View; Recents has
@@ -910,7 +935,9 @@ screen pixel inside one of the game's pixels is that pixel exactly, and only
 one that falls across two of them mixes the two, by how much of it each
 covers. The picture stays as sharp as it can at that size and a scroll stays
 steady. At a whole number of times (Sharp Pixels, Actual Size) the two are the
-same.
+same. Square Pixels is seldom a whole number of times (a 224-line NES picture on
+the Brick's 768 lines is about 3.4 times), so it looks its best with
+Sharp-Shimmerless.
 
 The other four draw an old screen. `CRT` is Timothy Lottes's CRT shader: a
 dark line between the picture's lines, and one of each three columns of the
@@ -1210,7 +1237,7 @@ names up. Close the screen and the phone stays connected and charging;
 tethering off, and the screen says the cable is unplugged (behind the shelf,
 it closes 10 seconds later). While USB tethering is on, the handheld also
 has the phone's internet: its clock sets itself from it, and **MENU >
-Downloads**, Cover and Video, Box Art, System Update
+Downloads**, Cover and Video, System Update
 and PortMaster's install work over it as over Wi-Fi. Close File Transfer
 with **B** and the phone stays connected for them. Over the phone, which may
 be on mobile data, nothing large starts by itself: a System Update download
@@ -1733,12 +1760,23 @@ playing.
 **Shuffle All** plays every song on the card in a random order.
 
 **Player Look** changes how Now Playing shows a song: **Cover**, the album's
-cover large, as it always was; **Classic**, a big clock over bars that move
-with the music, and the album's tracks beside it; **Spectrum**, the music as
-32 bars across the screen under the cover. A on it opens the list, with the
+cover large, as it always was; **Cassette**, a tape whose reels turn with the
+song through its window, the next song rewinding it, the label in the
+cover's color; **Vinyl**, a record in the cover's color turning at 33⅓ with
+the cover as its label, its rings the album's songs and the tonearm's needle
+on the one playing; **Classic**, a big clock over bars that move with the music,
+and the album's tracks beside it; **Spectrum**, the music as 32 bars across
+the screen under the cover. A on it opens the list, with the
 look under the cursor playing in a small screen beside it; Left and Right
-change it straight away. Paused, the bars come to rest. Books and videos
-keep their own screen.
+change it straight away. START on a song's Now Playing changes it too, one
+look at a time. Paused, the bars come to rest. Books and videos keep their
+own screen.
+
+**View** shows the shelf as **Covers**, the covers in a row as it always
+was, as a **Grid** of covers, or as a **List** of names with the cover beside
+it, the way a game shelf's View does. START on the shelf turns between them,
+Covers to Grid to List. On All, each album, book or video is marked with
+what it is in every view.
 
 **Sort By** puts the shelf in order by artist, the way the folders are, or by
 album title, two of the same title going in their artists' order. The jump

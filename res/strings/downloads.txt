@@ -86,9 +86,800 @@ it.other = %d mancanti
 note = The Videos and Names and Details rows' value when no ScreenScraper account is linked: both come only from ScreenScraper. A value, begun with a capital.
 en = Needs ScreenScraper
 zh-Hans = 需要 ScreenScraper
-es = Requiere ScreenScraper
+es = Falta ScreenScraper
 pt-BR = Requer ScreenScraper
 fr = ScreenScraper requis
-de = Braucht ScreenScraper
+de = ScreenScraper fehlt
 ja = ScreenScraper が必要
 it = Richiede ScreenScraper
+
+[downloads.counting]
+note = The page's second line and its rows' values while the page counts what the card has, a system at a time, before it can say what is missing (the page draws at once and fills in). A value, begun with a capital.
+en = Counting…
+zh-Hans = 正在统计…
+es = Contando…
+pt-BR = Contando…
+fr = Comptage…
+de = Zählt…
+ja = 数えています…
+it = Conteggio…
+
+[downloads.everything_here]
+note = The page's second line when nothing is missing: every kind that is on is on the card. Also a game's second line in a system's games list when it lacks nothing.
+en = Everything is here
+zh-Hans = 全部都在
+es = Todo está aquí
+pt-BR = Está tudo aqui
+fr = Tout est là
+de = Alles ist da
+ja = すべてそろっています
+it = C'è tutto
+
+[downloads.to_look_up_n]
+note = The Names and Details row's value: how many games' names, years and synopses a download would ask ScreenScraper for. %d is the count. A value, begun with a capital. Short: it shares the row.
+en.one = %d to look up
+en.other = %d to look up
+zh-Hans = 待查询 %d
+es.one = %d por buscar
+es.other = %d por buscar
+pt-BR.one = %d a buscar
+pt-BR.other = %d a buscar
+fr.one = %d à rechercher
+fr.other = %d à rechercher
+de.one = %d zu suchen
+de.other = %d zu suchen
+ja = 照会予定 %d
+it.one = %d da cercare
+it.other = %d da cercare
+
+[downloads.to_download_n]
+note = The Achievements row's value: how many games' achievement sets a download would get. %d is the count. A value, begun with a capital. Short: it shares the row.
+en.one = %d to download
+en.other = %d to download
+zh-Hans = 待下载 %d
+es.one = %d por descargar
+es.other = %d por descargar
+pt-BR.one = %d a baixar
+pt-BR.other = %d a baixar
+fr.one = %d à télécharger
+fr.other = %d à télécharger
+de.one = %d zu laden
+de.other = %d zu laden
+ja = 取得予定 %d
+it.one = %d da scaricare
+it.other = %d da scaricare
+
+[downloads.sign_in_first]
+note = The Achievements row's value when nobody is signed in to RetroAchievements: A on the row opens the Achievements page, whose A signs in. A value, begun with a capital.
+en = Sign in first
+zh-Hans = 请先登录
+es = Inicia sesión primero
+pt-BR = Entre primeiro
+fr = Connectez-vous d'abord
+de = Erst anmelden
+ja = 先にサインイン
+it = Prima accedi
+
+[downloads.offline_now]
+note = The line over the keys when nothing is left to download, and at the end of a download that went well: covers, videos, names and achievements are on the card and need no network.
+en = It all works offline now
+zh-Hans = 现在全部可离线使用
+es = Ya todo funciona sin conexión
+pt-BR = Agora tudo funciona offline
+fr = Tout marche hors ligne maintenant
+de = Jetzt geht alles offline
+ja = これでオフラインでも使えます
+it = Ora funziona tutto offline
+
+[downloads.on_card]
+note = A fact in the line over the keys: how much room a kind takes on the card. %s is a size ("150 MB").
+en = %s on the card
+zh-Hans = 卡上 %s
+es = %s en la tarjeta
+pt-BR = %s no cartão
+fr = %s sur la carte
+de = %s auf der Karte
+ja = カードに %s
+it = %s sulla scheda
+
+[downloads.libretro_first]
+note = A fact after a dot in the line over the keys, on Covers: covers are asked of libretro's catalog first, then ScreenScraper and SteamGridDB. libretro is a name, never translated or capitalized.
+en = libretro first
+zh-Hans = 先查 libretro
+es = primero libretro
+pt-BR = libretro primeiro
+fr = libretro d'abord
+de = zuerst libretro
+ja = libretro を優先
+it = prima libretro
+
+[downloads.for_on_n]
+note = A fact in the line over the keys, on Videos: whose videos a download gets and on how many systems. %s is Videos for's choice (library.favorites, scraper.all_games, scraper.played: "Favorites"), %d the systems.
+en.one = %s on %d system
+en.other = %s on %d systems
+zh-Hans = %s · %d 个系统
+es.one = %s en %d sistema
+es.other = %s en %d sistemas
+pt-BR.one = %s em %d sistema
+pt-BR.other = %s em %d sistemas
+fr.one = %s sur %d système
+fr.other = %s sur %d systèmes
+de.one = %s auf %d System
+de.other = %s auf %d Systemen
+ja = %s・%d 機種
+it.one = %s su %d sistema
+it.other = %s su %d sistemi
+
+[downloads.one_request]
+note = The line over the keys on Names and Details: each game's names cost one ScreenScraper request, of the account's requests for the day.
+en = One ScreenScraper request a game
+zh-Hans = 每个游戏一次 ScreenScraper 查询
+es = Una consulta a ScreenScraper por juego
+pt-BR = Uma consulta ao ScreenScraper por jogo
+fr = Une requête ScreenScraper par jeu
+de = Eine ScreenScraper-Anfrage pro Spiel
+ja = 1 ゲームにつき ScreenScraper へ 1 回
+it = Una richiesta a ScreenScraper per gioco
+
+[downloads.from_ra]
+note = A fact in the line over the keys, on Achievements: where the sets come from.
+en = From RetroAchievements
+zh-Hans = 来自 RetroAchievements
+es = De RetroAchievements
+pt-BR = Do RetroAchievements
+fr = De RetroAchievements
+de = Von RetroAchievements
+ja = RetroAchievements から
+it = Da RetroAchievements
+
+[downloads.no_net_adapter]
+note = The line over the keys with no network, on a handheld with no Wi-Fi inside (the Pixel 2): its internet comes from a USB Wi-Fi adapter or a phone's USB tethering.
+en = A Wi-Fi adapter or a phone by USB works too.
+zh-Hans = Wi-Fi 适配器或用 USB 连接的手机也可以。
+es = También sirve un adaptador Wi-Fi o un celular USB.
+pt-BR = Adaptador Wi-Fi ou celular por USB também serve.
+fr = Un adaptateur Wi-Fi ou un mobile en USB suffit.
+de = Ein WLAN-Adapter oder Handy per USB geht auch.
+ja = Wi-Fi アダプターや USB でつないだスマホでも使えます。
+it = Basta un adattatore Wi-Fi o un telefono via USB.
+
+[downloads.no_net_builtin]
+note = The line over the keys with no network, on a handheld with Wi-Fi inside (the Brick): where to connect. MENU is the button's name; Connections is MENU's tab (sysmenu.tab_connections), Wi-Fi its row.
+en = Connect in MENU > Connections > Wi-Fi.
+zh-Hans = 请在 MENU > 连接 > Wi-Fi 中连接。
+es = Conéctate en MENU > Conexiones > Wi-Fi.
+pt-BR = Conecte em MENU > Conexões > Wi-Fi.
+fr = Connectez-vous dans MENU > Connexions > Wi-Fi.
+de = Verbinde dich unter MENU > Verbindungen > WLAN.
+ja = MENU > 接続 > Wi-Fi で接続してください。
+it = Connettiti in MENU > Connessioni > Wi-Fi.
+
+[downloads.key_open]
+note = The hint by A on a kind's row, a game's row, and Download while a download goes on: it opens that page.
+en = Open
+zh-Hans = 打开
+es = Abrir
+pt-BR = Abrir
+fr = Ouvrir
+de = Öffnen
+ja = 開く
+it = Apri
+
+[downloads.key_on_off]
+note = The hint by LEFT and RIGHT on a kind's row (in or out of Download), and by A on a cell of Systems (this kind on this system). Short: a key's word.
+en = On/Off
+zh-Hans = 开/关
+es = Sí/No
+pt-BR = Liga/Desliga
+fr = Oui/Non
+de = An/Aus
+ja = オン/オフ
+it = Sì/No
+
+[downloads.key_systems]
+note = The hint by Y: the table of every system and kind. Also that page's heading.
+en = Systems
+zh-Hans = 系统
+es = Sistemas
+pt-BR = Sistemas
+fr = Systèmes
+de = Systeme
+ja = システム
+it = Sistemi
+
+[downloads.key_back]
+note = The hint by B on a page opened from another page of Downloads: back to it.
+en = Back
+zh-Hans = 返回
+es = Volver
+pt-BR = Voltar
+fr = Retour
+de = Zurück
+ja = 戻る
+it = Indietro
+
+[downloads.key_delete]
+note = The hint by X on a cell of Systems whose files can be deleted, and the yes of the questions that delete them.
+en = Delete
+zh-Hans = 删除
+es = Borrar
+pt-BR = Apagar
+fr = Supprimer
+de = Löschen
+ja = 削除
+it = Elimina
+
+[downloads.key_games]
+note = The hint by Y on a cell of Systems: that system's games, each with what it has.
+en = Games
+zh-Hans = 游戏
+es = Juegos
+pt-BR = Jogos
+fr = Jeux
+de = Spiele
+ja = ゲーム
+it = Giochi
+
+[downloads.tile_on_card]
+note = A kind page's left tile, over the count the card has (covers, video snaps), and Settings' row of each kind's room (its page's heading). Title Case in English, sentence case elsewhere.
+en = On the Card
+zh-Hans = 卡上已有
+es = En la tarjeta
+pt-BR = No cartão
+fr = Sur la carte
+de = Auf der Karte
+ja = カードにあり
+it = Sulla scheda
+
+[downloads.tile_missing]
+note = The Covers page's right tile, over how many games have no cover.
+en = Missing
+zh-Hans = 缺少
+es = Faltan
+pt-BR = Faltando
+fr = Manquantes
+de = Fehlen
+ja = 不足
+it = Mancanti
+
+[downloads.tile_named]
+note = The Names and Details page's left tile, over how many games have their names and details.
+en = Named
+zh-Hans = 已有名称
+es = Con nombre
+pt-BR = Com nome
+fr = Nommés
+de = Mit Namen
+ja = 名前あり
+it = Con nome
+
+[downloads.tile_to_look_up]
+note = The Names and Details page's right tile, over how many games a download would look up.
+en = To Look Up
+zh-Hans = 待查询
+es = Por buscar
+pt-BR = A buscar
+fr = À rechercher
+de = Zu suchen
+ja = 照会予定
+it = Da cercare
+
+[downloads.none_yet]
+note = A tile's quiet line under its count when the card has none of the kind yet. A fact, lower case as radl.never_checked.
+en = none yet
+zh-Hans = 还没有
+es = ninguno aún
+pt-BR = nenhum ainda
+fr = aucun pour l'instant
+de = noch keine
+ja = まだありません
+it = nessuno per ora
+
+[downloads.all_off]
+note = A tile's quiet line when every system's switch of the kind is off. A fact, lower case.
+en = all off
+zh-Hans = 全部关闭
+es = todo apagado
+pt-BR = tudo desligado
+fr = tout désactivé
+de = alles aus
+ja = すべてオフ
+it = tutto spento
+
+[downloads.complete_low]
+note = A tile's quiet line when nothing of the kind is missing. A fact, lower case.
+en = complete
+zh-Hans = 已完整
+es = completo
+pt-BR = completo
+fr = complet
+de = vollständig
+ja = そろっています
+it = completo
+
+[downloads.names_requests]
+note = The line over the keys on Names and Details: how many names a download asks for, each one ScreenScraper request. %d is the count.
+en.one = %d name · one ScreenScraper request
+en.other = %d names · one ScreenScraper request each
+zh-Hans = %d 个名称 · 每个一次 ScreenScraper 查询
+es.one = %d nombre · una consulta a ScreenScraper
+es.other = %d nombres · una consulta a ScreenScraper cada uno
+pt-BR.one = %d nome · uma consulta ao ScreenScraper
+pt-BR.other = %d nomes · uma consulta ao ScreenScraper cada
+fr.one = %d nom · une requête ScreenScraper
+fr.other = %d noms · une requête ScreenScraper chacun
+de.one = %d Name · eine ScreenScraper-Anfrage
+de.other = %d Namen · je eine ScreenScraper-Anfrage
+ja = %d 件の名前・各 ScreenScraper へ 1 回
+it.one = %d nome · una richiesta a ScreenScraper
+it.other = %d nomi · una richiesta a ScreenScraper ciascuno
+
+[downloads.n_games]
+note = A system's games page's second line: how many games it has. %d is the count.
+en.one = %d game
+en.other = %d games
+zh-Hans = %d 个游戏
+es.one = %d juego
+es.other = %d juegos
+pt-BR.one = %d jogo
+pt-BR.other = %d jogos
+fr.one = %d jeu
+fr.other = %d jeux
+de.one = %d Spiel
+de.other = %d Spiele
+ja = %d 本のゲーム
+it.one = %d gioco
+it.other = %d giochi
+
+[downloads.has_cover]
+note = What a game has, in a list with dots between under a system's games ("Cover · Video · Names"), and a game's panel's row. The game's box art.
+en = Cover
+zh-Hans = 封面
+es = Carátula
+pt-BR = Capa
+fr = Jaquette
+de = Cover
+ja = パッケージ画像
+it = Copertina
+
+[downloads.has_video]
+note = What a game has, in the list under a system's games, and a game's panel's row: its video snap.
+en = Video
+zh-Hans = 视频
+es = Video
+pt-BR = Vídeo
+fr = Vidéo
+de = Video
+ja = 動画
+it = Video
+
+[downloads.has_names]
+note = What a game has, in the list under a system's games: its names and details.
+en = Names
+zh-Hans = 名称
+es = Nombres
+pt-BR = Nomes
+fr = Noms
+de = Namen
+ja = 名前
+it = Nomi
+
+[downloads.has_achievements]
+note = What a game has, in the list under a system's games: its achievement set, ready offline.
+en = Achievements
+zh-Hans = 成就
+es = Logros
+pt-BR = Conquistas
+fr = Succès
+de = Erfolge
+ja = 実績
+it = Obiettivi
+
+[downloads.w_cover]
+note = One of what a game lacks, in "Missing: cover, names" (downloads.missing_list). Lower case where the language writes it so mid-sentence.
+en = cover
+zh-Hans = 封面
+es = carátula
+pt-BR = capa
+fr = jaquette
+de = Cover
+ja = パッケージ画像
+it = copertina
+
+[downloads.w_video]
+note = One of what a game lacks, in "Missing: video" (downloads.missing_list).
+en = video
+zh-Hans = 视频
+es = video
+pt-BR = vídeo
+fr = vidéo
+de = Video
+ja = 動画
+it = video
+
+[downloads.w_names]
+note = One of what a game lacks, in "Missing: names" (downloads.missing_list).
+en = names
+zh-Hans = 名称
+es = nombres
+pt-BR = nomes
+fr = noms
+de = Namen
+ja = 名前
+it = nomi
+
+[downloads.w_achievements]
+note = One of what a game lacks, in "Missing: achievements" (downloads.missing_list).
+en = achievements
+zh-Hans = 成就
+es = logros
+pt-BR = conquistas
+fr = succès
+de = Erfolge
+ja = 実績
+it = obiettivi
+
+[downloads.missing_list]
+note = Under a system's games: what the game under the cursor lacks. %s is a list with commas ("cover, names").
+en = Missing: %s
+zh-Hans = 缺少：%s
+es = Falta: %s
+pt-BR = Faltando: %s
+fr = Manque : %s
+de = Fehlt: %s
+ja = 不足：%s
+it = Manca: %s
+
+[downloads.nothing_yet]
+note = Under a system's games: the game under the cursor has nothing on the card yet.
+en = Nothing on the card yet
+zh-Hans = 卡上还什么都没有
+es = Aún no hay nada en la tarjeta
+pt-BR = Ainda não há nada no cartão
+fr = Rien sur la carte pour l'instant
+de = Noch nichts auf der Karte
+ja = まだカードに何もありません
+it = Ancora niente sulla scheda
+
+[downloads.no_achievements]
+note = Under a system's games: RetroAchievements has no set for the game under the cursor.
+en = No achievements exist for it
+zh-Hans = 这个游戏没有成就
+es = No tiene logros
+pt-BR = Não tem conquistas
+fr = Il n'a pas de succès
+de = Es hat keine Erfolge
+ja = 実績はありません
+it = Non ha obiettivi
+
+[downloads.missing]
+note = A game's panel's value: the card has no cover, video or names for it. A value, begun with a capital.
+en = Missing
+zh-Hans = 缺少
+es = Falta
+pt-BR = Faltando
+fr = Manquant
+de = Fehlt
+ja = 不足
+it = Manca
+
+[downloads.none]
+note = A game's panel's value: RetroAchievements has no set for it. A value, begun with a capital.
+en = None
+zh-Hans = 无
+es = Ninguno
+pt-BR = Nenhum
+fr = Aucun
+de = Keine
+ja = なし
+it = Nessuno
+
+[downloads.not_checked]
+note = A game's panel's value on Achievements: nobody has asked RetroAchievements for its set yet. A value, begun with a capital.
+en = Not checked
+zh-Hans = 未检查
+es = Sin revisar
+pt-BR = Não verificado
+fr = Pas vérifié
+de = Nicht geprüft
+ja = 未確認
+it = Non controllato
+
+[downloads.on_card_short]
+note = A game's panel's value: its cover, video or names are on the card. A value, begun with a capital.
+en = On the card
+zh-Hans = 在卡上
+es = En la tarjeta
+pt-BR = No cartão
+fr = Sur la carte
+de = Auf der Karte
+ja = カードにあり
+it = Sulla scheda
+
+[downloads.signed_in_as]
+note = RetroAchievements' panel, its first line, not a button: who is signed in. %s is the account's name.
+en = Signed in as %s
+zh-Hans = 已登录：%s
+es = Sesión iniciada como %s
+pt-BR = Conectado como %s
+fr = Connecté en tant que %s
+de = Angemeldet als %s
+ja = %s でサインイン中
+it = Accesso come %s
+
+[downloads.sign_in_again]
+note = RetroAchievements' panel's row: sign in again, the same or another account.
+en = Sign In Again
+zh-Hans = 重新登录
+es = Volver a iniciar sesión
+pt-BR = Entrar de novo
+fr = Se reconnecter
+de = Neu anmelden
+ja = もう一度サインイン
+it = Accedi di nuovo
+
+[downloads.sign_out]
+note = RetroAchievements' panel's row, and the yes of its question: the account and its token go from the handheld.
+en = Sign Out
+zh-Hans = 退出登录
+es = Cerrar sesión
+pt-BR = Sair
+fr = Se déconnecter
+de = Abmelden
+ja = サインアウト
+it = Esci
+
+[downloads.sign_out_ask]
+note = The question before Sign Out.
+en = Sign out of RetroAchievements?
+zh-Hans = 要退出 RetroAchievements 吗？
+es = ¿Cerrar sesión en RetroAchievements?
+pt-BR = Sair do RetroAchievements?
+fr = Se déconnecter de RetroAchievements ?
+de = Von RetroAchievements abmelden?
+ja = RetroAchievements からサインアウトしますか？
+it = Uscire da RetroAchievements?
+
+[downloads.sign_out_body]
+note = Under the question before Sign Out: nothing earned is lost; unlocks earned offline and not sent yet wait for the next sign-in.
+en = Your achievements stay on your account. Unlocks still waiting stay for your next sign-in.
+zh-Hans = 你的成就会保留在账号中。尚未发送的解锁会等到你下次登录。
+es = Tus logros se quedan en tu cuenta. Los desbloqueos pendientes esperan tu próximo inicio de sesión.
+pt-BR = Suas conquistas ficam na sua conta. Os desbloqueios pendentes esperam o próximo login.
+fr = Vos succès restent sur votre compte. Les déblocages en attente attendent votre prochaine connexion.
+de = Deine Erfolge bleiben in deinem Konto. Wartende Freischaltungen warten auf deine nächste Anmeldung.
+ja = 実績はアカウントに残ります。送信待ちの解除は次のサインインまで待ちます。
+it = I tuoi obiettivi restano sul tuo account. Gli sblocchi in attesa aspettano il prossimo accesso.
+
+[downloads.under_1mb]
+note = On the Card's value for Names and Details: names and synopses take less than a megabyte. A value, begun with a capital.
+en = Under 1 MB
+zh-Hans = 不到 1 MB
+es = Menos de 1 MB
+pt-BR = Menos de 1 MB
+fr = Moins de 1 Mo
+de = Unter 1 MB
+ja = 1 MB 未満
+it = Meno di 1 MB
+
+[downloads.storage_too]
+note = On the Card's note under its rows: MENU > Storage (storage.title) counts the same files.
+en = Storage counts them too.
+zh-Hans = 存储空间也会统计它们。
+es = También en Almacenamiento.
+pt-BR = O Armazenamento também conta.
+fr = Le stockage les compte aussi.
+de = Speicher zählt sie auch.
+ja = ストレージでも数えています。
+it = Anche Archiviazione li conta.
+
+[downloads.cover_where]
+note = A message on A on On the Card's Covers: covers are not deleted all at once; one cover is changed on its game's Cover and Video page (media.row).
+en = A cover goes on its game's Cover and Video page.
+zh-Hans = 封面在游戏的“封面和视频”页更换。
+es = Una carátula se cambia en la página Carátula y video del juego.
+pt-BR = Uma capa se troca na página Capa e vídeo do jogo.
+fr = Une jaquette se change sur la page Jaquette et vidéo du jeu.
+de = Ein Cover änderst du auf der Seite „Cover und Video“ des Spiels.
+ja = パッケージ画像はゲームの「パッケージ画像と動画」で変えます。
+it = Una copertina si cambia nella pagina Copertina e video del gioco.
+
+[downloads.names_stay]
+note = A message on A on On the Card's Names and Details: names are not deleted.
+en = Names stay with the games.
+zh-Hans = 名称会保留在游戏上。
+es = Los nombres se quedan con los juegos.
+pt-BR = Os nomes ficam com os jogos.
+fr = Les noms restent avec les jeux.
+de = Die Namen bleiben bei den Spielen.
+ja = 名前はゲームに残ります。
+it = I nomi restano con i giochi.
+
+[downloads.delete_videos_ask]
+note = The question on A on On the Card's Videos.
+en = Delete every video snap?
+zh-Hans = 要删除所有视频预览吗？
+es = ¿Borrar todas las vistas previas en video?
+pt-BR = Apagar todas as prévias em vídeo?
+fr = Supprimer tous les aperçus vidéo ?
+de = Alle Videovorschauen löschen?
+ja = すべての動画プレビューを削除しますか？
+it = Eliminare tutte le anteprime video?
+
+[downloads.delete_videos_body]
+note = Under a question that deletes video snaps: %s is the room that comes back ("525 MB").
+en = %s comes back. A download can get them again.
+zh-Hans = 可腾出 %s。下载可以再次获取它们。
+es = Se liberan %s. Una descarga puede volver a traerlos.
+pt-BR = Libera %s. Um download pode baixá-los de novo.
+fr = %s libérés. Un téléchargement peut les récupérer.
+de = %s werden frei. Ein Download holt sie wieder.
+ja = %s 空きます。ダウンロードでまた取得できます。
+it = Si liberano %s. Un download può riprenderli.
+
+[downloads.delete_sys_videos_ask]
+note = The question on X on a Videos cell of Systems: %s is the system's name ("SNES").
+en = Delete the %s video snaps?
+zh-Hans = 要删除 %s 的视频预览吗？
+es = ¿Borrar las vistas previas en video de %s?
+pt-BR = Apagar as prévias em vídeo de %s?
+fr = Supprimer les aperçus vidéo de %s ?
+de = Die Videovorschauen von %s löschen?
+ja = %s の動画プレビューを削除しますか？
+it = Eliminare le anteprime video di %s?
+
+[downloads.delete_sets_ask]
+note = The question on A on On the Card's Achievements: every downloaded achievement set.
+en = Delete every achievement set?
+zh-Hans = 要删除所有成就集吗？
+es = ¿Borrar todos los sets de logros?
+pt-BR = Apagar todos os conjuntos de conquistas?
+fr = Supprimer toutes les listes de succès ?
+de = Alle Erfolgslisten löschen?
+ja = すべての実績セットを削除しますか？
+it = Eliminare tutti i set di obiettivi?
+
+[downloads.delete_sys_sets_ask]
+note = The question on X on an Achievements cell of Systems: %s is the system's name.
+en = Delete the %s achievement sets?
+zh-Hans = 要删除 %s 的成就集吗？
+es = ¿Borrar los sets de logros de %s?
+pt-BR = Apagar os conjuntos de conquistas de %s?
+fr = Supprimer les listes de succès de %s ?
+de = Die Erfolgslisten von %s löschen?
+ja = %s の実績セットを削除しますか？
+it = Eliminare i set di obiettivi di %s?
+
+[downloads.delete_sets_body]
+note = Under a question that deletes achievement sets: %s is the room that comes back. What was earned stays on the RetroAchievements account.
+en = %s comes back. What you earned stays on your account.
+zh-Hans = 可腾出 %s。你获得的成就会保留在账号中。
+es = Se liberan %s. Lo que ganaste se queda en tu cuenta.
+pt-BR = Libera %s. O que você ganhou fica na sua conta.
+fr = %s libérés. Ce que vous avez gagné reste sur votre compte.
+de = %s werden frei. Was du erreicht hast, bleibt in deinem Konto.
+ja = %s 空きます。獲得した実績はアカウントに残ります。
+it = Si liberano %s. Ciò che hai ottenuto resta sul tuo account.
+
+[downloads.you_stopped]
+note = The second line of a download's end page after Y stopped it.
+en = You stopped it.
+zh-Hans = 你停止了下载。
+es = La detuviste.
+pt-BR = Você parou.
+fr = Vous l'avez arrêté.
+de = Du hast ihn gestoppt.
+ja = 停止しました。
+it = L'hai fermato.
+
+[downloads.next_from_missing]
+note = The line over the keys at the end of a download that stopped: nothing is lost, the next one starts from what is still missing.
+en = The next download starts from what is missing
+zh-Hans = 下次下载会从缺少的部分开始
+es = La próxima descarga empieza por lo que falta
+pt-BR = O próximo download começa pelo que falta
+fr = Le prochain téléchargement reprend ce qui manque
+de = Der nächste Download beginnt mit dem, was fehlt
+ja = 次のダウンロードは足りない分から始まります
+it = Il prossimo download parte da ciò che manca
+
+[downloads.done_news]
+note = Zyper's bubble on the shelf, its first line, when a download that went on behind the screens has ended well.
+en = Downloads done
+zh-Hans = 下载完成
+es = Descargas listas
+pt-BR = Downloads concluídos
+fr = Téléchargements terminés
+de = Downloads fertig
+ja = ダウンロード完了
+it = Download completati
+
+[downloads.n_covers]
+note = Zyper's bubble's second line after a download: covers that came. %d is the count; two such facts with a dot between.
+en.one = %d cover
+en.other = %d covers
+zh-Hans = %d 个封面
+es.one = %d carátula
+es.other = %d carátulas
+pt-BR.one = %d capa
+pt-BR.other = %d capas
+fr.one = %d jaquette
+fr.other = %d jaquettes
+de.one = %d Cover
+de.other = %d Cover
+ja = パッケージ画像 %d 件
+it.one = %d copertina
+it.other = %d copertine
+
+[downloads.n_sets]
+note = Zyper's bubble's second line after a download: achievement sets that came. %d is the count.
+en.one = %d achievement set
+en.other = %d achievement sets
+zh-Hans = %d 个成就集
+es.one = %d set de logros
+es.other = %d sets de logros
+pt-BR.one = %d conjunto de conquistas
+pt-BR.other = %d conjuntos de conquistas
+fr.one = %d liste de succès
+fr.other = %d listes de succès
+de.one = %d Erfolgsliste
+de.other = %d Erfolgslisten
+ja = 実績セット %d 件
+it.one = %d set di obiettivi
+it.other = %d set di obiettivi
+
+[downloads.n_videos]
+note = Zyper's bubble's second line after a download: video snaps that came. %d is the count.
+en.one = %d video
+en.other = %d videos
+zh-Hans = %d 个视频
+es.one = %d video
+es.other = %d videos
+pt-BR.one = %d vídeo
+pt-BR.other = %d vídeos
+fr.one = %d vidéo
+fr.other = %d vidéos
+de.one = %d Video
+de.other = %d Videos
+ja = 動画 %d 件
+it.one = %d video
+it.other = %d video
+
+[downloads.n_names]
+note = Zyper's bubble's second line after a download: games whose names and details came. %d is the count.
+en.one = %d name
+en.other = %d names
+zh-Hans = %d 个名称
+es.one = %d nombre
+es.other = %d nombres
+pt-BR.one = %d nome
+pt-BR.other = %d nomes
+fr.one = %d nom
+fr.other = %d noms
+de.one = %d Name
+de.other = %d Namen
+ja = 名前 %d 件
+it.one = %d nome
+it.other = %d nomi
+
+[downloads.get_missing]
+note = A game's panel's last row: get everything the game lacks, its names, cover, video and achievements, one after another, in the panel.
+en = Get What's Missing
+zh-Hans = 获取缺少的内容
+es = Traer lo que falta
+pt-BR = Baixar o que falta
+fr = Récupérer ce qui manque
+de = Fehlendes holen
+ja = 足りないものを取得
+it = Prendi ciò che manca
+
+[downloads.getting]
+note = A game's panel's value while its file is on the way. A value, begun with a capital.
+en = Getting…
+zh-Hans = 正在获取…
+es = Trayendo…
+pt-BR = Baixando…
+fr = Récupération…
+de = Wird geholt…
+ja = 取得中…
+it = Download…

@@ -48,6 +48,7 @@ extern int shot_charging;
 extern int shot_charging_kind;
 extern int shot_cheevos;
 extern int shot_cheevos_sel;
+extern int shot_cheevo_card;
 extern int shot_ingame;
 extern float shot_sysmove;
 extern float shot_gamemove;
@@ -65,6 +66,8 @@ extern int shot_delete_ask;
 extern int shot_collect_page, shot_collect_delete;
 /* --collect-said K: one of Collections' messages (0 to 2) */
 extern int shot_collect_said;
+/* --zip-said: the message for a zip Diatom cannot unpack (src/gamefile.h) */
+extern int shot_zip_said;
 extern int shot_gm_said;
 extern int shot_delete_now;
 extern int shot_controls;

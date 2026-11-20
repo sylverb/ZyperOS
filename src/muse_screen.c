@@ -4,7 +4,9 @@
 #include "aout_route.h"
 #include "app.h"
 #include "hareart.h"
+#include "home.h"
 #include "i18n.h"
+#include "covercolor.h"
 #include "museart.h"
 #include "musec.h"
 #include "net.h"
@@ -173,8 +175,9 @@ void cover_shape(SDL_Surface **ps)
 	}
 }
 
-/* A cover as Now Playing draws it. NULL when the file will not decode. */
-static SDL_Texture *load_cover(SDL_Renderer *r, const char *path)
+/* A cover as Now Playing draws it, and its main color into `rgb` (the
+ * Player Looks', src/covercolor.h). NULL when the file will not decode. */
+static SDL_Texture *load_cover(SDL_Renderer *r, const char *path, unsigned *rgb)
 {
 	SDL_Surface *raw = IMG_Load(path), *s;
 	SDL_Texture *t;
@@ -184,6 +187,10 @@ static SDL_Texture *load_cover(SDL_Renderer *r, const char *path)
 	SDL_FreeSurface(raw);
 	if (!s) return NULL;
 	cover_shape(&s);
+	if (rgb && SDL_LockSurface(s) == 0) {
+		*rgb = cover_main_rgb(s->pixels, s->w, s->h, s->pitch);
+		SDL_UnlockSurface(s);
+	}
 	t = SDL_CreateTextureFromSurface(r, s);
 	SDL_FreeSurface(s);
 	if (t) SDL_SetTextureBlendMode(t, SDL_BLENDMODE_BLEND);
@@ -196,6 +203,7 @@ void np_forget(void)
 	g_np.tex = NULL;
 	g_np.album = -1;
 	g_np.done = false;
+	g_np.rgb = CFG_NO_COLOR;
 }
 
 /* Bring the Now Playing cover up to date with album `al`, which may be -1 for
@@ -210,7 +218,7 @@ void np_cover(app *a, int al)
 	if (cover_file(al, path, sizeof path)) {
 		unsigned t0 = plat_now_ms();
 
-		g_np.tex = load_cover(a->r, path);
+		g_np.tex = load_cover(a->r, path, &g_np.rgb);
 		fprintf(stderr, "muse: cover for %s in %u ms\n", g_muse.albums[al].name,
 		        plat_now_ms() - t0);
 		/* There, and not a picture: the card, as for an album with none. */
@@ -230,6 +238,20 @@ void np_cover(app *a, int al)
  * few milliseconds later. Asked for while the slot is empty or holds the card
  * of the theme that was, which it shows until its replacement lands, as a
  * game's slot does. */
+/* An album's card where it has no cover, or one that will not decode: a
+ * game's card (src/cardart.h), square - its ground, MP4's art faint in its
+ * corner, and its name as every game's is - so a shelf of albums with no
+ * art reads as a games shelf of them does (DESIGN.md 11.67) */
+void muse_album_card_order(app *a, int s, int i, unsigned rgb, ui_card_order *card)
+{
+	const char *tag = a->sys.systems[s].tag, *key = home_art_key(tag);
+	char art[UI_CARD_PATH] = "";
+
+	ui_card_order_set(card, a->view[s].list.items[i].title, rgb, true);
+	if (key && key[0]) snprintf(art, sizeof art, "%s/system-icons/%s-still.png", P_ROOT, key);
+	ui_card_order_game(card, tag, art, NULL);
+}
+
 void muse_card_want(app *a, int s, int i)
 {
 	sysview *v = &a->view[s];
@@ -243,12 +265,11 @@ void muse_card_want(app *a, int s, int i)
 	if (cover_file(al, path, sizeof path)) {
 		/* A cover that will not decode is the card in the shelf's color,
 		 * as shelf_put has always made it */
-		ui_card_order_set(&card, v->list.items[i].title,
-		                  a->sys.systems[shelf_owner(a, s, i)].accent, true);
+		muse_album_card_order(a, s, i, a->sys.systems[shelf_owner(a, s, i)].accent, &card);
 		if (texload_want_or_draw(s, i, path, NULL, &card)) return;
 		/* No worker - a shot - so here, as game_get_tex does without one. */
 		if (v->tex[i]) SDL_DestroyTexture(v->tex[i]);
-		v->tex[i] = load_cover(a->r, path);
+		v->tex[i] = load_cover(a->r, path, NULL);
 		if (v->tex[i]) {
 			SDL_QueryTexture(v->tex[i], NULL, NULL, &v->tw[i], &v->th[i]);
 			v->cb[i] = 1.0f;
@@ -257,11 +278,16 @@ void muse_card_want(app *a, int s, int i)
 		g_cov[al].st = COV_NONE;             /* there, and not a picture */
 	}
 	if (g_cov && g_cov[al].st == COV_NONE) {
-		ui_card_order_set(&card, v->list.items[i].title, ZYPEROS_ACCENT, true);
+		SDL_Surface *ground;
+
+		muse_album_card_order(a, s, i, ZYPEROS_ACCENT, &card);
 		if (texload_want_or_draw(s, i, NULL, NULL, &card)) return;
+		/* No worker (a shot): made here, its ground noted for the Grid to
+		 * set the name on at the cell's size, as game_get_tex does */
 		if (v->tex[i]) SDL_DestroyTexture(v->tex[i]);
-		v->tex[i] = ui_make_cover(a->r, v->list.items[i].title, ZYPEROS_ACCENT,
-		                          &v->tw[i], &v->th[i]);
+		v->tex[i] = ui_make_card_for(a->r, &card, &v->tw[i], &v->th[i], &ground);
+		grid_note(a, s, i, ground, true);
+		if (ground) SDL_FreeSurface(ground);
 		v->cb[i] = 1.0f;
 	}
 }
@@ -286,6 +312,16 @@ void muse_cycle_mode(void)
 
 	musec_set_mode(m);
 	db_set_str(db_dev(), "muse.mode", MUSE_MODES[m].key);
+}
+
+/* Videos' Repeat, Y on a video (MP4's MENU > Repeat): Off, One, All and
+ * round, the row's own order, applied to the video playing and kept */
+void video_cycle_repeat(void)
+{
+	muq_mode m = muq_video_repeat_next(musec_video_mode());
+
+	musec_set_video_mode(m);
+	db_set_str(db_dev(), "video.mode", MUSE_MODES[m].key);
 }
 
 /* ---- Muse: what it is open over ------------------------------------------ */
@@ -645,8 +681,6 @@ static int muse_card_of(const sysview *v, int album)
 void muse_shelf_screen(app *a, bool now)
 {
 	int prev_screen = a->screen, prev_sys = a->sys_cursor;
-	in_button back = IN_LEFT, fwd = IN_RIGHT;
-	in_button jup = IN_UP, jdn = IN_DOWN;
 	sysview *v;
 	int muse = -1, i, playing, base;
 	bool done = false;
@@ -670,7 +704,14 @@ void muse_shelf_screen(app *a, bool now)
 	if (playing >= 0) {
 		int k = muse_card_of(v, playing);
 
-		if (k >= 0) { v->cursor = k; cf_reset(&v->cf, k); }
+		/* There at once in every View: the grid and the list placed
+		 * again on it rather than gliding from where they were */
+		if (k >= 0) {
+			v->cursor = k;
+			cf_reset(&v->cf, k);
+			games_reset(&v->row, k, v->list.count, plat_now_ms());
+			v->lm.set = v->gm.set = false;
+		}
 	}
 	if (now && playing >= 0) {
 		/* A film is its player, with no list of one under it. */
@@ -701,19 +742,23 @@ void muse_shelf_screen(app *a, bool now)
 			break;
 		}
 
+		/* Moved as a games shelf moves in the same View: the row of
+		 * covers, the grid or the list (DESIGN.md 11.67) */
 		if (n > 0) {
-			in_button sb = IN_NONE;          /* the step's button, for its sound */
 			int was = v->cursor;
 
-			if (in_repeat(&a->in, back)) { v->cursor = (v->cursor - 1 + n) % n; dir = -1; sb = back; }
-			if (in_repeat(&a->in, fwd))  { v->cursor = (v->cursor + 1) % n; dir = +1; sb = fwd; }
-			if (in_repeat(&a->in, jdn))  { v->cursor = shelf_letter_jump(v, +1); sb = jdn; }
-			if (in_repeat(&a->in, jup))  { v->cursor = shelf_letter_jump(v, -1); sb = jup; }
-			if (in_repeat(&a->in, IN_L1)) { v->cursor = ((v->cursor - CF_WINDOW) % n + n) % n; sb = IN_L1; }
-			if (in_repeat(&a->in, IN_R1)) { v->cursor = (v->cursor + CF_WINDOW) % n; sb = IN_R1; }
-			cf_set_cursor_dir(&v->cf, v->cursor, n, dir);
-			if (sb != IN_NONE)
-				step_sound(a, sb, was, v->cursor);
+			dir = shelf_move(a, v);
+			games_select(&v->row, v->cursor, n, dir, plat_now_ms());
+			/* where it lands asked for at once, as the main loop's
+			 * window is (asking only queues) */
+			if (v->cursor != was) prime_toward(a, muse, v->cursor);
+		}
+		/* START turns the View, Covers to Grid to List and round, as it
+		 * does on every shelf; as it is let go, since SELECT with START
+		 * locks (muse_input) */
+		if (muse_start()) {
+			uisound_play(DS_SOUND_MOVE);
+			view_turn(a, muse, 1);
 		}
 		if (muse_keys(a)) {
 			muse_locked(a);
@@ -748,7 +793,9 @@ void muse_shelf_screen(app *a, bool now)
 
 		tick_tint(a);
 		tick_theme(a);
-		draw_shelf(a);
+		/* As the main loop draws a shelf: the cover row's no-art sweep
+		 * plays here as on any shelf (draw_shelf_live) */
+		draw_shelf_live(a);
 		panel_leave_draw(a, 0);
 		plat_draw_osd(a->r);
 		plat_present();
@@ -789,9 +836,15 @@ void muse_album_dir(int al, char *out, size_t n)
  * rule, 2026-09-19. A cover the service gave is remembered, because its own
  * can be small too - La Strada's is 360px - and asking again would only fetch
  * the same one; an album it could not find is asked about on every run. */
+/* The short side a cover must have not to be asked about again: the height
+ * MP4's album row drew one, 461px, before its shelf was a games shelf's
+ * (DESIGN.md 11.67), kept as Album Art's rule; larger than any cover is drawn
+ * now (Now Playing's, NP_SIDE 432) */
+#define ALBUM_CRISP 461
+
 static int museart_jobs(museart_job *jobs, int max)
 {
-	int crisp = (int)(ZYPEROS_SCREEN_H * CF_LAYOUT_ALBUMS.size + 0.5f);
+	int crisp = ALBUM_CRISP;
 	int i, n = 0;
 
 	for (i = 0; i < g_muse.nalbums && n < max; i++) {

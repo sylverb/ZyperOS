@@ -427,6 +427,8 @@ static const ds_hover PM_STRENGTH_HOVER = { .show = pm_strength_show, .undo = pm
 static const char *look_label(mp4l_id id)
 {
 	switch (id) {
+	case MP4L_CASSETTE: return T(S_SYSMENU_LOOK_CASSETTE);
+	case MP4L_VINYL:    return T(S_SYSMENU_LOOK_VINYL);
 	case MP4L_CLASSIC:  return T(S_SYSMENU_LOOK_CLASSIC);
 	case MP4L_SPECTRUM: return T(S_SYSMENU_LOOK_SPECTRUM);
 	default:            return T(S_SYSMENU_LOOK_COVER);
@@ -436,6 +438,8 @@ static const char *look_label(mp4l_id id)
 static const char *look_note(mp4l_id id)
 {
 	switch (id) {
+	case MP4L_CASSETTE: return T(S_SYSMENU_LOOK_CASSETTE_NOTE);
+	case MP4L_VINYL:    return T(S_SYSMENU_LOOK_VINYL_NOTE);
 	case MP4L_CLASSIC:  return T(S_SYSMENU_LOOK_CLASSIC_NOTE);
 	case MP4L_SPECTRUM: return T(S_SYSMENU_LOOK_SPECTRUM_NOTE);
 	default:            return T(S_SYSMENU_LOOK_COVER_NOTE);
@@ -526,6 +530,12 @@ static void menu_choices(app *a, int sys, bool games)
 			g_smm_choice[SMM_SHOW] = ch_make(&P[0], n, cur, false);
 			for (i = 0; i < ML_ORDERS; i++) P[1].lab[i] = ml_order_label_kind((ml_order)i, muse_kind_shown());
 			g_smm_choice[SMM_SORT] = ch_make(&P[1], ML_ORDERS, v->sort, false);
+			/* View: Covers, Grid, List, in START's order (view_turn); an
+			 * album has no snap for a Video view */
+			P[4].lab[0] = T(S_SYSMENU_VIEW_COVERS);
+			P[4].lab[1] = T(S_SYSMENU_VIEW_GRID);
+			P[4].lab[2] = T(S_SYSMENU_VIEW_LIST);
+			g_smm_choice[SMM_VIEW] = ch_make(&P[4], 3, v->listed ? 2 : v->grid ? 1 : 0, false);
 			{
 				static const char *notes[MP4L_COUNT];
 
@@ -782,6 +792,11 @@ int menu_build(app *a, screen_id screen, int sys,
 		 * entries would count a folder as one. Not Splore's entry, nor
 		 * PortMaster's while it is not on the card: no game */
 		u.game_count = sys_games(&a->view[sys])->count - pm_shelf_offers(a, sys);
+		{
+			static char dlv[48];
+
+			u.sys_downloads = downloads_menu_value(sc->folder, dlv, sizeof dlv);
+		}
 		u.dmode      = dmode_label(a->view[sys].dmode);
 		u.shader     = shader_label(a->view[sys].shader);
 		u.strength   = strength_row_label(a, sys);
@@ -812,12 +827,7 @@ int menu_build(app *a, screen_id screen, int sys,
 		{
 			static char dlv[48];
 
-			if (dlq_busy()) {
-				snprintf(dlv, sizeof dlv, T(S_DOWNLOADS_RUNNING), dlq_pct());
-				u.scraper = dlv;
-			} else {
-				u.scraper = g_scraper_val[0] ? g_scraper_val : NULL;
-			}
+			u.scraper = downloads_menu_value(NULL, dlv, sizeof dlv);
 		}
 		{
 			static char upv[48];
@@ -2010,6 +2020,11 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 			}
 			if (id == SMM_SORT) {
 				sel = SM_SORT;
+			} else if (id == SMM_VIEW) {
+				/* Covers, Grid, List, round either way and on A as a
+				 * system's View, kept (view_turn) */
+				if (d || key == IN_ACCEPT) view_turn(a, a->sys_cursor, d < 0 ? -1 : 1);
+				return MENU_STAY;
 			} else if (id == SMM_EQ) {
 				/* MENU's Equalizer: the presets round, A its page, over
 				 * what plays */
@@ -2233,7 +2248,7 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 		 * are looking at, and menu_draw already follows that rule everywhere
 		 * else. */
 		if (sel == SM_BOXART)
-			scraper_page(a, a->sys.systems[a->sys_cursor].folder);
+			downloads_page(a, a->sys.systems[a->sys_cursor].folder);
 		if (sel == SM_RESCAN) {
 			wait_panel(a, a->sys.systems[a->sys_cursor].name, T(S_LIBRARY_SCANNING));
 			rescan_all(a);

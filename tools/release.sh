@@ -253,6 +253,12 @@ if [ $PUBLISH = 1 ]; then
 	! gh release view "$TAG" --repo $REPO >/dev/null 2>&1 || stop "$REPO already has a $TAG release (a draft counts)"
 fi
 [ -d "$VENDOR/cores" ] || stop "no cores in $VENDOR/cores (ZYPEROS_VENDOR)"
+# The small cores ZyperOS builds rather than fetches (mk/build-small-cores.sh):
+# one that systems.cfg names and $VENDOR lacks is built into it now, not left
+# for mk/payload.sh to refuse an hour in; with none missing this only looks.
+# --publish-built builds nothing, so it needs none
+[ $BUILT = 1 ] || ZYPEROS_VENDOR="$VENDOR" sh mk/build-small-cores.sh --missing ||
+	stop "mk/build-small-cores.sh could not build the small cores $VENDOR lacks"
 # The patched cores against their stamps now, not an hour into the build,
 # where mk/payload.sh asks the same (mk/core-stamp.sh)
 sh mk/core-stamp.sh check "$VENDOR" || stop "a patched core in $VENDOR is stale or unstamped"

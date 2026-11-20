@@ -82,8 +82,34 @@ for path in sorted((ROOT / 'src').rglob('*.c')):
                  f'(src/platform.h: a video drawn into an ARGB8888 one on the Pixel 2 '
                  f'has red and blue swapped)')
 
+# The Pixel 2's screen goes onto the panel opaque (src/device/pixel2.c,
+# show_screen), as it was made; a video's frame alone goes over its picture
+# blended (premul), and the screen is opaque again after it. Left blending
+# after the first MP4 video, every frame went over black with its alpha, and
+# what the screen held at alpha 0 came out black: an RGB texture, which the
+# device's SDL draws into a target so (the Shader list's picture, the paused
+# game's), and no computer showed it (2026-11-19, on the 1.1.0 test build)
+px2 = code((ROOT / 'src/device/pixel2.c').read_text())
+modes = [(line, args[1]) for line, args in calls(px2, 'SDL_SetTextureBlendMode')
+         if len(args) == 2 and args[0] == 'screen_tex']
+if not modes:
+    fail('src/device/pixel2.c sets no blend mode on screen_tex: it must be made opaque')
+else:
+    if sum(m == 'SDL_BLENDMODE_NONE' for _, m in modes) < 2:
+        fail('src/device/pixel2.c: screen_tex not made opaque (SDL_BLENDMODE_NONE) both as it is made '
+             'and after a video\'s frame')
+    for i, (line, mode) in enumerate(modes):
+        if mode not in ('SDL_BLENDMODE_NONE', 'premul'):
+            fail(f'src/device/pixel2.c:{line}: screen_tex set {mode}: the screen goes onto the panel '
+                 f'opaque (SDL_BLENDMODE_NONE), or premultiplied over a video')
+        if mode == 'premul':
+            after = [m for l, m in modes if l > line]
+            if not after or after[0] != 'SDL_BLENDMODE_NONE':
+                fail(f'src/device/pixel2.c:{line}: screen_tex left premultiplied after a video\'s frame, '
+                     f'not opaque again: every later frame blends over black')
+
 if targets < 9:
     fail(f'only {targets} render targets found in src/; the check is not reading them')
 if failures:
     sys.exit(1)
-print(f'ok: all {targets} render targets in src/ are PLAT_TARGET_FORMAT, {d.group(1)}')
+print(f'ok: all {targets} render targets in src/ are PLAT_TARGET_FORMAT, {d.group(1)}; the Pixel 2\'s screen goes onto the panel opaque')

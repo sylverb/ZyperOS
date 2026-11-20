@@ -10,7 +10,7 @@
         check-raset check-xfer check-sshlink check-usblink check-devmode check-devices check-devicegen check-model check-ctl check-menus check-status check-battery check-corner check-artscrape check-artrun check-sgdb check-snapshelf check-snaps check-audioout \
         check-db check-coreopts check-gpuframes check-gamedel check-gamern check-esmedia check-corepins check-targets yuvtarget check-storage check-stats check-sort check-bt check-ss check-titles check-dsv check-sidelights check-osdbar check-hud check-dmodefit check-themefile check-pkkeys check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-bios check-gamefile check-startfail check-kbnav check-tween check-menumotion check-menusnap check-cardgen check-cardart check-focusfx check-blur check-gridrule check-screencard check-focusgeo check-roundrect check-rowmacro check-emptyhome check-zyperrig check-randgame check-shelfdir \
         check-sysmark check-flip check-menushots check-controls-shots check-design check-systemart check-linebreak check-portload check-portout \
-        check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-messages check-tour check-tour-shots check-textfade check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pico8 check-pmhelper check-portdoc check-boottheme check-splashbright check-bootbright check-seed-version check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr check-autozone \
+        check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-messages check-tour check-tour-shots check-textfade check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pico8 check-pico8-wget check-pmhelper check-portdoc check-boottheme check-splashbright check-bootbright check-seed-version check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr check-autozone \
         check-home check-home-shots check-games check-cardpaint check-putpace landbench check-favorites-shots check-homesys-groups check-np-footer check-vidtry check-menu-rows check-layout-shots check-artbadge check-artbadge-shots check-cardart-shots design sounds strings cjk-font check-strings check-i18n-shots check-rootswitch check-datapart check-brick-closed check-hwreport \
         check-tour-previews tour-previews check-prep check-diatom check-simulator check-px2sim check-building-doc check-blog check-discord-release \
         check-release-devices check-installer release check-site-devices
@@ -47,13 +47,13 @@ src/i18n_tables.c: $(wildcard res/strings/*.txt) tools/i18n.py
 CHECKS = check-cheevos check-hare check-portal check-httpd check-idle check-taskhold check-saver check-rahash check-flacdec check-achtab check-rasubmit check-raoffline check-radl check-dlq check-signin check-noticeq check-badges check-badge-shots \
          check-raset check-xfer check-sshlink check-usblink check-devmode check-devices check-devicegen check-model check-ctl check-menus check-artscrape check-artrun check-sgdb check-snapshelf check-snaps check-audioout \
          check-db check-coreopts check-gamedel check-gamern check-esmedia check-media check-snapsize check-corepins check-targets check-storage check-stats check-sort check-bt check-ss check-titles check-savedlib check-search \
-         check-muselib check-musequeue check-museart check-mp4lock check-mp4look check-bands check-mp4frame check-mp4size check-p2share check-webtheme check-p2ws check-p2codec check-p2d check-play check-p2 check-resident check-spawn check-controls check-remap check-hotkeys check-rumble check-eq check-eqdsp check-eqplugin check-controls-shots check-logpack \
+         check-muselib check-musequeue check-museart check-mp4lock check-mp4look check-mp4views check-bands check-covercolor check-mp4frame check-mp4size check-p2share check-webtheme check-p2ws check-p2codec check-p2d check-play check-p2 check-resident check-spawn check-controls check-remap check-hotkeys check-rumble check-eq check-eqdsp check-eqplugin check-controls-shots check-logpack \
          check-clock check-autozone check-status check-battery check-battery-eta check-dslang check-pacing check-gpuframes check-dsresume check-corestate check-core-stamp check-core-room check-px2-perf check-px2-snap check-px2 check-lowbatt check-powerhold check-homesys check-collect check-heat check-charging check-corner check-dsv check-sidelights check-osdbar check-hud check-dmodefit check-themefile check-pkkeys check-portkeys-flow check-portkeys check-zyhome check-theme check-config check-bios check-gamefile check-startfail check-kbnav check-randgame check-shelfdir check-look \
          check-tween check-menumotion check-menusnap check-cardgen check-cardart check-focusfx check-blur check-gridrule check-screencard check-focusgeo check-roundrect check-rowmacro check-emptyhome check-zyperrig check-sysmark check-flip check-menushots check-design \
          check-systemart check-linebreak check-portload check-portout check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-messages \
-         check-tour check-tour-shots check-tour-previews check-textfade check-glyphs check-scale check-shaderdemo check-screenfx check-ds check-layout-ratchet check-flex check-hover check-hover-sweep check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pico8 check-pmhelper check-pmart check-portdoc check-boottheme check-splashbright check-bootbright check-seed-version check-panelgamma check-panelgamma-sunxi check-nightmode check-displayback check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-start-soc check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr \
+         check-tour check-tour-shots check-tour-previews check-textfade check-glyphs check-scale check-shaderdemo check-shaderpic check-screenfx check-ds check-layout-ratchet check-flex check-hover check-hover-sweep check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pico8 check-pico8-wget check-pmhelper check-pmart check-portdoc check-boottheme check-splashbright check-bootbright check-seed-version check-panelgamma check-panelgamma-sunxi check-nightmode check-displayback check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-start-soc check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr \
          check-home check-home-shots check-games check-cardpaint check-putpace check-favorites-shots check-homesys-groups check-np-footer check-vidtry check-menu-rows check-layout-shots check-artbadge check-artbadge-shots check-cardart-shots checkmark \
-         check-installer check-from-rogue check-importers check-diatom check-simulator check-qemu-image check-desk check-keymap check-handhelds check-px2sim check-building-doc check-blog check-discord-release \
+         check-installer check-from-rogue check-importers check-diatom check-simulator check-qemu-image check-desk check-homekeys check-videoview check-keymap check-handhelds check-px2sim check-building-doc check-blog check-discord-release \
          check-release-devices check-strings check-i18n-shots check-rootswitch check-datapart check-brick-closed check-hwreport check-kitbuild
 
 # All of them at once, as many at a time as there are cores (CHECK_JOBS=1 for
@@ -140,6 +140,15 @@ desk-brick:
 # Desk mode in SDL's dummy window, both handhelds, over its control socket
 check-desk: native
 	@python3 tools/desk-check.py
+
+# The home's d-pad held, in desk mode: the Grid's rows to each end, Spotlight's
+# groups forward
+check-homekeys: native
+	@python3 tools/homekeys-check.py
+
+# The Video view in desk mode: its snap playing holds the screensaver
+check-videoview: native
+	@python3 tools/videoview-check.py
 
 # One key map: src/device/keymap.h, the Simulator's and Diatom's window's
 check-keymap:
@@ -340,7 +349,8 @@ check-osdbar: build-native/osdbar-check
 	@./build-native/osdbar-check
 
 # The Display list's previews (src/dmodefit.h): each mode's rect as the
-# launcher works it out, against Diatom's own arithmetic (diatom/src/scale.c)
+# launcher works it out, against Diatom's own arithmetic (diatom/src/scale.c),
+# and Square Pixels' sizes for the systems #346 names, on both handhelds
 check-dmodefit: build-native/dmodefit-check
 	@./build-native/dmodefit-check
 
@@ -633,6 +643,12 @@ build-native/sysupdate-check: tools/sysupdate-check.c src/sysupdate.c src/sysupd
 # and the page's words
 check-pico8: build-native/pico8-check
 	@./build-native/pico8-check
+
+# Your PICO-8's wget (sd/pixel2/PICO-8-wget.sh, ZyperOS/pico8/bin/wget):
+# Splore's wget calls handed to curl, with HTTPS and the certificates
+# checked, against a stand-in curl and system wget
+check-pico8-wget:
+	@sh tools/pico8-wget-check.sh
 
 build-native/pico8-check: tools/pico8-check.c src/pico8.c src/pico8.h src/sysupdate.h src/library.h $(I18N_SRC) FORCE
 	@mkdir -p build-native
@@ -2419,10 +2435,27 @@ check-mp4lock: build-native/mp4lock-check
 check-mp4look: build-native/mp4look-check
 	@./build-native/mp4look-check
 
+# START on MP4's shelf turns its View (DESIGN.md 11.67), on the real launcher
+# in desk mode's dummy window, as check-desk runs it: Covers, Grid, List and
+# round (no Video), kept as view.MUSE, and SELECT with START, the lock's
+# pair, in either order, turns nothing.
+check-mp4views: native
+	@python3 tools/mp4views-check.py
+
 build-native/mp4look-check: tools/mp4look-check.c src/mp4look.c src/mp4look.h src/design.h FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
 	      -o $@ tools/mp4look-check.c src/mp4look.c -lm
+
+# An album cover's main color (src/covercolor.h), the cassette's stripe and
+# the vinyl's: one color, a title on white, the larger of two, grey.
+check-covercolor: build-native/covercolor-check
+	@./build-native/covercolor-check
+
+build-native/covercolor-check: tools/covercolor-check.c src/covercolor.c src/covercolor.h FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
+	      -o $@ tools/covercolor-check.c src/covercolor.c -lm
 
 # The daemon's bands for the bars (src/muse/bands.h): each band lit by a tone
 # at its own middle, silence dark, the window where the listener is and not
@@ -2919,6 +2952,12 @@ yuvtarget:
 check-games:
 	@$(MAKE) --no-print-directory $(NATIVE_J) -f mk/native.mk VERSION=$(VERSION) build-native/games-check
 	@SDL_VIDEODRIVER=dummy SDL_RENDER_DRIVER=software ./build-native/games-check
+
+# The Shader lists' pictures load as textures with alpha, which the Pixel 2's
+# SDL needs to draw them into the screen opaque
+check-shaderpic:
+	@$(MAKE) --no-print-directory $(NATIVE_J) -f mk/native.mk VERSION=$(VERSION) build-native/shaderpic-check
+	@SDL_VIDEODRIVER=dummy SDL_RENDER_DRIVER=software ./build-native/shaderpic-check
 
 # The card for a game or an album with no art, drawn on an art worker rather
 # than on the frame: the frame's pixels byte for byte, every kind of title,

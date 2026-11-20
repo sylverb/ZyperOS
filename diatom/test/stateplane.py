@@ -163,6 +163,21 @@ check_that("and the surface the rect is measured in",
            len(got) == 1 and "\tsurface=" in got[0] and "surface=0x" not in got[0],
            got)
 
+# Square Pixels (ZyperOS #346): the core's pixels square, the picture the
+# surface's full height (its full width if that is wider), centred, the
+# rect worked out from what DISPLAY says the source and the surface are
+send("SETDISPLAY\tmode=square"); got = drain()
+ok = len(got) == 1 and got[0].startswith("DISPLAY\tmode=square\tfilter=nearest\trect=")
+if ok:
+    f = dict(kv.split("=", 1) for kv in got[0].split("\t")[1:])
+    sw, sh = map(int, f["source"].split("x"))
+    uw, uh = map(int, f["surface"].split("x"))
+    w, h = (2 * sw * uh + sh) // (2 * sh), uh
+    if w > uw:
+        w, h = uw, (2 * sh * uw + sw) // (2 * sw)
+    ok = f["rect"] == f"{w}x{h}+{(uw - w) // 2}+{(uh - h) // 2}"
+check_that("square: square pixels, as tall as the surface, centred", ok, got)
+
 send("SETDISPLAY\tmode=integer"); got = drain()
 check_that("setdisplay changes mode, keeps filter",
            len(got) == 1 and got[0].startswith("DISPLAY\tmode=integer\tfilter=nearest\trect="),

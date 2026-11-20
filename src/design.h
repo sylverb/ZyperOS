@@ -199,6 +199,11 @@ static const char *const DS_TONE_ID[DS_THEMES][DS_TONES] = {
 #define DS_MS_HOLD_CONTROLS 3000
 #define DS_MS_PEAK_HOLD 400
 #define DS_MS_BAR_FALL 140
+#define DS_MS_SPIN_UP 360
+#define DS_MS_SPIN_DOWN 520
+#define DS_MS_REWIND 700
+#define DS_MS_WIND 180
+#define DS_MS_ARM_GLIDE 180
 #define DS_MS_HOLD_SNAP 1000
 #define DS_MS_HOLD_BAND 2000
 #define DS_MS_SHEEN 480

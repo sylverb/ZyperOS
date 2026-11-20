@@ -158,6 +158,14 @@ const char *shot_upnews;
 int shot_charging = -1, shot_charging_kind;
 int shot_cheevos;
 int shot_cheevos_sel;
+/* --cheevo-card N: an achievement's card, opened with A from its list, as
+ * cheevo_card_rows and cheevo_card_draw make it on the device: 0 earned, a
+ * line of description; 1 not earned, the longest description
+ * RetroAchievements keeps (255 characters, in two paragraphs), which scrolls
+ * itself (--phase MS moves it on); 2 earned offline and waiting to send; 3
+ * one with no description. The plain badge, or --cheevos-badge SET NAME's.
+ * -1 without it. */
+int shot_cheevo_card = -1;
 /* --ingame: --cheevos-screen as the in-game menu opens it, over a paused
  * game (a made-up frame), rather than over the shelf */
 int shot_ingame;
@@ -212,6 +220,7 @@ int shot_syn;       /* --synopsis: the card a scraped game opens */
 int shot_info;
 int shot_delete_ask, shot_delete_now;
 int shot_collect_page = -1, shot_collect_delete, shot_collect_said = -1;
+int shot_zip_said;
 /* --gm-said K: one of Delete Game's and Rename's messages (GM_SAID) */
 int shot_gm_said = -1;
 
@@ -1592,7 +1601,7 @@ static void shot_compose_once(app *a)
 
 		paused_backdrop(a, bg, 1.0f);
 		if (bg) SDL_DestroyTexture(bg);
-	} else if (shot_kb || shot_wait || shot_cheevos) {
+	} else if (shot_kb || shot_wait || shot_cheevos || shot_cheevo_card >= 0) {
 		ui_scrim(a->r, 0);
 	}
 	if (shot_cheer >= 0) {
@@ -1635,6 +1644,10 @@ static void shot_compose_once(app *a)
 	if (shot_collect_delete) collect_delete_preview(a);
 	if (shot_gm_said >= 0) gm_said_preview(a, shot_gm_said);
 	if (shot_collect_said >= 0) collect_said_preview(a, shot_collect_said);
+	/* --zip-said: a zip whose game Diatom cannot unpack, said under its name */
+	if (shot_zip_said && a->view[a->sys_cursor].list.count > 0)
+		result_preview(a, a->view[a->sys_cursor].list.items[a->view[a->sys_cursor].cursor].title,
+		               T(S_LAUNCH_ZIP_METHOD));
 	if (g_p8_said_shot >= 0) p8_said_shot(a, g_p8_said_shot);
 	if (shot_controls >= 0 && (shot_press != SHOT_SWAP || shot_pressed)) {
 		menu_row rows[CTL_MAX_ROWS];
@@ -2062,6 +2075,39 @@ static void shot_compose_once(app *a)
 		menu_draw_ex(a, head, rows, cn, shot_cheevos_sel, menu_std_width(a),
 		             a->tint, vcols, true, 0);
 		g_row_icon = NULL;
+	}
+	if (shot_cheevo_card >= 0) {
+		/* Real titles, from sets on this card, as the list's shot has */
+		static const struct {
+			const char *t, *d;
+			int p;
+			bool got, pending;
+		} card[] = {
+			{ "Hold On To Your Potatoes, We're In For A Bumpy Ride",
+			  "Clear the second stage without losing a life.", 10, true, false },
+			{ "I Am Not Left Handed Either, But I Can Still Beat You",
+			  "Beat the Koma Faction's general in the arena on Hard, with no "
+			  "continues, no items and no help from a second player, and do it "
+			  "before the timer reaches thirty seconds.\n\nYour score must be "
+			  "higher than the arena's own for the stage, or it does not count.",
+			  25, false, false },
+			{ "Violated Heavens", "Reach the fortress above the clouds.", 10, true, true },
+			{ "Storming The Fortress", "", 10, false, false },
+		};
+		static cheevo_card k;
+		int i = shot_cheevo_card % (int)(sizeof card / sizeof card[0]);
+		int fixed = menu_std_width(a);
+		cheevo c;
+
+		memset(&c, 0, sizeof c);
+		snprintf(c.title, sizeof c.title, "%s", card[i].t);
+		snprintf(c.desc, sizeof c.desc, "%s", card[i].d);
+		c.points = card[i].p;
+		c.earned = card[i].got;
+		cheevo_card_rows(&c, card[i].pending, fixed, &k);
+		cheevo_card_draw(a, &k, c.title,
+		                 rb_icon(a->r, shot_badge_set, shot_badge_name ? shot_badge_name : "",
+		                         !card[i].got, theme()), fixed);
 	}
 	if (shot_popup) {
 		static char pbody[96];

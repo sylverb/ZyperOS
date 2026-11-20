@@ -27,7 +27,7 @@ SRC += src/device/desk.c src/device/deskface.c
 # checks that link the rest of src/ leave them all out.
 MAIN_SRC := src/main.c src/about_screen.c src/aout_route.c src/bgm_screen.c \
             src/bt_screen.c src/clock_screen.c src/ctl_channel.c src/ctltab_screen.c \
-            src/devmode_screen.c src/dl_screen.c src/gamedel_screen.c src/gameinfo_screen.c \
+            src/devmode_screen.c src/dl_screen.c src/dlcount.c src/gamedel_screen.c src/gameinfo_screen.c \
             src/gamern_screen.c src/hotkeys_screen.c src/hover_sweep.c src/hudmenu_screen.c src/ingame_screen.c src/launch_screen.c \
             src/lights_screen.c src/media_screen.c src/menu_panel.c src/menu_runner.c \
             src/muse_screen.c src/nowplaying_looks.c src/nowplaying_screen.c src/place.c src/player2_screen.c \
@@ -122,6 +122,9 @@ $(BUILD)/home-check: tools/home-check.c $(CHECK_OBJS) FORCE
 
 $(BUILD)/games-check: tools/games-check.c $(CHECK_OBJS) FORCE
 	$(CC) $(CFLAGS) -o $@ tools/games-check.c $(CHECK_OBJS) $(LDLIBS)
+
+$(BUILD)/shaderpic-check: tools/shaderpic-check.c $(CHECK_OBJS) FORCE
+	$(CC) $(CFLAGS) -o $@ tools/shaderpic-check.c $(CHECK_OBJS) $(LDLIBS)
 
 # The card with no art drawn on the art workers, against the frame's own
 # (tools/cardpaint-check.c), and finished pictures handed to the frame a few
