@@ -21,7 +21,9 @@ Pixel 2's. The `desk-` shots are desk mode's own window (docs/building.md,
 the TrimUI Brick, on the sample card `tools/desk` makes, taken with
 `tools/desk shot FILE window` on a Retina display. The game in them is
 `ZyperOS Test.nes`, ZyperOS's own NES test cartridge, and `desk-card` is the
-top of `desk-pixel2`, cut to 4:3 for the blog's index. The three `portal` shots are the
+top of `desk-pixel2`, cut to 4:3 for the blog's index. The two `simulator` shots are the ZyperOS
+Simulator's drawn Pixel 2 (`simulator/simctl window-shot`) over a QEMU image
+of plastron (docs/qemu.md): the first start, and the home on the cable. The three `portal` shots are the
 File Transfer page (res/web) in headless Chrome, at a computer's 1280x800 and
 a phone's 390x844, served by the real routes over a scratch card of freeware
 names (build-native/portal-serve). The two `play-phone` shots are NES Player
