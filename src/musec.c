@@ -71,6 +71,8 @@ static int     g_nch;
 static bool    g_seeking;
 static double  g_seek_to;
 static unsigned g_seek_ms;
+/* When g_now.at was last said, for musec_at_live */
+static unsigned g_at_ms;
 
 /* The output, which Muse holds for its whole life and has to be HANDED a
  * headset: see musec_sink in musec.h. */
@@ -363,6 +365,7 @@ static void event(const char *line)
 				g_seeking = false;
 		}
 		g_now.at = at;
+		g_at_ms = plat_now_ms();
 	} else if (!strncmp(line, "END", 3)) {
 		advance(false);
 	} else if (!strncmp(line, "SINK", 4)) {
@@ -691,6 +694,7 @@ void musec_next(void)
 static void seek_to(double t)
 {
 	g_now.at = t;                  /* shown at once, confirmed by a POS */
+	g_at_ms = plat_now_ms();
 	g_seeking = true;
 	g_seek_to = t;
 	g_seek_ms = plat_now_ms();
@@ -840,6 +844,20 @@ void musec_set_video_mode(muq_mode m)
 muq_mode musec_video_mode(void) { return g_video_mode; }
 
 const mu_now *musec_now(void) { return &g_now; }
+
+double musec_at_live(void)
+{
+	double at = g_now.at, since;
+
+	if (g_now.state != MU_PLAYING || !g_at_ms) return at;
+	/* On from the last report at the speed it plays, but never more than
+	 * a report and a half past it: a daemon that has stopped saying is not
+	 * run away from */
+	since = (double)(plat_now_ms() - g_at_ms) / 1000.0 * (g_book ? g_speed : 1.0);
+	if (since > 1.5) since = 1.5;
+	at += since;
+	return g_now.len > 0 && at > g_now.len ? g_now.len : at;
+}
 
 const char *musec_path(void)
 {

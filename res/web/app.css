@@ -122,6 +122,10 @@
 	--t-hold-controls: 3000ms;
 	--t-peak-hold: 400ms;
 	--t-bar-fall: 140ms;
+	--t-spin-up: 360ms;
+	--t-spin-down: 520ms;
+	--t-rewind: 700ms;
+	--t-wind: 180ms;
 	--t-hold-snap: 1000ms;
 	--t-hold-band: 2000ms;
 	--t-sheen: 480ms;
