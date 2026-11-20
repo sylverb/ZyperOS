@@ -2,11 +2,12 @@
  * screen.
  *
  * MENU > Appearance is Light, Dark or Auto, and Auto is a rule about the
- * handheld's clock: Beard from 7:00 to 19:00, Salt & Pepper the rest of the
- * day. A rule about a clock is the kind of thing that is right at noon and at
- * midnight, which is when anybody looks, and wrong at the two edges nobody
- * is awake for - so the edges are what is held here: 6:59 and 7:00, 18:59 and
- * 19:00, and the minute's throttle on the clock that decides how late the
+ * handheld's clock: Salt & Pepper in Night Mode's Night Hours (21:00 to 7:00
+ * as they ship), Beard the rest of the day. A rule about a clock is the kind
+ * of thing that is right at noon and at midnight, which is when anybody
+ * looks, and wrong at the two edges nobody is awake for - so the edges are
+ * what is held here: 6:59 and 7:00, 20:59 and 21:00, then with 1.0.5's hours
+ * (7:00 and 19:00) the minute's throttle on the clock that decides how late the
  * flip may come. Beside them: Light and Dark mean the same at every hour, a
  * setting that is not one of the three reads as Light and not as something
  * that turns the shelf dark, the names the menu shows and the words the
@@ -82,20 +83,20 @@ int main(void)
 	if (mkdir(dir, 0700) != 0) { printf("theme: no scratch directory\n"); return 1; }
 	snprintf(file, sizeof file, "%s/theme", dir);
 
-	/* Auto's rule, and its four edges: Light from 7:00, up to but not
-	 * including 19:00 - hours 7 through 18. */
+	/* Auto's rule as it ships, on the Night Hours' own 21:00 to 7:00: Light
+	 * from 7:00, up to but not including 21:00 - hours 7 through 20. */
 	printf("Auto:\n");
 	ck(theme_resolve(APPEAR_AUTO, 6) == DS_DARK, "6:59 is still night");
 	ck(theme_resolve(APPEAR_AUTO, 7) == DS_LIGHT, "7:00 is day");
-	ck(theme_resolve(APPEAR_AUTO, 18) == DS_LIGHT, "18:59 is still day");
-	ck(theme_resolve(APPEAR_AUTO, 19) == DS_DARK, "19:00 is night");
+	ck(theme_resolve(APPEAR_AUTO, 20) == DS_LIGHT, "20:59 is still day");
+	ck(theme_resolve(APPEAR_AUTO, 21) == DS_DARK, "21:00 is night");
 	ck(theme_resolve(APPEAR_AUTO, 0) == DS_DARK, "midnight is night");
 	ck(theme_resolve(APPEAR_AUTO, 12) == DS_LIGHT, "noon is day");
 	ck(theme_resolve(APPEAR_AUTO, 23) == DS_DARK, "23:00 is night");
 
-	/* Auto Hours (MENU > Display, my pick 2026-11-12): light from and dark
-	 * from by the half hour, round midnight too, the same two never dark,
-	 * and anything off the day the default */
+	/* Auto's hours, the Night Hours since 1.1.0: light from and dark from
+	 * to the minute, round midnight too, the same two never dark, and
+	 * anything off the day the default */
 	theme_set_hours(8 * 60 + 30, 20 * 60);
 	ck(theme_resolve_min(APPEAR_AUTO, 8 * 60 + 29) == DS_DARK &&
 	   theme_resolve_min(APPEAR_AUTO, 8 * 60 + 30) == DS_LIGHT, "light from 8:30");
@@ -113,14 +114,16 @@ int main(void)
 		int l, d;
 
 		theme_hours(&l, &d);
-		ck(l == THEME_LIGHT_FROM && d == THEME_DARK_FROM, "hours off the day are 7:00 and 19:00");
+		ck(l == THEME_NIGHT_UNTIL && d == THEME_NIGHT_FROM, "hours off the day are 7:00 and 21:00, the Night Hours'");
 	}
 	theme_set_hours(7 * 60 + 15, 19 * 60);
 	{
 		int l;
 
 		theme_hours(&l, NULL);
-		ck(l == 7 * 60, "an hour off the half hour is the half hour before it");
+		ck(l == 7 * 60 + 15, "an hour off the half hour is kept to the minute, as the Night Hours keep it");
+		ck(theme_resolve_min(APPEAR_AUTO, 7 * 60 + 14) == DS_DARK &&
+		   theme_resolve_min(APPEAR_AUTO, 7 * 60 + 15) == DS_LIGHT, "and Auto turns at that minute");
 	}
 	theme_set_hours(THEME_LIGHT_FROM, THEME_DARK_FROM);
 	{
@@ -180,15 +183,16 @@ int main(void)
 	ck(appearance_parse("DARK") == APPEAR_DARK, "a database edited by hand, in capitals, still says dark");
 	ck(appearance_parse("Auto") == APPEAR_AUTO, "and in the menu's capitals, auto");
 
-	/* Stepping, for the row: Light and Dark since 1.0.6, either way; Auto,
-	 * a 1.0.5 word the start migrates, steps as Light */
+	/* Stepping, for the row: Light, Dark and Auto round, either way (Auto
+	 * back since 1.1.0) */
 	printf("stepping:\n");
 	ck(appearance_step(APPEAR_LIGHT, 1) == APPEAR_DARK, "Light, forward, is Dark");
-	ck(appearance_step(APPEAR_DARK, 1) == APPEAR_LIGHT, "Dark, forward, wraps to Light");
-	ck(appearance_step(APPEAR_LIGHT, -1) == APPEAR_DARK, "Light, back, wraps to Dark");
+	ck(appearance_step(APPEAR_DARK, 1) == APPEAR_AUTO, "Dark, forward, is Auto");
+	ck(appearance_step(APPEAR_AUTO, 1) == APPEAR_LIGHT, "Auto, forward, wraps to Light");
+	ck(appearance_step(APPEAR_LIGHT, -1) == APPEAR_AUTO, "Light, back, wraps to Auto");
+	ck(appearance_step(APPEAR_AUTO, -1) == APPEAR_DARK, "Auto, back, is Dark");
 	ck(appearance_step(APPEAR_DARK, -1) == APPEAR_LIGHT, "Dark, back, is Light");
-	ck(appearance_step(APPEAR_AUTO, 1) == APPEAR_DARK, "Auto steps as Light: forward, Dark");
-	ck(appearance_step(APPEAR_AUTO, 0) == APPEAR_LIGHT, "and no step from it is Light");
+	ck(appearance_step(APPEAR_AUTO, 0) == APPEAR_AUTO, "and no step from Auto is Auto");
 	ck(appearance_step((appearance)99, 1) == APPEAR_DARK, "a setting past the three steps from Light");
 
 	/* Before anything starts it: Beard, which is what a screen drawn before

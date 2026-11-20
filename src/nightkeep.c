@@ -5,6 +5,7 @@
 #include <stdio.h>
 
 #include "db.h"
+#include "theme.h"
 
 /* platform.h's, without its SDL: the kept settings on the display */
 void plat_night(const struct night_cfg *n);
@@ -23,6 +24,14 @@ night_cfg night_load(void)
 	return n;
 }
 
+void night_theme_hours(const night_cfg *in)
+{
+	night_cfg n = *in;
+
+	night_cfg_clamp(&n);
+	theme_set_hours(n.until, n.from);
+}
+
 void night_keep(const night_cfg *in)
 {
 	night_cfg n = *in;
@@ -33,26 +42,24 @@ void night_keep(const night_cfg *in)
 	db_set_int(db_dev(), "night.from", n.from);
 	db_set_int(db_dev(), "night.until", n.until);
 	plat_night(&n);
+	night_theme_hours(&n);
 }
 
-void night_migrate_db(time_t now)
+void night_migrate_db(void)
 {
 	db *d = db_dev();
 	char ap[16];
-	bool have_ap = db_has(d, "appearance");
-	bool have_light = db_has(d, "auto.light"), have_dark = db_has(d, "auto.dark");
+	bool have_ap, have_light, have_dark;
 	night_migration m;
 
-	if (!d) return;
+	if (!d || db_get_int(d, NIGHT_MIGRATED_KEY, 0) == 1) return;
+	have_ap = db_has(d, "appearance");
+	have_light = db_has(d, "auto.light");
+	have_dark = db_has(d, "auto.dark");
 	db_get_str(d, "appearance", ap, sizeof ap, "");
 	m = night_migrate(have_ap ? ap : NULL, have_light, db_get_int(d, "auto.light", -1),
 	                  have_dark, db_get_int(d, "auto.dark", -1),
-	                  db_has(d, "night.from") || db_has(d, "night.until"), now);
-	if (m.appearance) {
-		db_set_str(d, "appearance", m.appearance);
-		fprintf(stderr, "night: Appearance Auto is gone; %s, the theme it gave now\n",
-		        m.appearance);
-	}
+	                  db_has(d, "night.from") || db_has(d, "night.until"));
 	if (m.hours) {
 		db_set_int(d, "night.from", m.from);
 		db_set_int(d, "night.until", m.until);
@@ -63,4 +70,5 @@ void night_migrate_db(time_t now)
 		db_del(d, "auto.light");
 		db_del(d, "auto.dark");
 	}
+	db_set_str(d, NIGHT_MIGRATED_KEY, "1");
 }

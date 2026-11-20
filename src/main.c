@@ -2666,10 +2666,10 @@ char g_pending_set[LIB_PATH * 2];
 char g_pending_active[LIB_PATH * 2];
 /* ...whose hash is still being made, on its own thread (src/rahashjob.h) */
 bool g_pending_hashing;
-/* Auto crossed 7:00 or 19:00 while a game ran, and the file was rewritten
- * for Diatom's bar but nobody has told the shelf: theme() is the new theme
- * and the cards kept are the old one's. tick_theme takes it as a change like
- * its own clock's, so the first screen to ask after on_game_tick set it
+/* Auto crossed an edge of the Night Hours while a game ran, and the file
+ * was rewritten for Diatom's bar but nobody has told the shelf: theme() is
+ * the new theme and the cards kept are the old one's. tick_theme takes it as
+ * a change like its own clock's, so the first screen to ask after on_game_tick set it
  * tells theme_changed - the in-game menu and MP4 opened from it, during the
  * game, or the way back from it (launch) before its first frame - and
  * theme_changed puts it down. */
@@ -2756,7 +2756,7 @@ static void on_game_tick(void)
 	if (heat_take(&g_heat, plat_now_ms())) heat_notice();
 	/* Auto's clock, for the file and for nothing else. Diatom reads the theme
 	 * from THEME_FILE as its bar comes up, and the launcher is in this wait
-	 * for the whole of a game, so a game that is on across 19:00 would have
+	 * for the whole of a game, so a game that is on across 21:00 would have
 	 * its bar in the theme of the hour it started in. theme_tick writes the
 	 * file when the theme changes and draws nothing, and it looks at the
 	 * clock once a minute, so it costs a compare here. The screens are told
@@ -3727,7 +3727,7 @@ int header_half(void)
 /* Auto's clock, asked by a screen's own loop once a pass: true when the theme
  * changed, and then theme_changed has been told. Every loop that stays on
  * screen asks it - the menus through menu_run_body, the shelf's loop for
- * itself, and every screen that runs its own - so 7:00 or 19:00 arriving
+ * itself, and every screen that runs its own - so a Night Hours edge arriving
  * while one is up is drawn from its next frame, and the file Diatom and
  * portkeys read follows. A loop that draws every pass needs nothing more; one
  * that draws only when something changed takes a true as a change. A screen
@@ -5156,6 +5156,21 @@ static int menu_shelf_width(app *a)
 					if (mw > w) w = mw;
 				}
 			}
+			/* And Appearance at each of its three, Auto the longest in
+			 * most languages ("Automatisch") */
+			for (k = 0; k < n; k++)
+				if (rows[k].label == T(S_SYSMENU_APPEARANCE)) break;
+			if (k < n) {
+				const char *keep = rows[k].value;
+				int j;
+
+				for (j = 0; j < APPEARANCES; j++) {
+					rows[k].value = appearance_name((appearance)j);
+					mw = menu_measure(rows, n, heading);
+					if (mw > w) w = mw;
+				}
+				rows[k].value = keep;
+			}
 			/* And Night Mode's row, the tab's last, at its longest mode
 			 * (night_row_widest) */
 			for (k = 0; k < n; k++)
@@ -5672,7 +5687,7 @@ static int port_menu_main(int argc, char **argv)
 
 		db_get_str(db_dev(), "language", lc, sizeof lc, "en");
 		i18n_set(lang_parse(lc));
-		night_migrate_db(time(NULL));
+		night_migrate_db();
 		db_get_str(db_dev(), "appearance", ap, sizeof ap, appearance_id(APPEAR_LIGHT));
 		look_load();
 		theme_init(appearance_parse(ap));
@@ -7124,9 +7139,9 @@ int main(int argc, char *argv[])
 		 * launcher's word: a shot in the other theme must not turn its
 		 * bar over. */
 		if (shot_path) theme_set_file(NULL);
-		/* A 1.0.5 device's Appearance Auto and its hours, once: the theme
-		 * Auto gave now, and the hours kept as Night Hours (nightkeep.h) */
-		night_migrate_db(time(NULL));
+		/* A 1.0.5 device's Auto hours, once a card: kept as the Night
+		 * Hours, which Auto turns by since 1.1.0 (nightkeep.h) */
+		night_migrate_db();
 		db_get_str(db_dev(), "appearance", ap, sizeof ap,
 		           appearance_id(APPEAR_LIGHT));
 		/* The language, MENU > Language's, or --lang's for a shot: every
@@ -7156,8 +7171,16 @@ int main(int argc, char *argv[])
 			look_set(&l);
 			look_bar_colors();
 		}
-		theme_init(shot_path && shot_theme >= 0 ? (appearance)shot_theme
-		                                        : appearance_parse(ap));
+		/* A shot of a card on Auto keeps Auto on its row and in its list,
+		 * drawn in --theme's theme (theme_show), so the shot is the same
+		 * frame at any hour of the day */
+		if (shot_path && shot_theme >= 0 && appearance_parse(ap) == APPEAR_AUTO) {
+			theme_init(APPEAR_AUTO);
+			theme_show(shot_theme == APPEAR_DARK ? DS_DARK : DS_LIGHT);
+		} else {
+			theme_init(shot_path && shot_theme >= 0 ? (appearance)shot_theme
+			                                        : appearance_parse(ap));
+		}
 	}
 	{
 		char value[24];
@@ -7723,7 +7746,7 @@ int main(int argc, char *argv[])
 		if (in_repeat(&a.in, IN_BRIGHTUP)) plat_brightness_nudge(+1);
 		if (in_repeat(&a.in, IN_BRIGHTDN)) plat_brightness_nudge(-1);
 
-		/* Auto's clock: 7:00 and 19:00 by the handheld, looked at once a
+		/* Auto's clock: the Night Hours by the handheld, looked at once a
 		 * minute (theme_tick says why not every pass). Here for the shelf;
 		 * menu_run_body asks for every menu, every screen that runs a loop
 		 * of its own asks through tick_theme - the keyboard's through its

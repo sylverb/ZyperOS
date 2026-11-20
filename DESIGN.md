@@ -78,9 +78,10 @@ charcoal of his nose and eyes as the ground (the same 17,19,16 the power-off
 screen has always cleared to, so the two grounds of ZyperOS become one), the
 dark cap for surfaces, beard white for text.
 
-MENU > Appearance chooses: **Light**, **Dark**, or **Auto**, which is Light
-from 7:00 to 19:00 by the handheld's clock. *(The setting's name and Auto's
-hours are this document's call.)* A shelf shows its games as a row of covers, a grid of them
+MENU > Appearance chooses: **Light**, **Dark**, or **Auto**, which is Dark
+in Night Mode's Night Hours by the handheld's clock (21:00 to 7:00 as they
+ship) and Light the rest of the day (11.42). *(The setting's name is this
+document's call; Auto's hours are the Night Hours since 1.1.0.)* A shelf shows its games as a row of covers, a grid of them
 (11.47) or a list of names (11.39), each in one style.
 
 ### 3.2 Roles
@@ -2896,7 +2897,10 @@ The boot animation is in the theme MENU > Appearance chose: Salt & Pepper's
 as it was, Zyper on his dark ground; Beard's on its ground, the word in the
 cap's dark with the Z in accent-ink (the README's light lockup), and Zyper with the
 focus-small shadow under him, as the light loading loop has it (10). Auto is
-Beard from 7:00 to 19:00 by the clock and its zone, as in the launcher. A
+Salt & Pepper in the Night Hours by the clock and its zone, as in the
+launcher: its word carries them (`zytheme=auto-1260-420`, 21:00 to 7:00), and
+a 1.0.5 launcher's plain `auto` is 19:00 to 7:00 until the launcher writes
+the file again. A
 card with no choice yet starts in Beard, the launcher's own default. *(
 2026-11-06: the boot follows the setting; the Beard version approved from
 a mockup.)* The animation plays before the card is mounted, so the choice
@@ -4563,10 +4567,20 @@ we have the theme accent preview on hover? same for all other theme
 options"; Folder Color for rc.3: "What sets the folders colors? can we
 customize them in theme to be per system or a custom color for all?")*
 
-**Appearance** is Light or Dark, two, so A turns it over. *(1.0.6: Auto,
-light from 7:00 to 19:00, went, and its hours became Night Mode's below; a
-1.0.5 player on Auto gets the theme the hour gave at the first start of
-1.0.6.)*
+**Appearance** is Light, Dark or Auto, three, so A opens their list, each
+with what it does under it (Light and Dark day and night; Auto dark in Night
+Mode's hours, light the rest of the day), and Left and Right step them round.
+Auto is Salt & Pepper from **Night From** up to **Until**, Night Mode's own
+two times below, by the handheld's clock to the minute, and Beard the rest of
+the day: one schedule for both, each on its own setting, so Night Mode Off,
+On or By Hours goes with any Appearance. The theme turns at the minute on
+every screen and over a game (the bar's file, the in-game menu when it
+opens), with no redraw while the game runs, and on the Pixel 2 the boot
+screen follows it (11.21). *(1.0.6: Auto, light from 7:00 to 19:00, went,
+and its hours became Night Mode's below. 1.1.0: back on those hours. A 1.0.5
+player on Auto keeps Auto, the hours it had becoming the Night Hours; one
+whose Auto 1.0.6 turned into Light or Dark keeps that until they pick Auto.)*
+*(On 2026-11-20 a player missed Auto; I brought it back, on the Night Hours.)*
 
 **Screen Colors** (MENU > Display, its last row; where the display has a
 gamma table, `plat_screen_colors_here`: the Pixel 2's VOP, the Brick's TCON) is a page of six rows beside a color chart (the
@@ -4612,7 +4626,9 @@ into the player's, so it adds warmth to their colors, never clips against
 their Temperature and changes nothing else; and **Night From** and
 **Until**, each a time of day by the half hour, written as MENU > Clock
 says; 9:00 PM and 7:00 AM as it ships, and a 1.0.5 player's Auto hours
-carry over. A row the mode does not use is quiet, its value still read:
+carry over. They are Appearance's Auto's too: with Appearance on Auto they
+are never quiet, and a change turns the theme at once where the new hours
+say. A row the mode does not use is quiet, its value still read:
 Night Warmth and the hours while Off, the hours while On. So the page holds
 its shape as the mode changes, and says what On or By Hours would use;
 the cursor passes the quiet rows, as any quiet row. Night Warmth's list
@@ -4621,7 +4637,8 @@ does, with no picture beside it (menu_choice's `focus`), whatever the hour;
 B puts back what was set. A change is on the
 display at once, and By Hours turns at the hour in games and ports too:
 one frame's blink, as any table load, and no fade, whose every step would
-blink. Night Mode never changes the theme, and the Look list has no Night
+blink. Night Mode never changes the theme (Appearance's Auto does, by the
+same hours), and the Look list has no Night
 look. *(Tarik's move from Screen Colors' Night look and Appearance's Auto,
 approved on the sheet 2026-11-16; one row and its page for 1.0.6 rc.2, his:
 "Can the night mode settings be all in night mode row".)*

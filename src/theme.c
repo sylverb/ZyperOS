@@ -11,9 +11,9 @@
 #include "look.h"
 #include "themefile.h"
 
-/* How long the clock is trusted for, in seconds: Auto's hours are whole hours,
- * so a theme a minute out of date at an edge is the same theme to anybody who
- * is looking. */
+/* How long the clock is trusted for, in seconds: Auto's hours are minutes of
+ * the day, so a theme a minute out of date at an edge is the same theme to
+ * anybody who is looking. */
 #define RECHECK_S 60
 
 /* The state, which is three facts and the place the fourth is written. Static
@@ -22,8 +22,8 @@
  * the whole of ui.c's signatures changing for nothing. */
 static appearance cur = APPEAR_LIGHT;
 static int idx = DS_LIGHT;
-/* Auto's hours, minutes into the local day (theme_set_hours) */
-static int light_from = THEME_LIGHT_FROM, dark_from = THEME_DARK_FROM;
+/* Auto's hours, minutes into the local day: the Night Hours' (theme_set_hours) */
+static int light_from = THEME_NIGHT_UNTIL, dark_from = THEME_NIGHT_FROM;
 static time_t looked;          /* when the clock was last read, for Auto */
 static const char *file = THEME_FILE;
 
@@ -33,10 +33,10 @@ int theme_resolve_min(appearance a, int minute)
 	case APPEAR_DARK:  return DS_DARK;
 	case APPEAR_AUTO:
 		/* Light from light_from up to dark_from, and dark from there round
-		 * to light_from: 7:00 up to 19:00 as it ships. Hours that go round
-		 * midnight (light from 20:00 to 6:00) are the same rule the other
-		 * way; the same hour twice is never dark. Not a clock that could not
-		 * be read: see theme.h. */
+		 * to light_from: 7:00 up to 21:00 as it ships, the Night Hours
+		 * round midnight. Hours inside a day (dark from 13:00 to 15:00) are
+		 * the same rule the other way; the same hour twice is never dark.
+		 * Not a clock that could not be read: see theme.h. */
 		if (minute < 0 || minute >= 24 * 60) return DS_LIGHT;
 		if (light_from == dark_from) return DS_LIGHT;
 		if (light_from < dark_from)
@@ -52,15 +52,18 @@ int theme_resolve(appearance a, int hour)
 	return theme_resolve_min(a, hour < 0 || hour > 23 ? -1 : hour * 60);
 }
 
+/* Any minute of the day, as the Night Hours keep it (night_cfg_clamp): the
+ * page steps them by THEME_HOURS_STEP, and a minute set otherwise is kept,
+ * so the theme turns at the minute Night Mode does */
 static int hours_clamp(int m, int fallback)
 {
-	return m >= 0 && m < 24 * 60 ? m - m % THEME_HOURS_STEP : fallback;
+	return m >= 0 && m < 24 * 60 ? m : fallback;
 }
 
 void theme_set_hours(int light_min, int dark_min)
 {
-	light_from = hours_clamp(light_min, THEME_LIGHT_FROM);
-	dark_from = hours_clamp(dark_min, THEME_DARK_FROM);
+	light_from = hours_clamp(light_min, THEME_NIGHT_UNTIL);
+	dark_from = hours_clamp(dark_min, THEME_NIGHT_FROM);
 }
 
 void theme_hours(int *light_min, int *dark_min)
@@ -101,14 +104,13 @@ appearance appearance_parse(const char *s)
 
 appearance appearance_step(appearance a, int d)
 {
-	/* Light and Dark, the two the row has since 1.0.6: Auto is a 1.0.5
-	 * word the start migrates (src/nightkeep.h), and steps as the Light it
-	 * is not */
-	int i = a == APPEAR_DARK ? 1 : 0;
+	int i = (int)a;
 
-	/* The remainder of a negative number is negative in C, hence the
-	 * second modulus */
-	return (((i + d) % 2) + 2) % 2 ? APPEAR_DARK : APPEAR_LIGHT;
+	/* Three of them in a ring, as up to 1.0.5 and again since 1.1.0. The
+	 * remainder of a negative number is negative in C, hence the second
+	 * modulus. */
+	if (i < 0 || i >= APPEARANCES) i = APPEAR_LIGHT;
+	return (appearance)((((i + d) % APPEARANCES) + APPEARANCES) % APPEARANCES);
 }
 
 /* The local minute of the day of `t`, or -1 if the time cannot be made into

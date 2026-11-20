@@ -588,7 +588,7 @@ void plat_draw_osd(SDL_Renderer *r)
 		osd_tex_for = r;
 		osd_dirty = true;
 	}
-	/* A theme that changed while the bar was up - Auto at 19:00 under a
+	/* A theme that changed while the bar was up - Auto at night under a
 	 * volume press, or the Appearance row itself - repaints it. osdbar_render
 	 * would paint the new theme anyway, its own canvas being keyed on it; but
 	 * the texture is only uploaded when something is dirty, and without this

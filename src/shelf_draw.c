@@ -110,9 +110,10 @@ void theme_changed(app *a)
 /* Auto's clock, asked by a screen's own loop once a pass: true when the theme
  * changed, and then theme_changed has been told. Every loop that stays on
  * screen asks it - the menus through menu_run_body, the shelf's loop for
- * itself, and every screen that runs its own - so 7:00 or 19:00 arriving
- * while one is up is drawn from its next frame, and the file Diatom and
- * portkeys read follows. A loop that draws every pass needs nothing more; one
+ * itself, and every screen that runs its own - so an edge of the Night
+ * Hours arriving while one is up is drawn from its next frame, and the file
+ * Diatom and portkeys read follows. A loop that draws every pass needs
+ * nothing more; one
  * that draws only when something changed takes a true as a change. A screen
  * drawn once and held, a one-line message, asks before it is drawn.
  *
@@ -234,8 +235,9 @@ static void tick_boot_theme(void)
 	if (now - t_boot0 < 10000) return;
 	if (g_boot_theme_at && now - g_boot_theme_at < 2000) return;
 	/* Asked once, and again only after a change: what it compares is the
-	 * Appearance setting and the clock's zone, and everything that writes
-	 * either calls boot_theme_changed. It was asked on every pass of every
+	 * Appearance setting with Auto's hours (Night Mode's page) and the
+	 * clock's zone, and everything that writes one calls
+	 * boot_theme_changed. It was asked on every pass of every
 	 * screen's loop, a database read each time, 65 a second on the home:
 	 * most of the 530 us a pass that drew nothing spent (2026-11-07). */
 	if (settled && !g_boot_theme_at) return;
@@ -249,8 +251,15 @@ static void tick_boot_theme(void)
 		read = true;
 	}
 	db_get_str(db_lib(), "timezone", zone, sizeof zone, "America/New_York");
-	boottheme_words(appearance_id(theme_appearance()), zone, lang_code(i18n_lang()), bright,
-	                line, sizeof line, file, sizeof file);
+	/* Auto's hours, the Night Hours, with it: light from until, dark from
+	 * from (theme_hours) */
+	{
+		int light_min, dark_min;
+
+		theme_hours(&light_min, &dark_min);
+		boottheme_words(appearance_id(theme_appearance()), dark_min, light_min, zone,
+		                lang_code(i18n_lang()), bright, line, sizeof line, file, sizeof file);
+	}
 	g_boot_theme_at = 0;
 	lang_file_keep();
 	bright_file_keep(bright);

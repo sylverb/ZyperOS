@@ -6,13 +6,14 @@
  * handheld's clock is read to give it.
  *
  * DESIGN.md has two themes, Beard (DS_LIGHT) and Salt & Pepper (DS_DARK), and
- * MENU > Appearance chooses between them: Light or Dark. Up to 1.0.5 it had
- * Auto too, Beard from 7:00 to 19:00 by the handheld's clock and Salt &
- * Pepper the rest of the day; 1.0.6 took it out for Night Mode
- * (src/nightmode.h), and the first start migrates a saved Auto to the theme
- * it gave then (src/nightkeep.h). Auto stays here as a word to read: an
- * older database's, which portkeys may read before the launcher migrated
- * it, and theme-check's. The setting is what a player chose and
+ * MENU > Appearance has three settings for choosing between them: Light,
+ * Dark, and Auto, which is Salt & Pepper in Night Mode's Night Hours by the
+ * handheld's clock (night.from to night.until, src/nightmode.h; 21:00 to 7:00
+ * as it ships) and Beard the rest of the day. 1.0.6 took Auto out for Night
+ * Mode, and 1.1.0 brought it back on Night Mode's hours, one schedule for
+ * both: a player missed it on 2026-11-20. Night Mode warms the screen and
+ * Auto turns the theme, each on its own setting, by the same two times. The
+ * setting is what a player chose and
  * is saved; the theme is what it comes to at this minute and is not. Every
  * screen draws from theme(), and nothing but this file turns one into the
  * other.
@@ -30,10 +31,11 @@
  * That is every change while it runs, a resident Diatom's games included,
  * whose wait asks the clock (on_game_tick). It is not while a port runs,
  * which the launcher exits for (launch_port), and there portkeys reads the
- * setting from the database and follows Auto itself (theme_saved_at). Nor is
- * it while the fallback Diatom runs a game, which the launcher waits for in
- * plat_run with nothing asking: across 7:00 or 19:00 there, the bar keeps the
- * theme the game started in (DESIGN.md 14). */
+ * setting and the Night Hours from the database and follows Auto itself
+ * (theme_saved_at). Nor is it while the fallback Diatom runs a game, which
+ * the launcher waits for in plat_run with nothing asking: across an edge of
+ * the Night Hours there, the bar keeps the theme the game started in
+ * (DESIGN.md 14). */
 
 #include <stdbool.h>
 #include <time.h>
@@ -44,27 +46,37 @@
  * the default: DESIGN.md says Beard is the theme of a new device, and it is
  * what anything that is not one of the three reads as. */
 typedef enum { APPEAR_LIGHT, APPEAR_DARK, APPEAR_AUTO } appearance;
+#define APPEARANCES 3
 
 /* The theme a setting makes at an hour of the local day (0-23): DS_LIGHT or
  * DS_DARK. Pure, which is the point of it being a function of two numbers:
  * Auto's edges are what a check can hold and a person cannot be awake to see.
  *
- * Light and Dark ignore the hour. Auto is Light for hours 7 through 18, that
- * is from 7:00:00 up to but not including 19:00:00, and Dark for the rest.
- * An hour outside 0-23 is a clock that could not be read, and that is not
- * night: it is Light, the default, whatever the setting is called. */
+ * Light and Dark ignore the hour. Auto is Light from the hours' light edge
+ * up to but not including their dark edge, and Dark for the rest
+ * (theme_set_hours). An hour outside 0-23 is a clock that could not be read,
+ * and that is not night: it is Light, the default, whatever the setting is
+ * called. */
 int theme_resolve(appearance a, int hour);
 
-/* Auto's hours (MENU > Display > Auto Hours, my pick 2026-11-12): Light
- * from `light_min` minutes into the local day, Dark from `dark_min`, each
- * on a THEME_HOURS_STEP; 7:00 and 19:00 as it ships. Hours that go round
- * midnight are fine, and the same two never make it dark. Anything off the
- * day is the default. The caller reads them from the database
- * (auto.light, auto.dark) and calls this before theme_init, as it reads
- * the appearance. */
-#define THEME_LIGHT_FROM (7 * 60)
-#define THEME_DARK_FROM  (19 * 60)
-#define THEME_HOURS_STEP 30
+/* Auto's hours: Light from `light_min` minutes into the local day, Dark from
+ * `dark_min`, to the minute. They are Night Mode's Night Hours (1.1.0):
+ * light from night.until, dark from night.from, so the caller hands in
+ * (until, from) - src/nightkeep.h's night_theme_hours does, at the start and
+ * at each change of them on Night Mode's page; portkeys reads the same two
+ * keys. 7:00 and 21:00 as it ships, the Night Hours' own. Hours that go
+ * round midnight are fine, and the same two never make it dark, as the same
+ * two make Night Mode no night. Anything off the day is the default.
+ *
+ * THEME_LIGHT_FROM and THEME_DARK_FROM are 1.0.5's Auto Hours as they
+ * shipped, 7:00 and 19:00: the first start's migration of a 1.0.5 card
+ * keeps them as its Night Hours (src/nightmode.h), so its Auto turns at the
+ * hours it did. THEME_HOURS_STEP is the step Night Mode's page moves them by. */
+#define THEME_NIGHT_FROM  (21 * 60)
+#define THEME_NIGHT_UNTIL (7 * 60)
+#define THEME_LIGHT_FROM  (7 * 60)
+#define THEME_DARK_FROM   (19 * 60)
+#define THEME_HOURS_STEP  30
 void theme_set_hours(int light_min, int dark_min);
 void theme_hours(int *light_min, int *dark_min);
 
@@ -80,8 +92,9 @@ int theme_resolve_min(appearance a, int minute);
  *
  * For a program that draws in the launcher's theme without the launcher:
  * portkeys, over a port, which the launcher exits for, so THEME_FILE is not
- * written again until it is back. With this the bar follows Auto across
- * 7:00 and 19:00 as the shelf would, from the setting in the database. */
+ * written again until it is back. With this the bar follows Auto across the
+ * Night Hours' edges as the shelf would, from the setting and the hours in
+ * the database (theme_set_hours first). */
 int theme_saved_at(const char *saved, time_t now);
 
 /* What the menu shows: "Light", "Dark", "Auto". A setting that is not one of
@@ -100,8 +113,8 @@ const char *appearance_id(appearance a);
 appearance appearance_parse(const char *s);
 
 /* The setting `d` steps from `a` (-1 or +1, or 0 for none), wrapping at both
- * ends: Light, Dark and round again, the two the row has. Auto, or a
- * setting that is not one of the three, steps from Light. */
+ * ends: Light, Dark, Auto and round again. A setting that is not one of the
+ * three steps from Light. */
 appearance appearance_step(appearance a, int d);
 
 /* Where THEME_FILE is written, THEME_FILE unless this says otherwise, and
@@ -121,7 +134,7 @@ void theme_set_file(const char *path);
 void theme_init(appearance a);
 
 /* theme_init at `now`, for the check, which has to ask what Auto does at
- * 6:59 and at 7:00 and cannot wait for either. */
+ * 20:59 and at 21:00 and cannot wait for either. */
 void theme_init_at(appearance a, time_t now);
 
 /* Auto's clock, from the main loop: true when the theme changed since it

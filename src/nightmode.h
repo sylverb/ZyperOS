@@ -4,10 +4,13 @@
 /* Night Mode (1.0.6, MENU > Display): the whole screen warmer, always or by
  * the hours the player sets, over whatever Screen Colors they have.
  *
- * It replaces Appearance's Auto, which turned the theme dark by the same
- * kind of hours (Tarik, after the Screen Colors look, 2026-11-16: "instead
- * of auto hours affecting appearance, let's have it be night mode hours and
- * remove auto from appearance"). Night Mode never changes the theme.
+ * In 1.0.6 it replaced Appearance's Auto, which turned the theme dark by the
+ * same kind of hours (Tarik, after the Screen Colors look, 2026-11-16:
+ * "instead of auto hours affecting appearance, let's have it be night mode
+ * hours and remove auto from appearance"). Night Mode never changes the
+ * theme. 1.1.0 brought Auto back on these same Night Hours (src/theme.h):
+ * one schedule for both, each on its own setting, so Night Mode Off with
+ * Appearance Auto still turns the theme at night_from and night_until.
  *
  * The warmth is the display's gamma table's (src/panelgamma.h,
  * panelgamma_color.night): Temperature's gains again, multiplied after the
@@ -38,9 +41,10 @@ typedef enum { NIGHT_OFF, NIGHT_ON, NIGHT_HOURS } night_mode;
  * Colors had before (Temperature +8) */
 #define NIGHT_WARMTH_DEFAULT 8
 /* Night Hours, minutes into the local day, on NIGHT_HOURS_STEP: from 21:00
- * to 7:00 as it ships (the sheet Tarik approved, 2026-11-16) */
-#define NIGHT_FROM_DEFAULT  (21 * 60)
-#define NIGHT_UNTIL_DEFAULT (7 * 60)
+ * to 7:00 as it ships (the sheet Tarik approved, 2026-11-16), Appearance
+ * Auto's too (src/theme.h's, one pair) */
+#define NIGHT_FROM_DEFAULT  THEME_NIGHT_FROM
+#define NIGHT_UNTIL_DEFAULT THEME_NIGHT_UNTIL
 #define NIGHT_HOURS_STEP    THEME_HOURS_STEP
 
 typedef struct night_cfg {
@@ -72,28 +76,33 @@ void night_cfg_clamp(night_cfg *n);
  * same: no night. On: always. Off: none, warmth 0. */
 void night_schedule(const night_cfg *n, time_t now, panelgamma_night *out);
 
-/* The first start of 1.0.6 over a 1.0.5 device's settings: what to write.
+/* The first start of 1.0.6 or later over a 1.0.5 device's settings: what to
+ * write.
  *
- *   - Appearance "auto" becomes the theme Auto gave at `now` by its hours,
- *     "light" or "dark" (Tarik's pick 1: the theme that matches the time).
+ *   - Appearance is left as it is. 1.0.6 turned "auto" into the theme Auto
+ *     gave at that moment; since 1.1.0 Auto is a setting again, on the Night
+ *     Hours, so a 1.0.5 card's Auto stays Auto (Tarik's (a), 2026-11-20).
  *   - Auto's hours become the Night Hours, Light From as Until and Dark
  *     From as From, unless Night Hours are kept already: an Auto player's
- *     hours as they were in force (19:00 to 7:00 if never set), anyone
- *     else's only when they set them.
+ *     hours as they were in force (19:00 to 7:00 if never set, 1.0.5's),
+ *     anyone else's only when they set them. So a 1.0.5 card's Auto turns
+ *     at the hours it did.
  *   - Night Mode stays Off: nothing is written for it.
- *   - The auto.light and auto.dark keys go, so this happens once.
+ *   - The auto.light and auto.dark keys go.
  *
- * `appearance` is the saved word (NULL: none); the hours are minutes, with
- * whether each was in the database. Pure: the caller reads and writes. */
+ * Once a card: night_migrate_db (src/nightkeep.h) keeps NIGHT_MIGRATED_KEY
+ * after it and does
+ * nothing where it is, so Auto picked in 1.1.0 is never taken for a 1.0.5
+ * card's (whose hours would be 19:00). `appearance` is the saved word (NULL:
+ * none); the hours are minutes, with whether each was in the database. Pure:
+ * the caller reads and writes. */
 typedef struct {
-	const char *appearance;   /* "light" or "dark" to write, or NULL */
 	bool        hours;        /* write night.from and night.until */
 	int         from, until;
 	bool        drop_auto;    /* delete auto.light and auto.dark */
 } night_migration;
 
 night_migration night_migrate(const char *appearance, bool have_light, int auto_light,
-                              bool have_dark, int auto_dark, bool have_night_hours,
-                              time_t now);
+                              bool have_dark, int auto_dark, bool have_night_hours);
 
 #endif

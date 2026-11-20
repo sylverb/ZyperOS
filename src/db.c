@@ -225,7 +225,9 @@ static void beside(const char *path, const char *name, char *out, size_t n)
  * LANG_FILE: "language", its code and a line end), so the start after is in
  * it and not in English; and its Appearance, which the launcher notes beside
  * it for the boot screen ("boot-theme", src/boottheme.h's line:
- * zytheme=light|dark|auto first). The rest is back to the shipped defaults. */
+ * zytheme=light|dark|auto-FROM-UNTIL first), Auto with its Night Hours, so a
+ * new database is not taken for a 1.0.5 card's (night.auto_106,
+ * src/nightkeep.h). The rest is back to the shipped defaults. */
 static void carry_over(db *d, const char *path)
 {
 	char code[32], line[160];
@@ -243,9 +245,19 @@ static void carry_over(db *d, const char *path)
 	if (strncmp(line, "zytheme=", 8)) return;
 	t = line + 8;
 	n = strcspn(t, " ");
-	if ((n == 5 && !strncmp(t, "light", 5)) || (n == 4 && !strncmp(t, "dark", 4)) ||
-	    (n == 4 && !strncmp(t, "auto", 4)))
-		db_set_str(d, "appearance", n == 5 ? "light" : !strncmp(t, "dark", 4) ? "dark" : "auto");
+	if ((n == 5 && !strncmp(t, "light", 5)) || (n == 4 && !strncmp(t, "dark", 4)))
+		db_set_str(d, "appearance", n == 5 ? "light" : "dark");
+	else if (n >= 4 && !strncmp(t, "auto", 4) && (n == 4 || t[4] == '-')) {
+		int from, until, used = 0;
+
+		db_set_str(d, "appearance", "auto");
+		/* 1.1.0's: its hours too, the night.from and night.until it had */
+		if (n > 4 && sscanf(t + 4, "-%d-%d%n", &from, &until, &used) == 2 && (size_t)used == n - 4 &&
+		    from >= 0 && from < 24 * 60 && until >= 0 && until < 24 * 60) {
+			db_set_int(d, "night.from", from);
+			db_set_int(d, "night.until", until);
+		}
+	}
 }
 
 static db *open_once(const char *path, db_scope scope, int *code);

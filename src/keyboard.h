@@ -53,7 +53,7 @@ typedef bool (*kb_idle)(void *ctx);
  * It takes no colors. Every one is a role of the theme that is on, asked for
  * as each frame is drawn (DESIGN.md 11.5): a color handed in when the
  * keyboard opened would be the theme of that minute, and Auto turns Beard
- * into Salt & Pepper at 19:00 whatever is open. The backdrop is where the
+ * into Salt & Pepper at night whatever is open. The backdrop is where the
  * caller ticks the theme.
  *
  * The text is always shown in clear. A password typed a character at a time

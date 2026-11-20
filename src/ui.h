@@ -15,7 +15,7 @@
  * saying where you are in the list.
  *
  * Colors are ROLES of the theme that is on (DESIGN.md 3.2), asked for when
- * they are drawn and never kept: Auto turns Beard into Salt & Pepper at 19:00
+ * they are drawn and never kept: Auto turns Beard into Salt & Pepper at night
  * under whatever is on screen, and a color copied into a static at start
  * would stay in the theme of the hour the launcher started in. So none of
  * these is a constant, and none can be used to initialize a static. */
