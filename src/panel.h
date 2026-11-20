@@ -848,6 +848,9 @@ bool is_port(const system_cfg *s);
 
 /* SELECT: MP4, over whatever is on screen */
 bool mp4_open(app *a, const menu_style *over, void *ctx);
+/* MP4 opening by itself on what a start resumed: Now Playing, paused, with
+ * no sound (src/mp4_screen.c, src/mp4resume.h) */
+void mp4_resume_open(app *a);
 /* POWER, Auto Off, the battery empty */
 void power_off(app *a);
 /* Into the shelf of the system under the cursor */

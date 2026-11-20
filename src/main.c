@@ -113,6 +113,7 @@
 #include "menusnap.h"
 #include "mp4c.h"
 #include "mp4lock.h"
+#include "mp4resume.h"   /* MP4 back after a power-off (DESIGN.md 11.67) */
 #include "topbar.h"
 #include "mp4frame.h"  /* MPF_TOO_BIG, for --video-trouble */
 #include "mp4video.h"
@@ -1504,6 +1505,37 @@ static void video_keep(bool now, bool ran_out)
 	g_vk.len = mn->len;
 }
 
+/* MP4 BACK AFTER A POWER-OFF (src/mp4resume.h, DESIGN.md 11.67): what plays,
+ * kept in one row the way a book's place is, by the same calls - when a
+ * queue starts, when its file changes, when it pauses or plays, every thirty
+ * seconds of playing, and at once at a power-off or a restart (book_keep's
+ * `now`). The queue it is, set by whoever starts one (mp4_play): Shuffle
+ * All's names no album. A queue that plays out to its end leaves none. */
+static mp4resume_seen g_rs;
+static mr_queue g_rs_queue = MR_ALBUM;
+
+void resume_clear(void)
+{
+	db_del(db_dev(), MP4RESUME_KEY);
+	g_rs = (mp4resume_seen){ 0 };
+}
+
+static void resume_keep(bool now, bool ran_out)
+{
+	const mu_now *mn = mp4c_now();
+	const char *track = mp4c_track(mn->index);
+	bool playing = mn->state == MU_PLAYING, heard = playing || mn->state == MU_PAUSED;
+	double at = playing ? mp4c_at_live() : mn->at;
+	mp4resume r = { .playing = playing, .queue = g_rs_queue, .at = at > 0 ? at : 0 };
+	char v[MP4RESUME_PATH + 64];
+
+	if (ran_out) { resume_clear(); return; }
+	if (!mp4resume_due(&g_rs, heard, playing, track, at, now)) return;
+	snprintf(r.track, sizeof r.track, "%s", track);
+	if (mp4resume_format(&r, v, sizeof v)) db_set_str(db_dev(), MP4RESUME_KEY, v);
+	mp4resume_wrote(&g_rs, playing, track, at);
+}
+
 void book_keep(bool now)
 {
 	const mu_now *mn = mp4c_now();
@@ -1512,6 +1544,7 @@ void book_keep(bool now)
 	int al;
 
 	video_keep(now, ran_out);
+	resume_keep(now, ran_out);
 	if (!mp4c_is_book() || !g_book_done) { g_bk.al = -1; return; }
 	track = mp4c_track(mn->index);
 	al = ml_album_of(&g_mp4, track);
@@ -1596,6 +1629,9 @@ void mp4_play(const char *const *paths, int n, int start, double at,
 	book_keep(true);
 	g_bk.al = -1;
 	g_vk.track[0] = '\0';
+	/* A new queue: kept at once (resume_keep), Shuffle All's naming no album */
+	g_rs = (mp4resume_seen){ 0 };
+	g_rs_queue = !artist && !album ? MR_ALL : MR_ALBUM;
 	mp4c_play(paths, n, start, at, book, speed, artist, album);
 }
 
@@ -1606,8 +1642,68 @@ void mp4_play_videos(const char *const *paths, int n, int start,
 	book_keep(true);
 	g_bk.al = -1;
 	g_vk.track[0] = '\0';
+	g_rs = (mp4resume_seen){ 0 };
+	g_rs_queue = MR_ALBUM;
 	mp4c_play_videos(paths, n, start, start >= 0 && start < n ? video_place(paths[start]) : 0,
 	                  artist, album);
+}
+
+/* What the row says played when the power went, back on Now Playing, paused
+ * at its second, with no sound (mp4c_hold_next): an album's, a book's or a
+ * series' files from the one it was on, or Shuffle All again from that song
+ * (the songs after it a new order: the order is not kept, Shuffle All being
+ * every song on the card). Nothing when the row says paused - it was not
+ * heard - or when its file is not on the card any more, which takes the row
+ * away. False when nothing was resumed. */
+static bool resume_start(void)
+{
+	char v[MP4RESUME_PATH + 64];
+	const char **paths = NULL;
+	mp4resume r;
+	int al, i, t, n = 0, start = -1;
+
+	if (!db_get_str(db_dev(), MP4RESUME_KEY, v, sizeof v, NULL) || !mp4resume_parse(v, &r) || !r.playing)
+		return false;
+	al = ml_album_of(&g_mp4, r.track);
+	if (al < 0 || !(paths = calloc((size_t)(g_mp4.ntracks > 0 ? g_mp4.ntracks : 1), sizeof *paths))) {
+		fprintf(stderr, "mp4: %s is not on the card, nothing to resume\n", r.track);
+		free(paths);
+		resume_clear();
+		return false;
+	}
+	if (r.queue == MR_ALL) {
+		for (i = 0; i < g_mp4.nalbums; i++)
+			if (g_mp4.albums[i].kind == ML_MUSIC)
+				for (t = 0; t < g_mp4.albums[i].n; t++)
+					paths[n++] = g_mp4.tracks[g_mp4.albums[i].first + t].path;
+	} else {
+		for (t = 0; t < g_mp4.albums[al].n; t++)
+			paths[n++] = g_mp4.tracks[g_mp4.albums[al].first + t].path;
+	}
+	for (i = 0; i < n && start < 0; i++)
+		if (!strcmp(paths[i], r.track)) start = i;
+	if (start < 0) { free(paths); resume_clear(); return false; }
+	mp4c_hold_next();
+	if (r.queue == MR_ALL) {
+		mp4_play(paths, n, start, r.at, false, 1.0, NULL, NULL);
+	} else {
+		const ml_album *b = &g_mp4.albums[al];
+		const char *artist = b->solo ? "" : g_mp4.artists[mp4_artist_of(al)].name;
+
+		if (b->kind == ML_VIDEOS) {
+			book_keep(true);
+			g_bk.al = -1;
+			g_vk.track[0] = '\0';
+			g_rs = (mp4resume_seen){ 0 };
+			g_rs_queue = MR_ALBUM;
+			mp4c_play_videos(paths, n, start, r.at, artist, b->name);
+		} else {
+			mp4_play(paths, n, start, r.at, b->book, b->book ? book_speed(al) : 1.0, artist, b->name);
+		}
+	}
+	free(paths);
+	fprintf(stderr, "mp4: resumed %s at %.1f, paused, after a power-off\n", r.track, r.at);
+	return true;
 }
 
 /* A track's artist and album, as the shelf names them: for a queue drawn from
@@ -7506,6 +7602,12 @@ int main(int argc, char *argv[])
 	else if (a.running && tour_wanted(db_dev())) {
 		fprintf(stderr, "tour: %s is not set, so the tutorial comes first\n", TOUR_DONE_KEY);
 		tour_run(&a, true);
+	}
+	/* Or MP4, where it was when the power went while it played: Now
+	 * Playing, paused at its second, over the shelf the start put back
+	 * (DESIGN.md 11.67). After a game or the tutorial, which come first. */
+	else if (a.running && !shot_path && resume_start()) {
+		mp4_resume_open(&a);
 	}
 	/* Or, back from a PortMaster that closed with an error, its page with
 	 * what happened and Reinstall PortMaster */
