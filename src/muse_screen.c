@@ -550,6 +550,20 @@ bool muse_open(app *a, const menu_style *over, void *ctx)
 	return g_muse_gone || g_message_stopped;
 }
 
+/* MP4 opening by itself at a start, on what it resumed (src/mp4resume.h):
+ * straight to Now Playing, paused, as SELECT opens it on something paused,
+ * but with no sound of its own - nothing was pressed */
+void muse_resume_open(app *a)
+{
+	snap_off();
+	if (g_muse.ntracks == 0) return;
+	g_muse_over = NULL;
+	g_muse_over_ctx = NULL;
+	g_muse_gone = false;
+	muse_shelf_screen(a, true);
+	g_menu_closing = false;
+}
+
 /* A on a book: where it was left, straight onto Now Playing with its files
  * underneath. The beginning for a book never started or finished; nothing new
  * for the book already playing or paused, which A only opens. */

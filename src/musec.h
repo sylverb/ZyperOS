@@ -53,6 +53,11 @@ void musec_poll(void);
 void musec_play(const char *const *paths, int n, int start, double at, bool book,
                 double speed, const char *artist, const char *album);
 
+/* The next queue (musec_play, musec_play_videos) opens held: its file at its
+ * place, paused, with no sound at all - PLAY's paused=1 - and Now Playing
+ * shows it paused at once. MP4 back after a power-off (src/mp4resume.h). */
+void musec_hold_next(void);
+
 /* Where a queue whose tracks are from many albums - Shuffle All - finds each
  * track's artist and album: musec_play with NULL for both asks this for every
  * track, where one album's queue names its own once. The tags still win where

@@ -60,6 +60,8 @@ static bool    g_book;              /* the queue is a book: in order, always */
 static bool    g_videos;            /* or videos: in order too */
 static bool    g_videos_call;       /* inside musec_play_videos */
 static double  g_start_at;          /* where the first PLAY of a queue starts */
+static bool    g_start_held;        /* and that it opens held, paused (musec_hold_next) */
+static bool    g_held_sent;         /* a held PLAY sent and not yet answered */
 static bool    g_ran_out;           /* see musec_take_ran_out */
 static double  g_speed = 1.0;       /* see musec_set_speed */
 /* The playing file's chapters, from the daemon's CHAPTER lines. */
@@ -202,6 +204,27 @@ static int connected(void)
 	return 0;
 }
 
+/* What Now Playing shows of track `q`, the queue's current, before the
+ * daemon has said a word of it: its file's name until META, the queue's
+ * names, where it starts */
+static void now_for(const char *q)
+{
+	ml_track_name(strrchr(q, '/') ? strrchr(q, '/') + 1 : q,
+	              g_now.title, sizeof g_now.title);
+	if (g_names_each && g_names_fn) {
+		g_names_fn(q, g_now.artist, sizeof g_now.artist, g_now.album, sizeof g_now.album);
+	} else {
+		snprintf(g_now.artist, sizeof g_now.artist, "%s", g_artist);
+		snprintf(g_now.album, sizeof g_now.album, "%s", g_album);
+	}
+	g_now.vw = g_now.vh = 0;            /* until META says it has a picture */
+	g_now.at = g_start_at;
+	g_now.speed = g_speed;
+	g_now.len = 0;
+	g_now.index = g_order.pos;
+	g_now.count = g_qn;
+}
+
 static void play_current(void)
 {
 	int t = muq_current(&g_order);
@@ -221,25 +244,16 @@ static void play_current(void)
 	if (g_before_heard) g_before_heard();
 	/* Only the queue's first PLAY starts part way: every track after it is
 	 * one the queue moved on to, from its beginning. */
-	sendf("PLAY\tpath=%s/%s\tat=%.1f\tspeed=%.2f", g_root, q, g_start_at, g_speed);
+	sendf("PLAY\tpath=%s/%s\tat=%.1f\tspeed=%.2f%s", g_root, q, g_start_at, g_speed,
+	      g_start_held ? "\tpaused=1" : "");
 	g_nch = 0;                     /* the new file says its own */
 	/* Until META says otherwise, the name the file has. */
-	ml_track_name(strrchr(q, '/') ? strrchr(q, '/') + 1 : q,
-	              g_now.title, sizeof g_now.title);
-	if (g_names_each && g_names_fn) {
-		g_names_fn(q, g_now.artist, sizeof g_now.artist, g_now.album, sizeof g_now.album);
-	} else {
-		snprintf(g_now.artist, sizeof g_now.artist, "%s", g_artist);
-		snprintf(g_now.album, sizeof g_now.album, "%s", g_album);
-	}
-	g_now.vw = g_now.vh = 0;            /* until META says it has a picture */
-	g_now.at = g_start_at;
-	g_now.speed = g_speed;
+	now_for(q);
+	if (g_start_held) g_now.state = MU_PAUSED;
+	g_held_sent = g_start_held;
 	g_start_at = 0;
+	g_start_held = false;
 	g_seeking = false;
-	g_now.len = 0;
-	g_now.index = g_order.pos;
-	g_now.count = g_qn;
 }
 
 /* The next track the queue's mode names, or the end. `failed` is a track that
@@ -308,6 +322,7 @@ static void event(const char *line)
 		if (g_advanced && !strcmp(v, "stopped")) { g_advanced = false; return; }
 		g_advanced = false;
 		g_asked = false;
+		g_held_sent = false;           /* answered: it opened */
 		g_now.state = !strcmp(v, "playing") ? MU_PLAYING
 		            : !strcmp(v, "paused")  ? MU_PAUSED : MU_STOPPED;
 		if (g_now.state == MU_PLAYING) g_skips = 0;
@@ -405,8 +420,12 @@ static void event(const char *line)
 		fprintf(stderr, "muse: %s\n", v);
 		/* A track that will not open is skipped rather than ending the
 		 * album - but not forever: a whole album of files that fail is a
-		 * folder problem, and walking it at a frame a track says nothing. */
-		if (++g_skips < 8) advance(true); else g_now.state = MU_STOPPED;
+		 * folder problem, and walking it at a frame a track says nothing.
+		 * Not one opened held (musec_hold_next): the next track's PLAY
+		 * would play, and nobody pressed anything; it stops there. */
+		if (g_held_sent) { g_held_sent = false; g_now.state = MU_STOPPED; }
+		else if (++g_skips < 8) advance(true);
+		else g_now.state = MU_STOPPED;
 	}
 }
 
@@ -524,8 +543,20 @@ void musec_play(const char *const *paths, int n, int start, double at, bool book
 	g_names_each = !artist && !album;
 	snprintf(g_artist, sizeof g_artist, "%s", artist ? artist : "");
 	snprintf(g_album, sizeof g_album, "%s", album ? album : "");
+	/* Held: Now Playing shows it paused at its place at once, before a
+	 * daemon that is still starting has said so */
+	if (g_start_held) {
+		int t = muq_current(&g_order);
+
+		if (t >= 0 && t < g_qn) {
+			now_for(g_q[t]);
+			g_now.state = MU_PAUSED;
+		}
+	}
 	play_current();
 }
+
+void musec_hold_next(void) { g_start_held = true; }
 
 void musec_play_videos(const char *const *paths, int n, int start, double at,
                        const char *artist, const char *album)
