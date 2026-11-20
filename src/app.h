@@ -362,6 +362,13 @@ void book_keep(bool now);
  * after which nothing should open by itself */
 void resume_clear(void);
 void mp4_poll(void);
+/* MP4's queue handed over a program of its own that keeps it playing
+ * (src/mp4hand.h): written, and taken on (true when a queue came) */
+bool mp4_hand_save(void);
+bool mp4_hand_take(void);
+/* SELECT in the in-game menu over such a program: MP4 made ready there,
+ * false over any other (src/main.c) */
+bool port_mp4_ready(app *a);
 
 /* Charge Limit, and the one full charge asked for past it */
 int  charge_limit_now(void);

@@ -11,7 +11,15 @@ the art lane (fake=N: one of the card's games every 150 ms, its cover where it
 has one, else its card), the page left with B (Continue in background), the
 lanes stepped behind it as the shelf steps them, a game (they wait), the page
 opened again. `list=NAME` says what the page shows came, newest first, with
-each one's picture.
+each one's picture and the page's pass since it opened.
+
+Every wait is for an event, never for a time: the stand-in holds after its
+Kth arrival (hold=K), the page waits until every arrival has its picture
+(pics), so what it had when B left it is known, not raced; behind the page
+it goes on until K more have come (away=K); opened again, the first list is
+on the page's first pass (pass=0), before it has read any picture. A loaded
+machine only makes it slower (on GitHub's runner, 3 checks at a time, the
+first version raced a picture landing between its list and B).
 
 Tarik on 1.1.0-rc.3: left in the background and opened again, the page had
 lost the pictures that had come and showed only what came after. This fails
@@ -38,20 +46,21 @@ R = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(R)
 
 KEEP = 14   # DL_RING
+BEFORE, AWAY = 5, 3
 SCRIPT = ",".join([
-    # Run A: 16 arrivals, about 10 with the page open, some behind it, none
-    # in the game, the rest after it opens again
-    "wait=300", "fake=16", "wait=900", "list=before",
-    "B", "away=450", "game=800", "open", "list=back",
-    "wait=1500", "list=later",
-    "run", "wait=500", "list=done",
-    "B", "B", "away=1", "open", "list=hub", "B",
-    # Run B: 20 arrivals, ended behind the page, the renderer gone meanwhile
-    "open", "fake=20", "wait=300", "B", "away=4000", "video-gone",
-    "open", "list=wall", "wait=1500", "list=wall-later", "B",
+    # Run A: 16 arrivals, 5 with the page open and their pictures in, 3
+    # behind it, none in the game, the rest after it opens again
+    "fake=16", "hold=%d" % BEFORE, "pics", "list=before",
+    "B", "away=%d" % AWAY, "game=800", "open", "list=back",
+    "run", "pics", "list=done",
+    "B", "B", "kept", "open", "list=hub", "B",
+    # Run B: 20 arrivals, 3 with the page open, the rest and the end behind
+    # it, the renderer gone meanwhile
+    "open", "fake=20", "hold=3", "B", "away=20", "video-gone",
+    "open", "list=wall", "pics", "list=wall-later", "B",
 ])
 
-CAME = re.compile(r"downloads-test: came (\S+) view=(\d+) n=(\d+) arrived=(\d+)")
+CAME = re.compile(r"downloads-test: came (\S+) view=(\d+) n=(\d+) arrived=(\d+) pass=(\d+)")
 ITEM = re.compile(r"downloads-test: came (\S+) (\d+) key=(\d+) kind=(\d+) tex=(yes|no) (\d+)x(\d+)(?: card=\d)? game=(.*)\|folder=(.*)$")
 STAND = re.compile(r"downloads-test: stand-in (\d+) game=(.*)\|folder=(.*)$")
 BEHIND = re.compile(r"downloads-test: (\S+) \(behind the page\) live=(\d) arrived=(\d+)(?: kept=(\d+))?")
@@ -83,7 +92,7 @@ def parse(out):
         m = CAME.match(line)
         if m:
             lists[m.group(1)] = {"view": int(m.group(2)), "n": int(m.group(3)), "arrived": int(m.group(4)),
-                                 "items": [], "run": len(runs) - 1}
+                                 "pass": int(m.group(5)), "items": [], "run": len(runs) - 1}
             continue
         m = ITEM.match(line)
         if m and m.group(1) in lists:
@@ -132,33 +141,33 @@ def main():
             fails.append(what)
         return cond
 
-    if not need(r.returncode == 0, "the launcher ended with %d" % r.returncode):
-        pass
+    need(r.returncode == 0, "the launcher ended with %d" % r.returncode)
     if not need(len(runs) == 2 and all(name in lists for name in
-                ("before", "back", "later", "done", "wall", "wall-later")),
+                ("before", "back", "done", "hub", "wall", "wall-later")),
                 "the walk did not get through (runs %d, lists %s)" % (len(runs), sorted(lists))):
-        for f in fails:
-            print("FAIL " + f)
-        print("(log: %s)" % log)
-        return 1
+        return report(fails, log, r.stdout)
 
     def ids(l):
         return [it["id"] for it in l["items"]]
 
-    before, back, later, done = lists["before"], lists["back"], lists["later"], lists["done"]
-    # The page open: what it shows is the run so far (the walk itself), each
-    # with its picture but the newest, whose picture may be on its way
-    need(ids(before) == expect(runs, before) and all(it["tex"] for it in before["items"][1:]),
-         "before leaving, the page shows the run's %d arrivals with their pictures (it shows %d)"
-         % (before["arrived"], before["n"]))
-    away = behind.get("away=450", [{}])[0]
+    before, back, done = lists["before"], lists["back"], lists["done"]
+    # The page open, the stand-in holding after its 5th, every picture in:
+    # what the page has as B leaves it
+    need(before["arrived"] == BEFORE and ids(before) == expect(runs, before)
+         and all(it["tex"] for it in before["items"]),
+         "before leaving, the page shows the run's %d arrivals, each with its picture (it shows %d, %d with one)"
+         % (BEFORE, before["n"], sum(it["tex"] for it in before["items"])))
+    away = behind.get("away=%d" % AWAY, [{}])[0]
     game = behind.get("game=800", [{}])[0]
-    need(away.get("arrived", 0) > before["arrived"] and away.get("live"),
-         "arrivals come behind the page (%d before, %s after)" % (before["arrived"], away.get("arrived")))
+    need(away.get("arrived") == BEFORE + AWAY and away.get("live"),
+         "%d arrivals come behind the page (%d before, %s after)" % (AWAY, BEFORE, away.get("arrived")))
     need(game.get("arrived") == away.get("arrived"), "nothing comes while a game runs (%s then %s)"
          % (away.get("arrived"), game.get("arrived")))
-    # Opened again: every arrival so far, those it showed with their pictures at once
-    need(back["view"] == 4, "opened again during the run, the page is on the run (view %d)" % back["view"])
+    # Opened again, on its first pass: every arrival so far, the ones it had
+    # with their very pictures, before it has read one
+    need(back["view"] == 4 and back["pass"] == 0,
+         "opened again during the run, the page is on the run, listed on its first pass (view %d, pass %d)"
+         % (back["view"], back["pass"]))
     need(ids(back) == expect(runs, back),
          "opened again, the page lists the run's %d arrivals so far, newest first (it lists %d)"
          % (min(back["arrived"], KEEP), back["n"]))
@@ -167,16 +176,17 @@ def main():
         if it["id"] in was:
             need(it["tex"] and it["size"] == was[it["id"]]["size"],
                  "%s (%s) has its picture back at once, as it was" % it["id"])
-    need(ids(later) == expect(runs, later) and all(it["tex"] for it in later["items"][1 if later["view"] == 4 else 0:]),
-         "a moment later every one of the %d has its picture (%d of %d do)"
-         % (later["n"], sum(it["tex"] for it in later["items"]), later["n"]))
-    # Done: the run's newest 14 with their pictures
+    # Done: the run's newest 14, the ones that came behind the page among
+    # them, every one with its picture
     need(done["view"] == 5 and done["arrived"] == 16 and ids(done) == expect(runs, done)
          and all(it["tex"] for it in done["items"]),
-         "done's wall is the run's newest %d of 16, with their pictures (it has %d)" % (KEEP, done["n"]))
-    hub = lists.get("hub")
-    need(hub is not None and hub["view"] == 0 and hub["n"] == 0,
-         "after done was seen, the page opens on the hub, nothing kept (%s)" % (hub and hub["n"]))
+         "done's wall is the run's newest %d of 16, with their pictures (it has %d, %d with one)"
+         % (KEEP, done["n"], sum(it["tex"] for it in done["items"])))
+    hub = lists["hub"]
+    need(hub["view"] == 0 and hub["n"] == 0,
+         "after done was seen, the page opens on the hub, nothing kept (%d)" % hub["n"])
+    let_go = behind.get("kept", [{}])[0].get("kept")
+    need(let_go == 0, "the list is let go once its run's end was seen (%s kept)" % let_go)
     # Run B: ended behind the page, the renderer gone meanwhile
     wall, wall_later = lists["wall"], lists["wall-later"]
     need(wall["view"] == 5 and wall["arrived"] == 20 and ids(wall) == expect(runs, wall),
@@ -185,18 +195,26 @@ def main():
     need(ids(wall_later) == expect(runs, wall_later) and all(it["tex"] for it in wall_later["items"]),
          "after the renderer went, the pictures come back (%d of %d)"
          % (sum(it["tex"] for it in wall_later["items"]), wall_later["n"]))
-    let_go = behind.get("away=1", [{}])[0].get("kept")
-    need(let_go == 0, "the list is let go once its run's end was seen (%s kept)" % let_go)
+    if fails:
+        return report(fails, log, r.stdout)
+    print("ok: left with B and opened again, the page lists the run's %d arrivals so far on its first pass, the %d "
+          "it had with their very pictures, and the %d that came behind it get theirs; none came in the game; "
+          "done's wall is the newest %d of 16; a run ended behind the page shows its own, its pictures back after "
+          "the renderer went" % (back["arrived"], BEFORE, AWAY, KEEP))
+    return 0
+
+
+def report(fails, log, out):
+    """The failures, and the walk's own lines with them: on a CI runner the
+    log file is gone with the runner"""
     for f in fails:
         print("FAIL " + f)
-    if fails:
-        print("(log: %s)" % log)
-        return 1
-    print("ok: left with B and opened again, the page lists the run's %d arrivals so far, the %d it showed with "
-          "their pictures at once and the rest a moment later; none came in the game; done's wall is the newest "
-          "%d of 16; a run ended behind the page shows its own, its pictures back after the renderer went"
-          % (min(back["arrived"], KEEP), len([i for i in back["items"] if i["id"] in was]), KEEP))
-    return 0
+    print("the walk said:")
+    for line in out.splitlines():
+        if line.startswith("downloads-test:") and " stand-in " not in line:
+            print("  " + line[len("downloads-test: "):])
+    print("(log: %s)" % log)
+    return 1
 
 
 if __name__ == "__main__":

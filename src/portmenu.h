@@ -48,6 +48,23 @@ static inline bool port_menu_for(const char *core)
 	return core && (!strncmp(core, "run:", 4) || !strcmp(core, "port"));
 }
 
+/* Of those, the programs MP4 keeps playing over, as over a Diatom game:
+ * your PICO-8, by its script (src/pico8.h's P8_CORE; written out here,
+ * which portkeys includes too). Mine, 2026-11-20: "mp4 should keep playing
+ * while pico 8 is running like we do on other systems". launch.sh stops MP4
+ * for every other one, as a port such as Stardew Valley takes most of the
+ * 1 GB; PICO-8 takes little of it. The launcher says so in the port request's
+ * fifth field (PORT_KEEPS_MP4), hands MP4's queue over (src/mp4hand.h), and
+ * launch.sh starts the follower beside the program (MP4_FOLLOW_ARG), which
+ * portkeys stops while the in-game menu is up (--follow). SELECT in that
+ * menu opens MP4. tools/pico8-mp4-check.py holds all of it. */
+static inline bool port_keeps_mp4(const char *core)
+{
+	return core && !strcmp(core, "run:ZyperOS/pico8/PICO-8.sh");
+}
+#define PORT_KEEPS_MP4  "mp4"
+#define MP4_FOLLOW_ARG  "--mp4-follow"
+
 /* The menu's process to the kernel when memory runs out: the first to go,
  * its oom_score_adj at the top of the scale */
 #define PORT_MENU_OOM "1000"
