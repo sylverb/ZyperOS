@@ -319,6 +319,19 @@ EXTRA = {
     "achtab-waiting": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "3", "--achtab", "waiting"]),
     "achtab-unchecked": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "3", "--achtab", "unchecked"]),
     "achtab-none": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "3", "--achtab", "none"]),
+    # An achievement's card, opened with A from its list (1.1.0): its badge
+    # under the heading's rule, its description whole. Earned; not earned,
+    # the longest description there is, which scrolls itself (and the same
+    # moved on); earned offline, waiting to send; none, with the plain badge
+    "cheevo-card": ("demo", "PS1", ["--cheevo-card", "0", "--cheevos-badge",
+                                    "{card}/Roms/PlayStation/.cheevos/Hagane.set", "b2"]),
+    "cheevo-card-long": ("demo", "PS1", ["--cheevo-card", "1", "--phase", "0", "--cheevos-badge",
+                                         "{card}/Roms/PlayStation/.cheevos/Hagane.set", "b4"]),
+    "cheevo-card-long-moved": ("demo", "PS1", ["--cheevo-card", "1", "--phase", "9000", "--cheevos-badge",
+                                               "{card}/Roms/PlayStation/.cheevos/Hagane.set", "b4"]),
+    "cheevo-card-waiting": ("demo", "PS1", ["--cheevo-card", "2", "--cheevos-badge",
+                                            "{card}/Roms/PlayStation/.cheevos/Hagane.set", "b3"]),
+    "cheevo-card-plain": ("demo", "PS1", ["--cheevo-card", "3"]),
     "info-nohash": ("demo", "PS1", ["--screen", "games", "--info", "--cheevos-no-hash", "file"]),
     "gamecontrols": ("demo", "PS1", ["--gamecontrols", "1", "MD"]),
     "slots": ("demo", "PS1", ["--slots", "0"]),
@@ -727,7 +740,9 @@ for _name, _tag, _flags in (
         ("n64-end", "N64", ["--gamemenu", "13"]),
         ("dc", "DC", ["--gamemenu", "2"]), ("dc-end", "DC", ["--gamemenu", "13"]),
         ("dc-place", "DC", ["--gamemenu", "2"]), ("dc-mixed", "DC", ["--gamemenu", "2"]),
-        ("stick", "PS1", ["--gamemenu", "9"])):
+        ("stick", "PS1", ["--gamemenu", "9"]),
+        ("pick-share", "PS1", ["--gamemenu", "5", "--gm-pick", "--pick-at", "1"]),
+        ("shared", "PS1", ["--gamemenu", "5"])):
     EXTRA.setdefault("gamemenu-controls-" + _name,
                      ("demo", _tag, ["--screen", "games", "--gm-tab", "2"] + _flags))
 # A Nintendo 64 game's Pak row, back in the Controls tab
@@ -773,7 +788,11 @@ SHOT_LIB = {"gamemenu-rumble-own-list": {"rumble.N64.Mario Kart 64 (USA).z64": "
             "gamemenu-controls-dc-mixed": {"map.DC." + _SONIC: "1;a:a"},
             # L2 Stick While Held and R2 Stick On/Off, a button's two stick
             # choices (DESIGN.md 11.45), the cursor on R2
-            "gamemenu-controls-stick": {_MGS: "1;l2:stickhold,r2:stick"}}
+            "gamemenu-controls-stick": {_MGS: "1;l2:stickhold,r2:stick"},
+            # Y on cross, which B gives, in Y's list: the foot's A Swap and Y
+            # Both, and what each does; and Y given cross as well, the two
+            # rows each with the other's glyph (issue #305)
+            "gamemenu-controls-shared": {_MGS: "1;y:b"}}
 
 
 # MENU > Display > Home Systems (src/homesys.h, DESIGN.md 11.48): its row with
@@ -798,6 +817,130 @@ for _name, _flags in (("home-recents", []), ("shelf-recents", ["--screen", "game
     EXTRA.setdefault(_name, ("demo", "RECENT", _flags))
     SHOT_LIB[_name] = _RECENT_LIB
     CTL_FOCUS[_name] = "The Legend of Zelda - The Minish Cap (USA).gba"
+
+
+# Collections (src/collect.h, DESIGN.md 11.56): three lists on the card, one
+# naming a game in a folder of games and one with a note line, as the files
+# a player keeps; the home on its group, its shelf's top, one opened, a
+# game's details on Add to Collection and its list, the shelf's menu at its
+# top and in one, and Delete Collection's question
+SHOT_TEXT = {}
+_COLL = {"Collections/Couch Co-op.txt": "/Roms/SNES/Super Mario World (USA).sfc\n"
+                                        "/Roms/Game Boy Advance/Mario Kart - Super Circuit (USA).gba\n"
+                                        "/Roms/PlayStation/Tekken 3 (USA).chd\n",
+         "Collections/RPGs to Finish.txt": "/Roms/SNES/Chrono Trigger (USA).sfc\n"
+                                           "/Roms/Game Boy Advance/Commercial Owned/Golden Sun (USA).gba\n"
+                                           "# after Golden Sun\n"
+                                           "/Roms/Game Boy/Pokemon - Red Version (USA, Europe).gb\n",
+         "Collections/For the Kids.txt": "/Roms/NES/Kirby's Adventure (USA).nes\n"}
+for _name, _flags in (("home-collections", []),
+                      ("shelf-collections", ["--screen", "games"]),
+                      ("shelf-collection-in", ["--screen", "games", "--folder", "RPGs to Finish"]),
+                      ("shelf-collection-list", ["--screen", "games", "--folder", "RPGs to Finish",
+                                                 "--view", "list"]),
+                      ("collect-menu-top", ["--screen", "games", "--menu", "Delete Collection"]),
+                      ("collect-menu-in", ["--screen", "games", "--folder", "RPGs to Finish",
+                                           "--menu", "Remove from Collection"]),
+                      ("collect-menu-sort", ["--screen", "games", "--folder", "RPGs to Finish",
+                                             "--menu", "Sort By", "--press", "a"]),
+                      ("collect-delete", ["--screen", "games", "--collect-delete"])):
+    EXTRA.setdefault(_name, ("demo", "COLL", _flags))
+    SHOT_TEXT[_name] = _COLL
+# Home Systems with a collection on the card: Collections' row after Recents
+EXTRA.setdefault("homesys-page-coll", ("demo", "PS1", ["--homesys-page", "2"]))
+SHOT_TEXT["homesys-page-coll"] = _COLL
+SHOT_SETTINGS["homesys-page-coll"] = {"home.hidden": "COLL"}
+for _name, _flags in (("collect-said-long", ["--screen", "games", "--collect-said", "0"]),
+                      ("collect-said-taken", ["--screen", "games", "--collect-said", "1"]),
+                      ("collect-said-failed", ["--screen", "games", "--collect-said", "2"]),
+                      ("info-collect", ["--screen", "games", "--info-collect"]),
+                      ("collect-page", ["--screen", "games", "--collect-page", "1"]),
+                      ("collect-page-none", ["--screen", "games", "--collect-page", "0"])):
+    EXTRA.setdefault(_name, ("demo", "SFC", _flags))
+    SHOT_TEXT[_name] = {} if _name == "collect-page-none" else _COLL
+    CTL_FOCUS[_name] = "Chrono Trigger (USA).sfc"
+
+
+def set_text(card, files, on):
+    """A shot's files with their text or bytes (SHOT_TEXT) on the card, or off it"""
+    for f, text in (files or {}).items():
+        path = card / f
+        if on:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            if isinstance(text, bytes):
+                path.write_bytes(text)
+            else:
+                path.write_text(text)
+        elif path.exists():
+            path.unlink()
+
+
+def scene_bmp(w, h, sky, ground, hue):
+    """A made-up frame of play, a 24-bit BMP of w x h drawn here (no Pillow):
+    a sky of `sky` fading to white, hills, `ground` at the foot and a block
+    of `hue` in the middle, as a game's resume picture stands in a shot"""
+    import struct
+    row = (w * 3 + 3) & ~3
+    out = bytearray()
+    for y in range(h - 1, -1, -1):       # a BMP's rows from the bottom
+        line = bytearray()
+        for x in range(w):
+            if y > h * 3 // 4:
+                c = ground
+            elif y > h * 3 // 4 - 2 - ((x // 8) % 5 == 0) * 6 and y > h // 2 + abs((x % 64) - 32) // 2:
+                c = tuple(max(0, v - 40) for v in ground)
+            elif w * 2 // 5 <= x < w * 3 // 5 and h * 2 // 5 <= y < h * 3 // 5:
+                c = hue
+            else:
+                k = y / h
+                c = tuple(int(v + (255 - v) * k * 0.6) for v in sky)
+            line += bytes((c[2], c[1], c[0]))
+        out += line + b"\0" * (row - w * 3)
+    head = struct.pack("<2sIHHI", b"BM", 54 + len(out), 0, 0, 54)
+    info = struct.pack("<IiiHHIIiiII", 40, w, h, 1, 24, 0, len(out), 2835, 2835, 0, 0)
+    return head + info + bytes(out)
+
+
+# Recents' Card Picture (DESIGN.md 11.48): the three games with a resume
+# point, each its state and the picture Diatom writes beside it, made up
+# here; Last Screen on the cover row and the grid, the row in its menu, and
+# its list with the picture of each choice
+_RECENT_SCREENS = {}
+for (_folder, _file, _wh, _sky, _ground, _hue) in (
+        ("Game Boy Advance", "The Legend of Zelda - The Minish Cap (USA).gba", (240, 160),
+         (64, 140, 220), (72, 150, 60), (230, 200, 60)),
+        ("SNES", "Super Metroid (USA).sfc", (256, 224), (40, 30, 90), (110, 70, 50), (220, 80, 60)),
+        ("PlayStation", "Metal Gear Solid (USA).chd", (320, 240), (60, 80, 90), (70, 80, 70), (200, 200, 210))):
+    _RECENT_SCREENS["shared/.zyperos/%s/%s.auto.state" % (_folder, _file)] = "state"
+    _RECENT_SCREENS["shared/.zyperos/%s/%s.auto.bmp" % (_folder, _file)] = scene_bmp(*_wh, _sky, _ground, _hue)
+for _name, _flags in (("shelf-recents-screen", ["--screen", "games"]),
+                      ("shelf-recents-screen-grid", ["--screen", "games", "--view", "grid"]),
+                      ("recents-menu-picture", ["--screen", "games", "--menu", "Card Picture"]),
+                      ("recents-picture-list", ["--screen", "games", "--menu", "Card Picture", "--press", "a"]),
+                      ("recents-picture-list-cover", ["--screen", "games", "--menu", "Card Picture", "--press", "a",
+                                                      "--pick-at", "0"])):
+    EXTRA.setdefault(_name, ("demo", "RECENT", _flags))
+    SHOT_LIB[_name] = _RECENT_LIB
+    SHOT_TEXT[_name] = _RECENT_SCREENS
+    # The grid's band has the name and Resume on one line: a name short
+    # enough for German's word there too
+    CTL_FOCUS[_name] = "Super Metroid (USA).sfc" if _name.endswith("-grid") else \
+        "The Legend of Zelda - The Minish Cap (USA).gba"
+    if _name != "recents-picture-list-cover":
+        SHOT_SETTINGS[_name] = {"recents.picture": "screen"}
+
+
+# The Video view (DESIGN.md 11.57): a game with no snap, its card whole
+# above the band; its snap playing (the test picture), the band up; the band
+# down to its strip, and halfway there; MENU's View on Video and its list
+for _name, _flags in (("shelf-video", ["--screen", "games", "--view", "video"]),
+                      ("shelf-video-snap", ["--screen", "games", "--view", "video", "--snap", "1"]),
+                      ("shelf-video-strip", ["--screen", "games", "--view", "video", "--snap", "1", "--band", "1"]),
+                      ("shelf-video-half", ["--screen", "games", "--view", "video", "--snap", "1", "--band", ".5"]),
+                      ("system-menu-view-video", ["--screen", "games", "--view", "video", "--menu", "View"]),
+                      ("system-menu-view-video-list", ["--screen", "games", "--view", "video", "--menu", "View",
+                                                       "--press", "a"])):
+    EXTRA.setdefault(_name, ("demo", "PS1", _flags))
 
 
 def set_lib(card, settings, on):
@@ -964,10 +1107,29 @@ SHOT_SETTINGS["night-from-list"] = {"night.mode": "hours", "night.from": "1260"}
 # friend's browser joining and leaving
 for _kind in ("saved", "loaded", "save_failed", "load_failed", "slot_empty", "no_states", "dslang",
               "corestate", "stick_on", "stick_off", "player2_joined", "player2_left",
-              "player2_stopped"):
+              "player2_stopped", "shot", "shader", "display"):
     EXTRA.setdefault("popup-" + _kind, ("demo", "PS1", ["--popup", _kind]))
 EXTRA.setdefault("popup-speed-half", ("demo", "PS1", ["--popup", "speed", "3"]))
 EXTRA.setdefault("popup-speed-whole", ("demo", "PS1", ["--popup", "speed", "4"]))
+# The Hotkeys list (src/hotkeys_screen.h): MENU > System's, at its top and its
+# end (Home, the line under it, Reset Hotkeys); a game's, Applies To on each
+# of its three and All Controls at the end; the capture screen waiting and
+# with SELECT and Y down; the swap question; Reset Hotkeys' question for each
+# scope; and Reset Game's question over the game
+for _name, _flags in (
+        ("top", ["--hotkeys", "4"]), ("end", ["--hotkeys", "103"]),
+        ("game", ["--screen", "games", "--hk-game", "--hotkeys", "100"]),
+        ("game-every", ["--screen", "games", "--hk-game", "--hk-scope", "0", "--hotkeys", "100"]),
+        ("game-system", ["--screen", "games", "--hk-game", "--hk-scope", "1", "--hotkeys", "100"]),
+        ("game-end", ["--screen", "games", "--hk-game", "--hotkeys", "104"]),
+        ("capture", ["--hotkeys", "4", "--hk-capture", "1"]),
+        ("capture-keys", ["--hotkeys", "4", "--hk-capture", "2", "--hk-key", "3"]),
+        ("swap", ["--hotkeys", "4", "--hk-ask", "1", "--hk-key", "7"]),
+        ("reset-every", ["--hotkeys", "103", "--hk-ask", "2"]),
+        ("reset-system", ["--screen", "games", "--hk-game", "--hk-scope", "1", "--hotkeys", "103", "--hk-ask", "2"]),
+        ("reset-game", ["--screen", "games", "--hk-game", "--hk-scope", "2", "--hotkeys", "103", "--hk-ask", "2"]),
+        ("reset-ask", ["--screen", "games", "--hk-game", "--hotkeys", "103", "--hk-ask", "3"])):
+    EXTRA.setdefault("hotkeys-" + _name, ("demo", "PS1", _flags))
 # NES Player 2 (src/p2.h): its page over a paused NES game in every state
 # (--player2), the code on the hotspot with nobody yet and its address under
 # it, a player connected, the cable, before A on each link, with neither
@@ -1091,6 +1253,9 @@ def pico8_card(card):
 
 
 EXTRA["pico8-splore"] = ("pico8", "PICO8", ["--screen", "games"])
+# Splore on the Video view (DESIGN.md 11.57): A How to Add and no Y, as on
+# the other views
+EXTRA["pico8-splore-video"] = ("pico8", "PICO8", ["--screen", "games", "--view", "video"])
 EXTRA["pico8-page"] = ("pico8", "PICO8", ["--screen", "games", "--pico8-page"])
 for _k in range(7):
     EXTRA["pico8-said-%d" % _k] = ("pico8", "PICO8", ["--screen", "games", "--pico8-said", str(_k)])
@@ -1260,11 +1425,13 @@ def run_language(code, shots, binary, keep, theme="light", device="pixel2", firs
                 R.set_settings(card, SHOT_SETTINGS.get(name), True)
                 set_lib(card, SHOT_LIB.get(name), True)
                 set_files(card, SHOT_FILES.get(name), True)
+                set_text(card, SHOT_TEXT.get(name), True)
                 r = subprocess.run(command, cwd=ROOT, env=env, text=True, errors="replace",
                                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
                 R.set_settings(card, SHOT_SETTINGS.get(name), False)
                 set_lib(card, SHOT_LIB.get(name), False)
                 set_files(card, SHOT_FILES.get(name), False)
+                set_text(card, SHOT_TEXT.get(name), False)
                 return r
 
             def failed(r):

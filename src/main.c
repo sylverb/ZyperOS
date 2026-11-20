@@ -49,6 +49,7 @@
 #include "nightkeep.h"
 #include "platform.h"
 #include "texload.h"
+#include "screencard.h"
 #include "tween.h"
 #include "artshrink.h"
 #include "artbadge.h"
@@ -999,14 +1000,62 @@ static bool view_is(const char *tag, const char *want)
 
 bool view_listed(const char *tag) { return view_is(tag, "list"); }
 bool view_grid(const char *tag)   { return view_is(tag, "grid"); }
+bool view_video(const char *tag)  { return view_is(tag, "video"); }
+
+/* Recents' Card Picture (DESIGN.md 11.48): its covers, as it ships, or the
+ * screen each game was left on (src/screencard.h), kept in the device's
+ * database as RECENTS_PICTURE_KEY's "screen" */
+bool g_recents_screen;
+
+static void recents_picture_load(void)
+{
+	char v[16];
+
+	g_recents_screen = db_get_str(db_dev(), RECENTS_PICTURE_KEY, v, sizeof v, NULL) &&
+	                   !strcmp(v, "screen");
+}
+
+void recents_picture_turn(app *a)
+{
+	int r = shelf_recents_at(a);
+
+	g_recents_screen = !g_recents_screen;
+	db_set_str(db_dev(), RECENTS_PICTURE_KEY, g_recents_screen ? "screen" : "cover");
+	/* Every card of it asked for again, the other picture */
+	if (r >= 0) free_view_textures(&a->view[r]);
+}
+
+/* Recents' Last Screen for game `g` of system `o`: its resume point's
+ * picture, written beside its state as the game ended, and its cover, into
+ * `frame` and `cover` ("" for none). False when it has no resume point, and
+ * the card is its cover, as with Cover. Asked only while the card has no
+ * texture (game_card_wanted). */
+static bool recents_screen_paths(app *a, int o, const game_entry *g, char *frame, size_t fn,
+                                 char *cover, size_t cn)
+{
+	char st[LIB_PATH * 3];
+	struct stat sb;
+
+	state_path(a, o, g, st, sizeof st);
+	preview_path(a, o, g, frame, fn);
+	if (stat(st, &sb) != 0 || stat(frame, &sb) != 0 || sb.st_size <= 0) return false;
+	box_art_path(a->sys.systems[o].folder, g->name, cover, cn);
+	if ((stat(cover, &sb) != 0 || sb.st_size <= 0) &&
+	    !es_media(P_ROMS, a->sys.systems[o].folder, g->file, g->name, ES_COVER, true, cover, cn))
+		cover[0] = '\0';
+	return true;
+}
 
 void view_load(app *a)
 {
+	recents_picture_load();
 	for (int i = 0; i < a->sys.count; i++) {
 		a->view[i].listed = view_listed(a->sys.systems[i].tag);
 		a->view[i].grid = !a->view[i].listed && view_grid(a->sys.systems[i].tag);
+		a->view[i].video = !a->view[i].listed && !a->view[i].grid && view_video(a->sys.systems[i].tag);
 		a->view[i].lm.set = false;
 		a->view[i].gm.set = false;
+		a->view[i].vm.set = false;
 	}
 }
 
@@ -1015,22 +1064,26 @@ static void view_save(app *a, int sys)
 	char key[CFG_STR + 16];
 
 	snprintf(key, sizeof key, "view.%s", a->sys.systems[sys].tag);
-	db_set_str(db_dev(), key, a->view[sys].listed ? "list" : a->view[sys].grid ? "grid" : "covers");
+	db_set_str(db_dev(), key, a->view[sys].listed ? "list" : a->view[sys].grid ? "grid"
+	                          : a->view[sys].video ? "video" : "covers");
 }
 
-/* View turned on shelf `sys`, `dir` 1 or -1 round Covers, Grid and List,
- * saved, the shelf on the same entry: START on the shelf goes forward, and
- * MENU's View row either way (2026-11-15: the grid between the two) */
+/* View turned on shelf `sys`, `dir` 1 or -1 round Covers, Grid, List and
+ * Video, saved, the shelf on the same entry: START on the shelf goes
+ * forward, and MENU's View row either way (2026-11-15: the grid between the
+ * two; 2026-11-19: Video, the fourth) */
 void view_turn(app *a, int sys, int dir)
 {
 	sysview *v = &a->view[sys];
-	int k = v->listed ? 2 : v->grid ? 1 : 0;
+	int k = view_index(v);
 
-	k = (k + (dir < 0 ? 2 : 1)) % 3;
-	v->listed = k == 2;
-	v->grid = k == 1;
+	k = (k + (dir < 0 ? VIEW_COUNT - 1 : 1)) % VIEW_COUNT;
+	v->listed = k == VIEW_LIST;
+	v->grid = k == VIEW_GRID;
+	v->video = k == VIEW_VIDEO;
 	v->lm.set = false;
 	v->gm.set = false;
+	v->vm.set = false;
 	view_save(a, sys);
 	cf_reset(&v->cf, v->cursor);
 	games_reset(&v->row, v->cursor, v->list.count, plat_now_ms());
@@ -1126,7 +1179,9 @@ void sort_shelf(app *a, int sys)
 		/* Every owner's, the systems off the home too (app.parked) */
 		for (i = 0; i < sys_kept(a) && i < CFG_MAX_SYSTEMS; i++)
 			tags[i] = a->sys.systems[i].tag;
-		sort_apply_owned(v->list.items, v->owner, v->list.count, v->sort, tags);
+		/* Collections' top is its folders alone, A to Z (src/collect.h) */
+		sort_apply_owned(v->list.items + v->nfold, v->owner + v->nfold,
+		                 v->list.count - v->nfold, v->sort, tags);
 		return;
 	}
 	/* A shelf's folders stay first, A to Z (src/shelfdir.h): the order is
@@ -1927,7 +1982,7 @@ SDL_Texture *game_get_tex(void *ctx, int i, int *w, int *h, float *cb)
 	 * folder, the wrong state directory and the wrong accent. */
 	int o = shelf_owner(a, s, i);
 
-	char pm[LIB_PATH * 2];
+	char pm[LIB_PATH * 2], pmc[LIB_PATH * 3];
 
 	if (is_muse(&a->sys.systems[s]) && game_card_wanted(v, i)) {
 		muse_card_want(a, s, i);
@@ -1958,6 +2013,28 @@ SDL_Texture *game_get_tex(void *ctx, int i, int *w, int *h, float *cb)
 				v->cb[i] = content_bottom(sf);
 				v->tex[i] = ui_card_upload(a->r, sf, theme_index());
 				if (v->tex[i]) { v->tw[i] = sf->w; v->th[i] = sf->h; }
+				grid_note(a, s, i, sf, false);
+				SDL_FreeSurface(sf);
+			}
+		}
+	} else if (g_recents_screen && s == shelf_recents_at(a) && game_card_wanted(v, i) &&
+	           recents_screen_paths(a, o, &v->list.items[i], pm, sizeof pm, pmc, sizeof pmc)) {
+		/* Recents' Last Screen (DESIGN.md 11.48): made on a worker, art
+		 * of no theme, so a change of theme keeps it; a game with no cover
+		 * has its generated card small in the corner, as its shelf shows it */
+		ui_card_order card;
+
+		ui_card_order_set(&card, v->list.items[i].title, a->sys.systems[o].accent, false);
+		game_card_order(a, o, &v->list.items[i], &card);
+		if (!texload_want_screen(s, i, pm, pmc, &card) && !g_loads_held) {
+			SDL_Surface *sf = screen_card_make(pm, pmc, &card, false);
+
+			if (v->tex[i]) SDL_DestroyTexture(v->tex[i]);
+			v->tex[i] = NULL;
+			if (sf) {
+				v->cb[i] = 1.0f;
+				if ((v->tex[i] = SDL_CreateTextureFromSurface(a->r, sf)))
+					SDL_QueryTexture(v->tex[i], NULL, NULL, &v->tw[i], &v->th[i]);
 				grid_note(a, s, i, sf, false);
 				SDL_FreeSurface(sf);
 			}
@@ -2241,9 +2318,15 @@ void shelf_open_dir(app *a, int s, const char *dir, const char *select)
 	sysview *v = &a->view[s];
 	int i;
 
-	if (!v->all) return;
-	texload_bump();
-	shelf_show_dir(v, dir);
+	/* Collections' folders are its collections (src/collect.h) */
+	if (s == shelf_coll_at(a)) {
+		texload_bump();
+		if (!shelf_coll_show(a, s, dir)) return;
+	} else {
+		if (!v->all) return;
+		texload_bump();
+		shelf_show_dir(v, dir);
+	}
 	sort_shelf(a, s);
 	v->cursor = 0;
 	for (i = 0; select && i < v->list.count; i++)
@@ -2966,6 +3049,39 @@ static void on_speed(int half)
 	if (half % 2) snprintf(body, sizeof body, T(S_POPUP_SPEED_HALF), half / 2);
 	else          snprintf(body, sizeof body, T(S_POPUP_SPEED_WHOLE), half / 2);
 	popup_now(T(S_POPUP_SPEED), body);
+}
+
+/* Called from inside plat_resident_wait for the player's hotkeys the
+ * launcher carries out (src/hotkeys.h): a screenshot Diatom wrote, said
+ * over the game with the picture small beside "Screenshot saved" and where
+ * it went; the next shader or display mode, stepped and kept as the menu's
+ * rows do, and named over the game */
+static app *g_hotkey_app;   /* main's, for on_hotkey's steps */
+
+static void on_hotkey(const char *key, const char *path)
+{
+	char p[CFG_STR * 2], body[CFG_STR * 2];
+
+	if (!strcmp(key, "shot") && path) {
+		const char *folder = strstr(path, "/Screenshots/");
+		const char *end = folder ? strrchr(path, '/') : NULL;
+
+		/* "Screenshots/Nintendo 64", where the file is */
+		if (folder && end > folder) snprintf(body, sizeof body, "%.*s", (int)(end - folder - 1), folder + 1);
+		else snprintf(body, sizeof body, "%s", path);
+		snprintf(p, sizeof p, "%s", NOTICE_FILE);
+		if (notice_render_ex(T(S_HOTKEYS_SHOT_SAVED), body, path, NOTICE_PICTURE, 0, 0, p, theme_index()))
+			plat_resident_line("OVERLAY\tpath=%s\tms=1500", p);
+		nq_hold(&g_nq, plat_now_ms(), 1500);
+		return;
+	}
+	if (!strcmp(key, "shader") || !strcmp(key, "display")) {
+		const bool shader = key[1] == 'h';
+
+		if (!g_hotkey_app) return;
+		gm_hotkey_step(g_hotkey_app, shader, body, sizeof body);
+		popup_now(T(shader ? S_HOTKEYS_POPUP_SHADER : S_HOTKEYS_POPUP_DISPLAY), body);
+	}
 }
 
 /* Called from inside plat_resident_wait when a button given Stick On/Off
@@ -4985,6 +5101,17 @@ static int menu_shelf_width(app *a)
 		int  vrow = muse ? -1 : a->view[i].owner ? 3 : sm_pos(a, i, SM_VIEW);
 
 		n = menu_build(a, SCREEN_GAMES, i, rows, &bufs, &heading);
+		/* Recents' Card Picture at the longer of its two (DESIGN.md 11.48) */
+		if (i == shelf_recents_at(a) && n > SM_FAV_ROWS) {
+			const char *keep = rows[SM_FAV_ROWS].value;
+			int mw;
+
+			rows[SM_FAV_ROWS].value = T(S_SYSMENU_CARD_PICTURE_SCREEN);
+			if ((mw = menu_measure(rows, n, heading)) > w) w = mw;
+			rows[SM_FAV_ROWS].value = T(S_SYSMENU_CARD_PICTURE_COVER);
+			if ((mw = menu_measure(rows, n, heading)) > w) w = mw;
+			rows[SM_FAV_ROWS].value = keep;
+		}
 		if (muse) {
 			sm_muse_row ids[SM_MUSE_ROWS];
 			int nn = sys_menu_muse_rows(muse_rows_kind(), muse_kinds() > 1,
@@ -5090,10 +5217,14 @@ static int menu_shelf_width(app *a)
 			if ((mw = menu_measure(rows, n, heading)) > w) w = mw;
 			rows[vrow].value = T(S_SYSMENU_VIEW_LIST);
 			if ((mw = menu_measure(rows, n, heading)) > w) w = mw;
+			rows[vrow].value = T(S_SYSMENU_VIEW_VIDEO);
+			if ((mw = menu_measure(rows, n, heading)) > w) w = mw;
 			rows[vrow].value = keep;
 		}
 		for (k = 0; k < (muse ? ML_ORDERS : SORT_COUNT); k++) {
 			int mw;
+			/* Every order a shelf of either kind offers: Collections' two
+			 * too (src/sort.h), so its menu is no wider than this */
 			rows[srow].value = muse ? ml_order_label((ml_order)k, false) : sort_label(k);
 			mw = menu_measure(rows, n, heading);
 			if (mw > w) w = mw;
@@ -5532,8 +5663,9 @@ int main(int argc, char *argv[])
 		else if (!strcmp(argv[i], "--game") && i + 1 < argc) shot_game = argv[++i];
 		else if (!strcmp(argv[i], "--view") && i + 1 < argc) {
 			shot_view = argv[++i];
-			if (strcmp(shot_view, "list") && strcmp(shot_view, "covers") && strcmp(shot_view, "grid")) {
-				fprintf(stderr, "--view needs list, grid or covers\n");
+			if (strcmp(shot_view, "list") && strcmp(shot_view, "covers") && strcmp(shot_view, "grid") &&
+			    strcmp(shot_view, "video")) {
+				fprintf(stderr, "--view needs list, grid, video or covers\n");
 				return 2;
 			}
 		}
@@ -5550,6 +5682,8 @@ int main(int argc, char *argv[])
 			 * long ones rather than only the short one that fit. */
 			if (i + 1 < argc && argv[i + 1][0] != '-') shot_cheevos_game = argv[++i];
 		}
+		else if (!strcmp(argv[i], "--cheevo-card") && i + 1 < argc)
+			shot_cheevo_card = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--cheevos-badge") && i + 2 < argc) {
 			shot_badge_set = argv[++i];
 			shot_badge_name = argv[++i];
@@ -5607,6 +5741,13 @@ int main(int argc, char *argv[])
 		 * over the shelf (DESIGN.md 11.31) */
 		else if (!strcmp(argv[i], "--info-delete")) shot_info = 2;
 		else if (!strcmp(argv[i], "--info-rename")) shot_info = 3;
+		/* Collections (src/collect_screen.h): the details page on Add to
+		 * Collection, its list with the cursor on row K, and Delete
+		 * Collection's question on the Collections shelf */
+		else if (!strcmp(argv[i], "--info-collect")) shot_info = 5;
+		else if (!strcmp(argv[i], "--collect-page") && i + 1 < argc) shot_collect_page = atoi(argv[++i]);
+		else if (!strcmp(argv[i], "--collect-delete")) shot_collect_delete = 1;
+		else if (!strcmp(argv[i], "--collect-said") && i + 1 < argc) shot_collect_said = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--info-art")) shot_info_art = true;
 		/* The Buttons page a game with its own buttons opens from its details */
 		else if (!strcmp(argv[i], "--info-buttons")) shot_info = 4;
@@ -5977,6 +6118,11 @@ int main(int argc, char *argv[])
 		}
 		/* --snap-wait F: the games shelf with the bar under its focused
 		 * cover F of the way through the wait for its snap, 0 to 1 */
+		else if (!strcmp(argv[i], "--band") && i + 1 < argc) {
+			g_shot_band = (float)atof(argv[++i]);
+			if (g_shot_band < 0) g_shot_band = 0;
+			if (g_shot_band > 1) g_shot_band = 1;
+		}
 		else if (!strcmp(argv[i], "--snap-wait") && i + 1 < argc) {
 			g_shot_snap_wait = (float)atof(argv[++i]);
 			if (g_shot_snap_wait < 0) g_shot_snap_wait = 0;
@@ -6005,6 +6151,12 @@ int main(int argc, char *argv[])
 			if (i + 1 < argc && argv[i + 1][0] >= '0' && argv[i + 1][0] <= '2')
 				shot_sgdb = atoi(argv[++i]);
 		}
+		else if (!strcmp(argv[i], "--hotkeys") && i + 1 < argc) shot_hotkeys = atoi(argv[++i]);
+		else if (!strcmp(argv[i], "--hk-game")) shot_hk_game = true;
+		else if (!strcmp(argv[i], "--hk-ask") && i + 1 < argc) shot_hk_ask = atoi(argv[++i]);
+		else if (!strcmp(argv[i], "--hk-scope") && i + 1 < argc) shot_hk_scope = atoi(argv[++i]);
+		else if (!strcmp(argv[i], "--hk-capture") && i + 1 < argc) shot_hk_capture = atoi(argv[++i]);
+		else if (!strcmp(argv[i], "--hk-key") && i + 1 < argc) shot_hk_key = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--controls")) {
 			shot_controls = 0;
 			if (i + 1 < argc && argv[i + 1][0] >= '0' && argv[i + 1][0] <= '9')
@@ -6730,6 +6882,8 @@ int main(int argc, char *argv[])
 		plat_resident_on_speed(on_speed);
 		plat_resident_on_stick(on_stick);
 		plat_resident_on_quick(on_quick);
+		plat_resident_on_hotkey(on_hotkey);
+		g_hotkey_app = &a;
 		plat_resident_on_tick(on_game_tick);
 		plat_resident_on_battery_empty(battery_empty);
 		/* The downloads' lanes go on behind every screen while it rests
@@ -7025,8 +7179,8 @@ int main(int argc, char *argv[])
 	}
 	/* MENU+START (tools/zyhome.c): the home, whatever was running and
 	 * whatever the records say */
-	if (!access(CTL_HOME_FLAG, F_OK)) {
-		unlink(CTL_HOME_FLAG);
+	if (!access(plat_flag(CTL_HOME_FLAG), F_OK)) {
+		unlink(plat_flag(CTL_HOME_FLAG));
 		a.resume_menu = false;
 		playing_clear();
 		a.screen = SCREEN_SYSTEMS;
@@ -7050,6 +7204,7 @@ int main(int argc, char *argv[])
 		if (shot_view) {
 			a.view[a.sys_cursor].listed = !strcmp(shot_view, "list");
 			a.view[a.sys_cursor].grid = !strcmp(shot_view, "grid");
+			a.view[a.sys_cursor].video = !strcmp(shot_view, "video");
 		}
 		if (shot_folder) shelf_open_dir(&a, a.sys_cursor, shot_folder, NULL);
 		if (shot_game) shelf_reveal(&a, a.sys_cursor, shot_game);

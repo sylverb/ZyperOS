@@ -13,12 +13,10 @@ mGBA core) and, for regenerating art, Python with Pillow, plus ffmpeg.
 make check      # every check below, offline (also plain `make`)
 make vendor     # the fetched libretro cores -> vendor/ (mk/fetch-vendor.sh, from the cores release)
 mk/build-mgba-bridge.sh  # mGBA, built  -> vendor/            (see below)
-make native     # host build of the launcher, for working on how it looks
-                # (driven from the keyboard: the arrows, Return A, Escape or
-                # Backspace B, X, Y, comma and period L1/R1, K and L L2/R2,
-                # S START, Shift SELECT, M MENU, - and = VOL-/VOL+, [ and ]
-                # brightness, P POWER, Q quits; a new userdata starts in the tutorial,
-                # which `--set tour.done=1` skips)
+make native     # host build of the launcher (build-native/zyperos): shots, checks,
+                # and in a window desk mode, below
+make desk       # the launcher in a window as the Pixel 2, a game in it too
+                # ("Work on the UI without a device" below; make desk-brick)
 make boot       # regenerate the boot animation
 make system-art # compile the console sprite atlases and frame timing tables
 make design     # write the design tokens (tools/designdef.py) into DESIGN.md,
@@ -71,7 +69,7 @@ something once broke in a way nothing noticed:
 | `check-taskhold` | long tasks and Auto Off (src/taskhold.h): what a loop says holds the clock for 2 s and lets go by itself, across the counter's wrap, and the real clock does not fire during a task and starts a whole countdown after it |
 | `check-saver` | the screensaver's policy (src/saver.h): the delay's ladder, when it starts and what holds it back (a button, music, a long task, a low battery, time away), when it ends on its own (the cable-less cap, a low battery), a clip's fades and timing, which game is next (none of the last twelve), and that Auto Off fires at its own time with it up, down or off |
 | `check-cheevos` | the achievement half: parsing and filtering |
-| `check-rahash` | the C and Python ROM hashers agree, over the whole library; PlayStation and PSP discs in `.chd`, `.cso` and `.pbp` give upstream rcheevos's hashes (`tools/fixtures/rahash`, made by `tools/rahash-fixtures.py`), and broken ones are refused |
+| `check-rahash` | the C and Python ROM hashers agree, over the whole library; PlayStation and PSP discs in `.chd`, `.cso` and `.pbp`, and Dreamcast discs in `.gdi`, `.cue`, `.chd` and `.cdi`, give upstream rcheevos's hashes (`tools/fixtures/rahash`, made by `tools/rahash-fixtures.py`; a `.cdi` through Flycast's own reader), and broken ones are refused |
 | `check-flacdec` | the FLAC decoder under a CHD's FLAC hunks matches libFLAC's encoder at every setting (needs Homebrew's `flac`) |
 | `check-achtab` | the in-game menu's Achievements tab: each state its sentence, the counts line, an achievement's row |
 | `check-raset` | the C and Python set converters agree (needs `RA_USER`/`RA_PASS`) |
@@ -141,7 +139,7 @@ something once broke in a way nothing noticed:
 | `check-signin` | RetroAchievements sign-in against a stand-in for curl: a token signs in; a 401 says the user or password is wrong; a 403, a 503 or a redirect says retroachievements.org would not sign you in, with the number; a reply cut short, too long, or nothing at all is never read as a token; and as curl, the check holds that the password is never on its command line, every file the request makes is new and 0600 from the start and gone after, and the log names the failure and no credential |
 | `check-noticeq` | the pop-ups over a game, one after another (src/noticeq.h) |
 | `check-badges` | achievement badges (src/rabadge.h) through the real fetch with a stand-in for curl: kept beside the set; one curl for what is missing and nothing else; starting it and drawing 4,000 icons while it runs never wait for it; a badge that has not come is a plain one of the same 64 pixels, never a hole; a 404 page is never kept as a badge; then the plain badge and Zyper as pixels (src/noticeart.h), in both themes, his shadow on Beard only. No network (needs SDL2 and SDL2_image; skips without them) |
-| `check-badge-shots` | the unlock notice with Zyper at its right end and its badge, or the plain one where the card has none; a count's notice with the plain one and no Zyper; the set's arrival with neither; the achievements list with a badge in every row, plain until the art is there, and the rows' words not moving when it comes; in both themes (builds the host launcher; skips without SDL2) |
+| `check-badge-shots` | the unlock notice with Zyper at its right end and its badge, or the plain one where the card has none; a count's notice with the plain one and no Zyper; the set's arrival with neither; the achievements list with a badge in every row, plain until the art is there, and the rows' words not moving when it comes; an achievement's card with its badge centered under the heading, or the plain one, and a long description moving under a still footer; in both themes (builds the host launcher; skips without SDL2) |
 | `check-sshlink` | USB File Transfer's SSH: what it counts in dropbear's log (sign-ins, wrong PINs, a port it cannot have), names that try to say otherwise, and the shadow it gives dropbear; Developer Mode's choice between the cable's SSH and SSH over Wi-Fi for every combination of cable, radio, choice and a spent plug (the password never with a radio), dropbear's words for each (`-s` and every address over Wi-Fi, the cable's address alone on the cable), and what counts as a key; over a port, portkeys' SSH keys only on every link and none in the in-game menu |
 | `check-usblink` | USB charges only until asked: a computer is asked about once per plug and a charger never, every choice ends with its screen or its cable, and Developer Mode keeps the link |
 | `check-devmode` | developer mode on a release image: the unlock hold (L2 and R2 for five seconds, a bar that only rises, and letting go early, another page or holding on starting again), the setting kept in the card's database (and SSH over Wi-Fi, only while Developer Mode is on and off with it), a random one-time password in its alphabet, and only public keys without options taken from the card's key file, once each |
@@ -166,6 +164,7 @@ something once broke in a way nothing noticed:
 | `check-mp4frame` | MP4's video frames between the daemon and the launcher: a writer and a reader on two threads over the same pages, every picture the reader keeps whole |
 | `check-mp4size` | MP4's video picture of any shape (4:3 at 1440x1080, 480x360 and 320x240, 16:9, odd, tiny, the largest, the size changing inside one file) published as the daemon publishes it and read into the player's texture: a texture as wide as the frame's rows (a multiple of 128) and as high as the picture, each plane fitting the Pixel 2's Mesa tile buffer as rows (it ran past it, a crash or a green bottom edge, for 4:3 widths), the picture drawn whole from its own rectangle, its shape kept, nothing out of bounds under UBSan and, on a Mac, Guard Malloc (skips without SDL2) |
 | `check-controls` | what MENU > Controls says: every button on exactly one page, and rows short enough to sit still; and a game's Controls, for every system in systems.cfg: the core's names through its map and turbo, pages that fit |
+| `check-hotkeys` | the hotkeys a player sets: ZyperOS's own four, a key set, the swap that loses none, what is stored and read back, Diatom's RUN form, and the three scopes a game falls back through |
 | `check-remap` | the remap rules: Diatom's map language read and written, a button's change and its swap worked from the base, what is stored and loaded, the N64's layer kept, the choices a system offers and its letter layout |
 | `check-rumble` | Rumble's levels (Off, Low 35%, Medium 65%, Full), the share a game is sent (the level times the system's, `rumble=` on RUN), and what is kept for MENU, a system and a game, each falling back to the next |
 | `check-eq` | the equalizer's settings: its presets and their curves, each output's own (the speaker's, the headphones'), Custom's bands kept, a band's step making a preset Custom, the words SETEQ and MP4's EQ carry, and the file a port's plugin reads |
@@ -188,6 +187,8 @@ something once broke in a way nothing noticed:
 | `check-px2` | tools/px2 with a stand-in for ssh: wrong uses refused before the lock or the device, the test card and a VM's card go ahead and any other only with `--real-card`, the lock's owner file, a lock held refused or waited for, the lock let go after a failure, a TERM and a Ctrl-C, and each argument one word on the device; `deploy` and `restore` against a card that is a folder here: only what changed sent, the card's own files kept once however many deploys, a restore that puts them back and deletes what was added, ZyperOS restarted or, for a `launch.sh`, the device |
 | `check-powerhold` | MENU > Power Button's rule: a press turns the handheld off on Press, a hold of one second on Hold, once per time down, a hold the charging screen took never, even one it took after the second, and the pill's segments and the waits that move them |
 | `check-homesys` | MENU > Display > Home Systems' setting: the word of the shelves that are off, read and written back, a hand edit's spaces and repeats, whole tags only when it is cut |
+| `check-collect` | Collections on the card (src/collect.h): the lists read in their every form and kept as written, added to and taken from, made, renamed and deleted, a game's rename and delete followed into every list |
+| `check-screencard` | Recents' Last Screen card (src/screencard.h): the resume picture scaled up whole toward its height, the cover in its lower left corner over its shadow, a wide box held to its share, no picture no card |
 | `check-lowbatt` | the start with a battery too low to play: which start shows the screen, its hold, POWER, the charger's moment, and the reading that decides the power-off |
 | `check-heat` | "Getting hot": the 85 C trip, two readings in a row, the hysteresis under 80 C, five quiet minutes, the poll's clock |
 | `check-charging` | the charging screen: the charger's kind, its lines, the time to full through CC and CV, and its rules, POWER held a second (hold-power) to start |
@@ -232,12 +233,14 @@ something once broke in a way nothing noticed:
 | `check-sysupdate` | what MENU > System Update says in each state, held to the update lab's screens, and what it starts by itself (no download over a phone's mobile data) |
 | `check-pminstall` | what the Install PortMaster page says in each state (src/pminstall.c), and the Ports shelf's PortMaster entry added to a listing that lacks it, once |
 | `check-pico8` | your PICO-8 (src/pico8.c): which files of a zip are taken and from what (its version from the manual or the name, an AArch64 ELF for `pico8_64`), zips the check writes itself with made-up bytes taken out of `Bios/PICO-8` (the Raspberry Pi layout deflated and stored, the Windows zip, a program for another CPU, a file that is no zip, the two files alone, a newer zip taken again), the PICO-8 shelf's Splore entry added once and pinned first, and the How to Add page's words |
+| `check-pico8-wget` | your PICO-8's wget (`sd/pixel2/PICO-8-wget.sh`, `ZyperOS/pico8/bin/wget` on the card: pico8_64 downloads every Splore list and cart with `wget`, and busybox's has no HTTPS) against a stand-in curl and system wget: Splore's two calls (`-q -O FILE`, and a post with `--post-file`) go to curl with redirects followed, HTTP and HTTPS only, ZyperOS's certificate bundle, no `-k` and no `-q` (the launcher's `.curlrc` read); the file whole under its name or not there, no `.part` left, curl's exit on a failure; an empty reply an empty file; `-O -` to stdout; any other call, or no curl, the next wget on PATH with the same arguments, never itself again (exit 127 with none); PICO-8.sh puts `bin/` first on PATH, and mk/payload.sh puts the file there, runnable |
 | `check-pmhelper` | the PortMaster installer (res/portmaster/pm-install.py) against a made-up release in a folder: an install, a second run, a lost PortMaster.sh put back, an MD5, SHA-256 or size that does not match, members outside PortMaster/, a release list that makes no sense, runtimes kept, a second run at once turned away |
 | `check-pmart` | PortMaster's covers in both themes and its page's icon (res/portmaster/*.png) are the system art's (res/system-art/original/utility), byte for byte |
 | `check-portdoc` | what a port's own files say for the Controls pages of the in-game menu over it (src/portdoc.c: port.json, its gptokeyb keymap, its README's controls) and the pages they make, on the made-up ports in tools/fixtures/ports and the forms porters write by hand; PortMaster's own page; the menu over every port |
 | `check-boottheme` | the boot screen's theme and language words (DESIGN.md 11.21) |
 | `check-splashbright` | the backlight value plastron's splash lights the panel at (`zybright` on the kernel's line, from theme.txt): within the backlight's maximum, and none for `-`, 0, a word or a value above it |
 | `check-bootbright` | plastron's init sets the backlight from the card's `boot-brightness` as soon as the card is mounted, within its maximum or through the Brick's tool, and leaves the kernel's level for anything else |
+| `check-seed-version` | the boot's ZyperOS version compare (plastron's `zyperos.init`, `version_of` and `newer_seed`, as each board's post-build.sh takes it for `SEED_V`): 1.1.0-rc.N, -kit.N and -test.N are versions below 1.1.0 and in order (test below kit below rc), the image's ZyperOS goes over an older card's and never over a newer one, and what is not a version (none, "", 1..2, x, 1.08.0, 1.2.3.4) is false without stopping the shell |
 | `check-panelgamma` | the display's gamma table (src/panelgamma.h), against a stand-in display with Linux's request numbers: an older splash's table emptied on its CRTC alone, an empty one left alone, a kernel with none, a refusal without DRM master; the dimming table under the backlight's floor; Screen Colors' Temperature, Tint, Contrast and Gamma per channel on every rung (every value of every row a rising table, black kept), Standard exactly as before, and the file the launcher leaves for Diatom and portkeys (a FIFO or a link at its name not followed) |
 | `check-panelgamma-sunxi` | the TrimUI Brick's display's gamma table (src/panelgamma_sunxi.h), against a stand-in `/dev/disp` with the disp2 driver's command numbers: Standard turns the table off and sends none; a look sends its 256 entries (the shared math's at the floor, red, green and blue in the TCON's 24 bits), then turns it on; Night Mode alone is a table; a refused table is never turned on; and Saturation's steps in the display engine's units (25 to 75, 50 the picture as drawn) |
 | `check-nightmode` | Night Mode (src/nightmode.h): its warmth in the display's table (Temperature's gains again, multiplied after the player's), the file's warmth and nights for Diatom and portkeys and the clock against them, the nights by the hours across midnight, on the same day, none for the same hour twice, On and Off, and in New York across both ends of summer time; and the first start's migration from Appearance's Auto, pure and on a scratch database: the theme Auto gave at that moment, its hours kept as Night Hours, Night Mode left Off, once |
@@ -280,6 +283,9 @@ something once broke in a way nothing noticed:
 | `check-from-rogue` | tools/from-rogue.sh's table against systems.cfg and against the folders on a ROGUE OS card |
 | `check-importers` | the computer-side importers (--meta, --titles) on a scratch card: a title written over a game's details keeps them (builds the host launcher) |
 | `check-diatom` | Diatom's own suite (diatom/Makefile's check) on its desktop port with the stub core: the port seam, core facts, achievements, screens, the protocol, the state plane, resident cores, save states packed and read back (old ones too), the card's frame of play written once a minute in and never again; then the launcher's own Diatom link against it (tools/gamezone-check.c): the zone chosen in Date & Time reaches a game's clock, a new zone the next game with no restart, and a Diatom started again its first game (skips without SDL2) |
+| `check-desk` | desk mode (tools/desk, src/device/desk.h) in SDL's dummy window, as the Pixel 2 and as the Brick on tools/desk's sample card, over its control socket: the panel its size (a shot is 640x480 or 1024x768), a press held until let go, a tap timed to its frame, the zoom and the drawn handheld on and off, an unknown button refused, quit |
+| `check-keymap` | one key map for a keyboard standing in for the buttons: src/device/keymap.h, the Simulator's (App.swift) and Diatom's own window's give each key the same button, and both docs point at it |
+| `check-handhelds` | the simulator's handhelds (simulator/Sources/SimCore/Handhelds.swift) are what `make handhelds` writes from the device files (each src/device/<id>_model.c's flat drawing), and those files whole: every flat key a key of the model, every key a button, the screen in its glass |
 | `check-simulator` | the simulator's Swift tests: its D-Bus display client (the wire format, and a fake QEMU's login, properties call, frame in shared memory and frame over the socket), its VNC client, the px2sim link, the state lines and the control socket's commands (skips without Swift) |
 | `check-px2sim` | px2sim's choice of the keyboard it takes in the QEMU image: QEMU's virtio or USB one, never a uinput one such as gptokeyb's Fake Keyboard (host compiler, no VM) |
 | `check-sidelights` | what the launcher tells the side lights' gauge: the lines as plastron's gauge reads them, the FIFO writer that never waits and never dies of SIGPIPE, when a File Transfer batch is over, and files moving on its page: a line at most every 500 ms with the speed over that time, a pause between two files kept, `move 0 0` a second after the last bytes and at once when the page closes, across the clock's wrap; and MENU > Side Lights' preview lines, said again each second, another row at once, `preview off` as the page closes |
@@ -431,7 +437,10 @@ without it the corner shows what the host has, which is its clock, and a
 battery only when `/tmp/zyperos_fake_batt` holds a level. `--gamemenu [row]
 [dual]`, on a games shelf, draws the menu over a paused game on a made-up
 frame, `dual` with a Nintendo DS game's screen rows, and `--ingame` draws
-`--cheevos-screen` over a paused game, as the in-game menu opens it. Every
+`--cheevos-screen` over a paused game, as the in-game menu opens it.
+`--cheevo-card N` draws an achievement's card (0 earned, 1 the longest
+description, which scrolls, 2 earned offline, 3 none), with
+`--cheevos-badge SET NAME` for its art and `--phase MS` for its scroll. Every
 shot fails (exit 3, a `CORNER:` line) when the status corner meets the
 focused card, a games title or a panel, when its clock is not 16 from its
 marks, when it draws a clock no `--status` gave, or when `--status` gave it
@@ -480,6 +489,41 @@ profiles is taken the same. `make check-devices` holds each profile whole and
 no device guessed in `src/` (`tools/devices-lint.py`); `make
 check-device-compile` compiles every device file's Linux half, which the CI
 job `devices` runs on Ubuntu.
+
+### A handheld drawn on the computer
+
+Desk mode's window and the [simulator](simulator.md) draw the handheld from
+its own files, the same data both ways. `src/device/<id>_model.c` holds its
+model (`src/device/td_model.h`): where each key is, for the tutorial and the
+Controls tab, and `flat`, the handheld drawn flat for the two windows, its
+front straight on with the shoulders along the top and the side keys out of
+its sides. The keys' places and sizes are the model's; `flat` adds the look:
+the corners, the glass and the lit picture, what is printed on a key and
+under it, which side its keyboard key shows on, a well for SELECT and START,
+the side lights and which battery lights light them, and the colours. A key
+with nothing in `flat` is drawn blank; `y` and `len` move a side key along
+its edge where the flat drawing's differs from the model's (the Pixel 2's
+rocker halves meet).
+
+So a new handheld in the two windows is:
+
+1. its profile and its model, as for the tutorial, with `flat` in the model;
+2. its profile in `src/profile.c`'s list of the host's profiles;
+3. `make handhelds`, which writes the Simulator's copy,
+   `simulator/Sources/SimCore/Handhelds.swift`, from the device files
+   (`tools/handhelds-swift.c`, which also fails on a key the model has not,
+   a key with no button, or a screen outside its glass);
+4. `tools/desk run --device <id>` and `ZyperSimulator --device <id>` to see
+   it; `tools/desk shot FILE window` and `simulator/simctl window-shot FILE`
+   draw it to a file.
+
+Nothing in desk mode or the simulator names a handheld; `make check-handhelds`
+fails while the Swift copy is behind the device files, and the simulator's
+`HandheldTests` hold every handheld whole. A button no handheld had before
+needs its keyboard key in `src/device/keymap.h` and the simulator's
+`Keyboard` (`make check-keymap`). The simulator runs the Pixel 2's system in
+QEMU; another handheld's VM is plastron's to make ([simulator](simulator.md),
+"Another handheld").
 
 ## On device
 
@@ -737,13 +781,121 @@ under the heading that fits, and its screenshots are in the light theme
 and the License sections whole, since `check-bgm-tracks` reads the menu music's
 credits there.
 
+## Work on the UI without a device
+
+It needs SDL2 with SDL_image and SDL_ttf, and xz: `brew install sdl2 sdl2_image
+sdl2_ttf xz` on a Mac, and on Debian or Ubuntu `sudo apt install pkg-config
+libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev libsqlite3-dev liblzma-dev
+zlib1g-dev libasound2-dev libcurl4-openssl-dev libssl-dev`.
+
+`make desk` opens ZyperOS's launcher in a window on your computer as the GKD
+Pixel 2 itself, drawn to its measurements around its 640x480 panel, one panel
+pixel to a pixel of your display: on a Mac's Retina display, about the
+panel's real size. `make desk-brick` is the TrimUI Brick and its 1024x768. It is the code the handheld
+runs, built for your computer, so the menus, the settings, the themes and the
+languages behave as they do there, at the panel's 60 frames a second, and a
+press shows on the next frame. A game runs in the same window, and MENU opens
+the in-game menu over it, so a menu such as Core Settings can be tried where
+a player meets it.
+
+```sh
+make desk                         # the Pixel 2
+make desk-brick                   # the Brick
+tools/desk --zoom 2 --lang de     # twice the size, in German (xx: every word longer)
+tools/desk --no-frame             # the screen alone, no handheld around it
+tools/desk --roms ~/Games/Roms    # your own Roms folder, laid out as on a card
+tools/desk --fresh                # a new sample card
+```
+
+The keyboard is the buttons. The keys go by their place on a US keyboard, so
+on an AZERTY one Z is the key marked W, and A the one marked Q:
+
+| Key | Button |
+|---|---|
+| arrows | the d-pad |
+| X, Z | A, B |
+| S, A | X, Y |
+| Q, W | L1, R1 |
+| E, R | L2, R2 |
+| Return | START |
+| Right Shift or Delete | SELECT |
+| Esc or M | MENU |
+| - and = | volume down, up |
+| [ and ] | brightness down, up (the Brick's own keys) |
+| P | POWER |
+
+It is one map, `src/device/keymap.h`, for desk mode, the
+[simulator](simulator.md) and QEMU's own window (`make check-keymap` holds
+them to it). With the mouse, click and hold any key of the drawn handheld; it
+goes down while held, from wherever. The pointer over a key shows its
+keyboard key, and holding Option shows them all. The mouse wheel is Up and
+Down. A game controller is the buttons too, by their place: the right-hand
+button is A and the lower one B, as on the handheld, whatever is printed on
+them. In the window, F1 lists all this; Cmd 1, 2 and 3 show the panel pixel
+for pixel, twice and three times (Control on Linux), Cmd 0 at its real size
+on your display, Cmd B the screen alone or the handheld, and Cmd S saves the
+screen to the Desktop.
+
+The first run makes a sample card in `build-native/desk/pixel2` (or `brick`):
+the README's library of games as empty files, a game on each system, and
+`ZyperOS Test.nes`, ZyperOS's own NES test cartridge (`tools/qemu/make-test-nes.py`:
+a box lights for each button held). The card skips the tutorial (`--tour` starts
+in it), and what you change in the menus stays on it for the next run.
+
+Games need Diatom's desktop build (`make -C diatom`, which `make desk` runs)
+and a libretro core built for your computer. The first run builds FCEUmm, the
+NES core, into `build-native/desk/cores`: it fetches the source at the commit
+the handheld's own core is from (about 1 MB from GitHub, checked by its
+sha256) and compiles it, in about 30 seconds (`tools/desk cores` does it
+alone; `--no-cores` never does). So `ZyperOS Test.nes` runs; the empty files
+do not, and another system's games need its core in `DESK_CORES` in
+`tools/desk`.
+
+A running window takes commands from a shell, one JSON line back, as the
+simulator's `simctl` does:
+
+```sh
+tools/desk open "NES/ZyperOS Test.nes"   # a game, as A on it in its shelf opens it
+tools/desk tap menu                      # buttons: up down left right a b x y l1 r1
+                                         # l2 r2 select start menu volup voldown power
+tools/desk shot shot.png                 # the panel, at its own pixels
+tools/desk shot desk.png window          # the whole window, the drawn handheld too
+tools/desk latency down                  # a tap, and ms from it to its frame
+tools/desk hints 1                       # every key's name on its key, as Option
+tools/desk state | stats | close | quit
+```
+
+What desk mode cannot show you:
+
+- **Speed and the GPU.** Your computer's processor and graphics draw it. How
+  fast a menu moves, how long a frame takes and whether a core keeps up say
+  nothing about the RK3326 or the Brick's A133, nor about Panfrost's or the
+  PowerVR's quirks. Measure those on the device.
+- **The hardware.** The battery, the charger and the side lights, rumble, the
+  backlight, the volume and brightness levels, sleep, Wi-Fi, Bluetooth, USB
+  and the headphone jack are stand-ins or absent on a computer. The system's
+  side of them runs in [QEMU](qemu.md), and the [simulator](simulator.md)
+  shows them on a drawn Pixel 2; the rest is the device's.
+- **The panel.** Your display's pixels and colors, at the size you choose
+  (Cmd 0 is the panel's real size): a word that is easy to read at your desk
+  may not be on the Pixel 2's 2.4-inch panel. Screen Colors and Night Mode have no panel to set.
+- **The emulator's device side.** Games run on Diatom's desktop port and
+  SDL's renderer: its old screens (CRT, LCD) are not drawn, and the scaling
+  filters are near, not the same.
+- **The system.** No boot, first-boot setup, System Update, ports or plastron:
+  those run in QEMU.
+
+So: desk mode for the menus, the flows, the words and how many presses a
+thing takes; QEMU and the simulator for the system; the device for speed,
+the GPU and the hardware.
+
 ## Releasing, and working without the device
 
 [Releasing](releases/README.md): `make release PUBLISH=1` on the Mac builds the card image and makes the draft release; the tag it pushes has GitHub build ZyperOS Installer for macOS, Windows and Linux, add it to the same release and publish it. Every version's release has the image and the installer together. A release also carries System Update's pack and its list, signed with ZyperOS's release key (`tools/update-key.sh`) ([how it works](updates.md)).
 
 Test kits: a kit (`tools/release.sh --kit`, a pre-release such as v1.0.7-kit.1) is main with its version and its notes, nothing else. What only a kit's tester should run (a device's hardware check, a feature main keeps off until a tester passes it on the device) is in main, behind `ZYPEROS_KIT_BUILD`: the device build (`mk/cross.mk`) defines it, and links the device's kit file `src/device/<id>_kit.c`, only when VERSION has `-kit` in it (`src/kit.h`). A release's version never has `-kit`, so a release compiles the same objects with the same line as if the kit's code were not there, and `make check-kitbuild` holds that; the host's build is never a kit, so every other check holds what a release does. A kit's pages are English only, with no strings in `res/strings`, so they stay out of the translations and their checks. When a kit has passed, its code comes out from behind the switch, or out of main.
 
-Without the device: ZyperOS runs on a Mac in [QEMU](qemu.md) (`tools/qemu-run.sh`, plastron's `make qemu`), and the [simulator](simulator.md) shows it as a Pixel 2 in a window, its buttons, battery, cable and side lights included. Speed, the GPU and the hardware itself still need the device.
+Without the device: `make desk` runs the launcher in a window, games and their in-game menu included (above); ZyperOS's whole system runs on a Mac in [QEMU](qemu.md) (`tools/qemu-run.sh`, plastron's `make qemu`), and the [simulator](simulator.md) shows it as a Pixel 2 in a window, its buttons, battery, cable and side lights included. Speed, the GPU and the hardware itself still need the device.
 
 ## Debugging on the device
 

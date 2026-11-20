@@ -1301,6 +1301,10 @@ static void cursor_reaches(void)
 	n = sys_menu_build(&u, rows, &b, &heading);
 	ck(!strcmp(val(&rows[sm_at(&u, SM_VIEW)]), "List"), "or a list");
 	u.listed = false;
+	u.video = true;
+	n = sys_menu_build(&u, rows, &b, &heading);
+	ck(!strcmp(val(&rows[sm_at(&u, SM_VIEW)]), "Video"), "or the Video view (DESIGN.md 11.57)");
+	u.video = false;
 	n = sys_menu_build(&u, rows, &b, &heading);
 	ck(holds(got, k, sm_at(&u, SM_DISPLAY)), "Display Mode");
 	ck(holds(got, k, sm_at(&u, SM_SHADER)), "Shader");
@@ -1813,8 +1817,9 @@ static void what_scrolls(void)
  * byte count, no Favorite, which Y does from the shelf, and no Saves, which
  * the carousel shows with the frames themselves. A row is easy to put back by
  * habit. */
-/* Every row of a scraped game but Rename and Buttons: GI_MAX less those two */
-#define INFO_FULL (GI_MAX - 2)
+/* Every row of a scraped game but Rename, Buttons and Add to Collection:
+ * GI_MAX less those three */
+#define INFO_FULL (GI_MAX - 3)
 
 static void info_rows(void)
 {
@@ -1952,6 +1957,8 @@ static void info_rows(void)
 
 		rg.can_rename = true;
 		rg.can_favorite = true;
+		rg.can_collect = true;
+		snprintf(rg.collected, sizeof rg.collected, "In 2");
 		rg.own_buttons = true;
 		rg.scraped = true;
 		rg.has_synopsis = true;
@@ -1963,6 +1970,13 @@ static void info_rows(void)
 		for (j = 0; j < rn && strcmp(rr[j].label, "Rename"); j++) {}
 		ck(j == rn - 2 && rr[j].live && !rr[j].value, "Rename, live, just above Delete Game");
 		ck(!strcmp(rr[rn - 1].label, "Delete Game"), "and Delete Game still last");
+		for (j = 0; j < rn && strcmp(rr[j].label, "Favorite"); j++) {}
+		ck(j + 1 < rn && !strcmp(rr[j + 1].label, "Add to Collection") && rr[j + 1].live &&
+		   !strcmp(val(&rr[j + 1]), "In 2"), "Add to Collection right after Favorite, live, its count");
+		rg.collected[0] = '\0';
+		rn = gi_rows(rr, &rg, true);
+		for (j = 0; j < rn && strcmp(rr[j].label, "Add to Collection"); j++) {}
+		ck(j < rn && !rr[j].value, "in none: no value");
 	}
 }
 
@@ -2507,6 +2521,50 @@ static void ctl_tab(void)
 	k = ct_at(ids, n, CT_WARN + RT_Y);
 	ck(m.cur.b[RM_R2].to == RM_STICK_TOGGLE && k > 0 && ids[k - 1] == CT_BUTTON + RM_Y,
 	   "Y given Stick While Held: R2 keeps Stick On/Off (another choice), and square has no button now, under Y");
+
+	/* ct_share: two buttons on one game button (issue #305). On a PS1
+	 * game: Y's list on cross, which B gives, is one Y shares (A swaps and
+	 * Y gives both); Y takes it as well; B's row and Y's carry the other's
+	 * glyph after the value; the handheld lights both; the warning row is
+	 * the game button no button gives; Nothing, a turbo and the row's own
+	 * are A's alone */
+	memset(&m, 0, sizeof m);
+	m.tag = "PS1"; m.ext = "chd"; m.sys_label = "PS1"; m.sys_name = "PlayStation"; m.map = "";
+	rm_identity(&m.def);
+	m.cur = m.base = m.zdef = m.def;
+	{
+		char la[192], lb[192];
+
+		ck(ct_can_share(&m, RM_Y, (rm_choice){ RT_B, 0 }) && !ct_can_share(&m, RM_Y, (rm_choice){ RT_Y, 0 }) &&
+		   !ct_can_share(&m, RM_Y, (rm_choice){ RM_NONE, 0 }) &&
+		   !ct_can_share(&m, RM_Y, (rm_choice){ RT_B, RM_TURBO }),
+		   "ct_can_share: on cross (B's), not on its own, Nothing or a turbo");
+		ct_pick_lines(&m, RM_Y, (rm_choice){ RT_B, 0 }, la, sizeof la, lb, sizeof lb);
+		ck(!strcmp(la, "A: B takes " PAD_SQUARE ".") && !strcmp(lb, "Y: Y and B give " PAD_CROSS "."),
+		   "the foot says what A and Y do: B takes square; Y and B give cross");
+		ct_pick_lines(&m, RM_Y, (rm_choice){ RT_B, RM_TURBO }, la, sizeof la, lb, sizeof lb);
+		ck(!strcmp(lb, "") && !strcmp(la, "Y gives Turbo " PAD_CROSS "."),
+		   "a choice of A's alone (a turbo never swaps): one line, Y gives it");
+	}
+	ct_share(&m, RM_Y, (rm_choice){ RT_B, 0 });
+	ck(m.cur.b[RM_Y].to == RT_B && m.cur.b[RM_B].to == RT_B, "Y takes cross as well: both give it");
+	ck(ct_partners(&m, RM_Y) == 1u << RM_B && ct_partners(&m, RM_B) == 1u << RM_Y && ct_partners(&m, RM_A) == 0,
+	   "ct_partners: B and Y each other's, A none");
+	n = ct_rows(&m, ids, rows, vcol, &b);
+	k = ct_at(ids, n, CT_BUTTON + RM_Y);
+	ck(k > 0 && !strcmp(val(&rows[k]), PAD_CROSS MENU_PARTNER_MARK "B") && vcol[k] == 1u,
+	   "Y's row: cross, then B's glyph (MENU_PARTNER_MARK), changed");
+	k = ct_at(ids, n, CT_BUTTON + RM_B);
+	ck(k > 0 && !strcmp(val(&rows[k]), PAD_CROSS MENU_PARTNER_MARK "Y") && vcol[k] == 0,
+	   "B's row: cross, then Y's glyph, not changed");
+	k = ct_at(ids, n, CT_WARN + RT_Y);
+	ck(k > 0 && ids[k - 1] == CT_BUTTON + RM_Y, "square has no button now, under Y");
+	m.base = m.cur;
+	ck(ct_lit(&m, CT_BUTTON + RM_Y) == (1u << TD_Y | 1u << TD_B), "the handheld lights both, on Y's row");
+	/* removing one: B given L1, Y keeps cross alone */
+	ct_pick(&m, RM_B, (rm_choice){ RT_L1, 0 });
+	ck(m.cur.b[RM_B].to == RT_L1 && m.cur.b[RM_Y].to == RT_B && m.cur.b[RM_L1].to == RT_B &&
+	   ct_partners(&m, RM_Y) == 1u << RM_L1, "B given L1 swaps as ever: L1 takes cross, beside Y");
 
 	/* ct_held_nds: a DS game's L2 and R2 are Diatom's, the other screen and
 	 * the stylus */
@@ -3091,8 +3149,11 @@ static void power_row(void)
 	u.tab = PT_SYSTEM;
 	n = sys_menu_tab_rows(&u, PT_SYSTEM, tab);
 	for (k = 0; k < n && tab[k] != PM_POWER; k++) ;
-	ck(k < n && k + 1 < n && tab[k + 1] == PM_SLEEP && k > 0 && tab[k - 1] == PM_LANGUAGE,
-	   "on System's page between Language and Auto Off");
+	ck(k < n && k + 1 < n && tab[k + 1] == PM_SLEEP && k > 0 && tab[k - 1] == PM_HOTKEYS &&
+	   k > 1 && tab[k - 2] == PM_LANGUAGE,
+	   "on System's page between Hotkeys (after Language) and Auto Off");
+	ck(!strcmp(rows[PM_HOTKEYS].label, "Hotkeys") && rows[PM_HOTKEYS].live && !rows[PM_HOTKEYS].value,
+	   "Hotkeys: a row that opens its list");
 }
 
 /* Home Systems (1.0.6, src/homesys.h): on Display under System Order, All
@@ -3103,7 +3164,7 @@ static void homesys_rows(void)
 {
 	static const char *const names[3] = { "PlayStation", "Ports", "Game Boy" };
 	static const char *const tags[3] = { "PS1", "PRT", "GB" };
-	homesys_ui hu = { names, tags, 3 };
+	homesys_ui hu = { names, tags, 3, true };
 	menu_row rows[HS_ROWS], all[MENU_MAX_ROWS];
 	const char *ids[HS_ROWS];
 	menu_bufs b;
@@ -3125,23 +3186,30 @@ static void homesys_rows(void)
 
 	homesys_parse("");
 	n = sys_menu_homesys_rows(&hu, rows, ids);
-	ck(n == 8 && !strcmp(rows[0].label, "Favorites") && !strcmp(rows[1].label, "Recents") &&
-	   !rows[2].label && !strcmp(rows[3].label, "PlayStation") && !strcmp(rows[5].label, "Game Boy") &&
-	   !rows[6].label && ROW_IS_NOTE(rows[7]),
-	   "Favorites, Recents, a rule, the three systems, a rule, the note");
-	ck(!strcmp(ids[0], "FAV") && !strcmp(ids[1], "RECENT") && !ids[2] && !strcmp(ids[4], "PRT") && !ids[6] &&
-	   !ids[7],
+	ck(n == 9 && !strcmp(rows[0].label, "Favorites") && !strcmp(rows[1].label, "Recents") &&
+	   !strcmp(rows[2].label, "Collections") && !rows[3].label && !strcmp(rows[4].label, "PlayStation") &&
+	   !strcmp(rows[6].label, "Game Boy") && !rows[7].label && ROW_IS_NOTE(rows[8]),
+	   "Favorites, Recents, Collections, a rule, the three systems, a rule, the note");
+	ck(!strcmp(ids[0], "FAV") && !strcmp(ids[1], "RECENT") && !strcmp(ids[2], "COLL") && !ids[3] &&
+	   !strcmp(ids[5], "PRT") && !ids[7] && !ids[8],
 	   "each switch names its tag; the rule and the note none");
-	ck(!strcmp(val(&rows[0]), "On") && !strcmp(val(&rows[4]), "On") && rows[4].live,
-	   "all On as they ship");
-	homesys_parse("PRT,RECENT");
+	ck(!strcmp(val(&rows[0]), "On") && !strcmp(val(&rows[2]), "On") && !strcmp(val(&rows[5]), "On") &&
+	   rows[5].live, "all On as they ship");
+	homesys_parse("PRT,RECENT,COLL");
 	n = sys_menu_homesys_rows(&hu, rows, ids);
-	ck(!strcmp(val(&rows[1]), "Off") && !strcmp(val(&rows[4]), "Off") && !strcmp(val(&rows[3]), "On"),
-	   "Ports and Recents Off, as the word says");
+	ck(!strcmp(val(&rows[1]), "Off") && !strcmp(val(&rows[2]), "Off") && !strcmp(val(&rows[5]), "Off") &&
+	   !strcmp(val(&rows[4]), "On"), "Ports, Recents and Collections Off, as the word says");
 	homesys_parse("PRT,GB");
 	n = sys_menu_homesys_rows(&hu, rows, ids);
-	ck(n == 9 && !rows[3].live && rows[4].live && ROW_IS_NOTE(rows[8]),
+	ck(n == 10 && !rows[4].live && rows[5].live && ROW_IS_NOTE(rows[9]),
 	   "one system left on: its row is dead, and a second note says why");
+	/* With no collection on the card, no Collections row, as a system with
+	 * no games has none */
+	hu.coll = false;
+	homesys_parse("");
+	n = sys_menu_homesys_rows(&hu, rows, ids);
+	ck(n == 8 && !strcmp(rows[1].label, "Recents") && !rows[2].label && !strcmp(ids[1], "RECENT") &&
+	   !strcmp(rows[3].label, "PlayStation"), "no collection: Favorites, Recents, a rule, the systems");
 	homesys_parse("");
 }
 
@@ -3300,6 +3368,38 @@ static void row_sounds(void)
 	ck(n == SM_FAV_ROWS && menu_sound_at(b.sound, n, 2) == (MENU_SND_RING | MENU_SND_NO_A) &&
 	   !menu_sound_at(b.sound, n, 0) && menu_sound_at(b.sound, n, 1) == MENU_SND_OWN,
 	   "Favorites' Sort By too, its count plain, Random Game heard by its pick");
+	/* Recents' fifth, Card Picture (DESIGN.md 11.48): Cover as it ships */
+	u.recents = true;
+	n = sys_menu_build(&u, rows, &b, &heading);
+	ck(n == SM_RECENTS_ROWS && !strcmp(rows[4].label, "Card Picture") && !strcmp(val(&rows[4]), "Cover") &&
+	   rows[4].live && menu_sound_at(b.sound, n, 4) == MENU_SND_RING,
+	   "Recents has Card Picture under View, Cover as it ships, stepped round");
+	u.recents_screen = true;
+	n = sys_menu_build(&u, rows, &b, &heading);
+	ck(!strcmp(val(&rows[4]), "Last Screen"), "and Last Screen when it is on");
+	u.recents = u.recents_screen = false;
+
+	/* Collections (src/collect.h): under the collection's name, its top's
+	 * four, and in one its count, Random Game and Remove from Collection */
+	memset(&u, 0, sizeof u);
+	u.games = true; u.coll = true; u.coll_name = "Couch Co-op"; u.sys_name = "Collections";
+	u.game_count = 3;
+	n = sys_menu_build(&u, rows, &b, &heading);
+	ck(n == 4 && !strcmp(heading, "Couch Co-op") && !strcmp(rows[0].label, "Sort By") &&
+	   !strcmp(val(&rows[0]), "Added") && !strcmp(rows[1].label, "View") && !strcmp(rows[2].label, "Rename") &&
+	   !strcmp(rows[3].label, "Delete Collection") && rows[3].live,
+	   "Collections' top: Sort By (Added), View, Rename, Delete Collection, under the collection's name");
+	ck(menu_sound_at(b.sound, n, 0) == (MENU_SND_RING | MENU_SND_NO_A) && !menu_sound_at(b.sound, n, 2),
+	   "its Sort By steps round as any shelf's, Rename is plain");
+	u.coll_inside = true;
+	n = sys_menu_build(&u, rows, &b, &heading);
+	ck(n == SM_COLL_ROWS && !strcmp(rows[0].label, "Games") && !strcmp(val(&rows[0]), "3") && !rows[0].live &&
+	   !strcmp(rows[1].label, "Random Game") && !strcmp(rows[5].label, "Remove from Collection") &&
+	   rows[5].live && !strcmp(rows[6].label, "Delete Collection"),
+	   "in one: its count, Random Game, Sort By, View, Rename, Remove from Collection, Delete Collection");
+	u.game_count = 0;
+	n = sys_menu_build(&u, rows, &b, &heading);
+	ck(!rows[1].live && !rows[5].live, "with no game, nothing to pick or take out");
 
 	memset(&u, 0, sizeof u);
 	u.games = true; u.muse = true; u.muse_both = true;

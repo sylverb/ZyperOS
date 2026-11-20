@@ -9,6 +9,7 @@
 
 #include "i18n.h"
 #include "padglyph.h"
+#include "hotkeys.h"
 
 /* The handheld's chords, by what they do (dev_role_keys): ctl_set_chords */
 static dev_chords chords;
@@ -205,22 +206,41 @@ static int game(menu_row *out)
 	return n;
 }
 
-/* The hotkeys: SELECT held and a shoulder (diatom/src/chord.h), in a game
- * whatever the system. The quick slot is the in-game menu's Quick Slot row,
- * one a system. The note is the rule that keeps SELECT a game button: a
- * press with no shoulder after it is the game's. Shared with a game's own
- * Hotkeys page (hotkeys_for). */
+/* The hotkeys the pages say (ctl_set_hotkeys): ZyperOS's own until set */
+static hk_table g_hotkeys;
+static bool g_hotkeys_set;
+
+void ctl_set_hotkeys(const hk_table *t)
+{
+	if (t) g_hotkeys = *t;
+	else hk_default(&g_hotkeys);
+	g_hotkeys_set = true;
+}
+
+/* The hotkeys: SELECT held and one more button (diatom/src/chord.h), in a
+ * game whatever the system, as the player set them (src/hotkeys.h; the
+ * shoulders' four until then), each set one a row in the list's order. The
+ * quick slot is the in-game menu's Quick Slot row, one a system. The note is
+ * the rule that keeps SELECT a game button, a press with nothing after it
+ * the game's, where the page has room: six rows a page. Shared with a
+ * game's own Hotkeys page (hotkeys_for). */
 static int hotkey_rows(menu_row *out, bool states, bool select_note)
 {
-	int n = 0;
+	static const str_id SAID[HK_ACTS] = {
+		S_CONTROLS_QUICK_SAVE, S_CONTROLS_QUICK_LOAD, S_CONTROLS_FASTER, S_CONTROLS_SLOWER,
+		S_HOTKEYS_SHOT, S_HOTKEYS_SHADER, S_HOTKEYS_DISPLAY, S_HOTKEYS_RESET, S_GAMEMENU_QUIT
+	};
+	static char keys[HK_ACTS][24];
+	int n = 0, i;
 
-	if (states) {
-		out[n++] = (menu_row){ "SELECT+R1", T(S_CONTROLS_QUICK_SAVE), false };
-		out[n++] = (menu_row){ "SELECT+L1", T(S_CONTROLS_QUICK_LOAD), false };
+	if (!g_hotkeys_set) ctl_set_hotkeys(NULL);
+	for (i = 0; i < HK_ACTS && n < 6; i++) {
+		if (!states && (i == HK_SAVE || i == HK_LOAD)) continue;
+		hk_chord(&g_hotkeys, (hk_act)i, keys[i], sizeof keys[i]);
+		if (!keys[i][0]) continue;
+		out[n++] = (menu_row){ keys[i], T(SAID[i]), false };
 	}
-	out[n++] = (menu_row){ "SELECT+R2", T(S_CONTROLS_FASTER), false };
-	out[n++] = (menu_row){ "SELECT+L2", T(S_CONTROLS_SLOWER), false };
-	if (select_note) out[n++] = MENU_NOTE(T(S_CONTROLS_NOTE_SELECT));
+	if (select_note && n < 6) out[n++] = MENU_NOTE(T(S_CONTROLS_NOTE_SELECT));
 	return n;
 }
 

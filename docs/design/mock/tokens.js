@@ -134,6 +134,15 @@ window.ZYPER_TOKENS = {
     "page-line-gap": 48,
     "page-line-gap-tight": 24,
     "foot-y": 720,
+    "video-band-top": 524,
+    "video-step": 108,
+    "video-cover-w": 90,
+    "video-cover-h": 120,
+    "video-focus-w": 108,
+    "video-focus-h": 144,
+    "video-card-y": 96,
+    "video-card-pad-x": 28,
+    "video-card-pad-y": 18,
     "page-foot-gap": 40,
     "page-foot-gap-tight": 20,
     "page-tile-w": 472,
@@ -366,6 +375,10 @@ window.ZYPER_TOKENS = {
     },
     "hold-snap": {
       "ms": 1000,
+      "curve": "-"
+    },
+    "hold-band": {
+      "ms": 2000,
       "curve": "-"
     },
     "sheen": {

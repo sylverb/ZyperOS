@@ -379,7 +379,10 @@ static void draw_systems(app *a)
 		snprintf(line, sizeof line, "%s%s%s%s%s", al, al[0] && bk[0] ? sep : "", bk,
 		         (al[0] || bk[0]) && vd[0] ? sep : "", vd);
 	} else {
-		int gc = sys_games(&a->view[a->sys_cursor])->count;
+		/* Collections' entries are its collections: its games are counted
+		 * apart, each once (src/collect.h) */
+		int gc = a->sys_cursor == shelf_coll_at(a) ? shelf_coll_games()
+		       : sys_games(&a->view[a->sys_cursor])->count;
 
 		/* A shelf of one read "1 games". Favorites hits it first because it
 		 * starts empty and grows one at a time, but any system with a single
@@ -734,6 +737,7 @@ static void game_page_facts(app *a, bool settled)
 static snapshelf g_snap_shelf;
 float     g_shot_snap_k = -1;      /* --snap K, for a shot */
 float     g_shot_snap_wait = -1;   /* --snap-wait F, for a shot */
+float     g_shot_band = -1;        /* --band F, the Video view's band, for a shot */
 static char      g_snap_asked[1024];
 static bool      g_snap_held;             /* g_snap_asked is only its first picture */
 static int       g_snap_vol;              /* and the sound it was asked with */
@@ -1208,6 +1212,50 @@ static void draw_games(app *a)
 	char head[LIB_PATH + CFG_STR + 64];
 
 	shelf_heading(s, v, head, sizeof head);
+	if (v->video) {
+		/* MENU > View > Video (DESIGN.md 11.57): the focused game's snap on
+		 * the whole screen, asked the frame the focus comes rather than
+		 * after the shelf's rest (my pick, 2026-11-19); not while a
+		 * direction is held, so a scroll opens no file */
+		const game_entry *g = v->list.count ? &v->list.items[v->cursor] : NULL;
+		int owner = g ? shelf_owner(a, a->sys_cursor, v->cursor) : a->sys_cursor;
+		bool held = a->in.down[IN_LEFT] || a->in.down[IN_RIGHT] || a->in.down[IN_UP] ||
+		            a->in.down[IN_DOWN] || a->in.down[IN_L1] || a->in.down[IN_R1];
+		games_info si = { 0 };
+		vv_info vi;
+		unsigned wait;
+
+		games_select(&v->row, v->cursor, v->list.count, 0, now);
+		game_page_facts(a, !games_moving(&v->row, now));
+		g_snap_shelf.at_once = true;
+		shelf_snap(a, v, g && !g->folder ? g : NULL, owner, !held, &si);
+		g_snap_shelf.at_once = false;
+		vi = (vv_info){
+			.heading = head, .title = g ? g->title : NULL,
+			.count = v->list.count, .cursor = v->cursor,
+			.accent = g ? a->sys.systems[owner].accent : s->accent,
+			.played = g_game_page.valid ? g_game_page.played : "",
+			.origin = g && owner != a->sys_cursor ? a->sys.systems[owner].name : NULL,
+			.has_achievements = g_game_page.valid && g_game_page.achievements,
+			.resumable = g_game_page.valid && g_game_page.resume,
+			.install = pm_is_offer(a, owner, g),
+			.howto = splore_is_offer(a, owner, g),
+			.opens = splore_is_entry(a, owner, g) && !splore_is_offer(a, owner, g),
+			.inside = v->dir[0] != '\0',
+			.earned = g_game_page.earned, .total = g_game_page.total,
+			.folder = g ? g->folder : 0,
+			.start_word = T(S_GAMES_TO_COVERS),
+			.snap = si.snap, .snap_w = si.snap_w, .snap_h = si.snap_h,
+			.snap_src = si.snap_src, .snap_k = si.snap_k,
+			.playing = si.snap && si.snap_k >= 1,
+			.band = g_shot_band,
+		};
+		wait = vv_draw(&v->vm, &v->row, a->r, &vi, game_get_tex, a, now, title_phase(a));
+		if (wait != UINT32_MAX) redraw_at(plat_now_ms() + wait);
+		evict_far(v, TEX_KEEP_NEAR);
+		g_title_caps = (SDL_Rect){ 0, 0, 0, 0 };
+		return;
+	}
 	if (v->listed || v->grid) {
 		/* MENU > View > List (DESIGN.md 11.39): the focused game's video
 		 * snap plays in its cover's place on the panel, as on the cover row

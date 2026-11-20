@@ -10,8 +10,10 @@
 #include "bgm_screen.h"
 #include "clock.h"
 #include "clock_screen.h"
+#include "collect_screen.h"
 #include "ctltab.h"
 #include "ctltab_screen.h"
+#include "hotkeys_screen.h"
 #include "db.h"
 #include "devmode_screen.h"
 #include "dl_screen.h"
@@ -127,11 +129,12 @@ nq_kind shot_notice_kind = NQ_SET;
 /* --notice-heat: the notice with the thermometer where a badge goes, as
  * "Getting hot" is over a game (DESIGN.md 11.23) */
 int shot_notice_mark;
-/* --popup saved|loaded|save_failed|load_failed|slot_empty|no_states|dslang|corestate|stick_on|stick_off|speed N:
+/* --popup saved|loaded|save_failed|load_failed|slot_empty|no_states|dslang|corestate|stick_on|stick_off|shot|shader|display|speed N:
  * the pop-up of the SELECT hotkeys, as on_quick and on_speed put it over a
  * game (notice_render, no badge, no Zyper); N is the step for speed, in
  * halves (3 is 1.5x) */
 const char *shot_popup;
+static const char *shot_popup_pic;   /* --popup shot: the picture in it */
 int shot_popup_half = 2;
 /* --lowbatt MS [charging|off]: the low-battery start screen MS ms in
  * (DESIGN.md 11.24); with charging, a charger plugged in at 2.4 s; with off,
@@ -155,6 +158,14 @@ const char *shot_upnews;
 int shot_charging = -1, shot_charging_kind;
 int shot_cheevos;
 int shot_cheevos_sel;
+/* --cheevo-card N: an achievement's card, opened with A from its list, as
+ * cheevo_card_rows and cheevo_card_draw make it on the device: 0 earned, a
+ * line of description; 1 not earned, the longest description
+ * RetroAchievements keeps (255 characters, in two paragraphs), which scrolls
+ * itself (--phase MS moves it on); 2 earned offline and waiting to send; 3
+ * one with no description. The plain badge, or --cheevos-badge SET NAME's.
+ * -1 without it. */
+int shot_cheevo_card = -1;
 /* --ingame: --cheevos-screen as the in-game menu opens it, over a paused
  * game (a made-up frame), rather than over the shelf */
 int shot_ingame;
@@ -208,6 +219,7 @@ static SDL_Texture *shot_row_badge(int row)
 int shot_syn;       /* --synopsis: the card a scraped game opens */
 int shot_info;
 int shot_delete_ask, shot_delete_now;
+int shot_collect_page = -1, shot_collect_delete, shot_collect_said = -1;
 /* --gm-said K: one of Delete Game's and Rename's messages (GM_SAID) */
 int shot_gm_said = -1;
 
@@ -224,6 +236,17 @@ static const str_id GM_SAID[] = {
 	S_GAMEMENU_RENAME_PARTLY,
 };
 #define GM_SAID_RENAME 7    /* GM_SAID's first of Rename's */
+
+/* --collect-said K: one of Collections' messages (src/collect_screen.c):
+ * 0 a name too long and 1 one another collection has, over the keyboard's
+ * New Collection, and 2 a change the card did not take */
+static const str_id COLLECT_SAID[] = { S_COLLECT_NAME_LONG, S_COLLECT_NAME_TAKEN, S_COLLECT_FAILED };
+
+static void collect_said_preview(app *a, int k)
+{
+	if (k < 0 || k >= (int)(sizeof COLLECT_SAID / sizeof COLLECT_SAID[0])) return;
+	result_preview(a, T(k < 2 ? S_COLLECT_NEW : S_COLLECT_ADD), T(COLLECT_SAID[k]));
+}
 
 static void gm_said_preview(app *a, int k)
 {
@@ -258,6 +281,9 @@ static void gm_said_preview(app *a, int k)
 }
 
 int shot_controls = -1;
+int shot_hotkeys = -1, shot_hk_scope = -1, shot_hk_capture, shot_hk_key = -1;
+bool shot_hk_game;
+int shot_hk_ask;
 /* --sgdb [0|1|2]: MENU > SteamGridDB with no key, a key that works, or one
  * they refused - a stand-in key, masked as a real one is */
 int shot_sgdb = -1;
@@ -1574,7 +1600,7 @@ static void shot_compose_once(app *a)
 
 		paused_backdrop(a, bg, 1.0f);
 		if (bg) SDL_DestroyTexture(bg);
-	} else if (shot_kb || shot_wait || shot_cheevos) {
+	} else if (shot_kb || shot_wait || shot_cheevos || shot_cheevo_card >= 0) {
 		ui_scrim(a->r, 0);
 	}
 	if (shot_cheer >= 0) {
@@ -1610,9 +1636,13 @@ static void shot_compose_once(app *a)
 	}
 	if (shot_info == 4) info_buttons_preview(a, shot_gm_pick);
 	else if (shot_info) info_preview(a, true, shot_info == 2 ? T(S_GAMEMENU_DELETE)
-	                                     : shot_info == 3 ? T(S_GAMEMENU_RENAME) : NULL);
+	                                     : shot_info == 3 ? T(S_GAMEMENU_RENAME)
+	                                     : shot_info == 5 ? T(S_COLLECT_ADD) : NULL);
 	if (shot_delete_ask) delete_ask_preview(a);
+	if (shot_collect_page >= 0) collect_page_preview(a, shot_collect_page);
+	if (shot_collect_delete) collect_delete_preview(a);
 	if (shot_gm_said >= 0) gm_said_preview(a, shot_gm_said);
+	if (shot_collect_said >= 0) collect_said_preview(a, shot_collect_said);
 	if (g_p8_said_shot >= 0) p8_said_shot(a, g_p8_said_shot);
 	if (shot_controls >= 0 && (shot_press != SHOT_SWAP || shot_pressed)) {
 		menu_row rows[CTL_MAX_ROWS];
@@ -1634,6 +1664,18 @@ static void shot_compose_once(app *a)
 		ui_scrim_k(a->r, 0, k);
 		menu_draw_caption(a, head, rows, n, -1, menu_std_width(a), MENU_ZYPEROS, NULL, false,
 		                  0, count);
+	}
+	if (shot_hotkeys >= 0) {
+		const system_cfg *hs = NULL;
+		const char *hf = NULL;
+		sysview *sv = &a->view[a->sys_cursor];
+
+		ctl_set_chords(&plat_profile()->chords);
+		if (shot_hk_game && sv->list.count > 0) {
+			hs = &a->sys.systems[shelf_owner(a, a->sys_cursor, sv->cursor)];
+			hf = sv->list.items[sv->cursor].file;
+		}
+		hotkeys_shot(a, hs, hf, shot_hotkeys, shot_hk_capture, shot_hk_key, shot_hk_ask, shot_hk_scope);
 	}
 	if (shot_sgdb >= 0) {
 		static const char *const st[] = { NULL, "works", "refused" };
@@ -2029,6 +2071,39 @@ static void shot_compose_once(app *a)
 		             a->tint, vcols, true, 0);
 		g_row_icon = NULL;
 	}
+	if (shot_cheevo_card >= 0) {
+		/* Real titles, from sets on this card, as the list's shot has */
+		static const struct {
+			const char *t, *d;
+			int p;
+			bool got, pending;
+		} card[] = {
+			{ "Hold On To Your Potatoes, We're In For A Bumpy Ride",
+			  "Clear the second stage without losing a life.", 10, true, false },
+			{ "I Am Not Left Handed Either, But I Can Still Beat You",
+			  "Beat the Koma Faction's general in the arena on Hard, with no "
+			  "continues, no items and no help from a second player, and do it "
+			  "before the timer reaches thirty seconds.\n\nYour score must be "
+			  "higher than the arena's own for the stage, or it does not count.",
+			  25, false, false },
+			{ "Violated Heavens", "Reach the fortress above the clouds.", 10, true, true },
+			{ "Storming The Fortress", "", 10, false, false },
+		};
+		static cheevo_card k;
+		int i = shot_cheevo_card % (int)(sizeof card / sizeof card[0]);
+		int fixed = menu_std_width(a);
+		cheevo c;
+
+		memset(&c, 0, sizeof c);
+		snprintf(c.title, sizeof c.title, "%s", card[i].t);
+		snprintf(c.desc, sizeof c.desc, "%s", card[i].d);
+		c.points = card[i].p;
+		c.earned = card[i].got;
+		cheevo_card_rows(&c, card[i].pending, fixed, &k);
+		cheevo_card_draw(a, &k, c.title,
+		                 rb_icon(a->r, shot_badge_set, shot_badge_name ? shot_badge_name : "",
+		                         !card[i].got, theme()), fixed);
+	}
 	if (shot_popup) {
 		static char pbody[96];
 		char slot[32];
@@ -2063,8 +2138,20 @@ static void shot_compose_once(app *a)
 			/* ...and Player 2 stopping by itself during the game */
 			shot_notice_head = T(S_PLAYER2_NOTICE);
 			snprintf(pbody, sizeof pbody, "%s", T(S_PLAYER2_STOPPED));
+		} else if (!strcmp(shot_popup, "shot")) {
+			/* The screenshot hotkey's (on_hotkey): the picture small
+			 * beside its words, a made-up game's frame */
+			shot_notice_head = T(S_HOTKEYS_SHOT_SAVED);
+			snprintf(pbody, sizeof pbody, "%s", "Screenshots/Nintendo 64");
+			shot_popup_pic = "tools/fixtures/screenshot.png";
+		} else if (!strcmp(shot_popup, "shader") || !strcmp(shot_popup, "display")) {
+			/* Next Shader's and Next Display's hotkeys (on_hotkey) */
+			const bool sh = shot_popup[1] == 'h';
+
+			shot_notice_head = T(sh ? S_HOTKEYS_POPUP_SHADER : S_HOTKEYS_POPUP_DISPLAY);
+			snprintf(pbody, sizeof pbody, "%s", sh ? T(SHADERS[2].text) : T(DMODES[1].text));
 		} else if (!strcmp(shot_popup, "stick_on") || !strcmp(shot_popup, "stick_off")) {
-			/* R2 in a PSP game (on_stick) */
+			/* A Stick On/Off button in a game (on_stick) */
 			shot_notice_head = T(S_POPUP_STICK);
 			snprintf(pbody, sizeof pbody, "%s",
 			         T(!strcmp(shot_popup, "stick_on") ? S_POPUP_STICK_ON : S_POPUP_STICK_OFF));
@@ -2080,7 +2167,9 @@ static void shot_compose_once(app *a)
 		FILE *nf;
 
 		snprintf(dt, sizeof dt, "%s.dtov", shot_path);
-		if ((shot_popup ? notice_render(shot_notice_head, shot_notice, dt, theme_index())
+		if ((shot_popup_pic ? notice_render_ex(shot_notice_head, shot_notice, shot_popup_pic, NOTICE_PICTURE,
+		                                        0, 0, dt, theme_index())
+		     : shot_popup ? notice_render(shot_notice_head, shot_notice, dt, theme_index())
 		     : shot_notice_mark
 		     ? notice_render_mark(shot_notice_head, shot_notice, (notice_mark)shot_notice_mark,
 		                          dt, theme_index())

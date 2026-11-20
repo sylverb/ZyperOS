@@ -111,7 +111,7 @@
  * Hold, POWER held for one second (src/powerhold.h). Two choices, so A
  * switches it, as Left and Right do (1.0.6, asked for on the Discord). */
 /* PM_HOMESYS is Home Systems, under System Order: which shelves the home
- * shows, each system with games, Favorites and Recents (src/homesys.h). Its
+ * shows, each system with games, Favorites, Recents and Collections (src/homesys.h). Its
  * value "All", or how many of them are on; A opens the page of switches
  * (sys_menu_homesys_rows). 1.0.6, asked for on the Discord. */
 /* PM_THEME is Theme, under Appearance: the accent, a background tone for
@@ -144,7 +144,7 @@ typedef enum {
 	/* Connections: USB Device first, while a plug waits for its answer */
 	PM_USB_WAIT, PM_WIFI, PM_BT, PM_XFER, PM_USB, PM_DEVELOPER,
 	/* System */
-	PM_CLOCK, PM_HOURS, PM_LANGUAGE, PM_POWER, PM_SLEEP, PM_CHARGE, PM_LIGHTS,
+	PM_CLOCK, PM_HOURS, PM_LANGUAGE, PM_HOTKEYS, PM_POWER, PM_SLEEP, PM_CHARGE, PM_LIGHTS,
 	PM_STORAGE, PM_UPDATE,
 	/* About */
 	PM_ABOUT, PM_CONTROLS, PM_TOUR,
@@ -193,6 +193,22 @@ typedef enum {
  * own question, and it is between the two as it is on a console's menu. View
  * (1.0.5) is the shelf's, under Sort By as on a console's. */
 #define SM_FAV_ROWS 4
+/* Recents' has a fifth, Card Picture (DESIGN.md 11.48): each card its cover,
+ * as it ships, or the screen the game was left on */
+#define SM_RECENTS_ROWS (SM_FAV_ROWS + 1)
+
+/* What the Collections shelf's menu is (src/collect.h, DESIGN.md 11.56),
+ * headed by the collection's name: on its top, the collection under the
+ * cursor's Rename and Delete Collection, the shelf's Sort By (its own four,
+ * Added first) and View between them; in one, that collection's count and
+ * Random Game first, and Remove from Collection, the game under the cursor
+ * out of it, before Delete Collection, which asks first. */
+typedef enum { SMC_GAMES, SMC_RANDOM, SMC_SORT, SMC_VIEW, SMC_RENAME, SMC_REMOVE,
+               SMC_DELETE } sm_coll_row;
+#define SM_COLL_ROWS 7
+/* Which rows, top (`inside` false) or in a collection, in order, into out;
+ * how many */
+int sys_menu_coll_rows(bool inside, sm_coll_row *out);
 
 /* What MP4's shelf menu is (Muse's, before it played video): how many
  * albums, Show - music, audiobooks or videos, the kinds its one shelf holds -
@@ -309,6 +325,13 @@ typedef struct {
 typedef struct {
 	bool games;              /* the system menu, rather than ZyperOS's own */
 	bool fav;                /* and that shelf is Favorites; see SM_FAV_ROWS */
+	bool coll;               /* or Collections; see SM_COLL_ROWS */
+	bool recents;            /* or Recents, whose fifth row is Card Picture */
+	bool recents_screen;     /* and its value Last Screen, not Cover */
+	/* Card Picture's two, as a list with a picture (A opens it) */
+	const struct menu_choice *pic_choice;
+	bool coll_inside;        /* and it shows one collection, coll_name */
+	const char *coll_name;   /* the collection under the cursor, or shown */
 	bool muse;               /* or Muse's; see SM_MUSE_ROWS */
 	bool muse_books;         /* and it shows books rather than music */
 	bool muse_videos;        /* or videos */
@@ -487,6 +510,7 @@ typedef struct {
 	/* The shelf shows a list rather than its covers (View, SM_VIEW) */
 	bool        listed;
 	bool        grid;       /* the shelf is a grid of covers (MENU > View) */
+	bool        video;      /* or its video snaps (MENU > View, DESIGN.md 11.57) */
 	/* Each option row's choices, by its row (MENU's by pm_row, the system
 	 * menu's by sm_row, the Muse shelf's by sm_muse_row), which the screen
 	 * fills from what it knows and the build copies to its rows' places
@@ -567,7 +591,7 @@ void sys_menu_bytes(unsigned long long n, char *out, size_t outn);
  * Off, stepped by Left, Right or A. `ids` gets each row's part. */
 int sys_menu_lights_rows(side_lights on, menu_row *out, side_light_part *ids);
 
-/* MENU > Display > Home Systems' page (src/homesys.h): Favorites and Recents,
+/* MENU > Display > Home Systems' page (src/homesys.h): Favorites, Recents and Collections (with one),
  * a rule, then every system the card has games for (`names` and `tags`, `n`
  * of them, in the home's order), each On or Off as homesys_shown says,
  * stepped by Left, Right or A; then the note. While one system alone is on,
@@ -577,8 +601,13 @@ typedef struct {
 	const char *const *names;
 	const char *const *tags;
 	int n;
+	/* The card has a collection (src/collect.h): Collections has its row,
+	 * as a system has one only with games */
+	bool coll;
 } homesys_ui;
-#define HS_ROWS (CFG_MAX_SYSTEMS + 6)
+/* The groups' rows first: Favorites, Recents and Collections */
+#define HS_GROUPS 3
+#define HS_ROWS (CFG_MAX_SYSTEMS + HS_GROUPS + 4)
 int sys_menu_homesys_rows(const homesys_ui *u, menu_row *out, const char **ids);
 
 /* Build whichever menu u->games calls for. Returns the row count, so the input

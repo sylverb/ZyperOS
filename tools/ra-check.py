@@ -23,8 +23,10 @@ those names, so RA has never seen their hashes and never will.
 """
 import argparse
 import hashlib
+import struct
 import json
 import os
+import re
 import sys
 import time
 import urllib.parse
@@ -283,6 +285,8 @@ def _psx_track1(path):
 
 
 class _Track:
+    count = 0                   # sectors, where a track ends before its file
+
     def __init__(self, f, offset):
         self.f, self.offset = f, offset
         self.ss = None
@@ -297,8 +301,15 @@ class _Track:
         if h[1:6] == b"CD001":
             self.ss, self.hdr, self.first = 2048, 0, 0
 
+    @classmethod
+    def at(cls, f, ss, hdr, first, offset=0, count=0):
+        """A track whose layout is known already"""
+        t = cls.__new__(cls)
+        t.f, t.ss, t.hdr, t.first, t.offset, t.count = f, ss, hdr, first, offset, count
+        return t
+
     def read(self, sector, n=2048):
-        if sector < self.first:
+        if sector < self.first or (self.count and sector - self.first >= self.count):
             return b""
         return self.f.read_at((sector - self.first) * self.ss + self.hdr + self.offset, min(n, 2048))
 
@@ -447,6 +458,287 @@ def psp_md5(path):
         f.close()
 
 
+# ----------------------------------------------------------- Dreamcast ----
+# rcheevos's rc_hash_dreamcast, as src/rahash.c's ra_hash_dc: IP.BIN's 256
+# bytes off track 3 (else the first data track), then the boot file it names,
+# from that track or from the last one. Where each container puts a track:
+# .gdi and .cue as rcheevos's own reader, .cdi as Flycast's. No .chd here
+# (Python has no CHD reader, as for the PlayStation's): None.
+
+DC_FIRST_DATA, DC_LAST = -1, -2
+_C_SPACE = b" \t\n\v\f\r"          # C's isspace
+
+
+def _atoi(text):
+    """C's atoi: the leading number, 0 when there is none"""
+    m = re.match(r"\s*([+-]?\d+)", text)
+    return int(m.group(1)) if m else 0
+
+
+def _msf(h):
+    bcd = lambda b: (b >> 4) * 10 + (b & 15)
+    return (bcd(h[12]) * 60 + bcd(h[13])) * 75 + bcd(h[14]) - 150
+
+
+def _dc_gdi(path, want):
+    lines = open(path, encoding="utf-8", errors="replace").read().splitlines()
+    if not lines:
+        return None
+    if want == DC_LAST:
+        want = _atoi(lines[0])
+    for line in lines[1:]:
+        f = line.split(None, 4)
+        if len(f) < 5 or not all(x.lstrip("-").isdigit() for x in f[:4]):
+            continue
+        num, lba, kind, ss = (int(x) for x in f[:4])
+        rest = f[4].strip()
+        if rest.startswith('"'):
+            end = rest.find('"', 1)
+            if end < 0:
+                continue
+            name = rest[1:end]
+        else:
+            name = rest.split()[0]
+        if (kind != 4) if want == DC_FIRST_DATA else (num != want):
+            continue
+        p = _sibling(path, name)
+        if not os.path.isfile(p):
+            return None
+        t = _Track(_File(p), 0)
+        if not t.ss:
+            if ss not in (2352, 2048):
+                t.f.close()
+                return None
+            t = _Track.at(t.f, ss, 16 if ss == 2352 else 0, 0)
+        t.first = lba
+        return t
+    return None
+
+
+def _dc_cue(path, want):
+    """rcheevos's cdreader_open_cue_track, as src/rahash.c's dc_cue_track"""
+    def blank():
+        return {"id": 0, "first": 0, "pregap": 0, "count": 0, "ss": 0, "off": 0,
+                "ffirst": 0, "data": False, "mode": "", "file": ""}
+    cur, prev, done = blank(), blank(), False
+    for raw in open(path, encoding="utf-8", errors="replace"):
+        p = raw.lstrip(" \t").rstrip("\r\n")
+        u = p.upper()
+        if u.startswith("INDEX "):
+            f = p[6:].split()
+            idx = int(f[0]) if f and f[0].isdigit() else 0
+            mm = [int(x) if x.isdigit() else 0 for x in (f[1].split(":") if len(f) > 1 else [])]
+            mm = (mm + [0, 0, 0])[:3]
+            at = (mm[0] * 60 + mm[1]) * 75 + mm[2]
+            if cur["first"] == -1:
+                cur["first"] = at
+                if cur["file"] == prev["file"]:
+                    prev["count"] = cur["first"] - prev["first"]
+                    cur["off"] += prev["count"] * prev["ss"]
+            if idx == 1:
+                cur["pregap"] = at - cur["first"]
+                if cur["id"] == want or (want == DC_FIRST_DATA and cur["data"]):
+                    want, done = cur["id"], True
+                    break
+        elif u.startswith("TRACK "):
+            if cur["ss"]:
+                prev = dict(cur)
+            f = p[6:].split()
+            cur["id"] = int(f[0]) if f and f[0].isdigit() else 0
+            cur["pregap"], cur["first"] = -1, -1
+            cur["mode"] = f[1][:15] if len(f) > 1 else ""
+            cur["data"] = cur["mode"].startswith("MODE")
+            cur["ss"] = _atoi(cur["mode"][6:]) if cur["data"] else 2352
+        elif u.startswith("FILE "):
+            if cur["ss"]:
+                prev = dict(cur)
+                if prev["count"] == 0 and prev["ss"] > 0:
+                    pb = _sibling(path, prev["file"])
+                    size = os.path.getsize(pb) if os.path.isfile(pb) else 0
+                    prev["count"] = size // prev["ss"] - prev["first"]
+            cur = blank()
+            cur["ffirst"] = prev["ffirst"] + prev["first"] + prev["count"]
+            q = p[5:].lstrip(" ")
+            if q.startswith('"'):
+                end = q.find('"', 1)
+                cur["file"] = q[1:end] if end > 0 else q[1:]
+            else:
+                cur["file"] = q.split()[0] if q.split() else ""
+    if want == DC_LAST and not done:
+        want = cur["id"]
+    if not cur["id"] or cur["id"] != want or not cur["file"]:
+        return None
+    p = _sibling(path, cur["file"])
+    if not os.path.isfile(p):
+        return None
+    f = _File(p)
+    pregap = max(cur["pregap"], 0)
+    first, off = cur["ffirst"] + cur["first"], cur["off"]
+    ss = hdr = 0
+    toc = 16 + pregap
+    h = f.read_at(off + toc * 2352, 32)
+    if len(h) == 32:
+        if h[:12] == SYNC:
+            ss, hdr, first = 2352, (24 if h[25:30] == b"CD001" else 16), _msf(h) - 16 - pregap
+        else:
+            h = f.read_at(off + toc * 2336, 32)
+            if len(h) == 32 and h[:12] == SYNC:
+                ss, hdr, first = 2336, (24 if h[25:30] == b"CD001" else 16), _msf(h) - 16 - pregap
+            else:
+                h = f.read_at(off + toc * 2048, 32)
+                if len(h) == 32 and h[1:6] == b"CD001":
+                    ss, hdr = 2048, 0
+    if not ss:
+        m = cur["mode"]
+        for key, (s_, h_) in (("MODE2/2352", (2352, 24)), ("MODE1/2048", (2048, 0)),
+                              ("MODE2/2336", (2336, 8)), ("MODE1/2352", (2352, 16)),
+                              ("AUDIO", (2352, 0))):
+            if m.startswith(key):
+                ss, hdr = s_, h_
+                break
+    if not ss:
+        f.close()
+        return None
+    return _Track.at(f, ss, hdr, first + pregap, off + pregap * ss)
+
+
+CDI_VERSIONS = (0x80000004, 0x80000005, 0x80000006)
+CDI_MARK = bytes([0, 0, 1, 0, 0, 0, 0xFF, 0xFF, 0xFF, 0xFF])
+
+
+def _dc_cdi(path, want):
+    """A DiscJuggler .cdi as Flycast reads it, as src/rahash.c's dc_cdi_track"""
+    size = os.path.getsize(path)
+    if size < 8:
+        return None
+    with open(path, "rb") as fh:
+        fh.seek(size - 8)
+        version, hoff = struct.unpack("<II", fh.read(8))
+        if version not in CDI_VERSIONS or not hoff:
+            return None
+        start = size - hoff if version == 0x80000006 else hoff
+        if hoff > size or start >= size or size - start > 1 << 20:
+            return None
+        fh.seek(start)
+        d = fh.read(size - start)
+    at = 0
+
+    def get(k):
+        nonlocal at
+        if at + k > len(d):
+            raise ValueError("short")
+        v = int.from_bytes(d[at:at + k], "little")
+        at += k
+        return v
+
+    def skip(k):
+        nonlocal at
+        if at + k > len(d):
+            raise ValueError("short")
+        at += k
+
+    pick, n, pos = None, 0, 0
+    try:
+        for _ in range(get(2)):
+            for _ in range(get(2)):
+                if get(4):
+                    skip(8)
+                if d[at:at + 10] != CDI_MARK or d[at + 10:at + 20] != CDI_MARK:
+                    return None
+                skip(24)
+                skip(get(1))
+                skip(19)
+                if get(4) == 0x80000000:
+                    skip(8)
+                skip(2)
+                pregap, length = get(4), get(4)
+                skip(6)
+                mode = get(4)
+                skip(12)
+                lba, total = get(4), get(4)
+                skip(16)
+                ss = {0: 2048, 1: 2336, 2: 2352, 4: 2448}.get(get(4), 0)
+                skip(29)
+                if version != 0x80000004:
+                    skip(5)
+                    if get(4) == 0xFFFFFFFF:
+                        skip(78)
+                if not ss:
+                    return None
+                n += 1
+                tr = (mode, ss, pregap, length, lba, pos)
+                if pick is None and ((want > 0 and want == n) or (want == DC_FIRST_DATA and mode)):
+                    pick = tr
+                if want == DC_LAST:
+                    pick = tr
+                pos += total if total < length + pregap else total * ss
+            skip(4 + 8 + (1 if version != 0x80000004 else 0))
+    except ValueError:
+        return None
+    if pick is None:
+        return None
+    mode, ss, pregap, length, lba, tpos = pick
+    f = _File(path)
+    off = tpos + pregap * ss
+    if ss in (2352, 2448):
+        h = f.read_at(off + 16 * ss, 16)
+        hdr = 16 if len(h) == 16 and h[15] == 1 else 24
+    else:
+        hdr = 8 if ss == 2336 else 0
+    return _Track.at(f, ss, hdr, lba + pregap - 150, off, length)
+
+
+def _dc_open(path, want):
+    ext = os.path.splitext(path)[1].lower()
+    try:
+        if ext == ".gdi":
+            return _dc_gdi(path, want)
+        if ext == ".cue":
+            return _dc_cue(path, want)
+        if ext == ".cdi":
+            return _dc_cdi(path, want)
+    except (OSError, ValueError, UnicodeDecodeError):
+        return None
+    return None
+
+
+def dc_md5(path):
+    """RA's Dreamcast hash (rc_hash_dreamcast), or None"""
+    katana = b"SEGA SEGAKATANA "
+    t = _dc_open(path, 3)
+    ip = t.read(t.first, 256) if t else b""
+    if ip[:16] != katana:
+        if t:
+            t.f.close()
+        t = _dc_open(path, DC_FIRST_DATA)
+        if not t:
+            return None
+        ip = t.read(t.first, 256)
+        if ip[:16] != katana:
+            t.f.close()
+            return None
+    ip = ip.ljust(256, b"\0")
+    try:
+        n = 0
+        while n < 16 and ip[96 + n] not in _C_SPACE:
+            n += 1
+        if not n:
+            return None
+        sector, size = t.find(ip[96:96 + n].decode("latin-1"))
+        if not sector:
+            return None
+        if not t.read(sector, 1):
+            t.f.close()
+            t = _dc_open(path, DC_LAST)
+            if not t:
+                return None
+        body = t.file(sector, size)
+        return hashlib.md5(ip + body).hexdigest() if body is not None else None
+    finally:
+        if t:
+            t.f.close()
+
+
 # Disc containers with no walk here, refused unread as src/rahash.c refuses
 # them (is_disc_image). Not .bin: a Genesis or 2600 cartridge is one too.
 DISC_EXTS = ("chd", "cue", "ccd", "toc", "iso", "cso", "img", "m3u", "pbp", "mdf",
@@ -457,6 +749,8 @@ def ra_md5(tag, path):
     """RA's hash of one game, or None when there is none to make."""
     if tag == "PSP":
         return psp_md5(path)
+    if tag == "DC":
+        return dc_md5(path)
     if tag in DISC_TAGS:
         body = psx_hash_input(path)
         return hashlib.md5(body).hexdigest() if body is not None else None

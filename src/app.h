@@ -10,6 +10,7 @@
 #include "games.h"
 #include "gamelist.h"
 #include "gamegrid.h"
+#include "videoview.h"
 #include "home.h"
 #include "i18n.h"
 #include "idle.h"
@@ -87,6 +88,11 @@ typedef struct {
 	 * (11.47); never both */
 	bool listed;
 	bool grid;
+	/* ...or the Video view (DESIGN.md 11.57, src/videoview.h): the focused
+	 * game's snap on the whole screen, its covers in a band at the foot;
+	 * never with either of those, and its band's motion */
+	bool video;
+	vv_motion vm;
 	/* The grid's place and motion, what it knows of each cover beyond its
 	 * texture (src/gamegrid.h), and the shape kept for this shelf in the
 	 * device's database (grid_shape_load), read when the grid opens it, and
@@ -373,6 +379,21 @@ void core_load(app *a);
 void sort_load(app *a);
 /* MENU > View, each shelf's: its covers or a list (DESIGN.md 11.39) */
 void view_load(app *a);
+/* A shelf's View, in the order Right and START step it (view_turn): Covers,
+ * Grid, List, Video (DESIGN.md 11.39, 11.47, 11.57) */
+enum { VIEW_COVERS, VIEW_GRID, VIEW_LIST, VIEW_VIDEO, VIEW_COUNT };
+static inline int view_index(const sysview *v)
+{
+	return v->listed ? VIEW_LIST : v->grid ? VIEW_GRID : v->video ? VIEW_VIDEO : VIEW_COVERS;
+}
+bool view_video(const char *tag);
+/* Recents' Card Picture (DESIGN.md 11.48): false its covers, as it ships;
+ * true the screen each game was left on, its cover small in a corner
+ * (src/screencard.h). recents_picture_turn turns it over, saves it, and has
+ * Recents' cards asked for again. */
+#define RECENTS_PICTURE_KEY "recents.picture"
+extern bool g_recents_screen;
+void recents_picture_turn(app *a);
 bool view_listed(const char *tag);
 bool view_grid(const char *tag);
 void sort_shelf(app *a, int sys);

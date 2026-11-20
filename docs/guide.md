@@ -324,6 +324,7 @@ Dreamcast games run on flycast2021, the 2021 libretro [Flycast](https://github.c
 | **SELECT+L1** (in game) | quick load: the state in the Quick Slot |
 | **SELECT+R2** (in game) | faster: 1.5x, 2x, 3x |
 | **SELECT+L2** (in game) | slower, a step a press, back to normal speed |
+| **SELECT + a button you choose** (in game) | your own hotkeys: Screenshot, Next Shader, Next Display, Reset Game and Quit, none until you set them in **Hotkeys** (below) |
 | **MENU** (inside any menu) | closes the whole menu, however deep in it you are. B goes back one screen |
 | **SELECT** | MP4, the music, audiobook and video player, from anywhere but a running game - the in-game menu included. Again to close it |
 | **POWER** | powers off. In a game, the game is saved first, and the next start goes straight back into it. After a crash or a power cut, the next start is the home instead. With **MENU > Power Button** on **Hold**, POWER has to be held for a second, and a press alone does nothing: a bar at the top of the screen fills while it is held, on the home, in a game and over a port |
@@ -433,18 +434,44 @@ go (with D-pad as Stick on, the other way round). They are the last two of a
 button's choices. The PSP's R2 is Stick On/Off from the start; give it to
 another button, or make R2 something else.
 
+**Two buttons on one game button.** Giving a button what another button
+gives swaps the two, so nothing is lost by accident. To have both, open the
+button's list with A, move to the choice the other button gives, and press
+**Y** instead of A: the foot of the list says what each key does. Both rows
+then show the other button's small glyph after the value, and the handheld
+lights both. Give either row something else to undo it.
+
 **Face Buttons** (Dreamcast, Saturn and Neo Geo Pocket games) swaps all four
 faces at once: **By Letter**, each cap gives the button it names, or **By
 Place**, each cap gives the button in its place on the original pad. It reads
 Mixed after a change to one face.
 
-**Hotkeys**, the tab's last row, opens what you could always read here: what a
-system adds (the Nintendo 64's C buttons, hold SELECT and press X, A, B or Y,
-and which Pak is in; a DS game's two screens and the stylus), then SELECT
-with a shoulder, quick save and load, faster and slower, and under them
-"SELECT alone stays the game's", then the last page, In a game: MENU, MENU then X
-(Quit), volume, brightness and POWER. Left and right change the page, B goes
-back to the tab, and MENU goes back to the game.
+**Hotkeys.** Every hotkey is SELECT held and one more button, and you choose
+which: **MENU > System > Hotkeys** for every game, or the Controls tab's
+**Hotkeys** row in a game, where **Applies To** says This Game, the system or
+Every Game, as Changing a button does. Each row is an action and its buttons:
+**Quick Save** (SELECT+R1 to start with), **Quick Load** (SELECT+L1),
+**Faster** (SELECT+R2), **Slower** (SELECT+L2), and five that do nothing
+until you give them buttons: **Screenshot**, **Next Shader**, **Next
+Display**, **Reset Game** and **Quit**. Press A on a row, hold SELECT, press
+the button you want, and let go. If those buttons already do something else,
+ZyperOS asks whether to swap the two. Reset Game pauses and asks first, since
+a reset loses what you played since your last save. Quit leaves at once, and
+the game resumes where you left it next time. **Reset Hotkeys** puts them
+back. MENU+START, the way home, and POWER never change.
+
+A **screenshot** is the game's own picture, saved as a PNG in
+`Screenshots/<system>/` on the card, named after the game and the time; a
+pop-up shows it small. **Next Shader** and **Next Display** turn on the
+system's next shader or display mode and say which.
+
+The Hotkeys list's last row in a game, **All Controls**, opens what you could
+always read here: what a system adds (the Nintendo 64's C buttons, hold
+SELECT and press X, A, B or Y, and which Pak is in; a DS game's two screens
+and the stylus), then your hotkeys, and under them "SELECT alone stays the
+game's", then the last page, In a game: MENU, MENU then X (Quit), volume,
+brightness and POWER. Left and right change the page, B goes back, and MENU
+goes back to the game.
 
 **OpenBOR has the in-game menu too**, though it runs as a program of its
 own rather than a libretro core. MENU stops the game where it is and opens
@@ -488,7 +515,7 @@ than any one console:
 | **Screensaver** | `Off`, `30s`, `1m`, `2m`, `5m` or `10m` with nothing pressed on the shelf before the video snaps of random games play over the whole screen, each with its game's name and system. START boots the game on screen; any other button goes back. `1m` on a new device. It never starts in a game, a menu, MP4 or File Transfer, while music plays or a long job runs, or under 20% on battery; on battery it ends by itself after 10 minutes, and Auto Off still powers the device off at its own time. With no video snaps on the card it shows covers instead, and with neither, nothing - see **Screensaver** below |
 | **Side Lights** | the Pixel 2 only: a page of switches for what the side lights show on their own, `Charging Bar`, `Low Battery`, `Volume and Brightness`, `Files and Covers` and `Achievements`, each `On` or `Off`, and the row under the cursor plays its pattern on the lights; the row says how many are on. L2+R2 shows the level in all four. `All on` on a new device |
 | **System Order** | the home's systems `A to Z` by name, on a new device and after an upgrade, or by `Release Date`. Favorites stays first, then Recents, and Ports and MP4 stay last |
-| **Home Systems** | which shelves the home shows: `All`, or how many are on. A opens a switch for Favorites, Recents (the ten games played last) and every system with games; Left, Right or A turns one on or off. A hidden system leaves the home, Random Game, Search, Favorites and Recents, and its games stay on the card. The last system on stays on |
+| **Home Systems** | which shelves the home shows: `All`, or how many are on. A opens a switch for Favorites, Recents (the ten games played last), Collections (once you have one) and every system with games; Left, Right or A turns one on or off. A hidden system leaves the home, Random Game and Search; its games stay on Favorites, Recents, Collections and the card. The last system on stays on |
 | **Appearance** | `Light` or `Dark`. `Light` on a new device and after an upgrade; a handheld that had `Auto` keeps the one it showed when it updated. Night Mode, on the Pixel 2, warms the screen by the hours instead - see [Screen Colors and Night Mode](#screen-colors-and-night-mode) |
 | **Theme** | your look, in Display: **Accent** (ten colors, the same in both themes), **Light Background** and **Dark Background** (three tones each), **Folder Color**, **Corners** (`Rounded` or `Square`), **Highlight**, **Zyper** (`On` or `Off`) and **Reset to Default**. Left and right change a row at once; A opens its list, where the whole screen shows the choice under the cursor and B puts back what you had. **Folder Color** is the color of the folders of games on the shelves and of the consoles' folders on the File Transfer page: `System Colors`, each folder in its own system's color, or one of the ten accents for every folder. Its list shows three folders in the color under the cursor. **Highlight** is how the game or system in focus is marked on the home and the shelves: `Bar` (it grows a little, a short bar under it), `Border` (a ring in the accent round it), `Lift` (it rises on a soft shadow) or `None` (it grows, nothing else); in each, the others step back a little. Its list shows three of your systems marked that way. Menus keep their highlight bar whatever it says. `Lime`, `Warm`, `Black`, `System Colors`, `Rounded`, `Bar` and Zyper `On` on a new device and after an upgrade |
 | **Scraper** | box art, its sources and video snaps - see below. Its value is how many games have no cover, or `Complete` |
@@ -594,7 +621,7 @@ Covers go over USB or Wi-Fi File Transfer too: drag a console's `.media` folder 
 
 Sign in under **MENU > Downloads > Settings > RetroAchievements** with your RetroAchievements account. A game's first start needs Wi-Fi, to identify the game and fetch its achievements. From then on it plays offline too: what you unlock without Wi-Fi shows at once, with its notice and Zyper, and waits on the card. When the handheld is on Wi-Fi again, on the shelf, the waiting unlocks go to your account by themselves, and Zyper says how many went. Each one is dated when you earned it, up to 14 days back, the most RetroAchievements takes.
 
-While some wait, the game's list says how many under its name, and an achievement opened with A says "earned, not sent yet". A game you have never played with Wi-Fi says "not checked yet" on its Achievements row, and A on the row says how it gets its achievements. A game ZyperOS cannot identify says so instead, with or without Wi-Fi: "not for this system" for systems whose games are all discs it has no reader for (Sega CD, Saturn, Dreamcast, 3DO, Neo Geo CD), and "not for this file" for a kind of file it cannot read where another works, like a PlayStation `.ccd` (a `.cue` and `.bin` gets its achievements). Offline unlocks are softcore, the only mode ZyperOS plays.
+While some wait, the game's list says how many under its name, and an achievement opened with A says "earned, not sent yet". A game you have never played with Wi-Fi says "not checked yet" on its Achievements row, and A on the row says how it gets its achievements. A game ZyperOS cannot identify says so instead, with or without Wi-Fi: "not for this system" for systems whose games are all discs it has no reader for (Sega CD, Saturn, 3DO, Neo Geo CD), and "not for this file" for a kind of file it cannot read where another works, like a PlayStation `.ccd` (a `.cue` and `.bin` gets its achievements). Offline unlocks are softcore, the only mode ZyperOS plays.
 
 **MENU > Downloads > Achievements** gets them for every game at once, ahead of time, so a game you first play on a plane has its achievements too.
 
@@ -622,7 +649,7 @@ for a Scraper run.
 
 In a game, **MENU** has an **Achievements** tab, one **L1** from Game: the game's list with your count and points on top, each achievement with its badge, its points (or its count while it moves) and, once you have it, the earned color. **A** opens one, and the list goes round. A game with no list says why there: not signed in, never played with Wi-Fi, on their way, none on RetroAchievements, or a system or kind of file ZyperOS cannot identify. The Game tab's Achievements row keeps the count, and **A** on it turns to the tab.
 
-**Which files.** A PlayStation game is identified by its boot program on the disc, as RetroAchievements does, so a `.cue` and `.bin`, an `.iso`, a `.chd`, a `.pbp` (PSone Classics, its first disc) and an `.m3u` (its first disc) of the same game get the same achievements. A PSP game is identified by its `PARAM.SFO` and `EBOOT.BIN`, from an `.iso`, a `.cso` or a `.chd` alike; a PSP `.pbp` (a PSN game) is identified by the whole file, as RetroAchievements does. ZyperOS reads only the part of the disc it needs, never the whole image, except a PSP `.pbp`, which it reads once, in the background, the first time you play it with Wi-Fi. A CHD made with zstd (`chdman -c cdzs`) can't be read yet; chdman's usual CHD (`createcd`, `createdvd`) can.
+**Which files.** A PlayStation game is identified by its boot program on the disc, as RetroAchievements does, so a `.cue` and `.bin`, an `.iso`, a `.chd`, a `.pbp` (PSone Classics, its first disc) and an `.m3u` (its first disc) of the same game get the same achievements. A PSP game is identified by its `PARAM.SFO` and `EBOOT.BIN`, from an `.iso`, a `.cso` or a `.chd` alike; a PSP `.pbp` (a PSN game) is identified by the whole file, as RetroAchievements does. A Dreamcast game is identified by its `IP.BIN` and the boot program it names, from a `.gdi`, a `.cue`, a `.chd` or a `.cdi` alike. ZyperOS reads only the part of the disc it needs, never the whole image, except a PSP `.pbp`, which it reads once, in the background, the first time you play it with Wi-Fi. A CHD made with zstd (`chdman -c cdzs`) can't be read yet; chdman's usual CHD (`createcd`, `createdvd`) can.
 
 <img src="../res/readme/cheevos-waiting.png" width="400" alt="A game's achievements list, its heading saying '3 / 36 · 2 waiting to send': two achievements earned offline, not sent yet">
 
@@ -775,16 +802,51 @@ The system menu opens on a shelf of games and applies to that system alone:
 | **Game Language** | the Nintendo DS shelf's: left/right/A go round `Auto`, English, Español, Français, Deutsch, Italiano, 日本語 and 简体中文, saved the moment it changes. `Auto` is the language of MENU > Language where the DS has it and English where it does not, and the row says which. The next game started speaks it, whatever the language of the `firmware.bin` in `Bios/`. A game whose resume point was left in another language starts fresh in this one, with a note that says so, its battery save kept; a save state you load keeps its own language until Reset |
 | **Timing** | the Game Boy, Game Boy Color, Game Boy Advance, Nintendo DS and Genesis shelves', under Core (and under Game Language on the DS's): `Smooth` to start with, or `Exact`, for this system alone; left/right/A flip it, saved the moment it changes, for the next game started. The screen refreshes 60.08 times a second and these consoles make 59.7 to 59.9 frames. `Smooth` shows one game frame each refresh, so motion is even, and the game runs up to 0.6% faster than the console: a GBA game 3.5 seconds fast in 10 minutes. `Exact` keeps the console's own speed, for timers and rhythm games, and about every 3 seconds one frame stays on the screen for two refreshes |
 | **Sort By** | left/right; `Name`, `Play Time`, `Last Played` or `Recently Added` |
-| **View** | left/right, or A for the list; `Covers`, the row of covers, `Grid`, two rows of covers in cells shaped like the shelf's own art, or `List`, the games as a list of names with the focused one's cover beside it. START on the shelf steps it too, without the menu |
+| **View** | left/right, or A for the list; `Covers`, the row of covers, `Grid`, two rows of covers in cells shaped like the shelf's own art, `List`, the games as a list of names with the focused one's cover beside it, or `Video`, the focused game's video snap on the whole screen with the covers in a band at the foot; after 2 seconds with no press while a snap plays, the band goes down to a thin strip so the video has the screen, and any button brings it back. START on the shelf steps it too, without the menu |
 | **Display** | how the picture fills the screen: Full Screen, Original Shape, Sharp Pixels, Sharp Pixels, Tall, Sharp Pixels, Zoomed, Fill, Edges Cut or Actual Size; left/right cycles it, and A opens the list, with a small picture of your game in the mode under the cursor and a line that says what it does; saved the moment it changes |
 | **Shader** | `Off`, `Sharp-Shimmerless`, `CRT`, `CRT Curved`, `Scanlines` or `LCD Grid`, and on the Game Boy, Game Boy Color and Game Boy Advance `LCD No Backlight` too, for this system alone: left, right or A steps it, saved the moment it changes. The next game started plays with it |
 | **Strength** | right under Shader while it is `CRT`, `CRT Curved`, `Scanlines`, `LCD Grid` or `LCD No Backlight`: `10%` to `100%`, for this system alone. Left and right step it 10% at a time and stop at the ends |
 | **Box Art** | fetch what this system is missing, and nothing else |
 | **Rescan Folder** | read the card again, for ROMs that arrived since boot |
 
-On Favorites and Recents the menu is only Games, Random Game, Sort By and View. The rest is about one
+On Favorites and Recents the menu is only Games, Random Game, Sort By and View; Recents has
+**Card Picture** too: `Cover`, as it starts, or `Last Screen`, each card the screen where you left
+the game (the picture saved with its resume point) with its cover small in the corner. A game with
+no resume point shows its cover. A opens the two as a list with a picture of each. On Collections it
+is the collection's own (see [Collections](#collections)). The rest is about one
 console, and a game there takes its console's Display wherever it was
 started from.
+
+### Collections
+
+A collection is a list of games of your own, from any system: couch games, RPGs to finish, the
+kids' games. Press X on a game and choose **Add to Collection**: a tick shows each collection the
+game is in, A puts it in or takes it out, and **New Collection** names a new one on the keyboard,
+with the game as its first. The row's value says how many collections the game is in.
+
+Once a collection has a game, the home has a **Collections** group after Favorites and Recents.
+Its shelf shows each collection as a folder with its count; A opens it, and B goes back. Inside,
+games of every system mix, each with its system under its name, and each starts on its own
+system's core. MENU on the shelf, headed by the collection's name:
+
+| Row | What it does |
+|---|---|
+| **Games** | in a collection: how many games it has |
+| **Random Game** | in a collection: one of its games, picked and started |
+| **Sort By** | `Added` (the order the games went in, to start with), `Name`, `Last Played` or `System` (the home's order of the systems). One order for every collection |
+| **View** | `Covers`, `Grid` or `List`, as on any shelf |
+| **Rename** | a new name for the collection, on the keyboard |
+| **Remove from Collection** | in a collection: the game under the cursor out of it. The game stays on the card |
+| **Delete Collection** | asks first, the cursor on **Cancel**. The list goes; its games stay on the card |
+
+MENU > Home Systems can hide the group. A game you rename or delete on the handheld follows into
+every list.
+
+On the card, each collection is a text file, `Collections/<name>.txt`, one game a line, as its
+path from the card's root: `/Roms/SNES/Chrono Trigger (USA).sfc`. This is the format MinUI and
+NextUI use, so a list from another handheld, or one you write by hand, shows up after a rescan.
+A line for a game that is not on the card stays in the file and comes back with the game. Lines
+starting with `#` are notes. ZyperOS reads up to 36 collections.
 
 Display is per-system, because a Game Boy and a Genesis do not want the
 same answer. Set here it applies from the next launch; the same row in the

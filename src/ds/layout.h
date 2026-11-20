@@ -24,6 +24,15 @@
 #define DS_PAGE_LINE_GAP        48
 #define DS_PAGE_LINE_GAP_TIGHT  24
 #define DS_FOOT_Y               720
+#define DS_VIDEO_BAND_TOP       524
+#define DS_VIDEO_STEP           108
+#define DS_VIDEO_COVER_W        90
+#define DS_VIDEO_COVER_H        120
+#define DS_VIDEO_FOCUS_W        108
+#define DS_VIDEO_FOCUS_H        144
+#define DS_VIDEO_CARD_Y         96
+#define DS_VIDEO_CARD_PAD_X     28
+#define DS_VIDEO_CARD_PAD_Y     18
 #define DS_PAGE_FOOT_GAP        40
 #define DS_PAGE_FOOT_GAP_TIGHT  20
 #define DS_PAGE_TILE_W          472
