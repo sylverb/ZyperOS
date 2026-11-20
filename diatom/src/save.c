@@ -45,6 +45,13 @@
  * trailer - is statefile.c's: here are the core and the card. */
 
 static char        g_sram_path[1024];
+/* A cartridge's clock, apart from its battery RAM where the core keeps it
+ * apart (RETRO_MEMORY_RTC: Gambatte's MBC3, Snes9x's S-RTC), as RetroArch
+ * keeps it: <rom>.rtc beside the .srm, read at the start and written on the
+ * way out. Its bytes are the core's own (a base time and the registers), so
+ * nothing changes while the game runs; none when the core keeps none. */
+static char        g_rtc_path[1024];
+static diatom_core *g_rtc_core;
 static uint8_t    *g_sram;        /* the core's buffer; the core owns it */
 static uint8_t    *g_shadow;      /* what we last handed to the writer */
 static uint8_t    *g_staging;     /* the writer's private copy */
@@ -149,6 +156,41 @@ static void stem(const char *path, char *out, size_t n)
 	snprintf(out, n, "%.*s", dot ? (int)(dot - base) : (int)strlen(base), base);
 }
 
+/* The cartridge's clock read in, when the core keeps one apart and the
+ * card has it; a size that differs is the core's layout, and is not read */
+static void rtc_load(diatom_core *c)
+{
+	size_t n = c->get_memory_size(RETRO_MEMORY_RTC);
+	uint8_t *d = c->get_memory_data(RETRO_MEMORY_RTC);
+	FILE *f;
+	long len;
+
+	g_rtc_core = n && d ? c : NULL;
+	if (!g_rtc_core || !(f = fopen(g_rtc_path, "rb"))) return;
+	fseek(f, 0, SEEK_END);
+	len = ftell(f);
+	fseek(f, 0, SEEK_SET);
+	if (len == (long)n && fread(d, 1, n, f) == n)
+		logf_(DIATOM_LOG_INFO, "save: the cartridge's clock from %s", g_rtc_path);
+	else
+		logf_(DIATOM_LOG_WARN, "save: %s is %ld bytes, the core keeps %zu; not read",
+		      g_rtc_path, len, n);
+	fclose(f);
+}
+
+/* And written out, on every way out (diatom_save_flush) */
+static void rtc_flush(void)
+{
+	size_t n;
+	uint8_t *d;
+
+	if (!g_rtc_core) return;
+	n = g_rtc_core->get_memory_size(RETRO_MEMORY_RTC);
+	d = g_rtc_core->get_memory_data(RETRO_MEMORY_RTC);
+	if (n && d && write_atomic(g_rtc_path, d, n))
+		logf_(DIATOM_LOG_INFO, "save: the cartridge's clock to %s", g_rtc_path);
+}
+
 bool diatom_save_init(diatom_core *c, const char *save_dir, const char *rom_path)
 {
 	char  name[512];
@@ -165,6 +207,9 @@ bool diatom_save_init(diatom_core *c, const char *save_dir, const char *rom_path
 	stem(rom_path, name, sizeof name);
 	snprintf(g_sram_path, sizeof g_sram_path, "%s/%s.srm",
 	         save_dir ? save_dir : ".", name);
+	snprintf(g_rtc_path, sizeof g_rtc_path, "%s/%s.rtc",
+	         save_dir ? save_dir : ".", name);
+	rtc_load(c);
 
 	g_late_core = NULL;
 	if (!g_sram_size || !g_sram) {
@@ -281,6 +326,7 @@ void diatom_save_tick(void)
 
 void diatom_save_flush(void)
 {
+	rtc_flush();
 	if (!g_sram_size) return;
 	if (!memcmp(g_sram, g_shadow, g_sram_size)) return;
 
@@ -308,6 +354,7 @@ void diatom_save_shutdown(void)
 	g_shadow = g_staging = NULL;
 	g_sram_size = 0;
 	g_late_core = NULL;
+	g_rtc_core = NULL;
 }
 
 /* A state as its file holds it before it is packed - header, the core's

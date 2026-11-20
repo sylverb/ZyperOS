@@ -50,6 +50,11 @@ int main(void)
 	CHECK(!strcmp(cst_library("parallel_n64"), "ParaLLEl N64"), "ParallelN64 names itself ParaLLEl N64");
 	CHECK(!strcmp(cst_library("mupen64plus_next"), "Mupen64Plus-Next"), "Mupen64Plus-Next its own name");
 	CHECK(!cst_library("flycast2021") && !cst_library(NULL), "a core not listed has none");
+	/* The Game Boy shelves' two (1.0.7) */
+	CHECK(!strcmp(cst_library("mgba"), "mGBA") && !strcmp(cst_library("gambatte"), "Gambatte"),
+	      "mGBA and Gambatte by their own names");
+	CHECK(cst_other_core("mGBA", "gambatte", "mgba,gambatte") && !cst_other_core("Gambatte", "gambatte", "mgba,gambatte"),
+	      "a Game Boy game left on mGBA, started on Gambatte: fresh; left on Gambatte: a resume");
 
 	snprintf(p, sizeof p, "%s/mupen.state", D);
 	state(p, "DIATOMST", 1, "Mupen64Plus-Next");

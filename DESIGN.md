@@ -6270,6 +6270,43 @@ carries the shot itself beside "Screenshot saved", the folder under it,
 kept in its shape at the two lines' height (`NOTICE_PICTURE`), for
 **hold-short**, as every pop-up over a game.
 
+### 11.62 Two cores on a shelf: Gambatte
+*(DoctorIssa on the Discord asked for Gambatte; Tarik: "all good". mGBA
+stays the default.)*
+
+A system's menu has **Core** where its shelf lists more than one core in
+config/systems.cfg, the first its default: the Game Boy's and the Game Boy
+Color's, **mgba** or **gambatte** (1.0.7), beside the Nintendo 64's and the
+Dreamcast's. Two choices, so Left, Right or A turns it over; kept by the
+shelf's tag (`core.<TAG>`), and the next game started runs on it. Timing,
+Display, Shader and the buttons stay the system's, whatever the core.
+
+- **A resume point is one core's own.** A game left on the other core
+  starts fresh, and says so, as the N64's do (src/corestate.h: the state's
+  header names the core that wrote it, "mGBA" or "Gambatte"). Save slots of
+  the other core stay on the card.
+- **The battery save is one file**, `<rom>.srm`, for both. Gambatte keeps a
+  cartridge's clock apart (MBC3: Pokémon Gold, Silver and Crystal), and
+  Diatom keeps it as RetroArch does, `<rom>.rtc` beside the save, read at
+  the start and written on every way out (diatom/src/save.c), for every
+  core that keeps one apart (Snes9x's S-RTC too). mGBA keeps its clock in
+  the save itself, so after a change of core a clock may need setting again.
+- **A game's details say the core** while its shelf has two: a **Core** fact
+  after Genre, in the facts' quiet style, so a person asking for help can
+  say which one ran.
+- **The same look.** Gambatte's defaults are mGBA's on the Game Boy shelf
+  (src/coreopts.c): the first Game Boy's green ("Internal", GB - DMG) where
+  the core's own default is no color, and the shelf's hardware a Game Boy.
+
+Gambatte is libretro/gambatte-libretro at 77f2567, built in the small
+cores' image (mk/build-small-cores.sh, Debian bullseye's GCC 10, checked for
+undefined symbols and pinned by sha256), the same binary for both handhelds.
+No machine has to remember to build it: tools/release.sh, tools/px2-payload.sh
+and plastron's card builds run `mk/build-small-cores.sh --missing` first,
+which builds a small core systems.cfg names and the vendor folder lacks and
+only looks when none is missing; mk/payload.sh, which refuses a card without
+it, names that command.
+
 ### 11.64 Player Looks
 
 **Player Look**, in MP4's MENU on the music shelf (and on All when the card

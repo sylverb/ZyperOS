@@ -955,7 +955,9 @@ vendor/         the libretro cores: fetched and hash-pinned by
                 mk/fetch-vendor.sh from ZyperOS's cores release (a
                 pre-release whose files never change; mk/release-cores.sh
                 makes a new one when a core changes), the rest built by
-                mk/build-*.sh; a core
+                mk/build-*.sh (the small cores' mk/build-small-cores.sh
+                --missing runs before every card build, so a new one there
+                builds itself on the first card); a core
                 ZyperOS patches has a stamp beside it naming its patches
                 (mk/core-stamp.sh), which mk/payload.sh and tools/release.sh
                 hold it to: run its build script, or `sh mk/core-stamp.sh

@@ -15,6 +15,15 @@ static const dev_default SHARED[] = {
 	{ "coreopt..mgba_sgb_borders",  "OFF" },
 	{ "coreopt.GB.mgba_gb_model",   "Game Boy" },
 	{ "coreopt.GB.mgba_gb_colors",  "DMG Green" },
+	/* Gambatte (1.0.7), the Game Boy shelves' second core: the Game Boy's
+	 * games as mGBA shows them, the first Game Boy's green on a Game Boy
+	 * (its "Internal" palette, GB - DMG), where the core's own default is
+	 * no color at all; the Game Boy shelf a Game Boy, as mGBA's model is.
+	 * Read from libgambatte/libretro/libretro_core_options.h at the commit
+	 * mk/build-small-cores.sh builds. */
+	{ "coreopt.GB.gambatte_gb_colorization",    "internal" },
+	{ "coreopt.GB.gambatte_gb_internal_palette", "GB - DMG" },
+	{ "coreopt.GB.gambatte_gb_hwmode",           "GB" },
 	/* pcsx_rearmed's frameskip on "auto": Diatom drives it with a hint
 	 * (diatom/src/env.c), and its "auto" skips a frame reported as about to
 	 * underrun, which Diatom says only of frames fast forward will not show.
