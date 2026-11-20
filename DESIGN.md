@@ -3120,6 +3120,21 @@ end of the hold; a battery that reads over the line then goes on to the
 home, where the empty battery's own watch goes on. src/lowbatt.h has the
 rules; a host shot: `--lowbatt MS [charging|off]`.
 
+The level a start reads is the battery gauge's. On the GKD Pixel 2 it is its
+kernel's (plastron's rk817 patches): after 30 minutes or more off, the
+battery's voltage at rest, with its current's drop taken out; after less, the
+gauge's counter; and at a charger's start, over 300 mA into the battery (the
+charger's own end of a charge), the level kept before the power-off. A sample
+under a charger's current reads high (1.0.5: 85% at the power-off, 49% two
+hours later), and the counter falls about 100 mA while the handheld is off.
+The line was 100 mA, and a Pixel 2 whose starts from POWER read +110 mA with
+no cable in kept a falling counter at every start: at 93% by its voltage it
+read 64%, 38% and 30%, and once 0%, and this screen powered it off *(a
+player's logs, 1.0.6, 2026-11-20: "lost 30% in 4 hours" off)*. Near empty the
+kernel sets the level from the voltage too (9-px2-rk817-wear2-empty.patch),
+and the launcher powers off under the device's empty voltage whatever the
+level says (src/battempty.h).
+
 ### 11.25 Charging while off
 The screen of a handheld that is off and on a charger *(2026-11-06:
 "Can we have a charging screen as well for when the pixel is off but
