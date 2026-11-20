@@ -89,6 +89,14 @@ bool kb_hold_armed(bool armed, bool on, bool pressed, bool down);
  * actions keep it. */
 int kb_layer_after(int layer, kb_action a);
 
+/* A name's keyboard opens with Shift on for its first letter, as a phone's
+ * does (a collection's name, 2026-11-19: "the name keyboard starts with
+ * Shift on"): `*first` says that one-letter Shift is still waiting. The
+ * layer after `c` is typed on `layer`: a letter typed under it goes back to
+ * the letters, and the wait ends; anything else keeps both. A press of X or
+ * Y ends the wait (kb_prompt), so a Shift chosen by hand stays, as always. */
+int kb_layer_typed(int layer, bool *first, char c);
+
 /* What action key `a` says on `layer`: what pressing it does next, so X's is
  * "unshift" on the capitals and Y's "abc" on the symbols. Space says "": it
  * is drawn as the space mark. */

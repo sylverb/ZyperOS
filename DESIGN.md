@@ -5942,7 +5942,10 @@ list under the heading Add to Collection: a row for each collection, A to
 Z, the ones the game is in ticked (11.3's tick); A puts it in, heard as the
 **reward**, or takes it out, heard as **back**, written through at once.
 Under a rule, **New Collection** opens the keyboard (11.5) for a name, the
-game its first; the cursor lands on it, ticked. A name a card's file cannot
+game its first; the cursor lands on it, ticked. The keyboard opens with
+Shift on for the name's first letter, as a phone's does, and goes back to
+the small letters once one is typed (a Shift chosen with X stays, as
+always; 2026-11-19: "Name input should have the keyboard start with shift on"). A name a card's file cannot
 have, one too long or one another collection has (in any case) is said, and
 the keyboard comes back on what was typed, as Rename's (11.41).
 
