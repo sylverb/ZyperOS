@@ -44,7 +44,7 @@ src/i18n_tables.c: $(wildcard res/strings/*.txt) tools/i18n.py
 # had to be remembered by name, which is a suite in the same sense that a list
 # of good intentions is a plan. A check nobody runs is a check that does not
 # exist, and check-menus was about to join eight others in that state.
-CHECKS = check-cheevos check-hare check-portal check-httpd check-idle check-taskhold check-saver check-rahash check-flacdec check-achtab check-rasubmit check-raoffline check-radl check-dlq check-signin check-noticeq check-badges check-badge-shots \
+CHECKS = check-cheevos check-hare check-portal check-httpd check-idle check-taskhold check-saver check-rahash check-flacdec check-achtab check-rasubmit check-raoffline check-radl check-dlq check-cheats check-signin check-noticeq check-badges check-badge-shots \
          check-raset check-xfer check-sshlink check-usblink check-devmode check-devices check-devicegen check-model check-ctl check-menus check-artscrape check-artrun check-sgdb check-snapshelf check-snaps check-audioout \
          check-db check-coreopts check-gamedel check-gamern check-esmedia check-media check-snapsize check-corepins check-targets check-storage check-stats check-sort check-bt check-ss check-titles check-savedlib check-search \
          check-muselib check-musequeue check-museart check-mp4lock check-mp4look check-mp4views check-mp4resume check-bands check-covercolor check-mp4frame check-mp4size check-p2share check-webtheme check-p2ws check-p2codec check-p2d check-play check-p2 check-resident check-spawn check-controls check-remap check-hotkeys check-rumble check-eq check-eqdsp check-eqplugin check-controls-shots check-logpack \
@@ -53,7 +53,7 @@ CHECKS = check-cheevos check-hare check-portal check-httpd check-idle check-task
          check-systemart check-linebreak check-portload check-portout check-zyper check-uisound check-bgm check-bgm-tracks check-sounds check-messages \
          check-tour check-tour-shots check-tour-previews check-textfade check-glyphs check-scale check-shaderdemo check-shaderpic check-screenfx check-ds check-layout-ratchet check-flex check-hover check-hover-sweep check-tour-colors check-about check-about-shots check-update check-sysupdate check-pminstall check-pico8 check-pico8-wget check-pmhelper check-pmart check-portdoc check-boottheme check-splashbright check-bootbright check-seed-version check-panelgamma check-panelgamma-sunxi check-nightmode check-displayback check-px2-push check-wifi-watch check-launch-start check-crashlog check-captive check-mdns check-linksteps check-usbrole check-usbdrive check-gauge check-start-soc check-usbpower check-phonelink check-usblog check-clients check-keyhints check-pace check-qr \
          check-home check-home-shots check-games check-cardpaint check-putpace check-favorites-shots check-homesys-groups check-np-footer check-vidtry check-menu-rows check-layout-shots check-artbadge check-artbadge-shots check-cardart-shots checkmark \
-         check-installer check-from-rogue check-importers check-diatom check-simulator check-desk check-homekeys check-videoview check-keymap check-handhelds check-px2sim check-building-doc check-blog check-discord-release \
+         check-installer check-from-rogue check-importers check-diatom check-simulator check-qemu-image check-desk check-homekeys check-videoview check-keymap check-handhelds check-px2sim check-building-doc check-blog check-discord-release \
          check-release-devices check-strings check-i18n-shots check-rootswitch check-datapart check-brick-closed check-hwreport check-kitbuild
 
 # All of them at once, as many at a time as there are cores (CHECK_JOBS=1 for
@@ -194,6 +194,12 @@ check-simulator:
 	else \
 		echo "check-simulator: skipped, not macOS or no Swift"; \
 	fi
+
+# The published QEMU image's way to a developer, offline on a stand-in
+# archive: tools/qemu-run.sh fetch and its pin, and the SSH key QEMU hands
+# the VM in place of one in the image (tools/qemu-image-check.sh)
+check-qemu-image:
+	@sh tools/qemu-image-check.sh
 
 # px2sim's choice of the keyboard it takes (plastron/.../px2sim/src/kbdsel.h):
 # QEMU's, never a program's uinput one (gptokeyb's Fake Keyboard). Host
@@ -1986,7 +1992,7 @@ build-native/rahash-check: tools/rahash-check.c $(RAHASH_SRC) src/rahashjob.c sr
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g $(LZMA_CFLAGS) \
 	      -o $@ tools/rahash-check.c $(RAHASH_SRC) -lz $(LZMA_LIBS) -lpthread
 
-.PHONY: check-noticeq check-badges check-badge-shots check-radl check-dlq check-rasubmit check-lowbatt check-powerhold check-homesys check-collect check-heat check-charging
+.PHONY: check-noticeq check-badges check-badge-shots check-radl check-dlq check-cheats check-rasubmit check-lowbatt check-powerhold check-homesys check-collect check-heat check-charging
 
 # The pop-ups over a game, one after another (src/noticeq.h)
 check-noticeq: build-native/noticeq-check
@@ -2084,6 +2090,17 @@ check-radl: build-native/radl-check
 # The downloads' queue (src/dlq.h) and net.c's slots: two lanes side by side,
 # a game, a stop, the card's floor, against this check's own curl. The floor
 # is past any disk so the room rule fires on its first look.
+# A game's cheats with no device: the .cht reader and the list (src/cht.h,
+# src/cheats.h) on a card in a folder of its own
+check-cheats: build-native/cheats-check
+	@./build-native/cheats-check
+
+build-native/cheats-check: tools/cheats-check.c src/cheats.c src/cheats.h src/cht.c src/cht.h src/atomic.c src/atomic.h FORCE
+	@mkdir -p build-native
+	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
+	      -DCHEATS_TMP='"$(CURDIR)/build-native/cheats-check-tmp"' \
+	      -o $@ tools/cheats-check.c src/cheats.c src/cht.c src/atomic.c
+
 check-dlq: build-native/dlq-check
 	@./build-native/dlq-check
 

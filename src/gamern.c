@@ -178,6 +178,20 @@ static bool shares_stem(const gd_other *o, int n, const char *stem)
 	return false;
 }
 
+/* A game on the same shelf of the same stem (a .cue and a .chd): its
+ * cheat file is this one's too (src/cheats.h names them by the stem) */
+static bool shares_stem_in(const gd_other *o, int n, const char *folder, const char *stem)
+{
+	char s[LIB_NAME];
+
+	for (int i = 0; i < n; i++) {
+		if (strcmp(o[i].folder, folder)) continue;
+		stem_of(o[i].file, s, sizeof s);
+		if (!strcasecmp(s, stem)) return true;
+	}
+	return false;
+}
+
 static bool shares_name(const gd_other *o, int n, const char *folder, const char *name)
 {
 	for (int i = 0; i < n; i++)
@@ -351,6 +365,30 @@ bool gr_plan_make(const gd_card *card, const gd_game *g, const gd_other *others,
 			pair(p, a, b, shared, false);
 		}
 	}
+
+	/* 6. Its cheats (src/cheats.h, DESIGN.md 11.66), for a file of its own
+	 * (a disc folder's discs keep their names): the player's file by the
+	 * stem and by the file's name (NextUI's), and libretro's folder for it,
+	 * in Cheats/<console>/. A stem another game of the shelf has keeps its
+	 * file where it is, a copy going with this one; libretro's folder then
+	 * stays (a download gets it again) */
+	if (card->cheats && !slash) {
+		const char *ob_ = strrchr(g->file, '/'), *nb_ = strrchr(p->new_file, '/');
+		bool shared = shares_stem_in(others, nothers, g->folder, stem);
+
+		if (!fmt(a, sizeof a, "%s/%s/%s.cht", card->cheats, g->folder, stem) ||
+		    !fmt(b, sizeof b, "%s/%s/%s.cht", card->cheats, g->folder, to)) { too_long(p); return false; }
+		pair(p, a, b, shared, false);
+		if (!fmt(a, sizeof a, "%s/%s/%s.cht", card->cheats, g->folder, ob_ ? ob_ + 1 : g->file) ||
+		    !fmt(b, sizeof b, "%s/%s/%s.cht", card->cheats, g->folder, nb_ ? nb_ + 1 : p->new_file))
+			{ too_long(p); return false; }
+		pair(p, a, b, false, false);
+		if (!shared) {
+			if (!fmt(a, sizeof a, "%s/%s/.libretro/%s", card->cheats, g->folder, stem) ||
+			    !fmt(b, sizeof b, "%s/%s/.libretro/%s", card->cheats, g->folder, to)) { too_long(p); return false; }
+			pair(p, a, b, false, false);
+		}
+	}
 	return p->why == GR_OK;
 }
 
@@ -483,6 +521,18 @@ int gr_follow(const char *folder, const char *tag, const char *file, const char 
 	snprintf(a, sizeof a, "rumble.%s.%s", tag, file);
 	snprintf(b, sizeof b, "rumble.%s.%s", tag, new_file);
 	n += db_key_move(db_lib(), a, b);
+	/* And which of its cheats are on, whether its first cheat has asked,
+	 * and its crash question (src/cheats.h, DESIGN.md 11.66) */
+	{
+		static const char *const pre[] = { "cheats", "cheats-asked", "cheats-crash" };
+		int k;
+
+		for (k = 0; k < 3; k++) {
+			snprintf(a, sizeof a, "%s.%s.%s", pre[k], tag, file);
+			snprintf(b, sizeof b, "%s.%s.%s", pre[k], tag, new_file);
+			n += db_key_move(db_lib(), a, b);
+		}
+	}
 	snprintf(a, sizeof a, "artsrc.%s/%s", folder, name);
 	snprintf(b, sizeof b, "artsrc.%s/%s", folder, new_name);
 	n += db_key_move(db_lib(), a, b);

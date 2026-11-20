@@ -39,7 +39,7 @@ STAMP := -e PLASTRON_COMMIT=$(PLASTRON_COMMIT) -e "PLASTRON_WHO=$(USER) with pla
 STAMP += -e PLASTRON_CLEAN=$(CLEAN) -e PLASTRON_DEV=$(filter 0 1,$(DEV))
 DOCKER_RUN := docker run --rm -t $(STAMP) -v $(CURDIR):/src:ro $(SOURCES) -v $(VOLUME):/work $(IMAGE)
 
-.PHONY: gauge-check charge-limit-check start-soc-check push all builder volume cores image base qemu sdk brick brick-fetch brick-inputs brick-kernel brick-bootloader brick-probe bootloader shell linux-rebuild copy-out clean-output release release-pixel2 release-brick third-party
+.PHONY: gauge-check charge-limit-check start-soc-check push all builder volume cores image base qemu sdk brick brick-fetch brick-inputs brick-kernel brick-bootloader brick-probe bootloader shell linux-rebuild copy-out clean-output release release-pixel2 release-brick release-qemu third-party
 
 all: image
 
@@ -208,6 +208,22 @@ release-brick: brick-inputs cores
 	@mkdir -p out
 	$(BRICK_RUN) sh /src/scripts/release.sh $(VERSION) brick > out/release-brick.log 2>&1 || \
 		{ tail -30 out/release-brick.log; exit 1; }
+
+# QEMU's image for a release, ZyperOS-v<VERSION>-qemu.tar.xz
+# (scripts/release-qemu.sh): built from empty as the devices' release images
+# are, with no SSH key in it, into the volume's release/ beside theirs and
+# out/release-qemu. ZyperOS's tools/release.sh builds it with the devices;
+# its tools/qemu-image.sh builds it alone, to try.
+release-qemu: builder volume
+	@[ -n "$(VERSION)" ] || { echo "no VERSION in $(ZYPEROS_SRC)/Makefile" >&2; exit 1; }
+	@mkdir -p out
+	$(DOCKER_RUN) sh /src/scripts/release-qemu.sh $(VERSION) > out/release-qemu.log 2>&1 || \
+		{ tail -30 out/release-qemu.log; exit 1; }
+	rm -rf out/release-qemu
+	mkdir -p out/release-qemu
+	docker run --rm -v $(VOLUME):/work -v $(CURDIR)/out:/out --user root $(IMAGE) \
+		sh -c 'cp /work/release/ZyperOS-v$(VERSION)-qemu.tar.xz /out/release-qemu/ && chown -R $(shell id -u):$(shell id -g) /out/release-qemu'
+	@ls -l out/release-qemu
 
 OUTPUT ?= output
 CARD ?= sdcard.img

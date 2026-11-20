@@ -1033,6 +1033,25 @@ EXTRA.setdefault("system-menu-view-list", ("demo", "NES", ["--screen", "games", 
 # Home Screen's three (Spotlight, Gallery, Grid) over the Grid home
 EXTRA.setdefault("menu-home-list", ("demo", "PS1", ["--home", "grid", "--menu-tab", "1", "--menu", "Home Screen", "--press", "a"]))
 EXTRA.setdefault("gamemenu-display-list", ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "1", "--gm-choose"]))
+# Cheats (src/cheats_screen.h, DESIGN.md 11.62): the Game tab's row with two
+# on, the game's list (the player's file, libretro's two under their seams,
+# Turn All Off), its end, the first cheat's question, the Achievements tab
+# while paused, and the two lists with none: libretro has none, not checked
+EXTRA.setdefault("cheats-row", ("demo", "PS1", ["--gamemenu", "4", "--cheats"]))
+EXTRA.setdefault("cheats-page", ("demo", "PS1", ["--gamemenu", "0", "--cheats-page", "2"]))
+EXTRA.setdefault("cheats-page-end", ("demo", "PS1", ["--gamemenu", "0", "--cheats-page", "99"]))
+EXTRA.setdefault("cheats-ask", ("demo", "PS1", ["--gamemenu", "0", "--cheats-page", "4", "--cheats-ask"]))
+EXTRA.setdefault("cheats-achtab", ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "3", "--achtab", "paused"]))
+EXTRA.setdefault("cheats-none-libretro", ("demo", "PS1", ["--gamemenu", "0", "--cheats-page", "0"]))
+EXTRA.setdefault("cheats-not-checked", ("demo", "PS1", ["--gamemenu", "0", "--cheats-page", "0"]))
+EXTRA.setdefault("cheats-note", ("demo", "PS1", ["--gamemenu", "0", "--cheats-page", "1", "--cheats-note"]))
+EXTRA.setdefault("cheats-note-end", ("demo", "PS1", ["--gamemenu", "0", "--cheats-page", "99", "--cheats-note"]))
+EXTRA.setdefault("cheats-on-first", ("demo", "PS1", ["--gamemenu", "0", "--cheats-page", "0", "--cheats-on-first"]))
+EXTRA.setdefault("cheats-search", ("demo", "PS1", ["--gamemenu", "0", "--cheats-page", "0", "--cheats-query", "infinite"]))
+EXTRA.setdefault("cheats-search-none", ("demo", "PS1", ["--gamemenu", "0", "--cheats-page", "0", "--cheats-query", "zzz"]))
+EXTRA.setdefault("cheats-crash", ("demo", "PS1", ["--cheats-crash"]))
+R.SHOT_FOCUS.setdefault("cheats-none-libretro", "Crash Bandicoot (USA).chd")
+R.SHOT_FOCUS.setdefault("cheats-not-checked", "Spyro the Dragon (USA).chd")
 # A name long enough to reach the screen's middle under the focused cover,
 # where Highlight's bar is (src/games.c): the bar clear of it, and the snap's
 # wait bar in the bar's place while it fills
@@ -1166,7 +1185,7 @@ SHOT_SETTINGS["night-from-list"] = {"night.mode": "hours", "night.from": "1260"}
 # friend's browser joining and leaving
 for _kind in ("saved", "loaded", "save_failed", "load_failed", "slot_empty", "no_states", "dslang",
               "corestate", "stick_on", "stick_off", "player2_joined", "player2_left",
-              "player2_stopped", "shot", "shader", "display"):
+              "player2_stopped", "shot", "shader", "display", "cheats", "cheats_one"):
     EXTRA.setdefault("popup-" + _kind, ("demo", "PS1", ["--popup", _kind]))
 EXTRA.setdefault("popup-speed-half", ("demo", "PS1", ["--popup", "speed", "3"]))
 EXTRA.setdefault("popup-speed-whole", ("demo", "PS1", ["--popup", "speed", "4"]))

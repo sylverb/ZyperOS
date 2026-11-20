@@ -6,6 +6,7 @@
 #include "menu_pick.h"
 
 #include "achtab_screen.h"
+#include "cheats_screen.h"
 #include "aout_route.h"
 #include "app.h"
 #include "controls.h"
@@ -556,6 +557,13 @@ void gm_gather(app *a, gm_ui *out)
 			u.disc_label = g_gm_disc.label;
 		}
 		u.disc_fits = gm_disc_fits;
+	}
+	/* Cheats for every game Diatom runs (src/cheats_screen.h): how many are
+	 * on, and whether one has paused the game's achievements */
+	if (!u.port) {
+		u.cheats = true;
+		u.cheats_on = cheats_game_on();
+		u.cheats_paused = cheats_game_paused();
 	}
 	if (u.screens) {
 		const system_cfg *s = &a->sys.systems[shelf_owner(a, a->sys_cursor,
@@ -1393,6 +1401,7 @@ void gm_at_facts(at_facts *f)
 		f->fetching = shot_achtab == AT_WAITING;
 		f->no_hash = shot_achtab == AT_NOT_SYSTEM ? RA_HASH_NO_SYSTEM
 		             : shot_achtab == AT_NOT_FILE ? RA_HASH_NO_FILE : RA_HASH_OK;
+		f->cheats_paused = shot_achtab == AT_PAUSED;
 		if (shot_achtab == AT_LIST || shot_achtab == AT_STATES) {
 			int i;
 
@@ -1418,6 +1427,7 @@ void gm_at_facts(at_facts *f)
 	f->fetching = g_pending_set[0] && !strcmp(g_pending_set, g_game_set);
 	f->set = chv_state_of(g_game_set, f->signed_in);
 	f->no_hash = g_port_menu ? RA_HASH_OK : g_game_no_hash;
+	f->cheats_paused = !g_port_menu && cheats_game_paused();
 }
 
 at_source gm_at_source(void)
@@ -1909,6 +1919,10 @@ static menu_result gm_key(app *a, void *ctx, in_button key, int sel)
 		break;
 	case GM_PLAYER2:
 		player2_page(a, c->bg);
+		break;
+	/* The game's cheats, each on or off at once (DESIGN.md 11.66) */
+	case GM_CHEATS:
+		cheats_page(a, c->bg);
 		break;
 	/* The Achievements tab, one L1 away: the row turns to it, the list
 		 * or the sentence that says why there is none (1.0.5). It opened the

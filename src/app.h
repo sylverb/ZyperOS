@@ -433,6 +433,9 @@ int  core_offered_count(const system_cfg *s);
 bool core_offered_at(const system_cfg *s, int i, char *out, int cap);
 bool is_muse(const system_cfg *s);
 void gm_quit(void);
+/* A pop-up over the running game, as the quick slot's (main.c's popup_now):
+ * `head` and under it `body`, at the top for about a second and a half */
+void popup_say(const char *head, const char *body);
 /* A Ports shelf's core, and a standalone emulator's: "run:<script>"
  * (main.c's launch_port hands both to launch.sh) */
 #define PORT_CORE    "port"

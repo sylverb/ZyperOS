@@ -45,6 +45,15 @@
 #                               Discord's #releases: a kit's testers get it
 #                               in its own thread.
 #
+# A release (not a kit) also carries QEMU's image of it,
+# ZyperOS-v<VERSION>-qemu.tar.xz (plastron's make release-qemu, built beside
+# the devices' images, from empty, with no SSH key in it), its sha256 in
+# SHA256SUMS: tools/qemu-run.sh fetch downloads the latest release's, so the
+# Simulator runs without plastron's build (docs/qemu.md). --no-qemu leaves
+# it out, and fetch then finds none in that release. Before publishing,
+# ZYPEROS_QEMU_RELEASE_URL=file://$PWD/out/release/v<VERSION>
+# tools/qemu-run.sh fetch takes it as it would the release's.
+#
 # Both --publish forms end by waiting for GitHub to publish the release, then
 # post its notes in the Discord's #releases channel (tools/discord-release.py,
 # with Zyper's token from ~/.config/zyperos/discord-bot.token). Ctrl-C stops
@@ -108,11 +117,13 @@ UPDATE_KEY=${ZYPEROS_UPDATE_KEY:-$HOME/.config/zyperos/update-signing-key.pem}
 PUBLISH=0
 BUILT=0
 KIT=
-usage() { echo "usage: tools/release.sh [--kit IDS] [--publish | --publish-built]" >&2; exit 2; }
+QEMU=1
+usage() { echo "usage: tools/release.sh [--kit IDS] [--no-qemu] [--publish | --publish-built]" >&2; exit 2; }
 while [ $# -gt 0 ]; do
 	case $1 in
 	--publish) PUBLISH=1 ;;
 	--publish-built) PUBLISH=1; BUILT=1 ;;
+	--no-qemu) QEMU=0 ;;
 	--kit) [ $# -ge 2 ] && [ -n "$2" ] || usage; KIT=$2; shift ;;
 	*) usage ;;
 	esac
@@ -131,6 +142,12 @@ if [ -n "$KIT" ]; then
 	RELEASE_FILES=
 	for d in $DEVICES; do RELEASE_FILES="$RELEASE_FILES $(image $d) $(sources $d)"; done
 fi
+# QEMU's image of the release (see the top): none in a kit, which fetch never
+# takes (it reads the latest release)
+qemu_image() { echo "ZyperOS-$TAG-qemu.tar.xz"; }
+QEMU_FILES="Image sdcard.img u-boot.bin "
+[ -z "$KIT" ] || QEMU=0
+[ $QEMU = 0 ] || RELEASE_FILES="$RELEASE_FILES $(qemu_image)"
 
 say() { printf '\n== %s\n' "$*"; }
 stop() { echo "release.sh: $*" >&2; exit 1; }
@@ -310,6 +327,11 @@ if [ $BUILT = 1 ]; then
 			UPDATE_FILES="$UPDATE_FILES $f"
 		done
 	done
+	if [ $QEMU = 1 ]; then
+		awk -v f="$(qemu_image)" '$2 == f { found = 1 } END { exit !found }' SHA256SUMS ||
+			stop "$OUT's SHA256SUMS has no $(qemu_image) (--no-qemu publishes without it)"
+		xz -t "$(qemu_image)"
+	fi
 	publish
 	exit 0
 fi
@@ -317,7 +339,10 @@ fi
 # The source as committed, never the working tree: a clean worktree of HEAD
 SRC=$(mktemp -d)/zyperos
 HAVE_LOCK=0
+QEMU_PID=
 cleanup() {
+	# QEMU's build, if it is still going (a device's build stopped first)
+	if [ -n "$QEMU_PID" ]; then kill "$QEMU_PID" 2>/dev/null || true; wait "$QEMU_PID" 2>/dev/null || true; fi
 	git worktree remove --force "$SRC" 2>/dev/null || true
 	if [ $HAVE_LOCK = 1 ]; then rm -rf $LOCK; echo "release.sh: $LOCK released"; fi
 }
@@ -339,6 +364,16 @@ docker run --rm -v plastron-work:/work --user root plastron-builder rm -rf /work
 # What comes out of the container: each device's image and sources, and its
 # packs with their lists unsigned
 GET=
+# QEMU's image builds beside the devices' (an output of its own, and
+# Buildroot leaves most of the machine idle), its log beside $OUT
+QEMU_LOG=$ROOT/out/release/$TAG-qemu.log
+if [ $QEMU = 1 ]; then
+	mkdir -p "$ROOT/out/release"
+	say "QEMU's image, beside the devices': plastron's release build, from empty (its log: $QEMU_LOG)"
+	make -C "$PLASTRON" release-qemu VERSION="$VERSION" ZYPEROS_SRC="$SRC" ZYPEROS_VENDOR="$VENDOR" \
+		> "$QEMU_LOG" 2>&1 &
+	QEMU_PID=$!
+fi
 for d in $DEVICES; do
 	if [ "$d" = brick ]; then
 		# Its kernel and modules first, from this commit's patches, as
@@ -356,6 +391,13 @@ for d in $DEVICES; do
 		GET="$GET $1 $2.unsigned $3 $4.unsigned"
 	fi
 done
+if [ -n "$QEMU_PID" ]; then
+	say "Waiting for QEMU's image"
+	pid=$QEMU_PID
+	QEMU_PID=
+	wait "$pid" || { tail -30 "$QEMU_LOG"; stop "QEMU's image did not build (its log: $QEMU_LOG); --no-qemu releases without it"; }
+	GET="$GET $(qemu_image)"
+fi
 rm -rf "$OUT"
 mkdir -p "$OUT"
 docker run --rm -v plastron-work:/work -v "$OUT":/out --user root plastron-builder \
@@ -391,6 +433,13 @@ for d in $DEVICES; do
 		sign_list "$3" "$4"
 	fi
 done
+# QEMU's image: exactly what tools/qemu-run.sh fetch takes
+if [ $QEMU = 1 ]; then
+	[ -s "$(qemu_image)" ] || stop "plastron's release-qemu didn't make $(qemu_image)"
+	xz -t "$(qemu_image)"
+	[ "$(tar -tf "$(qemu_image)" | LC_ALL=C sort | tr '\n' ' ')" = "$QEMU_FILES" ] ||
+		stop "$(qemu_image) holds other files than $QEMU_FILES, which fetch takes"
+fi
 shasum -a 256 $RELEASE_FILES $UPDATE_FILES > SHA256SUMS
 printf 'ZyperOS %s (%s), plastron/ included\n' "$VERSION" "$HEAD" > BUILT-FROM
 cat SHA256SUMS
@@ -399,6 +448,7 @@ ls -l
 if [ $PUBLISH = 0 ]; then
 	echo
 	echo "Built in $OUT. Nothing was published: tools/release.sh ${KIT:+--kit \"$KIT\" }--publish does that."
+	[ $QEMU = 0 ] || echo "QEMU's image as fetch takes it: ZYPEROS_QEMU_RELEASE_URL=file://$OUT tools/qemu-run.sh fetch"
 	exit 0
 fi
 publish

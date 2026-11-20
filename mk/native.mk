@@ -26,7 +26,7 @@ SRC += src/device/desk.c src/device/deskface.c
 # src/main.c and the files split from it, which call into one another: the
 # checks that link the rest of src/ leave them all out.
 MAIN_SRC := src/main.c src/about_screen.c src/aout_route.c src/bgm_screen.c \
-            src/bt_screen.c src/clock_screen.c src/ctl_channel.c src/ctltab_screen.c \
+            src/bt_screen.c src/cheats_screen.c src/clock_screen.c src/ctl_channel.c src/ctltab_screen.c \
             src/devmode_screen.c src/dl_screen.c src/dlcount.c src/gamedel_screen.c src/gameinfo_screen.c \
             src/gamern_screen.c src/hotkeys_screen.c src/hover_sweep.c src/hudmenu_screen.c src/ingame_screen.c src/launch_screen.c \
             src/lights_screen.c src/media_screen.c src/menu_panel.c src/menu_runner.c \
