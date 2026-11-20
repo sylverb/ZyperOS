@@ -16,6 +16,16 @@
 # plugin reads the bands from the same file once a period, so a change in
 # the port's in-game menu reaches it.
 #
+# The first plug turns whatever the program asks into the mix's 48 kHz
+# stereo (both dmixes in plastron's asound.conf run at 48000), so the plugin
+# always runs at the mix's rate and channels, and the plug behind it only
+# makes its floats the mix's 16-bit. Left to the program's rate, the ladspa
+# PCM between the two plugs refused PICO-8's 22050 Hz at the hardware
+# parameters (EINVAL: the plug behind it resampling to the dmix's fixed
+# 512-frame period left no period both sides of it could keep), and PICO-8
+# played with no sound on every 1.1.0 build since the equalizer went into
+# every port's chain (#389); 44100 opened. tools/eqchain-check.sh holds it.
+#
 # Why a hook: alsa-lib reads every file in ALSA_CONFIG_PATH first and runs
 # the hooks after, 0, 1, ... in order. alsa.conf's one hook, 0, loads
 # /etc/asound.conf, whose pcm.!default would replace the port's (the image
@@ -53,10 +63,15 @@ fi
 slave=${1:?eq-port.sh: which PCM the port mixes into}
 plugin=${2:-/usr/lib/ladspa/zyperos_eq.so}
 cat <<CONF
-# The equalizer over this port's sound (ZyperOS's sd/zyperos/eq-port.sh)
+# The equalizer over this port's sound (ZyperOS's sd/zyperos/eq-port.sh),
+# the program's rate and channels made the mix's first
 pcm.!default {
 	type plug
-	slave.pcm "zyperos_eq"
+	slave {
+		pcm "zyperos_eq"
+		rate 48000
+		channels 2
+	}
 }
 
 pcm.zyperos_eq {

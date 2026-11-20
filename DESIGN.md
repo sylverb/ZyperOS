@@ -6676,7 +6676,11 @@ launch.sh starts a port with an ALSA config of its own
 (`sd/zyperos/eq-port.sh`): `default` is plug, then alsa-lib's ladspa PCM
 running the plugin, then plug into `EQ_SLAVE`, the dmix every program mixes
 into (`mixed` on the Pixel 2, the same `ipc_key`), so the port still plays
-over MP4 and under the volume bar. alsa-lib reads the files in
+over MP4 and under the volume bar. The first plug makes whatever the program
+asks the mix's 48 kHz stereo, so the plugin always runs at the mix's rate:
+left to the program's rate, the chain refused your PICO-8's 22050 Hz at its
+hardware parameters, and PICO-8 had no sound on 1.1.0-rc.5
+(`tools/eqchain-check.sh`, in check-eqplugin on Linux). alsa-lib reads the files in
 `ALSA_CONFIG_PATH` first and runs the hooks after, and `alsa.conf`'s own
 hook (0) loads `/etc/asound.conf`, whose `pcm.!default` would replace the
 port's: the image check found the port playing straight into the mix. So
