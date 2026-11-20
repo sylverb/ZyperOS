@@ -1415,7 +1415,7 @@ strings:
 # device; src/profile.c is linked only where one is chosen (check-devices)
 DEVICE_PROFILES := src/device/pixel2_profile.c src/device/brick_profile.c src/device/smartpro_profile.c \
                    src/device/desktop_profile.c \
-                   src/device/td_model.c src/device/pixel2_model.c src/device/brick_model.c \
+                   src/device/td_model.c src/device/pixel2_model.c src/device/brick_model.c src/device/smartpro_model.c \
                    src/device/pixel2_coreopts.c src/device/brick_coreopts.c
 # Each device's build and card (src/device/build.h): the generator and the
 # checks link them; the launcher never does
@@ -1842,10 +1842,12 @@ check-model: build-native/model-check
 	@./build-native/model-check
 
 build-native/model-check: tools/model-check.c src/device/td_model.h src/device/td_model.c \
-                          src/device/pixel2_model.c src/device/brick_model.c src/tdkey.h FORCE
+                          src/device/pixel2_model.c src/device/brick_model.c src/device/smartpro_model.c \
+                          src/tdkey.h FORCE
 	@mkdir -p build-native
 	$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g \
-	      -o $@ tools/model-check.c src/device/td_model.c src/device/pixel2_model.c src/device/brick_model.c
+	      -o $@ tools/model-check.c src/device/td_model.c src/device/pixel2_model.c src/device/brick_model.c \
+	      src/device/smartpro_model.c
 
 # Developer mode (src/devmode.h): the unlock hold on a clock moved by hand,
 # the setting in a real database, the one-time password and the keys the
@@ -1926,7 +1928,7 @@ check-resident:
 build-native/resident-check: tools/resident-check.c src/resident.c src/powerhold.c src/platform.h src/device.h FORCE
 	@mkdir -p build-native
 	@$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g $$(sdl2-config --cflags) \
-	      -o $@ tools/resident-check.c src/resident.c src/powerhold.c $$(sdl2-config --libs)
+	      -o $@ tools/resident-check.c src/resident.c src/powerhold.c src/canvas.c $$(sdl2-config --libs)
 
 # spawn_detached (src/spawn.h): a program that outlives the launcher, with
 # real processes - its own pid back, not this process's child, a failed exec
@@ -1945,7 +1947,7 @@ build-native/spawn-check: tools/spawn-check.c src/spawn.c src/spawn.h FORCE
 build-native/gamezone-check: tools/gamezone-check.c src/resident.c src/powerhold.c src/platform.h src/device.h FORCE
 	@mkdir -p build-native
 	@$(CC) -std=gnu11 -Wall -Wextra -D_GNU_SOURCE -O1 -g $$(sdl2-config --cflags) \
-	      -o $@ tools/gamezone-check.c src/resident.c src/powerhold.c $$(sdl2-config --libs)
+	      -o $@ tools/gamezone-check.c src/resident.c src/powerhold.c src/canvas.c $$(sdl2-config --libs)
 
 build-native/clock-check: tools/clock-check.c src/clock.c src/clock.h src/menu.h $(I18N_SRC) FORCE
 	@mkdir -p build-native
@@ -2796,7 +2798,7 @@ check-scale:
 		mkdir -p build-native; \
 		$(CC) -std=gnu11 -D_GNU_SOURCE -O1 -g -Wall -Wextra \
 		  $$(pkg-config --cflags sdl2 SDL2_ttf SDL2_image) -Isrc \
-		  -o build-native/scale-check tools/scale-check.c src/ds/scale.c src/ds/colorref.c src/ui.c src/ds/glyph.c src/ds/button.c src/folderart.c src/roundrect.c src/theme.c src/look.c \
+		  -o build-native/scale-check tools/scale-check.c src/ds/scale.c src/ds/colorref.c src/ui.c src/canvas.c src/ds/glyph.c src/ds/button.c src/folderart.c src/roundrect.c src/theme.c src/look.c \
 		  src/themefile.c src/linebreak.c src/blur.c src/cardgen.c src/cardart.c src/cardart_draw.c src/sysmark.c $(I18N_SRC) \
 		  $$(pkg-config --libs sdl2 SDL2_ttf SDL2_image) -lm && \
 		ZYPEROS_HEADLESS=1 SDL_VIDEODRIVER=dummy SDL_RENDER_DRIVER=software \
@@ -2810,7 +2812,7 @@ check-textfade:
 		mkdir -p build-native; \
 		$(CC) -std=gnu11 -D_GNU_SOURCE -O1 -g -Wall -Wextra \
 		  $$(pkg-config --cflags sdl2 SDL2_ttf SDL2_image) -Isrc \
-		  -o build-native/textfade-check tools/textfade-check.c src/ui.c src/ds/glyph.c src/ds/button.c src/folderart.c src/roundrect.c src/theme.c src/look.c \
+		  -o build-native/textfade-check tools/textfade-check.c src/ui.c src/canvas.c src/ds/glyph.c src/ds/button.c src/folderart.c src/roundrect.c src/theme.c src/look.c \
 		  src/themefile.c src/linebreak.c src/blur.c src/cardgen.c src/cardart.c src/cardart_draw.c src/sysmark.c $(I18N_SRC) \
 		  $$(pkg-config --libs sdl2 SDL2_ttf SDL2_image) -lm && \
 		ZYPEROS_HEADLESS=1 SDL_VIDEODRIVER=dummy SDL_RENDER_DRIVER=software \
@@ -2881,7 +2883,7 @@ check-tour-colors:
 		mkdir -p build-native; \
 		$(CC) -std=gnu11 -D_GNU_SOURCE -O1 -g -Wall -Wextra \
 		  $$(pkg-config --cflags sdl2 SDL2_ttf SDL2_image) -Isrc \
-		  -o build-native/tour-colors-check tools/tour-colors-check.c src/ui.c src/ds/glyph.c src/ds/button.c src/folderart.c src/roundrect.c \
+		  -o build-native/tour-colors-check tools/tour-colors-check.c src/ui.c src/canvas.c src/ds/glyph.c src/ds/button.c src/folderart.c src/roundrect.c \
 		  src/theme.c src/themefile.c src/look.c src/linebreak.c src/blur.c src/cardgen.c src/cardart.c src/cardart_draw.c \
 		  src/sysmark.c src/tour.c src/powerhold.c src/tourdraw.c src/tourdevice.c src/zyperrig.c src/osdbar.c src/db.c $(I18N_SRC) $(DEVICE_PROFILES) \
 		  $$(pkg-config --libs sdl2 SDL2_ttf SDL2_image) -lsqlite3 -lm && \

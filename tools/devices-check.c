@@ -137,8 +137,8 @@ static void brick(void)
 	   "brick: F1 and F2 are the brightness keys");
 }
 
-/* The Smart Pro, for its test kit: the Brick's board with a 16:9 panel and
- * brightness on MENU+VOL; no drawing of its own yet */
+/* The Smart Pro: the Brick's board with a 16:9 panel, brightness on
+ * MENU+VOL, its own drawing */
 static void smartpro(void)
 {
 	const device_profile *p = &device_profile_smartpro;
@@ -155,9 +155,11 @@ static void smartpro(void)
 	ck(p->chords.bright == DEV_BRIGHT_MENU_VOL && p->chords.menu_on_release &&
 	   !p->chords.lr2_taps && !p->chords.home_chord && !p->chords.battery_chord,
 	   "smartpro: brightness on MENU+VOL, MENU on release, no taps, Home or battery lights");
-	ck(!p->model && !p->model_borrowed && p->bluetooth && !p->gpu_shaders && !p->gpu_frames &&
+	ck(p->model == &td_model_smartpro && !p->model_borrowed && p->bluetooth && !p->gpu_shaders && !p->gpu_frames &&
 	   !p->speaker_mono && !p->player2 && !p->usb_shared_port && p->wifi == DEV_WIFI_BUILTIN,
-	   "smartpro: no drawing yet (never another's), the Brick's board's answers");
+	   "smartpro: its own drawing, the Brick's board's answers");
+	ck(dev_button_of(p, IN_SELECT)->icon == DEV_ICON_SQUARE && dev_button_of(p, IN_START)->icon == DEV_ICON_PLAY,
+	   "smartpro: SELECT's square and START's triangle, as printed");
 	ck(p->coreopts == device_profile_brick.coreopts && p->screen_colors && !p->rumble,
 	   "smartpro: the Brick's core options and Screen Colors, its motor not run yet");
 	ck(menu && !strcmp(menu->label, "MENU") && menu->icon == DEV_ICON_NONE,
@@ -232,8 +234,8 @@ static void tutorial(void)
 	ck(dev_tutorial_model(br, &br->chords) == &td_model_brick && dev_tutorial_model(br, &fn) == &td_model_brick,
 	   "brick: the tutorial draws its own model, with its chords or the Pixel 2's");
 	ck(!dev_tutorial_model(dk, &dk->chords), "desktop: none beside F1 and F2");
-	ck(!dev_tutorial_model(&device_profile_smartpro, &device_profile_smartpro.chords),
-	   "smartpro: none until its own, though its chords are the Pixel 2's");
+	ck(dev_tutorial_model(&device_profile_smartpro, &device_profile_smartpro.chords) == &td_model_smartpro,
+	   "smartpro: the tutorial draws its own model, though its chords are the Pixel 2's");
 	ck(dev_tutorial_model(dk, &fn) == &td_model_pixel2, "desktop: the Pixel 2's with --fn-volume");
 }
 
@@ -469,9 +471,10 @@ static void menu_look(void)
 	ck(key_is(br, "POWER", DS_KEY_PILL, DS_KEY_MARK_NONE, "POWER"), "brick: POWER's word in a pill");
 	ck(key_is(br, "F2", DS_KEY_PILL, DS_KEY_MARK_NONE, "F2"), "brick: F2 a pill");
 	ck(key_is(&device_profile_smartpro, "MENU", DS_KEY_PILL, DS_KEY_MARK_NONE, "MENU") &&
-	   key_is(&device_profile_smartpro, "SELECT", DS_KEY_PILL, DS_KEY_MARK_NONE, "SELECT") &&
+	   key_is(&device_profile_smartpro, "SELECT", DS_KEY_FACE, DS_KEY_MARK_SQUARE, "SELECT") &&
+	   key_is(&device_profile_smartpro, "START", DS_KEY_FACE, DS_KEY_MARK_PLAY, "START") &&
 	   key_is(&device_profile_smartpro, "A", DS_KEY_FACE, DS_KEY_MARK_NONE, "A"),
-	   "smartpro: MENU and SELECT their words in pills, A a face");
+	   "smartpro: MENU its word in a pill, SELECT's square and START's triangle as the Brick's, A a face");
 	ck(key_is(NULL, "MENU", DS_KEY_FACE, DS_KEY_MARK_DOTS, "MENU") &&
 	   key_is(NULL, "SELECT", DS_KEY_PILL, DS_KEY_MARK_NONE, "SELECT") &&
 	   key_is(NULL, "Y", DS_KEY_FACE, DS_KEY_MARK_NONE, "Y"), "no table: the glyphs the launcher always drew");
