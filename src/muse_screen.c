@@ -288,6 +288,16 @@ void muse_cycle_mode(void)
 	db_set_str(db_dev(), "muse.mode", MUSE_MODES[m].key);
 }
 
+/* Videos' Repeat, Y on a video (MP4's MENU > Repeat): Off, One, All and
+ * round, the row's own order, applied to the video playing and kept */
+void video_cycle_repeat(void)
+{
+	muq_mode m = muq_video_repeat_next(musec_video_mode());
+
+	musec_set_video_mode(m);
+	db_set_str(db_dev(), "video.mode", MUSE_MODES[m].key);
+}
+
 /* ---- Muse: what it is open over ------------------------------------------ */
 
 /* NULL is the shelf. The in-game menu hands over its style for as long as Muse

@@ -155,7 +155,7 @@ something once broke in a way nothing noticed:
 | `check-titles` | scraped display names: the database upgrade, the real parser and runner, the library's fallback, and main.c's refresh hooks |
 | `check-search` | Search Games' matching: what a query finds and in what order |
 | `check-muselib` | Muse's view of the Music folder: the two shapes it reads, the litter a Mac leaves beside every track, and where an album's cover is kept |
-| `check-musequeue` | the order Muse plays in: the last track, the first, a shuffle running out, a track that will not open, and the mode changed under a playing track |
+| `check-musequeue` | the order Muse plays in: the last track, the first, a shuffle running out, a track that will not open, and the mode changed under a playing track; videos' Repeat as Y on a video turns it (Off, One, All and round) |
 | `check-museart` | album covers from MusicBrainz: the rule that picks the record, and a run on a stubbed network |
 | `check-mp4lock` | the play modes, and MP4's lock screen: every button blocked, power and volume too, and L1 + R1 held two seconds the one way out |
 | `check-mp4look` | MP4's Player Looks' motion: bars up at once and down on follow at any frame rate, caps held for peak-hold and down with gravity, at rest after, the bands over a look's bars |

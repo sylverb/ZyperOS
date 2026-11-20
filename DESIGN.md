@@ -2123,8 +2123,12 @@ Muse, so a card's saved places and modes still read.
   makes it taller, never the picture smaller. The controls come up on any
   key, which also does what it does (the first press too, as a remote's
   would), stay for **hold-controls** after the last press and for as long
-  as it is paused, in over **quick** and out over **fade-out**; Y shows
-  them, or hides them at once. The header goes and comes with them, at the
+  as it is paused, in over **quick** and out over **fade-out**. Y turns
+  **Repeat** (MP4's MENU > Repeat on Videos and All: Off, One, All and
+  round), kept, and brings the controls up as any key does, Repeat's mark
+  beside the time when it is not Off; the keys say "Y Repeat" between X and
+  L1/R1 (2026-11-19: "Make the y button change it"; it showed or hid the
+  controls before). The header goes and comes with them, at the
   same pace, and the ground around the picture eases with them from
   **ground** to pure black (#000): hidden, there is the picture and black,
   as a TV's player has it (2026-11-18: "when the footer times out and
