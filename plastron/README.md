@@ -101,6 +101,7 @@ make brick-kernel   # the Brick's kernel and modules, from all its patches
 make brick          # out/brick-sdcard.img: ZyperOS on the Brick's system
 make brick-bootloader  # U-Boot -> buildroot/board/brick/bootloader/
 make release        # both devices' release images and sources -> out/release
+make release-qemu   # QEMU's image for a release -> out/release-qemu
 make third-party    # the package lists, from the last release build
 make sdk            # the last Pixel 2 build's toolchain and libraries, as an SDK volume
 make shell          # a shell in the build container
@@ -162,6 +163,12 @@ the cable's address alone, with the PIN the screen shows as root's password
 (ZyperOS's `src/sshlink.h` says how). `scripts/release.sh` checks all three:
 no start script, no key, and the program there.
 
+QEMU's image never carries a key, a development build's either: ZyperOS's
+`tools/qemu-run.sh` hands the VM the public key it uses at every start,
+through QEMU's fw_cfg, and `board/qemu/rootfs-overlay/etc/init.d/S49sshkey`
+puts it where `/root/.ssh` points before dropbear starts. So one QEMU image
+lets in whoever starts it, and can be published.
+
 Several people, or several of one person's sessions, can share one build
 volume. Each build takes its output folder's lock first
 (`scripts/lock.sh`): two builds of the same output wait for each other, and
@@ -193,6 +200,14 @@ simulated (`package/px2sim`). ZyperOS's `tools/qemu-run.sh` boots it on a Mac,
 and its simulator shows it as a Pixel 2 in a window; its docs/qemu.md says
 what that covers and what still needs the device. The first `make qemu` also
 builds LLVM, for llvmpipe.
+
+`make release-qemu` builds the same image as a release is built, from an
+empty output folder of its own (`scripts/release-qemu.sh`), into
+`ZyperOS-v<version>-qemu.tar.xz`, and stops if any key is in it
+(`scripts/qemu-key-check.sh`): no SSH key, no host key, no private key in
+any file. ZyperOS's `tools/release.sh` builds it beside the devices' images
+and puts it on the release, and `tools/qemu-run.sh fetch` downloads it, so
+a developer without this build runs ZyperOS in QEMU too.
 
 ## On the device
 

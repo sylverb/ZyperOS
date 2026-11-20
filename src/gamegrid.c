@@ -2,6 +2,8 @@
 /* A shelf as a grid of covers: see gamegrid.h, DESIGN.md 11.47 */
 #include "gamegrid.h"
 
+#include "artbadge_draw.h"
+
 #include "cardart.h"
 #include "cardgen.h"
 #include "config.h"
@@ -56,6 +58,10 @@ static Uint32 px_at(const SDL_Surface *s, int x, int y)
 /* One pass of a box `rad` each side along a line of channel `ch`, the ends
  * held: what a box reaches past them is the end's own color, so the blur
  * keeps its light to the edge of the cell */
+/* An art badge on a cell (MP4's All, src/artbadge.h): at 0.8 of its size on
+ * the row's focused card, a disc of 32 units on a cell of about 220 */
+#define GG_BADGE_K 0.8f
+
 static void box_pass(Uint32 *p, int w, int h, int ch, int rad, bool along_x, int *line)
 {
 	int n = along_x ? w : h, m = along_x ? h : w, shift = ch * 8;
@@ -888,6 +894,7 @@ static int fact(SDL_Renderer *r, const char *s, int x, int cy, int right)
 
 static const char *a_word(const gg_info *in, int games)
 {
+	if (in->a_word) return in->a_word;
 	return T(games > 0 || in->opens ? S_GAMES_OPEN : in->howto ? S_PICO8_HOW_TO_ADD
 	         : in->install ? S_PORTMASTER_INSTALL
 	         : in->resumable ? S_GAMES_RESUME : S_GAMES_PLAY);
@@ -1108,6 +1115,13 @@ uint32_t gg_draw(gg_motion *m, SDL_Renderer *r, const gg_info *in,
 
 			if (mk.lift && wt > .02f) ui_lift_focus(r, &lq, mk.lift == DS_FOCUS_LIFT_HIGH, wt);
 			cover(r, in, ctx, i, t, w, h, cb, gc, c);
+			/* What it is, at its art's corner as on the row (MP4's All),
+			 * grown with the cell's lift */
+			if (in->badge_of) {
+				int k = in->badge_of(ctx, i);
+
+				if (k != AB_NONE) ab_draw_at(r, (ab_kind)k, gc.x, gc.y, GG_BADGE_K * gc.w / c.w, 255);
+			}
 			if (!folder) ds_focus_hairline(r, gc, DS_RADIUS_CELL);
 			ds_focus_dim(r, shape, DS_RADIUS_CELL, wt);
 		}
@@ -1153,8 +1167,8 @@ uint32_t gg_draw(gg_motion *m, SDL_Renderer *r, const gg_info *in,
 		if (in->count > 0 && in->resumable && !in->install && !in->howto && !in->opens && !games)
 			foot[nf++] = (key_hint){ "Y", T(S_GAMES_FRESH) };
 		if (in->count > 0 && !games) foot[nf++] = (key_hint){ "X", T(S_GAMES_DETAILS) };
-		keyhints_draw(r, foot, nf, GG_MARGIN, ZYPEROS_SCREEN_W - GG_MARGIN, GG_FOOT(sh),
-		              KEYHINTS_SPREAD, true, 255);
+		keyhints_draw(r, in->foot ? in->foot : foot, in->foot ? in->nfoot : nf, GG_MARGIN,
+		              ZYPEROS_SCREEN_W - GG_MARGIN, GG_FOOT(sh), KEYHINTS_SPREAD, true, 255);
 	}
 	SDL_SetRenderDrawColor(r, red, green, blue, alpha);
 	SDL_SetRenderDrawBlendMode(r, blend);

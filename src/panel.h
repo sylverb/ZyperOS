@@ -230,6 +230,9 @@ void game_controls_pages(app *a, const menu_style *over, void *ctx);
 
 /* What a screen with a panel draws under it, and asks every frame */
 void draw_shelf(app *a);
+/* The shelf drawn by a loop of its own, as the main loop's render draws it
+ * (MP4's shelf): its focus effects live (src/shelf_draw.c) */
+void draw_shelf_live(app *a);
 void tick_tint(app *a);
 bool tick_theme(app *a);
 
@@ -530,6 +533,9 @@ extern bool g_theme_late;
 void home_items(const app *a, home_item *items);
 void shelf_put(void *ctx, texload_got *g);
 void grid_note(app *a, int s, int i, SDL_Surface *surf, bool generated);
+/* Album i's card on MP4's shelf `s` where it has no cover: a game's card,
+ * square, MP4's art in its corner (src/muse_screen.c) */
+void muse_album_card_order(app *a, int s, int i, unsigned rgb, ui_card_order *card);
 void texload_drain(app *a);
 void prime_toward(app *a, int s, int center);
 void heat_said(const char *where);
@@ -558,6 +564,10 @@ void evict_far(sysview *v, int keep);
 void evict_grid(sysview *v, int cols, bool in_sight);
 void panel_base_close(int lv);
 int shelf_letter_jump(sysview *v, int dir);
+/* A shelf's cursor moved by this pass's presses in its View, with the
+ * step's sound; the direction a step took, 0 for a jump or none
+ * (src/shelf_keys.c): the games shelf's and MP4's */
+int shelf_move(app *a, sysview *v);
 
 /* ---- what src/saver_screen.c calls of the launcher's; each is described where it
  * is defined ---- */

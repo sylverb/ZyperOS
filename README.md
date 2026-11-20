@@ -115,7 +115,7 @@ Each line has its details in [the guide](docs/guide.md).
 - **Rumble** on the Pixel 2 for Dreamcast, PlayStation, Game Boy Color and Nintendo 64 games, Off, Low, Medium or Full for every game or one ([rumble](docs/guide.md#rumble)).
 - **Sound your way:** a USB-C headphone adapter on the Pixel 2, Bluetooth headphones on the Brick (untried so far), and mono audio for anyone who hears with one ear ([audio](docs/guide.md#audio)).
 - **An equalizer for everything you hear:** Bass, Voice, Treble or five bands of your own, one preset for the speaker and one for headphones, heard live as you tune it ([equalizer](docs/guide.md#equalizer)).
-- **MP4 and menu music:** a player for your music, audiobooks and videos that keeps playing behind the shelf, showing a song as its cover, a cassette whose reels turn, a record in the cover's color, or bars that move to the music, and ten free 8-bit tracks, or your own, behind the menus ([MP4](docs/guide.md#mp4)).
+- **MP4 and menu music:** a player for your music, audiobooks and videos that keeps playing behind the shelf, its albums as covers, a grid or a list (START turns them), showing a song as its cover, a cassette whose reels turn, a record in the cover's color, or bars that move to the music, and ten free 8-bit tracks, or your own, behind the menus ([MP4](docs/guide.md#mp4)).
 - **The top bar and side lights:** the clock, Wi-Fi and the battery with its time left, and on the Pixel 2 side lights for the battery, volume, transfers and achievements.
 - **Battery care:** a charging screen while it is off, a charge limit of 80, 85 or 90%, a warning before it gets hot, a Power Button that asks for a hold, and clocks for each system that save battery ([battery and power](docs/guide.md#battery-and-power)).
 - **Play Time,** **Continue** or start from the start, favorites, sorting, a QWERTY keyboard that keeps up with the d-pad, and **MENU + START** for a way out of anything.
@@ -156,16 +156,14 @@ make desk          # the GKD Pixel 2; make desk-brick for the TrimUI Brick
 
 The first run takes a few minutes: it builds the launcher, Diatom and a NES core, and makes a sample card with a game on each system. The keyboard is the buttons: the arrows for the d-pad, X Z S A for A B X Y, Q W E R for L1 R1 L2 R2, Return for START, Right Shift for SELECT and Esc for MENU. The mouse presses the drawn keys, Option shows each key's letter, and F1 lists the rest. Linux works too ([Building](docs/building.md#work-on-the-ui-without-a-device)).
 
-**The [ZyperOS Simulator](docs/simulator.md)** is the whole system in QEMU on a Mac with Apple silicon: the boot, the first-start setup, the battery, the charger and the side lights, with a panel for what a player can't press. For now it needs a QEMU image you build with plastron, in Docker, with an SSH key in `plastron/local/authorized_keys` ([how](docs/qemu.md#setting-it-up)): a few hours the first time, then minutes.
+**The [ZyperOS Simulator](docs/simulator.md)** is the whole system in QEMU on a Mac with Apple silicon: the boot, the first-start setup, the battery, the charger and the side lights, with a panel for what a player can't press. Every release from 1.1.0 on has its QEMU image, and `tools/qemu-run.sh fetch` downloads it and checks it against the release's `SHA256SUMS`. Until 1.1.0 is out, you build the image with plastron, in Docker (`make -C plastron qemu`, [how](docs/qemu.md#setting-it-up)): a few hours the first time, then minutes. Either way there is no SSH key to set up: `tools/qemu-run.sh` hands the VM yours, or makes one for it.
 
 ```sh
 brew install qemu
-make -C plastron qemu
+tools/qemu-run.sh fetch          # from 1.1.0 on; until then, make -C plastron qemu
 simulator/scripts/build-app.sh
 open "simulator/build/ZyperOS Simulator.app"
 ```
-
-I plan to put a ready image in the 1.1.0 release, so `tools/qemu-run.sh fetch` can download it instead.
 
 ## More
 

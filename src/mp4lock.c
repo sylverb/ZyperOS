@@ -88,13 +88,18 @@ mp4c_said mp4chord_step(mp4chord *c, const bool down[IN_COUNT],
 	bool b = down[MP4_UNLOCK_B] || pressed[MP4_UNLOCK_B];
 
 	if (a && b && (pressed[MP4_UNLOCK_A] || pressed[MP4_UNLOCK_B])) {
-		c->select = false;
+		c->select = c->start = false;
 		return MP4C_LOCK;
 	}
 	if (pressed[MP4_UNLOCK_A] && !b) c->select = true;
+	if (pressed[MP4_UNLOCK_B] && !a) c->start = true;
 	if (c->select && !down[MP4_UNLOCK_A]) {
 		c->select = false;
 		return MP4C_SELECT;
+	}
+	if (c->start && !down[MP4_UNLOCK_B]) {
+		c->start = false;
+		return MP4C_START;
 	}
 	return MP4C_NONE;
 }

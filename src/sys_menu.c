@@ -289,6 +289,7 @@ int sys_menu_muse_rows(int kind, bool both, bool no_wifi, sm_muse_row *out)
 	out[n++] = SMM_COUNT;
 	if (both) out[n++] = SMM_SHOW;
 	out[n++] = SMM_SORT;
+	out[n++] = SMM_VIEW;
 	if (kind == 0 || kind == 3) out[n++] = SMM_SHUFFLE;
 	if (kind == 0 || kind == 3) out[n++] = SMM_LOOK;
 	if (kind == 2 || kind == 3) out[n++] = SMM_REPEAT;
@@ -343,7 +344,7 @@ static const unsigned char SM_SOUND[SM_ROWS] = {
 };
 static unsigned char smm_sound(sm_muse_row r)
 {
-	return r == SMM_SHOW || r == SMM_LOOK || r == SMM_REPEAT || r == SMM_EQ ? MENU_SND_RING
+	return r == SMM_SHOW || r == SMM_VIEW || r == SMM_LOOK || r == SMM_REPEAT || r == SMM_EQ ? MENU_SND_RING
 	     : r == SMM_SORT ? MENU_SND_RING | MENU_SND_NO_A : 0;
 }
 
@@ -470,6 +471,10 @@ int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
 					                     : u->muse_books ? T(S_SYSMENU_MUSE_AUTHOR)
 					                     : u->muse_videos || u->muse_all ? T(S_SYSMENU_MUSE_FOLDER)
 					                     : T(S_SYSMENU_MUSE_ARTIST), true };
+					break;
+				case SMM_VIEW:
+					out[k] = (menu_row){ T(S_SYSMENU_VIEW), T(u->listed ? S_SYSMENU_VIEW_LIST
+					                     : u->grid ? S_SYSMENU_VIEW_GRID : S_SYSMENU_VIEW_COVERS), true };
 					break;
 				case SMM_SHUFFLE:
 					out[k] = (menu_row){ T(S_SYSMENU_MUSE_SHUFFLE), NULL, true };
