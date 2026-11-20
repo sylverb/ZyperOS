@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 
 static const char *const STATES[] = { "stopped", "playing", "paused" };
@@ -64,6 +65,7 @@ static bool fits(const mp4hand *h)
 bool mp4hand_write(const char *path, const mp4hand *h)
 {
 	char tmp[600];
+	struct timespec now;
 	FILE *f;
 	bool ok;
 	int i;
@@ -72,9 +74,14 @@ bool mp4hand_write(const char *path, const mp4hand *h)
 	/* Its own name for each writer, so two never share a half-written one */
 	snprintf(tmp, sizeof tmp, "%s.%d", path, (int)getpid());
 	if (!(f = fopen(tmp, "w"))) return false;
-	fprintf(f, "%s\nstate\t%s\nat\t%.1f\nmode\t%d\nseed\t%u\nbook\t%d\nvideos\t%d\n"
+	/* Each write its own id, so a reader that compares the bytes (the
+	 * follower, after the in-game menu) sees a new write as one, even of
+	 * the same queue at the same place */
+	clock_gettime(CLOCK_REALTIME, &now);
+	fprintf(f, "%s\nid\t%d.%lld.%09ld\n", MP4HAND_MAGIC, (int)getpid(), (long long)now.tv_sec, now.tv_nsec);
+	fprintf(f, "state\t%s\nat\t%.1f\nmode\t%d\nseed\t%u\nbook\t%d\nvideos\t%d\n"
 	        "names\t%d\nall\t%d\nspeed\t%.2f\nroot\t%s\nartist\t%s\nalbum\t%s\nn\t%d\npos\t%d\n",
-	        MP4HAND_MAGIC, STATES[h->state], h->at, h->mode, h->seed, h->book, h->videos,
+	        STATES[h->state], h->at, h->mode, h->seed, h->book, h->videos,
 	        h->names_each, h->all, h->speed, h->root, h->artist, h->album, h->n, h->n ? h->pos : 0);
 	fputs("order\t", f);
 	for (i = 0; i < h->n; i++) fprintf(f, i ? " %d" : "%d", h->order[i]);
@@ -168,7 +175,10 @@ bool mp4hand_read(const char *path, mp4hand *h)
 		}
 		if (!(val = strchr(line, '\t'))) { ok = false; break; }
 		*val++ = '\0';
-		if (!strcmp(line, "state")) {
+		if (!strcmp(line, "id")) {
+			/* each write's own (mp4hand_write): nothing to take */
+			ok = val[0] && one_line(val);
+		} else if (!strcmp(line, "state")) {
 			int k;
 
 			for (k = 0; k < 3 && strcmp(val, STATES[k]); k++) ;
