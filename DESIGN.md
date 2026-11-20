@@ -5895,6 +5895,15 @@ Wi-Fi**, "Wi-Fi is off. Offline, Splore has only the carts it downloaded
 before.", **Turn On Wi-Fi** (on, and the saved network joined, up to 15 s) or
 **Open Offline**; B leaves it.
 
+**Splore's downloads.** PICO-8 for Raspberry Pi has no HTTP of its own: it
+runs `wget` for every list and cart. The system's wget is busybox's, which has
+no HTTPS, and every cart is HTTPS, so the lists came (plain HTTP) and no cart
+did: "could not connect to bbs" (device test, 2026-11-19). The script puts
+ZyperOS's own `wget` first on PICO-8's PATH (`ZyperOS/pico8/bin/wget`,
+`sd/pixel2/PICO-8-wget.sh`), which hands Splore's calls to the launcher's curl,
+the certificates checked against ZyperOS's bundle, a file there whole or not at
+all. No change to the system image.
+
 **The Brick** gets your PICO-8 with its ports (the parity plan's item 8):
 until then its script is not in the Brick's payload, so the Brick's PICO-8
 shelf has no Splore and plays on fake08.
