@@ -3065,6 +3065,11 @@ static void popup_now(const char *head, const char *body)
 	nq_hold(&g_nq, plat_now_ms(), 1500);
 }
 
+void popup_say(const char *head, const char *body)
+{
+	popup_now(head, body ? body : "");
+}
+
 /* Called from inside plat_resident_wait when Diatom says the speed step
  * changed (SELECT+R2, SELECT+L2), or that a game resumed fast: in halves, 3
  * is 1.5x. The step, not the speed reached: on a heavy SNES or GBA game the
@@ -5965,6 +5970,13 @@ int main(int argc, char *argv[])
 		 * --hud-items, its Shows list instead; --hud-pick ROW, that row's
 		 * list of choices; --hud-shows WORDS, the items it shows */
 		else if (!strcmp(argv[i], "--hud-page") && i + 1 < argc) shot_hud_page = atoi(argv[++i]);
+		else if (!strcmp(argv[i], "--cheats")) shot_cheats = true;
+		else if (!strcmp(argv[i], "--cheats-page") && i + 1 < argc) shot_cheats_page = atoi(argv[++i]);
+		else if (!strcmp(argv[i], "--cheats-ask")) shot_cheats_ask = true;
+		else if (!strcmp(argv[i], "--cheats-query") && i + 1 < argc) shot_cheats_query = argv[++i];
+		else if (!strcmp(argv[i], "--cheats-on-first")) shot_cheats_on_first = true;
+		else if (!strcmp(argv[i], "--cheats-note")) shot_cheats_note = true;
+		else if (!strcmp(argv[i], "--cheats-crash")) shot_cheats_crash = true;
 		else if (!strcmp(argv[i], "--hud-items")) shot_hud_items = true;
 		else if (!strcmp(argv[i], "--hud-pick") && i + 1 < argc) shot_hud_pick = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "--hud-shows") && i + 1 < argc) shot_hud_shows = argv[++i];
@@ -6101,7 +6113,7 @@ int main(int argc, char *argv[])
 		else if (!strcmp(argv[i], "--achtab") && i + 1 < argc) {
 			static const char *const names[] = {
 				"list", "not-system", "not-file", "signed-out", "waiting",
-				"unchecked", "none", "all"
+				"unchecked", "none", "paused", "all"
 			};
 			const char *v = argv[++i];
 			int k;

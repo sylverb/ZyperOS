@@ -44,6 +44,9 @@ typedef struct {
 	const char *roms;     /* Roms/ */
 	const char *saves;    /* Saves/ */
 	const char *states;   /* .userdata/shared/.zyperos, a folder per console */
+	/* Cheats/, a folder per console (src/cheats.h); NULL leaves a game's
+	 * cheat files where they are */
+	const char *cheats;
 } gd_card;
 
 /* The game, as its OWN system has it: on Favorites, its owner's */

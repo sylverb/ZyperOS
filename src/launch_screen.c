@@ -12,6 +12,7 @@
 #include "dlq.h"
 #include "dsv.h"
 #include "ingame_screen.h"
+#include "cheats_screen.h"
 #include "hudmenu_screen.h"
 #include "musec.h"
 #include "net.h"
@@ -863,6 +864,21 @@ void launch(app *a)
 	 * it. */
 	g_game_dual = two_screens(s);
 	if (g_game_dual) dsv_import(save, romfile);
+	/* The game stopped by itself last time while cheats were on: asked
+	 * first, the cursor on Without Cheats, which starts it with none this
+	 * time and keeps them set for later (DESIGN.md 11.66). B: not started. */
+	bool cheats_without = false;
+	if (cheats_crash_asks(s, romfile)) {
+		char q[480];
+		int r;
+
+		snprintf(q, sizeof q, "%s %s", T(S_CHEATS_CRASH_TITLE), T(S_CHEATS_CRASH_BODY));
+		ui_fit_drawn(T(S_CHEATS_CRASH_TITLE));
+		ui_fit_drawn(T(S_CHEATS_CRASH_BODY));
+		r = ask_two_panel(a, T(S_CHEATS_ROW), q, T(S_CHEATS_CRASH_WITHOUT), T(S_CHEATS_CRASH_WITH));
+		if (r == 0 || !a->running) return;
+		cheats_without = r == 1;
+	}
 	{
 		/* The RUN keys this game needs beyond the usual: a DS game's two
 		 * screens, the system's clock ceiling, controller type and d-pad
@@ -921,6 +937,9 @@ void launch(app *a)
 					         keys[0] ? "\t" : "", shots);
 			}
 		}
+		/* The cheats that are on for this game, handed over as it loads
+		 * (src/cheats_screen.h): cheats= on RUN, none for most games */
+		cheats_game_begin(s, romfile, cheats_without, keys, sizeof keys);
 		if (keys[0]) plat_resident_run_keys(keys);
 		rm_format(&sent, map, sizeof map);
 		plat_resident_map(strcmp(map, "identity") ? map : "");
@@ -1224,6 +1243,8 @@ void launch(app *a)
 			 * lands before the first frame the player could act on. */
 			if (want_menu) plat_resident_line("PAUSE");
 			g_menu_unasked = want_menu;
+			/* "2 cheats on" over the first frames, so none is forgotten */
+			if (!want_menu) cheats_game_started();
 			/* No launch animation, and it is a display-safety rule, not a
 			 * taste call: Diatom presents through fbdev, this process
 			 * through GL, and the handoff spike's one invariant is that
@@ -1256,6 +1277,9 @@ void launch(app *a)
 			g_ctl_game.on = false;
 			screen_shader_apply();
 			resident = (r == RES_EXIT);
+			/* A game that stopped by itself with cheats on asks at its next
+			 * start whether to start without them */
+			cheats_game_end(resident && plat_resident_crashed());
 			/* The game is over, and however it ended it ended here: Quit,
 			 * a crash (EXIT reason=crash) or Diatom gone (RES_DEAD), POWER,
 			 * the battery, Auto Off, px2-open's next game, a TERM. NES
