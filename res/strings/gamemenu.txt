@@ -628,6 +628,28 @@ de = So groß wie möglich, in der Form des Spiels.
 ja = 収まる最大サイズで、ゲーム本来の形。
 it = Il più grande possibile, nella forma del gioco.
 
+[gamemenu.dmode_square]
+note = a display mode: every pixel square, whatever shape the game asks for, the picture as big as fits (RetroArch's 1:1 PAR). New in 1.1.0.
+en = Square Pixels
+zh-Hans = 方形像素
+es = Píxeles cuadrados
+pt-BR = Pixels quadrados
+fr = Pixels carrés
+de = Quadratische Pixel
+ja = 正方形ピクセル
+it = Pixel quadrati
+
+[gamemenu.dmode_square_note]
+note = Under the Display row: what Square Pixels does: every pixel square, the picture as big as fits (the screen's full height, or its width for a wide game). One short line.
+en = Square pixels, as big as fits.
+zh-Hans = 方形像素，尽量放大。
+es = Píxeles cuadrados, lo más grande posible.
+pt-BR = Pixels de lados iguais, o maior possível.
+fr = Pixels carrés, aussi grand que possible.
+de = Quadratische Pixel, so groß wie möglich.
+ja = 正方形のピクセルで、収まる最大サイズ。
+it = Pixel quadrati, il più grande possibile.
+
 [gamemenu.dmode_integer]
 note = a display mode: scaled by whole numbers only, so every pixel is the same size. Was Integer until 1.0.6.
 en = Sharp Pixels

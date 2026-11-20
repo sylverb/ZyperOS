@@ -367,8 +367,12 @@ uint32_t games_draw(games_row *row,SDL_Renderer *r,const games_info *info,
     }
     /* Highlight's marks round the cover in the middle, holding still as the
      * row slides under them, as Spotlight's do: Border's ring (its corners
-     * the cover's own, square), Bar's bar under the snap's wait bar; both
-     * gone as a snap takes the cover's place */
+     * the cover's own, square), Bar's bar right under the cover; both gone
+     * as a snap takes the cover's place. The bar gives way to the snap's
+     * wait bar while that fills, in the same place: both mark this cover.
+     * It sat under the wait bar's place until 1.1.0, 16 lower, and a name
+     * long enough to reach the middle ran into it (Tony Hawk's Pro Skater 2:
+     * the bar on its "2") */
     if((marks.ring || marks.bar) && info->count>0) {
         int w=0,h=0; float cb=1;
         SDL_Texture *t=texture(ctx,info->cursor,&w,&h,&cb);
@@ -377,7 +381,7 @@ uint32_t games_draw(games_row *row,SDL_Renderer *r,const games_info *info,
             SDL_FRect c=games_cover_rect(w,h,0);
             Uint8 al=(Uint8)lroundf(255*(1-k));
             if(marks.ring) ds_focus_ring(r,c,0,al);
-            if(marks.bar) ds_focus_bar(r,(SDL_FRect){c.x,c.y,c.w,c.h+16},al);
+            if(marks.bar && !(info->snap_wait>0)) ds_focus_bar(r,c,al);
         }
     }
     TTF_Font *title=page_font(PAGE_GAME_TITLE);
@@ -446,8 +450,9 @@ uint32_t games_draw(games_row *row,SDL_Renderer *r,const games_info *info,
         char text[64]; snprintf(text,sizeof text,T(S_GAMES_ACHIEVEMENTS),info->earned,info->total);
         meta_part(r,chrome,text,x,my);
     }
-    if(info->count) page_hint(r,"A",T(info->folder>0||info->opens?S_GAMES_OPEN:info->howto?S_PICO8_HOW_TO_ADD:info->install?S_PORTMASTER_INSTALL:
-                                      info->resumable?S_GAMES_RESUME:S_GAMES_PLAY),SHELF_HINT_X,GAMES_TITLE_Y+SHELF_HINT_DY,true,false);
+    if(info->count) page_hint(r,"A",info->a_word?info->a_word:
+                              T(info->folder>0||info->opens?S_GAMES_OPEN:info->howto?S_PICO8_HOW_TO_ADD:info->install?S_PORTMASTER_INSTALL:
+                                info->resumable?S_GAMES_RESUME:S_GAMES_PLAY),SHELF_HINT_X,GAMES_TITLE_Y+SHELF_HINT_DY,true,false);
     /* The foot, spread from B at the left to X at the right (DESIGN.md
      * 11.4): START turns the shelf into the grid, the next View (11.47) */
     key_hint foot[4]; int nf=0;
@@ -456,7 +461,8 @@ uint32_t games_draw(games_row *row,SDL_Renderer *r,const games_info *info,
     if(info->count&&info->resumable&&!info->install&&!info->howto&&!info->opens&&!info->folder) foot[nf++]=(key_hint){"Y",T(S_GAMES_FRESH)};
     if(!info->folder) foot[nf++]=(key_hint){"X",T(S_GAMES_DETAILS)};
     /* DS_FOOT_Y, every screen's: a two-line name's system line (cap 664) stays 30 from the keys */
-    keyhints_draw(r,foot,nf,sf.keys.x,sf.keys.x+sf.keys.w,sf.keys.y+sf.keys.h/2,KEYHINTS_SPREAD,true,255);
+    keyhints_draw(r,info->foot?info->foot:foot,info->foot?info->nfoot:nf,sf.keys.x,sf.keys.x+sf.keys.w,
+                  sf.keys.y+sf.keys.h/2,KEYHINTS_SPREAD,true,255);
     SDL_SetRenderDrawColor(r,red,green,blue,alpha);
     SDL_SetRenderDrawBlendMode(r,blend);
     return wait;

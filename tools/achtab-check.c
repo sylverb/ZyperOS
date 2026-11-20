@@ -67,6 +67,11 @@ int main(void)
 	ck(at_state_of(&f) == AT_UNCHECKED, "never played with a network");
 	f.set = CHV_NONE;
 	ck(at_state_of(&f) == AT_NONE, "asked, and RetroAchievements has none");
+	/* A cheat on since the game started says so over everything, the list
+	 * on the card too: nothing in it can fire until the next start */
+	f.count = 36;
+	f.cheats_paused = true;
+	ck(at_state_of(&f) == AT_PAUSED, "a cheat has been on: paused, a set on the card or not");
 
 	printf("achtab: each state but the list has a sentence of its own\n");
 	for (s = AT_NOT_SYSTEM; s < AT_STATES; s++) {

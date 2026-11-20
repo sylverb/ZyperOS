@@ -128,7 +128,6 @@ int sys_menu_system_rows(const sys_ui *u, sm_row *out)
 	int n = 0, r;
 
 	for (r = 0; r < SM_ROWS; r++) {
-		if (u->no_wifi && !u->online && r == SM_BOXART) continue;
 		if (!u->dslang && r == SM_DSLANG) continue;
 		if (!u->sgb && r == SM_SGB) continue;
 		if (!u->pace && r == SM_PACE) continue;
@@ -292,6 +291,7 @@ int sys_menu_muse_rows(int kind, bool both, bool no_wifi, sm_muse_row *out)
 	out[n++] = SMM_COUNT;
 	if (both) out[n++] = SMM_SHOW;
 	out[n++] = SMM_SORT;
+	out[n++] = SMM_VIEW;
 	if (kind == 0 || kind == 3) out[n++] = SMM_SHUFFLE;
 	if (kind == 0 || kind == 3) out[n++] = SMM_LOOK;
 	if (kind == 2 || kind == 3) out[n++] = SMM_REPEAT;
@@ -348,7 +348,7 @@ static const unsigned char SM_SOUND[SM_ROWS] = {
 };
 static unsigned char smm_sound(sm_muse_row r)
 {
-	return r == SMM_SHOW || r == SMM_LOOK || r == SMM_REPEAT || r == SMM_EQ ? MENU_SND_RING
+	return r == SMM_SHOW || r == SMM_VIEW || r == SMM_LOOK || r == SMM_REPEAT || r == SMM_EQ ? MENU_SND_RING
 	     : r == SMM_SORT ? MENU_SND_RING | MENU_SND_NO_A : 0;
 }
 
@@ -476,6 +476,10 @@ int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
 					                     : u->muse_videos || u->muse_all ? T(S_SYSMENU_MUSE_FOLDER)
 					                     : T(S_SYSMENU_MUSE_ARTIST), true };
 					break;
+				case SMM_VIEW:
+					out[k] = (menu_row){ T(S_SYSMENU_VIEW), T(u->listed ? S_SYSMENU_VIEW_LIST
+					                     : u->grid ? S_SYSMENU_VIEW_GRID : S_SYSMENU_VIEW_COVERS), true };
+					break;
 				case SMM_SHUFFLE:
 					out[k] = (menu_row){ T(S_SYSMENU_MUSE_SHUFFLE), NULL, true };
 					break;
@@ -555,10 +559,11 @@ int sys_menu_build(const sys_ui *u, menu_row *out, menu_bufs *b,
 		 * the core that will run it. The filter Show promised is on the shelf
 		 * already: Y marks a favorite and Favorites is its own shelf. */
 		/* full[SM_BUTTONS] = (menu_row){ "Button Mapping", NULL,    false }; */
-		/* Just this system. Needs the network like its counterpart in the
-		 * ZyperOS menu, and says so rather than opening a screen that can only
-		 * report the same thing. */
-		full[SM_BOXART]  = (menu_row){ T(S_SYSMENU_BOX_ART), NEEDS_WIFI(fetch), fetch };
+		/* Just this system: Downloads, the same page for this console (my
+		 * pick in the downloads lab: Box Art becomes Downloads). Live with no
+		 * network too, as MENU's row: its counts, Systems and deletes need
+		 * none, and its Download says what it needs. */
+		full[SM_BOXART]  = (menu_row){ T(S_DOWNLOADS_HEADING), u->sys_downloads, true };
 		/* Live now that there is something behind it. It rescans the whole
 		 * card rather than this one folder - the work is three directory reads
 		 * and the shared parts (hiding a system that emptied, rebuilding

@@ -134,9 +134,15 @@ static inline const game_list *sys_games_c(const sysview *v)
  * Fill and Native 1:1 before it), and `note` is the line under the Display
  * row that says it in a sentence. The names, which the card keeps
  * (display.<TAG>), are unchanged. */
+/* Square Pixels (1.1.0, #346) sits between Original Shape and Sharp Pixels
+ * because it is the step between them: Original Shape's full height, Sharp
+ * Pixels' square pixels, without Sharp Pixels' whole sizes. Read down, the
+ * list goes from the game's shape to its pixels. A card's names are kept by
+ * name, never by place, so the row in the middle moves nobody's choice. */
 static const struct { const char *name, *label; str_id text, note; } DMODES[] = {
 	{ "stretch",          "Full Screen",          S_GAMEMENU_DMODE_STRETCH,      S_GAMEMENU_DMODE_STRETCH_NOTE      },
 	{ "aspect",           "Original Shape",       S_GAMEMENU_DMODE_ASPECT,       S_GAMEMENU_DMODE_ASPECT_NOTE       },
+	{ "square",           "Square Pixels",        S_GAMEMENU_DMODE_SQUARE,       S_GAMEMENU_DMODE_SQUARE_NOTE       },
 	{ "integer",          "Sharp Pixels",         S_GAMEMENU_DMODE_INTEGER,      S_GAMEMENU_DMODE_INTEGER_NOTE      },
 	{ "integer-vertical", "Sharp Pixels, Tall",   S_GAMEMENU_DMODE_INTEGER_TALL, S_GAMEMENU_DMODE_INTEGER_TALL_NOTE },
 	{ "overscale",        "Sharp Pixels, Zoomed", S_GAMEMENU_DMODE_OVERSCALE,    S_GAMEMENU_DMODE_OVERSCALE_NOTE    },
@@ -424,6 +430,9 @@ int  core_offered_count(const system_cfg *s);
 bool core_offered_at(const system_cfg *s, int i, char *out, int cap);
 bool is_muse(const system_cfg *s);
 void gm_quit(void);
+/* A pop-up over the running game, as the quick slot's (main.c's popup_now):
+ * `head` and under it `body`, at the top for about a second and a half */
+void popup_say(const char *head, const char *body);
 /* A Ports shelf's core, and a standalone emulator's: "run:<script>"
  * (main.c's launch_port hands both to launch.sh) */
 #define PORT_CORE    "port"
@@ -521,6 +530,7 @@ void book_cycle_speed(void);
 void muse_play(const char *const *paths, int n, int start, double at,
                bool book, double speed, const char *artist, const char *album);
 void muse_cycle_mode(void);
+void video_cycle_repeat(void);   /* Y on a video: MP4's Repeat, Off, One, All */
 typedef struct { const char *key; int glyph; } muse_mode_name;
 extern const muse_mode_name MUSE_MODES[MUQ_MODES];
 void muse_power(app *a);

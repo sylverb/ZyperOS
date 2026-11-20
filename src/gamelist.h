@@ -16,6 +16,7 @@
  *
  * No I/O: the caller hands it its facts, as games_draw's are handed. */
 #include "coverflow.h"
+#include "keyhints.h"
 
 #include <SDL.h>
 #include <stdbool.h>
@@ -65,6 +66,15 @@ typedef struct {
 	bool has_achievements, resumable, install, inside;
 	bool howto, opens;     /* Splore's entry (src/games.h) */
 	int earned, total;
+	/* A shelf of another kind's own words (MP4's albums, DESIGN.md 11.67):
+	 * A's word for the focused entry, and the foot's hints whole; NULL and
+	 * 0 for a games shelf's */
+	const char *a_word;
+	const key_hint *foot;
+	int nfoot;
+	/* Entry i's art badge (src/artbadge.h): what it is, on a shelf of
+	 * kinds (MP4's All); NULL, or AB_NONE for i, for none */
+	int (*badge_of)(void *ctx, int i);
 } gl_info;
 
 /* Reset to the cursor, with no motion: a shelf opened, a folder changed */

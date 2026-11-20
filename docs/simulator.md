@@ -16,13 +16,17 @@ battery and the charger, the side lights.
 ## Building and opening it
 
 ```sh
+brew install qemu
+tools/qemu-run.sh fetch
 simulator/scripts/build-app.sh
 open "simulator/build/ZyperOS Simulator.app"
 ```
 
-It needs plastron's QEMU image (`make qemu` there) and QEMU (`brew install
-qemu`), as `tools/qemu-run.sh` does: the window starts its VM with it, by the
-name `simulator` (`--args --name NAME` for another, `--image DIR` for an image
+It needs QEMU and a QEMU image, as `tools/qemu-run.sh` does: `fetch`
+downloads the latest release's (every release from 1.1.0 on has one),
+checked against its `SHA256SUMS`, or plastron's `make qemu` builds one
+([qemu.md](qemu.md), "Setting it up"). The window starts its VM with it, by
+the name `simulator` (`--args --name NAME` for another, `--image DIR` for an image
 somewhere else). A VM already running by that name is shown as it is, and
 stays running when the window closes; one the window started shuts down with
 it. The VM's sound plays on the Mac. It boots the fast way, its kernel on

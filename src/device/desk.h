@@ -77,4 +77,9 @@ void desk_flush(void);
 /* POWER in a game: 1 down, 0 up, -1 none left (device_power_pressed) */
 int desk_power_edge(void);
 
+/* What the shelf showed in its last frame, for the control socket's `state`
+ * (tools/desk): "systems" or "games", the cursor there and its name, so a
+ * script can press a button and read where it landed */
+void desk_note_focus(const char *screen, int cursor, const char *name);
+
 #endif

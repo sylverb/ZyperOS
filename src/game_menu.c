@@ -42,6 +42,9 @@ int gi_rows(menu_row *out, const game_info *gi, bool net)
 		out[n++] = (menu_row){ T(S_GAMEMENU_YEAR),  gi->year,  false };
 	if (gi->scraped && gi->genre[0])
 		out[n++] = (menu_row){ T(S_GAMEMENU_GENRE), gi->genre, false };
+	/* The core, a fact, where the shelf offers more than one (1.0.7) */
+	if (gi->core[0])
+		out[n++] = (menu_row){ T(S_SYSMENU_CORE), gi->core, false };
 	/* The count opens the same list the in-game menu opens - which is where it
 	 * comes from. Reading "4/54" and having nowhere to go with it is the
 	 * question half-answered: which four, and what are the other fifty. A game
@@ -232,6 +235,7 @@ int gm_tab_rows(const gm_ui *u, gm_tab t, gm_row *ids)
 		if (u->quick) ids[n++] = GM_QUICK;
 		if (u->discs > 1) ids[n++] = GM_DISC;
 		if (u->player2) ids[n++] = GM_PLAYER2;
+		if (u->cheats) ids[n++] = GM_CHEATS;
 		ids[n++] = GM_CHEEVOS;
 		ids[n++] = GM_RESET;
 		ids[n++] = GM_QUIT;
@@ -301,7 +305,7 @@ int gm_rows(const gm_ui *u, gm_tab t, menu_row *out, gm_bufs *b)
 		S_GAMEMENU_RESET,
 		S_GAMEMENU_QUIT, S_GAMEMENU_SCREENS, S_GAMEMENU_SWAP, S_GAMEMENU_STYLUS,
 		S_GAMEMENU_PAK, S_PLAYER2_ROW, S_GAMEMENU_DISC, S_GAMEMENU_STRENGTH,
-		S_GAMEMENU_UNDO, S_GAMEMENU_HUD, S_GAMEMENU_BORDER, S_GAMEMENU_BORDER_COLOR,
+		S_GAMEMENU_UNDO, S_GAMEMENU_HUD, S_GAMEMENU_BORDER, S_GAMEMENU_BORDER_COLOR, S_CHEATS_ROW,
 	};
 	menu_row full[GM_MAX_ROWS];
 	gm_row ids[GM_MAX_ROWS];
@@ -341,7 +345,17 @@ int gm_rows(const gm_ui *u, gm_tab t, menu_row *out, gm_bufs *b)
 	} else {
 		snprintf(b->cheevos, sizeof b->cheevos, "%s", T(S_GAMEMENU_CHEEVOS_NONE));
 	}
+	/* While a cheat has been on in this game, its achievements wait for
+	 * the next start with none, and the row says so over its count */
+	if (u->cheats_paused)
+		snprintf(b->cheevos, sizeof b->cheevos, "%s", T(S_CHEATS_ACH_PAUSED));
 	full[GM_CHEEVOS].value = b->cheevos;
+	/* How many cheats are on, or None */
+	if (u->cheats_on > 0)
+		snprintf(b->cheats, sizeof b->cheats, TN(S_CHEATS_ROW_ON, u->cheats_on), u->cheats_on);
+	else
+		snprintf(b->cheats, sizeof b->cheats, "%s", T(S_CHEATS_NONE));
+	full[GM_CHEATS].value = b->cheats;
 	full[GM_SCREENS].value = gm_layout_label(u->layout);
 	full[GM_SWAP].value    = u->swap ? T(S_MENU_ON_TITLE) : T(S_MENU_OFF_TITLE);
 	full[GM_STYLUS].value  = u->stylus ? T(S_MENU_ON_TITLE) : T(S_MENU_OFF_TITLE);

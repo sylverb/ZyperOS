@@ -735,14 +735,27 @@ static void late_tick(void)
 	for (i = 0; i < sizeof late_sram; i++) late_sram[i] = (uint8_t)(0x5a ^ i);
 }
 
+/* STUBCORE_RTC: a cartridge's clock kept apart from the battery RAM, as
+ * Gambatte keeps an MBC3's (RETRO_MEMORY_RTC): a count of the frames run,
+ * little-endian, so a frontend that reads it back in at the start and writes
+ * it out on the way out carries the count across runs (test/rtc.py) */
+static uint8_t rtc_mem[16];
+
+static bool rtc_here(void)
+{
+	return getenv("STUBCORE_RTC") != NULL;
+}
+
 void *retro_get_memory_data(unsigned id)
 {
+	if (id == RETRO_MEMORY_RTC) return rtc_here() ? rtc_mem : NULL;
 	if (id == RETRO_MEMORY_SAVE_RAM) return late_here() ? late_sram : NULL;
 	return id == RETRO_MEMORY_SYSTEM_RAM ? sysram : NULL;
 }
 
 size_t retro_get_memory_size(unsigned id)
 {
+	if (id == RETRO_MEMORY_RTC) return rtc_here() ? sizeof rtc_mem : 0;
 	if (id == RETRO_MEMORY_SAVE_RAM) return late_here() ? sizeof late_sram : 0;
 	return id == RETRO_MEMORY_SYSTEM_RAM ? sizeof sysram : 0;
 }
@@ -790,6 +803,14 @@ void retro_run(void)
 		struct retro_message m = { message_text, 120 };
 
 		env(RETRO_ENVIRONMENT_SET_MESSAGE, &m);
+	}
+	if (rtc_here()) {
+		uint32_t t = (uint32_t)rtc_mem[0] | (uint32_t)rtc_mem[1] << 8 |
+		             (uint32_t)rtc_mem[2] << 16 | (uint32_t)rtc_mem[3] << 24;
+
+		t++;
+		rtc_mem[0] = (uint8_t)t; rtc_mem[1] = (uint8_t)(t >> 8);
+		rtc_mem[2] = (uint8_t)(t >> 16); rtc_mem[3] = (uint8_t)(t >> 24);
 	}
 	if (shown_log) {
 		struct timespec now;
