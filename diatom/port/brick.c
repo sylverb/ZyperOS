@@ -843,10 +843,11 @@ static void overlay_page(uint8_t *base, int page, diatom_rect dst)
 
 /* The level bar: the launcher's own pill, from the same code (osdbar.c, which
  * is ZyperOS's src/osdbar.c), so a volume press looks the same in a game as on
- * the shelf, over a port and in a game on the Pixel 2. The panel is the
- * launcher's own 1024x768, one pixel a unit, so it is drawn at scale 1: 476 x
- * 92 pixels with its shadow, the pill 452 x 64 at 22 under the top edge,
- * centered. Drawn into ordinary memory, premultiplied, and again only when
+ * the shelf, over a port and in a game on the Pixel 2. At the launcher's
+ * scale: the panel's height over its 768 units, whatever the panel's width
+ * (ZyperOS's src/canvas.h). The Brick's 1024x768 is one pixel a unit, so it
+ * is drawn at scale 1: 476 x 92 pixels with its shadow, the pill 452 x 64 at
+ * 22 under the top edge, centered; the Smart Pro's 1280x720 at 0.9375. Drawn into ordinary memory, premultiplied, and again only when
  * the level, the fade or the theme moves; the slide is where it goes on the
  * page.
  *
@@ -880,7 +881,7 @@ static void bar_frame(void)
 	static int drawn_kind = -1, drawn_level, drawn_max, drawn_theme;
 	static float drawn_alpha;
 	static unsigned colors_seen;
-	const float s = (float)g_vinfo.xres / 1024.0f;
+	const float s = (float)g_vinfo.yres / 768.0f;
 	const uint64_t now = diatom_port_now_us();
 	float alpha, rise;
 	diatom_rect r;
@@ -910,7 +911,8 @@ static void bar_frame(void)
 		drawn_kind = g_osd_kind; drawn_level = g_osd_level; drawn_max = g_osd_max;
 		drawn_theme = g_osd_theme; drawn_alpha = alpha;
 	}
-	g_bar_x = (int)roundf(OSDBAR_X * s);
+	/* In the panel's middle: OSDBAR_X is that on a 4:3 one */
+	g_bar_x = ((int)g_vinfo.xres - g_bar_w) / 2;
 	g_bar_y = (int)roundf((OSDBAR_Y - rise) * s);
 	r.x = g_bar_x > 0 ? g_bar_x : 0;
 	r.y = g_bar_y > 0 ? g_bar_y : 0;
