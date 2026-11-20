@@ -1446,7 +1446,9 @@ static void done_draw(dl_view *v, unsigned now)
 	{
 		ds_line_item it;
 
-		if (v->end == END_DONE) it = (ds_line_item){ UI_GLYPH_CHECK, T(S_DOWNLOADS_OFFLINE_NOW), DS_TONE_INFO };
+		/* offline now only when nothing was passed over (a source's day,
+		 * a system it could not ask) */
+		if (v->end == END_DONE && !v->why[0]) it = (ds_line_item){ UI_GLYPH_CHECK, T(S_DOWNLOADS_OFFLINE_NOW), DS_TONE_INFO };
 		else it = (ds_line_item){ UI_GLYPH_COUNT, T(S_DOWNLOADS_NEXT_FROM_MISSING), DS_TONE_INFO };
 		ds_page_line(a->r, &pf, &it, 1);
 	}
@@ -1633,13 +1635,13 @@ static void run_finish(dl_view *v)
 /* ---- panels over the page ---------------------------------------------------------------- */
 
 /* Videos For: which games' video snaps a download gets */
-typedef struct { char val[SNAPS_FOR_COUNT][64]; } vfor_ctx;
+typedef struct { const dl_counts *c; char val[SNAPS_FOR_COUNT][64]; } vfor_ctx;
 
 static int vfor_build(void *ctx, menu_row *rows, int max, const char **heading)
 {
 	static const str_id FOR[SNAPS_FOR_COUNT] = { S_SCRAPER_ALL_GAMES, S_LIBRARY_FAVORITES, S_SCRAPER_PLAYED };
 	vfor_ctx *x = ctx;
-	const dl_counts *c = dl_count_shown(NULL);
+	const dl_counts *c = x->c;
 	int w, i;
 
 	(void)max;
@@ -1670,6 +1672,7 @@ static void videos_for(dl_view *v)
 	static vfor_ctx x;
 
 	memset(&x, 0, sizeof x);
+	x.c = v->c;
 	menu_run(v->a, &(menu_style){ .accent = MENU_ZYPEROS, .fixed_w = menu_std_width(v->a), .start_sel = snaps_for() },
 	         vfor_build, vfor_key, &x);
 }
@@ -1726,12 +1729,12 @@ static void ra_account(dl_view *v)
 
 /* On the Card: each kind's room, and a delete that asks first for the kinds
  * a download can get again */
-typedef struct { char val[DLK_KINDS][32]; } room_ctx;
+typedef struct { const dl_counts *c; char val[DLK_KINDS][32]; } room_ctx;
 
 static int room_build(void *ctx, menu_row *rows, int max, const char **heading)
 {
 	room_ctx *x = ctx;
-	const dl_counts *c = dl_count_shown(NULL);
+	const dl_counts *c = x->c;
 	int k;
 
 	(void)max;
@@ -1775,11 +1778,11 @@ static void delete_sets(const dl_counts *c)
 
 static menu_result room_key(app *a, void *ctx, in_button key, int sel)
 {
-	const dl_counts *c = dl_count_shown(NULL);
+	room_ctx *x = ctx;
+	const dl_counts *c = x->c;
 	char body[192], sz[24];
 	dl_sum s = { 0 };
 
-	(void)ctx;
 	if (key != IN_ACCEPT || sel < 0 || sel >= DLK_KINDS) return MENU_STAY;
 	if (sel == DLK_COVERS || sel == DLK_NAMES) {
 		result_message(a, kind_name((dl_kind)sel), sel == DLK_COVERS ? T(S_DOWNLOADS_COVER_WHERE) : T(S_DOWNLOADS_NAMES_STAY));
@@ -1793,7 +1796,7 @@ static menu_result room_key(app *a, void *ctx, in_button key, int sel)
 		if (confirm_panel(a, T(S_DOWNLOADS_DELETE_VIDEOS_ASK), body, T(S_DOWNLOADS_KEY_DELETE))) {
 			for (int i = 0; i < c->n; i++) snaps_delete(P_ROMS, c->s[i].folder);
 			dl_count_stale();
-			dl_count_again(a, NULL);
+			dl_count_again(a, c->only);
 			return MENU_CHANGED;
 		}
 	} else {
@@ -1801,7 +1804,7 @@ static menu_result room_key(app *a, void *ctx, in_button key, int sel)
 		if (confirm_panel(a, T(S_DOWNLOADS_DELETE_SETS_ASK), body, T(S_DOWNLOADS_KEY_DELETE))) {
 			delete_sets(c);
 			dl_count_stale();
-			dl_count_again(a, NULL);
+			dl_count_again(a, c->only);
 			return MENU_CHANGED;
 		}
 	}
@@ -1813,6 +1816,7 @@ static void on_the_card(dl_view *v)
 	static room_ctx x;
 
 	memset(&x, 0, sizeof x);
+	x.c = v->c;
 	menu_run(v->a, &(menu_style){ .accent = MENU_ZYPEROS }, room_build, room_key, &x);
 }
 
@@ -1830,7 +1834,7 @@ typedef struct {
 static int set_build(void *ctx, menu_row *rows, int max, const char **heading)
 {
 	set_ctx *s = ctx;
-	const dl_counts *c = dl_count_shown(NULL);
+	const dl_counts *c = s->v ? s->v->c : NULL;
 	unsigned long long room = 0;
 	int k;
 
@@ -2177,7 +2181,9 @@ static void download(dl_view *v, int only)
 {
 	if (dl_live()) {
 		uisound_play(DS_SOUND_ACCEPT);
-		if (!(v->art || v->ra)) run_rejoin(v);
+		/* a run this page does not follow yet (started elsewhere, or again) */
+		if ((dlq_running(DLQ_ART) && !v->art) || (dlq_running(DLQ_RA) && !v->ra) || (!v->art && !v->ra))
+			run_rejoin(v);
 		open_run(v);
 		return;
 	}
@@ -2819,11 +2825,13 @@ void downloads_shot(app *a)
 			static set_ctx s;
 
 			memset(&s, 0, sizeof s);
+			s.v = &v;
 			n = set_build(&s, rows, SET_ROWS, &h);
 		} else if (st == 19) {
 			static room_ctx r;
 
 			memset(&r, 0, sizeof r);
+			r.c = v.c;
 			n = room_build(&r, rows, 16, &h);
 		} else if (st == 20) {
 			static ra_ctx r;
@@ -2835,6 +2843,7 @@ void downloads_shot(app *a)
 			static vfor_ctx r;
 
 			memset(&r, 0, sizeof r);
+			r.c = v.c;
 			n = vfor_build(&r, rows, 16, &h);
 			sel = 1;
 		} else {
