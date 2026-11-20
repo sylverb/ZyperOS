@@ -2637,6 +2637,9 @@ static int run_session_inner(const diatom_session *sn)
 	/* frameskip=late: frames run late and left undrawn, and how many in a
 	 * row the last of them was. */
 	long     late_unshown = 0;
+	/* frameskip=late for a core paced by its sound: how far its turns' work
+	 * has fallen behind the sound they brought (the frame loop, below) */
+	double   sound_debt_us = 0.0;
 	int      late_row = 0;
 	/* frameskip=steady: frames still to go at every second one drawn, from
 	 * the last that started late */
@@ -3147,6 +3150,7 @@ static int run_session_inner(const diatom_session *sn)
 		power_drops = diatom_audio_dropped();
 		const uint64_t batch_t0 = diatom_port_now_us();
 		const uint64_t held0 = diatom_audio_held_pushes();
+		const uint64_t held_us0 = diatom_audio_held_us();
 		const double budget = periods * frame_us - FAST_MARGIN_US -
 		                      (g_present_frames ? (double)g_present_us /
 		                                          (double)g_present_frames
@@ -3213,8 +3217,19 @@ static int run_session_inner(const diatom_session *sn)
 			 * frame left undrawn costs the emulation thread as much as a
 			 * drawn one; it can only fall below late's where one undrawn in
 			 * two is not enough and late would leave out two. */
+			/* A core paced by its sound (paced_by_sound: PPSSPP, a PSP game
+			 * under frameskip|PSP|late) has a schedule made of the sound its
+			 * turns brought, and a turn whose push waited for room in a full
+			 * queue starts the next one past that schedule while the game is
+			 * ahead, not behind: against the stub as PPSSPP, two periods a
+			 * call at 2 ms, 46% of the frames looked late by the schedule.
+			 * So for such a core a frame is late by its work instead: the
+			 * time its turns took, less what their sound waited for room,
+			 * against the time their sound lasts (sound_debt_us, kept below
+			 * with the schedule), the game slower than its own sound. */
 			else if (!fast && sn->late_skip && diatom_env_frame_skippable()) {
-				const bool behind = (double)s0 > next_us + frame_us * 0.5;
+				const bool behind = sound_paced ? sound_debt_us > frame_us * 0.5
+				                                : (double)s0 > next_us + frame_us * 0.5;
 
 				if (sn->late_steady) {
 					if (behind) steady_left = STEADY_HOLD;
@@ -3623,6 +3638,7 @@ static int run_session_inner(const diatom_session *sn)
 					 * next second catching up. */
 					next_us = (double)diatom_port_now_us();
 					g_turn_sound = 0;
+					sound_debt_us = 0.0;
 					{
 						/* The window's clock restarts where the game's now is
 						 * (the menu's time is in paused_us), and the sound a
@@ -3701,6 +3717,18 @@ static int run_session_inner(const diatom_session *sn)
 		if (sound_paced && !fast && g_turn_sound) {
 			double us = (double)g_turn_sound * 1000000.0 / audio_rate;
 
+			/* The work's lateness, for frameskip=late (above): what this turn
+			 * took, less its sound's wait for room, past what its sound
+			 * lasts, carried; never below nothing (time spare is not banked)
+			 * and never more than four frames, the schedule's own stall rule */
+			{
+				const double busy = (double)(diatom_port_now_us() - batch_t0) -
+				                    (double)(diatom_audio_held_us() - held_us0);
+
+				sound_debt_us += busy - us;
+				if (sound_debt_us < 0.0) sound_debt_us = 0.0;
+				if (sound_debt_us > frame_us * 4.0) sound_debt_us = frame_us * 4.0;
+			}
 			next_us += us < frame_us * 4.0 ? us : frame_us * 4.0;
 			/* A turn whose sound waited for room (audio.c, HOLD) left the
 			 * queue full: the next one waits until it is back at its
