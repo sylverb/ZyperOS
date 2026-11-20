@@ -1782,8 +1782,15 @@ on the one playing; **Classic**, a big clock over bars that move with the music,
 and the album's tracks beside it; **Spectrum**, the music as 32 bars across
 the screen under the cover. A on it opens the list, with the
 look under the cursor playing in a small screen beside it; Left and Right
-change it straight away. Paused, the bars come to rest. Books and videos
-keep their own screen.
+change it straight away. START on a song's Now Playing changes it too, one
+look at a time. Paused, the bars come to rest. Books and videos keep their
+own screen.
+
+**View** shows the shelf as **Covers**, the covers in a row as it always
+was, as a **Grid** of covers, or as a **List** of names with the cover beside
+it, the way a game shelf's View does. START on the shelf turns between them,
+Covers to Grid to List. On All, each album, book or video is marked with
+what it is in every view.
 
 **Sort By** puts the shelf in order by artist, the way the folders are, or by
 album title, two of the same title going in their artists' order. The jump

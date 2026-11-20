@@ -1052,7 +1052,9 @@ void view_load(app *a)
 	for (int i = 0; i < a->sys.count; i++) {
 		a->view[i].listed = view_listed(a->sys.systems[i].tag);
 		a->view[i].grid = !a->view[i].listed && view_grid(a->sys.systems[i].tag);
-		a->view[i].video = !a->view[i].listed && !a->view[i].grid && view_video(a->sys.systems[i].tag);
+		/* Never MP4's (view_turn) */
+		a->view[i].video = !a->view[i].listed && !a->view[i].grid && view_video(a->sys.systems[i].tag) &&
+		                   !is_muse(&a->sys.systems[i]);
 		a->view[i].lm.set = false;
 		a->view[i].gm.set = false;
 		a->view[i].vm.set = false;
@@ -1077,7 +1079,10 @@ void view_turn(app *a, int sys, int dir)
 	sysview *v = &a->view[sys];
 	int k = view_index(v);
 
-	k = (k + (dir < 0 ? VIEW_COUNT - 1 : 1)) % VIEW_COUNT;
+	/* MP4's shelf has no Video view: an album has no snap to play
+	 * (DESIGN.md 11.67) */
+	do k = (k + (dir < 0 ? VIEW_COUNT - 1 : 1)) % VIEW_COUNT;
+	while (k == VIEW_VIDEO && is_muse(&a->sys.systems[sys]));
 	v->listed = k == VIEW_LIST;
 	v->grid = k == VIEW_GRID;
 	v->video = k == VIEW_VIDEO;
@@ -1928,7 +1933,8 @@ void grid_note(app *a, int s, int i, SDL_Surface *surf, bool generated)
 {
 	sysview *v = &a->view[s];
 
-	if (is_muse(&a->sys.systems[s]) || i < 0 || i >= v->list.count || !v->tex[i]) return;
+	/* MP4's shelf too, since it has the Grid (DESIGN.md 11.67) */
+	if (i < 0 || i >= v->list.count || !v->tex[i]) return;
 	gg_note(&v->gart, a->r, v->list.count, i, v->tex[i], gg_key(v->list.items[i].file),
 	        surf, generated);
 }
@@ -2156,12 +2162,13 @@ void shelf_put(void *ctx, texload_got *g)
 		ui_card_order card;
 		SDL_Surface *ground = NULL;
 
-		ui_card_order_set(&card, v->list.items[i].title, a->sys.systems[o].accent, false);
-		game_card_order(a, o, &v->list.items[i], &card);
-		v->tex[i] = is_muse(&a->sys.systems[s])
-		          ? ui_make_cover(a->r, v->list.items[i].title,
-		                          a->sys.systems[o].accent, &v->tw[i], &v->th[i])
-		          : v->list.items[i].folder
+		if (is_muse(&a->sys.systems[s])) {
+			muse_album_card_order(a, s, i, a->sys.systems[o].accent, &card);
+		} else {
+			ui_card_order_set(&card, v->list.items[i].title, a->sys.systems[o].accent, false);
+			game_card_order(a, o, &v->list.items[i], &card);
+		}
+		v->tex[i] = v->list.items[i].folder
 		          ? ui_make_folder_card(a->r, v->list.items[i].title,
 		                                look_folder_rgb(a->sys.systems[o].accent),
 		                                v->list.items[i].folder, &v->tw[i], &v->th[i])
