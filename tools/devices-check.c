@@ -370,7 +370,8 @@ static void builds(void)
 	ck(!strcmp(br->table, "gpt") && br->part_boot == 1 && br->part_root_a == 2 && br->part_root_b == 4 &&
 	   br->part_games == 5, "brick: GPT, boot 1, roots 2 and 4 (the Pixel 2's numbers), state 3, games 5");
 	ck(px->helpers == (DEV_HELPER_PORTKEYS | DEV_HELPER_ZYHOME | DEV_HELPER_UPDATE | DEV_HELPER_P2D |
-	                   DEV_HELPER_PORTS), "pixel2: portkeys, zyhome, System Update, Player 2, ports");
+	                   DEV_HELPER_PORTS | DEV_HELPER_P8FX),
+	   "pixel2: portkeys, zyhome, System Update, Player 2, ports, your PICO-8's shader library");
 	ck(br->helpers == (DEV_HELPER_UPDATE | DEV_HELPER_BTPLAYER | DEV_HELPER_BTALSA),
 	   "brick: System Update, btplayer and Bluetooth sound");
 }

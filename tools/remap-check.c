@@ -15,6 +15,7 @@
 #include "../src/db.h"
 #include "../src/i18n.h"
 #include "../src/library.h"
+#include "../src/p8pad.h"
 #include "../src/padglyph.h"
 #include "../src/remap.h"
 #include "../src/remapstore.h"
@@ -806,6 +807,49 @@ static int store_checks(void)
 	return 0;
 }
 
+/* Your PICO-8's buttons as SDL's mapping line (src/p8pad.h): the table of
+ * nothing changed is the line PICO-8.sh shipped fixed, to the byte; a swap,
+ * a button on None, two on one target, a turbo, the N64's layer */
+#define P8_SHIPS "190043d2010000000221000000010000,gkd_pixel2_joypad,a:b1,b:b0,x:b2,y:b3,back:b8," \
+                 "start:b9,leftshoulder:b4,rightshoulder:b5,dpup:b10,dpdown:b11,dpleft:b12," \
+                 "dpright:b13,lefttrigger:b6,righttrigger:b7,crc:d243,platform:Linux,"
+static void pico8_pad_line(void)
+{
+	char line[600], small[40];
+	rm_table t;
+
+	rm_identity(&t);
+	report(p8_pad_line(&t, line, sizeof line) && !strcmp(line, P8_SHIPS),
+	       "pico8 pad: nothing changed is the line that shipped (O on the B cap, X on the A cap)");
+	t = parsed("a:b,b:a");
+	p8_pad_line(&t, line, sizeof line);
+	report(strstr(line, ",a:b0,b:b1,x:b2,") != NULL, "pico8 pad: A and B swapped: O on the A cap");
+	t = parsed("start:none,select:start");
+	p8_pad_line(&t, line, sizeof line);
+	report(!strstr(line, "start:b9") && strstr(line, "back:") == NULL && strstr(line, "start:b8,") != NULL,
+	       "pico8 pad: START on None is on nothing, SELECT on the pause menu is");
+	t = parsed("y:b");
+	p8_pad_line(&t, line, sizeof line);
+	report(strstr(line, ",a:b1,a:b3,") != NULL && !strstr(line, "y:b3"), "pico8 pad: two buttons on O, both SDL's a");
+	t = parsed("x:a~3");
+	p8_pad_line(&t, line, sizeof line);
+	report(strstr(line, ",b:b0,b:b2,") != NULL, "pico8 pad: a turbo is the plain button");
+	t = parsed("l1:up");
+	p8_pad_line(&t, line, sizeof line);
+	report(strstr(line, "dpup:b10,dpup:b4,") != NULL && !strstr(line, "leftshoulder"),
+	       "pico8 pad: a button on Up, the d-pad's own Up kept");
+	t = parsed(N64_MAP);
+	report(p8_pad_line(&t, line, sizeof line) && !strchr(line, '+'), "pico8 pad: a layer is not sent");
+	rm_identity(&t);
+	report(!p8_pad_line(&t, small, sizeof small) && !small[0], "pico8 pad: a line that does not fit is none");
+	/* portkeys's pad (tools/pkvpad.h): its GUID and name, the same body,
+	 * no checksum */
+	p8_vpad_line(&t, line, sizeof line);
+	report(!strncmp(line, "06000000595a00000900000001000000,ZyperOS pad for PICO-8,a:b1,b:b0,x:b2,", 71) &&
+	       !strstr(line, "crc:") && strstr(line, ",dpright:b13,lefttrigger:b6,righttrigger:b7,platform:Linux,"),
+	       "pico8 pad: portkeys's pad's line, the joypad's body under its own GUID");
+}
+
 int main(void)
 {
 	printf("remap: the rules\n");
@@ -827,6 +871,7 @@ int main(void)
 	letters_per_system();
 	choices_dc();
 	choices_others();
+	pico8_pad_line();
 	printf("remap: kept on the card\n");
 	fails += store_checks();
 	if (fails) {

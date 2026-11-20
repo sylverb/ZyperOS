@@ -223,7 +223,18 @@ int gm_tab_rows(const gm_ui *u, gm_tab t, gm_row *ids)
 	/* Over a port: what a stopped program can still be asked, on no tabs */
 	if (u->port) {
 		ids[n++] = GM_CONTINUE;
+		if (u->port_display) ids[n++] = GM_DISPLAY;
+		if (u->port_hud) ids[n++] = GM_HUD;
+		/* Over your PICO-8, the Display tab's picture rows after those, in
+		 * its order, drawn by its shim (src/p8fx.h): Border where the mode
+		 * leaves room, Shader, and Strength under an old screen */
+		if (u->port_display) {
+			if (u->border) ids[n++] = GM_BORDER;
+			ids[n++] = GM_SHADER;
+			if (u->strength) ids[n++] = GM_STRENGTH;
+		}
 		ids[n++] = GM_CONTROLS;
+		if (u->port_reset) ids[n++] = GM_RESET;
 		ids[n++] = GM_QUIT;
 		return n;
 	}
@@ -374,7 +385,9 @@ int gm_rows(const gm_ui *u, gm_tab t, menu_row *out, gm_bufs *b)
 		/* Display steps round on left and right and on A; so do Shader,
 		 * the quick slot and the three for two screens. Strength steps
 		 * on left and right alone. Every other row is plain. */
-		b->sound[i] = ids[i] == GM_DISPLAY || ids[i] == GM_SHADER || ids[i] == GM_QUICK ||
+		/* Over a program (your PICO-8) Display only opens its list:
+		 * Left and Right step nothing, as a step would start it again */
+		b->sound[i] = (ids[i] == GM_DISPLAY && !u->port) || ids[i] == GM_SHADER || ids[i] == GM_QUICK ||
 		              ids[i] == GM_SCREENS || ids[i] == GM_DISC ||
 		              ids[i] == GM_SWAP || ids[i] == GM_STYLUS || ids[i] == GM_PAK ||
 		              ids[i] == GM_HUD || ids[i] == GM_BORDER || ids[i] == GM_BORDER_COLOR

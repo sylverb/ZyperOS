@@ -2287,6 +2287,73 @@ static void ingame_rows(void)
 	   "X is its Quit too, with the glyph");
 	ck(reachable(rows, n, got, GM_MAX_ROWS) == 3, "every row a stop");
 	ck(gm_tab_rows(&u, GT_DISPLAY, ids) == 3, "whichever tab it is asked for");
+	/* Over your PICO-8 (src/portmenu.h's port_menu_display): Display after
+	 * Continue, its value the mode, A its list and Left and Right nothing;
+	 * then the Display tab's picture rows its shim draws (src/p8fx.h):
+	 * Shader always, Border where the mode leaves room, Strength under an
+	 * old screen */
+	printf("in-game menu over your PICO-8:\n");
+	u.port_display = true;
+	u.dmode = "Actual Size";
+	n = gm_rows(&u, GT_GAME, rows, &b);
+	ck(n == 5 && gm_tab_rows(&u, GT_GAME, ids) == 5 && ids[0] == GM_CONTINUE && ids[1] == GM_DISPLAY &&
+	   ids[2] == GM_SHADER && ids[3] == GM_CONTROLS && ids[4] == GM_QUIT,
+	   "Continue, Display, Shader, Controls and Quit");
+	ck(!strcmp(rows[1].label, "Display") && rows[1].value && !strcmp(rows[1].value, "Actual Size"),
+	   "Display, its value the mode it draws");
+	ck(!(b.sound[1] & MENU_SND_RING), "Left and Right step nothing on it (no ring)");
+	ck(!strcmp(rows[2].label, "Shader") && rows[2].value && !strcmp(rows[2].value, "Off") &&
+	   (b.sound[2] & MENU_SND_RING), "Shader, Off, stepping round as over a game");
+	ck(rows[4].value == MENU_KEY_X && gm_row_at(&u, GT_GAME, gm_x_row()) == 4, "X is still Quit");
+	ck(reachable(rows, n, got, GM_MAX_ROWS) == 5, "every row a stop");
+	/* And On-Screen Stats after Display, as the Display tab's last row is
+	 * over a game: its words, On or Off, Left and Right turning it */
+	u.port_hud = true;
+	u.hud = true;
+	n = gm_rows(&u, GT_GAME, rows, &b);
+	ck(n == 6 && gm_tab_rows(&u, GT_GAME, ids) == 6 && ids[1] == GM_DISPLAY && ids[2] == GM_HUD &&
+	   ids[3] == GM_SHADER && ids[4] == GM_CONTROLS && ids[5] == GM_QUIT,
+	   "Continue, Display, On-Screen Stats, Shader, Controls and Quit");
+	ck(!strcmp(rows[2].label, "On-Screen Stats") && rows[2].value && !strcmp(rows[2].value, "On") &&
+	   (b.sound[2] & MENU_SND_RING), "On-Screen Stats, On, Left and Right turning it, as over a game");
+	u.hud = false;
+	gm_rows(&u, GT_GAME, rows, &b);
+	ck(rows[2].value && !strcmp(rows[2].value, "Off"), "Off when it is off");
+	ck(gm_row_at(&u, GT_GAME, gm_x_row()) == 5, "X still Quit");
+	/* With room round the picture and an old screen: Border before Shader
+	 * and Strength under it, after On-Screen Stats */
+	u.border = "Blur";
+	u.shader = "CRT";
+	u.strength = "70%";
+	n = gm_rows(&u, GT_GAME, rows, &b);
+	ck(n == 8 && gm_tab_rows(&u, GT_GAME, ids) == 8 && ids[0] == GM_CONTINUE && ids[1] == GM_DISPLAY &&
+	   ids[2] == GM_HUD && ids[3] == GM_BORDER && ids[4] == GM_SHADER && ids[5] == GM_STRENGTH &&
+	   ids[6] == GM_CONTROLS && ids[7] == GM_QUIT, "with room and an old screen: Continue, Display, "
+	   "On-Screen Stats, Border, Shader, Strength, Controls and Quit");
+	ck(!strcmp(rows[3].value, "Blur") && !strcmp(rows[4].value, "CRT") && !strcmp(rows[5].value, "70%"),
+	   "each its value");
+	ck(gm_row_at(&u, GT_GAME, gm_x_row()) == 7 && reachable(rows, n, got, GM_MAX_ROWS) == 8,
+	   "X still Quit, every row a stop");
+	u.port_hud = false;
+	n = gm_rows(&u, GT_GAME, rows, &b);
+	ck(n == 7 && gm_tab_rows(&u, GT_GAME, ids) == 7 && ids[2] == GM_BORDER && ids[3] == GM_SHADER &&
+	   ids[4] == GM_STRENGTH, "with no On-Screen Stats row: Border, Shader and Strength after Display");
+	/* ...and Reset before Quit, once it has drawn (port_resets), asked
+	 * first: every row over it, a stop like the rest */
+	u.port_hud = u.port_reset = true;
+	n = gm_rows(&u, GT_GAME, rows, &b);
+	ck(n == 9 && gm_tab_rows(&u, GT_GAME, ids) == 9 && ids[2] == GM_HUD && ids[6] == GM_CONTROLS &&
+	   ids[7] == GM_RESET && ids[8] == GM_QUIT, "with Reset: Continue, Display, On-Screen Stats, Border, "
+	   "Shader, Strength, Controls, Reset and Quit");
+	ck(!strcmp(rows[7].label, "Reset") && rows[7].live, "Reset, as a game's Game tab says it");
+	ck(gm_row_at(&u, GT_GAME, gm_x_row()) == 8 && reachable(rows, n, got, GM_MAX_ROWS) == 9,
+	   "X still Quit, after it, every row a stop, Reset too");
+	u.port_hud = u.port_reset = false;
+	u.border = NULL;
+	u.shader = NULL;
+	u.strength = NULL;
+	u.port_display = false;
+	ck(gm_tab_rows(&u, GT_GAME, ids) == 3, "and no Display, Border, Shader or Reset row over any other program");
 	u.port = false;
 }
 

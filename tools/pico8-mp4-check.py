@@ -312,13 +312,10 @@ def wait_for(cond, seconds=CEILING):
     return cond()
 
 
-def drawn_lines(log):
-    """Every string the launcher says it drew (src/ui.c's "fit: drawn: "),
-    wherever its line begins: on Linux with no sound card, ALSA's complaints
-    from the interface sounds' thread come out on the same stderr in pieces,
-    and one can land before it on its line (check-mp4resume's CI run of #406:
-    "ALSA lib confmisc.c:1342:(snd_func_refer) fit: drawn: Paused")"""
-    return [part.split('\n', 1)[0] for part in log.split('fit: drawn: ')[1:]]
+# Every string the launcher says it drew, wherever its line begins: the
+# reading the desk walks share (tools/deskwalk.py's drawn_lines; ALSA's lines
+# on a runner with no sound card can come first on a drawn string's line)
+drawn_lines = module('deskwalk', ROOT / 'tools/deskwalk.py').drawn_lines
 
 
 def hand_text(card, pos):

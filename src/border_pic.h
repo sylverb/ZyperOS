@@ -63,6 +63,11 @@ bool border_choose(app *a, int sys, int d, bool room);
  * is black (SETBORDER with nothing). */
 void border_send(app *a, int sys);
 
+/* `s`, ARGB8888 at the surface's size, written to `path` as a DTOV file
+ * (Diatom's overlay format, which Diatom's Border and your PICO-8's shim
+ * read): true when it is there whole */
+bool border_write_dtov(SDL_Surface *s, const char *path);
+
 /* The player's own picture for `s` at the surface's size, for a list's
  * picture: made once and kept while its file is the same (the list's
  * picture draws it many times). NULL for none; `path` its file, "" none. */
