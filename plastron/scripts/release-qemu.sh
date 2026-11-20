@@ -5,13 +5,20 @@
 # runs that release in QEMU and in ZyperOS's Simulator (ZyperOS's
 # docs/qemu.md). Into /work/release, beside the devices' files:
 #
-#   ZyperOS-v<version>-qemu.tar.xz   sdcard.img, Image and u-boot.bin, what
-#                                    ZyperOS's tools/qemu-run.sh boots
+#   ZyperOS-v<version>-qemu.tar.xz           sdcard.img, Image and u-boot.bin,
+#                                            what ZyperOS's tools/qemu-run.sh
+#                                            boots
+#   ZyperOS-v<version>-qemu-sources.tar      the sources of what only the
+#                                            QEMU image has: px2sim, the
+#                                            kernel's and U-Boot's QEMU
+#                                            configuration (scripts/
+#                                            qemu-sources.sh); the rest are
+#                                            the Pixel 2's sources tar's
 #
-# ZyperOS's tools/release.sh puts it on the release with its sha256 in
-# SHA256SUMS, and tools/qemu-run.sh fetch downloads it by that. This build's
-# legal-info stays in its output folder, with U-Boot's and Buildroot's
-# sources added as scripts/release.sh adds them to the Pixel 2's.
+# ZyperOS's tools/release.sh puts both on the release with their sha256 in
+# SHA256SUMS, and tools/qemu-run.sh fetch downloads the image by that. This
+# build's whole legal-info stays in its output folder, with U-Boot's and
+# Buildroot's sources added as scripts/release.sh adds them to the Pixel 2's.
 #
 # The image carries no SSH key and no private key of any kind: root's key
 # comes from QEMU at every boot (board/qemu/post-build.sh), and the host keys
@@ -21,6 +28,7 @@ set -eu
 
 VERSION=${1:?usage: release-qemu.sh VERSION}
 NAME=ZyperOS-v$VERSION-qemu.tar.xz
+SOURCES_NAME=ZyperOS-v$VERSION-qemu-sources.tar
 OUTPUT=/work/release-output-qemu
 RELEASE=/work/release
 SOURCES=$OUTPUT/legal-info/sources
@@ -83,4 +91,7 @@ rm -f "$RELEASE/$NAME"
 tar -C "$STAGE" --owner=0 --group=0 --numeric-owner -cf - sdcard.img Image u-boot.bin |
 	xz -T0 -9 > "$RELEASE/$NAME"
 rm -rf "$STAGE"
-ls -l "$RELEASE/$NAME"
+# Its sources beside it, read back from the tar: px2sim's files, the QEMU
+# kernel's and U-Boot's configuration
+sh /src/scripts/qemu-sources.sh "$VERSION" "$OUTPUT/legal-info" /src "$RELEASE/$SOURCES_NAME"
+ls -l "$RELEASE/$NAME" "$RELEASE/$SOURCES_NAME"

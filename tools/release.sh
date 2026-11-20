@@ -47,8 +47,11 @@
 #
 # A release (not a kit) also carries QEMU's image of it,
 # ZyperOS-v<VERSION>-qemu.tar.xz (plastron's make release-qemu, built beside
-# the devices' images, from empty, with no SSH key in it), its sha256 in
-# SHA256SUMS: tools/qemu-run.sh fetch downloads the latest release's, so the
+# the devices' images, from empty, with no SSH key in it), and
+# ZyperOS-v<VERSION>-qemu-sources.tar, the sources of what only the QEMU
+# image has (px2sim, the kernel's and U-Boot's QEMU configuration; the rest
+# are the Pixel 2's sources tar's, which tools/qemu-sources-check.sh makes
+# sure of), their sha256 in SHA256SUMS: tools/qemu-run.sh fetch downloads the latest release's, so the
 # Simulator runs without plastron's build (docs/qemu.md). --no-qemu leaves
 # it out, and fetch then finds none in that release. Before publishing,
 # ZYPEROS_QEMU_RELEASE_URL=file://$PWD/out/release/v<VERSION>
@@ -145,9 +148,17 @@ fi
 # QEMU's image of the release (see the top): none in a kit, which fetch never
 # takes (it reads the latest release)
 qemu_image() { echo "ZyperOS-$TAG-qemu.tar.xz"; }
+qemu_sources() { echo "ZyperOS-$TAG-qemu-sources.tar"; }
 QEMU_FILES="Image sdcard.img u-boot.bin "
 [ -z "$KIT" ] || QEMU=0
-[ $QEMU = 0 ] || RELEASE_FILES="$RELEASE_FILES $(qemu_image)"
+[ $QEMU = 0 ] || RELEASE_FILES="$RELEASE_FILES $(qemu_image) $(qemu_sources)"
+# Its sources and the Pixel 2's together hold every package's (in $OUT)
+qemu_sources_check() {
+	[ -s "$(qemu_sources)" ] || stop "no $(qemu_sources)"
+	[ -s "$(sources pixel2)" ] || stop "the QEMU image's sources go with the Pixel 2's, and there is no $(sources pixel2)"
+	sh "$ROOT/tools/qemu-sources-check.sh" "$(qemu_sources)" "$(sources pixel2)" ||
+		stop "$(qemu_image)'s packages lack sources (tools/qemu-sources-check.sh)"
+}
 
 say() { printf '\n== %s\n' "$*"; }
 stop() { echo "release.sh: $*" >&2; exit 1; }
@@ -322,9 +333,12 @@ if [ $BUILT = 1 ]; then
 		done
 	done
 	if [ $QEMU = 1 ]; then
-		awk -v f="$(qemu_image)" '$2 == f { found = 1 } END { exit !found }' SHA256SUMS ||
-			stop "$OUT's SHA256SUMS has no $(qemu_image) (--no-qemu publishes without it)"
+		for f in $(qemu_image) $(qemu_sources); do
+			awk -v f="$f" '$2 == f { found = 1 } END { exit !found }' SHA256SUMS ||
+				stop "$OUT's SHA256SUMS has no $f (--no-qemu publishes without it)"
+		done
 		xz -t "$(qemu_image)"
+		qemu_sources_check
 	fi
 	publish
 	exit 0
@@ -390,7 +404,7 @@ if [ -n "$QEMU_PID" ]; then
 	pid=$QEMU_PID
 	QEMU_PID=
 	wait "$pid" || { tail -30 "$QEMU_LOG"; stop "QEMU's image did not build (its log: $QEMU_LOG); --no-qemu releases without it"; }
-	GET="$GET $(qemu_image)"
+	GET="$GET $(qemu_image) $(qemu_sources)"
 fi
 rm -rf "$OUT"
 mkdir -p "$OUT"
@@ -433,6 +447,7 @@ if [ $QEMU = 1 ]; then
 	xz -t "$(qemu_image)"
 	[ "$(tar -tf "$(qemu_image)" | LC_ALL=C sort | tr '\n' ' ')" = "$QEMU_FILES" ] ||
 		stop "$(qemu_image) holds other files than $QEMU_FILES, which fetch takes"
+	qemu_sources_check
 fi
 shasum -a 256 $RELEASE_FILES $UPDATE_FILES > SHA256SUMS
 printf 'ZyperOS %s (%s), plastron/ included\n' "$VERSION" "$HEAD" > BUILT-FROM

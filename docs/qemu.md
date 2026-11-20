@@ -60,7 +60,13 @@ alone.
 A release carries its QEMU image beside the devices' images
 ([releases/README.md](releases/README.md)): `tools/release.sh` builds it
 with them (plastron's `make release-qemu`, from an empty output folder, as
-theirs are) and puts its sha256 in `SHA256SUMS`. The build stops if any key
+theirs are) and puts its sha256 in `SHA256SUMS`, beside
+`ZyperOS-v<version>-qemu-sources.tar`: the sources of what only the QEMU
+image has, px2sim and the kernel's and U-Boot's configuration for QEMU
+(plastron's `scripts/qemu-sources.sh`). Every other package's source is in
+the Pixel 2's sources tar, at the same version, and
+`tools/qemu-sources-check.sh` stops the release if a package under a
+copyleft license has its source in neither. The build stops if any key
 of any kind is in the image's root filesystem (plastron's
 `scripts/qemu-key-check.sh`). Before publishing,
 `ZYPEROS_QEMU_RELEASE_URL=file://$PWD/out/release/v<version> tools/qemu-run.sh fetch`
