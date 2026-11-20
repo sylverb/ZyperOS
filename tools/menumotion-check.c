@@ -16,8 +16,8 @@
  *   - a press on a screen still waiting for the panel before it to leave
  *     ends that leave, and its own panel, at rest, is then the one on
  *     screen: what leaves next is the panel the press left there;
- *   - Muse's shelf takes a menu's panel off over itself and gives it back,
- *     and MENU in Muse's menu, which closes only that menu, brings the
+ *   - MP4's shelf takes a menu's panel off over itself and gives it back,
+ *     and MENU in MP4's menu, which closes only that menu, brings the
  *     screen under it back;
  *   - a held d-pad, a press every REPEAT_RATE_MS (src/keyrepeat.h's, read by
  *     the Makefile), puts the panel at rest once and starts nothing over;
@@ -156,7 +156,7 @@ int main(void)
 	const unsigned Q = DS_MS_QUICK, X = DS_MS_EXIT;
 	unsigned t;
 	mm_frame f;
-	int top, sub, deep, muse, ok;
+	int top, sub, deep, mp4, ok;
 
 	/* ---- opened on the shelf ---- */
 	mm_reset();
@@ -365,12 +365,12 @@ int main(void)
 	   "a press on a panel arriving: it is at rest, and on screen as it was");
 	ck(mm_settle(0, 1030, 3) == 3, "a press on the shelf changes nothing on screen");
 
-	/* ---- Muse's shelf ---- */
+	/* ---- MP4's shelf ---- */
 	mm_reset();
 	top = mm_open(1000, false);
 	mm_press(top);
-	muse = mm_base(5000, true);
-	ck(muse == 2, "Muse's shelf is a level of its own");
+	mp4 = mm_base(5000, true);
+	ck(mp4 == 2, "MP4's shelf is a level of its own");
 	f = mm_leaving(5000 + X / 2);
 	ck(leaving(f.before, 0.5f) && near(f.scrim, f.before.alpha),
 	   "and takes the menu's panel off over itself, with the scrim");
@@ -381,30 +381,30 @@ int main(void)
 	mm_press(sub);
 	mm_close(sub, 6000, sub, false);
 	ck(mm_leaving(6000).moving, "and leaves over it with the scrim");
-	mm_close(muse, 7000, 0, false);
+	mm_close(mp4, 7000, 0, false);
 	f = mm_at(top, 7000);
 	ck(mm_depth() == 1 && f.panel.alpha == 0.0f && f.scrim == 0.0f && f.before.alpha == 0.0f &&
 	   !mm_leaving(7000).moving,
 	   "closed, it gives the menu back as it opened, scrim and all");
 	ck(at_rest(mm_at(top, 7000 + Q)), "which is at rest at quick");
 
-	/* MENU in Muse's menu, over its tracks, closes that menu alone */
+	/* MENU in MP4's menu, over its tracks, closes that menu alone */
 	mm_reset();
-	muse = mm_base(1000, false);
+	mp4 = mm_base(1000, false);
 	top = mm_open(1100, false);
 	mm_press(top);
 	sub = mm_open(2000, true);
 	mm_press(sub);
 	mm_close(sub, 3000, sub, true);
-	ck(at_rest(mm_at(top, 3000 + X / 2)), "MENU in Muse's menu brings nothing back by itself");
+	ck(at_rest(mm_at(top, 3000 + X / 2)), "MENU in MP4's menu brings nothing back by itself");
 	mm_return(top, 3000, sub);
 	f = mm_at(top, 3000);
 	ck(mm_depth() == top && f.before.alpha == 1.0f && f.panel.alpha == 0.0f && f.scrim == 1.0f,
 	   "but where it stops, the tracks come back after the menu's panel leaves");
 	ck(at_rest(mm_at(top, 3000 + X + Q)), "at rest at exit and quick");
-	mm_return(muse, 4000, 0);
-	ck(mm_depth() == muse && !mm_leaving(4000).moving,
-	   "and stopping at Muse's shelf brings nothing back");
+	mm_return(mp4, 4000, 0);
+	ck(mm_depth() == mp4 && !mm_leaving(4000).moving,
+	   "and stopping at MP4's shelf brings nothing back");
 
 	/* ---- the stack's edges ---- */
 	mm_reset();

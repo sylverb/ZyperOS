@@ -7,7 +7,7 @@
 #include <SDL.h>
 
 /* A video snap's pictures, the launcher's half: the newest one the daemon
- * put in the snap's frames (src/snapframe.h, written by src/muse/snap.c), as
+ * put in the snap's frames (src/snapframe.h, written by src/mp4d/snap.c), as
  * a YUV texture, the way src/mp4video.c reads MP4's. Apart from that file so
  * the two can be on screen at once and neither ever shows the other's.
  *

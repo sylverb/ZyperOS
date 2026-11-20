@@ -381,11 +381,11 @@ static void update_screen_body(app *a)
 		if (plat_now_ms() - notes_at > 1000) { nnotes = up_notes(notes); notes_at = plat_now_ms(); }
 
 		plat_input_poll(&a->in);
-		muse_poll();
+		mp4_poll();
 		aout_apply(false);
 		if (a->in.quit_requested) { a->running = false; return; }
 		if (a->in.pressed[IN_POWER] || idle_due(a)) { power_off(a); return; }
-		if (a->in.pressed[IN_SELECT]) muse_open(a, NULL, NULL);
+		if (a->in.pressed[IN_SELECT]) mp4_open(a, NULL, NULL);
 		if (in_repeat(&a->in, IN_VOLUP))    plat_volume_nudge(+1);
 		if (in_repeat(&a->in, IN_VOLDN))    plat_volume_nudge(-1);
 		if (in_repeat(&a->in, IN_BRIGHTUP)) plat_brightness_nudge(+1);

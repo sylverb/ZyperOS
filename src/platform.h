@@ -460,7 +460,7 @@ void plat_brightness_set(int level);
 int  plat_brightness_raw(int level);
 
 /* The panel's backlight off or on, leaving the brightness level as it was -
- * Muse's pocket lock. Off is the display engine's own switch, not a black
+ * MP4's pocket lock. Off is the display engine's own switch, not a black
  * frame: measured 2026-09-30, it takes a book playing from about 470 mA to
  * 300, where a dark picture would leave the light burning. On comes back at
  * the level it had. Nothing on the host. */

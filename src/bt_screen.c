@@ -6,7 +6,7 @@
 #include "bt_menu.h"
 #include "design.h"
 #include "menu.h"
-#include "musec.h"
+#include "mp4c.h"
 #include "panel.h"
 #include "ui.h"
 #include "uisound.h"
@@ -35,7 +35,7 @@
  * most - until launch.sh has published it and the sound has reached it, so
  * the headset about to be bumped is not pulled out from under the song. Doing
  * that first sent every switch through the speaker: the old headset went,
- * Muse's write failed, it fell back, and only then was it moved - seen
+ * MP4's write failed, it fell back, and only then was it moved - seen
  * 2026-09-26. Routing keeps running while it waits, which is what moves it. */
 static void bt_await_route(const char *mac)
 {
@@ -46,10 +46,10 @@ static void bt_await_route(const char *mac)
 	snprintf(want, sizeof want, "bt_%s", mac);
 	for (i = 3; want[i]; i++) if (want[i] == ':') want[i] = '_';
 	while ((int)(until - plat_now_ms()) > 0) {
-		muse_poll();
+		mp4_poll();
 		aout_apply(false);
 		if (!strcasecmp(aout_bt_sink(), want) &&
-		    (!musec_heard() || !strcasecmp(musec_sink_now(), want)))
+		    (!mp4c_heard() || !strcasecmp(mp4c_sink_now(), want)))
 			return;
 		SDL_Delay(50);
 	}
@@ -92,12 +92,12 @@ void bt_screen(app *a)
 		                      BT_VISIBLE);
 
 		plat_input_poll(&a->in);
-		muse_poll();                        /* see menu_run_body */
+		mp4_poll();                        /* see menu_run_body */
 		aout_apply(false);
 		if (a->in.quit_requested) { a->running = false; return; }
 		if (a->in.pressed[IN_POWER] || idle_due(a)) { power_off(a); return; }
 		if (menu_leaving(a)) done = true;
-		if (a->in.pressed[IN_SELECT]) muse_open(a, NULL, NULL);
+		if (a->in.pressed[IN_SELECT]) mp4_open(a, NULL, NULL);
 
 		/* sel runs 0 to u.n: the devices, then the row after them */
 		if (in_repeat(&a->in, IN_DOWN)) sel = list_step_heard(a, IN_DOWN, u.n + 1, sel);
@@ -181,7 +181,7 @@ void bt_screen(app *a)
 							note_until = now + 4000;
 						} else {
 							/* A PCM for the new bond. The emulator and
-							 * Muse already running see it at their next
+							 * MP4 already running see it at their next
 							 * open - see bt.h. */
 							bt_asoundrc(P_ROOT, P_USERDATA);
 						}

@@ -1,4 +1,4 @@
-# MENU: the ZyperOS menu, a shelf's system menu and Muse's (src/sys_menu.c),
+# MENU: the ZyperOS menu, a shelf's system menu and MP4's (src/sys_menu.c),
 # in the order the rows are listed, then the pages under Scraper. Language's
 # row is language.txt's; on, off and needs Wi-Fi are menu.txt's.
 
@@ -867,10 +867,10 @@ de = Ordner neu einlesen
 ja = フォルダを再スキャン
 it = Ripeti scansione cartella
 
-# ---- Muse's shelf menu (MP4: music, audiobooks, videos) ---------------------
+# ---- MP4's shelf menu (music, audiobooks, videos) ---------------------------
 
-[sysmenu.muse_books]
-note = Muse's menu: how many books the shelf has
+[sysmenu.mp4_books]
+note = MP4's menu: how many books the shelf has
 en = Books
 zh-Hans = 书籍
 es = Libros
@@ -880,8 +880,8 @@ de = Hörbücher
 ja = 本
 it = Libri
 
-[sysmenu.muse_videos]
-note = Muse's menu: how many videos; also Show's value
+[sysmenu.mp4_videos]
+note = MP4's menu: how many videos; also Show's value
 en = Videos
 zh-Hans = 视频
 es = Videos
@@ -891,8 +891,8 @@ de = Videos
 ja = 動画
 it = Video
 
-[sysmenu.muse_albums]
-note = Muse's menu: how many albums
+[sysmenu.mp4_albums]
+note = MP4's menu: how many albums
 en = Albums
 zh-Hans = 专辑
 es = Álbumes
@@ -902,8 +902,8 @@ de = Alben
 ja = アルバム
 it = Album
 
-[sysmenu.muse_show]
-note = Muse's menu row: which kind of the card's files the shelf shows
+[sysmenu.mp4_show]
+note = MP4's menu row: which kind of the card's files the shelf shows
 en = Show
 zh-Hans = 显示
 es = Mostrar
@@ -913,7 +913,7 @@ de = Anzeigen
 ja = 表示
 it = Mostra
 
-[sysmenu.muse_all]
+[sysmenu.mp4_all]
 note = Show's value: every kind of the card's files on one shelf, albums, audiobooks and videos mixed
 en = All
 zh-Hans = 全部
@@ -924,8 +924,8 @@ de = Alle
 ja = すべて
 it = Tutto
 
-[sysmenu.muse_total]
-note = Muse's menu, when Show is All: how many albums, audiobooks and videos there are together
+[sysmenu.mp4_total]
+note = MP4's menu, when Show is All: how many albums, audiobooks and videos there are together
 en = Total
 zh-Hans = 总计
 es = Total
@@ -935,7 +935,7 @@ de = Gesamt
 ja = 合計
 it = Totale
 
-[sysmenu.muse_audiobooks]
+[sysmenu.mp4_audiobooks]
 note = Show's value
 en = Audiobooks
 zh-Hans = 有声书
@@ -946,7 +946,7 @@ de = Hörbücher
 ja = オーディオブック
 it = Audiolibri
 
-[sysmenu.muse_music]
+[sysmenu.mp4_music]
 note = Show's value
 en = Music
 zh-Hans = 音乐
@@ -957,7 +957,7 @@ de = Musik
 ja = 音楽
 it = Musica
 
-[sysmenu.muse_author]
+[sysmenu.mp4_author]
 note = Sort By's value on the books shelf
 en = Author
 zh-Hans = 作者
@@ -968,7 +968,7 @@ de = Autor
 ja = 著者
 it = Autore
 
-[sysmenu.muse_folder]
+[sysmenu.mp4_folder]
 note = Sort By's value on the videos shelf
 en = Folder
 zh-Hans = 文件夹
@@ -979,7 +979,7 @@ de = Ordner
 ja = フォルダ
 it = Cartella
 
-[sysmenu.muse_artist]
+[sysmenu.mp4_artist]
 note = Sort By's value on the music shelf
 en = Artist
 zh-Hans = 艺人
@@ -990,8 +990,8 @@ de = Künstler
 ja = アーティスト
 it = Artista
 
-[sysmenu.muse_shuffle]
-note = Muse's menu row: play every song in a random order
+[sysmenu.mp4_shuffle]
+note = MP4's menu row: play every song in a random order
 en = Shuffle All
 zh-Hans = 全部随机播放
 es = Todo aleatorio
@@ -1001,7 +1001,7 @@ de = Alle zufällig
 ja = すべてシャッフル
 it = Riproduzione casuale
 
-[sysmenu.muse_look]
+[sysmenu.mp4_look]
 note = MP4's menu row on the music shelf: how Now Playing draws a song (Cover, Classic, Spectrum...); A opens the list, its picture the look under the cursor playing
 en = Player Look
 zh-Hans = 播放器外观
@@ -1122,8 +1122,8 @@ de = Der Klang als 32 Balken über den ganzen Bildschirm, unter dem Cover.
 ja = 音を画面いっぱいの 32 本のバーで表示します。ジャケットはその上に表示します。
 it = Il suono in 32 barre su tutto lo schermo, sotto la copertina.
 
-[sysmenu.muse_lock]
-note = Muse's menu row: turn the screen off and keep the music playing
+[sysmenu.mp4_lock]
+note = MP4's menu row: turn the screen off and keep the music playing
 en = Lock Screen
 zh-Hans = 锁屏
 es = Bloquear pantalla
@@ -1133,8 +1133,8 @@ de = Bildschirmsperre
 ja = 画面ロック
 it = Blocca schermo
 
-[sysmenu.muse_repeat]
-note = MP4's menu row on the shelves with videos (Videos, All): play videos again. Its values are Off (as before: each once), muse_repeat_one and muse_repeat_all
+[sysmenu.mp4_repeat]
+note = MP4's menu row on the shelves with videos (Videos, All): play videos again. Its values are Off (as before: each once), mp4_repeat_one and mp4_repeat_all
 en = Repeat
 zh-Hans = 重复播放
 es = Repetir
@@ -1144,7 +1144,7 @@ de = Wiederholen
 ja = リピート
 it = Ripeti
 
-[sysmenu.muse_repeat_one]
+[sysmenu.mp4_repeat_one]
 note = Repeat's value: the video playing, again and again (a video: masculine in es, pt-BR, it; feminine in fr). Begun with a capital
 en = One
 zh-Hans = 单个
@@ -1155,7 +1155,7 @@ de = Eins
 ja = 1本
 it = Uno
 
-[sysmenu.muse_repeat_all]
+[sysmenu.mp4_repeat_all]
 note = Repeat's value: every video in its folder, then round again (videos: masculine in es, pt-BR, it; feminine in fr). Begun with a capital
 en = All
 zh-Hans = 全部
@@ -1166,7 +1166,7 @@ de = Alle
 ja = すべて
 it = Tutti
 
-[sysmenu.muse_quit]
+[sysmenu.mp4_quit]
 note = MP4's menu row, its last, with X's glyph at its right (X does it from any row): leave MP4 for the screen it was opened from, as SELECT does; what plays keeps playing. The in-game menu's Quit (gamemenu.quit), the same word
 en = Quit
 zh-Hans = 退出
@@ -1177,7 +1177,7 @@ de = Beenden
 ja = 終了
 it = Esci
 
-[sysmenu.muse_lock_when]
+[sysmenu.mp4_lock_when]
 note = Lock Screen's value while nothing plays: it only works while music plays. Begun with a capital.
 en = While playing
 zh-Hans = 播放时可用
@@ -1188,8 +1188,8 @@ de = Bei Wiedergabe
 ja = 再生中のみ
 it = Solo con musica
 
-[sysmenu.muse_art]
-note = Muse's menu row: fetch album covers. tight: its value may be "needs Wi-Fi"
+[sysmenu.mp4_art]
+note = MP4's menu row: fetch album covers. tight: its value may be "needs Wi-Fi"
 en = Album Art
 zh-Hans = 专辑封面
 es = Portadas

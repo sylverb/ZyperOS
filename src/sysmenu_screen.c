@@ -8,8 +8,8 @@
 
 #include "aout_route.h"
 #include "eq.h"
-#include "muselib.h"
-#include "musec.h"
+#include "mp4lib.h"
+#include "mp4c.h"
 #include "audioout.h"
 #include "dslang.h"
 #include "pacing.h"
@@ -156,7 +156,7 @@ static eq_out eq_out_now(void);
 /* ---------- option rows' choices (menu.h's menu_choice, DESIGN.md 9) ------ */
 
 /* Each option row of more than two choices in MENU, a system's menu and the
- * Muse shelf, and the Muse shelf's Sort By (two A did not turn), as their
+ * MP4 shelf, and the MP4 shelf's Sort By (two A did not turn), as their
  * key handlers step them: in the order Left and Right go, so the runner
  * applies a choice by sending them. The words live here until the next
  * build. */
@@ -166,7 +166,7 @@ typedef struct {
 	char buf[CH_MAX][48];
 } ch_pool;
 
-static menu_choice g_pm_choice[PM_ROWS], g_sm_choice[SM_ROWS], g_smm_choice[SM_MUSE_ROWS];
+static menu_choice g_pm_choice[PM_ROWS], g_sm_choice[SM_ROWS], g_smm_choice[SM_MP4_ROWS];
 /* Recents' Card Picture (DESIGN.md 11.48) */
 static menu_choice g_pic_choice;
 
@@ -469,15 +469,15 @@ static void smm_look_preview(void *app_, int k, int x, int y, int w, int h)
 /* MP4's Repeat, videos' own mode (src/sys_menu.h): its values in the row's
  * order, Off first, which is how videos played before it */
 static const muq_mode REPEAT_MODE[3] = { MUQ_IN_ORDER, MUQ_REPEAT_ONE, MUQ_REPEAT_ALL };
-static const str_id REPEAT_TEXT[3] = { S_MENU_OFF_TITLE, S_SYSMENU_MUSE_REPEAT_ONE,
-                                       S_SYSMENU_MUSE_REPEAT_ALL };
+static const str_id REPEAT_TEXT[3] = { S_MENU_OFF_TITLE, S_SYSMENU_MP4_REPEAT_ONE,
+                                       S_SYSMENU_MP4_REPEAT_ALL };
 
 static int repeat_at(void)
 {
 	int i;
 
 	for (i = 0; i < 3; i++)
-		if (REPEAT_MODE[i] == musec_video_mode()) return i;
+		if (REPEAT_MODE[i] == mp4c_video_mode()) return i;
 	return 0;
 }
 
@@ -526,19 +526,19 @@ static void menu_choices(app *a, int sys, bool games)
 		const system_cfg *sc = &a->sys.systems[sys];
 		sysview *v = &a->view[sys];
 
-		if (is_muse(sc)) {
+		if (is_mp4(sc)) {
 			/* Show: the kinds the card has, then All, round (ML_ALL is
 			 * the number after the three) */
-			static const int show_text[ML_ALL + 1] = { S_SYSMENU_MUSE_MUSIC, S_SYSMENU_MUSE_AUDIOBOOKS,
-			                                           S_SYSMENU_MUSE_VIDEOS, S_SYSMENU_MUSE_ALL };
+			static const int show_text[ML_ALL + 1] = { S_SYSMENU_MP4_MUSIC, S_SYSMENU_MP4_AUDIOBOOKS,
+			                                           S_SYSMENU_MP4_VIDEOS, S_SYSMENU_MP4_ALL };
 
 			for (i = 0, n = 0, cur = 0; i <= ML_ALL; i++) {
-				if (!ml_count_kind(&g_muse, (ml_kind)i)) continue;
-				if (i == (int)muse_kind_shown()) cur = n;
+				if (!ml_count_kind(&g_mp4, (ml_kind)i)) continue;
+				if (i == (int)mp4_kind_shown()) cur = n;
 				P[0].lab[n++] = T(show_text[i]);
 			}
 			g_smm_choice[SMM_SHOW] = ch_make(&P[0], n, cur, false);
-			for (i = 0; i < ML_ORDERS; i++) P[1].lab[i] = ml_order_label_kind((ml_order)i, muse_kind_shown());
+			for (i = 0; i < ML_ORDERS; i++) P[1].lab[i] = ml_order_label_kind((ml_order)i, mp4_kind_shown());
 			g_smm_choice[SMM_SORT] = ch_make(&P[1], ML_ORDERS, v->sort, false);
 			/* View: Covers, Grid, List, in START's order (view_turn); an
 			 * album has no snap for a Video view */
@@ -801,11 +801,11 @@ int menu_build(app *a, screen_id screen, int sys,
 		/* By what it HAS, not by its name or its position: a shelf with no
 		 * core and no folder is the built one, and a check can hand that
 		 * over without inventing a flag day. */
-		u.muse       = is_muse(sc);
+		u.mp4       = is_mp4(sc);
 		u.coll       = sys == shelf_coll_at(a);
 		u.recents    = sys == shelf_recents_at(a);
 		u.recents_screen = u.recents && g_recents_screen;
-		u.fav        = !u.muse && !u.coll && sc->core[0] == '\0' && sc->folder[0] == '\0';
+		u.fav        = !u.mp4 && !u.coll && sc->core[0] == '\0' && sc->folder[0] == '\0';
 		if (u.coll) {
 			const sysview *cv = &a->view[sys];
 
@@ -829,16 +829,16 @@ int menu_build(app *a, screen_id screen, int sys,
 		u.listed     = a->view[sys].listed;
 		u.grid       = a->view[sys].grid;
 		u.video      = a->view[sys].video;
-		u.muse_books = u.muse && muse_books_shown();
-		u.muse_videos = u.muse && muse_kind_shown() == ML_VIDEOS;
-		u.muse_all   = u.muse && muse_kind_shown() == ML_ALL;
-		u.muse_songs = u.muse && ml_count_kind(&g_muse, ML_MUSIC) > 0;
-		u.muse_both  = u.muse && muse_kinds() > 1;
-		u.muse_playing = u.muse && lock_allowed();
-		u.muse_look  = u.muse ? look_label(np_look()) : NULL;
-		u.muse_repeat = u.muse ? T(REPEAT_TEXT[repeat_at()]) : NULL;
+		u.mp4_books = u.mp4 && mp4_books_shown();
+		u.mp4_videos = u.mp4 && mp4_kind_shown() == ML_VIDEOS;
+		u.mp4_all   = u.mp4 && mp4_kind_shown() == ML_ALL;
+		u.mp4_songs = u.mp4 && ml_count_kind(&g_mp4, ML_MUSIC) > 0;
+		u.mp4_both  = u.mp4 && mp4_kinds() > 1;
+		u.mp4_playing = u.mp4 && lock_allowed();
+		u.mp4_look  = u.mp4 ? look_label(np_look()) : NULL;
+		u.mp4_repeat = u.mp4 ? T(REPEAT_TEXT[repeat_at()]) : NULL;
 		u.eq         = eq_preset_name(eq_preset_get(eq_out_now()));
-		u.sort       = u.muse ? ml_order_label_kind((ml_order)a->view[sys].sort, muse_kind_shown())
+		u.sort       = u.mp4 ? ml_order_label_kind((ml_order)a->view[sys].sort, mp4_kind_shown())
 		                      : sort_label(a->view[sys].sort);
 	} else {
 		aout_state ao = aout_now();
@@ -2024,23 +2024,23 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 	(void)ctx;
 
 	if (a->screen == SCREEN_GAMES) {
-		/* Muse's menu is its own rows - see SM_MUSE_ROWS - and which is
+		/* MP4's menu is its own rows - see SM_MP4_ROWS - and which is
 		 * where depends on what its shelf shows, so the enum's row numbers
-		 * below mean nothing on it: sys_menu_muse_rows says. Sort By goes on
+		 * below mean nothing on it: sys_menu_mp4_rows says. Sort By goes on
 		 * to the Sort By below like any shelf's. Album Art is a dead row off
 		 * the network, and the runner does not land on dead rows. */
-		if (is_muse(&a->sys.systems[a->sys_cursor])) {
-			sm_muse_row ids[SM_MUSE_ROWS];
-			int n = sys_menu_muse_rows(muse_rows_kind(), muse_kinds() > 1,
+		if (is_mp4(&a->sys.systems[a->sys_cursor])) {
+			sm_mp4_row ids[SM_MP4_ROWS];
+			int n = sys_menu_mp4_rows(mp4_rows_kind(), mp4_kinds() > 1,
 			                           !plat_has_wifi() && !net_internet(NULL), ids);
-			sm_muse_row id = sel >= 0 && sel < n ? ids[sel] : SMM_COUNT;
+			sm_mp4_row id = sel >= 0 && sel < n ? ids[sel] : SMM_COUNT;
 
 			/* Quit, or X from any row (DESIGN.md 11.14): closes the menu,
 			 * and MP4 after it, as the in-game menu's Quit and its X. A is
 			 * heard from the runner; X, which it leaves alone, here. */
 			if (key == IN_X || (id == SMM_QUIT && key == IN_ACCEPT)) {
 				if (key == IN_X) uisound_play(DS_SOUND_ACCEPT);
-				muse_ask_quit();
+				mp4_ask_quit();
 				return MENU_DONE;
 			}
 			if (id == SMM_SORT) {
@@ -2066,7 +2066,7 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 			} else if (id == SMM_LOCK) {
 				/* Closes the menu; the screen underneath locks. */
 				if (key != IN_ACCEPT) return MENU_STAY;
-				muse_ask_lock();
+				mp4_ask_lock();
 				return MENU_DONE;
 			} else if (id == SMM_REPEAT) {
 				/* Off, One, All, round either way (A opens their list,
@@ -2074,14 +2074,14 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 				if (d) {
 					int i = (repeat_at() + d + 3) % 3;
 
-					musec_set_video_mode(REPEAT_MODE[i]);
-					db_set_str(db_dev(), "video.mode", MUSE_MODES[REPEAT_MODE[i]].key);
+					mp4c_set_video_mode(REPEAT_MODE[i]);
+					db_set_str(db_dev(), "video.mode", MP4_MODES[REPEAT_MODE[i]].key);
 				}
 				return MENU_STAY;
 			} else if (id == SMM_SHUFFLE) {
 				/* Closes the menu; Now Playing opens on the first song. */
 				if (key != IN_ACCEPT) return MENU_STAY;
-				muse_ask_shuffle();
+				mp4_ask_shuffle();
 				return MENU_DONE;
 			} else if (id == SMM_LOOK) {
 				/* Round the looks either way, kept at once; A opens their
@@ -2095,13 +2095,13 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 				 * number after the three, so the round is All, Music,
 				 * Audiobooks, Videos. */
 				if (d || key == IN_ACCEPT) {
-					int k = muse_kind_shown(), step = d < 0 ? ML_ALL : 1, t;
+					int k = mp4_kind_shown(), step = d < 0 ? ML_ALL : 1, t;
 
 					for (t = 0; t <= ML_ALL; t++) {
 						k = (k + step) % (ML_ALL + 1);
-						if (ml_count_kind(&g_muse, (ml_kind)k)) break;
+						if (ml_count_kind(&g_mp4, (ml_kind)k)) break;
 					}
-					muse_show(&a->view[a->sys_cursor], (ml_kind)k);
+					mp4_show(&a->view[a->sys_cursor], (ml_kind)k);
 				}
 				return MENU_STAY;
 			} else {
@@ -2144,7 +2144,7 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 		/* And a console's rows lose Box Art on a device with no radio, which
 		 * moves Rescan Folder up one: which row is which comes from the same
 		 * list the build used. */
-		else if (!is_muse(&a->sys.systems[a->sys_cursor])) {
+		else if (!is_mp4(&a->sys.systems[a->sys_cursor])) {
 			sys_ui dev = { .no_wifi = !plat_has_wifi(), .online = net_internet(NULL),
 			               .dslang = dslang_row_shown(a, a->sys_cursor) ? "" : NULL,
 			               .pace = pacing_row_shown(a, a->sys_cursor) ? "" : NULL,
@@ -2235,7 +2235,7 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 		 * game than the one that was selected when it opened - the shelf
 		 * would appear to have jumped on its own. Which game you were
 		 * looking at is the thing that survives a reorder; where it happened
-		 * to sit in the old order is not. On Muse's shelf the same goes for
+		 * to sit in the old order is not. On MP4's shelf the same goes for
 		 * the album, whose folder is its `file`. */
 		if (d && sel == SM_SORT) {
 			sysview *v = &a->view[a->sys_cursor];
@@ -2251,7 +2251,7 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 				if (v->owner) keep_owner = v->owner[v->cursor];
 			}
 
-			v->sort = is_muse(&a->sys.systems[a->sys_cursor])
+			v->sort = is_mp4(&a->sys.systems[a->sys_cursor])
 			        ? (v->sort + d + ML_ORDERS) % ML_ORDERS
 			        : sort_step_in(a->sys_cursor == shelf_coll_at(a), v->sort, d);
 			sort_shelf(a, a->sys_cursor);
@@ -2490,7 +2490,7 @@ menu_result sysmenu_key(app *a, void *ctx, in_button key, int sel)
 
 	/* Five positions, Auto after mono right and before stereo, stepped either
 	 * way like the card sets (A opens their list).
-	 * Applied at once, to Muse and to Diatom if they are there to be told, so
+	 * Applied at once, to MP4 and to Diatom if they are there to be told, so
 	 * a player trying them over music hears each as it is chosen. */
 	if (sel == PM_CHANNELS && (d || key == IN_ACCEPT)) {
 		g_channels = (aout_channels)((g_channels + (d ? d : 1) + AOUT_CHANNELS_COUNT)

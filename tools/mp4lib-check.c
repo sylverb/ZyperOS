@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* Does Muse read the Music folder the way its header says?
+/* Does MP4 read the Music folder the way its header says?
  *
- *     make check-muselib
+ *     make check-mp4lib
  *
- * A folder is built under /tmp in both shapes muselib understands, with the
+ * A folder is built under /tmp in both shapes mp4lib understands, with the
  * litter a Mac leaves on a card copied from it, and read back. Then the
  * questions the screens ask of it: which album is this track in, where is that
  * album's cover kept, and which album is each card on the shelf in either of
@@ -17,7 +17,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include "../src/muselib.h"
+#include "../src/mp4lib.h"
 
 static int failures;
 
@@ -281,7 +281,7 @@ static void orders(void)
 	ml_free(&l);
 }
 
-/* A card's two folders read as one library, the books marked: what Muse's
+/* A card's two folders read as one library, the books marked: what MP4's
  * shelf filters on, and what the launcher resumes. Then the pictures a folder
  * carries, which is where a book's cover usually is. */
 static void card(void)
@@ -449,10 +449,10 @@ int main(void)
 {
 	char cmd[300];
 
-	snprintf(root, sizeof root, "/tmp/muselib-check.XXXXXX");
+	snprintf(root, sizeof root, "/tmp/mp4lib-check.XXXXXX");
 	if (!mkdtemp(root)) { perror("mkdtemp"); return 1; }
 
-	printf("muselib: the Music and Audiobooks folders\n");
+	printf("mp4lib: the Music and Audiobooks folders\n");
 	names();
 	scan();
 	orders();

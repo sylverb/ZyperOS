@@ -7,9 +7,9 @@
  * adds a sound to a list under a lock and signals: a press never waits on the
  * device, on a file, or on the sound before it.
  *
- * The output on a device is ALSA, opened by name like Muse's (src/muse/pcm.c)
+ * The output on a device is ALSA, opened by name like MP4's (src/mp4d/pcm.c)
  * and menu music's (src/pcm_out.c, which both use): "default", which is the
- * system's dmix in front of the codec, so these mix with Muse and with a
+ * system's dmix in front of the codec, so these mix with MP4 and with a
  * paused game without either knowing, or the DAC's own mixed device. It never
  * touches a mixer control: the volume keys, the mute switch and the DAC's
  * software volume all sit below the mix, so they set these sounds as they set

@@ -4,7 +4,7 @@
  * One thread. It reads what plays - Menu Music and ZyperOS's own tracks
  * (bgm_scan_all) - opens a track and the output when there is music to play,
  * decodes and writes a slice at a time - the write is what paces it - and
- * fades out and lets the output go when something holds it: a game, Muse,
+ * fades out and lets the output go when something holds it: a game, MP4,
  * the video player, the setting turned off. The track stays open while held, so the music comes back where it
  * stopped. The main thread only sets a few fields under a lock and signals.
  *

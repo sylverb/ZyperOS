@@ -8,7 +8,7 @@
  * src/nowplaying_looks.c from what this holds, which is the part with no
  * SDL in it, so tools/mp4look-check.c can hold the motion to its numbers.
  *
- * The bars are the sound (src/muse/bands.h): 32 bands from the daemon, 30
+ * The bars are the sound (src/mp4d/bands.h): 32 bands from the daemon, 30
  * times a second, each bar the loudest of the bands under it. A bar rises at
  * once and falls on **follow** (tau DS_MS_BAR_FALL); its cap holds where the
  * bar last reached for **peak-hold**, then drops with gravity, from the top

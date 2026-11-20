@@ -19,7 +19,7 @@
 #include "hare.h"
 #include "i18n.h"
 #include "monoclock.h"
-#include "muselib.h"
+#include "mp4lib.h"
 #include "xfer.h"
 #include "sheet.h"
 
@@ -340,7 +340,7 @@ void hare_set_after_rename(void (*fn)(const char *from, const char *to, bool tid
 /* ---- Tidy names --------------------------------------------------------
  *
  * A music or audiobook folder's names as the shelf shows them, made real on
- * the card: its tracks' and its own (muselib's ml_tidy_file and
+ * the card: its tracks' and its own (mp4lib's ml_tidy_file and
  * ml_tidy_folder, the shelf's own rules, so the two cannot disagree). GET
  * lists what would change and POST changes it. A name that would land on one
  * already there, or on another track's new one, is skipped and never
@@ -579,7 +579,7 @@ static const char *base_of(const char *p)
 	return s ? s + 1 : p;
 }
 
-/* An album's cover where Muse reads one, as a path the page can ask for:
+/* An album's cover where MP4 reads one, as a path the page can ask for:
  * <parent>/.media/<album>.jpg or .png (what Album Art fetched, or the files
  * carried), else a cover or folder picture in the album's own folder.
  * `abs`/`req` are the folder being listed, `name` the album in it. */
@@ -650,7 +650,7 @@ static void artist_covers(hj *j, const char *abs, const char *req, const char *a
 	if (shown) JLIT(j, "]");
 }
 
-/* Whether a folder holds songs of its own, and so is an album where Muse
+/* Whether a folder holds songs of its own, and so is an album where MP4
  * reads one, rather than an artist's folder of albums. Read until the first:
  * the page gives an album a cover's slot, and an artist none (2026-10-05, an
  * outline beside every artist read as a cover missing). */
@@ -2091,7 +2091,7 @@ static void on_request(httpd_req *r, bool done, void *ctx)
 			}
 			strcpy(slash + 1, dec);
 		}
-		/* In Music or Audiobooks, Muse stopped first if it plays this or from
+		/* In Music or Audiobooks, MP4 stopped first if it plays this or from
 		 * in here, and the launcher told after, as for Tidy names */
 		music = tidy_root(abs) != NULL;
 		if (music && g_before_delete) g_before_delete(abs);
@@ -2135,7 +2135,7 @@ static void on_request(httpd_req *r, bool done, void *ctx)
 			return;
 		}
 		if (apply) {
-			/* Muse stopped first if it plays from in here */
+			/* MP4 stopped first if it plays from in here */
 			if (n && g_before_delete) g_before_delete(abs);
 			for (i = 0; i < n; i++) {
 				if (it[i].skip) { skipped++; continue; }
@@ -2394,7 +2394,7 @@ static void on_request(httpd_req *r, bool done, void *ctx)
 				return;
 			}
 		}
-		/* In Music or Audiobooks, Muse stopped first if it plays this, and
+		/* In Music or Audiobooks, MP4 stopped first if it plays this, and
 		 * the launcher told after, as for a rename */
 		music = tidy_root(abs) != NULL;
 		if (music && g_before_delete) g_before_delete(abs);

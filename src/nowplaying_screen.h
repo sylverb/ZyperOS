@@ -2,12 +2,12 @@
 #ifndef ZYPEROS_NOWPLAYING_SCREEN_H
 #define ZYPEROS_NOWPLAYING_SCREEN_H
 
-/* MP4's Now Playing (Muse, DESIGN.md 11.21): the cover and the words, the
+/* MP4's Now Playing (DESIGN.md 11.21): the cover and the words, the
  * lock screen, and the video view. The screens are src/nowplaying_screen.c;
- * the player is src/musec.c, the lock's rule src/mp4lock.c. */
+ * the player is src/mp4c.c, the lock's rule src/mp4lock.c. */
 #include "app.h"
 #include "mp4lock.h"
-#include "musec.h"
+#include "mp4c.h"
 #include "platform.h"
 
 #include <stdbool.h>
@@ -27,23 +27,23 @@ unsigned np_draw_now(app *a, const mu_now *mn, const char *next);
 
 /* MENU's Lock Screen and Shuffle All, asked from MP4's menu; whether a lock
  * can happen here */
-void muse_ask_lock(void);
-void muse_ask_shuffle(void);
+void mp4_ask_lock(void);
+void mp4_ask_shuffle(void);
 /* MENU's Quit (or X there): MP4 closes after its menu */
-void muse_ask_quit(void);
+void mp4_ask_quit(void);
 bool lock_allowed(void);
 /* An MP4 screen's presses: read, SELECT alone let go, a screen coming up,
  * and the volume, brightness, X and SELECT with START keys (true: lock) */
-void muse_input(app *a);
-bool muse_select(void);
-bool muse_start(void);    /* START alone, let go: the screen turns (11.67) */
-void muse_input_reset(void);
-bool muse_keys(app *a);
+void mp4_input(app *a);
+bool mp4_select(void);
+bool mp4_start(void);    /* START alone, let go: the screen turns (11.67) */
+void mp4_input_reset(void);
+bool mp4_keys(app *a);
 /* The lock screen: its panel, and the screen until it is let go */
 void lock_panel(app *a, const mp4lock *l);
-void muse_locked(app *a);
+void mp4_locked(app *a);
 /* MP4's menu, from Now Playing and the shelf */
-muse_exit muse_menu(app *a);
+mp4_exit mp4_menu(app *a);
 
 /* A frame of the video player, its controls and the header at k (0 hidden,
  * 1 shown) and the picture `grow` of the way to the whole screen (with the
@@ -52,6 +52,6 @@ muse_exit muse_menu(app *a);
 unsigned np_draw_video(app *a, const mu_now *mn, float k, float grow);
 bool np_video_grows(void);
 /* Now Playing, opened from the shelf or a list */
-muse_exit muse_now_screen(app *a);
+mp4_exit mp4_now_screen(app *a);
 
 #endif

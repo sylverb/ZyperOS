@@ -30,7 +30,7 @@ bool g_ctl_fresh;
  * `open` on the shelf starts it at once; over a running game, or its in-game
  * menu, it quits that game first, by the menu's own Quit (gm_quit), and opens
  * the new one when the shelf is back; on any other screen (a menu over the
- * shelf, Muse, a message) it is refused as busy, as a press there would not
+ * shelf, MP4, a message) it is refused as busy, as a press there would not
  * reach the shelf either. `quit` is the menu's Quit; `status` says where the
  * launcher is. Debugging only: nothing here is a player's way in. */
 
@@ -70,7 +70,7 @@ static void ctl_find(app *a, const char *folder, const char *file, int *si, int 
 
 	*gi = -1;
 	for (i = 0; i < n; i++)
-		folders[i] = a->view[i].owner || is_muse(&a->sys.systems[i]) ? NULL
+		folders[i] = a->view[i].owner || is_mp4(&a->sys.systems[i]) ? NULL
 		                                                             : a->sys.systems[i].folder;
 	if ((*si = ctl_find_system(folder, folders, n)) < 0) return;
 	l = sys_games(&a->view[*si]);
@@ -303,7 +303,7 @@ bool ctl_poll(app *a, int at)
 		return false;
 	}
 	ctl_answer(cfd, "error\tcode=busy\tmsg=another screen is open over the shelf "
-	                "(a menu, Muse, a message): B back to the shelf first");
+	                "(a menu, MP4, a message): B back to the shelf first");
 	return false;
 }
 

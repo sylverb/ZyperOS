@@ -73,7 +73,7 @@ static vidtry g_try;
 
 static void try_restart(void) { vidtry_restart(&g_try); }
 
-/* MUSE_VIDEO_DEBUG=1: every two seconds, how many pictures went out and were
+/* MP4_VIDEO_DEBUG=1: every two seconds, how many pictures went out and were
  * dropped, and how far from their time they went out (the clock minus the
  * picture's time: about -LEAD when all is well). */
 static struct { bool on; double since, sum, worst; long shown, dropped, n; } g_dbg;
@@ -96,7 +96,7 @@ static void dbg_note(double off, bool shown)
 	}
 	if (g_dbg.since == 0) g_dbg.since = now;
 	if (now - g_dbg.since >= 2.0) {
-		fprintf(stderr, "muse: video: %.1f fps shown, %ld dropped, off %+.1f ms avg, %+.1f worst\n",
+		fprintf(stderr, "mp4d: video: %.1f fps shown, %ld dropped, off %+.1f ms avg, %+.1f worst\n",
 		        g_dbg.shown / (now - g_dbg.since), g_dbg.dropped,
 		        g_dbg.n ? g_dbg.sum / g_dbg.n * 1000 : 0, g_dbg.worst * 1000);
 		memset(&g_dbg, 0, sizeof g_dbg);
@@ -144,7 +144,7 @@ static void say(const char *what, const char *path)
 {
 	const char *slash = strrchr(path, '/');
 
-	fprintf(stderr, "muse: video: %s %s\n", what, slash ? slash + 1 : path);
+	fprintf(stderr, "mp4d: video: %s %s\n", what, slash ? slash + 1 : path);
 }
 
 /* A stream that is a picture to watch: not a cover carried as a one-frame
@@ -220,7 +220,7 @@ static vdec *vdec_open(const char *path)
 	d->tb = av_q2d(st->time_base);
 	d->fdur = st->avg_frame_rate.num > 0 ? 1.0 / av_q2d(st->avg_frame_rate) : 1.0 / 25;
 	d->skip_before = -1;
-	fprintf(stderr, "muse: video: %s %dx%d %.2f fps, %d threads\n", codec->name,
+	fprintf(stderr, "mp4d: video: %s %dx%d %.2f fps, %d threads\n", codec->name,
 	        d->cc->width, d->cc->height, 1.0 / d->fdur, d->cc->thread_count);
 	return d;
 fail:
@@ -451,7 +451,7 @@ static void *vthread(void *arg)
 			V.resync = false;
 			pthread_mutex_unlock(&V.mu);
 			if (d && (!open || strcmp(d->path, path))) {
-				if (dropped) fprintf(stderr, "muse: video: %ld shown, %ld dropped\n", shown, dropped);
+				if (dropped) fprintf(stderr, "mp4d: video: %ld shown, %ld dropped\n", shown, dropped);
 				vdec_close(d);
 				d = NULL;
 				have = false;
@@ -565,7 +565,7 @@ bool vid_init(void)
 	 * from the daemon before this one keeps reading the right pages. */
 	fd = open(MPF_PATH, O_RDWR | O_CREAT | O_CLOEXEC, 0644);
 	if (fd < 0 || ftruncate(fd, MPF_SIZE) != 0) {
-		fprintf(stderr, "muse: video: cannot make %s\n", MPF_PATH);
+		fprintf(stderr, "mp4d: video: cannot make %s\n", MPF_PATH);
 		if (fd >= 0) close(fd);
 		return false;
 	}
@@ -580,7 +580,7 @@ bool vid_init(void)
 	}
 	g_serial = g_shm->serial;
 	g_shm->active = 0;
-	g_dbg.on = getenv("MUSE_VIDEO_DEBUG") != NULL;
+	g_dbg.on = getenv("MP4_VIDEO_DEBUG") != NULL;
 
 	pthread_condattr_init(&ca);
 	pthread_condattr_setclock(&ca, CLOCK_MONOTONIC);

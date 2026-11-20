@@ -15,8 +15,8 @@
 #include "i18n.h"
 #include "idle.h"
 #include "library.h"
-#include "muselib.h"
-#include "musequeue.h"
+#include "mp4lib.h"
+#include "mp4queue.h"
 #include "platform.h"
 #include "status.h"
 #include "sysupdate.h"
@@ -50,7 +50,7 @@ typedef struct {
 	 * MENU's (src/strength.h). Zero, never loaded, reads 100. */
 	int strength;
 	/* Index into SORTS. Zero is by name, which is what every shelf was
-	 * before this existed and what an untouched one still is. On Muse's
+	 * before this existed and what an untouched one still is. On MP4's
 	 * shelf an ml_order instead, whose zero is by artist. */
 	int sort;
 	coverflow cf;
@@ -61,11 +61,11 @@ typedef struct {
 	 * is under, the accent, and where the save state lives all follow from
 	 * it, and every one of them would be wrong if taken from the shelf. */
 	int *owner;
-	/* Muse's shelf only, NULL on every other: the album card k is. A card's
+	/* MP4's shelf only, NULL on every other: the album card k is. A card's
 	 * cover, a fetched cover landing on it, and A on it all go by the album,
 	 * and with two orders a card's place is no longer its album's number. */
 	int *album;
-	/* The letter jump groups by `name` instead of `title`. Muse's shelf in
+	/* The letter jump groups by `name` instead of `title`. MP4's shelf in
 	 * artist order has the artist in `name`: grouped by album title there,
 	 * up and down would land somewhere that looks arbitrary. In album order
 	 * the title is the order, and the jump goes by it as a games shelf's
@@ -356,9 +356,9 @@ int  shelf_owner(app *a, int sysidx, int item);
 void box_art_path(const char *folder, const char *name, char *out, size_t n);
 SDL_Texture *game_get_tex(void *ctx, int i, int *w, int *h, float *cb);
 
-/* Muse: the place in a book or a film kept, and the player polled */
+/* MP4: the place in a book or a film kept, and the player polled */
 void book_keep(bool now);
-void muse_poll(void);
+void mp4_poll(void);
 
 /* Charge Limit, and the one full charge asked for past it */
 int  charge_limit_now(void);
@@ -411,7 +411,7 @@ void copy_file(const char *from, const char *to);
 bool file_nonempty(const char *p);
 
 /* For px2-open's commands (src/ctl_channel.c): a core on the card, whether
- * a shelf is Muse's, and the in-game menu's Quit (a disc system's BIOS is
+ * a shelf is MP4's, and the in-game menu's Quit (a disc system's BIOS is
  * src/biosfile.h's) */
 bool core_present(const char *core);
 /* What config/systems.cfg's brings line asks of the player for `core` on
@@ -428,7 +428,7 @@ void p8_take_now(void);
  * chosen */
 int  core_offered_count(const system_cfg *s);
 bool core_offered_at(const system_cfg *s, int i, char *out, int cap);
-bool is_muse(const system_cfg *s);
+bool is_mp4(const system_cfg *s);
 void gm_quit(void);
 /* A pop-up over the running game, as the quick slot's (main.c's popup_now):
  * `head` and under it `body`, at the top for about a second and a half */
@@ -477,9 +477,9 @@ typedef struct {
 } shot_status;
 extern shot_status shot_st;
 
-/* For MENU > Storage (src/storage_screen.c): Muse's place in a book or film
+/* For MENU > Storage (src/storage_screen.c): MP4's place in a book or film
  * let go of the file about to be deleted */
-void muse_before_delete(const char *abs);
+void mp4_before_delete(const char *abs);
 
 /* For a game's Cover and Video page (src/media_screen.c): the status bar
  * and its half, the focused title's marquee phase, the shelf's video snap
@@ -493,47 +493,47 @@ extern int g_snap_force_vol;
 void sync_abandon(void);
 void refresh_game_titles(app *a);
 
-/* The launcher's own accent, Muse's and Favorites': ui.h and theme.h's */
+/* The launcher's own accent, MP4's and Favorites': ui.h and theme.h's */
 #define ZYPEROS_ACCENT ui_rgb(theme()->accent)
 
-/* ---- Muse's library, which the shelf building reads and builds ---- */
+/* ---- MP4's library, which the shelf building reads and builds ---- */
 
 /* Each album's cover, as far as it is known: g_cov (main.c) */
 enum { COV_UNKNOWN, COV_ASKED, COV_JPG, COV_PNG, COV_FOLDER, COV_NONE };
 typedef struct { unsigned char st; unsigned asked_ms; } cover_state;
 
-extern ml_lib       g_muse;
-extern char         g_muse_root[CFG_STR * 2];
-extern unsigned     g_muse_gen;
+extern ml_lib       g_mp4;
+extern char         g_mp4_root[CFG_STR * 2];
+extern unsigned     g_mp4_gen;
 extern cover_state *g_cov;
-extern int          g_muse_kind;
+extern int          g_mp4_kind;
 extern bool        *g_book_done;
 
-ml_kind muse_kind_shown(void);
+ml_kind mp4_kind_shown(void);
 void book_key(int al, char *out, size_t n);
-int  muse_artist_of(int al);
-void muse_album_dir(int al, char *out, size_t n);
+int  mp4_artist_of(int al);
+void mp4_album_dir(int al, char *out, size_t n);
 /* Now Playing's cover let go, the library about to change */
 void np_forget(void);
 
-/* How a Muse screen was left: back one level, Muse closed altogether, or the
+/* How an MP4 screen was left: back one level, MP4 closed altogether, or the
  * library rebuilt under it by Rescan Folder, so every album index it held is
  * stale and the shelf has to find itself again. */
-typedef enum { MUSE_BACK, MUSE_CLOSE, MUSE_REBUILT } muse_exit;
+typedef enum { MP4_BACK, MP4_CLOSE, MP4_REBUILT } mp4_exit;
 
 /* For MP4's Now Playing (src/nowplaying_screen.c): a book's next speed, a
- * new queue played, the play mode moved on (its marks, MUSE_MODES), the
- * power button inside Muse and what Muse is open over (g_muse_over, its
- * ctx, and g_muse_gone when that rule ended it), the Now Playing cover
+ * new queue played, the play mode moved on (its marks, MP4_MODES), the
+ * power button inside MP4 and what MP4 is open over (g_mp4_over, its
+ * ctx, and g_mp4_gone when that rule ended it), the Now Playing cover
  * brought up to date (g_np), and a menu for a screen of the launcher's */
 void book_cycle_speed(void);
-void muse_play(const char *const *paths, int n, int start, double at,
+void mp4_play(const char *const *paths, int n, int start, double at,
                bool book, double speed, const char *artist, const char *album);
-void muse_cycle_mode(void);
+void mp4_cycle_mode(void);
 void video_cycle_repeat(void);   /* Y on a video: MP4's Repeat, Off, One, All */
-typedef struct { const char *key; int glyph; } muse_mode_name;
-extern const muse_mode_name MUSE_MODES[MUQ_MODES];
-void muse_power(app *a);
+typedef struct { const char *key; int glyph; } mp4_mode_name;
+extern const mp4_mode_name MP4_MODES[MUQ_MODES];
+void mp4_power(app *a);
 typedef struct {
 	int          album;
 	bool         done;
@@ -545,7 +545,7 @@ typedef struct {
 extern np_cover_state g_np;
 void np_cover(app *a, int al);
 void zyperos_menu_for(app *a, int screen);
-/* Muse's covers: whether the card has answered every album's ask */
+/* MP4's covers: whether the card has answered every album's ask */
 bool cover_answers(void);
 /* A count of the frames drawn: each shelf frame and each clear (main.c) */
 extern unsigned g_frame_no;
