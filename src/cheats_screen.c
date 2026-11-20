@@ -274,6 +274,8 @@ static void heading_now(void)
 	if (g_query[0]) {
 		snprintf(part, sizeof part, T(S_CHEATS_FOUND), g_query);
 		snprintf(g_heading, sizeof g_heading, "%s · %s", T(S_CHEATS_ROW), part);
+		/* joined in the heading, so each said to the host's check apart */
+		ui_fit_drawn(part);
 	} else if (on > 0) {
 		snprintf(part, sizeof part, TN(S_CHEATS_ROW_ON, on), on);
 		snprintf(g_heading, sizeof g_heading, "%s · %s", T(S_CHEATS_ROW), part);
@@ -313,6 +315,17 @@ static int empty_rows(menu_row *rows)
 	snprintf(a, sizeof a, T(S_CHEATS_BY_HAND), g_cg.folder);
 	snprintf(b, sizeof b, T(S_CHEATS_BY_HAND_NAME), name);
 	snprintf(hand, sizeof hand, "%s %s", a, b);
+	/* Each sentence said to the host's check apart, as well as the
+	 * paragraph it is drawn in: joined, no one string is the text */
+	if (g_L.where != CHEATS_NONE_LIBRETRO) {
+		char d[200];
+
+		snprintf(d, sizeof d, T(S_CHEATS_GET_DOWNLOADS), T(S_DOWNLOADS_HEADING));
+		ui_fit_drawn(T(S_CHEATS_NOT_CHECKED));
+		ui_fit_drawn(d);
+	}
+	ui_fit_drawn(a);
+	ui_fit_drawn(b);
 	n = wrapped(why, 0, rows, n);
 	rows[n++] = MENU_HR;
 	n = wrapped(hand, n - 1, rows, n);
@@ -526,6 +539,8 @@ void cheats_crash_shot(app *a)
 	int n;
 
 	snprintf(q, sizeof q, "%s %s", T(S_CHEATS_CRASH_TITLE), T(S_CHEATS_CRASH_BODY));
+	ui_fit_drawn(T(S_CHEATS_CRASH_TITLE));
+	ui_fit_drawn(T(S_CHEATS_CRASH_BODY));
 	n = ask_two_rows(a, q, T(S_CHEATS_CRASH_WITHOUT), T(S_CHEATS_CRASH_WITH), lines, rows);
 	/* over the shelf's scrim, the cursor on the first answer, Without
 	 * Cheats, as ask_two_panel starts */

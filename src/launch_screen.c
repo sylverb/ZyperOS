@@ -857,6 +857,8 @@ void launch(app *a)
 		int r;
 
 		snprintf(q, sizeof q, "%s %s", T(S_CHEATS_CRASH_TITLE), T(S_CHEATS_CRASH_BODY));
+		ui_fit_drawn(T(S_CHEATS_CRASH_TITLE));
+		ui_fit_drawn(T(S_CHEATS_CRASH_BODY));
 		r = ask_two_panel(a, T(S_CHEATS_ROW), q, T(S_CHEATS_CRASH_WITHOUT), T(S_CHEATS_CRASH_WITH));
 		if (r == 0 || !a->running) return;
 		cheats_without = r == 1;

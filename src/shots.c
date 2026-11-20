@@ -2161,10 +2161,13 @@ static void shot_compose_once(app *a)
 			/* ...and Player 2 stopping by itself during the game */
 			shot_notice_head = T(S_PLAYER2_NOTICE);
 			snprintf(pbody, sizeof pbody, "%s", T(S_PLAYER2_STOPPED));
-		} else if (!strcmp(shot_popup, "cheats")) {
-			/* A game started with cheats on (cheats_game_started) */
+		} else if (!strcmp(shot_popup, "cheats") || !strcmp(shot_popup, "cheats_one")) {
+			/* A game started with cheats on (cheats_game_started): two,
+			 * and one for the word's other form */
+			const int on = shot_popup[6] ? 1 : 2;
+
 			shot_notice_head = T(S_CHEATS_ROW);
-			snprintf(pbody, sizeof pbody, TN(S_CHEATS_POPUP, 2), 2);
+			snprintf(pbody, sizeof pbody, TN(S_CHEATS_POPUP, on), on);
 		} else if (!strcmp(shot_popup, "shot")) {
 			/* The screenshot hotkey's (on_hotkey): the picture small
 			 * beside its words, a made-up game's frame */
