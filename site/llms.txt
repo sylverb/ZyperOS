@@ -4,7 +4,7 @@
 
 ## Pages
 - [ZyperOS home](https://zyperos.com/): what it does, the screens, the forty-five systems, how it compares with the stock firmware, ROGUE OS, TortOS, ROCKNIX and plumOS, and how to install it.
-- [Blog](https://zyperos.com/blog/): guides for the GKD Pixel 2 (installing custom firmware, Wi-Fi adapters, adding games, PortMaster, RetroAchievements, box art, Nintendo DS, BIOS files, battery care, music and video) and sourced comparisons of ZyperOS with the other systems for it. Every post is listed under Blog at the end of this file.
+- [Blog](https://zyperos.com/blog/): guides for the GKD Pixel 2 (installing custom firmware, Wi-Fi adapters, adding games, PortMaster, RetroAchievements, box art, Nintendo DS, BIOS files, battery care, music and video, trying ZyperOS on a Mac) and sourced comparisons of ZyperOS with the other systems for it. Every post is listed under Blog at the end of this file.
 - [Download ZyperOS](https://zyperos.com/download/): direct files from the latest release and checksums.
 - [Source code on GitHub](https://github.com/tarikbc/ZyperOS): the launcher, the card's scripts, the Diatom emulator frontend, ZyperOS Installer and the tools.
 - [Support](https://zyperos.com/tip/): an optional one-time tip to support my work.

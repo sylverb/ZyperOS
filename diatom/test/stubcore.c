@@ -711,9 +711,28 @@ size_t retro_get_memory_size(unsigned id)
 	return id == RETRO_MEMORY_SYSTEM_RAM ? sizeof sysram : 0;
 }
 void retro_reset(void) { frame = 0; }
-void retro_cheat_reset(void) { }
+/* Cheats, written down: STUBCORE_CHEAT_LOG=<file> gets "reset" for each
+ * retro_cheat_reset and "set <index> <enabled> <code>" for each
+ * retro_cheat_set, a line each, with the frame it came on, so
+ * test/cheats.py can see when Diatom sends them and that it sends none
+ * while frames merely run. Nothing else happens to a code: the stub has no
+ * memory to poke. */
+static void cheat_log(const char *what, unsigned i, bool e, const char *c)
+{
+	const char *path = getenv("STUBCORE_CHEAT_LOG");
+	FILE *f = path && *path ? fopen(path, "a") : NULL;
+
+	if (!f) return;
+	if (c) fprintf(f, "%u %s %u %d %s\n", frame, what, i, e ? 1 : 0, c);
+	else   fprintf(f, "%u %s\n", frame, what);
+	fclose(f);
+}
+
+void retro_cheat_reset(void) { cheat_log("reset", 0, false, NULL); }
 void retro_cheat_set(unsigned i, bool e, const char *c)
-{ (void)i; (void)e; (void)c; }
+{
+	cheat_log("set", i, e, c ? c : "(null)");
+}
 
 static uint16_t rgb565(int r, int g, int b)
 {
