@@ -3242,9 +3242,10 @@ back to the same moment, and the next load replaces it. Delete Game, Rename
 and Storage count it with the game's slots.
 
 **Display's names and picture** (1.0.6). The modes say what they do: Full
-Screen, Original Shape, Sharp Pixels, Sharp Pixels, Tall, Sharp Pixels,
-Zoomed, Fill, Edges Cut and Actual Size (the card keeps display.<TAG>'s old
-names: stretch, aspect, integer, integer-vertical, overscale, fill, native).
+Screen, Original Shape, Square Pixels (1.1.0), Sharp Pixels, Sharp Pixels,
+Tall, Sharp Pixels, Zoomed, Fill, Edges Cut and Actual Size (the card keeps
+display.<TAG>'s old names: stretch, aspect, square, integer,
+integer-vertical, overscale, fill, native).
 The Display row, on the Display tab and in the shelf's menu, says only the
 mode; A opens their list, and beside it a picture of what the mode under the
 cursor does with its sentence under it (11.3, a choice with a picture). In
@@ -3256,6 +3257,29 @@ it until the list did (1.0.6's first builds): they pushed Shader down, and
 said the mode in words where a picture shows it. The row is named Display, as
 in game: "Display Mode" beside the longest names fitted in no Latin-letter
 language.
+
+**Square Pixels** (1.1.0). Every pixel of the game square, whatever shape
+its core reports: the picture as tall as Diatom's surface, its width in
+proportion, centred; a picture wider than the surface at that height (the
+GBA's, the PSP's) fills the width at the same factor instead. It is
+RetroArch's 1:1 PAR with integer scaling off: NES and SNES games at 8:7,
+their 256x224, where fceumm and snes9x2010 ask for a CRT's wider shape; the
+Game Gear at 10:9 where genesis_plus_gx asks for 4:3; the PC Engine at
+16:15 (the shapes the cores ask for: diatom/docs/reference/core-facts.md).
+Sharp Pixels draws square pixels too, but at whole multiples, so
+it can leave a border all round; this is the full-height one, with no whole
+step. The card's name is `square`. In the list it sits between Original
+Shape and Sharp Pixels, the step between them: the one's height, the
+other's square pixels. The filter stays the Shader row's, as for every
+mode (mode and filter are two axes, diatom/src/diatom.h): at about 3.4
+times (224 lines on 768) Off draws some rows three lines and some four, and
+Sharp-Shimmerless evens them out, which the guide's Shaders part says. The
+arithmetic is Diatom's (diatom/src/scale.c, `square`), written again in
+src/dmodefit.c for the list's picture and in integers in both, so the two
+agree to the pixel: make check-dmodefit holds the four systems above on the
+Pixel 2's 640x480 and the Brick's 1024x768 (an NES game's 256x224 on the
+Brick: 878x768), and diatom's check-stateplane the rect DISPLAY says.
+*(moroboshi69's ask on the Brick, #346; my yes for 1.1.0 on 2026-11-19.)*
 
 **Where it opens.** The first MENU of a game opens on Game, on Continue.
 After that it opens on the tab and the row it was left on, until the game

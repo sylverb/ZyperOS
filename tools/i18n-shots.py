@@ -292,6 +292,7 @@ EXTRA = {
     # Every display mode's name on the Display row (1.0.6; what each does is
     # in its list, beside its picture: gamemenu-display-list-*)
     "gamemenu-dmode-aspect": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "1", "--dmode", "aspect"]),
+    "gamemenu-dmode-square": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "1", "--dmode", "square"]),
     "gamemenu-dmode-integer": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "1", "--dmode", "integer"]),
     "gamemenu-dmode-tall": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "1", "--dmode", "integer-vertical"]),
     "gamemenu-dmode-overscale": ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "1", "--dmode", "overscale"]),
@@ -1021,9 +1022,16 @@ for _r, _n in ((2, "corner"), (3, "edge"), (5, "opacity"), (6, "color")):
                                                        "--hud-pick", str(_r)]))
 # Each mode under the list's cursor, its picture and its note beside the
 # list (src/ds/preview.h): every note in its room in every language
-for _k, _m in enumerate(["stretch", "aspect", "integer", "integer-vertical", "overscale", "fill", "native"]):
+for _k, _m in enumerate(["stretch", "aspect", "square", "integer", "integer-vertical", "overscale", "fill",
+                        "native"]):
     EXTRA.setdefault("gamemenu-display-list-" + _m,
                      ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "1", "--gm-choose", "--pick-at", str(_k)]))
+# Square Pixels over an NES game's 256x224, which fceumm asks to show wider
+# (1.3061, diatom/docs/reference/core-facts.md): the picture 8:7, as tall as
+# the screen, room at its sides (#346)
+EXTRA.setdefault("gamemenu-display-list-square-nes",
+                 ("demo", "PS1", ["--gamemenu", "0", "--gm-tab", "1", "--gm-choose", "--pick-at", "2",
+                                  "--gm-source", "256x224@1.3061"]))
 # Display's Theme page (DESIGN.md 11.42) in each of the ten accents, the
 # tones going round in both themes and the corners turning over, so every
 # accent's, tone's and value's name is drawn; its foot, Zyper and Reset to

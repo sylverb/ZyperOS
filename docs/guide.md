@@ -805,7 +805,7 @@ The system menu opens on a shelf of games and applies to that system alone:
 | **Timing** | the Game Boy, Game Boy Color, Game Boy Advance, Nintendo DS and Genesis shelves', under Core (and under Game Language on the DS's): `Smooth` to start with, or `Exact`, for this system alone; left/right/A flip it, saved the moment it changes, for the next game started. The screen refreshes 60.08 times a second and these consoles make 59.7 to 59.9 frames. `Smooth` shows one game frame each refresh, so motion is even, and the game runs up to 0.6% faster than the console: a GBA game 3.5 seconds fast in 10 minutes. `Exact` keeps the console's own speed, for timers and rhythm games, and about every 3 seconds one frame stays on the screen for two refreshes |
 | **Sort By** | left/right; `Name`, `Play Time`, `Last Played` or `Recently Added` |
 | **View** | left/right, or A for the list; `Covers`, the row of covers, `Grid`, two rows of covers in cells shaped like the shelf's own art, `List`, the games as a list of names with the focused one's cover beside it, or `Video`, the focused game's video snap on the whole screen with the covers in a band at the foot; after 2 seconds with no press while a snap plays, the band goes down to a thin strip so the video has the screen, and any button brings it back. START on the shelf steps it too, without the menu |
-| **Display** | how the picture fills the screen: Full Screen, Original Shape, Sharp Pixels, Sharp Pixels, Tall, Sharp Pixels, Zoomed, Fill, Edges Cut or Actual Size; left/right cycles it, and A opens the list, with a small picture of your game in the mode under the cursor and a line that says what it does; saved the moment it changes |
+| **Display** | how the picture fills the screen: Full Screen, Original Shape, Square Pixels, Sharp Pixels, Sharp Pixels, Tall, Sharp Pixels, Zoomed, Fill, Edges Cut or Actual Size; left/right cycles it, and A opens the list, with a small picture of your game in the mode under the cursor and a line that says what it does; saved the moment it changes. `Square Pixels` (1.1.0) draws every pixel of the game square, whatever shape its core asks for, as tall as the screen (as wide, for a wide game such as the GBA's): an NES or SNES game at 8:7, a Game Gear game at 10:9, a PC Engine game at 16:15, as RetroArch's 1:1 PAR does with integer scaling off. `Sharp Pixels` draws them square too, at a whole number of times their size, so it can leave a border all round |
 | **Shader** | `Off`, `Sharp-Shimmerless`, `CRT`, `CRT Curved`, `Scanlines` or `LCD Grid`, and on the Game Boy, Game Boy Color and Game Boy Advance `LCD No Backlight` too, for this system alone: left, right or A steps it, saved the moment it changes. The next game started plays with it |
 | **Strength** | right under Shader while it is `CRT`, `CRT Curved`, `Scanlines`, `LCD Grid` or `LCD No Backlight`: `10%` to `100%`, for this system alone. Left and right step it 10% at a time and stop at the ends |
 | **Box Art** | fetch what this system is missing, and nothing else |
@@ -912,7 +912,9 @@ screen pixel inside one of the game's pixels is that pixel exactly, and only
 one that falls across two of them mixes the two, by how much of it each
 covers. The picture stays as sharp as it can at that size and a scroll stays
 steady. At a whole number of times (Sharp Pixels, Actual Size) the two are the
-same.
+same. Square Pixels is seldom a whole number of times (a 224-line NES picture on
+the Brick's 768 lines is about 3.4 times), so it looks its best with
+Sharp-Shimmerless.
 
 The other four draw an old screen. `CRT` is Timothy Lottes's CRT shader: a
 dark line between the picture's lines, and one of each three columns of the
