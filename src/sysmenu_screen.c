@@ -437,6 +437,7 @@ static const ds_hover PM_STRENGTH_HOVER = { .show = pm_strength_show, .undo = pm
 static const char *look_label(mp4l_id id)
 {
 	switch (id) {
+	case MP4L_CASSETTE: return T(S_SYSMENU_LOOK_CASSETTE);
 	case MP4L_CLASSIC:  return T(S_SYSMENU_LOOK_CLASSIC);
 	case MP4L_SPECTRUM: return T(S_SYSMENU_LOOK_SPECTRUM);
 	default:            return T(S_SYSMENU_LOOK_COVER);
@@ -446,6 +447,7 @@ static const char *look_label(mp4l_id id)
 static const char *look_note(mp4l_id id)
 {
 	switch (id) {
+	case MP4L_CASSETTE: return T(S_SYSMENU_LOOK_CASSETTE_NOTE);
 	case MP4L_CLASSIC:  return T(S_SYSMENU_LOOK_CLASSIC_NOTE);
 	case MP4L_SPECTRUM: return T(S_SYSMENU_LOOK_SPECTRUM_NOTE);
 	default:            return T(S_SYSMENU_LOOK_COVER_NOTE);

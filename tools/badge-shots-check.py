@@ -18,7 +18,11 @@ when he is for unlocks, or a list shows a hole where a badge has not come:
   - the list (--cheevos-screen) has a plain badge in every row of a set the
     card has no art for, and the card's own badge in every row of one it has,
     and the rows do not move between the two: the text to the right of the
-    badges is the same pixels.
+    badges is the same pixels;
+  - an achievement's card (--cheevo-card) has its badge, centered under the
+    heading's rule, or the plain one where the card has no art; and a
+    description taller than the panel moves on with time while the rule,
+    Points and Status under it hold still.
 
 Host shots, headless, read back with Python's standard library. The card is a
 scratch tree under build-native/badge-shots-check. Needs the launcher built,
@@ -58,6 +62,11 @@ ZYPER_X = (700, 960)
 # trophy. Rows 2 and 3 are earned (in color), 4 and 5 are not (greyed)
 LIST_ICONS = (118, 178, 365, 650)
 LIST_TEXT = (192, 780, 365, 650)
+# The achievement's card (--cheevo-card): its badge, 96 square, centered under
+# the heading's rule; a long description's lines, and the footer under them
+CARD_BADGE = (440, 584, 222, 345)
+CARD_BODY = (110, 914, 345, 515)
+CARD_FOOT = (100, 924, 530, 700)
 
 fails = 0
 
@@ -188,12 +197,36 @@ def main():
         ck(same(plain, art, LIST_TEXT[:2], LIST_TEXT[2:]),
            "%s: the rows' words do not move when the badges come" % theme)
 
+    print("an achievement's card has its badge, the plain one until the card has the art, "
+          "and a long description scrolls while its footer stays")
+    for theme in ("light", "dark"):
+        t = ("--theme", theme)
+        trophy = TROPHY[theme]
+        art = shot("card-art-" + theme, *t, "--cheevo-card", "0", "--cheevos-badge",
+                   os.path.join(D, "set", "x.set"), "b1")
+        plain = shot("card-plain-" + theme, *t, "--cheevo-card", "0")
+        top = shot("card-long-" + theme, *t, "--cheevo-card", "1", "--phase", "0")
+        moved = shot("card-long-moved-" + theme, *t, "--cheevo-card", "1", "--phase", "9000")
+        if None in (art, plain, top, moved):
+            continue
+        n = count(art, STAND_IN, CARD_BADGE[:2], CARD_BADGE[2:])
+        ck(n >= 7000, "%s: the card has the achievement's badge under its heading (%d pixels)"
+           % (theme, n))
+        left = count(art, STAND_IN, (CARD_BADGE[0], 512), CARD_BADGE[2:])
+        ck(abs(2 * left - n) <= n // 20, "%s: ...centered (%d of %d at the left)" % (theme, left, n))
+        n = count(plain, trophy, CARD_BADGE[:2], CARD_BADGE[2:])
+        ck(n >= 300, "%s: with no art on the card, the plain badge (%d trophy pixels)" % (theme, n))
+        ck(not same(top, moved, CARD_BODY[:2], CARD_BODY[2:]),
+           "%s: a description taller than the panel moves on" % theme)
+        ck(same(top, moved, CARD_FOOT[:2], CARD_FOOT[2:]),
+           "%s: ...and the rule, Points and Status under it stay" % theme)
+
     if fails:
         print("badges: %d FAILED" % fails)
         return 1
     print("ok: an unlock has Zyper and its badge or the plain one, a count only the plain one, "
           "the set's arrival neither; every row of the list has its badge, plain until the "
-          "art is there")
+          "art is there; the card has its badge, and its long description scrolls")
     return 0
 
 
